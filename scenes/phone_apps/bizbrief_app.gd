@@ -14,6 +14,15 @@ const ContractsSystem := preload("res://systems/contracts.gd")
 const ContractCard := preload("res://scenes/components/contract_card.gd")
 const LineChartScript := preload("res://scenes/components/line_chart.gd")
 
+# Keyed by Contracts.delegation_status(): what Sales delegation needs and
+# whether this contract has it.
+const DELEGATION_STATUS_TEXT := {
+	"locked": "Delivered by hand. Sales can't take contracts on until Archie gives the word.",
+	"off": "Delivered by hand. Delegate it and a staffed Sales desk delivers the moment stock covers it.",
+	"unstaffed": "Delegated, but nobody's working Sales. Nothing moves until someone is.",
+	"active": "Delegated. Sales delivers the moment shared stock covers it.",
+}
+
 const BRIEF_TAB := "brief"
 const MANAGE_TAB := "manage"
 const STAFF_TAB := "staff"
@@ -384,12 +393,16 @@ func _build_sales() -> Control:
 			var box := VBoxContainer.new()
 			card.add_child(box)
 			box.add_child(UI.label("%d. %s: %s · due %s · £%d" % [index + 1, contract["id"], _contract_progress_summary(contract), Calendar.format_day(int(contract["dueDay"])),contract["quote"]["payment"]]))
+			var filled: bool = ContractsSystem.is_period_filled(contract)
+			if filled:
+				box.add_child(UI.muted_label("Delivered this week — next period %s" % Calendar.format_day(int(contract["dueDay"]))))
+			box.add_child(UI.muted_label(DELEGATION_STATUS_TEXT[ContractsSystem.delegation_status(contract)]))
 			if contract.get("delegated", false) or ContractsSystem.delegation_unlocked():
 				box.add_child(UI.button("Remove Sales delegation" if contract.get("delegated", false) else "Delegate to Sales", func(): ContractsSystem.set_delegated(contract["id"], not contract.get("delegated", false))))
 			if contract.get("delegated", false):
 				var buying: bool = contract.get("buyCalc", false)
 				box.add_child(UI.button("Buy missing calc: on" if buying else "Buy missing calc: off", func(): ContractsSystem.set_buy_calc(contract["id"], not buying)))
-			else:
+			elif not filled:
 				var row := UI.hbox()
 				row.add_child(UI.button("Deliver 1", func(): ContractsSystem.deliver(contract["id"], 1)))
 				row.add_child(UI.button("Deliver all", func(): ContractsSystem.deliver(contract["id"], ContractsSystem.remaining_qty(contract))))

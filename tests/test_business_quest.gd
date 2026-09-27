@@ -470,6 +470,10 @@ func run() -> void:
 	run_case("beat_8_waits_for_payday_then_closes_the_act_and_business_runs_on", func():
 		_to_beat_7()
 		var pearls := _delegate_pearls()
+		# Beat 6's hand-filled pearl period stays locked until Monday, whose
+		# payday banks it before the proof is met.
+		while Contracts.is_period_filled(pearls):
+			_tick()
 		var time_ore := _accept_delegated("biz_recurring_time_ore")
 		_stock_pearls(5)
 		_stock_ore("time", 6)
@@ -484,8 +488,8 @@ func run() -> void:
 		assert_eq(entries.size(), 1)
 		var record: Dictionary = ledger.back()
 		var payload: Dictionary = entries[0]["payload"]
-		# Beat 6's hand-delivered pearl period, then the two delegated ones.
-		var receipts: int = 2 * int(pearls["quote"]["payment"]) + int(time_ore["quote"]["payment"])
+		# The two delegated periods.
+		var receipts: int = int(pearls["quote"]["payment"]) + int(time_ore["quote"]["payment"])
 		assert_eq(record["receipts"], receipts)
 		assert_eq(payload["receipts"], "£%d" % receipts)
 		assert_eq(payload["playerShare"], "£%d" % int(record["shares"]["player"]))

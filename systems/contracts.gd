@@ -43,6 +43,21 @@ static func is_complete(contract: Dictionary) -> bool:
 	return remaining_qty(contract) == 0
 
 
+# A recurring period that was filled and paid; deliveries stay locked until
+# the next Monday rollover opens a fresh period.
+static func is_period_filled(contract: Dictionary) -> bool:
+	return contract.get("periodFilled", false)
+
+
+# Why this contract is or isn't being delivered by Sales: "locked" (Beat 7
+# not reached), "off" (not delegated), "unstaffed" (delegated, Sales vacant)
+# or "active".
+static func delegation_status(contract: Dictionary) -> String:
+	if not contract.get("delegated", false):
+		return "off" if delegation_unlocked() else "locked"
+	return "active" if has_staffed_sales() else "unstaffed"
+
+
 # Any contact holding the Sales role. A founder draws no room wage; an
 # Operations Room hire counts only while this week's wage is paid.
 static func has_staffed_sales() -> bool:
@@ -139,7 +154,7 @@ static func shared_stock_increased() -> void:
 	if not has_staffed_sales():
 		return
 	for contract in active_contracts().duplicate():
-		if not contract.get("delegated", false):
+		if not contract.get("delegated", false) or is_period_filled(contract):
 			continue
 		if not _can_fully_deliver(contract):
 			continue
@@ -174,6 +189,8 @@ static func deliver(contract_id: String, qty: int, manual: bool = true) -> Dicti
 	var contract := _find_active(contract_id)
 	if contract.is_empty():
 		return { "ok": false, "reason": "Contract not found." }
+	if is_period_filled(contract):
+		return { "ok": false, "reason": "Delivered this week." }
 	if contract.get("delegated", false) and manual:
 		return { "ok": false, "reason": "Delegated contracts cannot be delivered manually." }
 	if qty <= 0:
@@ -218,11 +235,21 @@ static func reorder(contract_id: String, destination_index: int) -> bool:
 
 static func daily_tick() -> void:
 	# Iterate a copy: one-off settlement removes entries, recurring settlement
-	# renews its period in place.
+	# renews its period in place. A filled period was already paid, so its
+	# due day only opens the next one. Fresh periods get Sales' full-fill
+	# check straight away rather than waiting for the next stock change.
+	var renewed := false
 	for contract in active_contracts().duplicate():
-		if int(contract["dueDay"]) <= int(GameState.state["world"]["day"]):
+		if int(contract["dueDay"]) > int(GameState.state["world"]["day"]):
+			continue
+		if is_period_filled(contract):
+			_renew_period(contract)
+			EventBus.state_changed.emit()
+		else:
 			settle(contract["id"])
-
+		renewed = renewed or contract["contractType"] == "recurring"
+	if renewed:
+		shared_stock_increased()
 
 
 static func settle(contract_id: String) -> Dictionary:
@@ -233,7 +260,7 @@ static func settle(contract_id: String) -> Dictionary:
 	var settlement_id := "settlement-%d" % int(sales["nextSettlementId"])
 	# A persisted record is the idempotency receipt. It is appended before any
 	# cash mutation, so a resumed/retried operation cannot pay twice.
-	if _has_settlement(settlement_id):
+	if _has_settlement(settlement_id) or is_period_filled(contract):
 		return { "ok": false, "reason": "Period already settled." }
 	var complete := is_complete(contract)
 	var proportion := _delivered_proportion(contract)
@@ -258,12 +285,13 @@ static func settle(contract_id: String) -> Dictionary:
 		Bank.record(payment, "Contract settlement")
 	if contract.get("delegated", false):
 		_award_sales_xp(COMPLETE_XP if complete else PARTIAL_XP)
+	# A recurring period filled before its due day pays now and locks until
+	# that Monday; one reaching its due day (filled or not) renews at once.
 	if contract["contractType"] == "recurring":
-		contract["periodId"] = "period-%d" % int(sales["nextPeriodId"])
-		sales["nextPeriodId"] += 1
-		contract["dueDay"] = int(contract["dueDay"]) + Calendar.days_per_week()
-		contract["delivered"] = {}
-		start_period(contract)
+		if complete and int(contract["dueDay"]) > int(GameState.state["world"]["day"]):
+			contract["periodFilled"] = true
+		else:
+			_renew_period(contract)
 	else:
 		active_contracts().erase(contract)
 		sales["priorityOrder"].erase(contract_id)
@@ -373,6 +401,16 @@ static func _buy_calc(contract_id: String, ore_type: String, qty: int) -> void:
 		return
 	for leg in legs:
 		Economy.receive_faction_ore(leg["factionId"], ore_type, int(leg["qty"]))
+
+
+static func _renew_period(contract: Dictionary) -> void:
+	var sales: Dictionary = GameState.state["sales"]
+	contract["periodId"] = "period-%d" % int(sales["nextPeriodId"])
+	sales["nextPeriodId"] += 1
+	contract["dueDay"] = int(contract["dueDay"]) + Calendar.days_per_week()
+	contract["delivered"] = {}
+	contract["periodFilled"] = false
+	start_period(contract)
 
 
 static func _find_active(contract_id: String) -> Dictionary:

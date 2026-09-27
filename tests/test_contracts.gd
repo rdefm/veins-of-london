@@ -21,6 +21,7 @@ func run() -> void:
 		assert_true(manual["complete"])
 		assert_true(not manual["qualified"])
 		ContractsSystem.set_delegated(contract["id"], true)
+		_next_period(contract)
 		assert_true(_fill_and_settle(contract)["qualified"], "the next period starts clean")
 	)
 
@@ -29,12 +30,13 @@ func run() -> void:
 		GameState.state["flags"].erase(ContractsSystem.DELEGATION_FLAG)
 		assert_true(not _fill_and_settle(contract)["qualified"], "settled before the Beat 6 flag")
 		GameState.state["flags"][ContractsSystem.DELEGATION_FLAG] = true
+		_next_period(contract)
 		GameState.state["world"]["day"] += 1
 		ContractsSystem.set_delegated(contract["id"], false)
 		ContractsSystem.set_delegated(contract["id"], true)
 		assert_true(not _fill_and_settle(contract)["qualified"], "undelegated partway through the period")
-		GameState.state["world"]["day"] = contract["dueDay"]
-		ContractsSystem.daily_tick()
+		_next_period(contract)
+		_next_period(contract)
 		var last: Dictionary = GameState.state["sales"]["settlements"].back()
 		assert_true(not last["complete"] and not last["qualified"], "an empty period is incomplete")
 		assert_true(_fill_and_settle(contract)["qualified"])
@@ -50,6 +52,7 @@ func run() -> void:
 		var contract := _proof_contract()
 		Economy.execute_faction_purchase("guild", [{ "kind": "ore", "type": "physics", "qty": 1 }])
 		assert_true(not _fill_and_settle(contract)["qualified"], "bought the requested ore")
+		_next_period(contract)
 
 		GameState.state["player"]["stash"]["orichalchum"]["physics"] = 1
 		Stash.move_ore_to_shared("physics", 1)
@@ -77,6 +80,7 @@ func run() -> void:
 		Rooms.assign_vein("owen", "v1")
 		assert_true(Cultivating.cultivate("v1")["ok"])
 		assert_true(not _fill_and_settle(contract)["qualified"], "cultivated an assigned vein")
+		_next_period(contract)
 		assert_true(Cultivating.prune("v1", GameData.VEIN_GROWTH["pruneLightDepth"])["ok"])
 		assert_true(not _fill_and_settle(contract)["qualified"], "pruned an assigned vein")
 	)
@@ -245,27 +249,91 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["cash"], cash_before + contract["quote"]["payment"], "due-day tick does not pay again")
 	)
 
-	run_case("full_manual_recurring_delivery_settles_and_renews_without_double_pay", func():
+	run_case("full_manual_recurring_fill_pays_once_and_locks_until_monday", func():
 		GameState.reset()
 		var created: Dictionary = OffersSystem.create_scripted_offer("scripted_physics_weekly")
 		var contract: Dictionary = OffersSystem.accept_offer(created["offer"]["id"])["contract"]
 		var old_period: String = contract["periodId"]
 		var old_due: int = contract["dueDay"]
 		var payment: int = contract["quote"]["payment"]
-		GameState.state["player"]["orichalchum"]["physics"] = ContractsSystem.remaining_qty(contract)
+		var qty: int = ContractsSystem.remaining_qty(contract)
+		GameState.state["player"]["orichalchum"]["physics"] = qty * 3
 		var cash_before: int = GameState.state["player"]["cash"]
-		var result: Dictionary = ContractsSystem.deliver(contract["id"], ContractsSystem.remaining_qty(contract))
+		var result: Dictionary = ContractsSystem.deliver(contract["id"], qty)
 		assert_true(result["ok"])
 		assert_true(result["complete"])
 		assert_eq(GameState.state["player"]["cash"], cash_before + payment)
 		assert_eq(ContractsSystem.active_contracts().size(), 1, "recurring contract stays active")
+		assert_true(ContractsSystem.is_period_filled(contract))
+		assert_eq(contract["periodId"], old_period, "no new period until Monday")
+		assert_eq(contract["dueDay"], old_due, "due day does not move forward")
+		var again: Dictionary = ContractsSystem.deliver(contract["id"], qty)
+		assert_true(not again["ok"], "a filled period refuses further deliveries")
+		assert_eq(GameState.state["player"]["orichalchum"]["physics"], qty * 2, "no stock taken by the refused delivery")
+		assert_true(not ContractsSystem.settle(contract["id"])["ok"], "a filled period cannot settle twice")
+		GameState.state["world"]["day"] = old_due - 1
+		ContractsSystem.daily_tick()
+		assert_true(ContractsSystem.is_period_filled(contract), "still locked the day before Monday")
+		GameState.state["world"]["day"] = old_due
+		ContractsSystem.daily_tick()
+		assert_eq(GameState.state["player"]["cash"], cash_before + payment, "Monday does not pay the filled period again")
+		assert_eq(GameState.state["sales"]["settlements"].size(), 1)
+		assert_true(not ContractsSystem.is_period_filled(contract), "Monday opens a fresh period")
 		assert_true(contract["periodId"] != old_period)
 		assert_eq(contract["dueDay"], old_due + 7)
 		assert_eq(ContractsSystem.delivered_qty(contract), 0)
-		GameState.state["world"]["day"] = old_due
+		assert_true(ContractsSystem.deliver(contract["id"], qty)["ok"], "the new period takes deliveries")
+		assert_eq(GameState.state["player"]["cash"], cash_before + payment * 2)
+	)
+
+	run_case("delegated_recurring_autofills_on_stock_then_locks_and_reopens_monday", func():
+		var contract := _proof_contract()
+		var qty: int = ContractsSystem.remaining_qty(contract)
+		var due: int = contract["dueDay"]
+		var cash_before: int = GameState.state["player"]["cash"]
+		GameState.state["player"]["orichalchum"]["physics"] = qty * 3
+		EventBus.shared_stock_increased.emit()
+		assert_eq(GameState.state["sales"]["settlements"].size(), 1, "filled as soon as stock covered it")
+		assert_eq(GameState.state["player"]["cash"], cash_before + contract["quote"]["payment"])
+		assert_true(ContractsSystem.is_period_filled(contract))
+		EventBus.shared_stock_increased.emit()
+		ContractsSystem.process_delegated_deliveries()
+		assert_eq(GameState.state["sales"]["settlements"].size(), 1, "locked: no second fill this week")
+		assert_eq(GameState.state["player"]["orichalchum"]["physics"], qty * 2)
+		GameState.state["world"]["day"] = due
 		ContractsSystem.daily_tick()
-		assert_eq(GameState.state["player"]["cash"], cash_before + payment, "old due day does not pay the closed period again")
-		assert_eq(GameState.state["sales"]["settlements"].size(), 1)
+		assert_eq(GameState.state["sales"]["settlements"].size(), 2, "Monday's fresh period fills from stock on hand")
+		assert_eq(contract["dueDay"], due + 7)
+		assert_true(GameState.state["sales"]["settlements"].back()["qualified"])
+	)
+
+	run_case("unfilled_recurring_period_settles_partial_on_monday_and_renews", func():
+		GameState.reset()
+		var created: Dictionary = OffersSystem.create_scripted_offer("scripted_physics_weekly")
+		var contract: Dictionary = OffersSystem.accept_offer(created["offer"]["id"])["contract"]
+		var due: int = contract["dueDay"]
+		GameState.state["player"]["orichalchum"]["physics"] = 1
+		ContractsSystem.deliver(contract["id"], 1)
+		GameState.state["world"]["day"] = due
+		ContractsSystem.daily_tick()
+		var settlement: Dictionary = GameState.state["sales"]["settlements"].back()
+		assert_true(not settlement["complete"])
+		assert_true(settlement["payment"] > 0, "a partial period still pays its partial share")
+		assert_true(not ContractsSystem.is_period_filled(contract))
+		assert_eq(contract["dueDay"], due + 7)
+		assert_eq(ContractsSystem.delivered_qty(contract), 0)
+	)
+
+	run_case("delegation_status_reports_unlock_toggle_and_staffing", func():
+		var contract := _proof_contract()
+		assert_eq(ContractsSystem.delegation_status(contract), "active")
+		ContractsSystem.set_delegated(contract["id"], false)
+		assert_eq(ContractsSystem.delegation_status(contract), "off")
+		GameState.state["flags"].erase(ContractsSystem.DELEGATION_FLAG)
+		assert_eq(ContractsSystem.delegation_status(contract), "locked")
+		contract["delegated"] = true
+		Contacts.assign_to_room("none", "ops")
+		assert_eq(ContractsSystem.delegation_status(contract), "unstaffed")
 	)
 
 	run_case("deadline_settlement_still_pays_partial_for_incomplete_oneoff", func():
@@ -502,6 +570,12 @@ func _add_weekly_contract(request: Dictionary) -> Dictionary:
 	var contract: Dictionary = OffersSystem.accept_offer(created["offer"]["id"])["contract"]
 	ContractsSystem.set_delegated(contract["id"], true)
 	return contract
+
+
+# Rolls to the contract's due Monday so a filled period opens the next one.
+func _next_period(contract: Dictionary) -> void:
+	GameState.state["world"]["day"] = contract["dueDay"]
+	ContractsSystem.daily_tick()
 
 
 # Stocks the contract's ore and lets Sales close the period.
