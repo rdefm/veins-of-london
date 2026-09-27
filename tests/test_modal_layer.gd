@@ -924,6 +924,48 @@ func run() -> void:
 
 	# ── squad-combat ticket 05 / hq-diorama ticket 02: Gym modal / Train ───
 
+	run_case("hq_gym_modal_shows_combat_level_xp_bar_bonuses_and_next_gain_and_updates_after_train", func():
+		GameState.reset()
+		Modal.open("hq_gym")
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		var s := Combat.skill_summary()
+		var texts := NodeQuery.label_texts_with_symbols(layer)
+		assert_true(texts.has("Combat Skill: Lv1"), "shows the current combat level")
+		assert_true(texts.has("0 / %d XP" % s["xpNext"]), "shows xp against the next threshold")
+		assert_true(texts.has("+%d HP · +%d ATK · %d SPD" % [s["hpBonus"], s["attackBonus"], s["speed"]]), "shows current bonuses")
+		assert_true(texts.any(func(t: String): return t.begins_with("Next: ")), "shows the next-level gain line")
+		assert_eq(layer.find_children("*", "ProgressBar", true, false).size(), 1, "one XP bar")
+
+		_find_cost_button(layer, "Train").pressed.emit()
+
+		var xp: int = Combat.COMBAT_XP_PER_WORKOUT_SESSION
+		assert_true(NodeQuery.label_texts_with_symbols(layer).has("%d / %d XP" % [xp, s["xpNext"]]), "xp label updates right after Train")
+		var values: Array = layer.find_children("*", "ProgressBar", true, false).map(func(b: ProgressBar): return int(b.value))
+		assert_true(values.has(xp - s["xpFloor"]), "bar moves right after Train")
+
+		layer.free()
+	)
+
+	run_case("hq_gym_modal_at_max_combat_level_says_max_and_hides_the_next_line", func():
+		GameState.reset()
+		var max_level: int = GameData.COMBAT_XP_LEVELS.size() - 1
+		GameState.state["player"]["combatSkill"] = max_level
+		GameState.state["player"]["combatXP"] = GameData.COMBAT_XP_LEVELS[max_level]
+		Modal.open("hq_gym")
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		var texts := NodeQuery.label_texts_with_symbols(layer)
+		assert_true(texts.has("Combat Skill: Lv%d (max)" % max_level), "says max level")
+		assert_true(not texts.any(func(t: String): return t.begins_with("Next: ")), "no next-level line at max")
+
+		layer.free()
+	)
+
 	run_case("hq_gym_modal_offers_a_train_button_and_a_build_hint_without_a_built_home_gym", func():
 		GameState.reset()
 		Modal.open("hq_gym")

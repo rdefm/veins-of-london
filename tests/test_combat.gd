@@ -2826,6 +2826,41 @@ func run() -> void:
 		assert_eq(player["hp"], 20 + gain, "current hp should rise by the same amount, not refill")
 	)
 
+	run_case("skill_summary_reports_level_xp_band_bonuses_and_next_level_gains", func():
+		GameState.reset()
+		GameState.state["player"]["combatSkill"] = 2
+		GameState.state["player"]["combatXP"] = 100
+		var s := Combat.skill_summary()
+		var xp: Array = GameData.COMBAT_XP_LEVELS
+		var hp: Array = GameData.COMBAT_HP_BONUS_BY_LEVEL
+		var atk: Array = GameData.COMBAT_ATTACK_BONUS_BY_LEVEL
+		var spd: Array = GameData.COMBAT_SPEED_BY_LEVEL
+		assert_eq(s["level"], 2, "level")
+		assert_true(not s["isMax"], "level 2 is not max")
+		assert_eq(s["xp"], 100, "xp")
+		assert_eq(s["xpFloor"], xp[2], "xpFloor is the current level's threshold")
+		assert_eq(s["xpNext"], xp[3], "xpNext is the next level's threshold")
+		assert_eq(s["hpBonus"], hp[2], "hpBonus")
+		assert_eq(s["attackBonus"], atk[2], "attackBonus")
+		assert_eq(s["speed"], spd[2], "speed")
+		assert_eq(s["nextHp"], hp[3] - hp[2], "nextHp is the level-3 delta")
+		assert_eq(s["nextAttack"], atk[3] - atk[2], "nextAttack is the level-3 delta")
+		assert_eq(s["nextSpeed"], spd[3] - spd[2], "nextSpeed is the level-3 delta")
+	)
+
+	run_case("skill_summary_at_max_level_flags_max_and_reports_no_next_gains", func():
+		GameState.reset()
+		var max_level: int = GameData.COMBAT_XP_LEVELS.size() - 1
+		GameState.state["player"]["combatSkill"] = max_level
+		GameState.state["player"]["combatXP"] = GameData.COMBAT_XP_LEVELS[max_level] + 50
+		var s := Combat.skill_summary()
+		assert_true(s["isMax"], "max level flagged")
+		assert_eq(s["maxLevel"], max_level, "maxLevel")
+		assert_eq(s["xpNext"], s["xpFloor"], "no next threshold past max")
+		assert_eq(s["nextHp"] + s["nextAttack"] + s["nextSpeed"], 0, "no next-level gains at max")
+		assert_eq(s["attackBonus"], GameData.COMBAT_ATTACK_BONUS_BY_LEVEL[max_level], "current bonus still reported at max")
+	)
+
 	run_case("train_is_available_without_a_home_gym_at_the_lower_flat_xp_amount", func():
 		GameState.reset()
 		assert_true(not GameState.state["home"]["rooms"].has("homeGym"), "sanity: no Home Gym built yet")

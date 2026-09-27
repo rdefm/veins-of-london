@@ -880,6 +880,35 @@ static func award_xp(amount: int) -> void:
 	Progression.award_xp(player, "combatXP", "combatSkill", GameData.COMBAT_XP_LEVELS, amount, on_level_up)
 
 
+# R§3.7a read-only summary for the HQ gym modal. XP values are cumulative
+# (COMBAT_XP_LEVELS thresholds); xpFloor/xpNext bound the current level's
+# band. At max level xpNext == xpFloor and next* gains are 0.
+static func skill_summary() -> Dictionary:
+	var player: Dictionary = GameState.state["player"]
+	var level: int = player["combatSkill"]
+	var levels: Array = GameData.COMBAT_XP_LEVELS
+	var max_level: int = levels.size() - 1
+	var is_max: bool = level >= max_level
+	var next: int = level if is_max else level + 1
+	var hp: Array = GameData.COMBAT_HP_BONUS_BY_LEVEL
+	var atk: Array = GameData.COMBAT_ATTACK_BONUS_BY_LEVEL
+	var spd: Array = GameData.COMBAT_SPEED_BY_LEVEL
+	return {
+		"level": level,
+		"maxLevel": max_level,
+		"isMax": is_max,
+		"xp": player["combatXP"],
+		"xpFloor": levels[level],
+		"xpNext": levels[next],
+		"hpBonus": hp[level],
+		"attackBonus": atk[level],
+		"speed": spd[level],
+		"nextHp": hp[next] - hp[level],
+		"nextAttack": atk[next] - atk[level],
+		"nextSpeed": spd[next] - spd[level],
+	}
+
+
 # Resolves exactly the one queued player-type entry the cursor is parked
 # on -- never a whole round (R§3.7a "Resumable turn progression") -- then
 # runs the engine forward to the next decision point. Also returns `beats`
