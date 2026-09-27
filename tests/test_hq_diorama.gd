@@ -180,7 +180,7 @@ func run() -> void:
 	)
 
 	run_case("room_art_larger_than_the_plate_scales_down_to_the_plate", func():
-		for tier_id in ["studio", "flat"]:
+		for tier_id in ["studio", "flat", "townhouse"]:
 			var plate: Dictionary = GameData.HQ_VISUALS["rooms"][tier_id]
 			var diorama := HqDiorama.new()
 			diorama.build(plate)
