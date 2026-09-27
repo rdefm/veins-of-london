@@ -1,5 +1,5 @@
 {
-  "counterparty": { "smallOfferThreshold": 1000 },
+  "counterparty": { "smallOfferThreshold": 1000, "cancelRelationHit": 3 },
   "templates": {
     "random_time_ore": { "id": "random_time_ore", "source": "random", "contractType": "oneOff", "request": { "kind": "ore", "type": "time" } },
     "random_time_pearl": { "id": "random_time_pearl", "source": "random", "contractType": "oneOff", "request": { "kind": "consumable", "type": "timePearl" } },

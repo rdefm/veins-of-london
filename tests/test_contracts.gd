@@ -37,6 +37,20 @@ func run() -> void:
 		assert_true(not ContractsSystem.cancel(contract["id"])["ok"], "already gone")
 	)
 
+	run_case("cancel_hits_counterparty_relation_only", func():
+		var contract := _accept_life_contract()
+		assert_eq(contract["counterparty"], "collective")
+		var before := {}
+		for faction_id in GameState.state["factions"]:
+			before[faction_id] = int(GameState.state["factions"][faction_id]["relation"])
+		ContractsSystem.cancel(contract["id"])
+		var hit := int(GameData.OFFER_COUNTERPARTY["cancelRelationHit"])
+		assert_true(hit > 0)
+		for faction_id in before:
+			var expected: int = before[faction_id] - (hit if faction_id == "collective" else 0)
+			assert_eq(int(GameState.state["factions"][faction_id]["relation"]), expected, faction_id)
+	)
+
 	run_case("cancel_recurring_ends_it_for_good", func():
 		var contract := _proof_contract()
 		_fill_and_settle(contract)

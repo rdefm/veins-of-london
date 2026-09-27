@@ -6267,6 +6267,7 @@
 }
 },
 "OFFER_COUNTERPARTY": {
+"cancelRelationHit": 3,
 "smallOfferThreshold": 1000
 },
 "OFFER_TEMPLATES": {

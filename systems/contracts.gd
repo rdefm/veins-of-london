@@ -190,10 +190,12 @@ static func reorder(contract_id: String, destination_index: int) -> bool:
 # already delivered. Its history entry carries "cancelledDay" and no
 # "settlement", so no settlement-reading objective counts it. A quest
 # starter/recurring contract is reissued as if its offer were declined.
+# The counterparty alone loses cancelRelationHit relation (R§3.10 "Cancel").
 static func cancel(contract_id: String) -> Dictionary:
 	var contract := _find_active(contract_id)
 	if contract.is_empty():
 		return { "ok": false, "reason": "Contract not found." }
+	Factions.adjust_player_relation(Offers.ensure_counterparty(contract), -int(GameData.OFFER_COUNTERPARTY["cancelRelationHit"]))
 	var sales: Dictionary = GameState.state["sales"]
 	active_contracts().erase(contract)
 	sales["priorityOrder"].erase(contract_id)

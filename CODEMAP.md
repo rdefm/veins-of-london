@@ -37,7 +37,7 @@ Data file per system: see `data/*.json` below.
 | combat_prototype.gd | Bounded combat experiment, Debug-app |
 | consumables.gd | Healing Salve (out-of-combat) + Healing Burst (in or out); in-combat use_healing_burst() resolves the parked player turn-cursor entry (R§3.7a) and heals an ally target instead of the player (R§3.7) |
 | contacts.gd | Relation, recruiting (incl. story `force_recruit`), room assignment, founder staff roles (`set_role`/`role_of`/`available_roles`), capped XP, ally combat kit + per-day ally Dial charges (`daily_dial_regen()`) |
-| contracts.gd | Block-end Sales auto-delivery from shared stock (full, then partials by priority; each noted to Market), settlement (to the pot while active); a recurring period pays on fill then locks (`periodFilled`) until Monday renewal; per-contract `buyCalc` calc buys from the pot; unattended-proof taint (`playerAssisted`) and `qualified` settlements; unpaid `cancel()` |
+| contracts.gd | Block-end Sales auto-delivery from shared stock (full, then partials by priority; each noted to Market), settlement (to the pot while active); a recurring period pays on fill then locks (`periodFilled`) until Monday renewal; per-contract `buyCalc` calc buys from the pot; unattended-proof taint (`playerAssisted`) and `qualified` settlements; unpaid `cancel()` (relation hit to counterparty) |
 | crafting.gd | Recipe crafting |
 | cultivating.gd | Vein growth / cultivate / prune |
 | debug_start.gd | Maximal-unlock debug state; `apply(model)` keeps a picked `player.model` through its reset |
@@ -241,7 +241,7 @@ overlays.
 | market.json | market.gd (constants, sim start, ore conversion rate, annotation cap/thresholds, delivery-log cap, per-good normalStock/stand-in supply/demand) |
 | map_palette.json | GameData.gd (validated) + map_palette.gd (Map tab light/dark colour tokens, faction/ore dark overrides) + map_controls.gd (`darkModeLabel`) |
 | objectives.json | objectives.gd, todo.gd, collective.gd, business_quest.gd |
-| offers.json | offers.gd (synthetic catalogue, scripted counterparties, small-offer threshold), business_quest.gd (biz_starter_* chain + Archie nudge text, biz_recurring_* from Beat 3/6) |
+| offers.json | offers.gd (synthetic catalogue, scripted counterparties, small-offer threshold, cancel relation hit), business_quest.gd (biz_starter_* chain + Archie nudge text, biz_recurring_* from Beat 3/6) |
 | ore_types.json | widely read (economy, cultivating, sites, factions) |
 | owen_texts.json | owen_texts.gd (text pool, reply options, interval days) |
 | palette.json | GameData.gd (reference combat-art palette) |
