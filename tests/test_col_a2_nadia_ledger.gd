@@ -12,10 +12,10 @@ const Fixtures := preload("res://tests/support/fixtures.gd")
 # call sites directly.
 
 
-# High enough that craft_chance() (baseSuccess + (skill-1)*0.13, capped at
-# 0.95) clears the 0.95 cap for all three recipes, so a short seed search
-# reliably finds a success.
-const _HIGH_SKILL := 10
+# The top crafting skill (the last effectPower index), so craft_chance()
+# (baseSuccess + (skill-1)*0.13, capped at 0.95) is high for all three
+# recipes and a short seed search reliably finds a success.
+const _HIGH_SKILL := 5
 
 
 func _craft_until_success(recipe_key: String) -> void:

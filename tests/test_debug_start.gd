@@ -50,6 +50,8 @@ func run() -> void:
 			if String(key).begins_with("colA"):
 				assert_true(flags[key] == false, "questline flag '%s' should stay not-started under debug start" % key)
 				continue
+			if typeof(flags[key]) != TYPE_BOOL:
+				continue  # counters such as oddities are not completion flags
 			assert_true(flags[key] == true, "flag '%s' should be true under debug start" % key)
 
 		assert_eq(s["home"]["tier"], "townhouse", "home tier")

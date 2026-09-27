@@ -557,16 +557,21 @@ func run() -> void:
 		# and confirm firm (the worst-relation faction by a wide margin) is
 		# picked markedly more often than an evenly-liked rival, the same
 		# statistical style Factions.roll_rivalry_attempts()'s own weighted-
-		# pick test uses.
+		# pick test uses. A liked faction picked here never raids, so the
+		# pick is read from _attacking_faction(), and only firm's picks
+		# become attempts.
 		var firm_count := 0
 		var collective_count := 0
 		for seed in range(500):
 			Rng.set_seed(seed)
-			var attempts: Array = Raiding.roll_raid_attempts()
-			if attempts[0]["attackerId"] == "firm":
+			var attacker := Raiding._attacking_faction(vein)
+			if attacker == "firm":
 				firm_count += 1
-			elif attempts[0]["attackerId"] == "collective":
+			elif attacker == "collective":
 				collective_count += 1
+			Rng.set_seed(seed)
+			var attempts: Array = Raiding.roll_raid_attempts()
+			assert_eq(attempts.size(), 1 if attacker == "firm" else 0, "only the hostile pick raids (seed %d)" % seed)
 
 		assert_true(firm_count > collective_count * 2, "hampstead has no factionPresence, so the fallback should weight sharply toward the worst-relation faction -- got firm %d vs collective %d" % [firm_count, collective_count])
 	)

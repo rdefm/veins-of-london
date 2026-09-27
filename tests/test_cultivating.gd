@@ -8,7 +8,7 @@ static func _vein(growth: int, district: String = "shoreditch", bonuses: Array =
 		"id": "test_vein", "oreType": "time", "growth": growth, "security": "none",
 		"alarmUpgrades": [], "location": "Test St, nowhere", "claimedOnDay": 1,
 		"district": district, "siteId": "s1", "hospitability": { "tier": tier, "bonuses": bonuses },
-		"rampantDays": 0, "level": level,
+		"rampantDays": 0, "level": level, "developmentStreak": 0,
 	}
 
 
