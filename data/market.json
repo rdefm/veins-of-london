@@ -6,13 +6,14 @@
   "reversion": 0.6,
   "smoothing": 0.8,
   "historyDays": 28,
+  "oreConversionRate": 1.5,
   "goods": {
     "ore": {
-      "time": { "normalStock": 250, "standInSupply": 190, "standInDemand": 220 },
-      "physics": { "normalStock": 250, "standInSupply": 190, "standInDemand": 220 },
-      "life": { "normalStock": 250, "standInSupply": 190, "standInDemand": 220 },
-      "fate": { "normalStock": 250, "standInSupply": 190, "standInDemand": 220 },
-      "emotion": { "normalStock": 250, "standInSupply": 190, "standInDemand": 220 }
+      "time": { "normalStock": 250, "standInSupply": 190, "standInDemand": 166 },
+      "physics": { "normalStock": 250, "standInSupply": 190, "standInDemand": 185 },
+      "life": { "normalStock": 250, "standInSupply": 190, "standInDemand": 181 },
+      "fate": { "normalStock": 250, "standInSupply": 190, "standInDemand": 211 },
+      "emotion": { "normalStock": 250, "standInSupply": 190, "standInDemand": 211 }
     },
     "consumable": {
       "timePearl": { "normalStock": 20, "standInSupply": 8, "standInDemand": 10 },

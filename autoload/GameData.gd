@@ -470,7 +470,7 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_districts(t.get("districts", {}), t.get("ore_types", {}), errors)
 	_validate_map_layout(t.get("map_layout", {}), t.get("districts", {}), errors)
 	_validate_sites(t, errors)
-	_validate_barometer(t.get("barometer_states", {}), t.get("barometer_actions", []), t.get("faction_prefs", {}), t.get("factions", {}), errors)
+	_validate_barometer(t.get("barometer_states", {}), t.get("barometer_actions", []), t.get("faction_prefs", {}), t.get("factions", {}), t.get("recipes", {}), errors)
 	_validate_enemies(t, errors)
 	_validate_combat_prototype(t.get("combat_prototype", {}), errors)
 	_validate_combat_visuals(t.get("combat_visuals", {}), t.get("palette", {}), errors)
@@ -823,7 +823,7 @@ const CANONICAL_DISTRICT_IDS: Array[String] = [
 
 # Every ore type and every priced consumable is a market good with stand-in volumes.
 func _validate_market(market: Dictionary, ore_types: Dictionary, consumable_prices: Dictionary, errors: Array[String]) -> void:
-	_require_keys(market, ["simStart", "priceMinMult", "priceMaxMult", "curveExponent", "reversion", "smoothing", "historyDays", "goods"], "market", errors)
+	_require_keys(market, ["simStart", "priceMinMult", "priceMaxMult", "curveExponent", "reversion", "smoothing", "historyDays", "oreConversionRate", "goods"], "market", errors)
 	if not ["day1", "bizA2"].has(market.get("simStart")):
 		errors.append("market.simStart: expected 'day1' or 'bizA2', got '%s'" % str(market.get("simStart")))
 	var goods: Dictionary = market.get("goods", {})
@@ -946,7 +946,7 @@ func _validate_sites(t: Dictionary, errors: Array[String]) -> void:
 			errors.append("sites: discoveryBonusPool missing bonus '%s'" % bonus)
 
 
-func _validate_barometer(states: Dictionary, actions: Array, faction_prefs: Dictionary, factions: Dictionary, errors: Array[String]) -> void:
+func _validate_barometer(states: Dictionary, actions: Array, faction_prefs: Dictionary, factions: Dictionary, recipes: Dictionary, errors: Array[String]) -> void:
 	for section in ["economic", "social", "political"]:
 		if not states.has(section):
 			errors.append("barometer: missing section '%s'" % section)
@@ -956,6 +956,10 @@ func _validate_barometer(states: Dictionary, actions: Array, faction_prefs: Dict
 			_require_keys(state_entry, ["id", "label", "description", "effects", "headlines"], "barometer.%s.%s" % [section, state_id], errors)
 			if typeof(state_entry) == TYPE_DICTIONARY and state_entry.has("headlines") and state_entry["headlines"].size() < 2:
 				errors.append("barometer.%s.%s: headlines needs at least 2 variants (D4.5), got %d" % [section, state_id, state_entry["headlines"].size()])
+			if typeof(state_entry) == TYPE_DICTIONARY and typeof(state_entry.get("effects")) == TYPE_DICTIONARY:
+				for recipe_key in state_entry["effects"].get("itemDemand", {}).keys():
+					if not recipes.is_empty() and not recipes.has(recipe_key):
+						errors.append("barometer.%s.%s: itemDemand key '%s' is not a recipe" % [section, state_id, recipe_key])
 
 	for action in actions:
 		_require_keys(action, ["id", "label", "section", "cost", "requireFaction", "description"], "barometer.actions.%s" % action.get("id", "?"), errors)

@@ -75,8 +75,8 @@
 "boom": {
 "description": "Demand up. Buyers flush with cash.",
 "effects": {
-"mugChance": -0.05,
-"orePrice": 0.25
+"demandAll": 0.1,
+"mugChance": -0.05
 },
 "headlines": ["Orichalchum demand surges as buyers open their wallets.", "Boom times: dealers say the calc is moving fast, no questions asked."],
 "id": "boom",
@@ -85,9 +85,10 @@
 "crisis": {
 "description": "Market collapse. Some ore types in desperate demand.",
 "effects": {
-"fatePremium": 0.5,
-"mugChance": 0.12,
-"orePrice": -0.35
+"itemDemand": {
+"beALady": 1
+},
+"mugChance": 0.12
 },
 "headlines": ["Market in freefall — fate calc changes hands at desperate prices.", "Financial crisis deepens; dealers advise caution, then ignore it."],
 "id": "crisis",
@@ -97,7 +98,7 @@
 "description": "Everything costs more. Daily costs up.",
 "effects": {
 "dailyCost": 0.3,
-"orePrice": 0.1
+"demandAll": 0.05
 },
 "headlines": ["Prices climb across the board; nobody's living costs go down.", "Inflation squeezes buyers and sellers alike."],
 "id": "inflation",
@@ -106,8 +107,8 @@
 "recession": {
 "description": "Buyers tighter. Prices softer.",
 "effects": {
-"mugChance": 0.05,
-"orePrice": -0.2
+"demandAll": -0.1,
+"mugChance": 0.05
 },
 "headlines": ["Buyers tighten belts as ore prices soften.", "Recession bites: fewer offers, harder haggling."],
 "id": "recession",
@@ -144,8 +145,8 @@
 "regulation": {
 "description": "Government crackdown. All trading riskier, prices up.",
 "effects": {
-"mugChance": 0.1,
-"orePrice": 0.15
+"demandAll": 0.08,
+"mugChance": 0.1
 },
 "headlines": ["Government crackdown makes every trade riskier, pricier.", "New ore regulation announced; enforcement, as ever, selective."],
 "id": "regulation",
@@ -161,9 +162,13 @@
 "war": {
 "description": "Military demand. Time and physics ore prices surge.",
 "effects": {
-"mugChance": 0.05,
-"physicsPremium": 0.4,
-"timePremium": 0.6
+"itemDemand": {
+"blackHole": 0.6,
+"blast": 0.6,
+"healingBurst": 0.6,
+"shield": 0.6
+},
+"mugChance": 0.05
 },
 "headlines": ["Conflict abroad drives time and physics calc prices skyward.", "Military demand strains the supply chain."],
 "id": "war",
@@ -184,7 +189,12 @@
 "festival": {
 "description": "Energy high, people out. Physics ore in demand.",
 "effects": {
-"physicsPremium": 0.4,
+"itemDemand": {
+"blackHole": 0.4,
+"blast": 0.4,
+"shield": 0.4,
+"wormhole": 0.4
+},
 "searchFind": 0.05
 },
 "headlines": ["The City Festival draws crowds and premium prices for physics calc.", "Festival season: energy's up, so is the demand."],

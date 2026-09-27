@@ -170,28 +170,40 @@ static func _manual_action(section: String, state_id: String, direction: String)
 	return { "ok": true }
 
 
-# Sum of the three currently-active states' `effects` dicts.
+# Sum of the three currently-active states' `effects` dicts; `itemDemand`
+# sums per recipe key. `effectMod` then scales the demand keys
+# (`demandAll`, every `itemDemand` fraction) by (1 + effectMod).
 static func get_merged_effects() -> Dictionary:
 	var barometer: Dictionary = GameState.state["barometer"]
 	var merged: Dictionary = {}
+	var item_demand: Dictionary = {}
 	for section in SECTIONS:
 		var active_state: String = barometer[section]
 		var effects: Dictionary = GameData.BAROMETER_STATES[section][active_state]["effects"]
 		for key in effects.keys():
-			merged[key] = merged.get(key, 0.0) + effects[key]
+			if key == "itemDemand":
+				for recipe_key in effects[key].keys():
+					item_demand[recipe_key] = item_demand.get(recipe_key, 0.0) + effects[key][recipe_key]
+			else:
+				merged[key] = merged.get(key, 0.0) + effects[key]
+	var scale: float = 1.0 + merged.get("effectMod", 0.0)
+	if merged.has("demandAll"):
+		merged["demandAll"] *= scale
+	for recipe_key in item_demand.keys():
+		item_demand[recipe_key] *= scale
+	if not item_demand.is_empty():
+		merged["itemDemand"] = item_demand
 	return merged
+
+
+# Ticker multiplier on a crafted item's London demand:
+# (1 + demandAll) × (1 + itemDemand[recipe]), floored at 0.
+static func get_item_demand_mult(recipe_key: String) -> float:
+	var fx := get_merged_effects()
+	var item_fraction: float = fx.get("itemDemand", {}).get(recipe_key, 0.0)
+	return maxf(0.0, (1.0 + fx.get("demandAll", 0.0)) * (1.0 + item_fraction))
 
 
 static func get_effective_mug_chance(base: float) -> float:
 	var fx := get_merged_effects()
 	return clampf(base + fx.get("mugChance", 0.0), 0.0, 0.8)
-
-
-static func get_effective_ore_price(ore_type: String, base: int) -> int:
-	return GameState.round_epsilon(base * (1.0 + get_ore_price_modifier(ore_type)))
-
-
-static func get_ore_price_modifier(ore_type: String) -> float:
-	var fx := get_merged_effects()
-	var premium_key := "%sPremium" % ore_type
-	return maxf(-0.9, fx.get("orePrice", 0.0) + fx.get(premium_key, 0.0))

@@ -16,6 +16,21 @@ func _resting_price(kind: String, good_type: String) -> int:
 	return Market.target_price(kind, good_type, Market.resting_stock(kind, good_type))
 
 
+# Makes state_id the active state on its axis with progress pinned so the
+# rollover's resolution step keeps it there.
+func _set_ticker(section: String, state_id: String) -> void:
+	Barometer.ensure_progress()
+	var progress: Dictionary = GameState.state["barometer"]["progress"][section]
+	for other in progress.keys():
+		progress[other] = 0
+	progress[state_id] = 100
+	GameState.state["barometer"][section] = state_id
+
+
+func _price(kind: String, good_type: String) -> int:
+	return Market.quote(kind, good_type)
+
+
 func run() -> void:
 	# ── pure quote ─────────────────────────────────────────────────────
 
@@ -133,4 +148,89 @@ func run() -> void:
 		assert_eq(GameState.state["market"], before, "reprice is a no-op before start")
 		GameData.MARKET["simStart"] = saved_start
 		GameState.reset()
+	)
+
+	# ── Ticker item demand ─────────────────────────────────────────────
+
+	run_case("war_lifts_shield_then_physics_ore_over_following_days", func():
+		GameState.reset()
+		GameState.state["market"] = Market.new_state(true)
+		var shield_idle: int = _price("consumable", "shield")
+		var physics_idle: int = _price("ore", "physics")
+		_set_ticker("political", "war")
+		_tick(1)
+		assert_true(_price("consumable", "shield") > shield_idle, "shield price rises on the first rollover")
+		var physics_day1: int = _price("ore", "physics")
+		_tick(4)
+		var physics_day5: int = _price("ore", "physics")
+		assert_true(physics_day5 > physics_day1, "physics keeps climbing over following days (%d -> %d)" % [physics_day1, physics_day5])
+		var rise: float = float(physics_day5) / physics_idle - 1.0
+		assert_true(rise >= 0.5 and rise <= 1.0, "war moves physics +50-100%% over a few days, got %+.0f%%" % (rise * 100.0))
+		assert_eq(_price("ore", "fate"), _resting_price("ore", "fate"), "an ore with no war item stays at rest")
+	)
+
+	run_case("player_shield_supply_dampens_the_physics_rise", func():
+		GameState.reset()
+		GameState.state["market"] = Market.new_state(true)
+		_set_ticker("political", "war")
+		_tick(5)
+		var unfilled: int = _price("ore", "physics")
+		GameState.reset()
+		GameState.state["market"] = Market.new_state(true)
+		_set_ticker("political", "war")
+		for i in range(5):
+			Market.record_supply("consumable", "shield", 6, "player")
+			_tick(1)
+		var filled: int = _price("ore", "physics")
+		assert_true(filled < unfilled, "crafting shields cools physics (%d vs %d)" % [filled, unfilled])
+	)
+
+	run_case("mixed_recipe_shortage_lifts_both_ingredient_ores", func():
+		GameState.reset()
+		GameState.state["market"] = Market.new_state(true)
+		var time_idle: int = _price("ore", "time")
+		var life_idle: int = _price("ore", "life")
+		for i in range(4):
+			Market.record_demand("consumable", "healingBurst", 12, "player")
+			_tick(1)
+		assert_true(_price("ore", "time") > time_idle, "healingBurst shortage lifts time")
+		assert_true(_price("ore", "life") > life_idle, "healingBurst shortage lifts life")
+	)
+
+	run_case("demand_all_lifts_and_lowers_every_item", func():
+		GameState.reset()
+		GameState.state["market"] = Market.new_state(true)
+		var idle := {}
+		for recipe_key in GameData.RECIPES:
+			idle[recipe_key] = GameState.state["market"]["goods"]["consumable"][recipe_key]["stock"]
+		_set_ticker("economic", "boom")
+		_tick(3)
+		for recipe_key in GameData.RECIPES:
+			assert_true(GameState.state["market"]["goods"]["consumable"][recipe_key]["stock"] < idle[recipe_key], "boom drains %s stock" % recipe_key)
+		GameState.reset()
+		GameState.state["market"] = Market.new_state(true)
+		var saved: Dictionary = GameData.BAROMETER_STATES["economic"]["recession"]["effects"]
+		GameData.BAROMETER_STATES["economic"]["recession"]["effects"] = { "demandAll": -0.5 }
+		_set_ticker("economic", "recession")
+		_tick(3)
+		GameData.BAROMETER_STATES["economic"]["recession"]["effects"] = saved
+		for recipe_key in GameData.RECIPES:
+			assert_true(GameState.state["market"]["goods"]["consumable"][recipe_key]["stock"] > idle[recipe_key], "a negative demandAll swells %s stock" % recipe_key)
+	)
+
+	run_case("election_mutes_the_war_shield_effect", func():
+		GameState.reset()
+		GameState.state["market"] = Market.new_state(true)
+		_set_ticker("political", "war")
+		_tick(4)
+		var war_only: int = _price("consumable", "shield")
+		GameState.reset()
+		GameState.state["market"] = Market.new_state(true)
+		var saved: Dictionary = GameData.BAROMETER_STATES["social"]["festival"]["effects"]
+		GameData.BAROMETER_STATES["social"]["festival"]["effects"] = { "effectMod": -0.5 }
+		_set_ticker("political", "war")
+		_set_ticker("social", "festival")
+		_tick(4)
+		GameData.BAROMETER_STATES["social"]["festival"]["effects"] = saved
+		assert_true(_price("consumable", "shield") < war_only, "effectMod scales itemDemand down (%d vs %d)" % [_price("consumable", "shield"), war_only])
 	)

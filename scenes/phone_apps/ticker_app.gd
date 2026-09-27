@@ -59,8 +59,11 @@ func _build_axis_detail(content: VBoxContainer, section: String) -> void:
 	summary["content"].add_child(UI.muted_label(state_data["description"]))
 	for key in state_data["effects"].keys():
 		var v = state_data["effects"][key]
-		var sign := "+" if v > 0 else ""
-		summary["content"].add_child(UI.muted_label("%s %s%s" % [key, sign, str(v)]))
+		if key == "itemDemand":
+			for recipe_key in v.keys():
+				summary["content"].add_child(UI.muted_label("%s demand %s" % [GameData.RECIPES[recipe_key]["name"], _signed(v[recipe_key])]))
+		else:
+			summary["content"].add_child(UI.muted_label("%s %s" % [key, _signed(v)]))
 	content.add_child(summary["panel"])
 
 	content.add_child(UI.heading("All states", 14))
@@ -118,3 +121,7 @@ func _build_influence_actions_card(section: String) -> Control:
 		c["content"].add_child(UI.muted_label("None for this axis yet."))
 
 	return c["panel"]
+
+
+func _signed(v: float) -> String:
+	return ("+" if v > 0 else "") + str(v)

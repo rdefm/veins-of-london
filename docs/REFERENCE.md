@@ -234,13 +234,13 @@ Five factions; copy `name`, `shortName`, `tagline`, `industries`, `description`,
 - conclave: push political/regulation str 4; push political/war str 3; push economic/crisis str 3
 
 ### 1.9 `data/barometer.json`
-Three sections. `effects` keys and meanings: `orePrice` (multiplier delta on all ore), `mugChance` (additive), `dailyCost` (multiplier delta), `raidChance` (vein raids, M1+), `homeRaid` (additive), `searchFind` (reserved, unused post-port), `effectMod` (reserved), `<type>Premium` (additive multiplier delta for one ore type).
+Three sections. `effects` keys and meanings: `demandAll` (fractional multiplier delta on every item's London demand, §3.13), `itemDemand` (`{recipeKey: fraction}` — multiplier delta on that item's London demand; no ore-demand key, ore follows item shortages), `mugChance` (additive), `dailyCost` (multiplier delta), `raidChance` (vein raids, M1+), `homeRaid` (additive), `searchFind` (reserved, unused post-port), `effectMod` (scales `demandAll` and every `itemDemand` fraction by `1 + effectMod`).
 
-economic: stable {} · boom {orePrice:+0.25, mugChance:−0.05} · recession {orePrice:−0.20, mugChance:+0.05} · crisis {orePrice:−0.35, mugChance:+0.12, fatePremium:+0.5} · inflation {dailyCost:+0.30, orePrice:+0.10}
+economic: stable {} · boom {demandAll:+0.1, mugChance:−0.05} · recession {demandAll:−0.1, mugChance:+0.05} · crisis {mugChance:+0.12, itemDemand:{beALady:+1.0}} · inflation {dailyCost:+0.30, demandAll:+0.05}
 
-social: stable {} · unrest {mugChance:+0.08, raidChance:+0.10} · lockdown {searchFind:−0.15, dailyCost:+0.10} · festival {physicsPremium:+0.40, searchFind:+0.05} · crime {mugChance:+0.15, homeRaid:+0.05}
+social: stable {} · unrest {mugChance:+0.08, raidChance:+0.10} · lockdown {searchFind:−0.15, dailyCost:+0.10} · festival {itemDemand:{blast, shield, blackHole, wormhole: +0.4}, searchFind:+0.05} · crime {mugChance:+0.15, homeRaid:+0.05}
 
-political: stable {} · war {timePremium:+0.6, physicsPremium:+0.4, mugChance:+0.05} · austerity {dailyCost:−0.15, mugChance:+0.06} · regulation {mugChance:+0.10, orePrice:+0.15} · election {effectMod:−0.3}
+political: stable {} · war {itemDemand:{shield, blast, healingBurst, blackHole: +0.6}, mugChance:+0.05} · austerity {dailyCost:−0.15, mugChance:+0.06} · regulation {mugChance:+0.10, demandAll:+0.08} · election {effectMod:−0.3}
 
 Labels/descriptions: extract verbatim from HTML const `BAROMETER_STATES`, renaming "Motion ore" → "Physics ore", "Time and energy ore" → "Time and physics ore".
 
@@ -502,7 +502,7 @@ The dock (`NavBar`, now 3 slots: Phone · Map · HQ) is hidden on `title, intro,
 - **Organic drift:** each non-active state, `chance(0.20)` → +1 progress (cap 99).
 - **Resolution (per section, after nudges and after drift):** clamp all to 0–100; if any non-active state ≥ 100 → old active drops to 0, that state becomes active at 100, notification "<Section> shift: <Label>. <description>".
 - **Manual push/pull (already functional in M0):** costs £2000; per-state per-direction cooldown of 1/day (blocked if `day <= cooldown value`); push adds +20 then resolves; pull subtracts 20 (no resolve).
-- **Merged effects:** sum `effects` dicts of the three active states. `getEffectiveMugChance(base) = clamp(base + fx.mugChance, 0, 0.8)`. `getEffectiveOrePrice(type, base) = round(base * max(0.1, 1 + fx.orePrice + fx.<type>Premium))` — no lane reads it; every price reads Market (§3.13).
+- **Merged effects:** sum `effects` dicts of the three active states (`itemDemand` summed per recipe key); then `demandAll` and each `itemDemand` fraction × `(1 + fx.effectMod)`. `getEffectiveMugChance(base) = clamp(base + fx.mugChance, 0, 0.8)`. `getItemDemandMult(recipe) = max(0, (1 + fx.demandAll) × (1 + fx.itemDemand[recipe]))`. The Ticker moves item demand only; no price reads Barometer (every price reads Market, §3.13).
 
 ### 3.3 Home
 - `getHomeRaidChance() = max(0.002, tier.raidBaseChance + fx.homeRaid − Σ installed raidReduction − guard.raidReduction × guardCount + totalCarriedOre * 0.001)`, where `totalCarriedOre` is the sum of `player.orichalchum` (see storedOre merge note in §2). See §1.7's "Stackable HQ guards" for `guardCount`.
@@ -677,11 +677,12 @@ The roll happens once, at `Raiding.roll_raid_odds()` time (alongside the existin
 - **Quote:** `Market.quote(kind, type)` = today's `price`. `Market.quote_avg2` = `round((history[-1] + history[-2]) / 2)`, or `quote` with fewer than 2 history entries.
 - **Target:** `target(stock) = round(base × clamp((stock / normalStock)^-curveExponent, priceMinMult, priceMaxMult))`; zero stock → `priceMaxMult`.
 - **Recording:** `Market.record_supply/record_demand(kind, type, qty, source)` add to today's tallies per source (player lanes use `"player"`). Only tomorrow's price moves.
-- **Daily reprice** (§3.1 ⑥.6), consumables then ores, per good: `flowed = max(0, stock + standInSupply + Σsupply − standInDemand − Σdemand)`; `stock = round(flowed + (normalStock − flowed) × reversion)`; `price = clamp(round(price + (target(stock) − price) × smoothing), round(base × priceMinMult), round(base × priceMaxMult))`; `prevPrice` = old price; append to `history` (keep last `historyDays`); clear tallies.
+- **Daily reprice** (§3.1 ⑥.6), consumables then ores, per good: `flowed = max(0, stock + standInSupply + Σsupply − demandBaseline − Σdemand)`, where an item's `demandBaseline = standInDemand × Barometer.getItemDemandMult(recipe)` (§3.2) and an ore's `demandBaseline = standInDemand + derived`; `stock = round(flowed + (normalStock − flowed) × reversion)`; `price = clamp(round(price + (target(stock) − price) × smoothing), round(base × priceMinMult), round(base × priceMaxMult))`; `prevPrice` = old price; append to `history` (keep last `historyDays`); clear tallies.
 - **Lanes:** Archie ore/consumables per §3.6. Faction lanes (`Economy._faction_effective_price`): `Market.quote(kind, type)`, × `(1 + district priceMod)` when the lane's `applyDistrictPriceMod`, then × `(1 ± spread)` by relation; player sells `record_supply`, player buys `record_demand` (source `"player"`). Contract buy-missing-calc prices via the faction buy lane (no district mod) and records demand. Offer `unitValue` and James craft-job `payPerItem` = `Market.quote`. Archie tag-along deals price as the Archie ore lane and record nothing. Vein sale/buyout valuation (`VeinTrade.quote`, §1.2) reads `quote_avg2`. Faction AI vein scoring and raid strength keep ore `basePrice`.
+- **Ore demand from item shortages:** `derived(ore) = oreConversionRate × Σ over recipes max(0, item normalStock − item stock) × recipe ingredients[ore]`, read from item stocks after today's item reprice. Mixed recipes push onto each ingredient ore by its qty. Ticker effects build over days through stock flow and smoothing.
 - **Stand-in London:** per-good `normalStock`, `standInSupply`, `standInDemand` in `market.json` goods (single read point, `Market._stand_in`).
-- **Resting stock** (no player trade): `normalStock + (standInSupply − standInDemand) × (1 − reversion) / reversion`.
-- **Pinned values:** `priceMinMult` 0.2, `priceMaxMult` 4.0, `curveExponent` 1.5, `reversion` 0.6, `smoothing` 0.8, `historyDays` 28. Ore: normalStock 250, supply 190, demand 220 → resting stock 230, idle ≈ 1.13× base; a player selling ~25–30/day (≈12% of London's 220) holds ≈ base; a 175-unit dump drops next day ≈ −25% and is back within ~5% in 4 days. Consumables: normalStock 20, supply 8, demand 10.
+- **Resting stock** (no player trade, no Ticker effect): `normalStock + (standInSupply − demand) × (1 − reversion) / reversion`; items: `demand = standInDemand`; ores: `demand = standInDemand + derived(ore)` at every item's whole-unit resting stock.
+- **Pinned values:** `priceMinMult` 0.2, `priceMaxMult` 4.0, `curveExponent` 1.5, `reversion` 0.6, `smoothing` 0.8, `historyDays` 28. `oreConversionRate` 1.5. Ore: normalStock 250, supply 190, standInDemand time 166 / physics 185 / life 181 / fate 211 / emotion 211 (each = 220 − its derived demand at item rest, item resting stock 19) → resting stock 230, idle ≈ 1.13× base; a player selling ~25–30/day (≈12% of London's 220) holds ≈ base; a 175-unit dump drops next day ≈ −25% and is back within ~5% in 4 days. Consumables: normalStock 20, supply 8, demand 10. War with nobody crafting shields lifts physics ≈ +70% over ~5 days.
 
 ---
 

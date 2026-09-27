@@ -132,11 +132,32 @@ func run() -> void:
 		assert_eq(GameState.state["barometer"]["economic"], "stable", "pull alone never resolves a new active state")
 	)
 
-	run_case("effective_ore_price_fate_under_crisis", func():
+	run_case("item_demand_mult_combines_demand_all_and_item_demand", func():
 		GameState.reset()
-		GameState.state["barometer"]["economic"] = "crisis"
-		var price := Barometer.get_effective_ore_price("fate", 90)
-		assert_eq(price, 104, "round(90 * (1 - 0.35 + 0.5)) = 104")
+		GameState.state["barometer"]["economic"] = "boom"  # demandAll +0.1
+		GameState.state["barometer"]["political"] = "war"  # shield +0.6
+		assert_almost_eq(Barometer.get_item_demand_mult("shield"), 1.1 * 1.6, 0.0001, "(1 + demandAll) x (1 + itemDemand)")
+		assert_almost_eq(Barometer.get_item_demand_mult("timePearl"), 1.1, 0.0001, "demandAll alone lifts every item")
+		GameState.state["barometer"]["economic"] = "recession"  # demandAll -0.1
+		assert_almost_eq(Barometer.get_item_demand_mult("timePearl"), 0.9, 0.0001, "a negative demandAll lowers every item")
+	)
+
+	run_case("item_demand_sums_across_active_states", func():
+		GameState.reset()
+		GameState.state["barometer"]["social"] = "festival"  # shield +0.4
+		GameState.state["barometer"]["political"] = "war"  # shield +0.6
+		assert_almost_eq(Barometer.get_merged_effects()["itemDemand"]["shield"], 1.0, 0.0001, "per-recipe fractions sum")
+	)
+
+	run_case("election_effect_mod_scales_the_demand_keys", func():
+		GameState.reset()
+		GameState.state["barometer"]["economic"] = "boom"  # demandAll +0.1, mugChance -0.05
+		GameState.state["barometer"]["social"] = "festival"  # shield +0.4
+		GameState.state["barometer"]["political"] = "election"  # effectMod -0.3
+		var fx := Barometer.get_merged_effects()
+		assert_almost_eq(fx["demandAll"], 0.07, 0.0001, "demandAll x 0.7")
+		assert_almost_eq(fx["itemDemand"]["shield"], 0.28, 0.0001, "itemDemand x 0.7")
+		assert_almost_eq(fx["mugChance"], -0.05, 0.0001, "non-demand keys unscaled")
 	)
 
 	run_case("effective_mug_chance_is_clamped_0_to_0_8", func():

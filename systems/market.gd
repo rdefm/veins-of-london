@@ -52,11 +52,39 @@ static func target_price(kind: String, good_type: String, stock: float) -> int:
 	return GameState.round_epsilon(base * mult)
 
 
-# Stock where stand-in flow and reversion cancel out with no player trade.
+# Stock where stand-in flow and reversion cancel out with no player trade
+# and no Ticker effect. An ore's resting demand includes the derived demand
+# from every item sitting at its own (whole-unit) resting stock.
 static func resting_stock(kind: String, good_type: String) -> float:
 	var reversion: float = _config()["reversion"]
 	var flow: Dictionary = _stand_in(kind, good_type)
-	return _normal_stock(kind, good_type) + (flow["supply"] - flow["demand"]) * (1.0 - reversion) / reversion
+	var demand: float = flow["demand"]
+	if kind == "ore":
+		var item_stocks := {}
+		for recipe_key in _config()["goods"]["consumable"]:
+			item_stocks[recipe_key] = GameState.round_epsilon(resting_stock("consumable", recipe_key))
+		demand += _derived_ore_demand(good_type, item_stocks)
+	return _normal_stock(kind, good_type) + (flow["supply"] - demand) * (1.0 - reversion) / reversion
+
+
+# Ore demand from item shortages (R§3.13): Σ over recipes of
+# max(0, normalStock − itemStock) × that recipe's qty of this ore ×
+# oreConversionRate. item_stocks is { recipeKey: stock }.
+static func _derived_ore_demand(ore_type: String, item_stocks: Dictionary) -> float:
+	var total := 0.0
+	for recipe_key in item_stocks:
+		var qty: int = int(GameData.RECIPES[recipe_key]["ingredients"].get(ore_type, 0))
+		if qty > 0:
+			total += maxf(0.0, _normal_stock("consumable", recipe_key) - float(item_stocks[recipe_key])) * qty
+	return total * float(_config()["oreConversionRate"])
+
+
+# Today's derived demand for an ore, from current item stocks.
+static func derived_ore_demand(ore_type: String) -> float:
+	var item_stocks := {}
+	for recipe_key in _market()["goods"]["consumable"]:
+		item_stocks[recipe_key] = _market()["goods"]["consumable"][recipe_key]["stock"]
+	return _derived_ore_demand(ore_type, item_stocks)
 
 
 # Fresh market; resting=true starts every good at its idle equilibrium
@@ -122,7 +150,8 @@ static func _tally(side: String, kind: String, good_type: String) -> int:
 
 # Rollover step: per good, stock takes today's flow (floored at 0), reverts
 # toward normalStock (whole units), and price moves a smoothing fraction
-# toward target.
+# toward target. Items reprice first, their stand-in demand scaled by the
+# Ticker; each ore's demand then adds the shortages of today's item stocks.
 static func daily_reprice() -> void:
 	if not is_running():
 		return
@@ -136,7 +165,12 @@ static func daily_reprice() -> void:
 			var good: Dictionary = market["goods"][kind][good_type]
 			var flow: Dictionary = _stand_in(kind, good_type)
 			var supply: float = flow["supply"] + _tally("supply", kind, good_type)
-			var demand: float = flow["demand"] + _tally("demand", kind, good_type)
+			var baseline: float = flow["demand"]
+			if kind == "consumable":
+				baseline *= Barometer.get_item_demand_mult(good_type)
+			else:
+				baseline += derived_ore_demand(good_type)
+			var demand: float = baseline + _tally("demand", kind, good_type)
 			var flowed: float = maxf(0.0, float(good["stock"]) + supply - demand)
 			var stock: int = GameState.round_epsilon(flowed + (_normal_stock(kind, good_type) - flowed) * reversion)
 			var base := float(base_price(kind, good_type))
