@@ -61,6 +61,7 @@ London gets a living two-tier market and factions with real economic identities 
 28. As a player, I want producer factions (Collective, Firm) to focus on ore output, so that they compete with me on production.
 29. As a player, I want the Guild to have small own production and buy most of its ore, so that it's the obvious customer for a supplier.
 30. As a player, I want the Conclave to earn by positioned Ticker pushes and arbitrage, so that the market has a manipulator I can read and ride.
+30a. As a player, I want the Conclave to act as London's stabiliser — dampening market swings that run too hard for too long, and using the market to choke an aggressor's ability to keep waging a prolonged conflict — so that the Conclave has a political agenda beyond profit.
 31. As a player, I want manipulators to buy under-priced goods and sell over-priced ones, so that the market self-dampens and my monopoly faces resistance.
 32. As a player, I want the Network to be an information broker selling raid intel, counter-raid warnings and market intel, so that information is a tradable asset.
 33. As a player, I want the Network to sell intel about me to my rivals, so that a bad Network relation is quietly dangerous.
@@ -183,6 +184,10 @@ London gets a living two-tier market and factions with real economic identities 
 | Network | information broker | emotion / fate | pansPrank (token) | prophetsBreath |
 | Conclave | manipulator | fate / time | failsafe (token) | failsafe, rejuvenation |
 
+- **Conclave objectives.** Primary: secure the items it needs. Secondary: keep London stable and reduce violence. It has high non-calc income (investments), which funds this. Two behaviours:
+  - Market swings too hard for too long → it spends to rebalance, buying the crash and selling into the spike.
+  - A conflict runs too long → it uses the market against the aggressor: buying up or denying the aggressor's war items and ore, and undercutting its sales, to limit its ability to keep fighting.
+  - Sub-spec 2 covers the high non-calc income and plain arbitrage. The "too long" triggers, stability goals and anti-aggressor targeting belong in sub-spec 4a.
 - Starting stances: Collective–Firm Hostile; Guild–Conclave Business rival; Network–Conclave Business rival; Collective–Guild Partner; all other pairs and player-vs-each-faction Neutral (Collective per its questline).
 - New data: item baseline demand per item; market clamp/smoothing constants; contract default term (4 weeks); guard daily wage; pressure weights; escalation thresholds; share-objective threshold (~25%). All in JSON, none in code.
 - A single config switch sets when the market sim starts (`day1` default, or `bizA2`), read in one place so it can be flipped after playtesting without scattered gating.
@@ -235,7 +240,7 @@ A severely weakened faction may take a protector; the protector gets cheaper acc
      - the hooks 2 plugs into (supply/demand recording, contract deliveries → shares and buyer demand) — defined here, filled in 2.
   2. Faction economic identity (FactionSim, archetypes, shares, stockpile holdings + location state, faction guard upkeep, Factions-app/BizBrief reads). Stockpile *raids* are 4b.
   3. Guard upkeep + business float (player side). Near-independent of 1/2; can be specced, ticketed and built anytime.
-  4a. Pressure AI (stances, threat/dependence/pressure, relation and stance drift, escalation actions, communication rule, Collective–Firm hold)
+  4a. Pressure AI (stances, threat/dependence/pressure, relation and stance drift, escalation actions, communication rule, Collective–Firm hold, Conclave stabiliser/anti-aggressor objectives)
   4b. Relation levers & intel (favours/gifts/flavour quests, partners, Network intel products, stockpile raids, weakening floor)
   5. Act 2 questline
   6. Vassals (exploration; not needed by 5)
