@@ -337,6 +337,9 @@ func _backfill_new_sales_keys(result: Dictionary, defaults: Dictionary) -> void:
 			sales["nextPeriodId"] += 1
 		if not sales["priorityOrder"].has(contract["id"]):
 			sales["priorityOrder"].append(contract["id"])
+	# R§3.10 "Counterparty": offers/contracts from before counterparties exist.
+	for entry in sales.get("pendingOffers", []) + sales.get("activeContracts", []):
+		Offers.ensure_counterparty(entry, result.get("factions", {}))
 
 
 # R§3.10 "Staff roles": the single shared veinStationVeins list moves onto
@@ -556,6 +559,12 @@ func _restore_int_types(state: Dictionary) -> void:
 		for by_type in market.get(side, {}).values():
 			for by_source in by_type.values():
 				_int_dict_values(by_source)
+	for note in market.get("annotations", []):
+		_int_key(note, "day")
+		_int_key(note, "value")
+	for delivery in market.get("deliveries", []):
+		_int_key(delivery, "day")
+		_int_key(delivery, "qty")
 	var business_stats: Dictionary = state.get("businessStats", {})
 	_int_dict_values(business_stats.get("today", {}))
 	for record in business_stats.get("days", []):

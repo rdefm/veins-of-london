@@ -6266,9 +6266,13 @@
 "type": "flag_true"
 }
 },
+"OFFER_COUNTERPARTY": {
+"smallOfferThreshold": 1000
+},
 "OFFER_TEMPLATES": {
 "biz_recurring_life_ore": {
 "contractType": "recurring",
+"counterparty": "collective",
 "expiresAfterDays": 7,
 "id": "biz_recurring_life_ore",
 "request": {
@@ -6280,6 +6284,7 @@
 },
 "biz_recurring_time_ore": {
 "contractType": "recurring",
+"counterparty": "guild",
 "expiresAfterDays": 7,
 "id": "biz_recurring_time_ore",
 "request": {
@@ -6291,6 +6296,7 @@
 },
 "biz_recurring_time_pearl": {
 "contractType": "recurring",
+"counterparty": "guild",
 "expiresAfterDays": 7,
 "id": "biz_recurring_time_pearl",
 "request": {
@@ -6302,6 +6308,7 @@
 },
 "biz_starter_1": {
 "contractType": "oneOff",
+"counterparty": "collective",
 "deadlineAfterDays": 5,
 "expiresAfterDays": 5,
 "id": "biz_starter_1",
@@ -6315,6 +6322,7 @@
 },
 "biz_starter_2": {
 "contractType": "oneOff",
+"counterparty": "guild",
 "deadlineAfterDays": 5,
 "expiresAfterDays": 5,
 "id": "biz_starter_2",
@@ -6328,6 +6336,7 @@
 },
 "biz_starter_3": {
 "contractType": "oneOff",
+"counterparty": "collective",
 "deadlineAfterDays": 5,
 "expiresAfterDays": 5,
 "id": "biz_starter_3",
@@ -6359,6 +6368,7 @@
 },
 "scripted_life_order": {
 "contractType": "oneOff",
+"counterparty": "collective",
 "deadlineAfterDays": 4,
 "expiresAfterDays": 5,
 "id": "scripted_life_order",
@@ -6371,6 +6381,7 @@
 },
 "scripted_physics_weekly": {
 "contractType": "recurring",
+"counterparty": "firm",
 "expiresAfterDays": 7,
 "id": "scripted_physics_weekly",
 "request": {

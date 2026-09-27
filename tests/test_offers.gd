@@ -133,3 +133,52 @@ func run() -> void:
 		for line in created["offer"]["request"]["types"]:
 			assert_true(int(line["qty"]) >= 2 and int(line["qty"]) <= 5, "mixed one-off per-type qty band is 2-5")
 	)
+
+	run_case("scripted_templates_carry_their_authored_counterparty", func():
+		GameState.reset()
+		var created: Dictionary = OffersSystem.create_scripted_offer("scripted_physics_weekly")
+		assert_eq(created["offer"]["counterparty"], "firm")
+		var accepted: Dictionary = OffersSystem.accept_offer(created["offer"]["id"])
+		assert_eq(accepted["contract"]["counterparty"], "firm", "accept copies the counterparty")
+		for template in GameData.OFFER_TEMPLATES.values():
+			if template["source"] == "scripted":
+				assert_true(GameData.FACTIONS.has(template.get("counterparty", "")), "%s authors a counterparty" % template["id"])
+	)
+
+	run_case("small_offers_go_to_collective_or_firm_by_fit", func():
+		GameState.reset()
+		assert_eq(OffersSystem.small_counterparty({ "kind": "ore", "type": "life", "qty": 1 }), "collective")
+		assert_eq(OffersSystem.small_counterparty({ "kind": "ore", "type": "emotion", "qty": 1 }), "collective")
+		assert_eq(OffersSystem.small_counterparty({ "kind": "ore", "type": "physics", "qty": 1 }), "firm")
+		assert_eq(OffersSystem.small_counterparty({ "kind": "consumable", "type": "enhancementPowder", "qty": 1 }), "collective", "an item counts as its ingredient ores")
+		assert_eq(OffersSystem.small_counterparty({ "kind": "consumable", "type": "wormhole", "qty": 1 }), "firm", "time + physics fits the Firm")
+		var factions: Dictionary = GameState.state["factions"]
+		factions["collective"]["relation"] = 5
+		factions["firm"]["relation"] = 10
+		assert_eq(OffersSystem.small_counterparty({ "kind": "ore", "type": "time", "qty": 1 }), "firm", "no fit: better relation")
+		factions["collective"]["relation"] = 20
+		assert_eq(OffersSystem.small_counterparty({ "kind": "ore", "type": "time", "qty": 1 }), "collective")
+		factions["firm"]["relation"] = 20
+		var seen := {}
+		for i in 40:
+			seen[OffersSystem.small_counterparty({ "kind": "ore", "type": "fate", "qty": 1 })] = true
+		assert_eq(seen.keys().size(), 2, "a relation tie rolls between the two")
+		assert_true(seen.has("collective") and seen.has("firm"))
+		var threshold: int = GameData.OFFER_COUNTERPARTY["smallOfferThreshold"]
+		assert_eq(OffersSystem.pick_counterparty("", { "kind": "consumable", "type": "enhancementPowder", "qty": 1 }, threshold - 1), "collective", "below threshold: small rule, not consumers")
+	)
+
+	run_case("large_offers_weight_factions_by_identity", func():
+		GameState.reset()
+		var threshold: int = GameData.OFFER_COUNTERPARTY["smallOfferThreshold"]
+		assert_eq(OffersSystem.identity_weights({ "kind": "ore", "type": "fate", "qty": 1 }), { "network": 1, "conclave": 1 })
+		assert_eq(OffersSystem.identity_weights({ "kind": "consumable", "type": "enhancementPowder", "qty": 1 }), { "firm": 3, "guild": 1 })
+		var seen := {}
+		for i in 60:
+			seen[OffersSystem.pick_counterparty("", { "kind": "ore", "type": "fate", "qty": 20 }, threshold)] = true
+		assert_eq(seen.keys().size(), 2)
+		assert_true(seen.has("network") and seen.has("conclave"), "ore goods go to factions crafting with that ore")
+		assert_eq(OffersSystem.pick_counterparty("", { "kind": "consumable", "type": "blast", "qty": 20 }, threshold), "firm", "item goods go to consumers")
+		GameState.state["factions"]["collective"]["relation"] = 30
+		assert_eq(OffersSystem.pick_counterparty("", { "kind": "consumable", "type": "beALady", "qty": 20 }, threshold), "collective", "no consumer: small rule")
+	)

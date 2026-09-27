@@ -103,6 +103,7 @@ static func new_state(resting: bool) -> Dictionary:
 		"supply": { "ore": {}, "consumable": {} },
 		"demand": { "ore": {}, "consumable": {} },
 		"annotations": [],
+		"deliveries": [],
 		"tickerStates": {},
 	}
 
@@ -194,6 +195,20 @@ static func record_supply(kind: String, good_type: String, qty: int, source: Str
 
 static func record_demand(kind: String, good_type: String, qty: int, source: String) -> void:
 	_record("demand", kind, good_type, qty, source)
+
+
+# Contract delivery (R§3.13 "Deliveries"): recorded for the buyer faction
+# only -- no supply tally, no price effect. Bounded to deliveries.cap.
+static func note_contract_delivery(counterparty: String, kind: String, good_type: String, qty: int) -> void:
+	if qty <= 0:
+		return
+	var market := _market()
+	if not market.has("deliveries"):
+		market["deliveries"] = []
+	var entries: Array = market["deliveries"]
+	entries.append({ "day": GameState.state["world"]["day"], "counterparty": counterparty, "goodKind": kind, "good": good_type, "qty": qty })
+	while entries.size() > int(_config()["deliveries"]["cap"]):
+		entries.pop_front()
 
 
 # Tallies are { kind: { type: { source: qty } } }, cleared each reprice.

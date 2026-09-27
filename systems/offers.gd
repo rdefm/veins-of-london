@@ -101,6 +101,7 @@ static func create_offer(template: Dictionary) -> Dictionary:
 		"createdDay": today, "expiresDay": today + expiry_days, "weekday": RECURRING_WEEKDAY,
 		"deadlineAfterDays": int(template.get("deadlineAfterDays", 0)),
 		"extraTypeDeadlineDays": extra_types * MIXED_EXTRA_TYPE_DEADLINE_DAYS, "quote": quote,
+		"counterparty": pick_counterparty(template.get("id", ""), request, int(quote["payment"])),
 	}
 	sales["nextOfferId"] += 1
 	pending_offers().append(offer)
@@ -137,6 +138,83 @@ static func unit_value(kind: String, item_type: String) -> int:
 	return Market.quote(kind, item_type)
 
 
+# R§3.10 "Counterparty": a template's authored counterparty wins;
+# otherwise an offer paying at least smallOfferThreshold is weighted across
+# every faction by identity, and a smaller one (or one no faction weights)
+# goes to the Collective or the Firm by fit.
+# `factions` is the state.factions dict to read relations from (a save being
+# loaded); empty means the live GameState.
+static func pick_counterparty(template_id: String, request: Dictionary, payment: int, factions: Dictionary = {}) -> String:
+	var authored: String = GameData.OFFER_TEMPLATES.get(template_id, {}).get("counterparty", "")
+	if authored != "":
+		return authored
+	if payment >= int(GameData.OFFER_COUNTERPARTY["smallOfferThreshold"]):
+		var weights := identity_weights(request)
+		if not weights.is_empty():
+			return _weighted_pick(weights)
+	return small_counterparty(request, factions)
+
+
+# An offer or contract's counterparty, assigning one by pick_counterparty()
+# first if it has none (old-save backfill).
+static func ensure_counterparty(entry: Dictionary, factions: Dictionary = {}) -> String:
+	if String(entry.get("counterparty", "")) == "":
+		entry["counterparty"] = pick_counterparty(entry.get("templateId", ""), entry["request"], int(entry.get("quote", {}).get("payment", 0)), factions)
+	return entry["counterparty"]
+
+
+# Ore goods weight each faction crafting with that ore by 1; item goods
+# weight each faction consuming them by its base weekly qty.
+static func identity_weights(request: Dictionary) -> Dictionary:
+	var weights := {}
+	for line in Contracts.request_lines(request):
+		if line["kind"] == "ore":
+			for faction_id in Factions.factions_crafting_with_ore(line["type"]):
+				weights[faction_id] = int(weights.get(faction_id, 0)) + 1
+		else:
+			for faction_id in Factions.factions_consuming(line["type"]):
+				weights[faction_id] = int(weights.get(faction_id, 0)) + int(GameData.FACTIONS[faction_id]["consumes"][line["type"]])
+	return weights
+
+
+# Collective for life/emotion goods, Firm for physics goods (an item counts
+# as its recipe's ingredient ores); anything else, or both, goes to the one
+# the player stands better with, a tie rolled.
+static func small_counterparty(request: Dictionary, factions: Dictionary = {}) -> String:
+	var ores := {}
+	for line in Contracts.request_lines(request):
+		if line["kind"] == "ore":
+			ores[line["type"]] = true
+		else:
+			for ore_type in GameData.RECIPES.get(line["type"], {}).get("ingredients", {}):
+				ores[ore_type] = true
+	var collective_fit: bool = ores.has("life") or ores.has("emotion")
+	var firm_fit: bool = ores.has("physics")
+	if collective_fit != firm_fit:
+		return "collective" if collective_fit else "firm"
+	if factions.is_empty():
+		factions = GameState.state["factions"]
+	var collective_rel := int(factions["collective"]["relation"])
+	var firm_rel := int(factions["firm"]["relation"])
+	if collective_rel != firm_rel:
+		return "collective" if collective_rel > firm_rel else "firm"
+	return Rng.rand_from(["collective", "firm"])
+
+
+static func _weighted_pick(weights: Dictionary) -> String:
+	var total := 0
+	for weight in weights.values():
+		total += int(weight)
+	var roll := Rng.randf() * float(total)
+	var last := ""
+	for faction_id in weights:
+		last = faction_id
+		roll -= float(weights[faction_id])
+		if roll < 0.0:
+			return faction_id
+	return last
+
+
 static func accept_offer(offer_id: String) -> Dictionary:
 	var pending := pending_offers()
 	for index in pending.size():
@@ -158,7 +236,7 @@ static func accept_offer(offer_id: String) -> Dictionary:
 		# Extra requested types were fixed at offer-creation (quote) time; their
 		# deadline bonus applies on top of whichever base above was picked.
 		due_day += int(offer.get("extraTypeDeadlineDays", 0))
-		var contract := { "id": "contract-%d" % sales["nextContractId"], "periodId": "period-%d" % sales["nextPeriodId"], "offerId": offer_id, "templateId": offer["templateId"], "contractType": offer["contractType"], "request": offer["request"].duplicate(true), "quote": offer["quote"].duplicate(true), "acceptedDay": accepted_day, "dueDay": due_day, "weekday": offer["weekday"], "delivered": {}, "status": "active" }
+		var contract := { "id": "contract-%d" % sales["nextContractId"], "periodId": "period-%d" % sales["nextPeriodId"], "offerId": offer_id, "templateId": offer["templateId"], "contractType": offer["contractType"], "request": offer["request"].duplicate(true), "quote": offer["quote"].duplicate(true), "acceptedDay": accepted_day, "dueDay": due_day, "weekday": offer["weekday"], "delivered": {}, "status": "active", "counterparty": ensure_counterparty(offer) }
 		Contracts.start_period(contract)
 		sales["nextContractId"] += 1
 		sales["nextPeriodId"] += 1

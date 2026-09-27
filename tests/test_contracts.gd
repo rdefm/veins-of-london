@@ -195,6 +195,23 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["orichalchum"]["life"], 5)
 	)
 
+	run_case("delivery_notes_the_counterparty_hook_and_records_no_supply", func():
+		_staff_sales()
+		var contract := _accept_life_contract()
+		GameState.state["player"]["orichalchum"]["life"] = 2
+		ContractsSystem.process_sales_deliveries()
+		var deliveries: Array = GameState.state["market"]["deliveries"]
+		assert_eq(deliveries.size(), 1)
+		assert_eq(deliveries[0]["counterparty"], contract["counterparty"])
+		assert_eq(deliveries[0]["goodKind"], "ore")
+		assert_eq(deliveries[0]["good"], "life")
+		assert_eq(deliveries[0]["qty"], 2)
+		assert_true(GameState.state["market"]["supply"]["ore"].is_empty(), "no supply tally")
+		for i in int(GameData.MARKET["deliveries"]["cap"]) + 5:
+			Market.note_contract_delivery("firm", "ore", "time", 1)
+		assert_eq(deliveries.size(), int(GameData.MARKET["deliveries"]["cap"]), "bounded")
+	)
+
 	run_case("partial_delivery_spends_shared_stock_only_and_no_time", func():
 		_staff_sales()
 		var contract := _accept_life_contract()

@@ -394,6 +394,12 @@ func _build_contract_tags(entry: Dictionary) -> Control:
 	return row
 
 
+# R§3.10 "Counterparty": the faction an offer or contract is with.
+func _counterparty_text(entry: Dictionary) -> String:
+	var faction: Dictionary = GameData.FACTIONS.get(entry.get("counterparty", ""), {})
+	return "Buyer: %s" % faction.get("shortName", "unknown")
+
+
 func _build_sales() -> Control:
 	var c := UI.card()
 	c["content"].add_child(UI.heading("Sales", 14))
@@ -404,6 +410,7 @@ func _build_sales() -> Control:
 		var request: Dictionary = offer["request"]
 		var expiry: String = "open until taken" if BusinessQuest.holds_offer_open(offer.get("templateId", "")) else "expires %s" % Calendar.format_day(int(offer["expiresDay"]))
 		c["content"].add_child(_build_contract_tags(offer))
+		c["content"].add_child(UI.muted_label(_counterparty_text(offer)))
 		c["content"].add_child(UI.label("%s · £%d · %s" % [_request_summary(request), offer["quote"]["payment"], expiry]))
 		var offer_row := UI.hbox()
 		offer_row.add_child(UI.button("Accept", func(): OffersSystem.accept_offer(offer["id"])))
@@ -420,6 +427,7 @@ func _build_sales() -> Control:
 			var box := VBoxContainer.new()
 			card.add_child(box)
 			box.add_child(_build_contract_tags(contract))
+			box.add_child(UI.muted_label(_counterparty_text(contract)))
 			box.add_child(UI.label("%d. %s: %s · due %s · £%d" % [index + 1, contract["id"], _contract_progress_summary(contract), Calendar.format_day(int(contract["dueDay"])),contract["quote"]["payment"]]))
 			var filled: bool = ContractsSystem.is_period_filled(contract)
 			if filled:

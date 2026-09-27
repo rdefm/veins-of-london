@@ -14,6 +14,7 @@ var RECIPES: Dictionary = {}
 var CRAFTING_XP_LEVELS: Array = []
 var CONSUMABLE_PRICES: Dictionary = {}
 var OFFER_TEMPLATES: Dictionary = {}
+var OFFER_COUNTERPARTY: Dictionary = {}
 
 # Same shape as CULTIVATING_XP_LEVELS/CRAFTING_XP_LEVELS -- lives in
 # home.json since Sales is gated by the Operations Room defined there.
@@ -236,6 +237,7 @@ const MANIFEST: Array[Dictionary] = [
 	]},
 	{"table": "offers", "file": "res://data/offers.json", "fields": [
 		{"field": "OFFER_TEMPLATES", "key": "templates", "type": TYPE_DICTIONARY},
+		{"field": "OFFER_COUNTERPARTY", "key": "counterparty", "type": TYPE_DICTIONARY},
 	]},
 	{"table": "dial", "file": "res://data/dial.json", "fields": [
 		{"field": "DIAL_SEED_COST", "key": "seedCost", "type": TYPE_DICTIONARY},

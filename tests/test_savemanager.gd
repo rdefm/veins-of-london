@@ -495,6 +495,22 @@ func run() -> void:
 		assert_true(resting > 90, "resting sits above base (idle premium)")
 	)
 
+	run_case("old_save_offers_and_contracts_backfill_a_counterparty", func():
+		GameState.reset()
+		Offers.create_scripted_offer("scripted_physics_weekly")
+		Offers.accept_offer(Offers.create_scripted_offer("scripted_life_order")["offer"]["id"])
+		Offers.create_offer({ "id": "", "source": "random", "contractType": "oneOff", "request": { "kind": "ore", "type": "time", "qty": 1 } })
+		var legacy: Dictionary = GameState.deep_copy(GameState.state)
+		legacy["factions"]["firm"]["relation"] = 50
+		for entry in legacy["sales"]["pendingOffers"] + legacy["sales"]["activeContracts"]:
+			entry.erase("counterparty")
+		var filled := SaveManager.backfill_defaults(legacy)
+		var offers: Array = filled["sales"]["pendingOffers"]
+		assert_eq(offers[0]["counterparty"], "firm", "scripted: from data")
+		assert_eq(offers[1]["counterparty"], "firm", "small, no fit: the save's better relation")
+		assert_eq(filled["sales"]["activeContracts"][0]["counterparty"], "collective")
+	)
+
 	run_case("loading_a_pre_107_save_backfills_home_guardCount_to_0", func():
 		GameState.reset()
 		# Pre-107 shape: state.home had no guardCount key at all.

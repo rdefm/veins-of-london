@@ -166,6 +166,7 @@ static func _deliver(contract: Dictionary) -> void:
 		_remove_shared_stock_for_line(line, take)
 		delivered[line["type"]] = int(delivered.get(line["type"], 0)) + take
 		delivered_total += take
+		Market.note_contract_delivery(Offers.ensure_counterparty(contract), line["kind"], line["type"], take)
 	if delivered_total <= 0:
 		return
 	if is_complete(contract):
