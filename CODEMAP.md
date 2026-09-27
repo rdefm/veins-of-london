@@ -55,7 +55,7 @@ Data file per system: see `data/*.json` below.
 | jobs.gd | James's jobs, trust bands |
 | lab_bench_nav.gd | Lab bench nav: selected ore; gear confirm variant (probe/craft/inert) + readiness |
 | map_events.gd | Map event queue + playback |
-| market.gd | London market (R§3.13): per-good stock/price/history, quote + 2-day average, supply/demand recording, daily reprice (⑥.6: items with Ticker demand multipliers, then ores with demand derived from item shortages), stand-in London volumes, sim-start switch |
+| market.gd | London market (R§3.13): per-good stock/price/history, quote/yesterday/2-day average, supply/demand recording, daily reprice (⑥.6: items by Ticker demand, ores by item shortages), bounded annotations (Ticker shift/dump/spike/crash), Stock Market reads (series, ore demand drivers, demand modifiers) |
 | map_hit_test.gd | Tap-hit geometry, Network diagram |
 | map_layout.gd | Resolves stops vs. live sites/veins |
 | map_nav.gd | Map drill-down nav (list → panel → site sheet or vein detail panel, mutually exclusive) |
@@ -129,7 +129,8 @@ overlays.
 | combat_stage.gd | Combat pixel stage: backdrop (location->context->palette); slots in two receding diagonal groups (enemies back/smaller), figure-fitted, depth-sorted; keypose one-shots (sheet, `images`, or random attack `variants`; player = `combat_templates()[player.model]`, scrapper = its `variant`), effects, juice layer. `StageSlot` taps emit `subject_tapped`; selected slot gets an arrow |
 | contact_cards.gd | Shared contact/faction card builders (incl. handler card, Owen card, Targets/Sourcing, Nadia's ledger + "Go with Nadia"), inline Contacts action-row layout, OS chrome repaint |
 | contract_card.gd | Draggable BizBrief Sales card |
-| line_chart.gd | One-series `_draw` line chart (palette-id colour, max label, first/last day) for BizBrief Stats |
+| line_chart.gd | One-series `_draw` line chart (palette-id colour, max label, first/last day, optional point markers) for BizBrief Stats and Ticker price charts |
+| price_move.gd | ▲/▼ + £ delta text and colour for a Market day move (Stock Market rows, sell lanes) |
 | floorplan_view.gd | Estate-agent plan for a home tier from floorplans.json; static, or with tappable slot overlays showing current use |
 | departure_board_casing.gd | Top board's sign housing: code-drawn metal frame, corner bolts, recessed bezel; optional nine-patch `assets/ui/departure_board_frame.png` slot |
 | dial_widget.gd | Combat's Dial-casting widget |
@@ -206,7 +207,7 @@ overlays.
 | messages_app.gd | Conversation inbox (fixed-height rows: bold name, one-line `…` preview, unread pill, per-contact Clear) + single-thread staged bubble reveal/action bar (incl. Owen's text reply choices); thread opens scrolled to the newest message |
 | todo_app.gd | ToDo app: collapsible questline sections from Todo, all_of checks as indented sub-rows; session-only expand/collapse overrides in a static var |
 | factions_app.gd | Faction cards |
-| ticker_app.gd | Barometer headlines + axis detail (push/pull, influence actions) |
+| ticker_app.gd | Ticker: News tab (barometer headlines + axis detail with push/pull, influence actions) and Stock Market tab (prices ▲/▼, demand modifiers, per-good chart with annotations and demand drivers) |
 | profile_app.gd | Stats, skills, equipment |
 | dialer_app.gd | Phone recent-calls placeholder; no telephony state/actions |
 | settings_app.gd | Reduced-motion and alarm-vibration preference controls |
@@ -237,7 +238,7 @@ overlays.
 | hq_visuals.json | hq_diorama.gd, hq*.gd screens |
 | items.json | combat.gd, profile_app.gd, bag_drawer.gd |
 | map_layout.json | map_layout.gd, map_hit_test.gd |
-| market.json | market.gd (constants, sim start, ore conversion rate, per-good normalStock/stand-in supply/demand) |
+| market.json | market.gd (constants, sim start, ore conversion rate, annotation cap/thresholds, per-good normalStock/stand-in supply/demand) |
 | map_palette.json | GameData.gd (validated) + map_palette.gd (Map tab light/dark colour tokens, faction/ore dark overrides) + map_controls.gd (`darkModeLabel`) |
 | objectives.json | objectives.gd, todo.gd, collective.gd, business_quest.gd |
 | offers.json | offers.gd (synthetic catalogue), business_quest.gd (biz_starter_* chain + Archie nudge text, biz_recurring_* from Beat 3/6) |

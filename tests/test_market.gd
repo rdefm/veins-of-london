@@ -234,3 +234,78 @@ func run() -> void:
 		GameData.BAROMETER_STATES["social"]["festival"]["effects"] = saved
 		assert_true(_price("consumable", "shield") < war_only, "effectMod scales itemDemand down (%d vs %d)" % [_price("consumable", "shield"), war_only])
 	)
+
+	# ── annotations ────────────────────────────────────────────────────
+
+	run_case("ticker_shift_annotates_the_items_it_touches", func():
+		GameState.reset()
+		GameState.state["market"] = Market.new_state(true)
+		_tick(1)
+		_set_ticker("political", "war")
+		_tick(1)
+		var shield_notes := _notes_of("consumable", "shield", "ticker")
+		assert_eq(shield_notes.size(), 1, "war shift annotates shield once")
+		assert_eq(shield_notes[0]["source"], "war")
+		assert_eq(shield_notes[0]["day"], GameState.state["world"]["day"])
+		assert_eq(_notes_of("ore", "physics", "ticker").size(), 0, "ores are not annotated by a Ticker shift")
+		_tick(1)
+		assert_eq(_notes_of("consumable", "shield", "ticker").size(), 1, "no new shift, no new annotation")
+	)
+
+	run_case("dump_above_threshold_annotates_dump_and_crash", func():
+		GameState.reset()
+		GameState.state["market"] = Market.new_state(true)
+		Market.record_supply("ore", "time", 175, "player")
+		_tick(1)
+		var dumps := _notes_of("ore", "time", "dump")
+		assert_eq(dumps.size(), 1, "175 in a day is a dump")
+		assert_eq(dumps[0]["source"], "player")
+		assert_eq(dumps[0]["value"], 175)
+		assert_eq(dumps[0]["day"], GameState.state["world"]["day"])
+		assert_eq(_notes_of("ore", "time", "crash").size(), 1, "the dump's price drop is a crash")
+	)
+
+	run_case("ordinary_supply_is_not_a_dump", func():
+		GameState.reset()
+		GameState.state["market"] = Market.new_state(true)
+		Market.record_supply("ore", "time", 25, "player")
+		_tick(1)
+		assert_eq(Market.annotations_for("ore", "time").size(), 0, "a normal day's selling leaves no annotation")
+	)
+
+	run_case("forced_shortage_annotates_a_spike", func():
+		GameState.reset()
+		GameState.state["market"] = Market.new_state(true)
+		Market.record_demand("ore", "fate", 200, "player")
+		_tick(1)
+		var spikes := _notes_of("ore", "fate", "spike")
+		assert_eq(spikes.size(), 1)
+		assert_eq(spikes[0]["source"], "market")
+		assert_true(int(spikes[0]["value"]) > 0, "spike carries a positive £ move")
+	)
+
+	run_case("annotations_are_bounded_by_the_cap", func():
+		GameState.reset()
+		GameState.state["market"] = Market.new_state(true)
+		var saved: int = GameData.MARKET["annotations"]["cap"]
+		GameData.MARKET["annotations"]["cap"] = 3
+		for i in range(5):
+			Market.record_supply("ore", "time", 175, "player")
+			_tick(1)
+		var notes: Array = GameState.state["market"]["annotations"]
+		GameData.MARKET["annotations"]["cap"] = saved
+		assert_eq(notes.size(), 3, "oldest annotations drop past the cap")
+		assert_eq(notes[-1]["day"], GameState.state["world"]["day"], "newest kept")
+	)
+
+	run_case("prev_quote_and_day_move_read_yesterday", func():
+		GameState.reset()
+		_time()["price"] = 66
+		_time()["prevPrice"] = 60
+		assert_eq(Market.prev_quote("ore", "time"), 60)
+		assert_eq(Market.day_move("ore", "time"), 6)
+	)
+
+
+func _notes_of(kind: String, good_type: String, note_kind: String) -> Array:
+	return Market.annotations_for(kind, good_type).filter(func(n): return n["kind"] == note_kind)

@@ -1,10 +1,11 @@
 class_name LineChart
 extends Control
 
-# One-series line chart for the BizBrief Stats tab: values oldest first,
-# plotted against a zero baseline and the series max, with the max value at
-# top left and the first/last day under the x axis. Presentation only;
-# colours are data/palette.json ids (docs/ui-vision.md §6).
+# One-series line chart (BizBrief Stats, Ticker price charts): values
+# oldest first, plotted against a zero baseline and the series max, with the
+# max value at top left and the first/last day under the x axis. Optional
+# markers draw a coloured tick above a point. Presentation only; colours
+# are data/palette.json ids (docs/ui-vision.md §6).
 
 const CHART_HEIGHT := 120.0
 const PAD_LEFT := 4.0
@@ -14,6 +15,7 @@ const PAD_RIGHT := 4.0
 const LINE_WIDTH := 2.0
 const POINT_RADIUS := 2.5
 const FONT_SIZE := 12
+const MARKER_HALF := 4.0
 
 const GRID_ID := "phone_divider"
 const TEXT_ID := "phone_text_muted"
@@ -24,6 +26,7 @@ var _values: Array[int] = []
 var _days: Array[int] = []
 var _colour := Color.WHITE
 var _prefix := ""
+var _markers: Array = []
 
 
 # values and days are parallel arrays; colour_id is a palette id; prefix
@@ -36,6 +39,13 @@ func setup(values: Array[int], days: Array[int], colour_id: String, prefix: Stri
 	custom_minimum_size = Vector2(0, CHART_HEIGHT)
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	queue_redraw()
+	return self
+
+
+# markers: [{ index (into values), colour_id }].
+func with_markers(markers: Array) -> LineChart:
+	_markers = markers
 	queue_redraw()
 	return self
 
@@ -68,3 +78,11 @@ func _draw() -> void:
 		draw_polyline(points, _colour, LINE_WIDTH, true)
 	for point in points:
 		draw_circle(point, POINT_RADIUS, _colour)
+	for marker in _markers:
+		var index: int = marker["index"]
+		if index < 0 or index >= points.size():
+			continue
+		var marker_colour: Color = GameData.PALETTE.get(marker["colour_id"], _colour)
+		var x: float = points[index].x
+		draw_dashed_line(Vector2(x, plot.position.y), points[index], marker_colour, 1.0, 3.0)
+		draw_colored_polygon(PackedVector2Array([Vector2(x - MARKER_HALF, plot.position.y - MARKER_HALF), Vector2(x + MARKER_HALF, plot.position.y - MARKER_HALF), Vector2(x, plot.position.y + MARKER_HALF)]), marker_colour)

@@ -7,6 +7,7 @@
   "smoothing": 0.8,
   "historyDays": 28,
   "oreConversionRate": 1.5,
+  "annotations": { "cap": 80, "dumpVolumeMult": 0.5, "moveThreshold": 0.15 },
   "goods": {
     "ore": {
       "time": { "normalStock": 250, "standInSupply": 190, "standInDemand": 166 },

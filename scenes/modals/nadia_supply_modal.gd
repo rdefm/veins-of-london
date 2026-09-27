@@ -11,7 +11,12 @@ static func build(container: VBoxContainer, data: Dictionary) -> void:
 	container.add_child(UI.label(presentation.get("delivered", "") % [status["delivered"], status["required"]]))
 	container.add_child(UI.label(presentation.get("remaining", "") % status["remaining"]))
 	container.add_child(UI.label(presentation.get("inStock", "") % [stock, GameData.ORE_TYPES[status["oreType"]]["name"]]))
-	container.add_child(UI.label(presentation.get("pricePerUnit", "") % price))
+	var move := Market.day_move("ore", status["oreType"])
+	var price_row := UI.hbox(4)
+	price_row.add_child(UI.label(presentation.get("pricePerUnit", "") % price))
+	if move != 0:
+		price_row.add_child(UI.tinted_label(PriceMove.text(move), PriceMove.colour(move, Color.WHITE)))
+	container.add_child(price_row)
 
 	var qty := SpinBox.new()
 	qty.min_value = 1

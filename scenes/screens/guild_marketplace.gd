@@ -57,7 +57,12 @@ func _build_goods_row(kind: String, item_type: String) -> Control:
 
 	var c := MapCardStyle.card()
 	c["content"].add_child(UI.symbol_row([{ "symbol": symbol, "fallback": fallback }, name], { "heading_size": 15 }))
-	c["content"].add_child(UI.label("Buy £%d/u · Sell £%d/u · Have %d" % [buy_price, sell_price, have]))
+	var move := Market.day_move(kind, item_type)
+	var prices := UI.hbox(4)
+	prices.add_child(UI.label("Buy £%d/u · Sell £%d/u · Have %d" % [buy_price, sell_price, have]))
+	if move != 0:
+		prices.add_child(UI.tinted_label(PriceMove.text(move), PriceMove.colour(move, Color.WHITE)))
+	c["content"].add_child(prices)
 	var buy_max_qty := Economy.get_faction_buy_max_qty("guild", kind, item_type)
 	var sell_max_qty := have
 	var slider_max := maxi(buy_max_qty, sell_max_qty)

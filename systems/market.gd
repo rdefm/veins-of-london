@@ -102,6 +102,8 @@ static func new_state(resting: bool) -> Dictionary:
 		"goods": goods,
 		"supply": { "ore": {}, "consumable": {} },
 		"demand": { "ore": {}, "consumable": {} },
+		"annotations": [],
+		"tickerStates": {},
 	}
 
 
@@ -110,6 +112,69 @@ static func quote(kind: String, good_type: String) -> int:
 	if not is_running():
 		return base_price(kind, good_type)
 	return int(_market()["goods"][kind][good_type]["price"])
+
+
+# Yesterday's London price. Base price before the sim starts.
+static func prev_quote(kind: String, good_type: String) -> int:
+	if not is_running():
+		return base_price(kind, good_type)
+	return int(_market()["goods"][kind][good_type]["prevPrice"])
+
+
+# Today's quote minus yesterday's (sign drives the ▲/▼ on price rows).
+static func day_move(kind: String, good_type: String) -> int:
+	return quote(kind, good_type) - prev_quote(kind, good_type)
+
+
+# Stored price history oldest first as { values, days }; history's last
+# entry is today's price.
+static func price_series(kind: String, good_type: String) -> Dictionary:
+	var values: Array[int] = []
+	var days: Array[int] = []
+	var history: Array = _market()["goods"][kind][good_type]["history"]
+	var today: int = GameState.state["world"]["day"]
+	for i in history.size():
+		values.append(int(history[i]))
+		days.append(today - (history.size() - 1 - i))
+	return { "values": values, "days": days }
+
+
+# Annotations recorded for one good, oldest first.
+static func annotations_for(kind: String, good_type: String) -> Array:
+	var found: Array = []
+	for note in _market().get("annotations", []):
+		if note["goodKind"] == kind and note["good"] == good_type:
+			found.append(note)
+	return found
+
+
+# Items whose London shortage is feeding this ore's derived demand today,
+# as [{ recipeKey, shortage, demand }], largest demand first.
+static func ore_demand_drivers(ore_type: String) -> Array:
+	var drivers: Array = []
+	for recipe_key in _market()["goods"]["consumable"]:
+		var qty: int = int(GameData.RECIPES[recipe_key]["ingredients"].get(ore_type, 0))
+		var shortage: float = _normal_stock("consumable", recipe_key) - float(_market()["goods"]["consumable"][recipe_key]["stock"])
+		if qty > 0 and shortage > 0.0:
+			drivers.append({ "recipeKey": recipe_key, "shortage": int(shortage), "demand": shortage * qty * float(_config()["oreConversionRate"]) })
+	drivers.sort_custom(func(a, b): return a["demand"] > b["demand"])
+	return drivers
+
+
+# Each active Ticker state's item-demand effect, scaled by the merged
+# effectMod (R§3.2), as [{ section, state, target, fraction }]; target is
+# "all" for demandAll or a recipe key for itemDemand.
+static func demand_modifiers() -> Array:
+	var scale: float = 1.0 + float(Barometer.get_merged_effects().get("effectMod", 0.0))
+	var mods: Array = []
+	for section in Barometer.SECTIONS:
+		var state_id: String = GameState.state["barometer"][section]
+		var effects: Dictionary = GameData.BAROMETER_STATES[section][state_id]["effects"]
+		if float(effects.get("demandAll", 0.0)) != 0.0:
+			mods.append({ "section": section, "state": state_id, "target": "all", "fraction": float(effects["demandAll"]) * scale })
+		for recipe_key in effects.get("itemDemand", {}):
+			mods.append({ "section": section, "state": state_id, "target": recipe_key, "fraction": float(effects["itemDemand"][recipe_key]) * scale })
+	return mods
 
 
 # Mean of the last two days' prices, for vein valuations; today's quote
@@ -160,6 +225,7 @@ static func daily_reprice() -> void:
 	var smoothing: float = cfg["smoothing"]
 	var history_days: int = int(cfg["historyDays"])
 	var market := _market()
+	var ticker_shifts := _ticker_shifts()
 	for kind in KINDS:
 		for good_type in market["goods"][kind]:
 			var good: Dictionary = market["goods"][kind][good_type]
@@ -183,5 +249,64 @@ static func daily_reprice() -> void:
 			history.append(good["price"])
 			while history.size() > history_days:
 				history.pop_front()
+			_annotate_day(kind, good_type, ticker_shifts, price, int(good["price"]))
 	market["supply"] = { "ore": {}, "consumable": {} }
 	market["demand"] = { "ore": {}, "consumable": {} }
+
+
+# Ticker states that changed since the last reprice, [{ section, state }];
+# snapshots today's states for tomorrow. The first reprice only seeds.
+static func _ticker_shifts() -> Array:
+	var market := _market()
+	var last: Dictionary = market.get("tickerStates", {})
+	var shifts: Array = []
+	var now := {}
+	for section in Barometer.SECTIONS:
+		now[section] = GameState.state["barometer"][section]
+		if last.has(section) and last[section] != now[section]:
+			shifts.append({ "section": section, "from": last[section], "state": now[section] })
+	market["tickerStates"] = now
+	return shifts
+
+
+# A shift touches an item when the outgoing or incoming state's effects carry
+# demandAll or an itemDemand entry for it. Ores are never touched directly.
+static func _shift_touches(shift: Dictionary, kind: String, good_type: String) -> bool:
+	if kind != "consumable":
+		return false
+	for state_id in [shift["from"], shift["state"]]:
+		var effects: Dictionary = GameData.BAROMETER_STATES[shift["section"]][state_id]["effects"]
+		if float(effects.get("demandAll", 0.0)) != 0.0 or effects.get("itemDemand", {}).has(good_type):
+			return true
+	return false
+
+
+# Appends today's annotations for one good: Ticker shifts touching it, each
+# source's supply above dumpVolumeMult × standInSupply, and a day move of at
+# least moveThreshold × yesterday's price. Runs before tallies clear.
+static func _annotate_day(kind: String, good_type: String, ticker_shifts: Array, old_price: int, new_price: int) -> void:
+	var cfg: Dictionary = _config()["annotations"]
+	for shift in ticker_shifts:
+		if _shift_touches(shift, kind, good_type):
+			_annotate(kind, good_type, "ticker", shift["state"], 0)
+	var dump_line: float = float(cfg["dumpVolumeMult"]) * float(_stand_in(kind, good_type)["supply"])
+	var by_source: Dictionary = _market()["supply"][kind].get(good_type, {})
+	for source in by_source:
+		if float(by_source[source]) > dump_line:
+			_annotate(kind, good_type, "dump", source, int(by_source[source]))
+	var move: int = new_price - old_price
+	if old_price > 0 and absf(float(move)) >= float(cfg["moveThreshold"]) * old_price:
+		_annotate(kind, good_type, "spike" if move > 0 else "crash", "market", move)
+
+
+# Annotation: { day, goodKind, good, kind (ticker/dump/spike/crash),
+# source (Ticker state id, supplier, or "market"), value (dump qty or £
+# move; 0 for ticker) }. Bounded to annotations.cap, oldest dropped.
+static func _annotate(kind: String, good_type: String, note_kind: String, source: String, value: int) -> void:
+	var market := _market()
+	if not market.has("annotations"):
+		market["annotations"] = []
+	var notes: Array = market["annotations"]
+	notes.append({ "day": GameState.state["world"]["day"], "goodKind": kind, "good": good_type, "kind": note_kind, "source": source, "value": value })
+	while notes.size() > int(_config()["annotations"]["cap"]):
+		notes.pop_front()

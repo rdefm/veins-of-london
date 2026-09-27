@@ -1,27 +1,214 @@
-# The Ticker: one headline card per barometer axis, drilling into an axis
-# detail view (state list with push/pull, greyed influence actions) when
-# state.phoneNav.selectedAxis is set.
+# The Ticker: News tab (one headline card per barometer axis, drilling into
+# an axis detail view with push/pull and greyed influence actions when
+# state.phoneNav.selectedAxis is set) and Stock Market tab (London prices
+# with ▲/▼ versus yesterday, active demand modifiers, and a per-good price
+# chart with annotations). The tab and selected good are view state held
+# here, not in state.phoneNav, so they reset with the screen.
 class_name TickerApp
 extends PhoneApp
 
+const LineChartScript := preload("res://scenes/components/line_chart.gd")
+
 const SECTION_LABELS := { "economic": "Economic", "social": "Social", "political": "Political" }
+const NEWS_TAB := "news"
+const STOCK_TAB := "stock"
+const ANNOTATION_COLOURS := { "ticker": "pastel_ochre", "dump": "pastel_blue", "spike": "pastel_teal", "crash": "pastel_pink" }
+const MUTED := Color("#999a9d")
+
+var _tab := NEWS_TAB
+# { kind, type } of the good whose chart is open, or empty for the list.
+var _selected_good := {}
 
 
 func build(content: VBoxContainer) -> void:
 	var selected_axis = GameState.state["phoneNav"].get("selectedAxis")
-	if selected_axis == null:
-		_build_ticker(content)
-	else:
+	if selected_axis != null:
 		_build_axis_detail(content, selected_axis)
+		return
+	if _tab == STOCK_TAB and not _selected_good.is_empty():
+		_build_good_detail(content, _selected_good["kind"], _selected_good["type"])
+		return
+	content.add_child(back_button())
+	content.add_child(UI.heading("The Ticker"))
+	content.add_child(_build_tabs())
+	if _tab == STOCK_TAB:
+		_build_stock_market(content)
+	else:
+		_build_ticker(content)
+
+
+func _build_tabs() -> Control:
+	var tabs := UI.hbox()
+	var news := UI.button("News", func(): _set_tab(NEWS_TAB))
+	news.disabled = _tab == NEWS_TAB
+	tabs.add_child(UI.expand_fill(news))
+	var stock := UI.button("Stock Market", func(): _set_tab(STOCK_TAB))
+	stock.disabled = _tab == STOCK_TAB
+	tabs.add_child(UI.expand_fill(stock))
+	return tabs
+
+
+func _set_tab(tab: String) -> void:
+	_tab = tab
+	_selected_good = {}
+	refresh()
+
+
+func _select_good(kind: String, good_type: String) -> void:
+	_selected_good = { "kind": kind, "type": good_type }
+	refresh()
 
 
 func _build_ticker(content: VBoxContainer) -> void:
-	content.add_child(back_button())
-	content.add_child(UI.heading("The Ticker"))
 	content.add_child(UI.muted_label("Push/pull costs £2000, once per state+direction per day."))
 
 	for section in Barometer.SECTIONS:
 		content.add_child(_build_headline_card(section))
+
+
+# ── Stock Market ────────────────────────────────────────────────────────
+
+func _build_stock_market(content: VBoxContainer) -> void:
+	var mods := UI.card()
+	mods["content"].add_child(UI.heading("Demand modifiers", 14))
+	var modifiers: Array = Market.demand_modifiers()
+	if modifiers.is_empty():
+		mods["content"].add_child(UI.muted_label("Nothing on the Ticker is moving demand."))
+	for mod in modifiers:
+		mods["content"].add_child(UI.muted_label(_modifier_text(mod)))
+	content.add_child(mods["panel"])
+
+	content.add_child(UI.heading("Ore", 14))
+	for ore_type in GameData.MARKET["goods"]["ore"]:
+		content.add_child(_good_row("ore", ore_type))
+	content.add_child(UI.heading("Items", 14))
+	for recipe_key in GameData.MARKET["goods"]["consumable"]:
+		content.add_child(_good_row("consumable", recipe_key))
+
+
+func _good_name(kind: String, good_type: String) -> String:
+	return GameData.ORE_TYPES[good_type]["name"] if kind == "ore" else GameData.RECIPES[good_type]["name"]
+
+
+func _good_symbol(kind: String, good_type: String) -> Dictionary:
+	if kind == "ore":
+		return { "symbol": GameData.ORE_TYPES[good_type]["symbol"], "fallback": SymbolGlyph.ore_fallback(good_type) }
+	return { "symbol": GameData.RECIPES[good_type]["symbol"], "fallback": SymbolGlyph.generic_fallback() }
+
+
+# One tappable price row: symbol, name, price, ▲/▼ + £ delta.
+func _good_row(kind: String, good_type: String) -> Control:
+	var move := Market.day_move(kind, good_type)
+	var b := Button.new()
+	b.custom_minimum_size.y = 44
+	b.pressed.connect(func(): _select_good(kind, good_type))
+	var inner := UI.hbox(8)
+	UI.anchor_full_rect(inner)
+	b.add_child(inner)
+	var symbol := UI.symbol_row([_good_symbol(kind, good_type), _good_name(kind, good_type)])
+	symbol.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	symbol.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	inner.add_child(symbol)
+	var price := UI.label("£%d" % Market.quote(kind, good_type))
+	price.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	inner.add_child(price)
+	var delta := UI.tinted_label(PriceMove.text(move, true), PriceMove.colour(move, MUTED))
+	delta.custom_minimum_size.x = 64
+	delta.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	delta.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	inner.add_child(delta)
+	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for child in inner.find_children("*", "Control", true, false):
+		child.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return b
+
+
+func _build_good_detail(content: VBoxContainer, kind: String, good_type: String) -> void:
+	content.add_child(UI.button("‹ Back to Stock Market", func(): _select_good_list()))
+	content.add_child(UI.symbol_row([_good_symbol(kind, good_type), _good_name(kind, good_type)], { "heading_size": 20 }))
+	var move := Market.day_move(kind, good_type)
+	var price_row := UI.hbox()
+	price_row.add_child(UI.label("£%d" % Market.quote(kind, good_type)))
+	price_row.add_child(UI.tinted_label("%s vs yesterday" % PriceMove.text(move, true), PriceMove.colour(move, MUTED)))
+	content.add_child(price_row)
+
+	var series: Dictionary = Market.price_series(kind, good_type)
+	var days: Array[int] = series["days"]
+	var notes: Array = Market.annotations_for(kind, good_type)
+	var markers: Array = []
+	for note in notes:
+		var index := days.find(int(note["day"]))
+		if index >= 0:
+			markers.append({ "index": index, "colour_id": ANNOTATION_COLOURS[note["kind"]] })
+	var chart_card := UI.card()
+	chart_card["content"].add_child(UI.label("Price, last %d days" % days.size()))
+	if days.is_empty():
+		chart_card["content"].add_child(UI.muted_label("No trading days on record yet."))
+	else:
+		var chart: LineChart = LineChartScript.new()
+		chart_card["content"].add_child(chart.setup(series["values"], days, "calc_gold_light", "£").with_markers(markers))
+	content.add_child(chart_card["panel"])
+
+	var notes_card := UI.card()
+	notes_card["content"].add_child(UI.heading("Annotations", 14))
+	if notes.is_empty():
+		notes_card["content"].add_child(UI.muted_label("Nothing worth a note."))
+	for i in range(notes.size() - 1, -1, -1):
+		var note: Dictionary = notes[i]
+		var colour: Color = GameData.PALETTE.get(ANNOTATION_COLOURS[note["kind"]], MUTED)
+		notes_card["content"].add_child(UI.tinted_label("%s · %s" % [Calendar.format_day(int(note["day"])), _annotation_text(note)], colour))
+	content.add_child(notes_card["panel"])
+
+	var demand_card := UI.card()
+	if kind == "ore":
+		demand_card["content"].add_child(UI.heading("Demand driven by", 14))
+		var drivers: Array = Market.ore_demand_drivers(good_type)
+		if drivers.is_empty():
+			demand_card["content"].add_child(UI.muted_label("No item shortages pulling on this ore."))
+		for driver in drivers:
+			demand_card["content"].add_child(UI.muted_label("%s — %d short in London" % [GameData.RECIPES[driver["recipeKey"]]["name"], int(driver["shortage"])]))
+	else:
+		demand_card["content"].add_child(UI.heading("Ticker demand", 14))
+		var any_mod := false
+		for mod in Market.demand_modifiers():
+			if mod["target"] == "all" or mod["target"] == good_type:
+				any_mod = true
+				demand_card["content"].add_child(UI.muted_label(_modifier_text(mod)))
+		if any_mod:
+			demand_card["content"].add_child(UI.label("Net demand ×%.2f" % Barometer.get_item_demand_mult(good_type)))
+		else:
+			demand_card["content"].add_child(UI.muted_label("The Ticker isn't touching this one."))
+	content.add_child(demand_card["panel"])
+
+
+func _select_good_list() -> void:
+	_selected_good = {}
+	refresh()
+
+
+func _modifier_text(mod: Dictionary) -> String:
+	var state_label: String = GameData.BAROMETER_STATES[mod["section"]][mod["state"]]["label"]
+	var target: String = "All items" if mod["target"] == "all" else GameData.RECIPES[mod["target"]]["name"]
+	return "%s: %s demand %+d%%" % [state_label, target, roundi(float(mod["fraction"]) * 100.0)]
+
+
+func _annotation_text(note: Dictionary) -> String:
+	match note["kind"]:
+		"ticker":
+			for section in Barometer.SECTIONS:
+				if GameData.BAROMETER_STATES[section].has(note["source"]):
+					return "Ticker: %s" % GameData.BAROMETER_STATES[section][note["source"]]["label"]
+			return "Ticker shift"
+		"dump":
+			var who: String = "You" if note["source"] == "player" else "Someone"
+			return "%s dumped %d" % [who, int(note["value"])]
+		"spike":
+			return "Spike, +£%d" % int(note["value"])
+		_:
+			return "Crash, −£%d" % absi(int(note["value"]))
+
+
+# ── News ────────────────────────────────────────────────────────────────
 
 
 func _build_headline_card(section: String) -> Control:

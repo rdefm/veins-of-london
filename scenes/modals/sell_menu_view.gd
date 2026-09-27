@@ -230,6 +230,10 @@ func _add_row(parent: VBoxContainer, entry: Dictionary, tier_row: bool = false) 
 	var meta := UI.hbox(3)
 	info.add_child(meta)
 	meta.add_child(_label("£%d" % int(entry["price"]), 12, _gold(), false))
+	if entry["kind"] != "vein":
+		var move := Market.day_move(entry["kind"], entry["oreType"] if entry["kind"] == "ore" else entry["recipeKey"])
+		if move != 0:
+			meta.add_child(_label(" " + PriceMove.text(move), 12, PriceMove.colour(move, MUTED), false))
 	meta.add_child(_label(" / vein" if entry["kind"] == "vein" else " each", 12, MUTED, false))
 	if entry["kind"] == "vein":
 		meta.add_child(_label(" · Lv %d" % int(entry["level"]), 12, MUTED, false))
