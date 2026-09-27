@@ -69,6 +69,7 @@ func _ready() -> void:
 	add_child(body)
 
 	_director = CombatDirector.new()
+	_director.playing_changed.connect(_on_director_playing_changed)
 	add_child(_director)
 
 	var heading_row := UI.hbox(8)
@@ -199,7 +200,7 @@ func _sync_footer(combat: Dictionary, player: Dictionary) -> void:
 		_footer_holder.add_child(_build_outcome_button(combat["outcome"], combat["context"]))
 		_command_dock.hide_deck()
 	else:
-		_command_dock.configure(player, _on_attack_pressed, _on_run_pressed, _on_dial_triggered)
+		_command_dock.configure(player, _on_attack_pressed, _on_run_pressed, _on_dial_triggered, _director.is_playing())
 func _configure_turn_order_strip(combat: Dictionary, player: Dictionary) -> void:
 	var entries: Array = _turn_order_strip.build_entries(combat, player)
 	var selected_pos := _selected_strip_pos(entries, combat)
@@ -291,10 +292,16 @@ func _on_stage_subject_tapped(target: Dictionary) -> void:
 		return
 	_select_target(target)
 
+# Commands only land on the player's turn: while a round's beats play out
+# the dock and Bag are locked, and a stray tap is ignored here too.
 func _on_attack_pressed() -> void:
+	if _director.is_playing():
+		return
 	_play_round(func(): return Combat.player_attack())
 
 func _on_run_pressed() -> void:
+	if _director.is_playing():
+		return
 	_play_round(func(): return Combat.flee())
 
 func _on_dial_triggered(result: Dictionary) -> void:
@@ -303,19 +310,25 @@ func _on_dial_triggered(result: Dictionary) -> void:
 	await _play_beats(beats, log_before)
 
 func _play_round(action: Callable) -> void:
-	_finish_playback()
 	var combat: Dictionary = GameState.state["combat"]
 	_frozen_roster = { "enemies": combat["enemies"].duplicate(true), "allies": combat["allies"].duplicate(true) }
 	var log_before: int = combat["log"].size()
 	var result: Dictionary = action.call()
 	await _play_beats(result.get("beats", []), log_before)
-# The dock and Bag stay live during playback, so a command can land while
-# an earlier one's beats are still playing. Skipping that playback to its
-# end first (each remaining beat still posts its log line) keeps the two
-# from interleaving or sharing _revealed_log_count.
+# Beats emitted on EventBus while an earlier playback is still running skip
+# that playback to its end first (each remaining beat still posts its log
+# line), so the two never interleave or share _revealed_log_count.
 func _finish_playback() -> void:
 	if _director.is_playing():
 		_director.skip_to_end()
+
+func _on_director_playing_changed(playing: bool) -> void:
+	_sync_footer(GameState.state["combat"], GameState.state["player"])
+	EventBus.combat_playback_changed.emit(playing)
+
+func _exit_tree() -> void:
+	if _director.is_playing():
+		EventBus.combat_playback_changed.emit(false)
 
 func _play_beats(beats: Array, log_before: int) -> void:
 	_finish_playback()

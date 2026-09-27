@@ -7,6 +7,9 @@ const QUICK_DURATION := 0.15
 
 const HIT_STOP_DURATION := 0.075
 
+# Fires as play() starts and ends -- the screen locks its commands in between.
+signal playing_changed(playing: bool)
+
 var pacing_mode: String = CombatPacing.DEFAULT_MODE
 var beat_duration: float = NORMAL_DURATION
 var turn_pause: float = 0.0
@@ -29,6 +32,7 @@ func play(beats: Array, on_beat: Callable) -> void:
 		return
 	_playing = true
 	_skip_requested = false
+	playing_changed.emit(true)
 	for i in range(beats.size()):
 		var beat: Dictionary = beats[i]
 		if on_beat.is_valid():
@@ -44,6 +48,7 @@ func play(beats: Array, on_beat: Callable) -> void:
 			await tween.finished
 	_active_tween = null
 	_playing = false
+	playing_changed.emit(false)
 
 
 func fast_forward_current_beat() -> void:

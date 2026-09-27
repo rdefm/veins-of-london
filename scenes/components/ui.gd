@@ -445,6 +445,8 @@ static func screen_body(root: Control) -> VBoxContainer:
 # actionable buttons/cards, muted grey when the action is unavailable.
 const ACTION_COLOUR_FALLBACK := Color(0.784314, 0.062745, 0.180392, 1)
 const ACTION_DISABLED_COLOUR := _MUTED_COLOUR
+# Dims a custom-drawn control (the Dial) that has no disabled accent of its own.
+const ACTION_DISABLED_MODULATE := Color(1, 1, 1, 0.4)
 const ACTION_CARD_FILL := Color(0.980392, 0.972549, 0.952941, 1)
 
 static func action_colour() -> Color:

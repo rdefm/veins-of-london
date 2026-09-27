@@ -37,6 +37,14 @@ func _install_item_hook_event() -> Dictionary:
 	return original_events
 
 
+func _latest_button_containing(root: Node, text: String) -> Button:
+	var latest: Button = null
+	for b in root.find_children("", "Button", true, false):
+		if not b.is_queued_for_deletion() and b.get_child_count() > 0 and NodeQuery.effective_text(b.get_child(0)).contains(text):
+			latest = b
+	return latest
+
+
 func _button_effective_texts(root: Node) -> Array[String]:
 	var texts: Array[String] = []
 	for b in root.find_children("", "Button", true, false):
@@ -148,6 +156,29 @@ func run() -> void:
 		assert_eq(buttons[2], "Close", "Close footer stays")
 		var shield_button := NodeQuery.find_button_by_effective_text(drawer, buttons[1])
 		assert_true(shield_button.disabled, "Shield greyed while shieldPool > 0")
+
+		drawer.free()
+	)
+
+	run_case("combat_item_uses_are_greyed_while_beats_play_and_live_again_after", func():
+		GameState.reset()
+		Bag.open()
+		GameState.state["combat"]["active"] = true
+		GameState.state["combat"]["snapshots"] = [{}]
+		var player: Dictionary = GameState.state["player"]
+		player["inventory"]["timePearl"] = { "1": 1 }
+		player["inventory"]["rewind"] = { "1": 1 }
+
+		var drawer := BagDrawer.new()
+		drawer._ready()
+
+		EventBus.combat_playback_changed.emit(true)
+		for label in ["Time Pearl (1)", "Rewind (1)"]:
+			assert_true(_latest_button_containing(drawer, label).disabled, "%s greyed during playback" % label)
+
+		EventBus.combat_playback_changed.emit(false)
+		for label in ["Time Pearl (1)", "Rewind (1)"]:
+			assert_true(not _latest_button_containing(drawer, label).disabled, "%s live again after playback" % label)
 
 		drawer.free()
 	)

@@ -12,6 +12,8 @@ const OUT_OF_COMBAT_USE_KEYS := ["healingSalve", "healingBurst"]
 var _dim: ColorRect
 var _card: PanelContainer
 var _content: VBoxContainer
+# True while CombatScreen plays a round's beats: combat item uses are locked.
+var _combat_playing := false
 
 
 func _ready() -> void:
@@ -41,6 +43,12 @@ func _ready() -> void:
 	scroll.add_child(_content)
 
 	EventBus.state_changed.connect(_refresh)
+	EventBus.combat_playback_changed.connect(_on_combat_playback_changed)
+	_refresh()
+
+
+func _on_combat_playback_changed(playing: bool) -> void:
+	_combat_playing = playing
 	_refresh()
 
 
@@ -205,17 +213,18 @@ func _add_combat_use_buttons(player: Dictionary, combat: Dictionary) -> void:
 	var snap_count: int = combat["snapshots"].size()
 	if Crafting.inventory_qty("rewind") > 0:
 		var rewind_label := "(%d turn(s) back · +50%% evade x2 turns)" % snap_count if snap_count > 0 else "(nothing to undo yet)"
-		_content.add_child(_symbol_use_button("rewind", "Rewind (%d) — %s" % [Crafting.inventory_qty("rewind"), rewind_label], _on_use_rewind, snap_count == 0))
+		_content.add_child(_symbol_use_button("rewind", "Rewind (%d) — %s" % [Crafting.inventory_qty("rewind"), rewind_label], _on_use_rewind, _combat_playing or snap_count == 0))
 
 
 
 # Disabled, with the reason appended, when the current combat.selection
 # can't take this item (Combat.selection_block_reason(), R§3.7).
-# `also_disabled` greys it for a caller-side block with no appended reason.
+# `also_disabled` greys it for a caller-side block with no appended reason;
+# every use is also greyed while a round's beats are playing.
 func _combat_use_button(recipe_key: String, rest_text: String, callback: Callable, also_disabled: bool = false) -> Button:
 	var reason: String = Combat.selection_block_reason(recipe_key)
 	var text: String = rest_text if reason.is_empty() else "%s · %s" % [rest_text, reason]
-	return _symbol_use_button(recipe_key, text, callback, also_disabled or not reason.is_empty())
+	return _symbol_use_button(recipe_key, text, callback, _combat_playing or also_disabled or not reason.is_empty())
 
 
 func _play_result_beats(result: Dictionary) -> void:

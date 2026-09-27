@@ -29,3 +29,7 @@ signal combat_beats_played(beats: Array)
 # Kept separate from combat_beats_played since reverse playback needs
 # different director plumbing on the screen side.
 signal combat_rewind_played(beats: Array)
+
+# CombatScreen's beat playback starting/ending, so the global BagDrawer can
+# lock its combat item uses while it isn't the player's turn.
+signal combat_playback_changed(playing: bool)

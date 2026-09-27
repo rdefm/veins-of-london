@@ -31,6 +31,8 @@ var _player: Dictionary = {}
 var _on_attack_callback: Callable = Callable()
 var _on_run_callback: Callable = Callable()
 var _on_dial_triggered_callback: Callable = Callable()
+# True while a round's beats play out: every command is dimmed and inert.
+var _locked := false
 
 
 func _init() -> void:
@@ -61,7 +63,8 @@ func _init() -> void:
 	add_child(_row)
 
 
-func configure(player: Dictionary, on_attack: Callable, on_run: Callable, on_dial_triggered: Callable) -> void:
+func configure(player: Dictionary, on_attack: Callable, on_run: Callable, on_dial_triggered: Callable, locked: bool = false) -> void:
+	_locked = locked
 	_on_attack_callback = on_attack
 	_on_run_callback = on_run
 	_on_dial_triggered_callback = on_dial_triggered
@@ -87,6 +90,9 @@ func _rebuild(player: Dictionary) -> void:
 func _build_dial_widget(dial: Dictionary) -> Control:
 	var widget := DialWidget.new()
 	widget.configure(dial, _dial_selected_index, _on_dial_selection_changed, _on_dial_triggered)
+	if _locked:
+		widget.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		widget.modulate = UI.ACTION_DISABLED_MODULATE
 	return widget
 func _on_dial_selection_changed(new_index: int) -> void:
 	_dial_selected_index = new_index
@@ -142,9 +148,9 @@ func _build_action_deck(player: Dictionary) -> Control:
 	col.size_flags_vertical = Control.SIZE_SHRINK_END
 	var rows: Array[Control] = [
 		_build_complication_detail(player["dial"]),
-		_build_action_row("attack", "Attack", _on_attack_pressed, not Combat.selection_block_reason("attack").is_empty()),
-		_build_action_row("item", "Item", func(): Bag.open(), not Combat.has_usable_item(player)),
-		_build_action_row("run", "Leg it", _on_run_pressed),
+		_build_action_row("attack", "Attack", _on_attack_pressed, _locked or not Combat.selection_block_reason("attack").is_empty()),
+		_build_action_row("item", "Item", func(): Bag.open(), _locked or not Combat.has_usable_item(player)),
+		_build_action_row("run", "Leg it", _on_run_pressed, _locked),
 	]
 	for i in rows.size():
 		if i > 0:

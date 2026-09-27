@@ -142,6 +142,15 @@ static func _deck_buttons(root: Node) -> Array[Button]:
 # glyph child, see combat_command_dock.gd's _build_action_row()) -- the
 # button is named "ActionButton_<kind>" instead ("attack"/"item"/"run"),
 # so tests look the card up by that name rather than by its old emoji text.
+# Latest match: stale queue_free()'d rows can linger until the next frame.
+static func _latest_deck_button_named(root: Node, icon_kind: String) -> Button:
+	var latest: Button = null
+	for b in _deck_buttons(root):
+		if b.name == "ActionButton_%s" % icon_kind and not b.is_queued_for_deletion():
+			latest = b
+	return latest
+
+
 static func _deck_button_named(root: Node, icon_kind: String) -> Button:
 	for b in _deck_buttons(root):
 		if b.name == "ActionButton_%s" % icon_kind:
@@ -2152,50 +2161,77 @@ func run() -> void:
 		viewport.free()
 	)
 
-	# A command issued while a previous command's beats are still playing
-	# (the dock and Bag stay live during playback) must not drop or garble
-	# either command's beats: every log line still posts, in order, and the
-	# pearl's frozen beat is shown before any enemy attack.
-	for enemy_count in [1, 2]:
-		await run_case("attack_pressed_mid_pearl_playback_still_shows_the_frozen_beat_%d_enemies" % enemy_count, func():
+	# Commands only land on the player's turn: while a round's beats play
+	# out, Attack/Run/the Dial are dimmed and a tap changes nothing -- no
+	# state change and no skip of the running playback -- under either pacing.
+	for pacing in ["normal", "quick"]:
+		await run_case("commands_are_locked_and_ignored_during_playback_%s_pacing" % pacing, func():
 			var tree := Engine.get_main_loop() as SceneTree
-			var enemies: Array = []
-			for i in range(enemy_count):
-				enemies.append(Fixtures.enemy("Slow %d" % i, 500, 500, false, 1))
-			_setup_combat(enemies)
-			GameState.state["player"]["inventory"]["timePearl"] = { "1": 1 }
-			GameState.state["player"]["craftingSkill"] = 1
+			_setup_combat([Fixtures.enemy("Slow A", 500, 500, false, 1), Fixtures.enemy("Slow B", 500, 500, false, 1)])
+			GameState.state["player"]["dial"] = Fixtures.dial(["blast"])
 			var viewport := Control.new()
 			viewport.size = Vector2(390, 844)
 			tree.root.add_child(viewport)
 			var screen := CombatScreen.new()
 			viewport.add_child(screen)
+			screen._director._apply_pacing(pacing)
 			Rng.set_seed(1)
 
-			var pearl: Dictionary = Combat.use_time_pearl()
-			EventBus.combat_beats_played.emit(pearl["beats"])  # the Bag's own route
-			assert_true(screen._director.is_playing(), "sanity: the pearl's beats are mid-playback")
 			screen._on_attack_pressed()
+			assert_true(screen._director.is_playing(), "sanity: the attack's beats are mid-playback")
+			await tree.process_frame
+			var log_size: int = GameState.state["combat"]["log"].size()
+			var revealed: int = screen._revealed_log_count
+			for kind in ["attack", "item", "run"]:
+				assert_true(_latest_deck_button_named(screen, kind).disabled, "%s dimmed during playback" % kind)
+			var dial := _find_dial_widget(screen)
+			assert_eq(dial.mouse_filter, Control.MOUSE_FILTER_IGNORE, "dial ignores taps during playback")
+			assert_true(dial.modulate.a < 1.0, "dial dimmed during playback")
+
+			screen._on_attack_pressed()
+			screen._on_run_pressed()
+			assert_eq(GameState.state["combat"]["log"].size(), log_size, "no command resolved mid-playback")
+			assert_eq(screen._revealed_log_count, revealed, "running playback not skipped")
+			assert_true(screen._director.is_playing(), "playback still running")
+
 			for _i in range(40):
 				if not screen._director.is_playing():
 					break
 				screen._director.fast_forward_current_beat()
 				await tree.process_frame
-
-			var posted: Array = GameState.state["notifications"].map(func(n): return n["text"])
-			assert_eq(posted, GameState.state["combat"]["log"], "every log line posts exactly once, in order")
-			var throw_at: int = posted.find(posted.filter(func(t): return t.begins_with("You throw a time pearl"))[0])
-			var frozen_at := -1
-			var attack_at := -1
-			for i in range(throw_at, posted.size()):
-				if frozen_at == -1 and posted[i].contains("is frozen — no turn"):
-					frozen_at = i
-				if attack_at == -1 and posted[i].contains("hits you"):
-					attack_at = i
-			assert_true(frozen_at > throw_at, "the frozen beat posts after the throw")
-			assert_true(attack_at == -1 or attack_at > frozen_at, "no enemy attack shows before the frozen beat")
+			await tree.process_frame
+			assert_true(not screen._director.is_playing(), "sanity: playback finished")
+			assert_true(not _latest_deck_button_named(screen, "attack").disabled, "Attack live again on the player's turn")
+			assert_true(not _latest_deck_button_named(screen, "run").disabled, "Run live again on the player's turn")
+			var live_dial := _find_dial_widget(screen)
+			assert_eq(live_dial.mouse_filter, Control.MOUSE_FILTER_STOP, "dial takes taps again")
+			assert_eq(live_dial.modulate.a, 1.0, "dial undimmed")
 			viewport.free()
 		)
+
+	await run_case("playback_start_and_end_are_broadcast_for_the_bag", func():
+		var tree := Engine.get_main_loop() as SceneTree
+		_setup_combat([Fixtures.enemy("Slow A", 500, 500, false, 1)])
+		var viewport := Control.new()
+		viewport.size = Vector2(390, 844)
+		tree.root.add_child(viewport)
+		var screen := CombatScreen.new()
+		viewport.add_child(screen)
+		var seen: Array = []
+		var record := func(playing: bool): seen.append(playing)
+		EventBus.combat_playback_changed.connect(record)
+		Rng.set_seed(1)
+
+		screen._on_attack_pressed()
+		for _i in range(40):
+			if not screen._director.is_playing():
+				break
+			screen._director.fast_forward_current_beat()
+			await tree.process_frame
+		EventBus.combat_playback_changed.disconnect(record)
+		assert_eq(seen, [true, false], "one start, one end")
+		viewport.free()
+	)
 
 	await run_case("pearl_used_mid_attack_playback_still_plays_its_beats", func():
 		var tree := Engine.get_main_loop() as SceneTree
