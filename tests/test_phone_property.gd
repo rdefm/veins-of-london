@@ -19,7 +19,7 @@ func run() -> void:
 
 		var raid_pct: int = int(round(Home.get_home_raid_chance() * 100))
 		var texts := NodeQuery.label_texts(phone)
-		for expected in ["YOUR PLACE", "£50", "/ day rent", "Rented.", "Rooms 0/0", "Raid risk %d%%" % raid_pct]:
+		for expected in ["YOUR PLACE", "£350", "/ week rent", "Rented.", "Rooms 0/0", "Raid risk %d%%" % raid_pct]:
 			assert_true(texts.has(expected), "current bedsit card shows %s" % expected)
 
 		phone.free()
@@ -64,7 +64,7 @@ func run() -> void:
 		var phone := PhoneScreen.new()
 		phone._ready()
 		var texts := NodeQuery.label_texts(phone)
-		for expected in ["£65", "/ day utilities", "Owned outright.", "Rooms 0/3", "Raid risk %d%%" % raid_pct]:
+		for expected in ["£455", "/ week utilities", "Owned outright.", "Rooms 0/3", "Raid risk %d%%" % raid_pct]:
 			assert_true(texts.has(expected), "owned townhouse shows %s" % expected)
 		phone.free()
 
@@ -72,9 +72,9 @@ func run() -> void:
 		phone = PhoneScreen.new()
 		phone._ready()
 		texts = NodeQuery.label_texts(phone)
-		for expected in ["£150", "/ day rent", "Rented."]:
+		for expected in ["£1050", "/ week rent", "Rented."]:
 			assert_true(texts.has(expected), "rented townhouse shows %s" % expected)
-		assert_true(not texts.has("/ day utilities"), "no listing is priced in utilities")
+		assert_true(not texts.has("/ week utilities"), "no listing is priced in utilities")
 		phone.free()
 	)
 
@@ -88,17 +88,17 @@ func run() -> void:
 		var texts := NodeQuery.label_texts(phone)
 		assert_true(texts.has("Studio"), "next tier's name (studio, the tier above bedsit) renders")
 		var raid_pct: int = int(round(Home.get_raid_chance_for_tier("studio") * 100))
-		for expected in ["£60", "Buy £80000", "0 spare rooms", "Raid risk %d%%" % raid_pct]:
+		for expected in ["£420", "Buy £80000", "0 spare rooms", "Raid risk %d%%" % raid_pct]:
 			assert_true(texts.has(expected), "studio listing shows %s" % expected)
 		assert_true(texts.has("1 spare room"), "the flat listing's single room reads singular")
-		assert_true(NodeQuery.find_button(phone, "Rent for £60/day") == null, "offers live only in the particulars")
+		assert_true(NodeQuery.find_button(phone, "Rent for £420/week") == null, "offers live only in the particulars")
 		assert_true(NodeQuery.find_button(phone, "Buy for £80000") == null, "offers live only in the particulars")
 
 		_open_listing(phone, "studio")
 		texts = NodeQuery.label_texts(phone)
-		assert_true(NodeQuery.find_button(phone, "Rent for £60/day") != null, "rent offer previews studio's rent")
+		assert_true(NodeQuery.find_button(phone, "Rent for £420/week") != null, "rent offer previews studio's rent")
 		assert_true(NodeQuery.find_button(phone, "Buy for £80000") != null, "buy offer shows studio's buyPrice")
-		assert_true(texts.has("Or buy for £80000 · then £35/day in utilities"), "buy offer previews studio's owned bill override")
+		assert_true(texts.has("Or buy for £80000 · then £245/week in utilities"), "buy offer previews studio's owned bill override")
 		assert_true(texts.has("Moving clears every installed room. No refunds."))
 
 		phone.free()
@@ -120,7 +120,7 @@ func run() -> void:
 		var texts := NodeQuery.label_texts(phone)
 		assert_true(texts.find("Floorplan") > texts.find(GameData.HOME_TIERS["flat"]["particulars"]), "the plan follows the copy")
 		assert_true(texts.find("Floorplan") < texts.find("Moving clears every installed room. No refunds."), "the offer box comes after the plan")
-		assert_true(NodeQuery.find_button(phone, "Rent for £80/day") != null, "the Flat still offers its rent")
+		assert_true(NodeQuery.find_button(phone, "Rent for £560/week") != null, "the Flat still offers its rent")
 		assert_eq(phone.find_child(FloorplanView.slot_node_name(0), true, false), null, "the listing plan is static: no selectable slot")
 		for room_id in GameData.HOME_ROOMS.keys():
 			assert_true(NodeQuery.find_button(phone, "£%d" % GameData.HOME_ROOMS[room_id]["cost"]) == null, "Harrow's sells no room upgrades (%s)" % room_id)
@@ -158,7 +158,7 @@ func run() -> void:
 		assert_true(hero != null and hero.custom_minimum_size.y == PropertyApp.HERO_PHOTO_HEIGHT, "studio's photo leads as the hero")
 		var texts := NodeQuery.label_texts(phone)
 		var raid_pct: int = int(round(Home.get_raid_chance_for_tier("studio") * 100))
-		for expected in ["Studio", GameData.HOME_TIERS["studio"]["description"], "£60", "/ day rent", "0", "spare rooms", "%d%%" % raid_pct, "raid risk", "Property description", GameData.HOME_TIERS["studio"]["particulars"]]:
+		for expected in ["Studio", GameData.HOME_TIERS["studio"]["description"], "£420", "/ week rent", "0", "spare rooms", "%d%%" % raid_pct, "raid risk", "Property description", GameData.HOME_TIERS["studio"]["particulars"]]:
 			assert_true(texts.has(expected), "studio particulars show %s" % expected)
 		phone.free()
 	)
@@ -174,7 +174,7 @@ func run() -> void:
 		var buy_button := NodeQuery.find_button(phone, "Buy for £80000")
 		assert_true(buy_button.disabled, "buy disabled without enough cash")
 		assert_true(NodeQuery.label_texts(phone).has("Not enough cash. You have £100."), "particulars show the shortfall against cash")
-		var rent_button := NodeQuery.find_button(phone, "Rent for £60/day")
+		var rent_button := NodeQuery.find_button(phone, "Rent for £420/week")
 		assert_true(not rent_button.disabled, "renting needs no cash up front")
 		rent_button.pressed.emit()
 		assert_eq(GameState.state["home"]["tier"], "studio")
@@ -207,7 +207,7 @@ func run() -> void:
 		GameState.state["player"]["cash"] = 200000
 		phone = PhoneScreen.new()
 		phone._ready()
-		assert_true(NodeQuery.label_texts(phone).has("Then £58/day in utilities. Rooms stay."))
+		assert_true(NodeQuery.label_texts(phone).has("Then £406/week in utilities. Rooms stay."))
 		NodeQuery.find_button(phone, "Buy out for £200000").pressed.emit()
 		assert_eq(GameState.state["home"]["tenure"], "owned")
 		assert_eq(GameState.state["home"]["tier"], "flat")
@@ -240,7 +240,7 @@ func run() -> void:
 		assert_true(texts.has("MOVE DOWN"))
 		assert_true(texts.has("Left behind: CCTV."))
 		assert_true(NodeQuery.find_button(phone, "Buy for £80000") != null, "the studio can be bought on the way down")
-		NodeQuery.find_button(phone, "Rent for £60/day").pressed.emit()
+		NodeQuery.find_button(phone, "Rent for £420/week").pressed.emit()
 		assert_eq(GameState.state["home"]["tier"], "studio")
 		assert_eq(GameState.state["home"]["security"], ["lock"])
 		phone.free()
@@ -249,7 +249,7 @@ func run() -> void:
 		phone._ready()
 		_open_listing(phone, "bedsit")
 		assert_eq(NodeQuery.find_button(phone, "Buy for £0"), null, "the bedsit can't be bought")
-		NodeQuery.find_button(phone, "Rent for £50/day").pressed.emit()
+		NodeQuery.find_button(phone, "Rent for £350/week").pressed.emit()
 		assert_eq(GameState.state["home"]["tier"], "bedsit")
 		assert_eq(GameState.state["home"]["security"], ["lock"])
 		phone.free()
@@ -386,7 +386,7 @@ func run() -> void:
 		var buy_button := NodeQuery.find_button(phone, "Buy for £2000000")
 		assert_true(buy_button != null and buy_button.disabled, "unaffordable buy is shown, disabled")
 		assert_true(texts.has("Not enough cash. You have £1000."))
-		NodeQuery.find_button(phone, "Rent for £600/day").pressed.emit()
+		NodeQuery.find_button(phone, "Rent for £4200/week").pressed.emit()
 		assert_eq(GameState.state["home"]["tier"], "compound", "renting jumps five tiers in one move")
 		assert_eq(GameState.state["home"]["tenure"], "rented")
 		phone.free()

@@ -169,7 +169,7 @@ func _build_current_card() -> Control:
 	var body: VBoxContainer = card["body"]
 	body.add_child(_text("YOUR PLACE", 11, brand_green(), _bold_font()))
 	_add_title(body, tier_id)
-	body.add_child(_price_row(Home.current_bill_base(), "/ day rent" if rented else "/ day utilities"))
+	body.add_child(_price_row(Home.weekly_bill_base(), "/ week rent" if rented else "/ week utilities"))
 	body.add_child(_text("Rented." if rented else "Owned outright.", 13, MUTED))
 	body.add_child(_facts(["Rooms %d/%d" % [home["rooms"].size(), tier["maxRooms"]], "Raid risk %d%%" % raid_pct]))
 	var countdown: Dictionary = Home.arrears_countdown()
@@ -180,7 +180,7 @@ func _build_current_card() -> Control:
 	if rented and Home.can_buy_tier(tier_id):
 		var price: int = Home.buy_price(tier_id)
 		_add_brand_purchase_button(body, "Buy out for £%d" % price, price, Home.buy_out)
-		body.add_child(_text("Then £%d/day in utilities. Rooms stay." % Home.bill_base_for(tier_id, Home.TENURE_OWNED), 12, MUTED))
+		body.add_child(_text("Then £%d/week in utilities. Rooms stay." % Home.weekly_bill_for(tier_id, Home.TENURE_OWNED), 12, MUTED))
 	_add_static_plan(body, tier_id)
 	return card["panel"]
 
@@ -193,7 +193,7 @@ func _build_listing_card(caption: String, tier_id: String) -> Control:
 	var body: VBoxContainer = card["body"]
 	body.add_child(_text(caption, 11, brand_green(), _bold_font()))
 	_add_title(body, tier_id)
-	body.add_child(_price_row(Home.bill_base_for(tier_id, Home.TENURE_RENTED), "/ day rent"))
+	body.add_child(_price_row(Home.weekly_bill_for(tier_id, Home.TENURE_RENTED), "/ week rent"))
 	var facts: Array[String] = []
 	if Home.can_buy_tier(tier_id):
 		facts.append("Buy £%d" % Home.buy_price(tier_id))
@@ -371,9 +371,9 @@ func _build_particulars(tier_id: String) -> void:
 	body.add_child(_text(_move_caption(tier_id), 11, brand_green(), _bold_font()))
 	body.add_child(_text(tier["name"], 29, INK, _serif_font()))
 	body.add_child(_text(tier["description"], 13, MUTED))
-	body.add_child(_margins(_price_row(Home.bill_base_for(tier_id, Home.TENURE_RENTED), "/ day rent", 23), 0, 14, 0, 0))
+	body.add_child(_margins(_price_row(Home.weekly_bill_for(tier_id, Home.TENURE_RENTED), "/ week rent", 23), 0, 14, 0, 0))
 	if Home.can_buy_tier(tier_id):
-		body.add_child(_text("Or buy for £%d · then £%d/day in utilities" % [Home.buy_price(tier_id), Home.bill_base_for(tier_id, Home.TENURE_OWNED)], 13, MUTED))
+		body.add_child(_text("Or buy for £%d · then £%d/week in utilities" % [Home.buy_price(tier_id), Home.weekly_bill_for(tier_id, Home.TENURE_OWNED)], 13, MUTED))
 	body.add_child(_margins(_detail_facts(tier_id), 0, 10, 0, 0))
 
 	body.add_child(_subheading("Property description"))
@@ -441,8 +441,8 @@ func _offer_box(tier_id: String) -> Control:
 	var offer := UI.vbox(9)
 	box.add_child(offer)
 
-	var rent: int = Home.bill_base_for(tier_id, Home.TENURE_RENTED)
-	_add_brand_purchase_button(offer, "Rent for £%d/day" % rent, 0, _close_then.bind(Home.rent_to.bind(tier_id)))
+	var rent: int = Home.weekly_bill_for(tier_id, Home.TENURE_RENTED)
+	_add_brand_purchase_button(offer, "Rent for £%d/week" % rent, 0, _close_then.bind(Home.rent_to.bind(tier_id)))
 	if Home.can_buy_tier(tier_id):
 		var price: int = Home.buy_price(tier_id)
 		_add_brand_purchase_button(offer, "Buy for £%d" % price, price, _close_then.bind(Home.buy_to.bind(tier_id)), true)

@@ -178,9 +178,14 @@ static func current_bill_base() -> int:
 	return bill_base_for(home["tier"], home["tenure"])
 
 
-# The week's bill before barometer scaling: the per-day base × days per week.
+# A week's bill before barometer scaling: the per-day base × days per week.
+static func weekly_bill_for(tier_id: String, tenure: String) -> int:
+	return bill_base_for(tier_id, tenure) * Calendar.days_per_week()
+
+
 static func weekly_bill_base() -> int:
-	return current_bill_base() * Calendar.days_per_week()
+	var home: Dictionary = GameState.state["home"]
+	return weekly_bill_for(home["tier"], home["tenure"])
 
 
 # Days left before each arrears consequence (ADR 0006 "Weekly ordering"),
