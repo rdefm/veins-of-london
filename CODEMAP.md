@@ -46,7 +46,7 @@ Data file per system: see `data/*.json` below.
 | district_bubble.gd | District tap-bubble decision |
 | district_deck.gd | Weighted district event deck picker |
 | districts.gd | Derived district info for Map tab |
-| economy.gd | Selling (Archie lane + faction lane), faction-lane buying (pricing, lane access, ore receipt) |
+| economy.gd | Selling (Archie lane — ore at London quote, records supply — + faction lane), faction-lane buying (pricing, lane access, ore receipt) |
 | equipment.gd | Weapon equip/unequip |
 | event_items.gd | Registry of items usable from an event's Item button (Rewind consumable + Dial Rewind): eligibility, counts, effect |
 | events.gd | Event-card runner + rewind, auto-discovers art |
@@ -55,6 +55,7 @@ Data file per system: see `data/*.json` below.
 | jobs.gd | James's jobs, trust bands |
 | lab_bench_nav.gd | Lab bench nav: selected ore; gear confirm variant (probe/craft/inert) + readiness |
 | map_events.gd | Map event queue + playback |
+| market.gd | London market (R§3.13): per-good stock/price/history, quote + 2-day average, supply/demand recording, daily reprice (⑥.6), stand-in London volumes, sim-start switch |
 | map_hit_test.gd | Tap-hit geometry, Network diagram |
 | map_layout.gd | Resolves stops vs. live sites/veins |
 | map_nav.gd | Map drill-down nav (list → panel → site sheet or vein detail panel, mutually exclusive) |
@@ -236,6 +237,7 @@ overlays.
 | hq_visuals.json | hq_diorama.gd, hq*.gd screens |
 | items.json | combat.gd, profile_app.gd, bag_drawer.gd |
 | map_layout.json | map_layout.gd, map_hit_test.gd |
+| market.json | market.gd (constants, sim start, per-good normalStock/stand-in supply/demand) |
 | map_palette.json | GameData.gd (validated) + map_palette.gd (Map tab light/dark colour tokens, faction/ore dark overrides) + map_controls.gd (`darkModeLabel`) |
 | objectives.json | objectives.gd, todo.gd, collective.gd, business_quest.gd |
 | offers.json | offers.gd (synthetic catalogue), business_quest.gd (biz_starter_* chain + Archie nudge text, biz_recurring_* from Beat 3/6) |

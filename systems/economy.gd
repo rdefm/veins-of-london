@@ -34,6 +34,12 @@ static func get_archie_vein_price(vein: Dictionary) -> int:
 	return GameState.round_epsilon(VeinTrade.quote(vein) * ARCHIE_VEIN_MARKUP)
 
 
+# Archie's per-unit ore price before his cut: today's London quote with the
+# district/omen modifier on top (R§3.6).
+static func get_archie_ore_price(ore_type: String, price_mod: float) -> int:
+	return GameState.round_epsilon(Market.quote("ore", ore_type) * (1.0 + price_mod))
+
+
 static func get_archie_cut_ratio() -> float:
 	var relation: int = GameState.state["contacts"]["archie"]["relation"]
 	if relation <= ARCHIE_CUT_RELATION_MIN:
@@ -92,10 +98,11 @@ static func execute_sale(items: Array) -> Dictionary:
 		var item_type: String = item["type"]
 		var qty: int = item["qty"]
 		if kind == "ore":
-			var base_price: int = GameData.ORE_TYPES[item_type]["basePrice"]
-			var price_per_unit: int = GameState.round_epsilon(Barometer.get_effective_ore_price(item_type, base_price) * (1.0 + price_mod))
+			var price_per_unit: int = get_archie_ore_price(item_type, price_mod)
 			gross += price_per_unit * qty
 			player["orichalchum"][item_type] = maxi(0, player["orichalchum"].get(item_type, 0) - qty)
+			# Recorded before the mugging roll: goods change hands either way.
+			Market.record_supply("ore", item_type, qty, "player")
 		elif kind == "consumable":
 			var tier: int = item.get("tier", 0)
 			var price_per_unit: int = GameState.round_epsilon(GameData.CONSUMABLE_PRICES.get(item_type, 30) * quality_price_multiplier(tier) * (1.0 + price_mod))

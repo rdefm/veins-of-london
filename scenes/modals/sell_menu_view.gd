@@ -325,7 +325,7 @@ func _entries() -> Array:
 			if _is_faction():
 				sell_price = Economy.get_faction_sell_price(faction_id, "ore", ore_type)
 			else:
-				sell_price = GameState.round_epsilon(Barometer.get_effective_ore_price(ore_type, ore["basePrice"]) * (1.0 + price_mod))
+				sell_price = Economy.get_archie_ore_price(ore_type, price_mod)
 			var key := "ore_%s" % ore_type
 			entries.append(_entry("sell", "ore", "ore", key, ore["name"], ore_type, ore["symbol"], sell_price, have, have, sell_state.get(key, 0)))
 		if _is_faction():

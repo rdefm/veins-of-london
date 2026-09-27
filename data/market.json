@@ -1,0 +1,34 @@
+{
+  "simStart": "day1",
+  "priceMinMult": 0.2,
+  "priceMaxMult": 4.0,
+  "curveExponent": 1.5,
+  "reversion": 0.6,
+  "smoothing": 0.8,
+  "historyDays": 28,
+  "goods": {
+    "ore": {
+      "time": { "normalStock": 250, "standInSupply": 190, "standInDemand": 220 },
+      "physics": { "normalStock": 250, "standInSupply": 190, "standInDemand": 220 },
+      "life": { "normalStock": 250, "standInSupply": 190, "standInDemand": 220 },
+      "fate": { "normalStock": 250, "standInSupply": 190, "standInDemand": 220 },
+      "emotion": { "normalStock": 250, "standInSupply": 190, "standInDemand": 220 }
+    },
+    "consumable": {
+      "timePearl": { "normalStock": 20, "standInSupply": 8, "standInDemand": 10 },
+      "enhancementPowder": { "normalStock": 20, "standInSupply": 8, "standInDemand": 10 },
+      "rewind": { "normalStock": 20, "standInSupply": 8, "standInDemand": 10 },
+      "healingSalve": { "normalStock": 20, "standInSupply": 8, "standInDemand": 10 },
+      "blast": { "normalStock": 20, "standInSupply": 8, "standInDemand": 10 },
+      "shield": { "normalStock": 20, "standInSupply": 8, "standInDemand": 10 },
+      "blackHole": { "normalStock": 20, "standInSupply": 8, "standInDemand": 10 },
+      "prophetsBreath": { "normalStock": 20, "standInSupply": 8, "standInDemand": 10 },
+      "beALady": { "normalStock": 20, "standInSupply": 8, "standInDemand": 10 },
+      "pansPrank": { "normalStock": 20, "standInSupply": 8, "standInDemand": 10 },
+      "healingBurst": { "normalStock": 20, "standInSupply": 8, "standInDemand": 10 },
+      "failsafe": { "normalStock": 20, "standInSupply": 8, "standInDemand": 10 },
+      "rejuvenation": { "normalStock": 20, "standInSupply": 8, "standInDemand": 10 },
+      "wormhole": { "normalStock": 20, "standInSupply": 8, "standInDemand": 10 }
+    }
+  }
+}

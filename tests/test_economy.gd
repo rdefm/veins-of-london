@@ -98,18 +98,19 @@ func run() -> void:
 		assert_true(GameState.state["combat"]["active"], "sanity: the mugging did start combat")
 	)
 
-	run_case("gross_math_applies_barometer_premiums", func():
+	run_case("gross_math_uses_the_london_quote", func():
 		var seed := SeedSearch.find_seed_for(200, func():
 			GameState.reset()
-			GameState.state["barometer"]["economic"] = "crisis"  # orePrice -0.35, fatePremium +0.5
+			GameState.state["market"]["goods"]["ore"]["fate"]["price"] = 104
 			GameState.state["player"]["orichalchum"]["fate"] = 10
 			var result := Economy.execute_sale([{ "kind": "ore", "type": "fate", "qty": 2 }])
 			return not result["mugged"]
 		)
 		assert_true(seed != -1, "should find a non-mugged roll within 200 tries")
-		# effective fate price under crisis = round_epsilon(90*(1-0.35+0.5)) = 104; gross = 208
+		# London quote 104 (not base 90); gross = 208
 		# post-award relation 12 -> cut ratio 0.6071428571 (see gross_math_basic_ore_sale)
-		assert_eq(GameState.state["player"]["cash"], 40 + 126, "playerCut reflects the barometer-adjusted price")
+		assert_eq(GameState.state["player"]["cash"], 40 + 126, "playerCut reflects the London quote")
+		assert_eq(GameState.state["market"]["supply"]["ore"]["fate"], { "player": 2 }, "the sale records London supply")
 	)
 
 	run_case("gross_math_applies_district_priceMod", func():

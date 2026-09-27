@@ -471,6 +471,30 @@ func run() -> void:
 		SaveManager.delete_slot(TEST_SLOT)
 	)
 
+	run_case("save_round_trip_keeps_the_market_with_int_prices", func():
+		GameState.reset()
+		Market.record_supply("ore", "time", 40, "player")
+		Market.daily_reprice()
+		Market.record_supply("ore", "life", 7, "player")
+		var original: Dictionary = GameState.deep_copy(GameState.state["market"])
+		assert_true(SaveManager.import_string(SaveManager.export_string())["ok"])
+		assert_eq(GameState.state["market"], original, "market survives save/load")
+		var time_good: Dictionary = GameState.state["market"]["goods"]["ore"]["time"]
+		assert_eq(typeof(time_good["price"]), TYPE_INT, "price restored as int")
+		assert_eq(typeof(time_good["history"][0]), TYPE_INT, "history restored as ints")
+		assert_eq(typeof(GameState.state["market"]["supply"]["ore"]["life"]["player"]), TYPE_INT, "tallies restored as ints")
+	)
+
+	run_case("loading_a_save_without_a_market_backfills_resting_prices", func():
+		GameState.reset()
+		var legacy: Dictionary = GameState.deep_copy(GameState.state)
+		legacy.erase("market")
+		assert_true(SaveManager._load_save_dict(legacy)["ok"])
+		var resting: int = Market.target_price("ore", "fate", Market.resting_stock("ore", "fate"))
+		assert_eq(Market.quote("ore", "fate"), resting, "an old save opens at the resting price")
+		assert_true(resting > 90, "resting sits above base (idle premium)")
+	)
+
 	run_case("loading_a_pre_107_save_backfills_home_guardCount_to_0", func():
 		GameState.reset()
 		# Pre-107 shape: state.home had no guardCount key at all.

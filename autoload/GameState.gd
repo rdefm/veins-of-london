@@ -76,6 +76,9 @@ func new_game_state() -> Dictionary:
 		# only writer.
 		"businessStats": { "today": { "revenue": 0, "expenses": 0, "oreCultivator": 0, "orePlayer": 0 }, "days": [] },
 		"sellState": {},
+		# London market (R§3.13): per good stock/price/history plus today's
+		# supply/demand tallies; Market is the only writer.
+		"market": Market.new_state(false),
 		# Serializable pending-offer and accepted-contract ledger.
 		"sales": { "pendingOffers": [], "activeContracts": [], "priorityOrder": [], "contractHistory": [], "settlements": [], "nextOfferId": 1, "nextContractId": 1, "nextPeriodId": 1, "nextSettlementId": 1 },
 		# "Default-then-review" payroll (R§3.10): no mid-tick blocking

@@ -285,6 +285,9 @@ func _check_save_version(save: Dictionary) -> Dictionary:
 func backfill_defaults(save: Dictionary) -> Dictionary:
 	var defaults := GameState.new_game_state()
 	var result: Dictionary = save.duplicate(true)
+	# A save from before the market existed starts at resting prices, not base.
+	if not result.has("market"):
+		result["market"] = Market.new_state(true)
 	for key in defaults.keys():
 		if not result.has(key):
 			result[key] = defaults[key]
@@ -541,6 +544,18 @@ func _restore_int_types(state: Dictionary) -> void:
 				for recipe_key in entry.get("made", {}):
 					_int_dict_values(entry["made"][recipe_key])
 				_int_dict_values(entry.get("failed", {}))
+	var market: Dictionary = state.get("market", {})
+	_int_key(market, "startedDay")
+	for kind_goods in market.get("goods", {}).values():
+		for good in kind_goods.values():
+			_int_key(good, "stock")
+			_int_key(good, "price")
+			_int_key(good, "prevPrice")
+			_int_array_values(good.get("history", []))
+	for side in ["supply", "demand"]:
+		for by_type in market.get(side, {}).values():
+			for by_source in by_type.values():
+				_int_dict_values(by_source)
 	var business_stats: Dictionary = state.get("businessStats", {})
 	_int_dict_values(business_stats.get("today", {}))
 	for record in business_stats.get("days", []):

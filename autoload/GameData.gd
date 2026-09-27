@@ -79,6 +79,9 @@ var FACTIONS: Dictionary = {}
 # Per-faction trade lane config, read by Economy.get_faction_*.
 var FACTION_TRADE: Dictionary = {}
 
+# London market constants and per-good stand-in volumes, read by Market.
+var MARKET: Dictionary = {}
+
 var DISTRICTS: Dictionary = {}
 
 var MAP_LAYOUT: Dictionary = {}
@@ -281,6 +284,9 @@ const MANIFEST: Array[Dictionary] = [
 	{"table": "faction_trade", "file": "res://data/faction_trade.json", "fields": [
 		{"field": "FACTION_TRADE", "key": "", "type": TYPE_DICTIONARY},
 	]},
+	{"table": "market", "file": "res://data/market.json", "fields": [
+		{"field": "MARKET", "key": "", "type": TYPE_DICTIONARY},
+	]},
 	{"table": "districts", "file": "res://data/districts.json", "fields": [
 		{"field": "DISTRICTS", "key": "", "type": TYPE_DICTIONARY},
 	]},
@@ -460,6 +466,7 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_approaches(t.get("approaches", {}), t.get("home_rooms", {}), errors)
 	_validate_factions(t.get("factions", {}), errors)
 	_validate_faction_trade(t.get("faction_trade", {}), errors)
+	_validate_market(t.get("market", {}), t.get("ore_types", {}), t.get("consumable_prices", {}), errors)
 	_validate_districts(t.get("districts", {}), t.get("ore_types", {}), errors)
 	_validate_map_layout(t.get("map_layout", {}), t.get("districts", {}), errors)
 	_validate_sites(t, errors)
@@ -812,6 +819,22 @@ const CANONICAL_DISTRICT_IDS: Array[String] = [
 	"shoreditch", "city", "greenwich", "camden", "kingscross",
 	"battersea", "hampstead", "whitechapel", "soho",
 ]
+
+
+# Every ore type and every priced consumable is a market good with stand-in volumes.
+func _validate_market(market: Dictionary, ore_types: Dictionary, consumable_prices: Dictionary, errors: Array[String]) -> void:
+	_require_keys(market, ["simStart", "priceMinMult", "priceMaxMult", "curveExponent", "reversion", "smoothing", "historyDays", "goods"], "market", errors)
+	if not ["day1", "bizA2"].has(market.get("simStart")):
+		errors.append("market.simStart: expected 'day1' or 'bizA2', got '%s'" % str(market.get("simStart")))
+	var goods: Dictionary = market.get("goods", {})
+	var expected := { "ore": ore_types.keys(), "consumable": consumable_prices.keys() }
+	for kind in expected:
+		var table: Dictionary = goods.get(kind, {})
+		for good_type in expected[kind]:
+			if not table.has(good_type):
+				errors.append("market.goods.%s: missing '%s'" % [kind, good_type])
+				continue
+			_require_keys(table[good_type], ["normalStock", "standInSupply", "standInDemand"], "market.goods.%s.%s" % [kind, good_type], errors)
 
 
 func _validate_districts(districts: Dictionary, ore_types: Dictionary, errors: Array[String]) -> void:
