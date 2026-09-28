@@ -226,6 +226,31 @@ func run() -> void:
 		assert_eq(deliveries.size(), int(GameData.MARKET["deliveries"]["cap"]), "bounded")
 	)
 
+	run_case("delivery_lands_in_buyer_holdings_and_credits_supplier_share_only", func():
+		_staff_sales()
+		var contract := _accept_mixed_contract()
+		var buyer: String = contract["counterparty"]
+		var fate_before := FactionSim.ore_held(buyer, "fate")
+		var items_before: Dictionary = GameState.state["factions"][buyer]["holdings"]["items"].get("timePearl", {}).duplicate()
+		GameState.state["player"]["orichalchum"]["fate"] = 3
+		GameState.state["player"]["inventory"]["timePearl"] = { "1": 1, "3": 1 }
+		ContractsSystem.process_sales_deliveries()
+		assert_eq(FactionSim.ore_held(buyer, "fate"), fate_before + 3, "ore into holdings")
+		var items: Dictionary = GameState.state["factions"][buyer]["holdings"]["items"]["timePearl"]
+		assert_eq(int(items["1"]), int(items_before.get("1", 0)) + 1, "tier 1 pearl kept its tier")
+		assert_eq(int(items["3"]), int(items_before.get("3", 0)) + 1, "tier 3 pearl kept its tier")
+		var pearl_weight := Shares.ore_equivalent("consumable", "timePearl", 1)
+		assert_true(pearl_weight > 0)
+		assert_eq(Shares.deliveries(), { buyer: 3 + 2 * pearl_weight }, "supplier share, ore-equivalent")
+		assert_eq(Shares.delivery_split(buyer), 1.0)
+		assert_eq(Shares.intake_share(buyer), 1.0, "no London buys yet")
+		for ore_type in GameData.CANONICAL_ORE_TYPES:
+			assert_eq(Shares.ore_share("player", ore_type), 0.0, "no ore share")
+			assert_eq(Shares.crafting_share("player", ore_type), 0.0, "no crafting share")
+		assert_true(GameState.state["market"]["supply"]["ore"].is_empty(), "no ore supply")
+		assert_true(GameState.state["market"]["supply"]["consumable"].is_empty(), "no item supply")
+	)
+
 	run_case("partial_delivery_spends_shared_stock_only_and_no_time", func():
 		_staff_sales()
 		var contract := _accept_life_contract()
@@ -482,7 +507,8 @@ func run() -> void:
 		assert_eq(expenses[0]["contractId"], contract["id"])
 		assert_eq(expenses[1]["source"], GameData.FACTIONS["guild"]["name"])
 		assert_eq(expenses[1]["qty"], 2)
-		assert_eq(FactionSim.ore_held("collective", "life"), 0)
+		var delivered_back: int = ContractsSystem.delivered_qty(contract) if contract["counterparty"] == "collective" else 0
+		assert_eq(FactionSim.ore_held("collective", "life"), delivered_back, "drained, then only the delivery lands back")
 		assert_eq(GameState.state["business"]["pot"], 5000 - collective_price * 2 - guild_price * 2 + int(GameState.state["business"]["week"]["receipts"]))
 		assert_eq(GameState.state["player"]["cash"], cash_before, "player cash is never touched")
 		assert_eq(GameState.state["sales"]["settlements"].size(), 1, "bought ore enters shared stock and delivers")

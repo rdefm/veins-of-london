@@ -79,12 +79,14 @@ static func inventory_add(recipe_key: String, tier: int, qty: int = 1) -> void:
 # Removes lowest tier first -- keeps higher-quality stock for Economy's
 # price-by-tier sale; other consumers recompute effect_power() from current
 # skill regardless of tier. Assumes the caller already confirmed stock.
-static func inventory_remove(recipe_key: String, qty: int) -> void:
+# Returns what came out as [{ tier:int, qty:int }, ...], lowest tier first.
+static func inventory_remove(recipe_key: String, qty: int) -> Array:
 	var inventory: Dictionary = GameState.state["player"]["inventory"]
 	var buckets: Dictionary = inventory.get(recipe_key, {})
 	var remaining := qty
 	var tier_keys: Array = buckets.keys()
 	tier_keys.sort_custom(func(a, b): return int(a) < int(b))
+	var taken: Array = []
 	for tier_key in tier_keys:
 		if remaining <= 0:
 			break
@@ -92,9 +94,12 @@ static func inventory_remove(recipe_key: String, qty: int) -> void:
 		var take: int = mini(have, remaining)
 		buckets[tier_key] = have - take
 		remaining -= take
+		if take > 0:
+			taken.append({ "tier": int(tier_key), "qty": take })
 	for tier_key in buckets.keys().duplicate():
 		if buckets[tier_key] <= 0:
 			buckets.erase(tier_key)
+	return taken
 
 
 # Removes `qty` from one specific tier -- Economy.execute_sale needs to

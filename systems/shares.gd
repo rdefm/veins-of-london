@@ -138,14 +138,60 @@ static func overview(tally: String, week: int = 0) -> Dictionary:
 	return table
 
 
-# Player contract deliveries per buyer faction over a window, ore-equivalent.
-static func deliveries(week: int = 0) -> Dictionary:
+# A good's ore-equivalent quantity: calc 1:1; an item by the sum of its
+# recipe's base ingredient weights.
+static func ore_equivalent(kind: String, good_type: String, qty: int) -> int:
+	if kind == "ore":
+		return qty
+	var weight := 0
+	for ore_type in GameData.RECIPES[good_type]["ingredients"]:
+		weight += int(GameData.RECIPES[good_type]["ingredients"][ore_type])
+	return qty * weight
+
+
+# Per-faction totals of a { factionId: n } bucket key over a window; a
+# bucket without the key counts as empty.
+static func _faction_totals(key: String, week: int) -> Dictionary:
 	var span := _window_range(week)
 	var totals := {}
 	for bucket in GameState.state["shares"]["days"]:
 		var day: int = int(bucket["day"])
 		if day < span.x or day > span.y:
 			continue
-		for faction_id in bucket["deliveries"]:
-			totals[faction_id] = int(totals.get(faction_id, 0)) + int(bucket["deliveries"][faction_id])
+		var by_faction: Dictionary = bucket.get(key, {})
+		for faction_id in by_faction:
+			totals[faction_id] = int(totals.get(faction_id, 0)) + int(by_faction[faction_id])
 	return totals
+
+
+# Player contract deliveries per buyer faction over a window, ore-equivalent.
+static func deliveries(week: int = 0) -> Dictionary:
+	return _faction_totals("deliveries", week)
+
+
+# Each faction's London buys over a window, ore-equivalent ("londonBuys").
+static func london_buys(week: int = 0) -> Dictionary:
+	return _faction_totals("londonBuys", week)
+
+
+# Supplier share read A: player deliveries to the faction ÷ all player
+# contract deliveries over the window; 0 when the player delivered nothing.
+static func delivery_split(faction_id: String, week: int = 0) -> float:
+	var totals := deliveries(week)
+	var total := 0
+	for amount in totals.values():
+		total += int(amount)
+	if total == 0:
+		return 0.0
+	return float(totals.get(faction_id, 0)) / float(total)
+
+
+# Supplier share read B: player deliveries to the faction ÷ its total
+# intake (those deliveries + its London buys) over the window; 0 when the
+# faction took nothing in.
+static func intake_share(faction_id: String, week: int = 0) -> float:
+	var delivered: int = int(deliveries(week).get(faction_id, 0))
+	var intake: int = delivered + int(london_buys(week).get(faction_id, 0))
+	if intake == 0:
+		return 0.0
+	return float(delivered) / float(intake)

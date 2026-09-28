@@ -177,10 +177,12 @@ static func _deliver(contract: Dictionary) -> void:
 		var take := mini(remaining_qty(contract, line["type"]), _shared_stock_for_line(line))
 		if take <= 0:
 			continue
-		_remove_shared_stock_for_line(line, take)
+		var tiers := _remove_shared_stock_for_line(line, take)
 		delivered[line["type"]] = int(delivered.get(line["type"], 0)) + take
 		delivered_total += take
-		Market.note_contract_delivery(Offers.ensure_counterparty(contract), line["kind"], line["type"], take)
+		var counterparty := Offers.ensure_counterparty(contract)
+		Market.note_contract_delivery(counterparty, line["kind"], line["type"], take)
+		_credit_buyer(counterparty, line, take, tiers)
 	if delivered_total <= 0:
 		return
 	if is_complete(contract):
@@ -456,11 +458,26 @@ static func _shared_stock_for_line(line: Dictionary) -> int:
 	return maxi(0, Crafting.inventory_qty(line["type"]) - reserved)
 
 
-static func _remove_shared_stock_for_line(line: Dictionary, qty: int) -> void:
+# Returns the item tiers taken from stock ([{ tier, qty }]); empty for ore.
+static func _remove_shared_stock_for_line(line: Dictionary, qty: int) -> Array:
 	if line["kind"] == "ore":
 		GameState.state["player"]["orichalchum"][line["type"]] -= qty
+		return []
+	return Crafting.inventory_remove(line["type"], qty)
+
+
+# R§3.10 "Delivery hook": the delivered goods land in the buyer faction's
+# holdings (items at the tiers the player gave up) and credit the player's
+# supplier share with it. No Market supply, no ore/crafting share.
+static func _credit_buyer(counterparty: String, line: Dictionary, qty: int, tiers: Array) -> void:
+	if not GameState.state["factions"].has(counterparty):
+		return
+	if line["kind"] == "ore":
+		FactionSim.add_ore(counterparty, line["type"], qty)
 	else:
-		Crafting.inventory_remove(line["type"], qty)
+		for part in tiers:
+			FactionSim.add_item(counterparty, line["type"], int(part["tier"]), int(part["qty"]))
+	Shares.record_delivery(counterparty, Shares.ore_equivalent(line["kind"], line["type"], qty))
 
 
 # business-spec.md "Fulfilment and settlement": delivered proportion is

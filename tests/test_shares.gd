@@ -84,6 +84,29 @@ func run() -> void:
 		assert_eq(Shares.ore_share("player", "time"), 0.0, "deliveries credit no ore share")
 	)
 
+	run_case("supplier_share_reads_split_and_intake", func():
+		GameState.reset()
+		assert_eq(Shares.delivery_split("firm"), 0.0, "nothing delivered")
+		assert_eq(Shares.intake_share("firm"), 0.0, "no intake")
+		Shares.record_delivery("firm", 6)
+		Shares.record_delivery("guild", 2)
+		assert_eq(Shares.delivery_split("firm"), 0.75, "A: where my output goes")
+		assert_eq(Shares.delivery_split("network"), 0.0)
+		assert_eq(Shares.intake_share("firm"), 1.0, "B: no London buys yet")
+		GameState.state["shares"]["days"][0]["londonBuys"] = { "firm": 18 }
+		assert_eq(Shares.london_buys(), { "firm": 18 })
+		assert_eq(Shares.intake_share("firm"), 0.25, "B: 6 of 24 intake")
+		assert_eq(Shares.intake_share("guild"), 1.0)
+	)
+
+	run_case("ore_equivalent_counts_calc_1_to_1_and_items_by_ingredient_weight", func():
+		assert_eq(Shares.ore_equivalent("ore", "time", 5), 5)
+		var weight := 0
+		for ore_type in GameData.RECIPES["healingBurst"]["ingredients"]:
+			weight += int(GameData.RECIPES["healingBurst"]["ingredients"][ore_type])
+		assert_eq(Shares.ore_equivalent("consumable", "healingBurst", 2), 2 * weight)
+	)
+
 	# ── player crediting ───────────────────────────────────────────────
 
 	run_case("player_prune_credits_player_ore_share", func():
