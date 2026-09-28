@@ -85,3 +85,25 @@ static func take_items(faction_id: String, recipe_key: String, qty: int) -> Arra
 		if int(buckets[tier_key]) <= 0:
 			buckets.erase(tier_key)
 	return taken
+
+
+# Districts whose factionPresence is this faction, in GameData.DISTRICTS order.
+static func home_districts(faction_id: String) -> Array:
+	var homes: Array = []
+	for district_id in GameData.DISTRICTS:
+		if GameData.DISTRICTS[district_id].get("factionPresence", "") == faction_id:
+			homes.append(district_id)
+	return homes
+
+
+# Where a faction keeps its holdings (spec §Stockpile location): a home
+# district plus a factions.json `stockpilePlaces` name, both drawn from the
+# seeded Rng once per save. revealedTo lists observer ids who know the spot.
+static func pick_stockpile(faction_id: String) -> Dictionary:
+	var homes := home_districts(faction_id)
+	var places: Array = GameData.FACTIONS[faction_id].get("stockpilePlaces", [])
+	return {
+		"district": Rng.rand_from(homes) if not homes.is_empty() else "",
+		"place": Rng.rand_from(places) if not places.is_empty() else "",
+		"revealedTo": [],
+	}

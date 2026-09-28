@@ -225,6 +225,26 @@ func run() -> void:
 		assert_eq(GameState.state["factions"]["conclave"]["holdings"], FactionSim.starting_holdings("conclave"))
 	)
 
+	run_case("faction_stockpile_survives_save_load_unchanged", func():
+		GameState.reset()
+		GameState.state["factions"]["network"]["stockpile"]["revealedTo"].append("player")
+		var before: Dictionary = GameState.state["factions"]["network"]["stockpile"].duplicate(true)
+		assert_true(SaveManager.import_string(SaveManager.export_string())["ok"])
+		assert_eq(GameState.state["factions"]["network"]["stockpile"], before, "load keeps the picked stockpile and its reveals")
+	)
+
+	run_case("old_save_without_stockpile_gets_one_picked_on_load", func():
+		GameState.reset()
+		for faction_id in GameState.state["factions"]:
+			GameState.state["factions"][faction_id].erase("stockpile")
+		assert_true(SaveManager.import_string(SaveManager.export_string())["ok"])
+		for faction_id in GameState.state["factions"]:
+			var stockpile: Dictionary = GameState.state["factions"][faction_id]["stockpile"]
+			assert_true(FactionSim.home_districts(faction_id).has(stockpile["district"]), "%s backfilled in a home district" % faction_id)
+			assert_true(GameData.FACTIONS[faction_id]["stockpilePlaces"].has(stockpile["place"]), "%s backfilled place from data" % faction_id)
+			assert_eq(stockpile["revealedTo"], [], "%s backfilled unrevealed" % faction_id)
+	)
+
 	run_case("old_save_arrears_day_clock_migrates_to_whole_weeks", func():
 		GameState.reset()
 		GameState.state["home"]["arrears"] = 300

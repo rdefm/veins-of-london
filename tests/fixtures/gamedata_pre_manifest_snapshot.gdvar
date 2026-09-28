@@ -4888,6 +4888,7 @@
 }
 },
 "startingResources": 200,
+"stockpilePlaces": ["Railway-arch lock-up", "Allotment tool shed", "Food-bank storeroom"],
 "tagline": "Community-run. Loosely organised. Surprisingly effective."
 },
 "conclave": {
@@ -4922,6 +4923,7 @@
 }
 },
 "startingResources": 1200,
+"stockpilePlaces": ["Crypt of a closed church", "Private bank vault", "Members' club wine cellar"],
 "tagline": "Policy, pressure, and things that can't be admitted in public."
 },
 "firm": {
@@ -4960,6 +4962,7 @@
 }
 },
 "startingResources": 500,
+"stockpilePlaces": ["Bonded warehouse", "Self-storage unit 114", "Scaffold-yard container"],
 "tagline": "Old money, new methods."
 },
 "guild": {
@@ -4998,6 +5001,7 @@
 }
 },
 "startingResources": 900,
+"stockpilePlaces": ["Livery hall undercroft", "Assay-room strongroom", "Workshop cellar"],
 "tagline": "They've been here since before the word 'orichalchum' was anglicised."
 },
 "network": {
@@ -5031,6 +5035,7 @@
 }
 },
 "startingResources": 500,
+"stockpilePlaces": ["Dead-letter flat", "Server-room cage", "Shuttered courier depot"],
 "tagline": "Information is the resource."
 }
 },

@@ -182,6 +182,7 @@ func _migrate_player_model(save: Dictionary) -> void:
 
 # A save without faction holdings gets the placeholder starting stock, with
 # any saved per-ore oreStock added on top; faction cash is left as saved.
+# A faction without a stockpile gets one picked now.
 func _migrate_faction_holdings(save: Dictionary) -> void:
 	for faction_id in save.get("factions", {}):
 		var faction: Dictionary = save["factions"][faction_id]
@@ -192,6 +193,8 @@ func _migrate_faction_holdings(save: Dictionary) -> void:
 			for ore_type in old_stock:
 				ore[ore_type] = int(ore.get(ore_type, 0)) + int(old_stock[ore_type])
 		faction.erase("oreStock")
+		if not faction.has("stockpile"):
+			faction["stockpile"] = FactionSim.pick_stockpile(faction_id)
 
 
 # A save with an in-progress col_a1_nadia_supply objective can't identify

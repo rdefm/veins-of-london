@@ -1359,12 +1359,12 @@ func run() -> void:
 		)
 		assert_true(disarm_seed != -1, "blast's 15% disarm chance should land within 500 tries")
 
+		Rng.set_seed(disarm_seed)
 		_fresh_combat()
 		GameState.state["player"]["inventory"]["blast"] = { "1": 1 }
 		var enemy: Dictionary = GameState.state["combat"]["enemies"][0]
 		enemy["weapon"] = { "min": 3, "max": 6 }
 		enemy["ability"] = { "id": "test_ability", "lockedTurns": 0 }
-		Rng.set_seed(disarm_seed)
 		Combat.use_blast()
 		assert_eq(enemy["weapon"], null, "a landed disarm should also strip the weapon bonus")
 	)
@@ -2385,10 +2385,10 @@ func run() -> void:
 		)
 		assert_true(found_seed != -1, "blast's 15% disarm chance should land within 500 tries")
 
+		Rng.set_seed(found_seed)
 		_fresh_combat()
 		GameState.state["player"]["inventory"]["blast"] = { "1": 1 }
 		GameState.state["player"]["craftingSkill"] = 1
-		Rng.set_seed(found_seed)
 		var result := Combat.use_blast()
 		var beats: Array = result["beats"]
 		assert_eq(beats[1]["kind"], Combat.BEAT_USE_DISARM)

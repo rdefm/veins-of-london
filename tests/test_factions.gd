@@ -863,3 +863,27 @@ func run() -> void:
 		assert_eq(Factions.factions_consuming("rejuvenation"), ["conclave"] as Array[String], "only conclave consumes rejuvenation")
 		assert_eq(Factions.factions_consuming("blackHole"), [] as Array[String], "nobody consumes blackHole")
 	)
+
+	run_case("new_game_stockpile_sits_in_a_home_district_at_a_data_place", func():
+		GameState.reset()
+		for faction_id in GameData.FACTIONS:
+			var stockpile: Dictionary = GameState.state["factions"][faction_id]["stockpile"]
+			assert_true(FactionSim.home_districts(faction_id).has(stockpile["district"]), "%s stockpile in a home district" % faction_id)
+			assert_true(GameData.FACTIONS[faction_id]["stockpilePlaces"].has(stockpile["place"]), "%s place from data" % faction_id)
+			assert_eq(stockpile["revealedTo"], [], "%s stockpile starts unrevealed" % faction_id)
+	)
+
+	run_case("home_districts_are_the_factionPresence_districts", func():
+		for faction_id in GameData.FACTIONS:
+			var homes := FactionSim.home_districts(faction_id)
+			assert_true(not homes.is_empty(), "%s has a home district" % faction_id)
+			for district_id in homes:
+				assert_eq(GameData.DISTRICTS[district_id]["factionPresence"], faction_id)
+	)
+
+	run_case("stockpile_pick_is_seeded", func():
+		Rng.set_seed(4242)
+		var first := FactionSim.pick_stockpile("firm")
+		Rng.set_seed(4242)
+		assert_eq(FactionSim.pick_stockpile("firm"), first, "same seed, same stockpile")
+	)

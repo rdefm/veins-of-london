@@ -406,6 +406,8 @@ func _new_factions_state() -> Dictionary:
 			# What the faction's shop sells and buys into (FactionSim):
 			# { ore: { oreType: int }, items: { recipeKey: { "<tier>": int } } }.
 			"holdings": FactionSim.starting_holdings(faction_id),
+			# Where the holdings sit: { district, place, revealedTo: [observerId] }.
+			"stockpile": FactionSim.pick_stockpile(faction_id),
 		}
 	return factions
 

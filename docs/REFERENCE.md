@@ -237,6 +237,8 @@ Five factions; copy `name`, `shortName`, `tagline`, `industries`, `description`,
 
 **`startingHoldings`** (biz-act2-faction-economy — **placeholder quantities**, pinned by the tuning tool later): `{ ore: {oreType: qty}, items: {recipeKey: qty} }`, seeded into `factions[id].holdings` on New Game and on an old save's backfill (`FactionSim.starting_holdings`); items file under tier `"0"`. Roughly a week of `consumes`, 5 of each crafted item, 40 primary ore, 20 secondary ore.
 
+**`stockpilePlaces`** (biz-act2-faction-economy §Stockpile location): place names for where the faction keeps its holdings. On New Game (and an old save's load) `FactionSim.pick_stockpile` draws one place plus one home district (a `districts.json` district whose `factionPresence` is that faction) from the seeded `Rng` into `factions[id].stockpile = { district, place, revealedTo: [] }`; `revealedTo` lists observer ids who know the spot. Picked once per save; nothing reads it in-game yet.
+
 **Faction barometer preferences** (`FACTION_BAROMETER_PREFS`, daily nudges — see §3.2):
 
 - collective: push economic/stable str 3; push social/stable str 3
@@ -732,7 +734,7 @@ JSON of the whole `state` tree. `meta.saveVersion` is 2 (bumped from 1 by vein-g
 
 Nadia's Act 1 standing order is `col_a1_nadia_supply`: twenty cumulative units of `time` calc, supplied only through Nadia's explicit order action. Every accepted unit receives the live Collective sell price; a delivery may be partial or over the remaining requirement, but progress caps at twenty while all selected in-stock units are paid. The action costs no time block. Pre-change incomplete saves receive a one-time credit for their recorded post-activation Collective time-calc sales because historic saves do not identify the vendor door; completed objectives remain complete and receive no replayed reward.
 
-A save whose factions lack `holdings` gets `FactionSim.starting_holdings` plus any saved per-ore `oreStock` added on top; `oreStock` is dropped and faction `resources` are left as saved. No `saveVersion` bump.
+A save whose factions lack `holdings` gets `FactionSim.starting_holdings` plus any saved per-ore `oreStock` added on top; `oreStock` is dropped and faction `resources` are left as saved. A faction without `stockpile` gets one from `FactionSim.pick_stockpile`. No `saveVersion` bump.
 
 A save whose `player.model` is `"protagonist2"` loads as `"territorial3"` (the same sprite set, renamed); any other value is left as-is. No `saveVersion` bump.
 
