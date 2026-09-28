@@ -478,3 +478,47 @@ func run() -> void:
 		assert_true(NodeQuery.label_texts(phone).has("Procurement"))
 		phone.free()
 	)
+
+	run_case("brief_shows_player_shares_with_week_on_week_moves", func():
+		GameState.reset()
+		GameState.state["world"]["day"] = 1
+		Shares.record_ore("player", "time", 1)
+		Shares.record_ore("guild", "time", 1)
+		GameState.state["world"]["day"] = 8
+		Shares.record_ore("player", "time", 1)
+		Shares.record_ore("guild", "time", 3)
+		Shares.record_craft("player", { "life": 2 })
+		GameState.state["phoneNav"]["app"] = "bizbrief"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		var texts := NodeQuery.label_texts(phone)
+		for expected in ["Your share of London", "Ore 25% ▼", "Crafting 100% ▲", "Crafting 0%"]:
+			assert_true(texts.has(expected), "missing %s" % expected)
+		assert_eq(_label_with_text(phone, "Ore 25% ▼").get_theme_color("font_color"), PriceMove.colour(-1, Color.WHITE))
+		phone.free()
+	)
+
+	run_case("brief_shows_supplier_share_per_faction_delivered_to", func():
+		GameState.reset()
+		Shares.record_delivery("guild", 3)
+		Shares.record_delivery("collective", 1)
+		Shares.record_london_buy("guild", 9)
+		GameState.state["phoneNav"]["app"] = "bizbrief"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		var texts := NodeQuery.label_texts(phone)
+		assert_true(texts.has(GameData.FACTIONS["guild"]["shortName"]), "delivered-to faction listed")
+		assert_true(texts.has("75% of your deliveries · 25% of their intake"), "guild reads A and B")
+		assert_true(texts.has("25% of your deliveries · 100% of their intake"), "collective reads A and B")
+		assert_true(not texts.has(GameData.FACTIONS["firm"]["shortName"]), "undelivered faction omitted")
+		phone.free()
+	)
+
+	run_case("brief_supplier_share_empty_without_deliveries", func():
+		GameState.reset()
+		GameState.state["phoneNav"]["app"] = "bizbrief"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		assert_true(NodeQuery.label_texts(phone).has("No contract deliveries in the last %d days." % GameData.SHARES_WINDOW_DAYS))
+		phone.free()
+	)

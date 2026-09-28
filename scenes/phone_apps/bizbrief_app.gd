@@ -1,4 +1,5 @@
-# BizBrief: Brief tab (morning account — bank, payday, wage prompts, operations, attention),
+# BizBrief: Brief tab (morning account — bank, payday, wage prompts, operations, attention,
+# London and supplier shares),
 # Manage tab (sales offers/contracts, lab production targets, cultivator
 # procurement), once bizStaffTabOpen is set, Staff tab (recruited
 # contacts, roles, pay) and, once the business pot is active, Stats tab
@@ -101,6 +102,54 @@ func _build_brief(content: VBoxContainer) -> void:
 	var attention := MorningAccountsSystem.attention_items()
 	if not attention.is_empty():
 		content.add_child(_build_attention(attention))
+	content.add_child(_build_london_share())
+	content.add_child(_build_supplier_share())
+
+
+# The player's ore and crafting share per ore type this week, each with
+# ▲/▼ versus last week (spec §UI reads).
+func _build_london_share() -> Control:
+	var c := UI.card()
+	c["content"].add_child(UI.heading("Your share of London", 14))
+	c["content"].add_child(UI.muted_label("Last %d days · ▲▼ vs the %d before" % [GameData.SHARES_WINDOW_DAYS, GameData.SHARES_WINDOW_DAYS]))
+	for ore_type in GameData.CANONICAL_ORE_TYPES:
+		var row := UI.hbox()
+		row.add_child(UI.expand_fill(UI.label(ore_type.capitalize())))
+		row.add_child(_share_move_label("Ore", Shares.ore_share(Shares.PLAYER, ore_type), Shares.ore_share(Shares.PLAYER, ore_type, 1)))
+		row.add_child(_share_move_label("Crafting", Shares.crafting_share(Shares.PLAYER, ore_type), Shares.crafting_share(Shares.PLAYER, ore_type, 1)))
+		c["content"].add_child(row)
+	return c["panel"]
+
+
+# "Ore 25% ▲", tinted by the move in whole percentage points.
+func _share_move_label(title: String, now: float, before: float) -> Label:
+	var move: int = _percent_points(now) - _percent_points(before)
+	var text := "%s %d%%" % [title, _percent_points(now)]
+	if move != 0:
+		text += " " + PriceMove.text(move)
+	return UI.tinted_label(text, PriceMove.colour(move, UI._MUTED_COLOUR))
+
+
+# Per buyer faction the player delivered to this week: share of the
+# player's deliveries (read A) and of the faction's intake (read B).
+func _build_supplier_share() -> Control:
+	var c := UI.card()
+	c["content"].add_child(UI.heading("Supplier share", 14))
+	var delivered: Dictionary = Shares.deliveries()
+	var any := false
+	for faction_id in GameData.FACTIONS:
+		if int(delivered.get(faction_id, 0)) <= 0:
+			continue
+		any = true
+		c["content"].add_child(UI.label(GameData.FACTIONS[faction_id]["shortName"]))
+		c["content"].add_child(UI.muted_label("%d%% of your deliveries · %d%% of their intake" % [_percent_points(Shares.delivery_split(faction_id)), _percent_points(Shares.intake_share(faction_id))]))
+	if not any:
+		c["content"].add_child(UI.muted_label("No contract deliveries in the last %d days." % GameData.SHARES_WINDOW_DAYS))
+	return c["panel"]
+
+
+static func _percent_points(fraction: float) -> int:
+	return roundi(fraction * 100.0)
 
 
 func _build_manage(content: VBoxContainer) -> void:
