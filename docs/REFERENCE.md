@@ -277,6 +277,7 @@ Most factions tend anything at/under neutral and harvest back to just above it, 
 - **Reserve:** item = `consumes[item]` (weekly) + kit use (`craftTargets[item].kitUse` if crafted, else `attack[item] + defend[item]`); the sell quota is not reserved. Ore = Σ over `crafts` of `calc_cost(recipe, craftSkill)[ore] × (max(0, craft target − held) + ceil(craft target × reserveDays / 7))`.
 - **Sell first** (all goods): `keep = reserve`, or `max(reserve, hardCap[ore|item])` while `quote < minSellMult × base`; `surplus = min(held − keep, for_sale)`; if > 0 sell `ceil(surplus × sellFraction)` (items highest tier first) at `Market.quote`, `record_supply(kind, type, qty, factionId)`, `resources += qty × quote`.
 - **Then buy** (items before ores): skip when `quote > maxBuyMult × base`; else `qty = min(reserve − held, floor(resources / quote))` (partial buys allowed); pay, add to holdings (items under tier `"0"`), `record_demand(kind, type, qty, factionId)`, `Shares.record_london_buy(factionId, ore_equivalent)`. London is abstract: not limited by Market stock. A faction priced or cashed out of ore crafts less at the next ⑤f.
+- **Arbitrage** (a faction whose `trading` has `arbBuyMult` — only the Conclave), after its own sell and buy: over every Market good, `ratio = quote / base`. Sell first, highest ratio first, every good with `ratio > arbSellMult`: `qty = min(held − reserve, for_sale, volume left)`, same effects as a sale. Then buy, lowest ratio first, every good with `ratio < arbBuyMult`: `qty = min(volume left, floor(resources / quote))`, same effects as a buy. Sells and buys share one `arbDailyVolume` unit budget per day. Its stability and anti-aggressor goals are sub-spec 4a.
 
 | id | industryIncome | reserveDays | maxBuyMult | sellFraction | minSellMult | hardCap ore / item |
 |---|---|---|---|---|---|---|
@@ -285,6 +286,8 @@ Most factions tend anything at/under neutral and harvest back to just above it, 
 | guild | 12 | 3 | 2.0 | 0.5 | 0.8 | 150 / 20 |
 | network | 10 | 3 | 2.0 | 0.5 | 0.8 | 150 / 20 |
 | conclave | 40 | 3 | 2.0 | 0.5 | 0.8 | 150 / 20 |
+
+Conclave arbitrage: `arbBuyMult` 0.7, `arbSellMult` 1.3, `arbDailyVolume` 30.
 
 **`stockpilePlaces`** (biz-act2-faction-economy §Stockpile location): place names for where the faction keeps its holdings. On New Game (and an old save's load) `FactionSim.pick_stockpile` draws one place plus one home district (a `districts.json` district whose `factionPresence` is that faction) from the seeded `Rng` into `factions[id].stockpile = { district, place, revealedTo: [] }`; `revealedTo` lists observer ids who know the spot. Picked once per save; nothing reads it in-game yet.
 

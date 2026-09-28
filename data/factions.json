@@ -221,7 +221,7 @@
     "resourceLevel": 3,
     "startingResources": 1200,
     "industryIncome": 40,
-    "trading": { "reserveDays": 3, "maxBuyMult": 2.0, "sellFraction": 0.5, "minSellMult": 0.8, "hardCap": { "ore": 150, "item": 20 } },
+    "trading": { "reserveDays": 3, "maxBuyMult": 2.0, "sellFraction": 0.5, "minSellMult": 0.8, "hardCap": { "ore": 150, "item": 20 }, "arbBuyMult": 0.7, "arbSellMult": 1.3, "arbDailyVolume": 30 },
     "stockpilePlaces": ["Crypt of a closed church", "Private bank vault", "Members' club wine cellar"],
     "raidThreshold": -20,
     "conquerThreshold": -20,

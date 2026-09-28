@@ -472,6 +472,60 @@ func run() -> void:
 		assert_eq(FactionSim.ore_held("firm", "fate"), cap + 20, "above the hard cap it sells half the excess")
 	)
 
+	run_case("conclave_arbitrage_buys_a_crashed_good_and_sells_a_spiked_one", func():
+		GameState.reset()
+		_calm_market_at_reserve()
+		GameState.state["factions"]["conclave"]["resources"] = 100000
+		var physics_before: int = FactionSim.ore_held("conclave", "physics")
+		var emotion_reserve: int = FactionSim.ore_reserve("conclave", "emotion")
+		_set_ore("conclave", "emotion", emotion_reserve + 8)
+		_set_quote("ore", "physics", int(Market.base_price("ore", "physics") * 0.5))
+		_set_quote("ore", "emotion", int(Market.base_price("ore", "emotion") * 1.5))
+		FactionSim.trade()
+		var volume: int = GameData.FACTIONS["conclave"]["trading"]["arbDailyVolume"]
+		assert_eq(FactionSim.ore_held("conclave", "emotion"), emotion_reserve, "the spike sells everything above reserve")
+		assert_eq(int(GameState.state["market"]["supply"]["ore"]["emotion"]["conclave"]), 8, "recorded as Conclave supply")
+		# Its ordinary trade sold ceil(8 × 0.5) = 4; arbitrage sold the other 4.
+		assert_eq(FactionSim.ore_held("conclave", "physics"), physics_before + volume - 4, "the crash buys the rest of the daily volume")
+		assert_eq(int(GameState.state["market"]["demand"]["ore"]["physics"]["conclave"]), volume - 4, "recorded as Conclave demand")
+	)
+
+	run_case("conclave_arbitrage_is_capped_by_cash_and_daily_volume", func():
+		GameState.reset()
+		_calm_market_at_reserve()
+		var price: int = int(Market.base_price("ore", "physics") * 0.5)
+		_set_quote("ore", "physics", price)
+		GameState.state["factions"]["conclave"]["resources"] = price * 3 + 1
+		var before: int = FactionSim.ore_held("conclave", "physics")
+		FactionSim.trade()
+		assert_eq(FactionSim.ore_held("conclave", "physics"), before + 3, "buys what the cash covers")
+		assert_eq(GameState.state["factions"]["conclave"]["resources"], 1, "never below £0")
+
+		GameState.reset()
+		_calm_market_at_reserve()
+		GameState.state["factions"]["conclave"]["resources"] = 1000000
+		_set_quote("ore", "physics", int(Market.base_price("ore", "physics") * 0.5))
+		_set_quote("ore", "emotion", int(Market.base_price("ore", "emotion") * 0.6))
+		FactionSim.trade()
+		var demand: Dictionary = GameState.state["market"]["demand"]["ore"]
+		var bought: int = int(demand.get("physics", {}).get("conclave", 0)) + int(demand.get("emotion", {}).get("conclave", 0))
+		assert_eq(bought, int(GameData.FACTIONS["conclave"]["trading"]["arbDailyVolume"]), "one daily volume across goods")
+		assert_eq(int(demand["physics"]["conclave"]), bought, "the deepest crash is bought first")
+	)
+
+	run_case("no_other_faction_arbitrages", func():
+		for faction_id in GameData.FACTIONS:
+			assert_eq(GameData.FACTIONS[faction_id]["trading"].has("arbBuyMult"), faction_id == "conclave", "%s arbitrage knobs" % faction_id)
+		GameState.reset()
+		_calm_market_at_reserve()
+		for faction_id in GameData.FACTIONS:
+			GameState.state["factions"][faction_id]["resources"] = 100000
+		_set_quote("ore", "physics", int(Market.base_price("ore", "physics") * 0.5))
+		FactionSim.trade()
+		var buyers: Array = GameState.state["market"]["demand"]["ore"].get("physics", {}).keys()
+		assert_eq(buyers, ["conclave"], "only the Conclave buys a crash it doesn't need")
+	)
+
 	run_case("security_upgrades_stop_when_cash_runs_out", func():
 		GameState.reset()
 		_seed_veins([_vein("s1", "firm", "physics", 50)])
@@ -519,6 +573,22 @@ static func _firm_at_reserve() -> void:
 		_set_item("firm", recipe_key, FactionSim.item_reserve("firm", recipe_key))
 	for ore_type in GameData.ORE_TYPES:
 		_set_ore("firm", ore_type, FactionSim.ore_reserve("firm", ore_type))
+
+
+# Every London quote at base and every faction holding each good at exactly
+# its reserve (items first: ore reserves read the craft gap), so a trade with
+# nothing changed neither buys, sells nor arbitrages.
+static func _calm_market_at_reserve() -> void:
+	for kind in Market.KINDS:
+		for good_type in GameData.MARKET["goods"][kind]:
+			_set_quote(kind, good_type, Market.base_price(kind, good_type))
+	for faction_id in GameData.FACTIONS:
+		GameState.state["factions"][faction_id]["holdings"]["items"] = {}
+		for good in FactionSim._traded_goods(faction_id):
+			if good["kind"] == "consumable":
+				_set_item(faction_id, good["type"], FactionSim.item_reserve(faction_id, good["type"]))
+		for ore_type in GameData.ORE_TYPES:
+			_set_ore(faction_id, ore_type, FactionSim.ore_reserve(faction_id, ore_type))
 
 
 # Conclave (craftSkill 1) one failsafe short of target with ore for exactly one attempt.

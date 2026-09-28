@@ -15,7 +15,7 @@ Spec: §Buying and selling (Conclave arbitrage).
 
 **Status:** ready-for-agent
 
-- [ ] Conclave buys a crashed good and sells a spiked one
-- [ ] Capped by cash and daily volume
-- [ ] No other faction arbitrages
-- [ ] REFERENCE.md updated
+- [x] Conclave buys a crashed good and sells a spiked one
+- [x] Capped by cash and daily volume
+- [x] No other faction arbitrages
+- [x] REFERENCE.md updated

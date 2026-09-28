@@ -50,7 +50,7 @@ Data file per system: see `data/*.json` below.
 | equipment.gd | Weapon equip/unequip |
 | event_items.gd | Registry of items usable from an event's Item button (Rewind consumable + Dial Rewind): eligibility, counts, effect |
 | events.gd | Event-card runner + rewind, auto-discovers art |
-| faction_sim.gd | FactionSim: faction holdings (ore/type, items/recipe/tier): starting stock, add/take; stockpile pick; daily vein tend + prune (R§1.8 `fieldwork`); crafting toward targets (`craftSkill`); consumption + kit burns → shortfall; per-vein defend-kit allocation + `vein_kit` read (`raidKits`); London sell-surplus/buy-shortfall vs reserve with faction £ (`trading`) |
+| faction_sim.gd | FactionSim: faction holdings (ore/type, items/recipe/tier): starting stock, add/take; stockpile pick; daily vein tend + prune (R§1.8 `fieldwork`); crafting toward targets (`craftSkill`); consumption + kit burns → shortfall; per-vein defend-kit allocation + `vein_kit` read (`raidKits`); London sell-surplus/buy-shortfall vs reserve with £, Conclave arbitrage (`trading`) |
 | factions.gd | Faction joining |
 | home.gd | Home tier/tenure/security/rooms/raid chance; per-day and weekly bill base (rent or utilities); arrears countdown in days to the Monday rollover; rent/buy/buy-out/downgrade tier moves via shared `change_tier` (room wipe, security loss); per-slot room purchase/replacement (`set_room_use`); daily raid roll, alarm queue/expiry, and alarm-defend win/loss resolution (R§3.8) |
 | jobs.gd | James's jobs, trust bands |

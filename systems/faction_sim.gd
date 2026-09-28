@@ -369,7 +369,8 @@ static func vein_kit(site_id: String) -> Dictionary:
 # demand, Shares London-buy tally), items before ores, while the quote ≤
 # maxBuyMult × base and `resources` covers it -- partial buys allowed, never
 # below £0. London is abstract: buys aren't limited by Market stock. Bought
-# items file under tier "0".
+# items file under tier "0". A faction whose `trading` carries arbBuyMult
+# (the Conclave) then arbitrages -- see _arbitrage().
 static func trade() -> void:
 	for faction_id in GameData.FACTIONS:
 		_trade_faction(faction_id)
@@ -437,6 +438,8 @@ static func _trade_faction(faction_id: String) -> void:
 		_sell_surplus(faction_id, good["kind"], good["type"])
 	for good in goods:
 		_buy_shortfall(faction_id, good["kind"], good["type"])
+	if GameData.FACTIONS[faction_id]["trading"].has("arbBuyMult"):
+		_arbitrage(faction_id)
 
 
 static func _sell_surplus(faction_id: String, kind: String, good_type: String) -> void:
@@ -450,7 +453,20 @@ static func _sell_surplus(faction_id: String, kind: String, good_type: String) -
 	var surplus: int = mini(held(faction_id, kind, good_type) - keep, for_sale(faction_id, kind, good_type))
 	if surplus <= 0:
 		return
-	var qty: int = ceili(surplus * float(knobs["sellFraction"]))
+	_sell(faction_id, kind, good_type, ceili(surplus * float(knobs["sellFraction"])), price)
+
+
+static func _buy_shortfall(faction_id: String, kind: String, good_type: String) -> void:
+	var knobs: Dictionary = GameData.FACTIONS[faction_id]["trading"]
+	var price: int = Market.quote(kind, good_type)
+	if price <= 0 or price > float(knobs["maxBuyMult"]) * Market.base_price(kind, good_type):
+		return
+	var faction: Dictionary = GameState.state["factions"][faction_id]
+	var qty: int = mini(reserve(faction_id, kind, good_type) - held(faction_id, kind, good_type), maxi(0, int(faction["resources"])) / price)
+	_buy(faction_id, kind, good_type, qty, price)
+
+
+static func _sell(faction_id: String, kind: String, good_type: String, qty: int, price: int) -> void:
 	if qty <= 0:
 		return
 	if kind == "ore":
@@ -461,22 +477,54 @@ static func _sell_surplus(faction_id: String, kind: String, good_type: String) -
 	Market.record_supply(kind, good_type, qty, faction_id)
 
 
-static func _buy_shortfall(faction_id: String, kind: String, good_type: String) -> void:
-	var knobs: Dictionary = GameData.FACTIONS[faction_id]["trading"]
-	var price: int = Market.quote(kind, good_type)
-	if price <= 0 or price > float(knobs["maxBuyMult"]) * Market.base_price(kind, good_type):
-		return
-	var faction: Dictionary = GameState.state["factions"][faction_id]
-	var qty: int = mini(reserve(faction_id, kind, good_type) - held(faction_id, kind, good_type), maxi(0, int(faction["resources"])) / price)
+static func _buy(faction_id: String, kind: String, good_type: String, qty: int, price: int) -> void:
 	if qty <= 0:
 		return
-	faction["resources"] -= qty * price
+	GameState.state["factions"][faction_id]["resources"] -= qty * price
 	if kind == "ore":
 		add_ore(faction_id, good_type, qty)
 	else:
 		add_item(faction_id, good_type, 0, qty)
 	Market.record_demand(kind, good_type, qty, faction_id)
 	Shares.record_london_buy(faction_id, Shares.ore_equivalent(kind, good_type, qty))
+
+
+# Arbitrage (spec §Buying and selling, Conclave arbitrage): after its own
+# trading, sells what it holds above reserve of any good quoted over
+# arbSellMult × base, dearest-relative-to-base first, then buys any London
+# good quoted under arbBuyMult × base, cheapest-relative-to-base first. Sells
+# and buys share one arbDailyVolume unit budget; buys are capped by
+# `resources`.
+static func _arbitrage(faction_id: String) -> void:
+	var knobs: Dictionary = GameData.FACTIONS[faction_id]["trading"]
+	var volume: int = int(knobs["arbDailyVolume"])
+	var spiked: Array = []
+	var crashed: Array = []
+	for kind in Market.KINDS:
+		for good_type in GameData.MARKET["goods"][kind]:
+			var base: int = Market.base_price(kind, good_type)
+			var price: int = Market.quote(kind, good_type)
+			if base <= 0 or price <= 0:
+				continue
+			var ratio: float = float(price) / base
+			var good := { "kind": kind, "type": good_type, "price": price, "ratio": ratio }
+			if ratio > float(knobs["arbSellMult"]):
+				spiked.append(good)
+			elif ratio < float(knobs["arbBuyMult"]):
+				crashed.append(good)
+	spiked.sort_custom(func(a, b): return a["ratio"] > b["ratio"])
+	crashed.sort_custom(func(a, b): return a["ratio"] < b["ratio"])
+	for good in spiked:
+		var surplus: int = mini(held(faction_id, good["kind"], good["type"]) - reserve(faction_id, good["kind"], good["type"]), for_sale(faction_id, good["kind"], good["type"]))
+		var qty: int = mini(surplus, volume)
+		if qty > 0:
+			_sell(faction_id, good["kind"], good["type"], qty, good["price"])
+			volume -= qty
+	for good in crashed:
+		var qty: int = mini(volume, maxi(0, int(GameState.state["factions"][faction_id]["resources"])) / good["price"])
+		if qty > 0:
+			_buy(faction_id, good["kind"], good["type"], qty, good["price"])
+			volume -= qty
 
 
 # Districts whose factionPresence is this faction, in GameData.DISTRICTS order.

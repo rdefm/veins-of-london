@@ -4994,6 +4994,9 @@
 "startingResources": 1200,
 "industryIncome": 40,
 "trading": {
+"arbBuyMult": 0.7,
+"arbDailyVolume": 30,
+"arbSellMult": 1.3,
 "hardCap": {
 "item": 20,
 "ore": 150
