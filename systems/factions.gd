@@ -291,7 +291,7 @@ static func _eligible_rival_veins(faction_id: String) -> Array:
 	var candidates := []
 	for site in GameState.state["world"]["sites"]:
 		var vein: Variant = site.get("factionVein")
-		if vein == null or vein["factionId"] == faction_id:
+		if vein == null or vein["factionId"] == faction_id or Collective.is_quest_locked_vein(vein["id"]):
 			continue
 		candidates.append({ "site": site, "vein": vein })
 	return candidates

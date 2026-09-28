@@ -124,6 +124,9 @@ const RAID_EVENT_ID := "vein_raid"
 # ally_ids carries the raid-initiation UI's chosen allies into the event
 # context for Combat.start_raid() to gather later.
 static func begin_raid(vein: Dictionary, ally_ids: Array = []) -> Dictionary:
+	if Collective.is_quest_locked_vein(vein["id"]):
+		# PROSE-REVIEW: new refusal line.
+		return { "ok": false, "reason": "Not this one. Not yet." }
 	var travel := Travel.ensure_district(vein["district"], 1)
 	if not travel["ok"]:
 		return travel
@@ -223,7 +226,7 @@ static func roll_raid_attempts() -> Array:
 	var attempts := []
 	for vein in GameState.state["player"]["veins"]:
 		var site_id: Variant = vein.get("siteId")
-		if site_id == null or Sites.find_site(site_id) == null:
+		if site_id == null or Sites.find_site(site_id) == null or Collective.is_quest_locked_vein(vein["id"]):
 			continue
 		var attacker_id: String = _attacking_faction(vein)
 		if not _faction_will_attempt_raids(attacker_id):

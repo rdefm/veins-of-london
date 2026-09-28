@@ -424,7 +424,7 @@ func _build_faction_vein_content(content: VBoxContainer, vein: Dictionary, site_
 	var raid_button := UI.button(UI.format_block_cost_label("Raid", 1, Travel.can_afford(district, 1)), func():
 		Raiding.begin_raid(vein, ["archie"] if _raid_bring_archie else [])
 	)
-	raid_button.disabled = not Travel.can_afford(district, 1)
+	raid_button.disabled = not Travel.can_afford(district, 1) or Collective.is_quest_locked_vein(vein["id"])
 	actions.add_child(MapCardStyle.style_button(raid_button))
 	if GameState.state["flags"].get("veinSaleUnlocked", false):
 		actions.add_child(_build_buy_vein_button(vein))

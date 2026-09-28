@@ -579,6 +579,13 @@ const HAKIM_VEIN_LOST_KIND := "col_a2_hakim_vein_lost"
 const SECOND_LOSS_KIND := "col_a2_second_loss"
 
 
+# Hakim's vein can't be raided or taken in a rivalry until T10's scripted
+# transfer to the Firm, so the questline's ownership chain can't be broken.
+static func is_quest_locked_vein(vein_id: Variant) -> bool:
+	var hakim_vein_id: Variant = GameState.state["collective"].get("hakimVeinId")
+	return hakim_vein_id != null and vein_id == hakim_vein_id and not GameState.state["flags"].get("colA2HakimVeinLost", false)
+
+
 static func maybe_trigger_a2_crack() -> bool:
 	var flags: Dictionary = GameState.state["flags"]
 	if not flags.get("colA2CheckpointSeen", false) or _a2_beat_in_flight():
