@@ -4892,6 +4892,7 @@
 },
 "id": "collective",
 "industries": ["sourcing", "trading"],
+"industryIncome": 6,
 "joinRelation": 25,
 "name": "The Collective",
 "primaryOre": "life",
@@ -4920,7 +4921,8 @@
 }
 },
 "startingResources": 200,
-"industryIncome": 6,
+"stockpilePlaces": ["Railway-arch lock-up", "Allotment tool shed", "Food-bank storeroom"],
+"tagline": "Community-run. Loosely organised. Surprisingly effective.",
 "trading": {
 "hardCap": {
 "item": 20,
@@ -4930,9 +4932,7 @@
 "minSellMult": 0.8,
 "reserveDays": 3,
 "sellFraction": 0.5
-},
-"stockpilePlaces": ["Railway-arch lock-up", "Allotment tool shed", "Food-bank storeroom"],
-"tagline": "Community-run. Loosely organised. Surprisingly effective."
+}
 },
 "conclave": {
 "archetype": "manipulator",
@@ -4966,6 +4966,7 @@
 },
 "id": "conclave",
 "industries": ["influence", "sourcing", "crafting"],
+"industryIncome": 40,
 "joinRelation": 60,
 "name": "The Conclave",
 "primaryOre": "fate",
@@ -4992,7 +4993,8 @@
 }
 },
 "startingResources": 1200,
-"industryIncome": 40,
+"stockpilePlaces": ["Crypt of a closed church", "Private bank vault", "Members' club wine cellar"],
+"tagline": "Policy, pressure, and things that can't be admitted in public.",
 "trading": {
 "arbBuyMult": 0.7,
 "arbDailyVolume": 30,
@@ -5005,9 +5007,7 @@
 "minSellMult": 0.8,
 "reserveDays": 3,
 "sellFraction": 0.5
-},
-"stockpilePlaces": ["Crypt of a closed church", "Private bank vault", "Members' club wine cellar"],
-"tagline": "Policy, pressure, and things that can't be admitted in public."
+}
 },
 "firm": {
 "archetype": "producer",
@@ -5046,11 +5046,12 @@
 "fieldwork": {
 "actionsPerBlock": 2,
 "pruneDepthMult": 4,
-"pruneFloor": 40,
+"pruneFloor": 51,
 "tendAtOrBelow": 30
 },
 "id": "firm",
 "industries": ["raiding", "trading"],
+"industryIncome": 8,
 "joinRelation": 35,
 "name": "The Firm",
 "primaryOre": "physics",
@@ -5083,7 +5084,8 @@
 }
 },
 "startingResources": 500,
-"industryIncome": 8,
+"stockpilePlaces": ["Bonded warehouse", "Self-storage unit 114", "Scaffold-yard container"],
+"tagline": "Old money, new methods.",
 "trading": {
 "hardCap": {
 "item": 20,
@@ -5093,9 +5095,7 @@
 "minSellMult": 0.8,
 "reserveDays": 3,
 "sellFraction": 0.5
-},
-"stockpilePlaces": ["Bonded warehouse", "Self-storage unit 114", "Scaffold-yard container"],
-"tagline": "Old money, new methods."
+}
 },
 "guild": {
 "archetype": "crafter",
@@ -5145,6 +5145,7 @@
 },
 "id": "guild",
 "industries": ["crafting", "trading"],
+"industryIncome": 12,
 "joinRelation": 40,
 "name": "The Guild of Applied Alchemists",
 "primaryOre": "time",
@@ -5173,7 +5174,8 @@
 }
 },
 "startingResources": 900,
-"industryIncome": 12,
+"stockpilePlaces": ["Livery hall undercroft", "Assay-room strongroom", "Workshop cellar"],
+"tagline": "They've been here since before the word 'orichalchum' was anglicised.",
 "trading": {
 "hardCap": {
 "item": 20,
@@ -5183,9 +5185,7 @@
 "minSellMult": 0.8,
 "reserveDays": 3,
 "sellFraction": 0.5
-},
-"stockpilePlaces": ["Livery hall undercroft", "Assay-room strongroom", "Workshop cellar"],
-"tagline": "They've been here since before the word 'orichalchum' was anglicised."
+}
 },
 "network": {
 "archetype": "informationBroker",
@@ -5218,6 +5218,7 @@
 },
 "id": "network",
 "industries": ["trading", "influence"],
+"industryIncome": 10,
 "joinRelation": 30,
 "name": "The Network",
 "primaryOre": "emotion",
@@ -5244,7 +5245,8 @@
 }
 },
 "startingResources": 500,
-"industryIncome": 10,
+"stockpilePlaces": ["Dead-letter flat", "Server-room cage", "Shuttered courier depot"],
+"tagline": "Information is the resource.",
 "trading": {
 "hardCap": {
 "item": 20,
@@ -5254,9 +5256,7 @@
 "minSellMult": 0.8,
 "reserveDays": 3,
 "sellFraction": 0.5
-},
-"stockpilePlaces": ["Dead-letter flat", "Server-room cage", "Shuttered courier depot"],
-"tagline": "Information is the resource."
+}
 }
 },
 "FACTION_BAROMETER_PREFS": {
@@ -7130,6 +7130,9 @@
 "cultivateGainMaxOffset": 9,
 "cultivateGainMinOffset": 5,
 "cultivatingXpLevels": [0, 0, 80, 220, 500, 1000],
+"dayOneFactionGrowth": 70,
+"dayOneFactionMaxLevelShare": 0.75,
+"dayOneFactionTierBump": 1,
 "developmentThreshold": 90,
 "driftRandomMax": 5,
 "driftRandomMin": 1,

@@ -6,33 +6,33 @@
   "reversion": 0.6,
   "smoothing": 0.8,
   "historyDays": 28,
-  "oreConversionRate": 0.75,
-  "independentsShare": 0.9,
-  "annotations": { "cap": 80, "dumpVolumeMult": 0.5, "moveThreshold": 0.15 },
+  "oreConversionRate": 0.1,
+  "independentsShare": 0.3,
+  "annotations": { "cap": 80, "dumpVolumeMult": 2.0, "moveThreshold": 0.15 },
   "deliveries": { "cap": 80 },
   "goods": {
     "ore": {
-      "time": { "normalStock": 300, "civilianDemand": 166 },
-      "physics": { "normalStock": 300, "civilianDemand": 185 },
-      "life": { "normalStock": 300, "civilianDemand": 181 },
-      "fate": { "normalStock": 300, "civilianDemand": 211 },
-      "emotion": { "normalStock": 300, "civilianDemand": 211 }
+      "time": { "normalStock": 70, "civilianDemand": 14 },
+      "physics": { "normalStock": 70, "civilianDemand": 32 },
+      "life": { "normalStock": 70, "civilianDemand": 20 },
+      "fate": { "normalStock": 70, "civilianDemand": 30 },
+      "emotion": { "normalStock": 70, "civilianDemand": 34 }
     },
     "consumable": {
-      "timePearl": { "normalStock": 40, "civilianDemand": 20 },
-      "enhancementPowder": { "normalStock": 40, "civilianDemand": 20 },
-      "rewind": { "normalStock": 40, "civilianDemand": 20 },
-      "healingSalve": { "normalStock": 40, "civilianDemand": 20 },
-      "blast": { "normalStock": 40, "civilianDemand": 20 },
-      "shield": { "normalStock": 40, "civilianDemand": 20 },
-      "blackHole": { "normalStock": 40, "civilianDemand": 20 },
-      "prophetsBreath": { "normalStock": 40, "civilianDemand": 20 },
-      "beALady": { "normalStock": 40, "civilianDemand": 20 },
-      "pansPrank": { "normalStock": 40, "civilianDemand": 20 },
-      "healingBurst": { "normalStock": 40, "civilianDemand": 20 },
-      "failsafe": { "normalStock": 40, "civilianDemand": 20 },
-      "rejuvenation": { "normalStock": 40, "civilianDemand": 20 },
-      "wormhole": { "normalStock": 40, "civilianDemand": 20 }
+      "timePearl": { "normalStock": 10, "civilianDemand": 3 },
+      "enhancementPowder": { "normalStock": 10, "civilianDemand": 3 },
+      "rewind": { "normalStock": 10, "civilianDemand": 3 },
+      "healingSalve": { "normalStock": 10, "civilianDemand": 3 },
+      "blast": { "normalStock": 10, "civilianDemand": 3 },
+      "shield": { "normalStock": 10, "civilianDemand": 3 },
+      "blackHole": { "normalStock": 10, "civilianDemand": 3 },
+      "prophetsBreath": { "normalStock": 10, "civilianDemand": 3 },
+      "beALady": { "normalStock": 10, "civilianDemand": 3 },
+      "pansPrank": { "normalStock": 10, "civilianDemand": 3 },
+      "healingBurst": { "normalStock": 10, "civilianDemand": 3 },
+      "failsafe": { "normalStock": 10, "civilianDemand": 3 },
+      "rejuvenation": { "normalStock": 10, "civilianDemand": 3 },
+      "wormhole": { "normalStock": 10, "civilianDemand": 3 }
     }
   }
 }

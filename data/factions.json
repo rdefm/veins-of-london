@@ -70,7 +70,7 @@
     "raidStealth": 0.55,
     "archetype": "producer",
     "cultivateSkill": 3,
-    "fieldwork": { "actionsPerBlock": 2, "tendAtOrBelow": 30, "pruneFloor": 40, "pruneDepthMult": 4 },
+    "fieldwork": { "actionsPerBlock": 2, "tendAtOrBelow": 30, "pruneFloor": 51, "pruneDepthMult": 4 },
     "craftSkill": 2,
     "craftTargets": { "blast": { "kitUse": 2, "sellQuota": 3 }, "shield": { "kitUse": 2, "sellQuota": 3 }, "healingBurst": { "kitUse": 2, "sellQuota": 3 } },
     "primaryOre": "physics",

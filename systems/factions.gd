@@ -293,9 +293,10 @@ static func _pick_target_vein(attacker_id: String, candidates: Array) -> Diction
 # Coin-flip baseline; the three tilts below push it up or down.
 const RIVALRY_BASE_CHANCE := 0.5
 
-# Normalises attacker-defender resource gap against the roster's 200-1200 starting
-# spread so an early-game disparity's tilt stays roughly +/-1 before WEIGHT scales it.
-const RIVALRY_RESOURCE_DIVISOR := 1000.0
+# Normalises attacker-defender resource gap against the tens-of-thousands spread
+# faction calc sales build within a couple of months (scripts/sim_faction_economy.gd),
+# so the tilt stays roughly +/-1 before WEIGHT scales it rather than saturating.
+const RIVALRY_RESOURCE_DIVISOR := 50000.0
 const RIVALRY_RESOURCE_WEIGHT := 0.25
 
 # Normalises against "guarded" raidResist (55, R§1.6) so the base tilt stays within
@@ -386,28 +387,30 @@ static func resolve_rivalry_outcome(outcome: Dictionary) -> void:
 # ── Day-1 starting veins ─────────────────────────────────────────────────
 # New-game-only seeding so the other 5 factions don't feel absent while the daily
 # NPC-claim tick slowly builds up. Reuses the site+vein mechanism but fabricates a
-# brand-new site per starting vein and passes a fixed roster growth instead of
-# seedGrowth. Per-faction growth lists are fixed constants (each rolled once within
-# the roster's 1-5 level range, mapped via growth = 20n - 10, Lv1->10 ... Lv5->90).
-# District counts match data/districts.json's siteCap bump -- each district below
-# appears in exactly that many starting veins.
+# brand-new site per starting vein. Each roster entry is one vein's fixed ore type
+# (~2/3 the faction's primaryOre, the rest its secondaryOre). vein_growth.json sets
+# the rest (R§1.8 "Day-one roster"): every vein starts at dayOneFactionGrowth, its
+# district-rolled terroir tier is raised dayOneFactionTierBump steps, and the first
+# dayOneFactionMaxLevelShare of each faction's roster starts at its tier's level
+# cap, the rest one level below. District counts match data/districts.json's
+# siteCap bump -- each district below appears in exactly that many starting veins.
 const DAY_ONE_ROSTER: Dictionary = {
 	"collective": [
-		{ "district": "shoreditch", "growths": [50, 10, 50, 50] },
-		{ "district": "whitechapel", "growths": [10, 30, 10, 50] },
+		{ "district": "shoreditch", "ores": ["life", "life", "emotion", "life"] },
+		{ "district": "whitechapel", "ores": ["life", "emotion", "life", "emotion"] },
 	],
 	"firm": [
-		{ "district": "camden", "growths": [50, 50] },
-		{ "district": "battersea", "growths": [50, 30] },
+		{ "district": "camden", "ores": ["physics", "physics"] },
+		{ "district": "battersea", "ores": ["physics", "life"] },
 	],
 	"guild": [
-		{ "district": "greenwich", "growths": [30, 30, 50, 50, 30, 70, 70] },
+		{ "district": "greenwich", "ores": ["time", "time", "physics", "time", "time", "physics", "time"] },
 	],
 	"network": [
-		{ "district": "kingscross", "growths": [70, 70, 50, 70] },
+		{ "district": "kingscross", "ores": ["emotion", "emotion", "fate", "emotion"] },
 	],
 	"conclave": [
-		{ "district": "city", "growths": [50, 50, 30, 70, 90, 90, 90] },
+		{ "district": "city", "ores": ["fate", "fate", "time", "fate", "fate", "time", "fate"] },
 	],
 }
 
@@ -415,21 +418,34 @@ const DAY_ONE_ROSTER: Dictionary = {
 # Called once by New Game, always right after GameState.reset() -- never folded into
 # reset() itself, since tests expect reset() to produce a bare state with empty sites.
 static func seed_day_one_veins() -> void:
+	var share: float = GameData.VEIN_GROWTH["dayOneFactionMaxLevelShare"]
 	for faction_id in DAY_ONE_ROSTER.keys():
+		var total := 0
 		for group in DAY_ONE_ROSTER[faction_id]:
-			var district_id: String = group["district"]
-			for growth in group["growths"]:
-				_seed_day_one_vein(faction_id, district_id, growth)
+			total += group["ores"].size()
+		var at_cap: int = roundi(total * share)
+		var placed := 0
+		for group in DAY_ONE_ROSTER[faction_id]:
+			for ore_type in group["ores"]:
+				_seed_day_one_vein(faction_id, group["district"], ore_type, placed < at_cap)
+				placed += 1
 	EventBus.state_changed.emit()
 
 
-# Site/security roll exactly as a normal NPC claim, only growth is fixed. No MapEvents
-# queueing or Notify/XP -- these veins exist from game start, nothing to animate.
-static func _seed_day_one_vein(faction_id: String, district_id: String, growth: int) -> void:
-	var tier := Sites.roll_tier(district_id)
+# Site/security roll exactly as a normal NPC claim, with the roster's ore type,
+# growth, tier bump and level. No MapEvents queueing or Notify/XP -- these veins
+# exist from game start, nothing to animate.
+static func _seed_day_one_vein(faction_id: String, district_id: String, ore_type: String, at_cap: bool) -> void:
+	var vg: Dictionary = GameData.VEIN_GROWTH
+	var order: Array = GameData.SITE_TIER_ORDER
+	var rolled := Sites.roll_tier(district_id)
+	var tier: String = order[mini(order.find(rolled) + int(vg["dayOneFactionTierBump"]), order.size() - 1)]
 	var site := Sites.roll_new_site(district_id, tier)
+	site["oreType"] = ore_type
 
-	var vein := create_faction_vein(faction_id, site, growth)
+	var vein := create_faction_vein(faction_id, site, int(vg["dayOneFactionGrowth"]))
+	var cap: int = Cultivating.level_cap(vein)
+	vein["level"] = cap if at_cap else maxi(1, cap - 1)
 	site["factionVein"] = vein
 
 	GameState.state["world"]["sites"].append(site)

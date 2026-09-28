@@ -484,7 +484,7 @@ func run() -> void:
 		var site := {
 			"id": "s1", "district": "shoreditch", "tier": "fair", "oreType": "fate",
 			"bonuses": [], "discoveredDay": 1, "claimed": false,
-			"factionVein": { "id": "fv1", "factionId": "collective", "oreType": "fate", "growth": 100, "rampantDays": 0, "security": "none", "claimedOnDay": 1, "siteId": "s1", "hospitability": { "tier": "fair", "bonuses": [] } },
+			"factionVein": { "id": "fv1", "factionId": "collective", "oreType": "fate", "growth": 100, "rampantDays": 0, "security": "none", "claimedOnDay": 1, "siteId": "s1", "level": 3, "hospitability": { "tier": "fair", "bonuses": [] } },
 			"hasNaturalVein": false,
 		}
 		GameState.state["world"]["sites"] = [site]

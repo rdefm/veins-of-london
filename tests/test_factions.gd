@@ -658,32 +658,44 @@ func run() -> void:
 		var collective_whitechapel := collective.filter(func(e): return e["site"]["district"] == "whitechapel")
 		assert_eq(collective_shoreditch.size(), 4, "collective: 4/4 shoreditch/whitechapel split")
 		assert_eq(collective_whitechapel.size(), 4, "collective: 4/4 shoreditch/whitechapel split")
-		var collective_growths: Array = collective.map(func(e): return e["vein"]["growth"])
-		assert_eq(collective_growths, [50, 10, 50, 50, 10, 30, 10, 50], "collective growths are the hardcoded fixed roll (20n-10), in placement order")
+		assert_eq(collective.map(func(e): return e["vein"]["oreType"]), ["life", "life", "emotion", "life", "life", "emotion", "life", "emotion"], "collective ore types are the roster's fixed list, in placement order")
 
 		var firm := _day_one_faction_veins("firm")
 		assert_eq(firm.size(), 4, "firm: 4 starting veins")
 		assert_eq(firm.filter(func(e): return e["site"]["district"] == "camden").size(), 2, "firm: 2/2 camden/battersea split")
 		assert_eq(firm.filter(func(e): return e["site"]["district"] == "battersea").size(), 2, "firm: 2/2 camden/battersea split")
-		assert_eq(firm.map(func(e): return e["vein"]["growth"]), [50, 50, 50, 30], "firm growths are the hardcoded fixed roll (20n-10)")
+		assert_eq(firm.map(func(e): return e["vein"]["oreType"]), ["physics", "physics", "physics", "life"], "firm ore types")
 
 		var guild := _day_one_faction_veins("guild")
 		assert_eq(guild.size(), 7, "guild: 7 starting veins (5 ranged + 2 fixed)")
 		for e in guild:
 			assert_eq(e["site"]["district"], "greenwich", "every guild starting vein is in greenwich")
-		assert_eq(guild.map(func(e): return e["vein"]["growth"]), [30, 30, 50, 50, 30, 70, 70], "guild growths: 5 fixed-roll @Lv2-3 then 2 fixed @Lv4, all via 20n-10")
+		assert_eq(guild.map(func(e): return e["vein"]["oreType"]), ["time", "time", "physics", "time", "time", "physics", "time"], "guild ore types")
 
 		var network := _day_one_faction_veins("network")
 		assert_eq(network.size(), 4, "network: 4 starting veins")
 		for e in network:
 			assert_eq(e["site"]["district"], "kingscross", "every network starting vein is in king's cross")
-		assert_eq(network.map(func(e): return e["vein"]["growth"]), [70, 70, 50, 70], "network growths are the hardcoded fixed roll (20n-10)")
+		assert_eq(network.map(func(e): return e["vein"]["oreType"]), ["emotion", "emotion", "fate", "emotion"], "network ore types")
 
 		var conclave := _day_one_faction_veins("conclave")
 		assert_eq(conclave.size(), 7, "conclave: 7 starting veins (4 ranged + 3 fixed)")
 		for e in conclave:
 			assert_eq(e["site"]["district"], "city", "every conclave starting vein is in the city")
-		assert_eq(conclave.map(func(e): return e["vein"]["growth"]), [50, 50, 30, 70, 90, 90, 90], "conclave growths: 4 fixed-roll @Lv2-4 then 3 fixed @Lv5, all via 20n-10")
+		assert_eq(conclave.map(func(e): return e["vein"]["oreType"]), ["fate", "fate", "time", "fate", "fate", "time", "fate"], "conclave ore types")
+
+		# Growth 70, tier bumped off barren, first 75% (rounded) of each roster at
+		# its tier's level cap and the rest one below.
+		for faction_id in Factions.DAY_ONE_ROSTER:
+			var entries := _day_one_faction_veins(faction_id)
+			var at_cap: int = roundi(entries.size() * 0.75)
+			for i in entries.size():
+				var vein: Dictionary = entries[i]["vein"]
+				var cap: int = Cultivating.level_cap(vein)
+				assert_eq(vein["growth"], 70, "%s vein %d starts at growth 70" % [faction_id, i])
+				assert_true(entries[i]["site"]["tier"] != "barren", "%s vein %d: tier raised one step, never barren" % [faction_id, i])
+				assert_eq(vein["hospitability"]["tier"], entries[i]["site"]["tier"], "vein terroir matches its site")
+				assert_eq(vein["level"], cap if i < at_cap else maxi(1, cap - 1), "%s vein %d level" % [faction_id, i])
 	)
 
 	run_case("seed_day_one_veins_growths_are_identical_across_seeds_but_tier_ore_security_still_vary", func():
@@ -710,7 +722,7 @@ func run() -> void:
 			if run_a[i]["tier"] != run_b[i]["tier"] or va["oreType"] != vb["oreType"] or va["security"] != vb["security"]:
 				procedural_differs = true
 				break
-		assert_true(procedural_differs, "tier/oreType/security must still be rolled fresh per game, not accidentally hardcoded too")
+		assert_true(procedural_differs, "tier/security must still be rolled fresh per game, not accidentally hardcoded too")
 	)
 
 	run_case("seed_day_one_veins_bumps_siteCap_by_exactly_the_placed_count_per_district", func():

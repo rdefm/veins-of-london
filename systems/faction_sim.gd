@@ -111,7 +111,8 @@ static func take_items(faction_id: String, recipe_key: String, qty: int) -> Arra
 # at/under fieldwork.tendAtOrBelow, lowest growth first (a vein parked at
 # neutral never drifts, so 50 still needs a tend): a get_cult_chance roll at
 # cultivateSkill, then the player's cultivate gain. Leftover actions prune
-# veins at factionPruneThreshold+, highest growth first, cutting
+# veins at factionPruneThreshold+, highest growth first -- except the
+# maturing_vein(), left to grow until it levels up -- cutting
 # cultivate_max_gain × pruneDepthMult but never below pruneFloor; the
 # player's prune yield lands in holdings and the faction's ore share.
 static func tend_and_prune() -> void:
@@ -144,7 +145,9 @@ static func _tend_and_prune_faction(faction_id: String, veins: Array) -> void:
 		if Rng.chance(Cultivating.get_cult_chance(skill)):
 			_tend(vein, skill)
 
-	var to_prune: Array = veins.filter(func(v): return not acted.has(v["id"]) and v["growth"] >= GameData.VEIN_GROWTH["factionPruneThreshold"])
+	var maturing: Variant = maturing_vein(veins)
+	var spared: String = maturing["id"] if maturing != null else ""
+	var to_prune: Array = veins.filter(func(v): return not acted.has(v["id"]) and v["id"] != spared and v["growth"] >= GameData.VEIN_GROWTH["factionPruneThreshold"])
 	to_prune.sort_custom(func(a, b): return _growth_order(a, b, false))
 	var max_depth: int = Cultivating.cultivate_max_gain(skill) * int(fieldwork["pruneDepthMult"])
 	for vein in to_prune:
@@ -155,6 +158,17 @@ static func _tend_and_prune_faction(faction_id: String, veins: Array) -> void:
 			continue
 		budget -= 1
 		_prune(faction_id, vein, depth)
+
+
+# The one vein a faction leaves unpruned so it can grow past
+# developmentThreshold and level up: of its veins below their level cap, the
+# highest growth (tie: siteId). null once every vein is at its cap.
+static func maturing_vein(veins: Array) -> Variant:
+	var below_cap: Array = veins.filter(func(v): return int(v.get("level", 1)) < Cultivating.level_cap(v))
+	if below_cap.is_empty():
+		return null
+	below_cap.sort_custom(func(a, b): return _growth_order(a, b, false))
+	return below_cap[0]
 
 
 # Ties break on siteId so the order never depends on site-list position.

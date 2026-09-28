@@ -593,6 +593,7 @@ func _validate_vein_growth(vein_growth: Dictionary, xp_levels: Array, errors: Ar
 		"pruneLightDepth", "pruneHardDepth", "cultivateGainMinOffset", "cultivateGainMaxOffset",
 		"collapseChancePerDay", "seedGrowth", "rampantSeedDays", "selfSeedGrowth", "terroirYieldMult",
 		"levelCapByTerroir", "driftRandomMin", "driftRandomMax",
+		"dayOneFactionGrowth", "dayOneFactionTierBump", "dayOneFactionMaxLevelShare",
 	], "vein_growth", errors)
 
 	if xp_levels.size() != 6:

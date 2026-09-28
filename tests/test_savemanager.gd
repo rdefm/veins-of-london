@@ -540,7 +540,7 @@ func run() -> void:
 		var legacy: Dictionary = GameState.deep_copy(GameState.state)
 		legacy.erase("market")
 		assert_true(SaveManager._load_save_dict(legacy)["ok"])
-		var resting: int = Market.target_price("ore", "fate", Market.resting_stock("ore", "fate"))
+		var resting: int = Market.target_price("ore", "fate", GameState.round_epsilon(Market.resting_stock("ore", "fate")))
 		assert_eq(Market.quote("ore", "fate"), resting, "an old save opens at the resting price")
 		assert_true(resting > 90, "resting sits above base (idle premium)")
 	)

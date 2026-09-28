@@ -4,11 +4,13 @@ const Fixtures := preload("res://tests/support/fixtures.gd")
 const SeedSearch := preload("res://tests/support/seed_search.gd")
 
 
+# At level 3, fair terroir's cap, so no fixture vein is a maturing_vein()
+# unless a case lowers its level.
 static func _vein(site_id: String, faction_id: String, ore_type: String, growth: int) -> Dictionary:
 	return {
 		"id": "fv_" + site_id, "factionId": faction_id, "oreType": ore_type, "growth": growth,
 		"rampantDays": 0, "security": "none", "alarmUpgrades": [], "claimedOnDay": 1,
-		"district": "shoreditch", "siteId": site_id, "level": 1, "developmentStreak": 0,
+		"district": "shoreditch", "siteId": site_id, "level": 3, "developmentStreak": 0,
 		"hospitability": { "tier": "fair", "bonuses": [] },
 	}
 
@@ -60,11 +62,39 @@ func run() -> void:
 
 	run_case("a_prune_never_cuts_below_the_factions_floor", func():
 		GameState.reset()
-		# Firm: depth 12*4=48, floor 40.
-		_seed_veins([_vein("s1", "firm", "physics", 90), _vein("s2", "firm", "physics", 86)])
+		# Firm: depth 12*4=48, floor 51.
+		_seed_veins([_vein("s1", "firm", "physics", 100), _vein("s2", "firm", "physics", 90)])
 		FactionSim.tend_and_prune()
-		assert_eq(_growth("s1"), 42, "Firm prunes below neutral by its full depth")
-		assert_eq(_growth("s2"), 40, "a full-depth cut from 86 would land at 38; the floor stops it at 40")
+		assert_eq(_growth("s1"), 52, "Firm cuts its full depth when the floor allows")
+		assert_eq(_growth("s2"), 51, "a full-depth cut from 90 would land at 42; the floor stops it at 51")
+	)
+
+	run_case("the_highest_vein_below_its_level_cap_is_left_to_mature", func():
+		GameState.reset()
+		var maturing := _vein("s1", "collective", "life", 95)
+		maturing["level"] = 1
+		var lower := _vein("s2", "collective", "life", 88)
+		lower["level"] = 2
+		_seed_veins([maturing, lower, _vein("s3", "collective", "life", 90)])
+		FactionSim.tend_and_prune()
+		assert_eq(_growth("s1"), 95, "the highest below-cap vein is spared the prune")
+		assert_true(_growth("s2") < 88, "a second below-cap vein is still pruned")
+		assert_true(_growth("s3") < 90, "a vein at its level cap is pruned")
+	)
+
+	run_case("a_maturing_vein_levels_up_then_the_next_one_matures", func():
+		GameState.reset()
+		var first := _vein("s1", "collective", "life", 100)
+		first["level"] = 2
+		var second := _vein("s2", "collective", "life", 90)
+		second["level"] = 2
+		_seed_veins([first, second])
+		assert_eq(FactionSim.maturing_vein([first, second]), first, "highest growth matures first")
+		first["level"] = 3
+		first["growth"] = 50
+		assert_eq(FactionSim.maturing_vein([first, second]), second, "once it hits its cap the next vein matures")
+		second["level"] = 3
+		assert_eq(FactionSim.maturing_vein([first, second]), null, "no maturing vein once every vein is capped")
 	)
 
 	run_case("veins_below_the_prune_threshold_are_not_pruned", func():
@@ -146,7 +176,9 @@ func run() -> void:
 	run_case("collapse_at_zero_still_deletes_a_faction_vein", func():
 		var seed := SeedSearch.find_seed_for(200, func():
 			GameState.reset()
-			_seed_veins([_vein("s1", "guild", "time", 0)])
+			var vein := _vein("s1", "guild", "time", 0)
+			vein["level"] = 1  # a higher level de-levels instead of collapsing
+			_seed_veins([vein])
 			TimeSystem.daily_tick()
 			return Sites.find_site("s1") == null
 		)
