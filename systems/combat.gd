@@ -48,6 +48,7 @@ const BEAT_ALLY_HEAL := "ally_heal"
 const BEAT_ALLY_CAST := "ally_cast"
 const BEAT_ENEMY_ATTACK := "enemy_attack"
 const BEAT_ENEMY_EVADE := "enemy_evade"
+const BEAT_ENEMY_ITEM := "enemy_item"
 const BEAT_PLAYER_EVADE := "player_evade"
 const BEAT_ABILITY_UNLOCKED := "ability_unlocked"
 const BEAT_FROZEN_WEARS_OFF := "frozen_wears_off"
@@ -424,7 +425,9 @@ static func _gather_raid_allies(ally_ids: Array, log_lines: Array) -> Array:
 # The alarm-upgrade defend encounter, called by Raiding.maybe_trigger_defend()
 # once the player travels into the vein's district within the pending
 # window. onWin is "" -- a loss is handled by Raiding.resolve_defend_outcome().
-static func start_defend_vein(vein_id: String, value_tier: int) -> void:
+# `raider_kit` is FactionSim.raider_kit()'s shape, the squad's shared item
+# pool ({} for none); see _enemy_try_item().
+static func start_defend_vein(vein_id: String, value_tier: int, raider_kit: Dictionary = {}) -> void:
 	var enemies := generate_raid_enemy(vein_id, value_tier)
 	var log_lines := ["The alarm wasn't lying. %s is already there." % _guard_group_name(enemies)]
 	# Act 2 T8a's pre-fight reminder (spec §5.1/§6.8a): one Nadia-voiced line,
@@ -433,7 +436,7 @@ static func start_defend_vein(vein_id: String, value_tier: int) -> void:
 		log_lines.push_front("Nadia, in your ear: \"Go on then. That's what the Blast and the Shield were for — use them properly this time, not for luck.\"")
 		GameState.state["flags"]["colA2DefendReminderShown"] = true
 	var allies := _gather_defend_allies(log_lines)
-	_start_combat(CONTEXT_DEFEND_VEIN, vein_id, enemies, log_lines, "", allies)
+	_start_combat(CONTEXT_DEFEND_VEIN, vein_id, enemies, log_lines, "", allies, null, raider_kit)
 
 
 # Vein-defense fights only: every recruited contact with a combat kit
@@ -462,7 +465,7 @@ static func start_debug_combat(context: String, location_key: String, value_tier
 		location_key if not location_key.is_empty() else null)
 
 
-static func _start_combat(context: String, vein_id, enemies: Array, log_lines: Array, on_win: String, allies: Array = [], location_key_override: Variant = null) -> void:
+static func _start_combat(context: String, vein_id, enemies: Array, log_lines: Array, on_win: String, allies: Array = [], location_key_override: Variant = null, raider_kit: Dictionary = {}) -> void:
 	if not is_canonical_context(context):
 		push_error("Combat: unrecognized context '%s' — not in CANONICAL_CONTEXTS, exit_combat() will mis-route it." % context)
 	# Every roster entry needs koed regardless of which start_* path built
@@ -477,6 +480,7 @@ static func _start_combat(context: String, vein_id, enemies: Array, log_lines: A
 		"log": log_lines, "outcome": null, "frozenTurns": 0, "frozenSkipped": [], "motionTurns": 0, "motionPower": 0,
 		"evadeTurns": 0, "evadeChance": 0.0, "onWin": on_win, "snapshots": [],
 		"allies": allies,
+		"raiderKit": raider_kit,
 		# Every beat _log() threads since the oldest snapshot still on the stack
 		# was pushed; see combat_rewind()'s "beat queue in reverse" use of it.
 		"beatsSinceSnapshot": [],
@@ -1005,13 +1009,12 @@ static func _resolve_player_turn(combat: Dictionary, beats: Variant = null, moti
 		_log(combat, beats, "%s dodges — no damage." % enemy["name"], BEAT_ENEMY_EVADE, evade_extra)
 		return
 	var atk := get_attack_range()
-	var dmg: int = Rng.randi_range(atk["min"], atk["max"])
-	enemy["hp"] = maxi(0, enemy["hp"] - dmg)
+	var attack_extra: Dictionary = { "actorType": "player", "targetType": "enemy", "targetIndex": target_index }
+	var shield_note := _hit_enemy(enemy, Rng.randi_range(atk["min"], atk["max"]), attack_extra)
 	var frozen_note: String = " (enemy frozen)" if combat["frozenTurns"] > 0 else ""
-	var attack_extra: Dictionary = { "actorType": "player", "targetType": "enemy", "targetIndex": target_index, "dmg": dmg }
 	if motion_boosted:
 		attack_extra["motionBoosted"] = true
-	_log(combat, beats, "You attack — %d damage%s. Enemy: %d/%d HP." % [dmg, frozen_note, enemy["hp"], enemy["hpMax"]], BEAT_PLAYER_ATTACK, attack_extra)
+	_log(combat, beats, "You attack — %d damage%s%s. Enemy: %d/%d HP." % [attack_extra["dmg"], shield_note, frozen_note, enemy["hp"], enemy["hpMax"]], BEAT_PLAYER_ATTACK, attack_extra)
 	_maybe_win_from_direct_damage(combat, enemy, beats)
 
 
@@ -1037,10 +1040,9 @@ static func _ally_turn(combat: Dictionary, ally: Dictionary, ally_index: int, be
 			{ "actorType": "ally", "actorIndex": ally_index, "targetType": "enemy", "targetIndex": target_index })
 		return
 
-	var dmg: int = Rng.randi_range(ally["attackMin"], ally["attackMax"])
-	enemy["hp"] = maxi(0, enemy["hp"] - dmg)
-	_log(combat, beats, "%s hits %s for %d. Enemy: %d/%d HP." % [ally["name"], enemy["name"], dmg, enemy["hp"], enemy["hpMax"]], BEAT_ALLY_ATTACK,
-		{ "actorType": "ally", "actorIndex": ally_index, "targetType": "enemy", "targetIndex": target_index, "dmg": dmg })
+	var ally_extra: Dictionary = { "actorType": "ally", "actorIndex": ally_index, "targetType": "enemy", "targetIndex": target_index }
+	var shield_note := _hit_enemy(enemy, Rng.randi_range(ally["attackMin"], ally["attackMax"]), ally_extra)
+	_log(combat, beats, "%s hits %s for %d%s. Enemy: %d/%d HP." % [ally["name"], enemy["name"], ally_extra["dmg"], shield_note, enemy["hp"], enemy["hpMax"]], BEAT_ALLY_ATTACK, ally_extra)
 	_maybe_win_from_direct_damage(combat, enemy, beats)
 
 
@@ -1178,7 +1180,84 @@ static func _enemy_turn(combat: Dictionary, enemy: Dictionary, enemy_index: int,
 			_end_freeze_rotation(combat, enemy_index, beats)
 		return
 
+	if _enemy_try_item(combat, enemy, enemy_index, beats):
+		return
 	_resolve_enemy_attack(combat, enemy, enemy_index, beats)
+
+
+# Raider kit heals, tried in this order.
+const RAIDER_HEAL_ITEMS: Array[String] = ["healingBurst", "healingSalve"]
+
+
+# A defended raid's raiders share combat.raiderKit (FactionSim.raider_kit()).
+# On an enemy's turn, before attacking, the first of these that applies
+# spends one kit item: a heal on the most-hurt living enemy below
+# ALLY_HEAL_THRESHOLD_FRACTION; a Shield on itself while it has none up; a
+# Blast on its attack target in place of the attack (no evade roll). Power is
+# the recipe's effectPower at the kit's tier. Spent items tally in
+# raiderKit.used, billed to the attacker by Raiding.resolve_defend_outcome().
+static func _enemy_try_item(combat: Dictionary, enemy: Dictionary, enemy_index: int, beats: Variant) -> bool:
+	var kit: Dictionary = combat.get("raiderKit", {})
+	if kit.is_empty():
+		return false
+
+	for recipe_key in RAIDER_HEAL_ITEMS:
+		if int(kit["items"].get(recipe_key, 0)) <= 0:
+			continue
+		var hurt_index := _most_hurt_enemy(combat)
+		if hurt_index == -1:
+			break
+		var healed: Dictionary = combat["enemies"][hurt_index]
+		var old_hp: int = healed["hp"]
+		healed["hp"] = mini(healed["hpMax"], old_hp + _spend_raider_item(kit, recipe_key))
+		var who: String = "themselves" if hurt_index == enemy_index else healed["name"]
+		# PROSE-REVIEW: raider heal line.
+		_log(combat, beats, "%s slaps a %s on %s. +%d HP." % [enemy["name"], GameData.RECIPES[recipe_key]["name"], who, healed["hp"] - old_hp], BEAT_ENEMY_ITEM,
+			{ "actorType": "enemy", "actorIndex": enemy_index, "targetType": "enemy", "targetIndex": hurt_index, "effectKey": recipe_key })
+		return true
+
+	if int(kit["items"].get("shield", 0)) > 0 and int(enemy.get("shieldPool", 0)) <= 0:
+		enemy["shieldPool"] = _spend_raider_item(kit, "shield")
+		# PROSE-REVIEW: raider shield line.
+		_log(combat, beats, "%s gets a shield up. %d absorption." % [enemy["name"], enemy["shieldPool"]], BEAT_ENEMY_ITEM,
+			{ "actorType": "enemy", "actorIndex": enemy_index, "targetType": "enemy", "targetIndex": enemy_index, "effectKey": "shield" })
+		return true
+
+	if int(kit["items"].get("blast", 0)) > 0:
+		var power := _spend_raider_item(kit, "blast")
+		var target_index: int = _pick_enemy_target(combat)
+		if target_index == -1:
+			_enemy_attack_player(combat, enemy, enemy_index, beats, power)
+		else:
+			_enemy_attack_ally(combat, enemy, combat["allies"][target_index], target_index, enemy_index, beats, power)
+		return true
+
+	return false
+
+
+# Takes one of recipe_key out of the raider kit, tallies it as used, and
+# returns its power at the kit's tier.
+static func _spend_raider_item(kit: Dictionary, recipe_key: String) -> int:
+	kit["items"][recipe_key] = int(kit["items"][recipe_key]) - 1
+	kit["used"][recipe_key] = int(kit["used"].get(recipe_key, 0)) + 1
+	var powers: Array = GameData.RECIPES[recipe_key]["effectPower"]
+	return int(powers[clampi(int(kit["tier"]), 0, powers.size() - 1)])
+
+
+# Index of the living enemy with the lowest hp fraction below
+# ALLY_HEAL_THRESHOLD_FRACTION, or -1 when none is that hurt.
+static func _most_hurt_enemy(combat: Dictionary) -> int:
+	var best := -1
+	var best_fraction: float = ALLY_HEAL_THRESHOLD_FRACTION
+	var enemies: Array = combat["enemies"]
+	for i in range(enemies.size()):
+		if enemies[i]["koed"]:
+			continue
+		var fraction: float = float(enemies[i]["hp"]) / float(enemies[i]["hpMax"])
+		if fraction < best_fraction:
+			best_fraction = fraction
+			best = i
+	return best
 
 
 static func _end_freeze_rotation(combat: Dictionary, enemy_index: int, beats: Variant) -> void:
@@ -1196,8 +1275,10 @@ static func _all_living_enemies_skipped(combat: Dictionary) -> bool:
 	return true
 
 
-static func _enemy_attack_player(combat: Dictionary, enemy: Dictionary, enemy_index: int = 0, beats: Variant = null) -> void:
-	if combat["evadeTurns"] > 0:
+# blast_power > 0 is a raider kit Blast (_enemy_try_item()): fixed damage,
+# no evade roll, still absorbed by the shield.
+static func _enemy_attack_player(combat: Dictionary, enemy: Dictionary, enemy_index: int = 0, beats: Variant = null, blast_power: int = 0) -> void:
+	if blast_power <= 0 and combat["evadeTurns"] > 0:
 		combat["evadeTurns"] -= 1
 		if Rng.chance(combat["evadeChance"]):
 			var evade_note: String
@@ -1209,8 +1290,10 @@ static func _enemy_attack_player(combat: Dictionary, enemy: Dictionary, enemy_in
 				{ "actorType": "enemy", "actorIndex": enemy_index, "targetType": "player" })
 			return
 
-	var atk := get_enemy_attack_range(enemy)
-	var dmg: int = Rng.randi_range(atk["min"], atk["max"])
+	var dmg: int = blast_power
+	if dmg <= 0:
+		var atk := get_enemy_attack_range(enemy)
+		dmg = Rng.randi_range(atk["min"], atk["max"])
 	var player: Dictionary = GameState.state["player"]
 
 	# Shield absorbs 1:1 out of player.shieldPool before HP takes anything --
@@ -1231,7 +1314,12 @@ static func _enemy_attack_player(combat: Dictionary, enemy: Dictionary, enemy_in
 		# Shield cracks on each absorb, carried independently of `dmg`
 		# (0 on a full absorb) so the crack still plays.
 		beat_extra["shieldAbsorbed"] = absorbed
-	_log(combat, beats, "%s hits you for %d%s. You: %d/%d HP." % [enemy["name"], dmg, shield_note, player["hp"], player["hpMax"]], BEAT_ENEMY_ATTACK, beat_extra)
+	if blast_power > 0:
+		beat_extra["effectKey"] = "blast"
+		# PROSE-REVIEW: raider blast line.
+		_log(combat, beats, "%s lets off a blast at you — %d damage%s. You: %d/%d HP." % [enemy["name"], dmg, shield_note, player["hp"], player["hpMax"]], BEAT_ENEMY_ITEM, beat_extra)
+	else:
+		_log(combat, beats, "%s hits you for %d%s. You: %d/%d HP." % [enemy["name"], dmg, shield_note, player["hp"], player["hpMax"]], BEAT_ENEMY_ATTACK, beat_extra)
 	if player["hp"] <= 0:
 		# A failsafe/rewind trigger rewrites combat.log wholesale, so this
 		# path deliberately stays un-beaten -- rewind-as-animation is its
@@ -1248,12 +1336,20 @@ static func _enemy_attack_player(combat: Dictionary, enemy: Dictionary, enemy_in
 # No shield/evade/failsafe -- those are player-only resources. KO sets
 # the `koed` flag Combat's loops already check, and starts the contact's
 # persistent cooldown via Contacts.knock_out().
-static func _enemy_attack_ally(combat: Dictionary, enemy: Dictionary, ally: Dictionary, ally_index: int, enemy_index: int = 0, beats: Variant = null) -> void:
-	var atk := get_enemy_attack_range(enemy)
-	var dmg: int = Rng.randi_range(atk["min"], atk["max"])
+# blast_power > 0: a raider kit Blast, as in _enemy_attack_player().
+static func _enemy_attack_ally(combat: Dictionary, enemy: Dictionary, ally: Dictionary, ally_index: int, enemy_index: int = 0, beats: Variant = null, blast_power: int = 0) -> void:
+	var dmg: int = blast_power
+	if dmg <= 0:
+		var atk := get_enemy_attack_range(enemy)
+		dmg = Rng.randi_range(atk["min"], atk["max"])
 	ally["hp"] = maxi(0, ally["hp"] - dmg)
-	_log(combat, beats, "%s hits %s for %d. %s: %d/%d HP." % [enemy["name"], ally["name"], dmg, ally["name"], ally["hp"], ally["hpMax"]], BEAT_ENEMY_ATTACK,
-		{ "actorType": "enemy", "actorIndex": enemy_index, "targetType": "ally", "targetIndex": ally_index, "dmg": dmg })
+	var beat_extra: Dictionary = { "actorType": "enemy", "actorIndex": enemy_index, "targetType": "ally", "targetIndex": ally_index, "dmg": dmg }
+	if blast_power > 0:
+		beat_extra["effectKey"] = "blast"
+		# PROSE-REVIEW: raider blast line.
+		_log(combat, beats, "%s lets off a blast at %s — %d damage. %s: %d/%d HP." % [enemy["name"], ally["name"], dmg, ally["name"], ally["hp"], ally["hpMax"]], BEAT_ENEMY_ITEM, beat_extra)
+	else:
+		_log(combat, beats, "%s hits %s for %d. %s: %d/%d HP." % [enemy["name"], ally["name"], dmg, ally["name"], ally["hp"], ally["hpMax"]], BEAT_ENEMY_ATTACK, beat_extra)
 	if ally["hp"] <= 0:
 		ally["koed"] = true
 		clamp_selection(combat)
@@ -1399,9 +1495,9 @@ static func use_blast() -> Dictionary:
 	var power = Crafting.effect_power("blast", player["craftingSkill"])
 	var enemy: Dictionary = _focused_enemy(combat)
 	var target_index: int = _enemy_action_index(combat)
-	enemy["hp"] = maxi(0, enemy["hp"] - power)
-	_log(combat, beats, "You let off a blast — %d damage. Enemy: %d/%d HP." % [power, enemy["hp"], enemy["hpMax"]], BEAT_USE_BLAST,
-		{ "targetType": "enemy", "targetIndex": target_index, "dmg": power, "effectKey": "blast" })
+	var blast_extra: Dictionary = { "targetType": "enemy", "targetIndex": target_index, "effectKey": "blast" }
+	var shield_note := _hit_enemy(enemy, int(power), blast_extra)
+	_log(combat, beats, "You let off a blast — %d damage%s. Enemy: %d/%d HP." % [blast_extra["dmg"], shield_note, enemy["hp"], enemy["hpMax"]], BEAT_USE_BLAST, blast_extra)
 	combat["blastFleeBoost"] = true
 
 	if Rng.chance(BLAST_DISARM_CHANCE):
@@ -1461,9 +1557,9 @@ static func _apply_black_hole_aoe(combat: Dictionary, dmg: int, freeze_turns: in
 		var enemy: Dictionary = combat["enemies"][i]
 		if enemy["koed"]:
 			continue
-		enemy["hp"] = maxi(0, enemy["hp"] - dmg)
-		_log(combat, beats, "%s takes %d damage, frozen %d turn(s). %s: %d/%d HP." % [enemy["name"], dmg, freeze_turns, enemy["name"], enemy["hp"], enemy["hpMax"]], BEAT_COMPLICATION_BLACK_HOLE_HIT,
-			{ "targetType": "enemy", "targetIndex": i, "dmg": dmg, "effectKey": "blackHole" })
+		var hit_extra: Dictionary = { "targetType": "enemy", "targetIndex": i, "effectKey": "blackHole" }
+		var shield_note := _hit_enemy(enemy, dmg, hit_extra)
+		_log(combat, beats, "%s takes %d damage%s, frozen %d turn(s). %s: %d/%d HP." % [enemy["name"], hit_extra["dmg"], shield_note, freeze_turns, enemy["name"], enemy["hp"], enemy["hpMax"]], BEAT_COMPLICATION_BLACK_HOLE_HIT, hit_extra)
 		_maybe_win_from_direct_damage(combat, enemy, beats)
 
 
@@ -1496,6 +1592,22 @@ static func use_black_hole() -> Dictionary:
 
 	EventBus.state_changed.emit()
 	return { "ok": true, "beats": beats }
+
+
+# Every hit on an enemy lands here: its shieldPool (a raider kit Shield, see
+# _enemy_try_item()) absorbs 1:1 before hp, as the player's does. Stamps the
+# hp damage onto the beat's `dmg` (plus `shieldAbsorbed` when the shield
+# took some) and returns the log line's shield note.
+static func _hit_enemy(enemy: Dictionary, dmg: int, extra: Dictionary) -> String:
+	var absorbed: int = mini(dmg, int(enemy.get("shieldPool", 0)))
+	var note := ""
+	if absorbed > 0:
+		enemy["shieldPool"] -= absorbed
+		extra["shieldAbsorbed"] = absorbed
+		note = " (%d absorbed by shield)" % absorbed
+	extra["dmg"] = dmg - absorbed
+	enemy["hp"] = maxi(0, enemy["hp"] - extra["dmg"])
+	return note
 
 
 # Shared by player_attack/use_blast/use_black_hole -- all three can deal a
@@ -1678,9 +1790,9 @@ static func cast_complication(index: int) -> Dictionary:
 		"blast":
 			var dmg: int = int(power) * targets
 			var target_index: int = _enemy_action_index(combat)
-			enemy["hp"] = maxi(0, enemy["hp"] - dmg)
-			_log(combat, beats, "You trigger %s — %d damage. Enemy: %d/%d HP." % [recipe["name"], dmg, enemy["hp"], enemy["hpMax"]], BEAT_COMPLICATION_BLAST,
-				{ "targetType": "enemy", "targetIndex": target_index, "dmg": dmg, "effectKey": "blast" })
+			var blast_extra: Dictionary = { "targetType": "enemy", "targetIndex": target_index, "effectKey": "blast" }
+			var shield_note := _hit_enemy(enemy, dmg, blast_extra)
+			_log(combat, beats, "You trigger %s — %d damage%s. Enemy: %d/%d HP." % [recipe["name"], blast_extra["dmg"], shield_note, enemy["hp"], enemy["hpMax"]], BEAT_COMPLICATION_BLAST, blast_extra)
 			combat["blastFleeBoost"] = true
 			if Rng.chance(BLAST_DISARM_CHANCE):
 				disarm_enemy(enemy, BLAST_DISARM_TURNS)
@@ -1862,6 +1974,7 @@ static func exit_combat() -> Dictionary:
 	var combat: Dictionary = GameState.state["combat"]
 	var outcome = combat["outcome"]
 	var context: String = combat["context"]
+	var raider_items_used: Dictionary = combat.get("raiderKit", {}).get("used", {})
 
 	# Hand any allies' ending hp/stash back to persistent contact state
 	# before the combat dict is torn down below.
@@ -1873,7 +1986,7 @@ static func exit_combat() -> Dictionary:
 		"selection": { "type": "enemy", "index": 0 }, "log": [],
 		"outcome": null, "frozenTurns": 0, "frozenSkipped": [], "motionTurns": 0, "motionPower": 0,
 		"evadeTurns": 0, "evadeChance": 0.0, "onWin": null, "snapshots": [],
-		"allies": [],
+		"allies": [], "raiderKit": {},
 		"beatsSinceSnapshot": [],
 		"turnCursor": { "queue": [], "index": 0, "round": 0 },
 	}
@@ -1896,7 +2009,7 @@ static func exit_combat() -> Dictionary:
 	if context == CONTEXT_EVENT_RAID:
 		return _exit_event_raid(outcome)
 	if context == CONTEXT_DEFEND_VEIN:
-		return _exit_defend_vein(outcome)
+		return _exit_defend_vein(outcome, raider_items_used)
 	return _exit_default(outcome, context)
 
 
@@ -1968,8 +2081,8 @@ static func _exit_event_raid(outcome) -> Dictionary:
 # Raiding owns the win/loss consequence (nothing on a win, the same
 # whole-vein-loss transfer as the no-alarm path on a loss) -- this just
 # tells it which happened, then routes home either way.
-static func _exit_defend_vein(outcome) -> Dictionary:
-	Raiding.resolve_defend_outcome(outcome == "win")
+static func _exit_defend_vein(outcome, raider_items_used: Dictionary) -> Dictionary:
+	Raiding.resolve_defend_outcome(outcome == "win", raider_items_used)
 	_route_phone_home()
 	return { "nextScreen": "phone" }
 

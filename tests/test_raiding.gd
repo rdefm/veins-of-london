@@ -1470,6 +1470,44 @@ func run() -> void:
 		assert_eq(GameState.state["factions"]["collective"]["kitBurns"], [], "a played fight burns nothing here")
 	)
 
+	run_case("defend_raiders_carry_the_attack_kit_capped_by_holdings", func():
+		GameState.reset()
+		var vein := _player_vein_of(30, "life", "guarded", "shoreditch")
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+		GameState.state["factions"]["firm"]["holdings"]["items"]["blast"] = { "0": 1 }
+		GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true }]
+		assert_true(Raiding.trigger_defend("pv_test"))
+		var kit: Dictionary = GameState.state["combat"]["raiderKit"]
+		assert_eq(kit["items"], { "blast": 1, "healingBurst": 1 }, "blast capped at the 1 held; healingBurst's kit of 1 is covered")
+		assert_eq(kit["tier"], int(GameData.FACTIONS["firm"]["craftSkill"]))
+	)
+
+	run_case("a_defended_raid_bills_the_attacker_only_the_items_its_raiders_used", func():
+		GameState.reset()
+		Rng.set_seed(3)
+		var vein := _player_vein_of(30, "life", "guarded", "shoreditch")
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+		GameState.state["player"]["hpMax"] = 500
+		GameState.state["player"]["hp"] = 500
+		GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true }]
+		assert_true(Raiding.trigger_defend("pv_test"))
+		var combat: Dictionary = GameState.state["combat"]
+		for _i in range(5):
+			if not combat["raiderKit"]["used"].is_empty() or combat["outcome"] != null:
+				break
+			Combat.player_attack()
+		var used: Dictionary = combat["raiderKit"]["used"].duplicate()
+		assert_true(not used.is_empty(), "the raiders spend a Blast within a few rounds")
+		combat["outcome"] = "win"
+		Combat.exit_combat()
+		var burns: Array = GameState.state["factions"]["firm"]["kitBurns"]
+		assert_eq(burns.size(), 1, "one burn for the fight, no full-kit burn on top")
+		assert_eq(burns[0]["items"], used)
+		assert_true(burns[0]["items"] != GameData.FACTIONS["firm"]["raidKits"]["attack"], "not the whole kit")
+	)
+
 	run_case("maybe_trigger_defend_starts_combat_and_pops_the_matching_pending_entry", func():
 		GameState.reset()
 		var vein := _player_vein_of(30, "time", "none", "camden")

@@ -31,7 +31,7 @@ Data file per system: see `data/*.json` below.
 | bench.gd | Lab discovery engine (type-set × approach) |
 | bubble_layout.gd | Popup-position math for MapBubble |
 | collective.gd | Collective faction doors, Nadia settlement, Collective questline beat triggers + Act 2 scripted vein losses, Hakim retake gate + site ruin (ruinedByFirm), T7 Firm provocation (timed Firm-targeting weight), Act 2 relation awards (T8 missions, alarm-defend daily cap), Act 2 gate + T14 spine reward (Hakim intel's weak-enemy-vein branch) + T15 closer delivery |
-| combat.gd | Turn-based combat engine + rewind. Resumable progression via `combat.turnCursor` + `prime_`/`conclude_decision_point()`; pure `project_queue()` (no koed slots, empty after outcome; R§3.7a). Beats carry `occurrence` tags. `combat.selection` via `set_selection()`, `clamp_selection()` on KO/Rewind/load; `selection_block_reason()` gates commands. Stamps `combat.locationKey` |
+| combat.gd | Turn-based combat engine + rewind. Resumable progression via `combat.turnCursor` + `prime_`/`conclude_decision_point()`; pure `project_queue()` (no koed slots, empty after outcome; R§3.7a). `occurrence`-tagged beats. `set_selection()`/`clamp_selection()`; `selection_block_reason()` gates commands. Raider kit item use (R§3.7). Stamps `combat.locationKey` |
 | network_handler.gd | Network handler Targets (timed `collective.networkIntel` claim_bonus/security_freeze) and Sourcing (site delivered by handler text); pricing off `VeinTrade.quote()` |
 | combat_pacing.gd | Persisted normal/quick pacing toggle |
 | combat_prototype.gd | Bounded combat experiment, Debug-app |
@@ -50,7 +50,7 @@ Data file per system: see `data/*.json` below.
 | equipment.gd | Weapon equip/unequip |
 | event_items.gd | Registry of items usable from an event's Item button (Rewind consumable + Dial Rewind): eligibility, counts, effect |
 | events.gd | Event-card runner + rewind, auto-discovers art |
-| faction_sim.gd | FactionSim: faction holdings (ore/type, items/recipe/tier): starting stock, add/take; stockpile pick; daily vein tend + prune (R§1.8 `fieldwork`); crafting toward targets (`craftSkill`); consumption + kit burns → shortfall; per-vein defend-kit allocation + `vein_kit` read (`raidKits`); London sell-surplus/buy-shortfall vs reserve with £, Conclave arbitrage (`trading`) |
+| faction_sim.gd | FactionSim: faction holdings (ore/type, items/recipe/tier): starting stock, add/take; stockpile pick; daily vein tend + prune (R§1.8 `fieldwork`); crafting toward targets (`craftSkill`); consumption + kit burns → shortfall; defend-kit allocation, `vein_kit`, defend-raid `raider_kit` (`raidKits`); London sell/buy vs reserve with £, Conclave arbitrage (`trading`) |
 | factions.gd | Faction joining |
 | home.gd | Home tier/tenure/security/rooms/raid chance; per-day and weekly bill base (rent or utilities); arrears countdown in days to the Monday rollover; rent/buy/buy-out/downgrade tier moves via shared `change_tier` (room wipe, security loss); per-slot room purchase/replacement (`set_room_use`); daily raid roll, alarm queue/expiry, and alarm-defend win/loss resolution (R§3.8) |
 | jobs.gd | James's jobs, trust bands |
@@ -80,7 +80,7 @@ Data file per system: see `data/*.json` below.
 | preferences.gd | Saved presentation prefs in `meta` (reduced motion, vibration, Map dark mode) + carry_forward() so event Rewind never flips them |
 | progression.gd | Shared "award XP" ladder loop |
 | raid_alarms.gd | Summaries + dispatch for raid alarms |
-| raiding.gd | Vein stealth-check + raid resolution |
+| raiding.gd | Vein stealth-check + raid resolution; faction raids on the player incl. alarm defend fights and their kit burns |
 | relation_accrual.gd | Capped £ relation meter |
 | rooms.gd | Per-block staff step (one action per cultivator, then producers take turns crafting until targets met or ore short), writes/trims `productionLog`, Production targets/priority and when they are settable, per-cultivator vein lists (`cultivatorVeins`) and per-vein targets |
 | shares.gd | Shares: 14-day daily buckets per producer (player, factions, independents) of ore harvested, ore spent on successful crafts, contract deliveries and faction London buys; Independents slice crediting (⑥.5e); pure ore/crafting share, overview, delivery and supplier-share reads (split + intake) (R§3.14) |

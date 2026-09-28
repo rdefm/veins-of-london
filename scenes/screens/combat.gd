@@ -50,10 +50,11 @@ const _ATTACK_BEAT_KINDS: Array[String] = [
 	Combat.BEAT_ENEMY_EVADE, Combat.BEAT_PLAYER_EVADE,
 ]
 # Bag-item uses that play the thrower's throw pose (the non-thrown items --
-# enhancementPowder, healingBurst, prophetsBreath -- are left out).
+# enhancementPowder, healingBurst, prophetsBreath -- are left out), plus
+# every raider kit item use.
 const _THROW_BEAT_KINDS: Array[String] = [
 	Combat.BEAT_USE_TIME_PEARL, Combat.BEAT_USE_BLAST, Combat.BEAT_USE_SHIELD,
-	Combat.BEAT_USE_BLACK_HOLE_ANNOUNCE, Combat.BEAT_USE_WORMHOLE,
+	Combat.BEAT_USE_BLACK_HOLE_ANNOUNCE, Combat.BEAT_USE_WORMHOLE, Combat.BEAT_ENEMY_ITEM,
 ]
 
 
@@ -389,7 +390,7 @@ func _on_beat_played(beat: Dictionary) -> void:
 	var effect_key: String = beat.get("effectKey", "")
 	if not effect_key.is_empty():
 		_stage.play_effect(beat, effect_key)
-		if effect_key == "healingBurst" and _turn_order_strip != null:
+		if effect_key == "healingBurst" and beat.get("targetType", "") != "enemy" and _turn_order_strip != null:
 			var healed_key: Dictionary = { "type": "player", "index": -1 }
 			var healed_entry: Dictionary = GameState.state["player"]
 			if beat.get("targetType", "") == "ally":
@@ -402,7 +403,7 @@ func _on_beat_played(beat: Dictionary) -> void:
 			_turn_order_strip.drain_ghost_to(card_key, healed_hp, 0.3)
 	var shield_absorbed: int = int(beat.get("shieldAbsorbed", 0))
 	if shield_absorbed > 0:
-		var shielded_slot: CombatStage.StageSlot = _stage.resolve_target_slot({ "type": "player", "index": -1 })
+		var shielded_slot: CombatStage.StageSlot = _stage.resolve_target_slot(_beat_target(beat))
 		if shielded_slot != null:
 			shielded_slot.flash_shield_crack()
 	if CombatDirector.beat_is_damaging(beat):

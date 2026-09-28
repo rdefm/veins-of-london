@@ -561,8 +561,7 @@ static func maybe_trigger_defend(district_id: String) -> bool:
 		var vein: Variant = Cultivating.find_vein(outcome["veinId"])
 		if vein != null and vein["district"] == district_id:
 			pending.remove_at(i)
-			GameState.state["world"]["activeDefendRaid"] = outcome
-			Combat.start_defend_vein(outcome["veinId"], Cultivating.combined_magnitude(vein))
+			_start_defend_combat(outcome, vein)
 			return true
 	return false
 
@@ -622,9 +621,16 @@ static func trigger_defend(vein_id: String) -> bool:
 	var pending: Array = GameState.state["world"]["pendingDefendRaids"]
 	var outcome: Dictionary = pending[i]
 	pending.remove_at(i)
-	GameState.state["world"]["activeDefendRaid"] = outcome
-	Combat.start_defend_vein(vein_id, Cultivating.combined_magnitude(vein))
+	_start_defend_combat(outcome, vein)
 	return true
+
+
+# The raiders carry the attacker's attack kit, capped by its holdings; what
+# they use is billed by resolve_defend_outcome(), in place of the full-kit
+# burn every unfought raid logs.
+static func _start_defend_combat(outcome: Dictionary, vein: Dictionary) -> void:
+	GameState.state["world"]["activeDefendRaid"] = outcome
+	Combat.start_defend_vein(vein["id"], Cultivating.combined_magnitude(vein), FactionSim.raider_kit(outcome["attackerId"], "attack"))
 
 
 # The committed "Leave undefended" path. The caller supplies the
@@ -654,9 +660,12 @@ static func leave_undefended(vein_id: String, notification_id: String) -> bool:
 # vein untouched (ownership was never moved, and the PRD wants no separate
 # win notification). A loss reuses resolve_raid_outcome() so the transfer
 # and its Notify text match every other whole-vein-loss path in this file.
-static func resolve_defend_outcome(won: bool) -> void:
+# Either way the attacker is billed only the kit items its raiders used.
+static func resolve_defend_outcome(won: bool, raider_items_used: Dictionary = {}) -> void:
 	var outcome: Variant = GameState.state["world"]["activeDefendRaid"]
 	GameState.state["world"]["activeDefendRaid"] = null
+	if outcome != null:
+		FactionSim.log_kit_burn_items(outcome["attackerId"], "attack", "raid", raider_items_used)
 	if won and outcome != null:
 		Objectives.record_alarm_defend_win(outcome["veinId"])
 		Collective.award_a2_defend_win()

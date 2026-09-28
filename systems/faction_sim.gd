@@ -238,7 +238,12 @@ const CONSUME_UNIT := 1000
 
 
 static func log_kit_burn(faction_id: String, kit: String, source: String) -> void:
-	var items: Dictionary = GameData.FACTIONS[faction_id].get("raidKits", {}).get(kit, {})
+	log_kit_burn_items(faction_id, kit, source, GameData.FACTIONS[faction_id].get("raidKits", {}).get(kit, {}))
+
+
+# A partial burn: only `items` of the kit were spent (a defended raid bills
+# just what its raiders used in combat).
+static func log_kit_burn_items(faction_id: String, kit: String, source: String, items: Dictionary) -> void:
 	if items.is_empty():
 		return
 	GameState.state["factions"][faction_id]["kitBurns"].append({
@@ -247,6 +252,20 @@ static func log_kit_burn(faction_id: String, kit: String, source: String) -> voi
 		"kit": kit,
 		"items": items.duplicate(),
 	})
+
+
+# The raider kit a defended raid's squad carries into combat: the faction's
+# `kit` from raidKits, each item capped by what it holds (all tiers), with
+# items it holds none of left out. `tier` is the faction's craftSkill, which
+# sets item power the way the player's craftingSkill does.
+static func raider_kit(faction_id: String, kit: String) -> Dictionary:
+	var items := {}
+	var wanted: Dictionary = GameData.FACTIONS[faction_id].get("raidKits", {}).get(kit, {})
+	for recipe_key in wanted:
+		var qty := mini(int(wanted[recipe_key]), item_held(faction_id, recipe_key))
+		if qty > 0:
+			items[recipe_key] = qty
+	return { "tier": int(GameData.FACTIONS[faction_id].get("craftSkill", 1)), "items": items, "used": {} }
 
 
 static func consume() -> void:

@@ -242,6 +242,8 @@ func new_game_state() -> Dictionary:
 			# Allies fighting alongside the player this combat (see
 			# Contacts.build_combat_ally) — empty outside vein-defense fights.
 			"allies": [],
+			# A defended raid's shared raider item pool (FactionSim.raider_kit()); {} otherwise.
+			"raiderKit": {},
 			# R§3.7a resumable-progression cursor; reset fresh by
 			# Combat._start_combat()/exit_combat(), never carried between fights.
 			"turnCursor": { "queue": [], "index": 0, "round": 0 },
