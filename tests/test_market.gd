@@ -7,9 +7,21 @@ func _time() -> Dictionary:
 	return GameState.state["market"]["goods"]["ore"]["time"]
 
 
+# Rollovers with faction London trading switched off (no sells, no buys), so
+# these cases pin Market's own maths against stand-in London; faction trading
+# is covered in test_faction_sim.gd.
 func _tick(days: int) -> void:
+	var saved := {}
+	for faction_id in GameData.FACTIONS:
+		saved[faction_id] = GameData.FACTIONS[faction_id]["trading"]
+		var off: Dictionary = saved[faction_id].duplicate(true)
+		off["sellFraction"] = 0.0
+		off["maxBuyMult"] = 0.0
+		GameData.FACTIONS[faction_id]["trading"] = off
 	for i in range(days):
 		TimeSystem.daily_tick()
+	for faction_id in saved:
+		GameData.FACTIONS[faction_id]["trading"] = saved[faction_id]
 
 
 func _resting_price(kind: String, good_type: String) -> int:
@@ -263,6 +275,23 @@ func run() -> void:
 		assert_eq(dumps[0]["value"], 175)
 		assert_eq(dumps[0]["day"], GameState.state["world"]["day"])
 		assert_eq(_notes_of("ore", "time", "crash").size(), 1, "the dump's price drop is a crash")
+	)
+
+	run_case("a_big_faction_buy_or_sell_is_annotated_with_the_faction", func():
+		GameState.reset()
+		GameState.state["market"] = Market.new_state(true)
+		Market.record_supply("ore", "time", 175, "firm")
+		Market.record_demand("ore", "life", 175, "guild")
+		Market.record_demand("ore", "fate", 175, "player")
+		Market.daily_reprice()
+		var dumps := _notes_of("ore", "time", "dump")
+		assert_eq(dumps.size(), 1, "the Firm's 175 is a dump")
+		assert_eq(dumps[0]["source"], "firm")
+		var buys := _notes_of("ore", "life", "buy")
+		assert_eq(buys.size(), 1, "the Guild's 175 buy is annotated")
+		assert_eq(buys[0]["source"], "guild")
+		assert_eq(buys[0]["value"], 175)
+		assert_eq(_notes_of("ore", "fate", "buy").size(), 0, "only faction buys are annotated")
 	)
 
 	run_case("ordinary_supply_is_not_a_dump", func():

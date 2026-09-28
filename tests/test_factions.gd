@@ -165,7 +165,7 @@ func run() -> void:
 			assert_true(after > before[faction_id], "%s's balance should grow from passive income" % faction_id)
 	)
 
-	run_case("apply_passive_income_differs_across_factions_per_industries", func():
+	run_case("apply_passive_income_differs_across_factions_per_industry_income", func():
 		GameState.reset()
 		Factions.apply_passive_income()
 		var conclave_income: int = GameState.state["factions"]["conclave"]["resources"] - GameData.FACTIONS["conclave"]["startingResources"]

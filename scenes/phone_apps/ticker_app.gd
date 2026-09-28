@@ -12,7 +12,7 @@ const LineChartScript := preload("res://scenes/components/line_chart.gd")
 const SECTION_LABELS := { "economic": "Economic", "social": "Social", "political": "Political" }
 const NEWS_TAB := "news"
 const STOCK_TAB := "stock"
-const ANNOTATION_COLOURS := { "ticker": "pastel_ochre", "dump": "pastel_blue", "spike": "pastel_teal", "crash": "pastel_pink" }
+const ANNOTATION_COLOURS := { "ticker": "pastel_ochre", "dump": "pastel_blue", "buy": "pastel_sage", "spike": "pastel_teal", "crash": "pastel_pink" }
 const MUTED := Color("#999a9d")
 
 var _tab := NEWS_TAB
@@ -200,12 +200,22 @@ func _annotation_text(note: Dictionary) -> String:
 					return "Ticker: %s" % GameData.BAROMETER_STATES[section][note["source"]]["label"]
 			return "Ticker shift"
 		"dump":
-			var who: String = "You" if note["source"] == "player" else "Someone"
-			return "%s dumped %d" % [who, int(note["value"])]
+			return "%s dumped %d" % [_annotation_who(note["source"]), int(note["value"])]
+		"buy":
+			return "%s bought up %d" % [_annotation_who(note["source"]), int(note["value"])]
 		"spike":
 			return "Spike, +£%d" % int(note["value"])
 		_:
 			return "Crash, −£%d" % absi(int(note["value"]))
+
+
+# "You" for the player, a faction's name for a faction, else "Someone".
+func _annotation_who(source: String) -> String:
+	if source == "player":
+		return "You"
+	if GameData.FACTIONS.has(source):
+		return GameData.FACTIONS[source]["name"]
+	return "Someone"
 
 
 # ── News ────────────────────────────────────────────────────────────────

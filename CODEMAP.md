@@ -50,7 +50,7 @@ Data file per system: see `data/*.json` below.
 | equipment.gd | Weapon equip/unequip |
 | event_items.gd | Registry of items usable from an event's Item button (Rewind consumable + Dial Rewind): eligibility, counts, effect |
 | events.gd | Event-card runner + rewind, auto-discovers art |
-| faction_sim.gd | FactionSim: faction holdings (ore/type, items/recipe/tier) — starting stock, add/take, highest-tier-first draw; stockpile pick; daily vein tend + prune (R§1.8 `fieldwork`); crafting toward targets (`craftSkill`); consumption + kit burns → shortfall; per-vein defend-kit allocation + `vein_kit` read (`raidKits`) |
+| faction_sim.gd | FactionSim: faction holdings (ore/type, items/recipe/tier): starting stock, add/take; stockpile pick; daily vein tend + prune (R§1.8 `fieldwork`); crafting toward targets (`craftSkill`); consumption + kit burns → shortfall; per-vein defend-kit allocation + `vein_kit` read (`raidKits`); London sell-surplus/buy-shortfall vs reserve with faction £ (`trading`) |
 | factions.gd | Faction joining |
 | home.gd | Home tier/tenure/security/rooms/raid chance; per-day and weekly bill base (rent or utilities); arrears countdown in days to the Monday rollover; rent/buy/buy-out/downgrade tier moves via shared `change_tier` (room wipe, security loss); per-slot room purchase/replacement (`set_room_use`); daily raid roll, alarm queue/expiry, and alarm-defend win/loss resolution (R§3.8) |
 | jobs.gd | James's jobs, trust bands |
@@ -83,7 +83,7 @@ Data file per system: see `data/*.json` below.
 | raiding.gd | Vein stealth-check + raid resolution |
 | relation_accrual.gd | Capped £ relation meter |
 | rooms.gd | Per-block staff step (one action per cultivator, then producers take turns crafting until targets met or ore short), writes/trims `productionLog`, Production targets/priority and when they are settable, per-cultivator vein lists (`cultivatorVeins`) and per-vein targets |
-| shares.gd | Shares: 14-day daily buckets per producer (player, factions, independents) of ore harvested, ore spent on successful crafts, and contract deliveries; pure ore/crafting share, overview, delivery and supplier-share reads (split + intake) (R§3.14) |
+| shares.gd | Shares: 14-day daily buckets per producer (player, factions, independents) of ore harvested, ore spent on successful crafts, contract deliveries and faction London buys; pure ore/crafting share, overview, delivery and supplier-share reads (split + intake) (R§3.14) |
 | sites.gd | Sites & prospecting |
 | stash.gd | Personal stash vs. shared pools |
 | station_bubble.gd | Site/vein-stop tap-bubble decision |
@@ -234,7 +234,7 @@ overlays.
 | districts.json | widely read (sites, economy, factions, raiding) |
 | enemies.json | combat.gd |
 | faction_trade.json | economy.gd |
-| factions.json | factions.gd, sites.gd, raiding.gd, debug_start.gd, faction_sim.gd (`startingHoldings`, `stockpilePlaces`, `cultivateSkill`, `fieldwork`, `craftSkill`, `craftTargets`, `raidKits`, `consumes`) |
+| factions.json | factions.gd, sites.gd, raiding.gd, debug_start.gd, faction_sim.gd (`startingHoldings`, `stockpilePlaces`, `cultivateSkill`, `fieldwork`, `craftSkill`, `craftTargets`, `raidKits`, `consumes`, `trading`, `industryIncome`) |
 | home.json | home.gd, approaches.gd, contacts.gd, property_app.gd (tier `image` listing photos) |
 | floorplans.json | GameData.gd + floorplan_view.gd (per-tier plan asset, size, slot rects) |
 | hq_visuals.json | hq_diorama.gd, hq*.gd screens |

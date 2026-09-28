@@ -491,7 +491,6 @@ func run() -> void:
 		GameState.state["world"]["day"] = 5
 		var fate_before: int = FactionSim.ore_held("collective", "fate")
 		GameState.state["factions"]["collective"]["resources"] = 0  # nothing affordable at step 5j
-		var resources_before := 0
 		# Rivalry (step 5c) runs before the prune; a warm Collective relation
 		# drives every rival's odds to 0 so the vein stays the Collective's.
 		for attacker_id in GameData.FACTIONS:
@@ -500,10 +499,6 @@ func run() -> void:
 		TimeSystem.daily_tick()
 		assert_true(FactionSim.ore_held("collective", "fate") > fate_before, "step 5e prunes the ceiling vein into collective's holdings")
 		assert_true(site["factionVein"]["growth"] < 100, "the prune cut the vein's growth")
-		var passive_only: int = 0
-		for industry in GameData.FACTIONS["collective"].get("industries", []):
-			passive_only += Factions.INDUSTRY_INCOME.get(industry, 0)
-		assert_eq(GameState.state["factions"]["collective"]["resources"] - resources_before, passive_only, "no vein cash trickle: only industry income lands")
 	)
 
 	run_case("daily_tick_wires_in_faction_security_upgrade_step", func():

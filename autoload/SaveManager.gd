@@ -624,6 +624,7 @@ func _restore_int_types(state: Dictionary) -> void:
 			for by_type in bucket.get(tally, {}).values():
 				_int_dict_values(by_type)
 		_int_dict_values(bucket.get("deliveries", {}))
+		_int_dict_values(bucket.get("londonBuys", {}))
 	var business_stats: Dictionary = state.get("businessStats", {})
 	_int_dict_values(business_stats.get("today", {}))
 	for record in business_stats.get("days", []):

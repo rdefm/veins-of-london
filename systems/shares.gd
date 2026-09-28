@@ -25,7 +25,8 @@ static func new_state() -> Dictionary:
 
 
 # Today's bucket, created on first write: { day, ore:{producer:{type:n}},
-# craft:{producer:{type:n}}, deliveries:{factionId:n} }.
+# craft:{producer:{type:n}}, deliveries:{factionId:n} }, plus
+# londonBuys:{factionId:n} once a faction buys.
 static func _today_bucket() -> Dictionary:
 	var days: Array = GameState.state["shares"]["days"]
 	var day: int = GameState.state["world"]["day"]
@@ -64,6 +65,16 @@ static func record_delivery(faction_id: String, amount: int) -> void:
 		return
 	var deliveries: Dictionary = _today_bucket()["deliveries"]
 	deliveries[faction_id] = int(deliveries.get(faction_id, 0)) + amount
+
+
+# A faction's London buy, ore-equivalent, for supplier-share read B.
+static func record_london_buy(faction_id: String, amount: int) -> void:
+	if amount <= 0:
+		return
+	var bucket := _today_bucket()
+	if not bucket.has("londonBuys"):
+		bucket["londonBuys"] = {}
+	bucket["londonBuys"][faction_id] = int(bucket["londonBuys"].get(faction_id, 0)) + amount
 
 
 # Rollover step: drops buckets older than SHARES_DAYS (today included).

@@ -4920,6 +4920,17 @@
 }
 },
 "startingResources": 200,
+"industryIncome": 6,
+"trading": {
+"hardCap": {
+"item": 20,
+"ore": 150
+},
+"maxBuyMult": 2,
+"minSellMult": 0.8,
+"reserveDays": 3,
+"sellFraction": 0.5
+},
 "stockpilePlaces": ["Railway-arch lock-up", "Allotment tool shed", "Food-bank storeroom"],
 "tagline": "Community-run. Loosely organised. Surprisingly effective."
 },
@@ -4981,6 +4992,17 @@
 }
 },
 "startingResources": 1200,
+"industryIncome": 40,
+"trading": {
+"hardCap": {
+"item": 20,
+"ore": 150
+},
+"maxBuyMult": 2,
+"minSellMult": 0.8,
+"reserveDays": 3,
+"sellFraction": 0.5
+},
 "stockpilePlaces": ["Crypt of a closed church", "Private bank vault", "Members' club wine cellar"],
 "tagline": "Policy, pressure, and things that can't be admitted in public."
 },
@@ -5058,6 +5080,17 @@
 }
 },
 "startingResources": 500,
+"industryIncome": 8,
+"trading": {
+"hardCap": {
+"item": 20,
+"ore": 150
+},
+"maxBuyMult": 2,
+"minSellMult": 0.8,
+"reserveDays": 3,
+"sellFraction": 0.5
+},
 "stockpilePlaces": ["Bonded warehouse", "Self-storage unit 114", "Scaffold-yard container"],
 "tagline": "Old money, new methods."
 },
@@ -5137,6 +5170,17 @@
 }
 },
 "startingResources": 900,
+"industryIncome": 12,
+"trading": {
+"hardCap": {
+"item": 20,
+"ore": 150
+},
+"maxBuyMult": 2,
+"minSellMult": 0.8,
+"reserveDays": 3,
+"sellFraction": 0.5
+},
 "stockpilePlaces": ["Livery hall undercroft", "Assay-room strongroom", "Workshop cellar"],
 "tagline": "They've been here since before the word 'orichalchum' was anglicised."
 },
@@ -5197,6 +5241,17 @@
 }
 },
 "startingResources": 500,
+"industryIncome": 10,
+"trading": {
+"hardCap": {
+"item": 20,
+"ore": 150
+},
+"maxBuyMult": 2,
+"minSellMult": 0.8,
+"reserveDays": 3,
+"sellFraction": 0.5
+},
 "stockpilePlaces": ["Dead-letter flat", "Server-room cage", "Shuttered courier depot"],
 "tagline": "Information is the resource."
 }

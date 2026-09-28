@@ -226,6 +226,23 @@ func run() -> void:
 		assert_eq(deliveries.size(), int(GameData.MARKET["deliveries"]["cap"]), "bounded")
 	)
 
+	run_case("a_delivery_reduces_the_buyers_next_london_buy", func():
+		var bought := {}
+		for delivered in [false, true]:
+			_staff_sales()
+			var contract := _add_weekly_contract({ "kind": "consumable", "type": "blast", "qty": 3 })
+			contract["counterparty"] = "firm"
+			GameState.state["factions"]["firm"]["holdings"]["items"].erase("blast")
+			GameState.state["factions"]["firm"]["resources"] = 100000
+			if delivered:
+				GameState.state["player"]["inventory"]["blast"] = { "1": 3 }
+				ContractsSystem.process_sales_deliveries()
+				assert_eq(FactionSim.item_held("firm", "blast"), 3, "the delivery lands in the Firm's holdings")
+			FactionSim.trade()
+			bought[delivered] = int(GameState.state["market"]["demand"]["consumable"].get("blast", {}).get("firm", 0))
+		assert_eq(bought[true], bought[false] - 3, "three delivered blasts are three fewer bought")
+	)
+
 	run_case("delivery_lands_in_buyer_holdings_and_credits_supplier_share_only", func():
 		_staff_sales()
 		var contract := _accept_mixed_contract()

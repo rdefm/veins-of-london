@@ -360,6 +360,125 @@ static func vein_kit(site_id: String) -> Dictionary:
 	return site["factionVein"].get("kit", {})
 
 
+# ── Buying and selling (spec §Buying and selling, §Faction cash) ──────────
+# Rollover step after allocate_kits(). Per faction, with its factions.json
+# `trading` knobs: every good held above its reserve sells ceil(surplus ×
+# sellFraction) at the London quote (Market supply), except while the quote
+# sits under minSellMult × base, when only stock above hardCap counts as
+# surplus. Then every good below reserve is bought at the quote (Market
+# demand, Shares London-buy tally), items before ores, while the quote ≤
+# maxBuyMult × base and `resources` covers it -- partial buys allowed, never
+# below £0. London is abstract: buys aren't limited by Market stock. Bought
+# items file under tier "0".
+static func trade() -> void:
+	for faction_id in GameData.FACTIONS:
+		_trade_faction(faction_id)
+
+
+# Ore kept back for crafting: per crafted item, its ingredient cost at
+# craftSkill × (today's gap to target + the target's turnover over
+# reserveDays at a week per target).
+static func ore_reserve(faction_id: String, ore_type: String) -> int:
+	var data: Dictionary = GameData.FACTIONS[faction_id]
+	var reserve_days: float = float(data["trading"]["reserveDays"])
+	var reserve := 0
+	for recipe_key in data.get("crafts", []):
+		var qty: int = int(Crafting.calc_cost(recipe_key, int(data["craftSkill"])).get(ore_type, 0))
+		if qty <= 0:
+			continue
+		var target := craft_target(faction_id, recipe_key)
+		var gap: int = maxi(0, target - item_held(faction_id, recipe_key))
+		reserve += qty * (gap + ceili(target * reserve_days / 7.0))
+	return reserve
+
+
+# Items kept back: a week's `consumes` plus expected kit use -- craftTargets
+# kitUse for a crafted item, else one attack plus one defend kit. The sell
+# quota is not reserved: it is what crafting makes to sell.
+static func item_reserve(faction_id: String, recipe_key: String) -> int:
+	var data: Dictionary = GameData.FACTIONS[faction_id]
+	var kit_use: int
+	if data.get("craftTargets", {}).has(recipe_key):
+		kit_use = int(data["craftTargets"][recipe_key].get("kitUse", 0))
+	else:
+		var kits: Dictionary = data.get("raidKits", {})
+		kit_use = int(kits.get("attack", {}).get(recipe_key, 0)) + int(kits.get("defend", {}).get(recipe_key, 0))
+	return int(data.get("consumes", {}).get(recipe_key, 0)) + kit_use
+
+
+static func reserve(faction_id: String, kind: String, good_type: String) -> int:
+	return ore_reserve(faction_id, good_type) if kind == "ore" else item_reserve(faction_id, good_type)
+
+
+# Every good a faction deals in: all ore types, then every item it consumes,
+# crafts, carries in a kit or holds.
+static func _traded_goods(faction_id: String) -> Array:
+	var data: Dictionary = GameData.FACTIONS[faction_id]
+	var items: Array = []
+	var sources: Array = [data.get("consumes", {}).keys(), data.get("crafts", [])]
+	for kit in data.get("raidKits", {}).values():
+		sources.append(kit.keys())
+	sources.append(_holdings(faction_id)["items"].keys())
+	for keys in sources:
+		for recipe_key in keys:
+			if not items.has(recipe_key):
+				items.append(recipe_key)
+	var goods: Array = []
+	for recipe_key in items:
+		goods.append({ "kind": "consumable", "type": recipe_key })
+	for ore_type in GameData.CANONICAL_ORE_TYPES:
+		goods.append({ "kind": "ore", "type": ore_type })
+	return goods
+
+
+static func _trade_faction(faction_id: String) -> void:
+	var goods := _traded_goods(faction_id)
+	for good in goods:
+		_sell_surplus(faction_id, good["kind"], good["type"])
+	for good in goods:
+		_buy_shortfall(faction_id, good["kind"], good["type"])
+
+
+static func _sell_surplus(faction_id: String, kind: String, good_type: String) -> void:
+	var knobs: Dictionary = GameData.FACTIONS[faction_id]["trading"]
+	var price: int = Market.quote(kind, good_type)
+	if price <= 0:
+		return
+	var keep: int = reserve(faction_id, kind, good_type)
+	if price < float(knobs["minSellMult"]) * Market.base_price(kind, good_type):
+		keep = maxi(keep, int(knobs["hardCap"]["ore" if kind == "ore" else "item"]))
+	var surplus: int = mini(held(faction_id, kind, good_type) - keep, for_sale(faction_id, kind, good_type))
+	if surplus <= 0:
+		return
+	var qty: int = ceili(surplus * float(knobs["sellFraction"]))
+	if qty <= 0:
+		return
+	if kind == "ore":
+		take_ore(faction_id, good_type, qty)
+	else:
+		take_items(faction_id, good_type, qty)
+	GameState.state["factions"][faction_id]["resources"] += qty * price
+	Market.record_supply(kind, good_type, qty, faction_id)
+
+
+static func _buy_shortfall(faction_id: String, kind: String, good_type: String) -> void:
+	var knobs: Dictionary = GameData.FACTIONS[faction_id]["trading"]
+	var price: int = Market.quote(kind, good_type)
+	if price <= 0 or price > float(knobs["maxBuyMult"]) * Market.base_price(kind, good_type):
+		return
+	var faction: Dictionary = GameState.state["factions"][faction_id]
+	var qty: int = mini(reserve(faction_id, kind, good_type) - held(faction_id, kind, good_type), maxi(0, int(faction["resources"])) / price)
+	if qty <= 0:
+		return
+	faction["resources"] -= qty * price
+	if kind == "ore":
+		add_ore(faction_id, good_type, qty)
+	else:
+		add_item(faction_id, good_type, 0, qty)
+	Market.record_demand(kind, good_type, qty, faction_id)
+	Shares.record_london_buy(faction_id, Shares.ore_equivalent(kind, good_type, qty))
+
+
 # Districts whose factionPresence is this faction, in GameData.DISTRICTS order.
 static func home_districts(faction_id: String) -> Array:
 	var homes: Array = []

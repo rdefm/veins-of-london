@@ -159,29 +159,15 @@ static func weighted_pick_index(weights: Array[float]) -> int:
 
 
 # ── Daily passive industry income ───────────────────────────────────────
-# Fixed £/day per industry, independent of vein count; tiered so grunt-work
-# (trading/sourcing) sits lowest and influence/crafting highest, per flavour text.
-const INDUSTRY_INCOME: Dictionary = {
-	"sourcing": 6,
-	"trading": 8,
-	"raiding": 10,
-	"influence": 16,
-	"crafting": 18,
-}
-
-
-# Runs every daily tick for every faction regardless of vein count.
+# Non-calc income: each faction's factions.json `industryIncome` £/day, every
+# daily tick regardless of vein count (spec §Faction cash).
 static func apply_passive_income() -> void:
 	for faction_id in GameState.state["factions"].keys():
-		var industries: Array = GameData.FACTIONS[faction_id].get("industries", [])
-		var income := 0
-		for industry in industries:
-			income += INDUSTRY_INCOME.get(industry, 0)
-		GameState.state["factions"][faction_id]["resources"] += income
+		GameState.state["factions"][faction_id]["resources"] += int(GameData.FACTIONS[faction_id].get("industryIncome", 0))
 
 
 # ── Daily security-upgrade spend ─────────────────────────────────────────
-# A faction with spare resources quietly hardens its highest-value held vein each
+# A faction with spare resources (£, after today's trading) quietly hardens its highest-value held vein each
 # tick (same ladder/cost table as the player's upgrade_vein_security()). One upgrade
 # per faction per tick, targeting the highest basePrice * combined_magnitude vein that's both
 # below max security and affordable; no eligible/affordable vein is a no-op.

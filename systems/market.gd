@@ -297,7 +297,8 @@ static func _shift_touches(shift: Dictionary, kind: String, good_type: String) -
 
 
 # Appends today's annotations for one good: Ticker shifts touching it, each
-# source's supply above dumpVolumeMult × standInSupply, and a day move of at
+# source's supply above dumpVolumeMult × standInSupply, each faction's buy
+# above dumpVolumeMult × standInDemand, and a day move of at
 # least moveThreshold × yesterday's price. Runs before tallies clear.
 static func _annotate_day(kind: String, good_type: String, ticker_shifts: Array, old_price: int, new_price: int) -> void:
 	var cfg: Dictionary = _config()["annotations"]
@@ -309,13 +310,18 @@ static func _annotate_day(kind: String, good_type: String, ticker_shifts: Array,
 	for source in by_source:
 		if float(by_source[source]) > dump_line:
 			_annotate(kind, good_type, "dump", source, int(by_source[source]))
+	var buy_line: float = float(cfg["dumpVolumeMult"]) * float(_stand_in(kind, good_type)["demand"])
+	var bought: Dictionary = _market()["demand"][kind].get(good_type, {})
+	for source in bought:
+		if GameData.FACTIONS.has(source) and float(bought[source]) > buy_line:
+			_annotate(kind, good_type, "buy", source, int(bought[source]))
 	var move: int = new_price - old_price
 	if old_price > 0 and absf(float(move)) >= float(cfg["moveThreshold"]) * old_price:
 		_annotate(kind, good_type, "spike" if move > 0 else "crash", "market", move)
 
 
-# Annotation: { day, goodKind, good, kind (ticker/dump/spike/crash),
-# source (Ticker state id, supplier, or "market"), value (dump qty or £
+# Annotation: { day, goodKind, good, kind (ticker/dump/buy/spike/crash),
+# source (Ticker state id, supplier/buyer, or "market"), value (qty or £
 # move; 0 for ticker) }. Bounded to annotations.cap, oldest dropped.
 static func _annotate(kind: String, good_type: String, note_kind: String, source: String, value: int) -> void:
 	var market := _market()

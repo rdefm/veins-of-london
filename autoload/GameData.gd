@@ -815,7 +815,7 @@ func _validate_factions(factions: Dictionary, errors: Array[String]) -> void:
 		if not factions.has(key):
 			errors.append("factions: missing faction '%s'" % key)
 			continue
-		_require_keys(factions[key], ["id", "name", "shortName", "tagline", "industries", "description", "colour", "joinRelation", "securityBias", "resourceLevel", "primaryOre", "secondaryOre", "claimWeights"], "factions.%s" % key, errors)
+		_require_keys(factions[key], ["id", "name", "shortName", "tagline", "industries", "description", "colour", "joinRelation", "securityBias", "resourceLevel", "primaryOre", "secondaryOre", "claimWeights", "industryIncome", "trading"], "factions.%s" % key, errors)
 
 
 # Every faction has a trade lane (Economy.get_faction_*), so every faction needs a row here.

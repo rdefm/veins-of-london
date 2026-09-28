@@ -381,6 +381,106 @@ func run() -> void:
 		assert_eq(save["world"]["sites"][0]["factionVein"]["kit"], { "shield": 2, "healingBurst": 1 }, "the vein kit backfills from holdings")
 	)
 
+	# ── Buying and selling (spec §Buying and selling, §Faction cash) ──
+	run_case("a_faction_buys_its_shortfall_and_the_quote_rises", func():
+		var control := _blast_price_after_trade(FactionSim.item_reserve("firm", "blast"))
+		GameState.reset()
+		GameState.state["factions"]["firm"]["resources"] = 10000
+		_set_item("firm", "blast", 0)
+		var need: int = FactionSim.item_reserve("firm", "blast")
+		assert_true(need > 0, "the Firm reserves blasts")
+		FactionSim.trade()
+		assert_eq(FactionSim.item_held("firm", "blast"), need, "bought up to reserve")
+		assert_eq(int(GameState.state["market"]["demand"]["consumable"]["blast"]["firm"]), need, "recorded as demand under the faction's id")
+		assert_true(int(Shares.london_buys().get("firm", 0)) >= Shares.ore_equivalent("consumable", "blast", need), "London-buy tally credited")
+		Market.daily_reprice()
+		assert_true(Market.quote("consumable", "blast") > control, "the buy lifts tomorrow's quote (%d vs %d)" % [Market.quote("consumable", "blast"), control])
+	)
+
+	run_case("above_the_ceiling_the_faction_refuses_to_buy_and_crafts_less", func():
+		var crafted := {}
+		for ceiling_hit in [false, true]:
+			GameState.reset()
+			_stock_at_targets("guild")
+			_set_item("guild", "timePearl", 0)
+			for ore_type in GameData.ORE_TYPES:
+				_set_ore("guild", ore_type, 0)
+			GameState.state["factions"]["guild"]["resources"] = 100000
+			if ceiling_hit:
+				_set_quote("ore", "time", Market.base_price("ore", "time") * 2 + 1)
+			FactionSim.trade()
+			var time_held := FactionSim.ore_held("guild", "time")
+			FactionSim.craft()
+			crafted[ceiling_hit] = time_held - FactionSim.ore_held("guild", "time")
+			if ceiling_hit:
+				assert_eq(time_held, 0, "no time ore bought above maxBuyMult × base")
+		assert_true(crafted[false] > 0, "with ore bought, the Guild crafts")
+		assert_eq(crafted[true], 0, "priced out of ore, it crafts nothing")
+	)
+
+	run_case("a_faction_cannot_overspend", func():
+		GameState.reset()
+		_firm_at_reserve()
+		_set_item("firm", "blast", 0)
+		var price: int = Market.quote("consumable", "blast")
+		GameState.state["factions"]["firm"]["resources"] = price * 2 + 1
+		FactionSim.trade()
+		assert_eq(FactionSim.item_held("firm", "blast"), 2, "a partial buy: what the cash covers")
+		assert_eq(GameState.state["factions"]["firm"]["resources"], 1, "the change is left")
+		GameState.state["factions"]["firm"]["resources"] = 0
+		FactionSim.trade()
+		assert_eq(GameState.state["factions"]["firm"]["resources"], 0, "a broke faction buys nothing")
+	)
+
+	run_case("faction_cash_never_goes_negative_over_a_month", func():
+		GameState.reset()
+		Rng.set_seed(3)
+		for faction_id in GameData.FACTIONS:
+			GameState.state["factions"][faction_id]["resources"] = 0
+		for i in 30:
+			TimeSystem.daily_tick()
+			for faction_id in GameData.FACTIONS:
+				assert_true(GameState.state["factions"][faction_id]["resources"] >= 0, "%s's £ stays ≥ 0 on day %d" % [faction_id, i])
+	)
+
+	run_case("a_faction_sells_above_reserve_gradually", func():
+		# The Firm crafts nothing with fate, so its fate reserve is 0.
+		GameState.reset()
+		_firm_at_reserve()
+		assert_eq(FactionSim.ore_reserve("firm", "fate"), 0)
+		_set_ore("firm", "fate", 100)
+		var cash_before: int = GameState.state["factions"]["firm"]["resources"]
+		var price: int = Market.quote("ore", "fate")
+		FactionSim.trade()
+		assert_eq(FactionSim.ore_held("firm", "fate"), 50, "sellFraction 0.5 of the surplus")
+		assert_eq(int(GameState.state["market"]["supply"]["ore"]["fate"]["firm"]), 50, "recorded as supply under the faction's id")
+		assert_eq(GameState.state["factions"]["firm"]["resources"], cash_before + 50 * price, "paid at the quote")
+		FactionSim.trade()
+		assert_eq(FactionSim.ore_held("firm", "fate"), 25, "half the rest the next day")
+	)
+
+	run_case("a_faction_holds_when_the_quote_is_under_the_floor", func():
+		GameState.reset()
+		_firm_at_reserve()
+		var cap: int = GameData.FACTIONS["firm"]["trading"]["hardCap"]["ore"]
+		_set_quote("ore", "fate", int(Market.base_price("ore", "fate") * 0.7))
+		_set_ore("firm", "fate", 20)
+		FactionSim.trade()
+		assert_eq(FactionSim.ore_held("firm", "fate"), 20, "under minSellMult × base, it holds")
+		_set_ore("firm", "fate", cap + 40)
+		FactionSim.trade()
+		assert_eq(FactionSim.ore_held("firm", "fate"), cap + 20, "above the hard cap it sells half the excess")
+	)
+
+	run_case("security_upgrades_stop_when_cash_runs_out", func():
+		GameState.reset()
+		_seed_veins([_vein("s1", "firm", "physics", 50)])
+		GameState.state["factions"]["firm"]["resources"] = 0
+		Factions.apply_security_upgrades()
+		assert_eq(Sites.find_site("s1")["factionVein"]["security"], "none", "no cash, no upgrade")
+		assert_eq(GameState.state["factions"]["firm"]["resources"], 0)
+	)
+
 
 static func _set_ore(faction_id: String, ore_type: String, qty: int) -> void:
 	GameState.state["factions"][faction_id]["holdings"]["ore"][ore_type] = qty
@@ -395,6 +495,30 @@ static func _set_item(faction_id: String, recipe_key: String, qty: int) -> void:
 static func _stock_at_targets(faction_id: String) -> void:
 	for recipe_key in GameData.FACTIONS[faction_id]["crafts"]:
 		_set_item(faction_id, recipe_key, FactionSim.craft_target(faction_id, recipe_key))
+
+
+static func _set_quote(kind: String, good_type: String, price: int) -> void:
+	GameState.state["market"]["goods"][kind][good_type]["price"] = price
+
+
+# Fresh state, the Firm holding `blasts`, one trade + reprice: blast's quote.
+static func _blast_price_after_trade(blasts: int) -> int:
+	GameState.reset()
+	GameState.state["factions"]["firm"]["resources"] = 10000
+	_set_item("firm", "blast", blasts)
+	FactionSim.trade()
+	Market.daily_reprice()
+	return Market.quote("consumable", "blast")
+
+
+# Every Firm good held at exactly its reserve (items first: ore reserves read
+# the craft gap), so a trade with nothing changed neither buys nor sells.
+static func _firm_at_reserve() -> void:
+	GameState.state["factions"]["firm"]["holdings"]["items"] = {}
+	for recipe_key in ["blast", "shield", "healingBurst", "enhancementPowder"]:
+		_set_item("firm", recipe_key, FactionSim.item_reserve("firm", recipe_key))
+	for ore_type in GameData.ORE_TYPES:
+		_set_ore("firm", ore_type, FactionSim.ore_reserve("firm", ore_type))
 
 
 # Conclave (craftSkill 1) one failsafe short of target with ore for exactly one attempt.
