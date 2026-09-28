@@ -8,7 +8,7 @@ Spec: §Tuning tool.
 
 **Relevant files:**
 - New script under `scripts/`, `data/factions.json`, `data/market.json`
-- `.scratch/biz-act2-market-sim/spec.md` (price feel targets)
+- `.scratch/0-bugfixes/biz-act2-market-sim_COMPLETED/spec.md` (price feel targets)
 - REFERENCE.md §1.8, §3.13
 
 **Status:** ready-for-agent
