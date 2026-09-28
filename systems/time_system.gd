@@ -90,6 +90,7 @@ static func daily_tick() -> void:
 	_apply_tutorial_day_triggers()       # ⑤ tutorial day-triggers
 	Sites.roll_npc_claims()              # ⑤b NPC site-claiming (M1-LONDON.md D2)
 	FactionSim.tend_and_prune()          # ⑤c faction tend + prune, after ⑤b so a fresh claim can be tended today
+	FactionSim.craft()                   # ⑤c2 faction crafting, after ⑤c so today's prune ore can be crafted
 	Factions.apply_passive_income()      # ⑤d industries-only, no ordering dependency on ⑤b/⑤c
 	NetworkHandler.expire_intel()        # ⑤e2 before ⑤f so a lapsed security_freeze stops skipping today's upgrade
 	Factions.apply_security_upgrades()   # ⑤f after ⑤d so today's income is already banked and spendable

@@ -165,6 +165,46 @@ static func _prune(faction_id: String, vein: Dictionary, depth: int) -> void:
 	Shares.record_ore(faction_id, vein["oreType"], amount)
 
 
+# ── Crafting toward target (spec §Crafting) ───────────────────────────────
+# Target holding per crafted item = weekly `consumes` + craftTargets kitUse
+# + sellQuota. Rollover step: each faction walks its `crafts` in data order
+# and makes up to (target − held) attempts per item, stopping when its ore
+# can't cover calc_cost at craftSkill. Every attempt spends its ore; a
+# success (faction_craft_chance at craftSkill) files one item at tier
+# craftSkill and credits the faction's crafting share by ingredient weight.
+static func craft_target(faction_id: String, recipe_key: String) -> int:
+	var data: Dictionary = GameData.FACTIONS[faction_id]
+	var split: Dictionary = data.get("craftTargets", {}).get(recipe_key, {})
+	return int(data.get("consumes", {}).get(recipe_key, 0)) + int(split.get("kitUse", 0)) + int(split.get("sellQuota", 0))
+
+
+static func craft() -> void:
+	for faction_id in GameData.FACTIONS:
+		for recipe_key in GameData.FACTIONS[faction_id].get("crafts", []):
+			_craft_toward_target(faction_id, recipe_key)
+
+
+static func _craft_toward_target(faction_id: String, recipe_key: String) -> void:
+	var skill: int = GameData.FACTIONS[faction_id]["craftSkill"]
+	var costs: Dictionary = Crafting.calc_cost(recipe_key, skill)
+	var gap: int = craft_target(faction_id, recipe_key) - item_held(faction_id, recipe_key)
+	for i in gap:
+		if not _can_cover(faction_id, costs):
+			return
+		for ore_type in costs:
+			take_ore(faction_id, ore_type, costs[ore_type])
+		if Rng.chance(Crafting.faction_craft_chance(recipe_key, skill)):
+			add_item(faction_id, recipe_key, skill, 1)
+			Shares.record_craft(faction_id, costs)
+
+
+static func _can_cover(faction_id: String, costs: Dictionary) -> bool:
+	for ore_type in costs:
+		if ore_held(faction_id, ore_type) < int(costs[ore_type]):
+			return false
+	return true
+
+
 # Districts whose factionPresence is this faction, in GameData.DISTRICTS order.
 static func home_districts(faction_id: String) -> Array:
 	var homes: Array = []

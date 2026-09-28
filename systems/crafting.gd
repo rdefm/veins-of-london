@@ -6,8 +6,18 @@ extends RefCounted
 # advanceTimeBlock — only seed/cultivate/harvest are).
 
 static func craft_chance(recipe_key: String, skill: int) -> float:
+	return _craft_chance(recipe_key, skill, Home.get_workshop_bonus())
+
+
+# The same curve with no workshop bonus -- the player's Home is not a
+# faction's (FactionSim crafting, R§1.8 `craftSkill`).
+static func faction_craft_chance(recipe_key: String, skill: int) -> float:
+	return _craft_chance(recipe_key, skill, 0.0)
+
+
+static func _craft_chance(recipe_key: String, skill: int, bonus: float) -> float:
 	var r: Dictionary = GameData.RECIPES[recipe_key]
-	return min(0.95, r["baseSuccess"] + (skill - 1) * 0.13 + Home.get_workshop_bonus())
+	return min(0.95, r["baseSuccess"] + (skill - 1) * 0.13 + bonus)
 
 
 # A recipe can have more than one ingredient ore type -- these are what

@@ -152,3 +152,86 @@ func run() -> void:
 		)
 		assert_true(seed != -1, "a growth-0 faction vein collapses and its site is deleted within 200 seeds")
 	)
+
+	# ── Crafting toward target (spec §Crafting) ──
+	run_case("below_target_the_faction_crafts_until_its_ore_runs_out", func():
+		GameState.reset()
+		_stock_at_targets("guild")
+		_set_item("guild", "timePearl", 0)
+		var cost: int = Crafting.calc_cost("timePearl", 4)["time"]
+		_set_ore("guild", "time", cost * 2 + cost - 1)
+		FactionSim.craft()
+		assert_eq(FactionSim.ore_held("guild", "time"), cost - 1, "two attempts spend their ore; the third can't be covered")
+		assert_true(FactionSim.item_held("guild", "timePearl") <= 2, "no more items than attempts")
+	)
+
+	run_case("a_failed_craft_burns_its_ore_and_credits_no_crafting_share", func():
+		var cost: Dictionary = Crafting.calc_cost("failsafe", 1)
+		var seed := SeedSearch.find_seed_for(100, func():
+			_prime_one_failsafe_attempt(cost)
+			FactionSim.craft()
+			return FactionSim.item_held("conclave", "failsafe") < FactionSim.craft_target("conclave", "failsafe")
+		)
+		assert_true(seed != -1, "a Conclave failsafe attempt fails within 100 seeds")
+		Rng.set_seed(seed)  # before priming: GameState.reset() draws the stockpile pick
+		_prime_one_failsafe_attempt(cost)
+		FactionSim.craft()
+		assert_eq(FactionSim.ore_held("conclave", "time"), 0, "a failure burns the time ingredient")
+		assert_eq(FactionSim.ore_held("conclave", "life"), 0, "a failure burns the life ingredient")
+		assert_eq(Shares.window_totals("craft").get("conclave", {}), {}, "a failure credits no crafting share")
+	)
+
+	run_case("a_successful_craft_files_at_craft_skill_and_credits_share_by_ingredient_weight", func():
+		var cost: Dictionary = Crafting.calc_cost("failsafe", 1)
+		var seed := SeedSearch.find_seed_for(100, func():
+			_prime_one_failsafe_attempt(cost)
+			FactionSim.craft()
+			return FactionSim.item_held("conclave", "failsafe") == FactionSim.craft_target("conclave", "failsafe")
+		)
+		assert_true(seed != -1, "a Conclave failsafe attempt succeeds within 100 seeds")
+		Rng.set_seed(seed)  # before priming: GameState.reset() draws the stockpile pick
+		_prime_one_failsafe_attempt(cost)
+		FactionSim.craft()
+		var buckets: Dictionary = GameState.state["factions"]["conclave"]["holdings"]["items"]["failsafe"]
+		assert_eq(int(buckets.get("1", 0)), 1, "the item files under the Conclave's craftSkill tier")
+		assert_eq(Shares.window_totals("craft")["conclave"], { "time": cost["time"], "life": cost["life"] }, "each ingredient credits its own type by weight")
+	)
+
+	run_case("at_target_no_crafts_are_attempted", func():
+		GameState.reset()
+		for faction_id in GameData.FACTIONS:
+			_stock_at_targets(faction_id)
+			for ore_type in GameData.ORE_TYPES:
+				_set_ore(faction_id, ore_type, 500)
+		FactionSim.craft()
+		for faction_id in GameData.FACTIONS:
+			for ore_type in GameData.ORE_TYPES:
+				assert_eq(FactionSim.ore_held(faction_id, ore_type), 500, "%s spends no %s at target" % [faction_id, ore_type])
+		assert_eq(Shares.window_totals("craft"), {}, "no crafts, no crafting share")
+	)
+
+
+static func _set_ore(faction_id: String, ore_type: String, qty: int) -> void:
+	GameState.state["factions"][faction_id]["holdings"]["ore"][ore_type] = qty
+
+
+static func _set_item(faction_id: String, recipe_key: String, qty: int) -> void:
+	GameState.state["factions"][faction_id]["holdings"]["items"].erase(recipe_key)
+	if qty > 0:
+		FactionSim.add_item(faction_id, recipe_key, 0, qty)
+
+
+static func _stock_at_targets(faction_id: String) -> void:
+	for recipe_key in GameData.FACTIONS[faction_id]["crafts"]:
+		_set_item(faction_id, recipe_key, FactionSim.craft_target(faction_id, recipe_key))
+
+
+# Conclave (craftSkill 1) one failsafe short of target with ore for exactly one attempt.
+static func _prime_one_failsafe_attempt(cost: Dictionary) -> void:
+	GameState.reset()
+	for faction_id in GameData.FACTIONS:
+		_stock_at_targets(faction_id)
+	_set_item("conclave", "failsafe", FactionSim.craft_target("conclave", "failsafe") - 1)
+	_set_ore("conclave", "time", cost["time"])
+	_set_ore("conclave", "life", cost["life"])
+	_set_ore("conclave", "fate", 0)

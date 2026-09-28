@@ -4870,6 +4870,17 @@
 "consumes": {
 "healingSalve": 3
 },
+"craftSkill": 2,
+"craftTargets": {
+"enhancementPowder": {
+"kitUse": 0,
+"sellQuota": 3
+},
+"healingSalve": {
+"kitUse": 1,
+"sellQuota": 3
+}
+},
 "crafts": ["healingSalve", "enhancementPowder"],
 "cultivateSkill": 4,
 "description": "A decentralised network of vein finders and small traders. No hierarchy — or at least, no admitted hierarchy. Strong in East and South London. They find and protect veins collaboratively, share yields, and move ore through trusted contacts. Low entry bar, low ceiling.",
@@ -4917,6 +4928,13 @@
 "consumes": {
 "failsafe": 3,
 "rejuvenation": 3
+},
+"craftSkill": 1,
+"craftTargets": {
+"failsafe": {
+"kitUse": 1,
+"sellQuota": 2
+}
 },
 "crafts": ["failsafe"],
 "cultivateSkill": 2,
@@ -4968,6 +4986,21 @@
 "healingBurst": 3,
 "shield": 3
 },
+"craftSkill": 2,
+"craftTargets": {
+"blast": {
+"kitUse": 2,
+"sellQuota": 3
+},
+"healingBurst": {
+"kitUse": 2,
+"sellQuota": 3
+},
+"shield": {
+"kitUse": 2,
+"sellQuota": 3
+}
+},
 "crafts": ["blast", "shield", "healingBurst"],
 "cultivateSkill": 3,
 "description": "A well-established crew with roots going back further than anyone admits. Operate across South and West London. Specialise in acquiring high-value veins by force and reselling refined product at premium rates. Professional, ruthless, not interested in small operators — unless you show promise.",
@@ -5017,6 +5050,29 @@
 "consumes": {
 "enhancementPowder": 1,
 "timePearl": 1
+},
+"craftSkill": 4,
+"craftTargets": {
+"prophetsBreath": {
+"kitUse": 0,
+"sellQuota": 4
+},
+"rejuvenation": {
+"kitUse": 0,
+"sellQuota": 4
+},
+"rewind": {
+"kitUse": 0,
+"sellQuota": 3
+},
+"timePearl": {
+"kitUse": 0,
+"sellQuota": 4
+},
+"wormhole": {
+"kitUse": 0,
+"sellQuota": 3
+}
 },
 "crafts": ["timePearl", "rewind", "wormhole", "prophetsBreath", "rejuvenation"],
 "cultivateSkill": 2,
@@ -5068,6 +5124,13 @@
 "conquerThreshold": -20,
 "consumes": {
 "prophetsBreath": 3
+},
+"craftSkill": 1,
+"craftTargets": {
+"pansPrank": {
+"kitUse": 1,
+"sellQuota": 3
+}
 },
 "crafts": ["pansPrank"],
 "cultivateSkill": 2,
