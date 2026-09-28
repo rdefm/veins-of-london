@@ -208,7 +208,7 @@ overlays.
 | bizbrief_app.gd | BizBrief tabs: Brief (bank, payday, wage prompt, operations, attention); Manage (offers + contracts with buyer faction, Sales status, buy-calc, cancel, production targets + log, cultivator procurement); Staff once `bizStaffTabOpen` (role, skills, pay terms, status, role picker, Pay now); Stats while pot active (4 line charts, ore source toggle) |
 | messages_app.gd | Conversation inbox (fixed-height rows: bold name, one-line `…` preview, unread pill, per-contact Clear) + single-thread staged bubble reveal/action bar (incl. Owen's text reply choices); thread opens scrolled to the newest message |
 | todo_app.gd | ToDo app: collapsible questline sections from Todo, all_of checks as indented sub-rows; session-only expand/collapse overrides in a static var |
-| factions_app.gd | Faction cards |
+| factions_app.gd | London share overview table (ore/crafting toggle; player, factions, Independents × ore type) and faction cards with archetype, ores, crafts and share bars. Shares only, never holdings or kits. |
 | ticker_app.gd | Ticker: News tab (barometer headlines + axis detail with push/pull, influence actions) and Stock Market tab (prices ▲/▼, demand modifiers, per-good chart with annotations and demand drivers) |
 | profile_app.gd | Stats, skills, equipment |
 | dialer_app.gd | Phone recent-calls placeholder; no telephony state/actions |

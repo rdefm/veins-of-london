@@ -687,7 +687,8 @@ static func _recolor_button_content(b: Button, colour: Color) -> void:
 		(g as SymbolGlyph).color = colour
 
 
-static func build_faction_card(faction_id: String) -> Control:
+# economy, when given, sits between the description and the relation meter.
+static func build_faction_card(faction_id: String, economy: Control = null) -> Control:
 	var f: Dictionary = GameData.FACTIONS[faction_id]
 	var state: Dictionary = GameState.state["factions"][faction_id]
 	var rel: int = state["relation"]
@@ -696,6 +697,8 @@ static func build_faction_card(faction_id: String) -> Control:
 	c["content"].add_child(UI.heading(f["name"] + (" — Member" if state["joined"] else ""), 15))
 	c["content"].add_child(UI.muted_label(f["tagline"]))
 	c["content"].add_child(UI.label(f["description"]))
+	if economy != null:
+		c["content"].add_child(economy)
 	c["content"].add_child(UI.label("Relation: %d / %d" % [rel, f["joinRelation"]]))
 	c["content"].add_child(UI.bar(rel, f["joinRelation"]))
 
