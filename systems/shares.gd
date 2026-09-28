@@ -13,11 +13,11 @@ const INDEPENDENTS := "independents"
 
 
 # player, the five factions (data order), independents -- the last only
-# while market.json independentsShare is above 0.
+# while either market.json Independents share is above 0.
 static func producers() -> Array:
 	var ids: Array = [PLAYER]
 	ids.append_array(GameData.FACTIONS.keys())
-	if float(GameData.MARKET["independentsShare"]) > 0.0:
+	if Market.independents_share("ore") > 0.0 or Market.independents_share("consumable") > 0.0:
 		ids.append(INDEPENDENTS)
 	return ids
 
@@ -81,7 +81,7 @@ static func record_london_buy(faction_id: String, amount: int) -> void:
 
 # Rollover step: credits today's Independents slice of London supply --
 # ore to the ore tally, items to the craft tally by recipe ingredient
-# weight. Nothing when independentsShare is 0 or the market isn't running.
+# weight. Nothing for a kind whose share is 0, or when the market isn't running.
 static func record_independents() -> void:
 	if not Market.is_running():
 		return

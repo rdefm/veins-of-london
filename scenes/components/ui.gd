@@ -105,6 +105,13 @@ static func heading(text: String, size: int = 20) -> Label:
 
 const MAX_LABEL_TEXT_WIDTH := 220.0
 
+
+# A quoted price with its lot (R§3.13): "£75/10" for ore, "£120" for an item.
+static func price_text(kind: String, price: int) -> String:
+	var lot := Market.price_lot(kind)
+	return "£%d" % price if lot <= 1 else "£%d/%d" % [price, lot]
+
+
 static func label(text: String) -> Label:
 	var l := Label.new()
 	l.text = text

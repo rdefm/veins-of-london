@@ -366,17 +366,17 @@ func run() -> void:
 		# from 60 down to 50 (neutral) count; the other 14 (50 -> 36) are free.
 		var vein := _vein(60)
 		var yld := Cultivating.prune_yield(vein, GameData.VEIN_GROWTH["pruneHardDepth"])
-		# points=10, yieldPerPoint 0.35, terroir fair 1.0, hardBonus 1.25 -> round(10*0.35*1.25)=4
-		assert_eq(yld, 4, "only the 10 points above neutral count, at the hard-prune bonus")
+		# points=10, yieldPerPoint 2.8, terroir fair 1.0, hardBonus 1.25 -> round(10*2.8*1.25)=35
+		assert_eq(yld, 35, "only the 10 points above neutral count, at the hard-prune bonus")
 	)
 
 	run_case("light_prune_yields_less_per_point_than_hard_when_both_land_fully_above_neutral", func():
 		var wild := _vein(95)
 		var light_yield := Cultivating.prune_yield(wild, GameData.VEIN_GROWTH["pruneLightDepth"])
 		var hard_yield := Cultivating.prune_yield(wild, GameData.VEIN_GROWTH["pruneHardDepth"])
-		# light: 9 points * 0.35 = 3.15 -> round 3. hard: 24 points * 0.35 * 1.25 = 10.5 -> round 11.
-		assert_eq(light_yield, 3, "light prune, no hard bonus")
-		assert_eq(hard_yield, 11, "hard prune, 1.25x bonus, more points removed")
+		# light: 9 points * 2.8 = 25.2 -> round 25. hard: 24 points * 2.8 * 1.25 = 84.
+		assert_eq(light_yield, 25, "light prune, no hard bonus")
+		assert_eq(hard_yield, 84, "hard prune, 1.25x bonus, more points removed")
 	)
 
 	# ── level-scaled yield (cultivation-refining ticket 04) ─────────────
@@ -390,8 +390,8 @@ func run() -> void:
 
 	run_case("hard_prune_yield_scales_by_level_on_top_of_terroir_and_hard_bonus", func():
 		# growth 95, hard prune (-24) -> 24 points above neutral, same base
-		# (10.5) as the level-1 case above; only levelYieldMult changes.
-		var expected := { 1: 11, 2: 13, 3: 15, 4: 17, 5: 19 }
+		# (84) as the level-1 case above; only levelYieldMult changes.
+		var expected := { 1: 84, 2: 101, 3: 118, 4: 134, 5: 151 }
 		for level in expected:
 			var vein := _vein(95, "shoreditch", [], "fair", level)
 			var yld := Cultivating.prune_yield(vein, GameData.VEIN_GROWTH["pruneHardDepth"])
@@ -577,7 +577,7 @@ func run() -> void:
 		assert_true(result["ok"], "prune should succeed")
 		var vein: Dictionary = GameState.state["player"]["veins"][0]
 		assert_eq(vein["growth"], 36, "growth -= depth")
-		assert_eq(result["amount"], 4, "matches prune_yield's own math")
+		assert_eq(result["amount"], 35, "matches prune_yield's own math")
 		assert_eq(GameState.state["player"]["orichalchum"]["time"], result["amount"], "ore credited to player")
 	)
 

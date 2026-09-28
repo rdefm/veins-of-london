@@ -36,6 +36,7 @@ func run() -> void:
 	# ── col_a2_force_vein_loss ─────────────────────────────────────────────
 
 	run_case("hakims_vein_is_safe_from_rivalry_until_the_retake", func():
+		GameData.FACTION_RIVALRY = true
 		# Collective-held before T10, then Firm-held between T10 and T13.
 		for holder in ["collective", "firm"]:
 			var taken := false
@@ -70,6 +71,7 @@ func run() -> void:
 				taken_after_retake = true
 				break
 		assert_true(taken_after_retake, "once the retake has run, the lock lifts")
+		GameData.FACTION_RIVALRY = false
 	)
 
 	run_case("hakims_vein_is_not_raided_while_the_player_holds_it_before_the_retake", func():

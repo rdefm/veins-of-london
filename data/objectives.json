@@ -103,7 +103,7 @@
       "delivered": "Delivered: %d / %d",
       "remaining": "Remaining: %d",
       "inStock": "In stock: %d %s",
-      "pricePerUnit": "£%d per unit",
+      "pricePerUnit": "Price: %s",
       "payment": "Payment: £%d",
       "supply": "Supply order",
       "cancel": "Cancel"

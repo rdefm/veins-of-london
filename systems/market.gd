@@ -34,16 +34,59 @@ static func civilian_demand(kind: String, good_type: String) -> float:
 	return float(_config()["goods"][kind][good_type]["civilianDemand"])
 
 
-# The Independents slice (R§3.13): steady daily supply of
-# independentsShare × civilian demand; 0 when the share is 0.
+# The Independents slice (R§3.13): daily supply of the kind's share
+# (independentsOreShare for ore, independentsShare for items) × civilian
+# demand, plus for ore independentsBuyCover × today's faction London buys
+# of it; 0 when the kind's share is 0.
 static func independents_supply(kind: String, good_type: String) -> float:
-	return float(_config()["independentsShare"]) * civilian_demand(kind, good_type)
+	var share := independents_share(kind)
+	if share <= 0.0:
+		return 0.0
+	var supply := share * civilian_demand(kind, good_type)
+	if kind == "ore":
+		supply += float(_config()["independentsBuyCover"]) * _faction_demand(kind, good_type)
+	return supply
+
+
+static func _faction_demand(kind: String, good_type: String) -> int:
+	var total := 0
+	var by_source: Dictionary = _market()["demand"][kind].get(good_type, {})
+	for source in by_source:
+		if GameData.FACTIONS.has(source):
+			total += int(by_source[source])
+	return total
+
+
+static func independents_share(kind: String) -> float:
+	return float(_config()["independentsOreShare" if kind == "ore" else "independentsShare"])
 
 
 # The sim-start switch (market.json simStart): "day1" runs from the first
 # day; "bizA2" waits until market.startedDay is set.
 static func is_running() -> bool:
 	return _config()["simStart"] == "day1" or _market().get("startedDay") != null
+
+
+# Units one quoted price buys (market.json priceLot): ore is quoted per lot
+# of 10, items per unit (R§3.13).
+static func price_lot(kind: String) -> int:
+	return int(_config()["priceLot"].get(kind, 1))
+
+
+# £ for qty units of a good at a quoted price (per price_lot units).
+static func line_total(kind: String, price: int, qty: int) -> int:
+	return GameState.round_epsilon(float(price) * qty / price_lot(kind))
+
+
+# The most whole units whose line_total() fits a budget; 0 at a price of 0
+# or less.
+static func affordable_qty(kind: String, price: int, budget: int) -> int:
+	if price <= 0 or budget <= 0:
+		return 0
+	var qty := int(floor((float(budget) + 0.5) * price_lot(kind) / float(price)))
+	while qty > 0 and line_total(kind, price, qty) > budget:
+		qty -= 1
+	return qty
 
 
 # Pure: base × (stock / normalStock)^-curveExponent, clamped to

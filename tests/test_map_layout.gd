@@ -461,11 +461,11 @@ func run() -> void:
 		# leaving them all live on the map at once rather than retiring
 		# each round like the 94 regression test above. Peak live-stop
 		# count here (siteCap * 2) is more than the old +2 margin could
-		# ever cover for this district (siteCap + 2 = 7 < 10 needed).
+		# ever cover for this district (siteCap + 2 = 9 < 14 needed).
 		GameState.reset()
 		var district := "battersea"
 		var site_cap: int = GameData.DISTRICTS[district]["siteCap"]
-		assert_eq(site_cap, 5, "battersea siteCap (test assumes this to size the scenario)")
+		assert_eq(site_cap, 7, "battersea siteCap (test assumes this to size the scenario)")
 
 		var natural_veins: Array = []
 		for i in range(site_cap):

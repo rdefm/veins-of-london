@@ -114,12 +114,12 @@ func run() -> void:
 			"rampantDays": 0,
 		}]
 
-		# spec §8.3's worked table: fresh seed (growth 20), fair -> quote £4900.
+		# fresh seed (growth 20), fair life -> quote £4928.
 		var price: int = VeinTrade.quote(GameState.state["player"]["veins"][0])
-		assert_eq(price, 4900)
+		assert_eq(price, 4928)
 		VeinTrade.sell_to_faction("v1", "collective")
 
-		# £4900 crosses the £350 rate 14 times, but the daily cap stops it at 5 (1750) -- +5 relation, £3150 banked into tradeProgress.
+		# £4928 crosses the £350 rate 14 times, but the daily cap stops it at 5 (1750) -- +5 relation, £3178 banked into tradeProgress.
 		assert_eq(GameState.state["factions"]["collective"]["relation"], 5, "the vein's sale price accrues relation exactly like an ordinary trade")
 		assert_eq(GameState.state["factions"]["collective"]["tradeProgress"], price - 1750, "the remainder past the rate is banked, not dropped")
 	)

@@ -80,10 +80,10 @@ func run() -> void:
 		GameState.state["player"]["veins"] = []
 		MorningAccountsSystem.capture_losses(context, "Raid")
 		var account := MorningAccountsSystem.finish_rollover(context)
-		assert_eq(account["production"]["ore"]["time"], 9)
+		assert_eq(account["production"]["ore"]["time"], 70)
 		assert_eq(account["losses"]["ore"]["time"], 3)
 		assert_eq(account["losses"]["veins"], 1)
-		assert_eq(account["oreMovement"]["time"], 6, "the day's block yield (+9) plus the rollover loss (-3)")
+		assert_eq(account["oreMovement"]["time"], 67, "the day's block yield (+70) plus the rollover loss (-3)")
 	)
 
 	run_case("attention_is_current_unresolved_alarms_and_unread_messages", func():

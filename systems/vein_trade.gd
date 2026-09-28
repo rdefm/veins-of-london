@@ -9,16 +9,16 @@ extends RefCounted
 const SELL_FACTION_ID := "collective"
 
 
-# The ore's 2-day average London price (R§3.13) times terroir times a fixed
-# per-unit rate, scaled by how far above/below neutral the vein's growth
-# sits. A fresh seed (growth 20) prices at 0.4x. At veinSaleBaseUnits 175
-# that is ~70 calc-worth x terroir, above the 40-calc seed cost on non-poor
-# tiers; no same-day-sale rule guards seed-and-flip.
+# The ore's 2-day average London price (R§3.13) for veinSaleBaseUnits units,
+# times terroir, scaled by how far above/below neutral the vein's growth
+# sits. A fresh seed (growth 20) prices at 0.4x: 560 calc-worth x terroir at
+# veinSaleBaseUnits 1400; no same-day-sale rule guards seed-and-flip.
 static func quote(vein: Dictionary) -> int:
 	var ore_price: int = Market.quote_avg2("ore", vein["oreType"])
 	var terroir: float = Cultivating.terroir_yield_mult(vein)
 	var growth_factor: float = float(vein["growth"]) / float(GameData.VEIN_GROWTH["neutral"])
-	return GameState.round_epsilon(ore_price * terroir * GameData.VEIN_GROWTH["veinSaleBaseUnits"] * growth_factor)
+	var units: float = float(GameData.VEIN_GROWTH["veinSaleBaseUnits"]) / Market.price_lot("ore")
+	return GameState.round_epsilon(ore_price * terroir * units * growth_factor)
 
 
 # Removes the vein from state.player.veins and re-creates it on its own site as

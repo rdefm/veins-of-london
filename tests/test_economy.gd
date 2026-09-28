@@ -13,23 +13,23 @@ func run() -> void:
 	run_case("gross_math_basic_ore_sale", func():
 		var seed := SeedSearch.find_seed_for(200, func():
 			GameState.reset()
-			GameState.state["player"]["orichalchum"]["time"] = 10
-			var result := Economy.execute_sale([{ "kind": "ore", "type": "time", "qty": 3 }])
+			GameState.state["player"]["orichalchum"]["time"] = 100
+			var result := Economy.execute_sale([{ "kind": "ore", "type": "time", "qty": 30 }])
 			return not result["mugged"]
 		)
 		assert_true(seed != -1, "should find a non-mugged roll within 200 tries")
-		# time basePrice 60, barometer stable -> effective price 60, gross = 180.
+		# time basePrice £75/10, barometer stable -> gross = 30 × 7.5 = 225.
 		# execute_sale awards ARCHIE_SALE_RELATION_GAIN (+2) *before* computing
 		# the cut, so the ratio uses relation 12 (startRelation 10 + 2), not 10:
-		# 0.60 + 0.25*(12-10)/70 = 0.6071428571; floor(180*that) = 109.
-		assert_eq(GameState.state["player"]["orichalchum"]["time"], 7, "3 ore deducted")
-		assert_eq(GameState.state["player"]["cash"], 40 + 109, "playerCut reflects the cut ratio at post-award relation 12, added to starting cash 40")
+		# 0.60 + 0.25*(12-10)/70 = 0.6071428571; floor(225*that) = 136.
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], 70, "30 ore deducted")
+		assert_eq(GameState.state["player"]["cash"], 40 + 136, "playerCut reflects the cut ratio at post-award relation 12, added to starting cash 40")
 		assert_eq(GameState.state["modal"]["type"], "sale_result", "a non-mugged sale should open the sale_result modal")
 		assert_eq(GameState.state["modal"]["data"]["mugged"], false, "modal data reflects the non-mugged outcome")
 
 		var bank_log: Array = GameState.state["bankLog"]
 		assert_eq(bank_log.size(), 1, "a non-mugged sale records one bank transaction")
-		assert_eq(bank_log[0]["amount"], 109, "the recorded amount matches the player cut")
+		assert_eq(bank_log[0]["amount"], 136, "the recorded amount matches the player cut")
 		assert_eq(bank_log[0]["label"], "Archie sale", "the recorded label names the sale")
 	)
 
@@ -42,42 +42,42 @@ func run() -> void:
 	run_case("sale_via_archie_awards_the_flat_gain_and_feeds_tradeProgress", func():
 		GameState.reset()
 		var starting_relation: int = GameState.state["contacts"]["archie"]["relation"]
-		GameState.state["player"]["orichalchum"]["time"] = 10
-		Economy.execute_sale([{ "kind": "ore", "type": "time", "qty": 3 }])
+		GameState.state["player"]["orichalchum"]["time"] = 100
+		Economy.execute_sale([{ "kind": "ore", "type": "time", "qty": 30 }])
 		assert_eq(GameState.state["contacts"]["archie"]["relation"], starting_relation + 2, "the flat ARCHIE_SALE_RELATION_GAIN still applies")
-		assert_eq(GameState.state["contacts"]["archie"]["tradeProgress"], 180, "gross value (3 * £60) also banked into tradeProgress")
+		assert_eq(GameState.state["contacts"]["archie"]["tradeProgress"], 225, "gross value (30 × £75/10) also banked into tradeProgress")
 	)
 
 	run_case("a_single_sale_crossing_the_1000_rate_still_prices_its_own_cut_at_the_relation_after_the_flat_award_only", func():
 		var seed := SeedSearch.find_seed_for(200, func():
 			GameState.reset()
-			GameState.state["player"]["orichalchum"]["time"] = 20
-			var result := Economy.execute_sale([{ "kind": "ore", "type": "time", "qty": 17 }])
+			GameState.state["player"]["orichalchum"]["time"] = 200
+			var result := Economy.execute_sale([{ "kind": "ore", "type": "time", "qty": 140 }])
 			return not result["mugged"]
 		)
 		assert_true(seed != -1, "should find a non-mugged roll within 200 tries")
-		# gross = 17*60 = 1020. The flat +2 award runs before the cut (as
-		# always) -> relation 10 -> 12, cut ratio 0.6071428571, player_cut =
-		# floor(1020*0.6071428571) = 619. RelationAccrual runs *after* the
-		# cut (systems/economy.gd) -- £1,020 crosses its £1,000 rate for one
+		# gross = 140 × £75/10 = 1050. The flat +2 award runs before the cut
+		# (as always) -> relation 10 -> 12, cut ratio 0.6071428571, player_cut =
+		# floor(1050*0.6071428571) = 637. RelationAccrual runs *after* the
+		# cut (systems/economy.gd) -- £1,050 crosses its £1,000 rate for one
 		# more point, relation 12 -> 13, but that point must not have been
 		# folded into this sale's own cut (which would price at relation 13's
-		# ratio 0.6107142857, floor(1020*that) = 622, if the ordering were wrong).
+		# ratio 0.6107142857, floor(1050*that) = 641, if the ordering were wrong).
 		assert_eq(GameState.state["contacts"]["archie"]["relation"], 13, "flat +2 award, then +1 from crossing the £1,000 tradeProgress rate")
-		assert_eq(GameState.state["player"]["cash"], 40 + 619, "the cut used the flat-award relation (12), not the relation the accumulator bumped it to on top (13)")
+		assert_eq(GameState.state["player"]["cash"], 40 + 637, "the cut used the flat-award relation (12), not the relation the accumulator bumped it to on top (13)")
 	)
 
 	run_case("mugged_sale_via_archie_still_awards_the_flat_gain_and_feeds_tradeProgress", func():
 		var seed := SeedSearch.find_seed_for(200, func():
 			GameState.reset()
-			GameState.state["player"]["orichalchum"]["time"] = 10
-			var result := Economy.execute_sale([{ "kind": "ore", "type": "time", "qty": 3 }])
+			GameState.state["player"]["orichalchum"]["time"] = 100
+			var result := Economy.execute_sale([{ "kind": "ore", "type": "time", "qty": 30 }])
 			return result.get("mugged", false)
 		)
 		assert_true(seed != -1, "should find a mugged roll within 200 tries")
 		# archie startRelation 10 (R§1.11) + ARCHIE_SALE_RELATION_GAIN 2 = 12
 		assert_eq(GameState.state["contacts"]["archie"]["relation"], 12, "relation gain should not depend on the mugging outcome")
-		assert_eq(GameState.state["contacts"]["archie"]["tradeProgress"], 180, "tradeProgress accrual should not depend on the mugging outcome either")
+		assert_eq(GameState.state["contacts"]["archie"]["tradeProgress"], 225, "tradeProgress accrual should not depend on the mugging outcome either")
 	)
 
 	# Bug: a mugging rolled from the sell_menu modal's "Go" button used to
@@ -101,30 +101,30 @@ func run() -> void:
 	run_case("gross_math_uses_the_london_quote", func():
 		var seed := SeedSearch.find_seed_for(200, func():
 			GameState.reset()
-			GameState.state["market"]["goods"]["ore"]["fate"]["price"] = 104
-			GameState.state["player"]["orichalchum"]["fate"] = 10
-			var result := Economy.execute_sale([{ "kind": "ore", "type": "fate", "qty": 2 }])
+			GameState.state["market"]["goods"]["ore"]["fate"]["price"] = 130
+			GameState.state["player"]["orichalchum"]["fate"] = 100
+			var result := Economy.execute_sale([{ "kind": "ore", "type": "fate", "qty": 20 }])
 			return not result["mugged"]
 		)
 		assert_true(seed != -1, "should find a non-mugged roll within 200 tries")
-		# London quote 104 (not base 90); gross = 208
+		# London quote £130/10 (not base 113); gross = 20 × 13 = 260
 		# post-award relation 12 -> cut ratio 0.6071428571 (see gross_math_basic_ore_sale)
-		assert_eq(GameState.state["player"]["cash"], 40 + 126, "playerCut reflects the London quote")
-		assert_eq(GameState.state["market"]["supply"]["ore"]["fate"], { "player": 2 }, "the sale records London supply")
+		assert_eq(GameState.state["player"]["cash"], 40 + 157, "playerCut reflects the London quote")
+		assert_eq(GameState.state["market"]["supply"]["ore"]["fate"], { "player": 20 }, "the sale records London supply")
 	)
 
 	run_case("gross_math_applies_district_priceMod", func():
 		var seed := SeedSearch.find_seed_for(200, func():
 			GameState.reset()
 			GameState.state["world"]["currentDistrict"] = "city"  # priceMod +0.15
-			GameState.state["player"]["orichalchum"]["fate"] = 10
-			var result := Economy.execute_sale([{ "kind": "ore", "type": "fate", "qty": 2 }])
+			GameState.state["player"]["orichalchum"]["fate"] = 100
+			var result := Economy.execute_sale([{ "kind": "ore", "type": "fate", "qty": 20 }])
 			return not result["mugged"]
 		)
 		assert_true(seed != -1, "should find a non-mugged roll within 200 tries")
-		# fate basePrice 90, stable barometer -> 90; city priceMod +0.15 -> round_epsilon(90*1.15) = 104; gross = 208
+		# fate basePrice £113/10, stable barometer; city priceMod +0.15 -> round_epsilon(113*1.15) = 130; gross = 20 × 13 = 260
 		# post-award relation 12 -> cut ratio 0.6071428571 (see gross_math_basic_ore_sale)
-		assert_eq(GameState.state["player"]["cash"], 40 + 126, "playerCut reflects the district priceMod")
+		assert_eq(GameState.state["player"]["cash"], 40 + 157, "playerCut reflects the district priceMod")
 	)
 
 	run_case("consumable_price_also_gets_district_priceMod", func():
@@ -204,15 +204,15 @@ func run() -> void:
 	run_case("mugged_path_defers_payout_to_pendingSaleCut", func():
 		var seed := SeedSearch.find_seed_for(200, func():
 			GameState.reset()
-			GameState.state["player"]["orichalchum"]["time"] = 10
-			var result := Economy.execute_sale([{ "kind": "ore", "type": "time", "qty": 3 }])
+			GameState.state["player"]["orichalchum"]["time"] = 100
+			var result := Economy.execute_sale([{ "kind": "ore", "type": "time", "qty": 30 }])
 			return result.get("mugged", false)
 		)
 		assert_true(seed != -1, "should find a mugged roll within 200 tries")
 		assert_eq(GameState.state["player"]["cash"], 40, "cash should NOT increase yet — payout is deferred")
 		# post-award relation 12 -> cut ratio 0.6071428571 (see gross_math_basic_ore_sale)
-		assert_eq(GameState.state["pendingSaleCut"], 109, "pendingSaleCut holds floor(180*0.6071428571) = 109 until muggingWon")
-		assert_eq(GameState.state["player"]["orichalchum"]["time"], 7, "goods are still deducted even when mugged")
+		assert_eq(GameState.state["pendingSaleCut"], 136, "pendingSaleCut holds floor(225*0.6071428571) = 136 until muggingWon")
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], 70, "goods are still deducted even when mugged")
 	)
 
 	run_case("complete_mugged_sale_pays_out_and_clears_pendingSaleCut", func():
@@ -301,9 +301,9 @@ func run() -> void:
 		GameState.state["factions"]["guild"]["joined"] = true
 		GameState.state["factions"]["guild"]["relation"] = 40
 		GameState.state["player"]["cash"] = 150
-		# time buy price £69/u (same figures as the guild marketplace screen
-		# tests) -> floor(150/69) = 2.
-		assert_eq(Economy.get_faction_buy_max_qty("guild", "ore", "time"), 2, "floors to whole affordable units")
+		# time buy price £86/10 (same figures as the guild marketplace screen
+		# tests) -> floor(150 × 10 / 86) = 17.
+		assert_eq(Economy.get_faction_buy_max_qty("guild", "ore", "time"), 17, "floors to whole affordable units")
 	)
 
 	run_case("get_faction_buy_max_qty_is_zero_when_cash_cant_cover_even_one", func():
@@ -317,19 +317,19 @@ func run() -> void:
 	run_case("sell_from_sell_state_builds_items_and_clears_afterward", func():
 		var seed := SeedSearch.find_seed_for(200, func():
 			GameState.reset()
-			GameState.state["player"]["orichalchum"]["time"] = 10
+			GameState.state["player"]["orichalchum"]["time"] = 100
 			GameState.state["player"]["inventory"]["timePearl"] = { "0": 5 }
-			Economy.set_sell_qty("ore_time", 3, 10)
+			Economy.set_sell_qty("ore_time", 30, 100)
 			Economy.set_sell_qty("con_timePearl_0", 2, 5)
 			var result := Economy.sell_from_sell_state()
 			return not result["mugged"]
 		)
 		assert_true(seed != -1, "should find a non-mugged roll within 200 tries")
-		# gross = 3*60 (time) + 2*120 (timePearl, tier 0 -> 1.0x) = 420; post-award
+		# gross = 30 × £75/10 (time) + 2*120 (timePearl, tier 0 -> 1.0x) = 465; post-award
 		# relation 12 -> cut ratio 0.6071428571 (see gross_math_basic_ore_sale);
-		# cut = floor(420*0.6071428571) = 254
-		assert_eq(GameState.state["player"]["cash"], 40 + 254, "sale proceeds from both ore and consumable lines")
-		assert_eq(GameState.state["player"]["orichalchum"]["time"], 7, "ore deducted")
+		# cut = floor(465*0.6071428571) = 282
+		assert_eq(GameState.state["player"]["cash"], 40 + 282, "sale proceeds from both ore and consumable lines")
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], 70, "ore deducted")
 		assert_eq(Crafting.inventory_qty("timePearl"), 3, "consumable deducted")
 		assert_eq(GameState.state["sellState"], {}, "sellState cleared after selling")
 	)
@@ -395,14 +395,14 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["factions"]["guild"]["relation"] = 40  # join threshold -> full 15% spread
 		var price := Economy.get_faction_buy_price("guild", "ore", "time")
-		assert_eq(price, 69, "time basePrice 60, stable barometer -> 60 * 1.15 = 69")
+		assert_eq(price, 86, "time basePrice £75/10, stable barometer -> 75 * 1.15 = 86")
 	)
 
 	run_case("guild_sell_price_below_ticker_base_at_full_spread", func():
 		GameState.reset()
 		GameState.state["factions"]["guild"]["relation"] = 40
 		var price := Economy.get_faction_sell_price("guild", "ore", "time")
-		assert_eq(price, 51, "60 * 0.85 = 51")
+		assert_eq(price, 64, "75 * 0.85 = 64")
 	)
 
 	run_case("guild_spread_clamps_at_max_below_join_threshold", func():
@@ -428,8 +428,8 @@ func run() -> void:
 
 		assert_true(narrowed_price < full_price, "spread should narrow as relation climbs above the join threshold")
 		assert_true(zero_spread_price < narrowed_price, "spread keeps narrowing toward relation 90")
-		assert_eq(zero_spread_price, 60, "at relation 90 the spread is 0%, buy price == effective base price")
-		assert_eq(beyond_zero_price, 60, "spread stays flat at 0% past relation 90, never negative")
+		assert_eq(zero_spread_price, 75, "at relation 90 the spread is 0%, buy price == effective base price")
+		assert_eq(beyond_zero_price, 75, "spread stays flat at 0% past relation 90, never negative")
 	)
 
 	run_case("guild_purchase_rejects_insufficient_cash", func():
@@ -446,15 +446,15 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["factions"]["guild"]["relation"] = 40
 		GameState.state["player"]["cash"] = 1000
-		var result := Economy.execute_faction_purchase("guild", [{ "kind": "ore", "type": "time", "qty": 3 }])
+		var result := Economy.execute_faction_purchase("guild", [{ "kind": "ore", "type": "time", "qty": 30 }])
 		assert_true(result["ok"], "purchase should succeed when cash covers cost")
-		# price per unit 69 (see full-spread test above), qty 3 -> cost 207
-		assert_eq(GameState.state["player"]["cash"], 1000 - 207, "cash reduced by total cost")
-		assert_eq(GameState.state["player"]["orichalchum"]["time"], 3, "ore added to inventory")
+		# price £86/10 (see full-spread test above), qty 30 -> cost 258
+		assert_eq(GameState.state["player"]["cash"], 1000 - 258, "cash reduced by total cost")
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], 30, "ore added to inventory")
 
 		var bank_log: Array = GameState.state["bankLog"]
 		assert_eq(bank_log.size(), 1, "a Guild purchase records one bank transaction")
-		assert_eq(bank_log[0]["amount"], -207, "the recorded amount is negative, matching the spend")
+		assert_eq(bank_log[0]["amount"], -258, "the recorded amount is negative, matching the spend")
 		assert_eq(bank_log[0]["label"], "Guild purchase", "the recorded label names the purchase -- generalization must not change the Guild's exact copy")
 	)
 
@@ -462,16 +462,16 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["factions"]["guild"]["relation"] = 40
 		GameState.state["player"]["cash"] = 100
-		GameState.state["player"]["orichalchum"]["time"] = 5
-		var result := Economy.execute_faction_sale("guild", [{ "kind": "ore", "type": "time", "qty": 2 }])
+		GameState.state["player"]["orichalchum"]["time"] = 50
+		var result := Economy.execute_faction_sale("guild", [{ "kind": "ore", "type": "time", "qty": 20 }])
 		assert_true(result["ok"], "sale should succeed")
-		# price per unit 51 (see full-spread sell test above), qty 2 -> earned 102
-		assert_eq(GameState.state["player"]["cash"], 100 + 102, "cash increased by total earned")
-		assert_eq(GameState.state["player"]["orichalchum"]["time"], 3, "ore removed from inventory")
+		# price £64/10 (see full-spread sell test above), qty 20 -> earned 128
+		assert_eq(GameState.state["player"]["cash"], 100 + 128, "cash increased by total earned")
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], 30, "ore removed from inventory")
 
 		var bank_log: Array = GameState.state["bankLog"]
 		assert_eq(bank_log.size(), 1, "a Guild sale records one bank transaction")
-		assert_eq(bank_log[0]["amount"], 102, "the recorded amount matches total earned")
+		assert_eq(bank_log[0]["amount"], 128, "the recorded amount matches total earned")
 		assert_eq(bank_log[0]["label"], "Guild sale", "the recorded label names the sale -- generalization must not change the Guild's exact copy")
 	)
 
@@ -567,31 +567,31 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["factions"]["collective"]["relation"] = 0
 		GameState.state["player"]["cash"] = 1000
-		FactionSim.add_ore("collective", "time", 1)
-		# time basePrice 60, stable barometer -> 60; buy spread 0.15 -> 69
-		var result := Economy.execute_faction_purchase("collective", [{ "kind": "ore", "type": "time", "qty": 1 }])
+		FactionSim.add_ore("collective", "time", 10)
+		# time basePrice £75/10, stable barometer; buy spread 0.15 -> £86/10
+		var result := Economy.execute_faction_purchase("collective", [{ "kind": "ore", "type": "time", "qty": 10 }])
 		assert_true(result["ok"], "purchase should succeed")
-		assert_eq(GameState.state["player"]["cash"], 1000 - 69, "cash reduced by the Collective's own buy price")
+		assert_eq(GameState.state["player"]["cash"], 1000 - 86, "cash reduced by the Collective's own buy price")
 
 		var bank_log: Array = GameState.state["bankLog"]
 		assert_eq(bank_log[0]["label"], "Collective purchase", "faction_id.capitalize() names the lane in the bank log")
 
 		GameState.state["player"]["cash"] = 100
-		# sell spread 0.45 at relation 0 -> 60 * 0.55 = 33
-		var sale_result := Economy.execute_faction_sale("collective", [{ "kind": "ore", "type": "time", "qty": 1 }])
+		# sell spread 0.45 at relation 0 -> 75 * 0.55 = £41/10
+		var sale_result := Economy.execute_faction_sale("collective", [{ "kind": "ore", "type": "time", "qty": 10 }])
 		assert_true(sale_result["ok"], "sale should succeed")
-		assert_eq(GameState.state["player"]["cash"], 100 + 33, "cash increased by the Collective's own sell price")
+		assert_eq(GameState.state["player"]["cash"], 100 + 41, "cash increased by the Collective's own sell price")
 	)
 
 	# ── 109-collective-vendor-door-personal-relation: contact_id threading ──
 
 	run_case("execute_faction_sale_also_feeds_the_named_vendors_own_personal_relation_lane", func():
 		GameState.reset()
-		GameState.state["player"]["orichalchum"]["time"] = 1
+		GameState.state["player"]["orichalchum"]["time"] = 10
 
-		Economy.execute_faction_sale("collective", [{ "kind": "ore", "type": "time", "qty": 1 }], "des")
+		Economy.execute_faction_sale("collective", [{ "kind": "ore", "type": "time", "qty": 10 }], "des")
 
-		assert_eq(GameState.state["contacts"]["des"]["tradeProgress"], 33, "des's personal lane accrues the sale's gross, same as the faction lane")
+		assert_eq(GameState.state["contacts"]["des"]["tradeProgress"], 41, "des's personal lane accrues the sale's gross, same as the faction lane")
 		assert_eq(GameState.state["contacts"]["nadia"]["tradeProgress"], 0, "not nadia's")
 	)
 
@@ -657,8 +657,8 @@ func run() -> void:
 		var resources_before: int = GameState.state["factions"]["collective"]["resources"]
 		var price := Economy.get_faction_buy_price("collective", "ore", "time")
 		Economy.execute_faction_purchase("collective", [{ "kind": "ore", "type": "time", "qty": 2 }])
-		assert_eq(GameState.state["player"]["cash"], 100000 - price * 2, "holdings leave the buy-price formula as it was")
-		assert_eq(GameState.state["factions"]["collective"]["resources"], resources_before + price * 2, "the faction banks the price")
+		assert_eq(GameState.state["player"]["cash"], 100000 - Market.line_total("ore", price, 2), "holdings leave the buy-price formula as it was")
+		assert_eq(GameState.state["factions"]["collective"]["resources"], resources_before + Market.line_total("ore", price, 2), "the faction banks the price")
 	)
 
 	run_case("player_sale_adds_to_holdings_at_tier_and_costs_the_faction_resources", func():
@@ -675,22 +675,22 @@ func run() -> void:
 		assert_eq(FactionSim.ore_held("network", "fate"), 5, "sold ore joins holdings")
 		assert_eq(GameState.state["factions"]["network"]["holdings"]["items"]["shield"], { "3": 2 }, "sold items join holdings at their tier")
 		assert_eq(GameState.state["player"]["inventory"]["shield"], { "1": 2 }, "the chosen tier leaves the player's inventory")
-		assert_eq(GameState.state["factions"]["network"]["resources"], 100000 - ore_price * 5 - item_price * 2, "the faction pays from its resources")
+		assert_eq(GameState.state["factions"]["network"]["resources"], 100000 - Market.line_total("ore", ore_price, 5) - item_price * 2, "the faction pays from its resources")
 	)
 
 	run_case("player_sale_scales_down_to_the_faction_wallet_and_never_goes_negative", func():
 		GameState.reset()
 		var price := Economy.get_faction_sell_price("collective", "ore", "time")
-		GameState.state["factions"]["collective"]["resources"] = price * 3 + 1
-		GameState.state["player"]["orichalchum"]["time"] = 10
-		var result := Economy.execute_faction_sale("collective", [{ "kind": "ore", "type": "time", "qty": 10 }])
+		GameState.state["factions"]["collective"]["resources"] = Market.line_total("ore", price, 30) + 1
+		GameState.state["player"]["orichalchum"]["time"] = 100
+		var result := Economy.execute_faction_sale("collective", [{ "kind": "ore", "type": "time", "qty": 100 }])
 		assert_true(result["ok"])
-		assert_eq(result["sold"], [{ "kind": "ore", "type": "time", "qty": 3 }], "scaled down to what the wallet covers")
-		assert_eq(GameState.state["player"]["orichalchum"]["time"], 7, "only the sold units leave")
+		assert_eq(result["sold"], [{ "kind": "ore", "type": "time", "qty": 30 }], "scaled down to what the wallet covers")
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], 70, "only the sold units leave")
 		assert_eq(GameState.state["factions"]["collective"]["resources"], 1, "wallet floored, not negative")
 		var refused := Economy.execute_faction_sale("collective", [{ "kind": "ore", "type": "time", "qty": 1 }])
 		assert_true(not refused["ok"], "a sale the faction can't afford at all is refused")
-		assert_eq(GameState.state["player"]["orichalchum"]["time"], 7)
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], 70)
 	)
 
 	run_case("every_faction_has_a_trade_lane_gated_by_its_unlock", func():
@@ -722,23 +722,23 @@ func run() -> void:
 
 	run_case("sell_to_faction_from_sell_state_prices_via_the_faction_lane_and_clears_afterward", func():
 		GameState.reset()
-		GameState.state["player"]["orichalchum"]["time"] = 10
-		Economy.set_sell_qty("ore_time", 3, 10)
+		GameState.state["player"]["orichalchum"]["time"] = 100
+		Economy.set_sell_qty("ore_time", 30, 100)
 
 		var result := Economy.sell_to_faction_from_sell_state("collective")
 
 		assert_true(result["ok"], "sale should succeed")
-		# time basePrice 60, relation 0 -> sell spread 0.45 -> price 33/unit
-		assert_eq(result["earned"], 99, "3 units at the collective's relation-0 sell price, no cut")
-		assert_eq(GameState.state["player"]["cash"], 40 + 99, "cash credited at the faction price")
-		assert_eq(GameState.state["player"]["orichalchum"]["time"], 7, "ore deducted")
+		# time basePrice £75/10, relation 0 -> sell spread 0.45 -> £41/10
+		assert_eq(result["earned"], 123, "30 units at the collective's relation-0 sell price, no cut")
+		assert_eq(GameState.state["player"]["cash"], 40 + 123, "cash credited at the faction price")
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], 70, "ore deducted")
 		assert_eq(GameState.state["sellState"], {}, "sellState cleared after selling")
 	)
 
 	run_case("sell_to_faction_from_sell_state_passes_its_own_contact_id_through_to_every_leg", func():
 		GameState.reset()
-		GameState.state["player"]["orichalchum"]["time"] = 10
-		Economy.set_sell_qty("ore_time", 3, 10)
+		GameState.state["player"]["orichalchum"]["time"] = 100
+		Economy.set_sell_qty("ore_time", 30, 100)
 		var vein := Fixtures.seed_vein("v1", 1)
 		var vein_price: int = VeinTrade.quote(vein)
 		assert_true(vein_price < 500, "sanity: keep this test under the personal-lane rate")
@@ -746,7 +746,7 @@ func run() -> void:
 
 		Economy.sell_to_faction_from_sell_state("collective", "hakim")
 
-		assert_eq(GameState.state["contacts"]["hakim"]["tradeProgress"], 99 + vein_price, "both the ore leg and the vein leg feed hakim's personal lane")
+		assert_eq(GameState.state["contacts"]["hakim"]["tradeProgress"], 123 + vein_price, "both the ore leg and the vein leg feed hakim's personal lane")
 		assert_eq(GameState.state["contacts"]["nadia"]["tradeProgress"], 0, "not nadia's")
 	)
 
@@ -769,7 +769,7 @@ func run() -> void:
 		var result := Economy.sell_to_faction_from_sell_state("collective")
 
 		assert_true(result["ok"], "a buy-only ore cart should still trade")
-		assert_eq(result["earned"], -price * 3, "earned is negative -- cash spent, not credited")
+		assert_eq(result["earned"], -Market.line_total("ore", price, 3), "earned is negative -- cash spent, not credited")
 		assert_eq(GameState.state["player"]["orichalchum"]["time"], 3, "bought ore lands in the player's stock")
 		assert_eq(FactionSim.ore_held("collective", "time"), 7, "the Collective's shared stock is decremented")
 		assert_eq(GameState.state["sellState"], {}, "sellState cleared after trading")
@@ -810,16 +810,16 @@ func run() -> void:
 
 	run_case("sell_to_faction_from_sell_state_batches_ore_and_a_vein_into_one_earned_total", func():
 		GameState.reset()
-		GameState.state["player"]["orichalchum"]["time"] = 10
-		Economy.set_sell_qty("ore_time", 3, 10)
+		GameState.state["player"]["orichalchum"]["time"] = 100
+		Economy.set_sell_qty("ore_time", 30, 100)
 		var vein := Fixtures.seed_vein("v1", 50)
 		var vein_price: int = VeinTrade.quote(vein)
 		Economy.toggle_sell_vein("v1")
 
 		var result := Economy.sell_to_faction_from_sell_state("collective")
 
-		# time basePrice 60, relation 0 -> sell spread 0.45 -> price 33/unit -> 3*33=99
-		assert_eq(result["earned"], 99 + vein_price, "one combined total, ore plus the vein")
+		# time basePrice £75/10, relation 0 -> sell spread 0.45 -> £41/10 -> 30 units = 123
+		assert_eq(result["earned"], 123 + vein_price, "one combined total, ore plus the vein")
 		assert_eq(result["veinsSold"], 1)
 		assert_eq(GameState.state["sellState"], {}, "sellState cleared after selling")
 	)
@@ -919,13 +919,13 @@ func run() -> void:
 		var seed := SeedSearch.find_seed_for(200, func():
 			GameState.reset()
 			GameState.state["contacts"]["archie"]["relation"] = 80  # 0.85x cut
-			GameState.state["player"]["orichalchum"]["time"] = 10
-			var result := Economy.execute_sale([{ "kind": "ore", "type": "time", "qty": 3 }])
+			GameState.state["player"]["orichalchum"]["time"] = 100
+			var result := Economy.execute_sale([{ "kind": "ore", "type": "time", "qty": 30 }])
 			return not result["mugged"]
 		)
 		assert_true(seed != -1, "should find a non-mugged roll within 200 tries")
-		# time basePrice 60, stable barometer -> gross = 180; cut = floor(180*0.85) = 153
-		assert_eq(GameState.state["player"]["cash"], 40 + 153, "playerCut reflects Archie's relation-scaled cut, not a flat 50%")
+		# time basePrice £75/10, stable barometer -> gross = 225; cut = floor(225*0.85) = 191
+		assert_eq(GameState.state["player"]["cash"], 40 + 191, "playerCut reflects Archie's relation-scaled cut, not a flat 50%")
 	)
 
 	# ── vein-trade-assets ticket 02: Archie's Assets lane goes live ────────

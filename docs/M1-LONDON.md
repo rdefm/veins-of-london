@@ -15,11 +15,11 @@ Same rules of engagement as M0. New data is canonical HERE (this doc extends REF
 | id | name | oreBias | siteQualityMod | dangerMod | priceMod | siteCap | special | factionPresence |
 |---|---|---|---|---|---|---|---|---|
 | shoreditch | Shoreditch | {} (uniform) | 0.00 | 0.00 | 0.00 | 7 | home base | collective |
-| city | The City | {fate:0.6} | −0.05 | −0.05 | +0.15 | 9 | — | conclave |
-| greenwich | Greenwich | {time:0.6} | +0.05 | 0.00 | 0.00 | 10 | — | guild |
-| camden | Camden | {physics:0.6} | +0.05 | +0.10 | −0.05 | 6 | — | firm |
-| kingscross | King's Cross | {time:0.3, physics:0.3} | 0.00 | +0.05 | 0.00 | 7 | veins here: +1 rightward drift, −1 leftward drift (min 0) | network |
-| battersea | Battersea | {physics:0.6} | +0.05 | 0.00 | 0.00 | 5 | — | firm |
+| city | The City | {fate:0.6} | −0.05 | −0.05 | +0.15 | 13 | — | conclave |
+| greenwich | Greenwich | {time:0.6} | +0.05 | 0.00 | 0.00 | 12 | — | guild |
+| camden | Camden | {physics:0.6} | +0.05 | +0.10 | −0.05 | 9 | — | firm |
+| kingscross | King's Cross | {time:0.3, physics:0.3} | 0.00 | +0.05 | 0.00 | 8 | veins here: +1 rightward drift, −1 leftward drift (min 0) | network |
+| battersea | Battersea | {physics:0.6} | +0.05 | 0.00 | 0.00 | 7 | — | firm |
 | hampstead | Hampstead | {life:0.6} | +0.10 | −0.05 | +0.05 | 2 | — | — |
 | whitechapel | Whitechapel | {emotion:0.6} | +0.10 | +0.10 | 0.00 | 7 | vein NPC-raid chance ×1.5 (when vein raids land, M2) | collective |
 | soho | Soho | — | — | −0.05 | +0.10 | 0 | marketplace (M4); no veins, no prospecting | network |
@@ -72,15 +72,15 @@ Terroir tier also drives yield directly: `terroirYieldMult` (poor 0.6 / fair 1.0
 
 **Day-1 faction vein rosters (`Factions.seed_day_one_veins()`, `.scratch/8-faction-starting-veins/`):** a fresh game doesn't start every faction at zero — new-game init (title screen and the Save/Load app's "New Game", right after `GameState.reset()`; NOT folded into `reset()` itself, and NOT run by `DebugStart`, which builds its own hand-picked site list) pre-places a starting roster of faction-claimed sites+veins via this same `factionVein`/site mechanism, one district-home faction at a time:
 
-| faction | count | district(s) | growths |
+| faction | count | district(s) | ores (placement order) |
 |---|---|---|---|
-| Collective | 8 | Shoreditch (4) / Whitechapel (4) | 10–50, fixed roll (3×10, 1×30, 4×50) |
-| Firm | 4 | Camden (2) / Battersea (2) | 30–50, fixed roll (1×30, 3×50) |
-| Guild | 7 | Greenwich | 30–70, fixed roll (3×30, 2×50, 2×70) |
-| Network | 4 | King's Cross | 50–70, fixed roll (1×50, 3×70) |
-| Conclave | 7 | City | 30–90, fixed roll (1×30, 2×50, 1×70, 3×90) |
+| Collective | 8 | Shoreditch (4) / Whitechapel (4) | life ×5, emotion ×3 |
+| Firm | 9 | Camden (5) / Battersea (4) | physics ×5, time ×3, life ×1 |
+| Guild | 9 | Greenwich | time ×6, physics ×3 |
+| Network | 5 | King's Cross | emotion ×4, fate ×1 |
+| Conclave | 11 | City | fate ×6, time ×4, life ×1 |
 
-"Fixed roll" = each vein's growth was rolled once, and the resulting values are hardcoded constants (`Factions.DAY_ONE_ROSTER`) — every new game gets the same growth distribution, not a fresh roll per playthrough. Everything else about each starting vein (site tier, oreType, discovery bonuses, security tier) is rolled fresh each new game using the exact same procedural logic a normal prospect/NPC-claim would use — only the growth is forced. The ongoing daily NPC-claim tick (⑤b above) and its probability curve are completely unchanged by this; it is a new-game-init-only addition. `data/districts.json`'s `siteCap` for every district that receives starting veins is bumped by exactly that count (base + placed, not spent from the base) so normal prospecting capacity is unaffected — see the D1 table's siteCap column and footnote above. `data/map_layout.json`'s per-district `stopSlots` were extended to keep the `siteCap * 2` buffer GameData validates at boot (bugfixes-98).
+Each faction's ore mix matches what its recipes consume (R§1.8). The ores are fixed constants (`Factions.DAY_ONE_ROSTER`); every starting vein seeds at growth `dayOneFactionGrowth` (70), its rolled terroir tier bumped `dayOneFactionTierBump` (1) tier, and the first `dayOneFactionMaxLevelShare` (75%, rounded) of each faction's roster at its tier's level cap, the rest one below (R§1.2 `data/vein_growth.json`). Everything else about each starting vein (site tier roll, discovery bonuses, security tier) is rolled fresh each new game using the exact same procedural logic a normal prospect/NPC-claim would use. The ongoing daily NPC-claim tick (⑤b above) and its probability curve are completely unchanged by this; it is a new-game-init-only addition. `data/districts.json`'s `siteCap` for every district that receives starting veins is bumped by exactly that count (base + placed, not spent from the base) so normal prospecting capacity is unaffected — see the D1 table's siteCap column and footnote above. `data/map_layout.json`'s per-district `stopSlots` keep the `siteCap * 2` buffer GameData validates at boot.
 
 ## D3 — Travel (the one rule)
 

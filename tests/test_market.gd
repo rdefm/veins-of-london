@@ -53,18 +53,18 @@ func run() -> void:
 	run_case("target_price_is_base_at_normal_stock", func():
 		GameState.reset()
 		var normal: float = GameData.MARKET["goods"]["ore"]["time"]["normalStock"]
-		assert_eq(Market.target_price("ore", "time", normal), 60, "stock exactly normal -> base")
+		assert_eq(Market.target_price("ore", "time", normal), 75, "stock exactly normal -> base")
 	)
 
 	run_case("target_price_hits_the_ceiling_at_zero_stock", func():
 		GameState.reset()
-		assert_eq(Market.target_price("ore", "time", 0.0), 240, "zero stock -> 4x base")
+		assert_eq(Market.target_price("ore", "time", 0.0), 300, "zero stock -> 4x base")
 		assert_eq(Market.target_price("consumable", "timePearl", 0.0), 480, "zero stock -> 4x base for items too")
 	)
 
 	run_case("target_price_clamps_at_the_floor_under_a_glut", func():
 		GameState.reset()
-		assert_eq(Market.target_price("ore", "time", 1000000.0), 12, "huge stock -> 0.2x base")
+		assert_eq(Market.target_price("ore", "time", 1000000.0), 15, "huge stock -> 0.2x base")
 	)
 
 	run_case("quote_avg2_without_history_is_todays_quote", func():
@@ -84,19 +84,20 @@ func run() -> void:
 
 	run_case("no_player_sales_drifts_to_the_idle_premium_and_holds", func():
 		GameState.reset()
-		assert_eq(Market.quote("ore", "time"), 60, "a new game opens at base")
+		assert_eq(Market.quote("ore", "time"), 75, "a new game opens at base")
 		_tick(10)
 		var idle: int = Market.quote("ore", "time")
 		assert_eq(idle, _resting_price("ore", "time"), "settles at the resting price")
-		assert_true(idle >= 66 and idle <= 78, "idle premium sits ~1.1-1.3x base, got %d" % idle)
+		assert_true(idle >= 83 and idle <= 98, "idle premium sits ~1.1-1.3x base, got %d" % idle)
 		_tick(3)
 		assert_eq(Market.quote("ore", "time"), idle, "and holds there")
 		assert_eq(_time()["history"].size(), 13, "one history entry per rollover")
 	)
 
 	run_case("idle_london_stays_sane_with_factions_trading", func():
+		Rng.set_seed(13)  # before reset: GameState.reset() draws the stockpile pick
 		GameState.reset()
-		Rng.set_seed(13)
+		Factions.seed_day_one_veins()
 		for i in range(30):
 			GameState.state["world"]["day"] += 1
 			TimeSystem.daily_tick()
@@ -117,13 +118,13 @@ func run() -> void:
 		var seed := SeedSearch.find_seed_for(200, func():
 			GameState.reset()
 			GameState.state["market"] = Market.new_state(true)
-			GameState.state["player"]["orichalchum"]["time"] = 90
-			var result := Economy.execute_sale([{ "kind": "ore", "type": "time", "qty": 90 }])
+			GameState.state["player"]["orichalchum"]["time"] = 730
+			var result := Economy.execute_sale([{ "kind": "ore", "type": "time", "qty": 730 }])
 			return not result["mugged"]
 		)
 		assert_true(seed != -1, "should find a non-mugged roll within 200 tries")
 		var idle: int = _resting_price("ore", "time")
-		assert_eq(GameState.state["modal"]["data"]["gross"], 90 * idle, "the sale executes at today's quote")
+		assert_eq(GameState.state["modal"]["data"]["gross"], Market.line_total("ore", idle, 730), "the sale executes at today's quote")
 		_tick(1)
 		var dipped: int = Market.quote("ore", "time")
 		assert_true(dipped < idle * 0.85, "next day's price is visibly lower (%d vs %d)" % [dipped, idle])
@@ -137,8 +138,8 @@ func run() -> void:
 		for i in range(12):
 			Market.record_supply("ore", "time", 5000, "player")
 			_tick(1)
-			assert_true(Market.quote("ore", "time") >= 12, "never below 0.2x base")
-		assert_eq(Market.quote("ore", "time"), 12, "sits on the floor")
+			assert_true(Market.quote("ore", "time") >= 15, "never below 0.2x base")
+		assert_eq(Market.quote("ore", "time"), 15, "sits on the floor")
 	)
 
 	run_case("forced_shortage_never_passes_the_ceiling", func():
@@ -146,8 +147,8 @@ func run() -> void:
 		for i in range(12):
 			Market.record_demand("ore", "time", 5000, "player")
 			_tick(1)
-			assert_true(Market.quote("ore", "time") <= 240, "never above 4x base")
-		assert_true(Market.quote("ore", "time") > 100, "a shortage drives the price well up")
+			assert_true(Market.quote("ore", "time") <= 300, "never above 4x base")
+		assert_true(Market.quote("ore", "time") > 125, "a shortage drives the price well up")
 	)
 
 	run_case("mugged_archie_ore_sale_still_records_supply", func():
@@ -169,7 +170,7 @@ func run() -> void:
 		GameState.reset()
 		assert_eq(GameState.state["market"]["startedDay"], null, "not started yet")
 		_time()["price"] = 99
-		assert_eq(Market.quote("ore", "time"), 60, "quote is base before start")
+		assert_eq(Market.quote("ore", "time"), 75, "quote is base before start")
 		Market.record_supply("ore", "time", 50, "player")
 		var before: Dictionary = GameState.deep_copy(GameState.state["market"])
 		_tick(3)
@@ -218,7 +219,7 @@ func run() -> void:
 		var time_idle: int = _price("ore", "time")
 		var life_idle: int = _price("ore", "life")
 		for i in range(4):
-			Market.record_demand("consumable", "healingBurst", 12, "player")
+			Market.record_demand("consumable", "healingBurst", 50, "player")
 			_tick(1)
 		assert_true(_price("ore", "time") > time_idle, "healingBurst shortage lifts time")
 		assert_true(_price("ore", "life") > life_idle, "healingBurst shortage lifts life")
@@ -287,12 +288,12 @@ func run() -> void:
 	run_case("dump_above_threshold_annotates_dump_and_crash", func():
 		GameState.reset()
 		GameState.state["market"] = Market.new_state(true)
-		Market.record_supply("ore", "time", 175, "player")
+		Market.record_supply("ore", "time", 730, "player")
 		_tick(1)
 		var dumps := _notes_of("ore", "time", "dump")
-		assert_eq(dumps.size(), 1, "175 in a day is a dump")
+		assert_eq(dumps.size(), 1, "730 in a day is a dump")
 		assert_eq(dumps[0]["source"], "player")
-		assert_eq(dumps[0]["value"], 175)
+		assert_eq(dumps[0]["value"], 730)
 		assert_eq(dumps[0]["day"], GameState.state["world"]["day"])
 		assert_eq(_notes_of("ore", "time", "crash").size(), 1, "the dump's price drop is a crash")
 	)
@@ -300,24 +301,24 @@ func run() -> void:
 	run_case("a_big_faction_buy_or_sell_is_annotated_with_the_faction", func():
 		GameState.reset()
 		GameState.state["market"] = Market.new_state(true)
-		Market.record_supply("ore", "time", 175, "firm")
-		Market.record_demand("ore", "life", 175, "guild")
-		Market.record_demand("ore", "fate", 175, "player")
+		Market.record_supply("ore", "time", 730, "firm")
+		Market.record_demand("ore", "life", 730, "guild")
+		Market.record_demand("ore", "fate", 730, "player")
 		Market.daily_reprice()
 		var dumps := _notes_of("ore", "time", "dump")
-		assert_eq(dumps.size(), 1, "the Firm's 175 is a dump")
+		assert_eq(dumps.size(), 1, "the Firm's 730 is a dump")
 		assert_eq(dumps[0]["source"], "firm")
 		var buys := _notes_of("ore", "life", "buy")
-		assert_eq(buys.size(), 1, "the Guild's 175 buy is annotated")
+		assert_eq(buys.size(), 1, "the Guild's 730 buy is annotated")
 		assert_eq(buys[0]["source"], "guild")
-		assert_eq(buys[0]["value"], 175)
+		assert_eq(buys[0]["value"], 730)
 		assert_eq(_notes_of("ore", "fate", "buy").size(), 0, "only faction buys are annotated")
 	)
 
 	run_case("ordinary_supply_is_not_a_dump", func():
 		GameState.reset()
 		GameState.state["market"] = Market.new_state(true)
-		Market.record_supply("ore", "time", 13, "player")
+		Market.record_supply("ore", "time", 104, "player")
 		_tick(1)
 		assert_eq(Market.annotations_for("ore", "time").size(), 0, "a normal day's selling leaves no annotation")
 	)
@@ -325,7 +326,7 @@ func run() -> void:
 	run_case("forced_shortage_annotates_a_spike", func():
 		GameState.reset()
 		GameState.state["market"] = Market.new_state(true)
-		Market.record_demand("ore", "fate", 200, "player")
+		Market.record_demand("ore", "fate", 730, "player")
 		_tick(1)
 		var spikes := _notes_of("ore", "fate", "spike")
 		assert_eq(spikes.size(), 1)
@@ -339,7 +340,7 @@ func run() -> void:
 		var saved: int = GameData.MARKET["annotations"]["cap"]
 		GameData.MARKET["annotations"]["cap"] = 3
 		for i in range(5):
-			Market.record_supply("ore", "time", 175, "player")
+			Market.record_supply("ore", "time", 730, "player")
 			_tick(1)
 		var notes: Array = GameState.state["market"]["annotations"]
 		GameData.MARKET["annotations"]["cap"] = saved

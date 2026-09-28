@@ -13,14 +13,14 @@ func run() -> void:
 	run_case("complete_trade_sells_via_the_collective_lane_and_credits_cash", func():
 		GameState.reset()
 		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0, "tradeProgress": 0 }
-		GameState.state["player"]["orichalchum"]["time"] = 10
-		Economy.set_sell_qty("ore_time", 3, 10)
+		GameState.state["player"]["orichalchum"]["time"] = 100
+		Economy.set_sell_qty("ore_time", 30, 100)
 
 		var result := Collective.complete_trade("des")
 
 		assert_true(result["ok"], "sale should succeed")
-		# time basePrice 60, collective relation 0 -> sell spread 0.45 -> 33/unit
-		assert_eq(GameState.state["player"]["cash"], 40 + 99, "cash credited at the collective's sell price")
+		# time basePrice £75/10, collective relation 0 -> sell spread 0.45 -> £41/10
+		assert_eq(GameState.state["player"]["cash"], 40 + 123, "cash credited at the collective's sell price")
 	)
 
 	run_case("complete_trade_appends_a_bark_line_to_the_trading_contacts_conversation", func():
@@ -80,18 +80,18 @@ func run() -> void:
 		for contact_id in ["des", "nadia", "hakim"]:
 			GameState.reset()
 			GameState.state["contacts"][contact_id] = { "unlocked": true, "relation": 0, "tradeProgress": 0 }
-			GameState.state["player"]["orichalchum"]["time"] = 10
-			Economy.set_sell_qty("ore_time", 3, 10)
+			GameState.state["player"]["orichalchum"]["time"] = 100
+			Economy.set_sell_qty("ore_time", 30, 100)
 			var result := Collective.complete_trade(contact_id)
-			assert_eq(result["earned"], 99, "%s's door prices identically to the others" % contact_id)
+			assert_eq(result["earned"], 123, "%s's door prices identically to the others" % contact_id)
 	)
 
 	# ── 109-collective-vendor-door-personal-relation ────────────────────
 
 	run_case("complete_trade_awards_personal_relation_only_to_the_vendor_traded_through", func():
 		GameState.reset()
-		GameState.state["player"]["orichalchum"]["time"] = 10
-		Economy.set_sell_qty("ore_time", 3, 10)
+		GameState.state["player"]["orichalchum"]["time"] = 100
+		Economy.set_sell_qty("ore_time", 30, 100)
 
 		Collective.complete_trade("nadia")
 
@@ -102,13 +102,13 @@ func run() -> void:
 
 	run_case("complete_trade_still_feeds_the_collective_faction_relation_meter_unchanged_alongside_the_new_personal_one", func():
 		GameState.reset()
-		GameState.state["player"]["orichalchum"]["time"] = 10
-		Economy.set_sell_qty("ore_time", 3, 10)
+		GameState.state["player"]["orichalchum"]["time"] = 100
+		Economy.set_sell_qty("ore_time", 30, 100)
 		var faction_progress_before: int = GameState.state["factions"]["collective"]["tradeProgress"]
 
 		Collective.complete_trade("nadia")
 
-		assert_eq(GameState.state["factions"]["collective"]["tradeProgress"], faction_progress_before + 99, "the faction meter still accrues the sale's gross, both gains fire from the same trade")
+		assert_eq(GameState.state["factions"]["collective"]["tradeProgress"], faction_progress_before + 123, "the faction meter still accrues the sale's gross, both gains fire from the same trade")
 	)
 
 	run_case("complete_trade_counts_a_toggled_in_vein_sale_toward_the_traded_vendors_personal_relation_too", func():

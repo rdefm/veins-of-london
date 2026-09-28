@@ -13,7 +13,7 @@ static func build(container: VBoxContainer, data: Dictionary) -> void:
 	container.add_child(UI.label(presentation.get("inStock", "") % [stock, GameData.ORE_TYPES[status["oreType"]]["name"]]))
 	var move := Market.day_move("ore", status["oreType"])
 	var price_row := UI.hbox(4)
-	price_row.add_child(UI.label(presentation.get("pricePerUnit", "") % price))
+	price_row.add_child(UI.label(presentation.get("pricePerUnit", "") % UI.price_text("ore", price)))
 	if move != 0:
 		price_row.add_child(UI.tinted_label(PriceMove.text(move), PriceMove.colour(move, Color.WHITE)))
 	container.add_child(price_row)
@@ -30,7 +30,7 @@ static func build(container: VBoxContainer, data: Dictionary) -> void:
 	var payment := UI.label("")
 	container.add_child(payment)
 	var update_payment := func(value: float) -> void:
-		payment.text = presentation.get("payment", "") % (price * int(value))
+		payment.text = presentation.get("payment", "") % Market.line_total("ore", price, int(value))
 	update_payment.call(qty.value)
 	qty.value_changed.connect(update_payment)
 

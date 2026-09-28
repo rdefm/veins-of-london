@@ -152,8 +152,8 @@ func run() -> void:
 		screen._ready()
 
 		# timePearl basePrice 120, full 15% spread -> buy 138 (same
-		# round_epsilon(120*1.15) math as the ore case's 69).
-		assert_true(NodeQuery.find_button(screen, "Buy ×1 (£69)") != null, "ore is still tradeable regardless of the consumables gate")
+		# round_epsilon(120*1.15) math as the ore case's £86/10).
+		assert_true(_find_button_in_card(screen, TIME_HEADING, "Buy ×1 (£9)") != null, "ore is still tradeable regardless of the consumables gate")
 		assert_true(NodeQuery.find_button(screen, "Buy ×1 (£138)") == null, "consumables must not appear before flags.canSellConsumables is true")
 
 		GameState.state["flags"]["canSellConsumables"] = true
@@ -172,10 +172,11 @@ func run() -> void:
 		var screen := FactionShopScreen.new()
 		screen._ready()
 
-		# time basePrice 60, stable barometer, full spread -> buy 69 / sell 51
-		# (same figures tests/test_economy.gd's guild price tests assert).
-		var buy_button := NodeQuery.find_button(screen, "Buy ×1 (£69)")
-		var sell_button := NodeQuery.find_button(screen, "Sell ×1 (£51)")
+		# time basePrice £75/10, stable barometer, full spread -> buy £86/10 /
+		# sell £64/10 (same figures tests/test_economy.gd's guild price tests
+		# assert), so one unit buys for £9 and sells for £6.
+		var buy_button := _find_button_in_card(screen, TIME_HEADING, "Buy ×1 (£9)")
+		var sell_button := _find_button_in_card(screen, TIME_HEADING, "Sell ×1 (£6)")
 		assert_true(buy_button != null, "buy price label must reflect Economy.get_guild_buy_price()")
 		assert_true(sell_button != null, "sell price label must reflect Economy.get_guild_sell_price()")
 
@@ -191,11 +192,11 @@ func run() -> void:
 		var screen := FactionShopScreen.new()
 		screen._ready()
 
-		var buy_button := NodeQuery.find_button(screen, "Buy ×1 (£69)")
+		var buy_button := _find_button_in_card(screen, TIME_HEADING, "Buy ×1 (£9)")
 		assert_true(buy_button != null, "sanity: time's buy button must exist")
 		buy_button.pressed.emit()
 
-		assert_eq(GameState.state["player"]["cash"], 1000 - 69, "cash reduced by the buy price")
+		assert_eq(GameState.state["player"]["cash"], 1000 - 9, "cash reduced by the buy price")
 		assert_eq(GameState.state["player"]["orichalchum"]["time"], 1, "ore added to inventory")
 
 		screen.free()
@@ -211,11 +212,11 @@ func run() -> void:
 		var screen := FactionShopScreen.new()
 		screen._ready()
 
-		var sell_button := NodeQuery.find_button(screen, "Sell ×1 (£51)")
+		var sell_button := _find_button_in_card(screen, TIME_HEADING, "Sell ×1 (£6)")
 		assert_true(sell_button != null, "sanity: time's sell button must exist")
 		sell_button.pressed.emit()
 
-		assert_eq(GameState.state["player"]["cash"], 100 + 51, "cash increased by the sell price")
+		assert_eq(GameState.state["player"]["cash"], 100 + 6, "cash increased by the sell price")
 		assert_eq(GameState.state["player"]["orichalchum"]["time"], 4, "ore removed from inventory")
 
 		screen.free()
@@ -230,7 +231,7 @@ func run() -> void:
 		var screen := FactionShopScreen.new()
 		screen._ready()
 
-		var buy_button := NodeQuery.find_button(screen, "Buy ×1 (£69)")
+		var buy_button := _find_button_in_card(screen, TIME_HEADING, "Buy ×1 (£9)")
 		assert_true(buy_button != null, "sanity: time's buy button must exist")
 		assert_true(buy_button.disabled, "buy must be disabled when cash can't cover the price")
 
@@ -245,7 +246,7 @@ func run() -> void:
 		var screen := FactionShopScreen.new()
 		screen._ready()
 
-		var sell_button := NodeQuery.find_button(screen, "Sell ×1 (£51)")
+		var sell_button := _find_button_in_card(screen, TIME_HEADING, "Sell ×1 (£6)")
 		assert_true(sell_button != null, "sanity: time's sell button must exist")
 		assert_true(sell_button.disabled, "sell must be disabled with none held")
 
@@ -261,8 +262,8 @@ func run() -> void:
 		screen._ready()
 
 		assert_true(_find_label_in_card(screen, TIME_HEADING, "1") != null, "qty label starts at 1")
-		assert_true(NodeQuery.find_button(screen, "Buy ×1 (£69)") != null, "buy button starts phrased for qty 1")
-		assert_true(NodeQuery.find_button(screen, "Sell ×1 (£51)") != null, "sell button starts phrased for qty 1")
+		assert_true(_find_button_in_card(screen, TIME_HEADING, "Buy ×1 (£9)") != null, "buy button starts phrased for qty 1")
+		assert_true(_find_button_in_card(screen, TIME_HEADING, "Sell ×1 (£6)") != null, "sell button starts phrased for qty 1")
 		assert_eq(int(_slider_in_card(screen, TIME_HEADING).min_value), 1, "the shared qty can't go below 1")
 
 		screen.free()
@@ -278,10 +279,10 @@ func run() -> void:
 		var screen := FactionShopScreen.new()
 		screen._ready()
 
-		# time buy £69/u, sell £51/u (same figures as the ×1 test above).
+		# time buy £86/10, sell £64/10 (same figures as the ×1 test above).
 		_slide_to(_slider_in_card(screen, TIME_HEADING), 4)
-		assert_true(NodeQuery.find_button(screen, "Buy ×4 (£276)") != null, "buy button follows the drag")
-		assert_true(NodeQuery.find_button(screen, "Sell ×4 (£204)") != null, "sell button follows the drag")
+		assert_true(_find_button_in_card(screen, TIME_HEADING, "Buy ×4 (£34)") != null, "buy button follows the drag")
+		assert_true(_find_button_in_card(screen, TIME_HEADING, "Sell ×4 (£26)") != null, "sell button follows the drag")
 		_slider_in_card(screen, TIME_HEADING).drag_ended.emit(true)
 		assert_eq(Economy.get_marketplace_qty("guild", "ore", "time"), 4, "release stores the pick")
 		assert_true(_find_label_in_card(screen, TIME_HEADING, "4") != null, "the re-rendered row keeps the pick")
@@ -293,9 +294,9 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["factions"]["guild"]["joined"] = true
 		GameState.state["factions"]["guild"]["relation"] = 40
-		# buy £69/u, cash 150 -> affordable ceiling is 2 (2*69=138 <= 150,
-		# 3*69=207 > 150). No stock held, so the slider's own max is 2.
-		GameState.state["player"]["cash"] = 150
+		# buy £86/10, cash 20 -> affordable ceiling is 2 (2 units = £17 <= 20,
+		# 3 units = £26 > 20). No stock held, so the slider's own max is 2.
+		GameState.state["player"]["cash"] = 20
 
 		var screen := FactionShopScreen.new()
 		screen._ready()
@@ -303,7 +304,7 @@ func run() -> void:
 		var slider := _slider_in_card(screen, TIME_HEADING)
 		assert_eq(int(slider.max_value), 2, "qty stops at the affordability ceiling")
 		_slide_to(slider, 2)
-		var buy_button := NodeQuery.find_button(screen, "Buy ×2 (£138)")
+		var buy_button := _find_button_in_card(screen, TIME_HEADING, "Buy ×2 (£17)")
 		assert_true(buy_button != null and not buy_button.disabled, "qty 2 is exactly what's affordable, so buy stays enabled")
 
 		screen.free()
@@ -322,7 +323,7 @@ func run() -> void:
 		var slider := _slider_in_card(screen, TIME_HEADING)
 		assert_eq(int(slider.max_value), 2, "qty stops at the stock ceiling")
 		_slide_to(slider, 2)
-		var sell_button := NodeQuery.find_button(screen, "Sell ×2 (£102)")
+		var sell_button := _find_button_in_card(screen, TIME_HEADING, "Sell ×2 (£13)")
 		assert_true(sell_button != null and not sell_button.disabled, "qty 2 is exactly what's held, so sell stays enabled")
 
 		screen.free()
@@ -332,19 +333,19 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["factions"]["guild"]["joined"] = true
 		GameState.state["factions"]["guild"]["relation"] = 40
-		# buy £69/u, cash 100 -> affordable ceiling is 1. Stock 5 lets the
+		# buy £86/10, cash 10 -> affordable ceiling is 1. Stock 5 lets the
 		# shared slider climb past that, since its own max is the larger of
 		# the two ceilings (5).
-		GameState.state["player"]["cash"] = 100
+		GameState.state["player"]["cash"] = 10
 		GameState.state["player"]["orichalchum"]["time"] = 5
 
 		var screen := FactionShopScreen.new()
 		screen._ready()
 
 		_slide_to(_slider_in_card(screen, TIME_HEADING), 4)
-		var buy_button := NodeQuery.find_button(screen, "Buy ×4 (£276)")
+		var buy_button := _find_button_in_card(screen, TIME_HEADING, "Buy ×4 (£34)")
 		assert_true(buy_button != null and buy_button.disabled, "buy disables once qty exceeds what's affordable")
-		var sell_button := NodeQuery.find_button(screen, "Sell ×4 (£204)")
+		var sell_button := _find_button_in_card(screen, TIME_HEADING, "Sell ×4 (£26)")
 		assert_true(sell_button != null and not sell_button.disabled, "sell stays enabled since qty 4 is within stock")
 
 		screen.free()
@@ -354,21 +355,21 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["factions"]["guild"]["joined"] = true
 		GameState.state["factions"]["guild"]["relation"] = 40
-		GameState.state["player"]["cash"] = 100
-		GameState.state["player"]["orichalchum"]["time"] = 10
+		GameState.state["player"]["cash"] = 0
+		GameState.state["player"]["orichalchum"]["time"] = 20
 
 		var screen := FactionShopScreen.new()
 		screen._ready()
 
-		_slide_to(_slider_in_card(screen, TIME_HEADING), 10)
+		_slide_to(_slider_in_card(screen, TIME_HEADING), 20)
 		_slider_in_card(screen, TIME_HEADING).drag_ended.emit(true)
-		NodeQuery.find_button(screen, "Sell ×10 (£510)").pressed.emit()
-		# cash 100 + 510 = 610, stock now 0 -> buy ceiling floor(610/69) = 8,
-		# sell ceiling 0 -> the still-10 stored qty shows as 8.
+		_find_button_in_card(screen, TIME_HEADING, "Sell ×20 (£128)").pressed.emit()
+		# cash 0 + 128, stock now 0 -> buy ceiling floor(128 × 10 / 86) = 14,
+		# sell ceiling 0 -> the still-20 stored qty shows as 14.
 		var slider := _slider_in_card(screen, TIME_HEADING)
-		assert_eq(int(slider.max_value), 8, "slider max follows the new ceiling")
-		assert_eq(int(slider.value), 8, "display re-clamps right after the sale")
-		assert_true(NodeQuery.find_button(screen, "Buy ×8 (£552)") != null)
+		assert_eq(int(slider.max_value), 14, "slider max follows the new ceiling")
+		assert_eq(int(slider.value), 14, "display re-clamps right after the sale")
+		assert_true(_find_button_in_card(screen, TIME_HEADING, "Buy ×14 (£120)") != null)
 
 		screen.free()
 	)

@@ -14,10 +14,10 @@ const STEALTH_BASE_CHANCE := 0.55
 const STEALTH_SKILL_WEIGHT := 0.05
 const STEALTH_RAID_RESIST_DIVISOR := 55.0
 const STEALTH_RAID_RESIST_WEIGHT := 0.35
-# basePrice * combined_magnitude tops out ~450-540 for a maxed level-1 vein; dividing by 450
+# basePrice * combined_magnitude tops out ~560-680 for a maxed level-1 vein; dividing by 562.5
 # keeps the tilt within roughly [-1.2, 0] before the weight scales it further (a leveled-up
 # vein's combined magnitude, R§3.4, can push past that ceiling).
-const STEALTH_VALUE_DIVISOR := 450.0
+const STEALTH_VALUE_DIVISOR := 562.5
 const STEALTH_VALUE_WEIGHT := 0.15
 
 

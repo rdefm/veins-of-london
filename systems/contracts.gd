@@ -382,12 +382,12 @@ static func _buy_calc(contract_id: String, ore_type: String, qty: int) -> void:
 		if left <= 0:
 			break
 		var price: int = source["price"]
-		var take := mini(left, Economy.get_faction_buy_max_qty(source["factionId"], "ore", ore_type, price * left, false))
+		var take := mini(left, Economy.get_faction_buy_max_qty(source["factionId"], "ore", ore_type, Market.line_total("ore", price, left), false))
 		if take <= 0:
 			continue
 		legs.append({
 			"factionId": source["factionId"], "source": String(GameData.FACTIONS[source["factionId"]]["name"]),
-			"oreType": ore_type, "qty": take, "amount": price * take,
+			"oreType": ore_type, "qty": take, "amount": Market.line_total("ore", price, take),
 		})
 		left -= take
 	if legs.is_empty() or not Business.pay_calc_purchase(contract_id, legs):
@@ -496,7 +496,7 @@ static func _delivered_proportion(contract: Dictionary) -> float:
 		return 0.0
 	var delivered_value := 0
 	for line in quote["lines"]:
-		delivered_value += delivered_qty(contract, line["type"]) * int(line["unitValue"])
+		delivered_value += Market.line_total(line["kind"], int(line["unitValue"]), delivered_qty(contract, line["type"]))
 	return float(delivered_value) / float(total_quote_value)
 
 

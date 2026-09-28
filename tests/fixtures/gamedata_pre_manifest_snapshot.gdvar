@@ -926,7 +926,7 @@
 "physics": 0.6
 },
 "priceMod": 0,
-"siteCap": 5,
+"siteCap": 7,
 "siteQualityMod": 0.05,
 "special": ""
 },
@@ -940,7 +940,7 @@
 "physics": 0.6
 },
 "priceMod": -0.05,
-"siteCap": 6,
+"siteCap": 9,
 "siteQualityMod": 0.05,
 "special": ""
 },
@@ -954,7 +954,7 @@
 "fate": 0.6
 },
 "priceMod": 0.15,
-"siteCap": 9,
+"siteCap": 13,
 "siteQualityMod": -0.05,
 "special": ""
 },
@@ -968,7 +968,7 @@
 "time": 0.6
 },
 "priceMod": 0,
-"siteCap": 10,
+"siteCap": 12,
 "siteQualityMod": 0.05,
 "special": ""
 },
@@ -997,7 +997,7 @@
 "time": 0.3
 },
 "priceMod": 0,
-"siteCap": 7,
+"siteCap": 8,
 "siteQualityMod": 0,
 "special": "veins here: +1 rightward drift, -1 leftward drift (min 0)"
 },
@@ -4874,11 +4874,11 @@
 "craftTargets": {
 "enhancementPowder": {
 "kitUse": 0,
-"sellQuota": 3
+"sellQuota": 31
 },
 "healingSalve": {
 "kitUse": 1,
-"sellQuota": 3
+"sellQuota": 28
 }
 },
 "crafts": ["healingSalve", "enhancementPowder"],
@@ -4948,14 +4948,18 @@
 "failsafe": 3,
 "rejuvenation": 3
 },
-"craftSkill": 1,
+"craftSkill": 3,
 "craftTargets": {
+"beALady": {
+"kitUse": 0,
+"sellQuota": 56
+},
 "failsafe": {
 "kitUse": 1,
-"sellQuota": 2
+"sellQuota": 37
 }
 },
-"crafts": ["failsafe"],
+"crafts": ["failsafe", "beALady"],
 "cultivateSkill": 2,
 "description": "Old enough to have advised governments. New enough to use WhatsApp. The Conclave operates at the intersection of orichalchum and institutional power — they shape economic and political conditions that affect everyone else. Joining requires high standing, rare resources, and the willingness to do things that don't appear on any list.",
 "fieldwork": {
@@ -5029,15 +5033,15 @@
 "craftTargets": {
 "blast": {
 "kitUse": 2,
-"sellQuota": 3
+"sellQuota": 29
 },
 "healingBurst": {
 "kitUse": 2,
-"sellQuota": 3
+"sellQuota": 34
 },
 "shield": {
 "kitUse": 2,
-"sellQuota": 3
+"sellQuota": 34
 }
 },
 "crafts": ["blast", "shield", "healingBurst"],
@@ -5113,28 +5117,32 @@
 },
 "craftSkill": 4,
 "craftTargets": {
+"blackHole": {
+"kitUse": 0,
+"sellQuota": 27
+},
 "prophetsBreath": {
 "kitUse": 0,
-"sellQuota": 4
+"sellQuota": 25
 },
 "rejuvenation": {
 "kitUse": 0,
-"sellQuota": 4
+"sellQuota": 24
 },
 "rewind": {
 "kitUse": 0,
-"sellQuota": 3
+"sellQuota": 23
 },
 "timePearl": {
 "kitUse": 0,
-"sellQuota": 4
+"sellQuota": 23
 },
 "wormhole": {
 "kitUse": 0,
-"sellQuota": 3
+"sellQuota": 28
 }
 },
-"crafts": ["timePearl", "rewind", "wormhole", "prophetsBreath", "rejuvenation"],
+"crafts": ["timePearl", "rewind", "wormhole", "prophetsBreath", "rejuvenation", "blackHole"],
 "cultivateSkill": 2,
 "description": "Formal, ancient, and deeply unimpressed by everyone. The Guild controls the majority of high-end crafting knowledge in London. James is a member, though he'd describe his relationship with them as 'complicated'. Joining requires demonstrated crafting ability and a sponsor.",
 "fieldwork": {
@@ -5200,11 +5208,11 @@
 "consumes": {
 "prophetsBreath": 3
 },
-"craftSkill": 1,
+"craftSkill": 3,
 "craftTargets": {
 "pansPrank": {
 "kitUse": 1,
-"sellQuota": 3
+"sellQuota": 63
 }
 },
 "crafts": ["pansPrank"],
@@ -6236,25 +6244,25 @@
 "battersea": {
 "anchor": [430, 792],
 "labelAnchor": [430, 717],
-"stopSlots": [[430, 747], [473, 778], [456, 828], [404, 828], [387, 778], [498, 792], [464, 851], [376, 819], [455, 725], [437, 874]],
+"stopSlots": [[430, 747], [473, 778], [456, 828], [404, 828], [387, 778], [498, 792], [464, 851], [376, 819], [455, 725], [437, 874], [382, 717], [386, 871], [342, 787], [492, 743]],
 "zonePolygon": [[540, 792], [485, 887], [375, 887], [320, 792], [375, 697], [485, 697]]
 },
 "camden": {
 "anchor": [430, 411],
 "labelAnchor": [430, 336],
-"stopSlots": [[430, 366], [469, 389], [469, 433], [430, 456], [391, 433], [391, 388], [498, 411], [464, 470], [371, 404], [418, 477], [390, 347], [511, 433]],
+"stopSlots": [[430, 366], [469, 389], [469, 433], [430, 456], [391, 433], [391, 388], [498, 411], [464, 470], [371, 404], [418, 477], [390, 347], [511, 433], [474, 332], [374, 472], [354, 436], [494, 364], [364, 368], [492, 458]],
 "zonePolygon": [[540, 411], [485, 506], [375, 506], [320, 411], [375, 316], [485, 316]]
 },
 "city": {
 "anchor": [430, 601],
 "labelAnchor": [430, 526],
-"stopSlots": [[430, 556], [475, 601], [430, 646], [385, 601], [498, 601], [464, 660], [396, 660], [362, 601], [396, 542], [464, 542], [508, 646], [378, 578], [482, 634], [483, 561], [367, 635], [441, 676], [368, 549], [513, 622]],
+"stopSlots": [[430, 556], [475, 601], [430, 646], [385, 601], [498, 601], [464, 660], [396, 660], [362, 601], [396, 542], [464, 542], [508, 646], [378, 578], [482, 634], [483, 561], [367, 635], [441, 676], [368, 549], [513, 622], [402, 628], [410, 580], [450, 580], [450, 622], [414, 680], [506, 576], [352, 578], [372, 658]],
 "zonePolygon": [[540, 601], [485, 696], [375, 696], [320, 601], [375, 506], [485, 506]]
 },
 "greenwich": {
 "anchor": [760, 982],
 "labelAnchor": [760, 907],
-"stopSlots": [[760, 937], [803, 968], [786, 1018], [734, 1018], [717, 968], [828, 982], [794, 1041], [726, 1041], [692, 982], [726, 923], [794, 923], [838, 1027], [809, 1011], [808, 944], [750, 1047], [761, 913], [696, 1019], [832, 954], [684, 953], [844, 1001]],
+"stopSlots": [[760, 937], [803, 968], [786, 1018], [734, 1018], [717, 968], [828, 982], [794, 1041], [726, 1041], [692, 982], [726, 923], [794, 923], [838, 1027], [809, 1011], [808, 944], [750, 1047], [761, 913], [696, 1019], [832, 954], [684, 953], [844, 1001], [774, 1061], [716, 997], [700, 931], [744, 959]],
 "zonePolygon": [[870, 982], [815, 1077], [705, 1077], [650, 982], [705, 887], [815, 887]]
 },
 "hampstead": {
@@ -6266,7 +6274,7 @@
 "kingscross": {
 "anchor": [595, 506],
 "labelAnchor": [595, 431],
-"stopSlots": [[595, 461], [638, 492], [621, 542], [569, 542], [552, 492], [663, 506], [629, 565], [561, 565], [527, 506], [543, 532], [618, 445], [601, 577], [537, 453], [676, 531]],
+"stopSlots": [[595, 461], [638, 492], [621, 542], [569, 542], [552, 492], [663, 506], [629, 565], [561, 565], [527, 506], [543, 532], [618, 445], [601, 577], [537, 453], [676, 531], [571, 427], [657, 457]],
 "zonePolygon": [[705, 506], [650, 601], [540, 601], [485, 506], [540, 411], [650, 411]]
 },
 "shoreditch": {
@@ -6457,7 +6465,7 @@
 "heading": "Nadia's standing order",
 "inStock": "In stock: %d %s",
 "payment": "Payment: £%d",
-"pricePerUnit": "£%d per unit",
+"pricePerUnit": "Price: %s",
 "remaining": "Remaining: %d",
 "supply": "Supply order",
 "supplyAction": "Supply Nadia's order"
@@ -6712,35 +6720,35 @@
 },
 "ORE_TYPES": {
 "emotion": {
-"basePrice": 65,
+"basePrice": 81,
 "colour": "#9b4a7a",
 "flavorText": "Holding it, you feel briefly understood. It wears off.",
 "name": "Emotion Orichalchum",
 "symbol": "❋"
 },
 "fate": {
-"basePrice": 90,
+"basePrice": 113,
 "colour": "#b08d2e",
 "flavorText": "Feels lucky in the hand. Statistically, it isn't.",
 "name": "Fate Orichalchum",
 "symbol": "⚄"
 },
 "life": {
-"basePrice": 70,
+"basePrice": 88,
 "colour": "#3a7a52",
 "flavorText": "Warm to the touch. Not unpleasantly.",
 "name": "Life Orichalchum",
 "symbol": "✦"
 },
 "physics": {
-"basePrice": 55,
+"basePrice": 69,
 "colour": "#2a8fc4",
 "flavorText": "Vibrates faintly in your pocket.",
 "name": "Physics Orichalchum",
 "symbol": "↯"
 },
 "time": {
-"basePrice": 60,
+"basePrice": 75,
 "colour": "#7b68ee",
 "flavorText": "Smells faintly of burnt clocks.",
 "name": "Time Orichalchum",
@@ -7160,9 +7168,9 @@
 "rich": 1.6,
 "saturated": 2.4
 },
-"veinSaleBaseUnits": 175,
+"veinSaleBaseUnits": 1400,
 "wildCeilingBonus": 20,
-"yieldPerPoint": 0.35
+"yieldPerPoint": 2.8
 },
 "VEIN_SECURITY": {
 "basic": {

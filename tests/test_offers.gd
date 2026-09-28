@@ -11,14 +11,14 @@ func run() -> void:
 		var created: Dictionary = OffersSystem.create_scripted_offer("scripted_life_order")
 		assert_true(created["ok"])
 		var offer: Dictionary = created["offer"]
-		assert_eq(offer["quote"]["unitValue"], 56, "today's London quote, not base £70")
-		assert_eq(offer["quote"]["payment"], 350, "5 × £56 × 1.25")
+		assert_eq(offer["quote"]["unitValue"], 56, "today's London quote, not base £88/10")
+		assert_eq(offer["quote"]["payment"], 35, "5 × £56/10 × 1.25")
 		GameState.state["market"]["goods"]["ore"]["life"]["price"] = 90
 		var accepted: Dictionary = OffersSystem.accept_offer(offer["id"])
 		assert_true(accepted["ok"])
 		assert_eq(OffersSystem.pending_offers().size(), 0)
 		assert_eq(OffersSystem.active_contracts().size(), 1)
-		assert_eq(accepted["contract"]["signedQuote"]["payment"], 350, "acceptance never reprices")
+		assert_eq(accepted["contract"]["signedQuote"]["payment"], 35, "acceptance never reprices")
 		assert_eq(accepted["contract"]["dueDay"], 14, "scripted one-off uses authored deadline")
 	)
 
@@ -31,14 +31,14 @@ func run() -> void:
 		GameState.state["market"]["goods"]["ore"]["life"]["stock"] = 0
 		Market.daily_reprice()
 		assert_true(Market.quote("ore", "life") != 56, "the market moved")
-		assert_eq(OffersSystem.pending_offers()[0]["quote"]["payment"], 350, "pending price ignores the reprice")
+		assert_eq(OffersSystem.pending_offers()[0]["quote"]["payment"], 35, "pending price ignores the reprice")
 		var contract: Dictionary = OffersSystem.accept_offer(offer["id"])["contract"]
-		assert_eq(contract["signedQuote"]["payment"], 350)
+		assert_eq(contract["signedQuote"]["payment"], 35)
 		Market.daily_reprice()
 		GameState.state["player"]["orichalchum"]["life"] = 5
 		var cash_before: int = GameState.state["player"]["cash"]
 		Contracts.process_sales_deliveries()
-		assert_eq(GameState.state["player"]["cash"], cash_before + 350, "settles at the signed price")
+		assert_eq(GameState.state["player"]["cash"], cash_before + 35, "settles at the signed price")
 	)
 
 	run_case("every_offer_template_expires_two_days_after_issue", func():
@@ -139,10 +139,10 @@ func run() -> void:
 		var offer: Dictionary = created["offer"]
 		var lines: Array = offer["quote"]["lines"]
 		assert_eq(lines.size(), 2)
-		assert_eq(lines[0]["unitValue"], 90, "fate base price under stable barometer")
+		assert_eq(lines[0]["unitValue"], 113, "fate base price (per 10) under stable barometer")
 		assert_eq(lines[1]["unitValue"], 120, "timePearl base price under stable barometer")
-		assert_eq(offer["quote"]["liveValue"], 510, "3×90 + 2×120")
-		assert_eq(offer["quote"]["payment"], 765, "510 × 1.25 × 1.20 (one extra type)")
+		assert_eq(offer["quote"]["liveValue"], 274, "3 × £113/10 (34) + 2×120")
+		assert_eq(offer["quote"]["payment"], 411, "274 × 1.25 × 1.20 (one extra type)")
 		var accepted: Dictionary = OffersSystem.accept_offer(offer["id"])
 		assert_true(accepted["ok"])
 		assert_eq(accepted["contract"]["dueDay"], 17, "authored 5 days + 2 for the one extra type")

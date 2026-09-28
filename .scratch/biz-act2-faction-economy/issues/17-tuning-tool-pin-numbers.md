@@ -16,10 +16,10 @@ Spec: §Tuning tool.
 **Status:** ready-for-agent (in progress — WIP commit; see Progress below)
 
 - [x] Script runs headless and prints prices + shares
-- [~] Targets met — partially; see Results
-- [ ] All placeholders pinned in JSON and REFERENCE.md — JSON pinned, **REFERENCE.md not yet updated**
+- [~] Targets met — mostly; see session 2 Results
+- [~] All placeholders pinned in JSON and REFERENCE.md — market/crafting/roster pinned + documented; `startingHoldings`, `industryIncome`, other trading knobs still placeholders
 - [x] Faction-trading switch-off in `test_market.gd` `_tick()` revisited — **kept** (human decision), now also disables Conclave arbitrage
-- [ ] Full suite + check_all pass — check_all clean; **2 market tests still fail** (see Outstanding)
+- [x] Full suite + check_all pass (session 2: 3300/3300)
 
 ## Progress (2026-09-28, session 1)
 
@@ -48,7 +48,25 @@ Seeds day-one veins like New Game; prints Ticker state, vein timeline (count/mea
 - Independents ~8–22% per ore (~15% overall) — a bit low.
 - Collective life 41–90% (too high), Firm physics 0–80% (seed/churn-dependent), Guild craft share 25–44% (<50%, **accepted for now** by human).
 
-## Outstanding — look at next
+## Progress (2026-09-28, session 2) — human decisions in chat
+
+### Decisions
+- Rivalry off for now (`constants.json` `factionRivalry: false`; hostilities → 4a).
+- Item civilian demand ×5 (3 → 15/item/day; pansPrank + beALady 30 — mood/gamblers).
+- Cut ore wasted on failed crafts: Network + Conclave craftSkill 1 → 3; Guild crafts blackHole; Conclave crafts beALady. Sell quotas sized for ~10 sales/item/day.
+- Ore per harvest ×8 (`yieldPerPoint` 0.35 → 2.8, player included). Player anchor: ~25% of their main ore, amount not fixed.
+- Ore priced per 10-unit lot (`priceLot`), base = old per-unit × 1.25 (so income per harvest ≈ unchanged): time 75, physics 69, life 88, fate 113, emotion 81. `Market.line_total`/`affordable_qty` everywhere; UI "£75/10".
+- Independents ore: separate `independentsOreShare` 0.4 + `independentsBuyCover` 0.5 (cover half of faction London ore buys).
+- Rosters rebalanced to recipes (Firm 9 veins incl. time/life; Conclave 11; Guild 9; Network 5). siteCaps + map stopSlots extended (24 new slots, auto-placed).
+- Ore normalStock 800, civilianDemand 160/160/160/135/190 → idle premium 1.12–1.17×.
+
+### Results (4 seeds, days 31–60, player 104 life/day)
+- Ore ≈ 0.85–1.15× base (0.64–1.26×); items 1.0–1.45× (Firm items high end).
+- Player life share 14–20% (target ~25% — a bit low); Independents ore 8–33% (mostly 15–25%).
+- Producer primary shares still high (Collective life 19–46%, Firm physics 44–66%, Guild time 24–50%, Conclave fate 68–77%, Network emotion 34–53%).
+- Faction cash £85k–£760k, all solvent (item margins are large now ore is cheap).
+
+## Outstanding — look at next (session 1 list; items 1–3 done in session 2)
 1. **2 failing tests** (test_market): `mixed_recipe_shortage_lifts_both_ingredient_ores` (time doesn't rise from a healingBurst shortage — investigate; derived demand at conv 0.1 may be too small to move integer price, or something else supplies time) and `election_mutes_the_war_shield_effect` (shield price identical, integer item-stock rounding at normalStock 10). Re-pin or rework.
 2. **REFERENCE.md** not updated: §1.8 (roster rule, maturing vein, Firm floor, rivalry divisor, placeholder tags), §3.13 pinned values (all market.json numbers above, war feel target **deferred to Ticker work** by human, dump window now "within 10% in 4 days"), §3.12/rivalry divisor. Also check CODEMAP factions.gd row mentions roster levels/ores.
 3. **War → physics +50–100% feel target not met** (items too small vs ore volume; would need conv ~1.0–1.5). Human: defer to Ticker work — record as known gap.
@@ -56,3 +74,6 @@ Seeds day-one veins like New Game; prints Ticker state, vein timeline (count/mea
 5. Network ends at 0–2 veins in most seeds (rivalry snowball) — 4a.
 6. Faction `startingHoldings`, `industryIncome`, trading knobs, craftTargets untouched — still placeholders in REFERENCE; decide whether they stay placeholders or get pinned.
 7. Then: /code-review, final full suite + check_all, rename ticket `_COMPLETED`.
+8. Session 2 knock-ons from ore ×8 (not yet decided): player recipe ore costs (5 ore ≈ £37 → item £120+, crafting now very profitable), `seedOreCost` 40, tutorial `archieOreGoal` 10, Archie deal qtys, offer/contract ore qtys, Nadia order qty, event ore grants (busker +1).
+9. Player share ~15–20% vs ~25% target; producer shares above 30–40%.
+10. Visual QA: map stopSlots added in camden/battersea/greenwich/kingscross/city; "£75/10" labels in sell sheet, faction shop, Ticker, Nadia modal.

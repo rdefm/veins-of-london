@@ -495,7 +495,7 @@ static func _buy_shortfall(faction_id: String, kind: String, good_type: String) 
 	if price <= 0 or price > float(knobs["maxBuyMult"]) * Market.base_price(kind, good_type):
 		return
 	var faction: Dictionary = GameState.state["factions"][faction_id]
-	var qty: int = mini(reserve(faction_id, kind, good_type) - held(faction_id, kind, good_type), maxi(0, int(faction["resources"])) / price)
+	var qty: int = mini(reserve(faction_id, kind, good_type) - held(faction_id, kind, good_type), Market.affordable_qty(kind, price, int(faction["resources"])))
 	_buy(faction_id, kind, good_type, qty, price)
 
 
@@ -506,14 +506,14 @@ static func _sell(faction_id: String, kind: String, good_type: String, qty: int,
 		take_ore(faction_id, good_type, qty)
 	else:
 		take_items(faction_id, good_type, qty)
-	GameState.state["factions"][faction_id]["resources"] += qty * price
+	GameState.state["factions"][faction_id]["resources"] += Market.line_total(kind, price, qty)
 	Market.record_supply(kind, good_type, qty, faction_id)
 
 
 static func _buy(faction_id: String, kind: String, good_type: String, qty: int, price: int) -> void:
 	if qty <= 0:
 		return
-	GameState.state["factions"][faction_id]["resources"] -= qty * price
+	GameState.state["factions"][faction_id]["resources"] -= Market.line_total(kind, price, qty)
 	if kind == "ore":
 		add_ore(faction_id, good_type, qty)
 	else:
@@ -554,7 +554,7 @@ static func _arbitrage(faction_id: String) -> void:
 			_sell(faction_id, good["kind"], good["type"], qty, good["price"])
 			volume -= qty
 	for good in crashed:
-		var qty: int = mini(volume, maxi(0, int(GameState.state["factions"][faction_id]["resources"])) / good["price"])
+		var qty: int = mini(volume, Market.affordable_qty(good["kind"], good["price"], int(GameState.state["factions"][faction_id]["resources"])))
 		if qty > 0:
 			_buy(faction_id, good["kind"], good["type"], qty, good["price"])
 			volume -= qty

@@ -229,12 +229,15 @@ func _add_row(parent: VBoxContainer, entry: Dictionary, tier_row: bool = false) 
 	info.add_child(_label(name, 14, TEXT))
 	var meta := UI.hbox(3)
 	info.add_child(meta)
-	meta.add_child(_label("£%d" % int(entry["price"]), 12, _gold(), false))
+	meta.add_child(_label(UI.price_text(entry["kind"], int(entry["price"])), 12, _gold(), false))
 	if entry["kind"] != "vein":
 		var move := Market.day_move(entry["kind"], entry["oreType"] if entry["kind"] == "ore" else entry["recipeKey"])
 		if move != 0:
 			meta.add_child(_label(" " + PriceMove.text(move), 12, PriceMove.colour(move, MUTED), false))
-	meta.add_child(_label(" / vein" if entry["kind"] == "vein" else " each", 12, MUTED, false))
+	if entry["kind"] == "vein":
+		meta.add_child(_label(" / vein", 12, MUTED, false))
+	elif Market.price_lot(entry["kind"]) <= 1:
+		meta.add_child(_label(" each", 12, MUTED, false))
 	if entry["kind"] == "vein":
 		meta.add_child(_label(" · Lv %d" % int(entry["level"]), 12, MUTED, false))
 	var stock_text := " · %d available" % int(entry["stock"])
@@ -272,7 +275,7 @@ func _build_review(body: VBoxContainer, entries: Array) -> void:
 		var description := _label(line, 13, TEXT)
 		description.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(description)
-		row.add_child(_label("%s£%d" % [sign, int(entry["price"]) * int(entry["qty"])], 13, _gold(), false))
+		row.add_child(_label("%s£%d" % [sign, Market.line_total(entry["kind"], int(entry["price"]), int(entry["qty"]))], 13, _gold(), false))
 		body.add_child(_divider())
 	if not any_selected:
 		body.add_child(_label("No goods selected.", 14, MUTED))
@@ -398,9 +401,9 @@ func _totals(entries: Array) -> Dictionary:
 		if entry["kind"] == "vein" and entry["direction"] == "sell":
 			veins += qty
 		if entry["direction"] == "buy":
-			cost += qty * int(entry["price"])
+			cost += Market.line_total(entry["kind"], int(entry["price"]), qty)
 		else:
-			gross += qty * int(entry["price"])
+			gross += Market.line_total(entry["kind"], int(entry["price"]), qty)
 	var net := gross - cost if _is_faction() else int(floor(gross * Economy.get_archie_cut_ratio()))
 	return { "gross": gross, "cost": cost, "net": net, "count": count, "veins": veins }
 

@@ -134,7 +134,7 @@ static func quote_for_request(request: Dictionary, skill: int) -> Dictionary:
 	var quote_lines: Array = []
 	for line in lines:
 		var uv := unit_value(line["kind"], line["type"])
-		var lv: int = uv * int(line["qty"])
+		var lv: int = Market.line_total(line["kind"], uv, int(line["qty"]))
 		live_value += lv
 		quote_lines.append({ "kind": line["kind"], "type": line["type"], "unitValue": uv, "liveValue": lv })
 	var multiplier := CONTRACT_MULTIPLIER * (1.0 + MIXED_EXTRA_TYPE_BONUS * float(extra_types)) * (1.0 + SALES_LEVEL_BONUS * float(maxi(skill - 1, 0)))
@@ -145,7 +145,7 @@ static func quote_for_request(request: Dictionary, skill: int) -> Dictionary:
 	return quote
 
 
-# Today's London quote for one unit (R§3.13).
+# Today's London quote (R§3.13), per Market.price_lot units of the kind.
 static func unit_value(kind: String, item_type: String) -> int:
 	return Market.quote(kind, item_type)
 

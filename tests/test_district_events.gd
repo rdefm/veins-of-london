@@ -147,24 +147,24 @@ func run() -> void:
 		var seed := SeedSearch.find_seed_for(500, func():
 			GameState.reset()
 			GameState.state["flags"]["luckyOmen"] = true
-			GameState.state["player"]["orichalchum"]["time"] = 10
-			var result := Economy.execute_sale([{ "kind": "ore", "type": "time", "qty": 3 }])
-			return not result.get("mugged", true) and GameState.state["player"]["cash"] > 40 + 109
+			GameState.state["player"]["orichalchum"]["time"] = 100
+			var result := Economy.execute_sale([{ "kind": "ore", "type": "time", "qty": 30 }])
+			return not result.get("mugged", true) and GameState.state["player"]["cash"] > 40 + 136
 		)
 		assert_true(seed != -1, "should find a seed where the omen hits and the sale isn't mugged, within 500 tries")
 		assert_true(not GameState.state["flags"]["luckyOmen"], "the flag is consumed regardless of the coin flip")
-		# time basePrice 60 * 1.10 = 66/unit, qty 3 -> gross 198, cut floor(198*0.6071428571) = 120
-		assert_eq(GameState.state["player"]["cash"], 40 + 120, "the +10% bump should be reflected in the payout")
+		# time basePrice £75/10 * 1.10 = £83/10, qty 30 -> gross 249, cut floor(249*0.6071428571) = 151
+		assert_eq(GameState.state["player"]["cash"], 40 + 151, "the +10% bump should be reflected in the payout")
 	)
 
 	run_case("lucky_omen_consumed_even_when_the_coin_flip_misses", func():
-		# No-bump gross 180 at relation 12 (see the bump case above) -> cut floor(180*0.6071428571) = 109.
+		# No-bump gross 225 at relation 12 (see the bump case above) -> cut floor(225*0.6071428571) = 136.
 		var seed := SeedSearch.find_seed_for(500, func():
 			GameState.reset()
 			GameState.state["flags"]["luckyOmen"] = true
-			GameState.state["player"]["orichalchum"]["time"] = 10
-			var result := Economy.execute_sale([{ "kind": "ore", "type": "time", "qty": 3 }])
-			return not result.get("mugged", true) and GameState.state["player"]["cash"] == 40 + 109
+			GameState.state["player"]["orichalchum"]["time"] = 100
+			var result := Economy.execute_sale([{ "kind": "ore", "type": "time", "qty": 30 }])
+			return not result.get("mugged", true) and GameState.state["player"]["cash"] == 40 + 136
 		)
 		assert_true(seed != -1, "should find a seed where the omen misses, within 500 tries")
 		assert_true(not GameState.state["flags"]["luckyOmen"], "the flag is consumed even on a miss")

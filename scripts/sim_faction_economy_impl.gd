@@ -13,6 +13,11 @@ func run(opts: Dictionary) -> void:
 	var timeline: Array = []
 	var churn := {}
 	var harvest := {}
+	var flows := {}
+	# Every London trade becomes a "dump"/"buy" annotation, so flows can be
+	# read back per source after each rollover.
+	GameData.MARKET["annotations"]["dumpVolumeMult"] = 0.0
+	GameData.MARKET["annotations"]["cap"] = 1000000
 	var start_veins := _vein_counts()
 	var days: int = opts["days"]
 	for i in days:
@@ -29,6 +34,7 @@ func run(opts: Dictionary) -> void:
 		if world["day"] >= SETTLE_FROM:
 			_track_ranges(ranges)
 			_accumulate_harvest(harvest)
+			_accumulate_flows(flows)
 		if world["day"] % 10 == 0:
 			timeline.append("day %d: %s" % [world["day"], _vein_counts()])
 	print("== %d days, seed %d, player %d %s/day ==" % [days, opts["seed"], opts["player"], opts["playerOre"]])
@@ -44,6 +50,7 @@ func run(opts: Dictionary) -> void:
 	for faction_id in GameData.FACTIONS:
 		print("%-11s %s" % [faction_id, churn.get(faction_id, {})])
 	_print_harvest(harvest, days - SETTLE_FROM + 1)
+	_print_flows(flows, days - SETTLE_FROM + 1)
 	_print_prices(ranges)
 	_print_shares("ore")
 	_print_shares("craft")
@@ -84,6 +91,59 @@ func _accumulate_harvest(harvest: Dictionary) -> void:
 			harvest[producer] = {}
 		for ore_type in by_producer[producer]:
 			harvest[producer][ore_type] = int(harvest[producer].get(ore_type, 0)) + int(by_producer[producer][ore_type])
+
+
+# Adds today's London ore flows into flows { "+source"/"-source": { oreType: n } }:
+# supply (+) and demand (-) per trader from annotations, plus the
+# Independents slice, civilian demand and derived (item-shortage) demand.
+func _accumulate_flows(flows: Dictionary) -> void:
+	var day: int = GameState.state["world"]["day"]
+	var faction_buys := {}
+	for note in GameState.state["market"].get("annotations", []):
+		if int(note["day"]) != day or note["goodKind"] != "ore":
+			continue
+		if note["kind"] == "dump":
+			_add_flow(flows, "+" + str(note["source"]), note["good"], float(note["value"]))
+		elif note["kind"] == "buy":
+			_add_flow(flows, "-" + str(note["source"]), note["good"], float(note["value"]))
+			faction_buys[note["good"]] = int(faction_buys.get(note["good"], 0)) + int(note["value"])
+	# The rollover has cleared today's tallies, so the Independents' buy
+	# cover is rebuilt from the faction buy annotations.
+	var cover := float(GameData.MARKET["independentsBuyCover"])
+	for ore_type in GameData.CANONICAL_ORE_TYPES:
+		var slice: float = Market.independents_share("ore") * Market.civilian_demand("ore", ore_type)
+		_add_flow(flows, "+independents", ore_type, slice + cover * int(faction_buys.get(ore_type, 0)))
+		_add_flow(flows, "-civilian", ore_type, Market.civilian_demand("ore", ore_type))
+		_add_flow(flows, "-derived", ore_type, Market.derived_ore_demand(ore_type))
+
+
+func _add_flow(flows: Dictionary, key: String, ore_type: String, qty: float) -> void:
+	if not flows.has(key):
+		flows[key] = {}
+	flows[key][ore_type] = float(flows[key].get(ore_type, 0.0)) + qty
+
+
+func _print_flows(flows: Dictionary, span: int) -> void:
+	print("
+-- London ore flows/day, days %d+ (+ supply, - demand) --" % SETTLE_FROM)
+	var header := "%-14s" % "source"
+	for ore_type in GameData.CANONICAL_ORE_TYPES:
+		header += "%9s" % ore_type
+	print(header)
+	var keys: Array = flows.keys()
+	keys.sort()
+	var net := {}
+	for key in keys:
+		var line := "%-14s" % key
+		for ore_type in GameData.CANONICAL_ORE_TYPES:
+			var per_day: float = float(flows[key].get(ore_type, 0.0)) / span
+			net[ore_type] = float(net.get(ore_type, 0.0)) + (per_day if key.begins_with("+") else -per_day)
+			line += "%9.1f" % per_day
+		print(line)
+	var line := "%-14s" % "net"
+	for ore_type in GameData.CANONICAL_ORE_TYPES:
+		line += "%9.1f" % float(net[ore_type])
+	print(line)
 
 
 # Mean ore harvested per day over the settle window, per producer and type.

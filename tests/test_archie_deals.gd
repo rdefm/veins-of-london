@@ -60,7 +60,7 @@ func run() -> void:
 		Rng.set_seed(1)
 		var deal := ArchieDeals.roll_deal(0)
 		var base_price: int = GameData.ORE_TYPES[deal["oreType"]]["basePrice"]
-		assert_eq(deal["gross"], base_price * deal["qty"], "gross = basePrice * qty with no barometer/district mods active")
+		assert_eq(deal["gross"], Market.line_total("ore", base_price, deal["qty"]), "gross = basePrice for qty units with no barometer/district mods active")
 		assert_eq(deal["playerCut"], int(floor(deal["gross"] * 0.5)), "playerCut is a flat floor(gross*0.5), not the relation-scaled Archie ratio")
 	)
 
@@ -71,7 +71,7 @@ func run() -> void:
 		var market_before: Dictionary = GameState.state["market"].duplicate(true)
 		Rng.set_seed(1)
 		var deal := ArchieDeals.roll_deal(0)
-		assert_eq(deal["gross"], 123 * deal["qty"], "gross = London quote * qty")
+		assert_eq(deal["gross"], Market.line_total("ore", 123, deal["qty"]), "gross = London quote for qty units")
 		assert_eq(GameState.state["market"], market_before, "a tag-along deal never moves the market")
 	)
 

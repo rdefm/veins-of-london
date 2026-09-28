@@ -18,7 +18,7 @@
     "siteQualityMod": -0.05,
     "dangerMod": -0.05,
     "priceMod": 0.15,
-    "siteCap": 9,
+    "siteCap": 13,
     "special": "",
     "factionPresence": "conclave",
     "blurb": "Every building is a bank, a firm, or both, and something older underneath. Fate ore turns up more than anything else; the City's always been in the business of who owes what to whom."
@@ -30,7 +30,7 @@
     "siteQualityMod": 0.05,
     "dangerMod": 0.00,
     "priceMod": 0.00,
-    "siteCap": 10,
+    "siteCap": 12,
     "special": "",
     "factionPresence": "guild",
     "blurb": "The Meridian runs through it, which the locals will mention unprompted. Time ore turns up here more than anywhere else in London."
@@ -42,7 +42,7 @@
     "siteQualityMod": 0.05,
     "dangerMod": 0.10,
     "priceMod": -0.05,
-    "siteCap": 6,
+    "siteCap": 9,
     "special": "",
     "factionPresence": "firm",
     "blurb": "Markets, market stalls, and men who are technically also a market stall. Physics ore is most of what comes up — nothing here holds still long enough to settle."
@@ -54,7 +54,7 @@
     "siteQualityMod": 0.00,
     "dangerMod": 0.05,
     "priceMod": 0.00,
-    "siteCap": 7,
+    "siteCap": 8,
     "special": "veins here: +1 rightward drift, -1 leftward drift (min 0)",
     "factionPresence": "network",
     "blurb": "Everything in King's Cross is on its way somewhere else. Even the veins grow faster, and what surfaces leans time and physics in roughly equal measure."
@@ -66,7 +66,7 @@
     "siteQualityMod": 0.05,
     "dangerMod": 0.00,
     "priceMod": 0.00,
-    "siteCap": 5,
+    "siteCap": 7,
     "special": "",
     "factionPresence": "firm",
     "blurb": "The power station stopped generating decades ago. Something still hums. Physics ore is most of what turns up — the old cooling towers never really switched off."

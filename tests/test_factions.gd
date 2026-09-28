@@ -626,6 +626,7 @@ func run() -> void:
 	)
 
 	run_case("apply_rivalry_resolution_transfers_ownership_across_many_ticks", func():
+		GameData.FACTION_RIVALRY = true
 		# Two rival-owned veins so every faction has something to target and
 		# a raiding-heavy attacker (Firm) has good odds against a poorly
 		# resourced, unsecured defender -- run many seeds and confirm the
@@ -643,6 +644,20 @@ func run() -> void:
 				hit = true
 				break
 		assert_true(hit, "apply_rivalry_resolution should eventually flip an under-resourced, unsecured vein to a rich raiding attacker within 500 tries")
+		GameData.FACTION_RIVALRY = false
+	)
+
+	run_case("apply_rivalry_resolution_does_nothing_while_factionRivalry_is_off", func():
+		for seed in range(200):
+			GameState.reset()
+			var vein := _faction_vein_claimed_on(3, "fate", 0, "collective", "none")
+			GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
+			GameState.state["factions"]["firm"]["resources"] = 5000
+			GameState.state["factions"]["collective"]["resources"] = 0
+			Rng.set_seed(seed)
+			Factions.apply_rivalry_resolution()
+			assert_eq(vein["factionId"], "collective", "no transfer with rivalry off (seed %d)" % seed)
+			assert_eq(GameState.state["factions"]["firm"]["kitBurns"], [], "no kit burns with rivalry off (seed %d)" % seed)
 	)
 
 	# ── faction-starting-veins T01: seed_day_one_veins() ────────────────
@@ -661,28 +676,28 @@ func run() -> void:
 		assert_eq(collective.map(func(e): return e["vein"]["oreType"]), ["life", "life", "emotion", "life", "life", "emotion", "life", "emotion"], "collective ore types are the roster's fixed list, in placement order")
 
 		var firm := _day_one_faction_veins("firm")
-		assert_eq(firm.size(), 4, "firm: 4 starting veins")
-		assert_eq(firm.filter(func(e): return e["site"]["district"] == "camden").size(), 2, "firm: 2/2 camden/battersea split")
-		assert_eq(firm.filter(func(e): return e["site"]["district"] == "battersea").size(), 2, "firm: 2/2 camden/battersea split")
-		assert_eq(firm.map(func(e): return e["vein"]["oreType"]), ["physics", "physics", "physics", "life"], "firm ore types")
+		assert_eq(firm.size(), 9, "firm: 9 starting veins")
+		assert_eq(firm.filter(func(e): return e["site"]["district"] == "camden").size(), 5, "firm: 5/4 camden/battersea split")
+		assert_eq(firm.filter(func(e): return e["site"]["district"] == "battersea").size(), 4, "firm: 5/4 camden/battersea split")
+		assert_eq(firm.map(func(e): return e["vein"]["oreType"]), ["physics", "physics", "time", "physics", "time", "physics", "life", "physics", "time"], "firm ore types")
 
 		var guild := _day_one_faction_veins("guild")
-		assert_eq(guild.size(), 7, "guild: 7 starting veins (5 ranged + 2 fixed)")
+		assert_eq(guild.size(), 9, "guild: 9 starting veins")
 		for e in guild:
 			assert_eq(e["site"]["district"], "greenwich", "every guild starting vein is in greenwich")
-		assert_eq(guild.map(func(e): return e["vein"]["oreType"]), ["time", "time", "physics", "time", "time", "physics", "time"], "guild ore types")
+		assert_eq(guild.map(func(e): return e["vein"]["oreType"]), ["time", "time", "physics", "time", "time", "physics", "time", "physics", "time"], "guild ore types")
 
 		var network := _day_one_faction_veins("network")
-		assert_eq(network.size(), 4, "network: 4 starting veins")
+		assert_eq(network.size(), 5, "network: 5 starting veins")
 		for e in network:
 			assert_eq(e["site"]["district"], "kingscross", "every network starting vein is in king's cross")
-		assert_eq(network.map(func(e): return e["vein"]["oreType"]), ["emotion", "emotion", "fate", "emotion"], "network ore types")
+		assert_eq(network.map(func(e): return e["vein"]["oreType"]), ["emotion", "emotion", "fate", "emotion", "emotion"], "network ore types")
 
 		var conclave := _day_one_faction_veins("conclave")
-		assert_eq(conclave.size(), 7, "conclave: 7 starting veins (4 ranged + 3 fixed)")
+		assert_eq(conclave.size(), 11, "conclave: 11 starting veins")
 		for e in conclave:
 			assert_eq(e["site"]["district"], "city", "every conclave starting vein is in the city")
-		assert_eq(conclave.map(func(e): return e["vein"]["oreType"]), ["fate", "fate", "time", "fate", "fate", "time", "fate"], "conclave ore types")
+		assert_eq(conclave.map(func(e): return e["vein"]["oreType"]), ["fate", "fate", "time", "fate", "time", "fate", "time", "fate", "life", "fate", "time"], "conclave ore types")
 
 		# Growth 70, tier bumped off barren, first 75% (rounded) of each roster at
 		# its tier's level cap and the rest one below.
@@ -733,11 +748,11 @@ func run() -> void:
 		# are fixed constants.
 		assert_eq(GameData.DISTRICTS["shoreditch"]["siteCap"], 7, "shoreditch: base 3 + collective's 4")
 		assert_eq(GameData.DISTRICTS["whitechapel"]["siteCap"], 7, "whitechapel: base 3 + collective's 4")
-		assert_eq(GameData.DISTRICTS["camden"]["siteCap"], 6, "camden: base 4 + firm's 2")
-		assert_eq(GameData.DISTRICTS["battersea"]["siteCap"], 5, "battersea: base 3 + firm's 2")
-		assert_eq(GameData.DISTRICTS["greenwich"]["siteCap"], 10, "greenwich: base 3 + guild's 7")
-		assert_eq(GameData.DISTRICTS["kingscross"]["siteCap"], 7, "kingscross: base 3 + network's 4")
-		assert_eq(GameData.DISTRICTS["city"]["siteCap"], 9, "city: base 2 + conclave's 7")
+		assert_eq(GameData.DISTRICTS["camden"]["siteCap"], 9, "camden: base 4 + firm's 5")
+		assert_eq(GameData.DISTRICTS["battersea"]["siteCap"], 7, "battersea: base 3 + firm's 4")
+		assert_eq(GameData.DISTRICTS["greenwich"]["siteCap"], 12, "greenwich: base 3 + guild's 9")
+		assert_eq(GameData.DISTRICTS["kingscross"]["siteCap"], 8, "kingscross: base 3 + network's 5")
+		assert_eq(GameData.DISTRICTS["city"]["siteCap"], 13, "city: base 2 + conclave's 11")
 
 		GameState.reset()
 		Rng.set_seed(3)

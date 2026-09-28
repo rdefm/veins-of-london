@@ -113,14 +113,16 @@ static func roll_security_tier(faction_id: String, ore_type: String) -> String:
 	return _weighted_security_roll(weights)
 
 
-# ore basePrice (R§1.1) centres on the roster's ~72 midpoint, so an average-value
-# ore contributes ~0 tilt. Resource input is the faction's real dynamic balance
+# ore basePrice (R§1.1, per 10-unit lot) centres on the roster's ~90 midpoint, so an average-value
+# ore contributes ~0 tilt; ORE_VALUE_SPREAD is a basePrice step worth 1 tilt. Resource input is the faction's real dynamic balance
 # (state.factions[id].resources), not a static placeholder, so a faction that's
 # spent itself poor on security rolls toward cheaper tiers next time.
 # RESOURCE_OPULENCE_BASELINE is the 5 factions' mean starting resources;
 # RESOURCE_OPULENCE_DIVISOR scales the 200-1200 starting spread to value_tilt's range.
 const RESOURCE_OPULENCE_BASELINE := 660.0
 const RESOURCE_OPULENCE_DIVISOR := 360.0
+const ORE_VALUE_MIDPOINT := 90.0
+const ORE_VALUE_SPREAD := 18.75
 
 
 static func _security_opulence(faction_id: String, ore_type: String) -> float:
@@ -128,8 +130,8 @@ static func _security_opulence(faction_id: String, ore_type: String) -> float:
 	var flavour_bias: float = faction.get("securityBias", 0.0)
 	var balance: float = GameState.state["factions"][faction_id]["resources"]
 	var resource_tilt: float = (balance - RESOURCE_OPULENCE_BASELINE) / RESOURCE_OPULENCE_DIVISOR
-	var ore_value: float = GameData.ORE_TYPES.get(ore_type, {}).get("basePrice", 72.0)
-	var value_tilt: float = (ore_value - 72.0) / 15.0
+	var ore_value: float = GameData.ORE_TYPES.get(ore_type, {}).get("basePrice", ORE_VALUE_MIDPOINT)
+	var value_tilt: float = (ore_value - ORE_VALUE_MIDPOINT) / ORE_VALUE_SPREAD
 	return flavour_bias + value_tilt + resource_tilt
 
 
@@ -346,7 +348,8 @@ static func roll_rivalry_odds(attempt: Dictionary) -> Dictionary:
 # Daily-tick hook, run right after NPC claims (before FactionSim, so it reads
 # end-of-yesterday resources and its kit burns land in today's consume): rolls
 # this tick's batch of attempts through the odds above and applies
-# resolve_rivalry_outcome() to each result.
+# resolve_rivalry_outcome() to each result. Does nothing while constants.json
+# factionRivalry is false.
 
 # Relation-feedback magnitude on success -- big enough that repeated losses to the
 # same rival compound, small enough that one loss alone doesn't saturate the divisor.
@@ -354,6 +357,8 @@ const RIVALRY_RELATION_PENALTY := -15
 
 
 static func apply_rivalry_resolution() -> void:
+	if not GameData.FACTION_RIVALRY:
+		return
 	for attempt in roll_rivalry_attempts():
 		# Every attempt, won or lost, burns both sides' raid kits (spec §Consumption).
 		FactionSim.log_kit_burn(attempt["attackerId"], "attack", "rivalry")
@@ -400,17 +405,17 @@ const DAY_ONE_ROSTER: Dictionary = {
 		{ "district": "whitechapel", "ores": ["life", "emotion", "life", "emotion"] },
 	],
 	"firm": [
-		{ "district": "camden", "ores": ["physics", "physics"] },
-		{ "district": "battersea", "ores": ["physics", "life"] },
+		{ "district": "camden", "ores": ["physics", "physics", "time", "physics", "time"] },
+		{ "district": "battersea", "ores": ["physics", "life", "physics", "time"] },
 	],
 	"guild": [
-		{ "district": "greenwich", "ores": ["time", "time", "physics", "time", "time", "physics", "time"] },
+		{ "district": "greenwich", "ores": ["time", "time", "physics", "time", "time", "physics", "time", "physics", "time"] },
 	],
 	"network": [
-		{ "district": "kingscross", "ores": ["emotion", "emotion", "fate", "emotion"] },
+		{ "district": "kingscross", "ores": ["emotion", "emotion", "fate", "emotion", "emotion"] },
 	],
 	"conclave": [
-		{ "district": "city", "ores": ["fate", "fate", "time", "fate", "fate", "time", "fate"] },
+		{ "district": "city", "ores": ["fate", "fate", "time", "fate", "time", "fate", "time", "fate", "life", "fate", "time"] },
 	],
 }
 

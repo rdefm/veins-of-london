@@ -198,7 +198,7 @@ func run() -> void:
 	)
 
 	run_case("a_failed_craft_burns_its_ore_and_credits_no_crafting_share", func():
-		var cost: Dictionary = Crafting.calc_cost("failsafe", 1)
+		var cost: Dictionary = Crafting.calc_cost("failsafe", GameData.FACTIONS["conclave"]["craftSkill"])
 		var seed := SeedSearch.find_seed_for(100, func():
 			_prime_one_failsafe_attempt(cost)
 			FactionSim.craft()
@@ -214,7 +214,7 @@ func run() -> void:
 	)
 
 	run_case("a_successful_craft_files_at_craft_skill_and_credits_share_by_ingredient_weight", func():
-		var cost: Dictionary = Crafting.calc_cost("failsafe", 1)
+		var cost: Dictionary = Crafting.calc_cost("failsafe", GameData.FACTIONS["conclave"]["craftSkill"])
 		var seed := SeedSearch.find_seed_for(100, func():
 			_prime_one_failsafe_attempt(cost)
 			FactionSim.craft()
@@ -225,7 +225,7 @@ func run() -> void:
 		_prime_one_failsafe_attempt(cost)
 		FactionSim.craft()
 		var buckets: Dictionary = GameState.state["factions"]["conclave"]["holdings"]["items"]["failsafe"]
-		assert_eq(int(buckets.get("1", 0)), 1, "the item files under the Conclave's craftSkill tier")
+		assert_eq(int(buckets.get(str(GameData.FACTIONS["conclave"]["craftSkill"]), 0)), 1, "the item files under the Conclave's craftSkill tier")
 		assert_eq(Shares.window_totals("craft")["conclave"], { "time": cost["time"], "life": cost["life"] }, "each ingredient credits its own type by weight")
 	)
 
@@ -262,6 +262,7 @@ func run() -> void:
 	)
 
 	run_case("a_rivalry_attempt_logs_both_kits_and_consume_burns_them", func():
+		GameData.FACTION_RIVALRY = true
 		var veins := [_vein("s1", "collective", "life", 50), _vein("s2", "firm", "physics", 50)]
 		var seed := SeedSearch.find_seed_for(300, func():
 			GameState.reset()
@@ -286,6 +287,7 @@ func run() -> void:
 		FactionSim.consume()
 		assert_eq(FactionSim.item_held("firm", "blast"), 3, "consume draws the 2-blast attack kit (weekly draw rounds down to 0 on day one)")
 		assert_eq(GameState.state["factions"]["firm"]["kitBurns"], [], "consume clears the burn log")
+		GameData.FACTION_RIVALRY = false
 	)
 
 	run_case("a_burn_holdings_cannot_cover_becomes_shortfall", func():
@@ -486,7 +488,7 @@ func run() -> void:
 		FactionSim.trade()
 		assert_eq(FactionSim.ore_held("firm", "fate"), 50, "sellFraction 0.5 of the surplus")
 		assert_eq(int(GameState.state["market"]["supply"]["ore"]["fate"]["firm"]), 50, "recorded as supply under the faction's id")
-		assert_eq(GameState.state["factions"]["firm"]["resources"], cash_before + 50 * price, "paid at the quote")
+		assert_eq(GameState.state["factions"]["firm"]["resources"], cash_before + Market.line_total("ore", price, 50), "paid at the quote")
 		FactionSim.trade()
 		assert_eq(FactionSim.ore_held("firm", "fate"), 25, "half the rest the next day")
 	)
@@ -527,7 +529,7 @@ func run() -> void:
 		_calm_market_at_reserve()
 		var price: int = int(Market.base_price("ore", "physics") * 0.5)
 		_set_quote("ore", "physics", price)
-		GameState.state["factions"]["conclave"]["resources"] = price * 3 + 1
+		GameState.state["factions"]["conclave"]["resources"] = Market.line_total("ore", price, 3) + 1
 		var before: int = FactionSim.ore_held("conclave", "physics")
 		FactionSim.trade()
 		assert_eq(FactionSim.ore_held("conclave", "physics"), before + 3, "buys what the cash covers")

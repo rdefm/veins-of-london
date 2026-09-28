@@ -16,9 +16,9 @@ func run() -> void:
 
 		var first := Collective.supply_nadia(12)
 		assert_true(first["ok"])
-		assert_eq(first["earned"], price * 12)
+		assert_eq(first["earned"], Market.line_total("ore", price, 12))
 		assert_eq(GameState.state["objectives"]["col_a1_nadia_supply"]["progress"]["delivered"], 12)
-		assert_eq(GameState.state["player"]["cash"], cash_before + price * 12)
+		assert_eq(GameState.state["player"]["cash"], cash_before + Market.line_total("ore", price, 12))
 		assert_true(not GameState.state["flags"].get("colA1NadiaSupplied", false))
 
 		var second := Collective.supply_nadia(8)
@@ -36,7 +36,7 @@ func run() -> void:
 
 		var result := Collective.supply_nadia(20)
 		assert_true(result["ok"])
-		assert_eq(result["earned"], price * 20, "the questline order is exempt from the wallet cap")
+		assert_eq(result["earned"], Market.line_total("ore", price, 20), "the questline order is exempt from the wallet cap")
 		assert_eq(GameState.state["factions"]["collective"]["resources"], 0, "wallet floored, never negative")
 		assert_eq(FactionSim.ore_held("collective", "time"), 20, "the delivery joins the Collective's holdings")
 		assert_true(GameState.state["flags"]["colA1NadiaSupplied"])
@@ -64,13 +64,13 @@ func run() -> void:
 
 		var first := Collective.supply_nadia(25)
 		assert_true(first["ok"])
-		assert_eq(first["earned"], price * 25)
+		assert_eq(first["earned"], Market.line_total("ore", price, 25))
 		assert_eq(GameState.state["objectives"]["col_a1_nadia_supply"]["progress"]["delivered"], 20)
-		assert_eq(GameState.state["player"]["cash"], cash_before + price * 25)
+		assert_eq(GameState.state["player"]["cash"], cash_before + Market.line_total("ore", price, 25))
 
 		var second := Collective.supply_nadia(1)
 		assert_true(not second["ok"])
-		assert_eq(GameState.state["player"]["cash"], cash_before + price * 25)
+		assert_eq(GameState.state["player"]["cash"], cash_before + Market.line_total("ore", price, 25))
 	)
 
 	run_case("ordinary_collective_trades_do_not_advance_nadias_order", func():

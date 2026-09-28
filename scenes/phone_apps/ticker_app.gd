@@ -109,7 +109,7 @@ func _good_row(kind: String, good_type: String) -> Control:
 	symbol.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	symbol.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	inner.add_child(symbol)
-	var price := UI.label("£%d" % Market.quote(kind, good_type))
+	var price := UI.label(UI.price_text(kind, Market.quote(kind, good_type)))
 	price.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	inner.add_child(price)
 	var delta := UI.tinted_label(PriceMove.text(move, true), PriceMove.colour(move, MUTED))
@@ -128,7 +128,7 @@ func _build_good_detail(content: VBoxContainer, kind: String, good_type: String)
 	content.add_child(UI.symbol_row([_good_symbol(kind, good_type), _good_name(kind, good_type)], { "heading_size": 20 }))
 	var move := Market.day_move(kind, good_type)
 	var price_row := UI.hbox()
-	price_row.add_child(UI.label("£%d" % Market.quote(kind, good_type)))
+	price_row.add_child(UI.label(UI.price_text(kind, Market.quote(kind, good_type))))
 	price_row.add_child(UI.tinted_label("%s vs yesterday" % PriceMove.text(move, true), PriceMove.colour(move, MUTED)))
 	content.add_child(price_row)
 

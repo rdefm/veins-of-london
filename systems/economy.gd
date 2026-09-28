@@ -34,7 +34,7 @@ static func get_archie_vein_price(vein: Dictionary) -> int:
 	return GameState.round_epsilon(VeinTrade.quote(vein) * ARCHIE_VEIN_MARKUP)
 
 
-# Archie's per-unit ore price before his cut: today's London quote with the
+# Archie's ore price (per Market.price_lot units) before his cut: today's London quote with the
 # district/omen modifier on top (R§3.6).
 static func get_archie_ore_price(ore_type: String, price_mod: float) -> int:
 	return GameState.round_epsilon(Market.quote("ore", ore_type) * (1.0 + price_mod))
@@ -104,15 +104,13 @@ static func execute_sale(items: Array) -> Dictionary:
 		var item_type: String = item["type"]
 		var qty: int = item["qty"]
 		if kind == "ore":
-			var price_per_unit: int = get_archie_ore_price(item_type, price_mod)
-			gross += price_per_unit * qty
+			gross += Market.line_total("ore", get_archie_ore_price(item_type, price_mod), qty)
 			player["orichalchum"][item_type] = maxi(0, player["orichalchum"].get(item_type, 0) - qty)
 			# Recorded before the mugging roll: goods change hands either way.
 			Market.record_supply("ore", item_type, qty, "player")
 		elif kind == "consumable":
 			var tier: int = item.get("tier", 0)
-			var price_per_unit: int = get_archie_consumable_price(item_type, tier, price_mod)
-			gross += price_per_unit * qty
+			gross += Market.line_total("consumable", get_archie_consumable_price(item_type, tier, price_mod), qty)
 			cons_sold += qty
 			Crafting.inventory_remove_from_tier(item_type, tier, qty)
 			Market.record_supply("consumable", item_type, qty, "player")
@@ -304,7 +302,7 @@ static func get_faction_sell_price(faction_id: String, kind: String, item_type: 
 static func get_faction_buy_max_qty(faction_id: String, kind: String, item_type: String, budget: int = -1, apply_district: bool = true) -> int:
 	var price := get_faction_buy_price(faction_id, kind, item_type, apply_district)
 	var cash: int = GameState.state["player"]["cash"] if budget < 0 else budget
-	var affordable := int(floor(float(cash) / float(maxi(price, 1))))
+	var affordable := Market.affordable_qty(kind, maxi(price, 1), cash)
 	return mini(affordable, FactionSim.for_sale(faction_id, kind, item_type))
 
 
@@ -320,8 +318,8 @@ static func execute_faction_purchase(faction_id: String, items: Array) -> Dictio
 	var total_cost := 0
 	var qty_totals: Dictionary = {}
 	for item in items:
-		var price_per_unit := get_faction_buy_price(faction_id, item["kind"], item["type"])
-		total_cost += price_per_unit * int(item["qty"])
+		var price := get_faction_buy_price(faction_id, item["kind"], item["type"])
+		total_cost += Market.line_total(item["kind"], price, int(item["qty"]))
 		var key := [item["kind"], item["type"]]
 		qty_totals[key] = qty_totals.get(key, 0) + int(item["qty"])
 
@@ -378,7 +376,7 @@ static func can_buy_from_faction(faction_id: String) -> bool:
 static func get_faction_sell_max_qty(faction_id: String, kind: String, item_type: String) -> int:
 	var price := get_faction_sell_price(faction_id, kind, item_type)
 	var resources: int = GameState.state["factions"][faction_id]["resources"]
-	return int(floor(float(resources) / float(maxi(price, 1))))
+	return Market.affordable_qty(kind, maxi(price, 1), resources)
 
 
 # Symmetric counterpart to execute_faction_purchase -- straight sale at the
@@ -403,13 +401,13 @@ static func execute_faction_sale(faction_id: String, items: Array, contact_id: S
 	for item in items:
 		var kind: String = item["kind"]
 		var item_type: String = item["type"]
-		var price_per_unit := get_faction_sell_price(faction_id, kind, item_type)
+		var price := get_faction_sell_price(faction_id, kind, item_type)
 		var qty: int = item["qty"]
-		if wallet_capped and price_per_unit > 0:
-			qty = mini(qty, int(faction["resources"] - total_earned) / price_per_unit)
+		if wallet_capped and price > 0:
+			qty = mini(qty, Market.affordable_qty(kind, price, int(faction["resources"]) - total_earned))
 		if qty <= 0:
 			continue
-		total_earned += price_per_unit * qty
+		total_earned += Market.line_total(kind, price, qty)
 		Market.record_supply(kind, item_type, qty, "player")
 		if kind == "ore":
 			player["orichalchum"][item_type] = maxi(0, player["orichalchum"].get(item_type, 0) - qty)

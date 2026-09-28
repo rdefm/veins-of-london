@@ -60,10 +60,10 @@ func run() -> void:
 	# GameData validates at boot) -- this still guards the same thing it
 	# always did: nobody accidentally drops a district's stopSlots count.
 	run_case("every_district_keeps_its_expected_stopSlots_count", func():
-		# bugfixes-98: widened from siteCap+2 to siteCap*2.
+		# siteCap*2 per district.
 		var expected_counts := {
-			"hampstead": 4, "kingscross": 14, "camden": 12, "shoreditch": 14,
-			"city": 18, "soho": 2, "whitechapel": 14, "battersea": 10, "greenwich": 20,
+			"hampstead": 4, "kingscross": 16, "camden": 18, "shoreditch": 14,
+			"city": 26, "soho": 2, "whitechapel": 14, "battersea": 14, "greenwich": 24,
 		}
 		for district_id in expected_counts.keys():
 			var slots: Array = GameData.MAP_LAYOUT["districts"][district_id]["stopSlots"]

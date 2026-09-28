@@ -473,9 +473,14 @@ func run() -> void:
 
 	run_case("daily_tick_wires_in_faction_passive_income_step", func():
 		GameState.reset()
+		# No London buying, so the day's only cash movement in is industryIncome.
+		var trading: Dictionary = GameData.FACTIONS["collective"]["trading"]
+		var saved_buy_mult: float = trading["maxBuyMult"]
+		trading["maxBuyMult"] = 0.0
 		var before: int = GameState.state["factions"]["collective"]["resources"]
 		TimeSystem.daily_tick()
 		var after: int = GameState.state["factions"]["collective"]["resources"]
+		trading["maxBuyMult"] = saved_buy_mult
 		assert_true(after > before, "daily_tick should reach step 5h (Factions.apply_passive_income)")
 	)
 
@@ -517,6 +522,7 @@ func run() -> void:
 	)
 
 	run_case("daily_tick_wires_in_rivalry_resolution_step_right_after_npc_claims", func():
+		GameData.FACTION_RIVALRY = true
 		# A rich, unsecured collective-owned vein facing a well-resourced Firm
 		# (raiding industry, good odds) -- run many seeds and confirm daily_tick
 		# eventually reaches step 5c and flips ownership.
@@ -539,6 +545,7 @@ func run() -> void:
 				hit = true
 				break
 		assert_true(hit, "daily_tick should reach step 5c (Factions.apply_rivalry_resolution) within 500 tries")
+		GameData.FACTION_RIVALRY = false
 	)
 
 	run_case("daily_tick_wires_in_direction_b_raid_resolution_step_right_after_rivalry_resolution_step", func():

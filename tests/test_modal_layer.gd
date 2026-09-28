@@ -369,12 +369,12 @@ func run() -> void:
 		Economy.set_sell_qty("buyOre_time", 1, 8)
 		assert_eq(GameState.state["sellState"]["ore_time"], 2, "switching direction retains sales")
 		assert_eq(GameState.state["sellState"]["buyOre_time"], 1)
-		assert_true(NodeQuery.label_texts_with_symbols(view).has("3 selected · sell £%d · buy £%d" % [2 * sell_price, buy_price]), "total counts both directions")
+		assert_true(NodeQuery.label_texts_with_symbols(view).has("3 selected · sell £%d · buy £%d" % [Market.line_total("ore", sell_price, 2), Market.line_total("ore", buy_price, 1)]), "total counts both directions")
 		_find_cost_button(view, "Review trade →").pressed.emit()
 		assert_true(NodeQuery.label_texts_with_symbols(view).any(func(t: String): return t.contains("Sell 2 × Time Orichalchum")))
 		assert_true(NodeQuery.label_texts_with_symbols(view).any(func(t: String): return t.contains("Buy 1 × Time Orichalchum")))
 		_find_cost_button(view, "Confirm trade").pressed.emit()
-		assert_eq(GameState.state["player"]["cash"], 1000 + 2 * sell_price - buy_price)
+		assert_eq(GameState.state["player"]["cash"], 1000 + Market.line_total("ore", sell_price, 2) - Market.line_total("ore", buy_price, 1))
 		assert_eq(GameState.state["player"]["orichalchum"]["time"], 9)
 		assert_eq(FactionSim.ore_held("collective", "time"), 9, "8 held - 1 bought + 2 sold")
 		assert_eq(GameState.state["modal"]["type"], "sale_result")
@@ -386,7 +386,7 @@ func run() -> void:
 		var buy_price: int = Economy.get_faction_buy_price("collective", "ore", "time")
 		GameState.state["player"]["orichalchum"]["time"] = 7
 		GameState.state["factions"]["collective"]["holdings"]["ore"] = { "time": 8, "physics": 0, "life": 0, "fate": 0, "emotion": 0 }
-		GameState.state["player"]["cash"] = buy_price * 3
+		GameState.state["player"]["cash"] = Market.line_total("ore", buy_price, 3)
 		Modal.open("sell_menu", { "factionId": "collective", "contactId": "des" })
 		var layer := ModalLayer.new()
 		layer._ready()

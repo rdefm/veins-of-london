@@ -13,7 +13,7 @@
     { "id": "wild",     "min": 86,  "max": 99,  "label": "Wild" },
     { "id": "rampant",  "min": 100, "max": 9999,"label": "Rampant" }
   ],
-  "yieldPerPoint": 0.35,
+  "yieldPerPoint": 2.8,
   "hardPruneBonus": 1.25,
   "pruneLightDepth": 9,
   "pruneHardDepth": 24,
@@ -37,5 +37,5 @@
   "driftRandomMax": 5,
   "seedOreCost": 40,
   "cultivatingXpLevels": [0, 0, 80, 220, 500, 1000],
-  "veinSaleBaseUnits": 175
+  "veinSaleBaseUnits": 1400
 }

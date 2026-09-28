@@ -71,7 +71,7 @@ func _build_goods_row(kind: String, item_type: String) -> Control:
 	c["content"].add_child(UI.symbol_row([{ "symbol": symbol, "fallback": fallback }, name], { "heading_size": 15 }))
 	var move := Market.day_move(kind, item_type)
 	var prices := UI.hbox(4)
-	prices.add_child(UI.label("Buy £%d/u · Sell £%d/u · Have %d · Stock %d" % [buy_price, sell_price, have, FactionSim.for_sale(faction_id, kind, item_type)]))
+	prices.add_child(UI.label("Buy %s · Sell %s · Have %d · Stock %d" % [UI.price_text(kind, buy_price), UI.price_text(kind, sell_price), have, FactionSim.for_sale(faction_id, kind, item_type)]))
 	if move != 0:
 		prices.add_child(UI.tinted_label(PriceMove.text(move), PriceMove.colour(move, Color.WHITE)))
 	c["content"].add_child(prices)
@@ -86,9 +86,9 @@ func _build_goods_row(kind: String, item_type: String) -> Control:
 	# Buy and Sell share one qty; each disables past its own ceiling.
 	var on_change := func(value: int) -> void:
 		picked[0] = value
-		buy.text = "Buy ×%d (£%d)" % [value, value * buy_price]
+		buy.text = "Buy ×%d (£%d)" % [value, Market.line_total(kind, buy_price, value)]
 		buy.disabled = value > buy_max_qty
-		sell.text = "Sell ×%d (£%d)" % [value, value * sell_price]
+		sell.text = "Sell ×%d (£%d)" % [value, Market.line_total(kind, sell_price, value)]
 		sell.disabled = value > sell_max_qty
 		MapCardStyle.style_button(buy)
 		MapCardStyle.style_button(sell)

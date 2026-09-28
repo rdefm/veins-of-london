@@ -236,11 +236,11 @@ func run() -> void:
 		var output: Dictionary = Rooms.process_staff_block()
 
 		# points = max(0,95-50) - max(0,70-50) = 45-20 = 25
-		# yield = round(25 * 0.35) = 9
+		# yield = round(25 * 2.8) = 70
 		assert_eq(vein["growth"], 70, "pruned down exactly to the target")
-		assert_eq(GameState.state["player"]["orichalchum"]["time"], 9, "ore credited using the §2.4 yield formula")
-		assert_eq(output["ore"], { "time": 9 }, "block output reports the yield")
-		assert_eq(Shares.window_totals("ore")["player"], { "time": 9 }, "staff cultivator harvest credits the player's ore share")
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], 70, "ore credited using the §2.4 yield formula")
+		assert_eq(output["ore"], { "time": 70 }, "block output reports the yield")
+		assert_eq(Shares.window_totals("ore")["player"], { "time": 70 }, "staff cultivator harvest credits the player's ore share")
 		assert_eq(GameState.state["contacts"]["archie"]["cultivatingXP"], xp_before + GameData.CULTIVATOR_ACTION_XP, "+2 XP for a prune")
 	)
 

@@ -471,7 +471,7 @@ func run() -> void:
 		var settled: Dictionary = ContractsSystem.settle(contract["id"])
 		assert_true(settled["ok"])
 		assert_true(not settled["settlement"]["complete"])
-		assert_eq(settled["settlement"]["payment"], 324, "quote £765 × (270/510 quoted-value-weighted) × 0.80")
+		assert_eq(settled["settlement"]["payment"], 41, "quote £411 × (34/274 quoted-value-weighted) × 0.80")
 	)
 
 	run_case("settlement_falls_back_to_the_flat_ratio_for_a_quote_with_no_lines", func():
@@ -520,13 +520,13 @@ func run() -> void:
 		assert_eq(expenses[0]["kind"], "calc")
 		assert_eq(expenses[0]["source"], GameData.FACTIONS["collective"]["name"])
 		assert_eq(expenses[0]["qty"], 2)
-		assert_eq(expenses[0]["amount"], collective_price * 2)
+		assert_eq(expenses[0]["amount"], Market.line_total("ore", collective_price, 2))
 		assert_eq(expenses[0]["contractId"], contract["id"])
 		assert_eq(expenses[1]["source"], GameData.FACTIONS["guild"]["name"])
 		assert_eq(expenses[1]["qty"], 2)
 		var delivered_back: int = ContractsSystem.delivered_qty(contract) if contract["counterparty"] == "collective" else 0
 		assert_eq(FactionSim.ore_held("collective", "life"), delivered_back, "drained, then only the delivery lands back")
-		assert_eq(GameState.state["business"]["pot"], 5000 - collective_price * 2 - guild_price * 2 + int(GameState.state["business"]["week"]["receipts"]))
+		assert_eq(GameState.state["business"]["pot"], 5000 - Market.line_total("ore", collective_price, 2) - Market.line_total("ore", guild_price, 2) + int(GameState.state["business"]["week"]["receipts"]))
 		assert_eq(GameState.state["player"]["cash"], cash_before, "player cash is never touched")
 		assert_eq(GameState.state["sales"]["settlements"].size(), 1, "bought ore enters shared stock and delivers")
 		assert_true(GameState.state["sales"]["settlements"][0]["complete"])

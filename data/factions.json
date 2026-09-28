@@ -24,7 +24,7 @@
     "cultivateSkill": 4,
     "fieldwork": { "actionsPerBlock": 2, "tendAtOrBelow": 50, "pruneFloor": 51, "pruneDepthMult": 2 },
     "craftSkill": 2,
-    "craftTargets": { "healingSalve": { "kitUse": 1, "sellQuota": 3 }, "enhancementPowder": { "kitUse": 0, "sellQuota": 3 } },
+    "craftTargets": { "healingSalve": { "kitUse": 1, "sellQuota": 28 }, "enhancementPowder": { "kitUse": 0, "sellQuota": 31 } },
     "primaryOre": "life",
     "secondaryOre": "emotion",
     "claimWeights": { "base": 1, "presence": 17, "primaryOre": 6, "secondaryOre": 3 },
@@ -72,7 +72,7 @@
     "cultivateSkill": 3,
     "fieldwork": { "actionsPerBlock": 2, "tendAtOrBelow": 30, "pruneFloor": 51, "pruneDepthMult": 4 },
     "craftSkill": 2,
-    "craftTargets": { "blast": { "kitUse": 2, "sellQuota": 3 }, "shield": { "kitUse": 2, "sellQuota": 3 }, "healingBurst": { "kitUse": 2, "sellQuota": 3 } },
+    "craftTargets": { "blast": { "kitUse": 2, "sellQuota": 29 }, "shield": { "kitUse": 2, "sellQuota": 34 }, "healingBurst": { "kitUse": 2, "sellQuota": 34 } },
     "primaryOre": "physics",
     "secondaryOre": "life",
     "claimWeights": { "base": 1, "presence": 17, "primaryOre": 6, "secondaryOre": 3 },
@@ -126,7 +126,7 @@
     "cultivateSkill": 2,
     "fieldwork": { "actionsPerBlock": 1, "tendAtOrBelow": 50, "pruneFloor": 51, "pruneDepthMult": 2 },
     "craftSkill": 4,
-    "craftTargets": { "timePearl": { "kitUse": 0, "sellQuota": 4 }, "rewind": { "kitUse": 0, "sellQuota": 3 }, "wormhole": { "kitUse": 0, "sellQuota": 3 }, "prophetsBreath": { "kitUse": 0, "sellQuota": 4 }, "rejuvenation": { "kitUse": 0, "sellQuota": 4 } },
+    "craftTargets": { "timePearl": { "kitUse": 0, "sellQuota": 23 }, "rewind": { "kitUse": 0, "sellQuota": 23 }, "wormhole": { "kitUse": 0, "sellQuota": 28 }, "prophetsBreath": { "kitUse": 0, "sellQuota": 25 }, "rejuvenation": { "kitUse": 0, "sellQuota": 24 }, "blackHole": { "kitUse": 0, "sellQuota": 27 } },
     "primaryOre": "time",
     "secondaryOre": "physics",
     "claimWeights": { "base": 1, "presence": 17, "primaryOre": 6, "secondaryOre": 3 },
@@ -135,7 +135,8 @@
       "rewind",
       "wormhole",
       "prophetsBreath",
-      "rejuvenation"
+      "rejuvenation",
+      "blackHole"
     ],
     "consumes": {
       "timePearl": 1,
@@ -181,8 +182,8 @@
     "archetype": "informationBroker",
     "cultivateSkill": 2,
     "fieldwork": { "actionsPerBlock": 1, "tendAtOrBelow": 50, "pruneFloor": 51, "pruneDepthMult": 2 },
-    "craftSkill": 1,
-    "craftTargets": { "pansPrank": { "kitUse": 1, "sellQuota": 3 } },
+    "craftSkill": 3,
+    "craftTargets": { "pansPrank": { "kitUse": 1, "sellQuota": 63 } },
     "primaryOre": "emotion",
     "secondaryOre": "fate",
     "claimWeights": { "base": 1, "presence": 17, "primaryOre": 6, "secondaryOre": 3 },
@@ -229,13 +230,14 @@
     "archetype": "manipulator",
     "cultivateSkill": 2,
     "fieldwork": { "actionsPerBlock": 1, "tendAtOrBelow": 50, "pruneFloor": 51, "pruneDepthMult": 2 },
-    "craftSkill": 1,
-    "craftTargets": { "failsafe": { "kitUse": 1, "sellQuota": 2 } },
+    "craftSkill": 3,
+    "craftTargets": { "failsafe": { "kitUse": 1, "sellQuota": 37 }, "beALady": { "kitUse": 0, "sellQuota": 56 } },
     "primaryOre": "fate",
     "secondaryOre": "time",
     "claimWeights": { "base": 1, "presence": 17, "primaryOre": 6, "secondaryOre": 3 },
     "crafts": [
-      "failsafe"
+      "failsafe",
+      "beALady"
     ],
     "consumes": {
       "failsafe": 3,

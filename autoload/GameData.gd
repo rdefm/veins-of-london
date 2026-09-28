@@ -182,6 +182,9 @@ var BUSINESS_STATS_DAYS: int = 0
 var SHARES_DAYS: int = 0
 var SHARES_WINDOW_DAYS: int = 0
 
+# Master switch for inter-faction rivalry (vein transfers between factions), R§1.8.
+var FACTION_RIVALRY: bool = false
+
 # Business pot payday cadence (days) and weekly wage per waged staff
 # contact id, R§3.10 "Business pot and payday".
 var BUSINESS_WEEKLY_WAGES: Dictionary = {}
@@ -349,6 +352,7 @@ const MANIFEST: Array[Dictionary] = [
 		{"field": "BUSINESS_STATS_DAYS", "key": "businessStatsDays", "type": TYPE_INT},
 		{"field": "SHARES_DAYS", "key": "sharesDays", "type": TYPE_INT},
 		{"field": "SHARES_WINDOW_DAYS", "key": "sharesWindowDays", "type": TYPE_INT},
+		{"field": "FACTION_RIVALRY", "key": "factionRivalry", "type": TYPE_BOOL},
 		{"field": "BUSINESS_WEEKLY_WAGES", "key": "business.weeklyWages", "type": TYPE_DICTIONARY},
 		{"field": "BUSINESS_JAMES_JOIN_CRAFTING_SKILL", "key": "business.jamesJoinCraftingSkill", "type": TYPE_INT},
 		{"field": "BUSINESS_OWEN_CRAFT_MIN_CULTIVATING", "key": "business.owenCraftMinCultivating", "type": TYPE_INT},
@@ -416,6 +420,8 @@ func _default_for_type(type: int) -> Variant:
 			return []
 		TYPE_FLOAT:
 			return 0.0
+		TYPE_BOOL:
+			return false
 		_:
 			return 0
 
@@ -835,14 +841,19 @@ const CANONICAL_DISTRICT_IDS: Array[String] = [
 
 
 # Every ore type and every priced consumable is a market good with a normal
-# stock and civilian demand; independentsShare is a fraction in [0, 1].
+# stock and civilian demand; independentsShare (items) and
+# independentsOreShare are fractions in [0, 1], as is independentsBuyCover.
 func _validate_market(market: Dictionary, ore_types: Dictionary, consumable_prices: Dictionary, errors: Array[String]) -> void:
-	_require_keys(market, ["simStart", "priceMinMult", "priceMaxMult", "curveExponent", "reversion", "smoothing", "historyDays", "oreConversionRate", "independentsShare", "goods"], "market", errors)
+	_require_keys(market, ["simStart", "priceMinMult", "priceMaxMult", "curveExponent", "reversion", "smoothing", "historyDays", "priceLot", "oreConversionRate", "independentsShare", "independentsOreShare", "independentsBuyCover", "goods"], "market", errors)
 	if not ["day1", "bizA2"].has(market.get("simStart")):
 		errors.append("market.simStart: expected 'day1' or 'bizA2', got '%s'" % str(market.get("simStart")))
-	var share: float = float(market.get("independentsShare", 0.0))
-	if share < 0.0 or share > 1.0:
-		errors.append("market.independentsShare: expected 0..1, got %s" % str(share))
+	for lot_kind in ["ore", "consumable"]:
+		if int(market.get("priceLot", {}).get(lot_kind, 0)) < 1:
+			errors.append("market.priceLot.%s: expected a whole number >= 1" % lot_kind)
+	for share_key in ["independentsShare", "independentsOreShare", "independentsBuyCover"]:
+		var share: float = float(market.get(share_key, 0.0))
+		if share < 0.0 or share > 1.0:
+			errors.append("market.%s: expected 0..1, got %s" % [share_key, str(share)])
 	var goods: Dictionary = market.get("goods", {})
 	var expected := { "ore": ore_types.keys(), "consumable": consumable_prices.keys() }
 	for kind in expected:

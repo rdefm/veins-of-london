@@ -31,12 +31,12 @@ static func _faction_seed_vein(growth: int, tier: String, ore_type: String = "li
 
 
 func run() -> void:
-	# ── quote() — spec §8.3's worked table, life calc (basePrice £70) ─────
+	# ── quote() — life calc (basePrice £88/10): 88 × 1400/10 × terroir × growth/50 ─
 
 	run_case("quote_fresh_seed_fair", func():
 		GameState.reset()
 		var vein := _seed_tiered_vein(20, "fair")
-		assert_eq(VeinTrade.quote(vein), 4900)
+		assert_eq(VeinTrade.quote(vein), 4928)
 	)
 
 	run_case("quote_uses_the_2_day_average_london_price", func():
@@ -44,47 +44,47 @@ func run() -> void:
 		var vein := _seed_tiered_vein(20, "fair")
 		var good: Dictionary = GameState.state["market"]["goods"]["ore"]["life"]
 		good["price"] = 200
-		good["history"] = [60, 80]
-		# avg 70 = base, so the worked-table price holds despite today's 200
-		assert_eq(VeinTrade.quote(vein), 4900)
-		good["history"] = [80, 100]
-		assert_eq(VeinTrade.quote(vein), 6300, "avg 90 -> 4900 × 90/70")
+		good["history"] = [80, 96]
+		# avg 88 = base, so the base price holds despite today's 200
+		assert_eq(VeinTrade.quote(vein), 4928)
+		good["history"] = [100, 120]
+		assert_eq(VeinTrade.quote(vein), 6160, "avg 110 -> 4928 × 110/88")
 	)
 
 	run_case("quote_fresh_seed_rich", func():
 		GameState.reset()
 		var vein := _seed_tiered_vein(20, "rich")
-		assert_eq(VeinTrade.quote(vein), 7840)
+		assert_eq(VeinTrade.quote(vein), 7885)
 	)
 
 	run_case("quote_neutral_dormant_rich", func():
 		GameState.reset()
 		var vein := _seed_tiered_vein(50, "rich")
-		assert_eq(VeinTrade.quote(vein), 19600)
+		assert_eq(VeinTrade.quote(vein), 19712)
 	)
 
 	run_case("quote_lush_85_fair", func():
 		GameState.reset()
 		var vein := _seed_tiered_vein(85, "fair")
-		assert_eq(VeinTrade.quote(vein), 20825)
+		assert_eq(VeinTrade.quote(vein), 20944)
 	)
 
 	run_case("quote_lush_85_rich", func():
 		GameState.reset()
 		var vein := _seed_tiered_vein(85, "rich")
-		assert_eq(VeinTrade.quote(vein), 33320)
+		assert_eq(VeinTrade.quote(vein), 33510)
 	)
 
 	run_case("quote_rampant_100_rich", func():
 		GameState.reset()
 		var vein := _seed_tiered_vein(100, "rich")
-		assert_eq(VeinTrade.quote(vein), 39200)
+		assert_eq(VeinTrade.quote(vein), 39424)
 	)
 
 	run_case("quote_lush_85_saturated", func():
 		GameState.reset()
 		var vein := _seed_tiered_vein(85, "saturated")
-		assert_eq(VeinTrade.quote(vein), 49980)
+		assert_eq(VeinTrade.quote(vein), 50266)
 	)
 
 	# ── sell_to_faction() ───────────────────────────────────────────────
