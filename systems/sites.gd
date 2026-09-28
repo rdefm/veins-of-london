@@ -486,28 +486,3 @@ static func roll_npc_claims() -> void:
 			var faction_name: String = GameData.FACTIONS[faction_id]["shortName"]
 			Notify.push("%s have moved onto the %s site in %s." % [faction_name, site["tier"], district_name], Notify.CATEGORY_WARNING)
 
-
-# ── faction vein daily growth ────────────────────────────────────────────
-
-# Called from TimeSystem.daily_tick() step ⑤c, right after ⑤b claims. Faction
-# veins drift on the same step ④ pass every other vein does
-# (Cultivating.drift_veins()), so this step only prunes back veins that drifted
-# to the ceiling, off-screen (no ore granted) -- without it, every faction vein
-# would park at the ceiling within a month. TARGET is 40, not 55: 55 sits in the
-# "dormant" band (45-55, drift 0, R§1.2) where a reset vein never drifts again
-# (direction only flips at neutral) and becomes a de facto immortal vein; 40
-# sits in "thinning" (30-44, drift 1 leftward), so a pruned vein resumes its
-# walk toward 0 and eventually rolls collapse_vein()'s left-wall chance.
-# THRESHOLD/CHANCE only gate how often a ceiling-parked vein gets pruned and need balance sign-off once played.
-const FACTION_PRUNE_BACK_THRESHOLD := 85
-const FACTION_PRUNE_BACK_CHANCE := 0.40
-const FACTION_PRUNE_BACK_TARGET := 40
-
-
-static func roll_faction_vein_growth() -> void:
-	for site in GameState.state["world"]["sites"]:
-		var vein: Variant = site["factionVein"]
-		if vein == null or vein["growth"] < FACTION_PRUNE_BACK_THRESHOLD:
-			continue
-		if Rng.chance(FACTION_PRUNE_BACK_CHANCE):
-			vein["growth"] = FACTION_PRUNE_BACK_TARGET

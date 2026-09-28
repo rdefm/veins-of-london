@@ -69,7 +69,7 @@ static func run_staff_block(block: int = -1) -> void:
 
 # Exact step order per R§3.1 — do not reorder without checking each inline
 # note below for a real dependency (income before spend, claims before
-# vein-derived income, etc.); several steps are independent and placed
+# faction tending, etc.); several steps are independent and placed
 # only by landing order.
 static func daily_tick() -> void:
 	var morning_context: Dictionary = MorningAccountsSystem.begin_rollover()
@@ -89,11 +89,10 @@ static func daily_tick() -> void:
 	MorningAccountsSystem.capture_losses(morning_context, "Vein collapse")
 	_apply_tutorial_day_triggers()       # ⑤ tutorial day-triggers
 	Sites.roll_npc_claims()              # ⑤b NPC site-claiming (M1-LONDON.md D2)
-	Sites.roll_faction_vein_growth()     # ⑤c faction vein daily growth, right after ⑤b
+	FactionSim.tend_and_prune()          # ⑤c faction tend + prune, after ⑤b so a fresh claim can be tended today
 	Factions.apply_passive_income()      # ⑤d industries-only, no ordering dependency on ⑤b/⑤c
-	Factions.apply_vein_income()         # ⑤e after ⑤c so a same-tick-claimed vein reuses ⑤c's claimedOnDay skip
 	NetworkHandler.expire_intel()        # ⑤e2 before ⑤f so a lapsed security_freeze stops skipping today's upgrade
-	Factions.apply_security_upgrades()   # ⑤f after ⑤e so a tick's vein income is already banked and spendable
+	Factions.apply_security_upgrades()   # ⑤f after ⑤d so today's income is already banked and spendable
 	Factions.apply_rivalry_resolution()  # ⑤g after ⑤f so income/spend is settled before any vein changes hands
 	Raiding.apply_raid_resolution()      # ⑤h independent of ⑤d-⑤g (player veins/sites, not faction resources)
 	MorningAccountsSystem.capture_losses(morning_context, "Raid")

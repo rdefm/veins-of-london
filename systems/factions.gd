@@ -179,26 +179,6 @@ static func apply_passive_income() -> void:
 		GameState.state["factions"][faction_id]["resources"] += income
 
 
-# ── Daily vein-derived income ────────────────────────────────────────────
-# Same ore-value-to-cash conversion as the player's sell loop (Economy.execute_sale)
-# but automated, with no mugging/district price mod. VEIN_INCOME_DIVISOR is tuned so
-# a fresh tier-1 mid-range vein nets ~£5/day and a tier-5 fate vein ~£30/day.
-const VEIN_INCOME_DIVISOR := 15.0
-
-
-# Daily-tick hook, run after passive income. Skips a vein claimed this same
-# tick so it doesn't earn income before a full day passes (mirrors growth's exemption).
-static func apply_vein_income() -> void:
-	var day: int = GameState.state["world"]["day"]
-	for site in GameState.state["world"]["sites"]:
-		var vein: Variant = site["factionVein"]
-		if vein == null or vein["claimedOnDay"] >= day:
-			continue
-		var base_price: int = GameData.ORE_TYPES[vein["oreType"]]["basePrice"]
-		var income: int = GameState.round_epsilon(base_price * Cultivating.combined_magnitude(vein) / VEIN_INCOME_DIVISOR)
-		GameState.state["factions"][vein["factionId"]]["resources"] += income
-
-
 # ── Daily security-upgrade spend ─────────────────────────────────────────
 # A faction with spare resources quietly hardens its highest-value held vein each
 # tick (same ladder/cost table as the player's upgrade_vein_security()). One upgrade

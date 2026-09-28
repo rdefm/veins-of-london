@@ -131,9 +131,13 @@ Factions become real economic actors in the same London market as the player.
 - Industry income values are retuned smaller. The Conclave's non-calc income is set high.
 
 ### Vein tending and pruning (per faction vein, daily)
-- There is a daily tend chance driven by `cultivateSkill`. On success, growth rises by the player's cultivate gain at that skill.
-- The existing faction prune-back becomes a real prune. It keeps the same threshold and chance rule, and gains a per-archetype depth. It yields ore by the player's prune yield formula into faction holdings and credits ore share.
-- Collapse at zero growth stays the only way a faction vein dies (ADR 0004 unchanged).
+*Revised 2026-09-28 in ticket 07 (human decision): action budget + per-faction approach replace the flat daily chance and the 40% prune roll. Rules live in REFERENCE.md §1.8 `cultivateSkill` + `fieldwork`.*
+- Each faction has a daily action budget (`actionsPerBlock` × 3 blocks), at most one action per vein. Cultivating is not a common skill.
+- Factions aim to keep their veins alive. Tends come first, to veins at/under the faction's `tendAtOrBelow`, lowest growth first. Each tend rolls the player's cult chance at `cultivateSkill`; on success growth rises by the player's cultivate gain at that skill.
+- Leftover actions prune veins at 85+, highest first. Depth = `cultivate_max_gain(cultivateSkill)` × `pruneDepthMult`, never below the faction's `pruneFloor`. Yield uses the player's prune yield formula, goes into holdings, and credits ore share.
+- Per-faction approach knobs: e.g. the Firm prunes below neutral and only tends veins at 30 or lower.
+- Collapse at zero growth stays the only way a faction vein dies (ADR 0004, amended).
+- **Deferred to 4a:** the Firm deliberately raiding/stealing to make up its ore shortfall (an escalation/stance behaviour, not a fieldwork knob).
 
 ### Crafting (per faction, per crafted item, daily)
 - Target holding = the next week's consumption of that item + expected raid-kit use + the sell quota.
@@ -298,6 +302,7 @@ Shares update before Market reprice, and reprice stays last among trading steps.
 - Conclave positioned Ticker pushes and its stabiliser/anti-aggressor objectives: 4a (recorded in the macro spec).
 - Missing-kit combat or odds penalties, if not cheap here: 4a.
 - Raid bias toward specialist ores: 4a.
+- Firm raiding/stealing to make up the ore it doesn't cultivate (pairs with its deep-prune, low-tend `fieldwork`): 4a.
 - Anonymous actors and unmasking: 4a/4b.
 - Network intel products (including revealing stockpiles and running-dry vein kits), stockpile raids and relocation, and weakening floors: 4b.
 - Faction guard wages and walk-off: sub-spec 3 (with the player's guard upkeep).

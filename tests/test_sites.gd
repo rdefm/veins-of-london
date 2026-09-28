@@ -25,14 +25,6 @@ static func _dummy_faction_vein(site_id: String = "s1") -> Dictionary:
 	return { "id": "fv_dummy", "factionId": "collective", "oreType": "time", "growth": 20, "rampantDays": 0, "security": "none", "claimedOnDay": 1, "siteId": site_id, "hospitability": { "tier": "fair", "bonuses": [] } }
 
 
-static func _faction_vein(growth: int, claimed_on_day: int) -> Dictionary:
-	return {
-		"id": "fv_test", "factionId": "collective", "oreType": "time", "growth": growth,
-		"rampantDays": 0, "security": "none", "claimedOnDay": claimed_on_day,
-		"hospitability": { "tier": "fair", "bonuses": [] },
-	}
-
-
 static func _site_with_faction_vein(vein: Dictionary) -> Dictionary:
 	return {
 		"id": "s1", "district": "shoreditch", "tier": "fair", "oreType": "time",
@@ -720,61 +712,6 @@ func run() -> void:
 		assert_eq(queue[1]["type"], "join_line")
 		assert_eq(queue[1]["veinId"], vein["id"])
 		assert_eq(queue[1]["owner"], vein["factionId"])
-	)
-
-	# ── faction vein daily growth (vein-growth-state ticket 01/04) ──────
-	# Faction-vein growth moves via Cultivating.drift_veins() (the same
-	# daily_tick step every vein drifts on — see test_time_system.gd).
-	# roll_faction_vein_growth() only handles the prune-back-at-growth-85
-	# behaviour: without it, every faction vein eventually parks at the
-	# ceiling.
-
-	run_case("roll_faction_vein_growth_never_fires_below_the_85_threshold", func():
-		for seed in range(100):
-			GameState.reset()
-			var vein := _faction_vein(84, 1)
-			GameState.state["world"]["sites"] = [_site_with_faction_vein(vein)]
-			GameState.state["world"]["day"] = 5
-			Rng.set_seed(seed)
-			Sites.roll_faction_vein_growth()
-			assert_eq(Sites.find_site("s1")["factionVein"]["growth"], 84, "growth 84 is below the prune-back threshold — never pruned (seed %d)" % seed)
-	)
-
-	run_case("roll_faction_vein_growth_prunes_a_growth_85_plus_vein_back_to_40_when_it_fires", func():
-		var seed := SeedSearch.find_seed_for(200, func():
-			GameState.reset()
-			var vein := _faction_vein(90, 1)
-			GameState.state["world"]["sites"] = [_site_with_faction_vein(vein)]
-			GameState.state["world"]["day"] = 5
-			Sites.roll_faction_vein_growth()
-			return Sites.find_site("s1")["factionVein"]["growth"] == 40
-		)
-		assert_true(seed != -1, "should find a prune-back hit within 200 tries at growth 90")
-	)
-
-	run_case("roll_faction_vein_growth_fires_at_roughly_40_percent_of_the_time_once_eligible", func():
-		var hits := 0
-		var trials := 500
-		for seed in range(trials):
-			GameState.reset()
-			var vein := _faction_vein(90, 1)
-			GameState.state["world"]["sites"] = [_site_with_faction_vein(vein)]
-			GameState.state["world"]["day"] = 5
-			Rng.set_seed(seed)
-			Sites.roll_faction_vein_growth()
-			if Sites.find_site("s1")["factionVein"]["growth"] == 40:
-				hits += 1
-		var rate: float = float(hits) / trials
-		assert_true(rate > 0.30 and rate < 0.50, "prune-back should fire ~40%% of the time once growth>=85 (got %.2f over %d trials)" % [rate, trials])
-	)
-
-	run_case("roll_faction_vein_growth_ignores_unclaimed_sites", func():
-		GameState.reset()
-		GameState.state["world"]["sites"] = [_make_site("s1", "shoreditch", "fair", 1)]
-		GameState.state["world"]["day"] = 5
-		Rng.set_seed(1)
-		Sites.roll_faction_vein_growth()
-		assert_eq(Sites.find_site("s1")["factionVein"], null, "an unclaimed site has no factionVein to grow — no crash")
 	)
 
 	# ── soak: siteCap never permanently locks out prospecting ───────

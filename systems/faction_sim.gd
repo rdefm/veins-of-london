@@ -87,6 +87,84 @@ static func take_items(faction_id: String, recipe_key: String, qty: int) -> Arra
 	return taken
 
 
+# ── Vein tending and pruning (spec §Vein tending and pruning) ────────────
+# Rollover step: each faction spends fieldwork.actionsPerBlock ×
+# BLOCKS_PER_DAY actions, at most one per vein. Tends go first, to veins
+# at/under fieldwork.tendAtOrBelow, lowest growth first (a vein parked at
+# neutral never drifts, so 50 still needs a tend): a get_cult_chance roll at
+# cultivateSkill, then the player's cultivate gain. Leftover actions prune
+# veins at factionPruneThreshold+, highest growth first, cutting
+# cultivate_max_gain × pruneDepthMult but never below pruneFloor; the
+# player's prune yield lands in holdings and the faction's ore share.
+static func tend_and_prune() -> void:
+	var veins_by_faction := {}
+	for site in GameState.state["world"]["sites"]:
+		var vein: Variant = site["factionVein"]
+		if vein == null:
+			continue
+		if not veins_by_faction.has(vein["factionId"]):
+			veins_by_faction[vein["factionId"]] = []
+		veins_by_faction[vein["factionId"]].append(vein)
+	for faction_id in GameData.FACTIONS:
+		_tend_and_prune_faction(faction_id, veins_by_faction.get(faction_id, []))
+
+
+static func _tend_and_prune_faction(faction_id: String, veins: Array) -> void:
+	var data: Dictionary = GameData.FACTIONS[faction_id]
+	var fieldwork: Dictionary = data["fieldwork"]
+	var skill: int = data["cultivateSkill"]
+	var budget: int = int(fieldwork["actionsPerBlock"]) * TimeSystem.BLOCKS_PER_DAY
+	var acted := {}
+
+	var to_tend: Array = veins.filter(func(v): return v["growth"] <= fieldwork["tendAtOrBelow"])
+	to_tend.sort_custom(func(a, b): return _growth_order(a, b, true))
+	for vein in to_tend:
+		if budget <= 0:
+			return
+		budget -= 1
+		acted[vein["id"]] = true
+		if Rng.chance(Cultivating.get_cult_chance(skill)):
+			_tend(vein, skill)
+
+	var to_prune: Array = veins.filter(func(v): return not acted.has(v["id"]) and v["growth"] >= GameData.VEIN_GROWTH["factionPruneThreshold"])
+	to_prune.sort_custom(func(a, b): return _growth_order(a, b, false))
+	var max_depth: int = Cultivating.cultivate_max_gain(skill) * int(fieldwork["pruneDepthMult"])
+	for vein in to_prune:
+		if budget <= 0:
+			return
+		var depth: int = mini(max_depth, vein["growth"] - int(fieldwork["pruneFloor"]))
+		if depth <= 0:
+			continue
+		budget -= 1
+		_prune(faction_id, vein, depth)
+
+
+# Ties break on siteId so the order never depends on site-list position.
+static func _growth_order(a: Dictionary, b: Dictionary, ascending: bool) -> bool:
+	if a["growth"] != b["growth"]:
+		return a["growth"] < b["growth"] if ascending else a["growth"] > b["growth"]
+	return str(a.get("siteId", "")) < str(b.get("siteId", ""))
+
+
+static func _tend(vein: Dictionary, skill: int) -> void:
+	var vein_ceiling: int = Cultivating.ceiling(vein)
+	var growth_before: int = vein["growth"]
+	vein["growth"] = clampi(growth_before + Cultivating.cultivate_gain(skill, growth_before, vein_ceiling), 0, vein_ceiling)
+	if vein["growth"] < vein_ceiling:
+		vein["rampantDays"] = 0
+	Cultivating.apply_growth_change(vein, growth_before)
+
+
+static func _prune(faction_id: String, vein: Dictionary, depth: int) -> void:
+	var amount: int = Cultivating.prune_yield(vein, depth)
+	var growth_before: int = vein["growth"]
+	vein["growth"] = Cultivating.prune_resulting_growth(vein, depth)
+	vein["rampantDays"] = 0
+	Cultivating.apply_growth_change(vein, growth_before)
+	add_ore(faction_id, vein["oreType"], amount)
+	Shares.record_ore(faction_id, vein["oreType"], amount)
+
+
 # Districts whose factionPresence is this faction, in GameData.DISTRICTS order.
 static func home_districts(faction_id: String) -> Array:
 	var homes: Array = []

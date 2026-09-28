@@ -59,4 +59,11 @@ drift-model math above, not from a hard target vein count.
 half only — adr/0002's `siteCap`/claim-state/reroll-eligibility decisions
 are unaffected and still stand.
 
+**Amended (2026-09-28, biz-act2-faction-economy 07):** the prune-back
+reset is replaced by real faction tending and pruning
+(`FactionSim.tend_and_prune()`, REFERENCE.md §1.8). Collapse at zero is
+still the only way a faction vein dies; the new counterweight to the
+"immortal vein" worry is tending being a limited per-faction action budget,
+so an under-tended vein still decays to zero.
+
 **Status:** accepted (2026-08-24, bugfixes-73/`.scratch/0-bugfixes/issues/73-faction-vein-churn-balance.md`, executing the previously-unactioned bugfixes-40).

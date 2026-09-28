@@ -20,6 +20,7 @@
   "cultivateGainMinOffset": 5,
   "cultivateGainMaxOffset": 9,
   "collapseChancePerDay": 0.15,
+  "factionPruneThreshold": 85,
   "seedGrowth": 20,
   "rampantSeedDays": 5,
   "selfSeedGrowth": 60,
