@@ -56,7 +56,7 @@ Data file per system: see `data/*.json` below.
 | jobs.gd | James's jobs, trust bands |
 | lab_bench_nav.gd | Lab bench nav: selected ore; gear confirm variant (probe/craft/inert) + readiness |
 | map_events.gd | Map event queue + playback |
-| market.gd | London market (R§3.13): per-good stock/price/history, quote/yesterday/2-day average, supply/demand recording, daily reprice (⑥.6: items by Ticker demand, ores by item shortages), bounded annotations (Ticker shift/dump/spike/crash), bounded contract-delivery log, Stock Market reads (series, ore demand drivers, demand modifiers) |
+| market.gd | London market (R§3.13): per-good stock/price/history, quote/yesterday/2-day average, supply/demand recording, civilian demand + Independents slice, daily reprice (⑥.6: items by Ticker demand, ores by item shortages), bounded annotations (Ticker shift/dump/spike/crash), bounded contract-delivery log, Stock Market reads (series, ore demand drivers, demand modifiers) |
 | map_hit_test.gd | Tap-hit geometry, Network diagram |
 | map_layout.gd | Resolves stops vs. live sites/veins |
 | map_nav.gd | Map drill-down nav (list → panel → site sheet or vein detail panel, mutually exclusive) |
@@ -83,7 +83,7 @@ Data file per system: see `data/*.json` below.
 | raiding.gd | Vein stealth-check + raid resolution |
 | relation_accrual.gd | Capped £ relation meter |
 | rooms.gd | Per-block staff step (one action per cultivator, then producers take turns crafting until targets met or ore short), writes/trims `productionLog`, Production targets/priority and when they are settable, per-cultivator vein lists (`cultivatorVeins`) and per-vein targets |
-| shares.gd | Shares: 14-day daily buckets per producer (player, factions, independents) of ore harvested, ore spent on successful crafts, contract deliveries and faction London buys; pure ore/crafting share, overview, delivery and supplier-share reads (split + intake) (R§3.14) |
+| shares.gd | Shares: 14-day daily buckets per producer (player, factions, independents) of ore harvested, ore spent on successful crafts, contract deliveries and faction London buys; Independents slice crediting (⑥.5e); pure ore/crafting share, overview, delivery and supplier-share reads (split + intake) (R§3.14) |
 | sites.gd | Sites & prospecting |
 | stash.gd | Personal stash vs. shared pools |
 | station_bubble.gd | Site/vein-stop tap-bubble decision |
@@ -240,7 +240,7 @@ overlays.
 | hq_visuals.json | hq_diorama.gd, hq*.gd screens |
 | items.json | combat.gd, profile_app.gd, bag_drawer.gd |
 | map_layout.json | map_layout.gd, map_hit_test.gd |
-| market.json | market.gd (constants, sim start, ore conversion rate, annotation cap/thresholds, delivery-log cap, per-good normalStock/stand-in supply/demand) |
+| market.json | market.gd (constants, sim start, ore conversion rate, annotation cap/thresholds, delivery-log cap, independentsShare, per-good normalStock/civilianDemand); shares.gd (independentsShare) |
 | map_palette.json | GameData.gd (validated) + map_palette.gd (Map tab light/dark colour tokens, faction/ore dark overrides) + map_controls.gd (`darkModeLabel`) |
 | objectives.json | objectives.gd, todo.gd, collective.gd, business_quest.gd |
 | offers.json | offers.gd (synthetic catalogue, scripted counterparties, offer expiry days, recurring term weeks, small-offer threshold, cancel relation hit), business_quest.gd (biz_starter_* chain + Archie nudge text, biz_recurring_* from Beat 3/6) |

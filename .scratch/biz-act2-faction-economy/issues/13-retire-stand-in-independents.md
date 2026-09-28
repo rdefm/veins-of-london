@@ -16,9 +16,11 @@ Spec: §Independents slice, §Module layout (Market), Further Notes.
 
 **Status:** ready-for-agent
 
-- [ ] No `standInSupply` in code or data; civilian demand named as such
-- [ ] `independentsShare` 0 removes slice and row
-- [ ] Above 0, shares across all producers sum to 100%
-- [ ] Idle London prices stay sane over a seeded multi-day run
-- [ ] Faction-trading switch-off in `test_market.gd` `_tick()` revisited (removed, or kept with reason)
-- [ ] REFERENCE.md + CODEMAP updated
+- [x] No `standInSupply` in code or data; civilian demand named as such
+- [x] `independentsShare` 0 removes slice and row
+- [x] Above 0, shares across all producers sum to 100%
+- [x] Idle London prices stay sane over a seeded multi-day run
+- [x] Faction-trading switch-off in `test_market.gd` `_tick()` revisited (removed, or kept with reason)
+- [x] REFERENCE.md + CODEMAP updated
+
+**Resolution notes:** Independents supply = `independentsShare` × `civilianDemand` per good (human decision 2026-09-28). Placeholders: share 0.9, ore normalStock 300, items normalStock 40 / civilianDemand 20 (at 20/10, whole-unit rounding pinned items at 19-20 and swallowed Ticker effects), `oreConversionRate` 0.75 (keeps derived ore demand per proportional item shortage as before). `_tick()` faction-trading switch-off kept, reason in its comment; real-London sanity covered by `idle_london_stays_sane_with_factions_trading`.

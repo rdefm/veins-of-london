@@ -8,8 +8,11 @@ func _time() -> Dictionary:
 
 
 # Rollovers with faction London trading switched off (no sells, no buys), so
-# these cases pin Market's own maths against stand-in London; faction trading
-# is covered in test_faction_sim.gd.
+# these cases pin Market's own maths against civilian demand and the
+# Independents slice. Faction trading volumes are placeholders until the
+# faction economy is pinned, so they'd make every pinned price here move
+# with faction tuning; faction trading is covered in test_faction_sim.gd,
+# and real-London sanity by idle_london_stays_sane_with_factions_trading.
 func _tick(days: int) -> void:
 	var saved := {}
 	for faction_id in GameData.FACTIONS:
@@ -25,7 +28,7 @@ func _tick(days: int) -> void:
 
 
 func _resting_price(kind: String, good_type: String) -> int:
-	return Market.target_price(kind, good_type, Market.resting_stock(kind, good_type))
+	return Market.target_price(kind, good_type, GameState.round_epsilon(Market.resting_stock(kind, good_type)))
 
 
 # Makes state_id the active state on its axis with progress pinned so the
@@ -88,6 +91,18 @@ func run() -> void:
 		_tick(3)
 		assert_eq(Market.quote("ore", "time"), idle, "and holds there")
 		assert_eq(_time()["history"].size(), 13, "one history entry per rollover")
+	)
+
+	run_case("idle_london_stays_sane_with_factions_trading", func():
+		GameState.reset()
+		Rng.set_seed(13)
+		for i in range(30):
+			GameState.state["world"]["day"] += 1
+			TimeSystem.daily_tick()
+		for kind in Market.KINDS:
+			for good_type in GameState.state["market"]["goods"][kind]:
+				var mult: float = float(Market.quote(kind, good_type)) / Market.base_price(kind, good_type)
+				assert_true(mult >= 0.5 and mult <= 2.0, "%s %s idles at %.2fx base after 30 real days" % [kind, good_type, mult])
 	)
 
 	run_case("history_is_bounded", func():
@@ -191,7 +206,7 @@ func run() -> void:
 		GameState.state["market"] = Market.new_state(true)
 		_set_ticker("political", "war")
 		for i in range(5):
-			Market.record_supply("consumable", "shield", 6, "player")
+			Market.record_supply("consumable", "shield", 12, "player")
 			_tick(1)
 		var filled: int = _price("ore", "physics")
 		assert_true(filled < unfilled, "crafting shields cools physics (%d vs %d)" % [filled, unfilled])

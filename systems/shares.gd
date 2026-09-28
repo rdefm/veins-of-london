@@ -12,11 +12,13 @@ const PLAYER := "player"
 const INDEPENDENTS := "independents"
 
 
-# player, the five factions (data order), independents.
+# player, the five factions (data order), independents -- the last only
+# while market.json independentsShare is above 0.
 static func producers() -> Array:
 	var ids: Array = [PLAYER]
 	ids.append_array(GameData.FACTIONS.keys())
-	ids.append(INDEPENDENTS)
+	if float(GameData.MARKET["independentsShare"]) > 0.0:
+		ids.append(INDEPENDENTS)
 	return ids
 
 
@@ -75,6 +77,23 @@ static func record_london_buy(faction_id: String, amount: int) -> void:
 	if not bucket.has("londonBuys"):
 		bucket["londonBuys"] = {}
 	bucket["londonBuys"][faction_id] = int(bucket["londonBuys"].get(faction_id, 0)) + amount
+
+
+# Rollover step: credits today's Independents slice of London supply --
+# ore to the ore tally, items to the craft tally by recipe ingredient
+# weight. Nothing when independentsShare is 0 or the market isn't running.
+static func record_independents() -> void:
+	if not Market.is_running():
+		return
+	for ore_type in GameData.MARKET["goods"]["ore"]:
+		record_ore(INDEPENDENTS, ore_type, GameState.round_epsilon(Market.independents_supply("ore", ore_type)))
+	for recipe_key in GameData.MARKET["goods"]["consumable"]:
+		var supplied: float = Market.independents_supply("consumable", recipe_key)
+		var ingredients: Dictionary = GameData.RECIPES[recipe_key]["ingredients"]
+		var costs := {}
+		for ore_type in ingredients:
+			costs[ore_type] = GameState.round_epsilon(supplied * float(ingredients[ore_type]))
+		record_craft(INDEPENDENTS, costs)
 
 
 # Rollover step: drops buckets older than SHARES_DAYS (today included).

@@ -82,7 +82,7 @@ var FACTIONS: Dictionary = {}
 # Per-faction trade lane config, read by Economy.get_faction_*.
 var FACTION_TRADE: Dictionary = {}
 
-# London market constants and per-good stand-in volumes, read by Market.
+# London market constants, Independents share and per-good civilian volumes, read by Market.
 var MARKET: Dictionary = {}
 
 var DISTRICTS: Dictionary = {}
@@ -833,11 +833,15 @@ const CANONICAL_DISTRICT_IDS: Array[String] = [
 ]
 
 
-# Every ore type and every priced consumable is a market good with stand-in volumes.
+# Every ore type and every priced consumable is a market good with a normal
+# stock and civilian demand; independentsShare is a fraction in [0, 1].
 func _validate_market(market: Dictionary, ore_types: Dictionary, consumable_prices: Dictionary, errors: Array[String]) -> void:
-	_require_keys(market, ["simStart", "priceMinMult", "priceMaxMult", "curveExponent", "reversion", "smoothing", "historyDays", "oreConversionRate", "goods"], "market", errors)
+	_require_keys(market, ["simStart", "priceMinMult", "priceMaxMult", "curveExponent", "reversion", "smoothing", "historyDays", "oreConversionRate", "independentsShare", "goods"], "market", errors)
 	if not ["day1", "bizA2"].has(market.get("simStart")):
 		errors.append("market.simStart: expected 'day1' or 'bizA2', got '%s'" % str(market.get("simStart")))
+	var share: float = float(market.get("independentsShare", 0.0))
+	if share < 0.0 or share > 1.0:
+		errors.append("market.independentsShare: expected 0..1, got %s" % str(share))
 	var goods: Dictionary = market.get("goods", {})
 	var expected := { "ore": ore_types.keys(), "consumable": consumable_prices.keys() }
 	for kind in expected:
@@ -846,7 +850,7 @@ func _validate_market(market: Dictionary, ore_types: Dictionary, consumable_pric
 			if not table.has(good_type):
 				errors.append("market.goods.%s: missing '%s'" % [kind, good_type])
 				continue
-			_require_keys(table[good_type], ["normalStock", "standInSupply", "standInDemand"], "market.goods.%s.%s" % [kind, good_type], errors)
+			_require_keys(table[good_type], ["normalStock", "civilianDemand"], "market.goods.%s.%s" % [kind, good_type], errors)
 
 
 func _validate_districts(districts: Dictionary, ore_types: Dictionary, errors: Array[String]) -> void:

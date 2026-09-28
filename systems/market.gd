@@ -27,11 +27,17 @@ static func _normal_stock(kind: String, good_type: String) -> float:
 	return float(_config()["goods"][kind][good_type]["normalStock"])
 
 
-# Stand-in London: the single read point for the rest of London's daily
-# volume per good, { supply, demand }.
-static func _stand_in(kind: String, good_type: String) -> Dictionary:
-	var entry: Dictionary = _config()["goods"][kind][good_type]
-	return { "supply": float(entry["standInSupply"]), "demand": float(entry["standInDemand"]) }
+# London's daily civilian consumption of a good before any Ticker scaling;
+# also the good's London volume for the Independents slice and annotation
+# thresholds.
+static func civilian_demand(kind: String, good_type: String) -> float:
+	return float(_config()["goods"][kind][good_type]["civilianDemand"])
+
+
+# The Independents slice (R§3.13): steady daily supply of
+# independentsShare × civilian demand; 0 when the share is 0.
+static func independents_supply(kind: String, good_type: String) -> float:
+	return float(_config()["independentsShare"]) * civilian_demand(kind, good_type)
 
 
 # The sim-start switch (market.json simStart): "day1" runs from the first
@@ -52,19 +58,19 @@ static func target_price(kind: String, good_type: String, stock: float) -> int:
 	return GameState.round_epsilon(base * mult)
 
 
-# Stock where stand-in flow and reversion cancel out with no player trade
-# and no Ticker effect. An ore's resting demand includes the derived demand
-# from every item sitting at its own (whole-unit) resting stock.
+# Stock where the Independents slice, civilian demand and reversion cancel
+# out with no player or faction trade and no Ticker effect. An ore's resting
+# demand includes the derived demand from every item sitting at its own
+# (whole-unit) resting stock.
 static func resting_stock(kind: String, good_type: String) -> float:
 	var reversion: float = _config()["reversion"]
-	var flow: Dictionary = _stand_in(kind, good_type)
-	var demand: float = flow["demand"]
+	var demand: float = civilian_demand(kind, good_type)
 	if kind == "ore":
 		var item_stocks := {}
 		for recipe_key in _config()["goods"]["consumable"]:
 			item_stocks[recipe_key] = GameState.round_epsilon(resting_stock("consumable", recipe_key))
 		demand += _derived_ore_demand(good_type, item_stocks)
-	return _normal_stock(kind, good_type) + (flow["supply"] - demand) * (1.0 - reversion) / reversion
+	return _normal_stock(kind, good_type) + (independents_supply(kind, good_type) - demand) * (1.0 - reversion) / reversion
 
 
 # Ore demand from item shortages (R§3.13): Σ over recipes of
@@ -230,8 +236,9 @@ static func _tally(side: String, kind: String, good_type: String) -> int:
 
 # Rollover step: per good, stock takes today's flow (floored at 0), reverts
 # toward normalStock (whole units), and price moves a smoothing fraction
-# toward target. Items reprice first, their stand-in demand scaled by the
-# Ticker; each ore's demand then adds the shortages of today's item stocks.
+# toward target. Supply is the Independents slice plus recorded trades.
+# Items reprice first, their civilian demand scaled by the Ticker; each
+# ore's demand then adds the shortages of today's item stocks.
 static func daily_reprice() -> void:
 	if not is_running():
 		return
@@ -244,9 +251,8 @@ static func daily_reprice() -> void:
 	for kind in KINDS:
 		for good_type in market["goods"][kind]:
 			var good: Dictionary = market["goods"][kind][good_type]
-			var flow: Dictionary = _stand_in(kind, good_type)
-			var supply: float = flow["supply"] + _tally("supply", kind, good_type)
-			var baseline: float = flow["demand"]
+			var supply: float = independents_supply(kind, good_type) + _tally("supply", kind, good_type)
+			var baseline: float = civilian_demand(kind, good_type)
 			if kind == "consumable":
 				baseline *= Barometer.get_item_demand_mult(good_type)
 			else:
@@ -297,23 +303,22 @@ static func _shift_touches(shift: Dictionary, kind: String, good_type: String) -
 
 
 # Appends today's annotations for one good: Ticker shifts touching it, each
-# source's supply above dumpVolumeMult × standInSupply, each faction's buy
-# above dumpVolumeMult × standInDemand, and a day move of at
-# least moveThreshold × yesterday's price. Runs before tallies clear.
+# source's supply and each faction's buy above dumpVolumeMult × civilian
+# demand, and a day move of at least moveThreshold × yesterday's price.
+# Runs before tallies clear.
 static func _annotate_day(kind: String, good_type: String, ticker_shifts: Array, old_price: int, new_price: int) -> void:
 	var cfg: Dictionary = _config()["annotations"]
 	for shift in ticker_shifts:
 		if _shift_touches(shift, kind, good_type):
 			_annotate(kind, good_type, "ticker", shift["state"], 0)
-	var dump_line: float = float(cfg["dumpVolumeMult"]) * float(_stand_in(kind, good_type)["supply"])
+	var volume_line: float = float(cfg["dumpVolumeMult"]) * civilian_demand(kind, good_type)
 	var by_source: Dictionary = _market()["supply"][kind].get(good_type, {})
 	for source in by_source:
-		if float(by_source[source]) > dump_line:
+		if float(by_source[source]) > volume_line:
 			_annotate(kind, good_type, "dump", source, int(by_source[source]))
-	var buy_line: float = float(cfg["dumpVolumeMult"]) * float(_stand_in(kind, good_type)["demand"])
 	var bought: Dictionary = _market()["demand"][kind].get(good_type, {})
 	for source in bought:
-		if GameData.FACTIONS.has(source) and float(bought[source]) > buy_line:
+		if GameData.FACTIONS.has(source) and float(bought[source]) > volume_line:
 			_annotate(kind, good_type, "buy", source, int(bought[source]))
 	var move: int = new_price - old_price
 	if old_price > 0 and absf(float(move)) >= float(cfg["moveThreshold"]) * old_price:

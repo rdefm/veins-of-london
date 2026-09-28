@@ -133,6 +133,8 @@ func run() -> void:
 	# ── rollover + save ────────────────────────────────────────────────
 
 	run_case("after_14_days_current_and_prior_week_both_report", func():
+		var saved_share: float = GameData.MARKET["independentsShare"]
+		GameData.MARKET["independentsShare"] = 0.0
 		GameState.reset()
 		for i in range(14):
 			if i > 0:
@@ -140,11 +142,55 @@ func run() -> void:
 				TimeSystem.daily_tick()
 			Shares.record_ore("player", "time", 5)
 			Shares.record_ore("firm", "time", 15)
+		GameData.MARKET["independentsShare"] = saved_share
 		assert_eq(GameState.state["world"]["day"], 14)
 		assert_eq(Shares.window_totals("ore", 0)["player"]["time"], 35, "days 8..14")
 		assert_eq(Shares.window_totals("ore", 1)["player"]["time"], 35, "days 1..7 all kept")
 		assert_eq(Shares.ore_share("player", "time", 0), 0.25)
 		assert_eq(Shares.ore_share("player", "time", 1), 0.25)
+	)
+
+	# ── Independents slice ─────────────────────────────────────────────
+
+	run_case("independents_share_zero_removes_the_slice_and_the_row", func():
+		var saved_share: float = GameData.MARKET["independentsShare"]
+		GameData.MARKET["independentsShare"] = 0.0
+		GameState.reset()
+		GameState.state["world"]["day"] += 1
+		TimeSystem.daily_tick()
+		var ore_table := Shares.overview("ore")
+		var craft_totals := Shares.window_totals("craft")
+		var ore_totals := Shares.window_totals("ore")
+		GameState.reset()
+		Market.daily_reprice()
+		var unsupplied: int = GameState.state["market"]["goods"]["ore"]["time"]["stock"]
+		GameData.MARKET["independentsShare"] = saved_share
+		GameState.reset()
+		Market.daily_reprice()
+		var supplied: int = GameState.state["market"]["goods"]["ore"]["time"]["stock"]
+		assert_true(not ore_table.has("independents"), "no Independents row at share 0")
+		assert_true(not ore_totals.has("independents"), "no Independents ore credited")
+		assert_true(not craft_totals.has("independents"), "no Independents craft credited")
+		assert_true(unsupplied < supplied, "no slice, less London stock (%d vs %d)" % [unsupplied, supplied])
+	)
+
+	run_case("independents_slice_credits_shares_and_all_producers_sum_to_one", func():
+		GameState.reset()
+		Rng.set_seed(7)
+		Shares.record_ore("firm", "physics", 40)
+		Shares.record_ore("player", "time", 12)
+		Shares.record_craft("guild", { "time": 6, "life": 3 })
+		GameState.state["world"]["day"] += 1
+		TimeSystem.daily_tick()
+		for tally in ["ore", "craft"]:
+			var table := Shares.overview(tally)
+			assert_true(table.has("independents"), "%s table has an Independents row" % tally)
+			for ore_type in GameData.CANONICAL_ORE_TYPES:
+				var total := 0.0
+				for producer in table:
+					total += float(table[producer][ore_type])
+				assert_true(absf(total - 1.0) < 0.000001, "%s %s shares sum to 100%%, got %f" % [tally, ore_type, total])
+				assert_true(float(table["independents"][ore_type]) > 0.0, "Independents hold some %s %s" % [tally, ore_type])
 	)
 
 	run_case("buckets_survive_save_and_load_as_ints", func():
