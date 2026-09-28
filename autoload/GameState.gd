@@ -387,7 +387,7 @@ func _new_factions_state() -> Dictionary:
 		factions[faction_id] = {
 			"relation": 0,
 			"joined": false,
-			# Ledger balance, distinct from factions.json's `resourceLevel`
+			# The faction's £ wallet, never below 0; distinct from factions.json's `resourceLevel`
 			# (security-roll opulence input); startingResources tiers
 			# scrappiest to richest: Collective < Firm/Network < Guild/Conclave.
 			"resources": GameData.FACTIONS[faction_id].get("startingResources", 0),
@@ -401,11 +401,9 @@ func _new_factions_state() -> Dictionary:
 			# has a configured rate in Act 1; present elsewhere for schema
 			# uniformity.
 			"tradeProgress": 0,
-			# Independently-scarce per-ore stock the buy lane draws against
-			# -- { oreType: int }, absent = 0. Only rolled for "collective"
-			# this milestone; independent of relation, which narrows
-			# buy/sell spread, never this ceiling.
-			"oreStock": {},
+			# What the faction's shop sells and buys into (FactionSim):
+			# { ore: { oreType: int }, items: { recipeKey: { "<tier>": int } } }.
+			"holdings": FactionSim.starting_holdings(faction_id),
 		}
 	return factions
 

@@ -111,6 +111,7 @@ func run() -> void:
 			"t1": _objective("t1", "traded_with_faction", { "factionId": "collective", "oreType": "emotion", "qty": 10, "minTransactions": 2 }),
 		})
 		GameState.state["flags"]["testActive"] = true
+		GameState.state["factions"]["collective"]["resources"] = 100000
 		Objectives.refresh()  # activates, stamps baseline at 0/0
 
 		GameState.state["player"]["orichalchum"]["emotion"] = 20
@@ -536,6 +537,7 @@ func run() -> void:
 	run_case("execute_faction_sale_accumulates_oreSold_units_and_transactions", func():
 		GameState.reset()
 		GameState.state["player"]["orichalchum"]["time"] = 20
+		GameState.state["factions"]["collective"]["resources"] = 100000
 		Economy.execute_faction_sale("collective", [{ "kind": "ore", "type": "time", "qty": 5 }])
 		Economy.execute_faction_sale("collective", [{ "kind": "ore", "type": "time", "qty": 3 }])
 		var entry: Dictionary = GameState.state["factions"]["collective"]["oreSold"]["time"]

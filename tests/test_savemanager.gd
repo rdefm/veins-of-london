@@ -195,6 +195,36 @@ func run() -> void:
 		assert_eq(GameState.state["contacts"]["archie"]["assignedRole"], null, "the player's own choice once the Staff tab is open")
 	)
 
+	run_case("faction_holdings_round_trip_with_int_counts", func():
+		GameState.reset()
+		FactionSim.add_item("guild", "timePearl", 3, 2)
+		FactionSim.add_ore("firm", "fate", 7)
+		var guild_pearls: Dictionary = GameState.state["factions"]["guild"]["holdings"]["items"]["timePearl"].duplicate()
+		assert_true(SaveManager.import_string(SaveManager.export_string())["ok"])
+		assert_eq(GameState.state["factions"]["guild"]["holdings"]["items"]["timePearl"], guild_pearls)
+		assert_eq(FactionSim.ore_held("firm", "fate"), 7)
+		assert_eq(typeof(GameState.state["factions"]["firm"]["holdings"]["ore"]["fate"]), TYPE_INT)
+		assert_eq(typeof(GameState.state["factions"]["guild"]["holdings"]["items"]["timePearl"]["3"]), TYPE_INT)
+	)
+
+	run_case("old_save_ore_stock_migrates_into_backfilled_holdings_and_keeps_cash", func():
+		GameState.reset()
+		for faction_id in GameState.state["factions"]:
+			GameState.state["factions"][faction_id].erase("holdings")
+			GameState.state["factions"][faction_id]["oreStock"] = {}
+		GameState.state["factions"]["collective"]["oreStock"] = { "life": 5, "time": 9 }
+		GameState.state["factions"]["collective"]["resources"] = 37
+		assert_true(SaveManager.import_string(SaveManager.export_string())["ok"])
+		var collective: Dictionary = GameState.state["factions"]["collective"]
+		assert_true(not collective.has("oreStock"), "oreStock is dropped")
+		var start := FactionSim.starting_holdings("collective")
+		assert_eq(FactionSim.ore_held("collective", "life"), int(start["ore"]["life"]) + 5, "old stock adds onto the backfill")
+		assert_eq(FactionSim.ore_held("collective", "time"), 9)
+		assert_eq(collective["holdings"]["items"], start["items"], "items backfilled at starting stock")
+		assert_eq(collective["resources"], 37, "faction cash unchanged")
+		assert_eq(GameState.state["factions"]["conclave"]["holdings"], FactionSim.starting_holdings("conclave"))
+	)
+
 	run_case("old_save_arrears_day_clock_migrates_to_whole_weeks", func():
 		GameState.reset()
 		GameState.state["home"]["arrears"] = 300

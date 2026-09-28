@@ -298,48 +298,42 @@ static func get_faction_sell_price(faction_id: String, kind: String, item_type: 
 
 
 # The Guild marketplace's and sell menu's buy-row qty sliders need a
-# buy-side affordability ceiling (cash / price), unlike the raw-stock
-# sell-side ceiling. An ore row is
-# further capped by the faction's oreStock when present -- only "collective"
-# ever has entries, so every other faction stays cash-only; consumables have no stock concept.
+# buy-side ceiling: what the budget affords, capped by what the faction
+# holds (FactionSim holdings, ore and items alike).
 # budget < 0 means the player's cash; a business purchase passes its own.
 static func get_faction_buy_max_qty(faction_id: String, kind: String, item_type: String, budget: int = -1, apply_district: bool = true) -> int:
 	var price := get_faction_buy_price(faction_id, kind, item_type, apply_district)
 	var cash: int = GameState.state["player"]["cash"] if budget < 0 else budget
 	var affordable := int(floor(float(cash) / float(maxi(price, 1))))
-	if kind == "ore":
-		var stock: Dictionary = GameState.state["factions"][faction_id]["oreStock"]
-		if stock.has(item_type):
-			affordable = mini(affordable, int(stock[item_type]))
-	return affordable
+	return mini(affordable, FactionSim.held(faction_id, kind, item_type))
 
 
 # items: [{ kind:"ore"|"consumable", type:String, qty:int }, ...]. All-or-
-# nothing against both cash and oreStock (when present): a purchase
-# exceeding either is rejected outright, never partially filled.
+# nothing against both cash and holdings: a purchase exceeding either is
+# rejected outright, never partially filled. The price lands in the
+# faction's resources; items arrive at the tiers held, highest first.
 static func execute_faction_purchase(faction_id: String, items: Array) -> Dictionary:
 	if items.is_empty():
 		return { "ok": false, "reason": "Nothing to buy." }
 
 	var player: Dictionary = GameState.state["player"]
 	var total_cost := 0
-	var ore_qty_totals: Dictionary = {}
+	var qty_totals: Dictionary = {}
 	for item in items:
 		var price_per_unit := get_faction_buy_price(faction_id, item["kind"], item["type"])
 		total_cost += price_per_unit * int(item["qty"])
-		if item["kind"] == "ore":
-			var ore_type: String = item["type"]
-			ore_qty_totals[ore_type] = ore_qty_totals.get(ore_type, 0) + int(item["qty"])
+		var key := [item["kind"], item["type"]]
+		qty_totals[key] = qty_totals.get(key, 0) + int(item["qty"])
 
 	if player["cash"] < total_cost:
 		return { "ok": false, "reason": "Not enough cash." }
 
-	var stock: Dictionary = GameState.state["factions"][faction_id]["oreStock"]
-	for ore_type in ore_qty_totals.keys():
-		if stock.has(ore_type) and ore_qty_totals[ore_type] > int(stock[ore_type]):
+	for key in qty_totals:
+		if qty_totals[key] > FactionSim.held(faction_id, key[0], key[1]):
 			return { "ok": false, "reason": "Not enough stock." }
 
 	player["cash"] -= total_cost
+	GameState.state["factions"][faction_id]["resources"] += total_cost
 	Bank.record(-total_cost, "%s purchase" % faction_id.capitalize())
 	for item in items:
 		var kind: String = item["kind"]
@@ -351,9 +345,8 @@ static func execute_faction_purchase(faction_id: String, items: Array) -> Dictio
 			receive_faction_ore(faction_id, item_type, qty)
 			Market.record_demand("ore", item_type, qty, "player")
 		else:
-			# Store-bought stock wasn't crafted at any tier -- files under the
-			# same "0" untiered bucket as legacy saves.
-			Crafting.inventory_add(item_type, 0, qty)
+			for leg in FactionSim.take_items(faction_id, item_type, qty):
+				Crafting.inventory_add(item_type, leg["tier"], leg["qty"])
 			Market.record_demand("consumable", item_type, qty, "player")
 	EventBus.state_changed.emit()
 	SaveManager.autosave()  # R§6: autosave on purchase
@@ -361,31 +354,44 @@ static func execute_faction_purchase(faction_id: String, items: Array) -> Dictio
 
 
 # The stock side of buying ore from a faction lane, shared by the player's
-# purchase and the business's calc purchases: the lane's oreStock (when
-# tracked) drops, shared stock rises, and Sales re-checks deliveries.
+# purchase and the business's calc purchases: the faction's holdings drop,
+# shared stock rises, and Sales re-checks deliveries. Payment is the
+# caller's to settle.
 static func receive_faction_ore(faction_id: String, ore_type: String, qty: int) -> void:
 	var orichalchum: Dictionary = GameState.state["player"]["orichalchum"]
 	orichalchum[ore_type] = orichalchum.get(ore_type, 0) + qty
-	var stock: Dictionary = GameState.state["factions"][faction_id]["oreStock"]
-	if stock.has(ore_type):
-		stock[ore_type] -= qty
+	FactionSim.take_ore(faction_id, ore_type, qty)
 
 
 # Whether the player can currently buy from a faction lane: a member-only
-# lane needs membership; the Collective's lane opens with its Act 1 intro.
+# lane needs membership; any other lane opens with its unlockFlag.
 static func can_buy_from_faction(faction_id: String) -> bool:
 	var config: Dictionary = GameData.FACTION_TRADE[faction_id]
 	if config.get("memberOnly", false):
 		return bool(GameState.state["factions"][faction_id]["joined"])
-	if faction_id == "collective":
-		return bool(GameState.state["flags"].get("collectiveLaneUnlocked", false))
-	return true
+	var unlock_flag: String = config.get("unlockFlag", "")
+	return unlock_flag != "" and bool(GameState.state["flags"].get(unlock_flag, false))
+
+
+# How many units of one good the faction's resources can pay for -- the sell
+# rows' ceiling beside what the player has.
+static func get_faction_sell_max_qty(faction_id: String, kind: String, item_type: String) -> int:
+	var price := get_faction_sell_price(faction_id, kind, item_type)
+	var resources: int = GameState.state["factions"][faction_id]["resources"]
+	return int(floor(float(resources) / float(maxi(price, 1))))
 
 
 # Symmetric counterpart to execute_faction_purchase -- straight sale at the
-# spread-narrowed price, no mugging/cut. contact_id ("" for every lane but
-# Collective's) additionally feeds the vendor's own personal-relation lane.
-static func execute_faction_sale(faction_id: String, items: Array, contact_id: String = "") -> Dictionary:
+# spread-narrowed price, no mugging/cut. Goods join the faction's holdings
+# (items at their tier) and are paid from its resources, which never go
+# below £0: each line scales down to what the wallet has left, and a sale
+# it can't afford at all is refused. An item line may carry a "tier";
+# without one, stock leaves lowest tier first. contact_id ("" for every
+# lane but Collective's) additionally feeds the vendor's own
+# personal-relation lane. "sold" lists the lines actually settled.
+# wallet_capped false (a questline order) pays every line in full and
+# floors the faction's resources at £0 instead of scaling down.
+static func execute_faction_sale(faction_id: String, items: Array, contact_id: String = "", wallet_capped: bool = true) -> Dictionary:
 	if items.is_empty():
 		return { "ok": false, "reason": "Nothing to sell." }
 
@@ -393,15 +399,21 @@ static func execute_faction_sale(faction_id: String, items: Array, contact_id: S
 	var faction: Dictionary = GameState.state["factions"][faction_id]
 	var ore_sold: Dictionary = faction["oreSold"]
 	var total_earned := 0
+	var sold: Array = []
 	for item in items:
 		var kind: String = item["kind"]
 		var item_type: String = item["type"]
-		var qty: int = item["qty"]
 		var price_per_unit := get_faction_sell_price(faction_id, kind, item_type)
+		var qty: int = item["qty"]
+		if wallet_capped and price_per_unit > 0:
+			qty = mini(qty, int(faction["resources"] - total_earned) / price_per_unit)
+		if qty <= 0:
+			continue
 		total_earned += price_per_unit * qty
 		Market.record_supply(kind, item_type, qty, "player")
 		if kind == "ore":
 			player["orichalchum"][item_type] = maxi(0, player["orichalchum"].get(item_type, 0) - qty)
+			FactionSim.add_ore(faction_id, item_type, qty)
 			# Lifetime cumulative sold-to-this-faction bookkeeping --
 			# Objectives' traded_with_faction evaluator's data source.
 			var entry: Dictionary = ore_sold.get(item_type, { "units": 0, "transactions": 0 })
@@ -409,10 +421,14 @@ static func execute_faction_sale(faction_id: String, items: Array, contact_id: S
 			entry["transactions"] += 1
 			ore_sold[item_type] = entry
 		else:
-			# A faction lane's flat price doesn't vary by tier, so
-			# lowest-tier-first consumption is fine.
-			Crafting.inventory_remove(item_type, qty)
+			for leg in _take_player_items(item_type, qty, int(item.get("tier", -1))):
+				FactionSim.add_item(faction_id, item_type, leg["tier"], leg["qty"])
+		sold.append({ "kind": kind, "type": item_type, "qty": qty })
 
+	if sold.is_empty():
+		return { "ok": false, "reason": "They can't afford that." }
+
+	faction["resources"] = maxi(0, int(faction["resources"]) - total_earned)
 	player["cash"] += total_earned
 	Bank.record(total_earned, "%s sale" % faction_id.capitalize())
 	RelationAccrual.accrue_faction(faction_id, total_earned)
@@ -420,13 +436,34 @@ static func execute_faction_sale(faction_id: String, items: Array, contact_id: S
 		RelationAccrual.accrue_contact_trade(contact_id, total_earned)
 	Objectives.refresh()
 	EventBus.state_changed.emit()
-	return { "ok": true, "earned": total_earned }
+	return { "ok": true, "earned": total_earned, "sold": sold }
+
+
+# Removes qty of one item from the player's inventory -- from `tier` when
+# it's >= 0, else lowest tier first -- returning [{ tier, qty }, ...].
+static func _take_player_items(recipe_key: String, qty: int, tier: int) -> Array:
+	if tier >= 0:
+		Crafting.inventory_remove_from_tier(recipe_key, tier, qty)
+		return [{ "tier": tier, "qty": qty }]
+	var buckets: Dictionary = GameState.state["player"]["inventory"].get(recipe_key, {})
+	var tier_keys: Array = buckets.keys()
+	tier_keys.sort_custom(func(a, b): return int(a) < int(b))
+	var legs: Array = []
+	var remaining := qty
+	for tier_key in tier_keys:
+		var take: int = mini(int(buckets[tier_key]), remaining)
+		if take > 0:
+			legs.append({ "tier": int(tier_key), "qty": take })
+			remaining -= take
+	for leg in legs:
+		Crafting.inventory_remove_from_tier(recipe_key, leg["tier"], leg["qty"])
+	return legs
 
 
 # Faction-lane counterpart to sell_from_sell_state(): same sellState cart
 # and item-building, settled via execute_faction_sale() (not Archie's
-# cut-and-mugging execute_sale()) -- no tier segment since faction price
-# doesn't vary by tier. Toggled "vein_<id>"/"buyVein_<id>" keys ride along in
+# cut-and-mugging execute_sale()); item lines keep their tier so the
+# faction holds them at it. Toggled "vein_<id>"/"buyVein_<id>" keys ride along in
 # the same cart/Go tap but settle individually via
 # VeinTrade.sell_to_faction()/buy_from_faction() (execute_faction_sale only
 # knows ore/consumable); buy price subtracts from `earned` so it stays the
@@ -450,7 +487,7 @@ static func sell_to_faction_from_sell_state(faction_id: String, contact_id: Stri
 		for tier_key in buckets.keys():
 			var qty: int = sell_state.get("con_%s_%s" % [recipe_key, tier_key], 0)
 			if qty > 0:
-				items.append({ "kind": "consumable", "type": recipe_key, "qty": qty })
+				items.append({ "kind": "consumable", "type": recipe_key, "tier": int(tier_key), "qty": qty })
 
 	var buy_ore_items: Array = []
 	for ore_type in GameData.ORE_TYPES.keys():

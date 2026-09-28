@@ -51,27 +51,6 @@ static func factions_consuming(recipe_key: String) -> Array[String]:
 	return result
 
 
-# ── Collective ore stock + restocking ───────────────────────────────────
-# Independently-scarce buy-lane cap (relation only narrows price, not qty).
-# Schema-present on every faction; only "collective" is rolled/read.
-const ORE_STOCK_RESTOCK_CHANCE := 0.30
-const ORE_STOCK_QTY_MIN := 5
-const ORE_STOCK_QTY_MAX := 20
-
-
-# Rerolls all 5 ore types, replacing rather than adding; silent by design (no Notify/Ticker push).
-static func restock_ore(faction_id: String) -> void:
-	var stock: Dictionary = GameState.state["factions"][faction_id]["oreStock"]
-	for ore_type in GameData.CANONICAL_ORE_TYPES:
-		stock[ore_type] = Rng.randi_range(ORE_STOCK_QTY_MIN, ORE_STOCK_QTY_MAX)
-
-
-# Daily-tick hook; collective-only -- other factions' oreStock stays schema-present but untouched.
-static func maybe_restock_ore() -> void:
-	if Rng.chance(ORE_STOCK_RESTOCK_CHANCE):
-		restock_ore("collective")
-
-
 # ── Faction vein ownership ──────────────────────────────────────────────
 # The daily NPC-claim roll (systems/sites.gd) seeds a canonical faction a real vein via create_faction_vein().
 

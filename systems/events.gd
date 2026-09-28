@@ -282,14 +282,7 @@ static func apply_effects(effects: Array, context: Dictionary = {}) -> void:
 static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 	match effect["op"]:
 		"set_flag":
-			var flags: Dictionary = GameState.state["flags"]
-			var flag_name: String = effect["flag"]
-			var value: Variant = effect["value"]
-			# Ore stock rolls fresh the instant this flag first flips true, guarded on
-			# the pre-update flag value so a future re-set can't re-roll a live stock.
-			if flag_name == "collectiveLaneUnlocked" and value and not flags.get(flag_name, false):
-				Factions.restock_ore("collective")
-			flags[flag_name] = value
+			GameState.state["flags"][effect["flag"]] = effect["value"]
 		"add":
 			_apply_add(effect["path"], effect["value"])
 		"add_ore":

@@ -243,8 +243,8 @@ func _play_collective_act1_through_all_three_threads() -> void:
 	GameState.state["sellState"]["ore_time"] = 10
 	assert_true(Collective.complete_trade("des")["ok"])
 	assert_true(not GameState.state["flags"].get("colA1NadiaSupplied", false), "ordinary Collective trades do not settle Nadia's order")
-	assert_true(Collective.supply_nadia(30)["ok"])
-	assert_true(GameState.state["flags"]["colA1NadiaSupplied"], "one direct thirty-unit Nadia delivery should satisfy col_a1_nadia_supply")
+	assert_true(Collective.supply_nadia(20)["ok"])
+	assert_true(GameState.state["flags"]["colA1NadiaSupplied"], "one direct twenty-unit Nadia delivery should satisfy col_a1_nadia_supply")
 	_assert_invariants("post-nadia-supply")
 
 	Events.start_event("col_a1_nadia_vein")
@@ -1025,7 +1025,15 @@ func run() -> void:
 		assert_true(hakim_before != null, "pre-T10: the Collective still holds Hakim's vein")
 		if hakim_before != null:
 			hakim_before["growth"] = 50  # neutral: no drift, no collapse roll on T10's tick
-		_daily_tick_and_settle()
+		# A seed whose rivalry rolls leave Hakim's vein alone until T10's own transfer.
+		var t10_seed := SeedSearch.find_seed_for(200, func():
+			_daily_tick_and_settle()
+			for site in GameState.state["world"]["sites"]:
+				if site["factionVein"] != null and site["factionVein"]["id"] == hakim_vein_id:
+					return site["factionVein"]["factionId"] == "firm"
+			return false
+		)
+		assert_true(t10_seed != -1, "should find a T10 tick without a rival taking Hakim's vein first")
 		assert_true(GameState.state["flags"]["colA2HakimVeinLost"])
 		var hakim_site: Variant = null
 		for site in GameState.state["world"]["sites"]:

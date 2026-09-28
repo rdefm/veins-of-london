@@ -83,7 +83,7 @@ func run() -> void:
 	run_case("col_a1_nadia_supply_is_defined_per_spec_6_8", func():
 		var def: Dictionary = GameData.OBJECTIVES["col_a1_nadia_supply"]
 		assert_eq(def["type"], "supplied_to_contact")
-		assert_eq(def["params"], { "contactId": "nadia", "factionId": "collective", "oreType": "time", "qty": 30 })
+		assert_eq(def["params"], { "contactId": "nadia", "factionId": "collective", "oreType": "time", "qty": 20 })
 		assert_eq(def["activateFlag"], "colA1NadiaMet")
 		assert_eq(def["completeFlag"], "colA1NadiaSupplied")
 	)

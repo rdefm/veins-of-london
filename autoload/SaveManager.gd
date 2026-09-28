@@ -124,6 +124,7 @@ func _load_save_dict(raw: Dictionary) -> Dictionary:
 	_strip_unowned_cultivator_veins(filled)
 	_fix_up_founders(filled)
 	_migrate_nadia_supply_order(filled)
+	_migrate_faction_holdings(filled)
 	_migrate_player_model(filled)
 	_migrate_weekly_cadence(filled)
 	_migrate_drop_delegation(filled)
@@ -179,6 +180,20 @@ func _migrate_player_model(save: Dictionary) -> void:
 		player["model"] = "territorial3"
 
 
+# A save without faction holdings gets the placeholder starting stock, with
+# any saved per-ore oreStock added on top; faction cash is left as saved.
+func _migrate_faction_holdings(save: Dictionary) -> void:
+	for faction_id in save.get("factions", {}):
+		var faction: Dictionary = save["factions"][faction_id]
+		if not faction.has("holdings"):
+			faction["holdings"] = FactionSim.starting_holdings(faction_id)
+			var ore: Dictionary = faction["holdings"]["ore"]
+			var old_stock: Dictionary = faction.get("oreStock", {})
+			for ore_type in old_stock:
+				ore[ore_type] = int(ore.get(ore_type, 0)) + int(old_stock[ore_type])
+		faction.erase("oreStock")
+
+
 # A save with an in-progress col_a1_nadia_supply objective can't identify
 # which Collective door handled qualifying time-calc sales made before this
 # migration existed, so it receives one compatibility credit exactly once;
@@ -201,7 +216,7 @@ func _migrate_nadia_supply_order(save: Dictionary) -> void:
 	var faction: Dictionary = save.get("factions", {}).get("collective", {})
 	var current: Dictionary = faction.get("oreSold", {}).get("time", {})
 	var baseline: Dictionary = runtime.get("progress", {}).get("baseline", {})
-	var delivered := clampi(int(current.get("units", 0)) - int(baseline.get("units", 0)), 0, 30)
+	var delivered := clampi(int(current.get("units", 0)) - int(baseline.get("units", 0)), 0, int(GameData.OBJECTIVES["col_a1_nadia_supply"]["params"]["qty"]))
 	runtime["active"] = true
 	runtime["complete"] = false
 	runtime["progress"] = { "delivered": delivered, "legacyCredit": true }
@@ -743,7 +758,10 @@ func _restore_int_types(state: Dictionary) -> void:
 			for ore_entry in faction.get("oreSold", {}).values():
 				_int_key(ore_entry, "units")
 				_int_key(ore_entry, "transactions")
-			_int_dict_values(faction.get("oreStock", {}))
+			var holdings: Dictionary = faction.get("holdings", {})
+			_int_dict_values(holdings.get("ore", {}))
+			for buckets in holdings.get("items", {}).values():
+				_int_dict_values(buckets)
 
 	if state.has("factionRelations"):
 		for row in state["factionRelations"].values():

@@ -46,10 +46,11 @@ Data file per system: see `data/*.json` below.
 | district_bubble.gd | District tap-bubble decision |
 | district_deck.gd | Weighted district event deck picker |
 | districts.gd | Derived district info for Map tab |
-| economy.gd | Selling (Archie lane — ore at London quote, records supply — + faction lane), faction-lane buying (pricing, lane access, ore receipt) |
+| economy.gd | Selling (Archie lane — ore at London quote, records supply — + faction lanes), faction-lane buying/selling for all five factions against FactionSim holdings and the faction's £ `resources` wallet (pricing, lane access via unlockFlag, R§3.6a) |
 | equipment.gd | Weapon equip/unequip |
 | event_items.gd | Registry of items usable from an event's Item button (Rewind consumable + Dial Rewind): eligibility, counts, effect |
 | events.gd | Event-card runner + rewind, auto-discovers art |
+| faction_sim.gd | FactionSim: faction holdings (ore per type, items per recipe per tier) — starting stock, add/take, highest-tier-first item draw |
 | factions.gd | Faction joining |
 | home.gd | Home tier/tenure/security/rooms/raid chance; per-day and weekly bill base (rent or utilities); arrears countdown in days to the Monday rollover; rent/buy/buy-out/downgrade tier moves via shared `change_tier` (room wipe, security loss); per-slot room purchase/replacement (`set_room_use`); daily raid roll, alarm queue/expiry, and alarm-defend win/loss resolution (R§3.8) |
 | jobs.gd | James's jobs, trust bands |
@@ -232,7 +233,7 @@ overlays.
 | districts.json | widely read (sites, economy, factions, raiding) |
 | enemies.json | combat.gd |
 | faction_trade.json | economy.gd |
-| factions.json | factions.gd, sites.gd, raiding.gd, debug_start.gd |
+| factions.json | factions.gd, sites.gd, raiding.gd, debug_start.gd, faction_sim.gd (`startingHoldings`) |
 | home.json | home.gd, approaches.gd, contacts.gd, property_app.gd (tier `image` listing photos) |
 | floorplans.json | GameData.gd + floorplan_view.gd (per-tier plan asset, size, slot rects) |
 | hq_visuals.json | hq_diorama.gd, hq*.gd screens |

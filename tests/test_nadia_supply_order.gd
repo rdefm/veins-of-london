@@ -10,7 +10,7 @@ func run() -> void:
 	run_case("nadia_supply_accepts_partial_and_final_deliveries_at_the_live_collective_price", func():
 		GameState.reset()
 		_activate_order()
-		GameState.state["player"]["orichalchum"]["time"] = 30
+		GameState.state["player"]["orichalchum"]["time"] = 20
 		var price: int = Economy.get_faction_sell_price("collective", "ore", "time")
 		var cash_before: int = GameState.state["player"]["cash"]
 
@@ -21,9 +21,24 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["cash"], cash_before + price * 12)
 		assert_true(not GameState.state["flags"].get("colA1NadiaSupplied", false))
 
-		var second := Collective.supply_nadia(18)
+		var second := Collective.supply_nadia(8)
 		assert_true(second["ok"])
-		assert_eq(GameState.state["objectives"]["col_a1_nadia_supply"]["progress"]["delivered"], 30)
+		assert_eq(GameState.state["objectives"]["col_a1_nadia_supply"]["progress"]["delivered"], 20)
+		assert_true(GameState.state["flags"]["colA1NadiaSupplied"])
+	)
+
+	run_case("nadia_supply_pays_in_full_past_the_collective_wallet_and_floors_it_at_zero", func():
+		GameState.reset()
+		_activate_order()
+		GameState.state["factions"]["collective"]["resources"] = 10
+		GameState.state["player"]["orichalchum"]["time"] = 20
+		var price: int = Economy.get_faction_sell_price("collective", "ore", "time")
+
+		var result := Collective.supply_nadia(20)
+		assert_true(result["ok"])
+		assert_eq(result["earned"], price * 20, "the questline order is exempt from the wallet cap")
+		assert_eq(GameState.state["factions"]["collective"]["resources"], 0, "wallet floored, never negative")
+		assert_eq(FactionSim.ore_held("collective", "time"), 20, "the delivery joins the Collective's holdings")
 		assert_true(GameState.state["flags"]["colA1NadiaSupplied"])
 	)
 
@@ -43,19 +58,19 @@ func run() -> void:
 	run_case("nadia_supply_accepts_an_over_delivery_once_and_cannot_settle_twice", func():
 		GameState.reset()
 		_activate_order()
-		GameState.state["player"]["orichalchum"]["time"] = 35
+		GameState.state["player"]["orichalchum"]["time"] = 25
 		var price: int = Economy.get_faction_sell_price("collective", "ore", "time")
 		var cash_before: int = GameState.state["player"]["cash"]
 
-		var first := Collective.supply_nadia(35)
+		var first := Collective.supply_nadia(25)
 		assert_true(first["ok"])
-		assert_eq(first["earned"], price * 35)
-		assert_eq(GameState.state["objectives"]["col_a1_nadia_supply"]["progress"]["delivered"], 30)
-		assert_eq(GameState.state["player"]["cash"], cash_before + price * 35)
+		assert_eq(first["earned"], price * 25)
+		assert_eq(GameState.state["objectives"]["col_a1_nadia_supply"]["progress"]["delivered"], 20)
+		assert_eq(GameState.state["player"]["cash"], cash_before + price * 25)
 
 		var second := Collective.supply_nadia(1)
 		assert_true(not second["ok"])
-		assert_eq(GameState.state["player"]["cash"], cash_before + price * 35)
+		assert_eq(GameState.state["player"]["cash"], cash_before + price * 25)
 	)
 
 	run_case("ordinary_collective_trades_do_not_advance_nadias_order", func():

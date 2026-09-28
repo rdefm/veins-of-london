@@ -2822,12 +2822,12 @@
 }, {
 "label": null,
 "speaker": "Nadia",
-"text": "\"This end of town's full of it and everyone round here has a bit and nobody has thirty units at once. So I spend three days on the phone every fortnight like it's 1974.\"",
+"text": "\"This end of town's full of it and everyone round here has a bit and nobody has twenty units at once. So I spend three days on the phone every fortnight like it's 1974.\"",
 "type": "speaker"
 }, {
 "choices": [{
 "effects": [],
-"label": "I can get you thirty",
+"label": "I can get you twenty",
 "result_text": "\"Course you can.\" She goes back to the crate. \"Bring it when you've got it. Bring it in bits, I don't care.\""
 }, {
 "effects": [],
@@ -2846,7 +2846,7 @@
 }, {
 "label": null,
 "speaker": null,
-"text": "Thirty units of time calc, no deadline, no paperwork, and a woman who has been doing this since before you were born treating it as entirely routine.",
+"text": "Twenty units of time calc, no deadline, no paperwork, and a woman who has been doing this since before you were born treating it as entirely routine.",
 "type": "resolution"
 }],
 "id": "col_a1_nadia_meet",
@@ -4877,6 +4877,16 @@
 "secondaryOre": "emotion",
 "securityBias": -2,
 "shortName": "Collective",
+"startingHoldings": {
+"items": {
+"enhancementPowder": 5,
+"healingSalve": 8
+},
+"ore": {
+"emotion": 20,
+"life": 40
+}
+},
 "startingResources": 200,
 "tagline": "Community-run. Loosely organised. Surprisingly effective."
 },
@@ -4901,6 +4911,16 @@
 "secondaryOre": "time",
 "securityBias": 3,
 "shortName": "Conclave",
+"startingHoldings": {
+"items": {
+"failsafe": 8,
+"rejuvenation": 3
+},
+"ore": {
+"fate": 40,
+"time": 20
+}
+},
 "startingResources": 1200,
 "tagline": "Policy, pressure, and things that can't be admitted in public."
 },
@@ -4927,6 +4947,18 @@
 "secondaryOre": "life",
 "securityBias": 1,
 "shortName": "Firm",
+"startingHoldings": {
+"items": {
+"blast": 8,
+"enhancementPowder": 3,
+"healingBurst": 8,
+"shield": 8
+},
+"ore": {
+"life": 20,
+"physics": 40
+}
+},
 "startingResources": 500,
 "tagline": "Old money, new methods."
 },
@@ -4951,6 +4983,20 @@
 "secondaryOre": "physics",
 "securityBias": 1,
 "shortName": "The Guild",
+"startingHoldings": {
+"items": {
+"enhancementPowder": 1,
+"prophetsBreath": 5,
+"rejuvenation": 5,
+"rewind": 5,
+"timePearl": 6,
+"wormhole": 5
+},
+"ore": {
+"physics": 20,
+"time": 40
+}
+},
 "startingResources": 900,
 "tagline": "They've been here since before the word 'orichalchum' was anglicised."
 },
@@ -4974,6 +5020,16 @@
 "secondaryOre": "fate",
 "securityBias": -1,
 "shortName": "Network",
+"startingHoldings": {
+"items": {
+"pansPrank": 5,
+"prophetsBreath": 3
+},
+"ore": {
+"emotion": 40,
+"fate": 20
+}
+},
 "startingResources": 500,
 "tagline": "Information is the resource."
 }
@@ -5065,6 +5121,31 @@
 "mugRisk": false,
 "sellSpreadMax": 0.45,
 "sellSpreadMin": 0.05,
+"unlockFlag": "collectiveLaneUnlocked",
+"zeroRelation": 90
+},
+"conclave": {
+"anchorRelation": 0,
+"applyDistrictPriceMod": false,
+"buySpreadMax": 0.15,
+"buySpreadMin": 0.05,
+"memberOnly": false,
+"mugRisk": false,
+"sellSpreadMax": 0.45,
+"sellSpreadMin": 0.05,
+"unlockFlag": "conclaveShopUnlocked",
+"zeroRelation": 90
+},
+"firm": {
+"anchorRelation": 0,
+"applyDistrictPriceMod": false,
+"buySpreadMax": 0.15,
+"buySpreadMin": 0.05,
+"memberOnly": false,
+"mugRisk": false,
+"sellSpreadMax": 0.45,
+"sellSpreadMin": 0.05,
+"unlockFlag": "firmShopUnlocked",
 "zeroRelation": 90
 },
 "guild": {
@@ -5076,6 +5157,19 @@
 "mugRisk": false,
 "sellSpreadMax": 0.15,
 "sellSpreadMin": 0,
+"unlockFlag": "",
+"zeroRelation": 90
+},
+"network": {
+"anchorRelation": 0,
+"applyDistrictPriceMod": false,
+"buySpreadMax": 0.15,
+"buySpreadMin": 0.05,
+"memberOnly": false,
+"mugRisk": false,
+"sellSpreadMax": 0.45,
+"sellSpreadMin": 0.05,
+"unlockFlag": "networkShopUnlocked",
 "zeroRelation": 90
 }
 },
@@ -6119,13 +6213,13 @@
 "col_a1_nadia_supply": {
 "activateFlag": "colA1NadiaMet",
 "completeFlag": "colA1NadiaSupplied",
-"detail": "Supply Nadia with thirty units of time calc.",
+"detail": "Supply Nadia with twenty units of time calc.",
 "id": "col_a1_nadia_supply",
 "params": {
 "contactId": "nadia",
 "factionId": "collective",
 "oreType": "time",
-"qty": 30
+"qty": 20
 },
 "presentation": {
 "cancel": "Cancel",

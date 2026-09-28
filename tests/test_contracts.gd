@@ -482,7 +482,7 @@ func run() -> void:
 		assert_eq(expenses[0]["contractId"], contract["id"])
 		assert_eq(expenses[1]["source"], GameData.FACTIONS["guild"]["name"])
 		assert_eq(expenses[1]["qty"], 2)
-		assert_eq(GameState.state["factions"]["collective"]["oreStock"]["life"], 0)
+		assert_eq(FactionSim.ore_held("collective", "life"), 0)
 		assert_eq(GameState.state["business"]["pot"], 5000 - collective_price * 2 - guild_price * 2 + int(GameState.state["business"]["week"]["receipts"]))
 		assert_eq(GameState.state["player"]["cash"], cash_before, "player cash is never touched")
 		assert_eq(GameState.state["sales"]["settlements"].size(), 1, "bought ore enters shared stock and delivers")
@@ -499,7 +499,7 @@ func run() -> void:
 		ContractsSystem.process_daily_sales()
 		assert_eq(GameState.state["business"]["week"]["expenses"].size(), 0)
 		assert_eq(GameState.state["business"]["pot"], 1)
-		assert_eq(GameState.state["factions"]["collective"]["oreStock"]["life"], 2)
+		assert_eq(FactionSim.ore_held("collective", "life"), 2)
 		assert_eq(int(GameState.state["player"]["orichalchum"].get("life", 0)), 0)
 		assert_eq(GameState.state["player"]["cash"], cash_before)
 	)
@@ -656,7 +656,8 @@ func _setup_buy_calc_lanes() -> void:
 	GameState.state["factions"]["guild"]["relation"] = 0
 	GameState.state["flags"]["collectiveLaneUnlocked"] = true
 	GameState.state["factions"]["collective"]["relation"] = 90
-	GameState.state["factions"]["collective"]["oreStock"] = { "life": 2 }
+	GameState.state["factions"]["collective"]["holdings"]["ore"] = { "life": 2 }
+	GameState.state["factions"]["guild"]["holdings"]["ore"] = { "life": 50, "time": 50 }
 	GameState.state["flags"][ContractsSystem.PROOF_FLAG] = true
 
 

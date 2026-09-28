@@ -812,13 +812,13 @@ func _validate_factions(factions: Dictionary, errors: Array[String]) -> void:
 		_require_keys(factions[key], ["id", "name", "shortName", "tagline", "industries", "description", "colour", "joinRelation", "securityBias", "resourceLevel"], "factions.%s" % key, errors)
 
 
-# Every faction with a trade lane (Economy.get_faction_*) needs a row here; only guild and collective have one so far.
+# Every faction has a trade lane (Economy.get_faction_*), so every faction needs a row here.
 func _validate_faction_trade(faction_trade: Dictionary, errors: Array[String]) -> void:
-	for key in ["guild", "collective"]:
+	for key in ["collective", "firm", "guild", "network", "conclave"]:
 		if not faction_trade.has(key):
 			errors.append("faction_trade: missing faction '%s'" % key)
 			continue
-		_require_keys(faction_trade[key], ["anchorRelation", "zeroRelation", "sellSpreadMax", "sellSpreadMin", "buySpreadMax", "buySpreadMin", "memberOnly", "applyDistrictPriceMod", "mugRisk"], "faction_trade.%s" % key, errors)
+		_require_keys(faction_trade[key], ["anchorRelation", "zeroRelation", "sellSpreadMax", "sellSpreadMin", "buySpreadMax", "buySpreadMin", "memberOnly", "unlockFlag", "applyDistrictPriceMod", "mugRisk"], "faction_trade.%s" % key, errors)
 
 
 const CANONICAL_DISTRICT_IDS: Array[String] = [

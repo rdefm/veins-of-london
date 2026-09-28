@@ -391,6 +391,7 @@ static func _buy_calc(contract_id: String, ore_type: String, qty: int) -> void:
 	if legs.is_empty() or not Business.pay_calc_purchase(contract_id, legs):
 		return
 	for leg in legs:
+		GameState.state["factions"][leg["factionId"]]["resources"] += int(leg["amount"])
 		Economy.receive_faction_ore(leg["factionId"], ore_type, int(leg["qty"]))
 		Market.record_demand("ore", ore_type, int(leg["qty"]), "player")
 

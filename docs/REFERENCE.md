@@ -235,6 +235,8 @@ Five factions; copy `name`, `shortName`, `tagline`, `industries`, `description`,
 | network | informationBroker | emotion | fate | pansPrank | prophetsBreath 3 |
 | conclave | manipulator | fate | time | failsafe | failsafe 3, rejuvenation 3 |
 
+**`startingHoldings`** (biz-act2-faction-economy — **placeholder quantities**, pinned by the tuning tool later): `{ ore: {oreType: qty}, items: {recipeKey: qty} }`, seeded into `factions[id].holdings` on New Game and on an old save's backfill (`FactionSim.starting_holdings`); items file under tier `"0"`. Roughly a week of `consumes`, 5 of each crafted item, 40 primary ore, 20 secondary ore.
+
 **Faction barometer preferences** (`FACTION_BAROMETER_PREFS`, daily nudges — see §3.2):
 
 - collective: push economic/stable str 3; push social/stable str 3
@@ -555,6 +557,11 @@ The dock (`NavBar`, now 3 slots: Phone · Map · HQ) is hidden on `title, intro,
 - Every completed sale (ore or consumable, mugged or not): archie relation +2 (`ARCHIE_SALE_RELATION_GAIN`, bugfixes-63) — smaller than James's +5/job since sales happen far more often. Awarded *before* the cut ratio below is computed, so it affects the same sale's own cut (unchanged since bugfixes-63). This flat award stays alongside, not instead of, the separate `tradeProgress` £-denominated relation accumulator (collective1-06, `.scratch/collective-act1/spec.md` §8.4) that also runs on every Archie-lane sale — that one is applied *after* the cut is computed, so it never affects the sale that fed it.
 - Mugging roll: `chance(getEffectiveMugChance(0.20))` → stash cut in `pendingSaleCut`, start mugging combat; on win, pay out cut and show sale result (mugged:true). No mug → pay immediately, sale result modal.
 
+### 3.6a Faction shops (biz-act2-faction-economy)
+- Every faction has a lane in `data/faction_trade.json` (pricing unchanged: London quote ± relation spread, §3.13). `can_buy_from_faction`: a `memberOnly` lane needs membership; any other lane needs its `unlockFlag` (`collectiveLaneUnlocked`, `firmShopUnlocked`, `networkShopUnlocked`, `conclaveShopUnlocked`).
+- **Stock = holdings.** A faction sells exactly what `factions[id].holdings` holds, ore and items. `get_faction_buy_max_qty` = min(budget ÷ price, held). A purchase over cash or holdings is rejected outright. Bought items arrive at the held tier, highest tier first. There is no random restock.
+- **Faction cash.** `factions[id].resources` is the faction's £ wallet and never goes below £0. A player purchase (and a business calc buy) credits it. A player sale debits it and adds the goods to holdings (items at their tier; a cart line carries its tier, otherwise lowest tier leaves first). Each sale line is scaled down to what the wallet has left; a sale it can't afford at all is refused ("They can't afford that."). Exception: Nadia's questline order (`Collective.supply_nadia`) pays in full and floors the wallet at £0.
+
 ### 3.7 Combat (M0 port — pre-intent system)
 - Muggers: `count = rand(1,3)`; hp `28 × count`; atk `4 + 2(count−1)` to `10 + 3(count−1)`; name "A mugger" / "N muggers".
 - Vein-raid enemy (attacking an NPC-claimed vein): template scaled `hp = round(hpBase × (1 + (veinLevel−1)×0.3) × guards)`, atkMax `+ (veinLevel−1)`. (Reachable in M0 only via debug; keep functions.)
@@ -719,7 +726,9 @@ The roll happens once, at `Raiding.roll_raid_odds()` time (alongside the existin
 ## 6. SAVE FORMAT
 JSON of the whole `state` tree. `meta.saveVersion` is 2 (bumped from 1 by vein-growth-state — the vein dict shape changed, and save-breaking was accepted rather than writing a migrator). `SaveManager`: 3 manual slots + 3 rotating autosaves (written on: daily tick, combat exit, event completion, any purchase), plus export/import as a JSON string shown in a copyable text box. Loading checks `meta.saveVersion` against the current `SAVE_VERSION` and rejects a mismatch outright with a clear reason (no half-load, no migrator); a save with no `meta.saveVersion` at all is treated as the current version. A version match then validates required top-level keys and fills missing keys from defaults.
 
-Nadia's Act 1 standing order is `col_a1_nadia_supply`: thirty cumulative units of `time` calc, supplied only through Nadia's explicit order action. Every accepted unit receives the live Collective sell price; a delivery may be partial or over the remaining requirement, but progress caps at thirty while all selected in-stock units are paid. The action costs no time block. Pre-change incomplete saves receive a one-time credit for their recorded post-activation Collective time-calc sales because historic saves do not identify the vendor door; completed objectives remain complete and receive no replayed reward.
+Nadia's Act 1 standing order is `col_a1_nadia_supply`: twenty cumulative units of `time` calc, supplied only through Nadia's explicit order action. Every accepted unit receives the live Collective sell price; a delivery may be partial or over the remaining requirement, but progress caps at twenty while all selected in-stock units are paid. The action costs no time block. Pre-change incomplete saves receive a one-time credit for their recorded post-activation Collective time-calc sales because historic saves do not identify the vendor door; completed objectives remain complete and receive no replayed reward.
+
+A save whose factions lack `holdings` gets `FactionSim.starting_holdings` plus any saved per-ore `oreStock` added on top; `oreStock` is dropped and faction `resources` are left as saved. No `saveVersion` bump.
 
 A save whose `player.model` is `"protagonist2"` loads as `"territorial3"` (the same sprite set, renamed); any other value is left as-is. No `saveVersion` bump.
 

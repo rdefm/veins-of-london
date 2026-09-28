@@ -26,6 +26,16 @@
     ],
     "consumes": {
       "healingSalve": 3
+    },
+    "startingHoldings": {
+      "ore": {
+        "life": 40,
+        "emotion": 20
+      },
+      "items": {
+        "healingSalve": 8,
+        "enhancementPowder": 5
+      }
     }
   },
   "firm": {
@@ -59,6 +69,18 @@
       "shield": 3,
       "healingBurst": 3,
       "enhancementPowder": 3
+    },
+    "startingHoldings": {
+      "ore": {
+        "physics": 40,
+        "life": 20
+      },
+      "items": {
+        "blast": 8,
+        "shield": 8,
+        "healingBurst": 8,
+        "enhancementPowder": 3
+      }
     }
   },
   "guild": {
@@ -92,6 +114,20 @@
     "consumes": {
       "timePearl": 1,
       "enhancementPowder": 1
+    },
+    "startingHoldings": {
+      "ore": {
+        "time": 40,
+        "physics": 20
+      },
+      "items": {
+        "timePearl": 6,
+        "rewind": 5,
+        "wormhole": 5,
+        "prophetsBreath": 5,
+        "rejuvenation": 5,
+        "enhancementPowder": 1
+      }
     }
   },
   "network": {
@@ -120,6 +156,16 @@
     ],
     "consumes": {
       "prophetsBreath": 3
+    },
+    "startingHoldings": {
+      "ore": {
+        "emotion": 40,
+        "fate": 20
+      },
+      "items": {
+        "pansPrank": 5,
+        "prophetsBreath": 3
+      }
     }
   },
   "conclave": {
@@ -150,6 +196,16 @@
     "consumes": {
       "failsafe": 3,
       "rejuvenation": 3
+    },
+    "startingHoldings": {
+      "ore": {
+        "fate": 40,
+        "time": 20
+      },
+      "items": {
+        "failsafe": 8,
+        "rejuvenation": 3
+      }
     }
   }
 }

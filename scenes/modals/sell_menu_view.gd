@@ -333,7 +333,7 @@ func _entries() -> Array:
 			var key := "ore_%s" % ore_type
 			entries.append(_entry("sell", "ore", "ore", key, ore["name"], ore_type, ore["symbol"], sell_price, have, have, sell_state.get(key, 0)))
 		if _is_faction():
-			var stock: int = GameState.state["factions"][faction_id]["oreStock"].get(ore_type, 0)
+			var stock := FactionSim.ore_held(faction_id, ore_type)
 			var buy_key := "buyOre_%s" % ore_type
 			var max_qty := Economy.get_faction_buy_max_qty(faction_id, "ore", ore_type)
 			entries.append(_entry("buy", "ore", "ore", buy_key, ore["name"], ore_type, ore["symbol"], Economy.get_faction_buy_price(faction_id, "ore", ore_type), stock, max_qty, sell_state.get(buy_key, 0)))

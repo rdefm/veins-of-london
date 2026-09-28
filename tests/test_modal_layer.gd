@@ -357,7 +357,7 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["player"]["cash"] = 1000
 		GameState.state["player"]["orichalchum"]["time"] = 10
-		GameState.state["factions"]["collective"]["oreStock"] = { "time": 8, "physics": 0, "life": 0, "fate": 0, "emotion": 0 }
+		GameState.state["factions"]["collective"]["holdings"]["ore"] = { "time": 8, "physics": 0, "life": 0, "fate": 0, "emotion": 0 }
 		var sell_price: int = Economy.get_faction_sell_price("collective", "ore", "time")
 		var buy_price: int = Economy.get_faction_buy_price("collective", "ore", "time")
 		Modal.open("sell_menu", { "factionId": "collective", "contactId": "des" })
@@ -376,7 +376,7 @@ func run() -> void:
 		_find_cost_button(view, "Confirm trade").pressed.emit()
 		assert_eq(GameState.state["player"]["cash"], 1000 + 2 * sell_price - buy_price)
 		assert_eq(GameState.state["player"]["orichalchum"]["time"], 9)
-		assert_eq(GameState.state["factions"]["collective"]["oreStock"]["time"], 7)
+		assert_eq(FactionSim.ore_held("collective", "time"), 9, "8 held - 1 bought + 2 sold")
 		assert_eq(GameState.state["modal"]["type"], "sale_result")
 		layer.free()
 	)
@@ -385,7 +385,7 @@ func run() -> void:
 		GameState.reset()
 		var buy_price: int = Economy.get_faction_buy_price("collective", "ore", "time")
 		GameState.state["player"]["orichalchum"]["time"] = 7
-		GameState.state["factions"]["collective"]["oreStock"] = { "time": 8, "physics": 0, "life": 0, "fate": 0, "emotion": 0 }
+		GameState.state["factions"]["collective"]["holdings"]["ore"] = { "time": 8, "physics": 0, "life": 0, "fate": 0, "emotion": 0 }
 		GameState.state["player"]["cash"] = buy_price * 3
 		Modal.open("sell_menu", { "factionId": "collective", "contactId": "des" })
 		var layer := ModalLayer.new()
@@ -414,7 +414,7 @@ func run() -> void:
 
 	run_case("faction_buy_rows_show_stock_and_disable_when_sold_out", func():
 		GameState.reset()
-		GameState.state["factions"]["collective"]["oreStock"] = { "time": 0, "physics": 0, "life": 0, "fate": 0, "emotion": 0 }
+		GameState.state["factions"]["collective"]["holdings"]["ore"] = { "time": 0, "physics": 0, "life": 0, "fate": 0, "emotion": 0 }
 		Modal.open("sell_menu", { "factionId": "collective", "contactId": "hakim" })
 		var layer := ModalLayer.new()
 		layer._ready()
@@ -432,7 +432,8 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["factions"]["guild"]["relation"] = 40
 		GameState.state["player"]["cash"] = 100000
-		GameState.state["factions"]["collective"]["oreStock"] = { "time": 0, "physics": 0, "life": 0, "fate": 0, "emotion": 0 }
+		GameState.state["factions"]["collective"]["holdings"]["ore"] = { "time": 0, "physics": 0, "life": 0, "fate": 0, "emotion": 0 }
+		GameState.state["factions"]["guild"]["holdings"]["ore"] = { "time": 500 }
 		assert_true(Economy.get_faction_buy_max_qty("guild", "ore", "time") > 100, "the Collective being sold out must not leak a stock cap onto the unrelated Guild lane")
 	)
 

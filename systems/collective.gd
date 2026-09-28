@@ -29,7 +29,7 @@ static func supply_nadia(qty: int) -> Dictionary:
 	if qty > stock:
 		return { "ok": false, "reason": "Not enough calc in stock." }
 
-	var result := Economy.execute_faction_sale(params["factionId"], [{ "kind": "ore", "type": ore_type, "qty": qty }], params["contactId"])
+	var result := Economy.execute_faction_sale(params["factionId"], [{ "kind": "ore", "type": ore_type, "qty": qty }], params["contactId"], false)
 	if not result.get("ok", false):
 		return result
 
