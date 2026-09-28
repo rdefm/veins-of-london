@@ -25,6 +25,7 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["orichalchum"]["time"], 2, "3 attempts in one block, then 2 is short for the next")
 		var made: int = output["items"].get("timePearl", 0)
 		assert_eq(Crafting.inventory_qty("timePearl"), made, "block output matches items made")
+		assert_eq(Shares.window_totals("craft").get("player", {}).get("time", 0), made * 5, "only successful staff crafts credit crafting share, by ingredient weight")
 		Rooms.process_staff_block()
 		assert_eq(GameState.state["player"]["orichalchum"]["time"], 2, "next block idles on short ore")
 	)
@@ -239,6 +240,7 @@ func run() -> void:
 		assert_eq(vein["growth"], 70, "pruned down exactly to the target")
 		assert_eq(GameState.state["player"]["orichalchum"]["time"], 9, "ore credited using the §2.4 yield formula")
 		assert_eq(output["ore"], { "time": 9 }, "block output reports the yield")
+		assert_eq(Shares.window_totals("ore")["player"], { "time": 9 }, "staff cultivator harvest credits the player's ore share")
 		assert_eq(GameState.state["contacts"]["archie"]["cultivatingXP"], xp_before + GameData.CULTIVATOR_ACTION_XP, "+2 XP for a prune")
 	)
 

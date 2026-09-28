@@ -83,6 +83,7 @@ Data file per system: see `data/*.json` below.
 | raiding.gd | Vein stealth-check + raid resolution |
 | relation_accrual.gd | Capped £ relation meter |
 | rooms.gd | Per-block staff step (one action per cultivator, then producers take turns crafting until targets met or ore short), writes/trims `productionLog`, Production targets/priority and when they are settable, per-cultivator vein lists (`cultivatorVeins`) and per-vein targets |
+| shares.gd | Shares: 14-day daily buckets per producer (player, factions, independents) of ore harvested, ore spent on successful crafts, and contract deliveries; pure ore/crafting share, overview and delivery reads (R§3.14) |
 | sites.gd | Sites & prospecting |
 | stash.gd | Personal stash vs. shared pools |
 | station_bubble.gd | Site/vein-stop tap-bubble decision |
@@ -227,7 +228,7 @@ overlays.
 | collective_barks.json | collective.gd |
 | combat_prototype.json | combat_prototype.gd |
 | combat_visuals.json | combat_stage.gd (locationBackdrops, backdrops, pose sheets, stage.spriteScale); GameData.gd (territorialVariant pose spec); combat_director.gd (pacing.turnPause); turn_order_strip.gd (cardFrames) |
-| constants.json | calendar.gd (calendar), time_system.gd, jobs.gd, GameState.gd, contacts.gd (contacts roster incl. handler/owen; founder roleFlags, skillCaps), business.gd (weekly wages), rooms.gd (productionLogDays), business_stats.gd (businessStatsDays) |
+| constants.json | calendar.gd (calendar), time_system.gd, jobs.gd, GameState.gd, contacts.gd (contacts roster incl. handler/owen; founder roleFlags, skillCaps), business.gd (weekly wages), rooms.gd (productionLogDays), business_stats.gd (businessStatsDays), shares.gd (sharesDays, sharesWindowDays) |
 | daily_cycle.json | time_transition.gd (circle layout, sky clips, colours, timing) |
 | dial.json | dial.gd |
 | districts.json | widely read (sites, economy, factions, raiding) |

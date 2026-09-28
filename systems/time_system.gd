@@ -110,6 +110,7 @@ static func daily_tick() -> void:
 	OffersSystem.daily_tick()            # ⑥.5 expiry, then Sales sources at most one new random offer
 	BusinessQuest.maybe_issue_starter()  # ⑥.5b after ⑥.5's expiry; outside the random roll and its slot
 	BusinessQuest.maybe_issue_recurring()  # ⑥.5c recurring-offer reissues, after ⑥.5b so the starter chain goes first
+	Shares.roll_buckets()                # ⑥.5d drop share buckets past the 14-day window, before ⑥.6 reads supply
 	Market.daily_reprice()               # ⑥.6 London reprice, after every step that trades in the tick and after ① so today's Ticker feeds it
 	Dial.daily_regen()                   # ⑦ Dial charge regen
 	Contacts.daily_dial_regen()          # ⑦.1 ally Dial charges refill

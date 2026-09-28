@@ -291,6 +291,7 @@ static func _cultivator_act(contact_id: String, ore_out: Dictionary) -> void:
 		var ore_type: String = vein["oreType"]
 		var ore: Dictionary = GameState.state["player"]["orichalchum"]
 		ore[ore_type] = ore.get(ore_type, 0) + amount
+		Shares.record_ore(Shares.PLAYER, ore_type, amount)
 		if amount > 0:
 			ore_out[ore_type] = ore_out.get(ore_type, 0) + amount
 	else:
@@ -368,6 +369,7 @@ static func _producer_act(contact_id: String, items_out: Dictionary, entry: Dict
 		if Rng.chance(Crafting.craft_chance(recipe_key, skill)):
 			var tier := Crafting.quality_tier(recipe_key, skill)
 			Crafting.inventory_add(recipe_key, tier)
+			Shares.record_craft(Shares.PLAYER, costs)
 			items_out[recipe_key] = items_out.get(recipe_key, 0) + 1
 			var made: Dictionary = entry["made"]
 			if not made.has(recipe_key):

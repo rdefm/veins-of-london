@@ -178,6 +178,10 @@ var PRODUCTION_TARGET_MAX: int = 0
 # Days of business performance kept in state.businessStats.days, R§2.
 var BUSINESS_STATS_DAYS: int = 0
 
+# Share buckets kept in state.shares.days, and the share window, R§3.14.
+var SHARES_DAYS: int = 0
+var SHARES_WINDOW_DAYS: int = 0
+
 # Business pot payday cadence (days) and weekly wage per waged staff
 # contact id, R§3.10 "Business pot and payday".
 var BUSINESS_WEEKLY_WAGES: Dictionary = {}
@@ -343,6 +347,8 @@ const MANIFEST: Array[Dictionary] = [
 		{"field": "PRODUCTION_LOG_DAYS", "key": "productionLogDays", "type": TYPE_INT},
 		{"field": "PRODUCTION_TARGET_MAX", "key": "productionTargetMax", "type": TYPE_INT},
 		{"field": "BUSINESS_STATS_DAYS", "key": "businessStatsDays", "type": TYPE_INT},
+		{"field": "SHARES_DAYS", "key": "sharesDays", "type": TYPE_INT},
+		{"field": "SHARES_WINDOW_DAYS", "key": "sharesWindowDays", "type": TYPE_INT},
 		{"field": "BUSINESS_WEEKLY_WAGES", "key": "business.weeklyWages", "type": TYPE_DICTIONARY},
 		{"field": "BUSINESS_JAMES_JOIN_CRAFTING_SKILL", "key": "business.jamesJoinCraftingSkill", "type": TYPE_INT},
 		{"field": "BUSINESS_OWEN_CRAFT_MIN_CULTIVATING", "key": "business.owenCraftMinCultivating", "type": TYPE_INT},

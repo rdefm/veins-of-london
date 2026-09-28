@@ -305,6 +305,7 @@ static func prune(vein_id: String, depth: int) -> Dictionary:
 	var ore_type: String = vein["oreType"]
 	player["orichalchum"][ore_type] = player["orichalchum"].get(ore_type, 0) + amount
 	BusinessStats.record_player_ore(amount)
+	Shares.record_ore(Shares.PLAYER, ore_type, amount)
 
 	Objectives.refresh()
 	EventBus.state_changed.emit()

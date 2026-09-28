@@ -15,6 +15,12 @@ Spec: §Buying and selling, §Faction cash, §Annotations.
 - Tests: `tests/test_faction_sim.gd`, `tests/test_market.gd`, `tests/test_factions.gd`
 - REFERENCE.md §1.8, §3.1, §3.13
 
+**Supplier share decision (2026-09-28, human):** record and show BOTH reads, per faction, over the 7-day window:
+- **A — delivery split:** player deliveries to faction F ÷ all player contract deliveries ("where my output goes").
+- **B — intake share:** player deliveries to F ÷ F's total intake (player deliveries + F's London buys) ("how dependent F is on me"). Needs a per-faction London-buy tally in Shares, recorded by ticket 11's buying.
+- Unit for both: ore-equivalent (calc 1:1; items count recipe ingredient weights).
+Ticket 04 stores only the delivery tally (`Shares.record_delivery`); the reads land in 05, the buy tally in 11, display in 15.
+
 **Status:** ready-for-agent
 
 - [ ] A faction buys its shortfall and the quote rises

@@ -30,6 +30,8 @@
   "productionLogDays": 10,
   "productionTargetMax": 50,
   "businessStatsDays": 10,
+  "sharesDays": 14,
+  "sharesWindowDays": 7,
   "business": { "weeklyWages": { "owen": 250 }, "jamesJoinCraftingSkill": 5, "owenCraftMinCultivating": 2 },
   "calendar": {
     "startMonth": 3,

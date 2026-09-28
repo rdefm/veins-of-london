@@ -75,6 +75,9 @@ func new_game_state() -> Dictionary:
 		# at rollover and trimmed to BUSINESS_STATS_DAYS; BusinessStats is the
 		# only writer.
 		"businessStats": { "today": { "revenue": 0, "expenses": 0, "oreCultivator": 0, "orePlayer": 0 }, "days": [] },
+		# Ore/crafting/delivery shares (R§3.14): daily buckets, oldest first,
+		# trimmed to SHARES_DAYS at rollover; Shares is the only writer.
+		"shares": Shares.new_state(),
 		"sellState": {},
 		# London market (R§3.13): per good stock/price/history plus today's
 		# supply/demand tallies; Market is the only writer.

@@ -605,6 +605,12 @@ func _restore_int_types(state: Dictionary) -> void:
 	for delivery in market.get("deliveries", []):
 		_int_key(delivery, "day")
 		_int_key(delivery, "qty")
+	for bucket in state.get("shares", {}).get("days", []):
+		_int_key(bucket, "day")
+		for tally in ["ore", "craft"]:
+			for by_type in bucket.get(tally, {}).values():
+				_int_dict_values(by_type)
+		_int_dict_values(bucket.get("deliveries", {}))
 	var business_stats: Dictionary = state.get("businessStats", {})
 	_int_dict_values(business_stats.get("today", {}))
 	for record in business_stats.get("days", []):
