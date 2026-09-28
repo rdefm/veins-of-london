@@ -44,6 +44,24 @@ static func held(faction_id: String, kind: String, item_type: String) -> int:
 	return ore_held(faction_id, item_type) if kind == "ore" else item_held(faction_id, item_type)
 
 
+# Items assigned to this faction's vein kits (allocate_kits); reserved from
+# everyday consumption and shop sales, spent only by kit burns.
+static func item_reserved(faction_id: String, recipe_key: String) -> int:
+	var total := 0
+	for site in GameState.state["world"]["sites"]:
+		var vein: Variant = site["factionVein"]
+		if vein != null and vein["factionId"] == faction_id:
+			total += int(vein.get("kit", {}).get(recipe_key, 0))
+	return total
+
+
+# What a faction will sell: all its ore, but only its unreserved items.
+static func for_sale(faction_id: String, kind: String, item_type: String) -> int:
+	if kind == "ore":
+		return ore_held(faction_id, item_type)
+	return maxi(0, item_held(faction_id, item_type) - item_reserved(faction_id, item_type))
+
+
 static func add_ore(faction_id: String, ore_type: String, qty: int) -> void:
 	var ore: Dictionary = _holdings(faction_id)["ore"]
 	ore[ore_type] = int(ore.get(ore_type, 0)) + qty
@@ -212,8 +230,10 @@ static func _can_cover(faction_id: String, costs: Dictionary) -> bool:
 # draws weekly × Barometer item-demand ÷ 7 a day (fractions carry in
 # consumeAccrued as integer CONSUME_UNITs of an item, so the carry survives
 # a JSON save and a week's draws sum to the weekly amount), plus every
-# logged burn, capped by holdings. Whatever holdings couldn't cover is
-# today's shortfall.
+# logged burn. Burns come out of holdings first, capped by what's held; a
+# defend burn also frees that much of the vein-kit reserve (item_reserved).
+# Daily draws then take only unreserved stock, so an unfought vein's kit
+# never needs topping up. Whatever went uncovered is today's shortfall.
 const CONSUME_UNIT := 1000
 
 
@@ -237,26 +257,44 @@ static func consume() -> void:
 static func _consume_faction(faction_id: String) -> void:
 	var faction: Dictionary = GameState.state["factions"][faction_id]
 	var accrued: Dictionary = faction["consumeAccrued"]
-	var need := {}
+	var draws := {}
 	var consumes: Dictionary = GameData.FACTIONS[faction_id].get("consumes", {})
 	for recipe_key in consumes:
 		var owed: int = int(accrued.get(recipe_key, 0)) + roundi(float(consumes[recipe_key]) * Barometer.get_item_demand_mult(recipe_key) * CONSUME_UNIT / 7.0)
-		var draw: int = owed / CONSUME_UNIT
+		draws[recipe_key] = owed / CONSUME_UNIT
 		accrued[recipe_key] = owed % CONSUME_UNIT
-		need[recipe_key] = int(need.get(recipe_key, 0)) + draw
+	var burns := {}
+	var defend_burns := {}
 	for burn in faction["kitBurns"]:
 		for recipe_key in burn["items"]:
-			need[recipe_key] = int(need.get(recipe_key, 0)) + int(burn["items"][recipe_key])
+			var qty := int(burn["items"][recipe_key])
+			burns[recipe_key] = int(burns.get(recipe_key, 0)) + qty
+			if burn["kit"] == "defend":
+				defend_burns[recipe_key] = int(defend_burns.get(recipe_key, 0)) + qty
 	faction["kitBurns"] = []
 
 	var shortfall := {}
-	for recipe_key in need:
-		var taken := 0
-		for part in take_items(faction_id, recipe_key, need[recipe_key]):
-			taken += int(part["qty"])
-		if need[recipe_key] > taken:
-			shortfall[recipe_key] = need[recipe_key] - taken
+	var keys: Array = draws.keys()
+	for recipe_key in burns:
+		if not keys.has(recipe_key):
+			keys.append(recipe_key)
+	for recipe_key in keys:
+		var burn_need := int(burns.get(recipe_key, 0))
+		var short := burn_need - _taken_qty(take_items(faction_id, recipe_key, burn_need))
+		var reserved := maxi(0, item_reserved(faction_id, recipe_key) - int(defend_burns.get(recipe_key, 0)))
+		var free := maxi(0, item_held(faction_id, recipe_key) - reserved)
+		var draw := int(draws.get(recipe_key, 0))
+		short += draw - _taken_qty(take_items(faction_id, recipe_key, mini(draw, free)))
+		if short > 0:
+			shortfall[recipe_key] = short
 	faction["shortfall"] = shortfall
+
+
+static func _taken_qty(parts: Array) -> int:
+	var taken := 0
+	for part in parts:
+		taken += int(part["qty"])
+	return taken
 
 
 # ── Per-vein kit allocation (spec §Per-vein kit allocation) ───────────────

@@ -334,6 +334,43 @@ func run() -> void:
 		assert_eq(FactionSim.vein_kit("s1"), {}, "site without a faction vein reads empty")
 	)
 
+	run_case("an_unfought_veins_kit_is_kept_from_everyday_consumption", func():
+		GameState.reset()
+		_seed_veins([_vein("s1", "firm", "physics", 50)])
+		_set_item("firm", "shield", 2)
+		_set_item("firm", "healingBurst", 1)
+		FactionSim.allocate_kits()
+		for i in 7:
+			FactionSim.consume()
+			FactionSim.allocate_kits()
+		assert_eq(FactionSim.item_held("firm", "shield"), 2, "reserved shields survive a week of draws")
+		assert_eq(FactionSim.vein_kit("s1"), { "shield": 2, "healingBurst": 1 }, "the kit needs no topping up")
+		assert_eq(GameState.state["factions"]["firm"]["shortfall"].get("shield", 0) > 0, true, "the everyday draw goes short instead")
+	)
+
+	run_case("a_defend_burn_spends_the_reserved_kit", func():
+		GameState.reset()
+		_seed_veins([_vein("s1", "firm", "physics", 50)])
+		_set_item("firm", "shield", 2)
+		_set_item("firm", "healingBurst", 1)
+		FactionSim.allocate_kits()
+		FactionSim.log_kit_burn("firm", "defend", "rivalry")
+		FactionSim.consume()
+		FactionSim.allocate_kits()
+		assert_eq(FactionSim.item_held("firm", "shield"), 0, "the defend burn spends the reserved shields")
+		assert_eq(FactionSim.vein_kit("s1"), {}, "the burnt kit is gone until restocked")
+	)
+
+	run_case("reserved_kit_items_are_not_for_sale", func():
+		GameState.reset()
+		_seed_veins([_vein("s1", "firm", "physics", 50)])
+		_set_item("firm", "shield", 5)
+		FactionSim.allocate_kits()
+		assert_eq(FactionSim.for_sale("firm", "consumable", "shield"), 3, "two shields are reserved for the vein")
+		GameState.state["player"]["cash"] = 1000000
+		assert_eq(Economy.execute_faction_purchase("firm", [{ "kind": "consumable", "type": "shield", "qty": 4 }])["reason"], "Not enough stock.", "buying into the reserve is refused")
+	)
+
 	run_case("an_old_save_without_vein_kits_backfills_them", func():
 		GameState.reset()
 		_seed_veins([_vein("s1", "firm", "physics", 50)])

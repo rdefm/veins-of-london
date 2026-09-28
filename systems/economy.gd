@@ -299,13 +299,13 @@ static func get_faction_sell_price(faction_id: String, kind: String, item_type: 
 
 # The Guild marketplace's and sell menu's buy-row qty sliders need a
 # buy-side ceiling: what the budget affords, capped by what the faction
-# holds (FactionSim holdings, ore and items alike).
+# will sell (FactionSim.for_sale: all ore, items not reserved for vein kits).
 # budget < 0 means the player's cash; a business purchase passes its own.
 static func get_faction_buy_max_qty(faction_id: String, kind: String, item_type: String, budget: int = -1, apply_district: bool = true) -> int:
 	var price := get_faction_buy_price(faction_id, kind, item_type, apply_district)
 	var cash: int = GameState.state["player"]["cash"] if budget < 0 else budget
 	var affordable := int(floor(float(cash) / float(maxi(price, 1))))
-	return mini(affordable, FactionSim.held(faction_id, kind, item_type))
+	return mini(affordable, FactionSim.for_sale(faction_id, kind, item_type))
 
 
 # items: [{ kind:"ore"|"consumable", type:String, qty:int }, ...]. All-or-
@@ -329,7 +329,7 @@ static func execute_faction_purchase(faction_id: String, items: Array) -> Dictio
 		return { "ok": false, "reason": "Not enough cash." }
 
 	for key in qty_totals:
-		if qty_totals[key] > FactionSim.held(faction_id, key[0], key[1]):
+		if qty_totals[key] > FactionSim.for_sale(faction_id, key[0], key[1]):
 			return { "ok": false, "reason": "Not enough stock." }
 
 	player["cash"] -= total_cost

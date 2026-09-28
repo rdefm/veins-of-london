@@ -71,7 +71,7 @@ func _build_goods_row(kind: String, item_type: String) -> Control:
 	c["content"].add_child(UI.symbol_row([{ "symbol": symbol, "fallback": fallback }, name], { "heading_size": 15 }))
 	var move := Market.day_move(kind, item_type)
 	var prices := UI.hbox(4)
-	prices.add_child(UI.label("Buy £%d/u · Sell £%d/u · Have %d · Stock %d" % [buy_price, sell_price, have, FactionSim.held(faction_id, kind, item_type)]))
+	prices.add_child(UI.label("Buy £%d/u · Sell £%d/u · Have %d · Stock %d" % [buy_price, sell_price, have, FactionSim.for_sale(faction_id, kind, item_type)]))
 	if move != 0:
 		prices.add_child(UI.tinted_label(PriceMove.text(move), PriceMove.colour(move, Color.WHITE)))
 	c["content"].add_child(prices)
