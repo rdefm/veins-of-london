@@ -35,41 +35,44 @@ func _pending_count(contact_id: String, kind: String) -> int:
 func run() -> void:
 	# ── col_a2_force_vein_loss ─────────────────────────────────────────────
 
-	run_case("hakims_vein_is_safe_from_rivalry_until_t10_then_exposed", func():
-		var taken_before_t10 := false
-		for seed in range(200):
-			GameState.reset()
-			GameState.state["world"]["sites"] = []
-			var vein := Fixtures.seed_faction_vein("hakim_v", 50)
-			vein["security"] = "none"
-			GameState.state["collective"]["hakimVeinId"] = "hakim_v"
-			GameState.state["factions"]["firm"]["resources"] = 5000
-			GameState.state["factions"]["collective"]["resources"] = 0
-			Rng.set_seed(seed)
-			Factions.apply_rivalry_resolution()
-			if vein["factionId"] != "collective":
-				taken_before_t10 = true
-		assert_true(not taken_before_t10, "no rival takes Hakim's vein before T10")
+	run_case("hakims_vein_is_safe_from_rivalry_until_the_retake", func():
+		# Collective-held before T10, then Firm-held between T10 and T13.
+		for holder in ["collective", "firm"]:
+			var taken := false
+			for seed in range(200):
+				GameState.reset()
+				GameState.state["world"]["sites"] = []
+				var vein := Fixtures.seed_faction_vein("hakim_v", 50, holder)
+				vein["security"] = "none"
+				GameState.state["collective"]["hakimVeinId"] = "hakim_v"
+				GameState.state["flags"]["colA2HakimVeinLost"] = holder == "firm"
+				for faction_id in GameState.state["factions"]:
+					GameState.state["factions"][faction_id]["resources"] = 0 if faction_id == holder else 5000
+				Rng.set_seed(seed)
+				Factions.apply_rivalry_resolution()
+				if vein["factionId"] != holder:
+					taken = true
+			assert_true(not taken, "no rival takes Hakim's vein while the %s holds it" % holder)
 
-		var taken_after_t10 := false
+		var taken_after_retake := false
 		for seed in range(500):
 			GameState.reset()
 			GameState.state["world"]["sites"] = []
 			var vein := Fixtures.seed_faction_vein("hakim_v", 50)
 			vein["security"] = "none"
 			GameState.state["collective"]["hakimVeinId"] = "hakim_v"
-			GameState.state["flags"]["colA2HakimVeinLost"] = true
+			GameState.state["flags"]["colA2HakimRetaken"] = true
 			GameState.state["factions"]["firm"]["resources"] = 5000
 			GameState.state["factions"]["collective"]["resources"] = 0
 			Rng.set_seed(seed)
 			Factions.apply_rivalry_resolution()
 			if vein["factionId"] != "collective":
-				taken_after_t10 = true
+				taken_after_retake = true
 				break
-		assert_true(taken_after_t10, "once T10 has run, the lock lifts")
+		assert_true(taken_after_retake, "once the retake has run, the lock lifts")
 	)
 
-	run_case("hakims_vein_is_not_raided_while_the_player_holds_it_before_t10", func():
+	run_case("hakims_vein_is_not_raided_while_the_player_holds_it_before_the_retake", func():
 		GameState.reset()
 		var vein := Fixtures.seed_vein("hakim_v", 50)
 		GameState.state["collective"]["hakimVeinId"] = "hakim_v"
@@ -77,20 +80,32 @@ func run() -> void:
 			GameState.state["factions"][faction_id]["relation"] = -100
 		var targets: Array = Raiding.roll_raid_attempts().map(func(a: Dictionary) -> String: return a["veinId"])
 		assert_true(not targets.has("hakim_v"), "no faction raid targets Hakim's vein")
-		GameState.state["flags"]["colA2HakimVeinLost"] = true
+		GameState.state["flags"]["colA2HakimRetaken"] = true
 		targets = Raiding.roll_raid_attempts().map(func(a: Dictionary) -> String: return a["veinId"])
-		assert_true(targets.has(vein["id"]), "the lock lifts after T10")
+		assert_true(targets.has(vein["id"]), "the lock lifts after the retake")
 	)
 
-	run_case("player_cannot_raid_hakims_vein_before_t10", func():
+	run_case("player_cannot_map_raid_hakims_vein_before_or_after_t10", func():
+		for holder in ["collective", "firm"]:
+			GameState.reset()
+			GameState.state["world"]["sites"] = []
+			var vein := Fixtures.seed_faction_vein("hakim_v", 50, holder)
+			GameState.state["collective"]["hakimVeinId"] = "hakim_v"
+			GameState.state["flags"]["colA2HakimVeinLost"] = holder == "firm"
+			var block_before: int = GameState.state["world"]["timeBlock"]
+			var result := Raiding.begin_raid(vein)
+			assert_true(not result["ok"], "the raid on the %s-held vein is refused" % holder)
+			assert_eq(GameState.state["world"]["timeBlock"], block_before, "no time spent")
+	)
+
+	run_case("the_retake_still_claims_the_locked_vein_from_the_firm", func():
 		GameState.reset()
 		GameState.state["world"]["sites"] = []
-		var vein := Fixtures.seed_faction_vein("hakim_v", 50)
+		var vein := Fixtures.seed_faction_vein("hakim_v", 50, "firm")
 		GameState.state["collective"]["hakimVeinId"] = "hakim_v"
-		var block_before: int = GameState.state["world"]["timeBlock"]
-		var result := Raiding.begin_raid(vein)
-		assert_true(not result["ok"], "the raid is refused")
-		assert_eq(GameState.state["world"]["timeBlock"], block_before, "no time spent")
+		GameState.state["flags"]["colA2HakimVeinLost"] = true
+		Raiding.claim_vein(vein["siteId"])
+		assert_true(Cultivating.find_vein("hakim_v") != null, "the quest claim path isn't blocked by the lock")
 	)
 
 	run_case("force_vein_loss_moves_exactly_the_named_collective_vein_to_the_firm", func():
