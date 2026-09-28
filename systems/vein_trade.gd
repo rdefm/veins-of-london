@@ -108,6 +108,7 @@ static func buy_from_faction(vein_id: String, faction_id: String, contact_id: St
 
 	var player_vein: Dictionary = GameState.deep_copy(faction_vein)
 	player_vein.erase("factionId")
+	player_vein.erase("kit")
 	player["veins"].append(player_vein)
 
 	site["claimed"] = true

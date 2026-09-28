@@ -183,7 +183,8 @@ func _migrate_player_model(save: Dictionary) -> void:
 # A save without faction holdings gets the placeholder starting stock, with
 # any saved per-ore oreStock added on top; faction cash is left as saved.
 # A faction without a stockpile gets one picked now; missing consumption
-# keys (kitBurns, shortfall, consumeAccrued) start empty.
+# keys (kitBurns, shortfall, consumeAccrued) start empty. Faction veins
+# without a kit get one from FactionSim.allocate_kits_in.
 func _migrate_faction_holdings(save: Dictionary) -> void:
 	for faction_id in save.get("factions", {}):
 		var faction: Dictionary = save["factions"][faction_id]
@@ -202,6 +203,11 @@ func _migrate_faction_holdings(save: Dictionary) -> void:
 			faction["shortfall"] = {}
 		if not faction.has("consumeAccrued"):
 			faction["consumeAccrued"] = {}
+	for site in save.get("world", {}).get("sites", []):
+		var vein: Variant = site.get("factionVein")
+		if vein != null and not vein.has("kit"):
+			FactionSim.allocate_kits_in(save)
+			break
 
 
 # A save with an in-progress col_a1_nadia_supply objective can't identify
@@ -744,6 +750,7 @@ func _restore_int_types(state: Dictionary) -> void:
 				var faction_vein: Dictionary = site["factionVein"]
 				for key in ["growth", "rampantDays", "claimedOnDay", "extraGuards", "level", "developmentStreak"]:
 					_int_key(faction_vein, key)
+				_int_dict_values(faction_vein.get("kit", {}))
 		for recent in world.get("recentEvents", []):
 			_int_key(recent, "day")
 		_int_dict_values(world.get("mapSlotCounters", {}))

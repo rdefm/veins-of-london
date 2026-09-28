@@ -259,6 +259,69 @@ static func _consume_faction(faction_id: String) -> void:
 	faction["shortfall"] = shortfall
 
 
+# ── Per-vein kit allocation (spec §Per-vein kit allocation) ───────────────
+# Rollover step after consume(): each faction assigns its held `defend` kit
+# items (factions.json `raidKits.defend`) to its veins' guards, most valuable
+# vein first (Cultivating.combined_magnitude, ties by siteId ascending), each
+# vein taking up to one defend kit per item from what's still unassigned. A
+# short faction's least valuable veins go without first. The allocation is a
+# record on factionVein.kit = { recipeKey: qty } (items it has, absent = 0);
+# holdings are not reduced. Hidden from the player; read via vein_kit().
+static func allocate_kits() -> void:
+	allocate_kits_in(GameState.state)
+
+
+# Works on any state-shaped Dictionary so SaveManager can backfill a raw save.
+static func allocate_kits_in(state: Dictionary) -> void:
+	var veins_by_faction := {}
+	for site in state["world"]["sites"]:
+		var vein: Variant = site.get("factionVein")
+		if vein == null:
+			continue
+		if not veins_by_faction.has(vein["factionId"]):
+			veins_by_faction[vein["factionId"]] = []
+		veins_by_faction[vein["factionId"]].append(vein)
+	for faction_id in veins_by_faction:
+		if not GameData.FACTIONS.has(faction_id) or not state["factions"].has(faction_id):
+			continue
+		_allocate_faction_kits(faction_id, state["factions"][faction_id]["holdings"], veins_by_faction[faction_id])
+
+
+static func _allocate_faction_kits(faction_id: String, holdings: Dictionary, veins: Array) -> void:
+	var defend: Dictionary = GameData.FACTIONS[faction_id].get("raidKits", {}).get("defend", {})
+	var unassigned := {}
+	for recipe_key in defend:
+		var total := 0
+		for count in holdings["items"].get(recipe_key, {}).values():
+			total += int(count)
+		unassigned[recipe_key] = total
+	veins.sort_custom(_value_order)
+	for vein in veins:
+		var kit := {}
+		for recipe_key in defend:
+			var qty: int = mini(int(defend[recipe_key]), unassigned[recipe_key])
+			if qty > 0:
+				kit[recipe_key] = qty
+				unassigned[recipe_key] -= qty
+		vein["kit"] = kit
+
+
+static func _value_order(a: Dictionary, b: Dictionary) -> bool:
+	var value_a := Cultivating.combined_magnitude(a)
+	var value_b := Cultivating.combined_magnitude(b)
+	if value_a != value_b:
+		return value_a > value_b
+	return str(a.get("siteId", "")) < str(b.get("siteId", ""))
+
+
+# The kit a site's faction vein holds for defence; {} for no faction vein.
+static func vein_kit(site_id: String) -> Dictionary:
+	var site: Variant = Sites.find_site(site_id)
+	if site == null or site["factionVein"] == null:
+		return {}
+	return site["factionVein"].get("kit", {})
+
+
 # Districts whose factionPresence is this faction, in GameData.DISTRICTS order.
 static func home_districts(faction_id: String) -> Array:
 	var homes: Array = []

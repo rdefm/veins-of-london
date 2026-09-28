@@ -95,6 +95,7 @@ static func daily_tick() -> void:
 	FactionSim.tend_and_prune()          # ⑤e after ⑤b-⑤d so today's claims and ownership changes are tended
 	FactionSim.craft()                   # ⑤f after ⑤e so today's prune ore can be crafted
 	FactionSim.consume()                 # ⑤g after ⑤c/⑤d so today's kit burns are drawn; after ⑤f so today's crafts can cover them
+	FactionSim.allocate_kits()           # ⑤g2 after ⑤g so kits reflect post-consumption holdings
 	Factions.apply_passive_income()      # ⑤h industries-only, no ordering dependency on ⑤b-⑤g
 	NetworkHandler.expire_intel()        # ⑤i before ⑤j so a lapsed security_freeze stops skipping today's upgrade
 	Factions.apply_security_upgrades()   # ⑤j after ⑤h so today's income is already banked and spendable

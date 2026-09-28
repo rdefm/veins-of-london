@@ -302,7 +302,7 @@ func run() -> void:
 		GameState.state["world"]["sites"].append({
 			"id": "s1", "district": "hampstead", "tier": "rich", "oreType": "life",
 			"bonuses": ["yield"], "discoveredDay": 3, "claimed": false,
-			"factionVein": { "id": "fv1", "factionId": "collective", "oreType": "life", "growth": 20, "rampantDays": 0, "security": "none", "claimedOnDay": 5 },
+			"factionVein": { "id": "fv1", "factionId": "collective", "oreType": "life", "growth": 20, "rampantDays": 0, "security": "none", "claimedOnDay": 5, "kit": { "healingSalve": 1 } },
 			"hasNaturalVein": false,
 		})
 		var original: Dictionary = GameState.deep_copy(GameState.state)

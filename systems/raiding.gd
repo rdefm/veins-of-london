@@ -81,6 +81,7 @@ static func claim_vein(site_id: String) -> void:
 
 	var player_vein: Dictionary = GameState.deep_copy(faction_vein)
 	player_vein.erase("factionId")
+	player_vein.erase("kit")
 	GameState.state["player"]["veins"].append(player_vein)
 
 	site["claimed"] = true

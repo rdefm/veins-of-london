@@ -95,6 +95,7 @@ static func create_faction_vein(faction_id: String, site: Dictionary, growth: in
 	var vein := Cultivating.make_vein(site["oreType"], growth, site["district"], site["id"], hospitability)
 	vein["factionId"] = faction_id
 	vein["security"] = roll_security_tier(faction_id, site["oreType"])
+	vein["kit"] = {}
 	return vein
 
 

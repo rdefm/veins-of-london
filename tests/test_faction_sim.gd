@@ -287,6 +287,63 @@ func run() -> void:
 			assert_eq(faction["consumeAccrued"], {}, "%s consumeAccrued backfills empty" % faction_id)
 	)
 
+	# §Per-vein kit allocation
+	run_case("every_faction_vein_carries_a_kit_after_allocation", func():
+		GameState.reset()
+		_seed_veins([
+			_vein("s1", "firm", "physics", 50), _vein("s2", "guild", "time", 50),
+			_vein("s3", "network", "emotion", 50), _vein("s4", "conclave", "fate", 50),
+		])
+		FactionSim.allocate_kits()
+		for site in GameState.state["world"]["sites"]:
+			assert_true(site["factionVein"].has("kit"), "%s vein has a kit" % site["id"])
+		assert_eq(FactionSim.vein_kit("s2"), {}, "the Guild defends with no kit")
+		assert_eq(FactionSim.vein_kit("s3"), {}, "the Network defends with no kit")
+	)
+
+	run_case("a_short_faction_leaves_its_least_valuable_veins_without_kit", func():
+		GameState.reset()
+		_seed_veins([
+			_vein("s1", "firm", "physics", 10), _vein("s2", "firm", "physics", 90),
+			_vein("s3", "firm", "physics", 50),
+		])
+		_set_item("firm", "shield", 3)
+		_set_item("firm", "healingBurst", 1)
+		FactionSim.allocate_kits()
+		assert_eq(FactionSim.vein_kit("s2"), { "shield": 2, "healingBurst": 1 }, "most valuable vein takes a full kit")
+		assert_eq(FactionSim.vein_kit("s3"), { "shield": 1 }, "next vein takes what's left")
+		assert_eq(FactionSim.vein_kit("s1"), {}, "least valuable vein goes without")
+		assert_eq(FactionSim.item_held("firm", "shield"), 3, "allocation doesn't reduce holdings")
+	)
+
+	run_case("equal_value_veins_are_served_by_site_id", func():
+		GameState.reset()
+		_seed_veins([_vein("s2", "firm", "physics", 50), _vein("s1", "firm", "physics", 50)])
+		_set_item("firm", "shield", 2)
+		_set_item("firm", "healingBurst", 0)
+		FactionSim.allocate_kits()
+		assert_eq(FactionSim.vein_kit("s1"), { "shield": 2 }, "lower site id served first")
+		assert_eq(FactionSim.vein_kit("s2"), {}, "higher site id goes without")
+	)
+
+	run_case("vein_kit_is_empty_for_a_site_without_a_faction_vein", func():
+		GameState.reset()
+		_seed_veins([_vein("s1", "firm", "physics", 50)])
+		assert_eq(FactionSim.vein_kit("nowhere"), {}, "unknown site reads empty")
+		GameState.state["world"]["sites"][0]["factionVein"] = null
+		assert_eq(FactionSim.vein_kit("s1"), {}, "site without a faction vein reads empty")
+	)
+
+	run_case("an_old_save_without_vein_kits_backfills_them", func():
+		GameState.reset()
+		_seed_veins([_vein("s1", "firm", "physics", 50)])
+		_set_item("firm", "shield", 8)
+		_set_item("firm", "healingBurst", 8)
+		var save: Dictionary = GameState.state.duplicate(true)
+		SaveManager._migrate_faction_holdings(save)
+		assert_eq(save["world"]["sites"][0]["factionVein"]["kit"], { "shield": 2, "healingBurst": 1 }, "the vein kit backfills from holdings")
+	)
+
 
 static func _set_ore(faction_id: String, ore_type: String, qty: int) -> void:
 	GameState.state["factions"][faction_id]["holdings"]["ore"][ore_type] = qty
