@@ -192,3 +192,12 @@ func run() -> void:
 		assert_true(flags.get("colA1DesMet", false), "col_a1_intro completes from a debug-start state")
 		assert_eq(flags.get("colA1Stage", ""), "tuition", "questline advances to tuition")
 	)
+
+	run_case("debug_start_unlocks_the_firm_network_and_conclave_shops", func():
+		GameState.reset()
+		for flag in ["firmShopUnlocked", "networkShopUnlocked", "conclaveShopUnlocked"]:
+			assert_eq(GameState.state["flags"][flag], false, "%s is off on a normal new game" % flag)
+		DebugStart.apply()
+		for flag in ["firmShopUnlocked", "networkShopUnlocked", "conclaveShopUnlocked"]:
+			assert_true(GameState.state["flags"][flag], "%s set by Debug Start" % flag)
+	)

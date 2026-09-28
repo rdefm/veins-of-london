@@ -43,7 +43,7 @@ tests/test_events.gd
 tests/test_factions.gd
 tests/test_gamedata.gd
 tests/test_gamestate.gd
-tests/test_guild_marketplace_screen.gd
+tests/test_faction_shop_screen.gd
 tests/test_haptics.gd
 tests/test_hq_dial.gd
 tests/test_hq_diorama.gd

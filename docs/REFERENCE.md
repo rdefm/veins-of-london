@@ -441,6 +441,7 @@ state = {
     jamesJobActive: false, jamesJobAccepted: false,
     homeRaidEventPending: false, homeRaidEventSeen: false, homeRaidWon: false,
     archiePartnerSeen: false, homeUnlocked: false, securityContactUnlocked: false,
+    firmShopUnlocked: false, networkShopUnlocked: false, conclaveShopUnlocked: false,  # §3.6a faction shop lanes + map pins
     dialGiftGranted: false,   # dial-device ticket 01: gates Dial.attempt_seed(); set only by the Collective Act 2 quest (out of scope for this PRD)
   },
 }
@@ -559,6 +560,7 @@ The dock (`NavBar`, now 3 slots: Phone · Map · HQ) is hidden on `title, intro,
 
 ### 3.6a Faction shops (biz-act2-faction-economy)
 - Every faction has a lane in `data/faction_trade.json` (pricing unchanged: London quote ± relation spread, §3.13). `can_buy_from_faction`: a `memberOnly` lane needs membership; any other lane needs its `unlockFlag` (`collectiveLaneUnlocked`, `firmShopUnlocked`, `networkShopUnlocked`, `conclaveShopUnlocked`).
+- **Shop pins.** A lane with `mapShopPin: true` (Firm, Network, Conclave) gets a bag pin on the map at its faction's first-presence district once `can_buy_from_faction` passes; tap opens `FactionShopScreen` for that faction (screen ids `firm_shop`/`network_shop`/`conclave_shop`; the Guild keeps `guild_marketplace`). The three shop flags default false; only Debug Start sets them for now.
 - **Stock = holdings.** A faction sells exactly what `factions[id].holdings` holds, ore and items. `get_faction_buy_max_qty` = min(budget ÷ price, held). A purchase over cash or holdings is rejected outright. Bought items arrive at the held tier, highest tier first. There is no random restock.
 - **Faction cash.** `factions[id].resources` is the faction's £ wallet and never goes below £0. A player purchase (and a business calc buy) credits it. A player sale debits it and adds the goods to holdings (items at their tier; a cart line carries its tier, otherwise lowest tier leaves first). Each sale line is scaled down to what the wallet has left; a sale it can't afford at all is refused ("They can't afford that."). Exception: Nadia's questline order (`Collective.supply_nadia`) pays in full and floors the wallet at £0.
 

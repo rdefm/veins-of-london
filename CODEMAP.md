@@ -60,7 +60,7 @@ Data file per system: see `data/*.json` below.
 | map_hit_test.gd | Tap-hit geometry, Network diagram |
 | map_layout.gd | Resolves stops vs. live sites/veins |
 | map_nav.gd | Map drill-down nav (list → panel → site sheet or vein detail panel, mutually exclusive) |
-| map_pins.gd | Contact map-pins for waiting events |
+| map_pins.gd | Contact map-pins for waiting events; which faction shop pins are open (faction_trade.json mapShopPin + unlock) |
 | map_routing.gd | Octilinear line-routing geometry |
 | map_style.gd | Filter-chip re-styling math |
 | map_view.gd | Persists Network camera |
@@ -106,7 +106,7 @@ overlays.
 | contacts.gd | Contacts app inside PhoneDeviceShell; alphabetic directory with inline flag-gated actions |
 | event.gd | Event-card screen (VN and non-VN layouts); Item button + popup over EventItems; choices row, or stack full-width when they don't fit |
 | factions.gd | Factions tab |
-| guild_marketplace.gd | Faction trading UI |
+| faction_shop.gd | One faction's shop (buy/sell vs its holdings); `faction_id` set by Main.gd from the screen id (guild_marketplace, firm_shop, network_shop, conclave_shop) |
 | hq.gd | HQ tab: renders the home tier's room plate (bedsit fallback), routes zone taps to sub-screens |
 | hq_dial.gd | Dial loadout sub-view (Movements, Complications) |
 | hq_door.gd | Security zone (lock/cameras/door/alarm/guard/ward) |

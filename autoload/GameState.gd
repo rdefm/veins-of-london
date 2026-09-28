@@ -323,6 +323,8 @@ func new_game_state() -> Dictionary:
 			# Pre-join lane gate: Des/Nadia/Hakim's Trade action-bar entry
 			# reads this, not faction membership.
 			"collectiveLaneUnlocked": false,
+			# Faction shop lanes + their map pins (faction_trade.json unlockFlag).
+			"firmShopUnlocked": false, "networkShopUnlocked": false, "conclaveShopUnlocked": false,
 			# Gates Dial.attempt_seed() (R§3.5's Gift gate). Set true only
 			# by the Collective Act 2 onboarding quest.
 			"dialGiftGranted": false,

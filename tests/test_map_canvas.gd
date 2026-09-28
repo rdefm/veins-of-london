@@ -1223,7 +1223,34 @@ func run() -> void:
 		GameState.reset()
 		var canvas := MapCanvas.new()
 		canvas._activate_pin({ "kind": "guild_marketplace" })
-		assert_eq(GameState.state["currentScreen"], "guild_marketplace", "tapping the pin should route to the existing GuildMarketplaceScreen")
+		assert_eq(GameState.state["currentScreen"], "guild_marketplace", "tapping the pin should route to the existing FactionShopScreen")
+		canvas.free()
+	)
+
+	run_case("faction_shop_pins_appear_only_once_their_unlock_flag_is_set", func():
+		GameState.reset()
+		var canvas := MapCanvas.new()
+		canvas._rebuild_pins()
+		assert_true(canvas._pins.all(func(p): return p["kind"] != "faction_shop"), "no faction shop pins on a new game")
+
+		for flag in ["firmShopUnlocked", "networkShopUnlocked", "conclaveShopUnlocked"]:
+			GameState.state["flags"][flag] = true
+		canvas._rebuild_pins()
+		var shops := {}
+		for pin in canvas._pins:
+			if pin["kind"] == "faction_shop":
+				shops[pin["factionId"]] = pin["position"]
+		assert_eq(shops.keys().size(), 3, "one pin each for Firm, Network, Conclave")
+		for faction_id in ["firm", "network", "conclave"]:
+			assert_eq(shops.get(faction_id), MapLayout.faction_first_presence_anchor(faction_id), "%s pin at its home district" % faction_id)
+		canvas.free()
+	)
+
+	run_case("activating_a_faction_shop_pin_opens_that_factions_shop", func():
+		GameState.reset()
+		var canvas := MapCanvas.new()
+		canvas._activate_pin({ "kind": "faction_shop", "factionId": "network" })
+		assert_eq(GameState.state["currentScreen"], "network_shop")
 		canvas.free()
 	)
 
@@ -1256,7 +1283,7 @@ func run() -> void:
 		var canvas := MapCanvas.new()
 		var pos := Vector2(50.0, 60.0)
 		var spy := DrawSpy.new()
-		canvas._draw_guild_marketplace_pin(spy, pos)
+		canvas._draw_shop_pin(spy, pos, MapPalette.colour("guarded"))
 
 		assert_true(spy.calls_matching("draw_string").is_empty(), "no text glyph")
 		assert_true(not spy.calls_matching("draw_rect").is_empty(), "Icons.draw_bag draws its body as a rect")

@@ -34,6 +34,16 @@ static func active_contact_pins() -> Array:
 # The subset of active_contact_pins() whose event declares "contact":
 # contact_id -- the pins that should also surface as a phone-card shortcut
 # button on that contact.
+# Factions whose lane carries mapShopPin (data/faction_trade.json) and is
+# open to the player right now -- each gets a shop pin on the map.
+static func open_shop_factions() -> Array:
+	var result: Array = []
+	for faction_id in GameData.FACTION_TRADE.keys():
+		if GameData.FACTION_TRADE[faction_id].get("mapShopPin", false) and Economy.can_buy_from_faction(faction_id):
+			result.append(faction_id)
+	return result
+
+
 static func active_phone_shortcuts_for(contact_id: String) -> Array:
 	var result: Array = []
 	for pin in active_contact_pins():

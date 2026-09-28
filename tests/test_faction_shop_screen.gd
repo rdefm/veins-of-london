@@ -3,7 +3,7 @@ extends "res://tests/test_base.gd"
 const NodeQuery := preload("res://tests/support/node_query.gd")
 
 # bugfixes-29: same headless-scene pattern as tests/test_hq_screen.gd --
-# GuildMarketplaceScreen.new() then _ready(), no live tree needed.
+# FactionShopScreen.new() then _ready(), no live tree needed.
 
 
 static func _find_button_starting_with(root: Node, prefix: String) -> Button:
@@ -86,11 +86,39 @@ const TIME_HEADING := "⧖Time Orichalchum"
 
 
 func run() -> void:
+	run_case("firm_shop_is_shut_until_its_unlock_flag_is_set", func():
+		GameState.reset()
+		var screen := FactionShopScreen.new()
+		screen.faction_id = "firm"
+		screen._ready()
+		assert_true(_find_button_starting_with(screen, "Buy ×") == null, "no trading before firmShopUnlocked")
+		screen.free()
+	)
+
+	run_case("conclave_shop_shows_its_real_holdings_and_buys_from_them", func():
+		GameState.reset()
+		GameState.state["flags"]["conclaveShopUnlocked"] = true
+		GameState.state["player"]["cash"] = 100000
+		var stock := FactionSim.held("conclave", "ore", "time")
+		assert_true(stock > 0, "sanity: the Conclave holds some time ore")
+
+		var screen := FactionShopScreen.new()
+		screen.faction_id = "conclave"
+		screen._ready()
+		var stock_line := "Stock %d" % stock
+		assert_true(screen.find_children("", "Label", true, false).any(func(l): return (l as Label).text.ends_with(stock_line)), "rows show the Conclave's own stock")
+
+		_find_button_starting_with(screen, "Buy ×1").pressed.emit()
+		assert_eq(FactionSim.held("conclave", "ore", "time"), stock - 1, "bought out of the Conclave's holdings")
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], 1)
+		screen.free()
+	)
+
 	run_case("guild_marketplace_shows_locked_state_for_non_members", func():
 		GameState.reset()
 		GameState.state["factions"]["guild"]["joined"] = false
 
-		var screen := GuildMarketplaceScreen.new()
+		var screen := FactionShopScreen.new()
 		screen._ready()
 
 		assert_true(NodeQuery.find_button(screen, "‹ Back") != null, "back button must still render when locked")
@@ -105,7 +133,7 @@ func run() -> void:
 		GameState.state["factions"]["guild"]["joined"] = true
 		GameState.state["factions"]["guild"]["relation"] = 40
 
-		var screen := GuildMarketplaceScreen.new()
+		var screen := FactionShopScreen.new()
 		screen._ready()
 
 		assert_true(_find_button_starting_with(screen, "Buy ×1") != null, "buy buttons render for a member")
@@ -120,7 +148,7 @@ func run() -> void:
 		GameState.state["factions"]["guild"]["relation"] = 40
 		GameState.state["flags"]["canSellConsumables"] = false
 
-		var screen := GuildMarketplaceScreen.new()
+		var screen := FactionShopScreen.new()
 		screen._ready()
 
 		# timePearl basePrice 120, full 15% spread -> buy 138 (same
@@ -141,7 +169,7 @@ func run() -> void:
 		GameState.state["factions"]["guild"]["joined"] = true
 		GameState.state["factions"]["guild"]["relation"] = 40  # full 15% spread
 
-		var screen := GuildMarketplaceScreen.new()
+		var screen := FactionShopScreen.new()
 		screen._ready()
 
 		# time basePrice 60, stable barometer, full spread -> buy 69 / sell 51
@@ -160,7 +188,7 @@ func run() -> void:
 		GameState.state["factions"]["guild"]["relation"] = 40
 		GameState.state["player"]["cash"] = 1000
 
-		var screen := GuildMarketplaceScreen.new()
+		var screen := FactionShopScreen.new()
 		screen._ready()
 
 		var buy_button := NodeQuery.find_button(screen, "Buy ×1 (£69)")
@@ -180,7 +208,7 @@ func run() -> void:
 		GameState.state["player"]["cash"] = 100
 		GameState.state["player"]["orichalchum"]["time"] = 5
 
-		var screen := GuildMarketplaceScreen.new()
+		var screen := FactionShopScreen.new()
 		screen._ready()
 
 		var sell_button := NodeQuery.find_button(screen, "Sell ×1 (£51)")
@@ -199,7 +227,7 @@ func run() -> void:
 		GameState.state["factions"]["guild"]["relation"] = 40
 		GameState.state["player"]["cash"] = 0
 
-		var screen := GuildMarketplaceScreen.new()
+		var screen := FactionShopScreen.new()
 		screen._ready()
 
 		var buy_button := NodeQuery.find_button(screen, "Buy ×1 (£69)")
@@ -214,7 +242,7 @@ func run() -> void:
 		GameState.state["factions"]["guild"]["joined"] = true
 		GameState.state["factions"]["guild"]["relation"] = 40
 
-		var screen := GuildMarketplaceScreen.new()
+		var screen := FactionShopScreen.new()
 		screen._ready()
 
 		var sell_button := NodeQuery.find_button(screen, "Sell ×1 (£51)")
@@ -229,7 +257,7 @@ func run() -> void:
 		GameState.state["factions"]["guild"]["joined"] = true
 		GameState.state["factions"]["guild"]["relation"] = 40
 
-		var screen := GuildMarketplaceScreen.new()
+		var screen := FactionShopScreen.new()
 		screen._ready()
 
 		assert_true(_find_label_in_card(screen, TIME_HEADING, "1") != null, "qty label starts at 1")
@@ -247,7 +275,7 @@ func run() -> void:
 		GameState.state["player"]["cash"] = 1000
 		GameState.state["player"]["orichalchum"]["time"] = 10
 
-		var screen := GuildMarketplaceScreen.new()
+		var screen := FactionShopScreen.new()
 		screen._ready()
 
 		# time buy £69/u, sell £51/u (same figures as the ×1 test above).
@@ -269,7 +297,7 @@ func run() -> void:
 		# 3*69=207 > 150). No stock held, so the slider's own max is 2.
 		GameState.state["player"]["cash"] = 150
 
-		var screen := GuildMarketplaceScreen.new()
+		var screen := FactionShopScreen.new()
 		screen._ready()
 
 		var slider := _slider_in_card(screen, TIME_HEADING)
@@ -288,7 +316,7 @@ func run() -> void:
 		GameState.state["player"]["cash"] = 0
 		GameState.state["player"]["orichalchum"]["time"] = 2
 
-		var screen := GuildMarketplaceScreen.new()
+		var screen := FactionShopScreen.new()
 		screen._ready()
 
 		var slider := _slider_in_card(screen, TIME_HEADING)
@@ -310,7 +338,7 @@ func run() -> void:
 		GameState.state["player"]["cash"] = 100
 		GameState.state["player"]["orichalchum"]["time"] = 5
 
-		var screen := GuildMarketplaceScreen.new()
+		var screen := FactionShopScreen.new()
 		screen._ready()
 
 		_slide_to(_slider_in_card(screen, TIME_HEADING), 4)
@@ -329,7 +357,7 @@ func run() -> void:
 		GameState.state["player"]["cash"] = 100
 		GameState.state["player"]["orichalchum"]["time"] = 10
 
-		var screen := GuildMarketplaceScreen.new()
+		var screen := FactionShopScreen.new()
 		screen._ready()
 
 		_slide_to(_slider_in_card(screen, TIME_HEADING), 10)
@@ -354,7 +382,7 @@ func run() -> void:
 		GameState.state["factions"]["guild"]["relation"] = 40
 		GameState.state["flags"]["canSellConsumables"] = true
 
-		var screen := GuildMarketplaceScreen.new()
+		var screen := FactionShopScreen.new()
 		screen._ready()
 
 		assert_eq(GameData.CONSUMABLE_PRICES.size(), 14, "sanity: all 14 craftable recipes must have a sale price")
@@ -371,7 +399,7 @@ func run() -> void:
 		GameState.state["factions"]["guild"]["joined"] = true
 		PhoneNav.open_app("factions")
 
-		var screen := GuildMarketplaceScreen.new()
+		var screen := FactionShopScreen.new()
 		screen._ready()
 
 		var back_button := NodeQuery.find_button(screen, "‹ Back")

@@ -566,6 +566,17 @@ func run() -> void:
 		assert_eq(filled["home"]["guardCount"], 0, "a save from before guardCount existed should backfill it to 0")
 	)
 
+	run_case("loading_a_save_without_faction_shop_flags_backfills_them_false", func():
+		GameState.reset()
+		var legacy: Dictionary = GameState.deep_copy(GameState.state)
+		for flag in ["firmShopUnlocked", "networkShopUnlocked", "conclaveShopUnlocked"]:
+			legacy["flags"].erase(flag)
+
+		var filled := SaveManager.backfill_defaults(legacy)
+		for flag in ["firmShopUnlocked", "networkShopUnlocked", "conclaveShopUnlocked"]:
+			assert_eq(filled["flags"][flag], false, "%s backfills to its default" % flag)
+	)
+
 	run_case("loading_a_save_without_productionLog_starts_an_empty_log", func():
 		GameState.reset()
 		var legacy: Dictionary = GameState.deep_copy(GameState.state)

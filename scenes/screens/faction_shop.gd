@@ -1,6 +1,9 @@
-class_name GuildMarketplaceScreen
+class_name FactionShopScreen
 extends Control
 
+# One faction's shop: ticker-effective buy/sell rows against its holdings.
+# Main sets faction_id from the screen id before _ready (FACTION_SHOP_SCREENS).
+var faction_id := "guild"
 var _content: VBoxContainer
 
 func _ready() -> void:
@@ -14,19 +17,28 @@ func _refresh() -> void:
 		child.queue_free()
 
 	_content.add_child(UI.back_to_home_button())
-	_content.add_child(UI.heading("Guild Marketplace"))
+	_content.add_child(UI.heading(_title()))
 
-	if not GameState.state["factions"]["guild"]["joined"]:
+	if not Economy.can_buy_from_faction(faction_id):
 		_build_locked()
 		return
 
 	# Off the Map tab: light card family (MapCardStyle).
 	MapPalette.build_light(_build_trading_ui)
+func _title() -> String:
+	if faction_id == "guild":
+		return "Guild Marketplace"
+	return "%s Shop" % GameData.FACTIONS[faction_id]["shortName"]
 func _build_locked() -> void:
-	_content.add_child(UI.muted_label("Guild members only."))
-	_content.add_child(UI.label("They don't trade with outsiders. Build relation and join to get in."))
+	if faction_id == "guild":
+		_content.add_child(UI.muted_label("Guild members only."))
+		_content.add_child(UI.label("They don't trade with outsiders. Build relation and join to get in."))
+		return
+	_content.add_child(UI.muted_label("Shut to you."))
+	_content.add_child(UI.label("Nobody here has vouched for you yet."))
 func _build_trading_ui() -> void:
-	_content.add_child(UI.muted_label("Ticker-effective prices. Spread narrows the more the Guild trusts you."))
+	var trust_name: String = "the Guild" if faction_id == "guild" else "the %s" % GameData.FACTIONS[faction_id]["shortName"]
+	_content.add_child(UI.muted_label("Ticker-effective prices. Spread narrows the more %s trusts you." % trust_name))
 
 	for ore_type in GameData.ORE_TYPES.keys():
 		_content.add_child(_build_goods_row("ore", ore_type))
@@ -50,8 +62,8 @@ func _build_goods_row(kind: String, item_type: String) -> Control:
 		symbol = recipe["symbol"]
 		have = Crafting.inventory_qty(item_type)
 
-	var buy_price := Economy.get_faction_buy_price("guild", kind, item_type)
-	var sell_price := Economy.get_faction_sell_price("guild", kind, item_type)
+	var buy_price := Economy.get_faction_buy_price(faction_id, kind, item_type)
+	var sell_price := Economy.get_faction_sell_price(faction_id, kind, item_type)
 
 	var fallback: Callable = SymbolGlyph.ore_fallback(item_type) if kind == "ore" else SymbolGlyph.generic_fallback()
 
@@ -59,18 +71,18 @@ func _build_goods_row(kind: String, item_type: String) -> Control:
 	c["content"].add_child(UI.symbol_row([{ "symbol": symbol, "fallback": fallback }, name], { "heading_size": 15 }))
 	var move := Market.day_move(kind, item_type)
 	var prices := UI.hbox(4)
-	prices.add_child(UI.label("Buy £%d/u · Sell £%d/u · Have %d · Stock %d" % [buy_price, sell_price, have, FactionSim.held("guild", kind, item_type)]))
+	prices.add_child(UI.label("Buy £%d/u · Sell £%d/u · Have %d · Stock %d" % [buy_price, sell_price, have, FactionSim.held(faction_id, kind, item_type)]))
 	if move != 0:
 		prices.add_child(UI.tinted_label(PriceMove.text(move), PriceMove.colour(move, Color.WHITE)))
 	c["content"].add_child(prices)
-	var buy_max_qty := Economy.get_faction_buy_max_qty("guild", kind, item_type)
-	var sell_max_qty := mini(have, Economy.get_faction_sell_max_qty("guild", kind, item_type))
+	var buy_max_qty := Economy.get_faction_buy_max_qty(faction_id, kind, item_type)
+	var sell_max_qty := mini(have, Economy.get_faction_sell_max_qty(faction_id, kind, item_type))
 	var slider_max := maxi(buy_max_qty, sell_max_qty)
-	var qty: int = clampi(Economy.get_marketplace_qty("guild", kind, item_type), 1, maxi(slider_max, 1))
+	var qty: int = clampi(Economy.get_marketplace_qty(faction_id, kind, item_type), 1, maxi(slider_max, 1))
 
 	var picked := [qty]
-	var buy := MapCardStyle.text_button("", func(): Economy.execute_faction_purchase("guild", [{ "kind": kind, "type": item_type, "qty": picked[0] }]))
-	var sell := MapCardStyle.text_button("", func(): Economy.execute_faction_sale("guild", [{ "kind": kind, "type": item_type, "qty": picked[0] }]))
+	var buy := MapCardStyle.text_button("", func(): Economy.execute_faction_purchase(faction_id, [{ "kind": kind, "type": item_type, "qty": picked[0] }]))
+	var sell := MapCardStyle.text_button("", func(): Economy.execute_faction_sale(faction_id, [{ "kind": kind, "type": item_type, "qty": picked[0] }]))
 	# Buy and Sell share one qty; each disables past its own ceiling.
 	var on_change := func(value: int) -> void:
 		picked[0] = value
@@ -82,7 +94,7 @@ func _build_goods_row(kind: String, item_type: String) -> Control:
 		MapCardStyle.style_button(sell)
 	on_change.call(qty)
 
-	c["content"].add_child(MapCardStyle.quantity_slider("Qty", qty, slider_max, on_change, func(value: int): Economy.set_marketplace_qty("guild", kind, item_type, value, slider_max)))
+	c["content"].add_child(MapCardStyle.quantity_slider("Qty", qty, slider_max, on_change, func(value: int): Economy.set_marketplace_qty(faction_id, kind, item_type, value, slider_max)))
 	var row := UI.hflow()
 	row.add_child(buy)
 	row.add_child(sell)

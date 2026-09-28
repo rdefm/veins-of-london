@@ -15,8 +15,16 @@ const SCREEN_SCRIPTS := {
 	"vein_list": preload("res://scenes/screens/vein_list.gd"),
 	"hq_lab_bench": preload("res://scenes/screens/hq_lab_bench.gd"),
 	"hq_dial": preload("res://scenes/screens/hq_dial.gd"),
-	"guild_marketplace": preload("res://scenes/screens/guild_marketplace.gd"),
+	"guild_marketplace": preload("res://scenes/screens/faction_shop.gd"),
+	"firm_shop": preload("res://scenes/screens/faction_shop.gd"),
+	"network_shop": preload("res://scenes/screens/faction_shop.gd"),
+	"conclave_shop": preload("res://scenes/screens/faction_shop.gd"),
 	"combat_prototype": preload("res://scenes/screens/combat_prototype.gd"),
+}
+# Screen id -> the faction whose shop FactionShopScreen renders.
+const FACTION_SHOP_SCREENS := {
+	"guild_marketplace": "guild", "firm_shop": "firm",
+	"network_shop": "network", "conclave_shop": "conclave",
 }
 const RETIRED_SCREEN_IDS := {
 	"home": "phone", "you": "phone", "bag": "phone", "inventory": "phone",
@@ -76,6 +84,8 @@ func _show_screen(screen_id: String) -> void:
 
 	var resolved_id: String = resolve_screen_id(screen_id)
 	var screen_node: Control = SCREEN_SCRIPTS[resolved_id].new()
+	if FACTION_SHOP_SCREENS.has(resolved_id):
+		(screen_node as FactionShopScreen).faction_id = FACTION_SHOP_SCREENS[resolved_id]
 	current_screen_node = screen_node
 	UI.anchor_full_rect(screen_node)
 	screen_container.add_child(screen_node)  # may re-enter _show_screen synchronously (e.g. hq.gd's _ready() redirecting straight into an event)

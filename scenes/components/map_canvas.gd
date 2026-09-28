@@ -687,6 +687,10 @@ func _rebuild_pins() -> void:
 	var guild_anchor: Variant = MapLayout.faction_first_presence_anchor("guild")
 	if guild_anchor != null:
 		_pins.append({ "kind": "guild_marketplace", "position": guild_anchor })
+	for faction_id in MapPins.open_shop_factions():
+		var shop_anchor: Variant = MapLayout.faction_first_presence_anchor(faction_id)
+		if shop_anchor != null:
+			_pins.append({ "kind": "faction_shop", "position": shop_anchor, "factionId": faction_id })
 
 	_here_position = MapLayout.district_anchor(GameState.state["world"]["currentDistrict"])
 
@@ -705,7 +709,9 @@ func _draw_pins_layer(target: CanvasItem) -> void:
 			"market":
 				_draw_market_pin(target, pin["position"])
 			"guild_marketplace":
-				_draw_guild_marketplace_pin(target, pin["position"])
+				_draw_shop_pin(target, pin["position"], MapPalette.colour("guarded"))
+			"faction_shop":
+				_draw_shop_pin(target, pin["position"], MapPalette.faction_colour(pin["factionId"]))
 
 
 func _draw_home_pin(target: CanvasItem, pos: Vector2) -> void:
@@ -727,11 +733,10 @@ func _draw_market_pin(target: CanvasItem, pos: Vector2) -> void:
 	Icons.draw_padlock(target, head, MapPalette.colour("stopFill"), 1.3)
 
 
-func _draw_guild_marketplace_pin(target: Object, pos: Vector2) -> void:
-	var guarded := MapPalette.colour("guarded")
-	var head := Icons.draw_pin(target, pos, guarded)
+func _draw_shop_pin(target: Object, pos: Vector2, colour: Color) -> void:
+	var head := Icons.draw_pin(target, pos, colour)
 	target.draw_circle(head, PIN_HEAD_RADIUS * 0.45, MapPalette.colour("stopFill"))
-	Icons.draw_bag(target, head, guarded, 0.5)
+	Icons.draw_bag(target, head, colour, 0.5)
 
 
 
@@ -910,6 +915,8 @@ func _activate_pin(pin: Dictionary) -> void:
 			pass
 		"guild_marketplace":
 			Nav.go_to("guild_marketplace")
+		"faction_shop":
+			Nav.go_to("%s_shop" % pin["factionId"])
 
 
 

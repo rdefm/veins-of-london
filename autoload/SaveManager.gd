@@ -315,7 +315,16 @@ func backfill_defaults(save: Dictionary) -> Dictionary:
 	_backfill_new_home_keys(result, defaults)
 	_backfill_new_sales_keys(result, defaults)
 	_backfill_new_combat_keys(result, defaults)
+	_backfill_new_flag_keys(result, defaults)
 	return result
+
+
+# A flag added after the save was made starts at its new-game default.
+func _backfill_new_flag_keys(result: Dictionary, defaults: Dictionary) -> void:
+	var flags: Dictionary = result["flags"]
+	for key in defaults["flags"].keys():
+		if not flags.has(key):
+			flags[key] = defaults["flags"][key]
 
 
 # A save made mid-fight before a combat key existed (e.g. locationKey) gets
