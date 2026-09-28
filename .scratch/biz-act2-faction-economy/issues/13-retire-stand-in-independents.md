@@ -12,10 +12,13 @@ Spec: §Independents slice, §Module layout (Market), Further Notes.
 - Tests: `tests/test_market.gd`, `tests/test_shares.gd`
 - REFERENCE.md §3.13
 
+**Carried from ticket 11 (faction trading isolation in market tests):** `tests/test_market.gd`'s `_tick()` temporarily sets every faction's `trading.sellFraction` and `trading.maxBuyMult` to 0 so its rollover cases pin Market maths against stand-in London only. Faction London trades now move prices in the real rollover, which broke three idle-market tests (`no_player_sales_drifts_to_the_idle_premium_and_holds`, `war_lifts_shield_then_physics_ore_over_following_days`, `demand_all_lifts_and_lowers_every_item`). Once stand-in supply is retired, revisit this: decide whether market tests should run with faction trading on (London's real supply) and re-pin their expected idle prices, or keep the switch-off and say why.
+
 **Status:** ready-for-agent
 
 - [ ] No `standInSupply` in code or data; civilian demand named as such
 - [ ] `independentsShare` 0 removes slice and row
 - [ ] Above 0, shares across all producers sum to 100%
 - [ ] Idle London prices stay sane over a seeded multi-day run
+- [ ] Faction-trading switch-off in `test_market.gd` `_tick()` revisited (removed, or kept with reason)
 - [ ] REFERENCE.md + CODEMAP updated
