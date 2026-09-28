@@ -4859,6 +4859,12 @@
 "FACTIONS": {
 "collective": {
 "archetype": "producer",
+"claimWeights": {
+"base": 1,
+"presence": 17,
+"primaryOre": 6,
+"secondaryOre": 3
+},
 "colour": "#3a7a52",
 "conquerThreshold": -40,
 "consumes": {
@@ -4893,6 +4899,12 @@
 },
 "conclave": {
 "archetype": "manipulator",
+"claimWeights": {
+"base": 1,
+"presence": 17,
+"primaryOre": 6,
+"secondaryOre": 3
+},
 "colour": "#2a8fc4",
 "conquerThreshold": -20,
 "consumes": {
@@ -4928,6 +4940,12 @@
 },
 "firm": {
 "archetype": "producer",
+"claimWeights": {
+"base": 1,
+"presence": 17,
+"primaryOre": 6,
+"secondaryOre": 3
+},
 "colour": "#9b2335",
 "conquerThreshold": 0,
 "consumes": {
@@ -4967,6 +4985,12 @@
 },
 "guild": {
 "archetype": "crafter",
+"claimWeights": {
+"base": 1,
+"presence": 17,
+"primaryOre": 6,
+"secondaryOre": 3
+},
 "colour": "#7b68ee",
 "conquerThreshold": -30,
 "consumes": {
@@ -5006,6 +5030,12 @@
 },
 "network": {
 "archetype": "informationBroker",
+"claimWeights": {
+"base": 1,
+"presence": 17,
+"primaryOre": 6,
+"secondaryOre": 3
+},
 "colour": "#1f9e96",
 "conquerThreshold": -20,
 "consumes": {

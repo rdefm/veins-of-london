@@ -54,27 +54,38 @@ static func factions_consuming(recipe_key: String) -> Array[String]:
 # ── Faction vein ownership ──────────────────────────────────────────────
 # The daily NPC-claim roll (systems/sites.gd) seeds a canonical faction a real vein via create_faction_vein().
 
-# Chance a rival muscles into a district's claim roll instead of its presence faction winning by default.
-const RIVAL_ENCROACH_CHANCE := 0.15
-
 # roll_security_tier()'s base distribution before any faction/value/resource tilt.
 const SECURITY_BASE_WEIGHTS: Dictionary = { "none": 40.0, "basic": 30.0, "warded": 20.0, "guarded": 10.0 }
 
 
-# Weighted claimant pick for a district's daily claim roll. Favours factionPresence;
-# falls back to a uniform pick across all 5 when absent (or the rival-encroach roll hits).
-static func pick_claimant(district_id: String) -> String:
-	var canonical: Array = GameData.FACTIONS.keys()
-	var presence: String = GameData.DISTRICTS.get(district_id, {}).get("factionPresence", "")
+# A faction's weight in a site's claim roll (R§1.8 claimWeights): base, plus
+# presence if it's the district's factionPresence, plus primaryOre/secondaryOre
+# if that ore matches the site's.
+static func claim_weight(faction_id: String, district_id: String, ore_type: String) -> float:
+	var faction: Dictionary = GameData.FACTIONS[faction_id]
+	var w: Dictionary = faction["claimWeights"]
+	var weight: float = w["base"]
+	if GameData.DISTRICTS.get(district_id, {}).get("factionPresence", "") == faction_id:
+		weight += w["presence"]
+	if faction["primaryOre"] == ore_type:
+		weight += w["primaryOre"]
+	elif faction["secondaryOre"] == ore_type:
+		weight += w["secondaryOre"]
+	return weight
 
-	if presence == "" or not GameData.FACTIONS.has(presence):
-		return Rng.rand_from(canonical)
 
-	if Rng.chance(RIVAL_ENCROACH_CHANCE):
-		var rivals: Array = canonical.filter(func(f): return f != presence)
-		return Rng.rand_from(rivals)
-
-	return presence
+# Weighted claimant pick for a site's claim roll across all 5 factions (claim_weight()).
+static func pick_claimant(district_id: String, ore_type: String) -> String:
+	var ids: Array = GameData.FACTIONS.keys()
+	var total := 0.0
+	for faction_id in ids:
+		total += claim_weight(faction_id, district_id, ore_type)
+	var roll := Rng.randf() * total
+	for faction_id in ids:
+		roll -= claim_weight(faction_id, district_id, ore_type)
+		if roll < 0.0:
+			return faction_id
+	return ids[-1]
 
 
 # Instant vein for a claiming faction: oreType/district/hospitability come from the

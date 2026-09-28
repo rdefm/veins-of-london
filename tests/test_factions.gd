@@ -60,46 +60,51 @@ func run() -> void:
 
 	# ── faction-vein-ownership T01: pick_claimant / create_faction_vein / roll_security_tier ──
 
-	run_case("pick_claimant_heavily_favours_the_presence_faction", func():
-		# shoreditch's factionPresence is "collective" (data/districts.json).
-		var presence_count := 0
-		var rival_seen := false
-		for seed in range(200):
+	run_case("claim_weight_adds_presence_and_ore_match_weights_from_json", func():
+		# shoreditch's factionPresence is "collective"; collective's primaryOre is life,
+		# secondaryOre emotion; firm's primaryOre is physics, secondaryOre life.
+		var w: Dictionary = GameData.FACTIONS["collective"]["claimWeights"]
+		assert_eq(Factions.claim_weight("collective", "shoreditch", "life"), float(w["base"] + w["presence"] + w["primaryOre"]))
+		assert_eq(Factions.claim_weight("collective", "shoreditch", "emotion"), float(w["base"] + w["presence"] + w["secondaryOre"]))
+		assert_eq(Factions.claim_weight("collective", "hampstead", "fate"), float(w["base"]), "no presence, no ore match: base only")
+		var fw: Dictionary = GameData.FACTIONS["firm"]["claimWeights"]
+		assert_eq(Factions.claim_weight("firm", "shoreditch", "life"), float(fw["base"] + fw["secondaryOre"]))
+	)
+
+	run_case("pick_claimant_presence_faction_still_leads_on_an_off_identity_ore", func():
+		# collective (shoreditch presence) has no physics affinity; firm (primary) and guild (secondary) do.
+		var counts := {}
+		for seed in range(400):
 			Rng.set_seed(seed)
-			var picked := Factions.pick_claimant("shoreditch")
+			var picked := Factions.pick_claimant("shoreditch", "physics")
 			assert_true(GameData.FACTIONS.has(picked), "every pick is one of the 5 canonical factions (seed %d)" % seed)
-			if picked == "collective":
-				presence_count += 1
-			else:
-				rival_seen = true
-		assert_true(presence_count > 150, "the presence faction should win the large majority of 200 rolls (got %d)" % presence_count)
-		assert_true(rival_seen, "a rival should still muscle in at least once across 200 rolls")
+			counts[picked] = counts.get(picked, 0) + 1
+		for faction_id in counts:
+			if faction_id != "collective":
+				assert_true(counts["collective"] > counts[faction_id], "presence faction should out-claim %s (%s)" % [faction_id, str(counts)])
+		assert_true(counts.get("firm", 0) > counts.get("network", 0), "primary-ore faction should out-claim a no-affinity rival (%s)" % str(counts))
 	)
 
-	run_case("pick_claimant_rival_encroachment_never_picks_the_presence_faction_itself", func():
-		# camden's factionPresence is "firm" — force encroachment by scanning
-		# for seeds where the pick differs from the presence faction, then
-		# check it's never "firm" again (a rival pick must exclude the
-		# presence faction, not just re-roll it).
-		for seed in range(200):
-			Rng.set_seed(seed)
-			var picked := Factions.pick_claimant("camden")
-			if picked != "firm":
-				assert_true(picked != "firm", "a rival pick must differ from the presence faction (seed %d)" % seed)
-	)
-
-	run_case("pick_claimant_no_presence_district_falls_back_to_a_varied_uniform_pick", func():
-		# hampstead has factionPresence == "" (data/districts.json) — the PRD's
-		# explicit requirement is "a sane default... rather than crashing or
-		# always picking a fixed faction", so this must vary across seeds,
-		# not collapse onto one hardcoded faction.
-		var distinct_picks := {}
-		for seed in range(200):
-			Rng.set_seed(seed)
-			var picked := Factions.pick_claimant("hampstead")
-			assert_true(GameData.FACTIONS.has(picked), "fallback pick is still one of the 5 canonical factions (seed %d)" % seed)
-			distinct_picks[picked] = true
-		assert_true(distinct_picks.size() > 1, "the no-presence fallback must not always pick the same fixed faction")
+	run_case("pick_claimant_skews_toward_primary_then_secondary_ore_factions", func():
+		# hampstead has no factionPresence, so only ore affinity separates the factions.
+		for ore_type in GameData.ORE_TYPES:
+			var primary := ""
+			var secondary := ""
+			for faction_id in GameData.FACTIONS:
+				if GameData.FACTIONS[faction_id]["primaryOre"] == ore_type:
+					primary = faction_id
+				elif GameData.FACTIONS[faction_id]["secondaryOre"] == ore_type:
+					secondary = faction_id
+			var counts := {}
+			for seed in range(400):
+				Rng.set_seed(seed)
+				var picked := Factions.pick_claimant("hampstead", ore_type)
+				counts[picked] = counts.get(picked, 0) + 1
+			for faction_id in GameData.FACTIONS:
+				if faction_id != primary:
+					assert_true(counts.get(primary, 0) > counts.get(faction_id, 0), "%s: primary %s should out-claim %s (%s)" % [ore_type, primary, faction_id, str(counts)])
+				if faction_id != primary and faction_id != secondary:
+					assert_true(counts.get(secondary, 0) > counts.get(faction_id, 0), "%s: secondary %s should out-claim %s (%s)" % [ore_type, secondary, faction_id, str(counts)])
 	)
 
 	run_case("create_faction_vein_populates_an_instant_vein_with_a_security_tier", func():

@@ -21,6 +21,7 @@
     "archetype": "producer",
     "primaryOre": "life",
     "secondaryOre": "emotion",
+    "claimWeights": { "base": 1, "presence": 17, "primaryOre": 6, "secondaryOre": 3 },
     "crafts": [
       "healingSalve",
       "enhancementPowder"
@@ -61,6 +62,7 @@
     "archetype": "producer",
     "primaryOre": "physics",
     "secondaryOre": "life",
+    "claimWeights": { "base": 1, "presence": 17, "primaryOre": 6, "secondaryOre": 3 },
     "crafts": [
       "blast",
       "shield",
@@ -107,6 +109,7 @@
     "archetype": "crafter",
     "primaryOre": "time",
     "secondaryOre": "physics",
+    "claimWeights": { "base": 1, "presence": 17, "primaryOre": 6, "secondaryOre": 3 },
     "crafts": [
       "timePearl",
       "rewind",
@@ -155,6 +158,7 @@
     "archetype": "informationBroker",
     "primaryOre": "emotion",
     "secondaryOre": "fate",
+    "claimWeights": { "base": 1, "presence": 17, "primaryOre": 6, "secondaryOre": 3 },
     "crafts": [
       "pansPrank"
     ],
@@ -195,6 +199,7 @@
     "archetype": "manipulator",
     "primaryOre": "fate",
     "secondaryOre": "time",
+    "claimWeights": { "base": 1, "presence": 17, "primaryOre": 6, "secondaryOre": 3 },
     "crafts": [
       "failsafe"
     ],

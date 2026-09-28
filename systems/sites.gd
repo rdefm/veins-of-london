@@ -466,7 +466,7 @@ static func npc_claim_best_unclaimed_site(district_id: String) -> void:
 	var site = best_unclaimed_site(district_id)
 	if site == null:
 		return
-	var faction_id := Factions.pick_claimant(district_id)
+	var faction_id := Factions.pick_claimant(district_id, site["oreType"])
 	seed_faction_vein(site, faction_id)
 
 
@@ -480,7 +480,7 @@ static func roll_npc_claims() -> void:
 			continue
 		var age_days: int = day - site["discoveredDay"]
 		if Rng.chance(npc_claim_chance(site["tier"], age_days)):
-			var faction_id := Factions.pick_claimant(site["district"])
+			var faction_id := Factions.pick_claimant(site["district"], site["oreType"])
 			seed_faction_vein(site, faction_id)
 			var district_name: String = GameData.DISTRICTS[site["district"]]["name"]
 			var faction_name: String = GameData.FACTIONS[faction_id]["shortName"]
