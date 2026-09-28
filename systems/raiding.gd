@@ -437,22 +437,27 @@ static func _apply_raid_loot(vein: Dictionary, faction_name: String, district_na
 		Notify.push("%s raided your vein in %s, pruning it and getting away with %d units of ore. It's still yours." % [attacker, district_name, stolen], Notify.CATEGORY_DANGER)
 
 
-# Called from time_system.gd's daily_tick, step 5i. Runs the previous
+# Called from time_system.gd's daily_tick, step ⑤d. Runs the previous
 # tick's still-pending alarm-defend raids first (a player who never
 # travelled to defend one loses it exactly as the no-alarm path would),
 # then rolls this tick's fresh attempts: a success against an alarmed
 # vein queues for the player to defend; every other success resolves now.
+# Every attempt that resolves without a played fight burns the attacker's
+# attack kit (spec §Consumption); a queued one burns only if it later
+# expires or is left undefended.
 static func apply_raid_resolution() -> void:
 	_expire_pending_defend_raids()
 
 	for attempt in roll_raid_attempts():
 		var outcome := roll_raid_odds(attempt)
 		if not outcome["success"]:
+			FactionSim.log_kit_burn(outcome["attackerId"], "attack", "raid")
 			continue
 		var vein: Variant = Cultivating.find_vein(outcome["veinId"])
 		if vein != null and vein["alarmUpgrades"].has(Cultivating.ALARM_UPGRADE_ID):
 			_queue_defend_raid(outcome, vein)
 		else:
+			FactionSim.log_kit_burn(outcome["attackerId"], "attack", "raid")
 			resolve_raid_outcome(outcome)
 
 
@@ -536,6 +541,7 @@ static func _expire_pending_defend_raids() -> void:
 	var pending: Array = world["pendingDefendRaids"]
 	world["pendingDefendRaids"] = []
 	for outcome in pending:
+		FactionSim.log_kit_burn(outcome["attackerId"], "attack", "raid")
 		if _guards_repel_defend_raid(outcome):
 			continue
 		resolve_raid_outcome(outcome, true)
@@ -635,6 +641,7 @@ static func leave_undefended(vein_id: String, notification_id: String) -> bool:
 			continue
 
 		pending.remove_at(i)
+		FactionSim.log_kit_burn(outcome["attackerId"], "attack", "raid")
 		if not _guards_repel_defend_raid(outcome):
 			resolve_raid_outcome(outcome)
 		EventBus.state_changed.emit()

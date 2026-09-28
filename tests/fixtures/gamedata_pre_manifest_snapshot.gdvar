@@ -4895,6 +4895,14 @@
 "joinRelation": 25,
 "name": "The Collective",
 "primaryOre": "life",
+"raidKits": {
+"attack": {
+"healingSalve": 1
+},
+"defend": {
+"healingSalve": 1
+}
+},
 "raidStealth": 0.35,
 "raidThreshold": -40,
 "resourceLevel": 1,
@@ -4950,6 +4958,12 @@
 "joinRelation": 60,
 "name": "The Conclave",
 "primaryOre": "fate",
+"raidKits": {
+"attack": {},
+"defend": {
+"failsafe": 1
+}
+},
 "raidStealth": 0.65,
 "raidThreshold": -20,
 "resourceLevel": 3,
@@ -5015,6 +5029,16 @@
 "joinRelation": 35,
 "name": "The Firm",
 "primaryOre": "physics",
+"raidKits": {
+"attack": {
+"blast": 2,
+"healingBurst": 1
+},
+"defend": {
+"healingBurst": 1,
+"shield": 2
+}
+},
 "raidStealth": 0.55,
 "raidThreshold": 0,
 "resourceLevel": 2,
@@ -5088,6 +5112,10 @@
 "joinRelation": 40,
 "name": "The Guild of Applied Alchemists",
 "primaryOre": "time",
+"raidKits": {
+"attack": {},
+"defend": {}
+},
 "raidStealth": 0.3,
 "raidThreshold": -30,
 "resourceLevel": 2,
@@ -5146,6 +5174,12 @@
 "joinRelation": 30,
 "name": "The Network",
 "primaryOre": "emotion",
+"raidKits": {
+"attack": {
+"pansPrank": 1
+},
+"defend": {}
+},
 "raidStealth": 0.8,
 "raidThreshold": -20,
 "resourceLevel": 2,

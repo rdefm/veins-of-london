@@ -182,7 +182,8 @@ func _migrate_player_model(save: Dictionary) -> void:
 
 # A save without faction holdings gets the placeholder starting stock, with
 # any saved per-ore oreStock added on top; faction cash is left as saved.
-# A faction without a stockpile gets one picked now.
+# A faction without a stockpile gets one picked now; missing consumption
+# keys (kitBurns, shortfall, consumeAccrued) start empty.
 func _migrate_faction_holdings(save: Dictionary) -> void:
 	for faction_id in save.get("factions", {}):
 		var faction: Dictionary = save["factions"][faction_id]
@@ -195,6 +196,12 @@ func _migrate_faction_holdings(save: Dictionary) -> void:
 		faction.erase("oreStock")
 		if not faction.has("stockpile"):
 			faction["stockpile"] = FactionSim.pick_stockpile(faction_id)
+		if not faction.has("kitBurns"):
+			faction["kitBurns"] = []
+		if not faction.has("shortfall"):
+			faction["shortfall"] = {}
+		if not faction.has("consumeAccrued"):
+			faction["consumeAccrued"] = {}
 
 
 # A save with an in-progress col_a1_nadia_supply objective can't identify
@@ -780,6 +787,11 @@ func _restore_int_types(state: Dictionary) -> void:
 			_int_dict_values(holdings.get("ore", {}))
 			for buckets in holdings.get("items", {}).values():
 				_int_dict_values(buckets)
+			_int_dict_values(faction.get("shortfall", {}))
+			_int_dict_values(faction.get("consumeAccrued", {}))
+			for burn in faction.get("kitBurns", []):
+				_int_key(burn, "day")
+				_int_dict_values(burn.get("items", {}))
 
 	if state.has("factionRelations"):
 		for row in state["factionRelations"].values():

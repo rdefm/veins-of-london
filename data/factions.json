@@ -33,6 +33,7 @@
     "consumes": {
       "healingSalve": 3
     },
+    "raidKits": { "attack": { "healingSalve": 1 }, "defend": { "healingSalve": 1 } },
     "startingHoldings": {
       "ore": {
         "life": 40,
@@ -82,6 +83,7 @@
       "healingBurst": 3,
       "enhancementPowder": 3
     },
+    "raidKits": { "attack": { "blast": 2, "healingBurst": 1 }, "defend": { "shield": 2, "healingBurst": 1 } },
     "startingHoldings": {
       "ore": {
         "physics": 40,
@@ -133,6 +135,7 @@
       "timePearl": 1,
       "enhancementPowder": 1
     },
+    "raidKits": { "attack": {}, "defend": {} },
     "startingHoldings": {
       "ore": {
         "time": 40,
@@ -181,6 +184,7 @@
     "consumes": {
       "prophetsBreath": 3
     },
+    "raidKits": { "attack": { "pansPrank": 1 }, "defend": {} },
     "startingHoldings": {
       "ore": {
         "emotion": 40,
@@ -227,6 +231,7 @@
       "failsafe": 3,
       "rejuvenation": 3
     },
+    "raidKits": { "attack": {}, "defend": { "failsafe": 1 } },
     "startingHoldings": {
       "ore": {
         "fate": 40,

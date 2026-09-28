@@ -454,8 +454,8 @@ func run() -> void:
 	)
 
 	# Faction-vein drift happens at step ④ (Cultivating.drift_veins(), the
-	# same pass every vein drifts on); step ⑤c only tends/prunes.
-	run_case("daily_tick_drifts_a_faction_vein_at_step_4_and_still_reaches_step_5c_without_crashing", func():
+	# same pass every vein drifts on); step ⑤e only tends/prunes.
+	run_case("daily_tick_drifts_a_faction_vein_at_step_4_and_still_reaches_step_5e_without_crashing", func():
 		GameState.reset()
 		var site := {
 			"id": "s1", "district": "shoreditch", "tier": "fair", "oreType": "time",
@@ -471,15 +471,15 @@ func run() -> void:
 		assert_true(found_site["factionVein"]["growth"] > 56, "the faction vein should have drifted right at step 4")
 	)
 
-	run_case("daily_tick_wires_in_faction_passive_income_step_right_after_vein_growth_step", func():
+	run_case("daily_tick_wires_in_faction_passive_income_step", func():
 		GameState.reset()
 		var before: int = GameState.state["factions"]["collective"]["resources"]
 		TimeSystem.daily_tick()
 		var after: int = GameState.state["factions"]["collective"]["resources"]
-		assert_true(after > before, "daily_tick should reach step 5d (Factions.apply_passive_income)")
+		assert_true(after > before, "daily_tick should reach step 5h (Factions.apply_passive_income)")
 	)
 
-	run_case("daily_tick_prunes_a_ceiling_faction_vein_into_holdings_at_step_5c", func():
+	run_case("daily_tick_prunes_a_ceiling_faction_vein_into_holdings_at_step_5e", func():
 		GameState.reset()
 		var site := {
 			"id": "s1", "district": "shoreditch", "tier": "fair", "oreType": "fate",
@@ -490,10 +490,15 @@ func run() -> void:
 		GameState.state["world"]["sites"] = [site]
 		GameState.state["world"]["day"] = 5
 		var fate_before: int = FactionSim.ore_held("collective", "fate")
-		GameState.state["factions"]["collective"]["resources"] = 0  # nothing affordable at step 5f
+		GameState.state["factions"]["collective"]["resources"] = 0  # nothing affordable at step 5j
 		var resources_before := 0
+		# Rivalry (step 5c) runs before the prune; a warm Collective relation
+		# drives every rival's odds to 0 so the vein stays the Collective's.
+		for attacker_id in GameData.FACTIONS:
+			if attacker_id != "collective":
+				GameState.state["factionRelations"]["collective"][attacker_id] = 1000
 		TimeSystem.daily_tick()
-		assert_true(FactionSim.ore_held("collective", "fate") > fate_before, "step 5c prunes the ceiling vein into collective's holdings")
+		assert_true(FactionSim.ore_held("collective", "fate") > fate_before, "step 5e prunes the ceiling vein into collective's holdings")
 		assert_true(site["factionVein"]["growth"] < 100, "the prune cut the vein's growth")
 		var passive_only: int = 0
 		for industry in GameData.FACTIONS["collective"].get("industries", []):
@@ -513,13 +518,13 @@ func run() -> void:
 		GameState.state["world"]["day"] = 5
 		GameState.state["factions"]["collective"]["resources"] = 100000  # affordability guaranteed regardless of this tick's income
 		TimeSystem.daily_tick()
-		assert_eq(site["factionVein"]["security"], "basic", "daily_tick should reach step 5f (Factions.apply_security_upgrades) and upgrade the affordable eligible vein")
+		assert_eq(site["factionVein"]["security"], "basic", "daily_tick should reach step 5j (Factions.apply_security_upgrades) and upgrade the affordable eligible vein")
 	)
 
-	run_case("daily_tick_wires_in_rivalry_resolution_step_right_after_security_upgrade_step", func():
+	run_case("daily_tick_wires_in_rivalry_resolution_step_right_after_npc_claims", func():
 		# A rich, unsecured collective-owned vein facing a well-resourced Firm
 		# (raiding industry, good odds) -- run many seeds and confirm daily_tick
-		# eventually reaches step 5g and flips ownership.
+		# eventually reaches step 5c and flips ownership.
 		var hit := false
 		for seed in range(500):
 			GameState.reset()
@@ -538,13 +543,13 @@ func run() -> void:
 			if Sites.find_site("s1")["factionVein"]["factionId"] == "firm":
 				hit = true
 				break
-		assert_true(hit, "daily_tick should reach step 5g (Factions.apply_rivalry_resolution) within 500 tries")
+		assert_true(hit, "daily_tick should reach step 5c (Factions.apply_rivalry_resolution) within 500 tries")
 	)
 
 	run_case("daily_tick_wires_in_direction_b_raid_resolution_step_right_after_rivalry_resolution_step", func():
 		# A hated, unsecured, rough-district player vein facing a faction it's
 		# burned relation with -- run many seeds and confirm daily_tick
-		# eventually reaches step 5h and flips the vein to that faction.
+		# eventually reaches step 5d and flips the vein to that faction.
 		var hit := false
 		for seed in range(500):
 			GameState.reset()
@@ -567,13 +572,13 @@ func run() -> void:
 			if site != null and site["factionVein"] != null and site["factionVein"]["factionId"] == "firm":
 				hit = true
 				break
-		assert_true(hit, "daily_tick should reach step 5h (Raiding.apply_raid_resolution) within 500 tries")
+		assert_true(hit, "daily_tick should reach step 5d (Raiding.apply_raid_resolution) within 500 tries")
 	)
 
-	run_case("daily_tick_wires_in_hakim_intel_step_right_after_raid_resolution_step", func():
+	run_case("daily_tick_wires_in_hakim_intel_step_after_security_upgrades", func():
 		# collective1-17: unlocked, well past the 3-day gap, both districts
 		# nowhere near siteCap -- run many seeds and confirm daily_tick
-		# eventually reaches step 5i and queues Hakim's text.
+		# eventually reaches step 5k and queues Hakim's text.
 		var hit := false
 		for seed in range(200):
 			GameState.reset()
@@ -584,7 +589,7 @@ func run() -> void:
 			if not Messages.pending_for("hakim").is_empty():
 				hit = true
 				break
-		assert_true(hit, "daily_tick should reach step 5i (Collective.maybe_trigger_hakim_intel) within 200 tries")
+		assert_true(hit, "daily_tick should reach step 5k (Collective.maybe_trigger_hakim_intel) within 200 tries")
 	)
 
 	# ── bugfixes-30: James job proactive daily offer + deadline expiry ──

@@ -205,6 +205,60 @@ static func _can_cover(faction_id: String, costs: Dictionary) -> bool:
 	return true
 
 
+# ── Consumption and kit burns (spec §Consumption) ─────────────────────────
+# Fights log the raid kit they used (factions.json `raidKits`) into
+# factions[id].kitBurns: [{ day, source, kit, items: { recipeKey: qty } }].
+# consume() is the rollover step that applies them: each `consumes` item
+# draws weekly × Barometer item-demand ÷ 7 a day (fractions carry in
+# consumeAccrued as integer CONSUME_UNITs of an item, so the carry survives
+# a JSON save and a week's draws sum to the weekly amount), plus every
+# logged burn, capped by holdings. Whatever holdings couldn't cover is
+# today's shortfall.
+const CONSUME_UNIT := 1000
+
+
+static func log_kit_burn(faction_id: String, kit: String, source: String) -> void:
+	var items: Dictionary = GameData.FACTIONS[faction_id].get("raidKits", {}).get(kit, {})
+	if items.is_empty():
+		return
+	GameState.state["factions"][faction_id]["kitBurns"].append({
+		"day": GameState.state["world"]["day"],
+		"source": source,
+		"kit": kit,
+		"items": items.duplicate(),
+	})
+
+
+static func consume() -> void:
+	for faction_id in GameData.FACTIONS:
+		_consume_faction(faction_id)
+
+
+static func _consume_faction(faction_id: String) -> void:
+	var faction: Dictionary = GameState.state["factions"][faction_id]
+	var accrued: Dictionary = faction["consumeAccrued"]
+	var need := {}
+	var consumes: Dictionary = GameData.FACTIONS[faction_id].get("consumes", {})
+	for recipe_key in consumes:
+		var owed: int = int(accrued.get(recipe_key, 0)) + roundi(float(consumes[recipe_key]) * Barometer.get_item_demand_mult(recipe_key) * CONSUME_UNIT / 7.0)
+		var draw: int = owed / CONSUME_UNIT
+		accrued[recipe_key] = owed % CONSUME_UNIT
+		need[recipe_key] = int(need.get(recipe_key, 0)) + draw
+	for burn in faction["kitBurns"]:
+		for recipe_key in burn["items"]:
+			need[recipe_key] = int(need.get(recipe_key, 0)) + int(burn["items"][recipe_key])
+	faction["kitBurns"] = []
+
+	var shortfall := {}
+	for recipe_key in need:
+		var taken := 0
+		for part in take_items(faction_id, recipe_key, need[recipe_key]):
+			taken += int(part["qty"])
+		if need[recipe_key] > taken:
+			shortfall[recipe_key] = need[recipe_key] - taken
+	faction["shortfall"] = shortfall
+
+
 # Districts whose factionPresence is this faction, in GameData.DISTRICTS order.
 static func home_districts(faction_id: String) -> Array:
 	var homes: Array = []

@@ -1398,6 +1398,78 @@ func run() -> void:
 		assert_true(site["factionVein"] != null, "ownership should transfer, same as the guardless auto-loss path")
 	)
 
+	# ── Raid kit burns (spec biz-act2-faction-economy §Consumption) ──
+	run_case("a_raid_resolved_without_an_alarm_logs_the_attackers_attack_kit", func():
+		var hit := false
+		for seed in range(500):
+			GameState.reset()
+			var vein := _player_vein_of(10, "fate", "none", "camden")
+			GameState.state["player"]["veins"] = [vein]
+			GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+			GameState.state["factions"]["firm"]["relation"] = -200
+			Rng.set_seed(seed)
+			Raiding.apply_raid_resolution()
+			var site: Variant = Sites.find_site("s_player")
+			if site != null and site["factionVein"] != null and site["factionVein"]["factionId"] == "firm":
+				hit = true
+				var burns: Array = GameState.state["factions"]["firm"]["kitBurns"]
+				assert_true(burns.any(func(b): return b["kit"] == "attack" and b["source"] == "raid" and b["items"] == GameData.FACTIONS["firm"]["raidKits"]["attack"]), "the Firm burns its attack kit")
+				break
+		assert_true(hit, "should reach a successful Firm raid within 500 seeds")
+	)
+
+	run_case("an_expired_defend_window_logs_the_attackers_attack_kit", func():
+		GameState.reset()
+		var vein := _player_vein_of(30, "life", "guarded", "shoreditch")
+		vein["alarmUpgrades"] = ["alarm"]
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+		GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "collective", "veinId": "pv_test", "siteId": "s_player", "success": true }]
+		Raiding._expire_pending_defend_raids()
+		assert_eq(GameState.state["factions"]["collective"]["kitBurns"].size(), 1, "one expired raid, one attack-kit burn")
+		assert_eq(GameState.state["factions"]["collective"]["kitBurns"][0]["kit"], "attack")
+	)
+
+	run_case("a_guard_repelled_raid_still_logs_the_attackers_attack_kit", func():
+		var seed := -1
+		for candidate in range(300):
+			GameState.reset()
+			var vein := _player_vein_of(30, "life", "guarded", "shoreditch")
+			vein["alarmUpgrades"] = ["alarm"]
+			vein["extraGuards"] = 5
+			GameState.state["player"]["veins"] = [vein]
+			GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+			GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "collective", "veinId": "pv_test", "siteId": "s_player", "success": true }]
+			Rng.set_seed(candidate)
+			Raiding._expire_pending_defend_raids()
+			if GameState.state["player"]["veins"].size() == 1:
+				seed = candidate
+				break
+		assert_true(seed != -1, "should find a seed where the guards repel the raid within 300 tries")
+		assert_eq(GameState.state["factions"]["collective"]["kitBurns"].size(), 1, "a repel still burns the attack kit")
+	)
+
+	run_case("leaving_a_raid_undefended_logs_the_attackers_attack_kit", func():
+		GameState.reset()
+		var vein := _player_vein_of(30, "life", "guarded", "shoreditch")
+		vein["alarmUpgrades"] = ["alarm"]
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+		GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "collective", "veinId": "pv_test", "siteId": "s_player", "success": true, "notificationId": "n1" }]
+		assert_true(Raiding.leave_undefended("pv_test", "n1"))
+		assert_eq(GameState.state["factions"]["collective"]["kitBurns"].size(), 1, "left undefended, the attack kit burns")
+	)
+
+	run_case("a_raid_the_player_fights_logs_no_kit_burn", func():
+		GameState.reset()
+		var vein := _player_vein_of(30, "life", "guarded", "shoreditch")
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+		GameState.state["world"]["activeDefendRaid"] = { "attackerId": "collective", "veinId": "pv_test", "siteId": "s_player", "success": true }
+		Raiding.resolve_defend_outcome(false)
+		assert_eq(GameState.state["factions"]["collective"]["kitBurns"], [], "a played fight burns nothing here")
+	)
+
 	run_case("maybe_trigger_defend_starts_combat_and_pops_the_matching_pending_entry", func():
 		GameState.reset()
 		var vein := _player_vein_of(30, "time", "none", "camden")

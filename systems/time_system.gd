@@ -89,17 +89,18 @@ static func daily_tick() -> void:
 	MorningAccountsSystem.capture_losses(morning_context, "Vein collapse")
 	_apply_tutorial_day_triggers()       # ⑤ tutorial day-triggers
 	Sites.roll_npc_claims()              # ⑤b NPC site-claiming (M1-LONDON.md D2)
-	FactionSim.tend_and_prune()          # ⑤c faction tend + prune, after ⑤b so a fresh claim can be tended today
-	FactionSim.craft()                   # ⑤c2 faction crafting, after ⑤c so today's prune ore can be crafted
-	Factions.apply_passive_income()      # ⑤d industries-only, no ordering dependency on ⑤b/⑤c
-	NetworkHandler.expire_intel()        # ⑤e2 before ⑤f so a lapsed security_freeze stops skipping today's upgrade
-	Factions.apply_security_upgrades()   # ⑤f after ⑤d so today's income is already banked and spendable
-	Factions.apply_rivalry_resolution()  # ⑤g after ⑤f so income/spend is settled before any vein changes hands
-	Raiding.apply_raid_resolution()      # ⑤h independent of ⑤d-⑤g (player veins/sites, not faction resources)
+	Factions.apply_rivalry_resolution()  # ⑤c after ⑤b so fresh claims can be contested; before ⑤h/⑤j so it reads end-of-yesterday resources
+	Raiding.apply_raid_resolution()      # ⑤d before ⑤g so its kit burns come out of today's consume
 	MorningAccountsSystem.capture_losses(morning_context, "Raid")
-	Collective.maybe_trigger_hakim_intel()  # ⑤i no ordering dependency on any other step
-	Collective.maybe_trigger_act2_intro()   # ⑤i2 backstop for the same trigger events.advance() already checks
-	BusinessQuest.maybe_trigger_proposition()  # ⑤i3 backstop for the vein-count-change checks (catches today's self-seed)
+	FactionSim.tend_and_prune()          # ⑤e after ⑤b-⑤d so today's claims and ownership changes are tended
+	FactionSim.craft()                   # ⑤f after ⑤e so today's prune ore can be crafted
+	FactionSim.consume()                 # ⑤g after ⑤c/⑤d so today's kit burns are drawn; after ⑤f so today's crafts can cover them
+	Factions.apply_passive_income()      # ⑤h industries-only, no ordering dependency on ⑤b-⑤g
+	NetworkHandler.expire_intel()        # ⑤i before ⑤j so a lapsed security_freeze stops skipping today's upgrade
+	Factions.apply_security_upgrades()   # ⑤j after ⑤h so today's income is already banked and spendable
+	Collective.maybe_trigger_hakim_intel()  # ⑤k no ordering dependency on any other step
+	Collective.maybe_trigger_act2_intro()   # ⑤k2 backstop for the same trigger events.advance() already checks
+	BusinessQuest.maybe_trigger_proposition()  # ⑤k3 backstop for the vein-count-change checks (catches today's self-seed)
 	Payroll.pay_wages()                  # ⑥ staff phase start: Monday room wages, paid after living costs -- an unaffordable role idles until paid or next Monday, no debt
 	MorningAccountsSystem.capture_production_shortfalls(morning_context)  # ⑥.1 unmet Production targets; staff work itself runs per block in run_staff_block()
 	Rooms.trim_production_log()          # ⑥.2 drop production-log days older than the retention window

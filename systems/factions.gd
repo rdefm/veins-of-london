@@ -355,8 +355,10 @@ static func roll_rivalry_odds(attempt: Dictionary) -> Dictionary:
 
 
 # ── Rivalry resolution ──────────────────────────────────────────────────
-# Daily-tick hook, run after security upgrades: rolls this tick's batch of attempts
-# through the odds above and applies resolve_rivalry_outcome() to each result.
+# Daily-tick hook, run right after NPC claims (before FactionSim, so it reads
+# end-of-yesterday resources and its kit burns land in today's consume): rolls
+# this tick's batch of attempts through the odds above and applies
+# resolve_rivalry_outcome() to each result.
 
 # Relation-feedback magnitude on success -- big enough that repeated losses to the
 # same rival compound, small enough that one loss alone doesn't saturate the divisor.
@@ -365,6 +367,9 @@ const RIVALRY_RELATION_PENALTY := -15
 
 static func apply_rivalry_resolution() -> void:
 	for attempt in roll_rivalry_attempts():
+		# Every attempt, won or lost, burns both sides' raid kits (spec §Consumption).
+		FactionSim.log_kit_burn(attempt["attackerId"], "attack", "rivalry")
+		FactionSim.log_kit_burn(attempt["defenderId"], "defend", "rivalry")
 		resolve_rivalry_outcome(roll_rivalry_odds(attempt))
 
 

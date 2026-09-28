@@ -210,6 +210,83 @@ func run() -> void:
 		assert_eq(Shares.window_totals("craft"), {}, "no crafts, no crafting share")
 	)
 
+	# ── Consumption and kit burns (spec §Consumption) ──
+	run_case("a_week_of_consumption_draws_exactly_the_weekly_amount", func():
+		GameState.reset()
+		_set_item("firm", "blast", 10)
+		for i in 7:
+			FactionSim.consume()
+		assert_eq(FactionSim.item_held("firm", "blast"), 7, "Firm consumes 3 blast a week")
+		assert_eq(GameState.state["factions"]["firm"]["shortfall"], {}, "stock covered it: no shortfall")
+	)
+
+	run_case("a_ticker_item_demand_effect_raises_consumption", func():
+		GameState.reset()
+		GameState.state["barometer"]["political"] = "war"  # blast itemDemand +0.6
+		_set_item("firm", "blast", 10)
+		for i in 7:
+			FactionSim.consume()
+		assert_eq(FactionSim.item_held("firm", "blast"), 6, "3 × 1.6 = 4.8 a week: four whole draws")
+	)
+
+	run_case("a_rivalry_attempt_logs_both_kits_and_consume_burns_them", func():
+		var veins := [_vein("s1", "collective", "life", 50), _vein("s2", "firm", "physics", 50)]
+		var seed := SeedSearch.find_seed_for(300, func():
+			GameState.reset()
+			_seed_veins(veins.map(func(v): return v.duplicate(true)))
+			for attempt in Factions.roll_rivalry_attempts():
+				if attempt["attackerId"] == "firm" and attempt["defenderId"] == "collective":
+					return true
+			return false
+		)
+		assert_true(seed != -1, "the Firm attacks the Collective within 300 seeds")
+		Rng.set_seed(seed)  # before reset: GameState.reset() draws the stockpile pick
+		GameState.reset()
+		_seed_veins(veins.map(func(v): return v.duplicate(true)))
+		Factions.apply_rivalry_resolution()
+		var firm_burns: Array = GameState.state["factions"]["firm"]["kitBurns"]
+		var col_burns: Array = GameState.state["factions"]["collective"]["kitBurns"]
+		assert_true(firm_burns.any(func(b): return b["kit"] == "attack" and b["source"] == "rivalry" and b["items"] == GameData.FACTIONS["firm"]["raidKits"]["attack"]), "the attacker burns its attack kit")
+		assert_true(col_burns.any(func(b): return b["kit"] == "defend" and b["source"] == "rivalry" and b["items"] == GameData.FACTIONS["collective"]["raidKits"]["defend"]), "the defender burns its defend kit")
+
+		_set_item("firm", "blast", 5)
+		GameState.state["factions"]["firm"]["kitBurns"] = [firm_burns.filter(func(b): return b["kit"] == "attack")[0]]
+		FactionSim.consume()
+		assert_eq(FactionSim.item_held("firm", "blast"), 3, "consume draws the 2-blast attack kit (weekly draw rounds down to 0 on day one)")
+		assert_eq(GameState.state["factions"]["firm"]["kitBurns"], [], "consume clears the burn log")
+	)
+
+	run_case("a_burn_holdings_cannot_cover_becomes_shortfall", func():
+		GameState.reset()
+		_set_item("firm", "blast", 0)
+		_set_item("firm", "healingBurst", 0)
+		FactionSim.log_kit_burn("firm", "attack", "raid")
+		FactionSim.consume()
+		var shortfall: Dictionary = GameState.state["factions"]["firm"]["shortfall"]
+		assert_eq(shortfall.get("blast", 0), 2, "the whole blast kit is short")
+		assert_eq(shortfall.get("healingBurst", 0), 1, "the whole healingBurst kit is short")
+	)
+
+	run_case("an_empty_kit_logs_nothing", func():
+		GameState.reset()
+		FactionSim.log_kit_burn("guild", "attack", "rivalry")
+		assert_eq(GameState.state["factions"]["guild"]["kitBurns"], [], "the Guild carries no attack kit")
+	)
+
+	run_case("an_old_save_without_consumption_keys_backfills_them", func():
+		GameState.reset()
+		var save: Dictionary = GameState.state.duplicate(true)
+		for faction_id in save["factions"]:
+			for key in ["kitBurns", "shortfall", "consumeAccrued"]:
+				save["factions"][faction_id].erase(key)
+		SaveManager._migrate_faction_holdings(save)
+		for faction_id in save["factions"]:
+			var faction: Dictionary = save["factions"][faction_id]
+			assert_eq(faction["kitBurns"], [], "%s kitBurns backfills empty" % faction_id)
+			assert_eq(faction["shortfall"], {}, "%s shortfall backfills empty" % faction_id)
+			assert_eq(faction["consumeAccrued"], {}, "%s consumeAccrued backfills empty" % faction_id)
+	)
+
 
 static func _set_ore(faction_id: String, ore_type: String, qty: int) -> void:
 	GameState.state["factions"][faction_id]["holdings"]["ore"][ore_type] = qty
