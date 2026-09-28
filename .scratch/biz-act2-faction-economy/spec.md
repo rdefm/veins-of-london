@@ -306,6 +306,13 @@ Shares update before Market reprice, and reprice stays last among trading steps.
 - Player non-calc businesses (see Further Notes).
 - Ticker evolution.
 
+## Ticketing decisions (2026-09-28)
+
+- **Shops:** Firm, Network and Conclave get trade lanes plus a shop pin in their home district, gated by per-faction unlock flags that only Debug Start sets for now; quests will unlock them later.
+- **Fight order:** rivalry and faction raid resolution move to right after NPC claims, so a fight's kits burn in the same day's consume step. Rivalry therefore reads end-of-yesterday cash.
+- **Raid kits:** a raid on the player that resolves without a played fight (no alarm, left undefended or expired, repelled by guards) burns the attacker's full attack kit. In a raid the player defends, the raiders spawn with the attack kit (capped by holdings) and use items in combat. Only the items they used are deducted. This adds enemy item use in combat, which is in scope here.
+- **Item tier:** faction craft tier = `craftSkill`, the same fixed rule as the player's. Shop buys give the held tier, highest first.
+
 ## Further Notes
 
 - **Independents is scaffolding.** The design goal is a London supplied entirely by factions and the player. `independentsShare` exists to keep prices steady while the faction economy is tuned. Remove it (set it to 0) once balance holds without it.
