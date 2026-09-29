@@ -34,4 +34,4 @@ Don't implement any mechanics in this ticket. CLAUDE.md says: don't invent mecha
 - `tests/test_raiding.gd`, `tests/test_factions.gd`
 - REFERENCE.md §1.6 (Raid resistance), §1.8 (Faction guard hiring), §3.12 (Faction extra guards), §3.12 "Raid kit burns"
 
-**Status:** ready-for-human
+**Status:** done — decisions in spec.md; implementation is ticket 13

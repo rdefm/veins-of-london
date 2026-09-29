@@ -179,6 +179,16 @@ The business pot has the opposite problem. It pays out everything at every payda
   - It keeps the existing one upgrade per faction per tick and highest-value-vein-first targeting.
 - **Rollover position.** The faction Monday bill runs after faction industry income and before faction security upgrades. The security spend then sees post-wage cash and never hires a guard it just failed to pay.
 
+#### Comments — faction vein guard repel (decided in ticket 12)
+- **Paths:** both rivalry and player raids on faction veins get guard defence.
+- **Rivalry:** after the odds roll succeeds, the defender vein's guards roll repel. A repel flips the attempt to a failure, marked as repelled. It stacks with the raid-resist tilt and replaces nothing.
+- **Guard count:** all guards count (tier guard + extras, per §Guard counting), for faction repel and for the player vein's missed-defend repel. HQ is unchanged.
+- **Repel odds:** the shared `guardRepel` constants, with no faction-specific tuning.
+- **Player raid on a faction vein:** no repel roll. When caught, the player fights one enemy per vein guard, minimum 1, clamped to the combat squad cap of 3. No reinforcement queue for now.
+- **Visibility:** a rivalry repel is silent, like the rest of rivalry. No new prose.
+- **Kit burns:** unchanged. Both sides still burn on every rivalry attempt, repelled or not.
+- **Rng:** the shared stream, rolled only when the odds succeed and the vein has 1+ guards.
+
 ### Rollover order
 - The pending shortfall's grace auto-resolve runs early in the rollover.
 - Faction Monday bill (Monday only) comes before faction security upgrades.
