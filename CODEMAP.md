@@ -52,7 +52,7 @@ Data file per system: see `data/*.json` below.
 | events.gd | Event-card runner + rewind, auto-discovers art |
 | faction_sim.gd | FactionSim: faction holdings (ore, items by tier); stockpile pick; daily vein tend + prune, sparing one maturing vein until it levels (R§1.8 `fieldwork`); crafting toward targets (`craftSkill`); consumption + kit burns → shortfall; defend-kit allocation, `vein_kit`, defend-raid `raider_kit` (`raidKits`); London sell/buy vs reserve, Conclave arbitrage (`trading`) |
 | factions.gd | Faction joining |
-| guard_kit.gd | Guard kit: allowlisted combat items stocked on a player vein's `guardKit` by tier; capacity (guards × slotsPerGuard), active units (allowlist then highest tier), `stock`/`unstock` against inventory; kit-dict helpers shared with the HQ kit |
+| guard_kit.gd | Guard kit: allowlisted combat items stocked on a player vein's `guardKit` by tier; capacity (guards × slotsPerGuard), active units (allowlist then highest tier), `stock`/`unstock` against inventory; kit-dict helpers shared with the HQ kit; kit-target helpers + summary text for the stocking sheet |
 | guard_upkeep.gd | Guard wages: hire advance, weekly cost/labels, per-day per-place `guardUpkeep.history`, pre-pot Monday bill from cash, faction Monday bill and wage-reserve gate, pending guard shortfall (grace, auto-resolve drop order, short-pay quote/confirm), place labels, Guard Costs reads (history window, per-place series, places, next Monday bill) |
 | home.gd | Home tier/tenure/security/rooms/raid chance; per-day and weekly bill base (rent or utilities); arrears countdown to Monday; rent/buy/buy-out/downgrade tier moves via shared `change_tier` (room wipe, security loss); HQ `drop_guard`; per-slot room purchase/replacement (`set_room_use`); daily raid roll, alarm queue/expiry, and alarm-defend win/loss resolution (R§3.8) |
 | jobs.gd | James's jobs, trust bands |
@@ -150,7 +150,7 @@ overlays.
 | map_palette.gd | MapPalette: resolves Map palette tokens (data/map_palette.json) for the current light/dark mode (`meta.mapDarkMode`), plus faction/ore colours with optional dark-only overrides; every Map-tab colour reads through it; build_light() scopes a light-only build for off-Map reusers |
 | map_legend.gd | Persistent faction-colour key; restyles in place on a dark-mode toggle |
 | map_zoom_buttons.gd | Floating +/- zoom control; restyles in place on a dark-mode toggle |
-| modal_layer.gd | Dim background + light map_card_style.gd card (content built inside MapPalette.build_light); mounts the dedicated Trade sheet for sell_menu, and dispatches other content through modal_registry.gd; tap-outside dismiss |
+| modal_layer.gd | Dim background + light map_card_style.gd card (content built inside MapPalette.build_light); mounts full-screen sheets for sell_menu (Trade) and guard_kit, and dispatches other content through modal_registry.gd; tap-outside dismiss |
 | notification_ticker.gd | Top board's one-message notice row: presentation-only queue, roll-up from below, marquee for overflow, 4s hold; latest stays when empty; transient (combat-log) or keyed (notification id) queued entries droppable |
 | nav_bar.gd | Bottom nav dock (Phone·Map·HQ); swaps to MapPalette dark chrome tokens while the Map tab shows with Map dark mode on |
 | ore_glyphs.gd | Five canonical ore silhouettes as hand-drawn vectors; bundled-font coverage probe for non-map symbol fallback |
@@ -163,7 +163,7 @@ overlays.
 | turn_order_strip.gd | Combat turn-order strip: one card per projected turn occurrence. Tap selects; drag scrolls (offset survives re-configure). Selected card grows into a reserved band on the decision turn only; uniform during playback. Nine-slice sign frame per damage tier (cardFrames), HP ghost drain, `_reveal_pos()`, and playback reflow via `playback_occurrences()` + `advance_to()` |
 | ui.gd | Shared Control builders, time-cost labels, lot price text ("£75/10"), ui_action_red accent + bordered-panel/action-button StyleBoxFlat helpers |
 | vein_bubble.gd | Compact player-vein tap bubble: pin-anchored card, Lv segments, condition needle with 50/90+ scale, outline development/raid cues, round Harvest (light/hard chooser)/Cultivate actions, cultivator picker + hold-target stepper (via Rooms) while anyone holds Cultivation; tapping the info area opens vein_detail_panel.gd instead of running an action |
-| vein_detail_panel.gd | Floating map_card_style.gd-skinned vein detail (mapNav.selectedVeinId): compact level/location, condition, drift/development/raid/security cues, three icon action tiles, security/alarm/Defend; reuses VeinBubble's level/condition builders |
+| vein_detail_panel.gd | Floating map_card_style.gd-skinned vein detail (mapNav.selectedVeinId): compact level/location, condition, drift/development/raid/security cues, three icon action tiles, security/guard kit row/alarm/Defend; reuses VeinBubble's level/condition builders |
 
 ## scenes/modals/*.gd — modal content, one script per type
 
@@ -179,6 +179,8 @@ overlays.
 | james_job_short_modal.gd | James job "not enough stock" card |
 | james_job_complete_modal.gd | James job payout card |
 | sell_menu_modal.gd | Trade modal registry adapter and Cancel action that clears sellState |
+| guard_kit_modal.gd | guard_kit modal registry adapter (data.target is a GuardKit kit target) |
+| guard_kit_view.gd | Guard kit stocking sheet on the Trade pattern: Stock/Return tabs, grouped tiers with steppers, sticky slots/capacity totals, review; confirm calls GuardKit stock/unstock per line |
 | sell_menu_view.gd | Trade-only sheet: sell/buy and category tabs, Map ore glyphs, grouped item tiers, sticky totals and review; three modes: Archie, Collective contact, faction shop (no contact); invokes existing trade systems |
 | nadia_supply_modal.gd | Nadia ore-supply objective card |
 | network_targets_modal.gd | Handler Targets picker: faction veins, soft/freeze questions |

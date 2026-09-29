@@ -155,6 +155,35 @@ func run() -> void:
 	)
 
 
+	run_case("summary_lists_units_per_item_in_allowlist_order", func():
+		assert_eq(GuardKit.summary_text({ "shield": { "3": 2 }, "blast": { "1": 1 } }), "Blast ×1 · Shield ×2")
+		assert_eq(GuardKit.summary_text({ "shield": { "1": 1, "3": 2 } }), "Shield ×3", "tiers sum per item")
+		assert_eq(GuardKit.summary_text({}), "")
+	)
+
+	run_case("a_vein_kit_target_reads_and_moves_that_veins_kit", func():
+		var vein := _seed(2)
+		Crafting.inventory_add("shield", 2, 3)
+		var target := { "kind": "vein", "veinId": "v1" }
+		assert_eq(GuardKit.target_capacity(target), 4)
+		assert_eq(GuardKit.target_guard_count(target), 2)
+		assert_true(GuardKit.stock_target(target, "shield", 2, 3)["ok"])
+		assert_eq(GuardKit.target_kit(target), { "shield": { "2": 3 } })
+		assert_true(GuardKit.unstock_target(target, "shield", 2, 1)["ok"])
+		assert_eq(vein["guardKit"], { "shield": { "2": 2 } })
+	)
+
+	run_case("an_unknown_kit_target_is_empty_and_refuses_moves", func():
+		_seed(2)
+		Crafting.inventory_add("shield", 2, 1)
+		var target := { "kind": "nowhere" }
+		assert_eq(GuardKit.target_kit(target), {})
+		assert_eq(GuardKit.target_capacity(target), 0)
+		var before: Dictionary = GameState.deep_copy(GameState.state)
+		assert_true(not GuardKit.stock_target(target, "shield", 2, 1)["ok"])
+		assert_eq(GameState.state, before)
+	)
+
 # One player vein "v1" with `guards` guards (tier guard + extras).
 func _seed(guards: int) -> Dictionary:
 	GameState.reset()

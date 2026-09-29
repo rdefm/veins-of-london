@@ -82,6 +82,53 @@ static func unstock(vein_id: String, recipe_key: String, tier: int, qty: int) ->
 	return result
 
 
+# A kit target names one kit for shared UI (the stocking sheet):
+# { "kind": "vein", "veinId": id }. Unknown targets read as an empty,
+# 0-capacity kit and refuse every move.
+static func target_kit(target: Dictionary) -> Dictionary:
+	var vein = _target_vein(target)
+	return vein.get("guardKit", {}) if vein != null else {}
+
+
+static func target_capacity(target: Dictionary) -> int:
+	var vein = _target_vein(target)
+	return capacity(vein) if vein != null else 0
+
+
+static func target_guard_count(target: Dictionary) -> int:
+	var vein = _target_vein(target)
+	return Cultivating.vein_guard_count(vein) if vein != null else 0
+
+
+static func target_name(target: Dictionary) -> String:
+	var vein = _target_vein(target)
+	if vein == null:
+		return ""
+	return "%s · %s" % [GameData.DISTRICTS[vein["district"]]["name"], GameData.ORE_TYPES[vein["oreType"]]["name"]]
+
+
+static func stock_target(target: Dictionary, recipe_key: String, tier: int, qty: int) -> Dictionary:
+	if target.get("kind", "") == "vein":
+		return stock(target.get("veinId", ""), recipe_key, tier, qty)
+	return _refuse("No such kit.")
+
+
+static func unstock_target(target: Dictionary, recipe_key: String, tier: int, qty: int) -> Dictionary:
+	if target.get("kind", "") == "vein":
+		return unstock(target.get("veinId", ""), recipe_key, tier, qty)
+	return _refuse("No such kit.")
+
+
+# Units per item in allowlist order, e.g. "Shield ×2 · Blast ×1"; "" when empty.
+static func summary_text(kit: Dictionary) -> String:
+	var parts: PackedStringArray = []
+	for recipe_key in GameData.GUARD_KIT["items"]:
+		var units := unit_count({ recipe_key: kit.get(recipe_key, {}) })
+		if units > 0:
+			parts.append("%s ×%d" % [GameData.RECIPES[recipe_key]["name"], units])
+	return " · ".join(parts)
+
+
 # Kit-level stock move on owner[kit_field], shared with the HQ kit. No emit.
 static func stock_into(owner: Dictionary, kit_field: String, cap: int, recipe_key: String, tier: int, qty: int) -> Dictionary:
 	if qty <= 0:
@@ -128,6 +175,12 @@ static func _tiers_high_first(buckets: Dictionary) -> Array:
 	var keys: Array = buckets.keys()
 	keys.sort_custom(func(a, b): return int(a) > int(b))
 	return keys
+
+
+static func _target_vein(target: Dictionary) -> Variant:
+	if target.get("kind", "") != "vein":
+		return null
+	return Cultivating.find_vein(target.get("veinId", ""))
 
 
 static func _refuse(reason: String) -> Dictionary:

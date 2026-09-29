@@ -44,6 +44,16 @@ func _find_cost_button(root: Node, text: String) -> Button:
 	return null
 
 
+# Last match by text or accessibility name: re-renders leave queue_free()d
+# rows behind until a frame passes.
+static func _last_button(root: Node, text: String) -> Button:
+	var found: Button = null
+	for button in root.find_children("", "Button", true, false):
+		if (button as Button).text == text or (button as Button).accessibility_name == text:
+			found = button as Button
+	return found
+
+
 static func _find_button_prefix(root: Node, prefix: String) -> Button:
 	for button in root.find_children("", "Button", true, false):
 		if (button as Button).text.begins_with(prefix) or (button as Button).accessibility_name.begins_with(prefix):
@@ -58,7 +68,7 @@ func run() -> void:
 	run_case("every_modal_type_is_registered_with_a_content_builder", func():
 		for type_id in ["seed_result", "craft_result", "craft_batch_result",
 				"sale_result", "archie_deal_result", "james_job_offer", "james_job_short",
-				"james_job_complete", "sell_menu", "nadia_supply", "sell_vein_quote",
+				"james_job_complete", "sell_menu", "guard_kit", "nadia_supply", "sell_vein_quote",
 				"craft_components_menu", "network_reference", "movement_craft", "movement_swap",
 				"dial_load_complication", "combat_setup", "hq_ore_readout", "hq_gym",
 				"lab_bench_recipe_book", "lab_bench_notes", "lab_bench_probe_result", "lab_bench_confirm", "contract_cancel"]:
@@ -280,6 +290,56 @@ func run() -> void:
 		var review := _find_cost_button(view, "Review trade →")
 		var scroll: ScrollContainer = view.find_children("", "ScrollContainer", true, false)[0]
 		assert_true(not scroll.is_ancestor_of(review), "review footer stays outside the scrolling rows")
+		layer.free()
+	)
+
+	run_case("guard_kit_sheet_stocks_within_capacity_and_confirms_through_guard_kit", func():
+		GameState.reset()
+		var vein := Fixtures.seed_vein("v1", 50)
+		vein["security"] = "guarded"  # 1 guard, 2 slots
+		vein["guardKit"] = {}
+		Crafting.inventory_add("blast", 2, 3)
+		Crafting.inventory_add("healingSalve", 1, 2)
+		Modal.open("guard_kit", { "target": { "kind": "vein", "veinId": "v1" } })
+		var layer := ModalLayer.new()
+		layer._ready()
+		var view: PanelContainer = layer._kit_view
+		assert_true(view.visible and not layer._card.visible, "the kit uses its own sheet")
+		assert_true(_find_button_prefix(view, "Blast") != null, "held allowlisted item listed")
+		assert_true(_find_button_prefix(view, "Healing Salve") == null, "off-allowlist item hidden")
+		var slots := view.find_children("SlotsTotal", "Label", true, false)
+		assert_eq((slots[slots.size() - 1] as Label).text, "0/2")
+		for i in 2:
+			_find_button_prefix(view, "Blast · tier 2 more").pressed.emit()
+		assert_true(_last_button(view, "Blast · tier 2 more").disabled, "stepper stops at capacity")
+		slots = view.find_children("SlotsTotal", "Label", true, false)
+		assert_eq((slots[slots.size() - 1] as Label).text, "2/2")
+		assert_eq(vein["guardKit"], {}, "picking alone changes nothing")
+		_last_button(view, "Review kit →").pressed.emit()
+		_last_button(view, "Confirm kit").pressed.emit()
+		assert_eq(vein["guardKit"], { "blast": { "2": 2 } })
+		assert_eq(GameState.state["player"]["inventory"]["blast"]["2"], 1)
+		assert_eq(GameState.state["modal"], null)
+		layer.free()
+	)
+
+	run_case("guard_kit_return_tab_lists_the_kit_and_returns_over_capacity", func():
+		GameState.reset()
+		var vein := Fixtures.seed_vein("v1", 50)
+		vein["security"] = "guarded"
+		vein["guardKit"] = { "shield": { "3": 3 } }  # over the 2-slot capacity
+		Modal.open("guard_kit", { "target": { "kind": "vein", "veinId": "v1" } })
+		var layer := ModalLayer.new()
+		layer._ready()
+		var view: PanelContainer = layer._kit_view
+		_last_button(view, "Return").pressed.emit()
+		assert_true(_find_button_prefix(view, "Shield") != null, "kit item listed on Return")
+		for i in 3:
+			_last_button(view, "Shield · tier 3 more").pressed.emit()
+		_last_button(view, "Review kit →").pressed.emit()
+		_last_button(view, "Confirm kit").pressed.emit()
+		assert_eq(vein["guardKit"], {})
+		assert_eq(GameState.state["player"]["inventory"]["shield"]["3"], 3)
 		layer.free()
 	)
 

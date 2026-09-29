@@ -268,3 +268,38 @@ func run() -> void:
 		assert_eq(GameState.state["phoneNav"]["bizbriefView"], PhoneNav.BIZBRIEF_GUARD_COSTS_VIEW, "it taps through to Guard Costs")
 		broke_panel.free()
 	)
+
+	run_case("guard_kit_row_shows_slots_and_summary_and_opens_the_sheet", func():
+		GameState.reset()
+		var vein := Fixtures.seed_vein("v1", 50)
+		vein["security"] = "guarded"
+		vein["extraGuards"] = 1
+		vein["guardKit"] = { "shield": { "3": 2 }, "blast": { "1": 1 } }
+		var panel := VeinDetailPanel.build(vein)
+		var row := panel.find_children("GuardKitButton", "Button", true, false)[0] as Button
+		assert_eq(row.text, "Guard kit 3/4 · Blast ×1 · Shield ×2 ›")
+		assert_true(not row.disabled)
+		row.pressed.emit()
+		assert_eq(GameState.state["modal"]["type"], "guard_kit")
+		assert_eq(GameState.state["modal"]["data"]["target"], { "kind": "vein", "veinId": "v1" })
+		panel.free()
+	)
+
+	run_case("guard_kit_row_is_disabled_without_guards_and_idle_over_capacity", func():
+		GameState.reset()
+		var vein := Fixtures.seed_vein("v1", 50)
+		vein["guardKit"] = {}
+		var panel := VeinDetailPanel.build(vein)
+		var row := panel.find_children("GuardKitButton", "Button", true, false)[0] as Button
+		assert_eq(row.text, "Guard kit 0/0 · Empty ›")
+		assert_true(row.disabled, "no guards, no kit")
+		panel.free()
+
+		vein["security"] = "guarded"
+		vein["guardKit"] = { "blast": { "1": 3 } }
+		panel = VeinDetailPanel.build(vein)
+		row = panel.find_children("GuardKitButton", "Button", true, false)[0] as Button
+		assert_eq(row.text, "Guard kit 3/2 · Blast ×3 · idle ›")
+		assert_true(not row.disabled)
+		panel.free()
+	)

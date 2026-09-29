@@ -7,6 +7,7 @@ var _card: PanelContainer
 var _scroll: ScrollContainer
 var _card_content: VBoxContainer
 var _trade_view: PanelContainer
+var _kit_view: PanelContainer
 
 const MAX_CARD_HEIGHT := 620.0
 
@@ -40,6 +41,11 @@ func _ready() -> void:
 	_trade_view.visible = false
 	add_child(_trade_view)
 
+	_kit_view = preload("res://scenes/modals/guard_kit_view.gd").new()
+	UI.anchor_full_rect(_kit_view)
+	_kit_view.visible = false
+	add_child(_kit_view)
+
 	EventBus.state_changed.connect(_refresh)
 	_refresh()
 
@@ -69,21 +75,24 @@ func _dismiss_modal() -> void:
 func _refresh() -> void:
 	var modal = GameState.state["modal"]
 	visible = modal != null
+	var type_id: String = modal.get("type", "") if modal != null else ""
+	# Full-screen sheets bypass the card; each resets its local UI on hide.
+	var sheets := { "sell_menu": _trade_view, "guard_kit": _kit_view }
+	for sheet_type in sheets:
+		var sheet: PanelContainer = sheets[sheet_type]
+		if sheet_type != type_id and sheet.visible:
+			sheet.call("reset_ui")
+			sheet.visible = false
 	if modal == null:
-		if _trade_view.visible:
-			_trade_view.call("reset_ui")
-		_trade_view.visible = false
 		return
-	if modal.get("type", "") == "sell_menu":
+	if sheets.has(type_id):
+		var sheet: PanelContainer = sheets[type_id]
 		_card.visible = false
-		_trade_view.visible = true
-		_trade_view.offset_top = UI.top_bar_clearance() + 8.0
-		_trade_view.offset_bottom = -NavBar.BAR_HEIGHT
-		_trade_view.call("refresh", modal.get("data", {}))
+		sheet.visible = true
+		sheet.offset_top = UI.top_bar_clearance() + 8.0
+		sheet.offset_bottom = -NavBar.BAR_HEIGHT
+		sheet.call("refresh", modal.get("data", {}))
 		return
-	if _trade_view.visible:
-		_trade_view.call("reset_ui")
-	_trade_view.visible = false
 	_card.visible = true
 
 	for child in _card_content.get_children():
