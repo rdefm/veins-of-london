@@ -28,6 +28,7 @@ static func begin_rollover() -> Dictionary:
 		"lostVeins": 0,
 		"sales": {},
 		"payday": null,
+		"guardWages": null,
 		"exceptions": [],
 	}
 
@@ -97,6 +98,19 @@ static func capture_business(context: Dictionary, result: Dictionary) -> void:
 	context["payday"] = result["payday"]
 	for shortfall in result["shortfalls"]:
 		context["exceptions"].append({ "kind": "wageShortfall", "contactId": shortfall["contactId"], "amount": shortfall["owed"] })
+
+
+# The Monday guard bill paid from cash (GuardUpkeep.pay_monday_bill()'s
+# result); nothing when no bill was paid.
+static func capture_guard_wages(context: Dictionary, result: Dictionary) -> void:
+	if int(result["paid"]) > 0:
+		context["guardWages"] = { "amount": result["paid"], "guards": result["guards"] }
+
+
+# PROSE-REVIEW: guard wages line.
+static func guard_wages_label(guard_wages: Dictionary) -> String:
+	var guards: int = guard_wages["guards"]
+	return "Guard wages, %d guard%s −£%d" % [guards, "" if guards == 1 else "s", guard_wages["amount"]]
 
 
 # Payday statement lines: receipts, each expense, then the shares.
@@ -215,6 +229,7 @@ static func finish_rollover(context: Dictionary) -> Dictionary:
 		"production": { "ore": context["productionOre"], "items": context["productionItems"] },
 		"sales": context["sales"],
 		"payday": context["payday"],
+		"guardWages": context["guardWages"],
 		"losses": { "ore": context["lossOre"], "veins": context["lostVeins"] },
 		"exceptions": context["exceptions"],
 	}
@@ -234,6 +249,7 @@ static func has_operations(account: Dictionary) -> bool:
 		or not account["sales"].is_empty() \
 		or not account["losses"]["ore"].is_empty() \
 		or account["losses"]["veins"] > 0 \
+		or account.get("guardWages") != null \
 		or not account["exceptions"].is_empty()
 
 

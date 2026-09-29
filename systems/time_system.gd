@@ -108,6 +108,7 @@ static func daily_tick() -> void:
 	Rooms.trim_production_log()          # ⑥.2 drop production-log days older than the retention window
 	ContractsSystem.process_daily_sales() # ⑥.3 Sales buys flagged calc shortfalls, closes full periods, then allocates partial stock by priority
 	ContractsSystem.daily_tick()         # ⑥.4 due periods settle; recurring periods renew
+	MorningAccountsSystem.capture_guard_wages(morning_context, GuardUpkeep.pay_monday_bill())  # ⑥.4a player Monday guard bill (pot not active); before ⑥.4c so its expense lands in the ended day
 	MorningAccountsSystem.capture_business(morning_context, Business.daily_tick())  # ⑥.4b after ⑥.4 so payday banks today's settlements
 	BusinessStats.capture_day()          # ⑥.4c after ⑥.4b so the ended day's snapshot includes this rollover's settlements and payday wages
 	OffersSystem.daily_tick()            # ⑥.5 expiry, then Sales sources at most one new random offer

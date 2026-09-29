@@ -547,6 +547,8 @@ func _build_operations(account: Dictionary) -> Control:
 		c["content"].add_child(UI.symbol_row([{ "symbol": GameData.ORE_TYPES[ore_type]["symbol"], "fallback": SymbolGlyph.ore_fallback(ore_type) }, "Lost %d %s" % [account["losses"]["ore"][ore_type], GameData.ORE_TYPES[ore_type]["name"]]], { "muted": true }))
 	if account["losses"]["veins"] > 0:
 		c["content"].add_child(UI.muted_label("Lost %d vein%s" % [account["losses"]["veins"], "" if account["losses"]["veins"] == 1 else "s"]))
+	if account.get("guardWages") != null:
+		c["content"].add_child(UI.label(MorningAccountsSystem.guard_wages_label(account["guardWages"])))
 	for exception in account["exceptions"]:
 		match exception["kind"]:
 			"missedJob":

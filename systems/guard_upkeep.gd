@@ -8,6 +8,7 @@ extends RefCounted
 # Place id for HQ guards in expenses and history; veins use their vein id.
 const HOME_PLACE_ID := "home"
 const HIRE_BANK_LABEL := "Guard hire"
+const WAGES_BANK_LABEL := "Guard wages"
 
 
 static func weekly_wage() -> int:
@@ -54,6 +55,53 @@ static func pay_hire_advance(place_id: String) -> Dictionary:
 	Bank.record(-advance, HIRE_BANK_LABEL)
 	record_payment(place_id, advance)
 	return { "ok": true, "amount": advance }
+
+
+# Guards on duty per place: { vein id or HOME_PLACE_ID: count }, player
+# veins in list order then HQ, places with no guards left out. Only veins in
+# player.veins count, so guards on a sold or lost vein aren't billed.
+static func player_guards_by_place() -> Dictionary:
+	var places := {}
+	for vein in GameState.state["player"]["veins"]:
+		var count := Cultivating.vein_guard_count(vein)
+		if count > 0:
+			places[vein["id"]] = count
+	var hq_count := Home.get_guard_count()
+	if hq_count > 0:
+		places[HOME_PLACE_ID] = hq_count
+	return places
+
+
+# Player Monday bill before the pot exists (spec §Player Monday bill, R§3.1
+# ⑥.4a): on the rollover into a Monday, weeklyWage per guard on duty, from
+# cash in full or not at all (bank "Guard wages"). Short cash takes nothing
+# and returns short = true. Any other day, or with the pot active, bills
+# nothing. Returns { billed, short, due, paid, guards }.
+#
+# PROSE-REVIEW: the paid notification.
+static func pay_monday_bill() -> Dictionary:
+	var result := { "billed": false, "short": false, "due": 0, "paid": 0, "guards": 0 }
+	if not Calendar.is_monday(GameState.state["world"]["day"]) or Business.is_pot_active():
+		return result
+	var places := player_guards_by_place()
+	for place_id in places:
+		result["guards"] += int(places[place_id])
+	if result["guards"] == 0:
+		return result
+	result["billed"] = true
+	result["due"] = weekly_cost(result["guards"])
+	var player: Dictionary = GameState.state["player"]
+	if int(player["cash"]) < result["due"]:
+		result["short"] = true
+		return result
+	player["cash"] -= result["due"]
+	Bank.record(-result["due"], WAGES_BANK_LABEL)
+	for place_id in places:
+		record_payment(place_id, weekly_cost(int(places[place_id])))
+	result["paid"] = result["due"]
+	Notify.push("Guard wages: -£%d for %d guard%s this week." % [result["paid"], result["guards"], "" if result["guards"] == 1 else "s"])
+	EventBus.state_changed.emit()
+	return result
 
 
 # A player guard payment: a guard expense in BusinessStats and today's

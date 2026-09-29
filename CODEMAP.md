@@ -52,7 +52,7 @@ Data file per system: see `data/*.json` below.
 | events.gd | Event-card runner + rewind, auto-discovers art |
 | faction_sim.gd | FactionSim: faction holdings (ore, items by tier); stockpile pick; daily vein tend + prune, sparing one maturing vein until it levels (R§1.8 `fieldwork`); crafting toward targets (`craftSkill`); consumption + kit burns → shortfall; defend-kit allocation, `vein_kit`, defend-raid `raider_kit` (`raidKits`); London sell/buy vs reserve, Conclave arbitrage (`trading`) |
 | factions.gd | Faction joining |
-| guard_upkeep.gd | Guard wages: prorated hire advance paid from cash ("Guard hire"), weekly guard cost/labels, per-day per-place `guardUpkeep.history` (trimmed to `guardCostHistoryDays`) |
+| guard_upkeep.gd | Guard wages: prorated hire advance paid from cash ("Guard hire"), weekly guard cost/labels, per-day per-place `guardUpkeep.history` (trimmed to `guardCostHistoryDays`), pre-pot Monday guard bill from cash ("Guard wages") |
 | home.gd | Home tier/tenure/security/rooms/raid chance; per-day and weekly bill base (rent or utilities); arrears countdown to Monday; rent/buy/buy-out/downgrade tier moves via shared `change_tier` (room wipe, security loss); HQ `drop_guard`; per-slot room purchase/replacement (`set_room_use`); daily raid roll, alarm queue/expiry, and alarm-defend win/loss resolution (R§3.8) |
 | jobs.gd | James's jobs, trust bands |
 | lab_bench_nav.gd | Lab bench nav: selected ore; gear confirm variant (probe/craft/inert) + readiness |
@@ -68,7 +68,7 @@ Data file per system: see `data/*.json` below.
 | map_zoom.gd | Zoom-level math for the diagram |
 | messages.gd | Messages data layer + conversation-index projections, total unread count, per-contact clear (read + contact notifications seen) |
 | modal.gd | Modal open/close state; holds an event deferred behind a modal flow (`followEvent`) and starts it on close |
-| morning_accounts.gd | Rollover capture (incl. arrears exceptions and countdown, payday statement, wage shortfalls), per-block staff output accumulation, BizBrief routing, arrears/payday/wage-prompt labels |
+| morning_accounts.gd | Rollover capture (incl. arrears exceptions and countdown, payday statement, wage shortfalls, Monday guard wages), per-block staff output accumulation, BizBrief routing, arrears/payday/wage-prompt/guard-wage labels |
 | nav.gd | Screen navigation |
 | notify.gd | Notifications append/evict; per-contact dismiss via contactId meta |
 | objectives.gd | Objective/questline evaluator; all_of live-condition, template_periods_completed (Beat 6) and recurring_proof (Beat 7) objectives + their ToDo checklist rows |
