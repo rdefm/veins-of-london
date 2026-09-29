@@ -106,16 +106,24 @@ static func guard_repel_chance(guard_count: int) -> float:
 
 
 # On success, pushes a "held without you" notification distinct from a
-# player-defended win (silent) and _apply_raid_loss()'s loss line.
+# player-defended win (silent) and _apply_raid_loss()'s loss line. Active
+# HQ guard kit raises the chance and loses one unit per active type on the
+# roll, win or lose (guard-kit spec §HQ guard kit, §Not defending).
 #
 # PROSE-REVIEW: drafted against CONTENT-GUIDE.md's tone.
 static func _guards_repel_pending_raid() -> bool:
 	var guard_count: int = get_guard_count()
 	if guard_count <= 0:
 		return false
-	if not Rng.chance(guard_repel_chance(guard_count)):
+	var active := GuardKit.hq_active_units()
+	var chance := GuardKit.repel_chance_with(guard_repel_chance(guard_count), active)
+	var used := GuardKit.spend_repel_units(GameState.state["home"].get("guardKit", {}), active)
+	if not Rng.chance(chance):
 		return false
-	Notify.push("Your guards caught them at HQ and saw them off before you got back. Nothing lost.", Notify.CATEGORY_SUCCESS)
+	var text := "Your guards caught them at HQ and saw them off before you got back. Nothing lost."
+	if not used.is_empty():
+		text += " They went through %s." % GuardKit.used_items_text(used)
+	Notify.push(text, Notify.CATEGORY_SUCCESS)
 	return true
 
 

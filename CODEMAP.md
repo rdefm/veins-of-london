@@ -54,7 +54,7 @@ Data file per system: see `data/*.json` below.
 | factions.gd | Faction joining |
 | guard_kit.gd | Guard kit: allowlisted combat items stocked by tier on a player vein's or HQ's (`home.guardKit`) `guardKit`; capacity (guards × slots), active units, `stock`/`unstock` and `*_hq` twins; missed-defend repel boost/spend; kit-dict helpers (incl. `remove_units`); target helpers (vein/hq), summary/status text, `kit_veins` |
 | guard_upkeep.gd | Guard wages: hire advance, weekly cost/labels, per-day per-place `guardUpkeep.history`, pre-pot Monday bill from cash, faction Monday bill and wage-reserve gate, pending guard shortfall (grace, auto-resolve drop order, short-pay quote/confirm), place labels, Guard Costs reads (history window, per-place series, places, next Monday bill) |
-| home.gd | Home tier/tenure/security/rooms/raid chance; per-day and weekly bill base (rent or utilities); arrears countdown to Monday; rent/buy/buy-out/downgrade tier moves via shared `change_tier` (room wipe, security loss); HQ `drop_guard`; per-slot room purchase/replacement (`set_room_use`); daily raid roll, alarm queue/expiry, and alarm-defend win/loss resolution (R§3.8) |
+| home.gd | Home tier/tenure/security/rooms/raid chance; per-day and weekly bill base (rent or utilities); arrears countdown to Monday; rent/buy/buy-out/downgrade tier moves via shared `change_tier` (room wipe, security loss); HQ `drop_guard`; per-slot room purchase/replacement (`set_room_use`); daily raid roll, alarm queue/expiry with HQ guard (+kit) repel, and alarm-defend win/loss resolution (R§3.8) |
 | jobs.gd | James's jobs, trust bands |
 | lab_bench_nav.gd | Lab bench nav: selected ore; gear confirm variant (probe/craft/inert) + readiness |
 | map_events.gd | Map event queue + playback |

@@ -242,6 +242,90 @@ func run() -> void:
 		assert_true(not GameState.state["home"]["pendingRaid"])
 	)
 
+	# ── HQ guard kit repel boost (guard-kit spec §HQ guard kit) ──
+	run_case("hq_missed_defend_repel_rolls_at_the_kit_boosted_chance", func():
+		for seed in range(30):
+			GameState.reset()
+			GameState.state["home"]["guardCount"] = 1
+			GameState.state["home"]["guardKit"] = { "blackHole": { "1": 1 }, "shield": { "1": 1 } }
+			GameState.state["home"]["pendingRaid"] = true
+			GameState.state["player"]["orichalchum"] = { "time": 100 }
+			Rng.set_seed(seed)
+			var expected_repel: bool = Rng.chance(0.15 + 0.08 + 0.05)
+			Rng.set_seed(seed)
+			Home._expire_pending_raid()
+			assert_eq(GameState.state["player"]["orichalchum"]["time"] == 100, expected_repel, "seed %d: repel rolls at base + black hole + shield" % seed)
+			assert_eq(GameState.state["home"]["guardKit"], {}, "seed %d: one of each active type used either way" % seed)
+	)
+
+	run_case("hq_missed_defend_repel_with_kit_caps_at_repel_cap", func():
+		GameState.reset()
+		GameState.state["home"]["guardCount"] = 10
+		var kit := {}
+		for recipe_key in GameData.GUARD_KIT["items"]:
+			kit[recipe_key] = { "1": 1 }
+		GameState.state["home"]["guardKit"] = kit
+		assert_almost_eq(GuardKit.repel_chance_with(Home.guard_repel_chance(10), GuardKit.hq_active_units()), 0.90, 0.0001, "HQ kit caps at guardKit.repelCap")
+	)
+
+	run_case("hq_missed_defend_repel_spends_one_unit_per_active_type_and_names_it", func():
+		for want_repel in [true, false]:
+			var found := false
+			for seed in range(300):
+				GameState.reset()
+				# 1 guard = 3 active slots: blast T3 + blast T1 + shield T2 active; timePearl inactive.
+				GameState.state["home"]["guardCount"] = 1
+				GameState.state["home"]["guardKit"] = { "blast": { "1": 1, "3": 1 }, "shield": { "2": 1 }, "timePearl": { "1": 1 } }
+				GameState.state["home"]["pendingRaid"] = true
+				GameState.state["player"]["orichalchum"] = { "time": 100 }
+				GameState.state["player"]["inventory"] = {}
+				Rng.set_seed(seed)
+				Home._expire_pending_raid()
+				var repelled: bool = GameState.state["player"]["orichalchum"]["time"] == 100
+				if repelled != want_repel:
+					continue
+				found = true
+				var left := { "blast": { "1": 1 }, "timePearl": { "1": 1 } }
+				assert_eq(GameState.state["home"]["guardKit"], left, "repel=%s: tier-3 blast + shield used; inactive pearl kept" % want_repel)
+				var notes: Array = GameState.state["notifications"]
+				if repelled:
+					assert_true(notes.any(func(n): return String(n["text"]).ends_with(" They went through a blast and a shield.")), "repel line names the used kit")
+				else:
+					assert_eq(GameState.state["player"]["orichalchum"]["time"], 50, "failed repel: raid loss is ore-only")
+					assert_eq(GameState.state["player"]["inventory"], {}, "failed repel: raid loss takes no kit into or out of inventory")
+				break
+			assert_true(found, "should find a seed with repel=%s" % want_repel)
+	)
+
+	run_case("hq_missed_defend_repel_without_kit_has_no_suffix", func():
+		var found := false
+		for seed in range(300):
+			GameState.reset()
+			GameState.state["home"]["guardCount"] = 5
+			GameState.state["home"]["pendingRaid"] = true
+			GameState.state["player"]["orichalchum"] = { "time": 100 }
+			Rng.set_seed(seed)
+			Home._expire_pending_raid()
+			if GameState.state["player"]["orichalchum"]["time"] != 100:
+				continue
+			found = true
+			assert_eq(GameState.state["notifications"][0]["text"], "Your guards caught them at HQ and saw them off before you got back. Nothing lost.")
+			break
+		assert_true(found, "should find a repel seed")
+	)
+
+	run_case("hq_missed_defend_with_no_guards_rolls_nothing_and_keeps_the_kit", func():
+		GameState.reset()
+		GameState.state["home"]["guardCount"] = 0
+		GameState.state["home"]["guardKit"] = { "blast": { "1": 2 } }
+		Rng.set_seed(7)
+		var first_roll: float = Rng.randf()
+		Rng.set_seed(7)
+		assert_true(not Home._guards_repel_pending_raid())
+		assert_eq(Rng.randf(), first_roll, "no guards consumes no roll")
+		assert_eq(GameState.state["home"]["guardKit"], { "blast": { "1": 2 } }, "no guards spends no kit")
+	)
+
 	run_case("has_pending_raid_and_is_pending_raid_notification_reflect_the_queued_flag", func():
 		GameState.reset()
 		assert_true(not Home.has_pending_raid(), "sanity: nothing pending on a fresh game")
