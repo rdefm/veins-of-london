@@ -9,6 +9,7 @@ extends RefCounted
 const APPS: Array[String] = ["alarms", "bizbrief", "dialer", "messages", "todo", "factions", "ticker", "profile", "saveload", "settings", "notifications", "bank", "property"]
 
 const BIZBRIEF_SHORT_PAY_VIEW := "shortPay"
+const BIZBRIEF_GUARD_COSTS_VIEW := "guardCosts"
 
 
 static func open_app(app_id: String) -> void:
@@ -76,6 +77,15 @@ static func open_short_pay() -> void:
 	Nav.go_to("phone")
 	open_app("bizbrief")
 	GameState.state["phoneNav"]["bizbriefView"] = BIZBRIEF_SHORT_PAY_VIEW
+	EventBus.state_changed.emit()
+
+
+# BizBrief's Guard Costs sub-view (spec §Visibility), from the expenses
+# breakdown and the vein/HQ security rows; open with or without the pot.
+static func open_guard_costs() -> void:
+	Nav.go_to("phone")
+	open_app("bizbrief")
+	GameState.state["phoneNav"]["bizbriefView"] = BIZBRIEF_GUARD_COSTS_VIEW
 	EventBus.state_changed.emit()
 
 

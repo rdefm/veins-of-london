@@ -52,6 +52,21 @@ func run() -> void:
 		screen.free()
 	)
 
+	run_case("guarded_vein_row_links_its_weekly_guard_cost_to_guard_costs", func():
+		GameState.reset()
+		var vein := Fixtures.player_vein_with({ "growth": 60, "security": "guarded" })
+
+		var screen := VeinListScreen.new()
+		var row: Control = screen._build_vein_row(vein)
+		var cost_link := NodeQuery.find_button(row, "£500/week ›")
+		assert_true(cost_link != null, "security row shows the weekly guard cost")
+		cost_link.pressed.emit()
+		assert_eq(GameState.state["phoneNav"]["bizbriefView"], PhoneNav.BIZBRIEF_GUARD_COSTS_VIEW)
+
+		row.free()
+		screen.free()
+	)
+
 	run_case("vein_row_shows_a_growth_bar_matching_the_vein_and_its_ceiling", func():
 		GameState.reset()
 		var vein := Fixtures.player_vein_with({ "growth": 60 })

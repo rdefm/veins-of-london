@@ -328,6 +328,50 @@ func run() -> void:
 		assert_true(not GuardUpkeep.is_pending_shortfall_notification(warning), "not once it's resolved")
 	)
 
+	run_case("cost_series_per_place_come_from_history_bounded_to_the_window", func():
+		var monday := _seed_guards()
+		var days := int(GameData.GUARD_UPKEEP["guardCostHistoryDays"])
+		GameState.state["world"]["day"] = monday
+		GuardUpkeep.record_payment("v1", 700)
+		GameState.state["world"]["day"] = monday + days
+		GuardUpkeep.record_payment("home", 300)
+		GuardUpkeep.record_payment("v2", 200)
+		var window := GuardUpkeep.history_window_days()
+		assert_eq([window.size(), window[0], window[-1]], [days, monday + 1, monday + days], "the last guardCostHistoryDays days through today")
+		assert_eq(GuardUpkeep.cost_series("v1").reduce(func(a, b): return a + b, 0), 0, "v1's payment fell out of the window")
+		assert_eq(GuardUpkeep.cost_series("home")[-1], 300)
+		assert_eq(GuardUpkeep.cost_series("v2").reduce(func(a, b): return a + b, 0), 200)
+	)
+
+	run_case("history_window_never_starts_before_day_one", func():
+		GameState.reset()
+		GameState.state["world"]["day"] = 3
+		assert_eq(GuardUpkeep.history_window_days(), [1, 2, 3])
+	)
+
+	run_case("cost_places_are_hq_then_player_veins_then_lost_veins_with_history", func():
+		var monday := _seed_guards()
+		GameState.state["world"]["day"] = monday
+		GuardUpkeep.record_payment("gone", 500)
+		assert_eq(GuardUpkeep.cost_places(), ["home", "v1", "v2", "v3", "gone"])
+		GameState.state["world"]["day"] = monday + int(GameData.GUARD_UPKEEP["guardCostHistoryDays"])
+		assert_eq(GuardUpkeep.cost_places(), ["home", "v1", "v2", "v3"], "a lost vein drops out with its history")
+	)
+
+	run_case("next_monday_bill_is_every_current_guard_at_the_weekly_wage", func():
+		_seed_guards()
+		assert_eq(GuardUpkeep.next_monday_bill(), 500 * 4)
+	)
+
+	run_case("open_guard_costs_lands_on_the_bizbrief_sub_view_before_the_pot", func():
+		_seed_guards()
+		assert_true(not Business.is_pot_active())
+		PhoneNav.open_guard_costs()
+		assert_eq([GameState.state["currentScreen"], GameState.state["phoneNav"]["app"], GameState.state["phoneNav"]["bizbriefView"]], ["phone", "bizbrief", "guardCosts"])
+		PhoneNav.close_bizbrief_view()
+		assert_eq(GameState.state["phoneNav"]["bizbriefView"], null)
+	)
+
 
 # v1: tier guard + 1 extra, v2: tier guard, v3: ward rune only, HQ: 1 guard
 # at the compound. Returns the first Monday.

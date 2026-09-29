@@ -6,7 +6,8 @@
 # (10-day business performance charts, expenses split by kind). The
 # selected tab and ore-chart source are view state held here, not in
 # state.phoneNav, so they reset with the screen. state.phoneNav.bizbriefView "shortPay" shows the
-# short-pay sub-view (ShortPayView) instead while a guard shortfall is pending.
+# short-pay sub-view (ShortPayView) instead while a guard shortfall is pending;
+# "guardCosts" shows the Guard Costs sub-view (GuardCostsView), pot or not.
 class_name BizBriefApp
 extends PhoneApp
 
@@ -16,6 +17,7 @@ const ContractsSystem := preload("res://systems/contracts.gd")
 const ContractCard := preload("res://scenes/components/contract_card.gd")
 const LineChartScript := preload("res://scenes/components/line_chart.gd")
 const ShortPayViewScript := preload("res://scenes/phone_apps/short_pay_view.gd")
+const GuardCostsViewScript := preload("res://scenes/phone_apps/guard_costs_view.gd")
 
 # Keyed by Contracts.has_staffed_sales(): whether the block-end Sales pass runs.
 const SALES_STATUS_TEXT := {
@@ -44,11 +46,15 @@ var _ore_source := "oreCultivator"
 # Production-log days shown expanded (view state), day -> true.
 var _expanded_log_days := {}
 var _short_pay := ShortPayViewScript.new()
+var _guard_costs := GuardCostsViewScript.new()
 
 
 func build(content: VBoxContainer) -> void:
 	if GameState.state["phoneNav"].get("bizbriefView") == PhoneNav.BIZBRIEF_SHORT_PAY_VIEW and GuardUpkeep.pending_shortfall() != null:
 		_short_pay.build(content, refresh)
+		return
+	if GameState.state["phoneNav"].get("bizbriefView") == PhoneNav.BIZBRIEF_GUARD_COSTS_VIEW:
+		_guard_costs.build(content, refresh)
 		return
 	content.add_child(back_button())
 	content.add_child(UI.heading("BizBrief"))
@@ -224,19 +230,13 @@ func _build_expense_breakdown() -> Control:
 	for line in EXPENSE_KIND_LINES:
 		var colour: Color = GameData.PALETTE.get(line["colour_id"], Color.WHITE)
 		if line["kind"] == BusinessStats.EXPENSE_GUARD:
-			var guard := UI.button("● %s ›" % line["label"], _open_guard_costs)
+			var guard := UI.button("● %s ›" % line["label"], func(): PhoneNav.open_guard_costs())
 			guard.add_theme_color_override("font_color", colour)
 			legend.add_child(guard)
 		else:
 			legend.add_child(UI.tinted_label("● %s" % line["label"], colour))
 	c["content"].add_child(legend)
 	return c["panel"]
-
-
-# Guard Costs sub-view entry from the expenses breakdown; the sub-view
-# itself is not built yet.
-func _open_guard_costs() -> void:
-	pass
 
 
 func _set_ore_source(source: String) -> void:

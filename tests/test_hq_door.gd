@@ -60,7 +60,10 @@ func run() -> void:
 		screen._ready()
 
 		assert_true(NodeQuery.find_button(screen, "£357 today, then £500/week") != null, "hire button shows the advance and weekly wage")
-		assert_true(NodeQuery.label_texts(screen).has("£1000/week"), "the guard row shows the current weekly guard cost")
+		var cost_link := NodeQuery.find_button(screen, "£1000/week ›")
+		assert_true(cost_link != null, "the guard row shows the current weekly guard cost")
+		cost_link.pressed.emit()
+		assert_eq(GameState.state["phoneNav"]["bizbriefView"], PhoneNav.BIZBRIEF_GUARD_COSTS_VIEW, "it taps through to Guard Costs")
 
 		screen.free()
 	)

@@ -1,6 +1,7 @@
 extends "res://tests/test_base.gd"
 
 const Fixtures := preload("res://tests/support/fixtures.gd")
+const NodeQuery := preload("res://tests/support/node_query.gd")
 
 # 11-detail-panel-ui: the larger vein detail panel opened from the compact
 # map bubble's info tap. Exercised directly via VeinDetailPanel.build(vein)
@@ -261,6 +262,9 @@ func run() -> void:
 		var broke_panel := VeinDetailPanel.build(vein)
 		var broke_button := broke_panel.find_children("SecurityButton", "Button", true, false)[0] as Button
 		assert_true(broke_button.disabled, "disabled only when cash is short")
-		assert_true(_label_texts(broke_panel).any(func(t: String): return t.ends_with("· £1000/week")), "security row shows the weekly guard cost")
+		var cost_link := NodeQuery.find_button(broke_panel, "£1000/week ›")
+		assert_true(cost_link != null, "security row shows the weekly guard cost")
+		cost_link.pressed.emit()
+		assert_eq(GameState.state["phoneNav"]["bizbriefView"], PhoneNav.BIZBRIEF_GUARD_COSTS_VIEW, "it taps through to Guard Costs")
 		broke_panel.free()
 	)

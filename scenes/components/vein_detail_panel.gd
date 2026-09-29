@@ -136,10 +136,12 @@ static func _build_detail_note(vein: Dictionary) -> Control:
 		col.add_child(_label("Developing · streak %d · About %d%% tonight" % [streak + 1, roundi(chance * 100)], 11, MapCardStyle.dim()))
 	col.add_child(_label("Cultivating skill: %d" % GameState.state["player"]["cultivatingSkill"], 10, MapCardStyle.dim()))
 	var security_text: String = "%s · resist %d" % [Cultivating.security_label(vein), Cultivating.vein_raid_resist(vein)]
+	var security_row := UI.hbox(6)
+	security_row.add_child(UI.expand_fill(_label(security_text, 10, MapCardStyle.dim())))
 	var guard_cost: String = GuardUpkeep.weekly_cost_text(Cultivating.vein_guard_count(vein))
 	if guard_cost != "":
-		security_text += " · %s" % guard_cost
-	col.add_child(_label(security_text, 10, MapCardStyle.dim()))
+		security_row.add_child(MapCardStyle.text_button("%s ›" % guard_cost, func(): PhoneNav.open_guard_costs()))
+	col.add_child(security_row)
 	return col
 
 

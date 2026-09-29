@@ -77,7 +77,7 @@ func _build_security_slot(security_id: String) -> Control:
 		desc += " Requires %s." % GameData.HOME_TIERS[sec["minTier"]]["name"]
 	c["content"].add_child(_tile_label(desc, true))
 	if stackable and count > 0:
-		c["content"].add_child(_tile_label(GuardUpkeep.weekly_cost_text(count), true))
+		c["content"].add_child(MapCardStyle.text_button("%s ›" % GuardUpkeep.weekly_cost_text(count), func(): PhoneNav.open_guard_costs()))
 
 	if not available:
 		c["content"].add_child(_tile_label("Locked", true))

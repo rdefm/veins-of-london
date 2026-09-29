@@ -90,7 +90,7 @@ func _build_vein_row(vein: Dictionary) -> Control:
 	terroir_row.add_child(_dim_label(Cultivating.security_label(vein)))
 	var guard_cost: String = GuardUpkeep.weekly_cost_text(Cultivating.vein_guard_count(vein))
 	if guard_cost != "":
-		terroir_row.add_child(_dim_label("· %s" % guard_cost))
+		terroir_row.add_child(MapCardStyle.text_button("%s ›" % guard_cost, func(): PhoneNav.open_guard_costs()))
 	c["content"].add_child(terroir_row)
 
 	c["content"].add_child(_dim_label("Growth: %d/%d — %s" % [vein["growth"], vein_ceiling, band["label"]]))

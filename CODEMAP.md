@@ -52,7 +52,7 @@ Data file per system: see `data/*.json` below.
 | events.gd | Event-card runner + rewind, auto-discovers art |
 | faction_sim.gd | FactionSim: faction holdings (ore, items by tier); stockpile pick; daily vein tend + prune, sparing one maturing vein until it levels (R§1.8 `fieldwork`); crafting toward targets (`craftSkill`); consumption + kit burns → shortfall; defend-kit allocation, `vein_kit`, defend-raid `raider_kit` (`raidKits`); London sell/buy vs reserve, Conclave arbitrage (`trading`) |
 | factions.gd | Faction joining |
-| guard_upkeep.gd | Guard wages: prorated hire advance ("Guard hire"), weekly cost/labels, per-day per-place `guardUpkeep.history`, pre-pot Monday bill from cash ("Guard wages"), faction Monday bill and hire wage-reserve gate, pending guard shortfall (grace day, auto-resolve with drop order, short-pay quote/confirm), guard place labels |
+| guard_upkeep.gd | Guard wages: prorated hire advance ("Guard hire"), weekly cost/labels, per-day per-place `guardUpkeep.history`, pre-pot Monday bill from cash ("Guard wages"), faction Monday bill and hire wage-reserve gate, pending guard shortfall (grace day, auto-resolve with drop order, short-pay quote/confirm), guard place labels, Guard Costs reads (history window, per-place series, places, next Monday bill) |
 | home.gd | Home tier/tenure/security/rooms/raid chance; per-day and weekly bill base (rent or utilities); arrears countdown to Monday; rent/buy/buy-out/downgrade tier moves via shared `change_tier` (room wipe, security loss); HQ `drop_guard`; per-slot room purchase/replacement (`set_room_use`); daily raid roll, alarm queue/expiry, and alarm-defend win/loss resolution (R§3.8) |
 | jobs.gd | James's jobs, trust bands |
 | lab_bench_nav.gd | Lab bench nav: selected ore; gear confirm variant (probe/craft/inert) + readiness |
@@ -76,7 +76,7 @@ Data file per system: see `data/*.json` below.
 | owen_texts.gd | Owen's random texts: rollover scheduler (2-3 day interval, paused while he isn't working), unplayed-then-LRU pick, vein templating from his cultivator list, reply choices granting cultivating XP on a correct answer; each sent text pushes a contact-tagged ticker notification |
 | payroll.gd | Monday weekly wage payment for room-staffed hires (founders exempt), first part-week prorated at next Monday; `is_working()` gate for staff actions (false while unpaid this week or the business owes wages) |
 | phone_apps.gd | Phone main-grid roster/order/labels + badge-config projection |
-| phone_nav.gd | Phone app/index/thread drill-down nav; BizBrief short-pay sub-view deep link |
+| phone_nav.gd | Phone app/index/thread drill-down nav; BizBrief short-pay and Guard Costs sub-view deep links |
 | player_model.gd | `set_model()`: validates a key against `GameData.TERRITORIAL_VARIANTS` and writes `player.model` |
 | preferences.gd | Saved presentation prefs in `meta` (reduced motion, vibration, Map dark mode) + carry_forward() so event Rewind never flips them |
 | progression.gd | Shared "award XP" ladder loop |
@@ -110,7 +110,7 @@ overlays.
 | factions.gd | Factions tab |
 | hq.gd | HQ tab: renders the home tier's room plate (bedsit fallback), routes zone taps to sub-screens |
 | hq_dial.gd | Dial loadout sub-view (Movements, Complications) |
-| hq_door.gd | Security zone (lock/cameras/door/alarm/guard/ward); guard tile shows hire advance and weekly guard cost |
+| hq_door.gd | Security zone (lock/cameras/door/alarm/guard/ward); guard tile shows hire advance and weekly guard cost (links to Guard Costs) |
 | hq_floorplan.gd | Noticeboard: tiers with a plan show FloorplanView (tap slot → choose/replace use); others show the room-tile grid. Contact assignment for staffed rooms |
 | hq_lab_bench.gd | Lab zone: single portrait bench plate, jar count badges, ready-gear outline, status line; gear tap opens confirm modal |
 | map.gd | Map tab: full-bleed diagram (top board to nav dock) with floating menu button, legend and zoom pill in Map chrome tokens; district panel + sheet |
@@ -205,7 +205,7 @@ overlays.
 | phone_app.gd | PhoneApp base: shell ref, build(content)/teardown() hooks, shared back button + refresh |
 | phone_app_registry.gd | app id -> PhoneApp script table; the only dispatch path phone.gd uses |
 | alarms_app.gd | Raid alarm rows: defend / leave undefended (two-tap) / decide later |
-| bizbrief_app.gd | BizBrief tabs: Brief (bank, float, payday, wage prompt, operations, attention, shares); Manage (offers/contracts: buyer, Sales status, buy-calc, cancel; production targets + log, cultivator procurement); Staff once `bizStaffTabOpen` (role, skills, pay, Pay now); Stats while pot active (charts, ore toggle, expenses by kind, tappable guard legend); hosts short_pay_view.gd |
+| bizbrief_app.gd | BizBrief tabs: Brief (bank, float, payday, wage prompt, operations, attention, shares); Manage (offers/contracts: buyer, Sales status, buy-calc, cancel; production targets + log, cultivator procurement); Staff once `bizStaffTabOpen` (role, skills, pay, Pay now); Stats while pot active (charts, ore toggle, expenses by kind, guard legend opens Guard Costs); hosts short_pay_view.gd and guard_costs_view.gd |
 | messages_app.gd | Conversation inbox (fixed-height rows: bold name, one-line `…` preview, unread pill, per-contact Clear) + single-thread staged bubble reveal/action bar (incl. Owen's text reply choices); thread opens scrolled to the newest message |
 | todo_app.gd | ToDo app: collapsible questline sections from Todo, all_of checks as indented sub-rows; session-only expand/collapse overrides in a static var |
 | factions_app.gd | London share overview table (ore/crafting toggle; player, factions, Independents × ore type) and faction cards with archetype, ores, crafts and share bars. Shares only, never holdings or kits. |
@@ -216,6 +216,7 @@ overlays.
 | saveload_app.gd | Save slots, export/import (with copy-to-clipboard), New Game confirm |
 | notifications_app.gd | Notification log with pending Defend / guard short-pay buttons |
 | short_pay_view.gd | BizBrief short-pay sub-view: per-place guard keep steppers, live cost/reserve/cash needed, Confirm |
+| guard_costs_view.gd | BizBrief Guard Costs sub-view (pot or not): next Monday bill + pending shortfall header, per-place guard payment chart over the history window, multi-select HQ/vein filter |
 | bank_app.gd | Reynard's: oxblood-gradient balance panel (branded header, calc_gold figure) + day-grouped hairline transaction ledger, newest first |
 | property_app.gd | Harrow's: listings + particulars on own mounted root in brand chrome (ui-vision §10 exception), every tier in ladder order with its `image` photo; current tier is YOUR PLACE card (tenure, cost, risk, rooms, arrears, buy-out, plan). Particulars: hero, terms, copy, static plan if any, rent/buy (`Home.rent_to`/`buy_to`), losses |
 | debug_app.gd | Debug Start-only tools: cash/calc/site spawners, combat launchers, one relation block (dropdown over every contact + faction, shows current relation, applies a delta), any-event trigger picker |

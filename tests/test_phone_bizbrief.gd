@@ -388,6 +388,62 @@ func run() -> void:
 		phone.free()
 	)
 
+	run_case("guard_costs_view_opens_from_the_guard_legend_and_filters_lines", func():
+		GameState.reset()
+		Business.activate()
+		GameState.state["phoneNav"]["app"] = "bizbrief"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		_button_with_text(phone, "Stats").pressed.emit()
+		_button_with_text(phone, "● Guard wages ›").pressed.emit()
+		assert_eq(GameState.state["phoneNav"]["bizbriefView"], PhoneNav.BIZBRIEF_GUARD_COSTS_VIEW)
+		phone.free()
+	)
+
+	run_case("guard_costs_view_renders_before_the_pot_with_header_and_filter", func():
+		GameState.reset()
+		var vein := Fixtures.seed_vein("v1", 50)
+		vein["security"] = "guarded"
+		GameState.state["world"]["day"] = Calendar.monday_on_or_after(8)
+		GuardUpkeep.record_payment("v1", 500)
+		PhoneNav.open_guard_costs()
+		var phone := PhoneScreen.new()
+		phone._ready()
+		assert_true(_label_with_text(phone, "Next Monday: £500") != null, "next bill header")
+		assert_eq(phone.find_children("*", "LineChart", true, false).size(), 1)
+		var hq := _button_with_text(phone, "● HQ")
+		assert_true(hq != null, "HQ in the filter, on by default")
+		hq.pressed.emit()
+		assert_true(_button_with_text(phone, "○ HQ") != null, "toggled off")
+		phone.free()
+
+		var view: RefCounted = preload("res://scenes/phone_apps/guard_costs_view.gd").new()
+		assert_eq(view.chart_lines().map(func(l): return l["placeId"]), ["home", "v1"], "all places by default")
+		view.toggle_place("home")
+		var lines: Array = view.chart_lines()
+		assert_eq(lines.map(func(l): return l["placeId"]), ["v1"], "a subset limits the chart")
+		assert_eq(lines[0]["values"][-1], 500)
+		view.toggle_place("v1")
+		assert_eq(view.chart_lines(), [])
+	)
+
+	run_case("guard_costs_header_shows_a_pending_shortfall", func():
+		GameState.reset()
+		var vein := Fixtures.seed_vein("v1", 50)
+		vein["security"] = "guarded"
+		GameState.state["world"]["day"] = Calendar.monday_on_or_after(8)
+		GameState.state["player"]["cash"] = 0
+		GuardUpkeep.pay_monday_bill()
+		PhoneNav.open_guard_costs()
+		var phone := PhoneScreen.new()
+		phone._ready()
+		var deadline := Calendar.format_day(int(GuardUpkeep.pending_shortfall()["deadline"]))
+		assert_true(_label_with_text(phone, "Unpaid this week: £500 · reserve £0 · decide by %s" % deadline) != null)
+		_button_with_text(phone, "Choose who stays ›").pressed.emit()
+		assert_eq(GameState.state["phoneNav"]["bizbriefView"], PhoneNav.BIZBRIEF_SHORT_PAY_VIEW)
+		phone.free()
+	)
+
 	run_case("staff_tab_lists_recruited_contacts_with_terms_skills_and_status", func():
 		GameState.reset()
 		GameState.state["flags"]["bizStaffTabOpen"] = true

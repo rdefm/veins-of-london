@@ -134,6 +134,53 @@ static func record_payment(place_id: String, amount: int) -> void:
 		history.remove_at(0)
 
 
+# ── Guard Costs screen (spec §Visibility) ──
+
+# Days the guard cost history covers, oldest first: the last
+# guardCostHistoryDays days through today, never before day 1.
+static func history_window_days() -> Array[int]:
+	var today: int = GameState.state["world"]["day"]
+	var days: Array[int] = []
+	for day in range(maxi(1, today - int(GameData.GUARD_UPKEEP["guardCostHistoryDays"]) + 1), today + 1):
+		days.append(day)
+	return days
+
+
+# One place's guard payments per window day, 0 where none.
+static func cost_series(place_id: String) -> Array[int]:
+	var by_day := {}
+	for entry in GameState.state["guardUpkeep"]["history"]:
+		by_day[int(entry["day"])] = int(entry["places"].get(place_id, 0))
+	var values: Array[int] = []
+	for day in history_window_days():
+		values.append(int(by_day.get(day, 0)))
+	return values
+
+
+# Places the Guard Costs filter offers: HQ, then player veins in list order,
+# then any other place (a vein no longer held) with history in the window.
+static func cost_places() -> Array[String]:
+	var places: Array[String] = [HOME_PLACE_ID]
+	for vein in GameState.state["player"]["veins"]:
+		places.append(vein["id"])
+	var oldest: int = history_window_days()[0]
+	for entry in GameState.state["guardUpkeep"]["history"]:
+		if int(entry["day"]) < oldest:
+			continue
+		for place_id in entry["places"]:
+			if not places.has(place_id):
+				places.append(place_id)
+	return places
+
+
+# Next Monday's player guard bill: every guard on duty now × weeklyWage.
+static func next_monday_bill() -> int:
+	var guards := 0
+	for count in player_guards_by_place().values():
+		guards += int(count)
+	return weekly_cost(guards)
+
+
 # ── short-pay flow (spec §Short-pay flow) ──
 
 # The pending guard shortfall record, or null.
