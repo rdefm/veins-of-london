@@ -324,6 +324,28 @@ func run() -> void:
 		assert_eq(BusinessStats.window_days(), [1, 2, 3], "the window never reaches before day 1")
 	)
 
+	run_case("expense_kind_series_are_zero_filled_and_sum_to_expenses", func():
+		GameState.reset()
+		Business.activate()
+		BusinessStats.record_expense(40, BusinessStats.EXPENSE_STAFF)
+		BusinessStats.record_expense(500, BusinessStats.EXPENSE_GUARD)
+		TimeSystem.do_rest()
+		BusinessStats.record_expense(25, BusinessStats.EXPENSE_CALC)
+		TimeSystem.do_rest()
+		var total := BusinessStats.series("expenses")
+		var kinds: Array = []
+		for kind in BusinessStats.EXPENSE_KIND_METRICS:
+			var values := BusinessStats.series(BusinessStats.EXPENSE_KIND_METRICS[kind])
+			assert_eq(values.size(), BusinessStats.window_days().size(), "%s is zero-filled over the window" % kind)
+			kinds.append(values)
+		for i in total.size():
+			var summed := 0
+			for values in kinds:
+				summed += int(values[i])
+			assert_eq(summed, total[i], "day %d kinds sum to the total" % BusinessStats.window_days()[i])
+		assert_eq(BusinessStats.series("expensesGuard").count(0), total.size() - 1, "guard wages land on one day only")
+	)
+
 	run_case("ore_tally_splits_cultivator_output_from_player_prunes", func():
 		GameState.reset()
 		Business.activate()

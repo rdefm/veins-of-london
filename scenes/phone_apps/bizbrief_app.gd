@@ -3,9 +3,9 @@
 # Manage tab (sales offers/contracts, lab production targets, cultivator
 # procurement), once bizStaffTabOpen is set, Staff tab (recruited
 # contacts, roles, pay) and, once the business pot is active, Stats tab
-# (10-day business performance charts). The selected tab and ore-chart
-# source are view state held here, not in state.phoneNav, so they reset
-# with the screen. state.phoneNav.bizbriefView "shortPay" shows the
+# (10-day business performance charts, expenses split by kind). The
+# selected tab and ore-chart source are view state held here, not in
+# state.phoneNav, so they reset with the screen. state.phoneNav.bizbriefView "shortPay" shows the
 # short-pay sub-view (ShortPayView) instead while a guard shortfall is pending.
 class_name BizBriefApp
 extends PhoneApp
@@ -31,6 +31,13 @@ const STAFF_TAB := "staff"
 const STATS_TAB := "stats"
 const ORE_SOURCES := { "oreCultivator": "Cultivators", "orePlayer": "You" }
 const SKILLS := ["sales", "crafting", "cultivating"]
+# Expenses-by-kind chart lines, in draw order: BusinessStats expense kind,
+# legend label, palette colour id.
+const EXPENSE_KIND_LINES := [
+	{ "kind": BusinessStats.EXPENSE_STAFF, "label": "Staff wages", "colour_id": "pastel_blue" },
+	{ "kind": BusinessStats.EXPENSE_GUARD, "label": "Guard wages", "colour_id": "brick_lit" },
+	{ "kind": BusinessStats.EXPENSE_CALC, "label": "Calc bought", "colour_id": "calc_gold" },
+]
 
 var _tab := BRIEF_TAB
 var _ore_source := "oreCultivator"
@@ -179,6 +186,7 @@ func _build_stats(content: VBoxContainer) -> void:
 	content.add_child(UI.muted_label("Last %d days" % GameData.BUSINESS_STATS_DAYS))
 	content.add_child(_build_chart("Revenue", "revenue", "calc_gold", "£"))
 	content.add_child(_build_chart("Expenses", "expenses", "brick_lit", "£"))
+	content.add_child(_build_expense_breakdown())
 	var toggle := UI.hbox()
 	for source in ORE_SOURCES:
 		var button := UI.button(ORE_SOURCES[source], func(): _set_ore_source(source))
@@ -199,6 +207,36 @@ func _build_chart(title: String, metric: String, colour_id: String, prefix: Stri
 	var chart: LineChart = LineChartScript.new()
 	c["content"].add_child(chart.setup(BusinessStats.series(metric), BusinessStats.window_days(), colour_id, prefix))
 	return c["panel"]
+
+
+# Expenses per day split by kind on one chart, with a legend; the guard
+# wages entry is a button into Guard Costs (spec §Visibility).
+func _build_expense_breakdown() -> Control:
+	var c := UI.card()
+	c["content"].add_child(UI.label("Expenses by kind"))
+	var lines: Array = []
+	for line in EXPENSE_KIND_LINES:
+		lines.append({ "values": BusinessStats.series(BusinessStats.EXPENSE_KIND_METRICS[line["kind"]]), "colour_id": line["colour_id"] })
+	var chart: LineChart = LineChartScript.new()
+	chart.setup(lines[0]["values"], BusinessStats.window_days(), lines[0]["colour_id"], "£")
+	c["content"].add_child(chart.with_series(lines.slice(1)))
+	var legend := UI.hflow()
+	for line in EXPENSE_KIND_LINES:
+		var colour: Color = GameData.PALETTE.get(line["colour_id"], Color.WHITE)
+		if line["kind"] == BusinessStats.EXPENSE_GUARD:
+			var guard := UI.button("● %s ›" % line["label"], _open_guard_costs)
+			guard.add_theme_color_override("font_color", colour)
+			legend.add_child(guard)
+		else:
+			legend.add_child(UI.tinted_label("● %s" % line["label"], colour))
+	c["content"].add_child(legend)
+	return c["panel"]
+
+
+# Guard Costs sub-view entry from the expenses breakdown; the sub-view
+# itself is not built yet.
+func _open_guard_costs() -> void:
+	pass
 
 
 func _set_ore_source(source: String) -> void:

@@ -131,7 +131,7 @@ overlays.
 | combat_stage.gd | Combat pixel stage: backdrop (location->context->palette); slots in two receding diagonal groups (enemies back/smaller), figure-fitted, depth-sorted; keypose one-shots (sheet, `images`, or random attack `variants`; player = `combat_templates()[player.model]`, scrapper = its `variant`), effects, juice layer. `StageSlot` taps emit `subject_tapped`; selected slot gets an arrow |
 | contact_cards.gd | Shared contact/faction card builders (incl. handler card, Owen card, Targets/Sourcing, Nadia's ledger + "Go with Nadia"), inline Contacts action-row layout, OS chrome repaint |
 | contract_card.gd | Draggable BizBrief Sales card |
-| line_chart.gd | One-series `_draw` line chart (palette-id colour, max label, first/last day, optional point markers) for BizBrief Stats and Ticker price charts |
+| line_chart.gd | `_draw` line chart (palette-id colour, optional overlaid series on a shared scale, max label, first/last day, optional point markers) for BizBrief Stats and Ticker price charts |
 | price_move.gd | ▲/▼ + £ delta text and colour for a Market day move (Stock Market rows, sell lanes) |
 | floorplan_view.gd | Estate-agent plan for a home tier from floorplans.json; static, or with tappable slot overlays showing current use |
 | departure_board_casing.gd | Top board's sign housing: code-drawn metal frame, corner bolts, recessed bezel; optional nine-patch `assets/ui/departure_board_frame.png` slot |
@@ -205,7 +205,7 @@ overlays.
 | phone_app.gd | PhoneApp base: shell ref, build(content)/teardown() hooks, shared back button + refresh |
 | phone_app_registry.gd | app id -> PhoneApp script table; the only dispatch path phone.gd uses |
 | alarms_app.gd | Raid alarm rows: defend / leave undefended (two-tap) / decide later |
-| bizbrief_app.gd | BizBrief tabs: Brief (bank + pot/float Donate/Withdraw, payday, wage prompt, operations, attention, shares ▲▼); Manage (offers/contracts: buyer, Sales status, buy-calc, cancel; production targets + log, cultivator procurement); Staff once `bizStaffTabOpen` (role, skills, pay, status, Pay now); Stats while pot active (4 charts, ore source toggle); hosts short_pay_view.gd |
+| bizbrief_app.gd | BizBrief tabs: Brief (bank, float, payday, wage prompt, operations, attention, shares); Manage (offers/contracts: buyer, Sales status, buy-calc, cancel; production targets + log, cultivator procurement); Staff once `bizStaffTabOpen` (role, skills, pay, Pay now); Stats while pot active (charts, ore toggle, expenses by kind, tappable guard legend); hosts short_pay_view.gd |
 | messages_app.gd | Conversation inbox (fixed-height rows: bold name, one-line `…` preview, unread pill, per-contact Clear) + single-thread staged bubble reveal/action bar (incl. Owen's text reply choices); thread opens scrolled to the newest message |
 | todo_app.gd | ToDo app: collapsible questline sections from Todo, all_of checks as indented sub-rows; session-only expand/collapse overrides in a static var |
 | factions_app.gd | London share overview table (ore/crafting toggle; player, factions, Independents × ore type) and faction cards with archetype, ores, crafts and share bars. Shares only, never holdings or kits. |
