@@ -21,11 +21,12 @@ Decision from the human after ticket 02 ("trade menus should match the trade opt
 2. The Trade menu's **Veins tab** buys faction-held veins (`Sites.sites_with_faction_vein`). Should Guild/Firm/Network/Conclave shops expose vein buying too, or only ore/items?
 3. **Guild non-member:** the pin currently opens a "Guild members only" page. Keep a locked page, show a short modal/toast, or hide the pin until joined?
 
-**Status:** needs-info
+**Decisions (human, 2026-09-29):** 1. add item buying (shop mode only; Collective contacts unchanged). 2. Veins tab shown. 3. Guild pin + faction-card button hidden until joined.
 
-- [ ] Guild, Firm, Network, Conclave shop entry points (map pins + Guild faction card) open the contact-style Trade menu for that faction
-- [ ] Faction-only trade: header shows the faction, buy toggle names the faction, confirm settles against that faction's holdings/cash with no contact bark or contact relation change
-- [ ] Prices, stock and qty ceilings match what `FactionShopScreen` showed (same `Economy.get_faction_*` calls)
-- [ ] Collective contact Trade behaviour unchanged
-- [ ] Open questions 1–3 resolved and implemented as decided
-- [ ] Human on-device check listed in the report (each pin opens the menu, buy/sell/review works, Guild locked behaviour)
+
+- [x] Guild, Firm, Network, Conclave shop entry points (map pins + Guild faction card) open the contact-style Trade menu for that faction
+- [x] Faction-only trade: header shows the faction, buy toggle names the faction, confirm settles against that faction's holdings/cash with no contact bark or contact relation change
+- [x] Prices, stock and qty ceilings match what `FactionShopScreen` showed (same `Economy.get_faction_*` calls)
+- [x] Collective contact Trade behaviour unchanged
+- [x] Open questions 1–3 resolved and implemented as decided
+- [x] Human on-device check listed in the report (each pin opens the menu, buy/sell/review works, Guild locked behaviour)

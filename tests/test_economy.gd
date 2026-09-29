@@ -271,31 +271,6 @@ func run() -> void:
 		assert_eq(GameState.state["sellState"]["buyVein_v1"], 0, "second toggle deselects it")
 	)
 
-	# marketplaceQty backs the Guild marketplace's per-row qty slider --
-	# unlike sellState above, it floors at 1, not 0.
-	run_case("get_marketplace_qty_defaults_to_one", func():
-		GameState.reset()
-		assert_eq(Economy.get_marketplace_qty("guild", "ore", "time"), 1, "unset row defaults to qty 1")
-	)
-
-	run_case("set_marketplace_qty_clamps_between_1_and_max", func():
-		GameState.reset()
-		Economy.set_marketplace_qty("guild", "ore", "time", 2, 3)
-		assert_eq(Economy.get_marketplace_qty("guild", "ore", "time"), 2)
-		Economy.set_marketplace_qty("guild", "ore", "time", 5, 3)
-		assert_eq(Economy.get_marketplace_qty("guild", "ore", "time"), 3, "should clamp at max_qty")
-		Economy.set_marketplace_qty("guild", "ore", "time", -10, 3)
-		assert_eq(Economy.get_marketplace_qty("guild", "ore", "time"), 1, "should clamp at 1, not 0 or negative")
-	)
-
-	run_case("set_marketplace_qty_keys_are_scoped_per_faction_kind_and_item", func():
-		GameState.reset()
-		Economy.set_marketplace_qty("guild", "ore", "time", 3, 10)
-		assert_eq(Economy.get_marketplace_qty("guild", "ore", "time"), 3)
-		assert_eq(Economy.get_marketplace_qty("guild", "ore", "physics"), 1, "a different item's row is untouched")
-		assert_eq(Economy.get_marketplace_qty("guild", "consumable", "time"), 1, "a different kind sharing the same item id is untouched")
-	)
-
 	run_case("get_faction_buy_max_qty_floors_cash_over_price", func():
 		GameState.reset()
 		GameState.state["factions"]["guild"]["joined"] = true

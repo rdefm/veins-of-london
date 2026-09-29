@@ -428,6 +428,61 @@ func run() -> void:
 		assert_true(_find_cost_button(view, "+") == null)
 		layer.free()
 	)
+
+	run_case("faction_shop_trade_names_the_faction_not_a_contact", func():
+		GameState.reset()
+		Modal.open("sell_menu", { "factionId": "guild", "contactId": "" })
+		var layer := ModalLayer.new()
+		layer._ready()
+		var view: PanelContainer = layer._trade_view
+		var guild: Dictionary = GameData.FACTIONS["guild"]
+		assert_true(NodeQuery.label_texts(view).has("%s / TRADE" % String(guild["name"]).to_upper()), "kicker is the faction alone")
+		assert_true(_find_cost_button(view, "Buy from %s" % guild["shortName"]) != null, "buy toggle names the faction")
+		assert_true(_find_cost_button(view, "Buy from contact") == null)
+		layer.free()
+	)
+
+	run_case("faction_shop_trade_buys_items_and_settles_without_a_contact", func():
+		GameState.reset()
+		GameState.state["flags"]["canSellConsumables"] = true
+		GameState.state["player"]["cash"] = 100000
+		FactionSim.add_item("firm", "timePearl", 2, 3)
+		var resources_before: int = GameState.state["factions"]["firm"]["resources"]
+		var buy_price := Economy.get_faction_buy_price("firm", "consumable", "timePearl")
+		Modal.open("sell_menu", { "factionId": "firm", "contactId": "" })
+		var layer := ModalLayer.new()
+		layer._ready()
+		var view: PanelContainer = layer._trade_view
+		_find_cost_button(view, "Buy from %s" % GameData.FACTIONS["firm"]["shortName"]).pressed.emit()
+		_find_cost_button(view, "Items").pressed.emit()
+		var recipe_name: String = GameData.RECIPES["timePearl"]["name"]
+		var slider := _find_slider(view, "%s quantity" % recipe_name)
+		assert_true(slider != null, "shop buy side lists items")
+		assert_eq(int(slider.max_value), Economy.get_faction_buy_max_qty("firm", "consumable", "timePearl"), "same ceiling the shop screen used")
+		Economy.set_sell_qty("buyCon_timePearl", 2, int(slider.max_value))
+		_find_cost_button(view, "Review trade →").pressed.emit()
+		_find_cost_button(view, "Confirm trade").pressed.emit()
+		assert_eq(Crafting.inventory_qty("timePearl"), 2)
+		assert_eq(GameState.state["player"]["cash"], 100000 - Market.line_total("consumable", buy_price, 2))
+		assert_eq(GameState.state["factions"]["firm"]["resources"], resources_before + Market.line_total("consumable", buy_price, 2))
+		assert_eq(GameState.state["modal"]["type"], "sale_result")
+		assert_true(GameState.state["collective"]["barkCursors"].is_empty(), "no contact bark")
+		layer.free()
+	)
+
+	run_case("faction_shop_sell_rows_cap_at_what_the_faction_can_pay", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["time"] = 500
+		var sell_price := Economy.get_faction_sell_price("network", "ore", "time")
+		GameState.state["factions"]["network"]["resources"] = Market.line_total("ore", sell_price, 1) * 3
+		Modal.open("sell_menu", { "factionId": "network", "contactId": "" })
+		var layer := ModalLayer.new()
+		layer._ready()
+		var max_qty := Economy.get_faction_sell_max_qty("network", "ore", "time")
+		assert_true(max_qty < 500)
+		assert_eq(int(_find_slider(layer._trade_view, "Time Orichalchum quantity").max_value), max_qty)
+		layer.free()
+	)
 	run_case("guild_marketplace_qty_ceiling_is_unaffected_by_the_collectives_stock_or_lack_thereof", func():
 		GameState.reset()
 		GameState.state["factions"]["guild"]["relation"] = 40

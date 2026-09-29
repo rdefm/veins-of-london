@@ -85,7 +85,7 @@ static func _move_item(source: Dictionary, dest: Dictionary, recipe_key: String,
 
 
 # Transient per-row move-qty stepper (state.stashQty, not restored on
-# load), same convention as Economy.get_marketplace_qty/set_marketplace_qty.
+# load), one shared qty per row floored at 1.
 static func get_ore_move_qty(ore_type: String) -> int:
 	return int(GameState.state["stashQty"].get("ore_%s" % ore_type, 1))
 

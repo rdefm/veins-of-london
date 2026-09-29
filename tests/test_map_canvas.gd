@@ -1164,16 +1164,19 @@ func run() -> void:
 	# the Guild's own faction-presence district (data-driven, same anchor
 	# multi-faction-line-routing already uses for a faction's line start)
 	# rather than a hardcoded district id.
-	run_case("rebuild_pins_includes_a_guild_marketplace_pin_at_the_guilds_district", func():
+	run_case("rebuild_pins_includes_a_guild_marketplace_pin_at_the_guilds_district_once_joined", func():
 		GameState.reset()
 		var canvas := MapCanvas.new()
 		canvas._rebuild_pins()
+		assert_true(canvas._pins.all(func(p): return p["kind"] != "guild_marketplace"), "no Guild Marketplace pin before joining")
 
+		GameState.state["factions"]["guild"]["joined"] = true
+		canvas._rebuild_pins()
 		var found: Variant = null
 		for pin in canvas._pins:
 			if pin["kind"] == "guild_marketplace":
 				found = pin
-		assert_true(found != null, "a guild_marketplace pin should always be present")
+		assert_true(found != null, "a guild_marketplace pin once the player is a member")
 		assert_eq(found["position"], MapLayout.faction_first_presence_anchor("guild"), "pinned at the Guild's own presence district")
 
 		canvas.free()
@@ -1219,11 +1222,12 @@ func run() -> void:
 		canvas.free()
 	)
 
-	run_case("activating_the_guild_marketplace_pin_opens_the_guild_marketplace_screen", func():
+	run_case("activating_the_guild_marketplace_pin_opens_the_trade_menu_for_the_guild", func():
 		GameState.reset()
 		var canvas := MapCanvas.new()
 		canvas._activate_pin({ "kind": "guild_marketplace" })
-		assert_eq(GameState.state["currentScreen"], "guild_marketplace", "tapping the pin should route to the existing FactionShopScreen")
+		assert_eq(GameState.state["modal"]["type"], "sell_menu")
+		assert_eq(GameState.state["modal"]["data"], { "factionId": "guild", "contactId": "" })
 		canvas.free()
 	)
 
@@ -1250,7 +1254,8 @@ func run() -> void:
 		GameState.reset()
 		var canvas := MapCanvas.new()
 		canvas._activate_pin({ "kind": "faction_shop", "factionId": "network" })
-		assert_eq(GameState.state["currentScreen"], "network_shop")
+		assert_eq(GameState.state["modal"]["type"], "sell_menu")
+		assert_eq(GameState.state["modal"]["data"], { "factionId": "network", "contactId": "" })
 		canvas.free()
 	)
 

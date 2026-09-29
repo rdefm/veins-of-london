@@ -106,12 +106,10 @@ func new_game_state() -> Dictionary:
 		# (null = as soon as none is outstanding).
 		"businessQuest": { "starterIndex": 0, "starterReissueDay": null, "recurringReissueDay": {}, "proofLedgerSize": null },
 		# Transient UI qty-steppers, not restored by SaveManager (same
-		# convention as sellState): craftQty keys recipe key -> batch size;
-		# marketplaceQty keys "<factionId>_<kind>_<itemType>" -> qty; stashQty
+		# convention as sellState): craftQty keys recipe key -> batch size; stashQty
 		# keys "ore_<oreType>"/"item_<recipeKey>" -> qty, shared by a row's
 		# stash/unstash buttons.
 		"craftQty": {},
-		"marketplaceQty": {},
 		"stashQty": {},
 		"event": null,
 

@@ -363,3 +363,22 @@ func run() -> void:
 				inner_label = l
 		assert_eq(inner_label.get_theme_color("font_color"), GameData.PALETTE["phone_text_primary"], "symbol_button()'s own baked-in label colour must be overridden too, or it stays illegible ink-on-red")
 	)
+
+	run_case("guild_faction_card_shows_the_marketplace_button_only_to_members_and_opens_the_trade_menu", func():
+		GameState.reset()
+		var card := ContactCards.build_faction_card("guild")
+		assert_true(card.find_children("", "Button", true, false).all(func(b): return (b as Button).text != "Guild Marketplace"), "hidden before joining")
+		card.free()
+
+		GameState.state["factions"]["guild"]["joined"] = true
+		card = ContactCards.build_faction_card("guild")
+		var button: Button = null
+		for b in card.find_children("", "Button", true, false):
+			if (b as Button).text == "Guild Marketplace":
+				button = b
+		assert_true(button != null, "shown once a member")
+		button.pressed.emit()
+		assert_eq(GameState.state["modal"]["type"], "sell_menu")
+		assert_eq(GameState.state["modal"]["data"], { "factionId": "guild", "contactId": "" })
+		card.free()
+	)

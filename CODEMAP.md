@@ -46,7 +46,7 @@ Data file per system: see `data/*.json` below.
 | district_bubble.gd | District tap-bubble decision |
 | district_deck.gd | Weighted district event deck picker |
 | districts.gd | Derived district info for Map tab |
-| economy.gd | Selling (Archie lane — ore at London quote, records supply — + faction lanes), faction-lane buying/selling for all five factions against FactionSim holdings and the faction's £ `resources` wallet (pricing, lane access via unlockFlag, R§3.6a) |
+| economy.gd | Selling (Archie lane — ore at London quote, records supply — + faction lanes), faction-lane buying/selling for all five factions against FactionSim holdings and the faction's £ `resources` wallet (pricing, lane access via unlockFlag, R§3.6a); `complete_shop_trade` settles a faction shop's Trade-menu cart |
 | equipment.gd | Weapon equip/unequip |
 | event_items.gd | Registry of items usable from an event's Item button (Rewind consumable + Dial Rewind): eligibility, counts, effect |
 | events.gd | Event-card runner + rewind, auto-discovers art |
@@ -107,7 +107,6 @@ overlays.
 | contacts.gd | Contacts app inside PhoneDeviceShell; alphabetic directory with inline flag-gated actions |
 | event.gd | Event-card screen (VN and non-VN layouts); Item button + popup over EventItems; choices row, or stack full-width when they don't fit |
 | factions.gd | Factions tab |
-| faction_shop.gd | One faction's shop (buy/sell vs its holdings); `faction_id` set by Main.gd from the screen id (guild_marketplace, firm_shop, network_shop, conclave_shop) |
 | hq.gd | HQ tab: renders the home tier's room plate (bedsit fallback), routes zone taps to sub-screens |
 | hq_dial.gd | Dial loadout sub-view (Movements, Complications) |
 | hq_door.gd | Security zone (lock/cameras/door/alarm/guard/ward) |
@@ -143,7 +142,7 @@ overlays.
 | icons.gd | 13 drawn icon glyphs |
 | map_bubble.gd | Popup listing tappable map options; paper-card frame and round action-icon states come from map_card_style.gd |
 | map_card_style.gd | Shared vein-popover card family: card tokens (via map_palette.gd), card/inset/action-circle styleboxes, card()/style_panel(), section_label(), text/symbol_text/chip buttons, option rows, round_button()/stepper()/quantity_slider(), footer(), check-button + symbol tinting. The one button/card look for every non-phone menu; off-map callers build inside MapPalette.build_light |
-| map_canvas.gd | Network diagram: layout/stops/lines, hit-testing, static draw pass; tweens a vein's fullness ring on EventBus.vein_cultivated; delegates persistent halos and event-playback animations to map_halos.gd |
+| map_canvas.gd | Network diagram: layout/stops/lines, hit-testing (shop pins open the Trade menu), static draw pass; tweens a vein's fullness ring on EventBus.vein_cultivated; delegates persistent halos and event-playback animations to map_halos.gd |
 | map_halos.gd | Persistent vein-charge halo + the five event-playback animations (discover ripple, seed/claim ring, charge burst, drain collapse, join-line growth); owned by map_canvas.gd |
 | map_controls.gd | Map controls drawer (map_card_style.gd-skinned): filters, faction isolate, pacing, Dark map toggle, legend button |
 | map_palette.gd | MapPalette: resolves Map palette tokens (data/map_palette.json) for the current light/dark mode (`meta.mapDarkMode`), plus faction/ore colours with optional dark-only overrides; every Map-tab colour reads through it; build_light() scopes a light-only build for off-Map reusers |
@@ -178,7 +177,7 @@ overlays.
 | james_job_short_modal.gd | James job "not enough stock" card |
 | james_job_complete_modal.gd | James job payout card |
 | sell_menu_modal.gd | Trade modal registry adapter and Cancel action that clears sellState |
-| sell_menu_view.gd | Trade-only sheet: sell/buy and category tabs, Map ore glyphs, grouped item tiers, sticky totals and review; invokes existing trade systems |
+| sell_menu_view.gd | Trade-only sheet: sell/buy and category tabs, Map ore glyphs, grouped item tiers, sticky totals and review; three modes: Archie, Collective contact, faction shop (no contact; also buys items); invokes existing trade systems |
 | nadia_supply_modal.gd | Nadia ore-supply objective card |
 | network_targets_modal.gd | Handler Targets picker: faction veins, soft/freeze questions |
 | network_sourcing_modal.gd | Handler Sourcing order: ore type + minimum tier |

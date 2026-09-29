@@ -196,21 +196,6 @@ static func toggle_buy_vein(vein_id: String) -> void:
 	EventBus.state_changed.emit()
 
 
-# state.marketplaceQty backs the Guild marketplace's per-row Buy/Sell ×N
-# slider -- one shared qty per row, floored at 1. max_qty is the caller's
-# larger of the row's buy/sell ceilings; buttons disable independently past
-# their own ceiling.
-static func get_marketplace_qty(faction_id: String, kind: String, item_type: String) -> int:
-	var key := "%s_%s_%s" % [faction_id, kind, item_type]
-	return int(GameState.state["marketplaceQty"].get(key, 1))
-
-
-static func set_marketplace_qty(faction_id: String, kind: String, item_type: String, qty: int, max_qty: int) -> void:
-	var key := "%s_%s_%s" % [faction_id, kind, item_type]
-	GameState.state["marketplaceQty"][key] = clampi(qty, 1, maxi(max_qty, 1))
-	EventBus.state_changed.emit()
-
-
 # Builds the items array from sellState + current stock (ore_<type> /
 # con_<recipeKey>_<tier> keys), then sells it.
 static func sell_from_sell_state() -> Dictionary:
@@ -465,7 +450,7 @@ static func _take_player_items(recipe_key: String, qty: int, tier: int) -> Array
 # the same cart/Go tap but settle individually via
 # VeinTrade.sell_to_faction()/buy_from_faction() (execute_faction_sale only
 # knows ore/consumable); buy price subtracts from `earned` so it stays the
-# trade's net cash change. "buyOre_<type>" keys settle together via
+# trade's net cash change. "buyOre_<type>"/"buyCon_<recipeKey>" keys settle together via
 # execute_faction_purchase() as one all-or-nothing call; a rejected purchase
 # contributes nothing, same silent-skip as a failed vein buy/sell. contact_id
 # ("" for every caller but Collective.complete_trade) rides every leg so a
@@ -487,11 +472,15 @@ static func sell_to_faction_from_sell_state(faction_id: String, contact_id: Stri
 			if qty > 0:
 				items.append({ "kind": "consumable", "type": recipe_key, "tier": int(tier_key), "qty": qty })
 
-	var buy_ore_items: Array = []
+	var buy_items: Array = []
 	for ore_type in GameData.ORE_TYPES.keys():
 		var qty: int = sell_state.get("buyOre_%s" % ore_type, 0)
 		if qty > 0:
-			buy_ore_items.append({ "kind": "ore", "type": ore_type, "qty": qty })
+			buy_items.append({ "kind": "ore", "type": ore_type, "qty": qty })
+	for recipe_key in GameData.CONSUMABLE_PRICES.keys():
+		var qty: int = sell_state.get("buyCon_%s" % recipe_key, 0)
+		if qty > 0:
+			buy_items.append({ "kind": "consumable", "type": recipe_key, "qty": qty })
 
 	var vein_ids: Array = []
 	for vein in GameState.state["player"]["veins"]:
@@ -506,7 +495,7 @@ static func sell_to_faction_from_sell_state(faction_id: String, contact_id: Stri
 
 	clear_sell_state()
 
-	if items.is_empty() and vein_ids.is_empty() and buy_vein_ids.is_empty() and buy_ore_items.is_empty():
+	if items.is_empty() and vein_ids.is_empty() and buy_vein_ids.is_empty() and buy_items.is_empty():
 		return { "ok": false, "reason": "Nothing to trade." }
 
 	var earned := 0
@@ -514,8 +503,8 @@ static func sell_to_faction_from_sell_state(faction_id: String, contact_id: Stri
 		var item_result := execute_faction_sale(faction_id, items, contact_id)
 		earned += item_result.get("earned", 0)
 
-	if not buy_ore_items.is_empty():
-		var buy_result := execute_faction_purchase(faction_id, buy_ore_items)
+	if not buy_items.is_empty():
+		var buy_result := execute_faction_purchase(faction_id, buy_items)
 		if buy_result.get("ok", false):
 			earned -= int(buy_result["cost"])
 
@@ -534,3 +523,12 @@ static func sell_to_faction_from_sell_state(faction_id: String, contact_id: Stri
 			veins_bought += 1
 
 	return { "ok": true, "earned": earned, "veinsSold": veins_sold, "veinsBought": veins_bought }
+
+
+# A faction shop's Trade-menu confirm (no contact attached): settles the cart
+# against the faction's holdings and cash, then shows the sale result.
+static func complete_shop_trade(faction_id: String) -> Dictionary:
+	var result := sell_to_faction_from_sell_state(faction_id)
+	if result.get("ok", false):
+		Modal.open("sale_result", { "earned": result["earned"], "gross": result["earned"], "mugged": false })
+	return result

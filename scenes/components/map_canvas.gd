@@ -685,7 +685,7 @@ func _rebuild_pins() -> void:
 	_pins.append({ "kind": "market", "position": MapLayout.district_anchor("soho") })
 
 	var guild_anchor: Variant = MapLayout.faction_first_presence_anchor("guild")
-	if guild_anchor != null:
+	if guild_anchor != null and Economy.can_buy_from_faction("guild"):
 		_pins.append({ "kind": "guild_marketplace", "position": guild_anchor })
 	for faction_id in MapPins.open_shop_factions():
 		var shop_anchor: Variant = MapLayout.faction_first_presence_anchor(faction_id)
@@ -914,9 +914,9 @@ func _activate_pin(pin: Dictionary) -> void:
 		"market":
 			pass
 		"guild_marketplace":
-			Nav.go_to("guild_marketplace")
+			Modal.open("sell_menu", { "factionId": "guild", "contactId": "" })
 		"faction_shop":
-			Nav.go_to("%s_shop" % pin["factionId"])
+			Modal.open("sell_menu", { "factionId": pin["factionId"], "contactId": "" })
 
 
 

@@ -3,6 +3,8 @@ extends PanelContainer
 
 # Trade-only chrome. Selections remain in GameState.sellState through Economy;
 # tabs, expanded item groups and the review step are local presentation state.
+# Three modes by data: Archie (no factionId), a Collective contact (factionId +
+# contactId), or a faction's own shop (factionId, empty contactId).
 
 const BG := Color("#222226")
 const SURFACE := Color("#2c2c31")
@@ -80,9 +82,11 @@ func _build_header(layout: VBoxContainer) -> void:
 	var headings := UI.vbox(2)
 	headings.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top.add_child(headings)
-	var contact := "Archie" if not _is_faction() else Contacts.display_name(_data.get("contactId", "des"))
-	var kicker := "%s / TRADE" % contact.to_upper()
-	if _is_faction():
+	var kicker := "ARCHIE / TRADE"
+	if _is_shop():
+		kicker = "%s / TRADE" % String(GameData.FACTIONS[_faction_id()]["name"]).to_upper()
+	elif _is_faction():
+		var contact := Contacts.display_name(_data.get("contactId", "des"))
 		kicker = "%s · %s / TRADE" % [contact.to_upper(), String(GameData.FACTIONS[_faction_id()]["name"]).to_upper()]
 	headings.add_child(_label(kicker, 11, MUTED))
 	headings.add_child(_label("Review trade" if _review else "Buy goods" if _direction == "buy" else "Sell goods", 22, TEXT))
@@ -96,7 +100,9 @@ func _build_header(layout: VBoxContainer) -> void:
 		var direction_row := UI.hbox(5)
 		content.add_child(direction_row)
 		for direction in ["sell", "buy"]:
-			var label := "Sell from my stock" if direction == "sell" else "Buy from contact"
+			var label := "Sell from my stock"
+			if direction == "buy":
+				label = "Buy from %s" % GameData.FACTIONS[_faction_id()]["shortName"] if _is_shop() else "Buy from contact"
 			var fill := UI.action_colour() if _direction == direction else BUTTON_BG
 			var button := _button(label, _select_direction.bind(direction), fill, 44)
 			button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -109,7 +115,7 @@ func _build_categories(layout: VBoxContainer) -> void:
 	var row := UI.hbox(6)
 	panel.add_child(row)
 	for category in ["ore", "items", "veins"]:
-		if category == "items" and _direction == "buy":
+		if category == "items" and _direction == "buy" and not _is_shop():
 			continue
 		if category == "veins" and not _veins_unlocked():
 			continue
@@ -131,7 +137,8 @@ func _build_list(body: VBoxContainer, entries: Array) -> void:
 	if relevant.is_empty():
 		body.add_child(_label("Nothing available here.", 14, MUTED))
 		return
-	if _category == "items":
+	# Bought items arrive at the tiers the faction holds, so buy rows stay one per recipe.
+	if _category == "items" and _direction == "sell":
 		_build_item_groups(body, relevant)
 		return
 	for entry in relevant:
@@ -334,7 +341,7 @@ func _entries() -> Array:
 			else:
 				sell_price = Economy.get_archie_ore_price(ore_type, price_mod)
 			var key := "ore_%s" % ore_type
-			entries.append(_entry("sell", "ore", "ore", key, ore["name"], ore_type, ore["symbol"], sell_price, have, have, sell_state.get(key, 0)))
+			entries.append(_entry("sell", "ore", "ore", key, ore["name"], ore_type, ore["symbol"], sell_price, have, _sell_max(have, "ore", ore_type), sell_state.get(key, 0)))
 		if _is_faction():
 			var stock := FactionSim.ore_held(faction_id, ore_type)
 			var buy_key := "buyOre_%s" % ore_type
@@ -358,11 +365,18 @@ func _entries() -> Array:
 					price = Economy.get_archie_consumable_price(recipe_key, tier, price_mod)
 				var key := "con_%s_%s" % [recipe_key, tier_key]
 				var tier_label := "untiered" if tier <= 0 else "tier %d" % tier
-				var item := _entry("sell", "items", "consumable", key, "%s · %s" % [recipe["name"], tier_label], "", recipe["symbol"], price, have, have, sell_state.get(key, 0))
+				var item := _entry("sell", "items", "consumable", key, "%s · %s" % [recipe["name"], tier_label], "", recipe["symbol"], price, have, _sell_max(have, "consumable", recipe_key), sell_state.get(key, 0))
 				item["recipeKey"] = recipe_key
 				item["groupName"] = recipe["name"]
 				item["tier"] = tier
 				entries.append(item)
+			if _is_shop():
+				var buy_key := "buyCon_%s" % recipe_key
+				var stock := FactionSim.for_sale(faction_id, "consumable", recipe_key)
+				var max_qty := Economy.get_faction_buy_max_qty(faction_id, "consumable", recipe_key)
+				var buy_item := _entry("buy", "items", "consumable", buy_key, recipe["name"], "", recipe["symbol"], Economy.get_faction_buy_price(faction_id, "consumable", recipe_key), stock, max_qty, sell_state.get(buy_key, 0))
+				buy_item["recipeKey"] = recipe_key
+				entries.append(buy_item)
 	if _veins_unlocked():
 		for vein in player["veins"]:
 			var price := VeinTrade.quote(vein) if _is_faction() else Economy.get_archie_vein_price(vein)
@@ -450,7 +464,9 @@ func _back_or_cancel() -> void:
 
 
 func _confirm() -> void:
-	if _is_faction():
+	if _is_shop():
+		Economy.complete_shop_trade(_faction_id())
+	elif _is_faction():
 		Collective.complete_trade(_data.get("contactId", ""))
 	else:
 		Economy.sell_from_sell_state()
@@ -458,6 +474,18 @@ func _confirm() -> void:
 
 func _is_faction() -> bool:
 	return _faction_id() != ""
+
+
+# A faction's own shop: a faction trade with no contact attached.
+func _is_shop() -> bool:
+	return _is_faction() and _data.get("contactId", "") == ""
+
+
+# Shop sell rows also cap at what the faction's cash can pay for.
+func _sell_max(have: int, kind: String, item_type: String) -> int:
+	if not _is_shop():
+		return have
+	return mini(have, Economy.get_faction_sell_max_qty(_faction_id(), kind, item_type))
 
 
 func _faction_id() -> String:

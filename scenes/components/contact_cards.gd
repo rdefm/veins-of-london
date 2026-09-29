@@ -702,8 +702,8 @@ static func build_faction_card(faction_id: String, economy: Control = null) -> C
 	c["content"].add_child(UI.label("Relation: %d / %d" % [rel, f["joinRelation"]]))
 	c["content"].add_child(UI.bar(rel, f["joinRelation"]))
 
-	if faction_id == "guild":
-		c["content"].add_child(UI.button("Guild Marketplace", func(): Nav.go_to("guild_marketplace")))
+	if faction_id == "guild" and Economy.can_buy_from_faction("guild"):
+		c["content"].add_child(UI.button("Guild Marketplace", func(): Modal.open("sell_menu", { "factionId": "guild", "contactId": "" })))
 
 	if state["joined"]:
 		var member_label := UI.button("✅ Member", func(): pass)
