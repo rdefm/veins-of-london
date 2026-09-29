@@ -27,7 +27,7 @@ Data file per system: see `data/*.json` below.
 | barometer.gd | Economic/social/political barometer (Ticker) + faction prefs; merged effects incl. item-demand multipliers |
 | business_quest.gd | business_empire questline side effects (state.businessQuest): Beat 1/3/5/6/7/8 trigger texts, Beat 2 starter-offer chain, recurring offers (ore from Beat 3, Time Pearl from Beat 6; reissued a day after lapse), Beat 8 closing payload from the latest payday record, James's crafting-skill set, Owen's crafting-event trigger. Rules: REFERENCE.md "Business Empire questline" |
 | business_stats.gd | BizBrief Stats tab's daily tally (revenue, expenses split by kind staff/guard/calc, cultivator/player ore); rollover snapshot with productionLog items into `businessStats.days`, 10-day trim, zero-filled chart series |
-| business.gd | Business pot (contract settlements while active; pays Sales calc purchases as `calc` expenses), float (donate/withdraw; backs up wages and calc purchases, never split), weekly payday (Owen's wage, 3-way split, ledger), owed wages + pay-from-cash, Staff tab pay-terms/status labels |
+| business.gd | Business pot (contract settlements while active; pays Sales calc purchases as `calc` expenses), float (donate/withdraw; backs up wages and calc purchases, never split), weekly payday (Owen's wage, then the Monday guard bill from pot+float or a set-aside reserve when short, 3-way split, ledger), owed wages + pay-from-cash, Staff tab pay-terms/status labels |
 | bench.gd | Lab discovery engine (type-set × approach) |
 | bubble_layout.gd | Popup-position math for MapBubble |
 | collective.gd | Collective faction doors, Nadia settlement, Collective questline beat triggers + Act 2 scripted vein losses, Hakim retake gate + site ruin (ruinedByFirm), T7 Firm provocation (timed Firm-targeting weight), Act 2 relation awards (T8 missions, alarm-defend daily cap), Act 2 gate + T14 spine reward (Hakim intel's weak-enemy-vein branch) + T15 closer delivery |
@@ -52,7 +52,7 @@ Data file per system: see `data/*.json` below.
 | events.gd | Event-card runner + rewind, auto-discovers art |
 | faction_sim.gd | FactionSim: faction holdings (ore, items by tier); stockpile pick; daily vein tend + prune, sparing one maturing vein until it levels (R§1.8 `fieldwork`); crafting toward targets (`craftSkill`); consumption + kit burns → shortfall; defend-kit allocation, `vein_kit`, defend-raid `raider_kit` (`raidKits`); London sell/buy vs reserve, Conclave arbitrage (`trading`) |
 | factions.gd | Faction joining |
-| guard_upkeep.gd | Guard wages: prorated hire advance paid from cash ("Guard hire"), weekly guard cost/labels, per-day per-place `guardUpkeep.history` (trimmed to `guardCostHistoryDays`), pre-pot Monday guard bill from cash ("Guard wages") |
+| guard_upkeep.gd | Guard wages: prorated hire advance paid from cash ("Guard hire"), weekly guard cost/labels, per-day per-place `guardUpkeep.history` (trimmed to `guardCostHistoryDays`), pre-pot Monday guard bill from cash ("Guard wages"), guard place labels |
 | home.gd | Home tier/tenure/security/rooms/raid chance; per-day and weekly bill base (rent or utilities); arrears countdown to Monday; rent/buy/buy-out/downgrade tier moves via shared `change_tier` (room wipe, security loss); HQ `drop_guard`; per-slot room purchase/replacement (`set_room_use`); daily raid roll, alarm queue/expiry, and alarm-defend win/loss resolution (R§3.8) |
 | jobs.gd | James's jobs, trust bands |
 | lab_bench_nav.gd | Lab bench nav: selected ore; gear confirm variant (probe/craft/inert) + readiness |

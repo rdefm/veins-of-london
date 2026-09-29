@@ -104,6 +104,17 @@ static func pay_monday_bill() -> Dictionary:
 	return result
 
 
+# "HQ" for HOME_PLACE_ID, else the vein's "District — Ore", or "a lost vein"
+# once it's gone.
+static func place_label(place_id: String) -> String:
+	if place_id == HOME_PLACE_ID:
+		return "HQ"
+	var vein: Variant = Cultivating.find_vein(place_id)
+	if vein == null:
+		return "a lost vein"
+	return "%s — %s" % [GameData.DISTRICTS[vein["district"]]["name"], GameData.ORE_TYPES[vein["oreType"]]["name"]]
+
+
 # A player guard payment: a guard expense in BusinessStats and today's
 # history entry for place_id.
 static func record_payment(place_id: String, amount: int) -> void:

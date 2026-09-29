@@ -121,6 +121,8 @@ static func payday_lines(payday: Dictionary) -> Array[String]:
 		match expense["kind"]:
 			"wage":
 				lines.append("Wages, %s −£%d" % [Contacts.display_name(expense["contactId"]), expense["amount"]])
+			"guard":
+				lines.append("Guards, %s −£%d" % [GuardUpkeep.place_label(expense["placeId"]), expense["amount"]])
 			"calc":
 				lines.append("Calc, %s −£%d" % [expense.get("source", "market"), expense["amount"]])
 	var shares: Dictionary = payday["shares"]

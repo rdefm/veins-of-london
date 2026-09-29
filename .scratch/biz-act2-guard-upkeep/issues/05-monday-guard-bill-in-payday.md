@@ -20,10 +20,10 @@
 
 **Status:** ready-for-agent
 
-- [ ] Pot active and covering everything: staff are paid, then guards, then the split runs on the remainder; cash untouched
-- [ ] Pot short but pot and float together cover it: the float pays the rest of the guard bill and is never split
-- [ ] Staff wages come before guards when money is short
-- [ ] Guard expenses appear as kind `guard` per place in the week's expenses, the ledger, BusinessStats and history
-- [ ] Pot and float together short: the reserve is set aside (pot and float reduced by it), a "short" result is returned, and the partner split runs on what remains
-- [ ] The payday statement / morning account shows guard wages paid (PROSE-REVIEW)
-- [ ] REFERENCE §3.1 and §3.10 updated
+- [x] Pot active and covering everything: staff are paid, then guards, then the split runs on the remainder; cash untouched
+- [x] Pot short but pot and float together cover it: the float pays the rest of the guard bill and is never split
+- [x] Staff wages come before guards when money is short
+- [x] Guard expenses appear as kind `guard` per place in the week's expenses, the ledger, BusinessStats and history
+- [x] Pot and float together short: the reserve is set aside (pot and float reduced by it), a "short" result is returned, and the partner split runs on what remains
+- [x] The payday statement / morning account shows guard wages paid (PROSE-REVIEW)
+- [x] REFERENCE §3.1 and §3.10 updated

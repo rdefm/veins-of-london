@@ -88,6 +88,58 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["cash"], 100000)
 	)
 
+	run_case("payday_pays_staff_then_guards_then_splits_the_rest", func():
+		_seed_pot_monday(2336, 0)
+		TimeSystem.daily_tick()
+		var business: Dictionary = GameState.state["business"]
+		var record: Dictionary = business["ledger"][-1]
+		assert_eq(record["expenses"], [
+			{ "kind": "wage", "contactId": "owen", "amount": 36 },
+			{ "kind": "guard", "placeId": "v1", "amount": 1000 },
+			{ "kind": "guard", "placeId": "v2", "amount": 500 },
+			{ "kind": "guard", "placeId": "home", "amount": 500 },
+		])
+		# R = 2336 − 36 − 2000 = 300 → 100 each.
+		assert_eq(record["shares"], { "player": 100, "archie": 100, "james": 100 })
+		assert_eq(GameState.state["player"]["cash"], 100, "cash only gains the player's share")
+		assert_eq(GameState.state["bankLog"].filter(func(e): return e["label"] == "Guard wages").size(), 0)
+		assert_eq(GameState.state["guardUpkeep"]["history"][-1]["places"], { "v1": 1000, "v2": 500, "home": 500 })
+		assert_eq(GameState.state["businessStats"]["days"][-1]["expensesGuard"], 2000)
+		assert_eq(GameState.state["businessStats"]["days"][-1]["expensesStaff"], 36)
+		assert_true(Fixtures.has_notification("Guard wages: £2000 from the business for 4 guards this week."), "paid notification")
+		var lines := MorningAccounts.payday_lines(MorningAccounts.latest()["payday"])
+		assert_true(lines.has("Guards, HQ −£500"), "payday statement lists HQ guards")
+		assert_eq(lines.filter(func(l): return l.begins_with("Guards, ")).size(), 3)
+	)
+
+	run_case("float_covers_the_guard_bill_the_pot_cant_and_is_never_split", func():
+		_seed_pot_monday(1036, 1500)
+		TimeSystem.daily_tick()
+		var business: Dictionary = GameState.state["business"]
+		assert_eq(business["pot"], 0)
+		assert_eq(business["float"], 500)
+		assert_eq(business["ledger"][-1]["shares"], { "player": 0, "archie": 0, "james": 0 })
+		assert_eq(GameState.state["player"]["cash"], 0)
+	)
+
+	run_case("short_pot_and_float_pay_staff_then_set_the_rest_aside_as_reserve", func():
+		_seed_pot_monday(1500, 100)
+		var result := Business.daily_tick()
+		var business: Dictionary = GameState.state["business"]
+		assert_eq(Business.owed("owen"), 0, "staff are paid before guards")
+		var guards: Dictionary = result["guards"]
+		assert_true(guards["short"], "short result")
+		assert_eq(guards["due"], 2000)
+		assert_eq(guards["paid"], 0)
+		assert_eq(guards["reserve"], 1564, "1500 + 100 − 36 staff")
+		assert_eq(business["pot"], 0)
+		assert_eq(business["float"], 0)
+		assert_eq(business["ledger"][-1]["shares"], { "player": 0, "archie": 0, "james": 0 })
+		assert_eq(business["ledger"][-1]["expenses"], [{ "kind": "wage", "contactId": "owen", "amount": 36 }])
+		assert_eq(GameState.state["player"]["cash"], 0)
+		assert_eq(GameState.state["guardUpkeep"]["history"], [])
+	)
+
 
 # v1: tier guard + 1 extra, v2: tier guard, v3: ward rune only, HQ: 1 guard
 # at the compound. Returns the first Monday.
@@ -104,3 +156,15 @@ func _seed_guards() -> int:
 	GameState.state["home"]["tier"] = "compound"
 	GameState.state["home"]["guardCount"] = 1
 	return Calendar.monday_on_or_after(8)
+
+
+# _seed_guards() on its first Monday with the pot activated that day (Owen's
+# first payday wage: one day, £36), `pot` in the pot, `float_amount` donated
+# and player cash left at 0.
+func _seed_pot_monday(pot: int, float_amount: int) -> void:
+	GameState.state["world"]["day"] = _seed_guards()
+	Business.activate()
+	GameState.state["player"]["cash"] = float_amount
+	if float_amount > 0:
+		Business.donate(float_amount)
+	Business.receive(pot)

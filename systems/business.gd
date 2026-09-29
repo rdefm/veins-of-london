@@ -204,9 +204,10 @@ static func decline_wage_prompt(contact_id: String) -> void:
 # Rollover step, after due contract settlements: accrue a worked day for
 # every paid staff member, then run payday (which also retries owed wages)
 # on the rollover into a Monday. Returns { "payday": ledger record or null,
-# "shortfalls": [{ contactId, owed }] } for the Morning Brief.
+# "shortfalls": [{ contactId, owed }], "guards": the guard bill result or
+# null } for the Morning Brief.
 static func daily_tick() -> Dictionary:
-	var result := { "payday": null, "shortfalls": [] }
+	var result := { "payday": null, "shortfalls": [], "guards": null }
 	if not is_pot_active():
 		return result
 	var wages: Dictionary = _business()["wages"]
@@ -221,12 +222,13 @@ static func daily_tick() -> Dictionary:
 
 
 # Wages due are this week's prorated days plus anything owed, paid from the
-# pot (then the float) in full or not at all. Only the pot is split. The
+# pot (then the float) in full or not at all. Then the guard bill, then the
+# split. Only the pot is split. The
 # ledger record is appended before player cash moves; a stable payday id
 # already in the ledger is never paid twice.
 static func _payday(day: int) -> Dictionary:
 	var business := _business()
-	var result := { "payday": null, "shortfalls": [] }
+	var result := { "payday": null, "shortfalls": [], "guards": null }
 	var payday_id := "payday-%d" % int(business["nextPaydayId"])
 	for record in business["ledger"]:
 		if record["payday"] == payday_id:
@@ -244,6 +246,7 @@ static func _payday(day: int) -> Dictionary:
 			BusinessStats.record_expense(due, BusinessStats.EXPENSE_STAFF)
 		else:
 			result["shortfalls"].append({ "contactId": contact_id, "owed": due })
+	result["guards"] = _pay_guard_bill(expenses)
 	var partners: Array = business["partners"]
 	var shares := split(int(business["pot"]), partners.size())
 	var share_record := { "player": shares["player"] }
@@ -272,6 +275,39 @@ static func _payday(day: int) -> Dictionary:
 		GameState.state["player"]["cash"] += shares["player"]
 		Bank.record(shares["player"], "Business share")
 	result["payday"] = record.duplicate(true)
+	return result
+
+
+# Player Monday guard bill with the pot active (spec §Player Monday bill):
+# weeklyWage per guard on duty, from the pot then the float, in full; each
+# place's share becomes a `guard` expense line (placeId: vein id or "home").
+# Pot and float together short: all of both is set aside as the guard wage
+# reserve, nothing is split from it, and short = true. Returns { billed,
+# short, due, paid, guards, reserve }.
+#
+# PROSE-REVIEW: the paid notification.
+static func _pay_guard_bill(expenses: Array) -> Dictionary:
+	var business := _business()
+	var result := { "billed": false, "short": false, "due": 0, "paid": 0, "guards": 0, "reserve": 0 }
+	var places := GuardUpkeep.player_guards_by_place()
+	for place_id in places:
+		result["guards"] += int(places[place_id])
+	if result["guards"] == 0:
+		return result
+	result["billed"] = true
+	result["due"] = GuardUpkeep.weekly_cost(result["guards"])
+	if not _draw(result["due"]):
+		result["short"] = true
+		result["reserve"] = int(business["pot"]) + int(business["float"])
+		business["pot"] = 0
+		business["float"] = 0
+		return result
+	for place_id in places:
+		var amount := GuardUpkeep.weekly_cost(int(places[place_id]))
+		expenses.append({ "kind": "guard", "placeId": place_id, "amount": amount })
+		GuardUpkeep.record_payment(place_id, amount)
+	result["paid"] = result["due"]
+	Notify.push("Guard wages: £%d from the business for %d guard%s this week." % [result["paid"], result["guards"], "" if result["guards"] == 1 else "s"])
 	return result
 
 
