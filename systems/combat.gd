@@ -1131,7 +1131,7 @@ static func _ally_try_cast(combat: Dictionary, ally: Dictionary, ally_index: int
 # Healing Burst on the most-hurt friendly below ALLY_HEAL_THRESHOLD_FRACTION;
 # Prophet's Breath when the player is that hurt with no evade up; Shield on
 # the most-hurt of player and guard allies with no shield up; Black Hole
-# (one enemy) then Time Pearl when 2+ enemies stand and none are frozen;
+# (every enemy, as the player's) then Time Pearl when 2+ enemies stand and none are frozen;
 # Blast on the lowest-hp enemy. Failsafe fires from _enemy_attack_ally().
 static func _guard_try_item(combat: Dictionary, ally: Dictionary, ally_index: int, beats: Variant) -> bool:
 	var pool: Dictionary = combat.get("guardKit", {})
@@ -1175,16 +1175,11 @@ static func _guard_try_item(combat: Dictionary, ally: Dictionary, ally_index: in
 	if combat["frozenTurns"] == 0 and _alive_enemy_count(combat) >= 2:
 		if _guard_pool_has(pool, "blackHole"):
 			var power := _spend_guard_item(pool, "blackHole")
-			var freeze_turns: int = 1 + int(floor(float(power) / 8.0))
-			combat["frozenTurns"] += freeze_turns
-			var target_index := _lowest_hp_enemy(combat)
-			var enemy: Dictionary = combat["enemies"][target_index]
 			var extra: Dictionary = cast_extra.duplicate()
-			extra.merge({ "targetType": "enemy", "targetIndex": target_index, "effectKey": "blackHole" })
-			var shield_note := _hit_enemy(enemy, power, extra)
+			extra["effectKey"] = "blackHole"
 			# PROSE-REVIEW: guard Black Hole line.
-			_log(combat, beats, "%s drops a black hole on %s — %d damage%s, frozen %d turn(s). %s: %d/%d HP." % [ally["name"], enemy["name"], extra["dmg"], shield_note, freeze_turns, enemy["name"], enemy["hp"], enemy["hpMax"]], BEAT_ALLY_CAST, extra)
-			_maybe_win_from_direct_damage(combat, enemy, beats)
+			_log(combat, beats, "%s drops a black hole." % ally["name"], BEAT_ALLY_CAST, extra)
+			_apply_black_hole_aoe(combat, power, 1 + int(floor(float(power) / 8.0)), beats)
 			return true
 		if _guard_pool_has(pool, "timePearl"):
 			var turns := _spend_guard_item(pool, "timePearl")

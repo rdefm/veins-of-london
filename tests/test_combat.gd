@@ -1785,13 +1785,13 @@ func run() -> void:
 		assert_eq(hurt_guard["hp"], 5 - maxi(0, 3 - power), "the shield absorbs 1:1 first")
 	)
 
-	run_case("guard_black_hole_hits_the_lowest_hp_enemy_and_freezes", func():
+	run_case("guard_black_hole_hits_every_enemy_and_freezes", func():
 		var combat := _guard_kit_combat([{ "hp": 80 }, { "hp": 60 }], { "blackHole": { "5": 1 }, "timePearl": { "5": 1 } })
 		Rng.set_seed(1)
 		Combat._ally_turn(combat, combat["allies"][0], 0, [])
 		var power := int(GameData.RECIPES["blackHole"]["effectPower"][5])
+		assert_eq(combat["enemies"][0]["hp"], 80 - power, "every living enemy is hit, as the player's")
 		assert_eq(combat["enemies"][1]["hp"], 60 - power)
-		assert_eq(combat["enemies"][0]["hp"], 80, "only one enemy is hit")
 		assert_eq(combat["frozenTurns"], 1 + int(floor(float(power) / 8.0)))
 		assert_eq(combat["guardKit"]["items"], { "timePearl": { "5": 1 } }, "Black Hole goes before Time Pearl")
 	)
