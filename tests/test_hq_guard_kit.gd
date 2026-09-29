@@ -55,6 +55,33 @@ func run() -> void:
 		screen.free()
 	)
 
+	run_case("hq_row_sits_on_top_and_opens_the_hq_sheet", func():
+		_seed()
+		GameState.state["home"]["guardCount"] = 1
+		GameState.state["home"]["guardKit"] = { "blast": { "1": 4 } }
+		var screen := HqGuardKitScreen.new()
+		screen._ready()
+		var hq_row := _row(screen, "hq")
+		assert_eq(hq_row.text, "HQ\nGuard kit 4/3 · Blast ×4 · idle ›")
+		var rows := screen.find_children("GuardKitRow_*", "Button", true, false)
+		assert_eq(rows[0], hq_row, "HQ row first")
+		hq_row.pressed.emit()
+		assert_eq(GameState.state["modal"]["data"]["target"], { "kind": "hq" })
+		screen.free()
+	)
+
+	run_case("hq_door_kit_row_opens_the_hq_sheet", func():
+		GameState.reset()
+		var door := HqDoorScreen.new()
+		door._ready()
+		var hq_row := _row(door, "hq")
+		assert_eq(hq_row.text, "HQ\nGuard kit 0/0 · Empty ›")
+		hq_row.pressed.emit()
+		assert_eq(GameState.state["modal"]["type"], "guard_kit")
+		assert_eq(GameState.state["modal"]["data"]["target"], { "kind": "hq" })
+		door.free()
+	)
+
 
 func _seed() -> void:
 	GameState.reset()

@@ -51,6 +51,8 @@ func _build() -> void:
 	for security_id in GameData.HOME_SECURITY.keys():
 		grid.add_child(_build_security_slot(security_id))
 
+	content.add_child(HqGuardKitScreen.build_hq_row())
+
 	var kits := MapCardStyle.option_row("Guard kits ›", func(): Nav.go_to("hq_guard_kit"))
 	kits.name = "GuardKitsButton"
 	content.add_child(kits)

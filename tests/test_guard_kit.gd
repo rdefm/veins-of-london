@@ -255,6 +255,79 @@ func run() -> void:
 		assert_eq(GameState.state, before)
 	)
 
+	run_case("old_save_backfills_an_empty_hq_kit", func():
+		GameState.reset()
+		var save: Dictionary = GameState.deep_copy(GameState.state)
+		save["home"].erase("guardKit")
+		assert_eq(SaveManager.backfill_defaults(save)["home"]["guardKit"], {})
+	)
+
+	run_case("hq_kit_round_trips_through_save_and_load", func():
+		_seed_hq(1)
+		GameState.state["home"]["guardKit"] = { "shield": { "3": 2 } }
+		assert_true(SaveManager.save_to_slot(SAVE_TEST_SLOT)["ok"])
+		GameState.reset()
+		assert_true(SaveManager.load_from_slot(SAVE_TEST_SLOT)["ok"])
+		SaveManager.delete_slot(SAVE_TEST_SLOT)
+		assert_eq(GameState.state["home"]["guardKit"], { "shield": { "3": 2 } })
+		assert_eq(typeof(GameState.state["home"]["guardKit"]["shield"]["3"]), TYPE_INT)
+	)
+
+	run_case("hq_stock_fills_three_slots_per_guard_then_refuses", func():
+		_seed_hq(1)
+		Crafting.inventory_add("blast", 1, 4)
+		assert_eq(GuardKit.hq_capacity(), 3)
+		assert_true(GuardKit.stock_hq("blast", 1, 3)["ok"])
+		assert_eq(GameState.state["home"]["guardKit"], { "blast": { "1": 3 } })
+		var before: Dictionary = GameState.deep_copy(GameState.state)
+		assert_true(not GuardKit.stock_hq("blast", 1, 1)["ok"], "full kit refuses")
+		assert_eq(GameState.state, before)
+	)
+
+	run_case("hq_stock_refuses_off_allowlist_and_too_few_held", func():
+		_seed_hq(2)
+		Crafting.inventory_add("healingSalve", 1, 1)
+		Crafting.inventory_add("blast", 1, 1)
+		var before: Dictionary = GameState.deep_copy(GameState.state)
+		assert_true(not GuardKit.stock_hq("healingSalve", 1, 1)["ok"])
+		assert_true(not GuardKit.stock_hq("blast", 1, 2)["ok"])
+		assert_eq(GameState.state, before)
+	)
+
+	run_case("hq_stock_refuses_with_no_hq_guards_but_unstock_is_allowed", func():
+		_seed_hq(0)
+		GameState.state["home"]["guardKit"] = { "shield": { "2": 2 } }
+		Crafting.inventory_add("blast", 1, 1)
+		var before: Dictionary = GameState.deep_copy(GameState.state)
+		assert_true(not GuardKit.stock_hq("blast", 1, 1)["ok"])
+		assert_eq(GameState.state, before)
+		assert_true(GuardKit.unstock_hq("shield", 2, 2)["ok"])
+		assert_eq(GameState.state["home"]["guardKit"], {})
+		assert_eq(GameState.state["player"]["inventory"]["shield"]["2"], 2)
+	)
+
+	run_case("hq_kit_target_reads_and_moves_the_hq_kit", func():
+		_seed_hq(2)
+		Crafting.inventory_add("shield", 2, 3)
+		var target := { "kind": "hq" }
+		assert_eq(GuardKit.target_capacity(target), 6)
+		assert_eq(GuardKit.target_guard_count(target), 2)
+		assert_eq(GuardKit.target_name(target), "HQ")
+		assert_true(GuardKit.stock_target(target, "shield", 2, 3)["ok"])
+		assert_eq(GuardKit.target_kit(target), { "shield": { "2": 3 } })
+		assert_true(GuardKit.unstock_target(target, "shield", 2, 1)["ok"])
+		assert_eq(GameState.state["home"]["guardKit"], { "shield": { "2": 2 } })
+	)
+
+	run_case("dropping_an_hq_guard_keeps_the_kit_and_the_excess_goes_idle", func():
+		_seed_hq(2)
+		GameState.state["home"]["guardKit"] = { "blast": { "1": 5 } }
+		assert_true(Home.drop_guard())
+		assert_eq(GameState.state["home"]["guardKit"], { "blast": { "1": 5 } }, "kit kept")
+		assert_eq(GuardKit.hq_active_units(), { "blast": { "1": 3 } })
+		assert_true(GuardKit.unstock_hq("blast", 1, 5)["ok"], "over-capacity return allowed")
+	)
+
 # "v1" with 1 guard holding 3 tier-2 blasts (1 idle) and 1 tier-1 shield.
 func _seed_loss_kit() -> Dictionary:
 	var vein := _seed(1)
@@ -282,3 +355,9 @@ func _seed(guards: int) -> Dictionary:
 		vein["security"] = "guarded"
 		vein["extraGuards"] = guards - 1
 	return vein
+
+
+# Fresh state with `guards` HQ guards and an empty HQ kit.
+func _seed_hq(guards: int) -> void:
+	GameState.reset()
+	GameState.state["home"]["guardCount"] = guards

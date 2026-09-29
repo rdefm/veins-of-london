@@ -5,7 +5,8 @@ extends RefCounted
 # §State/§Capacity/§Stocking system). vein.guardKit has player.inventory's
 # tier-bucketed shape: { recipeKey: { "<tier>": count } }. The kit-dict
 # helpers (capacity_of, unit_count, active_units_of) take a guard count and
-# slots-per-guard so the HQ kit shares them.
+# slots-per-guard so the HQ kit shares them. home.guardKit is the HQ kit
+# (spec §HQ guard kit), sized by Home.get_guard_count() × hqSlotsPerGuard.
 
 
 static func is_eligible(recipe_key: String) -> bool:
@@ -82,6 +83,32 @@ static func unstock(vein_id: String, recipe_key: String, tier: int, qty: int) ->
 	return result
 
 
+static func hq_capacity() -> int:
+	return capacity_of(Home.get_guard_count(), int(GameData.GUARD_KIT["hqSlotsPerGuard"]))
+
+
+static func hq_active_units() -> Dictionary:
+	return active_units_of(GameState.state["home"].get("guardKit", {}), Home.get_guard_count(), int(GameData.GUARD_KIT["hqSlotsPerGuard"]))
+
+
+# stock() for the HQ kit: refused with 0 HQ guards or over capacity.
+static func stock_hq(recipe_key: String, tier: int, qty: int) -> Dictionary:
+	if Home.get_guard_count() <= 0:
+		return _refuse("No guards at HQ.")
+	var result := stock_into(GameState.state["home"], "guardKit", hq_capacity(), recipe_key, tier, qty)
+	if result["ok"]:
+		EventBus.state_changed.emit()
+	return result
+
+
+# unstock() for the HQ kit: allowed over capacity and with 0 HQ guards.
+static func unstock_hq(recipe_key: String, tier: int, qty: int) -> Dictionary:
+	var result := unstock_from(GameState.state["home"], "guardKit", recipe_key, tier, qty)
+	if result["ok"]:
+		EventBus.state_changed.emit()
+	return result
+
+
 # Player veins the HQ Guard Kit screen lists: 1+ guards or a non-empty kit.
 static func kit_veins() -> Array:
 	return GameState.state["player"]["veins"].filter(func(v):
@@ -89,24 +116,32 @@ static func kit_veins() -> Array:
 
 
 # A kit target names one kit for shared UI (the stocking sheet):
-# { "kind": "vein", "veinId": id }. Unknown targets read as an empty,
-# 0-capacity kit and refuse every move.
+# { "kind": "vein", "veinId": id } or { "kind": "hq" }. Unknown targets read
+# as an empty, 0-capacity kit and refuse every move.
 static func target_kit(target: Dictionary) -> Dictionary:
+	if _is_hq(target):
+		return GameState.state["home"].get("guardKit", {})
 	var vein = _target_vein(target)
 	return vein.get("guardKit", {}) if vein != null else {}
 
 
 static func target_capacity(target: Dictionary) -> int:
+	if _is_hq(target):
+		return hq_capacity()
 	var vein = _target_vein(target)
 	return capacity(vein) if vein != null else 0
 
 
 static func target_guard_count(target: Dictionary) -> int:
+	if _is_hq(target):
+		return Home.get_guard_count()
 	var vein = _target_vein(target)
 	return Cultivating.vein_guard_count(vein) if vein != null else 0
 
 
 static func target_name(target: Dictionary) -> String:
+	if _is_hq(target):
+		return "HQ"
 	var vein = _target_vein(target)
 	if vein == null:
 		return ""
@@ -116,12 +151,16 @@ static func target_name(target: Dictionary) -> String:
 static func stock_target(target: Dictionary, recipe_key: String, tier: int, qty: int) -> Dictionary:
 	if target.get("kind", "") == "vein":
 		return stock(target.get("veinId", ""), recipe_key, tier, qty)
+	if _is_hq(target):
+		return stock_hq(recipe_key, tier, qty)
 	return _refuse("No such kit.")
 
 
 static func unstock_target(target: Dictionary, recipe_key: String, tier: int, qty: int) -> Dictionary:
 	if target.get("kind", "") == "vein":
 		return unstock(target.get("veinId", ""), recipe_key, tier, qty)
+	if _is_hq(target):
+		return unstock_hq(recipe_key, tier, qty)
 	return _refuse("No such kit.")
 
 
@@ -282,6 +321,10 @@ static func _tiers_high_first(buckets: Dictionary) -> Array:
 	var keys: Array = buckets.keys()
 	keys.sort_custom(func(a, b): return int(a) > int(b))
 	return keys
+
+
+static func _is_hq(target: Dictionary) -> bool:
+	return target.get("kind", "") == "hq"
 
 
 static func _target_vein(target: Dictionary) -> Variant:
