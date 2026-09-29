@@ -158,7 +158,7 @@ static func cost_series(place_id: String) -> Array[int]:
 
 
 # Places the Guard Costs filter offers: HQ, then player veins in list order,
-# then any other place (a vein no longer held) with history in the window.
+# then any other place (a vein the player has lost) with history in the window.
 static func cost_places() -> Array[String]:
 	var places: Array[String] = [HOME_PLACE_ID]
 	for vein in GameState.state["player"]["veins"]:
