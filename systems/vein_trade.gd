@@ -58,6 +58,7 @@ static func transfer_to_faction(vein_id: String, faction_id: String, price: int,
 		return { "ok": false, "reason": "Site not found." }
 
 	var player: Dictionary = GameState.state["player"]
+	GuardKit.return_kit_to_inventory(vein)
 	player["veins"] = player["veins"].filter(func(v): return v["id"] != vein_id)
 	Sites.release_vein_slot(vein)
 

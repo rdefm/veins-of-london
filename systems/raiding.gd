@@ -381,13 +381,18 @@ static func resolve_raid_outcome(outcome: Dictionary, missed_defend: bool = fals
 		_apply_raid_loot(vein, faction_name, district_name, missed_defend, outcome.get("caught", true))
 		return
 
+	var took_kit := GuardKit.hand_kit_to_faction(vein, outcome["attackerId"])
 	transfer_player_vein_to_faction(vein, site, outcome["attackerId"])
 
 	# PROSE-REVIEW: drafted against CONTENT-GUIDE.md's tone bible.
+	var text: String
 	if missed_defend:
-		Notify.push("Too late — %s took your vein in %s while the alarm was still ringing." % [faction_name, district_name], Notify.CATEGORY_DANGER)
+		text = "Too late — %s took your vein in %s while the alarm was still ringing." % [faction_name, district_name]
 	else:
-		Notify.push("%s raided your vein in %s. It's theirs now." % [faction_name, district_name], Notify.CATEGORY_DANGER)
+		text = "%s raided your vein in %s. It's theirs now." % [faction_name, district_name]
+	if took_kit:
+		text += " They took the guard kit."
+	Notify.push(text, Notify.CATEGORY_DANGER)
 
 
 # The claim branch's ownership bookkeeping: the player vein moves onto its
@@ -395,6 +400,7 @@ static func resolve_raid_outcome(outcome: Dictionary, missed_defend: bool = fals
 # force_vein_loss() (spec §5.4), which moves a vein the same way unrolled.
 static func transfer_player_vein_to_faction(vein: Dictionary, site: Dictionary, faction_id: String) -> void:
 	var faction_vein: Dictionary = GameState.deep_copy(vein)
+	faction_vein.erase("guardKit")
 	faction_vein["factionId"] = faction_id
 	site["factionVein"] = faction_vein
 	site["claimed"] = false

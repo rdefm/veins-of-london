@@ -146,6 +146,28 @@ static func status_text(kit: Dictionary, cap: int) -> String:
 	return " · ".join(parts)
 
 
+# Vein leaving the player other than by raid claim (spec §Loss): the whole
+# kit, active or not, returns to player.inventory at its tiers. No emit.
+static func return_kit_to_inventory(vein: Dictionary) -> void:
+	var kit: Dictionary = vein.get("guardKit", {})
+	for recipe_key in kit:
+		for tier_key in kit[recipe_key]:
+			Crafting.inventory_add(recipe_key, int(tier_key), int(kit[recipe_key][tier_key]))
+	vein["guardKit"] = {}
+
+
+# Raid claim (spec §Loss): the whole kit moves into faction_id's
+# holdings.items at its tiers. Returns whether the kit held anything. No emit.
+static func hand_kit_to_faction(vein: Dictionary, faction_id: String) -> bool:
+	var kit: Dictionary = vein.get("guardKit", {})
+	var had_units := unit_count(kit) > 0
+	for recipe_key in kit:
+		for tier_key in kit[recipe_key]:
+			FactionSim.add_item(faction_id, recipe_key, int(tier_key), int(kit[recipe_key][tier_key]))
+	vein["guardKit"] = {}
+	return had_units
+
+
 # Kit-level stock move on owner[kit_field], shared with the HQ kit. No emit.
 static func stock_into(owner: Dictionary, kit_field: String, cap: int, recipe_key: String, tier: int, qty: int) -> Dictionary:
 	if qty <= 0:

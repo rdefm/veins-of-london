@@ -534,6 +534,7 @@ static func force_vein_loss(vein_id: Variant, to_faction: String) -> bool:
 		var player_site: Variant = Sites.find_site(player_vein["siteId"])
 		if player_site == null or player_site["factionVein"] != null:
 			return false
+		GuardKit.return_kit_to_inventory(player_vein)
 		Raiding.transfer_player_vein_to_faction(player_vein, player_site, to_faction)
 		EventBus.state_changed.emit()
 		return true
@@ -634,6 +635,7 @@ static func ruin_hakim_site() -> bool:
 		return false
 
 	var player: Dictionary = GameState.state["player"]
+	GuardKit.return_kit_to_inventory(vein)
 	player["veins"] = player["veins"].filter(func(v): return v["id"] != vein_id)
 	Sites.release_vein_slot(vein)
 	maybe_retarget_nadia_defend_vein(vein_id)

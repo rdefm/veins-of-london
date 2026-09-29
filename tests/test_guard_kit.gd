@@ -1,6 +1,7 @@
 extends "res://tests/test_base.gd"
 
 const Fixtures := preload("res://tests/support/fixtures.gd")
+const SeedSearch := preload("res://tests/support/seed_search.gd")
 const SAVE_TEST_SLOT := 88
 
 
@@ -183,6 +184,66 @@ func run() -> void:
 		assert_eq(ids, ["v1", "v2"], "guarded v1 and stocked-but-unguarded v2; bare v3 hidden")
 	)
 
+	# ── §Loss ───────────────────────────────────────────────────────────
+
+	run_case("a_raid_claim_hands_the_whole_kit_to_the_attacker", func():
+		var vein := _seed_loss_kit()
+		var before := _faction_items("firm")
+		Raiding.resolve_raid_outcome({ "success": true, "veinId": "v1", "siteId": vein["siteId"], "attackerId": "firm", "outcomeType": "claim" })
+		assert_eq(Cultivating.find_vein("v1"), null, "claimed")
+		var after := _faction_items("firm")
+		assert_eq(int(after.get("blast", {}).get("2", 0)) - int(before.get("blast", {}).get("2", 0)), 3, "active and idle blasts at tier 2")
+		assert_eq(int(after.get("shield", {}).get("1", 0)) - int(before.get("shield", {}).get("1", 0)), 1)
+		var faction_vein: Dictionary = Sites.find_site(vein["siteId"])["factionVein"]
+		assert_true(not faction_vein.has("guardKit"), "no guard kit on the faction vein")
+		assert_true(faction_vein.get("kit", {}).is_empty(), "no factionVein.kit from it")
+		assert_true(Fixtures.has_notification("Firm raided your vein in Shoreditch. It's theirs now. They took the guard kit."))
+		assert_eq(GameState.state["player"]["inventory"].get("blast", {}), {}, "nothing came back")
+	)
+
+	run_case("a_raid_claim_on_an_empty_kit_adds_no_kit_line", func():
+		var vein := _seed(1)
+		Raiding.resolve_raid_outcome({ "success": true, "veinId": "v1", "siteId": vein["siteId"], "attackerId": "firm", "outcomeType": "claim" }, true)
+		assert_true(Fixtures.has_notification("Too late — Firm took your vein in Shoreditch while the alarm was still ringing."))
+	)
+
+	run_case("a_raid_loot_leaves_the_kit_on_the_vein", func():
+		var vein := _seed_loss_kit()
+		Raiding.resolve_raid_outcome({ "success": true, "veinId": "v1", "siteId": vein["siteId"], "attackerId": "firm", "outcomeType": "loot" })
+		assert_eq(vein["guardKit"], { "blast": { "2": 3 }, "shield": { "1": 1 } })
+	)
+
+	run_case("selling_the_vein_returns_the_kit_to_inventory", func():
+		_seed_loss_kit()
+		assert_true(VeinTrade.sell_to_faction("v1", "collective")["ok"])
+		_assert_kit_back()
+	)
+
+	run_case("collapse_returns_the_kit_to_inventory", func():
+		var seed := SeedSearch.find_seed_for(200, func():
+			var vein := _seed_loss_kit()
+			vein["growth"] = 0
+			Cultivating.collapse_vein(vein)
+			return GameState.state["player"]["veins"].is_empty()
+		)
+		assert_true(seed != -1, "should find a collapse hit within 200 tries")
+		_assert_kit_back()
+	)
+
+	run_case("hakim_site_ruin_returns_the_kit_to_inventory", func():
+		_seed_loss_kit()
+		GameState.state["collective"]["hakimVeinId"] = "v1"
+		assert_true(Collective.ruin_hakim_site())
+		_assert_kit_back()
+	)
+
+	run_case("force_vein_loss_returns_the_kit_to_inventory", func():
+		var vein := _seed_loss_kit()
+		assert_true(Collective.force_vein_loss("v1", "firm"))
+		_assert_kit_back()
+		assert_true(not Sites.find_site(vein["siteId"])["factionVein"].has("guardKit"))
+	)
+
 	run_case("an_unknown_kit_target_is_empty_and_refuses_moves", func():
 		_seed(2)
 		Crafting.inventory_add("shield", 2, 1)
@@ -193,6 +254,24 @@ func run() -> void:
 		assert_true(not GuardKit.stock_target(target, "shield", 2, 1)["ok"])
 		assert_eq(GameState.state, before)
 	)
+
+# "v1" with 1 guard holding 3 tier-2 blasts (1 idle) and 1 tier-1 shield.
+func _seed_loss_kit() -> Dictionary:
+	var vein := _seed(1)
+	vein["guardKit"] = { "blast": { "2": 3 }, "shield": { "1": 1 } }
+	return vein
+
+
+func _faction_items(faction_id: String) -> Dictionary:
+	return GameState.deep_copy(GameState.state["factions"][faction_id]["holdings"]["items"])
+
+
+func _assert_kit_back() -> void:
+	assert_eq(Cultivating.find_vein("v1"), null, "vein gone")
+	var inventory: Dictionary = GameState.state["player"]["inventory"]
+	assert_eq(inventory.get("blast", {}).get("2", 0), 3, "blasts back at tier 2")
+	assert_eq(inventory.get("shield", {}).get("1", 0), 1, "shield back at tier 1")
+
 
 # One player vein "v1" with `guards` guards (tier guard + extras).
 func _seed(guards: int) -> Dictionary:

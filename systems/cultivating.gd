@@ -539,6 +539,7 @@ static func collapse_vein(vein: Dictionary) -> void:
 	else:
 		var player: Dictionary = GameState.state["player"]
 		var vein_id: String = vein["id"]
+		GuardKit.return_kit_to_inventory(vein)
 		player["veins"] = player["veins"].filter(func(v): return v["id"] != vein_id)
 		if site != null:
 			site["claimed"] = false
