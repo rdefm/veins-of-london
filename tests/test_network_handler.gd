@@ -125,6 +125,7 @@ func run() -> void:
 	run_case("maxed_security_cannot_be_frozen", func():
 		GameState.reset()
 		var site_id := _seed_firm_vein("fv_max", "guarded")
+		Sites.find_site(site_id)["factionVein"]["extraGuards"] = GuardUpkeep.faction_max_extra_guards()
 		assert_true(not (NetworkHandler.reveal_vulnerable_vein(site_id, NetworkHandler.EFFECT_SECURITY_FREEZE)), "nothing left to delay")
 		assert_true(not (_intel().has(site_id)), "no entry written")
 	)

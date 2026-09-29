@@ -560,8 +560,8 @@ static func make_vein_id() -> String:
 # ── vein security (M1-LONDON §D4: site/vein sheet's "Upgrade security") ──
 
 # Null once at "guarded" -- the top of the fixed tier ladder. Past that, the
-# uncapped "+1 Guard" hire (next_security_upgrade() below) takes over.
-# Factions.apply_security_upgrades() stops here deliberately -- only the player's UI button stacks guards.
+# uncapped "+1 Guard" hire (next_security_upgrade() below) takes over; factions
+# hire capped extras instead (Factions.apply_security_upgrades()).
 static func next_security_tier_id(current: String) -> Variant:
 	var idx: int = VEIN_SECURITY_ORDER.find(current)
 	if idx == -1 or idx >= VEIN_SECURITY_ORDER.size() - 1:

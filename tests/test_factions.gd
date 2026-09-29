@@ -232,12 +232,12 @@ func run() -> void:
 		var vein := _faction_vein_claimed_on(1, "physics", 0, "collective")
 		vein["security"] = "warded"
 		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
-		GameState.state["factions"]["collective"]["resources"] = 1000
+		GameState.state["factions"]["collective"]["resources"] = 1357  # advance + 2 weeks of one guard
 
 		Factions.apply_security_upgrades()
 
 		assert_eq(vein["security"], "guarded")
-		assert_eq(GameState.state["factions"]["collective"]["resources"], 1000 - 357, "Wednesday advance from resources")
+		assert_eq(GameState.state["factions"]["collective"]["resources"], 1000, "Wednesday advance from resources")
 		assert_eq(GameState.state["guardUpkeep"]["history"], [], "faction hires are not player guard costs")
 	)
 
@@ -308,18 +308,90 @@ func run() -> void:
 		assert_eq(GameState.state["factions"]["collective"]["resources"], 5, "an unaffordable tick is a no-op, not an error -- balance is untouched")
 	)
 
-	run_case("apply_security_upgrades_never_targets_a_vein_already_at_guarded", func():
-		GameState.reset()
-		var vein := _faction_vein_claimed_on(1, "physics", 0, "collective")
-		vein["security"] = "guarded"
-		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
+	run_case("apply_security_upgrades_brings_veins_to_guarded_before_hiring_extras", func():
+		var monday := _seed_faction_guards(0, 0)
+		GameState.state["world"]["day"] = monday
+		var low := Fixtures.seed_faction_vein("fc", 20)
+		low["security"] = "warded"
 		GameState.state["factions"]["collective"]["resources"] = 100000
-		var before: int = GameState.state["factions"]["collective"]["resources"]
+		var fa: Dictionary = Sites.find_site("site_fa")["factionVein"]
 
 		Factions.apply_security_upgrades()
 
-		assert_eq(vein["security"], "guarded", "a vein already at the top of the ladder is never a target")
-		assert_eq(GameState.state["factions"]["collective"]["resources"], before, "nothing eligible to spend on, so balance is unchanged")
+		assert_eq([low["security"], fa["extraGuards"]], ["guarded", 0], "the least valuable vein's tier guard comes before any extra")
+		Factions.apply_security_upgrades()
+		assert_eq(fa["extraGuards"], 1, "extras only once every vein is guarded")
+		assert_eq(GameState.state["factions"]["collective"]["resources"], 99000, "Monday: each hire is a full week's advance")
+	)
+
+	run_case("apply_security_upgrades_hires_extras_highest_value_first_up_to_the_cap", func():
+		var monday := _seed_faction_guards(0, 0)
+		GameState.state["world"]["day"] = monday
+		GameState.state["factions"]["collective"]["resources"] = 1000000
+		var fa: Dictionary = Sites.find_site("site_fa")["factionVein"]
+		var fb: Dictionary = Sites.find_site("site_fb")["factionVein"]
+		var cap := GuardUpkeep.faction_max_extra_guards()
+
+		Factions.apply_security_upgrades()
+		assert_eq([fa["extraGuards"], fb["extraGuards"]], [1, 0], "one hire per tick, most valuable vein first")
+		for i in range(cap * 2 + 3):
+			Factions.apply_security_upgrades()
+		assert_eq([fa["extraGuards"], fb["extraGuards"]], [cap, cap], "never beyond maxExtraGuardsPerVein")
+	)
+
+	run_case("apply_security_upgrades_refuses_a_guard_hire_without_the_wage_reserve", func():
+		var monday := _seed_faction_guards(0, 0)
+		GameState.state["world"]["day"] = monday + 2  # Wednesday: advance £357
+		var fa: Dictionary = Sites.find_site("site_fa")["factionVein"]
+		# 2 guards on duty; the hire makes 3: needs 357 + 2 × 1500.
+		GameState.state["factions"]["collective"]["resources"] = 3356
+		Factions.apply_security_upgrades()
+		assert_eq(fa["extraGuards"], 0, "one pound short of the reserve")
+		assert_eq(GameState.state["factions"]["collective"]["resources"], 3356)
+
+		GameState.state["factions"]["collective"]["resources"] = 3357
+		Factions.apply_security_upgrades()
+		assert_eq(fa["extraGuards"], 1)
+		assert_eq(GameState.state["factions"]["collective"]["resources"], 3000, "pays only the prorated advance")
+	)
+
+	run_case("apply_security_upgrades_refuses_the_guarded_tier_without_the_wage_reserve_but_not_a_lock", func():
+		GameState.reset()
+		GameState.state["world"]["day"] = Calendar.monday_on_or_after(1) + 6  # Sunday: advance £71
+		var warded := _faction_vein_claimed_on(3, "fate", 0, "collective", "warded")
+		var bare := _faction_vein_claimed_on(1, "physics", 0, "collective")
+		bare["id"] = "bare_v"
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", warded), Fixtures.site_with_vein("s2", bare)]
+		GameState.state["factions"]["collective"]["resources"] = 1070  # 71 + 2 × 500 needed
+
+		Factions.apply_security_upgrades()
+
+		assert_eq([warded["security"], bare["security"]], ["warded", "basic"], "the reserve blocks the guard, not the lower-value lock")
+		assert_eq(GameState.state["factions"]["collective"]["resources"], 1070 - GameData.VEIN_SECURITY["basic"]["cost"])
+	)
+
+	run_case("apply_security_upgrades_skips_a_frozen_vein_for_extras", func():
+		var monday := _seed_faction_guards(0, 0)
+		GameState.state["world"]["day"] = monday
+		GameState.state["factions"]["collective"]["resources"] = 100000
+		assert_true(NetworkHandler.reveal_vulnerable_vein("site_fa", NetworkHandler.EFFECT_SECURITY_FREEZE), "a guarded vein under the cap can be frozen")
+		Factions.apply_security_upgrades()
+		var fa: Dictionary = Sites.find_site("site_fa")["factionVein"]
+		var fb: Dictionary = Sites.find_site("site_fb")["factionVein"]
+		assert_eq([fa["extraGuards"], fb["extraGuards"]], [0, 1], "the frozen top vein is skipped")
+	)
+
+	run_case("faction_extra_guards_lower_rivalry_success_chance", func():
+		var monday := _seed_faction_guards(0, 0)
+		GameState.state["world"]["day"] = monday
+		var attempt := { "attackerId": "firm", "defenderId": "collective", "veinSiteId": "site_fa" }
+		GameState.state["factions"]["firm"]["resources"] = 100000
+		GameState.state["factions"]["collective"]["resources"] = 100000
+		var before := Factions.rivalry_success_chance(attempt)
+		Factions.apply_security_upgrades()
+		GameState.state["factions"]["collective"]["resources"] = 100000
+		assert_eq(Sites.find_site("site_fa")["factionVein"]["extraGuards"], 1)
+		assert_true(Factions.rivalry_success_chance(attempt) < before, "a hired extra adds raid resist")
 	)
 
 	run_case("apply_security_upgrades_prioritises_the_highest_value_eligible_vein", func():

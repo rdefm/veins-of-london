@@ -349,6 +349,30 @@ static func drop_vein_guards(veins: Array, at_risk: Dictionary, count: int, walk
 	return count
 
 
+# ── faction guard hiring (spec §Faction guard upkeep, Hiring) ──
+
+static func faction_max_extra_guards() -> int:
+	return int(GameData.GUARD_UPKEEP["faction"]["maxExtraGuardsPerVein"])
+
+
+# Guards on every vein faction_id holds (tier guards plus extras).
+static func faction_guard_count(faction_id: String) -> int:
+	var count := 0
+	for site in GameState.state["world"]["sites"]:
+		var vein: Variant = site["factionVein"]
+		if vein != null and vein["factionId"] == faction_id:
+			count += Cultivating.vein_guard_count(vein)
+	return count
+
+
+# A faction hires a guard only when resources cover today's advance plus
+# wageReserveWeeks of its weekly guard bill with that guard added.
+static func faction_can_hire(faction_id: String) -> bool:
+	var reserve_weeks := int(GameData.GUARD_UPKEEP["faction"]["wageReserveWeeks"])
+	var needed := hire_advance() + reserve_weeks * weekly_cost(faction_guard_count(faction_id) + 1)
+	return int(GameState.state["factions"][faction_id]["resources"]) >= needed
+
+
 # ── faction Monday bill (spec §Faction guard upkeep) ──
 
 # R§3.1 ⑤h2: on the rollover into a Monday, each faction pays weeklyWage per

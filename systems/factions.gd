@@ -169,41 +169,66 @@ static func apply_passive_income() -> void:
 
 
 # ── Daily security-upgrade spend ─────────────────────────────────────────
-# A faction with spare resources (£, after today's trading) quietly hardens its highest-value held vein each
-# tick (same ladder and prices as the player's upgrade_vein_security(); "guarded" costs the guard hire advance). One upgrade
-# per faction per tick, targeting the highest basePrice * combined_magnitude vein that's both
-# below max security and affordable; no eligible/affordable vein is a no-op.
+# A faction with spare resources (£, after today's trading and Monday wages) quietly hardens one held vein
+# each tick (spec §Faction guard upkeep, Hiring). First the tier ladder up to "guarded" (lock and ward
+# rune at table price; "guarded" costs the guard hire advance), highest basePrice * combined_magnitude
+# vein first. Only once no vein below "guarded" is eligible and affordable does it hire an extra guard,
+# highest-value vein first, up to maxExtraGuardsPerVein. Any guard hire also needs the wage reserve
+# (GuardUpkeep.faction_can_hire). Frozen veins are skipped; nothing eligible is a no-op.
 static func apply_security_upgrades() -> void:
 	for faction_id in GameState.state["factions"].keys():
-		var faction_state: Dictionary = GameState.state["factions"][faction_id]
-		var best_vein: Variant = null
-		var best_next_id: String = ""
-		var best_cost: int = 0
-		var best_value: float = -1.0
-
+		var veins: Array = []
 		for site in GameState.state["world"]["sites"]:
 			var vein: Variant = site["factionVein"]
-			if vein == null or vein["factionId"] != faction_id:
-				continue
-			if NetworkHandler.is_security_frozen(site["id"]):
-				continue
-			var next_id: Variant = Cultivating.next_security_tier_id(vein["security"])
-			if next_id == null:
-				continue
-			var cost: int = Cultivating.security_tier_cost(next_id)
-			if faction_state["resources"] < cost:
-				continue
-			var value: float = GameData.ORE_TYPES[vein["oreType"]]["basePrice"] * Cultivating.combined_magnitude(vein)
-			if value > best_value:
-				best_value = value
-				best_vein = vein
-				best_next_id = next_id
-				best_cost = cost
+			if vein != null and vein["factionId"] == faction_id and not NetworkHandler.is_security_frozen(site["id"]):
+				veins.append(vein)
+		if not _apply_tier_upgrade(faction_id, veins):
+			_hire_extra_guard(faction_id, veins)
 
-		if best_vein == null:
-			continue
-		faction_state["resources"] -= best_cost
-		best_vein["security"] = best_next_id
+
+# The highest-value vein below "guarded" whose next tier the faction can pay for; true if one was upgraded.
+static func _apply_tier_upgrade(faction_id: String, veins: Array) -> bool:
+	var faction_state: Dictionary = GameState.state["factions"][faction_id]
+	var can_hire := GuardUpkeep.faction_can_hire(faction_id)
+	var eligible: Array = veins.filter(func(vein: Dictionary) -> bool:
+		var next_id: Variant = Cultivating.next_security_tier_id(vein["security"])
+		if next_id == null:
+			return false
+		if next_id == Cultivating.GUARDED_TIER_ID:
+			return can_hire
+		return faction_state["resources"] >= Cultivating.security_tier_cost(next_id))
+	var vein: Variant = _most_valuable(eligible)
+	if vein == null:
+		return false
+	var next_id: String = Cultivating.next_security_tier_id(vein["security"])
+	faction_state["resources"] -= Cultivating.security_tier_cost(next_id)
+	vein["security"] = next_id
+	return true
+
+
+# One extra guard on the highest-value "guarded" vein under the per-vein cap, if the wage reserve allows.
+static func _hire_extra_guard(faction_id: String, veins: Array) -> void:
+	if not GuardUpkeep.faction_can_hire(faction_id):
+		return
+	var cap := GuardUpkeep.faction_max_extra_guards()
+	var vein: Variant = _most_valuable(veins.filter(func(v: Dictionary) -> bool:
+		return v["security"] == Cultivating.GUARDED_TIER_ID and int(v.get("extraGuards", 0)) < cap))
+	if vein == null:
+		return
+	GameState.state["factions"][faction_id]["resources"] -= GuardUpkeep.hire_advance()
+	vein["extraGuards"] = int(vein.get("extraGuards", 0)) + 1
+
+
+# Highest basePrice * combined_magnitude vein, first in list order on a tie; null for an empty list.
+static func _most_valuable(veins: Array) -> Variant:
+	var best: Variant = null
+	var best_value := -1.0
+	for vein in veins:
+		var value: float = GameData.ORE_TYPES[vein["oreType"]]["basePrice"] * Cultivating.combined_magnitude(vein)
+		if value > best_value:
+			best_value = value
+			best = vein
+	return best
 
 
 # ── Faction-to-faction relation matrix ──────────────────────────────────
