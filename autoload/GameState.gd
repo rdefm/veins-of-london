@@ -101,7 +101,7 @@ func new_game_state() -> Dictionary:
 		# unpaid, hiredDay, daysWorked, promptPending }; ledger holds one
 		# record per payday.
 		"business": {
-			"potActive": false, "pot": 0,
+			"potActive": false, "pot": 0, "float": 0,
 			"week": { "startDay": 1, "receipts": 0, "expenses": [] },
 			"partners": [], "wages": {}, "ledger": [], "nextPaydayId": 1,
 		},

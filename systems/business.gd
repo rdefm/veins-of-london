@@ -5,7 +5,9 @@ extends RefCounted
 # pot and payday"). While the pot is active, contract settlements credit
 # the pot instead of player cash; on the rollover into each Monday the pot
 # pays staff wages and the remainder splits evenly between the player and each
-# partner, rounding to the player. Static funcs only.
+# partner, rounding to the player. The float is the player's reserve beside
+# the pot: never split, only drawn when the pot can't cover a bill (spec
+# §Business float). Static funcs only.
 
 
 static func _business() -> Dictionary:
@@ -44,17 +46,55 @@ static func receive(amount: int) -> void:
 	EventBus.state_changed.emit()
 
 
-# Pays a Sales calc purchase from the pot, in full or not at all; the week's
-# expenses gain one `calc` line per source leg. legs: [{ source, oreType,
-# qty, amount }]. Player cash is never touched.
+# Moves player cash into the float. Not revenue.
+static func donate(amount: int) -> Dictionary:
+	if not is_pot_active():
+		return { "ok": false, "reason": "The business pot isn't running yet." }
+	var player: Dictionary = GameState.state["player"]
+	if amount < 1 or amount > int(player["cash"]):
+		return { "ok": false, "reason": "Not enough cash." }
+	player["cash"] -= amount
+	_business()["float"] += amount
+	Bank.record(-amount, "Business float")
+	EventBus.state_changed.emit()
+	return { "ok": true }
+
+
+# Moves float back to player cash.
+static func withdraw(amount: int) -> Dictionary:
+	var business := _business()
+	if amount < 1 or amount > int(business["float"]):
+		return { "ok": false, "reason": "Not that much in the float." }
+	business["float"] -= amount
+	GameState.state["player"]["cash"] += amount
+	Bank.record(amount, "Float withdrawal")
+	EventBus.state_changed.emit()
+	return { "ok": true }
+
+
+# Takes `amount` from the pot, then the float for whatever the pot can't
+# cover, in full or not at all.
+static func _draw(amount: int) -> bool:
+	var business := _business()
+	var pot := int(business["pot"])
+	if pot + int(business["float"]) < amount:
+		return false
+	var from_pot := mini(pot, amount)
+	business["pot"] = pot - from_pot
+	business["float"] -= amount - from_pot
+	return true
+
+
+# Pays a Sales calc purchase from the pot, backed by the float, in full or
+# not at all; the week's expenses gain one `calc` line per source leg.
+# legs: [{ source, oreType, qty, amount }]. Player cash is never touched.
 static func pay_calc_purchase(contract_id: String, legs: Array) -> bool:
 	var business := _business()
 	var total := 0
 	for leg in legs:
 		total += int(leg["amount"])
-	if total <= 0 or int(business["pot"]) < total:
+	if total <= 0 or not _draw(total):
 		return false
-	business["pot"] -= total
 	BusinessStats.record_expense(total, BusinessStats.EXPENSE_CALC)
 	for leg in legs:
 		var expense: Dictionary = leg.duplicate()
@@ -181,8 +221,9 @@ static func daily_tick() -> Dictionary:
 
 
 # Wages due are this week's prorated days plus anything owed, paid from the
-# pot in full or not at all. The ledger record is appended before any cash
-# moves; a stable payday id already in the ledger is never paid twice.
+# pot (then the float) in full or not at all. Only the pot is split. The
+# ledger record is appended before player cash moves; a stable payday id
+# already in the ledger is never paid twice.
 static func _payday(day: int) -> Dictionary:
 	var business := _business()
 	var result := { "payday": null, "shortfalls": [] }
@@ -191,22 +232,20 @@ static func _payday(day: int) -> Dictionary:
 		if record["payday"] == payday_id:
 			return result
 	var expenses: Array = business["week"]["expenses"].duplicate(true)
-	var pot: int = business["pot"]
 	var paid := {}
 	for contact_id in business["wages"]:
 		var wage: Dictionary = business["wages"][contact_id]
 		var due: int = prorated_wage(int(wage["weekly"]), int(wage["daysWorked"])) + int(wage["owed"])
 		if due <= 0:
 			continue
-		if pot >= due:
-			pot -= due
+		if _draw(due):
 			paid[contact_id] = due
 			expenses.append({ "kind": "wage", "contactId": contact_id, "amount": due })
 			BusinessStats.record_expense(due, BusinessStats.EXPENSE_STAFF)
 		else:
 			result["shortfalls"].append({ "contactId": contact_id, "owed": due })
 	var partners: Array = business["partners"]
-	var shares := split(pot, partners.size())
+	var shares := split(int(business["pot"]), partners.size())
 	var share_record := { "player": shares["player"] }
 	for partner_id in partners:
 		share_record[partner_id] = shares["partner"]

@@ -21,16 +21,16 @@
 - CODEMAP.md
 - Spec §Business float; REFERENCE.md §2, §3.10
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `Business.donate` / `Business.withdraw` enforce their bounds, write bank records, and don't count as revenue
-- [ ] Donate is refused while the pot is inactive
-- [ ] The payday split ignores the float
-- [ ] A staff wage the pot can't cover is paid from the float if pot and float together cover it; otherwise it's owed as today
-- [ ] `pay_calc_purchase` succeeds using pot and float together, and takes nothing if both together are short
-- [ ] `business.float` is backfilled to 0, survives save/load, and Rewind restores it
-- [ ] The Brief bank block shows the float with Donate/Withdraw (PROSE-REVIEW any new strings)
-- [ ] REFERENCE §2 and §3.10 updated; CODEMAP updated
+- [x] `Business.donate` / `Business.withdraw` enforce their bounds, write bank records, and don't count as revenue
+- [x] Donate is refused while the pot is inactive
+- [x] The payday split ignores the float
+- [x] A staff wage the pot can't cover is paid from the float if pot and float together cover it; otherwise it's owed as today
+- [x] `pay_calc_purchase` succeeds using pot and float together, and takes nothing if both together are short
+- [x] `business.float` is backfilled to 0, survives save/load, and Rewind restores it
+- [x] The Brief bank block shows the float with Donate/Withdraw (PROSE-REVIEW any new strings)
+- [x] REFERENCE §2 and §3.10 updated; CODEMAP updated
 
 **Human QA on device:**
 - The BizBrief Brief bank block shows the Float next to the Pot.

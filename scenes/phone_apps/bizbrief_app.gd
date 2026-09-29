@@ -510,7 +510,32 @@ func _build_bank(account: Dictionary) -> Control:
 	c["content"].add_child(UI.label("Opening £%d · Closing £%d" % [account["openingBalance"], account["closingBalance"]]))
 	c["content"].add_child(UI.label("Income +£%d · Expenses −£%d" % [account["income"], account["expenses"]]))
 	c["content"].add_child(UI.button("Transaction history →", func(): MorningAccountsSystem.open_bank()))
+	if Business.is_pot_active():
+		c["content"].add_child(_build_float())
 	return c["panel"]
+
+
+# Pot and float side by side, with one amount driving Donate (cash → float)
+# and Withdraw (float → cash) (spec §Business float).
+func _build_float() -> Control:
+	var business: Dictionary = GameState.state["business"]
+	var cash := int(GameState.state["player"]["cash"])
+	var float_balance := int(business["float"])
+	var box := UI.vbox()
+	box.add_child(UI.label("Pot £%d · Float £%d" % [int(business["pot"]), float_balance]))
+	box.add_child(UI.muted_label("The float pays bills the pot can't. Payday never splits it."))
+	var amount := SpinBox.new()
+	amount.min_value = 1
+	amount.max_value = maxi(maxi(cash, float_balance), 1)
+	amount.step = 1
+	amount.value = 1
+	amount.allow_greater = false
+	box.add_child(amount)
+	var row := UI.hbox()
+	row.add_child(UI.expand_fill(UI.action_button("Donate", func(): Business.donate(int(amount.value)), cash < 1, "No cash to give.")))
+	row.add_child(UI.expand_fill(UI.action_button("Withdraw", func(): Business.withdraw(int(amount.value)), float_balance < 1, "The float is empty.")))
+	box.add_child(row)
+	return box
 
 
 func _build_payday(payday: Dictionary) -> Control:

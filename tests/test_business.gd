@@ -205,6 +205,91 @@ func run() -> void:
 		assert_eq(today["expenses"], 60)
 	)
 
+	run_case("donate_and_withdraw_move_cash_within_bounds_without_revenue", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 300
+		assert_true(not Business.donate(100)["ok"], "donate is refused before the pot is active")
+		assert_eq(GameState.state["business"]["float"], 0)
+		Business.activate()
+		assert_true(not Business.donate(0)["ok"])
+		assert_true(not Business.donate(301)["ok"])
+		assert_true(Business.donate(300)["ok"], "all of the player's cash is allowed")
+		assert_eq(GameState.state["player"]["cash"], 0)
+		assert_eq(GameState.state["business"]["float"], 300)
+		assert_eq(GameState.state["bankLog"].back()["amount"], -300)
+		assert_true(not Business.withdraw(0)["ok"])
+		assert_true(not Business.withdraw(301)["ok"])
+		assert_true(Business.withdraw(120)["ok"])
+		assert_eq(GameState.state["player"]["cash"], 120)
+		assert_eq(GameState.state["business"]["float"], 180)
+		assert_eq(GameState.state["bankLog"].back()["amount"], 120)
+		assert_eq(GameState.state["businessStats"]["today"]["revenue"], 0, "the float is not revenue")
+		assert_eq(GameState.state["business"]["week"]["receipts"], 0)
+	)
+
+	run_case("payday_never_splits_the_float", func():
+		GameState.reset()
+		GameState.state["world"]["day"] = 7
+		Business.activate()
+		GameState.state["player"]["cash"] = 1000
+		Business.donate(1000)
+		Business.receive(600)
+		TimeSystem.do_rest()
+		var business: Dictionary = GameState.state["business"]
+		# One day's wage: round(250 / 7) = 36; R = 564 → 188 each.
+		assert_eq(business["ledger"][-1]["shares"], { "player": 188, "archie": 188, "james": 188 })
+		assert_eq(business["float"], 1000)
+		assert_eq(business["pot"], 0)
+	)
+
+	run_case("a_wage_the_pot_cant_cover_draws_on_the_float", func():
+		GameState.reset()
+		GameState.state["world"]["day"] = 2
+		Business.activate()
+		GameState.state["player"]["cash"] = 200
+		Business.donate(200)
+		Business.receive(100)
+		for i in 6:
+			TimeSystem.do_rest()
+		# MON day 8: £214 due; pot 100 + float 114.
+		var business: Dictionary = GameState.state["business"]
+		assert_eq(Business.owed("owen"), 0)
+		assert_true(not Business.is_unpaid("owen"))
+		assert_eq(business["float"], 86)
+		assert_eq(business["ledger"][-1]["shares"]["player"], 0)
+		assert_eq(business["ledger"][-1]["expenses"], [{ "kind": "wage", "contactId": "owen", "amount": 214 }])
+	)
+
+	run_case("a_wage_pot_and_float_cant_cover_goes_owed_untouched", func():
+		GameState.reset()
+		GameState.state["world"]["day"] = 2
+		Business.activate()
+		GameState.state["player"]["cash"] = 50
+		Business.donate(50)
+		Business.receive(100)
+		for i in 6:
+			TimeSystem.do_rest()
+		assert_eq(Business.owed("owen"), 214)
+		assert_eq(Business.pending_wage_prompts(), ["owen"])
+		assert_eq(GameState.state["business"]["float"], 50, "a failed wage takes nothing from the float")
+	)
+
+	run_case("calc_purchase_uses_pot_then_float_all_or_nothing", func():
+		GameState.reset()
+		Business.activate()
+		GameState.state["player"]["cash"] = 50
+		Business.donate(50)
+		Business.receive(40)
+		var business: Dictionary = GameState.state["business"]
+		assert_true(not Business.pay_calc_purchase("c1", [{ "source": "des", "oreType": "time", "qty": 1, "amount": 91 }]))
+		assert_eq(business["pot"], 40)
+		assert_eq(business["float"], 50)
+		assert_true(Business.pay_calc_purchase("c1", [{ "source": "des", "oreType": "time", "qty": 1, "amount": 70 }]))
+		assert_eq(business["pot"], 0)
+		assert_eq(business["float"], 20)
+		assert_eq(GameState.state["player"]["cash"], 0, "player cash is never touched")
+	)
+
 	run_case("no_snapshot_before_the_pot_is_active", func():
 		GameState.reset()
 		Business.receive(50)

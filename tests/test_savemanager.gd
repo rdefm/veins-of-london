@@ -607,6 +607,28 @@ func run() -> void:
 		assert_eq(GameState.state["guardUpkeep"]["history"], [{ "day": 3, "places": { "home": 71 } }])
 	)
 
+	run_case("business_float_backfills_0_round_trips_and_rewinds", func():
+		GameState.reset()
+		var legacy: Dictionary = GameState.deep_copy(GameState.state)
+		legacy["business"].erase("float")
+		assert_eq(SaveManager.backfill_defaults(legacy)["business"]["float"], 0, "old saves start with an empty float")
+
+		Business.activate()
+		GameState.state["player"]["cash"] = 300
+		Business.donate(120)
+		var parsed: Dictionary = JSON.parse_string(JSON.stringify(GameState.state))
+		assert_true(SaveManager._load_save_dict(parsed)["ok"])
+		assert_eq(GameState.state["business"]["float"], 120)
+		assert_eq(typeof(GameState.state["business"]["float"]), TYPE_INT)
+
+		GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
+		GameState.state["event"] = { "snapshots": [] }
+		GameState.state["event"]["snapshots"].append(GameState.deep_copy(GameState.state))
+		Business.withdraw(120)
+		assert_true(Events.rewind()["ok"])
+		assert_eq(GameState.state["business"]["float"], 120)
+	)
+
 	run_case("loading_a_pre_107_save_backfills_home_guardCount_to_0", func():
 		GameState.reset()
 		# Pre-107 shape: state.home had no guardCount key at all.

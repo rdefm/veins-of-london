@@ -332,8 +332,18 @@ func backfill_defaults(save: Dictionary) -> Dictionary:
 	_backfill_new_sales_keys(result, defaults)
 	_backfill_new_combat_keys(result, defaults)
 	_backfill_new_flag_keys(result, defaults)
+	_backfill_new_business_keys(result, defaults)
 	_backfill_expense_kinds(result)
 	return result
+
+
+# A business key added after the save was made (e.g. float) starts at its
+# new-game default.
+func _backfill_new_business_keys(result: Dictionary, defaults: Dictionary) -> void:
+	var business: Dictionary = result["business"]
+	for key in defaults["business"].keys():
+		if not business.has(key):
+			business[key] = GameState.deep_copy(defaults["business"][key])
 
 
 # Stats tallies saved before expenses were split by kind read each kind as 0;
@@ -679,7 +689,7 @@ func _restore_int_types(state: Dictionary) -> void:
 	for hire in state.get("payroll", {}).get("hires", {}).values():
 		_int_key(hire, "day")
 	var business: Dictionary = state.get("business", {})
-	for key in ["pot", "nextPaydayId"]:
+	for key in ["pot", "float", "nextPaydayId"]:
 		_int_key(business, key)
 	var week: Dictionary = business.get("week", {})
 	_int_key(week, "startDay")
