@@ -10,6 +10,18 @@ static func _faction_vein_claimed_on(level: int, ore_type: String, claimed_on_da
 	}
 
 
+# Two collective veins at "guarded", claimed on day 1, with the same value
+# so the tie by site id makes fa the more valuable. Returns a Monday.
+static func _seed_faction_guards(extras_a: int, extras_b: int) -> int:
+	GameState.reset()
+	for pair in [["fa", extras_a], ["fb", extras_b]]:
+		var vein := Fixtures.seed_faction_vein(pair[0], 50)
+		vein["security"] = "guarded"
+		vein["extraGuards"] = pair[1]
+		vein["claimedOnDay"] = 1
+	return Calendar.monday_on_or_after(8)
+
+
 static func _day_one_faction_veins(faction_id: String) -> Array:
 	var result := []
 	for site in GameState.state["world"]["sites"]:
@@ -227,6 +239,61 @@ func run() -> void:
 		assert_eq(vein["security"], "guarded")
 		assert_eq(GameState.state["factions"]["collective"]["resources"], 1000 - 357, "Wednesday advance from resources")
 		assert_eq(GameState.state["guardUpkeep"]["history"], [], "faction hires are not player guard costs")
+	)
+
+	run_case("faction_monday_guard_bill_takes_500_per_guard_on_mondays_only", func():
+		var monday := _seed_faction_guards(2, 1)
+		GameState.state["factions"]["collective"]["resources"] = 5000
+		for offset in range(1, 7):
+			GameState.state["world"]["day"] = monday + offset
+			assert_eq(GuardUpkeep.pay_faction_monday_bills(), {}, "day %d isn't billed" % offset)
+		assert_eq(GameState.state["factions"]["collective"]["resources"], 5000)
+		GameState.state["world"]["day"] = monday + 7
+		var result := GuardUpkeep.pay_faction_monday_bills()
+		assert_eq(result["collective"], { "due": 2500, "paid": 2500, "walked": {} })
+		assert_eq(GameState.state["factions"]["collective"]["resources"], 2500)
+		assert_eq(GameState.state["guardUpkeep"]["history"], [], "faction wages are not player guard costs")
+	)
+
+	run_case("broke_faction_loses_extras_least_valuable_vein_first_then_tier_guards", func():
+		var monday := _seed_faction_guards(1, 1)
+		GameState.state["world"]["day"] = monday
+		GameState.state["factions"]["collective"]["resources"] = 1100
+		var fa: Dictionary = Sites.find_site("site_fa")["factionVein"]
+		var fb: Dictionary = Sites.find_site("site_fb")["factionVein"]
+		var result := GuardUpkeep.pay_faction_monday_bills()
+		assert_eq(result["collective"]["walked"], { "fb": 1, "fa": 1 }, "extras walk, least valuable first")
+		assert_eq([fa["security"], fa["extraGuards"], fb["security"], fb["extraGuards"]], ["guarded", 0, "guarded", 0])
+		assert_eq(GameState.state["factions"]["collective"]["resources"], 100)
+	)
+
+	run_case("broke_faction_drops_the_least_valuable_tier_guard_and_never_goes_negative", func():
+		var monday := _seed_faction_guards(1, 1)
+		GameState.state["world"]["day"] = monday
+		GameState.state["factions"]["collective"]["resources"] = 600
+		var fa: Dictionary = Sites.find_site("site_fa")["factionVein"]
+		var fb: Dictionary = Sites.find_site("site_fb")["factionVein"]
+		GuardUpkeep.pay_faction_monday_bills()
+		assert_eq([fa["security"], fa["extraGuards"], fb["security"], fb["extraGuards"]], ["guarded", 0, "warded", 0])
+		assert_eq(GameState.state["factions"]["collective"]["resources"], 100)
+		GameState.state["factions"]["collective"]["resources"] = 0
+		GameState.state["world"]["day"] = monday + 7
+		GuardUpkeep.pay_faction_monday_bills()
+		assert_eq(fa["security"], "warded", "a penniless faction loses every guard")
+		assert_eq(GameState.state["factions"]["collective"]["resources"], 0)
+	)
+
+	run_case("faction_vein_claimed_guarded_today_is_not_billed", func():
+		var monday := _seed_faction_guards(0, 0)
+		GameState.state["world"]["day"] = monday
+		var vein := Fixtures.seed_faction_vein("fc", 50)
+		vein["security"] = "guarded"
+		GameState.state["factions"]["collective"]["resources"] = 1000
+		assert_eq(GuardUpkeep.pay_faction_monday_bills()["collective"]["paid"], 1000, "only the older veins' tier guards")
+		assert_eq(vein["security"], "guarded")
+		GameState.state["world"]["day"] = monday + 7
+		GameState.state["factions"]["collective"]["resources"] = 5000
+		assert_eq(GuardUpkeep.pay_faction_monday_bills()["collective"]["paid"], 1500, "billed from the next Monday")
 	)
 
 	run_case("apply_security_upgrades_is_a_no_op_when_balance_cant_afford_the_upgrade", func():

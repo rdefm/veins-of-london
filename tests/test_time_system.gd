@@ -521,6 +521,32 @@ func run() -> void:
 		assert_eq(site["factionVein"]["security"], "basic", "daily_tick should reach step 5j (Factions.apply_security_upgrades) and upgrade the affordable eligible vein")
 	)
 
+	run_case("faction_monday_guard_bill_runs_after_industry_income_and_before_security_upgrades", func():
+		GameState.reset()
+		var guarded := Fixtures.seed_faction_vein("fa", 50)
+		guarded["security"] = "guarded"
+		guarded["claimedOnDay"] = 1
+		var warded := Fixtures.seed_faction_vein("fb", 50)
+		warded["security"] = "warded"
+		warded["claimedOnDay"] = 1
+		GameState.state["world"]["day"] = Calendar.monday_on_or_after(8)
+		var collective: Dictionary = GameState.state["factions"]["collective"]
+		collective["holdings"] = FactionSim.new_holdings()  # no London sales
+		var trading: Dictionary = GameData.FACTIONS["collective"]["trading"]
+		var saved_buy_mult: float = trading["maxBuyMult"]
+		trading["maxBuyMult"] = 0.0
+		for attacker_id in GameData.FACTIONS:
+			if attacker_id != "collective":
+				GameState.state["factionRelations"]["collective"][attacker_id] = 1000
+		# Only today's income makes up one week's wage: billed before ⑤h the
+		# guard walks; billed after ⑤j the new guard hire leaves both unpaid.
+		collective["resources"] = 500 - int(GameData.FACTIONS["collective"]["industryIncome"])
+		TimeSystem.daily_tick()
+		trading["maxBuyMult"] = saved_buy_mult
+		assert_eq([guarded["security"], warded["security"]], ["guarded", "warded"])
+		assert_eq(collective["resources"], 0)
+	)
+
 	run_case("daily_tick_wires_in_rivalry_resolution_step_right_after_npc_claims", func():
 		GameData.FACTION_RIVALRY = true
 		# A rich, unsecured collective-owned vein facing a well-resourced Firm

@@ -99,6 +99,7 @@ static func daily_tick() -> void:
 	FactionSim.allocate_kits()           # ⑤g2 after ⑤g so kits reflect post-consumption holdings
 	FactionSim.trade()                   # ⑤g3 after ⑤g2 so reserved vein kits aren't sold; before ⑤h/⑤j so buys spend yesterday's cash first
 	Factions.apply_passive_income()      # ⑤h industries-only, no ordering dependency on ⑤b-⑤g
+	GuardUpkeep.pay_faction_monday_bills()  # ⑤h2 faction Monday guard bill: after ⑤h so it sees today's income, before ⑤j so upgrades spend post-wage cash
 	NetworkHandler.expire_intel()        # ⑤i before ⑤j so a lapsed security_freeze stops skipping today's upgrade
 	Factions.apply_security_upgrades()   # ⑤j after ⑤h so today's income is already banked and spendable
 	Collective.maybe_trigger_hakim_intel()  # ⑤k no ordering dependency on any other step

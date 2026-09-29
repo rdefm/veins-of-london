@@ -319,23 +319,70 @@ static func _drop_guards(at_risk: Dictionary, count: int) -> Dictionary:
 	for place_id in at_risk:
 		if place_id != HOME_PLACE_ID:
 			veins.append(Cultivating.find_vein(place_id))
-	veins.sort_custom(Cultivating.value_order)
-	veins.reverse()
-	for vein in veins:
+	count = drop_vein_guards(veins, at_risk, count, walked)
+	for i in mini(count, int(at_risk.get(HOME_PLACE_ID, 0))):
+		Home.drop_guard()
+		walked[HOME_PLACE_ID] = int(walked.get(HOME_PLACE_ID, 0)) + 1
+	return walked
+
+
+# The vein part of the drop order, shared by player and faction veins:
+# extras on the least valuable vein first (Cultivating.value_order), then
+# tier guards least valuable first ("guarded" -> "warded"). Drops at most
+# `count` guards and at most at_risk[vein id] per vein, adds them to walked
+# { vein id: guards dropped }, and returns how many of `count` are left.
+static func drop_vein_guards(veins: Array, at_risk: Dictionary, count: int, walked: Dictionary) -> int:
+	var ordered := veins.duplicate()
+	ordered.sort_custom(Cultivating.value_order)
+	ordered.reverse()
+	for vein in ordered:
 		var extras := mini(int(at_risk[vein["id"]]), int(vein.get("extraGuards", 0)))
 		for i in mini(extras, count):
 			Cultivating.drop_vein_guard(vein)
 			walked[vein["id"]] = int(walked.get(vein["id"], 0)) + 1
 			count -= 1
-	for vein in veins:
+	for vein in ordered:
 		if count > 0 and int(at_risk[vein["id"]]) > int(walked.get(vein["id"], 0)):
 			Cultivating.drop_vein_guard(vein)
 			walked[vein["id"]] = int(walked.get(vein["id"], 0)) + 1
 			count -= 1
-	for i in mini(count, int(at_risk.get(HOME_PLACE_ID, 0))):
-		Home.drop_guard()
-		walked[HOME_PLACE_ID] = int(walked.get(HOME_PLACE_ID, 0)) + 1
-	return walked
+	return count
+
+
+# ── faction Monday bill (spec §Faction guard upkeep) ──
+
+# R§3.1 ⑤h2: on the rollover into a Monday, each faction pays weeklyWage per
+# guard on its veins from resources, as many guards as it can cover. The
+# rest walk now in drop order (drop_vein_guards()); resources never go
+# negative. A vein claimed today isn't billed: its guards start on the next
+# Monday. Returns { faction id: { due, paid, walked } } for billed factions.
+static func pay_faction_monday_bills() -> Dictionary:
+	var results := {}
+	var day: int = GameState.state["world"]["day"]
+	if not Calendar.is_monday(day):
+		return results
+	var veins_by_faction := {}
+	for site in GameState.state["world"]["sites"]:
+		var vein: Variant = site["factionVein"]
+		if vein == null or int(vein.get("claimedOnDay", -1)) == day:
+			continue
+		if Cultivating.vein_guard_count(vein) > 0:
+			if not veins_by_faction.has(vein["factionId"]):
+				veins_by_faction[vein["factionId"]] = []
+			veins_by_faction[vein["factionId"]].append(vein)
+	for faction_id in veins_by_faction:
+		var faction_state: Dictionary = GameState.state["factions"][faction_id]
+		var at_risk := {}
+		var guards := 0
+		for vein in veins_by_faction[faction_id]:
+			at_risk[vein["id"]] = Cultivating.vein_guard_count(vein)
+			guards += int(at_risk[vein["id"]])
+		var kept := clampi(floori(float(faction_state["resources"]) / float(weekly_wage())), 0, guards)
+		var walked := {}
+		drop_vein_guards(veins_by_faction[faction_id], at_risk, guards - kept, walked)
+		faction_state["resources"] -= weekly_cost(kept)
+		results[faction_id] = { "due": weekly_cost(guards), "paid": weekly_cost(kept), "walked": walked }
+	return results
 
 
 # "HQ, Soho — Time" for a list of place ids.
