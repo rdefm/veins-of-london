@@ -240,7 +240,8 @@ func run() -> void:
 		GameState.reset()
 		var vein := Fixtures.seed_vein("v1", 60)
 		vein["security"] = "guarded"
-		var cost: int = Cultivating.extra_guard_cost(0)
+		GameState.state["world"]["day"] = Calendar.monday_on_or_after(1) + 2
+		var cost: int = GuardUpkeep.hire_advance()
 		GameState.state["player"]["cash"] = cost
 		var panel := VeinDetailPanel.build(vein)
 
@@ -248,6 +249,7 @@ func run() -> void:
 		assert_eq(buttons.size(), 1)
 		var button := buttons[0] as Button
 		assert_true(button.text.begins_with("+1 Guard"), "guarded vein offers the uncapped +1 Guard purchase")
+		assert_true(button.text.contains("£357 today, then £500/week"), "shows today's advance and the weekly wage")
 		assert_true(not button.disabled,"+1 Guard is enabled when affordable")
 		button.pressed.emit()
 
@@ -255,9 +257,10 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["cash"], 0)
 		panel.free()
 
-		GameState.state["player"]["cash"] = Cultivating.extra_guard_cost(1) - 1
+		GameState.state["player"]["cash"] = GuardUpkeep.hire_advance() - 1
 		var broke_panel := VeinDetailPanel.build(vein)
 		var broke_button := broke_panel.find_children("SecurityButton", "Button", true, false)[0] as Button
 		assert_true(broke_button.disabled, "disabled only when cash is short")
+		assert_true(_label_texts(broke_panel).any(func(t: String): return t.ends_with("· £1000/week")), "security row shows the weekly guard cost")
 		broke_panel.free()
 	)

@@ -643,7 +643,10 @@ func _restore_int_types(state: Dictionary) -> void:
 	_int_dict_values(business_stats.get("today", {}))
 	for record in business_stats.get("days", []):
 		_int_dict_values(record)
-	var morning = morning_accounts.get("latest")
+	for record in state.get("guardUpkeep", {}).get("history", []):
+		_int_key(record, "day")
+		_int_dict_values(record.get("places", {}))
+	var morning =morning_accounts.get("latest")
 	if morning != null:
 		for key in ["day", "openingBalance", "closingBalance", "income", "expenses"]:
 			_int_key(morning, key)

@@ -190,7 +190,7 @@ static func make_vein(ore_type: String, growth: int, district: String, site_id: 
 		"hospitability": GameState.deep_copy(hospitability),
 		# Consecutive daily ticks spent at the ceiling; drives self-seeding (R§3.4), 0 for any vein not at the ceiling.
 		"rampantDays": 0,
-		# Extra Hired Guards bought on top of "guarded" -- see next_security_upgrade()
+		# Extra Hired Guards hired on top of "guarded" -- see next_security_upgrade()
 		# below. Reads elsewhere use .get("extraGuards", 0) so older hand-built vein dicts don't need updating.
 		"extraGuards": 0,
 		# Persistent earned level (R§1.2), 1..level_cap_for_tier(tier). Every
@@ -560,8 +560,8 @@ static func make_vein_id() -> String:
 # ── vein security (M1-LONDON §D4: site/vein sheet's "Upgrade security") ──
 
 # Null once at "guarded" -- the top of the fixed tier ladder. Past that, the
-# uncapped "+1 Guard" purchase (extra_guard_cost()/next_security_upgrade() below)
-# takes over. Factions.apply_security_upgrades() stops here deliberately -- only the player's UI button stacks guards.
+# uncapped "+1 Guard" hire (next_security_upgrade() below) takes over.
+# Factions.apply_security_upgrades() stops here deliberately -- only the player's UI button stacks guards.
 static func next_security_tier_id(current: String) -> Variant:
 	var idx: int = VEIN_SECURITY_ORDER.find(current)
 	if idx == -1 or idx >= VEIN_SECURITY_ORDER.size() - 1:
@@ -569,15 +569,15 @@ static func next_security_tier_id(current: String) -> Variant:
 	return VEIN_SECURITY_ORDER[idx + 1]
 
 
-# Cost of the next guard bought on top of "guarded", given how many extra guards
-# a vein already has. Not yet balance-signed-off; continues the ladder's own
-# cost curve (R§1.6 deltas step up by +20/tier): cost(n) = 10*(n+3)*(n+4) for the nth extra guard.
-static func extra_guard_cost(extra_guards_owned: int) -> int:
-	var n: int = extra_guards_owned + 1
-	return 10 * (n + 3) * (n + 4)
+# Today's price of moving a vein up to tier_id: the table cost for a lock or
+# ward rune, the guard hire advance for "guarded" (spec §Hiring).
+static func security_tier_cost(tier_id: String) -> int:
+	if tier_id == GUARDED_TIER_ID:
+		return GuardUpkeep.hire_advance()
+	return int(GameData.VEIN_SECURITY[tier_id]["cost"])
 
 
-# Flat raid-resist added per extra guard, matching "guarded"'s own marginal contribution over "warded" (55-35=20, R§1.6). Only cost escalates.
+# Flat raid-resist added per extra guard, matching "guarded"'s own marginal contribution over "warded" (55-35=20, R§1.6).
 const EXTRA_GUARD_RAID_RESIST := 20
 
 
@@ -619,31 +619,37 @@ static func security_label(vein: Dictionary) -> String:
 
 
 # What upgrade_vein_security() would buy next, shared by the UI button and the
-# purchase itself. Never null -- "guarded" rolls into the uncapped "+1 Guard" purchase (tierId null) instead of topping out.
+# purchase itself. Never null -- "guarded" rolls into the uncapped "+1 Guard" hire (tierId null) instead of topping out.
+# isGuard marks a guard hire (Hired Guard tier or +1 Guard), whose cost is today's advance.
 static func next_security_upgrade(vein: Dictionary) -> Dictionary:
 	var next_id = next_security_tier_id(vein["security"])
 	if next_id != null:
 		var data: Dictionary = GameData.VEIN_SECURITY[next_id]
-		return { "tierId": next_id, "label": data["label"], "cost": data["cost"] }
-	return { "tierId": null, "label": "+1 Guard", "cost": extra_guard_cost(vein.get("extraGuards", 0)) }
+		return { "tierId": next_id, "label": data["label"], "cost": security_tier_cost(next_id), "isGuard": next_id == GUARDED_TIER_ID }
+	return { "tierId": null, "label": "+1 Guard", "cost": GuardUpkeep.hire_advance(), "isGuard": true }
 
 
 # Cash-only, no block: M1-LONDON §D3's travel rule lists five districted actions
 # (prospect, seed, cultivate, harvest, sell) and security upgrades aren't one,
 # same as Home.add_security. next_security_upgrade() always has something to sell, so "can't afford it" is the only refusal.
+# A guard hire pays only today's advance (GuardUpkeep.pay_hire_advance).
 static func upgrade_vein_security(vein_id: String) -> Dictionary:
 	var vein = find_vein(vein_id)
 	if vein == null:
 		return { "ok": false, "reason": "Vein not found." }
 
 	var upgrade: Dictionary = next_security_upgrade(vein)
-	var cost: int = upgrade["cost"]
-	var player: Dictionary = GameState.state["player"]
-	if player["cash"] < cost:
-		return { "ok": false, "reason": "Not enough cash." }
-
-	player["cash"] -= cost
-	Bank.record(-cost, "Vein security: %s" % upgrade["label"])
+	if upgrade["isGuard"]:
+		var paid: Dictionary = GuardUpkeep.pay_hire_advance(vein_id)
+		if not paid["ok"]:
+			return paid
+	else:
+		var cost: int = upgrade["cost"]
+		var player: Dictionary = GameState.state["player"]
+		if player["cash"] < cost:
+			return { "ok": false, "reason": "Not enough cash." }
+		player["cash"] -= cost
+		Bank.record(-cost, "Vein security: %s" % upgrade["label"])
 
 	if upgrade["tierId"] != null:
 		vein["security"] = upgrade["tierId"]

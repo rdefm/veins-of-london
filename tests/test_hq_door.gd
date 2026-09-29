@@ -49,6 +49,22 @@ func run() -> void:
 		screen.free()
 	)
 
+	run_case("hq_door_guard_row_shows_the_advance_and_weekly_cost", func():
+		GameState.reset()
+		GameState.state["world"]["day"] = Calendar.monday_on_or_after(1) + 2
+		GameState.state["home"]["tier"] = "compound"
+		GameState.state["home"]["guardCount"] = 2
+		GameState.state["player"]["cash"] = 100000
+
+		var screen := HqDoorScreen.new()
+		screen._ready()
+
+		assert_true(NodeQuery.find_button(screen, "£357 today, then £500/week") != null, "hire button shows the advance and weekly wage")
+		assert_true(NodeQuery.label_texts(screen).has("£1000/week"), "the guard row shows the current weekly guard cost")
+
+		screen.free()
+	)
+
 	run_case("hq_door_installed_security_shows_installed_not_a_buy_button", func():
 		GameState.reset()
 		var bedsit_security_id: String = GameData.HOME_SECURITY.keys().filter(func(k): return GameData.HOME_SECURITY[k]["minTier"] == "bedsit")[0]

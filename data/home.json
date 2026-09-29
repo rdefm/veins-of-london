@@ -57,7 +57,7 @@
     "cameras":        { "id": "cameras",        "name": "CCTV",             "cost": 250,  "raidReduction": 0.03, "minTier": "flat",      "description": "Four cameras, monitored by an app that sometimes works." },
     "reinforcedDoor": { "id": "reinforcedDoor", "name": "Reinforced Door",  "cost": 600,  "raidReduction": 0.04, "minTier": "townhouse", "description": "Steel-core. Would require a vehicle to breach, which draws attention." },
     "alarm":          { "id": "alarm",          "name": "Alarm System",     "cost": 400,  "raidReduction": 0.03, "minTier": "studio",    "description": "Monitored alarm. Response time: nine minutes. Make of that what you will." },
-    "guard":          { "id": "guard",          "name": "Hired Guard",      "cost": 1200, "raidReduction": 0.05, "minTier": "compound",  "description": "Someone on site. Expensive. Asks fewer questions than you might expect." },
+    "guard":          { "id": "guard",          "name": "Hired Guard",      "raidReduction": 0.05, "minTier": "compound",  "description": "Someone on site. Expensive. Asks fewer questions than you might expect." },
     "ward":           { "id": "ward",           "name": "Orichalchum Ward", "cost": 2000, "raidReduction": 0.06, "minTier": "safehouse", "description": "James installed it. Doesn't explain what it does. It works." }
   },
   "rooms": {

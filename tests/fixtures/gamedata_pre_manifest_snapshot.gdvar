@@ -5501,7 +5501,6 @@
 "raidReduction": 0.03
 },
 "guard": {
-"cost": 1200,
 "description": "Someone on site. Expensive. Asks fewer questions than you might expect.",
 "id": "guard",
 "minTier": "compound",
@@ -7179,7 +7178,6 @@
 "raidResist": 15
 },
 "guarded": {
-"cost": 120,
 "label": "Hired Guard",
 "raidResist": 55
 },

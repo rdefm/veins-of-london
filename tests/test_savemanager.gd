@@ -576,6 +576,37 @@ func run() -> void:
 			assert_eq(migrated["signedQuote"]["payment"], payment)
 	)
 
+	run_case("guard_cost_history_backfills_empty_and_round_trips_with_int_values", func():
+		GameState.reset()
+		var legacy: Dictionary = GameState.deep_copy(GameState.state)
+		legacy.erase("guardUpkeep")
+		assert_eq(SaveManager.backfill_defaults(legacy)["guardUpkeep"], { "history": [] }, "old saves start with empty history")
+
+		GameState.state["world"]["day"] = 3
+		GuardUpkeep.record_payment("home", 71)
+		GuardUpkeep.record_payment("v1", 357)
+		var original: Dictionary = GameState.deep_copy(GameState.state)
+		var parsed: Dictionary = JSON.parse_string(JSON.stringify(GameState.state))
+		assert_true(SaveManager._load_save_dict(parsed)["ok"])
+		var record: Dictionary = GameState.state["guardUpkeep"]["history"][0]
+		assert_eq(typeof(record["day"]), TYPE_INT)
+		assert_eq(typeof(record["places"]["v1"]), TYPE_INT)
+		assert_eq(GameState.state["guardUpkeep"], original["guardUpkeep"])
+	)
+
+	run_case("rewind_restores_guard_cost_history", func():
+		GameState.reset()
+		GameState.state["world"]["day"] = 3
+		GuardUpkeep.record_payment("home", 71)
+		GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
+		GameState.state["event"] = { "snapshots": [] }
+		var snapshot: Dictionary = GameState.deep_copy(GameState.state)
+		GameState.state["event"]["snapshots"].append(snapshot)
+		GuardUpkeep.record_payment("home", 500)
+		assert_true(Events.rewind()["ok"])
+		assert_eq(GameState.state["guardUpkeep"]["history"], [{ "day": 3, "places": { "home": 71 } }])
+	)
+
 	run_case("loading_a_pre_107_save_backfills_home_guardCount_to_0", func():
 		GameState.reset()
 		# Pre-107 shape: state.home had no guardCount key at all.

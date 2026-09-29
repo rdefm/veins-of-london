@@ -414,6 +414,14 @@ static func _sell_current_home() -> String:
 	return tier_name
 
 
+# One-off price of a non-guard security row, ×0.7 with securityContactUnlocked.
+static func security_cost(security_id: String) -> int:
+	var cost: int = GameData.HOME_SECURITY[security_id]["cost"]
+	if GameState.state["flags"]["securityContactUnlocked"]:
+		cost = GameState.round_epsilon(cost * 0.7)
+	return cost
+
+
 static func add_security(security_id: String) -> Dictionary:
 	var home: Dictionary = GameState.state["home"]
 	var player: Dictionary = GameState.state["player"]
@@ -430,15 +438,17 @@ static func add_security(security_id: String) -> Dictionary:
 	if current_index < min_index:
 		return { "ok": false, "reason": "Requires %s or better." % GameData.HOME_TIERS[security_data["minTier"]]["name"] }
 
-	var cost: int = security_data["cost"]
-	if GameState.state["flags"]["securityContactUnlocked"]:
-		cost = GameState.round_epsilon(cost * 0.7)
-
-	if player["cash"] < cost:
-		return { "ok": false, "reason": "Not enough cash." }
-
-	player["cash"] -= cost
-	Bank.record(-cost, "HQ security: %s" % security_data["name"])
+	# A guard has no purchase price, only today's hire advance (spec §Hiring).
+	if security_id == GUARD_SECURITY_ID:
+		var paid: Dictionary = GuardUpkeep.pay_hire_advance(GuardUpkeep.HOME_PLACE_ID)
+		if not paid["ok"]:
+			return paid
+	else:
+		var cost: int = security_cost(security_id)
+		if player["cash"] < cost:
+			return { "ok": false, "reason": "Not enough cash." }
+		player["cash"] -= cost
+		Bank.record(-cost, "HQ security: %s" % security_data["name"])
 
 	if security_id == GUARD_SECURITY_ID:
 		home["guardCount"] = home.get("guardCount", 0) + 1

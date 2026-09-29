@@ -135,7 +135,11 @@ static func _build_detail_note(vein: Dictionary) -> Control:
 		var chance: float = minf(1.0, GameData.VEIN_GROWTH["levelUpChancePerDay"] * streak)
 		col.add_child(_label("Developing · streak %d · About %d%% tonight" % [streak + 1, roundi(chance * 100)], 11, MapCardStyle.dim()))
 	col.add_child(_label("Cultivating skill: %d" % GameState.state["player"]["cultivatingSkill"], 10, MapCardStyle.dim()))
-	col.add_child(_label("%s · resist %d" % [Cultivating.security_label(vein), Cultivating.vein_raid_resist(vein)], 10, MapCardStyle.dim()))
+	var security_text: String = "%s · resist %d" % [Cultivating.security_label(vein), Cultivating.vein_raid_resist(vein)]
+	var guard_cost: String = GuardUpkeep.weekly_cost_text(Cultivating.vein_guard_count(vein))
+	if guard_cost != "":
+		security_text += " · %s" % guard_cost
+	col.add_child(_label(security_text, 10, MapCardStyle.dim()))
 	return col
 
 
@@ -270,7 +274,8 @@ static func _build_security_button(vein: Dictionary) -> Control:
 	var vein_id: String = vein["id"]
 	var label_text: String = upgrade["label"] if upgrade["tierId"] == null else "Upgrade to %s" % upgrade["label"]
 	var cost := { "label": label_text, "resource": "cash", "amount": upgrade["cost"] }
-	var button := UI.button(UI.format_cost_label(cost, { "cash": player["cash"] }), func(): Cultivating.upgrade_vein_security(vein_id))
+	var text: String = "%s — %s" % [label_text, GuardUpkeep.hire_cost_text()] if upgrade["isGuard"] else UI.format_cost_label(cost, { "cash": player["cash"] })
+	var button := UI.button(text, func(): Cultivating.upgrade_vein_security(vein_id))
 	button.name = "SecurityButton"
 	button.disabled = player["cash"] < upgrade["cost"]
 	button.custom_minimum_size.y = 40

@@ -39,7 +39,7 @@ Data file per system: see `data/*.json` below.
 | contacts.gd | Relation, recruiting (incl. story `force_recruit`), room assignment, founder staff roles (`set_role`/`role_of`/`available_roles`), capped XP, ally combat kit + per-day ally Dial charges (`daily_dial_regen()`) |
 | contracts.gd | Block-end Sales auto-delivery (full, then partials by priority; goods to buyer holdings + supplier share), settlement to pot; recurring periods pay on fill, lock (`periodFilled`) until Monday renewal, expire at term end; per-contract `buyCalc` calc buys from the pot; unattended-proof taint (`playerAssisted`) and `qualified` settlements; `cancel()` (unpaid, hurts counterparty) |
 | crafting.gd | Recipe crafting |
-| cultivating.gd | Vein growth / cultivate / prune; security tiers + raid resist; shared vein `value_order`; vein guard count + `drop_vein_guard` |
+| cultivating.gd | Vein growth / cultivate / prune; security tiers (lock/ward prices, guard tiers hired via GuardUpkeep) + raid resist; shared vein `value_order`; vein guard count + `drop_vein_guard` |
 | debug_start.gd | Maximal-unlock debug state; `apply(model)` keeps a picked `player.model` through its reset |
 | debug_tools.gd | Debug phone-app state adjusters; `fire_event()` preps any event (state-path veins/sites, addressed contacts, raid/reveal site context) then starts it |
 | dial.gd | Dial mechanic (Movements, charge economy) |
@@ -52,6 +52,7 @@ Data file per system: see `data/*.json` below.
 | events.gd | Event-card runner + rewind, auto-discovers art |
 | faction_sim.gd | FactionSim: faction holdings (ore, items by tier); stockpile pick; daily vein tend + prune, sparing one maturing vein until it levels (R§1.8 `fieldwork`); crafting toward targets (`craftSkill`); consumption + kit burns → shortfall; defend-kit allocation, `vein_kit`, defend-raid `raider_kit` (`raidKits`); London sell/buy vs reserve, Conclave arbitrage (`trading`) |
 | factions.gd | Faction joining |
+| guard_upkeep.gd | Guard wages: prorated hire advance paid from cash ("Guard hire"), weekly guard cost/labels, per-day per-place `guardUpkeep.history` (trimmed to `guardCostHistoryDays`) |
 | home.gd | Home tier/tenure/security/rooms/raid chance; per-day and weekly bill base (rent or utilities); arrears countdown to Monday; rent/buy/buy-out/downgrade tier moves via shared `change_tier` (room wipe, security loss); HQ `drop_guard`; per-slot room purchase/replacement (`set_room_use`); daily raid roll, alarm queue/expiry, and alarm-defend win/loss resolution (R§3.8) |
 | jobs.gd | James's jobs, trust bands |
 | lab_bench_nav.gd | Lab bench nav: selected ore; gear confirm variant (probe/craft/inert) + readiness |
@@ -109,7 +110,7 @@ overlays.
 | factions.gd | Factions tab |
 | hq.gd | HQ tab: renders the home tier's room plate (bedsit fallback), routes zone taps to sub-screens |
 | hq_dial.gd | Dial loadout sub-view (Movements, Complications) |
-| hq_door.gd | Security zone (lock/cameras/door/alarm/guard/ward) |
+| hq_door.gd | Security zone (lock/cameras/door/alarm/guard/ward); guard tile shows hire advance and weekly guard cost |
 | hq_floorplan.gd | Noticeboard: tiers with a plan show FloorplanView (tap slot → choose/replace use); others show the room-tile grid. Contact assignment for staffed rooms |
 | hq_lab_bench.gd | Lab zone: single portrait bench plate, jar count badges, ready-gear outline, status line; gear tap opens confirm modal |
 | map.gd | Map tab: full-bleed diagram (top board to nav dock) with floating menu button, legend and zoom pill in Map chrome tokens; district panel + sheet |

@@ -519,6 +519,9 @@ func _security_line(vein: Dictionary, colour: Color) -> Control:
 	glyph.custom_minimum_size = Vector2(18, 18)
 	row.add_child(glyph)
 	row.add_child(MapCardStyle.label(Cultivating.security_label(vein), 12, colour))
+	var guard_cost: String = GuardUpkeep.weekly_cost_text(Cultivating.vein_guard_count(vein))
+	if guard_cost != "":
+		row.add_child(MapCardStyle.label("· %s" % guard_cost, 12, colour))
 	return row
 func _build_vein_station_row(_vein: Dictionary) -> Variant:
 	if not GameState.state["home"]["rooms"].has("veinStation"):
@@ -531,8 +534,9 @@ func _build_security_row(vein: Dictionary) -> Control:
 
 	var label: String = upgrade["label"] if upgrade["tierId"] == null else "Upgrade to %s" % upgrade["label"]
 	var cost := { "label": label, "resource": "cash", "amount": upgrade["cost"] }
+	var text: String = "%s — %s" % [label, GuardUpkeep.hire_cost_text()] if upgrade["isGuard"] else UI.format_cost_label(cost, { "cash": player["cash"] })
 
-	var b := UI.button(UI.format_cost_label(cost, { "cash": player["cash"] }), func(): Cultivating.upgrade_vein_security(vein_id))
+	var b := UI.button(text, func(): Cultivating.upgrade_vein_security(vein_id))
 	b.disabled = player["cash"] < upgrade["cost"]
 	return MapCardStyle.style_button(b)
 func _build_alarm_row(vein: Dictionary) -> Control:

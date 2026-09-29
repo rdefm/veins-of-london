@@ -546,6 +546,30 @@ func run() -> void:
 		assert_eq(Home.get_guard_count(), 3, "get_guard_count() reflects the same total")
 	)
 
+	run_case("hq_guard_hire_pays_only_the_advance_and_records_it_against_home", func():
+		GameState.reset()
+		var sunday := Calendar.monday_on_or_after(1) + 6
+		GameState.state["world"]["day"] = sunday
+		GameState.state["home"]["tier"] = "compound"
+		GameState.state["player"]["cash"] = 1000
+		GameState.state["flags"]["securityContactUnlocked"] = true
+		assert_true(Home.add_security("guard")["ok"])
+		assert_eq(GameState.state["player"]["cash"], 1000 - 71, "Sunday advance, no purchase price or discount")
+		assert_eq(GameState.state["bankLog"][-1]["label"], "Guard hire")
+		assert_eq(GameState.state["businessStats"]["today"]["expensesGuard"], 71)
+		assert_eq(GameState.state["guardUpkeep"]["history"], [{ "day": sunday, "places": { "home": 71 } }])
+	)
+
+	run_case("hq_guard_hire_is_refused_below_the_advance_with_no_state_change", func():
+		GameState.reset()
+		GameState.state["world"]["day"] = Calendar.monday_on_or_after(1)
+		GameState.state["home"]["tier"] = "compound"
+		GameState.state["player"]["cash"] = 499
+		var before: Dictionary = GameState.deep_copy(GameState.state)
+		assert_true(not Home.add_security("guard")["ok"])
+		assert_eq(GameState.state, before)
+	)
+
 	run_case("drop_guard_decrements_guardCount_and_leaves_security_alone", func():
 		GameState.reset()
 		GameState.state["home"]["guardCount"] = 2

@@ -214,6 +214,21 @@ func run() -> void:
 		assert_eq(GameState.state["factions"]["collective"]["resources"], 1000 - GameData.VEIN_SECURITY["basic"]["cost"], "balance drops by exactly the tier's cost")
 	)
 
+	run_case("apply_security_upgrades_to_guarded_pays_the_guard_hire_advance", func():
+		GameState.reset()
+		GameState.state["world"]["day"] = Calendar.monday_on_or_after(1) + 2
+		var vein := _faction_vein_claimed_on(1, "physics", 0, "collective")
+		vein["security"] = "warded"
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
+		GameState.state["factions"]["collective"]["resources"] = 1000
+
+		Factions.apply_security_upgrades()
+
+		assert_eq(vein["security"], "guarded")
+		assert_eq(GameState.state["factions"]["collective"]["resources"], 1000 - 357, "Wednesday advance from resources")
+		assert_eq(GameState.state["guardUpkeep"]["history"], [], "faction hires are not player guard costs")
+	)
+
 	run_case("apply_security_upgrades_is_a_no_op_when_balance_cant_afford_the_upgrade", func():
 		GameState.reset()
 		var vein := _faction_vein_claimed_on(1, "physics", 0, "collective")

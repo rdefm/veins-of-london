@@ -60,10 +60,8 @@ func _build_security_slot(security_id: String) -> Control:
 	var order: Array = GameData.HOME_TIER_ORDER
 	var available: bool = order.find(home["tier"]) >= order.find(sec["minTier"])
 
-	var discount: float = 0.7 if GameState.state["flags"]["securityContactUnlocked"] else 1.0
-	var adj_cost: int = GameState.round_epsilon(sec["cost"] * discount)
-
 	var stackable: bool = security_id == Home.GUARD_SECURITY_ID
+	var adj_cost: int = GuardUpkeep.hire_advance() if stackable else Home.security_cost(security_id)
 	var count: int = Home.get_guard_count() if stackable else 0
 	var installed: bool = count > 0 if stackable else home["security"].has(security_id)
 	var label: String = sec["name"] if count == 0 else "%s ×%d" % [sec["name"], count]
@@ -78,12 +76,15 @@ func _build_security_slot(security_id: String) -> Control:
 	if not available:
 		desc += " Requires %s." % GameData.HOME_TIERS[sec["minTier"]]["name"]
 	c["content"].add_child(_tile_label(desc, true))
+	if stackable and count > 0:
+		c["content"].add_child(_tile_label(GuardUpkeep.weekly_cost_text(count), true))
 
 	if not available:
 		c["content"].add_child(_tile_label("Locked", true))
 	elif installed and not stackable:
 		c["content"].add_child(_tile_label("Installed", true))
 	else:
-		c["content"].add_child(MapCardStyle.text_button("£%d" % adj_cost, func(): Home.add_security(security_id), GameState.state["player"]["cash"] < adj_cost))
+		var price_text: String = GuardUpkeep.hire_cost_text() if stackable else "£%d" % adj_cost
+		c["content"].add_child(MapCardStyle.text_button(price_text, func(): Home.add_security(security_id), GameState.state["player"]["cash"] < adj_cost))
 
 	return c["panel"]

@@ -1258,10 +1258,66 @@ func run() -> void:
 
 	# ── 72-stackable-guards-vein-defense: repeatable "+1 Guard" past guarded ──
 
-	run_case("extra_guard_cost_escalates_continuing_the_ladders_own_delta_progression", func():
-		assert_eq(Cultivating.extra_guard_cost(0), 200, "first extra guard: 10*4*5")
-		assert_eq(Cultivating.extra_guard_cost(1), 300, "second extra guard: 10*5*6")
-		assert_eq(Cultivating.extra_guard_cost(2), 420, "third extra guard: 10*6*7 -- escalating, not flat")
+	run_case("guard_hire_advance_is_the_prorated_weekly_wage_for_the_rest_of_the_week", func():
+		GameState.reset()
+		var monday := Calendar.monday_on_or_after(1)
+		for check in [[0, 500], [2, 357], [6, 71]]:
+			GameState.state["world"]["day"] = monday + int(check[0])
+			assert_eq(GuardUpkeep.hire_advance(), check[1], "advance %d days after Monday" % check[0])
+	)
+
+	run_case("hiring_the_tier_guard_pays_only_the_advance_and_records_it", func():
+		GameState.reset()
+		GameState.state["world"]["day"] = Calendar.monday_on_or_after(1) + 2
+		GameState.state["player"]["cash"] = 1000
+		var vein := _vein(50)
+		vein["security"] = "warded"
+		GameState.state["player"]["veins"] = [vein]
+		assert_true(Cultivating.upgrade_vein_security("test_vein")["ok"])
+		assert_eq(GameState.state["player"]["veins"][0]["security"], "guarded")
+		assert_eq(GameState.state["player"]["cash"], 1000 - 357, "Wednesday advance only")
+		var bank_log: Array = GameState.state["bankLog"]
+		assert_eq(bank_log[-1]["label"], "Guard hire")
+		assert_eq(bank_log[-1]["amount"], -357)
+		assert_eq(GameState.state["businessStats"]["today"]["expensesGuard"], 357)
+		assert_eq(GameState.state["businessStats"]["today"]["expenses"], 357)
+		var history: Array = GameState.state["guardUpkeep"]["history"]
+		assert_eq(history, [{ "day": GameState.state["world"]["day"], "places": { "test_vein": 357 } }])
+	)
+
+	run_case("guard_hire_is_refused_below_the_advance_with_no_state_change", func():
+		GameState.reset()
+		GameState.state["world"]["day"] = Calendar.monday_on_or_after(1)
+		GameState.state["player"]["cash"] = 499
+		var vein := _vein(50)
+		vein["security"] = "guarded"
+		GameState.state["player"]["veins"] = [vein]
+		var before: Dictionary = GameState.deep_copy(GameState.state)
+		assert_true(not Cultivating.upgrade_vein_security("test_vein")["ok"])
+		assert_eq(GameState.state, before, "nothing changed")
+	)
+
+	run_case("guard_cost_history_is_trimmed_to_guardCostHistoryDays", func():
+		GameState.reset()
+		var window: int = GameData.GUARD_UPKEEP["guardCostHistoryDays"]
+		GameState.state["world"]["day"] = 1
+		GuardUpkeep.record_payment("home", 100)
+		GuardUpkeep.record_payment("v1", 50)
+		GameState.state["world"]["day"] = window
+		GuardUpkeep.record_payment("home", 20)
+		var history: Array = GameState.state["guardUpkeep"]["history"]
+		assert_eq(history.size(), 2, "day 1 is still inside the window")
+		assert_eq(history[0]["places"], { "home": 100, "v1": 50 })
+		GameState.state["world"]["day"] = window + 1
+		GuardUpkeep.record_payment("home", 20)
+		assert_eq(history.size(), 2, "day 1 falls out")
+		assert_eq(int(history[0]["day"]), window)
+	)
+
+	run_case("lock_and_ward_rune_keep_their_table_prices", func():
+		assert_eq(Cultivating.security_tier_cost("basic"), GameData.VEIN_SECURITY["basic"]["cost"])
+		assert_eq(Cultivating.security_tier_cost("warded"), GameData.VEIN_SECURITY["warded"]["cost"])
+		assert_true(not GameData.VEIN_SECURITY["guarded"].has("cost"), "the Hired Guard tier has no purchase price")
 	)
 
 	run_case("vein_raid_resist_adds_a_flat_bonus_per_extra_guard_with_no_ceiling", func():
@@ -1329,8 +1385,9 @@ func run() -> void:
 		assert_eq(veins, [high_a, high_b, levelled, low], "magnitude desc (level counts), ties by siteId asc")
 	)
 
-	run_case("upgrade_vein_security_past_guarded_buys_an_escalating_stack_of_guards_instead_of_refusing", func():
+	run_case("upgrade_vein_security_past_guarded_hires_a_stack_of_guards_at_the_advance", func():
 		GameState.reset()
+		GameState.state["world"]["day"] = Calendar.monday_on_or_after(1)
 		GameState.state["player"]["cash"] = 100000
 		var vein := _vein(50)
 		vein["security"] = "guarded"
@@ -1340,28 +1397,17 @@ func run() -> void:
 		assert_true(result1["ok"], "guarded is no longer a hard ceiling -- the button keeps working")
 		var live_vein: Dictionary = GameState.state["player"]["veins"][0]
 		assert_eq(live_vein["security"], "guarded", "tier itself stays put -- guards stack on top, not a new tier")
-		assert_eq(live_vein["extraGuards"], 1, "first extra guard purchased")
-		assert_eq(GameState.state["player"]["cash"], 100000 - 200, "charged the first extra guard's cost (200)")
+		assert_eq(live_vein["extraGuards"], 1, "first extra guard hired")
+		assert_eq(GameState.state["player"]["cash"], 100000 - 500, "Monday advance")
 
 		var result2 := Cultivating.upgrade_vein_security("test_vein")
-		assert_true(result2["ok"], "buying a second extra guard also succeeds")
-		assert_eq(live_vein["extraGuards"], 2, "second extra guard purchased")
-		assert_eq(GameState.state["player"]["cash"], 100000 - 200 - 300, "the second guard costs more than the first (escalating curve)")
+		assert_true(result2["ok"], "hiring a second extra guard also succeeds")
+		assert_eq(live_vein["extraGuards"], 2)
+		assert_eq(GameState.state["player"]["cash"], 100000 - 1000, "flat advance, no escalating curve")
+		assert_eq(GameState.state["guardUpkeep"]["history"][0]["places"], { "test_vein": 1000 })
 
 		var bank_log: Array = GameState.state["bankLog"]
-		assert_eq(bank_log.size(), 2, "each guard purchase records its own bank transaction")
-	)
-
-	run_case("upgrade_vein_security_still_refuses_a_guard_stack_purchase_without_enough_cash", func():
-		GameState.reset()
-		GameState.state["player"]["cash"] = 50  # below the first extra guard's cost (200)
-		var vein := _vein(50)
-		vein["security"] = "guarded"
-		GameState.state["player"]["veins"] = [vein]
-		var result := Cultivating.upgrade_vein_security("test_vein")
-		assert_true(not result["ok"], "can't afford the first extra guard")
-		assert_eq(GameState.state["player"]["veins"][0].get("extraGuards", 0), 0, "no guard granted when refused")
-		assert_eq(GameState.state["player"]["cash"], 50, "no cash spent when refused")
+		assert_eq(bank_log.size(), 2, "each guard hire records its own bank transaction")
 	)
 
 	run_case("security_label_appends_extra_guard_count_only_once_stacking_has_started", func():

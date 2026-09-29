@@ -170,7 +170,7 @@ static func apply_passive_income() -> void:
 
 # ── Daily security-upgrade spend ─────────────────────────────────────────
 # A faction with spare resources (£, after today's trading) quietly hardens its highest-value held vein each
-# tick (same ladder/cost table as the player's upgrade_vein_security()). One upgrade
+# tick (same ladder and prices as the player's upgrade_vein_security(); "guarded" costs the guard hire advance). One upgrade
 # per faction per tick, targeting the highest basePrice * combined_magnitude vein that's both
 # below max security and affordable; no eligible/affordable vein is a no-op.
 static func apply_security_upgrades() -> void:
@@ -190,7 +190,7 @@ static func apply_security_upgrades() -> void:
 			var next_id: Variant = Cultivating.next_security_tier_id(vein["security"])
 			if next_id == null:
 				continue
-			var cost: int = GameData.VEIN_SECURITY[next_id]["cost"]
+			var cost: int = Cultivating.security_tier_cost(next_id)
 			if faction_state["resources"] < cost:
 				continue
 			var value: float = GameData.ORE_TYPES[vein["oreType"]]["basePrice"] * Cultivating.combined_magnitude(vein)

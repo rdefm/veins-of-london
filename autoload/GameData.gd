@@ -741,7 +741,9 @@ func _validate_vein_security(security: Dictionary, errors: Array[String]) -> voi
 		if not security.has(key):
 			errors.append("vein_security: missing tier '%s'" % key)
 			continue
-		_require_keys(security[key], ["label", "raidResist", "cost"], "vein_security.%s" % key, errors)
+		# "guarded" is a hired guard: no purchase price, only the wage (guardUpkeep).
+		var required := ["label", "raidResist"] if key == "guarded" else ["label", "raidResist", "cost"]
+		_require_keys(security[key], required, "vein_security.%s" % key, errors)
 
 
 func _validate_vein_alarm(alarm: Dictionary, errors: Array[String]) -> void:
@@ -771,7 +773,9 @@ func _validate_home(tier_order: Array, tiers: Dictionary, security: Dictionary, 
 
 	for key in security.keys():
 		var sec_entry: Dictionary = security[key]
-		_require_keys(sec_entry, ["id", "name", "cost", "raidReduction", "minTier", "description"], "home.security.%s" % key, errors)
+		# The HQ guard is hired: no purchase price, only the wage (guardUpkeep).
+		var required := ["id", "name", "raidReduction", "minTier", "description"] if key == "guard" else ["id", "name", "cost", "raidReduction", "minTier", "description"]
+		_require_keys(sec_entry, required, "home.security.%s" % key, errors)
 		if sec_entry.has("minTier") and not tiers.has(sec_entry["minTier"]):
 			errors.append("home.security.%s: minTier '%s' is not a known home tier" % [key, sec_entry["minTier"]])
 
