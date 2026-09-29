@@ -183,10 +183,19 @@ func _gui_input(event: InputEvent) -> void:
 		open_notifications_log()
 
 
-# Board tap routing: the Phone's Notifications app, or nothing mid-combat.
+# Board tap routing: the short-pay menu when the latest line is the pending
+# guard shortfall warning, else the Phone's Notifications app; nothing
+# mid-combat.
 static func open_notifications_log() -> bool:
 	if GameState.state["combat"]["active"]:
 		return false
+	var notifications: Array = GameState.state["notifications"]
+	for i in range(notifications.size() - 1, -1, -1):
+		if not notifications[i].get(Notify.META_COMBAT_LOG, false):
+			if GuardUpkeep.is_pending_shortfall_notification(notifications[i]):
+				PhoneNav.open_short_pay()
+				return true
+			break
 	Nav.go_to("phone")
 	PhoneNav.open_app("notifications")
 	return true

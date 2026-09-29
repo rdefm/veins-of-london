@@ -141,6 +141,12 @@ static func pending_shortfall() -> Variant:
 	return GameState.state["guardUpkeep"].get("pendingShortfall")
 
 
+# Whether `notification` is the warning for the shortfall still pending.
+static func is_pending_shortfall_notification(notification: Dictionary) -> bool:
+	var shortfall: Variant = pending_shortfall()
+	return shortfall != null and notification.get(Notify.META_GUARD_SHORTFALL) == true and int(notification["day"]) == int(shortfall["day"])
+
+
 # Records the one pending shortfall for today's short Monday bill: places is
 # { vein id or HOME_PLACE_ID: guards }, reserve the £ set aside from pot and
 # float (0 before the pot). The deadline is graceDays rollovers ahead; until
@@ -159,7 +165,7 @@ static func start_shortfall(places: Dictionary, reserve: int, due: int) -> void:
 		"reserve": reserve,
 	}
 	GameState.state["guardUpkeep"]["pendingShortfall"] = shortfall
-	Notify.push("Guard wages short: £%d due. Unpaid guards walk on %s — %s." % [due, Calendar.format_day(shortfall["deadline"]), places_text(places.keys())], Notify.CATEGORY_WARNING)
+	Notify.push("Guard wages short: £%d due. Unpaid guards walk on %s — %s." % [due, Calendar.format_day(shortfall["deadline"]), places_text(places.keys())], Notify.CATEGORY_WARNING, { Notify.META_GUARD_SHORTFALL: true })
 	EventBus.state_changed.emit()
 
 
@@ -200,19 +206,92 @@ static func _auto_resolve(shortfall: Dictionary) -> Dictionary:
 	elif paid > 0:
 		player["cash"] -= paid
 		Bank.record(-paid, WAGES_BANK_LABEL)
-	if reserve > 0:
-		if pot_era:
-			GameState.state["business"]["float"] += reserve
+	_close_shortfall(reserve, paid, kept, walked)
+	return { "paid": paid, "kept": kept, "walked": walked }
+
+
+# Returns leftover reserve to the float (pot era) or cash, clears the
+# shortfall and posts the paid and walk-off notifications.
+static func _close_shortfall(leftover_reserve: int, paid: int, kept: int, walked: Dictionary) -> void:
+	if leftover_reserve > 0:
+		if Business.is_pot_active():
+			GameState.state["business"]["float"] += leftover_reserve
 		else:
-			player["cash"] += reserve
-			Bank.record(reserve, RESERVE_BANK_LABEL)
+			GameState.state["player"]["cash"] += leftover_reserve
+			Bank.record(leftover_reserve, RESERVE_BANK_LABEL)
 	GameState.state["guardUpkeep"]["pendingShortfall"] = null
 	if paid > 0:
 		Notify.push("Guard wages: -£%d for %d guard%s this week." % [paid, kept, "" if kept == 1 else "s"])
 	if not walked.is_empty():
 		Notify.push("Unpaid guards walked off: %s." % walked_text(walked), Notify.CATEGORY_WARNING)
 	EventBus.state_changed.emit()
-	return { "paid": paid, "kept": kept, "walked": walked }
+
+
+# The short-pay menu's rows: the pending shortfall's guards still at risk,
+# { place id: guards }. Empty with no shortfall.
+static func short_pay_places() -> Dictionary:
+	var shortfall: Variant = pending_shortfall()
+	if shortfall == null:
+		return {}
+	return _guards_at_risk(shortfall["places"])
+
+
+# What confirming `keep` ({ place id: guards to keep }, clamped to
+# 0..guards at risk) costs: { cost, reserve, cashNeeded } (spec §Short-pay
+# flow, Menu).
+static func short_pay_quote(keep: Dictionary) -> Dictionary:
+	var shortfall: Variant = pending_shortfall()
+	var reserve := 0 if shortfall == null else int(shortfall["reserve"])
+	var cost := 0
+	var kept := _clamp_keep(short_pay_places(), keep)
+	for place_id in kept:
+		cost += weekly_cost(int(kept[place_id]))
+	return { "cost": cost, "reserve": reserve, "cashNeeded": maxi(cost - reserve, 0) }
+
+
+# Short-pay confirm (spec §Short-pay flow, Confirm): each place keeps
+# keep[place id] guards (missing = 0), paid weeklyWage each from the reserve
+# first, then cash (bank "Guard wages"). Unkept guards walk now, newest
+# extra first, tier guard last. Leftover reserve goes as on auto-resolve and
+# the shortfall clears. Refused, nothing changed, when cash can't cover the
+# difference. Returns { ok, paid, walked } or { ok: false, reason }.
+static func confirm_shortfall(keep: Dictionary) -> Dictionary:
+	if pending_shortfall() == null:
+		return { "ok": false, "reason": "No guard wages are owed." }
+	var quote := short_pay_quote(keep)
+	var player: Dictionary = GameState.state["player"]
+	if int(player["cash"]) < int(quote["cashNeeded"]):
+		return { "ok": false, "reason": "Not enough cash." }
+	var at_risk := short_pay_places()
+	var kept_by_place := _clamp_keep(at_risk, keep)
+	var walked := {}
+	var kept := 0
+	for place_id in at_risk:
+		var keeping := int(kept_by_place[place_id])
+		var dropping := int(at_risk[place_id]) - keeping
+		for i in dropping:
+			if place_id == HOME_PLACE_ID:
+				Home.drop_guard()
+			else:
+				Cultivating.drop_vein_guard(Cultivating.find_vein(place_id))
+		if dropping > 0:
+			walked[place_id] = dropping
+		record_payment(place_id, weekly_cost(keeping))
+		kept += keeping
+	if int(quote["cashNeeded"]) > 0:
+		player["cash"] -= int(quote["cashNeeded"])
+		Bank.record(-int(quote["cashNeeded"]), WAGES_BANK_LABEL)
+	var leftover := int(quote["reserve"]) - (int(quote["cost"]) - int(quote["cashNeeded"]))
+	_close_shortfall(leftover, int(quote["cost"]), kept, walked)
+	return { "ok": true, "paid": quote["cost"], "walked": walked }
+
+
+# keep counts for every at-risk place, each clamped to 0..its guards.
+static func _clamp_keep(at_risk: Dictionary, keep: Dictionary) -> Dictionary:
+	var kept := {}
+	for place_id in at_risk:
+		kept[place_id] = clampi(int(keep.get(place_id, 0)), 0, int(at_risk[place_id]))
+	return kept
 
 
 # Each recorded place's guards still on duty, capped at its recorded count:

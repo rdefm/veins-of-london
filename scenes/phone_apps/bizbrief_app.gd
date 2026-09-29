@@ -5,7 +5,8 @@
 # contacts, roles, pay) and, once the business pot is active, Stats tab
 # (10-day business performance charts). The selected tab and ore-chart
 # source are view state held here, not in state.phoneNav, so they reset
-# with the screen.
+# with the screen. state.phoneNav.bizbriefView "shortPay" shows the
+# short-pay sub-view (ShortPayView) instead while a guard shortfall is pending.
 class_name BizBriefApp
 extends PhoneApp
 
@@ -14,6 +15,7 @@ const OffersSystem := preload("res://systems/offers.gd")
 const ContractsSystem := preload("res://systems/contracts.gd")
 const ContractCard := preload("res://scenes/components/contract_card.gd")
 const LineChartScript := preload("res://scenes/components/line_chart.gd")
+const ShortPayViewScript := preload("res://scenes/phone_apps/short_pay_view.gd")
 
 # Keyed by Contracts.has_staffed_sales(): whether the block-end Sales pass runs.
 const SALES_STATUS_TEXT := {
@@ -34,9 +36,13 @@ var _tab := BRIEF_TAB
 var _ore_source := "oreCultivator"
 # Production-log days shown expanded (view state), day -> true.
 var _expanded_log_days := {}
+var _short_pay := ShortPayViewScript.new()
 
 
 func build(content: VBoxContainer) -> void:
+	if GameState.state["phoneNav"].get("bizbriefView") == PhoneNav.BIZBRIEF_SHORT_PAY_VIEW and GuardUpkeep.pending_shortfall() != null:
+		_short_pay.build(content, refresh)
+		return
 	content.add_child(back_button())
 	content.add_child(UI.heading("BizBrief"))
 	content.add_child(_build_tabs())

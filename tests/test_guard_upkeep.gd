@@ -261,6 +261,73 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["cash"], 4000)
 	)
 
+	run_case("short_pay_confirm_pays_kept_guards_from_cash_and_walks_the_rest", func():
+		var monday := _seed_guards()
+		GameState.state["world"]["day"] = monday
+		GameState.state["player"]["cash"] = 1200
+		GuardUpkeep.pay_monday_bill()
+		assert_eq(GuardUpkeep.short_pay_quote({ "v1": 1, "v2": 0, "home": 1 }), { "cost": 1000, "reserve": 0, "cashNeeded": 1000 })
+		var result := GuardUpkeep.confirm_shortfall({ "v1": 1, "v2": 0, "home": 1 })
+		assert_eq(result, { "ok": true, "paid": 1000, "walked": { "v1": 1, "v2": 1 } })
+		var v1: Dictionary = Cultivating.find_vein("v1")
+		assert_eq([v1["security"], v1["extraGuards"]], ["guarded", 0], "the extra walks, the tier guard stays")
+		assert_eq(Cultivating.find_vein("v2")["security"], "warded", "keeping 0 loses the tier")
+		assert_eq(Home.get_guard_count(), 1)
+		assert_eq(GameState.state["player"]["cash"], 200)
+		assert_eq(GameState.state["bankLog"][-1]["label"], "Guard wages")
+		assert_eq(GameState.state["bankLog"][-1]["amount"], -1000)
+		assert_eq(GameState.state["guardUpkeep"]["history"][-1], { "day": monday, "places": { "v1": 500, "home": 500 } })
+		assert_eq(GuardUpkeep.pending_shortfall(), null)
+		assert_eq(MorningAccounts.attention_items().filter(func(i): return i["kind"] == "guardShortfall"), [], "the attention row clears")
+	)
+
+	run_case("short_pay_confirm_draws_the_reserve_before_cash_and_floats_leftover", func():
+		_seed_pot_monday(1500, 100)
+		TimeSystem.daily_tick()
+		GameState.state["player"]["cash"] = 500
+		var float_before: int = GameState.state["business"]["float"]
+		var result := GuardUpkeep.confirm_shortfall({ "v1": 2, "v2": 1, "home": 1 })
+		assert_eq(result, { "ok": true, "paid": 2000, "walked": {} })
+		assert_eq(GameState.state["player"]["cash"], 500 - (2000 - 1564), "cash covers what the reserve can't")
+		assert_eq(GameState.state["business"]["float"], float_before)
+		_seed_pot_monday(1500, 100)
+		TimeSystem.daily_tick()
+		GameState.state["player"]["cash"] = 0
+		float_before = GameState.state["business"]["float"]
+		GuardUpkeep.confirm_shortfall({ "v1": 1, "v2": 1, "home": 1 })
+		assert_eq(GameState.state["player"]["cash"], 0, "no cash needed")
+		assert_eq(GameState.state["business"]["float"], float_before + 64, "1564 − 1500 leftover to the float")
+		assert_eq(GuardUpkeep.pending_shortfall(), null)
+	)
+
+	run_case("short_pay_confirm_is_refused_when_cash_cant_cover_it", func():
+		var monday := _seed_guards()
+		GameState.state["world"]["day"] = monday
+		GameState.state["player"]["cash"] = 900
+		GuardUpkeep.pay_monday_bill()
+		var before: Dictionary = GameState.state.duplicate(true)
+		assert_eq(GuardUpkeep.confirm_shortfall({ "v1": 2 }), { "ok": false, "reason": "Not enough cash." })
+		assert_eq(GameState.state, before, "nothing changed")
+	)
+
+	run_case("attention_row_notification_and_board_tap_open_the_short_pay_menu", func():
+		var monday := _seed_guards()
+		GameState.state["world"]["day"] = monday
+		GameState.state["player"]["cash"] = 0
+		GuardUpkeep.pay_monday_bill()
+		var items := MorningAccounts.attention_items().filter(func(i): return i["kind"] == "guardShortfall")
+		assert_eq(items.size(), 1, "a Brief attention row")
+		MorningAccounts.open_attention(items[0])
+		assert_eq([GameState.state["currentScreen"], GameState.state["phoneNav"]["app"], GameState.state["phoneNav"]["bizbriefView"]], ["phone", "bizbrief", "shortPay"])
+		PhoneNav.go_home()
+		var warning: Dictionary = GameState.state["notifications"][-1]
+		assert_true(GuardUpkeep.is_pending_shortfall_notification(warning), "the warning links to the menu")
+		assert_true(TopBar.open_notifications_log())
+		assert_eq([GameState.state["phoneNav"]["app"], GameState.state["phoneNav"]["bizbriefView"]], ["bizbrief", "shortPay"], "the board tap deep-links")
+		GuardUpkeep.confirm_shortfall({})
+		assert_true(not GuardUpkeep.is_pending_shortfall_notification(warning), "not once it's resolved")
+	)
+
 
 # v1: tier guard + 1 extra, v2: tier guard, v3: ward rune only, HQ: 1 guard
 # at the compound. Returns the first Monday.

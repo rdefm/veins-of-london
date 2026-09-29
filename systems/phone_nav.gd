@@ -8,12 +8,15 @@ extends RefCounted
 
 const APPS: Array[String] = ["alarms", "bizbrief", "dialer", "messages", "todo", "factions", "ticker", "profile", "saveload", "settings", "notifications", "bank", "property"]
 
+const BIZBRIEF_SHORT_PAY_VIEW := "shortPay"
+
 
 static func open_app(app_id: String) -> void:
 	GameState.state["phoneNav"]["app"] = app_id
 	GameState.state["phoneNav"]["selectedAxis"] = null
 	GameState.state["phoneNav"]["selectedContactId"] = null
 	GameState.state["phoneNav"]["confirmingNewGame"] = false
+	GameState.state["phoneNav"]["bizbriefView"] = null
 	EventBus.state_changed.emit()
 
 
@@ -22,6 +25,7 @@ static func go_home() -> void:
 	GameState.state["phoneNav"]["selectedAxis"] = null
 	GameState.state["phoneNav"]["selectedContactId"] = null
 	GameState.state["phoneNav"]["confirmingNewGame"] = false
+	GameState.state["phoneNav"]["bizbriefView"] = null
 	EventBus.state_changed.emit()
 
 
@@ -63,6 +67,20 @@ static func select_conversation(contact_id: String) -> void:
 static func back_to_messages() -> void:
 	GameState.state["phoneNav"]["app"] = "messages"
 	GameState.state["phoneNav"]["selectedContactId"] = null
+	EventBus.state_changed.emit()
+
+
+# BizBrief's short-pay sub-view (spec §Short-pay flow), from the Brief
+# attention row or the shortfall notification.
+static func open_short_pay() -> void:
+	Nav.go_to("phone")
+	open_app("bizbrief")
+	GameState.state["phoneNav"]["bizbriefView"] = BIZBRIEF_SHORT_PAY_VIEW
+	EventBus.state_changed.emit()
+
+
+static func close_bizbrief_view() -> void:
+	GameState.state["phoneNav"]["bizbriefView"] = null
 	EventBus.state_changed.emit()
 
 

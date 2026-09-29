@@ -25,6 +25,10 @@ const META_COMBAT_LOG := "combatLog"
 # clear can find that contact's queued lines.
 const META_CONTACT_ID := "contactId"
 
+# Flag on the guard-wages-short warning; the Notifications app offers the
+# short-pay menu on it while that shortfall is pending.
+const META_GUARD_SHORTFALL := "guardShortfall"
+
 
 # `meta`: optional extra pure-data fields merged onto the entry, e.g.
 # `{"veinId": ...}` so phone.gd can render a Defend button on that entry.
