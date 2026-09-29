@@ -546,6 +546,18 @@ func run() -> void:
 		assert_eq(Home.get_guard_count(), 3, "get_guard_count() reflects the same total")
 	)
 
+	run_case("drop_guard_decrements_guardCount_and_leaves_security_alone", func():
+		GameState.reset()
+		GameState.state["home"]["guardCount"] = 2
+		GameState.state["home"]["security"] = ["lock"]
+		assert_true(Home.drop_guard())
+		assert_eq(Home.get_guard_count(), 1)
+		assert_true(Home.drop_guard())
+		assert_true(not Home.drop_guard(), "nothing left to drop")
+		assert_eq(Home.get_guard_count(), 0)
+		assert_eq(GameState.state["home"]["security"], ["lock"], "home.security unchanged")
+	)
+
 	run_case("guard_purchase_still_enforces_minTier_and_cash", func():
 		GameState.reset()
 		GameState.state["player"]["cash"] = 100000

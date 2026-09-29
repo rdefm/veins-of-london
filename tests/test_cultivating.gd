@@ -1280,6 +1280,55 @@ func run() -> void:
 		assert_eq(Cultivating.vein_raid_resist(vein), 0, "missing extraGuards reads as 0, same as before this ticket")
 	)
 
+	run_case("vein_guard_count_is_the_tier_guard_plus_extras", func():
+		var vein := _vein(50)
+		assert_eq(Cultivating.vein_guard_count(vein), 0, "no tier guard, no extras")
+		vein["security"] = "warded"
+		vein["extraGuards"] = 2
+		assert_eq(Cultivating.vein_guard_count(vein), 2, "extras count even without the tier guard")
+		vein["security"] = "guarded"
+		assert_eq(Cultivating.vein_guard_count(vein), 3, "tier guard + 2 extras")
+	)
+
+	run_case("drop_vein_guard_takes_extras_first_then_the_tier_guard", func():
+		var vein := _vein(50)
+		vein["security"] = "guarded"
+		vein["extraGuards"] = 2
+		vein["alarmUpgrades"] = ["alarm"]
+		assert_true(Cultivating.drop_vein_guard(vein))
+		assert_eq(vein["extraGuards"], 1, "newest extra goes first")
+		assert_eq(vein["security"], "guarded")
+		assert_true(Cultivating.drop_vein_guard(vein))
+		assert_eq(vein["extraGuards"], 0)
+		assert_eq(vein["security"], "guarded", "tier guard stays until the extras are gone")
+		assert_true(Cultivating.drop_vein_guard(vein))
+		assert_eq(vein["security"], "warded", "losing the tier guard drops guarded -> warded")
+		assert_true(not Cultivating.drop_vein_guard(vein), "no guard left to drop")
+		assert_eq(vein["security"], "warded", "the ward rune is never lost")
+		assert_eq(vein["alarmUpgrades"], ["alarm"], "alarm upgrades untouched")
+	)
+
+	run_case("drop_vein_guard_never_touches_a_lock", func():
+		var vein := _vein(50)
+		vein["security"] = "basic"
+		assert_true(not Cultivating.drop_vein_guard(vein))
+		assert_eq(vein["security"], "basic")
+	)
+
+	run_case("value_order_sorts_by_combined_magnitude_then_site_id", func():
+		var low := _vein(10)
+		low["siteId"] = "a"
+		var high_b := _vein(90)
+		high_b["siteId"] = "b"
+		var high_a := _vein(90)
+		high_a["siteId"] = "a"
+		var levelled := _vein(10, "shoreditch", [], "fair", 3)
+		levelled["siteId"] = "z"
+		var veins := [low, high_b, levelled, high_a]
+		veins.sort_custom(Cultivating.value_order)
+		assert_eq(veins, [high_a, high_b, levelled, low], "magnitude desc (level counts), ties by siteId asc")
+	)
+
 	run_case("upgrade_vein_security_past_guarded_buys_an_escalating_stack_of_guards_instead_of_refusing", func():
 		GameState.reset()
 		GameState.state["player"]["cash"] = 100000

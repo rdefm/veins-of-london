@@ -460,6 +460,16 @@ static func get_guard_count() -> int:
 	return GameState.state["home"].get("guardCount", 0)
 
 
+# Removes one HQ guard. HQ has no tier to lose, so home.security is
+# untouched (spec §Guard counting). Returns false with no guards left.
+static func drop_guard() -> bool:
+	var count := get_guard_count()
+	if count <= 0:
+		return false
+	GameState.state["home"]["guardCount"] = count - 1
+	return true
+
+
 # Fills the next empty selectable slot (home.rooms is in slot order, R§2).
 static func add_room(room_id: String) -> Dictionary:
 	return set_room_use(GameState.state["home"]["rooms"].size(), room_id)

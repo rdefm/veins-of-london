@@ -332,7 +332,21 @@ func backfill_defaults(save: Dictionary) -> Dictionary:
 	_backfill_new_sales_keys(result, defaults)
 	_backfill_new_combat_keys(result, defaults)
 	_backfill_new_flag_keys(result, defaults)
+	_backfill_expense_kinds(result)
 	return result
+
+
+# Stats tallies saved before expenses were split by kind read each kind as 0;
+# their unsplit total stays in "expenses".
+func _backfill_expense_kinds(result: Dictionary) -> void:
+	var business_stats: Dictionary = result.get("businessStats", {})
+	var records: Array = business_stats.get("days", []).duplicate()
+	if business_stats.has("today"):
+		records.append(business_stats["today"])
+	for record in records:
+		for metric in BusinessStats.EXPENSE_KIND_METRICS.values():
+			if not record.has(metric):
+				record[metric] = 0
 
 
 # A flag added after the save was made starts at its new-game default.

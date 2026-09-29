@@ -621,6 +621,25 @@ func run() -> void:
 		assert_eq(typeof(GameState.state["businessStats"]["today"]["revenue"]), TYPE_INT)
 	)
 
+	run_case("loading_stats_without_expense_kinds_backfills_them_as_zero", func():
+		GameState.reset()
+		var legacy: Dictionary = GameState.deep_copy(GameState.state)
+		legacy["businessStats"] = {
+			"today": { "revenue": 0, "expenses": 30, "oreCultivator": 0, "orePlayer": 0 },
+			"days": [{ "day": 4, "revenue": 90, "expenses": 10, "oreCultivator": 3, "orePlayer": 2, "items": 1 }],
+		}
+		assert_true(SaveManager._load_save_dict(legacy)["ok"])
+		var stats: Dictionary = GameState.state["businessStats"]
+		for record in [stats["today"], stats["days"][0]]:
+			assert_eq(record["expensesStaff"], 0)
+			assert_eq(record["expensesGuard"], 0)
+			assert_eq(record["expensesCalc"], 0)
+		assert_eq(stats["days"][0]["expenses"], 10, "the unsplit total is kept")
+		BusinessStats.record_expense(5, BusinessStats.EXPENSE_GUARD)
+		assert_eq(stats["today"]["expenses"], 35)
+		assert_eq(stats["today"]["expensesGuard"], 5)
+	)
+
 	run_case("productionLog_round_trips_through_json_with_int_counts", func():
 		GameState.reset()
 		GameState.state["productionLog"] = [{ "day": 3, "blocks": [{ "block": 1, "entries": [{ "contactId": "james", "made": { "timePearl": { "2": 4 } }, "failed": { "timePearl": 1 }, "oreShort": { "recipeKey": "timePearl", "ore": ["time"] } }] }] }]

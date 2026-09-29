@@ -7,6 +7,8 @@ extends RefCounted
 # data/vein_security.json's upgrade ladder (R§1.6), pinned explicitly rather
 # than relying on the table's JSON key order.
 const VEIN_SECURITY_ORDER: Array[String] = ["none", "basic", "warded", "guarded"]
+const WARDED_TIER_ID := "warded"
+const GUARDED_TIER_ID := "guarded"
 
 # Fallback street list used by generate_location_name() for any district not
 # in DISTRICT_STREETS below (also used directly for whitechapel).
@@ -78,6 +80,16 @@ static func value_tier(vein: Dictionary) -> int:
 # responsible for clamping to its own valid range.
 static func combined_magnitude(vein: Dictionary) -> int:
 	return value_tier(vein) + (vein.get("level", 1) - 1)
+
+
+# sort_custom comparator shared by player and faction veins: most valuable
+# first (combined_magnitude), ties by siteId ascending (R§1.8).
+static func value_order(a: Dictionary, b: Dictionary) -> bool:
+	var value_a := combined_magnitude(a)
+	var value_b := combined_magnitude(b)
+	if value_a != value_b:
+		return value_a > value_b
+	return str(a.get("siteId", "")) < str(b.get("siteId", ""))
 
 
 # 100, or 120 with the wildCeiling hospitability bonus (R§1.2).
@@ -575,6 +587,26 @@ const EXTRA_GUARD_RAID_RESIST := 20
 static func vein_raid_resist(vein: Dictionary) -> int:
 	var base: int = GameData.VEIN_SECURITY[vein["security"]]["raidResist"]
 	return base + vein.get("extraGuards", 0) * EXTRA_GUARD_RAID_RESIST
+
+
+# Guards on a vein (player or faction): the "guarded" tier guard plus
+# extraGuards (spec §Guard counting).
+static func vein_guard_count(vein: Dictionary) -> int:
+	var tier_guard := 1 if vein["security"] == GUARDED_TIER_ID else 0
+	return tier_guard + int(vein.get("extraGuards", 0))
+
+
+# Removes a vein's last guard slot: the newest extra first, the tier guard
+# last ("guarded" -> "warded"). Lock, ward rune and alarm upgrades are never
+# touched. Returns false when the vein has no guard to drop.
+static func drop_vein_guard(vein: Dictionary) -> bool:
+	if int(vein.get("extraGuards", 0)) > 0:
+		vein["extraGuards"] = int(vein["extraGuards"]) - 1
+		return true
+	if vein["security"] == GUARDED_TIER_ID:
+		vein["security"] = WARDED_TIER_ID
+		return true
+	return false
 
 
 # Display label: the tier label, plus a "+N" suffix once extra guards are stacked on top (e.g. "Hired Guard +2").

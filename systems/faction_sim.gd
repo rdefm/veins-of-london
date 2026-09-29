@@ -333,7 +333,7 @@ static func _taken_qty(parts: Array) -> int:
 # ── Per-vein kit allocation (spec §Per-vein kit allocation) ───────────────
 # Rollover step after consume(): each faction assigns its held `defend` kit
 # items (factions.json `raidKits.defend`) to its veins' guards, most valuable
-# vein first (Cultivating.combined_magnitude, ties by siteId ascending), each
+# vein first (Cultivating.value_order), each
 # vein taking up to one defend kit per item from what's still unassigned. A
 # short faction's least valuable veins go without first. The allocation is a
 # record on factionVein.kit = { recipeKey: qty } (items it has, absent = 0);
@@ -366,7 +366,7 @@ static func _allocate_faction_kits(faction_id: String, holdings: Dictionary, vei
 		for count in holdings["items"].get(recipe_key, {}).values():
 			total += int(count)
 		unassigned[recipe_key] = total
-	veins.sort_custom(_value_order)
+	veins.sort_custom(Cultivating.value_order)
 	for vein in veins:
 		var kit := {}
 		for recipe_key in defend:
@@ -375,14 +375,6 @@ static func _allocate_faction_kits(faction_id: String, holdings: Dictionary, vei
 				kit[recipe_key] = qty
 				unassigned[recipe_key] -= qty
 		vein["kit"] = kit
-
-
-static func _value_order(a: Dictionary, b: Dictionary) -> bool:
-	var value_a := Cultivating.combined_magnitude(a)
-	var value_b := Cultivating.combined_magnitude(b)
-	if value_a != value_b:
-		return value_a > value_b
-	return str(a.get("siteId", "")) < str(b.get("siteId", ""))
 
 
 # The kit a site's faction vein holds for defence; {} for no faction vein.

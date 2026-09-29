@@ -26,7 +26,7 @@ Data file per system: see `data/*.json` below.
 | bank.gd | Cash transaction log |
 | barometer.gd | Economic/social/political barometer (Ticker) + faction prefs; merged effects incl. item-demand multipliers |
 | business_quest.gd | business_empire questline side effects (state.businessQuest): Beat 1/3/5/6/7/8 trigger texts, Beat 2 starter-offer chain, recurring offers (ore from Beat 3, Time Pearl from Beat 6; reissued a day after lapse), Beat 8 closing payload from the latest payday record, James's crafting-skill set, Owen's crafting-event trigger. Rules: REFERENCE.md "Business Empire questline" |
-| business_stats.gd | BizBrief Stats tab's daily tally (revenue, expenses, cultivator/player ore); rollover snapshot with productionLog items into `businessStats.days`, 10-day trim, zero-filled chart series |
+| business_stats.gd | BizBrief Stats tab's daily tally (revenue, expenses split by kind staff/guard/calc, cultivator/player ore); rollover snapshot with productionLog items into `businessStats.days`, 10-day trim, zero-filled chart series |
 | business.gd | Business pot (contract settlements while active; pays Sales calc purchases as `calc` expenses), weekly payday (Owen's wage, 3-way split, ledger), owed wages + pay-from-cash, Staff tab pay-terms/status labels |
 | bench.gd | Lab discovery engine (type-set × approach) |
 | bubble_layout.gd | Popup-position math for MapBubble |
@@ -39,7 +39,7 @@ Data file per system: see `data/*.json` below.
 | contacts.gd | Relation, recruiting (incl. story `force_recruit`), room assignment, founder staff roles (`set_role`/`role_of`/`available_roles`), capped XP, ally combat kit + per-day ally Dial charges (`daily_dial_regen()`) |
 | contracts.gd | Block-end Sales auto-delivery (full, then partials by priority; goods to buyer holdings + supplier share), settlement to pot; recurring periods pay on fill, lock (`periodFilled`) until Monday renewal, expire at term end; per-contract `buyCalc` calc buys from the pot; unattended-proof taint (`playerAssisted`) and `qualified` settlements; `cancel()` (unpaid, hurts counterparty) |
 | crafting.gd | Recipe crafting |
-| cultivating.gd | Vein growth / cultivate / prune |
+| cultivating.gd | Vein growth / cultivate / prune; security tiers + raid resist; shared vein `value_order`; vein guard count + `drop_vein_guard` |
 | debug_start.gd | Maximal-unlock debug state; `apply(model)` keeps a picked `player.model` through its reset |
 | debug_tools.gd | Debug phone-app state adjusters; `fire_event()` preps any event (state-path veins/sites, addressed contacts, raid/reveal site context) then starts it |
 | dial.gd | Dial mechanic (Movements, charge economy) |
@@ -52,7 +52,7 @@ Data file per system: see `data/*.json` below.
 | events.gd | Event-card runner + rewind, auto-discovers art |
 | faction_sim.gd | FactionSim: faction holdings (ore, items by tier); stockpile pick; daily vein tend + prune, sparing one maturing vein until it levels (R§1.8 `fieldwork`); crafting toward targets (`craftSkill`); consumption + kit burns → shortfall; defend-kit allocation, `vein_kit`, defend-raid `raider_kit` (`raidKits`); London sell/buy vs reserve, Conclave arbitrage (`trading`) |
 | factions.gd | Faction joining |
-| home.gd | Home tier/tenure/security/rooms/raid chance; per-day and weekly bill base (rent or utilities); arrears countdown in days to the Monday rollover; rent/buy/buy-out/downgrade tier moves via shared `change_tier` (room wipe, security loss); per-slot room purchase/replacement (`set_room_use`); daily raid roll, alarm queue/expiry, and alarm-defend win/loss resolution (R§3.8) |
+| home.gd | Home tier/tenure/security/rooms/raid chance; per-day and weekly bill base (rent or utilities); arrears countdown to Monday; rent/buy/buy-out/downgrade tier moves via shared `change_tier` (room wipe, security loss); HQ `drop_guard`; per-slot room purchase/replacement (`set_room_use`); daily raid roll, alarm queue/expiry, and alarm-defend win/loss resolution (R§3.8) |
 | jobs.gd | James's jobs, trust bands |
 | lab_bench_nav.gd | Lab bench nav: selected ore; gear confirm variant (probe/craft/inert) + readiness |
 | map_events.gd | Map event queue + playback |
@@ -227,7 +227,7 @@ overlays.
 | collective_barks.json | collective.gd |
 | combat_prototype.json | combat_prototype.gd |
 | combat_visuals.json | combat_stage.gd (locationBackdrops, backdrops, pose sheets, stage.spriteScale); GameData.gd (territorialVariant pose spec); combat_director.gd (pacing.turnPause); turn_order_strip.gd (cardFrames) |
-| constants.json | calendar.gd (calendar), time_system.gd, jobs.gd, GameState.gd, contacts.gd (contacts roster incl. handler/owen; founder roleFlags, skillCaps), business.gd (weekly wages), rooms.gd (productionLogDays), business_stats.gd (businessStatsDays), shares.gd (sharesDays, sharesWindowDays), factions.gd (factionRivalry) |
+| constants.json | calendar.gd (calendar), time_system.gd, jobs.gd, GameState.gd, contacts.gd (contacts roster incl. handler/owen; founder roleFlags, skillCaps), business.gd (weekly wages), rooms.gd (productionLogDays), business_stats.gd (businessStatsDays), shares.gd (sharesDays, sharesWindowDays), factions.gd (factionRivalry), GameData.GUARD_UPKEEP (guardUpkeep) |
 | daily_cycle.json | time_transition.gd (circle layout, sky clips, colours, timing) |
 | dial.json | dial.gd |
 | districts.json | widely read (sites, economy, factions, raiding) |

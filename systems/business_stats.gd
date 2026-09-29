@@ -7,8 +7,17 @@ extends RefCounted
 # productionLog items into days[], trimmed to BUSINESS_STATS_DAYS. Static
 # funcs only.
 
-const TALLIES := ["revenue", "expenses", "oreCultivator", "orePlayer"]
-const METRICS := ["revenue", "expenses", "oreCultivator", "orePlayer", "items"]
+const EXPENSE_STAFF := "staff"
+const EXPENSE_GUARD := "guard"
+const EXPENSE_CALC := "calc"
+# Expense kind -> its per-kind tally key; the kinds sum to "expenses".
+const EXPENSE_KIND_METRICS := {
+	EXPENSE_STAFF: "expensesStaff",
+	EXPENSE_GUARD: "expensesGuard",
+	EXPENSE_CALC: "expensesCalc",
+}
+const TALLIES := ["revenue", "expenses", "expensesStaff", "expensesGuard", "expensesCalc", "oreCultivator", "orePlayer"]
+const METRICS := ["revenue", "expenses", "expensesStaff", "expensesGuard", "expensesCalc", "oreCultivator", "orePlayer", "items"]
 
 
 static func _stats() -> Dictionary:
@@ -27,9 +36,12 @@ static func record_revenue(amount: int) -> void:
 	_add("revenue", amount)
 
 
-# Staff wages (pot or player cash) and Sales calc purchases.
-static func record_expense(amount: int) -> void:
+# Staff wages, guard wages and Sales calc purchases (kind: an EXPENSE_* id),
+# added to both the total and that kind's tally.
+static func record_expense(amount: int, kind: String) -> void:
+	assert(EXPENSE_KIND_METRICS.has(kind), "unknown expense kind '%s'" % kind)
 	_add("expenses", amount)
+	_add(EXPENSE_KIND_METRICS[kind], amount)
 
 
 # A staff block's cultivator yield, { oreType: qty }.

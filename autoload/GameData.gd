@@ -166,6 +166,11 @@ var JAMES_JOB_TRUST_BANDS: Array = []
 var GUARD_REPEL_CHANCE_PER_GUARD: float = 0.0
 var GUARD_REPEL_CHANCE_CAP: float = 0.0
 
+# Guard wages and the faction guard-hire caps (R§1.6):
+# { weeklyWage, graceDays, guardCostHistoryDays,
+#   faction: { maxExtraGuardsPerVein, wageReserveWeeks } }.
+var GUARD_UPKEEP: Dictionary = {}
+
 # Cultivating XP a staffed cultivator earns per block action (prune or
 # cultivate roll, success or fail), R§3.10.
 var CULTIVATOR_ACTION_XP: int = 0
@@ -348,6 +353,7 @@ const MANIFEST: Array[Dictionary] = [
 		{"field": "JAMES_JOB_TRUST_BANDS", "key": "jamesJobTrustBands", "type": TYPE_ARRAY},
 		{"field": "GUARD_REPEL_CHANCE_PER_GUARD", "key": "guardRepel.chancePerGuard", "type": TYPE_FLOAT},
 		{"field": "GUARD_REPEL_CHANCE_CAP", "key": "guardRepel.cap", "type": TYPE_FLOAT},
+		{"field": "GUARD_UPKEEP", "key": "guardUpkeep", "type": TYPE_DICTIONARY},
 		{"field": "CULTIVATOR_ACTION_XP", "key": "cultivatorActionXp", "type": TYPE_INT},
 		{"field": "PRODUCTION_LOG_DAYS", "key": "productionLogDays", "type": TYPE_INT},
 		{"field": "PRODUCTION_TARGET_MAX", "key": "productionTargetMax", "type": TYPE_INT},
@@ -496,6 +502,7 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_combat_visuals(t.get("combat_visuals", {}), t.get("palette", {}), errors)
 	_validate_hq_visuals(t.get("hq_visuals", {}), t.get("palette", {}), errors)
 	_validate_constants(t.get("time_blocks", []), t.get("contacts_defaults", {}), errors)
+	_validate_guard_upkeep(t.get("guard_upkeep", {}), errors)
 	_validate_events(t.get("events", {}), t.get("districts", {}), errors)
 	_validate_objectives(t.get("objectives", {}), t.get("factions", {}), t.get("ore_types", {}), t.get("site_tier_order", []), t.get("recipes", {}), errors)
 	_validate_collective_barks(t.get("collective_barks", {}), errors)
@@ -1253,6 +1260,23 @@ func _validate_constants(time_blocks: Array, contacts_defaults: Dictionary, erro
 			errors.append("constants: contacts is missing '%s'" % key)
 			continue
 		_require_keys(contacts_defaults[key], ["startRelation", "unlocked", "recruitThreshold", "recruitable"], "constants.contacts.%s" % key, errors)
+
+
+# Every guardUpkeep number is a whole number; the wage and history window
+# must be positive, the rest non-negative.
+func _validate_guard_upkeep(guard_upkeep: Dictionary, errors: Array[String]) -> void:
+	var faction: Variant = guard_upkeep.get("faction", {})
+	if typeof(faction) != TYPE_DICTIONARY:
+		errors.append("constants.guardUpkeep.faction: must be an object")
+		faction = {}
+	var checks := [
+		["weeklyWage", guard_upkeep, 1], ["graceDays", guard_upkeep, 0], ["guardCostHistoryDays", guard_upkeep, 1],
+		["maxExtraGuardsPerVein", faction, 0], ["wageReserveWeeks", faction, 0],
+	]
+	for check in checks:
+		var value: Variant = check[1].get(check[0])
+		if typeof(value) != TYPE_INT or int(value) < int(check[2]):
+			errors.append("constants.guardUpkeep.%s: must be an int >= %d" % [check[0], check[2]])
 
 
 # Cosmetic-only flavour lines, minimum 6 per vendor so no-repeat-until-

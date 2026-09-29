@@ -110,6 +110,28 @@ func run() -> void:
 		assert_true(not errors.is_empty(), "removing a canonical ore type should fail validation")
 	)
 
+	run_case("guard_upkeep_block_loads_from_json", func():
+		assert_eq(GameData.GUARD_UPKEEP["weeklyWage"], 500)
+		assert_eq(GameData.GUARD_UPKEEP["graceDays"], 1)
+		assert_eq(GameData.GUARD_UPKEEP["guardCostHistoryDays"], 28)
+		assert_eq(GameData.GUARD_UPKEEP["faction"]["maxExtraGuardsPerVein"], 3)
+		assert_eq(GameData.GUARD_UPKEEP["faction"]["wageReserveWeeks"], 2)
+	)
+
+	run_case("corrupt_fixture_bad_guard_upkeep_fails", func():
+		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+		corrupted["guard_upkeep"]["weeklyWage"] = 0
+		corrupted["guard_upkeep"]["faction"].erase("wageReserveWeeks")
+		var errors := GameData.validate_tables(corrupted)
+		var wage_found := false
+		var reserve_found := false
+		for e in errors:
+			wage_found = wage_found or e.contains("guardUpkeep.weeklyWage")
+			reserve_found = reserve_found or e.contains("guardUpkeep.wageReserveWeeks")
+		assert_true(wage_found, "a zero weekly wage should fail validation")
+		assert_true(reserve_found, "a missing faction wage reserve should fail validation")
+	)
+
 	run_case("corrupt_fixture_bad_cross_reference_fails", func():
 		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
 		corrupted["recipes"]["enhancementPowder"]["ingredients"] = { "energy": 6 }

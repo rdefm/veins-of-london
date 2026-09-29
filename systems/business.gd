@@ -55,7 +55,7 @@ static func pay_calc_purchase(contract_id: String, legs: Array) -> bool:
 	if total <= 0 or int(business["pot"]) < total:
 		return false
 	business["pot"] -= total
-	BusinessStats.record_expense(total)
+	BusinessStats.record_expense(total, BusinessStats.EXPENSE_CALC)
 	for leg in legs:
 		var expense: Dictionary = leg.duplicate()
 		expense["kind"] = "calc"
@@ -146,7 +146,7 @@ static func pay_owed_from_cash(contact_id: String) -> Dictionary:
 		return { "ok": false, "reason": "Not enough cash." }
 	player["cash"] -= amount
 	Bank.record(-amount, "%s's wages" % Contacts.display_name(contact_id))
-	BusinessStats.record_expense(amount)
+	BusinessStats.record_expense(amount, BusinessStats.EXPENSE_STAFF)
 	_clear_owed(wage)
 	EventBus.state_changed.emit()
 	return { "ok": true, "paid": amount }
@@ -202,7 +202,7 @@ static func _payday(day: int) -> Dictionary:
 			pot -= due
 			paid[contact_id] = due
 			expenses.append({ "kind": "wage", "contactId": contact_id, "amount": due })
-			BusinessStats.record_expense(due)
+			BusinessStats.record_expense(due, BusinessStats.EXPENSE_STAFF)
 		else:
 			result["shortfalls"].append({ "contactId": contact_id, "owed": due })
 	var partners: Array = business["partners"]

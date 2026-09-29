@@ -170,7 +170,7 @@ func run() -> void:
 		GameState.state["world"]["day"] = 3
 		Business.activate()
 		Business.receive(120)
-		BusinessStats.record_expense(45)
+		BusinessStats.record_expense(45, BusinessStats.EXPENSE_STAFF)
 		GameState.state["productionLog"] = [{ "day": 3, "blocks": [{ "block": 0, "entries": [{ "contactId": "james", "made": { "timePearl": { "1": 2, "2": 1 } }, "failed": { "timePearl": 4 }, "oreShort": null }] }] }]
 		TimeSystem.do_rest()
 		var stats: Dictionary = GameState.state["businessStats"]
@@ -179,7 +179,30 @@ func run() -> void:
 		assert_eq(snapshot["revenue"], 120)
 		assert_true(snapshot["expenses"] >= 45, "recorded expenses land in the ended day")
 		assert_eq(snapshot["items"], 3, "made items, not failed attempts")
-		assert_eq(stats["today"], { "revenue": 0, "expenses": 0, "oreCultivator": 0, "orePlayer": 0 })
+		assert_true(snapshot["expensesStaff"] >= 45, "the staff kind lands in the ended day too")
+		assert_eq(stats["today"], { "revenue": 0, "expenses": 0, "expensesStaff": 0, "expensesGuard": 0, "expensesCalc": 0, "oreCultivator": 0, "orePlayer": 0 })
+	)
+
+	run_case("expenses_split_by_kind_sum_to_the_total", func():
+		GameState.reset()
+		BusinessStats.record_expense(40, BusinessStats.EXPENSE_STAFF)
+		BusinessStats.record_expense(500, BusinessStats.EXPENSE_GUARD)
+		BusinessStats.record_expense(25, BusinessStats.EXPENSE_CALC)
+		var today: Dictionary = GameState.state["businessStats"]["today"]
+		assert_eq(today["expensesStaff"], 40)
+		assert_eq(today["expensesGuard"], 500)
+		assert_eq(today["expensesCalc"], 25)
+		assert_eq(today["expenses"], 565, "kinds sum to the existing total")
+	)
+
+	run_case("calc_purchase_records_a_calc_expense", func():
+		GameState.reset()
+		Business.activate()
+		Business.receive(100)
+		assert_true(Business.pay_calc_purchase("c1", [{ "source": "des", "oreType": "time", "qty": 2, "amount": 60 }]))
+		var today: Dictionary = GameState.state["businessStats"]["today"]
+		assert_eq(today["expensesCalc"], 60)
+		assert_eq(today["expenses"], 60)
 	)
 
 	run_case("no_snapshot_before_the_pot_is_active", func():

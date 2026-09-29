@@ -74,7 +74,7 @@ func new_game_state() -> Dictionary:
 		# BizBrief Stats tab (R§2): today's running tally, folded into days[]
 		# at rollover and trimmed to BUSINESS_STATS_DAYS; BusinessStats is the
 		# only writer.
-		"businessStats": { "today": { "revenue": 0, "expenses": 0, "oreCultivator": 0, "orePlayer": 0 }, "days": [] },
+		"businessStats": { "today": { "revenue": 0, "expenses": 0, "expensesStaff": 0, "expensesGuard": 0, "expensesCalc": 0, "oreCultivator": 0, "orePlayer": 0 }, "days": [] },
 		# Ore/crafting/delivery shares (R§3.14): daily buckets, oldest first,
 		# trimmed to SHARES_DAYS at rollover; Shares is the only writer.
 		"shares": Shares.new_state(),
