@@ -1856,6 +1856,52 @@ func run() -> void:
 			assert_eq(Cultivating.find_vein("gv")["guardKit"], { "blast": { "2": 1 }, "shield": { "1": 1 } }, "%s: one Blast gone" % outcome)
 	)
 
+	# ── guard-kit 11: HQ guards in the alarm-defend fight ──────────────────
+
+	run_case("home_alarm_defend_seeds_guard_allies_and_the_active_hq_kit", func():
+		GameState.reset()
+		GameState.state["home"]["guardCount"] = 4
+		GameState.state["home"]["guardKit"] = { "blast": { "2": 20 } }
+		Combat.start_home_alarm_defend_combat()
+		var combat: Dictionary = GameState.state["combat"]
+		assert_eq(combat["allies"].size(), Combat.SQUAD_MAX, "4 guards capped at SQUAD_MAX")
+		for ally in combat["allies"]:
+			assert_true(ally.get("guardAlly", false))
+		assert_eq(combat["guardKit"]["items"], { "blast": { "2": 12 } }, "only the 12 active units (4 guards x 3 slots)")
+		assert_eq(combat["guardKit"]["used"], {})
+	)
+
+	run_case("home_alarm_defend_with_no_guards_has_no_allies", func():
+		GameState.reset()
+		Combat.start_home_alarm_defend_combat()
+		assert_eq(GameState.state["combat"]["allies"], [])
+		assert_eq(GameState.state["combat"]["guardKit"]["items"], {})
+	)
+
+	run_case("exit_home_alarm_defend_takes_used_units_off_the_hq_kit_and_keeps_koed_guards", func():
+		for outcome in ["win", "loss", "fled"]:
+			GameState.reset()
+			GameState.state["home"]["guardCount"] = 1
+			GameState.state["home"]["guardKit"] = { "blast": { "2": 2 }, "shield": { "1": 1 } }
+			Combat.start_home_alarm_defend_combat()
+			Combat._spend_guard_item(GameState.state["combat"]["guardKit"], "blast")
+			GameState.state["combat"]["allies"][0]["hp"] = 0
+			GameState.state["combat"]["allies"][0]["koed"] = true
+			GameState.state["combat"]["outcome"] = outcome
+			Combat.exit_combat()
+			assert_eq(GameState.state["home"]["guardKit"], { "blast": { "2": 1 }, "shield": { "1": 1 } }, "%s: one Blast gone" % outcome)
+			assert_eq(Home.get_guard_count(), 1, "%s: KO'd guard still counted" % outcome)
+	)
+
+	run_case("tutorial_home_raid_has_no_guard_allies", func():
+		GameState.reset()
+		GameState.state["home"]["guardCount"] = 2
+		GameState.state["home"]["guardKit"] = { "blast": { "2": 2 } }
+		Combat.start_home_raid_combat()
+		assert_eq(GameState.state["combat"]["allies"], [])
+		assert_eq(GameState.state["combat"]["guardKit"], {})
+	)
+
 	run_case("rewinding_the_fight_does_not_refund_spent_kit_units", func():
 		var combat := _guard_kit_combat([{ "hp": 80 }, { "hp": 60 }], { "blast": { "2": 2 } })
 		combat["frozenTurns"] = 1

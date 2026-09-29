@@ -382,10 +382,14 @@ static func start_home_raid_combat() -> void:
 
 
 # Called by Home.trigger_defend(): same raider, no onWin (Home resolves it).
+# HQ guards join and spend home.guardKit (guard-kit spec §HQ guard kit).
 static func start_home_alarm_defend_combat() -> void:
-	_start_combat(CONTEXT_HOME_ALARM_DEFEND, null, [_home_raider_enemy()],
-		["They're in the flat. You've got the crowbar. This is happening."],
-		"")
+	var log_lines := ["They're in the flat. You've got the crowbar. This is happening."]
+	var allies: Array = []
+	_add_guard_allies(allies, Home.get_guard_count(), log_lines)
+	var guard_kit := { "items": GuardKit.hq_active_units().duplicate(true), "used": {} }
+	_start_combat(CONTEXT_HOME_ALARM_DEFEND, null, [_home_raider_enemy()], log_lines,
+		"", allies, null, {}, guard_kit)
 
 
 static func _home_raider_enemy() -> Dictionary:
@@ -2255,9 +2259,11 @@ static func exit_combat() -> Dictionary:
 	# before the combat dict is torn down below.
 	Contacts.replenish_after_combat(combat["allies"])
 	# Guard-kit spec §Defend fight: units guards spent come off the vein's
-	# kit on any outcome, before a claim hands the rest to the attacker.
+	# (or HQ's) kit on any outcome, before a claim hands the rest to the attacker.
 	var guard_used: Dictionary = combat.get("guardKit", {}).get("used", {})
-	if not guard_used.is_empty() and combat["veinId"] != null:
+	if not guard_used.is_empty() and context == CONTEXT_HOME_ALARM_DEFEND:
+		GuardKit.remove_units(GameState.state["home"].get("guardKit", {}), guard_used)
+	elif not guard_used.is_empty() and combat["veinId"] != null:
 		var vein = Cultivating.find_vein(str(combat["veinId"]))
 		if vein != null:
 			GuardKit.remove_units(vein.get("guardKit", {}), guard_used)
