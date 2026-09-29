@@ -201,6 +201,8 @@ static func make_vein(ore_type: String, growth: int, district: String, site_id: 
 		# lives elsewhere; here we only wire the clear-on-dip invariant (see
 		# _clear_streak_below_threshold below).
 		"developmentStreak": 0,
+		# Items stocked for this vein's guards, tier-bucketed like player.inventory -- see GuardKit.
+		"guardKit": {},
 	}
 
 

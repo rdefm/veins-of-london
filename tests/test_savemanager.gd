@@ -26,6 +26,7 @@ func run() -> void:
 			"id": "v1", "oreType": "time", "growth": 65, "rampantDays": 2, "security": "basic",
 			"alarmUpgrades": [], "location": "Brick Lane, near the off-licence", "claimedOnDay": 4,
 			"district": "shoreditch", "siteId": "s1", "hospitability": { "tier": "fair", "bonuses": [] },
+			"guardKit": {},
 		})
 		GameState.state["world"]["day"] = 9
 		var original: Dictionary = GameState.deep_copy(GameState.state)

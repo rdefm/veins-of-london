@@ -334,8 +334,16 @@ func backfill_defaults(save: Dictionary) -> Dictionary:
 	_backfill_new_flag_keys(result, defaults)
 	_backfill_new_business_keys(result, defaults)
 	_backfill_new_guard_upkeep_keys(result, defaults)
+	_backfill_vein_guard_kits(result)
 	_backfill_expense_kinds(result)
 	return result
+
+
+# Every player vein carries a guardKit (spec §State); a save without one gets {}.
+func _backfill_vein_guard_kits(result: Dictionary) -> void:
+	for vein in result["player"].get("veins", []):
+		if not (vein.get("guardKit") is Dictionary):
+			vein["guardKit"] = {}
 
 
 # A guardUpkeep key added after the save was made (e.g. pendingShortfall)
@@ -763,6 +771,8 @@ func _restore_int_types(state: Dictionary) -> void:
 		for vein in player.get("veins", []):
 			for key in ["growth", "rampantDays", "claimedOnDay", "slotIndex", "extraGuards", "level", "developmentStreak"]:
 				_int_key(vein, key)
+			for buckets in vein.get("guardKit", {}).values():
+				_int_dict_values(buckets)
 		for device in player.get("devicesCompleted", []):
 			for key in ["level", "xp", "chargesPerDay", "chargesUsedToday", "lastResetDay"]:
 				_int_key(device, key)

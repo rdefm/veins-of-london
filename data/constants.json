@@ -26,6 +26,19 @@
     { "maxRelation": null, "qtyMin": 5, "qtyMax": 10 }
   ],
   "guardRepel": { "chancePerGuard": 0.15, "cap": 0.75 },
+  "guardKit": {
+    "items": ["blast", "shield", "blackHole", "timePearl", "healingBurst", "prophetsBreath", "enhancementPowder", "failsafe", "rewind"],
+    "slotsPerGuard": 2,
+    "hqSlotsPerGuard": 3,
+    "repelBonus": { "weak": 0.03, "medium": 0.05, "strong": 0.08 },
+    "repelTier": {
+      "healingBurst": "weak", "prophetsBreath": "weak", "enhancementPowder": "weak", "failsafe": "weak",
+      "shield": "medium", "blast": "medium",
+      "blackHole": "strong", "timePearl": "strong", "rewind": "strong"
+    },
+    "repelCap": 0.90,
+    "guardAlly": { "name": "Hired Guard", "hpMax": 30, "attackMin": 4, "attackMax": 10, "speed": 8 }
+  },
   "guardUpkeep": {
     "weeklyWage": 500,
     "graceDays": 1,

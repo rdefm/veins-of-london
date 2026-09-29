@@ -476,6 +476,7 @@ static func _grant_vein_with_site(vein_template: Dictionary) -> String:
 	vein["claimedOnDay"] = day
 	vein["siteId"] = site["id"]
 	vein["rampantDays"] = 0
+	vein["guardKit"] = {}
 	GameState.state["player"]["veins"].append(vein)
 	return vein["id"]
 

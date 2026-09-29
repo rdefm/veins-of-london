@@ -171,6 +171,11 @@ var GUARD_REPEL_CHANCE_CAP: float = 0.0
 #   faction: { maxExtraGuardsPerVein, wageReserveWeeks } }.
 var GUARD_UPKEEP: Dictionary = {}
 
+# Guard kit config: { items (allowlist, spend order), slotsPerGuard,
+#   hqSlotsPerGuard, repelBonus {weak,medium,strong}, repelTier, repelCap,
+#   guardAlly {name, hpMax, attackMin, attackMax, speed} }.
+var GUARD_KIT: Dictionary = {}
+
 # Cultivating XP a staffed cultivator earns per block action (prune or
 # cultivate roll, success or fail), R§3.10.
 var CULTIVATOR_ACTION_XP: int = 0
@@ -354,6 +359,7 @@ const MANIFEST: Array[Dictionary] = [
 		{"field": "GUARD_REPEL_CHANCE_PER_GUARD", "key": "guardRepel.chancePerGuard", "type": TYPE_FLOAT},
 		{"field": "GUARD_REPEL_CHANCE_CAP", "key": "guardRepel.cap", "type": TYPE_FLOAT},
 		{"field": "GUARD_UPKEEP", "key": "guardUpkeep", "type": TYPE_DICTIONARY},
+		{"field": "GUARD_KIT", "key": "guardKit", "type": TYPE_DICTIONARY},
 		{"field": "CULTIVATOR_ACTION_XP", "key": "cultivatorActionXp", "type": TYPE_INT},
 		{"field": "PRODUCTION_LOG_DAYS", "key": "productionLogDays", "type": TYPE_INT},
 		{"field": "PRODUCTION_TARGET_MAX", "key": "productionTargetMax", "type": TYPE_INT},
