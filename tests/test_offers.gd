@@ -77,11 +77,11 @@ func run() -> void:
 	run_case("random_offer_roll_is_passive_capped_and_expires", func():
 		GameState.reset()
 		assert_eq(OffersSystem.sales_skill(), 1)
-		assert_eq(OffersSystem.random_offer_chance(), 0.20)
+		assert_almost_eq(OffersSystem.random_offer_chance(), 0.33, 0.0001)
 		GameState.state["contacts"]["archie"]["recruited"] = true
 		Contacts.assign_to_room("archie", "ops")
 		GameState.state["contacts"]["archie"]["salesSkill"] = 10
-		assert_eq(OffersSystem.random_offer_chance(), 0.60)
+		assert_almost_eq(OffersSystem.random_offer_chance(), 0.75, 0.0001)
 		var created: Dictionary = OffersSystem.create_offer(GameData.OFFER_TEMPLATES["random_time_ore"])
 		assert_true(created["ok"])
 		var offer: Dictionary = created["offer"]
@@ -90,6 +90,33 @@ func run() -> void:
 		GameState.state["world"]["day"] = offer["expiresDay"]
 		OffersSystem.expire_pending_offers()
 		assert_eq(OffersSystem.pending_offers().size(), 0)
+	)
+
+	run_case("random_offer_chance_rises_seven_points_per_sales_level_to_75", func():
+		GameState.reset()
+		GameState.state["contacts"]["archie"]["recruited"] = true
+		Contacts.assign_to_room("archie", "ops")
+		var expected := [0.33, 0.40, 0.47, 0.54, 0.61, 0.68, 0.75, 0.75, 0.75]
+		for level in range(1, 10):
+			GameState.state["contacts"]["archie"]["salesSkill"] = level
+			assert_almost_eq(OffersSystem.random_offer_chance(), expected[level - 1], 0.0001, "level %d" % level)
+	)
+
+	run_case("level_one_sales_sources_about_ten_offers_in_thirty_days", func():
+		GameState.reset()
+		GameState.state["contacts"]["archie"]["recruited"] = true
+		Contacts.assign_to_room("archie", "ops")
+		var issued := 0
+		for run in 10:
+			Rng.set_seed(146 + run)
+			for day in 30:
+				GameState.state["world"]["day"] += 1
+				GameState.state["contacts"]["archie"]["salesSkill"] = 1  # sourcing XP can't level him mid-run
+				OffersSystem.daily_tick()
+				issued += OffersSystem.pending_offers().size()
+				OffersSystem.pending_offers().clear()  # keep room in the pending list
+		var per_month := issued / 10.0
+		assert_true(per_month >= 8.5 and per_month <= 11.5, "~10 offers per 30 days at 33%%/day, got %.1f" % per_month)
 	)
 
 	run_case("recurring_contract_falls_due_on_monday_and_renews_to_the_next_monday", func():

@@ -8,7 +8,11 @@
 
 **Status:** ready-for-agent
 
-- [ ] Diagnosis written up under `## Comments` (cause found or ruled out)
-- [ ] Chance = 0.33 + 0.07 × (level − 1), max 0.75; tested per level
-- [ ] Over a simulated 30 days at level 1 with room in the pending list, ~10 offers arrive; tested with seeded RNG
+- [x] Diagnosis written up under `## Comments` (cause found or ruled out)
+- [x] Chance = 0.33 + 0.07 × (level − 1), max 0.75; tested per level
+- [x] Over a simulated 30 days at level 1 with room in the pending list, ~10 offers arrive; tested with seeded RNG
 - [ ] Human on-device: play a week — offers arrive every few days
+
+## Comments
+
+**Diagnosis (no bug found).** Simulated 30 real rollovers (`TimeSystem.daily_tick()`) with Archie in Sales, over 20 seeds: avg 6.05 random offers / 30 days — exactly the designed 20%/day. Ruled out: pending cap (never full in sim), unpaid-Sales gate (`ops` is the Sales room; founders never get a `paidToday` entry so default true), empty template list (2 `source: "random"` templates), roll not reached (⑥.5 runs unconditionally). Rarity was the rate itself plus the 2-day expiry: at 20% an offer is visible on under half of days, and nothing notifies on arrival, so a player not checking BizBrief daily misses most. Retuned to 33% base (+7%/level, cap 75%), constants moved to offers.json `randomChance`.

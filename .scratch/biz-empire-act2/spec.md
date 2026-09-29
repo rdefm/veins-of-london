@@ -19,7 +19,7 @@ London gets a living two-tier market and factions with real economic identities 
 - **Pressure.** Each faction weighs how much the player threatens it (shares in its ores/items, presence in its districts, overall size) against how much it depends on the player (supplier contracts, relation). Net pressure erodes relation daily; as relation falls, the faction escalates — warning, market moves (flood, undercut, poach contracts, outbid sites, lowball buyouts), buying intel on the player, and finally raids. High relation buys time, so a player can corner a market while keeping a rival sweet until it's too late for them.
 - **Relation levers and partners.** Favours, gifts to key faction members, flavour quests and supplier contracts raise relation. Partners trade price favours in both directions.
 - **Stockpiles.** Each faction keeps its stock at a hidden stockpile location that intel can reveal and a raid can hit — the counter to a flood.
-- **Guard upkeep + business float.** Hired guards cost a daily wage from the business pot; unpaid guards walk. The player can donate cash into a reserve float that payday never splits, to bridge the gap while passive income builds.
+- **Guard upkeep + business float.** Every guard (Hired Guard tier and extras, HQ guards, player and faction) costs £500 a week (built up daily, prorated) from day 1, paid on Monday — from cash before the business pot exists, from the pot (then the float) once it does. When short, the player picks which guards to keep in a menu; after a one-day grace, unkept guards walk (extras on least valuable veins first, then tier guards). The player can donate cash into a reserve float that payday never splits and that backs up bills the pot can't cover.
 - **Act 2 questline.** Archie and James frame the new game: pick an ore type to dominate (without over-relying on it), find a crafter faction to be main supplier to, weather or soften a rival's first move, reach Partner, debrief.
 
 ## User Stories
@@ -126,24 +126,25 @@ London gets a living two-tier market and factions with real economic identities 
 80. As a player, I want a severely weakened faction to be able to become a vassal of a protector, with the protector getting cheaper access to the vassal's produced ore or crafted items, so that dominance has a diplomatic endgame.
 
 ### Guard upkeep & float
-81. As a player, I want Hired Guard and extra guards to cost a daily wage, so that security is an ongoing commitment.
+81. As a player, I want Hired Guard, extra guards and HQ guards to cost £500 a week each, built up daily and paid on Monday, so that security is an ongoing commitment.
 82. As a player, I want locks and ward runes to stay one-off purchases, so that basic security isn't a running cost.
-83. As a player, I want guard wages paid from the business pot, falling back to cash, so that they sit with other staff costs.
+83. As a player, I want guard wages paid from the business pot (then the float) once it exists, and from my cash before then, so that they sit with other staff costs.
 84. As a player, I want guard wages shown in BizBrief expenses, so that I see what security costs me.
-85. As a player, I want a one-day grace warning before unpaid guards walk, so that I can fix it.
-86. As a player, I want unpaid guards to walk one per vein per day, least valuable vein first, so that the loss is gradual and predictable.
-87. As a player, I want factions to pay guard upkeep too, so that squeezing a rival can strip their defences.
-88. As a player, I want a button to donate cash into the business pot as a reserve float, so that I can keep guards paid while passive income builds.
+85. As a player short on guard wages, I want a menu to choose which guards to pay (from my cash) and which to drop, with a one-day grace before unpaid guards walk, so that I can prioritise which veins stay guarded.
+86. As a player who ignores the menu, I want unpaid guards dropped automatically — extras on least valuable veins first, then tier guards — so that the loss is predictable and my best veins stay guarded longest.
+87. As a player, I want factions to pay guard upkeep weekly from faction cash, and to buy extra guards they can afford to keep, so that squeezing a rival can strip their defences.
+88. As a player with an active business pot, I want a button to donate cash into a reserve float, so that I can keep guards paid while passive income builds.
 89. As a player, I want payday never to split the float, so that my donation isn't handed to my partners.
-90. As a player, I want expenses to draw the float first, so that the float does its job.
+90. As a player, I want expenses to draw pot income first and the float only as backup, so that the float lasts as long as possible.
 91. As a player, I want to withdraw unspent float anytime, so that the donation isn't a trap.
-92. As a player, I want guard upkeep to start at Act 2, so that early play isn't punished.
+92. As a player, I want guard upkeep to apply from day 1, so that the cost of security is part of the game from the start.
+92a. As a player, I want BizBrief to break expenses down by kind and a Guard Costs screen charting guard cost per vein over time with a vein filter, so that I can see what security costs me.
 
 ### Act 2 questline
 93. As a player, I want Act 2 to trigger after Act 1 completes and the next payday passes, so that Act 1's ending breathes.
 94. As a player, I want a meeting scene with Archie and James framing the market, shares and supplier strategy, so that I understand the new game.
 95. As a player, I want James to advise dominating one ore type without over-relying on it and becoming main supplier to a crafter faction, so that I have a clear plan.
-96. As a player, I want the meeting to unlock the market reads, share/pressure reads, the donate button and guard upkeep, so that systems arrive with context.
+96. As a player, I want the meeting to unlock the market reads and share/pressure reads, and to point me at the float and guard upkeep (already running), so that systems arrive with context.
 97. As a player, I want an objective to reach a target share (~25%) in one ore type, with James tipping which types are contested, so that I pick my lane.
 98. As a player, I want an objective to sign a 4-week supplier contract with a faction that crafts with that ore, so that I learn dependence.
 99. As a player, I want the rival for my ore to make its first visible move once I pass the threshold, with a text explaining relation levers, so that I learn escalation and counters.
@@ -166,11 +167,11 @@ London gets a living two-tier market and factions with real economic identities 
 - **Shares**: rolling 7-day tallies of harvested ore (player veins, staff cultivators, faction veins) and successful-craft ore consumption (player, staff producers, factions), per producer per ore type. May live in Market or its own small system; sub-spec decides.
 - **Economy**: faction lanes and the Archie lane price through Market's quote; sales report supply to Market. Faction marketplace stock reads FactionSim holdings; the random ore restock goes away.
 - **Contracts / Offers**: price locked at signing from Market's quote ± premium; fixed term with an expiry and a renewal offer; deliveries feed shares and reduce the buyer's demand. Open-ended recurring contracts migrate to fixed term at their next renewal. Every contract records its counterparty (faction or contact), shown on offer and active cards; cancelling an accepted contract applies a small relation hit to that counterparty (the cancel flow itself — confirm pop-up, immediate cancel — ships earlier, before counterparties exist).
-- **Business**: reserve float (donate, withdraw, float-first expense draw, payday excludes float from the split); guard wages become a pot expense line.
-- **Cultivating / Raiding**: guard wage per Hired Guard and extra guard; walk-off when unpaid; stockpile raid resolution alongside vein raids; factions bias claims/raids to their specialist ores.
+- **Business**: reserve float (donate, withdraw, pot-first with float as backup for every bill, payday excludes float from the split); guard wages become a pot expense line, paid after staff wages at payday.
+- **Cultivating / Raiding**: weekly guard wage per Hired Guard and extra guard (player and faction); short-pay menu, grace and walk-off; factions buy extra guards; stockpile raid resolution alongside vein raids; factions bias claims/raids to their specialist ores.
 - **Barometer (Ticker)**: feeds item demand. The current flat orePrice/typePremium effects are superseded by item-demand effects — exact mechanics belong to the separate Ticker-evolution doc; this spec only assumes a per-item demand multiplier the Ticker can drive. Faction barometer prefs stay as personality bias; manipulators add position-driven pushes.
 - **Network handler**: expands to intel products — raid intel, counter-raid warnings, market intel (positions and planned dumps), stockpile locations, unmasking, and intel sold about the player to rivals.
-- **Factions app / BizBrief**: new reads (shares bars, London overview, stance, pressure label, activity log, price charts, float controls, guard expense). Screens read state and call system functions only.
+- **Factions app / BizBrief**: new reads (shares bars, London overview, stance, pressure label, activity log, price charts, float controls, expense breakdown by kind, Guard Costs screen). Screens read state and call system functions only.
 - **BusinessQuest / objectives / events**: Act 2 beats with new flags (`bizA2*` family, `bizA2Complete` at the close) and new objective kinds as needed (share threshold, contract-with-faction, stance reached, weather-or-soften).
 
 ### Data
@@ -189,7 +190,7 @@ London gets a living two-tier market and factions with real economic identities 
   - A conflict runs too long → it uses the market against the aggressor: buying up or denying the aggressor's war items and ore, and undercutting its sales, to limit its ability to keep fighting.
   - Sub-spec 2 covers the high non-calc income and plain arbitrage. The "too long" triggers, stability goals and anti-aggressor targeting belong in sub-spec 4a.
 - Starting stances: Collective–Firm Hostile; Guild–Conclave Business rival; Network–Conclave Business rival; Collective–Guild Partner; all other pairs and player-vs-each-faction Neutral (Collective per its questline).
-- New data: item baseline demand per item; market clamp/smoothing constants; contract default term (4 weeks); guard daily wage; pressure weights; escalation thresholds; share-objective threshold (~25%). All in JSON, none in code.
+- New data: item baseline demand per item; market clamp/smoothing constants; contract default term (4 weeks); guard weekly wage (£500); pressure weights; escalation thresholds; share-objective threshold (~25%). All in JSON, none in code.
 - A single config switch sets when the market sim starts (`day1` default, or `bizA2`), read in one place so it can be flipped after playtesting without scattered gating.
 
 ### State (pure data only — no references, so save/snapshot/Rewind keep working)
@@ -197,12 +198,12 @@ London gets a living two-tier market and factions with real economic identities 
 - Factions: holdings (ore/items stockpile), stockpile location (+ revealed flag per observer), consumption tallies, stance matrix (pair + player), pressure/threat/dependence snapshots, activity log (bounded), vassal link (nullable).
 - Shares: rolling 7-day per-producer tallies.
 - Business: float amount.
-- Veins: guard wage state (days unpaid) alongside existing extraGuards.
+- Veins: guard days worked this week per guard slot, alongside existing extraGuards; a pending guard shortfall record; bounded guard-cost history.
 - Contracts: signed price, start day, term, expiry day.
 - SaveManager backfills every new key for old saves.
 
 ### Rollover order (sub-spec fixes exact step letters)
-Faction production and crafting → faction consumption → faction buy/sell (supply/demand tallies) → shares update → Market reprice for tomorrow → guard wages (player + factions) → FactionAI pressure/relation/stance → escalation actions and communication → Act 2 beat checks.
+Faction production and crafting → faction consumption → faction buy/sell (supply/demand tallies) → guard wage accrual daily, paid Monday (factions before their security spend; player inside payday) → shares update → Market reprice for tomorrow → FactionAI pressure/relation/stance → escalation actions and communication → Act 2 beat checks.
 
 ### Collective–Firm hold
 FactionAI skips the Collective–Firm pair while the Collective questline is incomplete; scripted questline behaviour stays in charge. On questline completion the pair joins FactionAI at Hostile.
@@ -239,7 +240,7 @@ A severely weakened faction may take a protector; the protector gets cheaper acc
      - a stand-in baseline supply per ore type/item so day-1 prices are sane before FactionSim, replaced by real faction sales in 2;
      - the hooks 2 plugs into (supply/demand recording, contract deliveries → shares and buyer demand) — defined here, filled in 2.
   2. Faction economic identity (FactionSim, archetypes, shares, stockpile holdings + location state, faction guard upkeep, Factions-app/BizBrief reads). Stockpile *raids* are 4b.
-  3. Guard upkeep + business float (player side). Near-independent of 1/2; can be specced, ticketed and built anytime.
+  3. Guard upkeep + business float (player and faction guard wages, faction extra guards, float, BizBrief expense/Guard Costs views) — `.scratch/biz-act2-guard-upkeep/spec.md`. Near-independent of 1/2.
   4a. Pressure AI (stances, threat/dependence/pressure, relation and stance drift, escalation actions, communication rule, Collective–Firm hold, Conclave stabiliser/anti-aggressor objectives)
   4b. Relation levers & intel (favours/gifts/flavour quests, partners, Network intel products, stockpile raids, weakening floor)
   5. Act 2 questline

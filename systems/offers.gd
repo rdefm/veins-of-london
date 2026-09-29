@@ -6,9 +6,6 @@ extends RefCounted
 # the offer's quote as signedQuote (R§3.10 "Offer price and expiry").
 
 const PENDING_CAP := 4
-const RANDOM_BASE_CHANCE := 0.20
-const RANDOM_CHANCE_PER_SALES_LEVEL := 0.10
-const RANDOM_MAX_CHANCE := 0.60
 const RANDOM_ONE_OFF_QTY_MIN := 4
 const RANDOM_ONE_OFF_QTY_MAX := 10
 const RANDOM_RECURRING_QTY_MIN := 3
@@ -43,8 +40,11 @@ static func sales_skill() -> int:
 	return int(GameState.state["contacts"][contact_id].get("salesSkill", 1))
 
 
+# Daily random-offer roll: offers.json randomChance, base + perSalesLevel ×
+# (Sales level − 1), capped at max (R§3.10 "Offer sourcing").
 static func random_offer_chance() -> float:
-	return minf(RANDOM_MAX_CHANCE, RANDOM_BASE_CHANCE + RANDOM_CHANCE_PER_SALES_LEVEL * float(sales_skill() - 1))
+	var c: Dictionary = GameData.OFFER_RANDOM_CHANCE
+	return minf(float(c["max"]), float(c["base"]) + float(c["perSalesLevel"]) * float(sales_skill() - 1))
 
 
 static func daily_tick() -> void:

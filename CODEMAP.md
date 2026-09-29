@@ -242,7 +242,7 @@ overlays.
 | market.json | market.gd (constants, sim start, priceLot, ore conversion rate, annotation cap/thresholds, delivery-log cap, Independents shares + buy cover, per-good normalStock/civilianDemand); shares.gd (via Market.independents_share) |
 | map_palette.json | GameData.gd (validated) + map_palette.gd (Map tab light/dark colour tokens, faction/ore dark overrides) + map_controls.gd (`darkModeLabel`) |
 | objectives.json | objectives.gd, todo.gd, collective.gd, business_quest.gd |
-| offers.json | offers.gd (synthetic catalogue, scripted counterparties, offer expiry days, recurring term weeks, small-offer threshold, cancel relation hit), business_quest.gd (biz_starter_* chain + Archie nudge text, biz_recurring_* from Beat 3/6) |
+| offers.json | offers.gd (synthetic catalogue, scripted counterparties, offer expiry days, recurring term weeks, random-offer daily chance curve, small-offer threshold, cancel relation hit), business_quest.gd (biz_starter_* chain + Archie nudge text, biz_recurring_* from Beat 3/6) |
 | ore_types.json | widely read (economy, cultivating, sites, factions) |
 | owen_texts.json | owen_texts.gd (text pool, reply options, interval days) |
 | palette.json | GameData.gd (reference combat-art palette) |

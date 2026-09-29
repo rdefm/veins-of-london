@@ -17,6 +17,7 @@ var OFFER_TEMPLATES: Dictionary = {}
 var OFFER_COUNTERPARTY: Dictionary = {}
 var OFFER_EXPIRY_DAYS: int = 0
 var OFFER_TERM_WEEKS: int = 0
+var OFFER_RANDOM_CHANCE: Dictionary = {}
 
 # Same shape as CULTIVATING_XP_LEVELS/CRAFTING_XP_LEVELS -- lives in
 # home.json since Sales is gated by the Operations Room defined there.
@@ -249,6 +250,7 @@ const MANIFEST: Array[Dictionary] = [
 		{"field": "OFFER_COUNTERPARTY", "key": "counterparty", "type": TYPE_DICTIONARY},
 		{"field": "OFFER_EXPIRY_DAYS", "key": "expiryDays", "type": TYPE_INT},
 		{"field": "OFFER_TERM_WEEKS", "key": "termWeeks", "type": TYPE_INT},
+		{"field": "OFFER_RANDOM_CHANCE", "key": "randomChance", "type": TYPE_DICTIONARY},
 	]},
 	{"table": "dial", "file": "res://data/dial.json", "fields": [
 		{"field": "DIAL_SEED_COST", "key": "seedCost", "type": TYPE_DICTIONARY},
