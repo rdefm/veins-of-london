@@ -1868,6 +1868,127 @@ func run() -> void:
 		assert_eq(combat["guardKit"]["used"], { "blast": { "2": 1 } })
 	)
 
+	# ── guard-kit 08: guard Rewind + Enhancement Powder ──────────────────
+
+	run_case("guard_rewind_saves_every_would_be_ko_while_the_pool_has_units", func():
+		var combat := _guard_kit_combat([{ "hp": 100, "attackMin": 999, "attackMax": 999 }], { "rewind": { "3": 2 } })
+		var player: Dictionary = GameState.state["player"]
+		player["hpMax"] = 100
+		player["hp"] = 50
+		player["inventory"] = {}
+		for n in range(2):
+			combat["evadeTurns"] = 0  # a restore grants evade; keep each hit landing
+			Combat.push_combat_snapshot()
+			Combat._enemy_attack_player(combat, combat["enemies"][0], 0, null)
+			assert_eq(combat["outcome"], null, "save %d: the guard rewinds the KO" % (n + 1))
+			assert_eq(player["hp"], 50, "save %d: hp restored from the snapshot" % (n + 1))
+		assert_eq(combat["guardKit"]["used"], { "rewind": { "3": 2 } }, "1 unit per fire")
+		combat["evadeTurns"] = 0
+		Combat.push_combat_snapshot()
+		Combat._enemy_attack_player(combat, combat["enemies"][0], 0, null)
+		assert_eq(combat["outcome"], "loss", "empty pool -- no save")
+	)
+
+	run_case("guard_rewind_waits_for_the_players_own_failsafe", func():
+		var combat := _guard_kit_combat([{ "hp": 100, "attackMin": 999, "attackMax": 999 }], { "rewind": { "1": 1 } })
+		var player: Dictionary = GameState.state["player"]
+		player["inventory"] = { "failsafe": { "1": 1 } }
+		Combat.push_combat_snapshot()
+		Combat._enemy_attack_player(combat, combat["enemies"][0], 0, null)
+		assert_eq(Crafting.inventory_qty("failsafe"), 0, "the player's failsafe fires first")
+		assert_eq(combat["guardKit"]["used"], {}, "no guard rewind spent")
+	)
+
+	run_case("guard_rewind_needs_a_standing_guard", func():
+		var combat := _guard_kit_combat([{ "hp": 100, "attackMin": 999, "attackMax": 999 }], { "rewind": { "1": 1 } })
+		combat["allies"][0]["koed"] = true
+		GameState.state["player"]["inventory"] = {}
+		Combat.push_combat_snapshot()
+		Combat._enemy_attack_player(combat, combat["enemies"][0], 0, null)
+		assert_eq(combat["outcome"], "loss")
+	)
+
+	run_case("guard_uses_enhancement_powder_once_per_fight_after_other_rules", func():
+		var combat := _guard_kit_combat([{ "hp": 100 }], { "enhancementPowder": { "3": 2 } })
+		var guard: Dictionary = combat["allies"][0]
+		guard["attackMin"] = 5
+		guard["attackMax"] = 5
+		Rng.set_seed(1)
+		Combat._ally_turn(combat, guard, 0, [])
+		var power := int(GameData.RECIPES["enhancementPowder"]["effectPower"][3])
+		assert_eq(guard["motionPower"], power)
+		assert_eq(guard["motionTurns"], 2 if power >= 3 else 1)
+		assert_eq(combat["enemies"][0]["hp"], 100, "the powder replaces the attack")
+		guard["motionTurns"] = 0
+		Combat._ally_turn(combat, guard, 0, [])
+		assert_eq(combat["enemies"][0]["hp"], 95, "second turn attacks -- once per guard per fight")
+		assert_eq(combat["guardKit"]["used"], { "enhancementPowder": { "3": 1 } })
+	)
+
+	run_case("guard_powder_adds_extra_queue_entries_from_the_next_round_and_wears_off", func():
+		var combat := _guard_kit_combat([{ "hp": 1000, "speed": 1 }], {})
+		var guard: Dictionary = combat["allies"][0]
+		guard["speed"] = 5
+		guard["attackMin"] = 1
+		guard["attackMax"] = 1
+		guard["motionPower"] = 3
+		guard["motionTurns"] = 1
+		var queue := Combat.build_turn_queue(combat)
+		var guard_entries: int = queue.filter(func(e): return e["type"] == "ally" and e["index"] == 0).size()
+		assert_eq(guard_entries, 3, "power 3: the guard's slot plus two extras")
+		assert_eq(queue.filter(func(e): return e["type"] == "player").size(), 1, "the player's own entries are untouched")
+		# A round that carried the guard's extras ticks its motionTurns down;
+		# the player's (0) stays put.
+		combat["turnCursor"] = { "queue": queue, "index": queue.size(), "round": 1 }
+		Rng.set_seed(1)
+		Combat.advance_to_next_decision(combat, [])
+		assert_eq(guard["motionTurns"], 0, "motion decrements like the player's")
+		assert_eq(combat["motionTurns"], 0)
+		assert_true(combat["log"].any(func(l): return l.contains("powder wears off")), "logs the wear-off")
+		var next_round: Array = combat["turnCursor"]["queue"]
+		assert_eq(next_round.filter(func(e): return e["type"] == "ally").size(), 1, "back to one slot")
+	)
+
+	run_case("guard_powder_mid_round_waits_for_the_next_round", func():
+		var combat := _guard_kit_combat([{ "hp": 1000, "speed": 1 }], {})
+		var guard: Dictionary = combat["allies"][0]
+		var queue := Combat.build_turn_queue(combat)
+		guard["motionPower"] = 1
+		guard["motionTurns"] = 1
+		combat["turnCursor"] = { "queue": queue, "index": queue.size(), "round": 1 }
+		Rng.set_seed(1)
+		Combat.advance_to_next_decision(combat, [])
+		assert_eq(guard["motionTurns"], 1, "the round without extras doesn't tick it")
+		assert_eq(combat["turnCursor"]["queue"].filter(func(e): return e["type"] == "ally").size(), 2, "power < 3: one extra next round")
+	)
+
+	run_case("rewind_restores_per_ally_motion_from_the_snapshot", func():
+		var combat := _guard_kit_combat([{ "hp": 100 }], { "enhancementPowder": { "3": 1 } })
+		var guard: Dictionary = combat["allies"][0]
+		Combat.push_combat_snapshot()
+		Rng.set_seed(1)
+		Combat._ally_turn(combat, guard, 0, [])
+		assert_true(guard["motionTurns"] > 0, "sanity: powder used")
+		GameState.state["player"]["inventory"] = { "rewind": { "1": 1 } }
+		assert_true(Combat.combat_rewind()["ok"])
+		assert_eq(guard["motionTurns"], 0, "motion back to the snapshot's")
+		assert_eq(guard["motionPower"], 0)
+		assert_eq(combat["guardKit"]["used"], { "enhancementPowder": { "3": 1 } }, "no refund")
+	)
+
+	run_case("projection_ticks_a_guards_motion_without_mutating_it", func():
+		var combat := _guard_kit_combat([{ "hp": 1000, "speed": 1 }], {})
+		var guard: Dictionary = combat["allies"][0]
+		guard["motionPower"] = 1
+		guard["motionTurns"] = 1
+		var queue := Combat.build_turn_queue(combat)
+		combat["turnCursor"] = { "queue": queue, "index": 0, "round": 1 }
+		var projected := Combat.project_queue(combat)
+		var next_round_allies: int = projected.filter(func(o): return o["occurrenceId"].begins_with("2:") and o["type"] == "ally").size()
+		assert_eq(next_round_allies, 1, "the projected next round has the powder worn off")
+		assert_eq(guard["motionTurns"], 1, "the real ally is untouched")
+	)
+
 	# ── 68-archie-fights-when-mugged-via-archie-sale ─────────────────────
 
 	run_case("start_mugging_always_adds_archie_even_when_not_recruited", func():

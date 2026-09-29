@@ -671,6 +671,10 @@ static func push_combat_snapshot() -> void:
 		"frozenSkipped": combat.get("frozenSkipped", []).duplicate(),
 		"motionTurns": combat["motionTurns"],
 		"motionPower": combat["motionPower"],
+		# Per-ally Enhancement Powder state, index-aligned with combat.allies,
+		# so a restored turnCursor's ally extras match their motionTurns.
+		"allyMotion": combat["allies"].map(func(a: Dictionary) -> Dictionary:
+			return { "motionTurns": int(a.get("motionTurns", 0)), "motionPower": int(a.get("motionPower", 0)) }),
 		"evadeTurns": combat["evadeTurns"],
 		"evadeChance": combat["evadeChance"],
 		# R§3.7a: parked cursor position at this decision point, so a
@@ -725,7 +729,33 @@ static func build_turn_queue(combat: Dictionary) -> Array:
 		for _n in range(attack_count - 1):
 			queue.insert(player_pos + 1, { "type": "player", "speed": _player_speed(), "extra": true })
 
+	# A guard's Enhancement Powder (ally.motionTurns > 0) inserts that ally's
+	# extra entries after its own slot, same counts as the player's.
+	for i in range(allies.size()):
+		var ally: Dictionary = allies[i]
+		if ally["koed"] or int(ally.get("motionTurns", 0)) <= 0:
+			continue
+		var ally_pos := -1
+		for q in range(queue.size()):
+			if queue[q]["type"] == "ally" and queue[q]["index"] == i:
+				ally_pos = q
+				break
+		if ally_pos == -1:
+			continue
+		var ally_attack_count: int = 3 if int(ally.get("motionPower", 0)) >= 3 else 2
+		for _n in range(ally_attack_count - 1):
+			queue.insert(ally_pos + 1, { "type": "ally", "index": i, "speed": ally.get("speed", 0), "extra": true })
+
 	return queue
+
+
+# Whether a round's queue carried Motion extras for the player (index -1)
+# or for ally `index` -- only then does that combatant's motionTurns tick.
+static func _round_spent_motion(queue: Array, type: String, index: int = -1) -> bool:
+	for queued_entry in queue:
+		if queued_entry.get("extra", false) and queued_entry["type"] == type and (type == "player" or queued_entry["index"] == index):
+			return true
+	return false
 
 
 # R§3.7a "Resumable turn progression": the engine's resume function.
@@ -751,15 +781,18 @@ static func advance_to_next_decision(combat: Dictionary, beats: Variant = null) 
 			# next round; decrementing here too would expire it before it
 			# ever granted an extra attack, including at the very first
 			# round of a fight (queue starts empty, no round has run yet).
-			var round_spent_motion := false
-			for queued_entry in cursor["queue"]:
-				if queued_entry.get("extra", false):
-					round_spent_motion = true
-					break
-			if round_spent_motion and combat["motionTurns"] > 0:
+			if _round_spent_motion(cursor["queue"], "player") and combat["motionTurns"] > 0:
 				combat["motionTurns"] -= 1
 				if combat["motionTurns"] == 0:
 					_log(combat, beats, "The powder wears off. Back to normal speed.", BEAT_MOTION_END, {})
+			var allies: Array = combat["allies"]
+			for i in range(allies.size()):
+				var ally: Dictionary = allies[i]
+				if int(ally.get("motionTurns", 0)) > 0 and _round_spent_motion(cursor["queue"], "ally", i):
+					ally["motionTurns"] -= 1
+					if ally["motionTurns"] == 0:
+						# PROSE-REVIEW: guard Enhancement Powder wear-off line.
+						_log(combat, beats, "%s's powder wears off." % ally["name"], BEAT_MOTION_END, { "actorType": "ally", "actorIndex": i })
 			cursor["queue"] = build_turn_queue(combat)
 			cursor["index"] = 0
 			cursor["round"] += 1
@@ -871,14 +904,14 @@ static func project_queue(combat: Dictionary, from_round_start: bool = false) ->
 	# by a read. Only decrements a projected motionTurns when the ending
 	# round's own queue actually carried a Motion-inserted "extra" slot --
 	# same reasoning as the real tick (see that function's own comment).
-	var round_spent_motion := false
-	for queued_entry in cursor["queue"]:
-		if queued_entry.get("extra", false):
-			round_spent_motion = true
-			break
 	var projected_combat: Dictionary = combat.duplicate()
-	if round_spent_motion and combat["motionTurns"] > 0:
+	if _round_spent_motion(cursor["queue"], "player") and combat["motionTurns"] > 0:
 		projected_combat["motionTurns"] = combat["motionTurns"] - 1
+	var projected_allies: Array = combat["allies"].duplicate(true)
+	for i in range(projected_allies.size()):
+		if int(projected_allies[i].get("motionTurns", 0)) > 0 and _round_spent_motion(cursor["queue"], "ally", i):
+			projected_allies[i]["motionTurns"] -= 1
+	projected_combat["allies"] = projected_allies
 
 	var next_round: Array = build_turn_queue(projected_combat)
 	for i in range(next_round.size()):
@@ -1132,7 +1165,9 @@ static func _ally_try_cast(combat: Dictionary, ally: Dictionary, ally_index: int
 # Prophet's Breath when the player is that hurt with no evade up; Shield on
 # the most-hurt of player and guard allies with no shield up; Black Hole
 # (every enemy, as the player's) then Time Pearl when 2+ enemies stand and none are frozen;
-# Blast on the lowest-hp enemy. Failsafe fires from _enemy_attack_ally().
+# Blast on the lowest-hp enemy; Enhancement Powder on itself, once per guard
+# per fight (extra queue entries from the next round). Failsafe fires from
+# _enemy_attack_ally(), Rewind from _try_guard_rewind().
 static func _guard_try_item(combat: Dictionary, ally: Dictionary, ally_index: int, beats: Variant) -> bool:
 	var pool: Dictionary = combat.get("guardKit", {})
 	if pool.is_empty():
@@ -1201,6 +1236,17 @@ static func _guard_try_item(combat: Dictionary, ally: Dictionary, ally_index: in
 			_log(combat, beats, "%s lets off a blast at %s — %d damage%s. %s: %d/%d HP." % [ally["name"], enemy["name"], extra["dmg"], shield_note, enemy["name"], enemy["hp"], enemy["hpMax"]], BEAT_ALLY_CAST, extra)
 			_maybe_win_from_direct_damage(combat, enemy, beats)
 			return true
+
+	if _guard_pool_has(pool, "enhancementPowder") and not ally.get("powderUsed", false):
+		var power := _spend_guard_item(pool, "enhancementPowder")
+		ally["powderUsed"] = true
+		ally["motionPower"] = power
+		ally["motionTurns"] = 2 if power >= 3 else 1
+		var extra: Dictionary = cast_extra.duplicate()
+		extra["effectKey"] = "enhancementPowder"
+		# PROSE-REVIEW: guard Enhancement Powder line.
+		_log(combat, beats, "%s rubs in some powder. They're moving faster." % ally["name"], BEAT_ALLY_CAST, extra)
+		return true
 
 	return false
 
@@ -1516,6 +1562,8 @@ static func _enemy_attack_player(combat: Dictionary, enemy: Dictionary, enemy_in
 		if _try_failsafe(combat, player):
 			return
 		if _try_ally_rewind(combat, player):
+			return
+		if _try_guard_rewind(combat, player):
 			return
 		combat["outcome"] = "loss"
 		_log(combat, beats, "You're done. You come round somewhere unpleasant.", BEAT_COMBAT_LOSS, {})
@@ -2093,6 +2141,10 @@ static func _restore_from_snapshot(combat: Dictionary, player: Dictionary) -> vo
 	combat["frozenSkipped"] = snap.get("frozenSkipped", []).duplicate()
 	combat["motionTurns"] = snap["motionTurns"]
 	combat["motionPower"] = snap["motionPower"]
+	var ally_motion: Array = snap.get("allyMotion", [])
+	for i in range(mini(ally_motion.size(), combat["allies"].size())):
+		combat["allies"][i]["motionTurns"] = ally_motion[i]["motionTurns"]
+		combat["allies"][i]["motionPower"] = ally_motion[i]["motionPower"]
 	combat["outcome"] = null
 	combat["evadeTurns"] = 2
 	combat["evadeChance"] = 0.50
@@ -2145,6 +2197,24 @@ static func _try_ally_rewind(combat: Dictionary, player: Dictionary) -> bool:
 		_restore_from_snapshot(combat, player)
 		# PROSE-REVIEW: James's dial Rewind line.
 		combat["log"].append("⟲ %s turns the dial back a notch. You're still standing." % ally["name"])
+		return true
+	return false
+
+
+# Guard-kit spec §Decisions: after the player's Failsafe and an ally Dial
+# Rewind, a standing guard ally spends one guard kit Rewind unit to undo the
+# lethal hit -- on every would-be KO while the pool has one. Same snapshot
+# restore (and skipped reverse replay) as _try_failsafe().
+static func _try_guard_rewind(combat: Dictionary, player: Dictionary) -> bool:
+	if combat["snapshots"].is_empty() or not _guard_pool_has(combat.get("guardKit", {}), "rewind"):
+		return false
+	for ally in combat["allies"]:
+		if ally["koed"] or not ally.get("guardAlly", false):
+			continue
+		_spend_guard_item(combat["guardKit"], "rewind")
+		_restore_from_snapshot(combat, player)
+		# PROSE-REVIEW: guard kit Rewind line.
+		combat["log"].append("⟲ %s breaks a Rewind. You're still standing." % ally["name"])
 		return true
 	return false
 
