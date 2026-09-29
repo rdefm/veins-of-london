@@ -115,8 +115,6 @@ func _build_categories(layout: VBoxContainer) -> void:
 	var row := UI.hbox(6)
 	panel.add_child(row)
 	for category in ["ore", "items", "veins"]:
-		if category == "items" and _direction == "buy" and not _is_shop():
-			continue
 		if category == "veins" and not _veins_unlocked():
 			continue
 		var chosen: bool = _category == category
@@ -370,7 +368,7 @@ func _entries() -> Array:
 				item["groupName"] = recipe["name"]
 				item["tier"] = tier
 				entries.append(item)
-			if _is_shop():
+			if _is_faction():
 				var buy_key := "buyCon_%s" % recipe_key
 				var stock := FactionSim.for_sale(faction_id, "consumable", recipe_key)
 				var max_qty := Economy.get_faction_buy_max_qty(faction_id, "consumable", recipe_key)

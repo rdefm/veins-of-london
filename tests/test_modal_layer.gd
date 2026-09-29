@@ -470,6 +470,30 @@ func run() -> void:
 		layer.free()
 	)
 
+	run_case("collective_contact_trade_buys_items_too", func():
+		GameState.reset()
+		GameState.state["flags"]["canSellConsumables"] = true
+		GameState.state["player"]["cash"] = 100000
+		FactionSim.add_item("collective", "timePearl", 1, 4)
+		var buy_price := Economy.get_faction_buy_price("collective", "consumable", "timePearl")
+		Modal.open("sell_menu", { "factionId": "collective", "contactId": "des" })
+		var layer := ModalLayer.new()
+		layer._ready()
+		var view: PanelContainer = layer._trade_view
+		_find_cost_button(view, "Buy from contact").pressed.emit()
+		_find_cost_button(view, "Items").pressed.emit()
+		var slider := _find_slider(view, "%s quantity" % GameData.RECIPES["timePearl"]["name"])
+		assert_true(slider != null, "contact buy side lists items")
+		assert_eq(int(slider.max_value), Economy.get_faction_buy_max_qty("collective", "consumable", "timePearl"))
+		Economy.set_sell_qty("buyCon_timePearl", 1, int(slider.max_value))
+		_find_cost_button(view, "Review trade →").pressed.emit()
+		_find_cost_button(view, "Confirm trade").pressed.emit()
+		assert_eq(Crafting.inventory_qty("timePearl"), 1)
+		assert_eq(GameState.state["player"]["cash"], 100000 - Market.line_total("consumable", buy_price, 1))
+		assert_eq(GameState.state["modal"]["type"], "sale_result")
+		layer.free()
+	)
+
 	run_case("faction_shop_sell_rows_cap_at_what_the_faction_can_pay", func():
 		GameState.reset()
 		GameState.state["player"]["orichalchum"]["time"] = 500

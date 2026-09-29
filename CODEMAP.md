@@ -177,7 +177,7 @@ overlays.
 | james_job_short_modal.gd | James job "not enough stock" card |
 | james_job_complete_modal.gd | James job payout card |
 | sell_menu_modal.gd | Trade modal registry adapter and Cancel action that clears sellState |
-| sell_menu_view.gd | Trade-only sheet: sell/buy and category tabs, Map ore glyphs, grouped item tiers, sticky totals and review; three modes: Archie, Collective contact, faction shop (no contact; also buys items); invokes existing trade systems |
+| sell_menu_view.gd | Trade-only sheet: sell/buy and category tabs, Map ore glyphs, grouped item tiers, sticky totals and review; three modes: Archie, Collective contact, faction shop (no contact); invokes existing trade systems |
 | nadia_supply_modal.gd | Nadia ore-supply objective card |
 | network_targets_modal.gd | Handler Targets picker: faction veins, soft/freeze questions |
 | network_sourcing_modal.gd | Handler Sourcing order: ore type + minimum tier |
