@@ -50,6 +50,10 @@ func _build() -> void:
 
 	for security_id in GameData.HOME_SECURITY.keys():
 		grid.add_child(_build_security_slot(security_id))
+
+	var kits := MapCardStyle.option_row("Guard kits ›", func(): Nav.go_to("hq_guard_kit"))
+	kits.name = "GuardKitsButton"
+	content.add_child(kits)
 func _tile_label(text: String, muted: bool = false) -> Label:
 	var l: Label = UI.muted_label(text) if muted else UI.label(text)
 	l.custom_minimum_size.x = minf(l.custom_minimum_size.x, TILE_LABEL_MAX_WIDTH)

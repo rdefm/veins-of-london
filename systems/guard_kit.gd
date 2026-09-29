@@ -82,6 +82,12 @@ static func unstock(vein_id: String, recipe_key: String, tier: int, qty: int) ->
 	return result
 
 
+# Player veins the HQ Guard Kit screen lists: 1+ guards or a non-empty kit.
+static func kit_veins() -> Array:
+	return GameState.state["player"]["veins"].filter(func(v):
+		return Cultivating.vein_guard_count(v) > 0 or unit_count(v.get("guardKit", {})) > 0)
+
+
 # A kit target names one kit for shared UI (the stocking sheet):
 # { "kind": "vein", "veinId": id }. Unknown targets read as an empty,
 # 0-capacity kit and refuse every move.
@@ -126,6 +132,17 @@ static func summary_text(kit: Dictionary) -> String:
 		var units := unit_count({ recipe_key: kit.get(recipe_key, {}) })
 		if units > 0:
 			parts.append("%s ×%d" % [GameData.RECIPES[recipe_key]["name"], units])
+	return " · ".join(parts)
+
+
+# Kit row text shared by the vein panel and HQ Guard Kit screen, e.g.
+# "Guard kit 3/2 · Blast ×3 · idle"; idle when units exceed capacity.
+static func status_text(kit: Dictionary, cap: int) -> String:
+	var units := unit_count(kit)
+	var summary := summary_text(kit)
+	var parts: PackedStringArray = ["Guard kit %d/%d" % [units, cap], summary if summary != "" else "Empty"]
+	if units > cap:
+		parts.append("idle")
 	return " · ".join(parts)
 
 

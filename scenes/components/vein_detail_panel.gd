@@ -290,16 +290,9 @@ static func _build_security_button(vein: Dictionary) -> Control:
 # "Guard kit n/cap" plus the kit summary; opens the stocking sheet. Disabled
 # with no guards; marked idle when the kit holds more than its capacity.
 static func _build_guard_kit_row(vein: Dictionary) -> Control:
-	var kit: Dictionary = vein.get("guardKit", {})
-	var units := GuardKit.unit_count(kit)
-	var cap := GuardKit.capacity(vein)
-	var parts: PackedStringArray = ["Guard kit %d/%d" % [units, cap]]
-	var summary := GuardKit.summary_text(kit)
-	parts.append(summary if summary != "" else "Empty")
-	if units > cap:
-		parts.append("idle")
+	var status := GuardKit.status_text(vein.get("guardKit", {}), GuardKit.capacity(vein))
 	var target := { "kind": "vein", "veinId": vein["id"] }
-	var button := UI.button("%s ›" % " · ".join(parts), func(): Modal.open("guard_kit", { "target": target }))
+	var button := UI.button("%s ›" % status, func(): Modal.open("guard_kit", { "target": target }))
 	button.name = "GuardKitButton"
 	button.disabled = Cultivating.vein_guard_count(vein) <= 0
 	button.clip_text = true

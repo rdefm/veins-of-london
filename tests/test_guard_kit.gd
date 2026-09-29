@@ -173,6 +173,16 @@ func run() -> void:
 		assert_eq(vein["guardKit"], { "shield": { "2": 2 } })
 	)
 
+	run_case("kit_veins_lists_guarded_or_stocked_veins_only", func():
+		_seed(1)
+		var stocked := Fixtures.seed_vein("v2", 50)
+		stocked["guardKit"] = { "blast": { "1": 1 } }
+		var bare := Fixtures.seed_vein("v3", 50)
+		bare["guardKit"] = {}
+		var ids := GuardKit.kit_veins().map(func(v): return v["id"])
+		assert_eq(ids, ["v1", "v2"], "guarded v1 and stocked-but-unguarded v2; bare v3 hidden")
+	)
+
 	run_case("an_unknown_kit_target_is_empty_and_refuses_moves", func():
 		_seed(2)
 		Crafting.inventory_add("shield", 2, 1)

@@ -12,6 +12,7 @@ const SCREEN_SCRIPTS := {
 	"phone": preload("res://scenes/screens/phone.gd"),
 	"hq_floorplan": preload("res://scenes/screens/hq_floorplan.gd"),
 	"hq_door": preload("res://scenes/screens/hq_door.gd"),
+	"hq_guard_kit": preload("res://scenes/screens/hq_guard_kit.gd"),
 	"vein_list": preload("res://scenes/screens/vein_list.gd"),
 	"hq_lab_bench": preload("res://scenes/screens/hq_lab_bench.gd"),
 	"hq_dial": preload("res://scenes/screens/hq_dial.gd"),

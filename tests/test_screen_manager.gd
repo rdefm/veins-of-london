@@ -27,6 +27,6 @@ func run() -> void:
 	)
 
 	run_case("hq_subviews_keep_the_bottom_navigation_dock", func():
-		for screen_id in ["hq_floorplan", "hq_door", "hq_lab_bench", "hq_dial"]:
+		for screen_id in ["hq_floorplan", "hq_door", "hq_guard_kit", "hq_lab_bench", "hq_dial"]:
 			assert_true(not MainScript.NAV_HIDDEN_SCREENS.has(screen_id), "%s must retain the Phone, Map, and HQ dock so the player can leave it" % screen_id)
 	)
