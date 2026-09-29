@@ -500,7 +500,8 @@ static func _queue_defend_raid(outcome: Dictionary, vein: Dictionary) -> void:
 
 
 # Before a missed-defend window falls through to resolve_raid_outcome()'s
-# auto-loss, a vein with 1+ extraGuards gets a chance to repel the raid
+# auto-loss, a vein with 1+ guards (tier guard + extras, Cultivating.
+# vein_guard_count) gets a chance to repel the raid
 # outright. Chance-per-guard and cap live in data/constants.json's
 # "guardRepel" (GameData.GUARD_REPEL_CHANCE_PER_GUARD/_CAP), shared with
 # Home's own guard_repel_chance() mirror so retuning never touches a .gd
@@ -509,12 +510,21 @@ static func guard_repel_chance(guard_count: int) -> float:
 	return clampf(guard_count * GameData.GUARD_REPEL_CHANCE_PER_GUARD, 0.0, GameData.GUARD_REPEL_CHANCE_CAP)
 
 
+# One repel roll for any vein, player or faction (spec §Faction guard upkeep
+# → faction vein guard repel): counts tier guard + extras, and skips the Rng
+# entirely at zero guards.
+static func guards_repel(vein: Dictionary) -> bool:
+	var guard_count: int = Cultivating.vein_guard_count(vein)
+	if guard_count <= 0:
+		return false
+	return Rng.chance(guard_repel_chance(guard_count))
+
+
 # Rolls the repel chance for one expiring outcome and, on success, pushes
 # a "held without you" notification and returns true so the caller skips
 # resolve_raid_outcome() entirely -- no ownership change, no ore lost. A
-# vanished vein reads as zero guards (same default vein.get("extraGuards",
-# 0) uses elsewhere in this file), so resolve_raid_outcome()'s null-vein
-# no-op still covers that case if this returns false. PROSE-REVIEW:
+# vanished vein returns false, so resolve_raid_outcome()'s null-vein no-op
+# still covers that case. PROSE-REVIEW:
 # distinct from both the silent "you defended it yourself" win path and
 # every missed-defend loss line above, so the player can tell "guards
 # held it" apart from either.
@@ -523,10 +533,7 @@ static func _guards_repel_defend_raid(outcome: Dictionary) -> bool:
 	if vein == null:
 		return false
 
-	var guard_count: int = vein.get("extraGuards", 0)
-	if guard_count <= 0:
-		return false
-	if not Rng.chance(guard_repel_chance(guard_count)):
+	if not guards_repel(vein):
 		return false
 
 	var district_name: String = GameData.DISTRICTS[vein["district"]]["name"]

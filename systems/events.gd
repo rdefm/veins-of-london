@@ -14,6 +14,9 @@ extends RefCounted
 
 const Preferences := preload("res://systems/preferences.gd")
 
+# start_raid_combat's "guards" value meaning "one per guard on the raided vein".
+const RAID_GUARDS_FROM_VEIN := "vein"
+
 
 # context: a raid's target site_id is only known at Raid-button-press time, so
 # it's carried here and read back by _event_site_id() below; every other caller omits it.
@@ -600,13 +603,17 @@ static func _stealth_check(effect: Dictionary) -> void:
 # Branches into Combat.start_raid() with context "event_raid" (see combat.gd's
 # exit_combat()) so a win resumes this same event. guards/template come from
 # the authoring card, defaulting to a single guard on the catch-all template.
+# guards "vein" sizes the squad to the vein's own guards (Cultivating.
+# vein_guard_count); start_raid() clamps it to [1, SQUAD_MAX].
 static func _start_raid_combat(effect: Dictionary) -> void:
 	var site: Variant = Sites.find_site(_event_site_id(effect))
 	if site == null or site["factionVein"] == null:
 		return
 
 	var vein: Dictionary = site["factionVein"]
-	Combat.start_raid(vein["id"], Cultivating.combined_magnitude(vein), effect.get("guards", 1), effect.get("template", ""), Combat.CONTEXT_EVENT_RAID, _event_ally_ids(effect))
+	var guards_spec: Variant = effect.get("guards", 1)
+	var guards: int = Cultivating.vein_guard_count(vein) if guards_spec is String and guards_spec == RAID_GUARDS_FROM_VEIN else int(guards_spec)
+	Combat.start_raid(vein["id"], Cultivating.combined_magnitude(vein), guards, effect.get("template", ""), Combat.CONTEXT_EVENT_RAID, _event_ally_ids(effect))
 
 
 # Seeds `faction_id` a faction vein on each site recorded in `objective_id`'s

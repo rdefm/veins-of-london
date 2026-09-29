@@ -17,7 +17,7 @@
               "on_caught": [
                 { "op": "set_flag", "flag": "raidCaught", "value": true },
                 { "op": "notify", "text": "Something moves that shouldn't. You've been seen." },
-                { "op": "start_raid_combat", "guards": 1, "template": "veinGuard" }
+                { "op": "start_raid_combat", "guards": "vein", "template": "veinGuard" }
               ]
             }
           ],
@@ -35,7 +35,7 @@
               "on_caught": [
                 { "op": "set_flag", "flag": "raidCaught", "value": true },
                 { "op": "notify", "text": "Something moves that shouldn't. You've been seen." },
-                { "op": "start_raid_combat", "guards": 1, "template": "veinGuard" }
+                { "op": "start_raid_combat", "guards": "vein", "template": "veinGuard" }
               ]
             }
           ],

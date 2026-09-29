@@ -81,7 +81,7 @@ Data file per system: see `data/*.json` below.
 | preferences.gd | Saved presentation prefs in `meta` (reduced motion, vibration, Map dark mode) + carry_forward() so event Rewind never flips them |
 | progression.gd | Shared "award XP" ladder loop |
 | raid_alarms.gd | Summaries + dispatch for raid alarms |
-| raiding.gd | Vein stealth-check + raid resolution; faction raids on the player incl. alarm defend fights and their kit burns |
+| raiding.gd | Vein stealth-check + raid resolution; faction raids on the player incl. alarm defend fights and their kit burns; shared guard repel roll (player missed-defend, faction rivalry) |
 | relation_accrual.gd | Capped £ relation meter |
 | rooms.gd | Per-block staff step (one action per cultivator, then producers take turns crafting until targets met or ore short), writes/trims `productionLog`, Production targets/priority and when they are settable, per-cultivator vein lists (`cultivatorVeins`) and per-vein targets |
 | shares.gd | Shares: 14-day daily buckets per producer (player, factions, independents) of ore harvested, ore spent on successful crafts, contract deliveries and faction London buys; Independents slice crediting (⑥.5e); pure ore/crafting share, overview, delivery and supplier-share reads (split + intake) (R§3.14) |

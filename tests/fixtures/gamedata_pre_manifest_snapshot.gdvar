@@ -4754,7 +4754,7 @@
 "op": "notify",
 "text": "Something moves that shouldn't. You've been seen."
 }, {
-"guards": 1,
+"guards": "vein",
 "op": "start_raid_combat",
 "template": "veinGuard"
 }],
@@ -4781,7 +4781,7 @@
 "op": "notify",
 "text": "Something moves that shouldn't. You've been seen."
 }, {
-"guards": 1,
+"guards": "vein",
 "op": "start_raid_combat",
 "template": "veinGuard"
 }],

@@ -723,6 +723,35 @@ func run() -> void:
 		assert_eq(GameState.state["combat"]["veinId"], "fv_test")
 	)
 
+	run_case("start_raid_combat_vein_guards_spawns_one_enemy_per_vein_guard_clamped_1_to_squad_max", func():
+		for case in [["warded", 0, 1], ["guarded", 1, 2], ["guarded", 3, 3]]:
+			GameState.reset()
+			var vein := _faction_vein_of_level(2, "physics", case[0])
+			vein["extraGuards"] = case[1]
+			GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
+			Events.apply_effects([{ "op": "start_raid_combat", "site_id": "s1", "guards": Events.RAID_GUARDS_FROM_VEIN }])
+			assert_eq(GameState.state["combat"]["enemies"].size(), case[2], "%s + %d extras -> %d enemies" % case)
+	)
+
+	run_case("start_raid_combat_integer_guards_still_spawns_that_many", func():
+		GameState.reset()
+		var vein := _faction_vein_of_level(2, "physics", "guarded")
+		vein["extraGuards"] = 3
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
+		Events.apply_effects([{ "op": "start_raid_combat", "site_id": "s1", "guards": 2 }])
+		assert_eq(GameState.state["combat"]["enemies"].size(), 2, "a literal count ignores the vein's guards")
+	)
+
+	run_case("vein_raid_event_uses_the_vein_guards_form", func():
+		var caught_ops: Array = []
+		for choice in GameData.EVENTS["vein_raid"]["cards"][1]["choices"]:
+			for op in choice["effects"][0]["on_caught"]:
+				if op["op"] == "start_raid_combat":
+					caught_ops.append(op)
+		assert_eq(caught_ops.size(), 2)
+		assert_true(caught_ops.all(func(op): return op["guards"] == Events.RAID_GUARDS_FROM_VEIN), "vein_raid sizes its squad to the vein's guards")
+	)
+
 	run_case("claim_raid_vein_op_transfers_ownership", func():
 		GameState.reset()
 		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", _faction_vein_of_level(1, "time"))]

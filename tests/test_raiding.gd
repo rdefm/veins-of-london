@@ -1298,6 +1298,7 @@ func run() -> void:
 		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
 		GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "collective", "veinId": "pv_test", "siteId": "s_player", "success": true }]
 
+		Rng.set_seed(1)  # first roll 0.33: the tier guard's 15% repel misses
 		Raiding.apply_raid_resolution()
 
 		assert_eq(GameState.state["player"]["veins"].size(), 0, "missing the window should fall through to the off-screen auto-resolve")
@@ -1323,6 +1324,7 @@ func run() -> void:
 		GameState.state["player"]["veins"] = [alarmed_vein]
 		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", alarmed_vein)]
 		GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "collective", "veinId": "pv_test", "siteId": "s_player", "success": true }]
+		Rng.set_seed(1)  # first roll 0.33: the tier guard's 15% repel misses
 		Raiding._expire_pending_defend_raids()
 		var missed_text: String = GameState.state["notifications"][0]["text"]
 
@@ -1396,6 +1398,32 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["veins"].size(), 0, "a failed repel resolves exactly as the old auto-loss")
 		var site: Dictionary = Sites.find_site("s_player")
 		assert_true(site["factionVein"] != null, "ownership should transfer, same as the guardless auto-loss path")
+	)
+
+	run_case("missed_defend_repel_counts_the_tier_guard_plus_extras", func():
+		for extras in [0, 2]:
+			for seed in range(30):
+				GameState.reset()
+				var vein := _player_vein_of(30, "life", "guarded", "shoreditch")
+				vein["alarmUpgrades"] = ["alarm"]
+				vein["extraGuards"] = extras
+				GameState.state["player"]["veins"] = [vein]
+				GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+				GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "collective", "veinId": "pv_test", "siteId": "s_player", "success": true }]
+				Rng.set_seed(seed)
+				var expected_repel: bool = Rng.chance(Raiding.guard_repel_chance(1 + extras))
+				Rng.set_seed(seed)
+				Raiding._expire_pending_defend_raids()
+				assert_eq(GameState.state["player"]["veins"].size() == 1, expected_repel, "extras %d, seed %d: repel rolls at %d guards' chance" % [extras, seed, 1 + extras])
+	)
+
+	run_case("guards_repel_on_an_unguarded_vein_consumes_no_roll", func():
+		var vein := _player_vein_of(30, "life", "warded", "shoreditch")
+		Rng.set_seed(7)
+		var first_roll: float = Rng.randf()
+		Rng.set_seed(7)
+		assert_true(not Raiding.guards_repel(vein), "no guards, no repel")
+		assert_eq(Rng.randf(), first_roll, "a guardless vein consumes no repel roll")
 	)
 
 	# ── Raid kit burns (spec biz-act2-faction-economy §Consumption) ──

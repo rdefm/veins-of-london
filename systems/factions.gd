@@ -363,9 +363,19 @@ static func rivalry_success_chance(attempt: Dictionary) -> float:
 
 
 # Rolls the chance above; returns the attempt annotated with its resolved "success" outcome (still pure, no mutation).
+# A success then faces the defender vein's guard repel roll (Raiding.guards_repel,
+# spec §Faction guard upkeep → faction vein guard repel): a repel flips it to a
+# failure marked "repelled". Only rolled while the vein is still the defender's.
 static func roll_rivalry_odds(attempt: Dictionary) -> Dictionary:
 	var outcome: Dictionary = attempt.duplicate()
 	outcome["success"] = Rng.chance(rivalry_success_chance(attempt))
+	outcome["repelled"] = false
+	if outcome["success"]:
+		var site: Variant = Sites.find_site(attempt["veinSiteId"])
+		var vein: Variant = site["factionVein"] if site != null else null
+		if vein != null and vein["factionId"] == attempt["defenderId"] and Raiding.guards_repel(vein):
+			outcome["success"] = false
+			outcome["repelled"] = true
 	return outcome
 
 

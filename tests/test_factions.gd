@@ -677,6 +677,104 @@ func run() -> void:
 		assert_eq(GameState.state, before, "roll_rivalry_odds must not mutate state")
 	)
 
+	# ── faction vein guard repel ─────────────────────────────────────────
+
+	# An attempt whose odds clamp to 1.0 against a firm vein at `security` + `extras`.
+	var _certain_rivalry_attempt := func(security: String, extras: int) -> Dictionary:
+		GameState.reset()
+		var vein := _faction_vein_claimed_on(3, "fate", 0, "firm", security)
+		vein["extraGuards"] = extras
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s_firm", vein)]
+		GameState.state["factions"]["collective"]["resources"] = 1000000
+		GameState.state["factions"]["firm"]["resources"] = 0
+		return { "attackerId": "collective", "defenderId": "firm", "veinSiteId": "s_firm" }
+
+	run_case("roll_rivalry_odds_success_rolls_repel_at_the_shared_chance_for_tier_guard_plus_extras", func():
+		for seed in range(40):
+			var attempt: Dictionary = _certain_rivalry_attempt.call("guarded", 2)
+			Rng.set_seed(seed)
+			Rng.chance(1.0)
+			var expected_repel: bool = Rng.chance(Raiding.guard_repel_chance(3))
+			Rng.set_seed(seed)
+			var outcome: Dictionary = Factions.roll_rivalry_odds(attempt)
+			assert_eq([outcome["success"], outcome["repelled"]], [not expected_repel, expected_repel], "seed %d: repel rolls at 3 guards' chance after a successful odds roll" % seed)
+	)
+
+	run_case("roll_rivalry_odds_repelled_attempt_leaves_the_vein_relation_and_map_untouched", func():
+		var repelled := false
+		for seed in range(40):
+			var attempt: Dictionary = _certain_rivalry_attempt.call("guarded", 5)
+			var relation_before: int = Factions.get_relation("firm", "collective")
+			Rng.set_seed(seed)
+			var outcome: Dictionary = Factions.roll_rivalry_odds(attempt)
+			if not outcome["repelled"]:
+				continue
+			repelled = true
+			Factions.resolve_rivalry_outcome(outcome)
+			assert_eq(Sites.find_site("s_firm")["factionVein"]["factionId"], "firm", "a repelled attempt keeps the vein with the defender")
+			assert_eq(Factions.get_relation("firm", "collective"), relation_before, "a repelled attempt writes no relation penalty")
+			assert_true(not MapEvents.has_pending(), "a repelled attempt queues no map event")
+			break
+		assert_true(repelled, "a 75% repel chance should repel within 40 seeds")
+	)
+
+	run_case("roll_rivalry_odds_never_rolls_repel_against_an_unguarded_vein", func():
+		for seed in range(20):
+			var attempt: Dictionary = _certain_rivalry_attempt.call("warded", 0)
+			Rng.set_seed(seed)
+			Rng.chance(1.0)
+			var next_after_one_roll: float = Rng.randf()
+			Rng.set_seed(seed)
+			var outcome: Dictionary = Factions.roll_rivalry_odds(attempt)
+			assert_eq([outcome["success"], outcome["repelled"]], [true, false], "seed %d: 0 guards never repels" % seed)
+			assert_eq(Rng.randf(), next_after_one_roll, "seed %d: 0 guards consumes no repel roll" % seed)
+	)
+
+	run_case("roll_rivalry_odds_never_rolls_repel_when_the_odds_fail", func():
+		for seed in range(20):
+			GameState.reset()
+			var vein := _faction_vein_claimed_on(3, "fate", 0, "firm", "guarded")
+			vein["extraGuards"] = 5
+			GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s_firm", vein)]
+			GameState.state["factions"]["firm"]["resources"] = 1000000
+			var attempt := { "attackerId": "collective", "defenderId": "firm", "veinSiteId": "s_firm" }
+			assert_eq(Factions.rivalry_success_chance(attempt), 0.0)
+			Rng.set_seed(seed)
+			Rng.chance(0.0)
+			var next_after_one_roll: float = Rng.randf()
+			Rng.set_seed(seed)
+			var outcome: Dictionary = Factions.roll_rivalry_odds(attempt)
+			assert_eq([outcome["success"], outcome["repelled"]], [false, false], "seed %d" % seed)
+			assert_eq(Rng.randf(), next_after_one_roll, "seed %d: a failed odds roll consumes no repel roll" % seed)
+	)
+
+	run_case("apply_rivalry_resolution_repelled_attempt_still_burns_both_kits", func():
+		GameData.FACTION_RIVALRY = true
+		var checked := false
+		for seed in range(500):
+			_certain_rivalry_attempt.call("guarded", 5)
+			# Every possible attacker's odds clamp to 1.0, so a vein still held is a repel.
+			for faction_id in GameState.state["factions"].keys():
+				if faction_id != "firm":
+					GameState.state["factions"][faction_id]["resources"] = 1000000
+			var vein: Dictionary = Sites.find_site("s_firm")["factionVein"]
+			Rng.set_seed(seed)
+			Factions.apply_rivalry_resolution()
+			var defender_burns: Array = GameState.state["factions"]["firm"]["kitBurns"]
+			# Some attackers carry no attack kit (nothing to log), so wait for one that does.
+			var attacker_burned := false
+			for faction_id in GameState.state["factions"].keys():
+				for burn in GameState.state["factions"][faction_id]["kitBurns"]:
+					attacker_burned = attacker_burned or burn["kit"] == "attack"
+			if not attacker_burned or vein["factionId"] != "firm":
+				continue
+			checked = true
+			assert_true(not defender_burns.is_empty() and defender_burns.all(func(b): return b["kit"] == "defend"), "the repelled defender still burns its defend kit")
+			break
+		GameData.FACTION_RIVALRY = false
+		assert_true(checked, "some seed should roll an attempt against the guarded vein that gets repelled")
+	)
+
 	# ── faction-territory-rivalry T04: rivalry resolution + tick wiring ──
 
 	run_case("resolve_rivalry_outcome_success_transfers_ownership_and_worsens_relation", func():
