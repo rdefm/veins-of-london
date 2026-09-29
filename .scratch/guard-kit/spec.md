@@ -182,7 +182,6 @@ A player's guards are abstract. They add raid resist and roll to repel a raid th
 ## Out of Scope
 
 - The player using vein kit items in a fight.
-- A guard kit for HQ guards.
 - Factions reacting to a vein's kit (sub-spec 4a), or raiders targeting kit.
 - Automatic restocking, or a "keep stocked" target.
 - Guard injuries or any lasting effect of a KO.
@@ -194,3 +193,21 @@ A player's guards are abstract. They add raid resist and roll to repel a raid th
 - A defend fight with 3+ guards and no contacts puts 3 guard allies on screen. Worth a UI check on-device.
 - The repel strengths and the 0.90 cap make a fully stocked vein with 4+ guards nearly raid-proof when the player is away. The per-roll cost is what balances that. Watch it in the tuning tool.
 - Only the vein detail panel, the stocking sheet and the HQ Guard Kit screen are new UI. Everything else reuses existing sheets and combat beats.
+
+## Decisions (ticketing, 2026-09-29)
+
+- **Tier 0 items** ("no known quality", from events/purchases) power as tier 1 when a guard uses them (`effectPower[max(tier, 1)]`). Spend order stays highest tier first, so tier 0 goes last.
+- **Guard Rewind** fires on each would-be player KO, 1 unit per fire, for as long as the pool has a rewind. There's no per-guard or per-fight limit.
+- **Guard Enhancement Powder:** once per guard per fight, the guard ally gets its own `motionTurns`/`motionPower`, with the player's formula (`motionTurns = 2 if power >= 3 else 1`). Its extra attack entries join the round queue from the next round.
+
+## HQ guard kit
+
+HQ guards (`Home.get_guard_count()`) get a kit too, built the same way as a vein's.
+
+- **State:** `home.guardKit`, with the same tier-bucketed shape as `vein.guardKit`. SaveManager backfills `{}`.
+- **Capacity:** `Home.get_guard_count() × guardKit.hqSlotsPerGuard` (*placeholder* 3). The allowlist, over-capacity, idle and stocking rules match §Capacity and §Stocking system.
+- **Config:** the one `guardKit` block is reused (allowlist, repel strengths, `repelCap`, `guardAlly`), plus `hqSlotsPerGuard`.
+- **UI:** an HQ row at the top of the HQ Guard Kit screen and a kit row in the HQ security zone. Both open the shared stocking sheet.
+- **Missed defend:** `Home._guards_repel_pending_raid` gets the same kit bonus, raised cap and one-per-active-type cost as §Not defending.
+- **Alarm-defend fight** (`Combat.start_home_alarm_defend_combat`): HQ guards join as guard allies, up to `SQUAD_MAX`, and use `home.guardKit` under the §Defend fight rules. `exit_combat` takes `used` off `home.guardKit`. The scripted tutorial `home_raid` fight is unchanged.
+- **Loss:** a successful HQ raid leaves the kit in place. Only units used by the repel roll or in the fight are lost, and raid loss stays ore-only. Guards walking keeps the kit, which goes inactive past capacity.
