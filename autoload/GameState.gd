@@ -78,7 +78,9 @@ func new_game_state() -> Dictionary:
 		# Guard wages (R§2 guardUpkeep): history is the player's guard payments
 		# per day, per place ({ day, places: { veinId|"home": £ } }), oldest
 		# first, trimmed to guardCostHistoryDays; GuardUpkeep is the only writer.
-		"guardUpkeep": { "history": [] },
+		# pendingShortfall is the one unpaid Monday guard bill in its grace day
+		# ({ day, deadline, places: { veinId|"home": guards }, reserve }) or null.
+		"guardUpkeep": { "history": [], "pendingShortfall": null },
 		# Ore/crafting/delivery shares (R§3.14): daily buckets, oldest first,
 		# trimmed to SHARES_DAYS at rollover; Shares is the only writer.
 		"shares": Shares.new_state(),

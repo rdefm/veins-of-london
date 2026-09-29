@@ -92,19 +92,51 @@ static func _empty_block_production() -> Dictionary:
 	return { "ore": {}, "items": {}, "oreMovement": {} }
 
 
-# Business.daily_tick()'s result: the payday statement, and an exception per
-# staff wage the pot couldn't cover.
+# Business.daily_tick()'s result: the payday statement, an exception per
+# staff wage the pot couldn't cover, and a short guard bill's warning.
 static func capture_business(context: Dictionary, result: Dictionary) -> void:
 	context["payday"] = result["payday"]
 	for shortfall in result["shortfalls"]:
 		context["exceptions"].append({ "kind": "wageShortfall", "contactId": shortfall["contactId"], "amount": shortfall["owed"] })
+	_capture_guard_shortfall(context, result["guards"])
 
 
 # The Monday guard bill paid from cash (GuardUpkeep.pay_monday_bill()'s
-# result); nothing when no bill was paid.
+# result); a short bill's warning instead when it wasn't paid.
 static func capture_guard_wages(context: Dictionary, result: Dictionary) -> void:
 	if int(result["paid"]) > 0:
 		context["guardWages"] = { "amount": result["paid"], "guards": result["guards"] }
+	_capture_guard_shortfall(context, result)
+
+
+# A short Monday guard bill (either payer) warns of the pending shortfall:
+# the places at risk and the grace deadline.
+static func _capture_guard_shortfall(context: Dictionary, guards: Variant) -> void:
+	if guards == null or not guards["short"]:
+		return
+	var shortfall: Dictionary = GuardUpkeep.pending_shortfall()
+	context["exceptions"].append({
+		"kind": "guardShortfall", "due": guards["due"], "reserve": shortfall["reserve"],
+		"deadline": shortfall["deadline"], "places": shortfall["places"].keys(),
+	})
+
+
+# GuardUpkeep.resolve_due_shortfall()'s result: kept guards' wages, and the
+# places whose guards walked.
+static func capture_guard_resolution(context: Dictionary, result: Dictionary) -> void:
+	if result.is_empty():
+		return
+	if int(result["paid"]) > 0:
+		context["guardWages"] = { "amount": result["paid"], "guards": result["kept"] }
+	if not result["walked"].is_empty():
+		context["exceptions"].append({ "kind": "guardsWalked", "walked": result["walked"] })
+
+
+# PROSE-REVIEW: guard shortfall and walk-off exceptions.
+static func guard_shortfall_label(exception: Dictionary) -> String:
+	if exception["kind"] == "guardsWalked":
+		return "Exception: unpaid guards walked off: %s." % GuardUpkeep.walked_text(exception["walked"])
+	return "Exception: guard wages short, £%d due. Unpaid guards walk on %s — %s." % [exception["due"], Calendar.format_day(exception["deadline"]), GuardUpkeep.places_text(exception["places"])]
 
 
 # PROSE-REVIEW: guard wages line.

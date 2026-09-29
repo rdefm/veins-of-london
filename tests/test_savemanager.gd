@@ -580,7 +580,7 @@ func run() -> void:
 		GameState.reset()
 		var legacy: Dictionary = GameState.deep_copy(GameState.state)
 		legacy.erase("guardUpkeep")
-		assert_eq(SaveManager.backfill_defaults(legacy)["guardUpkeep"], { "history": [] }, "old saves start with empty history")
+		assert_eq(SaveManager.backfill_defaults(legacy)["guardUpkeep"], { "history": [], "pendingShortfall": null }, "old saves start with empty history")
 
 		GameState.state["world"]["day"] = 3
 		GuardUpkeep.record_payment("home", 71)
@@ -605,6 +605,31 @@ func run() -> void:
 		GuardUpkeep.record_payment("home", 500)
 		assert_true(Events.rewind()["ok"])
 		assert_eq(GameState.state["guardUpkeep"]["history"], [{ "day": 3, "places": { "home": 71 } }])
+	)
+
+	run_case("pending_guard_shortfall_backfills_null_round_trips_and_rewinds", func():
+		GameState.reset()
+		var legacy: Dictionary = GameState.deep_copy(GameState.state)
+		legacy["guardUpkeep"].erase("pendingShortfall")
+		assert_eq(SaveManager.backfill_defaults(legacy)["guardUpkeep"]["pendingShortfall"], null, "old saves have none pending")
+
+		GameState.state["world"]["day"] = 8
+		GuardUpkeep.start_shortfall({ "home": 1 }, 250, 500)
+		var original: Dictionary = GameState.deep_copy(GameState.state)
+		var parsed: Dictionary = JSON.parse_string(JSON.stringify(GameState.state))
+		assert_true(SaveManager._load_save_dict(parsed)["ok"])
+		var shortfall: Dictionary = GameState.state["guardUpkeep"]["pendingShortfall"]
+		for key in ["day", "deadline", "reserve"]:
+			assert_eq(typeof(shortfall[key]), TYPE_INT, key)
+		assert_eq(typeof(shortfall["places"]["home"]), TYPE_INT)
+		assert_eq(GameState.state["guardUpkeep"], original["guardUpkeep"])
+
+		GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
+		GameState.state["event"] = { "snapshots": [] }
+		GameState.state["event"]["snapshots"].append(GameState.deep_copy(GameState.state))
+		GameState.state["guardUpkeep"]["pendingShortfall"] = null
+		assert_true(Events.rewind()["ok"])
+		assert_eq(GameState.state["guardUpkeep"]["pendingShortfall"], original["guardUpkeep"]["pendingShortfall"])
 	)
 
 	run_case("business_float_backfills_0_round_trips_and_rewinds", func():

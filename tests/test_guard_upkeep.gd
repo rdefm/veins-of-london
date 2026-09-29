@@ -67,7 +67,7 @@ func run() -> void:
 		assert_eq(GameState.state["guardUpkeep"]["history"][-1]["places"], { "v2": 500 })
 	)
 
-	run_case("short_cash_takes_nothing_and_returns_short", func():
+	run_case("short_cash_takes_nothing_and_starts_a_shortfall", func():
 		var monday := _seed_guards()
 		GameState.state["world"]["day"] = monday
 		GameState.state["player"]["cash"] = 1999
@@ -76,7 +76,11 @@ func run() -> void:
 		assert_true(result["short"], "short result")
 		assert_eq(result["due"], 2000)
 		assert_eq(result["paid"], 0)
-		assert_eq(GameState.state, before, "cash, guards and records untouched")
+		assert_eq(GameState.state["player"]["cash"], 1999, "cash untouched")
+		assert_eq(GameState.state["bankLog"], before["bankLog"])
+		assert_eq(GameState.state["guardUpkeep"]["history"], [])
+		assert_eq(GuardUpkeep.player_guards_by_place(), { "v1": 2, "v2": 1, "home": 1 }, "guards untouched")
+		assert_eq(GuardUpkeep.pending_shortfall()["reserve"], 0, "the short-pay flow starts")
 	)
 
 	run_case("pot_active_monday_is_left_to_the_payday", func():
@@ -138,6 +142,123 @@ func run() -> void:
 		assert_eq(business["ledger"][-1]["expenses"], [{ "kind": "wage", "contactId": "owen", "amount": 36 }])
 		assert_eq(GameState.state["player"]["cash"], 0)
 		assert_eq(GameState.state["guardUpkeep"]["history"], [])
+	)
+
+	run_case("short_pre_pot_monday_starts_a_shortfall_with_one_grace_day", func():
+		var monday := _seed_guards()
+		GameState.state["world"]["day"] = monday
+		GameState.state["player"]["cash"] = 0
+		TimeSystem.daily_tick()
+		assert_eq(GuardUpkeep.pending_shortfall(), { "day": monday, "deadline": monday + 1, "places": { "v1": 2, "v2": 1, "home": 1 }, "reserve": 0 })
+		assert_eq(GameState.state["bankLog"].filter(func(e): return e["label"] == "Guard wages").size(), 0, "nothing taken yet")
+		var v1 := GuardUpkeep.place_label("v1")
+		var warning := "Guard wages short: £2000 due. Unpaid guards walk on %s — %s, %s, HQ." % [Calendar.format_day(monday + 1), v1, GuardUpkeep.place_label("v2")]
+		assert_true(Fixtures.has_notification(warning), "shortfall notification")
+		var exception: Dictionary = MorningAccounts.latest()["exceptions"].filter(func(e): return e["kind"] == "guardShortfall")[0]
+		assert_eq(exception, { "kind": "guardShortfall", "due": 2000, "reserve": 0, "deadline": monday + 1, "places": ["v1", "v2", "home"] })
+		assert_true(MorningAccounts.guard_shortfall_label(exception).begins_with("Exception: guard wages short, £2000 due. Unpaid guards walk on "))
+	)
+
+	run_case("short_pot_era_monday_starts_a_shortfall_holding_the_reserve", func():
+		_seed_pot_monday(1500, 100)
+		var monday: int = GameState.state["world"]["day"]
+		TimeSystem.daily_tick()
+		assert_eq(GuardUpkeep.pending_shortfall(), { "day": monday, "deadline": monday + 1, "places": { "v1": 2, "v2": 1, "home": 1 }, "reserve": 1564 })
+		assert_eq(MorningAccounts.latest()["exceptions"].filter(func(e): return e["kind"] == "guardShortfall")[0]["reserve"], 1564)
+	)
+
+	run_case("guards_stay_on_duty_and_defend_during_grace", func():
+		var monday := _seed_guards()
+		GameState.state["world"]["day"] = monday
+		GameState.state["player"]["cash"] = 0
+		var v1: Dictionary = Cultivating.find_vein("v1")
+		var resist := Cultivating.vein_raid_resist(v1)
+		var repel := Home.guard_repel_chance(Home.get_guard_count())
+		GuardUpkeep.pay_monday_bill()
+		assert_true(GuardUpkeep.pending_shortfall() != null)
+		assert_eq(GuardUpkeep.resolve_due_shortfall(), {}, "not due before the grace rollover")
+		assert_eq(Cultivating.vein_raid_resist(v1), resist, "raid resist unchanged")
+		assert_eq(Home.guard_repel_chance(Home.get_guard_count()), repel, "HQ repel unchanged")
+		assert_eq(GuardUpkeep.player_guards_by_place(), { "v1": 2, "v2": 1, "home": 1 })
+	)
+
+	run_case("ignored_pot_era_shortfall_keeps_what_the_reserve_funds_and_floats_the_rest", func():
+		_seed_pot_monday(1500, 100)
+		var monday: int = GameState.state["world"]["day"]
+		TimeSystem.daily_tick()
+		GameState.state["world"]["day"] = monday + 1
+		var result := GuardUpkeep.resolve_due_shortfall()
+		assert_eq(result, { "paid": 1500, "kept": 3, "walked": { "v1": 1 } })
+		var v1: Dictionary = Cultivating.find_vein("v1")
+		assert_eq([v1["security"], v1["extraGuards"]], ["guarded", 0], "the extra walks first")
+		assert_eq(GameState.state["business"]["float"], 64, "1564 − 1500 back to the float")
+		assert_eq(GameState.state["player"]["cash"], 0, "cash never funds a pot-era shortfall")
+		assert_eq(GameState.state["guardUpkeep"]["history"][-1], { "day": monday + 1, "places": { "v1": 500, "v2": 500, "home": 500 } })
+		assert_eq(GuardUpkeep.pending_shortfall(), null)
+		assert_true(Fixtures.has_notification("Unpaid guards walked off: %s (1)." % GuardUpkeep.place_label("v1")))
+	)
+
+	run_case("grace_rollover_resolves_early_and_notes_walk_offs_in_the_morning_account", func():
+		var monday := _seed_guards()
+		GameState.state["world"]["day"] = monday
+		GameState.state["player"]["cash"] = 0
+		TimeSystem.daily_tick()
+		GameState.state["player"]["cash"] = 1000
+		GameState.state["world"]["day"] = monday + 1
+		TimeSystem.daily_tick()
+		assert_eq(GuardUpkeep.pending_shortfall(), null)
+		assert_eq(GameState.state["player"]["cash"], 0, "two guards kept from cash")
+		assert_eq(GameState.state["bankLog"].filter(func(e): return e["label"] == "Guard wages")[-1]["amount"], -1000)
+		var account: Dictionary = MorningAccounts.latest()
+		assert_eq(account["guardWages"], { "amount": 1000, "guards": 2 })
+		var walked: Array = account["exceptions"].filter(func(e): return e["kind"] == "guardsWalked")
+		assert_eq(walked.size(), 1)
+		assert_eq(MorningAccounts.guard_shortfall_label(walked[0]), "Exception: unpaid guards walked off: %s." % GuardUpkeep.walked_text(walked[0]["walked"]))
+	)
+
+	run_case("drop_order_is_extras_least_valuable_first_then_tier_guards_then_hq", func():
+		for case in [[1500, ["guarded", 0], ["guarded", 0], 1], [500, ["warded", 0], ["warded", 0], 1], [1000, ["warded", 0], ["guarded", 0], 1], [0, ["warded", 0], ["warded", 0], 0], [2000, ["guarded", 0], ["guarded", 1], 1]]:
+			var monday := _seed_guards()
+			var v1: Dictionary = Cultivating.find_vein("v1")
+			var v2: Dictionary = Cultivating.find_vein("v2")
+			v2["extraGuards"] = 1
+			v2["level"] = 3
+			GameState.state["world"]["day"] = monday
+			GameState.state["player"]["cash"] = 0
+			GuardUpkeep.pay_monday_bill()
+			GameState.state["player"]["cash"] = case[0]
+			GameState.state["world"]["day"] = monday + 1
+			GuardUpkeep.resolve_due_shortfall()
+			assert_eq([v1["security"], v1["extraGuards"]], case[1], "v1 with £%d" % case[0])
+			assert_eq([v2["security"], v2["extraGuards"]], case[2], "v2 with £%d" % case[0])
+			assert_eq(Home.get_guard_count(), case[3], "HQ with £%d" % case[0])
+			assert_eq(Cultivating.find_vein("v3")["security"], "warded", "a ward rune is never lost")
+			assert_eq(GameState.state["player"]["cash"], case[0] % 500, "kept guards paid from cash")
+	)
+
+	run_case("only_one_shortfall_is_ever_pending", func():
+		var monday := _seed_guards()
+		GameState.state["world"]["day"] = monday
+		GameState.state["player"]["cash"] = 0
+		GuardUpkeep.pay_monday_bill()
+		GameState.state["world"]["day"] = monday + 7
+		GameState.state["player"]["cash"] = 500
+		GuardUpkeep.start_shortfall({ "home": 1 }, 0, 500)
+		assert_eq(GuardUpkeep.pending_shortfall()["places"], { "home": 1 }, "the older shortfall resolved first")
+		assert_eq(Cultivating.find_vein("v1")["security"], "warded", "and its guards walked")
+		assert_eq(Home.get_guard_count(), 1, "the new shortfall's guards are still on duty")
+	)
+
+	run_case("a_vein_lost_during_grace_isnt_paid_for", func():
+		var monday := _seed_guards()
+		GameState.state["world"]["day"] = monday
+		GameState.state["player"]["cash"] = 0
+		GuardUpkeep.pay_monday_bill()
+		GameState.state["player"]["veins"] = GameState.state["player"]["veins"].filter(func(v): return v["id"] != "v1")
+		GameState.state["player"]["cash"] = 5000
+		GameState.state["world"]["day"] = monday + 1
+		assert_eq(GuardUpkeep.resolve_due_shortfall(), { "paid": 1000, "kept": 2, "walked": {} })
+		assert_eq(GameState.state["player"]["cash"], 4000)
 	)
 
 

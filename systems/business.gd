@@ -282,8 +282,8 @@ static func _payday(day: int) -> Dictionary:
 # weeklyWage per guard on duty, from the pot then the float, in full; each
 # place's share becomes a `guard` expense line (placeId: vein id or "home").
 # Pot and float together short: all of both is set aside as the guard wage
-# reserve, nothing is split from it, and short = true. Returns { billed,
-# short, due, paid, guards, reserve }.
+# reserve for the pending shortfall, nothing is split from it, and short =
+# true. Returns { billed, short, due, paid, guards, reserve }.
 #
 # PROSE-REVIEW: the paid notification.
 static func _pay_guard_bill(expenses: Array) -> Dictionary:
@@ -301,6 +301,7 @@ static func _pay_guard_bill(expenses: Array) -> Dictionary:
 		result["reserve"] = int(business["pot"]) + int(business["float"])
 		business["pot"] = 0
 		business["float"] = 0
+		GuardUpkeep.start_shortfall(places, result["reserve"], result["due"])
 		return result
 	for place_id in places:
 		var amount := GuardUpkeep.weekly_cost(int(places[place_id]))

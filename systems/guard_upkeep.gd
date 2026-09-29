@@ -9,6 +9,7 @@ extends RefCounted
 const HOME_PLACE_ID := "home"
 const HIRE_BANK_LABEL := "Guard hire"
 const WAGES_BANK_LABEL := "Guard wages"
+const RESERVE_BANK_LABEL := "Guard wage reserve"
 
 
 static func weekly_wage() -> int:
@@ -93,6 +94,7 @@ static func pay_monday_bill() -> Dictionary:
 	var player: Dictionary = GameState.state["player"]
 	if int(player["cash"]) < result["due"]:
 		result["short"] = true
+		start_shortfall(places, 0, result["due"])
 		return result
 	player["cash"] -= result["due"]
 	Bank.record(-result["due"], WAGES_BANK_LABEL)
@@ -130,3 +132,144 @@ static func record_payment(place_id: String, amount: int) -> void:
 	var oldest_kept: int = day - int(GameData.GUARD_UPKEEP["guardCostHistoryDays"]) + 1
 	while not history.is_empty() and int(history[0]["day"]) < oldest_kept:
 		history.remove_at(0)
+
+
+# ── short-pay flow (spec §Short-pay flow) ──
+
+# The pending guard shortfall record, or null.
+static func pending_shortfall() -> Variant:
+	return GameState.state["guardUpkeep"].get("pendingShortfall")
+
+
+# Records the one pending shortfall for today's short Monday bill: places is
+# { vein id or HOME_PLACE_ID: guards }, reserve the £ set aside from pot and
+# float (0 before the pot). The deadline is graceDays rollovers ahead; until
+# then every guard stays on duty. A shortfall still pending is auto-resolved
+# first, so there is never more than one.
+#
+# PROSE-REVIEW: the shortfall warning notification.
+static func start_shortfall(places: Dictionary, reserve: int, due: int) -> void:
+	if pending_shortfall() != null:
+		_auto_resolve(pending_shortfall())
+	var day: int = GameState.state["world"]["day"]
+	var shortfall := {
+		"day": day,
+		"deadline": day + int(GameData.GUARD_UPKEEP["graceDays"]),
+		"places": places.duplicate(),
+		"reserve": reserve,
+	}
+	GameState.state["guardUpkeep"]["pendingShortfall"] = shortfall
+	Notify.push("Guard wages short: £%d due. Unpaid guards walk on %s — %s." % [due, Calendar.format_day(shortfall["deadline"]), places_text(places.keys())], Notify.CATEGORY_WARNING)
+	EventBus.state_changed.emit()
+
+
+# Rollover step (R§3.1 ①b): once the grace deadline is reached, the pending
+# shortfall resolves on its own. Returns _auto_resolve()'s result, or {}
+# when nothing was due.
+static func resolve_due_shortfall() -> Dictionary:
+	var shortfall: Variant = pending_shortfall()
+	if shortfall == null or int(GameState.state["world"]["day"]) < int(shortfall["deadline"]):
+		return {}
+	return _auto_resolve(shortfall)
+
+
+# Keeps as many guards as the funds cover (the reserve with the pot active,
+# else player cash), each paid weeklyWage; the rest walk in drop order. Any
+# leftover reserve goes to the float, or to cash before the pot. Clears the
+# shortfall. Returns { paid, kept, walked: { place id: guards } }.
+#
+# PROSE-REVIEW: the walk-off notification.
+static func _auto_resolve(shortfall: Dictionary) -> Dictionary:
+	var at_risk := _guards_at_risk(shortfall["places"])
+	var total := 0
+	for place_id in at_risk:
+		total += int(at_risk[place_id])
+	var pot_era := Business.is_pot_active()
+	var reserve: int = int(shortfall["reserve"])
+	var player: Dictionary = GameState.state["player"]
+	var funds: int = reserve if pot_era else int(player["cash"])
+	var kept := mini(total, funds / weekly_wage())
+	var walked := _drop_guards(at_risk, total - kept)
+	var paid := 0
+	for place_id in at_risk:
+		var amount := weekly_cost(int(at_risk[place_id]) - int(walked.get(place_id, 0)))
+		record_payment(place_id, amount)
+		paid += amount
+	if pot_era:
+		reserve -= paid
+	elif paid > 0:
+		player["cash"] -= paid
+		Bank.record(-paid, WAGES_BANK_LABEL)
+	if reserve > 0:
+		if pot_era:
+			GameState.state["business"]["float"] += reserve
+		else:
+			player["cash"] += reserve
+			Bank.record(reserve, RESERVE_BANK_LABEL)
+	GameState.state["guardUpkeep"]["pendingShortfall"] = null
+	if paid > 0:
+		Notify.push("Guard wages: -£%d for %d guard%s this week." % [paid, kept, "" if kept == 1 else "s"])
+	if not walked.is_empty():
+		Notify.push("Unpaid guards walked off: %s." % walked_text(walked), Notify.CATEGORY_WARNING)
+	EventBus.state_changed.emit()
+	return { "paid": paid, "kept": kept, "walked": walked }
+
+
+# Each recorded place's guards still on duty, capped at its recorded count:
+# a vein outside player.veins drops out, and guards hired during grace (already
+# paid their advance) aren't at risk.
+static func _guards_at_risk(places: Dictionary) -> Dictionary:
+	var current := player_guards_by_place()
+	var at_risk := {}
+	for place_id in places:
+		var count := mini(int(places[place_id]), int(current.get(place_id, 0)))
+		if count > 0:
+			at_risk[place_id] = count
+	return at_risk
+
+
+# Drops `count` at-risk guards in drop order (spec §Short-pay flow): extras
+# on the least valuable vein first (Cultivating.value_order), then tier
+# guards least valuable first ("guarded" -> "warded"), then HQ guards.
+# Returns { place id: guards dropped }.
+static func _drop_guards(at_risk: Dictionary, count: int) -> Dictionary:
+	var walked := {}
+	if count <= 0:
+		return walked
+	var veins: Array = []
+	for place_id in at_risk:
+		if place_id != HOME_PLACE_ID:
+			veins.append(Cultivating.find_vein(place_id))
+	veins.sort_custom(Cultivating.value_order)
+	veins.reverse()
+	for vein in veins:
+		var extras := mini(int(at_risk[vein["id"]]), int(vein.get("extraGuards", 0)))
+		for i in mini(extras, count):
+			Cultivating.drop_vein_guard(vein)
+			walked[vein["id"]] = int(walked.get(vein["id"], 0)) + 1
+			count -= 1
+	for vein in veins:
+		if count > 0 and int(at_risk[vein["id"]]) > int(walked.get(vein["id"], 0)):
+			Cultivating.drop_vein_guard(vein)
+			walked[vein["id"]] = int(walked.get(vein["id"], 0)) + 1
+			count -= 1
+	for i in mini(count, int(at_risk.get(HOME_PLACE_ID, 0))):
+		Home.drop_guard()
+		walked[HOME_PLACE_ID] = int(walked.get(HOME_PLACE_ID, 0)) + 1
+	return walked
+
+
+# "HQ, Soho — Time" for a list of place ids.
+static func places_text(place_ids: Array) -> String:
+	var labels := PackedStringArray()
+	for place_id in place_ids:
+		labels.append(place_label(place_id))
+	return ", ".join(labels)
+
+
+# "HQ (1), Soho — Time (2)" for { place id: guards }.
+static func walked_text(walked: Dictionary) -> String:
+	var labels := PackedStringArray()
+	for place_id in walked:
+		labels.append("%s (%d)" % [place_label(place_id), int(walked[place_id])])
+	return ", ".join(labels)

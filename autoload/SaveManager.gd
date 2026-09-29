@@ -333,8 +333,18 @@ func backfill_defaults(save: Dictionary) -> Dictionary:
 	_backfill_new_combat_keys(result, defaults)
 	_backfill_new_flag_keys(result, defaults)
 	_backfill_new_business_keys(result, defaults)
+	_backfill_new_guard_upkeep_keys(result, defaults)
 	_backfill_expense_kinds(result)
 	return result
+
+
+# A guardUpkeep key added after the save was made (e.g. pendingShortfall)
+# starts at its new-game default.
+func _backfill_new_guard_upkeep_keys(result: Dictionary, defaults: Dictionary) -> void:
+	var guard_upkeep: Dictionary = result["guardUpkeep"]
+	for key in defaults["guardUpkeep"].keys():
+		if not guard_upkeep.has(key):
+			guard_upkeep[key] = GameState.deep_copy(defaults["guardUpkeep"][key])
 
 
 # A business key added after the save was made (e.g. float) starts at its
@@ -656,6 +666,11 @@ func _restore_int_types(state: Dictionary) -> void:
 	for record in state.get("guardUpkeep", {}).get("history", []):
 		_int_key(record, "day")
 		_int_dict_values(record.get("places", {}))
+	var shortfall = state.get("guardUpkeep", {}).get("pendingShortfall")
+	if shortfall != null:
+		for key in ["day", "deadline", "reserve"]:
+			_int_key(shortfall, key)
+		_int_dict_values(shortfall.get("places", {}))
 	var morning =morning_accounts.get("latest")
 	if morning != null:
 		for key in ["day", "openingBalance", "closingBalance", "income", "expenses"]:
@@ -669,8 +684,9 @@ func _restore_int_types(state: Dictionary) -> void:
 		for exception in morning.get("exceptions", []):
 			_int_key(exception, "target")
 			_int_key(exception, "actual")
-			for key in ["amount", "arrears", "roomsLost", "interestInDays", "downgradeInDays"]:
+			for key in ["amount", "arrears", "roomsLost", "interestInDays", "downgradeInDays", "due", "reserve", "deadline"]:
 				_int_key(exception, key)
+			_int_dict_values(exception.get("walked", {}))
 	for thread in state.get("messages", {}).values():
 		for msg in thread:
 			_int_key(msg, "day")

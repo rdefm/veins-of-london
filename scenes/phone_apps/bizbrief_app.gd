@@ -585,6 +585,8 @@ func _build_operations(account: Dictionary) -> Control:
 				c["content"].add_child(UI.muted_label(MorningAccountsSystem.arrears_label(exception)))
 			"wageShortfall":
 				c["content"].add_child(UI.muted_label(MorningAccountsSystem.wage_shortfall_label(exception)))
+			"guardShortfall", "guardsWalked":
+				c["content"].add_child(UI.muted_label(MorningAccountsSystem.guard_shortfall_label(exception)))
 	return c["panel"]
 
 

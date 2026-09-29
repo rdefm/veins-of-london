@@ -75,6 +75,7 @@ static func daily_tick() -> void:
 	var morning_context: Dictionary = MorningAccountsSystem.begin_rollover()
 	RelationAccrual.reset_daily_caps()
 	Barometer.tick()                     # ① barometer
+	MorningAccountsSystem.capture_guard_resolution(morning_context, GuardUpkeep.resolve_due_shortfall())  # ①b a guard shortfall past its grace day resolves before ②, so walked guards don't defend today
 	Home.roll_daily_raid()               # ② home raid
 	MorningAccountsSystem.capture_losses(morning_context, "HQ raid")
 	Jobs.expire_overdue_job()            # ②b before the fresh roll below, so an expired slot can be re-offered the same day

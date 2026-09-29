@@ -31,11 +31,11 @@
 
 **Status:** ready-for-agent
 
-- [ ] A short Monday (pre-pot and pot era) creates the pending shortfall with the right counts, deadline and reserve
-- [ ] Guards defend normally during grace (raid resist and repel unchanged)
-- [ ] An ignored shortfall drops extras from the least valuable vein first, then tier guards (`guarded` → `warded`), then HQ guards; lock and ward stay
-- [ ] Kept guards are paid from the reserve (pot era) or cash (pre-pot); leftover reserve goes to the float or cash
-- [ ] The shortfall clears after auto-resolve; there are never two pending
-- [ ] Shortfall warning and walk-off notices (PROSE-REVIEW)
-- [ ] `pendingShortfall` is backfilled null, survives save/load, and Rewind restores it exactly
-- [ ] REFERENCE §2 and §3.1 updated; CODEMAP updated
+- [x] A short Monday (pre-pot and pot era) creates the pending shortfall with the right counts, deadline and reserve
+- [x] Guards defend normally during grace (raid resist and repel unchanged)
+- [x] An ignored shortfall drops extras from the least valuable vein first, then tier guards (`guarded` → `warded`), then HQ guards; lock and ward stay
+- [x] Kept guards are paid from the reserve (pot era) or cash (pre-pot); leftover reserve goes to the float or cash
+- [x] The shortfall clears after auto-resolve; there are never two pending
+- [x] Shortfall warning and walk-off notices (PROSE-REVIEW)
+- [x] `pendingShortfall` is backfilled null, survives save/load, and Rewind restores it exactly
+- [x] REFERENCE §2 and §3.1 updated; CODEMAP updated
