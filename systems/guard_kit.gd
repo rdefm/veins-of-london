@@ -210,6 +210,51 @@ static func unstock_from(owner: Dictionary, kit_field: String, recipe_key: Strin
 	return { "ok": true, "reason": "" }
 
 
+# Repel chance with kit (spec §Not defending — repel boost): base plus each
+# active item type's repelBonus strength once, capped at guardKit.repelCap
+# with 1+ active unit, else guardRepel.cap. Shared with the HQ kit.
+static func repel_chance_with(base_chance: float, active: Dictionary) -> float:
+	var bonus := 0.0
+	for recipe_key in active:
+		if unit_count({ recipe_key: active[recipe_key] }) > 0:
+			bonus += float(GameData.GUARD_KIT["repelBonus"][GameData.GUARD_KIT["repelTier"][recipe_key]])
+	var cap: float = float(GameData.GUARD_KIT["repelCap"]) if unit_count(active) > 0 else GameData.GUARD_REPEL_CHANCE_CAP
+	return minf(base_chance + bonus, cap)
+
+
+# Uses up one unit of each active item type from kit, highest active tier
+# first, in allowlist order. Returns the recipe keys used. No emit.
+static func spend_repel_units(kit: Dictionary, active: Dictionary) -> Array:
+	var used: Array = []
+	for recipe_key in GameData.GUARD_KIT["items"]:
+		var active_buckets: Dictionary = active.get(recipe_key, {})
+		for tier_key in _tiers_high_first(active_buckets):
+			if int(active_buckets[tier_key]) <= 0:
+				continue
+			var buckets: Dictionary = kit[recipe_key]
+			var left := int(buckets[tier_key]) - 1
+			if left > 0:
+				buckets[tier_key] = left
+			else:
+				buckets.erase(tier_key)
+				if buckets.is_empty():
+					kit.erase(recipe_key)
+			used.append(recipe_key)
+			break
+	return used
+
+
+# "a shield, a blast and a black hole" for the repel notification suffix.
+static func used_items_text(recipe_keys: Array) -> String:
+	var parts: PackedStringArray = []
+	for recipe_key in recipe_keys:
+		var item_name: String = GameData.RECIPES[recipe_key]["name"].to_lower()
+		parts.append(("an " if "aeiou".contains(item_name[0]) else "a ") + item_name)
+	if parts.size() <= 1:
+		return "".join(parts)
+	return ", ".join(parts.slice(0, parts.size() - 1)) + " and " + parts[parts.size() - 1]
+
+
 static func _tiers_high_first(buckets: Dictionary) -> Array:
 	var keys: Array = buckets.keys()
 	keys.sort_custom(func(a, b): return int(a) > int(b))

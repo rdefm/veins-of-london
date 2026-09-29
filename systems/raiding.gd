@@ -534,19 +534,29 @@ static func guards_repel(vein: Dictionary) -> bool:
 # still covers that case. PROSE-REVIEW:
 # distinct from both the silent "you defended it yourself" win path and
 # every missed-defend loss line above, so the player can tell "guards
-# held it" apart from either.
+# held it" apart from either. Active guard kit raises the chance and loses
+# one unit per active type on the roll (guard-kit spec §Not defending).
 static func _guards_repel_defend_raid(outcome: Dictionary) -> bool:
 	var vein: Variant = Cultivating.find_vein(outcome["veinId"])
 	if vein == null:
 		return false
 
-	if not guards_repel(vein):
+	var guard_count: int = Cultivating.vein_guard_count(vein)
+	if guard_count <= 0:
+		return false
+	var active := GuardKit.active_units(vein)
+	var chance := GuardKit.repel_chance_with(guard_repel_chance(guard_count), active)
+	var used := GuardKit.spend_repel_units(vein.get("guardKit", {}), active)
+	if not Rng.chance(chance):
 		return false
 
 	var district_name: String = GameData.DISTRICTS[vein["district"]]["name"]
 	var faction_name: String = GameData.FACTIONS[outcome["attackerId"]]["shortName"]
 	var attacker: String = faction_name if outcome.get("caught", true) else ANONYMOUS_RAIDER_LABEL
-	Notify.push("Your guards saw %s off your vein in %s before you got there. Nothing lost." % [attacker, district_name], Notify.CATEGORY_SUCCESS)
+	var text := "Your guards saw %s off your vein in %s before you got there. Nothing lost." % [attacker, district_name]
+	if not used.is_empty():
+		text += " They went through %s." % GuardKit.used_items_text(used)
+	Notify.push(text, Notify.CATEGORY_SUCCESS)
 	return true
 
 

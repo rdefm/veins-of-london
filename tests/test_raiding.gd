@@ -1426,6 +1426,89 @@ func run() -> void:
 		assert_eq(Rng.randf(), first_roll, "a guardless vein consumes no repel roll")
 	)
 
+	# ── Guard kit repel boost (guard-kit spec §Not defending) ──
+	run_case("kit_repel_chance_adds_each_active_type_once_and_caps", func():
+		var base := Raiding.guard_repel_chance(1)
+		assert_almost_eq(GuardKit.repel_chance_with(base, {}), 0.15, 0.0001, "no kit, no bonus")
+		assert_almost_eq(GuardKit.repel_chance_with(base, { "shield": { "2": 2 }, "healingBurst": { "1": 1 } }), 0.15 + 0.05 + 0.03, 0.0001, "per type, not per unit")
+		assert_almost_eq(GuardKit.repel_chance_with(Raiding.guard_repel_chance(10), {}), 0.75, 0.0001, "no kit caps at guardRepel.cap")
+		assert_almost_eq(GuardKit.repel_chance_with(Raiding.guard_repel_chance(10), { "blackHole": { "1": 1 } }), 0.83, 0.0001, "kit lifts past 0.75")
+		var every_type := {}
+		for recipe_key in GameData.GUARD_KIT["items"]:
+			every_type[recipe_key] = { "1": 1 }
+		assert_almost_eq(GuardKit.repel_chance_with(Raiding.guard_repel_chance(10), every_type), 0.90, 0.0001, "kit caps at guardKit.repelCap")
+	)
+
+	run_case("missed_defend_repel_rolls_at_the_kit_boosted_chance", func():
+		for seed in range(30):
+			GameState.reset()
+			var vein := _player_vein_of(30, "life", "guarded", "shoreditch")
+			vein["alarmUpgrades"] = ["alarm"]
+			vein["guardKit"] = { "blackHole": { "1": 1 }, "shield": { "1": 1 } }
+			GameState.state["player"]["veins"] = [vein]
+			GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+			GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "collective", "veinId": "pv_test", "siteId": "s_player", "success": true }]
+			Rng.set_seed(seed)
+			var expected_repel: bool = Rng.chance(0.15 + 0.08 + 0.05)
+			Rng.set_seed(seed)
+			Raiding._expire_pending_defend_raids()
+			assert_eq(GameState.state["player"]["veins"].size() == 1, expected_repel, "seed %d: repel rolls at base + black hole + shield" % seed)
+	)
+
+	run_case("missed_defend_repel_spends_one_active_unit_per_type_highest_tier_first", func():
+		for want_repel in [true, false]:
+			var found := false
+			for seed in range(300):
+				GameState.reset()
+				var vein := _player_vein_of(30, "life", "guarded", "shoreditch")
+				vein["alarmUpgrades"] = ["alarm"]
+				# 1 guard = 2 active slots: blast T3 + blast T1 active; shield inactive.
+				vein["guardKit"] = { "blast": { "1": 1, "3": 1 }, "shield": { "2": 1 } }
+				GameState.state["player"]["veins"] = [vein]
+				GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+				GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "collective", "veinId": "pv_test", "siteId": "s_player", "success": true }]
+				var held: Dictionary = GameState.state["factions"]["collective"]["holdings"]["items"]
+				held.erase("blast")
+				held.erase("shield")
+				Rng.set_seed(seed)
+				Raiding._expire_pending_defend_raids()
+				var notes: Array = GameState.state["notifications"]
+				var repelled: bool = notes.any(func(n): return String(n["text"]).begins_with("Your guards saw"))
+				if repelled != want_repel:
+					continue
+				found = true
+				var left := { "blast": { "1": 1 }, "shield": { "2": 1 } }
+				if repelled:
+					assert_eq(vein["guardKit"], left, "one blast used at tier 3; inactive shield untouched")
+					assert_true(notes.any(func(n): return String(n["text"]).ends_with(" They went through a blast.")), "repel line names the used kit")
+				elif GameState.state["player"]["veins"].is_empty():
+					assert_eq({ "blast": held.get("blast"), "shield": held.get("shield") }, left, "the claim hands over what the roll left")
+				else:
+					assert_eq(vein["guardKit"], left, "a failed repel still spends the tier-3 blast")
+				break
+			assert_true(found, "should find a seed with repel=%s" % want_repel)
+	)
+
+	run_case("missed_defend_with_no_guards_rolls_nothing_and_keeps_the_kit", func():
+		GameState.reset()
+		var vein := _player_vein_of(30, "life", "warded", "shoreditch")
+		vein["alarmUpgrades"] = ["alarm"]
+		vein["guardKit"] = { "blast": { "1": 2 } }
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+		Rng.set_seed(7)
+		var first_roll: float = Rng.randf()
+		Rng.set_seed(7)
+		assert_true(not Raiding._guards_repel_defend_raid({ "attackerId": "collective", "veinId": "pv_test", "siteId": "s_player", "success": true }))
+		assert_eq(Rng.randf(), first_roll, "no guards consumes no roll")
+		assert_eq(vein["guardKit"], { "blast": { "1": 2 } }, "no guards spends no kit")
+	)
+
+	run_case("used_items_text_lists_with_articles", func():
+		assert_eq(GuardKit.used_items_text(["blast"]), "a blast")
+		assert_eq(GuardKit.used_items_text(["shield", "enhancementPowder", "blackHole"]), "a shield, an enhancement powder and a black hole")
+	)
+
 	# ── Raid kit burns (spec biz-act2-faction-economy §Consumption) ──
 	run_case("a_raid_resolved_without_an_alarm_logs_the_attackers_attack_kit", func():
 		var hit := false
