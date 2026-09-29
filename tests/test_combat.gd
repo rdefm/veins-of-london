@@ -56,6 +56,15 @@ func _multi_enemy_combat(specs: Array, allies: Array = []) -> Dictionary:
 	return GameState.state["combat"]
 
 
+# A defend_vein fight with a guard kit pool; one full-hp guard ally unless
+# `allies` is given.
+func _guard_kit_combat(specs: Array, items: Dictionary, allies: Array = []) -> Dictionary:
+	var combat := _multi_enemy_combat(specs, allies if not allies.is_empty() else [Combat.build_guard_ally()])
+	combat["context"] = Combat.CONTEXT_DEFEND_VEIN
+	combat["guardKit"] = { "items": items, "used": {} }
+	return combat
+
+
 func _test_ally(hp: int, hp_max: int) -> Dictionary:
 	return { "contactId": "archie", "name": "Archie", "hp": hp, "hpMax": hp_max, "attackMin": 0, "attackMax": 0, "stash": 0, "healAmount": 0, "speed": 10, "koed": false }
 
@@ -1725,6 +1734,138 @@ func run() -> void:
 		GameState.state["combat"]["outcome"] = "win"
 		Combat.exit_combat()
 		assert_eq(Cultivating.vein_guard_count(Cultivating.find_vein("gv")), 2, "the KO'd guard is still on the vein")
+	)
+
+	# ── guard-kit 07: guard kit pool in the fight ────────────────────────
+
+	run_case("start_defend_vein_copies_the_active_kit_into_the_guard_pool", func():
+		GameState.reset()
+		GameState.state["player"]["veins"].append({ "id": "gv", "district": "battersea", "security": Cultivating.GUARDED_TIER_ID, "extraGuards": 0,
+			"guardKit": { "blast": { "2": 1 }, "shield": { "1": 5 } } })
+		Combat.start_defend_vein("gv", 2)
+		var pool: Dictionary = GameState.state["combat"]["guardKit"]
+		assert_eq(pool["items"], { "blast": { "2": 1 }, "shield": { "1": 1 } }, "only the 2 active units (1 guard x 2 slots)")
+		assert_eq(pool["used"], {})
+	)
+
+	run_case("guard_heals_the_most_hurt_friendly_with_the_highest_tier_first", func():
+		var combat := _guard_kit_combat([{ "hp": 100 }], { "healingBurst": { "1": 1, "3": 1 } })
+		var player: Dictionary = GameState.state["player"]
+		player["hpMax"] = 100
+		player["hp"] = 10
+		Rng.set_seed(1)
+		Combat._ally_turn(combat, combat["allies"][0], 0, [])
+		assert_eq(player["hp"], 10 + int(GameData.RECIPES["healingBurst"]["effectPower"][3]))
+		assert_eq(combat["guardKit"]["items"], { "healingBurst": { "1": 1 } }, "tier 3 spent first")
+		assert_eq(combat["guardKit"]["used"], { "healingBurst": { "3": 1 } })
+		assert_true(combat["log"][-1].contains("Healing Burst"), "logs the heal")
+	)
+
+	run_case("guard_gives_the_hurt_player_evade_with_prophets_breath", func():
+		var combat := _guard_kit_combat([{ "hp": 100 }], { "prophetsBreath": { "2": 1 } })
+		var player: Dictionary = GameState.state["player"]
+		player["hpMax"] = 100
+		player["hp"] = 30
+		Rng.set_seed(1)
+		Combat._ally_turn(combat, combat["allies"][0], 0, [])
+		assert_eq(combat["evadeTurns"], int(GameData.RECIPES["prophetsBreath"]["effectPower"][2]))
+		assert_eq(combat["evadeChance"], 0.50)
+		assert_eq(combat["guardKit"]["used"], { "prophetsBreath": { "2": 1 } })
+	)
+
+	run_case("guard_shields_the_most_hurt_unshielded_guard_and_the_shield_absorbs", func():
+		var hurt_guard: Dictionary = Combat.build_guard_ally()
+		hurt_guard["hp"] = 5
+		var combat := _guard_kit_combat([{ "hp": 100, "attackMin": 3, "attackMax": 3 }], { "shield": { "4": 1 } }, [Combat.build_guard_ally(), hurt_guard])
+		Rng.set_seed(1)
+		Combat._ally_turn(combat, combat["allies"][0], 0, [])
+		var power := int(GameData.RECIPES["shield"]["effectPower"][4])
+		assert_eq(hurt_guard["shieldPool"], power, "the hurt guard, not the full-hp player, gets the shield")
+		Combat._enemy_attack_ally(combat, combat["enemies"][0], hurt_guard, 1, 0, null)
+		assert_eq(hurt_guard["hp"], 5 - maxi(0, 3 - power), "the shield absorbs 1:1 first")
+	)
+
+	run_case("guard_black_hole_hits_the_lowest_hp_enemy_and_freezes", func():
+		var combat := _guard_kit_combat([{ "hp": 80 }, { "hp": 60 }], { "blackHole": { "5": 1 }, "timePearl": { "5": 1 } })
+		Rng.set_seed(1)
+		Combat._ally_turn(combat, combat["allies"][0], 0, [])
+		var power := int(GameData.RECIPES["blackHole"]["effectPower"][5])
+		assert_eq(combat["enemies"][1]["hp"], 60 - power)
+		assert_eq(combat["enemies"][0]["hp"], 80, "only one enemy is hit")
+		assert_eq(combat["frozenTurns"], 1 + int(floor(float(power) / 8.0)))
+		assert_eq(combat["guardKit"]["items"], { "timePearl": { "5": 1 } }, "Black Hole goes before Time Pearl")
+	)
+
+	run_case("guard_time_pearl_freezes_when_two_enemies_stand_and_none_are_frozen", func():
+		var combat := _guard_kit_combat([{ "hp": 80 }, { "hp": 60 }], { "timePearl": { "2": 1 } })
+		Rng.set_seed(1)
+		Combat._ally_turn(combat, combat["allies"][0], 0, [])
+		assert_eq(combat["frozenTurns"], int(GameData.RECIPES["timePearl"]["effectPower"][2]))
+		assert_eq(combat["guardKit"]["used"], { "timePearl": { "2": 1 } })
+	)
+
+	run_case("guard_blast_hits_the_lowest_hp_enemy_and_tier_0_powers_as_tier_1", func():
+		var combat := _guard_kit_combat([{ "hp": 80 }, { "hp": 60 }], { "blast": { "0": 1 } })
+		combat["frozenTurns"] = 1
+		Rng.set_seed(1)
+		Combat._ally_turn(combat, combat["allies"][0], 0, [])
+		assert_eq(combat["enemies"][1]["hp"], 60 - int(GameData.RECIPES["blast"]["effectPower"][1]))
+		assert_eq(combat["guardKit"]["used"], { "blast": { "0": 1 } })
+	)
+
+	run_case("guard_attacks_when_no_kit_rule_applies", func():
+		var combat := _guard_kit_combat([{ "hp": 100 }], { "timePearl": { "2": 1 } })
+		combat["allies"][0]["attackMin"] = 5
+		combat["allies"][0]["attackMax"] = 5
+		Rng.set_seed(1)
+		Combat._ally_turn(combat, combat["allies"][0], 0, [])
+		assert_eq(combat["enemies"][0]["hp"], 95, "a single enemy doesn't trigger Time Pearl")
+		assert_eq(combat["guardKit"]["used"], {})
+	)
+
+	run_case("failsafe_saves_a_guard_once_per_unit", func():
+		var combat := _guard_kit_combat([{ "hp": 100, "attackMin": 999, "attackMax": 999 }], { "failsafe": { "1": 1 } })
+		var guard: Dictionary = combat["allies"][0]
+		Combat._enemy_attack_ally(combat, combat["enemies"][0], guard, 0, 0, null)
+		assert_eq(guard["hp"], 1, "the failsafe keeps the guard up on 1 hp")
+		assert_true(not guard["koed"])
+		assert_eq(combat["guardKit"]["used"], { "failsafe": { "1": 1 } })
+		Combat._enemy_attack_ally(combat, combat["enemies"][0], guard, 0, 0, null)
+		assert_true(guard["koed"], "no failsafe left -- the guard goes down")
+	)
+
+	run_case("the_players_item_menu_ignores_the_guard_kit", func():
+		var combat := _guard_kit_combat([{ "hp": 100 }], { "blast": { "3": 2 }, "shield": { "3": 2 } })
+		var player: Dictionary = GameState.state["player"]
+		player["inventory"] = {}
+		player["dial"] = null
+		assert_true(not Combat.has_usable_item(player), "kit items aren't listed for the player")
+		assert_true(not Combat.use_blast()["ok"], "the player can't throw a kit Blast")
+		assert_eq(combat["guardKit"]["items"]["blast"], { "3": 2 })
+	)
+
+	run_case("exit_combat_takes_used_units_off_the_vein_kit_on_win_loss_or_flee", func():
+		for outcome in ["win", "loss", "fled"]:
+			GameState.reset()
+			GameState.state["player"]["veins"].append({ "id": "gv", "district": "battersea", "security": Cultivating.GUARDED_TIER_ID, "extraGuards": 0,
+				"guardKit": { "blast": { "2": 2 }, "shield": { "1": 1 } } })
+			Combat.start_defend_vein("gv", 2)
+			Combat._spend_guard_item(GameState.state["combat"]["guardKit"], "blast")
+			GameState.state["combat"]["outcome"] = outcome
+			Combat.exit_combat()
+			assert_eq(Cultivating.find_vein("gv")["guardKit"], { "blast": { "2": 1 }, "shield": { "1": 1 } }, "%s: one Blast gone" % outcome)
+	)
+
+	run_case("rewinding_the_fight_does_not_refund_spent_kit_units", func():
+		var combat := _guard_kit_combat([{ "hp": 80 }, { "hp": 60 }], { "blast": { "2": 2 } })
+		combat["frozenTurns"] = 1
+		Combat.push_combat_snapshot()
+		Rng.set_seed(1)
+		Combat._ally_turn(combat, combat["allies"][0], 0, [])
+		Crafting.inventory_add("rewind", 1, 1)
+		assert_true(Combat.combat_rewind()["ok"])
+		assert_eq(combat["guardKit"]["items"], { "blast": { "2": 1 } })
+		assert_eq(combat["guardKit"]["used"], { "blast": { "2": 1 } })
 	)
 
 	# ── 68-archie-fights-when-mugged-via-archie-sale ─────────────────────

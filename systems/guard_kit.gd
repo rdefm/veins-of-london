@@ -255,6 +255,29 @@ static func used_items_text(recipe_keys: Array) -> String:
 	return ", ".join(parts.slice(0, parts.size() - 1)) + " and " + parts[parts.size() - 1]
 
 
+# The highest tier key held in a { "<tier>": count } bucket dict, "" if empty.
+static func highest_tier_key(buckets: Dictionary) -> String:
+	for tier_key in _tiers_high_first(buckets):
+		if int(buckets[tier_key]) > 0:
+			return str(tier_key)
+	return ""
+
+
+# Takes `units` (kit-shaped) off kit, clamped at what the kit holds; emptied
+# tiers and recipes are erased. A fight's used units come off this way. No emit.
+static func remove_units(kit: Dictionary, units: Dictionary) -> void:
+	for recipe_key in units:
+		var buckets: Dictionary = kit.get(recipe_key, {})
+		for tier_key in units[recipe_key]:
+			var left := int(buckets.get(tier_key, 0)) - int(units[recipe_key][tier_key])
+			if left > 0:
+				buckets[tier_key] = left
+			else:
+				buckets.erase(tier_key)
+		if buckets.is_empty():
+			kit.erase(recipe_key)
+
+
 static func _tiers_high_first(buckets: Dictionary) -> Array:
 	var keys: Array = buckets.keys()
 	keys.sort_custom(func(a, b): return int(a) > int(b))

@@ -438,7 +438,8 @@ static func start_defend_vein(vein_id: String, value_tier: int, raider_kit: Dict
 	var allies := _gather_defend_allies(log_lines)
 	var vein = Cultivating.find_vein(vein_id)
 	_add_guard_allies(allies, 0 if vein == null else Cultivating.vein_guard_count(vein), log_lines)
-	_start_combat(CONTEXT_DEFEND_VEIN, vein_id, enemies, log_lines, "", allies, null, raider_kit)
+	var guard_kit: Dictionary = {} if vein == null else { "items": GuardKit.active_units(vein).duplicate(true), "used": {} }
+	_start_combat(CONTEXT_DEFEND_VEIN, vein_id, enemies, log_lines, "", allies, null, raider_kit, guard_kit)
 
 
 # Vein-defense fights only: every recruited contact with a combat kit
@@ -497,7 +498,7 @@ static func start_debug_combat(context: String, location_key: String, value_tier
 		location_key if not location_key.is_empty() else null)
 
 
-static func _start_combat(context: String, vein_id, enemies: Array, log_lines: Array, on_win: String, allies: Array = [], location_key_override: Variant = null, raider_kit: Dictionary = {}) -> void:
+static func _start_combat(context: String, vein_id, enemies: Array, log_lines: Array, on_win: String, allies: Array = [], location_key_override: Variant = null, raider_kit: Dictionary = {}, guard_kit: Dictionary = {}) -> void:
 	if not is_canonical_context(context):
 		push_error("Combat: unrecognized context '%s' — not in CANONICAL_CONTEXTS, exit_combat() will mis-route it." % context)
 	# Every roster entry needs koed regardless of which start_* path built
@@ -513,6 +514,9 @@ static func _start_combat(context: String, vein_id, enemies: Array, log_lines: A
 		"evadeTurns": 0, "evadeChance": 0.0, "onWin": on_win, "snapshots": [],
 		"allies": allies,
 		"raiderKit": raider_kit,
+		# Guard-kit spec §Defend fight: the vein's active kit as a shared
+		# guard pool, { items, used } by recipe and tier; {} elsewhere.
+		"guardKit": guard_kit,
 		# Every beat _log() threads since the oldest snapshot still on the stack
 		# was pushed; see combat_rewind()'s "beat queue in reverse" use of it.
 		"beatsSinceSnapshot": [],
@@ -1056,6 +1060,8 @@ static func _resolve_player_turn(combat: Dictionary, beats: Variant = null, moti
 static func _ally_turn(combat: Dictionary, ally: Dictionary, ally_index: int, beats: Variant = null) -> void:
 	if _ally_try_cast(combat, ally, ally_index, beats):
 		return
+	if ally.get("guardAlly", false) and _guard_try_item(combat, ally, ally_index, beats):
+		return
 
 	var enemy: Dictionary = _focused_enemy(combat)
 	var target_index: int = _enemy_action_index(combat)
@@ -1118,6 +1124,162 @@ static func _ally_try_cast(combat: Dictionary, ally: Dictionary, ally_index: int
 		return true
 
 	return false
+
+
+# Guard-kit spec §Defend fight: a guard ally spends one unit of the shared
+# combat.guardKit pool instead of attacking, on the first rule that applies:
+# Healing Burst on the most-hurt friendly below ALLY_HEAL_THRESHOLD_FRACTION;
+# Prophet's Breath when the player is that hurt with no evade up; Shield on
+# the most-hurt of player and guard allies with no shield up; Black Hole
+# (one enemy) then Time Pearl when 2+ enemies stand and none are frozen;
+# Blast on the lowest-hp enemy. Failsafe fires from _enemy_attack_ally().
+static func _guard_try_item(combat: Dictionary, ally: Dictionary, ally_index: int, beats: Variant) -> bool:
+	var pool: Dictionary = combat.get("guardKit", {})
+	if pool.is_empty():
+		return false
+	var player: Dictionary = GameState.state["player"]
+	var cast_extra: Dictionary = { "actorType": "ally", "actorIndex": ally_index }
+
+	if _guard_pool_has(pool, "healingBurst"):
+		var target: Dictionary = _most_hurt_friendly(combat)
+		if not target.is_empty():
+			var healed_entry: Dictionary = player if target["type"] == "player" else combat["allies"][target["index"]]
+			var old_hp: int = healed_entry["hp"]
+			healed_entry["hp"] = mini(healed_entry["hp"] + _spend_guard_item(pool, "healingBurst"), healed_entry["hpMax"])
+			var extra: Dictionary = _friendly_target_extra(cast_extra, target)
+			extra["effectKey"] = "healingBurst"
+			# PROSE-REVIEW: guard Healing Burst line.
+			_log(combat, beats, "%s cracks a Healing Burst over %s. +%d HP." % [ally["name"], _guard_target_word(combat, target, ally_index), healed_entry["hp"] - old_hp], BEAT_ALLY_CAST, extra)
+			return true
+
+	if _guard_pool_has(pool, "prophetsBreath") and player["hp"] > 0 and player["hp"] < player["hpMax"] * ALLY_HEAL_THRESHOLD_FRACTION and combat["evadeTurns"] <= 0:
+		combat["evadeTurns"] = _spend_guard_item(pool, "prophetsBreath")
+		combat["evadeChance"] = 0.50
+		var extra: Dictionary = cast_extra.duplicate()
+		extra["effectKey"] = "prophetsBreath"
+		# PROSE-REVIEW: guard Prophet's Breath line.
+		_log(combat, beats, "%s holds a Prophet's Breath under your nose. You can see it coming." % ally["name"], BEAT_ALLY_CAST, extra)
+		return true
+
+	if _guard_pool_has(pool, "shield"):
+		var target: Dictionary = _most_hurt_unshielded(combat)
+		if not target.is_empty():
+			var shielded: Dictionary = player if target["type"] == "player" else combat["allies"][target["index"]]
+			shielded["shieldPool"] = _spend_guard_item(pool, "shield")
+			var extra: Dictionary = _friendly_target_extra(cast_extra, target)
+			extra["effectKey"] = "shield"
+			# PROSE-REVIEW: guard Shield line.
+			_log(combat, beats, "%s throws a shield over %s. %d absorption." % [ally["name"], _guard_target_word(combat, target, ally_index), shielded["shieldPool"]], BEAT_ALLY_CAST, extra)
+			return true
+
+	if combat["frozenTurns"] == 0 and _alive_enemy_count(combat) >= 2:
+		if _guard_pool_has(pool, "blackHole"):
+			var power := _spend_guard_item(pool, "blackHole")
+			var freeze_turns: int = 1 + int(floor(float(power) / 8.0))
+			combat["frozenTurns"] += freeze_turns
+			var target_index := _lowest_hp_enemy(combat)
+			var enemy: Dictionary = combat["enemies"][target_index]
+			var extra: Dictionary = cast_extra.duplicate()
+			extra.merge({ "targetType": "enemy", "targetIndex": target_index, "effectKey": "blackHole" })
+			var shield_note := _hit_enemy(enemy, power, extra)
+			# PROSE-REVIEW: guard Black Hole line.
+			_log(combat, beats, "%s drops a black hole on %s — %d damage%s, frozen %d turn(s). %s: %d/%d HP." % [ally["name"], enemy["name"], extra["dmg"], shield_note, freeze_turns, enemy["name"], enemy["hp"], enemy["hpMax"]], BEAT_ALLY_CAST, extra)
+			_maybe_win_from_direct_damage(combat, enemy, beats)
+			return true
+		if _guard_pool_has(pool, "timePearl"):
+			var turns := _spend_guard_item(pool, "timePearl")
+			combat["frozenTurns"] += turns
+			var extra: Dictionary = cast_extra.duplicate()
+			extra["effectKey"] = "timePearl"
+			# PROSE-REVIEW: guard Time Pearl line.
+			_log(combat, beats, "%s throws a time pearl. Enemies frozen for %d %s." % [ally["name"], turns, "turn" if turns == 1 else "turns"], BEAT_ALLY_CAST, extra)
+			return true
+
+	if _guard_pool_has(pool, "blast"):
+		var target_index := _lowest_hp_enemy(combat)
+		if target_index != -1:
+			var enemy: Dictionary = combat["enemies"][target_index]
+			var extra: Dictionary = cast_extra.duplicate()
+			extra.merge({ "targetType": "enemy", "targetIndex": target_index, "effectKey": "blast" })
+			var shield_note := _hit_enemy(enemy, _spend_guard_item(pool, "blast"), extra)
+			# PROSE-REVIEW: guard Blast line.
+			_log(combat, beats, "%s lets off a blast at %s — %d damage%s. %s: %d/%d HP." % [ally["name"], enemy["name"], extra["dmg"], shield_note, enemy["name"], enemy["hp"], enemy["hpMax"]], BEAT_ALLY_CAST, extra)
+			_maybe_win_from_direct_damage(combat, enemy, beats)
+			return true
+
+	return false
+
+
+static func _guard_pool_has(pool: Dictionary, recipe_key: String) -> bool:
+	return GuardKit.unit_count({ recipe_key: pool.get("items", {}).get(recipe_key, {}) }) > 0
+
+
+# Moves one unit of recipe_key from pool.items to pool.used, highest tier
+# first, and returns its power: effectPower[max(tier, 1)] (spec §Decisions,
+# tier 0 powers as tier 1).
+static func _spend_guard_item(pool: Dictionary, recipe_key: String) -> int:
+	var buckets: Dictionary = pool["items"][recipe_key]
+	var tier_key: String = GuardKit.highest_tier_key(buckets)
+	var left: int = int(buckets[tier_key]) - 1
+	if left > 0:
+		buckets[tier_key] = left
+	else:
+		buckets.erase(tier_key)
+		if buckets.is_empty():
+			pool["items"].erase(recipe_key)
+	if not (pool["used"].get(recipe_key) is Dictionary):
+		pool["used"][recipe_key] = {}
+	pool["used"][recipe_key][tier_key] = int(pool["used"][recipe_key].get(tier_key, 0)) + 1
+	var powers: Array = GameData.RECIPES[recipe_key]["effectPower"]
+	return int(powers[clampi(maxi(int(tier_key), 1), 0, powers.size() - 1)])
+
+
+# Lowest hp fraction among the player (if standing, no shield up) and living
+# guard allies with shieldPool 0 -- {type, index} or {} when none qualify.
+static func _most_hurt_unshielded(combat: Dictionary) -> Dictionary:
+	var best: Dictionary = {}
+	var best_fraction: float = INF
+	var player: Dictionary = GameState.state["player"]
+	if player["hp"] > 0 and int(player["shieldPool"]) <= 0:
+		best_fraction = float(player["hp"]) / float(player["hpMax"])
+		best = { "type": "player", "index": -1 }
+	var allies: Array = combat["allies"]
+	for i in range(allies.size()):
+		if allies[i]["koed"] or not allies[i].get("guardAlly", false) or int(allies[i].get("shieldPool", 0)) > 0:
+			continue
+		var fraction: float = float(allies[i]["hp"]) / float(allies[i]["hpMax"])
+		if fraction < best_fraction:
+			best_fraction = fraction
+			best = { "type": "ally", "index": i }
+	return best
+
+
+# Index of the living enemy with the lowest hp, or -1 when none stand.
+static func _lowest_hp_enemy(combat: Dictionary) -> int:
+	var best := -1
+	var enemies: Array = combat["enemies"]
+	for i in range(enemies.size()):
+		if enemies[i]["koed"]:
+			continue
+		if best == -1 or enemies[i]["hp"] < enemies[best]["hp"]:
+			best = i
+	return best
+
+
+static func _friendly_target_extra(cast_extra: Dictionary, target: Dictionary) -> Dictionary:
+	var extra: Dictionary = cast_extra.duplicate()
+	extra["targetType"] = target["type"]
+	if target["type"] == "ally":
+		extra["targetIndex"] = target["index"]
+	return extra
+
+
+static func _guard_target_word(combat: Dictionary, target: Dictionary, ally_index: int) -> String:
+	if target["type"] == "player":
+		return "you"
+	if target["index"] == ally_index:
+		return "themselves"
+	return combat["allies"][target["index"]]["name"]
 
 
 # Lowest hp fraction among the player (if standing) and non-koed allies,
@@ -1365,7 +1527,8 @@ static func _enemy_attack_player(combat: Dictionary, enemy: Dictionary, enemy_in
 		player["hp"] = GameState.round_epsilon(player["hpMax"] * 0.3)
 
 
-# No shield/evade/failsafe -- those are player-only resources. KO sets
+# No evade. A guard kit Shield (ally.shieldPool) absorbs 1:1 before hp, and a
+# guard that would be KO'd spends a pool Failsafe to stay up on 1 hp. KO sets
 # the `koed` flag Combat's loops already check, and starts the contact's
 # persistent cooldown via Contacts.knock_out().
 # blast_power > 0: a raider kit Blast, as in _enemy_attack_player().
@@ -1374,14 +1537,28 @@ static func _enemy_attack_ally(combat: Dictionary, enemy: Dictionary, ally: Dict
 	if dmg <= 0:
 		var atk := get_enemy_attack_range(enemy)
 		dmg = Rng.randi_range(atk["min"], atk["max"])
+	var shield_note := ""
+	var absorbed: int = mini(dmg, int(ally.get("shieldPool", 0)))
+	if absorbed > 0:
+		ally["shieldPool"] -= absorbed
+		dmg -= absorbed
+		shield_note = " (%d absorbed by shield)" % absorbed
 	ally["hp"] = maxi(0, ally["hp"] - dmg)
 	var beat_extra: Dictionary = { "actorType": "enemy", "actorIndex": enemy_index, "targetType": "ally", "targetIndex": ally_index, "dmg": dmg }
+	if absorbed > 0:
+		beat_extra["shieldAbsorbed"] = absorbed
 	if blast_power > 0:
 		beat_extra["effectKey"] = "blast"
 		# PROSE-REVIEW: raider blast line.
-		_log(combat, beats, "%s lets off a blast at %s — %d damage. %s: %d/%d HP." % [enemy["name"], ally["name"], dmg, ally["name"], ally["hp"], ally["hpMax"]], BEAT_ENEMY_ITEM, beat_extra)
+		_log(combat, beats, "%s lets off a blast at %s — %d damage%s. %s: %d/%d HP." % [enemy["name"], ally["name"], dmg, shield_note, ally["name"], ally["hp"], ally["hpMax"]], BEAT_ENEMY_ITEM, beat_extra)
 	else:
-		_log(combat, beats, "%s hits %s for %d. %s: %d/%d HP." % [enemy["name"], ally["name"], dmg, ally["name"], ally["hp"], ally["hpMax"]], BEAT_ENEMY_ATTACK, beat_extra)
+		_log(combat, beats, "%s hits %s for %d%s. %s: %d/%d HP." % [enemy["name"], ally["name"], dmg, shield_note, ally["name"], ally["hp"], ally["hpMax"]], BEAT_ENEMY_ATTACK, beat_extra)
+	if ally["hp"] <= 0 and ally.get("guardAlly", false) and _guard_pool_has(combat.get("guardKit", {}), "failsafe"):
+		_spend_guard_item(combat["guardKit"], "failsafe")
+		ally["hp"] = 1
+		# PROSE-REVIEW: guard Failsafe line.
+		_log(combat, beats, "%s's failsafe fires. Back up on 1 HP." % ally["name"], BEAT_ALLY_CAST,
+			{ "actorType": "ally", "actorIndex": ally_index, "effectKey": "failsafe" })
 	if ally["hp"] <= 0:
 		ally["koed"] = true
 		clamp_selection(combat)
@@ -2012,6 +2189,13 @@ static func exit_combat() -> Dictionary:
 	# Hand any allies' ending hp/stash back to persistent contact state
 	# before the combat dict is torn down below.
 	Contacts.replenish_after_combat(combat["allies"])
+	# Guard-kit spec §Defend fight: units guards spent come off the vein's
+	# kit on any outcome, before a claim hands the rest to the attacker.
+	var guard_used: Dictionary = combat.get("guardKit", {}).get("used", {})
+	if not guard_used.is_empty() and combat["veinId"] != null:
+		var vein = Cultivating.find_vein(str(combat["veinId"]))
+		if vein != null:
+			GuardKit.remove_units(vein.get("guardKit", {}), guard_used)
 
 	GameState.state["combat"] = {
 		"active": false, "context": CONTEXT_RAID, "veinId": null, "enemies": [],
@@ -2019,7 +2203,7 @@ static func exit_combat() -> Dictionary:
 		"selection": { "type": "enemy", "index": 0 }, "log": [],
 		"outcome": null, "frozenTurns": 0, "frozenSkipped": [], "motionTurns": 0, "motionPower": 0,
 		"evadeTurns": 0, "evadeChance": 0.0, "onWin": null, "snapshots": [],
-		"allies": [], "raiderKit": {},
+		"allies": [], "raiderKit": {}, "guardKit": {},
 		"beatsSinceSnapshot": [],
 		"turnCursor": { "queue": [], "index": 0, "round": 0 },
 	}
