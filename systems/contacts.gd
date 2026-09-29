@@ -246,7 +246,7 @@ static func knock_out(contact_id: String, current_day: int) -> void:
 static func replenish_after_combat(allies: Array) -> void:
 	var contacts: Dictionary = GameState.state["contacts"]
 	for ally in allies:
-		var contact_id: String = ally["contactId"]
+		var contact_id: String = ally.get("contactId", "")
 		if not contacts.has(contact_id):
 			continue
 		var c: Dictionary = contacts[contact_id]

@@ -595,7 +595,7 @@ static func vein_raid_resist(vein: Dictionary) -> int:
 # Guards on a vein (player or faction): the "guarded" tier guard plus
 # extraGuards (spec §Guard counting).
 static func vein_guard_count(vein: Dictionary) -> int:
-	var tier_guard := 1 if vein["security"] == GUARDED_TIER_ID else 0
+	var tier_guard := 1 if vein.get("security", "") == GUARDED_TIER_ID else 0
 	return tier_guard + int(vein.get("extraGuards", 0))
 
 

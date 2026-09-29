@@ -1649,6 +1649,84 @@ func run() -> void:
 		assert_eq(GameState.state["combat"]["allies"], [], "not recruited -- no allies")
 	)
 
+	# ── guard-kit 06: guards join the vein defend fight ──────────────────
+
+	run_case("start_defend_vein_with_three_guards_and_no_contacts_adds_three_guard_allies", func():
+		GameState.reset()
+		GameState.state["player"]["veins"].append({ "id": "gv", "district": "battersea", "security": Cultivating.GUARDED_TIER_ID, "extraGuards": 2 })
+		Combat.start_defend_vein("gv", 2)
+		var allies: Array = GameState.state["combat"]["allies"]
+		assert_eq(allies.size(), 3)
+		var stats: Dictionary = GameData.GUARD_KIT["guardAlly"]
+		for ally in allies:
+			assert_true(ally["guardAlly"], "marked as a guard ally")
+			assert_true(not ally.has("contactId"), "guard allies carry no contactId")
+			assert_eq(ally["name"], stats["name"])
+			assert_eq(ally["hp"], int(stats["hpMax"]))
+			assert_eq(ally["speed"], int(stats["speed"]))
+	)
+
+	run_case("start_defend_vein_contacts_join_first_and_guards_fill_up_to_squad_max", func():
+		GameState.reset()
+		GameState.state["contacts"]["archie"]["recruited"] = true
+		GameState.state["player"]["veins"].append({ "id": "gv", "district": "battersea", "security": Cultivating.GUARDED_TIER_ID, "extraGuards": 4 })
+		Combat.start_defend_vein("gv", 2)
+		var allies: Array = GameState.state["combat"]["allies"]
+		assert_eq(allies.size(), Combat.SQUAD_MAX)
+		assert_eq(allies[0]["contactId"], "archie", "contacts come first")
+		assert_true(allies[1].get("guardAlly", false) and allies[2].get("guardAlly", false), "guards fill the rest")
+	)
+
+	run_case("start_defend_vein_with_no_guards_adds_no_guard_allies", func():
+		GameState.reset()
+		GameState.state["player"]["veins"].append({ "id": "gv", "district": "battersea", "security": "warded", "extraGuards": 0 })
+		Combat.start_defend_vein("gv", 2)
+		assert_eq(GameState.state["combat"]["allies"], [])
+	)
+
+	run_case("guard_ally_attacks_on_its_turn", func():
+		GameState.reset()
+		GameState.state["player"]["attackMin"] = 0
+		GameState.state["player"]["attackMax"] = 0
+		var guard: Dictionary = Combat.build_guard_ally()
+		guard["attackMin"] = 5
+		guard["attackMax"] = 5
+		GameState.state["combat"] = {
+			"active": true, "context": Combat.CONTEXT_DEFEND_VEIN, "veinId": "v1",
+			"enemies": [{ "name": "Test Enemy", "hp": 100, "hpMax": 100, "attackMin": 0, "attackMax": 0, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false }],
+			"selection": { "type": "enemy", "index": 0 },
+			"log": [], "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
+			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [], "beatsSinceSnapshot": [], "turnCursor": { "queue": [], "index": 0, "round": 0 },
+			"allies": [guard],
+		}
+		Rng.set_seed(1)
+		Combat.player_attack()
+		assert_eq(GameState.state["combat"]["enemies"][0]["hp"], 95, "the guard's 5-damage hit lands")
+	)
+
+	run_case("a_koed_guard_touches_no_contact_and_the_vein_keeps_its_guard_count", func():
+		var vein := { "id": "gv", "district": "battersea", "security": Cultivating.GUARDED_TIER_ID, "extraGuards": 1 }
+		var ko_seed := SeedSearch.find_seed_for(200, func():
+			GameState.reset()
+			GameState.state["player"]["veins"].append(vein.duplicate())
+			GameState.state["combat"] = {
+				"active": true, "context": Combat.CONTEXT_DEFEND_VEIN, "veinId": "gv",
+				"enemies": [{ "name": "Test Enemy", "hp": 100, "hpMax": 100, "attackMin": 999, "attackMax": 999, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false }],
+				"selection": { "type": "enemy", "index": 0 },
+				"log": [], "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
+				"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [], "beatsSinceSnapshot": [], "turnCursor": { "queue": [], "index": 0, "round": 0 },
+				"allies": [Combat.build_guard_ally()],
+			}
+			Combat.enemy_attack()
+			return GameState.state["combat"]["allies"][0]["koed"]
+		)
+		assert_true(ko_seed != -1, "should find a seed where the enemy KOs the guard")
+		assert_eq(GameState.state["combat"]["outcome"], null, "a guard KO is not a loss")
+		GameState.state["combat"]["outcome"] = "win"
+		Combat.exit_combat()
+		assert_eq(Cultivating.vein_guard_count(Cultivating.find_vein("gv")), 2, "the KO'd guard is still on the vein")
+	)
+
 	# ── 68-archie-fights-when-mugged-via-archie-sale ─────────────────────
 
 	run_case("start_mugging_always_adds_archie_even_when_not_recruited", func():

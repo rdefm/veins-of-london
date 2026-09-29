@@ -436,6 +436,8 @@ static func start_defend_vein(vein_id: String, value_tier: int, raider_kit: Dict
 		log_lines.push_front("Nadia, in your ear: \"Go on then. That's what the Blast and the Shield were for — use them properly this time, not for luck.\"")
 		GameState.state["flags"]["colA2DefendReminderShown"] = true
 	var allies := _gather_defend_allies(log_lines)
+	var vein = Cultivating.find_vein(vein_id)
+	_add_guard_allies(allies, 0 if vein == null else Cultivating.vein_guard_count(vein), log_lines)
 	_start_combat(CONTEXT_DEFEND_VEIN, vein_id, enemies, log_lines, "", allies, null, raider_kit)
 
 
@@ -448,6 +450,36 @@ static func _gather_defend_allies(log_lines: Array) -> Array:
 			allies.append(Contacts.build_combat_ally(contact_id))
 			log_lines.append("%s peels off to help cover the vein." % Contacts.display_name(contact_id))
 	return allies
+
+
+# Guard-kit spec §Defend fight: one guard ally per guard fills `allies` up to
+# SQUAD_MAX, after contacts. A KO only lasts the fight -- no contactId, so
+# nothing persistent is touched.
+static func _add_guard_allies(allies: Array, guard_count: int, log_lines: Array) -> void:
+	var joining: int = mini(guard_count, SQUAD_MAX - allies.size())
+	for i in range(joining):
+		allies.append(build_guard_ally())
+	if joining > 0:
+		# PROSE-REVIEW: guards joining a defend fight.
+		log_lines.append("Your guard steps up beside you." if joining == 1 else "Your %d guards step up beside you." % joining)
+
+
+# Same shape as Contacts.build_combat_ally(), stats from guardKit.guardAlly.
+static func build_guard_ally() -> Dictionary:
+	var stats: Dictionary = GameData.GUARD_KIT["guardAlly"]
+	return {
+		"guardAlly": true,
+		"name": stats["name"],
+		"hp": int(stats["hpMax"]),
+		"hpMax": int(stats["hpMax"]),
+		"attackMin": int(stats["attackMin"]),
+		"attackMax": int(stats["attackMax"]),
+		"stash": 0,
+		"healAmount": 0,
+		"speed": int(stats["speed"]),
+		"dialCharges": 0,
+		"koed": false,
+	}
 
 
 # Debug-only (combat_setup_modal.gd): raid-guard roster under any
@@ -1054,7 +1086,7 @@ static func _ally_turn(combat: Dictionary, ally: Dictionary, ally_index: int, be
 static func _ally_try_cast(combat: Dictionary, ally: Dictionary, ally_index: int, beats: Variant) -> bool:
 	if int(ally.get("dialCharges", 0)) <= 0:
 		return false
-	var dial: Dictionary = Contacts.combat_dial(ally["contactId"])
+	var dial: Dictionary = Contacts.combat_dial(ally.get("contactId", ""))
 	var loaded: Array = dial.get("complications", [])
 	var tier: int = int(dial.get("tier", 0))
 
@@ -1355,7 +1387,8 @@ static func _enemy_attack_ally(combat: Dictionary, enemy: Dictionary, ally: Dict
 		clamp_selection(combat)
 		_log(combat, beats, "%s is knocked out of the fight." % ally["name"], BEAT_ALLY_KO,
 			{ "targetType": "ally", "targetIndex": ally_index })
-		Contacts.knock_out(ally["contactId"], GameState.state["world"]["day"])
+		if ally.has("contactId"):
+			Contacts.knock_out(ally["contactId"], GameState.state["world"]["day"])
 
 
 # Also returns `beats`, same shape as player_attack()'s -- the failed-flee
@@ -1933,7 +1966,7 @@ static func _try_ally_rewind(combat: Dictionary, player: Dictionary) -> bool:
 	for ally in combat["allies"]:
 		if ally["koed"] or ally.get("rewindUsed", false) or int(ally.get("dialCharges", 0)) <= 0:
 			continue
-		if not Contacts.combat_dial(ally["contactId"]).get("complications", []).has("rewind"):
+		if not Contacts.combat_dial(ally.get("contactId", "")).get("complications", []).has("rewind"):
 			continue
 		ally["dialCharges"] -= 1
 		ally["rewindUsed"] = true
