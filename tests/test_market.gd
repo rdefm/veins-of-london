@@ -364,6 +364,21 @@ func run() -> void:
 		assert_eq(notes[-1]["day"], GameState.state["world"]["day"], "newest kept")
 	)
 
+	run_case("sold_this_week_sums_a_sources_last_seven_days_of_sales", func():
+		GameState.reset()
+		GameState.state["market"] = Market.new_state(true)
+		for day in range(1, 10):
+			GameState.state["world"]["day"] = day
+			Market.record_supply("ore", "time", day, "player")
+			Market.record_supply("consumable", "timePearl", 1, "firm")
+			if day < 9:
+				Market.daily_reprice()
+		var sold := Market.sold_this_week("player")
+		assert_eq(sold, { "ore:time": 3 + 4 + 5 + 6 + 7 + 8 + 9 }, "days 3-9, today's live tally included")
+		assert_eq(Market.sold_this_week("firm"), { "consumable:timePearl": 7 })
+		assert_eq(GameState.state["market"]["salesHistory"].size(), 6, "history keeps the prior six days")
+	)
+
 	run_case("prev_quote_and_day_move_read_yesterday", func():
 		GameState.reset()
 		_time()["price"] = 66

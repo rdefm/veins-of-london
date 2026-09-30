@@ -12,6 +12,7 @@
   "independentsOreShare": 0.4,
   "independentsBuyCover": 0.5,
   "annotations": { "cap": 80, "dumpVolumeMult": 2.0, "moveThreshold": 0.15 },
+  "salesHistory": { "days": 7 },
   "deliveries": { "cap": 80 },
   "goods": {
     "ore": {

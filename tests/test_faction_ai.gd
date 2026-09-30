@@ -494,12 +494,16 @@ func run() -> void:
 		assert_true(FactionAI.moves_against_player().is_empty())
 	)
 
-	run_case("a_conclave_undercut_records_supply_annotates_and_lowers_the_price", func():
-		_market_fresh(5)
+	run_case("a_conclave_undercut_hits_the_players_top_seller_of_the_week_and_lowers_its_price", func():
+		_market_fresh(3)
 		GameState.state["player"]["cash"] = 100000
-		Market.record_supply("ore", "physics", 50, "player")
+		Market.record_supply("ore", "physics", 80, "player")
+		Market.daily_reprice()
+		GameState.state["world"]["day"] = 5
+		Market.record_supply("ore", "time", 30, "player")
 		_move_ready("conclave", -10)
 		_holdings("conclave")["physics"] = 500
+		_holdings("conclave")["time"] = 500
 		var qty: int = int(GameData.FACTION_ESCALATION["undercut"]["qty"]["ore"])
 		var value: int = Market.line_total("ore", Market.quote("ore", "physics"), qty)
 		var untouched: Dictionary = GameState.deep_copy(GameState.state["market"])

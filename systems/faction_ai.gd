@@ -714,23 +714,26 @@ static func _withhold_candidate(observer: String, target: String) -> Dictionary:
 
 
 # Undercut (no cash cost; the cost is the undercut.priceMult discount): sell
-# up to undercut.qty[kind] of a good the observer has for sale that the
-# target sold today (its Market supply tally). Damage = the lot's value at
-# the quote, capped at what the target sold. Needs the Market sim running.
+# up to undercut.qty[kind] of the good the target sold most of over the past
+# week (Market.sold_this_week, by qty; ties by kind:type key), skipping goods
+# the observer has none of for sale. Damage = the lot's value at the quote,
+# capped at the target's week of sales. Needs the Market sim running.
 static func _undercut_candidate(observer: String, target: String) -> Dictionary:
-	var best := {}
 	if not Market.is_running():
-		return best
-	for kind in Market.KINDS:
-		for good_type in GameData.MARKET["goods"][kind]:
-			var sold := Market.supplied_by(kind, good_type, target)
-			var qty: int = mini(int(_ecfg()["undercut"]["qty"][kind]), FactionSim.for_sale(observer, kind, good_type))
-			if sold <= 0 or qty <= 0:
-				continue
-			var damage := float(Market.line_total(kind, Market.quote(kind, good_type), mini(qty, sold)))
-			if damage > 0.0 and (best.is_empty() or damage > float(best["damage"])):
-				best = { "move": MOVE_UNDERCUT, "damage": damage, "cost": 0, "kind": kind, "good": good_type, "qty": qty }
-	return best
+		return {}
+	var sold := Market.sold_this_week(target)
+	var keys: Array = sold.keys()
+	keys.sort_custom(func(a: String, b: String) -> bool: return int(sold[a]) > int(sold[b]) or (int(sold[a]) == int(sold[b]) and a < b))
+	for key in keys:
+		var parts: PackedStringArray = key.split(":")
+		var kind: String = parts[0]
+		var good_type: String = parts[1]
+		var qty: int = mini(int(_ecfg()["undercut"]["qty"][kind]), FactionSim.for_sale(observer, kind, good_type))
+		if qty <= 0:
+			continue
+		var damage := float(Market.line_total(kind, Market.quote(kind, good_type), mini(qty, int(sold[key]))))
+		return { "move": MOVE_UNDERCUT, "damage": damage, "cost": 0, "kind": kind, "good": good_type, "qty": qty }
+	return {}
 
 
 # Deny (no cash cost; the cost is the buy): buy up to deny.qty[kind] of a

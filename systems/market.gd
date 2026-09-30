@@ -153,6 +153,7 @@ static func new_state(resting: bool) -> Dictionary:
 		"demand": { "ore": {}, "consumable": {} },
 		"annotations": [],
 		"deliveries": [],
+		"salesHistory": [],
 		"tickerStates": {},
 	}
 
@@ -268,9 +269,34 @@ static func record_move(move: String, kind: String, good_type: String, qty: int,
 	by_type[good_type] = by_source
 
 
-# Today's recorded supply of a good from one source (cleared at reprice).
-static func supplied_by(kind: String, good_type: String, source: String) -> int:
-	return int(_market()["supply"][kind].get(good_type, {}).get(source, 0))
+# What one source sold over the last salesHistory.days days, today's live
+# tally included: { "kind:type": qty }.
+static func sold_this_week(source: String) -> Dictionary:
+	var first_day: int = int(GameState.state["world"]["day"]) - int(_config()["salesHistory"]["days"]) + 1
+	var sold := {}
+	var days: Array = [{ "day": GameState.state["world"]["day"], "supply": _market()["supply"] }]
+	days.append_array(_market().get("salesHistory", []))
+	for entry in days:
+		if int(entry["day"]) < first_day:
+			continue
+		for kind in KINDS:
+			var by_type: Dictionary = entry["supply"].get(kind, {})
+			for good_type in by_type:
+				var qty := int(by_type[good_type].get(source, 0))
+				if qty > 0:
+					var key: String = kind + ":" + good_type
+					sold[key] = int(sold.get(key, 0)) + qty
+	return sold
+
+
+# Keeps today's supply tally in salesHistory (the prior salesHistory.days - 1
+# days; today is read live from the tally).
+static func _log_sales() -> void:
+	var market := _market()
+	var first_day: int = int(GameState.state["world"]["day"]) - int(_config()["salesHistory"]["days"]) + 2
+	var kept: Array = market.get("salesHistory", []).filter(func(e: Dictionary) -> bool: return int(e["day"]) >= first_day)
+	kept.push_front({ "day": GameState.state["world"]["day"], "supply": market["supply"] })
+	market["salesHistory"] = kept
 
 
 # Contract delivery (R§3.13 "Deliveries"): recorded for the buyer faction
@@ -341,6 +367,7 @@ static func daily_reprice() -> void:
 			while history.size() > history_days:
 				history.pop_front()
 			_annotate_day(kind, good_type, ticker_shifts, price, int(good["price"]))
+	_log_sales()
 	market["supply"] = { "ore": {}, "consumable": {} }
 	market["demand"] = { "ore": {}, "consumable": {} }
 	market.erase("moves")

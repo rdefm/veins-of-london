@@ -60,7 +60,7 @@ Data file per system: see `data/*.json` below.
 | key_members.gd | Faction key members (R§3.10): member/faction lookup, `speaker_for`, `send` (unlocks + intro on first message, or waits for a quest-gated member's questline) |
 | lab_bench_nav.gd | Lab bench nav: selected ore; gear confirm variant (probe/craft/inert) + readiness |
 | map_events.gd | Map event queue + playback |
-| market.gd | London market (R§3.13): per-good stock/price/history, quotes, price lots (ore per 10: line_total, affordable_qty), supply/demand + faction move (flood/undercut/deny) recording, civilian demand + Independents slice, daily reprice (⑥.6), bounded annotations, contract-delivery log, Stock Market reads (series, ore demand drivers, demand modifiers) |
+| market.gd | London market (R§3.13): per-good stock/price/history, quotes, price lots (ore per 10: line_total, affordable_qty), supply/demand + faction move (flood/undercut/deny) recording, civilian demand + Independents slice, daily reprice (⑥.6), bounded annotations, 7-day sales history, contract-delivery log, Stock Market reads (series, ore demand drivers, demand modifiers) |
 | map_hit_test.gd | Tap-hit geometry, Network diagram |
 | map_layout.gd | Resolves stops vs. live sites/veins |
 | map_nav.gd | Map drill-down nav (list → panel → site sheet or vein detail panel, mutually exclusive) |
