@@ -50,8 +50,8 @@ Data file per system: see `data/*.json` below.
 | equipment.gd | Weapon equip/unequip |
 | event_items.gd | Registry of items usable from an event's Item button (Rewind consumable + Dial Rewind): eligibility, counts, effect |
 | events.gd | Event-card runner + rewind, auto-discovers art |
-| faction_sim.gd | FactionSim: faction holdings (ore, items by tier); stockpile pick; daily vein tend + prune, sparing one maturing vein until it levels (R§1.8 `fieldwork`); crafting toward targets (`craftSkill`); consumption + kit burns → shortfall; defend-kit allocation, `vein_kit`, defend-raid `raider_kit` (`raidKits`); London sell/buy vs reserve, Conclave arbitrage (`trading`) |
-| faction_ai.gd | FactionAI (R§3.1 "Stances", "Pressure", "Escalation"): relation clamp, pair/player stances with hysteresis, bounded activity log, save fix-up; daily threat/dependence drift, Collective–Firm hold, pressure label; escalation bands/menus, warnings, cooldowns, queued vein raids, move reports + Archie explainers, moves-against-you feed |
+| faction_sim.gd | FactionSim: faction holdings (ore, items by tier); stockpile pick; vein tend + prune, sparing one maturing vein (`fieldwork`); crafting toward targets; consumption + kit burns → shortfall; defend-kit allocation, `vein_kit`, `raider_kit` (`raidKits`); London sell/buy vs reserve (skipping withheld goods), Conclave arbitrage (`trading`); `flood` sell-below-quote |
+| faction_ai.gd | FactionAI (R§3.1 "Stances", "Pressure", "Escalation"): relation clamp, pair/player stances with hysteresis, bounded activity log, save fix-up; daily threat/dependence drift, Collective–Firm hold, pressure label; escalation bands/menus, warnings, cooldowns, queued vein raids, flood/withhold/outbid, move reports + Archie explainers + flood headlines, moves-against-you feed |
 | factions.gd | Faction joining |
 | guard_kit.gd | Guard kit: allowlisted combat items stocked by tier on a player vein's or HQ's (`home.guardKit`) `guardKit`; capacity (guards × slots), active units, `stock`/`unstock` and `*_hq` twins; missed-defend repel boost/spend; kit-dict helpers (incl. `remove_units`); target helpers (vein/hq), summary/status text, `kit_veins` |
 | guard_upkeep.gd | Guard wages: hire advance, weekly cost/labels, per-day per-place `guardUpkeep.history`, pre-pot Monday bill from cash, faction Monday bill and wage-reserve gate, pending guard shortfall (grace, auto-resolve drop order, short-pay quote/confirm), place labels, Guard Costs reads (history window, per-place series, places, next Monday bill) |
@@ -60,7 +60,7 @@ Data file per system: see `data/*.json` below.
 | key_members.gd | Faction key members (R§3.10): member/faction lookup, `speaker_for`, `send` (unlocks + intro on first message, or waits for a quest-gated member's questline) |
 | lab_bench_nav.gd | Lab bench nav: selected ore; gear confirm variant (probe/craft/inert) + readiness |
 | map_events.gd | Map event queue + playback |
-| market.gd | London market (R§3.13): per-good stock/price/history, quotes, price lots (ore per 10: line_total, affordable_qty), supply/demand recording, civilian demand + Independents slice, daily reprice (⑥.6), bounded annotations, contract-delivery log, Stock Market reads (series, ore demand drivers, demand modifiers) |
+| market.gd | London market (R§3.13): per-good stock/price/history, quotes, price lots (ore per 10: line_total, affordable_qty), supply/demand/flood recording, civilian demand + Independents slice, daily reprice (⑥.6), bounded annotations, contract-delivery log, Stock Market reads (series, ore demand drivers, demand modifiers) |
 | map_hit_test.gd | Tap-hit geometry, Network diagram |
 | map_layout.gd | Resolves stops vs. live sites/veins |
 | map_nav.gd | Map drill-down nav (list → panel → site sheet or vein detail panel, mutually exclusive) |

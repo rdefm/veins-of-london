@@ -871,6 +871,8 @@ func _restore_int_types(state: Dictionary) -> void:
 	for row in state.get("factionEscalation", {}).get("targets", {}).values():
 		for entry in row.values():
 			_int_key(entry, "lastMoveDay")
+	for entry in state.get("factionEscalation", {}).get("withholds", []):
+		_int_key(entry, "untilDay")
 
 	if state.has("contacts"):
 		for contact in state["contacts"].values():

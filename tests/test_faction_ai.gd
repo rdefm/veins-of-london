@@ -392,6 +392,108 @@ func run() -> void:
 		assert_eq(_queued().size(), 0)
 	)
 
+	run_case("a_firm_flood_records_supply_annotates_lowers_the_price_and_costs_the_firm", func():
+		_market_fresh(5)
+		Shares.record_ore("player", "time", 100)
+		_move_ready("firm", -10)
+		_holdings("firm")["time"] = 200
+		var qty: int = int(GameData.FACTION_ESCALATION["flood"]["qty"])
+		var value: int = Market.line_total("ore", Market.quote("ore", "time"), qty)
+		var untouched: Dictionary = GameState.deep_copy(GameState.state["market"])
+		Market.daily_reprice()
+		var control_price := Market.quote("ore", "time")
+		GameState.state["market"] = untouched
+		FactionAI.apply_escalation()
+		assert_eq(int(_holdings("firm")["time"]), 200 - qty, "ore sold off")
+		assert_eq(int(GameState.state["market"]["supply"]["ore"]["time"]["firm"]), qty, "recorded as Firm supply")
+		var gained: int = int(GameState.state["factions"]["firm"]["resources"]) - 10000
+		assert_true(gained > 0 and gained < value, "sold below value: %d of %d" % [gained, value])
+		Market.daily_reprice()
+		assert_true(Market.quote("ore", "time") < control_price, "flood lowers the reprice")
+		var floods: Array = Market.annotations_for("ore", "time").filter(func(n: Dictionary) -> bool: return n["kind"] == "flood")
+		assert_eq(floods.size(), 1, "one flood annotation")
+		assert_eq(floods[0]["source"], "firm", "named for the Firm")
+		assert_eq(floods[0]["value"], qty)
+		var moves := FactionAI.moves_against_player()
+		assert_eq(moves[0]["move"], FactionAI.MOVE_FLOOD)
+		assert_eq(_last_message("lusk"), GameData.FACTION_ESCALATION["moveLines"]["firm"]["flood"] % "time")
+		assert_true(Barometer.headlines().is_empty(), "a flood on the player is no headline")
+	)
+
+	run_case("withhold_stops_the_faction_selling_that_ore_for_the_duration", func():
+		_market_fresh(5)
+		Shares.record_craft("player", { "life": 50 })
+		_move_ready("firm", -10)
+		_holdings("firm")["life"] = 5000
+		FactionSim.trade()
+		assert_true(_firm_sold("life"), "control: the Firm sells its surplus life")
+		_market_fresh(5)
+		Shares.record_craft("player", { "life": 50 })
+		_move_ready("firm", -10)
+		_holdings("firm")["life"] = 5000
+		FactionAI.apply_escalation()
+		assert_eq(FactionAI.moves_against_player()[0]["move"], FactionAI.MOVE_WITHHOLD)
+		assert_eq(int(GameState.state["factions"]["firm"]["resources"]), 10000 - int(GameData.FACTION_ESCALATION["moveCosts"]["withhold"]), "cost paid")
+		var days: int = int(GameData.FACTION_ESCALATION["withhold"]["days"])
+		for day in range(6, 6 + days):
+			GameState.state["world"]["day"] = day
+			FactionSim.trade()
+			assert_true(not _firm_sold("life"), "withheld on day %d" % day)
+			GameState.state["market"]["supply"] = { "ore": {}, "consumable": {} }
+		GameState.state["world"]["day"] = 6 + days
+		FactionSim.trade()
+		assert_true(_firm_sold("life"), "selling again once it lapses")
+	)
+
+	run_case("outbid_claims_a_site_the_player_found_and_tells_the_player", func():
+		_market_fresh(5)
+		var site := Fixtures.site("site_found", "life", "rich")
+		GameState.state["world"]["sites"].append(site)
+		_move_ready("firm", -10)
+		FactionAI.apply_escalation()
+		assert_true(site["factionVein"] != null, "site claimed")
+		assert_eq(site["factionVein"]["factionId"], "firm")
+		assert_eq(int(GameState.state["factions"]["firm"]["resources"]), 10000 - int(GameData.FACTION_ESCALATION["moveCosts"]["outbid"]))
+		var district_name: String = GameData.DISTRICTS[site["district"]]["name"]
+		assert_eq(_last_message("lusk"), GameData.FACTION_ESCALATION["moveLines"]["firm"]["outbid"] % district_name)
+		assert_eq(FactionAI.moves_against_player()[0]["move"], FactionAI.MOVE_OUTBID)
+		assert_eq(_explainer_count(FactionAI.MOVE_OUTBID), 1, "Archie explains the first outbid")
+	)
+
+	run_case("market_moves_wait_for_the_band_and_the_cash", func():
+		_market_fresh(5)
+		var site := Fixtures.site("site_found", "life", "rich")
+		GameState.state["world"]["sites"].append(site)
+		_move_ready("collective", 10)
+		_target_entry("collective")["warnedBand"] = FactionAI.BAND_WARNING
+		FactionAI.apply_escalation()
+		assert_eq(site["factionVein"], null, "warning band: no market move")
+		_move_ready("collective", -10)
+		GameState.state["factions"]["collective"]["resources"] = int(GameData.FACTION_ESCALATION["moveCosts"]["outbid"]) - 1
+		FactionAI.apply_escalation()
+		assert_eq(site["factionVein"], null, "market band but can't afford it")
+		GameState.state["factions"]["collective"]["resources"] = 10000
+		FactionAI.apply_escalation()
+		assert_eq(site["factionVein"]["factionId"], "collective", "market band and funded")
+	)
+
+	run_case("a_faction_flood_on_a_faction_is_a_headline_and_outbid_is_player_only", func():
+		_market_fresh(5)
+		Shares.record_ore("guild", "time", 100)
+		GameState.state["world"]["sites"].append(Fixtures.site("site_found", "life", "rich"))
+		_set_pair("firm", "guild", -60)
+		GameState.state["factions"]["firm"]["resources"] = 10000
+		FactionAI._target_entry("firm", "guild")["warnedBand"] = FactionAI.BAND_RAID
+		_holdings("firm")["time"] = 200
+		FactionAI.apply_escalation()
+		var ore_name: String = GameData.ORE_TYPES["time"]["name"]
+		var headline: String = GameData.FACTION_ESCALATION["headlines"]["flood"] % ["Firm", ore_name, "The Guild"]
+		assert_eq(Barometer.headlines()[0]["text"], headline)
+		assert_true(_log_texts("guild").has(GameData.FACTION_ESCALATION["log"]["flood"]["defender"] % ["Firm", ore_name]), "logged on the target")
+		assert_eq(GameState.state["world"]["sites"][0]["factionVein"], null, "no outbid against a faction")
+		assert_true(FactionAI.moves_against_player().is_empty())
+	)
+
 
 static func _cooldown() -> int:
 	return int(GameData.FACTION_ESCALATION["cooldownDays"])
@@ -434,8 +536,8 @@ static func _raid_ready(faction_id: String, relation: int) -> void:
 	Factions.adjust_player_relation(faction_id, relation - _player_relation(faction_id))
 
 
-static func _explainer_count() -> int:
-	var text: String = GameData.FACTION_ESCALATION["explainers"]["veinRaid"]
+static func _explainer_count(move_id: String = FactionAI.MOVE_VEIN_RAID) -> int:
+	var text: String = GameData.FACTION_ESCALATION["explainers"][move_id]
 	return GameState.state["messages"].get("archie", []).filter(func(m: Dictionary) -> bool: return m["text"] == text).size()
 
 
@@ -444,6 +546,31 @@ static func _fresh() -> void:
 	GameState.state["shares"] = Shares.new_state()
 	GameState.state["world"]["sites"] = []
 	GameState.state["player"]["veins"] = []
+
+
+# _fresh() on day `day` with the London market running at rest.
+static func _market_fresh(day: int) -> void:
+	_fresh()
+	GameState.state["world"]["day"] = day
+	GameState.state["market"] = Market.new_state(true)
+	GameState.state["market"]["startedDay"] = 1
+
+
+# A funded faction under pressure at `relation` with the player, already
+# warned about that band, so its next escalation is a move.
+static func _move_ready(faction_id: String, relation: int) -> void:
+	GameState.state["factions"][faction_id]["resources"] = 10000
+	Factions.adjust_player_relation(faction_id, relation - _player_relation(faction_id))
+	_under_pressure(faction_id)
+	_target_entry(faction_id)["warnedBand"] = FactionAI.band(faction_id, "player")
+
+
+static func _holdings(faction_id: String) -> Dictionary:
+	return GameState.state["factions"][faction_id]["holdings"]["ore"]
+
+
+static func _firm_sold(ore_type: String) -> bool:
+	return GameState.state["market"]["supply"]["ore"].get(ore_type, {}).has("firm")
 
 
 static func _pressure_days(n: int) -> void:

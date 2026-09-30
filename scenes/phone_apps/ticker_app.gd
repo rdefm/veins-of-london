@@ -13,7 +13,7 @@ const LineChartScript := preload("res://scenes/components/line_chart.gd")
 const SECTION_LABELS := { "economic": "Economic", "social": "Social", "political": "Political" }
 const NEWS_TAB := "news"
 const STOCK_TAB := "stock"
-const ANNOTATION_COLOURS := { "ticker": "pastel_ochre", "dump": "pastel_blue", "buy": "pastel_sage", "spike": "pastel_teal", "crash": "pastel_pink" }
+const ANNOTATION_COLOURS := { "ticker": "pastel_ochre", "flood": "pastel_tan", "dump": "pastel_blue", "buy": "pastel_sage", "spike": "pastel_teal", "crash": "pastel_pink" }
 const MUTED := Color("#999a9d")
 
 var _tab := NEWS_TAB
@@ -212,6 +212,8 @@ func _annotation_text(note: Dictionary) -> String:
 				if GameData.BAROMETER_STATES[section].has(note["source"]):
 					return "Ticker: %s" % GameData.BAROMETER_STATES[section][note["source"]]["label"]
 			return "Ticker shift"
+		"flood":
+			return "%s flooded %d below the quote" % [_annotation_who(note["source"]), int(note["value"])]
 		"dump":
 			return "%s dumped %d" % [_annotation_who(note["source"]), int(note["value"])]
 		"buy":

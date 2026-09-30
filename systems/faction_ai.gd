@@ -463,6 +463,9 @@ const BAND_MARKET := "market"
 const BAND_RAID := "raid"
 const BAND_ORDER: Array[String] = [BAND_NONE, BAND_WARNING, BAND_MARKET, BAND_RAID]
 const MOVE_VEIN_RAID := "veinRaid"
+const MOVE_FLOOD := "flood"
+const MOVE_WITHHOLD := "withhold"
+const MOVE_OUTBID := "outbid"
 
 
 static func _ecfg() -> Dictionary:
@@ -471,9 +474,31 @@ static func _ecfg() -> Dictionary:
 
 # state.factionEscalation: { targets: { observerId: { targetId: {
 # warnedBand, lastMoveDay } } }, queuedRaids: [ { attackerId, targetId,
-# veinId, siteId } ], explained: [moveId] }. lastMoveDay -1 = never.
+# veinId, siteId } ], explained: [moveId], withholds: [ { factionId,
+# targetId, kind, good, untilDay } ] }. lastMoveDay -1 = never.
 static func new_escalation_state() -> Dictionary:
-	return { "targets": {}, "queuedRaids": [], "explained": [] }
+	return { "targets": {}, "queuedRaids": [], "explained": [], "withholds": [] }
+
+
+static func _withholds() -> Array:
+	var escalation: Dictionary = GameState.state["factionEscalation"]
+	if not escalation.has("withholds"):
+		escalation["withholds"] = []
+	return escalation["withholds"]
+
+
+# True while faction_id is withholding the good: through untilDay inclusive.
+static func is_withholding(faction_id: String, kind: String, good_type: String) -> bool:
+	var day: int = GameState.state["world"]["day"]
+	for entry in GameState.state["factionEscalation"].get("withholds", []):
+		if entry["factionId"] == faction_id and entry["kind"] == kind and entry["good"] == good_type and day <= int(entry["untilDay"]):
+			return true
+	return false
+
+
+static func _drop_lapsed_withholds() -> void:
+	var day: int = GameState.state["world"]["day"]
+	GameState.state["factionEscalation"]["withholds"] = _withholds().filter(func(e: Dictionary) -> bool: return day <= int(e["untilDay"]))
 
 
 static func _relation_to(observer: String, target: String) -> int:
@@ -540,6 +565,7 @@ static func _cooling(entry: Dictionary, day: int) -> bool:
 # the target is negative. Off cooldown, a band deeper than the one last
 # warned about gets a warning; otherwise the best affordable move is made.
 static func apply_escalation() -> void:
+	_drop_lapsed_withholds()
 	var ids: Array = GameData.FACTIONS.keys()
 	for observer in ids:
 		for target in [Shares.PLAYER] + ids:
@@ -618,7 +644,61 @@ static func _move_candidate(observer: String, target: String, move_id: String) -
 	match move_id:
 		MOVE_VEIN_RAID:
 			return _vein_raid_candidate(observer, target)
+		MOVE_FLOOD:
+			return _flood_candidate(observer, target)
+		MOVE_WITHHOLD:
+			return _withhold_candidate(observer, target)
+		MOVE_OUTBID:
+			return _outbid_candidate(observer, target)
 	return {}
+
+
+# Flood: up to flood.qty of the ore the observer holds that the target has
+# the largest ore share in. Damage = that share × the lot's value at the
+# quote. No cash cost: the cost is the flood.priceMult discount on the sale.
+# Needs the Market sim running, so the flood moves the price.
+static func _flood_candidate(observer: String, target: String) -> Dictionary:
+	var best := {}
+	if not Market.is_running():
+		return best
+	for ore_type in GameData.CANONICAL_ORE_TYPES:
+		var qty: int = mini(int(_ecfg()["flood"]["qty"]), FactionSim.ore_held(observer, ore_type))
+		if qty <= 0:
+			continue
+		var damage := Shares.ore_share(target, ore_type) * Market.line_total("ore", Market.quote("ore", ore_type), qty)
+		if damage > 0.0 and (best.is_empty() or damage > float(best["damage"])):
+			best = { "move": MOVE_FLOOD, "damage": damage, "cost": 0, "good": ore_type, "qty": qty }
+	return best
+
+
+# Withhold: stop selling the ore the target has the largest crafting share
+# in, among ores the observer has for sale and isn't already withholding.
+# Damage = that share × the stock's value at the quote.
+static func _withhold_candidate(observer: String, target: String) -> Dictionary:
+	var best := {}
+	for ore_type in GameData.CANONICAL_ORE_TYPES:
+		var qty: int = FactionSim.for_sale(observer, "ore", ore_type)
+		if qty <= 0 or is_withholding(observer, "ore", ore_type):
+			continue
+		var damage := Shares.crafting_share(target, ore_type) * Market.line_total("ore", Market.quote("ore", ore_type), qty)
+		if damage > 0.0 and (best.is_empty() or damage > float(best["damage"])):
+			best = { "move": MOVE_WITHHOLD, "damage": damage, "cost": _move_cost(MOVE_WITHHOLD), "good": ore_type }
+	return best
+
+
+# Outbid (player only): claim the unclaimed site the player has found with
+# the highest ore quote × tier rank (sites.json tierOrder; barren is 0).
+static func _outbid_candidate(_observer: String, target: String) -> Dictionary:
+	var best := {}
+	if target != Shares.PLAYER:
+		return best
+	for site in GameState.state["world"]["sites"]:
+		if site["claimed"] or site["factionVein"] != null:
+			continue
+		var damage := float(Market.quote("ore", site["oreType"]) * GameData.SITE_TIER_ORDER.find(site["tier"]))
+		if damage > 0.0 and (best.is_empty() or damage > float(best["damage"])):
+			best = { "move": MOVE_OUTBID, "damage": damage, "cost": _move_cost(MOVE_OUTBID), "siteId": site["id"] }
+	return best
 
 
 # The target vein with the highest success chance × Factions.vein_value().
@@ -664,13 +744,65 @@ static func _raid_queued(vein_id: String) -> bool:
 
 
 # A raid is queued for the next rollover's raid resolution (Factions ⑤c
-# for a faction target, Raiding ⑤d for the player).
+# for a faction target, Raiding ⑤d for the player). Market moves land now
+# and are reported now: today's reprice (⑥.6) prices a flood in.
 static func _make_move(observer: String, target: String, move: Dictionary) -> void:
 	match move["move"]:
 		MOVE_VEIN_RAID:
 			GameState.state["factionEscalation"]["queuedRaids"].append({
 				"attackerId": observer, "targetId": target, "veinId": move["veinId"], "siteId": move["siteId"],
 			})
+		MOVE_FLOOD:
+			FactionSim.flood(observer, move["good"], int(move["qty"]), float(_ecfg()["flood"]["priceMult"]))
+			_report_market_move(observer, target, MOVE_FLOOD, move["good"])
+		MOVE_WITHHOLD:
+			_withholds().append({
+				"factionId": observer, "targetId": target, "kind": "ore", "good": move["good"],
+				"untilDay": int(GameState.state["world"]["day"]) + int(_ecfg()["withhold"]["days"]),
+			})
+			_report_market_move(observer, target, MOVE_WITHHOLD, move["good"])
+		MOVE_OUTBID:
+			var site: Dictionary = Sites.find_site(move["siteId"])
+			Sites.seed_faction_vein(site, observer)
+			var district_name: String = GameData.DISTRICTS[site["district"]]["name"]
+			_report_player(observer, MOVE_OUTBID, district_name, district_name)
+
+
+# A flood or withhold of ore_type. Against the player: key member line
+# (with the ore id) and tagged log. Between factions: both sides' logs, and
+# a flood is a Ticker headline.
+static func _report_market_move(observer: String, target: String, move_id: String, ore_type: String) -> void:
+	var ore_name: String = GameData.ORE_TYPES[ore_type]["name"]
+	if target == Shares.PLAYER:
+		_report_player(observer, move_id, ore_type, ore_name)
+		return
+	var log_cfg: Dictionary = _ecfg()["log"][move_id]
+	var observer_name: String = GameData.FACTIONS[observer]["shortName"]
+	var target_name: String = GameData.FACTIONS[target]["shortName"]
+	if move_id == MOVE_FLOOD:
+		log_activity(observer, log_cfg["attacker"] % [target_name, ore_name])
+		Barometer.push_headline(_ecfg()["headlines"]["flood"] % [observer_name, ore_name, target_name])
+	else:
+		log_activity(observer, log_cfg["attacker"] % [ore_name, target_name])
+	log_activity(target, log_cfg["defender"] % [observer_name, ore_name])
+
+
+# A market move against the player: the key member's moveLines line
+# (line_arg), log[move].player (log_arg) tagged for BizBrief, and Archie's
+# explainer the first time.
+static func _report_player(faction_id: String, move_id: String, line_arg: String, log_arg: String) -> void:
+	var line: String = _ecfg()["moveLines"].get(faction_id, {}).get(move_id, "")
+	if line != "":
+		KeyMembers.send(faction_id, line % line_arg)
+	log_activity(faction_id, _ecfg()["log"][move_id]["player"] % log_arg, { "target": Shares.PLAYER, "move": move_id })
+	_explain_once(move_id)
+
+
+static func _explain_once(move_id: String) -> void:
+	var explained: Array = GameState.state["factionEscalation"]["explained"]
+	if not explained.has(move_id):
+		explained.append(move_id)
+		Messages.append("archie", "them", _ecfg()["explainers"][move_id])
 
 
 # Removes and returns the queued raids against the player (for_player) or
@@ -697,10 +829,7 @@ static func report_player_move(faction_id: String, move_id: String, district_id:
 		KeyMembers.send(faction_id, line % district_name)
 	var log_text: String = _ecfg()["log"][move_id]["playerHit" if landed else "playerMiss"]
 	log_activity(faction_id, log_text % district_name, { "target": Shares.PLAYER, "move": move_id })
-	var explained: Array = GameState.state["factionEscalation"]["explained"]
-	if not explained.has(move_id):
-		explained.append(move_id)
-		Messages.append("archie", "them", _ecfg()["explainers"][move_id])
+	_explain_once(move_id)
 
 
 # A resolved faction-vs-faction move, logged on both sides.

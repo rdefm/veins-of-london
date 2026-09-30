@@ -491,8 +491,9 @@ static func _buy_shortfall(faction_id: String, kind: String, good_type: String) 
 	_buy(faction_id, kind, good_type, qty, price)
 
 
+# A good the faction is withholding (FactionAI escalation) is never sold.
 static func _sell(faction_id: String, kind: String, good_type: String, qty: int, price: int) -> void:
-	if qty <= 0:
+	if qty <= 0 or FactionAI.is_withholding(faction_id, kind, good_type):
 		return
 	if kind == "ore":
 		take_ore(faction_id, good_type, qty)
@@ -500,6 +501,18 @@ static func _sell(faction_id: String, kind: String, good_type: String, qty: int,
 		take_items(faction_id, good_type, qty)
 	GameState.state["factions"][faction_id]["resources"] += Market.line_total(kind, price, qty)
 	Market.record_supply(kind, good_type, qty, faction_id)
+
+
+# Sells qty of an ore at price_mult × today's quote, below its value
+# (R§3.1 "Escalation" flood), recorded as a Market flood. Returns the £ taken.
+static func flood(faction_id: String, ore_type: String, qty: int, price_mult: float) -> int:
+	if qty <= 0:
+		return 0
+	take_ore(faction_id, ore_type, qty)
+	var proceeds: int = Market.line_total("ore", GameState.round_epsilon(Market.quote("ore", ore_type) * price_mult), qty)
+	GameState.state["factions"][faction_id]["resources"] += proceeds
+	Market.record_flood("ore", ore_type, qty, faction_id)
+	return proceeds
 
 
 static func _buy(faction_id: String, kind: String, good_type: String, qty: int, price: int) -> void:

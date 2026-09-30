@@ -246,6 +246,21 @@ static func record_demand(kind: String, good_type: String, qty: int, source: Str
 	_record("demand", kind, good_type, qty, source)
 
 
+# A faction's flood (R§3.1 "Escalation"): recorded as supply, and today's
+# reprice annotates it as a flood by that faction at any volume.
+static func record_flood(kind: String, good_type: String, qty: int, source: String) -> void:
+	if qty <= 0 or not is_running():
+		return
+	record_supply(kind, good_type, qty, source)
+	var market := _market()
+	if not market.has("floods"):
+		market["floods"] = { "ore": {}, "consumable": {} }
+	var by_type: Dictionary = market["floods"][kind]
+	var by_source: Dictionary = by_type.get(good_type, {})
+	by_source[source] = int(by_source.get(source, 0)) + qty
+	by_type[good_type] = by_source
+
+
 # Contract delivery (R§3.13 "Deliveries"): recorded for the buyer faction
 # only -- no supply tally, no price effect. Bounded to deliveries.cap.
 static func note_contract_delivery(counterparty: String, kind: String, good_type: String, qty: int) -> void:
@@ -316,6 +331,7 @@ static func daily_reprice() -> void:
 			_annotate_day(kind, good_type, ticker_shifts, price, int(good["price"]))
 	market["supply"] = { "ore": {}, "consumable": {} }
 	market["demand"] = { "ore": {}, "consumable": {} }
+	market.erase("floods")
 
 
 # Ticker states that changed since the last reprice, [{ section, state }];
@@ -346,8 +362,9 @@ static func _shift_touches(shift: Dictionary, kind: String, good_type: String) -
 
 
 # Appends today's annotations for one good: Ticker shifts touching it, each
-# source's supply and each faction's buy above dumpVolumeMult × civilian
-# demand, and a day move of at least moveThreshold × yesterday's price.
+# faction's flood, each other source's supply and each faction's buy above
+# dumpVolumeMult × civilian demand, and a day move of at least
+# moveThreshold × yesterday's price.
 # Runs before tallies clear.
 static func _annotate_day(kind: String, good_type: String, ticker_shifts: Array, old_price: int, new_price: int) -> void:
 	var cfg: Dictionary = _config()["annotations"]
@@ -355,9 +372,12 @@ static func _annotate_day(kind: String, good_type: String, ticker_shifts: Array,
 		if _shift_touches(shift, kind, good_type):
 			_annotate(kind, good_type, "ticker", shift["state"], 0)
 	var volume_line: float = float(cfg["dumpVolumeMult"]) * civilian_demand(kind, good_type)
+	var flooded: Dictionary = _market().get("floods", {}).get(kind, {}).get(good_type, {})
+	for source in flooded:
+		_annotate(kind, good_type, "flood", source, int(flooded[source]))
 	var by_source: Dictionary = _market()["supply"][kind].get(good_type, {})
 	for source in by_source:
-		if float(by_source[source]) > volume_line:
+		if not flooded.has(source) and float(by_source[source]) > volume_line:
 			_annotate(kind, good_type, "dump", source, int(by_source[source]))
 	var bought: Dictionary = _market()["demand"][kind].get(good_type, {})
 	for source in bought:
@@ -368,7 +388,7 @@ static func _annotate_day(kind: String, good_type: String, ticker_shifts: Array,
 		_annotate(kind, good_type, "spike" if move > 0 else "crash", "market", move)
 
 
-# Annotation: { day, goodKind, good, kind (ticker/dump/buy/spike/crash),
+# Annotation: { day, goodKind, good, kind (ticker/flood/dump/buy/spike/crash),
 # source (Ticker state id, supplier/buyer, or "market"), value (qty or £
 # move; 0 for ticker) }. Bounded to annotations.cap, oldest dropped.
 static func _annotate(kind: String, good_type: String, note_kind: String, source: String, value: int) -> void:

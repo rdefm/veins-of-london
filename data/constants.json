@@ -136,7 +136,9 @@
       "informationBroker": { "market": ["sellIntel", "priceGouge", "disinformation"], "raid": ["stockpileRaid"] },
       "manipulator": { "market": ["undercut", "denyGoods", "tickerPush"], "raid": [] }
     },
-    "moveCosts": { "veinRaid": 500 },
+    "moveCosts": { "veinRaid": 500, "withhold": 150, "outbid": 400 },
+    "flood": { "qty": 150, "priceMult": 0.6 },
+    "withhold": { "days": 7 },
     "warnings": {
       "producer": {
         "warning": "\"You're working ground we work. Mind how much of it you take.\"",
@@ -164,17 +166,26 @@
         "veinRaid": {
           "hit": "\"That was us in %s. You were working our side of the street.\"",
           "miss": "\"We came for your vein in %s. You held it. This time.\""
-        }
+        },
+        "flood": "\"We've put a lot of %s calc on the market. Cheap. See how you like selling against it.\"",
+        "withhold": "\"We're not selling %s this week. Not to anyone. You'll work out why.\"",
+        "outbid": "\"The site in %s is ours now. You were slow.\""
       },
       "firm": {
         "veinRaid": {
           "hit": "\"%s was a hostile acquisition. We'll send the paperwork.\"",
           "miss": "\"Our people were turned back in %s. They'll be reviewed. So will you.\""
-        }
+        },
+        "flood": "\"We've released some %s stock at a discount. Your margins were never our concern.\"",
+        "withhold": "\"The Firm has paused sales of %s. Supply will resume when it suits us.\"",
+        "outbid": "\"We've acquired the site in %s. You were outbid. It happens.\""
       }
     },
     "explainers": {
-      "veinRaid": "\"That's a raid. They'll keep at it while they're this sore with you. Guards and an alarm on the vein help, or give them a reason to like you.\""
+      "veinRaid": "\"That's a raid. They'll keep at it while they're this sore with you. Guards and an alarm on the vein help, or give them a reason to like you.\"",
+      "flood": "\"That's a flood. They've dumped your ore on London below the quote to drag the price down. Costs them too. Hold your stock a few days if you can.\"",
+      "withhold": "\"They're sitting on their stock so you can't buy it. It'll ease in a week. Find another seller or craft around it.\"",
+      "outbid": "\"They got to a site you'd found before you claimed it. Claim the good ones quick while they're watching you.\""
     },
     "log": {
       "warningPlayer": "Warned you off.",
@@ -186,10 +197,24 @@
         "attackerMiss": "Turned back from %s's vein in %s.",
         "defenderHit": "%s took our vein in %s.",
         "defenderMiss": "Saw %s off our vein in %s."
+      },
+      "flood": {
+        "player": "Flooded London with your %s.",
+        "attacker": "Flooded London with %s's %s.",
+        "defender": "%s flooded London with our %s."
+      },
+      "withhold": {
+        "player": "Stopped selling %s to squeeze you.",
+        "attacker": "Stopped selling %s to squeeze %s.",
+        "defender": "%s stopped selling %s to squeeze us."
+      },
+      "outbid": {
+        "player": "Claimed your site in %s before you could."
       }
     },
     "headlines": {
-      "veinTaken": "%s vein in %s changes hands: %s out, %s in."
+      "veinTaken": "%s vein in %s changes hands: %s out, %s in.",
+      "flood": "%s floods London with cut-price %s, aimed at %s."
     }
   },
   "business": { "weeklyWages": { "owen": 250 }, "jamesJoinCraftingSkill": 5, "owenCraftMinCultivating": 2 },

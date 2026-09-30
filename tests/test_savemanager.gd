@@ -119,6 +119,7 @@ func run() -> void:
 		GameState.reset()
 		FactionAI._target_entry("firm", "player")["lastMoveDay"] = 4
 		GameState.state["factionEscalation"]["queuedRaids"].append({ "attackerId": "firm", "targetId": "player", "veinId": "v", "siteId": "s" })
+		GameState.state["factionEscalation"]["withholds"].append({ "factionId": "firm", "targetId": "player", "kind": "ore", "good": "time", "untilDay": 9 })
 		Barometer.push_headline("Test headline.")
 		assert_true(SaveManager.save_to_slot(TEST_SLOT)["ok"])
 		GameState.reset()
@@ -127,6 +128,7 @@ func run() -> void:
 		assert_eq(typeof(entry["lastMoveDay"]), TYPE_INT, "day restored as int")
 		assert_eq(entry["lastMoveDay"], 4)
 		assert_eq(GameState.state["factionEscalation"]["queuedRaids"].size(), 1, "queued raid kept")
+		assert_eq(typeof(GameState.state["factionEscalation"]["withholds"][0]["untilDay"]), TYPE_INT, "withhold day restored as int")
 		assert_eq(typeof(Barometer.headlines()[0]["day"]), TYPE_INT)
 		SaveManager.delete_slot(TEST_SLOT)
 		var save: Dictionary = GameState.deep_copy(GameState.state)

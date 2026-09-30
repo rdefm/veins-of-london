@@ -315,6 +315,22 @@ func run() -> void:
 		assert_eq(_notes_of("ore", "fate", "buy").size(), 0, "only faction buys are annotated")
 	)
 
+	run_case("a_flood_is_annotated_with_the_faction_at_any_volume_and_not_as_a_dump", func():
+		GameState.reset()
+		GameState.state["market"] = Market.new_state(true)
+		GameState.state["market"]["startedDay"] = 1
+		Market.record_flood("ore", "time", 40, "firm")
+		Market.record_flood("ore", "life", 730, "collective")
+		Market.daily_reprice()
+		var floods := _notes_of("ore", "time", "flood")
+		assert_eq(floods.size(), 1, "a small flood is still annotated")
+		assert_eq(floods[0]["source"], "firm")
+		assert_eq(floods[0]["value"], 40)
+		assert_eq(_notes_of("ore", "life", "flood").size(), 1)
+		assert_eq(_notes_of("ore", "life", "dump").size(), 0, "a big flood isn't also a dump")
+		assert_true(not GameState.state["market"].has("floods"), "cleared with the tallies")
+	)
+
 	run_case("ordinary_supply_is_not_a_dump", func():
 		GameState.reset()
 		GameState.state["market"] = Market.new_state(true)
