@@ -67,6 +67,7 @@ func run() -> void:
 	run_case("save_mutate_load_round_trips_factionRelations_as_ints", func():
 		GameState.reset()
 		Factions.adjust_relation("collective", "firm", -12)
+		var expected: int = Factions.get_relation("collective", "firm")
 
 		var save_result := SaveManager.save_to_slot(TEST_SLOT)
 		assert_true(save_result["ok"], "save_to_slot should succeed")
@@ -77,10 +78,56 @@ func run() -> void:
 		assert_true(load_result["ok"], "load_from_slot should succeed")
 
 		var restored: Variant = GameState.state["factionRelations"]["collective"]["firm"]
-		assert_eq(restored, -12, "relation value should be restored")
+		assert_eq(restored, expected, "relation value should be restored")
 		assert_eq(typeof(restored), TYPE_INT, "JSON round-trip should restore int, not float")
 
 		SaveManager.delete_slot(TEST_SLOT)
+	)
+
+	run_case("stances_pending_counters_and_activity_log_round_trip", func():
+		GameState.reset()
+		Factions.adjust_player_relation("firm", 60)
+		FactionAI.update_stances()
+		FactionAI.log_activity("firm", "A note.")
+		assert_true(SaveManager.save_to_slot(TEST_SLOT)["ok"])
+		GameState.reset()
+		assert_true(SaveManager.load_from_slot(TEST_SLOT)["ok"])
+		var entry: Dictionary = GameState.state["factionStances"]["player"]["firm"]
+		assert_eq(entry["pending"], FactionAI.PARTNER)
+		assert_eq(typeof(entry["pendingDays"]), TYPE_INT)
+		assert_eq(entry["pendingDays"], 1)
+		assert_eq(FactionAI.activity_log("firm")[-1]["text"], "A note.")
+		SaveManager.delete_slot(TEST_SLOT)
+	)
+
+	run_case("old_save_clamps_relations_symmetrises_pairs_and_backfills_stances", func():
+		GameState.reset()
+		var save: Dictionary = GameState.deep_copy(GameState.state)
+		save.erase("factionStances")
+		for faction in save["factions"].values():
+			faction.erase("activityLog")
+		save["factions"]["firm"]["relation"] = 250
+		save["factions"]["guild"]["relation"] = -60
+		for a in save["factionRelations"]:
+			for b in save["factionRelations"][a]:
+				save["factionRelations"][a][b] = 0
+		save["factionRelations"]["firm"]["guild"] = -30
+		save["factionRelations"]["guild"]["firm"] = 20
+		save["factionRelations"]["collective"]["firm"] = -500
+		save["factionRelations"]["firm"]["collective"] = -500
+		save["factionRelations"]["collective"]["guild"] = 0
+		save["factionRelations"]["guild"]["collective"] = 0
+		assert_true(SaveManager.import_string(JSON.stringify(save))["ok"])
+		assert_eq(GameState.state["factions"]["firm"]["relation"], 100, "player relation clamped")
+		assert_eq(Factions.get_relation("firm", "guild"), -5, "directions averaged")
+		assert_eq(Factions.get_relation("guild", "firm"), -5)
+		assert_eq(Factions.get_relation("collective", "firm"), -100, "pair relation clamped")
+		assert_eq(FactionAI.pair_stance("collective", "firm"), FactionAI.HOSTILE, "starting stances backfilled")
+		assert_eq(FactionAI.pair_stance("collective", "guild"), FactionAI.PARTNER)
+		assert_eq(Factions.get_relation("collective", "guild"), FactionAI.starting_pair_relation("collective", "guild"), "moved into the Partner band")
+		assert_eq(FactionAI.player_stance("firm"), FactionAI.PARTNER, "player stance read from relation")
+		assert_eq(FactionAI.player_stance("guild"), FactionAI.HOSTILE)
+		assert_eq(FactionAI.activity_log("firm"), [], "activity log backfilled")
 	)
 
 	run_case("save_mutate_load_round_trips_vein_level_as_an_int", func():

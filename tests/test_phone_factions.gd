@@ -70,3 +70,17 @@ func run() -> void:
 			assert_true(not (text.to_lower().contains("holding") or text.to_lower().contains("kit")), "leaked: %s" % text)
 		phone.free()
 	)
+
+	run_case("cards_show_stance_and_activity_log", func():
+		GameState.reset()
+		var phone := _open_factions()
+		var texts := NodeQuery.label_texts(phone)
+		assert_true(texts.has("Stance: Neutral"), "stance shown")
+		assert_true(texts.has("Nothing yet."), "empty log")
+		phone.free()
+		FactionAI.log_activity("firm", "Now Partner with The Guild.")
+		phone = _open_factions()
+		texts = NodeQuery.label_texts(phone)
+		assert_true(texts.has("%s · Now Partner with The Guild." % Calendar.format_day(GameState.state["world"]["day"])), "log entry shown")
+		phone.free()
+	)

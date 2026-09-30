@@ -214,10 +214,12 @@ func new_game_state() -> Dictionary:
 
 		"factions": _new_factions_state(),
 
-		# Internal-only directional matrix: factionRelations[a][b] is a's
-		# relation toward b (need not equal [b][a]) -- distinct from
-		# state.factions[id].relation, the player<->faction stat.
+		# Faction-pair relation, one shared value stored both ways
+		# ([a][b] == [b][a]) -- distinct from state.factions[id].relation,
+		# the player<->faction stat.
 		"factionRelations": _new_faction_relations_state(),
+		# Stored stances with hysteresis counters (FactionAI.new_state()).
+		"factionStances": FactionAI.new_state(),
 
 		"barometer": {
 			"economic": "stable", "social": "stable", "political": "stable",
@@ -406,6 +408,8 @@ func _new_factions_state() -> Dictionary:
 			# (security-roll opulence input); startingResources tiers
 			# scrappiest to richest: Collective < Firm/Network < Guild/Conclave.
 			"resources": GameData.FACTIONS[faction_id].get("startingResources", 0),
+			# FactionAI.log_activity() entries { day, text }, capped.
+			"activityLog": [],
 			# Lifetime ore sold TO this faction, keyed by ore type --
 			# { units, transactions }, absent = zero. Unlike tradeProgress
 			# (£-denominated) below, unit/transaction-based, used only for
@@ -442,7 +446,7 @@ func _new_faction_relations_state() -> Dictionary:
 		var row := {}
 		for b in GameData.FACTIONS.keys():
 			if b != a:
-				row[b] = 0
+				row[b] = FactionAI.starting_pair_relation(a, b)
 		relations[a] = row
 	return relations
 

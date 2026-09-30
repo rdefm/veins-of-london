@@ -44,6 +44,12 @@ The land itself — a site's tier (`poor`/`fair`/`rich`/`saturated`, driving `te
 
 Every vein also carries a persistent `level: int` (1..`Cultivating.level_cap_for_tier(tier)`: poor 2 / fair 3 / rich 4 / saturated 5), seeded at 1 on creation and unrelated to `growth`/`value_tier()`. It scales nightly drift magnitude (`level + rand(1,5)`, R§1.2/§8.3) and, via `Cultivating.combined_magnitude(vein)` (cultivation-refining ticket 02), blends into every value_tier consumer (raid stealth odds, faction targeting/income, combat scaling, the map's growth ring). Ways to raise or lose it land in later cultivation-refining tickets (05/06/07).
 
+**Stance**:
+The stored political posture of a faction pair, or of the player with a faction: Partner, Neutral, Business rival or Hostile. Read from relation bands, but only flips after relation has stayed in the new band for a few days. Business rival needs the two sides to compete (shared ores or items); without that, the middle band is Neutral. A pair has one stance and one shared relation.
+
+**Key member**:
+The named person who speaks for a faction (Lusk for the Firm, Ingram for the Guild, Fairweather for the Conclave, Nadia for the Collective, the handler for the Network). Every faction message to the player comes from its key member, never from the faction as a faceless whole.
+
 **The Network**:
 In-fiction name for the game's map screen (a Beck-style transit diagram). Never call it "the tube map," "the Underground," or "London Underground" in player-facing text — see `plans/M1-LONDON.md` D4.1 for the legal rationale.
 

@@ -25,8 +25,10 @@ static func join(faction_id: String) -> Dictionary:
 
 # Player-toward-faction relation (state.factions[id].relation), distinct
 # from the faction-to-faction matrix below (state.factionRelations).
+# Clamped to FactionAI's relation range.
 static func adjust_player_relation(faction_id: String, delta: int) -> void:
-	GameState.state["factions"][faction_id]["relation"] += delta
+	var f: Dictionary = GameState.state["factions"][faction_id]
+	f["relation"] = FactionAI.clamp_relation(int(f["relation"]) + delta)
 	EventBus.state_changed.emit()
 
 
@@ -232,8 +234,9 @@ static func _most_valuable(veins: Array) -> Variant:
 
 
 # ── Faction-to-faction relation matrix ──────────────────────────────────
-# state.factionRelations holds a's relation *toward* b -- distinct from the
-# player-facing state.factions[id].relation the join logic above uses.
+# state.factionRelations holds one shared relation per pair, stored in both
+# directions ([a][b] == [b][a]) -- distinct from the player-facing
+# state.factions[id].relation the join logic above uses.
 
 # self-vs-self is a documented no-op / always-0 read, not an error.
 static func get_relation(faction_a: String, faction_b: String) -> int:
@@ -245,7 +248,10 @@ static func get_relation(faction_a: String, faction_b: String) -> int:
 static func adjust_relation(faction_a: String, faction_b: String, delta: int) -> void:
 	if faction_a == faction_b:
 		return
-	GameState.state["factionRelations"][faction_a][faction_b] += delta
+	var relations: Dictionary = GameState.state["factionRelations"]
+	var value := FactionAI.clamp_relation(int(relations[faction_a][faction_b]) + delta)
+	relations[faction_a][faction_b] = value
+	relations[faction_b][faction_a] = value
 
 
 # ── Rivalry initiation roll ─────────────────────────────────────────────

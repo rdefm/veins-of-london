@@ -1,7 +1,8 @@
 # Factions: a London overview table (player, factions, Independents × ore
 # type, ore/crafting toggle) then one card per faction with its economic
-# identity and its ore- and crafting-share bars (spec §UI reads). Shares
-# only -- holdings and vein kits never show. The toggle is view state.
+# identity, its ore- and crafting-share bars (spec §UI reads), your stance
+# with it and its activity log, newest first. Shares only -- holdings and
+# vein kits never show. The toggle is view state.
 class_name FactionsApp
 extends PhoneApp
 
@@ -74,6 +75,20 @@ func _build_economy(faction_id: String) -> Control:
 	for ore_type in [f["primaryOre"], f["secondaryOre"]]:
 		box.add_child(_share_row("%s ore" % _ore_name(ore_type), Shares.ore_share(faction_id, ore_type)))
 		box.add_child(_share_row("%s crafting" % _ore_name(ore_type), Shares.crafting_share(faction_id, ore_type)))
+	box.add_child(UI.label("Stance: %s" % FactionAI.stance_name(FactionAI.player_stance(faction_id))))
+	box.add_child(_build_activity(faction_id))
+	return box
+
+
+func _build_activity(faction_id: String) -> Control:
+	var box := UI.vbox(2)
+	box.add_child(UI.muted_label("Activity"))
+	var entries := FactionAI.activity_log(faction_id)
+	if entries.is_empty():
+		box.add_child(UI.muted_label("Nothing yet."))
+	for i in range(entries.size() - 1, -1, -1):
+		var entry: Dictionary = entries[i]
+		box.add_child(UI.label("%s · %s" % [Calendar.format_day(int(entry["day"])), entry["text"]]))
 	return box
 
 

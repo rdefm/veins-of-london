@@ -51,6 +51,7 @@ Data file per system: see `data/*.json` below.
 | event_items.gd | Registry of items usable from an event's Item button (Rewind consumable + Dial Rewind): eligibility, counts, effect |
 | events.gd | Event-card runner + rewind, auto-discovers art |
 | faction_sim.gd | FactionSim: faction holdings (ore, items by tier); stockpile pick; daily vein tend + prune, sparing one maturing vein until it levels (R§1.8 `fieldwork`); crafting toward targets (`craftSkill`); consumption + kit burns → shortfall; defend-kit allocation, `vein_kit`, defend-raid `raider_kit` (`raidKits`); London sell/buy vs reserve, Conclave arbitrage (`trading`) |
+| faction_ai.gd | FactionAI: relation clamp, stored pair/player stances with hysteresis (daily `update_stances`), overlap reads, stance-change key-member lines, bounded per-faction activity log, load fix-up `migrate_save` (R§3.1 "Stances") |
 | factions.gd | Faction joining |
 | guard_kit.gd | Guard kit: allowlisted combat items stocked by tier on a player vein's or HQ's (`home.guardKit`) `guardKit`; capacity (guards × slots), active units, `stock`/`unstock` and `*_hq` twins; missed-defend repel boost/spend; kit-dict helpers (incl. `remove_units`); target helpers (vein/hq), summary/status text, `kit_veins` |
 | guard_upkeep.gd | Guard wages: hire advance, weekly cost/labels, per-day per-place `guardUpkeep.history`, pre-pot Monday bill from cash, faction Monday bill and wage-reserve gate, pending guard shortfall (grace, auto-resolve drop order, short-pay quote/confirm), place labels, Guard Costs reads (history window, per-place series, places, next Monday bill) |
@@ -213,7 +214,7 @@ overlays.
 | bizbrief_app.gd | BizBrief tabs: Brief (bank, float, payday, wage prompt, operations, attention, shares); Manage (offers/contracts, buy-calc, cancel; production targets + log, procurement); Staff once `bizStaffTabOpen` (role, skills, pay, Pay now); Stats while pot active (charts, ore toggle, expenses by kind, guard legend → Guard Costs); hosts short_pay_view.gd, guard_costs_view.gd |
 | messages_app.gd | Conversation inbox (fixed-height rows: bold name, one-line `…` preview, unread pill, per-contact Clear) + single-thread staged bubble reveal/action bar (incl. Owen's text reply choices); thread opens scrolled to the newest message |
 | todo_app.gd | ToDo app: collapsible questline sections from Todo, all_of checks as indented sub-rows; session-only expand/collapse overrides in a static var |
-| factions_app.gd | London share overview table (ore/crafting toggle; player, factions, Independents × ore type) and faction cards with archetype, ores, crafts and share bars. Shares only, never holdings or kits. |
+| factions_app.gd | London share overview table (ore/crafting toggle; player, factions, Independents × ore type) and faction cards with archetype, ores, crafts, share bars, your stance and the activity log. Shares only, never holdings or kits. |
 | ticker_app.gd | Ticker: News tab (barometer headlines + axis detail with push/pull, influence actions) and Stock Market tab (prices ▲/▼, demand modifiers, per-good chart with annotations and demand drivers) |
 | profile_app.gd | Stats, skills, equipment |
 | dialer_app.gd | Phone recent-calls placeholder; no telephony state/actions |
@@ -235,7 +236,7 @@ overlays.
 | collective_barks.json | collective.gd |
 | combat_prototype.json | combat_prototype.gd |
 | combat_visuals.json | combat_stage.gd (locationBackdrops, backdrops, pose sheets, stage.spriteScale); GameData.gd (territorialVariant pose spec); combat_director.gd (pacing.turnPause); turn_order_strip.gd (cardFrames) |
-| constants.json | calendar.gd (calendar), time_system.gd, jobs.gd, GameState.gd, contacts.gd (contacts roster incl. handler/owen/key members; founder roleFlags, skillCaps), business.gd (weekly wages), rooms.gd (productionLogDays), business_stats.gd (businessStatsDays), shares.gd (sharesDays, sharesWindowDays), factions.gd (factionRivalry), GUARD_UPKEEP (guardUpkeep), guard_kit.gd (GUARD_KIT) |
+| constants.json | calendar.gd (calendar), time_system.gd, jobs.gd, GameState.gd, contacts.gd (contacts roster, roleFlags, skillCaps), business.gd (weekly wages), rooms.gd (productionLogDays), business_stats.gd (businessStatsDays), shares.gd (sharesDays, sharesWindowDays), factions.gd (factionRivalry), faction_ai.gd (factionStances), GUARD_UPKEEP (guardUpkeep), guard_kit.gd (GUARD_KIT) |
 | daily_cycle.json | time_transition.gd (circle layout, sky clips, colours, timing) |
 | dial.json | dial.gd |
 | districts.json | widely read (sites, economy, factions, raiding) |

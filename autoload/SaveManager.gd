@@ -316,6 +316,7 @@ func _check_save_version(save: Dictionary) -> Dictionary:
 func backfill_defaults(save: Dictionary) -> Dictionary:
 	var defaults := GameState.new_game_state()
 	var result: Dictionary = save.duplicate(true)
+	var had_stances := result.has("factionStances")
 	# A save from before the market existed starts at resting prices, not base.
 	if not result.has("market"):
 		result["market"] = Market.new_state(true)
@@ -336,6 +337,7 @@ func backfill_defaults(save: Dictionary) -> Dictionary:
 	_backfill_new_guard_upkeep_keys(result, defaults)
 	_backfill_vein_guard_kits(result)
 	_backfill_expense_kinds(result)
+	FactionAI.migrate_save(result, had_stances)
 	return result
 
 
@@ -855,10 +857,16 @@ func _restore_int_types(state: Dictionary) -> void:
 			for burn in faction.get("kitBurns", []):
 				_int_key(burn, "day")
 				_int_dict_values(burn.get("items", {}))
+			for entry in faction.get("activityLog", []):
+				_int_key(entry, "day")
 
 	if state.has("factionRelations"):
 		for row in state["factionRelations"].values():
 			_int_dict_values(row)
+
+	for group in state.get("factionStances", {}).values():
+		for entry in group.values():
+			_int_key(entry, "pendingDays")
 
 	if state.has("contacts"):
 		for contact in state["contacts"].values():

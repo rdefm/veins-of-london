@@ -55,6 +55,58 @@
   "sharesDays": 14,
   "sharesWindowDays": 7,
   "factionRivalry": false,
+  "factionStances": {
+    "relationMin": -100,
+    "relationMax": 100,
+    "partnerAtOrAbove": 50,
+    "rivalAtOrBelow": -10,
+    "hostileAtOrBelow": -40,
+    "hysteresisDays": 3,
+    "playerOverlapShare": 0.05,
+    "activityLogCap": 20,
+    "startingRelation": { "partner": 60, "neutral": 0, "businessRival": -20, "hostile": -50 },
+    "startingPairs": [
+      { "a": "collective", "b": "firm", "stance": "hostile" },
+      { "a": "guild", "b": "conclave", "stance": "businessRival" },
+      { "a": "network", "b": "conclave", "stance": "businessRival" },
+      { "a": "collective", "b": "guild", "stance": "partner" }
+    ],
+    "names": { "partner": "Partner", "neutral": "Neutral", "businessRival": "Business rival", "hostile": "Hostile" },
+    "logPlayer": "Your standing: %s.",
+    "logPair": "Now %s with %s.",
+    "lines": {
+      "collective": {
+        "partner": "\"You've been good to us. People here remember that, and we don't forget much.\"",
+        "neutral": "\"We're square. Not friends, not strangers. Let's keep it tidy.\"",
+        "businessRival": "\"You're working our ground. We've noticed. So has everyone who eats off it.\"",
+        "hostile": "\"We're done being polite. Stay out of Hackney.\""
+      },
+      "firm": {
+        "partner": "\"You've been useful. The Firm keeps a list of useful people. You're on the short one.\"",
+        "neutral": "\"Consider the account settled. For now.\"",
+        "businessRival": "\"You're selling into our market. We're a patient firm, but we do keep minutes.\"",
+        "hostile": "\"You've made yourself a line item. We close those.\""
+      },
+      "guild": {
+        "partner": "\"The Court has minuted its appreciation. Rarely done. Frame it if you like.\"",
+        "neutral": "\"Your file has been returned to the general cabinet.\"",
+        "businessRival": "\"The Court notes you now work materials it regards as its own. A formal note. They escalate.\"",
+        "hostile": "\"The Court has struck your name from its courtesies. Expect the Guild to act accordingly.\""
+      },
+      "network": {
+        "partner": "\"You're on the list of people we pass things to. Try to stay on it.\"",
+        "neutral": "\"Nothing personal. Nothing at all, in fact.\"",
+        "businessRival": "\"You're trading in things we trade in. We've started a file.\"",
+        "hostile": "\"We know where you sleep. That used to be a service.\""
+      },
+      "conclave": {
+        "partner": "\"The Conclave regards you as a friend. Please don't make us revise that in writing.\"",
+        "neutral": "\"We have no view on you at present. That is a comfortable place to be.\"",
+        "businessRival": "\"You've entered a market we manage. We'll be managing you as well.\"",
+        "hostile": "\"The Conclave has taken a position on you. It is not a supportive one.\""
+      }
+    }
+  },
   "business": { "weeklyWages": { "owen": 250 }, "jamesJoinCraftingSkill": 5, "owenCraftMinCultivating": 2 },
   "calendar": {
     "startMonth": 3,

@@ -415,13 +415,13 @@ func run() -> void:
 
 	# ── faction-territory-rivalry T01: relation matrix ──────────────────
 
-	run_case("faction_relations_seeded_neutral_for_every_ordered_pair", func():
+	run_case("faction_relations_seeded_from_starting_stances_for_every_ordered_pair", func():
 		GameState.reset()
 		var ids: Array = GameData.FACTIONS.keys()
 		for a in ids:
 			for b in ids:
 				if a != b:
-					assert_eq(Factions.get_relation(a, b), 0, "%s->%s should seed neutral" % [a, b])
+					assert_eq(Factions.get_relation(a, b), FactionAI.starting_pair_relation(a, b), "%s->%s seeds its stance's relation" % [a, b])
 	)
 
 	run_case("get_relation_self_vs_self_is_a_documented_no_op", func():
@@ -431,14 +431,26 @@ func run() -> void:
 		assert_eq(Factions.get_relation("collective", "collective"), 0, "self-vs-self adjust is a no-op")
 	)
 
-	run_case("adjust_relation_round_trips_and_is_directional", func():
+	run_case("adjust_relation_round_trips_and_is_shared_by_the_pair", func():
 		GameState.reset()
-		Factions.adjust_relation("collective", "firm", -15)
-		assert_eq(Factions.get_relation("collective", "firm"), -15, "adjustment applied")
-		assert_eq(Factions.get_relation("firm", "collective"), 0, "the reverse direction is untouched")
+		Factions.adjust_relation("guild", "firm", -15)
+		assert_eq(Factions.get_relation("guild", "firm"), -15, "adjustment applied")
+		assert_eq(Factions.get_relation("firm", "guild"), -15, "the reverse direction matches")
 
-		Factions.adjust_relation("collective", "firm", 5)
-		assert_eq(Factions.get_relation("collective", "firm"), -10, "adjustments accumulate")
+		Factions.adjust_relation("firm", "guild", 5)
+		assert_eq(Factions.get_relation("guild", "firm"), -10, "adjustments accumulate")
+	)
+
+	run_case("relation_adjusters_clamp_to_plus_minus_100", func():
+		GameState.reset()
+		Factions.adjust_relation("guild", "firm", -1000)
+		assert_eq(Factions.get_relation("firm", "guild"), -100, "pair floor")
+		Factions.adjust_relation("guild", "firm", 5000)
+		assert_eq(Factions.get_relation("guild", "firm"), 100, "pair ceiling")
+		Factions.adjust_player_relation("firm", -250)
+		assert_eq(GameState.state["factions"]["firm"]["relation"], -100, "player floor")
+		Factions.adjust_player_relation("firm", 400)
+		assert_eq(GameState.state["factions"]["firm"]["relation"], 100, "player ceiling")
 	)
 
 	run_case("faction_relations_survive_deep_copy_and_save_load_round_trip", func():
