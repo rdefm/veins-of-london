@@ -5,8 +5,10 @@ extends RefCounted
 # for every faction pair and for the player with each faction, the daily
 # hysteresis stance update, each faction's bounded activity log, the
 # daily threat/dependence pressure drift (R§3.1 "Pressure") and the
-# escalation menus (R§3.1 "Escalation"). Data in constants.json
-# factionStances, factionPressure and factionEscalation. Static funcs only.
+# escalation menus (R§3.1 "Escalation") and the Conclave stabiliser
+# (R§3.1 "Conclave stabiliser"). Data in constants.json factionStances,
+# factionPressure, factionEscalation, factionWar and factionConclave.
+# Static funcs only.
 
 const PARTNER := "partner"
 const NEUTRAL := "neutral"
@@ -1996,3 +1998,57 @@ static func _pay_weekly(from: String, to: String, amount: int) -> void:
 			Notify.push(cfg["received"] % [_party_name(from), sent], Notify.CATEGORY_SUCCESS)
 	else:
 		GameState.state["factions"][to]["resources"] += sent
+
+
+# ── Conclave stabiliser ─────────────────────────────────────────────────
+# R§3.1 "Conclave stabiliser": a good quoted beyond ±bandPct of its base
+# price for runDays straight rollovers gets a Conclave counter-trade at a
+# loss -- selling into the spike, buying the crash -- and its run restarts.
+# Data in constants.json factionConclave.stabiliser.
+
+static func _scfg() -> Dictionary:
+	return GameData.FACTION_CONCLAVE["stabiliser"]
+
+
+# state.factionConclave: { runs: { "kind:type": days } }, days signed: +n
+# for n straight days above the band, -n below; a good inside it has no key.
+static func new_conclave_state() -> Dictionary:
+	return { "runs": {} }
+
+
+static func stabiliser_run(kind: String, good_type: String) -> int:
+	return int(GameState.state["factionConclave"]["runs"].get(kind + ":" + good_type, 0))
+
+
+static func stabilise() -> void:
+	if not Market.is_running():
+		return
+	var cfg := _scfg()
+	var conclave_id: String = cfg["factionId"]
+	var band_pct: float = float(cfg["bandPct"])
+	var run_days: int = int(cfg["runDays"])
+	var runs: Dictionary = GameState.state["factionConclave"]["runs"]
+	for kind in Market.KINDS:
+		for good_type in GameData.MARKET["goods"][kind]:
+			var key: String = kind + ":" + good_type
+			var base: int = Market.base_price(kind, good_type)
+			var price: int = Market.quote(kind, good_type)
+			var side := 0
+			if base > 0 and price > base * (1.0 + band_pct):
+				side = 1
+			elif base > 0 and price < base * (1.0 - band_pct):
+				side = -1
+			if side == 0:
+				runs.erase(key)
+				continue
+			var run: int = int(runs.get(key, 0))
+			run = run + side if signi(run) == side else side
+			if absi(run) < run_days:
+				runs[key] = run
+				continue
+			runs.erase(key)
+			var qty: int = int(cfg["qty"][kind])
+			if side > 0:
+				FactionSim.stabilise_sell(conclave_id, kind, good_type, qty, float(cfg["sellMult"]))
+			else:
+				FactionSim.stabilise_buy(conclave_id, kind, good_type, qty, float(cfg["buyMult"]))

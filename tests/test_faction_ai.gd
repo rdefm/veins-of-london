@@ -3,6 +3,7 @@ extends "res://tests/test_base.gd"
 const Fixtures := preload("res://tests/support/fixtures.gd")
 
 const FACTION_IDS := ["collective", "firm", "guild", "network", "conclave"]
+const STABILISER_SAVE_SLOT := 86
 
 
 static func _days(n: int) -> void:
@@ -693,6 +694,107 @@ func run() -> void:
 		FactionAI.apply_escalation()
 		assert_true(Messages.pending_for("ingram").is_empty(), "an unanswered lowball lapses")
 	)
+
+	run_case("a_spike_held_for_the_run_gets_a_conclave_sell_at_a_loss", func():
+		_stabiliser_fresh()
+		_holdings("conclave")["physics"] = 500
+		GameState.state["factions"]["conclave"]["resources"] = 10000
+		var price: int = _hold_quote("ore", "physics", 1.5)
+		var qty: int = int(_stabiliser()["qty"]["ore"])
+		_stabilise_days(_run_days() - 1)
+		assert_eq(int(_holdings("conclave")["physics"]), 500, "no trade before the run completes")
+		assert_eq(FactionAI.stabiliser_run("ore", "physics"), _run_days() - 1)
+		_stabilise_days(1)
+		assert_eq(int(_holdings("conclave")["physics"]), 500 - qty, "sold into the spike")
+		var gained: int = int(GameState.state["factions"]["conclave"]["resources"]) - 10000
+		var value: int = Market.line_total("ore", price, qty)
+		assert_true(gained > 0 and gained < value, "sold below value: %d of %d" % [gained, value])
+		assert_eq(int(GameState.state["market"]["supply"]["ore"]["physics"]["conclave"]), qty, "recorded as Conclave supply")
+		assert_eq(FactionAI.stabiliser_run("ore", "physics"), 0, "run restarts after the trade")
+		Market.daily_reprice()
+		var notes: Array = Market.annotations_for("ore", "physics").filter(func(n: Dictionary) -> bool: return n["kind"] == "stabiliseSell")
+		assert_eq(notes.size(), 1, "one stabiliser annotation")
+		assert_eq(notes[0]["source"], "conclave")
+		assert_eq(notes[0]["value"], qty)
+	)
+
+	run_case("a_crash_held_for_the_run_gets_a_conclave_buy_at_a_loss", func():
+		_stabiliser_fresh()
+		_holdings("conclave")["life"] = 0
+		GameState.state["factions"]["conclave"]["resources"] = 100000
+		var price: int = _hold_quote("ore", "life", 0.5)
+		var qty: int = int(_stabiliser()["qty"]["ore"])
+		_stabilise_days(_run_days())
+		assert_eq(int(_holdings("conclave")["life"]), qty, "bought the crash")
+		var spent: int = 100000 - int(GameState.state["factions"]["conclave"]["resources"])
+		var value: int = Market.line_total("ore", price, qty)
+		assert_true(spent > value, "paid over value: %d for %d" % [spent, value])
+		assert_eq(int(GameState.state["market"]["demand"]["ore"]["life"]["conclave"]), qty, "recorded as Conclave demand")
+		Market.daily_reprice()
+		var notes: Array = Market.annotations_for("ore", "life").filter(func(n: Dictionary) -> bool: return n["kind"] == "stabiliseBuy")
+		assert_eq(notes.size(), 1, "one stabiliser annotation")
+		assert_eq(notes[0]["source"], "conclave")
+	)
+
+	run_case("a_short_excursion_triggers_no_conclave_trade", func():
+		_stabiliser_fresh()
+		_holdings("conclave")["physics"] = 500
+		GameState.state["factions"]["conclave"]["resources"] = 100000
+		_hold_quote("ore", "physics", 1.5)
+		_stabilise_days(_run_days() - 1)
+		_hold_quote("ore", "physics", 1.0)
+		_stabilise_days(1)
+		assert_eq(FactionAI.stabiliser_run("ore", "physics"), 0, "back inside the band clears the run")
+		_hold_quote("ore", "physics", 1.5)
+		_stabilise_days(_run_days() - 1)
+		_hold_quote("ore", "physics", 0.5)
+		_stabilise_days(_run_days() - 1)
+		assert_eq(FactionAI.stabiliser_run("ore", "physics"), 1 - _run_days(), "flipping sides restarts the run")
+		assert_eq(int(_holdings("conclave")["physics"]), 500, "nothing sold")
+		assert_eq(int(GameState.state["factions"]["conclave"]["resources"]), 100000, "nothing bought")
+	)
+
+	run_case("the_rollover_counts_stabiliser_runs_and_they_survive_a_save", func():
+		_stabiliser_fresh()
+		_hold_quote("ore", "fate", 1.6)
+		TimeSystem.daily_tick()
+		assert_eq(FactionAI.stabiliser_run("ore", "fate"), 1, "the rollover counts a day beyond the band")
+		GameState.state["factionConclave"]["runs"]["ore:fate"] = 2
+		assert_true(SaveManager.save_to_slot(STABILISER_SAVE_SLOT)["ok"])
+		GameState.reset()
+		assert_true(SaveManager.load_from_slot(STABILISER_SAVE_SLOT)["ok"])
+		SaveManager.delete_slot(STABILISER_SAVE_SLOT)
+		assert_eq(FactionAI.stabiliser_run("ore", "fate"), 2)
+		assert_eq(typeof(GameState.state["factionConclave"]["runs"]["ore:fate"]), TYPE_INT)
+	)
+
+
+static func _stabiliser() -> Dictionary:
+	return GameData.FACTION_CONCLAVE["stabiliser"]
+
+
+static func _run_days() -> int:
+	return int(_stabiliser()["runDays"])
+
+
+# Pins a good's quote at mult × base; returns the quote.
+static func _hold_quote(kind: String, good_type: String, mult: float) -> int:
+	var price: int = roundi(Market.base_price(kind, good_type) * mult)
+	GameState.state["market"]["goods"][kind][good_type]["price"] = price
+	return price
+
+
+# _market_fresh(5) with every good quoted at base, inside the band.
+static func _stabiliser_fresh() -> void:
+	_market_fresh(5)
+	for kind in Market.KINDS:
+		for good_type in GameState.state["market"]["goods"][kind]:
+			_hold_quote(kind, good_type, 1.0)
+
+
+static func _stabilise_days(n: int) -> void:
+	for i in n:
+		FactionAI.stabilise()
 
 
 static func _cooldown() -> int:

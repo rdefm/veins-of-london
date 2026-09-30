@@ -228,6 +228,8 @@ func new_game_state() -> Dictionary:
 		# Wars, hostile-act clock, weariness per party, player nag level
 		# (FactionAI.new_war_state()).
 		"factionWar": FactionAI.new_war_state(),
+		# Conclave stabiliser run counters (FactionAI.new_conclave_state()).
+		"factionConclave": FactionAI.new_conclave_state(),
 
 		"barometer": {
 			"economic": "stable", "social": "stable", "political": "stable",

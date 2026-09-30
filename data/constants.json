@@ -264,6 +264,9 @@
       "flood": "%s floods London with cut-price %s, aimed at %s."
     }
   },
+  "factionConclave": {
+    "stabiliser": { "factionId": "conclave", "bandPct": 0.25, "runDays": 3, "qty": { "ore": 90, "consumable": 35 }, "sellMult": 0.85, "buyMult": 1.15 }
+  },
   "factionWar": {
     "windowDays": 7,
     "weights": { "lossPer100": 5.0, "fightLost": 3.0, "drainPer100": 2.0, "extraFront": 0.5, "dayAtWar": 0.5 },

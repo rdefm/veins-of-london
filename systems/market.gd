@@ -248,10 +248,11 @@ static func record_demand(kind: String, good_type: String, qty: int, source: Str
 
 
 # Which tally each faction market move (R§3.1 "Escalation") feeds.
-const MOVE_SIDES := { "flood": "supply", "undercut": "supply", "deny": "demand" }
+const MOVE_SIDES := { "flood": "supply", "undercut": "supply", "deny": "demand", "stabiliseSell": "supply", "stabiliseBuy": "demand" }
 
 
-# A faction market move (flood, undercut or deny): recorded on its tally
+# A faction market move (flood, undercut, deny, stabiliseSell or
+# stabiliseBuy): recorded on its tally
 # side, and today's reprice annotates it under the move's name by that
 # faction at any volume. moves: { kind: { type: { source: { move: qty } } } }.
 static func record_move(move: String, kind: String, good_type: String, qty: int, source: String) -> void:
@@ -431,7 +432,8 @@ static func _annotate_day(kind: String, good_type: String, ticker_shifts: Array,
 		_annotate(kind, good_type, "spike" if move > 0 else "crash", "market", move)
 
 
-# Annotation: { day, goodKind, good, kind (ticker/flood/undercut/deny/dump/buy/spike/crash),
+# Annotation: { day, goodKind, good, kind (ticker/flood/undercut/deny/
+# stabiliseSell/stabiliseBuy/dump/buy/spike/crash),
 # source (Ticker state id, supplier/buyer, or "market"), value (qty or £
 # move; 0 for ticker) }. Bounded to annotations.cap, oldest dropped.
 static func _annotate(kind: String, good_type: String, note_kind: String, source: String, value: int) -> void:

@@ -541,7 +541,28 @@ static func deny(faction_id: String, kind: String, good_type: String, qty: int) 
 	return maxi(0, bought)
 
 
-# move names a Market move ("deny") to record instead of plain demand.
+# Sells up to qty of a good the faction has for sale at price_mult × today's
+# quote, into a spike (R§3.1 "Conclave stabiliser"), recorded as a Market
+# stabiliseSell. Returns the qty sold.
+static func stabilise_sell(faction_id: String, kind: String, good_type: String, qty: int, price_mult: float) -> int:
+	var sold: int = mini(qty, for_sale(faction_id, kind, good_type))
+	if sold <= 0:
+		return 0
+	_sell_below(faction_id, "stabiliseSell", kind, good_type, sold, price_mult)
+	return sold
+
+
+# Buys up to qty of a good at price_mult × today's quote, capped by
+# resources, out of a crash (R§3.1 "Conclave stabiliser"), recorded as a
+# Market stabiliseBuy. Returns the qty bought.
+static func stabilise_buy(faction_id: String, kind: String, good_type: String, qty: int, price_mult: float) -> int:
+	var price: int = GameState.round_epsilon(Market.quote(kind, good_type) * price_mult)
+	var bought: int = mini(qty, Market.affordable_qty(kind, price, int(GameState.state["factions"][faction_id]["resources"])))
+	_buy(faction_id, kind, good_type, bought, price, "stabiliseBuy")
+	return maxi(0, bought)
+
+
+# move names a Market move ("deny", "stabiliseBuy") to record instead of plain demand.
 static func _buy(faction_id: String, kind: String, good_type: String, qty: int, price: int, move: String = "") -> void:
 	if qty <= 0:
 		return

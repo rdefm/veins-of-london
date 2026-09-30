@@ -13,7 +13,7 @@ const LineChartScript := preload("res://scenes/components/line_chart.gd")
 const SECTION_LABELS := { "economic": "Economic", "social": "Social", "political": "Political" }
 const NEWS_TAB := "news"
 const STOCK_TAB := "stock"
-const ANNOTATION_COLOURS := { "ticker": "pastel_ochre", "flood": "pastel_tan", "undercut": "pastel_tan", "deny": "pastel_sage", "dump": "pastel_blue", "buy": "pastel_sage", "spike": "pastel_teal", "crash": "pastel_pink" }
+const ANNOTATION_COLOURS := { "ticker": "pastel_ochre", "flood": "pastel_tan", "undercut": "pastel_tan", "deny": "pastel_sage", "stabiliseSell": "pastel_tan", "stabiliseBuy": "pastel_sage", "dump": "pastel_blue", "buy": "pastel_sage", "spike": "pastel_teal", "crash": "pastel_pink" }
 const MUTED := Color("#999a9d")
 
 var _tab := NEWS_TAB
@@ -218,6 +218,10 @@ func _annotation_text(note: Dictionary) -> String:
 			return "%s undercut with %d" % [_annotation_who(note["source"]), int(note["value"])]
 		"deny":
 			return "%s bought up %d to deny it" % [_annotation_who(note["source"]), int(note["value"])]
+		"stabiliseSell":
+			return "%s sold %d into the spike" % [_annotation_who(note["source"]), int(note["value"])]
+		"stabiliseBuy":
+			return "%s bought %d out of the crash" % [_annotation_who(note["source"]), int(note["value"])]
 		"dump":
 			return "%s dumped %d" % [_annotation_who(note["source"]), int(note["value"])]
 		"buy":
