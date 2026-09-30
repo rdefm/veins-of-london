@@ -315,8 +315,9 @@ const RIVALRY_RELATION_WEIGHT := 0.25
 
 
 # Success chance for one attempt: higher attacker resources / lower defender
-# resources, lower raidResist, and a worse defender-toward-attacker relation all
-# push it up, clamped to [0, 1]. A vein already claimed this tick reads as chance 0.
+# resources, lower raidResist, a worse defender-toward-attacker relation and the
+# attacker's intel on the defender (Intel.raid_odds_shift) all push it up,
+# clamped to [0, 1]. A vein already claimed this tick reads as chance 0.
 static func rivalry_success_chance(attempt: Dictionary) -> float:
 	var attacker_resources: int = GameState.state["factions"][attempt["attackerId"]]["resources"]
 	var defender_resources: int = GameState.state["factions"][attempt["defenderId"]]["resources"]
@@ -334,7 +335,9 @@ static func rivalry_success_chance(attempt: Dictionary) -> float:
 	# Network Targets intel is the Collective's own (spec §5.3), so it only tilts Collective attacks.
 	var intel_bonus: float = NetworkHandler.claim_bonus(attempt["veinSiteId"]) if attempt["attackerId"] == "collective" else 0.0
 
-	var chance: float = RIVALRY_BASE_CHANCE + resource_tilt + security_tilt + relation_tilt + intel_bonus
+	var meter_tilt: float = Intel.raid_odds_shift(attempt["attackerId"], attempt["defenderId"])
+
+	var chance: float = RIVALRY_BASE_CHANCE + resource_tilt + security_tilt + relation_tilt + intel_bonus + meter_tilt
 	return clampf(chance, 0.0, 1.0)
 
 

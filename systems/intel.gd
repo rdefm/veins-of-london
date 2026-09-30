@@ -199,6 +199,44 @@ static func expire_timers() -> void:
 	_timers()["disinformation"] = _timers()["disinformation"].filter(func(e: Dictionary) -> bool: return int(e["untilDay"]) >= day)
 
 
+# ── Intel on raids ──────────────────────────────────────────────────────
+# R§3.1 "Intel on raids": an attacker's meter on the defender adds to its
+# raid odds and sharpens its target pick; disinformation distorts both.
+
+# Flat shift to observer's raid odds on target: raid.oddsBonus × meter/max,
+# or −raid.overestimatePenalty while observer overestimates target.
+static func raid_odds_shift(observer: String, target: String) -> float:
+	var raid: Dictionary = _cfg()["raid"]
+	if disinformation(observer, target) == DISINFO_OVERESTIMATE:
+		return -float(raid["overestimatePenalty"])
+	return float(raid["oddsBonus"]) * float(meter(observer, target)) / float(_cfg()["max"])
+
+
+# Scores options ({ chance, value, ... }) as observer sees them, writing
+# "score" onto each: perceived chance × perceived value. Value blends from
+# the options' mean toward the true value as the meter rises; under
+# inverted disinformation the chances are mirrored, so the best-defended
+# vein looks softest.
+static func score_raid_options(observer: String, target: String, options: Array) -> void:
+	if options.is_empty():
+		return
+	var sight := float(meter(observer, target)) / float(_cfg()["max"])
+	var inverted := disinformation(observer, target) == DISINFO_INVERTED
+	var mean := 0.0
+	var low := INF
+	var high := -INF
+	for option in options:
+		mean += float(option["value"])
+		low = minf(low, float(option["chance"]))
+		high = maxf(high, float(option["chance"]))
+	mean /= float(options.size())
+	for option in options:
+		var chance := float(option["chance"])
+		if inverted:
+			chance = low + high - chance
+		option["score"] = chance * lerpf(mean, float(option["value"]), sight)
+
+
 # faction_id's site veins counted per security label, e.g. { "Hired Guard": 2 }.
 static func vein_security_counts(faction_id: String) -> Dictionary:
 	var counts := {}

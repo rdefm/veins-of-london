@@ -211,16 +211,21 @@ static func _line(key: String) -> String:
 	return _menu()["lines"][key]
 
 
-static func _network_relation() -> int:
-	return int(GameState.state["factions"]["network"]["relation"])
+# buyer's relation with the Network: the player's, or the faction pair's.
+static func _network_relation(buyer: String = Shares.PLAYER) -> int:
+	if buyer == Shares.PLAYER:
+		return int(GameState.state["factions"]["network"]["relation"])
+	return Factions.get_relation(buyer, "network")
 
 
 static func product_name(product_id: String) -> String:
 	return _product(product_id)["name"]
 
 
-static func product_price(product_id: String) -> int:
-	var mult := 1.0 - float(_network_relation()) * float(_menu()["relationPriceMod"])
+# Base price × relation modifier × any Network price gouge on buyer.
+static func product_price(product_id: String, buyer: String = Shares.PLAYER) -> int:
+	var mult := 1.0 - float(_network_relation(buyer)) * float(_menu()["relationPriceMod"])
+	mult *= FactionAI.gouge_mult(buyer)
 	return maxi(0, roundi(float(_product(product_id)["price"]) * mult))
 
 
@@ -228,8 +233,8 @@ static func product_min_relation(product_id: String) -> int:
 	return int(_product(product_id)["minRelation"])
 
 
-static func product_open(product_id: String) -> bool:
-	return _network_relation() >= product_min_relation(product_id)
+static func product_open(product_id: String, buyer: String = Shares.PLAYER) -> bool:
+	return _network_relation(buyer) >= product_min_relation(product_id)
 
 
 # Factions a targeted product can name: every faction but the Network.
@@ -312,6 +317,8 @@ static func warn_of_raid(attacker_id: String, site_id: String) -> void:
 static func buy_intel_boost(faction_id: String) -> Dictionary:
 	if not intel_targets().has(faction_id):
 		return { "ok": false, "reason": "Unknown faction." }
+	if Intel.privacy_active(faction_id):
+		return { "ok": false, "reason": _menu()["privateReason"] }
 	var result := _buy_product(PRODUCT_BOOST)
 	if not result["ok"]:
 		return result
@@ -387,6 +394,116 @@ static func _move_detail(plan: Dictionary) -> String:
 	var good: String = plan.get("good", "")
 	var kind: String = plan.get("kind", "consumable" if plan["move"] == FactionAI.MOVE_WITHHOLD_ITEMS else "ore")
 	return GameData.ORE_TYPES[good]["name"] if kind == "ore" else GameData.RECIPES[good]["name"]
+
+
+# ── Faction buying ───────────────────────────────────────────────────────
+# R§3.1 "Faction intel buying" (networkMenu.factionBuying). Each faction but
+# the Network spends up to budgetShare of its cash above cashFloor on the
+# menu's products, at most one of each, in priority order, at its own
+# product_price() and behind its own product_open(). The Network is paid.
+
+static func faction_purchases() -> void:
+	var cfg: Dictionary = _menu()["factionBuying"]
+	for buyer in intel_targets():
+		var wallet: Dictionary = GameState.state["factions"][buyer]
+		var budget := floori(float(maxi(0, int(wallet["resources"]) - int(cfg["cashFloor"]))) * float(cfg["budgetShare"]))
+		for product_id in cfg["priority"]:
+			var price := product_price(product_id, buyer)
+			if price > budget or not product_open(product_id, buyer):
+				continue
+			if not _faction_buy(buyer, product_id):
+				continue
+			budget -= price
+			wallet["resources"] -= price
+			GameState.state["factions"]["network"]["resources"] += price
+	EventBus.state_changed.emit()
+
+
+# Applies product_id for buyer when it has a use; false (nothing bought)
+# otherwise.
+static func _faction_buy(buyer: String, product_id: String) -> bool:
+	match product_id:
+		PRODUCT_REDUCTION:
+			var watcher := _top_watcher(buyer)
+			if watcher == "":
+				return false
+			Intel.raise(watcher, buyer, -int(_product(PRODUCT_REDUCTION)["amount"]))
+			return true
+		PRODUCT_PRIVACY:
+			if Intel.privacy_active(buyer) or not _has_enemy(buyer):
+				return false
+			Intel.set_privacy(buyer, int(_product(PRODUCT_PRIVACY)["days"]))
+			return true
+		PRODUCT_DISINFORMATION:
+			var raider := _worst_raider(buyer)
+			if raider == "":
+				return false
+			Intel.set_disinformation(raider, buyer, _menu()["factionBuying"]["disinformationMode"], int(_product(PRODUCT_DISINFORMATION)["days"]))
+			return true
+		PRODUCT_BOOST:
+			var target := _boost_target(buyer)
+			if target == "":
+				return false
+			Intel.raise(buyer, target, int(_product(PRODUCT_BOOST)["amount"]))
+			return true
+	return false
+
+
+# The actor (player or faction but the Network) with the highest meter on
+# buyer, if at or over reductionAbove; else "".
+static func _top_watcher(buyer: String) -> String:
+	var best := ""
+	var best_meter := int(_menu()["factionBuying"]["reductionAbove"]) - 1
+	for watcher in Intel.actors():
+		if watcher == buyer or watcher == "network":
+			continue
+		var value := Intel.meter(watcher, buyer)
+		if value > best_meter:
+			best = watcher
+			best_meter = value
+	return best
+
+
+# True when a faction other than the Network is at the market band or
+# deeper against buyer: someone the Network could sell buyer's file to.
+static func _has_enemy(buyer: String) -> bool:
+	for id in intel_targets():
+		if id != buyer and FactionAI.band_depth(id, buyer) >= FactionAI.band_depth_of(FactionAI.BAND_MARKET):
+			return true
+	return false
+
+
+# The faction at the raid band against buyer with the lowest relation to
+# it, not already under disinformation about buyer; else "".
+static func _worst_raider(buyer: String) -> String:
+	var best := ""
+	for raider in GameData.FACTIONS.keys():
+		if raider == buyer or FactionAI.moves_blocked(raider, buyer) or Intel.disinformation(raider, buyer) != "":
+			continue
+		if FactionAI.band(raider, buyer) != FactionAI.BAND_RAID:
+			continue
+		if best == "" or Factions.get_relation(raider, buyer) < Factions.get_relation(best, buyer):
+			best = raider
+	return best
+
+
+# buyer's deepest-band target (market band or deeper; the lowest relation
+# on a tie) that isn't private and has room on buyer's meter; else "".
+static func _boost_target(buyer: String) -> String:
+	var best := ""
+	var best_depth := -1
+	var min_depth := FactionAI.band_depth_of(FactionAI.BAND_MARKET)
+	var max_meter := int(GameData.INTEL["max"])
+	for target in [Shares.PLAYER] + intel_targets():
+		if target == buyer or FactionAI.moves_blocked(buyer, target) or Intel.privacy_active(target) or Intel.meter(buyer, target) >= max_meter:
+			continue
+		var depth := FactionAI.band_depth(buyer, target)
+		if depth < min_depth:
+			continue
+		if depth > best_depth or (depth == best_depth and FactionAI.relation_toward(buyer, target) < FactionAI.relation_toward(buyer, best)):
+			best = target
+			best_depth = depth
+	return best
 
 
 # ── shared ───────────────────────────────────────────────────────────────

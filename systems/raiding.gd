@@ -206,7 +206,8 @@ static func queued_raid_attempts() -> Array:
 
 
 # Mirrors Factions.rivalry_success_chance(): low baseline tilted by relation
-# (lower=higher chance), dangerMod, raidResist (R§1.6 anchor, inverted), growth.
+# (lower=higher chance), dangerMod, raidResist (R§1.6 anchor, inverted), growth,
+# and the attacker's intel on the player (Intel.raid_odds_shift).
 static func raid_success_chance(attacker_id: String, vein: Dictionary) -> float:
 	var relation: int = GameState.state["factions"][attacker_id]["relation"]
 	var relation_tilt: float = -(float(relation) / RAID_RELATION_DIVISOR) * RAID_RELATION_WEIGHT
@@ -220,7 +221,9 @@ static func raid_success_chance(attacker_id: String, vein: Dictionary) -> float:
 
 	var growth_tilt: float = RAID_GROWTH_WEIGHT * (float(vein["growth"]) / Cultivating.ceiling(vein))
 
-	var chance: float = RAID_BASE_CHANCE + relation_tilt + danger_tilt + resist_tilt + growth_tilt
+	var intel_tilt: float = Intel.raid_odds_shift(attacker_id, Shares.PLAYER)
+
+	var chance: float = RAID_BASE_CHANCE + relation_tilt + danger_tilt + resist_tilt + growth_tilt + intel_tilt
 	return clampf(chance, 0.0, 1.0)
 
 

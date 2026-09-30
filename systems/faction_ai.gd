@@ -474,6 +474,9 @@ const MOVE_LOWBALL := "lowballBuyout"
 const MOVE_UNDERCUT := "undercut"
 const MOVE_DENY := "denyGoods"
 const MOVE_TICKER_PUSH := "tickerPush"
+const MOVE_SELL_INTEL := "sellIntel"
+const MOVE_PRICE_GOUGE := "priceGouge"
+const MOVE_DISINFORMATION := "disinformation"
 const LOWBALL_KIND := "faction_lowball_buyout"
 # A planned_moves() entry for a warning, which isn't a menu move.
 const PLAN_WARNING := "warning"
@@ -545,6 +548,20 @@ static func _depth(band_id: String) -> int:
 	return BAND_ORDER.find(band_id)
 
 
+static func band_depth_of(band_id: String) -> int:
+	return _depth(band_id)
+
+
+# How deep observer's band against target sits in BAND_ORDER.
+static func band_depth(observer: String, target: String) -> int:
+	return _depth(band(observer, target))
+
+
+# observer's relation toward target (player or faction).
+static func relation_toward(observer: String, target: String) -> int:
+	return _relation_to(observer, target)
+
+
 # The observer's last drift toward the target (player or faction).
 static func _delta_to(observer: String, target: String) -> float:
 	var row: Dictionary = GameState.state["factionPressure"]["snapshots"].get(observer, {})
@@ -582,6 +599,7 @@ static func _cooling(entry: Dictionary, day: int) -> bool:
 # warned about gets a warning; otherwise the best affordable move is made.
 static func apply_escalation() -> void:
 	_drop_lapsed_withholds()
+	_drop_lapsed_gouges()
 	_drop_lapsed_lowballs()
 	var ids: Array = GameData.FACTIONS.keys()
 	for observer in ids:
@@ -683,6 +701,12 @@ static func _move_candidate(observer: String, target: String, move_id: String) -
 			return _deny_candidate(observer, target)
 		MOVE_TICKER_PUSH:
 			return _ticker_push_candidate(observer, target)
+		MOVE_SELL_INTEL:
+			return _sell_intel_candidate(observer, target)
+		MOVE_PRICE_GOUGE:
+			return _price_gouge_candidate(observer, target)
+		MOVE_DISINFORMATION:
+			return _disinformation_candidate(observer, target)
 	return {}
 
 
@@ -917,11 +941,16 @@ static func poach_lapsed(offer: Dictionary) -> void:
 	log_activity(poach["factionId"], _ecfg()["log"][MOVE_POACH]["lapsed"] % buyer, { "target": Shares.PLAYER, "move": MOVE_POACH })
 
 
-# The target vein with the highest success chance × Factions.vein_value().
+# The target vein with the highest success chance × Factions.vein_value(),
+# as the observer's intel sees them (Intel.score_raid_options).
 static func _vein_raid_candidate(observer: String, target: String) -> Dictionary:
 	var best := {}
-	for option in _raidable_veins(observer, target):
-		var damage := float(option["chance"]) * Factions.vein_value(option["vein"])
+	var options := _raidable_veins(observer, target)
+	for option in options:
+		option["value"] = Factions.vein_value(option["vein"])
+	Intel.score_raid_options(observer, target, options)
+	for option in options:
+		var damage := float(option["score"])
 		if best.is_empty() or damage > float(best["damage"]):
 			best = { "move": MOVE_VEIN_RAID, "damage": damage, "cost": _move_cost(MOVE_VEIN_RAID), "veinId": option["vein"]["id"], "siteId": option["siteId"] }
 	return best
@@ -957,6 +986,148 @@ static func _raid_queued(vein_id: String) -> bool:
 		if entry["veinId"] == vein_id:
 			return true
 	return false
+
+
+# ── Network moves ───────────────────────────────────────────────────────
+# R§3.1 "Network moves": the information broker's market rung. sellIntel
+# sells intel on the target to its enemies, priceGouge raises the Network's
+# prices to the target, disinformation leaves the target misreading its
+# worst enemy.
+
+static func _gouges() -> Array:
+	var escalation: Dictionary = GameState.state["factionEscalation"]
+	if not escalation.has("gouges"):
+		escalation["gouges"] = []
+	return escalation["gouges"]
+
+
+static func _drop_lapsed_gouges() -> void:
+	var day: int = GameState.state["world"]["day"]
+	GameState.state["factionEscalation"]["gouges"] = _gouges().filter(func(e: Dictionary) -> bool: return day <= int(e["untilDay"]))
+
+
+static func _gouging(observer: String, target: String) -> bool:
+	var day: int = GameState.state["world"]["day"]
+	for entry in GameState.state["factionEscalation"].get("gouges", []):
+		if entry["factionId"] == observer and entry["targetId"] == target and day <= int(entry["untilDay"]):
+			return true
+	return false
+
+
+# The Network's price multiplier to target: the highest active gouge on
+# it, else 1.0.
+static func gouge_mult(target: String) -> float:
+	var day: int = GameState.state["world"]["day"]
+	var mult := 1.0
+	for entry in GameState.state["factionEscalation"].get("gouges", []):
+		if entry["targetId"] == target and day <= int(entry["untilDay"]):
+			mult = maxf(mult, float(entry["priceMult"]))
+	return mult
+
+
+# Factions other than observer and target, below marketBelow with target,
+# not in truce with it.
+static func _enemies_of(observer: String, target: String) -> Array:
+	var enemies := []
+	for id in GameData.FACTIONS.keys():
+		if id != observer and id != target and not in_truce(id, target) and _relation_to(id, target) < int(_ecfg()["marketBelow"]):
+			enemies.append(id)
+	return enemies
+
+
+# Enemies of target that can pay sellIntel.price and still have room on
+# their meter. Damage = points they'd gain × damagePerPoint. None while
+# target has privacy.
+static func _sell_intel_candidate(observer: String, target: String) -> Dictionary:
+	if Intel.privacy_active(target):
+		return {}
+	var cfg: Dictionary = _ecfg()["sellIntel"]
+	var max_meter := int(GameData.INTEL["max"])
+	var buyers := []
+	var points := 0
+	for enemy in _enemies_of(observer, target):
+		var room := max_meter - Intel.meter(enemy, target)
+		if room <= 0 or int(GameState.state["factions"][enemy]["resources"]) < int(cfg["price"]):
+			continue
+		buyers.append(enemy)
+		points += mini(int(cfg["amount"]), room)
+	if buyers.is_empty():
+		return {}
+	return { "move": MOVE_SELL_INTEL, "damage": float(points) * float(cfg["damagePerPoint"]), "cost": _move_cost(MOVE_SELL_INTEL), "buyers": buyers }
+
+
+static func _price_gouge_candidate(observer: String, target: String) -> Dictionary:
+	if _gouging(observer, target):
+		return {}
+	var cfg: Dictionary = _ecfg()["priceGouge"]
+	return { "move": MOVE_PRICE_GOUGE, "damage": (float(cfg["priceMult"]) - 1.0) * float(cfg["damageBasis"]), "cost": _move_cost(MOVE_PRICE_GOUGE) }
+
+
+# Target's worst enemy (lowest relation). A faction target must not already
+# be misreading it; the player must know something about it to lose.
+static func _disinformation_candidate(observer: String, target: String) -> Dictionary:
+	var enemy := ""
+	for id in _enemies_of(observer, target):
+		if enemy == "" or _relation_to(id, target) < _relation_to(enemy, target):
+			enemy = id
+	if enemy == "":
+		return {}
+	if target == Shares.PLAYER:
+		if Intel.meter(Shares.PLAYER, enemy) <= 0:
+			return {}
+	elif Intel.disinformation(target, enemy) != "":
+		return {}
+	return { "move": MOVE_DISINFORMATION, "damage": float(_ecfg()["disinformation"]["damage"]), "cost": _move_cost(MOVE_DISINFORMATION), "enemyId": enemy }
+
+
+# Each buyer still able to pay sellIntel.price pays it to the observer and gains
+# sellIntel.amount on target.
+static func _sell_intel(observer: String, target: String, buyers: Array) -> void:
+	var cfg: Dictionary = _ecfg()["sellIntel"]
+	var price := int(cfg["price"])
+	var sold := []
+	for buyer in buyers:
+		var wallet: Dictionary = GameState.state["factions"][buyer]
+		if int(wallet["resources"]) < price:
+			continue
+		wallet["resources"] -= price
+		GameState.state["factions"][observer]["resources"] += price
+		Intel.raise(buyer, target, int(cfg["amount"]))
+		sold.append(buyer)
+	if sold.is_empty():
+		return
+	var short_names := _join_names(sold, "shortName")
+	if target == Shares.PLAYER:
+		_report_player(observer, MOVE_SELL_INTEL, _join_names(sold, "name"), short_names)
+	else:
+		_report_pair_intel_move(observer, target, MOVE_SELL_INTEL, [GameData.FACTIONS[target]["shortName"], short_names], [GameData.FACTIONS[observer]["shortName"], short_names])
+
+
+# A faction target misreads enemy (inverted disinformation); the player
+# loses disinformation.amount of its meter on enemy.
+static func _leak_disinformation(observer: String, target: String, enemy: String) -> void:
+	var cfg: Dictionary = _ecfg()["disinformation"]
+	var enemy_short: String = GameData.FACTIONS[enemy]["shortName"]
+	if target == Shares.PLAYER:
+		Intel.raise(Shares.PLAYER, enemy, -int(cfg["amount"]))
+		_report_player(observer, MOVE_DISINFORMATION, GameData.FACTIONS[enemy]["name"], enemy_short)
+		return
+	Intel.set_disinformation(target, enemy, Intel.DISINFO_INVERTED, int(cfg["days"]))
+	_report_pair_intel_move(observer, target, MOVE_DISINFORMATION, [GameData.FACTIONS[target]["shortName"], enemy_short], [GameData.FACTIONS[observer]["shortName"], enemy_short])
+
+
+static func _report_pair_intel_move(observer: String, target: String, move_id: String, attacker_args: Array, defender_args: Array) -> void:
+	var log_cfg: Dictionary = _ecfg()["log"][move_id]
+	log_activity(observer, log_cfg["attacker"] % attacker_args)
+	log_activity(target, log_cfg["defender"] % defender_args)
+
+
+# "A", "A and B", "A, B and C" from faction ids' `key` names.
+static func _join_names(ids: Array, key: String) -> String:
+	var names: Array = ids.map(func(id: String) -> String: return GameData.FACTIONS[id][key])
+	if names.size() == 1:
+		return names[0]
+	return ", ".join(PackedStringArray(names.slice(0, -1))) + " and " + names.back()
 
 
 # A raid is queued for the next rollover's raid resolution (Factions ⑤c
@@ -1022,6 +1193,20 @@ static func _make_move(observer: String, target: String, move: Dictionary) -> vo
 				_report_player(observer, MOVE_TICKER_PUSH, state_name, state_name)
 			else:
 				_report_pair_goods_move(observer, target, MOVE_TICKER_PUSH, state_name)
+		MOVE_SELL_INTEL:
+			_sell_intel(observer, target, move["buyers"])
+		MOVE_PRICE_GOUGE:
+			var gouge: Dictionary = _ecfg()["priceGouge"]
+			_gouges().append({
+				"factionId": observer, "targetId": target, "priceMult": float(gouge["priceMult"]),
+				"untilDay": int(GameState.state["world"]["day"]) + int(gouge["days"]),
+			})
+			if target == Shares.PLAYER:
+				_report_player(observer, MOVE_PRICE_GOUGE, str(gouge["days"]), str(gouge["days"]))
+			else:
+				_report_pair_intel_move(observer, target, MOVE_PRICE_GOUGE, [GameData.FACTIONS[target]["shortName"]], [GameData.FACTIONS[observer]["shortName"]])
+		MOVE_DISINFORMATION:
+			_leak_disinformation(observer, target, move["enemyId"])
 
 
 # A flood or withhold of ore_type. Against the player: key member line

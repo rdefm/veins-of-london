@@ -126,7 +126,8 @@ static func daily_tick() -> void:
 	FactionAI.squeeze_wars()             # ⑥.5g4 Conclave war squeeze, after ⑥.5g2 so it reads today's wars; its trades land in ⑥.6
 	FactionAI.run_positions()            # ⑥.5g5 Conclave positions, before ⑥.5h so its push cooldown gates tickerPush; trades land in ⑥.6, pushes at the next ①
 	FactionAI.apply_escalation()         # ⑥.5h after ⑥.5g so bands read today's stances; raids it queues resolve at the next ⑤c/⑤d
-	Intel.decay()                        # ⑥.5i intel decay, after ⑥.5h; no other step reads meters yet
+	NetworkHandler.faction_purchases()   # ⑥.5h2 faction intel purchases, after ⑥.5h so bands and the Network's gouges are today's
+	Intel.decay()                        # ⑥.5i intel decay, after ⑥.5h2
 	Intel.expire_timers()                # ⑥.5i2 drop lapsed privacy/raid-warning/disinformation timers; reads check the day anyway
 	Market.daily_reprice()               # ⑥.6 London reprice, after every step that trades in the tick and after ① so today's Ticker feeds it
 	Dial.daily_regen()                   # ⑦ Dial charge regen

@@ -137,7 +137,10 @@
       "manipulator": { "market": ["undercut", "denyGoods", "tickerPush"], "raid": [] }
     },
     "sharedMarket": ["lowballBuyout"],
-    "moveCosts": { "veinRaid": 500, "withhold": 150, "outbid": 400, "poach": 200, "withholdItems": 150, "tickerPush": 300 },
+    "moveCosts": { "veinRaid": 500, "withhold": 150, "outbid": 400, "poach": 200, "withholdItems": 150, "tickerPush": 300, "sellIntel": 0, "priceGouge": 200, "disinformation": 300 },
+    "sellIntel": { "amount": 15, "price": 300, "damagePerPoint": 10 },
+    "priceGouge": { "priceMult": 1.3, "days": 14, "damageBasis": 2000 },
+    "disinformation": { "days": 10, "amount": 20, "damage": 500 },
     "flood": { "qty": 150, "priceMult": 0.6 },
     "withhold": { "days": 7 },
     "poach": { "priceMult": 0.85 },
@@ -193,7 +196,10 @@
         "lowballBuyout": "\"The Court will take your vein in %s for £%d. The offer reflects your position, not the vein's.\""
       },
       "network": {
-        "lowballBuyout": "\"Someone wants your vein in %s. £%d. We'd take it before they stop wanting it.\""
+        "lowballBuyout": "\"Someone wants your vein in %s. £%d. We'd take it before they stop wanting it.\"",
+        "sellIntel": "\"We sold a file on you to %s. Everything in it was true.\"",
+        "priceGouge": "\"Our prices to you have gone up, for %s days. Call it a risk premium.\"",
+        "disinformation": "\"What you think you know about %s is out of date. We saw to that.\""
       },
       "conclave": {
         "lowballBuyout": "\"The Conclave will relieve you of the vein in %s. £%d. Liquidity is a kindness at a time like this.\"",
@@ -212,7 +218,10 @@
       "lowballBuyout": "\"That's a vulture's offer. Under what the vein's worth, and they know you're short. Take it only if you must.\"",
       "undercut": "\"The Conclave's selling what you sell, under your price. Buyers go to them. Hold your stock or sell where they aren't.\"",
       "denyGoods": "\"The Conclave's bought up what you need and it's sitting on it. Dearer and scarcer for a week. Make it yourself or wait.\"",
-      "tickerPush": "\"The Conclave's leaning on the Ticker, towards the weather that hurts what you sell. It's slow. Watch the Ticker and sell before it turns.\""
+      "tickerPush": "\"The Conclave's leaning on the Ticker, towards the weather that hurts what you sell. It's slow. Watch the Ticker and sell before it turns.\"",
+      "sellIntel": "\"The Network's sold what it knows about you to people who don't like you. They'll hit harder and pick better. Pay the handler for privacy and it stops.\"",
+      "priceGouge": "\"The Network's charging you over the odds. Its shop and its handler both. It'll ease in a couple of weeks. Buy what you can elsewhere.\"",
+      "disinformation": "\"The Network's muddied your file on a rival. Don't trust what you think you know about them. Buy fresh intel before you act on it.\""
     },
     "log": {
       "warningPlayer": "Warned you off.",
@@ -264,6 +273,21 @@
         "player": "Pushed the Ticker toward %s against you.",
         "attacker": "Pushed the Ticker toward %s against %s.",
         "defender": "%s pushed the Ticker toward %s against us."
+      },
+      "sellIntel": {
+        "player": "Sold a file on you to %s.",
+        "attacker": "Sold a file on %s to %s.",
+        "defender": "%s sold a file on us to %s."
+      },
+      "priceGouge": {
+        "player": "Raised its prices to you for %s days.",
+        "attacker": "Raised its prices to %s.",
+        "defender": "%s raised its prices to us."
+      },
+      "disinformation": {
+        "player": "Muddied your file on %s.",
+        "attacker": "Fed %s bad intel on %s.",
+        "defender": "%s fed us bad intel on %s."
       }
     },
     "headlines": {
@@ -287,7 +311,8 @@
       { "id": "stash", "at": 100, "name": "Stash detail" }
     ],
     "gain": { "scout": 8, "raid": 12 },
-    "dailyDecay": 1
+    "dailyDecay": 1,
+    "raid": { "oddsBonus": 0.15, "overestimatePenalty": 0.15 }
   },
   "networkMenu": {
     "relationPriceMod": 0.002,
@@ -335,9 +360,14 @@
       "lowballBuyout": "a low offer for one of your veins",
       "undercut": "undercutting on %s",
       "denyGoods": "buying up %s",
-      "tickerPush": "leaning on the Ticker"
+      "tickerPush": "leaning on the Ticker",
+      "sellIntel": "selling your file to your rivals",
+      "priceGouge": "raising its prices to you",
+      "disinformation": "muddying your file on a rival"
     },
-    "marketMoves": ["flood", "undercut", "denyGoods"]
+    "marketMoves": ["flood", "undercut", "denyGoods"],
+    "factionBuying": { "cashFloor": 2000, "budgetShare": 0.05, "reductionAbove": 40, "disinformationMode": "overestimate", "priority": ["reduction", "privacy", "disinformation", "boost"] },
+    "privateReason": "\"They've paid for quiet. I can't sell you that one for now.\""
   },
   "factionWar": {
     "windowDays": 7,
