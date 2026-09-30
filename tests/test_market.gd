@@ -319,8 +319,8 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["market"] = Market.new_state(true)
 		GameState.state["market"]["startedDay"] = 1
-		Market.record_flood("ore", "time", 40, "firm")
-		Market.record_flood("ore", "life", 730, "collective")
+		Market.record_move("flood", "ore", "time", 40, "firm")
+		Market.record_move("flood", "ore", "life", 730, "collective")
 		Market.daily_reprice()
 		var floods := _notes_of("ore", "time", "flood")
 		assert_eq(floods.size(), 1, "a small flood is still annotated")

@@ -509,16 +509,40 @@ static func _sell(faction_id: String, kind: String, good_type: String, qty: int,
 # Sells qty of an ore at price_mult × today's quote, below its value
 # (R§3.1 "Escalation" flood), recorded as a Market flood. Returns the £ taken.
 static func flood(faction_id: String, ore_type: String, qty: int, price_mult: float) -> int:
+	return _sell_below(faction_id, "flood", "ore", ore_type, qty, price_mult)
+
+
+# Sells qty of a good (ore or item) at price_mult × today's quote, under the
+# target's price (R§3.1 "Escalation" undercut), recorded as a Market
+# undercut. Returns the £ taken.
+static func undercut(faction_id: String, kind: String, good_type: String, qty: int, price_mult: float) -> int:
+	return _sell_below(faction_id, "undercut", kind, good_type, qty, price_mult)
+
+
+static func _sell_below(faction_id: String, move: String, kind: String, good_type: String, qty: int, price_mult: float) -> int:
 	if qty <= 0:
 		return 0
-	take_ore(faction_id, ore_type, qty)
-	var proceeds: int = Market.line_total("ore", GameState.round_epsilon(Market.quote("ore", ore_type) * price_mult), qty)
+	if kind == "ore":
+		take_ore(faction_id, good_type, qty)
+	else:
+		take_items(faction_id, good_type, qty)
+	var proceeds: int = Market.line_total(kind, GameState.round_epsilon(Market.quote(kind, good_type) * price_mult), qty)
 	GameState.state["factions"][faction_id]["resources"] += proceeds
-	Market.record_flood("ore", ore_type, qty, faction_id)
+	Market.record_move(move, kind, good_type, qty, faction_id)
 	return proceeds
 
 
-static func _buy(faction_id: String, kind: String, good_type: String, qty: int, price: int) -> void:
+# Buys up to qty of a good at today's quote, capped by resources (R§3.1
+# "Escalation" deny), recorded as a Market deny. Returns the qty bought.
+static func deny(faction_id: String, kind: String, good_type: String, qty: int) -> int:
+	var price: int = Market.quote(kind, good_type)
+	var bought: int = mini(qty, Market.affordable_qty(kind, price, int(GameState.state["factions"][faction_id]["resources"])))
+	_buy(faction_id, kind, good_type, bought, price, "deny")
+	return maxi(0, bought)
+
+
+# move names a Market move ("deny") to record instead of plain demand.
+static func _buy(faction_id: String, kind: String, good_type: String, qty: int, price: int, move: String = "") -> void:
 	if qty <= 0:
 		return
 	GameState.state["factions"][faction_id]["resources"] -= Market.line_total(kind, price, qty)
@@ -526,7 +550,10 @@ static func _buy(faction_id: String, kind: String, good_type: String, qty: int, 
 		add_ore(faction_id, good_type, qty)
 	else:
 		add_item(faction_id, good_type, 0, qty)
-	Market.record_demand(kind, good_type, qty, faction_id)
+	if move == "":
+		Market.record_demand(kind, good_type, qty, faction_id)
+	else:
+		Market.record_move(move, kind, good_type, qty, faction_id)
 	Shares.record_london_buy(faction_id, Shares.ore_equivalent(kind, good_type, qty))
 
 

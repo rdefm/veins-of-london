@@ -142,6 +142,8 @@
     "withhold": { "days": 7 },
     "poach": { "priceMult": 0.85 },
     "lowball": { "cashBelow": 1000, "lostVeinDays": 7, "priceMult": 0.6, "expiryDays": 3, "damageMult": 0.25 },
+    "undercut": { "qty": { "ore": 100, "consumable": 10 }, "priceMult": 0.85 },
+    "deny": { "qty": { "ore": 100, "consumable": 10 }, "days": 7 },
     "warnings": {
       "producer": {
         "warning": "\"You're working ground we work. Mind how much of it you take.\"",
@@ -194,7 +196,9 @@
         "lowballBuyout": "\"Someone wants your vein in %s. £%d. We'd take it before they stop wanting it.\""
       },
       "conclave": {
-        "lowballBuyout": "\"The Conclave will relieve you of the vein in %s. £%d. Liquidity is a kindness at a time like this.\""
+        "lowballBuyout": "\"The Conclave will relieve you of the vein in %s. £%d. Liquidity is a kindness at a time like this.\"",
+        "undercut": "\"London will find %s cheaper this week. Not from you.\"",
+        "denyGoods": "\"The Conclave has taken an interest in %s. Every unit that was for sale.\""
       }
     },
     "explainers": {
@@ -204,7 +208,9 @@
       "outbid": "\"They got to a site you'd found before you claimed it. Claim the good ones quick while they're watching you.\"",
       "poach": "\"Someone's undercut your renewal. Match their price and the buyer stays. Leave it and they walk.\"",
       "withholdItems": "\"The Guild's stopped selling you what you need. A week, usually. Buy elsewhere or make it yourself.\"",
-      "lowballBuyout": "\"That's a vulture's offer. Under what the vein's worth, and they know you're short. Take it only if you must.\""
+      "lowballBuyout": "\"That's a vulture's offer. Under what the vein's worth, and they know you're short. Take it only if you must.\"",
+      "undercut": "\"The Conclave's selling what you sell, under your price. Buyers go to them. Hold your stock or sell where they aren't.\"",
+      "denyGoods": "\"The Conclave's bought up what you need and it's sitting on it. Dearer and scarcer for a week. Make it yourself or wait.\""
     },
     "log": {
       "warningPlayer": "Warned you off.",
@@ -241,6 +247,16 @@
       },
       "lowballBuyout": {
         "player": "Offered to buy your vein in %s cheap."
+      },
+      "undercut": {
+        "player": "Sold %s under your price.",
+        "attacker": "Sold %s under %s's price.",
+        "defender": "%s sold %s under our price."
+      },
+      "denyGoods": {
+        "player": "Bought up the %s you need.",
+        "attacker": "Bought up the %s %s needs.",
+        "defender": "%s bought up the %s we need."
       }
     },
     "headlines": {

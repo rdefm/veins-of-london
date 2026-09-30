@@ -494,6 +494,103 @@ func run() -> void:
 		assert_true(FactionAI.moves_against_player().is_empty())
 	)
 
+	run_case("a_conclave_undercut_records_supply_annotates_and_lowers_the_price", func():
+		_market_fresh(5)
+		GameState.state["player"]["cash"] = 100000
+		Market.record_supply("ore", "physics", 50, "player")
+		_move_ready("conclave", -10)
+		_holdings("conclave")["physics"] = 500
+		var qty: int = int(GameData.FACTION_ESCALATION["undercut"]["qty"]["ore"])
+		var value: int = Market.line_total("ore", Market.quote("ore", "physics"), qty)
+		var untouched: Dictionary = GameState.deep_copy(GameState.state["market"])
+		Market.daily_reprice()
+		var control_price := Market.quote("ore", "physics")
+		GameState.state["market"] = untouched
+		FactionAI.apply_escalation()
+		assert_eq(FactionAI.moves_against_player()[0]["move"], FactionAI.MOVE_UNDERCUT)
+		assert_eq(int(_holdings("conclave")["physics"]), 500 - qty, "stock sold")
+		assert_eq(int(GameState.state["market"]["supply"]["ore"]["physics"]["conclave"]), qty, "recorded as Conclave supply")
+		var gained: int = int(GameState.state["factions"]["conclave"]["resources"]) - 10000
+		assert_true(gained > 0 and gained < value, "sold under the price: %d of %d" % [gained, value])
+		Market.daily_reprice()
+		assert_true(Market.quote("ore", "physics") < control_price, "undercut lowers the reprice")
+		var notes: Array = Market.annotations_for("ore", "physics")
+		var undercuts: Array = notes.filter(func(n: Dictionary) -> bool: return n["kind"] == "undercut")
+		assert_eq(undercuts.size(), 1, "one undercut annotation")
+		assert_eq(undercuts[0]["source"], "conclave", "named for the Conclave")
+		assert_eq(undercuts[0]["value"], qty)
+		assert_true(notes.filter(func(n: Dictionary) -> bool: return n["kind"] == "dump" and n["source"] == "conclave").is_empty(), "not also a dump")
+		var ore_name: String = GameData.ORE_TYPES["physics"]["name"]
+		assert_eq(_last_message(KeyMembers.speaker_for("conclave")), GameData.FACTION_ESCALATION["moveLines"]["conclave"]["undercut"] % ore_name)
+		assert_eq(_explainer_count(FactionAI.MOVE_UNDERCUT), 1)
+	)
+
+	run_case("a_conclave_deny_buys_up_what_the_player_needs_and_holds_it", func():
+		_market_fresh(5)
+		GameState.state["player"]["cash"] = 100000
+		Shares.record_craft("player", { "life": 50 })
+		_move_ready("conclave", -10)
+		var held_before: int = FactionSim.ore_held("conclave", "life")
+		var qty: int = mini(int(GameData.FACTION_ESCALATION["deny"]["qty"]["ore"]), Market.affordable_qty("ore", Market.quote("ore", "life"), 10000))
+		var untouched: Dictionary = GameState.deep_copy(GameState.state["market"])
+		Market.daily_reprice()
+		var control_price := Market.quote("ore", "life")
+		var control_stock := int(GameState.state["market"]["goods"]["ore"]["life"]["stock"])
+		GameState.state["market"] = untouched
+		FactionAI.apply_escalation()
+		assert_eq(FactionAI.moves_against_player()[0]["move"], FactionAI.MOVE_DENY)
+		assert_true(qty > 0, "the Conclave can afford some")
+		assert_eq(FactionSim.ore_held("conclave", "life"), held_before + qty, "holdings rise")
+		assert_eq(int(GameState.state["market"]["demand"]["ore"]["life"]["conclave"]), qty, "recorded as Conclave demand")
+		assert_eq(int(GameState.state["factions"]["conclave"]["resources"]), 10000 - Market.line_total("ore", Market.quote("ore", "life"), qty), "paid at the quote")
+		assert_true(FactionAI.is_withholding("conclave", "ore", "life"), "held, not resold")
+		Market.daily_reprice()
+		assert_true(Market.quote("ore", "life") > control_price, "deny raises the reprice")
+		assert_true(int(GameState.state["market"]["goods"]["ore"]["life"]["stock"]) < control_stock, "and thins the stock")
+		var notes: Array = Market.annotations_for("ore", "life")
+		var denials: Array = notes.filter(func(n: Dictionary) -> bool: return n["kind"] == "deny")
+		assert_eq(denials.size(), 1, "one deny annotation")
+		assert_eq(denials[0]["source"], "conclave")
+		assert_eq(denials[0]["value"], qty)
+		assert_true(notes.filter(func(n: Dictionary) -> bool: return n["kind"] == "buy" and n["source"] == "conclave").is_empty(), "not also a buy")
+		var ore_name: String = GameData.ORE_TYPES["life"]["name"]
+		assert_eq(_last_message(KeyMembers.speaker_for("conclave")), GameData.FACTION_ESCALATION["moveLines"]["conclave"]["denyGoods"] % ore_name)
+		GameState.state["world"]["day"] = 6
+		FactionSim.trade()
+		assert_true(not GameState.state["market"]["supply"]["ore"].get("life", {}).has("conclave"), "denied stock isn't sold back")
+	)
+
+	run_case("a_conclave_move_on_a_faction_is_logged_on_both_sides", func():
+		_market_fresh(5)
+		Shares.record_craft("guild", { "fate": 50 })
+		_set_pair("conclave", "guild", -60)
+		GameState.state["factions"]["conclave"]["resources"] = 10000
+		FactionAI._target_entry("conclave", "guild")["warnedBand"] = FactionAI.BAND_RAID
+		FactionAI.apply_escalation()
+		var denied: Array = FactionAI._withholds().filter(func(e: Dictionary) -> bool: return e["factionId"] == "conclave" and e["targetId"] == "guild")
+		assert_eq(denied.size(), 1, "the Conclave denies the Guild something")
+		var entry: Dictionary = denied[0]
+		var good_name: String = GameData.ORE_TYPES[entry["good"]]["name"] if entry["kind"] == "ore" else GameData.RECIPES[entry["good"]]["name"]
+		var log_cfg: Dictionary = GameData.FACTION_ESCALATION["log"][FactionAI.MOVE_DENY]
+		assert_true(_log_texts("guild").has(log_cfg["defender"] % [GameData.FACTIONS["conclave"]["shortName"], good_name]), "logged on the target")
+		assert_true(_log_texts("conclave").has(log_cfg["attacker"] % [good_name, GameData.FACTIONS["guild"]["shortName"]]), "logged on the Conclave")
+	)
+
+	run_case("the_conclave_never_queues_a_raid", func():
+		_market_fresh(5)
+		GameData.FACTION_RIVALRY = true
+		Fixtures.seed_vein("pv", 60)
+		Fixtures.seed_faction_vein("fv_g", 60, "guild")
+		Factions.adjust_player_relation("conclave", -100 - _player_relation("conclave"))
+		_set_pair("conclave", "guild", -100)
+		for day in range(5, 40):
+			GameState.state["factions"]["conclave"]["resources"] = 100000
+			_escalate_on(day)
+		assert_true(_queued().filter(func(e: Dictionary) -> bool: return e["attackerId"] == "conclave").is_empty(), "no Conclave raids")
+		assert_true(FactionAI._open_moves("conclave", FactionAI.BAND_RAID).filter(func(m: String) -> bool: return m in [FactionAI.MOVE_VEIN_RAID, "stockpileRaid"]).is_empty(), "no raid rung")
+		GameData.FACTION_RIVALRY = false
+	)
+
 	run_case("a_poached_renewal_the_player_matches_stays_at_the_matched_price", func():
 		_market_fresh(5)
 		var offer := _renewal("firm")

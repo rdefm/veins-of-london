@@ -469,6 +469,8 @@ const MOVE_OUTBID := "outbid"
 const MOVE_POACH := "poach"
 const MOVE_WITHHOLD_ITEMS := "withholdItems"
 const MOVE_LOWBALL := "lowballBuyout"
+const MOVE_UNDERCUT := "undercut"
+const MOVE_DENY := "denyGoods"
 const LOWBALL_KIND := "faction_lowball_buyout"
 
 
@@ -671,6 +673,10 @@ static func _move_candidate(observer: String, target: String, move_id: String) -
 			return _withhold_items_candidate(observer, target)
 		MOVE_LOWBALL:
 			return _lowball_candidate(observer, target)
+		MOVE_UNDERCUT:
+			return _undercut_candidate(observer, target)
+		MOVE_DENY:
+			return _deny_candidate(observer, target)
 	return {}
 
 
@@ -704,6 +710,53 @@ static func _withhold_candidate(observer: String, target: String) -> Dictionary:
 		var damage := Shares.crafting_share(target, ore_type) * Market.line_total("ore", Market.quote("ore", ore_type), qty)
 		if damage > 0.0 and (best.is_empty() or damage > float(best["damage"])):
 			best = { "move": MOVE_WITHHOLD, "damage": damage, "cost": _move_cost(MOVE_WITHHOLD), "good": ore_type }
+	return best
+
+
+# Undercut (no cash cost; the cost is the undercut.priceMult discount): sell
+# up to undercut.qty[kind] of a good the observer has for sale that the
+# target sold today (its Market supply tally). Damage = the lot's value at
+# the quote, capped at what the target sold. Needs the Market sim running.
+static func _undercut_candidate(observer: String, target: String) -> Dictionary:
+	var best := {}
+	if not Market.is_running():
+		return best
+	for kind in Market.KINDS:
+		for good_type in GameData.MARKET["goods"][kind]:
+			var sold := Market.supplied_by(kind, good_type, target)
+			var qty: int = mini(int(_ecfg()["undercut"]["qty"][kind]), FactionSim.for_sale(observer, kind, good_type))
+			if sold <= 0 or qty <= 0:
+				continue
+			var damage := float(Market.line_total(kind, Market.quote(kind, good_type), mini(qty, sold)))
+			if damage > 0.0 and (best.is_empty() or damage > float(best["damage"])):
+				best = { "move": MOVE_UNDERCUT, "damage": damage, "cost": 0, "kind": kind, "good": good_type, "qty": qty }
+	return best
+
+
+# Deny (no cash cost; the cost is the buy): buy up to deny.qty[kind] of a
+# good the target needs -- an ore it crafts with (damage = its crafting
+# share × the lot's value) or an item it needs (_needs_item; damage = the
+# lot's value) -- that the observer isn't already withholding. Capped by
+# resources. Needs the Market sim running.
+static func _deny_candidate(observer: String, target: String) -> Dictionary:
+	var best := {}
+	if not Market.is_running():
+		return best
+	var resources := int(GameState.state["factions"][observer]["resources"])
+	for kind in Market.KINDS:
+		for good_type in GameData.MARKET["goods"][kind]:
+			if is_withholding(observer, kind, good_type):
+				continue
+			var weight := Shares.crafting_share(target, good_type) if kind == "ore" else (1.0 if _needs_item(target, good_type) else 0.0)
+			var price := Market.quote(kind, good_type)
+			if weight <= 0.0 or price <= 0:
+				continue
+			var qty: int = mini(int(_ecfg()["deny"]["qty"][kind]), Market.affordable_qty(kind, price, resources))
+			if qty <= 0:
+				continue
+			var damage := weight * Market.line_total(kind, price, qty)
+			if damage > 0.0 and (best.is_empty() or damage > float(best["damage"])):
+				best = { "move": MOVE_DENY, "damage": damage, "cost": 0, "kind": kind, "good": good_type, "qty": qty }
 	return best
 
 
@@ -935,9 +988,19 @@ static func _make_move(observer: String, target: String, move: Dictionary) -> vo
 			if target == Shares.PLAYER:
 				_report_player(observer, MOVE_WITHHOLD_ITEMS, item_name, item_name)
 			else:
-				_report_pair_withhold(observer, target, MOVE_WITHHOLD_ITEMS, item_name)
+				_report_pair_goods_move(observer, target, MOVE_WITHHOLD_ITEMS, item_name)
 		MOVE_LOWBALL:
 			_offer_lowball(observer, move)
+		MOVE_UNDERCUT:
+			FactionSim.undercut(observer, move["kind"], move["good"], int(move["qty"]), float(_ecfg()["undercut"]["priceMult"]))
+			_report_goods_move(observer, target, MOVE_UNDERCUT, move["kind"], move["good"])
+		MOVE_DENY:
+			FactionSim.deny(observer, move["kind"], move["good"], int(move["qty"]))
+			_withholds().append({
+				"factionId": observer, "targetId": target, "kind": move["kind"], "good": move["good"],
+				"untilDay": int(GameState.state["world"]["day"]) + int(_ecfg()["deny"]["days"]),
+			})
+			_report_goods_move(observer, target, MOVE_DENY, move["kind"], move["good"])
 
 
 # A flood or withhold of ore_type. Against the player: key member line
@@ -949,7 +1012,7 @@ static func _report_market_move(observer: String, target: String, move_id: Strin
 		_report_player(observer, move_id, ore_type, ore_name)
 		return
 	if move_id != MOVE_FLOOD:
-		_report_pair_withhold(observer, target, move_id, ore_name)
+		_report_pair_goods_move(observer, target, move_id, ore_name)
 		return
 	var log_cfg: Dictionary = _ecfg()["log"][move_id]
 	var observer_name: String = GameData.FACTIONS[observer]["shortName"]
@@ -959,11 +1022,21 @@ static func _report_market_move(observer: String, target: String, move_id: Strin
 	log_activity(target, log_cfg["defender"] % [observer_name, ore_name])
 
 
-# A withhold of good_name between factions, logged on both sides.
-static func _report_pair_withhold(observer: String, target: String, move_id: String, good_name: String) -> void:
+# A move on good_name between factions, logged on both sides.
+static func _report_pair_goods_move(observer: String, target: String, move_id: String, good_name: String) -> void:
 	var log_cfg: Dictionary = _ecfg()["log"][move_id]
 	log_activity(observer, log_cfg["attacker"] % [good_name, GameData.FACTIONS[target]["shortName"]])
 	log_activity(target, log_cfg["defender"] % [GameData.FACTIONS[observer]["shortName"], good_name])
+
+
+# An undercut or deny of an ore or item: the key member's line (good name)
+# against the player, else both sides' logs.
+static func _report_goods_move(observer: String, target: String, move_id: String, kind: String, good_type: String) -> void:
+	var good_name: String = GameData.ORE_TYPES[good_type]["name"] if kind == "ore" else GameData.RECIPES[good_type]["name"]
+	if target == Shares.PLAYER:
+		_report_player(observer, move_id, good_name, good_name)
+	else:
+		_report_pair_goods_move(observer, target, move_id, good_name)
 
 
 static func _pending_offer(offer_id: String) -> Dictionary:
