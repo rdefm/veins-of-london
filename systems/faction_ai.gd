@@ -2003,21 +2003,48 @@ static func _pay_weekly(from: String, to: String, amount: int) -> void:
 # ── Conclave stabiliser ─────────────────────────────────────────────────
 # R§3.1 "Conclave stabiliser": a good quoted beyond ±bandPct of its base
 # price for runDays straight rollovers gets a Conclave counter-trade at a
-# loss -- selling into the spike, buying the crash -- and its run restarts.
+# loss -- selling into the spike from its stockpile, buying the crash into
+# it -- and its run restarts. A daily top-up then buys each good quoted at
+# or under maxPriceMult × base toward its stockpile target.
 # Data in constants.json factionConclave.stabiliser.
 
 static func _scfg() -> Dictionary:
 	return GameData.FACTION_CONCLAVE["stabiliser"]
 
 
-# state.factionConclave: { runs: { "kind:type": days } }, days signed: +n
-# for n straight days above the band, -n below; a good inside it has no key.
+# state.factionConclave: { runs: { "kind:type": days }, stockpile:
+# { "kind:type": units } }. Run days signed: +n for n straight days above
+# the band, -n below; a good inside it has no key. Stockpile units sit in the
+# Conclave's holdings, kept off sale (FactionSim.for_sale); a good with none
+# has no key.
 static func new_conclave_state() -> Dictionary:
-	return { "runs": {} }
+	return { "runs": {}, "stockpile": {} }
 
 
 static func stabiliser_run(kind: String, good_type: String) -> int:
 	return int(GameState.state["factionConclave"]["runs"].get(kind + ":" + good_type, 0))
+
+
+# The stabiliser faction's stockpile of a good, never more than it holds
+# (holdings spent elsewhere shrink it); 0 for any other faction.
+static func stockpile_held(faction_id: String, kind: String, good_type: String) -> int:
+	if faction_id != _scfg()["factionId"]:
+		return 0
+	var units: int = int(GameState.state["factionConclave"]["stockpile"].get(kind + ":" + good_type, 0))
+	return mini(units, FactionSim.held(faction_id, kind, good_type))
+
+
+static func _set_stockpile(kind: String, good_type: String, units: int) -> void:
+	var stockpile: Dictionary = GameState.state["factionConclave"]["stockpile"]
+	if units > 0:
+		stockpile[kind + ":" + good_type] = units
+	else:
+		stockpile.erase(kind + ":" + good_type)
+
+
+# Adds delta units (negative to take) to a good's stockpile.
+static func _shift_stockpile(conclave_id: String, kind: String, good_type: String, delta: int) -> void:
+	_set_stockpile(kind, good_type, stockpile_held(conclave_id, kind, good_type) + delta)
 
 
 static func stabilise() -> void:
@@ -2049,6 +2076,29 @@ static func stabilise() -> void:
 			runs.erase(key)
 			var qty: int = int(cfg["qty"][kind])
 			if side > 0:
-				FactionSim.stabilise_sell(conclave_id, kind, good_type, qty, float(cfg["sellMult"]))
+				qty = mini(qty, stockpile_held(conclave_id, kind, good_type))
+				_shift_stockpile(conclave_id, kind, good_type, -FactionSim.stabilise_sell(conclave_id, kind, good_type, qty, float(cfg["sellMult"])))
 			else:
-				FactionSim.stabilise_buy(conclave_id, kind, good_type, qty, float(cfg["buyMult"]))
+				_shift_stockpile(conclave_id, kind, good_type, FactionSim.stabilise_buy(conclave_id, kind, good_type, qty, float(cfg["buyMult"])))
+	_top_up_stockpile()
+
+
+# Per good quoted at or under topUp.maxPriceMult × base: buys toward its
+# stockpile target, at most topUp.dailyCap[kind] a day, spending only cash
+# above topUp.cashFloor.
+static func _top_up_stockpile() -> void:
+	var cfg: Dictionary = _scfg()["stockpile"]
+	var top_up: Dictionary = cfg["topUp"]
+	var conclave_id: String = _scfg()["factionId"]
+	var faction: Dictionary = GameState.state["factions"][conclave_id]
+	for kind in Market.KINDS:
+		for good_type in GameData.MARKET["goods"][kind]:
+			var base: int = Market.base_price(kind, good_type)
+			var price: int = Market.quote(kind, good_type)
+			if base <= 0 or price <= 0 or price > base * float(top_up["maxPriceMult"]):
+				continue
+			var want: int = mini(int(cfg["target"][kind]) - stockpile_held(conclave_id, kind, good_type), int(top_up["dailyCap"][kind]))
+			if want <= 0:
+				continue
+			var budget: int = int(faction["resources"]) - int(top_up["cashFloor"])
+			_shift_stockpile(conclave_id, kind, good_type, FactionSim.stock_up(conclave_id, kind, good_type, want, budget))

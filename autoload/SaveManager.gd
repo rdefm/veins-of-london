@@ -336,6 +336,7 @@ func backfill_defaults(save: Dictionary) -> Dictionary:
 	_backfill_new_business_keys(result, defaults)
 	_backfill_new_guard_upkeep_keys(result, defaults)
 	_backfill_new_faction_war_keys(result, defaults)
+	_backfill_new_faction_conclave_keys(result, defaults)
 	_backfill_vein_guard_kits(result)
 	_backfill_expense_kinds(result)
 	FactionAI.migrate_save(result, had_stances)
@@ -365,6 +366,15 @@ func _backfill_new_faction_war_keys(result: Dictionary, defaults: Dictionary) ->
 	for key in defaults["factionWar"].keys():
 		if not war.has(key):
 			war[key] = GameState.deep_copy(defaults["factionWar"][key])
+
+
+# A factionConclave key added after the save was made (e.g. stockpile)
+# starts at its new-game default.
+func _backfill_new_faction_conclave_keys(result: Dictionary, defaults: Dictionary) -> void:
+	var conclave: Dictionary = result["factionConclave"]
+	for key in defaults["factionConclave"].keys():
+		if not conclave.has(key):
+			conclave[key] = GameState.deep_copy(defaults["factionConclave"][key])
 
 
 # A business key added after the save was made (e.g. float) starts at its
@@ -902,6 +912,7 @@ func _restore_int_types(state: Dictionary) -> void:
 			_int_key(line, "amount")
 	_int_dict_values(war.get("peaceCooldown", {}))
 	_int_dict_values(state.get("factionConclave", {}).get("runs", {}))
+	_int_dict_values(state.get("factionConclave", {}).get("stockpile", {}))
 	var talks: Dictionary = war.get("negotiation", {})
 	_int_key(talks, "round")
 	for terms_key in ["draft", "counter"]:

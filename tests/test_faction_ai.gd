@@ -698,6 +698,7 @@ func run() -> void:
 	run_case("a_spike_held_for_the_run_gets_a_conclave_sell_at_a_loss", func():
 		_stabiliser_fresh()
 		_holdings("conclave")["physics"] = 500
+		_stock("ore", "physics", 180)
 		GameState.state["factions"]["conclave"]["resources"] = 10000
 		var price: int = _hold_quote("ore", "physics", 1.5)
 		var qty: int = int(_stabiliser()["qty"]["ore"])
@@ -706,6 +707,7 @@ func run() -> void:
 		assert_eq(FactionAI.stabiliser_run("ore", "physics"), _run_days() - 1)
 		_stabilise_days(1)
 		assert_eq(int(_holdings("conclave")["physics"]), 500 - qty, "sold into the spike")
+		assert_eq(FactionAI.stockpile_held("conclave", "ore", "physics"), 180 - qty, "sold from the stockpile")
 		var gained: int = int(GameState.state["factions"]["conclave"]["resources"]) - 10000
 		var value: int = Market.line_total("ore", price, qty)
 		assert_true(gained > 0 and gained < value, "sold below value: %d of %d" % [gained, value])
@@ -720,12 +722,15 @@ func run() -> void:
 
 	run_case("a_crash_held_for_the_run_gets_a_conclave_buy_at_a_loss", func():
 		_stabiliser_fresh()
-		_holdings("conclave")["life"] = 0
+		var qty: int = int(_stabiliser()["qty"]["ore"])
+		var start: int = _target("ore")
+		_holdings("conclave")["life"] = start
+		_stock("ore", "life", start)
 		GameState.state["factions"]["conclave"]["resources"] = 100000
 		var price: int = _hold_quote("ore", "life", 0.5)
-		var qty: int = int(_stabiliser()["qty"]["ore"])
 		_stabilise_days(_run_days())
-		assert_eq(int(_holdings("conclave")["life"]), qty, "bought the crash")
+		assert_eq(int(_holdings("conclave")["life"]), start + qty, "bought the crash")
+		assert_eq(FactionAI.stockpile_held("conclave", "ore", "life"), start + qty, "into the stockpile, past its target")
 		var spent: int = 100000 - int(GameState.state["factions"]["conclave"]["resources"])
 		var value: int = Market.line_total("ore", price, qty)
 		assert_true(spent > value, "paid over value: %d for %d" % [spent, value])
@@ -739,10 +744,11 @@ func run() -> void:
 	run_case("a_short_excursion_triggers_no_conclave_trade", func():
 		_stabiliser_fresh()
 		_holdings("conclave")["physics"] = 500
+		_stock("ore", "physics", _target("ore"))
 		GameState.state["factions"]["conclave"]["resources"] = 100000
 		_hold_quote("ore", "physics", 1.5)
 		_stabilise_days(_run_days() - 1)
-		_hold_quote("ore", "physics", 1.0)
+		_hold_quote("ore", "physics", 1.1)
 		_stabilise_days(1)
 		assert_eq(FactionAI.stabiliser_run("ore", "physics"), 0, "back inside the band clears the run")
 		_hold_quote("ore", "physics", 1.5)
@@ -768,9 +774,72 @@ func run() -> void:
 		assert_eq(typeof(GameState.state["factionConclave"]["runs"]["ore:fate"]), TYPE_INT)
 	)
 
+	run_case("conclave_trading_never_sells_its_stockpile", func():
+		_stabiliser_fresh()
+		var stock: int = _target("ore")
+		_holdings("conclave")["physics"] = stock
+		_stock("ore", "physics", stock)
+		GameState.state["factions"]["conclave"]["resources"] = 0
+		_hold_quote("ore", "physics", 2.0)
+		assert_true(2.0 > float(GameData.FACTIONS["conclave"]["trading"]["arbSellMult"]), "above the arbitrage sell line")
+		assert_eq(FactionSim.for_sale("conclave", "ore", "physics"), 0, "stockpile is off sale")
+		FactionSim.trade()
+		assert_eq(int(_holdings("conclave")["physics"]), stock, "surplus selling and arbitrage left it")
+		assert_eq(FactionAI.stockpile_held("conclave", "ore", "physics"), stock)
+		_holdings("conclave")["physics"] = stock + 40
+		assert_eq(FactionSim.for_sale("conclave", "ore", "physics"), 40, "only units above it are for sale")
+	)
+
+	run_case("the_stockpile_tops_up_at_or_under_base_within_cap_and_floor", func():
+		_stabiliser_fresh()
+		var top_up: Dictionary = _stabiliser()["stockpile"]["topUp"]
+		var cap: int = int(top_up["dailyCap"]["ore"])
+		var floor_cash: int = int(top_up["cashFloor"])
+		_holdings("conclave")["physics"] = 0
+		GameState.state["factions"]["conclave"]["resources"] = 1000000
+		_stabilise_days(1)
+		assert_eq(FactionAI.stockpile_held("conclave", "ore", "physics"), 0, "no top-up above base")
+		_hold_quote("ore", "physics", 1.0)
+		_stabilise_days(1)
+		assert_eq(FactionAI.stockpile_held("conclave", "ore", "physics"), cap, "one day's cap at base")
+		assert_eq(int(_holdings("conclave")["physics"]), cap)
+		assert_eq(int(GameState.state["market"]["demand"]["ore"]["physics"]["conclave"]), cap, "London demand")
+		_stabilise_days(ceili(float(_target("ore")) / cap) + 2)
+		assert_eq(FactionAI.stockpile_held("conclave", "ore", "physics"), _target("ore"), "stops at the target")
+		_hold_quote("ore", "life", 0.9)
+		_holdings("conclave")["life"] = 0
+		GameState.state["factions"]["conclave"]["resources"] = floor_cash + Market.line_total("ore", Market.quote("ore", "life"), 5)
+		_stabilise_days(2)
+		assert_eq(FactionAI.stockpile_held("conclave", "ore", "life"), 5, "spends only cash above the floor")
+		assert_true(int(GameState.state["factions"]["conclave"]["resources"]) >= floor_cash, "never below the floor")
+	)
+
+	run_case("the_stockpile_survives_a_save_and_an_old_save_gets_one", func():
+		_stabiliser_fresh()
+		_holdings("conclave")["fate"] = 30
+		_stock("ore", "fate", 30)
+		assert_true(SaveManager.save_to_slot(STABILISER_SAVE_SLOT)["ok"])
+		GameState.reset()
+		assert_true(SaveManager.load_from_slot(STABILISER_SAVE_SLOT)["ok"])
+		SaveManager.delete_slot(STABILISER_SAVE_SLOT)
+		assert_eq(typeof(GameState.state["factionConclave"]["stockpile"]["ore:fate"]), TYPE_INT)
+		assert_eq(int(GameState.state["factionConclave"]["stockpile"]["ore:fate"]), 30)
+		var old: Dictionary = GameState.deep_copy(GameState.state)
+		old["factionConclave"].erase("stockpile")
+		assert_eq(SaveManager.backfill_defaults(old)["factionConclave"]["stockpile"], {}, "old save backfilled")
+	)
+
 
 static func _stabiliser() -> Dictionary:
 	return GameData.FACTION_CONCLAVE["stabiliser"]
+
+
+static func _target(kind: String) -> int:
+	return int(_stabiliser()["stockpile"]["target"][kind])
+
+
+static func _stock(kind: String, good_type: String, units: int) -> void:
+	GameState.state["factionConclave"]["stockpile"][kind + ":" + good_type] = units
 
 
 static func _run_days() -> int:
@@ -784,12 +853,13 @@ static func _hold_quote(kind: String, good_type: String, mult: float) -> int:
 	return price
 
 
-# _market_fresh(5) with every good quoted at base, inside the band.
+# _market_fresh(5) with every good quoted at 1.1 × base: inside the band,
+# above the stockpile top-up's price ceiling.
 static func _stabiliser_fresh() -> void:
 	_market_fresh(5)
 	for kind in Market.KINDS:
 		for good_type in GameState.state["market"]["goods"][kind]:
-			_hold_quote(kind, good_type, 1.0)
+			_hold_quote(kind, good_type, 1.1)
 
 
 static func _stabilise_days(n: int) -> void:

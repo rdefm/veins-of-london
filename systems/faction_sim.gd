@@ -56,13 +56,13 @@ static func item_reserved(faction_id: String, recipe_key: String) -> int:
 
 
 # What a faction will sell: all its ore, but only its unreserved items, and
-# nothing it is withholding (FactionAI escalation).
+# nothing it is withholding (FactionAI escalation) or holding in the Conclave
+# stabiliser stockpile (FactionAI.stockpile_held).
 static func for_sale(faction_id: String, kind: String, item_type: String) -> int:
 	if FactionAI.is_withholding(faction_id, kind, item_type):
 		return 0
-	if kind == "ore":
-		return ore_held(faction_id, item_type)
-	return maxi(0, item_held(faction_id, item_type) - item_reserved(faction_id, item_type))
+	var free: int = ore_held(faction_id, item_type) if kind == "ore" else item_held(faction_id, item_type) - item_reserved(faction_id, item_type)
+	return maxi(0, free - FactionAI.stockpile_held(faction_id, kind, item_type))
 
 
 static func add_ore(faction_id: String, ore_type: String, qty: int) -> void:
@@ -541,11 +541,14 @@ static func deny(faction_id: String, kind: String, good_type: String, qty: int) 
 	return maxi(0, bought)
 
 
-# Sells up to qty of a good the faction has for sale at price_mult × today's
-# quote, into a spike (R§3.1 "Conclave stabiliser"), recorded as a Market
-# stabiliseSell. Returns the qty sold.
+# Sells up to qty of a good the faction holds at price_mult × today's quote,
+# into a spike (R§3.1 "Conclave stabiliser"), recorded as a Market
+# stabiliseSell; nothing while it is withholding the good. The caller caps
+# qty at the stockpile. Returns the qty sold.
 static func stabilise_sell(faction_id: String, kind: String, good_type: String, qty: int, price_mult: float) -> int:
-	var sold: int = mini(qty, for_sale(faction_id, kind, good_type))
+	if FactionAI.is_withholding(faction_id, kind, good_type):
+		return 0
+	var sold: int = mini(qty, held(faction_id, kind, good_type))
 	if sold <= 0:
 		return 0
 	_sell_below(faction_id, "stabiliseSell", kind, good_type, sold, price_mult)
@@ -559,6 +562,16 @@ static func stabilise_buy(faction_id: String, kind: String, good_type: String, q
 	var price: int = GameState.round_epsilon(Market.quote(kind, good_type) * price_mult)
 	var bought: int = mini(qty, Market.affordable_qty(kind, price, int(GameState.state["factions"][faction_id]["resources"])))
 	_buy(faction_id, kind, good_type, bought, price, "stabiliseBuy")
+	return maxi(0, bought)
+
+
+# Buys up to qty of a good at today's quote, spending at most budget, as
+# plain Market demand (R§3.1 "Conclave stabiliser" top-up). Returns the qty
+# bought.
+static func stock_up(faction_id: String, kind: String, good_type: String, qty: int, budget: int) -> int:
+	var price: int = Market.quote(kind, good_type)
+	var bought: int = mini(qty, Market.affordable_qty(kind, price, budget))
+	_buy(faction_id, kind, good_type, bought, price)
 	return maxi(0, bought)
 
 
