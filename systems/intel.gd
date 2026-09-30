@@ -16,6 +16,7 @@ const STASH := "stash"
 
 const SOURCE_SCOUT := "scout"
 const SOURCE_RAID := "raid"
+const SOURCE_FAVOUR := "favour"
 
 
 static func _cfg() -> Dictionary:

@@ -5458,7 +5458,7 @@
 "id": "guild_cheap_powder",
 "kind": "sellBelow",
 "params": {
-"kind": "item",
+"kind": "consumable",
 "mult": 0.85,
 "qty": 4,
 "type": "enhancementPowder"
@@ -5560,7 +5560,7 @@
 "kind": "deliver",
 "params": {
 "days": 4,
-"kind": "item",
+"kind": "consumable",
 "qty": 3,
 "type": "prophetsBreath"
 },
@@ -5684,6 +5684,37 @@
 "state": "election",
 "strength": 3
 }]
+},
+"FACTION_FAVOURS": {
+"cooldownDays": 7,
+"deliverPriceMult": 1,
+"expiryDays": 3,
+"failRelationLoss": 3,
+"issueChance": 0.1,
+"lines": {
+"collective": {
+"done": "\"That's sorted, then. I won't forget it.\"",
+"failed": "\"You said you would. Never mind. I'll know next time.\""
+},
+"conclave": {
+"done": "\"Thank you. We don't say it often, so it tends to be remembered.\"",
+"failed": "\"A pity. We'll plan around you next time.\""
+},
+"firm": {
+"done": "\"Noted. The Firm keeps a list, and you're on the good half of it.\"",
+"failed": "\"We had an arrangement. We'll adjust our expectations.\""
+},
+"guild": {
+"done": "\"The Court has recorded your assistance. It records very little.\"",
+"failed": "\"The Court notes the undertaking was not met.\""
+},
+"network": {
+"done": "\"Done. Nobody saw. Good.\"",
+"failed": "\"You didn't. We noticed.\""
+}
+},
+"relationGain": 8,
+"sellBelowDays": 4
 },
 "FACTION_TRADE": {
 "collective": {
@@ -6553,6 +6584,40 @@
 },
 "width": 390
 }
+}
+},
+"INTEL": {
+"dailyDecay": 1,
+"gain": {
+"favour": 10,
+"raid": 12,
+"scout": 8
+},
+"levels": [{
+"at": 20,
+"id": "veinSecurity",
+"name": "Vein security"
+}, {
+"at": 40,
+"id": "holdings",
+"name": "Holdings"
+}, {
+"at": 60,
+"id": "stockpileLocation",
+"name": "Stockpile location"
+}, {
+"at": 80,
+"id": "stockpileSecurity",
+"name": "Stockpile security"
+}, {
+"at": 100,
+"id": "stash",
+"name": "Stash detail"
+}],
+"max": 100,
+"raid": {
+"oddsBonus": 0.15,
+"overestimatePenalty": 0.15
 }
 },
 "ITEMS": {

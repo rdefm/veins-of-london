@@ -129,6 +129,7 @@ static func daily_tick() -> void:
 	NetworkHandler.faction_purchases()   # ⑥.5h2 faction intel purchases, after ⑥.5h so bands and the Network's gouges are today's
 	Intel.decay()                        # ⑥.5i intel decay, after ⑥.5h2
 	Intel.expire_timers()                # ⑥.5i2 drop lapsed privacy/raid-warning/disinformation timers; reads check the day anyway
+	Diplomacy.daily_tick()               # ⑥.5j favours: settle guard/sit-out watches, withdraw lapsed requests, issue new ones; after ⑥.5g2 so war state is today's
 	Market.daily_reprice()               # ⑥.6 London reprice, after every step that trades in the tick and after ① so today's Ticker feeds it
 	Dial.daily_regen()                   # ⑦ Dial charge regen
 	Contacts.daily_dial_regen()          # ⑦.1 ally Dial charges refill

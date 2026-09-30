@@ -2,7 +2,8 @@
 # type, ore/crafting toggle) then one card per faction with its economic
 # identity, its ore- and crafting-share bars (spec §UI reads), your stance
 # with it, its pressure label, a Negotiate entry while at war with you,
-# your intel on it, and its activity log, newest first. Holdings, vein
+# its favour request or the favour you owe it (R§3.10 "Favours"), your
+# intel on it, and its activity log, newest first. Holdings, vein
 # security and the stockpile show only past your intel level on that
 # faction (R§3.1 "Intel"). The toggle is view state.
 class_name FactionsApp
@@ -85,8 +86,23 @@ func _build_economy(faction_id: String) -> Control:
 	elif FactionAI.at_war(Shares.PLAYER, faction_id):
 		var check := FactionAI.can_open_talks(faction_id)
 		box.add_child(UI.action_button("Negotiate peace", func(): ContactCards.open_talks(faction_id), not check["ok"], check.get("reason", "")))
+	box.add_child(_build_favour(faction_id))
 	box.add_child(_build_intel(faction_id))
 	box.add_child(_build_activity(faction_id))
+	return box
+
+
+func _build_favour(faction_id: String) -> Control:
+	var box := UI.vbox(2)
+	var owed := Diplomacy.accepted_for(faction_id)
+	if not owed.is_empty():
+		box.add_child(UI.muted_label("Favour owed"))
+		box.add_child(UI.label(Diplomacy.describe(owed)))
+	for entry in Diplomacy.pending_for(faction_id):
+		box.add_child(UI.muted_label("Favour asked · answer by %s" % Calendar.format_day(int(entry["payload"]["expiresDay"]))))
+		box.add_child(UI.label(entry["text"]))
+		for action in ContactCards.build_pending_actions(entry, func(_e: Dictionary) -> void: pass):
+			box.add_child(action)
 	return box
 
 

@@ -317,9 +317,25 @@
       { "id": "stockpileSecurity", "at": 80, "name": "Stockpile security" },
       { "id": "stash", "at": 100, "name": "Stash detail" }
     ],
-    "gain": { "scout": 8, "raid": 12 },
+    "gain": { "scout": 8, "raid": 12, "favour": 10 },
     "dailyDecay": 1,
     "raid": { "oddsBonus": 0.15, "overestimatePenalty": 0.15 }
+  },
+  "factionFavours": {
+    "issueChance": 0.1,
+    "cooldownDays": 7,
+    "expiryDays": 3,
+    "relationGain": 8,
+    "failRelationLoss": 3,
+    "deliverPriceMult": 1.0,
+    "sellBelowDays": 4,
+    "lines": {
+      "collective": { "done": "\"That's sorted, then. I won't forget it.\"", "failed": "\"You said you would. Never mind. I'll know next time.\"" },
+      "firm": { "done": "\"Noted. The Firm keeps a list, and you're on the good half of it.\"", "failed": "\"We had an arrangement. We'll adjust our expectations.\"" },
+      "guild": { "done": "\"The Court has recorded your assistance. It records very little.\"", "failed": "\"The Court notes the undertaking was not met.\"" },
+      "network": { "done": "\"Done. Nobody saw. Good.\"", "failed": "\"You didn't. We noticed.\"" },
+      "conclave": { "done": "\"Thank you. We don't say it often, so it tends to be remembered.\"", "failed": "\"A pity. We'll plan around you next time.\"" }
+    }
   },
   "stockpileRaid": { "lootShare": 0.75, "stashLootShare": 1.0, "relationHit": -60, "headlineValue": 2000, "raidResistPerGuard": 20, "valueTier": 2, "guardTemplate": "veinGuard" },
   "networkMenu": {

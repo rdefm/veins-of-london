@@ -23,6 +23,7 @@ const MIXED_EXTRA_TYPE_BONUS := 0.20
 # Every offer's weekday is Monday (Calendar weekday index 0): a recurring
 # contract falls due on the rollover into each Monday (R§3.10 "Weekly cadence").
 const RECURRING_WEEKDAY := 0
+const SOURCE_FAVOUR := "favour"
 
 
 static func pending_offers() -> Array:
@@ -104,6 +105,14 @@ static func create_renewal_offer(contract: Dictionary) -> Dictionary:
 	var offer := _issue_offer(contract.get("templateId", ""), "renewal", "recurring", contract["request"].duplicate(true), 0, ensure_counterparty(contract))
 	EventBus.state_changed.emit()
 	return offer
+
+
+# R§3.10 "Favours": an accepted goods favour signs at once as a one-off
+# contract with the faction, due in days, at the favour's own payment.
+static func sign_favour_contract(favour_id: String, faction_id: String, request: Dictionary, payment: int, days: int) -> Dictionary:
+	var offer := _issue_offer(favour_id, SOURCE_FAVOUR, "oneOff", request, days, faction_id)
+	offer["quote"]["payment"] = payment
+	return accept_offer(offer["id"])
 
 
 # Prices and appends one pending offer; an empty counterparty is picked.
@@ -247,7 +256,7 @@ static func accept_offer(offer_id: String) -> Dictionary:
 		var due_day := accepted_day + Rng.randi_range(RANDOM_ONE_OFF_DEADLINE_MIN_DAYS, RANDOM_ONE_OFF_DEADLINE_MAX_DAYS)
 		if offer["contractType"] == "recurring":
 			due_day = Calendar.next_weekday_after(accepted_day, int(offer["weekday"]))
-		elif offer["source"] == "scripted":
+		elif offer["source"] == "scripted" or offer["source"] == SOURCE_FAVOUR:
 			due_day = accepted_day + int(offer["deadlineAfterDays"])
 		# Extra requested types were fixed at offer-creation (quote) time; their
 		# deadline bonus applies on top of whichever base above was picked.

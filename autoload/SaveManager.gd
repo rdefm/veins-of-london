@@ -901,6 +901,16 @@ func _restore_int_types(state: Dictionary) -> void:
 	_int_dict_values(intel_timers.get("raidWarnings", {}))
 	for entry in intel_timers.get("disinformation", []):
 		_int_key(entry, "untilDay")
+	for entry in state.get("pendingMessages", []):
+		if entry.get("kind", "") == Diplomacy.FAVOUR_KIND:
+			_int_key(entry.get("payload", {}), "expiresDay")
+	var favours: Dictionary = state.get("favours", {})
+	_int_dict_values(favours.get("lastIssued", {}))
+	for entry in favours.get("accepted", []):
+		for key in ["acceptedDay", "dueDay"]:
+			_int_key(entry, key)
+		for key in ["qty", "days"]:
+			_int_key(entry.get("params", {}), key)
 
 	for group in state.get("factionStances", {}).values():
 		for entry in group.values():

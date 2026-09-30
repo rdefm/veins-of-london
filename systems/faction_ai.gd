@@ -1478,6 +1478,8 @@ static func note_hostile_act(party_a: String, party_b: String) -> void:
 	if in_truce(party_a, party_b):
 		break_truce(party_a, party_b)
 	_war()["lastHostile"][war_key(party_a, party_b)] = int(GameState.state["world"]["day"])
+	if party_a == Shares.PLAYER:
+		Diplomacy.note_player_hostile(party_b)
 
 
 static func _add_hit(party: String, enemy: String, points: float) -> void:

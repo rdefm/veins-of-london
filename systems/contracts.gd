@@ -221,6 +221,7 @@ static func cancel(contract_id: String) -> Dictionary:
 	var template_id: String = contract.get("templateId", "")
 	BusinessQuest.note_starter_closed(template_id, false)
 	BusinessQuest.note_recurring_closed(template_id)
+	Diplomacy.note_contract_closed(contract_id, false)
 	EventBus.state_changed.emit()
 	return { "ok": true }
 
@@ -289,6 +290,7 @@ static func settle(contract_id: String) -> Dictionary:
 		active_contracts().erase(contract)
 		sales["priorityOrder"].erase(contract_id)
 		BusinessQuest.note_starter_closed(contract.get("templateId", ""), complete)
+		Diplomacy.note_contract_closed(contract_id, complete)
 	# A complete settlement can meet a contract-count objective (Beat 2), the
 	# first Time Pearl period (Beat 6) or the recurring proof (Beat 7).
 	Objectives.refresh()

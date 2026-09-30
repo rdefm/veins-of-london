@@ -234,6 +234,8 @@ func new_game_state() -> Dictionary:
 		"intel": Intel.new_state(),
 		# Privacy, raid-warning and disinformation timers (Intel.new_timers()).
 		"intelTimers": Intel.new_timers(),
+		# Accepted favours and last-issued day per faction (Diplomacy.new_state()).
+		"favours": Diplomacy.new_state(),
 
 		"barometer": {
 			"economic": "stable", "social": "stable", "political": "stable",
