@@ -230,6 +230,8 @@ func new_game_state() -> Dictionary:
 		"factionWar": FactionAI.new_war_state(),
 		# Conclave stabiliser run counters (FactionAI.new_conclave_state()).
 		"factionConclave": FactionAI.new_conclave_state(),
+		# Intel meters, observer -> target -> 0..max (Intel.new_state()).
+		"intel": Intel.new_state(),
 
 		"barometer": {
 			"economic": "stable", "social": "stable", "political": "stable",

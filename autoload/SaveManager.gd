@@ -889,6 +889,9 @@ func _restore_int_types(state: Dictionary) -> void:
 		for row in state["factionRelations"].values():
 			_int_dict_values(row)
 
+	for row in state.get("intel", {}).values():
+		_int_dict_values(row)
+
 	for group in state.get("factionStances", {}).values():
 		for entry in group.values():
 			_int_key(entry, "pendingDays")

@@ -53,6 +53,8 @@ static func resolve_stealth_check(vein: Dictionary, consumable_bonus: float) -> 
 	var skill: int = GameState.state["player"]["stealthSkill"]
 	var success: bool = Rng.chance(stealth_success_chance(skill, vein, consumable_bonus))
 	award_stealth_xp(STEALTH_XP_SUCCESS if success else STEALTH_XP_CAUGHT)
+	if vein.has("factionId"):
+		Intel.gain(Shares.PLAYER, vein["factionId"], Intel.SOURCE_SCOUT)
 	return success
 
 
@@ -88,6 +90,7 @@ static func claim_vein(site_id: String) -> void:
 	site["claimed"] = true
 	site["factionVein"] = null
 	BusinessQuest.maybe_trigger_proposition()
+	Intel.gain(Shares.PLAYER, faction_id, Intel.SOURCE_RAID)
 	FactionAI.note_hostile_act(Shares.PLAYER, faction_id)
 	FactionAI.note_loss(faction_id, Shares.PLAYER, Factions.lost_vein_value(faction_vein))
 
@@ -108,6 +111,7 @@ static func loot_vein(site_id: String, caught: bool) -> void:
 	var vein: Dictionary = site["factionVein"]
 	var ore: Dictionary = GameState.state["player"]["orichalchum"]
 	ore[vein["oreType"]] = ore.get(vein["oreType"], 0) + LOOT_ORE_QTY
+	Intel.gain(Shares.PLAYER, vein["factionId"], Intel.SOURCE_RAID)
 
 	if caught:
 		Factions.adjust_player_relation(vein["factionId"], LOOT_RELATION_HIT)
@@ -301,6 +305,7 @@ static func resolve_raid_outcome(outcome: Dictionary, missed_defend: bool = fals
 
 	var district_name: String = GameData.DISTRICTS[vein["district"]]["name"]
 	var faction_name: String = GameData.FACTIONS[outcome["attackerId"]]["shortName"]
+	Intel.gain(outcome["attackerId"], Shares.PLAYER, Intel.SOURCE_RAID)
 
 	if outcome.get("outcomeType", "claim") == "loot":
 		_apply_raid_loot(vein, outcome["attackerId"], faction_name, district_name, missed_defend)

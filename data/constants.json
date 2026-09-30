@@ -277,6 +277,18 @@
     "positions": { "maxOpen": 1, "qty": 120, "maxDays": 21, "cashFloor": 600, "hintQty": 100, "pushStrength": 5, "pushCooldownDays": 3, "pushCap": 25 },
     "headlines": { "position": "Someone's buying up %s calc, and not in small lots." }
   },
+  "intel": {
+    "max": 100,
+    "levels": [
+      { "id": "veinSecurity", "at": 20, "name": "Vein security" },
+      { "id": "holdings", "at": 40, "name": "Holdings" },
+      { "id": "stockpileLocation", "at": 60, "name": "Stockpile location" },
+      { "id": "stockpileSecurity", "at": 80, "name": "Stockpile security" },
+      { "id": "stash", "at": 100, "name": "Stash detail" }
+    ],
+    "gain": { "scout": 8, "raid": 12 },
+    "dailyDecay": 1
+  },
   "factionWar": {
     "windowDays": 7,
     "weights": { "lossPer100": 5.0, "fightLost": 3.0, "drainPer100": 2.0, "extraFront": 0.5, "dayAtWar": 0.5 },

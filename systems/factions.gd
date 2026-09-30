@@ -399,6 +399,7 @@ static func resolve_rivalry_outcome(outcome: Dictionary) -> void:
 		return
 
 	FactionAI.note_loss(outcome["defenderId"], outcome["attackerId"], lost_vein_value(vein))
+	Intel.gain(outcome["attackerId"], outcome["defenderId"], Intel.SOURCE_RAID)
 	vein["factionId"] = outcome["attackerId"]
 	adjust_relation(outcome["defenderId"], outcome["attackerId"], RIVALRY_RELATION_PENALTY)
 	Barometer.push_headline(GameData.FACTION_ESCALATION["headlines"]["veinTaken"] % [

@@ -213,6 +213,10 @@ var FACTION_ESCALATION: Dictionary = {}
 var FACTION_WAR: Dictionary = {}
 var FACTION_CONCLAVE: Dictionary = {}
 
+# Intel meter max, level thresholds (in unlock order), gains per source and
+# daily decay, R§3.1 "Intel".
+var INTEL: Dictionary = {}
+
 # Business pot payday cadence (days) and weekly wage per waged staff
 # contact id, R§3.10 "Business pot and payday".
 var BUSINESS_WEEKLY_WAGES: Dictionary = {}
@@ -389,6 +393,7 @@ const MANIFEST: Array[Dictionary] = [
 		{"field": "FACTION_ESCALATION", "key": "factionEscalation", "type": TYPE_DICTIONARY},
 		{"field": "FACTION_WAR", "key": "factionWar", "type": TYPE_DICTIONARY},
 		{"field": "FACTION_CONCLAVE", "key": "factionConclave", "type": TYPE_DICTIONARY},
+		{"field": "INTEL", "key": "intel", "type": TYPE_DICTIONARY},
 		{"field": "BUSINESS_WEEKLY_WAGES", "key": "business.weeklyWages", "type": TYPE_DICTIONARY},
 		{"field": "BUSINESS_JAMES_JOIN_CRAFTING_SKILL", "key": "business.jamesJoinCraftingSkill", "type": TYPE_INT},
 		{"field": "BUSINESS_OWEN_CRAFT_MIN_CULTIVATING", "key": "business.owenCraftMinCultivating", "type": TYPE_INT},

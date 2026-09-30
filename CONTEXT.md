@@ -62,6 +62,10 @@ How worn down a side is by its wars, 0–100. It rises each day at war: most fro
 **Truce**:
 A signed ceasefire between two parties for a set number of days: no moves between them, their relation reset to just above Hostile, and a small relation boost each day it holds. Moving against a truce partner breaks it and costs the breaker relation with every faction. Factions at war sign truces with each other once both are weary enough; a signed faction truce is a Ticker headline.
 
+**Intel level**:
+How much one side knows about another, read from an intel meter (0–100) held for every observer → target pair: the player on each faction, and each faction on the player and on each other. Levels unlock in order: vein security, holdings, stockpile location, stockpile security, stash detail. Scouting and raiding the target raise the meter; it fades slowly each day; a stockpile relocation drops everyone below stockpile location. What a level doesn't reach stays hidden.
+_Avoid_: "intel" for the Network's timed per-site tips (those are site intel).
+
 **Key member**:
 The named person who speaks for a faction (Lusk for the Firm, Ingram for the Guild, Fairweather for the Conclave, Nadia for the Collective, the handler for the Network). Every faction message to the player comes from its key member, never from the faction as a faceless whole.
 

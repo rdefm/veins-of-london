@@ -2,8 +2,9 @@
 # type, ore/crafting toggle) then one card per faction with its economic
 # identity, its ore- and crafting-share bars (spec §UI reads), your stance
 # with it, its pressure label, a Negotiate entry while at war with you,
-# and its activity log, newest first. Shares only -- holdings and
-# vein kits never show. The toggle is view state.
+# your intel on it, and its activity log, newest first. Holdings, vein
+# security and the stockpile show only past your intel level on that
+# faction (R§3.1 "Intel"). The toggle is view state.
 class_name FactionsApp
 extends PhoneApp
 
@@ -84,8 +85,59 @@ func _build_economy(faction_id: String) -> Control:
 	elif FactionAI.at_war(Shares.PLAYER, faction_id):
 		var check := FactionAI.can_open_talks(faction_id)
 		box.add_child(UI.action_button("Negotiate peace", func(): ContactCards.open_talks(faction_id), not check["ok"], check.get("reason", "")))
+	box.add_child(_build_intel(faction_id))
 	box.add_child(_build_activity(faction_id))
 	return box
+
+
+# Your intel level on the faction and one line per level reached; nothing
+# past the level shows.
+func _build_intel(faction_id: String) -> Control:
+	var box := UI.vbox(2)
+	var reached := Intel.level(Shares.PLAYER, faction_id)
+	box.add_child(UI.muted_label("Intel · %s · %d/%d" % [reached.get("name", "None"), Intel.meter(Shares.PLAYER, faction_id), int(GameData.INTEL["max"])]))
+	var holdings: Dictionary = GameState.state["factions"][faction_id]["holdings"]
+	if Intel.knows(Shares.PLAYER, faction_id, Intel.VEIN_SECURITY):
+		var counts := Intel.vein_security_counts(faction_id)
+		var parts: Array[String] = []
+		for security in counts:
+			parts.append("%d %s" % [counts[security], security])
+		box.add_child(UI.label("Veins: %s" % (", ".join(parts) if not parts.is_empty() else "none")))
+	if Intel.knows(Shares.PLAYER, faction_id, Intel.HOLDINGS):
+		var ores: Array[String] = []
+		for ore_type in GameData.CANONICAL_ORE_TYPES:
+			ores.append("%s %d" % [_ore_name(ore_type), FactionSim.ore_held(faction_id, ore_type)])
+		box.add_child(UI.label("Ore held: %s" % ", ".join(ores)))
+		box.add_child(UI.label("Items held: %s" % _item_list(faction_id, holdings["items"].keys())))
+	if Intel.knows(Shares.PLAYER, faction_id, Intel.STOCKPILE_LOCATION):
+		var stockpile: Dictionary = GameState.state["factions"][faction_id]["stockpile"]
+		var district: String = GameData.DISTRICTS[stockpile["district"]]["name"] if GameData.DISTRICTS.has(stockpile["district"]) else "somewhere"
+		box.add_child(UI.label("Stockpile: %s, %s" % [stockpile["place"], district]))
+	if Intel.knows(Shares.PLAYER, faction_id, Intel.STOCKPILE_SECURITY):
+		var kit: Dictionary = FactionSim.raider_kit(faction_id, "defend")["items"]
+		var kit_parts: Array[String] = []
+		for recipe_key in kit:
+			kit_parts.append("%s ×%d" % [GameData.RECIPES[recipe_key]["name"], kit[recipe_key]])
+		box.add_child(UI.label("Stockpile kit: %s" % (", ".join(kit_parts) if not kit_parts.is_empty() else "none")))
+	if Intel.knows(Shares.PLAYER, faction_id, Intel.STASH):
+		for recipe_key in holdings["items"]:
+			var tiers: Array[String] = []
+			for tier in holdings["items"][recipe_key]:
+				var qty := int(holdings["items"][recipe_key][tier])
+				if qty > 0:
+					tiers.append("%s ×%d" % ["untiered" if int(tier) <= 0 else "tier %s" % tier, qty])
+			if not tiers.is_empty():
+				box.add_child(UI.label("%s: %s" % [GameData.RECIPES[recipe_key]["name"], ", ".join(tiers)]))
+	return box
+
+
+func _item_list(faction_id: String, recipe_keys: Array) -> String:
+	var items: Array[String] = []
+	for recipe_key in recipe_keys:
+		var qty := FactionSim.item_held(faction_id, recipe_key)
+		if qty > 0:
+			items.append("%s ×%d" % [GameData.RECIPES[recipe_key]["name"], qty])
+	return ", ".join(items) if not items.is_empty() else "none"
 
 
 func _build_activity(faction_id: String) -> Control:
