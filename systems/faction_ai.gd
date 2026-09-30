@@ -466,6 +466,10 @@ const MOVE_VEIN_RAID := "veinRaid"
 const MOVE_FLOOD := "flood"
 const MOVE_WITHHOLD := "withhold"
 const MOVE_OUTBID := "outbid"
+const MOVE_POACH := "poach"
+const MOVE_WITHHOLD_ITEMS := "withholdItems"
+const MOVE_LOWBALL := "lowballBuyout"
+const LOWBALL_KIND := "faction_lowball_buyout"
 
 
 static func _ecfg() -> Dictionary:
@@ -475,9 +479,15 @@ static func _ecfg() -> Dictionary:
 # state.factionEscalation: { targets: { observerId: { targetId: {
 # warnedBand, lastMoveDay } } }, queuedRaids: [ { attackerId, targetId,
 # veinId, siteId } ], explained: [moveId], withholds: [ { factionId,
-# targetId, kind, good, untilDay } ] }. lastMoveDay -1 = never.
+# targetId, kind, good, untilDay } ], lastVeinLostDay }. lastMoveDay and
+# lastVeinLostDay -1 = never.
 static func new_escalation_state() -> Dictionary:
-	return { "targets": {}, "queuedRaids": [], "explained": [], "withholds": [] }
+	return { "targets": {}, "queuedRaids": [], "explained": [], "withholds": [], "lastVeinLostDay": -1 }
+
+
+# Stamps today as the day the player last lost a vein (lowball trigger).
+static func note_player_vein_lost() -> void:
+	GameState.state["factionEscalation"]["lastVeinLostDay"] = int(GameState.state["world"]["day"])
 
 
 static func _withholds() -> Array:
@@ -566,6 +576,7 @@ static func _cooling(entry: Dictionary, day: int) -> bool:
 # warned about gets a warning; otherwise the best affordable move is made.
 static func apply_escalation() -> void:
 	_drop_lapsed_withholds()
+	_drop_lapsed_lowballs()
 	var ids: Array = GameData.FACTIONS.keys()
 	for observer in ids:
 		for target in [Shares.PLAYER] + ids:
@@ -609,13 +620,17 @@ static func _warn(observer: String, target: String, band_id: String) -> void:
 		log_activity(observer, log_cfg["warningPair"] % GameData.FACTIONS[target]["shortName"])
 
 
-# Move ids open in band_id: the archetype's market moves from the market
-# band, plus its raid moves in the raid band.
+# Move ids open in band_id: the archetype's market moves and every
+# faction's sharedMarket moves from the market band, plus its raid moves in
+# the raid band.
 static func _open_moves(observer: String, band_id: String) -> Array:
 	var menu: Dictionary = _ecfg()["menus"][GameData.FACTIONS[observer]["archetype"]]
 	var moves := []
 	if _depth(band_id) >= _depth(BAND_MARKET):
 		moves.append_array(menu["market"])
+		for move_id in _ecfg().get("sharedMarket", []):
+			if not moves.has(move_id):
+				moves.append(move_id)
 	if band_id == BAND_RAID:
 		moves.append_array(menu["raid"])
 	return moves
@@ -650,6 +665,12 @@ static func _move_candidate(observer: String, target: String, move_id: String) -
 			return _withhold_candidate(observer, target)
 		MOVE_OUTBID:
 			return _outbid_candidate(observer, target)
+		MOVE_POACH:
+			return _poach_candidate(observer, target)
+		MOVE_WITHHOLD_ITEMS:
+			return _withhold_items_candidate(observer, target)
+		MOVE_LOWBALL:
+			return _lowball_candidate(observer, target)
 	return {}
 
 
@@ -699,6 +720,139 @@ static func _outbid_candidate(_observer: String, target: String) -> Dictionary:
 		if damage > 0.0 and (best.is_empty() or damage > float(best["damage"])):
 			best = { "move": MOVE_OUTBID, "damage": damage, "cost": _move_cost(MOVE_OUTBID), "siteId": site["id"] }
 	return best
+
+
+# Poach (player only; faction contracts don't exist): undercut the pending
+# renewal with the highest payment whose buyer isn't the observer and that
+# isn't already poached. Damage = that payment.
+static func _poach_candidate(observer: String, target: String) -> Dictionary:
+	var best := {}
+	if target != Shares.PLAYER:
+		return best
+	for offer in Offers.pending_offers():
+		if offer.get("source", "") != "renewal" or offer.has("poach") or offer.get("counterparty", "") == observer or Offers.is_expired(offer):
+			continue
+		var damage := float(offer["quote"]["payment"])
+		if damage > 0.0 and (best.is_empty() or damage > float(best["damage"])):
+			best = { "move": MOVE_POACH, "damage": damage, "cost": _move_cost(MOVE_POACH), "offerId": offer["id"] }
+	return best
+
+
+# Withhold items: stop selling the item the target needs most, among items
+# the observer has for sale and isn't already withholding. Damage = the
+# stock's value at the quote, for an item the target needs.
+static func _withhold_items_candidate(observer: String, target: String) -> Dictionary:
+	var best := {}
+	for recipe_key in GameData.RECIPES:
+		var qty: int = FactionSim.for_sale(observer, "consumable", recipe_key)
+		if qty <= 0 or not _needs_item(target, recipe_key):
+			continue
+		var damage := float(Market.line_total("consumable", Market.quote("consumable", recipe_key), qty))
+		if damage > 0.0 and (best.is_empty() or damage > float(best["damage"])):
+			best = { "move": MOVE_WITHHOLD_ITEMS, "damage": damage, "cost": _move_cost(MOVE_WITHHOLD_ITEMS), "good": recipe_key }
+	return best
+
+
+# The player needs an item still owed on an active contract; a faction needs
+# an item it consumes.
+static func _needs_item(target: String, recipe_key: String) -> bool:
+	if target != Shares.PLAYER:
+		return int(GameData.FACTIONS[target].get("consumes", {}).get(recipe_key, 0)) > 0
+	for contract in Contracts.active_contracts():
+		for line in Contracts.request_lines(contract["request"]):
+			if line["kind"] == "consumable" and line["type"] == recipe_key and Contracts.remaining_qty(contract, recipe_key) > 0:
+				return true
+	return false
+
+
+# Lowball buyout (player only, while the player is squeezed: cash under
+# lowball.cashBelow or a vein lost within lowball.lostVeinDays): offer
+# lowball.priceMult × VeinTrade.quote for the player's highest-quoted
+# vein not quest-locked, under raid or already offered. The observer must
+# afford the price and have a key member who can speak. Damage = the
+# discount on Factions.vein_value() (the raid scale) × lowball.damageMult
+# (the player may say no).
+static func _lowball_candidate(observer: String, target: String) -> Dictionary:
+	var best := {}
+	if target != Shares.PLAYER or not _player_squeezed() or not KeyMembers.can_speak(observer) or not _ecfg()["moveLines"].get(observer, {}).has(MOVE_LOWBALL):
+		return best
+	var resources := int(GameState.state["factions"][observer]["resources"])
+	for vein in GameState.state["player"]["veins"]:
+		var site_id: Variant = vein.get("siteId")
+		if site_id == null or Sites.find_site(site_id) == null or Collective.is_quest_locked_vein(vein["id"]):
+			continue
+		if _raid_queued(vein["id"]) or Raiding.has_pending_defend(vein["id"]) or _lowball_pending(vein["id"]):
+			continue
+		var quote := VeinTrade.quote(vein)
+		var price := GameState.round_epsilon(quote * float(_ecfg()["lowball"]["priceMult"]))
+		var damage := Factions.vein_value(vein) * (1.0 - float(_ecfg()["lowball"]["priceMult"])) * float(_ecfg()["lowball"]["damageMult"])
+		if price <= 0 or price > resources or damage <= 0.0:
+			continue
+		if best.is_empty() or damage > float(best["damage"]):
+			best = { "move": MOVE_LOWBALL, "damage": damage, "cost": 0, "veinId": vein["id"], "price": price }
+	return best
+
+
+static func _player_squeezed() -> bool:
+	var cfg: Dictionary = _ecfg()["lowball"]
+	if int(GameState.state["player"]["cash"]) < int(cfg["cashBelow"]):
+		return true
+	var lost := int(GameState.state["factionEscalation"].get("lastVeinLostDay", -1))
+	return lost >= 0 and int(GameState.state["world"]["day"]) - lost <= int(cfg["lostVeinDays"])
+
+
+static func _lowball_pending(vein_id: String) -> bool:
+	for entry in GameState.state["pendingMessages"]:
+		if entry["kind"] == LOWBALL_KIND and entry["payload"].get("veinId", "") == vein_id:
+			return true
+	return false
+
+
+# Pending lowball offers whose expiresDay has passed are withdrawn.
+static func _drop_lapsed_lowballs() -> void:
+	var day: int = GameState.state["world"]["day"]
+	GameState.state["pendingMessages"] = GameState.state["pendingMessages"].filter(func(e: Dictionary) -> bool:
+		return e["kind"] != LOWBALL_KIND or day <= int(e["payload"].get("expiresDay", 0)))
+
+
+# The pending lowball entry with this id, or {}.
+static func _find_lowball(pending_id: String) -> Dictionary:
+	for entry in GameState.state["pendingMessages"]:
+		if entry["id"] == pending_id and entry["kind"] == LOWBALL_KIND:
+			return entry
+	return {}
+
+
+# Accepts a lowball buyout: the vein goes to the faction through VeinTrade's
+# sell-to-faction path at the offered price, paid from the faction's cash.
+static func accept_lowball(pending_id: String) -> Dictionary:
+	var entry := _find_lowball(pending_id)
+	if entry.is_empty():
+		return { "ok": false, "reason": "Offer not found." }
+	Messages.resolve_pending(pending_id)
+	var payload: Dictionary = entry["payload"]
+	var faction_id: String = payload["factionId"]
+	var price := int(payload["price"])
+	if int(GameState.state["world"]["day"]) > int(payload["expiresDay"]):
+		return { "ok": false, "reason": "Offer expired." }
+	if int(GameState.state["factions"][faction_id]["resources"]) < price:
+		return { "ok": false, "reason": "They can't afford it now." }
+	var result := VeinTrade.sell_at_price(payload["veinId"], faction_id, price)
+	if result.get("ok", false):
+		GameState.state["factions"][faction_id]["resources"] -= price
+		EventBus.state_changed.emit()
+	return result
+
+
+static func decline_lowball(pending_id: String) -> void:
+	Messages.resolve_pending(pending_id)
+
+
+# A poached renewal the player let go: the buyer goes with the rival.
+static func poach_lapsed(offer: Dictionary) -> void:
+	var poach: Dictionary = offer["poach"]
+	var buyer: String = GameData.FACTIONS.get(offer.get("counterparty", ""), {}).get("shortName", "the buyer")
+	log_activity(poach["factionId"], _ecfg()["log"][MOVE_POACH]["lapsed"] % buyer, { "target": Shares.PLAYER, "move": MOVE_POACH })
 
 
 # The target vein with the highest success chance × Factions.vein_value().
@@ -766,6 +920,24 @@ static func _make_move(observer: String, target: String, move: Dictionary) -> vo
 			Sites.seed_faction_vein(site, observer)
 			var district_name: String = GameData.DISTRICTS[site["district"]]["name"]
 			_report_player(observer, MOVE_OUTBID, district_name, district_name)
+		MOVE_POACH:
+			var offer := _pending_offer(move["offerId"])
+			var price := GameState.round_epsilon(float(offer["quote"]["payment"]) * float(_ecfg()["poach"]["priceMult"]))
+			offer["poach"] = { "factionId": observer, "payment": price }
+			var buyer: String = GameData.FACTIONS.get(offer.get("counterparty", ""), {}).get("shortName", "Your buyer")
+			_report_player(observer, MOVE_POACH, buyer, buyer)
+		MOVE_WITHHOLD_ITEMS:
+			_withholds().append({
+				"factionId": observer, "targetId": target, "kind": "consumable", "good": move["good"],
+				"untilDay": int(GameState.state["world"]["day"]) + int(_ecfg()["withhold"]["days"]),
+			})
+			var item_name: String = GameData.RECIPES[move["good"]]["name"]
+			if target == Shares.PLAYER:
+				_report_player(observer, MOVE_WITHHOLD_ITEMS, item_name, item_name)
+			else:
+				_report_pair_withhold(observer, target, MOVE_WITHHOLD_ITEMS, item_name)
+		MOVE_LOWBALL:
+			_offer_lowball(observer, move)
 
 
 # A flood or withhold of ore_type. Against the player: key member line
@@ -776,15 +948,45 @@ static func _report_market_move(observer: String, target: String, move_id: Strin
 	if target == Shares.PLAYER:
 		_report_player(observer, move_id, ore_type, ore_name)
 		return
+	if move_id != MOVE_FLOOD:
+		_report_pair_withhold(observer, target, move_id, ore_name)
+		return
 	var log_cfg: Dictionary = _ecfg()["log"][move_id]
 	var observer_name: String = GameData.FACTIONS[observer]["shortName"]
 	var target_name: String = GameData.FACTIONS[target]["shortName"]
-	if move_id == MOVE_FLOOD:
-		log_activity(observer, log_cfg["attacker"] % [target_name, ore_name])
-		Barometer.push_headline(_ecfg()["headlines"]["flood"] % [observer_name, ore_name, target_name])
-	else:
-		log_activity(observer, log_cfg["attacker"] % [ore_name, target_name])
+	log_activity(observer, log_cfg["attacker"] % [target_name, ore_name])
+	Barometer.push_headline(_ecfg()["headlines"]["flood"] % [observer_name, ore_name, target_name])
 	log_activity(target, log_cfg["defender"] % [observer_name, ore_name])
+
+
+# A withhold of good_name between factions, logged on both sides.
+static func _report_pair_withhold(observer: String, target: String, move_id: String, good_name: String) -> void:
+	var log_cfg: Dictionary = _ecfg()["log"][move_id]
+	log_activity(observer, log_cfg["attacker"] % [good_name, GameData.FACTIONS[target]["shortName"]])
+	log_activity(target, log_cfg["defender"] % [GameData.FACTIONS[observer]["shortName"], good_name])
+
+
+static func _pending_offer(offer_id: String) -> Dictionary:
+	for offer in Offers.pending_offers():
+		if offer["id"] == offer_id:
+			return offer
+	return {}
+
+
+# Sends the lowball as an actionable key-member message (LOWBALL_KIND,
+# payload { factionId, veinId, price, expiresDay }), logged for BizBrief.
+static func _offer_lowball(observer: String, move: Dictionary) -> void:
+	var vein: Variant = Cultivating.find_vein(move["veinId"])
+	var district_name: String = GameData.DISTRICTS[vein["district"]]["name"]
+	var price := int(move["price"])
+	var payload := {
+		"factionId": observer, "veinId": move["veinId"], "price": price,
+		"expiresDay": int(GameState.state["world"]["day"]) + int(_ecfg()["lowball"]["expiryDays"]),
+	}
+	var line: String = _ecfg()["moveLines"][observer][MOVE_LOWBALL]
+	KeyMembers.send(observer, line % [district_name, price], LOWBALL_KIND, payload)
+	log_activity(observer, _ecfg()["log"][MOVE_LOWBALL]["player"] % district_name, { "target": Shares.PLAYER, "move": MOVE_LOWBALL })
+	_explain_once(MOVE_LOWBALL)
 
 
 # A market move against the player: the key member's moveLines line

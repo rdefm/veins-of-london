@@ -32,8 +32,17 @@ static func sell_to_faction(vein_id: String, faction_id: String, price_override:
 	var is_handback: bool = price_override != null
 	var vein: Variant = Cultivating.find_vein(vein_id)
 	var price: int = price_override if is_handback else (quote(vein) if vein != null else 0)
+	return _sell(vein_id, faction_id, price, not is_handback, contact_id)
 
-	var result := transfer_to_faction(vein_id, faction_id, price, not is_handback, contact_id)
+
+# A genuine player sale at a price the faction named (a lowball buyout,
+# R§3.1 "Escalation"): sell_to_faction() at `price`, counted as a player sale.
+static func sell_at_price(vein_id: String, faction_id: String, price: int) -> Dictionary:
+	return _sell(vein_id, faction_id, price, true, "")
+
+
+static func _sell(vein_id: String, faction_id: String, price: int, count_as_player_sale: bool, contact_id: String) -> Dictionary:
+	var result := transfer_to_faction(vein_id, faction_id, price, count_as_player_sale, contact_id)
 	if not result.get("ok", false):
 		return result
 

@@ -524,8 +524,14 @@ func _build_sales() -> Control:
 		if offer.get("source", "") == "renewal":
 			c["content"].add_child(UI.muted_label("Renewal. Same order, today's price."))
 		c["content"].add_child(UI.label("%s · £%d · %s" % [_request_summary(request), offer["quote"]["payment"], expiry]))
+		var poach: Dictionary = offer.get("poach", {})
 		var offer_row := UI.hbox()
-		offer_row.add_child(UI.button("Accept", func(): OffersSystem.accept_offer(offer["id"])))
+		if poach.is_empty():
+			offer_row.add_child(UI.button("Accept", func(): OffersSystem.accept_offer(offer["id"])))
+		else:
+			var rival: String = GameData.FACTIONS.get(poach["factionId"], {}).get("shortName", "A rival")
+			c["content"].add_child(UI.muted_label("Undercut by %s: £%d. Match it or the buyer walks." % [rival, int(poach["payment"])]))
+			offer_row.add_child(UI.button("Match £%d" % int(poach["payment"]), func(): OffersSystem.match_poach(offer["id"])))
 		offer_row.add_child(UI.button("Decline", func(): OffersSystem.decline_offer(offer["id"])))
 		c["content"].add_child(offer_row)
 	var contracts: Array = ContractsSystem.active_contracts()

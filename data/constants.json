@@ -136,9 +136,12 @@
       "informationBroker": { "market": ["sellIntel", "priceGouge", "disinformation"], "raid": ["stockpileRaid"] },
       "manipulator": { "market": ["undercut", "denyGoods", "tickerPush"], "raid": [] }
     },
-    "moveCosts": { "veinRaid": 500, "withhold": 150, "outbid": 400 },
+    "sharedMarket": ["lowballBuyout"],
+    "moveCosts": { "veinRaid": 500, "withhold": 150, "outbid": 400, "poach": 200, "withholdItems": 150 },
     "flood": { "qty": 150, "priceMult": 0.6 },
     "withhold": { "days": 7 },
+    "poach": { "priceMult": 0.85 },
+    "lowball": { "cashBelow": 1000, "lostVeinDays": 7, "priceMult": 0.6, "expiryDays": 3, "damageMult": 0.25 },
     "warnings": {
       "producer": {
         "warning": "\"You're working ground we work. Mind how much of it you take.\"",
@@ -169,7 +172,8 @@
         },
         "flood": "\"We've put a lot of %s calc on the market. Cheap. See how you like selling against it.\"",
         "withhold": "\"We're not selling %s this week. Not to anyone. You'll work out why.\"",
-        "outbid": "\"The site in %s is ours now. You were slow.\""
+        "outbid": "\"The site in %s is ours now. You were slow.\"",
+        "lowballBuyout": "\"We'll take your vein in %s off you. £%d. It's not what it's worth. It's what you can get.\""
       },
       "firm": {
         "veinRaid": {
@@ -178,14 +182,29 @@
         },
         "flood": "\"We've released some %s stock at a discount. Your margins were never our concern.\"",
         "withhold": "\"The Firm has paused sales of %s. Supply will resume when it suits us.\"",
-        "outbid": "\"We've acquired the site in %s. You were outbid. It happens.\""
+        "outbid": "\"We've acquired the site in %s. You were outbid. It happens.\"",
+        "lowballBuyout": "\"The Firm will buy your %s vein for £%d. We price in your circumstances. Everyone does.\""
+      },
+      "guild": {
+        "poach": "\"%s have received a better offer for their renewal. Ours. You may match it.\"",
+        "withholdItems": "\"The Guild will not be selling %s for the present. Our stock is spoken for.\"",
+        "lowballBuyout": "\"The Court will take your vein in %s for £%d. The offer reflects your position, not the vein's.\""
+      },
+      "network": {
+        "lowballBuyout": "\"Someone wants your vein in %s. £%d. We'd take it before they stop wanting it.\""
+      },
+      "conclave": {
+        "lowballBuyout": "\"The Conclave will relieve you of the vein in %s. £%d. Liquidity is a kindness at a time like this.\""
       }
     },
     "explainers": {
       "veinRaid": "\"That's a raid. They'll keep at it while they're this sore with you. Guards and an alarm on the vein help, or give them a reason to like you.\"",
       "flood": "\"That's a flood. They've dumped your ore on London below the quote to drag the price down. Costs them too. Hold your stock a few days if you can.\"",
       "withhold": "\"They're sitting on their stock so you can't buy it. It'll ease in a week. Find another seller or craft around it.\"",
-      "outbid": "\"They got to a site you'd found before you claimed it. Claim the good ones quick while they're watching you.\""
+      "outbid": "\"They got to a site you'd found before you claimed it. Claim the good ones quick while they're watching you.\"",
+      "poach": "\"Someone's undercut your renewal. Match their price and the buyer stays. Leave it and they walk.\"",
+      "withholdItems": "\"The Guild's stopped selling you what you need. A week, usually. Buy elsewhere or make it yourself.\"",
+      "lowballBuyout": "\"That's a vulture's offer. Under what the vein's worth, and they know you're short. Take it only if you must.\""
     },
     "log": {
       "warningPlayer": "Warned you off.",
@@ -210,6 +229,18 @@
       },
       "outbid": {
         "player": "Claimed your site in %s before you could."
+      },
+      "poach": {
+        "player": "Undercut your renewal with %s.",
+        "lapsed": "Took %s off you. You didn't match."
+      },
+      "withholdItems": {
+        "player": "Stopped selling %s to squeeze you.",
+        "attacker": "Stopped selling %s to squeeze %s.",
+        "defender": "%s stopped selling %s to squeeze us."
+      },
+      "lowballBuyout": {
+        "player": "Offered to buy your vein in %s cheap."
       }
     },
     "headlines": {

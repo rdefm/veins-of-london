@@ -235,10 +235,13 @@ static func accept_offer(offer_id: String) -> Dictionary:
 			continue
 		if is_expired(offer):
 			pending.remove_at(index)
+			_note_poach_lapsed(offer)
 			BusinessQuest.note_starter_closed(offer.get("templateId", ""), false)
 			BusinessQuest.note_recurring_closed(offer.get("templateId", ""))
 			EventBus.state_changed.emit()
 			return { "ok": false, "reason": "Offer expired." }
+		if offer.has("poach"):
+			return { "ok": false, "reason": "A rival has undercut this renewal. Match it or let it go." }
 		var sales: Dictionary = GameState.state["sales"]
 		var accepted_day: int = GameState.state["world"]["day"]
 		var due_day := accepted_day + Rng.randi_range(RANDOM_ONE_OFF_DEADLINE_MIN_DAYS, RANDOM_ONE_OFF_DEADLINE_MAX_DAYS)
@@ -263,11 +266,33 @@ static func accept_offer(offer_id: String) -> Dictionary:
 	return { "ok": false, "reason": "Offer not found." }
 
 
+# R§3.10 "Poach": keeps a poached renewal by matching the rival's payment,
+# then accepts it at that price.
+static func match_poach(offer_id: String) -> Dictionary:
+	for offer in pending_offers():
+		if offer["id"] != offer_id:
+			continue
+		if not offer.has("poach"):
+			return { "ok": false, "reason": "No rival offer to match." }
+		if not is_expired(offer):
+			offer["quote"]["payment"] = int(offer["poach"]["payment"])
+			offer.erase("poach")
+		return accept_offer(offer_id)
+	return { "ok": false, "reason": "Offer not found." }
+
+
+# A poached renewal leaving the pending list unmatched goes to the rival.
+static func _note_poach_lapsed(offer: Dictionary) -> void:
+	if offer.has("poach"):
+		FactionAI.poach_lapsed(offer)
+
+
 static func decline_offer(offer_id: String) -> Dictionary:
 	var pending := pending_offers()
 	for index in pending.size():
 		if pending[index]["id"] == offer_id:
 			var template_id: String = pending[index].get("templateId", "")
+			_note_poach_lapsed(pending[index])
 			pending.remove_at(index)
 			BusinessQuest.note_starter_closed(template_id, false)
 			BusinessQuest.note_recurring_closed(template_id)
@@ -286,6 +311,7 @@ static func expire_pending_offers() -> void:
 	for index in range(pending.size() - 1, -1, -1):
 		if is_expired(pending[index]):
 			var template_id: String = pending[index].get("templateId", "")
+			_note_poach_lapsed(pending[index])
 			pending.remove_at(index)
 			BusinessQuest.note_starter_closed(template_id, false)
 			BusinessQuest.note_recurring_closed(template_id)

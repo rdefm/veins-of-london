@@ -120,10 +120,12 @@ func run() -> void:
 		FactionAI._target_entry("firm", "player")["lastMoveDay"] = 4
 		GameState.state["factionEscalation"]["queuedRaids"].append({ "attackerId": "firm", "targetId": "player", "veinId": "v", "siteId": "s" })
 		GameState.state["factionEscalation"]["withholds"].append({ "factionId": "firm", "targetId": "player", "kind": "ore", "good": "time", "untilDay": 9 })
+		GameState.state["factionEscalation"]["lastVeinLostDay"] = 3
 		Barometer.push_headline("Test headline.")
 		assert_true(SaveManager.save_to_slot(TEST_SLOT)["ok"])
 		GameState.reset()
 		assert_true(SaveManager.load_from_slot(TEST_SLOT)["ok"])
+		assert_eq(typeof(GameState.state["factionEscalation"]["lastVeinLostDay"]), TYPE_INT, "lost-vein day restored as int")
 		var entry: Dictionary = GameState.state["factionEscalation"]["targets"]["firm"]["player"]
 		assert_eq(typeof(entry["lastMoveDay"]), TYPE_INT, "day restored as int")
 		assert_eq(entry["lastMoveDay"], 4)

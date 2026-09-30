@@ -330,6 +330,7 @@ static func transfer_player_vein_to_faction(vein: Dictionary, site: Dictionary, 
 	var vein_id: String = vein["id"]
 	player["veins"] = player["veins"].filter(func(v): return v["id"] != vein_id)
 	Sites.release_vein_slot(vein)
+	FactionAI.note_player_vein_lost()
 	# Act 2 T8a (spec §6.8a): a no-op unless vein_id is the one col_a2_nadia_
 	# defend was watching, in which case it re-targets rather than dead-ending.
 	Collective.maybe_retarget_nadia_defend_vein(vein_id)

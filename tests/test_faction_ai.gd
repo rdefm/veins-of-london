@@ -494,6 +494,105 @@ func run() -> void:
 		assert_true(FactionAI.moves_against_player().is_empty())
 	)
 
+	run_case("a_poached_renewal_the_player_matches_stays_at_the_matched_price", func():
+		_market_fresh(5)
+		var offer := _renewal("firm")
+		_move_ready("guild", -10)
+		FactionAI.apply_escalation()
+		assert_eq(FactionAI.moves_against_player()[0]["move"], FactionAI.MOVE_POACH)
+		assert_eq(offer["poach"]["factionId"], "guild")
+		var rival_price: int = int(offer["poach"]["payment"])
+		assert_true(rival_price < int(offer["quote"]["payment"]), "the rival undercuts")
+		assert_true(not Offers.accept_offer(offer["id"])["ok"], "can't accept at the old price")
+		var result := Offers.match_poach(offer["id"])
+		assert_true(result["ok"], "matched")
+		assert_eq(int(result["contract"]["signedQuote"]["payment"]), rival_price, "signed at the matched price")
+		assert_eq(result["contract"]["counterparty"], "firm", "the buyer stays")
+	)
+
+	run_case("an_unmatched_poached_renewal_lapses_to_the_rival", func():
+		_market_fresh(5)
+		var offer := _renewal("firm")
+		_move_ready("guild", -10)
+		FactionAI.apply_escalation()
+		GameState.state["world"]["day"] = int(offer["expiresDay"])
+		Offers.expire_pending_offers()
+		assert_true(Offers.pending_offers().is_empty(), "the renewal is gone")
+		assert_true(Offers.active_contracts().is_empty())
+		var lapsed: String = GameData.FACTION_ESCALATION["log"]["poach"]["lapsed"] % "Firm"
+		assert_true(_log_texts("guild").has(lapsed), "the Guild took the buyer")
+	)
+
+	run_case("poach_is_skipped_between_factions", func():
+		_market_fresh(5)
+		var offer := _renewal("collective")
+		_set_pair("guild", "firm", -60)
+		GameState.state["factions"]["guild"]["resources"] = 10000
+		FactionAI._target_entry("guild", "firm")["warnedBand"] = FactionAI.BAND_RAID
+		FactionAI.apply_escalation()
+		assert_true(not offer.has("poach"), "no poach against a faction")
+		assert_true(FactionAI.moves_against_player().is_empty())
+	)
+
+	run_case("withhold_items_removes_the_item_from_the_guild_for_sale_stock_for_the_duration", func():
+		_market_fresh(5)
+		_owe_item("timePearl")
+		FactionSim.add_item("guild", "timePearl", 1, 10)
+		var stock := FactionSim.for_sale("guild", "consumable", "timePearl")
+		assert_true(stock >= 10, "control: on sale")
+		_move_ready("guild", -10)
+		FactionAI.apply_escalation()
+		assert_eq(FactionAI.moves_against_player()[0]["move"], FactionAI.MOVE_WITHHOLD_ITEMS)
+		var item_name: String = GameData.RECIPES["timePearl"]["name"]
+		assert_eq(_last_message("ingram"), GameData.FACTION_ESCALATION["moveLines"]["guild"]["withholdItems"] % item_name)
+		var days: int = int(GameData.FACTION_ESCALATION["withhold"]["days"])
+		for day in range(5, 6 + days):
+			GameState.state["world"]["day"] = day
+			assert_eq(FactionSim.for_sale("guild", "consumable", "timePearl"), 0, "withheld on day %d" % day)
+		GameState.state["world"]["day"] = 6 + days
+		assert_eq(FactionSim.for_sale("guild", "consumable", "timePearl"), stock, "back on sale once it lapses")
+	)
+
+	run_case("a_lowball_buyout_is_below_the_quote_and_accepting_sells_the_vein", func():
+		_market_fresh(5)
+		var vein := Fixtures.seed_vein("pv", 60)
+		GameState.state["player"]["cash"] = 100
+		var quote := VeinTrade.quote(vein)
+		_move_ready("guild", -10)
+		GameState.state["factions"]["guild"]["resources"] = quote * 2
+		FactionAI.apply_escalation()
+		var pending := Messages.pending_for("ingram")
+		assert_eq(pending.size(), 1, "an actionable message")
+		assert_eq(pending[0]["kind"], FactionAI.LOWBALL_KIND)
+		var price: int = int(pending[0]["payload"]["price"])
+		assert_true(price > 0 and price < quote, "below the quote: %d of %d" % [price, quote])
+		var result := FactionAI.accept_lowball(pending[0]["id"])
+		assert_true(result["ok"], "sold")
+		assert_true(GameState.state["player"]["veins"].is_empty(), "the vein is gone")
+		assert_eq(Sites.find_site("site_pv")["factionVein"]["factionId"], "guild", "the Guild has it")
+		assert_eq(int(GameState.state["player"]["cash"]), 100 + price, "paid")
+		assert_eq(int(GameState.state["factions"]["guild"]["resources"]), quote * 2 - price, "from the Guild's cash")
+		assert_true(Messages.pending_for("ingram").is_empty(), "resolved")
+	)
+
+	run_case("lowball_waits_for_a_squeeze_and_a_lost_vein_counts", func():
+		_market_fresh(5)
+		Fixtures.seed_vein("pv", 60)
+		GameState.state["player"]["cash"] = 100000
+		_move_ready("guild", -10)
+		GameState.state["factions"]["guild"]["resources"] = 1000000
+		FactionAI.apply_escalation()
+		assert_true(Messages.pending_for("ingram").is_empty(), "flush player: no lowball")
+		FactionAI.note_player_vein_lost()
+		_target_entry("guild")["lastMoveDay"] = -1
+		FactionAI.apply_escalation()
+		assert_eq(Messages.pending_for("ingram").size(), 1, "just lost a vein: lowball")
+		GameState.state["world"]["day"] = 5 + int(GameData.FACTION_ESCALATION["lowball"]["expiryDays"]) + 1
+		_target_entry("guild")["lastMoveDay"] = GameState.state["world"]["day"]
+		FactionAI.apply_escalation()
+		assert_true(Messages.pending_for("ingram").is_empty(), "an unanswered lowball lapses")
+	)
+
 
 static func _cooldown() -> int:
 	return int(GameData.FACTION_ESCALATION["cooldownDays"])
@@ -576,6 +675,18 @@ static func _firm_sold(ore_type: String) -> bool:
 static func _pressure_days(n: int) -> void:
 	for i in n:
 		FactionAI.apply_pressure()
+
+
+# A pending renewal offer for 5 time ore from counterparty.
+static func _renewal(counterparty: String) -> Dictionary:
+	return Offers.create_renewal_offer({ "templateId": "", "request": { "kind": "ore", "type": "time", "qty": 5 }, "counterparty": counterparty })
+
+
+# An active one-off contract still owing 5 of recipe_key.
+static func _owe_item(recipe_key: String) -> void:
+	var template := { "id": "", "source": "scripted", "contractType": "oneOff", "request": { "kind": "consumable", "type": recipe_key, "qty": 5 } }
+	var offer: Dictionary = Offers.create_offer(template)["offer"]
+	Offers.accept_offer(offer["id"])
 
 
 static func _player_relation(faction_id: String) -> int:

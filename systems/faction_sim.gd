@@ -55,8 +55,11 @@ static func item_reserved(faction_id: String, recipe_key: String) -> int:
 	return total
 
 
-# What a faction will sell: all its ore, but only its unreserved items.
+# What a faction will sell: all its ore, but only its unreserved items, and
+# nothing it is withholding (FactionAI escalation).
 static func for_sale(faction_id: String, kind: String, item_type: String) -> int:
+	if FactionAI.is_withholding(faction_id, kind, item_type):
+		return 0
 	if kind == "ore":
 		return ore_held(faction_id, item_type)
 	return maxi(0, item_held(faction_id, item_type) - item_reserved(faction_id, item_type))

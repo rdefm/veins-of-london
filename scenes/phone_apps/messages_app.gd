@@ -245,7 +245,8 @@ func _build_action_bar(contact_id: String) -> Control:
 		for i in range(replies.size()):
 			bar.add_child(UI.button(replies[i], OwenTexts.reply.bind(i)))
 	for entry in Messages.pending_for(contact_id):
-		bar.add_child(UI.button("Continue →", _on_pending_action_pressed.bind(entry)))
+		for action in ContactCards.build_pending_actions(entry, _on_pending_action_pressed):
+			bar.add_child(action)
 	if contact_id == "archie":
 		bar.add_child(ContactCards.build_sell_action())
 	elif contact_id != "james" and contact_id != ContactCards.HANDLER_ID:

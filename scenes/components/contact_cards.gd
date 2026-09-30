@@ -489,9 +489,22 @@ static func build_key_member_card(contact_id: String) -> Control:
 	c["content"].add_child(UI.heading(Contacts.display_name(contact_id), 15))
 	c["content"].add_child(UI.muted_label(str(KeyMembers.member(contact_id).get("role", ""))))
 	for entry in Messages.pending_for(contact_id):
-		c["content"].add_child(UI.button("Continue →", _on_pending_action_pressed.bind(entry)))
+		for action in build_pending_actions(entry, _on_pending_action_pressed):
+			c["content"].add_child(action)
 	c["content"].add_child(build_messages_button(contact_id))
 	return c["panel"]
+
+
+# The buttons for one pending message: Accept/Decline for a faction's
+# lowball buyout, otherwise "Continue →" (on_continue).
+static func build_pending_actions(entry: Dictionary, on_continue: Callable) -> Array[Control]:
+	var actions: Array[Control] = []
+	if entry["kind"] == FactionAI.LOWBALL_KIND:
+		actions.append(UI.button("Sell for £%d" % int(entry["payload"]["price"]), func(): FactionAI.accept_lowball(entry["id"])))
+		actions.append(UI.button("Decline", func(): FactionAI.decline_lowball(entry["id"])))
+	else:
+		actions.append(UI.button("Continue →", on_continue.bind(entry)))
+	return actions
 
 
 const _PHONE_BG_HOME := "phone_bg_home"
