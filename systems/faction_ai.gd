@@ -3,8 +3,9 @@ extends RefCounted
 
 # Faction politics (R§3.1 "Stances"): the relation clamp, the stored stance
 # for every faction pair and for the player with each faction, the daily
-# hysteresis stance update, and each faction's bounded activity log. Data
-# in constants.json factionStances. Static funcs only.
+# hysteresis stance update, each faction's bounded activity log, and the
+# daily threat/dependence pressure drift (R§3.1 "Pressure"). Data in
+# constants.json factionStances and factionPressure. Static funcs only.
 
 const PARTNER := "partner"
 const NEUTRAL := "neutral"
@@ -215,3 +216,233 @@ static func migrate_save(save: Dictionary, had_stances: bool) -> void:
 	for faction_id in player:
 		var relation: int = int(factions.get(faction_id, {}).get("relation", 0))
 		player[faction_id] = _entry(_player_band(faction_id, relation, false, save.get("flags", {})))
+
+
+# ── Pressure ────────────────────────────────────────────────────────────
+# R§3.1 "Pressure": each faction weighs every other actor's threat against
+# its dependence on them, and relation drifts by the capped difference.
+# Data in constants.json factionPressure; personality per faction in
+# factions.json aggressionPersonality.
+
+const SNAPSHOT_SCALE := 1000.0
+
+
+static func _pcfg() -> Dictionary:
+	return GameData.FACTION_PRESSURE
+
+
+static func _weight(key: String) -> float:
+	return float(_pcfg()["weights"][key])
+
+
+# state.factionPressure: { snapshots: { observerId: { targetId: { threat,
+# dependence, delta } } }, collectiveFirmJoined }. targetId "player" or a
+# faction id; delta is the unrounded directional drift.
+static func new_pressure_state() -> Dictionary:
+	return { "snapshots": {}, "collectiveFirmJoined": false }
+
+
+static func personality(faction_id: String) -> float:
+	return float(GameData.FACTIONS[faction_id].get("aggressionPersonality", 1.0))
+
+
+static func _collective_complete() -> bool:
+	return GameState.state["flags"].get("colA2Complete", false)
+
+
+# The Collective–Firm pair while the Collective questline is incomplete.
+static func is_held_pair(faction_a: String, faction_b: String) -> bool:
+	return pair_key(faction_a, faction_b) == pair_key("collective", "firm") and not _collective_complete()
+
+
+# The Collective's player relation, held with its player stance.
+static func _is_held_player(faction_id: String) -> bool:
+	return faction_id == "collective" and not _collective_complete()
+
+
+static func _is_held(observer: String, target: String) -> bool:
+	if target == Shares.PLAYER:
+		return _is_held_player(observer)
+	return is_held_pair(observer, target)
+
+
+# Threat(observer → target), never below 0. target is "player" or a faction.
+static func threat(observer: String, target: String) -> float:
+	var f: Dictionary = GameData.FACTIONS[observer]
+	var value := _weight("primaryOre") * Shares.ore_share(target, f["primaryOre"])
+	value += _weight("secondaryOre") * Shares.ore_share(target, f["secondaryOre"])
+	value += _weight("crafting") * _crafting_share_in_items(observer, target)
+	value += _weight("homeVeins") * home_vein_share(observer, target)
+	value += _weight("size") * size_share(target)
+	value += _jealousy(observer, target)
+	value -= _weight("partnerShield") * _shared_partners(observer, target)
+	return maxf(value, 0.0)
+
+
+# Dependence(observer → target): only the player supplies a faction or
+# holds contracts with it, so a faction target scores 0.
+static func dependence(observer: String, target: String) -> float:
+	if target != Shares.PLAYER:
+		return 0.0
+	var contracts := 0
+	for contract in Contracts.active_contracts():
+		if String(contract.get("counterparty", "")) == observer:
+			contracts += 1
+	return _weight("supplierShare") * Shares.intake_share(observer) + _weight("perContract") * contracts
+
+
+# clamp(personality × (dependence − threat), ±dailyCap); 0 while held.
+static func drift(observer: String, target: String) -> float:
+	if _is_held(observer, target):
+		return 0.0
+	var cap := float(_pcfg()["dailyCap"])
+	return clampf(personality(observer) * (dependence(observer, target) - threat(observer, target)), -cap, cap)
+
+
+# The target's highest crafting share among the ore types in the
+# observer's crafted items' recipes.
+static func _crafting_share_in_items(observer: String, target: String) -> float:
+	var best := 0.0
+	for recipe_key in GameData.FACTIONS[observer]["crafts"]:
+		for ore_type in GameData.RECIPES[recipe_key]["ingredients"]:
+			best = maxf(best, Shares.crafting_share(target, ore_type))
+	return best
+
+
+# Target's fraction of every vein (player and faction) in the observer's
+# home districts; 0 when there are none.
+static func home_vein_share(observer: String, target: String) -> float:
+	var homes := FactionSim.home_districts(observer)
+	var total := 0
+	var owned := 0
+	for vein in GameState.state["player"]["veins"]:
+		if homes.has(vein["district"]):
+			total += 1
+			if target == Shares.PLAYER:
+				owned += 1
+	for site in GameState.state["world"]["sites"]:
+		var vein: Variant = site["factionVein"]
+		if vein != null and homes.has(site["district"]):
+			total += 1
+			if vein["factionId"] == target:
+				owned += 1
+	if total == 0:
+		return 0.0
+	return float(owned) / float(total)
+
+
+# Target's fraction of all ore harvested in London over the share window.
+static func size_share(target: String) -> float:
+	var totals := Shares.window_totals("ore")
+	var total := 0
+	var owned := 0
+	for producer in totals:
+		for amount in totals[producer].values():
+			total += int(amount)
+			if producer == target:
+				owned += int(amount)
+	if total == 0:
+		return 0.0
+	return float(owned) / float(total)
+
+
+# The player's supplier share to each of the observer's Hostile enemies
+# (strong) and Business rivals (weak). Factions supply nobody directly.
+static func _jealousy(observer: String, target: String) -> float:
+	if target != Shares.PLAYER:
+		return 0.0
+	var value := 0.0
+	for other in GameData.FACTIONS.keys():
+		if other == observer:
+			continue
+		match pair_stance(observer, other):
+			HOSTILE:
+				value += _weight("jealousyHostile") * Shares.intake_share(other)
+			BUSINESS_RIVAL:
+				value += _weight("jealousyRival") * Shares.intake_share(other)
+	return value
+
+
+# Factions that are Partner with both the observer and the target.
+static func _shared_partners(observer: String, target: String) -> int:
+	var count := 0
+	for other in GameData.FACTIONS.keys():
+		if other == observer or other == target or pair_stance(observer, other) != PARTNER:
+			continue
+		var target_stance := player_stance(other) if target == Shares.PLAYER else pair_stance(target, other)
+		if target_stance == PARTNER:
+			count += 1
+	return count
+
+
+# Rollover step: snapshots every observer → target, then drifts each
+# player relation by its rounded delta and each pair's shared relation by
+# the rounded mean of its two directions. Held pairs don't move.
+static func apply_pressure() -> void:
+	var pressure: Dictionary = GameState.state["factionPressure"]
+	_join_collective_firm_if_due(pressure)
+	var ids: Array = GameData.FACTIONS.keys()
+	var snapshots := {}
+	for observer in ids:
+		var row := {}
+		for target in [Shares.PLAYER] + ids:
+			if target == observer:
+				continue
+			row[target] = {
+				"threat": _snap(threat(observer, target)),
+				"dependence": _snap(dependence(observer, target)),
+				"delta": _snap(drift(observer, target)),
+			}
+		snapshots[observer] = row
+	pressure["snapshots"] = snapshots
+	for faction_id in ids:
+		if not _is_held_player(faction_id):
+			Factions.adjust_player_relation(faction_id, roundi(snapshots[faction_id][Shares.PLAYER]["delta"]))
+	for pair in _pairs():
+		if is_held_pair(pair[0], pair[1]):
+			continue
+		var mean: float = (float(snapshots[pair[0]][pair[1]]["delta"]) + float(snapshots[pair[1]][pair[0]]["delta"])) / 2.0
+		Factions.adjust_relation(pair[0], pair[1], roundi(mean))
+	EventBus.state_changed.emit()
+
+
+# Three decimals, as the nearest double, so a save's JSON round-trip reads
+# back the same float.
+static func _snap(value: float) -> float:
+	return roundf(value * SNAPSHOT_SCALE) / SNAPSHOT_SCALE
+
+
+# Once the Collective questline completes, the pair joins the AI at Hostile:
+# relation no higher than the Hostile starting relation, stance Hostile.
+static func _join_collective_firm_if_due(pressure: Dictionary) -> void:
+	if pressure.get("collectiveFirmJoined", false) or not _collective_complete():
+		return
+	pressure["collectiveFirmJoined"] = true
+	var hostile_relation := int(_cfg()["startingRelation"][HOSTILE])
+	var relation := Factions.get_relation("collective", "firm")
+	if relation > hostile_relation:
+		Factions.adjust_relation("collective", "firm", hostile_relation - relation)
+	var entry: Dictionary = GameState.state["factionStances"]["pairs"][pair_key("collective", "firm")]
+	entry["stance"] = HOSTILE
+	entry["pending"] = ""
+	entry["pendingDays"] = 0
+
+
+# The faction's last drift toward the player; 0 before the first snapshot.
+static func player_delta(faction_id: String) -> float:
+	var row: Dictionary = GameState.state["factionPressure"]["snapshots"].get(faction_id, {})
+	return float(row.get(Shares.PLAYER, {}).get("delta", 0.0))
+
+
+# Calm / Watching / Annoyed / Moving against you, read from the faction's
+# player relation and its last rounded drift.
+static func pressure_label(faction_id: String) -> String:
+	var labels: Dictionary = _pcfg()["labels"]
+	var relation: int = GameState.state["factions"][faction_id]["relation"]
+	if relation < int(_pcfg()["movingAgainstBelow"]):
+		return labels["movingAgainst"]
+	if roundi(player_delta(faction_id)) >= 0:
+		return labels["calm"]
+	if relation < int(_pcfg()["annoyedBelow"]):
+		return labels["annoyed"]
+	return labels["watching"]

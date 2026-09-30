@@ -1,7 +1,7 @@
 # Factions: a London overview table (player, factions, Independents × ore
 # type, ore/crafting toggle) then one card per faction with its economic
 # identity, its ore- and crafting-share bars (spec §UI reads), your stance
-# with it and its activity log, newest first. Shares only -- holdings and
+# with it, its pressure label and its activity log, newest first. Shares only -- holdings and
 # vein kits never show. The toggle is view state.
 class_name FactionsApp
 extends PhoneApp
@@ -76,6 +76,7 @@ func _build_economy(faction_id: String) -> Control:
 		box.add_child(_share_row("%s ore" % _ore_name(ore_type), Shares.ore_share(faction_id, ore_type)))
 		box.add_child(_share_row("%s crafting" % _ore_name(ore_type), Shares.crafting_share(faction_id, ore_type)))
 	box.add_child(UI.label("Stance: %s" % FactionAI.stance_name(FactionAI.player_stance(faction_id))))
+	box.add_child(UI.label("Pressure: %s" % FactionAI.pressure_label(faction_id)))
 	box.add_child(_build_activity(faction_id))
 	return box
 

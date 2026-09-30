@@ -107,6 +107,24 @@
       }
     }
   },
+  "factionPressure": {
+    "weights": {
+      "primaryOre": 8,
+      "secondaryOre": 4,
+      "crafting": 4,
+      "homeVeins": 4,
+      "size": 1,
+      "jealousyHostile": 6,
+      "jealousyRival": 2,
+      "partnerShield": 2,
+      "supplierShare": 8,
+      "perContract": 1
+    },
+    "dailyCap": 3,
+    "labels": { "calm": "Calm", "watching": "Watching", "annoyed": "Annoyed", "movingAgainst": "Moving against you" },
+    "annoyedBelow": 20,
+    "movingAgainstBelow": 0
+  },
   "business": { "weeklyWages": { "owen": 250 }, "jamesJoinCraftingSkill": 5, "owenCraftMinCultivating": 2 },
   "calendar": {
     "startMonth": 3,

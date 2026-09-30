@@ -100,6 +100,21 @@ func run() -> void:
 		SaveManager.delete_slot(TEST_SLOT)
 	)
 
+	run_case("pressure_snapshots_round_trip_and_backfill", func():
+		GameState.reset()
+		FactionAI.apply_pressure()
+		assert_true(SaveManager.save_to_slot(TEST_SLOT)["ok"])
+		GameState.reset()
+		assert_true(SaveManager.load_from_slot(TEST_SLOT)["ok"])
+		assert_true(GameState.state["factionPressure"]["snapshots"]["firm"].has("player"), "snapshots kept")
+		SaveManager.delete_slot(TEST_SLOT)
+		var save: Dictionary = GameState.deep_copy(GameState.state)
+		save.erase("factionPressure")
+		assert_true(SaveManager.import_string(JSON.stringify(save))["ok"])
+		assert_eq(GameState.state["factionPressure"], FactionAI.new_pressure_state(), "backfilled empty")
+		assert_eq(FactionAI.pressure_label("firm"), "Calm")
+	)
+
 	run_case("old_save_clamps_relations_symmetrises_pairs_and_backfills_stances", func():
 		GameState.reset()
 		var save: Dictionary = GameState.deep_copy(GameState.state)

@@ -118,7 +118,8 @@ static func daily_tick() -> void:
 	BusinessQuest.maybe_issue_recurring()  # ⑥.5c recurring-offer reissues, after ⑥.5b so the starter chain goes first
 	Shares.roll_buckets()                # ⑥.5d drop share buckets past the 14-day window, before ⑥.6 reads supply
 	Shares.record_independents()         # ⑥.5e credit today's Independents slice, after ⑥.5d so it lands in a kept bucket
-	FactionAI.update_stances()           # ⑥.5f after ⑥.5d/⑥.5e so player overlap reads today's shares; before ⑥.6
+	FactionAI.apply_pressure()           # ⑥.5f threat/dependence drift, after ⑥.5d/⑥.5e so it reads today's shares; before ⑥.6
+	FactionAI.update_stances()           # ⑥.5g after ⑥.5f so stances read today's drifted relation; before ⑥.6
 	Market.daily_reprice()               # ⑥.6 London reprice, after every step that trades in the tick and after ① so today's Ticker feeds it
 	Dial.daily_regen()                   # ⑦ Dial charge regen
 	Contacts.daily_dial_regen()          # ⑦.1 ally Dial charges refill

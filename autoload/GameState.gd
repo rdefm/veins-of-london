@@ -220,6 +220,8 @@ func new_game_state() -> Dictionary:
 		"factionRelations": _new_faction_relations_state(),
 		# Stored stances with hysteresis counters (FactionAI.new_state()).
 		"factionStances": FactionAI.new_state(),
+		# Last threat/dependence/delta per observer -> target (FactionAI.new_pressure_state()).
+		"factionPressure": FactionAI.new_pressure_state(),
 
 		"barometer": {
 			"economic": "stable", "social": "stable", "political": "stable",

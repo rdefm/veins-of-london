@@ -76,6 +76,7 @@ func run() -> void:
 		var phone := _open_factions()
 		var texts := NodeQuery.label_texts(phone)
 		assert_true(texts.has("Stance: Neutral"), "stance shown")
+		assert_true(texts.has("Pressure: Calm"), "pressure label shown")
 		assert_true(texts.has("Nothing yet."), "empty log")
 		phone.free()
 		FactionAI.log_activity("firm", "Now Partner with The Guild.")

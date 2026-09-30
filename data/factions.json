@@ -27,6 +27,7 @@
     "craftTargets": { "healingSalve": { "kitUse": 1, "sellQuota": 28 }, "enhancementPowder": { "kitUse": 0, "sellQuota": 31 } },
     "primaryOre": "life",
     "secondaryOre": "emotion",
+    "aggressionPersonality": 0.76,
     "claimWeights": { "base": 1, "presence": 17, "primaryOre": 6, "secondaryOre": 3 },
     "crafts": [
       "healingSalve",
@@ -85,6 +86,7 @@
     "craftTargets": { "blast": { "kitUse": 2, "sellQuota": 29 }, "shield": { "kitUse": 2, "sellQuota": 34 }, "healingBurst": { "kitUse": 2, "sellQuota": 34 } },
     "primaryOre": "physics",
     "secondaryOre": "life",
+    "aggressionPersonality": 1.69,
     "claimWeights": { "base": 1, "presence": 17, "primaryOre": 6, "secondaryOre": 3 },
     "crafts": [
       "blast",
@@ -147,6 +149,7 @@
     "craftTargets": { "timePearl": { "kitUse": 0, "sellQuota": 23 }, "rewind": { "kitUse": 0, "sellQuota": 23 }, "wormhole": { "kitUse": 0, "sellQuota": 28 }, "prophetsBreath": { "kitUse": 0, "sellQuota": 25 }, "rejuvenation": { "kitUse": 0, "sellQuota": 24 }, "blackHole": { "kitUse": 0, "sellQuota": 27 } },
     "primaryOre": "time",
     "secondaryOre": "physics",
+    "aggressionPersonality": 0.78,
     "claimWeights": { "base": 1, "presence": 17, "primaryOre": 6, "secondaryOre": 3 },
     "crafts": [
       "timePearl",
@@ -212,6 +215,7 @@
     "craftTargets": { "pansPrank": { "kitUse": 1, "sellQuota": 63 } },
     "primaryOre": "emotion",
     "secondaryOre": "fate",
+    "aggressionPersonality": 0.84,
     "claimWeights": { "base": 1, "presence": 17, "primaryOre": 6, "secondaryOre": 3 },
     "crafts": [
       "pansPrank"
@@ -268,6 +272,7 @@
     "craftTargets": { "failsafe": { "kitUse": 1, "sellQuota": 37 }, "beALady": { "kitUse": 0, "sellQuota": 56 } },
     "primaryOre": "fate",
     "secondaryOre": "time",
+    "aggressionPersonality": 0.93,
     "claimWeights": { "base": 1, "presence": 17, "primaryOre": 6, "secondaryOre": 3 },
     "crafts": [
       "failsafe",

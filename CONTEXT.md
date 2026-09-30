@@ -47,6 +47,9 @@ Every vein also carries a persistent `level: int` (1..`Cultivating.level_cap_for
 **Stance**:
 The stored political posture of a faction pair, or of the player with a faction: Partner, Neutral, Business rival or Hostile. Read from relation bands, but only flips after relation has stayed in the new band for a few days. Business rival needs the two sides to compete (shared ores or items); without that, the middle band is Neutral. A pair has one stance and one shared relation.
 
+**Pressure**:
+How hard a faction is leaning on another actor (the player or another faction). Each day the faction weighs the actor's threat (share of its ores and crafts, veins on its home ground, overall size, supplying its enemies) against its dependence on them (supply and contracts), and relation drifts by the difference, capped. The player sees it as a label per faction: Calm, Watching, Annoyed, Moving against you.
+
 **Key member**:
 The named person who speaks for a faction (Lusk for the Firm, Ingram for the Guild, Fairweather for the Conclave, Nadia for the Collective, the handler for the Network). Every faction message to the player comes from its key member, never from the faction as a faceless whole.
 

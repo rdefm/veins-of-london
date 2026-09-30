@@ -173,7 +173,7 @@ static func apply_passive_income() -> void:
 # ── Daily security-upgrade spend ─────────────────────────────────────────
 # A faction with spare resources (£, after today's trading and Monday wages) quietly hardens one held vein
 # each tick (spec §Faction guard upkeep, Hiring). First the tier ladder up to "guarded" (lock and ward
-# rune at table price; "guarded" costs the guard hire advance), highest basePrice * combined_magnitude
+# rune at table price; "guarded" costs the guard hire advance), highest vein_value()
 # vein first. Only once no vein below "guarded" is eligible and affordable does it hire an extra guard,
 # highest-value vein first, up to maxExtraGuardsPerVein. Any guard hire also needs the wage reserve
 # (GuardUpkeep.faction_can_hire). Frozen veins are skipped; nothing eligible is a no-op.
@@ -221,12 +221,17 @@ static func _hire_extra_guard(faction_id: String, veins: Array) -> void:
 	vein["extraGuards"] = int(vein.get("extraGuards", 0)) + 1
 
 
-# Highest basePrice * combined_magnitude vein, first in list order on a tie; null for an empty list.
+# A vein's worth in faction AI scoring: its ore's London quote (R§3.13) times combined_magnitude.
+static func vein_value(vein: Dictionary) -> float:
+	return float(Market.quote("ore", vein["oreType"])) * Cultivating.combined_magnitude(vein)
+
+
+# Highest vein_value() vein, first in list order on a tie; null for an empty list.
 static func _most_valuable(veins: Array) -> Variant:
 	var best: Variant = null
 	var best_value := -1.0
 	for vein in veins:
-		var value: float = GameData.ORE_TYPES[vein["oreType"]]["basePrice"] * Cultivating.combined_magnitude(vein)
+		var value := vein_value(vein)
 		if value > best_value:
 			best_value = value
 			best = vein
@@ -308,14 +313,13 @@ static func _eligible_rival_veins(faction_id: String) -> Array:
 	return candidates
 
 
-# Weighted by vein value (basePrice * combined_magnitude) -- attackers favour a rival's crown jewel over scraps.
+# Weighted by vein_value() -- attackers favour a rival's crown jewel over scraps.
 # Collective.firm_target_multiplier() scales that while the Firm is provoked (spec §6.7).
 static func _pick_target_vein(attacker_id: String, candidates: Array) -> Dictionary:
 	var weight_list: Array[float] = []
 	for candidate in candidates:
 		var vein: Dictionary = candidate["vein"]
-		var value: float = GameData.ORE_TYPES[vein["oreType"]]["basePrice"] * Cultivating.combined_magnitude(vein)
-		weight_list.append(value * Collective.firm_target_multiplier(attacker_id, vein["factionId"]))
+		weight_list.append(vein_value(vein) * Collective.firm_target_multiplier(attacker_id, vein["factionId"]))
 	return candidates[weighted_pick_index(weight_list)]
 
 
