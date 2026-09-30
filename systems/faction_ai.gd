@@ -5,8 +5,8 @@ extends RefCounted
 # for every faction pair and for the player with each faction, the daily
 # hysteresis stance update, each faction's bounded activity log, the
 # daily threat/dependence pressure drift (R§3.1 "Pressure") and the
-# escalation menus (R§3.1 "Escalation") and the Conclave stabiliser
-# (R§3.1 "Conclave stabiliser"). Data in constants.json factionStances,
+# escalation menus (R§3.1 "Escalation") and the Conclave stabiliser, war
+# squeeze and positions (R§3.1 "Conclave ..."). Data in constants.json factionStances,
 # factionPressure, factionEscalation, factionWar and factionConclave.
 # Static funcs only.
 
@@ -473,6 +473,7 @@ const MOVE_WITHHOLD_ITEMS := "withholdItems"
 const MOVE_LOWBALL := "lowballBuyout"
 const MOVE_UNDERCUT := "undercut"
 const MOVE_DENY := "denyGoods"
+const MOVE_TICKER_PUSH := "tickerPush"
 const LOWBALL_KIND := "faction_lowball_buyout"
 
 
@@ -678,6 +679,8 @@ static func _move_candidate(observer: String, target: String, move_id: String) -
 			return _undercut_candidate(observer, target)
 		MOVE_DENY:
 			return _deny_candidate(observer, target)
+		MOVE_TICKER_PUSH:
+			return _ticker_push_candidate(observer, target)
 	return {}
 
 
@@ -1008,6 +1011,13 @@ static func _make_move(observer: String, target: String, move: Dictionary) -> vo
 				"untilDay": int(GameState.state["world"]["day"]) + int(_ecfg()["deny"]["days"]),
 			})
 			_report_goods_move(observer, target, MOVE_DENY, move["kind"], move["good"])
+		MOVE_TICKER_PUSH:
+			_push_ticker(observer, move["section"], move["state"], int(_poscfg()["pushStrength"]))
+			var state_name: String = GameData.BAROMETER_STATES[move["section"]][move["state"]]["label"]
+			if target == Shares.PLAYER:
+				_report_player(observer, MOVE_TICKER_PUSH, state_name, state_name)
+			else:
+				_report_pair_goods_move(observer, target, MOVE_TICKER_PUSH, state_name)
 
 
 # A flood or withhold of ore_type. Against the player: key member line
@@ -2013,12 +2023,14 @@ static func _scfg() -> Dictionary:
 
 
 # state.factionConclave: { runs: { "kind:type": days }, stockpile:
-# { "kind:type": units }, squeezed: { party: day last war-squeezed } }.
+# { "kind:type": units }, squeezed: { party: day last war-squeezed },
+# positions: [{ section, state, ore, units, openedDay, pushed }],
+# lastPushDay: day of the last Ticker push (-1 for none) }.
 # Run days signed: +n for n straight days above the band, -n below; a good
-# inside it has no key. Stockpile units sit in the Conclave's holdings, kept
-# off sale (FactionSim.for_sale); a good with none has no key.
+# inside it has no key. Stockpile and position units sit in the Conclave's
+# holdings, kept off sale (FactionSim.for_sale); a good with none has no key.
 static func new_conclave_state() -> Dictionary:
-	return { "runs": {}, "stockpile": {}, "squeezed": {} }
+	return { "runs": {}, "stockpile": {}, "squeezed": {}, "positions": [], "lastPushDay": -1 }
 
 
 static func stabiliser_run(kind: String, good_type: String) -> int:
@@ -2174,3 +2186,165 @@ static func _squeeze(conclave_id: String, party: String, intensity: float) -> vo
 		undercut["qty"] = mini(roundi(float(_ecfg()["undercut"]["qty"][undercut["kind"]]) * intensity), FactionSim.for_sale(conclave_id, undercut["kind"], undercut["good"]))
 		if int(undercut["qty"]) > 0:
 			_make_move(conclave_id, party, undercut)
+
+
+# ── Conclave positions and Ticker push ──────────────────────────────────
+# R§3.1 "Conclave positions": with fewer than maxOpen positions, the Conclave
+# picks the non-active Ticker state with the highest progress whose
+# itemDemand boosts items, and buys qty of the ore those items use most
+# (itemDemand fraction × recipe qty), spending only cash above cashFloor; a
+# lot of hintQty or more is a hint headline. While open, each push (one per
+# pushCooldownDays, shared with the tickerPush move) queues pushStrength on
+# the state via Barometer.queue_push, pushCap in all per position. A
+# position closes, selling at the quote, when its state goes active or after
+# maxDays. Data in constants.json factionConclave.positions.
+
+static func _poscfg() -> Dictionary:
+	return GameData.FACTION_CONCLAVE["positions"]
+
+
+static func positions() -> Array:
+	return GameState.state["factionConclave"]["positions"]
+
+
+# Units of an ore the Conclave holds in open positions, never more than it
+# holds; 0 for any other faction or kind.
+static func position_held(faction_id: String, kind: String, good_type: String) -> int:
+	if faction_id != _scfg()["factionId"] or kind != "ore":
+		return 0
+	var units := 0
+	for position in positions():
+		if position["ore"] == good_type:
+			units += int(position["units"])
+	return mini(units, FactionSim.ore_held(faction_id, good_type))
+
+
+static func push_cooling() -> bool:
+	var last := int(GameState.state["factionConclave"]["lastPushDay"])
+	return last >= 0 and int(GameState.state["world"]["day"]) - last < int(_poscfg()["pushCooldownDays"])
+
+
+static func _push_ticker(faction_id: String, section: String, state_id: String, strength: int) -> void:
+	Barometer.queue_push(faction_id, section, state_id, "push", strength)
+	GameState.state["factionConclave"]["lastPushDay"] = int(GameState.state["world"]["day"])
+
+
+# Rollover step: close, open, then push.
+static func run_positions() -> void:
+	if not Market.is_running():
+		return
+	Barometer.ensure_progress()
+	_close_positions()
+	_open_positions()
+	if not push_cooling():
+		var cap := int(_poscfg()["pushCap"])
+		for position in positions():
+			if int(position["pushed"]) < cap:
+				var strength := mini(int(_poscfg()["pushStrength"]), cap - int(position["pushed"]))
+				position["pushed"] = int(position["pushed"]) + strength
+				_push_ticker(_scfg()["factionId"], position["section"], position["state"], strength)
+				break
+	EventBus.state_changed.emit()
+
+
+static func _close_positions() -> void:
+	var conclave_id: String = _scfg()["factionId"]
+	var day := int(GameState.state["world"]["day"])
+	var kept := []
+	for position in positions():
+		var paid: bool = GameState.state["barometer"][position["section"]] == position["state"]
+		if paid or day - int(position["openedDay"]) >= int(_poscfg()["maxDays"]):
+			FactionSim.position_sell(conclave_id, position["ore"], int(position["units"]))
+		else:
+			kept.append(position)
+	GameState.state["factionConclave"]["positions"] = kept
+
+
+static func _open_positions() -> void:
+	var cfg := _poscfg()
+	var conclave_id: String = _scfg()["factionId"]
+	while positions().size() < int(cfg["maxOpen"]):
+		var pick := _position_pick()
+		if pick.is_empty():
+			return
+		var budget := int(GameState.state["factions"][conclave_id]["resources"]) - int(cfg["cashFloor"])
+		var bought := FactionSim.position_buy(conclave_id, pick["ore"], int(cfg["qty"]), budget)
+		if bought <= 0:
+			return
+		pick["units"] = bought
+		pick["openedDay"] = int(GameState.state["world"]["day"])
+		pick["pushed"] = 0
+		positions().append(pick)
+		if bought >= int(cfg["hintQty"]):
+			Barometer.push_headline(GameData.FACTION_CONCLAVE["headlines"]["position"] % GameData.ORE_TYPES[pick["ore"]]["name"])
+
+
+# { section, state, ore } for the next position, or {} when no non-active
+# state without a position boosts any ore's items.
+static func _position_pick() -> Dictionary:
+	var barometer: Dictionary = GameState.state["barometer"]
+	var best := {}
+	var best_progress := -1
+	for section in Barometer.SECTIONS:
+		for state_id in GameData.BAROMETER_STATES[section]:
+			if state_id == barometer[section] or _has_position(section, state_id):
+				continue
+			var ore := _paying_ore(GameData.BAROMETER_STATES[section][state_id]["effects"])
+			var progress := int(barometer["progress"][section].get(state_id, 0))
+			if ore != "" and progress > best_progress:
+				best = { "section": section, "state": state_id, "ore": ore }
+				best_progress = progress
+	return best
+
+
+static func _has_position(section: String, state_id: String) -> bool:
+	for position in positions():
+		if position["section"] == section and position["state"] == state_id:
+			return true
+	return false
+
+
+# The ore the effects' positive itemDemand leans on most, or "".
+static func _paying_ore(effects: Dictionary) -> String:
+	var weights := {}
+	var item_demand: Dictionary = effects.get("itemDemand", {})
+	for recipe_key in item_demand:
+		var fraction := float(item_demand[recipe_key])
+		if fraction <= 0.0:
+			continue
+		var ingredients: Dictionary = GameData.RECIPES[recipe_key]["ingredients"]
+		for ore_type in ingredients:
+			weights[ore_type] = float(weights.get(ore_type, 0.0)) + fraction * float(ingredients[ore_type])
+	var best := ""
+	for ore_type in GameData.CANONICAL_ORE_TYPES:
+		if float(weights.get(ore_type, 0.0)) > float(weights.get(best, 0.0)):
+			best = ore_type
+	return best
+
+
+# Ticker push (no cash beyond moveCosts.tickerPush; off while pushes cool):
+# the non-active Ticker state that most cuts demand for the consumables the
+# target sold over the past week. Damage = Σ that lot's value at the quote ×
+# the cut, × pushStrength / 100 (one push's share of a flip).
+static func _ticker_push_candidate(_observer: String, target: String) -> Dictionary:
+	if not Market.is_running() or push_cooling():
+		return {}
+	var sold := Market.sold_this_week(target)
+	var best := {}
+	for section in Barometer.SECTIONS:
+		for state_id in GameData.BAROMETER_STATES[section]:
+			if state_id == GameState.state["barometer"][section]:
+				continue
+			var effects: Dictionary = GameData.BAROMETER_STATES[section][state_id]["effects"]
+			var damage := 0.0
+			for key in sold:
+				var parts: PackedStringArray = key.split(":")
+				if parts[0] != "consumable":
+					continue
+				var cut := 1.0 - (1.0 + float(effects.get("demandAll", 0.0))) * (1.0 + float(effects.get("itemDemand", {}).get(parts[1], 0.0)))
+				if cut > 0.0:
+					damage += cut * Market.line_total("consumable", Market.quote("consumable", parts[1]), int(sold[key]))
+			damage *= float(_poscfg()["pushStrength"]) / 100.0
+			if damage > 0.0 and (best.is_empty() or damage > float(best["damage"])):
+				best = { "move": MOVE_TICKER_PUSH, "damage": damage, "cost": _move_cost(MOVE_TICKER_PUSH), "section": section, "state": state_id }
+	return best

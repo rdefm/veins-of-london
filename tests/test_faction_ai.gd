@@ -920,6 +920,134 @@ func run() -> void:
 		assert_eq(SaveManager.backfill_defaults(old)["factionConclave"]["squeezed"], {}, "old save backfilled")
 	)
 
+	run_case("a_held_position_pushes_the_ticker_toward_its_paying_state_within_the_cap_and_the_cooldown_blocks_a_repeat", func():
+		_positions_fresh()
+		var snapshot: Dictionary = GameState.deep_copy(GameState.state)
+		Rng.set_seed(4242)
+		TimeSystem.daily_tick()
+		var pushed_day := int(GameState.state["factionConclave"]["lastPushDay"])
+		var position: Dictionary = FactionAI.positions()[0]
+		assert_eq([position["section"], position["state"], position["ore"]], ["social", "festival", "physics"], "festival pays physics")
+		assert_eq(int(position["pushed"]), _push_strength())
+		TimeSystem.daily_tick()
+		var pushed: int = int(GameState.state["barometer"]["progress"]["social"]["festival"])
+		assert_eq(int(GameState.state["factionConclave"]["lastPushDay"]), pushed_day, "the cooldown blocks a repeat")
+		assert_eq(Barometer.queued_pushes(), [], "nothing queued on the cooling day")
+		GameState.state = snapshot
+		GameState.state["factionConclave"]["lastPushDay"] = 100000
+		Rng.set_seed(4242)
+		TimeSystem.daily_tick()
+		TimeSystem.daily_tick()
+		var control: int = int(GameState.state["barometer"]["progress"]["social"]["festival"])
+		assert_eq(pushed - control, _push_strength(), "one push's worth of progress toward festival")
+	)
+
+	run_case("position_pushes_stop_at_the_cap", func():
+		_positions_fresh()
+		var cfg: Dictionary = GameData.FACTION_CONCLAVE["positions"]
+		var total := 0
+		for i in int(cfg["pushCap"]) / _push_strength() + 1:
+			FactionAI.run_positions()
+			for push in Barometer.queued_pushes():
+				total += int(push["strength"])
+			GameState.state["barometer"]["pushes"] = []
+			GameState.state["world"]["day"] += int(cfg["pushCooldownDays"])
+		assert_eq(total, int(cfg["pushCap"]), "capped in all")
+		assert_eq(int(FactionAI.positions()[0]["pushed"]), int(cfg["pushCap"]))
+	)
+
+	run_case("a_position_over_the_hint_size_is_a_ticker_headline", func():
+		_positions_fresh()
+		TimeSystem.daily_tick()
+		var hint: String = GameData.FACTION_CONCLAVE["headlines"]["position"] % GameData.ORE_TYPES["physics"]["name"]
+		assert_true(Barometer.headlines().any(func(h: Dictionary) -> bool: return h["text"] == hint), "hint headline fired")
+	)
+
+	run_case("a_position_under_the_hint_size_makes_no_headline", func():
+		_positions_fresh()
+		var cfg: Dictionary = GameData.FACTION_CONCLAVE["positions"]
+		GameState.state["factions"]["conclave"]["resources"] = int(cfg["cashFloor"]) + Market.line_total("ore", Market.quote("ore", "physics"), int(cfg["hintQty"]) - 10)
+		FactionAI.run_positions()
+		assert_true(int(FactionAI.positions()[0]["units"]) < int(cfg["hintQty"]), "a small lot")
+		assert_eq(Barometer.headlines(), [])
+	)
+
+	run_case("a_position_is_held_off_sale_and_sold_when_its_state_goes_active", func():
+		_positions_fresh()
+		FactionAI.run_positions()
+		var units := int(FactionAI.positions()[0]["units"])
+		assert_eq(int(_holdings("conclave")["physics"]), units, "bought")
+		assert_eq(FactionSim.for_sale("conclave", "ore", "physics"), 0, "held off sale")
+		assert_eq(int(GameState.state["market"]["demand"]["ore"]["physics"]["conclave"]), units, "recorded as Conclave demand")
+		GameState.state["barometer"]["social"] = "festival"
+		GameState.state["world"]["day"] += 1
+		FactionAI.run_positions()
+		assert_true(FactionAI.positions().all(func(p: Dictionary) -> bool: return p["state"] != "festival"), "festival position closed")
+		assert_eq(int(GameState.state["market"]["supply"]["ore"]["physics"]["conclave"]), units, "sold at the quote")
+	)
+
+	run_case("a_conclave_ticker_push_leans_on_the_state_that_cuts_the_players_sales", func():
+		_ticker_push_fresh()
+		FactionAI.apply_escalation()
+		assert_eq(FactionAI.moves_against_player()[0]["move"], FactionAI.MOVE_TICKER_PUSH)
+		var queued: Array = Barometer.queued_pushes()
+		assert_eq(queued.size(), 1)
+		assert_eq([queued[0]["state"], int(queued[0]["strength"])], ["recession", _push_strength()], "recession cuts every item's demand")
+		assert_eq(int(GameState.state["factions"]["conclave"]["resources"]), 10000 - int(GameData.FACTION_ESCALATION["moveCosts"]["tickerPush"]))
+		var label: String = GameData.BAROMETER_STATES["economic"]["recession"]["label"]
+		assert_eq(_last_message(KeyMembers.speaker_for("conclave")), GameData.FACTION_ESCALATION["moveLines"]["conclave"]["tickerPush"] % label)
+		assert_eq(_explainer_count(FactionAI.MOVE_TICKER_PUSH), 1)
+		_ticker_push_fresh()
+		GameState.state["factionConclave"]["lastPushDay"] = 5
+		FactionAI.apply_escalation()
+		assert_eq(FactionAI.moves_against_player(), [], "no push while pushes cool")
+	)
+
+	run_case("positions_survive_a_save_and_an_old_save_gets_them", func():
+		_positions_fresh()
+		FactionAI.run_positions()
+		var position: Dictionary = GameState.deep_copy(FactionAI.positions()[0])
+		assert_true(SaveManager.save_to_slot(STABILISER_SAVE_SLOT)["ok"])
+		GameState.reset()
+		assert_true(SaveManager.load_from_slot(STABILISER_SAVE_SLOT)["ok"])
+		SaveManager.delete_slot(STABILISER_SAVE_SLOT)
+		assert_eq(FactionAI.positions()[0], position)
+		assert_eq(typeof(FactionAI.positions()[0]["units"]), TYPE_INT)
+		assert_eq(typeof(GameState.state["factionConclave"]["lastPushDay"]), TYPE_INT)
+		var old: Dictionary = GameState.deep_copy(GameState.state)
+		old["factionConclave"].erase("positions")
+		old["factionConclave"].erase("lastPushDay")
+		var backfilled: Dictionary = SaveManager.backfill_defaults(old)["factionConclave"]
+		assert_eq([backfilled["positions"], backfilled["lastPushDay"]], [[], -1], "old save backfilled")
+	)
+
+
+static func _push_strength() -> int:
+	return int(GameData.FACTION_CONCLAVE["positions"]["pushStrength"])
+
+
+# Day 20, market at rest, a flush Conclave holding no ore; festival the
+# leading non-active Ticker state.
+static func _positions_fresh() -> void:
+	_stabiliser_fresh()
+	GameState.state["world"]["day"] = 20
+	GameState.state["factions"]["conclave"]["resources"] = 1000000
+	var holdings: Dictionary = _holdings("conclave")
+	for ore_type in holdings.keys():
+		holdings[ore_type] = 0
+	Barometer.ensure_progress()
+	GameState.state["barometer"]["progress"]["social"]["festival"] = 60
+
+
+# A Conclave ready to move on a flush player who sold blast this week; it
+# holds no items, so it has nothing to undercut with.
+static func _ticker_push_fresh() -> void:
+	_market_fresh(5)
+	GameState.state["player"]["cash"] = 100000
+	Market.record_supply("consumable", "blast", 20, "player")
+	_move_ready("conclave", -10)
+	GameState.state["factions"]["conclave"]["holdings"]["items"] = {}
+
 
 static func _stabiliser() -> Dictionary:
 	return GameData.FACTION_CONCLAVE["stabiliser"]

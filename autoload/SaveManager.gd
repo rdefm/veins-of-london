@@ -914,6 +914,10 @@ func _restore_int_types(state: Dictionary) -> void:
 	_int_dict_values(state.get("factionConclave", {}).get("runs", {}))
 	_int_dict_values(state.get("factionConclave", {}).get("stockpile", {}))
 	_int_dict_values(state.get("factionConclave", {}).get("squeezed", {}))
+	_int_key(state.get("factionConclave", {}), "lastPushDay")
+	for position in state.get("factionConclave", {}).get("positions", []):
+		for key in ["units", "openedDay", "pushed"]:
+			_int_key(position, key)
 	var talks: Dictionary = war.get("negotiation", {})
 	_int_key(talks, "round")
 	for terms_key in ["draft", "counter"]:
@@ -941,6 +945,8 @@ func _restore_int_types(state: Dictionary) -> void:
 				_int_key(entry, "pull")
 		for entry in barometer.get("headlines", []):
 			_int_key(entry, "day")
+		for entry in barometer.get("pushes", []):
+			_int_key(entry, "strength")
 
 	if state.has("combat"):
 		_restore_combat_int_types(state["combat"])

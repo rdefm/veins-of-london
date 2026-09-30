@@ -87,6 +87,21 @@ func run() -> void:
 		assert_eq(Barometer.trend_hint_state("economic"), "crisis", "crisis (90) should beat boom (75)")
 	)
 
+	run_case("a_queued_push_nudges_one_tick_like_a_pref_then_clears", func():
+		GameState.reset()
+		Barometer.ensure_progress()
+		var baseline: Dictionary = GameState.deep_copy(GameState.state["barometer"]["progress"])
+		Barometer._apply_faction_nudges()
+		var prefs_only: int = GameState.state["barometer"]["progress"]["social"]["festival"]
+		GameState.state["barometer"]["progress"] = baseline
+		Barometer.queue_push("conclave", "social", "festival", "push", 5)
+		Barometer._apply_faction_nudges()
+		assert_eq(GameState.state["barometer"]["progress"]["social"]["festival"], prefs_only + 5, "the push adds its strength")
+		assert_eq(Barometer.queued_pushes(), [], "and is spent")
+		Barometer._apply_faction_nudges()
+		assert_eq(GameState.state["barometer"]["progress"]["social"]["festival"], prefs_only * 2 + 5, "only once")
+	)
+
 	run_case("manual_push_costs_2000_adds_20_progress_and_sets_cooldown", func():
 		GameState.reset()
 		Barometer.ensure_progress()

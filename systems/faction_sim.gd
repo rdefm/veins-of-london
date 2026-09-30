@@ -57,12 +57,13 @@ static func item_reserved(faction_id: String, recipe_key: String) -> int:
 
 # What a faction will sell: all its ore, but only its unreserved items, and
 # nothing it is withholding (FactionAI escalation) or holding in the Conclave
-# stabiliser stockpile (FactionAI.stockpile_held).
+# stabiliser stockpile (FactionAI.stockpile_held) or a Conclave position
+# (FactionAI.position_held).
 static func for_sale(faction_id: String, kind: String, item_type: String) -> int:
 	if FactionAI.is_withholding(faction_id, kind, item_type):
 		return 0
 	var free: int = ore_held(faction_id, item_type) if kind == "ore" else item_held(faction_id, item_type) - item_reserved(faction_id, item_type)
-	return maxi(0, free - FactionAI.stockpile_held(faction_id, kind, item_type))
+	return maxi(0, free - FactionAI.stockpile_held(faction_id, kind, item_type) - FactionAI.position_held(faction_id, kind, item_type))
 
 
 static func add_ore(faction_id: String, ore_type: String, qty: int) -> void:
@@ -573,6 +574,22 @@ static func stock_up(faction_id: String, kind: String, good_type: String, qty: i
 	var bought: int = mini(qty, Market.affordable_qty(kind, price, budget))
 	_buy(faction_id, kind, good_type, bought, price)
 	return maxi(0, bought)
+
+
+# Opens a Conclave position (R§3.1 "Conclave positions"): buys up to qty of
+# an ore at today's quote, spending at most budget, recorded as a Market
+# positionBuy. Returns the qty bought.
+static func position_buy(faction_id: String, ore_type: String, qty: int, budget: int) -> int:
+	var price: int = Market.quote("ore", ore_type)
+	var bought: int = mini(qty, Market.affordable_qty("ore", price, budget))
+	_buy(faction_id, "ore", ore_type, bought, price, "positionBuy")
+	return maxi(0, bought)
+
+
+# Closes a Conclave position: sells up to qty of an ore it holds at today's
+# quote, recorded as a Market positionSell. Returns the £ taken.
+static func position_sell(faction_id: String, ore_type: String, qty: int) -> int:
+	return _sell_below(faction_id, "positionSell", "ore", ore_type, mini(qty, ore_held(faction_id, ore_type)), 1.0)
 
 
 # move names a Market move ("deny", "stabiliseBuy") to record instead of plain demand.

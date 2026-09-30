@@ -57,17 +57,38 @@ static func tick() -> void:
 
 
 # Every faction's barometer prefs nudge progress daily, regardless of
-# whether the player has joined that faction.
+# whether the player has joined that faction; then each queued push
+# (queue_push) applies once, as a one-day pref, and the queue clears.
 static func _apply_faction_nudges() -> void:
-	var progress: Dictionary = GameState.state["barometer"]["progress"]
+	var barometer: Dictionary = GameState.state["barometer"]
 	for faction_id in GameData.FACTION_BAROMETER_PREFS.keys():
 		for pref in GameData.FACTION_BAROMETER_PREFS[faction_id]:
-			var section: String = pref["section"]
-			var state_id: String = pref["state"]
-			var strength: int = pref["strength"]
-			var delta: int = strength if pref["direction"] == "push" else -strength
-			var section_progress: Dictionary = progress[section]
-			section_progress[state_id] = clampi(section_progress[state_id] + delta, 0, 100)
+			_nudge(pref)
+	for pref in barometer.get("pushes", []):
+		_nudge(pref)
+	barometer["pushes"] = []
+
+
+static func _nudge(pref: Dictionary) -> void:
+	var strength: int = int(pref["strength"])
+	var delta: int = strength if pref["direction"] == "push" else -strength
+	var section_progress: Dictionary = GameState.state["barometer"]["progress"][pref["section"]]
+	section_progress[pref["state"]] = clampi(int(section_progress[pref["state"]]) + delta, 0, 100)
+
+
+# A faction's one-off nudge on a Ticker state (R§3.1 "Conclave positions"),
+# shaped like a factionPrefs entry and kept in state.barometer.pushes until
+# the next tick's nudge step applies it.
+static func queue_push(faction_id: String, section: String, state_id: String, direction: String, strength: int) -> void:
+	var barometer: Dictionary = GameState.state["barometer"]
+	if not barometer.has("pushes"):
+		barometer["pushes"] = []
+	barometer["pushes"].append({ "factionId": faction_id, "section": section, "state": state_id, "direction": direction, "strength": strength })
+
+
+# Queued pushes awaiting the next tick.
+static func queued_pushes() -> Array:
+	return GameState.state["barometer"].get("pushes", [])
 
 
 static func _apply_organic_drift() -> void:

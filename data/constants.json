@@ -137,7 +137,7 @@
       "manipulator": { "market": ["undercut", "denyGoods", "tickerPush"], "raid": [] }
     },
     "sharedMarket": ["lowballBuyout"],
-    "moveCosts": { "veinRaid": 500, "withhold": 150, "outbid": 400, "poach": 200, "withholdItems": 150 },
+    "moveCosts": { "veinRaid": 500, "withhold": 150, "outbid": 400, "poach": 200, "withholdItems": 150, "tickerPush": 300 },
     "flood": { "qty": 150, "priceMult": 0.6 },
     "withhold": { "days": 7 },
     "poach": { "priceMult": 0.85 },
@@ -198,7 +198,8 @@
       "conclave": {
         "lowballBuyout": "\"The Conclave will relieve you of the vein in %s. £%d. Liquidity is a kindness at a time like this.\"",
         "undercut": "\"London will find %s cheaper this week. Not from you.\"",
-        "denyGoods": "\"The Conclave has taken an interest in %s. Every unit that was for sale.\""
+        "denyGoods": "\"The Conclave has taken an interest in %s. Every unit that was for sale.\"",
+        "tickerPush": "\"The Conclave expects %s. Markets tend to agree with us, eventually.\""
       }
     },
     "explainers": {
@@ -210,7 +211,8 @@
       "withholdItems": "\"The Guild's stopped selling you what you need. A week, usually. Buy elsewhere or make it yourself.\"",
       "lowballBuyout": "\"That's a vulture's offer. Under what the vein's worth, and they know you're short. Take it only if you must.\"",
       "undercut": "\"The Conclave's selling what you sell, under your price. Buyers go to them. Hold your stock or sell where they aren't.\"",
-      "denyGoods": "\"The Conclave's bought up what you need and it's sitting on it. Dearer and scarcer for a week. Make it yourself or wait.\""
+      "denyGoods": "\"The Conclave's bought up what you need and it's sitting on it. Dearer and scarcer for a week. Make it yourself or wait.\"",
+      "tickerPush": "\"The Conclave's leaning on the Ticker, towards the weather that hurts what you sell. It's slow. Watch the Ticker and sell before it turns.\""
     },
     "log": {
       "warningPlayer": "Warned you off.",
@@ -257,6 +259,11 @@
         "player": "Bought up the %s you need.",
         "attacker": "Bought up the %s %s needs.",
         "defender": "%s bought up the %s we need."
+      },
+      "tickerPush": {
+        "player": "Pushed the Ticker toward %s against you.",
+        "attacker": "Pushed the Ticker toward %s against %s.",
+        "defender": "%s pushed the Ticker toward %s against us."
       }
     },
     "headlines": {
@@ -266,7 +273,9 @@
   },
   "factionConclave": {
     "stabiliser": { "factionId": "conclave", "bandPct": 0.25, "runDays": 3, "qty": { "ore": 90, "consumable": 35 }, "sellMult": 0.85, "buyMult": 1.15, "stockpile": { "target": { "ore": 180, "consumable": 70 }, "topUp": { "maxPriceMult": 1.0, "dailyCap": { "ore": 20, "consumable": 4 }, "cashFloor": 600 } } },
-    "squeeze": { "minWarDays": 10, "cooldownDays": 2, "dominance": { "wearyAt": 60, "gap": 30, "dominantMult": 2.0, "weakMult": 0.0 } }
+    "squeeze": { "minWarDays": 10, "cooldownDays": 2, "dominance": { "wearyAt": 60, "gap": 30, "dominantMult": 2.0, "weakMult": 0.0 } },
+    "positions": { "maxOpen": 1, "qty": 120, "maxDays": 21, "cashFloor": 600, "hintQty": 100, "pushStrength": 5, "pushCooldownDays": 3, "pushCap": 25 },
+    "headlines": { "position": "Someone's buying up %s calc, and not in small lots." }
   },
   "factionWar": {
     "windowDays": 7,
