@@ -888,20 +888,23 @@ func run() -> void:
 		assert_true(not _conclave_denial("guild").is_empty(), "the fresher Guild is squeezed")
 	)
 
-	run_case("the_conclave_never_offers_peace_or_signs_a_truce_it_offered", func():
+	run_case("the_squeeze_brokers_no_peace_between_the_sides", func():
 		_squeeze_fresh(40.0, 20.0, _min_war_days())
-		var war: Dictionary = { "parties": ["conclave", "network"], "startDay": 1, "lastHostileDay": 20, "weariness": { "conclave": 100.0, "network": 50.0 } }
-		GameState.state["factionWar"]["wars"] = [war]
-		FactionAI._make_faction_peace()
-		assert_eq(FactionAI.truces(), [], "a worn-out Conclave offers nothing")
-		var player_war: Dictionary = { "parties": ["player", "conclave"], "startDay": 1, "lastHostileDay": 20, "weariness": { "player": 0.0, "conclave": 100.0 } }
-		GameState.state["factionWar"]["wars"] = [player_war]
-		FactionAI._offer_player_peace()
-		assert_true(GameState.state["pendingMessages"].filter(func(e: Dictionary) -> bool: return e["kind"] == FactionAI.PEACE_OFFER_KIND).is_empty(), "no peace offer to the player")
-		GameState.state["factionWar"]["wars"] = [{ "parties": ["firm", "guild"], "startDay": 1, "lastHostileDay": 20, "weariness": { "firm": 40.0, "guild": 20.0 } }]
 		FactionAI.squeeze_wars()
 		assert_eq(FactionAI.truces(), [], "squeezing signs nothing")
-		assert_true(GameState.state["pendingMessages"].filter(func(e: Dictionary) -> bool: return e["kind"] == FactionAI.PEACE_OFFER_KIND).is_empty())
+		assert_true(GameState.state["pendingMessages"].filter(func(e: Dictionary) -> bool: return e["kind"] == FactionAI.PEACE_OFFER_KIND).is_empty(), "and offers nothing")
+	)
+
+	run_case("the_conclave_offers_peace_in_its_own_wars", func():
+		_squeeze_fresh(40.0, 20.0, _min_war_days())
+		GameState.state["factionWar"]["wars"] = [{ "parties": ["conclave", "network"], "startDay": 1, "lastHostileDay": 20, "weariness": { "conclave": 100.0, "network": 50.0 } }]
+		FactionAI._make_faction_peace()
+		assert_true(FactionAI.in_truce("conclave", "network"), "a worn-out Conclave offers the Network a truce")
+		GameState.state["factionWar"]["wars"] = [{ "parties": ["player", "conclave"], "startDay": 1, "lastHostileDay": 20, "weariness": { "player": 0.0, "conclave": 100.0 } }]
+		FactionAI._offer_player_peace()
+		var offers: Array = GameState.state["pendingMessages"].filter(func(e: Dictionary) -> bool: return e["kind"] == FactionAI.PEACE_OFFER_KIND)
+		assert_eq(offers.size(), 1, "and the player a peace offer")
+		assert_eq(offers[0]["payload"]["factionId"], "conclave")
 	)
 
 	run_case("squeeze_stamps_survive_a_save_and_an_old_save_gets_them", func():

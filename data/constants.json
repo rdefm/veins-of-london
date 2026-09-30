@@ -323,7 +323,8 @@
         "firm": "\"Mr Lusk would like this finished. Fourteen days' quiet, to start. Come and talk terms.\"",
         "guild": "\"The Court proposes a truce. Terms are open to discussion, within reason.\"",
         "network": "\"Everyone's losing money. We'd like to stop. Name your price, then hear ours.\"",
-        "collective": "\"We're bleeding people for this. Let's talk before there's no one left to talk.\""
+        "collective": "\"We're bleeding people for this. Let's talk before there's no one left to talk.\"",
+        "conclave": "\"This has stopped paying, for either of us. The Conclave will hear terms.\""
       },
       "lines": {
         "accepted": "\"Agreed. It's signed.\"",

@@ -1575,12 +1575,10 @@ static func _make_faction_peace() -> void:
 				break
 
 
-# The Conclave never offers peace (R§3.1 "Conclave war squeeze"); it may
-# still accept an offer in its own war.
 static func _offer_peace(war: Dictionary, offerer: String, other: String) -> bool:
 	var w_offer := float(war["weariness"].get(offerer, 0.0))
 	var w_other := float(war["weariness"].get(other, 0.0))
-	if offerer == _scfg()["factionId"] or w_offer < offer_peace_at(offerer) or w_other < accept_peace_at(other):
+	if w_offer < offer_peace_at(offerer) or w_other < accept_peace_at(other):
 		return false
 	var terms := _auto_terms(offerer, other, w_other)
 	if terms.is_empty() or not accepts(offerer, terms, w_offer):
@@ -2113,8 +2111,8 @@ static func _top_up_stockpile() -> void:
 # side is at wearyAt or more and the other sits gap or more below it: the
 # fresher side is squeezed at the weary side's weariness × dominantMult and
 # the weary side at × weakMult, so the squeeze never helps finish it off.
-# The Conclave never offers or brokers peace. Data in constants.json
-# factionConclave.squeeze.
+# The squeeze never brokers peace between the sides. Data in
+# constants.json factionConclave.squeeze.
 
 static func _sqcfg() -> Dictionary:
 	return GameData.FACTION_CONCLAVE["squeeze"]
