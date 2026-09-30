@@ -50,12 +50,12 @@ Data file per system: see `data/*.json` below.
 | equipment.gd | Weapon equip/unequip |
 | event_items.gd | Registry of items usable from an event's Item button (Rewind consumable + Dial Rewind): eligibility, counts, effect |
 | events.gd | Event-card runner + rewind, auto-discovers art |
-| faction_sim.gd | FactionSim: faction holdings (ore, items by tier); stockpile pick; vein tend + prune, sparing one maturing vein (`fieldwork`); crafting toward targets; consumption + kit burns → shortfall; kit allocation, `vein_kit`, `raider_kit`; London sell/buy vs reserve (withheld goods not for sale), Conclave arbitrage (`trading`); flood/undercut/deny/stabilise/stock-up/position moves |
+| faction_sim.gd | FactionSim: holdings (ore, items by tier); stockpile pick and guards; vein tend + prune, sparing one maturing vein (`fieldwork`); crafting toward targets; consumption + kit burns → shortfall; kit allocation, `vein_kit`, `raider_kit`; London sell/buy vs reserve (withheld not for sale), Conclave arbitrage (`trading`); flood/undercut/deny/stabilise/stock-up/position moves |
 | faction_ai.gd | FactionAI (R§3.1 stances through Conclave positions): relation clamp, stances, activity log; pressure drift, Collective–Firm hold; escalation moves incl. Network intel moves; wars, weariness, nags; truces, peace scorer, faction peace; player talks, truce payments; Conclave stabiliser + stockpile; war squeeze; Conclave positions + Ticker push; move forecast |
 | intel.gd | Intel (R§3.1 "Intel"): observer → target intel meters for player and factions, level reads, scout/raid gains, daily decay, stockpile relocation cap; privacy/raid-warning/disinformation timers; intel's raid-odds shift and target scoring |
 | factions.gd | Faction joining |
 | guard_kit.gd | Guard kit: allowlisted combat items stocked by tier on a player vein's or HQ's (`home.guardKit`) `guardKit`; capacity (guards × slots), active units, `stock`/`unstock` and `*_hq` twins; missed-defend repel boost/spend; kit-dict helpers (incl. `remove_units`); target helpers (vein/hq), summary/status text, `kit_veins` |
-| guard_upkeep.gd | Guard wages: hire advance, weekly cost/labels, per-day per-place `guardUpkeep.history`, pre-pot Monday bill from cash, faction Monday bill and wage-reserve gate, pending guard shortfall (grace, auto-resolve drop order, short-pay quote/confirm), place labels, Guard Costs reads (history window, per-place series, places, next Monday bill) |
+| guard_upkeep.gd | Guard wages: hire advance, weekly cost/labels, per-day per-place `guardUpkeep.history`, pre-pot Monday bill from cash, faction Monday bill (vein + stockpile guards) and wage-reserve gate, pending guard shortfall (grace, auto-resolve drop order, short-pay quote/confirm), place labels, Guard Costs reads (history window, per-place series, places, next Monday bill) |
 | home.gd | Home tier/tenure/security/rooms/raid chance; per-day and weekly bill base (rent or utilities); arrears countdown to Monday; tier moves via shared `change_tier` (room wipe, security loss); HQ `drop_guard`; per-slot room purchase/replacement (`set_room_use`); daily raid roll, alarm queue/expiry + guard (kit) repel, and alarm-defend win/loss resolution (R§3.8) |
 | jobs.gd | James's jobs, trust bands |
 | key_members.gd | Faction key members (R§3.10): member/faction lookup, `speaker_for`, `send` (unlocks + intro on first message, or waits for a quest-gated member's questline) |
@@ -65,7 +65,7 @@ Data file per system: see `data/*.json` below.
 | map_hit_test.gd | Tap-hit geometry, Network diagram |
 | map_layout.gd | Resolves stops vs. live sites/veins |
 | map_nav.gd | Map drill-down nav (list → panel → site sheet or vein detail panel, mutually exclusive) |
-| map_pins.gd | Contact map-pins for waiting events; which faction shop pins are open (faction_trade.json mapShopPin + unlock) |
+| map_pins.gd | Contact map-pins for waiting events; which faction shop pins are open (faction_trade.json mapShopPin + unlock); raidable stockpile pins (stockpile-location intel) |
 | map_routing.gd | Octilinear line-routing geometry |
 | map_style.gd | Filter-chip re-styling math |
 | map_view.gd | Persists Network camera |
@@ -85,7 +85,7 @@ Data file per system: see `data/*.json` below.
 | preferences.gd | Saved presentation prefs in `meta` (reduced motion, vibration, Map dark mode) + carry_forward() so event Rewind never flips them |
 | progression.gd | Shared "award XP" ladder loop |
 | raid_alarms.gd | Summaries + dispatch for raid alarms |
-| raiding.gd | Vein stealth-check + raid resolution; queued faction raids on the player (FactionAI raid rung) incl. alarm defend fights and their kit burns; shared guard repel roll (player missed-defend, faction rivalry) |
+| raiding.gd | Vein stealth-check + raid resolution; player stockpile raids (stealth, guard fight settlement, loot share, relation/war/relocation); queued faction raids on the player (FactionAI raid rung) incl. alarm defend fights and their kit burns; shared guard repel roll (player missed-defend, faction rivalry) |
 | relation_accrual.gd | Capped £ relation meter |
 | rooms.gd | Per-block staff step (one action per cultivator, then producers take turns crafting until targets met or ore short), writes/trims `productionLog`, Production targets/priority and when they are settable, per-cultivator vein lists (`cultivatorVeins`) and per-vein targets |
 | shares.gd | Shares: 14-day daily buckets per producer (player, factions, independents) of ore harvested, ore spent on successful crafts, contract deliveries and faction London buys; Independents slice crediting (⑥.5e); pure ore/crafting share, overview, delivery and supplier-share reads (split + intake) (R§3.14) |
@@ -148,7 +148,7 @@ overlays.
 | icons.gd | 13 drawn icon glyphs |
 | map_bubble.gd | Popup listing tappable map options; paper-card frame and round action-icon states come from map_card_style.gd |
 | map_card_style.gd | Shared vein-popover card family: card tokens (via map_palette.gd), card/inset/action-circle styleboxes, card()/style_panel(), section_label(), text/symbol_text/chip buttons, option rows, round_button()/stepper()/quantity_slider(), footer(), check-button + symbol tinting. The one button/card look for every non-phone menu; off-map callers build inside MapPalette.build_light |
-| map_canvas.gd | Network diagram: layout/stops/lines, hit-testing (shop pins open the Trade menu), static draw pass; tweens a vein's fullness ring on EventBus.vein_cultivated; delegates persistent halos and event-playback animations to map_halos.gd |
+| map_canvas.gd | Network diagram: layout/stops/lines, hit-testing (shop pins open the Trade menu, stockpile pins start a stockpile raid), static draw pass; tweens a vein's fullness ring on EventBus.vein_cultivated; delegates persistent halos and event-playback animations to map_halos.gd |
 | map_halos.gd | Persistent vein-charge halo + the five event-playback animations (discover ripple, seed/claim ring, charge burst, drain collapse, join-line growth); owned by map_canvas.gd |
 | map_controls.gd | Map controls drawer (map_card_style.gd-skinned): filters, faction isolate, pacing, Dark map toggle, legend button |
 | map_palette.gd | MapPalette: resolves Map palette tokens (data/map_palette.json) for the current light/dark mode (`meta.mapDarkMode`), plus faction/ore colours with optional dark-only overrides; every Map-tab colour reads through it; build_light() scopes a light-only build for off-Map reusers |
@@ -240,13 +240,13 @@ overlays.
 | combat_prototype.json | combat_prototype.gd |
 | combat_visuals.json | combat_stage.gd (locationBackdrops, backdrops, pose sheets, stage.spriteScale); GameData.gd (territorialVariant pose spec); combat_director.gd (pacing.turnPause); turn_order_strip.gd (cardFrames) |
 | constants.json | calendar.gd (calendar), time_system.gd, jobs.gd, GameState.gd, contacts.gd (roster, roleFlags, skillCaps), business.gd (weekly wages), rooms.gd (productionLogDays), business_stats.gd (businessStatsDays), shares.gd (sharesDays, sharesWindowDays), GUARD_UPKEEP (guardUpkeep), guard_kit.gd (GUARD_KIT) |
-| constants.json (faction politics) | factions.gd (factionRivalry), faction_ai.gd (factionStances, factionPressure, factionEscalation, factionWar, factionConclave), intel.gd (intel), network_handler.gd (networkMenu), barometer.gd (factionEscalation.headlineCap) |
+| constants.json (faction politics) | factions.gd (factionRivalry), faction_ai.gd (factionStances, factionPressure, factionEscalation, factionWar, factionConclave), intel.gd (intel), raiding.gd (stockpileRaid), network_handler.gd (networkMenu), barometer.gd (factionEscalation.headlineCap) |
 | daily_cycle.json | time_transition.gd (circle layout, sky clips, colours, timing) |
 | dial.json | dial.gd |
 | districts.json | widely read (sites, economy, factions, raiding) |
 | enemies.json | combat.gd |
 | faction_trade.json | economy.gd |
-| factions.json | factions.gd, sites.gd, raiding.gd, debug_start.gd, faction_sim.gd (`startingHoldings`, `stockpilePlaces`, `cultivateSkill`, `fieldwork`, `craftSkill`, `craftTargets`, `raidKits`, `consumes`, `trading`, `industryIncome`), key_members.gd (`keyMembers`, `speaker`, `sampleFavours`), faction_ai.gd (`aggressionPersonality`, `weariness`) |
+| factions.json | factions.gd, sites.gd, raiding.gd, debug_start.gd, faction_sim.gd (`startingHoldings`, `stockpilePlaces`, `stockpileGuards`, `cultivateSkill`, `fieldwork`, `craftSkill`, `craftTargets`, `raidKits`, `consumes`, `trading`, `industryIncome`), key_members.gd (`keyMembers`, `speaker`, `sampleFavours`), faction_ai.gd (`aggressionPersonality`, `weariness`) |
 | home.json | home.gd, approaches.gd, contacts.gd, property_app.gd (tier `image` listing photos) |
 | floorplans.json | GameData.gd + floorplan_view.gd (per-tier plan asset, size, slot rects) |
 | hq_visuals.json | hq_diorama.gd, hq*.gd screens |

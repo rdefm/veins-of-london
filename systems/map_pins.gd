@@ -44,6 +44,17 @@ static func open_shop_factions() -> Array:
 	return result
 
 
+# Factions whose stockpile the player can raid (Raiding.can_raid_stockpile:
+# stockpile-location intel), as { factionId, district } -- each gets a raid
+# pin in its stockpile's district.
+static func raidable_stockpiles() -> Array:
+	var result: Array = []
+	for faction_id in GameData.FACTIONS.keys():
+		if Raiding.can_raid_stockpile(faction_id):
+			result.append({ "factionId": faction_id, "district": Raiding.stockpile_district(faction_id) })
+	return result
+
+
 static func active_phone_shortcuts_for(contact_id: String) -> Array:
 	var result: Array = []
 	for pin in active_contact_pins():

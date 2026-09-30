@@ -413,6 +413,19 @@ static func start_raid(vein_id: String, value_tier: int, guards: int = 1, templa
 	_start_combat(context, vein_id, enemies, log_lines, "raidWon", allies)
 
 
+# A caught stockpile raid (events.gd "start_stockpile_raid_combat"): one
+# enemy per stockpile guard (at least one), sharing the faction's defend kit
+# as combat.raiderKit, in the stockpile's district. Runs as an event_raid, so
+# a win resumes the event; combat.stockpileFactionId routes the settlement to
+# Raiding.resolve_stockpile_fight().
+static func start_stockpile_raid(faction_id: String, value_tier: int, guards: int, template_key: String = "", ally_ids: Array = []) -> void:
+	var enemies := generate_raid_enemy(null, value_tier, guards, template_key)
+	var log_lines := ["%s steps out to meet you." % _guard_group_name(enemies)]
+	var allies := _gather_raid_allies(ally_ids, log_lines)
+	_start_combat(CONTEXT_EVENT_RAID, null, enemies, log_lines, "raidWon", allies, Raiding.stockpile_district(faction_id), FactionSim.raider_kit(faction_id, "defend"))
+	GameState.state["combat"]["stockpileFactionId"] = faction_id
+
+
 # Unlike _gather_defend_allies' auto-join-everyone, bringing an ally on a
 # raid is the player's explicit choice at the Raid button (map.gd).
 # Re-validated against can_join_combat() since relation/cooldown/recruit
@@ -2254,6 +2267,7 @@ static func exit_combat() -> Dictionary:
 	var outcome = combat["outcome"]
 	var context: String = combat["context"]
 	var raider_items_used: Dictionary = combat.get("raiderKit", {}).get("used", {})
+	var stockpile_faction_id: String = combat.get("stockpileFactionId", "")
 
 	# Hand any allies' ending hp/stash back to persistent contact state
 	# before the combat dict is torn down below.
@@ -2295,6 +2309,8 @@ static func exit_combat() -> Dictionary:
 	if context == CONTEXT_HOME_ALARM_DEFEND:
 		return _exit_home_alarm_defend(outcome)
 	if context == CONTEXT_EVENT_RAID:
+		if stockpile_faction_id != "":
+			Raiding.resolve_stockpile_fight(stockpile_faction_id, outcome == "win", raider_items_used)
 		return _exit_event_raid(outcome)
 	if context == CONTEXT_DEFEND_VEIN:
 		return _exit_defend_vein(outcome, raider_items_used)

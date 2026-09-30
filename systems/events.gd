@@ -336,6 +336,16 @@ static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 			Raiding.claim_vein(_event_site_id(effect))
 		"loot_raid_vein":
 			Raiding.loot_vein(_event_site_id(effect), _event_caught(effect))
+		# Stockpile raid ops: the raided faction comes from start_event()'s
+		# context (Raiding.begin_stockpile_raid()), like a vein raid's site_id.
+		"stockpile_stealth_check":
+			_stockpile_stealth_check(effect)
+		"start_stockpile_raid_combat":
+			_start_stockpile_raid_combat(effect)
+		"loot_stockpile":
+			var faction_id := _event_faction_id(effect)
+			if GameState.state["factions"].has(faction_id):
+				Raiding.loot_stockpile(faction_id, effect.get("all", false))
 		# Contested-vein choice ops (col_a2_contested_vein, spec §6.5): both
 		# resolve a site id from a named state path (no per-raid context to
 		# thread, since a map pin's tap carries none) rather than reusing
@@ -599,6 +609,37 @@ static func _stealth_check(effect: Dictionary) -> void:
 		apply_effects(effect.get("on_success", []))
 	else:
 		apply_effects(effect.get("on_caught", []))
+
+
+# A stockpile raid's faction id, from the effect or the live event context.
+static func _event_faction_id(effect: Dictionary) -> String:
+	if effect.has("faction_id"):
+		return effect["faction_id"]
+	var event_state: Variant = GameState.state.get("event")
+	if event_state == null:
+		return ""
+	return event_state.get("context", {}).get("faction_id", "")
+
+
+# _stealth_check() for a stockpile raid; silent no-op for an unknown faction.
+static func _stockpile_stealth_check(effect: Dictionary) -> void:
+	var faction_id := _event_faction_id(effect)
+	if not GameState.state["factions"].has(faction_id):
+		return
+	if Raiding.resolve_stockpile_stealth_check(faction_id, effect.get("consumable_bonus", 0.0)):
+		apply_effects(effect.get("on_success", []))
+	else:
+		apply_effects(effect.get("on_caught", []))
+
+
+# A caught stockpile raid's fight: one enemy per stockpile guard, at the
+# stockpileRaid valueTier; template from the card, else stockpileRaid.guardTemplate.
+static func _start_stockpile_raid_combat(effect: Dictionary) -> void:
+	var faction_id := _event_faction_id(effect)
+	if not GameState.state["factions"].has(faction_id):
+		return
+	var cfg: Dictionary = GameData.STOCKPILE_RAID
+	Combat.start_stockpile_raid(faction_id, int(cfg["valueTier"]), FactionSim.stockpile_guards(faction_id), effect.get("template", cfg["guardTemplate"]), _event_ally_ids(effect))
 
 
 # Branches into Combat.start_raid() with context "event_raid" (see combat.gd's

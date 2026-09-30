@@ -182,7 +182,8 @@ func _migrate_player_model(save: Dictionary) -> void:
 
 # A save without faction holdings gets the placeholder starting stock, with
 # any saved per-ore oreStock added on top; faction cash is left as saved.
-# A faction without a stockpile gets one picked now; missing consumption
+# A faction without a stockpile gets one picked now, and one without
+# stockpile guards gets its full guard target; missing consumption
 # keys (kitBurns, shortfall, consumeAccrued) start empty. Faction veins
 # without a kit get one from FactionSim.allocate_kits_in.
 func _migrate_faction_holdings(save: Dictionary) -> void:
@@ -197,6 +198,8 @@ func _migrate_faction_holdings(save: Dictionary) -> void:
 		faction.erase("oreStock")
 		if not faction.has("stockpile"):
 			faction["stockpile"] = FactionSim.pick_stockpile(faction_id)
+		if not faction["stockpile"].has("guards"):
+			faction["stockpile"]["guards"] = FactionSim.stockpile_guard_target(faction_id)
 		if not faction.has("kitBurns"):
 			faction["kitBurns"] = []
 		if not faction.has("shortfall"):
@@ -870,6 +873,8 @@ func _restore_int_types(state: Dictionary) -> void:
 			_int_key(faction, "relation")
 			_int_key(faction, "resources")
 			_int_key(faction, "tradeProgress")
+			if faction.get("stockpile") is Dictionary:
+				_int_key(faction["stockpile"], "guards")
 			for ore_entry in faction.get("oreSold", {}).values():
 				_int_key(ore_entry, "units")
 				_int_key(ore_entry, "transactions")

@@ -92,10 +92,12 @@ static func decay() -> void:
 			row[target] = maxi(0, int(row[target]) - drop)
 
 
-# Moves faction_id's stockpile to a fresh pick and drops every observer's
-# meter on it below the stockpile-location level.
+# Moves faction_id's stockpile to a fresh pick, its guards going with it, and
+# drops every observer's meter on it below the stockpile-location level.
 static func relocate_stockpile(faction_id: String) -> void:
+	var guards := FactionSim.stockpile_guards(faction_id)
 	GameState.state["factions"][faction_id]["stockpile"] = FactionSim.pick_stockpile(faction_id)
+	FactionSim.set_stockpile_guards(faction_id, guards)
 	var cap := level_at(STOCKPILE_LOCATION) - 1
 	for observer in GameState.state["intel"].keys():
 		if meter(observer, faction_id) > cap:

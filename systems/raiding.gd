@@ -146,6 +146,146 @@ static func begin_raid(vein: Dictionary, ally_ids: Array = []) -> Dictionary:
 	return { "ok": true }
 
 
+# ── stockpile raids (R§3.12 "Stockpile raids") ──────────────────────────
+# The player raids a faction's stockpile once their intel on it reaches the
+# stockpile-location level. Same event flow as a vein raid: a stealth check
+# against the stockpile guards, a fight with them (carrying the faction's
+# defend kit) when caught, then a loot card. With stash-level intel the
+# loot card also offers taking everything.
+
+const STOCKPILE_RAID_EVENT_ID := "stockpile_raid"
+const STOCKPILE_RAID_STASH_EVENT_ID := "stockpile_raid_stash"
+
+
+static func _stockpile_cfg() -> Dictionary:
+	return GameData.STOCKPILE_RAID
+
+
+static func stockpile_district(faction_id: String) -> String:
+	return str(GameState.state["factions"][faction_id]["stockpile"].get("district", ""))
+
+
+# The player knows where faction_id keeps its stockpile, and it has a district.
+static func can_raid_stockpile(faction_id: String) -> bool:
+	return Intel.knows(Shares.PLAYER, faction_id, Intel.STOCKPILE_LOCATION) and stockpile_district(faction_id) != ""
+
+
+# Travel/time-block gating as begin_raid(), then the stockpile raid event,
+# its stash variant when the player has stash-level intel.
+static func begin_stockpile_raid(faction_id: String, ally_ids: Array = []) -> Dictionary:
+	if not can_raid_stockpile(faction_id):
+		# PROSE-REVIEW: new refusal line.
+		return { "ok": false, "reason": "You don't know where they keep it." }
+	var travel := Travel.ensure_district(stockpile_district(faction_id), 1)
+	if not travel["ok"]:
+		return travel
+
+	TimeSystem.advance_time_block()
+	var event_id := STOCKPILE_RAID_STASH_EVENT_ID if Intel.knows(Shares.PLAYER, faction_id, Intel.STASH) else STOCKPILE_RAID_EVENT_ID
+	Events.start_event(event_id, { "faction_id": faction_id, "ally_ids": ally_ids })
+	return { "ok": true }
+
+
+# Stockpile guards × raidResistPerGuard, on the vein raidResist scale.
+static func stockpile_raid_resist(faction_id: String) -> int:
+	return FactionSim.stockpile_guards(faction_id) * int(_stockpile_cfg()["raidResistPerGuard"])
+
+
+# stealth_success_chance() without the vein terms: skill tilt, consumable
+# bonus and the stockpile guards' raid resist.
+static func stockpile_stealth_chance(stealth_skill: int, faction_id: String, consumable_bonus: float) -> float:
+	var skill_tilt: float = (stealth_skill - 1) * STEALTH_SKILL_WEIGHT
+	var resist_tilt: float = -(float(stockpile_raid_resist(faction_id)) / STEALTH_RAID_RESIST_DIVISOR) * STEALTH_RAID_RESIST_WEIGHT
+	return clampf(STEALTH_BASE_CHANCE + skill_tilt + resist_tilt + consumable_bonus, 0.0, 1.0)
+
+
+# resolve_stealth_check() for a stockpile.
+static func resolve_stockpile_stealth_check(faction_id: String, consumable_bonus: float) -> bool:
+	var skill: int = GameState.state["player"]["stealthSkill"]
+	var success: bool = Rng.chance(stockpile_stealth_chance(skill, faction_id, consumable_bonus))
+	award_stealth_xp(STEALTH_XP_SUCCESS if success else STEALTH_XP_CAUGHT)
+	Intel.gain(Shares.PLAYER, faction_id, Intel.SOURCE_SCOUT)
+	return success
+
+
+# The share of each holdings line a successful raid takes: stashLootShare
+# when taking everything with stash-level intel, else lootShare.
+static func stockpile_loot_share(faction_id: String, take_all: bool) -> float:
+	if take_all and Intel.knows(Shares.PLAYER, faction_id, Intel.STASH):
+		return float(_stockpile_cfg()["stashLootShare"])
+	return float(_stockpile_cfg()["lootShare"])
+
+
+# A successful stockpile raid: floor(share × held) of every ore and item
+# line moves from faction_id's holdings to the player (items highest tier
+# first, keeping their tiers), then the raid's consequences land. Returns
+# what was taken, { ore: { oreType: qty }, items: { recipeKey: qty } }.
+#
+# PROSE-REVIEW: the loot notification.
+static func loot_stockpile(faction_id: String, take_all: bool) -> Dictionary:
+	var share := stockpile_loot_share(faction_id, take_all)
+	var holdings: Dictionary = GameState.state["factions"][faction_id]["holdings"]
+	var stolen := { "ore": {}, "items": {} }
+	var value := 0.0
+	var player_ore: Dictionary = GameState.state["player"]["orichalchum"]
+	for ore_type in holdings["ore"].keys():
+		var qty := floori(float(FactionSim.ore_held(faction_id, ore_type)) * share)
+		if qty <= 0:
+			continue
+		FactionSim.take_ore(faction_id, ore_type, qty)
+		player_ore[ore_type] = int(player_ore.get(ore_type, 0)) + qty
+		stolen["ore"][ore_type] = qty
+		value += _stock_value("ore", ore_type, qty)
+	for recipe_key in holdings["items"].keys():
+		var qty := floori(float(FactionSim.item_held(faction_id, recipe_key)) * share)
+		if qty <= 0:
+			continue
+		for leg in FactionSim.take_items(faction_id, recipe_key, qty):
+			Crafting.inventory_add(recipe_key, int(leg["tier"]), int(leg["qty"]))
+		stolen["items"][recipe_key] = qty
+		value += _stock_value("consumable", recipe_key, qty)
+	var ore_total := 0
+	for qty in stolen["ore"].values():
+		ore_total += int(qty)
+	var item_total := 0
+	for qty in stolen["items"].values():
+		item_total += int(qty)
+	Notify.push("Stockpile emptied into your bag: %d calc, %d items." % [ore_total, item_total], Notify.CATEGORY_SUCCESS)
+	_stockpile_raid_consequences(faction_id, value)
+	return stolen
+
+
+# London value of qty of a good: today's quote for a traded good, else its
+# base price.
+static func _stock_value(kind: String, good_type: String, qty: int) -> float:
+	var traded: bool = GameData.MARKET["goods"][kind].has(good_type)
+	var price := Market.quote(kind, good_type) if traded else Market.base_price(kind, good_type)
+	return float(Market.line_total(kind, price, qty))
+
+
+# Settles a stockpile raid's fight (Combat.exit_combat()): the faction is
+# billed the defend-kit items its guards used; a lost fight is the player's
+# failed raid, which still brings the raid's consequences.
+static func resolve_stockpile_fight(faction_id: String, won: bool, guard_items_used: Dictionary = {}) -> void:
+	FactionSim.log_kit_burn_items(faction_id, "defend", "stockpileRaid", guard_items_used)
+	if won:
+		FactionAI.note_fight_lost(faction_id, Shares.PLAYER)
+		return
+	FactionAI.note_fight_lost(Shares.PLAYER, faction_id)
+	_stockpile_raid_consequences(faction_id, 0.0)
+
+
+# Any stockpile raid, won or lost: raid intel, a hostile act (war clock),
+# the faction's loss, the large relation hit, then the stockpile relocates,
+# dropping every observer below the stockpile-location level.
+static func _stockpile_raid_consequences(faction_id: String, value_lost: float) -> void:
+	Intel.gain(Shares.PLAYER, faction_id, Intel.SOURCE_RAID)
+	FactionAI.note_hostile_act(Shares.PLAYER, faction_id)
+	FactionAI.note_loss(faction_id, Shares.PLAYER, value_lost)
+	Factions.adjust_player_relation(faction_id, int(_stockpile_cfg()["relationHit"]))
+	Intel.relocate_stockpile(faction_id)
+
+
 # ── Direction B: daily-tick raid trigger ─────────────────────────────────
 # A faction raids one of the player's own veins (mirror of Direction A
 # above); called from TimeSystem.daily_tick() with the same

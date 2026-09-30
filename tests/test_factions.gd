@@ -36,6 +36,16 @@ static func _day_one_faction_veins(faction_id: String) -> Array:
 
 
 func run() -> void:
+	# The vein-guard upkeep cases below price the Collective's guards alone;
+	# its stockpile guards (billed and rehired alongside) are covered in
+	# test_raiding.gd, so they're zeroed here for the whole file.
+	var collective_stockpile_guards: int = GameData.FACTIONS["collective"]["stockpileGuards"]
+	GameData.FACTIONS["collective"]["stockpileGuards"] = 0
+	_run_cases()
+	GameData.FACTIONS["collective"]["stockpileGuards"] = collective_stockpile_guards
+
+
+func _run_cases() -> void:
 	run_case("can_join_requires_relation_and_not_already_joined", func():
 		GameState.reset()
 		assert_true(not Factions.can_join("guild"), "relation 0 < joinRelation 40")

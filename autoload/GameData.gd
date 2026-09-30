@@ -217,6 +217,10 @@ var FACTION_CONCLAVE: Dictionary = {}
 # daily decay, R§3.1 "Intel".
 var INTEL: Dictionary = {}
 
+# Stockpile raid loot shares, relation hit and guard stats, R§3.12
+# "Stockpile raids".
+var STOCKPILE_RAID: Dictionary = {}
+
 # The Network handler's intel menu: product prices, relation gates,
 # durations, handler lines and plan labels, R§3.1 "Network intel menu".
 var NETWORK_MENU: Dictionary = {}
@@ -398,6 +402,7 @@ const MANIFEST: Array[Dictionary] = [
 		{"field": "FACTION_WAR", "key": "factionWar", "type": TYPE_DICTIONARY},
 		{"field": "FACTION_CONCLAVE", "key": "factionConclave", "type": TYPE_DICTIONARY},
 		{"field": "INTEL", "key": "intel", "type": TYPE_DICTIONARY},
+		{"field": "STOCKPILE_RAID", "key": "stockpileRaid", "type": TYPE_DICTIONARY},
 		{"field": "NETWORK_MENU", "key": "networkMenu", "type": TYPE_DICTIONARY},
 		{"field": "BUSINESS_WEEKLY_WAGES", "key": "business.weeklyWages", "type": TYPE_DICTIONARY},
 		{"field": "BUSINESS_JAMES_JOIN_CRAFTING_SKILL", "key": "business.jamesJoinCraftingSkill", "type": TYPE_INT},
@@ -1389,6 +1394,7 @@ const VALID_EFFECT_OPS: Array[String] = [
 	# forces one free successful cultivate.
 	"grant_vein_with_site", "tutorial_cultivate",
 	"stealth_check", "start_raid_combat", "claim_raid_vein", "loot_raid_vein",
+	"stockpile_stealth_check", "start_stockpile_raid_combat", "loot_stockpile",
 	# unlock_contact flips contacts.<id>.unlocked; push_message appends
 	# a plain unread text (no follow-up action); queue_pending_message
 	# is push_message's follow-up-action cousin (Messages.queue_pending()).

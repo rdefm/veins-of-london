@@ -37,6 +37,21 @@ static func _player_site_with_vein(id: String, vein: Dictionary) -> Dictionary:
 	}
 
 
+# ── Stockpile raid fixtures ─────────────────────────────────────────────
+
+static func _set_player_intel(faction_id: String, value: int) -> void:
+	GameState.state["intel"][Shares.PLAYER][faction_id] = value
+
+
+# The Firm's holdings replaced with a known stock: time 100, physics 7 ore;
+# shield 3 at tier 2 plus 2 untiered.
+static func _stock_firm() -> void:
+	GameState.state["factions"]["firm"]["holdings"] = {
+		"ore": { "time": 100, "physics": 7 },
+		"items": { "shield": { "2": 3, "0": 2 } },
+	}
+
+
 # A raid FactionAI's raid rung queued against the fixture player vein.
 static func _queue_raid(attacker_id: String) -> void:
 	GameState.state["factionEscalation"]["queuedRaids"].append({ "attackerId": attacker_id, "targetId": "player", "veinId": "pv_test", "siteId": "s_player" })
@@ -1638,4 +1653,167 @@ func run() -> void:
 
 		assert_true(Raiding.is_defend_notification_pending("n_new"), "the fresh warning's own Defend button should show")
 		assert_true(not Raiding.is_defend_notification_pending("n_old"), "the old, already-resolved warning must not reactivate its Defend button just because the vein has a new pending raid")
+	)
+
+	# ── Stockpile raids (R§3.12 "Stockpile raids") ─────────────────────
+
+	run_case("stockpile_pin_appears_only_at_location_intel", func():
+		GameState.reset()
+		var at := Intel.level_at(Intel.STOCKPILE_LOCATION)
+		_set_player_intel("firm", at - 1)
+		assert_true(MapPins.raidable_stockpiles().is_empty(), "no pin below the location level")
+		_set_player_intel("firm", at)
+		assert_eq(MapPins.raidable_stockpiles(), [{ "factionId": "firm", "district": GameState.state["factions"]["firm"]["stockpile"]["district"] }])
+	)
+
+	run_case("begin_stockpile_raid_needs_location_intel_and_picks_the_stash_card_at_stash_intel", func():
+		GameState.reset()
+		assert_true(not Raiding.begin_stockpile_raid("firm")["ok"], "refused without location intel")
+		assert_eq(GameState.state["event"], null)
+
+		_set_player_intel("firm", Intel.level_at(Intel.STOCKPILE_LOCATION))
+		assert_true(Raiding.begin_stockpile_raid("firm", ["archie"])["ok"])
+		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), 1, "a raid spends one block")
+		assert_eq(GameState.state["event"]["eventId"], Raiding.STOCKPILE_RAID_EVENT_ID)
+		assert_eq(GameState.state["event"]["context"], { "faction_id": "firm", "ally_ids": ["archie"] })
+
+		GameState.reset()
+		_set_player_intel("firm", Intel.level_at(Intel.STASH))
+		Raiding.begin_stockpile_raid("firm")
+		assert_eq(GameState.state["event"]["eventId"], Raiding.STOCKPILE_RAID_STASH_EVENT_ID, "stash intel offers taking everything")
+	)
+
+	run_case("stockpile_stealth_chance_falls_with_stockpile_guards", func():
+		GameState.reset()
+		FactionSim.set_stockpile_guards("firm", 0)
+		var unguarded := Raiding.stockpile_stealth_chance(1, "firm", 0.0)
+		FactionSim.set_stockpile_guards("firm", 3)
+		assert_true(Raiding.stockpile_stealth_chance(1, "firm", 0.0) < unguarded, "guards make the stockpile harder to slip into")
+	)
+
+	run_case("a_successful_stockpile_raid_takes_the_loot_share_of_every_holdings_line", func():
+		GameState.reset()
+		_stock_firm()
+		_set_player_intel("firm", Intel.level_at(Intel.STOCKPILE_LOCATION))
+		var time_before: int = GameState.state["player"]["orichalchum"].get("time", 0)
+
+		var stolen := Raiding.loot_stockpile("firm", false)
+
+		assert_eq(stolen, { "ore": { "time": 75, "physics": 5 }, "items": { "shield": 3 } }, "floor(0.75 × held) per line")
+		assert_eq([FactionSim.ore_held("firm", "time"), FactionSim.ore_held("firm", "physics"), FactionSim.item_held("firm", "shield")], [25, 2, 2])
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], time_before + 75)
+		assert_eq(int(GameState.state["player"]["inventory"]["shield"].get("2", 0)), 3, "items keep their tier, highest first")
+	)
+
+	run_case("take_everything_wipes_the_stores_only_with_stash_intel", func():
+		GameState.reset()
+		_stock_firm()
+		_set_player_intel("firm", Intel.level_at(Intel.STOCKPILE_SECURITY))
+		Raiding.loot_stockpile("firm", true)
+		assert_eq(FactionSim.ore_held("firm", "time"), 25, "without stash intel, take-all is the normal share")
+
+		GameState.reset()
+		_stock_firm()
+		_set_player_intel("firm", Intel.level_at(Intel.STASH))
+		var stolen := Raiding.loot_stockpile("firm", true)
+		assert_eq(stolen["ore"], { "time": 100, "physics": 7 })
+		assert_eq([FactionSim.ore_held("firm", "time"), FactionSim.ore_held("firm", "physics"), FactionSim.item_held("firm", "shield")], [0, 0, 0], "the stores are wiped")
+	)
+
+	run_case("a_stockpile_raid_hits_relation_starts_a_war_and_relocates_the_stockpile", func():
+		GameState.reset()
+		_stock_firm()
+		_set_player_intel("firm", Intel.level_at(Intel.STASH))
+		GameState.state["factions"]["firm"]["relation"] = -30
+		GameState.state["factionStances"]["player"]["firm"]["stance"] = FactionAI.HOSTILE
+		FactionSim.set_stockpile_guards("firm", 2)
+
+		Raiding.loot_stockpile("firm", false)
+
+		assert_eq(GameState.state["factions"]["firm"]["relation"], FactionAI.clamp_relation(-30 + int(GameData.STOCKPILE_RAID["relationHit"])), "a large relation hit")
+		assert_eq(GameState.state["factionWar"]["lastHostile"][FactionAI.war_key(Shares.PLAYER, "firm")], GameState.state["world"]["day"], "a hostile act on the war clock")
+		FactionAI.update_wars()
+		assert_true(FactionAI.at_war(Shares.PLAYER, "firm"), "a Hostile stance plus the raid is war")
+		assert_true(not Intel.knows(Shares.PLAYER, "firm", Intel.STOCKPILE_LOCATION), "the stockpile moved: the player lost its location")
+		assert_true(MapPins.raidable_stockpiles().is_empty(), "the pin is gone")
+		assert_eq(FactionSim.stockpile_guards("firm"), 2, "the guards move with the stores")
+	)
+
+	run_case("a_caught_stockpile_raid_fights_the_guards_with_the_faction_defend_kit", func():
+		GameState.reset()
+		_stock_firm()
+		_set_player_intel("firm", Intel.level_at(Intel.STOCKPILE_LOCATION))
+		FactionSim.set_stockpile_guards("firm", 2)
+
+		Events.apply_effects([{ "op": "start_stockpile_raid_combat", "faction_id": "firm" }])
+
+		var combat: Dictionary = GameState.state["combat"]
+		assert_eq([combat["context"], combat["enemies"].size(), combat["stockpileFactionId"]], [Combat.CONTEXT_EVENT_RAID, 2, "firm"])
+		assert_eq(combat["raiderKit"]["items"], { "shield": 2 }, "the defend kit, capped by holdings")
+		assert_eq(combat["locationKey"], GameState.state["factions"]["firm"]["stockpile"]["district"])
+	)
+
+	run_case("losing_a_stockpile_fight_bills_the_used_kit_and_still_costs_relation_and_the_location", func():
+		GameState.reset()
+		_stock_firm()
+		_set_player_intel("firm", Intel.level_at(Intel.STOCKPILE_LOCATION))
+		var relation_before: int = GameState.state["factions"]["firm"]["relation"]
+		Combat.start_stockpile_raid("firm", 2, 1)
+		GameState.state["combat"]["raiderKit"]["used"] = { "shield": 1 }
+		GameState.state["combat"]["outcome"] = "loss"
+
+		Combat.exit_combat()
+
+		var burns: Array = GameState.state["factions"]["firm"]["kitBurns"]
+		assert_eq([burns[-1]["kit"], burns[-1]["items"]], ["defend", { "shield": 1 }], "only the used defend kit is billed")
+		assert_eq(GameState.state["factions"]["firm"]["relation"], FactionAI.clamp_relation(relation_before + int(GameData.STOCKPILE_RAID["relationHit"])))
+		assert_true(not Intel.knows(Shares.PLAYER, "firm", Intel.STOCKPILE_LOCATION), "a failed raid still moves the stockpile")
+		assert_eq(FactionSim.ore_held("firm", "time"), 100, "nothing stolen")
+	)
+
+	run_case("loot_stockpile_op_reads_the_faction_from_the_event_context", func():
+		GameState.reset()
+		_stock_firm()
+		_set_player_intel("firm", Intel.level_at(Intel.STOCKPILE_LOCATION))
+		Raiding.begin_stockpile_raid("firm")
+		Events.apply_effects([{ "op": "loot_stockpile" }])
+		assert_eq(FactionSim.ore_held("firm", "time"), 25)
+	)
+
+	# ── Stockpile guard upkeep ──────────────────────────────────────────
+
+	run_case("stockpile_guards_are_billed_on_mondays_and_walk_when_unpaid", func():
+		GameState.reset()
+		GameState.state["world"]["sites"] = []
+		GameState.state["world"]["day"] = Calendar.monday_on_or_after(8)
+		FactionSim.set_stockpile_guards("firm", 3)
+		GameState.state["factions"]["firm"]["resources"] = 5000
+		var result := GuardUpkeep.pay_faction_monday_bills()
+		assert_eq(result["firm"], { "due": 1500, "paid": 1500, "walked": {} })
+		assert_eq(GameState.state["factions"]["firm"]["resources"], 3500)
+
+		GameState.state["world"]["day"] += 7
+		GameState.state["factions"]["firm"]["resources"] = 600
+		result = GuardUpkeep.pay_faction_monday_bills()
+		assert_eq(result["firm"]["walked"], { GuardUpkeep.STOCKPILE_PLACE_ID: 2 })
+		assert_eq([FactionSim.stockpile_guards("firm"), GameState.state["factions"]["firm"]["resources"]], [1, 100])
+	)
+
+	run_case("security_spend_rehires_stockpile_guards_up_to_the_target", func():
+		GameState.reset()
+		GameState.state["world"]["sites"] = []
+		GameState.state["world"]["day"] = Calendar.monday_on_or_after(8)
+		FactionSim.set_stockpile_guards("firm", 0)
+		GameState.state["factions"]["firm"]["resources"] = 100000
+		for i in range(FactionSim.stockpile_guard_target("firm") + 2):
+			Factions.apply_security_upgrades()
+		assert_eq(FactionSim.stockpile_guards("firm"), FactionSim.stockpile_guard_target("firm"), "rehired to the target, no further")
+	)
+
+	run_case("an_old_save_stockpile_without_guards_gets_the_target", func():
+		GameState.reset()
+		var save: Dictionary = GameState.deep_copy(GameState.state)
+		save["factions"]["firm"]["stockpile"].erase("guards")
+		SaveManager._migrate_faction_holdings(save)
+		assert_eq(save["factions"]["firm"]["stockpile"]["guards"], FactionSim.stockpile_guard_target("firm"))
 	)

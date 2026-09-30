@@ -42,6 +42,8 @@ const PIN_TAP_RADIUS := 16.0
 const HERE_RING_RADIUS := 26.0
 
 const CONTACT_PIN_HOME_NUDGE := Vector2(0, -34)
+# Offsets a stockpile raid pin off its district anchor, clear of shop and contact pins.
+const STOCKPILE_PIN_NUDGE := Vector2(30, 0)
 const DOTTED_RING_SEGMENTS := 12
 const DOTTED_RING_DASH_FRACTION := 0.5
 
@@ -691,6 +693,9 @@ func _rebuild_pins() -> void:
 		var shop_anchor: Variant = MapLayout.faction_first_presence_anchor(faction_id)
 		if shop_anchor != null:
 			_pins.append({ "kind": "faction_shop", "position": shop_anchor, "factionId": faction_id })
+	for stockpile in MapPins.raidable_stockpiles():
+		var stockpile_position: Vector2 = MapLayout.district_anchor(stockpile["district"]) + STOCKPILE_PIN_NUDGE
+		_pins.append({ "kind": "stockpile", "position": stockpile_position, "factionId": stockpile["factionId"] })
 
 	_here_position = MapLayout.district_anchor(GameState.state["world"]["currentDistrict"])
 
@@ -712,6 +717,8 @@ func _draw_pins_layer(target: CanvasItem) -> void:
 				_draw_shop_pin(target, pin["position"], MapPalette.colour("guarded"))
 			"faction_shop":
 				_draw_shop_pin(target, pin["position"], MapPalette.faction_colour(pin["factionId"]))
+			"stockpile":
+				_draw_stockpile_pin(target, pin["position"], MapPalette.faction_colour(pin["factionId"]))
 
 
 func _draw_home_pin(target: CanvasItem, pos: Vector2) -> void:
@@ -737,6 +744,12 @@ func _draw_shop_pin(target: Object, pos: Vector2, colour: Color) -> void:
 	var head := Icons.draw_pin(target, pos, colour)
 	target.draw_circle(head, PIN_HEAD_RADIUS * 0.45, MapPalette.colour("stopFill"))
 	Icons.draw_bag(target, head, colour, 0.5)
+
+
+func _draw_stockpile_pin(target: CanvasItem, pos: Vector2, colour: Color) -> void:
+	var head := Icons.draw_pin(target, pos, colour)
+	target.draw_circle(head, PIN_HEAD_RADIUS * 0.45, MapPalette.colour("stopFill"))
+	Icons.draw_attack(target, head, colour, 0.5)
 
 
 
@@ -917,6 +930,8 @@ func _activate_pin(pin: Dictionary) -> void:
 			Modal.open("sell_menu", { "factionId": "guild", "contactId": "" })
 		"faction_shop":
 			Modal.open("sell_menu", { "factionId": pin["factionId"], "contactId": "" })
+		"stockpile":
+			Raiding.begin_stockpile_raid(pin["factionId"])
 
 
 

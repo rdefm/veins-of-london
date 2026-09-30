@@ -658,6 +658,7 @@ static func home_districts(faction_id: String) -> Array:
 # Where a faction keeps its holdings (spec §Stockpile location): a home
 # district plus a factions.json `stockpilePlaces` name, both drawn from the
 # seeded Rng once per save. revealedTo lists observer ids who know the spot.
+# A fresh stockpile starts at its full guard target (stockpile_guard_target).
 static func pick_stockpile(faction_id: String) -> Dictionary:
 	var homes := home_districts(faction_id)
 	var places: Array = GameData.FACTIONS[faction_id].get("stockpilePlaces", [])
@@ -665,4 +666,18 @@ static func pick_stockpile(faction_id: String) -> Dictionary:
 		"district": Rng.rand_from(homes) if not homes.is_empty() else "",
 		"place": Rng.rand_from(places) if not places.is_empty() else "",
 		"revealedTo": [],
+		"guards": stockpile_guard_target(faction_id),
 	}
+
+
+# factions.json `stockpileGuards`: the guards a faction keeps on its stockpile.
+static func stockpile_guard_target(faction_id: String) -> int:
+	return int(GameData.FACTIONS[faction_id].get("stockpileGuards", 0))
+
+
+static func stockpile_guards(faction_id: String) -> int:
+	return int(GameState.state["factions"][faction_id]["stockpile"].get("guards", 0))
+
+
+static func set_stockpile_guards(faction_id: String, count: int) -> void:
+	GameState.state["factions"][faction_id]["stockpile"]["guards"] = maxi(0, count)

@@ -314,6 +314,7 @@
     "dailyDecay": 1,
     "raid": { "oddsBonus": 0.15, "overestimatePenalty": 0.15 }
   },
+  "stockpileRaid": { "lootShare": 0.75, "stashLootShare": 1.0, "relationHit": -60, "raidResistPerGuard": 20, "valueTier": 2, "guardTemplate": "veinGuard" },
   "networkMenu": {
     "relationPriceMod": 0.002,
     "horizonDays": 7,

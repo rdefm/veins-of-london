@@ -173,9 +173,10 @@ static func apply_passive_income() -> void:
 # A faction with spare resources (£, after today's trading and Monday wages) quietly hardens one held vein
 # each tick (spec §Faction guard upkeep, Hiring). First the tier ladder up to "guarded" (lock and ward
 # rune at table price; "guarded" costs the guard hire advance), highest vein_value()
-# vein first. Only once no vein below "guarded" is eligible and affordable does it hire an extra guard,
-# highest-value vein first, up to maxExtraGuardsPerVein. Any guard hire also needs the wage reserve
-# (GuardUpkeep.faction_can_hire). Frozen veins are skipped; nothing eligible is a no-op.
+# vein first. Only once no vein below "guarded" is eligible and affordable does it rehire a stockpile
+# guard up to its stockpileGuards target, then hire an extra vein guard, highest-value vein first, up to
+# maxExtraGuardsPerVein. Any guard hire also needs the wage reserve (GuardUpkeep.faction_can_hire).
+# Frozen veins are skipped; nothing eligible is a no-op.
 static func apply_security_upgrades() -> void:
 	for faction_id in GameState.state["factions"].keys():
 		var veins: Array = []
@@ -183,8 +184,19 @@ static func apply_security_upgrades() -> void:
 			var vein: Variant = site["factionVein"]
 			if vein != null and vein["factionId"] == faction_id and not NetworkHandler.is_security_frozen(site["id"]):
 				veins.append(vein)
-		if not _apply_tier_upgrade(faction_id, veins):
+		if not _apply_tier_upgrade(faction_id, veins) and not _hire_stockpile_guard(faction_id):
 			_hire_extra_guard(faction_id, veins)
+
+
+# One stockpile guard back toward the faction's target, if the wage reserve allows; true if hired.
+static func _hire_stockpile_guard(faction_id: String) -> bool:
+	var guards := FactionSim.stockpile_guards(faction_id)
+	if guards >= FactionSim.stockpile_guard_target(faction_id) or not GuardUpkeep.faction_can_hire(faction_id):
+		return false
+	GameState.state["factions"][faction_id]["resources"] -= GuardUpkeep.hire_advance()
+	FactionAI.note_spend(faction_id, float(GuardUpkeep.hire_advance()))
+	FactionSim.set_stockpile_guards(faction_id, guards + 1)
+	return true
 
 
 # The highest-value vein below "guarded" whose next tier the faction can pay for; true if one was upgraded.

@@ -7,6 +7,8 @@ extends RefCounted
 
 # Place id for HQ guards in expenses and history; veins use their vein id.
 const HOME_PLACE_ID := "home"
+# Place id for a faction's stockpile guards in its Monday bill's walked list.
+const STOCKPILE_PLACE_ID := "stockpile"
 const HIRE_BANK_LABEL := "Guard hire"
 const WAGES_BANK_LABEL := "Guard wages"
 const RESERVE_BANK_LABEL := "Guard wage reserve"
@@ -403,9 +405,10 @@ static func faction_max_extra_guards() -> int:
 	return int(GameData.GUARD_UPKEEP["faction"]["maxExtraGuardsPerVein"])
 
 
-# Guards on every vein faction_id holds (tier guards plus extras).
+# Guards on every vein faction_id holds (tier guards plus extras) and on its
+# stockpile.
 static func faction_guard_count(faction_id: String) -> int:
-	var count := 0
+	var count := FactionSim.stockpile_guards(faction_id)
 	for site in GameState.state["world"]["sites"]:
 		var vein: Variant = site["factionVein"]
 		if vein != null and vein["factionId"] == faction_id:
@@ -424,34 +427,42 @@ static func faction_can_hire(faction_id: String) -> bool:
 # ── faction Monday bill (spec §Faction guard upkeep) ──
 
 # R§3.1 ⑤h2: on the rollover into a Monday, each faction pays weeklyWage per
-# guard on its veins from resources, as many guards as it can cover. The
-# rest walk now in drop order (drop_vein_guards()); resources never go
-# negative. A vein claimed today isn't billed: its guards start on the next
-# Monday. Returns { faction id: { due, paid, walked } } for billed factions.
+# guard on its veins and its stockpile from resources, as many guards as it
+# can cover. The rest walk now: vein guards in drop order
+# (drop_vein_guards()), then stockpile guards (walked key STOCKPILE_PLACE_ID);
+# resources never go negative. A vein claimed today isn't billed: its guards
+# start on the next Monday. Returns { faction id: { due, paid, walked } }
+# for billed factions.
 static func pay_faction_monday_bills() -> Dictionary:
 	var results := {}
 	var day: int = GameState.state["world"]["day"]
 	if not Calendar.is_monday(day):
 		return results
 	var veins_by_faction := {}
+	for faction_id in GameState.state["factions"]:
+		veins_by_faction[faction_id] = []
 	for site in GameState.state["world"]["sites"]:
 		var vein: Variant = site["factionVein"]
 		if vein == null or int(vein.get("claimedOnDay", -1)) == day:
 			continue
-		if Cultivating.vein_guard_count(vein) > 0:
-			if not veins_by_faction.has(vein["factionId"]):
-				veins_by_faction[vein["factionId"]] = []
+		if Cultivating.vein_guard_count(vein) > 0 and veins_by_faction.has(vein["factionId"]):
 			veins_by_faction[vein["factionId"]].append(vein)
 	for faction_id in veins_by_faction:
 		var faction_state: Dictionary = GameState.state["factions"][faction_id]
 		var at_risk := {}
-		var guards := 0
+		var stockpile_guards := FactionSim.stockpile_guards(faction_id)
+		var guards := stockpile_guards
 		for vein in veins_by_faction[faction_id]:
 			at_risk[vein["id"]] = Cultivating.vein_guard_count(vein)
 			guards += int(at_risk[vein["id"]])
+		if guards == 0:
+			continue
 		var kept := clampi(floori(float(faction_state["resources"]) / float(weekly_wage())), 0, guards)
 		var walked := {}
-		drop_vein_guards(veins_by_faction[faction_id], at_risk, guards - kept, walked)
+		var left := drop_vein_guards(veins_by_faction[faction_id], at_risk, guards - kept, walked)
+		if left > 0:
+			FactionSim.set_stockpile_guards(faction_id, stockpile_guards - left)
+			walked[STOCKPILE_PLACE_ID] = left
 		faction_state["resources"] -= weekly_cost(kept)
 		results[faction_id] = { "due": weekly_cost(guards), "paid": weekly_cost(kept), "walked": walked }
 	return results

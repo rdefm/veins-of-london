@@ -1,0 +1,55 @@
+{
+  "id": "stockpile_raid_stash",
+  "cards": [
+    { "type": "tension", "label": "Their stores", "speaker": null, "text": "It took money to learn where they keep it, and more to learn where they keep the rest. The door looks like every other door on the street, which is the point. Someone is paid to sit behind it." },
+    {
+      "type": "choice", "label": null, "speaker": null, "text": "In and out before anyone counts.",
+      "choices": [
+        {
+          "label": "Go slow",
+          "effects": [
+            {
+              "op": "stockpile_stealth_check", "consumable_bonus": 0.05,
+              "on_success": [{ "op": "notify", "text": "No alarms. You're in clean." }],
+              "on_caught": [
+                { "op": "notify", "text": "The one on the door wasn't asleep. You've been seen." },
+                { "op": "start_stockpile_raid_combat" }
+              ]
+            }
+          ],
+          "result_text": "You take it slow — weight off every floorboard, timing the dark between passes."
+        },
+        {
+          "label": "Go fast",
+          "effects": [
+            {
+              "op": "stockpile_stealth_check", "consumable_bonus": -0.05,
+              "on_success": [{ "op": "notify", "text": "No alarms. You're in clean." }],
+              "on_caught": [
+                { "op": "notify", "text": "The one on the door wasn't asleep. You've been seen." },
+                { "op": "start_stockpile_raid_combat" }
+              ]
+            }
+          ],
+          "result_text": "You go in fast. Hesitation is what gets people caught, or so you tell yourself."
+        }
+      ]
+    },
+    {
+      "type": "choice", "label": null, "speaker": null, "text": "Crates, jars, a ledger nobody will be reading tonight. And behind the false wall you paid to hear about, the rest of it.",
+      "choices": [
+        {
+          "label": "Take what you can carry",
+          "effects": [{ "op": "loot_stockpile" }],
+          "result_text": "You fill everything you brought and leave the rest stacked. They'll move what's left by morning. They'll also know who to thank."
+        },
+        {
+          "label": "Take everything",
+          "effects": [{ "op": "loot_stockpile", "all": true }],
+          "result_text": "The shelves, the false wall, the tin under the floorboard. You leave them the ledger."
+        }
+      ]
+    }
+  ],
+  "on_complete": [{ "op": "set_screen", "screen": "map" }]
+}

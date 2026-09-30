@@ -532,6 +532,7 @@ func run() -> void:
 		GameState.state["world"]["day"] = Calendar.monday_on_or_after(8)
 		var collective: Dictionary = GameState.state["factions"]["collective"]
 		collective["holdings"] = FactionSim.new_holdings()  # no London sales
+		FactionSim.set_stockpile_guards("collective", 0)  # the vein guard is the only one billed
 		var trading: Dictionary = GameData.FACTIONS["collective"]["trading"]
 		var saved_buy_mult: float = trading["maxBuyMult"]
 		trading["maxBuyMult"] = 0.0
