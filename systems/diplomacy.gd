@@ -6,7 +6,8 @@ extends RefCounted
 # constants.json factionFavours). A deliver or sellBelow favour, once
 # accepted, is a one-off Sales contract with the faction (Offers.
 # sign_favour_contract); a guardVein or sitOut favour is watched here.
-# Static funcs only.
+# Gifts (R§3.10 "Gifts"): cash or a consumable to a key member raises their
+# and their faction's relation. Static funcs only.
 
 const FAVOUR_KIND := "faction_favour"
 const DELIVER := "deliver"
@@ -245,3 +246,123 @@ static func describe(entry: Dictionary) -> String:
 
 static func _good_name(kind: String, good_type: String) -> String:
 	return GameData.ORE_TYPES[good_type]["name"] if kind == "ore" else GameData.RECIPES[good_type]["name"]
+
+
+# ── Gifts (R§3.10 "Gifts") ───────────────────────────────────────────────
+
+const GIFT_CASH := "cash"
+const GIFT_ITEM := "item"
+const GIFT_LIKED := "liked"
+
+
+static func _gcfg() -> Dictionary:
+	return GameData.FACTION_GIFTS
+
+
+# state.gifts: { contactId: { lastDay, count } }.
+static func _gifts() -> Dictionary:
+	return GameState.state["gifts"]
+
+
+# A key member takes gifts once the player knows them (a "quest" member
+# only after their questline unlocks them) and a week after their last one.
+static func can_gift(contact_id: String) -> Dictionary:
+	var faction_id := KeyMembers.faction_of(contact_id)
+	var contact: Dictionary = GameState.state["contacts"].get(contact_id, {})
+	if faction_id == "" or contact.is_empty():
+		return { "ok": false, "reason": "Nobody to give it to." }
+	if not contact["unlocked"] and KeyMembers.member(contact_id).get("unlock", KeyMembers.UNLOCK_FIRST_MESSAGE) != KeyMembers.UNLOCK_FIRST_MESSAGE:
+		return { "ok": false, "reason": "You don't know them yet." }
+	if int(GameState.state["world"]["day"]) < next_gift_day(contact_id):
+		return { "ok": false, "reason": "Too soon. Next gift from %s." % Calendar.format_day(next_gift_day(contact_id)) }
+	return { "ok": true }
+
+
+# The first day contact_id takes another gift; 0 if never gifted.
+static func next_gift_day(contact_id: String) -> int:
+	var record: Dictionary = _gifts().get(contact_id, {})
+	if record.is_empty():
+		return 0
+	return int(record["lastDay"]) + int(_gcfg()["cooldownDays"])
+
+
+# Recent gifts still counting against returns: one drops off per
+# diminishRecoveryDays since the last gift.
+static func recent_gifts(contact_id: String) -> int:
+	var record: Dictionary = _gifts().get(contact_id, {})
+	if record.is_empty():
+		return 0
+	var elapsed := int(GameState.state["world"]["day"]) - int(record["lastDay"])
+	return maxi(0, int(record["count"]) - floori(float(elapsed) / float(_gcfg()["diminishRecoveryDays"])))
+
+
+# Relation points for a gift worth `value`: value ÷ valuePerPoint, ×
+# preferredMult for a liked item, × diminishFactor per recent gift,
+# floored, capped at maxGain.
+static func gift_gain(contact_id: String, value: int, preferred: bool) -> int:
+	var cfg := _gcfg()
+	var points := float(value) / float(cfg["valuePerPoint"])
+	if preferred:
+		points *= float(cfg["preferredMult"])
+	points *= pow(float(cfg["diminishFactor"]), recent_gifts(contact_id))
+	return mini(int(cfg["maxGain"]), floori(points))
+
+
+static func is_preferred(contact_id: String, recipe_key: String) -> bool:
+	return KeyMembers.member(contact_id).get("giftPrefs", []).has(recipe_key)
+
+
+# Today's London value of one unit.
+static func item_value(recipe_key: String) -> int:
+	return Market.line_total("consumable", Market.quote("consumable", recipe_key), 1)
+
+
+# Consumables the player holds, in data order.
+static func giftable_items() -> Array[String]:
+	var keys: Array[String] = []
+	for recipe_key in GameData.CONSUMABLE_PRICES:
+		if Crafting.inventory_qty(recipe_key) > 0:
+			keys.append(recipe_key)
+	return keys
+
+
+static func gift_cash(contact_id: String, amount: int) -> Dictionary:
+	var check := can_gift(contact_id)
+	if not check["ok"]:
+		return check
+	if amount <= 0 or int(GameState.state["player"]["cash"]) < amount:
+		return { "ok": false, "reason": "Not enough cash." }
+	var gain := gift_gain(contact_id, amount, false)
+	if gain < 1:
+		return { "ok": false, "reason": "Too little to notice." }
+	GameState.state["player"]["cash"] -= amount
+	Bank.record(-amount, "Gift to %s" % KeyMembers.member(contact_id)["name"])
+	return _land_gift(contact_id, gain, GIFT_CASH)
+
+
+# One unit of recipe_key, lowest tier first.
+static func gift_item(contact_id: String, recipe_key: String) -> Dictionary:
+	var check := can_gift(contact_id)
+	if not check["ok"]:
+		return check
+	if Crafting.inventory_qty(recipe_key) < 1:
+		return { "ok": false, "reason": "You don't have one." }
+	var preferred := is_preferred(contact_id, recipe_key)
+	var gain := gift_gain(contact_id, item_value(recipe_key), preferred)
+	if gain < 1:
+		return { "ok": false, "reason": "Too little to notice." }
+	Crafting.inventory_remove(recipe_key, 1)
+	return _land_gift(contact_id, gain, GIFT_LIKED if preferred else GIFT_ITEM)
+
+
+# +gain to the member's and their faction's relation, stamps the cooldown
+# and counter, and the member replies.
+static func _land_gift(contact_id: String, gain: int, reaction: String) -> Dictionary:
+	var count := recent_gifts(contact_id) + 1
+	_gifts()[contact_id] = { "lastDay": int(GameState.state["world"]["day"]), "count": count }
+	Factions.adjust_player_relation(KeyMembers.faction_of(contact_id), gain)
+	Contacts.award_relation(contact_id, gain)
+	KeyMembers.introduce(contact_id)
+	Messages.append(contact_id, "them", _gcfg()["lines"][contact_id][reaction])
+	EventBus.state_changed.emit()
+	return { "ok": true, "gain": gain }

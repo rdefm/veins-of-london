@@ -236,6 +236,9 @@ func new_game_state() -> Dictionary:
 		"intelTimers": Intel.new_timers(),
 		# Accepted favours and last-issued day per faction (Diplomacy.new_state()).
 		"favours": Diplomacy.new_state(),
+		# Last gift day and recent-gift count per key member contact id
+		# ({ contactId: { lastDay, count } }, R§3.10 "Gifts").
+		"gifts": {},
 
 		"barometer": {
 			"economic": "stable", "social": "stable", "political": "stable",

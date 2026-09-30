@@ -222,3 +222,90 @@ func run() -> void:
 		assert_true(SaveManager.import_string(SaveManager.export_string())["ok"])
 		assert_eq(GameState.state["favours"], Diplomacy.new_state())
 	)
+
+	run_case("a_cash_gift_raises_the_members_and_factions_relation_and_takes_the_cash", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 1000
+		var faction_before := _relation("firm")
+		var member_before := int(GameState.state["contacts"]["lusk"]["relation"])
+		var expected := Diplomacy.gift_gain("lusk", 250, false)
+		var result := Diplomacy.gift_cash("lusk", 250)
+		assert_true(result["ok"])
+		assert_eq(int(result["gain"]), expected)
+		assert_true(expected > 0)
+		assert_eq(_relation("firm"), faction_before + expected)
+		assert_eq(int(GameState.state["contacts"]["lusk"]["relation"]), member_before + expected)
+		assert_eq(int(GameState.state["player"]["cash"]), 750)
+		assert_eq(int(GameState.state["bankLog"][-1]["amount"]), -250)
+		assert_true(GameState.state["contacts"]["lusk"]["unlocked"], "a first-message member is introduced")
+		assert_eq(Messages.latest_preview("lusk"), GameData.FACTION_GIFTS["lines"]["lusk"]["cash"])
+	)
+
+	run_case("a_repeat_gift_within_a_week_is_refused", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 1000
+		GameState.state["world"]["day"] = 10
+		assert_true(Diplomacy.gift_cash("lusk", 100)["ok"])
+		GameState.state["world"]["day"] = 10 + int(GameData.FACTION_GIFTS["cooldownDays"]) - 1
+		var relation := _relation("firm")
+		assert_true(not Diplomacy.gift_cash("lusk", 100)["ok"])
+		assert_eq(int(GameState.state["player"]["cash"]), 900, "no cash taken")
+		assert_eq(_relation("firm"), relation)
+		assert_true(Diplomacy.gift_cash("ingram", 100)["ok"], "the cooldown is per member")
+		GameState.state["world"]["day"] = 10 + int(GameData.FACTION_GIFTS["cooldownDays"])
+		assert_true(Diplomacy.gift_cash("lusk", 100)["ok"])
+	)
+
+	run_case("repeated_gifts_yield_less_until_they_recover", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 5000
+		var cooldown := int(GameData.FACTION_GIFTS["cooldownDays"])
+		GameState.state["world"]["day"] = 1
+		var first := int(Diplomacy.gift_cash("lusk", 400)["gain"])
+		GameState.state["world"]["day"] = 1 + cooldown
+		var second := int(Diplomacy.gift_cash("lusk", 400)["gain"])
+		assert_true(second < first, "%d < %d" % [second, first])
+		assert_eq(Diplomacy.recent_gifts("lusk"), 2)
+		GameState.state["world"]["day"] = 1 + cooldown + int(GameData.FACTION_GIFTS["diminishRecoveryDays"])
+		assert_eq(Diplomacy.recent_gifts("lusk"), 1, "one recent gift drops off")
+	)
+
+	run_case("a_preferred_item_beats_a_plain_one_of_equal_value", func():
+		GameState.reset()
+		assert_true(Diplomacy.gift_gain("lusk", 180, true) > Diplomacy.gift_gain("lusk", 180, false))
+		Crafting.inventory_add("prophetsBreath", 1, 2)
+		var expected := Diplomacy.gift_gain("lusk", Diplomacy.item_value("prophetsBreath"), true)
+		var result := Diplomacy.gift_item("lusk", "prophetsBreath")
+		assert_true(result["ok"])
+		assert_eq(int(result["gain"]), expected)
+		assert_eq(Crafting.inventory_qty("prophetsBreath"), 1, "one unit given")
+		assert_eq(Messages.latest_preview("lusk"), GameData.FACTION_GIFTS["lines"]["lusk"]["liked"])
+		Crafting.inventory_add("shield", 1, 1)
+		assert_true(Diplomacy.gift_item("ingram", "shield")["ok"])
+		assert_eq(Crafting.inventory_qty("shield"), 0)
+		assert_eq(Messages.latest_preview("ingram"), GameData.FACTION_GIFTS["lines"]["ingram"]["item"])
+		assert_true(not Diplomacy.gift_item("fairweather", "shield")["ok"], "none left")
+	)
+
+	run_case("a_quest_locked_member_takes_no_gifts", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 1000
+		assert_true(not Diplomacy.gift_cash("nadia", 100)["ok"])
+		assert_eq(int(GameState.state["player"]["cash"]), 1000)
+		GameState.state["contacts"]["nadia"]["unlocked"] = true
+		assert_true(Diplomacy.gift_cash("nadia", 100)["ok"])
+	)
+
+	run_case("gift_cooldowns_survive_save_load_and_an_old_save_backfills_them", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 1000
+		GameState.state["world"]["day"] = 5
+		Diplomacy.gift_cash("lusk", 100)
+		assert_true(SaveManager.import_string(SaveManager.export_string())["ok"])
+		assert_true(GameState.state["gifts"]["lusk"]["lastDay"] is int, "loaded as int")
+		assert_true(GameState.state["gifts"]["lusk"]["count"] is int, "loaded as int")
+		assert_eq(Diplomacy.next_gift_day("lusk"), 5 + int(GameData.FACTION_GIFTS["cooldownDays"]))
+		GameState.state.erase("gifts")
+		assert_true(SaveManager.import_string(SaveManager.export_string())["ok"])
+		assert_eq(GameState.state["gifts"], {})
+	)

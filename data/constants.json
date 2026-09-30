@@ -337,6 +337,24 @@
       "conclave": { "done": "\"Thank you. We don't say it often, so it tends to be remembered.\"", "failed": "\"A pity. We'll plan around you next time.\"" }
     }
   },
+  "factionGifts": {
+    "cooldownDays": 7,
+    "valuePerPoint": 40,
+    "preferredMult": 2.0,
+    "diminishFactor": 0.6,
+    "diminishRecoveryDays": 21,
+    "maxGain": 12,
+    "cashOptions": [100, 250, 500],
+    "lines": {
+      "nadia": { "cash": "\"Money's always welcome here. Don't make a habit of it or I'll start owing you.\"", "item": "\"That's kind. It'll go in the cupboard with the others.\"", "liked": "\"Oh, now you've been paying attention. Thank you.\"" },
+      "des": { "cash": "\"Cash. Right. I'll put it towards boots.\"", "item": "\"Ta. Not sure what I'll do with it, but ta.\"", "liked": "\"That's the stuff. You'd make a decent prospector, knowing that.\"" },
+      "hakim": { "cash": "\"I'll put it to the shop. Thank you, friend.\"", "item": "\"A gift is a gift. I'll find it a use.\"", "liked": "\"You remembered. That's rarer than calc.\"" },
+      "lusk": { "cash": "\"Received. The Firm appreciates contributions made without being asked.\"", "item": "\"I'll see it gets used.\"", "liked": "\"Good choice. You've been asking around.\"" },
+      "ingram": { "cash": "\"The Court will record this as a donation. It declines to record anything else.\"", "item": "\"Received and logged. Adequate.\"", "liked": "\"Assayed, and it passes. You have some taste after all.\"" },
+      "handler": { "cash": "\"Noted.\"", "item": "\"Got it.\"", "liked": "\"Useful. We'll remember who sent it.\"" },
+      "fairweather": { "cash": "\"How thoughtful. We'll find somewhere discreet to put it.\"", "item": "\"Thank you. It will be kept.\"", "liked": "\"You've done some reading. The Conclave does appreciate that.\"" }
+    }
+  },
   "stockpileRaid": { "lootShare": 0.75, "stashLootShare": 1.0, "relationHit": -60, "headlineValue": 2000, "raidResistPerGuard": 20, "valueTier": 2, "guardTemplate": "veinGuard" },
   "networkMenu": {
     "relationPriceMod": 0.002,

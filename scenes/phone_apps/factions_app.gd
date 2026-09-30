@@ -1,8 +1,8 @@
 # Factions: a London overview table (player, factions, Independents × ore
 # type, ore/crafting toggle) then one card per faction with its economic
 # identity, its ore- and crafting-share bars (spec §UI reads), your stance
-# with it, its pressure label, a Negotiate entry while at war with you,
-# its favour request or the favour you owe it (R§3.10 "Favours"), your
+# with it, its pressure label, a Negotiate entry while at war with you, a
+# Gift entry (R§3.10 "Gifts"), its favour request or the favour you owe it (R§3.10 "Favours"), your
 # intel on it, and its activity log, newest first. Holdings, vein
 # security and the stockpile show only past your intel level on that
 # faction (R§3.1 "Intel"). The toggle is view state.
@@ -86,6 +86,7 @@ func _build_economy(faction_id: String) -> Control:
 	elif FactionAI.at_war(Shares.PLAYER, faction_id):
 		var check := FactionAI.can_open_talks(faction_id)
 		box.add_child(UI.action_button("Negotiate peace", func(): ContactCards.open_talks(faction_id), not check["ok"], check.get("reason", "")))
+	box.add_child(UI.button("Gift →", func(): Modal.open("gift", { "factionId": faction_id })))
 	box.add_child(_build_favour(faction_id))
 	box.add_child(_build_intel(faction_id))
 	box.add_child(_build_activity(faction_id))

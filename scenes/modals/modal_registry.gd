@@ -34,4 +34,5 @@ static var REGISTRY: Dictionary = {
 	"lab_bench_confirm": LabBenchConfirmModal,
 	"contract_cancel": ContractCancelModal,
 	"negotiation": NegotiationModal,
+	"gift": GiftModal,
 }

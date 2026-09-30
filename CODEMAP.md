@@ -43,7 +43,7 @@ Data file per system: see `data/*.json` below.
 | debug_start.gd | Maximal-unlock debug state; `apply(model)` keeps a picked `player.model` through its reset |
 | debug_tools.gd | Debug phone-app state adjusters; `fire_event()` preps any event (state-path veins/sites, addressed contacts, raid/reveal site context) then starts it |
 | dial.gd | Dial mechanic (Movements, charge economy) |
-| diplomacy.gd | Diplomacy (R§3.10 "Favours"): faction favour requests as key-member pending messages; accept (goods favours sign a one-off contract via Offers), decline, guard/sit-out watches, keep/fail relation effects and enemy intel |
+| diplomacy.gd | Diplomacy (R§3.10 "Favours", "Gifts"): faction favour requests as key-member pending messages; accept (goods favours sign a one-off contract via Offers), decline, guard/sit-out watches, keep/fail effects; cash/item gifts to key members (cooldown, diminishing returns, prefs) |
 | district_bubble.gd | District tap-bubble decision |
 | district_deck.gd | Weighted district event deck picker |
 | districts.gd | Derived district info for Map tab |
@@ -206,6 +206,7 @@ overlays.
 | lab_bench_probe_result_modal.gd | Probe outcome card |
 | lab_bench_confirm_modal.gd | Gear-tap confirm: probe, craft ×N (batch slider, max = affordable) or inert warning, by cell state |
 | contract_cancel_modal.gd | BizBrief contract cancel confirm (Keep / Confirm → `Contracts.cancel`) |
+| gift_modal.gd | Gift sheet for one faction: key members with relation, likes and cooldown; pick a member, give a cash option or one held consumable via `Diplomacy`; a landed gift opens the member's thread |
 | negotiation_modal.gd | Peace talks sheet: the faction's standing terms + Accept, the player's draft (truce days, cash/weekly each way, vein toggles), Propose / Walk away (not when binding); all via FactionAI |
 
 ## scenes/phone_apps/*.gd — phone app views, one script per app
@@ -218,7 +219,7 @@ overlays.
 | bizbrief_app.gd | BizBrief tabs: Brief (bank, float, payday, wage prompt, operations, attention, moves against you, war, shares); Manage (offers + poach Match, contracts, buy-calc, cancel; production targets/log, procurement); Staff once `bizStaffTabOpen` (role, skills, pay); Stats while pot active (charts, ore toggle, expenses, guard legend); hosts short_pay_view.gd, guard_costs_view.gd |
 | messages_app.gd | Conversation inbox (fixed-height rows: bold name, one-line `…` preview, unread pill, per-contact Clear) + single-thread staged bubble reveal/action bar (incl. Owen's text reply choices); thread opens scrolled to the newest message |
 | todo_app.gd | ToDo app: collapsible questline sections from Todo, all_of checks as indented sub-rows; session-only expand/collapse overrides in a static var |
-| factions_app.gd | London share overview table (ore/crafting toggle; player, factions, Independents × ore type) and faction cards with archetype, ores, crafts, share bars, your stance, the pressure label, Negotiate peace / Peace talks entry while at war, the favour asked or owed (`Diplomacy`), your intel level plus what it reveals (`Intel`), and the activity log. |
+| factions_app.gd | London share overview table (ore/crafting toggle; player, factions, Independents × ore type) and faction cards with archetype, ores, crafts, share bars, your stance, the pressure label, Negotiate peace / Peace talks entry while at war, a Gift entry (gift sheet), the favour asked or owed (`Diplomacy`), your intel level plus what it reveals (`Intel`), and the activity log. |
 | ticker_app.gd | Ticker: News tab (barometer headlines, faction-headline wires, axis detail with push/pull, influence actions) and Stock Market tab (prices ▲/▼, demand modifiers, per-good chart with annotations and demand drivers) |
 | profile_app.gd | Stats, skills, equipment |
 | dialer_app.gd | Phone recent-calls placeholder; no telephony state/actions |
@@ -241,13 +242,13 @@ overlays.
 | combat_prototype.json | combat_prototype.gd |
 | combat_visuals.json | combat_stage.gd (locationBackdrops, backdrops, pose sheets, stage.spriteScale); GameData.gd (territorialVariant pose spec); combat_director.gd (pacing.turnPause); turn_order_strip.gd (cardFrames) |
 | constants.json | calendar.gd (calendar), time_system.gd, jobs.gd, GameState.gd, contacts.gd (roster, roleFlags, skillCaps), business.gd (weekly wages), rooms.gd (productionLogDays), business_stats.gd (businessStatsDays), shares.gd (sharesDays, sharesWindowDays), GUARD_UPKEEP (guardUpkeep), guard_kit.gd (GUARD_KIT) |
-| constants.json (faction politics) | factions.gd (factionRivalry), faction_ai.gd (factionStances, factionPressure, factionEscalation, factionWar, factionConclave), intel.gd (intel), raiding.gd (stockpileRaid), network_handler.gd (networkMenu), diplomacy.gd (factionFavours), barometer.gd (factionEscalation.headlineCap) |
+| constants.json (faction politics) | factions.gd (factionRivalry), faction_ai.gd (factionStances, factionPressure, factionEscalation, factionWar, factionConclave), intel.gd (intel), raiding.gd (stockpileRaid), network_handler.gd (networkMenu), diplomacy.gd (factionFavours, factionGifts), barometer.gd (factionEscalation.headlineCap) |
 | daily_cycle.json | time_transition.gd (circle layout, sky clips, colours, timing) |
 | dial.json | dial.gd |
 | districts.json | widely read (sites, economy, factions, raiding) |
 | enemies.json | combat.gd |
 | faction_trade.json | economy.gd |
-| factions.json | factions.gd, sites.gd, raiding.gd, debug_start.gd, faction_sim.gd (`startingHoldings`, `stockpilePlaces`, `stockpileGuards`, `cultivateSkill`, `fieldwork`, `craftSkill`, `craftTargets`, `raidKits`, `consumes`, `trading`, `industryIncome`), key_members.gd (`keyMembers`, `speaker`), diplomacy.gd (`sampleFavours`), faction_ai.gd (`aggressionPersonality`, `weariness`) |
+| factions.json | factions.gd, sites.gd, raiding.gd, debug_start.gd, faction_sim.gd (`startingHoldings`, `stockpilePlaces`, `stockpileGuards`, `cultivateSkill`, `fieldwork`, `craftSkill`, `craftTargets`, `raidKits`, `consumes`, `trading`, `industryIncome`), key_members.gd (`keyMembers`, `speaker`), diplomacy.gd (`sampleFavours`, `giftPrefs`), faction_ai.gd (`aggressionPersonality`, `weariness`) |
 | home.json | home.gd, approaches.gd, contacts.gd, property_app.gd (tier `image` listing photos) |
 | floorplans.json | GameData.gd + floorplan_view.gd (per-tier plan asset, size, slot rects) |
 | hq_visuals.json | hq_diorama.gd, hq*.gd screens |

@@ -911,6 +911,9 @@ func _restore_int_types(state: Dictionary) -> void:
 			_int_key(entry, key)
 		for key in ["qty", "days"]:
 			_int_key(entry.get("params", {}), key)
+	for entry in state.get("gifts", {}).values():
+		for key in ["lastDay", "count"]:
+			_int_key(entry, key)
 
 	for group in state.get("factionStances", {}).values():
 		for entry in group.values():

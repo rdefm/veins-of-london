@@ -229,6 +229,10 @@ var NETWORK_MENU: Dictionary = {}
 # lines, R§3.10 "Favours".
 var FACTION_FAVOURS: Dictionary = {}
 
+# Gift cooldown, value scale, preferred multiplier, diminishing returns,
+# cash options and key-member reaction lines, R§3.10 "Gifts".
+var FACTION_GIFTS: Dictionary = {}
+
 # Business pot payday cadence (days) and weekly wage per waged staff
 # contact id, R§3.10 "Business pot and payday".
 var BUSINESS_WEEKLY_WAGES: Dictionary = {}
@@ -409,6 +413,7 @@ const MANIFEST: Array[Dictionary] = [
 		{"field": "STOCKPILE_RAID", "key": "stockpileRaid", "type": TYPE_DICTIONARY},
 		{"field": "NETWORK_MENU", "key": "networkMenu", "type": TYPE_DICTIONARY},
 		{"field": "FACTION_FAVOURS", "key": "factionFavours", "type": TYPE_DICTIONARY},
+		{"field": "FACTION_GIFTS", "key": "factionGifts", "type": TYPE_DICTIONARY},
 		{"field": "BUSINESS_WEEKLY_WAGES", "key": "business.weeklyWages", "type": TYPE_DICTIONARY},
 		{"field": "BUSINESS_JAMES_JOIN_CRAFTING_SKILL", "key": "business.jamesJoinCraftingSkill", "type": TYPE_INT},
 		{"field": "BUSINESS_OWEN_CRAFT_MIN_CULTIVATING", "key": "business.owenCraftMinCultivating", "type": TYPE_INT},
