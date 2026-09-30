@@ -217,6 +217,10 @@ var FACTION_CONCLAVE: Dictionary = {}
 # daily decay, R§3.1 "Intel".
 var INTEL: Dictionary = {}
 
+# The Network handler's intel menu: product prices, relation gates,
+# durations, handler lines and plan labels, R§3.1 "Network intel menu".
+var NETWORK_MENU: Dictionary = {}
+
 # Business pot payday cadence (days) and weekly wage per waged staff
 # contact id, R§3.10 "Business pot and payday".
 var BUSINESS_WEEKLY_WAGES: Dictionary = {}
@@ -394,6 +398,7 @@ const MANIFEST: Array[Dictionary] = [
 		{"field": "FACTION_WAR", "key": "factionWar", "type": TYPE_DICTIONARY},
 		{"field": "FACTION_CONCLAVE", "key": "factionConclave", "type": TYPE_DICTIONARY},
 		{"field": "INTEL", "key": "intel", "type": TYPE_DICTIONARY},
+		{"field": "NETWORK_MENU", "key": "networkMenu", "type": TYPE_DICTIONARY},
 		{"field": "BUSINESS_WEEKLY_WAGES", "key": "business.weeklyWages", "type": TYPE_DICTIONARY},
 		{"field": "BUSINESS_JAMES_JOIN_CRAFTING_SKILL", "key": "business.jamesJoinCraftingSkill", "type": TYPE_INT},
 		{"field": "BUSINESS_OWEN_CRAFT_MIN_CULTIVATING", "key": "business.owenCraftMinCultivating", "type": TYPE_INT},

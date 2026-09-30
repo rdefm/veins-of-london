@@ -232,6 +232,8 @@ func new_game_state() -> Dictionary:
 		"factionConclave": FactionAI.new_conclave_state(),
 		# Intel meters, observer -> target -> 0..max (Intel.new_state()).
 		"intel": Intel.new_state(),
+		# Privacy, raid-warning and disinformation timers (Intel.new_timers()).
+		"intelTimers": Intel.new_timers(),
 
 		"barometer": {
 			"economic": "stable", "social": "stable", "political": "stable",

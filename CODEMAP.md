@@ -32,7 +32,7 @@ Data file per system: see `data/*.json` below.
 | bubble_layout.gd | Popup-position math for MapBubble |
 | collective.gd | Collective faction doors, Nadia settlement, Collective questline beat triggers + Act 2 scripted vein losses, Hakim retake gate + site ruin (ruinedByFirm), T7 Firm provocation (timed Firm-targeting weight), Act 2 relation awards (T8 missions, alarm-defend daily cap), Act 2 gate + T14 spine reward (Hakim intel's weak-enemy-vein branch) + T15 closer delivery |
 | combat.gd | Turn-based combat engine + rewind. Resumable progression via `combat.turnCursor` + `prime_`/`conclude_decision_point()`; pure `project_queue()` (no koed slots, empty after outcome; R§3.7a). `occurrence`-tagged beats. `set_selection()`/`clamp_selection()`; `selection_block_reason()` gates commands. Raider kit and guard kit item use (R§3.7). Stamps `combat.locationKey` |
-| network_handler.gd | Network handler Targets (timed `collective.networkIntel` claim_bonus/security_freeze) and Sourcing (site delivered by handler text); pricing off `VeinTrade.quote()` |
+| network_handler.gd | Network handler Targets (timed `collective.networkIntel` claim_bonus/security_freeze), Sourcing (site delivered by handler text), and the intel menu (relation-priced, gated products: raid/market intel, raid warnings, boost, privacy, disinformation, reduction) |
 | combat_pacing.gd | Persisted normal/quick pacing toggle |
 | combat_prototype.gd | Bounded combat experiment, Debug-app |
 | consumables.gd | Healing Salve (out-of-combat) + Healing Burst (in or out); in-combat use_healing_burst() resolves the parked player turn-cursor entry (R§3.7a) and heals an ally target instead of the player (R§3.7) |
@@ -51,8 +51,8 @@ Data file per system: see `data/*.json` below.
 | event_items.gd | Registry of items usable from an event's Item button (Rewind consumable + Dial Rewind): eligibility, counts, effect |
 | events.gd | Event-card runner + rewind, auto-discovers art |
 | faction_sim.gd | FactionSim: faction holdings (ore, items by tier); stockpile pick; vein tend + prune, sparing one maturing vein (`fieldwork`); crafting toward targets; consumption + kit burns → shortfall; kit allocation, `vein_kit`, `raider_kit`; London sell/buy vs reserve (withheld goods not for sale), Conclave arbitrage (`trading`); flood/undercut/deny/stabilise/stock-up/position moves |
-| faction_ai.gd | FactionAI (R§3.1 stances through Conclave positions): relation clamp, stances, activity log; pressure drift, Collective–Firm hold; escalation moves; wars, weariness, nags; truces, peace scorer, faction peace; player peace offers, talks, Monday truce payments; Conclave stabiliser + off-sale stockpile, top-up; war squeeze; Conclave positions + Ticker push |
-| intel.gd | Intel (R§3.1 "Intel"): observer → target intel meters for player and factions, level reads, scout/raid gains, daily decay, stockpile relocation cap |
+| faction_ai.gd | FactionAI (R§3.1 stances through Conclave positions): relation clamp, stances, activity log; pressure drift, Collective–Firm hold; escalation moves; wars, weariness, nags; truces, peace scorer, faction peace; player peace offers, talks, Monday truce payments; Conclave stabiliser + off-sale stockpile, top-up; war squeeze; Conclave positions + Ticker push; move forecast |
+| intel.gd | Intel (R§3.1 "Intel"): observer → target intel meters for player and factions, level reads, scout/raid gains, daily decay, stockpile relocation cap; privacy/raid-warning/disinformation timers |
 | factions.gd | Faction joining |
 | guard_kit.gd | Guard kit: allowlisted combat items stocked by tier on a player vein's or HQ's (`home.guardKit`) `guardKit`; capacity (guards × slots), active units, `stock`/`unstock` and `*_hq` twins; missed-defend repel boost/spend; kit-dict helpers (incl. `remove_units`); target helpers (vein/hq), summary/status text, `kit_veins` |
 | guard_upkeep.gd | Guard wages: hire advance, weekly cost/labels, per-day per-place `guardUpkeep.history`, pre-pot Monday bill from cash, faction Monday bill and wage-reserve gate, pending guard shortfall (grace, auto-resolve drop order, short-pay quote/confirm), place labels, Guard Costs reads (history window, per-place series, places, next Monday bill) |
@@ -189,6 +189,7 @@ overlays.
 | nadia_supply_modal.gd | Nadia ore-supply objective card |
 | network_targets_modal.gd | Handler Targets picker: faction veins, soft/freeze questions |
 | network_sourcing_modal.gd | Handler Sourcing order: ore type + minimum tier |
+| network_intel_modal.gd | Handler intel menu: product rows at relation price, gate lock, faction/disinformation pickers, running timers |
 | sell_vein_quote_modal.gd | Single-vein sale confirmation card |
 | craft_components_menu_modal.gd | Movement-archetype picker; Craft hands off to movement_craft |
 | movement_craft_modal.gd | Pick a calc type to attempt a Movement craft; pushes success/fail notices |
@@ -239,7 +240,7 @@ overlays.
 | combat_prototype.json | combat_prototype.gd |
 | combat_visuals.json | combat_stage.gd (locationBackdrops, backdrops, pose sheets, stage.spriteScale); GameData.gd (territorialVariant pose spec); combat_director.gd (pacing.turnPause); turn_order_strip.gd (cardFrames) |
 | constants.json | calendar.gd (calendar), time_system.gd, jobs.gd, GameState.gd, contacts.gd (roster, roleFlags, skillCaps), business.gd (weekly wages), rooms.gd (productionLogDays), business_stats.gd (businessStatsDays), shares.gd (sharesDays, sharesWindowDays), GUARD_UPKEEP (guardUpkeep), guard_kit.gd (GUARD_KIT) |
-| constants.json (faction politics) | factions.gd (factionRivalry), faction_ai.gd (factionStances, factionPressure, factionEscalation, factionWar, factionConclave), intel.gd (intel), barometer.gd (factionEscalation.headlineCap) |
+| constants.json (faction politics) | factions.gd (factionRivalry), faction_ai.gd (factionStances, factionPressure, factionEscalation, factionWar, factionConclave), intel.gd (intel), network_handler.gd (networkMenu), barometer.gd (factionEscalation.headlineCap) |
 | daily_cycle.json | time_transition.gd (circle layout, sky clips, colours, timing) |
 | dial.json | dial.gd |
 | districts.json | widely read (sites, economy, factions, raiding) |

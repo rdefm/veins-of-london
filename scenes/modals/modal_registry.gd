@@ -18,6 +18,7 @@ static var REGISTRY: Dictionary = {
 	"nadia_supply": NadiaSupplyModal,
 	"network_targets": NetworkTargetsModal,
 	"network_sourcing": NetworkSourcingModal,
+	"network_intel": NetworkIntelModal,
 	"sell_vein_quote": SellVeinQuoteModal,
 	"craft_components_menu": CraftComponentsMenuModal,
 	"network_reference": NetworkReferenceModal,

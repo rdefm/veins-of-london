@@ -103,6 +103,102 @@ static func relocate_stockpile(faction_id: String) -> void:
 	EventBus.state_changed.emit()
 
 
+# ── Timers ──────────────────────────────────────────────────────────────
+# R§3.1 "Network intel menu": privacy (the Network won't sell on the
+# actor), raid warnings (the handler texts when a raid is queued on the
+# actor) and disinformation (observer misreads target). Each is active
+# through its untilDay inclusive.
+
+const DISINFO_INVERTED := "inverted"
+const DISINFO_OVERESTIMATE := "overestimate"
+
+
+# state.intelTimers: { privacy: { actor: untilDay }, raidWarnings: { actor:
+# untilDay }, disinformation: [ { observerId, targetId, mode, untilDay } ] }.
+static func new_timers() -> Dictionary:
+	return { "privacy": {}, "raidWarnings": {}, "disinformation": [] }
+
+
+static func _timers() -> Dictionary:
+	return GameState.state["intelTimers"]
+
+
+static func _day() -> int:
+	return int(GameState.state["world"]["day"])
+
+
+# Extends a running timer by days, or starts one from today.
+static func _extend(until_day: int, days: int) -> int:
+	return maxi(until_day, _day()) + days
+
+
+static func privacy_until(actor: String) -> int:
+	return int(_timers()["privacy"].get(actor, -1))
+
+
+static func privacy_active(actor: String) -> bool:
+	return _day() <= privacy_until(actor)
+
+
+static func set_privacy(actor: String, days: int) -> void:
+	_timers()["privacy"][actor] = _extend(privacy_until(actor), days)
+
+
+static func raid_warnings_until(actor: String) -> int:
+	return int(_timers()["raidWarnings"].get(actor, -1))
+
+
+static func raid_warnings_active(actor: String) -> bool:
+	return _day() <= raid_warnings_until(actor)
+
+
+static func set_raid_warnings(actor: String, days: int) -> void:
+	_timers()["raidWarnings"][actor] = _extend(raid_warnings_until(actor), days)
+
+
+static func _disinfo_entry(observer: String, target: String) -> Dictionary:
+	for entry in _timers()["disinformation"]:
+		if entry["observerId"] == observer and entry["targetId"] == target:
+			return entry
+	return {}
+
+
+# The disinformation mode observer is under about target, or "" when none
+# is active.
+static func disinformation(observer: String, target: String) -> String:
+	var entry := _disinfo_entry(observer, target)
+	if entry.is_empty() or _day() > int(entry["untilDay"]):
+		return ""
+	return entry["mode"]
+
+
+static func disinformation_until(observer: String, target: String) -> int:
+	return int(_disinfo_entry(observer, target).get("untilDay", -1))
+
+
+# Feeds observer disinformation about target for days. The same mode
+# extends a running entry; a different mode replaces it from today.
+static func set_disinformation(observer: String, target: String, mode: String, days: int) -> void:
+	var entry := _disinfo_entry(observer, target)
+	if entry.is_empty():
+		entry = { "observerId": observer, "targetId": target, "mode": mode, "untilDay": -1 }
+		_timers()["disinformation"].append(entry)
+	var running := int(entry["untilDay"]) if entry["mode"] == mode else -1
+	entry["mode"] = mode
+	entry["untilDay"] = _extend(running, days)
+
+
+# Rollover step: drops lapsed timers.
+static func expire_timers() -> void:
+	var day := _day()
+	for key in ["privacy", "raidWarnings"]:
+		var row: Dictionary = _timers()[key]
+		for actor in row.keys():
+			if int(row[actor]) < day:
+				row.erase(actor)
+	_timers()["disinformation"] = _timers()["disinformation"].filter(func(e: Dictionary) -> bool: return int(e["untilDay"]) >= day)
+
+
 # faction_id's site veins counted per security label, e.g. { "Hired Guard": 2 }.
 static func vein_security_counts(faction_id: String) -> Dictionary:
 	var counts := {}

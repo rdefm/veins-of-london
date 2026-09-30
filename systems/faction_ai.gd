@@ -475,6 +475,8 @@ const MOVE_UNDERCUT := "undercut"
 const MOVE_DENY := "denyGoods"
 const MOVE_TICKER_PUSH := "tickerPush"
 const LOWBALL_KIND := "faction_lowball_buyout"
+# A planned_moves() entry for a warning, which isn't a menu move.
+const PLAN_WARNING := "warning"
 
 
 static func _ecfg() -> Dictionary:
@@ -966,6 +968,8 @@ static func _make_move(observer: String, target: String, move: Dictionary) -> vo
 			GameState.state["factionEscalation"]["queuedRaids"].append({
 				"attackerId": observer, "targetId": target, "veinId": move["veinId"], "siteId": move["siteId"],
 			})
+			if target == Shares.PLAYER:
+				NetworkHandler.warn_of_raid(observer, move["siteId"])
 		MOVE_FLOOD:
 			var value := Market.line_total("ore", Market.quote("ore", move["good"]), int(move["qty"]))
 			var taken := FactionSim.flood(observer, move["good"], int(move["qty"]), float(_ecfg()["flood"]["priceMult"]))
@@ -1150,6 +1154,53 @@ static func moves_against_player() -> Array:
 				moves.append(move)
 	moves.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return int(a["day"]) > int(b["day"]))
 	return moves
+
+
+# Every move a faction plans within horizon_days, soonest first, as
+# { factionId, targetId, move, day } plus the move's own keys (good, kind,
+# veinId, siteId, ...). Read off today's state: a queued raid lands at the
+# next rollover; otherwise an acting faction moves at its first escalation
+# off cooldown, with a warning first when the band is new (as _escalate).
+static func planned_moves(horizon_days: int) -> Array:
+	var day: int = GameState.state["world"]["day"]
+	var plans := []
+	for entry in GameState.state["factionEscalation"]["queuedRaids"]:
+		var queued: Dictionary = entry.duplicate()
+		queued["factionId"] = entry["attackerId"]
+		queued["move"] = MOVE_VEIN_RAID
+		queued["day"] = day + 1
+		plans.append(queued)
+	var ids: Array = GameData.FACTIONS.keys()
+	for observer in ids:
+		for target in [Shares.PLAYER] + ids:
+			if target == observer or moves_blocked(observer, target):
+				continue
+			var plan := _planned_move(observer, target, day)
+			if not plan.is_empty() and int(plan["day"]) - day <= horizon_days:
+				plans.append(plan)
+	plans.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return int(a["day"]) < int(b["day"]))
+	return plans
+
+
+static func _planned_move(observer: String, target: String, day: int) -> Dictionary:
+	var current := band(observer, target)
+	if current == BAND_NONE or (current != BAND_RAID and _delta_to(observer, target) >= 0.0):
+		return {}
+	var entry: Dictionary = GameState.state["factionEscalation"]["targets"].get(observer, {}).get(target, { "warnedBand": BAND_NONE, "lastMoveDay": -1 })
+	var last := int(entry["lastMoveDay"])
+	var due := day + 1 if last < 0 else maxi(day + 1, last + int(_ecfg()["cooldownDays"]))
+	var warned: String = entry["warnedBand"]
+	if _depth(current) < _depth(warned):
+		warned = current
+	var plan := { "move": PLAN_WARNING }
+	if warned == current:
+		plan = _best_move(observer, target, current).duplicate()
+		if plan.is_empty():
+			return {}
+	plan["factionId"] = observer
+	plan["targetId"] = target
+	plan["day"] = due
+	return plan
 
 
 # ── War and weariness ───────────────────────────────────────────────────

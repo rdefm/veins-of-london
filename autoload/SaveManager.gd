@@ -891,6 +891,11 @@ func _restore_int_types(state: Dictionary) -> void:
 
 	for row in state.get("intel", {}).values():
 		_int_dict_values(row)
+	var intel_timers: Dictionary = state.get("intelTimers", {})
+	_int_dict_values(intel_timers.get("privacy", {}))
+	_int_dict_values(intel_timers.get("raidWarnings", {}))
+	for entry in intel_timers.get("disinformation", []):
+		_int_key(entry, "untilDay")
 
 	for group in state.get("factionStances", {}).values():
 		for entry in group.values():

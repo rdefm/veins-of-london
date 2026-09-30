@@ -268,13 +268,15 @@ static func build_handler_meet_action() -> Control:
 	return UI.button("Go with Nadia", func(): Events.start_event("col_a2_handler_meet"))
 
 
-# The handler's Targets/Sourcing entries (spec §5.3), once T12 unlocks them.
+# The handler's Targets/Sourcing entries (spec §5.3) and intel menu (R§3.1
+# "Network intel menu"), once T12 unlocks them.
 static func build_handler_actions() -> Array[Control]:
 	var actions: Array[Control] = []
 	if not GameState.state["flags"].get("networkHandlerUnlocked", false):
 		return actions
 	actions.append(UI.button("Targets", func(): Modal.open("network_targets")))
 	actions.append(UI.button("Sourcing", func(): Modal.open("network_sourcing")))
+	actions.append(UI.button("Intel", func(): Modal.open("network_intel")))
 	return actions
 
 

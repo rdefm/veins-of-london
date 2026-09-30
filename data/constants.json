@@ -289,6 +289,56 @@
     "gain": { "scout": 8, "raid": 12 },
     "dailyDecay": 1
   },
+  "networkMenu": {
+    "relationPriceMod": 0.002,
+    "horizonDays": 7,
+    "products": {
+      "raidIntel": { "name": "Raid intel", "price": 400, "minRelation": -100 },
+      "raidWarnings": { "name": "Raid warnings", "price": 1200, "minRelation": 0, "days": 14 },
+      "marketIntel": { "name": "Market intel", "price": 400, "minRelation": -100 },
+      "boost": { "name": "Intel on a faction", "price": 600, "minRelation": -100, "amount": 20 },
+      "privacy": { "name": "Privacy", "price": 1500, "minRelation": 10, "days": 14 },
+      "disinformation": { "name": "Disinformation", "price": 2000, "minRelation": 25, "days": 10 },
+      "reduction": { "name": "Intel reduction", "price": 800, "minRelation": 0, "amount": 20 }
+    },
+    "disinformationModes": {
+      "inverted": "They go for your strongest veins",
+      "overestimate": "They think you're better guarded"
+    },
+    "gatedReason": "The handler won't sell you that yet.",
+    "lines": {
+      "raidIntel": "\"Here's who has you on their list this week.\"",
+      "raidIntelNone": "\"Nobody's planning anything against you this week. Ask again next week.\"",
+      "marketIntel": "\"Big trades coming. Who's dumping, who's buying.\"",
+      "marketIntelNone": "\"Nothing big planned on the market this week.\"",
+      "planLine": "%s: %s, %s.",
+      "marketLine": "%s: %s, aimed at %s, %s.",
+      "you": "you",
+      "tomorrow": "tomorrow",
+      "inDays": "in %d days",
+      "boost": "\"Here's what I have on %s. It's in your file now.\"",
+      "raidWarnings": "\"If anyone sends people at your veins, you'll hear it from me first. Good for %d days.\"",
+      "raidWarning": "\"%s have people heading for your %s vein. Tonight, most likely.\"",
+      "privacy": "\"Nobody buys anything on you from us for %d days. After that, they can.\"",
+      "inverted": "\"%s now think your strongest veins are your softest. For %d days.\"",
+      "overestimate": "\"%s now think you're better guarded than you are. For %d days.\"",
+      "reduction": "\"%s know less about you than they did yesterday.\""
+    },
+    "moveLabels": {
+      "warning": "a warning",
+      "veinRaid": "a raid on your %s vein",
+      "flood": "a flood of %s",
+      "withhold": "holding back %s",
+      "outbid": "a bid for a site in %s",
+      "poach": "a cheaper offer to one of your buyers",
+      "withholdItems": "holding back %s",
+      "lowballBuyout": "a low offer for one of your veins",
+      "undercut": "undercutting on %s",
+      "denyGoods": "buying up %s",
+      "tickerPush": "leaning on the Ticker"
+    },
+    "marketMoves": ["flood", "undercut", "denyGoods"]
+  },
   "factionWar": {
     "windowDays": 7,
     "weights": { "lossPer100": 5.0, "fightLost": 3.0, "drainPer100": 2.0, "extraFront": 0.5, "dayAtWar": 0.5 },
