@@ -994,10 +994,11 @@ static func _raid_queued(vein_id: String) -> bool:
 
 # A faction target's stockpile, once observer's intel reaches its location
 # (never the player, who has no stockpile) and no raid on it is queued.
+# Needs constants.json factionRivalry on.
 # Damage = the rivalry odds against its guards × the London value of the
 # share observer would take (Raiding.faction_stockpile_loot_share).
 static func _stockpile_raid_candidate(observer: String, target: String) -> Dictionary:
-	if target == Shares.PLAYER or _stockpile_raid_queued(target) or not Raiding.faction_can_raid_stockpile(observer, target):
+	if target == Shares.PLAYER or not GameData.FACTION_RIVALRY or _stockpile_raid_queued(target) or not Raiding.faction_can_raid_stockpile(observer, target):
 		return {}
 	var value := Raiding.stockpile_value(target, Raiding.faction_stockpile_loot_share(observer, target))
 	var damage := Factions.stockpile_rivalry_chance(observer, target) * value

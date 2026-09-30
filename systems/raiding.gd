@@ -336,10 +336,10 @@ static func faction_stockpile_loot_share(attacker_id: String, defender_id: Strin
 # tiers) to the attacker. Either way the raid is logged on both sides (a
 # hostile act), the attacker gains raid intel, the defender books the loss
 # and the relation hit, and the stockpile relocates. A haul worth at least
-# headlineValue is a Ticker headline. A no-op unless the attacker still
-# knows the stockpile's location.
+# headlineValue is a Ticker headline. A no-op unless constants.json
+# factionRivalry is on and the attacker still knows the stockpile's location.
 static func resolve_faction_stockpile_raid(attacker_id: String, defender_id: String) -> void:
-	if not faction_can_raid_stockpile(attacker_id, defender_id):
+	if not GameData.FACTION_RIVALRY or not faction_can_raid_stockpile(attacker_id, defender_id):
 		return
 	var cfg := _stockpile_cfg()
 	var district_id := stockpile_district(defender_id)
