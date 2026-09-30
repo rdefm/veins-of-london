@@ -265,7 +265,8 @@
     }
   },
   "factionConclave": {
-    "stabiliser": { "factionId": "conclave", "bandPct": 0.25, "runDays": 3, "qty": { "ore": 90, "consumable": 35 }, "sellMult": 0.85, "buyMult": 1.15, "stockpile": { "target": { "ore": 180, "consumable": 70 }, "topUp": { "maxPriceMult": 1.0, "dailyCap": { "ore": 20, "consumable": 4 }, "cashFloor": 600 } } }
+    "stabiliser": { "factionId": "conclave", "bandPct": 0.25, "runDays": 3, "qty": { "ore": 90, "consumable": 35 }, "sellMult": 0.85, "buyMult": 1.15, "stockpile": { "target": { "ore": 180, "consumable": 70 }, "topUp": { "maxPriceMult": 1.0, "dailyCap": { "ore": 20, "consumable": 4 }, "cashFloor": 600 } } },
+    "squeeze": { "minWarDays": 10, "cooldownDays": 2, "dominance": { "wearyAt": 60, "gap": 30, "dominantMult": 2.0, "weakMult": 0.0 } }
   },
   "factionWar": {
     "windowDays": 7,

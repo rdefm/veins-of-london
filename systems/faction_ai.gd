@@ -1575,10 +1575,12 @@ static func _make_faction_peace() -> void:
 				break
 
 
+# The Conclave never offers peace (R§3.1 "Conclave war squeeze"); it may
+# still accept an offer in its own war.
 static func _offer_peace(war: Dictionary, offerer: String, other: String) -> bool:
 	var w_offer := float(war["weariness"].get(offerer, 0.0))
 	var w_other := float(war["weariness"].get(other, 0.0))
-	if w_offer < offer_peace_at(offerer) or w_other < accept_peace_at(other):
+	if offerer == _scfg()["factionId"] or w_offer < offer_peace_at(offerer) or w_other < accept_peace_at(other):
 		return false
 	var terms := _auto_terms(offerer, other, w_other)
 	if terms.is_empty() or not accepts(offerer, terms, w_offer):
@@ -2013,12 +2015,12 @@ static func _scfg() -> Dictionary:
 
 
 # state.factionConclave: { runs: { "kind:type": days }, stockpile:
-# { "kind:type": units } }. Run days signed: +n for n straight days above
-# the band, -n below; a good inside it has no key. Stockpile units sit in the
-# Conclave's holdings, kept off sale (FactionSim.for_sale); a good with none
-# has no key.
+# { "kind:type": units }, squeezed: { party: day last war-squeezed } }.
+# Run days signed: +n for n straight days above the band, -n below; a good
+# inside it has no key. Stockpile units sit in the Conclave's holdings, kept
+# off sale (FactionSim.for_sale); a good with none has no key.
 static func new_conclave_state() -> Dictionary:
-	return { "runs": {}, "stockpile": {} }
+	return { "runs": {}, "stockpile": {}, "squeezed": {} }
 
 
 static func stabiliser_run(kind: String, good_type: String) -> int:
@@ -2102,3 +2104,75 @@ static func _top_up_stockpile() -> void:
 				continue
 			var budget: int = int(faction["resources"]) - int(top_up["cashFloor"])
 			_shift_stockpile(conclave_id, kind, good_type, FactionSim.stock_up(conclave_id, kind, good_type, want, budget))
+
+
+# ── Conclave war squeeze ────────────────────────────────────────────────
+# R§3.1 "Conclave war squeeze": once a war is minWarDays old, the Conclave
+# denies each side goods it needs and undercuts its sales, at qty × the
+# side's intensity. Intensity = its war weariness / 100, except when one
+# side is at wearyAt or more and the other sits gap or more below it: the
+# fresher side is squeezed at the weary side's weariness × dominantMult and
+# the weary side at × weakMult, so the squeeze never helps finish it off.
+# The Conclave never offers or brokers peace. Data in constants.json
+# factionConclave.squeeze.
+
+static func _sqcfg() -> Dictionary:
+	return GameData.FACTION_CONCLAVE["squeeze"]
+
+
+# Each party's squeeze intensity in one war: { party: float }.
+static func squeeze_intensity(war: Dictionary) -> Dictionary:
+	var cfg: Dictionary = _sqcfg()["dominance"]
+	var a: String = war["parties"][0]
+	var b: String = war["parties"][1]
+	var w_a := float(war["weariness"].get(a, 0.0))
+	var w_b := float(war["weariness"].get(b, 0.0))
+	var weary_at := float(cfg["wearyAt"])
+	var gap := float(cfg["gap"])
+	if w_a >= weary_at and w_b <= w_a - gap:
+		return { a: w_a / 100.0 * float(cfg["weakMult"]), b: w_a / 100.0 * float(cfg["dominantMult"]) }
+	if w_b >= weary_at and w_a <= w_b - gap:
+		return { a: w_b / 100.0 * float(cfg["dominantMult"]), b: w_b / 100.0 * float(cfg["weakMult"]) }
+	return { a: w_a / 100.0, b: w_b / 100.0 }
+
+
+# Rollover step: per party at war, its highest intensity across wars that
+# have run minWarDays and that the Conclave isn't fighting; off cooldown and
+# not in truce with the Conclave, it gets a scaled deny then undercut.
+static func squeeze_wars() -> void:
+	if not Market.is_running():
+		return
+	var conclave_id: String = _scfg()["factionId"]
+	var day: int = GameState.state["world"]["day"]
+	var intensity := {}
+	for war in wars():
+		if war["parties"].has(conclave_id) or day - int(war["startDay"]) < int(_sqcfg()["minWarDays"]):
+			continue
+		var by_party := squeeze_intensity(war)
+		for party in by_party:
+			intensity[party] = maxf(float(intensity.get(party, 0.0)), float(by_party[party]))
+	var squeezed: Dictionary = GameState.state["factionConclave"]["squeezed"]
+	for party in intensity:
+		var last: int = int(squeezed.get(party, -1))
+		if float(intensity[party]) <= 0.0 or moves_blocked(conclave_id, party):
+			continue
+		if last >= 0 and day - last < int(_sqcfg()["cooldownDays"]):
+			continue
+		squeezed[party] = day
+		_squeeze(conclave_id, party, float(intensity[party]))
+	EventBus.state_changed.emit()
+
+
+static func _squeeze(conclave_id: String, party: String, intensity: float) -> void:
+	var deny := _deny_candidate(conclave_id, party)
+	if not deny.is_empty():
+		var resources := int(GameState.state["factions"][conclave_id]["resources"])
+		var price := Market.quote(deny["kind"], deny["good"])
+		deny["qty"] = mini(roundi(float(_ecfg()["deny"]["qty"][deny["kind"]]) * intensity), Market.affordable_qty(deny["kind"], price, resources))
+		if int(deny["qty"]) > 0:
+			_make_move(conclave_id, party, deny)
+	var undercut := _undercut_candidate(conclave_id, party)
+	if not undercut.is_empty():
+		undercut["qty"] = mini(roundi(float(_ecfg()["undercut"]["qty"][undercut["kind"]]) * intensity), FactionSim.for_sale(conclave_id, undercut["kind"], undercut["good"]))
+		if int(undercut["qty"]) > 0:
+			_make_move(conclave_id, party, undercut)

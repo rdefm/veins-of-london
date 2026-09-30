@@ -913,6 +913,7 @@ func _restore_int_types(state: Dictionary) -> void:
 	_int_dict_values(war.get("peaceCooldown", {}))
 	_int_dict_values(state.get("factionConclave", {}).get("runs", {}))
 	_int_dict_values(state.get("factionConclave", {}).get("stockpile", {}))
+	_int_dict_values(state.get("factionConclave", {}).get("squeezed", {}))
 	var talks: Dictionary = war.get("negotiation", {})
 	_int_key(talks, "round")
 	for terms_key in ["draft", "counter"]:

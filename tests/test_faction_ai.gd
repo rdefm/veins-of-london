@@ -829,9 +829,140 @@ func run() -> void:
 		assert_eq(SaveManager.backfill_defaults(old)["factionConclave"]["stockpile"], {}, "old save backfilled")
 	)
 
+	run_case("a_long_war_gets_conclave_deny_and_undercut_on_each_side_scaled_by_weariness", func():
+		_squeeze_fresh(40.0, 20.0, _min_war_days())
+		FactionAI.squeeze_wars()
+		for side in [["firm", "time", 0.4], ["guild", "life", 0.2]]:
+			var deny: Dictionary = _conclave_denial(side[0])
+			assert_true(not deny.is_empty(), "%s denied" % side[0])
+			var want: int = roundi(float(GameData.FACTION_ESCALATION["deny"]["qty"][deny["kind"]]) * side[2])
+			assert_eq(int(GameState.state["market"]["demand"][deny["kind"]][deny["good"]]["conclave"]), want, "%s deny scaled" % side[0])
+			var cut: int = roundi(float(GameData.FACTION_ESCALATION["undercut"]["qty"]["ore"]) * side[2])
+			assert_eq(int(GameState.state["market"]["supply"]["ore"][side[1]]["conclave"]), cut, "%s undercut scaled" % side[0])
+		assert_true(_log_texts("firm").has(GameData.FACTION_ESCALATION["log"][FactionAI.MOVE_UNDERCUT]["defender"] % [GameData.FACTIONS["conclave"]["shortName"], GameData.ORE_TYPES["time"]["name"]]), "logged on the side")
+	)
+
+	run_case("a_young_war_is_not_squeezed_and_the_squeeze_cools_down", func():
+		_squeeze_fresh(40.0, 20.0, _min_war_days() - 1)
+		FactionAI.squeeze_wars()
+		assert_true(_conclave_denial("firm").is_empty(), "too young")
+		assert_eq(GameState.state["factionConclave"]["squeezed"], {})
+		GameState.state["world"]["day"] += 1
+		FactionAI.squeeze_wars()
+		assert_eq(int(GameState.state["factionConclave"]["squeezed"]["firm"]), int(GameState.state["world"]["day"]))
+		var withheld: int = FactionAI._withholds().size()
+		GameState.state["world"]["day"] += int(GameData.FACTION_CONCLAVE["squeeze"]["cooldownDays"]) - 1
+		FactionAI.squeeze_wars()
+		assert_eq(FactionAI._withholds().size(), withheld, "cooling: no second squeeze")
+	)
+
+	run_case("a_far_wearier_side_is_spared_and_the_fresher_side_takes_the_heavier_squeeze", func():
+		_squeeze_fresh(80.0, 20.0, _min_war_days())
+		var dominance: Dictionary = GameData.FACTION_CONCLAVE["squeeze"]["dominance"]
+		var mult: float = 0.8 * float(dominance["dominantMult"])
+		FactionAI.squeeze_wars()
+		assert_true(_conclave_denial("firm").is_empty(), "the weary Firm is not denied")
+		assert_true(not GameState.state["market"]["supply"]["ore"].get("time", {}).has("conclave"), "nor undercut")
+		var deny: Dictionary = _conclave_denial("guild")
+		var want: int = roundi(float(GameData.FACTION_ESCALATION["deny"]["qty"][deny["kind"]]) * mult)
+		assert_eq(int(GameState.state["market"]["demand"][deny["kind"]][deny["good"]]["conclave"]), want, "the Guild is denied at the Firm's weariness × dominantMult")
+		assert_eq(int(GameState.state["market"]["supply"]["ore"]["life"]["conclave"]), roundi(float(GameData.FACTION_ESCALATION["undercut"]["qty"]["ore"]) * mult))
+	)
+
+	run_case("the_rollover_squeezes_both_sides_of_a_long_war", func():
+		_squeeze_fresh(40.0, 20.0, _min_war_days())
+		_live_war("firm", "guild")
+		TimeSystem.daily_tick()
+		assert_true(FactionAI.at_war("firm", "guild"), "the war survives the rollover")
+		for side in ["firm", "guild"]:
+			assert_eq(int(GameState.state["factionConclave"]["squeezed"].get(side, -1)), int(GameState.state["world"]["day"]), "%s squeezed" % side)
+			assert_true(not _conclave_denial(side).is_empty(), "%s denied" % side)
+	)
+
+	run_case("the_rollover_spares_a_far_wearier_side", func():
+		_squeeze_fresh(80.0, 20.0, _min_war_days())
+		_live_war("firm", "guild")
+		TimeSystem.daily_tick()
+		assert_true(not GameState.state["factionConclave"]["squeezed"].has("firm"), "the weary Firm is spared")
+		assert_true(_conclave_denial("firm").is_empty())
+		assert_true(not _conclave_denial("guild").is_empty(), "the fresher Guild is squeezed")
+	)
+
+	run_case("the_conclave_never_offers_peace_or_signs_a_truce_it_offered", func():
+		_squeeze_fresh(40.0, 20.0, _min_war_days())
+		var war: Dictionary = { "parties": ["conclave", "network"], "startDay": 1, "lastHostileDay": 20, "weariness": { "conclave": 100.0, "network": 50.0 } }
+		GameState.state["factionWar"]["wars"] = [war]
+		FactionAI._make_faction_peace()
+		assert_eq(FactionAI.truces(), [], "a worn-out Conclave offers nothing")
+		var player_war: Dictionary = { "parties": ["player", "conclave"], "startDay": 1, "lastHostileDay": 20, "weariness": { "player": 0.0, "conclave": 100.0 } }
+		GameState.state["factionWar"]["wars"] = [player_war]
+		FactionAI._offer_player_peace()
+		assert_true(GameState.state["pendingMessages"].filter(func(e: Dictionary) -> bool: return e["kind"] == FactionAI.PEACE_OFFER_KIND).is_empty(), "no peace offer to the player")
+		GameState.state["factionWar"]["wars"] = [{ "parties": ["firm", "guild"], "startDay": 1, "lastHostileDay": 20, "weariness": { "firm": 40.0, "guild": 20.0 } }]
+		FactionAI.squeeze_wars()
+		assert_eq(FactionAI.truces(), [], "squeezing signs nothing")
+		assert_true(GameState.state["pendingMessages"].filter(func(e: Dictionary) -> bool: return e["kind"] == FactionAI.PEACE_OFFER_KIND).is_empty())
+	)
+
+	run_case("squeeze_stamps_survive_a_save_and_an_old_save_gets_them", func():
+		_squeeze_fresh(40.0, 20.0, _min_war_days())
+		GameState.state["factionConclave"]["squeezed"]["firm"] = 12
+		assert_true(SaveManager.save_to_slot(STABILISER_SAVE_SLOT)["ok"])
+		GameState.reset()
+		assert_true(SaveManager.load_from_slot(STABILISER_SAVE_SLOT)["ok"])
+		SaveManager.delete_slot(STABILISER_SAVE_SLOT)
+		assert_eq(typeof(GameState.state["factionConclave"]["squeezed"]["firm"]), TYPE_INT)
+		var old: Dictionary = GameState.deep_copy(GameState.state)
+		old["factionConclave"].erase("squeezed")
+		assert_eq(SaveManager.backfill_defaults(old)["factionConclave"]["squeezed"], {}, "old save backfilled")
+	)
+
 
 static func _stabiliser() -> Dictionary:
 	return GameData.FACTION_CONCLAVE["stabiliser"]
+
+
+static func _min_war_days() -> int:
+	return int(GameData.FACTION_CONCLAVE["squeeze"]["minWarDays"])
+
+
+# Day 20, market at rest, a Firm–Guild war begun `age` days ago at the given
+# weariness. The Firm sold time this week, the Guild life; the Conclave
+# holds only those two ores and is flush.
+static func _squeeze_fresh(firm_weariness: float, guild_weariness: float, age: int) -> void:
+	_stabiliser_fresh()
+	GameState.state["world"]["day"] = 20
+	GameState.state["factions"]["conclave"]["resources"] = 1000000
+	var holdings: Dictionary = _holdings("conclave")
+	for ore_type in holdings.keys():
+		holdings[ore_type] = 0
+	holdings["time"] = 5000
+	holdings["life"] = 5000
+	Market.record_supply("ore", "time", 1000, "firm")
+	Market.record_supply("ore", "life", 1000, "guild")
+	GameState.state["factionWar"]["wars"] = [{
+		"parties": ["firm", "guild"], "startDay": 20 - age, "lastHostileDay": 20,
+		"weariness": { "firm": firm_weariness, "guild": guild_weariness },
+	}]
+	GameState.state["factionWar"]["weariness"] = { "firm": firm_weariness, "guild": guild_weariness }
+
+
+# A Hostile Firm–Guild pair hit today, so the rollover keeps the war live;
+# the Conclave neutral to both, so escalation leaves them alone.
+static func _live_war(a: String, b: String) -> void:
+	_set_pair(a, b, -60)
+	GameState.state["factionStances"]["pairs"][FactionAI.pair_key(a, b)]["stance"] = FactionAI.HOSTILE
+	GameState.state["factionWar"]["lastHostile"][FactionAI.war_key(a, b)] = int(GameState.state["world"]["day"])
+	for side in [a, b]:
+		_set_pair("conclave", side, 0)
+
+
+# The Conclave's deny withhold against target, or {}.
+static func _conclave_denial(target: String) -> Dictionary:
+	for entry in FactionAI._withholds():
+		if entry["factionId"] == "conclave" and entry["targetId"] == target:
+			return entry
+	return {}
 
 
 static func _target(kind: String) -> int:
