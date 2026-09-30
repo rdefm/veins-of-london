@@ -223,36 +223,62 @@ static func stockpile_loot_share(faction_id: String, take_all: bool) -> float:
 #
 # PROSE-REVIEW: the loot notification.
 static func loot_stockpile(faction_id: String, take_all: bool) -> Dictionary:
-	var share := stockpile_loot_share(faction_id, take_all)
-	var holdings: Dictionary = GameState.state["factions"][faction_id]["holdings"]
-	var stolen := { "ore": {}, "items": {} }
-	var value := 0.0
+	var taken := _take_stockpile_share(faction_id, stockpile_loot_share(faction_id, take_all))
+	var stolen := { "ore": taken["ore"], "items": {} }
 	var player_ore: Dictionary = GameState.state["player"]["orichalchum"]
+	var ore_total := 0
+	for ore_type in taken["ore"].keys():
+		player_ore[ore_type] = int(player_ore.get(ore_type, 0)) + int(taken["ore"][ore_type])
+		ore_total += int(taken["ore"][ore_type])
+	var item_total := 0
+	for recipe_key in taken["items"].keys():
+		var qty := 0
+		for leg in taken["items"][recipe_key]:
+			Crafting.inventory_add(recipe_key, int(leg["tier"]), int(leg["qty"]))
+			qty += int(leg["qty"])
+		stolen["items"][recipe_key] = qty
+		item_total += qty
+	Notify.push("Stockpile emptied into your bag: %d calc, %d items." % [ore_total, item_total], Notify.CATEGORY_SUCCESS)
+	_stockpile_raid_consequences(faction_id, float(taken["value"]))
+	return stolen
+
+
+# Removes floor(share × held) of every ore and item line from faction_id's
+# holdings. Returns { ore: { oreType: qty }, items: { recipeKey: [ { tier,
+# qty } ] } (highest tier first), value: London value of it all }.
+static func _take_stockpile_share(faction_id: String, share: float) -> Dictionary:
+	var holdings: Dictionary = GameState.state["factions"][faction_id]["holdings"]
+	var taken := { "ore": {}, "items": {}, "value": 0.0 }
 	for ore_type in holdings["ore"].keys():
 		var qty := floori(float(FactionSim.ore_held(faction_id, ore_type)) * share)
 		if qty <= 0:
 			continue
 		FactionSim.take_ore(faction_id, ore_type, qty)
-		player_ore[ore_type] = int(player_ore.get(ore_type, 0)) + qty
-		stolen["ore"][ore_type] = qty
-		value += _stock_value("ore", ore_type, qty)
+		taken["ore"][ore_type] = qty
+		taken["value"] += _stock_value("ore", ore_type, qty)
 	for recipe_key in holdings["items"].keys():
 		var qty := floori(float(FactionSim.item_held(faction_id, recipe_key)) * share)
 		if qty <= 0:
 			continue
-		for leg in FactionSim.take_items(faction_id, recipe_key, qty):
-			Crafting.inventory_add(recipe_key, int(leg["tier"]), int(leg["qty"]))
-		stolen["items"][recipe_key] = qty
-		value += _stock_value("consumable", recipe_key, qty)
-	var ore_total := 0
-	for qty in stolen["ore"].values():
-		ore_total += int(qty)
-	var item_total := 0
-	for qty in stolen["items"].values():
-		item_total += int(qty)
-	Notify.push("Stockpile emptied into your bag: %d calc, %d items." % [ore_total, item_total], Notify.CATEGORY_SUCCESS)
-	_stockpile_raid_consequences(faction_id, value)
-	return stolen
+		taken["items"][recipe_key] = FactionSim.take_items(faction_id, recipe_key, qty)
+		taken["value"] += _stock_value("consumable", recipe_key, qty)
+	return taken
+
+
+# London value of floor(share × held) of faction_id's holdings, as
+# _take_stockpile_share() would take it.
+static func stockpile_value(faction_id: String, share: float) -> float:
+	var holdings: Dictionary = GameState.state["factions"][faction_id]["holdings"]
+	var value := 0.0
+	for ore_type in holdings["ore"].keys():
+		var qty := floori(float(FactionSim.ore_held(faction_id, ore_type)) * share)
+		if qty > 0:
+			value += _stock_value("ore", ore_type, qty)
+	for recipe_key in holdings["items"].keys():
+		var qty := floori(float(FactionSim.item_held(faction_id, recipe_key)) * share)
+		if qty > 0:
+			value += _stock_value("consumable", recipe_key, qty)
+	return value
 
 
 # London value of qty of a good: today's quote for a traded good, else its
@@ -284,6 +310,67 @@ static func _stockpile_raid_consequences(faction_id: String, value_lost: float) 
 	FactionAI.note_loss(faction_id, Shares.PLAYER, value_lost)
 	Factions.adjust_player_relation(faction_id, int(_stockpile_cfg()["relationHit"]))
 	Intel.relocate_stockpile(faction_id)
+
+
+# ── faction stockpile raids (R§3.12 "Faction stockpile raids") ──────────
+# FactionAI's stockpileRaid move between factions, queued at ⑥.5h and
+# resolved at the next ⑤c (Factions.apply_rivalry_resolution) with the
+# player raid's loot and consequences: no player stockpile exists, so the
+# player is never the defender.
+
+# attacker_id knows where defender_id keeps its stockpile, and it has a district.
+static func faction_can_raid_stockpile(attacker_id: String, defender_id: String) -> bool:
+	return Intel.knows(attacker_id, defender_id, Intel.STOCKPILE_LOCATION) and stockpile_district(defender_id) != ""
+
+
+# stashLootShare when attacker_id has stash-level intel on defender_id,
+# else lootShare: a faction always takes everything it can.
+static func faction_stockpile_loot_share(attacker_id: String, defender_id: String) -> float:
+	var key := "stashLootShare" if Intel.knows(attacker_id, defender_id, Intel.STASH) else "lootShare"
+	return float(_stockpile_cfg()[key])
+
+
+# One queued faction stockpile raid: both kits burn, the rivalry odds roll
+# against the stockpile guards' resist, then the guards' repel roll. A
+# success moves the loot share of the defender's holdings (items at their
+# tiers) to the attacker. Either way the raid is logged on both sides (a
+# hostile act), the attacker gains raid intel, the defender books the loss
+# and the relation hit, and the stockpile relocates. A haul worth at least
+# headlineValue is a Ticker headline. A no-op unless the attacker still
+# knows the stockpile's location.
+static func resolve_faction_stockpile_raid(attacker_id: String, defender_id: String) -> void:
+	if not faction_can_raid_stockpile(attacker_id, defender_id):
+		return
+	var cfg := _stockpile_cfg()
+	var district_id := stockpile_district(defender_id)
+	FactionSim.log_kit_burn(attacker_id, "attack", "stockpileRaid")
+	FactionSim.log_kit_burn(defender_id, "defend", "stockpileRaid")
+	var success := Rng.chance(Factions.stockpile_rivalry_chance(attacker_id, defender_id))
+	var guards := FactionSim.stockpile_guards(defender_id)
+	if success and guards > 0 and Rng.chance(guard_repel_chance(guards)):
+		success = false
+	var value := 0.0
+	if success:
+		var taken := _take_stockpile_share(defender_id, faction_stockpile_loot_share(attacker_id, defender_id))
+		for ore_type in taken["ore"].keys():
+			FactionSim.add_ore(attacker_id, ore_type, int(taken["ore"][ore_type]))
+		for recipe_key in taken["items"].keys():
+			for leg in taken["items"][recipe_key]:
+				FactionSim.add_item(attacker_id, recipe_key, int(leg["tier"]), int(leg["qty"]))
+		value = float(taken["value"])
+	else:
+		FactionAI.note_fight_lost(attacker_id, defender_id)
+	FactionAI.report_pair_move(attacker_id, defender_id, FactionAI.MOVE_STOCKPILE_RAID, district_id, success)
+	Intel.gain(attacker_id, defender_id, Intel.SOURCE_RAID)
+	FactionAI.note_loss(defender_id, attacker_id, value)
+	Factions.adjust_relation(defender_id, attacker_id, int(cfg["relationHit"]))
+	Intel.relocate_stockpile(defender_id)
+	if value >= float(cfg["headlineValue"]):
+		Barometer.push_headline(GameData.FACTION_ESCALATION["headlines"]["stockpileRaid"] % [
+			GameData.FACTIONS[attacker_id]["shortName"],
+			GameData.FACTIONS[defender_id]["shortName"],
+			GameData.DISTRICTS[district_id]["name"],
+		])
 
 
 # ── Direction B: daily-tick raid trigger ─────────────────────────────────

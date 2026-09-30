@@ -465,6 +465,7 @@ const BAND_MARKET := "market"
 const BAND_RAID := "raid"
 const BAND_ORDER: Array[String] = [BAND_NONE, BAND_WARNING, BAND_MARKET, BAND_RAID]
 const MOVE_VEIN_RAID := "veinRaid"
+const MOVE_STOCKPILE_RAID := "stockpileRaid"
 const MOVE_FLOOD := "flood"
 const MOVE_WITHHOLD := "withhold"
 const MOVE_OUTBID := "outbid"
@@ -488,9 +489,10 @@ static func _ecfg() -> Dictionary:
 
 # state.factionEscalation: { targets: { observerId: { targetId: {
 # warnedBand, lastMoveDay } } }, queuedRaids: [ { attackerId, targetId,
-# veinId, siteId } ], explained: [moveId], withholds: [ { factionId,
-# targetId, kind, good, untilDay } ], lastVeinLostDay }. lastMoveDay and
-# lastVeinLostDay -1 = never.
+# veinId, siteId } or { attackerId, targetId, move: "stockpileRaid" } ],
+# explained: [moveId], withholds: [ { factionId, targetId, kind, good,
+# untilDay } ], lastVeinLostDay }. lastMoveDay and lastVeinLostDay -1 =
+# never.
 static func new_escalation_state() -> Dictionary:
 	return { "targets": {}, "queuedRaids": [], "explained": [], "withholds": [], "lastVeinLostDay": -1 }
 
@@ -683,6 +685,8 @@ static func _move_candidate(observer: String, target: String, move_id: String) -
 	match move_id:
 		MOVE_VEIN_RAID:
 			return _vein_raid_candidate(observer, target)
+		MOVE_STOCKPILE_RAID:
+			return _stockpile_raid_candidate(observer, target)
 		MOVE_FLOOD:
 			return _flood_candidate(observer, target)
 		MOVE_WITHHOLD:
@@ -983,7 +987,28 @@ static func _raidable_veins(observer: String, target: String) -> Array:
 
 static func _raid_queued(vein_id: String) -> bool:
 	for entry in GameState.state["factionEscalation"]["queuedRaids"]:
-		if entry["veinId"] == vein_id:
+		if entry.get("veinId", "") == vein_id:
+			return true
+	return false
+
+
+# A faction target's stockpile, once observer's intel reaches its location
+# (never the player, who has no stockpile) and no raid on it is queued.
+# Damage = the rivalry odds against its guards × the London value of the
+# share observer would take (Raiding.faction_stockpile_loot_share).
+static func _stockpile_raid_candidate(observer: String, target: String) -> Dictionary:
+	if target == Shares.PLAYER or _stockpile_raid_queued(target) or not Raiding.faction_can_raid_stockpile(observer, target):
+		return {}
+	var value := Raiding.stockpile_value(target, Raiding.faction_stockpile_loot_share(observer, target))
+	var damage := Factions.stockpile_rivalry_chance(observer, target) * value
+	if damage <= 0.0:
+		return {}
+	return { "move": MOVE_STOCKPILE_RAID, "damage": damage, "cost": _move_cost(MOVE_STOCKPILE_RAID) }
+
+
+static func _stockpile_raid_queued(target: String) -> bool:
+	for entry in GameState.state["factionEscalation"]["queuedRaids"]:
+		if entry.get("move", "") == MOVE_STOCKPILE_RAID and entry["targetId"] == target:
 			return true
 	return false
 
@@ -1141,6 +1166,10 @@ static func _make_move(observer: String, target: String, move: Dictionary) -> vo
 			})
 			if target == Shares.PLAYER:
 				NetworkHandler.warn_of_raid(observer, move["siteId"])
+		MOVE_STOCKPILE_RAID:
+			GameState.state["factionEscalation"]["queuedRaids"].append({
+				"attackerId": observer, "targetId": target, "move": MOVE_STOCKPILE_RAID,
+			})
 		MOVE_FLOOD:
 			var value := Market.line_total("ore", Market.quote("ore", move["good"]), int(move["qty"]))
 			var taken := FactionSim.flood(observer, move["good"], int(move["qty"]), float(_ecfg()["flood"]["priceMult"]))
@@ -1352,7 +1381,7 @@ static func planned_moves(horizon_days: int) -> Array:
 	for entry in GameState.state["factionEscalation"]["queuedRaids"]:
 		var queued: Dictionary = entry.duplicate()
 		queued["factionId"] = entry["attackerId"]
-		queued["move"] = MOVE_VEIN_RAID
+		queued["move"] = entry.get("move", MOVE_VEIN_RAID)
 		queued["day"] = day + 1
 		plans.append(queued)
 	var ids: Array = GameData.FACTIONS.keys()

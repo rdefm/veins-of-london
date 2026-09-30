@@ -137,7 +137,7 @@
       "manipulator": { "market": ["undercut", "denyGoods", "tickerPush"], "raid": [] }
     },
     "sharedMarket": ["lowballBuyout"],
-    "moveCosts": { "veinRaid": 500, "withhold": 150, "outbid": 400, "poach": 200, "withholdItems": 150, "tickerPush": 300, "sellIntel": 0, "priceGouge": 200, "disinformation": 300 },
+    "moveCosts": { "veinRaid": 500, "stockpileRaid": 500, "withhold": 150, "outbid": 400, "poach": 200, "withholdItems": 150, "tickerPush": 300, "sellIntel": 0, "priceGouge": 200, "disinformation": 300 },
     "sellIntel": { "amount": 15, "price": 300, "damagePerPoint": 10 },
     "priceGouge": { "priceMult": 1.3, "days": 14, "damageBasis": 2000 },
     "disinformation": { "days": 10, "amount": 20, "damage": 500 },
@@ -234,6 +234,12 @@
         "defenderHit": "%s took our vein in %s.",
         "defenderMiss": "Saw %s off our vein in %s."
       },
+      "stockpileRaid": {
+        "attackerHit": "Cleaned out %s's stockpile in %s.",
+        "attackerMiss": "Turned back from %s's stockpile in %s.",
+        "defenderHit": "%s cleaned out our stockpile in %s. Moving it.",
+        "defenderMiss": "Saw %s off our stockpile in %s. Moving it anyway."
+      },
       "flood": {
         "player": "Flooded London with your %s.",
         "attacker": "Flooded London with %s's %s.",
@@ -292,7 +298,8 @@
     },
     "headlines": {
       "veinTaken": "%s vein in %s changes hands: %s out, %s in.",
-      "flood": "%s floods London with cut-price %s, aimed at %s."
+      "flood": "%s floods London with cut-price %s, aimed at %s.",
+      "stockpileRaid": "%s empties %s's stockpile in %s. Expect cheap stock."
     }
   },
   "factionConclave": {
@@ -314,7 +321,7 @@
     "dailyDecay": 1,
     "raid": { "oddsBonus": 0.15, "overestimatePenalty": 0.15 }
   },
-  "stockpileRaid": { "lootShare": 0.75, "stashLootShare": 1.0, "relationHit": -60, "raidResistPerGuard": 20, "valueTier": 2, "guardTemplate": "veinGuard" },
+  "stockpileRaid": { "lootShare": 0.75, "stashLootShare": 1.0, "relationHit": -60, "headlineValue": 2000, "raidResistPerGuard": 20, "valueTier": 2, "guardTemplate": "veinGuard" },
   "networkMenu": {
     "relationPriceMod": 0.002,
     "horizonDays": 7,

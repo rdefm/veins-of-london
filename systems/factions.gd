@@ -282,11 +282,18 @@ static func adjust_relation(faction_a: String, faction_b: String, delta: int) ->
 # FactionAI's raid rung (R§3.1 "Escalation") queues each faction-vs-faction
 # vein raid; this turns the queue into attempts. Pure apart from the drain.
 
-# Every queued faction-target raid still aimed at a vein its defender holds
-# and that isn't quest-locked, as { attackerId, defenderId, veinSiteId }.
+# Drains the queued faction-target raids; returns each vein raid still aimed
+# at a vein its defender holds and that isn't quest-locked, as { attackerId,
+# defenderId, veinSiteId }.
 static func queued_rivalry_attempts() -> Array:
+	return _vein_attempts(FactionAI.take_queued_raids(false))
+
+
+static func _vein_attempts(queued: Array) -> Array:
 	var attempts := []
-	for entry in FactionAI.take_queued_raids(false):
+	for entry in queued:
+		if entry.get("move", FactionAI.MOVE_VEIN_RAID) != FactionAI.MOVE_VEIN_RAID:
+			continue
 		var site: Variant = Sites.find_site(entry["siteId"])
 		if site == null:
 			continue
@@ -331,24 +338,29 @@ const RIVALRY_RELATION_WEIGHT := 0.25
 # attacker's intel on the defender (Intel.raid_odds_shift) all push it up,
 # clamped to [0, 1]. A vein already claimed this tick reads as chance 0.
 static func rivalry_success_chance(attempt: Dictionary) -> float:
-	var attacker_resources: int = GameState.state["factions"][attempt["attackerId"]]["resources"]
-	var defender_resources: int = GameState.state["factions"][attempt["defenderId"]]["resources"]
-	var resource_tilt: float = float(attacker_resources - defender_resources) / RIVALRY_RESOURCE_DIVISOR * RIVALRY_RESOURCE_WEIGHT
-
 	var site: Variant = Sites.find_site(attempt["veinSiteId"])
 	if site == null:
 		return 0.0
 	var raid_resist: int = Cultivating.vein_raid_resist(site["factionVein"])
-	var security_tilt: float = -(float(raid_resist) / RIVALRY_RAID_RESIST_DIVISOR) * RIVALRY_RAID_RESIST_WEIGHT
-
-	var relation: int = get_relation(attempt["defenderId"], attempt["attackerId"])
-	var relation_tilt: float = -(float(relation) / RIVALRY_RELATION_DIVISOR) * RIVALRY_RELATION_WEIGHT
-
 	# Network Targets intel is the Collective's own (spec §5.3), so it only tilts Collective attacks.
 	var intel_bonus: float = NetworkHandler.claim_bonus(attempt["veinSiteId"]) if attempt["attackerId"] == "collective" else 0.0
+	return _rivalry_chance(attempt["attackerId"], attempt["defenderId"], raid_resist, intel_bonus)
 
-	var meter_tilt: float = Intel.raid_odds_shift(attempt["attackerId"], attempt["defenderId"])
 
+# rivalry_success_chance() against defender_id's stockpile: its guards'
+# resist (Raiding.stockpile_raid_resist) in place of a vein's.
+static func stockpile_rivalry_chance(attacker_id: String, defender_id: String) -> float:
+	return _rivalry_chance(attacker_id, defender_id, Raiding.stockpile_raid_resist(defender_id), 0.0)
+
+
+static func _rivalry_chance(attacker_id: String, defender_id: String, raid_resist: int, intel_bonus: float) -> float:
+	var attacker_resources: int = GameState.state["factions"][attacker_id]["resources"]
+	var defender_resources: int = GameState.state["factions"][defender_id]["resources"]
+	var resource_tilt: float = float(attacker_resources - defender_resources) / RIVALRY_RESOURCE_DIVISOR * RIVALRY_RESOURCE_WEIGHT
+	var security_tilt: float = -(float(raid_resist) / RIVALRY_RAID_RESIST_DIVISOR) * RIVALRY_RAID_RESIST_WEIGHT
+	var relation: int = get_relation(defender_id, attacker_id)
+	var relation_tilt: float = -(float(relation) / RIVALRY_RELATION_DIVISOR) * RIVALRY_RELATION_WEIGHT
+	var meter_tilt: float = Intel.raid_odds_shift(attacker_id, defender_id)
 	var chance: float = RIVALRY_BASE_CHANCE + resource_tilt + security_tilt + relation_tilt + intel_bonus + meter_tilt
 	return clampf(chance, 0.0, 1.0)
 
@@ -375,6 +387,7 @@ static func roll_rivalry_odds(attempt: Dictionary) -> Dictionary:
 # end-of-yesterday resources and its kit burns land in today's consume): rolls
 # yesterday's queued raids through the odds above, applies
 # resolve_rivalry_outcome() to each result and logs it on both factions.
+# Queued stockpile raids resolve after them (Raiding.resolve_faction_stockpile_raid).
 
 # Relation-feedback magnitude on success -- big enough that repeated losses to the
 # same rival compound, small enough that one loss alone doesn't saturate the divisor.
@@ -382,7 +395,8 @@ const RIVALRY_RELATION_PENALTY := -15
 
 
 static func apply_rivalry_resolution() -> void:
-	for attempt in queued_rivalry_attempts():
+	var queued := FactionAI.take_queued_raids(false)
+	for attempt in _vein_attempts(queued):
 		# Every attempt, won or lost, burns both sides' raid kits (spec §Consumption).
 		FactionSim.log_kit_burn(attempt["attackerId"], "attack", "rivalry")
 		FactionSim.log_kit_burn(attempt["defenderId"], "defend", "rivalry")
@@ -392,6 +406,9 @@ static func apply_rivalry_resolution() -> void:
 			FactionAI.note_fight_lost(attempt["attackerId"], attempt["defenderId"])
 		resolve_rivalry_outcome(outcome)
 		FactionAI.report_pair_move(attempt["attackerId"], attempt["defenderId"], FactionAI.MOVE_VEIN_RAID, district_id, outcome["success"])
+	for entry in queued:
+		if entry.get("move", "") == FactionAI.MOVE_STOCKPILE_RAID:
+			Raiding.resolve_faction_stockpile_raid(entry["attackerId"], entry["targetId"])
 
 
 # Applies one already-rolled outcome; a failed attempt is a no-op. On success:

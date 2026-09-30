@@ -358,6 +358,67 @@ func run() -> void:
 		assert_eq(_explainer_count(), 1, "Archie explains the first raid")
 	)
 
+	run_case("a_hostile_faction_with_location_intel_raids_a_rivals_stockpile_over_the_rollover", func():
+		_stockpile_raid_ready()
+		Rng.set_seed(1818)
+		TimeSystem.daily_tick()
+		var queued := _queued().filter(func(e: Dictionary) -> bool: return e.get("move", "") == FactionAI.MOVE_STOCKPILE_RAID)
+		assert_eq(queued.size(), 1, "the stockpile raid is queued today")
+		assert_eq([queued[0]["attackerId"], queued[0]["targetId"]], ["firm", "guild"])
+		var district: String = GameData.DISTRICTS[Raiding.stockpile_district("guild")]["name"]
+		FactionSim.set_stockpile_guards("guild", 0)
+		var stockpile: Dictionary = GameState.state["factions"]["guild"]["stockpile"]
+		TimeSystem.daily_tick()
+		assert_true(_log_texts("firm").has(GameData.FACTION_ESCALATION["log"]["stockpileRaid"]["attackerHit"] % [GameData.FACTIONS["guild"]["shortName"], district]), "the haul is logged")
+		var headline: String = GameData.FACTION_ESCALATION["headlines"]["stockpileRaid"] % [GameData.FACTIONS["firm"]["shortName"], GameData.FACTIONS["guild"]["shortName"], district]
+		assert_true(Barometer.headlines().any(func(h: Dictionary) -> bool: return h["text"] == headline), "a haul worth the headline moved")
+		assert_true(not is_same(GameState.state["factions"]["guild"]["stockpile"], stockpile), "the stockpile relocated")
+		assert_true(FactionAI.at_war("firm", "guild"), "the raid starts the war")
+	)
+
+	run_case("a_faction_stockpile_raid_moves_holdings_relocates_and_extends_the_war", func():
+		_stockpile_raid_ready()
+		var recipe_key: String = GameData.RECIPES.keys()[0]
+		FactionSim.add_item("guild", recipe_key, 2, 10)
+		FactionAI.note_hostile_act("firm", "guild")
+		GameState.state["world"]["day"] = 5
+		var district_id := Raiding.stockpile_district("guild")
+		var firm_time := FactionSim.ore_held("firm", "time")
+		var firm_items := FactionSim.item_held("firm", recipe_key)
+		var firm_tier_2 := int(GameState.state["factions"]["firm"]["holdings"]["items"].get(recipe_key, {}).get("2", 0))
+		Raiding.resolve_faction_stockpile_raid("firm", "guild")
+		var share := float(GameData.STOCKPILE_RAID["stashLootShare"])
+		var stolen := floori(1000 * share)
+		assert_eq(FactionSim.ore_held("guild", "time"), 1000 - stolen, "stash intel takes the stash share")
+		assert_eq(FactionSim.ore_held("firm", "time"), firm_time + stolen, "the ore goes to the raider")
+		assert_eq(FactionSim.item_held("firm", recipe_key), firm_items + floori(10 * share), "items too, at their tiers")
+		assert_eq(int(GameState.state["factions"]["firm"]["holdings"]["items"][recipe_key].get("2", 0)), firm_tier_2 + floori(10 * share))
+		assert_true(Intel.meter("firm", "guild") < Intel.level_at(Intel.STOCKPILE_LOCATION), "relocation drops the raider below location")
+		assert_eq(int(GameState.state["factionWar"]["lastHostile"][FactionAI.war_key("firm", "guild")]), 5, "the war clock restarts")
+		assert_eq(Barometer.headlines()[0]["text"], GameData.FACTION_ESCALATION["headlines"]["stockpileRaid"] % [
+			GameData.FACTIONS["firm"]["shortName"], GameData.FACTIONS["guild"]["shortName"], GameData.DISTRICTS[district_id]["name"],
+		], "a big haul makes the Ticker")
+	)
+
+	run_case("a_small_stockpile_haul_makes_no_headline", func():
+		_stockpile_raid_ready()
+		FactionSim.take_ore("guild", "time", 1000)
+		FactionSim.add_ore("guild", "time", 10)
+		Raiding.resolve_faction_stockpile_raid("firm", "guild")
+		assert_eq(Barometer.headlines(), [])
+	)
+
+	run_case("the_stockpile_raid_rung_is_never_picked_against_the_player", func():
+		_fresh()
+		_raid_ready("firm", -80)
+		GameState.state["player"]["veins"] = []
+		Intel.raise("firm", "player", int(GameData.INTEL["max"]))
+		assert_eq(FactionAI._move_candidate("firm", "player", FactionAI.MOVE_STOCKPILE_RAID), {})
+		_target_entry("firm")["warnedBand"] = FactionAI.BAND_RAID
+		_escalate_on(1)
+		assert_eq(_queued(), [], "no raid queued against the player")
+	)
+
 	run_case("archies_explainer_fires_once_per_move_type", func():
 		_fresh()
 		var vein := Fixtures.seed_vein("pv", 60)
@@ -1152,6 +1213,23 @@ static func _under_pressure(faction_id: String) -> void:
 	if not snapshots.has(faction_id):
 		snapshots[faction_id] = {}
 	snapshots[faction_id]["player"] = { "threat": 2.0, "dependence": 0.0, "delta": -2.0 }
+
+
+# Firm Hostile with the Guild, rich, already warned about the raid band and
+# with stash intel on it; the Guild holds 1000 time ore and no stockpile
+# guards or items, so the raid always lands. Firm holds no ore of its own.
+static func _stockpile_raid_ready() -> void:
+	_fresh()
+	Factions.adjust_relation("firm", "guild", -100 - Factions.get_relation("firm", "guild"))
+	GameState.state["factionStances"]["pairs"][FactionAI.pair_key("firm", "guild")]["stance"] = FactionAI.HOSTILE
+	GameState.state["factions"]["firm"]["resources"] = 1000000
+	GameState.state["factions"]["guild"]["resources"] = 0
+	GameState.state["factions"]["firm"]["holdings"]["ore"] = {}
+	GameState.state["factions"]["guild"]["holdings"]["ore"] = { "time": 1000 }
+	GameState.state["factions"]["guild"]["holdings"]["items"] = {}
+	FactionSim.set_stockpile_guards("guild", 0)
+	Intel.raise("firm", "guild", int(GameData.INTEL["max"]))
+	FactionAI._target_entry("firm", "guild")["warnedBand"] = FactionAI.BAND_RAID
 
 
 static func _escalate_on(day: int) -> void:
