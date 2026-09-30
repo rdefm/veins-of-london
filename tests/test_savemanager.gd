@@ -975,6 +975,24 @@ func run() -> void:
 		assert_eq(projected.map(func(o): return o["type"]), ["player", "enemy"], "a valid projection of the living combatants")
 	)
 
+	run_case("an_old_save_without_key_member_contacts_backfills_them_and_round_trips", func():
+		GameState.reset()
+		var legacy: Dictionary = GameState.deep_copy(GameState.state)
+		for contact_id in ["lusk", "ingram", "fairweather"]:
+			legacy["contacts"].erase(contact_id)
+		assert_true(SaveManager.import_string(JSON.stringify(legacy))["ok"], "the old save loads")
+		for contact_id in ["lusk", "ingram", "fairweather"]:
+			assert_true(GameState.state["contacts"].has(contact_id), "%s backfilled" % contact_id)
+			assert_true(not GameState.state["contacts"][contact_id]["unlocked"], "%s backfills locked" % contact_id)
+
+		KeyMembers.send("guild", "Noted.")
+		assert_true(SaveManager.save_to_slot(TEST_SLOT)["ok"], "save_to_slot should succeed")
+		GameState.reset()
+		assert_true(SaveManager.load_from_slot(TEST_SLOT)["ok"], "load_from_slot should succeed")
+		assert_true(GameState.state["contacts"]["ingram"]["unlocked"], "unlock survives the round trip")
+		assert_eq(GameState.state["messages"]["ingram"].size(), 2, "intro + message survive the round trip")
+	)
+
 	# ── 21-contact-roles-sales-skill ──────────────────────────────────────
 
 	run_case("loading_a_pre_21_save_backfills_salesSkill_and_salesXP_on_an_existing_contact", func():

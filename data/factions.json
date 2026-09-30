@@ -36,6 +36,16 @@
       "healingSalve": 3
     },
     "raidKits": { "attack": { "healingSalve": 1 }, "defend": { "healingSalve": 1 } },
+    "speaker": "nadia",
+    "keyMembers": [
+      {"id": "nadia", "contactId": "nadia", "name": "Nadia", "role": "The Collective · Hackney", "unlock": "quest", "giftPrefs": ["timePearl", "enhancementPowder"], "intro": ""},
+      {"id": "des", "contactId": "des", "name": "Des", "role": "The Collective · prospector", "unlock": "quest", "giftPrefs": ["prophetsBreath", "healingSalve"], "intro": ""},
+      {"id": "hakim", "contactId": "hakim", "name": "Hakim", "role": "The Collective · Whitechapel Road", "unlock": "quest", "giftPrefs": ["rejuvenation", "healingBurst"], "intro": ""}
+    ],
+    "sampleFavours": [
+      {"id": "collective_time_order", "kind": "deliver", "params": {"kind": "ore", "type": "time", "qty": 10, "days": 5}, "text": "\"I'm short on time calc again. Ten by the end of the week and I'll remember it.\""},
+      {"id": "collective_watch_yard", "kind": "guardVein", "params": {"days": 3}, "text": "\"The Firm's been walking past the allotments. Keep an eye on your ground for three days, would you.\""}
+    ],
     "startingHoldings": {
       "ore": {
         "life": 40,
@@ -88,6 +98,14 @@
       "enhancementPowder": 3
     },
     "raidKits": { "attack": { "blast": 2, "healingBurst": 1 }, "defend": { "shield": 2, "healingBurst": 1 } },
+    "speaker": "lusk",
+    "keyMembers": [
+      {"id": "lusk", "contactId": "lusk", "name": "Lusk", "role": "The Firm · Bermondsey", "unlock": "firstMessage", "giftPrefs": ["rejuvenation", "prophetsBreath"], "intro": "\"Lusk. I look after the Firm's interests south of the river. Some of those interests appear to be yours now. We'll keep this civil for as long as it stays that way.\""}
+    ],
+    "sampleFavours": [
+      {"id": "firm_sit_out", "kind": "sitOut", "params": {"target": "collective", "days": 5}, "text": "\"Something's happening east of here this week. You'll be somewhere else. That's the whole favour.\""},
+      {"id": "firm_cheap_life", "kind": "sellBelow", "params": {"kind": "ore", "type": "life", "qty": 15, "mult": 0.8}, "text": "\"Fifteen life, twenty off the Ticker. You'll find we're good at remembering who was reasonable.\""}
+    ],
     "startingHoldings": {
       "ore": {
         "physics": 40,
@@ -143,6 +161,14 @@
       "enhancementPowder": 1
     },
     "raidKits": { "attack": {}, "defend": {} },
+    "speaker": "ingram",
+    "keyMembers": [
+      {"id": "ingram", "contactId": "ingram", "name": "Ingram", "role": "The Guild · Assay Warden", "unlock": "firstMessage", "giftPrefs": ["failsafe", "pansPrank"], "intro": "\"Dr Ingram, Assay Warden to the Guild of Applied Alchemists. Your name has come before the Court twice this month. Once would have been sufficient.\""}
+    ],
+    "sampleFavours": [
+      {"id": "guild_time_supply", "kind": "deliver", "params": {"kind": "ore", "type": "time", "qty": 15, "days": 6}, "text": "\"The Court requires fifteen time by the sixth day. Assayed, weighed, and not in a carrier bag.\""},
+      {"id": "guild_cheap_powder", "kind": "sellBelow", "params": {"kind": "item", "type": "enhancementPowder", "qty": 4, "mult": 0.85}, "text": "\"Four measures of enhancement powder, at a rate the Guild would describe as collegial.\""}
+    ],
     "startingHoldings": {
       "ore": {
         "time": 40,
@@ -194,6 +220,14 @@
       "prophetsBreath": 3
     },
     "raidKits": { "attack": { "pansPrank": 1 }, "defend": {} },
+    "speaker": "handler",
+    "keyMembers": [
+      {"id": "handler", "contactId": "handler", "name": "Handler", "role": "The Network · Clerkenwell", "unlock": "quest", "giftPrefs": ["prophetsBreath", "beALady"], "intro": ""}
+    ],
+    "sampleFavours": [
+      {"id": "network_breath_drop", "kind": "deliver", "params": {"kind": "item", "type": "prophetsBreath", "qty": 3, "days": 4}, "text": "\"Three prophet's breath. Four days. Leave them where you'd least expect.\""},
+      {"id": "network_sit_out", "kind": "sitOut", "params": {"target": "conclave", "days": 4}, "text": "\"If anyone asks you to lean on the Conclave this week, don't.\""}
+    ],
     "startingHoldings": {
       "ore": {
         "emotion": 40,
@@ -244,6 +278,14 @@
       "rejuvenation": 3
     },
     "raidKits": { "attack": {}, "defend": { "failsafe": 1 } },
+    "speaker": "fairweather",
+    "keyMembers": [
+      {"id": "fairweather", "contactId": "fairweather", "name": "Fairweather", "role": "The Conclave · Westminster", "unlock": "firstMessage", "giftPrefs": ["timePearl", "wormhole"], "intro": "\"Good afternoon. Fairweather, on behalf of the Conclave. There is nothing you need to do. We simply prefer people to know whom to call.\""}
+    ],
+    "sampleFavours": [
+      {"id": "conclave_hold_ground", "kind": "guardVein", "params": {"days": 3}, "text": "\"We'd be grateful if your veins stayed exactly where they are for the next three days. Grateful is the word we'd use.\""},
+      {"id": "conclave_fate_supply", "kind": "deliver", "params": {"kind": "ore", "type": "fate", "qty": 10, "days": 5}, "text": "\"Ten fate, within five days. The address will be somewhere you've walked past.\""}
+    ],
     "startingHoldings": {
       "ore": {
         "fate": 40,

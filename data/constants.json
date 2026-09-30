@@ -18,7 +18,10 @@
     "handler": { "startRelation": 0, "unlocked": false, "recruitThreshold": 0,   "recruitable": false },
     "owen":   { "startRelation": 0,  "unlocked": false, "recruitThreshold": 0,   "recruitable": false, "combatHpMax": 0,
                 "roomFreeRoles": true, "skillCaps": { "cultivating": 3, "crafting": 3 },
-                "roleFlags": { "cultivation": "bizOwenCultivationRole", "production": "bizOwenProductionRole" } }
+                "roleFlags": { "cultivation": "bizOwenCultivationRole", "production": "bizOwenProductionRole" } },
+    "lusk":   { "startRelation": 0,  "unlocked": false, "recruitThreshold": 0,   "recruitable": false },
+    "ingram": { "startRelation": 0,  "unlocked": false, "recruitThreshold": 0,   "recruitable": false },
+    "fairweather": { "startRelation": 0, "unlocked": false, "recruitThreshold": 0, "recruitable": false }
   },
   "jamesJobTrustBands": [
     { "maxRelation": 1,    "qtyMin": 1, "qtyMax": 3 },

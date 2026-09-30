@@ -279,4 +279,17 @@ static func display_name(contact_id: String) -> String:
 		"owen":
 			return "Owen"
 		_:
+			var key_member := KeyMembers.member(contact_id)
+			if not key_member.is_empty():
+				return str(key_member["name"])
 			return contact_id.capitalize()
+
+
+# Unlocked contacts in Contacts-directory order (by display name).
+static func directory_ids() -> Array:
+	var ids: Array = []
+	for contact_id in GameState.state["contacts"].keys():
+		if GameState.state["contacts"][contact_id]["unlocked"]:
+			ids.append(contact_id)
+	ids.sort_custom(func(a, b): return display_name(a) < display_name(b))
+	return ids

@@ -29,9 +29,7 @@ func _refresh() -> void:
 	_content.add_child(heading)
 
 	var previous_initial := ""
-	for contact_id in ["archie", "des", "hakim", "handler", "james", "nadia", "owen"]:
-		if not GameState.state["contacts"][contact_id]["unlocked"]:
-			continue
+	for contact_id in Contacts.directory_ids():
 		var initial: String = Contacts.display_name(contact_id).substr(0, 1)
 		if initial != previous_initial:
 			var section := UI.muted_label(initial)
@@ -53,4 +51,4 @@ func _build_card(contact_id: String) -> Control:
 		"james": return ContactCards.build_james_card()
 		"nadia": return ContactCards.build_nadia_card()
 		"owen": return ContactCards.build_owen_card()
-	return Control.new()
+	return ContactCards.build_key_member_card(contact_id)

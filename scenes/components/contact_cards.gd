@@ -483,6 +483,17 @@ static func build_handler_card() -> Control:
 	return c["panel"]
 
 
+# A faction key member with no bespoke card (R§3.10 "Key members").
+static func build_key_member_card(contact_id: String) -> Control:
+	var c := UI.card()
+	c["content"].add_child(UI.heading(Contacts.display_name(contact_id), 15))
+	c["content"].add_child(UI.muted_label(str(KeyMembers.member(contact_id).get("role", ""))))
+	for entry in Messages.pending_for(contact_id):
+		c["content"].add_child(UI.button("Continue →", _on_pending_action_pressed.bind(entry)))
+	c["content"].add_child(build_messages_button(contact_id))
+	return c["panel"]
+
+
 const _PHONE_BG_HOME := "phone_bg_home"
 const _PHONE_BG_CONTENT := "phone_bg_content"
 const _PHONE_DIVIDER := "phone_divider"
