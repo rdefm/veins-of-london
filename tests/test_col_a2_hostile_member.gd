@@ -22,20 +22,6 @@ func _start() -> void:
 	GameState.state["player"]["cash"] = 1000
 
 
-func _firm_collective_target_share(seeds: int) -> float:
-	var collective_hits := 0
-	var firm_attacks := 0
-	for seed in range(seeds):
-		Rng.set_seed(seed)
-		for attempt in Factions.roll_rivalry_attempts():
-			if attempt["attackerId"] != "firm":
-				continue
-			firm_attacks += 1
-			if attempt["defenderId"] == "collective":
-				collective_hits += 1
-	return float(collective_hits) / float(max(firm_attacks, 1))
-
-
 func run() -> void:
 	run_case("pin_is_gated_on_colA2Stage_and_hides_once_resolved", func():
 		GameState.reset()
@@ -88,14 +74,15 @@ func run() -> void:
 		assert_eq(GameState.state["methodLog"]["a2HostileMember"], "protected")
 	)
 
-	run_case("provocation_skews_firm_rivalry_targets_toward_collective", func():
+	run_case("the_firm_makes_no_moves_on_the_collective_while_provoked_mid_questline", func():
 		GameState.reset()
 		GameState.state["world"]["sites"] = []
+		GameData.FACTION_RIVALRY = true
 		Fixtures.seed_faction_vein("fv_collective", 50, "collective")
-		Fixtures.seed_faction_vein("fv_guild", 50, "guild")
-		Fixtures.seed_faction_vein("fv_firm", 50, "firm")
-		var baseline := _firm_collective_target_share(300)
+		GameState.state["factions"]["firm"]["resources"] = 10000
+		FactionAI._target_entry("firm", "collective")["warnedBand"] = FactionAI.BAND_RAID
 		Collective.provoke_firm(3.0, 7)
-		var provoked := _firm_collective_target_share(300)
-		assert_true(provoked > baseline + 0.15, "baseline %.2f vs provoked %.2f" % [baseline, provoked])
+		FactionAI.apply_escalation()
+		GameData.FACTION_RIVALRY = false
+		assert_eq(GameState.state["factionEscalation"]["queuedRaids"], [], "the Collective–Firm pair is held until the questline completes")
 	)

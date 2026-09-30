@@ -32,11 +32,14 @@ func _pending_count(contact_id: String, kind: String) -> int:
 	return count
 
 
+static func _queue_raid(attacker_id: String, target_id: String, vein_id: String, site_id: String) -> void:
+	GameState.state["factionEscalation"]["queuedRaids"].append({ "attackerId": attacker_id, "targetId": target_id, "veinId": vein_id, "siteId": site_id })
+
+
 func run() -> void:
 	# ── col_a2_force_vein_loss ─────────────────────────────────────────────
 
 	run_case("hakims_vein_is_safe_from_rivalry_until_the_retake", func():
-		GameData.FACTION_RIVALRY = true
 		# Collective-held before T10, then Firm-held between T10 and T13.
 		for holder in ["collective", "firm"]:
 			var taken := false
@@ -49,6 +52,8 @@ func run() -> void:
 				GameState.state["flags"]["colA2HakimVeinLost"] = holder == "firm"
 				for faction_id in GameState.state["factions"]:
 					GameState.state["factions"][faction_id]["resources"] = 0 if faction_id == holder else 5000
+					if faction_id != holder:
+						_queue_raid(faction_id, holder, "hakim_v", vein["siteId"])
 				Rng.set_seed(seed)
 				Factions.apply_rivalry_resolution()
 				if vein["factionId"] != holder:
@@ -65,13 +70,13 @@ func run() -> void:
 			GameState.state["flags"]["colA2HakimRetaken"] = true
 			GameState.state["factions"]["firm"]["resources"] = 5000
 			GameState.state["factions"]["collective"]["resources"] = 0
+			_queue_raid("firm", "collective", "hakim_v", vein["siteId"])
 			Rng.set_seed(seed)
 			Factions.apply_rivalry_resolution()
 			if vein["factionId"] != "collective":
 				taken_after_retake = true
 				break
 		assert_true(taken_after_retake, "once the retake has run, the lock lifts")
-		GameData.FACTION_RIVALRY = false
 	)
 
 	run_case("hakims_vein_is_not_raided_while_the_player_holds_it_before_the_retake", func():
@@ -80,10 +85,16 @@ func run() -> void:
 		GameState.state["collective"]["hakimVeinId"] = "hakim_v"
 		for faction_id in GameState.state["factions"]:
 			GameState.state["factions"][faction_id]["relation"] = -100
-		var targets: Array = Raiding.roll_raid_attempts().map(func(a: Dictionary) -> String: return a["veinId"])
+			GameState.state["factions"][faction_id]["resources"] = 10000
+			FactionAI._target_entry(faction_id, "player")["warnedBand"] = FactionAI.BAND_RAID
+		FactionAI.apply_escalation()
+		var targets: Array = GameState.state["factionEscalation"]["queuedRaids"].map(func(a: Dictionary) -> String: return a["veinId"])
 		assert_true(not targets.has("hakim_v"), "no faction raid targets Hakim's vein")
+		_queue_raid("firm", "player", "hakim_v", vein["siteId"])
+		assert_eq(Raiding.queued_raid_attempts(), [], "a raid queued on it is dropped")
 		GameState.state["flags"]["colA2HakimRetaken"] = true
-		targets = Raiding.roll_raid_attempts().map(func(a: Dictionary) -> String: return a["veinId"])
+		FactionAI.apply_escalation()
+		targets = GameState.state["factionEscalation"]["queuedRaids"].map(func(a: Dictionary) -> String: return a["veinId"])
 		assert_true(targets.has(vein["id"]), "the lock lifts after the retake")
 	)
 

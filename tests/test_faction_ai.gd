@@ -1,5 +1,7 @@
 extends "res://tests/test_base.gd"
 
+const Fixtures := preload("res://tests/support/fixtures.gd")
+
 const FACTION_IDS := ["collective", "firm", "guild", "network", "conclave"]
 
 
@@ -238,6 +240,203 @@ func run() -> void:
 			GameState.state["market"]["goods"]["ore"]["time"]["price"] = 999
 		assert_almost_eq(Factions.vein_value(vein), float(Market.quote("ore", "time")) * Cultivating.combined_magnitude(vein), 0.001)
 	)
+
+
+	# ── Escalation ─────────────────────────────────────────────────────────
+
+	run_case("a_key_member_warning_precedes_the_first_move_in_each_new_band", func():
+		_fresh()
+		_under_pressure("guild")
+		Factions.adjust_player_relation("guild", 10)
+		_escalate_on(1)
+		assert_eq(_last_message("ingram"), _warning("crafter", "warning"))
+		assert_eq(_target_entry("guild")["warnedBand"], FactionAI.BAND_WARNING, "flag stored guild → player")
+		Factions.adjust_player_relation("guild", -20)
+		_escalate_on(1 + _cooldown())
+		assert_eq(_last_message("ingram"), _warning("crafter", "market"), "market band warned on entry")
+		Factions.adjust_player_relation("guild", -30)
+		_escalate_on(1 + 2 * _cooldown())
+		assert_eq(_last_message("ingram"), _warning("crafter", "raid"), "below raidThreshold −30 → raid band")
+		assert_eq(_target_entry("guild")["warnedBand"], FactionAI.BAND_RAID)
+		assert_true(_log_texts("guild").has(GameData.FACTION_ESCALATION["log"]["warningPlayer"]))
+	)
+
+	run_case("no_warning_without_pressure_below_the_raid_band", func():
+		_fresh()
+		Factions.adjust_player_relation("guild", -10)
+		_escalate_on(1)
+		assert_true(not GameState.state["messages"].has("ingram"), "calm faction stays quiet")
+	)
+
+	run_case("recovering_a_band_rearms_its_warning", func():
+		_fresh()
+		_under_pressure("guild")
+		Factions.adjust_player_relation("guild", -10)
+		_escalate_on(1)
+		Factions.adjust_player_relation("guild", 30)
+		_escalate_on(2)
+		assert_eq(_target_entry("guild")["warnedBand"], FactionAI.BAND_NONE)
+		Factions.adjust_player_relation("guild", -30)
+		_escalate_on(1 + _cooldown())
+		assert_eq(_last_message("ingram"), _warning("crafter", "market"))
+	)
+
+	run_case("the_cooldown_stops_a_second_move_against_the_same_target", func():
+		_fresh()
+		_raid_ready("firm", -50)
+		for day in range(1, 1 + _cooldown()):
+			_escalate_on(day)
+		assert_eq(_queued().size(), 0, "warning on day 1, then cooling")
+		_escalate_on(1 + _cooldown())
+		assert_eq(_queued().size(), 1, "first raid once the warning's cooldown ends")
+		GameState.state["factionEscalation"]["queuedRaids"] = []
+		for day in range(2 + _cooldown(), 1 + 2 * _cooldown()):
+			_escalate_on(day)
+		assert_eq(_queued().size(), 0, "no second move inside the cooldown")
+		_escalate_on(1 + 2 * _cooldown())
+		assert_eq(_queued().size(), 1)
+	)
+
+	run_case("the_raid_rung_opens_below_raid_threshold_or_at_hostile", func():
+		_fresh()
+		for faction_id in FACTION_IDS:
+			var threshold: int = GameData.FACTIONS[faction_id]["raidThreshold"]
+			Factions.adjust_player_relation(faction_id, threshold - _player_relation(faction_id))
+			assert_true(FactionAI.band(faction_id, "player") != FactionAI.BAND_RAID, "%s at its raidThreshold" % faction_id)
+			Factions.adjust_player_relation(faction_id, -1)
+			assert_eq(FactionAI.band(faction_id, "player"), FactionAI.BAND_RAID, "%s just below" % faction_id)
+		Factions.adjust_player_relation("guild", 20 - _player_relation("guild"))
+		GameState.state["factionStances"]["player"]["guild"]["stance"] = FactionAI.HOSTILE
+		assert_eq(FactionAI.band("guild", "player"), FactionAI.BAND_RAID, "Hostile stance opens it too")
+	)
+
+	run_case("only_the_raid_band_queues_a_vein_raid", func():
+		_fresh()
+		_raid_ready("collective", -20)
+		_under_pressure("collective")
+		_target_entry("collective")["warnedBand"] = FactionAI.BAND_MARKET
+		for day in range(1, 30):
+			_escalate_on(day)
+		assert_eq(_queued().size(), 0, "market band: no raid")
+		Factions.adjust_player_relation("collective", -30)
+		_escalate_on(30)
+		assert_eq(_queued().size(), 0, "raid band entered: warning first")
+		_escalate_on(30 + _cooldown())
+		assert_eq(_queued().size(), 1)
+		assert_eq(_queued()[0]["attackerId"], "collective")
+	)
+
+	run_case("a_faction_that_cannot_afford_the_move_does_not_raid", func():
+		_fresh()
+		_raid_ready("firm", -50)
+		_target_entry("firm")["warnedBand"] = FactionAI.BAND_RAID
+		GameState.state["factions"]["firm"]["resources"] = int(GameData.FACTION_ESCALATION["moveCosts"]["veinRaid"]) - 1
+		_escalate_on(1)
+		assert_eq(_queued().size(), 0)
+		GameState.state["factions"]["firm"]["resources"] = 10000
+		_escalate_on(1)
+		assert_eq(_queued().size(), 1)
+		assert_eq(GameState.state["factions"]["firm"]["resources"], 10000 - int(GameData.FACTION_ESCALATION["moveCosts"]["veinRaid"]), "move cost paid")
+	)
+
+	run_case("a_queued_raid_resolves_on_the_next_rollover_and_is_reported", func():
+		_fresh()
+		_raid_ready("firm", -80)
+		_target_entry("firm")["warnedBand"] = FactionAI.BAND_RAID
+		TimeSystem.daily_tick()
+		assert_eq(_queued().size(), 1, "decided today")
+		assert_eq(_queued()[0]["targetId"], "player")
+		assert_true(FactionAI.moves_against_player().is_empty(), "not resolved yet")
+		TimeSystem.daily_tick()
+		assert_eq(_queued().size(), 0, "drained by the raid step; the cooldown holds today's decision")
+		var moves := FactionAI.moves_against_player()
+		assert_eq(moves.size(), 1, "one move against you")
+		assert_eq(moves[0]["factionId"], "firm", "actor named")
+		assert_eq(moves[0]["move"], FactionAI.MOVE_VEIN_RAID)
+		assert_true(GameState.state["messages"].has("lusk"), "key member sends it")
+		assert_eq(_explainer_count(), 1, "Archie explains the first raid")
+	)
+
+	run_case("archies_explainer_fires_once_per_move_type", func():
+		_fresh()
+		var vein := Fixtures.seed_vein("pv", 60)
+		for i in 2:
+			FactionAI.report_player_move("firm", FactionAI.MOVE_VEIN_RAID, vein["district"], i == 0)
+		assert_eq(_explainer_count(), 1)
+		assert_eq(FactionAI.moves_against_player().size(), 2)
+	)
+
+	run_case("the_collective_firm_pair_makes_no_moves_until_the_questline_completes", func():
+		_fresh()
+		GameData.FACTION_RIVALRY = true
+		Fixtures.seed_faction_vein("fv_c", 60, "collective")
+		GameState.state["factions"]["firm"]["resources"] = 10000
+		FactionAI._target_entry("firm", "collective")["warnedBand"] = FactionAI.BAND_RAID
+		for day in range(1, 20):
+			_escalate_on(day)
+		assert_eq(_queued().size(), 0, "held pair")
+		GameState.state["flags"]["colA2Complete"] = true
+		_escalate_on(20)
+		assert_eq(_queued().size(), 1, "joins once the questline ends")
+		assert_eq(_queued()[0]["targetId"], "collective")
+		GameData.FACTION_RIVALRY = false
+	)
+
+	run_case("faction_vs_faction_raids_stay_off_while_factionRivalry_is_off", func():
+		_fresh()
+		Fixtures.seed_faction_vein("fv_g", 60, "guild")
+		_set_pair("firm", "guild", -60)
+		GameState.state["factions"]["firm"]["resources"] = 10000
+		FactionAI._target_entry("firm", "guild")["warnedBand"] = FactionAI.BAND_RAID
+		_escalate_on(1)
+		assert_eq(_queued().size(), 0)
+	)
+
+
+static func _cooldown() -> int:
+	return int(GameData.FACTION_ESCALATION["cooldownDays"])
+
+
+static func _warning(archetype: String, band_id: String) -> String:
+	return GameData.FACTION_ESCALATION["warnings"][archetype][band_id]
+
+
+static func _last_message(contact_id: String) -> String:
+	var thread: Array = GameState.state["messages"].get(contact_id, [])
+	return thread.back()["text"] if not thread.is_empty() else ""
+
+
+static func _target_entry(faction_id: String) -> Dictionary:
+	return FactionAI._target_entry(faction_id, "player")
+
+
+# A negative last drift toward the player, as the pressure step would store.
+static func _under_pressure(faction_id: String) -> void:
+	var snapshots: Dictionary = GameState.state["factionPressure"]["snapshots"]
+	if not snapshots.has(faction_id):
+		snapshots[faction_id] = {}
+	snapshots[faction_id]["player"] = { "threat": 2.0, "dependence": 0.0, "delta": -2.0 }
+
+
+static func _escalate_on(day: int) -> void:
+	GameState.state["world"]["day"] = day
+	FactionAI.apply_escalation()
+
+
+static func _queued() -> Array:
+	return GameState.state["factionEscalation"]["queuedRaids"]
+
+
+# A player vein to hit, a funded faction, and its player relation.
+static func _raid_ready(faction_id: String, relation: int) -> void:
+	Fixtures.seed_vein("pv", 60)
+	GameState.state["factions"][faction_id]["resources"] = 10000
+	Factions.adjust_player_relation(faction_id, relation - _player_relation(faction_id))
+
+
+static func _explainer_count() -> int:
+	var text: String = GameData.FACTION_ESCALATION["explainers"]["veinRaid"]
+	return GameState.state["messages"].get("archie", []).filter(func(m: Dictionary) -> bool: return m["text"] == text).size()
 
 
 static func _fresh() -> void:

@@ -50,6 +50,9 @@ The stored political posture of a faction pair, or of the player with a faction:
 **Pressure**:
 How hard a faction is leaning on another actor (the player or another faction). Each day the faction weighs the actor's threat (share of its ores and crafts, veins on its home ground, overall size, supplying its enemies) against its dependence on them (supply and contracts), and relation drifts by the difference, capped. The player sees it as a label per faction: Calm, Watching, Annoyed, Moving against you.
 
+**Escalation**:
+How a faction acts on its pressure: through its archetype's menu of moves, gated by relation band. Warning first, then market moves once relation is negative, then the raid rung once it is Hostile or below its raid threshold. It always warns before its first move in a new band, picks the affordable move that hurts most, and makes at most one move per target per cooldown. Raids it decides resolve at the next rollover.
+
 **Key member**:
 The named person who speaks for a faction (Lusk for the Firm, Ingram for the Guild, Fairweather for the Conclave, Nadia for the Collective, the handler for the Network). Every faction message to the player comes from its key member, never from the faction as a faceless whole.
 

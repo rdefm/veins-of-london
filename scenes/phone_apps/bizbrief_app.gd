@@ -1,5 +1,5 @@
 # BizBrief: Brief tab (morning account — bank, payday, wage prompts, operations, attention,
-# London and supplier shares),
+# moves against you, London and supplier shares),
 # Manage tab (sales offers/contracts, lab production targets, cultivator
 # procurement), once bizStaffTabOpen is set, Staff tab (recruited
 # contacts, roles, pay) and, once the business pot is active, Stats tab
@@ -121,8 +121,25 @@ func _build_brief(content: VBoxContainer) -> void:
 	var attention := MorningAccountsSystem.attention_items()
 	if not attention.is_empty():
 		content.add_child(_build_attention(attention))
+	content.add_child(_build_moves_against_you())
 	content.add_child(_build_london_share())
 	content.add_child(_build_supplier_share())
+
+
+const MOVES_SHOWN := 5
+
+
+# The latest faction moves against the player, newest first, each naming
+# its faction (spec §Communication).
+func _build_moves_against_you() -> Control:
+	var c := UI.card()
+	c["content"].add_child(UI.heading("Moves against you", 14))
+	var moves := FactionAI.moves_against_player()
+	if moves.is_empty():
+		c["content"].add_child(UI.muted_label("Nobody has moved against you."))
+	for move in moves.slice(0, MOVES_SHOWN):
+		c["content"].add_child(UI.label("%s · %s: %s" % [Calendar.format_day(int(move["day"])), GameData.FACTIONS[move["factionId"]]["shortName"], move["text"]]))
+	return c["panel"]
 
 
 # The player's ore and crafting share per ore type this week, each with

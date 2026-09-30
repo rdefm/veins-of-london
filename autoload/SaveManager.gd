@@ -868,6 +868,10 @@ func _restore_int_types(state: Dictionary) -> void:
 		for entry in group.values():
 			_int_key(entry, "pendingDays")
 
+	for row in state.get("factionEscalation", {}).get("targets", {}).values():
+		for entry in row.values():
+			_int_key(entry, "lastMoveDay")
+
 	if state.has("contacts"):
 		for contact in state["contacts"].values():
 			for key in ["relation", "recruitThreshold", "raidAssistThreshold", "craftingSkill", "craftingXP", "cultivatingSkill", "cultivatingXP", "salesSkill", "salesXP", "stealthSkill", "stealthXP",
@@ -883,6 +887,8 @@ func _restore_int_types(state: Dictionary) -> void:
 			for entry in section_cooldowns.values():
 				_int_key(entry, "push")
 				_int_key(entry, "pull")
+		for entry in barometer.get("headlines", []):
+			_int_key(entry, "day")
 
 	if state.has("combat"):
 		_restore_combat_int_types(state["combat"])

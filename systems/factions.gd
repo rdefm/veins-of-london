@@ -3,7 +3,7 @@ extends RefCounted
 
 # Faction joining/leaving, player-faction and faction-faction relation,
 # faction vein ownership (claims, day-1 roster, security rolls), passive
-# daily income, inter-faction rivalry, and economic-identity read helpers
+# daily income, inter-faction rivalry raids, and economic-identity read helpers
 # (R§1.8).
 
 
@@ -146,8 +146,7 @@ static func _weighted_security_roll(weights: Dictionary) -> String:
 
 
 # Shared cumulative-weighted-roll: index i chosen with probability
-# weights[i] / sum(weights). Used by the security-tier roll above, the
-# rivalry target-vein pick below, and Raiding._pick_worst_relation_faction().
+# weights[i] / sum(weights). Used by the security-tier roll above.
 static func weighted_pick_index(weights: Array[float]) -> int:
 	var total: float = 0.0
 	for w in weights:
@@ -259,68 +258,27 @@ static func adjust_relation(faction_a: String, faction_b: String, delta: int) ->
 	relations[faction_b][faction_a] = value
 
 
-# ── Rivalry initiation roll ─────────────────────────────────────────────
-# Decides who throws a punch and at what; whether it lands is rivalry_success_chance()'s job.
+# ── Rivalry raids ───────────────────────────────────────────────────────
+# FactionAI's raid rung (R§3.1 "Escalation") queues each faction-vs-faction
+# vein raid; this turns the queue into attempts. Pure apart from the drain.
 
-# Reuses the `industries` field rather than a separate aggression stat -- "raiding"
-# dominates, the other four get a small trickle so any faction can occasionally initiate.
-const INDUSTRY_AGGRESSION: Dictionary = {
-	"raiding": 0.35,
-	"influence": 0.05,
-	"crafting": 0.03,
-	"trading": 0.02,
-	"sourcing": 0.02,
-}
-
-# Floor under INDUSTRY_AGGRESSION's trickle so every faction has some baseline chance to initiate.
-const BASE_INITIATION_CHANCE := 0.05
-
-
-# One roll per faction per tick; a faction with zero rival-held veins is never eligible.
-static func roll_rivalry_attempts() -> Array:
+# Every queued faction-target raid still aimed at a vein its defender holds
+# and that isn't quest-locked, as { attackerId, defenderId, veinSiteId }.
+static func queued_rivalry_attempts() -> Array:
 	var attempts := []
-	for faction_id in GameData.FACTIONS.keys():
-		var candidates: Array = _eligible_rival_veins(faction_id)
-		if candidates.is_empty():
+	for entry in FactionAI.take_queued_raids(false):
+		var site: Variant = Sites.find_site(entry["siteId"])
+		if site == null:
 			continue
-		if not Rng.chance(_initiation_chance(faction_id)):
+		var vein: Variant = site.get("factionVein")
+		if vein == null or vein["id"] != entry["veinId"] or vein["factionId"] != entry["targetId"] or Collective.is_quest_locked_vein(vein["id"]):
 			continue
-		var target: Dictionary = _pick_target_vein(faction_id, candidates)
 		attempts.append({
-			"attackerId": faction_id,
-			"defenderId": target["vein"]["factionId"],
-			"veinSiteId": target["site"]["id"],
+			"attackerId": entry["attackerId"],
+			"defenderId": entry["targetId"],
+			"veinSiteId": site["id"],
 		})
 	return attempts
-
-
-static func _initiation_chance(faction_id: String) -> float:
-	var industries: Array = GameData.FACTIONS[faction_id].get("industries", [])
-	var aggression := 0.0
-	for industry in industries:
-		aggression += INDUSTRY_AGGRESSION.get(industry, 0.0)
-	return BASE_INITIATION_CHANCE + aggression
-
-
-# Every {site, vein} pair held by a different faction than faction_id.
-static func _eligible_rival_veins(faction_id: String) -> Array:
-	var candidates := []
-	for site in GameState.state["world"]["sites"]:
-		var vein: Variant = site.get("factionVein")
-		if vein == null or vein["factionId"] == faction_id or Collective.is_quest_locked_vein(vein["id"]):
-			continue
-		candidates.append({ "site": site, "vein": vein })
-	return candidates
-
-
-# Weighted by vein_value() -- attackers favour a rival's crown jewel over scraps.
-# Collective.firm_target_multiplier() scales that while the Firm is provoked (spec §6.7).
-static func _pick_target_vein(attacker_id: String, candidates: Array) -> Dictionary:
-	var weight_list: Array[float] = []
-	for candidate in candidates:
-		var vein: Dictionary = candidate["vein"]
-		weight_list.append(vein_value(vein) * Collective.firm_target_multiplier(attacker_id, vein["factionId"]))
-	return candidates[weighted_pick_index(weight_list)]
 
 
 # ── Rivalry odds ─────────────────────────────────────────────────────────
@@ -392,9 +350,8 @@ static func roll_rivalry_odds(attempt: Dictionary) -> Dictionary:
 # ── Rivalry resolution ──────────────────────────────────────────────────
 # Daily-tick hook, run right after NPC claims (before FactionSim, so it reads
 # end-of-yesterday resources and its kit burns land in today's consume): rolls
-# this tick's batch of attempts through the odds above and applies
-# resolve_rivalry_outcome() to each result. Does nothing while constants.json
-# factionRivalry is false.
+# yesterday's queued raids through the odds above, applies
+# resolve_rivalry_outcome() to each result and logs it on both factions.
 
 # Relation-feedback magnitude on success -- big enough that repeated losses to the
 # same rival compound, small enough that one loss alone doesn't saturate the divisor.
@@ -402,13 +359,14 @@ const RIVALRY_RELATION_PENALTY := -15
 
 
 static func apply_rivalry_resolution() -> void:
-	if not GameData.FACTION_RIVALRY:
-		return
-	for attempt in roll_rivalry_attempts():
+	for attempt in queued_rivalry_attempts():
 		# Every attempt, won or lost, burns both sides' raid kits (spec §Consumption).
 		FactionSim.log_kit_burn(attempt["attackerId"], "attack", "rivalry")
 		FactionSim.log_kit_burn(attempt["defenderId"], "defend", "rivalry")
-		resolve_rivalry_outcome(roll_rivalry_odds(attempt))
+		var outcome := roll_rivalry_odds(attempt)
+		var district_id: String = Sites.find_site(attempt["veinSiteId"])["district"]
+		resolve_rivalry_outcome(outcome)
+		FactionAI.report_pair_move(attempt["attackerId"], attempt["defenderId"], FactionAI.MOVE_VEIN_RAID, district_id, outcome["success"])
 
 
 # Applies one already-rolled outcome; a failed attempt is a no-op. On success:
@@ -417,7 +375,8 @@ static func apply_rivalry_resolution() -> void:
 # live, so this plays whether the vein is new or just changed hands). Re-checks the
 # site's current factionId against the outcome's recorded defenderId, since two
 # attempts in the same batch can target the same vein -- already-flipped veins are
-# silently skipped rather than transferred twice. No Notify/Ticker push either way.
+# silently skipped rather than transferred twice. A transfer is a Ticker
+# headline (Barometer.push_headline).
 static func resolve_rivalry_outcome(outcome: Dictionary) -> void:
 	if not outcome["success"]:
 		return
@@ -431,6 +390,12 @@ static func resolve_rivalry_outcome(outcome: Dictionary) -> void:
 
 	vein["factionId"] = outcome["attackerId"]
 	adjust_relation(outcome["defenderId"], outcome["attackerId"], RIVALRY_RELATION_PENALTY)
+	Barometer.push_headline(GameData.FACTION_ESCALATION["headlines"]["veinTaken"] % [
+		String(vein["oreType"]).capitalize(),
+		GameData.DISTRICTS[site["district"]]["name"],
+		GameData.FACTIONS[outcome["defenderId"]]["shortName"],
+		GameData.FACTIONS[outcome["attackerId"]]["shortName"],
+	])
 	MapEvents.queue_seed_claim(site["district"], vein["id"], outcome["attackerId"])
 
 

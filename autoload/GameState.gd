@@ -222,6 +222,9 @@ func new_game_state() -> Dictionary:
 		"factionStances": FactionAI.new_state(),
 		# Last threat/dependence/delta per observer -> target (FactionAI.new_pressure_state()).
 		"factionPressure": FactionAI.new_pressure_state(),
+		# Per observer -> target warned band + last move day, queued raids,
+		# explained move types (FactionAI.new_escalation_state()).
+		"factionEscalation": FactionAI.new_escalation_state(),
 
 		"barometer": {
 			"economic": "stable", "social": "stable", "political": "stable",

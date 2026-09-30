@@ -90,7 +90,7 @@ static func daily_tick() -> void:
 	MorningAccountsSystem.capture_losses(morning_context, "Vein collapse")
 	_apply_tutorial_day_triggers()       # ⑤ tutorial day-triggers
 	Sites.roll_npc_claims()              # ⑤b NPC site-claiming (M1-LONDON.md D2)
-	Factions.apply_rivalry_resolution()  # ⑤c after ⑤b so fresh claims can be contested; before ⑤h/⑤j so it reads end-of-yesterday resources
+	Factions.apply_rivalry_resolution()  # ⑤c yesterday's queued faction raids (⑥.5h); after ⑤b; before ⑤h/⑤j so it reads end-of-yesterday resources
 	Raiding.apply_raid_resolution()      # ⑤d before ⑤g so its kit burns come out of today's consume
 	MorningAccountsSystem.capture_losses(morning_context, "Raid")
 	FactionSim.tend_and_prune()          # ⑤e after ⑤b-⑤d so today's claims and ownership changes are tended
@@ -120,6 +120,7 @@ static func daily_tick() -> void:
 	Shares.record_independents()         # ⑥.5e credit today's Independents slice, after ⑥.5d so it lands in a kept bucket
 	FactionAI.apply_pressure()           # ⑥.5f threat/dependence drift, after ⑥.5d/⑥.5e so it reads today's shares; before ⑥.6
 	FactionAI.update_stances()           # ⑥.5g after ⑥.5f so stances read today's drifted relation; before ⑥.6
+	FactionAI.apply_escalation()         # ⑥.5h after ⑥.5g so bands read today's stances; raids it queues resolve at the next ⑤c/⑤d
 	Market.daily_reprice()               # ⑥.6 London reprice, after every step that trades in the tick and after ① so today's Ticker feeds it
 	Dial.daily_regen()                   # ⑦ Dial charge regen
 	Contacts.daily_dial_regen()          # ⑦.1 ally Dial charges refill

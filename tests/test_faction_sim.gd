@@ -262,20 +262,9 @@ func run() -> void:
 	)
 
 	run_case("a_rivalry_attempt_logs_both_kits_and_consume_burns_them", func():
-		GameData.FACTION_RIVALRY = true
-		var veins := [_vein("s1", "collective", "life", 50), _vein("s2", "firm", "physics", 50)]
-		var seed := SeedSearch.find_seed_for(300, func():
-			GameState.reset()
-			_seed_veins(veins.map(func(v): return v.duplicate(true)))
-			for attempt in Factions.roll_rivalry_attempts():
-				if attempt["attackerId"] == "firm" and attempt["defenderId"] == "collective":
-					return true
-			return false
-		)
-		assert_true(seed != -1, "the Firm attacks the Collective within 300 seeds")
-		Rng.set_seed(seed)  # before reset: GameState.reset() draws the stockpile pick
 		GameState.reset()
-		_seed_veins(veins.map(func(v): return v.duplicate(true)))
+		_seed_veins([_vein("s1", "collective", "life", 50), _vein("s2", "firm", "physics", 50)])
+		GameState.state["factionEscalation"]["queuedRaids"].append({ "attackerId": "firm", "targetId": "collective", "veinId": "fv_s1", "siteId": "s1" })
 		Factions.apply_rivalry_resolution()
 		var firm_burns: Array = GameState.state["factions"]["firm"]["kitBurns"]
 		var col_burns: Array = GameState.state["factions"]["collective"]["kitBurns"]
@@ -287,7 +276,6 @@ func run() -> void:
 		FactionSim.consume()
 		assert_eq(FactionSim.item_held("firm", "blast"), 3, "consume draws the 2-blast attack kit (weekly draw rounds down to 0 on day one)")
 		assert_eq(GameState.state["factions"]["firm"]["kitBurns"], [], "consume clears the burn log")
-		GameData.FACTION_RIVALRY = false
 	)
 
 	run_case("a_burn_holdings_cannot_cover_becomes_shortfall", func():

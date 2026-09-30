@@ -1,6 +1,7 @@
 # The Ticker: News tab (one headline card per barometer axis, drilling into
 # an axis detail view with push/pull and greyed influence actions when
-# state.phoneNav.selectedAxis is set) and Stock Market tab (London prices
+# state.phoneNav.selectedAxis is set, plus a faction-headline wires card)
+# and Stock Market tab (London prices
 # with ▲/▼ versus yesterday, active demand modifiers, and a per-good price
 # chart with annotations). The tab and selected good are view state held
 # here, not in state.phoneNav, so they reset with the screen.
@@ -64,6 +65,18 @@ func _build_ticker(content: VBoxContainer) -> void:
 
 	for section in Barometer.SECTIONS:
 		content.add_child(_build_headline_card(section))
+	var wires := Barometer.headlines()
+	if not wires.is_empty():
+		content.add_child(_build_wires_card(wires))
+
+
+# Faction headlines (vein takeovers and the like), newest first.
+func _build_wires_card(wires: Array) -> Control:
+	var c := UI.card()
+	c["content"].add_child(UI.muted_label("LONDON WIRES"))
+	for entry in wires:
+		c["content"].add_child(UI.label("%s · %s" % [Calendar.format_day(int(entry["day"])), entry["text"]]))
+	return c["panel"]
 
 
 # ── Stock Market ────────────────────────────────────────────────────────

@@ -115,6 +115,28 @@ func run() -> void:
 		assert_eq(FactionAI.pressure_label("firm"), "Calm")
 	)
 
+	run_case("escalation_state_and_headlines_round_trip_and_backfill", func():
+		GameState.reset()
+		FactionAI._target_entry("firm", "player")["lastMoveDay"] = 4
+		GameState.state["factionEscalation"]["queuedRaids"].append({ "attackerId": "firm", "targetId": "player", "veinId": "v", "siteId": "s" })
+		Barometer.push_headline("Test headline.")
+		assert_true(SaveManager.save_to_slot(TEST_SLOT)["ok"])
+		GameState.reset()
+		assert_true(SaveManager.load_from_slot(TEST_SLOT)["ok"])
+		var entry: Dictionary = GameState.state["factionEscalation"]["targets"]["firm"]["player"]
+		assert_eq(typeof(entry["lastMoveDay"]), TYPE_INT, "day restored as int")
+		assert_eq(entry["lastMoveDay"], 4)
+		assert_eq(GameState.state["factionEscalation"]["queuedRaids"].size(), 1, "queued raid kept")
+		assert_eq(typeof(Barometer.headlines()[0]["day"]), TYPE_INT)
+		SaveManager.delete_slot(TEST_SLOT)
+		var save: Dictionary = GameState.deep_copy(GameState.state)
+		save.erase("factionEscalation")
+		save["barometer"].erase("headlines")
+		assert_true(SaveManager.import_string(JSON.stringify(save))["ok"])
+		assert_eq(GameState.state["factionEscalation"], FactionAI.new_escalation_state(), "backfilled empty")
+		assert_eq(Barometer.headlines(), [])
+	)
+
 	run_case("old_save_clamps_relations_symmetrises_pairs_and_backfills_stances", func():
 		GameState.reset()
 		var save: Dictionary = GameState.deep_copy(GameState.state)

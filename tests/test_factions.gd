@@ -2,6 +2,10 @@ extends "res://tests/test_base.gd"
 
 const Fixtures := preload("res://tests/support/fixtures.gd")
 
+static func _queue_rivalry(attacker_id: String, defender_id: String, vein_id: String, site_id: String) -> void:
+	GameState.state["factionEscalation"]["queuedRaids"].append({ "attackerId": attacker_id, "targetId": defender_id, "veinId": vein_id, "siteId": site_id })
+
+
 static func _faction_vein_claimed_on(level: int, ore_type: String, claimed_on_day: int, faction_id: String = "collective", security: String = "none") -> Dictionary:
 	return {
 		"id": "fv_test", "factionId": faction_id, "oreType": ore_type, "growth": 20 * level - 10,
@@ -465,85 +469,21 @@ func run() -> void:
 		assert_eq(copy["factionRelations"]["guild"]["network"], 7, "copy is independent of later mutation")
 	)
 
-	# ── faction-territory-rivalry T02: roll_rivalry_attempts ────────────
+	# ── Rivalry raids: queued_rivalry_attempts ──────────────────────────
 
-	run_case("roll_rivalry_attempts_raiding_faction_initiates_markedly_more_often", func():
-		# Every faction holds one rival-owned vein it could target (firm's own
-		# vein is excluded from its own eligible-target pool), so every
-		# faction is equally *eligible* -- only INDUSTRY_AGGRESSION (firm has
-		# "raiding") should separate their initiation counts.
+	run_case("queued_rivalry_attempts_keeps_only_raids_on_veins_the_defender_still_holds", func():
 		GameState.reset()
 		GameState.state["world"]["sites"] = [
-			Fixtures.site_with_vein("s_collective", _faction_vein_claimed_on(2, "life", 0, "collective")),
-			Fixtures.site_with_vein("s_firm", _faction_vein_claimed_on(2, "physics", 0, "firm")),
 			Fixtures.site_with_vein("s_guild", _faction_vein_claimed_on(2, "time", 0, "guild")),
-			Fixtures.site_with_vein("s_network", _faction_vein_claimed_on(2, "emotion", 0, "network")),
-			Fixtures.site_with_vein("s_conclave", _faction_vein_claimed_on(2, "fate", 0, "conclave")),
 		]
+		_queue_rivalry("firm", "guild", "fv_test", "s_guild")
+		_queue_rivalry("firm", "network", "fv_test", "s_guild")
+		_queue_rivalry("firm", "guild", "fv_gone", "s_gone")
+		GameState.state["factionEscalation"]["queuedRaids"].append({ "attackerId": "firm", "targetId": "player", "veinId": "pv", "siteId": "s_pv" })
 
-		var firm_count := 0
-		var collective_count := 0
-		for seed in range(500):
-			Rng.set_seed(seed)
-			var attempts: Array = Factions.roll_rivalry_attempts()
-			for attempt in attempts:
-				if attempt["attackerId"] == "firm":
-					firm_count += 1
-				elif attempt["attackerId"] == "collective":
-					collective_count += 1
-
-		assert_true(firm_count > collective_count * 2, "firm (raiding industry) should initiate markedly more often than collective (no raiding industry) -- got firm %d vs collective %d" % [firm_count, collective_count])
-	)
-
-	run_case("roll_rivalry_attempts_faction_with_no_eligible_target_never_initiates", func():
-		# Only guild holds a vein (its own) -- no other faction owns a rival
-		# vein for guild to target, so guild must never appear as an attacker,
-		# no matter how many seeds are rolled.
-		GameState.reset()
-		GameState.state["world"]["sites"] = [
-			Fixtures.site_with_vein("s_guild", _faction_vein_claimed_on(1, "time", 0, "guild")),
-		]
-
-		for seed in range(500):
-			Rng.set_seed(seed)
-			var attempts: Array = Factions.roll_rivalry_attempts()
-			for attempt in attempts:
-				assert_true(attempt["attackerId"] != "guild", "guild has no rival-held vein to target and should never initiate (seed %d)" % seed)
-	)
-
-	run_case("roll_rivalry_attempts_records_only_reference_real_rival_owned_veins", func():
-		GameState.reset()
-		GameState.state["world"]["sites"] = [
-			Fixtures.site_with_vein("s_collective", _faction_vein_claimed_on(2, "life", 0, "collective")),
-			Fixtures.site_with_vein("s_firm", _faction_vein_claimed_on(2, "physics", 0, "firm")),
-			Fixtures.site_with_vein("s_guild", _faction_vein_claimed_on(2, "time", 0, "guild")),
-			Fixtures.site_with_vein("s_network", _faction_vein_claimed_on(2, "emotion", 0, "network")),
-			Fixtures.site_with_vein("s_conclave", _faction_vein_claimed_on(2, "fate", 0, "conclave")),
-		]
-		var sites_by_id := {}
-		for site in GameState.state["world"]["sites"]:
-			sites_by_id[site["id"]] = site
-
-		for seed in range(200):
-			Rng.set_seed(seed)
-			var attempts: Array = Factions.roll_rivalry_attempts()
-			for attempt in attempts:
-				assert_true(attempt["attackerId"] != attempt["defenderId"], "an attacker never targets its own vein (seed %d)" % seed)
-				assert_true(sites_by_id.has(attempt["veinSiteId"]), "veinSiteId must reference a real site (seed %d)" % seed)
-				var site: Dictionary = sites_by_id[attempt["veinSiteId"]]
-				assert_eq(site["factionVein"]["factionId"], attempt["defenderId"], "defenderId must match the targeted vein's actual owner (seed %d)" % seed)
-	)
-
-	run_case("roll_rivalry_attempts_is_a_pure_computation_no_state_mutation", func():
-		GameState.reset()
-		GameState.state["world"]["sites"] = [
-			Fixtures.site_with_vein("s_collective", _faction_vein_claimed_on(2, "life", 0, "collective")),
-			Fixtures.site_with_vein("s_firm", _faction_vein_claimed_on(2, "physics", 0, "firm")),
-		]
-		var before: Dictionary = GameState.deep_copy(GameState.state)
-		Rng.set_seed(1)
-		Factions.roll_rivalry_attempts()
-		assert_eq(GameState.state, before, "roll_rivalry_attempts must not mutate state")
+		var attempts := Factions.queued_rivalry_attempts()
+		assert_eq(attempts, [{ "attackerId": "firm", "defenderId": "guild", "veinSiteId": "s_guild" }])
+		assert_eq(GameState.state["factionEscalation"]["queuedRaids"].size(), 1, "the player-target raid is left for Raiding")
 	)
 
 	# ── faction-territory-rivalry T03: rivalry odds calculation ─────────
@@ -761,7 +701,6 @@ func run() -> void:
 	)
 
 	run_case("apply_rivalry_resolution_repelled_attempt_still_burns_both_kits", func():
-		GameData.FACTION_RIVALRY = true
 		var checked := false
 		for seed in range(500):
 			_certain_rivalry_attempt.call("guarded", 5)
@@ -770,6 +709,7 @@ func run() -> void:
 				if faction_id != "firm":
 					GameState.state["factions"][faction_id]["resources"] = 1000000
 			var vein: Dictionary = Sites.find_site("s_firm")["factionVein"]
+			_queue_rivalry("collective", "firm", "fv_test", "s_firm")
 			Rng.set_seed(seed)
 			Factions.apply_rivalry_resolution()
 			var defender_burns: Array = GameState.state["factions"]["firm"]["kitBurns"]
@@ -783,7 +723,6 @@ func run() -> void:
 			checked = true
 			assert_true(not defender_burns.is_empty() and defender_burns.all(func(b): return b["kit"] == "defend"), "the repelled defender still burns its defend kit")
 			break
-		GameData.FACTION_RIVALRY = false
 		assert_true(checked, "some seed should roll an attempt against the guarded vein that gets repelled")
 	)
 
@@ -889,39 +828,38 @@ func run() -> void:
 		assert_eq(queue[1]["owner"], "network", "the second transfer's event names its own attacker")
 	)
 
-	run_case("apply_rivalry_resolution_transfers_ownership_across_many_ticks", func():
-		GameData.FACTION_RIVALRY = true
-		# Two rival-owned veins so every faction has something to target and
-		# a raiding-heavy attacker (Firm) has good odds against a poorly
-		# resourced, unsecured defender -- run many seeds and confirm the
-		# whole roll -> odds -> resolve chain eventually flips a vein.
+	run_case("a_queued_rivalry_raid_that_lands_takes_the_vein_logs_both_sides_and_makes_a_headline", func():
 		var hit := false
 		for seed in range(500):
-			GameState.reset()
-			var firm_vein := _faction_vein_claimed_on(3, "fate", 0, "collective", "none")
-			GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", firm_vein)]
-			GameState.state["factions"]["firm"]["resources"] = 5000
-			GameState.state["factions"]["collective"]["resources"] = 0
-			Rng.set_seed(seed)
-			Factions.apply_rivalry_resolution()
-			if firm_vein["factionId"] == "firm":
-				hit = true
-				break
-		assert_true(hit, "apply_rivalry_resolution should eventually flip an under-resourced, unsecured vein to a rich raiding attacker within 500 tries")
-		GameData.FACTION_RIVALRY = false
-	)
-
-	run_case("apply_rivalry_resolution_does_nothing_while_factionRivalry_is_off", func():
-		for seed in range(200):
 			GameState.reset()
 			var vein := _faction_vein_claimed_on(3, "fate", 0, "collective", "none")
 			GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
 			GameState.state["factions"]["firm"]["resources"] = 5000
 			GameState.state["factions"]["collective"]["resources"] = 0
+			_queue_rivalry("firm", "collective", "fv_test", "s1")
 			Rng.set_seed(seed)
 			Factions.apply_rivalry_resolution()
-			assert_eq(vein["factionId"], "collective", "no transfer with rivalry off (seed %d)" % seed)
-			assert_eq(GameState.state["factions"]["firm"]["kitBurns"], [], "no kit burns with rivalry off (seed %d)" % seed)
+			assert_eq(GameState.state["factionEscalation"]["queuedRaids"], [], "drained (seed %d)" % seed)
+			if vein["factionId"] != "firm":
+				continue
+			hit = true
+			var headlines := Barometer.headlines()
+			assert_eq(headlines.size(), 1, "a vein taken is a Ticker headline")
+			assert_eq(headlines[0]["text"], GameData.FACTION_ESCALATION["headlines"]["veinTaken"] % ["Fate", "Shoreditch", "Collective", "Firm"])
+			assert_eq(FactionAI.activity_log("firm").back()["text"], GameData.FACTION_ESCALATION["log"]["veinRaid"]["attackerHit"] % ["Collective", "Shoreditch"])
+			assert_eq(FactionAI.activity_log("collective").back()["text"], GameData.FACTION_ESCALATION["log"]["veinRaid"]["defenderHit"] % ["Firm", "Shoreditch"])
+			break
+		assert_true(hit, "a queued raid by a rich attacker on an unsecured vein should land within 500 tries")
+	)
+
+	run_case("apply_rivalry_resolution_without_a_queued_raid_does_nothing", func():
+		GameState.reset()
+		var vein := _faction_vein_claimed_on(3, "fate", 0, "collective", "none")
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
+		GameState.state["factions"]["firm"]["resources"] = 5000
+		var before: Dictionary = GameState.deep_copy(GameState.state)
+		Factions.apply_rivalry_resolution()
+		assert_eq(GameState.state, before, "rivalry raids come only from FactionAI's raid rung")
 	)
 
 	# ── faction-starting-veins T01: seed_day_one_veins() ────────────────

@@ -144,8 +144,7 @@ static func begin_raid(vein: Dictionary, ally_ids: Array = []) -> Dictionary:
 # attempts/odds/resolve split as Factions' rivalry code (R§3.12).
 
 
-# Low baseline: rolled once per player vein per tick, with no per-faction
-# pre-filter (unlike the coarser faction-rivalry attempts in Factions).
+# Low baseline success chance for one queued raid.
 const RAID_BASE_CHANCE := 0.05
 
 # Relation ranges roughly -100..+60 (joinRelation ceiling); 100 keeps a
@@ -168,75 +167,32 @@ const RAID_RAID_RESIST_WEIGHT := 0.20
 const RAID_GROWTH_WEIGHT := 0.15
 
 
-# Attacker is the vein's district factionPresence if it has one; a district
-# with no presence (e.g. Hampstead) falls back to whichever faction
-# currently has the worst relation with the player.
-static func _attacking_faction(vein: Dictionary) -> String:
-	var district: Dictionary = GameData.DISTRICTS.get(vein["district"], {})
-	var presence: String = district.get("factionPresence", "")
-	if presence != "" and GameData.FACTIONS.has(presence):
-		return presence
-	return _pick_worst_relation_faction()
-
-
-# Kept high enough that every faction's weight stays positive across the
-# realistic relation range (joinRelation tops out at 60); weight scales up
-# sharply as relation drops.
-const FALLBACK_ATTACKER_RELATION_BASELINE := 100.0
-
-
-static func _pick_worst_relation_faction() -> String:
-	var faction_ids: Array = GameData.FACTIONS.keys()
-	var weight_list: Array[float] = []
-	for faction_id in faction_ids:
-		var relation: int = GameState.state["factions"][faction_id]["relation"]
-		weight_list.append(maxf(1.0, FALLBACK_ATTACKER_RELATION_BASELINE - relation))
-	return faction_ids[Factions.weighted_pick_index(weight_list)]
-
-
-# ── per-faction raid/conquer eligibility thresholds ──────────────────────
-# Data-driven per faction (raidThreshold/conquerThreshold, R§1.8) rather
-# than hardcoded branches; a faction acts only when strictly below its
-# threshold.
-static func _faction_raid_threshold(faction_id: String) -> int:
-	return GameData.FACTIONS[faction_id]["raidThreshold"]
-
-
+# ── conquer eligibility threshold ────────────────────────────────────────
+# Data-driven per faction (conquerThreshold, R§1.8); a faction may claim
+# only when its player relation is strictly below it.
 static func _faction_conquer_threshold(faction_id: String) -> int:
 	var faction: Dictionary = GameData.FACTIONS[faction_id]
 	return faction.get("conquerThreshold", faction["raidThreshold"])
 
 
-static func _relation_below(faction_id: String, threshold: int) -> bool:
-	var relation: int = GameState.state["factions"][faction_id]["relation"]
-	return relation < threshold
-
-
-static func _faction_will_attempt_raids(faction_id: String) -> bool:
-	return _relation_below(faction_id, _faction_raid_threshold(faction_id))
-
-
 static func _faction_may_conquer(faction_id: String) -> bool:
-	return _relation_below(faction_id, _faction_conquer_threshold(faction_id))
+	var relation: int = GameState.state["factions"][faction_id]["relation"]
+	return relation < _faction_conquer_threshold(faction_id)
 
 
-# One candidate per eligible player vein (no pre-filter; raid_success_chance()/
-# roll_raid_odds() below decide what actually happens). Veins with a
-# missing/dangling siteId (pre-existing saves) are skipped, not crashed on.
-# Pure -- no state mutation.
-static func roll_raid_attempts() -> Array:
+# Yesterday's queued raids against the player (FactionAI's raid rung,
+# R§3.1 "Escalation"), as { attackerId, veinId, siteId }. Drains the queue;
+# a vein that's gone, lost its site, or is quest-locked is dropped.
+static func queued_raid_attempts() -> Array:
 	var attempts := []
-	for vein in GameState.state["player"]["veins"]:
-		var site_id: Variant = vein.get("siteId")
-		if site_id == null or Sites.find_site(site_id) == null or Collective.is_quest_locked_vein(vein["id"]):
-			continue
-		var attacker_id: String = _attacking_faction(vein)
-		if not _faction_will_attempt_raids(attacker_id):
+	for entry in FactionAI.take_queued_raids(true):
+		var vein: Variant = Cultivating.find_vein(entry["veinId"])
+		if vein == null or vein.get("siteId") == null or Sites.find_site(vein["siteId"]) == null or Collective.is_quest_locked_vein(vein["id"]):
 			continue
 		attempts.append({
-			"attackerId": attacker_id,
+			"attackerId": entry["attackerId"],
 			"veinId": vein["id"],
-			"siteId": site_id,
+			"siteId": vein["siteId"],
 		})
 	return attempts
 
@@ -276,35 +232,6 @@ static func claim_chance(vein: Dictionary) -> float:
 	return CLAIM_CHANCE_BY_TERROIR.get(tier, CLAIM_CHANCE_BY_TERROIR["fair"])
 
 
-# ── stealth/caught roll ───────────────────────────────────────────────────
-# A second roll, independent of the claim-vs-loot split above, deciding
-# whether the attacker gets caught. Only the loot branch's copy names the
-# faction differently based on it (the claim branch always names the
-# faction); rolled for every successful attempt regardless of outcomeType,
-# at roll_raid_odds() time, so the result can ride through the
-# alarm-defend queue the same way outcomeType does.
-#
-# Each faction's "raidStealth" (0.0-1.0) is its baseline clean-getaway
-# chance, trimmed proportionally to the vein's raidResist (same
-# normalise-against-55 "guarded" anchor as stealth_success_chance()/
-# raid_success_chance()). Draft weight, needs balance sign-off.
-const FACTION_STEALTH_RAID_RESIST_DIVISOR := 55.0
-const FACTION_STEALTH_RAID_RESIST_WEIGHT := 0.35
-
-
-static func faction_stealth_chance(attacker_id: String, vein: Dictionary) -> float:
-	var base_stealth: float = GameData.FACTIONS[attacker_id]["raidStealth"]
-	var raid_resist: int = Cultivating.vein_raid_resist(vein)
-	var resist_tilt: float = -(float(raid_resist) / FACTION_STEALTH_RAID_RESIST_DIVISOR) * FACTION_STEALTH_RAID_RESIST_WEIGHT
-	return clampf(base_stealth + resist_tilt, 0.0, 1.0)
-
-
-# Stand-in for the faction's name when a loot outcome comes back clean
-# (used by resolve_raid_outcome()'s loot branch and _queue_defend_raid()'s
-# advance warning). PROSE-REVIEW: drafted against CONTENT-GUIDE.md's tone bible.
-const ANONYMOUS_RAIDER_LABEL := "Someone"
-
-
 # Draft, needs balance sign-off -- kept in line with Direction A's own
 # LOOT_ORE_QTY (8) and pruneLightDepth (9, data/vein_growth.json), so a
 # loss to loot never bites harder than the player's own worst prune.
@@ -331,10 +258,6 @@ static func roll_raid_odds(attempt: Dictionary) -> Dictionary:
 	if outcome["success"]:
 		var may_conquer: bool = _faction_may_conquer(attempt["attackerId"])
 		outcome["outcomeType"] = "claim" if (may_conquer and Rng.chance(claim_chance(vein))) else "loot"
-		# Independent of the claim/loot roll above -- rolled here (rather than
-		# in resolve_raid_outcome()) so the result is already known and can
-		# ride through the alarm-defend queue the same way outcomeType does.
-		outcome["caught"] = not Rng.chance(faction_stealth_chance(attempt["attackerId"], vein))
 	return outcome
 
 
@@ -376,9 +299,7 @@ static func resolve_raid_outcome(outcome: Dictionary, missed_defend: bool = fals
 	var faction_name: String = GameData.FACTIONS[outcome["attackerId"]]["shortName"]
 
 	if outcome.get("outcomeType", "claim") == "loot":
-		# "caught" defaults true (identity revealed) for an outcome dict
-		# built without the key, mirroring outcomeType's default-to-"claim".
-		_apply_raid_loot(vein, faction_name, district_name, missed_defend, outcome.get("caught", true))
+		_apply_raid_loot(vein, faction_name, district_name, missed_defend)
 		return
 
 	var took_kit := GuardKit.hand_kit_to_faction(vein, outcome["attackerId"])
@@ -426,11 +347,8 @@ static func transfer_player_vein_to_faction(vein: Dictionary, site: Dictionary, 
 # (the vein never changes hands). PROSE-REVIEW: one dry line with a
 # concrete ore count, distinct from the claim branch's "It's theirs now."
 # and the missed-defend claim copy, so the player can tell which of the
-# four claim/loot x on-time/missed combinations happened. `caught` swaps
-# the faction's name for ANONYMOUS_RAIDER_LABEL when the stealth roll came
-# back clean -- only the identity differs, never the fact of the loss.
-# PROSE-REVIEW: the clean-loot copy is new.
-static func _apply_raid_loot(vein: Dictionary, faction_name: String, district_name: String, missed_defend: bool, caught: bool) -> void:
+# four claim/loot x on-time/missed combinations happened.
+static func _apply_raid_loot(vein: Dictionary, faction_name: String, district_name: String, missed_defend: bool) -> void:
 	vein["growth"] = maxi(0, vein["growth"] - RAID_LOOT_PRUNE_DEPTH)
 
 	var ore_type: String = vein["oreType"]
@@ -438,26 +356,28 @@ static func _apply_raid_loot(vein: Dictionary, faction_name: String, district_na
 	var stolen: int = mini(RAID_LOOT_ORE_QTY, ore.get(ore_type, 0))
 	ore[ore_type] = ore.get(ore_type, 0) - stolen
 
-	var attacker: String = faction_name if caught else ANONYMOUS_RAIDER_LABEL
 	if missed_defend:
-		Notify.push("Too late — %s pruned your vein in %s and got away with %d units of ore while the alarm was still ringing. It's still yours." % [attacker, district_name, stolen], Notify.CATEGORY_DANGER)
+		Notify.push("Too late — %s pruned your vein in %s and got away with %d units of ore while the alarm was still ringing. It's still yours." % [faction_name, district_name, stolen], Notify.CATEGORY_DANGER)
 	else:
-		Notify.push("%s raided your vein in %s, pruning it and getting away with %d units of ore. It's still yours." % [attacker, district_name, stolen], Notify.CATEGORY_DANGER)
+		Notify.push("%s raided your vein in %s, pruning it and getting away with %d units of ore. It's still yours." % [faction_name, district_name, stolen], Notify.CATEGORY_DANGER)
 
 
 # Called from time_system.gd's daily_tick, step ⑤d. Runs the previous
 # tick's still-pending alarm-defend raids first (a player who never
 # travelled to defend one loses it exactly as the no-alarm path would),
-# then rolls this tick's fresh attempts: a success against an alarmed
-# vein queues for the player to defend; every other success resolves now.
-# Every attempt that resolves without a played fight burns the attacker's
-# attack kit (spec §Consumption); a queued one burns only if it later
-# expires or is left undefended.
+# then rolls yesterday's queued raids: a success against an alarmed vein
+# queues for the player to defend; every other success resolves now. Each
+# attempt is reported as a move against the player (FactionAI.
+# report_player_move). Every attempt that resolves without a played fight
+# burns the attacker's attack kit (spec §Consumption); a queued one burns
+# only if it later expires or is left undefended.
 static func apply_raid_resolution() -> void:
 	_expire_pending_defend_raids()
 
-	for attempt in roll_raid_attempts():
+	for attempt in queued_raid_attempts():
 		var outcome := roll_raid_odds(attempt)
+		var district_id: String = Cultivating.find_vein(attempt["veinId"])["district"]
+		FactionAI.report_player_move(attempt["attackerId"], FactionAI.MOVE_VEIN_RAID, district_id, outcome["success"])
 		if not outcome["success"]:
 			FactionSim.log_kit_burn(outcome["attackerId"], "attack", "raid")
 			continue
@@ -486,16 +406,7 @@ static func _queue_defend_raid(outcome: Dictionary, vein: Dictionary) -> void:
 	var district_name: String = GameData.DISTRICTS[vein["district"]]["name"]
 	var faction_name: String = GameData.FACTIONS[outcome["attackerId"]]["shortName"]
 	# PROSE-REVIEW: dry, administrative, one line, per CONTENT-GUIDE.md.
-	# The claim/loot x caught/clean outcome is already rolled (same tick),
-	# so a warning bound for a clean loot is anonymized here too. Separate
-	# sentences (not a %s swap) since "Someone" takes a singular verb ("is")
-	# where a faction's shortName reads as a plural collective ("are").
-	var will_be_clean_loot: bool = outcome.get("outcomeType") == "loot" and not outcome.get("caught", true)
-	var warning_text: String
-	if will_be_clean_loot:
-		warning_text = "Alarm's gone off — someone's closing in on your vein in %s. Get there today to defend it." % district_name
-	else:
-		warning_text = "Alarm's gone off — %s are closing in on your vein in %s. Get there today to defend it." % [faction_name, district_name]
+	var warning_text := "Alarm's gone off — %s are closing in on your vein in %s. Get there today to defend it." % [faction_name, district_name]
 	# veinId meta lets phone.gd's Notifications app render a Defend button
 	# on this entry. The notification's id is stashed back onto the queued
 	# outcome so is_defend_notification_pending() below can scope the
@@ -552,8 +463,7 @@ static func _guards_repel_defend_raid(outcome: Dictionary) -> bool:
 
 	var district_name: String = GameData.DISTRICTS[vein["district"]]["name"]
 	var faction_name: String = GameData.FACTIONS[outcome["attackerId"]]["shortName"]
-	var attacker: String = faction_name if outcome.get("caught", true) else ANONYMOUS_RAIDER_LABEL
-	var text := "Your guards saw %s off your vein in %s before you got there. Nothing lost." % [attacker, district_name]
+	var text := "Your guards saw %s off your vein in %s before you got there. Nothing lost." % [faction_name, district_name]
 	if not used.is_empty():
 		text += " They went through %s." % GuardKit.used_items_text(used)
 	Notify.push(text, Notify.CATEGORY_SUCCESS)

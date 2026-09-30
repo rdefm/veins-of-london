@@ -547,10 +547,9 @@ func run() -> void:
 		assert_eq(collective["resources"], 0)
 	)
 
-	run_case("daily_tick_wires_in_rivalry_resolution_step_right_after_npc_claims", func():
-		GameData.FACTION_RIVALRY = true
+	run_case("daily_tick_resolves_a_queued_rivalry_raid_at_step_5c", func():
 		# A rich, unsecured collective-owned vein facing a well-resourced Firm
-		# (raiding industry, good odds) -- run many seeds and confirm daily_tick
+		# with a raid queued -- run many seeds and confirm daily_tick
 		# eventually reaches step 5c and flips ownership.
 		var hit := false
 		for seed in range(500):
@@ -565,18 +564,18 @@ func run() -> void:
 			GameState.state["world"]["day"] = 999
 			GameState.state["factions"]["firm"]["resources"] = 5000
 			GameState.state["factions"]["collective"]["resources"] = 0
+			GameState.state["factionEscalation"]["queuedRaids"].append({ "attackerId": "firm", "targetId": "collective", "veinId": "fv1", "siteId": "s1" })
 			Rng.set_seed(seed)
 			TimeSystem.daily_tick()
 			if Sites.find_site("s1")["factionVein"]["factionId"] == "firm":
 				hit = true
 				break
 		assert_true(hit, "daily_tick should reach step 5c (Factions.apply_rivalry_resolution) within 500 tries")
-		GameData.FACTION_RIVALRY = false
 	)
 
-	run_case("daily_tick_wires_in_direction_b_raid_resolution_step_right_after_rivalry_resolution_step", func():
-		# A hated, unsecured, rough-district player vein facing a faction it's
-		# burned relation with -- run many seeds and confirm daily_tick
+	run_case("daily_tick_resolves_a_queued_player_raid_at_step_5d", func():
+		# A hated, unsecured, rough-district player vein with a Firm raid
+		# queued -- run many seeds and confirm daily_tick
 		# eventually reaches step 5d and flips the vein to that faction.
 		var hit := false
 		for seed in range(500):
@@ -593,7 +592,8 @@ func run() -> void:
 				"bonuses": [], "discoveredDay": 1, "claimed": true, "factionVein": null,
 				"hasNaturalVein": false,
 			}]
-			GameState.state["factions"]["firm"]["relation"] = -200  # camden's factionPresence
+			GameState.state["factions"]["firm"]["relation"] = -200
+			GameState.state["factionEscalation"]["queuedRaids"].append({ "attackerId": "firm", "targetId": "player", "veinId": "pv1", "siteId": "s1" })
 			Rng.set_seed(seed)
 			TimeSystem.daily_tick()
 			var site: Variant = Sites.find_site("s1")

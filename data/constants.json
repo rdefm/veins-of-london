@@ -125,6 +125,73 @@
     "annoyedBelow": 20,
     "movingAgainstBelow": 0
   },
+  "factionEscalation": {
+    "warningBelow": 20,
+    "marketBelow": 0,
+    "cooldownDays": 5,
+    "headlineCap": 10,
+    "menus": {
+      "producer": { "market": ["flood", "outbid", "withhold"], "raid": ["veinRaid", "stockpileRaid"] },
+      "crafter": { "market": ["poach", "withholdItems", "lowballBuyout"], "raid": ["stockpileRaid"] },
+      "informationBroker": { "market": ["sellIntel", "priceGouge", "disinformation"], "raid": ["stockpileRaid"] },
+      "manipulator": { "market": ["undercut", "denyGoods", "tickerPush"], "raid": [] }
+    },
+    "moveCosts": { "veinRaid": 500 },
+    "warnings": {
+      "producer": {
+        "warning": "\"You're working ground we work. Mind how much of it you take.\"",
+        "market": "\"We'll answer you in the market first. It's cheaper for everyone.\"",
+        "raid": "\"Talking's done. Look to your veins.\""
+      },
+      "crafter": {
+        "warning": "\"The Court has opened a file on your trading. Files are rarely closed.\"",
+        "market": "\"The Guild will now conduct its business as though you were a competitor. You are.\"",
+        "raid": "\"The Court has authorised other measures. Hired ones.\""
+      },
+      "informationBroker": {
+        "warning": "\"People are asking about you. We haven't answered. Yet.\"",
+        "market": "\"Your name's for sale now. We'd rather it wasn't, but there it is.\"",
+        "raid": "\"We know where you keep things. That was the polite version.\""
+      },
+      "manipulator": {
+        "warning": "\"Your activity has been noted in a ledger you will never see.\"",
+        "market": "\"The market will be less generous to you. It has been advised.\"",
+        "raid": "\"The Conclave does not raid. It has other ways of closing an account.\""
+      }
+    },
+    "moveLines": {
+      "collective": {
+        "veinRaid": {
+          "hit": "\"That was us in %s. You were working our side of the street.\"",
+          "miss": "\"We came for your vein in %s. You held it. This time.\""
+        }
+      },
+      "firm": {
+        "veinRaid": {
+          "hit": "\"%s was a hostile acquisition. We'll send the paperwork.\"",
+          "miss": "\"Our people were turned back in %s. They'll be reviewed. So will you.\""
+        }
+      }
+    },
+    "explainers": {
+      "veinRaid": "\"That's a raid. They'll keep at it while they're this sore with you. Guards and an alarm on the vein help, or give them a reason to like you.\""
+    },
+    "log": {
+      "warningPlayer": "Warned you off.",
+      "warningPair": "Warned off %s.",
+      "veinRaid": {
+        "playerHit": "Raided your vein in %s.",
+        "playerMiss": "Raided your vein in %s and was turned back.",
+        "attackerHit": "Took %s's vein in %s.",
+        "attackerMiss": "Turned back from %s's vein in %s.",
+        "defenderHit": "%s took our vein in %s.",
+        "defenderMiss": "Saw %s off our vein in %s."
+      }
+    },
+    "headlines": {
+      "veinTaken": "%s vein in %s changes hands: %s out, %s in."
+    }
+  },
   "business": { "weeklyWages": { "owen": 250 }, "jamesJoinCraftingSkill": 5, "owenCraftMinCultivating": 2 },
   "calendar": {
     "startMonth": 3,

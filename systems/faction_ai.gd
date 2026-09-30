@@ -3,9 +3,10 @@ extends RefCounted
 
 # Faction politics (R§3.1 "Stances"): the relation clamp, the stored stance
 # for every faction pair and for the player with each faction, the daily
-# hysteresis stance update, each faction's bounded activity log, and the
-# daily threat/dependence pressure drift (R§3.1 "Pressure"). Data in
-# constants.json factionStances and factionPressure. Static funcs only.
+# hysteresis stance update, each faction's bounded activity log, the
+# daily threat/dependence pressure drift (R§3.1 "Pressure") and the
+# escalation menus (R§3.1 "Escalation"). Data in constants.json
+# factionStances, factionPressure and factionEscalation. Static funcs only.
 
 const PARTNER := "partner"
 const NEUTRAL := "neutral"
@@ -171,11 +172,14 @@ static func _announce_player_flip(faction_id: String, stance: String) -> void:
 	log_activity(faction_id, _cfg()["logPlayer"] % stance_name(stance))
 
 
-# Appends { day, text } to the faction's activity log, dropping the oldest
-# past activityLogCap.
-static func log_activity(faction_id: String, text: String) -> void:
+# Appends { day, text } plus any extra fields (a move against the player
+# carries { target: "player", move }) to the faction's activity log,
+# dropping the oldest past activityLogCap.
+static func log_activity(faction_id: String, text: String, extra: Dictionary = {}) -> void:
 	var entries: Array = GameState.state["factions"][faction_id]["activityLog"]
-	entries.append({ "day": GameState.state["world"]["day"], "text": text })
+	var entry := { "day": GameState.state["world"]["day"], "text": text }
+	entry.merge(extra)
+	entries.append(entry)
 	var cap: int = int(_cfg()["activityLogCap"])
 	while entries.size() > cap:
 		entries.pop_front()
@@ -446,3 +450,278 @@ static func pressure_label(faction_id: String) -> String:
 	if relation < int(_pcfg()["annoyedBelow"]):
 		return labels["annoyed"]
 	return labels["watching"]
+
+
+# ── Escalation ──────────────────────────────────────────────────────────
+# R§3.1 "Escalation": each faction acts on its pressure through its
+# archetype's menu, gated by relation band. Data in constants.json
+# factionEscalation.
+
+const BAND_NONE := ""
+const BAND_WARNING := "warning"
+const BAND_MARKET := "market"
+const BAND_RAID := "raid"
+const BAND_ORDER: Array[String] = [BAND_NONE, BAND_WARNING, BAND_MARKET, BAND_RAID]
+const MOVE_VEIN_RAID := "veinRaid"
+
+
+static func _ecfg() -> Dictionary:
+	return GameData.FACTION_ESCALATION
+
+
+# state.factionEscalation: { targets: { observerId: { targetId: {
+# warnedBand, lastMoveDay } } }, queuedRaids: [ { attackerId, targetId,
+# veinId, siteId } ], explained: [moveId] }. lastMoveDay -1 = never.
+static func new_escalation_state() -> Dictionary:
+	return { "targets": {}, "queuedRaids": [], "explained": [] }
+
+
+static func _relation_to(observer: String, target: String) -> int:
+	if target == Shares.PLAYER:
+		return int(GameState.state["factions"][observer]["relation"])
+	return Factions.get_relation(observer, target)
+
+
+static func _stance_to(observer: String, target: String) -> String:
+	return player_stance(observer) if target == Shares.PLAYER else pair_stance(observer, target)
+
+
+# The deepest band open to observer against target: raid when Hostile or
+# below the observer's raidThreshold, else market, else warning, else none.
+static func band(observer: String, target: String) -> String:
+	var relation := _relation_to(observer, target)
+	if _stance_to(observer, target) == HOSTILE or relation < int(GameData.FACTIONS[observer]["raidThreshold"]):
+		return BAND_RAID
+	if relation < int(_ecfg()["marketBelow"]):
+		return BAND_MARKET
+	if relation < int(_ecfg()["warningBelow"]):
+		return BAND_WARNING
+	return BAND_NONE
+
+
+static func _depth(band_id: String) -> int:
+	return BAND_ORDER.find(band_id)
+
+
+# The observer's last drift toward the target (player or faction).
+static func _delta_to(observer: String, target: String) -> float:
+	var row: Dictionary = GameState.state["factionPressure"]["snapshots"].get(observer, {})
+	return float(row.get(target, {}).get("delta", 0.0))
+
+
+# Truce hook: no truces exist yet.
+static func in_truce(_party_a: String, _party_b: String) -> bool:
+	return false
+
+
+static func moves_blocked(observer: String, target: String) -> bool:
+	if in_truce(observer, target):
+		return true
+	return target != Shares.PLAYER and is_held_pair(observer, target)
+
+
+static func _target_entry(observer: String, target: String) -> Dictionary:
+	var targets: Dictionary = GameState.state["factionEscalation"]["targets"]
+	if not targets.has(observer):
+		targets[observer] = {}
+	var row: Dictionary = targets[observer]
+	if not row.has(target):
+		row[target] = { "warnedBand": BAND_NONE, "lastMoveDay": -1 }
+	return row[target]
+
+
+static func _cooling(entry: Dictionary, day: int) -> bool:
+	var last := int(entry["lastMoveDay"])
+	return last >= 0 and day - last < int(_ecfg()["cooldownDays"])
+
+
+# Rollover step: every faction weighs every target (the player, then each
+# other faction). Below the raid band it acts only while its drift toward
+# the target is negative. Off cooldown, a band deeper than the one last
+# warned about gets a warning; otherwise the best affordable move is made.
+static func apply_escalation() -> void:
+	var ids: Array = GameData.FACTIONS.keys()
+	for observer in ids:
+		for target in [Shares.PLAYER] + ids:
+			if target != observer and not moves_blocked(observer, target):
+				_escalate(observer, target)
+	EventBus.state_changed.emit()
+
+
+static func _escalate(observer: String, target: String) -> void:
+	var current := band(observer, target)
+	var entry := _target_entry(observer, target)
+	if _depth(current) < _depth(entry["warnedBand"]):
+		entry["warnedBand"] = current
+	if current == BAND_NONE:
+		return
+	if current != BAND_RAID and _delta_to(observer, target) >= 0.0:
+		return
+	var day: int = GameState.state["world"]["day"]
+	if _cooling(entry, day):
+		return
+	if entry["warnedBand"] != current:
+		entry["warnedBand"] = current
+		entry["lastMoveDay"] = day
+		_warn(observer, target, current)
+		return
+	var move := _best_move(observer, target, current)
+	if move.is_empty():
+		return
+	entry["lastMoveDay"] = day
+	GameState.state["factions"][observer]["resources"] -= int(move["cost"])
+	_make_move(observer, target, move)
+
+
+static func _warn(observer: String, target: String, band_id: String) -> void:
+	var log_cfg: Dictionary = _ecfg()["log"]
+	if target == Shares.PLAYER:
+		var archetype: String = GameData.FACTIONS[observer]["archetype"]
+		KeyMembers.send(observer, _ecfg()["warnings"][archetype][band_id])
+		log_activity(observer, log_cfg["warningPlayer"])
+	else:
+		log_activity(observer, log_cfg["warningPair"] % GameData.FACTIONS[target]["shortName"])
+
+
+# Move ids open in band_id: the archetype's market moves from the market
+# band, plus its raid moves in the raid band.
+static func _open_moves(observer: String, band_id: String) -> Array:
+	var menu: Dictionary = _ecfg()["menus"][GameData.FACTIONS[observer]["archetype"]]
+	var moves := []
+	if _depth(band_id) >= _depth(BAND_MARKET):
+		moves.append_array(menu["market"])
+	if band_id == BAND_RAID:
+		moves.append_array(menu["raid"])
+	return moves
+
+
+# The affordable open move with the highest expected damage, or {}.
+static func _best_move(observer: String, target: String, band_id: String) -> Dictionary:
+	var resources := int(GameState.state["factions"][observer]["resources"])
+	var best := {}
+	for move_id in _open_moves(observer, band_id):
+		var candidate := _move_candidate(observer, target, move_id)
+		if candidate.is_empty() or int(candidate["cost"]) > resources:
+			continue
+		if best.is_empty() or float(candidate["damage"]) > float(best["damage"]):
+			best = candidate
+	return best
+
+
+static func _move_cost(move_id: String) -> int:
+	return int(_ecfg()["moveCosts"].get(move_id, 0))
+
+
+# { move, damage, cost, ... } for one move against target, or {} when the
+# move isn't available (not built yet, or nothing to hit).
+static func _move_candidate(observer: String, target: String, move_id: String) -> Dictionary:
+	match move_id:
+		MOVE_VEIN_RAID:
+			return _vein_raid_candidate(observer, target)
+	return {}
+
+
+# The target vein with the highest success chance × Factions.vein_value().
+static func _vein_raid_candidate(observer: String, target: String) -> Dictionary:
+	var best := {}
+	for option in _raidable_veins(observer, target):
+		var damage := float(option["chance"]) * Factions.vein_value(option["vein"])
+		if best.is_empty() or damage > float(best["damage"]):
+			best = { "move": MOVE_VEIN_RAID, "damage": damage, "cost": _move_cost(MOVE_VEIN_RAID), "veinId": option["vein"]["id"], "siteId": option["siteId"] }
+	return best
+
+
+# { vein, siteId, chance } per vein observer could raid. Faction targets
+# need constants.json factionRivalry on.
+static func _raidable_veins(observer: String, target: String) -> Array:
+	var options := []
+	if target == Shares.PLAYER:
+		for vein in GameState.state["player"]["veins"]:
+			var site_id: Variant = vein.get("siteId")
+			if site_id == null or Sites.find_site(site_id) == null or Collective.is_quest_locked_vein(vein["id"]):
+				continue
+			if _raid_queued(vein["id"]) or Raiding.has_pending_defend(vein["id"]):
+				continue
+			options.append({ "vein": vein, "siteId": site_id, "chance": Raiding.raid_success_chance(observer, vein) })
+		return options
+	if not GameData.FACTION_RIVALRY:
+		return options
+	for site in GameState.state["world"]["sites"]:
+		var vein: Variant = site.get("factionVein")
+		if vein == null or vein["factionId"] != target or Collective.is_quest_locked_vein(vein["id"]) or _raid_queued(vein["id"]):
+			continue
+		var attempt := { "attackerId": observer, "defenderId": target, "veinSiteId": site["id"] }
+		var chance := Factions.rivalry_success_chance(attempt) * Collective.firm_target_multiplier(observer, target)
+		options.append({ "vein": vein, "siteId": site["id"], "chance": chance })
+	return options
+
+
+static func _raid_queued(vein_id: String) -> bool:
+	for entry in GameState.state["factionEscalation"]["queuedRaids"]:
+		if entry["veinId"] == vein_id:
+			return true
+	return false
+
+
+# A raid is queued for the next rollover's raid resolution (Factions ⑤c
+# for a faction target, Raiding ⑤d for the player).
+static func _make_move(observer: String, target: String, move: Dictionary) -> void:
+	match move["move"]:
+		MOVE_VEIN_RAID:
+			GameState.state["factionEscalation"]["queuedRaids"].append({
+				"attackerId": observer, "targetId": target, "veinId": move["veinId"], "siteId": move["siteId"],
+			})
+
+
+# Removes and returns the queued raids against the player (for_player) or
+# against factions.
+static func take_queued_raids(for_player: bool) -> Array:
+	var escalation: Dictionary = GameState.state["factionEscalation"]
+	var taken := []
+	var kept := []
+	for entry in escalation["queuedRaids"]:
+		if (entry["targetId"] == Shares.PLAYER) == for_player:
+			taken.append(entry)
+		else:
+			kept.append(entry)
+	escalation["queuedRaids"] = kept
+	return taken
+
+
+# A resolved move against the player: the key member's line, an activity-log
+# entry tagged for BizBrief, and Archie's explainer the first time.
+static func report_player_move(faction_id: String, move_id: String, district_id: String, landed: bool) -> void:
+	var district_name: String = GameData.DISTRICTS[district_id]["name"]
+	var line: String = _ecfg()["moveLines"].get(faction_id, {}).get(move_id, {}).get("hit" if landed else "miss", "")
+	if line != "":
+		KeyMembers.send(faction_id, line % district_name)
+	var log_text: String = _ecfg()["log"][move_id]["playerHit" if landed else "playerMiss"]
+	log_activity(faction_id, log_text % district_name, { "target": Shares.PLAYER, "move": move_id })
+	var explained: Array = GameState.state["factionEscalation"]["explained"]
+	if not explained.has(move_id):
+		explained.append(move_id)
+		Messages.append("archie", "them", _ecfg()["explainers"][move_id])
+
+
+# A resolved faction-vs-faction move, logged on both sides.
+static func report_pair_move(attacker_id: String, defender_id: String, move_id: String, district_id: String, landed: bool) -> void:
+	var district_name: String = GameData.DISTRICTS[district_id]["name"]
+	var log_cfg: Dictionary = _ecfg()["log"][move_id]
+	var attacker_name: String = GameData.FACTIONS[attacker_id]["shortName"]
+	var defender_name: String = GameData.FACTIONS[defender_id]["shortName"]
+	log_activity(attacker_id, log_cfg["attackerHit" if landed else "attackerMiss"] % [defender_name, district_name])
+	log_activity(defender_id, log_cfg["defenderHit" if landed else "defenderMiss"] % [attacker_name, district_name])
+
+
+# Every activity-log entry tagged as a move against the player, newest
+# first, each with its factionId.
+static func moves_against_player() -> Array:
+	var moves := []
+	for faction_id in GameData.FACTIONS.keys():
+		for entry in activity_log(faction_id):
+			if entry.get("target", "") == Shares.PLAYER:
+				var move: Dictionary = entry.duplicate()
+				move["factionId"] = faction_id
+				moves.append(move)
+	moves.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return int(a["day"]) > int(b["day"]))
+	return moves

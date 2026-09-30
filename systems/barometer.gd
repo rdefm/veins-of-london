@@ -107,6 +107,28 @@ static func _resolve_section(section: String) -> void:
 			break
 
 
+# A big faction-vs-faction move as a Ticker headline: appended to
+# state.barometer.headlines as { day, text } (oldest dropped past
+# factionEscalation.headlineCap) and pushed as a notification.
+static func push_headline(text: String) -> void:
+	var barometer: Dictionary = GameState.state["barometer"]
+	if not barometer.has("headlines"):
+		barometer["headlines"] = []
+	var entries: Array = barometer["headlines"]
+	entries.append({ "day": GameState.state["world"]["day"], "text": text })
+	while entries.size() > int(GameData.FACTION_ESCALATION["headlineCap"]):
+		entries.pop_front()
+	Notify.push("📰 %s" % text)
+	EventBus.state_changed.emit()
+
+
+# Faction headlines, newest first.
+static func headlines() -> Array:
+	var entries: Array = GameState.state["barometer"].get("headlines", []).duplicate()
+	entries.reverse()
+	return entries
+
+
 # D4.5's Ticker "rumblings..." hint: the highest-progress non-active state
 # at/above TREND_HINT_THRESHOLD, or null if none qualifies. Ties broken by
 # GameData.BAROMETER_STATES iteration order (stable across a given table).

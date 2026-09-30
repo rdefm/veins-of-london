@@ -4947,7 +4947,6 @@
 "healingSalve": 1
 }
 },
-"raidStealth": 0.35,
 "raidThreshold": -40,
 "resourceLevel": 1,
 "sampleFavours": [{
@@ -5052,7 +5051,6 @@
 "failsafe": 1
 }
 },
-"raidStealth": 0.65,
 "raidThreshold": -20,
 "resourceLevel": 3,
 "sampleFavours": [{
@@ -5170,7 +5168,6 @@
 "shield": 2
 }
 },
-"raidStealth": 0.55,
 "raidThreshold": 0,
 "resourceLevel": 2,
 "sampleFavours": [{
@@ -5292,7 +5289,6 @@
 "attack": {},
 "defend": {}
 },
-"raidStealth": 0.3,
 "raidThreshold": -30,
 "resourceLevel": 2,
 "sampleFavours": [{
@@ -5399,7 +5395,6 @@
 },
 "defend": {}
 },
-"raidStealth": 0.8,
 "raidThreshold": -20,
 "resourceLevel": 2,
 "sampleFavours": [{
