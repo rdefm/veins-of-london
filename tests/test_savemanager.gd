@@ -166,6 +166,24 @@ func run() -> void:
 		assert_eq(GameState.state["factionWar"], FactionAI.new_war_state(), "backfilled empty")
 	)
 
+	run_case("truces_round_trip_and_backfill", func():
+		GameState.reset()
+		GameState.state["world"]["day"] = 4
+		FactionAI.sign_truce("firm", "guild", { "truceDays": 10, "weekly": [{ "from": "firm", "to": "guild", "amount": 150 }] })
+		assert_true(SaveManager.save_to_slot(TEST_SLOT)["ok"])
+		GameState.reset()
+		assert_true(SaveManager.load_from_slot(TEST_SLOT)["ok"])
+		SaveManager.delete_slot(TEST_SLOT)
+		var truce: Dictionary = FactionAI.find_truce("guild", "firm")
+		assert_eq(typeof(truce["endDay"]), TYPE_INT)
+		assert_eq(truce["endDay"], 14)
+		assert_eq(typeof(truce["weekly"][0]["amount"]), TYPE_INT)
+		var save: Dictionary = GameState.deep_copy(GameState.state)
+		save["factionWar"].erase("truces")
+		assert_true(SaveManager.import_string(JSON.stringify(save))["ok"])
+		assert_eq(FactionAI.truces(), [], "backfilled empty")
+	)
+
 	run_case("old_save_clamps_relations_symmetrises_pairs_and_backfills_stances", func():
 		GameState.reset()
 		var save: Dictionary = GameState.deep_copy(GameState.state)

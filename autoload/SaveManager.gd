@@ -335,6 +335,7 @@ func backfill_defaults(save: Dictionary) -> Dictionary:
 	_backfill_new_flag_keys(result, defaults)
 	_backfill_new_business_keys(result, defaults)
 	_backfill_new_guard_upkeep_keys(result, defaults)
+	_backfill_new_faction_war_keys(result, defaults)
 	_backfill_vein_guard_kits(result)
 	_backfill_expense_kinds(result)
 	FactionAI.migrate_save(result, had_stances)
@@ -355,6 +356,15 @@ func _backfill_new_guard_upkeep_keys(result: Dictionary, defaults: Dictionary) -
 	for key in defaults["guardUpkeep"].keys():
 		if not guard_upkeep.has(key):
 			guard_upkeep[key] = GameState.deep_copy(defaults["guardUpkeep"][key])
+
+
+# A factionWar key added after the save was made (e.g. truces) starts at
+# its new-game default.
+func _backfill_new_faction_war_keys(result: Dictionary, defaults: Dictionary) -> void:
+	var war: Dictionary = result["factionWar"]
+	for key in defaults["factionWar"].keys():
+		if not war.has(key):
+			war[key] = GameState.deep_copy(defaults["factionWar"][key])
 
 
 # A business key added after the save was made (e.g. float) starts at its
@@ -885,6 +895,11 @@ func _restore_int_types(state: Dictionary) -> void:
 		_int_key(entry, "lastHostileDay")
 	_int_dict_values(war.get("lastHostile", {}))
 	_int_key(war, "nagLevel")
+	for truce in war.get("truces", []):
+		for key in ["startDay", "endDay", "dailyBonus"]:
+			_int_key(truce, key)
+		for line in truce.get("weekly", []):
+			_int_key(line, "amount")
 	for offer in state.get("sales", {}).get("pendingOffers", []):
 		if offer.has("poach"):
 			_int_key(offer["poach"], "payment")

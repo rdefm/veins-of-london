@@ -546,9 +546,8 @@ static func _delta_to(observer: String, target: String) -> float:
 	return float(row.get(target, {}).get("delta", 0.0))
 
 
-# Truce hook: no truces exist yet.
-static func in_truce(_party_a: String, _party_b: String) -> bool:
-	return false
+static func in_truce(party_a: String, party_b: String) -> bool:
+	return not find_truce(party_a, party_b).is_empty()
 
 
 static func moves_blocked(observer: String, target: String) -> bool:
@@ -1157,9 +1156,10 @@ static func _wcfg() -> Dictionary:
 # weariness: { party: float } } ], lastHostile: { warKey: day }, hits:
 # { party: { enemy: weariness points } }, spend: { party: £ today },
 # peaceSpend: { party: £/day baseline }, weariness: { party: float },
-# nagLevel, explained }.
+# nagLevel, explained, truces: [ { parties: [a, b], startDay, endDay,
+# dailyBonus, weekly: [ { from, to, amount } ] } ] }.
 static func new_war_state() -> Dictionary:
-	return { "wars": [], "lastHostile": {}, "hits": {}, "spend": {}, "peaceSpend": {}, "weariness": {}, "nagLevel": 0, "explained": false }
+	return { "wars": [], "lastHostile": {}, "hits": {}, "spend": {}, "peaceSpend": {}, "weariness": {}, "nagLevel": 0, "explained": false, "truces": [] }
 
 
 static func _war() -> Dictionary:
@@ -1190,11 +1190,13 @@ static func _pair_hostile(party_a: String, party_b: String) -> bool:
 	return pair_stance(party_a, party_b) == HOSTILE
 
 
-# A raid, flood, stockpile raid or shortfall steal between the two parties:
-# restarts the war clock.
+# A raid, flood, stockpile raid or shortfall steal by party_a against
+# party_b: breaks any truce between them and restarts the war clock.
 static func note_hostile_act(party_a: String, party_b: String) -> void:
 	if party_a == party_b:
 		return
+	if in_truce(party_a, party_b):
+		break_truce(party_a, party_b)
 	_war()["lastHostile"][war_key(party_a, party_b)] = int(GameState.state["world"]["day"])
 
 
@@ -1275,6 +1277,7 @@ static func _war_live(party_a: String, party_b: String, day: int) -> bool:
 static func update_wars() -> void:
 	var state := _war()
 	var day: int = GameState.state["world"]["day"]
+	_update_truces(day)
 	for pair in _war_pairs():
 		var key := war_key(pair[0], pair[1])
 		var war := _find_war(key)
@@ -1288,6 +1291,7 @@ static func update_wars() -> void:
 	_gain_weariness()
 	state["hits"] = {}
 	state["spend"] = {}
+	_make_faction_peace()
 	_check_nags()
 	EventBus.state_changed.emit()
 
@@ -1380,3 +1384,202 @@ static func nag_level_for(value: float) -> int:
 
 static func player_extreme() -> bool:
 	return weariness(Shares.PLAYER) >= float(_wcfg()["player"]["extreme"])
+
+
+# ── Truce and peace ─────────────────────────────────────────────────────
+# R§3.1 "Truce and peace": a truce stops all moves between its parties
+# until endDay. Signing sets their relation just above the Hostile band and
+# ends their war; each day of it adds dailyBonus on top of drift. A hostile
+# act against a truce partner breaks it and costs the breaker breakPenalty
+# with every faction. Data in constants.json factionWar.truce and
+# factionWar.negotiation.
+
+static func _tcfg() -> Dictionary:
+	return _wcfg()["truce"]
+
+
+static func _ncfg() -> Dictionary:
+	return _wcfg()["negotiation"]
+
+
+static func truces() -> Array:
+	return _war()["truces"]
+
+
+static func find_truce(party_a: String, party_b: String) -> Dictionary:
+	var key := war_key(party_a, party_b)
+	for truce in truces():
+		if war_key(truce["parties"][0], truce["parties"][1]) == key:
+			return truce
+	return {}
+
+
+static func _relation_between(party_a: String, party_b: String) -> int:
+	if party_a == Shares.PLAYER:
+		return int(GameState.state["factions"][party_b]["relation"])
+	if party_b == Shares.PLAYER:
+		return int(GameState.state["factions"][party_a]["relation"])
+	return Factions.get_relation(party_a, party_b)
+
+
+static func _adjust_between(party_a: String, party_b: String, delta: int) -> void:
+	if party_a == Shares.PLAYER:
+		Factions.adjust_player_relation(party_b, delta)
+	elif party_b == Shares.PLAYER:
+		Factions.adjust_player_relation(party_a, delta)
+	else:
+		Factions.adjust_relation(party_a, party_b, delta)
+
+
+static func _party_name(party: String) -> String:
+	return GameData.FACTIONS[party]["shortName"] if party != Shares.PLAYER else ""
+
+
+static func _log_truce(party_a: String, party_b: String, pair_line: String, player_line: String) -> void:
+	var log_cfg: Dictionary = _tcfg()["log"]
+	if party_a == Shares.PLAYER or party_b == Shares.PLAYER:
+		log_activity(party_b if party_a == Shares.PLAYER else party_a, log_cfg[player_line])
+		return
+	log_activity(party_a, log_cfg[pair_line] % _party_name(party_b))
+	log_activity(party_b, log_cfg[pair_line] % _party_name(party_a))
+
+
+# Signs a truce on terms { truceDays, weekly: [ { from, to, amount } ] }:
+# relation set to just above the Hostile band, their war ended, queued
+# raids and withholds between them dropped, logged on both sides and,
+# between factions, a Ticker headline.
+static func sign_truce(party_a: String, party_b: String, terms: Dictionary) -> void:
+	var day: int = GameState.state["world"]["day"]
+	truces().append({
+		"parties": [party_a, party_b], "startDay": day,
+		"endDay": day + int(terms.get("truceDays", _tcfg()["defaultDays"])),
+		"dailyBonus": int(_tcfg()["dailyBonus"]),
+		"weekly": GameState.deep_copy(terms.get("weekly", [])),
+	})
+	var target := int(_cfg()["hostileAtOrBelow"]) + int(_tcfg()["relationAboveHostile"])
+	_adjust_between(party_a, party_b, target - _relation_between(party_a, party_b))
+	var war := _find_war(war_key(party_a, party_b))
+	if not war.is_empty():
+		_war()["wars"].erase(war)
+	var key := war_key(party_a, party_b)
+	var escalation: Dictionary = GameState.state["factionEscalation"]
+	escalation["queuedRaids"] = escalation["queuedRaids"].filter(func(r: Dictionary) -> bool:
+		return war_key(r["attackerId"], r["targetId"]) != key)
+	escalation["withholds"] = _withholds().filter(func(w: Dictionary) -> bool:
+		return war_key(w["factionId"], w["targetId"]) != key)
+	_log_truce(party_a, party_b, "signedPair", "signedPlayer")
+	if party_a != Shares.PLAYER and party_b != Shares.PLAYER:
+		Barometer.push_headline(_tcfg()["headlines"]["signed"] % [_party_name(party_a), _party_name(party_b)])
+	EventBus.state_changed.emit()
+
+
+# breaker moved against its truce partner: the truce ends and every faction
+# thinks less of the breaker.
+static func break_truce(breaker: String, victim: String) -> void:
+	truces().erase(find_truce(breaker, victim))
+	var penalty := -int(_tcfg()["breakPenalty"])
+	var log_cfg: Dictionary = _tcfg()["log"]
+	if breaker == Shares.PLAYER:
+		for faction_id in GameData.FACTIONS.keys():
+			Factions.adjust_player_relation(faction_id, penalty)
+		log_activity(victim, log_cfg["brokenByPlayer"])
+	else:
+		for faction_id in GameData.FACTIONS.keys():
+			Factions.adjust_relation(breaker, faction_id, penalty)
+		if victim == Shares.PLAYER:
+			log_activity(breaker, log_cfg["brokeWithPlayer"])
+		else:
+			log_activity(breaker, log_cfg["brokePair"] % _party_name(victim))
+			log_activity(victim, log_cfg["brokenByPair"] % _party_name(breaker))
+	EventBus.state_changed.emit()
+
+
+# Truces past their endDay lapse; the rest add their daily bonus.
+static func _update_truces(day: int) -> void:
+	for truce in truces().duplicate():
+		var a: String = truce["parties"][0]
+		var b: String = truce["parties"][1]
+		if day >= int(truce["endDay"]):
+			truces().erase(truce)
+			_log_truce(a, b, "endedPair", "endedPlayer")
+		else:
+			_adjust_between(a, b, int(truce["dailyBonus"]))
+
+
+# The £ value of a proposal to party: truce days at truceDayValue scaled by
+# its weariness, plus cash and veins in minus cash and veins out (weekly
+# cash over the truce's weeks, veins at Factions.vein_value). A proposal is
+# { truceDays, cash: [ { from, to, amount } ], weekly: [ { from, to,
+# amount } ], veins: [ { from, to, vein } ] }.
+static func score_proposal(party: String, proposal: Dictionary, party_weariness: float) -> float:
+	var days := int(proposal.get("truceDays", _tcfg()["defaultDays"]))
+	var score := float(days) * float(_ncfg()["truceDayValue"]) * party_weariness / 100.0
+	var weeks := ceili(days / 7.0)
+	for line in proposal.get("cash", []):
+		score += _signed(party, line) * float(line["amount"])
+	for line in proposal.get("weekly", []):
+		score += _signed(party, line) * float(line["amount"]) * weeks
+	for line in proposal.get("veins", []):
+		score += _signed(party, line) * Factions.vein_value(line["vein"])
+	return score
+
+
+static func _signed(party: String, line: Dictionary) -> float:
+	if line["to"] == party:
+		return 1.0
+	return -1.0 if line["from"] == party else 0.0
+
+
+# The £ a proposal must score to be accepted: barMax at no weariness,
+# falling linearly to 0 at 100.
+static func acceptance_bar(party_weariness: float) -> float:
+	return float(_ncfg()["barMax"]) * (1.0 - clampf(party_weariness, 0.0, 100.0) / 100.0)
+
+
+static func accepts(party: String, proposal: Dictionary, party_weariness: float) -> bool:
+	return score_proposal(party, proposal, party_weariness) >= acceptance_bar(party_weariness)
+
+
+# Faction–faction peace: in each faction war, a side at its offerPeace
+# (the wearier first) offers the other, once at its acceptPeace, a truce of
+# defaultDays plus the one-off cash (up to maxPayShare of its resources)
+# that lifts the offer to the other's bar. Both sides must accept.
+static func _make_faction_peace() -> void:
+	for war in wars().duplicate():
+		var a: String = war["parties"][0]
+		var b: String = war["parties"][1]
+		if a == Shares.PLAYER or b == Shares.PLAYER:
+			continue
+		var sides := [a, b] if float(war["weariness"].get(a, 0.0)) >= float(war["weariness"].get(b, 0.0)) else [b, a]
+		for i in 2:
+			if _offer_peace(war, sides[i], sides[1 - i]):
+				break
+
+
+static func _offer_peace(war: Dictionary, offerer: String, other: String) -> bool:
+	var w_offer := float(war["weariness"].get(offerer, 0.0))
+	var w_other := float(war["weariness"].get(other, 0.0))
+	if w_offer < offer_peace_at(offerer) or w_other < accept_peace_at(other):
+		return false
+	var terms := _auto_terms(offerer, other, w_other)
+	if terms.is_empty() or not accepts(offerer, terms, w_offer):
+		return false
+	for line in terms["cash"]:
+		GameState.state["factions"][line["from"]]["resources"] -= int(line["amount"])
+		GameState.state["factions"][line["to"]]["resources"] += int(line["amount"])
+	sign_truce(offerer, other, terms)
+	return true
+
+
+# Default truce days, plus a one-off payment from offerer when the bare
+# truce falls short of the other side's bar; {} when offerer can't cover it.
+static func _auto_terms(offerer: String, other: String, w_other: float) -> Dictionary:
+	var terms := { "truceDays": int(_tcfg()["defaultDays"]), "cash": [], "weekly": [], "veins": [] }
+	var short := ceili(acceptance_bar(w_other) - score_proposal(other, terms, w_other))
+	if short <= 0:
+		return terms
+	var budget := floori(float(GameState.state["factions"][offerer]["resources"]) * float(_ncfg()["maxPayShare"]))
+	if short > budget:
+		return {}
+	terms["cash"].append({ "from": offerer, "to": other, "amount": short })
+	return terms

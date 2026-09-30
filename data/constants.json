@@ -285,7 +285,27 @@
     },
     "headlines": {
       "warDeclared": "%s and %s are at war."
-    }
+    },
+    "truce": {
+      "defaultDays": 14,
+      "relationAboveHostile": 1,
+      "dailyBonus": 2,
+      "breakPenalty": 25,
+      "log": {
+        "signedPair": "Truce signed with %s.",
+        "endedPair": "The truce with %s has run its course.",
+        "signedPlayer": "Truce signed with you.",
+        "endedPlayer": "The truce with you has run its course.",
+        "brokePair": "Broke the truce with %s.",
+        "brokenByPair": "%s broke the truce.",
+        "brokeWithPlayer": "Broke the truce with you.",
+        "brokenByPlayer": "You broke the truce."
+      },
+      "headlines": {
+        "signed": "%s and %s have signed a truce."
+      }
+    },
+    "negotiation": { "truceDayValue": 250, "barMax": 3000, "maxPayShare": 0.25 }
   },
   "business": { "weeklyWages": { "owen": 250 }, "jamesJoinCraftingSkill": 5, "owenCraftMinCultivating": 2 },
   "calendar": {

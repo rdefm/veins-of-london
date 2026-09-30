@@ -43,6 +43,14 @@ static func _texts(contact_id: String) -> Array:
 	return GameState.state["messages"].get(contact_id, []).map(func(m: Dictionary) -> String: return m["text"])
 
 
+static func _truce_cfg() -> Dictionary:
+	return GameData.FACTION_WAR["truce"]
+
+
+static func _just_above_hostile() -> int:
+	return int(GameData.FACTION_STANCES["hostileAtOrBelow"]) + int(_truce_cfg()["relationAboveHostile"])
+
+
 static func _nag(index: int) -> String:
 	return GameData.FACTION_WAR["nags"][index]["text"]
 
@@ -155,4 +163,128 @@ func run() -> void:
 		_war_day(4)
 		assert_true(FactionAI.player_extreme())
 		assert_true(_texts("james").has(GameData.FACTION_WAR["extremeNag"]["text"]), "extreme")
+	)
+
+	run_case("two_weary_factions_sign_a_truce_on_the_rollover", func():
+		_fresh()
+		_hostile_pair("firm", "guild")
+		_raid_on(1, "firm", "guild")
+		_war_day(1)
+		var war: Dictionary = FactionAI.wars()[0]
+		war["weariness"]["firm"] = 86.0
+		war["weariness"]["guild"] = 50.0
+		GameState.state["world"]["day"] = 2
+		TimeSystem.daily_tick()
+		assert_true(not FactionAI.at_war("firm", "guild"), "the war ends")
+		assert_true(FactionAI.in_truce("guild", "firm"))
+		var signed: String = _truce_cfg()["headlines"]["signed"] % ["Firm", "The Guild"]
+		assert_true(Barometer.headlines().any(func(h: Dictionary) -> bool: return h["text"] == signed), "truce on the wires")
+		assert_eq(Factions.get_relation("firm", "guild"), _just_above_hostile(), "relation just above Hostile")
+	)
+
+	run_case("a_side_short_of_accept_peace_keeps_fighting", func():
+		_fresh()
+		_hostile_pair("firm", "guild")
+		_raid_on(1, "firm", "guild")
+		_war_day(1)
+		FactionAI.wars()[0]["weariness"]["firm"] = 90.0
+		FactionAI.wars()[0]["weariness"]["guild"] = 20.0
+		_war_day(2)
+		assert_true(FactionAI.at_war("firm", "guild"))
+		assert_true(FactionAI.truces().is_empty())
+	)
+
+	run_case("the_weary_side_pays_to_lift_a_bare_truce_to_the_others_bar", func():
+		_fresh()
+		_hostile_pair("firm", "guild")
+		_raid_on(1, "firm", "guild")
+		_war_day(1)
+		FactionAI.wars()[0]["weariness"]["firm"] = 90.0
+		FactionAI.wars()[0]["weariness"]["guild"] = 36.0
+		GameState.state["factions"]["firm"]["resources"] = 10000
+		var guild_before := int(GameState.state["factions"]["guild"]["resources"])
+		_war_day(2)
+		assert_true(FactionAI.in_truce("firm", "guild"))
+		var paid := int(GameState.state["factions"]["guild"]["resources"]) - guild_before
+		assert_true(paid > 0, "the Guild is paid to sign")
+		assert_eq(int(GameState.state["factions"]["firm"]["resources"]), 10000 - paid, "by the Firm")
+	)
+
+	run_case("the_less_weary_side_offers_when_only_it_is_at_offer_peace", func():
+		_fresh()
+		_hostile_pair("firm", "guild")
+		_raid_on(1, "firm", "guild")
+		_war_day(1)
+		FactionAI.wars()[0]["weariness"]["firm"] = 80.0
+		FactionAI.wars()[0]["weariness"]["guild"] = 70.0
+		_war_day(2)
+		assert_true(FactionAI.in_truce("firm", "guild"), "the Guild offers, the Firm accepts")
+	)
+
+	run_case("signing_drops_raids_queued_between_the_parties", func():
+		_fresh()
+		GameState.state["world"]["day"] = 1
+		var queued: Array = GameState.state["factionEscalation"]["queuedRaids"]
+		queued.append({ "attackerId": "guild", "targetId": "firm", "veinId": "v1", "siteId": "s1" })
+		queued.append({ "attackerId": "guild", "targetId": "network", "veinId": "v2", "siteId": "s2" })
+		FactionAI.sign_truce("firm", "guild", {})
+		var left: Array = GameState.state["factionEscalation"]["queuedRaids"]
+		assert_eq(left.size(), 1)
+		assert_eq(left[0]["targetId"], "network", "other raids stand")
+	)
+
+	run_case("a_truce_blocks_moves_and_adds_its_daily_bonus_until_it_ends", func():
+		_fresh()
+		_hostile_pair("firm", "guild")
+		GameState.state["world"]["day"] = 1
+		FactionAI.sign_truce("firm", "guild", { "truceDays": 5 })
+		TimeSystem.daily_tick()
+		var warned_firm: String = GameData.FACTION_ESCALATION["log"]["warningPair"] % "The Guild"
+		var warned_guild: String = GameData.FACTION_ESCALATION["log"]["warningPair"] % "Firm"
+		assert_true(not FactionAI.activity_log("firm").any(func(e: Dictionary) -> bool: return e["text"] == warned_firm), "no move by the Firm")
+		assert_true(not FactionAI.activity_log("guild").any(func(e: Dictionary) -> bool: return e["text"] == warned_guild), "no move by the Guild")
+		var before := Factions.get_relation("firm", "guild")
+		_war_day(3)
+		assert_eq(Factions.get_relation("firm", "guild"), before + int(_truce_cfg()["dailyBonus"]), "daily bonus")
+		_war_day(6)
+		assert_true(not FactionAI.in_truce("firm", "guild"), "lapses at its end day")
+	)
+
+	run_case("without_a_truce_the_same_pair_warns", func():
+		_fresh()
+		_hostile_pair("firm", "guild")
+		GameState.state["world"]["day"] = 1
+		TimeSystem.daily_tick()
+		var warned: String = GameData.FACTION_ESCALATION["log"]["warningPair"] % "The Guild"
+		assert_true(FactionAI.activity_log("firm").any(func(e: Dictionary) -> bool: return e["text"] == warned))
+	)
+
+	run_case("a_faction_breaking_a_truce_loses_relation_with_every_faction", func():
+		_fresh()
+		_hostile_pair("firm", "guild")
+		GameState.state["world"]["day"] = 1
+		FactionAI.sign_truce("firm", "guild", {})
+		var before := {}
+		for faction_id in GameData.FACTIONS.keys():
+			before[faction_id] = Factions.get_relation("firm", faction_id)
+		_raid_on(2, "firm", "guild")
+		assert_true(not FactionAI.in_truce("firm", "guild"), "broken")
+		var penalty := int(_truce_cfg()["breakPenalty"])
+		for faction_id in GameData.FACTIONS.keys():
+			if faction_id != "firm":
+				assert_eq(Factions.get_relation("firm", faction_id), before[faction_id] - penalty, faction_id)
+		assert_eq(Factions.get_relation("guild", "network"), FactionAI.starting_pair_relation("guild", "network"), "bystander pairs untouched")
+	)
+
+	run_case("the_player_breaking_a_truce_loses_relation_with_every_faction", func():
+		_fresh()
+		GameState.state["world"]["day"] = 1
+		FactionAI.sign_truce("player", "firm", {})
+		var before := {}
+		for faction_id in GameData.FACTIONS.keys():
+			before[faction_id] = int(GameState.state["factions"][faction_id]["relation"])
+		FactionAI.note_hostile_act("player", "firm")
+		assert_true(not FactionAI.in_truce("firm", "player"))
+		for faction_id in GameData.FACTIONS.keys():
+			assert_eq(int(GameState.state["factions"][faction_id]["relation"]), before[faction_id] - int(_truce_cfg()["breakPenalty"]), faction_id)
 	)

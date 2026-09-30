@@ -59,6 +59,9 @@ Two parties (two factions, or the player and a faction) are at war while their s
 **Weariness**:
 How worn down a side is by its wars, 0–100. It rises each day at war: most from losses (veins, stock, fights), then cash spent above peacetime, then extra wars at once, least from days at war. It eases out of war. A faction's thresholds say when it will accept peace and when it will offer it; the player's meter makes Archie and James nag, and at the extreme the next peace offer binds.
 
+**Truce**:
+A signed ceasefire between two parties for a set number of days: no moves between them, their relation reset to just above Hostile, and a small relation boost each day it holds. Moving against a truce partner breaks it and costs the breaker relation with every faction. Factions at war sign truces with each other once both are weary enough; a signed faction truce is a Ticker headline.
+
 **Key member**:
 The named person who speaks for a faction (Lusk for the Firm, Ingram for the Guild, Fairweather for the Conclave, Nadia for the Collective, the handler for the Network). Every faction message to the player comes from its key member, never from the faction as a faceless whole.
 
