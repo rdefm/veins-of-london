@@ -900,6 +900,13 @@ func _restore_int_types(state: Dictionary) -> void:
 			_int_key(truce, key)
 		for line in truce.get("weekly", []):
 			_int_key(line, "amount")
+	_int_dict_values(war.get("peaceCooldown", {}))
+	var talks: Dictionary = war.get("negotiation", {})
+	_int_key(talks, "round")
+	for terms_key in ["draft", "counter"]:
+		var terms: Dictionary = talks.get(terms_key, {})
+		for key in [FactionAI.TERM_TRUCE_DAYS, FactionAI.TERM_CASH_TO_FACTION, FactionAI.TERM_CASH_TO_PLAYER, FactionAI.TERM_WEEKLY_TO_FACTION, FactionAI.TERM_WEEKLY_TO_PLAYER]:
+			_int_key(terms, key)
 	for offer in state.get("sales", {}).get("pendingOffers", []):
 		if offer.has("poach"):
 			_int_key(offer["poach"], "payment")

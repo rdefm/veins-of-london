@@ -184,6 +184,32 @@ func run() -> void:
 		assert_eq(FactionAI.truces(), [], "backfilled empty")
 	)
 
+	run_case("negotiation_round_trips_and_backfills", func():
+		GameState.reset()
+		var war: Dictionary = GameState.state["factionWar"]
+		var draft := FactionAI.default_terms()
+		draft[FactionAI.TERM_CASH_TO_PLAYER] = 300
+		war["negotiation"] = { "factionId": "firm", "round": 2, "binding": true, "final": false, "draft": draft, "counter": FactionAI.default_terms() }
+		war["peaceCooldown"]["guild"] = 12
+		assert_true(SaveManager.save_to_slot(TEST_SLOT)["ok"])
+		GameState.reset()
+		assert_true(SaveManager.load_from_slot(TEST_SLOT)["ok"])
+		SaveManager.delete_slot(TEST_SLOT)
+		var talks := FactionAI.negotiation()
+		assert_eq(typeof(talks["round"]), TYPE_INT)
+		assert_eq(typeof(talks["draft"][FactionAI.TERM_CASH_TO_PLAYER]), TYPE_INT)
+		assert_eq(talks["draft"][FactionAI.TERM_CASH_TO_PLAYER], 300)
+		assert_eq(typeof(talks["counter"][FactionAI.TERM_TRUCE_DAYS]), TYPE_INT)
+		assert_true(talks["binding"])
+		assert_eq(typeof(GameState.state["factionWar"]["peaceCooldown"]["guild"]), TYPE_INT)
+		var save: Dictionary = GameState.deep_copy(GameState.state)
+		save["factionWar"].erase("negotiation")
+		save["factionWar"].erase("peaceCooldown")
+		assert_true(SaveManager.import_string(JSON.stringify(save))["ok"])
+		assert_eq(FactionAI.negotiation(), {}, "backfilled empty")
+		assert_eq(GameState.state["factionWar"]["peaceCooldown"], {})
+	)
+
 	run_case("old_save_clamps_relations_symmetrises_pairs_and_backfills_stances", func():
 		GameState.reset()
 		var save: Dictionary = GameState.deep_copy(GameState.state)

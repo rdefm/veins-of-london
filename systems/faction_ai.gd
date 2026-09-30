@@ -1157,9 +1157,11 @@ static func _wcfg() -> Dictionary:
 # { party: { enemy: weariness points } }, spend: { party: £ today },
 # peaceSpend: { party: £/day baseline }, weariness: { party: float },
 # nagLevel, explained, truces: [ { parties: [a, b], startDay, endDay,
-# dailyBonus, weekly: [ { from, to, amount } ] } ] }.
+# dailyBonus, weekly: [ { from, to, amount } ] } ], negotiation: {} or the
+# player's talks in progress (see new_negotiation), peaceCooldown:
+# { factionId: day talks may reopen } }.
 static func new_war_state() -> Dictionary:
-	return { "wars": [], "lastHostile": {}, "hits": {}, "spend": {}, "peaceSpend": {}, "weariness": {}, "nagLevel": 0, "explained": false, "truces": [] }
+	return { "wars": [], "lastHostile": {}, "hits": {}, "spend": {}, "peaceSpend": {}, "weariness": {}, "nagLevel": 0, "explained": false, "truces": [], "negotiation": {}, "peaceCooldown": {} }
 
 
 static func _war() -> Dictionary:
@@ -1292,6 +1294,7 @@ static func update_wars() -> void:
 	state["hits"] = {}
 	state["spend"] = {}
 	_make_faction_peace()
+	_offer_player_peace()
 	_check_nags()
 	EventBus.state_changed.emit()
 
@@ -1510,7 +1513,7 @@ static func _update_truces(day: int) -> void:
 # its weariness, plus cash and veins in minus cash and veins out (weekly
 # cash over the truce's weeks, veins at Factions.vein_value). A proposal is
 # { truceDays, cash: [ { from, to, amount } ], weekly: [ { from, to,
-# amount } ], veins: [ { from, to, vein } ] }.
+# amount } ], veins: [ { from, to, vein or veinId } ] }.
 static func score_proposal(party: String, proposal: Dictionary, party_weariness: float) -> float:
 	var days := int(proposal.get("truceDays", _tcfg()["defaultDays"]))
 	var score := float(days) * float(_ncfg()["truceDayValue"]) * party_weariness / 100.0
@@ -1520,8 +1523,22 @@ static func score_proposal(party: String, proposal: Dictionary, party_weariness:
 	for line in proposal.get("weekly", []):
 		score += _signed(party, line) * float(line["amount"]) * weeks
 	for line in proposal.get("veins", []):
-		score += _signed(party, line) * Factions.vein_value(line["vein"])
+		var vein: Variant = line["vein"] if line.has("vein") else _vein_by_id(line["veinId"])
+		if vein != null:
+			score += _signed(party, line) * Factions.vein_value(vein)
 	return score
+
+
+# A player vein or a faction's site vein by id, or null.
+static func _vein_by_id(vein_id: String) -> Variant:
+	var vein: Variant = Cultivating.find_vein(vein_id)
+	if vein != null:
+		return vein
+	for site in GameState.state["world"]["sites"]:
+		var faction_vein: Variant = site.get("factionVein")
+		if faction_vein != null and faction_vein["id"] == vein_id:
+			return faction_vein
+	return null
 
 
 static func _signed(party: String, line: Dictionary) -> float:
@@ -1583,3 +1600,399 @@ static func _auto_terms(offerer: String, other: String, w_other: float) -> Dicti
 		return {}
 	terms["cash"].append({ "from": offerer, "to": other, "amount": short })
 	return terms
+
+
+# ── Player negotiation ──────────────────────────────────────────────────
+# R§3.1 "Negotiation": the player talks peace with one faction at a time.
+# A faction at its offerPeace sends an actionable peace offer; the player
+# can also open talks with any enemy. Each round the player proposes terms
+# and the faction accepts or counters with the nearest acceptable tweak,
+# for at most maxRounds. Failed or abandoned talks cost failRelation and
+# close talks with that faction for cooldownDays. Talks that open from an
+# offer while the player is at extreme weariness bind: no walking away.
+# Data in constants.json factionWar.negotiation.
+
+const PEACE_OFFER_KIND := "faction_peace_offer"
+const TERM_TRUCE_DAYS := "truceDays"
+const TERM_CASH_TO_FACTION := "cashToFaction"
+const TERM_CASH_TO_PLAYER := "cashToPlayer"
+const TERM_WEEKLY_TO_FACTION := "weeklyToFaction"
+const TERM_WEEKLY_TO_PLAYER := "weeklyToPlayer"
+const TERM_VEINS_TO_FACTION := "veinsToFaction"
+const TERM_VEINS_TO_PLAYER := "veinsToPlayer"
+
+
+# The talks in progress: {} or { factionId, round, binding, final, draft:
+# terms, counter: terms or {} }. final: a binding talk past its last round,
+# where only the faction's counter can be signed.
+static func negotiation() -> Dictionary:
+	return _war()["negotiation"]
+
+
+# Terms: { truceDays, cashToFaction, cashToPlayer, weeklyToFaction,
+# weeklyToPlayer, veinsToFaction: [veinId], veinsToPlayer: [veinId] }.
+static func default_terms() -> Dictionary:
+	return {
+		TERM_TRUCE_DAYS: int(_tcfg()["defaultDays"]),
+		TERM_CASH_TO_FACTION: 0, TERM_CASH_TO_PLAYER: 0,
+		TERM_WEEKLY_TO_FACTION: 0, TERM_WEEKLY_TO_PLAYER: 0,
+		TERM_VEINS_TO_FACTION: [], TERM_VEINS_TO_PLAYER: [],
+	}
+
+
+static func _day() -> int:
+	return int(GameState.state["world"]["day"])
+
+
+static func peace_cooling(faction_id: String) -> bool:
+	return _day() < int(_war()["peaceCooldown"].get(faction_id, 0))
+
+
+# The faction's weariness in its war with the player, else its own.
+static func _talks_weariness(faction_id: String) -> float:
+	var war := _find_war(war_key(Shares.PLAYER, faction_id))
+	if not war.is_empty():
+		return float(war["weariness"].get(faction_id, 0.0))
+	return weariness(faction_id)
+
+
+# Terms in score_proposal's shape, between the player and faction_id.
+static func _proposal(faction_id: String, terms: Dictionary) -> Dictionary:
+	var proposal := { "truceDays": int(terms[TERM_TRUCE_DAYS]), "cash": [], "weekly": [], "veins": [] }
+	var sides := [[TERM_CASH_TO_FACTION, "cash", Shares.PLAYER, faction_id], [TERM_CASH_TO_PLAYER, "cash", faction_id, Shares.PLAYER],
+		[TERM_WEEKLY_TO_FACTION, "weekly", Shares.PLAYER, faction_id], [TERM_WEEKLY_TO_PLAYER, "weekly", faction_id, Shares.PLAYER]]
+	for side in sides:
+		if int(terms[side[0]]) > 0:
+			proposal[side[1]].append({ "from": side[2], "to": side[3], "amount": int(terms[side[0]]) })
+	for vein_id in terms[TERM_VEINS_TO_FACTION]:
+		proposal["veins"].append({ "from": Shares.PLAYER, "to": faction_id, "veinId": vein_id })
+	for vein_id in terms[TERM_VEINS_TO_PLAYER]:
+		proposal["veins"].append({ "from": faction_id, "to": Shares.PLAYER, "veinId": vein_id })
+	return proposal
+
+
+# Player veins that can change hands in a truce: on a site, not quest-
+# locked, not under a queued raid or awaiting a defend.
+static func player_tradeable_veins() -> Array:
+	return GameState.state["player"]["veins"].filter(func(v: Dictionary) -> bool:
+		return v.get("siteId") != null and not Collective.is_quest_locked_vein(v["id"]) and not _raid_queued(v["id"]) and not Raiding.has_pending_defend(v["id"]))
+
+
+# faction_id's site veins that can change hands in a truce.
+static func faction_tradeable_veins(faction_id: String) -> Array:
+	var veins := []
+	for site in Sites.sites_with_faction_vein(faction_id):
+		if not Collective.is_quest_locked_vein(site["factionVein"]["id"]) and not _raid_queued(site["factionVein"]["id"]):
+			veins.append(site["factionVein"])
+	return veins
+
+
+static func _ids(veins: Array) -> Array:
+	return veins.map(func(v: Dictionary) -> String: return v["id"])
+
+
+# { ok } when both sides can pay the one-off cash and still hold the veins.
+static func _terms_payable(faction_id: String, terms: Dictionary) -> Dictionary:
+	if int(GameState.state["player"]["cash"]) < int(terms[TERM_CASH_TO_FACTION]):
+		return { "ok": false, "reason": "You can't cover £%d." % int(terms[TERM_CASH_TO_FACTION]) }
+	if int(GameState.state["factions"][faction_id]["resources"]) < int(terms[TERM_CASH_TO_PLAYER]):
+		return { "ok": false, "reason": "They can't pay that much." }
+	var mine := _ids(player_tradeable_veins())
+	for vein_id in terms[TERM_VEINS_TO_FACTION]:
+		if not mine.has(vein_id):
+			return { "ok": false, "reason": "That vein isn't yours to give." }
+	var theirs := _ids(faction_tradeable_veins(faction_id))
+	for vein_id in terms[TERM_VEINS_TO_PLAYER]:
+		if not theirs.has(vein_id):
+			return { "ok": false, "reason": "That vein isn't theirs to give." }
+	return { "ok": true }
+
+
+# The nearest terms to these that faction_id accepts and both sides can
+# pay: veins not tradeable now drop, one-off cash is capped at what each
+# side holds, then any shortfall comes off cash to the player, then weekly
+# cash to the player, then goes on as one-off cash from the player (up to
+# the player's cash), and the rest as weekly cash from the player.
+static func _counter_terms(faction_id: String, terms: Dictionary, faction_weariness: float) -> Dictionary:
+	var counter: Dictionary = GameState.deep_copy(terms)
+	var mine := _ids(player_tradeable_veins())
+	var theirs := _ids(faction_tradeable_veins(faction_id))
+	counter[TERM_VEINS_TO_FACTION] = counter[TERM_VEINS_TO_FACTION].filter(func(id: String) -> bool: return mine.has(id))
+	counter[TERM_VEINS_TO_PLAYER] = counter[TERM_VEINS_TO_PLAYER].filter(func(id: String) -> bool: return theirs.has(id))
+	var cash := int(GameState.state["player"]["cash"])
+	counter[TERM_CASH_TO_FACTION] = mini(int(counter[TERM_CASH_TO_FACTION]), cash)
+	counter[TERM_CASH_TO_PLAYER] = mini(int(counter[TERM_CASH_TO_PLAYER]), int(GameState.state["factions"][faction_id]["resources"]))
+	var short := ceili(acceptance_bar(faction_weariness) - score_proposal(faction_id, _proposal(faction_id, counter), faction_weariness))
+	if short <= 0:
+		return counter
+	var weeks := ceili(int(counter[TERM_TRUCE_DAYS]) / 7.0)
+	var cut := mini(short, int(counter[TERM_CASH_TO_PLAYER]))
+	counter[TERM_CASH_TO_PLAYER] -= cut
+	short -= cut
+	if short > 0:
+		var cut_weekly := mini(ceili(float(short) / weeks), int(counter[TERM_WEEKLY_TO_PLAYER]))
+		counter[TERM_WEEKLY_TO_PLAYER] -= cut_weekly
+		short -= cut_weekly * weeks
+	if short > 0:
+		var add := mini(short, maxi(0, cash - int(counter[TERM_CASH_TO_FACTION])))
+		counter[TERM_CASH_TO_FACTION] += add
+		short -= add
+	if short > 0:
+		counter[TERM_WEEKLY_TO_FACTION] += ceili(float(short) / weeks)
+	return counter
+
+
+static func _new_talks(faction_id: String, binding: bool, draft: Dictionary, counter: Dictionary) -> void:
+	_war()["negotiation"] = {
+		"factionId": faction_id, "round": 1, "binding": binding, "final": false,
+		"draft": draft, "counter": counter,
+	}
+	EventBus.state_changed.emit()
+
+
+# { ok } when the player may open talks with faction_id now.
+static func can_open_talks(faction_id: String) -> Dictionary:
+	if not negotiation().is_empty():
+		return { "ok": false, "reason": "Finish the talks you're in first." }
+	if not at_war(Shares.PLAYER, faction_id):
+		return { "ok": false, "reason": "You're not at war with them." }
+	if peace_cooling(faction_id):
+		return { "ok": false, "reason": "They won't talk again yet." }
+	return { "ok": true }
+
+
+# The player opens talks through the key member. A pending peace offer
+# from the same faction is taken up instead, so a binding one still binds.
+static func open_talks(faction_id: String) -> Dictionary:
+	var offer := _peace_offer_from(faction_id)
+	if not offer.is_empty():
+		return answer_peace_offer(offer["id"], true)
+	var check := can_open_talks(faction_id)
+	if check["ok"]:
+		_new_talks(faction_id, false, default_terms(), {})
+	return check
+
+
+static func _peace_offer_from(faction_id: String) -> Dictionary:
+	for entry in GameState.state["pendingMessages"]:
+		if entry["kind"] == PEACE_OFFER_KIND and entry["payload"].get("factionId", "") == faction_id:
+			return entry
+	return {}
+
+
+static func _find_peace_offer(pending_id: String) -> Dictionary:
+	for entry in GameState.state["pendingMessages"]:
+		if entry["id"] == pending_id and entry["kind"] == PEACE_OFFER_KIND:
+			return entry
+	return {}
+
+
+# An offer binds if it was sent, or is answered, while the player is at
+# extreme weariness.
+static func peace_offer_binding(entry: Dictionary) -> bool:
+	return bool(entry["payload"].get("binding", false)) or player_extreme()
+
+
+# Accepting opens talks on the faction's opening terms (a truce of
+# defaultDays, plus whatever it needs to reach its bar). Declining counts
+# as walking away, and a binding offer can't be declined.
+static func answer_peace_offer(pending_id: String, accept: bool) -> Dictionary:
+	var entry := _find_peace_offer(pending_id)
+	if entry.is_empty():
+		return { "ok": false, "reason": "Offer not found." }
+	var faction_id: String = entry["payload"]["factionId"]
+	var binding := peace_offer_binding(entry)
+	if not accept:
+		if binding:
+			return { "ok": false, "reason": "You can't walk away from this one." }
+		Messages.resolve_pending(pending_id)
+		_fail_talks(faction_id, "abandoned")
+		return { "ok": true }
+	if not negotiation().is_empty():
+		return { "ok": false, "reason": "Finish the talks you're in first." }
+	Messages.resolve_pending(pending_id)
+	var opening := _counter_terms(faction_id, default_terms(), _talks_weariness(faction_id))
+	_new_talks(faction_id, binding, GameState.deep_copy(opening), opening)
+	return { "ok": true }
+
+
+# Sets one draft term: truce days clamp to the allowed range, cash terms
+# floor at 0.
+static func set_draft_term(key: String, value: int) -> void:
+	var talks := negotiation()
+	if talks.is_empty() or talks["final"]:
+		return
+	if key == TERM_TRUCE_DAYS:
+		var days: Dictionary = _ncfg()["truceDays"]
+		value = clampi(value, int(days["min"]), int(days["max"]))
+	else:
+		value = maxi(0, value)
+	talks["draft"][key] = value
+	EventBus.state_changed.emit()
+
+
+# Adds the vein to (or takes it off) the draft's veinsToFaction or
+# veinsToPlayer list.
+static func toggle_draft_vein(key: String, vein_id: String) -> void:
+	var talks := negotiation()
+	if talks.is_empty() or talks["final"]:
+		return
+	var ids: Array = talks["draft"][key]
+	if ids.has(vein_id):
+		ids.erase(vein_id)
+	else:
+		ids.append(vein_id)
+	EventBus.state_changed.emit()
+
+
+# The player puts the draft to the faction. Returns { ok, result } with
+# result accepted (signed), countered, final (a binding talk's last
+# counter), refused (the faction is under its acceptPeace) or failed (out
+# of rounds); { ok: false, reason } when the draft can't be paid.
+static func propose_terms() -> Dictionary:
+	var talks := negotiation()
+	if talks.is_empty():
+		return { "ok": false, "reason": "No talks open." }
+	if talks["final"]:
+		return { "ok": false, "reason": "That was their last word." }
+	var faction_id: String = talks["factionId"]
+	var draft: Dictionary = talks["draft"]
+	var check := _terms_payable(faction_id, draft)
+	if not check["ok"]:
+		return check
+	var w := _talks_weariness(faction_id)
+	if not talks["binding"] and w < accept_peace_at(faction_id):
+		_fail_talks(faction_id, "refused")
+		return { "ok": true, "result": "refused" }
+	if accepts(faction_id, _proposal(faction_id, draft), w):
+		_sign_talks(faction_id, draft)
+		return { "ok": true, "result": "accepted" }
+	talks["counter"] = _counter_terms(faction_id, draft, w)
+	if int(talks["round"]) < int(_ncfg()["maxRounds"]):
+		talks["round"] = int(talks["round"]) + 1
+		EventBus.state_changed.emit()
+		return { "ok": true, "result": "countered" }
+	if talks["binding"]:
+		talks["final"] = true
+		EventBus.state_changed.emit()
+		return { "ok": true, "result": "final" }
+	_fail_talks(faction_id, "failed")
+	return { "ok": true, "result": "failed" }
+
+
+# The player signs the faction's standing counter. If it can't be paid
+# now or falls short of the faction's bar, the faction revises it.
+static func accept_counter() -> Dictionary:
+	var talks := negotiation()
+	if talks.is_empty() or talks["counter"].is_empty():
+		return { "ok": false, "reason": "Nothing to accept." }
+	var faction_id: String = talks["factionId"]
+	var counter: Dictionary = talks["counter"]
+	var w := _talks_weariness(faction_id)
+	if not _terms_payable(faction_id, counter)["ok"] or not accepts(faction_id, _proposal(faction_id, counter), w):
+		talks["counter"] = _counter_terms(faction_id, counter, w)
+		EventBus.state_changed.emit()
+		return { "ok": false, "reason": "Things have changed. They've revised their terms." }
+	_sign_talks(faction_id, counter)
+	return { "ok": true }
+
+
+static func abandon_talks() -> Dictionary:
+	var talks := negotiation()
+	if talks.is_empty():
+		return { "ok": false, "reason": "No talks open." }
+	if talks["binding"]:
+		return { "ok": false, "reason": "You can't walk away from this one." }
+	_fail_talks(talks["factionId"], "abandoned")
+	return { "ok": true }
+
+
+# Talks end without a deal: a little relation lost, talks closed for
+# cooldownDays, the key member's line for why.
+static func _fail_talks(faction_id: String, line_key: String) -> void:
+	var cfg := _ncfg()
+	if negotiation().get("factionId", "") == faction_id:
+		_war()["negotiation"] = {}
+	_war()["peaceCooldown"][faction_id] = _day() + int(cfg["cooldownDays"])
+	Factions.adjust_player_relation(faction_id, -int(cfg["failRelation"]))
+	log_activity(faction_id, cfg["log"]["failed"])
+	KeyMembers.send(faction_id, cfg["lines"][line_key])
+	EventBus.state_changed.emit()
+
+
+# One-off cash and veins change hands now, then the truce is signed with
+# the weekly cash as its terms.
+static func _sign_talks(faction_id: String, terms: Dictionary) -> void:
+	var faction: Dictionary = GameState.state["factions"][faction_id]
+	var player: Dictionary = GameState.state["player"]
+	var faction_name := _party_name(faction_id)
+	var paid := int(terms[TERM_CASH_TO_FACTION])
+	var received := int(terms[TERM_CASH_TO_PLAYER])
+	if paid > 0:
+		player["cash"] -= paid
+		faction["resources"] += paid
+		Bank.record(-paid, "Truce terms: %s" % faction_name)
+	if received > 0:
+		faction["resources"] -= received
+		player["cash"] += received
+		Bank.record(received, "Truce terms: %s" % faction_name)
+	for vein_id in terms[TERM_VEINS_TO_FACTION]:
+		VeinTrade.transfer_to_faction(vein_id, faction_id, 0, false)
+	for vein_id in terms[TERM_VEINS_TO_PLAYER]:
+		VeinTrade.transfer_from_faction(vein_id, faction_id)
+	_war()["negotiation"] = {}
+	var proposal := _proposal(faction_id, terms)
+	sign_truce(Shares.PLAYER, faction_id, { "truceDays": proposal["truceDays"], "weekly": proposal["weekly"] })
+	KeyMembers.send(faction_id, _ncfg()["lines"]["accepted"])
+
+
+# Rollover (after faction–faction peace): a faction at its offerPeace in
+# its war with the player sends a peace offer, unless one is pending, talks
+# are open or cooling with it, or it has no offer line. Offers from
+# factions not at war with the player are withdrawn.
+static func _offer_player_peace() -> void:
+	GameState.state["pendingMessages"] = GameState.state["pendingMessages"].filter(func(e: Dictionary) -> bool:
+		return e["kind"] != PEACE_OFFER_KIND or at_war(Shares.PLAYER, e["payload"].get("factionId", "")))
+	var lines: Dictionary = _ncfg()["offerLines"]
+	for war in wars_of(Shares.PLAYER):
+		var faction_id := war_enemy(war, Shares.PLAYER)
+		if float(war["weariness"].get(faction_id, 0.0)) < offer_peace_at(faction_id) or not lines.has(faction_id):
+			continue
+		if negotiation().get("factionId", "") == faction_id or not _peace_offer_from(faction_id).is_empty() or peace_cooling(faction_id):
+			continue
+		KeyMembers.send(faction_id, lines[faction_id], PEACE_OFFER_KIND, { "factionId": faction_id, "binding": player_extreme() })
+
+
+# Monday rollover: every truce's weekly cash is paid, each payer paying
+# what it can. The player is told what went out and came in.
+static func settle_truce_payments() -> void:
+	if not Calendar.is_monday(_day()):
+		return
+	for truce in truces():
+		for line in truce["weekly"]:
+			_pay_weekly(line["from"], line["to"], int(line["amount"]))
+
+
+static func _pay_weekly(from: String, to: String, amount: int) -> void:
+	var cfg: Dictionary = _ncfg()["paymentNotify"]
+	if from == Shares.PLAYER:
+		var paid := mini(amount, int(GameState.state["player"]["cash"]))
+		GameState.state["player"]["cash"] -= paid
+		GameState.state["factions"][to]["resources"] += paid
+		if paid > 0:
+			Bank.record(-paid, "Truce payment: %s" % _party_name(to))
+		if paid < amount:
+			Notify.push(cfg["short"] % [_party_name(to), paid, amount], Notify.CATEGORY_WARNING)
+		else:
+			Notify.push(cfg["paid"] % [_party_name(to), paid])
+		return
+	var faction: Dictionary = GameState.state["factions"][from]
+	var sent := mini(amount, int(faction["resources"]))
+	faction["resources"] -= sent
+	if to == Shares.PLAYER:
+		GameState.state["player"]["cash"] += sent
+		if sent > 0:
+			Bank.record(sent, "Truce payment: %s" % _party_name(from))
+			Notify.push(cfg["received"] % [_party_name(from), sent], Notify.CATEGORY_SUCCESS)
+	else:
+		GameState.state["factions"][to]["resources"] += sent

@@ -116,19 +116,9 @@ static func buy_from_faction(vein_id: String, faction_id: String, contact_id: St
 	if player["cash"] < price:
 		return { "ok": false, "reason": "Not enough cash." }
 
-	var player_vein: Dictionary = GameState.deep_copy(faction_vein)
-	player_vein.erase("factionId")
-	player_vein.erase("kit")
-	player_vein["guardKit"] = {}
-	player["veins"].append(player_vein)
-
-	site["claimed"] = true
-	site["factionVein"] = null
-
+	_take_from_faction(site)
 	player["cash"] -= price
 	Bank.record(-price, "Bought vein from %s" % faction_id.capitalize())
-
-	MapEvents.queue_seed_claim(site["district"], faction_vein["id"], "player")
 
 	# Same "a trade is a trade" reasoning as transfer_to_faction() -- relation
 	# reflects trade volume regardless of which direction the vein moved.
@@ -142,6 +132,32 @@ static func buy_from_faction(vein_id: String, faction_id: String, contact_id: St
 	BusinessQuest.maybe_trigger_proposition()
 	EventBus.state_changed.emit()
 	return { "ok": true, "price": price, "factionId": faction_id }
+
+
+# A faction's vein handed to the player with no money changing hands (a
+# truce's vein swap). No relation accrual: nothing was traded.
+static func transfer_from_faction(vein_id: String, faction_id: String) -> Dictionary:
+	var site: Variant = _find_site_with_faction_vein(vein_id, faction_id)
+	if site == null:
+		return { "ok": false, "reason": "No such vein." }
+	_take_from_faction(site)
+	Objectives.refresh()
+	BusinessQuest.maybe_trigger_proposition()
+	EventBus.state_changed.emit()
+	return { "ok": true }
+
+
+# The site's faction vein becomes a player vein on the same site.
+static func _take_from_faction(site: Dictionary) -> void:
+	var faction_vein: Dictionary = site["factionVein"]
+	var player_vein: Dictionary = GameState.deep_copy(faction_vein)
+	player_vein.erase("factionId")
+	player_vein.erase("kit")
+	player_vein["guardKit"] = {}
+	GameState.state["player"]["veins"].append(player_vein)
+	site["claimed"] = true
+	site["factionVein"] = null
+	MapEvents.queue_seed_claim(site["district"], faction_vein["id"], "player")
 
 
 static func _find_site_with_faction_vein(vein_id: String, faction_id: String) -> Variant:

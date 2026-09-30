@@ -51,7 +51,7 @@ Data file per system: see `data/*.json` below.
 | event_items.gd | Registry of items usable from an event's Item button (Rewind consumable + Dial Rewind): eligibility, counts, effect |
 | events.gd | Event-card runner + rewind, auto-discovers art |
 | faction_sim.gd | FactionSim: faction holdings (ore, items by tier); stockpile pick; vein tend + prune, sparing one maturing vein (`fieldwork`); crafting toward targets; consumption + kit burns → shortfall; kit allocation, `vein_kit`, `raider_kit`; London sell/buy vs reserve (withheld goods not for sale), Conclave arbitrage (`trading`); `flood`/`undercut` sell-below-quote, `deny` buy-up |
-| faction_ai.gd | FactionAI (R§3.1 "Stances", "Pressure", "Escalation", "War and weariness", "Truce and peace"): relation clamp, stances + hysteresis, activity log; pressure drift, Collective–Firm hold; escalation bands/menus, warnings, cooldowns, moves, reports, headlines; wars, weariness, player nags; truces, peace scorer, faction–faction peace |
+| faction_ai.gd | FactionAI (R§3.1 "Stances", "Pressure", "Escalation", "War and weariness", "Truce and peace", "Negotiation"): relation clamp, stances, activity log; pressure drift, Collective–Firm hold; escalation moves; wars, weariness, nags; truces, peace scorer, faction peace; player peace offers, talks, Monday truce payments |
 | factions.gd | Faction joining |
 | guard_kit.gd | Guard kit: allowlisted combat items stocked by tier on a player vein's or HQ's (`home.guardKit`) `guardKit`; capacity (guards × slots), active units, `stock`/`unstock` and `*_hq` twins; missed-defend repel boost/spend; kit-dict helpers (incl. `remove_units`); target helpers (vein/hq), summary/status text, `kit_veins` |
 | guard_upkeep.gd | Guard wages: hire advance, weekly cost/labels, per-day per-place `guardUpkeep.history`, pre-pot Monday bill from cash, faction Monday bill and wage-reserve gate, pending guard shortfall (grace, auto-resolve drop order, short-pay quote/confirm), place labels, Guard Costs reads (history window, per-place series, places, next Monday bill) |
@@ -97,7 +97,7 @@ Data file per system: see `data/*.json` below.
 | travel.gd | District travel (free) |
 | vein_list.gd | Vein-portfolio list decision layer |
 | vein_list_nav.gd | Vein list screen nav state |
-| vein_trade.gd | Selling a vein outright to a faction (at quote, a forced handback price, or a faction's named price) |
+| vein_trade.gd | Selling a vein outright to a faction (at quote, a forced handback price, or a faction's named price), buying one back, and a no-price handover from a faction (truce vein swap) |
 
 ## scenes/screens/*.gd — UI screens
 
@@ -133,7 +133,7 @@ overlays.
 | combat_command_dock.gd | Combat's lower command region: full-width near-white surface Panel holding the Dial beside flat 1px-ruled command rows (Complication readout, Attack, Item, Leg it), anchored to the true screen bottom; Attack/Item disabled per the current selection |
 | combat_director.gd | Combat beat-queue playback director; holds a data-driven pause (combat_visuals pacing.turnPause) between combatants' turns; emits `playing_changed` so CombatScreen locks its commands during playback |
 | combat_stage.gd | Combat pixel stage: backdrop (location->context->palette); slots in two receding diagonal groups (enemies back/smaller), figure-fitted, depth-sorted; keypose one-shots (sheet, `images`, or random attack `variants`; player = `combat_templates()[player.model]`, scrapper = its `variant`), effects, juice layer. `StageSlot` taps emit `subject_tapped`; selected slot gets an arrow |
-| contact_cards.gd | Shared contact/faction card builders (incl. handler card, Owen card, Targets/Sourcing, Nadia's ledger + "Go with Nadia", key-member card, pending-message actions incl. lowball Accept/Decline), inline Contacts action-row layout, OS chrome repaint |
+| contact_cards.gd | Shared contact/faction card builders (incl. handler card, Owen card, Targets/Sourcing, Nadia's ledger + "Go with Nadia", key-member card, pending-message actions incl. lowball Accept/Decline, peace offer Talk terms/Decline), inline Contacts action-row layout, OS chrome repaint |
 | contract_card.gd | Draggable BizBrief Sales card |
 | line_chart.gd | `_draw` line chart (palette-id colour, optional overlaid series on a shared scale, max label, first/last day, optional point markers) for BizBrief Stats and Ticker price charts |
 | price_move.gd | ▲/▼ + £ delta text and colour for a Market day move (Stock Market rows, sell lanes) |
@@ -203,6 +203,7 @@ overlays.
 | lab_bench_probe_result_modal.gd | Probe outcome card |
 | lab_bench_confirm_modal.gd | Gear-tap confirm: probe, craft ×N (batch slider, max = affordable) or inert warning, by cell state |
 | contract_cancel_modal.gd | BizBrief contract cancel confirm (Keep / Confirm → `Contracts.cancel`) |
+| negotiation_modal.gd | Peace talks sheet: the faction's standing terms + Accept, the player's draft (truce days, cash/weekly each way, vein toggles), Propose / Walk away (not when binding); all via FactionAI |
 
 ## scenes/phone_apps/*.gd — phone app views, one script per app
 
@@ -214,7 +215,7 @@ overlays.
 | bizbrief_app.gd | BizBrief tabs: Brief (bank, float, payday, wage prompt, operations, attention, moves against you, war, shares); Manage (offers + poach Match, contracts, buy-calc, cancel; production targets/log, procurement); Staff once `bizStaffTabOpen` (role, skills, pay); Stats while pot active (charts, ore toggle, expenses, guard legend); hosts short_pay_view.gd, guard_costs_view.gd |
 | messages_app.gd | Conversation inbox (fixed-height rows: bold name, one-line `…` preview, unread pill, per-contact Clear) + single-thread staged bubble reveal/action bar (incl. Owen's text reply choices); thread opens scrolled to the newest message |
 | todo_app.gd | ToDo app: collapsible questline sections from Todo, all_of checks as indented sub-rows; session-only expand/collapse overrides in a static var |
-| factions_app.gd | London share overview table (ore/crafting toggle; player, factions, Independents × ore type) and faction cards with archetype, ores, crafts, share bars, your stance, the pressure label and the activity log. Shares only, never holdings or kits. |
+| factions_app.gd | London share overview table (ore/crafting toggle; player, factions, Independents × ore type) and faction cards with archetype, ores, crafts, share bars, your stance, the pressure label, Negotiate peace / Peace talks entry while at war, and the activity log. Shares only, never holdings or kits. |
 | ticker_app.gd | Ticker: News tab (barometer headlines, faction-headline wires, axis detail with push/pull, influence actions) and Stock Market tab (prices ▲/▼, demand modifiers, per-good chart with annotations and demand drivers) |
 | profile_app.gd | Stats, skills, equipment |
 | dialer_app.gd | Phone recent-calls placeholder; no telephony state/actions |

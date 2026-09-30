@@ -496,15 +496,32 @@ static func build_key_member_card(contact_id: String) -> Control:
 
 
 # The buttons for one pending message: Accept/Decline for a faction's
-# lowball buyout, otherwise "Continue →" (on_continue).
+# lowball buyout, Talk terms/Decline for a peace offer (no Decline when it
+# binds), otherwise "Continue →" (on_continue).
 static func build_pending_actions(entry: Dictionary, on_continue: Callable) -> Array[Control]:
 	var actions: Array[Control] = []
 	if entry["kind"] == FactionAI.LOWBALL_KIND:
 		actions.append(UI.button("Sell for £%d" % int(entry["payload"]["price"]), func(): FactionAI.accept_lowball(entry["id"])))
 		actions.append(UI.button("Decline", func(): FactionAI.decline_lowball(entry["id"])))
+	elif entry["kind"] == FactionAI.PEACE_OFFER_KIND:
+		actions.append(UI.button("Talk terms", func(): _open_talks_result(FactionAI.answer_peace_offer(entry["id"], true))))
+		if not FactionAI.peace_offer_binding(entry):
+			actions.append(UI.button("Decline", func(): FactionAI.answer_peace_offer(entry["id"], false)))
 	else:
 		actions.append(UI.button("Continue →", on_continue.bind(entry)))
 	return actions
+
+
+# Opens the negotiation sheet once talks are open, else says why not.
+static func _open_talks_result(result: Dictionary) -> void:
+	if result.get("ok", false):
+		Modal.open("negotiation")
+	else:
+		Notify.push(result.get("reason", ""), Notify.CATEGORY_WARNING)
+
+
+static func open_talks(faction_id: String) -> void:
+	_open_talks_result(FactionAI.open_talks(faction_id))
 
 
 const _PHONE_BG_HOME := "phone_bg_home"

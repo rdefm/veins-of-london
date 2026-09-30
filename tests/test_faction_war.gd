@@ -55,6 +55,26 @@ static func _nag(index: int) -> String:
 	return GameData.FACTION_WAR["nags"][index]["text"]
 
 
+static func _player_war(faction_id: String, faction_weariness: float) -> void:
+	_hostile_player(faction_id)
+	GameState.state["world"]["day"] = 1
+	FactionAI.note_hostile_act(faction_id, "player")
+	_war_day(1)
+	FactionAI.wars_of("player")[0]["weariness"][faction_id] = faction_weariness
+
+
+static func _peace_offers() -> Array:
+	return GameState.state["pendingMessages"].filter(func(e: Dictionary) -> bool: return e["kind"] == FactionAI.PEACE_OFFER_KIND)
+
+
+static func _player_relation(faction_id: String) -> int:
+	return int(GameState.state["factions"][faction_id]["relation"])
+
+
+static func _fail_relation() -> int:
+	return int(GameData.FACTION_WAR["negotiation"]["failRelation"])
+
+
 func run() -> void:
 	run_case("hostile_plus_a_raid_starts_a_war_on_the_rollover_and_quiet_days_end_it", func():
 		_fresh()
@@ -287,4 +307,171 @@ func run() -> void:
 		assert_true(not FactionAI.in_truce("firm", "player"))
 		for faction_id in GameData.FACTIONS.keys():
 			assert_eq(int(GameState.state["factions"][faction_id]["relation"]), before[faction_id] - int(_truce_cfg()["breakPenalty"]), faction_id)
+	)
+
+	run_case("a_faction_at_offer_peace_sends_an_actionable_peace_offer_on_the_rollover", func():
+		_fresh()
+		_player_war("firm", FactionAI.offer_peace_at("firm") + 1.0)
+		GameState.state["world"]["day"] = 2
+		TimeSystem.daily_tick()
+		var offers := _peace_offers()
+		assert_eq(offers.size(), 1, "one offer")
+		assert_eq(offers[0]["payload"]["factionId"], "firm")
+		assert_true(not FactionAI.peace_offer_binding(offers[0]), "not binding")
+		_war_day(3)
+		assert_eq(_peace_offers().size(), 1, "not re-sent while pending")
+		assert_true(FactionAI.answer_peace_offer(offers[0]["id"], true)["ok"])
+		assert_eq(FactionAI.negotiation()["factionId"], "firm", "talks open")
+		assert_true(not FactionAI.negotiation()["counter"].is_empty(), "on their opening terms")
+	)
+
+	run_case("a_faction_under_offer_peace_sends_no_offer", func():
+		_fresh()
+		_player_war("firm", FactionAI.offer_peace_at("firm") - 10.0)
+		_war_day(2)
+		assert_true(_peace_offers().is_empty())
+	)
+
+	run_case("a_proposal_below_accept_peace_is_refused_and_costs_relation", func():
+		_fresh()
+		_player_war("firm", FactionAI.accept_peace_at("firm") - 10.0)
+		var before := _player_relation("firm")
+		assert_true(FactionAI.open_talks("firm")["ok"])
+		assert_eq(FactionAI.propose_terms()["result"], "refused")
+		assert_true(FactionAI.negotiation().is_empty(), "talks over")
+		assert_eq(_player_relation("firm"), before - _fail_relation())
+		assert_true(not FactionAI.can_open_talks("firm")["ok"], "cooling down")
+		assert_true(not FactionAI.in_truce("player", "firm"))
+	)
+
+	run_case("an_acceptable_proposal_signs_a_truce", func():
+		_fresh()
+		_player_war("firm", 90.0)
+		FactionAI.open_talks("firm")
+		assert_eq(FactionAI.propose_terms()["result"], "accepted")
+		assert_true(FactionAI.in_truce("firm", "player"))
+		assert_true(not FactionAI.at_war("firm", "player"), "war over")
+		assert_true(FactionAI.negotiation().is_empty())
+	)
+
+	run_case("a_marginal_proposal_gets_the_nearest_acceptable_counter", func():
+		_fresh()
+		_player_war("firm", 70.0)
+		GameState.state["factions"]["firm"]["resources"] = 10000
+		FactionAI.open_talks("firm")
+		FactionAI.set_draft_term(FactionAI.TERM_CASH_TO_PLAYER, 2000)
+		var asked := { "truceDays": 14, "cash": [{ "from": "firm", "to": "player", "amount": 2000 }] }
+		var short := ceili(FactionAI.acceptance_bar(70.0) - FactionAI.score_proposal("firm", asked, 70.0))
+		assert_eq(FactionAI.propose_terms()["result"], "countered")
+		var counter: Dictionary = FactionAI.negotiation()["counter"]
+		assert_eq(int(counter[FactionAI.TERM_CASH_TO_PLAYER]), 2000 - short, "trimmed by the shortfall only")
+		assert_eq(int(FactionAI.negotiation()["round"]), 2)
+		var cash := int(GameState.state["player"]["cash"])
+		assert_true(FactionAI.accept_counter()["ok"])
+		assert_true(FactionAI.in_truce("firm", "player"))
+		assert_eq(int(GameState.state["player"]["cash"]), cash + 2000 - short, "paid on signing")
+		assert_eq(int(GameState.state["factions"]["firm"]["resources"]), 10000 - 2000 + short)
+	)
+
+	run_case("a_fourth_round_is_impossible", func():
+		_fresh()
+		_player_war("firm", 70.0)
+		GameState.state["factions"]["firm"]["resources"] = 10000
+		var before := _player_relation("firm")
+		FactionAI.open_talks("firm")
+		FactionAI.set_draft_term(FactionAI.TERM_CASH_TO_PLAYER, 5000)
+		assert_eq(FactionAI.propose_terms()["result"], "countered", "round 1")
+		assert_eq(FactionAI.propose_terms()["result"], "countered", "round 2")
+		assert_eq(FactionAI.propose_terms()["result"], "failed", "round 3 is the last")
+		assert_true(not FactionAI.propose_terms()["ok"], "no round 4")
+		assert_eq(_player_relation("firm"), before - _fail_relation())
+		assert_true(FactionAI.peace_cooling("firm"))
+	)
+
+	run_case("abandoning_costs_relation_and_sets_the_cooldown", func():
+		_fresh()
+		_player_war("firm", 70.0)
+		var before := _player_relation("firm")
+		FactionAI.open_talks("firm")
+		assert_true(FactionAI.abandon_talks()["ok"])
+		assert_true(FactionAI.negotiation().is_empty())
+		assert_eq(_player_relation("firm"), before - _fail_relation())
+		assert_true(not FactionAI.can_open_talks("firm")["ok"], "cooling down")
+		GameState.state["world"]["day"] = 1 + int(GameData.FACTION_WAR["negotiation"]["cooldownDays"])
+		assert_true(FactionAI.can_open_talks("firm")["ok"], "talks reopen after the cooldown")
+	)
+
+	run_case("declining_one_factions_offer_leaves_talks_with_another_open", func():
+		_fresh()
+		_player_war("firm", 70.0)
+		FactionAI.open_talks("firm")
+		_hostile_player("guild")
+		FactionAI.note_hostile_act("guild", "player")
+		_war_day(2)
+		for war in FactionAI.wars_of("player"):
+			war["weariness"]["guild"] = FactionAI.offer_peace_at("guild") + 1.0
+		_war_day(3)
+		var offer: Dictionary = _peace_offers()[0]
+		assert_eq(offer["payload"]["factionId"], "guild")
+		assert_true(FactionAI.answer_peace_offer(offer["id"], false)["ok"])
+		assert_eq(FactionAI.negotiation().get("factionId", ""), "firm", "Firm talks untouched")
+		assert_true(FactionAI.peace_cooling("guild"))
+	)
+
+	run_case("a_binding_negotiation_cant_be_abandoned_and_raids_stay_allowed", func():
+		_fresh()
+		_player_war("firm", FactionAI.offer_peace_at("firm") + 1.0)
+		FactionAI.wars_of("player")[0]["weariness"]["player"] = 95.0
+		GameState.state["factionWar"]["weariness"]["player"] = 95.0
+		_war_day(2)
+		var offer: Dictionary = _peace_offers()[0]
+		assert_true(FactionAI.peace_offer_binding(offer), "binds at extreme weariness")
+		assert_true(not FactionAI.answer_peace_offer(offer["id"], false)["ok"], "can't decline")
+		assert_true(FactionAI.answer_peace_offer(offer["id"], true)["ok"])
+		assert_true(not FactionAI.abandon_talks()["ok"], "can't walk away")
+		assert_true(not FactionAI.negotiation().is_empty())
+		var vein := Fixtures.seed_faction_vein("fv_bind", 50, "firm")
+		Raiding.claim_vein("site_fv_bind")
+		assert_true(Cultivating.find_vein(vein["id"]) != null, "the raid lands")
+		assert_true(FactionAI.negotiation()["binding"], "talks still bind")
+		GameState.state["factions"]["firm"]["resources"] = 100000
+		FactionAI.set_draft_term(FactionAI.TERM_CASH_TO_PLAYER, 50000)
+		for i in 3:
+			FactionAI.propose_terms()
+		assert_true(FactionAI.negotiation()["final"], "out of rounds, their last word stands")
+		assert_true(FactionAI.accept_counter()["ok"])
+		assert_true(FactionAI.in_truce("player", "firm"))
+	)
+
+	run_case("weekly_payments_are_collected_on_mondays", func():
+		_fresh()
+		var monday := 2
+		while not Calendar.is_monday(monday):
+			monday += 1
+		GameState.state["world"]["day"] = monday - 1
+		FactionAI.sign_truce("player", "firm", { "truceDays": 28, "weekly": [
+			{ "from": "player", "to": "firm", "amount": 200 }, { "from": "firm", "to": "player", "amount": 50 },
+		] })
+		GameState.state["player"]["cash"] = 1000
+		var firm := int(GameState.state["factions"]["firm"]["resources"])
+		FactionAI.settle_truce_payments()
+		assert_eq(int(GameState.state["player"]["cash"]), 1000, "nothing off a Monday")
+		GameState.state["world"]["day"] = monday
+		FactionAI.settle_truce_payments()
+		assert_eq(int(GameState.state["player"]["cash"]), 850)
+		assert_eq(int(GameState.state["factions"]["firm"]["resources"]), firm + 150)
+	)
+
+	run_case("vein_swaps_transfer_on_signing", func():
+		_fresh()
+		_player_war("firm", 90.0)
+		var mine := Fixtures.seed_vein("pv_swap", 50)
+		var theirs := Fixtures.seed_faction_vein("fv_swap", 50, "firm")
+		FactionAI.open_talks("firm")
+		FactionAI.toggle_draft_vein(FactionAI.TERM_VEINS_TO_FACTION, mine["id"])
+		FactionAI.toggle_draft_vein(FactionAI.TERM_VEINS_TO_PLAYER, theirs["id"])
+		assert_eq(FactionAI.propose_terms()["result"], "accepted")
+		assert_true(Cultivating.find_vein(theirs["id"]) != null, "theirs is mine")
+		assert_true(Cultivating.find_vein(mine["id"]) == null, "mine is theirs")
+		assert_eq(Sites.find_site("site_pv_swap")["factionVein"]["factionId"], "firm")
 	)

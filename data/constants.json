@@ -305,7 +305,38 @@
         "signed": "%s and %s have signed a truce."
       }
     },
-    "negotiation": { "truceDayValue": 250, "barMax": 3000, "maxPayShare": 0.25 }
+    "negotiation": {
+      "truceDayValue": 250,
+      "barMax": 3000,
+      "maxPayShare": 0.25,
+      "maxRounds": 3,
+      "failRelation": 5,
+      "cooldownDays": 7,
+      "truceDays": { "min": 7, "max": 42, "step": 7 },
+      "cashStep": 100,
+      "weeklyStep": 50,
+      "offerLines": {
+        "firm": "\"Mr Lusk would like this finished. Fourteen days' quiet, to start. Come and talk terms.\"",
+        "guild": "\"The Court proposes a truce. Terms are open to discussion, within reason.\"",
+        "network": "\"Everyone's losing money. We'd like to stop. Name your price, then hear ours.\"",
+        "collective": "\"We're bleeding people for this. Let's talk before there's no one left to talk.\""
+      },
+      "lines": {
+        "accepted": "\"Agreed. It's signed.\"",
+        "countered": "\"Not that. This.\"",
+        "refused": "\"We're not ready to stop. Ask again when you've something worth hearing.\"",
+        "failed": "\"We're done talking. For now.\"",
+        "abandoned": "\"Walking away. Noted.\""
+      },
+      "log": {
+        "failed": "Peace talks with you broke down."
+      },
+      "paymentNotify": {
+        "paid": "Truce payment to %s: £%d.",
+        "short": "Truce payment to %s: £%d of £%d. You couldn't cover the rest.",
+        "received": "Truce payment from %s: £%d."
+      }
+    }
   },
   "business": { "weeklyWages": { "owen": 250 }, "jamesJoinCraftingSkill": 5, "owenCraftMinCultivating": 2 },
   "calendar": {
