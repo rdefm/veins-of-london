@@ -4968,6 +4968,10 @@
 "text": "\"The Firm's been walking past the allotments. Keep an eye on your ground for three days, would you.\""
 }],
 "aggressionPersonality": 0.76,
+"weariness": {
+"acceptPeace": 40,
+"offerPeace": 65
+},
 "secondaryOre": "emotion",
 "securityBias": -2,
 "shortName": "Collective",
@@ -5072,6 +5076,10 @@
 "text": "\"Ten fate, within five days. The address will be somewhere you've walked past.\""
 }],
 "aggressionPersonality": 0.93,
+"weariness": {
+"acceptPeace": 30,
+"offerPeace": 55
+},
 "secondaryOre": "time",
 "securityBias": 3,
 "shortName": "Conclave",
@@ -5190,6 +5198,10 @@
 "text": "\"Fifteen life, twenty off the Ticker. You'll find we're good at remembering who was reasonable.\""
 }],
 "aggressionPersonality": 1.69,
+"weariness": {
+"acceptPeace": 60,
+"offerPeace": 85
+},
 "secondaryOre": "life",
 "securityBias": 1,
 "shortName": "Firm",
@@ -5313,6 +5325,10 @@
 "text": "\"Four measures of enhancement powder, at a rate the Guild would describe as collegial.\""
 }],
 "aggressionPersonality": 0.78,
+"weariness": {
+"acceptPeace": 35,
+"offerPeace": 60
+},
 "secondaryOre": "physics",
 "securityBias": 1,
 "shortName": "The Guild",
@@ -5417,6 +5433,10 @@
 "text": "\"If anyone asks you to lean on the Conclave this week, don't.\""
 }],
 "aggressionPersonality": 0.84,
+"weariness": {
+"acceptPeace": 45,
+"offerPeace": 70
+},
 "secondaryOre": "fate",
 "securityBias": -1,
 "shortName": "Network",

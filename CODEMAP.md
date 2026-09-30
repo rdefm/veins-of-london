@@ -51,7 +51,7 @@ Data file per system: see `data/*.json` below.
 | event_items.gd | Registry of items usable from an event's Item button (Rewind consumable + Dial Rewind): eligibility, counts, effect |
 | events.gd | Event-card runner + rewind, auto-discovers art |
 | faction_sim.gd | FactionSim: faction holdings (ore, items by tier); stockpile pick; vein tend + prune, sparing one maturing vein (`fieldwork`); crafting toward targets; consumption + kit burns → shortfall; kit allocation, `vein_kit`, `raider_kit`; London sell/buy vs reserve (withheld goods not for sale), Conclave arbitrage (`trading`); `flood`/`undercut` sell-below-quote, `deny` buy-up |
-| faction_ai.gd | FactionAI (R§3.1 "Stances", "Pressure", "Escalation"): relation clamp, stances + hysteresis, activity log, save fix-up; pressure drift, Collective–Firm hold, pressure label; escalation bands/menus, warnings, cooldowns, moves (vein raid, flood, withhold(Items), outbid, poach, lowball + accept/decline, undercut, deny), reports, explainers, headlines, moves-against-you feed |
+| faction_ai.gd | FactionAI (R§3.1 "Stances", "Pressure", "Escalation", "War and weariness"): relation clamp, stances + hysteresis, activity log, save fix-up; pressure drift, Collective–Firm hold, pressure label; escalation bands/menus, warnings, cooldowns, moves, reports, explainers, headlines, moves-against-you feed; wars, weariness, player nags |
 | factions.gd | Faction joining |
 | guard_kit.gd | Guard kit: allowlisted combat items stocked by tier on a player vein's or HQ's (`home.guardKit`) `guardKit`; capacity (guards × slots), active units, `stock`/`unstock` and `*_hq` twins; missed-defend repel boost/spend; kit-dict helpers (incl. `remove_units`); target helpers (vein/hq), summary/status text, `kit_veins` |
 | guard_upkeep.gd | Guard wages: hire advance, weekly cost/labels, per-day per-place `guardUpkeep.history`, pre-pot Monday bill from cash, faction Monday bill and wage-reserve gate, pending guard shortfall (grace, auto-resolve drop order, short-pay quote/confirm), place labels, Guard Costs reads (history window, per-place series, places, next Monday bill) |
@@ -211,7 +211,7 @@ overlays.
 | phone_app.gd | PhoneApp base: shell ref, build(content)/teardown() hooks, shared back button + refresh |
 | phone_app_registry.gd | app id -> PhoneApp script table; the only dispatch path phone.gd uses |
 | alarms_app.gd | Raid alarm rows: defend / leave undefended (two-tap) / decide later |
-| bizbrief_app.gd | BizBrief tabs: Brief (bank, float, payday, wage prompt, operations, attention, moves against you, shares); Manage (offers + poach Match, contracts, buy-calc, cancel; production targets/log, procurement); Staff once `bizStaffTabOpen` (role, skills, pay); Stats while pot active (charts, ore toggle, expenses, guard legend); hosts short_pay_view.gd, guard_costs_view.gd |
+| bizbrief_app.gd | BizBrief tabs: Brief (bank, float, payday, wage prompt, operations, attention, moves against you, war, shares); Manage (offers + poach Match, contracts, buy-calc, cancel; production targets/log, procurement); Staff once `bizStaffTabOpen` (role, skills, pay); Stats while pot active (charts, ore toggle, expenses, guard legend); hosts short_pay_view.gd, guard_costs_view.gd |
 | messages_app.gd | Conversation inbox (fixed-height rows: bold name, one-line `…` preview, unread pill, per-contact Clear) + single-thread staged bubble reveal/action bar (incl. Owen's text reply choices); thread opens scrolled to the newest message |
 | todo_app.gd | ToDo app: collapsible questline sections from Todo, all_of checks as indented sub-rows; session-only expand/collapse overrides in a static var |
 | factions_app.gd | London share overview table (ore/crafting toggle; player, factions, Independents × ore type) and faction cards with archetype, ores, crafts, share bars, your stance, the pressure label and the activity log. Shares only, never holdings or kits. |
@@ -237,13 +237,13 @@ overlays.
 | combat_prototype.json | combat_prototype.gd |
 | combat_visuals.json | combat_stage.gd (locationBackdrops, backdrops, pose sheets, stage.spriteScale); GameData.gd (territorialVariant pose spec); combat_director.gd (pacing.turnPause); turn_order_strip.gd (cardFrames) |
 | constants.json | calendar.gd (calendar), time_system.gd, jobs.gd, GameState.gd, contacts.gd (roster, roleFlags, skillCaps), business.gd (weekly wages), rooms.gd (productionLogDays), business_stats.gd (businessStatsDays), shares.gd (sharesDays, sharesWindowDays), GUARD_UPKEEP (guardUpkeep), guard_kit.gd (GUARD_KIT) |
-| constants.json (faction politics) | factions.gd (factionRivalry), faction_ai.gd (factionStances, factionPressure, factionEscalation), barometer.gd (factionEscalation.headlineCap) |
+| constants.json (faction politics) | factions.gd (factionRivalry), faction_ai.gd (factionStances, factionPressure, factionEscalation, factionWar), barometer.gd (factionEscalation.headlineCap) |
 | daily_cycle.json | time_transition.gd (circle layout, sky clips, colours, timing) |
 | dial.json | dial.gd |
 | districts.json | widely read (sites, economy, factions, raiding) |
 | enemies.json | combat.gd |
 | faction_trade.json | economy.gd |
-| factions.json | factions.gd, sites.gd, raiding.gd, debug_start.gd, faction_sim.gd (`startingHoldings`, `stockpilePlaces`, `cultivateSkill`, `fieldwork`, `craftSkill`, `craftTargets`, `raidKits`, `consumes`, `trading`, `industryIncome`), key_members.gd (`keyMembers`, `speaker`, `sampleFavours`), faction_ai.gd (`aggressionPersonality`) |
+| factions.json | factions.gd, sites.gd, raiding.gd, debug_start.gd, faction_sim.gd (`startingHoldings`, `stockpilePlaces`, `cultivateSkill`, `fieldwork`, `craftSkill`, `craftTargets`, `raidKits`, `consumes`, `trading`, `industryIncome`), key_members.gd (`keyMembers`, `speaker`, `sampleFavours`), faction_ai.gd (`aggressionPersonality`, `weariness`) |
 | home.json | home.gd, approaches.gd, contacts.gd, property_app.gd (tier `image` listing photos) |
 | floorplans.json | GameData.gd + floorplan_view.gd (per-tier plan asset, size, slot rects) |
 | hq_visuals.json | hq_diorama.gd, hq*.gd screens |

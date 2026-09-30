@@ -879,6 +879,12 @@ func _restore_int_types(state: Dictionary) -> void:
 	for entry in state.get("factionEscalation", {}).get("withholds", []):
 		_int_key(entry, "untilDay")
 	_int_key(state.get("factionEscalation", {}), "lastVeinLostDay")
+	var war: Dictionary = state.get("factionWar", {})
+	for entry in war.get("wars", []):
+		_int_key(entry, "startDay")
+		_int_key(entry, "lastHostileDay")
+	_int_dict_values(war.get("lastHostile", {}))
+	_int_key(war, "nagLevel")
 	for offer in state.get("sales", {}).get("pendingOffers", []):
 		if offer.has("poach"):
 			_int_key(offer["poach"], "payment")

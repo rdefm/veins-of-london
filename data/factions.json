@@ -27,6 +27,7 @@
     "primaryOre": "life",
     "secondaryOre": "emotion",
     "aggressionPersonality": 0.76,
+    "weariness": { "acceptPeace": 40, "offerPeace": 65 },
     "claimWeights": { "base": 1, "presence": 17, "primaryOre": 6, "secondaryOre": 3 },
     "crafts": [
       "healingSalve",
@@ -85,6 +86,7 @@
     "primaryOre": "physics",
     "secondaryOre": "life",
     "aggressionPersonality": 1.69,
+    "weariness": { "acceptPeace": 60, "offerPeace": 85 },
     "claimWeights": { "base": 1, "presence": 17, "primaryOre": 6, "secondaryOre": 3 },
     "crafts": [
       "blast",
@@ -147,6 +149,7 @@
     "primaryOre": "time",
     "secondaryOre": "physics",
     "aggressionPersonality": 0.78,
+    "weariness": { "acceptPeace": 35, "offerPeace": 60 },
     "claimWeights": { "base": 1, "presence": 17, "primaryOre": 6, "secondaryOre": 3 },
     "crafts": [
       "timePearl",
@@ -212,6 +215,7 @@
     "primaryOre": "emotion",
     "secondaryOre": "fate",
     "aggressionPersonality": 0.84,
+    "weariness": { "acceptPeace": 45, "offerPeace": 70 },
     "claimWeights": { "base": 1, "presence": 17, "primaryOre": 6, "secondaryOre": 3 },
     "crafts": [
       "pansPrank"
@@ -268,6 +272,7 @@
     "primaryOre": "fate",
     "secondaryOre": "time",
     "aggressionPersonality": 0.93,
+    "weariness": { "acceptPeace": 30, "offerPeace": 55 },
     "claimWeights": { "base": 1, "presence": 17, "primaryOre": 6, "secondaryOre": 3 },
     "crafts": [
       "failsafe",

@@ -264,6 +264,29 @@
       "flood": "%s floods London with cut-price %s, aimed at %s."
     }
   },
+  "factionWar": {
+    "windowDays": 7,
+    "weights": { "lossPer100": 5.0, "fightLost": 3.0, "drainPer100": 2.0, "extraFront": 0.5, "dayAtWar": 0.5 },
+    "decayPerDay": 2.0,
+    "peaceSpendRate": 0.2,
+    "player": { "nagAt": [35, 55, 75], "extreme": 90 },
+    "nags": [
+      { "contactId": "archie", "text": "\"This war's costing us. Not fatal yet. Worth deciding how it ends before they decide for us.\"" },
+      { "contactId": "james", "text": "\"Books are bleeding. Every raid we lose, we pay for twice. Find a way out.\"" },
+      { "contactId": "archie", "text": "\"We can't keep this up. Next decent offer, we listen.\"" }
+    ],
+    "extremeNag": { "contactId": "james", "text": "\"We're done. Next peace offer that comes, we take it. We can argue the terms, not the deal.\"" },
+    "explainer": "\"That's a war now. While it lasts every loss wears us down, and them. It ends when both sides go quiet for %d days, or someone signs a peace.\"",
+    "log": {
+      "startedPair": "At war with %s.",
+      "endedPair": "The war with %s has gone quiet.",
+      "startedPlayer": "At war with you.",
+      "endedPlayer": "The war with you has gone quiet."
+    },
+    "headlines": {
+      "warDeclared": "%s and %s are at war."
+    }
+  },
   "business": { "weeklyWages": { "owen": 250 }, "jamesJoinCraftingSkill": 5, "owenCraftMinCultivating": 2 },
   "calendar": {
     "startMonth": 3,

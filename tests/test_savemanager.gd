@@ -141,6 +141,31 @@ func run() -> void:
 		assert_eq(Barometer.headlines(), [])
 	)
 
+	run_case("wars_and_player_weariness_round_trip_and_backfill", func():
+		GameState.reset()
+		var war: Dictionary = GameState.state["factionWar"]
+		war["wars"].append({ "parties": ["player", "firm"], "startDay": 3, "lastHostileDay": 5, "weariness": { "player": 41.5, "firm": 12.25 } })
+		war["lastHostile"]["player:firm"] = 5
+		war["weariness"]["player"] = 41.5
+		war["nagLevel"] = 1
+		assert_true(SaveManager.save_to_slot(TEST_SLOT)["ok"])
+		GameState.reset()
+		assert_true(SaveManager.load_from_slot(TEST_SLOT)["ok"])
+		SaveManager.delete_slot(TEST_SLOT)
+		var loaded: Dictionary = FactionAI.wars()[0]
+		assert_eq(typeof(loaded["startDay"]), TYPE_INT, "start day restored as int")
+		assert_eq(typeof(loaded["lastHostileDay"]), TYPE_INT, "last hostile day restored as int")
+		assert_eq(typeof(GameState.state["factionWar"]["lastHostile"]["player:firm"]), TYPE_INT)
+		assert_eq(typeof(GameState.state["factionWar"]["nagLevel"]), TYPE_INT)
+		assert_eq(FactionAI.weariness("player"), 41.5, "player weariness kept")
+		assert_eq(loaded["weariness"]["firm"], 12.25)
+		assert_true(FactionAI.at_war("firm", "player"))
+		var save: Dictionary = GameState.deep_copy(GameState.state)
+		save.erase("factionWar")
+		assert_true(SaveManager.import_string(JSON.stringify(save))["ok"])
+		assert_eq(GameState.state["factionWar"], FactionAI.new_war_state(), "backfilled empty")
+	)
+
 	run_case("old_save_clamps_relations_symmetrises_pairs_and_backfills_stances", func():
 		GameState.reset()
 		var save: Dictionary = GameState.deep_copy(GameState.state)

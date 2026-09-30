@@ -653,6 +653,7 @@ static func upgrade_vein_security(vein_id: String) -> Dictionary:
 			return { "ok": false, "reason": "Not enough cash." }
 		player["cash"] -= cost
 		Bank.record(-cost, "Vein security: %s" % upgrade["label"])
+		FactionAI.note_spend(Shares.PLAYER, float(cost))
 
 	if upgrade["tierId"] != null:
 		vein["security"] = upgrade["tierId"]

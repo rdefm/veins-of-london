@@ -203,6 +203,7 @@ static func _apply_tier_upgrade(faction_id: String, veins: Array) -> bool:
 		return false
 	var next_id: String = Cultivating.next_security_tier_id(vein["security"])
 	faction_state["resources"] -= Cultivating.security_tier_cost(next_id)
+	FactionAI.note_spend(faction_id, float(Cultivating.security_tier_cost(next_id)))
 	vein["security"] = next_id
 	return true
 
@@ -217,12 +218,19 @@ static func _hire_extra_guard(faction_id: String, veins: Array) -> void:
 	if vein == null:
 		return
 	GameState.state["factions"][faction_id]["resources"] -= GuardUpkeep.hire_advance()
+	FactionAI.note_spend(faction_id, float(GuardUpkeep.hire_advance()))
 	vein["extraGuards"] = int(vein.get("extraGuards", 0)) + 1
 
 
 # A vein's worth in faction AI scoring: its ore's London quote (R§3.13) times combined_magnitude.
 static func vein_value(vein: Dictionary) -> float:
 	return float(Market.quote("ore", vein["oreType"])) * Cultivating.combined_magnitude(vein)
+
+
+# What losing the vein costs its owner in weariness terms (R§3.1 "War and
+# weariness"): its vein_value() plus a hire advance per guard on it.
+static func lost_vein_value(vein: Dictionary) -> float:
+	return vein_value(vein) + float(Cultivating.vein_guard_count(vein) * GuardUpkeep.hire_advance())
 
 
 # Highest vein_value() vein, first in list order on a tie; null for an empty list.
@@ -365,6 +373,8 @@ static func apply_rivalry_resolution() -> void:
 		FactionSim.log_kit_burn(attempt["defenderId"], "defend", "rivalry")
 		var outcome := roll_rivalry_odds(attempt)
 		var district_id: String = Sites.find_site(attempt["veinSiteId"])["district"]
+		if not outcome["success"]:
+			FactionAI.note_fight_lost(attempt["attackerId"], attempt["defenderId"])
 		resolve_rivalry_outcome(outcome)
 		FactionAI.report_pair_move(attempt["attackerId"], attempt["defenderId"], FactionAI.MOVE_VEIN_RAID, district_id, outcome["success"])
 
@@ -388,6 +398,7 @@ static func resolve_rivalry_outcome(outcome: Dictionary) -> void:
 	if vein == null or vein["factionId"] != outcome["defenderId"]:
 		return
 
+	FactionAI.note_loss(outcome["defenderId"], outcome["attackerId"], lost_vein_value(vein))
 	vein["factionId"] = outcome["attackerId"]
 	adjust_relation(outcome["defenderId"], outcome["attackerId"], RIVALRY_RELATION_PENALTY)
 	Barometer.push_headline(GameData.FACTION_ESCALATION["headlines"]["veinTaken"] % [

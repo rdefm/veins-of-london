@@ -225,6 +225,9 @@ func new_game_state() -> Dictionary:
 		# Per observer -> target warned band + last move day, queued raids,
 		# explained move types (FactionAI.new_escalation_state()).
 		"factionEscalation": FactionAI.new_escalation_state(),
+		# Wars, hostile-act clock, weariness per party, player nag level
+		# (FactionAI.new_war_state()).
+		"factionWar": FactionAI.new_war_state(),
 
 		"barometer": {
 			"economic": "stable", "social": "stable", "political": "stable",

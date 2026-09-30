@@ -208,6 +208,10 @@ var FACTION_PRESSURE: Dictionary = {}
 # R§3.1 "Escalation".
 var FACTION_ESCALATION: Dictionary = {}
 
+# War window, weariness weights/decay, player nag thresholds and prose,
+# R§3.1 "War and weariness".
+var FACTION_WAR: Dictionary = {}
+
 # Business pot payday cadence (days) and weekly wage per waged staff
 # contact id, R§3.10 "Business pot and payday".
 var BUSINESS_WEEKLY_WAGES: Dictionary = {}
@@ -382,6 +386,7 @@ const MANIFEST: Array[Dictionary] = [
 		{"field": "FACTION_STANCES", "key": "factionStances", "type": TYPE_DICTIONARY},
 		{"field": "FACTION_PRESSURE", "key": "factionPressure", "type": TYPE_DICTIONARY},
 		{"field": "FACTION_ESCALATION", "key": "factionEscalation", "type": TYPE_DICTIONARY},
+		{"field": "FACTION_WAR", "key": "factionWar", "type": TYPE_DICTIONARY},
 		{"field": "BUSINESS_WEEKLY_WAGES", "key": "business.weeklyWages", "type": TYPE_DICTIONARY},
 		{"field": "BUSINESS_JAMES_JOIN_CRAFTING_SKILL", "key": "business.jamesJoinCraftingSkill", "type": TYPE_INT},
 		{"field": "BUSINESS_OWEN_CRAFT_MIN_CULTIVATING", "key": "business.owenCraftMinCultivating", "type": TYPE_INT},

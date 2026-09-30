@@ -53,6 +53,12 @@ How hard a faction is leaning on another actor (the player or another faction). 
 **Escalation**:
 How a faction acts on its pressure: through its archetype's menu of moves, gated by relation band. Warning first, then market moves once relation is negative, then the raid rung once it is Hostile or below its raid threshold. It always warns before its first move in a new band, picks the affordable move that hurts most, and makes at most one move per target per cooldown. Raids it decides resolve at the next rollover.
 
+**War**:
+Two parties (two factions, or the player and a faction) are at war while their stance is Hostile and a hostile act (raid, flood, stockpile raid, shortfall steal) passed between them within the last week. It ends after a quiet week, when the stance leaves Hostile, or on a truce. Civil business rivalry, however bitter, is not war. A faction-pair war is a Ticker headline.
+
+**Weariness**:
+How worn down a side is by its wars, 0–100. It rises each day at war: most from losses (veins, stock, fights), then cash spent above peacetime, then extra wars at once, least from days at war. It eases out of war. A faction's thresholds say when it will accept peace and when it will offer it; the player's meter makes Archie and James nag, and at the extreme the next peace offer binds.
+
 **Key member**:
 The named person who speaks for a faction (Lusk for the Firm, Ingram for the Guild, Fairweather for the Conclave, Nadia for the Collective, the handler for the Network). Every faction message to the player comes from its key member, never from the faction as a faceless whole.
 

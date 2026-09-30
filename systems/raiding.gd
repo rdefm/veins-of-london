@@ -88,6 +88,8 @@ static func claim_vein(site_id: String) -> void:
 	site["claimed"] = true
 	site["factionVein"] = null
 	BusinessQuest.maybe_trigger_proposition()
+	FactionAI.note_hostile_act(Shares.PLAYER, faction_id)
+	FactionAI.note_loss(faction_id, Shares.PLAYER, Factions.lost_vein_value(faction_vein))
 
 	Factions.adjust_player_relation(faction_id, CLAIM_RELATION_HIT)
 	MapEvents.queue_seed_claim(district, vein_id, "player")
@@ -109,6 +111,8 @@ static func loot_vein(site_id: String, caught: bool) -> void:
 
 	if caught:
 		Factions.adjust_player_relation(vein["factionId"], LOOT_RELATION_HIT)
+		FactionAI.note_hostile_act(Shares.PLAYER, vein["factionId"])
+		FactionAI.note_loss(vein["factionId"], Shares.PLAYER, float(Market.line_total("ore", Market.quote("ore", vein["oreType"]), LOOT_ORE_QTY)))
 
 	EventBus.state_changed.emit()
 
@@ -299,9 +303,10 @@ static func resolve_raid_outcome(outcome: Dictionary, missed_defend: bool = fals
 	var faction_name: String = GameData.FACTIONS[outcome["attackerId"]]["shortName"]
 
 	if outcome.get("outcomeType", "claim") == "loot":
-		_apply_raid_loot(vein, faction_name, district_name, missed_defend)
+		_apply_raid_loot(vein, outcome["attackerId"], faction_name, district_name, missed_defend)
 		return
 
+	FactionAI.note_loss(Shares.PLAYER, outcome["attackerId"], Factions.lost_vein_value(vein))
 	var took_kit := GuardKit.hand_kit_to_faction(vein, outcome["attackerId"])
 	transfer_player_vein_to_faction(vein, site, outcome["attackerId"])
 
@@ -349,13 +354,14 @@ static func transfer_player_vein_to_faction(vein: Dictionary, site: Dictionary, 
 # concrete ore count, distinct from the claim branch's "It's theirs now."
 # and the missed-defend claim copy, so the player can tell which of the
 # four claim/loot x on-time/missed combinations happened.
-static func _apply_raid_loot(vein: Dictionary, faction_name: String, district_name: String, missed_defend: bool) -> void:
+static func _apply_raid_loot(vein: Dictionary, faction_id: String, faction_name: String, district_name: String, missed_defend: bool) -> void:
 	vein["growth"] = maxi(0, vein["growth"] - RAID_LOOT_PRUNE_DEPTH)
 
 	var ore_type: String = vein["oreType"]
 	var ore: Dictionary = GameState.state["player"]["orichalchum"]
 	var stolen: int = mini(RAID_LOOT_ORE_QTY, ore.get(ore_type, 0))
 	ore[ore_type] = ore.get(ore_type, 0) - stolen
+	FactionAI.note_loss(Shares.PLAYER, faction_id, float(Market.line_total("ore", Market.quote("ore", ore_type), stolen)))
 
 	if missed_defend:
 		Notify.push("Too late — %s pruned your vein in %s and got away with %d units of ore while the alarm was still ringing. It's still yours." % [faction_name, district_name, stolen], Notify.CATEGORY_DANGER)
@@ -380,6 +386,7 @@ static func apply_raid_resolution() -> void:
 		var district_id: String = Cultivating.find_vein(attempt["veinId"])["district"]
 		FactionAI.report_player_move(attempt["attackerId"], FactionAI.MOVE_VEIN_RAID, district_id, outcome["success"])
 		if not outcome["success"]:
+			FactionAI.note_fight_lost(outcome["attackerId"], Shares.PLAYER)
 			FactionSim.log_kit_burn(outcome["attackerId"], "attack", "raid")
 			continue
 		var vein: Variant = Cultivating.find_vein(outcome["veinId"])
@@ -461,6 +468,7 @@ static func _guards_repel_defend_raid(outcome: Dictionary) -> bool:
 	var used := GuardKit.spend_repel_units(vein.get("guardKit", {}), active)
 	if not Rng.chance(chance):
 		return false
+	FactionAI.note_fight_lost(outcome["attackerId"], Shares.PLAYER)
 
 	var district_name: String = GameData.DISTRICTS[vein["district"]]["name"]
 	var faction_name: String = GameData.FACTIONS[outcome["attackerId"]]["shortName"]
@@ -601,6 +609,10 @@ static func resolve_defend_outcome(won: bool, raider_items_used: Dictionary = {}
 	GameState.state["world"]["activeDefendRaid"] = null
 	if outcome != null:
 		FactionSim.log_kit_burn_items(outcome["attackerId"], "attack", "raid", raider_items_used)
+	if outcome != null and won:
+		FactionAI.note_fight_lost(outcome["attackerId"], Shares.PLAYER)
+	elif outcome != null:
+		FactionAI.note_fight_lost(Shares.PLAYER, outcome["attackerId"])
 	if won and outcome != null:
 		Objectives.record_alarm_defend_win(outcome["veinId"])
 		Collective.award_a2_defend_win()

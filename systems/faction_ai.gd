@@ -963,7 +963,10 @@ static func _make_move(observer: String, target: String, move: Dictionary) -> vo
 				"attackerId": observer, "targetId": target, "veinId": move["veinId"], "siteId": move["siteId"],
 			})
 		MOVE_FLOOD:
-			FactionSim.flood(observer, move["good"], int(move["qty"]), float(_ecfg()["flood"]["priceMult"]))
+			var value := Market.line_total("ore", Market.quote("ore", move["good"]), int(move["qty"]))
+			var taken := FactionSim.flood(observer, move["good"], int(move["qty"]), float(_ecfg()["flood"]["priceMult"]))
+			note_hostile_act(observer, target)
+			note_spend(observer, float(value - taken))
 			_report_market_move(observer, target, MOVE_FLOOD, move["good"])
 		MOVE_WITHHOLD:
 			_withholds().append({
@@ -1099,8 +1102,10 @@ static func take_queued_raids(for_player: bool) -> Array:
 
 
 # A resolved move against the player: the key member's line, an activity-log
-# entry tagged for BizBrief, and Archie's explainer the first time.
+# entry tagged for BizBrief, and Archie's explainer the first time. It
+# restarts the pair's war clock.
 static func report_player_move(faction_id: String, move_id: String, district_id: String, landed: bool) -> void:
+	note_hostile_act(faction_id, Shares.PLAYER)
 	var district_name: String = GameData.DISTRICTS[district_id]["name"]
 	var line: String = _ecfg()["moveLines"].get(faction_id, {}).get(move_id, {}).get("hit" if landed else "miss", "")
 	if line != "":
@@ -1110,8 +1115,10 @@ static func report_player_move(faction_id: String, move_id: String, district_id:
 	_explain_once(move_id)
 
 
-# A resolved faction-vs-faction move, logged on both sides.
+# A resolved faction-vs-faction move, logged on both sides. It restarts the
+# pair's war clock.
 static func report_pair_move(attacker_id: String, defender_id: String, move_id: String, district_id: String, landed: bool) -> void:
+	note_hostile_act(attacker_id, defender_id)
 	var district_name: String = GameData.DISTRICTS[district_id]["name"]
 	var log_cfg: Dictionary = _ecfg()["log"][move_id]
 	var attacker_name: String = GameData.FACTIONS[attacker_id]["shortName"]
@@ -1132,3 +1139,244 @@ static func moves_against_player() -> Array:
 				moves.append(move)
 	moves.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return int(a["day"]) > int(b["day"]))
 	return moves
+
+
+# ── War and weariness ───────────────────────────────────────────────────
+# R§3.1 "War and weariness": two parties (factions, or the player and a
+# faction) are at war while their stance is Hostile and a hostile act
+# passed between them within windowDays. Each side of a war builds
+# weariness from losses, cash drain above its peacetime spend, extra fronts
+# and days at war; out of war it decays. Data in constants.json factionWar;
+# per faction thresholds in factions.json weariness.
+
+static func _wcfg() -> Dictionary:
+	return GameData.FACTION_WAR
+
+
+# state.factionWar: { wars: [ { parties: [a, b], startDay, lastHostileDay,
+# weariness: { party: float } } ], lastHostile: { warKey: day }, hits:
+# { party: { enemy: weariness points } }, spend: { party: £ today },
+# peaceSpend: { party: £/day baseline }, weariness: { party: float },
+# nagLevel, explained }.
+static func new_war_state() -> Dictionary:
+	return { "wars": [], "lastHostile": {}, "hits": {}, "spend": {}, "peaceSpend": {}, "weariness": {}, "nagLevel": 0, "explained": false }
+
+
+static func _war() -> Dictionary:
+	return GameState.state["factionWar"]
+
+
+# Symmetric key for any two parties: pair_key for factions, "player:<id>"
+# with the player.
+static func war_key(party_a: String, party_b: String) -> String:
+	if party_a == Shares.PLAYER:
+		return "%s:%s" % [Shares.PLAYER, party_b]
+	if party_b == Shares.PLAYER:
+		return "%s:%s" % [Shares.PLAYER, party_a]
+	return pair_key(party_a, party_b)
+
+
+# Every pair that can go to war: faction pairs, then the player with each.
+static func _war_pairs() -> Array:
+	var pairs := _pairs()
+	for faction_id in GameData.FACTIONS.keys():
+		pairs.append([Shares.PLAYER, faction_id])
+	return pairs
+
+
+static func _pair_hostile(party_a: String, party_b: String) -> bool:
+	if party_a == Shares.PLAYER:
+		return player_stance(party_b) == HOSTILE
+	return pair_stance(party_a, party_b) == HOSTILE
+
+
+# A raid, flood, stockpile raid or shortfall steal between the two parties:
+# restarts the war clock.
+static func note_hostile_act(party_a: String, party_b: String) -> void:
+	if party_a == party_b:
+		return
+	_war()["lastHostile"][war_key(party_a, party_b)] = int(GameState.state["world"]["day"])
+
+
+static func _add_hit(party: String, enemy: String, points: float) -> void:
+	var hits: Dictionary = _war()["hits"]
+	if not hits.has(party):
+		hits[party] = {}
+	hits[party][enemy] = float(hits[party].get(enemy, 0.0)) + points
+
+
+# party lost value_gbp (a vein at its value, stolen stock, guards) to enemy.
+static func note_loss(party: String, enemy: String, value_gbp: float) -> void:
+	if value_gbp > 0.0:
+		_add_hit(party, enemy, value_gbp / 100.0 * float(_wcfg()["weights"]["lossPer100"]))
+
+
+# party lost a fight (a failed or repelled raid, a lost defence) to enemy.
+static func note_fight_lost(party: String, enemy: String) -> void:
+	_add_hit(party, enemy, float(_wcfg()["weights"]["fightLost"]))
+
+
+# Discretionary security or war spend today: guard hires, security
+# upgrades, a flood's discount.
+static func note_spend(party: String, amount: float) -> void:
+	if amount > 0.0:
+		var spend: Dictionary = _war()["spend"]
+		spend[party] = float(spend.get(party, 0.0)) + amount
+
+
+static func _find_war(key: String) -> Dictionary:
+	for war in _war()["wars"]:
+		if war_key(war["parties"][0], war["parties"][1]) == key:
+			return war
+	return {}
+
+
+static func wars() -> Array:
+	return _war()["wars"]
+
+
+static func wars_of(party: String) -> Array:
+	return wars().filter(func(w: Dictionary) -> bool: return w["parties"].has(party))
+
+
+static func at_war(party_a: String, party_b: String) -> bool:
+	return not _find_war(war_key(party_a, party_b)).is_empty()
+
+
+# The party's weariness: its highest across its wars, or its decaying
+# weariness out of war.
+static func weariness(party: String) -> float:
+	return float(_war()["weariness"].get(party, 0.0))
+
+
+static func war_enemy(war: Dictionary, party: String) -> String:
+	return war["parties"][1] if war["parties"][0] == party else war["parties"][0]
+
+
+static func accept_peace_at(faction_id: String) -> int:
+	return int(GameData.FACTIONS[faction_id]["weariness"]["acceptPeace"])
+
+
+static func offer_peace_at(faction_id: String) -> int:
+	return int(GameData.FACTIONS[faction_id]["weariness"]["offerPeace"])
+
+
+static func _war_live(party_a: String, party_b: String, day: int) -> bool:
+	if in_truce(party_a, party_b) or not _pair_hostile(party_a, party_b):
+		return false
+	if party_a != Shares.PLAYER and is_held_pair(party_a, party_b):
+		return false
+	var last: Variant = _war()["lastHostile"].get(war_key(party_a, party_b))
+	return last != null and day - int(last) <= int(_wcfg()["windowDays"])
+
+
+# Rollover step: wars start and end, each side of a war gains weariness,
+# everyone else's decays, and the player's nag level is checked.
+static func update_wars() -> void:
+	var state := _war()
+	var day: int = GameState.state["world"]["day"]
+	for pair in _war_pairs():
+		var key := war_key(pair[0], pair[1])
+		var war := _find_war(key)
+		var live := _war_live(pair[0], pair[1], day)
+		if war.is_empty() and live:
+			_start_war(pair[0], pair[1], day)
+		elif not war.is_empty() and not live:
+			_end_war(war)
+		elif not war.is_empty():
+			war["lastHostileDay"] = int(state["lastHostile"][key])
+	_gain_weariness()
+	state["hits"] = {}
+	state["spend"] = {}
+	_check_nags()
+	EventBus.state_changed.emit()
+
+
+static func _start_war(party_a: String, party_b: String, day: int) -> void:
+	var state := _war()
+	state["wars"].append({
+		"parties": [party_a, party_b], "startDay": day,
+		"lastHostileDay": int(state["lastHostile"][war_key(party_a, party_b)]),
+		"weariness": { party_a: weariness(party_a), party_b: weariness(party_b) },
+	})
+	var log_cfg: Dictionary = _wcfg()["log"]
+	if party_a == Shares.PLAYER:
+		log_activity(party_b, log_cfg["startedPlayer"])
+		if not state["explained"]:
+			state["explained"] = true
+			Messages.append("archie", "them", _wcfg()["explainer"] % int(_wcfg()["windowDays"]))
+		return
+	var name_a: String = GameData.FACTIONS[party_a]["shortName"]
+	var name_b: String = GameData.FACTIONS[party_b]["shortName"]
+	log_activity(party_a, log_cfg["startedPair"] % name_b)
+	log_activity(party_b, log_cfg["startedPair"] % name_a)
+	Barometer.push_headline(_wcfg()["headlines"]["warDeclared"] % [name_a, name_b])
+
+
+static func _end_war(war: Dictionary) -> void:
+	_war()["wars"].erase(war)
+	var a: String = war["parties"][0]
+	var b: String = war["parties"][1]
+	var log_cfg: Dictionary = _wcfg()["log"]
+	if a == Shares.PLAYER:
+		log_activity(b, log_cfg["endedPlayer"])
+	else:
+		log_activity(a, log_cfg["endedPair"] % GameData.FACTIONS[b]["shortName"])
+		log_activity(b, log_cfg["endedPair"] % GameData.FACTIONS[a]["shortName"])
+
+
+# Per side of each war: (hits from that enemy + its share of today's drain
+# above its peacetime spend + dayAtWar) × (1 + extraFront per other war),
+# capped at 100. A party out of war updates its peacetime spend and decays.
+static func _gain_weariness() -> void:
+	var state := _war()
+	var weights: Dictionary = _wcfg()["weights"]
+	for party in [Shares.PLAYER] + GameData.FACTIONS.keys():
+		var fronts := wars_of(party)
+		var spent := float(state["spend"].get(party, 0.0))
+		var baseline := float(state["peaceSpend"].get(party, 0.0))
+		if fronts.is_empty():
+			state["peaceSpend"][party] = _snap(baseline + float(_wcfg()["peaceSpendRate"]) * (spent - baseline))
+			state["weariness"][party] = _snap(maxf(0.0, weariness(party) - float(_wcfg()["decayPerDay"])))
+			continue
+		var drain_points := maxf(0.0, spent - baseline) / 100.0 * float(weights["drainPer100"]) / fronts.size()
+		var mult := 1.0 + float(weights["extraFront"]) * (fronts.size() - 1)
+		var highest := 0.0
+		for war in fronts:
+			var hit := float(state["hits"].get(party, {}).get(war_enemy(war, party), 0.0))
+			var gain := (hit + drain_points + float(weights["dayAtWar"])) * mult
+			var value := _snap(minf(100.0, float(war["weariness"].get(party, 0.0)) + gain))
+			war["weariness"][party] = value
+			highest = maxf(highest, value)
+		state["weariness"][party] = highest
+
+
+# Nag level = how many player.nagAt thresholds the player's weariness
+# reaches, or one past them at player.extreme. A rise sends that level's
+# line (James falls back to Archie until unlocked); a fall rearms it.
+static func _check_nags() -> void:
+	var state := _war()
+	var level := nag_level_for(weariness(Shares.PLAYER))
+	if level > int(state["nagLevel"]):
+		var nags: Array = _wcfg()["nags"]
+		var nag: Dictionary = nags[level - 1] if level <= nags.size() else _wcfg()["extremeNag"]
+		var contact_id: String = nag["contactId"]
+		if not GameState.state["contacts"].get(contact_id, {}).get("unlocked", false):
+			contact_id = "archie"
+		Messages.append(contact_id, "them", nag["text"])
+	state["nagLevel"] = level
+
+
+static func nag_level_for(value: float) -> int:
+	var cfg: Dictionary = _wcfg()["player"]
+	if value >= float(cfg["extreme"]):
+		return cfg["nagAt"].size() + 1
+	var level := 0
+	for threshold in cfg["nagAt"]:
+		if value >= float(threshold):
+			level += 1
+	return level
+
+
+static func player_extreme() -> bool:
+	return weariness(Shares.PLAYER) >= float(_wcfg()["player"]["extreme"])

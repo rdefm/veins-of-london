@@ -120,6 +120,7 @@ static func daily_tick() -> void:
 	Shares.record_independents()         # ⑥.5e credit today's Independents slice, after ⑥.5d so it lands in a kept bucket
 	FactionAI.apply_pressure()           # ⑥.5f threat/dependence drift, after ⑥.5d/⑥.5e so it reads today's shares; before ⑥.6
 	FactionAI.update_stances()           # ⑥.5g after ⑥.5f so stances read today's drifted relation; before ⑥.6
+	FactionAI.update_wars()              # ⑥.5g2 after ⑥.5g so wars read today's stances and ⑤c/⑤d's raids; before ⑥.5h
 	FactionAI.apply_escalation()         # ⑥.5h after ⑥.5g so bands read today's stances; raids it queues resolve at the next ⑤c/⑤d
 	Market.daily_reprice()               # ⑥.6 London reprice, after every step that trades in the tick and after ① so today's Ticker feeds it
 	Dial.daily_regen()                   # ⑦ Dial charge regen

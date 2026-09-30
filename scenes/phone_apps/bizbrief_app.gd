@@ -122,6 +122,7 @@ func _build_brief(content: VBoxContainer) -> void:
 	if not attention.is_empty():
 		content.add_child(_build_attention(attention))
 	content.add_child(_build_moves_against_you())
+	content.add_child(_build_war())
 	content.add_child(_build_london_share())
 	content.add_child(_build_supplier_share())
 
@@ -139,6 +140,27 @@ func _build_moves_against_you() -> Control:
 		c["content"].add_child(UI.muted_label("Nobody has moved against you."))
 	for move in moves.slice(0, MOVES_SHOWN):
 		c["content"].add_child(UI.label("%s · %s: %s" % [Calendar.format_day(int(move["day"])), GameData.FACTIONS[move["factionId"]]["shortName"], move["text"]]))
+	return c["panel"]
+
+
+# The player's weariness meter and the wars they're in (spec §War &
+# weariness).
+func _build_war() -> Control:
+	var c := UI.card()
+	c["content"].add_child(UI.heading("War", 14))
+	var value := FactionAI.weariness(Shares.PLAYER)
+	var row := UI.hbox()
+	row.add_child(UI.expand_fill(UI.label("Weariness")))
+	row.add_child(UI.tinted_label("%d / 100" % roundi(value), UI._MUTED_COLOUR))
+	c["content"].add_child(row)
+	c["content"].add_child(UI.bar(value, 100.0))
+	var wars := FactionAI.wars_of(Shares.PLAYER)
+	if wars.is_empty():
+		c["content"].add_child(UI.muted_label("Not at war."))
+	for war in wars:
+		var enemy: String = FactionAI.war_enemy(war, Shares.PLAYER)
+		c["content"].add_child(UI.label("At war with %s · since %s" % [GameData.FACTIONS[enemy]["shortName"], Calendar.format_day(int(war["startDay"]))]))
+		c["content"].add_child(UI.muted_label("Last clash %s" % Calendar.format_day(int(war["lastHostileDay"]))))
 	return c["panel"]
 
 

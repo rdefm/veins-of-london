@@ -55,6 +55,7 @@ static func pay_hire_advance(place_id: String) -> Dictionary:
 	player["cash"] -= advance
 	Bank.record(-advance, HIRE_BANK_LABEL)
 	record_payment(place_id, advance)
+	FactionAI.note_spend(Shares.PLAYER, float(advance))
 	return { "ok": true, "amount": advance }
 
 
