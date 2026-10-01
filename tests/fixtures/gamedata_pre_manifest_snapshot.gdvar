@@ -7450,7 +7450,7 @@
 }
 },
 "SALES_XP_LEVELS": [0, 0, 80, 220, 500, 1000],
-"SEED_ORE_COST": 40,
+"SEED_ORE_COST": 100,
 "SITE_AT_CAP_TIER_WEIGHTS": {
 "barren": 40,
 "fair": 10,
@@ -7575,7 +7575,7 @@
 "pruneLightDepth": 9,
 "rampantSeedDays": 5,
 "seedGrowth": 20,
-"seedOreCost": 40,
+"seedOreCost": 100,
 "selfSeedGrowth": 60,
 "terroirYieldMult": {
 "fair": 1,

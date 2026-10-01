@@ -372,7 +372,7 @@ static func seed_success_chance(skill: int, tier: String) -> float:
 	return clampf(Cultivating.get_cult_chance(skill) + tier_mod, 0.05, 0.95)
 
 
-# Requires an unclaimed, non-barren site and 40 ore of ITS oreType (R§3.4).
+# Requires an unclaimed, non-barren site and SEED_ORE_COST ore of ITS oreType (R§3.4).
 static func attempt_seed(site_id: String) -> Dictionary:
 	var site = find_site(site_id)
 	if site == null:

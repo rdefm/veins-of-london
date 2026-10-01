@@ -35,7 +35,7 @@
   "developmentThreshold": 90,
   "driftRandomMin": 1,
   "driftRandomMax": 5,
-  "seedOreCost": 40,
+  "seedOreCost": 100,
   "cultivatingXpLevels": [0, 0, 80, 220, 500, 1000],
   "veinSaleBaseUnits": 1400
 }

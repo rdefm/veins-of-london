@@ -58,7 +58,7 @@ Other constants (`data/vein_growth.json`): `yieldPerPoint: 2.8`, `hardPruneBonus
 
 There is NO vein lifespan/expiry mechanic beyond the collapse roll above.
 
-Other cultivating constants (also `data/vein_growth.json`, colocated since their old home `vein_levels.json` no longer exists): `SEED_ORE_COST = 40`. `CULTIVATING_XP_LEVELS = [0, 0, 80, 220, 500, 1000]` (index = cultivating skill level).
+Other cultivating constants (also `data/vein_growth.json`, colocated since their old home `vein_levels.json` no longer exists): `SEED_ORE_COST = 100`. `CULTIVATING_XP_LEVELS = [0, 0, 80, 220, 500, 1000]` (index = cultivating skill level).
 
 **Vein sale price** (`VeinTrade.quote(vein)`): `round(Market.quote_avg2("ore", oreType) × (veinSaleBaseUnits / priceLot.ore) × terroirYieldMult(tier) × growth / neutral)`, `veinSaleBaseUnits: 1400` (the lot price scaled to 1400 units). Every vein buy/sell path derives from this one quote: the faction lane (buy and sell) uses it as-is; Archie's price is `quote × ARCHIE_VEIN_MARKUP` before his cut ratio. Claim fees, security costs and ore prices do not read it.
 

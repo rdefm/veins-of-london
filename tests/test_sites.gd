@@ -487,14 +487,14 @@ func run() -> void:
 		assert_true(not result["ok"], "barren sites can't be seeded, regardless of ore held")
 	)
 
-	run_case("attempt_seed_refuses_below_40_ore_of_the_sites_ore_type", func():
+	run_case("attempt_seed_refuses_below_100_ore_of_the_sites_ore_type", func():
 		GameState.reset()
 		var site := _make_site("s1", "shoreditch", "fair", 1, false, false, "time")
 		GameState.state["world"]["sites"] = [site]
-		GameState.state["player"]["orichalchum"]["time"] = 39
+		GameState.state["player"]["orichalchum"]["time"] = 99
 		var result := Sites.attempt_seed("s1")
-		assert_true(not result["ok"], "needs 40 of the SITE's ore type")
-		assert_eq(GameState.state["player"]["orichalchum"]["time"], 39, "no ore deducted when refused")
+		assert_true(not result["ok"], "needs 100 of the SITE's ore type")
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], 99, "no ore deducted when refused")
 	)
 
 	run_case("attempt_seed_success_claims_site_and_creates_a_vein_with_hospitability", func():
@@ -502,7 +502,7 @@ func run() -> void:
 			GameState.reset()
 			var site := _make_site("s1", "shoreditch", "fair", 1, false, false, "time", ["yield"])
 			GameState.state["world"]["sites"] = [site]
-			GameState.state["player"]["orichalchum"]["time"] = 100
+			GameState.state["player"]["orichalchum"]["time"] = 150
 			GameState.state["player"]["cultivatingSkill"] = 5
 			var result := Sites.attempt_seed("s1")
 			return result.get("success", false)
@@ -511,7 +511,7 @@ func run() -> void:
 
 		var site: Dictionary = Sites.find_site("s1")
 		assert_eq(site["claimed"], true, "successful seed claims the site")
-		assert_eq(GameState.state["player"]["orichalchum"]["time"], 60, "40 ore deducted on success")
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], 50, "100 ore deducted on success")
 
 		var veins: Array = GameState.state["player"]["veins"]
 		assert_eq(veins.size(), 1, "exactly one vein created (no natural vein bonus here)")
@@ -540,7 +540,7 @@ func run() -> void:
 			GameState.reset()
 			var site := _make_site("s1", "shoreditch", "poor", 1, false, false, "time")
 			GameState.state["world"]["sites"] = [site]
-			GameState.state["player"]["orichalchum"]["time"] = 100
+			GameState.state["player"]["orichalchum"]["time"] = 150
 			GameState.state["player"]["cultivatingSkill"] = 1
 			var result := Sites.attempt_seed("s1")
 			return not result.get("success", true)
@@ -549,7 +549,7 @@ func run() -> void:
 
 		var site: Dictionary = Sites.find_site("s1")
 		assert_eq(site["claimed"], false, "failed seed leaves the site unclaimed, ready to try again")
-		assert_eq(GameState.state["player"]["orichalchum"]["time"], 60, "ore is lost even on failure")
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], 50, "ore is lost even on failure")
 		assert_eq(GameState.state["player"]["veins"], [], "no vein created on failure")
 	)
 
