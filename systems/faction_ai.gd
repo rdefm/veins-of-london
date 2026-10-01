@@ -405,7 +405,8 @@ static func _shared_partners(observer: String, target: String) -> int:
 
 # Rollover step: snapshots every observer → target, then drifts each
 # player relation by its rounded delta and each pair's shared relation by
-# the rounded mean of its two directions. Held pairs don't move.
+# the rounded mean of its two directions plus pair_recovery. Held pairs
+# don't move.
 static func apply_pressure() -> void:
 	var pressure: Dictionary = GameState.state["factionPressure"]
 	_join_collective_firm_if_due(pressure)
@@ -430,8 +431,15 @@ static func apply_pressure() -> void:
 		if is_held_pair(pair[0], pair[1]):
 			continue
 		var mean: float = (float(snapshots[pair[0]][pair[1]]["delta"]) + float(snapshots[pair[1]][pair[0]]["delta"])) / 2.0
-		Factions.adjust_relation(pair[0], pair[1], roundi(mean))
+		Factions.adjust_relation(pair[0], pair[1], roundi(mean + pair_recovery(pair[0], pair[1])))
 	EventBus.state_changed.emit()
+
+
+# The pair relation's daily pull back toward its starting relation:
+# pairRecoveryRate × (starting − current).
+static func pair_recovery(faction_a: String, faction_b: String) -> float:
+	var gap := starting_pair_relation(faction_a, faction_b) - Factions.get_relation(faction_a, faction_b)
+	return float(_pcfg()["pairRecoveryRate"]) * gap
 
 
 # Three decimals, as the nearest double, so a save's JSON round-trip reads
@@ -463,15 +471,16 @@ static func player_delta(faction_id: String) -> float:
 
 
 # Calm / Watching / Annoyed / Moving against you, read from the faction's
-# player relation and its last rounded drift.
+# player relation and its last rounded drift: Moving against you below its
+# market line, Annoyed below its warning line.
 static func pressure_label(faction_id: String) -> String:
 	var labels: Dictionary = _pcfg()["labels"]
 	var relation: int = GameState.state["factions"][faction_id]["relation"]
-	if relation < int(_pcfg()["movingAgainstBelow"]):
+	if relation < market_line(faction_id):
 		return labels["movingAgainst"]
 	if roundi(player_delta(faction_id)) >= 0:
 		return labels["calm"]
-	if relation < int(_pcfg()["annoyedBelow"]):
+	if relation < warning_line(faction_id):
 		return labels["annoyed"]
 	return labels["watching"]
 
@@ -557,15 +566,27 @@ static func _stance_to(observer: String, target: String) -> String:
 	return player_stance(observer) if target == Shares.PLAYER else pair_stance(observer, target)
 
 
+# The faction's market and warning lines: its raidThreshold plus
+# marketAboveRaid / warningAboveRaid, so every faction's bands run
+# warning > market > raid.
+static func market_line(faction_id: String) -> int:
+	return int(GameData.FACTIONS[faction_id]["raidThreshold"]) + int(_ecfg()["marketAboveRaid"])
+
+
+static func warning_line(faction_id: String) -> int:
+	return int(GameData.FACTIONS[faction_id]["raidThreshold"]) + int(_ecfg()["warningAboveRaid"])
+
+
 # The deepest band open to observer against target: raid when Hostile or
-# below the observer's raidThreshold, else market, else warning, else none.
+# below the observer's raidThreshold, else market below its market line,
+# else warning below its warning line, else none.
 static func band(observer: String, target: String) -> String:
 	var relation := _relation_to(observer, target)
 	if _stance_to(observer, target) == HOSTILE or relation < int(GameData.FACTIONS[observer]["raidThreshold"]):
 		return BAND_RAID
-	if relation < int(_ecfg()["marketBelow"]):
+	if relation < market_line(observer):
 		return BAND_MARKET
-	if relation < int(_ecfg()["warningBelow"]):
+	if relation < warning_line(observer):
 		return BAND_WARNING
 	return BAND_NONE
 
@@ -1183,12 +1204,12 @@ static func gouge_mult(target: String) -> float:
 	return mult
 
 
-# Factions other than observer and target, below marketBelow with target,
-# not in truce with it.
+# Factions other than observer and target, below their own market line with
+# target, not in truce with it.
 static func _enemies_of(observer: String, target: String) -> Array:
 	var enemies := []
 	for id in GameData.FACTIONS.keys():
-		if id != observer and id != target and not in_truce(id, target) and _relation_to(id, target) < int(_ecfg()["marketBelow"]):
+		if id != observer and id != target and not in_truce(id, target) and _relation_to(id, target) < market_line(id):
 			enemies.append(id)
 	return enemies
 

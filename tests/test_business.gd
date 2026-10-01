@@ -113,6 +113,7 @@ func run() -> void:
 		assert_eq(GameState.state["bankLog"].back()["amount"], -214)
 		assert_true(not Business.is_unpaid("owen"))
 		assert_eq(wage["owed"], 0)
+		Cultivating.find_vein("v1")["growth"] = 50  # outside target 100 ± hold band, so Owen has work
 		TimeSystem.run_staff_block()
 		assert_true(GameState.state["contacts"]["owen"]["cultivatingXP"] > xp_before, "paid Owen acts again")
 		assert_true(not Business.pay_owed_from_cash("owen")["ok"], "nothing left to pay")

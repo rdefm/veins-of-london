@@ -224,6 +224,17 @@ func run() -> void:
 		assert_eq(Factions.get_relation("guild", "conclave"), -20, "mean of −0.39 and 0 rounds to 0")
 	)
 
+	run_case("a_soured_pair_recovers_toward_its_starting_relation", func():
+		_fresh()
+		_set_pair("guild", "network", -60)
+		var pull := 60.0 * float(GameData.FACTION_PRESSURE["pairRecoveryRate"])
+		assert_almost_eq(FactionAI.pair_recovery("guild", "network"), pull, 0.001, "rate × gap to Neutral 0")
+		_pressure_days(1)
+		assert_eq(Factions.get_relation("guild", "network"), -60 + roundi(pull), "no threat between them, so only the pull moves it")
+		_set_pair("collective", "guild", 60)
+		assert_almost_eq(FactionAI.pair_recovery("collective", "guild"), 0.0, 0.001, "at its Partner start, no pull")
+	)
+
 	run_case("the_collective_firm_pair_holds_until_the_questline_completes_then_joins_hostile", func():
 		_fresh()
 		Shares.record_ore("collective", "physics", 10)
@@ -249,10 +260,10 @@ func run() -> void:
 		GameState.state["factionPressure"]["snapshots"] = { "guild": { "player": { "threat": 2.0, "dependence": 0.0, "delta": -2.0 } } }
 		Factions.adjust_player_relation("guild", 30)
 		assert_eq(FactionAI.pressure_label("guild"), "Watching")
-		Factions.adjust_player_relation("guild", -50)
-		assert_eq(FactionAI.pressure_label("guild"), "Annoyed")
-		Factions.adjust_player_relation("guild", -15)
-		assert_eq(FactionAI.pressure_label("guild"), "Moving against you")
+		Factions.adjust_player_relation("guild", FactionAI.warning_line("guild") - 1 - _player_relation("guild"))
+		assert_eq(FactionAI.pressure_label("guild"), "Annoyed", "below the warning line")
+		Factions.adjust_player_relation("guild", FactionAI.market_line("guild") - 1 - _player_relation("guild"))
+		assert_eq(FactionAI.pressure_label("guild"), "Moving against you", "below the market line")
 	)
 
 	run_case("the_daily_rollover_stores_pressure_snapshots", func():
@@ -278,11 +289,11 @@ func run() -> void:
 	run_case("a_key_member_warning_precedes_the_first_move_in_each_new_band", func():
 		_fresh()
 		_under_pressure("guild")
-		Factions.adjust_player_relation("guild", -20)
+		Factions.adjust_player_relation("guild", -14)
 		_escalate_on(1)
 		assert_eq(_last_message("ingram"), _warning("crafter", "warning"))
 		assert_eq(_target_entry("guild")["warnedBand"], FactionAI.BAND_WARNING, "flag stored guild → player")
-		Factions.adjust_player_relation("guild", -15)
+		Factions.adjust_player_relation("guild", -17)
 		_escalate_on(1 + _cooldown())
 		assert_eq(_last_message("ingram"), _warning("crafter", "raid"), "below raidThreshold −30 → raid band")
 		assert_eq(_target_entry("guild")["warnedBand"], FactionAI.BAND_RAID)
@@ -303,7 +314,7 @@ func run() -> void:
 	run_case("recovering_a_band_rearms_its_warning", func():
 		_fresh()
 		_under_pressure("guild")
-		Factions.adjust_player_relation("guild", -20)
+		Factions.adjust_player_relation("guild", -14)
 		_escalate_on(1)
 		Factions.adjust_player_relation("guild", 30)
 		_escalate_on(2)
@@ -327,6 +338,20 @@ func run() -> void:
 		assert_eq(_queued().size(), 0, "no second move inside the cooldown")
 		_escalate_on(1 + 2 * _cooldown())
 		assert_eq(_queued().size(), 1)
+	)
+
+	run_case("every_faction_warns_then_moves_in_the_market_before_it_raids", func():
+		_fresh()
+		for faction_id in FACTION_IDS:
+			var raid: int = GameData.FACTIONS[faction_id]["raidThreshold"]
+			assert_true(FactionAI.warning_line(faction_id) > FactionAI.market_line(faction_id), "%s warning above market" % faction_id)
+			assert_true(FactionAI.market_line(faction_id) > raid, "%s market above raid" % faction_id)
+			Factions.adjust_player_relation(faction_id, FactionAI.warning_line(faction_id) - 1 - _player_relation(faction_id))
+			assert_eq(FactionAI.band(faction_id, "player"), FactionAI.BAND_WARNING, "%s just below its warning line" % faction_id)
+			Factions.adjust_player_relation(faction_id, FactionAI.market_line(faction_id) - 1 - _player_relation(faction_id))
+			assert_eq(FactionAI.band(faction_id, "player"), FactionAI.BAND_MARKET, "%s just below its market line" % faction_id)
+			Factions.adjust_player_relation(faction_id, raid - _player_relation(faction_id))
+			assert_eq(FactionAI.band(faction_id, "player"), FactionAI.BAND_MARKET, "%s at its raidThreshold" % faction_id)
 	)
 
 	run_case("the_raid_rung_opens_below_raid_threshold_or_at_hostile", func():
@@ -475,6 +500,14 @@ func run() -> void:
 		assert_eq(Barometer.headlines()[0]["text"], GameData.FACTION_ESCALATION["headlines"]["stockpileRaid"] % [
 			GameData.FACTIONS["firm"]["shortName"], GameData.FACTIONS["guild"]["shortName"], GameData.DISTRICTS[district_id]["name"],
 		], "a big haul makes the Ticker")
+		GameData.FACTION_RIVALRY = false
+	)
+
+	run_case("a_faction_stockpile_raid_costs_the_pair_its_pair_relation_hit", func():
+		_stockpile_raid_ready()
+		_set_pair("firm", "guild", -40)
+		Raiding.resolve_faction_stockpile_raid("firm", "guild")
+		assert_eq(Factions.get_relation("firm", "guild"), -40 + int(GameData.STOCKPILE_RAID["pairRelationHit"]))
 		GameData.FACTION_RIVALRY = false
 	)
 

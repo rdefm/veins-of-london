@@ -125,14 +125,13 @@
       "perContract": 1
     },
     "dailyCap": 2,
-    "labels": { "calm": "Calm", "watching": "Watching", "annoyed": "Annoyed", "movingAgainst": "Moving against you" },
-    "annoyedBelow": -18,
-    "movingAgainstBelow": -30
+    "pairRecoveryRate": 0.02,
+    "labels": { "calm": "Calm", "watching": "Watching", "annoyed": "Annoyed", "movingAgainst": "Moving against you" }
   },
   "factionFloor": { "weakMaxVeins": 1, "weakCashBelow": 1000, "pruneYieldMult": 1.5, "craftChanceBonus": 0.15 },
   "factionEscalation": {
-    "warningBelow": -18,
-    "marketBelow": -30,
+    "warningAboveRaid": 18,
+    "marketAboveRaid": 12,
     "cooldownDays": 4,
     "headlineCap": 10,
     "menus": {
@@ -444,7 +443,7 @@
       "fairweather": { "cash": "\"How thoughtful. We'll find somewhere discreet to put it.\"", "item": "\"Thank you. It will be kept.\"", "liked": "\"You've done some reading. The Conclave does appreciate that.\"" }
     }
   },
-  "stockpileRaid": { "lootShare": 0.75, "stashLootShare": 1.0, "relationHit": -60, "headlineValue": 2000, "raidResistPerGuard": 20, "valueTier": 2, "guardTemplate": "veinGuard" },
+  "stockpileRaid": { "lootShare": 0.75, "stashLootShare": 1.0, "relationHit": -60, "pairRelationHit": -5, "headlineValue": 2000, "raidResistPerGuard": 20, "valueTier": 2, "guardTemplate": "veinGuard" },
   "networkMenu": {
     "relationPriceMod": 0.002,
     "horizonDays": 7,

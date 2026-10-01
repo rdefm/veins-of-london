@@ -7486,6 +7486,7 @@
 "guardTemplate": "veinGuard",
 "headlineValue": 2000,
 "lootShare": 0.75,
+"pairRelationHit": -5,
 "raidResistPerGuard": 20,
 "relationHit": -60,
 "stashLootShare": 1,

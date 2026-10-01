@@ -335,7 +335,7 @@ static func faction_stockpile_loot_share(attacker_id: String, defender_id: Strin
 # success moves the loot share of the defender's holdings (items at their
 # tiers) to the attacker. Either way the raid is logged on both sides (a
 # hostile act), the attacker gains raid intel, the defender books the loss
-# and the relation hit, and the stockpile relocates. A haul worth at least
+# and the pair relation hit (pairRelationHit), and the stockpile relocates. A haul worth at least
 # headlineValue is a Ticker headline. A no-op unless constants.json
 # factionRivalry is on and the attacker still knows the stockpile's location.
 # The defender's partners' warning (warned_by) and help cut the odds
@@ -366,7 +366,7 @@ static func resolve_faction_stockpile_raid(attacker_id: String, defender_id: Str
 	FactionAI.report_pair_move(attacker_id, defender_id, FactionAI.MOVE_STOCKPILE_RAID, district_id, success)
 	Intel.gain(attacker_id, defender_id, Intel.SOURCE_RAID)
 	FactionAI.note_loss(defender_id, attacker_id, value)
-	Factions.adjust_relation(defender_id, attacker_id, int(cfg["relationHit"]))
+	Factions.adjust_relation(defender_id, attacker_id, int(cfg["pairRelationHit"]))
 	Intel.relocate_stockpile(defender_id)
 	if value >= float(cfg["headlineValue"]):
 		Barometer.push_headline(GameData.FACTION_ESCALATION["headlines"]["stockpileRaid"] % [

@@ -311,7 +311,7 @@ func _track_diplomacy(diplo: Dictionary, before: Dictionary) -> void:
 			var old: Dictionary = before["entries"].get(observer + ">" + target, { "warnedBand": "none" })
 			var what: String = "warn(%s)" % entry["warnedBand"] if old["warnedBand"] != entry["warnedBand"] else "move"
 			diplo["events"].append("day %d: %s > %s %s" % [day, _party(observer), _party(target), what])
-			var first_key: String = observer + ">" + target + ":" + ("move" if what == "move" else entry["warnedBand"])
+			var first_key: String = observer + ">" + target + ":" + ("move:" if what == "move" else "") + entry["warnedBand"]
 			if not diplo["firsts"].has(first_key):
 				diplo["firsts"][first_key] = day
 	var now_keys := {}
@@ -382,8 +382,9 @@ func _print_diplomacy(diplo: Dictionary, every: int) -> void:
 		var warn: Variant = diplo["firsts"].get(faction_id + ">player:warning")
 		var market: Variant = diplo["firsts"].get(faction_id + ">player:market")
 		var raid: Variant = diplo["firsts"].get(faction_id + ">player:raid")
-		var move: Variant = diplo["firsts"].get(faction_id + ">player:move")
-		print("%-11s warning %-4s market-warn %-4s raid-warn %-4s first move %s" % [faction_id, warn, market, raid, move])
+		var market_move: Variant = diplo["firsts"].get(faction_id + ">player:move:market")
+		var raid_move: Variant = diplo["firsts"].get(faction_id + ">player:move:raid")
+		print("%-11s warning %-4s market-warn %-4s first market move %-4s raid-warn %-4s first raid move %s" % [faction_id, warn, market, market_move, raid, raid_move])
 	print("
 war endings: %s" % diplo["warEnds"])
 	print("min faction veins: %s" % diplo["minVeins"])
