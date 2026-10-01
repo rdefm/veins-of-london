@@ -115,7 +115,11 @@ func run() -> void:
 
 		var style: Dictionary = canvas._vein_ring_style(vein, faction_colour, MapCanvas.FACTION_STOP_STROKE)
 
-		assert_eq(style["colour"], MapPalette.colour("player"), "ownership remains on lines; faction fullness uses the same restrained gold as player fullness")
+		assert_eq(style["colour"], faction_colour, "faction fullness takes the faction's own line colour")
+		for dark in [false, true]:
+			var line_colour := MapPalette.faction_colour_in("firm", dark)
+			var dark_style: Dictionary = canvas._vein_ring_style(vein, line_colour, MapCanvas.FACTION_STOP_STROKE)
+			assert_eq(dark_style["colour"], line_colour, "dark=%s: ring matches that palette's faction line colour" % dark)
 		assert_eq(style["width"], MapCanvas.FACTION_STOP_STROKE, "tier 1 + ownership mode: width is the standard fullness stroke")
 		assert_eq(MapCanvas.VEIN_STOP_RADIUS, MapCanvas.FACTION_STOP_RADIUS, "player and faction markers share one visual diameter")
 		assert_eq(MapCanvas.FACTION_STOP_RADIUS, MapCanvas.UNCLAIMED_STOP_RADIUS, "unclaimed markers share that same diameter")

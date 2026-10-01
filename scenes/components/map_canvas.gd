@@ -564,12 +564,11 @@ func _draw_stops() -> void:
 		_draw_unclaimed_stop(stop)
 
 
-func _vein_ring_style(vein: Dictionary, _owner_colour: Color, base_width: float) -> Dictionary:
+func _vein_ring_style(vein: Dictionary, owner_colour: Color, base_width: float) -> Dictionary:
 	var tier: int = Cultivating.combined_magnitude(vein)
 	return {
-		# Ownership remains on the route line. Every stop's default fullness
-		# progress is the same restrained gold from the approved marker grammar.
-		"colour": MapStyle.vein_ring_colour(filter_mode, MapPalette.colour("player"), MapPalette.ore_colour(vein["oreType"]), tier, MapPalette.colour("muted"), MapPalette.colour("ink")),
+		# Default fullness progress takes the owner's line colour (M1.5 §N2 Fullness ring).
+		"colour": MapStyle.vein_ring_colour(filter_mode, owner_colour, MapPalette.ore_colour(vein["oreType"]), tier, MapPalette.colour("muted"), MapPalette.colour("ink")),
 		"track_colour": MapPalette.colour("border"),
 		"width": MapStyle.vein_ring_width(filter_mode, tier, base_width),
 	}
