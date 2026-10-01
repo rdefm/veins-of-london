@@ -454,6 +454,9 @@ func _new_factions_state() -> Dictionary:
 			"shortfall": {},
 			# { recipeKey: int } weekly-consumption carry, in FactionSim.CONSUME_UNITs (thousandths of an item).
 			"consumeAccrued": {},
+			# Smart-reserve stock kept back on top of the base reserve,
+			# set each FactionSim.trade(): { ore: { oreType: int }, consumable: { recipeKey: int } }.
+			"reserveBoosts": {},
 		}
 	return factions
 

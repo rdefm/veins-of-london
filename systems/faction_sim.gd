@@ -415,6 +415,7 @@ static func vein_kit(site_id: String) -> Dictionary:
 # items file under tier "0". A faction whose `trading` carries arbBuyMult
 # (the Conclave) then arbitrages -- see _arbitrage().
 static func trade() -> void:
+	refresh_reserve_boosts()
 	for faction_id in GameData.FACTIONS:
 		_trade_faction(faction_id)
 
@@ -450,12 +451,67 @@ static func item_reserve(faction_id: String, recipe_key: String) -> int:
 	return int(data.get("consumes", {}).get(recipe_key, 0)) + kit_use
 
 
+# The craft/consume reserve plus today's smart-reserve boost; while the
+# faction is withholding the good, everything it holds.
 static func reserve(faction_id: String, kind: String, good_type: String) -> int:
-	return ore_reserve(faction_id, good_type) if kind == "ore" else item_reserve(faction_id, good_type)
+	var keep: int = ore_reserve(faction_id, good_type) if kind == "ore" else item_reserve(faction_id, good_type)
+	keep += int(_reserve_boosts(faction_id).get(kind, {}).get(good_type, 0))
+	if FactionAI.is_withholding(faction_id, kind, good_type):
+		keep = maxi(keep, held(faction_id, kind, good_type))
+	return keep
+
+
+static func _reserve_boosts(faction_id: String) -> Dictionary:
+	return GameState.state["factions"][faction_id].get("reserveBoosts", {})
+
+
+# Smart reserves (spec §FactionSim): stock kept back on top of the base
+# reserve, refreshed each trade() into factions[id].reserveBoosts. Per
+# factionEscalation.smartReserves: one flood lot (flood.qty) of each ore the
+# faction plans to flood within horizonDays, one attack kit per raid it plans
+# in that window, and hintHoardQty of every item a Ticker trend hint names.
+static func refresh_reserve_boosts() -> void:
+	var cfg: Dictionary = GameData.FACTION_ESCALATION["smartReserves"]
+	var boosts := {}
+	for faction_id in GameData.FACTIONS:
+		boosts[faction_id] = { "ore": {}, "consumable": {} }
+	for plan in FactionAI.planned_moves(int(cfg["horizonDays"])):
+		var faction_id: String = plan["factionId"]
+		if not boosts.has(faction_id):
+			continue
+		match plan["move"]:
+			FactionAI.MOVE_FLOOD:
+				boosts[faction_id]["ore"][plan["good"]] = int(GameData.FACTION_ESCALATION["flood"]["qty"])
+			FactionAI.MOVE_VEIN_RAID, FactionAI.MOVE_STOCKPILE_RAID, FactionAI.MOVE_SHORTFALL_STEAL:
+				var kit: Dictionary = GameData.FACTIONS[faction_id].get("raidKits", {}).get("attack", {})
+				for recipe_key in kit:
+					_add_boost(boosts[faction_id]["consumable"], recipe_key, int(kit[recipe_key]))
+	var hinted := hinted_items()
+	for faction_id in boosts:
+		for recipe_key in hinted:
+			_add_boost(boosts[faction_id]["consumable"], recipe_key, int(cfg["hintHoardQty"]))
+		GameState.state["factions"][faction_id]["reserveBoosts"] = boosts[faction_id]
+
+
+static func _add_boost(goods: Dictionary, good_type: String, qty: int) -> void:
+	goods[good_type] = int(goods.get(good_type, 0)) + qty
+
+
+# Items named in the itemDemand of any section's Ticker trend hint state.
+static func hinted_items() -> Array:
+	var items := []
+	for section in Barometer.SECTIONS:
+		var state_id: Variant = Barometer.trend_hint_state(section)
+		if state_id == null:
+			continue
+		for recipe_key in GameData.BAROMETER_STATES[section][state_id]["effects"].get("itemDemand", {}):
+			if not items.has(recipe_key):
+				items.append(recipe_key)
+	return items
 
 
 # Every good a faction deals in: all ore types, then every item it consumes,
-# crafts, carries in a kit or holds.
+# crafts, carries in a kit, holds or has a reserve boost on.
 static func traded_goods(faction_id: String) -> Array:
 	var data: Dictionary = GameData.FACTIONS[faction_id]
 	var items: Array = []
@@ -463,6 +519,7 @@ static func traded_goods(faction_id: String) -> Array:
 	for kit in data.get("raidKits", {}).values():
 		sources.append(kit.keys())
 	sources.append(_holdings(faction_id)["items"].keys())
+	sources.append(_reserve_boosts(faction_id).get("consumable", {}).keys())
 	for keys in sources:
 		for recipe_key in keys:
 			if not items.has(recipe_key):

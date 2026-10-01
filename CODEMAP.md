@@ -52,7 +52,7 @@ Data file per system: see `data/*.json` below.
 | equipment.gd | Weapon equip/unequip |
 | event_items.gd | Registry of items usable from an event's Item button (Rewind consumable + Dial Rewind): eligibility, counts, effect |
 | events.gd | Event-card runner + rewind, auto-discovers art |
-| faction_sim.gd | FactionSim: holdings (ore, items by tier); stockpile pick and guards; vein tend + prune, sparing one maturing vein (`fieldwork`); crafting toward targets; consumption + kit burns → shortfall; kit allocation, `vein_kit`, `raider_kit`; London sell/buy vs reserve, Conclave arbitrage (`trading`); flood/undercut/deny/stabilise/stock-up/position moves; raid hard-harvest |
+| faction_sim.gd | FactionSim: holdings (ore, items by tier); stockpile pick and guards; vein tend + prune, sparing one maturing vein (`fieldwork`); crafting toward targets; consumption + kit burns → shortfall; kit allocation, `vein_kit`, `raider_kit`; London trade vs reserve + smart boosts, Conclave arbitrage; flood/undercut/deny/stabilise/stock-up/position moves; raid harvest |
 | faction_ai.gd | FactionAI (R§3.1 stances through Conclave positions): stances, activity log; pressure drift, Collective–Firm hold; escalation moves (Network intel, stockpile raids, ore raid bias, shortfall steal); wars, weariness, nags; truces, peace scorer + talks, truce payments; Conclave stabiliser + stockpile; war squeeze; Conclave positions + Ticker push; move forecast |
 | intel.gd | Intel (R§3.1 "Intel"): observer → target intel meters for player and factions, level reads, scout/raid gains, daily decay, stockpile relocation cap; privacy/raid-warning/disinformation timers; intel's raid-odds shift and target scoring |
 | factions.gd | Faction joining |

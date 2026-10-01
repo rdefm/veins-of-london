@@ -557,6 +557,78 @@ func run() -> void:
 		assert_eq(GameState.state["factions"]["firm"]["resources"], 0)
 	)
 
+	run_case("a_planned_flood_raises_the_flooders_reserve_of_that_ore_in_the_days_before", func():
+		var flood_qty: int = int(GameData.FACTION_ESCALATION["flood"]["qty"])
+		var horizon: int = int(GameData.FACTION_ESCALATION["smartReserves"]["horizonDays"])
+		var cooldown: int = int(GameData.FACTION_ESCALATION["cooldownDays"])
+		_firm_flood_due_in(horizon)
+		var plans := FactionAI.planned_moves(horizon).filter(func(p: Dictionary) -> bool: return p["factionId"] == "firm")
+		assert_eq(plans.size(), 1, "one Firm plan in the window")
+		assert_eq(plans[0]["move"], FactionAI.MOVE_FLOOD)
+		assert_eq(plans[0]["good"], "time")
+		FactionSim.trade()
+		assert_eq(FactionSim.reserve("firm", "ore", "time") - FactionSim.ore_reserve("firm", "time"), flood_qty, "a flood lot kept back")
+		assert_true(FactionSim.ore_held("firm", "time") >= flood_qty, "the lot isn't sold off")
+		_firm_flood_due_in(cooldown)
+		FactionSim.trade()
+		assert_eq(FactionSim.reserve("firm", "ore", "time"), FactionSim.ore_reserve("firm", "time"), "no boost while the flood is beyond the horizon")
+	)
+
+	run_case("a_queued_raid_raises_the_raiders_reserve_of_its_attack_kit", func():
+		var kit: Dictionary = GameData.FACTIONS["firm"]["raidKits"]["attack"]
+		GameState.reset()
+		FactionSim.refresh_reserve_boosts()
+		var control := {}
+		for recipe_key in kit:
+			control[recipe_key] = FactionSim.reserve("firm", "consumable", recipe_key)
+		GameState.state["factionEscalation"]["queuedRaids"].append({ "attackerId": "firm", "targetId": "player", "veinId": "v1" })
+		FactionSim.refresh_reserve_boosts()
+		for recipe_key in kit:
+			assert_eq(FactionSim.reserve("firm", "consumable", recipe_key) - int(control[recipe_key]), int(kit[recipe_key]), "%s kept back for the raid" % recipe_key)
+	)
+
+	run_case("a_ticker_hint_on_a_good_raises_reserves_of_it", func():
+		var hoard: int = int(GameData.FACTION_ESCALATION["smartReserves"]["hintHoardQty"])
+		GameState.reset()
+		FactionSim.trade()
+		assert_eq(FactionSim.reserve("collective", "consumable", "shield"), FactionSim.item_reserve("collective", "shield"), "no hint, no hoard")
+		Barometer.ensure_progress()
+		GameState.state["barometer"]["progress"]["political"]["war"] = Barometer.TREND_HINT_THRESHOLD
+		assert_true(FactionSim.hinted_items().has("shield"), "Conflict Abroad hints at shields")
+		FactionSim.trade()
+		for faction_id in GameData.FACTIONS:
+			assert_eq(FactionSim.reserve(faction_id, "consumable", "shield") - FactionSim.item_reserve(faction_id, "shield"), hoard, "%s hoards shields" % faction_id)
+		assert_true(FactionSim.traded_goods("collective").has({ "kind": "consumable", "type": "shield" }), "a hinted good is traded")
+	)
+
+	run_case("a_withheld_good_is_all_reserved", func():
+		GameState.reset()
+		_set_ore("firm", "time", 300)
+		GameState.state["factionEscalation"]["withholds"].append({ "factionId": "firm", "targetId": "player", "kind": "ore", "good": "time", "untilDay": GameState.state["world"]["day"] + 5 })
+		assert_eq(FactionSim.reserve("firm", "ore", "time"), 300, "everything held is kept back")
+	)
+
+
+# The Firm under pressure on the player, warned, holding 200 time ore the
+# player has a share in, on a running market, its next move a flood of time
+# due `days` after today.
+static func _firm_flood_due_in(days: int) -> void:
+	GameState.reset()
+	GameState.state["shares"] = Shares.new_state()
+	GameState.state["world"]["sites"] = []
+	GameState.state["player"]["veins"] = []
+	GameState.state["world"]["day"] = 10
+	GameState.state["market"] = Market.new_state(true)
+	GameState.state["market"]["startedDay"] = 1
+	Shares.record_ore("player", "time", 100)
+	GameState.state["factions"]["firm"]["resources"] = 10000
+	Factions.adjust_player_relation("firm", -10 - int(GameState.state["factions"]["firm"]["relation"]))
+	GameState.state["factionPressure"]["snapshots"]["firm"] = { "player": { "threat": 2.0, "dependence": 0.0, "delta": -2.0 } }
+	var entry := FactionAI._target_entry("firm", "player")
+	entry["warnedBand"] = FactionAI.band("firm", "player")
+	entry["lastMoveDay"] = 10 + days - int(GameData.FACTION_ESCALATION["cooldownDays"])
+	_set_ore("firm", "time", 200)
+
 
 static func _set_ore(faction_id: String, ore_type: String, qty: int) -> void:
 	GameState.state["factions"][faction_id]["holdings"]["ore"][ore_type] = qty
