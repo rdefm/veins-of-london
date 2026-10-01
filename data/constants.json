@@ -137,7 +137,7 @@
       "manipulator": { "market": ["undercut", "denyGoods", "tickerPush"], "raid": [] }
     },
     "sharedMarket": ["lowballBuyout"],
-    "moveCosts": { "veinRaid": 500, "stockpileRaid": 500, "withhold": 150, "outbid": 400, "poach": 200, "withholdItems": 150, "tickerPush": 300, "sellIntel": 0, "priceGouge": 200, "disinformation": 300 },
+    "moveCosts": { "veinRaid": 500, "shortfallSteal": 500, "stockpileRaid": 500, "withhold": 150, "outbid": 400, "poach": 200, "withholdItems": 150, "tickerPush": 300, "sellIntel": 0, "priceGouge": 200, "disinformation": 300 },
     "sellIntel": { "amount": 15, "price": 300, "damagePerPoint": 10 },
     "priceGouge": { "priceMult": 1.3, "days": 14, "damageBasis": 2000 },
     "disinformation": { "days": 10, "amount": 20, "damage": 500 },
@@ -147,6 +147,8 @@
     "lowball": { "cashBelow": 1000, "lostVeinDays": 7, "priceMult": 0.6, "expiryDays": 3, "damageMult": 0.25 },
     "undercut": { "qty": { "ore": 100, "consumable": 10 }, "priceMult": 0.85 },
     "deny": { "qty": { "ore": 100, "consumable": 10 }, "days": 7 },
+    "raidBias": { "primaryOre": 1.5, "secondaryOre": 1.25 },
+    "shortfallSteal": { "factions": ["firm"], "days": 3 },
     "warnings": {
       "producer": {
         "warning": "\"You're working ground we work. Mind how much of it you take.\"",
@@ -185,6 +187,10 @@
           "hit": "\"%s was a hostile acquisition. We'll send the paperwork.\"",
           "miss": "\"Our people were turned back in %s. They'll be reviewed. So will you.\""
         },
+        "shortfallSteal": {
+          "hit": "\"We were short. Your vein in %s wasn't. That's been corrected.\"",
+          "miss": "\"We sent people to your vein in %s for stock. They came back without it.\""
+        },
         "flood": "\"We've released some %s stock at a discount. Your margins were never our concern.\"",
         "withhold": "\"The Firm has paused sales of %s. Supply will resume when it suits us.\"",
         "outbid": "\"We've acquired the site in %s. You were outbid. It happens.\"",
@@ -209,6 +215,7 @@
       }
     },
     "explainers": {
+      "shortfallSteal": "\"The Firm ran short of something it needs and helped itself from your vein. They'll do it whatever they think of you, unless you're partners. Guards help. So does them not running short.\"",
       "veinRaid": "\"That's a raid. They'll keep at it while they're this sore with you. Guards and an alarm on the vein help, or give them a reason to like you.\"",
       "flood": "\"That's a flood. They've dumped your ore on London below the quote to drag the price down. Costs them too. Hold your stock a few days if you can.\"",
       "withhold": "\"They're sitting on their stock so you can't buy it. It'll ease in a week. Find another seller or craft around it.\"",
@@ -232,6 +239,14 @@
         "attackerHit": "Took %s's vein in %s.",
         "attackerMiss": "Turned back from %s's vein in %s.",
         "defenderHit": "%s took our vein in %s.",
+        "defenderMiss": "Saw %s off our vein in %s."
+      },
+      "shortfallSteal": {
+        "playerHit": "Stripped your vein in %s to cover a shortfall.",
+        "playerMiss": "Went for your vein in %s to cover a shortfall and was turned back.",
+        "attackerHit": "Stripped %s's vein in %s to cover a shortfall.",
+        "attackerMiss": "Turned back from %s's vein in %s.",
+        "defenderHit": "%s stripped our vein in %s.",
         "defenderMiss": "Saw %s off our vein in %s."
       },
       "stockpileRaid": {
@@ -462,6 +477,7 @@
     "moveLabels": {
       "warning": "a warning",
       "veinRaid": "a raid on your %s vein",
+      "shortfallSteal": "a raid on your %s vein, for its ore",
       "flood": "a flood of %s",
       "withhold": "holding back %s",
       "outbid": "a bid for a site in %s",

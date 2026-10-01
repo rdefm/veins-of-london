@@ -492,8 +492,21 @@ func _run_cases() -> void:
 		GameState.state["factionEscalation"]["queuedRaids"].append({ "attackerId": "firm", "targetId": "player", "veinId": "pv", "siteId": "s_pv" })
 
 		var attempts := Factions.queued_rivalry_attempts()
-		assert_eq(attempts, [{ "attackerId": "firm", "defenderId": "guild", "veinSiteId": "s_guild" }])
+		assert_eq(attempts, [{ "attackerId": "firm", "defenderId": "guild", "veinSiteId": "s_guild", "move": FactionAI.MOVE_VEIN_RAID }])
 		assert_eq(GameState.state["factionEscalation"]["queuedRaids"].size(), 1, "the player-target raid is left for Raiding")
+	)
+
+	run_case("a_won_shortfall_steal_hard_harvests_the_defenders_vein_into_the_attacker", func():
+		GameState.reset()
+		GameState.state["world"]["sites"] = []
+		var vein := Fixtures.seed_faction_vein("fv_steal", 80, "collective", "physics")
+		var expected: int = Cultivating.prune_yield(vein, int(GameData.VEIN_GROWTH["pruneHardDepth"]))
+		var held_before := FactionSim.ore_held("firm", "physics")
+		var site_id := "site_fv_steal"
+		Factions.resolve_steal_outcome({ "attackerId": "firm", "defenderId": "collective", "veinSiteId": site_id, "success": true })
+		assert_true(expected > 0, "fixture vein yields ore")
+		assert_eq(FactionSim.ore_held("firm", "physics"), held_before + expected, "the whole yield goes to the attacker")
+		assert_eq(Sites.find_site(site_id)["factionVein"]["factionId"], "collective", "the vein stays the defender's")
 	)
 
 	# ── faction-territory-rivalry T03: rivalry odds calculation ─────────

@@ -419,8 +419,9 @@ static func _faction_may_conquer(faction_id: String) -> bool:
 
 
 # Yesterday's queued raids against the player (FactionAI's raid rung,
-# R§3.1 "Escalation"), as { attackerId, veinId, siteId }. Drains the queue;
-# a vein that's gone, lost its site, or is quest-locked is dropped.
+# R§3.1 "Escalation"), as { attackerId, veinId, siteId, move } (move:
+# veinRaid or shortfallSteal). Drains the queue; a vein that's gone, lost
+# its site, or is quest-locked is dropped.
 static func queued_raid_attempts() -> Array:
 	var attempts := []
 	for entry in FactionAI.take_queued_raids(true):
@@ -431,6 +432,7 @@ static func queued_raid_attempts() -> Array:
 			"attackerId": entry["attackerId"],
 			"veinId": vein["id"],
 			"siteId": vein["siteId"],
+			"move": entry.get("move", FactionAI.MOVE_VEIN_RAID),
 		})
 	return attempts
 
@@ -473,13 +475,6 @@ static func claim_chance(vein: Dictionary) -> float:
 	return CLAIM_CHANCE_BY_TERROIR.get(tier, CLAIM_CHANCE_BY_TERROIR["fair"])
 
 
-# Draft, needs balance sign-off -- kept in line with Direction A's own
-# LOOT_ORE_QTY (8) and pruneLightDepth (9, data/vein_growth.json), so a
-# loss to loot never bites harder than the player's own worst prune.
-const RAID_LOOT_ORE_QTY := 8
-const RAID_LOOT_PRUNE_DEPTH := 9
-
-
 # Rolls the chance above and returns the attempt annotated with "success"
 # plus (only when successful) "outcomeType" ("claim"/"loot", via
 # claim_chance()). Pure computation -- mutation and the Notify push are
@@ -488,7 +483,8 @@ const RAID_LOOT_PRUNE_DEPTH := 9
 # Factions.rivalry_success_chance()). claim_chance() only rolls when the
 # attacker's relation clears its own conquerThreshold
 # (_faction_may_conquer()); below that a successful raid is capped at
-# "loot" regardless of claim_chance()'s odds.
+# "loot" regardless of claim_chance()'s odds. A shortfall steal is always
+# "loot".
 static func roll_raid_odds(attempt: Dictionary) -> Dictionary:
 	var outcome: Dictionary = attempt.duplicate()
 	var vein: Variant = Cultivating.find_vein(attempt["veinId"])
@@ -497,7 +493,7 @@ static func roll_raid_odds(attempt: Dictionary) -> Dictionary:
 		return outcome
 	outcome["success"] = Rng.chance(raid_success_chance(attempt["attackerId"], vein))
 	if outcome["success"]:
-		var may_conquer: bool = _faction_may_conquer(attempt["attackerId"])
+		var may_conquer: bool = _faction_may_conquer(attempt["attackerId"]) and attempt.get("move", FactionAI.MOVE_VEIN_RAID) != FactionAI.MOVE_SHORTFALL_STEAL
 		outcome["outcomeType"] = "claim" if (may_conquer and Rng.chance(claim_chance(vein))) else "loot"
 	return outcome
 
@@ -582,29 +578,22 @@ static func transfer_player_vein_to_faction(vein: Dictionary, site: Dictionary, 
 
 
 # Direction B loot outcome: the common-case result of a successful raid --
-# the vein stays player-owned, just pruned (RAID_LOOT_PRUNE_DEPTH) and
-# short a flat quantity of the player's own ore stash (RAID_LOOT_ORE_QTY),
-# clamped to what's on hand. Unlike Direction A's loot_vein() (which
-# materialises ore from a faction that never tracked real stock), this
-# steals from a real stash, so it can never go negative. No relation hit
-# (a faction acting against the player, not the reverse) and no map event
-# (the vein never changes hands). PROSE-REVIEW: one dry line with a
-# concrete ore count, distinct from the claim branch's "It's theirs now."
-# and the missed-defend claim copy, so the player can tell which of the
-# four claim/loot x on-time/missed combinations happened.
+# the vein stays player-owned but the raiders hard-harvest it
+# (FactionSim.raid_harvest), the whole yield going to their holdings. No
+# relation hit (a faction acting against the player, not the reverse) and
+# no map event (the vein never changes hands). PROSE-REVIEW: one dry line
+# with a concrete ore count, distinct from the claim branch's "It's theirs
+# now." and the missed-defend claim copy, so the player can tell which of
+# the four claim/loot x on-time/missed combinations happened.
 static func _apply_raid_loot(vein: Dictionary, faction_id: String, faction_name: String, district_name: String, missed_defend: bool) -> void:
-	vein["growth"] = maxi(0, vein["growth"] - RAID_LOOT_PRUNE_DEPTH)
-
 	var ore_type: String = vein["oreType"]
-	var ore: Dictionary = GameState.state["player"]["orichalchum"]
-	var stolen: int = mini(RAID_LOOT_ORE_QTY, ore.get(ore_type, 0))
-	ore[ore_type] = ore.get(ore_type, 0) - stolen
+	var stolen := FactionSim.raid_harvest(faction_id, vein)
 	FactionAI.note_loss(Shares.PLAYER, faction_id, float(Market.line_total("ore", Market.quote("ore", ore_type), stolen)))
 
 	if missed_defend:
-		Notify.push("Too late — %s pruned your vein in %s and got away with %d units of ore while the alarm was still ringing. It's still yours." % [faction_name, district_name, stolen], Notify.CATEGORY_DANGER)
+		Notify.push("Too late — %s stripped your vein in %s and got away with %d units of ore while the alarm was still ringing. It's still yours." % [faction_name, district_name, stolen], Notify.CATEGORY_DANGER)
 	else:
-		Notify.push("%s raided your vein in %s, pruning it and getting away with %d units of ore. It's still yours." % [faction_name, district_name, stolen], Notify.CATEGORY_DANGER)
+		Notify.push("%s raided your vein in %s, stripping it and getting away with %d units of ore. It's still yours." % [faction_name, district_name, stolen], Notify.CATEGORY_DANGER)
 
 
 # Called from time_system.gd's daily_tick, step ⑤d. Runs the previous
@@ -622,7 +611,7 @@ static func apply_raid_resolution() -> void:
 	for attempt in queued_raid_attempts():
 		var outcome := roll_raid_odds(attempt)
 		var district_id: String = Cultivating.find_vein(attempt["veinId"])["district"]
-		FactionAI.report_player_move(attempt["attackerId"], FactionAI.MOVE_VEIN_RAID, district_id, outcome["success"])
+		FactionAI.report_player_move(attempt["attackerId"], attempt["move"], district_id, outcome["success"])
 		if not outcome["success"]:
 			FactionAI.note_fight_lost(outcome["attackerId"], Shares.PLAYER)
 			FactionSim.log_kit_burn(outcome["attackerId"], "attack", "raid")

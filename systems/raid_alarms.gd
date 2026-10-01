@@ -27,7 +27,8 @@ static func summary_rows() -> Array[Dictionary]:
 		var outcome_type: String = outcome.get("outcomeType", "claim")
 		var consequence := "If undefended: the vein is taken."
 		if outcome_type == "loot":
-			consequence = "If undefended: up to %d calc stolen; growth −%d." % [Raiding.RAID_LOOT_ORE_QTY, Raiding.RAID_LOOT_PRUNE_DEPTH]
+			var depth: int = GameData.VEIN_GROWTH["pruneHardDepth"]
+			consequence = "If undefended: the vein is stripped of %d calc; growth −%d." % [Cultivating.prune_yield(vein, depth), vein["growth"] - Cultivating.prune_resulting_growth(vein, depth)]
 		var notification_id: String = str(outcome.get("notificationId", ""))
 		var situation_id := notification_id if not notification_id.is_empty() else "%s:%s" % [outcome.get("siteId", ""), outcome.get("veinId", "")]
 		rows.append({

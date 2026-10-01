@@ -201,6 +201,20 @@ static func _prune(faction_id: String, vein: Dictionary, depth: int) -> void:
 	Shares.record_ore(faction_id, vein["oreType"], amount)
 
 
+# A successful ore-taking raid (R§3.12): a hard harvest (pruneHardDepth) of
+# vein, whoever owns it, the whole yield landing in raider_id's holdings.
+# Returns the units taken.
+static func raid_harvest(raider_id: String, vein: Dictionary) -> int:
+	var depth: int = GameData.VEIN_GROWTH["pruneHardDepth"]
+	var amount: int = Cultivating.prune_yield(vein, depth)
+	var growth_before: int = vein["growth"]
+	vein["growth"] = Cultivating.prune_resulting_growth(vein, depth)
+	vein["rampantDays"] = 0
+	Cultivating.apply_growth_change(vein, growth_before)
+	add_ore(raider_id, vein["oreType"], amount)
+	return amount
+
+
 # ── Crafting toward target (spec §Crafting) ───────────────────────────────
 # Target holding per crafted item = weekly `consumes` + craftTargets kitUse
 # + sellQuota. Rollover step: each faction walks its `crafts` in data order

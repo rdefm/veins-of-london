@@ -918,41 +918,51 @@ func run() -> void:
 
 	# ── Direction B: resolve_raid_outcome loot branch (ticket 70) ─────────
 
-	run_case("resolve_raid_outcome_loot_leaves_the_vein_with_the_player_pruned_and_ore_docked", func():
+	run_case("resolve_raid_outcome_loot_hard_harvests_the_vein_into_the_raiders_holdings", func():
 		GameState.reset()
-		var vein := _player_vein_of(60, "physics", "warded", "camden")
+		var vein := _player_vein_of(80, "physics", "warded", "camden")
 		GameState.state["player"]["veins"] = [vein]
 		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
 		GameState.state["player"]["orichalchum"]["physics"] = 50
+		var depth: int = GameData.VEIN_GROWTH["pruneHardDepth"]
+		var expected: int = Cultivating.prune_yield(vein, depth)
+		var held_before := FactionSim.ore_held("firm", "physics")
 
 		var outcome := { "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true, "outcomeType": "loot" }
 		Raiding.resolve_raid_outcome(outcome)
 
+		assert_true(expected > 0, "fixture vein yields ore")
 		assert_eq(GameState.state["player"]["veins"].size(), 1, "the vein stays with the player")
 		var player_vein: Dictionary = GameState.state["player"]["veins"][0]
-		assert_eq(player_vein["growth"], 60 - Raiding.RAID_LOOT_PRUNE_DEPTH, "the vein is pruned by RAID_LOOT_PRUNE_DEPTH")
-		assert_eq(GameState.state["player"]["orichalchum"]["physics"], 50 - Raiding.RAID_LOOT_ORE_QTY, "the vein's ore type is docked RAID_LOOT_ORE_QTY from the player's own stash")
+		assert_eq(player_vein["growth"], 80 - depth, "the vein is hard-pruned")
+		assert_eq(FactionSim.ore_held("firm", "physics"), held_before + expected, "the whole hard-harvest yield goes to the raider")
+		assert_eq(GameState.state["player"]["orichalchum"]["physics"], 50, "the player's stash is untouched")
 
 		var site: Dictionary = Sites.find_site("s_player")
 		assert_eq(site["factionVein"], null, "the site stays player-claimed, no ownership change")
 		assert_true(site["claimed"], "site.claimed is untouched by a loot outcome")
 	)
 
-	run_case("resolve_raid_outcome_loot_clamps_the_ore_theft_to_what_the_player_actually_has", func():
+	run_case("a_shortfall_steal_never_claims_the_vein", func():
 		GameState.reset()
-		var vein := _player_vein_of(60, "fate", "none", "camden")
+		var vein := _player_vein_of(80, "physics", "none", "camden")
 		GameState.state["player"]["veins"] = [vein]
 		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
-		GameState.state["player"]["orichalchum"]["fate"] = 3  # less than RAID_LOOT_ORE_QTY
-
-		Raiding.resolve_raid_outcome({ "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true, "outcomeType": "loot" })
-
-		assert_eq(GameState.state["player"]["orichalchum"]["fate"], 0, "ore theft should clamp at 0, never go negative")
+		Factions.adjust_player_relation("firm", -100 - int(GameState.state["factions"]["firm"]["relation"]))
+		Rng.set_seed(2202)
+		var attempt := { "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "move": FactionAI.MOVE_SHORTFALL_STEAL }
+		var successes := 0
+		for i in 40:
+			var outcome := Raiding.roll_raid_odds(attempt)
+			if outcome["success"]:
+				successes += 1
+				assert_eq(outcome["outcomeType"], "loot")
+		assert_true(successes > 0, "some attempts land")
 	)
 
 	run_case("resolve_raid_outcome_loot_prune_floors_at_0_growth", func():
 		GameState.reset()
-		var vein := _player_vein_of(3, "time", "none", "camden")  # less than RAID_LOOT_PRUNE_DEPTH
+		var vein := _player_vein_of(3, "time", "none", "camden")  # less than pruneHardDepth
 		GameState.state["player"]["veins"] = [vein]
 		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
 

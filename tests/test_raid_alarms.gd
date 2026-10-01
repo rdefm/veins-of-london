@@ -18,7 +18,7 @@ func run() -> void:
 		assert_eq(rows[0]["id"], "vein:n1")
 		assert_eq(rows[1]["id"], "vein:n2")
 		assert_true(rows[0]["title"].contains("Test Street"))
-		assert_true(rows[1]["consequence"].contains("8 calc"))
+		assert_true(rows[1]["consequence"].contains("stripped of %d calc" % Cultivating.prune_yield(second, int(GameData.VEIN_GROWTH["pruneHardDepth"]))))
 		assert_eq(rows, RaidAlarmsSystem.summary_rows(), "refresh derives the same rows and identities")
 	)
 

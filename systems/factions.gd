@@ -284,7 +284,8 @@ static func adjust_relation(faction_a: String, faction_b: String, delta: int) ->
 
 # Drains the queued faction-target raids; returns each vein raid still aimed
 # at a vein its defender holds and that isn't quest-locked, as { attackerId,
-# defenderId, veinSiteId, warnedBy? } (warnedBy: Partners.warn_factions).
+# defenderId, veinSiteId, move, warnedBy? } (move: veinRaid or
+# shortfallSteal; warnedBy: Partners.warn_factions).
 static func queued_rivalry_attempts() -> Array:
 	return _vein_attempts(FactionAI.take_queued_raids(false))
 
@@ -292,7 +293,8 @@ static func queued_rivalry_attempts() -> Array:
 static func _vein_attempts(queued: Array) -> Array:
 	var attempts := []
 	for entry in queued:
-		if entry.get("move", FactionAI.MOVE_VEIN_RAID) != FactionAI.MOVE_VEIN_RAID:
+		var move: String = entry.get("move", FactionAI.MOVE_VEIN_RAID)
+		if move != FactionAI.MOVE_VEIN_RAID and move != FactionAI.MOVE_SHORTFALL_STEAL:
 			continue
 		var site: Variant = Sites.find_site(entry["siteId"])
 		if site == null:
@@ -304,6 +306,7 @@ static func _vein_attempts(queued: Array) -> Array:
 			"attackerId": entry["attackerId"],
 			"defenderId": entry["targetId"],
 			"veinSiteId": site["id"],
+			"move": move,
 		}
 		if entry.has("warnedBy"):
 			attempt["warnedBy"] = entry["warnedBy"]
@@ -409,8 +412,11 @@ static func apply_rivalry_resolution() -> void:
 		var district_id: String = Sites.find_site(attempt["veinSiteId"])["district"]
 		if not outcome["success"]:
 			FactionAI.note_fight_lost(attempt["attackerId"], attempt["defenderId"])
-		resolve_rivalry_outcome(outcome)
-		FactionAI.report_pair_move(attempt["attackerId"], attempt["defenderId"], FactionAI.MOVE_VEIN_RAID, district_id, outcome["success"])
+		if attempt["move"] == FactionAI.MOVE_SHORTFALL_STEAL:
+			resolve_steal_outcome(outcome)
+		else:
+			resolve_rivalry_outcome(outcome)
+		FactionAI.report_pair_move(attempt["attackerId"], attempt["defenderId"], attempt["move"], district_id, outcome["success"])
 	for entry in queued:
 		if entry.get("move", "") == FactionAI.MOVE_STOCKPILE_RAID:
 			Raiding.resolve_faction_stockpile_raid(entry["attackerId"], entry["targetId"], str(entry.get("warnedBy", "")))
@@ -446,6 +452,25 @@ static func resolve_rivalry_outcome(outcome: Dictionary) -> void:
 		GameData.FACTIONS[outcome["attackerId"]]["shortName"],
 	])
 	MapEvents.queue_seed_claim(site["district"], vein["id"], outcome["attackerId"])
+
+
+# A won shortfall steal (R§3.1 "Shortfall steal"): the vein stays the
+# defender's, hard-harvested into the attacker's holdings
+# (FactionSim.raid_harvest). Same loss, intel and relation bookkeeping as a
+# taken vein, at the stolen ore's value. A failed attempt is a no-op.
+static func resolve_steal_outcome(outcome: Dictionary) -> void:
+	if not outcome["success"]:
+		return
+	var site: Variant = Sites.find_site(outcome["veinSiteId"])
+	if site == null:
+		return
+	var vein: Variant = site["factionVein"]
+	if vein == null or vein["factionId"] != outcome["defenderId"]:
+		return
+	var stolen := FactionSim.raid_harvest(outcome["attackerId"], vein)
+	FactionAI.note_loss(outcome["defenderId"], outcome["attackerId"], float(Market.line_total("ore", Market.quote("ore", vein["oreType"]), stolen)))
+	Intel.gain(outcome["attackerId"], outcome["defenderId"], Intel.SOURCE_RAID)
+	adjust_relation(outcome["defenderId"], outcome["attackerId"], RIVALRY_RELATION_PENALTY)
 
 
 # ── Day-1 starting veins ─────────────────────────────────────────────────

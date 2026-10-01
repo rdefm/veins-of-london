@@ -478,6 +478,7 @@ const MOVE_TICKER_PUSH := "tickerPush"
 const MOVE_SELL_INTEL := "sellIntel"
 const MOVE_PRICE_GOUGE := "priceGouge"
 const MOVE_DISINFORMATION := "disinformation"
+const MOVE_SHORTFALL_STEAL := "shortfallSteal"
 const LOWBALL_KIND := "faction_lowball_buyout"
 # A planned_moves() entry for a warning, which isn't a menu move.
 const PLAN_WARNING := "warning"
@@ -489,12 +490,13 @@ static func _ecfg() -> Dictionary:
 
 # state.factionEscalation: { targets: { observerId: { targetId: {
 # warnedBand, lastMoveDay } } }, queuedRaids: [ { attackerId, targetId,
-# veinId, siteId } or { attackerId, targetId, move: "stockpileRaid" } ],
-# explained: [moveId], withholds: [ { factionId, targetId, kind, good,
-# untilDay } ], lastVeinLostDay }. lastMoveDay and lastVeinLostDay -1 =
-# never.
+# veinId, siteId, move? } (move absent = veinRaid, or "shortfallSteal") or
+# { attackerId, targetId, move: "stockpileRaid" } ], explained: [moveId],
+# withholds: [ { factionId, targetId, kind, good, untilDay } ],
+# lastVeinLostDay, shortfallDays: { factionId: { oreType: days } } }.
+# lastMoveDay and lastVeinLostDay -1 = never.
 static func new_escalation_state() -> Dictionary:
-	return { "targets": {}, "queuedRaids": [], "explained": [], "withholds": [], "lastVeinLostDay": -1 }
+	return { "targets": {}, "queuedRaids": [], "explained": [], "withholds": [], "lastVeinLostDay": -1, "shortfallDays": {} }
 
 
 # Stamps today as the day the player last lost a vein (lowball trigger).
@@ -608,6 +610,7 @@ static func apply_escalation() -> void:
 		for target in [Shares.PLAYER] + ids:
 			if target != observer and not moves_blocked(observer, target):
 				_escalate(observer, target)
+	_apply_shortfall_steals()
 	EventBus.state_changed.emit()
 
 
@@ -946,18 +949,36 @@ static func poach_lapsed(offer: Dictionary) -> void:
 
 
 # The target vein with the highest success chance × Factions.vein_value(),
-# as the observer's intel sees them (Intel.score_raid_options).
+# as the observer's intel sees them (Intel.score_raid_options), × raidBias
+# on veins of the observer's primary/secondary ore.
 static func _vein_raid_candidate(observer: String, target: String) -> Dictionary:
 	var best := {}
+	for option in _scored_raid_options(observer, target):
+		var damage := float(option["score"]) * raid_bias(observer, option["vein"]["oreType"])
+		if best.is_empty() or damage > float(best["damage"]):
+			best = { "move": MOVE_VEIN_RAID, "damage": damage, "cost": _move_cost(MOVE_VEIN_RAID), "veinId": option["vein"]["id"], "siteId": option["siteId"] }
+	return best
+
+
+# _raidable_veins with each option's value and intel score filled in.
+static func _scored_raid_options(observer: String, target: String) -> Array:
 	var options := _raidable_veins(observer, target)
 	for option in options:
 		option["value"] = Factions.vein_value(option["vein"])
 	Intel.score_raid_options(observer, target, options)
-	for option in options:
-		var damage := float(option["score"])
-		if best.is_empty() or damage > float(best["damage"]):
-			best = { "move": MOVE_VEIN_RAID, "damage": damage, "cost": _move_cost(MOVE_VEIN_RAID), "veinId": option["vein"]["id"], "siteId": option["siteId"] }
-	return best
+	return options
+
+
+# raidBias.primaryOre / secondaryOre for a vein of the attacker's own ore,
+# else 1.
+static func raid_bias(attacker: String, ore_type: String) -> float:
+	var bias: Dictionary = _ecfg()["raidBias"]
+	var data: Dictionary = GameData.FACTIONS[attacker]
+	if ore_type == data["primaryOre"]:
+		return float(bias["primaryOre"])
+	if ore_type == data["secondaryOre"]:
+		return float(bias["secondaryOre"])
+	return 1.0
 
 
 # { vein, siteId, chance } per vein observer could raid. Faction targets
@@ -1012,6 +1033,95 @@ static func _stockpile_raid_queued(target: String) -> bool:
 		if entry.get("move", "") == MOVE_STOCKPILE_RAID and entry["targetId"] == target:
 			return true
 	return false
+
+
+# ── Shortfall steal ─────────────────────────────────────────────────────
+# R§3.1 "Shortfall steal": a shortfallSteal.factions faction short of an
+# ore it consumes (held < FactionSim.ore_reserve > 0) for shortfallSteal.days
+# straight rollovers queues a raid on a vein of that ore, outside the band
+# ladder: any target but a Partner, not moves-blocked, not cooling.
+
+static func _shortfall_days() -> Dictionary:
+	var escalation: Dictionary = GameState.state["factionEscalation"]
+	if not escalation.has("shortfallDays"):
+		escalation["shortfallDays"] = {}
+	return escalation["shortfallDays"]
+
+
+# Days in a row faction_id has been short of ore_type.
+static func shortfall_days(faction_id: String, ore_type: String) -> int:
+	return int(_shortfall_days().get(faction_id, {}).get(ore_type, 0))
+
+
+# Rollover step after the per-target escalation: counts each stealing
+# faction's shortfall runs, then for the run-out ore with the largest gap
+# that has a target vein, queues the steal (paying moveCosts.shortfallSteal)
+# and restarts that ore's run.
+static func _apply_shortfall_steals() -> void:
+	var cfg: Dictionary = _ecfg()["shortfallSteal"]
+	for faction_id in cfg["factions"]:
+		var runs: Dictionary = _count_shortfalls(faction_id)
+		var due: Array = runs.keys().filter(func(o: String) -> bool: return int(runs[o]) >= int(cfg["days"]))
+		due.sort_custom(func(a: String, b: String) -> bool: return _ore_gap(faction_id, a) > _ore_gap(faction_id, b))
+		for ore_type in due:
+			var move := _shortfall_steal_candidate(faction_id, ore_type)
+			if move.is_empty():
+				continue
+			if int(move["cost"]) > int(GameState.state["factions"][faction_id]["resources"]):
+				break
+			GameState.state["factions"][faction_id]["resources"] -= int(move["cost"])
+			_target_entry(faction_id, move["targetId"])["lastMoveDay"] = int(GameState.state["world"]["day"])
+			_queue_shortfall_steal(faction_id, move)
+			runs.erase(ore_type)
+			break
+
+
+# Advances faction_id's run per ore it consumes: +1 while held < reserve,
+# dropped once it isn't. Returns the faction's run table.
+static func _count_shortfalls(faction_id: String) -> Dictionary:
+	var all_runs := _shortfall_days()
+	if not all_runs.has(faction_id):
+		all_runs[faction_id] = {}
+	var runs: Dictionary = all_runs[faction_id]
+	for ore_type in GameData.ORE_TYPES.keys():
+		if _ore_gap(faction_id, ore_type) > 0:
+			runs[ore_type] = int(runs.get(ore_type, 0)) + 1
+		else:
+			runs.erase(ore_type)
+	return runs
+
+
+static func _ore_gap(faction_id: String, ore_type: String) -> int:
+	return FactionSim.ore_reserve(faction_id, ore_type) - FactionSim.ore_held(faction_id, ore_type)
+
+
+# The best-scoring vein of ore_type over every target observer may steal
+# from, as { move, damage, cost, targetId, veinId, siteId, good }, or {}.
+static func _shortfall_steal_candidate(observer: String, ore_type: String) -> Dictionary:
+	var day: int = GameState.state["world"]["day"]
+	var best := {}
+	for target in [Shares.PLAYER] + GameData.FACTIONS.keys():
+		if target == observer or moves_blocked(observer, target) or _stance_to(observer, target) == PARTNER or _cooling(_target_entry(observer, target), day):
+			continue
+		for option in _scored_raid_options(observer, target):
+			if option["vein"]["oreType"] != ore_type:
+				continue
+			var damage := float(option["score"])
+			if damage > 0.0 and (best.is_empty() or damage > float(best["damage"])):
+				best = {
+					"move": MOVE_SHORTFALL_STEAL, "damage": damage, "cost": _move_cost(MOVE_SHORTFALL_STEAL),
+					"targetId": target, "veinId": option["vein"]["id"], "siteId": option["siteId"], "good": ore_type,
+				}
+	return best
+
+
+static func _queue_shortfall_steal(observer: String, move: Dictionary) -> void:
+	var target: String = move["targetId"]
+	GameState.state["factionEscalation"]["queuedRaids"].append({
+		"attackerId": observer, "targetId": target, "veinId": move["veinId"], "siteId": move["siteId"], "move": MOVE_SHORTFALL_STEAL,
+	})
+	if target == Shares.PLAYER:
+		NetworkHandler.warn_of_raid(observer, move["siteId"])
 
 
 # ── Network moves ───────────────────────────────────────────────────────

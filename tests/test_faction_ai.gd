@@ -316,6 +316,8 @@ func run() -> void:
 		_raid_ready("collective", -20)
 		_under_pressure("collective")
 		_target_entry("collective")["warnedBand"] = FactionAI.BAND_MARKET
+		for ore_type in GameData.ORE_TYPES:
+			FactionSim.add_ore("firm", ore_type, 100000)  # no Firm shortfall steal on pv
 		for day in range(1, 30):
 			_escalate_on(day)
 		assert_eq(_queued().size(), 0, "market band: no raid")
@@ -356,6 +358,49 @@ func run() -> void:
 		assert_eq(moves[0]["move"], FactionAI.MOVE_VEIN_RAID)
 		assert_true(GameState.state["messages"].has("lusk"), "key member sends it")
 		assert_eq(_explainer_count(), 1, "Archie explains the first raid")
+	)
+
+	run_case("among_equal_candidates_the_raid_pick_prefers_the_attackers_primary_then_secondary_ore", func():
+		_fresh()
+		Rng.set_seed(2201)
+		assert_eq(Intel.meter("firm", "player"), 0, "blind: every vein scores alike")
+		Fixtures.seed_vein("pv_time", 60, "time")
+		Fixtures.seed_vein("pv_life", 60, "life")
+		assert_eq(FactionAI._vein_raid_candidate("firm", "player")["veinId"], "pv_life", "secondary beats an off-ore vein")
+		Fixtures.seed_vein("pv_physics", 60, "physics")
+		assert_eq(FactionAI._vein_raid_candidate("firm", "player")["veinId"], "pv_physics", "primary beats secondary")
+		assert_eq(FactionAI.raid_bias("firm", "time"), 1.0, "no bias off its ores")
+	)
+
+	run_case("the_firm_short_of_an_ore_for_n_days_queues_a_steal_on_a_vein_of_it_at_neutral", func():
+		var ore_type := _shortfall_ready()
+		assert_eq(FactionAI.player_stance("firm"), FactionAI.NEUTRAL)
+		var days: int = GameData.FACTION_ESCALATION["shortfallSteal"]["days"]
+		for day in range(1, days):
+			_escalate_on(day)
+		assert_eq(_steals().size(), 0, "not yet a full run")
+		_escalate_on(days)
+		assert_eq(_steals().size(), 1, "a full run: steal queued")
+		assert_eq(_steals()[0]["targetId"], "player")
+		assert_eq(_steals()[0]["veinId"], "pv_short", "a vein of the short ore (%s)" % ore_type)
+		assert_eq(GameState.state["factions"]["firm"]["resources"], 10000 - int(GameData.FACTION_ESCALATION["moveCosts"]["shortfallSteal"]), "move cost paid")
+		assert_eq(FactionAI.shortfall_days("firm", ore_type), 0, "the run restarts")
+	)
+
+	run_case("the_firm_never_shortfall_steals_from_a_partner", func():
+		_shortfall_ready()
+		GameState.state["factionStances"]["player"]["firm"]["stance"] = FactionAI.PARTNER
+		for day in range(1, int(GameData.FACTION_ESCALATION["shortfallSteal"]["days"]) * 3):
+			_escalate_on(day)
+		assert_eq(_steals().size(), 0)
+	)
+
+	run_case("a_queued_shortfall_steal_resolves_as_a_hostile_act_and_is_reported", func():
+		_shortfall_ready()
+		FactionAI._queue_shortfall_steal("firm", { "targetId": "player", "veinId": "pv_short", "siteId": "site_pv_short" })
+		Raiding.apply_raid_resolution()
+		assert_eq(FactionAI.moves_against_player()[0]["move"], FactionAI.MOVE_SHORTFALL_STEAL)
+		assert_eq(int(GameState.state["factionWar"]["lastHostile"][FactionAI.war_key("firm", "player")]), int(GameState.state["world"]["day"]), "a hostile act")
 	)
 
 	run_case("a_hostile_faction_with_location_intel_raids_a_rivals_stockpile_over_the_rollover", func():
@@ -1263,6 +1308,26 @@ static func _raid_ready(faction_id: String, relation: int) -> void:
 	Fixtures.seed_vein("pv", 60)
 	GameState.state["factions"][faction_id]["resources"] = 10000
 	Factions.adjust_player_relation(faction_id, relation - _player_relation(faction_id))
+
+
+# A funded Firm holding no ore, so it is short of every ore it consumes, and
+# player veins of the first such ore (pv_short) and an ore it doesn't
+# consume (pv_other). Returns the short ore.
+static func _shortfall_ready() -> String:
+	_fresh()
+	GameState.state["factions"]["firm"]["resources"] = 10000
+	GameState.state["factions"]["firm"]["holdings"]["ore"] = {}
+	Factions.adjust_player_relation("firm", -_player_relation("firm"))
+	var consumed: Array = GameData.ORE_TYPES.keys().filter(func(o: String) -> bool: return FactionSim.ore_reserve("firm", o) > 0)
+	var spare: Array = GameData.ORE_TYPES.keys().filter(func(o: String) -> bool: return not consumed.has(o))
+	Fixtures.seed_vein("pv_short", 60, consumed[0])
+	if not spare.is_empty():
+		Fixtures.seed_vein("pv_other", 90, spare[0])
+	return consumed[0]
+
+
+static func _steals() -> Array:
+	return _queued().filter(func(e: Dictionary) -> bool: return e.get("move", "") == FactionAI.MOVE_SHORTFALL_STEAL)
 
 
 static func _explainer_count(move_id: String = FactionAI.MOVE_VEIN_RAID) -> int:
