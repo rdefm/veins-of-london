@@ -3,7 +3,8 @@
 # state.phoneNav.selectedAxis is set, plus a faction-headline wires card)
 # and Stock Market tab (London prices
 # with ▲/▼ versus yesterday, active demand modifiers, and a per-good price
-# chart with annotations). The tab and selected good are view state held
+# chart with annotations; ore-type + "In stock" filters, collapsible Ore/Items
+# lists). The tab, selected good, filter and collapse are view state held
 # here, not in state.phoneNav, so they reset with the screen.
 class_name TickerApp
 extends PhoneApp
@@ -19,6 +20,11 @@ const MUTED := Color("#999a9d")
 var _tab := NEWS_TAB
 # { kind, type } of the good whose chart is open, or empty for the list.
 var _selected_good := {}
+# Stock Market filter: ore types unticked, the "In stock" box, and which
+# good lists ("ore"/"consumable") are collapsed. Defaults show everything.
+var _hidden_types := {}
+var _in_stock_only := false
+var _collapsed := {}
 
 
 func build(content: VBoxContainer) -> void:
@@ -91,12 +97,81 @@ func _build_stock_market(content: VBoxContainer) -> void:
 		mods["content"].add_child(UI.muted_label(_modifier_text(mod)))
 	content.add_child(mods["panel"])
 
-	content.add_child(UI.heading("Ore", 14))
+	content.add_child(_build_stock_filter())
+	content.add_child(_build_good_section("ore", "Ore"))
+	content.add_child(_build_good_section("consumable", "Items"))
+
+
+# One toggle per ore type plus "In stock"; ticked shows ●, unticked ○.
+func _build_stock_filter() -> Control:
+	var filter := UI.hflow()
 	for ore_type in GameData.MARKET["goods"]["ore"]:
-		content.add_child(_good_row("ore", ore_type))
-	content.add_child(UI.heading("Items", 14))
-	for recipe_key in GameData.MARKET["goods"]["consumable"]:
-		content.add_child(_good_row("consumable", recipe_key))
+		var shown := not _hidden_types.has(ore_type)
+		filter.add_child(UI.button("%s %s" % ["●" if shown else "○", GameData.ORE_TYPES[ore_type]["name"]], func(): _toggle_type(ore_type)))
+	filter.add_child(UI.button("%s In stock" % ("●" if _in_stock_only else "○"), func(): _toggle_in_stock()))
+	return filter
+
+
+func _build_good_section(kind: String, title: String) -> Control:
+	var section := UI.collapsible_section(title, not _collapsed.has(kind), func(open: bool): _set_section_open(kind, open))
+	var goods := shown_goods(kind)
+	if goods.is_empty():
+		section["content"].add_child(UI.muted_label("Nothing matches the filter."))
+	for good_type in goods:
+		section["content"].add_child(_good_row(kind, good_type))
+	return section["panel"]
+
+
+# The goods of one kind ("ore" or "consumable") the filter shows, in market order.
+func shown_goods(kind: String) -> Array:
+	var goods: Array = []
+	for good_type in GameData.MARKET["goods"][kind]:
+		if _matches_filter(kind, good_type):
+			goods.append(good_type)
+	return goods
+
+
+# An ore matches its own type; an item matches if any recipe ingredient's type is ticked.
+func _matches_filter(kind: String, good_type: String) -> bool:
+	var types: Array = [good_type] if kind == "ore" else GameData.RECIPES[good_type]["ingredients"].keys()
+	if types.all(func(t): return _hidden_types.has(t)):
+		return false
+	return not _in_stock_only or _held(kind, good_type) > 0
+
+
+func _held(kind: String, good_type: String) -> int:
+	if kind == "ore":
+		return int(GameState.state["player"]["orichalchum"].get(good_type, 0))
+	return Crafting.inventory_qty(good_type)
+
+
+func _toggle_type(ore_type: String) -> void:
+	toggle_type(ore_type)
+	refresh()
+
+
+func toggle_type(ore_type: String) -> void:
+	if _hidden_types.has(ore_type):
+		_hidden_types.erase(ore_type)
+	else:
+		_hidden_types[ore_type] = true
+
+
+func _toggle_in_stock() -> void:
+	set_in_stock_only(not _in_stock_only)
+	refresh()
+
+
+func set_in_stock_only(on: bool) -> void:
+	_in_stock_only = on
+
+
+# Header taps toggle visibility in place; this only remembers it across refreshes.
+func _set_section_open(kind: String, open: bool) -> void:
+	if open:
+		_collapsed.erase(kind)
+	else:
+		_collapsed[kind] = true
 
 
 func _good_name(kind: String, good_type: String) -> String:
