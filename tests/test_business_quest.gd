@@ -419,7 +419,7 @@ func run() -> void:
 	run_case("declined_recurring_offer_reissues_next_day_once_the_pending_cap_allows", func():
 		_to_beat_7()
 		Offers.decline_offer(_recurring_offer("biz_recurring_time_ore")["id"])
-		while Offers.pending_offers().size() < Offers.PENDING_CAP:
+		while Offers.random_pending_count() < Offers.PENDING_CAP:
 			Offers.create_offer(Offers.random_templates()[0])
 		TimeSystem.do_rest()
 		assert_true(_recurring_offer("biz_recurring_time_ore").is_empty(), "the cap is full, so the reissue waits")
@@ -719,7 +719,7 @@ func _staff_ops_with_des() -> void:
 
 func _complete_life_order() -> void:
 	# Random offers can fill the pending cap and block the scripted order.
-	if Offers.pending_offers().size() >= Offers.PENDING_CAP:
+	if Offers.random_pending_count() >= Offers.PENDING_CAP:
 		_strip_random_offers()
 	var created: Dictionary = Offers.create_scripted_offer("scripted_life_order")
 	var contract: Dictionary = Offers.accept_offer(created["offer"]["id"])["contract"]

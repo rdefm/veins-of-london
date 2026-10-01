@@ -5,11 +5,9 @@ extends RefCounted
 # the ledger fulfilment/settlement (systems/contracts.gd) consume, carrying
 # the offer's quote as signedQuote (R§3.10 "Offer price and expiry").
 
+# Caps pending source:"random" offers only; scripted and renewal offers
+# never count toward it (R§3.10 "Offer sourcing").
 const PENDING_CAP := 4
-const RANDOM_ONE_OFF_QTY_MIN := 4
-const RANDOM_ONE_OFF_QTY_MAX := 10
-const RANDOM_RECURRING_QTY_MIN := 3
-const RANDOM_RECURRING_QTY_MAX := 6
 const RANDOM_ONE_OFF_DEADLINE_MIN_DAYS := 3
 const RANDOM_ONE_OFF_DEADLINE_MAX_DAYS := 7
 const CONTRACT_MULTIPLIER := 1.25
@@ -28,6 +26,14 @@ const SOURCE_FAVOUR := "favour"
 
 static func pending_offers() -> Array:
 	return GameState.state["sales"]["pendingOffers"]
+
+
+static func random_pending_count() -> int:
+	var count := 0
+	for offer in pending_offers():
+		if offer.get("source", "") == "random":
+			count += 1
+	return count
 
 
 static func active_contracts() -> Array:
@@ -50,7 +56,7 @@ static func random_offer_chance() -> float:
 
 static func daily_tick() -> void:
 	expire_pending_offers()
-	if pending_offers().size() >= PENDING_CAP:
+	if random_pending_count() >= PENDING_CAP:
 		return
 	# An assigned-but-unpaid Sales role sources nothing this week; an unassigned
 	# room isn't gated here since it never owes a wage (business-spec.md).
@@ -80,7 +86,7 @@ static func create_scripted_offer(template_id: String) -> Dictionary:
 
 
 static func create_offer(template: Dictionary) -> Dictionary:
-	if pending_offers().size() >= PENDING_CAP:
+	if random_pending_count() >= PENDING_CAP:
 		return { "ok": false, "reason": "Pending offers are full." }
 	var request: Dictionary = template.get("request", {}).duplicate(true)
 	var contract_type: String = template.get("contractType", "oneOff")
@@ -351,8 +357,9 @@ static func _valid_request_line(line: Dictionary) -> bool:
 	return (kind == "ore" and GameData.ORE_TYPES.has(item_type)) or (kind == "consumable" and GameData.CONSUMABLE_PRICES.has(item_type))
 
 
-# Random one-offs/recurring roll a qty when the template omits one; a mixed
-# one-off's per-type qty band is 2-5 regardless of source (business-spec.md).
+# Random one-offs/recurring roll a qty from offers.json randomQty when the
+# template omits one; a mixed one-off's per-type qty band is 2-5 regardless
+# of source (business-spec.md).
 static func _fill_request_quantities(request: Dictionary, contract_type: String) -> void:
 	if request.has("types"):
 		for line in request["types"]:
@@ -360,4 +367,5 @@ static func _fill_request_quantities(request: Dictionary, contract_type: String)
 				line["qty"] = Rng.randi_range(MIXED_TYPE_QTY_MIN, MIXED_TYPE_QTY_MAX)
 		return
 	if not request.has("qty"):
-		request["qty"] = Rng.randi_range(RANDOM_RECURRING_QTY_MIN, RANDOM_RECURRING_QTY_MAX) if contract_type == "recurring" else Rng.randi_range(RANDOM_ONE_OFF_QTY_MIN, RANDOM_ONE_OFF_QTY_MAX)
+		var band: Dictionary = GameData.OFFER_RANDOM_QTY[contract_type]
+		request["qty"] = Rng.randi_range(int(band["min"]), int(band["max"]))

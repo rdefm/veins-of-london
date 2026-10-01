@@ -1,7 +1,8 @@
 {
   "expiryDays": 2,
   "termWeeks": 4,
-  "randomChance": { "base": 0.33, "perSalesLevel": 0.07, "max": 0.75 },
+  "randomChance": { "base": 0.5, "perSalesLevel": 0.07, "max": 0.75 },
+  "randomQty": { "oneOff": { "min": 20, "max": 200 }, "recurring": { "min": 50, "max": 300 } },
   "counterparty": { "smallOfferThreshold": 1000, "cancelRelationHit": 3 },
   "templates": {
     "random_time_ore": { "id": "random_time_ore", "source": "random", "contractType": "oneOff", "request": { "kind": "ore", "type": "time" } },

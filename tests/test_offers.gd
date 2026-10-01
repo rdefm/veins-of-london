@@ -77,7 +77,7 @@ func run() -> void:
 	run_case("random_offer_roll_is_passive_capped_and_expires", func():
 		GameState.reset()
 		assert_eq(OffersSystem.sales_skill(), 1)
-		assert_almost_eq(OffersSystem.random_offer_chance(), 0.33, 0.0001)
+		assert_almost_eq(OffersSystem.random_offer_chance(), 0.5, 0.0001)
 		GameState.state["contacts"]["archie"]["recruited"] = true
 		Contacts.assign_to_room("archie", "ops")
 		GameState.state["contacts"]["archie"]["salesSkill"] = 10
@@ -85,7 +85,7 @@ func run() -> void:
 		var created: Dictionary = OffersSystem.create_offer(GameData.OFFER_TEMPLATES["random_time_ore"])
 		assert_true(created["ok"])
 		var offer: Dictionary = created["offer"]
-		assert_true(offer["request"]["qty"] >= 4 and offer["request"]["qty"] <= 10)
+		assert_true(offer["request"]["qty"] >= 20 and offer["request"]["qty"] <= 200)
 		assert_eq(offer["expiresDay"], 3, "issued day 1, expires 2 days later")
 		GameState.state["world"]["day"] = offer["expiresDay"]
 		OffersSystem.expire_pending_offers()
@@ -96,27 +96,46 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["contacts"]["archie"]["recruited"] = true
 		Contacts.assign_to_room("archie", "ops")
-		var expected := [0.33, 0.40, 0.47, 0.54, 0.61, 0.68, 0.75, 0.75, 0.75]
+		var expected := [0.50, 0.57, 0.64, 0.71, 0.75, 0.75, 0.75, 0.75, 0.75]
 		for level in range(1, 10):
 			GameState.state["contacts"]["archie"]["salesSkill"] = level
 			assert_almost_eq(OffersSystem.random_offer_chance(), expected[level - 1], 0.0001, "level %d" % level)
 	)
 
-	run_case("level_one_sales_sources_about_ten_offers_in_thirty_days", func():
+	run_case("level_one_sales_averages_one_random_offer_every_two_days_with_the_questline_pending", func():
 		GameState.reset()
 		GameState.state["contacts"]["archie"]["recruited"] = true
 		Contacts.assign_to_room("archie", "ops")
+		# Four scripted offers that never expire: they once filled PENDING_CAP
+		# and blocked the roll entirely.
+		for template_id in ["biz_starter_1", "biz_recurring_time_pearl", "biz_recurring_time_ore", "biz_recurring_life_ore"]:
+			var scripted: Dictionary = OffersSystem.create_scripted_offer(template_id)
+			assert_true(scripted["ok"], template_id)
+			scripted["offer"]["expiresDay"] = 100000
 		var issued := 0
+		var days := 0
 		for run in 10:
 			Rng.set_seed(146 + run)
-			for day in 30:
+			for day in 60:
 				GameState.state["world"]["day"] += 1
 				GameState.state["contacts"]["archie"]["salesSkill"] = 1  # sourcing XP can't level him mid-run
+				var before: int = GameState.state["sales"]["nextOfferId"]
 				OffersSystem.daily_tick()
-				issued += OffersSystem.pending_offers().size()
-				OffersSystem.pending_offers().clear()  # keep room in the pending list
-		var per_month := issued / 10.0
-		assert_true(per_month >= 8.5 and per_month <= 11.5, "~10 offers per 30 days at 33%%/day, got %.1f" % per_month)
+				issued += int(GameState.state["sales"]["nextOfferId"]) - before
+				days += 1
+		var mean_interval := float(days) / float(issued)
+		assert_true(mean_interval >= 1.8 and mean_interval <= 2.2, "~1 offer per 2 days at 50%%/day, got every %.2f days" % mean_interval)
+		assert_eq(OffersSystem.pending_offers().size() - OffersSystem.random_pending_count(), 4, "scripted offers still pending")
+	)
+
+	run_case("random_cap_counts_only_random_offers", func():
+		GameState.reset()
+		for template_id in ["biz_starter_1", "biz_recurring_time_pearl", "biz_recurring_time_ore", "biz_recurring_life_ore"]:
+			OffersSystem.create_scripted_offer(template_id)
+		assert_eq(OffersSystem.random_pending_count(), 0)
+		for index in OffersSystem.PENDING_CAP:
+			assert_true(OffersSystem.create_offer(GameData.OFFER_TEMPLATES["random_time_ore"])["ok"], "random %d" % index)
+		assert_true(not OffersSystem.create_offer(GameData.OFFER_TEMPLATES["random_time_ore"])["ok"], "four randoms fill the cap")
 	)
 
 	run_case("recurring_contract_falls_due_on_monday_and_renews_to_the_next_monday", func():
