@@ -308,11 +308,12 @@ func new_game_state() -> Dictionary:
 		# { contactId: [veinId] } -- each cultivator's own vein list; a vein
 		# is on at most one list (R§3.10 "Staff roles").
 		"cultivatorVeins": {},
-		# Owen's random texts (systems/owen_texts.gd): nextDay the next due
-		# day (null until the first rollover after he joins), played
-		# { textId: playSeq } for least-recently-played repeats, active the
-		# text awaiting a reply { id, vars } or null.
-		"owenTexts": { "nextDay": null, "played": {}, "playSeq": 0, "active": null },
+		# Contacts' random texts (systems/contact_texts.gd), { contactId:
+		# { nextDay, played, playSeq, active } } created on first use:
+		# nextDay the next due day (null until the first rollover after the
+		# gate opens), played { textId: playSeq } for least-recently-played
+		# repeats, active the text awaiting a reply { id, vars } or null.
+		"contactTexts": {},
 		# { veinId: int growth target }, whichever cultivator holds the vein.
 		"veinStationTargets": {},
 

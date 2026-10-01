@@ -258,8 +258,9 @@ var EVENTS: Dictionary = {}
 # terms. Keyed by contact id.
 var COLLECTIVE_BARKS: Dictionary = {}
 
-# data/owen_texts.json: Owen's random-text pool and cadence (systems/owen_texts.gd).
-var OWEN_TEXTS: Dictionary = {}
+# data/contact_texts.json: per-contact random-text pools, gates and cadence
+# (systems/contact_texts.gd), keyed by contact id.
+var CONTACT_TEXTS: Dictionary = {}
 
 # data/objectives.json, keyed by objective id (systems/objectives.gd).
 # "questline" groups an entry for todo.gd's ToDo-app rendering: the
@@ -444,8 +445,8 @@ const MANIFEST: Array[Dictionary] = [
 	{"table": "phone_home", "file": "res://data/phone_home.json", "fields": [
 		{"field": "PHONE_HOME", "key": "", "type": TYPE_DICTIONARY},
 	]},
-	{"table": "owen_texts", "file": "res://data/owen_texts.json", "fields": [
-		{"field": "OWEN_TEXTS", "key": "", "type": TYPE_DICTIONARY},
+	{"table": "contact_texts", "file": "res://data/contact_texts.json", "fields": [
+		{"field": "CONTACT_TEXTS", "key": "", "type": TYPE_DICTIONARY},
 	]},
 ]
 
@@ -570,7 +571,7 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_events(t.get("events", {}), t.get("districts", {}), errors)
 	_validate_objectives(t.get("objectives", {}), t.get("factions", {}), t.get("ore_types", {}), t.get("site_tier_order", []), t.get("recipes", {}), errors)
 	_validate_collective_barks(t.get("collective_barks", {}), errors)
-	_validate_owen_texts(t.get("owen_texts", {}), errors)
+	_validate_contact_texts(t.get("contact_texts", {}), t.get("recipes", {}), errors)
 	_validate_phone_home(t.get("phone_home", {}), errors)
 	_validate_map_palette(t.get("map_palette", {}), t.get("factions", {}), t.get("ore_types", {}), errors)
 
@@ -1359,49 +1360,79 @@ func _validate_collective_barks(barks: Dictionary, errors: Array[String]) -> voi
 			errors.append("collective_barks.%s: needs at least 6 lines, got %d" % [key, lines.size()])
 
 
-const OWEN_TEXT_KINDS: Array[String] = ["question", "flavour"]
-const OWEN_TEXT_VEIN_PLACEHOLDERS: Array[String] = ["{street}", "{district}", "{ore}"]
+const CONTACT_TEXT_KINDS: Array[String] = ["question", "flavour"]
+const CONTACT_TEXT_VEIN_PLACEHOLDERS: Array[String] = ["{street}", "{district}", "{ore}"]
+const CONTACT_TEXT_XP_SKILLS: Array[String] = ["cultivating", "crafting", "sales"]
+const CONTACT_TEXT_REWARD_KEYS: Array[String] = ["xp", "relation", "cash", "item"]
+const CONTACT_TEXT_VEIN_SOURCES: Array[String] = ["cultivator", "player"]
 
 
+# Per contact: an interval, a known veinSource, valid rewards, and texts.
 # Each text has 2-3 replies; a question has exactly one correct reply, a
 # flavour text none. Vein placeholders only in needsVein texts.
-func _validate_owen_texts(owen_texts: Dictionary, errors: Array[String]) -> void:
-	_require_keys(owen_texts, ["intervalMinDays", "intervalMaxDays", "texts"], "owen_texts", errors)
-	var min_days := int(owen_texts.get("intervalMinDays", 0))
-	var max_days := int(owen_texts.get("intervalMaxDays", 0))
-	if min_days < 1 or max_days < min_days:
-		errors.append("owen_texts: need 1 <= intervalMinDays <= intervalMaxDays, got %d..%d" % [min_days, max_days])
-	var seen := {}
-	for entry in owen_texts.get("texts", []):
-		var id := str(entry.get("id", ""))
-		var path := "owen_texts.%s" % id
-		if id == "" or seen.has(id):
-			errors.append("owen_texts: missing or duplicate id '%s'" % id)
-		seen[id] = true
-		var kind := str(entry.get("kind", ""))
-		if not OWEN_TEXT_KINDS.has(kind):
-			errors.append("%s: kind '%s' not one of %s" % [path, kind, OWEN_TEXT_KINDS])
-		var strings: Array = [entry.get("text")]
-		var replies: Array = entry.get("replies", [])
-		if replies.size() < 2 or replies.size() > 3:
-			errors.append("%s: needs 2-3 replies, got %d" % [path, replies.size()])
-		var correct_count := 0
-		for reply in replies:
-			strings.append(reply.get("text"))
-			strings.append(reply.get("response"))
-			if reply.get("correct", false):
-				correct_count += 1
-		var expected_correct := 1 if kind == "question" else 0
-		if correct_count != expected_correct:
-			errors.append("%s: a %s needs exactly %d correct reply, got %d" % [path, kind, expected_correct, correct_count])
-		var needs_vein: bool = entry.get("needsVein", false)
-		for text in strings:
-			if typeof(text) != TYPE_STRING or text == "":
-				errors.append("%s: text, reply text and response must be non-empty strings" % path)
-				continue
-			for placeholder in OWEN_TEXT_VEIN_PLACEHOLDERS:
-				if not needs_vein and text.contains(placeholder):
-					errors.append("%s: %s needs needsVein true" % [path, placeholder])
+func _validate_contact_texts(contact_texts: Dictionary, recipes: Dictionary, errors: Array[String]) -> void:
+	for contact_id in contact_texts:
+		var config: Dictionary = contact_texts[contact_id]
+		var prefix := "contact_texts.%s" % contact_id
+		_require_keys(config, ["intervalMinDays", "intervalMaxDays", "texts"], prefix, errors)
+		var min_days := int(config.get("intervalMinDays", 0))
+		var max_days := int(config.get("intervalMaxDays", 0))
+		if min_days < 1 or max_days < min_days:
+			errors.append("%s: need 1 <= intervalMinDays <= intervalMaxDays, got %d..%d" % [prefix, min_days, max_days])
+		var vein_source := str(config.get("veinSource", "player"))
+		if not CONTACT_TEXT_VEIN_SOURCES.has(vein_source):
+			errors.append("%s: veinSource '%s' not one of %s" % [prefix, vein_source, CONTACT_TEXT_VEIN_SOURCES])
+		_validate_contact_text_reward(config.get("correctReward", {}), recipes, prefix + ".correctReward", errors)
+		var seen := {}
+		for entry in config.get("texts", []):
+			var id := str(entry.get("id", ""))
+			var path := "%s.%s" % [prefix, id]
+			if id == "" or seen.has(id):
+				errors.append("%s: missing or duplicate id '%s'" % [prefix, id])
+			seen[id] = true
+			var kind := str(entry.get("kind", ""))
+			if not CONTACT_TEXT_KINDS.has(kind):
+				errors.append("%s: kind '%s' not one of %s" % [path, kind, CONTACT_TEXT_KINDS])
+			var strings: Array = [entry.get("text")]
+			var replies: Array = entry.get("replies", [])
+			if replies.size() < 2 or replies.size() > 3:
+				errors.append("%s: needs 2-3 replies, got %d" % [path, replies.size()])
+			var correct_count := 0
+			for reply in replies:
+				strings.append(reply.get("text"))
+				strings.append(reply.get("response"))
+				if reply.get("correct", false):
+					correct_count += 1
+				_validate_contact_text_reward(reply.get("reward", {}), recipes, path + ".reward", errors)
+			var expected_correct := 1 if kind == "question" else 0
+			if correct_count != expected_correct:
+				errors.append("%s: a %s needs exactly %d correct reply, got %d" % [path, kind, expected_correct, correct_count])
+			var needs_vein: bool = entry.get("needsVein", false)
+			for text in strings:
+				if typeof(text) != TYPE_STRING or text == "":
+					errors.append("%s: text, reply text and response must be non-empty strings" % path)
+					continue
+				for placeholder in CONTACT_TEXT_VEIN_PLACEHOLDERS:
+					if not needs_vein and text.contains(placeholder):
+						errors.append("%s: %s needs needsVein true" % [path, placeholder])
+
+
+# reward keys: xp { skill, amount > 0 }, relation int, cash int > 0,
+# item { id: a recipe key, qty > 0 }.
+func _validate_contact_text_reward(reward: Dictionary, recipes: Dictionary, path: String, errors: Array[String]) -> void:
+	for key in reward:
+		if not CONTACT_TEXT_REWARD_KEYS.has(key):
+			errors.append("%s: unknown reward '%s'" % [path, key])
+	if reward.has("xp"):
+		var xp: Dictionary = reward["xp"]
+		if not CONTACT_TEXT_XP_SKILLS.has(str(xp.get("skill", ""))) or int(xp.get("amount", 0)) <= 0:
+			errors.append("%s: xp needs a skill in %s and amount > 0" % [path, CONTACT_TEXT_XP_SKILLS])
+	if reward.has("cash") and int(reward["cash"]) <= 0:
+		errors.append("%s: cash must be > 0" % path)
+	if reward.has("item"):
+		var item: Dictionary = reward["item"]
+		if not recipes.has(str(item.get("id", ""))) or int(item.get("qty", 0)) <= 0:
+			errors.append("%s: item needs a recipe id and qty > 0" % path)
 
 
 const VALID_CARD_TYPES: Array[String] = ["narration", "speaker", "tension", "resolution", "craft", "choice"]

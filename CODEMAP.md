@@ -37,6 +37,7 @@ Data file per system: see `data/*.json` below.
 | combat_prototype.gd | Bounded combat experiment, Debug-app |
 | consumables.gd | Healing Salve (out-of-combat) + Healing Burst (in or out); in-combat use_healing_burst() resolves the parked player turn-cursor entry (R§3.7a) and heals an ally target instead of the player (R§3.7) |
 | contacts.gd | Relation, recruiting (incl. story `force_recruit`), room assignment, founder staff roles (`set_role`/`role_of`/`available_roles`), capped XP, ally combat kit + per-day ally Dial charges (`daily_dial_regen()`), display names, directory order |
+| contact_texts.gd | Contacts' random texts, per contact from data/contact_texts.json: rollover scheduler (gate flag/unlocked, interval, optional pause while not working), unplayed-then-LRU pick, vein templating (own cultivator list or player veins), replies granting xp/relation/cash/item rewards; each sent text pushes a contact-tagged ticker notification |
 | contracts.gd | Block-end Sales auto-delivery (full, then partials by priority; goods to buyer holdings + supplier share), settlement to pot; recurring periods pay on fill, lock (`periodFilled`) until Monday renewal, expire at term end; per-contract `buyCalc` calc buys from the pot; unattended-proof taint (`playerAssisted`) and `qualified` settlements; `cancel()` (unpaid, hurts counterparty) |
 | crafting.gd | Recipe crafting |
 | cultivating.gd | Vein growth / cultivate / prune; security tiers (lock/ward prices, guard tiers hired via GuardUpkeep) + raid resist; shared vein `value_order`; vein guard count + `drop_vein_guard` |
@@ -79,7 +80,6 @@ Data file per system: see `data/*.json` below.
 | notify.gd | Notifications append/evict; per-contact dismiss via contactId meta |
 | objectives.gd | Objective/questline evaluator; all_of live-condition, template_periods_completed (Beat 6) and recurring_proof (Beat 7) objectives + their ToDo checklist rows |
 | offers.gd | Sales offers: quoting (price fixed at issue), counterparty faction pick (authored / identity-weighted / Collective-Firm fit), acceptance (quote → contract `signedQuote`, recurring term), renewal offers, random-only pending cap, poach match/lapse, 2-day expiry |
-| owen_texts.gd | Owen's random texts: rollover scheduler (2-3 day interval, paused while he isn't working), unplayed-then-LRU pick, vein templating from his cultivator list, reply choices granting cultivating XP on a correct answer; each sent text pushes a contact-tagged ticker notification |
 | payroll.gd | Monday weekly wage payment for room-staffed hires (founders exempt), first part-week prorated at next Monday; `is_working()` gate for staff actions (false while unpaid this week or the business owes wages) |
 | phone_apps.gd | Phone main-grid roster/order/labels + badge-config projection |
 | phone_nav.gd | Phone app/index/thread drill-down nav; BizBrief short-pay and Guard Costs sub-view deep links |
@@ -242,6 +242,7 @@ overlays.
 | collective_barks.json | collective.gd |
 | combat_prototype.json | combat_prototype.gd |
 | combat_visuals.json | combat_stage.gd (locationBackdrops, backdrops, pose sheets, stage.spriteScale); GameData.gd (territorialVariant pose spec); combat_director.gd (pacing.turnPause); turn_order_strip.gd (cardFrames) |
+| contact_texts.json | contact_texts.gd (per-contact gate, interval, vein source, rewards, text pool) |
 | constants.json | calendar.gd (calendar), time_system.gd, jobs.gd, GameState.gd, contacts.gd (roster, roleFlags, skillCaps), business.gd (weekly wages), rooms.gd (productionLogDays), business_stats.gd (businessStatsDays), shares.gd (sharesDays, sharesWindowDays), GUARD_UPKEEP (guardUpkeep), guard_kit.gd (GUARD_KIT) |
 | constants.json (faction politics) | factions.gd (factionRivalry), faction_sim.gd (factionFloor), faction_ai.gd (factionStances, factionPressure, factionEscalation, factionWar, factionConclave), intel.gd (intel), raiding.gd (stockpileRaid), network_handler.gd (networkMenu), diplomacy.gd (factionFavours, factionGifts), partners.gd (partners), barometer.gd (factionEscalation.headlineCap) |
 | daily_cycle.json | time_transition.gd (circle layout, sky clips, colours, timing) |
@@ -260,7 +261,6 @@ overlays.
 | objectives.json | objectives.gd, todo.gd, collective.gd, business_quest.gd |
 | offers.json | offers.gd (synthetic catalogue, scripted counterparties, offer expiry days, recurring term weeks, random-offer daily chance curve + qty bands, small-offer threshold, cancel relation hit), business_quest.gd (biz_starter_* chain + Archie nudge text, biz_recurring_* from Beat 3/6) |
 | ore_types.json | widely read (economy, cultivating, sites, factions) |
-| owen_texts.json | owen_texts.gd (text pool, reply options, interval days) |
 | palette.json | GameData.gd (reference combat-art palette) |
 | phone_home.json | GameData.gd + phone_device_shell.gd (fixed wallpaper/status/widget presentation; no GameState or host-service data) |
 | recipes.json | widely read (crafting, bench, combat, dial, jobs, rooms) |
