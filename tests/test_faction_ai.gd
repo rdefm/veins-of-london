@@ -567,6 +567,27 @@ func run() -> void:
 		assert_true(_firm_sold("life"), "selling again once it lapses")
 	)
 
+	# §Floor: a broke faction's menu is filtered to moves it can afford.
+	run_case("a_broke_faction_picks_only_affordable_moves", func():
+		for broke in [false, true]:
+			_market_fresh(5)
+			Shares.record_ore("player", "time", 100)
+			Shares.record_craft("player", { "life": 50 })
+			_move_ready("firm", -10)
+			_holdings("firm")["time"] = 200
+			_holdings("firm")["life"] = 5000
+			if broke:
+				GameState.state["factions"]["firm"]["resources"] = 0
+			FactionAI.apply_escalation()
+			var moves := FactionAI.moves_against_player()
+			assert_eq(moves.size(), 1, "one move (broke=%s)" % broke)
+			if broke:
+				assert_eq(moves[0]["move"], FactionAI.MOVE_FLOOD, "broke: the free flood, not the costlier withhold")
+				assert_true(int(GameState.state["factions"]["firm"]["resources"]) >= 0, "never overspends")
+			else:
+				assert_eq(moves[0]["move"], FactionAI.MOVE_WITHHOLD, "funded: withhold does the most damage")
+	)
+
 	run_case("outbid_claims_a_site_the_player_found_and_tells_the_player", func():
 		_market_fresh(5)
 		var site := Fixtures.site("site_found", "life", "rich")

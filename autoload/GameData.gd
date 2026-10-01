@@ -208,6 +208,9 @@ var FACTION_PRESSURE: Dictionary = {}
 # R§3.1 "Escalation".
 var FACTION_ESCALATION: Dictionary = {}
 
+# Weakness threshold and last-resort production bonus, R§1.8 "Weakening floor".
+var FACTION_FLOOR: Dictionary = {}
+
 # War window, weariness weights/decay, player nag thresholds and prose,
 # R§3.1 "War and weariness".
 var FACTION_WAR: Dictionary = {}
@@ -411,6 +414,7 @@ const MANIFEST: Array[Dictionary] = [
 		{"field": "FACTION_STANCES", "key": "factionStances", "type": TYPE_DICTIONARY},
 		{"field": "FACTION_PRESSURE", "key": "factionPressure", "type": TYPE_DICTIONARY},
 		{"field": "FACTION_ESCALATION", "key": "factionEscalation", "type": TYPE_DICTIONARY},
+		{"field": "FACTION_FLOOR", "key": "factionFloor", "type": TYPE_DICTIONARY},
 		{"field": "FACTION_WAR", "key": "factionWar", "type": TYPE_DICTIONARY},
 		{"field": "FACTION_CONCLAVE", "key": "factionConclave", "type": TYPE_DICTIONARY},
 		{"field": "INTEL", "key": "intel", "type": TYPE_DICTIONARY},

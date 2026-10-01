@@ -49,6 +49,7 @@ func run() -> void:
 		GameState.reset()
 		var vein := _vein("s1", "collective", "life", 90)
 		_seed_veins([vein])
+		GameState.state["factions"]["collective"]["resources"] = GameData.FACTION_FLOOR["weakCashBelow"]  # not weak: no floor bonus
 		# Collective: cultivateSkill 4, pruneDepthMult 2 -> depth 26 (floor 51 not reached).
 		var depth: int = Cultivating.cultivate_max_gain(4) * 2
 		var expected: int = Cultivating.prune_yield(vein, depth)
@@ -607,6 +608,59 @@ func run() -> void:
 		GameState.state["factionEscalation"]["withholds"].append({ "factionId": "firm", "targetId": "player", "kind": "ore", "good": "time", "untilDay": GameState.state["world"]["day"] + 5 })
 		assert_eq(FactionSim.reserve("firm", "ore", "time"), 300, "everything held is kept back")
 	)
+
+	# ── Weakening floor (spec §Floor) ──
+	run_case("weak_means_few_veins_and_little_cash", func():
+		GameState.reset()
+		var cash_below: int = GameData.FACTION_FLOOR["weakCashBelow"]
+		var max_veins: int = GameData.FACTION_FLOOR["weakMaxVeins"]
+		var veins: Array = []
+		for i in max_veins:
+			veins.append(_vein("s%d" % i, "collective", "life", 60))
+		_seed_veins(veins)
+		GameState.state["factions"]["collective"]["resources"] = cash_below - 1
+		assert_true(FactionSim.is_weak("collective"), "%d veins and under the cash line" % max_veins)
+		GameState.state["factions"]["collective"]["resources"] = cash_below
+		assert_true(not FactionSim.is_weak("collective"), "at the cash line: not weak")
+		GameState.state["factions"]["collective"]["resources"] = 0
+		veins.append(_vein("sx", "collective", "life", 60))
+		_seed_veins(veins)
+		assert_true(not FactionSim.is_weak("collective"), "one vein over the line: not weak")
+	)
+
+	run_case("under_the_weakness_threshold_prunes_and_crafts_get_the_bonus", func():
+		var yields := {}
+		for weak in [false, true]:
+			GameState.reset()
+			_seed_veins([_vein("s1", "collective", "life", 90)])
+			GameState.state["factions"]["collective"]["resources"] = 0 if weak else GameData.FACTION_FLOOR["weakCashBelow"]
+			assert_eq(FactionSim.is_weak("collective"), weak)
+			var before: int = FactionSim.ore_held("collective", "life")
+			FactionSim.tend_and_prune()
+			yields[weak] = FactionSim.ore_held("collective", "life") - before
+			var base_chance := Crafting.faction_craft_chance("healingSalve", int(GameData.FACTIONS["collective"]["craftSkill"]))
+			var bonus: float = GameData.FACTION_FLOOR["craftChanceBonus"] if weak else 0.0
+			assert_almost_eq(FactionSim.craft_chance("collective", "healingSalve"), minf(1.0, base_chance + bonus), 0.0001, "craft chance (weak=%s)" % weak)
+		assert_eq(yields[true], roundi(yields[false] * float(GameData.FACTION_FLOOR["pruneYieldMult"])), "weak prune yields × pruneYieldMult")
+		assert_true(yields[true] > yields[false])
+	)
+
+	run_case("rollover_a_faction_with_no_veins_and_no_cash_still_claims_a_site", func():
+		var seed := SeedSearch.find_seed_for(200, func():
+			_zero_vein_guild_beside_a_site()
+			TimeSystem.daily_tick()
+			var claimed: Variant = Sites.find_site("s_new")
+			return claimed != null and claimed["factionVein"] != null and claimed["factionVein"]["factionId"] == "guild"
+		)
+		assert_true(seed != -1, "a zero-vein, broke Guild claims within 200 seeds")
+	)
+
+
+static func _zero_vein_guild_beside_a_site() -> void:
+	GameState.reset()
+	GameState.state["world"]["sites"] = [Fixtures.site("s_new", "time", "rich", false, null, "greenwich")]
+	GameState.state["world"]["day"] = 10
+	GameState.state["factions"]["guild"]["resources"] = 0
 
 
 # The Firm under pressure on the player, warned, holding 200 time ore the

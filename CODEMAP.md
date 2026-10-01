@@ -52,7 +52,7 @@ Data file per system: see `data/*.json` below.
 | equipment.gd | Weapon equip/unequip |
 | event_items.gd | Registry of items usable from an event's Item button (Rewind consumable + Dial Rewind): eligibility, counts, effect |
 | events.gd | Event-card runner + rewind, auto-discovers art |
-| faction_sim.gd | FactionSim: holdings (ore, items by tier); stockpile pick and guards; vein tend + prune, sparing one maturing vein (`fieldwork`); crafting toward targets; consumption + kit burns → shortfall; kit allocation, `vein_kit`, `raider_kit`; London trade vs reserve + smart boosts, Conclave arbitrage; flood/undercut/deny/stabilise/stock-up/position moves; raid harvest |
+| faction_sim.gd | FactionSim: holdings (ore, items by tier); stockpile pick and guards; vein tend + prune, sparing one maturing vein (`fieldwork`); crafting toward targets; consumption + kit burns → shortfall; kit allocation, `vein_kit`, `raider_kit`; London trade vs reserve + smart boosts, Conclave arbitrage; flood/undercut/deny/stabilise/stock-up/position moves; raid harvest; is_weak bonus |
 | faction_ai.gd | FactionAI (R§3.1 stances through Conclave positions): stances, activity log; pressure drift, Collective–Firm hold; escalation moves (Network intel, stockpile raids, ore raid bias, shortfall steal); wars, weariness, nags; truces, peace scorer + talks, truce payments; Conclave stabiliser + stockpile; war squeeze; Conclave positions + Ticker push; move forecast |
 | intel.gd | Intel (R§3.1 "Intel"): observer → target intel meters for player and factions, level reads, scout/raid gains, daily decay, stockpile relocation cap; privacy/raid-warning/disinformation timers; intel's raid-odds shift and target scoring |
 | factions.gd | Faction joining |
@@ -243,7 +243,7 @@ overlays.
 | combat_prototype.json | combat_prototype.gd |
 | combat_visuals.json | combat_stage.gd (locationBackdrops, backdrops, pose sheets, stage.spriteScale); GameData.gd (territorialVariant pose spec); combat_director.gd (pacing.turnPause); turn_order_strip.gd (cardFrames) |
 | constants.json | calendar.gd (calendar), time_system.gd, jobs.gd, GameState.gd, contacts.gd (roster, roleFlags, skillCaps), business.gd (weekly wages), rooms.gd (productionLogDays), business_stats.gd (businessStatsDays), shares.gd (sharesDays, sharesWindowDays), GUARD_UPKEEP (guardUpkeep), guard_kit.gd (GUARD_KIT) |
-| constants.json (faction politics) | factions.gd (factionRivalry), faction_ai.gd (factionStances, factionPressure, factionEscalation, factionWar, factionConclave), intel.gd (intel), raiding.gd (stockpileRaid), network_handler.gd (networkMenu), diplomacy.gd (factionFavours, factionGifts), partners.gd (partners), barometer.gd (factionEscalation.headlineCap) |
+| constants.json (faction politics) | factions.gd (factionRivalry), faction_sim.gd (factionFloor), faction_ai.gd (factionStances, factionPressure, factionEscalation, factionWar, factionConclave), intel.gd (intel), raiding.gd (stockpileRaid), network_handler.gd (networkMenu), diplomacy.gd (factionFavours, factionGifts), partners.gd (partners), barometer.gd (factionEscalation.headlineCap) |
 | daily_cycle.json | time_transition.gd (circle layout, sky clips, colours, timing) |
 | dial.json | dial.gd |
 | districts.json | widely read (sites, economy, factions, raiding) |

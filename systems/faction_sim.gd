@@ -109,6 +109,16 @@ static func take_items(faction_id: String, recipe_key: String, qty: int) -> Arra
 	return taken
 
 
+# ── Weakening floor (spec biz-act2-rivalry-diplomacy §Floor) ─────────────
+# Severely weakened: at most factionFloor.weakMaxVeins veins AND resources
+# under weakCashBelow. While weak, its prunes yield × pruneYieldMult and its
+# craft chance gains craftChanceBonus (the last-resort production bonus).
+static func is_weak(faction_id: String) -> bool:
+	var cfg: Dictionary = GameData.FACTION_FLOOR
+	return Sites.sites_with_faction_vein(faction_id).size() <= int(cfg["weakMaxVeins"]) \
+		and int(GameState.state["factions"][faction_id]["resources"]) < int(cfg["weakCashBelow"])
+
+
 # ── Vein tending and pruning (spec §Vein tending and pruning) ────────────
 # Rollover step: each faction spends fieldwork.actionsPerBlock ×
 # BLOCKS_PER_DAY actions, at most one per vein. Tends go first, to veins
@@ -118,7 +128,8 @@ static func take_items(faction_id: String, recipe_key: String, qty: int) -> Arra
 # veins at factionPruneThreshold+, highest growth first -- except the
 # maturing_vein(), left to grow until it levels up -- cutting
 # cultivate_max_gain × pruneDepthMult but never below pruneFloor; the
-# player's prune yield lands in holdings and the faction's ore share.
+# player's prune yield (× pruneYieldMult while is_weak) lands in holdings
+# and the faction's ore share.
 static func tend_and_prune() -> void:
 	var veins_by_faction := {}
 	for site in GameState.state["world"]["sites"]:
@@ -154,6 +165,7 @@ static func _tend_and_prune_faction(faction_id: String, veins: Array) -> void:
 	var to_prune: Array = veins.filter(func(v): return not acted.has(v["id"]) and v["id"] != spared and v["growth"] >= GameData.VEIN_GROWTH["factionPruneThreshold"])
 	to_prune.sort_custom(func(a, b): return _growth_order(a, b, false))
 	var max_depth: int = Cultivating.cultivate_max_gain(skill) * int(fieldwork["pruneDepthMult"])
+	var yield_mult: float = float(GameData.FACTION_FLOOR["pruneYieldMult"]) if is_weak(faction_id) else 1.0
 	for vein in to_prune:
 		if budget <= 0:
 			return
@@ -161,7 +173,7 @@ static func _tend_and_prune_faction(faction_id: String, veins: Array) -> void:
 		if depth <= 0:
 			continue
 		budget -= 1
-		_prune(faction_id, vein, depth)
+		_prune(faction_id, vein, depth, yield_mult)
 
 
 # The one vein a faction leaves unpruned so it can grow past
@@ -191,8 +203,8 @@ static func _tend(vein: Dictionary, skill: int) -> void:
 	Cultivating.apply_growth_change(vein, growth_before)
 
 
-static func _prune(faction_id: String, vein: Dictionary, depth: int) -> void:
-	var amount: int = Cultivating.prune_yield(vein, depth)
+static func _prune(faction_id: String, vein: Dictionary, depth: int, yield_mult: float) -> void:
+	var amount: int = roundi(Cultivating.prune_yield(vein, depth) * yield_mult)
 	var growth_before: int = vein["growth"]
 	vein["growth"] = Cultivating.prune_resulting_growth(vein, depth)
 	vein["rampantDays"] = 0
@@ -234,16 +246,26 @@ static func craft() -> void:
 			_craft_toward_target(faction_id, recipe_key)
 
 
+# faction_craft_chance at craftSkill, plus factionFloor.craftChanceBonus
+# (capped at 1) while the faction is_weak().
+static func craft_chance(faction_id: String, recipe_key: String) -> float:
+	var chance := Crafting.faction_craft_chance(recipe_key, int(GameData.FACTIONS[faction_id]["craftSkill"]))
+	if is_weak(faction_id):
+		chance = minf(1.0, chance + float(GameData.FACTION_FLOOR["craftChanceBonus"]))
+	return chance
+
+
 static func _craft_toward_target(faction_id: String, recipe_key: String) -> void:
 	var skill: int = GameData.FACTIONS[faction_id]["craftSkill"]
 	var costs: Dictionary = Crafting.calc_cost(recipe_key, skill)
 	var gap: int = craft_target(faction_id, recipe_key) - item_held(faction_id, recipe_key)
+	var chance := craft_chance(faction_id, recipe_key)
 	for i in gap:
 		if not _can_cover(faction_id, costs):
 			return
 		for ore_type in costs:
 			take_ore(faction_id, ore_type, costs[ore_type])
-		if Rng.chance(Crafting.faction_craft_chance(recipe_key, skill)):
+		if Rng.chance(chance):
 			add_item(faction_id, recipe_key, skill, 1)
 			Shares.record_craft(faction_id, costs)
 

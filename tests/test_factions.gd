@@ -210,6 +210,21 @@ func _run_cases() -> void:
 		assert_true(after > before, "a faction with zero veins still earns passive income")
 	)
 
+	# §Floor: non-calc income is never reduced below its floor (industryIncome).
+	run_case("non_calc_income_never_drops_below_its_floor_however_weakened", func():
+		GameState.reset()
+		GameState.state["world"]["sites"] = []
+		for faction_id in GameData.FACTIONS.keys():
+			GameState.state["factions"][faction_id]["resources"] = 0
+		GameState.state["factionStances"]["pairs"][FactionAI.pair_key("collective", "firm")]["stance"] = FactionAI.HOSTILE
+		Factions.apply_passive_income()
+		for faction_id in GameData.FACTIONS.keys():
+			var floor_income := int(GameData.FACTIONS[faction_id]["industryIncome"])
+			assert_true(floor_income > 0, "%s has a non-calc income floor" % faction_id)
+			assert_eq(Factions.industry_income(faction_id), floor_income, "%s's income is its floor" % faction_id)
+			assert_eq(int(GameState.state["factions"][faction_id]["resources"]), floor_income, "%s: broke, veinless and hostile, still banks its floor" % faction_id)
+	)
+
 	# ── faction-resource-economy T04: dynamic-balance security roll + apply_security_upgrades ──
 
 	run_case("roll_security_tier_responds_to_current_balance_not_static_resourceLevel", func():

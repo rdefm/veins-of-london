@@ -163,10 +163,15 @@ static func weighted_pick_index(weights: Array[float]) -> int:
 
 # ── Daily passive industry income ───────────────────────────────────────
 # Non-calc income: each faction's factions.json `industryIncome` £/day, every
-# daily tick regardless of vein count (spec §Faction cash).
+# daily tick regardless of vein count, cash, war or weakness (spec §Faction
+# cash, §Floor). industryIncome is also its floor: nothing reduces it.
+static func industry_income(faction_id: String) -> int:
+	return int(GameData.FACTIONS[faction_id].get("industryIncome", 0))
+
+
 static func apply_passive_income() -> void:
 	for faction_id in GameState.state["factions"].keys():
-		GameState.state["factions"][faction_id]["resources"] += int(GameData.FACTIONS[faction_id].get("industryIncome", 0))
+		GameState.state["factions"][faction_id]["resources"] += industry_income(faction_id)
 
 
 # ── Daily security-upgrade spend ─────────────────────────────────────────

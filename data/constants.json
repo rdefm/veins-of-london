@@ -125,6 +125,7 @@
     "annoyedBelow": 20,
     "movingAgainstBelow": 0
   },
+  "factionFloor": { "weakMaxVeins": 1, "weakCashBelow": 1000, "pruneYieldMult": 1.5, "craftChanceBonus": 0.15 },
   "factionEscalation": {
     "warningBelow": 20,
     "marketBelow": 0,
