@@ -100,6 +100,23 @@ func _force_hakim_text(text_id: String) -> void:
 	assert_eq(ContactTexts.send_next("hakim"), text_id)
 
 
+func _meet_james() -> void:
+	GameState.reset()
+	GameState.state["flags"]["metJames"] = true
+	GameState.state["contactTexts"]["james"] = ContactTexts.new_contact_state()
+
+
+# Marks every other James text played so send_next() picks this one.
+func _force_james_text(text_id: String) -> void:
+	var played := {}
+	for entry in GameData.CONTACT_TEXTS["james"]["texts"]:
+		if entry["id"] != text_id:
+			played[entry["id"]] = 0
+	GameState.state["contactTexts"]["james"]["played"] = played
+	GameState.state["flags"]["bizA1OwenJoined"] = true
+	assert_eq(ContactTexts.send_next("james"), text_id)
+
+
 var _shipped_pool: Dictionary = {}
 
 
@@ -533,6 +550,86 @@ func run() -> void:
 			assert_eq(Intel.meter(Shares.PLAYER, pair[1]), before + 4, "%s: +4 intel on %s" % pair)
 	)
 
+	run_case("james_ships_12_texts_and_starts_once_met", func():
+		var counts := { "question": 0, "flavour": 0 }
+		for entry in GameData.CONTACT_TEXTS["james"]["texts"]:
+			counts[entry["kind"]] += 1
+		assert_eq(counts, { "question": 4, "flavour": 8 }, "James ships 4 questions and 8 flavour texts")
+
+		GameState.reset()
+		for day in range(1, 10):
+			_set_day(day)
+			ContactTexts.daily_tick()
+		assert_true(not GameState.state["contactTexts"].has("james"), "nothing before he's met")
+		_meet_james()
+		_set_day(10)
+		ContactTexts.daily_tick()
+		var next_day: int = GameState.state["contactTexts"]["james"]["nextDay"]
+		assert_true(next_day >= 15 and next_day <= 17, "first text 6-8 days after meeting, got %d" % next_day)
+		_set_day(next_day)
+		ContactTexts.daily_tick()
+		assert_true(ContactTexts.is_awaiting_reply("james"), "fires on the due day")
+	)
+
+	run_case("james_pauses_while_unavailable", func():
+		_meet_james()
+		GameState.state["contactTexts"]["james"]["nextDay"] = 5
+		GameState.state["business"]["wages"]["james"] = { "unpaid": true }
+		assert_true(not Payroll.is_working("james"), "sanity: unpaid James isn't working")
+		_set_day(5)
+		ContactTexts.daily_tick()
+		assert_true(not ContactTexts.is_awaiting_reply("james"), "no text while unpaid")
+		assert_eq(GameState.state["contactTexts"]["james"]["nextDay"], 6, "due day pushed back")
+		GameState.state["business"]["wages"].erase("james")
+		Messages.queue_pending("james", "biz_a1_owen", "Come by.")
+		_set_day(6)
+		ContactTexts.daily_tick()
+		assert_true(not ContactTexts.is_awaiting_reply("james"), "held behind his open quest text")
+		Messages.resolve_pending(Messages.pending_for("james")[0]["id"])
+		_set_day(7)
+		ContactTexts.daily_tick()
+		assert_true(ContactTexts.is_awaiting_reply("james"), "fires once he's free")
+	)
+
+	run_case("james_owen_text_waits_for_owen", func():
+		_meet_james()
+		var sent := {}
+		for i in range(GameData.CONTACT_TEXTS["james"]["texts"].size()):
+			sent[ContactTexts.send_next("james")] = true
+			ContactTexts.reply("james", 0)
+		assert_true(not sent.has("owen_tea"), "not before Owen joins")
+		_force_james_text("owen_tea")
+	)
+
+	run_case("james_reply_rewards", func():
+		_meet_james()
+		var player: Dictionary = GameState.state["player"]
+		var james: Dictionary = GameState.state["contacts"]["james"]
+		var xp: int = player["craftingXP"]
+		var relation: int = james["relation"]
+		_force_james_text("pearl_quality")
+		assert_true(ContactTexts.reply("james", 0)["correct"], "clean compression is right")
+		assert_eq(player["craftingXP"], xp + 10, "right answer: +10 player crafting XP")
+		assert_eq(james["relation"], relation, "right answer: no relation")
+		_force_james_text("which_dialogue")
+		assert_true(not ContactTexts.reply("james", 1)["correct"])
+		assert_eq(player["craftingXP"], xp + 10, "wrong answer: nothing")
+		_force_james_text("archie_hug")
+		ContactTexts.reply("james", 1)
+		assert_eq(james["relation"], relation + 1, "hug: +1 relation")
+		var pearls := Crafting.inventory_qty("timePearl")
+		_force_james_text("spare_pearl")
+		ContactTexts.reply("james", 1)
+		assert_eq(Crafting.inventory_qty("timePearl"), pearls + 1, "spare pearl: +1 time pearl")
+		var cash: int = player["cash"]
+		_force_james_text("rude_letter")
+		ContactTexts.reply("james", 1)
+		assert_eq(player["cash"], cash, "very rude: no fee")
+		_force_james_text("rude_letter")
+		ContactTexts.reply("james", 0)
+		assert_eq(player["cash"], cash + 20, "fine, just: £20")
+	)
+
 	run_case("validator_rejects_a_malformed_pool", func():
 		var bad := TEST_POOL.duplicate(true)
 		bad["texts"][0]["replies"][1]["correct"] = true
@@ -541,7 +638,7 @@ func run() -> void:
 		bad["texts"].append(bad["texts"][1].duplicate(true))
 		bad["veinSource"] = "moon"
 		bad["correctReward"] = { "xp": { "skill": "juggling", "amount": 1 }, "luck": 1 }
-		bad["texts"][0]["replies"][0]["reward"] = { "item": { "id": "nope", "qty": 1 }, "cash": 0, "intel": { "target": "moon", "amount": 4 } }
+		bad["texts"][0]["replies"][0]["reward"] = { "item": { "id": "nope", "qty": 1 }, "cash": 0, "intel": { "target": "moon", "amount": 4 }, "craftingXp": 0 }
 		var t := GameData.snapshot()
 		t["contact_texts"] = { "owen": bad }
 		var errors := GameData.validate_tables(t).filter(func(e): return e.begins_with("contact_texts"))
@@ -557,4 +654,5 @@ func run() -> void:
 		assert_true(joined.contains("item needs a recipe id"), "unknown item rejected")
 		assert_true(joined.contains("cash must be > 0"), "zero cash rejected")
 		assert_true(joined.contains("intel needs a faction target"), "unknown intel target rejected")
+		assert_true(joined.contains("craftingXp must be > 0"), "zero crafting XP rejected")
 	)

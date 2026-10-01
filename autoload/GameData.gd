@@ -1363,7 +1363,7 @@ func _validate_collective_barks(barks: Dictionary, errors: Array[String]) -> voi
 const CONTACT_TEXT_KINDS: Array[String] = ["question", "flavour"]
 const CONTACT_TEXT_VEIN_PLACEHOLDERS: Array[String] = ["{street}", "{district}", "{ore}"]
 const CONTACT_TEXT_XP_SKILLS: Array[String] = ["cultivating", "crafting", "sales"]
-const CONTACT_TEXT_REWARD_KEYS: Array[String] = ["xp", "relation", "cash", "item", "intel"]
+const CONTACT_TEXT_REWARD_KEYS: Array[String] = ["xp", "relation", "cash", "item", "intel", "craftingXp"]
 const CONTACT_TEXT_VEIN_SOURCES: Array[String] = ["cultivator", "player"]
 
 
@@ -1419,7 +1419,7 @@ func _validate_contact_texts(contact_texts: Dictionary, recipes: Dictionary, fac
 
 # reward keys: xp { skill, amount > 0 }, relation int, cash int > 0,
 # item { id: a recipe key, qty > 0 }, intel { target: a faction id,
-# amount > 0 }.
+# amount > 0 }, craftingXp int > 0.
 func _validate_contact_text_reward(reward: Dictionary, recipes: Dictionary, factions: Dictionary, path: String, errors: Array[String]) -> void:
 	for key in reward:
 		if not CONTACT_TEXT_REWARD_KEYS.has(key):
@@ -1430,6 +1430,8 @@ func _validate_contact_text_reward(reward: Dictionary, recipes: Dictionary, fact
 			errors.append("%s: xp needs a skill in %s and amount > 0" % [path, CONTACT_TEXT_XP_SKILLS])
 	if reward.has("cash") and int(reward["cash"]) <= 0:
 		errors.append("%s: cash must be > 0" % path)
+	if reward.has("craftingXp") and int(reward["craftingXp"]) <= 0:
+		errors.append("%s: craftingXp must be > 0" % path)
 	if reward.has("item"):
 		var item: Dictionary = reward["item"]
 		if not recipes.has(str(item.get("id", ""))) or int(item.get("qty", 0)) <= 0:

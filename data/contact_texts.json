@@ -439,5 +439,140 @@
         ]
       }
     ]
+  },
+  "james": {
+    "gateFlag": "metJames",
+    "pauseWhenNotWorking": true,
+    "holdWhilePending": true,
+    "correctReward": { "craftingXp": 10 },
+    "intervalMinDays": 6,
+    "intervalMaxDays": 8,
+    "texts": [
+      {
+        "id": "pearl_quality",
+        "kind": "question",
+        "needsVein": false,
+        "text": "Question. What decides the quality of a pearl? Think before you answer. It will be a novel experience.",
+        "replies": [
+          { "text": "How cleanly it's compressed.", "correct": true, "response": "Correct. Patience, not luck. Write it down somewhere you'll see it." },
+          { "text": "The quality of the calc.", "correct": false, "response": "The calc is the calc. You are the variable. You are usually the variable." },
+          { "text": "How fast you work.", "correct": false, "response": "In the sense that fast makes it worse, yes. I assume that isn't what you meant." }
+        ]
+      },
+      {
+        "id": "which_dialogue",
+        "kind": "question",
+        "needsVein": false,
+        "text": "Which of Plato's dialogues mentions orichalchum? I am measuring how much you retain.",
+        "replies": [
+          { "text": "The Critias.", "correct": true, "response": "Retained. I'm almost moved. Almost." },
+          { "text": "The Republic.", "correct": false, "response": "The Republic is about justice. You would know that if you had read the Republic." },
+          { "text": "The Odyssey.", "correct": false, "response": "That isn't Plato. That isn't even the right century." }
+        ]
+      },
+      {
+        "id": "first_metal",
+        "kind": "question",
+        "needsVein": false,
+        "text": "In Atlantis, orichalchum was the second most precious metal. Name the first.",
+        "replies": [
+          { "text": "Gold.", "correct": true, "response": "Gold. Unimaginative of them, but accurate." },
+          { "text": "Silver.", "correct": false, "response": "Silver came after both. Plato was quite clear. Unlike you." },
+          { "text": "Orichalchum was first.", "correct": false, "response": "Loyalty to the product. Touching. Also wrong." }
+        ]
+      },
+      {
+        "id": "powder_ore",
+        "kind": "question",
+        "needsVein": false,
+        "text": "Enhancement powder. Which calc goes in? This is the easy one. I chose it deliberately.",
+        "replies": [
+          { "text": "Life.", "correct": true, "response": "Good. I had a speech prepared. I'll keep it for next time." },
+          { "text": "Time.", "correct": false, "response": "Time goes in pearls. You have made pearls. With your hands. In front of me." },
+          { "text": "Physics.", "correct": false, "response": "No. There is a label on the jar. I wrote it myself, in capitals." }
+        ]
+      },
+      {
+        "id": "brave_cardigan",
+        "kind": "flavour",
+        "needsVein": false,
+        "text": "A woman on the bus told me my cardigan was 'brave'. I have worn it for thirty-one years. Nobody has ever called it brave.",
+        "replies": [
+          { "text": "It is brave.", "correct": false, "response": "It is wool. Wool cannot be brave. I am keeping it." },
+          { "text": "She's wrong.", "correct": false, "response": "Thank you. She was also eating an egg on a bus, so I don't know why I listened.", "reward": { "relation": 1 } }
+        ]
+      },
+      {
+        "id": "bent_glasses",
+        "kind": "flavour",
+        "needsVein": false,
+        "text": "An optician offered to straighten my glasses today. Free of charge. I left.",
+        "replies": [
+          { "text": "Why?", "correct": false, "response": "I can see perfectly well through them. And she said 'bless' when she saw the arm." },
+          { "text": "Fair enough.", "correct": false, "response": "Thank you. Nobody ever says fair enough. They say 'James'.", "reward": { "relation": 1 } }
+        ]
+      },
+      {
+        "id": "misspelled_client",
+        "kind": "flavour",
+        "needsVein": false,
+        "text": "A client wrote 'oricalcum' in an email. Twice. I have charged him extra.",
+        "replies": [
+          { "text": "Is that allowed?", "correct": false, "response": "It's my business. Pedantry is a line item." },
+          { "text": "Good.", "correct": false, "response": "Yes. I thought you might understand. I told Archie. He asked what pedantry was.", "reward": { "relation": 1 } }
+        ]
+      },
+      {
+        "id": "spare_pearl",
+        "kind": "flavour",
+        "needsVein": false,
+        "text": "I made one pearl more than the order needed. Within tolerance. Barely. It's with your things, provided you don't say thank you.",
+        "replies": [
+          { "text": "Thank you.", "correct": false, "response": "There it is. Couldn't help yourself.", "reward": { "item": { "id": "timePearl", "qty": 1 } } },
+          { "text": "Fine.", "correct": false, "response": "Good. That's the correct response.", "reward": { "item": { "id": "timePearl", "qty": 1 } } }
+        ]
+      },
+      {
+        "id": "rude_letter",
+        "kind": "flavour",
+        "needsVein": false,
+        "text": "Sending you a letter to a client. Tell me if it's rude. It's meant to be. I need to know it isn't rude enough to lose him.",
+        "replies": [
+          { "text": "It's fine. Just.", "correct": false, "response": "Just is the target. Twenty pounds for your time. Don't spend it on anything I'd see.", "reward": { "cash": 20 } },
+          { "text": "It's very rude.", "correct": false, "response": "Then I've overdone it. I'll remove a semicolon." }
+        ]
+      },
+      {
+        "id": "archie_hug",
+        "kind": "flavour",
+        "needsVein": false,
+        "text": "Archie hugged me. In public. A football result. I would like it noted that I did not consent.",
+        "replies": [
+          { "text": "Noted.", "correct": false, "response": "Thank you. I have also noted it." },
+          { "text": "Did you hug him back?", "correct": false, "response": "I patted him. On the shoulder. Twice. Don't tell him I counted.", "reward": { "relation": 1 } }
+        ]
+      },
+      {
+        "id": "owen_tea",
+        "kind": "flavour",
+        "needsVein": false,
+        "requireFlag": "bizA1OwenJoined",
+        "text": "Owen brought me a tea without being asked. Correct milk. I never told him. I'm unsettled.",
+        "replies": [
+          { "text": "He's observant.", "correct": false, "response": "He is. That's why I took him on. I didn't expect it to be used against me.", "reward": { "relation": 1 } },
+          { "text": "Drink the tea.", "correct": false, "response": "I drank the tea. That isn't the point." }
+        ]
+      },
+      {
+        "id": "unfinished_critias",
+        "kind": "flavour",
+        "needsVein": false,
+        "text": "Couldn't sleep, so I reread the Critias. It stops mid-sentence. Plato simply stopped. Two and a half thousand years and nobody has finished it.",
+        "replies": [
+          { "text": "Finish it yourself.", "correct": false, "response": "Don't be absurd. I've drafted four pages.", "reward": { "relation": 1 } },
+          { "text": "Maybe that's the point.", "correct": false, "response": "It isn't. He got bored, or he died. Neither is a point." }
+        ]
+      }
+    ]
   }
 }
