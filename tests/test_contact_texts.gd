@@ -369,17 +369,6 @@ func run() -> void:
 		assert_eq(_archie_random_texts().size(), 1, "fires on the due day")
 	)
 
-	run_case("archie_pauses_while_unpaid", func():
-		_meet_archie()
-		GameState.state["contactTexts"]["archie"]["nextDay"] = 5
-		GameState.state["business"]["wages"]["archie"] = { "unpaid": true, "owed": 0 }
-		for day in range(5, 8):
-			_set_day(day)
-			ContactTexts.daily_tick()
-		assert_eq(_archie_random_texts().size(), 0, "no texts while he's owed")
-		assert_eq(GameState.state["contactTexts"]["archie"]["nextDay"], 8, "due day pushed back one per paused day")
-	)
-
 	run_case("archie_holds_his_text_while_a_deal_or_pending_message_is_open", func():
 		_meet_archie()
 		GameState.state["contactTexts"]["archie"]["nextDay"] = 5

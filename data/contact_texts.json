@@ -176,7 +176,6 @@
   },
   "archie": {
     "gateFlag": "metArchie",
-    "pauseWhenNotWorking": true,
     "holdFlag": "archieDealActive",
     "holdWhilePending": true,
     "correctReward": { "relation": 1 },
