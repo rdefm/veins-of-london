@@ -133,7 +133,8 @@ static func reply(contact_id: String, index: int) -> Dictionary:
 
 
 # reward: { xp?: { skill, amount }, relation?: int, cash?: int,
-# item?: { id, qty } } -- every key optional.
+# item?: { id, qty }, intel?: { target, amount } } -- every key optional;
+# intel raises the player's meter on that faction.
 static func _grant(contact_id: String, reward: Dictionary) -> void:
 	if reward.has("xp"):
 		Contacts.award_contact_xp(contact_id, String(reward["xp"]["skill"]), int(reward["xp"]["amount"]))
@@ -144,6 +145,8 @@ static func _grant(contact_id: String, reward: Dictionary) -> void:
 	if reward.has("item"):
 		# Gifted items aren't crafted at any tier -- the untiered "0" bucket.
 		Crafting.inventory_add(String(reward["item"]["id"]), 0, int(reward["item"]["qty"]))
+	if reward.has("intel"):
+		Intel.raise(Shares.PLAYER, String(reward["intel"]["target"]), int(reward["intel"]["amount"]))
 
 
 # The contact's state entry, created on first use.

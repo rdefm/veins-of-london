@@ -307,5 +307,137 @@
         ]
       }
     ]
+  },
+  "hakim": {
+    "gateFlag": "colA1HakimMet",
+    "holdWhilePending": true,
+    "correctReward": { "relation": 1 },
+    "intervalMinDays": 5,
+    "intervalMaxDays": 7,
+    "texts": [
+      {
+        "id": "rent_homework",
+        "kind": "question",
+        "needsVein": false,
+        "text": "Homework question. Papers are 90p, rent's £400 a week. How many papers a day to cover it? It's for the homework.",
+        "replies": [
+          { "text": "About 64 a day.", "correct": true, "response": "That's what I got. I was hoping one of us was wrong." },
+          { "text": "Forty's plenty.", "correct": false, "response": "It isn't. I checked. Twice." },
+          { "text": "Sell crisps as well.", "correct": false, "response": "I do sell crisps. That's not what the homework asked." }
+        ]
+      },
+      {
+        "id": "thinking_about_it",
+        "kind": "question",
+        "needsVein": false,
+        "text": "Rep wants me to stock a new crisp. Prawn cocktail and lime. I said I'd think about it. Do I have to actually think about it?",
+        "replies": [
+          { "text": "No. That's what it means.", "correct": true, "response": "Oh, good. I'd been thinking about it." },
+          { "text": "Yes. You promised.", "correct": false, "response": "I didn't promise. I said it. Is that the same? Now I'm thinking about that." }
+        ]
+      },
+      {
+        "id": "lottery_numbers",
+        "kind": "flavour",
+        "needsVein": false,
+        "text": "A woman's bought the same lottery numbers off me every Saturday for nine years. Today she changed one. I don't know who to tell.",
+        "replies": [
+          { "text": "Ask her why.", "correct": false, "response": "I can't ask her why. It's her business. I'll just worry." },
+          { "text": "You've told me.", "correct": false, "response": "I have. Sorry. Thank you. I feel a bit better.", "reward": { "relation": 1 } }
+        ]
+      },
+      {
+        "id": "suits_and_gum",
+        "kind": "flavour",
+        "needsVein": false,
+        "text": "Two men in suits bought chewing gum and talked about a lock-up by the canal like I wasn't there. People do that. I'm the till.",
+        "replies": [
+          { "text": "What else did they say?", "correct": false, "response": "Something about Thursdays and not enough men. I wrote it on a crisp box. Sending a photo.", "reward": { "intel": { "target": "firm", "amount": 4 } } },
+          { "text": "Stay out of it.", "correct": false, "response": "I am out of it. I'm the till." }
+        ]
+      },
+      {
+        "id": "guild_suppliers",
+        "kind": "flavour",
+        "needsVein": false,
+        "text": "Man from the Guild came in for a paper and complained about his suppliers for ten minutes. I nodded. I know a lot about his suppliers now.",
+        "replies": [
+          { "text": "Go on then.", "correct": false, "response": "Two of them are the same man with different invoices. That's all. Sorry it's not more.", "reward": { "intel": { "target": "guild", "amount": 4 } } },
+          { "text": "You're wasted on that till.", "correct": false, "response": "I'm not. The till's exactly my size." }
+        ]
+      },
+      {
+        "id": "clock_magazine",
+        "kind": "flavour",
+        "needsVein": false,
+        "text": "Someone from the Conclave takes The Times and a magazine about clocks. Paid for the year up front. Cash. Exact change.",
+        "replies": [
+          { "text": "Where's it delivered?", "correct": false, "response": "I shouldn't tell you. It's on the label. I'm sending you the label.", "reward": { "intel": { "target": "conclave", "amount": 4 } } },
+          { "text": "Sounds like them.", "correct": false, "response": "Probably. I still counted it twice." }
+        ]
+      },
+      {
+        "id": "uncles_notebook",
+        "kind": "flavour",
+        "needsVein": false,
+        "text": "Found my uncle's notebook for the yard. Same thing every day: 'Watered. Spoke to it.' He never wrote down what he said.",
+        "replies": [
+          { "text": "Probably just hello.", "correct": false, "response": "Probably. I tried hello. Felt stupid. Did it again the next day.", "reward": { "relation": 1 } },
+          { "text": "Ask the vein.", "correct": false, "response": "I'm not asking the vein. It's never liked me." }
+        ]
+      },
+      {
+        "id": "too_many_teabags",
+        "kind": "flavour",
+        "needsVein": false,
+        "text": "Kettle's on if you're passing. No reason. I've just got too many teabags.",
+        "replies": [
+          { "text": "Be there in ten.", "correct": false, "response": "Okay. I'll get the good biscuits out. Not the very good ones.", "reward": { "relation": 2 } },
+          { "text": "Can't today.", "correct": false, "response": "That's fine. They don't go off. Well, they do. Not soon." }
+        ]
+      },
+      {
+        "id": "card_machine",
+        "kind": "flavour",
+        "needsVein": false,
+        "text": "Card machine's down. Put up a sign saying CASH ONLY SORRY. Then felt bad and added another sorry.",
+        "replies": [
+          { "text": "How many sorries now?", "correct": false, "response": "Three. Someone added one. I don't know who." },
+          { "text": "Fair enough.", "correct": false, "response": "Is it? Lost two sales. Both very understanding about it." }
+        ]
+      },
+      {
+        "id": "fishing_magazine",
+        "kind": "flavour",
+        "needsVein": false,
+        "text": "Delivery came with forty copies of a fishing magazine I didn't order. Nobody on Whitechapel Road fishes. I've sold six.",
+        "replies": [
+          { "text": "Who's buying them?", "correct": false, "response": "The same man, six times. I've stopped asking." },
+          { "text": "Send them back.", "correct": false, "response": "I tried. They said keep them. That's never good." }
+        ]
+      },
+      {
+        "id": "lip_is_fine",
+        "kind": "flavour",
+        "needsVein": false,
+        "requireFlag": "colA2ShopSeen",
+        "text": "Lip's fine now. Before you ask. Nadia's asked four times.",
+        "replies": [
+          { "text": "Glad to hear it.", "correct": false, "response": "Thank you. Don't tell Des it's fine. He'll stop bringing soup.", "reward": { "relation": 1 } },
+          { "text": "And the rest of you?", "correct": false, "response": "Also fine. Mostly. Thank you for asking properly." }
+        ]
+      },
+      {
+        "id": "swept_the_yard",
+        "kind": "flavour",
+        "needsVein": false,
+        "requireFlag": "colA2HakimRetaken",
+        "text": "Swept the yard. There's nothing in it now. Swept it anyway.",
+        "replies": [
+          { "text": "Your uncle would approve.", "correct": false, "response": "He'd say I missed a bit. I did miss a bit.", "reward": { "relation": 1 } },
+          { "text": "Want me to look at it?", "correct": false, "response": "No. It's all right. It's just a yard now. That's allowed." }
+        ]
+      }
+    ]
   }
 }

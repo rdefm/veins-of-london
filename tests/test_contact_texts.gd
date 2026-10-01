@@ -82,6 +82,24 @@ func _force_archie_text(text_id: String) -> void:
 	assert_eq(ContactTexts.send_next("archie"), text_id)
 
 
+func _meet_hakim() -> void:
+	GameState.reset()
+	GameState.state["flags"]["colA1HakimMet"] = true
+	GameState.state["contactTexts"]["hakim"] = ContactTexts.new_contact_state()
+
+
+# Marks every other Hakim text played so send_next() picks this one.
+func _force_hakim_text(text_id: String) -> void:
+	var played := {}
+	for entry in GameData.CONTACT_TEXTS["hakim"]["texts"]:
+		if entry["id"] != text_id:
+			played[entry["id"]] = 0
+	GameState.state["contactTexts"]["hakim"]["played"] = played
+	GameState.state["flags"]["colA2ShopSeen"] = true
+	GameState.state["flags"]["colA2HakimRetaken"] = true
+	assert_eq(ContactTexts.send_next("hakim"), text_id)
+
+
 var _shipped_pool: Dictionary = {}
 
 
@@ -444,6 +462,77 @@ func run() -> void:
 		assert_eq(archie["relation"], relation + 3, "chips: +2 relation")
 	)
 
+	run_case("hakim_ships_12_texts_and_starts_once_met", func():
+		var counts := { "question": 0, "flavour": 0 }
+		for entry in GameData.CONTACT_TEXTS["hakim"]["texts"]:
+			counts[entry["kind"]] += 1
+		assert_eq(counts, { "question": 2, "flavour": 10 }, "Hakim ships 2 questions and 10 flavour texts")
+
+		GameState.reset()
+		for day in range(1, 10):
+			_set_day(day)
+			ContactTexts.daily_tick()
+		assert_true(not GameState.state["contactTexts"].has("hakim"), "nothing before he's met")
+		_meet_hakim()
+		_set_day(10)
+		ContactTexts.daily_tick()
+		var next_day: int = GameState.state["contactTexts"]["hakim"]["nextDay"]
+		assert_true(next_day >= 14 and next_day <= 16, "first text 5-7 days after meeting, got %d" % next_day)
+		_set_day(next_day)
+		ContactTexts.daily_tick()
+		assert_true(ContactTexts.is_awaiting_reply("hakim"), "fires on the due day")
+	)
+
+	run_case("hakim_holds_his_text_while_a_pending_message_is_open", func():
+		_meet_hakim()
+		GameState.state["contactTexts"]["hakim"]["nextDay"] = 5
+		Messages.queue_pending("hakim", "col_hakim_intel", "Lead.")
+		_set_day(5)
+		ContactTexts.daily_tick()
+		assert_true(not ContactTexts.is_awaiting_reply("hakim"), "held behind his open intel text")
+		Messages.resolve_pending(Messages.pending_for("hakim")[0]["id"])
+		_set_day(6)
+		ContactTexts.daily_tick()
+		assert_true(ContactTexts.is_awaiting_reply("hakim"), "fires once it's resolved")
+	)
+
+	run_case("hakims_act2_texts_wait_for_their_beats", func():
+		_meet_hakim()
+		var sent := {}
+		for i in range(GameData.CONTACT_TEXTS["hakim"]["texts"].size()):
+			sent[ContactTexts.send_next("hakim")] = true
+			ContactTexts.reply("hakim", 0)
+		assert_true(not sent.has("lip_is_fine"), "not before the shop beat")
+		assert_true(not sent.has("swept_the_yard"), "not before the retake")
+		_force_hakim_text("lip_is_fine")
+		ContactTexts.reply("hakim", 0)
+		_force_hakim_text("swept_the_yard")
+	)
+
+	run_case("hakim_reply_rewards", func():
+		_meet_hakim()
+		var hakim: Dictionary = GameState.state["contacts"]["hakim"]
+		var relation: int = hakim["relation"]
+		_force_hakim_text("rent_homework")
+		assert_true(ContactTexts.reply("hakim", 0)["correct"], "64 a day is right")
+		assert_eq(hakim["relation"], relation + 1, "right answer: +1 relation")
+		_force_hakim_text("thinking_about_it")
+		assert_true(not ContactTexts.reply("hakim", 1)["correct"])
+		assert_eq(hakim["relation"], relation + 1, "wrong answer: nothing")
+		_force_hakim_text("too_many_teabags")
+		ContactTexts.reply("hakim", 0)
+		assert_eq(hakim["relation"], relation + 3, "tea: +2 relation")
+
+		for pair in [["suits_and_gum", "firm"], ["guild_suppliers", "guild"], ["clock_magazine", "conclave"]]:
+			var before := Intel.meter(Shares.PLAYER, pair[1])
+			_force_hakim_text(pair[0])
+			ContactTexts.reply("hakim", 1)
+			assert_eq(Intel.meter(Shares.PLAYER, pair[1]), before, "%s: brushing it off gives nothing" % pair[0])
+			_force_hakim_text(pair[0])
+			ContactTexts.reply("hakim", 0)
+			assert_eq(Intel.meter(Shares.PLAYER, pair[1]), before + 4, "%s: +4 intel on %s" % pair)
+	)
+
 	run_case("validator_rejects_a_malformed_pool", func():
 		var bad := TEST_POOL.duplicate(true)
 		bad["texts"][0]["replies"][1]["correct"] = true
@@ -452,7 +541,7 @@ func run() -> void:
 		bad["texts"].append(bad["texts"][1].duplicate(true))
 		bad["veinSource"] = "moon"
 		bad["correctReward"] = { "xp": { "skill": "juggling", "amount": 1 }, "luck": 1 }
-		bad["texts"][0]["replies"][0]["reward"] = { "item": { "id": "nope", "qty": 1 }, "cash": 0 }
+		bad["texts"][0]["replies"][0]["reward"] = { "item": { "id": "nope", "qty": 1 }, "cash": 0, "intel": { "target": "moon", "amount": 4 } }
 		var t := GameData.snapshot()
 		t["contact_texts"] = { "owen": bad }
 		var errors := GameData.validate_tables(t).filter(func(e): return e.begins_with("contact_texts"))
@@ -467,4 +556,5 @@ func run() -> void:
 		assert_true(joined.contains("unknown reward 'luck'"), "unknown reward rejected")
 		assert_true(joined.contains("item needs a recipe id"), "unknown item rejected")
 		assert_true(joined.contains("cash must be > 0"), "zero cash rejected")
+		assert_true(joined.contains("intel needs a faction target"), "unknown intel target rejected")
 	)

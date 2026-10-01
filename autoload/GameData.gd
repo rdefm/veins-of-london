@@ -571,7 +571,7 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_events(t.get("events", {}), t.get("districts", {}), errors)
 	_validate_objectives(t.get("objectives", {}), t.get("factions", {}), t.get("ore_types", {}), t.get("site_tier_order", []), t.get("recipes", {}), errors)
 	_validate_collective_barks(t.get("collective_barks", {}), errors)
-	_validate_contact_texts(t.get("contact_texts", {}), t.get("recipes", {}), errors)
+	_validate_contact_texts(t.get("contact_texts", {}), t.get("recipes", {}), t.get("factions", {}), errors)
 	_validate_phone_home(t.get("phone_home", {}), errors)
 	_validate_map_palette(t.get("map_palette", {}), t.get("factions", {}), t.get("ore_types", {}), errors)
 
@@ -1363,14 +1363,14 @@ func _validate_collective_barks(barks: Dictionary, errors: Array[String]) -> voi
 const CONTACT_TEXT_KINDS: Array[String] = ["question", "flavour"]
 const CONTACT_TEXT_VEIN_PLACEHOLDERS: Array[String] = ["{street}", "{district}", "{ore}"]
 const CONTACT_TEXT_XP_SKILLS: Array[String] = ["cultivating", "crafting", "sales"]
-const CONTACT_TEXT_REWARD_KEYS: Array[String] = ["xp", "relation", "cash", "item"]
+const CONTACT_TEXT_REWARD_KEYS: Array[String] = ["xp", "relation", "cash", "item", "intel"]
 const CONTACT_TEXT_VEIN_SOURCES: Array[String] = ["cultivator", "player"]
 
 
 # Per contact: an interval, a known veinSource, valid rewards, and texts.
 # Each text has 2-3 replies; a question has exactly one correct reply, a
 # flavour text none. Vein placeholders only in needsVein texts.
-func _validate_contact_texts(contact_texts: Dictionary, recipes: Dictionary, errors: Array[String]) -> void:
+func _validate_contact_texts(contact_texts: Dictionary, recipes: Dictionary, factions: Dictionary, errors: Array[String]) -> void:
 	for contact_id in contact_texts:
 		var config: Dictionary = contact_texts[contact_id]
 		var prefix := "contact_texts.%s" % contact_id
@@ -1382,7 +1382,7 @@ func _validate_contact_texts(contact_texts: Dictionary, recipes: Dictionary, err
 		var vein_source := str(config.get("veinSource", "player"))
 		if not CONTACT_TEXT_VEIN_SOURCES.has(vein_source):
 			errors.append("%s: veinSource '%s' not one of %s" % [prefix, vein_source, CONTACT_TEXT_VEIN_SOURCES])
-		_validate_contact_text_reward(config.get("correctReward", {}), recipes, prefix + ".correctReward", errors)
+		_validate_contact_text_reward(config.get("correctReward", {}), recipes, factions, prefix + ".correctReward", errors)
 		var seen := {}
 		for entry in config.get("texts", []):
 			var id := str(entry.get("id", ""))
@@ -1403,7 +1403,7 @@ func _validate_contact_texts(contact_texts: Dictionary, recipes: Dictionary, err
 				strings.append(reply.get("response"))
 				if reply.get("correct", false):
 					correct_count += 1
-				_validate_contact_text_reward(reply.get("reward", {}), recipes, path + ".reward", errors)
+				_validate_contact_text_reward(reply.get("reward", {}), recipes, factions, path + ".reward", errors)
 			var expected_correct := 1 if kind == "question" else 0
 			if correct_count != expected_correct:
 				errors.append("%s: a %s needs exactly %d correct reply, got %d" % [path, kind, expected_correct, correct_count])
@@ -1418,8 +1418,9 @@ func _validate_contact_texts(contact_texts: Dictionary, recipes: Dictionary, err
 
 
 # reward keys: xp { skill, amount > 0 }, relation int, cash int > 0,
-# item { id: a recipe key, qty > 0 }.
-func _validate_contact_text_reward(reward: Dictionary, recipes: Dictionary, path: String, errors: Array[String]) -> void:
+# item { id: a recipe key, qty > 0 }, intel { target: a faction id,
+# amount > 0 }.
+func _validate_contact_text_reward(reward: Dictionary, recipes: Dictionary, factions: Dictionary, path: String, errors: Array[String]) -> void:
 	for key in reward:
 		if not CONTACT_TEXT_REWARD_KEYS.has(key):
 			errors.append("%s: unknown reward '%s'" % [path, key])
@@ -1433,6 +1434,10 @@ func _validate_contact_text_reward(reward: Dictionary, recipes: Dictionary, path
 		var item: Dictionary = reward["item"]
 		if not recipes.has(str(item.get("id", ""))) or int(item.get("qty", 0)) <= 0:
 			errors.append("%s: item needs a recipe id and qty > 0" % path)
+	if reward.has("intel"):
+		var intel: Dictionary = reward["intel"]
+		if not factions.has(str(intel.get("target", ""))) or int(intel.get("amount", 0)) <= 0:
+			errors.append("%s: intel needs a faction target and amount > 0" % path)
 
 
 const VALID_CARD_TYPES: Array[String] = ["narration", "speaker", "tension", "resolution", "craft", "choice"]
