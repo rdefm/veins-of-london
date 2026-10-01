@@ -50,6 +50,36 @@ func run() -> void:
 		assert_true(_log_texts("guild").has("Now Partner with Firm."), "logged on the Guild")
 	)
 
+	run_case("a_pair_flip_to_hostile_or_partner_makes_a_headline_and_others_dont", func():
+		GameState.reset()
+		_set_pair("firm", "guild", 60)
+		_days(3)
+		var partner: String = GameData.FACTION_STANCES["headlines"]["partner"] % ["Firm", "The Guild"]
+		assert_eq(Barometer.headlines().map(func(h: Dictionary) -> String: return h["text"]), [partner])
+		_set_pair("firm", "guild", 0)
+		_days(3)
+		assert_eq(FactionAI.pair_stance("firm", "guild"), FactionAI.NEUTRAL)
+		assert_eq(Barometer.headlines().size(), 1, "back to Neutral is no news")
+		_set_pair("firm", "guild", -60)
+		_days(3)
+		assert_eq(Barometer.headlines()[0]["text"], GameData.FACTION_STANCES["headlines"]["hostile"] % ["Firm", "The Guild"])
+	)
+
+	run_case("the_stance_matrix_lists_the_player_then_every_pair_with_war_and_truce", func():
+		GameState.reset()
+		var rows := FactionAI.stance_matrix()
+		var n := GameData.FACTIONS.size()
+		assert_eq(rows.size(), n + n * (n - 1) / 2)
+		assert_eq(rows[0]["a"], Shares.PLAYER)
+		var collective_firm: Dictionary = rows.filter(func(r: Dictionary) -> bool: return r["a"] == "collective" and r["b"] == "firm")[0]
+		assert_eq(collective_firm["stance"], FactionAI.HOSTILE)
+		assert_true(not collective_firm["war"])
+		assert_eq(int(collective_firm["truceEndDay"]), -1)
+		FactionAI.sign_truce("collective", "firm", { "truceDays": 5 })
+		collective_firm = FactionAI.stance_matrix().filter(func(r: Dictionary) -> bool: return r["a"] == "collective" and r["b"] == "firm")[0]
+		assert_eq(int(collective_firm["truceEndDay"]), int(GameState.state["world"]["day"]) + 5)
+	)
+
 	run_case("leaving_the_new_band_resets_the_hysteresis_count", func():
 		GameState.reset()
 		_set_pair("firm", "guild", 60)

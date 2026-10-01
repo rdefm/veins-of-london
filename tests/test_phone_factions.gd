@@ -71,6 +71,21 @@ func run() -> void:
 		phone.free()
 	)
 
+	run_case("politics_card_shows_every_pair_with_war_and_truce_markers", func():
+		GameState.reset()
+		GameState.state["factionWar"]["wars"].append({ "parties": ["firm", "guild"], "startDay": 1, "weariness": { "firm": 0.0, "guild": 0.0 } })
+		FactionAI.sign_truce("collective", "firm", { "truceDays": 5 })
+		var phone := _open_factions()
+		var texts := NodeQuery.label_texts(phone)
+		assert_true(texts.has("London's politics"), "matrix heading")
+		assert_true(texts.has("You – The Guild"), "player pair row")
+		assert_true(texts.has("Firm – The Guild"), "faction pair row")
+		assert_true(texts.has("Neutral · at war"), "war marker")
+		var truce_end := Calendar.format_day(int(GameState.state["world"]["day"]) + 5)
+		assert_true(texts.has("%s · truce until %s" % [FactionAI.stance_name(FactionAI.pair_stance("collective", "firm")), truce_end]), "truce marker")
+		phone.free()
+	)
+
 	run_case("cards_show_stance_and_activity_log", func():
 		GameState.reset()
 		var phone := _open_factions()

@@ -80,6 +80,26 @@ static func stance_name(stance: String) -> String:
 	return _cfg()["names"].get(stance, stance)
 
 
+# London's stance matrix as rows, the player with each faction then every
+# faction pair: { a, b, stance, war, truceEndDay } (truceEndDay -1 without a truce).
+static func stance_matrix() -> Array:
+	var pairs := []
+	for faction_id in GameData.FACTIONS.keys():
+		pairs.append([Shares.PLAYER, faction_id])
+	pairs.append_array(_pairs())
+	var rows := []
+	for pair in pairs:
+		var truce := find_truce(pair[0], pair[1])
+		rows.append({
+			"a": pair[0],
+			"b": pair[1],
+			"stance": player_stance(pair[1]) if pair[0] == Shares.PLAYER else pair_stance(pair[0], pair[1]),
+			"war": at_war(pair[0], pair[1]),
+			"truceEndDay": int(truce["endDay"]) if not truce.is_empty() else -1,
+		})
+	return rows
+
+
 # Band read: Partner and Hostile by relation alone; Business rival needs the
 # overlap too, else Neutral.
 static func band_stance(relation: int, overlap: bool) -> String:
@@ -165,6 +185,8 @@ static func update_stances() -> void:
 static func _log_pair_flip(faction_a: String, faction_b: String, stance: String) -> void:
 	log_activity(faction_a, _cfg()["logPair"] % [stance_name(stance), GameData.FACTIONS[faction_b]["shortName"]])
 	log_activity(faction_b, _cfg()["logPair"] % [stance_name(stance), GameData.FACTIONS[faction_a]["shortName"]])
+	if _cfg()["headlines"].has(stance):
+		Barometer.push_headline(_cfg()["headlines"][stance] % [GameData.FACTIONS[faction_a]["shortName"], GameData.FACTIONS[faction_b]["shortName"]])
 
 
 static func _announce_player_flip(faction_id: String, stance: String) -> void:

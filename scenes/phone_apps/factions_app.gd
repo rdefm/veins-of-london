@@ -1,5 +1,6 @@
 # Factions: a London overview table (player, factions, Independents × ore
-# type, ore/crafting toggle) then one card per faction with its economic
+# type, ore/crafting toggle), London's stance matrix with wars and truces,
+# then one card per faction with its economic
 # identity, its ore- and crafting-share bars (spec §UI reads), your stance
 # with it, its pressure label, a Negotiate entry while at war with you, a
 # Gift entry (R§3.10 "Gifts"), its favour request or the favour you owe it (R§3.10 "Favours"),
@@ -27,6 +28,7 @@ func build(content: VBoxContainer) -> void:
 	content.add_child(UI.heading("Factions"))
 	content.add_child(UI.muted_label("Build relations. Join. Use rooms."))
 	content.add_child(_build_overview())
+	content.add_child(_build_politics())
 
 	for faction_id in GameData.FACTIONS.keys():
 		content.add_child(ContactCards.build_faction_card(faction_id, _build_economy(faction_id)))
@@ -55,6 +57,22 @@ func _build_overview() -> Control:
 		for ore_type in GameData.CANONICAL_ORE_TYPES:
 			grid.add_child(UI.label(_percent(table[producer][ore_type])))
 	c["content"].add_child(grid)
+	return c["panel"]
+
+
+# London's stance matrix, read-only: one row per pair (you with each
+# faction, then faction pairs) with its stance and any war or truce.
+func _build_politics() -> Control:
+	var c := UI.card()
+	c["content"].add_child(UI.heading("London's politics", 15))
+	for row in FactionAI.stance_matrix():
+		var parts: Array[String] = [FactionAI.stance_name(row["stance"])]
+		if row["war"]:
+			parts.append("at war")
+		if int(row["truceEndDay"]) >= 0:
+			parts.append("truce until %s" % Calendar.format_day(int(row["truceEndDay"])))
+		c["content"].add_child(UI.muted_label("%s – %s" % [_producer_name(row["a"]), _producer_name(row["b"])]))
+		c["content"].add_child(UI.label(" · ".join(parts)))
 	return c["panel"]
 
 

@@ -74,6 +74,10 @@
     "names": { "partner": "Partner", "neutral": "Neutral", "businessRival": "Business rival", "hostile": "Hostile" },
     "logPlayer": "Your standing: %s.",
     "logPair": "Now %s with %s.",
+    "headlines": {
+      "hostile": "%s and %s are no longer on speaking terms.",
+      "partner": "%s and %s are doing business together. Openly."
+    },
     "lines": {
       "collective": {
         "partner": "\"You've been good to us. People here remember that, and we don't forget much.\"",
