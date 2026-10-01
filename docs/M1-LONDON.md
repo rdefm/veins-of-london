@@ -15,13 +15,13 @@ Same rules of engagement as M0. New data is canonical HERE (this doc extends REF
 | id | name | oreBias | siteQualityMod | dangerMod | priceMod | siteCap | special | factionPresence |
 |---|---|---|---|---|---|---|---|---|
 | shoreditch | Shoreditch | {} (uniform) | 0.00 | 0.00 | 0.00 | 7 | home base | collective |
-| city | The City | {fate:0.6} | −0.05 | −0.05 | +0.15 | 13 | — | conclave |
-| greenwich | Greenwich | {time:0.6} | +0.05 | 0.00 | 0.00 | 12 | — | guild |
-| camden | Camden | {physics:0.6} | +0.05 | +0.10 | −0.05 | 9 | — | firm |
-| kingscross | King's Cross | {time:0.3, physics:0.3} | 0.00 | +0.05 | 0.00 | 8 | veins here: +1 rightward drift, −1 leftward drift (min 0) | network |
-| battersea | Battersea | {physics:0.6} | +0.05 | 0.00 | 0.00 | 7 | — | firm |
-| hampstead | Hampstead | {life:0.6} | +0.10 | −0.05 | +0.05 | 2 | — | — |
-| whitechapel | Whitechapel | {emotion:0.6} | +0.10 | +0.10 | 0.00 | 7 | vein NPC-raid chance ×1.5 (when vein raids land, M2) | collective |
+| city | The City | {fate:0.75} | −0.05 | −0.05 | +0.15 | 13 | — | conclave |
+| greenwich | Greenwich | {time:0.75} | +0.05 | 0.00 | 0.00 | 12 | — | guild |
+| camden | Camden | {physics:0.75} | +0.05 | +0.10 | −0.05 | 9 | — | firm |
+| kingscross | King's Cross | {time:0.375, physics:0.375} | 0.00 | +0.05 | 0.00 | 8 | veins here: +1 rightward drift, −1 leftward drift (min 0) | network |
+| battersea | Battersea | {physics:0.75} | +0.05 | 0.00 | 0.00 | 7 | — | firm |
+| hampstead | Hampstead | {life:0.75} | +0.10 | −0.05 | +0.05 | 2 | — | — |
+| whitechapel | Whitechapel | {emotion:0.75} | +0.10 | +0.10 | 0.00 | 7 | vein NPC-raid chance ×1.5 (when vein raids land, M2) | collective |
 | soho | Soho | — | — | −0.05 | +0.10 | 0 | marketplace (M4); no veins, no prospecting | network |
 
 `siteCap` above already includes the day-1 faction-vein bump (D2, below) — shoreditch/whitechapel/camden/battersea/greenwich/kingscross/city are each `base + starting-veins-placed-there`; hampstead/soho have no faction presence to seed and keep their original base values.

@@ -140,6 +140,22 @@ func run() -> void:
 				assert_almost_eq(probs[ore], 0.1, 0.0001, "remainder (0.4) split uniformly among the other 4 types")
 	)
 
+	run_case("district_single_bias_probs_main_type_0_75", func():
+		var probs := Sites.compute_ore_probs(GameData.DISTRICTS["city"]["oreBias"])
+		assert_almost_eq(probs["fate"], 0.75, 0.0001, "single-bias district: main type 0.75")
+		for ore in probs.keys():
+			if ore != "fate":
+				assert_almost_eq(probs[ore], 0.0625, 0.0001, "single-bias district: each off-type 0.0625")
+	)
+
+	run_case("district_dual_bias_probs_0_375_each", func():
+		var probs := Sites.compute_ore_probs(GameData.DISTRICTS["kingscross"]["oreBias"])
+		assert_almost_eq(probs["time"], 0.375, 0.0001, "dual-bias district: time 0.375")
+		assert_almost_eq(probs["physics"], 0.375, 0.0001, "dual-bias district: physics 0.375")
+		for ore in ["life", "fate", "emotion"]:
+			assert_almost_eq(probs[ore], 0.25 / 3.0, 0.0001, "dual-bias district: each off-type 0.0833")
+	)
+
 	run_case("roll_ore_type_from_probs_picks_the_only_nonzero_type", func():
 		var probs := { "time": 1.0, "physics": 0.0, "life": 0.0, "fate": 0.0, "emotion": 0.0 }
 		for seed in range(10):

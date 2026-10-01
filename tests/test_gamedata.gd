@@ -746,7 +746,7 @@ func run() -> void:
 		assert_eq(GameData.ARCHIE_ORE_GOAL, 10, "ARCHIE_ORE_GOAL")
 		assert_eq(GameData.DISTRICTS.size(), 9, "9 districts")
 		assert_eq(GameData.DISTRICTS["camden"]["siteCap"], 9, "camden siteCap (base 4 + the Firm's 5 day-one veins)")
-		assert_eq(GameData.DISTRICTS["kingscross"]["oreBias"]["time"], 0.3, "kingscross oreBias.time")
+		assert_eq(GameData.DISTRICTS["kingscross"]["oreBias"]["time"], 0.375, "kingscross oreBias.time")
 		assert_almost_eq(GameData.DISTRICTS["city"]["priceMod"], 0.15, 0.0001, "city priceMod")
 		assert_eq(GameData.DISTRICTS["soho"]["siteCap"], 0, "soho has no sites (marketplace, no prospecting)")
 		assert_eq(GameData.SITE_TIER_WEIGHTS["fair"], 32, "site tier base weight: fair")

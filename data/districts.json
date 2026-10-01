@@ -14,7 +14,7 @@
   "city": {
     "id": "city",
     "name": "The City",
-    "oreBias": { "fate": 0.6 },
+    "oreBias": { "fate": 0.75 },
     "siteQualityMod": -0.05,
     "dangerMod": -0.05,
     "priceMod": 0.15,
@@ -26,7 +26,7 @@
   "greenwich": {
     "id": "greenwich",
     "name": "Greenwich",
-    "oreBias": { "time": 0.6 },
+    "oreBias": { "time": 0.75 },
     "siteQualityMod": 0.05,
     "dangerMod": 0.00,
     "priceMod": 0.00,
@@ -38,7 +38,7 @@
   "camden": {
     "id": "camden",
     "name": "Camden",
-    "oreBias": { "physics": 0.6 },
+    "oreBias": { "physics": 0.75 },
     "siteQualityMod": 0.05,
     "dangerMod": 0.10,
     "priceMod": -0.05,
@@ -50,7 +50,7 @@
   "kingscross": {
     "id": "kingscross",
     "name": "King's Cross",
-    "oreBias": { "time": 0.3, "physics": 0.3 },
+    "oreBias": { "time": 0.375, "physics": 0.375 },
     "siteQualityMod": 0.00,
     "dangerMod": 0.05,
     "priceMod": 0.00,
@@ -62,7 +62,7 @@
   "battersea": {
     "id": "battersea",
     "name": "Battersea",
-    "oreBias": { "physics": 0.6 },
+    "oreBias": { "physics": 0.75 },
     "siteQualityMod": 0.05,
     "dangerMod": 0.00,
     "priceMod": 0.00,
@@ -74,7 +74,7 @@
   "hampstead": {
     "id": "hampstead",
     "name": "Hampstead",
-    "oreBias": { "life": 0.6 },
+    "oreBias": { "life": 0.75 },
     "siteQualityMod": 0.10,
     "dangerMod": -0.05,
     "priceMod": 0.05,
@@ -86,7 +86,7 @@
   "whitechapel": {
     "id": "whitechapel",
     "name": "Whitechapel",
-    "oreBias": { "emotion": 0.6 },
+    "oreBias": { "emotion": 0.75 },
     "siteQualityMod": 0.10,
     "dangerMod": 0.10,
     "priceMod": 0.00,
