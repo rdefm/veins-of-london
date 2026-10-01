@@ -4,8 +4,9 @@ extends RefCounted
 # Contacts' random texts (data/contact_texts.json, keyed by contact id).
 # Each contact's config sets its gate (gateFlag, requireUnlocked), cadence
 # (intervalMinDays..intervalMaxDays, paused per day the contact isn't
-# working when pauseWhenNotWorking), vein templating source (veinSource)
-# and reply rewards (correctReward, per-reply reward).
+# working when pauseWhenNotWorking), hold (holdFlag, holdWhilePending),
+# vein templating source (veinSource) and reply rewards (correctReward,
+# per-reply reward).
 # State: state.contactTexts { contactId: { nextDay, played: { textId:
 # playSeq }, playSeq, active: null | { id, vars } } } -- active is the text
 # awaiting a reply. Static funcs only.
@@ -31,8 +32,9 @@ static func _tick_contact(contact_id: String) -> void:
 	if config.get("pauseWhenNotWorking", false) and not Payroll.is_working(contact_id):
 		texts["nextDay"] = int(texts["nextDay"]) + 1
 		return
-	# A due text waits while the last one is still unanswered.
-	if day < int(texts["nextDay"]) or texts["active"] != null:
+	# A due text waits while the last one is still unanswered, or while the
+	# contact is busy with another thread.
+	if day < int(texts["nextDay"]) or texts["active"] != null or _is_held(contact_id, config):
 		return
 	send_next(contact_id)
 	texts["nextDay"] = day + _roll_interval(config)
@@ -53,9 +55,25 @@ static func is_open(contact_id: String) -> bool:
 	return true
 
 
+# True while the contact is busy: holdFlag set, or (holdWhilePending) a
+# pending message from them is still open.
+static func _is_held(contact_id: String, config: Dictionary) -> bool:
+	var hold_flag := String(config.get("holdFlag", ""))
+	if hold_flag != "" and GameState.state["flags"].get(hold_flag, false):
+		return true
+	return config.get("holdWhilePending", false) and not Messages.pending_for(contact_id).is_empty()
+
+
+# True while the contact's last text still awaits the player's reply.
+static func is_awaiting_reply(contact_id: String) -> bool:
+	var texts: Variant = GameState.state["contactTexts"].get(contact_id)
+	return texts != null and texts["active"] != null
+
+
 # Picks and sends one text: never-played eligible texts first, then the
 # least recently played. A needsVein text is ineligible while the contact's
-# vein source is empty. Returns the sent text id, or "" if none fit.
+# vein source is empty, a requireFlag text while its flag is unset. Returns
+# the sent text id, or "" if none fit.
 static func send_next(contact_id: String) -> String:
 	var config: Dictionary = GameData.CONTACT_TEXTS[contact_id]
 	var veins := _source_veins(contact_id, config)
@@ -150,6 +168,9 @@ static func _pick_text(contact_id: String, config: Dictionary, has_vein: bool) -
 	var least_recent: Variant = null
 	for entry in config["texts"]:
 		if entry.get("needsVein", false) and not has_vein:
+			continue
+		var require_flag := String(entry.get("requireFlag", ""))
+		if require_flag != "" and not GameState.state["flags"].get(require_flag, false):
 			continue
 		if not played.has(entry["id"]):
 			unplayed.append(entry)

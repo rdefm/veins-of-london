@@ -59,6 +59,29 @@ func _owen_thread() -> Array:
 	return GameState.state["messages"].get("owen", [])
 
 
+func _meet_archie() -> void:
+	GameState.reset()
+	GameState.state["flags"]["metArchie"] = true
+	GameState.state["contactTexts"]["archie"] = ContactTexts.new_contact_state()
+
+
+# Archie's thread minus anything but his random texts' opening lines.
+func _archie_random_texts() -> Array:
+	var openers: Array = GameData.CONTACT_TEXTS["archie"]["texts"].map(func(e): return e["text"])
+	return GameState.state["messages"].get("archie", []).filter(func(m): return openers.has(m["text"]))
+
+
+# Marks every other Archie text played so send_next() picks this one.
+func _force_archie_text(text_id: String) -> void:
+	var played := {}
+	for entry in GameData.CONTACT_TEXTS["archie"]["texts"]:
+		if entry["id"] != text_id:
+			played[entry["id"]] = 0
+	GameState.state["contactTexts"]["archie"]["played"] = played
+	GameState.state["flags"]["metJames"] = true
+	assert_eq(ContactTexts.send_next("archie"), text_id)
+
+
 var _shipped_pool: Dictionary = {}
 
 
@@ -323,6 +346,113 @@ func run() -> void:
 		for entry in GameData.CONTACT_TEXTS["owen"]["texts"]:
 			counts[entry["kind"]] += 1
 		assert_eq(counts, { "question": 8, "flavour": 8 }, "Owen ships 8 questions and 8 flavour texts")
+	)
+
+	run_case("archie_ships_12_texts_and_starts_once_met", func():
+		var counts := { "question": 0, "flavour": 0 }
+		for entry in GameData.CONTACT_TEXTS["archie"]["texts"]:
+			counts[entry["kind"]] += 1
+		assert_eq(counts, { "question": 3, "flavour": 9 }, "Archie ships 3 questions and 9 flavour texts")
+
+		GameState.reset()
+		for day in range(1, 10):
+			_set_day(day)
+			ContactTexts.daily_tick()
+		assert_true(not GameState.state["contactTexts"].has("archie"), "nothing before he's met")
+		_meet_archie()
+		_set_day(10)
+		ContactTexts.daily_tick()
+		var next_day: int = GameState.state["contactTexts"]["archie"]["nextDay"]
+		assert_true(next_day >= 13 and next_day <= 15, "first text 4-6 days after meeting, got %d" % next_day)
+		_set_day(next_day)
+		ContactTexts.daily_tick()
+		assert_eq(_archie_random_texts().size(), 1, "fires on the due day")
+	)
+
+	run_case("archie_pauses_while_unpaid", func():
+		_meet_archie()
+		GameState.state["contactTexts"]["archie"]["nextDay"] = 5
+		GameState.state["business"]["wages"]["archie"] = { "unpaid": true, "owed": 0 }
+		for day in range(5, 8):
+			_set_day(day)
+			ContactTexts.daily_tick()
+		assert_eq(_archie_random_texts().size(), 0, "no texts while he's owed")
+		assert_eq(GameState.state["contactTexts"]["archie"]["nextDay"], 8, "due day pushed back one per paused day")
+	)
+
+	run_case("archie_holds_his_text_while_a_deal_or_pending_message_is_open", func():
+		_meet_archie()
+		GameState.state["contactTexts"]["archie"]["nextDay"] = 5
+		GameState.state["flags"]["archieMotionEventSeen"] = true
+		GameState.state["player"]["cash"] = 0
+		_set_day(5)
+		ArchieDeals.roll_daily_offer()
+		ContactTexts.daily_tick()
+		assert_eq(Messages.pending_for("archie").size(), 1, "deal offer queued")
+		assert_eq(GameState.state["contactTexts"]["archie"]["active"], null, "random text held behind the deal")
+
+		ArchieDeals.decline_deal(Messages.pending_for("archie")[0]["id"])
+		Messages.queue_pending("archie", "test_beat", "Story beat.")
+		_set_day(6)
+		ContactTexts.daily_tick()
+		assert_eq(GameState.state["contactTexts"]["archie"]["active"], null, "held behind any open pending message")
+
+		Messages.resolve_pending(Messages.pending_for("archie")[0]["id"])
+		GameState.state["flags"]["archieDealActive"] = true
+		ContactTexts.daily_tick()
+		assert_eq(GameState.state["contactTexts"]["archie"]["active"], null, "held while an accepted deal is still running")
+
+		GameState.state["flags"]["archieDealActive"] = false
+		ContactTexts.daily_tick()
+		assert_true(GameState.state["contactTexts"]["archie"]["active"] != null, "fires once he's free")
+	)
+
+	run_case("no_deal_offer_while_archies_text_awaits_a_reply", func():
+		_meet_archie()
+		GameState.state["flags"]["archieMotionEventSeen"] = true
+		GameState.state["player"]["cash"] = 0
+		ContactTexts.send_next("archie")
+		ArchieDeals.roll_daily_offer()
+		assert_eq(Messages.pending_for("archie").size(), 0, "deal waits for the reply")
+		ContactTexts.reply("archie", 0)
+		ArchieDeals.roll_daily_offer()
+		assert_eq(Messages.pending_for("archie").size(), 1, "deal offered once answered")
+	)
+
+	run_case("archies_james_texts_wait_until_james_is_met", func():
+		_meet_archie()
+		var sent := {}
+		for i in range(GameData.CONTACT_TEXTS["archie"]["texts"].size()):
+			sent[ContactTexts.send_next("archie")] = true
+			ContactTexts.reply("archie", 0)
+		assert_true(not sent.has("good_batch") and not sent.has("james_receipt"), "no James texts before metJames")
+		assert_true(not sent.has("bike_on_fence"), "no vein text without a player vein")
+		GameState.state["flags"]["metJames"] = true
+		GameState.state["contactTexts"]["archie"]["played"] = {}
+		for entry in GameData.CONTACT_TEXTS["archie"]["texts"]:
+			if entry["id"] != "james_receipt":
+				GameState.state["contactTexts"]["archie"]["played"][entry["id"]] = 0
+		assert_eq(ContactTexts.send_next("archie"), "james_receipt", "eligible once James is met")
+	)
+
+	run_case("archie_reply_rewards", func():
+		_meet_archie()
+		var archie: Dictionary = GameState.state["contacts"]["archie"]
+		var relation: int = archie["relation"]
+		_force_archie_text("nicer_postcode")
+		assert_true(ContactTexts.reply("archie", 0)["correct"], "nicer postcode is right")
+		assert_eq(archie["relation"], relation + 1, "right answer: +1 relation")
+		_force_archie_text("dont_dump_it")
+		assert_true(not ContactTexts.reply("archie", 1)["correct"])
+		assert_eq(archie["relation"], relation + 1, "wrong answer: nothing")
+
+		var cash: int = GameState.state["player"]["cash"]
+		_force_archie_text("tenner_back")
+		ContactTexts.reply("archie", 1)
+		assert_eq(GameState.state["player"]["cash"], cash + 10, "his tenner")
+		_force_archie_text("chips_friday")
+		ContactTexts.reply("archie", 0)
+		assert_eq(archie["relation"], relation + 3, "chips: +2 relation")
 	)
 
 	run_case("validator_rejects_a_malformed_pool", func():

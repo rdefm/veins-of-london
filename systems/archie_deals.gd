@@ -45,6 +45,9 @@ static func roll_daily_offer() -> void:
 		return
 	if GameState.state["flags"]["archieDealActive"]:
 		return
+	# His random text gets its answer before a deal lands on top of it.
+	if ContactTexts.is_awaiting_reply("archie"):
+		return
 
 	var cash: int = GameState.state["player"]["cash"]
 	if not Rng.chance(roll_chance(cash)):

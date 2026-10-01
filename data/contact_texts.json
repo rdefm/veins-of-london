@@ -173,5 +173,140 @@
         ]
       }
     ]
+  },
+  "archie": {
+    "gateFlag": "metArchie",
+    "pauseWhenNotWorking": true,
+    "holdFlag": "archieDealActive",
+    "holdWhilePending": true,
+    "correctReward": { "relation": 1 },
+    "intervalMinDays": 4,
+    "intervalMaxDays": 6,
+    "texts": [
+      {
+        "id": "nicer_postcode",
+        "kind": "question",
+        "needsVein": false,
+        "text": "Pop quiz. Same calc, two buyers. One's round the corner. One's in a nicer postcode, pays more, bus fare's a fiver. Where we going?",
+        "replies": [
+          { "text": "The nicer postcode.", "correct": true, "response": "Good. Fiver on the bus, more than that back. Same calc, posher street." },
+          { "text": "Round the corner. Saves the fare.", "correct": false, "response": "Saves a fiver, loses twenty. You'd make a terrible accountant." },
+          { "text": "Whichever's quicker.", "correct": false, "response": "Quick's nice. Paid's nicer." }
+        ]
+      },
+      {
+        "id": "dont_dump_it",
+        "kind": "question",
+        "needsVein": false,
+        "text": "Say you've got sixty of something and the price is good today. Shift the lot?",
+        "replies": [
+          { "text": "Some now, some later.", "correct": true, "response": "There it is. Dump the lot and you're the reason it's cheap tomorrow." },
+          { "text": "All of it, while it's good.", "correct": false, "response": "Then it's not good any more, is it. You did that." },
+          { "text": "Sit on the lot till it's better.", "correct": false, "response": "Might be. Rent don't take might." }
+        ]
+      },
+      {
+        "id": "good_batch",
+        "kind": "question",
+        "needsVein": false,
+        "requireFlag": "metJames",
+        "text": "James knocked out two batches of pearls. One's better than the other. Same price for both?",
+        "replies": [
+          { "text": "No. Better batch, better price.", "correct": true, "response": "Course. Don't tell James I asked. He'll want a raise." },
+          { "text": "Same price. Keep it simple.", "correct": false, "response": "Simple's how you end up giving the good ones away. No." }
+        ]
+      },
+      {
+        "id": "last_one",
+        "kind": "flavour",
+        "needsVein": false,
+        "text": "Tip for nothing. Never tell a buyer it's your last one. They'll want to know why, then they'll want a discount.",
+        "replies": [
+          { "text": "You told me it was your last one.", "correct": false, "response": "Yeah. And look what it got me. You.", "reward": { "relation": 1 } },
+          { "text": "Noted.", "correct": false, "response": "Noted, he says. Write it down." }
+        ]
+      },
+      {
+        "id": "umbrella_man",
+        "kind": "flavour",
+        "needsVein": false,
+        "text": "Bloke outside the station flogging umbrellas at a tenner. Pound shop's two doors down. It's chucking it down. He's cleaning up.",
+        "replies": [
+          { "text": "Respect.", "correct": false, "response": "Right product, right street, right weather. That's the whole job, that." },
+          { "text": "Daylight robbery.", "correct": false, "response": "That's retail. Robbery's when you don't hand over the umbrella." }
+        ]
+      },
+      {
+        "id": "tenner_back",
+        "kind": "flavour",
+        "needsVein": false,
+        "text": "Found a tenner in my coat. Pretty sure it's yours from the chippy. Sending it over.",
+        "replies": [
+          { "text": "Keep it.", "correct": false, "response": "No. Don't like owing. Sent.", "reward": { "cash": 10 } },
+          { "text": "Cheers, mate.", "correct": false, "response": "Don't make it a thing.", "reward": { "cash": 10 } }
+        ]
+      },
+      {
+        "id": "clock_shop",
+        "kind": "flavour",
+        "needsVein": false,
+        "text": "Sneezed six times walking past a clock shop in Clerkenwell. Six. Not going down there again.",
+        "replies": [
+          { "text": "Bless you.", "correct": false, "response": "Don't." },
+          { "text": "Tried antihistamines?", "correct": false, "response": "It's not hay fever. It's time. Antihistamines don't know what to do with it." }
+        ]
+      },
+      {
+        "id": "pigeon_buyer",
+        "kind": "flavour",
+        "needsVein": false,
+        "text": "Buyer turned up with a pigeon on his shoulder. He didn't mention it. I didn't mention it. Deal went fine.",
+        "replies": [
+          { "text": "Very professional.", "correct": false, "response": "That's the job. Pigeon looked like it was the one doing the haggling, mind." },
+          { "text": "Was it his?", "correct": false, "response": "Didn't ask. You don't ask." }
+        ]
+      },
+      {
+        "id": "nans_card",
+        "kind": "flavour",
+        "needsVein": false,
+        "text": "My nan's asked if I've got a proper job yet. Told her logistics. Now she wants a business card.",
+        "replies": [
+          { "text": "Get her one.", "correct": false, "response": "Already ordered. Says 'Consultant'. She's framed it." },
+          { "text": "Tell her the truth.", "correct": false, "response": "She's eighty-four and on the parish council. No." }
+        ]
+      },
+      {
+        "id": "chips_friday",
+        "kind": "flavour",
+        "needsVein": false,
+        "text": "You've been grafting. Don't make it weird. Chips are on me Friday.",
+        "replies": [
+          { "text": "Cheers, Archie.", "correct": false, "response": "Yeah, well. Don't be late.", "reward": { "relation": 2 } },
+          { "text": "You don't have to.", "correct": false, "response": "Know I don't. That's what makes it chips and not wages.", "reward": { "relation": 2 } }
+        ]
+      },
+      {
+        "id": "james_receipt",
+        "kind": "flavour",
+        "needsVein": false,
+        "requireFlag": "metJames",
+        "text": "James rang at six this morning to say my invoice had a typo. It was a receipt. For chips.",
+        "replies": [
+          { "text": "Was there a typo?", "correct": false, "response": "There was. That's the annoying bit." },
+          { "text": "Ignore him.", "correct": false, "response": "Can't. He'll ring at seven about the second one." }
+        ]
+      },
+      {
+        "id": "bike_on_fence",
+        "kind": "flavour",
+        "needsVein": true,
+        "text": "Went past the {ore} one on {street}. Someone's chained a bike to the fence. Leave a note or take the wheels?",
+        "replies": [
+          { "text": "Leave a note.", "correct": false, "response": "Left a note. Took one wheel. Meet in the middle." },
+          { "text": "Leave it. It's harmless.", "correct": false, "response": "Harmless now. Next week it's a bike rack and a queue." }
+        ]
+      }
+    ]
   }
 }
