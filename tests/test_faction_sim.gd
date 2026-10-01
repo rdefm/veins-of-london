@@ -676,7 +676,7 @@ static func _firm_flood_due_in(days: int) -> void:
 	GameState.state["market"]["startedDay"] = 1
 	Shares.record_ore("player", "time", 100)
 	GameState.state["factions"]["firm"]["resources"] = 10000
-	Factions.adjust_player_relation("firm", -10 - int(GameState.state["factions"]["firm"]["relation"]))
+	Factions.adjust_player_relation("firm", -35 - int(GameState.state["factions"]["firm"]["relation"]))
 	GameState.state["factionPressure"]["snapshots"]["firm"] = { "player": { "threat": 2.0, "dependence": 0.0, "delta": -2.0 } }
 	var entry := FactionAI._target_entry("firm", "player")
 	entry["warnedBand"] = FactionAI.band("firm", "player")

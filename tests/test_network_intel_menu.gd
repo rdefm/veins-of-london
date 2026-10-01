@@ -114,7 +114,7 @@ func run() -> void:
 	run_case("market_intel_texts_a_planned_flood", func():
 		_market_fresh(5)
 		Shares.record_ore("player", "time", 100)
-		_move_ready("firm", -10)
+		_move_ready("firm", -35)
 		GameState.state["factions"]["firm"]["holdings"]["ore"]["time"] = 200
 		var price := NetworkHandler.product_price(NetworkHandler.PRODUCT_MARKET_INTEL)
 		var result := NetworkHandler.buy_market_intel()

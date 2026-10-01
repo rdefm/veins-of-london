@@ -2,9 +2,12 @@ extends SceneTree
 
 # Headless faction-economy tuning sim (spec biz-act2-faction-economy §Tuning
 # tool): runs the real daily rollover from a fresh start and prints London
-# prices and per-producer ore/crafting shares.
+# prices, per-producer ore/crafting shares and (spec biz-act2-rivalry-diplomacy
+# §Testing Decisions) per-day relation/stance/war/weariness/truce timelines.
 #   godot --headless -s scripts/sim_faction_economy.gd
 #   godot --headless -s scripts/sim_faction_economy.gd -- days=60 seed=7 player=25 playerOre=life
+# every=N prints every Nth timeline day (0 = events only); rivalry=0 runs
+# with constants.json factionRivalry off (the sim turns it on by default).
 # player=N credits the player N ore of playerOre a day (an end-of-Act-1
 # pruning pace) to the ore share tally and London supply. Nothing is saved
 # beyond the rollover's own autosave. The body lives in

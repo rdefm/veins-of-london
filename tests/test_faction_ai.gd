@@ -163,13 +163,13 @@ func run() -> void:
 		Shares.record_ore("player", "physics", 10)
 		Shares.record_ore("firm", "physics", 10)
 		_pressure_days(1)
-		assert_eq(_player_relation("firm"), -3, "capped at dailyCap")
+		assert_eq(_player_relation("firm"), -2, "capped at dailyCap")
 		_pressure_days(1)
-		assert_eq(_player_relation("firm"), -6, "again the next day")
+		assert_eq(_player_relation("firm"), -4, "again the next day")
 		var snapshot: Dictionary = GameState.state["factionPressure"]["snapshots"]["firm"]["player"]
-		assert_almost_eq(snapshot["threat"], 4.5, 0.001, "primary 8 × 0.5 + size 1 × 0.5")
+		assert_almost_eq(snapshot["threat"], 2.25, 0.001, "primary 4 × 0.5 + size 0.5 × 0.5")
 		assert_almost_eq(snapshot["dependence"], 0.0, 0.001)
-		assert_almost_eq(snapshot["delta"], -3.0, 0.001)
+		assert_almost_eq(snapshot["delta"], -2.0, 0.001)
 	)
 
 	run_case("an_active_supplier_contract_with_the_firm_offsets_the_drop", func():
@@ -182,7 +182,7 @@ func run() -> void:
 		_pressure_days(1)
 		var snapshot: Dictionary = GameState.state["factionPressure"]["snapshots"]["firm"]["player"]
 		assert_almost_eq(snapshot["dependence"], 8.0 / 3.0 + 1.0, 0.001, "supplier share 1/3 × 8 + one contract")
-		assert_eq(_player_relation("firm"), -1, "round(1.69 × (3.67 − 4.5))")
+		assert_eq(_player_relation("firm"), 2, "clamp(1.69 × (3.67 − 2.25), ±2)")
 	)
 
 	run_case("supplying_the_collective_raises_the_firms_threat_from_the_player", func():
@@ -191,23 +191,23 @@ func run() -> void:
 		Shares.record_ore("firm", "physics", 9)
 		var base := FactionAI.threat("firm", "player")
 		_pressure_days(1)
-		assert_eq(_player_relation("firm"), -2, "without supplying the Collective")
+		assert_eq(_player_relation("firm"), -1, "without supplying the Collective")
 		_fresh()
 		Shares.record_ore("player", "physics", 1)
 		Shares.record_ore("firm", "physics", 9)
 		Shares.record_delivery("collective", 10)
-		assert_almost_eq(FactionAI.threat("firm", "player") - base, 6.0, 0.001, "jealousyHostile × supplier share 1.0")
+		assert_almost_eq(FactionAI.threat("firm", "player") - base, 3.0, 0.001, "jealousyHostile × supplier share 1.0")
 		_pressure_days(1)
-		assert_eq(_player_relation("firm"), -3, "falls faster")
+		assert_eq(_player_relation("firm"), -2, "falls faster")
 	)
 
 	run_case("being_partner_with_a_factions_partner_reduces_its_threat", func():
 		_fresh()
 		Shares.record_ore("player", "time", 10)
 		Shares.record_ore("guild", "time", 10)
-		assert_almost_eq(FactionAI.threat("guild", "player"), 4.5, 0.001)
+		assert_almost_eq(FactionAI.threat("guild", "player"), 2.25, 0.001)
 		GameState.state["factionStances"]["player"]["collective"]["stance"] = FactionAI.PARTNER
-		assert_almost_eq(FactionAI.threat("guild", "player"), 2.5, 0.001, "the Collective is the Guild's Partner")
+		assert_almost_eq(FactionAI.threat("guild", "player"), 1.25, 0.001, "the Collective is the Guild's Partner")
 	)
 
 	run_case("faction_pairs_drift_under_the_same_model_scaled_by_personality", func():
@@ -216,12 +216,12 @@ func run() -> void:
 		Shares.record_ore("conclave", "fate", 10)
 		_pressure_days(1)
 		var snapshots: Dictionary = GameState.state["factionPressure"]["snapshots"]
-		assert_almost_eq(snapshots["firm"]["conclave"]["threat"], 1.0, 0.001, "size alone")
-		assert_almost_eq(snapshots["guild"]["conclave"]["threat"], 1.0, 0.001, "same threat")
-		assert_almost_eq(snapshots["firm"]["conclave"]["delta"], -FactionAI.personality("firm"), 0.001)
-		assert_almost_eq(snapshots["guild"]["conclave"]["delta"], -FactionAI.personality("guild"), 0.001)
-		assert_eq(Factions.get_relation("firm", "conclave"), -1, "mean of −1.69 and 0 rounds to −1")
-		assert_eq(Factions.get_relation("guild", "conclave"), -20, "mean of −0.78 and 0 rounds to 0")
+		assert_almost_eq(snapshots["firm"]["conclave"]["threat"], 0.5, 0.001, "size alone")
+		assert_almost_eq(snapshots["guild"]["conclave"]["threat"], 0.5, 0.001, "same threat")
+		assert_almost_eq(snapshots["firm"]["conclave"]["delta"], -0.5 * FactionAI.personality("firm"), 0.001)
+		assert_almost_eq(snapshots["guild"]["conclave"]["delta"], -0.5 * FactionAI.personality("guild"), 0.001)
+		assert_eq(Factions.get_relation("firm", "conclave"), 0, "mean of −0.845 and 0 rounds to 0")
+		assert_eq(Factions.get_relation("guild", "conclave"), -20, "mean of −0.39 and 0 rounds to 0")
 	)
 
 	run_case("the_collective_firm_pair_holds_until_the_questline_completes_then_joins_hostile", func():
@@ -237,10 +237,10 @@ func run() -> void:
 		GameState.state["flags"]["colA2Complete"] = true
 		_pressure_days(1)
 		assert_eq(FactionAI.pair_stance("collective", "firm"), FactionAI.HOSTILE, "joins at Hostile")
-		assert_eq(Factions.get_relation("collective", "firm"), -52, "Hostile start −50, then mean(−3, 0) → −2")
+		assert_eq(Factions.get_relation("collective", "firm"), -51, "Hostile start −50, then mean(−2, 0) → −1")
 		assert_true(_player_relation("collective") < collective_relation, "player relation now drifts")
 		_pressure_days(1)
-		assert_eq(Factions.get_relation("collective", "firm"), -54, "drifts normally, no re-join")
+		assert_eq(Factions.get_relation("collective", "firm"), -52, "drifts normally, no re-join")
 	)
 
 	run_case("the_pressure_label_reads_relation_and_last_drift", func():
@@ -249,7 +249,7 @@ func run() -> void:
 		GameState.state["factionPressure"]["snapshots"] = { "guild": { "player": { "threat": 2.0, "dependence": 0.0, "delta": -2.0 } } }
 		Factions.adjust_player_relation("guild", 30)
 		assert_eq(FactionAI.pressure_label("guild"), "Watching")
-		Factions.adjust_player_relation("guild", -20)
+		Factions.adjust_player_relation("guild", -50)
 		assert_eq(FactionAI.pressure_label("guild"), "Annoyed")
 		Factions.adjust_player_relation("guild", -15)
 		assert_eq(FactionAI.pressure_label("guild"), "Moving against you")
@@ -278,18 +278,19 @@ func run() -> void:
 	run_case("a_key_member_warning_precedes_the_first_move_in_each_new_band", func():
 		_fresh()
 		_under_pressure("guild")
-		Factions.adjust_player_relation("guild", 10)
+		Factions.adjust_player_relation("guild", -20)
 		_escalate_on(1)
 		assert_eq(_last_message("ingram"), _warning("crafter", "warning"))
 		assert_eq(_target_entry("guild")["warnedBand"], FactionAI.BAND_WARNING, "flag stored guild → player")
-		Factions.adjust_player_relation("guild", -20)
+		Factions.adjust_player_relation("guild", -15)
 		_escalate_on(1 + _cooldown())
-		assert_eq(_last_message("ingram"), _warning("crafter", "market"), "market band warned on entry")
-		Factions.adjust_player_relation("guild", -30)
-		_escalate_on(1 + 2 * _cooldown())
 		assert_eq(_last_message("ingram"), _warning("crafter", "raid"), "below raidThreshold −30 → raid band")
 		assert_eq(_target_entry("guild")["warnedBand"], FactionAI.BAND_RAID)
 		assert_true(_log_texts("guild").has(GameData.FACTION_ESCALATION["log"]["warningPlayer"]))
+		_under_pressure("collective")
+		Factions.adjust_player_relation("collective", -35 - _player_relation("collective"))
+		_escalate_on(1 + 2 * _cooldown())
+		assert_eq(_target_entry("collective")["warnedBand"], FactionAI.BAND_MARKET, "market band warned on entry, above raidThreshold −40")
 	)
 
 	run_case("no_warning_without_pressure_below_the_raid_band", func():
@@ -302,14 +303,14 @@ func run() -> void:
 	run_case("recovering_a_band_rearms_its_warning", func():
 		_fresh()
 		_under_pressure("guild")
-		Factions.adjust_player_relation("guild", -10)
+		Factions.adjust_player_relation("guild", -20)
 		_escalate_on(1)
 		Factions.adjust_player_relation("guild", 30)
 		_escalate_on(2)
 		assert_eq(_target_entry("guild")["warnedBand"], FactionAI.BAND_NONE)
 		Factions.adjust_player_relation("guild", -30)
 		_escalate_on(1 + _cooldown())
-		assert_eq(_last_message("ingram"), _warning("crafter", "market"))
+		assert_eq(_last_message("ingram"), _warning("crafter", "warning"))
 	)
 
 	run_case("the_cooldown_stops_a_second_move_against_the_same_target", func():
@@ -547,7 +548,7 @@ func run() -> void:
 	run_case("a_firm_flood_records_supply_annotates_lowers_the_price_and_costs_the_firm", func():
 		_market_fresh(5)
 		Shares.record_ore("player", "time", 100)
-		_move_ready("firm", -10)
+		_move_ready("firm", -35)
 		_holdings("firm")["time"] = 200
 		var qty: int = int(GameData.FACTION_ESCALATION["flood"]["qty"])
 		var value: int = Market.line_total("ore", Market.quote("ore", "time"), qty)
@@ -575,13 +576,13 @@ func run() -> void:
 	run_case("withhold_stops_the_faction_selling_that_ore_for_the_duration", func():
 		_market_fresh(5)
 		Shares.record_craft("player", { "life": 50 })
-		_move_ready("firm", -10)
+		_move_ready("firm", -35)
 		_holdings("firm")["life"] = 5000
 		FactionSim.trade()
 		assert_true(_firm_sold("life"), "control: the Firm sells its surplus life")
 		_market_fresh(5)
 		Shares.record_craft("player", { "life": 50 })
-		_move_ready("firm", -10)
+		_move_ready("firm", -35)
 		_holdings("firm")["life"] = 5000
 		FactionAI.apply_escalation()
 		assert_eq(FactionAI.moves_against_player()[0]["move"], FactionAI.MOVE_WITHHOLD)
@@ -603,7 +604,7 @@ func run() -> void:
 			_market_fresh(5)
 			Shares.record_ore("player", "time", 100)
 			Shares.record_craft("player", { "life": 50 })
-			_move_ready("firm", -10)
+			_move_ready("firm", -35)
 			_holdings("firm")["time"] = 200
 			_holdings("firm")["life"] = 5000
 			if broke:
@@ -622,7 +623,7 @@ func run() -> void:
 		_market_fresh(5)
 		var site := Fixtures.site("site_found", "life", "rich")
 		GameState.state["world"]["sites"].append(site)
-		_move_ready("firm", -10)
+		_move_ready("firm", -35)
 		FactionAI.apply_escalation()
 		assert_true(site["factionVein"] != null, "site claimed")
 		assert_eq(site["factionVein"]["factionId"], "firm")
@@ -637,11 +638,11 @@ func run() -> void:
 		_market_fresh(5)
 		var site := Fixtures.site("site_found", "life", "rich")
 		GameState.state["world"]["sites"].append(site)
-		_move_ready("collective", 10)
+		_move_ready("collective", -20)
 		_target_entry("collective")["warnedBand"] = FactionAI.BAND_WARNING
 		FactionAI.apply_escalation()
 		assert_eq(site["factionVein"], null, "warning band: no market move")
-		_move_ready("collective", -10)
+		_move_ready("collective", -35)
 		GameState.state["factions"]["collective"]["resources"] = int(GameData.FACTION_ESCALATION["moveCosts"]["outbid"]) - 1
 		FactionAI.apply_escalation()
 		assert_eq(site["factionVein"], null, "market band but can't afford it")
@@ -674,7 +675,7 @@ func run() -> void:
 		Market.daily_reprice()
 		GameState.state["world"]["day"] = 5
 		Market.record_supply("ore", "time", 30, "player")
-		_move_ready("conclave", -10)
+		_move_ready("conclave", -35)
 		_holdings("conclave")["physics"] = 500
 		_holdings("conclave")["time"] = 500
 		var qty: int = int(GameData.FACTION_ESCALATION["undercut"]["qty"]["ore"])
@@ -706,7 +707,7 @@ func run() -> void:
 		_market_fresh(5)
 		GameState.state["player"]["cash"] = 100000
 		Shares.record_craft("player", { "life": 50 })
-		_move_ready("conclave", -10)
+		_move_ready("conclave", -35)
 		var held_before: int = FactionSim.ore_held("conclave", "life")
 		var qty: int = mini(int(GameData.FACTION_ESCALATION["deny"]["qty"]["ore"]), Market.affordable_qty("ore", Market.quote("ore", "life"), 10000))
 		var untouched: Dictionary = GameState.deep_copy(GameState.state["market"])
@@ -771,7 +772,7 @@ func run() -> void:
 	run_case("a_poached_renewal_the_player_matches_stays_at_the_matched_price", func():
 		_market_fresh(5)
 		var offer := _renewal("firm")
-		_move_ready("guild", -10)
+		_move_ready("guild", -35)
 		FactionAI.apply_escalation()
 		assert_eq(FactionAI.moves_against_player()[0]["move"], FactionAI.MOVE_POACH)
 		assert_eq(offer["poach"]["factionId"], "guild")
@@ -787,7 +788,7 @@ func run() -> void:
 	run_case("an_unmatched_poached_renewal_lapses_to_the_rival", func():
 		_market_fresh(5)
 		var offer := _renewal("firm")
-		_move_ready("guild", -10)
+		_move_ready("guild", -35)
 		FactionAI.apply_escalation()
 		GameState.state["world"]["day"] = int(offer["expiresDay"])
 		Offers.expire_pending_offers()
@@ -814,7 +815,7 @@ func run() -> void:
 		FactionSim.add_item("guild", "timePearl", 1, 10)
 		var stock := FactionSim.for_sale("guild", "consumable", "timePearl")
 		assert_true(stock >= 10, "control: on sale")
-		_move_ready("guild", -10)
+		_move_ready("guild", -35)
 		FactionAI.apply_escalation()
 		assert_eq(FactionAI.moves_against_player()[0]["move"], FactionAI.MOVE_WITHHOLD_ITEMS)
 		var item_name: String = GameData.RECIPES["timePearl"]["name"]
@@ -832,7 +833,7 @@ func run() -> void:
 		var vein := Fixtures.seed_vein("pv", 60)
 		GameState.state["player"]["cash"] = 100
 		var quote := VeinTrade.quote(vein)
-		_move_ready("guild", -10)
+		_move_ready("guild", -35)
 		GameState.state["factions"]["guild"]["resources"] = quote * 2
 		FactionAI.apply_escalation()
 		var pending := Messages.pending_for("ingram")
@@ -853,7 +854,7 @@ func run() -> void:
 		_market_fresh(5)
 		Fixtures.seed_vein("pv", 60)
 		GameState.state["player"]["cash"] = 100000
-		_move_ready("guild", -10)
+		_move_ready("guild", -35)
 		GameState.state["factions"]["guild"]["resources"] = 1000000
 		FactionAI.apply_escalation()
 		assert_true(Messages.pending_for("ingram").is_empty(), "flush player: no lowball")
@@ -1217,7 +1218,7 @@ static func _ticker_push_fresh() -> void:
 	_market_fresh(5)
 	GameState.state["player"]["cash"] = 100000
 	Market.record_supply("consumable", "blast", 20, "player")
-	_move_ready("conclave", -10)
+	_move_ready("conclave", -35)
 	GameState.state["factions"]["conclave"]["holdings"]["items"] = {}
 
 

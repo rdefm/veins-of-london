@@ -113,27 +113,27 @@
   },
   "factionPressure": {
     "weights": {
-      "primaryOre": 8,
-      "secondaryOre": 4,
-      "crafting": 4,
-      "homeVeins": 4,
-      "size": 1,
-      "jealousyHostile": 6,
-      "jealousyRival": 2,
-      "partnerShield": 2,
+      "primaryOre": 4,
+      "secondaryOre": 2,
+      "crafting": 2,
+      "homeVeins": 2,
+      "size": 0.5,
+      "jealousyHostile": 3,
+      "jealousyRival": 1,
+      "partnerShield": 1,
       "supplierShare": 8,
       "perContract": 1
     },
-    "dailyCap": 3,
+    "dailyCap": 2,
     "labels": { "calm": "Calm", "watching": "Watching", "annoyed": "Annoyed", "movingAgainst": "Moving against you" },
-    "annoyedBelow": 20,
-    "movingAgainstBelow": 0
+    "annoyedBelow": -18,
+    "movingAgainstBelow": -30
   },
   "factionFloor": { "weakMaxVeins": 1, "weakCashBelow": 1000, "pruneYieldMult": 1.5, "craftChanceBonus": 0.15 },
   "factionEscalation": {
-    "warningBelow": 20,
-    "marketBelow": 0,
-    "cooldownDays": 5,
+    "warningBelow": -18,
+    "marketBelow": -30,
+    "cooldownDays": 4,
     "headlineCap": 10,
     "menus": {
       "producer": { "market": ["flood", "outbid", "withhold"], "raid": ["veinRaid", "stockpileRaid"] },

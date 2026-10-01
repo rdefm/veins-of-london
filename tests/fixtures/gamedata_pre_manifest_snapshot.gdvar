@@ -5260,7 +5260,7 @@
 "secondaryOre": 3
 },
 "colour": "#9b2335",
-"conquerThreshold": 0,
+"conquerThreshold": -30,
 "consumes": {
 "blast": 3,
 "enhancementPowder": 3,
@@ -5316,7 +5316,7 @@
 "shield": 2
 }
 },
-"raidThreshold": 0,
+"raidThreshold": -30,
 "resourceLevel": 2,
 "sampleFavours": [{
 "id": "firm_sit_out",

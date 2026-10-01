@@ -51,7 +51,7 @@ The stored political posture of a faction pair, or of the player with a faction:
 How hard a faction is leaning on another actor (the player or another faction). Each day the faction weighs the actor's threat (share of its ores and crafts, veins on its home ground, overall size, supplying its enemies) against its dependence on them (supply and contracts), and relation drifts by the difference, capped. The player sees it as a label per faction: Calm, Watching, Annoyed, Moving against you.
 
 **Escalation**:
-How a faction acts on its pressure: through its archetype's menu of moves, gated by relation band. Warning first, then market moves once relation is negative, then the raid rung once it is Hostile or below its raid threshold. It always warns before its first move in a new band, picks the affordable move that hurts most, and makes at most one move per target per cooldown. Raids it decides resolve at the next rollover.
+How a faction acts on its pressure: through its archetype's menu of moves, gated by relation band. Warning first once relation is clearly negative, then market moves as it sinks further, then the raid rung once it is Hostile or below its raid threshold. It always warns before its first move in a new band, picks the affordable move that hurts most, and makes at most one move per target per cooldown. Raids it decides resolve at the next rollover.
 
 **War**:
 Two parties (two factions, or the player and a faction) are at war while their stance is Hostile and a hostile act (raid, flood, stockpile raid, shortfall steal) passed between them within the last week. It ends after a quiet week, when the stance leaves Hostile, or on a truce. Civil business rivalry, however bitter, is not war. A faction-pair war is a Ticker headline.
