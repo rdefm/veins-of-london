@@ -233,6 +233,10 @@ var FACTION_FAVOURS: Dictionary = {}
 # cash options and key-member reaction lines, R§3.10 "Gifts".
 var FACTION_GIFTS: Dictionary = {}
 
+# Partner perks: price favour, trouble asks, warnings, defence and raid
+# help, intel leaks, and partner lines, R§3.10 "Partners".
+var PARTNERS: Dictionary = {}
+
 # Business pot payday cadence (days) and weekly wage per waged staff
 # contact id, R§3.10 "Business pot and payday".
 var BUSINESS_WEEKLY_WAGES: Dictionary = {}
@@ -414,6 +418,7 @@ const MANIFEST: Array[Dictionary] = [
 		{"field": "NETWORK_MENU", "key": "networkMenu", "type": TYPE_DICTIONARY},
 		{"field": "FACTION_FAVOURS", "key": "factionFavours", "type": TYPE_DICTIONARY},
 		{"field": "FACTION_GIFTS", "key": "factionGifts", "type": TYPE_DICTIONARY},
+		{"field": "PARTNERS", "key": "partners", "type": TYPE_DICTIONARY},
 		{"field": "BUSINESS_WEEKLY_WAGES", "key": "business.weeklyWages", "type": TYPE_DICTIONARY},
 		{"field": "BUSINESS_JAMES_JOIN_CRAFTING_SKILL", "key": "business.jamesJoinCraftingSkill", "type": TYPE_INT},
 		{"field": "BUSINESS_OWEN_CRAFT_MIN_CULTIVATING", "key": "business.owenCraftMinCultivating", "type": TYPE_INT},

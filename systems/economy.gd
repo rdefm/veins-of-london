@@ -270,11 +270,12 @@ static func _faction_effective_price(faction_id: String, kind: String, item_type
 	return price
 
 
-# The Network's price gouge on the player (R§3.6a) multiplies its lane.
+# The Network's price gouge on the player (R§3.6a) and a partner's price
+# favour (R§3.10 "Partners") multiply the lane.
 static func get_faction_buy_price(faction_id: String, kind: String, item_type: String, apply_district: bool = true) -> int:
 	var effective := _faction_effective_price(faction_id, kind, item_type, apply_district)
 	var gouge := FactionAI.gouge_mult(Shares.PLAYER) if faction_id == "network" else 1.0
-	return GameState.round_epsilon(effective * (1.0 + get_faction_buy_spread(faction_id)) * gouge)
+	return GameState.round_epsilon(effective * (1.0 + get_faction_buy_spread(faction_id)) * gouge * Partners.price_mult(faction_id))
 
 
 static func get_faction_sell_price(faction_id: String, kind: String, item_type: String) -> int:
@@ -297,7 +298,8 @@ static func get_faction_buy_max_qty(faction_id: String, kind: String, item_type:
 # nothing against both cash and holdings: a purchase exceeding either is
 # rejected outright, never partially filled. The price lands in the
 # faction's resources; items arrive at the tiers held, highest first.
-static func execute_faction_purchase(faction_id: String, items: Array) -> Dictionary:
+# unit_price >= 0 prices every line at it instead of the lane price.
+static func execute_faction_purchase(faction_id: String, items: Array, unit_price: int = -1) -> Dictionary:
 	if items.is_empty():
 		return { "ok": false, "reason": "Nothing to buy." }
 
@@ -305,7 +307,7 @@ static func execute_faction_purchase(faction_id: String, items: Array) -> Dictio
 	var total_cost := 0
 	var qty_totals: Dictionary = {}
 	for item in items:
-		var price := get_faction_buy_price(faction_id, item["kind"], item["type"])
+		var price := unit_price if unit_price >= 0 else get_faction_buy_price(faction_id, item["kind"], item["type"])
 		total_cost += Market.line_total(item["kind"], price, int(item["qty"]))
 		var key := [item["kind"], item["type"]]
 		qty_totals[key] = qty_totals.get(key, 0) + int(item["qty"])
@@ -375,8 +377,9 @@ static func get_faction_sell_max_qty(faction_id: String, kind: String, item_type
 # lane but Collective's) additionally feeds the vendor's own
 # personal-relation lane. "sold" lists the lines actually settled.
 # wallet_capped false (a questline order) pays every line in full and
-# floors the faction's resources at £0 instead of scaling down.
-static func execute_faction_sale(faction_id: String, items: Array, contact_id: String = "", wallet_capped: bool = true) -> Dictionary:
+# floors the faction's resources at £0 instead of scaling down. unit_price
+# >= 0 prices every line at it instead of the lane price.
+static func execute_faction_sale(faction_id: String, items: Array, contact_id: String = "", wallet_capped: bool = true, unit_price: int = -1) -> Dictionary:
 	if items.is_empty():
 		return { "ok": false, "reason": "Nothing to sell." }
 
@@ -388,7 +391,7 @@ static func execute_faction_sale(faction_id: String, items: Array, contact_id: S
 	for item in items:
 		var kind: String = item["kind"]
 		var item_type: String = item["type"]
-		var price := get_faction_sell_price(faction_id, kind, item_type)
+		var price := unit_price if unit_price >= 0 else get_faction_sell_price(faction_id, kind, item_type)
 		var qty: int = item["qty"]
 		if wallet_capped and price > 0:
 			qty = mini(qty, Market.affordable_qty(kind, price, int(faction["resources"]) - total_earned))

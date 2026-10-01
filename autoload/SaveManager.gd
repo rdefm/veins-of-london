@@ -904,6 +904,9 @@ func _restore_int_types(state: Dictionary) -> void:
 	for entry in state.get("pendingMessages", []):
 		if entry.get("kind", "") == Diplomacy.FAVOUR_KIND:
 			_int_key(entry.get("payload", {}), "expiresDay")
+		elif entry.get("kind", "") == Partners.TROUBLE_KIND:
+			for key in ["expiresDay", "qty", "unitPrice", "amount"]:
+				_int_key(entry.get("payload", {}), key)
 	var favours: Dictionary = state.get("favours", {})
 	_int_dict_values(favours.get("lastIssued", {}))
 	for entry in favours.get("accepted", []):
@@ -911,6 +914,11 @@ func _restore_int_types(state: Dictionary) -> void:
 			_int_key(entry, key)
 		for key in ["qty", "days"]:
 			_int_key(entry.get("params", {}), key)
+	var partners: Dictionary = state.get("partners", {})
+	for key in ["priceFavours", "lastPriceAsk", "lastTrouble"]:
+		_int_dict_values(partners.get(key, {}))
+	for row in partners.get("warned", {}).values():
+		_int_dict_values(row)
 	for entry in state.get("gifts", {}).values():
 		for key in ["lastDay", "count"]:
 			_int_key(entry, key)

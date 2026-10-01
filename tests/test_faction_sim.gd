@@ -606,7 +606,7 @@ static func _calm_market_at_reserve() -> void:
 			_set_quote(kind, good_type, Market.base_price(kind, good_type))
 	for faction_id in GameData.FACTIONS:
 		GameState.state["factions"][faction_id]["holdings"]["items"] = {}
-		for good in FactionSim._traded_goods(faction_id):
+		for good in FactionSim.traded_goods(faction_id):
 			if good["kind"] == "consumable":
 				_set_item(faction_id, good["type"], FactionSim.item_reserve(faction_id, good["type"]))
 		for ore_type in GameData.ORE_TYPES:

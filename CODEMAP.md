@@ -44,6 +44,7 @@ Data file per system: see `data/*.json` below.
 | debug_tools.gd | Debug phone-app state adjusters; `fire_event()` preps any event (state-path veins/sites, addressed contacts, raid/reveal site context) then starts it |
 | dial.gd | Dial mechanic (Movements, charge economy) |
 | diplomacy.gd | Diplomacy (R§3.10 "Favours", "Gifts"): faction favour requests as key-member pending messages; accept (goods favours sign a one-off contract via Offers), decline, guard/sit-out watches, keep/fail effects; cash/item gifts to key members (cooldown, diminishing returns, prefs) |
+| partners.gd | Partners (R§3.10 "Partners"): player price favour on a partner's shop; partner trouble asks (sell/contract/buy/send) as pending messages; partner-faction discounted trades; warnings of planned moves; defence-fight helpers and faction raid odds cut; intel leaks |
 | district_bubble.gd | District tap-bubble decision |
 | district_deck.gd | Weighted district event deck picker |
 | districts.gd | Derived district info for Map tab |
@@ -219,7 +220,7 @@ overlays.
 | bizbrief_app.gd | BizBrief tabs: Brief (bank, float, payday, wage prompt, operations, attention, moves against you, war, shares); Manage (offers + poach Match, contracts, buy-calc, cancel; production targets/log, procurement); Staff once `bizStaffTabOpen` (role, skills, pay); Stats while pot active (charts, ore toggle, expenses, guard legend); hosts short_pay_view.gd, guard_costs_view.gd |
 | messages_app.gd | Conversation inbox (fixed-height rows: bold name, one-line `…` preview, unread pill, per-contact Clear) + single-thread staged bubble reveal/action bar (incl. Owen's text reply choices); thread opens scrolled to the newest message |
 | todo_app.gd | ToDo app: collapsible questline sections from Todo, all_of checks as indented sub-rows; session-only expand/collapse overrides in a static var |
-| factions_app.gd | London share overview table (ore/crafting toggle; player, factions, Independents × ore type) and faction cards with archetype, ores, crafts, share bars, your stance, the pressure label, Negotiate peace / Peace talks entry while at war, a Gift entry (gift sheet), the favour asked or owed (`Diplomacy`), your intel level plus what it reveals (`Intel`), and the activity log. |
+| factions_app.gd | London share table (ore/crafting toggle; player, factions, Independents × ore) and faction cards: archetype, ores, crafts, share bars, stance, pressure label, peace talks entry at war, Gift entry, favour asked/owed (`Diplomacy`), partner price ask and trouble asks (`Partners`), intel level and what it reveals (`Intel`), activity log. |
 | ticker_app.gd | Ticker: News tab (barometer headlines, faction-headline wires, axis detail with push/pull, influence actions) and Stock Market tab (prices ▲/▼, demand modifiers, per-good chart with annotations and demand drivers) |
 | profile_app.gd | Stats, skills, equipment |
 | dialer_app.gd | Phone recent-calls placeholder; no telephony state/actions |
@@ -242,7 +243,7 @@ overlays.
 | combat_prototype.json | combat_prototype.gd |
 | combat_visuals.json | combat_stage.gd (locationBackdrops, backdrops, pose sheets, stage.spriteScale); GameData.gd (territorialVariant pose spec); combat_director.gd (pacing.turnPause); turn_order_strip.gd (cardFrames) |
 | constants.json | calendar.gd (calendar), time_system.gd, jobs.gd, GameState.gd, contacts.gd (roster, roleFlags, skillCaps), business.gd (weekly wages), rooms.gd (productionLogDays), business_stats.gd (businessStatsDays), shares.gd (sharesDays, sharesWindowDays), GUARD_UPKEEP (guardUpkeep), guard_kit.gd (GUARD_KIT) |
-| constants.json (faction politics) | factions.gd (factionRivalry), faction_ai.gd (factionStances, factionPressure, factionEscalation, factionWar, factionConclave), intel.gd (intel), raiding.gd (stockpileRaid), network_handler.gd (networkMenu), diplomacy.gd (factionFavours, factionGifts), barometer.gd (factionEscalation.headlineCap) |
+| constants.json (faction politics) | factions.gd (factionRivalry), faction_ai.gd (factionStances, factionPressure, factionEscalation, factionWar, factionConclave), intel.gd (intel), raiding.gd (stockpileRaid), network_handler.gd (networkMenu), diplomacy.gd (factionFavours, factionGifts), partners.gd (partners), barometer.gd (factionEscalation.headlineCap) |
 | daily_cycle.json | time_transition.gd (circle layout, sky clips, colours, timing) |
 | dial.json | dial.gd |
 | districts.json | widely read (sites, economy, factions, raiding) |

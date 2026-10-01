@@ -499,16 +499,22 @@ static func build_key_member_card(contact_id: String) -> Control:
 
 
 # The buttons for one pending message: Accept/Decline for a faction's
-# lowball buyout or favour request, Talk terms/Decline for a peace offer
-# (no Decline when it binds), otherwise "Continue →" (on_continue).
+# lowball buyout or favour request, one button per answer plus Decline for
+# a partner's trouble ask, Talk terms/Decline for a peace offer (no Decline
+# when it binds), otherwise "Continue →" (on_continue).
 static func build_pending_actions(entry: Dictionary, on_continue: Callable) -> Array[Control]:
 	var actions: Array[Control] = []
 	if entry["kind"] == FactionAI.LOWBALL_KIND:
 		actions.append(UI.button("Sell for £%d" % int(entry["payload"]["price"]), func(): FactionAI.accept_lowball(entry["id"])))
 		actions.append(UI.button("Decline", func(): FactionAI.decline_lowball(entry["id"])))
 	elif entry["kind"] == Diplomacy.FAVOUR_KIND:
-		actions.append(UI.button("Accept favour", func(): _notify_failure(Diplomacy.accept(entry["id"]))))
+		actions.append(UI.button("Accept favour", func(): notify_failure(Diplomacy.accept(entry["id"]))))
 		actions.append(UI.button("Decline", func(): Diplomacy.decline(entry["id"])))
+	elif entry["kind"] == Partners.TROUBLE_KIND:
+		var total := Partners.trouble_total(entry["payload"])
+		for option in Partners.trouble_options(entry["payload"]):
+			actions.append(UI.button(_TROUBLE_OPTION_LABELS[option] % total, func(): notify_failure(Partners.accept_trouble(entry["id"], option))))
+		actions.append(UI.button("Decline", func(): Partners.decline_trouble(entry["id"])))
 	elif entry["kind"] == FactionAI.PEACE_OFFER_KIND:
 		actions.append(UI.button("Talk terms", func(): _open_talks_result(FactionAI.answer_peace_offer(entry["id"], true))))
 		if not FactionAI.peace_offer_binding(entry):
@@ -518,7 +524,16 @@ static func build_pending_actions(entry: Dictionary, on_continue: Callable) -> A
 	return actions
 
 
-static func _notify_failure(result: Dictionary) -> void:
+# PROSE-REVIEW: partner trouble-ask buttons.
+const _TROUBLE_OPTION_LABELS := {
+	Partners.OPTION_SELL: "Sell now for £%d",
+	Partners.OPTION_CONTRACT: "Sign a contract for £%d",
+	Partners.OPTION_BUY: "Buy for £%d",
+	Partners.OPTION_SEND: "Send £%d",
+}
+
+
+static func notify_failure(result: Dictionary) -> void:
 	if not result.get("ok", false):
 		Notify.push(result.get("reason", ""), Notify.CATEGORY_WARNING)
 

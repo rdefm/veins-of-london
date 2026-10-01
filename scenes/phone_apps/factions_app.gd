@@ -2,7 +2,8 @@
 # type, ore/crafting toggle) then one card per faction with its economic
 # identity, its ore- and crafting-share bars (spec §UI reads), your stance
 # with it, its pressure label, a Negotiate entry while at war with you, a
-# Gift entry (R§3.10 "Gifts"), its favour request or the favour you owe it (R§3.10 "Favours"), your
+# Gift entry (R§3.10 "Gifts"), its favour request or the favour you owe it (R§3.10 "Favours"),
+# partner price ask and trouble asks (R§3.10 "Partners"), your
 # intel on it, and its activity log, newest first. Holdings, vein
 # security and the stockpile show only past your intel level on that
 # faction (R§3.1 "Intel"). The toggle is view state.
@@ -88,6 +89,7 @@ func _build_economy(faction_id: String) -> Control:
 		box.add_child(UI.action_button("Negotiate peace", func(): ContactCards.open_talks(faction_id), not check["ok"], check.get("reason", "")))
 	box.add_child(UI.button("Gift →", func(): Modal.open("gift", { "factionId": faction_id })))
 	box.add_child(_build_favour(faction_id))
+	box.add_child(_build_partner(faction_id))
 	box.add_child(_build_intel(faction_id))
 	box.add_child(_build_activity(faction_id))
 	return box
@@ -101,6 +103,25 @@ func _build_favour(faction_id: String) -> Control:
 		box.add_child(UI.label(Diplomacy.describe(owed)))
 	for entry in Diplomacy.pending_for(faction_id):
 		box.add_child(UI.muted_label("Favour asked · answer by %s" % Calendar.format_day(int(entry["payload"]["expiresDay"]))))
+		box.add_child(UI.label(entry["text"]))
+		for action in ContactCards.build_pending_actions(entry, func(_e: Dictionary) -> void: pass):
+			box.add_child(action)
+	return box
+
+
+# At Partner stance: the price-favour ask or the running partner rate, and
+# any trouble ask (R§3.10 "Partners").
+func _build_partner(faction_id: String) -> Control:
+	var box := UI.vbox(2)
+	if Partners.is_player_partner(faction_id):
+		if Partners.price_favour_active(faction_id):
+			box.add_child(UI.label("Partner rate in their shop until %s" % Calendar.format_day(Partners.price_favour_until(faction_id))))
+		else:
+			var check := Partners.can_ask_price_favour(faction_id)
+			var cost := int(GameData.PARTNERS["priceFavour"]["relationCost"])
+			box.add_child(UI.action_button("Ask for a better price (−%d relation)" % cost, func(): ContactCards.notify_failure(Partners.ask_price_favour(faction_id)), not check["ok"], check.get("reason", "")))
+	for entry in Partners.pending_for(faction_id):
+		box.add_child(UI.muted_label("Partner asks · answer by %s" % Calendar.format_day(int(entry["payload"]["expiresDay"]))))
 		box.add_child(UI.label(entry["text"]))
 		for action in ContactCards.build_pending_actions(entry, func(_e: Dictionary) -> void: pass):
 			box.add_child(action)

@@ -371,17 +371,22 @@ static func _plan_report(head: String, none: String, plans: Array, market: bool)
 
 
 static func _plan_line(plan: Dictionary, market: bool) -> String:
-	var days_out := int(plan["day"]) - int(GameState.state["world"]["day"])
-	var when := _line("tomorrow") if days_out <= 1 else _line("inDays") % days_out
+	var when := when_text(int(plan["day"]))
 	var who := _faction_name(plan["factionId"])
 	if not market:
-		return _line("planLine") % [who, _move_label(plan), when]
+		return _line("planLine") % [who, move_label(plan), when]
 	var target: String = plan["targetId"]
 	var aimed_at := _line("you") if target == Shares.PLAYER else _faction_name(target)
-	return _line("marketLine") % [who, _move_label(plan), aimed_at, when]
+	return _line("marketLine") % [who, move_label(plan), aimed_at, when]
 
 
-static func _move_label(plan: Dictionary) -> String:
+# "tomorrow" or "in N days" for a plan landing on day.
+static func when_text(day: int) -> String:
+	var days_out := day - int(GameState.state["world"]["day"])
+	return _line("tomorrow") if days_out <= 1 else _line("inDays") % days_out
+
+
+static func move_label(plan: Dictionary) -> String:
 	var label: String = _menu()["moveLabels"].get(plan["move"], plan["move"])
 	return label % _move_detail(plan) if label.contains("%s") else label
 

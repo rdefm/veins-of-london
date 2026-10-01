@@ -337,6 +337,74 @@
       "conclave": { "done": "\"Thank you. We don't say it often, so it tends to be remembered.\"", "failed": "\"A pity. We'll plan around you next time.\"" }
     }
   },
+  "partners": {
+    "priceFavour": { "discount": 0.15, "days": 5, "relationCost": 6, "cooldownDays": 10 },
+    "trouble": { "issueChance": 0.2, "cooldownDays": 7, "expiryDays": 2, "cashBelow": 1500, "holdingsShare": 0.5, "maxValue": 800, "discountMult": 0.8, "premiumMult": 1.25, "cashAsk": 300, "contractDays": 3, "relationGain": 6, "pairRelationGain": 4 },
+    "warnings": { "minRelation": 80, "horizonDays": 7, "repeatDays": 5 },
+    "defenceHelp": { "minRelation": 80, "chance": 0.35, "joinLine": "%s comes in on your side.", "names": { "collective": "Collective hand", "firm": "Firm heavy", "guild": "Guild journeyman", "network": "Network runner", "conclave": "Conclave retainer" } },
+    "raidHelp": { "minRelation": 80, "chance": 0.35, "oddsCut": 0.15, "warnedOddsCut": 0.1 },
+    "leaks": { "chance": 0.1, "amount": 6 },
+    "lines": {
+      "collective": {
+        "priceFavour": "\"Go on then. Mate's rates for a few days. Don't tell Des.\"",
+        "warn": "\"Heads up: the %s are planning %s, %s.\"",
+        "how": "\"One of ours drinks where theirs drink.\"",
+        "leak": "\"Thought you'd want this. It's what we know about the %s.\"",
+        "troubleGoods": "\"We're short of %s. Could you spare %d at £%d? It'd see us through.\"",
+        "troublePremium": "\"Money's tight. Would you take %d %s off us at £%d? We need the cash more than the stock.\"",
+        "troubleCash": "\"I hate asking. Could you lend us £%d? We'll remember it.\"",
+        "thanks": "\"You came through. That won't be forgotten.\""
+      },
+      "firm": {
+        "priceFavour": "\"Approved. Preferred-partner pricing for the next few days.\"",
+        "warn": "\"For your information: the %s have scheduled %s, %s.\"",
+        "how": "\"We share a supplier with them. Suppliers talk.\"",
+        "leak": "\"Attached, our current file on the %s. For your records.\"",
+        "troubleGoods": "\"The Firm is short of %s. We'd take %d at £%d, if you can supply.\"",
+        "troublePremium": "\"A cash-flow matter. We'd sell you %d %s at £%d.\"",
+        "troubleCash": "\"A short-term facility of £%d would be appreciated.\"",
+        "thanks": "\"Noted, and appreciated. The Firm keeps a ledger of these things.\""
+      },
+      "guild": {
+        "priceFavour": "\"The Court will allow you a partner's rate. Briefly.\"",
+        "warn": "\"Assay notice: the %s intend %s, %s.\"",
+        "how": "\"Their buyer files his papers at our counter.\"",
+        "leak": "\"The Court's notes on the %s. Read, then forget where you got them.\"",
+        "troubleGoods": "\"The Court is short of %s. It would accept %d at £%d.\"",
+        "troublePremium": "\"The Court will release %d %s to you at £%d. It needs the cash.\"",
+        "troubleCash": "\"The Court requests £%d. It will be minuted as a loan.\"",
+        "thanks": "\"Received. The Court remembers its friends, in writing.\""
+      },
+      "network": {
+        "priceFavour": "\"Friends' rate. Few days.\"",
+        "warn": "\"The %s: %s, %s.\"",
+        "how": "\"We sold them the map. We know where they're going.\"",
+        "leak": "\"On the house. The %s.\"",
+        "troubleGoods": "\"Need %s. %d at £%d?\"",
+        "troublePremium": "\"Selling %d %s at £%d. Need cash.\"",
+        "troubleCash": "\"Need £%d. Short term.\"",
+        "thanks": "\"Noted.\""
+      },
+      "conclave": {
+        "priceFavour": "\"Of course. A little consideration, for a few days.\"",
+        "warn": "\"A courtesy: the %s are arranging %s, %s.\"",
+        "how": "\"We hold some of their paper. One hears things.\"",
+        "leak": "\"A small kindness. Our notes on the %s.\"",
+        "troubleGoods": "\"We find ourselves short of %s. Might you part with %d at £%d?\"",
+        "troublePremium": "\"We'd let %d %s go to you at £%d. Liquidity, you understand.\"",
+        "troubleCash": "\"Might we trouble you for £%d? Briefly.\"",
+        "thanks": "\"Thank you. The Conclave does remember.\""
+      }
+    },
+    "log": {
+      "warnedPair": "Warned by %s of a raid from %s",
+      "warnedHelper": "Warned %s of a raid from %s",
+      "raidHelp": "Sent help to %s against %s",
+      "raidHelped": "%s sent help against %s",
+      "tradeHelp": "Sold %s to %s at a partner's rate",
+      "tradeHelped": "Bought %s from %s at a partner's rate"
+    }
+  },
   "factionGifts": {
     "cooldownDays": 7,
     "valuePerPoint": 40,

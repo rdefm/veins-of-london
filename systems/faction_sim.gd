@@ -442,7 +442,7 @@ static func reserve(faction_id: String, kind: String, good_type: String) -> int:
 
 # Every good a faction deals in: all ore types, then every item it consumes,
 # crafts, carries in a kit or holds.
-static func _traded_goods(faction_id: String) -> Array:
+static func traded_goods(faction_id: String) -> Array:
 	var data: Dictionary = GameData.FACTIONS[faction_id]
 	var items: Array = []
 	var sources: Array = [data.get("consumes", {}).keys(), data.get("crafts", [])]
@@ -462,7 +462,7 @@ static func _traded_goods(faction_id: String) -> Array:
 
 
 static func _trade_faction(faction_id: String) -> void:
-	var goods := _traded_goods(faction_id)
+	var goods := traded_goods(faction_id)
 	for good in goods:
 		_sell_surplus(faction_id, good["kind"], good["type"])
 	for good in goods:

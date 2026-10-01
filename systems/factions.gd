@@ -284,7 +284,7 @@ static func adjust_relation(faction_a: String, faction_b: String, delta: int) ->
 
 # Drains the queued faction-target raids; returns each vein raid still aimed
 # at a vein its defender holds and that isn't quest-locked, as { attackerId,
-# defenderId, veinSiteId }.
+# defenderId, veinSiteId, warnedBy? } (warnedBy: Partners.warn_factions).
 static func queued_rivalry_attempts() -> Array:
 	return _vein_attempts(FactionAI.take_queued_raids(false))
 
@@ -300,11 +300,14 @@ static func _vein_attempts(queued: Array) -> Array:
 		var vein: Variant = site.get("factionVein")
 		if vein == null or vein["id"] != entry["veinId"] or vein["factionId"] != entry["targetId"] or Collective.is_quest_locked_vein(vein["id"]):
 			continue
-		attempts.append({
+		var attempt := {
 			"attackerId": entry["attackerId"],
 			"defenderId": entry["targetId"],
 			"veinSiteId": site["id"],
-		})
+		}
+		if entry.has("warnedBy"):
+			attempt["warnedBy"] = entry["warnedBy"]
+		attempts.append(attempt)
 	return attempts
 
 
@@ -344,7 +347,8 @@ static func rivalry_success_chance(attempt: Dictionary) -> float:
 	var raid_resist: int = Cultivating.vein_raid_resist(site["factionVein"])
 	# Network Targets intel is the Collective's own (spec §5.3), so it only tilts Collective attacks.
 	var intel_bonus: float = NetworkHandler.claim_bonus(attempt["veinSiteId"]) if attempt["attackerId"] == "collective" else 0.0
-	return _rivalry_chance(attempt["attackerId"], attempt["defenderId"], raid_resist, intel_bonus)
+	# oddsCut: the defender's partners' warning and help (Partners.faction_defence_cut).
+	return clampf(_rivalry_chance(attempt["attackerId"], attempt["defenderId"], raid_resist, intel_bonus) - float(attempt.get("oddsCut", 0.0)), 0.0, 1.0)
 
 
 # rivalry_success_chance() against defender_id's stockpile: its guards'
@@ -400,6 +404,7 @@ static func apply_rivalry_resolution() -> void:
 		# Every attempt, won or lost, burns both sides' raid kits (spec §Consumption).
 		FactionSim.log_kit_burn(attempt["attackerId"], "attack", "rivalry")
 		FactionSim.log_kit_burn(attempt["defenderId"], "defend", "rivalry")
+		attempt["oddsCut"] = Partners.faction_defence_cut(attempt["attackerId"], attempt["defenderId"], str(attempt.get("warnedBy", "")))
 		var outcome := roll_rivalry_odds(attempt)
 		var district_id: String = Sites.find_site(attempt["veinSiteId"])["district"]
 		if not outcome["success"]:
@@ -408,7 +413,7 @@ static func apply_rivalry_resolution() -> void:
 		FactionAI.report_pair_move(attempt["attackerId"], attempt["defenderId"], FactionAI.MOVE_VEIN_RAID, district_id, outcome["success"])
 	for entry in queued:
 		if entry.get("move", "") == FactionAI.MOVE_STOCKPILE_RAID:
-			Raiding.resolve_faction_stockpile_raid(entry["attackerId"], entry["targetId"])
+			Raiding.resolve_faction_stockpile_raid(entry["attackerId"], entry["targetId"], str(entry.get("warnedBy", "")))
 
 
 # Applies one already-rolled outcome; a failed attempt is a no-op. On success:

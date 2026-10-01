@@ -443,8 +443,9 @@ static func _gather_raid_allies(ally_ids: Array, log_lines: Array) -> Array:
 # once the player travels into the vein's district within the pending
 # window. onWin is "" -- a loss is handled by Raiding.resolve_defend_outcome().
 # `raider_kit` is FactionSim.raider_kit()'s shape, the squad's shared item
-# pool ({} for none); see _enemy_try_item().
-static func start_defend_vein(vein_id: String, value_tier: int, raider_kit: Dictionary = {}) -> void:
+# pool ({} for none); see _enemy_try_item(). partner_ids: partner factions
+# sending a fighter (Partners.defence_helpers), joining after contacts.
+static func start_defend_vein(vein_id: String, value_tier: int, raider_kit: Dictionary = {}, partner_ids: Array = []) -> void:
 	var enemies := generate_raid_enemy(vein_id, value_tier)
 	var log_lines := ["The alarm wasn't lying. %s is already there." % _guard_group_name(enemies)]
 	# Act 2 T8a's pre-fight reminder (spec §5.1/§6.8a): one Nadia-voiced line,
@@ -453,6 +454,10 @@ static func start_defend_vein(vein_id: String, value_tier: int, raider_kit: Dict
 		log_lines.push_front("Nadia, in your ear: \"Go on then. That's what the Blast and the Shield were for — use them properly this time, not for luck.\"")
 		GameState.state["flags"]["colA2DefendReminderShown"] = true
 	var allies := _gather_defend_allies(log_lines)
+	for faction_id in partner_ids:
+		if allies.size() < SQUAD_MAX:
+			allies.append(build_partner_ally(faction_id))
+			log_lines.append(Partners.join_line(faction_id))
 	var vein = Cultivating.find_vein(vein_id)
 	_add_guard_allies(allies, 0 if vein == null else Cultivating.vein_guard_count(vein), log_lines)
 	var guard_kit: Dictionary = {} if vein == null else { "items": GuardKit.active_units(vein).duplicate(true), "used": {} }
@@ -498,6 +503,17 @@ static func build_guard_ally() -> Dictionary:
 		"dialCharges": 0,
 		"koed": false,
 	}
+
+
+# A partner faction's fighter (R§3.10 "Partners"): guardAlly stats under the
+# faction's helper name. No contactId (a KO lasts the fight) and no
+# guardAlly flag (it doesn't draw on the vein's guard kit).
+static func build_partner_ally(faction_id: String) -> Dictionary:
+	var ally := build_guard_ally()
+	ally.erase("guardAlly")
+	ally["name"] = Partners.helper_name(faction_id)
+	ally["partnerFactionId"] = faction_id
+	return ally
 
 
 # Debug-only (combat_setup_modal.gd): raid-guard roster under any
