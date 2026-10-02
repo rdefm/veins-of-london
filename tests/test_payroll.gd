@@ -169,7 +169,7 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["contacts"]["des"]["recruited"] = true
 		Contacts.assign_to_room("des", "lab")
-		GameState.state["flags"]["craftingUnlocked"] = true
+		GameState.state["contacts"]["des"]["specialities"] = ["time"]
 		GameState.state["labThresholds"]["timePearl"] = 5
 		GameState.state["player"]["orichalchum"]["time"] = 1000
 

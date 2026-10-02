@@ -37,7 +37,7 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["contacts"]["archie"]["recruited"] = true
 		Contacts.assign_to_room("archie", "lab")
-		GameState.state["flags"]["craftingUnlocked"] = true
+		GameState.state["contacts"]["archie"]["specialities"] = ["time"]
 		GameState.state["labThresholds"]["timePearl"] = 2
 		GameState.state["player"]["orichalchum"]["time"] = 10000
 		Rng.set_seed(7)

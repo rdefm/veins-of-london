@@ -331,16 +331,11 @@ func _build_production() -> Control:
 			c["content"].add_child(_build_production_log())
 		return c["panel"]
 
-	var flags: Dictionary = GameState.state["flags"]
-	var any_unlocked := false
-	for recipe_key in Rooms.RECIPE_UNLOCK_FLAGS.keys():
-		var unlock_flag: String = Rooms.RECIPE_UNLOCK_FLAGS[recipe_key]
-		if unlock_flag != "" and not flags.get(unlock_flag, false):
-			continue
-		any_unlocked = true
+	var recipe_keys := Rooms.production_recipes()
+	for recipe_key in recipe_keys:
 		c["content"].add_child(_build_production_recipe_row(recipe_key))
-	if not any_unlocked:
-		c["content"].add_child(UI.muted_label("No craftable recipes unlocked yet."))
+	if recipe_keys.is_empty():
+		c["content"].add_child(UI.muted_label("Nothing your crafters can make yet."))
 	c["content"].add_child(_build_production_log())
 	return c["panel"]
 

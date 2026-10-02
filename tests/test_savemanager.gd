@@ -1345,6 +1345,16 @@ func run() -> void:
 			assert_eq(filled["contacts"][contact_id], defaults["contacts"][contact_id], "%s should be seeded from defaults, same as a missing top-level key" % contact_id)
 	)
 
+	run_case("backfill_seeds_crafter_specialities_into_an_old_saves_contacts", func():
+		var incomplete := {
+			"contacts": { "james": { "recruited": true }, "owen": { "recruited": true } },
+		}
+		var filled := SaveManager.backfill_defaults(incomplete)
+		assert_eq(filled["contacts"]["james"]["specialities"], ["time", "life"])
+		assert_eq(filled["contacts"]["owen"]["specialities"], ["life"])
+		assert_eq(filled["contacts"]["archie"]["specialities"], [])
+	)
+
 	# 87-map-slot-index-recycling: "world" is a top-level key that has
 	# existed since M0, so a pre-ticket-87 save has it present but missing
 	# the new mapSlotFreePool key -- the shallow top-level fill above never

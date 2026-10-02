@@ -89,7 +89,7 @@ Data file per system: see `data/*.json` below.
 | raid_alarms.gd | Summaries + dispatch for raid alarms |
 | raiding.gd | Vein stealth-check + raid resolution; player stockpile raids (stealth, guard fight settlement, loot share, relation/war/relocation); faction-vs-faction stockpile raid resolution + Ticker headline; queued faction raids on the player (FactionAI raid rung) incl. alarm/scripted defend fights + kit burns; shared guard repel roll (player missed-defend, faction rivalry) |
 | relation_accrual.gd | Capped £ relation meter |
-| rooms.gd | Per-block staff step (one action per cultivator, then producers take turns crafting until targets met or ore short), writes/trims `productionLog`, Production targets/priority and when they are settable, per-cultivator vein lists (`cultivatorVeins`) and per-vein targets |
+| rooms.gd | Per-block staff step (one action per cultivator, then producers take turns crafting until targets met or ore short), which recipes each crafter's `specialities` allow and the Production list, writes/trims `productionLog`, Production targets/priority and when they are settable, per-cultivator vein lists (`cultivatorVeins`) and per-vein targets |
 | shares.gd | Shares: 14-day daily buckets per producer (player, factions, independents) of ore harvested, ore spent on successful crafts, contract deliveries and faction London buys; Independents slice crediting (⑥.5e); pure ore/crafting share, overview, delivery and supplier-share reads (split + intake) (R§3.14) |
 | sites.gd | Sites & prospecting |
 | stash.gd | Personal stash vs. shared pools |
@@ -243,7 +243,7 @@ overlays.
 | combat_prototype.json | combat_prototype.gd |
 | combat_visuals.json | combat_stage.gd (locationBackdrops, backdrops, pose sheets, stage.spriteScale); GameData.gd (territorialVariant pose spec); combat_director.gd (pacing.turnPause); turn_order_strip.gd (cardFrames) |
 | contact_texts.json | contact_texts.gd (per-contact gate, interval, hold, vein source, rewards, text pool: Owen, Archie, Hakim, James) |
-| constants.json | calendar.gd (calendar), time_system.gd, jobs.gd, GameState.gd, contacts.gd (roster, roleFlags, skillCaps), business.gd (weekly wages), rooms.gd (productionLogDays), business_stats.gd (businessStatsDays), shares.gd (sharesDays, sharesWindowDays), GUARD_UPKEEP (guardUpkeep), guard_kit.gd (GUARD_KIT) |
+| constants.json | calendar.gd (calendar), time_system.gd, jobs.gd, GameState.gd, contacts.gd (roster, roleFlags, skillCaps), rooms.gd (specialities), business.gd (weekly wages), rooms.gd (productionLogDays), business_stats.gd (businessStatsDays), shares.gd (sharesDays, sharesWindowDays), GUARD_UPKEEP (guardUpkeep), guard_kit.gd (GUARD_KIT) |
 | constants.json (faction politics) | factions.gd (factionRivalry), faction_sim.gd (factionFloor), faction_ai.gd (factionStances, factionPressure, factionEscalation, factionWar, factionConclave), intel.gd (intel), raiding.gd (stockpileRaid), network_handler.gd (networkMenu), diplomacy.gd (factionFavours, factionGifts), partners.gd (partners), barometer.gd (factionEscalation.headlineCap) |
 | daily_cycle.json | time_transition.gd (circle layout, sky clips, colours, timing) |
 | dial.json | dial.gd |

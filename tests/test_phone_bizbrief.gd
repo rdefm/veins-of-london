@@ -205,23 +205,38 @@ func run() -> void:
 		phone.free()
 	)
 
-	run_case("production_lists_only_unlocked_recipes_and_adjusts_target_and_toggle", func():
+	run_case("production_with_no_crafters_lists_nothing", func():
 		GameState.reset()
 		GameState.state["home"]["rooms"].append("lab")
-		GameState.state["flags"]["craftingUnlocked"] = true
+		GameState.state["phoneNav"]["app"] = "bizbrief"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		_button_with_text(phone, "Manage").pressed.emit()
+
+		assert_true(NodeQuery.label_texts(phone).has("Nothing your crafters can make yet."))
+		assert_eq(phone.find_children("", "HSlider", true, false).size(), 0)
+		phone.free()
+	)
+
+	run_case("production_lists_james_speciality_recipes_and_adjusts_target_and_toggle", func():
+		GameState.reset()
+		GameState.state["home"]["rooms"].append("lab")
+		GameState.state["contacts"]["james"]["recruited"] = true
+		GameState.state["flags"]["bizJamesProductionRole"] = true
 		GameState.state["phoneNav"]["app"] = "bizbrief"
 		var phone := PhoneScreen.new()
 		phone._ready()
 		_button_with_text(phone, "Manage").pressed.emit()
 
 		var texts := NodeQuery.label_texts(phone)
-		assert_true(texts.has("Time Pearl"), "craftingUnlocked recipe is listed")
-		assert_true(texts.has("Rewind"), "craftingUnlocked also gates rewind")
-		assert_true(not texts.has("Enhancement Powder"), "enhancementUnlocked recipe stays hidden until unlocked")
+		for name in ["Time Pearl", "Enhancement Powder", "Rewind", "Healing Salve", "Healing Burst"]:
+			assert_true(texts.has(name), "%s within time+life is listed" % name)
+		assert_true(not texts.has("Blast"), "physics recipe stays off James's list")
+		assert_true(not texts.has("Wormhole"), "time+physics recipe stays off James's list")
 		assert_true(texts.has("Personal target: 0"))
 
 		var sliders: Array = phone.find_children("", "HSlider", true, false)
-		assert_eq(sliders.size(), 2, "one target slider per unlocked recipe")
+		assert_eq(sliders.size(), Rooms.producible_recipes("james").size(), "one target slider per listed recipe")
 		var slider := sliders[0] as HSlider
 		assert_eq([int(slider.min_value), int(slider.max_value)], [0, GameData.PRODUCTION_TARGET_MAX], "target spans 0..the data cap")
 		slider.value = 5

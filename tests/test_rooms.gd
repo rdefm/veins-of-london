@@ -73,17 +73,63 @@ func run() -> void:
 		assert_true(spent <= Rooms.MAX_PRODUCER_ATTEMPTS_PER_BLOCK * 5, "attempts capped at MAX_PRODUCER_ATTEMPTS_PER_BLOCK")
 	)
 
-	run_case("producer_skips_recipes_not_yet_unlocked", func():
+	run_case("producible_recipes_are_those_whose_ingredients_sit_within_specialities", func():
+		GameState.reset()
+		assert_eq(Rooms.producible_recipes("james"),
+			["timePearl", "enhancementPowder", "rewind", "healingSalve", "prophetsBreath", "healingBurst", "failsafe", "rejuvenation"],
+			"time+life: time-only, life-only and time+life recipes; never physics/fate/emotion or time+physics")
+		assert_eq(Rooms.producible_recipes("owen"), ["enhancementPowder", "healingSalve"], "life only")
+		assert_eq(Rooms.producible_recipes("archie"), [], "no specialities -> crafts nothing")
+	)
+
+	run_case("producer_skips_recipes_outside_specialities_and_ignores_player_unlocks", func():
 		GameState.reset()
 		_staff_lab("archie", 1)
+		GameState.state["contacts"]["archie"]["specialities"] = ["life"]
 		GameState.state["flags"]["craftingUnlocked"] = false
 		GameState.state["flags"]["enhancementUnlocked"] = false
 		GameState.state["labThresholds"]["timePearl"] = 5
-		GameState.state["labThresholds"]["enhancementPowder"] = 5
+		GameState.state["labThresholds"]["enhancementPowder"] = 1
+		GameState.state["labThresholds"]["wormhole"] = 5
+		GameState.state["player"]["orichalchum"] = { "time": 1000, "life": 1000, "physics": 1000 }
+		_run_blocks(3)
+		assert_eq(Crafting.inventory_qty("timePearl"), 0, "time recipe outside a life-only crafter's specialities")
+		assert_eq(Crafting.inventory_qty("wormhole"), 0, "time+physics recipe outside specialities")
+		assert_eq(Crafting.inventory_qty("enhancementPowder"), 1, "life recipe crafted though the player never unlocked it")
+	)
+
+	run_case("producer_with_no_specialities_crafts_nothing", func():
+		GameState.reset()
+		_staff_lab("archie", 1)
+		GameState.state["contacts"]["archie"]["specialities"] = []
+		GameState.state["labThresholds"]["timePearl"] = 5
+		GameState.state["player"]["orichalchum"]["time"] = 1000
+		var output: Dictionary = Rooms.process_staff_block()
+		assert_eq(output["items"], {})
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], 1000, "no attempt, no ore spent")
+	)
+
+	run_case("james_crafts_a_mixed_time_life_recipe", func():
+		GameState.reset()
+		GameState.state["contacts"]["james"]["recruited"] = true
+		GameState.state["flags"]["bizJamesProductionRole"] = true
+		assert_true(Contacts.set_role("james", "production")["ok"])
+		GameState.state["contacts"]["james"]["craftingSkill"] = 5
+		GameState.state["labThresholds"]["healingBurst"] = 2
 		GameState.state["player"]["orichalchum"] = { "time": 1000, "life": 1000 }
 		_run_blocks(3)
-		assert_eq(Crafting.inventory_qty("timePearl"), 0, "timePearl gated by craftingUnlocked")
-		assert_eq(Crafting.inventory_qty("enhancementPowder"), 0, "enhancementPowder gated by enhancementUnlocked")
+		assert_eq(Crafting.inventory_qty("healingBurst"), 2, "time+life recipe within James's specialities")
+	)
+
+	run_case("production_recipes_unions_every_crafter_who_holds_or_can_take_production", func():
+		GameState.reset()
+		assert_eq(Rooms.production_recipes(), [], "no crafter yet")
+		GameState.state["contacts"]["owen"]["recruited"] = true
+		GameState.state["flags"]["bizOwenProductionRole"] = true
+		assert_eq(Rooms.production_recipes(), ["enhancementPowder", "healingSalve"], "Owen may take Production")
+		GameState.state["contacts"]["james"]["recruited"] = true
+		GameState.state["flags"]["bizJamesProductionRole"] = true
+		assert_eq(Rooms.production_recipes(), Rooms.producible_recipes("james"), "James's list covers Owen's")
 	)
 
 	run_case("producers_share_stock_in_turn_without_double_counting_the_target", func():
@@ -121,7 +167,7 @@ func run() -> void:
 
 	run_case("an_unpaid_room_hire_does_not_act", func():
 		GameState.reset()
-		_staff_lab("des", 1)  # a room hire; founders draw no daily wage
+		_staff_lab("des", 1)  # a room hire with specialities; founders draw no daily wage
 		GameState.state["payroll"]["paidToday"] = { "lab": false }
 		GameState.state["labThresholds"]["timePearl"] = 5
 		GameState.state["player"]["orichalchum"]["time"] = 100
@@ -536,7 +582,7 @@ func _staff_lab(contact_id: String, skill: int) -> void:
 	GameState.state["contacts"][contact_id]["recruited"] = true
 	Contacts.assign_to_room(contact_id, "lab")
 	GameState.state["contacts"][contact_id]["craftingSkill"] = skill
-	GameState.state["flags"]["craftingUnlocked"] = true
+	GameState.state["contacts"][contact_id]["specialities"] = ["time", "life"]
 
 
 func _staff_station(contact_id: String) -> void:

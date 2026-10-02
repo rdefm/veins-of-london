@@ -767,6 +767,7 @@
 "production": "bizJamesProductionRole"
 },
 "roomFreeRoles": true,
+"specialities": ["time", "life"],
 "startRelation": 0,
 "unlocked": false
 },
@@ -795,6 +796,7 @@
 "crafting": 3,
 "cultivating": 3
 },
+"specialities": ["life"],
 "startRelation": 0,
 "unlocked": false
 }

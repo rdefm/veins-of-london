@@ -342,7 +342,7 @@ static func _lowest_producer_cost(recipe_key: String) -> Dictionary:
 	var best: Dictionary = {}
 	var best_total := -1
 	for contact_id in Contacts.contacts_in_role("production"):
-		if not Payroll.is_working(contact_id):
+		if not Payroll.is_working(contact_id) or not Rooms.producible_recipes(contact_id).has(recipe_key):
 			continue
 		var skill: int = GameState.state["contacts"][contact_id].get("craftingSkill", 1)
 		var costs: Dictionary = Crafting.calc_cost(recipe_key, skill)

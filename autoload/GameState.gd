@@ -510,6 +510,9 @@ func _new_contacts_state() -> Dictionary:
 			# Founder-only room-free staff role (null|"sales"|"cultivation"|
 			# "production"), exclusive with assignedRoom -- R§3.10.
 			"assignedRole": null,
+			# Ore types this contact crafts with in Production -- a recipe
+			# qualifies only if every ingredient is one of these (R§3.10).
+			"specialities": defaults.get("specialities", []).duplicate(),
 			"combatHpMax": defaults.get("combatHpMax", 0),
 			"combatHp": defaults.get("combatHpMax", 0),
 			"combatAttackMin": defaults.get("combatAttackMin", 0),

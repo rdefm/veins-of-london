@@ -4,14 +4,37 @@ extends RefCounted
 # Production targets, cultivator vein lists, and the per-block staff step
 # per R§3.10. Static funcs only.
 
-# R§1.3 has no unlockFlag column for recipes, but R§3.10 says the lab crafts
-# each "unlocked recipe" -- mirrors the HTML's per-recipe checks with the
-# R§7 ids applied (enhancementPowder/enhancementUnlocked).
-const RECIPE_UNLOCK_FLAGS := {
-	"timePearl": "craftingUnlocked",
-	"enhancementPowder": "enhancementUnlocked",
-	"rewind": "craftingUnlocked",
-}
+# R§3.10 "Producer": a crafter makes any recipe whose ingredient ore types
+# all sit within their specialities -- independent of the player's own
+# Recipe Book. No specialities means they craft nothing. GameData.RECIPES order.
+static func producible_recipes(contact_id: String) -> Array:
+	var specialities: Array = GameState.state["contacts"].get(contact_id, {}).get("specialities", [])
+	var result: Array = []
+	if specialities.is_empty():
+		return result
+	for recipe_key in GameData.RECIPES:
+		var ingredients: Array = Crafting.recipe_ore_types(recipe_key)
+		if not ingredients.is_empty() and ingredients.all(func(ore_type: String) -> bool: return specialities.has(ore_type)):
+			result.append(recipe_key)
+	return result
+
+
+# Recipes BizBrief Production lists: the union of producible_recipes() over
+# every contact holding Production or able to take it, in GameData.RECIPES order.
+static func production_recipes() -> Array:
+	var crafters: Array = Contacts.contacts_in_role("production")
+	for contact_id in GameState.state["contacts"].keys():
+		if not crafters.has(contact_id) and Contacts.is_role_available(contact_id, "production"):
+			crafters.append(contact_id)
+	var listed := {}
+	for contact_id in crafters:
+		for recipe_key in producible_recipes(contact_id):
+			listed[recipe_key] = true
+	var result: Array = []
+	for recipe_key in GameData.RECIPES:
+		if listed.has(recipe_key):
+			result.append(recipe_key)
+	return result
 
 
 static func set_lab_threshold(recipe_key: String, target: int) -> void:
@@ -339,18 +362,17 @@ static func _run_producers(items_out: Dictionary) -> Array:
 
 
 # One craft attempt at the first recipe in _production_order() that is
-# unlocked, below its effective target, and affordable from shared stock,
+# within this crafter's specialities, below its effective target, and affordable from shared stock,
 # recorded into entry. Returns false (no attempt) when nothing qualifies;
 # if a below-target recipe was skipped as unaffordable, entry.oreShort
 # names the first such recipe and the ore types it lacked.
 static func _producer_act(contact_id: String, items_out: Dictionary, entry: Dictionary) -> bool:
-	var flags: Dictionary = GameState.state["flags"]
 	var ore: Dictionary = GameState.state["player"]["orichalchum"]
 	var skill: int = GameState.state["contacts"][contact_id].get("craftingSkill", 1)
+	var producible := producible_recipes(contact_id)
 	var ore_short: Variant = null
 	for recipe_key in _production_order():
-		var unlock_flag: String = RECIPE_UNLOCK_FLAGS.get(recipe_key, "")
-		if unlock_flag != "" and not flags.get(unlock_flag, false):
+		if not producible.has(recipe_key):
 			continue
 		if Crafting.inventory_qty(recipe_key) >= effective_lab_target(recipe_key):
 			continue

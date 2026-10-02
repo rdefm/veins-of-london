@@ -582,6 +582,25 @@ func run() -> void:
 		assert_eq(bought, 2 * per_unit - 1, "minus shared stock of that ore")
 	)
 
+	run_case("buy_calc_crafted_need_skips_producers_outside_their_specialities", func():
+		_setup_buy_calc_lanes()
+		var contacts: Dictionary = GameState.state["contacts"]
+		contacts["owen"]["recruited"] = true
+		contacts["owen"]["craftingSkill"] = 3
+		Contacts.assign_to_room("owen", "lab")
+		contacts["james"]["recruited"] = true
+		contacts["james"]["craftingSkill"] = 1
+		contacts["james"]["assignedRole"] = "production"
+		var created: Dictionary = OffersSystem.create_offer({
+			"id": "t_pearl_order", "source": "scripted", "contractType": "oneOff",
+			"deadlineAfterDays": 5,
+			"request": { "kind": "consumable", "type": "timePearl", "qty": 2 },
+		})
+		var contract: Dictionary = OffersSystem.accept_offer(created["offer"]["id"])["contract"]
+		var per_unit: int = Crafting.calc_cost("timePearl", 1)["time"]
+		assert_eq(ContractsSystem.calc_need(contract), { "time": 2 * per_unit }, "life-only Owen's cheaper skill never prices a time recipe")
+	)
+
 	run_case("recurring_term_expires_after_final_period_and_issues_renewal", func():
 		var contract := _proof_contract()
 		assert_eq(contract["termWeeks"], 4)
