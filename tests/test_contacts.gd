@@ -78,17 +78,38 @@ func run() -> void:
 		assert_true(not GameState.state["contacts"]["des"]["recruited"], "not recruited")
 	)
 
-	run_case("room_assignment_is_exclusive_one_contact_per_room", func():
+	run_case("assigning_into_a_full_room_is_refused_without_eviction", func():
+		GameState.reset()
+		GameState.state["contacts"]["des"]["recruited"] = true
+		GameState.state["contacts"]["hakim"]["recruited"] = true
+
+		assert_true(Contacts.assign_to_room("des", "lab")["ok"])
+		var result: Dictionary = Contacts.assign_to_room("hakim", "lab")
+		assert_true(not result["ok"], "a one-seat lab is full")
+		assert_eq(result["reason"], "No free seat.")
+		assert_eq(Contacts.contacts_in_room("lab"), ["des"], "des keeps the seat")
+		assert_eq(GameState.state["contacts"]["hakim"]["assignedRoom"], null)
+	)
+
+	run_case("assigning_fills_free_seats_without_eviction", func():
+		GameState.reset()
+		GameState.state["home"]["roomSeats"]["lab"] = 2
+		GameState.state["contacts"]["des"]["recruited"] = true
+		GameState.state["contacts"]["hakim"]["recruited"] = true
+		Contacts.assign_to_room("des", "lab")
+		assert_true(Contacts.assign_to_room("hakim", "lab")["ok"])
+		assert_eq(Contacts.contacts_in_room("lab"), ["des", "hakim"])
+		Contacts.unassign_from_room("des")
+		assert_eq(Contacts.contacts_in_room("lab"), ["hakim"], "unassign frees only that seat")
+	)
+
+	run_case("founders_hold_no_seat", func():
 		GameState.reset()
 		GameState.state["contacts"]["archie"]["recruited"] = true
-		GameState.state["contacts"]["james"]["recruited"] = true
-
+		GameState.state["contacts"]["des"]["recruited"] = true
 		Contacts.assign_to_room("archie", "lab")
-		assert_eq(Contacts.get_contact_in_room("lab"), "archie", "archie assigned to lab")
-
-		Contacts.assign_to_room("james", "lab")
-		assert_eq(Contacts.get_contact_in_room("lab"), "james", "assigning james should vacate archie")
-		assert_eq(GameState.state["contacts"]["archie"]["assignedRoom"], null, "archie's assignment cleared")
+		assert_eq(Contacts.room_seats_used("lab"), 0)
+		assert_true(Contacts.assign_to_room("des", "lab")["ok"], "a founder in the room leaves its seat free")
 	)
 
 	# 21-contact-roles-sales-skill, business-spec.md: "a Sales, Production or
@@ -106,8 +127,8 @@ func run() -> void:
 
 		Contacts.assign_to_room("archie", "ops")
 		assert_eq(GameState.state["contacts"]["archie"]["assignedRoom"], "ops", "assigning to ops (Sales) must replace the prior lab (Production) assignment")
-		assert_eq(Contacts.get_contact_in_room("lab"), null, "lab must be vacated once archie moves to ops")
-		assert_eq(Contacts.get_contact_in_room("ops"), "archie")
+		assert_eq(Contacts.contacts_in_room("lab"), [], "lab must be vacated once archie moves to ops")
+		assert_eq(Contacts.contacts_in_room("ops"), ["archie"])
 	)
 
 	run_case("assign_none_vacates_without_assigning_anyone", func():
@@ -115,7 +136,7 @@ func run() -> void:
 		GameState.state["contacts"]["archie"]["recruited"] = true
 		Contacts.assign_to_room("archie", "lab")
 		Contacts.assign_to_room("none", "lab")
-		assert_eq(Contacts.get_contact_in_room("lab"), null, "'none' should vacate the room")
+		assert_eq(Contacts.contacts_in_room("lab"), [], "'none' should vacate the room")
 	)
 
 	run_case("award_contact_xp_levels_up_and_notifies", func():

@@ -621,6 +621,10 @@ func _backfill_new_home_keys(result: Dictionary, defaults: Dictionary) -> void:
 	for key in defaults["home"].keys():
 		if not home.has(key):
 			home[key] = defaults["home"][key]
+	var seats: Dictionary = home["roomSeats"]
+	for room_id in defaults["home"]["roomSeats"].keys():
+		if not seats.has(room_id):
+			seats[room_id] = 1
 
 
 # JSON has no int/float distinction, so every number in a just-parsed save
@@ -855,6 +859,7 @@ func _restore_int_types(state: Dictionary) -> void:
 		_int_key(home, "guardCount")
 		_int_key(home, "arrears")
 		_int_key(home, "arrearsWeeks")
+		_int_dict_values(home.get("roomSeats", {}))
 		for buckets in home.get("guardKit", {}).values():
 			_int_dict_values(buckets)
 

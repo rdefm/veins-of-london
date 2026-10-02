@@ -5809,7 +5809,16 @@
 "description": "Professional setup. Set stock thresholds per recipe and an assigned contact will craft to meet them each day, using their skill and improving over time. James approved of it, which is as close to a compliment as he gets.",
 "id": "lab",
 "minTier": "compound",
-"name": "Improved Lab"
+"name": "Improved Lab",
+"seatUpgrades": [{
+"cost": 7500,
+"minTier": "compound",
+"seats": 2
+}, {
+"cost": 7500,
+"minTier": "mansion",
+"seats": 3
+}]
 },
 "library": {
 "bonus": "crafting",
@@ -5845,7 +5854,16 @@
 "description": "An assigned contact holds your marked veins at whatever growth target you set — pruning back the ones running high, cultivating the ones falling behind. Yield lands in your inventory automatically.",
 "id": "veinStation",
 "minTier": "safehouse",
-"name": "Vein Cultivation Station"
+"name": "Vein Cultivation Station",
+"seatUpgrades": [{
+"cost": 4000,
+"minTier": "compound",
+"seats": 2
+}, {
+"cost": 4000,
+"minTier": "mansion",
+"seats": 3
+}]
 },
 "workshop": {
 "bonus": "crafting",

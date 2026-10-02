@@ -470,7 +470,7 @@ func run() -> void:
 		assert_eq(GameState.state["home"]["tier"], "compound", "tier unchanged")
 		assert_eq(GameState.state["home"]["tenure"], "owned")
 		assert_eq(GameState.state["home"]["rooms"], ["lab"], "rooms kept")
-		assert_eq(Contacts.get_contact_in_room("lab"), contact_id, "staff kept")
+		assert_eq(Contacts.contacts_in_room("lab"), [contact_id], "staff kept")
 		assert_eq(GameState.state["player"]["cash"], 0)
 		assert_eq(GameState.state["bankLog"][0]["amount"], -2000000)
 		assert_true(not Home.buy_out()["ok"], "already owned")
@@ -809,7 +809,7 @@ func run() -> void:
 		Contacts.assign_to_room(contact_id, "lab")
 
 		assert_true(Home.set_room_use(0, "workshop")["ok"])
-		assert_eq(Contacts.get_contact_in_room("lab"), null, "the lab's contact is unassigned with the room")
+		assert_eq(Contacts.contacts_in_room("lab"), [], "the lab's contact is unassigned with the room")
 		assert_eq(GameState.state["contacts"][contact_id]["assignedRoom"], null)
 	)
 

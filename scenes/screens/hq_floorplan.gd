@@ -176,10 +176,14 @@ func _build_room_slot(room_id: String) -> Control:
 	return c["panel"]
 func _build_room_contact_row(room_id: String) -> Control:
 	var contacts: Dictionary = GameState.state["contacts"]
-	var assigned_id: Variant = Contacts.get_contact_in_room(room_id)
+	var occupants: Array = Contacts.contacts_in_room(room_id)
+	var seats: int = Home.room_seats(room_id)
+	var full: bool = Contacts.room_seats_used(room_id) >= seats
 
 	var box := UI.vbox(4)
-	var assigned_text: String = "Assigned: %s" % Contacts.display_name(assigned_id) if assigned_id != null else "Assigned: no one"
+	box.add_child(_tile_label("Seats: %d/%d" % [Contacts.room_seats_used(room_id), seats], true))
+	var names: Array = occupants.map(func(id): return Contacts.display_name(id))
+	var assigned_text: String = "Assigned: %s" % ", ".join(names) if not names.is_empty() else "Assigned: no one"
 	box.add_child(_tile_label(assigned_text, true))
 
 	var row := UI.hflow(4)
@@ -189,13 +193,23 @@ func _build_room_contact_row(room_id: String) -> Control:
 		if not c["recruited"] or c["assignedRoom"] == room_id or Contacts.is_founder(contact_id):
 			continue
 		var captured_id: String = contact_id
-		row.add_child(MapCardStyle.text_button("Assign %s" % Contacts.display_name(contact_id), func(): Contacts.assign_to_room(captured_id, room_id)))
-	if assigned_id != null:
-		row.add_child(MapCardStyle.text_button("Unassign", func(): Contacts.assign_to_room("none", room_id)))
+		row.add_child(MapCardStyle.text_button("Assign %s" % Contacts.display_name(contact_id), func(): Contacts.assign_to_room(captured_id, room_id), full))
+	for contact_id in occupants:
+		var captured_id: String = contact_id
+		row.add_child(MapCardStyle.text_button("Unassign %s" % Contacts.display_name(contact_id), func(): Contacts.unassign_from_room(captured_id)))
 	if row.get_child_count() > 0:
 		box.add_child(row)
 
+	var upgrade: Dictionary = Home.next_seat_upgrade(room_id)
+	if not upgrade.is_empty():
+		var reason: String = Home.seat_upgrade_block_reason(room_id)
+		box.add_child(MapCardStyle.text_button("+1 seat £%d" % int(upgrade["cost"]), func(): Home.buy_seat_upgrade(room_id), reason != ""))
+		if reason.begins_with("Requires"):
+			box.add_child(_tile_label(reason, true))
+
 	return box
+
+
 func _build_vein_station_list_row() -> Control:
 	return MapCardStyle.text_button("View all veins", func():
 		VeinListNav.open_all()

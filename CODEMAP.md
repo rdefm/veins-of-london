@@ -36,7 +36,7 @@ Data file per system: see `data/*.json` below.
 | combat_pacing.gd | Persisted normal/quick pacing toggle |
 | combat_prototype.gd | Bounded combat experiment, Debug-app |
 | consumables.gd | Healing Salve (out-of-combat) + Healing Burst (in or out); in-combat use_healing_burst() resolves the parked player turn-cursor entry (R§3.7a) and heals an ally target instead of the player (R§3.7) |
-| contacts.gd | Relation, recruiting (incl. story `force_recruit`), room assignment, room→role lookup from hiring.json (`room_roles`), founder staff roles (`set_role`/`role_of`/`available_roles`), capped XP, ally combat kit + per-day ally Dial charges (`daily_dial_regen()`), display names, directory order |
+| contacts.gd | Relation, recruiting (incl. story `force_recruit`), seat-capped room assignment (`contacts_in_room`/`assign_to_room`), room→role lookup from hiring.json (`room_roles`), founder staff roles (`set_role`/`role_of`/`available_roles`), capped XP, ally combat kit + per-day ally Dial charges (`daily_dial_regen()`), display names, directory order |
 | contact_texts.gd | Contacts' random texts, per contact from data/contact_texts.json: rollover scheduler (gate, interval, pause while not working, hold while busy), unplayed-then-LRU pick (per-text requireFlag), vein templating (own cultivator list or player veins), replies granting xp/relation/cash/item/intel/player craftingXp rewards; each sent text pushes a contact-tagged ticker notification |
 | contracts.gd | Block-end Sales auto-delivery (full, then partials by priority; goods to buyer holdings + supplier share), settlement to pot; recurring periods pay on fill, lock (`periodFilled`) until Monday renewal, expire at term end; per-contract `buyCalc` calc buys from the pot; unattended-proof taint (`playerAssisted`) and `qualified` settlements; `cancel()` (unpaid, hurts counterparty) |
 | crafting.gd | Recipe crafting |
@@ -59,7 +59,7 @@ Data file per system: see `data/*.json` below.
 | factions.gd | Faction joining |
 | guard_kit.gd | Guard kit: allowlisted combat items stocked by tier on a player vein's or HQ's (`home.guardKit`) `guardKit`; capacity (guards × slots), active units, `stock`/`unstock` and `*_hq` twins; missed-defend repel boost/spend; kit-dict helpers (incl. `remove_units`); target helpers (vein/hq), summary/status text, `kit_veins` |
 | guard_upkeep.gd | Guard wages: hire advance, weekly cost/labels, per-day per-place `guardUpkeep.history`, pre-pot Monday bill from cash, faction Monday bill (vein + stockpile guards) and wage-reserve gate, pending guard shortfall (grace, auto-resolve drop order, short-pay quote/confirm), place labels, Guard Costs reads (history window, per-place series, places, next Monday bill) |
-| home.gd | Home tier/tenure/security/rooms/raid chance; per-day and weekly bill base (rent or utilities); arrears countdown to Monday; tier moves via shared `change_tier` (room wipe, security loss); HQ `drop_guard`; per-slot room purchase/replacement (`set_room_use`); daily raid roll, alarm queue/expiry + guard (kit) repel, and alarm-defend win/loss resolution (R§3.8) |
+| home.gd | Home tier/tenure/security/rooms/raid chance; per-day and weekly bill base (rent or utilities); arrears countdown to Monday; tier moves via shared `change_tier` (room wipe, security loss); HQ `drop_guard`; per-slot room purchase/replacement (`set_room_use`), seat upgrades; daily raid roll, alarm queue/expiry + guard (kit) repel, and alarm-defend win/loss resolution (R§3.8) |
 | jobs.gd | James's jobs, trust bands |
 | key_members.gd | Faction key members (R§3.10): member/faction lookup, `speaker_for`, `send` (unlocks + intro on first message, or waits for a quest-gated member's questline) |
 | lab_bench_nav.gd | Lab bench nav: selected ore; gear confirm variant (probe/craft/inert) + readiness |
@@ -118,7 +118,7 @@ overlays.
 | hq_dial.gd | Dial loadout sub-view (Movements, Complications) |
 | hq_door.gd | Security zone (lock/cameras/door/alarm/guard/ward); guard tile shows hire advance and weekly guard cost (links to Guard Costs); HQ kit row opens the HQ stocking sheet; Guard kits row opens hq_guard_kit |
 | hq_guard_kit.gd | Guard Kit list: HQ kit row on top (`build_hq_row`, shared with hq_door), then one row per player vein with guards or a non-empty kit (name, n/cap, summary, idle); a row opens that kit's stocking sheet |
-| hq_floorplan.gd | Noticeboard: tiers with a plan show FloorplanView (tap slot → choose/replace use); others show the room-tile grid. Contact assignment for staffed rooms |
+| hq_floorplan.gd | Noticeboard: tiers with a plan show FloorplanView (tap slot → choose/replace use); others show the room-tile grid. Contact assignment, seats used/total and seat upgrade for staffed rooms |
 | hq_lab_bench.gd | Lab zone: single portrait bench plate, jar count badges, ready-gear outline, status line; gear tap opens confirm modal |
 | map.gd | Map tab: full-bleed diagram (top board to nav dock) with floating menu button, legend and zoom pill in Map chrome tokens; district panel + sheet |
 | phone.gd | Phone tab controller: mounts PhoneDeviceShell, owns four-column home grid + home-only Phone/Messages/Settings dock, live badge-count projections + tile routing, dispatches apps through phone_app_registry.gd |

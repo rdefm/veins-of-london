@@ -485,7 +485,7 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["contacts"]["archie"]["recruited"] = true
 		Contacts.assign_to_room("archie", "lab")
-		assert_eq(Contacts.get_contact_in_room("lab"), "archie", "room id 'lab' still resolves after its display name became 'Improved Lab'")
+		assert_eq(Contacts.contacts_in_room("lab"), ["archie"], "room id 'lab' still resolves after its display name became 'Improved Lab'")
 		assert_eq(GameData.HOME_ROOMS["lab"]["id"], "lab", "internal id unchanged")
 		assert_eq(GameData.HOME_ROOMS["lab"]["name"], "Improved Lab", "display name updated to disambiguate from the bench's 'The Lab'")
 	)
@@ -572,6 +572,79 @@ func run() -> void:
 		assert_eq(blocks, [1, 2])
 	)
 
+
+	run_case("rooms_start_with_one_seat", func():
+		GameState.reset()
+		for room_id in GameData.HOME_ROOMS.keys():
+			assert_eq(GameState.state["home"]["roomSeats"][room_id], 1, "%s seats 1" % room_id)
+	)
+
+	run_case("station_seat_upgrades_are_capped_by_hq_tier", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 100000
+		GameState.state["home"]["tier"] = "safehouse"
+		GameState.state["home"]["rooms"] = ["veinStation"]
+		assert_eq(Home.seat_upgrade_block_reason("veinStation"), "Requires Compound or better.", "safehouse caps the Station at 1")
+		assert_true(not Home.buy_seat_upgrade("veinStation")["ok"])
+		GameState.state["home"]["tier"] = "compound"
+		assert_true(Home.buy_seat_upgrade("veinStation")["ok"], "compound allows a 2nd seat")
+		assert_eq(Home.room_seats("veinStation"), 2)
+		assert_eq(GameState.state["player"]["cash"], 96000, "a Station seat costs £4,000")
+		assert_eq(Home.seat_upgrade_block_reason("veinStation"), "Requires Mansion & Grounds or better.", "compound caps the Station at 2")
+		GameState.state["home"]["tier"] = "mansion"
+		assert_true(Home.buy_seat_upgrade("veinStation")["ok"], "mansion allows a 3rd seat")
+		assert_eq(Home.room_seats("veinStation"), 3)
+		assert_eq(Home.seat_upgrade_block_reason("veinStation"), "No more seats.")
+	)
+
+	run_case("lab_seat_upgrades_are_capped_by_hq_tier_and_cost_7500", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 7499
+		GameState.state["home"]["tier"] = "compound"
+		GameState.state["home"]["rooms"] = ["lab"]
+		assert_eq(Home.seat_upgrade_block_reason("lab"), "Not enough cash.")
+		GameState.state["player"]["cash"] = 7500
+		assert_true(Home.buy_seat_upgrade("lab")["ok"])
+		assert_eq(GameState.state["player"]["cash"], 0, "a Lab seat costs £7,500")
+		assert_eq(Home.room_seats("lab"), 2)
+		GameState.state["player"]["cash"] = 7500
+		assert_eq(Home.seat_upgrade_block_reason("lab"), "Requires Mansion & Grounds or better.")
+		GameState.state["home"]["tier"] = "mansion"
+		assert_true(Home.buy_seat_upgrade("lab")["ok"])
+		assert_eq(Home.room_seats("lab"), 3)
+	)
+
+	run_case("seat_upgrade_needs_the_room_built_and_rooms_without_upgrades_stay_at_one", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 100000
+		GameState.state["home"]["tier"] = "mansion"
+		assert_eq(Home.seat_upgrade_block_reason("lab"), "Not built.")
+		GameState.state["home"]["rooms"] = ["ops"]
+		assert_eq(Home.seat_upgrade_block_reason("ops"), "No more seats.")
+	)
+
+	run_case("losing_a_room_resets_its_seats", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 100000
+		GameState.state["home"]["tier"] = "compound"
+		GameState.state["home"]["rooms"] = ["lab"]
+		Home.buy_seat_upgrade("lab")
+		Home.change_tier("mansion", "rented")
+		assert_eq(Home.room_seats("lab"), 1, "rebuilt rooms start at one seat")
+	)
+
+	run_case("extra_seats_hold_extra_crafters", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 100000
+		GameState.state["home"]["tier"] = "compound"
+		GameState.state["home"]["rooms"] = ["lab"]
+		Home.buy_seat_upgrade("lab")
+		for id in ["des", "hakim"]:
+			GameState.state["contacts"][id]["recruited"] = true
+			assert_true(Contacts.assign_to_room(id, "lab")["ok"])
+		assert_eq(Contacts.contacts_in_room("lab"), ["des", "hakim"])
+		assert_eq(Contacts.contacts_in_role("production"), ["des", "hakim"])
+	)
 
 func _run_blocks(count: int) -> void:
 	for i in count:

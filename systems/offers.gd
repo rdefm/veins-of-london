@@ -60,9 +60,9 @@ static func daily_tick() -> void:
 		return
 	# An unpaid Sales occupant sources nothing; an unassigned room isn't gated
 	# here since it never owes a wage (business-spec.md).
-	var sales_id: Variant = Contacts.get_contact_in_room("ops")
-	if sales_id != null and not Payroll.is_working(sales_id):
-		return
+	for sales_id in Contacts.contacts_in_room("ops"):
+		if not Payroll.is_working(sales_id):
+			return
 	if not Rng.chance(random_offer_chance()):
 		return
 	var templates := random_templates()

@@ -203,7 +203,8 @@ func new_game_state() -> Dictionary:
 		# membership), "guard" is never appended to `security`.
 		# guardKit is the HQ guards' kit, shaped like vein.guardKit.
 		# tenure is "rented"/"owned" (ADR 0006); arrears is unpaid bill £, arrearsWeeks the consecutive Monday bills that left arrears.
-		"home": { "tier": "bedsit", "tenure": "rented", "arrears": 0, "arrearsWeeks": 0, "security": [], "rooms": [], "lastRaidDay": 0, "pendingRaid": false, "pendingRaidNotificationId": null, "guardCount": 0, "guardKit": {} },
+		# roomSeats is each room's staff seat count (hiring-spec §5).
+		"home": { "tier": "bedsit", "tenure": "rented", "arrears": 0, "arrearsWeeks": 0, "security": [], "rooms": [], "roomSeats": _new_room_seats(), "lastRaidDay": 0, "pendingRaid": false, "pendingRaidNotificationId": null, "guardCount": 0, "guardKit": {} },
 
 		"factions": _new_factions_state(),
 
@@ -412,6 +413,13 @@ func new_game_state() -> Dictionary:
 			"a2MissionsAwarded": [],
 		},
 	}
+
+
+func _new_room_seats() -> Dictionary:
+	var seats := {}
+	for room_id in GameData.HOME_ROOMS.keys():
+		seats[room_id] = 1
+	return seats
 
 
 func _new_factions_state() -> Dictionary:

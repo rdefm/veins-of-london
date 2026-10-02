@@ -572,6 +572,53 @@ static func _remove_room_effects(room_id: String) -> void:
 		player["hpMax"] -= int(room_data["bonusValue"])
 		player["hp"] = mini(player["hp"], player["hpMax"])
 	Contacts.assign_to_room("none", room_id)
+	GameState.state["home"]["roomSeats"][room_id] = 1
+
+
+# Staff seats room_id holds (hiring-spec §5).
+static func room_seats(room_id: String) -> int:
+	return int(GameState.state["home"]["roomSeats"].get(room_id, 1))
+
+
+# The room's next seatUpgrades entry ({ seats, cost, minTier }), or {} at max.
+static func next_seat_upgrade(room_id: String) -> Dictionary:
+	var target := room_seats(room_id) + 1
+	for upgrade in GameData.HOME_ROOMS[room_id].get("seatUpgrades", []):
+		if int(upgrade["seats"]) == target:
+			return upgrade
+	return {}
+
+
+# "" when buy_seat_upgrade(room_id) would succeed, else the reason it's blocked.
+static func seat_upgrade_block_reason(room_id: String) -> String:
+	if not _has_room(room_id):
+		return "Not built."
+	var upgrade := next_seat_upgrade(room_id)
+	if upgrade.is_empty():
+		return "No more seats."
+	if _tier_below_min(GameState.state["home"]["tier"], upgrade["minTier"]):
+		return "Requires %s or better." % GameData.HOME_TIERS[upgrade["minTier"]]["name"]
+	if GameState.state["player"]["cash"] < int(upgrade["cost"]):
+		return "Not enough cash."
+	return ""
+
+
+# Buys room_id's next seat from player cash.
+static func buy_seat_upgrade(room_id: String) -> Dictionary:
+	var reason := seat_upgrade_block_reason(room_id)
+	if reason != "":
+		return { "ok": false, "reason": reason }
+	var upgrade := next_seat_upgrade(room_id)
+	var cost: int = int(upgrade["cost"])
+	var room_name: String = GameData.HOME_ROOMS[room_id]["name"]
+	GameState.state["player"]["cash"] -= cost
+	Bank.record(-cost, "HQ room seat: %s" % room_name)
+	GameState.state["home"]["roomSeats"][room_id] = int(upgrade["seats"])
+	# PROSE-REVIEW: drafted against CONTENT-GUIDE.md's tone.
+	Notify.push("%s now seats %d." % [room_name, int(upgrade["seats"])], Notify.CATEGORY_SUCCESS)
+	EventBus.state_changed.emit()
+	SaveManager.autosave()  # R§6: autosave on purchase
+	return { "ok": true }
 
 
 static func get_workshop_bonus() -> float:

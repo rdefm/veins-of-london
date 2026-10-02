@@ -795,6 +795,20 @@ func run() -> void:
 		assert_eq(filled["home"]["guardCount"], 0, "a save from before guardCount existed should backfill it to 0")
 	)
 
+	run_case("loading_a_save_without_room_seats_backfills_one_per_room", func():
+		GameState.reset()
+		var legacy: Dictionary = GameState.deep_copy(GameState.state)
+		legacy["home"].erase("roomSeats")
+		var filled := SaveManager.backfill_defaults(legacy)
+		for room_id in GameData.HOME_ROOMS.keys():
+			assert_eq(filled["home"]["roomSeats"][room_id], 1, "%s backfilled to 1 seat" % room_id)
+		var partial: Dictionary = GameState.deep_copy(GameState.state)
+		partial["home"]["roomSeats"] = { "lab": 2 }
+		filled = SaveManager.backfill_defaults(partial)
+		assert_eq(filled["home"]["roomSeats"]["lab"], 2, "an upgraded room keeps its seats")
+		assert_eq(filled["home"]["roomSeats"]["veinStation"], 1)
+	)
+
 	run_case("loading_a_save_without_faction_shop_flags_backfills_them_false", func():
 		GameState.reset()
 		var legacy: Dictionary = GameState.deep_copy(GameState.state)

@@ -129,7 +129,7 @@ func run() -> void:
 		assert_true(assign_button != null, "an installed lab room must expose an Assign row for a recruited, unassigned contact")
 
 		assign_button.pressed.emit()
-		assert_eq(Contacts.get_contact_in_room("lab"), some_contact_id, "tapping Assign must assign the contact to the room, unchanged from the old direct row")
+		assert_eq(Contacts.contacts_in_room("lab"), [some_contact_id], "tapping Assign must assign the contact to the room, unchanged from the old direct row")
 
 		screen.free()
 	)
@@ -150,7 +150,7 @@ func run() -> void:
 		assert_true(assign_button != null, "an installed ops room must expose an Assign row for a recruited, unassigned contact")
 
 		assign_button.pressed.emit()
-		assert_eq(Contacts.get_contact_in_room("ops"), some_contact_id, "tapping Assign must assign the contact to Sales (ops), same mechanism as lab/veinStation")
+		assert_eq(Contacts.contacts_in_room("ops"), [some_contact_id], "tapping Assign must assign the contact to Sales (ops), same mechanism as lab/veinStation")
 
 		screen.free()
 	)
@@ -177,12 +177,34 @@ func run() -> void:
 		var screen := HqFloorplanScreen.new()
 		screen._ready()
 
-		var unassign_button := NodeQuery.find_button(screen, "Unassign")
+		var unassign_button := NodeQuery.find_button(screen, "Unassign %s" % Contacts.display_name(some_contact_id))
 		assert_true(unassign_button != null, "an assigned lab room must expose an Unassign button")
 
 		unassign_button.pressed.emit()
-		assert_eq(Contacts.get_contact_in_room("lab"), null, "tapping Unassign must vacate the room")
+		assert_eq(Contacts.contacts_in_room("lab"), [], "tapping Unassign must vacate the room")
 
+		screen.free()
+	)
+
+	run_case("hq_floorplan_room_card_shows_seats_and_a_tier_gated_upgrade", func():
+		GameState.reset()
+		GameState.state["home"]["tier"] = "safehouse"
+		GameState.state["home"]["rooms"].append("veinStation")
+		GameState.state["player"]["cash"] = 100000
+		var screen := HqFloorplanScreen.new()
+		screen._ready()
+		assert_true(NodeQuery.label_texts(screen).has("Seats: 0/1"))
+		var upgrade := NodeQuery.find_button(screen, "+1 seat £4000")
+		assert_true(upgrade != null and upgrade.disabled, "safehouse can't add a Station seat")
+		screen.free()
+
+		GameState.state["home"]["tier"] = "compound"
+		screen = HqFloorplanScreen.new()
+		screen._ready()
+		upgrade = NodeQuery.find_button(screen, "+1 seat £4000")
+		assert_true(upgrade != null and not upgrade.disabled, "compound can")
+		upgrade.pressed.emit()
+		assert_eq(Home.room_seats("veinStation"), 2)
 		screen.free()
 	)
 

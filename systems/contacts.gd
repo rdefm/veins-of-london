@@ -129,27 +129,57 @@ static func set_role(contact_id: String, role: Variant) -> Dictionary:
 	return { "ok": true }
 
 
-static func get_contact_in_room(room_id: String) -> Variant:
+# Recruited contacts staffing room_id, in contact order.
+static func contacts_in_room(room_id: String) -> Array:
+	var result: Array = []
 	var contacts: Dictionary = GameState.state["contacts"]
 	for contact_id in contacts.keys():
 		var c: Dictionary = contacts[contact_id]
 		if c["recruited"] and c["assignedRoom"] == room_id:
-			return contact_id
-	return null
+			result.append(contact_id)
+	return result
 
 
-# Vacates whatever contact currently holds room_id, then assigns contact_id
-# to it (pass "none" to just vacate). One contact per room; assigning
-# vacates any prior occupant of that room.
-static func assign_to_room(contact_id: String, room_id: String) -> void:
+# Seats in use in room_id: its occupants, less founders (who hold no
+# seat, hiring-spec §5).
+static func room_seats_used(room_id: String) -> int:
+	var used := 0
+	for contact_id in contacts_in_room(room_id):
+		if not is_founder(contact_id):
+			used += 1
+	return used
+
+
+# Assigns contact_id to room_id, clearing any role or other room they held.
+# Refused while every seat is taken (no eviction). "none" vacates every
+# occupant of the room.
+static func assign_to_room(contact_id: String, room_id: String) -> Dictionary:
 	var contacts: Dictionary = GameState.state["contacts"]
-	for cid in contacts.keys():
-		if contacts[cid]["assignedRoom"] == room_id:
-			contacts[cid]["assignedRoom"] = null
-	if contact_id != "none" and contacts.has(contact_id):
-		contacts[contact_id]["assignedRoom"] = room_id
-		contacts[contact_id]["assignedRole"] = null
+	if contact_id == "none":
+		for cid in contacts.keys():
+			if contacts[cid]["assignedRoom"] == room_id:
+				contacts[cid]["assignedRoom"] = null
+		EventBus.state_changed.emit()
+		return { "ok": true }
+	if not contacts.has(contact_id):
+		return { "ok": false, "reason": "Not working with you." }
+	var c: Dictionary = contacts[contact_id]
+	if c["assignedRoom"] == room_id:
+		return { "ok": true }
+	if not is_founder(contact_id) and room_seats_used(room_id) >= Home.room_seats(room_id):
+		return { "ok": false, "reason": "No free seat." }
+	c["assignedRoom"] = room_id
+	c["assignedRole"] = null
 	EventBus.state_changed.emit()
+	return { "ok": true }
+
+
+# Takes contact_id out of whatever room they staff.
+static func unassign_from_room(contact_id: String) -> void:
+	var contacts: Dictionary = GameState.state["contacts"]
+	if contacts.has(contact_id):
+		contacts[contact_id]["assignedRoom"] = null
+		EventBus.state_changed.emit()
 
 
 static func award_contact_xp(contact_id: String, skill: String, amount: int) -> void:
