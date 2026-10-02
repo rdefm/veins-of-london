@@ -37,17 +37,27 @@ static func activate() -> Dictionary:
 
 
 # A contract settlement's payment, credited to the pot and this week's
-# receipts.
+# receipts; then any owed wage the pot and float now cover is paid.
 static func receive(amount: int) -> void:
 	var business := _business()
 	business["pot"] += amount
 	business["week"]["receipts"] += amount
 	BusinessStats.record_revenue(amount)
+	pay_covered_owed()
 	EventBus.state_changed.emit()
 
 
-# Moves player cash into the float. Not revenue.
+# Moves player cash into the float (not revenue); then any owed wage the pot
+# and float now cover is paid.
 static func donate(amount: int) -> Dictionary:
+	var added := _add_float(amount)
+	if added["ok"]:
+		pay_covered_owed()
+		EventBus.state_changed.emit()
+	return added
+
+
+static func _add_float(amount: int) -> Dictionary:
 	if not is_pot_active():
 		return { "ok": false, "reason": "The business pot isn't running yet." }
 	var player: Dictionary = GameState.state["player"]
@@ -56,7 +66,6 @@ static func donate(amount: int) -> Dictionary:
 	player["cash"] -= amount
 	_business()["float"] += amount
 	Bank.record(-amount, "Business float")
-	EventBus.state_changed.emit()
 	return { "ok": true }
 
 
@@ -177,26 +186,44 @@ static func top_up_needed(contact_id: String) -> int:
 	return maxi(0, owed(contact_id) - int(business["pot"]) - int(business["float"]))
 
 
-# The morning prompt's Yes, and the Staff tab's Pay now: donates
-# top_up_needed() into the float, then pays the owed wage from the pot, then
-# the float, as a `wage` expense this week. Full payment resumes their work.
+# The morning prompt's Yes, and the Staff tab's Pay now: moves
+# top_up_needed() into the float, then pays this contact's owed wage from the
+# pot, then the float. Full payment resumes their work.
 static func top_up_and_pay_owed(contact_id: String) -> Dictionary:
-	var business := _business()
-	var wage: Dictionary = business["wages"].get(contact_id, {})
+	var wage: Dictionary = _business()["wages"].get(contact_id, {})
 	var amount := int(wage.get("owed", 0))
 	if amount <= 0:
 		return { "ok": false, "reason": "Nothing owed." }
 	var top_up := top_up_needed(contact_id)
 	if top_up > 0:
-		var donated := donate(top_up)
-		if not donated["ok"]:
-			return donated
+		var added := _add_float(top_up)
+		if not added["ok"]:
+			return added
+	_pay_owed(contact_id)
+	EventBus.state_changed.emit()
+	return { "ok": true, "paid": amount, "toppedUp": top_up }
+
+
+# Pays, in wages order, every owed wage the pot then float can cover in
+# full -- for every waged contact, not only at payday -- so a covered wage
+# never waits on a prompt.
+static func pay_covered_owed() -> void:
+	var wages: Dictionary = _business()["wages"]
+	for contact_id in wages:
+		if int(wages[contact_id]["owed"]) > 0 and top_up_needed(contact_id) == 0:
+			_pay_owed(contact_id)
+
+
+# Draws contact_id's owed wage from the pot then float as a `wage` expense
+# this week, and clears it. Caller has checked pot + float cover it.
+static func _pay_owed(contact_id: String) -> void:
+	var business := _business()
+	var wage: Dictionary = business["wages"][contact_id]
+	var amount := int(wage["owed"])
 	_draw(amount)
 	business["week"]["expenses"].append({ "kind": "wage", "contactId": contact_id, "amount": amount })
 	BusinessStats.record_expense(amount, BusinessStats.EXPENSE_STAFF)
 	_clear_owed(wage)
-	EventBus.state_changed.emit()
-	return { "ok": true, "paid": amount, "toppedUp": top_up }
 
 
 # The morning prompt's No: the contact stays unpaid and owed.

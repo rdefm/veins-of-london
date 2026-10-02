@@ -172,11 +172,7 @@ static func wage_shortfall_label(exception: Dictionary) -> String:
 
 
 static func wage_prompt_label(contact_id: String) -> String:
-	var name := Contacts.display_name(contact_id)
-	var top_up := Business.top_up_needed(contact_id)
-	if top_up <= 0:
-		return "%s is owed £%d and has stopped working. Pay %s from the business?" % [name, Business.owed(contact_id), name]
-	return "%s is owed £%d and has stopped working. Top up the float by £%d?" % [name, Business.owed(contact_id), top_up]
+	return "%s is owed £%d and has stopped working. Top up the float by £%d?" % [Contacts.display_name(contact_id), Business.owed(contact_id), Business.top_up_needed(contact_id)]
 
 
 # Arrears exceptions (ADR 0006 "Morning account and notifications") from

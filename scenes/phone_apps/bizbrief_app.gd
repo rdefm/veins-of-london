@@ -305,8 +305,7 @@ func _build_staff_card(contact_id: String) -> Control:
 	var owed := Business.owed(contact_id)
 	if owed > 0:
 		var top_up := Business.top_up_needed(contact_id)
-		var label := "Pay now £%d" % owed if top_up <= 0 else "Top up £%d and pay" % top_up
-		c["content"].add_child(UI.action_button(label, func(): Business.top_up_and_pay_owed(contact_id), int(GameState.state["player"]["cash"]) < top_up, "Not enough cash."))
+		c["content"].add_child(UI.action_button("Top up £%d and pay" % top_up, func(): Business.top_up_and_pay_owed(contact_id), int(GameState.state["player"]["cash"]) < top_up, "Not enough cash."))
 	return c["panel"]
 
 

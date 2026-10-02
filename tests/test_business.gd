@@ -125,27 +125,26 @@ func run() -> void:
 		assert_true(not Business.top_up_and_pay_owed("owen")["ok"], "nothing left to pay")
 	)
 
-	run_case("owed_wages_wait_for_the_next_monday_payday", func():
+	run_case("a_receipt_that_covers_an_owed_wage_pays_it_at_once", func():
 		GameState.reset()
 		GameState.state["world"]["day"] = 2
 		Business.activate()
 		for i in 6:
 			TimeSystem.do_rest()
 		assert_eq(Business.owed("owen"), 214)
-		Business.receive(300)
-		TimeSystem.do_rest()
-		assert_eq(Business.owed("owen"), 214, "no mid-week retry")
-		for i in 6:
-			TimeSystem.do_rest()
-		var business: Dictionary = GameState.state["business"]
-		assert_eq(GameState.state["world"]["day"], 15)
-		assert_eq(Business.owed("owen"), 0)
+		assert_eq(Business.pending_wage_prompts(), ["owen"])
+		Business.receive(600)
+		assert_eq(Business.owed("owen"), 0, "covered owed wages are paid without a prompt")
 		assert_true(not Business.is_unpaid("owen"))
 		assert_eq(Business.pending_wage_prompts(), [])
+		var business: Dictionary = GameState.state["business"]
+		assert_eq(business["pot"], 386)
+		for i in 7:
+			TimeSystem.do_rest()
+		assert_eq(GameState.state["world"]["day"], 15)
 		var record: Dictionary = business["ledger"][-1]
-		assert_eq(record["expenses"], [{ "kind": "wage", "contactId": "owen", "amount": 214 }])
-		# R = 300 − 214 = 86 → 28 each partner, 30 to the player.
-		assert_eq(record["shares"], { "player": 30, "archie": 28, "james": 28 })
+		# The owed £214 paid mid-week, then a full worked week's £250 at payday.
+		assert_eq(record["expenses"], [{ "kind": "wage", "contactId": "owen", "amount": 214 }, { "kind": "wage", "contactId": "owen", "amount": 250 }])
 	)
 
 	run_case("top_up_refuses_without_enough_cash", func():
@@ -161,19 +160,37 @@ func run() -> void:
 		assert_eq(GameState.state["business"]["float"], 0)
 	)
 
-	run_case("a_float_that_already_covers_the_owed_wage_needs_no_top_up", func():
+	run_case("a_donation_that_covers_every_owed_wage_pays_all_staff", func():
 		GameState.reset()
 		GameState.state["world"]["day"] = 2
 		Business.activate()
+		var wages: Dictionary = GameState.state["business"]["wages"]
+		wages["des"] = { "weekly": 300, "owed": 0, "unpaid": false, "hiredDay": 2, "daysWorked": 0, "promptPending": false }
 		for i in 6:
 			TimeSystem.do_rest()
-		GameState.state["business"]["float"] = 300
-		GameState.state["player"]["cash"] = 0
-		assert_eq(Business.top_up_needed("owen"), 0)
-		assert_eq(MorningAccounts.wage_prompt_label("owen"), "Owen is owed £214 and has stopped working. Pay Owen from the business?")
-		assert_true(Business.top_up_and_pay_owed("owen")["ok"])
-		assert_eq(GameState.state["business"]["float"], 86)
-		assert_eq(GameState.state["player"]["cash"], 0, "player cash never pays a wage")
+		assert_eq(Business.pending_wage_prompts(), ["owen", "des"])
+		GameState.state["player"]["cash"] = 1000
+		Business.donate(600)
+		assert_eq(Business.pending_wage_prompts(), [], "both covered wages paid, no prompt left")
+		assert_true(not Business.is_unpaid("owen"))
+		assert_true(not Business.is_unpaid("des"))
+		assert_eq(GameState.state["business"]["float"], 600 - 214 - 257)
+	)
+
+	run_case("a_top_up_pays_the_chosen_contact_before_any_other", func():
+		GameState.reset()
+		GameState.state["world"]["day"] = 2
+		Business.activate()
+		var wages: Dictionary = GameState.state["business"]["wages"]
+		wages["des"] = { "weekly": 300, "owed": 0, "unpaid": false, "hiredDay": 2, "daysWorked": 0, "promptPending": false }
+		for i in 6:
+			TimeSystem.do_rest()
+		GameState.state["player"]["cash"] = 1000
+		assert_eq(Business.top_up_needed("des"), 257)
+		assert_true(Business.top_up_and_pay_owed("des")["ok"])
+		assert_true(not Business.is_unpaid("des"))
+		assert_true(Business.is_unpaid("owen"), "Owen's wage is not covered by Des's top-up")
+		assert_eq(GameState.state["player"]["cash"], 743)
 	)
 
 	run_case("business_state_survives_a_save_round_trip_as_ints", func():
