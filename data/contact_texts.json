@@ -575,6 +575,116 @@
       }
     ]
   },
+  "des": {
+    "gateFlag": "colA1DesMet",
+    "requireUnlocked": true,
+    "holdWhilePending": true,
+    "holdWhileEventPrefix": "col_",
+    "intervalMinDays": 9,
+    "intervalMaxDays": 11,
+    "texts": [
+      {
+        "id": "prospecting_maps",
+        "kind": "flavour",
+        "needsVein": false,
+        "text": "Someone's selling 'prospecting maps' outside Whitechapel station. I checked one. It's a bus map with the stops rubbed out. Pass it on.",
+        "replies": [
+          { "text": "I'll warn people.", "response": "Ta. He's had enough off them.", "reward": { "relation": 1 } },
+          { "text": "Did you buy it?", "response": "Borrowed it long enough to check. He wanted it back." }
+        ]
+      },
+      {
+        "id": "laundrette_yard",
+        "kind": "flavour",
+        "needsVein": false,
+        "text": "Need your view on a patch behind a laundrette. Ground's good, but the owner uses the yard every day. I'd ask before anyone goes in. Will you come with me?",
+        "replies": [
+          { "text": "I'll come.", "response": "Ta. I'll find a time that suits her.", "reward": { "relation": 1 } },
+          { "text": "Leave it for now.", "response": "All right. The ground can wait." }
+        ]
+      },
+      {
+        "id": "council_allotment",
+        "kind": "flavour",
+        "needsVein": false,
+        "text": "One of the old council allotments has good ground for seeding life calc. I helped a woman apply for the plot. The form wanted an intended crop, so she wrote 'carrots' and handed me a packet of seeds. Said she didn't want me lying on her behalf.",
+        "replies": [
+          { "text": "Did she get it?", "response": "Key comes Tuesday. She's already decided where the carrots go." },
+          { "text": "How's the ground?", "response": "Good. We both checked. She checked again after I left." }
+        ]
+      },
+      {
+        "id": "first_harvest",
+        "kind": "flavour",
+        "needsVein": false,
+        "text": "One of our growers sent me a picture of her first harvest. She thinks it's too small to be worth sharing. It isn't. How do I tell her without making it sound like pity?",
+        "replies": [
+          { "text": "Tell her who needs it.", "response": "Right. It has a home already.", "reward": { "relation": 1 } },
+          { "text": "Tell her it's enough.", "response": "I'll try. She'll ask me 'enough for what'." }
+        ]
+      },
+      {
+        "id": "closer_ground",
+        "kind": "flavour",
+        "needsVein": false,
+        "text": "Found two possible patches for a new seeder. One's better ground; the other's nearer her flat. She's got a bad knee. Which would you offer her?",
+        "replies": [
+          { "text": "The closer one.", "response": "Thought so. Good ground's no use if she can't get there.", "reward": { "relation": 1 } },
+          { "text": "The better one.", "response": "I'll ask how far she can manage before I offer either." }
+        ]
+      },
+      {
+        "id": "empty_lot",
+        "kind": "flavour",
+        "needsVein": false,
+        "text": "The woman at the corner shop asked why I keep checking the empty lot. Told her the ground was settling. She said it has been since 1987.",
+        "replies": [
+          { "text": "She's observant.", "response": "More than most prospectors." },
+          { "text": "Tell her more.", "response": "No. She didn't ask for a lecture." }
+        ]
+      },
+      {
+        "id": "spare_salve",
+        "kind": "flavour",
+        "needsVein": false,
+        "text": "Found a spare healing salve in my kit. Still sealed. Yours if you want it.",
+        "replies": [
+          { "text": "I'll take it.", "response": "Keep it somewhere you can reach.", "reward": { "item": { "id": "healingSalve", "qty": 1 } } },
+          { "text": "Save it for someone else.", "response": "I will. Ta for thinking of them.", "reward": { "relation": 1 } }
+        ]
+      },
+      {
+        "id": "outside_shop",
+        "kind": "flavour",
+        "needsVein": false,
+        "text": "Someone watched me survey a patch this morning. Same man outside the shop an hour later. I don't know who sent him. If you're coming by, use the back door.",
+        "replies": [
+          { "text": "I'll use the back.", "response": "Good. I'll let you know when he's gone." },
+          { "text": "What did he look like?", "response": "Grey coat, brown briefcase. Kept his hands in his pockets." }
+        ]
+      },
+      {
+        "id": "her_notes",
+        "kind": "flavour",
+        "needsVein": false,
+        "text": "Someone I helped last winter sent word she's back at work. Her vein was nearly gone then; she's got it growing again. Kept notes on what she did.",
+        "replies": [
+          { "text": "Send me her notes.", "response": "Will do. She logged every day, including the days nothing changed.", "reward": { "cultivatingXp": 2 } },
+          { "text": "Glad she's all right.", "response": "Me too. Best message I've had all week.", "reward": { "relation": 1 } }
+        ]
+      },
+      {
+        "id": "notebook",
+        "kind": "flavour",
+        "needsVein": false,
+        "text": "When I started, I kept a notebook of every patch I looked at. The good spots only made sense after I'd written down what I'd missed. Keep your wrong guesses in yours.",
+        "replies": [
+          { "text": "What should I note?", "response": "The ground, what happened there, what you ruled out. Especially what you ruled out." },
+          { "text": "I'll start one.", "response": "Good. Memory lets you off too easily." }
+        ]
+      }
+    ]
+  },
   "nadia": {
     "gateFlag": "colA1NadiaThreadDone",
     "requireUnlocked": true,

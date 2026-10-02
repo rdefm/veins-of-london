@@ -88,6 +88,22 @@ func _meet_hakim() -> void:
 	GameState.state["contactTexts"]["hakim"] = ContactTexts.new_contact_state()
 
 
+func _meet_des() -> void:
+	GameState.reset()
+	GameState.state["flags"]["colA1DesMet"] = true
+	GameState.state["contacts"]["des"]["unlocked"] = true
+	GameState.state["contactTexts"]["des"] = ContactTexts.new_contact_state()
+
+
+func _force_des_text(text_id: String) -> void:
+	var played := {}
+	for entry in GameData.CONTACT_TEXTS["des"]["texts"]:
+		if entry["id"] != text_id:
+			played[entry["id"]] = 0
+	GameState.state["contactTexts"]["des"]["played"] = played
+	assert_eq(ContactTexts.send_next("des"), text_id)
+
+
 # Marks every other Hakim text played so send_next() picks this one.
 func _force_hakim_text(text_id: String) -> void:
 	var played := {}
@@ -730,6 +746,74 @@ func run() -> void:
 		ContactTexts.reply("nadia", 1)
 		assert_eq(Crafting.inventory_qty("timePearl"), pearls_before + 1, "declining gives no second pearl")
 		assert_eq(GameState.state["factions"]["collective"]["relation"], relation_before + 1)
+	)
+
+	run_case("des_ships_ten_texts_only_after_meeting", func():
+		assert_eq(GameData.CONTACT_TEXTS["des"]["texts"].size(), 10)
+		GameState.reset()
+		for day in range(1, 8):
+			_set_day(day)
+			ContactTexts.daily_tick()
+		assert_true(not GameState.state["contactTexts"].has("des"), "locked Des has no scheduler")
+		GameState.state["contacts"]["des"]["unlocked"] = true
+		_set_day(8)
+		ContactTexts.daily_tick()
+		assert_true(not GameState.state["contactTexts"].has("des"), "unlock without meeting flag is insufficient")
+		GameState.state["flags"]["colA1DesMet"] = true
+		_set_day(9)
+		ContactTexts.daily_tick()
+		var next_day: int = GameState.state["contactTexts"]["des"]["nextDay"]
+		assert_true(next_day >= 17 and next_day <= 19, "first text 9-11 days after meeting")
+		_set_day(next_day)
+		ContactTexts.daily_tick()
+		assert_true(ContactTexts.is_awaiting_reply("des"), "sends when due")
+	)
+
+	run_case("des_text_waits_behind_scripted_message_and_collective_event", func():
+		_meet_des()
+		GameState.state["contactTexts"]["des"]["nextDay"] = 5
+		Messages.queue_pending("des", "col_a2_intro", "Come by.")
+		_set_day(5)
+		ContactTexts.daily_tick()
+		assert_true(not ContactTexts.is_awaiting_reply("des"), "scripted message has priority")
+		Messages.resolve_pending(Messages.pending_for("des")[0]["id"])
+		GameState.state["event"] = { "eventId": "col_a2_pattern" }
+		_set_day(6)
+		ContactTexts.daily_tick()
+		assert_true(not ContactTexts.is_awaiting_reply("des"), "Collective event has priority")
+		GameState.state["event"] = null
+		_set_day(7)
+		ContactTexts.daily_tick()
+		assert_true(ContactTexts.is_awaiting_reply("des"), "due text resumes")
+	)
+
+	run_case("des_salve_choice_grants_item_or_personal_relation", func():
+		_meet_des()
+		var salves_before := Crafting.inventory_qty("healingSalve")
+		var relation_before: int = GameState.state["contacts"]["des"]["relation"]
+		_force_des_text("spare_salve")
+		ContactTexts.reply("des", 0)
+		assert_eq(Crafting.inventory_qty("healingSalve"), salves_before + 1)
+		assert_eq(GameState.state["contacts"]["des"]["relation"], relation_before)
+		_force_des_text("spare_salve")
+		ContactTexts.reply("des", 1)
+		assert_eq(Crafting.inventory_qty("healingSalve"), salves_before + 1, "declining adds no salve")
+		assert_eq(GameState.state["contacts"]["des"]["relation"], relation_before + 1)
+	)
+
+	run_case("des_notes_choice_grants_player_cultivating_xp_or_relation", func():
+		_meet_des()
+		var player: Dictionary = GameState.state["player"]
+		var xp_before: int = player["cultivatingXP"]
+		var relation_before: int = GameState.state["contacts"]["des"]["relation"]
+		_force_des_text("her_notes")
+		ContactTexts.reply("des", 0)
+		assert_eq(player["cultivatingXP"], xp_before + 2)
+		assert_eq(GameState.state["contacts"]["des"]["relation"], relation_before)
+		_force_des_text("her_notes")
+		ContactTexts.reply("des", 1)
+		assert_eq(player["cultivatingXP"], xp_before + 2, "second reply adds no XP")
+		assert_eq(GameState.state["contacts"]["des"]["relation"], relation_before + 1)
 	)
 
 	run_case("validator_rejects_a_malformed_pool", func():
