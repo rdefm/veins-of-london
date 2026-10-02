@@ -182,6 +182,26 @@ static func unassign_from_room(contact_id: String) -> void:
 		EventBus.state_changed.emit()
 
 
+# The XP ladder for a contact skill: levels[n] is the XP that reaches level n.
+static func xp_levels(skill: String) -> Array:
+	match skill:
+		"crafting":
+			return GameData.CRAFTING_XP_LEVELS
+		"sales":
+			return GameData.SALES_XP_LEVELS
+	return GameData.CULTIVATING_XP_LEVELS
+
+
+# The contact's skill level cap (constants.json / hiring.json skillCaps),
+# else the top of the skill's XP ladder.
+static func skill_cap(contact_id: String, skill: String) -> int:
+	var max_level: int = xp_levels(skill).size() - 1
+	var caps: Dictionary = GameData.CONTACTS_DEFAULTS.get(contact_id, {}).get("skillCaps", {})
+	if caps.has(skill):
+		max_level = mini(max_level, int(caps[skill]))
+	return max_level
+
+
 static func award_contact_xp(contact_id: String, skill: String, amount: int) -> void:
 	var contacts: Dictionary = GameState.state["contacts"]
 	if not contacts.has(contact_id):
@@ -189,19 +209,9 @@ static func award_contact_xp(contact_id: String, skill: String, amount: int) -> 
 	var c: Dictionary = contacts[contact_id]
 	var xp_key: String = skill + "XP"
 	var skill_key: String = skill + "Skill"
-	var levels: Array
-	match skill:
-		"crafting":
-			levels = GameData.CRAFTING_XP_LEVELS
-		"sales":
-			levels = GameData.SALES_XP_LEVELS
-		_:
-			levels = GameData.CULTIVATING_XP_LEVELS
+	var levels := xp_levels(skill)
 	c[xp_key] = c[xp_key] + amount
-	var max_level: int = levels.size() - 1
-	var caps: Dictionary = GameData.CONTACTS_DEFAULTS.get(contact_id, {}).get("skillCaps", {})
-	if caps.has(skill):
-		max_level = mini(max_level, int(caps[skill]))
+	var max_level := skill_cap(contact_id, skill)
 	while c[skill_key] < max_level and c[xp_key] >= levels[c[skill_key] + 1]:
 		c[skill_key] += 1
 		Notify.push("%s's %s skill reached level %d." % [display_name(contact_id), skill, c[skill_key]], Notify.CATEGORY_SUCCESS)
@@ -315,6 +325,9 @@ static func display_name(contact_id: String) -> String:
 			var key_member := KeyMembers.member(contact_id)
 			if not key_member.is_empty():
 				return str(key_member["name"])
+			var defaults: Dictionary = GameData.CONTACTS_DEFAULTS.get(contact_id, {})
+			if defaults.has("name"):
+				return str(defaults["name"])
 			return contact_id.capitalize()
 
 

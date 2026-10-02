@@ -4,5 +4,55 @@
     "production": { "label": "Crafter", "room": "lab", "skill": "crafting", "enabled": true },
     "sales": { "label": "Sales", "room": "ops", "skill": "sales", "enabled": false },
     "security": { "label": "Security", "room": null, "skill": null, "enabled": false }
+  },
+  "candidates": {
+    "marcia": {
+      "name": "Marcia Odunsi", "role": "cultivation", "startLevel": 2, "skillCaps": { "cultivating": 4 },
+      "specialities": ["life"], "baseWage": 300, "wagePerLevel": 60, "trait": null, "voice": "marcia",
+      "headline": "Allotment secretary, 14 yrs. Open to discreet horticulture.",
+      "about": "Ran the Brockley allotments through two floods and a hosepipe ban. Knows what grows where, and who's been digging where they shouldn't."
+    },
+    "tomasz": {
+      "name": "Tomasz Wójcik", "role": "cultivation", "startLevel": 1, "skillCaps": { "cultivating": 5 },
+      "specialities": ["physics"], "baseWage": 200, "wagePerLevel": 60, "trait": "eager", "voice": "tomasz",
+      "headline": "Landscaping grad. Hungry. Will learn anything.",
+      "about": "First-class degree, no references yet. Early riser. Owns his own boots and most of a van."
+    },
+    "bernie": {
+      "name": "Bernie Kale", "role": "cultivation", "startLevel": 3, "skillCaps": { "cultivating": 3 },
+      "specialities": ["life", "physics"], "baseWage": 420, "wagePerLevel": 0, "trait": null, "voice": "bernie",
+      "headline": "Forty years in the trade. Not here to learn.",
+      "about": "Has tended seams under three different owners. Outlasted all of them. Tea, two sugars, no questions."
+    },
+    "saoirse": {
+      "name": "Saoirse Flynn", "role": "cultivation", "startLevel": 2, "skillCaps": { "cultivating": 5 },
+      "specialities": ["fate", "emotion"], "baseWage": 320, "wagePerLevel": 70, "trait": "distracted", "voice": "saoirse",
+      "headline": "Ex-cooperative grower. Left on good terms. Mostly.",
+      "about": "Six years growing for the Collective. Good with the awkward seams. Will tell you about the time she nearly went to Lisbon."
+    },
+    "priya": {
+      "name": "Priya Sandhu", "role": "production", "startLevel": 2, "skillCaps": { "crafting": 4 },
+      "specialities": ["physics"], "baseWage": 320, "wagePerLevel": 60, "trait": null, "voice": "priya",
+      "headline": "Materials engineer, formerly of a firm she won't name.",
+      "about": "Tolerances, stress loads, and paperwork that never quite mentions what the material was. Signed something. Won't discuss it."
+    },
+    "dot": {
+      "name": "Dot Mayhew", "role": "production", "startLevel": 1, "skillCaps": { "crafting": 4 },
+      "specialities": ["life", "emotion"], "baseWage": 220, "wagePerLevel": 60, "trait": null, "voice": "dot",
+      "headline": "Herbalist. Market stall, Deptford.",
+      "about": "Tinctures, poultices, and a remedy for heartbreak she swears is mostly gin. Saturdays only, unless you're paying."
+    },
+    "gideon": {
+      "name": "Gideon Achterberg", "role": "production", "startLevel": 3, "skillCaps": { "crafting": 5 },
+      "specialities": ["time"], "baseWage": 480, "wagePerLevel": 80, "trait": null, "voice": "gideon",
+      "headline": "Horologist. Guild-trained. Expensive, and worth it.",
+      "about": "Apprenticed in Clerkenwell. Repairs movements most people can't open. Invoices to the minute."
+    },
+    "ray": {
+      "name": "Ray Okafor-Bell", "role": "production", "startLevel": 2, "skillCaps": { "crafting": 3 },
+      "specialities": ["fate", "emotion", "time"], "baseWage": 300, "wagePerLevel": 50, "trait": "distracted", "voice": "ray",
+      "headline": "Jack of all trades. Ask around.",
+      "about": "Has done a bit of everything, some of it twice. Turns up. Usually."
+    }
   }
 }

@@ -40,6 +40,11 @@ static func apps() -> Array[Dictionary]:
 		{ "id": "saveload", "label": "Save/Load", "locked": unlocked },
 	]
 
+	# Hiring app: absent from the grid, not merely locked, until James joins.
+	# PROSE-REVIEW: "LodedInnit" app name.
+	if Hiring.is_app_unlocked():
+		list.append({ "id": "lodedinnit", "label": "LodedInnit", "locked": unlocked })
+
 	# Only present on a save started via Debug Start — never merely locked,
 	# genuinely absent from the grid on a normal New Game.
 	if GameState.state["flags"]["debugStartUsed"]:

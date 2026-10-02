@@ -73,7 +73,7 @@ static func _apply_raid_loss() -> void:
 	if total <= 0:
 		return
 
-	var ratio: float = 0.25 if _has_room("safeRoom") else 0.50
+	var ratio: float = 0.25 if has_room("safeRoom") else 0.50
 	var lost: Dictionary = {}
 	for ore_type in stored.keys():
 		var qty: int = stored[ore_type]
@@ -591,7 +591,7 @@ static func next_seat_upgrade(room_id: String) -> Dictionary:
 
 # "" when buy_seat_upgrade(room_id) would succeed, else the reason it's blocked.
 static func seat_upgrade_block_reason(room_id: String) -> String:
-	if not _has_room(room_id):
+	if not has_room(room_id):
 		return "Not built."
 	var upgrade := next_seat_upgrade(room_id)
 	if upgrade.is_empty():
@@ -631,7 +631,7 @@ static func get_workshop_bonus() -> float:
 	return bonus
 
 
-static func _has_room(room_id: String) -> bool:
+static func has_room(room_id: String) -> bool:
 	return GameState.state["home"]["rooms"].has(room_id)
 
 

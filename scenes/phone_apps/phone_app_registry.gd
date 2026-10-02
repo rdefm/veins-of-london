@@ -19,5 +19,6 @@ static var REGISTRY: Dictionary = {
 	"notifications": NotificationsApp,
 	"bank": BankApp,
 	"property": PropertyApp,
+	"lodedinnit": LodedInnitApp,
 	"debug": DebugApp,
 }

@@ -188,6 +188,11 @@ var PRODUCTION_LOG_DAYS: int = 0
 # "Staff roles".
 var HIRING_ROLES: Dictionary = {}
 
+# LodedInnit roster: candidate id -> {name, headline, about, role,
+# startLevel, skillCaps, specialities, baseWage, wagePerLevel, trait, voice}
+# (R§3.10 "Hiring"). Each is also merged into CONTACTS_DEFAULTS at boot.
+var HIRING_CANDIDATES: Dictionary = {}
+
 # Ceiling on a Production personal target (state.labThresholds), R§3.10.
 var PRODUCTION_TARGET_MAX: int = 0
 
@@ -454,6 +459,7 @@ const MANIFEST: Array[Dictionary] = [
 	]},
 	{"table": "hiring", "file": "res://data/hiring.json", "fields": [
 		{"field": "HIRING_ROLES", "key": "roles", "type": TYPE_DICTIONARY},
+		{"field": "HIRING_CANDIDATES", "key": "candidates", "type": TYPE_DICTIONARY},
 	]},
 ]
 
@@ -467,8 +473,18 @@ func load_all() -> void:
 	_load_palette()
 	_load_events()
 	_scan_territorial_variants()
+	_merge_candidate_contacts()
 
 	loaded = true
+
+
+# Each LodedInnit candidate is a contact like Des/Nadia: seeded locked and
+# unrecruited, never recruitable by relation (only by hiring).
+func _merge_candidate_contacts() -> void:
+	for candidate_id in HIRING_CANDIDATES:
+		var entry: Dictionary = HIRING_CANDIDATES[candidate_id].duplicate(true)
+		entry.merge({ "startRelation": 0, "unlocked": false, "recruitThreshold": 0, "recruitable": false })
+		CONTACTS_DEFAULTS[candidate_id] = entry
 
 
 # Pure: extracts and type-checks one manifest field out of its table's

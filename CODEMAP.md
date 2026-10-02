@@ -27,7 +27,7 @@ Data file per system: see `data/*.json` below.
 | barometer.gd | Economic/social/political barometer (Ticker) + faction prefs; merged effects incl. item-demand multipliers; faction headlines (`push_headline`); one-off queued faction pushes (`queue_push`) |
 | business_quest.gd | business_empire questline side effects (state.businessQuest): Beat 1/3/5/6/7/8 trigger texts, Beat 2 starter-offer chain, recurring offers (ore from Beat 3, Time Pearl from Beat 6; reissued a day after lapse), Beat 8 closing payload from the latest payday record, James's crafting-skill set, Owen's crafting-event trigger. Rules: REFERENCE.md "Business Empire questline" |
 | business_stats.gd | BizBrief Stats tab's daily tally (revenue, expenses split by kind staff/guard/calc, cultivator/player ore); rollover snapshot with productionLog items into `businessStats.days`, 10-day trim, zero-filled chart series |
-| business.gd | Business pot (contract settlements while active; pays Sales calc purchases as `calc` expenses), float (donate/withdraw; backs up wages and calc purchases, never split), weekly payday (Owen's wage, then the Monday guard bill from pot+float or a set-aside reserve when short, 3-way split, ledger), owed wages + float top-up to pay them, Staff tab pay-terms/status labels |
+| business.gd | Business pot (contract settlements; Sales calc purchases as `calc` expenses), float (donate/withdraw; backs wages and calc, never split), hire first-week prepay (`paidThroughDay`), weekly payday (staff wages, then Monday guard bill from pot+float or a reserve when short, 3-way split, ledger), owed wages + float top-up, Staff tab pay labels |
 | bench.gd | Lab discovery engine (type-set × approach) |
 | bubble_layout.gd | Popup-position math for MapBubble |
 | collective.gd | Collective faction doors, Nadia settlement, Collective questline beat triggers + Act 2 scripted vein losses + Nadia defend raid, Hakim retake gate + site ruin (ruinedByFirm), T7 Firm provocation (timed Firm-targeting weight), Act 2 relation awards (T8 missions, alarm-defend daily cap), Act 2 gate + T14 spine reward (Hakim intel's weak-enemy-vein branch) + T15 closer delivery |
@@ -36,7 +36,7 @@ Data file per system: see `data/*.json` below.
 | combat_pacing.gd | Persisted normal/quick pacing toggle |
 | combat_prototype.gd | Bounded combat experiment, Debug-app |
 | consumables.gd | Healing Salve (out-of-combat) + Healing Burst (in or out); in-combat use_healing_burst() resolves the parked player turn-cursor entry (R§3.7a) and heals an ally target instead of the player (R§3.7) |
-| contacts.gd | Relation, recruiting (incl. story `force_recruit`), seat-capped room assignment (`contacts_in_room`/`assign_to_room`), room→role lookup from hiring.json (`room_roles`), founder staff roles (`set_role`/`role_of`/`available_roles`), capped XP, ally combat kit + per-day ally Dial charges (`daily_dial_regen()`), display names, directory order |
+| contacts.gd | Relation, recruiting (incl. story `force_recruit`), seat-capped room assignment (`contacts_in_room`/`assign_to_room`), room→role lookup from hiring.json (`room_roles`), founder staff roles (`set_role`/`role_of`/`available_roles`), capped XP (`skill_cap`, `xp_levels`), ally combat kit + per-day ally Dial charges (`daily_dial_regen()`), display names, directory order |
 | contact_texts.gd | Contacts' random texts, per contact from data/contact_texts.json: rollover scheduler (gate, interval, pause while not working, hold while busy), unplayed-then-LRU pick (per-text requireFlag), vein templating (own cultivator list or player veins), replies granting xp/relation/cash/item/intel/player craftingXp rewards; each sent text pushes a contact-tagged ticker notification |
 | contracts.gd | Block-end Sales auto-delivery (full, then partials by priority; goods to buyer holdings + supplier share), settlement to pot; recurring periods pay on fill, lock (`periodFilled`) until Monday renewal, expire at term end; per-contract `buyCalc` calc buys from the pot; unattended-proof taint (`playerAssisted`) and `qualified` settlements; `cancel()` (unpaid, hurts counterparty) |
 | crafting.gd | Recipe crafting |
@@ -60,6 +60,7 @@ Data file per system: see `data/*.json` below.
 | guard_kit.gd | Guard kit: allowlisted combat items stocked by tier on a player vein's or HQ's (`home.guardKit`) `guardKit`; capacity (guards × slots), active units, `stock`/`unstock` and `*_hq` twins; missed-defend repel boost/spend; kit-dict helpers (incl. `remove_units`); target helpers (vein/hq), summary/status text, `kit_veins` |
 | guard_upkeep.gd | Guard wages: hire advance, weekly cost/labels, per-day per-place `guardUpkeep.history`, pre-pot Monday bill from cash, faction Monday bill (vein + stockpile guards) and wage-reserve gate, pending guard shortfall (grace, auto-resolve drop order, short-pay quote/confirm), place labels, Guard Costs reads (history window, per-place series, places, next Monday bill) |
 | home.gd | Home tier/tenure/security/rooms/raid chance; per-day and weekly bill base (rent or utilities); arrears countdown to Monday; tier moves via shared `change_tier` (room wipe, security loss); HQ `drop_guard`; per-slot room purchase/replacement (`set_room_use`), seat upgrades; daily raid roll, alarm queue/expiry + guard (kit) repel, and alarm-defend win/loss resolution (R§3.8) |
+| hiring.gd | LodedInnit roster + `state.hiring` status; profile level/cap/wage; `hire()` into a free role-room seat with first-week prepay from pot→float, or a float top-up ask (R§3.10 "Hiring") |
 | jobs.gd | James's jobs, trust bands |
 | key_members.gd | Faction key members (R§3.10): member/faction lookup, `speaker_for`, `send` (unlocks + intro on first message, or waits for a quest-gated member's questline) |
 | lab_bench_nav.gd | Lab bench nav: selected ore; gear confirm variant (probe/craft/inert) + readiness |
@@ -81,7 +82,7 @@ Data file per system: see `data/*.json` below.
 | objectives.gd | Objective/questline evaluator; all_of live-condition, template_periods_completed (Beat 6) and recurring_proof (Beat 7) objectives + their ToDo checklist rows |
 | offers.gd | Sales offers: quoting (price fixed at issue), counterparty faction pick (authored / identity-weighted / Collective-Firm fit), acceptance (quote → contract `signedQuote`, recurring term), renewal offers, random-only pending cap, poach match/lapse, 2-day expiry |
 | payroll.gd | `role_skill_keys()` (room → skill field, from the role registry); `is_working()` gate for staff actions (false while the business owes them a wage) |
-| phone_apps.gd | Phone main-grid roster/order/labels + badge-config projection |
+| phone_apps.gd | Phone main-grid roster/order/labels (LodedInnit absent until James joins) + badge-config projection |
 | phone_nav.gd | Phone app/index/thread drill-down nav; BizBrief short-pay and Guard Costs sub-view deep links |
 | player_model.gd | `set_model()`: validates a key against `GameData.TERRITORIAL_VARIANTS` and writes `player.model` |
 | preferences.gd | Saved presentation prefs in `meta` (reduced motion, vibration, Map dark mode) + carry_forward() so event Rewind never flips them |
@@ -230,6 +231,7 @@ overlays.
 | short_pay_view.gd | BizBrief short-pay sub-view: per-place guard keep steppers, live cost/reserve/cash needed, Confirm |
 | guard_costs_view.gd | BizBrief Guard Costs sub-view (pot or not): next Monday bill + pending shortfall header, per-place guard payment chart over the history window, multi-select HQ/vein filter |
 | bank_app.gd | Reynard's: oxblood-gradient balance panel (branded header, calc_gold figure) + day-grouped hairline transaction ledger, newest first |
+| lodedinnit_app.gd | LodedInnit: Feed/People tabs, candidate profile (level→cap, wage, speciality pips), Hire with float top-up prompt via `Hiring.hire` |
 | property_app.gd | Harrow's: listings + particulars on own mounted root in brand chrome (ui-vision §10 exception), every tier in ladder order with its `image` photo; current tier is YOUR PLACE card (tenure, cost, risk, rooms, arrears, buy-out, plan). Particulars: hero, terms, copy, static plan if any, rent/buy (`Home.rent_to`/`buy_to`), losses |
 | debug_app.gd | Debug Start-only tools: cash/calc/site spawners, combat launchers, one relation block (dropdown over every contact + faction, shows current relation, applies a delta), any-event trigger picker |
 
@@ -251,7 +253,7 @@ overlays.
 | enemies.json | combat.gd |
 | faction_trade.json | economy.gd |
 | factions.json | factions.gd, sites.gd, raiding.gd, debug_start.gd, faction_sim.gd (`startingHoldings`, `stockpilePlaces`, `stockpileGuards`, `cultivateSkill`, `fieldwork`, `craftSkill`, `craftTargets`, `raidKits`, `consumes`, `trading`, `industryIncome`), key_members.gd (`keyMembers`, `speaker`), diplomacy.gd (`sampleFavours`, `giftPrefs`), faction_ai.gd (`aggressionPersonality`, `weariness`) |
-| hiring.json | contacts.gd (`roles` → `room_roles`), payroll.gd (`roles` → `role_skill_keys`): staff role registry |
+| hiring.json | contacts.gd (`roles` → `room_roles`), payroll.gd (`roles` → `role_skill_keys`): staff role registry; hiring.gd (`candidates`, merged into contact defaults by GameData.gd): LodedInnit roster |
 | home.json | home.gd, approaches.gd, contacts.gd, property_app.gd (tier `image` listing photos) |
 | floorplans.json | GameData.gd + floorplan_view.gd (per-tier plan asset, size, slot rects) |
 | hq_visuals.json | hq_diorama.gd, hq*.gd screens |

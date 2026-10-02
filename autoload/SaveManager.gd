@@ -347,6 +347,7 @@ func backfill_defaults(save: Dictionary) -> Dictionary:
 	_backfill_new_combat_keys(result, defaults)
 	_backfill_new_flag_keys(result, defaults)
 	_backfill_new_business_keys(result, defaults)
+	Hiring.backfill(result["hiring"])
 	_backfill_new_guard_upkeep_keys(result, defaults)
 	_backfill_new_faction_war_keys(result, defaults)
 	_backfill_new_faction_conclave_keys(result, defaults)
@@ -759,10 +760,14 @@ func _restore_int_types(state: Dictionary) -> void:
 	for expense in week.get("expenses", []):
 		_int_key(expense, "amount")
 	for wage in business.get("wages", {}).values():
-		for key in ["weekly", "owed", "hiredDay", "daysWorked"]:
+		for key in ["weekly", "owed", "hiredDay", "daysWorked", "paidThroughDay"]:
 			_int_key(wage, key)
 	for record in business.get("ledger", []):
 		_restore_payday_int_types(record)
+	var hiring: Dictionary = state.get("hiring", {})
+	_int_key(hiring, "feedSeen")
+	for entry in hiring.get("status", {}).values():
+		_int_key(entry, "since")
 	var business_quest: Dictionary = state.get("businessQuest", {})
 	_int_key(business_quest, "starterIndex")
 	_int_key(business_quest, "starterReissueDay")

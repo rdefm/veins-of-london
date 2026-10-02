@@ -6,7 +6,7 @@ extends RefCounted
 # drill-down into a single axis's detail view. state.phoneNav (R§2) is
 # navigated only through here, same as Nav.go_to/MapNav.
 
-const APPS: Array[String] = ["alarms", "bizbrief", "dialer", "messages", "todo", "factions", "ticker", "profile", "saveload", "settings", "notifications", "bank", "property"]
+const APPS: Array[String] = ["alarms", "bizbrief", "dialer", "messages", "todo", "factions", "ticker", "profile", "saveload", "settings", "notifications", "bank", "property", "lodedinnit"]
 
 const BIZBRIEF_SHORT_PAY_VIEW := "shortPay"
 const BIZBRIEF_GUARD_COSTS_VIEW := "guardCosts"

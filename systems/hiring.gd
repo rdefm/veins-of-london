@@ -1,0 +1,145 @@
+class_name Hiring
+extends RefCounted
+
+# LodedInnit hiring (R§3.10 "Hiring"): the fixed candidate roster
+# (data/hiring.json candidates), each candidate's market status, and hiring
+# into a free role-room seat. The first week's wage is prepaid from the pot,
+# then the float; player cash only reaches it through a float top-up the
+# player agreed to. Static funcs only.
+
+const STATUS_OPEN := "open"
+const STATUS_EMPLOYED := "employed"
+const STATUS_OURS := "ours"
+
+
+# Fresh state.hiring (hiring-spec §9): every candidate open.
+static func new_state() -> Dictionary:
+	var status := {}
+	for candidate_id in GameData.HIRING_CANDIDATES:
+		status[candidate_id] = _open_status(0)
+	return { "status": status, "poach": {}, "feed": [], "feedSeen": 0 }
+
+
+static func _open_status(day: int) -> Dictionary:
+	return { "state": STATUS_OPEN, "employer": null, "since": day }
+
+
+# Adds a status entry for any candidate the save predates.
+static func backfill(hiring: Dictionary) -> void:
+	var fresh := new_state()
+	for key in fresh:
+		if not hiring.has(key):
+			hiring[key] = fresh[key]
+	for candidate_id in fresh["status"]:
+		if not hiring["status"].has(candidate_id):
+			hiring["status"][candidate_id] = fresh["status"][candidate_id]
+
+
+# The app appears once James has joined, so the pot already runs.
+static func is_app_unlocked() -> bool:
+	return bool(GameState.state["flags"].get("bizA1JamesJoined", false))
+
+
+# Candidate ids whose role is enabled, in data order.
+static func candidate_ids() -> Array:
+	var ids: Array = []
+	for candidate_id in GameData.HIRING_CANDIDATES:
+		var role: Dictionary = GameData.HIRING_ROLES.get(candidate(candidate_id)["role"], {})
+		if role.get("enabled", false):
+			ids.append(candidate_id)
+	return ids
+
+
+static func candidate(candidate_id: String) -> Dictionary:
+	return GameData.HIRING_CANDIDATES.get(candidate_id, {})
+
+
+static func role(candidate_id: String) -> Dictionary:
+	return GameData.HIRING_ROLES[candidate(candidate_id)["role"]]
+
+
+static func skill(candidate_id: String) -> String:
+	return role(candidate_id)["skill"]
+
+
+static func status(candidate_id: String) -> Dictionary:
+	return GameState.state["hiring"]["status"][candidate_id]
+
+
+# Their role skill: startLevel until hiring raises it, then whatever they
+# have reached (kept after they leave).
+static func level(candidate_id: String) -> int:
+	var c: Dictionary = GameState.state["contacts"][candidate_id]
+	return maxi(int(c["%sSkill" % skill(candidate_id)]), int(candidate(candidate_id)["startLevel"]))
+
+
+static func level_cap(candidate_id: String) -> int:
+	return Contacts.skill_cap(candidate_id, skill(candidate_id))
+
+
+# baseWage + wagePerLevel × (level − startLevel).
+static func weekly_wage(candidate_id: String) -> int:
+	var data := candidate(candidate_id)
+	return int(data["baseWage"]) + int(data["wagePerLevel"]) * (level(candidate_id) - int(data["startLevel"]))
+
+
+static func has_free_seat(candidate_id: String) -> bool:
+	var room_id: String = role(candidate_id)["room"]
+	return Home.has_room(room_id) and Contacts.room_seats_used(room_id) < Home.room_seats(room_id)
+
+
+# "" when hire() can go ahead (perhaps after a float top-up), else why not.
+static func hire_block_reason(candidate_id: String) -> String:
+	if not GameData.HIRING_CANDIDATES.has(candidate_id):
+		return "No such candidate."
+	if status(candidate_id)["state"] == STATUS_OURS:
+		return "Already works for you."
+	if status(candidate_id)["state"] != STATUS_OPEN:
+		return "Not open to work."
+	if not Business.is_pot_active():
+		return "The business pot isn't running yet."
+	var room_id: String = role(candidate_id)["room"]
+	if not Home.has_room(room_id):
+		return "Build the %s first." % GameData.HOME_ROOMS[room_id]["name"]
+	if not has_free_seat(candidate_id):
+		return "No free seat in the %s." % GameData.HOME_ROOMS[room_id]["name"]
+	return ""
+
+
+# Cash the float needs before the first week can be prepaid; 0 when pot +
+# float already cover it.
+static func top_up_needed(candidate_id: String) -> int:
+	return Business.shortfall(weekly_wage(candidate_id))
+
+
+# Hires an open candidate into a free seat of their role room: the first
+# week is prepaid from the pot, then the float. If pot + float are short,
+# refused with { ok: false, topUp: X } unless top_up is true, in which case
+# X moves from cash into the float first. On success they
+# are recruited, their role skill is raised to startLevel, they are seated,
+# and their status becomes "ours".
+static func hire(candidate_id: String, top_up: bool = false) -> Dictionary:
+	var reason := hire_block_reason(candidate_id)
+	if reason != "":
+		return { "ok": false, "reason": reason }
+	var weekly := weekly_wage(candidate_id)
+	var needed := top_up_needed(candidate_id)
+	if needed > 0 and not top_up:
+		return { "ok": false, "reason": "Top up the float by £%d to cover this hire." % needed, "topUp": needed }
+	var paid := Business.prepay_hire_wage(candidate_id, weekly, needed)
+	if not paid["ok"]:
+		return paid
+	var c: Dictionary = GameState.state["contacts"][candidate_id]
+	var start_level := int(candidate(candidate_id)["startLevel"])
+	var skill_id := skill(candidate_id)
+	if int(c["%sSkill" % skill_id]) < start_level:
+		c["%sSkill" % skill_id] = start_level
+		c["%sXP" % skill_id] = int(Contacts.xp_levels(skill_id)[start_level])
+	c["unlocked"] = true
+	c["recruited"] = true
+	Contacts.assign_to_room(candidate_id, role(candidate_id)["room"])
+	var day: int = GameState.state["world"]["day"]
+	GameState.state["hiring"]["status"][candidate_id] = { "state": STATUS_OURS, "employer": null, "since": day }
+	Notify.push("%s starts in the %s today." % [Contacts.display_name(candidate_id), GameData.HOME_ROOMS[role(candidate_id)["room"]]["name"]], Notify.CATEGORY_SUCCESS)
+	EventBus.state_changed.emit()
+	return { "ok": true, "paid": weekly, "toppedUp": needed }

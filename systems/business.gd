@@ -114,6 +114,41 @@ static func pay_calc_purchase(contract_id: String, legs: Array) -> bool:
 	return true
 
 
+# A hire's first week (R§3.10 "Hiring"): moves `top_up` cash into the float,
+# then draws `weekly` from the pot, then the float, in full or not at all, as
+# this week's `wage` expense, and opens their wage entry. paidThroughDay =
+# today + 7: the rollovers into the prepaid days accrue nothing, so payday
+# never re-charges them. The hire is paid before any other owed wage the
+# top-up might now cover.
+static func prepay_hire_wage(contact_id: String, weekly: int, top_up: int = 0) -> Dictionary:
+	if not is_pot_active():
+		return { "ok": false, "reason": "The business pot isn't running yet." }
+	if shortfall(weekly) > top_up:
+		return { "ok": false, "reason": "Top up the float by £%d to cover this hire." % shortfall(weekly) }
+	if top_up > 0:
+		var added := _add_float(top_up)
+		if not added["ok"]:
+			return added
+	_draw(weekly)
+	var business := _business()
+	var day: int = GameState.state["world"]["day"]
+	business["week"]["expenses"].append({ "kind": "wage", "contactId": contact_id, "amount": weekly })
+	BusinessStats.record_expense(weekly, BusinessStats.EXPENSE_STAFF)
+	business["wages"][contact_id] = {
+		"weekly": weekly, "owed": 0, "unpaid": false, "hiredDay": day, "daysWorked": 0,
+		"promptPending": false, "paidThroughDay": day + Calendar.days_per_week(),
+	}
+	pay_covered_owed()
+	EventBus.state_changed.emit()
+	return { "ok": true }
+
+
+# Cash the float needs so pot + float cover `amount`.
+static func shortfall(amount: int) -> int:
+	var business := _business()
+	return maxi(0, amount - int(business["pot"]) - int(business["float"]))
+
+
 # A waged contact the pot couldn't cover stops acting at block ends until
 # paid in full.
 static func is_unpaid(contact_id: String) -> bool:
@@ -182,8 +217,7 @@ static func split(remainder: int, partner_count: int) -> Dictionary:
 
 # Cash the float needs so pot + float cover the contact's owed wage.
 static func top_up_needed(contact_id: String) -> int:
-	var business := _business()
-	return maxi(0, owed(contact_id) - int(business["pot"]) - int(business["float"]))
+	return shortfall(owed(contact_id))
 
 
 # The morning prompt's Yes, and the Staff tab's Pay now: moves
@@ -245,10 +279,11 @@ static func daily_tick() -> Dictionary:
 	if not is_pot_active():
 		return result
 	var wages: Dictionary = _business()["wages"]
-	for contact_id in wages:
-		if not wages[contact_id]["unpaid"]:
-			wages[contact_id]["daysWorked"] += 1
 	var day: int = GameState.state["world"]["day"]
+	for contact_id in wages:
+		var wage: Dictionary = wages[contact_id]
+		if not wage["unpaid"] and day > int(wage.get("paidThroughDay", 0)):
+			wage["daysWorked"] += 1
 	if Calendar.is_monday(day):
 		result = _payday(day)
 	EventBus.state_changed.emit()

@@ -35,6 +35,13 @@ func run() -> void:
 		for field in expected.keys():
 			if field == "DAILY_CYCLE":
 				continue
+			if field == "CONTACTS_DEFAULTS":
+				# Hiring candidates merge in at boot (R§3.10 "Hiring"); the rest must match.
+				var constants_only: Dictionary = GameData.CONTACTS_DEFAULTS.duplicate()
+				for candidate_id in GameData.HIRING_CANDIDATES:
+					constants_only.erase(candidate_id)
+				assert_eq(constants_only, expected[field], "CONTACTS_DEFAULTS less candidates should match the snapshot fixture")
+				continue
 			assert_eq(GameData.get(field), expected[field], "%s should match the load manifest's snapshot fixture" % field)
 		assert_eq(GameData.DAILY_CYCLE, GameData._normalize_numbers(expected["DAILY_CYCLE"]), "DAILY_CYCLE should match the fixture once normalized the same way every other table already is")
 	)
