@@ -27,6 +27,11 @@ PROSE-REVIEW: all names, headlines, posts and taglines are draft content against
 | C13 | Let go is allowed; the person returns to the market. |
 | C14 | The level cap is shown on profiles. |
 | C15 | Security: registry slot reserved only, designed later. |
+| C16 | Status flips are random, roughly once every 2 weeks per person. |
+| C17 | Staff wages come from the business once Owen is unlocked — **never from player cash**. |
+| C18 | Faction poach offer: a BizBrief alert, 1 day to respond. |
+| C19 | Hire payment: from the pot; if the pot is short, from the float; if pot + float are short, prompt the player to add cash to the float (`Business.donate`) to cover it. |
+| C20 | Feed authors are **individuals only** (candidates and hires) for now. Faction and faux-company posts are deferred to a later pass. |
 
 ## 2. Role registry (PROPOSED shape)
 
@@ -77,20 +82,19 @@ Owen's £250 is the reference point for wages.
 
 ### 4.1 Status (C5)
 `state.hiring.status[id] = { state: "open" | "employed" | "ours", employer: factionId | businessId | null, since: day }`.
-- **PROPOSED:** on each Monday rollover, every non-`ours` candidate flips with chance `flipChance` (0.25). On a flip to employed, the employer is a random faction or faux business.
+- C16: at each rollover, every non-`ours` candidate flips with chance `flipChancePerDay` = 1/14 (mean of about 2 weeks between flips). On a flip to employed, the employer is a random faction or faux business (employer list: OQ-7).
 - Changes of status generate hire-status posts (§6.3).
 
 ### 4.2 Hire (C4, C6)
-- **Open:** Hire = wage at `baseWage`. Gate = the pot can cover the first week (**PROPOSED** check; C3) and the role room has a free seat (C8).
+- **Open:** Hire = wage at `baseWage`. Gate = the role room has a free seat (C8). Payment (C19): the first week's wage is drawn from the pot, then the float. If pot + float are short, the player is prompted "Top up the float by £X to cover this hire?". Yes = `Business.donate(X)`, then the hire goes through; No = no hire.
 - **Employed:** Poach = wage × (1 + `poachPremium`) (**PROPOSED** 0.25). If the employer is a faction, relation with it −`poachRelationCost` (**PROPOSED** 8). If the employer is a faux business, there is no relation effect (no such stat).
 - On hire: `unlocked/recruited = true`, the skill is set, they are seated in the role room, and a `business.wages[id]` entry is created (Owen's mechanism: `weekly`, `owed`, `unpaid`, `hiredDay`, `daysWorked`, `promptPending`) — paid at the Monday payday from the pot (C3). `weekly` updates when they level.
 - Let go (C13): vacate the seat, release `cultivatorVeins`, remove the wage entry (prorated owed settled at the next payday). Status → `open`.
 
 ### 4.3 Factions poaching your staff (C7)
 - **PROPOSED:** per employee, a weekly chance `poachChance` (0.1) that one faction makes an offer. The faction is weighted toward Hostile/Business-rival stance (fits Pressure/Escalation). Max `maxPoachAttempts` (3) per employee, ever.
-- Offer: +`poachOfferPct` (**PROPOSED** 20%). Notification and LodedInnit inbox card: "Match (£X/wk)" or "Let them go". The player may match up to `counterCapPct` (**PROPOSED** 25%) above the current wage — the offer never exceeds that cap, so the match is always possible if the player wants it.
+- Offer (C18): a BizBrief alert with 1 day to respond. +`poachOfferPct` (**PROPOSED** 20%). "Match (£X/wk)" or "Let them go"; no answer within 1 day = **PROPOSED** they leave. The player may match up to `counterCapPct` (**PROPOSED** 25%) above the current wage — the offer never exceeds that cap, so the match is always possible if the player wants it.
 - Decline → the employee leaves; status `employed` at that faction. Feed post (§6.3).
-- **Open:** does the offer expire after N blocks, and what happens if it is ignored (OQ-4)?
 
 ## 5. Rooms and seats (C8)
 
@@ -100,10 +104,9 @@ Owen's £250 is the reference point for wages.
 
 ## 6. Feed (C10–C12)
 
-### 6.1 Authors
-- Candidates (their `voice` pool; trait-flavoured variants, e.g. `distracted` posts trail off mid-thought).
-- Factions (speaker-voiced, or as the corporate faction account — OQ-6).
-- Faux businesses: **PROPOSED** a small set of parody London firms in `data/lodedinnit.json` `businesses` (names TBD — OQ-7). They are also employers for §4.1.
+### 6.1 Authors (C20)
+- Individuals only: candidates and hires (their `voice` pool; trait-flavoured variants, e.g. `distracted` posts trail off mid-thought). Comments on posts come from other individuals.
+- Faction and faux-company posts: deferred. The author model keeps a `kind` field so they slot in later without rework.
 
 ### 6.2 Cadence (C11)
 One post per time block, rolled at the staff block step (`Rng`, Rewind-safe), from a weighted pool of authors whose posts aren't used up. **PROPOSED:** a post isn't repeated until its author's pool is exhausted.
@@ -160,12 +163,11 @@ The current 18/19 split doesn't cover the feed, poaching or seats. Suggested:
 
 | # | Question |
 |---|---|
-| OQ-1 | All the PROPOSED numbers: flip chance, poach premium, relation cost, faction poach chance/offer/cap/attempts, wages. |
+| OQ-1 | The PROPOSED numbers: poach premium 25%, relation cost 8, faction poach chance 0.1/wk, offer +20%, counter cap +25%, max 3 attempts, roster wages. |
 | OQ-2 | Roster: names, levels, caps, specialities, wages in §3 OK? Size (4+4) OK? |
-| OQ-3 | Payroll's room-wage path now has no users (founders draw no room wage; hires are pot-paid). Retire it? |
-| OQ-4 | Faction poach offer: expiry window, and what happens if ignored (they leave? they stay?) |
-| OQ-5 | Hire gate when the pot is short: block the hire, or allow and let payday shortfall rules apply? |
-| OQ-6 | Faction posts: from the speaker key member (Nadia etc.) or a faceless faction account? (CONTEXT.md: faction messages always come from the speaker.) |
-| OQ-7 | Faux business names: want to supply them, or should I draft a list for review? |
+| OQ-3 | `Payroll.pay_wages()` still pays room staff from player cash on Mondays. Under C17 it never fires (hires only exist after the pot), so: remove that path? |
+| OQ-3b | The existing payday shortfall prompt in BizBrief, "Pay from your own cash?" (`Business.pay_owed_from_cash`), pays owed wages from player cash. Does C17 mean replacing it with "top up the float" (like C19)? |
+| OQ-4 | Faction poach offer ignored for 1 day: the employee leaves (proposed) or stays? |
+| OQ-7 | "Employed at X": with company posts deferred, should X be factions only, or do you want faux company names now (supplied by you, or drafted by me)? |
 | OQ-8 | Seat upgrade costs/max seats per tier. |
 | OQ-9 | Ticket re-cut in §10 OK? |
