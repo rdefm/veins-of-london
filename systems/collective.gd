@@ -368,17 +368,53 @@ static func _roll_hakim_intel_tier() -> String:
 # whichever vein already carries the Alarm upgrade if one does, else the
 # lowest-raid-resist ("most exposed") vein, per the spec's own fallback
 # order. exclude_id lets maybe_retarget_nadia_defend_vein() below rule out
-# a vein that was just lost.
+# a vein that was just lost. Only raidable veins (on a live site, not
+# quest-locked) qualify, so maybe_queue_a2_nadia_defend_raid() can hit it.
 static func _pick_defend_vein_candidate(exclude_id: String = "") -> Variant:
 	var most_exposed: Variant = null
 	for vein in GameState.state["player"]["veins"]:
-		if vein["id"] == exclude_id:
+		if vein["id"] == exclude_id or not _is_raidable_vein(vein):
 			continue
 		if vein["alarmUpgrades"].has(Cultivating.ALARM_UPGRADE_ID):
 			return vein
 		if most_exposed == null or Cultivating.vein_raid_resist(vein) < Cultivating.vein_raid_resist(most_exposed):
 			most_exposed = vein
 	return most_exposed
+
+
+static func _is_raidable_vein(vein: Dictionary) -> bool:
+	return vein.get("siteId") != null and Sites.find_site(vein["siteId"]) != null and not is_quest_locked_vein(vein["id"])
+
+
+# Act 2 T8a's scripted raid (spec §5.1/§6.8a): each daily tick while
+# col_a2_nadia_defend is open, the Firm hits the watched vein -- queued
+# straight into the defend window whether or not it carries the Alarm
+# upgrade, and capped at a loot so a missed window strips ore rather than
+# taking the vein. Called from TimeSystem.daily_tick() right after
+# Raiding.apply_raid_resolution() has expired yesterday's window, so it
+# re-queues daily until won. A missing or unraidable target is re-picked
+# first, the recovery path for a brief that resolved with no usable vein.
+const NADIA_DEFEND_RAIDER := "firm"
+
+
+static func maybe_queue_a2_nadia_defend_raid() -> bool:
+	var runtime: Dictionary = GameState.state["objectives"].get("col_a2_nadia_defend", {})
+	if not runtime.get("active", false) or runtime.get("complete", false):
+		return false
+	if GameState.state["world"].get("activeDefendRaid") != null:
+		return false
+
+	var target_id: Variant = GameState.state["collective"].get("nadiaDefendVeinId")
+	var vein: Variant = Cultivating.find_vein(target_id) if target_id != null else null
+	if vein == null or not _is_raidable_vein(vein):
+		pick_nadia_defend_vein()
+		target_id = GameState.state["collective"]["nadiaDefendVeinId"]
+		vein = Cultivating.find_vein(target_id) if target_id != null else null
+	if vein == null or Raiding.has_pending_defend(vein["id"]):
+		return false
+
+	Raiding.queue_scripted_defend_raid(NADIA_DEFEND_RAIDER, vein, "loot")
+	return true
 
 
 # The col_a2_pick_nadia_defend_vein on_complete op's handler (col_a2_nadia_

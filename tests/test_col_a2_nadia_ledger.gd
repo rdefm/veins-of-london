@@ -27,6 +27,14 @@ func _craft_until_success(recipe_key: String) -> void:
 	assert_true(false, "should find a successful %s craft within 200 seeds" % recipe_key)
 
 
+# The Firm's pending defend raid on vein_id, or {} if none is queued.
+func _nadia_raid(vein_id: String) -> Dictionary:
+	for outcome in GameState.state["world"]["pendingDefendRaids"]:
+		if outcome["veinId"] == vein_id and outcome["attackerId"] == Collective.NADIA_DEFEND_RAIDER:
+			return outcome
+	return {}
+
+
 func run() -> void:
 	# ── T8: col_a2_nadia_ledger ─────────────────────────────────────────────
 
@@ -150,6 +158,68 @@ func run() -> void:
 		Raiding.resolve_raid_outcome(outcome)
 
 		assert_eq(GameState.state["collective"]["nadiaDefendVeinId"], "v_other")
+	)
+
+	# ── scripted raid on the watched vein ────────────────────────────────────
+
+	run_case("daily_tick_after_the_brief_queues_the_firm_defend_raid_and_a_win_completes_defend", func():
+		GameState.reset()
+		Fixtures.seed_vein("v1", 20, "time")
+		EventPlay.play_event("col_a2_nadia_defend_brief")
+		assert_true(GameState.state["objectives"]["col_a2_nadia_defend"]["active"])
+
+		TimeSystem.daily_tick()
+
+		var raid := _nadia_raid("v1")
+		assert_true(not raid.is_empty(), "the tick after the brief queues the scripted raid, alarm upgrade or not")
+		assert_eq(raid["outcomeType"], "loot")
+		assert_true(Raiding.is_defend_notification_pending(raid["notificationId"]), "the warning carries a live Defend button")
+
+		assert_true(Raiding.trigger_defend("v1"))
+		Raiding.resolve_defend_outcome(true)
+		assert_true(GameState.state["objectives"]["col_a2_nadia_defend"]["complete"])
+		assert_true(GameState.state["flags"]["colA2NadiaDefendDone"])
+
+		TimeSystem.daily_tick()
+		assert_true(_nadia_raid("v1").is_empty(), "no more scripted raids once defend is won")
+	)
+
+	run_case("a_missed_nadia_raid_strips_ore_keeps_the_vein_and_re_queues_next_tick", func():
+		GameState.reset()
+		Fixtures.seed_vein("v1", 20, "time")
+		EventPlay.play_event("col_a2_nadia_defend_brief")
+
+		TimeSystem.daily_tick()
+		var first_id: String = _nadia_raid("v1")["notificationId"]
+		TimeSystem.daily_tick()
+
+		assert_true(Cultivating.find_vein("v1") != null, "loot only -- a missed window never takes the vein")
+		var second := _nadia_raid("v1")
+		assert_true(not second.is_empty(), "re-queued the next day")
+		assert_true(second["notificationId"] != first_id)
+		assert_eq(GameState.state["world"]["pendingDefendRaids"].filter(func(o): return o["veinId"] == "v1").size(), 1, "never stacks two on one vein")
+	)
+
+	run_case("maybe_queue_a2_nadia_defend_raid_is_a_no_op_until_defend_is_active", func():
+		GameState.reset()
+		Fixtures.seed_vein("v1", 20, "time")
+		GameState.state["collective"]["nadiaDefendVeinId"] = "v1"
+
+		assert_true(not Collective.maybe_queue_a2_nadia_defend_raid())
+		assert_true(GameState.state["world"]["pendingDefendRaids"].is_empty())
+	)
+
+	run_case("maybe_queue_a2_nadia_defend_raid_re_picks_a_missing_target_for_saves_already_past_the_brief", func():
+		GameState.reset()
+		GameState.state["flags"]["colA2DefendBriefed"] = true
+		Objectives.refresh()
+		assert_true(GameState.state["objectives"]["col_a2_nadia_defend"]["active"])
+		Fixtures.seed_vein("v_late", 20, "life")
+		GameState.state["collective"]["nadiaDefendVeinId"] = null
+
+		assert_true(Collective.maybe_queue_a2_nadia_defend_raid())
+		assert_eq(GameState.state["collective"]["nadiaDefendVeinId"], "v_late")
+		assert_true(not _nadia_raid("v_late").is_empty())
 	)
 
 	# ── pre-fight reminder card ──────────────────────────────────────────────

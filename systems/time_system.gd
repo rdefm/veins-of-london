@@ -93,6 +93,7 @@ static func daily_tick() -> void:
 	Factions.apply_rivalry_resolution()  # ⑤c yesterday's queued faction raids (⑥.5h); after ⑤b; before ⑤h/⑤j so it reads end-of-yesterday resources
 	Raiding.apply_raid_resolution()      # ⑤d before ⑤g so its kit burns come out of today's consume
 	MorningAccountsSystem.capture_losses(morning_context, "Raid")
+	Collective.maybe_queue_a2_nadia_defend_raid()  # ⑤d2 after ⑤d expires yesterday's window, so it re-queues daily
 	FactionSim.tend_and_prune()          # ⑤e after ⑤b-⑤d so today's claims and ownership changes are tended
 	FactionSim.craft()                   # ⑤f after ⑤e so today's prune ore can be crafted
 	FactionSim.consume()                 # ⑤g after ⑤c/⑤d so today's kit burns are drawn; after ⑤f so today's crafts can cover them

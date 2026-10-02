@@ -652,6 +652,21 @@ static func _queue_defend_raid(outcome: Dictionary, vein: Dictionary) -> void:
 	outcome["notificationId"] = notification["id"]
 
 
+# A questline's scripted raid (Collective.maybe_queue_a2_nadia_defend_raid()):
+# a guaranteed-success attempt queued straight into the defend window,
+# skipping the odds roll and the Alarm-upgrade gate. From here it rides the
+# ordinary pending-defend expiry, guard repel and Defend buttons.
+static func queue_scripted_defend_raid(attacker_id: String, vein: Dictionary, outcome_type: String) -> void:
+	_queue_defend_raid({
+		"attackerId": attacker_id,
+		"veinId": vein["id"],
+		"siteId": vein["siteId"],
+		"move": FactionAI.MOVE_VEIN_RAID,
+		"success": true,
+		"outcomeType": outcome_type,
+	}, vein)
+
+
 # Before a missed-defend window falls through to resolve_raid_outcome()'s
 # auto-loss, a vein with 1+ guards (tier guard + extras, Cultivating.
 # vein_guard_count) gets a chance to repel the raid
