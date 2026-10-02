@@ -1,216 +1,171 @@
-# Hiring app — design spec (ticket 17)
+# LodedInnit — hiring app design spec (ticket 17)
 
-Status: **draft, awaiting human approval** — ticket 18 must not start until §12's open questions are answered or the recommended defaults are accepted.
+Status: **draft, awaiting human approval.** Ticket 18 does not start until §11 is resolved.
 
-PROSE-REVIEW: everything in quotes or in the Voice/Headline/About columns below is draft prose against `docs/CONTENT-GUIDE.md`.
+Convention: items marked **CONFIRMED** are the human's decisions (2026-10-02). Items marked **PROPOSED** are drafts awaiting sign-off — nothing PROPOSED is decided.
+
+PROSE-REVIEW: all names, headlines, posts and taglines are draft content against `docs/CONTENT-GUIDE.md`.
 
 ---
 
-## 1. What it is
+## 1. Confirmed decisions
 
-A phone app parodying LinkedIn. The player browses a board of named candidates who are "open to work", checks whether they meet each candidate's requirements, and hires one. A hire becomes an ordinary staff **contact**: it takes a role room (Vein Cultivation Station / Improved Lab), works at the staff block step like any room hire, levels through the existing contact-XP ladder up to its own cap, and draws a weekly wage through the existing Payroll path.
+| # | Decision |
+|---|---|
+| C1 | App name **LodedInnit** — LinkedIn parody: lode (ore vein) / loaded + London "innit". Mocks LinkedIn and how people use it. |
+| C2 | Unlock: gated behind the Business Act 1 questline — the app unlocks when James joins (`bizA1JamesJoined`), so the pot already exists whenever hiring is possible. |
+| C3 | **All staff wages come from the business pot.** |
+| C4 | Fixed hand-written roster, always listed in the app. No hire requirements — **pay is the only gate**. |
+| C5 | Each candidate's status flips at random over time between "Open to work" and "Employed at X". |
+| C6 | The player may poach an employed candidate at a premium wage. Poaching from a faction costs relation with that faction. |
+| C7 | Factions try to poach the player's employees. Flow = match or lose: the faction offers +X%; the player may raise the wage up to a capped %, or the employee leaves. Attempts per employee are limited. |
+| C8 | Multiple staff per role room. Capacity comes from room upgrades, and the upgrades are gated by HQ tier. |
+| C9 | Wage is per-candidate and rises with level. No signing fee. |
+| C10 | Personality is mainly flavour (feed voice). Sometimes it is backed by a trait with a gameplay effect, e.g. `distracted` lowers efficiency and their posts wander off on tangents. |
+| C11 | Faux news feed: posts from candidates, faux businesses and factions, **one post per time block**, plus hire-status posts. Fake likes/comments as flavour. |
+| C12 | Staff don't test the player by text. Humour and flavour live in the feed, not in Messages. |
+| C13 | Let go is allowed; the person returns to the market. |
+| C14 | The level cap is shown on profiles. |
+| C15 | Security: registry slot reserved only, designed later. |
 
-No new economy loop. The app is a front door onto machinery that already exists (`Contacts`, `Payroll`, `Rooms`), plus a roster and a board.
+## 2. Role registry (PROPOSED shape)
 
-## 2. Name and branding
-
-| | Recommended | Alternates |
-|---|---|---|
-| App label / wordmark | **Graft** | Clocked In · Endorsed · Linkedout |
-| Tagline (app header) | "Graft. For people who get things done." | — |
-| Registry id | `hiring` (icon at `assets/phone/icons/hiring.png`, ADR 0003) | — |
-
-"Graft" is British slang for hard work and, quietly, for corruption — the right register for hiring people to farm illicit calc. Follows the Reynard's / Harrow's convention: stable functional id, parody brand as label.
-
-Chrome: shared Family 2 dark chrome (`docs/ui-vision.md` §10), `ui_action_red` for Hire, no brand-colour exception. (A Harrow's-style brand exception is possible later; not requested here.)
-
-LinkedIn beats we parody, mapped to real data so none of it is decorative:
-
-| LinkedIn thing | Graft field | Real data behind it |
-|---|---|---|
-| Headline | `headline` | prose |
-| "Open to work" banner | board membership | `state.hiring.board` |
-| Skills + endorsements | "Cultivating · 2 endorsements" | start level |
-| "Potential" (no LinkedIn equivalent — the joke) | "Ceiling" | `levelCap` |
-| Speciality tags | ore chips | `specialities` (crafters) |
-| "Looking for" | requirement lines | `requirements` |
-| About | `about` | prose |
-| Salary expectation | "Expects £X/week" | Payroll wage at start level |
-
-## 3. Role registry
-
-New file `data/hiring.json`, block `roles`. Each role is one entry; code never switches on role id except where a role's *work* already lives (Rooms for cultivation/production).
+`data/hiring.json` → `roles`; adding a role later is a data entry:
 
 ```json
 "roles": {
-  "cultivation": { "label": "Cultivator", "room": "veinStation", "skill": "cultivating", "assign": "veins",   "enabled": true  },
-  "production":  { "label": "Crafter",    "room": "lab",         "skill": "crafting",    "assign": "recipes", "enabled": true  },
-  "sales":       { "label": "Sales",      "room": "ops",         "skill": "sales",       "assign": "none",    "enabled": false },
-  "security":    { "label": "Security",   "room": null,          "skill": null,          "assign": "guardPost","enabled": false }
+  "cultivation": { "label": "Cultivator", "room": "veinStation", "skill": "cultivating", "enabled": true  },
+  "production":  { "label": "Crafter",    "room": "lab",         "skill": "crafting",    "enabled": true  },
+  "sales":       { "label": "Sales",      "room": "ops",         "skill": "sales",       "enabled": false },
+  "security":    { "label": "Security",   "room": null,          "skill": null,          "enabled": false }
 }
 ```
 
-- `room` → the role room a hire occupies. Today `Contacts.ROOM_ROLES` and `Payroll.ROLE_SKILL_KEYS` hardcode the same mapping; ticket 18 makes both read the registry so there is one source.
-- `skill` → which `<skill>Skill`/`<skill>XP` pair is the hire's level and drives their wage.
-- `assign` → which existing assignment UI follows a hire (`veins` = cultivatorVeins list, `recipes` = Production list). Purely a pointer for the UI; no new assignment systems.
-- `enabled: false` → the role's candidates never appear on the board. Turning on Sales later is a data flip (its work path already exists). Security needs a real design (guards today are anonymous counts, `GuardUpkeep`) — the registry just reserves the slot; see OQ-9.
-- Ticket 19's "crafter role as registry/data entry only" acceptance check is met by this shape: production differs from cultivation only in `room`/`skill`/`assign` plus the candidate's `specialities`.
+`Contacts.ROOM_ROLES` / `Payroll.ROLE_SKILL_KEYS` then read this instead of hardcoding it. A disabled role's candidates are not listed.
 
-## 4. Candidate roster
+## 3. Candidates (PROPOSED shape + roster)
 
-Candidates live in `data/hiring.json` block `candidates`, keyed by a stable contact id. Each is a full contact-defaults entry (same fields as `constants.json` `contacts.*`) plus a `hiring` block:
+Each candidate is a contact-defaults entry (merged into `CONTACTS_DEFAULTS`, pre-seeded `unlocked:false, recruited:false` like Des/Nadia) plus a `hiring` block:
 
-```json
-"marcia": {
-  "name": "Marcia Odunsi",
-  "startRelation": 0, "unlocked": false, "recruitThreshold": 0, "recruitable": false,
-  "combatHpMax": 0,
-  "skillCaps": { "cultivating": 4 },
-  "hiring": {
-    "role": "cultivation",
-    "startLevel": 2,
-    "trait": "steady",
-    "headline": "…", "about": "…",
-    "requirements": [ { "kind": "room", "room": "veinStation" } ]
-  }
-}
-```
-
-- `GameData` merges `candidates` into `CONTACTS_DEFAULTS` at boot, so `skillCaps`, `specialities` (ticket 10), `roomFreeRoles` etc. are read by existing code unchanged. Candidates have no `roomFreeRoles` — they are room hires, never founders.
-- `name` is a new optional contact-defaults field; `Contacts.display_name()` falls back to it before `capitalize()`.
-- **Level** = the role skill. On hire, `<skill>Skill = startLevel`, `<skill>XP = ladder[startLevel]`; other skills stay 1. `levelCap` *is* `skillCaps[skill]` — no new field, reuses the cap `award_contact_xp()` already honours (Owen's mechanism).
-- **Specialities** (crafters): exactly the field and rule ticket 10 defines for James (a crafter may make an unlocked recipe whose inputs are all within their ore list). This spec assumes ticket 10 names it `specialities: [oreType]` on the contact defaults; if 10 lands with a different name/location, candidates follow 10. Cultivators: none (OQ-6).
-
-### 4.1 Roster (draft — numbers and prose for human sign-off)
-
-Ore-type reach check against `data/recipes.json`: physics → blast/shield/blackHole; fate → beALady; emotion → pansPrank; time+life → pearl/rewind/prophetsBreath/powder/salve + the four dual-ore recipes.
-
-**Cultivators** (role `cultivation`, room `veinStation`)
-
-| id | Name | Lvl → Cap | Trait | Requirements | Headline | Voice |
-|---|---|---|---|---|---|---|
-| `marcia` | Marcia Odunsi | 2 → 4 | steady | Station built | "Allotment secretary (Lewisham, 14 yrs). Open to discreet horticulture." | Brisk, practical, signs off "M." |
-| `tomasz` | Tomasz Wójcik | 1 → 5 | fastLearner | Station built | "Landscaping graduate. Hard worker. Will learn anything." | Eager, over-explains, apologises |
-| `bernie` | Bernie Kale | 3 → 3 | steady | Station built; home tier ≥ compound | "Forty years in the trade. Not looking to learn new tricks." | Laconic, one-word replies |
-| `saoirse` | Saoirse Flynn | 2 → 5 | nightOwl | Station built; Collective relation ≥ 20 | "Ex-cooperative grower. Left on good terms. Mostly." | Dry, wary of factions |
-
-**Crafters** (role `production`, room `lab`)
-
-| id | Name | Lvl → Cap | Specialities | Trait | Requirements | Headline | Voice |
-|---|---|---|---|---|---|---|---|
-| `priya` | Priya Sandhu | 2 → 4 | physics | steady | Lab built | "Materials engineer, formerly of a firm she won't name." | Precise, numbered lists |
-| `dot` | Dot Mayhew | 1 → 4 | life, emotion | fastLearner | Lab built | "Herbalist. Market stall, Deptford. References on request." | Warm, chatty, calls you "love" |
-| `gideon` | Gideon Achterberg | 3 → 5 | time | precise | Lab built; Guild relation ≥ 20 | "Horologist. Guild-trained. Expensive, and worth it." | Formal, faintly superior |
-| `ray` | Ray Okafor-Bell | 2 → 3 | fate, emotion, time | steady | Lab built; flag `bizJamesProductionRole` | "Jack of all trades. Ask around." | Easy-going, name-drops James |
-
-**Security** (role `security`, disabled): no candidates authored until OQ-9 is answered. The registry slot and requirement kinds are enough that adding them later is data only.
-
-### 4.2 Traits (personality → gameplay)
-
-One trait per candidate, from a closed set implemented in a small `Hiring.trait_*` helper. Every trait is a single number in `data/hiring.json` `traits`, so tuning is data:
-
-| Trait | Effect | Number |
-|---|---|---|
-| `steady` | none — baseline | — |
-| `fastLearner` | role XP gained × mult | `xpMult 1.5` |
-| `precise` (crafter) | crafting XP × 1.25 (placeholder; a craft-failure effect is an option, OQ-7) | `xpMult 1.25` |
-| `nightOwl` (cultivator) | acts in the Evening block twice, skips Morning (same 3 actions/day, shifted) — default: **cut for v1**, listed so the human can kill or keep | — |
-
-Recommendation: ship v1 with `steady` and `fastLearner` only; other traits are a follow-up. Text voice is separate from trait (§7).
-
-### 4.3 Requirement kinds
-
-`requirements` is an AND list. Kinds (each one predicate in `Hiring.requirement_met()`):
-
-| kind | Params | Met when | Board text when unmet (draft) |
-|---|---|---|---|
-| `room` | `room` | `room` is built at the current HQ | "Looking for: a proper {roomName}." |
-| `homeTier` | `min` | home tier index ≥ `min` | "Looking for: somewhere with a bit more space." |
-| `flag` | `flag`, `hidden?` | `state.flags[flag]` true | per-candidate `unmetText` |
-| `factionRelation` | `faction`, `min` | `FactionAI.relation_toward(faction, "player") ≥ min` | "Wants references from {faction}." |
-
-"Reputation" from the ticket: the game has no player-reputation stat, so faction relation stands in (OQ-5). A requirement with `hidden: true` keeps the candidate off the board entirely until met (questline reveals).
-
-## 5. Cost
-
-- **Wage only, no signing fee.** Weekly wage = existing `Payroll.wage_for_room()`: `(£100 + £50 × (skill − 1)) × 7` — £700/wk at level 1, £1,400 at level 3. Rises as the hire levels. First part-week is prorated via `Payroll.note_hire()` (already happens on `assign_to_room`).
-- Shown on the profile as "Expects £X/week" at current level.
-- **Open — OQ-1/OQ-2**: (a) the formula is 3–5× Owen's flat £250 business wage; (b) once the business pot is active, Owen is paid from the pot (`Business` wages) but room hires are still paid from player cash by `Payroll.pay_wages()`. Hires inherit whichever answer the human picks; this spec does not change payroll.
-
-## 6. Availability and refresh
-
-- **Eligible pool** = candidates whose role is `enabled`, who are not currently hired, not in a let-go cooldown, and have no unmet `hidden` requirement.
-- **Board** = up to `boardSize` (4) candidates drawn from the pool via `Rng` (seeded → Rewind-safe). Requirement-failing candidates *can* be on the board, shown greyed with their "Looking for" lines — the LinkedIn joke is that you can see who you can't afford yet.
-- **Refresh**: the board re-rolls on the Monday rollover (fits payroll's weekly cadence), keeping any candidate the player has hired out of it. Board also rolls on first app open if empty (old saves / first unlock).
-- **Hire** removes the candidate from the board immediately; the slot stays empty until Monday.
-- **Let go** (from the hire's HQ room card or their Graft profile): vacates the room (existing `assign_to_room("none", …)`), releases their `cultivatorVeins` list, sets `recruited = false`. They re-enter the pool after `rehireCooldownDays` (14) with level/XP kept. No severance; the prorated part-week is billed as Payroll already does.
-- Badge: count of board candidates not yet viewed (`state.hiring.seen`).
-
-## 7. Integration
-
-| System | Change |
+| Field | Meaning |
 |---|---|
-| `data/hiring.json` (new) | `roles`, `candidates`, `traits`, `boardSize 4`, `rehireCooldownDays 14` |
-| `GameData` | load `hiring.json`; merge `candidates` into `CONTACTS_DEFAULTS` |
-| `systems/hiring.gd` (new) | `board()`, `roll_board()`, `requirement_met()`, `can_hire(id) -> {ok, reasons}`, `hire(id)`, `let_go(id)`, `weekly_tick()` |
-| `Contacts` | `ROOM_ROLES` read from registry; `display_name()` falls back to defaults `name` |
-| `Payroll` | `ROLE_SKILL_KEYS` read from registry; otherwise unchanged |
-| `Rooms` | unchanged for cultivators; crafters use ticket 10's speciality rule unchanged |
-| `TimeSystem.daily_tick()` | `Hiring.weekly_tick()` on the Monday rollover, after ⑥ wages |
-| `PhoneApps.apps()` + `PhoneAppRegistry` + `PhoneNav.APPS` | `hiring` / "Graft" entry; locked until any role room is built (OQ-3) |
-| HQ floorplan room card | "Let go" button for a hired occupant; Assign list unchanged (hires are already assigned) |
-| Contacts app | hire appears in the directory (unlocked + recruited); intro SMS on hire |
-| `data/contact_texts.json` (ticket 11) | one random-texts entry per candidate in their voice; gate = "hired and working" (needs a `gateRecruited` option alongside `gateFlag` — small 11-system addition) |
+| `name`, `headline`, `about` | profile text |
+| `role` | registry id |
+| `startLevel` | role skill at hire (`<skill>Skill`, XP set to that rung) |
+| `skillCaps[skill]` | level cap (existing field, shown on profile per C14) |
+| `specialities` | crafters: ore list, per ticket 10's rule/field name |
+| `baseWage`, `wagePerLevel` | weekly wage = `baseWage + wagePerLevel × (level − startLevel)` (C9) |
+| `trait` | optional, §5 |
+| `voice` | post-pool tag for §6 |
 
-`hire(id)`:
-1. `can_hire` — candidate on board, role enabled, all requirements met, target room built **and empty** (one contact per room today; OQ-4).
-2. `unlocked = true`, `recruited = true`, skill/XP set to `startLevel`.
-3. `Contacts.assign_to_room(id, role.room)` → Payroll hire note.
-4. Drop from board, push notification "{Name} starts today. Their desk is in the {roomName}.", queue intro SMS.
+Draft roster (all PROPOSED: names, levels, wages):
 
-## 8. Save shape
+| id | Name | Role | Lvl → Cap | Specialities | £/wk base (+/lvl) | Trait | Headline |
+|---|---|---|---|---|---|---|---|
+| `marcia` | Marcia Odunsi | Cultivator | 2 → 4 | — | 300 (+60) | — | "Allotment secretary, 14 yrs. Open to discreet horticulture." |
+| `tomasz` | Tomasz Wójcik | Cultivator | 1 → 5 | — | 200 (+60) | eager | "Landscaping grad. Hungry. Will learn anything." |
+| `bernie` | Bernie Kale | Cultivator | 3 → 3 | — | 420 (—) | — | "Forty years in the trade. Not here to learn." |
+| `saoirse` | Saoirse Flynn | Cultivator | 2 → 5 | — | 320 (+70) | distracted | "Ex-cooperative grower. Left on good terms. Mostly." |
+| `priya` | Priya Sandhu | Crafter | 2 → 4 | physics | 320 (+60) | — | "Materials engineer, formerly of a firm she won't name." |
+| `dot` | Dot Mayhew | Crafter | 1 → 4 | life, emotion | 220 (+60) | — | "Herbalist. Market stall, Deptford." |
+| `gideon` | Gideon Achterberg | Crafter | 3 → 5 | time | 480 (+80) | — | "Horologist. Guild-trained. Expensive, and worth it." |
+| `ray` | Ray Okafor-Bell | Crafter | 2 → 3 | fate, emotion, time | 300 (+50) | distracted | "Jack of all trades. Ask around." |
+
+Owen's £250 is the reference point for wages.
+
+## 4. Market status, hiring, poaching
+
+### 4.1 Status (C5)
+`state.hiring.status[id] = { state: "open" | "employed" | "ours", employer: factionId | businessId | null, since: day }`.
+- **PROPOSED:** on each Monday rollover, every non-`ours` candidate flips with chance `flipChance` (0.25). On a flip to employed, the employer is a random faction or faux business.
+- Changes of status generate hire-status posts (§6.3).
+
+### 4.2 Hire (C4, C6)
+- **Open:** Hire = wage at `baseWage`. Gate = the pot can cover the first week (**PROPOSED** check; C3) and the role room has a free seat (C8).
+- **Employed:** Poach = wage × (1 + `poachPremium`) (**PROPOSED** 0.25). If the employer is a faction, relation with it −`poachRelationCost` (**PROPOSED** 8). If the employer is a faux business, there is no relation effect (no such stat).
+- On hire: `unlocked/recruited = true`, the skill is set, they are seated in the role room, and a `business.wages[id]` entry is created (Owen's mechanism: `weekly`, `owed`, `unpaid`, `hiredDay`, `daysWorked`, `promptPending`) — paid at the Monday payday from the pot (C3). `weekly` updates when they level.
+- Let go (C13): vacate the seat, release `cultivatorVeins`, remove the wage entry (prorated owed settled at the next payday). Status → `open`.
+
+### 4.3 Factions poaching your staff (C7)
+- **PROPOSED:** per employee, a weekly chance `poachChance` (0.1) that one faction makes an offer. The faction is weighted toward Hostile/Business-rival stance (fits Pressure/Escalation). Max `maxPoachAttempts` (3) per employee, ever.
+- Offer: +`poachOfferPct` (**PROPOSED** 20%). Notification and LodedInnit inbox card: "Match (£X/wk)" or "Let them go". The player may match up to `counterCapPct` (**PROPOSED** 25%) above the current wage — the offer never exceeds that cap, so the match is always possible if the player wants it.
+- Decline → the employee leaves; status `employed` at that faction. Feed post (§6.3).
+- **Open:** does the offer expire after N blocks, and what happens if it is ignored (OQ-4)?
+
+## 5. Rooms and seats (C8)
+
+- **PROPOSED:** `state.home.roomSeats { roomId: int }`, default 1. Upgrade costs and max seats per HQ tier go in `data/home.json` `rooms.<id>.seatUpgrades: [{ seats, cost, minTier }]`, bought from the HQ room card.
+- Impact: `Contacts.get_contact_in_room()` (single occupant) becomes `contacts_in_room()`; `assign_to_room()` stops evicting while seats are free; Payroll's room-keyed wage records stop applying to hires (all hire wages go through the pot, C3).
+- Founders are unaffected (they hold no seat).
+
+## 6. Feed (C10–C12)
+
+### 6.1 Authors
+- Candidates (their `voice` pool; trait-flavoured variants, e.g. `distracted` posts trail off mid-thought).
+- Factions (speaker-voiced, or as the corporate faction account — OQ-6).
+- Faux businesses: **PROPOSED** a small set of parody London firms in `data/lodedinnit.json` `businesses` (names TBD — OQ-7). They are also employers for §4.1.
+
+### 6.2 Cadence (C11)
+One post per time block, rolled at the staff block step (`Rng`, Rewind-safe), from a weighted pool of authors whose posts aren't used up. **PROPOSED:** a post isn't repeated until its author's pool is exhausted.
+
+### 6.3 Hire-status posts
+Triggered (in addition to the per-block post) by: candidate hired by you, let go, poached by/from a faction, flip to employed or open. Templates per event kind with a `{name}`/`{employer}` fill.
+
+### 6.4 Likes / comments (flavour)
+Each post gets a rolled likes count and 0–2 canned comments from other authors (comment pool per author). Display only — no gameplay.
+
+### 6.5 Texts
+Hires get no Messages threads or quiz texts (C12). The ticket-11 random-texts system is not used for hires.
+
+## 7. Traits (C10, PROPOSED list)
+
+Data in `data/hiring.json` `traits`; one number each:
+
+| Trait | Effect | Feed flavour |
+|---|---|---|
+| `distracted` | skips its block action with chance 0.2 | posts wander onto tangents |
+| `eager` | role XP × 1.25 | over-enthusiastic hustle posts |
+
+Most candidates have no trait.
+
+## 8. Save shape (PROPOSED)
 
 ```
 hiring: {
-  board: [contactId],          # current Open-to-work candidates, in display order
-  boardRolledDay: int,         # -1 = never rolled (old saves); next open/Monday rolls
-  seen: [contactId],           # board entries viewed (badge)
-  cooldowns: { contactId: day } # let-go: re-enters pool on/after this day
+  status: { id: { state, employer, since } },
+  poach: { id: { attempts, pending: { factionId, offer, expiresDay } | null } },
+  feed: [ { postId, author, day, block, likes, comments: [commentId] } ],   # capped (e.g. 50)
+  feedSeen: int                                                             # badge = feed entries after this
 }
+home.roomSeats: { roomId: int }
 ```
 
-- Candidate contacts are pre-seeded in `state.contacts` exactly like Des/Nadia/Owen (`unlocked:false, recruited:false`) — `SaveManager._backfill_new_contacts()` already adds new ids for old saves once `CONTACTS_DEFAULTS` includes them.
-- Pure data only (ids, ints); Rewind/snapshots unaffected.
-- REFERENCE.md §2 gains the `hiring` block and a §3.10 "Hiring" rules paragraph (ticket 18).
+Pure data; old saves are backfilled (status from data defaults, empty feed).
 
-## 9. UI sketch (Family 2 list/detail)
+## 9. Integration summary
 
-- **Board (master)**: header "Graft" + tagline; row per candidate: name, headline (muted), trailing role chip ("Cultivator"/"Crafter"); greyed row + "Not yet" if any requirement fails.
-- **Profile (detail)**: name, headline, role · "Level 2 · Ceiling 4", speciality ore chips (ore accents are allowed as data chips), "Expects £1,050/week", About, "Looking for" lines with ✓/✗, Hire button (`ui_action_red`, disabled with first unmet reason).
-- **Hired tab**: current hires with role, level, room, "Let go".
+New: `data/hiring.json`, `data/lodedinnit.json` (feed/businesses), `systems/hiring.gd`, `systems/lodedinnit_feed.gd`, the app scene. Touched: `GameData`, `Contacts` (registry read, multi-seat rooms, `name` fallback in `display_name`), `Business` (hire wage entries, level-up wage update), `Rooms` (seats), `TimeSystem` (Monday flips/poach rolls; per-block feed post), `PhoneApps`/`PhoneAppRegistry`/`PhoneNav`, the HQ room card (seats, let go), REFERENCE §2/§3.10, CODEMAP.
 
-## 10. Scope split
+## 10. Ticket split (PROPOSED re-cut)
 
-- **18** (cultivator): everything in §§3–9 with only cultivation candidates enabled in data; `steady`/`fastLearner` traits; requirement kinds `room`/`homeTier`/`flag`/`factionRelation`.
-- **19** (crafter): crafter candidates + their speciality data. Must be a data-only addition per §3 — if 19 needs code beyond ticket 10's rule, 18's registry was wrong.
+The current 18/19 split doesn't cover the feed, poaching or seats. Suggested:
+- 18 Cultivator hire end to end (registry, roster data, open-status hire, pot wages, let go, one seat)
+- 19 Crafter role (data only + specialities)
+- new: Room seat upgrades
+- new: Market status flips + player poaching
+- new: Faction poaching + match-or-lose
+- new: LodedInnit feed (block posts, hire-status posts, likes/comments)
 
-## 11. Out of scope
+## 11. Open questions
 
-Signing fees, interviews/negotiation, poaching by factions, hires joining combat (`combatHpMax 0`), hires as founders/partners, multiple staff per room (pending OQ-4).
-
-## 12. Open questions for the human
-
-| # | Question | Recommended default |
-|---|---|---|
-| OQ-1 | Wage level: keep Payroll's £700/wk-at-L1 formula for hires, or a cheaper per-candidate weekly wage like Owen's £250? | Per-candidate `weeklyWage` in data, scaled by level; current formula is far above Owen's |
-| OQ-2 | Once the business pot is active, should hires be paid from the pot (like Owen) instead of player cash? | Yes — route via `Business` wages when `potActive`; separate ticket |
-| OQ-3 | When does Graft unlock? | Once any role room (Station/Lab/Ops) is built |
-| OQ-4 | One contact per room means at most one hired cultivator and one hired crafter (beside founders). Want multiple seats per room (e.g. by HQ tier)? | Keep one per room for 18/19; seats are a later ticket |
-| OQ-5 | "Reputation" requirement: no such stat exists. Faction relation OK as stand-in? | Yes |
-| OQ-6 | Cultivator specialities: none, or an ore affinity (bonus on matching veins)? | None for v1 |
-| OQ-7 | Which traits ship in v1? | `steady` + `fastLearner` only |
-| OQ-8 | App name: Graft / Clocked In / Endorsed / Linkedout? | Graft |
-| OQ-9 | Security role: named hires that replace/augment anonymous guards, or a different mechanic? | Defer; registry slot only |
-| OQ-10 | Show level cap ("Ceiling") on profiles, or hide it as a surprise? | Show — it's the hiring decision |
-| OQ-11 | Let-go rules: cooldown 14 days, level kept, no severance — OK? | Yes |
-| OQ-12 | Roster: 4 + 4 above — names, levels, caps, requirements OK? | — |
+| # | Question |
+|---|---|
+| OQ-1 | All the PROPOSED numbers: flip chance, poach premium, relation cost, faction poach chance/offer/cap/attempts, wages. |
+| OQ-2 | Roster: names, levels, caps, specialities, wages in §3 OK? Size (4+4) OK? |
+| OQ-3 | Payroll's room-wage path now has no users (founders draw no room wage; hires are pot-paid). Retire it? |
+| OQ-4 | Faction poach offer: expiry window, and what happens if ignored (they leave? they stay?) |
+| OQ-5 | Hire gate when the pot is short: block the hire, or allow and let payday shortfall rules apply? |
+| OQ-6 | Faction posts: from the speaker key member (Nadia etc.) or a faceless faction account? (CONTEXT.md: faction messages always come from the speaker.) |
+| OQ-7 | Faux business names: want to supply them, or should I draft a list for review? |
+| OQ-8 | Seat upgrade costs/max seats per tier. |
+| OQ-9 | Ticket re-cut in §10 OK? |
