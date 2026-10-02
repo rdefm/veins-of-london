@@ -54,6 +54,8 @@ var _tab := BRIEF_TAB
 var _ore_source := "oreCultivator"
 # Production-log days shown expanded (view state), day -> true.
 var _expanded_log_days := {}
+var _sales_history_open := false
+var _sales_details_id := ""
 var _short_pay := ShortPayViewScript.new()
 var _guard_costs := GuardCostsViewScript.new()
 var _root: Control = null
@@ -449,7 +451,7 @@ static func _percent_points(fraction: float) -> int:
 
 
 func _build_manage(content: VBoxContainer) -> void:
-	content.add_child(UI.heading("Manage", 16))
+	content.add_child(UI.muted_label("Operations / Sales pipeline"))
 	content.add_child(_build_sales())
 	content.add_child(_build_production())
 	content.add_child(_build_procurement())
@@ -767,19 +769,32 @@ func _counterparty_text(entry: Dictionary) -> String:
 
 
 func _build_sales() -> Control:
-	var c := UI.card()
-	c["content"].add_child(UI.heading("Sales", 14))
 	var offers: Array = OffersSystem.pending_offers()
+	var contracts: Array = ContractsSystem.active_contracts()
+	var history: Array = GameState.state["sales"].get("contractHistory", [])
+	var section := UI.vbox(9)
+	var summary := UI.card()
+	summary["panel"].name = "BizBriefHero"
+	summary["content"].add_child(UI.muted_label("SALES PIPELINE"))
+	var counts := UI.hbox(8)
+	counts.add_child(UI.expand_fill(UI.heading("Sales · %d active" % contracts.size(), 18)))
+	counts.add_child(UI.muted_label("%d OFFER%s" % [offers.size(), "" if offers.size() == 1 else "S"]))
+	summary["content"].add_child(counts)
+	summary["content"].add_child(UI.muted_label(SALES_STATUS_TEXT[ContractsSystem.has_staffed_sales()]))
+	section.add_child(summary["panel"])
+	section.add_child(UI.heading("Offered contracts · %d" % offers.size(), 14))
 	if offers.is_empty():
-		c["content"].add_child(UI.muted_label("No pending offers."))
+		section.add_child(UI.muted_label("No pending offers."))
 	for offer in offers:
+		var c := UI.card()
 		var request: Dictionary = offer["request"]
 		var expiry: String = "expires %s" % Calendar.format_day(int(offer["expiresDay"]))
 		c["content"].add_child(_build_contract_tags(offer))
 		c["content"].add_child(UI.muted_label(_counterparty_text(offer)))
 		if offer.get("source", "") == "renewal":
 			c["content"].add_child(UI.muted_label("Renewal. Same order, today's price."))
-		c["content"].add_child(UI.label("%s · £%d · %s" % [_request_summary(request), offer["quote"]["payment"], expiry]))
+		c["content"].add_child(UI.heading(_request_summary(request), 15))
+		c["content"].add_child(UI.muted_label("%s · £%d per delivery" % [expiry, int(offer["quote"]["payment"])]))
 		var poach: Dictionary = offer.get("poach", {})
 		var offer_row := UI.hbox()
 		if poach.is_empty():
@@ -790,41 +805,86 @@ func _build_sales() -> Control:
 			offer_row.add_child(UI.button("Match £%d" % int(poach["payment"]), func(): OffersSystem.match_poach(offer["id"])))
 		offer_row.add_child(UI.button("Decline", func(): OffersSystem.decline_offer(offer["id"])))
 		c["content"].add_child(offer_row)
-	var contracts: Array = ContractsSystem.active_contracts()
-	if not contracts.is_empty():
-		c["content"].add_child(UI.heading("Active contracts", 14))
-		c["content"].add_child(UI.muted_label("Drag cards to set delivery priority."))
-		for index in contracts.size():
-			var contract: Dictionary = contracts[index]
-			var card := ContractCard.new()
-			card.configure(contract["id"], index)
-			var box := VBoxContainer.new()
-			card.add_child(box)
+		section.add_child(c["panel"])
+	var accepted_row := UI.hbox(8)
+	accepted_row.add_child(UI.expand_fill(UI.heading("Accepted contracts · %d" % contracts.size(), 14)))
+	accepted_row.add_child(UI.button("History →" if not _sales_history_open else "History ▾", func(): _toggle_sales_history()))
+	section.add_child(accepted_row)
+	if contracts.is_empty():
+		section.add_child(UI.muted_label("No accepted contracts."))
+	else:
+		section.add_child(UI.muted_label("Drag cards to set delivery priority."))
+	for index in contracts.size():
+		var contract: Dictionary = contracts[index]
+		var card := ContractCard.new()
+		card.configure(contract["id"], index)
+		var box := UI.vbox(6)
+		card.add_child(box)
+		var lead := UI.hbox(6)
+		lead.add_child(UI.expand_fill(UI.heading("≡ %02d · %s" % [index + 1, contract["id"]], 15)))
+		lead.add_child(UI.muted_label("ACTIVE"))
+		box.add_child(lead)
+		box.add_child(UI.muted_label(_request_summary(contract["request"])))
+		box.add_child(UI.muted_label("%s · due %s" % [_contract_progress_summary(contract), Calendar.format_day(int(contract["dueDay"]))]))
+		var total := 0
+		var delivered := 0
+		for line in ContractsSystem.request_lines(contract["request"]):
+			total += int(line["qty"])
+			delivered += ContractsSystem.delivered_qty(contract, line["type"])
+		var progress := ProgressBar.new()
+		progress.name = "ContractProgress"
+		progress.custom_minimum_size.y = 5
+		progress.max_value = maxi(total, 1)
+		progress.value = delivered
+		progress.show_percentage = false
+		var track := StyleBoxFlat.new()
+		track.bg_color = LINE
+		track.set_corner_radius_all(3)
+		var fill := StyleBoxFlat.new()
+		fill.bg_color = SIGNAL
+		fill.set_corner_radius_all(3)
+		progress.add_theme_stylebox_override("background", track)
+		progress.add_theme_stylebox_override("fill", fill)
+		box.add_child(progress)
+		var actions := UI.hbox(6)
+		var buying: bool = contract.get("buyCalc", false)
+		actions.add_child(UI.expand_fill(UI.button("Buy missing calc: on" if buying else "Buy missing calc: off", func(): ContractsSystem.set_buy_calc(contract["id"], not buying))))
+		actions.add_child(UI.button("Details →" if _sales_details_id != contract["id"] else "Details ▾", func(): _toggle_sales_details(contract["id"])))
+		box.add_child(actions)
+		if _sales_details_id == contract["id"]:
 			box.add_child(_build_contract_tags(contract))
 			box.add_child(UI.muted_label(_counterparty_text(contract)))
-			box.add_child(UI.label("%d. %s: %s · due %s · £%d" % [index + 1, contract["id"], _contract_progress_summary(contract), Calendar.format_day(int(contract["dueDay"])),contract["signedQuote"]["payment"]]))
+			box.add_child(UI.label("£%d per delivery" % int(contract["signedQuote"]["payment"])))
 			if contract.has("expiryDay"):
 				box.add_child(UI.muted_label("Term ends %s" % Calendar.format_day(int(contract["expiryDay"]))))
-			var filled: bool = ContractsSystem.is_period_filled(contract)
-			if filled:
+			if ContractsSystem.is_period_filled(contract):
 				box.add_child(UI.muted_label("Delivered this week — next period %s" % Calendar.format_day(int(contract["dueDay"]))))
 			box.add_child(UI.muted_label(SALES_STATUS_TEXT[ContractsSystem.has_staffed_sales()]))
-			var buying: bool = contract.get("buyCalc", false)
-			box.add_child(UI.button("Buy missing calc: on" if buying else "Buy missing calc: off", func(): ContractsSystem.set_buy_calc(contract["id"], not buying)))
-			var summary := "%s · £%d" % [_request_summary(contract["request"]), contract["signedQuote"]["payment"]]
-			box.add_child(UI.button("Cancel contract", func(): Modal.open("contract_cancel", { "contractId": contract["id"], "summary": summary })))
-			c["content"].add_child(card)
-	var history: Array = GameState.state["sales"].get("contractHistory", [])
-	if not history.is_empty():
-		c["content"].add_child(UI.heading("History", 14))
+			var contract_summary := "%s · £%d" % [_request_summary(contract["request"]), int(contract["signedQuote"]["payment"])]
+			box.add_child(UI.button("Cancel contract", func(): Modal.open("contract_cancel", { "contractId": contract["id"], "summary": contract_summary })))
+		section.add_child(card)
+	if _sales_history_open:
+		section.add_child(UI.heading("History", 14))
+		if history.is_empty():
+			section.add_child(UI.muted_label("No contract history."))
 		for entry in history:
 			if ContractsSystem.is_cancelled(entry):
-				c["content"].add_child(UI.muted_label("%s · cancelled %s" % [entry["contract"]["id"], Calendar.format_day(int(entry["cancelledDay"]))]))
+				section.add_child(UI.muted_label("%s · cancelled %s" % [entry["contract"]["id"], Calendar.format_day(int(entry["cancelledDay"]))]))
 				continue
 			var settled: Dictionary = entry["settlement"]
 			var ended: String = " · term ended" if ContractsSystem.is_expired(entry) else ""
-			c["content"].add_child(UI.muted_label("%s · %s · £%d%s" % [settled["id"], "complete" if settled["complete"] else "partial", settled["payment"], ended]))
-	return c["panel"]
+			section.add_child(UI.muted_label("%s · %s · £%d%s" % [settled["id"], "complete" if settled["complete"] else "partial", settled["payment"], ended]))
+	return section
+
+
+func _toggle_sales_history() -> void:
+	_sales_history_open = not _sales_history_open
+	refresh()
+
+
+func _toggle_sales_details(contract_id: String) -> void:
+	_sales_details_id = "" if _sales_details_id == contract_id else contract_id
+	refresh()
 
 
 func _build_bank(account: Dictionary) -> Control:

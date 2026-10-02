@@ -94,6 +94,16 @@ func _refresh() -> void:
 		sheet.call("refresh", modal.get("data", {}))
 		return
 	_card.visible = true
+	if type_id == "contract_cancel":
+		var bizbrief_style := StyleBoxFlat.new()
+		bizbrief_style.bg_color = Color("#172431")
+		bizbrief_style.border_color = Color("#e9353c")
+		bizbrief_style.border_width_left = 3
+		bizbrief_style.set_corner_radius_all(6)
+		bizbrief_style.set_content_margin_all(18)
+		_card.add_theme_stylebox_override("panel", bizbrief_style)
+	else:
+		MapPalette.build_light(func(): MapCardStyle.style_panel(_card, 18, 0.16))
 
 	for child in _card_content.get_children():
 		child.queue_free()

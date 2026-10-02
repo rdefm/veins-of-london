@@ -60,7 +60,7 @@ func run() -> void:
 		assert_eq((brief.get_theme_stylebox("disabled") as StyleBoxFlat).border_width_bottom, 3)
 		_button_with_text(phone, "Manage").pressed.emit()
 		assert_true(_button_with_text(phone, "Manage").disabled)
-		assert_true(NodeQuery.label_texts(phone).has("Sales"))
+		assert_true(NodeQuery.label_texts(phone).has("SALES PIPELINE"))
 		GameState.state["flags"]["bizStaffTabOpen"] = true
 		Business.activate()
 		phone._refresh()
@@ -290,7 +290,7 @@ func run() -> void:
 		assert_true(manage != null, "BizBrief exposes Manage beside Brief")
 		manage.pressed.emit()
 		var texts := NodeQuery.label_texts(phone)
-		for expected in ["BizBrief", "Manage", "Sales", "Production", "Procurement"]:
+		for expected in ["BizBrief", "Operations / Sales pipeline", "SALES PIPELINE", "Production", "Procurement"]:
 			assert_true(texts.has(expected), "missing %s" % expected)
 		assert_true(not texts.has("Morning Brief"), "Manage does not duplicate the Brief tab")
 		var brief := _button_with_text(phone, "Brief")
@@ -301,6 +301,78 @@ func run() -> void:
 	)
 
 	# 30-production-contract-coverage-toggle
+	run_case("manage_sales_offer_actions_use_live_terms_and_pipeline_counts", func():
+		GameState.reset()
+		var offer: Dictionary = Offers.create_scripted_offer("scripted_life_order")["offer"]
+		var payment: int = offer["quote"]["payment"]
+		GameState.state["phoneNav"]["app"] = "bizbrief"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		_button_with_text(phone, "Manage").pressed.emit()
+		var texts := NodeQuery.label_texts(phone)
+		assert_true(texts.has("Sales · 0 active"))
+		assert_true(texts.has("1 OFFER"))
+		assert_true(texts.has("Offered contracts · 1"))
+		assert_true(texts.has("expires %s · £%d per delivery" % [Calendar.format_day(int(offer["expiresDay"])), payment]))
+		_button_with_text(phone, "Accept").pressed.emit()
+		assert_eq(Contracts.active_contracts().size(), 1)
+		assert_true(NodeQuery.label_texts(phone).has("Sales · 1 active"))
+		assert_true(NodeQuery.label_texts(phone).has("0 OFFERS"))
+		assert_true(_button_with_text(phone, "Details →") != null)
+		_button_with_text(phone, "Details →").pressed.emit()
+		assert_true(NodeQuery.label_texts(phone).has("£%d per delivery" % payment))
+		_button_with_text(phone, "Buy missing calc: off").pressed.emit()
+		assert_true(bool(Contracts.active_contracts()[0].get("buyCalc", false)))
+		phone.free()
+	)
+
+	run_case("manage_sales_poach_decline_priority_history_and_cancel", func():
+		GameState.reset()
+		var declined: Dictionary = Offers.create_scripted_offer("scripted_life_order")["offer"]
+		GameState.state["phoneNav"]["app"] = "bizbrief"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		_button_with_text(phone, "Manage").pressed.emit()
+		_button_with_text(phone, "Decline").pressed.emit()
+		assert_true(Offers.pending_offers().is_empty())
+		var first: Dictionary = Offers.accept_offer(Offers.create_scripted_offer("scripted_life_order")["offer"]["id"])["contract"]
+		var second: Dictionary = Offers.accept_offer(Offers.create_scripted_offer("scripted_life_order")["offer"]["id"])["contract"]
+		var cards: Array = phone.find_children("", "ContractCard", true, false)
+		assert_eq(cards.size(), 2)
+		cards[0]._drop_data(Vector2.ZERO, { "contractId": second["id"] })
+		assert_eq(Contracts.active_contracts()[0]["id"], second["id"])
+		_button_with_text(phone, "Details →").pressed.emit()
+		_button_with_text(phone, "Cancel contract").pressed.emit()
+		var layer := ModalLayer.new()
+		layer._ready()
+		assert_true((layer._card.get_theme_stylebox("panel") as StyleBoxFlat).bg_color.is_equal_approx(Color("#172431")))
+		_button_with_text(layer, "Keep").pressed.emit()
+		assert_eq(Contracts.active_contracts().size(), 2)
+		_button_with_text(phone, "Cancel contract").pressed.emit()
+		_button_with_text(layer, "Confirm").pressed.emit()
+		assert_eq(Contracts.active_contracts().size(), 1)
+		_button_with_text(phone, "History →").pressed.emit()
+		assert_true(NodeQuery.label_texts(phone).any(func(t: String): return t.contains("cancelled")))
+		layer.free()
+		phone.free()
+	)
+
+	run_case("manage_sales_poached_renewal_matches_the_rival_quote", func():
+		GameState.reset()
+		var offer: Dictionary = Offers.create_scripted_offer("scripted_life_order")["offer"]
+		offer["source"] = "renewal"
+		offer["poach"] = { "factionId": "firm", "payment": 12 }
+		GameState.state["phoneNav"]["app"] = "bizbrief"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		_button_with_text(phone, "Manage").pressed.emit()
+		assert_true(NodeQuery.label_texts(phone).has("Renewal. Same order, today's price."))
+		assert_true(_button_with_text(phone, "Accept") == null)
+		_button_with_text(phone, "Match £12").pressed.emit()
+		assert_eq(Contracts.active_contracts()[0]["signedQuote"]["payment"], 12)
+		phone.free()
+	)
+
 	run_case("production_shows_a_room_gate_message_when_lab_not_installed", func():
 		GameState.reset()
 		GameState.state["phoneNav"]["app"] = "bizbrief"

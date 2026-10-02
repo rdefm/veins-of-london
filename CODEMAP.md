@@ -157,7 +157,7 @@ overlays.
 | map_palette.gd | MapPalette: resolves Map palette tokens (data/map_palette.json) for the current light/dark mode (`meta.mapDarkMode`), plus faction/ore colours with optional dark-only overrides; every Map-tab colour reads through it; build_light() scopes a light-only build for off-Map reusers |
 | map_legend.gd | Persistent faction-colour key; restyles in place on a dark-mode toggle |
 | map_zoom_buttons.gd | Floating +/- zoom control; restyles in place on a dark-mode toggle |
-| modal_layer.gd | Dim background + light map_card_style.gd card (content built inside MapPalette.build_light); mounts full-screen sheets for sell_menu (Trade) and guard_kit, and dispatches other content through modal_registry.gd; tap-outside dismiss |
+| modal_layer.gd | Dim background + light map_card_style.gd card (content built inside MapPalette.build_light), with navy/red chrome for BizBrief contract cancellation; mounts full-screen sheets for sell_menu (Trade) and guard_kit, and dispatches other content through modal_registry.gd; tap-outside dismiss |
 | notification_ticker.gd | Top board's one-message notice row: presentation-only queue, roll-up from below, marquee for overflow, 4s hold; latest stays when empty; transient (combat-log) or keyed (notification id) queued entries droppable |
 | nav_bar.gd | Bottom nav dock (Phone·Map·HQ); swaps to MapPalette dark chrome tokens while the Map tab shows with Map dark mode on |
 | ore_glyphs.gd | Five canonical ore silhouettes as hand-drawn vectors; bundled-font coverage probe for non-map symbol fallback |
@@ -207,7 +207,7 @@ overlays.
 | lab_bench_notes_modal.gd | Per-pairing survey notes with found-recipe refine rows |
 | lab_bench_probe_result_modal.gd | Probe outcome card |
 | lab_bench_confirm_modal.gd | Gear-tap confirm: probe, craft ×N (batch slider, max = affordable) or inert warning, by cell state |
-| contract_cancel_modal.gd | BizBrief contract cancel confirm (Keep / Confirm → `Contracts.cancel`) |
+| contract_cancel_modal.gd | Navy BizBrief contract cancel confirm (Keep / Confirm → `Contracts.cancel`) |
 | gift_modal.gd | Gift sheet for one faction: key members with relation, likes and cooldown; pick a member, give a cash option or one held consumable via `Diplomacy`; a landed gift opens the member's thread |
 | negotiation_modal.gd | Peace talks sheet: the faction's standing terms + Accept, the player's draft (truce days, cash/weekly each way, vein toggles), Propose / Walk away (not when binding); all via FactionAI |
 
@@ -218,7 +218,7 @@ overlays.
 | phone_app.gd | PhoneApp base: shell ref, build(content)/teardown() hooks, shared back button + refresh |
 | phone_app_registry.gd | app id -> PhoneApp script table; the only dispatch path phone.gd uses |
 | alarms_app.gd | Raid alarm rows: defend / leave undefended (two-tap) / decide later |
-| bizbrief_app.gd | BizBrief's own navy brand header, fixed underline tabs and scrolling app surface inside PhoneDeviceShell; Brief (bank, float, payday, wage prompt, operations, attention, moves against you, war, shares); Manage (offers + poach Match, contracts, buy-calc, cancel; production targets/log, procurement); Staff once `bizStaffTabOpen` (role, skills, pay); Stats while pot active (charts, ore toggle, expenses, guard legend); hosts short_pay_view.gd, guard_costs_view.gd |
+| bizbrief_app.gd | BizBrief's own navy brand header, fixed underline tabs and scrolling app surface inside PhoneDeviceShell; Brief (bank, float, payday, wage prompt, operations, attention, moves against you, war, shares); Manage (live Sales pipeline, separate offer/accepted cards, poach Match, drag priority, in-tab Details/History, buy-calc, cancel; production targets/log, procurement); Staff once `bizStaffTabOpen` (role, skills, pay); Stats while pot active (charts, ore toggle, expenses, guard legend); hosts short_pay_view.gd, guard_costs_view.gd |
 | messages_app.gd | Conversation inbox (fixed-height rows: bold name, one-line `…` preview, unread pill, per-contact Clear) + single-thread staged bubble reveal/action bar (incl. Owen's text reply choices); thread opens scrolled to the newest message |
 | todo_app.gd | ToDo app: collapsible questline sections from Todo, all_of checks as indented sub-rows; session-only expand/collapse overrides in a static var |
 | factions_app.gd | London share table (ore/crafting toggle), London's politics (stance per pair, war/truce markers) and faction cards: archetype, ores, crafts, share bars, stance, pressure, peace talks at war, Gift, favour asked/owed (`Diplomacy`), partner price ask and trouble asks (`Partners`), intel level and what it reveals (`Intel`), activity log. |
