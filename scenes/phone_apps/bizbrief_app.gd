@@ -54,6 +54,7 @@ var _tab := BRIEF_TAB
 var _ore_source := "oreCultivator"
 # Production-log days shown expanded (view state), day -> true.
 var _expanded_log_days := {}
+var _production_log_open := false
 var _sales_history_open := false
 var _sales_details_id := ""
 var _short_pay := ShortPayViewScript.new()
@@ -61,6 +62,8 @@ var _guard_costs := GuardCostsViewScript.new()
 var _root: Control = null
 var _scroll: ScrollContainer = null
 var _brief_detail_anchor: Control = null
+var _production_log_anchor: Control = null
+var _procurement_anchor: Control = null
 var _serif: SystemFont = null
 
 
@@ -563,22 +566,35 @@ func _build_role_picker(contact_id: String, current: Variant) -> Control:
 
 
 func _build_production() -> Control:
+	var section := UI.vbox(7)
+	var title := UI.hbox(6)
+	title.add_child(UI.expand_fill(UI.heading("Production", 16)))
+	title.add_child(UI.button("Log →" if not _production_log_open else "Log ▾", func(): _toggle_production_log()))
+	section.add_child(title)
 	var c := UI.card()
-	c["content"].add_child(UI.heading("Production", 14))
 
 	if not Rooms.production_settings_open():
 		c["content"].add_child(UI.muted_label("Requires the Improved Lab."))
-		if not GameState.state["productionLog"].is_empty():
-			c["content"].add_child(_build_production_log())
-		return c["panel"]
+	else:
+		var recipe_keys := Rooms.production_recipes()
+		for recipe_key in recipe_keys:
+			c["content"].add_child(_build_production_recipe_row(recipe_key))
+		if recipe_keys.is_empty():
+			c["content"].add_child(UI.muted_label("Nothing your crafters can make yet."))
+	section.add_child(c["panel"])
+	if _production_log_open:
+		var log_card := UI.card()
+		_production_log_anchor = log_card["panel"]
+		log_card["content"].add_child(_build_production_log())
+		section.add_child(log_card["panel"])
+	return section
 
-	var recipe_keys := Rooms.production_recipes()
-	for recipe_key in recipe_keys:
-		c["content"].add_child(_build_production_recipe_row(recipe_key))
-	if recipe_keys.is_empty():
-		c["content"].add_child(UI.muted_label("Nothing your crafters can make yet."))
-	c["content"].add_child(_build_production_log())
-	return c["panel"]
+
+func _toggle_production_log() -> void:
+	_production_log_open = not _production_log_open
+	refresh()
+	if _production_log_open and is_instance_valid(_scroll) and is_instance_valid(_production_log_anchor):
+		_scroll.ensure_control_visible(_production_log_anchor)
 
 
 # state.productionLog, newest day first; each day is a collapsed row that
@@ -634,17 +650,20 @@ func _build_production_recipe_row(recipe_key: String) -> Control:
 	var target: int = GameState.state["labThresholds"].get(recipe_key, 0)
 	var covering: bool = Rooms.lab_covers_contracts(recipe_key)
 
-	var box := UI.vbox(4)
-	box.add_child(UI.label(recipe["name"]))
+	var box := UI.vbox(5)
+	box.add_child(UI.heading(recipe["name"], 14))
 
 	var target_label := UI.muted_label(_target_text(recipe_key, target, covering))
 	box.add_child(target_label)
+	box.add_child(UI.muted_label("Contract need: %d" % Rooms.contract_need(recipe_key)))
 	var on_change := func(value: int) -> void: target_label.text = _target_text(recipe_key, value, covering)
 	box.add_child(MapCardStyle.quantity_slider("Target", target, GameData.PRODUCTION_TARGET_MAX, on_change, func(value: int): Rooms.set_lab_threshold(recipe_key, value), 0))
 
 	var target_row := UI.hbox()
 	target_row.add_child(UI.button("Stop covering contracts" if covering else "Cover contract needs", func(): Rooms.set_lab_cover_contracts(recipe_key, not covering)))
 	box.add_child(target_row)
+	var separator := HSeparator.new()
+	box.add_child(separator)
 
 	return box
 
@@ -657,8 +676,14 @@ static func _target_text(recipe_key: String, target: int, covering: bool) -> Str
 
 
 func _build_procurement() -> Control:
+	var section := UI.vbox(7)
+	var title := UI.hbox(6)
+	title.add_child(UI.expand_fill(UI.heading("Procurement", 16)))
+	title.add_child(UI.button("ASSIGN VEINS →", func(): _show_procurement_assignments()))
+	section.add_child(title)
 	var c := UI.card()
-	c["content"].add_child(UI.heading("Procurement", 14))
+	_procurement_anchor = c["panel"]
+	section.add_child(c["panel"])
 
 	var cultivators: Array = Contacts.contacts_in_role("cultivation")
 	if cultivators.is_empty():
@@ -666,16 +691,21 @@ func _build_procurement() -> Control:
 			c["content"].add_child(UI.muted_label("Requires the Vein Cultivation Station room."))
 		else:
 			c["content"].add_child(UI.muted_label("No cultivators yet."))
-		return c["panel"]
+		return section
 
 	var veins: Array = VeinList.veins(null, null)
 	if veins.is_empty():
 		c["content"].add_child(UI.muted_label("No veins yet."))
-		return c["panel"]
+		return section
 
 	for contact_id in cultivators:
 		c["content"].add_child(_build_cultivator_section(contact_id, veins))
-	return c["panel"]
+	return section
+
+
+func _show_procurement_assignments() -> void:
+	if is_instance_valid(_scroll) and is_instance_valid(_procurement_anchor):
+		_scroll.ensure_control_visible(_procurement_anchor)
 
 
 func _vein_name(vein: Dictionary) -> String:
@@ -698,6 +728,8 @@ func _build_cultivator_section(contact_id: String, veins: Array) -> Control:
 			unassigned.append(vein)
 	if not unassigned.is_empty():
 		var picker := UI.hflow()
+		if _procurement_anchor == null or _procurement_anchor is PanelContainer:
+			_procurement_anchor = picker
 		for vein in unassigned:
 			var vein_id: String = vein["id"]
 			picker.add_child(UI.button("Assign %s" % _vein_name(vein), func(): Rooms.assign_vein(contact_id, vein_id)))

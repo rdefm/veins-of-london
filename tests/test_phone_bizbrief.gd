@@ -402,6 +402,8 @@ func run() -> void:
 		GameState.state["home"]["rooms"].append("lab")
 		GameState.state["contacts"]["james"]["recruited"] = true
 		GameState.state["flags"]["bizJamesProductionRole"] = true
+		var created: Dictionary = Offers.create_offer({ "id": "manage_need", "source": "random", "contractType": "oneOff", "request": { "kind": "consumable", "type": "timePearl", "qty": 3 } })
+		Offers.accept_offer(created["offer"]["id"])
 		GameState.state["phoneNav"]["app"] = "bizbrief"
 		var phone := PhoneScreen.new()
 		phone._ready()
@@ -413,6 +415,7 @@ func run() -> void:
 		assert_true(not texts.has("Blast"), "physics recipe stays off James's list")
 		assert_true(not texts.has("Wormhole"), "time+physics recipe stays off James's list")
 		assert_true(texts.has("Personal target: 0"))
+		assert_true(texts.has("Contract need: 3"))
 
 		var sliders: Array = phone.find_children("", "HSlider", true, false)
 		assert_eq(sliders.size(), Rooms.producible_recipes("james").size(), "one target slider per listed recipe")
@@ -428,6 +431,7 @@ func run() -> void:
 		assert_true(cover != null)
 		cover.pressed.emit()
 		assert_true(GameState.state["labCoverContracts"]["timePearl"])
+		assert_true(NodeQuery.label_texts(phone).has("Personal target: 5 · contract need: 3 · crafting to: 8"))
 		phone.free()
 	)
 
@@ -443,6 +447,10 @@ func run() -> void:
 		var phone := PhoneScreen.new()
 		phone._ready()
 		_button_with_text(phone, "Manage").pressed.emit()
+		assert_true(_button_with_text(phone, "Log →") != null)
+		assert_true(_button_with_text(phone, "TUE 2 APR · 7 made · 2 failed ▸") == null)
+		_button_with_text(phone, "Log →").pressed.emit()
+		assert_true(_button_with_text(phone, "Log ▾") != null)
 
 		var row := _button_with_text(phone, "TUE 2 APR · 7 made · 2 failed ▸")
 		assert_true(row != null, "day row shows a collapsed summary")
@@ -460,6 +468,8 @@ func run() -> void:
 		assert_true(texts.has("James stopped: not enough Time Orichalchum for Time Pearl"), "ore-short note")
 		row.pressed.emit()
 		assert_true(not entry_label.get_parent().visible, "tap again collapses")
+		_button_with_text(phone, "Log ▾").pressed.emit()
+		assert_true(_button_with_text(phone, "TUE 2 APR · 7 made · 2 failed ▸") == null)
 		phone.free()
 	)
 
@@ -489,6 +499,7 @@ func run() -> void:
 		_button_with_text(phone, "Manage").pressed.emit()
 
 		assert_true(NodeQuery.label_texts(phone).has("Archie"), "cultivator section heading")
+		assert_true(_button_with_text(phone, "ASSIGN VEINS →") != null)
 		var assign := _assign_button(phone)
 		assert_true(assign != null and assign.text.contains("Time Orichalchum"), "picker identifies the ore/district")
 		assign.pressed.emit()
