@@ -4,7 +4,8 @@ extends RefCounted
 # Contacts' random texts (data/contact_texts.json, keyed by contact id).
 # Each contact's config sets its gate (gateFlag, requireUnlocked), cadence
 # (intervalMinDays..intervalMaxDays, paused per day the contact isn't
-# working when pauseWhenNotWorking), hold (holdFlag, holdWhilePending),
+# working when pauseWhenNotWorking), hold (holdFlag, holdWhilePending,
+# holdWhileEventPrefix),
 # vein templating source (veinSource) and reply rewards (correctReward,
 # per-reply reward).
 # State: state.contactTexts { contactId: { nextDay, played: { textId:
@@ -55,11 +56,16 @@ static func is_open(contact_id: String) -> bool:
 	return true
 
 
-# True while the contact is busy: holdFlag set, or (holdWhilePending) a
-# pending message from them is still open.
+# True while the contact is busy: holdFlag set, a matching scripted event
+# is active, or (holdWhilePending) a pending message from them is open.
 static func _is_held(contact_id: String, config: Dictionary) -> bool:
 	var hold_flag := String(config.get("holdFlag", ""))
 	if hold_flag != "" and GameState.state["flags"].get(hold_flag, false):
+		return true
+	var event_prefix := String(config.get("holdWhileEventPrefix", ""))
+	var active_event: Variant = GameState.state["event"]
+	if event_prefix != "" and active_event != null \
+			and String(active_event.get("eventId", "")).begins_with(event_prefix):
 		return true
 	return config.get("holdWhilePending", false) and not Messages.pending_for(contact_id).is_empty()
 
@@ -133,14 +139,19 @@ static func reply(contact_id: String, index: int) -> Dictionary:
 
 
 # reward: { xp?: { skill, amount }, relation?: int, cash?: int,
-# item?: { id, qty }, intel?: { target, amount }, craftingXp?: int } --
-# every key optional; intel raises the player's meter on that faction,
-# craftingXp is the player's own crafting XP.
+# item?: { id, qty }, intel?: { target, amount }, craftingXp?: int,
+# factionRelation?: { faction, amount } } -- every key optional; intel
+# raises the player's meter on that faction, factionRelation raises the
+# player's standing with the named faction, and craftingXp is the player's
+# own crafting XP.
 static func _grant(contact_id: String, reward: Dictionary) -> void:
 	if reward.has("xp"):
 		Contacts.award_contact_xp(contact_id, String(reward["xp"]["skill"]), int(reward["xp"]["amount"]))
 	if reward.has("relation"):
 		Contacts.award_relation(contact_id, int(reward["relation"]))
+	if reward.has("factionRelation"):
+		var faction_relation: Dictionary = reward["factionRelation"]
+		Factions.adjust_player_relation(String(faction_relation["faction"]), int(faction_relation["amount"]))
 	if reward.has("cash"):
 		GameState.state["player"]["cash"] += int(reward["cash"])
 	if reward.has("item"):

@@ -574,5 +574,95 @@
         ]
       }
     ]
+  },
+  "nadia": {
+    "gateFlag": "colA1NadiaThreadDone",
+    "requireUnlocked": true,
+    "holdWhilePending": true,
+    "holdWhileEventPrefix": "col_",
+    "intervalMinDays": 7,
+    "intervalMaxDays": 9,
+    "texts": [
+      {
+        "id": "three_lists",
+        "kind": "flavour",
+        "needsVein": false,
+        "text": "I've found three lists of who holds time calc. None agree. One includes a man who's been dead six years. He was reliable, to be fair.",
+        "replies": [
+          { "text": "Want me to check the names?", "correct": false, "response": "Yes. Start with anyone still drawing breath. I'll send the pages.", "reward": { "factionRelation": { "faction": "collective", "amount": 1 } } },
+          { "text": "Use the newest list.", "correct": false, "response": "The newest one has him on it twice." }
+        ]
+      },
+      {
+        "id": "des_lunch",
+        "kind": "flavour",
+        "needsVein": false,
+        "text": "Des left a flask of tea and a sandwich on my desk. He says I missed lunch. He's right. Don't tell him I said that.",
+        "replies": [
+          { "text": "Eat the sandwich.", "correct": false, "response": "Already have. He put the good mustard in it." },
+          { "text": "Thank him.", "correct": false, "response": "I did. He asked whether I'd had breakfast. One problem at a time." }
+        ]
+      },
+      {
+        "id": "full_invoice",
+        "kind": "flavour",
+        "needsVein": false,
+        "text": "A buyer offered to pay early if I left the quantity off the invoice. I told him I could leave his name off it as well.",
+        "replies": [
+          { "text": "Keep the full invoice.", "correct": false, "response": "It's written. He can sign it or shop elsewhere.", "reward": { "factionRelation": { "faction": "collective", "amount": 1 } } },
+          { "text": "Take the early payment.", "correct": false, "response": "an invoice without a number is just an argument waiting to happen" }
+        ]
+      },
+      {
+        "id": "cupboard_keys",
+        "kind": "flavour",
+        "needsVein": false,
+        "text": "The shared cupboard has six keys. Four open it. Nobody knows what the other two open. I'm collecting them before someone calls this a system.",
+        "replies": [
+          { "text": "I can label them.", "correct": false, "response": "Good. Bring string. The labels have gone missing.", "reward": { "factionRelation": { "faction": "collective", "amount": 1 } } },
+          { "text": "Throw the spare two away.", "correct": false, "response": "Not until I know what they open." }
+        ]
+      },
+      {
+        "id": "spare_pearl",
+        "kind": "flavour",
+        "needsVein": false,
+        "text": "One Time Pearl left over from a cancelled order. It's yours if you'll collect it. I've written it down, before you ask.",
+        "replies": [
+          { "text": "I'll collect it.", "correct": false, "response": "At the shop. Ask for me.", "reward": { "item": { "id": "timePearl", "qty": 1 } } },
+          { "text": "Give it to someone who needs it.", "correct": false, "response": "I will. I'll put your name against the gift.", "reward": { "factionRelation": { "faction": "collective", "amount": 1 } } }
+        ]
+      },
+      {
+        "id": "retirement",
+        "kind": "flavour",
+        "needsVein": false,
+        "text": "Woman at the shop asked if I'd retired. I was carrying two crates. I told her I'd consider it after the third.",
+        "replies": [
+          { "text": "Need a hand with the third?", "correct": false, "response": "Yes. Come by at four. Don't look pleased with yourself.", "reward": { "factionRelation": { "faction": "collective", "amount": 1 } } },
+          { "text": "Did she help?", "correct": false, "response": "She held the door. That's something." }
+        ]
+      },
+      {
+        "id": "same_ten_units",
+        "kind": "flavour",
+        "needsVein": false,
+        "text": "I rang three people for ten units of time calc. All three said they had it. Turns out it was the same ten units changing hands. I've cancelled two trips.",
+        "replies": [
+          { "text": "Who holds it now?", "correct": false, "response": "That's the question. I know where it started, don't know who has it now" },
+          { "text": "Want me to trace it?", "correct": false, "response": "Yes. One call each. Write down who actually has the jar.", "reward": { "factionRelation": { "faction": "collective", "amount": 1 } } }
+        ]
+      },
+      {
+        "id": "shop_leak",
+        "kind": "flavour",
+        "needsVein": false,
+        "text": "Rain got through the shop roof again. Stock's dry. The accounts book isn't. I've hung it up by the till like a warning.",
+        "replies": [
+          { "text": "I'll bring a dry book.", "correct": false, "response": "Bring a folder too. Next leak gets filed properly.", "reward": { "factionRelation": { "faction": "collective", "amount": 1 } } },
+          { "text": "Can the landlord fix it?", "correct": false, "response": "He can. Whether he will is a different question." }
+        ]
+      }
+    ]
   }
 }

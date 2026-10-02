@@ -8,6 +8,6 @@
 
 **Status:** ready-for-agent
 
-- [ ] Text pool + config for Nadia; tests for gate and reward grants
-- [ ] Tone per CONTENT-GUIDE: one dry line, no camera winks
-- [ ] PROSE-REVIEW: all new Nadia text
+- [x] Text pool + config for Nadia; tests for gate and reward grants
+- [x] Tone per CONTENT-GUIDE: one dry line, no camera winks
+- [x] PROSE-REVIEW: all new Nadia text

@@ -106,6 +106,26 @@ func _meet_james() -> void:
 	GameState.state["contactTexts"]["james"] = ContactTexts.new_contact_state()
 
 
+# Nadia's random texts open only after the standing order, vein sale, and
+# the closing beat that acknowledges the sale.
+func _finish_nadia_quests() -> void:
+	GameState.reset()
+	GameState.state["contacts"]["nadia"]["unlocked"] = true
+	GameState.state["flags"]["colA1NadiaSupplied"] = true
+	GameState.state["flags"]["colA1NadiaVeinSold"] = true
+	GameState.state["flags"]["colA1NadiaThreadDone"] = true
+
+
+func _force_nadia_text(text_id: String) -> void:
+	var played := {}
+	for entry in GameData.CONTACT_TEXTS["nadia"]["texts"]:
+		if entry["id"] != text_id:
+			played[entry["id"]] = 0
+	GameState.state["contactTexts"]["nadia"] = ContactTexts.new_contact_state()
+	GameState.state["contactTexts"]["nadia"]["played"] = played
+	assert_eq(ContactTexts.send_next("nadia"), text_id)
+
+
 # Marks every other James text played so send_next() picks this one.
 func _force_james_text(text_id: String) -> void:
 	var played := {}
@@ -630,6 +650,88 @@ func run() -> void:
 		assert_eq(player["cash"], cash + 20, "fine, just: £20")
 	)
 
+	run_case("nadia_texts_start_only_after_both_quests_and_closing_beat", func():
+		assert_eq(GameData.CONTACT_TEXTS["nadia"]["texts"].size(), 8)
+		GameState.reset()
+		GameState.state["contacts"]["nadia"]["unlocked"] = true
+		for day in range(1, 10):
+			_set_day(day)
+			ContactTexts.daily_tick()
+		assert_true(not GameState.state["contactTexts"].has("nadia"), "meeting Nadia alone does not seed texts")
+		GameState.state["flags"]["colA1NadiaSupplied"] = true
+		for day in range(10, 15):
+			_set_day(day)
+			ContactTexts.daily_tick()
+		assert_true(not GameState.state["contactTexts"].has("nadia"), "standing order alone is insufficient")
+		GameState.state["flags"]["colA1NadiaVeinSold"] = true
+		_set_day(15)
+		ContactTexts.daily_tick()
+		assert_true(not GameState.state["contactTexts"].has("nadia"), "waits for the vein-sale closing beat")
+		GameState.state["flags"]["colA1NadiaThreadDone"] = true
+		_set_day(16)
+		ContactTexts.daily_tick()
+		var next_day: int = GameState.state["contactTexts"]["nadia"]["nextDay"]
+		assert_true(next_day >= 22 and next_day <= 24, "first text in 7-9 days")
+		_set_day(next_day)
+		ContactTexts.daily_tick()
+		assert_true(ContactTexts.is_awaiting_reply("nadia"), "sends when due")
+	)
+
+	run_case("nadia_text_waits_behind_scripted_message", func():
+		_finish_nadia_quests()
+		GameState.state["contactTexts"]["nadia"] = ContactTexts.new_contact_state()
+		GameState.state["contactTexts"]["nadia"]["nextDay"] = 5
+		Messages.queue_pending("nadia", "col_a2_checkpoint", "Come by.")
+		_set_day(5)
+		ContactTexts.daily_tick()
+		assert_true(not ContactTexts.is_awaiting_reply("nadia"), "scripted beat has priority")
+		Messages.resolve_pending(Messages.pending_for("nadia")[0]["id"])
+		_set_day(6)
+		ContactTexts.daily_tick()
+		assert_true(ContactTexts.is_awaiting_reply("nadia"), "due text resumes")
+	)
+
+	run_case("nadia_text_waits_during_a_collective_event", func():
+		_finish_nadia_quests()
+		GameState.state["contactTexts"]["nadia"] = ContactTexts.new_contact_state()
+		GameState.state["contactTexts"]["nadia"]["nextDay"] = 5
+		GameState.state["event"] = { "eventId": "col_a2_pattern" }
+		_set_day(5)
+		ContactTexts.daily_tick()
+		assert_true(not ContactTexts.is_awaiting_reply("nadia"), "Collective event has priority")
+		GameState.state["event"] = null
+		_set_day(6)
+		ContactTexts.daily_tick()
+		assert_true(ContactTexts.is_awaiting_reply("nadia"), "due text resumes after the event")
+	)
+
+	run_case("nadia_reply_grants_collective_relation_not_personal_relation", func():
+		_finish_nadia_quests()
+		var faction_before: int = GameState.state["factions"]["collective"]["relation"]
+		var nadia_before: int = GameState.state["contacts"]["nadia"]["relation"]
+		_force_nadia_text("full_invoice")
+		ContactTexts.reply("nadia", 0)
+		assert_eq(GameState.state["factions"]["collective"]["relation"], faction_before + 1)
+		assert_eq(GameState.state["contacts"]["nadia"]["relation"], nadia_before)
+		_force_nadia_text("full_invoice")
+		ContactTexts.reply("nadia", 1)
+		assert_eq(GameState.state["factions"]["collective"]["relation"], faction_before + 1, "other reply grants nothing")
+	)
+
+	run_case("nadia_spare_pearl_choice_grants_item_or_collective_relation", func():
+		_finish_nadia_quests()
+		var pearls_before: int = Crafting.inventory_qty("timePearl")
+		var relation_before: int = GameState.state["factions"]["collective"]["relation"]
+		_force_nadia_text("spare_pearl")
+		ContactTexts.reply("nadia", 0)
+		assert_eq(Crafting.inventory_qty("timePearl"), pearls_before + 1)
+		assert_eq(GameState.state["factions"]["collective"]["relation"], relation_before)
+		_force_nadia_text("spare_pearl")
+		ContactTexts.reply("nadia", 1)
+		assert_eq(Crafting.inventory_qty("timePearl"), pearls_before + 1, "declining gives no second pearl")
+		assert_eq(GameState.state["factions"]["collective"]["relation"], relation_before + 1)
+	)
+
 	run_case("validator_rejects_a_malformed_pool", func():
 		var bad := TEST_POOL.duplicate(true)
 		bad["texts"][0]["replies"][1]["correct"] = true
@@ -639,6 +741,7 @@ func run() -> void:
 		bad["veinSource"] = "moon"
 		bad["correctReward"] = { "xp": { "skill": "juggling", "amount": 1 }, "luck": 1 }
 		bad["texts"][0]["replies"][0]["reward"] = { "item": { "id": "nope", "qty": 1 }, "cash": 0, "intel": { "target": "moon", "amount": 4 }, "craftingXp": 0 }
+		bad["texts"][1]["replies"][0]["reward"] = { "factionRelation": { "faction": "moon", "amount": 0 } }
 		var t := GameData.snapshot()
 		t["contact_texts"] = { "owen": bad }
 		var errors := GameData.validate_tables(t).filter(func(e): return e.begins_with("contact_texts"))
@@ -655,4 +758,5 @@ func run() -> void:
 		assert_true(joined.contains("cash must be > 0"), "zero cash rejected")
 		assert_true(joined.contains("intel needs a faction target"), "unknown intel target rejected")
 		assert_true(joined.contains("craftingXp must be > 0"), "zero crafting XP rejected")
+		assert_true(joined.contains("factionRelation needs a faction id and amount > 0"), "invalid faction relation rejected")
 	)
