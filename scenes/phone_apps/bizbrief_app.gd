@@ -42,12 +42,11 @@ const SIGNAL := Color("#e9353c")
 const SERIF_NAMES: PackedStringArray = ["Georgia", "Times New Roman", "Noto Serif", "DejaVu Serif", "serif"]
 const ORE_SOURCES := { "oreCultivator": "Cultivators", "orePlayer": "You" }
 const SKILLS := ["sales", "crafting", "cultivating"]
-# Expenses-by-kind chart lines, in draw order: BusinessStats expense kind,
-# legend label, palette colour id.
+# Expense analysis rows: BusinessStats expense kind and label.
 const EXPENSE_KIND_LINES := [
-	{ "kind": BusinessStats.EXPENSE_STAFF, "label": "Staff wages", "colour_id": "pastel_blue" },
-	{ "kind": BusinessStats.EXPENSE_GUARD, "label": "Guard wages", "colour_id": "brick_lit" },
-	{ "kind": BusinessStats.EXPENSE_CALC, "label": "Calc bought", "colour_id": "calc_gold" },
+	{ "kind": BusinessStats.EXPENSE_STAFF, "label": "Staff wages" },
+	{ "kind": BusinessStats.EXPENSE_GUARD, "label": "Guard wages" },
+	{ "kind": BusinessStats.EXPENSE_CALC, "label": "Calc bought" },
 ]
 
 var _tab := BRIEF_TAB
@@ -493,54 +492,100 @@ func _build_staff(content: VBoxContainer) -> void:
 
 
 func _build_stats(content: VBoxContainer) -> void:
-	content.add_child(UI.heading("Stats", 16))
-	content.add_child(UI.muted_label("Last %d days" % GameData.BUSINESS_STATS_DAYS))
-	content.add_child(_build_chart("Revenue", "revenue", "calc_gold", "£"))
-	content.add_child(_build_chart("Expenses", "expenses", "brick_lit", "£"))
+	content.add_child(UI.muted_label("Performance / %d-day window" % GameData.BUSINESS_STATS_DAYS))
+	content.add_child(_build_stats_hero())
+	content.add_child(_brief_section("Daily trend"))
+	content.add_child(_build_daily_trend())
+	content.add_child(_brief_section("Expense analysis"))
 	content.add_child(_build_expense_breakdown())
+	content.add_child(_brief_section("Ore yield", "COLLECTION SOURCE"))
 	var toggle := UI.hbox()
 	for source in ORE_SOURCES:
 		var button := UI.button(ORE_SOURCES[source], func(): _set_ore_source(source))
 		button.disabled = _ore_source == source
-		button.set_meta(ContactCards.TOGGLE_OPTION_META, true)
+		_style_stats_toggle(button, _ore_source == source)
 		toggle.add_child(UI.expand_fill(button))
-	content.add_child(_build_chart("Ore collected", _ore_source, "calc_gold_light", "", toggle))
-	content.add_child(_build_chart("Items produced", "items", "pastel_teal"))
+	content.add_child(toggle)
+	content.add_child(_build_chart(_ore_source, "calc_gold_light"))
+	content.add_child(_brief_section("Items produced"))
+	var items := UI.card()
+	var item_row := UI.hbox()
+	item_row.add_child(UI.expand_fill(UI.muted_label("%d-DAY TOTAL" % GameData.BUSINESS_STATS_DAYS)))
+	item_row.add_child(UI.heading(str(_stats_total("items")), 18))
+	items["content"].add_child(item_row)
+	var item_chart: LineChart = LineChartScript.new()
+	items["content"].add_child(item_chart.setup(BusinessStats.series("items"), BusinessStats.window_days(), "pastel_teal"))
+	content.add_child(items["panel"])
 
 
-# A titled card holding one metric's LineChart; header_extra (e.g. the ore
-# source toggle) sits between the title and the chart.
-func _build_chart(title: String, metric: String, colour_id: String, prefix: String = "", header_extra: Control = null) -> Control:
+func _stats_total(metric: String) -> int:
+	var total := 0
+	for value in BusinessStats.series(metric):
+		total += value
+	return total
+
+
+func _build_stats_hero() -> Control:
 	var c := UI.card()
-	c["content"].add_child(UI.label(title))
-	if header_extra != null:
-		c["content"].add_child(header_extra)
-	var chart: LineChart = LineChartScript.new()
-	c["content"].add_child(chart.setup(BusinessStats.series(metric), BusinessStats.window_days(), colour_id, prefix))
+	c["panel"].name = "BizBriefHero"
+	var row := UI.hbox()
+	var revenue := UI.vbox(3)
+	revenue.add_child(UI.muted_label("REVENUE"))
+	revenue.add_child(UI.heading("£%d" % _stats_total("revenue"), 26))
+	row.add_child(UI.expand_fill(revenue))
+	var expenses := UI.vbox(3)
+	expenses.add_child(UI.muted_label("EXPENSES"))
+	expenses.add_child(UI.heading("£%d" % _stats_total("expenses"), 18))
+	row.add_child(expenses)
+	c["content"].add_child(row)
 	return c["panel"]
 
 
-# Expenses per day split by kind on one chart, with a legend; the guard
-# wages entry is a button into Guard Costs (spec §Visibility).
+func _build_daily_trend() -> Control:
+	var c := UI.card()
+	var chart: LineChart = LineChartScript.new()
+	chart.setup(BusinessStats.series("revenue"), BusinessStats.window_days(), "brick_lit", "£")
+	c["content"].add_child(chart.with_primary_colour(SIGNAL).with_series([{ "values": BusinessStats.series("expenses"), "colour_id": "pastel_blue" }]))
+	var legend := UI.hflow()
+	legend.add_child(UI.tinted_label("● REVENUE", SIGNAL))
+	legend.add_child(UI.tinted_label("● EXPENSES", GameData.PALETTE.get("pastel_blue", PAPER)))
+	c["content"].add_child(legend)
+	return c["panel"]
+
+
+func _style_stats_toggle(button: Button, selected: bool) -> void:
+	var box := StyleBoxFlat.new()
+	box.bg_color = HEADER if selected else CARD
+	box.border_color = SIGNAL if selected else LINE
+	box.set_border_width_all(1)
+	box.set_corner_radius_all(4)
+	box.set_content_margin_all(8)
+	for state in ["normal", "hover", "pressed", "disabled"]:
+		button.add_theme_stylebox_override(state, box)
+	for state in ["font_color", "font_hover_color", "font_pressed_color", "font_disabled_color"]:
+		button.add_theme_color_override(state, PAPER if selected else MUTED)
+
+
+# A card holding one completed-day metric's LineChart.
+func _build_chart(metric: String, colour_id: String) -> Control:
+	var c := UI.card()
+	var chart: LineChart = LineChartScript.new()
+	c["content"].add_child(chart.setup(BusinessStats.series(metric), BusinessStats.window_days(), colour_id))
+	return c["panel"]
+
+
+# Completed-day expense totals by kind; guard wages opens Guard Costs.
 func _build_expense_breakdown() -> Control:
 	var c := UI.card()
-	c["content"].add_child(UI.label("Expenses by kind"))
-	var lines: Array = []
 	for line in EXPENSE_KIND_LINES:
-		lines.append({ "values": BusinessStats.series(BusinessStats.EXPENSE_KIND_METRICS[line["kind"]]), "colour_id": line["colour_id"] })
-	var chart: LineChart = LineChartScript.new()
-	chart.setup(lines[0]["values"], BusinessStats.window_days(), lines[0]["colour_id"], "£")
-	c["content"].add_child(chart.with_series(lines.slice(1)))
-	var legend := UI.hflow()
-	for line in EXPENSE_KIND_LINES:
-		var colour: Color = GameData.PALETTE.get(line["colour_id"], Color.WHITE)
+		var row := UI.hbox()
+		var metric: String = BusinessStats.EXPENSE_KIND_METRICS[line["kind"]]
 		if line["kind"] == BusinessStats.EXPENSE_GUARD:
-			var guard := UI.button("● %s ›" % line["label"], func(): PhoneNav.open_guard_costs())
-			guard.add_theme_color_override("font_color", colour)
-			legend.add_child(guard)
+			row.add_child(UI.expand_fill(UI.button("GUARD WAGES ↗", func(): PhoneNav.open_guard_costs())))
 		else:
-			legend.add_child(UI.tinted_label("● %s" % line["label"], colour))
-	c["content"].add_child(legend)
+			row.add_child(UI.expand_fill(UI.label(String(line["label"]).to_upper())))
+		row.add_child(UI.label("£%d" % _stats_total(metric)))
+		c["content"].add_child(row)
 	return c["panel"]
 
 

@@ -46,6 +46,13 @@ func setup(values: Array[int], days: Array[int], colour_id: String, prefix: Stri
 	return self
 
 
+# App-owned accent when the shared palette's nearest colour is too muted.
+func with_primary_colour(colour: Color) -> LineChart:
+	_colour = colour
+	queue_redraw()
+	return self
+
+
 # series: [{ values (parallel to days), colour_id }], drawn over the first
 # line and sharing its scale.
 func with_series(series: Array) -> LineChart:

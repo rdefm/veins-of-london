@@ -72,7 +72,7 @@ func run() -> void:
 		assert_true(NodeQuery.label_texts(phone).has("Staff"))
 		_button_with_text(phone, "Stats").pressed.emit()
 		assert_true(_button_with_text(phone, "Stats").disabled)
-		assert_true(NodeQuery.label_texts(phone).has("Expenses by kind"))
+		assert_true(NodeQuery.label_texts(phone).has("Expense analysis"))
 		GameState.state["business"]["potActive"] = false
 		GameState.state["flags"]["bizStaffTabOpen"] = false
 		phone._refresh()
@@ -573,23 +573,34 @@ func run() -> void:
 		phone.free()
 
 		Business.activate()
+		GameState.state["world"]["day"] = 13
+		GameState.state["businessStats"]["days"] = [
+			{ "day": 3, "revenue": 400, "expenses": 90, "expensesStaff": 20, "expensesGuard": 50, "expensesCalc": 20, "oreCultivator": 8, "orePlayer": 2, "items": 3 },
+			{ "day": 11, "revenue": 150, "expenses": 60, "expensesStaff": 30, "expensesGuard": 0, "expensesCalc": 30, "oreCultivator": 4, "orePlayer": 7, "items": 2 },
+		]
 		phone = PhoneScreen.new()
 		phone._ready()
 		_button_with_text(phone, "Stats").pressed.emit()
-		assert_eq(phone.find_children("*", "LineChart", true, false).size(), 5)
-		assert_true(_label_with_text(phone, "● Staff wages") != null)
-		assert_true(_label_with_text(phone, "● Calc bought") != null)
-		assert_true(_button_with_text(phone, "● Guard wages ›") != null, "the guard wages series is tappable")
+		var charts := phone.find_children("*", "LineChart", true, false)
+		assert_eq(charts.size(), 3, "daily trend, ore yield, item production")
+		assert_eq((charts[0] as LineChart)._values, BusinessStats.series("revenue"))
+		assert_eq((charts[0] as LineChart)._extra_series[0]["values"], BusinessStats.series("expenses"))
+		assert_eq((charts[0] as LineChart)._colour, BizBriefApp.SIGNAL)
+		assert_eq((charts[0] as LineChart)._values[1], 0, "missing completed day is zero filled")
+		var texts := NodeQuery.label_texts(phone)
+		for expected in ["£550", "£150", "£50", "5", "● REVENUE", "● EXPENSES", "STAFF WAGES", "CALC BOUGHT", "Expense analysis", "Ore yield", "Items produced"]:
+			assert_true(texts.has(expected), "missing stats value %s" % expected)
+		assert_true(_button_with_text(phone, "GUARD WAGES ↗") != null, "guard expense opens Guard Costs")
 		assert_true(_button_with_text(phone, "Cultivators").disabled)
-		var accent := ContactCards.phone_colour("action")
-		var muted := ContactCards.phone_colour("muted")
-		assert_eq((_button_with_text(phone, "Cultivators").get_theme_stylebox("disabled") as StyleBoxFlat).bg_color, accent, "the selected source wears the accent")
-		assert_eq(_button_with_text(phone, "You").get_theme_color("font_color"), muted, "the other source is muted")
+		assert_eq((charts[1] as LineChart)._values, BusinessStats.series("oreCultivator"))
+		assert_eq((_button_with_text(phone, "Cultivators").get_theme_stylebox("disabled") as StyleBoxFlat).border_color, BizBriefApp.SIGNAL)
 		_button_with_text(phone, "You").pressed.emit()
 		assert_true(_button_with_text(phone, "You").disabled)
 		assert_true(not _button_with_text(phone, "Cultivators").disabled)
-		assert_eq((_button_with_text(phone, "You").get_theme_stylebox("disabled") as StyleBoxFlat).bg_color, accent)
-		assert_eq(_button_with_text(phone, "Cultivators").get_theme_color("font_color"), muted)
+		charts = phone.find_children("*", "LineChart", true, false)
+		assert_eq((charts[1] as LineChart)._values, BusinessStats.series("orePlayer"))
+		assert_eq((charts[2] as LineChart)._values, BusinessStats.series("items"))
+		assert_eq((_button_with_text(phone, "You").get_theme_stylebox("disabled") as StyleBoxFlat).border_color, BizBriefApp.SIGNAL)
 		phone.free()
 	)
 
@@ -600,8 +611,12 @@ func run() -> void:
 		var phone := PhoneScreen.new()
 		phone._ready()
 		_button_with_text(phone, "Stats").pressed.emit()
-		_button_with_text(phone, "● Guard wages ›").pressed.emit()
+		_button_with_text(phone, "GUARD WAGES ↗").pressed.emit()
 		assert_eq(GameState.state["phoneNav"]["bizbriefView"], PhoneNav.BIZBRIEF_GUARD_COSTS_VIEW)
+		assert_true(phone.find_child("BizBriefGuardCosts", true, false) != null)
+		_button_with_text(phone, "‹ BizBrief").pressed.emit()
+		assert_eq(GameState.state["phoneNav"]["bizbriefView"], null)
+		assert_true(_button_with_text(phone, "Stats").disabled, "back returns to Stats")
 		phone.free()
 	)
 
