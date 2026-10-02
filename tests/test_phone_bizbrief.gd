@@ -667,9 +667,34 @@ func run() -> void:
 		_button_with_text(phone, "Staff").pressed.emit()
 
 		var texts := NodeQuery.label_texts(phone)
-		for expected in ["Archie", "Owen", "No role · ⅓ share", "Cultivation · £%d a week" % int(GameData.BUSINESS_WEEKLY_WAGES["owen"]), "Unpaid · owed £120", "Cultivating 2 · 40 XP · cap 3"]:
+		for expected in ["ROSTER / 02 RECRUITED", "PAYROLL EXPOSURE", "£120 owed", "01 / Archie", "02 / Owen", "Archie", "Owen", "No role · ⅓ share", "Cultivation · £%d a week" % int(GameData.BUSINESS_WEEKLY_WAGES["owen"]), "Unpaid · owed £120", "CULTIVATING", "LV 2 / 40 XP · cap 3", "Assignments"]:
 			assert_true(texts.has(expected), "missing %s" % expected)
 		assert_true(not texts.has("James"), "unrecruited James not listed")
+		phone.free()
+	)
+
+	run_case("staff_exposure_sums_wages_and_pay_disables_when_cash_short", func():
+		GameState.reset()
+		GameState.state["flags"]["bizStaffTabOpen"] = true
+		GameState.state["contacts"]["owen"]["recruited"] = true
+		GameState.state["contacts"]["james"]["recruited"] = true
+		Business.activate()
+		GameState.state["business"]["wages"]["owen"]["unpaid"] = true
+		GameState.state["business"]["wages"]["owen"]["owed"] = 120
+		GameState.state["business"]["wages"]["james"] = {
+			"weekly": 80, "owed": 40, "unpaid": true, "promptPending": false,
+			"hiredDay": 1, "daysWorked": 0,
+		}
+		GameState.state["player"]["cash"] = 50
+		GameState.state["phoneNav"]["app"] = "bizbrief"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		_button_with_text(phone, "Staff").pressed.emit()
+		var texts := NodeQuery.label_texts(phone)
+		assert_true(texts.has("£160 owed"))
+		assert_true(texts.has("Unpaid · owed £40"))
+		assert_true(_button_with_text(phone, "Top up £120 and pay").disabled)
+		assert_true(not _button_with_text(phone, "Top up £40 and pay").disabled)
 		phone.free()
 	)
 

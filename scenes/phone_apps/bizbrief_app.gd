@@ -461,12 +461,35 @@ func _build_manage(content: VBoxContainer) -> void:
 
 
 func _build_staff(content: VBoxContainer) -> void:
-	content.add_child(UI.heading("Staff", 16))
 	var contacts: Dictionary = GameState.state["contacts"]
+	var recruited: Array[String] = []
 	for contact_id in contacts.keys():
 		if contacts[contact_id]["recruited"]:
-			content.add_child(_build_staff_card(contact_id))
-	content.add_child(UI.button("Vein picking: Manage → Procurement", func(): _set_tab(MANAGE_TAB)))
+			recruited.append(contact_id)
+	content.add_child(UI.heading("Staff", 16))
+	content.add_child(UI.muted_label("ROSTER / %02d RECRUITED" % recruited.size()))
+	var owed_total := 0
+	for wage in GameState.state["business"]["wages"].values():
+		owed_total += int(wage.get("owed", 0))
+	var summary := UI.card()
+	summary["panel"].name = "BizBriefHero"
+	summary["content"].add_child(UI.muted_label("PAYROLL EXPOSURE"))
+	var summary_row := UI.hbox(8)
+	summary_row.add_child(UI.expand_fill(UI.heading("£%d owed" % owed_total, 24)))
+	if owed_total > 0:
+		summary_row.add_child(UI.tinted_label("ACTION", SIGNAL))
+	summary["content"].add_child(summary_row)
+	content.add_child(summary["panel"])
+	if recruited.is_empty():
+		content.add_child(UI.muted_label("No recruited contacts yet."))
+	for index in recruited.size():
+		var contact_id := recruited[index]
+		content.add_child(_brief_section("%02d / %s" % [index + 1, Contacts.display_name(contact_id)]))
+		content.add_child(_build_staff_card(contact_id))
+	content.add_child(_brief_section("Assignments"))
+	var assignments := UI.card()
+	assignments["content"].add_child(UI.button("Vein picking: Manage → Procurement", func(): _set_tab(MANAGE_TAB)))
+	content.add_child(assignments["panel"])
 
 
 func _build_stats(content: VBoxContainer) -> void:
@@ -531,21 +554,38 @@ func _set_ore_source(source: String) -> void:
 func _build_staff_card(contact_id: String) -> Control:
 	var c := UI.card()
 	var role: Variant = Contacts.role_of(contact_id)
-	c["content"].add_child(UI.heading(Contacts.display_name(contact_id), 14))
-	c["content"].add_child(UI.label("%s · %s" % ["No role" if role == null else String(role).capitalize(), Business.pay_terms(contact_id)]))
-	c["content"].add_child(UI.muted_label(Business.staff_status(contact_id)))
+	var top := UI.hbox(8)
+	var avatar := UI.tinted_label(Contacts.display_name(contact_id).left(2).to_upper(), PAPER)
+	avatar.custom_minimum_size = Vector2(34, 34)
+	avatar.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	top.add_child(avatar)
+	var identity := UI.vbox(2)
+	identity.add_child(UI.heading(Contacts.display_name(contact_id), 14))
+	identity.add_child(UI.label("%s · %s" % ["No role" if role == null else String(role).capitalize(), Business.pay_terms(contact_id)]))
+	identity.add_child(UI.muted_label(Business.staff_status(contact_id)))
+	top.add_child(UI.expand_fill(identity))
+	var owed := Business.owed(contact_id)
+	if Business.is_unpaid(contact_id):
+		top.add_child(UI.tinted_label("DUE", SIGNAL))
+	else:
+		top.add_child(UI.muted_label("IDLE" if role == null else "CLEAR"))
+	c["content"].add_child(top)
 	var contact: Dictionary = GameState.state["contacts"][contact_id]
 	var caps: Dictionary = GameData.CONTACTS_DEFAULTS.get(contact_id, {}).get("skillCaps", {})
 	for skill in SKILLS:
 		if not contact.has(skill + "Skill"):
 			continue
-		var line := "%s %d · %d XP" % [skill.capitalize(), int(contact[skill + "Skill"]), int(contact.get(skill + "XP", 0))]
+		var skill_row := UI.hbox(5)
+		var skill_label := UI.muted_label(skill.to_upper())
+		skill_label.add_theme_font_size_override("font_size", 10)
+		skill_row.add_child(UI.expand_fill(skill_label))
+		var line := "LV %d / %d XP" % [int(contact[skill + "Skill"]), int(contact.get(skill + "XP", 0))]
 		if caps.has(skill):
-			line += " · cap %d" % int(caps[skill])
-		c["content"].add_child(UI.muted_label(line))
+			line += " · cap %d" % Contacts.skill_cap(contact_id, skill)
+		skill_row.add_child(UI.muted_label(line))
+		c["content"].add_child(skill_row)
 	if Contacts.is_founder(contact_id):
 		c["content"].add_child(_build_role_picker(contact_id, role))
-	var owed := Business.owed(contact_id)
 	if owed > 0:
 		var top_up := Business.top_up_needed(contact_id)
 		c["content"].add_child(UI.action_button("Top up £%d and pay" % top_up, func(): Business.top_up_and_pay_owed(contact_id), int(GameState.state["player"]["cash"]) < top_up, "Not enough cash."))
