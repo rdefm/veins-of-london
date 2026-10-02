@@ -31,6 +31,57 @@ static func _brief_vein() -> Dictionary:
 
 
 func run() -> void:
+	run_case("bizbrief_chrome_keeps_device_and_live_header", func():
+		GameState.reset()
+		GameState.state["world"]["day"] = 24
+		GameState.state["world"]["timeBlock"] = 1
+		GameState.state["phoneNav"]["app"] = "bizbrief"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		assert_true(phone.find_child("DeviceFrame", true, false) != null)
+		assert_true(phone.find_child("DeviceStatusBar", true, false) != null)
+		assert_true(phone.find_child("BizBriefIcon", true, false) is TextureRect)
+		assert_eq((phone.find_child("BizBriefDayBlock", true, false) as Label).text, "DAY 24 · AFTERNOON")
+		assert_true(_label_with_text(phone, "BizBrief") != null)
+		_button_with_text(phone, "‹ Phone").pressed.emit()
+		assert_eq(GameState.state["phoneNav"]["app"], "home")
+		phone.free()
+	)
+
+	run_case("bizbrief_tabs_keep_gates_selection_and_view_state", func():
+		GameState.reset()
+		GameState.state["phoneNav"]["app"] = "bizbrief"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		assert_true(_button_with_text(phone, "Staff") == null)
+		assert_true(_button_with_text(phone, "Stats") == null)
+		var brief := _button_with_text(phone, "Brief")
+		assert_true(brief.disabled)
+		assert_eq((brief.get_theme_stylebox("disabled") as StyleBoxFlat).border_width_bottom, 3)
+		_button_with_text(phone, "Manage").pressed.emit()
+		assert_true(_button_with_text(phone, "Manage").disabled)
+		assert_true(NodeQuery.label_texts(phone).has("Sales"))
+		GameState.state["flags"]["bizStaffTabOpen"] = true
+		Business.activate()
+		phone._refresh()
+		assert_true(_button_with_text(phone, "Manage").disabled)
+		assert_true(_button_with_text(phone, "Staff") != null)
+		assert_true(_button_with_text(phone, "Stats") != null)
+		_button_with_text(phone, "Staff").pressed.emit()
+		assert_true(_button_with_text(phone, "Staff").disabled)
+		assert_true(NodeQuery.label_texts(phone).has("Staff"))
+		_button_with_text(phone, "Stats").pressed.emit()
+		assert_true(_button_with_text(phone, "Stats").disabled)
+		assert_true(NodeQuery.label_texts(phone).has("Expenses by kind"))
+		GameState.state["business"]["potActive"] = false
+		GameState.state["flags"]["bizStaffTabOpen"] = false
+		phone._refresh()
+		assert_true(_button_with_text(phone, "Brief").disabled, "closed selected tab falls back to Brief")
+		assert_true(_button_with_text(phone, "Staff") == null)
+		assert_true(_button_with_text(phone, "Stats") == null)
+		phone.free()
+	)
+
 	run_case("bizbrief_tile_opens_the_standalone_app", func():
 		GameState.reset()
 		var phone := PhoneScreen.new()

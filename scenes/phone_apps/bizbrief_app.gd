@@ -31,6 +31,15 @@ const BRIEF_TAB := "brief"
 const MANAGE_TAB := "manage"
 const STAFF_TAB := "staff"
 const STATS_TAB := "stats"
+const ICON_PATH := "res://assets/phone/icons/bizbrief.png"
+const NAVY := Color("#101923")
+const HEADER := Color("#172431")
+const CARD := Color("#1b2a38")
+const LINE := Color("#354454")
+const PAPER := Color("#fbfaf6")
+const MUTED := Color("#a9b5bd")
+const SIGNAL := Color("#e9353c")
+const SERIF_NAMES: PackedStringArray = ["Georgia", "Times New Roman", "Noto Serif", "DejaVu Serif", "serif"]
 const ORE_SOURCES := { "oreCultivator": "Cultivators", "orePlayer": "You" }
 const SKILLS := ["sales", "crafting", "cultivating"]
 # Expenses-by-kind chart lines, in draw order: BusinessStats expense kind,
@@ -47,6 +56,8 @@ var _ore_source := "oreCultivator"
 var _expanded_log_days := {}
 var _short_pay := ShortPayViewScript.new()
 var _guard_costs := GuardCostsViewScript.new()
+var _root: Control = null
+var _serif: SystemFont = null
 
 
 func build(content: VBoxContainer) -> void:
@@ -56,38 +67,197 @@ func build(content: VBoxContainer) -> void:
 	if GameState.state["phoneNav"].get("bizbriefView") == PhoneNav.BIZBRIEF_GUARD_COSTS_VIEW:
 		_guard_costs.build(content, refresh)
 		return
-	content.add_child(back_button())
-	content.add_child(UI.heading("BizBrief"))
-	content.add_child(_build_tabs())
+	if (_tab == STAFF_TAB and not _staff_tab_open()) or (_tab == STATS_TAB and not Business.is_pot_active()):
+		_tab = BRIEF_TAB
+	var page := _mount_root()
 	if _tab == MANAGE_TAB:
-		_build_manage(content)
+		_build_manage(page)
+	elif _tab == STAFF_TAB and _staff_tab_open():
+		_build_staff(page)
+	elif _tab == STATS_TAB and Business.is_pot_active():
+		_build_stats(page)
+	else:
+		_build_brief(page)
+	_style_page(page)
+
+
+func teardown() -> void:
+	if _root != null:
+		if _root.get_parent() != null:
+			_root.get_parent().remove_child(_root)
+		_root.queue_free()
+		_root = null
+
+
+func _mount_root() -> VBoxContainer:
+	_root = UI.vbox(0)
+	_root.name = "BizBriefRoot"
+	shell.mount_custom_root(_root)
+	_root.add_child(_build_header())
+	_root.add_child(_build_tabs())
+	var scroll := UI.scroll_container()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var surface := StyleBoxFlat.new()
+	surface.bg_color = NAVY
+	scroll.add_theme_stylebox_override("panel", surface)
+	_root.add_child(scroll)
+	var margin := MarginContainer.new()
+	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	margin.add_theme_constant_override("margin_left", 13)
+	margin.add_theme_constant_override("margin_right", 13)
+	margin.add_theme_constant_override("margin_top", 14)
+	margin.add_theme_constant_override("margin_bottom", 24)
+	scroll.add_child(margin)
+	var page := UI.vbox(10)
+	page.name = "BizBriefPage"
+	page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	margin.add_child(page)
+	return page
+
+
+func _build_header() -> Control:
+	var panel := PanelContainer.new()
+	panel.name = "BizBriefHeader"
+	var style := StyleBoxFlat.new()
+	style.bg_color = HEADER
+	style.border_color = LINE
+	style.border_width_bottom = 1
+	style.content_margin_left = 17
+	style.content_margin_right = 17
+	style.content_margin_top = 8
+	style.content_margin_bottom = 10
+	panel.add_theme_stylebox_override("panel", style)
+	var column := UI.vbox(3)
+	panel.add_child(column)
+	var back := UI.button("‹ Phone", func(): PhoneNav.go_home())
+	back.name = "BizBriefBack"
+	back.flat = true
+	back.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	back.custom_minimum_size.y = 26
+	for state in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		back.add_theme_color_override(state, MUTED)
+	column.add_child(back)
+	var row := UI.hbox(9)
+	column.add_child(row)
+	var icon := TextureRect.new()
+	icon.name = "BizBriefIcon"
+	icon.custom_minimum_size = Vector2(30, 30)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.texture = load(ICON_PATH) as Texture2D
+	if icon.texture == null:
+		var image := Image.load_from_file(ProjectSettings.globalize_path(ICON_PATH))
+		if not image.is_empty():
+			icon.texture = ImageTexture.create_from_image(image)
+	row.add_child(icon)
+	var brand := UI.heading("BizBrief", 24)
+	brand.name = "BizBriefBrand"
+	brand.add_theme_font_override("font", _serif_font())
+	brand.add_theme_color_override("font_color", PAPER)
+	brand.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(brand)
+	var world: Dictionary = GameState.state["world"]
+	var phase: int = clampi(int(world["timeBlock"]), 0, GameData.TIME_BLOCKS.size() - 1)
+	var day := UI.label("DAY %d · %s" % [int(world["day"]), String(GameData.TIME_BLOCKS[phase]).to_upper()])
+	day.name = "BizBriefDayBlock"
+	day.add_theme_font_size_override("font_size", 9)
+	day.add_theme_color_override("font_color", MUTED)
+	day.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	row.add_child(day)
+	var subhead := UI.label("Business, under control.")
+	subhead.add_theme_font_size_override("font_size", 11)
+	subhead.add_theme_color_override("font_color", MUTED)
+	column.add_child(subhead)
+	return panel
+
+
+func _serif_font() -> Font:
+	if _serif == null:
+		_serif = SystemFont.new()
+		_serif.font_names = SERIF_NAMES
+	return _serif
+
+
+func _style_page(page: Node) -> void:
+	if not is_instance_valid(page):
 		return
-	if _tab == STAFF_TAB and _staff_tab_open():
-		_build_staff(content)
-		return
-	if _tab == STATS_TAB and Business.is_pot_active():
-		_build_stats(content)
-		return
-	_build_brief(content)
+	_style_page_nodes(page)
+
+
+func _style_page_nodes(node: Node) -> void:
+	if node is PanelContainer:
+		var panel := node as PanelContainer
+		if not panel.has_theme_stylebox_override("panel"):
+			var card := StyleBoxFlat.new()
+			card.bg_color = Color("#1e3040") if panel.name == "BizBriefHero" else CARD
+			card.border_color = SIGNAL if panel.name == "BizBriefHero" else LINE
+			card.border_width_left = 3 if panel.name == "BizBriefHero" else 1
+			card.border_width_top = 1
+			card.border_width_right = 1
+			card.border_width_bottom = 1
+			card.set_corner_radius_all(6)
+			card.set_content_margin_all(12)
+			panel.add_theme_stylebox_override("panel", card)
+	elif node is Label:
+		var label := node as Label
+		if label.has_theme_color_override("font_color"):
+			if label.get_theme_color("font_color").is_equal_approx(UI._MUTED_COLOUR):
+				label.add_theme_color_override("font_color", MUTED)
+		else:
+			label.add_theme_color_override("font_color", PAPER)
+		if label.has_theme_font_size_override("font_size") and label.get_theme_font_size("font_size") >= 14:
+			label.add_theme_font_override("font", _serif_font())
+	elif node is Button:
+		var button := node as Button
+		if button.has_meta(ContactCards.TOGGLE_OPTION_META):
+			ContactCards.apply_phone_os_chrome(button)
+		elif not button.has_theme_stylebox_override("normal") and not button.has_theme_color_override("font_color"):
+			var primary := button.text == "Accept" or button.text.begins_with("Match £") or button.text.begins_with("Top up £") or button.text == "Yes"
+			var quiet := button.text == "Decline" or button.text == "No" or button.text == "Unassign" or button.text == "Cancel contract" or button.text.begins_with("+") or button.text.begins_with("-")
+			var fill := StyleBoxFlat.new()
+			fill.bg_color = SIGNAL if primary and not button.disabled else CARD
+			fill.border_color = LINE if quiet else SIGNAL
+			fill.set_border_width_all(1)
+			fill.set_corner_radius_all(4)
+			fill.set_content_margin_all(8)
+			for state in ["normal", "hover", "pressed", "disabled"]:
+				button.add_theme_stylebox_override(state, fill)
+			for state in ["font_color", "font_hover_color", "font_pressed_color", "font_disabled_color"]:
+				button.add_theme_color_override(state, PAPER if primary and not button.disabled else MUTED if quiet or button.disabled else SIGNAL)
+	for child in node.get_children():
+		_style_page_nodes(child)
 
 
 func _build_tabs() -> Control:
-	var tabs := UI.hbox()
-	var brief := UI.button("Brief", func(): _set_tab(BRIEF_TAB))
-	brief.disabled = _tab == BRIEF_TAB
-	tabs.add_child(UI.expand_fill(brief))
-	var manage := UI.button("Manage", func(): _set_tab(MANAGE_TAB))
-	manage.disabled = _tab == MANAGE_TAB
-	tabs.add_child(UI.expand_fill(manage))
+	var tabs := UI.hbox(0)
+	tabs.name = "BizBriefTabs"
+	tabs.custom_minimum_size.y = 46
+	_build_tab(tabs, "Brief", BRIEF_TAB)
+	_build_tab(tabs, "Manage", MANAGE_TAB)
 	if _staff_tab_open():
-		var staff := UI.button("Staff", func(): _set_tab(STAFF_TAB))
-		staff.disabled = _tab == STAFF_TAB
-		tabs.add_child(UI.expand_fill(staff))
+		_build_tab(tabs, "Staff", STAFF_TAB)
 	if Business.is_pot_active():
-		var stats := UI.button("Stats", func(): _set_tab(STATS_TAB))
-		stats.disabled = _tab == STATS_TAB
-		tabs.add_child(UI.expand_fill(stats))
+		_build_tab(tabs, "Stats", STATS_TAB)
 	return tabs
+
+
+func _build_tab(tabs: HBoxContainer, title: String, tab_id: String) -> void:
+	var selected := _tab == tab_id
+	var button := UI.button(title, func(): _set_tab(tab_id))
+	button.name = "BizBriefTab_%s" % tab_id
+	button.disabled = selected
+	button.custom_minimum_size = Vector2(0, 46)
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.add_theme_font_size_override("font_size", 11)
+	var normal := StyleBoxFlat.new()
+	normal.bg_color = HEADER
+	normal.border_color = SIGNAL if selected else LINE
+	normal.border_width_bottom = 3 if selected else 1
+	for state in ["normal", "hover", "pressed", "disabled"]:
+		button.add_theme_stylebox_override(state, normal)
+	for state in ["font_color", "font_hover_color", "font_pressed_color", "font_disabled_color"]:
+		button.add_theme_color_override(state, PAPER if selected else MUTED)
+	tabs.add_child(button)
 
 
 func _staff_tab_open() -> bool:
@@ -96,6 +266,8 @@ func _staff_tab_open() -> bool:
 
 func _set_tab(tab: String) -> void:
 	if tab == _tab:
+		return
+	if (tab == STAFF_TAB and not _staff_tab_open()) or (tab == STATS_TAB and not Business.is_pot_active()):
 		return
 	_tab = tab
 	refresh()
@@ -591,7 +763,11 @@ func _build_sales() -> Control:
 
 func _build_bank(account: Dictionary) -> Control:
 	var c := UI.card()
+	c["panel"].name = "BizBriefHero"
 	c["content"].add_child(UI.heading("Reynard's", 14))
+	var closing := UI.heading("£%d" % int(account["closingBalance"]), 25)
+	closing.add_theme_color_override("font_color", PAPER)
+	c["content"].add_child(closing)
 	c["content"].add_child(UI.label("Opening £%d · Closing £%d" % [account["openingBalance"], account["closingBalance"]]))
 	c["content"].add_child(UI.label("Income +£%d · Expenses −£%d" % [account["income"], account["expenses"]]))
 	c["content"].add_child(UI.button("Transaction history →", func(): MorningAccountsSystem.open_bank()))

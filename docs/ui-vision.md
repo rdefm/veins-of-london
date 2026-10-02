@@ -533,10 +533,8 @@ the same job `UI.muted_label()` already does, just recoloured.
 **Per-app layout conventions.** The opened apps catalogued in the original
 pass split into four existing shapes, not one — confirmed against
 `scenes/screens/phone.gd`'s actual `_build_*` functions rather than assumed
-from the app names alone. Each shape gets one shared chrome treatment; no
-per-app bespoke object the way Family 4 sometimes reaches for one (§5's
-principle explicitly doesn't apply here — Family 2's whole point is that
-it has none). Alarms and BizBrief retain their existing content mechanics;
+from the app names alone. The default shape uses shared chrome; approved
+app-specific exceptions are Harrow's and BizBrief below. Alarms and BizBrief retain their existing content mechanics;
 the three simulated-dock app behaviours are locked above. This refresh
 changes home placement and the surrounding shell, not gameplay.
 
@@ -557,7 +555,7 @@ changes home placement and the surrounding shell, not gameplay.
 
 **Harrow's exception (approved 2026-09-26, `.scratch/harrows-redesign/`):**
 Harrow's reads as a conventional estate-agent app inside the unchanged
-device frame and status bar. It is the one Family 2 app whose internal
+device frame and status bar. Its internal
 chrome departs from the rules in this section and §§6–7:
 - **Surfaces:** white listing/particulars surfaces, thin warm-grey rules,
   dark ink text — not `phone_bg_content` dark cards.
@@ -573,8 +571,16 @@ chrome departs from the rules in this section and §§6–7:
 - **Typography:** property names, the feed heading and the wordmark use an
   editorial serif (system Georgia/serif, engine font as fallback); body,
   prices and facts stay on the shared UI sans (prices/eyebrows emboldened).
-Every other phone app keeps the shared dark chrome, `ui_action_red`
-actions, `calc_gold`-only currency and the single UI sans unchanged.
+**BizBrief exception (approved 2026-10-02, `.scratch/bizbrief-redesign/selected-direction.html`):**
+Phone apps may have distinct internal aesthetics. BizBrief uses the existing
+device frame and status bar, then its own icon and serif wordmark header,
+live day/block, navy page and cards (`#101923`, `#1b2a38`), paper-white ink,
+and restrained signal-red actions and selected-tab underline (`#e9353c`).
+Brief and Manage are always available; Staff and Stats keep their existing
+unlock gates. Editorial headings and figures use system Georgia/serif with
+engine-font fallback; body text stays on the shared UI sans. Short Pay,
+Guard Costs and contract-cancel surfaces follow this same BizBrief direction.
+Other Phone apps keep their established chrome and action styling.
 
 **List/detail pattern** (The Ticker, Messages): master rows are flat,
 hairline-divided, no card border per row — title line in ink, one muted
