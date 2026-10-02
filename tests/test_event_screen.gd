@@ -730,3 +730,18 @@ func run() -> void:
 
 		GameData.EVENTS = original_events
 	)
+
+	run_case("an_event_with_no_definition_renders_a_leave_exit", func():
+		GameState.reset()
+		GameState.state["event"] = { "eventId": "no_such_event", "cardIndex": 0, "snapshots": [], "choiceResults": {}, "context": {} }
+		GameState.state["currentScreen"] = "event"
+
+		var screen := _fresh_screen()
+		var leave := _button_with_text(screen, "Leave")
+		assert_true(leave != null, "an unresolvable event still offers a way out")
+		leave.pressed.emit()
+
+		assert_eq(GameState.state["event"], null, "leaving drops the dead event")
+		assert_eq(GameState.state["currentScreen"], "phone", "leaving returns to the phone")
+		screen.free()
+	)

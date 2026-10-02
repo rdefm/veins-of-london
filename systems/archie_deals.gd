@@ -43,6 +43,10 @@ static func deal_tier(cash: int) -> int:
 static func roll_daily_offer() -> void:
 	if not GameState.state["flags"]["archieMotionEventSeen"]:
 		return
+	if GameState.state["flags"]["archieDealActive"] and not _deal_in_progress():
+		# An offer dismissed without Accept/Decline left the flag set with
+		# nothing to clear it.
+		GameState.state["flags"]["archieDealActive"] = false
 	if GameState.state["flags"]["archieDealActive"]:
 		return
 	# His random text gets its answer before a deal lands on top of it.
@@ -56,6 +60,15 @@ static func roll_daily_offer() -> void:
 	GameState.state["flags"]["archieDealActive"] = true
 	# PROSE-REVIEW: drafted against CONTENT-GUIDE.md's tone bible.
 	Messages.queue_pending("archie", PENDING_KIND, "Got a sale lined up, nothing of yours in it. Fancy tagging along for a cut?")
+
+
+# An offer still awaiting Accept/Decline, or an accepted deal's mugging still
+# unresolved.
+static func _deal_in_progress() -> bool:
+	for entry in Messages.pending_for("archie"):
+		if entry["kind"] == PENDING_KIND:
+			return true
+	return GameState.state["pendingArchieDealCut"] > 0 or GameState.state["combat"]["active"]
 
 
 static func decline_deal(pending_id: String) -> void:

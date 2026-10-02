@@ -21,8 +21,26 @@ const RAID_GUARDS_FROM_VEIN := "vein"
 # context: a raid's target site_id is only known at Raid-button-press time, so
 # it's carried here and read back by _event_site_id() below; every other caller omits it.
 static func start_event(event_id: String, context: Dictionary = {}) -> void:
+	# An id with no definition would open an event screen with no cards to show.
+	if not GameData.EVENTS.has(event_id):
+		push_error("Events.start_event: unknown event id '%s'" % event_id)
+		return
 	GameState.state["event"] = { "eventId": event_id, "cardIndex": 0, "snapshots": [], "choiceResults": {}, "context": context }
 	Nav.go_to("event")
+
+
+# False when state.event names an id with no definition (e.g. one carried in
+# from an older save) -- the event screen then offers only abandon().
+static func has_live_definition() -> bool:
+	var event_state = GameState.state["event"]
+	return event_state != null and GameData.EVENTS.has(event_state["eventId"])
+
+
+# The unresolvable event screen's exit: drops state.event without running any
+# effects and returns to the phone.
+static func abandon() -> void:
+	GameState.state["event"] = null
+	Nav.go_to("phone")
 
 
 # start_event(), unless a modal flow is open (e.g. a sale confirmation) --

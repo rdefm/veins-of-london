@@ -92,11 +92,34 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["flags"]["archieMotionEventSeen"] = true
 		GameState.state["flags"]["archieDealActive"] = true
+		Messages.queue_pending("archie", ArchieDeals.PENDING_KIND, "Fancy tagging along for a cut?")
 		GameState.state["player"]["cash"] = 0  # would force an offer if the guard were missing
 		for seed in range(10):
 			Rng.set_seed(seed)
 			ArchieDeals.roll_daily_offer()
-		assert_true(Messages.pending_for("archie").is_empty(), "an active deal must not be clobbered by a fresh roll")
+		assert_eq(Messages.pending_for("archie").size(), 1, "an active deal must not be clobbered by a fresh roll")
+	)
+
+	run_case("roll_daily_offer_clears_a_stuck_active_flag_with_no_offer_or_mugging_behind_it", func():
+		GameState.reset()
+		GameState.state["flags"]["archieMotionEventSeen"] = true
+		GameState.state["flags"]["archieDealActive"] = true
+		GameState.state["player"]["cash"] = 0
+		Rng.set_seed(1)
+		ArchieDeals.roll_daily_offer()
+		assert_eq(Messages.pending_for("archie").size(), 1, "a flag left set by a dismissed offer must not block new offers forever")
+	)
+
+	run_case("roll_daily_offer_keeps_the_active_flag_while_a_mugging_is_unresolved", func():
+		GameState.reset()
+		GameState.state["flags"]["archieMotionEventSeen"] = true
+		GameState.state["flags"]["archieDealActive"] = true
+		GameState.state["pendingArchieDealCut"] = 40
+		GameState.state["player"]["cash"] = 0
+		Rng.set_seed(1)
+		ArchieDeals.roll_daily_offer()
+		assert_true(GameState.state["flags"]["archieDealActive"], "an in-flight mugging keeps the deal active")
+		assert_true(Messages.pending_for("archie").is_empty(), "no fresh offer during a mugging")
 	)
 
 	run_case("roll_daily_offer_at_zero_cash_eventually_queues_an_offer", func():

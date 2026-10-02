@@ -980,3 +980,11 @@ func run() -> void:
 		assert_true(GameState.state["flags"]["enhancementUnlocked"], "james_motion: enhancementUnlocked")
 		assert_eq(GameState.state["contacts"]["james"]["relation"], james_relation_before + 1, "james_motion: james relation +1")
 	)
+
+	run_case("start_event_with_an_unknown_id_opens_nothing", func():
+		GameState.reset()
+		var screen_before = GameState.state["currentScreen"]
+		Events.start_event("no_such_event")
+		assert_eq(GameState.state["event"], null, "no state.event for an id with no definition")
+		assert_eq(GameState.state["currentScreen"], screen_before, "no navigation to a blank event screen")
+	)

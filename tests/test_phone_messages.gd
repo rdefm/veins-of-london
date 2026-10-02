@@ -237,3 +237,42 @@ second line")
 
 		phone.free()
 	)
+
+	run_case("archie_deal_text_in_the_thread_offers_accept_decline_not_a_blank_event", func():
+		GameState.reset()
+		GameState.state["flags"]["archieDealActive"] = true
+		Messages.queue_pending("archie", ArchieDeals.PENDING_KIND, "Fancy tagging along for a cut?")
+		PhoneNav.select_conversation("archie")
+
+		var phone := PhoneScreen.new()
+		phone._ready()
+
+		assert_true(NodeQuery.find_button(phone, "Continue →") == null, "an archie_deal offer has no event to start")
+		assert_true(NodeQuery.find_button(phone, "Accept") != null, "the thread offers Accept")
+		var decline := NodeQuery.find_button(phone, "Decline")
+		assert_true(decline != null, "the thread offers Decline")
+		decline.pressed.emit()
+
+		assert_eq(GameState.state["event"], null, "declining opens no event screen")
+		assert_true(Messages.pending_for("archie").is_empty(), "the offer is resolved")
+		assert_eq(GameState.state["flags"]["archieDealActive"], false, "the deal is closed")
+
+		phone.free()
+	)
+
+	run_case("accepting_archie_deal_from_the_thread_runs_the_deal_not_an_event", func():
+		GameState.reset()
+		GameState.state["flags"]["archieDealActive"] = true
+		Messages.queue_pending("archie", ArchieDeals.PENDING_KIND, "Fancy tagging along for a cut?")
+		PhoneNav.select_conversation("archie")
+
+		var phone := PhoneScreen.new()
+		phone._ready()
+		NodeQuery.find_button(phone, "Accept").pressed.emit()
+
+		assert_eq(GameState.state["event"], null, "accepting opens no event screen")
+		assert_true(Messages.pending_for("archie").is_empty(), "the offer is resolved")
+		assert_true(GameState.state["modal"] != null or GameState.state["combat"]["active"], "the deal resolves to its result modal or a mugging")
+
+		phone.free()
+	)

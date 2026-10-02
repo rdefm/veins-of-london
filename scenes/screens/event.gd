@@ -34,6 +34,10 @@ var _item_menu: Control
 func _ready() -> void:
 	UI.anchor_full_rect(self)
 
+	if not Events.has_live_definition():
+		_build_unresolvable_exit()
+		return
+
 	_vn_mode = Events.is_vn_mode()
 
 	if _vn_mode:
@@ -65,6 +69,23 @@ func _ready() -> void:
 
 	EventBus.state_changed.connect(_refresh)
 	_refresh()
+
+# No cards can render for an event id with no definition, so the screen shows
+# only a way out.
+func _build_unresolvable_exit() -> void:
+	var margin := MarginContainer.new()
+	UI.anchor_full_rect(margin)
+	for side in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
+		margin.add_theme_constant_override(side, 16)
+	add_child(margin)
+	var box := UI.vbox(10)
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	margin.add_child(box)
+	# PROSE-REVIEW: unresolvable-event fallback copy.
+	box.add_child(UI.muted_label("Nothing to see here."))
+	var leave := UI.button("Leave", func(): Events.abandon())
+	_style_action_button(leave)
+	box.add_child(leave)
 
 func _refresh() -> void:
 	if GameState.state["event"] == null:

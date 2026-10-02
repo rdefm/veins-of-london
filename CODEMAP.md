@@ -112,7 +112,7 @@ overlays.
 | combat.gd | Combat screen: orchestrator over CombatStage (fills the upper region)/CombatCommandDock -- owns turn flow, director bridging, band sync. Keeps one persistent strip and steps its queue beat by beat during (and Rewind) playback. `_select_target()` is the sole tap->`Combat.set_selection()` route; a stage tap during playback fast-forwards |
 | combat_prototype.gd | Minimal combat-prototype screen, Debug-app only |
 | contacts.gd | Contacts app inside PhoneDeviceShell; directory of unlocked contacts by display name (`Contacts.directory_ids`) with inline flag-gated actions; generic key-member card |
-| event.gd | Event-card screen (VN and non-VN layouts); Item button + popup over EventItems; choices row, or stack full-width when they don't fit |
+| event.gd | Event-card screen (VN and non-VN layouts); Item button + popup over EventItems; choices row, or stack full-width when they don't fit; Leave-only fallback when state.event's id has no definition |
 | factions.gd | Factions tab |
 | hq.gd | HQ tab: renders the home tier's room plate (bedsit fallback), routes zone taps to sub-screens |
 | hq_dial.gd | Dial loadout sub-view (Movements, Complications) |
