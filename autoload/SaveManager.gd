@@ -7,16 +7,18 @@ extends Node
 const SAVE_VERSION := 3
 const SLOT_COUNT := 3
 const AUTOSAVE_COUNT := 3
-const SAVES_DIR := "user://saves/"
-const AUTOSAVE_DIR := "user://autosave/"
+# Test runner redirects these to an isolated workspace directory. Gameplay
+# keeps the normal per-user Godot save location.
+var saves_dir := "user://saves/"
+var autosave_dir := "user://autosave/"
 
 
 func slot_path(slot: int) -> String:
-	return SAVES_DIR + "slot_%d.json" % slot
+	return saves_dir + "slot_%d.json" % slot
 
 
 func autosave_path(index: int) -> String:
-	return AUTOSAVE_DIR + "autosave_%d.json" % index
+	return autosave_dir + "autosave_%d.json" % index
 
 
 func slot_exists(slot: int) -> bool:
@@ -44,7 +46,7 @@ func slot_summary(slot: int) -> Dictionary:
 
 
 func save_to_slot(slot: int) -> Dictionary:
-	DirAccess.make_dir_recursive_absolute(SAVES_DIR)
+	DirAccess.make_dir_recursive_absolute(saves_dir)
 	return _write_json(slot_path(slot), GameState.state)
 
 
@@ -61,7 +63,7 @@ func delete_slot(slot: int) -> void:
 # Writes to whichever of the AUTOSAVE_COUNT rotation slots is emptiest/
 # oldest, so the 3 most recent autosaves survive.
 func autosave() -> Dictionary:
-	DirAccess.make_dir_recursive_absolute(AUTOSAVE_DIR)
+	DirAccess.make_dir_recursive_absolute(autosave_dir)
 	var index := _find_autosave_slot_to_write()
 	return _write_json(autosave_path(index), GameState.state)
 

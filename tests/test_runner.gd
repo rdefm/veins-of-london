@@ -10,6 +10,14 @@ const EXCLUDE := ["test_runner.gd", "test_base.gd"]
 
 
 func _initialize() -> void:
+	# Keep headless test saves inside the checkout. user:// may contain real
+	# player saves, and a sandboxed runner may have no write access there.
+	var test_storage := ProjectSettings.globalize_path("res://.godot/test-saves/%d" % OS.get_process_id())
+	var save_manager: Node = root.get_node_or_null("SaveManager")
+	if save_manager != null:
+		save_manager.set("saves_dir", test_storage.path_join("saves") + "/")
+		save_manager.set("autosave_dir", test_storage.path_join("autosave") + "/")
+
 	# Autoload _ready() callbacks are deferred and never get a chance to run
 	# under a synchronous -s SceneTree script (there's no frame loop to flush
 	# them), so GameData would still be empty when tests start. Force it to
@@ -45,6 +53,11 @@ func _initialize() -> void:
 	test_base_script.protect_autoloads(root.get_children())
 
 	var test_files := _discover_tests()
+	var requested := OS.get_cmdline_user_args()
+	if not requested.is_empty():
+		test_files = test_files.filter(func(path: String) -> bool:
+			return requested.has(path.get_file())
+		)
 	if test_files.is_empty():
 		print("No test files found in %s" % TEST_DIR)
 		quit(1)
