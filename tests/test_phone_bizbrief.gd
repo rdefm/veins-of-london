@@ -112,8 +112,10 @@ func run() -> void:
 		var phone := PhoneScreen.new()
 		phone._ready()
 		var texts := NodeQuery.label_texts(phone)
-		for expected in ["BizBrief", "Morning Brief", "Reynard's", "Operations", "Attention", "Opening £200 · Closing £145", "Income +£20 · Expenses −£75"]:
+		for expected in ["BizBrief", "Morning Brief", "£145", "−£55", "Needs your attention", "Treasury", "Operations feed", "Reynard's", "Operations", "Opening £200 · Closing £145", "Income +£20 · Expenses −£75"]:
 			assert_true(texts.has(expected), "missing %s" % expected)
+		assert_true(_button_with_text(phone, "Full brief →") != null)
+		_button_with_text(phone, "Full brief →").pressed.emit()
 		phone.free()
 	)
 
@@ -125,6 +127,57 @@ func run() -> void:
 		phone._ready()
 		var texts := NodeQuery.button_texts(phone)
 		assert_true(texts.any(func(t: String): return t.find("ready to develop") != -1 and t.find("raid exposure") != -1), "development-eligible vein and its raid exposure are surfaced in Attention")
+		phone.free()
+	)
+
+	run_case("brief_lead_is_live_before_rollover_and_treasury_moves_funds", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 300
+		Messages.append("archie", "them", "Call me.")
+		Business.activate()
+		GameState.state["phoneNav"]["app"] = "bizbrief"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		var texts := NodeQuery.label_texts(phone)
+		assert_true(texts.has("£300"), "live cash in hero")
+		assert_true(texts.has("Needs your attention"), "attention before rollover")
+		assert_true(texts.has("Business pot · £0"))
+		assert_true(texts.has("Bill float · £0"))
+		assert_true(texts.has("No overnight operations to report."))
+		assert_true(NodeQuery.button_texts(phone).any(func(t: String): return t.find("unread") != -1))
+		_button_with_text(phone, "Donate").pressed.emit()
+		assert_eq(GameState.state["business"]["float"], 1)
+		assert_eq(GameState.state["player"]["cash"], 299)
+		_button_with_text(phone, "Withdraw").pressed.emit()
+		assert_eq(GameState.state["business"]["float"], 0)
+		assert_eq(GameState.state["player"]["cash"], 300)
+		phone.free()
+	)
+
+	run_case("short_pay_keeps_back_stepper_totals_and_confirmation", func():
+		GameState.reset()
+		var vein := Fixtures.seed_vein("shortpay", 50)
+		vein["security"] = "guarded"
+		GameState.state["world"]["day"] = Calendar.monday_on_or_after(8)
+		GameState.state["player"]["cash"] = 0
+		GuardUpkeep.pay_monday_bill()
+		PhoneNav.open_short_pay()
+		var phone := PhoneScreen.new()
+		phone._ready()
+		assert_true(phone.find_child("BizBriefShortPay", true, false) != null)
+		assert_true(NodeQuery.label_texts(phone).has("Short Pay"))
+		assert_true(NodeQuery.label_texts(phone).has("Keep 1"))
+		assert_true(NodeQuery.label_texts(phone).has("This week £500 · Reserve £0"))
+		assert_true(_button_with_text(phone, "Confirm").disabled)
+		_button_with_text(phone, "‹ BizBrief").pressed.emit()
+		assert_eq(GameState.state["phoneNav"]["bizbriefView"], null)
+		PhoneNav.open_short_pay()
+		_button_with_text(phone, "−").pressed.emit()
+		assert_true(NodeQuery.label_texts(phone).has("Keep 0"))
+		assert_true(NodeQuery.label_texts(phone).has("This week £0 · Reserve £0"))
+		_button_with_text(phone, "Confirm").pressed.emit()
+		assert_eq(GuardUpkeep.pending_shortfall(), null)
+		assert_eq(GameState.state["phoneNav"]["bizbriefView"], null)
 		phone.free()
 	)
 
@@ -213,7 +266,7 @@ func run() -> void:
 		phone.free()
 	)
 
-	run_case("quiet_sections_are_not_rendered", func():
+	run_case("quiet_lead_sections_show_empty_states", func():
 		GameState.reset()
 		MorningAccountsSystem.finish_rollover(MorningAccountsSystem.begin_rollover())
 		GameState.state["phoneNav"]["app"] = "bizbrief"
@@ -221,8 +274,10 @@ func run() -> void:
 		phone._ready()
 		var texts := NodeQuery.label_texts(phone)
 		assert_true(texts.has("Reynard's"))
-		assert_true(not texts.has("Operations"))
-		assert_true(not texts.has("Attention"))
+		assert_true(texts.has("Needs your attention"))
+		assert_true(texts.has("Nothing needs attention."))
+		assert_true(texts.has("Operations feed"))
+		assert_true(texts.has("No overnight operations to report."))
 		phone.free()
 	)
 

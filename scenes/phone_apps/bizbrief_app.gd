@@ -57,6 +57,8 @@ var _expanded_log_days := {}
 var _short_pay := ShortPayViewScript.new()
 var _guard_costs := GuardCostsViewScript.new()
 var _root: Control = null
+var _scroll: ScrollContainer = null
+var _brief_detail_anchor: Control = null
 var _serif: SystemFont = null
 
 
@@ -96,6 +98,7 @@ func _mount_root() -> VBoxContainer:
 	_root.add_child(_build_header())
 	_root.add_child(_build_tabs())
 	var scroll := UI.scroll_container()
+	_scroll = scroll
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	var surface := StyleBoxFlat.new()
 	surface.bg_color = NAVY
@@ -274,8 +277,22 @@ func _set_tab(tab: String) -> void:
 
 
 func _build_brief(content: VBoxContainer) -> void:
-	content.add_child(UI.heading("Morning Brief", 16))
-	var account = MorningAccountsSystem.latest()
+	content.add_child(UI.muted_label("Account / %s" % Calendar.format_day(int(GameState.state["world"]["day"]))))
+	var account: Variant = MorningAccountsSystem.latest()
+	content.add_child(_build_brief_hero(account))
+	# Attention is read live, including before the first rollover.
+	var attention: Array[Dictionary] = MorningAccountsSystem.attention_items()
+	content.add_child(_brief_section("Needs your attention", "%02d OPEN" % (attention.size() + Business.pending_wage_prompts().size())))
+	for contact_id in Business.pending_wage_prompts():
+		content.add_child(_build_wage_prompt(contact_id))
+	content.add_child(_build_attention(attention))
+	content.add_child(_brief_section("Treasury"))
+	content.add_child(_build_treasury())
+	content.add_child(_brief_section("Operations feed"))
+	content.add_child(_build_operations_feed(account))
+	content.add_child(UI.button("Full brief →", _show_full_brief))
+	_brief_detail_anchor = _brief_section("Morning Brief")
+	content.add_child(_brief_detail_anchor)
 	if account == null:
 		content.add_child(UI.muted_label("No morning account yet."))
 	else:
@@ -285,18 +302,67 @@ func _build_brief(content: VBoxContainer) -> void:
 			content.add_child(_build_payday(account["payday"]))
 		if MorningAccountsSystem.has_operations(account):
 			content.add_child(_build_operations(account))
-	for contact_id in Business.pending_wage_prompts():
-		content.add_child(_build_wage_prompt(contact_id))
-	# Live, not tied to the presence of a rollover snapshot -- a
-	# development-eligible vein (or an alarm/unread message) shows up here
-	# even before the first morning account ever lands.
-	var attention := MorningAccountsSystem.attention_items()
-	if not attention.is_empty():
-		content.add_child(_build_attention(attention))
 	content.add_child(_build_moves_against_you())
 	content.add_child(_build_war())
 	content.add_child(_build_london_share())
 	content.add_child(_build_supplier_share())
+
+
+func _show_full_brief() -> void:
+	if is_instance_valid(_scroll) and is_instance_valid(_brief_detail_anchor):
+		_scroll.ensure_control_visible(_brief_detail_anchor)
+
+
+func _brief_section(title: String, note: String = "") -> Control:
+	var row := UI.hbox()
+	var heading := UI.heading(title, 16)
+	row.add_child(UI.expand_fill(heading))
+	if not note.is_empty():
+		row.add_child(UI.muted_label(note))
+	return row
+
+
+func _build_brief_hero(account: Variant) -> Control:
+	var c := UI.card()
+	c["panel"].name = "BizBriefHero"
+	c["content"].add_child(UI.muted_label("CLOSING / REYNARD'S"))
+	var balance: int = int(GameState.state["player"]["cash"]) if account == null else int(account["closingBalance"])
+	var row := UI.hbox()
+	row.add_child(UI.expand_fill(UI.heading("£%d" % balance, 26)))
+	if account != null:
+		var change: int = int(account["closingBalance"]) - int(account["openingBalance"])
+		row.add_child(UI.tinted_label("%s£%d" % ["+" if change >= 0 else "−", absi(change)], SIGNAL if change < 0 else PAPER))
+	c["content"].add_child(row)
+	c["content"].add_child(UI.muted_label("NET CHANGE" if account != null else "No morning account yet."))
+	return c["panel"]
+
+
+func _build_treasury() -> Control:
+	var c := UI.card()
+	if Business.is_pot_active():
+		var business: Dictionary = GameState.state["business"]
+		c["content"].add_child(UI.label("Business pot · £%d" % int(business["pot"])))
+		c["content"].add_child(UI.label("Bill float · £%d" % int(business["float"])))
+		c["content"].add_child(_build_float())
+	else:
+		c["content"].add_child(UI.muted_label("Business pot not open yet."))
+	return c["panel"]
+
+
+func _build_operations_feed(account: Variant) -> Control:
+	var c := UI.card()
+	if account == null or not MorningAccountsSystem.has_operations(account):
+		c["content"].add_child(UI.muted_label("No overnight operations to report."))
+		return c["panel"]
+	for ore_type in account["production"]["ore"]:
+		c["content"].add_child(UI.label("%s ore / produced · +%d" % [ore_type.to_upper(), int(account["production"]["ore"][ore_type])]))
+	for recipe_key in account["production"]["items"]:
+		c["content"].add_child(UI.label("%s / made · +%d" % [String(GameData.RECIPES[recipe_key]["name"]).to_upper(), int(account["production"]["items"][recipe_key])]))
+	if account.get("guardWages") != null:
+		c["content"].add_child(UI.label("GUARD WAGES / PAID · −£%d" % int(account["guardWages"]["amount"])))
+	if c["content"].get_child_count() == 0:
+		c["content"].add_child(UI.muted_label("See the full brief below for stock, sales, losses and exceptions."))
+	return c["panel"]
 
 
 const MOVES_SHOWN := 5
@@ -763,7 +829,6 @@ func _build_sales() -> Control:
 
 func _build_bank(account: Dictionary) -> Control:
 	var c := UI.card()
-	c["panel"].name = "BizBriefHero"
 	c["content"].add_child(UI.heading("Reynard's", 14))
 	var closing := UI.heading("£%d" % int(account["closingBalance"]), 25)
 	closing.add_theme_color_override("font_color", PAPER)
@@ -771,8 +836,6 @@ func _build_bank(account: Dictionary) -> Control:
 	c["content"].add_child(UI.label("Opening £%d · Closing £%d" % [account["openingBalance"], account["closingBalance"]]))
 	c["content"].add_child(UI.label("Income +£%d · Expenses −£%d" % [account["income"], account["expenses"]]))
 	c["content"].add_child(UI.button("Transaction history →", func(): MorningAccountsSystem.open_bank()))
-	if Business.is_pot_active():
-		c["content"].add_child(_build_float())
 	return c["panel"]
 
 
@@ -783,7 +846,6 @@ func _build_float() -> Control:
 	var cash := int(GameState.state["player"]["cash"])
 	var float_balance := int(business["float"])
 	var box := UI.vbox()
-	box.add_child(UI.label("Pot £%d · Float £%d" % [int(business["pot"]), float_balance]))
 	box.add_child(UI.muted_label("The float pays bills the pot can't. Payday never splits it."))
 	var amount := SpinBox.new()
 	amount.min_value = 1
@@ -854,8 +916,9 @@ func _build_operations(account: Dictionary) -> Control:
 
 func _build_attention(items: Array[Dictionary]) -> Control:
 	var c := UI.card()
-	c["content"].add_child(UI.heading("Attention", 14))
-	c["content"].add_child(UI.muted_label("Still unresolved"))
+	if items.is_empty():
+		c["content"].add_child(UI.muted_label("Nothing needs attention."))
+		return c["panel"]
 	for item in items:
 		var captured: Dictionary = item
 		var glyph: Callable = Icons.draw_attack
