@@ -304,7 +304,9 @@ func _build_staff_card(contact_id: String) -> Control:
 		c["content"].add_child(_build_role_picker(contact_id, role))
 	var owed := Business.owed(contact_id)
 	if owed > 0:
-		c["content"].add_child(UI.button("Pay now £%d" % owed, func(): Business.pay_owed_from_cash(contact_id)))
+		var top_up := Business.top_up_needed(contact_id)
+		var label := "Pay now £%d" % owed if top_up <= 0 else "Top up £%d and pay" % top_up
+		c["content"].add_child(UI.action_button(label, func(): Business.top_up_and_pay_owed(contact_id), int(GameState.state["player"]["cash"]) < top_up, "Not enough cash."))
 	return c["panel"]
 
 
@@ -634,7 +636,8 @@ func _build_wage_prompt(contact_id: String) -> Control:
 	var c := UI.card()
 	c["content"].add_child(UI.label(MorningAccountsSystem.wage_prompt_label(contact_id)))
 	var row := UI.hbox()
-	row.add_child(UI.expand_fill(UI.button("Yes", func(): Business.pay_owed_from_cash(contact_id))))
+	var short: bool = int(GameState.state["player"]["cash"]) < Business.top_up_needed(contact_id)
+	row.add_child(UI.expand_fill(UI.action_button("Yes", func(): Business.top_up_and_pay_owed(contact_id), short, "Not enough cash.")))
 	row.add_child(UI.expand_fill(UI.button("No", func(): Business.decline_wage_prompt(contact_id))))
 	c["content"].add_child(row)
 	return c["panel"]

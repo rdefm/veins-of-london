@@ -91,13 +91,6 @@ func new_game_state() -> Dictionary:
 		"market": Market.new_state(false),
 		# Serializable pending-offer and accepted-contract ledger.
 		"sales": { "pendingOffers": [], "activeContracts": [], "priorityOrder": [], "contractHistory": [], "settlements": [], "nextOfferId": 1, "nextContractId": 1, "nextPeriodId": 1, "nextSettlementId": 1 },
-		# "Default-then-review" payroll (R§3.10): no mid-tick blocking
-		# pause, so nothing to resume on reload. paidToday (room id -> bool)
-		# = paid for the current week, recomputed each Monday rollover;
-		# hires (room id -> {contactId, day}) = unbilled first part-weeks;
-		# lastSummary is the last Monday's result ({ day, entries: [{room,
-		# contactId, wage, paid}] }).
-		"payroll": { "paidToday": {}, "hires": {}, "lastSummary": null },
 		# Business pot (R§3.10 "Business pot and payday"): while potActive,
 		# contract settlements pay into pot; payday splits it on the
 		# rollover into each Monday. wages keys a waged contact id -> { weekly, owed,

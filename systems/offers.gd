@@ -58,9 +58,10 @@ static func daily_tick() -> void:
 	expire_pending_offers()
 	if random_pending_count() >= PENDING_CAP:
 		return
-	# An assigned-but-unpaid Sales role sources nothing this week; an unassigned
-	# room isn't gated here since it never owes a wage (business-spec.md).
-	if Contacts.get_contact_in_room("ops") != null and not Payroll.is_paid_this_week("ops"):
+	# An unpaid Sales occupant sources nothing; an unassigned room isn't gated
+	# here since it never owes a wage (business-spec.md).
+	var sales_id: Variant = Contacts.get_contact_in_room("ops")
+	if sales_id != null and not Payroll.is_working(sales_id):
 		return
 	if not Rng.chance(random_offer_chance()):
 		return

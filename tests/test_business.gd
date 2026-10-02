@@ -106,17 +106,23 @@ func run() -> void:
 		assert_eq(wage["owed"], 214, "a pot short of the full owed amount pays nothing")
 		assert_eq(wage["daysWorked"], 0, "no wage accrues while unpaid")
 
+		# Pot £100 covers part of the £214; the float top-up covers the rest.
 		GameState.state["player"]["cash"] = 1000
-		var paid: Dictionary = Business.pay_owed_from_cash("owen")
+		assert_eq(Business.top_up_needed("owen"), 114)
+		var paid: Dictionary = Business.top_up_and_pay_owed("owen")
 		assert_true(paid["ok"])
-		assert_eq(GameState.state["player"]["cash"], 786)
-		assert_eq(GameState.state["bankLog"].back()["amount"], -214)
+		assert_eq(paid["toppedUp"], 114)
+		assert_eq(GameState.state["player"]["cash"], 886)
+		assert_eq(GameState.state["bankLog"].back()["amount"], -114)
+		assert_eq(GameState.state["business"]["pot"], 0)
+		assert_eq(GameState.state["business"]["float"], 0)
+		assert_true(GameState.state["business"]["week"]["expenses"].has({ "kind": "wage", "contactId": "owen", "amount": 214 }))
 		assert_true(not Business.is_unpaid("owen"))
 		assert_eq(wage["owed"], 0)
 		Cultivating.find_vein("v1")["growth"] = 50  # outside target 100 ± hold band, so Owen has work
 		TimeSystem.run_staff_block()
 		assert_true(GameState.state["contacts"]["owen"]["cultivatingXP"] > xp_before, "paid Owen acts again")
-		assert_true(not Business.pay_owed_from_cash("owen")["ok"], "nothing left to pay")
+		assert_true(not Business.top_up_and_pay_owed("owen")["ok"], "nothing left to pay")
 	)
 
 	run_case("owed_wages_wait_for_the_next_monday_payday", func():
@@ -142,16 +148,32 @@ func run() -> void:
 		assert_eq(record["shares"], { "player": 30, "archie": 28, "james": 28 })
 	)
 
-	run_case("pay_now_refuses_without_enough_cash", func():
+	run_case("top_up_refuses_without_enough_cash", func():
 		GameState.reset()
 		GameState.state["world"]["day"] = 2
 		Business.activate()
 		for i in 6:
 			TimeSystem.do_rest()
 		GameState.state["player"]["cash"] = 10
-		assert_true(not Business.pay_owed_from_cash("owen")["ok"])
+		assert_true(not Business.top_up_and_pay_owed("owen")["ok"])
 		assert_eq(Business.owed("owen"), 214)
 		assert_eq(GameState.state["player"]["cash"], 10)
+		assert_eq(GameState.state["business"]["float"], 0)
+	)
+
+	run_case("a_float_that_already_covers_the_owed_wage_needs_no_top_up", func():
+		GameState.reset()
+		GameState.state["world"]["day"] = 2
+		Business.activate()
+		for i in 6:
+			TimeSystem.do_rest()
+		GameState.state["business"]["float"] = 300
+		GameState.state["player"]["cash"] = 0
+		assert_eq(Business.top_up_needed("owen"), 0)
+		assert_eq(MorningAccounts.wage_prompt_label("owen"), "Owen is owed £214 and has stopped working. Pay Owen from the business?")
+		assert_true(Business.top_up_and_pay_owed("owen")["ok"])
+		assert_eq(GameState.state["business"]["float"], 86)
+		assert_eq(GameState.state["player"]["cash"], 0, "player cash never pays a wage")
 	)
 
 	run_case("business_state_survives_a_save_round_trip_as_ints", func():

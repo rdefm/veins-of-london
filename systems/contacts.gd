@@ -149,7 +149,6 @@ static func assign_to_room(contact_id: String, room_id: String) -> void:
 	if contact_id != "none" and contacts.has(contact_id):
 		contacts[contact_id]["assignedRoom"] = room_id
 		contacts[contact_id]["assignedRole"] = null
-		Payroll.note_hire(contact_id, room_id)
 	EventBus.state_changed.emit()
 
 

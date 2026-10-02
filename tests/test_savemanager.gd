@@ -282,26 +282,11 @@ func run() -> void:
 		SaveManager.delete_slot(TEST_SLOT)
 	)
 
-	run_case("save_mutate_load_round_trips_payroll_lastSummary_with_int_fields_intact", func():
+	run_case("old_save_payroll_state_is_dropped_on_load", func():
 		GameState.reset()
-		GameState.state["contacts"]["des"]["recruited"] = true
-		Contacts.assign_to_room("des", "ops")
-		Payroll.pay_wages()
-		var original: Dictionary = GameState.deep_copy(GameState.state)
-
-		var save_result := SaveManager.save_to_slot(TEST_SLOT)
-		assert_true(save_result["ok"], "save_to_slot should succeed")
-
-		GameState.state["payroll"]["lastSummary"] = null
-		var load_result := SaveManager.load_from_slot(TEST_SLOT)
-		assert_true(load_result["ok"], "load_from_slot should succeed")
-
-		var summary: Dictionary = GameState.state["payroll"]["lastSummary"]
-		assert_eq(typeof(summary["day"]), TYPE_INT, "lastSummary.day should be restored as int, not float")
-		assert_eq(typeof(summary["entries"][0]["wage"]), TYPE_INT, "lastSummary.entries[].wage should be restored as int, not float")
-		assert_eq(GameState.state, original, "the full state tree (including payroll) should deep-equal what was saved")
-
-		SaveManager.delete_slot(TEST_SLOT)
+		GameState.state["payroll"] = { "paidToday": { "lab": 0.0 }, "hires": {}, "lastSummary": { "day": 1.0, "entries": [] } }
+		assert_true(SaveManager.import_string(SaveManager.export_string())["ok"])
+		assert_true(not GameState.state.has("payroll"))
 	)
 
 	run_case("old_save_recurring_contract_due_mid_week_migrates_to_the_next_monday", func():
@@ -310,11 +295,10 @@ func run() -> void:
 		var created: Dictionary = Offers.create_scripted_offer("scripted_physics_weekly")
 		var contract: Dictionary = Offers.accept_offer(created["offer"]["id"])["contract"]
 		var one_off: Dictionary = Offers.accept_offer(Offers.create_scripted_offer("scripted_life_order")["offer"]["id"])["contract"]
-		# An old save: recurring due on a WED, weekday THU, no payroll.hires.
+		# An old save: recurring due on a WED, weekday THU.
 		contract["dueDay"] = 10
 		contract["weekday"] = 3
 		var one_off_due: int = one_off["dueDay"]
-		GameState.state["payroll"].erase("hires")
 		var text := SaveManager.export_string()
 		assert_true(SaveManager.import_string(text)["ok"])
 
@@ -322,7 +306,6 @@ func run() -> void:
 		assert_eq(loaded[0]["dueDay"], 15, "WED day 10 moves to MON day 15")
 		assert_eq(loaded[0]["weekday"], 0)
 		assert_eq(loaded[1]["dueDay"], one_off_due, "a one-off keeps its deadline")
-		assert_eq(GameState.state["payroll"]["hires"], {})
 
 		var round_trip := SaveManager.export_string()
 		assert_true(SaveManager.import_string(round_trip)["ok"])
@@ -415,16 +398,6 @@ func run() -> void:
 		assert_true(not home.has("arrearsDays"), "the day clock is dropped")
 	)
 
-	run_case("payroll_hires_round_trip_with_int_day", func():
-		GameState.reset()
-		GameState.state["world"]["day"] = 5
-		GameState.state["contacts"]["des"]["recruited"] = true
-		Contacts.assign_to_room("des", "lab")
-		var original: Dictionary = GameState.deep_copy(GameState.state)
-		assert_true(SaveManager.import_string(SaveManager.export_string())["ok"])
-		assert_eq(typeof(GameState.state["payroll"]["hires"]["lab"]["day"]), TYPE_INT)
-		assert_eq(GameState.state, original)
-	)
 
 	run_case("save_mutate_load_round_trips_messages_with_day_int_intact", func():
 		GameState.reset()

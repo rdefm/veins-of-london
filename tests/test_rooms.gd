@@ -167,8 +167,8 @@ func run() -> void:
 
 	run_case("an_unpaid_room_hire_does_not_act", func():
 		GameState.reset()
-		_staff_lab("des", 1)  # a room hire with specialities; founders draw no daily wage
-		GameState.state["payroll"]["paidToday"] = { "lab": false }
+		_staff_lab("des", 1)
+		GameState.state["business"]["wages"]["des"] = { "weekly": 250, "owed": 100, "unpaid": true, "hiredDay": 1, "daysWorked": 0, "promptPending": true }
 		GameState.state["labThresholds"]["timePearl"] = 5
 		GameState.state["player"]["orichalchum"]["time"] = 100
 		Rooms.process_staff_block()

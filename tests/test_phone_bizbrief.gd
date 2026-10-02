@@ -137,12 +137,13 @@ func run() -> void:
 			"Payday", "Receipts £750", "Wages, Owen −£250", "Calc, The Firm −£30",
 			"Shares: You £158 · Archie £156 · James £156",
 			"Exception: the pot couldn't cover Owen's wages. Owed £214.",
-			"Owen is owed £214 and has stopped working. Pay Owen from your own cash?",
+			"Owen is owed £214 and has stopped working. Top up the float by £214?",
 		]:
 			assert_true(texts.has(expected), "missing %s" % expected)
 		_button_with_text(phone, "Yes").pressed.emit()
-		assert_eq(Business.owed("owen"), 0, "Yes pays from cash")
+		assert_eq(Business.owed("owen"), 0, "Yes tops up the float and pays from it")
 		assert_eq(GameState.state["player"]["cash"], 786)
+		assert_eq(GameState.state["business"]["float"], 0)
 		phone.free()
 	)
 
@@ -483,7 +484,7 @@ func run() -> void:
 		phone.free()
 	)
 
-	run_case("staff_tab_shows_a_room_hires_weekly_wage", func():
+	run_case("staff_tab_shows_no_pay_for_a_room_hire_without_a_business_wage", func():
 		GameState.reset()
 		GameState.state["flags"]["bizStaffTabOpen"] = true
 		GameState.state["contacts"]["des"]["recruited"] = true
@@ -493,7 +494,7 @@ func run() -> void:
 		phone._ready()
 		_button_with_text(phone, "Staff").pressed.emit()
 		var texts := NodeQuery.label_texts(phone)
-		assert_true(texts.has("Production · £700 a week"), "room hire pay terms are weekly")
+		assert_true(texts.has("Production · No pay"), "only a business wage entry carries pay terms")
 		phone.free()
 	)
 
@@ -516,7 +517,7 @@ func run() -> void:
 		phone.free()
 	)
 
-	run_case("staff_pay_now_shows_only_while_owed_and_pays_from_cash", func():
+	run_case("staff_pay_now_shows_only_while_owed_and_tops_up_the_float", func():
 		GameState.reset()
 		GameState.state["flags"]["bizStaffTabOpen"] = true
 		GameState.state["contacts"]["owen"]["recruited"] = true
@@ -525,7 +526,7 @@ func run() -> void:
 		var phone := PhoneScreen.new()
 		phone._ready()
 		_button_with_text(phone, "Staff").pressed.emit()
-		assert_true(_button_with_text(phone, "Pay now £120") == null)
+		assert_true(_button_with_text(phone, "Top up £120 and pay") == null)
 		phone.free()
 
 		GameState.state["business"]["wages"]["owen"]["unpaid"] = true
@@ -534,10 +535,11 @@ func run() -> void:
 		phone = PhoneScreen.new()
 		phone._ready()
 		_button_with_text(phone, "Staff").pressed.emit()
-		_button_with_text(phone, "Pay now £120").pressed.emit()
+		_button_with_text(phone, "Top up £120 and pay").pressed.emit()
 		assert_eq(GameState.state["player"]["cash"], 380)
+		assert_eq(GameState.state["business"]["float"], 0, "the top-up is spent on the wage")
 		assert_true(not Business.is_unpaid("owen"))
-		assert_true(_button_with_text(phone, "Pay now £120") == null, "button gone once paid")
+		assert_true(_button_with_text(phone, "Top up £120 and pay") == null, "button gone once paid")
 		phone.free()
 	)
 

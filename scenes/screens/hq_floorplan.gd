@@ -181,10 +181,6 @@ func _build_room_contact_row(room_id: String) -> Control:
 	var box := UI.vbox(4)
 	var assigned_text: String = "Assigned: %s" % Contacts.display_name(assigned_id) if assigned_id != null else "Assigned: no one"
 	box.add_child(_tile_label(assigned_text, true))
-	if assigned_id != null and not Payroll.is_paid_this_week(room_id):
-		var wage: int = Payroll.pay_now_amount(room_id)
-		box.add_child(_tile_label("Unpaid this week -- £%d owed" % wage, true))
-		box.add_child(MapCardStyle.text_button("Pay now (£%d)" % wage, func(): Payroll.pay_now(room_id), GameState.state["player"]["cash"] < wage))
 
 	var row := UI.hflow(4)
 	for contact_id in contacts.keys():

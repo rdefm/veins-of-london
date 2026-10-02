@@ -146,9 +146,6 @@ func _migrate_weekly_cadence(state: Dictionary) -> void:
 	if home.has("arrearsDays"):
 		home["arrearsWeeks"] = ceili(float(home["arrearsDays"]) / float(Calendar.days_per_week()))
 		home.erase("arrearsDays")
-	var payroll: Dictionary = state.get("payroll", {})
-	if not payroll.has("hires"):
-		payroll["hires"] = {}
 	var sales: Dictionary = state.get("sales", {})
 	for offer in sales.get("pendingOffers", []):
 		offer["weekday"] = Offers.RECURRING_WEEKDAY
@@ -336,6 +333,8 @@ func backfill_defaults(save: Dictionary) -> Dictionary:
 	for key in defaults.keys():
 		if not result.has(key):
 			result[key] = defaults[key]
+	# Staff wages all go through Business (R§3.10 "Business pot and payday").
+	result.erase("payroll")
 	_migrate_owen_texts(result)
 	_backfill_new_contacts(result, defaults)
 	_backfill_new_contact_keys(result, defaults)
@@ -747,13 +746,6 @@ func _restore_int_types(state: Dictionary) -> void:
 	var firm_provocation = state.get("collective", {}).get("firmProvocation")
 	if firm_provocation != null:
 		_int_key(firm_provocation, "expiresDay")
-	var payroll_summary = state.get("payroll", {}).get("lastSummary")
-	if payroll_summary != null:
-		_int_key(payroll_summary, "day")
-		for entry in payroll_summary.get("entries", []):
-			_int_key(entry, "wage")
-	for hire in state.get("payroll", {}).get("hires", {}).values():
-		_int_key(hire, "day")
 	var business: Dictionary = state.get("business", {})
 	for key in ["pot", "float", "nextPaydayId"]:
 		_int_key(business, key)

@@ -186,38 +186,17 @@ func run() -> void:
 		screen.free()
 	)
 
-	# ticket 28: the "review/override" half of the default-then-review
-	# payroll model -- an assigned role that came up unpaid at rollover
-	# exposes a manual "Pay now" catch-up button here.
-	run_case("hq_floorplan_unpaid_role_exposes_a_pay_now_button_that_clears_it", func():
+	run_case("hq_floorplan_room_card_offers_no_cash_wage_payment", func():
 		GameState.reset()
 		GameState.state["home"]["rooms"].append("lab")
-		var contacts: Dictionary = GameState.state["contacts"]
-		var some_contact_id: String = "des"
-		contacts[some_contact_id]["recruited"] = true
-		Contacts.assign_to_room(some_contact_id, "lab")
-		GameState.state["player"]["cash"] = 0
-		Payroll.pay_wages()
-		assert_true(not Payroll.is_paid_this_week("lab"))
-
-		var poor_screen := HqFloorplanScreen.new()
-		poor_screen._ready()
-		var disabled_button := NodeQuery.find_button(poor_screen, "Pay now (£700)")
-		assert_true(disabled_button != null, "an unpaid role must expose a Pay now catch-up button")
-		assert_true(disabled_button.disabled, "Pay now should be disabled while cash is still short")
-		poor_screen.free()
-
-		GameState.state["player"]["cash"] = 700
-		var funded_screen := HqFloorplanScreen.new()
-		funded_screen._ready()
-		var pay_button := NodeQuery.find_button(funded_screen, "Pay now (£700)")
-		assert_true(not pay_button.disabled, "Pay now should enable once cash covers the wage")
-		pay_button.pressed.emit()
-
-		assert_true(Payroll.is_paid_this_week("lab"), "tapping Pay now must clear this week's unpaid wage")
-		assert_eq(GameState.state["player"]["cash"], 0)
-
-		funded_screen.free()
+		GameState.state["contacts"]["des"]["recruited"] = true
+		Contacts.assign_to_room("des", "lab")
+		GameState.state["player"]["cash"] = 5000
+		var screen := HqFloorplanScreen.new()
+		screen._ready()
+		for button in screen.find_children("", "Button", true, false):
+			assert_true(not (button as Button).text.begins_with("Pay now"), "wages are paid by the business, never from the room card")
+		screen.free()
 	)
 
 	run_case("hq_floorplan_back_button_returns_to_hq", func():

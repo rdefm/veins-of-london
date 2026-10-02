@@ -106,7 +106,6 @@ static func daily_tick() -> void:
 	Collective.maybe_trigger_hakim_intel()  # ⑤k no ordering dependency on any other step
 	Collective.maybe_trigger_act2_intro()   # ⑤k2 backstop for the same trigger events.advance() already checks
 	BusinessQuest.maybe_trigger_proposition()  # ⑤k3 backstop for the vein-count-change checks (catches today's self-seed)
-	Payroll.pay_wages()                  # ⑥ staff phase start: Monday room wages, paid after living costs -- an unaffordable role idles until paid or next Monday, no debt
 	MorningAccountsSystem.capture_production_shortfalls(morning_context)  # ⑥.1 unmet Production targets; staff work itself runs per block in run_staff_block()
 	Rooms.trim_production_log()          # ⑥.2 drop production-log days older than the retention window
 	ContractsSystem.process_daily_sales() # ⑥.3 Sales buys flagged calc shortfalls, closes full periods, then allocates partial stock by priority

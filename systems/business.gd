@@ -115,8 +115,8 @@ static func owed(contact_id: String) -> int:
 	return int(_business()["wages"].get(contact_id, {}).get("owed", 0))
 
 
-# BizBrief Staff tab pay terms: a partner's share of the payday remainder,
-# a weekly business wage, or a room hire's weekly Payroll wage.
+# BizBrief Staff tab pay terms: a partner's share of the payday remainder
+# or a weekly business wage.
 static func pay_terms(contact_id: String) -> String:
 	var business := _business()
 	var partners: Array = business["partners"]
@@ -124,9 +124,6 @@ static func pay_terms(contact_id: String) -> String:
 		return "%s share" % _share_fraction(partners.size() + 1)
 	if business["wages"].has(contact_id):
 		return "£%d a week" % int(business["wages"][contact_id]["weekly"])
-	var room: Variant = GameState.state["contacts"][contact_id].get("assignedRoom")
-	if room != null and Payroll.role_skill_keys().has(room) and not Contacts.is_founder(contact_id):
-		return "£%d a week" % Payroll.wage_for_room(room)
 	return "No pay"
 
 
@@ -142,17 +139,17 @@ static func _share_fraction(people: int) -> String:
 
 
 # BizBrief Staff tab status: unpaid (owed a business wage), idle (no role),
-# or whether they act at block ends today.
+# or working.
 static func staff_status(contact_id: String) -> String:
 	if is_unpaid(contact_id):
 		return "Unpaid · owed £%d" % owed(contact_id)
 	if Contacts.role_of(contact_id) == null:
 		return "Idle"
-	return "Working" if Payroll.is_working(contact_id) else "Unpaid this week"
+	return "Working"
 
 
 # Contact ids whose wage shortfall still awaits the morning
-# "pay from your own cash?" answer.
+# "top up the float?" answer.
 static func pending_wage_prompts() -> Array[String]:
 	var ids: Array[String] = []
 	var wages: Dictionary = _business()["wages"]
@@ -174,22 +171,32 @@ static func split(remainder: int, partner_count: int) -> Dictionary:
 	return { "partner": partner_share, "player": remainder - partner_count * partner_share }
 
 
-# Pays a contact's owed wage from player cash (the morning prompt's Yes, and
-# Pay now). Full payment resumes their work.
-static func pay_owed_from_cash(contact_id: String) -> Dictionary:
-	var wage: Dictionary = _business()["wages"].get(contact_id, {})
+# Cash the float needs so pot + float cover the contact's owed wage.
+static func top_up_needed(contact_id: String) -> int:
+	var business := _business()
+	return maxi(0, owed(contact_id) - int(business["pot"]) - int(business["float"]))
+
+
+# The morning prompt's Yes, and the Staff tab's Pay now: donates
+# top_up_needed() into the float, then pays the owed wage from the pot, then
+# the float, as a `wage` expense this week. Full payment resumes their work.
+static func top_up_and_pay_owed(contact_id: String) -> Dictionary:
+	var business := _business()
+	var wage: Dictionary = business["wages"].get(contact_id, {})
 	var amount := int(wage.get("owed", 0))
 	if amount <= 0:
 		return { "ok": false, "reason": "Nothing owed." }
-	var player: Dictionary = GameState.state["player"]
-	if player["cash"] < amount:
-		return { "ok": false, "reason": "Not enough cash." }
-	player["cash"] -= amount
-	Bank.record(-amount, "%s's wages" % Contacts.display_name(contact_id))
+	var top_up := top_up_needed(contact_id)
+	if top_up > 0:
+		var donated := donate(top_up)
+		if not donated["ok"]:
+			return donated
+	_draw(amount)
+	business["week"]["expenses"].append({ "kind": "wage", "contactId": contact_id, "amount": amount })
 	BusinessStats.record_expense(amount, BusinessStats.EXPENSE_STAFF)
 	_clear_owed(wage)
 	EventBus.state_changed.emit()
-	return { "ok": true, "paid": amount }
+	return { "ok": true, "paid": amount, "toppedUp": top_up }
 
 
 # The morning prompt's No: the contact stays unpaid and owed.
