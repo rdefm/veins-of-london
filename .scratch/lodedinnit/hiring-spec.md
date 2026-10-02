@@ -146,3 +146,18 @@ home.roomSeats: { roomId: int }
 Pure data. Old saves are backfilled (status from data defaults, empty feed, 1 seat per room).
 
 Integration: new `data/hiring.json`, `data/lodedinnit.json` (post pools), `systems/hiring.gd`, `systems/lodedinnit_feed.gd`, the app scene. Touched: `GameData`, `Contacts`, `Business`, `Payroll`, `Rooms`, `TimeSystem` (rollover flips, weekly poach rolls, per-block post), `PhoneApps`/`PhoneAppRegistry`/`PhoneNav`, the HQ room card (seats, let go), BizBrief (poach alert, float top-up prompt), REFERENCE §2/§3.10, CODEMAP.
+
+## 10. Resolved at ticket cut (2026-10-02)
+
+| # | Decision |
+|---|---|
+| R1 | Hire prepays the first week. The wage entry gets `paidThroughDay = hireDay + 7`; payday charges only the days worked after it. |
+| R2 | The poach premium and a matched counter are permanent: `wageMult` on the wage entry; weekly = round(formula × wageMult). |
+| R3 | Let go flags the wage entry `leaving`; the next payday pays the prorated owed, then deletes the entry. |
+| R4 | Level persists after let go or poach. Re-hire wage = the full formula at current level (× premium if employed). |
+| R5 | Employer pool = every faction in `state.factions` that isn't eliminated, Collective included. |
+| R6 | Prose volume: ~6 posts per candidate, 2 trait variants each, 2 templates per hire-status kind, ~12 shared comments. |
+| R7 | An unanswered poach alert resolves once a full day has passed: `expiresDay = offerDay + 2`, resolved at that rollover, so the player has all of the next day to answer. |
+| R8 | Profiles show ore-speciality pips for every candidate. Cultivators get a `specialities` list too: flavour only for now, with a gameplay effect to be added later. Draft lists: marcia life · tomasz physics · bernie life, physics · saoirse fate, emotion (confirmed by the human 2026-10-02). |
+| R9 | The app has two tabs, Feed and People, plus a profile view, in the phone visual family. |
+| R10 | A `distracted` producer skips its whole block of crafting. Old saves have no non-founder room occupants, so removing the cash wage path needs no migration beyond dropping `payroll` state. |
