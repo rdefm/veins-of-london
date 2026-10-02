@@ -95,7 +95,7 @@ Numbers live in `data/hiring.json` `market`.
 ## 5. Rooms and seats
 
 - `state.home.roomSeats { roomId: int }`, default 1. Seat upgrades are defined in `data/home.json` `rooms.<id>.seatUpgrades: [{ seats, cost, minTier }]` and bought from the HQ room card.
-- Max seats = +1 per HQ tier from the room's `minTier`: Vein Cultivation Station (safehouse) 1 / compound 2 / mansion 3; Improved Lab (compound) 1 / mansion 2. Each extra seat costs 50% of the room's build cost (Station £4,000, Lab £7,500).
+- Max seats per HQ tier: Vein Cultivation Station — safehouse 1 / compound 2 / mansion 3. Improved Lab — compound 2 / mansion 3 (built with 1 seat; upgradable to 2 at compound). Each extra seat costs 50% of the room's build cost (Station £4,000, Lab £7,500).
 - `Contacts.get_contact_in_room()` (single occupant) becomes `contacts_in_room()`; `assign_to_room()` stops evicting while seats are free.
 - Founders are unaffected (they hold no seat).
 
