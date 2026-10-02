@@ -1,6 +1,6 @@
 # LodedInnit — hiring app design spec (ticket 17)
 
-Status: **approved by the human 2026-10-02, apart from §10 (seat upgrade numbers).** Tickets are cut from this spec with the to-tickets skill.
+Status: **approved by the human 2026-10-02.** Tickets are cut from this spec with the to-tickets skill.
 
 PROSE-REVIEW: all names, headlines, posts and taglines are draft content against `docs/CONTENT-GUIDE.md`.
 
@@ -94,7 +94,8 @@ Numbers live in `data/hiring.json` `market`.
 
 ## 5. Rooms and seats
 
-- `state.home.roomSeats { roomId: int }`, default 1. Seat upgrades are defined in `data/home.json` `rooms.<id>.seatUpgrades: [{ seats, cost, minTier }]` and bought from the HQ room card. **Numbers: §10.**
+- `state.home.roomSeats { roomId: int }`, default 1. Seat upgrades are defined in `data/home.json` `rooms.<id>.seatUpgrades: [{ seats, cost, minTier }]` and bought from the HQ room card.
+- Max seats = +1 per HQ tier from the room's `minTier`: Vein Cultivation Station (safehouse) 1 / compound 2 / mansion 3; Improved Lab (compound) 1 / mansion 2. Each extra seat costs 50% of the room's build cost (Station £4,000, Lab £7,500).
 - `Contacts.get_contact_in_room()` (single occupant) becomes `contacts_in_room()`; `assign_to_room()` stops evicting while seats are free.
 - Founders are unaffected (they hold no seat).
 
@@ -145,9 +146,3 @@ home.roomSeats: { roomId: int }
 Pure data. Old saves are backfilled (status from data defaults, empty feed, 1 seat per room).
 
 Integration: new `data/hiring.json`, `data/lodedinnit.json` (post pools), `systems/hiring.gd`, `systems/lodedinnit_feed.gd`, the app scene. Touched: `GameData`, `Contacts`, `Business`, `Payroll`, `Rooms`, `TimeSystem` (rollover flips, weekly poach rolls, per-block post), `PhoneApps`/`PhoneAppRegistry`/`PhoneNav`, the HQ room card (seats, let go), BizBrief (poach alert, float top-up prompt), REFERENCE §2/§3.10, CODEMAP.
-
-## 10. Open
-
-| # | Question |
-|---|---|
-| OQ-8 | Seat upgrade costs and max seats per room per HQ tier — no numbers yet. |
