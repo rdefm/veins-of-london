@@ -125,7 +125,7 @@ static func pay_terms(contact_id: String) -> String:
 	if business["wages"].has(contact_id):
 		return "£%d a week" % int(business["wages"][contact_id]["weekly"])
 	var room: Variant = GameState.state["contacts"][contact_id].get("assignedRoom")
-	if room != null and Payroll.ROLE_SKILL_KEYS.has(room) and not Contacts.is_founder(contact_id):
+	if room != null and Payroll.role_skill_keys().has(room) and not Contacts.is_founder(contact_id):
 		return "£%d a week" % Payroll.wage_for_room(room)
 	return "No pay"
 

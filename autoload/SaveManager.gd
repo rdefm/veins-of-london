@@ -529,8 +529,9 @@ func _fix_up_founders(state: Dictionary) -> void:
 		if GameData.CONTACTS_DEFAULTS.has(contact_id):
 			c["recruitable"] = GameData.CONTACTS_DEFAULTS[contact_id].get("recruitable", true)
 		var room: Variant = c.get("assignedRoom")
-		if Contacts.is_founder(contact_id) and room != null and Contacts.ROOM_ROLES.has(room):
-			c["assignedRole"] = Contacts.ROOM_ROLES[room]
+		var room_roles := Contacts.room_roles()
+		if Contacts.is_founder(contact_id) and room != null and room_roles.has(room):
+			c["assignedRole"] = room_roles[room]
 			c["assignedRoom"] = null
 	if state.get("flags", {}).get("homeRaidEventSeen", false) and contacts.has("archie"):
 		contacts["archie"]["recruited"] = true

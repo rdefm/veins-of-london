@@ -5,12 +5,15 @@ extends RefCounted
 # Per R§3.10. Static funcs only.
 
 # Staffing a role-room makes its occupant a member of that role (R§3.10
-# "Staff roles").
-const ROOM_ROLES := {
-	"ops": "sales",
-	"veinStation": "cultivation",
-	"lab": "production",
-}
+# "Staff roles"). Room id -> role id, derived from GameData.HIRING_ROLES;
+# every role with a room counts, enabled or not.
+static func room_roles() -> Dictionary:
+	var out := {}
+	for role_id in GameData.HIRING_ROLES:
+		var room: Variant = GameData.HIRING_ROLES[role_id].get("room")
+		if room != null:
+			out[room] = role_id
+	return out
 
 
 static func award_relation(contact_id: String, amount: int) -> void:
@@ -68,8 +71,9 @@ static func role_of(contact_id: String) -> Variant:
 	if c.get("assignedRole") != null:
 		return c["assignedRole"]
 	var room: Variant = c.get("assignedRoom")
-	if room != null and ROOM_ROLES.has(room):
-		return ROOM_ROLES[room]
+	var roles := room_roles()
+	if room != null and roles.has(room):
+		return roles[room]
 	return null
 
 

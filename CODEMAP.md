@@ -36,7 +36,7 @@ Data file per system: see `data/*.json` below.
 | combat_pacing.gd | Persisted normal/quick pacing toggle |
 | combat_prototype.gd | Bounded combat experiment, Debug-app |
 | consumables.gd | Healing Salve (out-of-combat) + Healing Burst (in or out); in-combat use_healing_burst() resolves the parked player turn-cursor entry (R§3.7a) and heals an ally target instead of the player (R§3.7) |
-| contacts.gd | Relation, recruiting (incl. story `force_recruit`), room assignment, founder staff roles (`set_role`/`role_of`/`available_roles`), capped XP, ally combat kit + per-day ally Dial charges (`daily_dial_regen()`), display names, directory order |
+| contacts.gd | Relation, recruiting (incl. story `force_recruit`), room assignment, room→role lookup from hiring.json (`room_roles`), founder staff roles (`set_role`/`role_of`/`available_roles`), capped XP, ally combat kit + per-day ally Dial charges (`daily_dial_regen()`), display names, directory order |
 | contact_texts.gd | Contacts' random texts, per contact from data/contact_texts.json: rollover scheduler (gate, interval, pause while not working, hold while busy), unplayed-then-LRU pick (per-text requireFlag), vein templating (own cultivator list or player veins), replies granting xp/relation/cash/item/intel/player craftingXp rewards; each sent text pushes a contact-tagged ticker notification |
 | contracts.gd | Block-end Sales auto-delivery (full, then partials by priority; goods to buyer holdings + supplier share), settlement to pot; recurring periods pay on fill, lock (`periodFilled`) until Monday renewal, expire at term end; per-contract `buyCalc` calc buys from the pot; unattended-proof taint (`playerAssisted`) and `qualified` settlements; `cancel()` (unpaid, hurts counterparty) |
 | crafting.gd | Recipe crafting |
@@ -251,6 +251,7 @@ overlays.
 | enemies.json | combat.gd |
 | faction_trade.json | economy.gd |
 | factions.json | factions.gd, sites.gd, raiding.gd, debug_start.gd, faction_sim.gd (`startingHoldings`, `stockpilePlaces`, `stockpileGuards`, `cultivateSkill`, `fieldwork`, `craftSkill`, `craftTargets`, `raidKits`, `consumes`, `trading`, `industryIncome`), key_members.gd (`keyMembers`, `speaker`), diplomacy.gd (`sampleFavours`, `giftPrefs`), faction_ai.gd (`aggressionPersonality`, `weariness`) |
+| hiring.json | contacts.gd (`roles` → `room_roles`), payroll.gd (`roles` → `role_skill_keys`): staff role registry |
 | home.json | home.gd, approaches.gd, contacts.gd, property_app.gd (tier `image` listing photos) |
 | floorplans.json | GameData.gd + floorplan_view.gd (per-tier plan asset, size, slot rects) |
 | hq_visuals.json | hq_diorama.gd, hq*.gd screens |

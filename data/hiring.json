@@ -1,0 +1,8 @@
+{
+  "roles": {
+    "cultivation": { "label": "Cultivator", "room": "veinStation", "skill": "cultivating", "enabled": true },
+    "production": { "label": "Crafter", "room": "lab", "skill": "crafting", "enabled": true },
+    "sales": { "label": "Sales", "room": "ops", "skill": "sales", "enabled": false },
+    "security": { "label": "Security", "room": null, "skill": null, "enabled": false }
+  }
+}

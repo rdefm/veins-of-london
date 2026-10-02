@@ -18,13 +18,15 @@ const WAGE_PER_SKILL_LEVEL := 50
 # hq_floorplan.gd's ASSIGNABLE_ROOMS (Production, Procurement, Sales).
 const ROLE_ROOMS: PackedStringArray = ["lab", "veinStation", "ops"]
 
-# Room id -> the contact skill field that room's role uses (Sales/
-# salesSkill, Production/craftingSkill, Procurement/cultivatingSkill).
-const ROLE_SKILL_KEYS := {
-	"lab": "craftingSkill",
-	"veinStation": "cultivatingSkill",
-	"ops": "salesSkill",
-}
+# Room id -> the contact skill field that room's role uses ("<skill>Skill"),
+# derived from GameData.HIRING_ROLES; every role with a room and skill counts.
+static func role_skill_keys() -> Dictionary:
+	var out := {}
+	for role_id in GameData.HIRING_ROLES:
+		var role: Dictionary = GameData.HIRING_ROLES[role_id]
+		if role.get("room") != null and role.get("skill") != null:
+			out[role["room"]] = "%sSkill" % role["skill"]
+	return out
 
 
 # Weekly wage: (£100 + £50 × (role skill − 1)) × 7, identical for all three
@@ -33,7 +35,7 @@ static func wage_for_room(room_id: String) -> int:
 	var contact_id: Variant = Contacts.get_contact_in_room(room_id)
 	if contact_id == null or Contacts.is_founder(contact_id):
 		return 0
-	var skill: int = int(GameState.state["contacts"][contact_id].get(ROLE_SKILL_KEYS[room_id], 1))
+	var skill: int = int(GameState.state["contacts"][contact_id].get(role_skill_keys()[room_id], 1))
 	return (WAGE_BASE + WAGE_PER_SKILL_LEVEL * (skill - 1)) * Calendar.days_per_week()
 
 
@@ -47,7 +49,7 @@ static func is_paid_this_week(room_id: String) -> bool:
 # Contacts.assign_to_room() hook: a hire into a role room works at once and
 # its first part-week is billed at the next Monday.
 static func note_hire(contact_id: String, room_id: String) -> void:
-	if not ROLE_SKILL_KEYS.has(room_id) or Contacts.is_founder(contact_id):
+	if not role_skill_keys().has(room_id) or Contacts.is_founder(contact_id):
 		return
 	var payroll: Dictionary = GameState.state["payroll"]
 	payroll["hires"][room_id] = { "contactId": contact_id, "day": GameState.state["world"]["day"] }

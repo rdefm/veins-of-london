@@ -2,6 +2,20 @@ extends "res://tests/test_base.gd"
 
 
 func run() -> void:
+	run_case("hiring_roles_registry_loads_per_spec", func():
+		var roles: Dictionary = GameData.HIRING_ROLES
+		assert_eq(roles.keys().size(), 4)
+		assert_eq(roles["cultivation"], {"label": "Cultivator", "room": "veinStation", "skill": "cultivating", "enabled": true})
+		assert_eq(roles["production"], {"label": "Crafter", "room": "lab", "skill": "crafting", "enabled": true})
+		assert_eq(roles["sales"], {"label": "Sales", "room": "ops", "skill": "sales", "enabled": false})
+		assert_eq(roles["security"], {"label": "Security", "room": null, "skill": null, "enabled": false})
+	)
+
+	run_case("room_lookups_derive_from_registry_including_disabled_roles", func():
+		assert_eq(Contacts.room_roles(), {"veinStation": "cultivation", "lab": "production", "ops": "sales"})
+		assert_eq(Payroll.role_skill_keys(), {"veinStation": "cultivatingSkill", "lab": "craftingSkill", "ops": "salesSkill"})
+	)
+
 	run_case("award_relation_adds_to_the_named_contact", func():
 		GameState.reset()
 		Contacts.award_relation("archie", 15)

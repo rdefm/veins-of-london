@@ -184,6 +184,10 @@ var CULTIVATOR_ACTION_XP: int = 0
 # Days of staff production kept in state.productionLog, R§2.
 var PRODUCTION_LOG_DAYS: int = 0
 
+# Staff role registry: role id -> {label, room, skill, enabled}, R§3.10
+# "Staff roles".
+var HIRING_ROLES: Dictionary = {}
+
 # Ceiling on a Production personal target (state.labThresholds), R§3.10.
 var PRODUCTION_TARGET_MAX: int = 0
 
@@ -447,6 +451,9 @@ const MANIFEST: Array[Dictionary] = [
 	]},
 	{"table": "contact_texts", "file": "res://data/contact_texts.json", "fields": [
 		{"field": "CONTACT_TEXTS", "key": "", "type": TYPE_DICTIONARY},
+	]},
+	{"table": "hiring", "file": "res://data/hiring.json", "fields": [
+		{"field": "HIRING_ROLES", "key": "roles", "type": TYPE_DICTIONARY},
 	]},
 ]
 
