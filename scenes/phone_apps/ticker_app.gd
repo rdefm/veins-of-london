@@ -677,7 +677,7 @@ func _ticker_button(value: String, action: Callable, variant: String, paper: boo
 			pressed.bg_color = Color("#74182f")
 			disabled = normal.duplicate() as StyleBoxFlat
 			disabled.bg_color = Color("#c4b7b7") if paper else Color("#555055")
-			disabled_ink = Color("#72686b") if paper else NEWS_MUTED
+			disabled_ink = NEWS_PAPER_INK if paper else NEWS_INK
 		_:
 			button.custom_minimum_size.y = 36
 			button.add_theme_font_size_override("font_size", 13)
@@ -697,9 +697,15 @@ func _ticker_button(value: String, action: Callable, variant: String, paper: boo
 	focus.border_color = NEWS_RED
 	focus.set_border_width_all(1)
 	button.add_theme_stylebox_override("focus", focus)
-	for colour_name in ["font_color", "font_hover_color", "font_pressed_color"]:
+	for colour_name in ["font_color", "font_hover_color"]:
 		button.add_theme_color_override(colour_name, ink)
+	button.add_theme_color_override("font_pressed_color", NEWS_PAPER if variant == "chip" else ink)
 	button.add_theme_color_override("font_disabled_color", disabled_ink)
+	# Clipped Button text contributes no intrinsic width. Reserve the full label
+	# so FlowContainer chips and inline navigation cannot collapse to outlines.
+	var font: Font = button.get_theme_font("font")
+	var text_width: float = font.get_string_size(value, HORIZONTAL_ALIGNMENT_LEFT, -1, button.get_theme_font_size("font_size")).x
+	button.custom_minimum_size.x = ceilf(text_width + normal.get_minimum_size().x)
 	return button
 
 
