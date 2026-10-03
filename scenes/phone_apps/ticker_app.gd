@@ -155,6 +155,7 @@ func _build_news_tabs() -> Control:
 		var button := _ticker_button(tab["title"], func(): _set_tab(tab["id"]), "plain")
 		button.name = "TickerTab_%s" % tab["id"]
 		button.add_theme_font_size_override("font_size", 14)
+		button.custom_minimum_size.x = button.get_theme_font("font").get_string_size(button.text, HORIZONTAL_ALIGNMENT_LEFT, -1, button.get_theme_font_size("font_size")).x + button.get_theme_stylebox("normal").get_minimum_size().x
 		button.disabled = selected
 		button.custom_minimum_size.y = 46
 		for colour_name in ["font_color", "font_hover_color", "font_pressed_color", "font_disabled_color"]:

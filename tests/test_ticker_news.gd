@@ -165,3 +165,36 @@ func run() -> void:
 			assert_eq((nav_button.get_theme_stylebox("normal") as StyleBoxFlat).bg_color, Color.TRANSPARENT, "influence navigation has no amber fill")
 		phone.free()
 	)
+
+	await run_case("ticker_tabs_keep_visible_text_and_selection_after_refresh", func():
+		GameState.reset()
+		PhoneNav.open_app("ticker")
+		var phone := PhoneScreen.new()
+		phone.theme = preload("res://theme/main_theme.tres")
+		(Engine.get_main_loop() as SceneTree).root.add_child(phone)
+		await (Engine.get_main_loop() as SceneTree).process_frame
+		for selected_id in [TickerApp.NEWS_TAB, TickerApp.STOCK_TAB, TickerApp.NEWS_TAB]:
+			for tab_id in [TickerApp.NEWS_TAB, TickerApp.STOCK_TAB]:
+				var button := phone.find_child("TickerTab_%s" % tab_id, true, false) as Button
+				assert_true(button != null, "%s tab exists" % tab_id)
+				var is_selected: bool = tab_id == selected_id
+				assert_eq(button.disabled, is_selected, "%s selection remains clear" % tab_id)
+				var ink: Color = TickerApp.NEWS_INK if is_selected else TickerApp.NEWS_MUTED
+				var colour_name := "font_disabled_color" if is_selected else "font_color"
+				assert_eq(button.get_theme_color(colour_name), ink, "%s effective text colour" % tab_id)
+				var font: Font = button.get_theme_font("font")
+				var text_width: float = font.get_string_size(button.text, HORIZONTAL_ALIGNMENT_LEFT, -1, button.get_theme_font_size("font_size")).x
+				assert_true(button.get_combined_minimum_size().x >= text_width, "%s reserves readable text width" % tab_id)
+				assert_true(button.size.x >= text_width, "%s lays out readable text width" % tab_id)
+			if selected_id == TickerApp.NEWS_TAB:
+				assert_true(phone.find_child("TickerStory_economic", true, false) != null, "News content opens")
+			else:
+				assert_true(phone.find_child("TickerMarketBrief", true, false) != null, "Stock Market content opens")
+			if selected_id == TickerApp.NEWS_TAB:
+				(phone.find_child("TickerTab_stock", true, false) as Button).pressed.emit()
+			else:
+				(phone.find_child("TickerTab_news", true, false) as Button).pressed.emit()
+			await (Engine.get_main_loop() as SceneTree).process_frame
+		phone.queue_free()
+		await (Engine.get_main_loop() as SceneTree).process_frame
+	)
