@@ -49,10 +49,10 @@ func build(content: VBoxContainer) -> void:
 		_tab = NEWS_TAB
 	if selected_axis == null and _open_wire.is_empty():
 		_influence_open = false
-	if _tab == STOCK_TAB and not _selected_good.is_empty():
-		_build_good_detail(content, _selected_good["kind"], _selected_good["type"])
-		return
 	var page := _mount_news_root()
+	if _tab == STOCK_TAB and not _selected_good.is_empty():
+		_build_good_detail(page, _selected_good["kind"], _selected_good["type"])
+		return
 	if _tab == STOCK_TAB:
 		_build_stock_market(page)
 	else:
@@ -419,61 +419,94 @@ func _good_row(kind: String, good_type: String) -> Control:
 
 
 func _build_good_detail(content: VBoxContainer, kind: String, good_type: String) -> void:
-	content.add_child(_ticker_button("‹ Back to Stock Market", func(): _select_good_list(), "plain"))
-	content.add_child(UI.symbol_row([_good_symbol(kind, good_type), _good_name(kind, good_type)], { "heading_size": 20 }))
+	var copy: Dictionary = GameData.BAROMETER_NEWS["market"]["detail"]
+	var back := _ticker_button(copy["back"], func(): _select_good_list(), "plain")
+	back.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	content.add_child(back)
+	content.add_child(_news_margins(_news_text(copy["oreEyebrow"] if kind == "ore" else copy["itemEyebrow"], 11, NEWS_MUTED), 0, 12, 0, 0))
+	content.add_child(_news_margins(_news_text(_good_name(kind, good_type), 24, NEWS_INK, true), 0, 7, 0, 8))
 	var move := Market.day_move(kind, good_type)
-	var price_row := UI.hbox()
-	price_row.add_child(UI.label(UI.price_text(kind, Market.quote(kind, good_type))))
-	price_row.add_child(UI.tinted_label("%s vs yesterday" % PriceMove.text(move, true), PriceMove.colour(move, MUTED)))
+	var price_row := UI.hbox(12)
+	var current_price := _news_text(UI.price_text(kind, Market.quote(kind, good_type)), 30, MARKET_PRICE)
+	current_price.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	price_row.add_child(current_price)
+	var delta := _news_text(copy["flatMove"] if move == 0 else copy["moveToday"] % PriceMove.text(move, true), 12, PriceMove.colour(move, NEWS_MUTED))
+	delta.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	price_row.add_child(delta)
 	content.add_child(price_row)
 
 	var series: Dictionary = Market.price_series(kind, good_type)
 	var days: Array[int] = series["days"]
 	var notes: Array = Market.annotations_for(kind, good_type)
 	var markers: Array = []
+	var marker_indices := {}
+	var marked_count := 0
 	for note in notes:
 		var index := days.find(int(note["day"]))
 		if index >= 0:
-			markers.append({ "index": index, "colour_id": ANNOTATION_COLOURS[note["kind"]] })
-	var chart_card := UI.card()
-	chart_card["content"].add_child(UI.label("Price, last %d days" % days.size()))
+			marked_count += 1
+			if marker_indices.has(index):
+				var marker: Dictionary = markers[marker_indices[index]]
+				marker["count"] = int(marker["count"]) + 1
+			else:
+				marker_indices[index] = markers.size()
+				markers.append({ "index": index, "colour_id": ANNOTATION_COLOURS[note["kind"]], "count": 1 })
+	var day_count: String = copy["oneDay"] if days.size() == 1 else copy["days"] % days.size()
+	content.add_child(_news_margins(_section_heading(copy["priceHistory"], day_count), 0, 16, 0, 0))
+	content.add_child(_news_rule(NEWS_RULE, 1))
 	if days.is_empty():
-		chart_card["content"].add_child(UI.muted_label("No trading days on record yet."))
+		content.add_child(_news_margins(_news_text(copy["noHistory"], 12, NEWS_MUTED), 0, 20, 0, 20))
 	else:
 		var chart: LineChart = LineChartScript.new()
-		chart_card["content"].add_child(chart.setup(series["values"], days, "calc_gold_light", "£").with_markers(markers))
-	content.add_child(chart_card["panel"])
+		chart.name = "TickerPriceChart"
+		content.add_child(chart.setup(series["values"], days, "calc_gold_light", "£").with_primary_colour(MARKET_PRICE).with_markers(markers).with_inspection())
+		var selected := _news_text(copy["selectedQuote"] % [days[-1], UI.price_text(kind, int(series["values"][-1]))], 13, NEWS_INK)
+		selected.name = "TickerSelectedQuote"
+		chart.point_selected.connect(func(index: int):
+			selected.text = copy["selectedQuote"] % [days[index], UI.price_text(kind, int(series["values"][index]))]
+		)
+		content.add_child(_news_margins(selected, 0, 10, 0, 0))
+		var hint: String = copy["chartHint"] if markers.is_empty() else copy["eventHint"] % marked_count
+		content.add_child(_news_margins(_news_text(hint, 11, NEWS_MUTED), 0, 5, 0, 13))
+	content.add_child(_news_rule(NEWS_RULE, 1))
 
-	var notes_card := UI.card()
-	notes_card["content"].add_child(UI.heading("Annotations", 14))
+	content.add_child(_news_margins(_section_heading(copy["marketNotes"], copy["recordedEvents"]), 0, 22, 0, 0))
+	content.add_child(_news_rule(NEWS_RULE, 1))
 	if notes.is_empty():
-		notes_card["content"].add_child(UI.muted_label("Nothing worth a note."))
+		content.add_child(_news_margins(_news_text(copy["noEvents"], 12, NEWS_MUTED), 0, 12, 0, 12))
 	for i in range(notes.size() - 1, -1, -1):
 		var note: Dictionary = notes[i]
 		var colour: Color = GameData.PALETTE.get(ANNOTATION_COLOURS[note["kind"]], MUTED)
-		notes_card["content"].add_child(UI.tinted_label("%s · %s" % [Calendar.format_day(int(note["day"])), _annotation_text(note)], colour))
-	content.add_child(notes_card["panel"])
+		var note_row := UI.hbox(12)
+		var note_day := _news_text(copy["noteDay"] % int(note["day"]), 11, NEWS_MUTED)
+		note_day.custom_minimum_size.x = 48
+		note_day.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		note_row.add_child(note_day)
+		note_row.add_child(_news_text(_annotation_text(note), 12, colour))
+		content.add_child(_news_margins(note_row, 0, 11, 0, 11))
+		content.add_child(_news_rule(NEWS_RULE, 1))
+	content.add_child(_news_margins(_news_text(copy["quoteCaveat"], 11, NEWS_MUTED), 0, 18, 0, 0))
 
-	var demand_card := UI.card()
+	var demand := UI.vbox(7)
 	if kind == "ore":
-		demand_card["content"].add_child(UI.heading("Demand driven by", 14))
+		demand.add_child(_section_heading(copy["demandDrivenBy"]))
 		var drivers: Array = Market.ore_demand_drivers(good_type)
 		if drivers.is_empty():
-			demand_card["content"].add_child(UI.muted_label("No item shortages pulling on this ore."))
+			demand.add_child(_news_text(copy["noOreShortage"], 12, NEWS_MUTED))
 		for driver in drivers:
-			demand_card["content"].add_child(UI.muted_label("%s — %d short in London" % [GameData.RECIPES[driver["recipeKey"]]["name"], int(driver["shortage"])]))
+			demand.add_child(_news_text(copy["oreShortage"] % [GameData.RECIPES[driver["recipeKey"]]["name"], int(driver["shortage"])], 12, NEWS_MUTED))
 	else:
-		demand_card["content"].add_child(UI.heading("Ticker demand", 14))
+		demand.add_child(_section_heading(copy["tickerDemand"]))
 		var any_mod := false
 		for mod in Market.demand_modifiers():
 			if mod["target"] == "all" or mod["target"] == good_type:
 				any_mod = true
-				demand_card["content"].add_child(UI.muted_label(_modifier_text(mod)))
+				demand.add_child(_news_text(_modifier_text(mod), 12, NEWS_MUTED))
 		if any_mod:
-			demand_card["content"].add_child(UI.label("Net demand ×%.2f" % Barometer.get_item_demand_mult(good_type)))
+			demand.add_child(_news_text(copy["netDemand"] % Barometer.get_item_demand_mult(good_type), 12, NEWS_INK))
 		else:
-			demand_card["content"].add_child(UI.muted_label("The Ticker isn't touching this one."))
-	content.add_child(demand_card["panel"])
+			demand.add_child(_news_text(copy["noTickerDemand"], 12, NEWS_MUTED))
+	content.add_child(_news_margins(demand, 0, 24, 0, 0))
 
 
 func _select_good_list() -> void:

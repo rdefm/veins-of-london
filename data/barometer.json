@@ -41,7 +41,32 @@
       "priceMove": "Price · daily move",
       "oreType": "Orichalchum",
       "itemType": "Item",
-      "emptyFilter": "Nothing matches the filter."
+      "emptyFilter": "Nothing matches the filter.",
+      "detail": {
+        "back": "‹ Back to Stock Market",
+        "oreEyebrow": "ORE · LONDON QUOTE",
+        "itemEyebrow": "ITEM · LONDON QUOTE",
+        "priceHistory": "PRICE HISTORY",
+        "oneDay": "1 DAY",
+        "days": "%d DAYS",
+        "flatMove": "— £0 today",
+        "moveToday": "%s today",
+        "noHistory": "No trading days on record yet.",
+        "selectedQuote": "Day %d · %s",
+        "chartHint": "Tap or drag chart for daily quote",
+        "eventHint": "%d market events marked · tap or drag chart",
+        "marketNotes": "MARKET NOTES",
+        "recordedEvents": "Recorded events",
+        "noteDay": "Day %d",
+        "noEvents": "Nothing worth a note.",
+        "quoteCaveat": "A quote is a market price, not a guaranteed offer.",
+        "demandDrivenBy": "Demand driven by",
+        "noOreShortage": "No item shortages pulling on this ore.",
+        "oreShortage": "%s — %d short in London",
+        "tickerDemand": "Ticker demand",
+        "netDemand": "Net demand ×%.2f",
+        "noTickerDemand": "The Ticker isn't touching this one."
+      }
     },
     "article": {
       "impactTitle": "WHAT CHANGES IN LONDON",

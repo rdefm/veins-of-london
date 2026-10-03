@@ -139,7 +139,7 @@ overlays.
 | combat_stage.gd | Combat pixel stage: backdrop (location->context->palette); slots in two receding diagonal groups (enemies back/smaller), figure-fitted, depth-sorted; keypose one-shots (sheet, `images`, or random attack `variants`; player = `combat_templates()[player.model]`, scrapper = its `variant`), effects, juice layer. `StageSlot` taps emit `subject_tapped`; selected slot gets an arrow |
 | contact_cards.gd | Shared contact/faction card builders (incl. handler card, Owen card, Targets/Sourcing, Nadia's ledger + "Go with Nadia", key-member card, pending-message actions incl. lowball Accept/Decline, peace offer Talk terms/Decline, favour Accept/Decline), inline Contacts action-row layout, OS chrome repaint |
 | contract_card.gd | Draggable BizBrief Sales card |
-| line_chart.gd | `_draw` line chart (palette-id or app accent colour, optional overlaid series on a shared scale, max label, first/last day, optional point markers) for BizBrief Stats and Ticker price charts |
+| line_chart.gd | `_draw` line chart (palette-id or app accent colour, optional overlaid series on a shared scale, max label, first/last day, optional counted event markers); opt-in touch/drag history-point inspection for Ticker, compact chart for BizBrief Stats |
 | price_move.gd | ▲/▼ + £ delta text and colour for a Market day move (Stock Market rows, sell lanes) |
 | floorplan_view.gd | Estate-agent plan for a home tier from floorplans.json; static, or with tappable slot overlays showing current use |
 | departure_board_casing.gd | Top board's sign housing: code-drawn metal frame, corner bolts, recessed bezel; optional nine-patch `assets/ui/departure_board_frame.png` slot |
@@ -222,7 +222,7 @@ overlays.
 | messages_app.gd | Conversation inbox (fixed-height rows: bold name, one-line `…` preview, unread pill, per-contact Clear) + single-thread staged bubble reveal/action bar (incl. Owen's text reply choices); thread opens scrolled to the newest message |
 | todo_app.gd | ToDo app: collapsible questline sections from Todo, all_of checks as indented sub-rows; session-only expand/collapse overrides in a static var |
 | factions_app.gd | London share table (ore/crafting toggle), London's politics (stance per pair, war/truce markers) and faction cards: archetype, ores, crafts, share bars, stance, pressure, peace talks at war, Gift, favour asked/owed (`Diplomacy`), partner price ask and trouble asks (`Partners`), intel level and what it reveals (`Intel`), activity log. |
-| ticker_app.gd | Ticker News: live state stories in recency order, tappable newest-first wires, state articles with canonical impact, direct same-axis Influence sheet (progress, Push/Pull, disabled M4 actions), read-only wire articles. Stock Market: ore-type/In stock filters, collapsible Ore/Items lists, demand modifiers, price charts with annotations and demand drivers |
+| ticker_app.gd | Ticker News: live state stories in recency order, tappable newest-first wires, state articles with canonical impact, direct same-axis Influence sheet (progress, Push/Pull, disabled M4 actions), read-only wire articles. Stock Market: ore-type/In stock filters, collapsible Ore/Items lists, demand modifiers, live price detail with inspectable recorded-day chart, newest-first annotations and demand drivers |
 | profile_app.gd | Stats, skills, equipment |
 | dialer_app.gd | Phone recent-calls placeholder; no telephony state/actions |
 | settings_app.gd | Reduced-motion and alarm-vibration preference controls |
@@ -240,7 +240,7 @@ overlays.
 | File | Consumed by |
 |---|---|
 | approaches.json | approaches.gd |
-| barometer.json | barometer.gd (states/actions/prefs); ticker_app.gd (News branding, article/impact labels and category copy; Stock Market labels and empty states) |
+| barometer.json | barometer.gd (states/actions/prefs); ticker_app.gd (News branding, article/impact labels and category copy; Stock Market list/detail labels and empty states) |
 | collective_barks.json | collective.gd |
 | combat_prototype.json | combat_prototype.gd |
 | combat_visuals.json | combat_stage.gd (locationBackdrops, backdrops, pose sheets, stage.spriteScale); GameData.gd (territorialVariant pose spec); combat_director.gd (pacing.turnPause); turn_order_strip.gd (cardFrames) |
