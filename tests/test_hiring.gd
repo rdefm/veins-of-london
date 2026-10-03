@@ -287,6 +287,106 @@ func run() -> void:
 		assert_eq(Business.owed("priya"), 0)
 	)
 
+	run_case("market_flips_at_about_one_in_fourteen_to_any_faction", func():
+		_setup()
+		assert_true(is_equal_approx(float(GameData.HIRING_MARKET["flipChancePerDay"]), 1.0 / 14.0))
+		Rng.set_seed(4242)
+		var flips := 0
+		var employers := {}
+		for day in range(10, 710):
+			GameState.state["world"]["day"] = day
+			var before: Dictionary = GameState.state["hiring"]["status"].duplicate(true)
+			Hiring.roll_market_flips()
+			for candidate_id in CANDIDATES:
+				var now: Dictionary = Hiring.status(candidate_id)
+				if now["state"] == before[candidate_id]["state"]:
+					assert_eq(now, before[candidate_id], "%s unchanged without a flip" % candidate_id)
+					continue
+				flips += 1
+				assert_eq(now["since"], day)
+				if now["state"] == "employed":
+					assert_eq(before[candidate_id]["state"], "open")
+					employers[now["employer"]] = true
+				else:
+					assert_eq(now["employer"], null)
+		# 8 candidates × 700 rollovers × 1/14 = 400 expected flips.
+		assert_true(flips > 330 and flips < 470, "flip count %d near 400" % flips)
+		var pool: Array = GameState.state["factions"].keys()
+		assert_eq(Hiring.employer_pool(), pool)
+		for faction_id in pool:
+			assert_true(employers.has(faction_id), "%s drawn as an employer" % faction_id)
+		assert_eq(employers.size(), pool.size())
+	)
+
+	run_case("ours_never_flips", func():
+		_setup()
+		GameState.state["business"]["float"] = 5000
+		Hiring.hire("priya")
+		var hired: Dictionary = Hiring.status("priya").duplicate()
+		Rng.set_seed(7)
+		for day in range(10, 400):
+			GameState.state["world"]["day"] = day
+			Hiring.roll_market_flips()
+		assert_eq(Hiring.status("priya"), hired)
+	)
+
+	run_case("rollover_rolls_market_flips", func():
+		_setup()
+		var chance: float = GameData.HIRING_MARKET["flipChancePerDay"]
+		GameData.HIRING_MARKET["flipChancePerDay"] = 1.0
+		TimeSystem.daily_tick()
+		GameData.HIRING_MARKET["flipChancePerDay"] = chance
+		for candidate_id in CANDIDATES:
+			assert_eq(Hiring.status(candidate_id)["state"], "employed")
+	)
+
+	run_case("poach_applies_the_premium_and_relation_cost", func():
+		_setup()
+		GameState.state["business"]["float"] = 5000
+		GameState.state["hiring"]["status"]["priya"] = { "state": "employed", "employer": "firm", "since": 3 }
+		GameState.state["factions"]["firm"]["relation"] = 10
+		assert_eq(Hiring.hire_block_reason("priya"), "")
+		assert_eq(Hiring.weekly_wage("priya"), 400, "320 × 1.25")
+		assert_true(Hiring.hire("priya")["ok"])
+		assert_eq(GameState.state["business"]["float"], 4600)
+		var wage: Dictionary = GameState.state["business"]["wages"]["priya"]
+		assert_eq(wage["wageMult"], 1.25)
+		assert_eq(wage["weekly"], 400)
+		assert_eq(GameState.state["factions"]["firm"]["relation"], 2)
+		assert_eq(Hiring.status("priya")["state"], "ours")
+		Contacts.award_contact_xp("priya", "crafting", int(GameData.CRAFTING_XP_LEVELS[3]) - int(GameData.CRAFTING_XP_LEVELS[2]))
+		assert_eq(wage["weekly"], 475, "premium kept on a level-up: 380 × 1.25")
+	)
+
+	run_case("open_hire_has_no_premium_or_relation_cost", func():
+		_setup()
+		GameState.state["business"]["float"] = 5000
+		var relations := {}
+		for faction_id in GameState.state["factions"]:
+			relations[faction_id] = GameState.state["factions"][faction_id]["relation"]
+		assert_true(Hiring.hire("priya")["ok"])
+		assert_eq(GameState.state["business"]["wages"]["priya"]["wageMult"], 1.0)
+		assert_eq(GameState.state["business"]["wages"]["priya"]["weekly"], 320)
+		for faction_id in relations:
+			assert_eq(GameState.state["factions"][faction_id]["relation"], relations[faction_id])
+	)
+
+	run_case("market_status_survives_save_load_and_rewind", func():
+		_setup()
+		var employed := { "state": "employed", "employer": "guild", "since": 7 }
+		GameState.state["hiring"]["status"]["dot"] = employed.duplicate()
+		var snapshot: Dictionary = GameState.deep_copy(GameState.state)
+		GameState.state["hiring"]["status"]["dot"] = { "state": "open", "employer": null, "since": 9 }
+		GameState.state = snapshot
+		assert_eq(Hiring.status("dot"), employed, "rewind restores the snapshot's status")
+		var text := SaveManager.export_string()
+		GameState.reset()
+		assert_true(SaveManager.import_string(text)["ok"])
+		assert_eq(Hiring.status("dot")["state"], "employed")
+		assert_eq(Hiring.status("dot")["employer"], "guild")
+		assert_eq(int(Hiring.status("dot")["since"]), 7)
+	)
+
 
 func _app_ids() -> Array:
 	return PhoneApps.apps().map(func(app): return app["id"])

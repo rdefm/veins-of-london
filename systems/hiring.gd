@@ -2,10 +2,11 @@ class_name Hiring
 extends RefCounted
 
 # LodedInnit hiring (R§3.10 "Hiring"): the fixed candidate roster
-# (data/hiring.json candidates), each candidate's market status, and hiring
-# into a free role-room seat, and letting a hire go. The first week's wage is
-# prepaid from the pot, then the float; player cash only reaches it through a
-# float top-up the player agreed to. Static funcs only.
+# (data/hiring.json candidates), each candidate's market status and its
+# rollover flips, hiring or poaching into a free role-room seat, and letting
+# a hire go. The first week's wage is prepaid from the pot, then the float;
+# player cash only reaches it through a float top-up the player agreed to.
+# Static funcs only.
 
 const STATUS_OPEN := "open"
 const STATUS_EMPLOYED := "employed"
@@ -78,7 +79,8 @@ static func level_cap(candidate_id: String) -> int:
 
 
 # round((baseWage + wagePerLevel × (level − startLevel)) × wageMult), where
-# wageMult is their live wage entry's (hiring-spec §10 R2), else 1.
+# wageMult is their live wage entry's (hiring-spec §10 R2), else the poach
+# premium while employed elsewhere, else 1.
 static func weekly_wage(candidate_id: String) -> int:
 	var data := candidate(candidate_id)
 	var formula := int(data["baseWage"]) + int(data["wagePerLevel"]) * (level(candidate_id) - int(data["startLevel"]))
@@ -87,9 +89,51 @@ static func weekly_wage(candidate_id: String) -> int:
 
 static func _wage_mult(candidate_id: String) -> float:
 	var wage: Dictionary = GameState.state["business"]["wages"].get(candidate_id, {})
-	if wage.is_empty() or wage.get("leaving", false):
-		return 1.0
-	return float(wage.get("wageMult", 1.0))
+	if not wage.is_empty() and not wage.get("leaving", false):
+		return float(wage.get("wageMult", 1.0))
+	if is_employed(candidate_id):
+		return poach_mult()
+	return 1.0
+
+
+static func poach_mult() -> float:
+	return 1.0 + float(GameData.HIRING_MARKET["poachPremium"])
+
+
+static func poach_relation_cost() -> int:
+	return int(GameData.HIRING_MARKET["poachRelationCost"])
+
+
+static func is_employed(candidate_id: String) -> bool:
+	return status(candidate_id)["state"] == STATUS_EMPLOYED
+
+
+# The faction employing them, or null.
+static func employer(candidate_id: String) -> Variant:
+	return status(candidate_id)["employer"]
+
+
+# Employer pool (hiring-spec §10 R5): every faction in state.factions, in
+# state order.
+static func employer_pool() -> Array:
+	return GameState.state["factions"].keys()
+
+
+# Rollover step (hiring-spec §4.1): every candidate not working for you
+# flips between open and employed with chance flipChancePerDay; a new
+# employer is a random faction from employer_pool().
+static func roll_market_flips() -> void:
+	var day: int = GameState.state["world"]["day"]
+	var chance := float(GameData.HIRING_MARKET["flipChancePerDay"])
+	var statuses: Dictionary = GameState.state["hiring"]["status"]
+	for candidate_id in GameData.HIRING_CANDIDATES:
+		var state: String = statuses[candidate_id]["state"]
+		if state == STATUS_OURS or not Rng.chance(chance):
+			continue
+		if state == STATUS_EMPLOYED:
+			statuses[candidate_id] = _open_status(day)
+		else:
+			statuses[candidate_id] = { "state": STATUS_EMPLOYED, "employer": Rng.rand_from(employer_pool()), "since": day }
 
 
 # Re-reads a hire's weekly wage after a level-up; leavers and non-candidates
@@ -114,8 +158,6 @@ static func hire_block_reason(candidate_id: String) -> String:
 		return "No such candidate."
 	if status(candidate_id)["state"] == STATUS_OURS:
 		return "Already works for you."
-	if status(candidate_id)["state"] != STATUS_OPEN:
-		return "Not open to work."
 	if not Business.is_pot_active():
 		return "The business pot isn't running yet."
 	var room_id: String = role(candidate_id)["room"]
@@ -132,12 +174,14 @@ static func top_up_needed(candidate_id: String) -> int:
 	return Business.shortfall(weekly_wage(candidate_id))
 
 
-# Hires an open candidate into a free seat of their role room: the first
-# week is prepaid from the pot, then the float. If pot + float are short,
-# refused with { ok: false, topUp: X } unless top_up is true, in which case
-# X moves from cash into the float first. On success they
-# are recruited, their role skill is raised to startLevel, they are seated,
-# and their status becomes "ours".
+# Hires a candidate into a free seat of their role room: the first week is
+# prepaid from the pot, then the float. If pot + float are short, refused
+# with { ok: false, topUp: X } unless top_up is true, in which case X moves
+# from cash into the float first. An employed candidate is poached
+# (hiring-spec §4.2): the poach premium becomes their permanent wageMult and
+# their employer's relation drops by poachRelationCost. On success they are
+# recruited, their role skill is raised to startLevel, they are seated, and
+# their status becomes "ours".
 static func hire(candidate_id: String, top_up: bool = false) -> Dictionary:
 	var reason := hire_block_reason(candidate_id)
 	if reason != "":
@@ -146,9 +190,12 @@ static func hire(candidate_id: String, top_up: bool = false) -> Dictionary:
 	var needed := top_up_needed(candidate_id)
 	if needed > 0 and not top_up:
 		return { "ok": false, "reason": "Top up the float by £%d to cover this hire." % needed, "topUp": needed }
-	var paid := Business.prepay_hire_wage(candidate_id, weekly, needed)
+	var poached_from: Variant = employer(candidate_id) if is_employed(candidate_id) else null
+	var paid := Business.prepay_hire_wage(candidate_id, weekly, needed, poach_mult() if poached_from != null else 1.0)
 	if not paid["ok"]:
 		return paid
+	if poached_from != null:
+		Factions.adjust_player_relation(poached_from, -poach_relation_cost())
 	var c: Dictionary = GameState.state["contacts"][candidate_id]
 	var start_level := int(candidate(candidate_id)["startLevel"])
 	var skill_id := skill(candidate_id)

@@ -194,6 +194,10 @@ var HIRING_ROLES: Dictionary = {}
 # (R§3.10 "Hiring"). Each is also merged into CONTACTS_DEFAULTS at boot.
 var HIRING_CANDIDATES: Dictionary = {}
 
+# LodedInnit market numbers: {flipChancePerDay, poachPremium,
+# poachRelationCost} (R§3.10 "Hiring").
+var HIRING_MARKET: Dictionary = {}
+
 # Ceiling on a Production personal target (state.labThresholds), R§3.10.
 var PRODUCTION_TARGET_MAX: int = 0
 
@@ -462,6 +466,7 @@ const MANIFEST: Array[Dictionary] = [
 	{"table": "hiring", "file": "res://data/hiring.json", "fields": [
 		{"field": "HIRING_ROLES", "key": "roles", "type": TYPE_DICTIONARY},
 		{"field": "HIRING_CANDIDATES", "key": "candidates", "type": TYPE_DICTIONARY},
+		{"field": "HIRING_MARKET", "key": "market", "type": TYPE_DICTIONARY},
 	]},
 ]
 

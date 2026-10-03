@@ -118,9 +118,10 @@ static func pay_calc_purchase(contract_id: String, legs: Array) -> bool:
 # then draws `weekly` from the pot, then the float, in full or not at all, as
 # this week's `wage` expense, and opens their wage entry. paidThroughDay =
 # today + 7: the rollovers into the prepaid days accrue nothing, so payday
-# never re-charges them. The hire is paid before any other owed wage the
+# never re-charges them. wageMult is the hire's permanent wage multiplier
+# (hiring-spec §10 R2). The hire is paid before any other owed wage the
 # top-up might now cover.
-static func prepay_hire_wage(contact_id: String, weekly: int, top_up: int = 0) -> Dictionary:
+static func prepay_hire_wage(contact_id: String, weekly: int, top_up: int = 0, wage_mult: float = 1.0) -> Dictionary:
 	if not is_pot_active():
 		return { "ok": false, "reason": "The business pot isn't running yet." }
 	if shortfall(weekly) > top_up:
@@ -136,7 +137,7 @@ static func prepay_hire_wage(contact_id: String, weekly: int, top_up: int = 0) -
 	BusinessStats.record_expense(weekly, BusinessStats.EXPENSE_STAFF)
 	var entry := {
 		"weekly": weekly, "owed": 0, "unpaid": false, "hiredDay": day, "daysWorked": 0,
-		"promptPending": false, "paidThroughDay": day + Calendar.days_per_week(), "wageMult": 1.0,
+		"promptPending": false, "paidThroughDay": day + Calendar.days_per_week(), "wageMult": wage_mult,
 	}
 	# A leaving entry not yet settled carries its owed and worked days over
 	# as owed, so a re-hire never loses them.

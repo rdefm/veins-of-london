@@ -57,8 +57,12 @@ func _status_text(candidate_id: String) -> String:
 		Hiring.STATUS_OURS:
 			return "Works for you"
 		Hiring.STATUS_EMPLOYED:
-			return "Employed"
+			return "Employed at %s" % _employer_name(candidate_id)
 	return "Open to work"
+
+
+func _employer_name(candidate_id: String) -> String:
+	return GameData.FACTIONS[Hiring.employer(candidate_id)]["name"]
 
 
 func _open_profile(candidate_id: String) -> void:
@@ -96,7 +100,11 @@ func _build_profile(content: VBoxContainer) -> void:
 		_build_top_up_prompt(content, candidate_id)
 		return
 	var reason := Hiring.hire_block_reason(candidate_id)
-	content.add_child(UI.action_button("Hire · £%d first week" % Hiring.weekly_wage(candidate_id), _on_hire_pressed.bind(candidate_id), reason != "", reason))
+	var verb := "Hire"
+	if Hiring.is_employed(candidate_id):
+		verb = "Poach"
+		content.add_child(UI.muted_label("Wage +%d%% for good. Costs %d relation with %s." % [roundi((Hiring.poach_mult() - 1.0) * 100.0), Hiring.poach_relation_cost(), _employer_name(candidate_id)]))
+	content.add_child(UI.action_button("%s · £%d first week" % [verb, Hiring.weekly_wage(candidate_id)], _on_hire_pressed.bind(candidate_id), reason != "", reason))
 
 
 func _speciality_pips(specialities: Array) -> Control:
