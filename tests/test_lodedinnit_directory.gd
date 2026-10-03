@@ -18,6 +18,43 @@ static func _open_app(phone: PhoneScreen) -> LodedInnitApp:
 
 
 func run() -> void:
+	run_case("brand_ink_and_tabs_follow_displayed_page", func():
+		GameState.reset()
+		var phone := PhoneScreen.new()
+		var app := _open_app(phone)
+		var root := phone.find_child(LodedInnitApp.ROOT_NODE_NAME, true, false)
+		var brand := phone.find_child(LodedInnitApp.BRAND_BAR_NODE_NAME, true, false)
+		var tabs := phone.find_child(LodedInnitApp.TABS_NODE_NAME, true, false)
+		assert_eq(root.get_child(0), brand)
+		assert_eq(root.get_child(1), tabs)
+		var feed := phone.find_child(LodedInnitApp.FEED_TAB_NODE_NAME, true, false) as Button
+		var people := phone.find_child(LodedInnitApp.PEOPLE_TAB_NODE_NAME, true, false) as Button
+		assert_true(not feed.disabled and not people.disabled)
+		assert_true(people.button_pressed and not feed.button_pressed)
+		assert_eq(people.get_theme_color("font_color"), GameData.PALETTE["phone_text_primary"])
+		assert_eq(feed.get_theme_color("font_color"), GameData.PALETTE["phone_text_muted"])
+		assert_eq((people.get_theme_stylebox("normal") as StyleBoxFlat).border_width_bottom, 2)
+		assert_eq((people.get_theme_stylebox("normal") as StyleBoxFlat).border_color, GameData.PALETTE["lodedinnit_plum"])
+		assert_eq((feed.get_theme_stylebox("normal") as StyleBoxFlat).border_width_bottom, 0)
+		assert_eq((feed.get_theme_stylebox("normal") as StyleBoxFlat).bg_color.a, 0.0)
+		var name_button := NodeQuery.find_button(phone, "Priya Sandhu")
+		assert_eq(name_button.get_theme_color("font_color"), GameData.PALETTE["phone_text_primary"])
+		feed.pressed.emit()
+		assert_eq(app._tab, LodedInnitApp.FEED_TAB)
+		root = phone.find_child(LodedInnitApp.ROOT_NODE_NAME, true, false)
+		assert_eq(root.get_child(0).name, LodedInnitApp.BRAND_BAR_NODE_NAME)
+		assert_eq(root.get_child(1).name, LodedInnitApp.TABS_NODE_NAME)
+		feed = phone.find_child(LodedInnitApp.FEED_TAB_NODE_NAME, true, false) as Button
+		people = phone.find_child(LodedInnitApp.PEOPLE_TAB_NODE_NAME, true, false) as Button
+		assert_true(feed.button_pressed and not people.button_pressed)
+		assert_true(not feed.disabled and not people.disabled)
+		assert_eq((feed.get_theme_stylebox("normal") as StyleBoxFlat).border_width_bottom, 2)
+		assert_eq((people.get_theme_stylebox("normal") as StyleBoxFlat).border_width_bottom, 0)
+		people.pressed.emit()
+		assert_eq(app._tab, LodedInnitApp.PEOPLE_TAB)
+		phone.free()
+	)
+
 	run_case("groups_follow_roster_by_enabled_role", func():
 		GameState.reset()
 		var groups := LodedInnitDirectory.groups("all", "all", "roster")

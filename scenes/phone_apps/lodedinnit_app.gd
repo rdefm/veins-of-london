@@ -14,6 +14,8 @@ const PEOPLE_TAB := "people"
 const ROOT_NODE_NAME := "LodedInnitRoot"
 const BRAND_BAR_NODE_NAME := "LodedInnitBrandBar"
 const TABS_NODE_NAME := "LodedInnitTabs"
+const FEED_TAB_NODE_NAME := "LodedInnitFeedTab"
+const PEOPLE_TAB_NODE_NAME := "LodedInnitPeopleTab"
 const ROLE_FILTER_NODE_NAME := "LodedInnitRoleFilter"
 const ORE_FILTER_NODE_NAME := "LodedInnitOreFilter"
 const WAGE_SORT_NODE_NAME := "LodedInnitWageSort"
@@ -38,6 +40,8 @@ const PLUM_LIGHT_FALLBACK := Color("#dab8eb")
 const COPPER_FALLBACK := Color("#dda477")
 const BAR_FILL := Color("#3c3042")
 const GROUP_FILL := Color("#323236")
+const CARD_FILL := Color("#303034")
+const OLD_MUTED := Color(0.541176, 0.541176, 0.541176, 1)
 
 var _tab := PEOPLE_TAB
 var _profile_id := ""
@@ -72,6 +76,7 @@ func build(_content: VBoxContainer) -> void:
 	if _profile_id == "":
 		_root.add_child(_build_tabs())
 	var scroll := UI.scroll_container()
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_root.add_child(scroll)
 	var page := UI.vbox(10)
@@ -90,6 +95,7 @@ func build(_content: VBoxContainer) -> void:
 		_build_feed(page)
 	else:
 		_build_people(page)
+	_apply_local_chrome(_root)
 
 
 func teardown() -> void:
@@ -131,15 +137,22 @@ func _build_brand_bar() -> Control:
 	var wordmark_row := UI.hbox(0)
 	var wordmark := UI.label("Loded")
 	wordmark.add_theme_font_size_override("font_size", 19)
+	wordmark.add_theme_color_override("font_color", _ink())
+	var bold := FontVariation.new()
+	bold.base_font = ThemeDB.fallback_font
+	bold.variation_embolden = 0.6
+	wordmark.add_theme_font_override("font", bold)
 	wordmark.autowrap_mode = TextServer.AUTOWRAP_OFF
 	wordmark_row.add_child(wordmark)
 	var accent := UI.tinted_label("Innit", plum_light())
 	accent.add_theme_font_size_override("font_size", 19)
+	accent.add_theme_font_override("font", bold)
 	accent.autowrap_mode = TextServer.AUTOWRAP_OFF
 	wordmark_row.add_child(accent)
 	name_box.add_child(wordmark_row)
 	var tagline := UI.tinted_label("THE PROFESSIONAL UNDERGROUND", plum_light())
-	tagline.add_theme_font_size_override("font_size", 8)
+	tagline.add_theme_font_size_override("font_size", 7)
+	tagline.add_theme_font_override("font", bold)
 	tagline.autowrap_mode = TextServer.AUTOWRAP_OFF
 	name_box.add_child(tagline)
 	row.add_child(name_box)
@@ -147,13 +160,103 @@ func _build_brand_bar() -> Control:
 
 
 func _build_tabs() -> Control:
-	var tabs := UI.hbox(0)
+	var tabs := UI.vbox(0)
 	tabs.name = TABS_NODE_NAME
+	var row := UI.hbox(0)
+	tabs.add_child(row)
 	for tab in [[FEED_TAB, "Feed"], [PEOPLE_TAB, "People"]]:
 		var b := UI.button(tab[1], _set_tab.bind(tab[0]))
-		b.disabled = _tab == tab[0]
-		tabs.add_child(UI.expand_fill(b))
+		b.name = FEED_TAB_NODE_NAME if tab[0] == FEED_TAB else PEOPLE_TAB_NODE_NAME
+		b.toggle_mode = true
+		b.button_pressed = _tab == tab[0]
+		b.custom_minimum_size.y = 42
+		row.add_child(UI.expand_fill(b))
+	var rule := HSeparator.new()
+	rule.add_theme_stylebox_override("separator", _rule_style())
+	rule.add_theme_constant_override("separation", 1)
+	tabs.add_child(rule)
 	return tabs
+
+
+func _ink() -> Color:
+	return GameData.PALETTE.get("phone_text_primary", Color("#ededee"))
+
+
+func _muted_ink() -> Color:
+	return GameData.PALETTE.get("phone_text_muted", Color("#999a9d"))
+
+
+func _rule_style() -> StyleBoxLine:
+	var style := StyleBoxLine.new()
+	style.color = GameData.PALETTE.get("phone_divider", Color("#424246"))
+	style.thickness = 1
+	return style
+
+
+func _button_style(fill: Color, border: Color = Color.TRANSPARENT) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = fill
+	style.set_corner_radius_all(8)
+	style.content_margin_left = 10
+	style.content_margin_right = 10
+	style.content_margin_top = 7
+	style.content_margin_bottom = 7
+	if border.a > 0.0:
+		style.set_border_width_all(1)
+		style.border_color = border
+	return style
+
+
+func _style_button(button: Button) -> void:
+	var ink := _ink()
+	var muted := _muted_ink()
+	if button.name == FEED_TAB_NODE_NAME or button.name == PEOPLE_TAB_NODE_NAME:
+		var selected := button.button_pressed
+		for state in ["normal", "hover", "pressed", "hover_pressed"]:
+			var style := _button_style(Color.TRANSPARENT)
+			style.set_corner_radius_all(0)
+			if selected:
+				style.border_width_bottom = 2
+				style.border_color = plum()
+			button.add_theme_stylebox_override(state, style)
+		button.add_theme_color_override("font_color", ink if selected else muted)
+		button.add_theme_color_override("font_hover_color", ink)
+		button.add_theme_color_override("font_pressed_color", ink)
+		button.add_theme_color_override("font_hover_pressed_color", ink)
+		return
+	var fill := BAR_FILL
+	button.add_theme_stylebox_override("normal", _button_style(fill, plum()))
+	button.add_theme_stylebox_override("hover", _button_style(plum()))
+	button.add_theme_stylebox_override("pressed", _button_style(plum()))
+	button.add_theme_stylebox_override("hover_pressed", _button_style(plum()))
+	button.add_theme_stylebox_override("disabled", _button_style(GROUP_FILL, _muted_ink()))
+	button.add_theme_color_override("font_color", ink)
+	button.add_theme_color_override("font_hover_color", ink)
+	button.add_theme_color_override("font_pressed_color", ink)
+	button.add_theme_color_override("font_hover_pressed_color", ink)
+	button.add_theme_color_override("font_disabled_color", muted)
+
+
+# Style only controls mounted inside this app; the shared theme and phone frame stay untouched.
+func _apply_local_chrome(node: Node) -> void:
+	if node is Label:
+		var label := node as Label
+		if not label.has_theme_color_override("font_color"):
+			label.add_theme_color_override("font_color", _ink())
+		elif label.get_theme_color("font_color") == OLD_MUTED:
+			label.add_theme_color_override("font_color", _muted_ink())
+	elif node is Button:
+		_style_button(node as Button)
+	elif node is PanelContainer:
+		var panel := node as PanelContainer
+		if not panel.has_theme_stylebox_override("panel"):
+			panel.add_theme_stylebox_override("panel", UI.bordered_panel_style(CARD_FILL, GameData.PALETTE.get("phone_divider", Color("#424246")), 8, 12, 10))
+	elif node is HSeparator:
+		var rule := node as HSeparator
+		if not rule.has_theme_stylebox_override("separator"):
+			rule.add_theme_stylebox_override("separator", _rule_style())
+	for child in node.get_children():
+		_apply_local_chrome(child)
 
 
 func _set_tab(tab: String) -> void:
