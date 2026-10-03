@@ -552,6 +552,7 @@ changes home placement and the surrounding shell, not gameplay.
 | Notifications | Flat log (`_build_notification_row`) | Flat-list pattern, newest-first, no push-navigation — this is the full-history log app §3 distinguishes from the persistent dot-matrix board (Family 4) |
 | Reynard's | Balance + flat log (`_build_balance_card`, `_build_bank_transaction_row`) | Dashboard pattern for the balance card (figure in `calc_gold`) + flat-list pattern for the transaction rows below it (amounts in `calc_gold`, everything else ink) |
 | Harrow's | Estate-agent listing feed (`property_app.gd`), own mounted root | **Documented exception, below** — Harrow's brand chrome, not this family's shared dark chrome |
+| LodedInnit | Feed/People tabs + profile (`lodedinnit_app.gd`), own mounted root | **Documented exception, below** — plum/copper brand chrome on the shared dark surface |
 
 **Harrow's exception (approved 2026-09-26, `.scratch/harrows-redesign/`):**
 Harrow's reads as a conventional estate-agent app inside the unchanged
@@ -571,6 +572,17 @@ chrome departs from the rules in this section and §§6–7:
 - **Typography:** property names, the feed heading and the wordmark use an
   editorial serif (system Georgia/serif, engine font as fallback); body,
   prices and facts stay on the shared UI sans (prices/eyebrows emboldened).
+**The LodedInnit exception (approved 2026-10-02, `.scratch/lodedinnit-ui/spec.md`, direction C):**
+LodedInnit keeps the device frame, status bar and dark phone surface. Its
+own brand chrome is a dark plum bar with the launcher logo and wordmark,
+Feed/People tabs directly below it, and a plum rule.
+- **Brand colours:** `lodedinnit_plum` (`#81549a`), `lodedinnit_plum_light`
+  (`#dab8eb`) and `lodedinnit_copper` (`#dda477`), group `lodedinnit` in
+  `data/palette.json`. Plum marks avatars, group headers and status text;
+  light plum is the wordmark accent; copper marks wage figures.
+- **People:** role-grouped compact rows (name, headline, availability,
+  level/cap, weekly wage) under Role, Ore specialism and Wage controls; no
+  decorative menu. Text stays on the shared light-on-dark sans.
 **The Ticker exception (approved 2026-10-03, `.scratch/ticker-revamp/ticker-concept.html`):**
 The Ticker keeps the existing device frame and status bar. Its News feed has
 an editorial masthead and mark, red rule and brief banner, serif headlines,

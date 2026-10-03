@@ -79,6 +79,9 @@
     { "id": "phone_bubble_incoming", "hex": "#333336", "group": "phone_os" },
 
     { "id": "harrows_green",     "hex": "#06472f", "group": "harrows" },
-    { "id": "harrows_gold",      "hex": "#efd079", "group": "harrows" }
+    { "id": "harrows_gold",      "hex": "#efd079", "group": "harrows" },
+    { "id": "lodedinnit_plum",       "hex": "#81549a", "group": "lodedinnit" },
+    { "id": "lodedinnit_plum_light", "hex": "#dab8eb", "group": "lodedinnit" },
+    { "id": "lodedinnit_copper",     "hex": "#dda477", "group": "lodedinnit" }
   ]
 }

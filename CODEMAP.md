@@ -60,6 +60,7 @@ Data file per system: see `data/*.json` below.
 | guard_kit.gd | Guard kit: allowlisted combat items stocked by tier on a player vein's or HQ's (`home.guardKit`) `guardKit`; capacity (guards × slots), active units, `stock`/`unstock` and `*_hq` twins; missed-defend repel boost/spend; kit-dict helpers (incl. `remove_units`); target helpers (vein/hq), summary/status text, `kit_veins` |
 | guard_upkeep.gd | Guard wages: hire advance, weekly cost/labels, per-day per-place `guardUpkeep.history`, pre-pot Monday bill from cash, faction Monday bill (vein + stockpile guards) and wage-reserve gate, pending guard shortfall (grace, auto-resolve drop order, short-pay quote/confirm), place labels, Guard Costs reads (history window, per-place series, places, next Monday bill) |
 | home.gd | Home tier/tenure/security/rooms/raid chance; per-day and weekly bill base (rent or utilities); arrears countdown to Monday; tier moves via shared `change_tier` (room wipe, security loss); HQ `drop_guard`; per-slot room purchase/replacement (`set_room_use`), seat upgrades; daily raid roll, alarm queue/expiry + guard (kit) repel, and alarm-defend win/loss resolution (R§3.8) |
+| lodedinnit_directory.gd | LodedInnit People projection: role groups in roster order, Role/ore-specialism filters, per-group wage sort (roster → desc → asc alternating), filter option lists |
 | lodedinnit_feed.gd | LodedInnit Feed: per-block post roll (weighted author, no repeat until pool spent, likes, 0-2 canned comments, cap 50), templated hire-status posts (`post_status`: hired/let go/poached/market flip), unseen badge count, `mark_seen`, card display model (R§3.10 "LodedInnit Feed") |
 | hiring.gd | LodedInnit roster + `state.hiring` status, rollover market flips; profile level/cap/wage; `hire()` (or poach: ×premium, relation cost) into a free role-room seat, first week prepaid pot→float or float top-up ask; wage refresh; `let_go()`; weekly faction poach offers on hires (`daily_poach_tick`, `match_poach`, `decline_poach`) (R§3.10 "Hiring") |
 | jobs.gd | James's jobs, trust bands |
@@ -232,7 +233,7 @@ overlays.
 | short_pay_view.gd | BizBrief short-pay sub-view: per-place guard keep steppers, live cost/reserve/cash needed, Confirm |
 | guard_costs_view.gd | BizBrief Guard Costs sub-view (pot or not): next Monday bill + pending shortfall header, per-place guard payment chart over the history window, multi-select HQ/vein filter |
 | bank_app.gd | Reynard's: oxblood-gradient balance panel (branded header, calc_gold figure) + day-grouped hairline transaction ledger, newest first |
-| lodedinnit_app.gd | LodedInnit: Feed (social-card posts, `Network activity` intro, empty state)/People tabs, candidate profile (level→cap, wage, speciality pips), Open/Employed-at status, Hire or Poach (premium + relation warning) with float top-up prompt via `Hiring.hire` |
+| lodedinnit_app.gd | LodedInnit on its own plum/copper root (logo brand bar, Feed/People tabs): social-card Feed; People role groups with Role/ore/Wage controls (view state kept across profile trips); candidate profile; Hire/Poach with float top-up via `Hiring.hire` |
 | property_app.gd | Harrow's: listings + particulars on own mounted root in brand chrome (ui-vision §10 exception), every tier in ladder order with its `image` photo; current tier is YOUR PLACE card (tenure, cost, risk, rooms, arrears, buy-out, plan). Particulars: hero, terms, copy, static plan if any, rent/buy (`Home.rent_to`/`buy_to`), losses |
 | debug_app.gd | Debug Start-only tools: cash/calc/site spawners, combat launchers, one relation block (dropdown over every contact + faction, shows current relation, applies a delta), any-event trigger picker |
 
@@ -266,7 +267,7 @@ overlays.
 | objectives.json | objectives.gd, todo.gd, collective.gd, business_quest.gd |
 | offers.json | offers.gd (synthetic catalogue, scripted counterparties, offer expiry days, recurring term weeks, random-offer daily chance curve + qty bands, small-offer threshold, cancel relation hit), business_quest.gd (biz_starter_* chain + Archie nudge text, biz_recurring_* from Beat 3/6) |
 | ore_types.json | widely read (economy, cultivating, sites, factions) |
-| palette.json | GameData.gd (reference combat-art palette) |
+| palette.json | GameData.gd (reference combat-art palette; `lodedinnit_*` brand tokens read by lodedinnit_app.gd) |
 | phone_home.json | GameData.gd + phone_device_shell.gd (fixed wallpaper/status/widget presentation; no GameState or host-service data) |
 | recipes.json | widely read (crafting, bench, combat, dial, jobs, rooms) |
 | sites.json | sites.gd, collective.gd, objectives.gd |
