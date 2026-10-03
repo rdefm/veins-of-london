@@ -5,7 +5,7 @@
 # view state held here; the directory projection is LodedInnitDirectory and
 # hiring goes through Hiring.hire().
 #
-# PROSE-REVIEW: tab/empty-feed/status strings, feed intro, People controls, empty-directory and group strings, profile stat captions and seat line.
+# PROSE-REVIEW: tab/empty-feed/status strings, feed intro, People controls, empty-directory and group strings, profile captions and hire dock copy.
 class_name LodedInnitApp
 extends PhoneApp
 
@@ -29,6 +29,11 @@ const PEOPLE_COUNT_NODE_NAME := "LodedInnitPeopleCount"
 const PEOPLE_TOOLBAR_NODE_NAME := "LodedInnitPeopleToolbar"
 const EMPTY_NODE_NAME := "LodedInnitEmpty"
 const ROW_NODE_PREFIX := "LodedInnitRow_"
+const PROFILE_NAV_NODE_NAME := "LodedInnitProfileNav"
+const PROFILE_AVATAR_NODE_NAME := "LodedInnitProfileAvatar"
+const PROFILE_BADGE_NODE_NAME := "LodedInnitProfileBadge"
+const PROFILE_GRID_NODE_NAME := "LodedInnitProfileGrid"
+const PROFILE_SPECIALITIES_NODE_NAME := "LodedInnitProfileSpecialities"
 const PROFILE_ROLE_NODE_NAME := "LodedInnitProfileRole"
 const PROFILE_LEVEL_NODE_NAME := "LodedInnitProfileLevel"
 const PROFILE_WAGE_NODE_NAME := "LodedInnitProfileWage"
@@ -85,20 +90,21 @@ func build(_content: VBoxContainer) -> void:
 	_root = UI.vbox(0)
 	_root.name = ROOT_NODE_NAME
 	shell.mount_custom_root(_root)
-	_root.add_child(_build_brand_bar())
 	if _profile_id == "":
+		_root.add_child(_build_brand_bar())
 		_root.add_child(_build_tabs())
+	else:
+		_root.add_child(_build_profile_nav())
 	var scroll := UI.scroll_container()
 	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_root.add_child(scroll)
-	var flush_page := _profile_id == ""
-	var page := UI.vbox(0 if flush_page else 10)
+	var page := UI.vbox(0)
 	page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var margin := MarginContainer.new()
 	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	for side in ["left", "right", "top", "bottom"]:
-		margin.add_theme_constant_override("margin_" + side, 0 if flush_page else 12)
+		margin.add_theme_constant_override("margin_" + side, 0)
 	margin.add_child(page)
 	scroll.add_child(margin)
 	if _profile_id != "":
@@ -173,6 +179,34 @@ func _build_brand_bar() -> Control:
 	return bar
 
 
+func _build_profile_nav() -> Control:
+	var panel := PanelContainer.new()
+	panel.name = PROFILE_NAV_NODE_NAME
+	var style := StyleBoxFlat.new()
+	style.bg_color = BAR_FILL
+	style.content_margin_left = 14
+	style.content_margin_right = 16
+	style.content_margin_top = 8
+	style.content_margin_bottom = 8
+	panel.add_theme_stylebox_override("panel", style)
+	var row := UI.hbox(0)
+	panel.add_child(row)
+	var back := UI.button("‹ People", _close_profile)
+	back.flat = true
+	back.focus_mode = Control.FOCUS_NONE
+	back.add_theme_color_override("font_color", plum_light())
+	back.add_theme_font_size_override("font_size", 12)
+	row.add_child(UI.expand_fill(back))
+	var logo := TextureRect.new()
+	logo.texture = load(LOGO_PATH)
+	logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	logo.custom_minimum_size = Vector2(25, 25)
+	logo.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(logo)
+	return panel
+
+
 func _build_tabs() -> Control:
 	var tabs := UI.vbox(0)
 	tabs.name = TABS_NODE_NAME
@@ -224,6 +258,13 @@ func _button_style(fill: Color, border: Color = Color.TRANSPARENT) -> StyleBoxFl
 func _style_button(button: Button) -> void:
 	var ink := _ink()
 	var muted := _muted_ink()
+	if button.get_parent() != null and button.get_parent().get_parent() != null and button.get_parent().get_parent().name == PROFILE_NAV_NODE_NAME:
+		for state in ["normal", "hover", "pressed", "hover_pressed"]:
+			button.add_theme_stylebox_override(state, _button_style(Color.TRANSPARENT))
+		button.add_theme_color_override("font_color", plum_light())
+		button.add_theme_color_override("font_hover_color", ink)
+		button.add_theme_color_override("font_pressed_color", ink)
+		return
 	if button.name == FEED_TAB_NODE_NAME or button.name == PEOPLE_TAB_NODE_NAME:
 		var selected := button.button_pressed
 		for state in ["normal", "hover", "pressed", "hover_pressed"]:
@@ -245,6 +286,17 @@ func _style_button(button: Button) -> void:
 		button.add_theme_color_override("font_hover_color", ink)
 		button.add_theme_color_override("font_pressed_color", ink)
 		button.add_theme_font_size_override("font_size", 11)
+		return
+	if button.name == HIRE_BUTTON_NODE_NAME or button.name == TOP_UP_YES_NODE_NAME:
+		button.add_theme_stylebox_override("normal", _button_style(plum()))
+		button.add_theme_stylebox_override("hover", _button_style(plum().lightened(0.12)))
+		button.add_theme_stylebox_override("pressed", _button_style(plum().darkened(0.12)))
+		button.add_theme_stylebox_override("hover_pressed", _button_style(plum().lightened(0.12)))
+		button.add_theme_stylebox_override("disabled", _button_style(GROUP_FILL, _muted_ink()))
+		for state in ["font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color"]:
+			button.add_theme_color_override(state, ink)
+		button.add_theme_color_override("font_disabled_color", muted)
+		button.add_theme_font_override("font", _bold_font())
 		return
 	var fill := BAR_FILL
 	button.add_theme_stylebox_override("normal", _button_style(fill, plum()))
@@ -732,35 +784,137 @@ func _close_profile() -> void:
 func _build_profile(content: VBoxContainer) -> void:
 	var candidate_id := _profile_id
 	var data := Hiring.candidate(candidate_id)
-	content.add_child(UI.button("‹ People", _close_profile))
-	content.add_child(UI.heading(Contacts.display_name(candidate_id)))
-	content.add_child(UI.muted_label(data["headline"]))
-	content.add_child(UI.tinted_label(_status_text(candidate_id), plum_light()))
+	var title_margin := _people_margin(14, 16)
+	var title := UI.vbox(5)
+	title_margin.add_child(title)
+	var avatar := PanelContainer.new()
+	avatar.name = PROFILE_AVATAR_NODE_NAME
+	avatar.custom_minimum_size = Vector2(56, 56)
+	avatar.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	var avatar_style := StyleBoxFlat.new()
+	avatar_style.bg_color = Color("#5c4964")
+	avatar_style.set_corner_radius_all(12)
+	avatar.add_theme_stylebox_override("panel", avatar_style)
+	var initials := UI.tinted_label(LodedInnitFeed.initials(Contacts.display_name(candidate_id)), _ink())
+	initials.add_theme_font_size_override("font_size", 17)
+	initials.add_theme_font_override("font", _bold_font())
+	initials.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	initials.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	avatar.add_child(initials)
+	title.add_child(avatar)
+	var name := UI.tinted_label(Contacts.display_name(candidate_id), _ink())
+	name.add_theme_font_size_override("font_size", 26)
+	name.add_theme_font_override("font", _bold_font())
+	name.custom_minimum_size.x = 0
+	title.add_child(name)
+	var headline := UI.tinted_label(data["headline"], _muted_ink())
+	headline.add_theme_font_size_override("font_size", 11)
+	headline.add_theme_constant_override("line_spacing", 3)
+	headline.custom_minimum_size.x = 0
+	title.add_child(headline)
+	content.add_child(title_margin)
 
-	var c := UI.card()
-	var body: VBoxContainer = c["content"]
-	body.add_child(_profile_stat("Role", Hiring.role(candidate_id)["label"], PROFILE_ROLE_NODE_NAME))
-	body.add_child(_profile_stat("Level", "%d / %d" % [Hiring.level(candidate_id), Hiring.level_cap(candidate_id)], PROFILE_LEVEL_NODE_NAME))
-	body.add_child(_profile_stat("Wage", "£%d a week" % Hiring.weekly_wage(candidate_id), PROFILE_WAGE_NODE_NAME))
-	body.add_child(_profile_stat("Experience", LodedInnitProfile.experience_text(candidate_id), PROFILE_XP_NODE_NAME))
-	body.add_child(_profile_stat("Room", LodedInnitProfile.seat_text(candidate_id), PROFILE_SEAT_NODE_NAME))
-	body.add_child(_speciality_pips(data.get("specialities", [])))
-	content.add_child(c["panel"])
+	var badge_margin := _people_margin(0, 16)
+	var badge := PanelContainer.new()
+	badge.name = PROFILE_BADGE_NODE_NAME
+	var badge_style := UI.bordered_panel_style(Color("#372c40"), Color("#735785"), 8, 11, 9)
+	badge.add_theme_stylebox_override("panel", badge_style)
+	var status := UI.tinted_label("●  %s" % _status_text(candidate_id).to_upper(), plum_light())
+	status.add_theme_font_size_override("font_size", 10)
+	status.add_theme_font_override("font", _bold_font())
+	status.custom_minimum_size.x = 0
+	badge.add_child(status)
+	badge_margin.add_child(badge)
+	content.add_child(badge_margin)
 
-	var about := UI.label(data["about"])
-	about.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	content.add_child(about)
+	var wage_margin := _people_margin(13, 16)
+	var wage_band := UI.vbox(0)
+	wage_margin.add_child(wage_band)
+	wage_band.add_child(HSeparator.new())
+	var wage_row := UI.hbox(4)
+	var wage_context := UI.tinted_label("WEEKLY WAGE\nFIRST WEEK PREPAID", _muted_ink())
+	wage_context.add_theme_font_size_override("font_size", 10)
+	wage_context.size_flags_vertical = Control.SIZE_SHRINK_END
+	wage_context.custom_minimum_size.x = 0
+	wage_row.add_child(UI.expand_fill(wage_context))
+	var wage := UI.tinted_label("£%d" % Hiring.weekly_wage(candidate_id), copper())
+	wage.name = PROFILE_WAGE_NODE_NAME
+	wage.add_theme_font_size_override("font_size", 28)
+	wage.add_theme_font_override("font", _bold_font())
+	wage_row.add_child(wage)
+	var per_week := UI.tinted_label("/ week", _muted_ink())
+	per_week.add_theme_font_size_override("font_size", 11)
+	per_week.size_flags_vertical = Control.SIZE_SHRINK_END
+	wage_row.add_child(per_week)
+	wage_band.add_child(wage_row)
+	wage_band.add_child(HSeparator.new())
+	content.add_child(wage_margin)
+
+	var grid_margin := _people_margin(3, 16)
+	var grid := GridContainer.new()
+	grid.name = PROFILE_GRID_NODE_NAME
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 1)
+	grid.add_theme_constant_override("v_separation", 1)
+	grid_margin.add_child(grid)
+	grid.add_child(_profile_fact("ROLE", Hiring.role(candidate_id)["label"], PROFILE_ROLE_NODE_NAME))
+	grid.add_child(_profile_fact("LEVEL / CAP", "%d / %d" % [Hiring.level(candidate_id), Hiring.level_cap(candidate_id)], PROFILE_LEVEL_NODE_NAME))
+	grid.add_child(_profile_fact("ORE SPECIALITIES", "", PROFILE_SPECIALITIES_NODE_NAME, _speciality_pips(data.get("specialities", []))))
+	grid.add_child(_profile_fact("ROOM / SEATS", LodedInnitProfile.seat_text(candidate_id), PROFILE_SEAT_NODE_NAME))
+	content.add_child(grid_margin)
+
+	content.add_child(_profile_section("EXPERIENCE", LodedInnitProfile.experience_text(candidate_id), PROFILE_XP_NODE_NAME))
+	content.add_child(_profile_section("BACKGROUND", data["about"]))
+	content.add_child(_profile_section("APPOINTMENT", "First week paid from the business pot, then float."))
 
 
-func _profile_stat(caption: String, value: String, node_name: String) -> Control:
-	var row := UI.hbox(8)
-	row.add_child(UI.muted_label(caption))
-	var v := UI.tinted_label(value, copper())
-	v.name = node_name
-	v.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	v.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	row.add_child(UI.expand_fill(v))
-	return row
+func _profile_fact(caption: String, value: String, node_name: String, detail: Control = null) -> Control:
+	var panel := PanelContainer.new()
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var style := StyleBoxFlat.new()
+	style.bg_color = CARD_FILL
+	style.border_color = GameData.PALETTE.get("phone_divider", Color("#424246"))
+	style.set_border_width_all(1)
+	style.content_margin_left = 10
+	style.content_margin_right = 10
+	style.content_margin_top = 10
+	style.content_margin_bottom = 10
+	panel.add_theme_stylebox_override("panel", style)
+	var box := UI.vbox(6)
+	panel.add_child(box)
+	var label := UI.tinted_label(caption, _muted_ink())
+	label.add_theme_font_size_override("font_size", 9)
+	label.add_theme_font_override("font", _bold_font())
+	box.add_child(label)
+	if detail != null:
+		detail.name = node_name
+		box.add_child(detail)
+	else:
+		var fact := UI.tinted_label(value, _ink())
+		fact.name = node_name
+		fact.add_theme_font_size_override("font_size", 12)
+		fact.add_theme_font_override("font", _bold_font())
+		fact.custom_minimum_size.x = 0
+		box.add_child(fact)
+	return panel
+
+
+func _profile_section(caption: String, value: String, node_name: String = "") -> Control:
+	var margin := _people_margin(8, 16)
+	var box := UI.vbox(5)
+	margin.add_child(box)
+	var heading := UI.tinted_label(caption, plum_light())
+	heading.add_theme_font_size_override("font_size", 10)
+	heading.add_theme_font_override("font", _bold_font())
+	box.add_child(heading)
+	var body := UI.tinted_label(value, _ink())
+	if node_name != "":
+		body.name = node_name
+	body.add_theme_font_size_override("font_size", 12)
+	body.add_theme_constant_override("line_spacing", 3)
+	body.custom_minimum_size.x = 0
+	box.add_child(body)
+	return margin
 
 
 # Lower hire area, pinned under the scrolling profile: hire/poach action with
@@ -769,12 +923,20 @@ func _build_hire_area(candidate_id: String) -> Control:
 	var panel := PanelContainer.new()
 	panel.name = HIRE_AREA_NODE_NAME
 	var style := StyleBoxFlat.new()
-	style.bg_color = BAR_FILL
-	for side in ["left", "right", "top", "bottom"]:
-		style.set("content_margin_" + side, 12)
+	style.bg_color = Color("#2d2d31")
+	style.border_color = GameData.PALETTE.get("phone_divider", Color("#424246"))
+	style.border_width_top = 1
+	style.content_margin_left = 16
+	style.content_margin_right = 16
+	style.content_margin_top = 10
+	style.content_margin_bottom = 12
 	panel.add_theme_stylebox_override("panel", style)
-	var box := UI.vbox(6)
+	var box := UI.vbox(8)
 	panel.add_child(box)
+	var seat := UI.tinted_label(LodedInnitProfile.seat_text(candidate_id), _muted_ink())
+	seat.add_theme_font_size_override("font_size", 10)
+	seat.custom_minimum_size.x = 0
+	box.add_child(seat)
 	if Hiring.status(candidate_id)["state"] == Hiring.STATUS_OURS:
 		box.add_child(UI.tinted_label("Works for you", plum_light()))
 		return panel
@@ -785,34 +947,42 @@ func _build_hire_area(candidate_id: String) -> Control:
 	var verb := "Hire"
 	if Hiring.is_employed(candidate_id):
 		verb = "Poach"
-		var note := UI.muted_label("Wage +%d%% for good. Costs %d relation with %s." % [roundi((Hiring.poach_mult() - 1.0) * 100.0), Hiring.poach_relation_cost(), _employer_name(candidate_id)])
+		var note := UI.tinted_label("Wage +%d%% for good. Costs %d relation with %s." % [roundi((Hiring.poach_mult() - 1.0) * 100.0), Hiring.poach_relation_cost(), _employer_name(candidate_id)], _muted_ink())
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		note.add_theme_font_size_override("font_size", 10)
 		box.add_child(note)
 	var hire := UI.button("%s · £%d first week" % [verb, Hiring.weekly_wage(candidate_id)], _on_hire_pressed.bind(candidate_id))
 	hire.disabled = reason != ""
 	hire.name = HIRE_BUTTON_NODE_NAME
+	hire.custom_minimum_size.y = 42
+	hire.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	box.add_child(hire)
 	if reason != "":
-		var why := UI.muted_label(reason)
+		var why := UI.tinted_label(reason, _muted_ink())
 		why.name = HIRE_REASON_NODE_NAME
 		why.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		why.add_theme_font_size_override("font_size", 11)
 		box.add_child(why)
 	return panel
 
 
 func _speciality_pips(specialities: Array) -> Control:
-	var row := UI.hbox(4)
-	row.add_child(UI.muted_label("Specialities"))
+	var list := UI.vbox(3)
 	for ore_type in specialities:
+		var row := UI.hbox(5)
 		var glyph := SymbolGlyph.new()
 		glyph.symbol = GameData.ORE_TYPES[ore_type]["symbol"]
 		glyph.draw_fallback = SymbolGlyph.ore_fallback(ore_type)
-		glyph.custom_minimum_size = Vector2(UI.SYMBOL_GLYPH_SIZE, UI.SYMBOL_GLYPH_SIZE)
-		glyph.glyph_radius = UI.SYMBOL_GLYPH_SIZE * 0.34
+		glyph.custom_minimum_size = Vector2(15, 15)
+		glyph.glyph_radius = 5
 		glyph.color = MapPalette.ore_colour_in(ore_type, true)
 		glyph.tooltip_text = GameData.ORE_TYPES[ore_type].get("name", ore_type)
 		row.add_child(glyph)
-	return row
+		var label := UI.tinted_label(str(ore_type).capitalize(), _ink())
+		label.add_theme_font_size_override("font_size", 11)
+		row.add_child(label)
+		list.add_child(row)
+	return list
 
 
 func _on_hire_pressed(candidate_id: String) -> void:
@@ -824,23 +994,28 @@ func _on_hire_pressed(candidate_id: String) -> void:
 
 func _build_top_up_prompt(content: VBoxContainer, candidate_id: String) -> void:
 	var needed := Hiring.top_up_needed(candidate_id)
-	var question := UI.label("Top up the float by £%d to cover this hire?" % needed)
+	var question := UI.tinted_label("Top up the float by £%d to cover this hire?" % needed, _ink())
 	question.name = TOP_UP_QUESTION_NODE_NAME
 	question.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	question.add_theme_font_size_override("font_size", 12)
+	question.custom_minimum_size.x = 0
 	content.add_child(question)
 	var row := UI.hbox()
 	var cash := int(GameState.state["player"]["cash"])
 	var yes := UI.button("Yes", _on_top_up_yes.bind(candidate_id))
 	yes.disabled = cash < needed
 	yes.name = TOP_UP_YES_NODE_NAME
+	yes.custom_minimum_size.y = 42
 	var no := UI.button("No", _on_top_up_no)
 	no.name = TOP_UP_NO_NODE_NAME
+	no.custom_minimum_size.y = 42
 	row.add_child(UI.expand_fill(yes))
 	row.add_child(UI.expand_fill(no))
 	content.add_child(row)
 	if cash < needed:
-		var why := UI.muted_label("Not enough cash.")
+		var why := UI.tinted_label("Not enough cash.", _muted_ink())
 		why.name = TOP_UP_REASON_NODE_NAME
+		why.add_theme_font_size_override("font_size", 11)
 		content.add_child(why)
 
 
