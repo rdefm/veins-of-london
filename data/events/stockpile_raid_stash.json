@@ -1,7 +1,7 @@
 {
   "id": "stockpile_raid_stash",
   "cards": [
-    { "type": "tension", "label": "Their stores", "speaker": null, "text": "It took money to learn where they keep it, and more to learn where they keep the rest. The door looks like every other door on the street, which is the point. Someone is paid to sit behind it." },
+    { "type": "tension", "label": "Their stores", "speaker": null, "text": "It took money to learn where they keep it. It cost even more more to learn where they keep the hidden stash. The door looks like every other door on the street, which is the point. Someone is paid to sit behind it." },
     {
       "type": "choice", "label": null, "speaker": null, "text": "In and out before anyone counts.",
       "choices": [

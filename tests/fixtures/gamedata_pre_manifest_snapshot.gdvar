@@ -1348,7 +1348,7 @@
 },
 "biz_a1_closing": {
 "cards": [{
-"label": "Bermondsey — James's unit",
+"label": "Bermondsey - James's unit",
 "speaker": null,
 "text": "BizBrief is open on Archie's phone, propped against the hourglass. Owen has been given a chair for the occasion and is not sure what to do with it.",
 "type": "narration"
@@ -1395,7 +1395,7 @@
 }, {
 "label": null,
 "speaker": null,
-"text": "Owen goes back to his veins, James to his own clients. On Archie's phone, next week's orders are already coming in.",
+"text": "Owen goes back to his veins, James to his crafting. On Archie's phone, next week's orders are already coming in.",
 "type": "resolution"
 }],
 "fillFromContext": true,
@@ -1411,7 +1411,7 @@
 },
 "biz_a1_owen": {
 "cards": [{
-"label": "Bermondsey — James's unit",
+"label": "Bermondsey - James's unit",
 "speaker": null,
 "text": "There is a third person in the unit. He is young, standing very straight by the door with his hands behind his back, and he has clearly been there a while.",
 "type": "narration"
@@ -1433,7 +1433,7 @@
 }, {
 "label": null,
 "speaker": "James",
-"text": "\"He will not be a craftsman. He will be a very good pair of hands, which is rarer, and which you need more.\"",
+"text": "\"He is young, and has much to learn. But he is hardworking and has potential. Over time he will be a very good pair of hands, which you need more.\"",
 "type": "speaker"
 }, {
 "label": null,
@@ -1448,7 +1448,7 @@
 }, {
 "label": null,
 "speaker": "James",
-"text": "\"Two hundred and fifty a week. Paid by the business. Not by me, and not out of goodwill.\"",
+"text": "\"Two hundred and fifty a week. Paid by the business, not by me.\"",
 "type": "speaker"
 }, {
 "label": null,
@@ -1458,7 +1458,7 @@
 }, {
 "label": null,
 "speaker": "James",
-"text": "\"I found him, and I arranged it. That earns me a third, the same as you. For now I am a limited partner: I take my share and I make nothing for it. When you give me a reason, I will join properly and craft.\"",
+"text": "\"You, Archie, and I split profits equally between us. For now I am a limited partner: I take my share and offer some advice. When you give me a reason, I will join properly and craft.\"",
 "type": "speaker"
 }, {
 "label": null,
@@ -1468,7 +1468,7 @@
 }, {
 "label": null,
 "speaker": "Archie",
-"text": "\"Right, so. From today orders pay into the pot, not your pocket. Owen's wages come out of it every week, and whatever's left splits three ways. Put him on your veins in BizBrief — there's a Staff tab now. And there's a weekly ore order on there. Take one, it pays his wages.\"",
+"text": "\"Right, so. From today orders pay into the pot, not your pocket. Owen's wages come out of it every week, and whatever's left splits three ways. Put him on your veins in BizBrief - there's a Staff tab now. And there's a weekly ore order on there. Take one, it pays his wages.\"",
 "type": "speaker"
 }, {
 "label": null,
@@ -1506,14 +1506,14 @@
 },
 "biz_a1_partnership": {
 "cards": [{
-"label": "Bermondsey — James's unit",
+"label": "Bermondsey - James's unit",
 "speaker": null,
 "text": "Owen is at the bench with a cutting board of his own, labelled in James's handwriting. He looks up, then back down, very quickly.",
 "type": "narration"
 }, {
 "label": null,
 "speaker": "James",
-"text": "\"He has reached the second level. Slower than a gifted student, faster than I told him he would. I did not tell him that.\"",
+"text": "\"His cultivation skills are coming along nicely,\" James says to you quietly. \"Slower than a gifted student, faster than I told him he would. I did not tell him that.\"",
 "type": "speaker"
 }, {
 "label": null,
@@ -1523,7 +1523,7 @@
 }, {
 "label": null,
 "speaker": "Archie",
-"text": "\"So that's market and money. You said two things.\"",
+"text": "\"So we've proven we can find and deliver contracts, and we've put in our own money. You said that's what you need for a full partnership.\"",
 "type": "speaker"
 }, {
 "label": null,
@@ -1538,12 +1538,12 @@
 }, {
 "label": null,
 "speaker": "James",
-"text": "\"Very well. I join properly. I stop taking a share for nothing and start making the goods the share comes from. Give me ore and a target in Production and I will meet it.\"",
+"text": "\"Very well. I join properly. I stop taking a share for nothing and start making goods. Give me ore and a target in Production and I will meet it.\"",
 "type": "speaker"
 }, {
 "label": null,
 "speaker": "James",
-"text": "\"My own clients remain mine. I will do their work on my own time. If either of you so much as offers them a discount, I will know.\"",
+"text": "\"My own business and clients remain mine. I will do their work on my own time. If either of you so much as offers them a discount, I will know.\"",
 "type": "speaker"
 }, {
 "label": null,
@@ -1582,24 +1582,24 @@
 },
 "biz_a1_production": {
 "cards": [{
-"label": "Bermondsey — James's unit",
+"label": "Bermondsey - James's unit",
 "speaker": null,
 "text": "James has cleared the second bench. On it: a scale, a tray of time ore, and his phone, open on BizBrief. Archie is leaning in the doorway, eating crisps.",
 "type": "narration"
 }, {
 "label": null,
 "speaker": "James",
-"text": "\"If I am to make the goods, someone has to tell me which goods. That is what Production is for.\"",
+"text": "\"If I am to make the goods, someone has to tell me which goods. As with everything these days, there's an app for it,\" James says with exasperation.",
 "type": "speaker"
 }, {
 "label": null,
 "speaker": "James",
-"text": "\"Staff tab. Put me in Production. After that I work at the end of every block, the way Owen works the veins.\"",
+"text": "\"In the BizBrief app, open the Staff tab. Put me in Production. After that I work throughout the day, the way Owen works the veins.\"",
 "type": "speaker"
 }, {
 "label": null,
 "speaker": "James",
-"text": "\"Manage tab. Every recipe has a target. I keep that many in stock and not one more. Raise it and I make more. Leave it at nothing and I sit on my hands.\"",
+"text": "\"Manage tab. Every recipe I can craft has a target. I keep that many in stock and not one more. Raise it and I make more. Leave it at nothing and I sit on my hands.\"",
 "type": "speaker"
 }, {
 "label": null,
@@ -1609,7 +1609,7 @@
 }, {
 "label": null,
 "speaker": "James",
-"text": "\"I work from the business's ore. No ore, no pearls. That part is yours and Owen's.\"",
+"text": "\"I work from the business's ore. No ore, no crafting. It's on you and Owen to ensure I have ore to craft with.\"",
 "type": "speaker"
 }, {
 "label": null,
@@ -1619,12 +1619,12 @@
 }, {
 "label": null,
 "speaker": "Archie",
-"text": "\"Take it, put James on pearls, keep the ore coming. One full week, all five handed over. Then I'll show you the good bit.\"",
+"text": "\"Take it, put James on pearl production, keep the ore coming. One full week, all five handed over. Then I'll show you the good bit.\"",
 "type": "speaker"
 }, {
 "label": null,
 "speaker": "James",
-"text": "\"In full. Four pearls is not a week.\"",
+"text": "\"I suppose we'd better get on with it.\"",
 "type": "speaker"
 }, {
 "label": null,
@@ -1648,12 +1648,12 @@
 "cards": [{
 "label": "Bermondsey — James's unit",
 "speaker": null,
-"text": "The shutter is half up. Archie is already inside, standing well back from the shelves, the way he always does — partly the allergy, partly James.",
+"text": "James answers the door and shows you inside. Archie is already there, standing well back from the shelves, the way he always does - partly the allergy, partly James.",
 "type": "narration"
 }, {
 "label": null,
 "speaker": "Archie",
-"text": "\"Right. Before he starts. You've got two veins going. Two's not a hobby. Two's a supply.\"",
+"text": "\"Right. Before James starts: you've got two veins going. Two's not a hobby. Two's a supply.\"",
 "type": "speaker"
 }, {
 "label": null,
@@ -1663,7 +1663,7 @@
 }, {
 "label": null,
 "speaker": null,
-"text": "James has a small brass hourglass on the workbench. He turns it over while Archie talks, and again when Archie stops. It is an ordinary hourglass. He uses it to time glue.",
+"text": "James has a small brass hourglass on the workbench. He turns it over while Archie talks, and again when Archie stops. It is an ordinary hourglass you've seen him use to time glue.",
 "type": "narration"
 }, {
 "label": null,
@@ -1683,22 +1683,22 @@
 }, {
 "label": null,
 "speaker": "James",
-"text": "\"I have a business. It carries on whatever I decide here; my clients have no interest in who your friends are. If I put my name to a second one, I want two things first.\"",
+"text": "\"I have my own business. It carries on whatever I decide here; my clients have no interest in who your friends are. If I put my name to a second business, I want two things first.\"",
 "type": "speaker"
 }, {
 "label": null,
 "speaker": "James",
-"text": "\"A market that pays, reliably. Three orders delivered in full. Not most of an order — in full. Whatever you have already delivered counts. I have no wish to watch you repeat yourself.\"",
+"text": "\"One: a market that pays reliably. Three orders delivered in full. Not most of an order - in full. Whatever you have already delivered counts. I have no wish to watch you repeat yourself.\"",
 "type": "speaker"
 }, {
 "label": null,
 "speaker": "James",
-"text": "\"And a serious investment. Anyone can sell a few jars. I want to see you put money into this that you would miss.\"",
+"text": "\"Two: a serious investment. Anyone can sell a few jars. I want to see you put money into this that you would miss.\"",
 "type": "speaker"
 }, {
 "label": null,
 "speaker": "Archie",
-"text": "\"Market and money. Done.\" He's already on his phone. \"I'll send you proper orders — buyers I know pay. They'll come through on BizBrief.\"",
+"text": "\"Market and money. Done.\" He's already on his phone, then says to you, \"I'll send you proper orders - buyers I know pay. They'll come through on BizBrief.\"",
 "type": "speaker"
 }, {
 "label": null,
@@ -1726,34 +1726,34 @@
 },
 "biz_a1_put_to_work": {
 "cards": [{
-"label": "Bermondsey — James's unit",
+"label": "Bermondsey - James's unit",
 "speaker": null,
-"text": "Archie has taken the end of James's bench, his phone propped against a jar of powder. James is pretending not to watch.",
+"text": "Archie has taken the end of James's bench, his phone propped against a jar of powder. James is pretending not to be annoyed; he's not doing a very good job.",
 "type": "narration"
 }, {
 "label": null,
 "speaker": "Archie",
-"text": "\"Up to now you've run every order yourself. Fetch it, carry it, hand it over. That's a job, not a business.\"",
+"text": "\"Up to now you've run every order yourself. Mine it, craft it, hand it over. That's a job, not a business.\"",
 "type": "speaker"
 }, {
 "label": null,
 "speaker": "Archie",
-"text": "\"The pearl order comes every week. Say yes once and it keeps coming. That's a recurring order, and you've been running it by hand.\"",
+"text": "\"The pearl order comes every week. Say yes once and it keeps coming. That's a recurring order.\"",
 "type": "speaker"
 }, {
 "label": null,
 "speaker": "Archie",
-"text": "\"Now the clever bit. It's already mine. End of every stretch I check the stock, hand over whatever's there, chase the money. Anything you want kept, stash it before I come round.\"",
+"text": "\"Now the clever bit. End of every stretch I check the stock against the orders you've accepted. I hand over whatever we have, chase the money. Anything you want kept, stash it before I come round.\"",
 "type": "speaker"
 }, {
 "label": null,
 "speaker": "James",
-"text": "\"The pearls will be mine. Owen's ore goes in, my pearls come out. The arrangement works without you in the room, which is the only test of an arrangement.\"",
+"text": "\"Owen mines, I craft. As long as you've set up the orders and told us what to do, we will sort it out without you having to micromanage.\"",
 "type": "speaker"
 }, {
 "label": null,
 "speaker": "Archie",
-"text": "\"So here's the test. Two of these, each running a full week with no help from you. Start whenever. A short first week counts if nobody touches it.\"",
+"text": "\"So here's the test. Two recurring contracts, each running a full week with no help from you. Start whenever.\"",
 "type": "speaker"
 }, {
 "label": null,
@@ -1788,7 +1788,7 @@
 },
 "biz_owen_craft": {
 "cards": [{
-"label": "Bermondsey — James's unit",
+"label": "Bermondsey - James's unit",
 "speaker": null,
 "text": "Owen is at the second bench, the one James never lets anyone use. There is a half-made pearl in front of him and a very small pile of failed ones beside it.",
 "type": "narration"
@@ -1805,7 +1805,7 @@
 }, {
 "label": null,
 "speaker": "James",
-"text": "\"He will never be quick, and he will never be me. He will be steady, which on a slow order is worth more than talent.\"",
+"text": "\"He will never be quick, and he will never be me. He will be steady, which on a slow order is worth almost as much as talent.\"",
 "type": "speaker"
 }, {
 "label": null,
@@ -4825,7 +4825,7 @@
 "cards": [{
 "label": "Their stores",
 "speaker": null,
-"text": "It took money to learn where they keep it, and more to learn where they keep the rest. The door looks like every other door on the street, which is the point. Someone is paid to sit behind it.",
+"text": "It took money to learn where they keep it. It cost even more more to learn where they keep the hidden stash. The door looks like every other door on the street, which is the point. Someone is paid to sit behind it.",
 "type": "tension"
 }, {
 "choices": [{

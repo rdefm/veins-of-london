@@ -78,6 +78,9 @@ func run() -> void:
 		assert_true((phone.find_child("TickerPush_economic_recession", true, false) as Button).disabled, "cooldown shown immediately")
 		NodeQuery.find_button(phone.find_child("TickerInfluenceSheet", true, false), "‹ Back").pressed.emit()
 		assert_true(phone.find_child("TickerArticleSheet", true, false) != null, "closing influence returns to article")
+		(phone.find_child("TickerInfluenceOpen", true, false) as Button).pressed.emit()
+		NodeQuery.find_button(phone.find_child("TickerInfluenceSheet", true, false), "✕").pressed.emit()
+		assert_true(phone.find_child("TickerArticleSheet", true, false) != null, "Influence close returns to the same article")
 		NodeQuery.find_button(phone.find_child("TickerArticleSheet", true, false), "‹ Back").pressed.emit()
 		assert_true(phone.find_child("TickerStory_economic", true, false) != null, "closing article returns to feed")
 		phone.free()
@@ -127,6 +130,13 @@ func run() -> void:
 		assert_true(NodeQuery.label_texts(wire).has("Saved wire"), "saved text survives")
 		assert_true(NodeQuery.label_texts(wire).has(Calendar.format_day(2)), "saved day survives")
 		assert_true(wire.find_child("TickerInfluenceOpen", true, false) == null, "wire has no influence")
+		(wire.find_child("TickerArticleBack", true, false) as Button).pressed.emit()
+		assert_true(phone.find_child("TickerWireArticleSheet", true, false) == null, "wire Back returns to News")
+		assert_true(phone.find_child("TickerWire", true, false) != null, "wire remains in feed")
+		(phone.find_child("TickerWire", true, false) as Button).pressed.emit()
+		(phone.find_child("TickerArticleClose", true, false) as Button).pressed.emit()
+		assert_true(phone.find_child("TickerWireArticleSheet", true, false) == null, "wire close returns to News")
+		(phone.find_child("TickerWire", true, false) as Button).pressed.emit()
 		PhoneNav.go_home()
 		PhoneNav.open_app("ticker")
 		assert_true(phone.find_child("TickerWireArticleSheet", true, false) == null, "leaving clears wire sheet")
@@ -141,11 +151,14 @@ func run() -> void:
 		phone._ready()
 		(phone.find_child("TickerStory_economic", true, false) as Button).pressed.emit()
 		var article: Node = phone.find_child("TickerArticleSheet", true, false)
-		for text_value in ["‹ Back", "✕"]:
-			var nav_button := NodeQuery.find_button(article, text_value)
-			assert_eq((nav_button.get_theme_stylebox("normal") as StyleBoxFlat).bg_color, Color.TRANSPARENT, "article navigation has no amber fill")
-			assert_eq(nav_button.get_theme_font_size("font_size"), 13, "article navigation uses compact type")
-			assert_true(nav_button.has_theme_font_override("font"), "article navigation uses Ticker sans font")
+		var back := article.find_child("TickerArticleBack", true, false) as Button
+		var close := article.find_child("TickerArticleClose", true, false) as Button
+		assert_eq((back.get_theme_stylebox("normal") as StyleBoxFlat).bg_color, TickerApp.NEWS_RED, "article Back is a visible burgundy action")
+		assert_eq(back.get_theme_color("font_color"), TickerApp.NEWS_PAPER, "Back text contrasts with burgundy")
+		assert_true(back.custom_minimum_size.y >= 44.0, "Back has a touch-height target")
+		assert_eq(close.get_theme_color("font_color"), TickerApp.NEWS_RED, "close contrasts with paper")
+		assert_true(close.custom_minimum_size.x >= 44.0 and close.custom_minimum_size.y >= 44.0, "close has a touch-size target")
+		assert_true(back.has_theme_font_override("font") and close.has_theme_font_override("font"), "article navigation uses Ticker sans font")
 		var influence := phone.find_child("TickerInfluenceOpen", true, false) as Button
 		assert_eq((influence.get_theme_stylebox("normal") as StyleBoxFlat).bg_color, TickerApp.NEWS_RED, "Influence uses Ticker burgundy")
 		assert_eq(influence.get_theme_font_size("font_size"), 14, "Influence uses Ticker action type")
@@ -164,6 +177,30 @@ func run() -> void:
 			var nav_button := NodeQuery.find_button(sheet, text_value)
 			assert_eq((nav_button.get_theme_stylebox("normal") as StyleBoxFlat).bg_color, Color.TRANSPARENT, "influence navigation has no amber fill")
 		phone.free()
+	)
+
+	await run_case("state_story_navigation_has_room_and_both_returns_work", func():
+		GameState.reset()
+		PhoneNav.open_app("ticker")
+		var phone := PhoneScreen.new()
+		phone.theme = preload("res://theme/main_theme.tres")
+		(Engine.get_main_loop() as SceneTree).root.add_child(phone)
+		await (Engine.get_main_loop() as SceneTree).process_frame
+		(phone.find_child("TickerStory_economic", true, false) as Button).pressed.emit()
+		await (Engine.get_main_loop() as SceneTree).process_frame
+		var article := phone.find_child("TickerArticleSheet", true, false) as Control
+		var back := article.find_child("TickerArticleBack", true, false) as Button
+		var close := article.find_child("TickerArticleClose", true, false) as Button
+		assert_true(back.size.x >= back.custom_minimum_size.x and back.size.y >= 44.0, "Back is fully laid out")
+		assert_true(close.size.x >= 44.0 and close.size.y >= 44.0, "close is fully laid out")
+		assert_true(back.get_global_rect().end.x <= close.get_global_rect().position.x, "article controls do not overlap")
+		back.pressed.emit()
+		assert_true(phone.find_child("TickerArticleSheet", true, false) == null, "Back returns state story to News")
+		(phone.find_child("TickerStory_economic", true, false) as Button).pressed.emit()
+		(phone.find_child("TickerArticleClose", true, false) as Button).pressed.emit()
+		assert_true(phone.find_child("TickerArticleSheet", true, false) == null, "close returns state story to News")
+		phone.queue_free()
+		await (Engine.get_main_loop() as SceneTree).process_frame
 	)
 
 	await run_case("ticker_tabs_keep_visible_text_and_selection_after_refresh", func():

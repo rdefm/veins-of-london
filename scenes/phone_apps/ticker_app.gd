@@ -820,17 +820,30 @@ func _sheet(name: String, paper: bool, close_action: Callable) -> Dictionary:
 	return { "root": overlay, "body": body }
 
 
+func _article_navigation(close_action: Callable) -> Control:
+	var row := UI.hbox()
+	var copy: Dictionary = GameData.BAROMETER_NEWS["article"]
+	var back := _ticker_button(copy["back"], close_action, "action", true)
+	back.name = "TickerArticleBack"
+	row.add_child(back)
+	var spacer := Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(spacer)
+	var close := _ticker_button(copy["close"], close_action, "plain", true)
+	close.name = "TickerArticleClose"
+	close.custom_minimum_size = Vector2(44, 44)
+	row.add_child(close)
+	return row
+
+
 func _build_state_article(section: String) -> Control:
 	var sheet := _sheet("TickerArticleSheet", true, func(): PhoneNav.back_to_ticker())
 	var body: VBoxContainer = sheet["body"]
 	var copy: Dictionary = GameData.BAROMETER_NEWS["article"]
 	var state_id: String = GameState.state["barometer"][section]
 	var state_data: Dictionary = GameData.BAROMETER_STATES[section][state_id]
-	var masthead := UI.hbox()
-	masthead.add_child(_news_text(GameData.BAROMETER_NEWS["masthead"], 18, NEWS_RED, true))
-	masthead.add_child(_ticker_button(copy["back"], func(): PhoneNav.back_to_ticker(), "plain", true))
-	masthead.add_child(_ticker_button(copy["close"], func(): PhoneNav.back_to_ticker(), "plain", true))
-	body.add_child(masthead)
+	body.add_child(_article_navigation(func(): PhoneNav.back_to_ticker()))
+	body.add_child(_news_text(GameData.BAROMETER_NEWS["masthead"], 18, NEWS_RED, true))
 	body.add_child(_news_rule(NEWS_RED, 3))
 	body.add_child(_news_text(GameData.BAROMETER_NEWS["categories"][section].to_upper(), 11, NEWS_RED))
 	body.add_child(_news_text(state_data["headlines"][0], 26, NEWS_PAPER_INK, true))
@@ -852,11 +865,8 @@ func _build_state_article(section: String) -> Control:
 func _build_wire_article() -> Control:
 	var sheet := _sheet("TickerWireArticleSheet", true, func(): _close_wire_article())
 	var body: VBoxContainer = sheet["body"]
-	var masthead := UI.hbox()
-	masthead.add_child(_news_text(GameData.BAROMETER_NEWS["masthead"], 18, NEWS_RED, true))
-	masthead.add_child(_ticker_button(GameData.BAROMETER_NEWS["article"]["back"], func(): _close_wire_article(), "plain", true))
-	masthead.add_child(_ticker_button(GameData.BAROMETER_NEWS["article"]["close"], func(): _close_wire_article(), "plain", true))
-	body.add_child(masthead)
+	body.add_child(_article_navigation(func(): _close_wire_article()))
+	body.add_child(_news_text(GameData.BAROMETER_NEWS["masthead"], 18, NEWS_RED, true))
 	body.add_child(_news_rule(NEWS_RED, 3))
 	body.add_child(_news_text(GameData.BAROMETER_NEWS["wires"].to_upper(), 11, NEWS_RED))
 	body.add_child(_news_text(str(_open_wire.get("text", "")), 26, NEWS_PAPER_INK, true))
