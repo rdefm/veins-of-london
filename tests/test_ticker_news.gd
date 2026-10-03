@@ -132,3 +132,36 @@ func run() -> void:
 		assert_true(phone.find_child("TickerWireArticleSheet", true, false) == null, "leaving clears wire sheet")
 		phone.free()
 	)
+
+	run_case("ticker_article_and_influence_buttons_use_brand_chrome", func():
+		GameState.reset()
+		GameState.state["barometer"]["economic"] = "boom"
+		PhoneNav.open_app("ticker")
+		var phone := PhoneScreen.new()
+		phone._ready()
+		(phone.find_child("TickerStory_economic", true, false) as Button).pressed.emit()
+		var article: Node = phone.find_child("TickerArticleSheet", true, false)
+		for text_value in ["‹ Back", "✕"]:
+			var nav_button := NodeQuery.find_button(article, text_value)
+			assert_eq((nav_button.get_theme_stylebox("normal") as StyleBoxFlat).bg_color, Color.TRANSPARENT, "article navigation has no amber fill")
+			assert_eq(nav_button.get_theme_font_size("font_size"), 13, "article navigation uses compact type")
+			assert_true(nav_button.has_theme_font_override("font"), "article navigation uses Ticker sans font")
+		var influence := phone.find_child("TickerInfluenceOpen", true, false) as Button
+		assert_eq((influence.get_theme_stylebox("normal") as StyleBoxFlat).bg_color, TickerApp.NEWS_RED, "Influence uses Ticker burgundy")
+		assert_eq(influence.get_theme_font_size("font_size"), 14, "Influence uses Ticker action type")
+		assert_true(influence.has_theme_font_override("font"), "Influence uses Ticker sans font")
+		assert_eq(influence.custom_minimum_size.y, 44.0, "Influence action has compact height")
+		influence.pressed.emit()
+		var sheet: Node = phone.find_child("TickerInfluenceSheet", true, false)
+		var push := phone.find_child("TickerPush_economic_recession", true, false) as Button
+		var pull := phone.find_child("TickerPull_economic_recession", true, false) as Button
+		for action in [push, pull]:
+			assert_eq((action.get_theme_stylebox("normal") as StyleBoxFlat).bg_color, TickerApp.NEWS_RED, "Push and Pull use Ticker burgundy")
+		var unavailable := phone.find_child("TickerM4_floodMarket", true, false) as Button
+		assert_true(unavailable.disabled, "M4 remains disabled")
+		assert_eq((unavailable.get_theme_stylebox("disabled") as StyleBoxFlat).bg_color, Color("#555055"), "disabled action has no amber fill")
+		for text_value in ["‹ Back", "✕"]:
+			var nav_button := NodeQuery.find_button(sheet, text_value)
+			assert_eq((nav_button.get_theme_stylebox("normal") as StyleBoxFlat).bg_color, Color.TRANSPARENT, "influence navigation has no amber fill")
+		phone.free()
+	)

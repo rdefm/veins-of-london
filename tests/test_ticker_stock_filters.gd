@@ -142,3 +142,25 @@ func run() -> void:
 		assert_true(app._collapsed.has("ore"), "collapse state retained across tabs")
 		phone.free()
 	)
+
+	run_case("stock_market_controls_use_compact_ticker_chrome", func():
+		GameState.reset()
+		PhoneNav.open_app("ticker")
+		var phone := PhoneScreen.new()
+		phone._ready()
+		(phone.find_child("TickerTab_stock", true, false) as Button).pressed.emit()
+		for filter in phone.find_children("TickerFilter_*", "Button", true, false):
+			var button := filter as Button
+			assert_eq((button.get_theme_stylebox("normal") as StyleBoxFlat).bg_color, TickerApp.MARKET_BRIEF_BG, "filter has dark Ticker fill")
+			assert_eq(button.get_theme_font_size("font_size"), 12, "filter has compact type")
+			assert_true(button.has_theme_font_override("font"), "filter uses Ticker sans font")
+			assert_eq(button.custom_minimum_size.y, 34.0, "filter has compact height")
+		assert_eq(phone.find_children("TickerFilter_*", "Button", true, false).size(), 6, "five ore toggles and In stock styled")
+		var section := phone.find_child("TickerSectionHeader_ore", true, false) as Button
+		assert_eq((section.get_theme_stylebox("normal") as StyleBoxFlat).bg_color, Color.TRANSPARENT, "section toggle is editorial text")
+		(phone.find_child("TickerGood_ore_time", true, false) as Button).pressed.emit()
+		var back := NodeQuery.find_button(phone, "‹ Back to Stock Market")
+		assert_eq((back.get_theme_stylebox("normal") as StyleBoxFlat).bg_color, Color.TRANSPARENT, "detail back has no amber fill")
+		assert_eq(back.get_theme_font_size("font_size"), 13, "detail back uses Ticker type")
+		phone.free()
+	)

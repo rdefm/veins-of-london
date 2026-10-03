@@ -26,6 +26,7 @@ const MARKET_BRIEF_BG := Color("#313135")
 const MARKET_ROW_HOVER := Color("#303034")
 const MARKET_PRICE := Color("#e8b7bf")
 const SERIF_NAMES: PackedStringArray = ["Georgia", "Times New Roman", "Noto Serif", "DejaVu Serif", "serif"]
+const SANS_NAMES: PackedStringArray = ["Arial", "Helvetica", "Noto Sans", "DejaVu Sans", "sans-serif"]
 
 var _tab := NEWS_TAB
 # { kind, type } of the good whose chart is open, or empty for the list.
@@ -37,6 +38,7 @@ var _in_stock_only := false
 var _collapsed := {}
 var _root: Control = null
 var _serif: SystemFont = null
+var _sans: SystemFont = null
 var _open_wire: Dictionary = {}
 var _influence_open := false
 
@@ -111,8 +113,7 @@ func _build_news_header() -> Control:
 	var column := UI.vbox(0)
 	panel.add_child(column)
 	var top := UI.hbox()
-	var back := UI.button("‹ Phone", func(): PhoneNav.go_home())
-	back.flat = true
+	var back := _ticker_button("‹ Phone", func(): PhoneNav.go_home(), "plain")
 	back.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	back.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	back.add_theme_color_override("font_color", NEWS_INK)
@@ -151,9 +152,9 @@ func _build_news_tabs() -> Control:
 	for tab in [{ "id": NEWS_TAB, "title": "News" }, { "id": STOCK_TAB, "title": "Stock Market" }]:
 		var selected: bool = tab["id"] == _tab
 		var tab_column := UI.vbox(0)
-		var button := UI.button(tab["title"], func(): _set_tab(tab["id"]))
+		var button := _ticker_button(tab["title"], func(): _set_tab(tab["id"]), "plain")
 		button.name = "TickerTab_%s" % tab["id"]
-		button.flat = true
+		button.add_theme_font_size_override("font_size", 14)
 		button.disabled = selected
 		button.custom_minimum_size.y = 46
 		for colour_name in ["font_color", "font_hover_color", "font_pressed_color", "font_disabled_color"]:
@@ -263,10 +264,10 @@ func _build_stock_filter() -> Control:
 	var filter := UI.hflow()
 	for ore_type in GameData.MARKET["goods"]["ore"]:
 		var shown := not _hidden_types.has(ore_type)
-		var toggle := UI.button("%s %s" % ["●" if shown else "○", GameData.ORE_TYPES[ore_type]["name"]], func(): _toggle_type(ore_type))
+		var toggle := _ticker_button("%s %s" % ["●" if shown else "○", GameData.ORE_TYPES[ore_type]["name"]], func(): _toggle_type(ore_type), "chip", false, shown)
 		toggle.name = "TickerFilter_%s" % ore_type
 		filter.add_child(toggle)
-	var stock := UI.button("%s In stock" % ("●" if _in_stock_only else "○"), func(): _toggle_in_stock())
+	var stock := _ticker_button("%s In stock" % ("●" if _in_stock_only else "○"), func(): _toggle_in_stock(), "chip", false, _in_stock_only)
 	stock.name = "TickerFilter_in_stock"
 	filter.add_child(stock)
 	return filter
@@ -277,15 +278,11 @@ func _build_good_section(kind: String, title: String) -> Control:
 	var section := UI.vbox(0)
 	section.name = "TickerSection_%s" % kind
 	var header_row := UI.hbox(8)
-	var header := Button.new()
-	header.text = "%s %s" % [title, "▸" if _collapsed.has(kind) else "▾"]
+	var header := _ticker_button("%s %s" % [title, "▸" if _collapsed.has(kind) else "▾"], func(): pass, "plain")
 	header.name = "TickerSectionHeader_%s" % kind
-	header.flat = true
 	header.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	header.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.custom_minimum_size.y = 42
-	header.add_theme_color_override("font_color", NEWS_INK)
-	header.add_theme_color_override("font_hover_color", NEWS_INK)
 	header_row.add_child(header)
 	var meta := _news_text(copy["priceMove"], 10, NEWS_MUTED)
 	meta.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -422,7 +419,7 @@ func _good_row(kind: String, good_type: String) -> Control:
 
 
 func _build_good_detail(content: VBoxContainer, kind: String, good_type: String) -> void:
-	content.add_child(UI.button("‹ Back to Stock Market", func(): _select_good_list()))
+	content.add_child(_ticker_button("‹ Back to Stock Market", func(): _select_good_list(), "plain"))
 	content.add_child(UI.symbol_row([_good_symbol(kind, good_type), _good_name(kind, good_type)], { "heading_size": 20 }))
 	var move := Market.day_move(kind, good_type)
 	var price_row := UI.hbox()
@@ -597,11 +594,93 @@ func _news_text(value: String, size: int, colour: Color, serif: bool = false) ->
 	return label
 
 
+# Ticker controls use local newsprint/market chrome instead of UI.button's
+# shared amber theme. Every state is overridden so hover/disabled stay branded.
+func _ticker_button(value: String, action: Callable, variant: String, paper: bool = false, selected: bool = true) -> Button:
+	var button := Button.new()
+	button.text = value
+	button.clip_text = true
+	button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	button.set_meta(ContactCards.OWN_STYLE_META, true)
+	button.add_theme_font_override("font", _sans_font())
+	button.pressed.connect(action)
+	var normal := StyleBoxFlat.new()
+	var hover := StyleBoxFlat.new()
+	var pressed := StyleBoxFlat.new()
+	var disabled := StyleBoxFlat.new()
+	var ink := NEWS_RED if paper else NEWS_INK
+	var disabled_ink := NEWS_MUTED
+	match variant:
+		"chip":
+			button.custom_minimum_size.y = 34
+			button.add_theme_font_size_override("font_size", 12)
+			ink = NEWS_INK if selected else NEWS_MUTED
+			normal.bg_color = MARKET_BRIEF_BG
+			normal.border_color = NEWS_RED if selected else NEWS_RULE
+			normal.set_border_width_all(1)
+			normal.set_content_margin_all(6)
+			normal.content_margin_left = 9
+			normal.content_margin_right = 9
+			normal.set_corner_radius_all(4)
+			hover = normal.duplicate() as StyleBoxFlat
+			hover.bg_color = Color("#3c3c40")
+			pressed = normal.duplicate() as StyleBoxFlat
+			pressed.bg_color = NEWS_RED
+			disabled = normal.duplicate() as StyleBoxFlat
+			disabled.bg_color = NEWS_BG
+		"action":
+			button.custom_minimum_size.y = 44
+			button.add_theme_font_size_override("font_size", 14)
+			ink = NEWS_PAPER
+			normal.bg_color = NEWS_RED
+			normal.set_content_margin_all(9)
+			normal.content_margin_left = 12
+			normal.content_margin_right = 12
+			normal.set_corner_radius_all(5)
+			hover = normal.duplicate() as StyleBoxFlat
+			hover.bg_color = Color("#b22d4a")
+			pressed = normal.duplicate() as StyleBoxFlat
+			pressed.bg_color = Color("#74182f")
+			disabled = normal.duplicate() as StyleBoxFlat
+			disabled.bg_color = Color("#c4b7b7") if paper else Color("#555055")
+			disabled_ink = Color("#72686b") if paper else NEWS_MUTED
+		_:
+			button.custom_minimum_size.y = 36
+			button.add_theme_font_size_override("font_size", 13)
+			normal.bg_color = Color.TRANSPARENT
+			normal.content_margin_left = 5
+			normal.content_margin_right = 5
+			normal.content_margin_top = 4
+			normal.content_margin_bottom = 4
+			hover = normal.duplicate() as StyleBoxFlat
+			hover.bg_color = Color("#e9dadd") if paper else MARKET_ROW_HOVER
+			pressed = hover.duplicate() as StyleBoxFlat
+			disabled = normal.duplicate() as StyleBoxFlat
+	for state_name in ["normal", "hover", "pressed", "disabled"]:
+		button.add_theme_stylebox_override(state_name, { "normal": normal, "hover": hover, "pressed": pressed, "disabled": disabled }[state_name])
+	var focus := normal.duplicate() as StyleBoxFlat
+	focus.bg_color = Color.TRANSPARENT
+	focus.border_color = NEWS_RED
+	focus.set_border_width_all(1)
+	button.add_theme_stylebox_override("focus", focus)
+	for colour_name in ["font_color", "font_hover_color", "font_pressed_color"]:
+		button.add_theme_color_override(colour_name, ink)
+	button.add_theme_color_override("font_disabled_color", disabled_ink)
+	return button
+
+
 func _serif_font() -> Font:
 	if _serif == null:
 		_serif = SystemFont.new()
 		_serif.font_names = SERIF_NAMES
 	return _serif
+
+
+func _sans_font() -> Font:
+	if _sans == null:
+		_sans = SystemFont.new()
+		_sans.font_names = SANS_NAMES
+	return _sans
 
 
 func _news_rule(colour: Color, height: int) -> Control:
@@ -664,8 +743,8 @@ func _build_state_article(section: String) -> Control:
 	var state_data: Dictionary = GameData.BAROMETER_STATES[section][state_id]
 	var masthead := UI.hbox()
 	masthead.add_child(_news_text(GameData.BAROMETER_NEWS["masthead"], 18, NEWS_RED, true))
-	masthead.add_child(UI.button(copy["back"], func(): PhoneNav.back_to_ticker()))
-	masthead.add_child(UI.button(copy["close"], func(): PhoneNav.back_to_ticker()))
+	masthead.add_child(_ticker_button(copy["back"], func(): PhoneNav.back_to_ticker(), "plain", true))
+	masthead.add_child(_ticker_button(copy["close"], func(): PhoneNav.back_to_ticker(), "plain", true))
 	body.add_child(masthead)
 	body.add_child(_news_rule(NEWS_RED, 3))
 	body.add_child(_news_text(GameData.BAROMETER_NEWS["categories"][section].to_upper(), 11, NEWS_RED))
@@ -679,7 +758,7 @@ func _build_state_article(section: String) -> Control:
 	body.add_child(_news_text(GameData.BAROMETER_NEWS["byline"], 11, NEWS_RED))
 	body.add_child(_news_rule(Color("#c4b7b7"), 1))
 	body.add_child(_news_text(state_data["description"], 14, NEWS_PAPER_INK))
-	var influence := UI.button(copy["influence"], func(): _open_influence())
+	var influence := _ticker_button(copy["influence"], func(): _open_influence(), "action", true)
 	influence.name = "TickerInfluenceOpen"
 	body.add_child(influence)
 	return sheet["root"]
@@ -690,8 +769,8 @@ func _build_wire_article() -> Control:
 	var body: VBoxContainer = sheet["body"]
 	var masthead := UI.hbox()
 	masthead.add_child(_news_text(GameData.BAROMETER_NEWS["masthead"], 18, NEWS_RED, true))
-	masthead.add_child(UI.button(GameData.BAROMETER_NEWS["article"]["back"], func(): _close_wire_article()))
-	masthead.add_child(UI.button(GameData.BAROMETER_NEWS["article"]["close"], func(): _close_wire_article()))
+	masthead.add_child(_ticker_button(GameData.BAROMETER_NEWS["article"]["back"], func(): _close_wire_article(), "plain", true))
+	masthead.add_child(_ticker_button(GameData.BAROMETER_NEWS["article"]["close"], func(): _close_wire_article(), "plain", true))
 	body.add_child(masthead)
 	body.add_child(_news_rule(NEWS_RED, 3))
 	body.add_child(_news_text(GameData.BAROMETER_NEWS["wires"].to_upper(), 11, NEWS_RED))
@@ -707,8 +786,8 @@ func _build_influence_sheet(section: String) -> Control:
 	var copy: Dictionary = GameData.BAROMETER_NEWS["article"]
 	var title := UI.hbox()
 	title.add_child(_news_text(copy["influenceTitle"] % SECTION_LABELS[section], 20, NEWS_INK, true))
-	title.add_child(UI.button(copy["back"], func(): _close_influence()))
-	title.add_child(UI.button(copy["close"], func(): _close_influence()))
+	title.add_child(_ticker_button(copy["back"], func(): _close_influence(), "plain"))
+	title.add_child(_ticker_button(copy["close"], func(): _close_influence(), "plain"))
 	body.add_child(title)
 	body.add_child(_news_rule(NEWS_RED, 2))
 	body.add_child(_news_text(copy["allStates"], 14, NEWS_INK))
@@ -777,12 +856,12 @@ func _build_state_row(section: String, state_id: String, active_state: String) -
 
 	if state_id != active_state:
 		var holdings := { "cash": GameState.state["player"]["cash"] }
-		var row := UI.hbox()
-		var push_button := UI.button(UI.format_cost_label({ "label": "Push", "resource": "cash", "amount": Barometer.MANUAL_ACTION_COST }, holdings), func(): Barometer.manual_push(section, state_id))
+		var row := UI.hflow(6)
+		var push_button := _ticker_button(UI.format_cost_label({ "label": "Push", "resource": "cash", "amount": Barometer.MANUAL_ACTION_COST }, holdings), func(): Barometer.manual_push(section, state_id), "action")
 		push_button.name = "TickerPush_%s_%s" % [section, state_id]
 		push_button.disabled = not Barometer.can_push_pull(section, state_id, "push") or GameState.state["player"]["cash"] < Barometer.MANUAL_ACTION_COST
 		row.add_child(push_button)
-		var pull_button := UI.button(UI.format_cost_label({ "label": "Pull", "resource": "cash", "amount": Barometer.MANUAL_ACTION_COST }, holdings), func(): Barometer.manual_pull(section, state_id))
+		var pull_button := _ticker_button(UI.format_cost_label({ "label": "Pull", "resource": "cash", "amount": Barometer.MANUAL_ACTION_COST }, holdings), func(): Barometer.manual_pull(section, state_id), "action")
 		pull_button.name = "TickerPull_%s_%s" % [section, state_id]
 		pull_button.disabled = not Barometer.can_push_pull(section, state_id, "pull") or GameState.state["player"]["cash"] < Barometer.MANUAL_ACTION_COST
 		row.add_child(pull_button)
@@ -808,7 +887,7 @@ func _build_influence_actions_card(section: String) -> Control:
 		c["content"].add_child(UI.label(action["label"]))
 		c["content"].add_child(UI.muted_label(action["description"]))
 		c["content"].add_child(UI.muted_label("Cost: %s" % ", ".join(cost_parts)))
-		var b := UI.button(action["label"], func(): pass)
+		var b := _ticker_button(action["label"], func(): pass, "action")
 		b.name = "TickerM4_%s" % action["id"]
 		b.disabled = true
 		c["content"].add_child(b)
