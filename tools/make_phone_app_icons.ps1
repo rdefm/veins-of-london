@@ -94,13 +94,14 @@ function New-GeneratedIcon([string]$id, [string]$top, [string]$bottom) {
             $pen.Dispose()
         }
         'ticker' {
-            $brush = [System.Drawing.SolidBrush]::new([System.Drawing.ColorTranslator]::FromHtml($light))
+            $tickerPaper = '#f1eae3'
+            $brush = [System.Drawing.SolidBrush]::new([System.Drawing.ColorTranslator]::FromHtml($tickerPaper))
             $graphics.FillRectangle($brush, 118, 306, 42, 94)
             $graphics.FillRectangle($brush, 190, 258, 42, 142)
             $graphics.FillRectangle($brush, 262, 210, 42, 190)
             $graphics.FillRectangle($brush, 334, 154, 42, 246)
             $brush.Dispose()
-            $pen = New-Pen $light 26
+            $pen = New-Pen $tickerPaper 26
             $graphics.DrawLines($pen, [System.Drawing.Point[]]@(
                 [System.Drawing.Point]::new(118, 272),
                 [System.Drawing.Point]::new(210, 222),
@@ -182,7 +183,7 @@ Convert-SourceIcon 'logo-contacts.png' 'contacts'
 Convert-SourceIcon 'logo-save.jpg' 'saveload' $true
 
 New-GeneratedIcon 'alarms' '#f4f6f8' '#c9d1db'
-New-GeneratedIcon 'ticker' '#168b57' '#075238'
+New-GeneratedIcon 'ticker' '#9c2340' '#9c2340'
 New-GeneratedIcon 'factions' '#66549b' '#332854'
 New-GeneratedIcon 'profile' '#3f4d62' '#202837'
 New-GeneratedIcon 'vfl' '#f4f6f8' '#cbd3dc'
