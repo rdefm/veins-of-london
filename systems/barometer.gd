@@ -5,6 +5,7 @@ extends RefCounted
 # only; reads/writes GameState.state.barometer, emits EventBus.state_changed.
 
 const SECTIONS: Array[String] = ["economic", "social", "political"]
+const NEWS_BASE_ORDER: Array[String] = ["political", "economic", "social"]
 const MANUAL_ACTION_COST := 2000
 
 # D4.5's Ticker trend hint: a non-active state at or above this progress
@@ -122,10 +123,27 @@ static func _resolve_section(section: String) -> void:
 			progress[active_state] = 0
 			progress[state_id] = 100
 			barometer[section] = state_id
+			barometer["changeSeq"] = int(barometer.get("changeSeq", 0)) + 1
+			if not barometer.has("changedAt"):
+				barometer["changedAt"] = {}
+			barometer["changedAt"][section] = barometer["changeSeq"]
 			var state_data: Dictionary = GameData.BAROMETER_STATES[section][state_id]
 			var headline: String = Rng.rand_from(state_data["headlines"])
 			Notify.push("📰 BREAKING — %s" % headline)
 			break
+
+
+# Most recently changed active state first. Zero/missing stamps use the
+# editorial base order, including saves from before recency was tracked.
+static func news_sections_order() -> Array[String]:
+	var order: Array[String] = NEWS_BASE_ORDER.duplicate()
+	var stamps: Dictionary = GameState.state["barometer"].get("changedAt", {})
+	order.sort_custom(func(a: String, b: String) -> bool:
+		var a_stamp := int(stamps.get(a, 0))
+		var b_stamp := int(stamps.get(b, 0))
+		return a_stamp > b_stamp if a_stamp != b_stamp else NEWS_BASE_ORDER.find(a) < NEWS_BASE_ORDER.find(b)
+	)
+	return order
 
 
 # A big faction-vs-faction move as a Ticker headline: appended to

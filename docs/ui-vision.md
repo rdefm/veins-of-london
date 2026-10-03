@@ -571,6 +571,15 @@ chrome departs from the rules in this section and §§6–7:
 - **Typography:** property names, the feed heading and the wordmark use an
   editorial serif (system Georgia/serif, engine font as fallback); body,
   prices and facts stay on the shared UI sans (prices/eyebrows emboldened).
+**The Ticker exception (approved 2026-10-03, `.scratch/ticker-revamp/ticker-concept.html`):**
+The Ticker keeps the existing device frame and status bar. Its News feed has
+an editorial masthead and mark, red rule and brief banner, serif headlines,
+paper featured story, flat divided secondary stories, and London Wires below.
+World News, The Economy and London Life follow active-state recency; the first
+story receives the featured treatment. News and Stock Market share the branded
+header and tabs. The Ticker's burgundy and paper are internal brand chrome;
+its existing axis detail remains the story route until the article ticket.
+
 **BizBrief exception (approved 2026-10-02, `.scratch/bizbrief-redesign/selected-direction.html`):**
 Phone apps may have distinct internal aesthetics. BizBrief uses the existing
 device frame and status bar, then its own icon and serif wordmark header,

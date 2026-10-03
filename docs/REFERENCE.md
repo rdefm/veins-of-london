@@ -497,6 +497,8 @@ state = {
     economic: "stable", social: "stable", political: "stable",
     progress: {},        # per §3.2, initialised lazily
     cooldowns: {},       # per §3.2
+    changeSeq: 0,        # increments only when an axis changes active state
+    changedAt: {},       # section -> changeSeq at its latest active-state change
   },
 
   contacts: {
@@ -648,6 +650,7 @@ The dock (`NavBar`, now 3 slots: Phone · Map · HQ) is hidden on `title, intro,
 
 ### 3.2 Barometer
 - Progress model: per section, per state, an integer 0–100. Init: active state = 100, others 0. Cooldowns: per section+state, `{push:day, pull:day}`.
+- **Ticker News order:** each active-state change, including one resolved by manual Push, increments `barometer.changeSeq` and sets `barometer.changedAt[section]` to it. Progress alone, pulls and queued pushes before resolution do not stamp recency. News sorts the three current active-state stories by descending stamp; ties and saves without stamps use World News (political), The Economy (economic), London Life (social). `changeSeq: 0` and `changedAt: {}` backfill older saves. London Wires follows, newest first.
 - **Daily faction nudges:** for every faction (regardless of membership), each pref adds (`push`) or subtracts (`pull`) `strength` to that state's progress, clamped 0–100. Then each queued push (`Barometer.queue_push(factionId, section, state, direction, strength)`, kept in `state.barometer.pushes`, created lazily; §3.1 "Conclave positions") applies the same way once, and the queue clears.
 - **Organic drift:** each non-active state, `chance(0.20)` → +1 progress (cap 99).
 - **Resolution (per section, after nudges and after drift):** clamp all to 0–100; if any non-active state ≥ 100 → old active drops to 0, that state becomes active at 100, notification "<Section> shift: <Label>. <description>".

@@ -24,7 +24,7 @@ Data file per system: see `data/*.json` below.
 | archie_deals.gd | Archie's daily side-deal roll |
 | bag.gd | Bag-drawer toggle |
 | bank.gd | Cash transaction log |
-| barometer.gd | Economic/social/political barometer (Ticker) + faction prefs; merged effects incl. item-demand multipliers; faction headlines (`push_headline`); one-off queued faction pushes (`queue_push`) |
+| barometer.gd | Economic/social/political barometer (Ticker) + faction prefs; active-state change recency and News order; merged effects incl. item-demand multipliers; faction headlines (`push_headline`); one-off queued faction pushes (`queue_push`) |
 | business_quest.gd | business_empire questline side effects (state.businessQuest): Beat 1/3/5/6/7/8 trigger texts, Beat 2 starter-offer chain, recurring offers (ore from Beat 3, Time Pearl from Beat 6; reissued a day after lapse), Beat 8 closing payload from the latest payday record, James's crafting-skill set, Owen's crafting-event trigger. Rules: REFERENCE.md "Business Empire questline" |
 | business_stats.gd | BizBrief Stats tab's daily tally (revenue, expenses split by kind staff/guard/calc, cultivator/player ore); rollover snapshot with productionLog items into `businessStats.days`, 10-day trim, zero-filled chart series |
 | business.gd | Business pot (contract settlements; Sales calc purchases as `calc` expenses), float (donate/withdraw; backs wages and calc, never split), hire first-week prepay (`paidThroughDay`), weekly payday (staff wages, then Monday guard bill from pot+float or a reserve when short, 3-way split, ledger), owed wages + float top-up, Staff tab pay labels |
@@ -222,7 +222,7 @@ overlays.
 | messages_app.gd | Conversation inbox (fixed-height rows: bold name, one-line `…` preview, unread pill, per-contact Clear) + single-thread staged bubble reveal/action bar (incl. Owen's text reply choices); thread opens scrolled to the newest message |
 | todo_app.gd | ToDo app: collapsible questline sections from Todo, all_of checks as indented sub-rows; session-only expand/collapse overrides in a static var |
 | factions_app.gd | London share table (ore/crafting toggle), London's politics (stance per pair, war/truce markers) and faction cards: archetype, ores, crafts, share bars, stance, pressure, peace talks at war, Gift, favour asked/owed (`Diplomacy`), partner price ask and trouble asks (`Partners`), intel level and what it reveals (`Intel`), activity log. |
-| ticker_app.gd | Ticker: News tab (barometer headlines, faction-headline wires, axis detail with push/pull, influence actions) and Stock Market tab (ore-type + In stock filters, collapsible Ore/Items price lists ▲/▼, demand modifiers, per-good chart with annotations and demand drivers) |
+| ticker_app.gd | Ticker: branded News feed (live barometer stories ordered by active-state recency, newest-first faction wires, existing axis detail with push/pull and influence actions) and Stock Market tab (ore-type + In stock filters, collapsible Ore/Items price lists ▲/▼, demand modifiers, per-good chart with annotations and demand drivers) |
 | profile_app.gd | Stats, skills, equipment |
 | dialer_app.gd | Phone recent-calls placeholder; no telephony state/actions |
 | settings_app.gd | Reduced-motion and alarm-vibration preference controls |
@@ -240,7 +240,7 @@ overlays.
 | File | Consumed by |
 |---|---|
 | approaches.json | approaches.gd |
-| barometer.json | barometer.gd |
+| barometer.json | barometer.gd (states/actions/prefs); ticker_app.gd (News branding and category copy) |
 | collective_barks.json | collective.gd |
 | combat_prototype.json | combat_prototype.gd |
 | combat_visuals.json | combat_stage.gd (locationBackdrops, backdrops, pose sheets, stage.spriteScale); GameData.gd (territorialVariant pose spec); combat_director.gd (pacing.turnPause); turn_order_strip.gd (cardFrames) |

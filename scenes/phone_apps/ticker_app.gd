@@ -16,6 +16,14 @@ const NEWS_TAB := "news"
 const STOCK_TAB := "stock"
 const ANNOTATION_COLOURS := { "ticker": "pastel_ochre", "flood": "pastel_tan", "undercut": "pastel_tan", "deny": "pastel_sage", "stabiliseSell": "pastel_tan", "stabiliseBuy": "pastel_sage", "positionBuy": "pastel_sage", "positionSell": "pastel_tan", "dump": "pastel_blue", "buy": "pastel_sage", "spike": "pastel_teal", "crash": "pastel_pink" }
 const MUTED := Color("#999a9d")
+const NEWS_BG := Color("#252528")
+const NEWS_INK := Color("#f0eced")
+const NEWS_MUTED := Color("#aaa8ac")
+const NEWS_RULE := Color("#575157")
+const NEWS_RED := Color("#9c2340")
+const NEWS_PAPER := Color("#f1eae3")
+const NEWS_PAPER_INK := Color("#2a2022")
+const SERIF_NAMES: PackedStringArray = ["Georgia", "Times New Roman", "Noto Serif", "DejaVu Serif", "serif"]
 
 var _tab := NEWS_TAB
 # { kind, type } of the good whose chart is open, or empty for the list.
@@ -25,6 +33,8 @@ var _selected_good := {}
 var _hidden_types := {}
 var _in_stock_only := false
 var _collapsed := {}
+var _root: Control = null
+var _serif: SystemFont = null
 
 
 func build(content: VBoxContainer) -> void:
@@ -35,23 +45,107 @@ func build(content: VBoxContainer) -> void:
 	if _tab == STOCK_TAB and not _selected_good.is_empty():
 		_build_good_detail(content, _selected_good["kind"], _selected_good["type"])
 		return
-	content.add_child(back_button())
-	content.add_child(UI.heading("The Ticker"))
-	content.add_child(_build_tabs())
+	var page := _mount_news_root()
 	if _tab == STOCK_TAB:
-		_build_stock_market(content)
+		_build_stock_market(page)
 	else:
-		_build_ticker(content)
+		_build_ticker(page)
 
 
-func _build_tabs() -> Control:
-	var tabs := UI.hbox()
-	var news := UI.button("News", func(): _set_tab(NEWS_TAB))
-	news.disabled = _tab == NEWS_TAB
-	tabs.add_child(UI.expand_fill(news))
-	var stock := UI.button("Stock Market", func(): _set_tab(STOCK_TAB))
-	stock.disabled = _tab == STOCK_TAB
-	tabs.add_child(UI.expand_fill(stock))
+func teardown() -> void:
+	if _root != null:
+		if _root.get_parent() != null:
+			_root.get_parent().remove_child(_root)
+		_root.queue_free()
+		_root = null
+
+
+func _mount_news_root() -> VBoxContainer:
+	_root = UI.vbox(0)
+	_root.name = "TickerRoot"
+	shell.mount_custom_root(_root)
+	_root.add_child(_build_news_header())
+	var scroll := UI.scroll_container()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var surface := StyleBoxFlat.new()
+	surface.bg_color = NEWS_BG
+	scroll.add_theme_stylebox_override("panel", surface)
+	_root.add_child(scroll)
+	var margin := MarginContainer.new()
+	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	margin.add_theme_constant_override("margin_left", 19)
+	margin.add_theme_constant_override("margin_right", 19)
+	margin.add_theme_constant_override("margin_bottom", 24)
+	scroll.add_child(margin)
+	var page := UI.vbox(0)
+	page.name = "TickerPage"
+	page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	margin.add_child(page)
+	return page
+
+
+func _build_news_header() -> Control:
+	var panel := PanelContainer.new()
+	panel.name = "TickerHeader"
+	var style := StyleBoxFlat.new()
+	style.bg_color = NEWS_BG
+	style.content_margin_left = 19
+	style.content_margin_right = 19
+	style.content_margin_top = 9
+	panel.add_theme_stylebox_override("panel", style)
+	var column := UI.vbox(0)
+	panel.add_child(column)
+	var top := UI.hbox()
+	var back := UI.button("‹ Phone", func(): PhoneNav.go_home())
+	back.flat = true
+	back.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	back.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	back.add_theme_color_override("font_color", NEWS_INK)
+	top.add_child(back)
+	var publisher := _news_text(GameData.BAROMETER_NEWS["publisher"], 10, NEWS_MUTED)
+	publisher.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	top.add_child(publisher)
+	column.add_child(top)
+	var brand := UI.hbox(10)
+	brand.add_child(_brand_mark())
+	var brand_copy := UI.vbox(2)
+	brand_copy.add_child(_news_text(GameData.BAROMETER_NEWS["masthead"], 28, NEWS_INK, true))
+	brand_copy.add_child(_news_text(GameData.BAROMETER_NEWS["tagline"], 10, NEWS_MUTED))
+	brand.add_child(brand_copy)
+	column.add_child(_news_margins(brand, 0, 15, 0, 15))
+	column.add_child(_news_rule(NEWS_RED, 3))
+	column.add_child(_build_news_tabs())
+	return panel
+
+
+func _brand_mark() -> Control:
+	var mark := PanelContainer.new()
+	mark.custom_minimum_size = Vector2(39, 39)
+	var style := StyleBoxFlat.new()
+	style.bg_color = NEWS_RED
+	mark.add_theme_stylebox_override("panel", style)
+	var glyph := _news_text("T·", 27, NEWS_PAPER, true)
+	glyph.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	glyph.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	mark.add_child(glyph)
+	return mark
+
+
+func _build_news_tabs() -> Control:
+	var tabs := UI.hbox(24)
+	for tab in [{ "id": NEWS_TAB, "title": "News" }, { "id": STOCK_TAB, "title": "Stock Market" }]:
+		var selected: bool = tab["id"] == _tab
+		var tab_column := UI.vbox(0)
+		var button := UI.button(tab["title"], func(): _set_tab(tab["id"]))
+		button.name = "TickerTab_%s" % tab["id"]
+		button.flat = true
+		button.disabled = selected
+		button.custom_minimum_size.y = 46
+		for colour_name in ["font_color", "font_hover_color", "font_pressed_color", "font_disabled_color"]:
+			button.add_theme_color_override(colour_name, NEWS_INK if selected else NEWS_MUTED)
+		tab_column.add_child(button)
+		tab_column.add_child(_news_rule(NEWS_INK if selected else NEWS_BG, 2))
+		tabs.add_child(tab_column)
 	return tabs
 
 
@@ -67,22 +161,40 @@ func _select_good(kind: String, good_type: String) -> void:
 
 
 func _build_ticker(content: VBoxContainer) -> void:
-	content.add_child(UI.muted_label("Push/pull costs £2000, once per state+direction per day."))
+	var banner := PanelContainer.new()
+	var banner_style := StyleBoxFlat.new()
+	banner_style.bg_color = NEWS_RED
+	banner_style.set_content_margin_all(10)
+	banner.add_theme_stylebox_override("panel", banner_style)
+	var banner_row := UI.hbox()
+	banner_row.add_child(_news_text(GameData.BAROMETER_NEWS["banner"], 11, NEWS_PAPER))
+	var current := _news_text(GameData.BAROMETER_NEWS["bannerDetail"], 10, NEWS_PAPER)
+	current.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	banner_row.add_child(current)
+	banner.add_child(banner_row)
+	content.add_child(_news_margins(banner, 0, 14, 0, 13))
 
-	for section in Barometer.SECTIONS:
-		content.add_child(_build_headline_card(section))
+	var order := Barometer.news_sections_order()
+	for index in range(order.size()):
+		var section: String = order[index]
+		content.add_child(_build_headline_card(section, index == 0))
 	var wires := Barometer.headlines()
-	if not wires.is_empty():
-		content.add_child(_build_wires_card(wires))
+	content.add_child(_build_wires_card(wires))
 
 
 # Faction headlines (vein takeovers and the like), newest first.
 func _build_wires_card(wires: Array) -> Control:
-	var c := UI.card()
-	c["content"].add_child(UI.muted_label("LONDON WIRES"))
+	var column := UI.vbox(0)
+	column.add_child(_news_rule(NEWS_RED, 2))
+	column.add_child(_section_heading(GameData.BAROMETER_NEWS["wires"], GameData.BAROMETER_NEWS["wiresDetail"]))
+	if wires.is_empty():
+		column.add_child(_news_text(GameData.BAROMETER_NEWS["emptyWires"], 12, NEWS_MUTED))
 	for entry in wires:
-		c["content"].add_child(UI.label("%s · %s" % [Calendar.format_day(int(entry["day"])), entry["text"]]))
-	return c["panel"]
+		column.add_child(_news_rule(NEWS_RULE, 1))
+		column.add_child(_news_text(entry["text"], 14, NEWS_INK, true))
+		column.add_child(_news_text(Calendar.format_day(int(entry["day"])), 11, NEWS_MUTED))
+		column.add_child(_news_margins(Control.new(), 0, 0, 0, 10))
+	return _news_margins(column, 0, 25, 0, 0)
 
 
 # ── Stock Market ────────────────────────────────────────────────────────
@@ -323,26 +435,95 @@ func _annotation_who(source: String) -> String:
 # ── News ────────────────────────────────────────────────────────────────
 
 
-func _build_headline_card(section: String) -> Control:
+func _build_headline_card(section: String, featured: bool) -> Control:
 	var barometer: Dictionary = GameState.state["barometer"]
 	var active_state: String = barometer[section]
 	var state_data: Dictionary = GameData.BAROMETER_STATES[section][active_state]
 	var headline: String = state_data["headlines"][0]
-
-	var c := UI.card()
-	c["content"].add_child(UI.muted_label(SECTION_LABELS[section].to_upper()))
-	var headline_label := UI.label(headline)
-	headline_label.add_theme_font_size_override("font_size", 16)
-	c["content"].add_child(headline_label)
-	c["content"].add_child(UI.muted_label(state_data["description"]))
-
+	var category: String = GameData.BAROMETER_NEWS["categories"][section]
+	var column := UI.vbox(0)
+	column.add_child(_section_heading(category))
+	var story := Button.new()
+	story.name = "TickerStory_%s" % section
+	story.text = ""
+	story.custom_minimum_size.y = 212 if featured else 156
+	story.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	story.focus_mode = Control.FOCUS_NONE
+	story.pressed.connect(func(): PhoneNav.select_axis(section))
+	var style := StyleBoxFlat.new()
+	style.bg_color = NEWS_PAPER if featured else NEWS_BG
+	style.border_color = NEWS_RED if featured else NEWS_RULE
+	style.border_width_top = 4 if featured else 1
+	style.border_width_bottom = 0 if featured else 1
+	for state_name in ["normal", "hover", "pressed", "focus"]:
+		story.add_theme_stylebox_override(state_name, style)
+	var copy := UI.vbox(5)
+	copy.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	story.add_child(copy)
+	UI.anchor_full_rect(copy)
+	copy.offset_left = 14 if featured else 0
+	copy.offset_right = -14 if featured else 0
+	copy.offset_top = 12
+	copy.offset_bottom = -10
+	var eyebrow := _news_text("%s · %s" % [SECTION_LABELS[section].to_upper(), String(state_data["label"]).to_upper()], 10, NEWS_RED if featured else Color("#d4939f"))
+	copy.add_child(eyebrow)
+	copy.add_child(_news_text(headline, 23 if featured else 17, NEWS_PAPER_INK if featured else NEWS_INK, true))
+	copy.add_child(_news_text(state_data["description"], 12, Color("#504347") if featured else NEWS_MUTED))
 	var hint_state = Barometer.trend_hint_state(section)
 	if hint_state != null:
 		var hint_label: String = GameData.BAROMETER_STATES[section][hint_state]["label"]
-		c["content"].add_child(UI.muted_label("Rumblings: %s building." % hint_label))
+		copy.add_child(_news_text("Rumblings: %s building." % hint_label, 11, NEWS_RED if featured else Color("#d4939f")))
+	column.add_child(story)
+	return column
 
-	c["content"].add_child(UI.button("Open →", func(): PhoneNav.select_axis(section)))
-	return c["panel"]
+
+func _section_heading(title: String, detail: String = "") -> Control:
+	var row := UI.hbox(8)
+	row.add_child(_news_text(title.to_upper(), 11, NEWS_INK))
+	if detail != "":
+		var rhs := _news_text(detail, 10, NEWS_MUTED)
+		rhs.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		row.add_child(rhs)
+	return _news_margins(row, 0, 18, 0, 9)
+
+
+func _news_text(value: String, size: int, colour: Color, serif: bool = false) -> Label:
+	var label := UI.label(value)
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.add_theme_font_size_override("font_size", size)
+	label.add_theme_color_override("font_color", colour)
+	if serif:
+		label.add_theme_font_override("font", _serif_font())
+	return label
+
+
+func _serif_font() -> Font:
+	if _serif == null:
+		_serif = SystemFont.new()
+		_serif.font_names = SERIF_NAMES
+	return _serif
+
+
+func _news_rule(colour: Color, height: int) -> Control:
+	var rule := ColorRect.new()
+	rule.color = colour
+	rule.custom_minimum_size.y = height
+	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return rule
+
+
+func _news_margins(child: Control, left: int, top: int, right: int, bottom: int) -> MarginContainer:
+	var margin := MarginContainer.new()
+	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	margin.add_theme_constant_override("margin_left", left)
+	margin.add_theme_constant_override("margin_top", top)
+	margin.add_theme_constant_override("margin_right", right)
+	margin.add_theme_constant_override("margin_bottom", bottom)
+	margin.add_child(child)
+	return margin
 
 
 func _build_axis_detail(content: VBoxContainer, section: String) -> void:

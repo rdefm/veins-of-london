@@ -349,6 +349,7 @@ func backfill_defaults(save: Dictionary) -> Dictionary:
 	_backfill_new_combat_keys(result, defaults)
 	_backfill_new_flag_keys(result, defaults)
 	_backfill_new_business_keys(result, defaults)
+	_backfill_new_barometer_keys(result, defaults)
 	Hiring.backfill(result["hiring"])
 	_backfill_new_guard_upkeep_keys(result, defaults)
 	_backfill_new_faction_war_keys(result, defaults)
@@ -357,6 +358,13 @@ func backfill_defaults(save: Dictionary) -> Dictionary:
 	_backfill_expense_kinds(result)
 	FactionAI.migrate_save(result, had_stances)
 	return result
+
+
+func _backfill_new_barometer_keys(result: Dictionary, defaults: Dictionary) -> void:
+	var barometer: Dictionary = result["barometer"]
+	for key in ["changeSeq", "changedAt"]:
+		if not barometer.has(key):
+			barometer[key] = GameState.deep_copy(defaults["barometer"][key])
 
 
 # Every player vein carries a guardKit (spec §State); a save without one gets {}.
@@ -989,6 +997,8 @@ func _restore_int_types(state: Dictionary) -> void:
 
 	if state.has("barometer"):
 		var barometer: Dictionary = state["barometer"]
+		_int_key(barometer, "changeSeq")
+		_int_dict_values(barometer.get("changedAt", {}))
 		for section_progress in barometer.get("progress", {}).values():
 			_int_dict_values(section_progress)
 		for section_cooldowns in barometer.get("cooldowns", {}).values():

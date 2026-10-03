@@ -19,6 +19,27 @@ func _assert_quote_lines_are_ints(quote: Dictionary, label: String) -> void:
 
 
 func run() -> void:
+	run_case("ticker_recency_backfills_and_round_trips", func():
+		GameState.reset()
+		var old_save: Dictionary = GameState.deep_copy(GameState.state)
+		old_save["barometer"].erase("changeSeq")
+		old_save["barometer"].erase("changedAt")
+		var filled: Dictionary = SaveManager.backfill_defaults(old_save)
+		assert_eq(filled["barometer"]["changeSeq"], 0, "old saves start with no change sequence")
+		assert_eq(filled["barometer"]["changedAt"], {}, "old saves use the base order")
+		Barometer.ensure_progress()
+		GameState.state["barometer"]["progress"]["political"]["war"] = 100
+		Barometer._resolve_section("political")
+		assert_true(SaveManager.save_to_slot(TEST_SLOT)["ok"], "recency save succeeds")
+		GameState.state["barometer"]["changeSeq"] = 0
+		GameState.state["barometer"]["changedAt"] = {}
+		assert_true(SaveManager.load_from_slot(TEST_SLOT)["ok"], "recency load succeeds")
+		assert_eq(GameState.state["barometer"]["changedAt"]["political"], 1, "recency survives save/load")
+		assert_eq(typeof(GameState.state["barometer"]["changeSeq"]), TYPE_INT, "counter restores as int")
+		assert_eq(typeof(GameState.state["barometer"]["changedAt"]["political"]), TYPE_INT, "stamp restores as int")
+		SaveManager.delete_slot(TEST_SLOT)
+	)
+
 	run_case("save_mutate_load_round_trips_exactly", func():
 		GameState.reset()
 		GameState.state["player"]["cash"] = 12345

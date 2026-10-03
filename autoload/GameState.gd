@@ -244,6 +244,8 @@ func new_game_state() -> Dictionary:
 			"economic": "stable", "social": "stable", "political": "stable",
 			"progress": {},
 			"cooldowns": {},
+			"changeSeq": 0,
+			"changedAt": {},
 		},
 
 		# state.messages[<contactId>] = [{ from: "them"|"player", text, day,

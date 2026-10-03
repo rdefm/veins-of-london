@@ -100,6 +100,7 @@ var SITE_DISCOVERY_BONUS_POOL: Array = []
 var SITE_NATURAL_VEIN_CHANCE: float = 0.0
 
 var BAROMETER_STATES: Dictionary = {}
+var BAROMETER_NEWS: Dictionary = {}
 var BAROMETER_ACTIONS: Array = []
 var FACTION_BAROMETER_PREFS: Dictionary = {}
 
@@ -385,6 +386,7 @@ const MANIFEST: Array[Dictionary] = [
 	]},
 	{"table": "barometer", "file": "res://data/barometer.json", "fields": [
 		{"field": "BAROMETER_STATES", "key": "states", "type": TYPE_DICTIONARY},
+		{"field": "BAROMETER_NEWS", "key": "newsFeed", "type": TYPE_DICTIONARY},
 		{"field": "BAROMETER_ACTIONS", "key": "actions", "type": TYPE_ARRAY},
 		{"field": "FACTION_BAROMETER_PREFS", "key": "factionPrefs", "type": TYPE_DICTIONARY, "snapshot": "faction_prefs"},
 	]},

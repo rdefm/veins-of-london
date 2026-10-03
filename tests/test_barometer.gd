@@ -46,6 +46,34 @@ func run() -> void:
 		assert_eq(GameState.state["barometer"]["economic"], "boom", "boom should become the active state")
 		assert_eq(GameState.state["barometer"]["progress"]["economic"]["boom"], 100, "new active sits at 100")
 		assert_eq(GameState.state["barometer"]["progress"]["economic"]["stable"], 0, "old active drops to 0")
+		assert_eq(Barometer.news_sections_order(), ["economic", "political", "social"], "a changed active state leads the feed")
+	)
+
+	run_case("news_recency_tracks_only_active_state_changes", func():
+		GameState.reset()
+		Barometer.ensure_progress()
+		assert_eq(Barometer.news_sections_order(), ["political", "economic", "social"], "fresh game uses editorial order")
+		GameState.state["barometer"]["progress"]["economic"]["boom"] = 70
+		Barometer._resolve_section("economic")
+		assert_eq(GameState.state["barometer"]["changeSeq"], 0, "progress alone does not stamp recency")
+		GameState.state["barometer"]["progress"]["economic"]["boom"] = 100
+		Barometer._resolve_section("economic")
+		GameState.state["barometer"]["progress"]["social"]["unrest"] = 100
+		Barometer._resolve_section("social")
+		assert_eq(Barometer.news_sections_order(), ["social", "economic", "political"], "latest shift leads")
+		assert_eq(GameState.state["barometer"]["changeSeq"], 2, "each active-state shift stamps once")
+		Barometer._resolve_section("social")
+		assert_eq(GameState.state["barometer"]["changeSeq"], 2, "re-resolution without a shift does not stamp")
+	)
+
+	run_case("manual_push_stamps_recency_only_when_it_resolves", func():
+		GameState.reset()
+		Barometer.ensure_progress()
+		GameState.state["player"]["cash"] = 5000
+		GameState.state["barometer"]["progress"]["social"]["festival"] = 80
+		assert_true(Barometer.manual_push("social", "festival")["ok"], "push succeeds")
+		assert_eq(Barometer.news_sections_order()[0], "social", "push-triggered active shift leads")
+		assert_eq(GameState.state["barometer"]["changedAt"]["social"], 1, "manual shift is stamped")
 	)
 
 	run_case("resolution_pushes_a_breaking_news_notification", func():

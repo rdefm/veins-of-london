@@ -48,12 +48,13 @@ func run() -> void:
 		var content := VBoxContainer.new()
 		app.build(content)
 		var headers: Array = []
-		for b in content.find_children("", "Button", true, false):
+		for b in phone.find_children("", "Button", true, false):
 			if (b as Button).text.begins_with("Ore ") or (b as Button).text.begins_with("Items "):
 				headers.append(b)
 		assert_eq(headers.size(), 2, "Ore and Items section headers")
 		(headers[0] as Button).pressed.emit()
 		assert_true(app._collapsed.has("ore"), "collapsing Ore is remembered")
+		app.teardown()
 		content.free()
 		phone.free()
 	)

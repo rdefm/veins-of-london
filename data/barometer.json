@@ -22,6 +22,18 @@
       "election":   { "id": "election",   "label": "Election Period",  "description": "Noise and distraction. Barometer effects muted temporarily.", "effects": { "effectMod": -0.3 }, "headlines": ["Election noise drowns out everything else, barometer included.", "Distraction season: effects muted, attention elsewhere."] }
     }
   },
+  "newsFeed": {
+    "publisher": "INDEPENDENT CITY DESK",
+    "masthead": "The Ticker",
+    "tagline": "LONDON NEWS / MARKETS / CITY",
+    "banner": "THE BRIEF",
+    "bannerDetail": "CURRENT CONDITIONS",
+    "byline": "THE TICKER DESK",
+    "categories": { "political": "World News", "economic": "The Economy", "social": "London Life" },
+    "wires": "London Wires",
+    "wiresDetail": "From recent events",
+    "emptyWires": "No reports on the wires yet."
+  },
   "actions": [
     { "id": "lobbyConclave",  "label": "Lobby the Conclave", "section": "political", "cost": { "cash": 5000, "fate": 20 },   "requireFaction": "conclave", "description": "Lean on Conclave contacts to shift the political climate." },
     { "id": "floodMarket",    "label": "Flood the market",   "section": "economic",  "cost": { "cash": 2000, "ore": 50 },    "requireFaction": null,       "description": "Dump ore on the market to destabilise prices. Crude but effective." },
