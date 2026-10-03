@@ -99,6 +99,26 @@ static func _wage_mult(candidate_id: String) -> float:
 	return 1.0
 
 
+static func _trait_data(candidate_id: String) -> Dictionary:
+	return GameData.HIRING_TRAITS.get(candidate(candidate_id).get("trait", ""), {})
+
+
+# Chance a staffer skips their block action (0 for no trait).
+static func trait_skip_chance(candidate_id: String) -> float:
+	return float(_trait_data(candidate_id).get("skipChance", 0.0))
+
+
+# Multiplier on role-skill XP (1 for no trait).
+static func trait_xp_mult(candidate_id: String) -> float:
+	return float(_trait_data(candidate_id).get("roleXpMult", 1.0))
+
+
+# Rolls the skip chance; no Rng draw for a staffer without the trait.
+static func trait_skips_block(candidate_id: String) -> bool:
+	var chance := trait_skip_chance(candidate_id)
+	return chance > 0.0 and Rng.chance(chance)
+
+
 static func poach_mult() -> float:
 	return 1.0 + float(GameData.HIRING_MARKET["poachPremium"])
 

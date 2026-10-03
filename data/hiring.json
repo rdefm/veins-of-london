@@ -8,6 +8,10 @@
   "market": { "flipChancePerDay": 0.0714285714, "poachPremium": 0.25, "poachRelationCost": 8,
     "poachChance": 0.1, "maxPoachAttempts": 3, "poachOfferPct": 0.2, "counterCapPct": 0.25,
     "poachStanceWeights": { "hostile": 5, "businessRival": 5, "neutral": 1, "partner": 0 } },
+  "traits": {
+    "distracted": { "skipChance": 0.2 },
+    "eager": { "roleXpMult": 1.25 }
+  },
   "candidates": {
     "marcia": {
       "name": "Marcia Odunsi", "role": "cultivation", "startLevel": 2, "skillCaps": { "cultivating": 4 },

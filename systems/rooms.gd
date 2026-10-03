@@ -266,7 +266,7 @@ static func vein_station_target_text(vein_id: String) -> Variant:
 static func process_staff_block(block: int = -1) -> Dictionary:
 	var output := { "ore": {}, "items": {} }
 	for contact_id in Contacts.contacts_in_role("cultivation"):
-		if Payroll.is_working(contact_id):
+		if Payroll.is_working(contact_id) and not Hiring.trait_skips_block(contact_id):
 			_cultivator_act(contact_id, output["ore"])
 	BusinessStats.record_cultivator_ore(output["ore"])
 	var entries := _run_producers(output["items"])
@@ -344,7 +344,7 @@ static func _run_producers(items_out: Dictionary) -> Array:
 	var entries: Array = []
 	var entry_of := {}
 	for contact_id in Contacts.contacts_in_role("production"):
-		if Payroll.is_working(contact_id):
+		if Payroll.is_working(contact_id) and not Hiring.trait_skips_block(contact_id):
 			active.append(contact_id)
 			var entry := { "contactId": contact_id, "made": {}, "failed": {}, "oreShort": null }
 			entries.append(entry)

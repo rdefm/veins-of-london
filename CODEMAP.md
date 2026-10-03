@@ -255,7 +255,7 @@ overlays.
 | faction_trade.json | economy.gd |
 | factions.json | factions.gd, sites.gd, raiding.gd, debug_start.gd, faction_sim.gd (`startingHoldings`, `stockpilePlaces`, `stockpileGuards`, `cultivateSkill`, `fieldwork`, `craftSkill`, `craftTargets`, `raidKits`, `consumes`, `trading`, `industryIncome`), key_members.gd (`keyMembers`, `speaker`), diplomacy.gd (`sampleFavours`, `giftPrefs`), faction_ai.gd (`aggressionPersonality`, `weariness`) |
 | lodedinnit.json | GameData.gd (`LODEDINNIT_*`), lodedinnit_feed.gd: feed cap/likes/author weights, per-candidate post voices (trait variants), shared canned comments, hire-status templates |
-| hiring.json | contacts.gd (`roles` → `room_roles`), payroll.gd (`roles` → `role_skill_keys`): staff role registry; hiring.gd (`candidates`, merged into contact defaults by GameData.gd; `market`): LodedInnit roster, flip/poach numbers |
+| hiring.json | contacts.gd (`roles` → `room_roles`), payroll.gd (`roles` → `role_skill_keys`): staff role registry; hiring.gd (`candidates`, merged into contact defaults by GameData.gd; `market`, `traits`): LodedInnit roster, flip/poach numbers, trait skip chance / role-XP mult |
 | home.json | home.gd, approaches.gd, contacts.gd, property_app.gd (tier `image` listing photos) |
 | floorplans.json | GameData.gd + floorplan_view.gd (per-tier plan asset, size, slot rects) |
 | hq_visuals.json | hq_diorama.gd, hq*.gd screens |

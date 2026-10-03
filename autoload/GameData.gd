@@ -198,6 +198,9 @@ var HIRING_CANDIDATES: Dictionary = {}
 # poachRelationCost} (R§3.10 "Hiring").
 var HIRING_MARKET: Dictionary = {}
 
+# Candidate traits: trait id -> {skipChance?, roleXpMult?} (R§3.10 "Traits").
+var HIRING_TRAITS: Dictionary = {}
+
 # LodedInnit Feed (data/lodedinnit.json): {cap, likes{min,max}, maxComments,
 # authorWeights}; per-voice post pools; shared canned comments [{id, text}].
 var LODEDINNIT_FEED: Dictionary = {}
@@ -475,6 +478,7 @@ const MANIFEST: Array[Dictionary] = [
 		{"field": "HIRING_ROLES", "key": "roles", "type": TYPE_DICTIONARY},
 		{"field": "HIRING_CANDIDATES", "key": "candidates", "type": TYPE_DICTIONARY},
 		{"field": "HIRING_MARKET", "key": "market", "type": TYPE_DICTIONARY},
+		{"field": "HIRING_TRAITS", "key": "traits", "type": TYPE_DICTIONARY},
 	]},
 	{"table": "lodedinnit", "file": "res://data/lodedinnit.json", "fields": [
 		{"field": "LODEDINNIT_FEED", "key": "feed", "type": TYPE_DICTIONARY},

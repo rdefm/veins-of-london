@@ -207,6 +207,8 @@ static func award_contact_xp(contact_id: String, skill: String, amount: int) -> 
 	if not contacts.has(contact_id):
 		return
 	var c: Dictionary = contacts[contact_id]
+	if Hiring.candidate(contact_id).size() > 0 and Hiring.skill(contact_id) == skill:
+		amount = int(round(amount * Hiring.trait_xp_mult(contact_id)))
 	var xp_key: String = skill + "XP"
 	var skill_key: String = skill + "Skill"
 	var levels := xp_levels(skill)

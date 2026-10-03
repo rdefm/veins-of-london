@@ -464,6 +464,55 @@ func run() -> void:
 		assert_eq(GameState.state["contacts"]["priya"]["assignedRoom"], null)
 	)
 
+	run_case("traits_read_from_data", func():
+		_setup()
+		assert_eq(Hiring.trait_skip_chance("saoirse"), 0.2)
+		assert_eq(Hiring.trait_skip_chance("ray"), 0.2)
+		assert_eq(Hiring.trait_skip_chance("tomasz"), 0.0)
+		assert_eq(Hiring.trait_xp_mult("tomasz"), 1.25)
+		assert_eq(Hiring.trait_xp_mult("saoirse"), 1.0)
+		assert_eq(Hiring.trait_xp_mult("marcia"), 1.0)
+		GameData.HIRING_TRAITS["distracted"]["skipChance"] = 1.0
+		assert_true(Hiring.trait_skips_block("ray"), "chance 1 always skips")
+		assert_true(not Hiring.trait_skips_block("priya"), "no trait never skips")
+		GameData.HIRING_TRAITS["distracted"]["skipChance"] = 0.2
+	)
+
+	run_case("distracted_skip_rate_matches_data_with_seeded_rng", func():
+		_setup()
+		Rng.set_seed(7)
+		var skips := 0
+		for i in 1000:
+			if Hiring.trait_skips_block("saoirse"):
+				skips += 1
+		assert_true(skips > 150 and skips < 250, "about 20%% of 1000, got %d" % skips)
+	)
+
+	run_case("distracted_producer_skips_whole_block", func():
+		_setup()
+		GameData.HIRING_TRAITS["distracted"]["skipChance"] = 1.0
+		GameState.state["flags"]["craftingUnlocked"] = true
+		GameState.state["labThresholds"]["timePearl"] = 1000
+		GameState.state["player"]["orichalchum"]["time"] = 1000
+		GameState.state["contacts"]["ray"]["recruited"] = true
+		Contacts.assign_to_room("ray", "lab")
+		GameState.state["contacts"]["ray"]["specialities"] = ["time"]
+		Rooms.process_staff_block()
+		assert_eq(Crafting.inventory_qty("timePearl"), 0, "distracted crafter made nothing")
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], 1000)
+		GameData.HIRING_TRAITS["distracted"]["skipChance"] = 0.2
+	)
+
+	run_case("eager_staffer_earns_scaled_role_xp_only", func():
+		_setup()
+		GameState.state["contacts"]["tomasz"]["cultivatingXP"] = 0
+		Contacts.award_contact_xp("tomasz", "cultivating", 10)
+		assert_eq(GameState.state["contacts"]["tomasz"]["cultivatingXP"], 13, "10 x 1.25 rounds to 13")
+		GameState.state["contacts"]["tomasz"]["salesXP"] = 0
+		Contacts.award_contact_xp("tomasz", "sales", 10)
+		assert_eq(GameState.state["contacts"]["tomasz"]["salesXP"], 10, "non-role skill unscaled")
+	)
+
 
 # _setup(), priya hired, world day moved to the next Monday.
 func _setup_hired_on_monday() -> void:
