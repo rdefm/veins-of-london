@@ -18,7 +18,7 @@ static func new_state() -> Dictionary:
 	var status := {}
 	for candidate_id in GameData.HIRING_CANDIDATES:
 		status[candidate_id] = _open_status(0)
-	return { "status": status, "poach": {}, "feed": [], "feedSeen": 0 }
+	return { "status": status, "poach": {}, "feed": [], "feedSeen": 0, "feedUsed": {} }
 
 
 static func _open_status(day: int) -> Dictionary:

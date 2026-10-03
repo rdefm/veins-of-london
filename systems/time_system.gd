@@ -64,6 +64,7 @@ static func run_staff_block(block: int = -1) -> void:
 	var ore_before: Dictionary = MorningAccountsSystem.ore_snapshot()
 	MorningAccountsSystem.record_block(Rooms.process_staff_block(block), ore_before)
 	ContractsSystem.process_sales_deliveries()  # R§3.10 "Sales delivery": after the staff step
+	LodedInnitFeed.post_block(block)  # hiring-spec §6.2 one LodedInnit post per block
 	BusinessQuest.maybe_trigger_partnership()  # Beat 4 can be met by a staff level-up
 
 

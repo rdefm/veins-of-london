@@ -1,0 +1,88 @@
+{
+  "feed": {
+    "cap": 50,
+    "likes": { "min": 2, "max": 40 },
+    "maxComments": 2,
+    "authorWeights": { "ours": 3, "open": 2, "employed": 1 }
+  },
+  "voices": {
+    "marcia": [
+      { "text": "The allotments passed another inspection. The minutes are available. The interesting part is not in the minutes." },
+      { "text": "Fourteen years as secretary and I still can't get anyone to read the agenda before the meeting." },
+      { "text": "Something is growing under plot 31 that I did not plant. I am being very calm about it." },
+      { "text": "Compost is a long game. So, as it turns out, is most of what I do." },
+      { "text": "Reminder that a hosepipe ban is a suggestion to people who don't know where the standpipe is." },
+      { "text": "Open to discreet horticulture. Discretion is the whole job." }
+    ],
+    "tomasz": [
+      { "text": "Looking for a role with room to grow. I have my own boots and most of a van.", "variants": { "eager": "Looking for ANY role with room to grow. Boots, van, 5am starts. Ask me anything. Ask me twice." } },
+      { "text": "Learned three new things before breakfast. Need more things." },
+      { "text": "Day 40 of asking what the soil is for. Nobody will say. Fascinating." , "variants": { "eager": "Day 40 of asking what the soil is for. Nobody will say. I will find out. I am already digging." } },
+      { "text": "First-class degree, zero references. Reference me, someone." },
+      { "text": "The van has a name now. It does not answer to it." },
+      { "text": "Ran the numbers on a seam today. Nobody asked. Ran them again." }
+    ],
+    "bernie": [
+      { "text": "Forty years. Three owners. I am still here and they are not." },
+      { "text": "Not here to learn. Here to be paid and left alone. Tea, two sugars." },
+      { "text": "A seam knows when it's being rushed. So do I." },
+      { "text": "Young people ask me for my secret. It is turning up." },
+      { "text": "Retired twice. Both times, someone rang." },
+      { "text": "No questions. That's the whole reference." }
+    ],
+    "saoirse": [
+      { "text": "Left the Collective on good terms. Mostly. Ask me about the awkward seam in Peckham, I have a lot to say about", "variants": { "distracted": "Left the Collective on good terms. Mostly. Ask me about the awkward seam in Peckham, which reminds me, did I ever tell you about Lisbon" } },
+      { "text": "Six years growing for other people. Wondering what it's like to grow for a reason." },
+      { "text": "Good with the awkward ones. The seams, I mean. People are a separate skill." },
+      { "text": "Nearly went to Lisbon once. The ferry was lovely. I was not on it." , "variants": { "distracted": "Nearly went to Lisbon once. The ferry was lovely. Anyway what was I posting. Lisbon. The ferry." } },
+      { "text": "Co-operatives are just committees that remember each other's birthdays." },
+      { "text": "Mostly on good terms with everyone. That is a real sentence I wrote." }
+    ],
+    "priya": [
+      { "text": "Tolerances are a moral position." },
+      { "text": "Signed something once. Cannot discuss what. Can discuss the paperwork, which was immaculate." },
+      { "text": "Stress load tested a thing today. The thing held. The thing's origin did not come up." },
+      { "text": "Formerly of a firm. The firm is not on the list of places I have been." },
+      { "text": "Materials don't lie. Certificates do. I keep both." },
+      { "text": "Open to work that involves measuring things. Open to not asking what they are." }
+    ],
+    "dot": [
+      { "text": "Market stall, Deptford, Saturdays. Tinctures, poultices, no refunds on heartbreak." },
+      { "text": "My remedy for heartbreak is mostly gin. The rest is honesty about the gin." },
+      { "text": "Someone asked for a poultice for a haunted knee. Did it. Knee seems happy." },
+      { "text": "Saturdays only, unless you're paying. Which you should be." },
+      { "text": "Good to see the paperwork hold up. Mine never does." },
+      { "text": "Open to work. Bring your own jar." }
+    ],
+    "gideon": [
+      { "text": "Clerkenwell-trained. Invoices to the minute. The minute is not negotiable." },
+      { "text": "Opened a movement today that most people can't open. It was running backwards. I said nothing." },
+      { "text": "Expensive and worth it. In that order." },
+      { "text": "A clock that's right twice a day is still wrong. A clock that's wrong on purpose is a commission." },
+      { "text": "Guild apprentices learn patience first and tools second. The tools are the easy part." },
+      { "text": "Time, as ever, is billed separately." }
+    ],
+    "ray": [
+      { "text": "Jack of all trades. Ask around. Not all of them will say good things.", "variants": { "distracted": "Jack of all trades. Ask around. Not all of them will say good things. Where was I. Trades." } },
+      { "text": "Done a bit of everything. Some of it twice. The second time went better." },
+      { "text": "Turns up. Usually. Today counts." , "variants": { "distracted": "Turns up. Usually. Today I turned up at the wrong depot but it was a nice depot." } },
+      { "text": "Fate, emotion, time. I dabble. Dabbling has a rate." },
+      { "text": "Reference available on request. Reference may be a different Ray." },
+      { "text": "Open to anything with a van. Or a bike. Or a very determined walk." }
+    ]
+  },
+  "comments": [
+    { "id": "c01", "text": "Good to hear the paperwork held." },
+    { "id": "c02", "text": "Following this closely." },
+    { "id": "c03", "text": "Lovely. Not at all suspicious." },
+    { "id": "c04", "text": "Tell me more when you can." },
+    { "id": "c05", "text": "Same, honestly." },
+    { "id": "c06", "text": "I know someone who can help with that." },
+    { "id": "c07", "text": "Interesting. Don't put that in writing again." },
+    { "id": "c08", "text": "Classic." },
+    { "id": "c09", "text": "Respect." },
+    { "id": "c10", "text": "Noted." },
+    { "id": "c11", "text": "That explains the noise last Tuesday." },
+    { "id": "c12", "text": "Thanks for sharing. Please stop sharing." }
+  ]
+}

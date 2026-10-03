@@ -124,6 +124,8 @@ func _badge_count_for(app_id: String) -> int:
 			return _unseen_notification_count()
 		"messages":
 			return Messages.total_unread_count()
+		"lodedinnit":
+			return LodedInnitFeed.unseen_count()
 		_:
 			return 0
 

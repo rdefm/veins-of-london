@@ -2,7 +2,7 @@
 # profile. The selected tab, open profile and pending float top-up prompt
 # are view state held here; hiring goes through Hiring.hire().
 #
-# PROSE-REVIEW: tab/empty-feed/status strings.
+# PROSE-REVIEW: tab/empty-feed/status strings, feed intro.
 class_name LodedInnitApp
 extends PhoneApp
 
@@ -22,7 +22,8 @@ func build(content: VBoxContainer) -> void:
 	content.add_child(UI.heading("LodedInnit"))
 	content.add_child(_build_tabs())
 	if _tab == FEED_TAB:
-		content.add_child(UI.muted_label("Nothing on your feed yet."))
+		LodedInnitFeed.mark_seen()
+		_build_feed(content)
 	else:
 		_build_people(content)
 
@@ -39,6 +40,51 @@ func _build_tabs() -> Control:
 func _set_tab(tab: String) -> void:
 	_tab = tab
 	refresh()
+
+
+func _build_feed(content: VBoxContainer) -> void:
+	content.add_child(UI.heading("Network activity", 18))
+	var entries := LodedInnitFeed.entries()
+	if entries.is_empty():
+		content.add_child(UI.muted_label("Nothing on your feed yet. Posts arrive as the day goes on."))
+		return
+	content.add_child(UI.muted_label("The people doing the work, and the people saying they are."))
+	for entry in entries:
+		content.add_child(_post_card(LodedInnitFeed.card(entry)))
+
+
+# One social card from LodedInnitFeed.card(); any entry kind renders here.
+func _post_card(view: Dictionary) -> Control:
+	var c := UI.card()
+	var head := UI.hbox(9)
+	head.add_child(_avatar(view["initials"]))
+	var who := UI.vbox(2)
+	who.add_child(UI.label(view["name"]))
+	who.add_child(UI.muted_label("%s · %s" % [view["meta"], view["time"]]))
+	head.add_child(UI.expand_fill(who))
+	c["content"].add_child(head)
+	c["content"].add_child(UI.label(view["body"]))
+	var engage := UI.hbox()
+	var comment_count: int = view["comments"].size()
+	engage.add_child(UI.expand_fill(UI.muted_label("%d likes" % view["likes"])))
+	engage.add_child(UI.muted_label("%d comment%s" % [comment_count, "" if comment_count == 1 else "s"]))
+	c["content"].add_child(engage)
+	for comment in view["comments"]:
+		c["content"].add_child(UI.muted_label("%s: %s" % [comment["author"], comment["text"]]))
+	return c["panel"]
+
+
+func _avatar(initials: String) -> Control:
+	var panel := PanelContainer.new()
+	var style := UI.bordered_panel_style(Color(0.506, 0.329, 0.604), Color(0.855, 0.722, 0.922), 18, 4, 4)
+	panel.add_theme_stylebox_override("panel", style)
+	panel.custom_minimum_size = Vector2(36, 36)
+	panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	var l := UI.label(initials)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	panel.add_child(l)
+	return panel
 
 
 func _build_people(content: VBoxContainer) -> void:
