@@ -89,16 +89,33 @@ func run() -> void:
 			assert_eq(ore_rows[i].name, "TickerGood_ore_%s" % good_type, "ore market order")
 			assert_true(NodeQuery.label_texts(ore_rows[i]).has(GameData.ORE_TYPES[good_type]["name"]), "ore name is readable")
 			assert_eq(ore_rows[i].find_children("", "SymbolGlyph", true, false).size(), 1, "ore has its symbol")
+			_assert_market_glyph(ore_rows[i] as Node, GameData.ORE_TYPES[good_type]["symbol"], "ore row %s" % good_type)
 		for i in range(item_rows.size()):
 			var good_type: String = GameData.MARKET["goods"]["consumable"].keys()[i]
 			assert_eq(item_rows[i].name, "TickerGood_consumable_%s" % good_type, "item market order")
 			assert_true(NodeQuery.label_texts(item_rows[i]).has(GameData.RECIPES[good_type]["name"]), "item name is readable")
 			assert_eq(item_rows[i].find_children("", "SymbolGlyph", true, false).size(), 1, "item has its symbol")
+			_assert_market_glyph(item_rows[i] as Node, GameData.RECIPES[good_type]["symbol"], "item row %s" % good_type)
 		assert_true(NodeQuery.label_texts(ore_rows[0]).has("£91/10"), "live ore lot price")
 		assert_true(NodeQuery.label_texts(ore_rows[0]).has("▲ +£2"), "up move versus yesterday")
 		var shield: Node = phone.find_child("TickerGood_consumable_shield", true, false)
 		assert_true(NodeQuery.label_texts(shield).has("£130"), "live item lot price")
 		assert_true(NodeQuery.label_texts(shield).has("▼ −£3"), "down move versus yesterday")
+		phone.free()
+	)
+
+	run_case("every_market_price_detail_keeps_its_symbol_in_light_ink", func():
+		GameState.reset()
+		PhoneNav.open_app("ticker")
+		var phone := PhoneScreen.new()
+		phone._ready()
+		(phone.find_child("TickerTab_stock", true, false) as Button).pressed.emit()
+		for kind in ["ore", "consumable"]:
+			for good_type in GameData.MARKET["goods"][kind]:
+				(phone.find_child("TickerGood_%s_%s" % [kind, good_type], true, false) as Button).pressed.emit()
+				var expected_symbol: String = GameData.ORE_TYPES[good_type]["symbol"] if kind == "ore" else GameData.RECIPES[good_type]["symbol"]
+				_assert_market_glyph(phone.find_child("TickerDetailName", true, false).get_parent(), expected_symbol, "%s detail %s" % [kind, good_type])
+				NodeQuery.find_button(phone, "‹ Back to Stock Market").pressed.emit()
 		phone.free()
 	)
 
@@ -250,3 +267,24 @@ func _contrast_ratio(a: Color, b: Color) -> float:
 	var first := 0.2126 * x.r + 0.7152 * x.g + 0.0722 * x.b
 	var second := 0.2126 * y.r + 0.7152 * y.g + 0.0722 * y.b
 	return (maxf(first, second) + 0.05) / (minf(first, second) + 0.05)
+
+
+func _assert_market_glyph(parent: Node, expected_symbol: String, description: String) -> void:
+	var glyphs := parent.find_children("", "SymbolGlyph", true, false)
+	assert_eq(glyphs.size(), 1, "%s has one glyph" % description)
+	if glyphs.size() != 1:
+		return
+	var glyph := glyphs[0] as SymbolGlyph
+	assert_eq(glyph.symbol, expected_symbol, "%s keeps its canonical symbol" % description)
+	assert_eq(glyph.color, TickerApp.NEWS_INK, "%s uses Ticker light ink" % description)
+	assert_true(_contrast_ratio(glyph.color, TickerApp.NEWS_BG) >= 4.5, "%s contrast on charcoal" % description)
+	var spy := DrawSpy.new()
+	SymbolGlyph.draw_symbol(spy, ThemeDB.fallback_font, Vector2.ZERO, glyph.symbol, glyph.color, glyph.font_size, glyph.glyph_radius, glyph.draw_fallback)
+	assert_true(not spy.calls.is_empty(), "%s draws a visible mark" % description)
+	for draw_call in spy.calls:
+		var drawn_colour := Color.TRANSPARENT
+		for arg in draw_call["args"]:
+			if arg is Color:
+				drawn_colour = arg
+				break
+		assert_eq(drawn_colour, TickerApp.NEWS_INK, "%s rendered mark uses light ink" % description)

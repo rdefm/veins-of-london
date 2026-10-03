@@ -397,7 +397,7 @@ func _good_row(kind: String, good_type: String) -> Control:
 	b.add_child(inner)
 	inner.offset_left = 4
 	inner.offset_right = -4
-	var symbol := UI.symbol_row([_good_symbol(kind, good_type)])
+	var symbol := UI.symbol_row([_good_symbol(kind, good_type)], { "color": NEWS_INK })
 	symbol.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	inner.add_child(symbol)
 	var identity := UI.vbox(3)
@@ -431,9 +431,14 @@ func _build_good_detail(content: VBoxContainer, kind: String, good_type: String)
 	var eyebrow := _detail_text(copy["oreEyebrow"] if kind == "ore" else copy["itemEyebrow"], 11, NEWS_MUTED)
 	eyebrow.name = "TickerDetailEyebrow"
 	content.add_child(_news_margins(eyebrow, 0, 12, 0, 0))
+	var title_row := UI.hbox(10)
+	var symbol := UI.symbol_row([_good_symbol(kind, good_type)], { "heading_size": 24, "color": NEWS_INK })
+	symbol.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	title_row.add_child(symbol)
 	var title := _detail_text(_good_name(kind, good_type), 24, NEWS_INK)
 	title.name = "TickerDetailName"
-	content.add_child(_news_margins(title, 0, 8, 0, 10))
+	title_row.add_child(title)
+	content.add_child(_news_margins(title_row, 0, 8, 0, 10))
 	var move := Market.day_move(kind, good_type)
 	var price_row := UI.hflow(14)
 	price_row.add_theme_constant_override("v_separation", 2)

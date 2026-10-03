@@ -152,7 +152,7 @@ const _MUTED_COLOUR := Color(0.541176, 0.541176, 0.541176, 1)
 static func symbol_row(parts: Array, opts: Dictionary = {}) -> Control:
 	var heading_size: int = opts.get("heading_size", 0)
 	var muted: bool = opts.get("muted", false)
-	var colour: Color = _MUTED_COLOUR if muted else _THEME.get_color("font_color", "Label")
+	var colour: Color = opts.get("color", _MUTED_COLOUR if muted else _THEME.get_color("font_color", "Label"))
 	var row := hbox(opts.get("sep", 4))
 	for part in parts:
 		row.add_child(_symbol_part(part, heading_size, colour))
