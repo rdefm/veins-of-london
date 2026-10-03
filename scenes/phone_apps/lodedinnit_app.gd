@@ -19,6 +19,9 @@ const PEOPLE_TAB_NODE_NAME := "LodedInnitPeopleTab"
 const ROLE_FILTER_NODE_NAME := "LodedInnitRoleFilter"
 const ORE_FILTER_NODE_NAME := "LodedInnitOreFilter"
 const WAGE_SORT_NODE_NAME := "LodedInnitWageSort"
+const PEOPLE_INTRO_NODE_NAME := "LodedInnitPeopleIntro"
+const PEOPLE_COUNT_NODE_NAME := "LodedInnitPeopleCount"
+const PEOPLE_TOOLBAR_NODE_NAME := "LodedInnitPeopleToolbar"
 const EMPTY_NODE_NAME := "LodedInnitEmpty"
 const ROW_NODE_PREFIX := "LodedInnitRow_"
 const PROFILE_ROLE_NODE_NAME := "LodedInnitProfileRole"
@@ -41,6 +44,8 @@ const COPPER_FALLBACK := Color("#dda477")
 const BAR_FILL := Color("#3c3042")
 const GROUP_FILL := Color("#323236")
 const CARD_FILL := Color("#303034")
+const CONTROL_FILL := Color("#343038")
+const AVATAR_FILL := Color("#4b4650")
 const OLD_MUTED := Color(0.541176, 0.541176, 0.541176, 1)
 
 var _tab := PEOPLE_TAB
@@ -79,12 +84,13 @@ func build(_content: VBoxContainer) -> void:
 	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_root.add_child(scroll)
-	var page := UI.vbox(10)
+	var people_page := _profile_id == "" and _tab == PEOPLE_TAB
+	var page := UI.vbox(0 if people_page else 10)
 	page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var margin := MarginContainer.new()
 	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	for side in ["left", "right", "top", "bottom"]:
-		margin.add_theme_constant_override("margin_" + side, 12)
+		margin.add_theme_constant_override("margin_" + side, 0 if people_page else 12)
 	margin.add_child(page)
 	scroll.add_child(margin)
 	if _profile_id != "":
@@ -224,6 +230,14 @@ func _style_button(button: Button) -> void:
 		button.add_theme_color_override("font_pressed_color", ink)
 		button.add_theme_color_override("font_hover_pressed_color", ink)
 		return
+	if button.name == ROLE_FILTER_NODE_NAME or button.name == ORE_FILTER_NODE_NAME or button.name == WAGE_SORT_NODE_NAME:
+		for state in ["normal", "hover", "pressed", "hover_pressed"]:
+			button.add_theme_stylebox_override(state, _button_style(CONTROL_FILL if state == "normal" else BAR_FILL, Color("#5b5360")))
+		button.add_theme_color_override("font_color", plum_light() if button.name == WAGE_SORT_NODE_NAME else ink)
+		button.add_theme_color_override("font_hover_color", ink)
+		button.add_theme_color_override("font_pressed_color", ink)
+		button.add_theme_font_size_override("font_size", 11)
+		return
 	var fill := BAR_FILL
 	button.add_theme_stylebox_override("normal", _button_style(fill, plum()))
 	button.add_theme_stylebox_override("hover", _button_style(plum()))
@@ -310,36 +324,101 @@ func _avatar(initials: String) -> Control:
 
 
 func _build_people(content: VBoxContainer) -> void:
-	content.add_child(_build_controls())
 	var groups := LodedInnitDirectory.groups(_role_filter, _ore_filter, _wage_order)
+	var count := LodedInnitDirectory.visible_count(groups)
+	content.add_child(_people_intro(count))
+	content.add_child(_build_controls(groups))
 	if groups.is_empty():
 		var empty := UI.muted_label("Nobody on LodedInnit matches those filters.")
 		empty.name = EMPTY_NODE_NAME
-		content.add_child(empty)
+		var empty_margin := _people_margin(12, 16)
+		empty_margin.add_child(empty)
+		content.add_child(empty_margin)
 		return
-	content.add_child(UI.muted_label("%d people" % LodedInnitDirectory.visible_count(groups)))
 	for group in groups:
 		content.add_child(_group_header(group))
 		for candidate_id in group["ids"]:
 			content.add_child(_person_row(candidate_id))
 
 
-func _build_controls() -> Control:
-	var row := UI.hflow(10)
-	row.add_child(_filter_box("Role", ROLE_FILTER_NODE_NAME, LodedInnitDirectory.role_options(), _role_filter, _on_role_selected))
-	row.add_child(_filter_box("Ore specialism", ORE_FILTER_NODE_NAME, LodedInnitDirectory.ore_options(), _ore_filter, _on_ore_selected))
-	var wage_box := UI.vbox(2)
-	wage_box.add_child(UI.muted_label("Pay"))
+func _people_margin(vertical: int, horizontal: int) -> MarginContainer:
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", horizontal)
+	margin.add_theme_constant_override("margin_right", horizontal)
+	margin.add_theme_constant_override("margin_top", vertical)
+	margin.add_theme_constant_override("margin_bottom", vertical)
+	return margin
+
+
+func _people_intro(count: int) -> Control:
+	var panel := PanelContainer.new()
+	panel.name = PEOPLE_INTRO_NODE_NAME
+	var style := StyleBoxFlat.new()
+	style.bg_color = BAR_FILL
+	style.content_margin_left = 16
+	style.content_margin_right = 16
+	style.content_margin_top = 14
+	style.content_margin_bottom = 13
+	panel.add_theme_stylebox_override("panel", style)
+	var body := UI.vbox(4)
+	panel.add_child(body)
+	var kicker := UI.tinted_label("PEOPLE / %02d" % count, plum_light())
+	kicker.add_theme_font_size_override("font_size", 10)
+	kicker.add_theme_font_override("font", _bold_font())
+	body.add_child(kicker)
+	var title := UI.tinted_label("Who’s available.", _ink())
+	title.add_theme_font_size_override("font_size", 25)
+	title.add_theme_font_override("font", _bold_font())
+	body.add_child(title)
+	var subtitle := UI.tinted_label("A useful network, when the work needs doing.", _muted_ink())
+	subtitle.add_theme_font_size_override("font_size", 11)
+	body.add_child(subtitle)
+	return panel
+
+
+func _bold_font() -> FontVariation:
+	var bold := FontVariation.new()
+	bold.base_font = ThemeDB.fallback_font
+	bold.variation_embolden = 0.6
+	return bold
+
+
+func _build_controls(groups: Array) -> Control:
+	var margin := _people_margin(10, 16)
+	margin.name = PEOPLE_TOOLBAR_NODE_NAME
+	var body := UI.vbox(7)
+	margin.add_child(body)
+	var count_row := UI.hbox(4)
+	body.add_child(count_row)
+	var count := LodedInnitDirectory.visible_count(groups)
+	var open_count := 0
+	for group in groups:
+		for candidate_id in group["ids"]:
+			if Hiring.status(candidate_id)["state"] == Hiring.STATUS_OPEN:
+				open_count += 1
+	var number := UI.tinted_label(str(count), _ink())
+	number.name = PEOPLE_COUNT_NODE_NAME
+	number.add_theme_font_size_override("font_size", 12)
+	number.add_theme_font_override("font", _bold_font())
+	count_row.add_child(number)
+	var context := UI.tinted_label("shown · %d open to work" % open_count, _muted_ink())
+	context.add_theme_font_size_override("font_size", 11)
+	count_row.add_child(context)
+	var controls := UI.hbox(6)
+	body.add_child(controls)
+	controls.add_child(_filter_box(ROLE_FILTER_NODE_NAME, LodedInnitDirectory.role_options(), _role_filter, _on_role_selected))
+	controls.add_child(_filter_box(ORE_FILTER_NODE_NAME, LodedInnitDirectory.ore_options(), _ore_filter, _on_ore_selected))
 	var wage := UI.button(_wage_label(), _on_wage_pressed)
 	wage.name = WAGE_SORT_NODE_NAME
-	wage_box.add_child(wage)
-	row.add_child(wage_box)
-	return row
+	wage.custom_minimum_size = Vector2(0, 42)
+	wage.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	wage.size_flags_stretch_ratio = 1.05
+	wage.tooltip_text = _wage_tooltip()
+	controls.add_child(wage)
+	return margin
 
 
-func _filter_box(caption: String, node_name: String, options: Array, selected_id: String, on_selected: Callable) -> Control:
-	var box := UI.vbox(2)
-	box.add_child(UI.muted_label(caption))
+func _filter_box(node_name: String, options: Array, selected_id: String, on_selected: Callable) -> OptionButton:
 	var labels: Array = []
 	var selected := 0
 	for i in options.size():
@@ -348,19 +427,36 @@ func _filter_box(caption: String, node_name: String, options: Array, selected_id
 			selected = i
 	var select := UI.option_button(labels)
 	select.name = node_name
+	select.fit_to_longest_item = false
+	select.clip_text = true
+	select.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	select.custom_minimum_size = Vector2(0, 42)
+	select.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	select.size_flags_stretch_ratio = 0.95 if node_name == ROLE_FILTER_NODE_NAME else 1.05
 	select.select(selected)
+	var caption := "Role" if node_name == ROLE_FILTER_NODE_NAME else "Ore"
+	select.text = "%s: %s" % [caption, options[selected]["label"]]
+	select.tooltip_text = "%s: %s" % ["Role" if node_name == ROLE_FILTER_NODE_NAME else "Ore specialism", options[selected]["label"]]
 	select.item_selected.connect(func(index: int): on_selected.call(options[index]["id"]))
-	box.add_child(select)
-	return box
+	return select
 
 
 func _wage_label() -> String:
 	match _wage_order:
 		LodedInnitDirectory.WAGE_DESC:
-			return "Wage · high to low"
+			return "Wage: high→low"
 		LodedInnitDirectory.WAGE_ASC:
-			return "Wage · low to high"
-	return "Wage"
+			return "Wage: low→high"
+	return "Wage: roster"
+
+
+func _wage_tooltip() -> String:
+	match _wage_order:
+		LodedInnitDirectory.WAGE_DESC:
+			return "Wage: high to low"
+		LodedInnitDirectory.WAGE_ASC:
+			return "Wage: low to high"
+	return "Wage: roster order"
 
 
 func _on_role_selected(role_id: String) -> void:
@@ -381,43 +477,119 @@ func _on_wage_pressed() -> void:
 func _group_header(group: Dictionary) -> Control:
 	var style := StyleBoxFlat.new()
 	style.bg_color = GROUP_FILL
-	style.content_margin_left = 8
-	style.content_margin_right = 8
-	style.content_margin_top = 4
-	style.content_margin_bottom = 4
+	style.border_color = _rule_style().color
+	style.border_width_top = 1
+	style.border_width_bottom = 1
+	style.content_margin_left = 16
+	style.content_margin_right = 16
+	style.content_margin_top = 8
+	style.content_margin_bottom = 8
 	var panel := PanelContainer.new()
 	panel.add_theme_stylebox_override("panel", style)
 	var row := UI.hbox(8)
 	panel.add_child(row)
-	row.add_child(UI.expand_fill(UI.tinted_label("%s · %d" % [str(group["label"]).to_upper(), group["ids"].size()], plum_light())))
-	row.add_child(UI.muted_label("Lv/cap · £/wk"))
+	var title := UI.tinted_label("%s · %d" % [str(group["label"]).to_upper(), group["ids"].size()], plum_light())
+	title.add_theme_font_size_override("font_size", 10)
+	title.add_theme_font_override("font", _bold_font())
+	row.add_child(UI.expand_fill(title))
+	var guide := UI.tinted_label("Level / cap · £/wk", _muted_ink())
+	guide.add_theme_font_size_override("font_size", 10)
+	row.add_child(guide)
 	return panel
 
 
 func _person_row(candidate_id: String) -> Control:
-	var box := UI.vbox(2)
-	box.name = row_node_name(candidate_id)
-	var top := UI.hbox(8)
-	top.add_child(_avatar(LodedInnitFeed.initials(Contacts.display_name(candidate_id))))
-	var who := UI.vbox(2)
-	var name_button := UI.button(Contacts.display_name(candidate_id), _open_profile.bind(candidate_id))
-	name_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	name_button.flat = true
-	who.add_child(name_button)
-	who.add_child(UI.muted_label(Hiring.candidate(candidate_id)["headline"]))
-	who.add_child(UI.tinted_label(_status_text(candidate_id), plum_light()))
-	top.add_child(UI.expand_fill(who))
-	var right := UI.vbox(2)
+	var outer := _people_margin(0, 16)
+	outer.name = row_node_name(candidate_id)
+	outer.mouse_filter = Control.MOUSE_FILTER_PASS
+	var body := UI.vbox(0)
+	outer.add_child(body)
+	var pad := _people_margin(10, 0)
+	body.add_child(pad)
+	var row := UI.hbox(9)
+	pad.add_child(row)
+	row.add_child(_people_avatar(LodedInnitFeed.initials(Contacts.display_name(candidate_id))))
+	var who := UI.vbox(3)
+	who.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(who)
+	var name := UI.tinted_label(Contacts.display_name(candidate_id), _ink())
+	name.add_theme_font_size_override("font_size", 13)
+	name.add_theme_font_override("font", _bold_font())
+	name.custom_minimum_size.x = 0
+	who.add_child(name)
+	var headline := UI.tinted_label(Hiring.candidate(candidate_id)["headline"], _muted_ink())
+	headline.add_theme_font_size_override("font_size", 11)
+	headline.custom_minimum_size.x = 0
+	who.add_child(headline)
+	var status := UI.tinted_label("●  %s" % _status_text(candidate_id).to_upper(), plum_light())
+	status.add_theme_font_size_override("font_size", 9)
+	status.add_theme_font_override("font", _bold_font())
+	status.custom_minimum_size.x = 0
+	who.add_child(status)
+	var right := UI.vbox(4)
+	row.add_child(right)
 	var wage := UI.tinted_label("£%d" % Hiring.weekly_wage(candidate_id), copper())
+	wage.add_theme_font_size_override("font_size", 12)
+	wage.add_theme_font_override("font", _bold_font())
 	wage.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	right.add_child(wage)
-	var level := UI.muted_label("Lv %d/%d" % [Hiring.level(candidate_id), Hiring.level_cap(candidate_id)])
+	var level := UI.tinted_label("LV %d/%d" % [Hiring.level(candidate_id), Hiring.level_cap(candidate_id)], _muted_ink())
+	level.add_theme_font_size_override("font_size", 10)
 	level.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	right.add_child(level)
-	top.add_child(right)
-	box.add_child(top)
-	box.add_child(HSeparator.new())
-	return box
+	var chevron := UI.tinted_label("›", plum_light())
+	chevron.add_theme_font_size_override("font_size", 16)
+	chevron.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	right.add_child(chevron)
+	var rule := HSeparator.new()
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	body.add_child(rule)
+	_ignore_mouse_tree(outer)
+	outer.mouse_filter = Control.MOUSE_FILTER_PASS
+	outer.gui_input.connect(_on_person_row_input.bind(outer, candidate_id))
+	return outer
+
+
+func _on_person_row_input(event: InputEvent, row: Control, candidate_id: String) -> void:
+	if event is InputEventScreenTouch:
+		if event.pressed:
+			row.set_meta("tap_start", event.position)
+		elif row.has_meta("tap_start"):
+			var start: Vector2 = row.get_meta("tap_start")
+			row.remove_meta("tap_start")
+			if start.distance_to(event.position) < 12.0:
+				_open_profile(candidate_id)
+	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed:
+			row.set_meta("tap_start", event.position)
+		elif row.has_meta("tap_start"):
+			var start: Vector2 = row.get_meta("tap_start")
+			row.remove_meta("tap_start")
+			if start.distance_to(event.position) < 12.0:
+				_open_profile(candidate_id)
+
+
+func _people_avatar(initials: String) -> Control:
+	var panel := PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = AVATAR_FILL
+	style.set_corner_radius_all(16)
+	panel.add_theme_stylebox_override("panel", style)
+	panel.custom_minimum_size = Vector2(31, 31)
+	panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	var label := UI.tinted_label(initials, plum_light())
+	label.add_theme_font_size_override("font_size", 10)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	panel.add_child(label)
+	return panel
+
+
+func _ignore_mouse_tree(node: Node) -> void:
+	if node is Control:
+		(node as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for child in node.get_children():
+		_ignore_mouse_tree(child)
 
 
 func _status_text(candidate_id: String) -> String:

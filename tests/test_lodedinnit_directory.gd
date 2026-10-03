@@ -17,6 +17,19 @@ static func _open_app(phone: PhoneScreen) -> LodedInnitApp:
 	return phone._apps["lodedinnit"] as LodedInnitApp
 
 
+static func _tap_row(phone: PhoneScreen, candidate_id: String) -> void:
+	var row := phone.find_child(LodedInnitApp.row_node_name(candidate_id), true, false) as Control
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	press.position = Vector2(10, 10)
+	row.gui_input.emit(press)
+	var release := InputEventMouseButton.new()
+	release.button_index = MOUSE_BUTTON_LEFT
+	release.position = Vector2(10, 10)
+	row.gui_input.emit(release)
+
+
 func run() -> void:
 	run_case("brand_ink_and_tabs_follow_displayed_page", func():
 		GameState.reset()
@@ -37,8 +50,12 @@ func run() -> void:
 		assert_eq((people.get_theme_stylebox("normal") as StyleBoxFlat).border_color, GameData.PALETTE["lodedinnit_plum"])
 		assert_eq((feed.get_theme_stylebox("normal") as StyleBoxFlat).border_width_bottom, 0)
 		assert_eq((feed.get_theme_stylebox("normal") as StyleBoxFlat).bg_color.a, 0.0)
-		var name_button := NodeQuery.find_button(phone, "Priya Sandhu")
-		assert_eq(name_button.get_theme_color("font_color"), GameData.PALETTE["phone_text_primary"])
+		var priya := phone.find_child(LodedInnitApp.row_node_name("priya"), true, false)
+		var name_label: Label = null
+		for label in priya.find_children("", "Label", true, false):
+			if (label as Label).text == "Priya Sandhu":
+				name_label = label as Label
+		assert_eq(name_label.get_theme_color("font_color"), GameData.PALETTE["phone_text_primary"])
 		feed.pressed.emit()
 		assert_eq(app._tab, LodedInnitApp.FEED_TAB)
 		root = phone.find_child(LodedInnitApp.ROOT_NODE_NAME, true, false)
@@ -118,28 +135,92 @@ func run() -> void:
 		assert_true(phone.find_child(LodedInnitApp.row_node_name("priya"), true, false) != null)
 		var role := phone.find_child("LodedInnitRoleFilter", true, false) as OptionButton
 		assert_eq(role.item_count, 3)
+		assert_eq(role.text, "Role: All")
 		role.item_selected.emit(2)
 		assert_true(phone.find_child(LodedInnitApp.row_node_name("priya"), true, false) != null)
 		assert_true(phone.find_child(LodedInnitApp.row_node_name("marcia"), true, false) == null)
+		assert_eq((phone.find_child("LodedInnitRoleFilter", true, false) as OptionButton).text, "Role: Crafters")
 		var ore := phone.find_child("LodedInnitOreFilter", true, false) as OptionButton
 		assert_eq(ore.item_count, 6)
 		ore.item_selected.emit(5)
 		assert_true(phone.find_child(LodedInnitApp.row_node_name("ray"), true, false) != null)
 		assert_true(phone.find_child(LodedInnitApp.row_node_name("priya"), true, false) == null)
+		assert_eq((phone.find_child("LodedInnitOreFilter", true, false) as OptionButton).text, "Ore: Emotion")
 		(phone.find_child("LodedInnitWageSort", true, false) as Button).pressed.emit()
-		assert_true(NodeQuery.button_texts(phone).has("Wage · high to low"))
+		assert_eq((phone.find_child("LodedInnitWageSort", true, false) as Button).text, "Wage: high→low")
 		(phone.find_child("LodedInnitWageSort", true, false) as Button).pressed.emit()
-		assert_true(NodeQuery.button_texts(phone).has("Wage · low to high"))
+		assert_eq((phone.find_child("LodedInnitWageSort", true, false) as Button).text, "Wage: low→high")
 
 		app._role_filter = "all"
 		app._ore_filter = "all"
 		phone._refresh()
-		var name_button := NodeQuery.find_button(phone, "Priya Sandhu")
-		name_button.pressed.emit()
+		_tap_row(phone, "priya")
 		assert_true(NodeQuery.button_texts(phone).has("‹ People"))
 		assert_true(phone.find_child("LodedInnitTabs", true, false) == null)
 		NodeQuery.find_button(phone, "‹ People").pressed.emit()
-		assert_true(NodeQuery.button_texts(phone).has("Wage · low to high"), "wage order survives round trip")
+		assert_eq((phone.find_child("LodedInnitWageSort", true, false) as Button).text, "Wage: low→high", "wage order survives round trip")
+		phone.free()
+	)
+
+	run_case("people_hierarchy_controls_and_rows_are_compact", func():
+		GameState.reset()
+		var phone := PhoneScreen.new()
+		_open_app(phone)
+		var intro := phone.find_child(LodedInnitApp.PEOPLE_INTRO_NODE_NAME, true, false) as PanelContainer
+		var toolbar := phone.find_child(LodedInnitApp.PEOPLE_TOOLBAR_NODE_NAME, true, false) as MarginContainer
+		assert_true(intro != null and toolbar != null)
+		assert_true(NodeQuery.label_texts(intro).has("PEOPLE / 08"))
+		assert_true(NodeQuery.label_texts(intro).has("Who’s available."))
+		assert_eq((phone.find_child(LodedInnitApp.PEOPLE_COUNT_NODE_NAME, true, false) as Label).text, "8")
+		assert_true(NodeQuery.label_texts(toolbar).has("shown · 8 open to work"))
+		var controls := toolbar.get_child(0).get_child(1) as HBoxContainer
+		assert_eq(controls.get_child_count(), 3)
+		for control in controls.get_children():
+			assert_true((control as Control).custom_minimum_size.y >= 42)
+			assert_true((control as Control).size_flags_horizontal & Control.SIZE_EXPAND)
+		assert_true(controls.get_combined_minimum_size().x <= 358.0, "toolbar fits narrow phone content")
+		var row := phone.find_child(LodedInnitApp.row_node_name("marcia"), true, false) as MarginContainer
+		assert_eq(row.get_theme_constant("margin_left"), 16)
+		assert_eq(row.mouse_filter, Control.MOUSE_FILTER_PASS)
+		assert_true(row.get_combined_minimum_size().y < 100.0, "row stays compact")
+		assert_eq(phone.find_children("LodedInnitRow_*", "MarginContainer", true, false).size(), 8)
+		phone.free()
+	)
+
+	run_case("count_and_availability_follow_live_filtered_status", func():
+		GameState.reset()
+		GameState.state["hiring"]["status"]["marcia"]["state"] = Hiring.STATUS_EMPLOYED
+		GameState.state["hiring"]["status"]["marcia"]["employer"] = GameData.FACTIONS.keys()[0]
+		GameState.state["hiring"]["status"]["tomasz"]["state"] = Hiring.STATUS_OURS
+		var phone := PhoneScreen.new()
+		var app := _open_app(phone)
+		assert_true(NodeQuery.label_texts(phone).has("shown · 6 open to work"))
+		app._role_filter = "cultivation"
+		phone._refresh()
+		assert_eq((phone.find_child(LodedInnitApp.PEOPLE_COUNT_NODE_NAME, true, false) as Label).text, "4")
+		assert_true(NodeQuery.label_texts(phone).has("shown · 2 open to work"))
+		assert_true(NodeQuery.label_texts(phone).has("●  WORKS FOR YOU"))
+		app._ore_filter = "time"
+		phone._refresh()
+		assert_eq((phone.find_child(LodedInnitApp.PEOPLE_COUNT_NODE_NAME, true, false) as Label).text, "0")
+		assert_true(phone.find_child(LodedInnitApp.EMPTY_NODE_NAME, true, false) != null)
+		phone.free()
+	)
+
+	run_case("row_swipe_does_not_open_profile", func():
+		GameState.reset()
+		var phone := PhoneScreen.new()
+		var app := _open_app(phone)
+		var row := phone.find_child(LodedInnitApp.row_node_name("marcia"), true, false) as Control
+		var press := InputEventScreenTouch.new()
+		press.pressed = true
+		press.position = Vector2(10, 10)
+		row.gui_input.emit(press)
+		var release := InputEventScreenTouch.new()
+		release.position = Vector2(10, 60)
+		row.gui_input.emit(release)
+		assert_eq(app._profile_id, "")
+		assert_true(phone.find_child(LodedInnitApp.row_node_name("marcia"), true, false) != null)
 		phone.free()
 	)
 
