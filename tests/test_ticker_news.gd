@@ -89,6 +89,8 @@ func run() -> void:
 	run_case("article_impact_lists_only_live_canonical_effects", func():
 		GameState.reset()
 		var app := TickerApp.new()
+		var regulation: Array[String] = app._impact_lines(GameData.BAROMETER_STATES["political"]["regulation"]["effects"])
+		assert_eq(regulation, ["All crafted-item demand: +8%."], "Regulation displays demand without mugging risk")
 		var unrest: Array[String] = app._impact_lines(GameData.BAROMETER_STATES["social"]["unrest"]["effects"])
 		assert_eq(unrest, ["Mugging chance: +8 percentage points."], "unused raidChance does not claim an effect")
 		var lockdown: Array[String] = app._impact_lines(GameData.BAROMETER_STATES["social"]["lockdown"]["effects"])
@@ -105,6 +107,21 @@ func run() -> void:
 		assert_true(inflation.has("All crafted-item demand: +3.5%."), "fractional scaled percentage stays exact")
 		var festival: Array[String] = app._impact_lines(GameData.BAROMETER_STATES["social"]["festival"]["effects"])
 		assert_true(festival.has("Blast demand: +28%."), "specific item demand scales too")
+	)
+
+	run_case("ore_regulation_article_shows_only_its_demand_impact", func():
+		GameState.reset()
+		GameState.state["barometer"]["political"] = "regulation"
+		PhoneNav.open_app("ticker")
+		var phone := PhoneScreen.new()
+		phone._ready()
+		(phone.find_child("TickerStory_political", true, false) as Button).pressed.emit()
+		var article: Node = phone.find_child("TickerArticleSheet", true, false)
+		assert_true(article != null, "Regulation story opens its article")
+		var labels := NodeQuery.label_texts(article)
+		assert_true(labels.has("All crafted-item demand: +8%."), "article shows the retained demand effect")
+		assert_true(not labels.has("Mugging chance: +10 percentage points."), "article omits removed mugging effect")
+		phone.free()
 	)
 
 	run_case("influence_disables_unaffordable_actions", func():

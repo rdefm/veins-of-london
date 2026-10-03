@@ -336,7 +336,7 @@ economic: stable {} · boom {demandAll:+0.1, mugChance:−0.05} · recession {de
 
 social: stable {} · unrest {mugChance:+0.08, raidChance:+0.10} · lockdown {searchFind:−0.15, dailyCost:+0.10} · festival {itemDemand:{blast, shield, blackHole, wormhole: +0.4}, searchFind:+0.05} · crime {mugChance:+0.15, homeRaid:+0.05}
 
-political: stable {} · war {itemDemand:{shield, blast, healingBurst, blackHole: +0.6}, mugChance:+0.05} · austerity {dailyCost:+0.05, mugChance:+0.06} · regulation {mugChance:+0.10, demandAll:+0.08} · election {effectMod:−0.3}
+political: stable {} · war {itemDemand:{shield, blast, healingBurst, blackHole: +0.6}, mugChance:+0.05} · austerity {dailyCost:+0.05, mugChance:+0.06} · regulation {demandAll:+0.08} · election {effectMod:−0.3}
 
 **Faction headlines** (`Barometer.push_headline(text)`): big faction-vs-faction moves (so far: a vein taken, `factionEscalation.headlines.veinTaken`; a flood, `headlines.flood`; a war declared, `factionWar.headlines.warDeclared`; a truce signed, `factionWar.truce.headlines.signed`; a Conclave position of `positions.hintQty` or more, `factionConclave.headlines.position` with the ore's name, §3.1 "Conclave positions") append `{day, text}` to `state.barometer.headlines` (created lazily, oldest dropped past `factionEscalation.headlineCap`) and push a "📰 <text>" notification. The Ticker's News tab lists them newest first on a "London wires" card.
 

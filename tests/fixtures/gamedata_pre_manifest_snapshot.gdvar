@@ -143,12 +143,11 @@
 "label": "Election Period"
 },
 "regulation": {
-"description": "Government crackdown. All trading riskier, prices up.",
+"description": "Government tightens ore controls. Demand for crafted goods rises.",
 "effects": {
-"demandAll": 0.08,
-"mugChance": 0.1
+"demandAll": 0.08
 },
-"headlines": ["Government crackdown makes every trade riskier, pricier.", "New ore regulation announced; enforcement, as ever, selective."],
+"headlines": ["Ore regulation increases demand for crafted goods.", "New ore regulation announced; enforcement, as ever, selective."],
 "id": "regulation",
 "label": "Ore Regulation"
 },

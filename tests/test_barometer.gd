@@ -202,6 +202,21 @@ func run() -> void:
 		assert_almost_eq(Barometer.get_merged_effects()["dailyCost"], 0.15, 0.0001, "living-cost modifiers sum before billing")
 	)
 
+	run_case("ore_regulation_raises_item_demand_without_changing_mugging_chance", func():
+		GameState.reset()
+		GameState.state["barometer"]["political"] = "regulation"
+		var fx: Dictionary = Barometer.get_merged_effects()
+		assert_true(not fx.has("mugChance"), "Regulation has no mugging modifier")
+		assert_almost_eq(Barometer.get_effective_mug_chance(0.20), 0.20, 0.0001, "Regulation leaves base mugging chance alone")
+		assert_almost_eq(fx["demandAll"], 0.08, 0.0001, "Regulation retains its demand modifier")
+		assert_almost_eq(Barometer.get_item_demand_mult("shield"), 1.08, 0.0001, "Shield demand rises")
+		assert_almost_eq(Barometer.get_item_demand_mult("timePearl"), 1.08, 0.0001, "Time Pearl demand rises")
+		GameState.state["barometer"]["social"] = "crime"
+		assert_almost_eq(Barometer.get_merged_effects()["mugChance"], 0.15, 0.0001, "Crime Wave alone contributes the mugging modifier")
+		assert_almost_eq(Barometer.get_effective_mug_chance(0.20), 0.35, 0.0001, "Crime Wave mugging effect still applies with Regulation")
+		assert_almost_eq(Barometer.get_item_demand_mult("shield"), 1.08, 0.0001, "Regulation demand still applies with Crime Wave")
+	)
+
 	run_case("election_effect_mod_scales_the_demand_keys", func():
 		GameState.reset()
 		GameState.state["barometer"]["economic"] = "boom"  # demandAll +0.1, mugChance -0.05
