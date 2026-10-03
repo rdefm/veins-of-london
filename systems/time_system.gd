@@ -132,6 +132,7 @@ static func daily_tick() -> void:
 	Diplomacy.daily_tick()               # ⑥.5j favours: settle guard/sit-out watches, withdraw lapsed requests, issue new ones; after ⑥.5g2 so war state is today's
 	Partners.daily_tick()                # ⑥.5j2 partner asks, partner trades, warnings and leaks; after ⑥.5h so warnings see today's queued raids
 	Hiring.roll_market_flips()           # ⑥.5j3 LodedInnit candidates flip between open and employed; no ordering dependency
+	Hiring.daily_poach_tick()            # ⑥.5j4 lapsed poach offers resolve as refusals, then Monday offers roll; after ⑥.5h so stances are today's
 	Market.daily_reprice()               # ⑥.6 London reprice, after every step that trades in the tick and after ① so today's Ticker feeds it
 	Dial.daily_regen()                   # ⑦ Dial charge regen
 	Contacts.daily_dial_regen()          # ⑦.1 ally Dial charges refill

@@ -220,7 +220,7 @@ func _style_page_nodes(node: Node) -> void:
 			ContactCards.apply_phone_os_chrome(button)
 		elif not button.has_theme_stylebox_override("normal") and not button.has_theme_color_override("font_color"):
 			var primary := button.text == "Accept" or button.text.begins_with("Match £") or button.text.begins_with("Top up £") or button.text == "Yes"
-			var quiet := button.text == "Decline" or button.text == "No" or button.text == "Unassign" or button.text == "Cancel contract" or button.text.begins_with("+") or button.text.begins_with("-")
+			var quiet := button.text == "Decline" or button.text == "No" or button.text == "Let them go" or button.text == "Unassign" or button.text == "Cancel contract" or button.text.begins_with("+") or button.text.begins_with("-")
 			var fill := StyleBoxFlat.new()
 			fill.bg_color = SIGNAL if primary and not button.disabled else CARD
 			fill.border_color = LINE if quiet else SIGNAL
@@ -286,9 +286,11 @@ func _build_brief(content: VBoxContainer) -> void:
 	content.add_child(_build_brief_hero(account))
 	# Attention is read live, including before the first rollover.
 	var attention: Array[Dictionary] = MorningAccountsSystem.attention_items()
-	content.add_child(_brief_section("Needs your attention", "%02d OPEN" % (attention.size() + Business.pending_wage_prompts().size())))
+	content.add_child(_brief_section("Needs your attention", "%02d OPEN" % (attention.size() + Business.pending_wage_prompts().size() + Hiring.pending_poach_ids().size())))
 	for contact_id in Business.pending_wage_prompts():
 		content.add_child(_build_wage_prompt(contact_id))
+	for contact_id in Hiring.pending_poach_ids():
+		content.add_child(_build_poach_alert(contact_id))
 	content.add_child(_build_attention(attention))
 	content.add_child(_brief_section("Treasury"))
 	content.add_child(_build_treasury())
@@ -1053,6 +1055,21 @@ func _build_wage_prompt(contact_id: String) -> Control:
 	var short: bool = int(GameState.state["player"]["cash"]) < Business.top_up_needed(contact_id)
 	row.add_child(UI.expand_fill(UI.action_button("Yes", func(): Business.top_up_and_pay_owed(contact_id), short, "Not enough cash.")))
 	row.add_child(UI.expand_fill(UI.button("No", func(): Business.decline_wage_prompt(contact_id))))
+	c["content"].add_child(row)
+	return c["panel"]
+
+
+func _build_poach_alert(contact_id: String) -> Control:
+	var c := UI.card()
+	c["panel"].name = "BizBriefPoach_%s" % contact_id
+	c["content"].add_child(UI.label(Hiring.poach_alert_label(contact_id)))
+	var row := UI.hbox()
+	var match_button := UI.button("Match £%d/wk" % int(Hiring.pending_poach(contact_id)["offer"]), func(): Hiring.match_poach(contact_id))
+	match_button.name = "PoachMatch"
+	var go_button := UI.button("Let them go", func(): Hiring.decline_poach(contact_id))
+	go_button.name = "PoachLetGo"
+	row.add_child(UI.expand_fill(match_button))
+	row.add_child(UI.expand_fill(go_button))
 	c["content"].add_child(row)
 	return c["panel"]
 

@@ -82,9 +82,12 @@ static func level_cap(candidate_id: String) -> int:
 # wageMult is their live wage entry's (hiring-spec §10 R2), else the poach
 # premium while employed elsewhere, else 1.
 static func weekly_wage(candidate_id: String) -> int:
+	return GameState.round_epsilon(float(_formula_wage(candidate_id)) * _wage_mult(candidate_id))
+
+
+static func _formula_wage(candidate_id: String) -> int:
 	var data := candidate(candidate_id)
-	var formula := int(data["baseWage"]) + int(data["wagePerLevel"]) * (level(candidate_id) - int(data["startLevel"]))
-	return GameState.round_epsilon(float(formula) * _wage_mult(candidate_id))
+	return int(data["baseWage"]) + int(data["wagePerLevel"]) * (level(candidate_id) - int(data["startLevel"]))
 
 
 static func _wage_mult(candidate_id: String) -> float:
@@ -228,6 +231,17 @@ static func hires_for_room(room_id: String) -> Array:
 static func let_go(candidate_id: String) -> Dictionary:
 	if not GameData.HIRING_CANDIDATES.has(candidate_id) or status(candidate_id)["state"] != STATUS_OURS:
 		return { "ok": false, "reason": "Doesn't work for you." }
+	_release(candidate_id, _open_status(GameState.state["world"]["day"]))
+	# PROSE-REVIEW: let-go notification.
+	Notify.push("%s clears their desk." % Contacts.display_name(candidate_id))
+	EventBus.state_changed.emit()
+	return { "ok": true }
+
+
+# Vacates the seat, releases cultivatorVeins, flags the wage entry leaving,
+# drops any pending poach offer and sets the new market status.
+static func _release(candidate_id: String, new_status: Dictionary) -> void:
+	_poach_entry(candidate_id)["pending"] = null
 	for vein_id in Rooms.cultivator_veins(candidate_id).duplicate():
 		Rooms.unassign_vein(vein_id)
 	GameState.state["cultivatorVeins"].erase(candidate_id)
@@ -236,8 +250,130 @@ static func let_go(candidate_id: String) -> Dictionary:
 	c["assignedRole"] = null
 	c["recruited"] = false
 	Business.mark_leaving(candidate_id)
-	GameState.state["hiring"]["status"][candidate_id] = _open_status(GameState.state["world"]["day"])
-	# PROSE-REVIEW: let-go notification.
-	Notify.push("%s clears their desk." % Contacts.display_name(candidate_id))
+	GameState.state["hiring"]["status"][candidate_id] = new_status
+
+
+# --- Poaching (hiring-spec §4.3) ---
+
+static func _poach_entry(candidate_id: String) -> Dictionary:
+	var poach: Dictionary = GameState.state["hiring"]["poach"]
+	if not poach.has(candidate_id):
+		poach[candidate_id] = { "attempts": 0, "pending": null }
+	return poach[candidate_id]
+
+
+# The open offer { factionId, offer, expiresDay }, or {}.
+static func pending_poach(candidate_id: String) -> Dictionary:
+	var pending: Variant = _poach_entry(candidate_id)["pending"]
+	return pending if pending is Dictionary else {}
+
+
+# Hires with an unanswered offer, in data order.
+static func pending_poach_ids() -> Array[String]:
+	var ids: Array[String] = []
+	for candidate_id in GameData.HIRING_CANDIDATES:
+		if status(candidate_id)["state"] == STATUS_OURS and not pending_poach(candidate_id).is_empty():
+			ids.append(candidate_id)
+	return ids
+
+
+# The weekly wage a faction offers: +poachOfferPct, never above counterCapPct
+# over the current wage, so the player can always match it.
+static func poach_offer_wage(candidate_id: String) -> int:
+	var current := weekly_wage(candidate_id)
+	var pct := minf(float(GameData.HIRING_MARKET["poachOfferPct"]), float(GameData.HIRING_MARKET["counterCapPct"]))
+	return GameState.round_epsilon(float(current) * (1.0 + pct))
+
+
+# Faction weight by the player's stance with it (poachStanceWeights).
+static func _poach_weights() -> Dictionary:
+	var weights: Dictionary = GameData.HIRING_MARKET["poachStanceWeights"]
+	var result := {}
+	for faction_id in employer_pool():
+		var stance: String = GameState.state["factionStances"]["player"].get(faction_id, {}).get("stance", FactionAI.NEUTRAL)
+		var weight := float(weights.get(stance, 0.0))
+		if weight > 0.0:
+			result[faction_id] = weight
+	return result
+
+
+static func _pick_poacher() -> String:
+	var weights := _poach_weights()
+	if weights.is_empty():
+		return ""
+	var total := 0.0
+	for faction_id in weights:
+		total += float(weights[faction_id])
+	var roll := Rng.randf() * total
+	var picked := ""
+	for faction_id in weights:
+		picked = faction_id
+		roll -= float(weights[faction_id])
+		if roll < 0.0:
+			break
+	return picked
+
+
+# Rollover step: offers a full day unanswered resolve as refusals, then on a
+# Monday gives each hire under the attempt cap a poachChance of a new offer.
+static func daily_poach_tick() -> void:
+	var day: int = GameState.state["world"]["day"]
+	for candidate_id in pending_poach_ids():
+		if day >= int(pending_poach(candidate_id)["expiresDay"]):
+			decline_poach(candidate_id)
+	if not Calendar.is_monday(day):
+		return
+	var chance := float(GameData.HIRING_MARKET["poachChance"])
+	var max_attempts := int(GameData.HIRING_MARKET["maxPoachAttempts"])
+	for candidate_id in GameData.HIRING_CANDIDATES:
+		if status(candidate_id)["state"] != STATUS_OURS:
+			continue
+		var entry := _poach_entry(candidate_id)
+		if entry["pending"] != null or int(entry["attempts"]) >= max_attempts or not Rng.chance(chance):
+			continue
+		var faction_id := _pick_poacher()
+		if faction_id == "":
+			continue
+		entry["attempts"] = int(entry["attempts"]) + 1
+		entry["pending"] = { "factionId": faction_id, "offer": poach_offer_wage(candidate_id), "expiresDay": day + 2 }
+		# PROSE-REVIEW: poach alert notification.
+		Notify.push("%s has an offer from %s." % [Contacts.display_name(candidate_id), faction_name(faction_id)])
 	EventBus.state_changed.emit()
-	return { "ok": true }
+
+
+static func faction_name(faction_id: String) -> String:
+	return GameData.FACTIONS.get(faction_id, {}).get("shortName", faction_id)
+
+
+# PROSE-REVIEW: BizBrief poach alert.
+static func poach_alert_label(candidate_id: String) -> String:
+	var pending := pending_poach(candidate_id)
+	return "%s: %s have offered £%d/wk (now £%d). Match it or they go." % [Contacts.display_name(candidate_id), faction_name(pending["factionId"]), int(pending["offer"]), weekly_wage(candidate_id)]
+
+
+# Matches the offer: the wage becomes the offered amount and wageMult keeps it.
+static func match_poach(candidate_id: String) -> Dictionary:
+	var pending := pending_poach(candidate_id)
+	if pending.is_empty() or status(candidate_id)["state"] != STATUS_OURS:
+		return { "ok": false, "reason": "No offer to match." }
+	var offer := int(pending["offer"])
+	var wage: Dictionary = GameState.state["business"]["wages"].get(candidate_id, {})
+	if not wage.is_empty():
+		wage["wageMult"] = float(offer) / float(_formula_wage(candidate_id))
+		wage["weekly"] = offer
+	_poach_entry(candidate_id)["pending"] = null
+	EventBus.state_changed.emit()
+	return { "ok": true, "weekly": offer }
+
+
+# Refuses the offer (or lets it lapse): the hire leaves for the faction.
+static func decline_poach(candidate_id: String) -> Dictionary:
+	var pending := pending_poach(candidate_id)
+	if pending.is_empty() or status(candidate_id)["state"] != STATUS_OURS:
+		return { "ok": false, "reason": "No offer to refuse." }
+	var faction_id: String = pending["factionId"]
+	_release(candidate_id, { "state": STATUS_EMPLOYED, "employer": faction_id, "since": GameState.state["world"]["day"] })
+	# PROSE-REVIEW: poached-away notification.
+	Notify.push("%s has gone to %s." % [Contacts.display_name(candidate_id), faction_name(faction_id)])
+	EventBus.state_changed.emit()
+	return { "ok": true, "factionId": faction_id }

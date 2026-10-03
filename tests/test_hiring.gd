@@ -387,6 +387,95 @@ func run() -> void:
 		assert_eq(int(Hiring.status("dot")["since"]), 7)
 	)
 
+	run_case("poach_offer_rolls_weekly_and_is_weighted_by_stance", func():
+		_setup_hired_on_monday()
+		GameData.HIRING_MARKET["poachChance"] = 0.0
+		Hiring.daily_poach_tick()
+		assert_true(Hiring.pending_poach("priya").is_empty(), "no roll, no offer")
+		GameData.HIRING_MARKET["poachChance"] = 1.0
+		Hiring.daily_poach_tick()
+		var pending: Dictionary = Hiring.pending_poach("priya")
+		assert_eq(pending["offer"], GameState.round_epsilon(float(Hiring.weekly_wage("priya")) * 1.2))
+		assert_eq(pending["expiresDay"], GameState.state["world"]["day"] + 2)
+		assert_eq(GameState.state["hiring"]["poach"]["priya"]["attempts"], 1)
+		var ids: Array = GameState.state["factions"].keys()
+		for faction_id in ids:
+			GameState.state["factionStances"]["player"][faction_id]["stance"] = "partner"
+		GameState.state["factionStances"]["player"][ids[1]]["stance"] = "hostile"
+		for i in 20:
+			assert_eq(Hiring._pick_poacher(), ids[1], "only the hostile faction has weight")
+		GameState.state["factionStances"]["player"][ids[1]]["stance"] = "partner"
+		assert_eq(Hiring._pick_poacher(), "", "no weighted faction, no poacher")
+	)
+
+	run_case("poach_attempts_cap_and_non_monday_skips", func():
+		_setup_hired_on_monday()
+		GameData.HIRING_MARKET["poachChance"] = 1.0
+		for i in 3:
+			Hiring.daily_poach_tick()
+			Hiring.match_poach("priya")
+		Hiring.daily_poach_tick()
+		assert_true(Hiring.pending_poach("priya").is_empty(), "attempt cap of 3 holds")
+		assert_eq(GameState.state["hiring"]["poach"]["priya"]["attempts"], 3)
+		GameState.state["hiring"]["poach"]["priya"]["attempts"] = 0
+		GameState.state["world"]["day"] += 1
+		Hiring.daily_poach_tick()
+		assert_true(Hiring.pending_poach("priya").is_empty(), "offers roll on Mondays only")
+	)
+
+	run_case("poach_match_sets_wage_and_never_exceeds_cap", func():
+		_setup_hired_on_monday()
+		GameData.HIRING_MARKET["poachChance"] = 1.0
+		var before := Hiring.weekly_wage("priya")
+		Hiring.daily_poach_tick()
+		var offer: int = Hiring.pending_poach("priya")["offer"]
+		assert_true(offer <= GameState.round_epsilon(float(before) * 1.25), "offer within the cap")
+		assert_true(Hiring.match_poach("priya")["ok"])
+		assert_eq(Hiring.weekly_wage("priya"), offer)
+		assert_eq(GameState.state["business"]["wages"]["priya"]["weekly"], offer)
+		assert_eq(Hiring.status("priya")["state"], "ours")
+		assert_true(Hiring.pending_poach("priya").is_empty())
+	)
+
+	run_case("poach_unanswered_resolves_after_a_full_day", func():
+		_setup_hired_on_monday()
+		GameData.HIRING_MARKET["poachChance"] = 1.0
+		Hiring.daily_poach_tick()
+		var faction_id: String = Hiring.pending_poach("priya")["factionId"]
+		GameData.HIRING_MARKET["poachChance"] = 0.0
+		GameState.state["world"]["day"] += 1
+		Hiring.daily_poach_tick()
+		assert_eq(Hiring.status("priya")["state"], "ours", "still answerable the next day")
+		GameState.state["world"]["day"] += 1
+		Hiring.daily_poach_tick()
+		assert_eq(Hiring.status("priya")["state"], "employed")
+		assert_eq(Hiring.status("priya")["employer"], faction_id)
+		assert_true(GameState.state["business"]["wages"]["priya"].get("leaving", false))
+		assert_true(Hiring.pending_poach_ids().is_empty())
+	)
+
+	run_case("poach_decline_makes_hire_employed_at_the_faction", func():
+		_setup_hired_on_monday()
+		GameData.HIRING_MARKET["poachChance"] = 1.0
+		Hiring.daily_poach_tick()
+		var faction_id: String = Hiring.pending_poach("priya")["factionId"]
+		assert_true(Hiring.decline_poach("priya")["ok"])
+		assert_eq(Hiring.status("priya")["employer"], faction_id)
+		assert_eq(GameState.state["contacts"]["priya"]["assignedRoom"], null)
+	)
+
+
+# _setup(), priya hired, world day moved to the next Monday.
+func _setup_hired_on_monday() -> void:
+	_setup()
+	GameState.state["business"]["float"] = 5000
+	Hiring.hire("priya")
+	var day: int = GameState.state["world"]["day"]
+	while not Calendar.is_monday(day):
+		day += 1
+	GameState.state["world"]["day"] = day
+	Rng.set_seed(11)
+
 
 func _app_ids() -> Array:
 	return PhoneApps.apps().map(func(app): return app["id"])
@@ -395,6 +484,7 @@ func _app_ids() -> Array:
 # Pot running, Station and Lab built, Tuesday day 9.
 func _setup() -> void:
 	GameState.reset()
+	GameData.HIRING_MARKET["poachChance"] = 0.1
 	GameState.state["world"]["day"] = 9
 	Business.activate()
 	GameState.state["flags"]["bizA1JamesJoined"] = true
