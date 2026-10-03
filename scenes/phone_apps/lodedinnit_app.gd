@@ -5,7 +5,7 @@
 # view state held here; the directory projection is LodedInnitDirectory and
 # hiring goes through Hiring.hire().
 #
-# PROSE-REVIEW: tab/empty-feed/status strings, feed intro, People controls, empty-directory and group strings.
+# PROSE-REVIEW: tab/empty-feed/status strings, feed intro, People controls, empty-directory and group strings, profile stat captions and seat line.
 class_name LodedInnitApp
 extends PhoneApp
 
@@ -19,6 +19,18 @@ const ORE_FILTER_NODE_NAME := "LodedInnitOreFilter"
 const WAGE_SORT_NODE_NAME := "LodedInnitWageSort"
 const EMPTY_NODE_NAME := "LodedInnitEmpty"
 const ROW_NODE_PREFIX := "LodedInnitRow_"
+const PROFILE_ROLE_NODE_NAME := "LodedInnitProfileRole"
+const PROFILE_LEVEL_NODE_NAME := "LodedInnitProfileLevel"
+const PROFILE_WAGE_NODE_NAME := "LodedInnitProfileWage"
+const PROFILE_XP_NODE_NAME := "LodedInnitProfileExperience"
+const PROFILE_SEAT_NODE_NAME := "LodedInnitProfileSeats"
+const HIRE_AREA_NODE_NAME := "LodedInnitHireArea"
+const HIRE_BUTTON_NODE_NAME := "LodedInnitHireButton"
+const HIRE_REASON_NODE_NAME := "LodedInnitHireReason"
+const TOP_UP_QUESTION_NODE_NAME := "LodedInnitTopUpQuestion"
+const TOP_UP_YES_NODE_NAME := "LodedInnitTopUpYes"
+const TOP_UP_NO_NODE_NAME := "LodedInnitTopUpNo"
+const TOP_UP_REASON_NODE_NAME := "LodedInnitTopUpReason"
 const LOGO_PATH := "res://assets/phone/icons/lodedinnit.png"
 
 const PLUM_FALLBACK := Color("#81549a")
@@ -72,6 +84,7 @@ func build(_content: VBoxContainer) -> void:
 	scroll.add_child(margin)
 	if _profile_id != "":
 		_build_profile(page)
+		_root.add_child(_build_hire_area(_profile_id))
 	elif _tab == FEED_TAB:
 		LodedInnitFeed.mark_seen()
 		_build_feed(page)
@@ -335,28 +348,69 @@ func _build_profile(content: VBoxContainer) -> void:
 	content.add_child(UI.button("‹ People", _close_profile))
 	content.add_child(UI.heading(Contacts.display_name(candidate_id)))
 	content.add_child(UI.muted_label(data["headline"]))
+	content.add_child(UI.tinted_label(_status_text(candidate_id), plum_light()))
 
 	var c := UI.card()
-	c["content"].add_child(UI.label("%s · %s" % [Hiring.role(candidate_id)["label"], _status_text(candidate_id)]))
-	c["content"].add_child(UI.label("Level %d → cap %d" % [Hiring.level(candidate_id), Hiring.level_cap(candidate_id)]))
-	c["content"].add_child(UI.label("£%d a week" % Hiring.weekly_wage(candidate_id)))
-	c["content"].add_child(_speciality_pips(data.get("specialities", [])))
+	var body: VBoxContainer = c["content"]
+	body.add_child(_profile_stat("Role", Hiring.role(candidate_id)["label"], PROFILE_ROLE_NODE_NAME))
+	body.add_child(_profile_stat("Level", "%d / %d" % [Hiring.level(candidate_id), Hiring.level_cap(candidate_id)], PROFILE_LEVEL_NODE_NAME))
+	body.add_child(_profile_stat("Wage", "£%d a week" % Hiring.weekly_wage(candidate_id), PROFILE_WAGE_NODE_NAME))
+	body.add_child(_profile_stat("Experience", LodedInnitProfile.experience_text(candidate_id), PROFILE_XP_NODE_NAME))
+	body.add_child(_profile_stat("Room", LodedInnitProfile.seat_text(candidate_id), PROFILE_SEAT_NODE_NAME))
+	body.add_child(_speciality_pips(data.get("specialities", [])))
 	content.add_child(c["panel"])
 
 	var about := UI.label(data["about"])
+	about.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	content.add_child(about)
 
+
+func _profile_stat(caption: String, value: String, node_name: String) -> Control:
+	var row := UI.hbox(8)
+	row.add_child(UI.muted_label(caption))
+	var v := UI.tinted_label(value, copper())
+	v.name = node_name
+	v.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	v.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	row.add_child(UI.expand_fill(v))
+	return row
+
+
+# Lower hire area, pinned under the scrolling profile: hire/poach action with
+# its block reason, or the float top-up question.
+func _build_hire_area(candidate_id: String) -> Control:
+	var panel := PanelContainer.new()
+	panel.name = HIRE_AREA_NODE_NAME
+	var style := StyleBoxFlat.new()
+	style.bg_color = BAR_FILL
+	for side in ["left", "right", "top", "bottom"]:
+		style.set("content_margin_" + side, 12)
+	panel.add_theme_stylebox_override("panel", style)
+	var box := UI.vbox(6)
+	panel.add_child(box)
 	if Hiring.status(candidate_id)["state"] == Hiring.STATUS_OURS:
-		return
+		box.add_child(UI.tinted_label("Works for you", plum_light()))
+		return panel
 	if _top_up_id == candidate_id:
-		_build_top_up_prompt(content, candidate_id)
-		return
+		_build_top_up_prompt(box, candidate_id)
+		return panel
 	var reason := Hiring.hire_block_reason(candidate_id)
 	var verb := "Hire"
 	if Hiring.is_employed(candidate_id):
 		verb = "Poach"
-		content.add_child(UI.muted_label("Wage +%d%% for good. Costs %d relation with %s." % [roundi((Hiring.poach_mult() - 1.0) * 100.0), Hiring.poach_relation_cost(), _employer_name(candidate_id)]))
-	content.add_child(UI.action_button("%s · £%d first week" % [verb, Hiring.weekly_wage(candidate_id)], _on_hire_pressed.bind(candidate_id), reason != "", reason))
+		var note := UI.muted_label("Wage +%d%% for good. Costs %d relation with %s." % [roundi((Hiring.poach_mult() - 1.0) * 100.0), Hiring.poach_relation_cost(), _employer_name(candidate_id)])
+		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		box.add_child(note)
+	var hire := UI.button("%s · £%d first week" % [verb, Hiring.weekly_wage(candidate_id)], _on_hire_pressed.bind(candidate_id))
+	hire.disabled = reason != ""
+	hire.name = HIRE_BUTTON_NODE_NAME
+	box.add_child(hire)
+	if reason != "":
+		var why := UI.muted_label(reason)
+		why.name = HIRE_REASON_NODE_NAME
+		why.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		box.add_child(why)
+	return panel
 
 
 func _speciality_pips(specialities: Array) -> Control:
@@ -383,12 +437,24 @@ func _on_hire_pressed(candidate_id: String) -> void:
 
 func _build_top_up_prompt(content: VBoxContainer, candidate_id: String) -> void:
 	var needed := Hiring.top_up_needed(candidate_id)
-	content.add_child(UI.label("Top up the float by £%d to cover this hire?" % needed))
+	var question := UI.label("Top up the float by £%d to cover this hire?" % needed)
+	question.name = TOP_UP_QUESTION_NODE_NAME
+	question.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	content.add_child(question)
 	var row := UI.hbox()
 	var cash := int(GameState.state["player"]["cash"])
-	row.add_child(UI.expand_fill(UI.action_button("Yes", _on_top_up_yes.bind(candidate_id), cash < needed, "Not enough cash.")))
-	row.add_child(UI.expand_fill(UI.button("No", _on_top_up_no)))
+	var yes := UI.button("Yes", _on_top_up_yes.bind(candidate_id))
+	yes.disabled = cash < needed
+	yes.name = TOP_UP_YES_NODE_NAME
+	var no := UI.button("No", _on_top_up_no)
+	no.name = TOP_UP_NO_NODE_NAME
+	row.add_child(UI.expand_fill(yes))
+	row.add_child(UI.expand_fill(no))
 	content.add_child(row)
+	if cash < needed:
+		var why := UI.muted_label("Not enough cash.")
+		why.name = TOP_UP_REASON_NODE_NAME
+		content.add_child(why)
 
 
 func _on_top_up_yes(candidate_id: String) -> void:
