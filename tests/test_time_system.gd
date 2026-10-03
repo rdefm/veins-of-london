@@ -133,6 +133,38 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["cash"], 545, "owned townhouse pays 7 × its ownedDailyCost 65")
 	)
 
+	run_case("austerity_raises_the_monday_bill_for_rented_and_owned_homes", func():
+		GameState.reset()
+		GameState.state["barometer"]["political"] = "austerity"
+		GameState.state["home"]["tier"] = "flat"
+		GameState.state["home"]["tenure"] = "rented"
+		GameState.state["player"]["cash"] = 2000
+		TimeSystem._apply_living_costs()
+		assert_eq(GameState.state["player"]["cash"], 1412, "rented flat: round(560 × 1.05) = 588")
+		assert_eq(GameState.state["bankLog"][0]["amount"], -588, "bank records the adjusted rent bill")
+
+		GameState.reset()
+		GameState.state["barometer"]["political"] = "austerity"
+		GameState.state["home"]["tier"] = "flat"
+		GameState.state["home"]["tenure"] = "owned"
+		GameState.state["player"]["cash"] = 2000
+		TimeSystem._apply_living_costs()
+		assert_eq(GameState.state["player"]["cash"], 1574, "owned flat: round(406 × 1.05) = 426")
+		assert_eq(GameState.state["bankLog"][0]["amount"], -426, "bank records adjusted utilities")
+	)
+
+	run_case("austerity_stacks_with_lockdown_for_the_monday_bill", func():
+		GameState.reset()
+		GameState.state["barometer"]["political"] = "austerity"
+		GameState.state["barometer"]["social"] = "lockdown"
+		GameState.state["home"]["tier"] = "flat"
+		GameState.state["home"]["tenure"] = "rented"
+		GameState.state["player"]["cash"] = 2000
+		TimeSystem._apply_living_costs()
+		assert_eq(GameState.state["player"]["cash"], 1356, "round(560 × (1 + 0.05 + 0.10)) = 644")
+		assert_eq(GameState.state["bankLog"][0]["amount"], -644)
+	)
+
 	run_case("weekly_bill_rent_scales_with_inflation", func():
 		GameState.reset()
 		GameState.state["barometer"]["economic"] = "inflation"

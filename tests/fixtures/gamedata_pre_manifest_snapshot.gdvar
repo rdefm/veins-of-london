@@ -124,12 +124,12 @@
 },
 "political": {
 "austerity": {
-"description": "Public services cut. Daily costs down but so is stability.",
+"description": "Public services cut. Weekly living costs rise; street risk grows.",
 "effects": {
-"dailyCost": -0.15,
+"dailyCost": 0.05,
 "mugChance": 0.06
 },
-"headlines": ["Cuts continue; daily costs fall, so does the safety net.", "Austerity measures bite hardest where nobody's counting."],
+"headlines": ["Austerity measures raise weekly living costs across London.", "Cuts continue; households pay more and the safety net thins."],
 "id": "austerity",
 "label": "Austerity"
 },

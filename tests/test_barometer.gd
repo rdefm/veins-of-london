@@ -192,6 +192,16 @@ func run() -> void:
 		assert_almost_eq(Barometer.get_merged_effects()["itemDemand"]["shield"], 1.0, 0.0001, "per-recipe fractions sum")
 	)
 
+	run_case("austerity_raises_living_costs_and_keeps_mugging_effect", func():
+		GameState.reset()
+		GameState.state["barometer"]["political"] = "austerity"
+		var fx: Dictionary = Barometer.get_merged_effects()
+		assert_almost_eq(fx["dailyCost"], 0.05, 0.0001, "Austerity adds 5% to the weekly base")
+		assert_almost_eq(fx["mugChance"], 0.06, 0.0001, "mugging effect remains +6 points")
+		GameState.state["barometer"]["social"] = "lockdown"
+		assert_almost_eq(Barometer.get_merged_effects()["dailyCost"], 0.15, 0.0001, "living-cost modifiers sum before billing")
+	)
+
 	run_case("election_effect_mod_scales_the_demand_keys", func():
 		GameState.reset()
 		GameState.state["barometer"]["economic"] = "boom"  # demandAll +0.1, mugChance -0.05

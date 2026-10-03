@@ -93,6 +93,9 @@ func run() -> void:
 		assert_eq(unrest, ["Mugging chance: +8 percentage points."], "unused raidChance does not claim an effect")
 		var lockdown: Array[String] = app._impact_lines(GameData.BAROMETER_STATES["social"]["lockdown"]["effects"])
 		assert_eq(lockdown, ["Weekly living costs: +10%."], "reserved searchFind is omitted")
+		var austerity: Array[String] = app._impact_lines(GameData.BAROMETER_STATES["political"]["austerity"]["effects"])
+		assert_true(austerity.has("Weekly living costs: +5%."), "Austerity displays its higher weekly bill")
+		assert_true(austerity.has("Mugging chance: +6 percentage points."), "Austerity still displays street risk")
 		var election: Array[String] = app._impact_lines(GameData.BAROMETER_STATES["political"]["election"]["effects"])
 		assert_eq(election, ["Item-demand shifts from Ticker states: -30%."], "effectMod names its actual target")
 		GameState.state["barometer"]["political"] = "election"
