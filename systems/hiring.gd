@@ -3,9 +3,9 @@ extends RefCounted
 
 # LodedInnit hiring (R§3.10 "Hiring"): the fixed candidate roster
 # (data/hiring.json candidates), each candidate's market status, and hiring
-# into a free role-room seat. The first week's wage is prepaid from the pot,
-# then the float; player cash only reaches it through a float top-up the
-# player agreed to. Static funcs only.
+# into a free role-room seat, and letting a hire go. The first week's wage is
+# prepaid from the pot, then the float; player cash only reaches it through a
+# float top-up the player agreed to. Static funcs only.
 
 const STATUS_OPEN := "open"
 const STATUS_EMPLOYED := "employed"
@@ -77,10 +77,30 @@ static func level_cap(candidate_id: String) -> int:
 	return Contacts.skill_cap(candidate_id, skill(candidate_id))
 
 
-# baseWage + wagePerLevel × (level − startLevel).
+# round((baseWage + wagePerLevel × (level − startLevel)) × wageMult), where
+# wageMult is their live wage entry's (hiring-spec §10 R2), else 1.
 static func weekly_wage(candidate_id: String) -> int:
 	var data := candidate(candidate_id)
-	return int(data["baseWage"]) + int(data["wagePerLevel"]) * (level(candidate_id) - int(data["startLevel"]))
+	var formula := int(data["baseWage"]) + int(data["wagePerLevel"]) * (level(candidate_id) - int(data["startLevel"]))
+	return GameState.round_epsilon(float(formula) * _wage_mult(candidate_id))
+
+
+static func _wage_mult(candidate_id: String) -> float:
+	var wage: Dictionary = GameState.state["business"]["wages"].get(candidate_id, {})
+	if wage.is_empty() or wage.get("leaving", false):
+		return 1.0
+	return float(wage.get("wageMult", 1.0))
+
+
+# Re-reads a hire's weekly wage after a level-up; leavers and non-candidates
+# are untouched.
+static func refresh_wage(contact_id: String) -> void:
+	if not GameData.HIRING_CANDIDATES.has(contact_id):
+		return
+	var wage: Dictionary = GameState.state["business"]["wages"].get(contact_id, {})
+	if wage.is_empty() or wage.get("leaving", false):
+		return
+	wage["weekly"] = weekly_wage(contact_id)
 
 
 static func has_free_seat(candidate_id: String) -> bool:
@@ -143,3 +163,34 @@ static func hire(candidate_id: String, top_up: bool = false) -> Dictionary:
 	Notify.push("%s starts in the %s today." % [Contacts.display_name(candidate_id), GameData.HOME_ROOMS[role(candidate_id)["room"]]["name"]], Notify.CATEGORY_SUCCESS)
 	EventBus.state_changed.emit()
 	return { "ok": true, "paid": weekly, "toppedUp": needed }
+
+
+# Candidates working for you whose role room is room_id, in data order.
+static func hires_for_room(room_id: String) -> Array:
+	var ids: Array = []
+	for candidate_id in GameData.HIRING_CANDIDATES:
+		if status(candidate_id)["state"] == STATUS_OURS and role(candidate_id)["room"] == room_id:
+			ids.append(candidate_id)
+	return ids
+
+
+# Lets a hire go (hiring-spec §4.2, §10 R3/R4): their seat is vacated, their
+# cultivatorVeins released, their wage entry flagged leaving (the next
+# payday settles it, then drops it), and they return to the market open.
+# Their level is kept.
+static func let_go(candidate_id: String) -> Dictionary:
+	if not GameData.HIRING_CANDIDATES.has(candidate_id) or status(candidate_id)["state"] != STATUS_OURS:
+		return { "ok": false, "reason": "Doesn't work for you." }
+	for vein_id in Rooms.cultivator_veins(candidate_id).duplicate():
+		Rooms.unassign_vein(vein_id)
+	GameState.state["cultivatorVeins"].erase(candidate_id)
+	var c: Dictionary = GameState.state["contacts"][candidate_id]
+	c["assignedRoom"] = null
+	c["assignedRole"] = null
+	c["recruited"] = false
+	Business.mark_leaving(candidate_id)
+	GameState.state["hiring"]["status"][candidate_id] = _open_status(GameState.state["world"]["day"])
+	# PROSE-REVIEW: let-go notification.
+	Notify.push("%s clears their desk." % Contacts.display_name(candidate_id))
+	EventBus.state_changed.emit()
+	return { "ok": true }

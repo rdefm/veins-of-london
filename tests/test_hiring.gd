@@ -180,6 +180,114 @@ func run() -> void:
 	)
 
 
+	run_case("level_up_raises_the_weekly_wage", func():
+		_setup()
+		GameState.state["business"]["float"] = 5000
+		Hiring.hire("marcia")
+		Hiring.hire("priya")
+		var wages: Dictionary = GameState.state["business"]["wages"]
+		var marcia_weekly: int = wages["marcia"]["weekly"]
+		var levels: Array = GameData.CULTIVATING_XP_LEVELS
+		var c: Dictionary = GameState.state["contacts"]["marcia"]
+		Contacts.award_contact_xp("marcia", "cultivating", int(levels[c["cultivatingSkill"] + 1]) - int(c["cultivatingXP"]))
+		var data := Hiring.candidate("marcia")
+		assert_eq(wages["marcia"]["weekly"], marcia_weekly + int(data["wagePerLevel"]))
+		assert_eq(Hiring.weekly_wage("marcia"), wages["marcia"]["weekly"])
+		wages["priya"]["wageMult"] = 1.25
+		Contacts.award_contact_xp("priya", "crafting", int(GameData.CRAFTING_XP_LEVELS[3]) - int(GameData.CRAFTING_XP_LEVELS[2]))
+		assert_eq(wages["priya"]["weekly"], GameState.round_epsilon((320 + 60) * 1.25), "weekly = round(formula × wageMult)")
+	)
+
+	run_case("a_capped_hire_wage_never_rises", func():
+		_setup()
+		GameState.state["business"]["float"] = 5000
+		Hiring.hire("bernie")
+		Contacts.award_contact_xp("bernie", "cultivating", 100000)
+		assert_eq(GameState.state["contacts"]["bernie"]["cultivatingSkill"], 3)
+		assert_eq(GameState.state["business"]["wages"]["bernie"]["weekly"], 420)
+	)
+
+	run_case("let_go_frees_the_seat_and_releases_the_veins", func():
+		_setup()
+		GameState.state["business"]["float"] = 5000
+		Hiring.hire("marcia")
+		GameState.state["player"]["veins"] = [Fixtures.player_vein_with({ "id": "vl1" })]
+		Rooms.assign_vein("marcia", "vl1")
+		assert_eq(Hiring.hires_for_room("veinStation"), ["marcia"])
+		assert_true(Hiring.let_go("marcia")["ok"])
+		var c: Dictionary = GameState.state["contacts"]["marcia"]
+		assert_eq(c["assignedRoom"], null)
+		assert_true(not c["recruited"])
+		assert_eq(Rooms.cultivator_of("vl1"), null)
+		assert_true(not GameState.state["veinStationTargets"].has("vl1"))
+		assert_eq(Hiring.status("marcia"), { "state": "open", "employer": null, "since": 9 })
+		assert_eq(Hiring.hires_for_room("veinStation"), [])
+		assert_true(Hiring.hire("tomasz")["ok"], "the seat is free again")
+		assert_true(not Hiring.let_go("marcia")["ok"], "no longer ours")
+	)
+
+	run_case("payday_pays_a_leaver_once_then_drops_the_entry", func():
+		_setup()
+		GameState.state["business"]["float"] = 5000
+		Hiring.hire("priya")
+		for day in range(10, 19):
+			GameState.state["world"]["day"] = day
+			Business.daily_tick()
+		Hiring.let_go("priya")
+		var wages: Dictionary = GameState.state["business"]["wages"]
+		assert_true(wages["priya"]["leaving"])
+		for day in range(19, 30):
+			GameState.state["world"]["day"] = day
+			Business.daily_tick()
+		var ledger: Array = GameState.state["business"]["ledger"]
+		var lines: Array = []
+		for record in ledger:
+			lines.append_array(record["expenses"].filter(func(e): return e.get("contactId") == "priya" and record["day"] > 15))
+		assert_eq(lines, [{ "kind": "wage", "contactId": "priya", "amount": Business.prorated_wage(320, 2) }],
+			"days 17-18 paid at payday 22, once")
+		assert_true(not wages.has("priya"))
+	)
+
+	run_case("let_go_in_the_prepaid_week_drops_the_entry_at_once", func():
+		_setup()
+		GameState.state["business"]["float"] = 5000
+		Hiring.hire("priya")
+		Hiring.let_go("priya")
+		assert_true(not GameState.state["business"]["wages"].has("priya"))
+	)
+
+	run_case("rehire_wage_reflects_the_kept_level", func():
+		_setup()
+		GameState.state["business"]["float"] = 5000
+		Hiring.hire("priya")
+		Contacts.award_contact_xp("priya", "crafting", int(GameData.CRAFTING_XP_LEVELS[3]) - int(GameData.CRAFTING_XP_LEVELS[2]))
+		GameState.state["business"]["wages"]["priya"]["wageMult"] = 1.25
+		Hiring.let_go("priya")
+		assert_eq(Hiring.level("priya"), 3)
+		assert_eq(Hiring.weekly_wage("priya"), 380)
+		var float_before: int = GameState.state["business"]["float"]
+		assert_true(Hiring.hire("priya")["ok"])
+		assert_eq(GameState.state["business"]["float"], float_before - 380)
+		assert_eq(GameState.state["business"]["wages"]["priya"]["weekly"], 380)
+		assert_eq(GameState.state["business"]["wages"]["priya"]["wageMult"], 1.0)
+	)
+
+	run_case("rehire_before_payday_carries_the_leavers_worked_days_as_owed", func():
+		_setup()
+		GameState.state["business"]["float"] = 5000
+		Hiring.hire("priya")
+		for day in range(10, 19):
+			GameState.state["world"]["day"] = day
+			Business.daily_tick()
+		Hiring.let_go("priya")
+		var float_before: int = GameState.state["business"]["float"]
+		assert_true(Hiring.hire("priya")["ok"])
+		assert_eq(GameState.state["business"]["float"], float_before - 320 - Business.prorated_wage(320, 2),
+			"days 17-18 settled with the re-hire")
+		assert_eq(Business.owed("priya"), 0)
+	)
+
+
 func _app_ids() -> Array:
 	return PhoneApps.apps().map(func(app): return app["id"])
 

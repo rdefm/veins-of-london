@@ -197,6 +197,9 @@ func _build_room_contact_row(room_id: String) -> Control:
 	for contact_id in occupants:
 		var captured_id: String = contact_id
 		row.add_child(MapCardStyle.text_button("Unassign %s" % Contacts.display_name(contact_id), func(): Contacts.unassign_from_room(captured_id)))
+	for contact_id in Hiring.hires_for_room(room_id):
+		var captured_id: String = contact_id
+		row.add_child(MapCardStyle.text_button("Let go %s" % Contacts.display_name(contact_id), func(): Hiring.let_go(captured_id)))
 	if row.get_child_count() > 0:
 		box.add_child(row)
 

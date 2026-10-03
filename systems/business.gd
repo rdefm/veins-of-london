@@ -134,13 +134,40 @@ static func prepay_hire_wage(contact_id: String, weekly: int, top_up: int = 0) -
 	var day: int = GameState.state["world"]["day"]
 	business["week"]["expenses"].append({ "kind": "wage", "contactId": contact_id, "amount": weekly })
 	BusinessStats.record_expense(weekly, BusinessStats.EXPENSE_STAFF)
-	business["wages"][contact_id] = {
+	var entry := {
 		"weekly": weekly, "owed": 0, "unpaid": false, "hiredDay": day, "daysWorked": 0,
-		"promptPending": false, "paidThroughDay": day + Calendar.days_per_week(),
+		"promptPending": false, "paidThroughDay": day + Calendar.days_per_week(), "wageMult": 1.0,
 	}
+	# A leaving entry not yet settled carries its owed and worked days over
+	# as owed, so a re-hire never loses them.
+	var previous: Dictionary = business["wages"].get(contact_id, {})
+	if not previous.is_empty():
+		entry["owed"] = int(previous["owed"]) + prorated_wage(int(previous["weekly"]), int(previous["daysWorked"]))
+		entry["unpaid"] = previous["unpaid"]
+		entry["promptPending"] = previous["promptPending"]
+	business["wages"][contact_id] = entry
 	pay_covered_owed()
 	EventBus.state_changed.emit()
 	return { "ok": true }
+
+
+# Let go (R§3.10 "Hiring"): the entry stops accruing days; payday settles
+# it, and it is dropped once nothing is owed.
+static func mark_leaving(contact_id: String) -> void:
+	var wage: Dictionary = _business()["wages"].get(contact_id, {})
+	if wage.is_empty():
+		return
+	wage["leaving"] = true
+	_drop_settled_leavers()
+
+
+# Removes every leaving entry with no owed wage and no unpaid worked days.
+static func _drop_settled_leavers() -> void:
+	var wages: Dictionary = _business()["wages"]
+	for contact_id in wages.keys():
+		var wage: Dictionary = wages[contact_id]
+		if wage.get("leaving", false) and int(wage["owed"]) <= 0 and int(wage["daysWorked"]) <= 0:
+			wages.erase(contact_id)
 
 
 # Cash the float needs so pot + float cover `amount`.
@@ -234,6 +261,7 @@ static func top_up_and_pay_owed(contact_id: String) -> Dictionary:
 		if not added["ok"]:
 			return added
 	_pay_owed(contact_id)
+	_drop_settled_leavers()
 	EventBus.state_changed.emit()
 	return { "ok": true, "paid": amount, "toppedUp": top_up }
 
@@ -246,6 +274,7 @@ static func pay_covered_owed() -> void:
 	for contact_id in wages:
 		if int(wages[contact_id]["owed"]) > 0 and top_up_needed(contact_id) == 0:
 			_pay_owed(contact_id)
+	_drop_settled_leavers()
 
 
 # Draws contact_id's owed wage from the pot then float as a `wage` expense
@@ -270,8 +299,8 @@ static func decline_wage_prompt(contact_id: String) -> void:
 
 
 # Rollover step, after due contract settlements: accrue a worked day for
-# every paid staff member, then run payday (which also retries owed wages)
-# on the rollover into a Monday. Returns { "payday": ledger record or null,
+# every paid staff member not leaving, then run payday (which also retries
+# owed wages) on the rollover into a Monday. Returns { "payday": ledger record or null,
 # "shortfalls": [{ contactId, owed }], "guards": the guard bill result or
 # null } for the Morning Brief.
 static func daily_tick() -> Dictionary:
@@ -282,7 +311,7 @@ static func daily_tick() -> Dictionary:
 	var day: int = GameState.state["world"]["day"]
 	for contact_id in wages:
 		var wage: Dictionary = wages[contact_id]
-		if not wage["unpaid"] and day > int(wage.get("paidThroughDay", 0)):
+		if not wage["unpaid"] and not wage.get("leaving", false) and day > int(wage.get("paidThroughDay", 0)):
 			wage["daysWorked"] += 1
 	if Calendar.is_monday(day):
 		result = _payday(day)
@@ -291,8 +320,8 @@ static func daily_tick() -> Dictionary:
 
 
 # Wages due are this week's prorated days plus anything owed, paid from the
-# pot (then the float) in full or not at all. Then the guard bill, then the
-# split. Only the pot is split. The
+# pot (then the float) in full or not at all; a settled leaver's entry is
+# then dropped. Then the guard bill, then the split. Only the pot is split. The
 # ledger record is appended before player cash moves; a stable payday id
 # already in the ledger is never paid twice.
 static func _payday(day: int) -> Dictionary:
@@ -338,6 +367,7 @@ static func _payday(day: int) -> Dictionary:
 		wage["owed"] = shortfall["owed"]
 		wage["unpaid"] = true
 		wage["promptPending"] = true
+	_drop_settled_leavers()
 	business["pot"] = 0
 	business["week"] = _new_week(day)
 	if shares["player"] > 0:

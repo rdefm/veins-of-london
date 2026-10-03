@@ -212,9 +212,13 @@ static func award_contact_xp(contact_id: String, skill: String, amount: int) -> 
 	var levels := xp_levels(skill)
 	c[xp_key] = c[xp_key] + amount
 	var max_level := skill_cap(contact_id, skill)
+	var leveled := false
 	while c[skill_key] < max_level and c[xp_key] >= levels[c[skill_key] + 1]:
 		c[skill_key] += 1
+		leveled = true
 		Notify.push("%s's %s skill reached level %d." % [display_name(contact_id), skill, c[skill_key]], Notify.CATEGORY_SUCCESS)
+	if leveled:
+		Hiring.refresh_wage(contact_id)
 
 
 # recruited is the only gate -- no relation check (unlike can_recruit's
