@@ -32,7 +32,22 @@
     "categories": { "political": "World News", "economic": "The Economy", "social": "London Life" },
     "wires": "London Wires",
     "wiresDetail": "From recent events",
-    "emptyWires": "No reports on the wires yet."
+    "emptyWires": "No reports on the wires yet.",
+    "article": {
+      "impactTitle": "WHAT CHANGES IN LONDON",
+      "influence": "Influence",
+      "influenceTitle": "Influence · %s",
+      "allStates": "All states",
+      "back": "‹ Back",
+      "close": "✕",
+      "noEffect": "No active game effect.",
+      "allItemDemand": "All crafted-item demand: %s.",
+      "itemDemand": "%s demand: %s.",
+      "mugChance": "Mugging chance: %+d percentage points.",
+      "dailyCost": "Weekly living costs: %+d%%.",
+      "homeRaid": "Home raid chance: %+d percentage points.",
+      "effectMod": "Item-demand shifts from Ticker states: %+d%%."
+    }
   },
   "actions": [
     { "id": "lobbyConclave",  "label": "Lobby the Conclave", "section": "political", "cost": { "cash": 5000, "fate": 20 },   "requireFaction": "conclave", "description": "Lean on Conclave contacts to shift the political climate." },

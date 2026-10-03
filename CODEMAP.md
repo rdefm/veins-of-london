@@ -222,7 +222,7 @@ overlays.
 | messages_app.gd | Conversation inbox (fixed-height rows: bold name, one-line `…` preview, unread pill, per-contact Clear) + single-thread staged bubble reveal/action bar (incl. Owen's text reply choices); thread opens scrolled to the newest message |
 | todo_app.gd | ToDo app: collapsible questline sections from Todo, all_of checks as indented sub-rows; session-only expand/collapse overrides in a static var |
 | factions_app.gd | London share table (ore/crafting toggle), London's politics (stance per pair, war/truce markers) and faction cards: archetype, ores, crafts, share bars, stance, pressure, peace talks at war, Gift, favour asked/owed (`Diplomacy`), partner price ask and trouble asks (`Partners`), intel level and what it reveals (`Intel`), activity log. |
-| ticker_app.gd | Ticker: branded News feed (live barometer stories ordered by active-state recency, newest-first faction wires, existing axis detail with push/pull and influence actions) and Stock Market tab (ore-type + In stock filters, collapsible Ore/Items price lists ▲/▼, demand modifiers, per-good chart with annotations and demand drivers) |
+| ticker_app.gd | Ticker News: live state stories in recency order, tappable newest-first wires, state articles with canonical impact, direct same-axis Influence sheet (progress, Push/Pull, disabled M4 actions), read-only wire articles. Stock Market: ore-type/In stock filters, collapsible Ore/Items lists, demand modifiers, price charts with annotations and demand drivers |
 | profile_app.gd | Stats, skills, equipment |
 | dialer_app.gd | Phone recent-calls placeholder; no telephony state/actions |
 | settings_app.gd | Reduced-motion and alarm-vibration preference controls |
@@ -240,7 +240,7 @@ overlays.
 | File | Consumed by |
 |---|---|
 | approaches.json | approaches.gd |
-| barometer.json | barometer.gd (states/actions/prefs); ticker_app.gd (News branding and category copy) |
+| barometer.json | barometer.gd (states/actions/prefs); ticker_app.gd (News branding, article/impact labels and category copy) |
 | collective_barks.json | collective.gd |
 | combat_prototype.json | combat_prototype.gd |
 | combat_visuals.json | combat_stage.gd (locationBackdrops, backdrops, pose sheets, stage.spriteScale); GameData.gd (territorialVariant pose spec); combat_director.gd (pacing.turnPause); turn_order_strip.gd (cardFrames) |

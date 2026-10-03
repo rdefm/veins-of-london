@@ -46,3 +46,89 @@ func run() -> void:
 		assert_true(labels.has("Rumblings: Economic Boom building."), "rumblings remain visible")
 		phone.free()
 	)
+
+	run_case("state_article_routes_straight_to_its_axis_and_refreshes_after_push", func():
+		GameState.reset()
+		GameState.state["barometer"]["economic"] = "boom"
+		GameState.state["player"]["cash"] = 5000
+		PhoneNav.open_app("ticker")
+		var phone := PhoneScreen.new()
+		phone._ready()
+		(phone.find_child("TickerStory_economic", true, false) as Button).pressed.emit()
+		var article: Node = phone.find_child("TickerArticleSheet", true, false)
+		assert_true(article != null, "story opens an article in the phone")
+		var article_labels := NodeQuery.label_texts(article)
+		assert_true(article_labels.has(GameData.BAROMETER_STATES["economic"]["boom"]["headlines"][0]), "live headline")
+		assert_true(article_labels.has("All crafted-item demand: +10%."), "impact uses canonical effects")
+		(phone.find_child("TickerInfluenceOpen", true, false) as Button).pressed.emit()
+		var sheet: Node = phone.find_child("TickerInfluenceSheet", true, false)
+		assert_true(sheet != null, "influence opens direct axis sheet")
+		assert_true(NodeQuery.label_texts(sheet).has("Influence · Economic"), "same axis, no chooser")
+		for state_id in GameData.BAROMETER_STATES["economic"].keys():
+			var label: String = GameData.BAROMETER_STATES["economic"][state_id]["label"]
+			assert_true(NodeQuery.label_texts(sheet).has("%s — %d%%" % [label, int(GameState.state["barometer"]["progress"]["economic"][state_id])]), "every state has live progress")
+		var push := phone.find_child("TickerPush_economic_recession", true, false) as Button
+		assert_true(push != null and not push.disabled, "eligible push enabled")
+		assert_true(push.text.contains("£2000") and push.text.contains("£5000"), "cost and holdings visible")
+		assert_true((phone.find_child("TickerM4_floodMarket", true, false) as Button).disabled, "M4 action greyed")
+		assert_true(NodeQuery.label_texts(sheet).has("Cost: £2000, 50 ore"), "M4 full cost visible")
+		push.pressed.emit()
+		assert_eq(GameState.state["player"]["cash"], 3000, "system executes action")
+		assert_true(phone.find_child("TickerInfluenceSheet", true, false) != null, "action keeps influence sheet open")
+		assert_true((phone.find_child("TickerPush_economic_recession", true, false) as Button).disabled, "cooldown shown immediately")
+		NodeQuery.find_button(phone.find_child("TickerInfluenceSheet", true, false), "‹ Back").pressed.emit()
+		assert_true(phone.find_child("TickerArticleSheet", true, false) != null, "closing influence returns to article")
+		NodeQuery.find_button(phone.find_child("TickerArticleSheet", true, false), "‹ Back").pressed.emit()
+		assert_true(phone.find_child("TickerStory_economic", true, false) != null, "closing article returns to feed")
+		phone.free()
+	)
+
+	run_case("article_impact_lists_only_live_canonical_effects", func():
+		GameState.reset()
+		var app := TickerApp.new()
+		var unrest: Array[String] = app._impact_lines(GameData.BAROMETER_STATES["social"]["unrest"]["effects"])
+		assert_eq(unrest, ["Mugging chance: +8 percentage points."], "unused raidChance does not claim an effect")
+		var lockdown: Array[String] = app._impact_lines(GameData.BAROMETER_STATES["social"]["lockdown"]["effects"])
+		assert_eq(lockdown, ["Weekly living costs: +10%."], "reserved searchFind is omitted")
+		var election: Array[String] = app._impact_lines(GameData.BAROMETER_STATES["political"]["election"]["effects"])
+		assert_eq(election, ["Item-demand shifts from Ticker states: -30%."], "effectMod names its actual target")
+		GameState.state["barometer"]["political"] = "election"
+		var boom: Array[String] = app._impact_lines(GameData.BAROMETER_STATES["economic"]["boom"]["effects"])
+		assert_true(boom.has("All crafted-item demand: +7%."), "current election scales an axis's item-demand effect")
+		var inflation: Array[String] = app._impact_lines(GameData.BAROMETER_STATES["economic"]["inflation"]["effects"])
+		assert_true(inflation.has("All crafted-item demand: +3.5%."), "fractional scaled percentage stays exact")
+		var festival: Array[String] = app._impact_lines(GameData.BAROMETER_STATES["social"]["festival"]["effects"])
+		assert_true(festival.has("Blast demand: +28%."), "specific item demand scales too")
+	)
+
+	run_case("influence_disables_unaffordable_actions", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 100
+		PhoneNav.select_axis("social")
+		var phone := PhoneScreen.new()
+		phone._ready()
+		(phone.find_child("TickerInfluenceOpen", true, false) as Button).pressed.emit()
+		var push := phone.find_child("TickerPush_social_unrest", true, false) as Button
+		var pull := phone.find_child("TickerPull_social_unrest", true, false) as Button
+		assert_true(push.disabled and pull.disabled, "both directions disabled below £2,000")
+		assert_true(push.text.contains("£100"), "current cash remains visible")
+		phone.free()
+	)
+
+	run_case("old_wire_opens_read_only_article_and_leaving_clears_sheets", func():
+		GameState.reset()
+		GameState.state["barometer"]["headlines"] = [{ "day": 2, "text": "Saved wire" }]
+		PhoneNav.open_app("ticker")
+		var phone := PhoneScreen.new()
+		phone._ready()
+		(phone.find_child("TickerWire", true, false) as Button).pressed.emit()
+		var wire: Node = phone.find_child("TickerWireArticleSheet", true, false)
+		assert_true(wire != null, "wire article opens")
+		assert_true(NodeQuery.label_texts(wire).has("Saved wire"), "saved text survives")
+		assert_true(NodeQuery.label_texts(wire).has(Calendar.format_day(2)), "saved day survives")
+		assert_true(wire.find_child("TickerInfluenceOpen", true, false) == null, "wire has no influence")
+		PhoneNav.go_home()
+		PhoneNav.open_app("ticker")
+		assert_true(phone.find_child("TickerWireArticleSheet", true, false) == null, "leaving clears wire sheet")
+		phone.free()
+	)

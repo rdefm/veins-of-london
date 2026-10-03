@@ -1,6 +1,5 @@
-# The Ticker: News tab (one headline card per barometer axis, drilling into
-# an axis detail view with push/pull and greyed influence actions when
-# state.phoneNav.selectedAxis is set, plus a faction-headline wires card)
+# The Ticker: News tab (one headline card per barometer axis, opening a
+# state article and same-axis Influence sheet; tappable read-only wires)
 # and Stock Market tab (London prices
 # with ▲/▼ versus yesterday, active demand modifiers, and a per-good price
 # chart with annotations; ore-type + "In stock" filters, collapsible Ore/Items
@@ -35,13 +34,16 @@ var _in_stock_only := false
 var _collapsed := {}
 var _root: Control = null
 var _serif: SystemFont = null
+var _open_wire: Dictionary = {}
+var _influence_open := false
 
 
 func build(content: VBoxContainer) -> void:
 	var selected_axis = GameState.state["phoneNav"].get("selectedAxis")
 	if selected_axis != null:
-		_build_axis_detail(content, selected_axis)
-		return
+		_tab = NEWS_TAB
+	if selected_axis == null and _open_wire.is_empty():
+		_influence_open = false
 	if _tab == STOCK_TAB and not _selected_good.is_empty():
 		_build_good_detail(content, _selected_good["kind"], _selected_good["type"])
 		return
@@ -50,9 +52,16 @@ func build(content: VBoxContainer) -> void:
 		_build_stock_market(page)
 	else:
 		_build_ticker(page)
+		if selected_axis != null:
+			_root.add_child(_build_influence_sheet(selected_axis) if _influence_open else _build_state_article(selected_axis))
+		elif not _open_wire.is_empty():
+			_root.add_child(_build_wire_article())
 
 
 func teardown() -> void:
+	if GameState.state["phoneNav"]["app"] != "ticker":
+		_open_wire = {}
+		_influence_open = false
 	if _root != null:
 		if _root.get_parent() != null:
 			_root.get_parent().remove_child(_root)
@@ -61,16 +70,19 @@ func teardown() -> void:
 
 
 func _mount_news_root() -> VBoxContainer:
-	_root = UI.vbox(0)
+	_root = Control.new()
 	_root.name = "TickerRoot"
 	shell.mount_custom_root(_root)
-	_root.add_child(_build_news_header())
+	var layout := UI.vbox(0)
+	UI.anchor_full_rect(layout)
+	_root.add_child(layout)
+	layout.add_child(_build_news_header())
 	var scroll := UI.scroll_container()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	var surface := StyleBoxFlat.new()
 	surface.bg_color = NEWS_BG
 	scroll.add_theme_stylebox_override("panel", surface)
-	_root.add_child(scroll)
+	layout.add_child(scroll)
 	var margin := MarginContainer.new()
 	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	margin.add_theme_constant_override("margin_left", 19)
@@ -152,6 +164,11 @@ func _build_news_tabs() -> Control:
 func _set_tab(tab: String) -> void:
 	_tab = tab
 	_selected_good = {}
+	_open_wire = {}
+	_influence_open = false
+	if GameState.state["phoneNav"].get("selectedAxis") != null:
+		PhoneNav.back_to_ticker()
+		return
 	refresh()
 
 
@@ -191,8 +208,18 @@ func _build_wires_card(wires: Array) -> Control:
 		column.add_child(_news_text(GameData.BAROMETER_NEWS["emptyWires"], 12, NEWS_MUTED))
 	for entry in wires:
 		column.add_child(_news_rule(NEWS_RULE, 1))
-		column.add_child(_news_text(entry["text"], 14, NEWS_INK, true))
-		column.add_child(_news_text(Calendar.format_day(int(entry["day"])), 11, NEWS_MUTED))
+		var wire := Button.new()
+		wire.name = "TickerWire"
+		wire.flat = true
+		wire.custom_minimum_size.y = 72
+		wire.pressed.connect(func(): _open_wire_article(entry))
+		var wire_copy := UI.vbox(4)
+		wire_copy.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		wire.add_child(wire_copy)
+		UI.anchor_full_rect(wire_copy)
+		wire_copy.add_child(_news_text(entry["text"], 14, NEWS_INK, true))
+		wire_copy.add_child(_news_text(Calendar.format_day(int(entry["day"])), 11, NEWS_MUTED))
+		column.add_child(wire)
 		column.add_child(_news_margins(Control.new(), 0, 0, 0, 10))
 	return _news_margins(column, 0, 25, 0, 0)
 
@@ -526,31 +553,146 @@ func _news_margins(child: Control, left: int, top: int, right: int, bottom: int)
 	return margin
 
 
-func _build_axis_detail(content: VBoxContainer, section: String) -> void:
-	content.add_child(UI.button("‹ Back to Ticker", func(): PhoneNav.back_to_ticker()))
-	content.add_child(UI.heading(SECTION_LABELS[section]))
+func _sheet(name: String, paper: bool, close_action: Callable) -> Dictionary:
+	var overlay := Control.new()
+	overlay.name = name
+	UI.anchor_full_rect(overlay)
+	var scrim := Button.new()
+	scrim.name = "SheetScrim"
+	scrim.flat = true
+	UI.anchor_full_rect(scrim)
+	scrim.pressed.connect(close_action)
+	overlay.add_child(scrim)
+	var panel := PanelContainer.new()
+	UI.anchor_full_rect(panel)
+	panel.anchor_top = 0.0 if paper else 0.09
+	var style := StyleBoxFlat.new()
+	style.bg_color = NEWS_PAPER if paper else Color("#303034")
+	style.set_corner_radius_all(14)
+	panel.add_theme_stylebox_override("panel", style)
+	overlay.add_child(panel)
+	var scroll := UI.scroll_container()
+	panel.add_child(scroll)
+	var margin := MarginContainer.new()
+	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for side in ["left", "right"]:
+		margin.add_theme_constant_override("margin_%s" % side, 20)
+	margin.add_theme_constant_override("margin_top", 16)
+	margin.add_theme_constant_override("margin_bottom", 24)
+	scroll.add_child(margin)
+	var body := UI.vbox(12)
+	margin.add_child(body)
+	return { "root": overlay, "body": body }
 
-	var barometer: Dictionary = GameState.state["barometer"]
-	var active_state: String = barometer[section]
-	var state_data: Dictionary = GameData.BAROMETER_STATES[section][active_state]
 
-	var summary := UI.card()
-	summary["content"].add_child(UI.heading(state_data["label"], 14))
-	summary["content"].add_child(UI.muted_label(state_data["description"]))
-	for key in state_data["effects"].keys():
-		var v = state_data["effects"][key]
-		if key == "itemDemand":
-			for recipe_key in v.keys():
-				summary["content"].add_child(UI.muted_label("%s demand %s" % [GameData.RECIPES[recipe_key]["name"], _signed(v[recipe_key])]))
-		else:
-			summary["content"].add_child(UI.muted_label("%s %s" % [key, _signed(v)]))
-	content.add_child(summary["panel"])
+func _build_state_article(section: String) -> Control:
+	var sheet := _sheet("TickerArticleSheet", true, func(): PhoneNav.back_to_ticker())
+	var body: VBoxContainer = sheet["body"]
+	var copy: Dictionary = GameData.BAROMETER_NEWS["article"]
+	var state_id: String = GameState.state["barometer"][section]
+	var state_data: Dictionary = GameData.BAROMETER_STATES[section][state_id]
+	var masthead := UI.hbox()
+	masthead.add_child(_news_text(GameData.BAROMETER_NEWS["masthead"], 18, NEWS_RED, true))
+	masthead.add_child(UI.button(copy["back"], func(): PhoneNav.back_to_ticker()))
+	masthead.add_child(UI.button(copy["close"], func(): PhoneNav.back_to_ticker()))
+	body.add_child(masthead)
+	body.add_child(_news_rule(NEWS_RED, 3))
+	body.add_child(_news_text(GameData.BAROMETER_NEWS["categories"][section].to_upper(), 11, NEWS_RED))
+	body.add_child(_news_text(state_data["headlines"][0], 26, NEWS_PAPER_INK, true))
+	body.add_child(_news_text(state_data["label"], 16, NEWS_PAPER_INK, true))
+	var impact := UI.vbox(5)
+	impact.add_child(_news_text(copy["impactTitle"], 11, NEWS_RED))
+	for line in _impact_lines(state_data["effects"]):
+		impact.add_child(_news_text(line, 13, NEWS_PAPER_INK))
+	body.add_child(impact)
+	body.add_child(_news_text(GameData.BAROMETER_NEWS["byline"], 11, NEWS_RED))
+	body.add_child(_news_rule(Color("#c4b7b7"), 1))
+	body.add_child(_news_text(state_data["description"], 14, NEWS_PAPER_INK))
+	var influence := UI.button(copy["influence"], func(): _open_influence())
+	influence.name = "TickerInfluenceOpen"
+	body.add_child(influence)
+	return sheet["root"]
 
-	content.add_child(UI.heading("All states", 14))
+
+func _build_wire_article() -> Control:
+	var sheet := _sheet("TickerWireArticleSheet", true, func(): _close_wire_article())
+	var body: VBoxContainer = sheet["body"]
+	var masthead := UI.hbox()
+	masthead.add_child(_news_text(GameData.BAROMETER_NEWS["masthead"], 18, NEWS_RED, true))
+	masthead.add_child(UI.button(GameData.BAROMETER_NEWS["article"]["back"], func(): _close_wire_article()))
+	masthead.add_child(UI.button(GameData.BAROMETER_NEWS["article"]["close"], func(): _close_wire_article()))
+	body.add_child(masthead)
+	body.add_child(_news_rule(NEWS_RED, 3))
+	body.add_child(_news_text(GameData.BAROMETER_NEWS["wires"].to_upper(), 11, NEWS_RED))
+	body.add_child(_news_text(str(_open_wire.get("text", "")), 26, NEWS_PAPER_INK, true))
+	if _open_wire.has("day"):
+		body.add_child(_news_text(Calendar.format_day(int(_open_wire["day"])), 11, NEWS_RED))
+	return sheet["root"]
+
+
+func _build_influence_sheet(section: String) -> Control:
+	var sheet := _sheet("TickerInfluenceSheet", false, func(): _close_influence())
+	var body: VBoxContainer = sheet["body"]
+	var copy: Dictionary = GameData.BAROMETER_NEWS["article"]
+	var title := UI.hbox()
+	title.add_child(_news_text(copy["influenceTitle"] % SECTION_LABELS[section], 20, NEWS_INK, true))
+	title.add_child(UI.button(copy["back"], func(): _close_influence()))
+	title.add_child(UI.button(copy["close"], func(): _close_influence()))
+	body.add_child(title)
+	body.add_child(_news_rule(NEWS_RED, 2))
+	body.add_child(_news_text(copy["allStates"], 14, NEWS_INK))
+	var active_state: String = GameState.state["barometer"][section]
 	for state_id in GameData.BAROMETER_STATES[section].keys():
-		content.add_child(_build_state_row(section, state_id, active_state))
+		body.add_child(_build_state_row(section, state_id, active_state))
+	body.add_child(_build_influence_actions_card(section))
+	return sheet["root"]
 
-	content.add_child(_build_influence_actions_card(section))
+
+func _open_wire_article(entry: Dictionary) -> void:
+	_open_wire = entry.duplicate(true)
+	refresh()
+
+
+func _close_wire_article() -> void:
+	_open_wire = {}
+	refresh()
+
+
+func _open_influence() -> void:
+	_influence_open = true
+	refresh()
+
+
+func _close_influence() -> void:
+	_influence_open = false
+	refresh()
+
+
+func _impact_lines(effects: Dictionary) -> Array[String]:
+	var lines: Array[String] = []
+	var copy: Dictionary = GameData.BAROMETER_NEWS["article"]
+	var demand_scale: float = 1.0 + float(Barometer.get_merged_effects().get("effectMod", 0.0))
+	if effects.has("demandAll"):
+		lines.append(copy["allItemDemand"] % _percent(float(effects["demandAll"]) * demand_scale))
+	if effects.has("itemDemand"):
+		for recipe_key in effects["itemDemand"].keys():
+			lines.append(copy["itemDemand"] % [GameData.RECIPES[recipe_key]["name"], _percent(float(effects["itemDemand"][recipe_key]) * demand_scale)])
+	if effects.has("mugChance"):
+		lines.append(copy["mugChance"] % roundi(float(effects["mugChance"]) * 100.0))
+	if effects.has("dailyCost"):
+		lines.append(copy["dailyCost"] % roundi(float(effects["dailyCost"]) * 100.0))
+	if effects.has("homeRaid"):
+		lines.append(copy["homeRaid"] % roundi(float(effects["homeRaid"]) * 100.0))
+	if effects.has("effectMod"):
+		lines.append(copy["effectMod"] % roundi(float(effects["effectMod"]) * 100.0))
+	if lines.is_empty():
+		lines.append(copy["noEffect"])
+	return lines
+
+
+func _percent(fraction: float) -> String:
+	var percent := snappedf(fraction * 100.0, 0.1)
+	return "%+d%%" % roundi(percent) if is_equal_approx(percent, roundf(percent)) else "%+.1f%%" % percent
 
 
 func _build_state_row(section: String, state_id: String, active_state: String) -> Control:
@@ -566,9 +708,11 @@ func _build_state_row(section: String, state_id: String, active_state: String) -
 		var holdings := { "cash": GameState.state["player"]["cash"] }
 		var row := UI.hbox()
 		var push_button := UI.button(UI.format_cost_label({ "label": "Push", "resource": "cash", "amount": Barometer.MANUAL_ACTION_COST }, holdings), func(): Barometer.manual_push(section, state_id))
+		push_button.name = "TickerPush_%s_%s" % [section, state_id]
 		push_button.disabled = not Barometer.can_push_pull(section, state_id, "push") or GameState.state["player"]["cash"] < Barometer.MANUAL_ACTION_COST
 		row.add_child(push_button)
 		var pull_button := UI.button(UI.format_cost_label({ "label": "Pull", "resource": "cash", "amount": Barometer.MANUAL_ACTION_COST }, holdings), func(): Barometer.manual_pull(section, state_id))
+		pull_button.name = "TickerPull_%s_%s" % [section, state_id]
 		pull_button.disabled = not Barometer.can_push_pull(section, state_id, "pull") or GameState.state["player"]["cash"] < Barometer.MANUAL_ACTION_COST
 		row.add_child(pull_button)
 		c["content"].add_child(row)
@@ -589,11 +733,12 @@ func _build_influence_actions_card(section: String) -> Control:
 		var cost_parts: Array[String] = []
 		var cost: Dictionary = action["cost"]
 		for key in cost.keys():
-			cost_parts.append("%s %s" % [str(cost[key]), key])
+			cost_parts.append("£%d" % int(cost[key]) if key == "cash" else "%d %s" % [int(cost[key]), key])
 		c["content"].add_child(UI.label(action["label"]))
 		c["content"].add_child(UI.muted_label(action["description"]))
 		c["content"].add_child(UI.muted_label("Cost: %s" % ", ".join(cost_parts)))
 		var b := UI.button(action["label"], func(): pass)
+		b.name = "TickerM4_%s" % action["id"]
 		b.disabled = true
 		c["content"].add_child(b)
 
