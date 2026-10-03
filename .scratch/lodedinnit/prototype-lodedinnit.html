@@ -1,0 +1,235 @@
+<!doctype html>
+<!-- PROTOTYPE: Two presentation-only LodedInnit UI directions. No game state or mechanics. -->
+<!-- PROSE-REVIEW: sample feed posts, taglines, and UI microcopy in this file. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>LodedInnit · UI directions</title>
+  <style>
+    :root { color-scheme: dark; --red:#c8102e; --shell:#252528; --frame:#111216; --line:#424246; --text:#ededee; --muted:#999a9d; --life:#6f9d68; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:#131417; color:#f0f0f1; font-family:Inter,"Segoe UI",Arial,sans-serif; }
+    button { font:inherit; cursor:pointer; }
+    .board { max-width:1440px; min-height:100vh; margin:auto; padding:32px 34px 100px; }
+    .intro { display:flex; justify-content:space-between; align-items:end; gap:30px; margin:0 7px 25px; }
+    .eyebrow { color:#e26b7f; font-size:11px; font-weight:800; letter-spacing:.2em; text-transform:uppercase; }
+    h1 { font-size:33px; letter-spacing:-.055em; line-height:1; margin:8px 0 9px; }
+    .intro p { color:#aaaeb5; margin:0; font-size:14px; }
+    .note { max-width:360px; color:#c0c2c6; line-height:1.45; font-size:13px; text-align:right; }
+    .gallery { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:20px; align-items:start; }
+    .pane-label { display:flex; justify-content:space-between; margin:0 10px 8px; color:#c5c6ca; font-size:12px; font-weight:700; letter-spacing:.04em; }
+    .pane-label span:last-child { color:#777a80; font-weight:500; }
+    .phone { width:100%; max-width:395px; height:790px; margin:auto; border:7px solid var(--frame); outline:2px solid #373a42; border-radius:34px; background:var(--shell); box-shadow:0 20px 65px #0008, inset 0 0 0 1px #50525b; overflow:hidden; display:flex; flex-direction:column; }
+    .status { height:38px; flex:none; padding:10px 16px 0; display:flex; align-items:start; justify-content:space-between; font-size:13px; font-weight:700; color:var(--text); }
+    .status small { font-size:12px; letter-spacing:1px; }
+    .app { min-height:0; flex:1; display:flex; flex-direction:column; overflow:hidden; }
+    .scroll { min-height:0; flex:1; overflow:auto; scrollbar-width:none; }
+    .scroll::-webkit-scrollbar { display:none; }
+    .faux-back { border:0; background:none; padding:0; color:var(--red); font-size:13px; font-weight:700; text-align:left; }
+    .divider { height:1px; background:var(--line); flex:none; }
+    .bottom-home { height:20px; flex:none; display:grid; place-items:center; }
+    .bottom-home::after { content:""; width:96px; height:4px; border-radius:9px; background:#d6d6d8; }
+    .switcher { position:fixed; z-index:10; left:50%; bottom:18px; transform:translateX(-50%); display:flex; align-items:center; gap:10px; padding:7px; background:#f1f1f2; color:#1d1e21; border-radius:40px; box-shadow:0 10px 35px #000a; white-space:nowrap; }
+    .switcher button { border:0; padding:10px 16px; border-radius:27px; background:transparent; color:inherit; font-weight:800; font-size:12px; }
+    .switcher button.active { background:var(--red); color:white; }
+    .switcher .arrow { width:36px; padding:10px; }
+    .switcher .cap { font-size:11px; font-weight:800; letter-spacing:.12em; color:#65676b; padding:0 5px; }
+    .a .top { padding:8px 16px 12px; }
+    .a .brandrow { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+    .a .logo { display:flex; align-items:center; gap:9px; font-size:21px; font-weight:850; letter-spacing:-.06em; }
+    .a .logo-mark { background:var(--red); color:#fff; width:29px; height:29px; display:grid; place-items:center; border-radius:7px; font-size:15px; letter-spacing:-.1em; padding-right:2px; }
+    .a .utility { display:flex; gap:13px; align-items:center; font-size:20px; color:#c8c8cb; }
+    .a .red-dot { width:7px; height:7px; background:var(--red); border-radius:50%; position:relative; top:-7px; left:-18px; margin-right:-11px; }
+    .a .tabs { display:flex; border-bottom:1px solid var(--line); }
+    .a .tabs div { width:50%; padding:12px 0 11px; color:#a9aaad; text-align:center; font-weight:700; font-size:13px; }
+    .a .tabs .sel { color:white; border-bottom:3px solid var(--red); }
+    .a .welcome { padding:20px 17px 12px; }
+    .a .welcome h2 { font-size:24px; margin:0 0 7px; letter-spacing:-.045em; }
+    .a .welcome p { font-size:12px; line-height:1.4; color:var(--muted); margin:0; }
+    .a .search { margin:5px 17px 14px; border:1px solid #4a4a4f; border-radius:11px; color:#898b90; background:#303034; padding:11px 12px; font-size:13px; }
+    .a .chipbar { display:flex; gap:7px; padding:0 17px 15px; }
+    .a .chip { color:#cbccd0; border:1px solid #4a4a4f; border-radius:30px; padding:7px 10px; font-size:11px; font-weight:700; }
+    .a .chip.on { background:#4c202b; border-color:#903046; color:#fff; }
+    .a .person { margin:0 12px 10px; padding:14px; background:#303034; border:1px solid #45454b; border-radius:15px; }
+    .a .person-top { display:flex; gap:11px; }
+    .avatar { flex:none; width:43px; height:43px; border-radius:50%; display:grid; place-items:center; background:#525056; color:#fff; font-weight:800; font-size:14px; }
+    .avatar.alt { background:#574a54; }
+    .avatar.cool { background:#455058; }
+    .a .person-name { font-size:15px; font-weight:780; letter-spacing:-.025em; margin:1px 0 2px; }
+    .a .person-role { color:#b9b9bd; font-size:11px; }
+    .a .person p { font-size:12px; line-height:1.38; color:#c8c8cb; margin:11px 0 12px; }
+    .a .person-foot { display:flex; align-items:center; justify-content:space-between; padding-top:10px; border-top:1px solid #49494e; }
+    .a .open { color:#e8adb8; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.045em; }
+    .a .rate { font-size:12px; font-weight:800; }
+    .a .rate em { color:#9d9da1; font-style:normal; font-weight:500; }
+    .a .card-link { color:#ed7388; font-weight:800; font-size:11px; margin-left:auto; }
+    .a .subline { color:#9e9fa3; font-size:11px; margin:0 17px 12px; }
+    .a .composer { background:#303034; border:1px solid #48484c; border-radius:14px; margin:18px 14px 12px; padding:13px; display:flex; align-items:center; gap:11px; color:#aaa; font-size:12px; }
+    .a .post { background:#303034; margin:0 13px 11px; border-radius:14px; border:1px solid #45454b; padding:14px 14px 10px; }
+    .a .post-head { display:flex; gap:9px; align-items:center; }
+    .a .post .avatar { width:36px; height:36px; font-size:11px; }
+    .a .post-name { font-size:13px; font-weight:800; }
+    .a .post-meta { color:#a5a6aa; font-size:10px; margin-top:2px; }
+    .a .post-body { font-size:12px; line-height:1.48; margin:12px 0 15px; color:#e1e1e3; }
+    .a .engage { border-top:1px solid #4c4c50; display:flex; justify-content:space-between; padding:11px 2px 2px; color:#aeb0b4; font-size:11px; }
+    .a .engage strong { color:#e0e0e2; }
+    .a .comment { border-left:2px solid #66666b; margin:9px 0 1px; padding-left:10px; font-size:11px; color:#b8b9bd; line-height:1.4; }
+    .a .profile-cover { height:82px; margin-top:10px; background:radial-gradient(circle at 80% 10%,#573d46 0,#3a343b 35%,#29292c 80%); border-radius:12px 12px 0 0; }
+    .a .profile-body { margin:0 13px; background:#303034; border:1px solid #48484c; border-radius:12px; overflow:hidden; }
+    .a .profile-inner { padding:0 15px 14px; }
+    .a .profile-inner .avatar { margin-top:-24px; border:3px solid #303034; width:54px; height:54px; font-size:16px; }
+    .a .profile-inner h2 { font-size:21px; letter-spacing:-.045em; margin:7px 0 4px; }
+    .a .profile-inner p { font-size:12px; line-height:1.4; color:#c5c5c9; margin:0 0 10px; }
+    .a .facts { display:grid; grid-template-columns:1fr 1fr; gap:9px; margin:15px 13px 10px; }
+    .a .fact { background:#303034; border:1px solid #48484c; border-radius:12px; padding:12px; }
+    .a .fact small { color:#9fa0a4; font-size:10px; display:block; margin-bottom:7px; }
+    .a .fact strong { font-size:14px; }
+    .a .section { margin:17px 16px 8px; font-size:11px; color:#9e9fa3; font-weight:800; text-transform:uppercase; letter-spacing:.09em; }
+    .a .about { margin:0 16px 13px; font-size:12px; line-height:1.5; color:#d3d3d5; }
+    .a .special { margin:0 16px; display:flex; align-items:center; gap:8px; font-size:12px; }
+    .ore { background:#304b33; color:#bed8b6; border:1px solid #60865d; border-radius:30px; padding:5px 9px; font-size:11px; font-weight:700; }
+    .a .hire-dock { background:#2e2e32; border-top:1px solid #55555a; padding:10px 13px 12px; }
+    .a .hire-dock small { color:#b2b2b7; display:block; text-align:center; margin-bottom:8px; font-size:10px; }
+    .cta { width:100%; border:0; background:var(--red); color:#fff; padding:12px; border-radius:10px; font-weight:800; font-size:13px; }
+    /* Direction B: dense, high-signal mobile recruitment directory. */
+    .b .top { padding:8px 16px 11px; }
+    .b .smallmark { display:flex; justify-content:space-between; align-items:center; }
+    .b .wordmark { font-size:19px; font-weight:900; letter-spacing:-.085em; text-transform:uppercase; }
+    .b .wordmark i { color:var(--red); font-style:normal; }
+    .b .menu { color:#b2b2b6; font-size:20px; }
+    .b .titleblock { padding:19px 16px 14px; background:linear-gradient(145deg,#303034,#252528 75%); }
+    .b .titleblock .kicker { color:#e18c9a; text-transform:uppercase; letter-spacing:.16em; font-size:10px; font-weight:850; }
+    .b .titleblock h2 { font-size:26px; line-height:1.03; letter-spacing:-.06em; margin:8px 0 8px; }
+    .b .titleblock p { margin:0; color:#a4a5a9; font-size:11px; line-height:1.4; }
+    .b .tabstrip { display:grid; grid-template-columns:1fr 1fr; margin:0 16px; border-bottom:1px solid var(--line); }
+    .b .tabstrip div { padding:12px 0; font-weight:750; font-size:12px; color:#8f9094; }
+    .b .tabstrip .sel { color:#f1f1f3; box-shadow:inset 0 -2px var(--red); }
+    .b .tabstrip div:last-child { text-align:right; }
+    .b .list-tools { display:flex; justify-content:space-between; margin:14px 16px 12px; color:#aaabb0; font-size:11px; }
+    .b .list-tools strong { color:#e9e9eb; }
+    .b .group { padding:9px 16px; display:flex; justify-content:space-between; background:#323236; border-top:1px solid #4a4a50; border-bottom:1px solid #4a4a50; font-size:10px; font-weight:850; text-transform:uppercase; letter-spacing:.14em; }
+    .b .group em { color:#aaaab0; font-style:normal; font-weight:600; letter-spacing:0; text-transform:none; }
+    .b .row { margin:0 16px; border-bottom:1px solid #414146; padding:13px 0 11px; display:grid; grid-template-columns:33px 1fr auto; gap:10px; align-items:start; }
+    .b .row .avatar { width:31px; height:31px; font-size:10px; }
+    .b .row-name { font-weight:800; font-size:13px; line-height:1.15; }
+    .b .row-sub { font-size:10px; line-height:1.3; color:#a3a4aa; margin-top:4px; }
+    .b .row-status { font-size:9px; color:#de9eaa; font-weight:800; margin-top:6px; }
+    .b .row-right { text-align:right; }
+    .b .row-right strong { font-size:12px; white-space:nowrap; }
+    .b .row-right small { display:block; color:#999aa0; margin-top:5px; font-size:10px; }
+    .b .row-right span { color:#df687d; font-size:15px; display:block; margin-top:7px; }
+    .b .feed-intro { margin:15px 16px 10px; color:#aaa; font-size:11px; }
+    .b .timeline { margin:0 17px 0 28px; border-left:1px solid #56565b; padding:0 0 0 18px; }
+    .b .entry { position:relative; padding:0 0 20px; }
+    .b .entry::before { content:""; position:absolute; left:-23px; top:3px; width:9px; height:9px; border-radius:50%; background:var(--red); box-shadow:0 0 0 4px #252528; }
+    .b .entry-time { font-size:10px; font-weight:800; color:#e08a9a; text-transform:uppercase; letter-spacing:.12em; }
+    .b .entry-card { background:#303034; border:1px solid #49494e; border-radius:10px; padding:13px; margin-top:8px; }
+    .b .entry-head { font-weight:800; font-size:12px; }
+    .b .entry-head span { display:block; color:#a9aab0; font-size:10px; font-weight:500; margin-top:3px; }
+    .b .entry-text { font-size:12px; line-height:1.45; margin:12px 0; }
+    .b .entry-meta { border-top:1px solid #48484c; padding-top:9px; color:#aaaab0; font-size:10px; }
+    .b .entry-meta b { color:#ddd; }
+    .b .reply { font-size:10px; color:#a9a9ae; padding:10px 0 0; font-style:italic; }
+    .b .profile-title { padding:16px 16px 14px; }
+    .b .profile-title .avatar { width:56px; height:56px; border-radius:12px; margin-bottom:12px; background:#594952; font-size:17px; }
+    .b .profile-title h2 { font-size:26px; letter-spacing:-.06em; margin:0 0 5px; }
+    .b .profile-title p { color:#c2c2c6; font-size:11px; line-height:1.4; margin:0; }
+    .b .availability { margin:0 16px 13px; border:1px solid #83505b; background:#3c2930; border-radius:8px; padding:9px 11px; font-size:10px; color:#e6b2bc; font-weight:800; text-transform:uppercase; letter-spacing:.1em; }
+    .b .salary { margin:0 16px; border-top:1px solid #55555a; border-bottom:1px solid #55555a; padding:15px 0; display:flex; justify-content:space-between; align-items:end; }
+    .b .salary small { color:#a2a2a7; text-transform:uppercase; font-size:10px; letter-spacing:.08em; }
+    .b .salary strong { font-size:28px; letter-spacing:-.06em; }
+    .b .salary strong span { color:#aaa; font-size:11px; font-weight:500; letter-spacing:0; }
+    .b .specgrid { margin:16px; display:grid; grid-template-columns:1fr 1fr; gap:1px; background:#4a4a4e; border:1px solid #4a4a4e; }
+    .b .specgrid div { background:#303034; padding:11px; }
+    .b .specgrid small { display:block; font-size:9px; color:#a1a1a6; text-transform:uppercase; letter-spacing:.09em; margin-bottom:8px; }
+    .b .specgrid strong { font-size:12px; }
+    .b .section { margin:18px 16px 7px; font-size:10px; color:#e08596; font-weight:850; text-transform:uppercase; letter-spacing:.13em; }
+    .b .about { margin:0 16px; color:#d0d0d3; font-size:12px; line-height:1.45; }
+    .b .hire-dock { border-top:1px solid #55555a; background:#2d2d31; padding:10px 16px 12px; }
+    .b .hire-dock .line { display:flex; justify-content:space-between; color:#aeb0b4; font-size:10px; margin-bottom:8px; }
+    /* Direction C: selected A/B structure, with app-specific brand chrome. */
+    .c { --red:#81549a; --brand-light:#dab8eb; }
+    .c .top { padding-bottom:10px; }
+    .c .brandlock { display:flex; align-items:center; gap:8px; min-width:0; }
+    .c .brandlock img { width:31px; height:31px; border-radius:8px; flex:none; }
+    .c .brandname { color:#f2edf2; font-size:19px; font-weight:850; letter-spacing:-.06em; line-height:1; }
+    .c .brandname span { color:var(--brand-light); }
+    .c .brandname small { display:block; color:#bf9bcc; font-size:7px; font-weight:850; letter-spacing:.12em; margin-top:4px; }
+    .c .utility, .c .menu { color:#bbacc1; }
+    .c .open, .c .row-status { color:var(--brand-light); }
+    .c .card-link, .c .faux-back, .c .row-right span, .c .entry-time, .c .section { color:#cda3e0; }
+    .c .chip.on { background:#3d3047; border-color:#805c92; }
+    .c .availability { background:#372c40; border-color:#735785; color:#dbb9e8; }
+    .c .titleblock { background:linear-gradient(145deg,#3c3042,#252528 80%); }
+    .c .titleblock .kicker { color:#d3a9e3; }
+    .c .cta { background:var(--red); }
+    .c .cta:hover { background:#9566ac; }
+    .c .profile-title .avatar { background:#5c4964; }
+    .c .profile-nav { display:flex; align-items:center; justify-content:space-between; }
+    .c .profile-nav img { width:25px; height:25px; border-radius:7px; }
+    .c .ore-mark { color:#dda477; }
+    .switcher.hybrid button.active { background:#81549a; }
+    .brand-note { display:flex; justify-content:flex-end; align-items:center; gap:8px; margin-top:10px; font-size:11px; color:#9fa0a6; }
+    .brand-note i { display:inline-block; width:13px; height:13px; border-radius:4px; background:#81549a; }
+    .brand-note i:last-of-type { background:#dda477; }
+    @media (max-width:1100px) { .gallery { grid-template-columns:1fr; gap:24px; } .board { max-width:500px; } .intro { display:block; } .note { text-align:left; margin-top:16px; } }
+    @media (max-width:500px) { .board { padding:20px 14px 100px; } .phone { height:760px; } .switcher { gap:2px; } .switcher .cap { display:none; } .switcher button { padding:9px 8px; font-size:11px; } }
+  </style>
+</head>
+<body>
+<main class="board">
+  <header class="intro"><div><div class="eyebrow">LodedInnit · design exploration</div><h1 id="heading"></h1><p>Three screens, one direction. Presentation data only.</p></div><div class="note" id="note"></div></header>
+  <div class="gallery" id="gallery"></div>
+</main>
+<nav class="switcher" aria-label="Mockup direction"><span class="cap">DIRECTION</span><button class="arrow" id="prev" aria-label="Previous direction">←</button><button id="aButton">A · Social</button><button id="bButton">B · Desk</button><button id="cButton">C · Combined</button><button class="arrow" id="next" aria-label="Next direction">→</button></nav>
+<script>
+const people = [
+  {name:'Marcia Odunsi', initials:'MO', role:'Cultivator', level:'2/4', wage:'£300', headline:'Allotment secretary, 14 yrs. Open to discreet horticulture.', shade:'alt'},
+  {name:'Tomasz Wójcik', initials:'TW', role:'Cultivator', level:'1/5', wage:'£200', headline:'Landscaping grad. Hungry. Will learn anything.', shade:'cool'},
+  {name:'Bernie Kale', initials:'BK', role:'Cultivator', level:'3/3', wage:'£420', headline:'Forty years in the trade. Not here to learn.', shade:''},
+  {name:'Saoirse Flynn', initials:'SF', role:'Cultivator', level:'2/5', wage:'£320', headline:'Ex-cooperative grower. Left on good terms. Mostly.', shade:'alt'},
+  {name:'Priya Sandhu', initials:'PS', role:'Crafter', level:'2/4', wage:'£320', headline:"Materials engineer, formerly of a firm she won't name.", shade:'cool'},
+  {name:'Dot Mayhew', initials:'DM', role:'Crafter', level:'1/4', wage:'£220', headline:'Herbalist. Market stall, Deptford.', shade:'alt'},
+  {name:'Gideon Achterberg', initials:'GA', role:'Crafter', level:'3/5', wage:'£480', headline:'Horologist. Guild-trained. Expensive, and worth it.', shade:''},
+  {name:'Ray Okafor-Bell', initials:'RO', role:'Crafter', level:'2/3', wage:'£300', headline:'Jack of all trades. Ask around.', shade:'cool'}
+];
+function avatar(p){return `<div class="avatar ${p.shade}">${p.initials}</div>`}
+function shell(cls,content){return `<div class="phone ${cls}"><div class="status"><span>08:14</span><small>▮▮▮  ◕  ▰ 87%</small></div><div class="app">${content}</div><div class="bottom-home"></div></div>`}
+function pane(label,detail,markup){return `<div><div class="pane-label"><span>${label}</span><span>${detail}</span></div>${markup}</div>`}
+function aTop(tab){return `<div class="top"><div class="brandrow"><div class="logo"><span class="logo-mark">li</span> LodedInnit</div><div class="utility">⌕ ⋯ <span class="red-dot"></span></div></div></div><div class="tabs"><div class="${tab==='feed'?'sel':''}">Feed</div><div class="${tab==='people'?'sel':''}">People</div></div>`}
+function aPeople(){return shell('a',`${aTop('people')}<div class="scroll"><div class="welcome"><h2>People you should know.</h2><p>Eight professionals. Several entirely plausible references.</p></div><div class="search">⌕ &nbsp;Search people</div><div class="chipbar"><span class="chip on">All 8</span><span class="chip">Cultivators 4</span><span class="chip">Crafters 4</span></div><div class="subline">AVAILABLE TO HIRE · 8</div>${people.map(p=>`<div class="person"><div class="person-top">${avatar(p)}<div><div class="person-name">${p.name}</div><div class="person-role">${p.role} · Level ${p.level}</div></div></div><p>${p.headline}</p><div class="person-foot"><span class="open">● Open to work</span><span class="rate">${p.wage}<em>/wk</em></span><span class="card-link">›</span></div></div>`).join('')}</div>`) }
+function aFeed(){return shell('a',`${aTop('feed')}<div class="scroll"><div class="welcome"><h2>Network activity</h2><p>The people doing the work, and the people saying they are.</p></div><div class="post"><div class="post-head">${avatar(people[0])}<div><div class="post-name">Marcia Odunsi</div><div class="post-meta">Cultivator · 2h · Public</div></div></div><div class="post-body">The allotments passed another inspection. The minutes are available. The interesting part is not in the minutes.</div><div class="engage"><span><strong>18</strong> likes</span><span><strong>2</strong> comments</span></div><div class="comment"><strong>Dot Mayhew:</strong> Good to hear the paperwork held.</div></div><div class="post"><div class="post-head">${avatar(people[1])}<div><div class="post-name">Tomasz Wójcik</div><div class="post-meta">Cultivator · 5h · Public</div></div></div><div class="post-body">Looking for a role with room to grow. I have my own boots and most of a van.</div><div class="engage"><span><strong>7</strong> likes</span><span><strong>1</strong> comment</span></div></div><div class="post"><div class="post-head">${avatar(people[5])}<div><div class="post-name">Dot Mayhew</div><div class="post-meta">Crafter · Yesterday</div></div></div><div class="post-body">Open to work.</div><div class="engage"><span><strong>12</strong> likes</span><span><strong>0</strong> comments</span></div></div></div>`) }
+function aProfile(){let p=people[0];return shell('a',`<div class="top"><button class="faux-back">‹ People</button></div><div class="scroll"><div class="profile-body"><div class="profile-cover"></div><div class="profile-inner">${avatar(p)}<h2>${p.name}</h2><p>${p.headline}</p><span class="open">● Open to work</span></div></div><div class="facts"><div class="fact"><small>ROLE</small><strong>Cultivator</strong></div><div class="fact"><small>LEVEL → CAP</small><strong>2 → 4</strong></div><div class="fact"><small>WEEKLY WAGE</small><strong>£300</strong></div><div class="fact"><small>ORE SPECIALITY</small><strong style="color:#a5c39d">◈ Life</strong></div></div><div class="section">About</div><p class="about">Ran the Brockley allotments through two floods and a hosepipe ban. Knows what grows where, and who's been digging where they shouldn't.</p><div class="section">Specialities</div><div class="special"><span class="ore">◈ Life</span></div></div><div class="hire-dock"><small>Vein Cultivation Station · 1 seat free</small><button class="cta">Hire · £300 first week</button></div>`) }
+function bTop(){return `<div class="top"><div class="smallmark"><div class="wordmark">Loded<i>Innit.</i></div><div class="menu">⋯</div></div></div>`}
+function bPeople(){let groups=[['Cultivators',people.slice(0,4)],['Crafters',people.slice(4)]];return shell('b',`${bTop()}<div class="scroll"><div class="titleblock"><div class="kicker">People / 08</div><h2>Who’s available.</h2><p>A useful network, when the work needs doing.</p></div><div class="tabstrip"><div>Feed</div><div class="sel">People</div></div><div class="list-tools"><span><strong>8</strong> open to work</span><span>Role ▾ &nbsp; Wage ▾</span></div>${groups.map(([name,items])=>`<div class="group"><span>${name}</span><em>Level / cap &nbsp; · &nbsp; £/wk</em></div>${items.map(p=>`<div class="row">${avatar(p)}<div><div class="row-name">${p.name}</div><div class="row-sub">${p.headline}</div><div class="row-status">● OPEN TO WORK</div></div><div class="row-right"><strong>${p.wage}</strong><small>LV ${p.level}</small><span>›</span></div></div>`).join('')}`).join('')}</div>`) }
+function bFeed(){return shell('b',`${bTop()}<div class="scroll"><div class="titleblock"><div class="kicker">Network / 08</div><h2>Everyone’s<br>working on something.</h2><p>Recent posts from people in the trade.</p></div><div class="tabstrip"><div class="sel">Feed</div><div>People</div></div><div class="feed-intro">LATEST ACTIVITY &nbsp; · &nbsp; 3 POSTS</div><div class="timeline"><div class="entry"><div class="entry-time">This block · Marcia Odunsi</div><div class="entry-card"><div class="entry-head">Marcia Odunsi<span>Cultivator · Level 2</span></div><div class="entry-text">The allotments passed another inspection. The minutes are available. The interesting part is not in the minutes.</div><div class="entry-meta"><b>18</b> likes &nbsp; · &nbsp; <b>2</b> comments</div><div class="reply">Dot Mayhew: Good to hear the paperwork held.</div></div></div><div class="entry"><div class="entry-time">Earlier · Tomasz Wójcik</div><div class="entry-card"><div class="entry-head">Tomasz Wójcik<span>Cultivator · Level 1</span></div><div class="entry-text">Looking for a role with room to grow. I have my own boots and most of a van.</div><div class="entry-meta"><b>7</b> likes &nbsp; · &nbsp; <b>1</b> comment</div></div></div><div class="entry"><div class="entry-time">Yesterday · Dot Mayhew</div><div class="entry-card"><div class="entry-head">Dot Mayhew<span>Open to work</span></div><div class="entry-text">Dot Mayhew is open to work.</div><div class="entry-meta"><b>12</b> likes</div></div></div></div></div>`) }
+function bProfile(){let p=people[0];return shell('b',`<div class="top"><button class="faux-back">‹ People</button></div><div class="scroll"><div class="profile-title">${avatar(p)}<h2>${p.name}</h2><p>${p.headline}</p></div><div class="availability">● Open to work</div><div class="salary"><small>Weekly wage<br>First week prepaid</small><strong>£300<span> / week</span></strong></div><div class="specgrid"><div><small>Role</small><strong>Cultivator</strong></div><div><small>Level / cap</small><strong>2 / 4</strong></div><div><small>Ore speciality</small><strong style="color:#a5c39d">◈ Life</strong></div><div><small>Room</small><strong>1 seat free</strong></div></div><div class="section">Experience</div><p class="about">Ran the Brockley allotments through two floods and a hosepipe ban. Knows what grows where, and who's been digging where they shouldn't.</p><div class="section">Appointment</div><p class="about">First week paid from the business pot, then float.</p></div><div class="hire-dock"><div class="line"><span>Vein Cultivation Station</span><span>Seat available</span></div><button class="cta">Hire · £300 first week</button></div>`) }
+function hybridTop(){return `<div class="top"><div class="smallmark"><div class="brandlock"><img src="lodedinnit-logo-prototype.png" alt="LodedInnit concept icon"><div class="brandname">Loded<span>Innit</span><small>THE PROFESSIONAL UNDERGROUND</small></div></div><div class="menu">⋯</div></div></div>`}
+function hybridPeople(){return bPeople().replace('class="phone b"','class="phone b c"').replace(bTop(),hybridTop())}
+function hybridFeed(){const old=aTop('feed');const oldHeader=old.slice(0,old.indexOf('<div class="tabs">'));return aFeed().replace('class="phone a"','class="phone a c"').replace(oldHeader,hybridTop())}
+function hybridProfile(){return bProfile().replace('class="phone b"','class="phone b c"').replace('<div class="top"><button class="faux-back">‹ People</button></div>','<div class="top profile-nav"><button class="faux-back">‹ People</button><img src="lodedinnit-logo-prototype.png" alt="LodedInnit concept icon"></div>')}
+function render(){
+  const requested=new URLSearchParams(location.search).get('variant');
+  const variant=['A','B','C'].includes(requested)?requested:'C';
+  const details={
+    A:{heading:'A · The professional network',note:'Familiar social cards and a lively feed sell the LinkedIn parody. Profiles keep the hiring decision one tap away.',screens:[aPeople(),aFeed(),aProfile()]},
+    B:{heading:'B · The talent desk',note:'Dense, role-grouped rows put pay and level first. The feed becomes a compact activity record; profiles read like a short CV.',screens:[bPeople(),bFeed(),bProfile()]},
+    C:{heading:'C · LodedInnit',note:'Your selection: B’s People and profile, A’s Feed. Plum actions and copper ore seam give the app its own identity.<div class="brand-note"><i></i> Plum &nbsp; <i></i> Copper</div>',screens:[hybridPeople(),hybridFeed(),hybridProfile()]}
+  }[variant];
+  document.getElementById('heading').textContent=details.heading;
+  document.getElementById('note').innerHTML=details.note;
+  document.getElementById('gallery').innerHTML=pane('01 · People',variant==='A'?'Browse':'Compare',details.screens[0])+pane('02 · Feed','Network',details.screens[1])+pane('03 · Profile','Hire',details.screens[2]);
+  for(const key of ['A','B','C'])document.getElementById(key.toLowerCase()+'Button').classList.toggle('active',key===variant);
+  document.querySelector('.switcher').classList.toggle('hybrid',variant==='C');
+}
+function setVariant(v){const url=new URL(location.href);url.searchParams.set('variant',v);history.replaceState(null,'',url);render()}
+for(const key of ['A','B','C'])document.getElementById(key.toLowerCase()+'Button').onclick=()=>setVariant(key);
+function cycle(direction){const current=new URLSearchParams(location.search).get('variant')||'C';const keys=['A','B','C'];setVariant(keys[(keys.indexOf(current)+direction+keys.length)%keys.length])}
+document.getElementById('prev').onclick=()=>cycle(-1);
+document.getElementById('next').onclick=()=>cycle(1);
+document.addEventListener('keydown',e=>{if(['ArrowLeft','ArrowRight'].includes(e.key)&&!['INPUT','TEXTAREA'].includes(document.activeElement.tagName))cycle(e.key==='ArrowLeft'?-1:1)});
+render();
+</script>
+</body>
+</html>

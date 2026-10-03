@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">LodedInnit concept icon</title>
+  <desc id="desc">Cream LO monogram crossed by a copper ore seam on a plum square.</desc>
+  <rect x="3" y="3" width="122" height="122" rx="27" fill="#563568"/>
+  <rect x="4.5" y="4.5" width="119" height="119" rx="25.5" fill="none" stroke="#765088" stroke-width="3"/>
+  <path d="M25 27h16v62h21v14H25z" fill="#f2edf2"/>
+  <circle cx="86" cy="75" r="21" fill="none" stroke="#f2edf2" stroke-width="14"/>
+  <path d="M101 32 89 59l8 10-17 28" fill="none" stroke="#dda477" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
