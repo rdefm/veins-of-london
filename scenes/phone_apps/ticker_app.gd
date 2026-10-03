@@ -22,6 +22,9 @@ const NEWS_RULE := Color("#575157")
 const NEWS_RED := Color("#9c2340")
 const NEWS_PAPER := Color("#f1eae3")
 const NEWS_PAPER_INK := Color("#2a2022")
+const MARKET_BRIEF_BG := Color("#313135")
+const MARKET_ROW_HOVER := Color("#303034")
+const MARKET_PRICE := Color("#e8b7bf")
 const SERIF_NAMES: PackedStringArray = ["Georgia", "Times New Roman", "Noto Serif", "DejaVu Serif", "serif"]
 
 var _tab := NEWS_TAB
@@ -227,16 +230,30 @@ func _build_wires_card(wires: Array) -> Control:
 # ── Stock Market ────────────────────────────────────────────────────────
 
 func _build_stock_market(content: VBoxContainer) -> void:
-	var mods := UI.card()
-	mods["content"].add_child(UI.heading("Demand modifiers", 14))
+	var copy: Dictionary = GameData.BAROMETER_NEWS["market"]
+	content.add_child(_section_heading(copy["edition"], copy["editionDetail"]))
+	var brief := PanelContainer.new()
+	brief.name = "TickerMarketBrief"
+	var style := StyleBoxFlat.new()
+	style.bg_color = MARKET_BRIEF_BG
+	style.border_color = NEWS_MUTED
+	style.border_width_left = 2
+	style.content_margin_left = 13
+	style.content_margin_right = 13
+	style.content_margin_top = 12
+	style.content_margin_bottom = 12
+	brief.add_theme_stylebox_override("panel", style)
+	var lines := UI.vbox(6)
+	lines.add_child(_news_text(copy["demandWatch"], 11, NEWS_INK))
 	var modifiers: Array = Market.demand_modifiers()
 	if modifiers.is_empty():
-		mods["content"].add_child(UI.muted_label("Nothing on the Ticker is moving demand."))
+		lines.add_child(_news_text(copy["noDemandModifiers"], 12, NEWS_MUTED))
 	for mod in modifiers:
-		mods["content"].add_child(UI.muted_label(_modifier_text(mod)))
-	content.add_child(mods["panel"])
+		lines.add_child(_news_text(_modifier_text(mod), 12, NEWS_MUTED))
+	brief.add_child(lines)
+	content.add_child(brief)
 
-	content.add_child(_build_stock_filter())
+	content.add_child(_news_margins(_build_stock_filter(), 0, 16, 0, 0))
 	content.add_child(_build_good_section("ore", "Ore"))
 	content.add_child(_build_good_section("consumable", "Items"))
 
@@ -246,19 +263,50 @@ func _build_stock_filter() -> Control:
 	var filter := UI.hflow()
 	for ore_type in GameData.MARKET["goods"]["ore"]:
 		var shown := not _hidden_types.has(ore_type)
-		filter.add_child(UI.button("%s %s" % ["●" if shown else "○", GameData.ORE_TYPES[ore_type]["name"]], func(): _toggle_type(ore_type)))
-	filter.add_child(UI.button("%s In stock" % ("●" if _in_stock_only else "○"), func(): _toggle_in_stock()))
+		var toggle := UI.button("%s %s" % ["●" if shown else "○", GameData.ORE_TYPES[ore_type]["name"]], func(): _toggle_type(ore_type))
+		toggle.name = "TickerFilter_%s" % ore_type
+		filter.add_child(toggle)
+	var stock := UI.button("%s In stock" % ("●" if _in_stock_only else "○"), func(): _toggle_in_stock())
+	stock.name = "TickerFilter_in_stock"
+	filter.add_child(stock)
 	return filter
 
 
 func _build_good_section(kind: String, title: String) -> Control:
-	var section := UI.collapsible_section(title, not _collapsed.has(kind), func(open: bool): _set_section_open(kind, open))
+	var copy: Dictionary = GameData.BAROMETER_NEWS["market"]
+	var section := UI.vbox(0)
+	section.name = "TickerSection_%s" % kind
+	var header_row := UI.hbox(8)
+	var header := Button.new()
+	header.text = "%s %s" % [title, "▸" if _collapsed.has(kind) else "▾"]
+	header.name = "TickerSectionHeader_%s" % kind
+	header.flat = true
+	header.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	header.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.custom_minimum_size.y = 42
+	header.add_theme_color_override("font_color", NEWS_INK)
+	header.add_theme_color_override("font_hover_color", NEWS_INK)
+	header_row.add_child(header)
+	var meta := _news_text(copy["priceMove"], 10, NEWS_MUTED)
+	meta.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	meta.size_flags_horizontal = Control.SIZE_SHRINK_END
+	header_row.add_child(meta)
+	section.add_child(_news_margins(header_row, 0, 12, 0, 0))
+	section.add_child(_news_rule(NEWS_RULE, 1))
+	var rows := UI.vbox(0)
+	rows.visible = not _collapsed.has(kind)
+	section.add_child(rows)
+	header.pressed.connect(func():
+		rows.visible = not rows.visible
+		_set_section_open(kind, rows.visible)
+		header.text = "%s %s" % [title, "▾" if rows.visible else "▸"]
+	)
 	var goods := shown_goods(kind)
 	if goods.is_empty():
-		section["content"].add_child(UI.muted_label("Nothing matches the filter."))
+		rows.add_child(_news_margins(_news_text(copy["emptyFilter"], 12, NEWS_MUTED), 0, 12, 0, 12))
 	for good_type in goods:
-		section["content"].add_child(_good_row(kind, good_type))
-	return section["panel"]
+		rows.add_child(_good_row(kind, good_type))
+	return section
 
 
 # The goods of one kind ("ore" or "consumable") the filter shows, in market order.
@@ -323,27 +371,50 @@ func _good_symbol(kind: String, good_type: String) -> Dictionary:
 	return { "symbol": GameData.RECIPES[good_type]["symbol"], "fallback": SymbolGlyph.generic_fallback() }
 
 
-# One tappable price row: symbol, name, price, ▲/▼ + £ delta.
+# One tappable, divided price row: symbol and type opposite the live quote.
 func _good_row(kind: String, good_type: String) -> Control:
 	var move := Market.day_move(kind, good_type)
 	var b := Button.new()
-	b.custom_minimum_size.y = 44
+	b.name = "TickerGood_%s_%s" % [kind, good_type]
+	b.custom_minimum_size.y = 64
 	b.pressed.connect(func(): _select_good(kind, good_type))
-	var inner := UI.hbox(8)
+	var normal := StyleBoxFlat.new()
+	normal.bg_color = NEWS_BG
+	normal.border_color = NEWS_RULE
+	normal.border_width_bottom = 1
+	normal.content_margin_left = 0
+	normal.content_margin_right = 0
+	normal.content_margin_top = 8
+	normal.content_margin_bottom = 8
+	var hover := normal.duplicate() as StyleBoxFlat
+	hover.bg_color = MARKET_ROW_HOVER
+	for state_name in ["normal", "pressed", "focus"]:
+		b.add_theme_stylebox_override(state_name, normal)
+	b.add_theme_stylebox_override("hover", hover)
+	var inner := UI.hbox(10)
 	UI.anchor_full_rect(inner)
 	b.add_child(inner)
-	var symbol := UI.symbol_row([_good_symbol(kind, good_type), _good_name(kind, good_type)])
-	symbol.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	inner.offset_left = 4
+	inner.offset_right = -4
+	var symbol := UI.symbol_row([_good_symbol(kind, good_type)])
 	symbol.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	inner.add_child(symbol)
-	var price := UI.label(UI.price_text(kind, Market.quote(kind, good_type)))
-	price.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	inner.add_child(price)
-	var delta := UI.tinted_label(PriceMove.text(move, true), PriceMove.colour(move, MUTED))
-	delta.custom_minimum_size.x = 64
+	var identity := UI.vbox(3)
+	identity.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	identity.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	identity.add_child(_news_text(_good_name(kind, good_type), 15, NEWS_INK))
+	var copy: Dictionary = GameData.BAROMETER_NEWS["market"]
+	identity.add_child(_news_text(copy["oreType"] if kind == "ore" else copy["itemType"], 11, NEWS_MUTED))
+	inner.add_child(identity)
+	var quote := UI.vbox(3)
+	quote.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var price := _news_text(UI.price_text(kind, Market.quote(kind, good_type)), 15, MARKET_PRICE)
+	price.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	quote.add_child(price)
+	var delta := _news_text("— £0" if move == 0 else PriceMove.text(move, true), 11, PriceMove.colour(move, NEWS_MUTED))
 	delta.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	delta.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	inner.add_child(delta)
+	quote.add_child(delta)
+	inner.add_child(quote)
 	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	for child in inner.find_children("*", "Control", true, false):
 		child.mouse_filter = Control.MOUSE_FILTER_IGNORE

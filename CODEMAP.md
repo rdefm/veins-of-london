@@ -240,7 +240,7 @@ overlays.
 | File | Consumed by |
 |---|---|
 | approaches.json | approaches.gd |
-| barometer.json | barometer.gd (states/actions/prefs); ticker_app.gd (News branding, article/impact labels and category copy) |
+| barometer.json | barometer.gd (states/actions/prefs); ticker_app.gd (News branding, article/impact labels and category copy; Stock Market labels and empty states) |
 | collective_barks.json | collective.gd |
 | combat_prototype.json | combat_prototype.gd |
 | combat_visuals.json | combat_stage.gd (locationBackdrops, backdrops, pose sheets, stage.spriteScale); GameData.gd (territorialVariant pose spec); combat_director.gd (pacing.turnPause); turn_order_strip.gd (cardFrames) |

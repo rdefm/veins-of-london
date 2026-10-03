@@ -33,6 +33,16 @@
     "wires": "London Wires",
     "wiresDetail": "From recent events",
     "emptyWires": "No reports on the wires yet.",
+    "market": {
+      "edition": "London Market",
+      "editionDetail": "Daily close",
+      "demandWatch": "DEMAND WATCH",
+      "noDemandModifiers": "Nothing on the Ticker is moving demand.",
+      "priceMove": "Price · daily move",
+      "oreType": "Orichalchum",
+      "itemType": "Item",
+      "emptyFilter": "Nothing matches the filter."
+    },
     "article": {
       "impactTitle": "WHAT CHANGES IN LONDON",
       "influence": "Influence",
