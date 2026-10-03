@@ -4,6 +4,50 @@ const NodeQuery := preload("res://tests/support/node_query.gd")
 
 
 func run() -> void:
+	run_case("price_detail_uses_ticker_hierarchy_at_narrow_width", func():
+		GameState.reset()
+		GameState.state["market"]["goods"]["ore"]["time"]["price"] = 91
+		GameState.state["market"]["goods"]["ore"]["time"]["prevPrice"] = 89
+		GameState.state["market"]["annotations"] = [
+			{ "day": 1, "goodKind": "ore", "good": "time", "kind": "dump", "source": "player", "value": 500 },
+		]
+		PhoneNav.open_app("ticker")
+		var phone := PhoneScreen.new()
+		phone.size = Vector2(320, 700)
+		phone._ready()
+		(phone.find_child("TickerTab_stock", true, false) as Button).pressed.emit()
+		(phone.find_child("TickerGood_ore_time", true, false) as Button).pressed.emit()
+		var app := phone.app_instance("ticker") as TickerApp
+		var back := NodeQuery.find_button(phone, "‹ Back to Stock Market")
+		assert_eq(back.custom_minimum_size.y, 44.0, "detail Back keeps a phone tap target")
+		var eyebrow := phone.find_child("TickerDetailEyebrow", true, false) as Label
+		var name_label := phone.find_child("TickerDetailName", true, false) as Label
+		var price := phone.find_child("TickerDetailPrice", true, false) as Label
+		var move := phone.find_child("TickerDetailMove", true, false) as Label
+		assert_eq(eyebrow.get_theme_font_size("font_size"), 11)
+		assert_eq(name_label.get_theme_font_size("font_size"), 24)
+		assert_eq(price.get_theme_font_size("font_size"), 30)
+		assert_eq(move.get_theme_font_size("font_size"), 12)
+		assert_true(name_label.get_theme_font("font") is FontVariation, "name has strong heading weight")
+		assert_eq((name_label.get_theme_font("font") as FontVariation).base_font, app._sans_font(), "name uses concept's sans family")
+		assert_true(price.get_theme_font("font") is FontVariation, "quote has strong figure weight")
+		assert_eq(price.get_theme_color("font_color"), TickerApp.MARKET_PRICE)
+		assert_eq(name_label.get_theme_color("font_color"), TickerApp.NEWS_INK)
+		assert_true(phone.find_child("TickerDetailQuoteRow", true, false) is HFlowContainer, "move can wrap below quote on narrow screens")
+		var notes_heading := phone.find_child("TickerDetailHeading_market_notes", true, false) as Label
+		assert_eq(notes_heading.get_theme_font_size("font_size"), 11)
+		assert_true(notes_heading.get_theme_font("font") is FontVariation)
+		var note: Dictionary = GameState.state["market"]["annotations"][0]
+		var note_text: String = app._annotation_text(note)
+		var found_note := false
+		for label in phone.find_children("*", "Label", true, false):
+			if label.text == note_text:
+				found_note = true
+				assert_eq(label.get_theme_color("font_color"), TickerApp.DETAIL_NOTE_INK, "note reads as neutral market copy")
+		assert_true(found_note, "recorded note is shown")
+		phone.free()
+	)
+
 	run_case("ore_and_item_detail_show_live_quote_with_empty_history", func():
 		GameState.reset()
 		GameState.state["market"]["goods"]["ore"]["time"]["price"] = 91

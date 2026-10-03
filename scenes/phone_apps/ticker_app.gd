@@ -25,6 +25,8 @@ const NEWS_PAPER_INK := Color("#2a2022")
 const MARKET_BRIEF_BG := Color("#313135")
 const MARKET_ROW_HOVER := Color("#303034")
 const MARKET_PRICE := Color("#e8b7bf")
+const DETAIL_NOTE_INK := Color("#d6d6d8")
+const DETAIL_RULE := Color("#48484c")
 const SERIF_NAMES: PackedStringArray = ["Georgia", "Times New Roman", "Noto Serif", "DejaVu Serif", "serif"]
 const SANS_NAMES: PackedStringArray = ["Arial", "Helvetica", "Noto Sans", "DejaVu Sans", "sans-serif"]
 
@@ -39,6 +41,7 @@ var _collapsed := {}
 var _root: Control = null
 var _serif: SystemFont = null
 var _sans: SystemFont = null
+var _sans_bold: FontVariation = null
 var _open_wire: Dictionary = {}
 var _influence_open := false
 
@@ -422,16 +425,28 @@ func _good_row(kind: String, good_type: String) -> Control:
 func _build_good_detail(content: VBoxContainer, kind: String, good_type: String) -> void:
 	var copy: Dictionary = GameData.BAROMETER_NEWS["market"]["detail"]
 	var back := _ticker_button(copy["back"], func(): _select_good_list(), "plain")
+	back.custom_minimum_size.y = 44
 	back.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	content.add_child(back)
-	content.add_child(_news_margins(_news_text(copy["oreEyebrow"] if kind == "ore" else copy["itemEyebrow"], 11, NEWS_MUTED), 0, 12, 0, 0))
-	content.add_child(_news_margins(_news_text(_good_name(kind, good_type), 24, NEWS_INK, true), 0, 7, 0, 8))
+	var eyebrow := _detail_text(copy["oreEyebrow"] if kind == "ore" else copy["itemEyebrow"], 11, NEWS_MUTED)
+	eyebrow.name = "TickerDetailEyebrow"
+	content.add_child(_news_margins(eyebrow, 0, 12, 0, 0))
+	var title := _detail_text(_good_name(kind, good_type), 24, NEWS_INK)
+	title.name = "TickerDetailName"
+	content.add_child(_news_margins(title, 0, 8, 0, 10))
 	var move := Market.day_move(kind, good_type)
-	var price_row := UI.hbox(12)
-	var current_price := _news_text(UI.price_text(kind, Market.quote(kind, good_type)), 30, MARKET_PRICE)
+	var price_row := UI.hflow(14)
+	price_row.add_theme_constant_override("v_separation", 2)
+	price_row.name = "TickerDetailQuoteRow"
+	var current_price := _detail_text(UI.price_text(kind, Market.quote(kind, good_type)), 30, MARKET_PRICE)
+	current_price.name = "TickerDetailPrice"
+	current_price.autowrap_mode = TextServer.AUTOWRAP_OFF
 	current_price.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	price_row.add_child(current_price)
 	var delta := _news_text(copy["flatMove"] if move == 0 else copy["moveToday"] % PriceMove.text(move, true), 12, PriceMove.colour(move, NEWS_MUTED))
+	delta.name = "TickerDetailMove"
+	delta.autowrap_mode = TextServer.AUTOWRAP_OFF
+	delta.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	delta.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	price_row.add_child(delta)
 	content.add_child(price_row)
@@ -453,7 +468,7 @@ func _build_good_detail(content: VBoxContainer, kind: String, good_type: String)
 				marker_indices[index] = markers.size()
 				markers.append({ "index": index, "colour_id": ANNOTATION_COLOURS[note["kind"]], "count": 1 })
 	var day_count: String = copy["oneDay"] if days.size() == 1 else copy["days"] % days.size()
-	content.add_child(_news_margins(_section_heading(copy["priceHistory"], day_count), 0, 16, 0, 0))
+	content.add_child(_news_margins(_detail_heading(copy["priceHistory"], day_count), 0, 27, 0, 9))
 	content.add_child(_news_rule(NEWS_RULE, 1))
 	if days.is_empty():
 		content.add_child(_news_margins(_news_text(copy["noHistory"], 12, NEWS_MUTED), 0, 20, 0, 20))
@@ -471,33 +486,32 @@ func _build_good_detail(content: VBoxContainer, kind: String, good_type: String)
 		content.add_child(_news_margins(_news_text(hint, 11, NEWS_MUTED), 0, 5, 0, 13))
 	content.add_child(_news_rule(NEWS_RULE, 1))
 
-	content.add_child(_news_margins(_section_heading(copy["marketNotes"], copy["recordedEvents"]), 0, 22, 0, 0))
-	content.add_child(_news_rule(NEWS_RULE, 1))
+	content.add_child(_news_margins(_detail_heading(copy["marketNotes"], copy["recordedEvents"]), 0, 28, 0, 9))
+	content.add_child(_news_rule(DETAIL_RULE, 1))
 	if notes.is_empty():
 		content.add_child(_news_margins(_news_text(copy["noEvents"], 12, NEWS_MUTED), 0, 12, 0, 12))
 	for i in range(notes.size() - 1, -1, -1):
 		var note: Dictionary = notes[i]
-		var colour: Color = GameData.PALETTE.get(ANNOTATION_COLOURS[note["kind"]], MUTED)
 		var note_row := UI.hbox(12)
 		var note_day := _news_text(copy["noteDay"] % int(note["day"]), 11, NEWS_MUTED)
 		note_day.custom_minimum_size.x = 48
 		note_day.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 		note_row.add_child(note_day)
-		note_row.add_child(_news_text(_annotation_text(note), 12, colour))
+		note_row.add_child(_news_text(_annotation_text(note), 12, DETAIL_NOTE_INK))
 		content.add_child(_news_margins(note_row, 0, 11, 0, 11))
-		content.add_child(_news_rule(NEWS_RULE, 1))
+		content.add_child(_news_rule(DETAIL_RULE, 1))
 	content.add_child(_news_margins(_news_text(copy["quoteCaveat"], 11, NEWS_MUTED), 0, 18, 0, 0))
 
 	var demand := UI.vbox(7)
 	if kind == "ore":
-		demand.add_child(_section_heading(copy["demandDrivenBy"]))
+		demand.add_child(_detail_heading(copy["demandDrivenBy"]))
 		var drivers: Array = Market.ore_demand_drivers(good_type)
 		if drivers.is_empty():
 			demand.add_child(_news_text(copy["noOreShortage"], 12, NEWS_MUTED))
 		for driver in drivers:
 			demand.add_child(_news_text(copy["oreShortage"] % [GameData.RECIPES[driver["recipeKey"]]["name"], int(driver["shortage"])], 12, NEWS_MUTED))
 	else:
-		demand.add_child(_section_heading(copy["tickerDemand"]))
+		demand.add_child(_detail_heading(copy["tickerDemand"]))
 		var any_mod := false
 		for mod in Market.demand_modifiers():
 			if mod["target"] == "all" or mod["target"] == good_type:
@@ -616,6 +630,24 @@ func _section_heading(title: String, detail: String = "") -> Control:
 	return _news_margins(row, 0, 18, 0, 9)
 
 
+func _detail_heading(title: String, detail: String = "") -> Control:
+	var row := UI.hbox(8)
+	var heading := _detail_text(title.to_upper(), 11, NEWS_INK)
+	heading.name = "TickerDetailHeading_%s" % title.to_snake_case()
+	row.add_child(heading)
+	if detail != "":
+		var rhs := _news_text(detail, 10, NEWS_MUTED)
+		rhs.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		row.add_child(rhs)
+	return row
+
+
+func _detail_text(value: String, size: int, colour: Color) -> Label:
+	var label := _news_text(value, size, colour)
+	label.add_theme_font_override("font", _bold_sans_font())
+	return label
+
+
 func _news_text(value: String, size: int, colour: Color, serif: bool = false) -> Label:
 	var label := UI.label(value)
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -721,6 +753,14 @@ func _sans_font() -> Font:
 		_sans = SystemFont.new()
 		_sans.font_names = SANS_NAMES
 	return _sans
+
+
+func _bold_sans_font() -> Font:
+	if _sans_bold == null:
+		_sans_bold = FontVariation.new()
+		_sans_bold.base_font = _sans_font()
+		_sans_bold.variation_embolden = 0.8
+	return _sans_bold
 
 
 func _news_rule(colour: Color, height: int) -> Control:
