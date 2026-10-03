@@ -146,15 +146,18 @@ static func news_sections_order() -> Array[String]:
 	return order
 
 
-# A big faction-vs-faction move as a Ticker headline: appended to
-# state.barometer.headlines as { day, text } (oldest dropped past
-# factionEscalation.headlineCap) and pushed as a notification.
-static func push_headline(text: String) -> void:
+# A big faction-vs-faction move as a Ticker headline. Source details are
+# primitive IDs so saves can render the full article after reload.
+static func push_headline(text: String, source: String = "", details: Dictionary = {}) -> void:
 	var barometer: Dictionary = GameState.state["barometer"]
 	if not barometer.has("headlines"):
 		barometer["headlines"] = []
 	var entries: Array = barometer["headlines"]
-	entries.append({ "day": GameState.state["world"]["day"], "text": text })
+	var entry := { "day": GameState.state["world"]["day"], "text": text }
+	if source != "":
+		entry["source"] = source
+		entry["details"] = details.duplicate(true)
+	entries.append(entry)
 	while entries.size() > int(GameData.FACTION_ESCALATION["headlineCap"]):
 		entries.pop_front()
 	Notify.push("📰 %s" % text)
@@ -166,6 +169,33 @@ static func headlines() -> Array:
 	var entries: Array = GameState.state["barometer"].get("headlines", []).duplicate()
 	entries.reverse()
 	return entries
+
+
+static func wire_article(entry: Dictionary) -> Dictionary:
+	var copy: Dictionary = GameData.BAROMETER_NEWS
+	var source: String = str(entry.get("source", ""))
+	var templates: Dictionary = copy["wireArticles"]
+	var fields := { "day": Calendar.format_day(int(entry.get("day", GameState.state["world"]["day"]))) }
+	var details: Dictionary = entry.get("details", {})
+	for role in ["first", "second", "attacker", "defender"]:
+		if details.has(role):
+			var faction_id: String = str(details[role])
+			fields[role] = str(GameData.FACTIONS.get(faction_id, {}).get("shortName", faction_id))
+	if details.has("ore"):
+		var ore_id: String = str(details["ore"])
+		fields["ore"] = str(GameData.ORE_TYPES.get(ore_id, {}).get("name", ore_id))
+	if details.has("district"):
+		var district_id: String = str(details["district"])
+		fields["district"] = str(GameData.DISTRICTS.get(district_id, {}).get("name", district_id))
+	if details.has("endDay"):
+		fields["endDay"] = Calendar.format_day(int(details["endDay"]))
+	if not templates.has(source):
+		return { "deck": "", "body": str(copy["wireArchiveBody"]).format(fields) }
+	var template: Dictionary = templates[source]
+	return {
+		"deck": str(template["deck"]).format(fields),
+		"body": str(template["body"]).format(fields),
+	}
 
 
 # D4.5's Ticker "rumblings..." hint: the highest-progress non-active state

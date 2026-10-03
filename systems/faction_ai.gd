@@ -186,7 +186,10 @@ static func _log_pair_flip(faction_a: String, faction_b: String, stance: String)
 	log_activity(faction_a, _cfg()["logPair"] % [stance_name(stance), GameData.FACTIONS[faction_b]["shortName"]])
 	log_activity(faction_b, _cfg()["logPair"] % [stance_name(stance), GameData.FACTIONS[faction_a]["shortName"]])
 	if _cfg()["headlines"].has(stance):
-		Barometer.push_headline(_cfg()["headlines"][stance] % [GameData.FACTIONS[faction_a]["shortName"], GameData.FACTIONS[faction_b]["shortName"]])
+		Barometer.push_headline(
+			_cfg()["headlines"][stance] % [GameData.FACTIONS[faction_a]["shortName"], GameData.FACTIONS[faction_b]["shortName"]],
+			"stancePartner" if stance == "partner" else "stanceHostile",
+			{ "first": faction_a, "second": faction_b })
 
 
 static func _announce_player_flip(faction_id: String, stance: String) -> void:
@@ -1407,7 +1410,8 @@ static func _report_market_move(observer: String, target: String, move_id: Strin
 	var observer_name: String = GameData.FACTIONS[observer]["shortName"]
 	var target_name: String = GameData.FACTIONS[target]["shortName"]
 	log_activity(observer, log_cfg["attacker"] % [target_name, ore_name])
-	Barometer.push_headline(_ecfg()["headlines"]["flood"] % [observer_name, ore_name, target_name])
+	Barometer.push_headline(_ecfg()["headlines"]["flood"] % [observer_name, ore_name, target_name],
+		"flood", { "attacker": observer, "defender": target, "ore": ore_type })
 	log_activity(target, log_cfg["defender"] % [observer_name, ore_name])
 
 
@@ -1750,7 +1754,8 @@ static func _start_war(party_a: String, party_b: String, day: int) -> void:
 	var name_b: String = GameData.FACTIONS[party_b]["shortName"]
 	log_activity(party_a, log_cfg["startedPair"] % name_b)
 	log_activity(party_b, log_cfg["startedPair"] % name_a)
-	Barometer.push_headline(_wcfg()["headlines"]["warDeclared"] % [name_a, name_b])
+	Barometer.push_headline(_wcfg()["headlines"]["warDeclared"] % [name_a, name_b],
+		"warDeclared", { "first": party_a, "second": party_b })
 
 
 static func _end_war(war: Dictionary) -> void:
@@ -1886,9 +1891,10 @@ static func _log_truce(party_a: String, party_b: String, pair_line: String, play
 # between factions, a Ticker headline.
 static func sign_truce(party_a: String, party_b: String, terms: Dictionary) -> void:
 	var day: int = GameState.state["world"]["day"]
+	var end_day: int = day + int(terms.get("truceDays", _tcfg()["defaultDays"]))
 	truces().append({
 		"parties": [party_a, party_b], "startDay": day,
-		"endDay": day + int(terms.get("truceDays", _tcfg()["defaultDays"])),
+		"endDay": end_day,
 		"dailyBonus": int(_tcfg()["dailyBonus"]),
 		"weekly": GameState.deep_copy(terms.get("weekly", [])),
 	})
@@ -1905,7 +1911,8 @@ static func sign_truce(party_a: String, party_b: String, terms: Dictionary) -> v
 		return war_key(w["factionId"], w["targetId"]) != key)
 	_log_truce(party_a, party_b, "signedPair", "signedPlayer")
 	if party_a != Shares.PLAYER and party_b != Shares.PLAYER:
-		Barometer.push_headline(_tcfg()["headlines"]["signed"] % [_party_name(party_a), _party_name(party_b)])
+		Barometer.push_headline(_tcfg()["headlines"]["signed"] % [_party_name(party_a), _party_name(party_b)],
+			"truceSigned", { "first": party_a, "second": party_b, "endDay": end_day })
 	EventBus.state_changed.emit()
 
 
@@ -2697,7 +2704,8 @@ static func _open_positions() -> void:
 		pick["pushed"] = 0
 		positions().append(pick)
 		if bought >= int(cfg["hintQty"]):
-			Barometer.push_headline(GameData.FACTION_CONCLAVE["headlines"]["position"] % GameData.ORE_TYPES[pick["ore"]]["name"])
+			Barometer.push_headline(GameData.FACTION_CONCLAVE["headlines"]["position"] % GameData.ORE_TYPES[pick["ore"]]["name"],
+				"position", { "ore": pick["ore"] })
 
 
 # { section, state, ore } for the next position, or {} when no non-active

@@ -320,7 +320,7 @@
     "headlines": {
       "veinTaken": "%s vein in %s changes hands: %s out, %s in.",
       "flood": "%s floods London with cut-price %s, aimed at %s.",
-      "stockpileRaid": "%s empties %s's stockpile in %s. Expect cheap stock."
+      "stockpileRaid": "%s empties %s's stockpile in %s."
     }
   },
   "factionConclave": {

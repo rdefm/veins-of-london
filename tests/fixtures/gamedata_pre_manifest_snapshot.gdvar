@@ -73,16 +73,24 @@
 "BAROMETER_STATES": {
 "economic": {
 "boom": {
+"article": {
+"body": "Orders for crafted items are rising across London, giving dealers a larger pool of potential buyers. The increase affects demand throughout the item market. Its effect on any individual quote will depend on available stock and the trading recorded before the next daily close.",
+"deck": "A stronger market is bringing more buyers to finished goods."
+},
 "description": "Demand up. Buyers flush with cash.",
 "effects": {
 "demandAll": 0.1,
 "mugChance": -0.05
 },
-"headlines": ["Orichalchum demand surges as buyers open their wallets.", "Boom times: dealers say the calc is moving fast, no questions asked."],
+"headlines": ["Demand for crafted goods rises across London", "Crafted-item buyers return in greater numbers across the city."],
 "id": "boom",
 "label": "Economic Boom"
 },
 "crisis": {
+"article": {
+"body": "Demand for Be a Lady has increased sharply during the financial crisis, setting it apart from the wider item market. At the same time, the risk of mugging has risen across London. Dealers moving valuable stock must weigh that exposure alongside the day’s market quote.",
+"deck": "One finished item attracts more buyers as risks on the street increase."
+},
 "description": "Market collapse. Some ore types in desperate demand.",
 "effects": {
 "itemDemand": {
@@ -90,75 +98,107 @@
 },
 "mugChance": 0.12
 },
-"headlines": ["Market in freefall — fate calc changes hands at desperate prices.", "Financial crisis deepens; dealers advise caution, then ignore it."],
+"headlines": ["Be a Lady demand rises during financial crisis", "Be a Lady draws buyers as financial crisis unsettles London."],
 "id": "crisis",
 "label": "Financial Crisis"
 },
 "inflation": {
+"article": {
+"body": "High inflation has increased weekly living costs across London. Demand for crafted items has also risen, adding pressure to a market already shaped by daily changes in stock and trade. The barometer does not set a higher price for every good; households will see the increase directly in their living-cost bill.",
+"deck": "Households face higher bills while buyers place more orders for crafted goods."
+},
 "description": "Everything costs more. Daily costs up.",
 "effects": {
 "dailyCost": 0.3,
 "demandAll": 0.05
 },
-"headlines": ["Prices climb across the board; nobody's living costs go down.", "Inflation squeezes buyers and sellers alike."],
+"headlines": ["Weekly living costs rise as item demand increases", "Living-cost bills rise while crafted-goods orders grow."],
 "id": "inflation",
 "label": "High Inflation"
 },
 "recession": {
+"article": {
+"body": "Demand for crafted goods has fallen as the recession takes hold. Dealers carrying finished stock may have to wait longer for buyers, while those still trading ore will continue to face prices set by the day’s supply and demand. The downturn does not impose a fixed reduction on ore quotes.",
+"deck": "Dealers face fewer buyers for finished items."
+},
 "description": "Buyers tighter. Prices softer.",
 "effects": {
 "demandAll": -0.1,
 "mugChance": 0.05
 },
-"headlines": ["Buyers tighten belts as ore prices soften.", "Recession bites: fewer offers, harder haggling."],
+"headlines": ["Recession reduces London demand for crafted goods", "Finished-goods demand falls under London recession."],
 "id": "recession",
 "label": "Recession"
 },
 "stable": {
+"article": {
+"body": "London’s economic barometer remained steady today, with no new citywide change in demand for crafted goods. Traders continue to work from the daily market quote, which responds to stock and buying activity.",
+"deck": "The wider economic reading has not changed, though individual prices can still move."
+},
 "description": "Markets function normally. Ore prices steady.",
 "effects": {},
-"headlines": ["Markets hold steady, traders report muted relief.", "Ore prices unchanged for the third week running."],
+"headlines": ["Economic outlook remains steady as London traders watch daily quotes", "London's economic reading holds as traders await the next market close."],
 "id": "stable",
 "label": "Stable"
 }
 },
 "political": {
 "austerity": {
+"article": {
+"body": "Austerity measures are set to increase weekly living costs across London. The higher bill comes alongside a greater risk of mugging, adding pressure on traders who move stock in person. The change affects household costs and street risk; it does not set the market price of the goods they sell.",
+"deck": "Households face a higher bill under the latest round of cuts."
+},
 "description": "Public services cut. Weekly living costs rise; street risk grows.",
 "effects": {
 "dailyCost": 0.05,
 "mugChance": 0.06
 },
-"headlines": ["Austerity measures raise weekly living costs across London.", "Cuts continue; households pay more and the safety net thins."],
+"headlines": ["Austerity measures raise weekly living costs", "Cuts bring a higher weekly bill and more street risk."],
 "id": "austerity",
 "label": "Austerity"
 },
 "election": {
+"article": {
+"body": "The election period is muting changes to crafted-item demand caused by the other active barometer readings. Buyers and sellers will see a smaller demand shift than those conditions would produce on their own.",
+"deck": "Campaign activity reduces the force of demand shifts from other conditions."
+},
 "description": "Noise and distraction. Barometer effects muted temporarily.",
 "effects": {
 "effectMod": -0.3
 },
-"headlines": ["Election noise drowns out everything else, barometer included.", "Distraction season: effects muted, attention elsewhere."],
+"headlines": ["Election period softens changes in item demand", "Election period dampens other item-demand shifts."],
 "id": "election",
 "label": "Election Period"
 },
 "regulation": {
+"article": {
+"body": "The government has announced tighter controls on the ore trade. Demand for crafted goods has risen under the new regulatory climate, although the effect on individual quotes will depend on stock and trading. Dealers are reviewing the rules as they decide what to carry and when to sell.",
+"deck": "New rules put pressure on the item trade without setting a fixed price."
+},
 "description": "Government tightens ore controls. Demand for crafted goods rises.",
 "effects": {
 "demandAll": 0.08
 },
-"headlines": ["Ore regulation increases demand for crafted goods.", "New ore regulation announced; enforcement, as ever, selective."],
+"headlines": ["Ore regulation increases demand for crafted goods", "Crafted-item buyers respond to new ore controls."],
 "id": "regulation",
 "label": "Ore Regulation"
 },
 "stable": {
+"article": {
+"body": "No political shift with a new direct effect on London’s calc trade has been recorded. Market demand, living costs and street risk can still change under the economic and social conditions in force. For now, the political reading adds no further pressure of its own.",
+"deck": "The political barometer remains unchanged."
+},
 "description": "No significant political pressure.",
 "effects": {},
-"headlines": ["No significant developments from Westminster this week.", "Political weather: calm, for now."],
+"headlines": ["Westminster brings no new political pressure to the trade", "No new political measure reaches London's calc trade."],
 "id": "stable",
 "label": "Stable"
 },
 "war": {
+"article": {
+"body": "Demand has risen for four finished items used in combat: Shield, Blast, Healing Burst and Black Hole. The change does not set a direct price for the ores used to make them, though shortages and subsequent trade may affect market quotes over time. Mugging risk has also increased during the conflict.",
+"deck": "Buyers seek Shield, Blast, Healing Burst and Black Hole."
+},
 "description": "Military demand. Time and physics ore prices surge.",
 "effects": {
 "itemDemand": {
@@ -169,23 +209,31 @@
 },
 "mugChance": 0.05
 },
-"headlines": ["Conflict abroad drives time and physics calc prices skyward.", "Military demand strains the supply chain."],
+"headlines": ["Conflict abroad lifts demand for combat supplies", "Combat-item demand climbs amid conflict abroad."],
 "id": "war",
 "label": "Conflict Abroad"
 }
 },
 "social": {
 "crime": {
+"article": {
+"body": "Mugging risk has risen across London during the crime wave. The chance of a raid on properties has also increased, making the location and amount of carried ore more consequential for its owner. Neither measure records an attack in itself, but both change the risks traders face.",
+"deck": "Traders face greater exposure both on the street and where they keep stock."
+},
 "description": "Everyone is at it. Mugging risk elevated.",
 "effects": {
 "homeRaid": 0.05,
 "mugChance": 0.15
 },
-"headlines": ["Crime wave reported; mugging risk climbs across London.", "Everyone's at it. Watch your pockets, watch your calc."],
+"headlines": ["Crime wave increases mugging and property-raid risks", "Mugging and home-raid risks rise during crime wave."],
 "id": "crime",
 "label": "Crime Wave"
 },
 "festival": {
+"article": {
+"body": "Festival crowds have brought stronger demand for Blast, Shield, Black Hole and Wormhole. The increase concerns those finished goods rather than a guaranteed rise in physics ore prices. Ore quotes will reflect the stock and trading activity recorded by the London market.",
+"deck": "Blast, Shield, Black Hole and Wormhole draw more buyers."
+},
 "description": "Energy high, people out. Physics ore in demand.",
 "effects": {
 "itemDemand": {
@@ -196,34 +244,46 @@
 },
 "searchFind": 0.05
 },
-"headlines": ["The City Festival draws crowds and premium prices for physics calc.", "Festival season: energy's up, so is the demand."],
+"headlines": ["City Festival lifts demand for four crafted items", "Festival buyers turn to Blast, Shield, Black Hole and Wormhole."],
 "id": "festival",
 "label": "City Festival"
 },
 "lockdown": {
+"article": {
+"body": "Lockdown notices have been issued across London, and weekly living costs have risen while the measures remain in force. Traders are assessing the additional expense alongside their usual market commitments. The current market record does not establish a fixed change to ore prices or a closure of travel routes.",
+"deck": "Household budgets bear the immediate cost of the new restrictions."
+},
 "description": "Movement restricted. Searching harder, yields lower.",
 "effects": {
 "dailyCost": 0.1,
 "searchFind": -0.15
 },
-"headlines": ["Movement restricted; searches slow to a crawl.", "Lockdown in effect — expect delays, expect scrutiny."],
+"headlines": ["Lockdown measures add to weekly living costs", "New lockdown brings higher household costs."],
 "id": "lockdown",
 "label": "Lockdown"
 },
 "stable": {
+"article": {
+"body": "Street activity is holding at its usual level, with no additional effect from the social barometer on raids or mugging risk. Individual incidents remain possible. For traders carrying calc or tending veins, the stable reading leaves ordinary precautions as relevant as they were yesterday.",
+"deck": "The social barometer records no new citywide shift."
+},
 "description": "Normal levels of street activity.",
 "effects": {},
-"headlines": ["Streets quiet. Nothing to report, which is the point.", "An uneventful week, by London's standards."],
+"headlines": ["London street activity remains at usual levels", "Street conditions hold to their usual London pattern."],
 "id": "stable",
 "label": "Stable"
 },
 "unrest": {
+"article": {
+"body": "Unrest across London has increased the risk of mugging, theft, and breaking and entering. Police attention is being drawn elsewhere, leaving more room for opportunistic crews. The rise in risk applies across the city, although whether a particular trader or property is attacked still depends on its circumstances.",
+"deck": "Police attention is stretched as disorder spreads between boroughs."
+},
 "description": "Police busy elsewhere. Raid risks up, but so is opportunity.",
 "effects": {
 "mugChance": 0.08,
 "raidChance": 0.1
 },
-"headlines": ["Police stretched thin as unrest spreads across boroughs.", "Opportunists take note: attention is elsewhere tonight."],
+"headlines": ["Unrest raises risk of street theft and property crime", "London unrest leaves traders facing greater street risks."],
 "id": "unrest",
 "label": "Social Unrest"
 }

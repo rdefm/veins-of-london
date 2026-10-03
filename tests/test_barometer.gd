@@ -234,3 +234,44 @@ func run() -> void:
 		var chance := Barometer.get_effective_mug_chance(0.20)
 		assert_almost_eq(chance, 0.32, 0.0001, "0.20 base + 0.12 crisis mugChance")
 	)
+
+	run_case("every_barometer_state_has_one_matching_full_article", func():
+		var count := 0
+		for section in GameData.BAROMETER_STATES:
+			for state_id in GameData.BAROMETER_STATES[section]:
+				var state_data: Dictionary = GameData.BAROMETER_STATES[section][state_id]
+				var article: Dictionary = state_data.get("article", {})
+				assert_true(state_data["headlines"].size() >= 2, "%s/%s keeps headline variants" % [section, state_id])
+				assert_true(str(state_data["headlines"][0]).length() > 15, "%s/%s has a title" % [section, state_id])
+				assert_true(str(article.get("deck", "")).length() > 20, "%s/%s has a deck" % [section, state_id])
+				assert_true(str(article.get("body", "")).length() > 100, "%s/%s has a full body" % [section, state_id])
+				count += 1
+		assert_eq(count, 15, "all 15 states have articles")
+	)
+
+	run_case("every_wire_source_formats_live_details_and_day", func():
+		GameState.reset()
+		var shared := { "first": "collective", "second": "firm", "attacker": "collective", "defender": "firm", "ore": "time", "district": "shoreditch", "endDay": 18 }
+		var sources := ["stancePartner", "stanceHostile", "veinTaken", "flood", "stockpileRaid", "warDeclared", "truceSigned", "position"]
+		assert_eq(GameData.BAROMETER_NEWS["wireArticles"].size(), sources.size(), "every wire variant has a template")
+		for source in sources:
+			var article := Barometer.wire_article({ "day": 4, "text": "Report", "source": source, "details": shared })
+			assert_true(str(article["deck"]).length() > 20, "%s has a deck" % source)
+			assert_true(str(article["body"]).length() > 80, "%s has a body" % source)
+			assert_true(not str(article["deck"]).contains("{") and not str(article["body"]).contains("{"), "%s formats every field" % source)
+			assert_true(str(article["body"]).contains(Calendar.format_day(4)), "%s uses the stored day" % source)
+		var old_article := Barometer.wire_article({ "day": 2, "text": "Saved wire" })
+		assert_eq(old_article["deck"], "", "old wires do not invent a deck")
+		assert_true(str(old_article["body"]).contains(Calendar.format_day(2)), "old wire has a readable dated fallback")
+	)
+
+	run_case("wire_details_are_saved_as_plain_data", func():
+		GameState.reset()
+		var details := { "attacker": "collective", "defender": "firm", "ore": "time" }
+		Barometer.push_headline("Flood report", "flood", details)
+		details["ore"] = "life"
+		var entry: Dictionary = GameState.state["barometer"]["headlines"][0]
+		assert_eq(entry["source"], "flood", "wire source stored")
+		assert_eq(entry["details"]["ore"], "time", "saved details are copied")
+		assert_eq(entry["day"], GameState.state["world"]["day"], "wire stores the event day")
+	)

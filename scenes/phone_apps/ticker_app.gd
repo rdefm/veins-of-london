@@ -616,7 +616,7 @@ func _build_headline_card(section: String, featured: bool) -> Control:
 	var eyebrow := _news_text("%s · %s" % [SECTION_LABELS[section].to_upper(), String(state_data["label"]).to_upper()], 10, NEWS_RED if featured else Color("#d4939f"))
 	copy.add_child(eyebrow)
 	copy.add_child(_news_text(headline, 23 if featured else 17, NEWS_PAPER_INK if featured else NEWS_INK, true))
-	copy.add_child(_news_text(state_data["description"], 12, Color("#504347") if featured else NEWS_MUTED))
+	copy.add_child(_news_text(state_data["article"]["deck"], 12, Color("#504347") if featured else NEWS_MUTED))
 	var hint_state = Barometer.trend_hint_state(section)
 	if hint_state != null:
 		var hint_label: String = GameData.BAROMETER_STATES[section][hint_state]["label"]
@@ -848,6 +848,7 @@ func _build_state_article(section: String) -> Control:
 	body.add_child(_news_text(GameData.BAROMETER_NEWS["categories"][section].to_upper(), 11, NEWS_RED))
 	body.add_child(_news_text(state_data["headlines"][0], 26, NEWS_PAPER_INK, true))
 	body.add_child(_news_text(state_data["label"], 16, NEWS_PAPER_INK, true))
+	body.add_child(_news_text(state_data["article"]["deck"], 16, NEWS_PAPER_INK))
 	var impact := UI.vbox(5)
 	impact.add_child(_news_text(copy["impactTitle"], 11, NEWS_RED))
 	for line in _impact_lines(state_data["effects"]):
@@ -855,7 +856,7 @@ func _build_state_article(section: String) -> Control:
 	body.add_child(impact)
 	body.add_child(_news_text(GameData.BAROMETER_NEWS["byline"], 11, NEWS_RED))
 	body.add_child(_news_rule(Color("#c4b7b7"), 1))
-	body.add_child(_news_text(state_data["description"], 14, NEWS_PAPER_INK))
+	body.add_child(_news_text(state_data["article"]["body"], 14, NEWS_PAPER_INK))
 	var influence := _ticker_button(copy["influence"], func(): _open_influence(), "action", true)
 	influence.name = "TickerInfluenceOpen"
 	body.add_child(influence)
@@ -872,6 +873,12 @@ func _build_wire_article() -> Control:
 	body.add_child(_news_text(str(_open_wire.get("text", "")), 26, NEWS_PAPER_INK, true))
 	if _open_wire.has("day"):
 		body.add_child(_news_text(Calendar.format_day(int(_open_wire["day"])), 11, NEWS_RED))
+	var article := Barometer.wire_article(_open_wire)
+	if article["deck"] != "":
+		body.add_child(_news_text(article["deck"], 16, NEWS_PAPER_INK))
+	body.add_child(_news_text(GameData.BAROMETER_NEWS["byline"], 11, NEWS_RED))
+	body.add_child(_news_rule(Color("#c4b7b7"), 1))
+	body.add_child(_news_text(article["body"], 14, NEWS_PAPER_INK))
 	return sheet["root"]
 
 

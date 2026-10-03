@@ -373,7 +373,9 @@ static func resolve_faction_stockpile_raid(attacker_id: String, defender_id: Str
 			GameData.FACTIONS[attacker_id]["shortName"],
 			GameData.FACTIONS[defender_id]["shortName"],
 			GameData.DISTRICTS[district_id]["name"],
-		])
+		], "stockpileRaid", {
+			"attacker": attacker_id, "defender": defender_id, "district": district_id,
+		})
 
 
 # ── Direction B: daily-tick raid trigger ─────────────────────────────────

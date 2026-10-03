@@ -455,7 +455,10 @@ static func resolve_rivalry_outcome(outcome: Dictionary) -> void:
 		GameData.DISTRICTS[site["district"]]["name"],
 		GameData.FACTIONS[outcome["defenderId"]]["shortName"],
 		GameData.FACTIONS[outcome["attackerId"]]["shortName"],
-	])
+	], "veinTaken", {
+		"attacker": outcome["attackerId"], "defender": outcome["defenderId"],
+		"ore": vein["oreType"], "district": site["district"],
+	})
 	MapEvents.queue_seed_claim(site["district"], vein["id"], outcome["attackerId"])
 
 

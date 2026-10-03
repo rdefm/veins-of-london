@@ -59,6 +59,8 @@ func run() -> void:
 		assert_true(article != null, "story opens an article in the phone")
 		var article_labels := NodeQuery.label_texts(article)
 		assert_true(article_labels.has(GameData.BAROMETER_STATES["economic"]["boom"]["headlines"][0]), "live headline")
+		assert_true(article_labels.has(GameData.BAROMETER_STATES["economic"]["boom"]["article"]["deck"]), "draft deck appears")
+		assert_true(article_labels.has(GameData.BAROMETER_STATES["economic"]["boom"]["article"]["body"]), "full story appears")
 		assert_true(article_labels.has("All crafted-item demand: +10%."), "impact uses canonical effects")
 		(phone.find_child("TickerInfluenceOpen", true, false) as Button).pressed.emit()
 		var sheet: Node = phone.find_child("TickerInfluenceSheet", true, false)
@@ -149,6 +151,7 @@ func run() -> void:
 		assert_true(wire != null, "wire article opens")
 		assert_true(NodeQuery.label_texts(wire).has("Saved wire"), "saved text survives")
 		assert_true(NodeQuery.label_texts(wire).has(Calendar.format_day(2)), "saved day survives")
+		assert_true(NodeQuery.label_texts(wire).has(Barometer.wire_article({ "day": 2, "text": "Saved wire" })["body"]), "old wire has readable fallback copy")
 		assert_true(wire.find_child("TickerInfluenceOpen", true, false) == null, "wire has no influence")
 		(wire.find_child("TickerArticleBack", true, false) as Button).pressed.emit()
 		assert_true(phone.find_child("TickerWireArticleSheet", true, false) == null, "wire Back returns to News")
@@ -160,6 +163,26 @@ func run() -> void:
 		PhoneNav.go_home()
 		PhoneNav.open_app("ticker")
 		assert_true(phone.find_child("TickerWireArticleSheet", true, false) == null, "leaving clears wire sheet")
+		phone.free()
+	)
+
+	run_case("structured_wire_article_renders_live_names_and_body", func():
+		GameState.reset()
+		Barometer.push_headline("A vein changes hands", "veinTaken", {
+			"attacker": "collective", "defender": "firm", "ore": "time", "district": "shoreditch",
+		})
+		PhoneNav.open_app("ticker")
+		var phone := PhoneScreen.new()
+		phone._ready()
+		(phone.find_child("TickerWire", true, false) as Button).pressed.emit()
+		var wire: Node = phone.find_child("TickerWireArticleSheet", true, false)
+		var labels := NodeQuery.label_texts(wire)
+		var entry: Dictionary = GameState.state["barometer"]["headlines"][0]
+		var article := Barometer.wire_article(entry)
+		assert_true(labels.has(article["deck"]), "wire deck uses live details")
+		assert_true(labels.has(article["body"]), "wire body uses live details")
+		assert_true(str(article["body"]).contains(GameData.DISTRICTS["shoreditch"]["name"]), "district name resolved")
+		assert_true(str(article["body"]).contains(GameData.FACTIONS["collective"]["shortName"]), "faction name resolved")
 		phone.free()
 	)
 
