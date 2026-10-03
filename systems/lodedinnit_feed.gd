@@ -3,11 +3,18 @@ extends RefCounted
 
 # LodedInnit Feed (hiring-spec §6): one faux post per time block from a
 # weighted pool of candidates and hires, with a rolled likes count and 0-2
-# canned comments. Entries live in state.hiring.feed (capped), newest last;
+# canned comments. Status events (hired, let go, poached, market flips) add
+# their own templated post via post_status. Entries live in state.hiring.feed (capped), newest last;
 # `feedUsed` tracks each author's spent post indexes, so a post repeats only
 # after that author's pool is exhausted. Display-only; static funcs only.
 
 const KIND_INDIVIDUAL := "individual"
+const STATUS_HIRED := "hired"
+const STATUS_HIRED_FROM := "hiredFrom"
+const STATUS_LET_GO := "letGo"
+const STATUS_POACHED_AWAY := "poachedAway"
+const STATUS_EMPLOYED := "employed"
+const STATUS_OPEN := "open"
 
 
 # Staff block step: rolls this block's post (skipped until the app exists).
@@ -30,14 +37,33 @@ static func post_block(block: int = -1) -> void:
 	var index: int = Rng.rand_from(unused)
 	used.append(index)
 	hiring["feedUsed"][author] = [] if used.size() >= voice.size() else used
-	var feed: Array = hiring["feed"]
-	var seq := 1 if feed.is_empty() else int(feed[-1]["seq"]) + 1
-	feed.append({
-		"postId": "%s:%d" % [author, index], "seq": seq, "authorKind": KIND_INDIVIDUAL, "author": author,
+	_append({
+		"postId": "%s:%d" % [author, index], "authorKind": KIND_INDIVIDUAL, "author": author,
 		"day": int(world["day"]), "block": block,
 		"likes": Rng.randi_range(int(GameData.LODEDINNIT_FEED["likes"]["min"]), int(GameData.LODEDINNIT_FEED["likes"]["max"])),
 		"comments": _roll_comments(author),
 	})
+
+
+# Hire-status post (hiring-spec §6.3): one templated post about candidate_id
+# for a status event; employer_id fills {employer}. Skipped until the app exists.
+static func post_status(kind: String, candidate_id: String, employer_id: String = "") -> void:
+	if not Hiring.is_app_unlocked():
+		return
+	var world: Dictionary = GameState.state["world"]
+	var template: String = Rng.rand_from(GameData.LODEDINNIT_STATUS[kind])
+	_append({
+		"postId": "status:%s" % kind, "authorKind": KIND_INDIVIDUAL, "author": candidate_id,
+		"day": int(world["day"]), "block": int(world["timeBlock"]), "likes": 0, "comments": [],
+		"text": template.replace("{name}", Contacts.display_name(candidate_id)).replace("{employer}", Hiring.faction_name(employer_id)),
+	})
+
+
+# Stamps the next seq, appends, trims to the cap.
+static func _append(entry: Dictionary) -> void:
+	var feed: Array = GameState.state["hiring"]["feed"]
+	entry["seq"] = 1 if feed.is_empty() else int(feed[-1]["seq"]) + 1
+	feed.append(entry)
 	var cap := int(GameData.LODEDINNIT_FEED["cap"])
 	while feed.size() > cap:
 		feed.pop_front()

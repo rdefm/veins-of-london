@@ -84,5 +84,31 @@
     { "id": "c10", "text": "Noted." },
     { "id": "c11", "text": "That explains the noise last Tuesday." },
     { "id": "c12", "text": "Thanks for sharing. Please stop sharing." }
-  ]
+  ],
+  "status": {
+    "hired": [
+      "{name} has joined the firm. Please do not ask what the firm is.",
+      "New starter: {name}. Lanyard pending, desk assigned, expectations lowered."
+    ],
+    "hiredFrom": [
+      "{name} has left {employer} for a new position. {employer} have been told.",
+      "{name} has moved on from {employer}. It was not a quiet exit."
+    ],
+    "letGo": [
+      "{name} is no longer with the firm. Open to opportunities, mostly lunch.",
+      "{name} has cleared their desk. Reasons undisclosed, references available."
+    ],
+    "poachedAway": [
+      "{name} has accepted a role at {employer}. Better terms, apparently.",
+      "{name} is now at {employer}. The offer was not matched."
+    ],
+    "employed": [
+      "{name} has started at {employer}.",
+      "{name} is now working for {employer}. Details to follow."
+    ],
+    "open": [
+      "{name} is available for new opportunities.",
+      "{name} has left {employer} and is open to work."
+    ]
+  }
 }

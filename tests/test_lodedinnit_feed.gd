@@ -90,6 +90,48 @@ func run() -> void:
 		assert_true(view["meta"].contains("Open to work"))
 	)
 
+	run_case("each_status_change_emits_one_templated_post", func():
+		_setup()
+		Business.activate()
+		GameState.state["home"]["rooms"] = ["veinStation", "lab"]
+		GameState.state["business"]["float"] = 5000
+		var feed: Array = GameState.state["hiring"]["feed"]
+		Hiring.hire("marcia")
+		assert_eq(feed.size(), 1)
+		assert_eq(feed[-1]["postId"], "status:hired")
+		assert_true(LodedInnitFeed.body_text(feed[-1]).contains("Marcia"), "name filled")
+		assert_true(not LodedInnitFeed.body_text(feed[-1]).contains("{"), "no raw placeholders")
+		Hiring.let_go("marcia")
+		assert_eq(feed.size(), 2)
+		assert_eq(feed[-1]["postId"], "status:letGo")
+		Hiring.hire("tomasz")
+		GameState.state["hiring"]["poach"]["tomasz"] = { "attempts": 1, "pending": { "factionId": "firm", "offer": 500, "expiresDay": 11 } }
+		Hiring.decline_poach("tomasz")
+		assert_eq(feed.size(), 4)
+		assert_eq(feed[-1]["postId"], "status:poachedAway")
+		assert_true(LodedInnitFeed.body_text(feed[-1]).contains(Hiring.faction_name("firm")), "employer filled")
+		var seqs: Array = feed.map(func(e): return e["seq"])
+		assert_eq(seqs, [1, 2, 3, 4])
+	)
+
+	run_case("market_flips_post_employed_and_open", func():
+		_setup()
+		GameData.HIRING_MARKET["flipChancePerDay"] = 1.0
+		Hiring.roll_market_flips()
+		var feed: Array = GameState.state["hiring"]["feed"]
+		assert_eq(feed.size(), Hiring.candidate_ids().size())
+		assert_true(feed.all(func(e): return e["postId"] == "status:employed"))
+		feed.clear()
+		Hiring.roll_market_flips()
+		assert_true(feed.all(func(e): return e["postId"] == "status:open"))
+	)
+
+	run_case("status_posts_wait_for_the_app", func():
+		GameState.reset()
+		LodedInnitFeed.post_status("hired", "marcia")
+		assert_eq(GameState.state["hiring"]["feed"].size(), 0)
+	)
+
 	run_case("old_save_backfills_feed_used", func():
 		GameState.reset()
 		var save: Dictionary = GameState.state.duplicate(true)

@@ -134,9 +134,13 @@ static func roll_market_flips() -> void:
 		if state == STATUS_OURS or not Rng.chance(chance):
 			continue
 		if state == STATUS_EMPLOYED:
+			var former: String = statuses[candidate_id]["employer"]
 			statuses[candidate_id] = _open_status(day)
+			LodedInnitFeed.post_status(LodedInnitFeed.STATUS_OPEN, candidate_id, former)
 		else:
-			statuses[candidate_id] = { "state": STATUS_EMPLOYED, "employer": Rng.rand_from(employer_pool()), "since": day }
+			var new_employer: String = Rng.rand_from(employer_pool())
+			statuses[candidate_id] = { "state": STATUS_EMPLOYED, "employer": new_employer, "since": day }
+			LodedInnitFeed.post_status(LodedInnitFeed.STATUS_EMPLOYED, candidate_id, new_employer)
 
 
 # Re-reads a hire's weekly wage after a level-up; leavers and non-candidates
@@ -210,6 +214,10 @@ static func hire(candidate_id: String, top_up: bool = false) -> Dictionary:
 	Contacts.assign_to_room(candidate_id, role(candidate_id)["room"])
 	var day: int = GameState.state["world"]["day"]
 	GameState.state["hiring"]["status"][candidate_id] = { "state": STATUS_OURS, "employer": null, "since": day }
+	if poached_from != null:
+		LodedInnitFeed.post_status(LodedInnitFeed.STATUS_HIRED_FROM, candidate_id, poached_from)
+	else:
+		LodedInnitFeed.post_status(LodedInnitFeed.STATUS_HIRED, candidate_id)
 	Notify.push("%s starts in the %s today." % [Contacts.display_name(candidate_id), GameData.HOME_ROOMS[role(candidate_id)["room"]]["name"]], Notify.CATEGORY_SUCCESS)
 	EventBus.state_changed.emit()
 	return { "ok": true, "paid": weekly, "toppedUp": needed }
@@ -232,6 +240,7 @@ static func let_go(candidate_id: String) -> Dictionary:
 	if not GameData.HIRING_CANDIDATES.has(candidate_id) or status(candidate_id)["state"] != STATUS_OURS:
 		return { "ok": false, "reason": "Doesn't work for you." }
 	_release(candidate_id, _open_status(GameState.state["world"]["day"]))
+	LodedInnitFeed.post_status(LodedInnitFeed.STATUS_LET_GO, candidate_id)
 	# PROSE-REVIEW: let-go notification.
 	Notify.push("%s clears their desk." % Contacts.display_name(candidate_id))
 	EventBus.state_changed.emit()
@@ -373,6 +382,7 @@ static func decline_poach(candidate_id: String) -> Dictionary:
 		return { "ok": false, "reason": "No offer to refuse." }
 	var faction_id: String = pending["factionId"]
 	_release(candidate_id, { "state": STATUS_EMPLOYED, "employer": faction_id, "since": GameState.state["world"]["day"] })
+	LodedInnitFeed.post_status(LodedInnitFeed.STATUS_POACHED_AWAY, candidate_id, faction_id)
 	# PROSE-REVIEW: poached-away notification.
 	Notify.push("%s has gone to %s." % [Contacts.display_name(candidate_id), faction_name(faction_id)])
 	EventBus.state_changed.emit()

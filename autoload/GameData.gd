@@ -203,6 +203,8 @@ var HIRING_MARKET: Dictionary = {}
 var LODEDINNIT_FEED: Dictionary = {}
 var LODEDINNIT_VOICES: Dictionary = {}
 var LODEDINNIT_COMMENTS: Array = []
+# Hire-status post templates by event kind: {kind: [text with {name}/{employer}]}.
+var LODEDINNIT_STATUS: Dictionary = {}
 
 # Ceiling on a Production personal target (state.labThresholds), R§3.10.
 var PRODUCTION_TARGET_MAX: int = 0
@@ -478,6 +480,7 @@ const MANIFEST: Array[Dictionary] = [
 		{"field": "LODEDINNIT_FEED", "key": "feed", "type": TYPE_DICTIONARY},
 		{"field": "LODEDINNIT_VOICES", "key": "voices", "type": TYPE_DICTIONARY},
 		{"field": "LODEDINNIT_COMMENTS", "key": "comments", "type": TYPE_ARRAY},
+		{"field": "LODEDINNIT_STATUS", "key": "status", "type": TYPE_DICTIONARY},
 	]},
 ]
 
