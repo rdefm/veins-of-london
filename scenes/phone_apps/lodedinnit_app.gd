@@ -15,6 +15,11 @@ const ROOT_NODE_NAME := "LodedInnitRoot"
 const BRAND_BAR_NODE_NAME := "LodedInnitBrandBar"
 const TABS_NODE_NAME := "LodedInnitTabs"
 const FEED_TAB_NODE_NAME := "LodedInnitFeedTab"
+const FEED_INTRO_NODE_NAME := "LodedInnitFeedIntro"
+const FEED_CARD_NODE_NAME := "LodedInnitPostCard"
+const FEED_BODY_NODE_NAME := "LodedInnitPostBody"
+const FEED_ENGAGEMENT_NODE_NAME := "LodedInnitPostEngagement"
+const FEED_COMMENT_NODE_NAME := "LodedInnitPostComment"
 const PEOPLE_TAB_NODE_NAME := "LodedInnitPeopleTab"
 const ROLE_FILTER_NODE_NAME := "LodedInnitRoleFilter"
 const ORE_FILTER_NODE_NAME := "LodedInnitOreFilter"
@@ -46,6 +51,9 @@ const GROUP_FILL := Color("#323236")
 const CARD_FILL := Color("#303034")
 const CONTROL_FILL := Color("#343038")
 const AVATAR_FILL := Color("#4b4650")
+const FEED_CARD_BORDER := Color("#45454b")
+const FEED_RULE := Color("#4c4c50")
+const FEED_COMMENT_RULE := Color("#66666b")
 const OLD_MUTED := Color(0.541176, 0.541176, 0.541176, 1)
 
 var _tab := PEOPLE_TAB
@@ -84,13 +92,13 @@ func build(_content: VBoxContainer) -> void:
 	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_root.add_child(scroll)
-	var people_page := _profile_id == "" and _tab == PEOPLE_TAB
-	var page := UI.vbox(0 if people_page else 10)
+	var flush_page := _profile_id == ""
+	var page := UI.vbox(0 if flush_page else 10)
 	page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var margin := MarginContainer.new()
 	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	for side in ["left", "right", "top", "bottom"]:
-		margin.add_theme_constant_override("margin_" + side, 0 if people_page else 12)
+		margin.add_theme_constant_override("margin_" + side, 0 if flush_page else 12)
 	margin.add_child(page)
 	scroll.add_child(margin)
 	if _profile_id != "":
@@ -279,44 +287,148 @@ func _set_tab(tab: String) -> void:
 
 
 func _build_feed(content: VBoxContainer) -> void:
-	content.add_child(UI.heading("Network activity", 18))
+	var intro_margin := MarginContainer.new()
+	intro_margin.name = FEED_INTRO_NODE_NAME
+	intro_margin.add_theme_constant_override("margin_left", 17)
+	intro_margin.add_theme_constant_override("margin_right", 17)
+	intro_margin.add_theme_constant_override("margin_top", 20)
+	intro_margin.add_theme_constant_override("margin_bottom", 12)
+	var intro := UI.vbox(7)
+	intro_margin.add_child(intro)
+	var heading := UI.tinted_label("Network activity", _ink())
+	heading.add_theme_font_size_override("font_size", 24)
+	heading.add_theme_font_override("font", _bold_font())
+	intro.add_child(heading)
+	var subtitle := UI.tinted_label("The people doing the work, and the people saying they are.", _muted_ink())
+	subtitle.add_theme_font_size_override("font_size", 12)
+	subtitle.add_theme_constant_override("line_spacing", 3)
+	subtitle.custom_minimum_size.x = 0
+	intro.add_child(subtitle)
+	content.add_child(intro_margin)
 	var entries := LodedInnitFeed.entries()
 	if entries.is_empty():
-		content.add_child(UI.muted_label("Nothing on your feed yet. Posts arrive as the day goes on."))
+		var empty_margin := MarginContainer.new()
+		empty_margin.add_theme_constant_override("margin_left", 17)
+		empty_margin.add_theme_constant_override("margin_right", 17)
+		empty_margin.add_child(UI.tinted_label("Nothing on your feed yet. Posts arrive as the day goes on.", _muted_ink()))
+		content.add_child(empty_margin)
 		return
-	content.add_child(UI.muted_label("The people doing the work, and the people saying they are."))
 	for entry in entries:
-		content.add_child(_post_card(LodedInnitFeed.card(entry)))
+		var card_margin := MarginContainer.new()
+		card_margin.add_theme_constant_override("margin_left", 13)
+		card_margin.add_theme_constant_override("margin_right", 13)
+		card_margin.add_theme_constant_override("margin_bottom", 11)
+		card_margin.add_child(_post_card(LodedInnitFeed.card(entry)))
+		content.add_child(card_margin)
 
 
 # One social card from LodedInnitFeed.card(); any entry kind renders here.
 func _post_card(view: Dictionary) -> Control:
-	var c := UI.card()
+	var panel := PanelContainer.new()
+	panel.name = FEED_CARD_NODE_NAME
+	var card_style := UI.bordered_panel_style(CARD_FILL, FEED_CARD_BORDER, 14, 14, 10)
+	card_style.content_margin_top = 14
+	panel.add_theme_stylebox_override("panel", card_style)
+	var content := UI.vbox(0)
+	panel.add_child(content)
 	var head := UI.hbox(9)
 	head.add_child(_avatar(view["initials"]))
 	var who := UI.vbox(2)
-	who.add_child(UI.label(view["name"]))
-	who.add_child(UI.muted_label("%s · %s" % [view["meta"], view["time"]]))
+	var name_label := UI.tinted_label(view["name"], _ink())
+	name_label.add_theme_font_size_override("font_size", 13)
+	name_label.add_theme_font_override("font", _bold_font())
+	name_label.custom_minimum_size.x = 0
+	who.add_child(name_label)
+	var meta := UI.tinted_label("%s · %s" % [view["meta"], view["time"]], _muted_ink())
+	meta.add_theme_font_size_override("font_size", 10)
+	meta.custom_minimum_size.x = 0
+	who.add_child(meta)
 	head.add_child(UI.expand_fill(who))
-	c["content"].add_child(head)
-	c["content"].add_child(UI.label(view["body"]))
-	var engage := UI.hbox()
+	content.add_child(head)
+	var body_margin := MarginContainer.new()
+	body_margin.add_theme_constant_override("margin_top", 12)
+	body_margin.add_theme_constant_override("margin_bottom", 15)
+	var body := UI.tinted_label(view["body"], _ink())
+	body.name = FEED_BODY_NODE_NAME
+	body.add_theme_font_size_override("font_size", 12)
+	body.add_theme_constant_override("line_spacing", 4)
+	body.custom_minimum_size.x = 0
+	body_margin.add_child(body)
+	content.add_child(body_margin)
+	var rule := HSeparator.new()
+	var rule_style := StyleBoxLine.new()
+	rule_style.color = FEED_RULE
+	rule_style.thickness = 1
+	rule.add_theme_stylebox_override("separator", rule_style)
+	rule.add_theme_constant_override("separation", 1)
+	content.add_child(rule)
+	var engage_margin := MarginContainer.new()
+	engage_margin.add_theme_constant_override("margin_left", 2)
+	engage_margin.add_theme_constant_override("margin_right", 2)
+	engage_margin.add_theme_constant_override("margin_top", 10)
+	engage_margin.add_theme_constant_override("margin_bottom", 2)
+	var engage := UI.hbox(0)
+	engage.name = FEED_ENGAGEMENT_NODE_NAME
+	engage_margin.add_child(engage)
 	var comment_count: int = view["comments"].size()
-	engage.add_child(UI.expand_fill(UI.muted_label("%d likes" % view["likes"])))
-	engage.add_child(UI.muted_label("%d comment%s" % [comment_count, "" if comment_count == 1 else "s"]))
-	c["content"].add_child(engage)
+	engage.add_child(UI.expand_fill(_engagement_count(int(view["likes"]), "likes")))
+	engage.add_child(_engagement_count(comment_count, "comment" if comment_count == 1 else "comments"))
+	content.add_child(engage_margin)
 	for comment in view["comments"]:
-		c["content"].add_child(UI.muted_label("%s: %s" % [comment["author"], comment["text"]]))
-	return c["panel"]
+		content.add_child(_feed_comment(comment))
+	return panel
+
+
+func _engagement_count(count: int, caption: String) -> HBoxContainer:
+	var row := UI.hbox(3)
+	var number := UI.tinted_label(str(count), _ink())
+	number.add_theme_font_size_override("font_size", 11)
+	number.add_theme_font_override("font", _bold_font())
+	row.add_child(number)
+	var label := UI.tinted_label(caption, _muted_ink())
+	label.add_theme_font_size_override("font_size", 11)
+	row.add_child(label)
+	return row
+
+
+func _feed_comment(comment: Dictionary) -> Control:
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_top", 9)
+	margin.add_theme_constant_override("margin_bottom", 1)
+	var panel := PanelContainer.new()
+	panel.name = FEED_COMMENT_NODE_NAME
+	var style := StyleBoxFlat.new()
+	style.draw_center = false
+	style.border_color = FEED_COMMENT_RULE
+	style.border_width_left = 2
+	style.content_margin_left = 10
+	panel.add_theme_stylebox_override("panel", style)
+	margin.add_child(panel)
+	var row := UI.hbox(3)
+	panel.add_child(row)
+	var author := UI.tinted_label("%s:" % comment["author"], _ink())
+	author.add_theme_font_size_override("font_size", 11)
+	author.add_theme_font_override("font", _bold_font())
+	row.add_child(author)
+	var reply := UI.tinted_label(comment["text"], _muted_ink())
+	reply.add_theme_font_size_override("font_size", 11)
+	reply.add_theme_constant_override("line_spacing", 3)
+	reply.custom_minimum_size.x = 0
+	row.add_child(UI.expand_fill(reply))
+	return margin
 
 
 func _avatar(initials: String) -> Control:
 	var panel := PanelContainer.new()
-	var style := UI.bordered_panel_style(plum(), plum_light(), 18, 4, 4)
+	var style := StyleBoxFlat.new()
+	style.bg_color = AVATAR_FILL
+	style.set_corner_radius_all(18)
 	panel.add_theme_stylebox_override("panel", style)
 	panel.custom_minimum_size = Vector2(36, 36)
 	panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	var l := UI.label(initials)
+	var l := UI.tinted_label(initials, _ink())
+	l.add_theme_font_size_override("font_size", 11)
+	l.add_theme_font_override("font", _bold_font())
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	panel.add_child(l)
