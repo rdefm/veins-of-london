@@ -135,6 +135,14 @@ static func _deck_buttons(root: Node) -> Array[Button]:
 	for c in root.find_children("", "Button", true, false):
 		buttons.append(c)
 	return buttons
+# "item0"/"item1" name the dock's loadout rows (ItemButton_<slot>); anything
+# else is an action row (ActionButton_<kind>).
+static func _button_name(kind: String) -> String:
+	if kind.begins_with("item"):
+		return "ItemButton_%s" % kind.trim_prefix("item")
+	return "ActionButton_%s" % kind
+
+
 
 
 # ui-chrome-pass ticket 04: Attack/Item/Leg it action cards no longer carry
@@ -146,14 +154,14 @@ static func _deck_buttons(root: Node) -> Array[Button]:
 static func _latest_deck_button_named(root: Node, icon_kind: String) -> Button:
 	var latest: Button = null
 	for b in _deck_buttons(root):
-		if b.name == "ActionButton_%s" % icon_kind and not b.is_queued_for_deletion():
+		if b.name == _button_name(icon_kind) and not b.is_queued_for_deletion():
 			latest = b
 	return latest
 
 
 static func _deck_button_named(root: Node, icon_kind: String) -> Button:
 	for b in _deck_buttons(root):
-		if b.name == "ActionButton_%s" % icon_kind:
+		if b.name == _button_name(icon_kind):
 			return b
 	return null
 
@@ -664,14 +672,15 @@ func run() -> void:
 		# instead of by the old emoji Button.text.
 		assert_true(_deck_button_named(screen, "attack") != null, "Attack must still be offered, same handler as the old flat action bar")
 		assert_true(_deck_button_named(screen, "run") != null, "Leg it must still be offered")
-		assert_true(_deck_button_named(screen, "item") != null, "Item must still be offered")
+		assert_true(_deck_button_named(screen, "item0") != null, "Item must still be offered")
 
 		var captions: Array = []
 		for l in screen.find_children("", "Label", true, false):
 			captions.append(l.text)
 		assert_true(captions.has("Attack"))
 		assert_true(captions.has("Leg it"))
-		assert_true(captions.has("Item"))
+		assert_true(captions.has("Empty"), "two item rows always render")
+		assert_true(_deck_button_named(screen, "item1") != null)
 
 		screen.free()
 	)
@@ -683,7 +692,7 @@ func run() -> void:
 		var screen := CombatScreen.new()
 		screen._ready()
 
-		var item_button := _deck_button_named(screen, "item")
+		var item_button := _deck_button_named(screen, "item0")
 		assert_true(item_button != null)
 		assert_true(item_button.disabled, "no consumables and no loaded Dial -- Item should stay disabled, same gate _build_action_bar() used")
 
@@ -693,14 +702,35 @@ func run() -> void:
 	run_case("item_card_is_disabled_when_only_self_only_items_remain_and_an_ally_is_selected", func():
 		_setup_combat([Fixtures.enemy("Scrapper")], [Fixtures.ally("Archie")])
 		GameState.state["player"]["dial"] = null
-		GameState.state["player"]["inventory"]["shield"] = { "1": 1 }
+		GameState.state["player"]["loadout"]["slots"][0] = { "recipe": "shield", "tier": 1 }
 		Combat.set_selection("ally", 0)
 
 		var screen := CombatScreen.new()
 		screen._ready()
 
-		assert_true(_deck_button_named(screen, "item").disabled, "Shield can't target an ally -- nothing usable")
+		assert_true(_deck_button_named(screen, "item0").disabled, "Shield can't target an ally -- nothing usable")
 		assert_true(not _deck_button_named(screen, "run").disabled, "Leg it stays available regardless of selection")
+
+		screen.free()
+	)
+
+	run_case("filled_item_row_shows_name_and_tier_and_empty_row_stays_disabled", func():
+		_setup_combat([Fixtures.enemy("Scrapper")])
+		GameState.state["player"]["dial"] = null
+		GameState.state["player"]["loadout"]["slots"][0] = { "recipe": "blast", "tier": 2 }
+
+		var screen := CombatScreen.new()
+		screen._ready()
+
+		var filled := _deck_button_named(screen, "item0")
+		var empty := _deck_button_named(screen, "item1")
+		assert_true(not filled.disabled, "Blast usable with an enemy selected")
+		var captions: Array = []
+		for l in filled.find_children("", "Label", true, false):
+			captions.append(l.text)
+		assert_true(captions.has("%s — tier 2" % GameData.RECIPES["blast"]["name"]))
+		assert_true(empty.disabled, "empty row stays visible but disabled")
+		assert_true(_deck_button_named(screen, "item") == null, "no generic Item action")
 
 		screen.free()
 	)
@@ -755,10 +785,10 @@ func run() -> void:
 		var screen := CombatScreen.new()
 		screen._ready()
 
-		var item_button := _deck_button_named(screen, "item")
+		var item_button := _deck_button_named(screen, "item0")
 		var item_caption: Label = null
 		for l in screen.find_children("", "Label", true, false):
-			if l.text == "Item":
+			if l.text == "Empty":
 				item_caption = l
 		assert_true(item_button != null)
 		assert_true(item_caption != null)
@@ -771,7 +801,7 @@ func run() -> void:
 	# combat-refining ticket 08: flat command rows -- Complication readout,
 	# Attack, Item, Leg it at equal height/label size, 1px rules between,
 	# no per-row panel/border, distinct pressed/focus styleboxes.
-	run_case("command_rows_are_four_equal_flat_rows_separated_by_1px_rules", func():
+	run_case("command_rows_are_five_equal_flat_rows_separated_by_1px_rules", func():
 		_setup_combat([Fixtures.enemy("Scrapper")])
 		GameState.state["player"]["dial"] = null
 
@@ -781,10 +811,10 @@ func run() -> void:
 		var complication: Control = screen._command_dock.find_child("ComplicationRow", true, false)
 		assert_true(complication != null, "the Complication row must lead the deck")
 		var rows: Array[Control] = [complication]
-		for kind in ["attack", "item", "run"]:
+		for kind in ["attack", "item0", "item1", "run"]:
 			rows.append(_deck_button_named(screen._command_dock, kind))
 		var col: Node = complication.get_parent()
-		var expected_labels := ["No Dial", "Attack", "Item", "Leg it"]
+		var expected_labels := ["No Dial", "Attack", "Empty", "Empty", "Leg it"]
 		var prev_index := -1
 		for i in rows.size():
 			var row: Control = rows[i]
@@ -817,7 +847,7 @@ func run() -> void:
 		var screen := CombatScreen.new()
 		screen._ready()
 
-		for kind in ["attack", "item", "run"]:
+		for kind in ["attack", "item0", "item1", "run"]:
 			var b := _deck_button_named(screen._command_dock, kind)
 			assert_eq(b.focus_mode, Control.FOCUS_ALL, "%s row is focusable" % kind)
 			var normal: StyleBoxFlat = b.get_theme_stylebox("normal")
@@ -990,7 +1020,7 @@ func run() -> void:
 		# word label is a separate caption Label alongside it) so this only
 		# checks their layout.
 		var buttons: Array[Button] = []
-		for kind in ["attack", "item", "run"]:
+		for kind in ["attack", "item0", "item1", "run"]:
 			var b := _deck_button_named(screen, kind)
 			if b != null:
 				buttons.append(b)
@@ -1113,7 +1143,7 @@ func run() -> void:
 		# _ready()'s own comment) -- checked there so this doesn't silently
 		# pass vacuously (0 buttons found) against the wrong container.
 		var found_any := false
-		for kind in ["attack", "item", "run"]:
+		for kind in ["attack", "item0", "item1", "run"]:
 			var b := _deck_button_named(screen._command_dock, kind)
 			if b != null:
 				found_any = true
@@ -2144,7 +2174,7 @@ func run() -> void:
 		var strip := _find_strip(screen)
 		Rng.set_seed(1)
 		Combat.player_attack()  # no playback -- the strip rests on the round-2 projection
-		Crafting.inventory_add("rewind", 1)
+		GameState.state["player"]["loadout"]["slots"][0] = { "recipe": "rewind", "tier": 1 }
 		var result: Dictionary = Combat.combat_rewind()
 		var restored_ids: Array = CombatScreen._occurrence_ids(Combat.project_queue(GameState.state["combat"]))
 
@@ -2182,7 +2212,7 @@ func run() -> void:
 			await tree.process_frame
 			var log_size: int = GameState.state["combat"]["log"].size()
 			var revealed: int = screen._revealed_log_count
-			for kind in ["attack", "item", "run"]:
+			for kind in ["attack", "item0", "item1", "run"]:
 				assert_true(_latest_deck_button_named(screen, kind).disabled, "%s dimmed during playback" % kind)
 			var dial := _find_dial_widget(screen)
 			assert_eq(dial.mouse_filter, Control.MOUSE_FILTER_IGNORE, "dial ignores taps during playback")
@@ -2236,7 +2266,7 @@ func run() -> void:
 	await run_case("pearl_used_mid_attack_playback_still_plays_its_beats", func():
 		var tree := Engine.get_main_loop() as SceneTree
 		_setup_combat([Fixtures.enemy("Slow A", 500, 500, false, 1), Fixtures.enemy("Slow B", 500, 500, false, 1)])
-		GameState.state["player"]["inventory"]["timePearl"] = { "1": 1 }
+		GameState.state["player"]["loadout"]["slots"][0] = { "recipe": "timePearl", "tier": 1 }
 		GameState.state["player"]["craftingSkill"] = 1
 		var viewport := Control.new()
 		viewport.size = Vector2(390, 844)
@@ -2287,7 +2317,7 @@ func run() -> void:
 			GameState.state["player"]["dial"] = Fixtures.dial(["blast"])
 			Rng.set_seed(1)
 			if outcome == "fled":
-				GameState.state["player"]["inventory"]["wormhole"] = { "1": 1 }
+				GameState.state["player"]["loadout"]["slots"][0] = { "recipe": "wormhole", "tier": 1 }
 				Combat.use_wormhole()
 			else:
 				Combat.player_attack()

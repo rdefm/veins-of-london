@@ -36,6 +36,8 @@ static func equipped_units() -> Array:
 static func equip(index: int, recipe_key: String, tier: int) -> Dictionary:
 	if index < 0 or index >= slot_count():
 		return { "ok": false, "reason": "No such slot." }
+	if GameState.state["combat"]["active"]:
+		return { "ok": false, "reason": "Not mid-fight." }
 	if not is_equippable(recipe_key):
 		return { "ok": false, "reason": "That can't be carried in a slot." }
 	var loadout: Dictionary = GameState.state["player"]["loadout"]
@@ -55,6 +57,8 @@ static func equip(index: int, recipe_key: String, tier: int) -> Dictionary:
 static func unequip(index: int) -> Dictionary:
 	if index < 0 or index >= slot_count():
 		return { "ok": false, "reason": "No such slot." }
+	if GameState.state["combat"]["active"]:
+		return { "ok": false, "reason": "Not mid-fight." }
 	var loadout: Dictionary = GameState.state["player"]["loadout"]
 	var entry: Variant = loadout["slots"][index]
 	if entry == null:
@@ -78,3 +82,56 @@ static func equippable_stock() -> Array:
 			if int(buckets[tier_key]) > 0:
 				stock.append({ "recipe": recipe_key, "tier": int(tier_key), "qty": int(buckets[tier_key]) })
 	return stock
+
+
+# The slot a combat use of recipe_key spends: `preferred` if it holds that
+# recipe, else (preferred < 0) the first slot that does; -1 when none.
+static func find_slot(recipe_key: String, preferred: int = -1) -> int:
+	var slots: Array = GameState.state["player"]["loadout"]["slots"]
+	if preferred >= 0:
+		if preferred < slots.size() and slots[preferred] != null and slots[preferred]["recipe"] == recipe_key:
+			return preferred
+		return -1
+	for i in slots.size():
+		if slots[i] != null and slots[i]["recipe"] == recipe_key:
+			return i
+	return -1
+
+
+# Spends the slot's unit (no refund) and returns its effect power at the
+# stored tier. During combat the slot is marked for settlement refill.
+static func consume(index: int) -> Variant:
+	var loadout: Dictionary = GameState.state["player"]["loadout"]
+	var unit: Dictionary = loadout["slots"][index]
+	loadout["slots"][index] = null
+	var combat: Dictionary = GameState.state["combat"]
+	if combat["active"]:
+		var used: Array = combat.get("slotsUsed", [])
+		combat["slotsUsed"] = used
+		if not used.has(index):
+			used.append(index)
+	var recipe_key: String = unit["recipe"]
+	return Crafting.effect_power(recipe_key, clampi(int(unit["tier"]), 1, GameData.RECIPES[recipe_key]["effectPower"].size() - 1))
+
+
+# Settlement: each used slot (in slot order) takes the highest-tier unit of
+# its recipe from shared inventory; with none it stays empty.
+static func refill_used(used: Array) -> void:
+	var sorted_used: Array = used.map(func(i): return int(i))
+	sorted_used.sort()
+	var loadout: Dictionary = GameState.state["player"]["loadout"]
+	for index in sorted_used:
+		if index >= slot_count() or loadout["slots"][index] != null:
+			continue
+		var recipe_key: String = last_recipe(index)
+		if recipe_key == "":
+			continue
+		var buckets: Dictionary = GameState.state["player"]["inventory"].get(recipe_key, {})
+		var best := 0
+		for tier_key in buckets:
+			if int(buckets[tier_key]) > 0:
+				best = maxi(best, int(tier_key))
+		if best <= 0:
+			continue
+		Crafting.inventory_remove_from_tier(recipe_key, best, 1)
+		loadout["slots"][index] = { "recipe": recipe_key, "tier": best }

@@ -95,7 +95,7 @@ Data file per system: see `data/*.json` below.
 | rooms.gd | Per-block staff step (one action per cultivator, then producers take turns crafting until targets met or ore short), which recipes each crafter's `specialities` allow and the Production list, writes/trims `productionLog`, Production targets/priority and when they are settable, per-cultivator vein lists (`cultivatorVeins`) and per-vein targets |
 | shares.gd | Shares: 14-day daily buckets per producer (player, factions, independents) of ore harvested, ore spent on successful crafts, contract deliveries and faction London buys; Independents slice crediting (⑥.5e); pure ore/crafting share, overview, delivery and supplier-share reads (split + intake) (R§3.14) |
 | sites.gd | Sites & prospecting |
-| loadout.gd | Player's two personal consumable slots (`player.loadout`): equip/unequip one tiered unit from shared inventory, allowlist check, last-assigned-recipe memory, equippable stock list |
+| loadout.gd | Player's two personal consumable slots (`player.loadout`): equip/unequip (refused in combat), find/consume a slot unit, settlement refill from highest-tier stock, last-recipe memory, equippable stock list |
 | stash.gd | Personal stash vs. shared pools |
 | station_bubble.gd | Site/vein-stop tap-bubble decision |
 | calendar.gd | Pure `world.day` → calendar date (`MON 3 JAN`, `Y2`+ suffix) per R§3.1 "Calendar"; every player-facing date string uses `Calendar.format_day`; weekday/Monday helpers for the weekly cadence |
@@ -136,8 +136,8 @@ overlays.
 |---|---|
 | alarm_presentation.gd | Detects raid alarms; Phone pulse + vibration |
 | app_tile.gd | Normalised icon+label+numeric-count-badge+lock tile for phone launchers |
-| bag_drawer.gd | Global bottom-sheet bag drawer; in combat shows only in-stock combat item buttons, disabled (with reason) per `Combat.selection_block_reason()` and while combat beats play (`EventBus.combat_playback_changed`) |
-| combat_command_dock.gd | Combat's lower command region: full-width near-white surface Panel holding the Dial beside flat 1px-ruled command rows (Complication readout, Attack, Item, Leg it), anchored to the true screen bottom; Attack/Item disabled per the current selection |
+| bag_drawer.gd | Global bottom-sheet bag drawer; read-only stock/consumable listing (also during combat; no use buttons, no loadout change); out-of-combat heal buttons in management mode |
+| combat_command_dock.gd | Combat's lower command region: full-width near-white surface Panel holding the Dial beside flat 1px-ruled command rows (Complication readout, Attack, two loadout item rows, Leg it), anchored to the true screen bottom; rows disabled per `Combat.selection_block_reason`/`slot_block_reason` |
 | combat_director.gd | Combat beat-queue playback director; holds a data-driven pause (combat_visuals pacing.turnPause) between combatants' turns; emits `playing_changed` so CombatScreen locks its commands during playback |
 | combat_stage.gd | Combat pixel stage: backdrop (location->context->palette); slots in two receding diagonal groups (enemies back/smaller), figure-fitted, depth-sorted; keypose one-shots (sheet, `images`, or random attack `variants`; player = `combat_templates()[player.model]`, scrapper = its `variant`), effects, juice layer. `StageSlot` taps emit `subject_tapped`; selected slot gets an arrow |
 | contact_cards.gd | Shared contact/faction card builders (incl. handler card, Owen card, Targets/Sourcing, Nadia's ledger + "Go with Nadia", key-member card, pending-message actions incl. lowball Accept/Decline, peace offer Talk terms/Decline, favour Accept/Decline), inline Contacts action-row layout, OS chrome repaint |

@@ -96,9 +96,6 @@ const BLAST_DISARM_TURNS := 2
 # in-combat mechanic; rewind casts via combat_rewind()'s own fallback).
 const COMBAT_COMPLICATION_RECIPES: Array[String] = ["timePearl", "enhancementPowder", "blast", "shield", "blackHole", "healingBurst", "prophetsBreath", "wormhole"]
 
-# Consumable ids usable mid-fight from the Bag.
-const COMBAT_ITEM_KEYS: Array[String] = ["timePearl", "enhancementPowder", "rewind", "blast", "shield", "blackHole", "healingBurst", "prophetsBreath", "wormhole"]
-
 # R§3.7 ally-targetable table + R§2 selection: what each command/effect
 # may target. "enemy" needs selection.type == "enemy"; "self" is refused
 # while an ally is selected; "ally" heals the selected ally, else the
@@ -121,6 +118,10 @@ const COMMAND_TARGETING := {
 	"flee": TARGETING_UNTARGETED,
 }
 # PROSE-REVIEW: selection-rejection reasons.
+const REASON_SLOT_EMPTY := "Empty."
+const REASON_SLOT_REACTIVE := "Fires on its own."
+const REASON_NOTHING_TO_UNDO := "Nothing to undo yet."
+const REASON_SHIELD_UP := "Shield already up."
 const REASON_SELECT_ENEMY := "Select an enemy first."
 const REASON_SELF_ONLY := "That one's only for you."
 
@@ -541,6 +542,7 @@ static func _start_combat(context: String, vein_id, enemies: Array, log_lines: A
 		# Every beat _log() threads since the oldest snapshot still on the stack
 		# was pushed; see combat_rewind()'s "beat queue in reverse" use of it.
 		"beatsSinceSnapshot": [],
+		"slotsUsed": [],
 		# R§3.7a "Resumable turn progression": the round's queue + how far
 		# into it we've resolved. Never carried between fights -- the first
 		# advance_to_next_decision() call populates queue/round from empty.
@@ -607,19 +609,21 @@ static func selection_block_reason(command_key: String) -> String:
 	return ""
 
 
-# The Item card's gate: any combat item in stock, or any loaded
-# Complication, that the current selection lets resolve.
-static func has_usable_item(player: Dictionary) -> bool:
-	for key in COMBAT_ITEM_KEYS:
-		if Crafting.inventory_qty(key) > 0 and selection_block_reason(key).is_empty():
-			return true
-	var dial: Variant = player["dial"]
-	if dial == null:
-		return false
-	for entry in dial["loadedComplications"]:
-		if selection_block_reason(entry["recipeKey"]).is_empty():
-			return true
-	return false
+# The dock item row's gate: "" when loadout slot `index` can be used right
+# now, else why not. Failsafe is reactive (fires on a lethal hit), never
+# pressed; Rewind needs a snapshot to restore to.
+static func slot_block_reason(index: int) -> String:
+	var unit: Variant = Loadout.slot(index)
+	if unit == null:
+		return REASON_SLOT_EMPTY
+	var recipe_key: String = unit["recipe"]
+	if recipe_key == "failsafe":
+		return REASON_SLOT_REACTIVE
+	if recipe_key == "rewind":
+		return "" if not GameState.state["combat"]["snapshots"].is_empty() else REASON_NOTHING_TO_UNDO
+	if recipe_key == "shield" and GameState.state["player"]["shieldPool"] > 0:
+		return REASON_SHIELD_UP
+	return selection_block_reason(recipe_key)
 
 
 # The selected ally when selection.type == "ally" and that ally is still
@@ -1673,7 +1677,7 @@ static func flee() -> Dictionary:
 	return { "ok": true, "outcome": combat["outcome"], "beats": beats }
 
 
-static func use_time_pearl() -> Dictionary:
+static func use_time_pearl(slot: int = -1) -> Dictionary:
 	var combat: Dictionary = GameState.state["combat"]
 	if not combat["active"] or combat["outcome"] != null:
 		return { "ok": false, "reason": "Combat not active." }
@@ -1681,7 +1685,8 @@ static func use_time_pearl() -> Dictionary:
 	var blocked: String = selection_block_reason("timePearl")
 	if not blocked.is_empty():
 		return { "ok": false, "reason": blocked }
-	if Crafting.inventory_qty("timePearl") <= 0:
+	var slot_index: int = Loadout.find_slot("timePearl", slot)
+	if slot_index < 0:
 		return { "ok": false, "reason": "No time pearls." }
 	if combat["frozenTurns"] > 0:
 		combat["log"].append("Already frozen. Save the pearl.")
@@ -1694,7 +1699,7 @@ static func use_time_pearl() -> Dictionary:
 		return { "ok": true, "beats": beats }
 	push_combat_snapshot()
 
-	var power = Crafting.use_one("timePearl")
+	var power = Loadout.consume(slot_index)
 	combat["frozenTurns"] += power
 	var turn_word: String = "turn" if power == 1 else "turns"
 	_log(combat, beats, "You throw a time pearl. The air goes thick. Everything slows. (%d %s)" % [power, turn_word], BEAT_USE_TIME_PEARL, { "effectKey": "timePearl" })
@@ -1705,7 +1710,7 @@ static func use_time_pearl() -> Dictionary:
 	return { "ok": true, "beats": beats }
 
 
-static func use_enhancement_powder() -> Dictionary:
+static func use_enhancement_powder(slot: int = -1) -> Dictionary:
 	var combat: Dictionary = GameState.state["combat"]
 	if not combat["active"] or combat["outcome"] != null:
 		return { "ok": false, "reason": "Combat not active." }
@@ -1713,7 +1718,8 @@ static func use_enhancement_powder() -> Dictionary:
 	var blocked: String = selection_block_reason("enhancementPowder")
 	if not blocked.is_empty():
 		return { "ok": false, "reason": blocked }
-	if Crafting.inventory_qty("enhancementPowder") <= 0:
+	var slot_index: int = Loadout.find_slot("enhancementPowder", slot)
+	if slot_index < 0:
 		return { "ok": false, "reason": "No enhancement powder." }
 	if combat["motionTurns"] > 0:
 		combat["log"].append("Already moving fast. Wait for it to wear off.")
@@ -1726,7 +1732,7 @@ static func use_enhancement_powder() -> Dictionary:
 		return { "ok": true, "beats": beats }
 	push_combat_snapshot()
 
-	var power = Crafting.use_one("enhancementPowder")
+	var power = Loadout.consume(slot_index)
 	combat["motionPower"] = power
 	combat["motionTurns"] = 2 if power >= 3 else 1
 	# No effectKey/manifest sheet -- the afterimage trail is a duplicate-sprite
@@ -1745,7 +1751,7 @@ static func use_enhancement_powder() -> Dictionary:
 # Immediate damage, a one-use boost to the next flee() roll, and a small
 # chance to disarm the enemy via disarm_enemy(). Resolves the cursor's
 # parked player-type entry, same as every other combat command (R§3.7a).
-static func use_blast() -> Dictionary:
+static func use_blast(slot: int = -1) -> Dictionary:
 	var combat: Dictionary = GameState.state["combat"]
 	if not combat["active"] or combat["outcome"] != null:
 		return { "ok": false, "reason": "Combat not active." }
@@ -1753,7 +1759,8 @@ static func use_blast() -> Dictionary:
 	var blocked: String = selection_block_reason("blast")
 	if not blocked.is_empty():
 		return { "ok": false, "reason": blocked }
-	if Crafting.inventory_qty("blast") <= 0:
+	var slot_index: int = Loadout.find_slot("blast", slot)
+	if slot_index < 0:
 		return { "ok": false, "reason": "No blast." }
 
 	var beats: Array = []
@@ -1762,7 +1769,7 @@ static func use_blast() -> Dictionary:
 		return { "ok": true, "beats": beats }
 	push_combat_snapshot()
 
-	var power = Crafting.use_one("blast")
+	var power = Loadout.consume(slot_index)
 	var enemy: Dictionary = _focused_enemy(combat)
 	var target_index: int = _enemy_action_index(combat)
 	var blast_extra: Dictionary = { "targetType": "enemy", "targetIndex": target_index, "effectKey": "blast" }
@@ -1784,7 +1791,7 @@ static func use_blast() -> Dictionary:
 
 # Sets player.shieldPool, drained 1:1 by enemy_attack() above. Blocked
 # while a pool is still active, same guard shape as use_time_pearl()'s.
-static func use_shield() -> Dictionary:
+static func use_shield(slot: int = -1) -> Dictionary:
 	var combat: Dictionary = GameState.state["combat"]
 	if not combat["active"] or combat["outcome"] != null:
 		return { "ok": false, "reason": "Combat not active." }
@@ -1792,7 +1799,8 @@ static func use_shield() -> Dictionary:
 	var blocked: String = selection_block_reason("shield")
 	if not blocked.is_empty():
 		return { "ok": false, "reason": blocked }
-	if Crafting.inventory_qty("shield") <= 0:
+	var slot_index: int = Loadout.find_slot("shield", slot)
+	if slot_index < 0:
 		return { "ok": false, "reason": "No shield." }
 	if player["shieldPool"] > 0:
 		combat["log"].append("Shield's already up. Save it.")
@@ -1805,7 +1813,7 @@ static func use_shield() -> Dictionary:
 		return { "ok": true, "beats": beats }
 	push_combat_snapshot()
 
-	var power = Crafting.use_one("shield")
+	var power = Loadout.consume(slot_index)
 	player["shieldPool"] = power
 	_log(combat, beats, "A shimmer folds around you. Shield up — %d absorption." % power, BEAT_USE_SHIELD, { "effectKey": "shield" })
 
@@ -1835,12 +1843,13 @@ static func _apply_black_hole_aoe(combat: Dictionary, dmg: int, freeze_turns: in
 # Immediate damage plus frozenTurns, always additive regardless of source
 # (stacks with Time Pearl or a prior Black Hole) -- no reuse guard. Turn
 # count derives from effectPower, not a separate recipe schema field.
-static func use_black_hole() -> Dictionary:
+static func use_black_hole(slot: int = -1) -> Dictionary:
 	var combat: Dictionary = GameState.state["combat"]
 	if not combat["active"] or combat["outcome"] != null:
 		return { "ok": false, "reason": "Combat not active." }
 	var player: Dictionary = GameState.state["player"]
-	if Crafting.inventory_qty("blackHole") <= 0:
+	var slot_index: int = Loadout.find_slot("blackHole", slot)
+	if slot_index < 0:
 		return { "ok": false, "reason": "No black hole." }
 
 	var beats: Array = []
@@ -1849,7 +1858,7 @@ static func use_black_hole() -> Dictionary:
 		return { "ok": true, "beats": beats }
 	push_combat_snapshot()
 
-	var power = Crafting.use_one("blackHole")
+	var power = Loadout.consume(slot_index)
 	var freeze_turns: int = 1 + int(floor(float(power) / 8.0))
 	# Per-enemy hit beats (via _apply_black_hole_aoe(), the same shared helper
 	# cast_complication() uses) replace a single combined summary line.
@@ -1931,7 +1940,7 @@ static func clamp_selection(combat: Dictionary) -> void:
 # Grants the same evadeTurns/evadeChance fields Rewind grants (R§3.9) --
 # activating this while Rewind's grant is still active simply overwrites
 # both, no stacking or reconciliation.
-static func use_prophets_breath() -> Dictionary:
+static func use_prophets_breath(slot: int = -1) -> Dictionary:
 	var combat: Dictionary = GameState.state["combat"]
 	if not combat["active"] or combat["outcome"] != null:
 		return { "ok": false, "reason": "Combat not active." }
@@ -1939,7 +1948,8 @@ static func use_prophets_breath() -> Dictionary:
 	var blocked: String = selection_block_reason("prophetsBreath")
 	if not blocked.is_empty():
 		return { "ok": false, "reason": blocked }
-	if Crafting.inventory_qty("prophetsBreath") <= 0:
+	var slot_index: int = Loadout.find_slot("prophetsBreath", slot)
+	if slot_index < 0:
 		return { "ok": false, "reason": "No prophet's breath." }
 
 	var beats: Array = []
@@ -1948,7 +1958,7 @@ static func use_prophets_breath() -> Dictionary:
 		return { "ok": true, "beats": beats }
 	push_combat_snapshot()
 
-	var power = Crafting.use_one("prophetsBreath")
+	var power = Loadout.consume(slot_index)
 	combat["evadeTurns"] = power
 	combat["evadeChance"] = 0.50
 	combat["log"].append("You take a lungful. For a few seconds, you can see it coming.")
@@ -1962,11 +1972,12 @@ static func use_prophets_breath() -> Dictionary:
 # Wormhole's combat half: guarantees flee()'s escape outright rather than
 # boosting its roll (contrast Blast's blastFleeBoost, which still rolls).
 # The map-travel half lives in Travel.travel_via_wormhole().
-static func use_wormhole() -> Dictionary:
+static func use_wormhole(slot: int = -1) -> Dictionary:
 	var combat: Dictionary = GameState.state["combat"]
 	if not combat["active"] or combat["outcome"] != null:
 		return { "ok": false, "reason": "Combat not active." }
-	if Crafting.inventory_qty("wormhole") <= 0:
+	var slot_index: int = Loadout.find_slot("wormhole", slot)
+	if slot_index < 0:
 		return { "ok": false, "reason": "No wormhole." }
 
 	var beats: Array = []
@@ -1975,7 +1986,7 @@ static func use_wormhole() -> Dictionary:
 		return { "ok": true, "beats": beats }
 	push_combat_snapshot()
 
-	Crafting.inventory_remove("wormhole", 1)
+	Loadout.consume(slot_index)
 	combat["outcome"] = "fled"
 	_log(combat, beats, "You fold the space between you and gone. Clean exit -- no parting shot.", BEAT_USE_WORMHOLE, { "actorType": "player" })
 
@@ -2102,13 +2113,47 @@ static func cast_complication(index: int) -> Dictionary:
 	return { "ok": true, "recipeKey": recipe_key, "power": power, "targets": targets, "beats": beats }
 
 
-static func combat_rewind() -> Dictionary:
+# Spends loadout slot `index` through its recipe's use_*(). A Rewind result
+# carries "rewind": true -- its beats play in reverse.
+static func use_slot(index: int) -> Dictionary:
+	var combat: Dictionary = GameState.state["combat"]
+	if not combat["active"] or combat["outcome"] != null:
+		return { "ok": false, "reason": "Combat not active." }
+	var blocked: String = slot_block_reason(index)
+	if not blocked.is_empty():
+		return { "ok": false, "reason": blocked }
+	match String(Loadout.slot(index)["recipe"]):
+		"timePearl":
+			return use_time_pearl(index)
+		"enhancementPowder":
+			return use_enhancement_powder(index)
+		"blast":
+			return use_blast(index)
+		"shield":
+			return use_shield(index)
+		"blackHole":
+			return use_black_hole(index)
+		"prophetsBreath":
+			return use_prophets_breath(index)
+		"wormhole":
+			return use_wormhole(index)
+		"healingBurst":
+			return Consumables.use_healing_burst(combat["selection"].duplicate(), index)
+		"rewind":
+			var result: Dictionary = combat_rewind(index)
+			result["rewind"] = true
+			return result
+	return { "ok": false, "reason": "No combat effect for that unit." }
+
+
+static func combat_rewind(slot: int = -1) -> Dictionary:
 	var combat: Dictionary = GameState.state["combat"]
 	if not combat["active"] or combat["snapshots"].is_empty():
 		return { "ok": false, "reason": "Nothing to rewind." }
 
 	var player: Dictionary = GameState.state["player"]
-	var has_consumable: bool = Crafting.inventory_qty("rewind") > 0
+	var slot_index: int = Loadout.find_slot("rewind", slot)
+	var has_consumable: bool = slot_index >= 0
 	var rewind_index: int = Dial.find_loaded_rewind_complication_index()
 	var has_complication: bool = rewind_index >= 0
 
@@ -2116,7 +2161,7 @@ static func combat_rewind() -> Dictionary:
 		return { "ok": false, "reason": "No rewind available." }
 
 	if has_consumable:
-		Crafting.inventory_remove("rewind", 1)
+		Loadout.consume(slot_index)
 	else:
 		Dial.cast_complication(rewind_index)
 
@@ -2179,12 +2224,13 @@ static func _restore_from_snapshot(combat: Dictionary, player: Dictionary) -> vo
 # -- a separate resource from Rewind, tried automatically. Requires a
 # snapshot to restore to; with none available the loss proceeds normally.
 static func _try_failsafe(combat: Dictionary, player: Dictionary) -> bool:
-	if Crafting.inventory_qty("failsafe") <= 0:
+	var slot_index: int = Loadout.find_slot("failsafe")
+	if slot_index < 0:
 		return false
 	if combat["snapshots"].is_empty():
 		return false
 
-	Crafting.inventory_remove("failsafe", 1)
+	Loadout.consume(slot_index)
 	# Unlike combat_rewind(), this skips the reverse-replay capture -- it
 	# fires synchronously mid-round, and a second reverse playback would
 	# race the enclosing round's forward one. GameState is still fully
@@ -2266,6 +2312,7 @@ static func exit_combat() -> Dictionary:
 	var raider_items_used: Dictionary = combat.get("raiderKit", {}).get("used", {})
 	var stockpile_faction_id: String = combat.get("stockpileFactionId", "")
 
+	Loadout.refill_used(combat.get("slotsUsed", []))
 	# Hand any allies' ending hp/stash back to persistent contact state
 	# before the combat dict is torn down below.
 	Contacts.replenish_after_combat(combat["allies"])
@@ -2286,7 +2333,7 @@ static func exit_combat() -> Dictionary:
 		"outcome": null, "frozenTurns": 0, "frozenSkipped": [], "motionTurns": 0, "motionPower": 0,
 		"evadeTurns": 0, "evadeChance": 0.0, "onWin": null, "snapshots": [],
 		"allies": [], "raiderKit": {}, "guardKit": {},
-		"beatsSinceSnapshot": [],
+		"beatsSinceSnapshot": [], "slotsUsed": [],
 		"turnCursor": { "queue": [], "index": 0, "round": 0 },
 	}
 	SaveManager.autosave()  # R§6: autosave on combat exit

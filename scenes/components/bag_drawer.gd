@@ -12,8 +12,6 @@ const OUT_OF_COMBAT_USE_KEYS := ["healingSalve", "healingBurst"]
 var _dim: ColorRect
 var _card: PanelContainer
 var _content: VBoxContainer
-# True while CombatScreen plays a round's beats: combat item uses are locked.
-var _combat_playing := false
 
 
 func _ready() -> void:
@@ -43,12 +41,6 @@ func _ready() -> void:
 	scroll.add_child(_content)
 
 	EventBus.state_changed.connect(_refresh)
-	EventBus.combat_playback_changed.connect(_on_combat_playback_changed)
-	_refresh()
-
-
-func _on_combat_playback_changed(playing: bool) -> void:
-	_combat_playing = playing
 	_refresh()
 
 
@@ -70,18 +62,11 @@ func _refresh() -> void:
 
 func _build() -> void:
 	var player: Dictionary = GameState.state["player"]
-	var combat: Dictionary = GameState.state["combat"]
 	var management: bool = _is_management_mode()
 
 	_card.offset_top = -(MANAGEMENT_DRAWER_HEIGHT if management else DRAWER_HEIGHT)
 
 	_content.add_child(UI.heading("Bag"))
-
-	# In combat the drawer is the Item action: in-stock combat items only.
-	if combat["active"]:
-		_add_combat_use_buttons(player, combat)
-		_content.add_child(MapCardStyle.footer([MapCardStyle.text_button("Close", func(): Bag.close())]))
-		return
 
 	_content.add_child(UI.heading("Ore", 14))
 	for ore_type in GameData.ORE_TYPES.keys():
@@ -146,102 +131,6 @@ func _build_dial_summary_label(player: Dictionary) -> Control:
 	return UI.symbol_row(["Dial: Lv%d — " % dial["level"], { "symbol": m["symbol"], "fallback": SymbolGlyph.generic_fallback() }, " %s, charge %d/%d" % [m["name"], int(dial["currentCharge"]), dial["maxCharge"]]])
 
 
-func _add_combat_use_buttons(player: Dictionary, combat: Dictionary) -> void:
-	if Crafting.inventory_qty("timePearl") > 0:
-		_content.add_child(_combat_use_button("timePearl", "Time Pearl (%d) — freeze enemy" % Crafting.inventory_qty("timePearl"), _on_use_time_pearl))
-
-	if Crafting.inventory_qty("enhancementPowder") > 0:
-		_content.add_child(_combat_use_button("enhancementPowder", "Enhancement Powder (%d) — extra attacks" % Crafting.inventory_qty("enhancementPowder"), _on_use_enhancement_powder))
-
-	if Crafting.inventory_qty("blast") > 0:
-		_content.add_child(_combat_use_button("blast", "Blast (%d) — damage, flee boost, chance to disarm" % Crafting.inventory_qty("blast"), _on_use_blast))
-
-	if Crafting.inventory_qty("shield") > 0:
-		_content.add_child(_combat_use_button("shield", "Shield (%d) — absorb incoming damage" % Crafting.inventory_qty("shield"), _on_use_shield, player["shieldPool"] > 0))
-
-	if Crafting.inventory_qty("blackHole") > 0:
-		_content.add_child(_combat_use_button("blackHole", "Black Hole (%d) — damage and freeze" % Crafting.inventory_qty("blackHole"), _on_use_black_hole))
-
-	if Crafting.inventory_qty("healingBurst") > 0:
-		var burst_target: String = "instant heal"
-		var ally_index: int = Combat.selected_ally_index(combat)
-		if ally_index >= 0:
-			burst_target = "heal %s" % combat["allies"][ally_index]["name"]
-		_content.add_child(_combat_use_button("healingBurst", "Healing Burst (%d) — %s" % [Crafting.inventory_qty("healingBurst"), burst_target], _on_use_healing_burst))
-
-	if Crafting.inventory_qty("prophetsBreath") > 0:
-		_content.add_child(_combat_use_button("prophetsBreath", "Prophet's Breath (%d) — evade buff" % Crafting.inventory_qty("prophetsBreath"), _on_use_prophets_breath))
-
-	if Crafting.inventory_qty("wormhole") > 0:
-		_content.add_child(_combat_use_button("wormhole", "Wormhole (%d) — guaranteed flee" % Crafting.inventory_qty("wormhole"), _on_use_wormhole))
-
-	var snap_count: int = combat["snapshots"].size()
-	if Crafting.inventory_qty("rewind") > 0:
-		var rewind_label := "(%d turn(s) back · +50%% evade x2 turns)" % snap_count if snap_count > 0 else "(nothing to undo yet)"
-		_content.add_child(_symbol_use_button("rewind", "Rewind (%d) — %s" % [Crafting.inventory_qty("rewind"), rewind_label], _on_use_rewind, _combat_playing or snap_count == 0))
-
-
-
-# Disabled, with the reason appended, when the current combat.selection
-# can't take this item (Combat.selection_block_reason(), R§3.7).
-# `also_disabled` greys it for a caller-side block with no appended reason;
-# every use is also greyed while a round's beats are playing.
-func _combat_use_button(recipe_key: String, rest_text: String, callback: Callable, also_disabled: bool = false) -> Button:
-	var reason: String = Combat.selection_block_reason(recipe_key)
-	var text: String = rest_text if reason.is_empty() else "%s · %s" % [rest_text, reason]
-	return _symbol_use_button(recipe_key, text, callback, _combat_playing or also_disabled or not reason.is_empty())
-
-
-func _play_result_beats(result: Dictionary) -> void:
-	var beats: Array = result.get("beats", [])
-	if not beats.is_empty():
-		EventBus.combat_beats_played.emit(beats)
-
-
-func _on_use_time_pearl() -> void:
-	Bag.close()
-	_play_result_beats(Combat.use_time_pearl())
-
-
-func _on_use_enhancement_powder() -> void:
-	Bag.close()
-	_play_result_beats(Combat.use_enhancement_powder())
-
-
-func _on_use_blast() -> void:
-	Bag.close()
-	_play_result_beats(Combat.use_blast())
-
-
-func _on_use_shield() -> void:
-	Bag.close()
-	_play_result_beats(Combat.use_shield())
-
-
-func _on_use_black_hole() -> void:
-	Bag.close()
-	_play_result_beats(Combat.use_black_hole())
-
-
 func _on_use_healing_burst() -> void:
 	Bag.close()
-	var combat: Dictionary = GameState.state["combat"]
-	var target: Dictionary = combat["selection"].duplicate() if combat["active"] else {}
-	_play_result_beats(Consumables.use_healing_burst(target))
-
-
-func _on_use_prophets_breath() -> void:
-	Bag.close()
-	Combat.use_prophets_breath()
-
-
-func _on_use_wormhole() -> void:
-	Bag.close()
-	_play_result_beats(Combat.use_wormhole())
-
-
-func _on_use_rewind() -> void:
-	var result: Dictionary = Combat.combat_rewind()
-	var beats: Array = result.get("beats", [])
-	if not beats.is_empty():
-		EventBus.combat_rewind_played.emit(beats)
+	Consumables.use_healing_burst()

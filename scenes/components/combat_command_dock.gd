@@ -3,7 +3,7 @@ extends Panel
 
 # The lower command region: one continuous near-white surface (this Panel)
 # spanning the full screen width, holding an inner row (_row) with the Dial
-# + flat command rows (Complication readout, Attack, Item, Leg it),
+# + flat command rows (Complication readout, Attack, two item rows, Leg it),
 # docs/combat-animation-vision.md §2.5. A fixed Control anchored to the true
 # bottom of the screen, outside scenes/screens/combat.gd's stage/detail-band
 # flow entirely, so sharing that space with the upper region never caps the
@@ -31,6 +31,7 @@ var _player: Dictionary = {}
 var _on_attack_callback: Callable = Callable()
 var _on_run_callback: Callable = Callable()
 var _on_dial_triggered_callback: Callable = Callable()
+var _on_item_callback: Callable = Callable()
 # True while a round's beats play out: every command is dimmed and inert.
 var _locked := false
 
@@ -63,8 +64,9 @@ func _init() -> void:
 	add_child(_row)
 
 
-func configure(player: Dictionary, on_attack: Callable, on_run: Callable, on_dial_triggered: Callable, locked: bool = false) -> void:
+func configure(player: Dictionary, on_attack: Callable, on_run: Callable, on_dial_triggered: Callable, locked: bool = false, on_item: Callable = Callable()) -> void:
 	_locked = locked
+	_on_item_callback = on_item
 	_on_attack_callback = on_attack
 	_on_run_callback = on_run
 	_on_dial_triggered_callback = on_dial_triggered
@@ -141,7 +143,7 @@ func _build_complication_detail(dial: Variant) -> Control:
 	row.add_child(_build_row_content(glyph, text, accent))
 	return row
 # Flat command rows (docs/combat-animation-vision.md §2.5, combat-refining
-# amendment): Complication readout, Attack, Item, Leg it -- equal height,
+# amendment): Complication readout, Attack, item rows, Leg it -- equal height,
 # 1px rules between, no per-row panel or primary-action emphasis.
 func _build_action_deck(player: Dictionary) -> Control:
 	var col := UI.vbox(0)
@@ -150,20 +152,55 @@ func _build_action_deck(player: Dictionary) -> Control:
 	var rows: Array[Control] = [
 		_build_complication_detail(player["dial"]),
 		_build_action_row("attack", "Attack", _on_attack_pressed, _locked or not Combat.selection_block_reason("attack").is_empty()),
-		_build_action_row("item", "Item", func(): Bag.open(), _locked or not Combat.has_usable_item(player)),
-		_build_action_row("run", "Leg it", _on_run_pressed, _locked),
 	]
+	for index in Loadout.slot_count():
+		rows.append(_build_item_row(index))
+	rows.append(_build_action_row("run", "Leg it", _on_run_pressed, _locked))
 	for i in rows.size():
 		if i > 0:
 			col.add_child(UI.command_row_rule())
 		col.add_child(rows[i])
 	return col
+# One loadout slot, always shown: icon + name + tier, or a disabled "Empty"
+# row; also disabled when Combat.slot_block_reason() refuses it.
+func _build_item_row(index: int) -> Control:
+	var unit: Variant = Loadout.slot(index)
+	var reason: String = Combat.slot_block_reason(index)
+	var disabled: bool = _locked or not reason.is_empty()
+	var accent: Color = UI.ACTION_DISABLED_COLOUR if disabled else UI.action_colour()
+
+	var glyph := SymbolGlyph.new()
+	glyph.font_size = 20
+	glyph.glyph_radius = 12.0
+	glyph.draw_fallback = SymbolGlyph.generic_fallback()
+	glyph.color = accent
+	var text := "Empty"
+	if unit != null:
+		var recipe: Dictionary = GameData.RECIPES[unit["recipe"]]
+		glyph.symbol = recipe["symbol"]
+		glyph.icon = ItemIcons.texture(unit["recipe"])
+		text = "%s — tier %d" % [recipe["name"], int(unit["tier"])]
+
+	var button := Button.new()
+	button.name = "ItemButton_%d" % index
+	button.disabled = disabled
+	button.focus_mode = Control.FOCUS_ALL
+	button.custom_minimum_size.y = UI.COMMAND_ROW_HEIGHT
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	UI.style_command_row(button, accent)
+	button.pressed.connect(_on_item_pressed.bind(index))
+	var content := _build_row_content(glyph, text, accent)
+	content.offset_left = UI.COMMAND_ROW_MARGIN_H
+	content.offset_right = -UI.COMMAND_ROW_MARGIN_H
+	button.add_child(content)
+	return button
+func _on_item_pressed(index: int) -> void:
+	if _on_item_callback.is_valid():
+		_on_item_callback.call(index)
 static func _action_icon_draw_fn(icon_kind: String) -> Callable:
 	match icon_kind:
 		"attack":
 			return Icons.draw_attack
-		"item":
-			return Icons.draw_bag
 		"run":
 			return Icons.draw_run
 		_:

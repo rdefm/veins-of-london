@@ -59,7 +59,7 @@ func run() -> void:
 
 	run_case("use_healing_burst_logs_to_combat_when_a_fight_is_active", func():
 		GameState.reset()
-		GameState.state["player"]["inventory"]["healingBurst"] = { "1": 1 }
+		GameState.state["player"]["loadout"]["slots"][0] = { "recipe": "healingBurst", "tier": 1 }
 		GameState.state["player"]["hp"] = 50
 		GameState.state["player"]["hpMax"] = 100
 		GameState.state["combat"]["active"] = true
@@ -90,7 +90,7 @@ func run() -> void:
 
 	run_case("use_healing_burst_returns_a_beat_with_effectKey_when_a_fight_is_active", func():
 		GameState.reset()
-		GameState.state["player"]["inventory"]["healingBurst"] = { "1": 1 }
+		GameState.state["player"]["loadout"]["slots"][0] = { "recipe": "healingBurst", "tier": 1 }
 		GameState.state["player"]["hp"] = 50
 		GameState.state["player"]["hpMax"] = 100
 		GameState.state["combat"]["active"] = true

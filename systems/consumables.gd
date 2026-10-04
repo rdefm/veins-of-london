@@ -27,12 +27,18 @@ static func use_healing_salve() -> Dictionary:
 # `target` is a combat.selection-shaped `{type, index}`; an ally target
 # (in combat only) heals that ally instead of the player, R§3.7's
 # ally-targetable table. Any other target heals the player.
-static func use_healing_burst(target: Dictionary = {}) -> Dictionary:
+static func use_healing_burst(target: Dictionary = {}, slot: int = -1) -> Dictionary:
 	var player: Dictionary = GameState.state["player"]
-	if Crafting.inventory_qty("healingBurst") <= 0:
+	var combat: Dictionary = GameState.state["combat"]
+	# In a fight the unit comes from a loadout slot; otherwise shared inventory.
+	var slot_index: int = -1
+	if combat["active"]:
+		slot_index = Loadout.find_slot("healingBurst", slot)
+		if slot_index < 0:
+			return { "ok": false, "reason": "No healing burst." }
+	elif Crafting.inventory_qty("healingBurst") <= 0:
 		return { "ok": false, "reason": "No healing burst." }
 
-	var combat: Dictionary = GameState.state["combat"]
 	var ally_index: int = -1
 	if target.get("type", "") == "ally":
 		ally_index = int(target.get("index", -1))
@@ -48,7 +54,7 @@ static func use_healing_burst(target: Dictionary = {}) -> Dictionary:
 			return { "ok": true, "beats": beats }
 		Combat.push_combat_snapshot()
 
-	var power = Crafting.use_one("healingBurst")
+	var power = Loadout.consume(slot_index) if slot_index >= 0 else Crafting.use_one("healingBurst")
 	var line: String
 	var beat_extra := { "effectKey": "healingBurst" }
 	if ally_index >= 0:

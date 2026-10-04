@@ -14,6 +14,22 @@ static func _variance_bounds(base: float) -> Dictionary:
 	}
 
 
+# Seats one tier-1 unit of `recipe` in player loadout slot `index`.
+func _equip_slot(index: int, recipe: String, tier: int = 1) -> void:
+	var loadout: Dictionary = GameState.state["player"]["loadout"]
+	loadout["slots"][index] = { "recipe": recipe, "tier": tier }
+	loadout["lastRecipe"][index] = recipe
+
+
+# Loadout slots currently holding `recipe`.
+func _equipped_qty(recipe: String) -> int:
+	var n := 0
+	for unit in GameState.state["player"]["loadout"]["slots"]:
+		if unit != null and unit["recipe"] == recipe:
+			n += 1
+	return n
+
+
 func _fresh_combat(context: String = Combat.CONTEXT_MUGGING) -> void:
 	GameState.reset()
 	GameState.state["combat"] = {
@@ -259,7 +275,7 @@ func run() -> void:
 		var before: Array = combat["enemies"].map(func(e: Dictionary) -> String: return e["variant"])
 		Combat.push_combat_snapshot()
 		combat["enemies"][0]["hp"] = 1
-		GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
+		_equip_slot(0, "rewind")
 		assert_true(Combat.combat_rewind()["ok"], "sanity: rewind ran")
 		assert_eq(combat["enemies"].map(func(e: Dictionary) -> String: return e["variant"]), before, "Rewind keeps every scrapper's variant")
 	)
@@ -351,7 +367,7 @@ func run() -> void:
 			{ "name": "Second", "hp": 5, "hpMax": 5, "attackMin": 0, "attackMax": 0, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false },
 		]
 		combat["selection"] = { "type": "enemy", "index": 0 }
-		GameState.state["player"]["inventory"]["blast"] = { "1": 2 }
+		_equip_slot(0, "blast")
 		GameState.state["player"]["craftingSkill"] = 1  # blast effectPower at skill 1 = 6, lethal against hp 5
 
 		Combat.use_blast()
@@ -360,6 +376,7 @@ func run() -> void:
 		assert_eq(combat["selection"], { "type": "enemy", "index": 1 }, "selection should auto-clamp to the next living entry")
 		assert_eq(combat["outcome"], null, "the fight should continue while a living entry remains")
 
+		_equip_slot(0, "blast")
 		Combat.use_blast()
 
 		assert_eq(combat["enemies"][1]["koed"], true, "the second entry should now be koed too")
@@ -617,7 +634,7 @@ func run() -> void:
 		combat["enemies"][0]["hp"] = 90
 		Snapshots.push("combat", combat["snapshots"], { "playerHp": 100, "enemyHp": 100, "enemyIndex": 0, "selection": { "type": "enemy", "index": 0 }, "log": ["turn 1"], "frozenTurns": 0, "motionTurns": 0, "motionPower": 0, "evadeTurns": 0, "evadeChance": 0.0, "turnCursor": { "queue": [], "index": 0, "round": 0 } })
 		Snapshots.push("combat", combat["snapshots"], { "playerHp": 90, "enemyHp": 95, "enemyIndex": 0, "selection": { "type": "enemy", "index": 0 }, "log": ["turn 1", "turn 2"], "frozenTurns": 0, "motionTurns": 0, "motionPower": 0, "evadeTurns": 0, "evadeChance": 0.0, "turnCursor": { "queue": [], "index": 0, "round": 0 } })
-		GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
+		_equip_slot(0, "rewind")
 
 		var result := Combat.combat_rewind()
 
@@ -628,7 +645,7 @@ func run() -> void:
 		assert_eq(combat["evadeTurns"], 2, "rewind grants 2 evade turns")
 		assert_almost_eq(combat["evadeChance"], 0.50, 0.0001, "rewind grants 50% evade chance")
 		assert_eq(combat["outcome"], null, "rewind clears any outcome")
-		assert_eq(Crafting.inventory_qty("rewind"), 0, "the rewind consumable should be spent")
+		assert_eq(_equipped_qty("rewind"), 0, "the rewind consumable should be spent")
 		var found := false
 		for line in combat["log"]:
 			if line.contains("Time unspools"):
@@ -648,7 +665,7 @@ func run() -> void:
 		Combat.push_combat_snapshot()  # snapshots selection == enemy 1, enemies[1].hp == 40
 		combat["selection"] = { "type": "enemy", "index": 0 }  # selection moves on before Rewind is used
 		combat["enemies"][1]["hp"] = 10  # some damage landed on the second entry since the snapshot
-		GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
+		_equip_slot(0, "rewind")
 
 		Combat.combat_rewind()
 
@@ -666,7 +683,7 @@ func run() -> void:
 		Combat.set_selection("ally", 0)
 		Combat.push_combat_snapshot()  # snapshots selection == ally 0
 		Combat.set_selection("player", 0)  # selection moves on before Rewind is used
-		GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
+		_equip_slot(0, "rewind")
 
 		Combat.combat_rewind()
 
@@ -730,7 +747,7 @@ func run() -> void:
 				found = true
 		assert_true(found, "casting timePearl should freeze the enemy")
 		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 4, "casting should spend exactly one charge")
-		assert_eq(Crafting.inventory_qty("timePearl"), 0, "casting a loaded Complication must never touch regular inventory")
+		assert_eq(_equipped_qty("timePearl"), 0, "casting a loaded Complication must never touch regular inventory")
 	)
 
 	run_case("cast_complication_refuses_a_loaded_rewind_recipe", func():
@@ -799,11 +816,11 @@ func run() -> void:
 
 	run_case("use_time_pearl_blocked_when_already_frozen", func():
 		_fresh_combat()
-		GameState.state["player"]["inventory"]["timePearl"] = { "1": 3 }
+		_equip_slot(0, "timePearl")
 		GameState.state["combat"]["frozenTurns"] = 1
 		var result := Combat.use_time_pearl()
 		assert_true(not result["ok"], "should refuse when already frozen")
-		assert_eq(Crafting.inventory_qty("timePearl"), 3, "no pearl consumed when blocked")
+		assert_eq(_equipped_qty("timePearl"), 1, "no pearl consumed when blocked")
 		var found := false
 		for line in GameState.state["combat"]["log"]:
 			if line.contains("Already frozen"):
@@ -819,17 +836,17 @@ func run() -> void:
 		# still observable live.
 		_fresh_combat()
 		GameState.state["combat"]["enemies"] = []
-		GameState.state["player"]["inventory"]["timePearl"] = { "1": 3 }
+		_equip_slot(0, "timePearl")
 		GameState.state["player"]["craftingSkill"] = 1
 		Combat.use_time_pearl()
 		# timePearl effectPower at skill 1 = 1
 		assert_eq(GameState.state["combat"]["frozenTurns"], 1, "frozenTurns should be set from effectPower")
-		assert_eq(Crafting.inventory_qty("timePearl"), 2, "one pearl consumed")
+		assert_eq(_equipped_qty("timePearl"), 0, "one pearl consumed")
 	)
 
 	run_case("use_enhancement_powder_sets_motionTurns_by_power_threshold", func():
 		_fresh_combat()
-		GameState.state["player"]["inventory"]["enhancementPowder"] = { "1": 3 }
+		_equip_slot(0, "enhancementPowder")
 		GameState.state["player"]["craftingSkill"] = 1
 		Combat.use_enhancement_powder()
 		# enhancementPowder effectPower at skill 1 = 1 (< 3) -> motionTurns = 1
@@ -1300,27 +1317,27 @@ func run() -> void:
 
 	run_case("use_blast_deals_immediate_damage_and_grants_a_flee_boost", func():
 		_fresh_combat()
-		GameState.state["player"]["inventory"]["blast"] = { "1": 2 }
+		_equip_slot(0, "blast")
 		GameState.state["player"]["craftingSkill"] = 1
 		var hp_before: int = GameState.state["combat"]["enemies"][0]["hp"]
 		var result := Combat.use_blast()
 		assert_true(result["ok"], "should succeed with a blast in hand")
 		# blast effectPower at skill 1 = 6
 		assert_eq(GameState.state["combat"]["enemies"][0]["hp"], hp_before - 6, "should deal effectPower damage immediately")
-		assert_eq(Crafting.inventory_qty("blast"), 1, "one blast consumed")
+		assert_eq(_equipped_qty("blast"), 0, "one blast consumed")
 		assert_eq(GameState.state["combat"]["blastFleeBoost"], true, "should grant a one-use flee boost")
 	)
 
 	run_case("use_blast_fails_with_none_in_inventory", func():
 		_fresh_combat()
-		GameState.state["player"]["inventory"]["blast"] = { "1": 0 }
+		pass
 		var result := Combat.use_blast()
 		assert_true(not result["ok"], "should fail with no blast")
 	)
 
 	run_case("use_blast_can_defeat_the_enemy_outright", func():
 		_fresh_combat()
-		GameState.state["player"]["inventory"]["blast"] = { "1": 1 }
+		_equip_slot(0, "blast")
 		GameState.state["player"]["craftingSkill"] = 1
 		GameState.state["combat"]["enemies"][0]["hp"] = 3
 		Combat.use_blast()
@@ -1362,7 +1379,7 @@ func run() -> void:
 	run_case("blast_can_disarm_the_enemy_on_its_small_chance", func():
 		var disarm_seed := SeedSearch.find_seed_for(500, func():
 			_fresh_combat()
-			GameState.state["player"]["inventory"]["blast"] = { "1": 1 }
+			_equip_slot(0, "blast")
 			var enemy: Dictionary = GameState.state["combat"]["enemies"][0]
 			enemy["weapon"] = { "min": 3, "max": 6 }
 			enemy["ability"] = { "id": "test_ability", "lockedTurns": 0 }
@@ -1373,7 +1390,7 @@ func run() -> void:
 
 		Rng.set_seed(disarm_seed)
 		_fresh_combat()
-		GameState.state["player"]["inventory"]["blast"] = { "1": 1 }
+		_equip_slot(0, "blast")
 		var enemy: Dictionary = GameState.state["combat"]["enemies"][0]
 		enemy["weapon"] = { "min": 3, "max": 6 }
 		enemy["ability"] = { "id": "test_ability", "lockedTurns": 0 }
@@ -1387,28 +1404,28 @@ func run() -> void:
 		# use_time_pearl_sets_frozenTurns_from_effect_power's own comment.
 		_fresh_combat()
 		GameState.state["combat"]["enemies"] = []
-		GameState.state["player"]["inventory"]["shield"] = { "1": 2 }
+		_equip_slot(0, "shield")
 		GameState.state["player"]["craftingSkill"] = 1
 		var result := Combat.use_shield()
 		assert_true(result["ok"], "should succeed with a shield in hand")
 		# shield effectPower at skill 1 = 4
 		assert_eq(GameState.state["player"]["shieldPool"], 4, "shieldPool should be set from effectPower")
-		assert_eq(Crafting.inventory_qty("shield"), 1, "one shield consumed")
+		assert_eq(_equipped_qty("shield"), 0, "one shield consumed")
 	)
 
 	run_case("use_shield_blocked_while_a_pool_is_still_active", func():
 		_fresh_combat()
-		GameState.state["player"]["inventory"]["shield"] = { "1": 2 }
+		_equip_slot(0, "shield")
 		GameState.state["player"]["shieldPool"] = 3
 		var result := Combat.use_shield()
 		assert_true(not result["ok"], "a second shield should be blocked while one is active")
-		assert_eq(Crafting.inventory_qty("shield"), 2, "no shield consumed when blocked")
+		assert_eq(_equipped_qty("shield"), 1, "no shield consumed when blocked")
 		assert_eq(GameState.state["player"]["shieldPool"], 3, "existing pool untouched")
 	)
 
 	run_case("use_shield_fails_with_none_in_inventory", func():
 		_fresh_combat()
-		GameState.state["player"]["inventory"]["shield"] = { "1": 0 }
+		pass
 		var result := Combat.use_shield()
 		assert_true(not result["ok"], "should fail with no shield")
 	)
@@ -1439,7 +1456,7 @@ func run() -> void:
 
 	run_case("use_black_hole_deals_immediate_damage_and_adds_to_frozenTurns", func():
 		_fresh_combat()
-		GameState.state["player"]["inventory"]["blackHole"] = { "1": 2 }
+		_equip_slot(0, "blackHole")
 		GameState.state["player"]["craftingSkill"] = 1
 		GameState.state["combat"]["frozenTurns"] = 1
 		var hp_before: int = GameState.state["combat"]["enemies"][0]["hp"]
@@ -1454,19 +1471,19 @@ func run() -> void:
 		# distinguishes additive from a replace-instead-of-add bug (which
 		# would read back as 1, not 2).
 		assert_eq(GameState.state["combat"]["frozenTurns"], 2, "should add to the existing frozenTurns, not replace it")
-		assert_eq(Crafting.inventory_qty("blackHole"), 1, "one black hole consumed")
+		assert_eq(_equipped_qty("blackHole"), 0, "one black hole consumed")
 	)
 
 	run_case("use_black_hole_fails_with_none_in_inventory", func():
 		_fresh_combat()
-		GameState.state["player"]["inventory"]["blackHole"] = { "1": 0 }
+		pass
 		var result := Combat.use_black_hole()
 		assert_true(not result["ok"], "should fail with no black hole")
 	)
 
 	run_case("use_black_hole_can_defeat_the_enemy_outright", func():
 		_fresh_combat()
-		GameState.state["player"]["inventory"]["blackHole"] = { "1": 1 }
+		_equip_slot(0, "blackHole")
 		GameState.state["player"]["craftingSkill"] = 1
 		GameState.state["combat"]["enemies"][0]["hp"] = 3
 		Combat.use_black_hole()
@@ -1475,7 +1492,7 @@ func run() -> void:
 
 	run_case("use_black_hole_never_damages_or_freezes_the_player", func():
 		_fresh_combat()
-		GameState.state["player"]["inventory"]["blackHole"] = { "1": 1 }
+		_equip_slot(0, "blackHole")
 		GameState.state["player"]["craftingSkill"] = 1
 		GameState.state["combat"]["enemies"][0]["attackMin"] = 10
 		GameState.state["combat"]["enemies"][0]["attackMax"] = 10
@@ -1497,19 +1514,19 @@ func run() -> void:
 		# unconditionally decrement it (see _enemy_attack_player).
 		_fresh_combat()
 		GameState.state["combat"]["enemies"] = []
-		GameState.state["player"]["inventory"]["prophetsBreath"] = { "1": 2 }
+		_equip_slot(0, "prophetsBreath")
 		GameState.state["player"]["craftingSkill"] = 1
 		var result := Combat.use_prophets_breath()
 		assert_true(result["ok"], "should succeed with prophet's breath in hand")
 		# prophetsBreath effectPower ([0,1,1,2,2,3]) at skill 1 = 1
 		assert_eq(GameState.state["combat"]["evadeTurns"], 1, "evadeTurns should be set from effectPower")
 		assert_almost_eq(GameState.state["combat"]["evadeChance"], 0.50, 0.0001, "evadeChance should be 50%, same as Rewind's grant")
-		assert_eq(Crafting.inventory_qty("prophetsBreath"), 1, "one prophet's breath consumed")
+		assert_eq(_equipped_qty("prophetsBreath"), 0, "one prophet's breath consumed")
 	)
 
 	run_case("use_prophets_breath_fails_with_none_in_inventory", func():
 		_fresh_combat()
-		GameState.state["player"]["inventory"]["prophetsBreath"] = { "1": 0 }
+		pass
 		var result := Combat.use_prophets_breath()
 		assert_true(not result["ok"], "should fail with no prophet's breath")
 	)
@@ -1517,7 +1534,7 @@ func run() -> void:
 	run_case("use_prophets_breath_overwrites_an_existing_evade_grant_rather_than_stacking", func():
 		_fresh_combat()
 		GameState.state["combat"]["enemies"] = []
-		GameState.state["player"]["inventory"]["prophetsBreath"] = { "1": 1 }
+		_equip_slot(0, "prophetsBreath")
 		GameState.state["player"]["craftingSkill"] = 1
 		GameState.state["combat"]["evadeTurns"] = 5
 		GameState.state["combat"]["evadeChance"] = 0.9
@@ -1529,11 +1546,11 @@ func run() -> void:
 
 	run_case("use_wormhole_flee_guarantees_the_outcome_and_consumes_one", func():
 		_fresh_combat()
-		GameState.state["player"]["inventory"]["wormhole"] = { "1": 1 }
+		_equip_slot(0, "wormhole")
 		var result := Combat.use_wormhole()
 		assert_true(result["ok"], "should succeed with a wormhole in hand")
 		assert_eq(GameState.state["combat"]["outcome"], "fled", "wormhole should guarantee a flee outright")
-		assert_eq(Crafting.inventory_qty("wormhole"), 0, "one wormhole consumed")
+		assert_eq(_equipped_qty("wormhole"), 0, "one wormhole consumed")
 	)
 
 	run_case("use_wormhole_flee_never_gives_the_enemy_a_free_attack", func():
@@ -1541,7 +1558,7 @@ func run() -> void:
 		# consequence) entirely -- no Rng call at all, so this holds
 		# unconditionally rather than needing a seed search.
 		_fresh_combat()
-		GameState.state["player"]["inventory"]["wormhole"] = { "1": 1 }
+		_equip_slot(0, "wormhole")
 		GameState.state["combat"]["enemies"][0]["attackMin"] = 50
 		GameState.state["combat"]["enemies"][0]["attackMax"] = 50
 		var hp_before: int = GameState.state["player"]["hp"]
@@ -1551,7 +1568,7 @@ func run() -> void:
 
 	run_case("use_wormhole_fails_with_none_in_inventory", func():
 		_fresh_combat()
-		GameState.state["player"]["inventory"]["wormhole"] = { "1": 0 }
+		pass
 		var result := Combat.use_wormhole()
 		assert_true(not result["ok"], "should fail with no wormhole")
 	)
@@ -1561,7 +1578,7 @@ func run() -> void:
 		var combat: Dictionary = GameState.state["combat"]
 		GameState.state["player"]["hp"] = 100
 		GameState.state["player"]["hpMax"] = 100
-		GameState.state["player"]["inventory"]["failsafe"] = { "1": 1 }
+		_equip_slot(0, "failsafe")
 		combat["enemies"][0]["attackMin"] = 500
 		combat["enemies"][0]["attackMax"] = 500
 		Snapshots.push("combat", combat["snapshots"], { "playerHp": 90, "enemyHp": 80, "enemyIndex": 0, "selection": { "type": "enemy", "index": 0 }, "log": ["turn 1"], "frozenTurns": 0, "motionTurns": 0, "motionPower": 0, "evadeTurns": 0, "evadeChance": 0.0, "turnCursor": { "queue": [], "index": 0, "round": 0 } })
@@ -1569,7 +1586,7 @@ func run() -> void:
 		Rng.set_seed(1)
 		Combat.enemy_attack()
 
-		assert_eq(Crafting.inventory_qty("failsafe"), 0, "the failsafe should be auto-consumed")
+		assert_eq(_equipped_qty("failsafe"), 0, "the failsafe should be auto-consumed")
 		assert_eq(GameState.state["player"]["hp"], 90, "should restore the snapshot's playerHp, not the 30%-hpMax revive")
 		assert_eq(combat["outcome"], null, "the loss outcome must never resolve when failsafe catches it")
 		assert_eq(combat["snapshots"], [], "the snapshot stack should be cleared, same as a manual rewind")
@@ -1585,14 +1602,14 @@ func run() -> void:
 		var combat: Dictionary = GameState.state["combat"]
 		GameState.state["player"]["hp"] = 100
 		GameState.state["player"]["hpMax"] = 100
-		GameState.state["player"]["inventory"]["failsafe"] = { "1": 1 }
+		_equip_slot(0, "failsafe")
 		combat["enemies"][0]["attackMin"] = 500
 		combat["enemies"][0]["attackMax"] = 500
 
 		Rng.set_seed(1)
 		Combat.enemy_attack()
 
-		assert_eq(Crafting.inventory_qty("failsafe"), 1, "failsafe should not be spent with nothing to restore to")
+		assert_eq(_equipped_qty("failsafe"), 1, "failsafe should not be spent with nothing to restore to")
 		assert_eq(combat["outcome"], "loss", "the loss should resolve normally")
 		assert_eq(GameState.state["player"]["hp"], 30, "should revive at 30% hpMax, the normal loss path")
 	)
@@ -1606,8 +1623,8 @@ func run() -> void:
 		var combat: Dictionary = GameState.state["combat"]
 		GameState.state["player"]["hp"] = 100
 		GameState.state["player"]["hpMax"] = 100
-		GameState.state["player"]["inventory"]["failsafe"] = { "1": 1 }
-		GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
+		_equip_slot(0, "failsafe")
+		_equip_slot(1, "rewind")
 		combat["enemies"][0]["attackMin"] = 500
 		combat["enemies"][0]["attackMax"] = 500
 		Snapshots.push("combat", combat["snapshots"], { "playerHp": 90, "enemyHp": 80, "enemyIndex": 0, "selection": { "type": "enemy", "index": 0 }, "log": ["turn 1"], "frozenTurns": 0, "motionTurns": 0, "motionPower": 0, "evadeTurns": 0, "evadeChance": 0.0, "turnCursor": { "queue": [], "index": 0, "round": 0 } })
@@ -1615,8 +1632,8 @@ func run() -> void:
 		Rng.set_seed(1)
 		Combat.enemy_attack()
 
-		assert_eq(Crafting.inventory_qty("failsafe"), 0, "failsafe should be spent")
-		assert_eq(Crafting.inventory_qty("rewind"), 1, "the rewind consumable should be left untouched")
+		assert_eq(_equipped_qty("failsafe"), 0, "failsafe should be spent")
+		assert_eq(_equipped_qty("rewind"), 1, "the rewind consumable should be left untouched")
 	)
 
 	run_case("failsafe_auto_triggers_inside_an_event_raid_context_too", func():
@@ -1626,7 +1643,7 @@ func run() -> void:
 		var combat: Dictionary = GameState.state["combat"]
 		GameState.state["player"]["hp"] = 100
 		GameState.state["player"]["hpMax"] = 100
-		GameState.state["player"]["inventory"]["failsafe"] = { "1": 1 }
+		_equip_slot(0, "failsafe")
 		combat["enemies"][0]["attackMin"] = 500
 		combat["enemies"][0]["attackMax"] = 500
 		Snapshots.push("combat", combat["snapshots"], { "playerHp": 90, "enemyHp": 80, "enemyIndex": 0, "selection": { "type": "enemy", "index": 0 }, "log": ["turn 1"], "frozenTurns": 0, "motionTurns": 0, "motionPower": 0, "evadeTurns": 0, "evadeChance": 0.0, "turnCursor": { "queue": [], "index": 0, "round": 0 } })
@@ -1635,7 +1652,7 @@ func run() -> void:
 		Combat.enemy_attack()
 
 		assert_eq(combat["outcome"], null, "failsafe should catch the loss inside an event_raid context too")
-		assert_eq(Crafting.inventory_qty("failsafe"), 0, "the failsafe should be auto-consumed")
+		assert_eq(_equipped_qty("failsafe"), 0, "the failsafe should be auto-consumed")
 	)
 
 	# ── 44-archie-combat-ally ────────────────────────────────────────────
@@ -1842,7 +1859,7 @@ func run() -> void:
 		var player: Dictionary = GameState.state["player"]
 		player["inventory"] = {}
 		player["dial"] = null
-		assert_true(not Combat.has_usable_item(player), "kit items aren't listed for the player")
+		assert_eq(Combat.slot_block_reason(0), Combat.REASON_SLOT_EMPTY, "kit items never fill the player slots")
 		assert_true(not Combat.use_blast()["ok"], "the player can't throw a kit Blast")
 		assert_eq(combat["guardKit"]["items"]["blast"], { "3": 2 })
 	)
@@ -1911,7 +1928,7 @@ func run() -> void:
 		Combat.push_combat_snapshot()
 		Rng.set_seed(1)
 		Combat._ally_turn(combat, combat["allies"][0], 0, [])
-		Crafting.inventory_add("rewind", 1, 1)
+		_equip_slot(0, "rewind")
 		assert_true(Combat.combat_rewind()["ok"])
 		assert_eq(combat["guardKit"]["items"], { "blast": { "2": 1 } })
 		assert_eq(combat["guardKit"]["used"], { "blast": { "2": 1 } })
@@ -1941,10 +1958,10 @@ func run() -> void:
 	run_case("guard_rewind_waits_for_the_players_own_failsafe", func():
 		var combat := _guard_kit_combat([{ "hp": 100, "attackMin": 999, "attackMax": 999 }], { "rewind": { "1": 1 } })
 		var player: Dictionary = GameState.state["player"]
-		player["inventory"] = { "failsafe": { "1": 1 } }
+		_equip_slot(0, "failsafe")
 		Combat.push_combat_snapshot()
 		Combat._enemy_attack_player(combat, combat["enemies"][0], 0, null)
-		assert_eq(Crafting.inventory_qty("failsafe"), 0, "the player's failsafe fires first")
+		assert_eq(_equipped_qty("failsafe"), 0, "the player's failsafe fires first")
 		assert_eq(combat["guardKit"]["used"], {}, "no guard rewind spent")
 	)
 
@@ -2018,7 +2035,7 @@ func run() -> void:
 		Rng.set_seed(1)
 		Combat._ally_turn(combat, guard, 0, [])
 		assert_true(guard["motionTurns"] > 0, "sanity: powder used")
-		GameState.state["player"]["inventory"] = { "rewind": { "1": 1 } }
+		_equip_slot(0, "rewind")
 		assert_true(Combat.combat_rewind()["ok"])
 		assert_eq(guard["motionTurns"], 0, "motion back to the snapshot's")
 		assert_eq(guard["motionPower"], 0)
@@ -2536,7 +2553,7 @@ func run() -> void:
 		combat["selection"] = { "type": "enemy", "index": 1 }
 		GameState.state["player"]["attackMin"] = 5
 		GameState.state["player"]["attackMax"] = 5
-		GameState.state["player"]["inventory"]["blast"] = { "1": 1 }
+		_equip_slot(0, "blast")
 		GameState.state["player"]["craftingSkill"] = 1
 
 		Combat.use_blast()
@@ -2558,7 +2575,7 @@ func run() -> void:
 		# here) specifically so an untouched 30 vs. a floored-at-0 30 are
 		# distinguishable -- proving the skip, not just that 0 stayed 0.
 		var combat := _multi_enemy_combat([{ "hp": 50 }, { "hp": 50 }, { "hp": 30, "koed": true }])
-		GameState.state["player"]["inventory"]["blackHole"] = { "1": 1 }
+		_equip_slot(0, "blackHole")
 		GameState.state["player"]["craftingSkill"] = 1
 		# blackHole effectPower at skill 1 = 8 -> freeze = 1 + floor(8/8) = 2 turns for every enemy
 
@@ -2600,7 +2617,7 @@ func run() -> void:
 	run_case("use_time_pearl_freezes_every_living_enemy_not_just_the_next_one", func():
 		var combat := _multi_enemy_combat([{ "hp": 50, "attackMin": 5, "attackMax": 5, "speed": 5 }, { "hp": 50, "attackMin": 5, "attackMax": 5, "speed": 5 }, { "hp": 50, "attackMin": 5, "attackMax": 5, "speed": 5 }])
 		combat["selection"] = { "type": "enemy", "index": 2 }
-		GameState.state["player"]["inventory"]["timePearl"] = { "1": 1 }
+		_equip_slot(0, "timePearl")
 		GameState.state["player"]["craftingSkill"] = 1
 		var hp_before: int = GameState.state["player"]["hp"]
 
@@ -2620,7 +2637,7 @@ func run() -> void:
 		# Enemy 0 outpaces the player, so it has already acted this round
 		# when the pearl lands -- it must still lose a turn next round.
 		var combat := _multi_enemy_combat([{ "hp": 50, "attackMin": 5, "attackMax": 5, "speed": 20 }, { "hp": 50, "attackMin": 5, "attackMax": 5, "speed": 5 }])
-		GameState.state["player"]["inventory"]["timePearl"] = { "1": 1 }
+		_equip_slot(0, "timePearl")
 		GameState.state["player"]["craftingSkill"] = 1
 		Combat.player_attack()
 		var hp_before: int = GameState.state["player"]["hp"]
@@ -2722,7 +2739,7 @@ func run() -> void:
 
 	run_case("use_time_pearl_returns_a_beat_with_effectKey_timePearl", func():
 		_fresh_combat()
-		GameState.state["player"]["inventory"]["timePearl"] = { "1": 1 }
+		_equip_slot(0, "timePearl")
 		GameState.state["player"]["craftingSkill"] = 1
 		var result := Combat.use_time_pearl()
 		var beats: Array = result["beats"]
@@ -2738,7 +2755,7 @@ func run() -> void:
 
 	run_case("use_time_pearl_blocked_when_already_frozen_returns_no_beats", func():
 		_fresh_combat()
-		GameState.state["player"]["inventory"]["timePearl"] = { "1": 1 }
+		_equip_slot(0, "timePearl")
 		GameState.state["combat"]["frozenTurns"] = 1
 		var result := Combat.use_time_pearl()
 		assert_eq(result.get("beats", []), [], "a blocked use should never hand back beats")
@@ -2746,7 +2763,7 @@ func run() -> void:
 
 	run_case("use_blast_returns_a_damaging_beat_with_effectKey_blast_and_the_focused_enemy_as_target", func():
 		_fresh_combat()
-		GameState.state["player"]["inventory"]["blast"] = { "1": 1 }
+		_equip_slot(0, "blast")
 		GameState.state["player"]["craftingSkill"] = 1
 		GameState.state["combat"]["selection"] = { "type": "enemy", "index": 0 }
 		var result := Combat.use_blast()
@@ -2766,7 +2783,7 @@ func run() -> void:
 		# blast's own dmg beat and (on a disarm roll) its disarm beat.
 		var found_seed := SeedSearch.find_seed_for(500, func():
 			_fresh_combat()
-			GameState.state["player"]["inventory"]["blast"] = { "1": 1 }
+			_equip_slot(0, "blast")
 			GameState.state["player"]["craftingSkill"] = 1
 			var result := Combat.use_blast()
 			var beats: Array = result["beats"]
@@ -2776,7 +2793,7 @@ func run() -> void:
 
 		Rng.set_seed(found_seed)
 		_fresh_combat()
-		GameState.state["player"]["inventory"]["blast"] = { "1": 1 }
+		_equip_slot(0, "blast")
 		GameState.state["player"]["craftingSkill"] = 1
 		var result := Combat.use_blast()
 		var beats: Array = result["beats"]
@@ -2788,7 +2805,7 @@ func run() -> void:
 
 	run_case("use_shield_returns_a_non_damaging_beat_with_effectKey_shield", func():
 		_fresh_combat()
-		GameState.state["player"]["inventory"]["shield"] = { "1": 1 }
+		_equip_slot(0, "shield")
 		GameState.state["player"]["craftingSkill"] = 1
 		var result := Combat.use_shield()
 		var beats: Array = result["beats"]
@@ -2802,7 +2819,7 @@ func run() -> void:
 
 	run_case("use_black_hole_returns_an_announce_beat_plus_one_hit_beat_per_living_enemy_with_effectKey_blackHole", func():
 		var combat := _multi_enemy_combat([{ "hp": 50 }, { "hp": 50 }, { "hp": 30, "koed": true }])
-		GameState.state["player"]["inventory"]["blackHole"] = { "1": 1 }
+		_equip_slot(0, "blackHole")
 		GameState.state["player"]["craftingSkill"] = 1
 		var result := Combat.use_black_hole()
 		var beats: Array = result["beats"]
@@ -2822,7 +2839,7 @@ func run() -> void:
 
 	run_case("use_wormhole_returns_a_beat_marking_the_player_as_actor", func():
 		_fresh_combat()
-		GameState.state["player"]["inventory"]["wormhole"] = { "1": 1 }
+		_equip_slot(0, "wormhole")
 		var result := Combat.use_wormhole()
 		var beats: Array = result["beats"]
 		assert_eq(beats.size(), 1)
@@ -2911,7 +2928,7 @@ func run() -> void:
 
 	run_case("combat_rewind_returns_this_rounds_beats_in_reverse_order", func():
 		_fresh_combat()
-		GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
+		_equip_slot(0, "rewind")
 		GameState.state["player"]["attackMin"] = 5
 		GameState.state["player"]["attackMax"] = 5
 		GameState.state["combat"]["enemies"][0]["attackMin"] = 0
@@ -2932,7 +2949,7 @@ func run() -> void:
 
 	run_case("combat_rewind_clears_beatsSinceSnapshot_so_a_second_rewind_has_nothing_stale_to_replay", func():
 		_fresh_combat()
-		GameState.state["player"]["inventory"]["rewind"] = { "1": 2 }
+		_equip_slot(0, "rewind")
 		GameState.state["player"]["attackMin"] = 0
 		GameState.state["player"]["attackMax"] = 0
 		GameState.state["combat"]["enemies"][0]["attackMin"] = 0
@@ -3064,7 +3081,7 @@ func run() -> void:
 		_fresh_combat()
 		GameState.state["combat"]["enemies"][0]["attackMin"] = 5
 		GameState.state["combat"]["enemies"][0]["attackMax"] = 5
-		GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
+		_equip_slot(0, "rewind")
 		var player_hp_before: int = GameState.state["player"]["hp"]
 		var enemy_hp_before: int = GameState.state["combat"]["enemies"][0]["hp"]
 
@@ -3414,7 +3431,7 @@ func run() -> void:
 		var player: Dictionary = GameState.state["player"]
 		player["hp"] = player["hpMax"] - 20
 		player["craftingSkill"] = 1
-		player["inventory"]["healingBurst"] = { "1": 2 }
+		_equip_slot(0, "healingBurst")
 		Combat.set_selection("ally", 0)
 		var power: int = Crafting.effect_power("healingBurst", 1)
 
@@ -3423,7 +3440,7 @@ func run() -> void:
 		assert_true(result["ok"])
 		assert_eq(combat["allies"][0]["hp"], 10 + power, "the ally gains the canonical effectPower")
 		assert_eq(player["hp"], player["hpMax"] - 20, "the player is not healed")
-		assert_eq(Crafting.inventory_qty("healingBurst"), 1, "exactly one burst consumed")
+		assert_eq(_equipped_qty("healingBurst"), 0, "exactly one burst consumed")
 		var heal_beat: Dictionary = {}
 		for beat in result["beats"]:
 			if beat["kind"] == Combat.BEAT_USE_HEALING_BURST:
@@ -3450,17 +3467,20 @@ func run() -> void:
 	run_case("self_only_effects_are_rejected_while_an_ally_is_selected_and_nothing_is_consumed", func():
 		var combat := _multi_enemy_combat([{ "hp": 50 }], [_test_ally(20, 20)])
 		var player: Dictionary = GameState.state["player"]
-		player["inventory"]["shield"] = { "1": 1 }
-		player["inventory"]["enhancementPowder"] = { "1": 1 }
-		player["inventory"]["prophetsBreath"] = { "1": 1 }
+		_equip_slot(0, "shield")
+		_equip_slot(1, "enhancementPowder")
 		Combat.set_selection("ally", 0)
 
-		for result in [Combat.use_shield(), Combat.use_enhancement_powder(), Combat.use_prophets_breath()]:
+		for result in [Combat.use_shield(), Combat.use_enhancement_powder()]:
 			assert_true(not result["ok"], "a self-only effect is refused with an ally selected")
 			assert_eq(result["reason"], Combat.REASON_SELF_ONLY)
-		assert_eq(Crafting.inventory_qty("shield"), 1, "nothing consumed")
-		assert_eq(Crafting.inventory_qty("enhancementPowder"), 1, "nothing consumed")
-		assert_eq(Crafting.inventory_qty("prophetsBreath"), 1, "nothing consumed")
+		assert_eq(_equipped_qty("shield"), 1, "nothing consumed")
+		assert_eq(_equipped_qty("enhancementPowder"), 1, "nothing consumed")
+		_equip_slot(0, "prophetsBreath")
+		var breath := Combat.use_prophets_breath()
+		assert_true(not breath["ok"], "a self-only effect is refused with an ally selected")
+		assert_eq(breath["reason"], Combat.REASON_SELF_ONLY)
+		assert_eq(_equipped_qty("prophetsBreath"), 1, "nothing consumed")
 		assert_eq(player["shieldPool"], 0)
 		assert_eq(combat["motionTurns"], 0)
 		assert_eq(combat["snapshots"].size(), 0)
@@ -3476,22 +3496,22 @@ func run() -> void:
 	run_case("enemy_only_items_are_rejected_without_an_enemy_selected", func():
 		var combat := _multi_enemy_combat([{ "hp": 50 }], [_test_ally(20, 20)])
 		var player: Dictionary = GameState.state["player"]
-		player["inventory"]["blast"] = { "1": 1 }
-		player["inventory"]["timePearl"] = { "1": 1 }
+		_equip_slot(0, "blast")
+		_equip_slot(1, "timePearl")
 		for selected_type in ["ally", "player"]:
 			Combat.set_selection(selected_type, 0)
 			for result in [Combat.use_blast(), Combat.use_time_pearl()]:
 				assert_true(not result["ok"])
 				assert_eq(result["reason"], Combat.REASON_SELECT_ENEMY)
-		assert_eq(Crafting.inventory_qty("blast"), 1, "nothing consumed")
-		assert_eq(Crafting.inventory_qty("timePearl"), 1, "nothing consumed")
+		assert_eq(_equipped_qty("blast"), 1, "nothing consumed")
+		assert_eq(_equipped_qty("timePearl"), 1, "nothing consumed")
 		assert_eq(combat["enemies"][0]["hp"], 50)
 		assert_eq(combat["frozenTurns"], 0)
 	)
 
 	run_case("black_hole_ignores_an_ally_selection_and_hits_every_living_enemy", func():
 		var combat := _multi_enemy_combat([{ "hp": 50 }, { "hp": 50 }], [_test_ally(20, 20)])
-		GameState.state["player"]["inventory"]["blackHole"] = { "1": 1 }
+		_equip_slot(0, "blackHole")
 		GameState.state["player"]["craftingSkill"] = 1
 		Combat.set_selection("ally", 0)
 
@@ -3502,16 +3522,73 @@ func run() -> void:
 		assert_eq(combat["enemies"][1]["hp"], 42)
 	)
 
-	run_case("has_usable_item_follows_the_selection", func():
+	run_case("settlement_refills_used_slots_from_the_highest_tier_slot_one_first", func():
+		_fresh_combat()
+		var player: Dictionary = GameState.state["player"]
+		_equip_slot(0, "blast")
+		_equip_slot(1, "blast")
+		player["inventory"]["blast"] = { "1": 1, "3": 1, "2": 1 }
+		Combat.use_blast(0)
+		Combat.use_blast(1)
+		assert_eq(Loadout.slot(0), null, "no mid-fight refill")
+		assert_eq(Loadout.slot(1), null, "no mid-fight refill")
+		GameState.state["combat"]["outcome"] = "win"
+		Combat.exit_combat()
+		assert_eq(Loadout.slot(0), { "recipe": "blast", "tier": 3 }, "slot 1 takes the best tier")
+		assert_eq(Loadout.slot(1), { "recipe": "blast", "tier": 2 })
+		assert_eq(Crafting.inventory_qty("blast"), 1)
+	)
+
+	run_case("settlement_partial_and_failed_refill_leave_slots_empty_and_later_stock_does_not_fill", func():
+		_fresh_combat()
+		var player: Dictionary = GameState.state["player"]
+		_equip_slot(0, "blast")
+		_equip_slot(1, "timePearl")
+		player["inventory"]["blast"] = { "1": 1 }
+		Combat.use_blast(0)
+		Combat.use_time_pearl(1)
+		GameState.state["combat"]["outcome"] = "fled"
+		Combat.exit_combat()
+		assert_eq(Loadout.slot(0)["recipe"], "blast", "refilled")
+		assert_eq(Loadout.slot(1), null, "no pearl in stock -- stays empty")
+		Crafting.inventory_add("timePearl", 1, 2)
+		assert_eq(Loadout.slot(1), null, "later stock does not auto-fill")
+	)
+
+	run_case("unused_units_stay_equipped_and_rewind_refunds_nothing", func():
+		_fresh_combat()
+		_equip_slot(0, "rewind")
+		_equip_slot(1, "shield", 2)
+		Combat.push_combat_snapshot()
+		assert_true(Combat.use_slot(0)["ok"])
+		assert_eq(Loadout.slot(0), null, "rewind spent its slot")
+		assert_eq(Crafting.inventory_qty("rewind"), 0, "no refund")
+		GameState.state["combat"]["outcome"] = "loss"
+		Combat.exit_combat()
+		assert_eq(Loadout.slot(1), { "recipe": "shield", "tier": 2 }, "unused unit retained")
+		assert_eq(Loadout.slot(0), null, "no stock to refill")
+	)
+
+	run_case("slot_block_reason_follows_the_slot_and_selection", func():
 		_multi_enemy_combat([{ "hp": 50 }], [_test_ally(20, 20)])
 		var player: Dictionary = GameState.state["player"]
 		player["dial"] = null
-		player["inventory"]["shield"] = { "1": 1 }
-		assert_true(Combat.has_usable_item(player), "Shield is usable with an enemy selected")
+		assert_eq(Combat.slot_block_reason(0), Combat.REASON_SLOT_EMPTY)
+		_equip_slot(0, "shield")
+		assert_eq(Combat.slot_block_reason(0), "", "Shield is usable with an enemy selected")
+		player["shieldPool"] = 5
+		assert_eq(Combat.slot_block_reason(0), Combat.REASON_SHIELD_UP)
+		player["shieldPool"] = 0
 		Combat.set_selection("ally", 0)
-		assert_true(not Combat.has_usable_item(player), "only a self-only item in the bag and an ally selected -> nothing usable")
-		player["inventory"]["healingBurst"] = { "1": 1 }
-		assert_true(Combat.has_usable_item(player), "Healing Burst is ally-targetable")
+		assert_eq(Combat.slot_block_reason(0), Combat.REASON_SELF_ONLY, "a self-only item with an ally selected")
+		_equip_slot(1, "healingBurst")
+		assert_eq(Combat.slot_block_reason(1), "", "Healing Burst is ally-targetable")
+		_equip_slot(1, "failsafe")
+		assert_eq(Combat.slot_block_reason(1), Combat.REASON_SLOT_REACTIVE)
+		_equip_slot(1, "rewind")
+		assert_eq(Combat.slot_block_reason(1), Combat.REASON_NOTHING_TO_UNDO)
+		Combat.push_combat_snapshot()
+		assert_eq(Combat.slot_block_reason(1), "")
 	)
 
 	# ── combat-refining 12: KO / reorder / outcome / Rewind coherence ──
@@ -3557,8 +3634,8 @@ func run() -> void:
 		var combat := _multi_enemy_combat([{ "hp": 500, "speed": 12 }, { "hp": 500, "speed": 1 }])
 		combat["enemies"][0]["ability"] = { "id": "test_ability", "lockedTurns": 0 }
 		var player: Dictionary = GameState.state["player"]
-		player["inventory"]["timePearl"] = { "1": 1 }
-		player["inventory"]["enhancementPowder"] = { "1": 1 }
+		_equip_slot(0, "timePearl")
+		_equip_slot(1, "enhancementPowder")
 		Rng.set_seed(1)
 		Combat.prime_decision_point(combat)
 		_assert_projection_coherent(combat, "fresh round")
@@ -3593,7 +3670,7 @@ func run() -> void:
 		assert_eq(Combat.project_queue(loss), [], "nothing is coming after a loss")
 
 		var fled := _multi_enemy_combat([{ "hp": 500, "speed": 1 }])
-		GameState.state["player"]["inventory"]["wormhole"] = { "1": 1 }
+		_equip_slot(0, "wormhole")
 		Combat.use_wormhole()
 		assert_eq(fled["outcome"], "fled", "sanity")
 		assert_eq(Combat.project_queue(fled), [], "nothing is coming after fleeing")
@@ -3609,7 +3686,7 @@ func run() -> void:
 		Combat.player_attack()  # oldest snapshot on the (max-2) stack after the next one
 		Combat.set_selection("enemy", 0)
 		Combat.player_attack()
-		GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
+		_equip_slot(0, "rewind")
 
 		assert_true(Combat.combat_rewind()["ok"], "sanity: rewind resolves")
 
@@ -3625,7 +3702,7 @@ func run() -> void:
 		Combat.push_combat_snapshot()
 		combat["allies"][0]["koed"] = true  # KO'd after the snapshot; Rewind never revives it (R§3.9)
 		Combat.clamp_selection(combat)
-		GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
+		_equip_slot(0, "rewind")
 
 		Combat.combat_rewind()
 
@@ -3635,7 +3712,7 @@ func run() -> void:
 
 	run_case("a_failsafe_mid_round_stops_the_engine_at_the_restored_decision_point", func():
 		var combat := _multi_enemy_combat([{ "hp": 500, "speed": 1, "attackMin": 999, "attackMax": 999 }, { "hp": 500, "speed": 1, "attackMin": 999, "attackMax": 999 }])
-		GameState.state["player"]["inventory"]["failsafe"] = { "1": 1 }
+		_equip_slot(0, "failsafe")
 		Combat.prime_decision_point(combat)
 		var cursor_before: Dictionary = combat["turnCursor"].duplicate(true)
 		var hp_before: int = GameState.state["player"]["hp"]
@@ -3652,10 +3729,10 @@ func run() -> void:
 	run_case("a_failsafe_from_a_failed_flees_parting_shot_does_not_spend_the_restored_turn", func():
 		var flee_seed := SeedSearch.find_seed_for(200, func():
 			var c := _multi_enemy_combat([{ "hp": 500, "speed": 1, "attackMin": 999, "attackMax": 999 }])
-			GameState.state["player"]["inventory"]["failsafe"] = { "1": 1 }
+			_equip_slot(0, "failsafe")
 			Combat.prime_decision_point(c)
 			Combat.flee()
-			return Crafting.inventory_qty("failsafe") == 0 and c["outcome"] == null
+			return _equipped_qty("failsafe") == 0 and c["outcome"] == null
 		)
 		assert_true(flee_seed != -1, "should find a seed where the flee fails and its parting shot trips the failsafe")
 		var combat: Dictionary = GameState.state["combat"]

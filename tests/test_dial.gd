@@ -854,6 +854,7 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["player"]["craftingSkill"] = 3
 		Crafting.inventory_add("blast", 3, 1)
+		Loadout.equip(0, "blast", 3)
 		GameState.state["combat"] = {
 			"active": true, "context": Combat.CONTEXT_MUGGING, "veinId": null,
 			"enemies": [{ "name": "Test Enemy", "hp": 100, "hpMax": 100, "attackMin": 5, "attackMax": 5, "isMugging": true, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false }],
@@ -872,12 +873,13 @@ func run() -> void:
 		GameState.state["player"]["movementInventory"] = [{ "archetype": "impact", "oreType": "physics", "tier": 5 }]
 		Dial.seat_movement(0)
 
-		Combat.use_blast()
+		var used := Combat.use_blast()
+		assert_true(used["ok"], "sanity: blast resolved: %s" % [used])
 
 		var expected_power: int = Crafting.effect_power("blast", 3)
 		var enemy: Dictionary = GameState.state["combat"]["enemies"][0]
 		assert_eq(enemy["hp"], 100 - expected_power, "direct-thrown Blast must deal exactly its unamplified effect_power, ignoring the seated Impact Movement entirely")
-		assert_eq(Crafting.inventory_qty("blast"), 0, "throwing directly still destroys the unit, exactly as before this PRD")
+		assert_eq(Loadout.slot(0), null, "throwing directly still destroys the unit, exactly as before this PRD")
 	)
 
 	# ── ticket 05: tier-5 Recharge Movement's in-combat regen ────────────

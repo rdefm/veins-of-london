@@ -270,6 +270,8 @@ func new_game_state() -> Dictionary:
 			"selection": { "type": "enemy", "index": 0 }, "log": [],
 			"outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 			"evadeTurns": 0, "evadeChance": 0.0, "onWin": null, "snapshots": [], "beatsSinceSnapshot": [],
+			# Loadout slot indices spent this fight; Combat.exit_combat() refills them.
+			"slotsUsed": [],
 			# Allies fighting alongside the player this combat (see
 			# Contacts.build_combat_ally) — empty outside vein-defense fights.
 			"allies": [],

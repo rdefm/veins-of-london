@@ -128,36 +128,7 @@ func run() -> void:
 		drawer.free()
 	)
 
-	run_case("combat_drawer_lists_only_in_stock_combat_item_buttons", func():
-		GameState.reset()
-		Bag.open()
-		GameState.state["combat"]["active"] = true
-		var player: Dictionary = GameState.state["player"]
-		player["inventory"]["timePearl"] = { "1": 1 }
-		player["inventory"]["shield"] = { "1": 2 }
-		player["inventory"]["blast"] = { "1": 0 }
-		player["inventory"]["healingSalve"] = { "1": 1 }
-		player["shieldPool"] = 5
-
-		var drawer := BagDrawer.new()
-		drawer._ready()
-
-		var labels := _non_button_texts(drawer)
-		for absent in ["Ore", "Consumables", "Equipped", "Weapon: none equipped", "Dial: none", "Healing Salve", "Blast"]:
-			assert_true(not labels.contains(absent), "combat drawer shows no '%s'" % absent)
-
-		var buttons := _button_effective_texts(drawer)
-		assert_eq(buttons.size(), 3, "only Time Pearl, Shield and Close: %s" % [buttons])
-		assert_true(buttons[0].contains("Time Pearl (1)"), "in-stock Time Pearl gets a use button")
-		assert_true(buttons[1].contains("Shield (2)"), "in-stock Shield gets a use button")
-		assert_eq(buttons[2], "Close", "Close footer stays")
-		var shield_button := NodeQuery.find_button_by_effective_text(drawer, buttons[1])
-		assert_true(shield_button.disabled, "Shield greyed while shieldPool > 0")
-
-		drawer.free()
-	)
-
-	run_case("combat_item_uses_are_greyed_while_beats_play_and_live_again_after", func():
+	run_case("combat_drawer_is_read_only_stock_with_no_use_buttons", func():
 		GameState.reset()
 		Bag.open()
 		GameState.state["combat"]["active"] = true
@@ -165,20 +136,21 @@ func run() -> void:
 		var player: Dictionary = GameState.state["player"]
 		player["inventory"]["timePearl"] = { "1": 1 }
 		player["inventory"]["rewind"] = { "1": 1 }
+		player["inventory"]["healingBurst"] = { "1": 1 }
 
 		var drawer := BagDrawer.new()
 		drawer._ready()
 
-		EventBus.combat_playback_changed.emit(true)
-		for label in ["Time Pearl (1)", "Rewind (1)"]:
-			assert_true(_latest_button_containing(drawer, label).disabled, "%s greyed during playback" % label)
-
-		EventBus.combat_playback_changed.emit(false)
-		for label in ["Time Pearl (1)", "Rewind (1)"]:
-			assert_true(not _latest_button_containing(drawer, label).disabled, "%s live again after playback" % label)
+		var labels := _non_button_texts(drawer)
+		assert_true(labels.contains("Consumables"), "combat drawer still lists stock")
+		var buttons := _button_effective_texts(drawer)
+		assert_eq(buttons, ["Close"], "no combat use buttons: %s" % [buttons])
+		assert_true(Loadout.equip(0, "timePearl", 1)["ok"] == false, "no loadout change mid-fight")
+		assert_eq(Loadout.slot(0), null)
 
 		drawer.free()
 	)
+
 
 	run_case("item_hook_event_drawer_keeps_the_full_read_only_view", func():
 		GameState.reset()
