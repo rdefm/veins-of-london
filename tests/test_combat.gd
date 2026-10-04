@@ -3774,20 +3774,20 @@ func run() -> void:
 
 	run_case("a_raider_heals_the_most_hurt_enemy_below_40_percent_instead_of_attacking", func():
 		var combat := _multi_enemy_combat([{ "hp": 50, "attackMin": 5, "attackMax": 5 }, { "hp": 10, "hpMax": 50 }])
-		combat["raiderKit"] = { "tier": 2, "items": { "healingBurst": 1 }, "used": {} }
+		combat["raiderKit"] = { "items": { "healingBurst": { "2": 1 } }, "used": {} }
 		var hp_before: int = GameState.state["player"]["hp"]
 		var beats: Array = []
 		Combat._enemy_turn(combat, combat["enemies"][0], 0, beats)
 		assert_eq(combat["enemies"][1]["hp"], 10 + int(GameData.RECIPES["healingBurst"]["effectPower"][2]))
 		assert_eq(GameState.state["player"]["hp"], hp_before, "the heal replaces the attack")
-		assert_eq(combat["raiderKit"]["items"]["healingBurst"], 0)
-		assert_eq(combat["raiderKit"]["used"], { "healingBurst": 1 })
+		assert_true(not combat["raiderKit"]["items"].has("healingBurst"))
+		assert_eq(combat["raiderKit"]["used"], { "healingBurst": { "2": 1 } })
 		assert_eq(beats[-1]["kind"], Combat.BEAT_ENEMY_ITEM)
 	)
 
 	run_case("a_raider_with_nobody_hurt_does_not_spend_a_heal", func():
 		var combat := _multi_enemy_combat([{ "hp": 50, "attackMin": 5, "attackMax": 5 }])
-		combat["raiderKit"] = { "tier": 2, "items": { "healingSalve": 1 }, "used": {} }
+		combat["raiderKit"] = { "items": { "healingSalve": { "2": 1 } }, "used": {} }
 		var hp_before: int = GameState.state["player"]["hp"]
 		Combat._enemy_turn(combat, combat["enemies"][0], 0, [])
 		assert_eq(combat["raiderKit"]["used"], {})
@@ -3796,11 +3796,11 @@ func run() -> void:
 
 	run_case("a_raider_shield_absorbs_the_players_attack", func():
 		var combat := _multi_enemy_combat([{ "hp": 50 }])
-		combat["raiderKit"] = { "tier": 2, "items": { "shield": 1 }, "used": {} }
+		combat["raiderKit"] = { "items": { "shield": { "2": 1 } }, "used": {} }
 		Combat._enemy_turn(combat, combat["enemies"][0], 0, [])
 		var pool: int = int(GameData.RECIPES["shield"]["effectPower"][2])
 		assert_eq(combat["enemies"][0]["shieldPool"], pool)
-		assert_eq(combat["raiderKit"]["used"], { "shield": 1 })
+		assert_eq(combat["raiderKit"]["used"], { "shield": { "2": 1 } })
 		var extra := {}
 		Combat._hit_enemy(combat["enemies"][0], pool + 3, extra)
 		assert_eq(combat["enemies"][0]["hp"], 47, "only damage past the shield reaches hp")
@@ -3811,7 +3811,7 @@ func run() -> void:
 
 	run_case("a_raider_blasts_the_player_in_place_of_attacking_even_while_evading", func():
 		var combat := _multi_enemy_combat([{ "hp": 50, "attackMin": 1, "attackMax": 1 }])
-		combat["raiderKit"] = { "tier": 2, "items": { "blast": 2 }, "used": {} }
+		combat["raiderKit"] = { "items": { "blast": { "1": 1, "2": 1 } }, "used": {} }
 		combat["evadeTurns"] = 2
 		combat["evadeChance"] = 1.0
 		GameState.state["player"]["hpMax"] = 100
@@ -3820,15 +3820,15 @@ func run() -> void:
 		var beats: Array = []
 		Combat._enemy_turn(combat, combat["enemies"][0], 0, beats)
 		assert_eq(GameState.state["player"]["hp"], 100 - int(GameData.RECIPES["blast"]["effectPower"][2]))
-		assert_eq(combat["raiderKit"]["items"]["blast"], 1)
-		assert_eq(combat["raiderKit"]["used"], { "blast": 1 })
+		assert_eq(combat["raiderKit"]["items"]["blast"], { "1": 1 }, "the tier-2 unit went first")
+		assert_eq(combat["raiderKit"]["used"], { "blast": { "2": 1 } })
 		assert_eq(beats[-1]["kind"], Combat.BEAT_ENEMY_ITEM)
 		assert_eq(beats[-1]["effectKey"], "blast")
 	)
 
 	run_case("a_raider_with_an_empty_kit_attacks_as_normal", func():
 		var combat := _multi_enemy_combat([{ "hp": 50, "attackMin": 5, "attackMax": 5 }])
-		combat["raiderKit"] = { "tier": 2, "items": {}, "used": {} }
+		combat["raiderKit"] = { "items": {}, "used": {} }
 		var hp_before: int = GameState.state["player"]["hp"]
 		Combat._enemy_turn(combat, combat["enemies"][0], 0, [])
 		assert_eq(GameState.state["player"]["hp"], hp_before - 5)

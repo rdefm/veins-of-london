@@ -588,6 +588,37 @@ func run() -> void:
 			assert_eq(FactionSim.reserve("firm", "consumable", recipe_key) - int(control[recipe_key]), int(kit[recipe_key]), "%s kept back for the raid" % recipe_key)
 	)
 
+	run_case("raider_kit_is_capped_by_two_units_per_raider_and_authored_quantities", func():
+		GameState.reset()
+		GameState.state["factions"]["firm"]["holdings"]["items"] = { "blast": { "1": 9 }, "healingBurst": { "1": 9 } }
+		var wanted: Dictionary = GameData.FACTIONS["firm"]["raidKits"]["attack"]
+		var full: Dictionary = GuardKit.recipe_totals(FactionSim.raider_kit("firm", "attack")["items"])
+		assert_eq(full, wanted, "no roster cap: authored quantities, not holdings")
+		var one_raider: Dictionary = FactionSim.raider_kit("firm", "attack", 1)["items"]
+		assert_eq(GuardKit.unit_count(one_raider), 2, "one raider carries at most two units")
+		var big_roster: Dictionary = GuardKit.recipe_totals(FactionSim.raider_kit("firm", "attack", 5)["items"])
+		assert_eq(big_roster, wanted, "a big roster never beats the authored quantities")
+	)
+
+	run_case("raider_kit_takes_the_highest_tier_first_and_breaks_ties_with_the_seeded_rng", func():
+		GameState.reset()
+		GameState.state["factions"]["firm"]["holdings"]["items"] = { "blast": { "1": 2, "3": 1 }, "healingBurst": { "2": 1 } }
+		var kit: Dictionary = FactionSim.raider_kit("firm", "attack", 1)["items"]
+		assert_eq(kit, { "blast": { "3": 1 }, "healingBurst": { "2": 1 } }, "tier 3 blast, then tier 2 burst, before any tier 1 blast")
+		GameState.state["factions"]["firm"]["holdings"]["items"] = { "blast": { "2": 2 }, "healingBurst": { "2": 2 } }
+		Rng.set_seed(11)
+		var first: Dictionary = FactionSim.raider_kit("firm", "attack", 1)["items"]
+		Rng.set_seed(11)
+		assert_eq(FactionSim.raider_kit("firm", "attack", 1)["items"], first, "same seed, same tie-break")
+	)
+
+	run_case("settle_raider_kit_removes_used_units_by_tier_and_leaves_the_rest", func():
+		GameState.reset()
+		GameState.state["factions"]["firm"]["holdings"]["items"] = { "blast": { "1": 2, "3": 1 } }
+		FactionSim.settle_raider_kit("firm", { "blast": { "3": 1, "1": 1 } })
+		assert_eq(GameState.state["factions"]["firm"]["holdings"]["items"], { "blast": { "1": 1 } })
+	)
+
 	run_case("a_ticker_hint_on_a_good_raises_reserves_of_it", func():
 		var hoard: int = int(GameData.FACTION_ESCALATION["smartReserves"]["hintHoardQty"])
 		GameState.reset()

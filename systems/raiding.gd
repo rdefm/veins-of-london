@@ -290,10 +290,11 @@ static func _stock_value(kind: String, good_type: String, qty: int) -> float:
 
 
 # Settles a stockpile raid's fight (Combat.exit_combat()): the faction is
-# billed the defend-kit items its guards used; a lost fight is the player's
+# stripped of the defend-kit units its guards used, at once (no daily burn);
+# a lost fight is the player's
 # failed raid, which still brings the raid's consequences.
 static func resolve_stockpile_fight(faction_id: String, won: bool, guard_items_used: Dictionary = {}) -> void:
-	FactionSim.log_kit_burn_items(faction_id, "defend", "stockpileRaid", guard_items_used)
+	FactionSim.settle_raider_kit(faction_id, guard_items_used)
 	if won:
 		FactionAI.note_fight_lost(faction_id, Shares.PLAYER)
 		return
@@ -813,12 +814,12 @@ static func trigger_defend(vein_id: String) -> bool:
 	return true
 
 
-# The raiders carry the attacker's attack kit, capped by its holdings; what
-# they use is billed by resolve_defend_outcome(), in place of the full-kit
-# burn every unfought raid logs.
+# The raiders carry the attacker's attack kit (Combat.start_defend_vein sizes
+# it by the roster); what they use leaves its stock in resolve_defend_outcome(),
+# in place of the full-kit burn every unfought raid logs.
 static func _start_defend_combat(outcome: Dictionary, vein: Dictionary) -> void:
 	GameState.state["world"]["activeDefendRaid"] = outcome
-	Combat.start_defend_vein(vein["id"], Cultivating.combined_magnitude(vein), FactionSim.raider_kit(outcome["attackerId"], "attack"), Partners.defence_helpers(outcome["attackerId"]))
+	Combat.start_defend_vein(vein["id"], Cultivating.combined_magnitude(vein), outcome["attackerId"], Partners.defence_helpers(outcome["attackerId"]))
 
 
 # The committed "Leave undefended" path. The caller supplies the
@@ -853,7 +854,7 @@ static func resolve_defend_outcome(won: bool, raider_items_used: Dictionary = {}
 	var outcome: Variant = GameState.state["world"]["activeDefendRaid"]
 	GameState.state["world"]["activeDefendRaid"] = null
 	if outcome != null:
-		FactionSim.log_kit_burn_items(outcome["attackerId"], "attack", "raid", raider_items_used)
+		FactionSim.settle_raider_kit(outcome["attackerId"], raider_items_used)
 	if outcome != null and won:
 		FactionAI.note_fight_lost(outcome["attackerId"], Shares.PLAYER)
 	elif outcome != null:

@@ -308,18 +308,68 @@ static func log_kit_burn_items(faction_id: String, kit: String, source: String, 
 	})
 
 
-# The raider kit a defended raid's squad carries into combat: the faction's
-# `kit` from raidKits, each item capped by what it holds (all tiers), with
-# items it holds none of left out. `tier` is the faction's craftSkill, which
-# sets item power the way the player's craftingSkill does.
-static func raider_kit(faction_id: String, kit: String) -> Dictionary:
-	var items := {}
+const RAIDER_KIT_UNITS_PER_RAIDER := 2
+
+
+# The raider kit a squad carries into combat, a shared pool shaped like a
+# guard kit ({ items: { recipe: { "<tier>": qty } }, used: {} }). Per recipe
+# the faction's `kit` from raidKits caps units at min(authored qty, held);
+# the pool holds at most 2 units per raider in the full roster
+# (`raider_count`; < 0 = no roster cap). Units are picked highest tier first
+# (a recipe's best bucket), ties broken by Rng. Nothing leaves stock until
+# settle_raider_kit().
+static func raider_kit(faction_id: String, kit: String, raider_count: int = -1) -> Dictionary:
 	var wanted: Dictionary = GameData.FACTIONS[faction_id].get("raidKits", {}).get(kit, {})
+	var buckets := {}
+	var quota := {}
 	for recipe_key in wanted:
-		var qty := mini(int(wanted[recipe_key]), item_held(faction_id, recipe_key))
+		var held_buckets: Dictionary = _holdings(faction_id)["items"].get(recipe_key, {})
+		var copy := {}
+		for tier_key in held_buckets:
+			if int(held_buckets[tier_key]) > 0:
+				copy[str(tier_key)] = int(held_buckets[tier_key])
+		var qty := mini(int(wanted[recipe_key]), GuardKit.unit_count({ recipe_key: copy }))
 		if qty > 0:
-			items[recipe_key] = qty
-	return { "tier": int(GameData.FACTIONS[faction_id].get("craftSkill", 1)), "items": items, "used": {} }
+			buckets[recipe_key] = copy
+			quota[recipe_key] = qty
+	var cap: int = 1 << 30 if raider_count < 0 else RAIDER_KIT_UNITS_PER_RAIDER * raider_count
+	var items := {}
+	var picked := 0
+	while picked < cap and not quota.is_empty():
+		var best_tier := -1
+		var best: Array = []
+		for recipe_key in quota:
+			var tier := int(GuardKit.highest_tier_key(buckets[recipe_key]))
+			if tier > best_tier:
+				best_tier = tier
+				best = [recipe_key]
+			elif tier == best_tier:
+				best.append(recipe_key)
+		var chosen: String = best[0] if best.size() == 1 else Rng.rand_from(best)
+		var tier_key := str(best_tier)
+		buckets[chosen][tier_key] = int(buckets[chosen][tier_key]) - 1
+		if not (items.get(chosen) is Dictionary):
+			items[chosen] = {}
+		items[chosen][tier_key] = int(items[chosen].get(tier_key, 0)) + 1
+		quota[chosen] = int(quota[chosen]) - 1
+		if quota[chosen] <= 0:
+			quota.erase(chosen)
+		picked += 1
+	return { "items": items, "used": {} }
+
+
+# Takes the units a fight's raiders used (a raider_kit "used" pool) out of the
+# faction's stock at once, tier for tier, so the daily consume() never bills
+# them again. Clamped at what is held. No emit.
+static func settle_raider_kit(faction_id: String, used: Dictionary) -> void:
+	for recipe_key in used:
+		var buckets: Dictionary = _holdings(faction_id)["items"].get(recipe_key, {})
+		for tier_key in used[recipe_key]:
+			var left := int(buckets.get(tier_key, 0)) - int(used[recipe_key][tier_key])
+			if left > 0:
+				buckets[tier_key] = left
+			else:
+				buckets.erase(tier_key)
 
 
 static func consume() -> void:

@@ -1407,15 +1407,14 @@ func run() -> void:
 		var vein := _player_vein_of(30, "life", "guarded", "shoreditch")
 		GameState.state["player"]["veins"] = [vein]
 		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
-		GameState.state["factions"]["firm"]["holdings"]["items"]["blast"] = { "0": 1 }
+		GameState.state["factions"]["firm"]["holdings"]["items"]["blast"] = { "3": 1 }
 		GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true }]
 		assert_true(Raiding.trigger_defend("pv_test"))
 		var kit: Dictionary = GameState.state["combat"]["raiderKit"]
-		assert_eq(kit["items"], { "blast": 1, "healingBurst": 1 }, "blast capped at the 1 held; healingBurst's kit of 1 is covered")
-		assert_eq(kit["tier"], int(GameData.FACTIONS["firm"]["craftSkill"]))
+		assert_eq(kit["items"], { "blast": { "3": 1 }, "healingBurst": { "1": 1 } }, "blast capped at the 1 held, at its tier; healingBurst's kit of 1 is covered")
 	)
 
-	run_case("a_defended_raid_bills_the_attacker_only_the_items_its_raiders_used", func():
+	run_case("a_defended_raid_takes_only_the_units_its_raiders_used_from_stock_at_once", func():
 		GameState.reset()
 		Rng.set_seed(3)
 		var vein := _player_vein_of(30, "life", "guarded", "shoreditch")
@@ -1430,14 +1429,16 @@ func run() -> void:
 			if not combat["raiderKit"]["used"].is_empty() or combat["outcome"] != null:
 				break
 			Combat.player_attack()
-		var used: Dictionary = combat["raiderKit"]["used"].duplicate()
+		var used: Dictionary = combat["raiderKit"]["used"].duplicate(true)
 		assert_true(not used.is_empty(), "the raiders spend a Blast within a few rounds")
+		var held_before := {}
+		for recipe_key in used:
+			held_before[recipe_key] = FactionSim.item_held("firm", recipe_key)
 		combat["outcome"] = "win"
 		Combat.exit_combat()
-		var burns: Array = GameState.state["factions"]["firm"]["kitBurns"]
-		assert_eq(burns.size(), 1, "one burn for the fight, no full-kit burn on top")
-		assert_eq(burns[0]["items"], used)
-		assert_true(burns[0]["items"] != GameData.FACTIONS["firm"]["raidKits"]["attack"], "not the whole kit")
+		assert_eq(GameState.state["factions"]["firm"]["kitBurns"], [], "no burn logged: the daily consume cannot bill them again")
+		for recipe_key in used:
+			assert_eq(FactionSim.item_held("firm", recipe_key), held_before[recipe_key] - GuardKit.unit_count({ recipe_key: used[recipe_key] }), "used units left stock now")
 	)
 
 	run_case("maybe_trigger_defend_starts_combat_and_pops_the_matching_pending_entry", func():
@@ -1759,23 +1760,23 @@ func run() -> void:
 
 		var combat: Dictionary = GameState.state["combat"]
 		assert_eq([combat["context"], combat["enemies"].size(), combat["stockpileFactionId"]], [Combat.CONTEXT_EVENT_RAID, 2, "firm"])
-		assert_eq(combat["raiderKit"]["items"], { "shield": 2 }, "the defend kit, capped by holdings")
+		assert_eq(combat["raiderKit"]["items"], { "shield": { "2": 2 } }, "the defend kit, highest tier first")
 		assert_eq(combat["locationKey"], GameState.state["factions"]["firm"]["stockpile"]["district"])
 	)
 
-	run_case("losing_a_stockpile_fight_bills_the_used_kit_and_still_costs_relation_and_the_location", func():
+	run_case("losing_a_stockpile_fight_takes_the_used_kit_from_stock_and_still_costs_relation_and_the_location", func():
 		GameState.reset()
 		_stock_firm()
 		_set_player_intel("firm", Intel.level_at(Intel.STOCKPILE_LOCATION))
 		var relation_before: int = GameState.state["factions"]["firm"]["relation"]
 		Combat.start_stockpile_raid("firm", 2, 1)
-		GameState.state["combat"]["raiderKit"]["used"] = { "shield": 1 }
+		GameState.state["combat"]["raiderKit"]["used"] = { "shield": { "2": 1 } }
 		GameState.state["combat"]["outcome"] = "loss"
 
 		Combat.exit_combat()
 
-		var burns: Array = GameState.state["factions"]["firm"]["kitBurns"]
-		assert_eq([burns[-1]["kit"], burns[-1]["items"]], ["defend", { "shield": 1 }], "only the used defend kit is billed")
+		assert_eq(GameState.state["factions"]["firm"]["holdings"]["items"]["shield"], { "2": 2, "0": 2 }, "only the used unit left stock")
+		assert_eq(GameState.state["factions"]["firm"]["kitBurns"], [], "nothing left to bill at the daily burn")
 		assert_eq(GameState.state["factions"]["firm"]["relation"], FactionAI.clamp_relation(relation_before + int(GameData.STOCKPILE_RAID["relationHit"])))
 		assert_true(not Intel.knows(Shares.PLAYER, "firm", Intel.STOCKPILE_LOCATION), "a failed raid still moves the stockpile")
 		assert_eq(FactionSim.ore_held("firm", "time"), 100, "nothing stolen")

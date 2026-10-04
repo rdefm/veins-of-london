@@ -411,7 +411,7 @@ static func start_stockpile_raid(faction_id: String, value_tier: int, guards: in
 	var enemies := generate_raid_enemy(null, value_tier, guards, template_key)
 	var log_lines := ["%s steps out to meet you." % _guard_group_name(enemies)]
 	var allies := _gather_raid_allies(ally_ids, log_lines)
-	_start_combat(CONTEXT_EVENT_RAID, null, enemies, log_lines, "raidWon", allies, Raiding.stockpile_district(faction_id), FactionSim.raider_kit(faction_id, "defend"))
+	_start_combat(CONTEXT_EVENT_RAID, null, enemies, log_lines, "raidWon", allies, Raiding.stockpile_district(faction_id), FactionSim.raider_kit(faction_id, "defend", enemies.size()))
 	GameState.state["combat"]["stockpileFactionId"] = faction_id
 
 
@@ -431,11 +431,13 @@ static func _gather_raid_allies(ally_ids: Array, log_lines: Array) -> Array:
 # The alarm-upgrade defend encounter, called by Raiding.maybe_trigger_defend()
 # once the player travels into the vein's district within the pending
 # window. onWin is "" -- a loss is handled by Raiding.resolve_defend_outcome().
-# `raider_kit` is FactionSim.raider_kit()'s shape, the squad's shared item
-# pool ({} for none); see _enemy_try_item(). partner_ids: partner factions
+# attacker_id's attack kit becomes the squad's shared item pool, sized by the
+# full roster (FactionSim.raider_kit(); "" = none); see _enemy_try_item().
+# partner_ids: partner factions
 # sending a fighter (Partners.defence_helpers), joining after contacts.
-static func start_defend_vein(vein_id: String, value_tier: int, raider_kit: Dictionary = {}, partner_ids: Array = []) -> void:
+static func start_defend_vein(vein_id: String, value_tier: int, attacker_id: String = "", partner_ids: Array = []) -> void:
 	var enemies := generate_raid_enemy(vein_id, value_tier)
+	var raider_kit: Dictionary = {} if attacker_id == "" else FactionSim.raider_kit(attacker_id, "attack", enemies.size())
 	var log_lines := ["The alarm wasn't lying. %s is already there." % _guard_group_name(enemies)]
 	# Act 2 T8a's pre-fight reminder (spec §5.1/§6.8a): one Nadia-voiced line,
 	# prepended only for the vein col_a2_nadia_defend is watching, only once.
@@ -1506,37 +1508,38 @@ const RAIDER_HEAL_ITEMS: Array[String] = ["healingBurst", "healingSalve"]
 # spends one kit item: a heal on the most-hurt living enemy below
 # ALLY_HEAL_THRESHOLD_FRACTION; a Shield on itself while it has none up; a
 # Blast on its attack target in place of the attack (no evade roll). Power is
-# the recipe's effectPower at the kit's tier. Spent items tally in
-# raiderKit.used, billed to the attacker by Raiding.resolve_defend_outcome().
+# the recipe's effectPower at the spent unit's tier (highest tier first, as
+# _spend_guard_item()). Spent units tally in raiderKit.used and leave the
+# faction's stock at exit_combat()'s settlement.
 static func _enemy_try_item(combat: Dictionary, enemy: Dictionary, enemy_index: int, beats: Variant) -> bool:
 	var kit: Dictionary = combat.get("raiderKit", {})
 	if kit.is_empty():
 		return false
 
 	for recipe_key in RAIDER_HEAL_ITEMS:
-		if int(kit["items"].get(recipe_key, 0)) <= 0:
+		if not _guard_pool_has(kit, recipe_key):
 			continue
 		var hurt_index := _most_hurt_enemy(combat)
 		if hurt_index == -1:
 			break
 		var healed: Dictionary = combat["enemies"][hurt_index]
 		var old_hp: int = healed["hp"]
-		healed["hp"] = mini(healed["hpMax"], old_hp + _spend_raider_item(kit, recipe_key))
+		healed["hp"] = mini(healed["hpMax"], old_hp + _spend_guard_item(kit, recipe_key))
 		var who: String = "themselves" if hurt_index == enemy_index else healed["name"]
 		# PROSE-REVIEW: raider heal line.
 		_log(combat, beats, "%s slaps a %s on %s. +%d HP." % [enemy["name"], GameData.RECIPES[recipe_key]["name"], who, healed["hp"] - old_hp], BEAT_ENEMY_ITEM,
 			{ "actorType": "enemy", "actorIndex": enemy_index, "targetType": "enemy", "targetIndex": hurt_index, "effectKey": recipe_key })
 		return true
 
-	if int(kit["items"].get("shield", 0)) > 0 and int(enemy.get("shieldPool", 0)) <= 0:
-		enemy["shieldPool"] = _spend_raider_item(kit, "shield")
+	if _guard_pool_has(kit, "shield") and int(enemy.get("shieldPool", 0)) <= 0:
+		enemy["shieldPool"] = _spend_guard_item(kit, "shield")
 		# PROSE-REVIEW: raider shield line.
 		_log(combat, beats, "%s gets a shield up. %d absorption." % [enemy["name"], enemy["shieldPool"]], BEAT_ENEMY_ITEM,
 			{ "actorType": "enemy", "actorIndex": enemy_index, "targetType": "enemy", "targetIndex": enemy_index, "effectKey": "shield" })
 		return true
 
-	if int(kit["items"].get("blast", 0)) > 0:
-		var power := _spend_raider_item(kit, "blast")
+	if _guard_pool_has(kit, "blast"):
+		var power := _spend_guard_item(kit, "blast")
 		var target_index: int = _pick_enemy_target(combat)
 		if target_index == -1:
 			_enemy_attack_player(combat, enemy, enemy_index, beats, power)
@@ -1545,15 +1548,6 @@ static func _enemy_try_item(combat: Dictionary, enemy: Dictionary, enemy_index: 
 		return true
 
 	return false
-
-
-# Takes one of recipe_key out of the raider kit, tallies it as used, and
-# returns its power at the kit's tier.
-static func _spend_raider_item(kit: Dictionary, recipe_key: String) -> int:
-	kit["items"][recipe_key] = int(kit["items"][recipe_key]) - 1
-	kit["used"][recipe_key] = int(kit["used"].get(recipe_key, 0)) + 1
-	var powers: Array = GameData.RECIPES[recipe_key]["effectPower"]
-	return int(powers[clampi(int(kit["tier"]), 0, powers.size() - 1)])
 
 
 # Index of the living enemy with the lowest hp fraction below

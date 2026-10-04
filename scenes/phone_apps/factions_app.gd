@@ -170,7 +170,7 @@ func _build_intel(faction_id: String) -> Control:
 		var district: String = GameData.DISTRICTS[stockpile["district"]]["name"] if GameData.DISTRICTS.has(stockpile["district"]) else "somewhere"
 		box.add_child(UI.label("Stockpile: %s, %s" % [stockpile["place"], district]))
 	if Intel.knows(Shares.PLAYER, faction_id, Intel.STOCKPILE_SECURITY):
-		var kit: Dictionary = FactionSim.raider_kit(faction_id, "defend")["items"]
+		var kit: Dictionary = GuardKit.recipe_totals(FactionSim.raider_kit(faction_id, "defend")["items"])
 		var kit_parts: Array[String] = []
 		for recipe_key in kit:
 			kit_parts.append("%s ×%d" % [GameData.RECIPES[recipe_key]["name"], kit[recipe_key]])
