@@ -393,6 +393,9 @@ func new_game_state() -> Dictionary:
 			# The vein col_a1_hakim_meet's grant_contact_vein op hands the
 			# player, referenced by col_a1_hakim_rescue. null pre-event.
 			"hakimVeinId": null,
+			# Prospects taken while col_a1_des_sites is active; drives
+			# Collective.next_des_forced_ore_type()'s guaranteed finds.
+			"desProspectCount": 0,
 			# Last state.world.day col_hakim_intel's roll completed; 0 =
 			# never. Updated only on_complete (not at roll time), so the
 			# 3-day gap is measured from when the player read it, not when

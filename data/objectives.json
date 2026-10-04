@@ -76,7 +76,7 @@
     "title": "Find ground for the Collective",
     "detail": "One fate, one physics. Fair quality or better. Leave them unclaimed.",
     "type": "sites_discovered_matching",
-    "params": { "requireEachOreType": ["fate", "physics"], "minTier": "fair", "unclaimed": true },
+    "params": { "requireEachOreType": ["fate", "physics"], "minTier": "fair", "unclaimed": true, "forcedFinds": { "2": "fate", "4": "physics" } },
     "activateFlag": "colA1DesThreadActive",
     "completeFlag": "colA1DesSitesFound",
     "questline": "collective"

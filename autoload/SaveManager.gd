@@ -886,6 +886,7 @@ func _restore_int_types(state: Dictionary) -> void:
 			_int_key(msg, "day")
 	_int_dict_values(state.get("collective", {}).get("barkCursors", {}))
 	_int_key(state.get("collective", {}), "hakimIntelLastDay")
+	_int_key(state.get("collective", {}), "desProspectCount")
 	for intel in state.get("collective", {}).get("networkIntel", {}).values():
 		_int_key(intel, "expiresDay")
 	var firm_provocation = state.get("collective", {}).get("firmProvocation")

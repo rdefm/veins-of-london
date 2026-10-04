@@ -248,11 +248,13 @@ static func prospect(district_id: String) -> Dictionary:
 
 	TimeSystem.advance_time_block()
 
+	# Counted per block spent prospecting, so it advances even when the reroll finds nothing.
+	var forced_ore := Collective.next_des_forced_ore_type()
 	var site: Variant
 	if sites_in_district(district_id).size() >= site_cap:
-		site = _reroll_worst_unclaimed(district_id)
+		site = _reroll_worst_unclaimed(district_id, forced_ore)
 	else:
-		site = _create_site(district_id)
+		site = _create_site(district_id, false, forced_ore)
 
 	Objectives.refresh()
 	EventBus.state_changed.emit()
@@ -299,7 +301,7 @@ static func _worst_unclaimed_site(district_id: String) -> Variant:
 # place. If every site in the district is player- or NPC-claimed, there is
 # nothing eligible to reroll -- the prospect action still spends its block, but
 # nothing changes (D2 gives no fallback for this case).
-static func _reroll_worst_unclaimed(district_id: String) -> Variant:
+static func _reroll_worst_unclaimed(district_id: String, forced_ore: String = "") -> Variant:
 	var worst = _worst_unclaimed_site(district_id)
 	if worst == null:
 		return null
@@ -308,12 +310,20 @@ static func _reroll_worst_unclaimed(district_id: String) -> Variant:
 	var sites: Array = GameState.state["world"]["sites"]
 	GameState.state["world"]["sites"] = sites.filter(func(s): return s["id"] != worst_id)
 	release_slot_index(district_id, worst.get("slotIndex", 0))
-	return _create_site(district_id, true)
+	return _create_site(district_id, true, forced_ore)
 
 
-static func _create_site(district_id: String, at_cap: bool = false) -> Dictionary:
+# forced_ore (Des guaranteed find): the normal tier/ore rolls still run so the
+# Rng stream is unchanged, then the ore is overridden and the tier raised to fair.
+static func _create_site(district_id: String, at_cap: bool = false, forced_ore: String = "") -> Dictionary:
 	var tier := roll_tier_at_cap() if at_cap else roll_tier(district_id)
+	if forced_ore != "":
+		var min_tier: String = GameData.OBJECTIVES["col_a1_des_sites"]["params"]["minTier"]
+		if GameData.SITE_TIER_ORDER.find(tier) < GameData.SITE_TIER_ORDER.find(min_tier):
+			tier = min_tier
 	var site := roll_new_site(district_id, tier)
+	if forced_ore != "":
+		site["oreType"] = forced_ore
 	GameState.state["world"]["sites"].append(site)
 	MapEvents.queue_discover(district_id, site["id"])
 	Cultivating.award_xp(GameData.SITE_PROSPECT_XP[tier])

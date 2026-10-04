@@ -139,6 +139,29 @@ static func next_reportable_des_ore_type() -> String:
 	return ""
 
 
+# Counts one prospect while col_a1_des_sites is active (thread flag set, objective
+# not yet complete) and returns the ore type that prospect is guaranteed to find,
+# or "" for a normal roll. Prospect 2 forces fate, prospect 4 physics; a forced
+# type already reported to Des is skipped.
+static func next_des_forced_ore_type() -> String:
+	var flags: Dictionary = GameState.state["flags"]
+	var def: Dictionary = GameData.OBJECTIVES["col_a1_des_sites"]
+	if not flags.get(def["activateFlag"], false) or flags.get(def["completeFlag"], false):
+		return ""
+
+	var collective: Dictionary = GameState.state["collective"]
+	var count: int = collective.get("desProspectCount", 0) + 1
+	collective["desProspectCount"] = count
+
+	var ore_type: String = def["params"].get("forcedFinds", {}).get(str(count), "")
+	if ore_type == "":
+		return ""
+	var objective: Dictionary = GameState.state["objectives"].get(def["id"], {})
+	if objective.get("progress", {}).get("reportedSiteIds", {}).has(ore_type):
+		return ""
+	return ore_type
+
+
 static func _find_qualifying_des_site(ore_type: String, params: Dictionary) -> Variant:
 	for site in GameState.state["world"]["sites"]:
 		if Objectives.site_matches_discovery_params(site, ore_type, params):

@@ -6917,6 +6917,10 @@
 "detail": "One fate, one physics. Fair quality or better. Leave them unclaimed.",
 "id": "col_a1_des_sites",
 "params": {
+"forcedFinds": {
+"2": "fate",
+"4": "physics"
+},
 "minTier": "fair",
 "requireEachOreType": ["fate", "physics"],
 "unclaimed": true

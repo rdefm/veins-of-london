@@ -210,6 +210,8 @@ func _play_collective_act1_through_all_three_threads() -> void:
 	assert_true(GameState.state["flags"]["colA1SkirmishSeen"])
 	_assert_invariants("post-S5")
 
+	# The next prospect is the guaranteed physics find (4th since activation).
+	GameState.state["collective"]["desProspectCount"] = 3
 	var physics_seed := SeedSearch.find_seed_for(500, func():
 		var result := Sites.prospect("camden")
 		var site: Variant = result.get("site")
