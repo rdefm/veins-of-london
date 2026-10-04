@@ -11,8 +11,7 @@ var _kit_view: PanelContainer
 var _overlay_card: PanelContainer
 var _overlay_scroll: ScrollContainer
 var _overlay_content: VBoxContainer
-var _book_scroll := 0
-var _shown_type := ""
+var _book_box: VBoxContainer
 
 const MAX_CARD_HEIGHT := 620.0
 const BOOK_TYPE := "lab_bench_recipe_book"
@@ -43,7 +42,14 @@ func _ready() -> void:
 	_card_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_scroll.add_child(_card_content)
 
-	# Second card stacked above the first: a recipe's detail over its book.
+	# The recipe book bypasses the card: its art is the page.
+	_book_box = UI.vbox(6)
+	UI.anchor_full_rect(_book_box)
+	_book_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_book_box.visible = false
+	add_child(_book_box)
+
+	# Second card stacked above the book: a recipe's detail over its page.
 	_overlay_card = PanelContainer.new()
 	MapPalette.build_light(func(): MapCardStyle.style_panel(_overlay_card, 18, 0.16))
 	UI.anchor_center(_overlay_card)
@@ -107,15 +113,14 @@ func _refresh() -> void:
 		if sheet_type != type_id and sheet.visible:
 			sheet.call("reset_ui")
 			sheet.visible = false
-	# The book's scroll position outlives the detail and result sheets stacked
-	# on it; it resets only once every modal is closed.
-	if modal == null:
-		_book_scroll = 0
-	elif _shown_type == BOOK_TYPE or _shown_type == BOOK_DETAIL_TYPE:
-		_book_scroll = _scroll.scroll_vertical
-	_shown_type = type_id
+	var is_book := type_id == BOOK_TYPE or type_id == BOOK_DETAIL_TYPE
 	_overlay_card.visible = type_id == BOOK_DETAIL_TYPE
+	_book_box.visible = is_book
 	if modal == null:
+		return
+	if is_book:
+		_card.visible = false
+		_show_book(modal)
 		return
 	if sheets.has(type_id):
 		var sheet: PanelContainer = sheets[type_id]
@@ -140,19 +145,38 @@ func _refresh() -> void:
 	for child in _card_content.get_children():
 		child.queue_free()
 
-	for child in _overlay_content.get_children():
-		child.queue_free()
-
 	_build_modal_content(modal)
 
 	_size_card_to_content()
 	_size_card_to_content.call_deferred()
-	if type_id == BOOK_TYPE or type_id == BOOK_DETAIL_TYPE:
-		_restore_book_scroll.call_deferred()
 
 
-func _restore_book_scroll() -> void:
-	_scroll.scroll_vertical = _book_scroll
+# The book page fills the area between the bars; a tapped recipe's detail
+# stacks above it in the overlay card.
+func _show_book(modal: Dictionary) -> void:
+	for box in [_book_box, _overlay_content]:
+		for child in box.get_children():
+			box.remove_child(child)
+			child.queue_free()
+	_book_box.offset_left = 8.0
+	_book_box.offset_right = -8.0
+	_book_box.offset_top = UI.top_bar_clearance() + 8.0
+	_book_box.offset_bottom = -UI.nav_bar_clearance()
+	var data: Dictionary = modal.get("data", {})
+	MapPalette.build_light(func():
+		if modal.get("type", "") == BOOK_DETAIL_TYPE:
+			ModalRegistry.REGISTRY[BOOK_TYPE].build(_book_box, { "ore": data.get("bookOre", ""), "page": data.get("bookPage", 0) })
+			ModalRegistry.REGISTRY[BOOK_DETAIL_TYPE].build(_overlay_content, data)
+		else:
+			ModalRegistry.REGISTRY[BOOK_TYPE].build(_book_box, data)
+	)
+	_size_overlay_to_content()
+	_size_overlay_to_content.call_deferred()
+
+
+func _size_overlay_to_content() -> void:
+	if _overlay_card.visible:
+		_overlay_scroll.custom_minimum_size.y = minf(_overlay_content.get_combined_minimum_size().y, MAX_CARD_HEIGHT)
 
 
 func _size_card_to_content() -> void:
@@ -160,8 +184,6 @@ func _size_card_to_content() -> void:
 		return
 	var content_height: float = _card_content.get_combined_minimum_size().y
 	_scroll.custom_minimum_size.y = minf(content_height, MAX_CARD_HEIGHT)
-	if _overlay_card.visible:
-		_overlay_scroll.custom_minimum_size.y = minf(_overlay_content.get_combined_minimum_size().y, MAX_CARD_HEIGHT)
 
 
 func _build_modal_content(modal: Dictionary) -> void:
@@ -169,10 +191,6 @@ func _build_modal_content(modal: Dictionary) -> void:
 	var data: Dictionary = modal.get("data", {})
 
 	MapPalette.build_light(func():
-		if type_id == BOOK_DETAIL_TYPE:
-			ModalRegistry.REGISTRY[BOOK_TYPE].build(_card_content, {})
-			ModalRegistry.REGISTRY[type_id].build(_overlay_content, data)
-			return
 		if ModalRegistry.REGISTRY.has(type_id):
 			ModalRegistry.REGISTRY[type_id].build(_card_content, data)
 			return

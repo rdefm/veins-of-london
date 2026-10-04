@@ -748,3 +748,7 @@ key once implemented.
 The shared departure board reserves 80px below the current safe-area inset. Row 0 shows a sun/moon cue, full day number and full phase name; row 1 shows three phase markers and cash. Both use 2px dots, retaining two notification rows below and the existing bag-button exclusion. At 390px, Day 150 Afternoon and five-digit cash fit on their separate rows. Completed phases use a check, the current phase a filled centre square, and remaining phases hollow squares; colour is not needed to distinguish them.
 
 Available paid actions display "last block today" during Evening. Blocked/free actions omit the time-cost suffix. Rest explicitly says "next morning"; its caption and available experiment cost remain visible over finished diorama artwork. Copy/cues live in `data/constants.json.dayClock`. Mechanics, automatic rollover and daily-tick order are unchanged.
+
+### Recipe book font exception
+
+The Recipes notebook (`scenes/modals/lab_bench_recipe_book_modal.gd`) sets its live text in a bundled pixel face, **Pixelify Sans** (`assets/fonts/PixelifySans.ttf`, SIL OFL 1.1, licence in `assets/fonts/OFL.txt`), to match the lettering in `assets/hq/recipe-book-side-tabs-draft.png`. Per the user's override this supersedes §7's "two typefaces" and "pixel font never for real UI text" restrictions for **this book only**; every other screen keeps the shared UI sans. The text stays live (Labels), never baked into art.

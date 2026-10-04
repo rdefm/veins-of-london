@@ -1272,7 +1272,7 @@ func run() -> void:
 		layer._ready()
 
 		assert_true(NodeQuery.label_texts_with_symbols(layer).has("Time Pearl"), "tutorial-taught recipes are already Found on a fresh save")
-		assert_true(_find_cost_button(layer, "Open") != null, "each found recipe row opens its detail")
+		assert_true(_last_button(layer, "Time Pearl") != null, "each found recipe entry opens its detail")
 		assert_true(_find_cost_button(layer, "Craft ×1") == null, "crafting lives in the detail overlay, not the list")
 
 		layer.free()
@@ -1284,13 +1284,13 @@ func run() -> void:
 		var layer := ModalLayer.new()
 		layer._ready()
 
-		_find_cost_button(layer, "Open").pressed.emit()
+		_last_button(layer, "Time Pearl").pressed.emit()
 
 		assert_eq(GameState.state["modal"]["type"], "lab_bench_recipe_detail")
 		var key: String = GameState.state["modal"]["data"]["recipeKey"]
 		assert_true(Bench.found_recipe_keys().has(key))
 		assert_true(layer._overlay_card.visible, "overlay card shows above the book")
-		assert_true(NodeQuery.label_texts_with_symbols(layer).has("Recipe book"), "book stays rendered beneath")
+		assert_true(layer._book_box.visible, "book stays rendered beneath")
 		assert_true(NodeQuery.label_texts_with_symbols(layer).has(GameData.RECIPES[key]["description"]), "full description in the overlay")
 		layer.free()
 	)
@@ -1380,7 +1380,7 @@ func run() -> void:
 		var layer := ModalLayer.new()
 		layer._ready()
 
-		assert_true(NodeQuery.label_texts_with_symbols(layer).has("Nothing found yet."), "same empty-state line lab.gd's home used to show")
+		assert_true(NodeQuery.label_texts_with_symbols(layer).has("Nothing found for Time yet."), "empty ore tab states it plainly")
 
 		layer.free()
 	)

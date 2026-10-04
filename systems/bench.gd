@@ -119,6 +119,15 @@ static func found_recipe_keys() -> Array[String]:
 	return _found_among(_lab_reachable_recipe_keys())
 
 
+# Found recipe keys whose discovery type set includes ore_type; a two-ore recipe lists under both of its ores.
+static func found_recipe_keys_for_ore(ore_type: String) -> Array[String]:
+	var matching: Array[String] = []
+	for recipe_key in found_recipe_keys():
+		if GameData.RECIPES[recipe_key]["discovery"]["types"].has(ore_type):
+			matching.append(recipe_key)
+	return matching
+
+
 # How many of a specific type set's effects are currently "found" -- the pairing panel's census sentence needs this alongside census_count() to say "N of M", not just the total.
 static func found_count_in_set(types: Array) -> int:
 	return _found_among(_recipes_in_set(types)).size()

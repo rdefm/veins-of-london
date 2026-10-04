@@ -163,10 +163,11 @@ overlays.
 | map_palette.gd | MapPalette: resolves Map palette tokens (data/map_palette.json) for the current light/dark mode (`meta.mapDarkMode`), plus faction/ore colours with optional dark-only overrides; every Map-tab colour reads through it; build_light() scopes a light-only build for off-Map reusers |
 | map_legend.gd | Persistent faction-colour key; restyles in place on a dark-mode toggle |
 | map_zoom_buttons.gd | Floating +/- zoom control; restyles in place on a dark-mode toggle |
-| modal_layer.gd | Dim background + light map_card_style.gd card (content built inside MapPalette.build_light), with navy/red chrome for BizBrief contract cancellation; mounts full-screen sheets for sell_menu (Trade) and guard_kit, and dispatches other content through modal_registry.gd; draws recipe detail as a second card over the recipe book (book scroll kept); tap-outside dismiss |
+| modal_layer.gd | Dim background + light map_card_style.gd card (content built inside MapPalette.build_light), with navy/red chrome for BizBrief contract cancellation; mounts full-screen sheets for sell_menu (Trade) and guard_kit, and dispatches other content through modal_registry.gd; draws the recipe book full-bleed (no card) with recipe detail as a card above it; tap-outside dismiss |
 | notification_ticker.gd | Top board's one-message notice row: presentation-only queue, roll-up from below, marquee for overflow, 4s hold; latest stays when empty; transient (combat-log) or keyed (notification id) queued entries droppable |
 | nav_bar.gd | Bottom nav dock (Phone·Map·HQ); swaps to MapPalette dark chrome tokens while the Map tab shows with Map dark mode on |
 | ore_glyphs.gd | Five canonical ore silhouettes as hand-drawn vectors; bundled-font coverage probe for non-map symbol fallback |
+| recipe_book_page.gd | Aspect-fit recipe-book page art (assets/hq/recipe-book-side-tabs-blank.png) placing children by 1024x1536 art-space rects; owns the book-only Pixelify Sans font loader |
 | phone_device_shell.gd | Persistent rounded simulated-phone frame: clipped display, approved London wallpaper, fixed status/widget chrome, dark opened-app surface + shared/custom content mounts |
 | phone_home_dock.gd | Home-only translucent three-destination Phone/Messages/Settings dock |
 | symbol_glyph.gd | Label-or-vector fallback for a symbol; draws an optional `icon` texture instead when set |
@@ -210,7 +211,7 @@ overlays.
 | hq_ore_readout_modal.gd | Ore-store slip with raid-risk stamp + personal-stash move controls, map_card_style.gd-skinned (always light) |
 | hq_gym_modal.gd | Combat skill card (level, XP bar, current + next-level HP/ATK/SPD via `Combat.skill_summary()`) + Train action card |
 | lab_bench_modal_helpers.gd | Refine controls, batch total text + outcome headings shared by the lab-bench modals |
-| lab_bench_recipe_book_modal.gd | Found-recipe list (icon, name, stock, Open); Open raises lab_bench_recipe_detail |
+| lab_bench_recipe_book_modal.gd | Recipe notebook page: five ore side tabs (live glyphs), found recipes filtered by ingredient ore, four entries per page with Prev/Next; tab+page live in modal data; an entry raises lab_bench_recipe_detail |
 | lab_bench_recipe_detail_modal.gd | One found recipe above the book: description, ingredients, chance/effect/stock, batch slider + Craft (result returns to the book via `Modal.set_return`), Refine, Back to book |
 | lab_bench_notes_modal.gd | Per-pairing survey notes with found-recipe refine rows |
 | lab_bench_probe_result_modal.gd | Probe outcome card |

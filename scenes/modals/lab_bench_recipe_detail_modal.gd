@@ -2,7 +2,7 @@ class_name LabBenchRecipeDetailModal
 extends RefCounted
 
 # One found recipe above the recipe book (docs/hq-diorama-vision.md §5.2–5.6):
-# data is { recipeKey }. Craft's batch result returns to the book on close.
+# data is { recipeKey, bookOre, bookPage }. Closing or crafting returns to the book on that ore tab and page.
 
 const BOOK_TYPE := "lab_bench_recipe_book"
 
@@ -51,9 +51,17 @@ static func build(container: VBoxContainer, data: Dictionary) -> void:
 
 
 static func _on_craft(recipe_key: String, quantity: int) -> void:
+	var book := book_data()
 	Crafting.attempt_craft_batch(recipe_key, quantity)
-	Modal.set_return(BOOK_TYPE)
+	Modal.set_return(BOOK_TYPE, book)
 
 
 static func close() -> void:
-	Modal.open(BOOK_TYPE)
+	Modal.open(BOOK_TYPE, book_data())
+
+
+# The ore tab and page the book was on when this recipe was tapped.
+static func book_data() -> Dictionary:
+	var modal = GameState.state["modal"]
+	var data: Dictionary = modal.get("data", {}) if modal != null else {}
+	return { "ore": data.get("bookOre", ""), "page": data.get("bookPage", 0) }

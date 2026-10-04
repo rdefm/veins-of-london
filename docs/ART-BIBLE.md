@@ -184,3 +184,7 @@ ticket 08** — noted here so the reasoning isn't re-derived later.
    added after this ticket (juice layer, transform-based attack motion,
    effect sheets) must agree with it — no subpixel positioning anywhere in
    the combat stage.
+
+## 7. Recipe book font exception
+
+The Lab recipe book's live text uses **Pixelify Sans** (`assets/fonts/PixelifySans.ttf`, SIL OFL 1.1, `assets/fonts/OFL.txt`) to match `assets/hq/recipe-book-side-tabs-draft.png`. Book-scoped user override of `docs/ui-vision.md` §7's shared-font rule; no other screen uses it. Runtime page art is `assets/hq/recipe-book-side-tabs-blank.png` (1024×1536), laid out in its own pixel space by `scenes/components/recipe_book_page.gd`.
