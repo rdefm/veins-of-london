@@ -156,8 +156,8 @@ static func _grant(contact_id: String, reward: Dictionary) -> void:
 	if reward.has("cash"):
 		GameState.state["player"]["cash"] += int(reward["cash"])
 	if reward.has("item"):
-		# Gifted items aren't crafted at any tier -- the untiered "0" bucket.
-		Crafting.inventory_add(String(reward["item"]["id"]), 0, int(reward["item"]["qty"]))
+		# Gifted items file under tier 1.
+		Crafting.inventory_add(String(reward["item"]["id"]), 1,int(reward["item"]["qty"]))
 	if reward.has("intel"):
 		Intel.raise(Shares.PLAYER, String(reward["intel"]["target"]), int(reward["intel"]["amount"]))
 	if reward.has("cultivatingXp"):

@@ -503,8 +503,7 @@ func run() -> void:
 	# fresh Heavy commit.
 	run_case("enhancement_powder_heavy_on_the_first_slot_skips_the_inserted_slot_the_same_round", func():
 		var cp := _fresh_prototype("brawler", {}, [{ "hp": 500, "hpMax": 500 }])  # high hp so the fight can't accidentally end mid-sequence
-		GameState.state["player"]["craftingSkill"] = 5
-		Crafting.inventory_add("enhancementPowder", 1, 1)
+		Crafting.inventory_add("enhancementPowder", 5, 1)
 		Rng.set_seed(41)
 		CombatPrototype.use_item("enhancementPowder")  # round 1 slot 0: cast (motionPower 3, motionTurns 2 -> attack_count 3)
 		CombatPrototype.take_player_action(CombatPrototype.ACTION_FAST)  # round 1 slot 1 (inserted)

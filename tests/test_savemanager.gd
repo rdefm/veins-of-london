@@ -1212,9 +1212,9 @@ func run() -> void:
 		assert_true(result["ok"], "a legacy flat-int inventory should load without crashing")
 
 		var inventory: Dictionary = GameState.state["player"]["inventory"]
-		assert_eq(inventory["timePearl"], { "0": 5 }, "a legacy count migrates into the untiered '0' bucket, as an int not a float")
-		assert_eq(inventory["enhancementPowder"], { "0": 0 }, "a zero legacy count still migrates to a (empty-valued) '0' bucket rather than being dropped")
-		assert_eq(inventory["rewind"], { "0": 2 }, "each recipe key migrates independently")
+		assert_eq(inventory["timePearl"], { "1": 5 }, "a legacy count migrates into the tier-1 bucket, as an int not a float")
+		assert_eq(inventory["enhancementPowder"], { "1": 0 }, "a zero legacy count still migrates to a (empty-valued) '1' bucket rather than being dropped")
+		assert_eq(inventory["rewind"], { "1": 2 }, "each recipe key migrates independently")
 		assert_eq(Crafting.inventory_qty("timePearl"), 5, "the migrated stock is usable through the normal inventory_qty API")
 	)
 
@@ -1293,7 +1293,7 @@ func run() -> void:
 		var save := { "meta": { "saveVersion": 1 }, "player": { "cash": 55 } }
 		var result := SaveManager.import_string(JSON.stringify(save))
 		assert_true(not result["ok"], "a v1 save must not half-load under the growth-model schema")
-		assert_true(result["reason"].contains("older version"), "the rejection reason should be clear about why")
+		assert_true(result["reason"].contains("incompatible version"), "the rejection reason should be clear about why")
 	)
 
 	run_case("loading_a_save_with_no_meta_saveVersion_is_treated_as_current_and_succeeds", func():
@@ -1478,7 +1478,7 @@ func run() -> void:
 
 		var stash: Dictionary = GameState.state["player"]["stash"]
 		assert_eq(stash["orichalchum"]["time"], 7, "stash ore qty comes back as an int, not a float")
-		assert_eq(stash["inventory"]["timePearl"], { "0": 3 }, "a bare-number stash inventory entry migrates into the tier-0 bucket, same as player.inventory")
+		assert_eq(stash["inventory"]["timePearl"], { "1": 3 }, "a bare-number stash inventory entry migrates into the tier-1 bucket, same as player.inventory")
 	)
 
 	run_case("loading_a_save_with_a_retired_currentScreen_lands_on_phone_home", func():

@@ -15,8 +15,7 @@ static func use_healing_salve() -> Dictionary:
 	if Crafting.inventory_qty("healingSalve") <= 0:
 		return { "ok": false, "reason": "No healing salve." }
 
-	Crafting.inventory_remove("healingSalve", 1)
-	var power = Crafting.effect_power("healingSalve", player["craftingSkill"])
+	var power = Crafting.use_one("healingSalve")
 	player["healingSalveDaysLeft"] = 2
 	player["healingSalveDailyAmount"] = power
 	# PROSE-REVIEW: new salve-activation notification, drafted against CONTENT-GUIDE.md's tone bible.
@@ -49,8 +48,7 @@ static func use_healing_burst(target: Dictionary = {}) -> Dictionary:
 			return { "ok": true, "beats": beats }
 		Combat.push_combat_snapshot()
 
-	Crafting.inventory_remove("healingBurst", 1)
-	var power = Crafting.effect_power("healingBurst", player["craftingSkill"])
+	var power = Crafting.use_one("healingBurst")
 	var line: String
 	var beat_extra := { "effectKey": "healingBurst" }
 	if ally_index >= 0:

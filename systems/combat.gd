@@ -1289,8 +1289,7 @@ static func _guard_pool_has(pool: Dictionary, recipe_key: String) -> bool:
 
 
 # Moves one unit of recipe_key from pool.items to pool.used, highest tier
-# first, and returns its power: effectPower[max(tier, 1)] (spec §Decisions,
-# tier 0 powers as tier 1).
+# first, and returns its power: effectPower[tier].
 static func _spend_guard_item(pool: Dictionary, recipe_key: String) -> int:
 	var buckets: Dictionary = pool["items"][recipe_key]
 	var tier_key: String = GuardKit.highest_tier_key(buckets)
@@ -1305,7 +1304,7 @@ static func _spend_guard_item(pool: Dictionary, recipe_key: String) -> int:
 		pool["used"][recipe_key] = {}
 	pool["used"][recipe_key][tier_key] = int(pool["used"][recipe_key].get(tier_key, 0)) + 1
 	var powers: Array = GameData.RECIPES[recipe_key]["effectPower"]
-	return int(powers[clampi(maxi(int(tier_key), 1), 0, powers.size() - 1)])
+	return int(powers[clampi(int(tier_key), 1, powers.size() - 1)])
 
 
 # Lowest hp fraction among the player (if standing, no shield up) and living
@@ -1707,8 +1706,7 @@ static func use_time_pearl() -> Dictionary:
 		return { "ok": true, "beats": beats }
 	push_combat_snapshot()
 
-	Crafting.inventory_remove("timePearl", 1)
-	var power = Crafting.effect_power("timePearl", player["craftingSkill"])
+	var power = Crafting.use_one("timePearl")
 	combat["frozenTurns"] += power
 	var turn_word: String = "turn" if power == 1 else "turns"
 	_log(combat, beats, "You throw a time pearl. The air goes thick. Everything slows. (%d %s)" % [power, turn_word], BEAT_USE_TIME_PEARL, { "effectKey": "timePearl" })
@@ -1740,8 +1738,7 @@ static func use_enhancement_powder() -> Dictionary:
 		return { "ok": true, "beats": beats }
 	push_combat_snapshot()
 
-	Crafting.inventory_remove("enhancementPowder", 1)
-	var power = Crafting.effect_power("enhancementPowder", player["craftingSkill"])
+	var power = Crafting.use_one("enhancementPowder")
 	combat["motionPower"] = power
 	combat["motionTurns"] = 2 if power >= 3 else 1
 	# No effectKey/manifest sheet -- the afterimage trail is a duplicate-sprite
@@ -1777,8 +1774,7 @@ static func use_blast() -> Dictionary:
 		return { "ok": true, "beats": beats }
 	push_combat_snapshot()
 
-	Crafting.inventory_remove("blast", 1)
-	var power = Crafting.effect_power("blast", player["craftingSkill"])
+	var power = Crafting.use_one("blast")
 	var enemy: Dictionary = _focused_enemy(combat)
 	var target_index: int = _enemy_action_index(combat)
 	var blast_extra: Dictionary = { "targetType": "enemy", "targetIndex": target_index, "effectKey": "blast" }
@@ -1821,8 +1817,7 @@ static func use_shield() -> Dictionary:
 		return { "ok": true, "beats": beats }
 	push_combat_snapshot()
 
-	Crafting.inventory_remove("shield", 1)
-	var power = Crafting.effect_power("shield", player["craftingSkill"])
+	var power = Crafting.use_one("shield")
 	player["shieldPool"] = power
 	_log(combat, beats, "A shimmer folds around you. Shield up — %d absorption." % power, BEAT_USE_SHIELD, { "effectKey": "shield" })
 
@@ -1866,8 +1861,7 @@ static func use_black_hole() -> Dictionary:
 		return { "ok": true, "beats": beats }
 	push_combat_snapshot()
 
-	Crafting.inventory_remove("blackHole", 1)
-	var power = Crafting.effect_power("blackHole", player["craftingSkill"])
+	var power = Crafting.use_one("blackHole")
 	var freeze_turns: int = 1 + int(floor(float(power) / 8.0))
 	# Per-enemy hit beats (via _apply_black_hole_aoe(), the same shared helper
 	# cast_complication() uses) replace a single combined summary line.
@@ -1966,8 +1960,7 @@ static func use_prophets_breath() -> Dictionary:
 		return { "ok": true, "beats": beats }
 	push_combat_snapshot()
 
-	Crafting.inventory_remove("prophetsBreath", 1)
-	var power = Crafting.effect_power("prophetsBreath", player["craftingSkill"])
+	var power = Crafting.use_one("prophetsBreath")
 	combat["evadeTurns"] = power
 	combat["evadeChance"] = 0.50
 	combat["log"].append("You take a lungful. For a few seconds, you can see it coming.")

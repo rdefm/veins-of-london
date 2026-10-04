@@ -4,7 +4,9 @@ extends Node
 # autosaves. autosave() is called from daily_tick, exit_combat, event
 # completion, and every successful cash purchase.
 
-const SAVE_VERSION := 3
+const SAVE_VERSION := 4
+# Oldest save version _migrate_versions() can still bring forward.
+const MIN_SUPPORTED_VERSION := 3
 const SLOT_COUNT := 3
 const AUTOSAVE_COUNT := 3
 # Test runner redirects these to an isolated workspace directory. Gameplay
@@ -121,6 +123,7 @@ func _load_save_dict(raw: Dictionary) -> Dictionary:
 
 	var filled := backfill_defaults(raw)
 	_restore_int_types(filled)
+	_migrate_versions(filled)
 	_clamp_loaded_combat_selection(filled)
 	_migrate_vein_station_veins(filled)
 	_strip_unowned_cultivator_veins(filled)
@@ -301,19 +304,64 @@ func _remap_retired_notes_app(save: Dictionary) -> void:
 		save["phoneNav"] = phone_nav
 
 
-# A save whose meta.saveVersion doesn't match SAVE_VERSION is rejected
-# outright with a clear reason rather than half-loaded (R§6: no migrator
-# for a save-breaking schema rewrite). A save with no meta.saveVersion at
-# all is treated as current (matches new_game_state()'s own default).
-# v3's break: every site now carries a stamped slotIndex MapLayout.
-# assign_positions() depends on, with no way to reconstruct historical
-# discovery order for an older save to backfill it from.
+# A save older than MIN_SUPPORTED_VERSION, or newer than SAVE_VERSION, is
+# rejected outright with a clear reason rather than half-loaded. A save with
+# no meta.saveVersion at all is treated as current (matches
+# new_game_state()'s own default). v3's break: every site carries a stamped
+# slotIndex MapLayout.assign_positions() depends on, with no way to
+# reconstruct historical discovery order to backfill it.
 func _check_save_version(save: Dictionary) -> Dictionary:
 	var meta: Dictionary = save.get("meta", {})
 	var version: int = meta.get("saveVersion", SAVE_VERSION)
-	if version != SAVE_VERSION:
-		return { "ok": false, "reason": "This save is from an older version of the game (v%d) and can't be loaded. Start a new game." % version }
+	if version < MIN_SUPPORTED_VERSION or version > SAVE_VERSION:
+		return { "ok": false, "reason": "This save is from an incompatible version of the game (v%d) and can't be loaded. Start a new game." % version }
 	return { "ok": true }
+
+
+# Ordered, reusable migration hook: runs _migrate_from_v<N>() for every version
+# N from the save's own up to SAVE_VERSION - 1, then stamps SAVE_VERSION. A new
+# schema change bumps SAVE_VERSION and adds one `match` arm.
+func _migrate_versions(save: Dictionary) -> void:
+	var meta: Dictionary = save.get("meta", {})
+	var version: int = int(meta.get("saveVersion", SAVE_VERSION))
+	for from_version in range(version, SAVE_VERSION):
+		match from_version:
+			3:
+				_migrate_from_v3(save)
+	meta["saveVersion"] = SAVE_VERSION
+	save["meta"] = meta
+
+
+# v4 retires tier 0: every tier-0 unit in every store becomes tier 1, merged
+# into the existing tier-1 bucket (counts conserved).
+func _migrate_from_v3(save: Dictionary) -> void:
+	var player: Dictionary = save.get("player", {})
+	_retire_tier_zero(player.get("inventory", {}))
+	_retire_tier_zero(player.get("stash", {}).get("inventory", {}))
+	for vein in player.get("veins", []):
+		_retire_tier_zero(vein.get("guardKit", {}))
+	_retire_tier_zero(save.get("home", {}).get("guardKit", {}))
+	for faction in save.get("factions", {}).values():
+		_retire_tier_zero(faction.get("holdings", {}).get("items", {}))
+	var combat: Dictionary = save.get("combat", {})
+	for pool_key in ["guardKit", "raiderKit"]:
+		var pool: Dictionary = combat.get(pool_key, {})
+		_retire_tier_zero(pool.get("items", {}))
+		_retire_tier_zero(pool.get("used", {}))
+	var dial: Variant = player.get("dial")
+	if dial is Dictionary:
+		for entry in dial.get("loadedComplications", []):
+			if int(entry.get("tier", 1)) < 1:
+				entry["tier"] = 1
+
+
+# `stores` is { recipeKey: { "<tier>": count } }; folds each "0" bucket into "1".
+func _retire_tier_zero(stores: Dictionary) -> void:
+	for recipe_key in stores:
+		var buckets: Variant = stores[recipe_key]
+		if buckets is Dictionary and buckets.has("0"):
+			buckets["1"] = int(buckets.get("1", 0)) + int(buckets["0"])
+			buckets.erase("0")
 
 
 # Fills any missing TOP-LEVEL keys from a fresh new_game_state() (R§6:
@@ -1203,8 +1251,8 @@ func _int_key(dict: Dictionary, key: String) -> void:
 
 
 # player.inventory[recipeKey] is a tier-bucketed { "<tier>": count } dict.
-# A save with a bare-number shape per recipe migrates into the "0"
-# (untiered/legacy — quality unknown) bucket instead of being rejected. A
+# A save with a bare-number shape per recipe migrates into the tier-1
+# bucket instead of being rejected. A
 # save already in the bucketed shape just gets its counts int-ified.
 func _migrate_inventory(inventory: Dictionary) -> void:
 	for recipe_key in inventory.keys():
@@ -1212,7 +1260,7 @@ func _migrate_inventory(inventory: Dictionary) -> void:
 		if value is Dictionary:
 			_int_dict_values(value)
 		else:
-			inventory[recipe_key] = { "0": int(value) }
+			inventory[recipe_key] = { "1": int(value) }
 
 
 func _int_dict_values(dict: Dictionary) -> void:

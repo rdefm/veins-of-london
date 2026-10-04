@@ -309,9 +309,7 @@ static func use_item(item_id: String, target_index: int = -1) -> Dictionary:
 	# already-open Motion extra slot instead of starting a fresh round.
 	var started_round: bool = _ensure_round_started(cp)
 
-	Crafting.inventory_remove(item_id, 1)
-	var skill: int = GameState.state["player"]["craftingSkill"]
-	var power = Crafting.effect_power(item_id, skill)
+	var power = Crafting.use_one(item_id)
 	var pre_beats: Array = []
 	_apply_item_effect(cp, item_id, power, 1, resolved_target, pre_beats)
 

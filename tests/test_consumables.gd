@@ -22,9 +22,9 @@ func run() -> void:
 		GameState.state["player"]["craftingSkill"] = 1
 		Consumables.use_healing_salve()
 		GameState.state["player"]["healingSalveDaysLeft"] = 1  # simulate a day having passed
-		GameState.state["player"]["craftingSkill"] = 5
+		GameState.state["player"]["inventory"]["healingSalve"] = { "5": 1 }
 		Consumables.use_healing_salve()
-		# healingSalve effectPower at skill 5 = 8
+		# healingSalve effectPower at tier 5 = 8
 		assert_eq(GameState.state["player"]["healingSalveDaysLeft"], 2, "reusing refreshes back to 2 days, not 3")
 		assert_eq(GameState.state["player"]["healingSalveDailyAmount"], 8, "daily amount updates to the new activation's power")
 	)

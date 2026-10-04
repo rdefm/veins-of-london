@@ -36,7 +36,7 @@ static func _equip_player(payload: Dictionary) -> void:
 	if payload["kind"] == "ore":
 		GameState.state["player"]["orichalchum"][payload["type"]] = int(payload["qty"])
 	else:
-		Crafting.inventory_add(payload["type"], 0, int(payload["qty"]))
+		Crafting.inventory_add(payload["type"], 1, int(payload["qty"]))
 
 
 # The Firm Hostile to the player with a vein to aim at, past its first

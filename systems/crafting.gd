@@ -58,6 +58,14 @@ static func effect_power(recipe_key: String, skill: int) -> Variant:
 	return powers[skill]
 
 
+# Direct personal use: removes one unit (lowest tier first) and returns its
+# effect power at the unit's stored tier. No Dial amplification.
+static func use_one(recipe_key: String) -> Variant:
+	var taken: Array = inventory_remove(recipe_key, 1)
+	var tier: int = int(taken[0]["tier"]) if not taken.is_empty() else 1
+	return effect_power(recipe_key, clampi(tier, 1, GameData.RECIPES[recipe_key]["effectPower"].size() - 1))
+
+
 # The quality tier a craft right now would produce -- the inventory bucket a
 # successful craft files under, and what Economy scales sale price by.
 static func quality_tier(recipe_key: String, skill: int) -> int:
@@ -66,8 +74,7 @@ static func quality_tier(recipe_key: String, skill: int) -> int:
 
 
 # player.inventory[recipe_key] is { "<tier>": count, ... }, keys stringified
-# (JSON). Tier "0" means "no known quality" -- migrated (SaveManager.
-# _migrate_inventory) or added outside crafting (purchase/grant).
+# (JSON). Tiers run 1..5; inventory_add() floors any lower tier at 1.
 
 static func inventory_qty(recipe_key: String) -> int:
 	var buckets: Dictionary = GameState.state["player"]["inventory"].get(recipe_key, {})
@@ -82,7 +89,7 @@ static func inventory_add(recipe_key: String, tier: int, qty: int = 1) -> void:
 	if not (inventory.get(recipe_key) is Dictionary):
 		inventory[recipe_key] = {}
 	var buckets: Dictionary = inventory[recipe_key]
-	var key := str(tier)
+	var key := str(maxi(tier, 1))
 	buckets[key] = buckets.get(key, 0) + qty
 
 

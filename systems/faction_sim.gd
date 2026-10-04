@@ -14,14 +14,14 @@ static func new_holdings() -> Dictionary:
 
 
 # Placeholder starting stock from factions.json `startingHoldings`; items
-# file under tier "0" (no known quality), the same bucket as store stock.
+# file under tier 1.
 static func starting_holdings(faction_id: String) -> Dictionary:
 	var holdings := new_holdings()
 	var seed: Dictionary = GameData.FACTIONS[faction_id].get("startingHoldings", {})
 	for ore_type in seed.get("ore", {}):
 		holdings["ore"][ore_type] = int(seed["ore"][ore_type])
 	for recipe_key in seed.get("items", {}):
-		holdings["items"][recipe_key] = { "0": int(seed["items"][recipe_key]) }
+		holdings["items"][recipe_key] = { "1": int(seed["items"][recipe_key]) }
 	return holdings
 
 
@@ -82,7 +82,7 @@ static func add_item(faction_id: String, recipe_key: String, tier: int, qty: int
 	if not (items.get(recipe_key) is Dictionary):
 		items[recipe_key] = {}
 	var buckets: Dictionary = items[recipe_key]
-	var key := str(tier)
+	var key := str(maxi(tier, 1))
 	buckets[key] = int(buckets.get(key, 0)) + qty
 
 

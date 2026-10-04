@@ -393,11 +393,11 @@ func run() -> void:
 		assert_eq(GameState.state["notifications"].back().get(Notify.META_CONTACT_ID), "james")
 
 		var cash: int = GameState.state["player"]["cash"]
-		var pearls: int = int(GameState.state["player"]["inventory"].get("timePearl", {}).get("0", 0))
+		var pearls: int = int(GameState.state["player"]["inventory"].get("timePearl", {}).get("1", 0))
 		var relation: int = james["relation"]
 		assert_true(ContactTexts.reply("james", 0)["ok"])
 		assert_eq(GameState.state["player"]["cash"], cash + 5, "cash reward")
-		assert_eq(int(GameState.state["player"]["inventory"]["timePearl"]["0"]), pearls + 1, "item reward, untiered")
+		assert_eq(int(GameState.state["player"]["inventory"]["timePearl"]["1"]), pearls + 1, "item reward, tier 1")
 		assert_eq(james["relation"], relation, "a flavour reply gets no correctReward")
 
 		GameState.state["player"]["veins"] = [Fixtures.player_vein_with({ "location": "Brick Lane, East" })]

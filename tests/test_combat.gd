@@ -1804,13 +1804,13 @@ func run() -> void:
 		assert_eq(combat["guardKit"]["used"], { "timePearl": { "2": 1 } })
 	)
 
-	run_case("guard_blast_hits_the_lowest_hp_enemy_and_tier_0_powers_as_tier_1", func():
-		var combat := _guard_kit_combat([{ "hp": 80 }, { "hp": 60 }], { "blast": { "0": 1 } })
+	run_case("guard_blast_hits_the_lowest_hp_enemy_and_powers_by_stored_tier", func():
+		var combat := _guard_kit_combat([{ "hp": 80 }, { "hp": 60 }], { "blast": { "1": 1 } })
 		combat["frozenTurns"] = 1
 		Rng.set_seed(1)
 		Combat._ally_turn(combat, combat["allies"][0], 0, [])
 		assert_eq(combat["enemies"][1]["hp"], 60 - int(GameData.RECIPES["blast"]["effectPower"][1]))
-		assert_eq(combat["guardKit"]["used"], { "blast": { "0": 1 } })
+		assert_eq(combat["guardKit"]["used"], { "blast": { "1": 1 } })
 	)
 
 	run_case("guard_attacks_when_no_kit_rule_applies", func():

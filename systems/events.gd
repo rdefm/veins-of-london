@@ -310,8 +310,8 @@ static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 			var ore: Dictionary = GameState.state["player"]["orichalchum"]
 			ore[effect["type"]] = ore.get(effect["type"], 0) + effect["qty"]
 		"add_item":
-			# Event-granted items aren't crafted at any tier -- filed under the untiered "0" bucket, same as a Guild purchase.
-			Crafting.inventory_add(effect["item"], 0, effect["qty"])
+			# Event-granted items file under tier 1.
+			Crafting.inventory_add(effect["item"], 1, effect["qty"])
 		"relation":
 			Contacts.award_relation(effect["contact"], effect["value"])
 		"grant_vein_with_site":
