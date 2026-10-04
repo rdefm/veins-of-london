@@ -525,8 +525,11 @@ static func _start_combat(context: String, vein_id, enemies: Array, log_lines: A
 		push_error("Combat: unrecognized context '%s' — not in CANONICAL_CONTEXTS, exit_combat() will mis-route it." % context)
 	# Every roster entry needs koed regardless of which start_* path built
 	# it -- one chokepoint (speed is already set at construction time).
-	for enemy in enemies:
-		enemy["koed"] = false
+	# `rid` is a fight-scoped identity, so a Rewind can tell which fighter holds
+	# a slot after reinforcements substituted in.
+	for i in range(enemies.size()):
+		enemies[i]["koed"] = false
+		enemies[i]["rid"] = i
 	# The player holds one of the friendly SQUAD_MAX places; the rest of both
 	# rosters wait in order (R§3.7a "Reinforcements").
 	var ally_queue: Array = allies.slice(SQUAD_MAX - 1) if allies.size() > SQUAD_MAX - 1 else []
@@ -697,6 +700,10 @@ static func push_combat_snapshot() -> void:
 		# (R§2); re-deriving it from the restored selection could land on a
 		# different enemy than the one this hp was actually captured from.
 		"enemyIndex": _enemy_action_index(combat),
+		# Whole focused fighter plus the waiting queue, so a Rewind can undo a
+		# reinforcement substitution at that slot.
+		"enemy": focused.duplicate(true),
+		"enemyQueue": combat.get("enemyQueue", []).duplicate(true),
 		"selection": combat["selection"].duplicate(),
 		"log": combat["log"].duplicate(),
 		"frozenTurns": combat["frozenTurns"],
@@ -840,6 +847,7 @@ static func advance_to_next_decision(combat: Dictionary, beats: Variant = null) 
 
 		var turn_beats_start: int = beats.size() if beats != null else 0
 		cursor["index"] += 1
+		cursor["inTurn"] = true
 		match entry["type"]:
 			"ally":
 				var allies: Array = combat["allies"]
@@ -849,6 +857,7 @@ static func advance_to_next_decision(combat: Dictionary, beats: Variant = null) 
 				var enemies: Array = combat["enemies"]
 				if entry["index"] < enemies.size() and not enemies[entry["index"]]["koed"]:
 					_enemy_turn(combat, enemies[entry["index"]], entry["index"], beats)
+		cursor.erase("inTurn")
 		_stamp_occurrence(beats, turn_beats_start, _project_occurrence(entry, cursor["round"], cursor["index"] - 1))
 
 		# A failsafe restore swapped in the snapshot's cursor, already parked
@@ -1986,9 +1995,47 @@ static func _admit_reinforcement(combat: Dictionary, roster_key: String, index: 
 	if roster_key == "enemies" and combat["frozenTurns"] > 0:
 		entrant["freezeExempt"] = true
 	combat[roster_key][index] = entrant
+	_substitute_turn_entries(combat, "enemy" if roster_key == "enemies" else "ally", index, entrant)
 	# PROSE-REVIEW: reinforcement entry line.
 	_log(combat, beats, "%s steps in." % entrant["name"], BEAT_REINFORCEMENT_ENTER,
 		{ "targetType": "enemy" if roster_key == "enemies" else "ally", "targetIndex": index })
+
+
+# R§3.7a "Reinforcements": swaps the KO'd fighter's unresolved queue entries
+# (extras included) for one entrant occurrence placed by the entrant's own
+# speed with build_turn_queue()'s tie-break (player > allies > enemies, then
+# index). A KO'd fighter that had already acted leaves nothing to swap -- the
+# entrant first acts in the next round's rebuilt queue. Entries before the
+# first unresolved one are never touched; the player's parked entry counts as
+# resolved while a player command is mid-flight (`inTurn` marks an engine-run
+# ally/enemy turn, whose entry the cursor has already stepped past).
+static func _substitute_turn_entries(combat: Dictionary, type: String, index: int, entrant: Dictionary) -> void:
+	var cursor: Dictionary = combat["turnCursor"]
+	var queue: Array = cursor["queue"]
+	var start: int = cursor["index"]
+	if not cursor.get("inTurn", false) and start < queue.size() and queue[start]["type"] == "player":
+		start += 1
+	var kept: Array = queue.slice(0, start)
+	var rest: Array = []
+	var had_base := false
+	for i in range(start, queue.size()):
+		var entry: Dictionary = queue[i]
+		if entry["type"] == type and entry.get("index", -1) == index:
+			had_base = had_base or not entry.get("extra", false)
+			continue
+		rest.append(entry)
+	if had_base:
+		var speed: int = entrant.get("speed", 0)
+		var rank: int = 1 if type == "ally" else 2
+		var pos: int = rest.size()
+		for i in range(rest.size()):
+			var other: Dictionary = rest[i]
+			var other_rank: int = 0 if other["type"] == "player" else (1 if other["type"] == "ally" else 2)
+			if other["speed"] < speed or (other["speed"] == speed and (other_rank > rank or (other_rank == rank and other.get("index", -1) > index))):
+				pos = i
+				break
+		rest.insert(pos, { "type": type, "index": index, "speed": speed })
+	cursor["queue"] = kept + rest
 
 
 # Index of `fighter` by identity (two KO'd fighters can compare equal by value).
@@ -2281,6 +2328,7 @@ static func _restore_from_snapshot(combat: Dictionary, player: Dictionary) -> vo
 	combat["selection"] = snap["selection"].duplicate()
 	# koed is kept in lockstep with hp -- a rewound snapshot's hp is always
 	# pre-lethal in practice, but this keeps the invariant true regardless.
+	_undo_enemy_substitution(combat, snap)
 	var focused_enemy: Dictionary = combat["enemies"][snap["enemyIndex"]]
 	focused_enemy["hp"] = snap["enemyHp"]
 	focused_enemy["koed"] = focused_enemy["hp"] <= 0
@@ -2309,6 +2357,33 @@ static func _restore_from_snapshot(combat: Dictionary, player: Dictionary) -> vo
 	# queue in reverse" replay -- cleared here after combat_rewind() already
 	# captured its own copy, so accumulation restarts from this state.
 	combat["beatsSinceSnapshot"] = []
+
+
+# If a reinforcement replaced the snapshot's focused enemy since, puts the
+# original back in its slot and returns every fighter admitted into that slot
+# to the waiting queue (rid order, snapshot state). Entrants that took other
+# slots, and other slots' KOs, stay as they are (R§3.9 scope).
+static func _undo_enemy_substitution(combat: Dictionary, snap: Dictionary) -> void:
+	if not snap.has("enemy"):
+		return
+	var index: int = snap["enemyIndex"]
+	var original: Dictionary = snap["enemy"]
+	if combat["enemies"][index].get("rid", -1) == original.get("rid", -1):
+		return
+	var current_queue: Array = combat["enemyQueue"]
+	var elsewhere: Array = []
+	for i in range(combat["enemies"].size()):
+		if i != index:
+			elsewhere.append(combat["enemies"][i].get("rid", -1))
+	var current_rids: Array = current_queue.map(func(f: Dictionary) -> int: return f.get("rid", -1))
+	var restored: Array = current_queue.duplicate()
+	for waiting in snap.get("enemyQueue", []):
+		var rid: int = waiting.get("rid", -1)
+		if not current_rids.has(rid) and not elsewhere.has(rid):
+			restored.append(waiting.duplicate(true))
+	restored.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a.get("rid", 0) < b.get("rid", 0))
+	combat["enemyQueue"] = restored
+	combat["enemies"][index] = original.duplicate(true)
 
 
 # Checked the moment the player's hp would hit 0, before "loss" resolves

@@ -1187,9 +1187,8 @@ func _restore_combat_int_types(combat: Dictionary) -> void:
 	# evadeChance is a float (0.0–1.0) — intentionally not touched here.
 	if combat.has("selection"):
 		_int_key(combat["selection"], "index")
-	for enemy in combat.get("enemies", []):
-		for key in ["hp", "hpMax", "attackMin", "attackMax", "speed"]:
-			_int_key(enemy, key)
+	for enemy in combat.get("enemies", []) + combat.get("enemyQueue", []):
+		_restore_fighter_int_types(enemy)
 	# combat.snapshots entries (systems/combat.gd's push_combat_snapshot)
 	# are a small hand-picked dict, not a full-state copy — different
 	# shape from event snapshots, restored explicitly here.
@@ -1200,8 +1199,13 @@ func _restore_combat_int_types(combat: Dictionary) -> void:
 			_int_key(snap["selection"], "index")
 		if snap.has("turnCursor"):
 			_restore_turn_cursor_int_types(snap["turnCursor"])
-	# allies[] entries (Contacts.build_combat_ally), speed included.
-	for ally in combat.get("allies", []):
+		if snap.has("enemy"):
+			_restore_fighter_int_types(snap["enemy"])
+		for queued in snap.get("enemyQueue", []):
+			_restore_fighter_int_types(queued)
+	# allies[] entries (Contacts.build_combat_ally), speed included; queued
+	# allies are the same shape.
+	for ally in combat.get("allies", []) + combat.get("allyQueue", []):
 		for key in ["hp", "hpMax", "attackMin", "attackMax", "speed"]:
 			_int_key(ally, key)
 		for slot in ally.get("slots", []):
@@ -1212,6 +1216,12 @@ func _restore_combat_int_types(combat: Dictionary) -> void:
 			used[i] = int(used[i])
 	if combat.has("turnCursor"):
 		_restore_turn_cursor_int_types(combat["turnCursor"])
+
+
+# R§3.7a fighter dict (active or queued enemy): stat ints plus the fight-scoped rid.
+func _restore_fighter_int_types(fighter: Dictionary) -> void:
+	for key in ["hp", "hpMax", "attackMin", "attackMax", "speed", "rid", "shieldPool"]:
+		_int_key(fighter, key)
 
 
 # R§3.7a resumable-progression cursor: index/round are ints, and each

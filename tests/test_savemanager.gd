@@ -85,6 +85,32 @@ func run() -> void:
 		SaveManager.delete_slot(TEST_SLOT)
 	)
 
+	run_case("save_mutate_load_round_trips_queued_fighters_and_cursor", func():
+		GameState.reset()
+		Combat.start_raid("v1", 1, 4, "veinGuard")
+		var combat: Dictionary = GameState.state["combat"]
+		combat["turnCursor"] = { "queue": Combat.build_turn_queue(combat), "index": 1, "round": 2 }
+		Combat.push_combat_snapshot()
+		var queued_before: Array = combat["enemyQueue"].duplicate(true)
+		var cursor_before: String = JSON.stringify(combat["turnCursor"], "", true)
+
+		assert_true(SaveManager.save_to_slot(TEST_SLOT)["ok"], "save_to_slot should succeed")
+		combat["enemyQueue"] = []
+		combat["turnCursor"] = { "queue": [], "index": 0, "round": 0 }
+		assert_true(SaveManager.load_from_slot(TEST_SLOT)["ok"], "load_from_slot should succeed")
+
+		var loaded: Dictionary = GameState.state["combat"]
+		assert_eq(loaded["enemyQueue"].size(), queued_before.size())
+		for i in range(queued_before.size()):
+			for key in ["hp", "hpMax", "attackMin", "attackMax", "speed", "rid"]:
+				assert_eq(typeof(loaded["enemyQueue"][i][key]), TYPE_INT, "queued %s is an int" % key)
+				assert_eq(loaded["enemyQueue"][i][key], queued_before[i][key])
+		assert_eq(JSON.stringify(loaded["turnCursor"], "", true), cursor_before, "cursor round-trips exactly")
+		assert_eq(loaded["snapshots"][0]["enemyQueue"].size(), queued_before.size(), "snapshot queue round-trips")
+		assert_eq(typeof(loaded["snapshots"][0]["enemy"]["hp"]), TYPE_INT)
+		SaveManager.delete_slot(TEST_SLOT)
+	)
+
 	run_case("save_mutate_load_round_trips_factionRelations_as_ints", func():
 		GameState.reset()
 		Factions.adjust_relation("collective", "firm", -12)

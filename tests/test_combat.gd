@@ -238,6 +238,87 @@ func run() -> void:
 		assert_eq(combat["allies"][1]["name"], "G3", "empty queue is a no-op")
 	)
 
+	# ── reinforcement turn substitution (R§3.7a) ───────────────────────────
+
+	run_case("ko_with_unresolved_turn_gives_entrant_one_occurrence_by_its_own_speed", func():
+		GameState.reset()
+		Combat.start_raid("v1", 1, 4, "veinGuard")
+		var combat: Dictionary = GameState.state["combat"]
+		combat["enemyQueue"][0]["speed"] = 4
+		combat["turnCursor"] = { "queue": [
+			{ "type": "enemy", "index": 0, "speed": 5 }, { "type": "player", "speed": 3 },
+			{ "type": "enemy", "index": 1, "speed": 3 }, { "type": "enemy", "index": 2, "speed": 1 },
+		], "index": 1, "round": 1 }
+		combat["enemies"][1]["hp"] = 0
+		Combat._maybe_win_from_direct_damage(combat, combat["enemies"][1])
+		var queue: Array = combat["turnCursor"]["queue"]
+		assert_eq(queue.size(), 4, "no duplicate or lost turn")
+		assert_eq(queue[2], { "type": "enemy", "index": 1, "speed": 4 }, "entrant placed by its own speed")
+		var coming: Array = Combat.project_queue(combat)
+		var slot_one: Array = coming.filter(func(o): return o["type"] == "enemy" and o["index"] == 1)
+		assert_eq(slot_one.size(), 2, "one this round, one next round")
+	)
+
+	run_case("ko_after_acting_defers_entrant_to_next_round", func():
+		GameState.reset()
+		Combat.start_raid("v1", 1, 4, "veinGuard")
+		var combat: Dictionary = GameState.state["combat"]
+		combat["turnCursor"] = { "queue": [
+			{ "type": "enemy", "index": 0, "speed": 5 }, { "type": "enemy", "index": 1, "speed": 3 },
+			{ "type": "player", "speed": 3 }, { "type": "enemy", "index": 2, "speed": 1 },
+		], "index": 3, "round": 1 }
+		var before: Array = combat["turnCursor"]["queue"].duplicate(true)
+		combat["enemies"][0]["hp"] = 0
+		Combat._maybe_win_from_direct_damage(combat, combat["enemies"][0])
+		assert_eq(combat["turnCursor"]["queue"], before, "this round's queue untouched")
+		var next_round: Array = Combat.build_turn_queue(combat)
+		assert_eq(next_round.filter(func(e): return e["type"] == "enemy" and e["index"] == 0).size(), 1, "entrant acts next round")
+	)
+
+	run_case("ko_during_player_command_keeps_player_extras_and_swaps_ally_extras", func():
+		GameState.reset()
+		var allies: Array = [Combat.build_guard_ally(), Combat.build_guard_ally(), Combat.build_guard_ally()]
+		Combat._start_combat(Combat.CONTEXT_RAID, "v1", Combat.generate_raid_enemy("v1", 1, 1), [], "", allies)
+		var combat: Dictionary = GameState.state["combat"]
+		combat["allyQueue"][0]["speed"] = 9
+		combat["turnCursor"] = { "queue": [
+			{ "type": "player", "speed": 5 }, { "type": "player", "speed": 5, "extra": true },
+			{ "type": "ally", "index": 0, "speed": 4 }, { "type": "ally", "index": 0, "speed": 4, "extra": true },
+			{ "type": "enemy", "index": 0, "speed": 2 },
+		], "index": 0, "round": 1 }
+		combat["allies"][0]["hp"] = 0
+		combat["allies"][0]["koed"] = true
+		Combat._admit_reinforcement(combat, "allies", 0)
+		var queue: Array = combat["turnCursor"]["queue"]
+		assert_eq(queue.filter(func(e): return e["type"] == "player").size(), 2, "player's own turns kept")
+		var ally_entries: Array = queue.filter(func(e): return e["type"] == "ally")
+		assert_eq(ally_entries.size(), 1, "extras go with the KO'd fighter")
+		assert_true(not ally_entries[0].get("extra", false))
+		assert_eq(queue[1]["speed"], 9, "entrant outpaces the parked player's extra")
+	)
+
+	run_case("rewind_across_a_substitution_restores_roster_and_cursor", func():
+		GameState.reset()
+		Combat.start_raid("v1", 1, 4, "veinGuard")
+		var combat: Dictionary = GameState.state["combat"]
+		combat["selection"] = { "type": "enemy", "index": 0 }
+		combat["turnCursor"] = { "queue": [{ "type": "player", "speed": 3 }, { "type": "enemy", "index": 0, "speed": 1 }], "index": 0, "round": 1 }
+		var original_hp: int = combat["enemies"][0]["hp"]
+		Combat.push_combat_snapshot()
+		combat["slotsUsed"] = [0]
+		combat["enemies"][0]["hp"] = 0
+		Combat._maybe_win_from_direct_damage(combat, combat["enemies"][0])
+		assert_eq(combat["enemies"][0]["rid"], 3, "entrant took the slot")
+		Combat._restore_from_snapshot(combat, GameState.state["player"])
+		assert_eq(combat["enemies"][0]["rid"], 0)
+		assert_eq(combat["enemies"][0]["hp"], original_hp)
+		assert_true(not combat["enemies"][0]["koed"])
+		assert_eq(combat["enemyQueue"].size(), 1)
+		assert_eq(combat["enemyQueue"][0]["rid"], 3, "entrant back in the queue")
+		assert_eq(combat["turnCursor"]["queue"].size(), 2, "cursor restored")
+		assert_eq(combat["slotsUsed"], [0], "spent items stay spent")
+	)
+
 	run_case("generate_raid_enemy_forced_template_key_applies_to_every_slot", func():
 		GameState.reset()
 		for seed in range(20):
