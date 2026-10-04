@@ -166,12 +166,76 @@ func run() -> void:
 			assert_true(entries.size() >= Combat.HARD_MUGGER_MIN_COUNT, "vein_included=true should always roll at least HARD_MUGGER_MIN_COUNT")
 	)
 
-	run_case("generate_raid_enemy_returns_guard_count_entries_capped_at_squad_max", func():
+	run_case("generate_raid_enemy_returns_guard_count_entries_uncapped", func():
 		GameState.reset()
 		for guards in [1, 2, 3, 5]:
 			Rng.set_seed(guards)
 			var entries := Combat.generate_raid_enemy("v1", 1, guards, "veinGuard")
-			assert_eq(entries.size(), mini(guards, Combat.SQUAD_MAX), "guard_count %d should spawn min(guards, SQUAD_MAX) entries" % guards)
+			assert_eq(entries.size(), guards, "guard_count %d should spawn that many entries" % guards)
+	)
+
+	# ── reinforcements: roster split, entry, AoE/freeze ────────────────────
+
+	run_case("start_raid_with_five_guards_keeps_three_active_and_queues_two", func():
+		GameState.reset()
+		Combat.start_raid("v1", 1, 5, "veinGuard")
+		var combat: Dictionary = GameState.state["combat"]
+		assert_eq(combat["enemies"].size(), 3)
+		assert_eq(combat["enemyQueue"].size(), 2)
+		assert_eq(combat["allyQueue"], [])
+	)
+
+	run_case("queued_enemies_are_not_hit_by_black_hole_and_enter_unfrozen_when_a_slot_opens", func():
+		GameState.reset()
+		Combat.start_raid("v1", 1, 4, "veinGuard")
+		var combat: Dictionary = GameState.state["combat"]
+		var queued: Dictionary = combat["enemyQueue"][0]
+		var queued_hp: int = queued["hp"]
+		for enemy in combat["enemies"]:
+			enemy["hp"] = 1
+		combat["enemies"][0]["hp"] = 1000
+		combat["enemies"][1]["hp"] = 1000
+		combat["enemies"][2]["hp"] = 1
+		Combat._apply_black_hole_aoe(combat, 5, 2)
+		assert_eq(queued["hp"], queued_hp, "queued fighter untouched by AoE")
+		assert_eq(combat["frozenTurns"], 2)
+		assert_true(combat["enemyQueue"].is_empty(), "KO admitted the queued fighter")
+		assert_eq(combat["enemies"][2]["hp"], queued_hp, "entrant holds the open place, fresh hp")
+		assert_true(combat["enemies"][2].get("freezeExempt", false), "entrant does not inherit the freeze")
+		assert_true(not combat["enemies"][2]["koed"])
+		assert_eq(combat["outcome"], null)
+	)
+
+	run_case("victory_needs_active_and_queued_enemies_defeated", func():
+		GameState.reset()
+		Combat.start_raid("v1", 1, 4, "veinGuard")
+		var combat: Dictionary = GameState.state["combat"]
+		for i in range(3):
+			combat["enemies"][i]["hp"] = 0
+			Combat._maybe_win_from_direct_damage(combat, combat["enemies"][i])
+		assert_eq(combat["outcome"], null, "the fourth guard stepped in, no win yet")
+		assert_true(combat["enemyQueue"].is_empty())
+		assert_true(not combat["enemies"][0]["koed"], "entrant took slot 0")
+		combat["enemies"][0]["hp"] = 0
+		Combat._maybe_win_from_direct_damage(combat, combat["enemies"][0])
+		assert_eq(combat["outcome"], "win")
+	)
+
+	run_case("ally_ko_admits_next_queued_ally_in_order", func():
+		GameState.reset()
+		var allies: Array = [Combat.build_guard_ally(), Combat.build_guard_ally(), Combat.build_guard_ally(), Combat.build_guard_ally()]
+		for i in range(allies.size()):
+			allies[i]["name"] = "G%d" % i
+		Combat._start_combat(Combat.CONTEXT_RAID, "v1", Combat.generate_raid_enemy("v1", 1, 1), [], "", allies)
+		var combat: Dictionary = GameState.state["combat"]
+		assert_eq(combat["allies"].size(), Combat.SQUAD_MAX - 1, "player holds one of three places")
+		assert_eq(combat["allyQueue"].size(), 2)
+		Combat._admit_reinforcement(combat, "allies", 0)
+		assert_eq(combat["allies"][0]["name"], "G2")
+		Combat._admit_reinforcement(combat, "allies", 1)
+		assert_eq(combat["allies"][1]["name"], "G3")
+		Combat._admit_reinforcement(combat, "allies", 1)
+		assert_eq(combat["allies"][1]["name"], "G3", "empty queue is a no-op")
 	)
 
 	run_case("generate_raid_enemy_forced_template_key_applies_to_every_slot", func():
@@ -1701,8 +1765,8 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["player"]["veins"].append({ "id": "gv", "district": "battersea", "security": Cultivating.GUARDED_TIER_ID, "extraGuards": 2 })
 		Combat.start_defend_vein("gv", 2)
-		var allies: Array = GameState.state["combat"]["allies"]
-		assert_eq(allies.size(), 3)
+		var allies: Array = GameState.state["combat"]["allies"] + GameState.state["combat"]["allyQueue"]
+		assert_eq(allies.size(), 3, "two active, one queued")
 		var stats: Dictionary = GameData.GUARD_KIT["guardAlly"]
 		for ally in allies:
 			assert_true(ally["guardAlly"], "marked as a guard ally")
@@ -1712,15 +1776,17 @@ func run() -> void:
 			assert_eq(ally["speed"], int(stats["speed"]))
 	)
 
-	run_case("start_defend_vein_contacts_join_first_and_guards_fill_up_to_squad_max", func():
+	run_case("start_defend_vein_contacts_join_first_and_guards_queue_behind", func():
 		GameState.reset()
 		GameState.state["contacts"]["archie"]["recruited"] = true
 		GameState.state["player"]["veins"].append({ "id": "gv", "district": "battersea", "security": Cultivating.GUARDED_TIER_ID, "extraGuards": 4 })
 		Combat.start_defend_vein("gv", 2)
-		var allies: Array = GameState.state["combat"]["allies"]
-		assert_eq(allies.size(), Combat.SQUAD_MAX)
+		var combat: Dictionary = GameState.state["combat"]
+		var allies: Array = combat["allies"]
+		assert_eq(allies.size(), Combat.SQUAD_MAX - 1, "player holds one of three places")
 		assert_eq(allies[0]["contactId"], "archie", "contacts come first")
-		assert_true(allies[1].get("guardAlly", false) and allies[2].get("guardAlly", false), "guards fill the rest")
+		assert_true(allies[1].get("guardAlly", false), "a guard fills the other place")
+		assert_true(combat["allyQueue"].size() >= 1, "remaining guards wait")
 	)
 
 	run_case("start_defend_vein_with_no_guards_adds_no_guard_allies", func():
@@ -1901,8 +1967,9 @@ func run() -> void:
 		GameState.state["home"]["guardKit"] = { "blast": { "2": 20 } }
 		Combat.start_home_alarm_defend_combat()
 		var combat: Dictionary = GameState.state["combat"]
-		assert_eq(combat["allies"].size(), Combat.SQUAD_MAX, "4 guards capped at SQUAD_MAX")
-		for ally in combat["allies"]:
+		assert_eq(combat["allies"].size(), Combat.SQUAD_MAX - 1, "player holds one of three places")
+		assert_eq(combat["allyQueue"].size(), 2, "the other two guards wait")
+		for ally in combat["allies"] + combat["allyQueue"]:
 			assert_true(ally.get("guardAlly", false))
 		assert_eq(combat["guardKit"]["items"], { "blast": { "2": 8 } }, "only the 8 active units (4 guards x 2 slots)")
 		assert_eq(combat["guardKit"]["used"], {})

@@ -664,7 +664,7 @@ static func _start_stockpile_raid_combat(effect: Dictionary) -> void:
 # exit_combat()) so a win resumes this same event. guards/template come from
 # the authoring card, defaulting to a single guard on the catch-all template.
 # guards "vein" sizes the squad to the vein's own guards (Cultivating.
-# vein_guard_count); start_raid() clamps it to [1, SQUAD_MAX].
+# vein_guard_count); start_raid() floors it at 1, extras queue as reinforcements.
 static func _start_raid_combat(effect: Dictionary) -> void:
 	var site: Variant = Sites.find_site(_event_site_id(effect))
 	if site == null or site["factionVein"] == null:

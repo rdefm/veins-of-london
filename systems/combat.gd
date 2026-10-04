@@ -54,6 +54,7 @@ const BEAT_ABILITY_UNLOCKED := "ability_unlocked"
 const BEAT_FROZEN_WEARS_OFF := "frozen_wears_off"
 const BEAT_ENEMY_FROZEN := "enemy_frozen"
 const BEAT_ALLY_KO := "ally_ko"
+const BEAT_REINFORCEMENT_ENTER := "reinforcement_enter"
 const BEAT_COMBAT_WIN := "combat_win"
 const BEAT_COMBAT_LOSS := "combat_loss"
 const BEAT_MOTION_ANNOUNCE := "motion_announce"
@@ -144,8 +145,9 @@ const COMBAT_XP_PER_WORKOUT_SESSION := 10
 
 # R§3.7a "Roster generation": ENEMY_INSTANCE_VARIANCE is the per-instance
 # hp/attack variance band for spawned mugger/guard entries (draft, not
-# balance-final); SQUAD_MAX is the squad-size cap generate_raid_enemy()
-# clamps guard_count to.
+# balance-final); SQUAD_MAX is how many fighters per side are active at once
+# (the player counts toward the friendly SQUAD_MAX). Extra fighters wait in
+# combat.enemyQueue / combat.allyQueue.
 const ENEMY_INSTANCE_VARIANCE := 0.15
 const SQUAD_MAX := 3
 
@@ -227,11 +229,11 @@ static func _enemy_capabilities_from_template(template: Dictionary) -> Dictionar
 # Debug-only in M0 (R§3.7); M0 has no NPC-claimed-vein storage, so callers
 # supply a value tier/guards directly. value_tier is Cultivating.combined_magnitude()
 # (R§3.4: value_tier blended with a vein's earned level); guard_count
-# (capped at SQUAD_MAX) entries roll independently from
+# (at least 1, no upper cap) entries roll independently from
 # GameData.ENEMY_RAID_GUARDS unless `template_key` forces one template.
 static func generate_raid_enemy(vein_id, value_tier: int, guards: int = 1, template_key: String = "") -> Array:
 	var templates: Dictionary = GameData.ENEMY_RAID_GUARDS
-	var guard_count: int = clampi(guards, 1, SQUAD_MAX)
+	var guard_count: int = maxi(guards, 1)
 	var entries: Array = []
 	var used_variants: Array = []
 	for _i in range(guard_count):
@@ -446,9 +448,8 @@ static func start_defend_vein(vein_id: String, value_tier: int, attacker_id: Str
 		GameState.state["flags"]["colA2DefendReminderShown"] = true
 	var allies := _gather_defend_allies(log_lines)
 	for faction_id in partner_ids:
-		if allies.size() < SQUAD_MAX:
-			allies.append(build_partner_ally(faction_id))
-			log_lines.append(Partners.join_line(faction_id))
+		allies.append(build_partner_ally(faction_id))
+		log_lines.append(Partners.join_line(faction_id))
 	var vein = Cultivating.find_vein(vein_id)
 	_add_guard_allies(allies, 0 if vein == null else Cultivating.vein_guard_count(vein), log_lines)
 	var guard_kit: Dictionary = {} if vein == null else { "items": GuardKit.active_units(vein).duplicate(true), "used": {} }
@@ -466,11 +467,11 @@ static func _gather_defend_allies(log_lines: Array) -> Array:
 	return allies
 
 
-# Guard-kit spec §Defend fight: one guard ally per guard fills `allies` up to
-# SQUAD_MAX, after contacts. A KO only lasts the fight -- no contactId, so
+# Guard-kit spec §Defend fight: one guard ally per guard joins `allies`, after
+# contacts and partner helpers. A KO only lasts the fight -- no contactId, so
 # nothing persistent is touched.
 static func _add_guard_allies(allies: Array, guard_count: int, log_lines: Array) -> void:
-	var joining: int = mini(guard_count, SQUAD_MAX - allies.size())
+	var joining: int = maxi(guard_count, 0)
 	for i in range(joining):
 		allies.append(build_guard_ally())
 	if joining > 0:
@@ -526,8 +527,15 @@ static func _start_combat(context: String, vein_id, enemies: Array, log_lines: A
 	# it -- one chokepoint (speed is already set at construction time).
 	for enemy in enemies:
 		enemy["koed"] = false
+	# The player holds one of the friendly SQUAD_MAX places; the rest of both
+	# rosters wait in order (R§3.7a "Reinforcements").
+	var ally_queue: Array = allies.slice(SQUAD_MAX - 1) if allies.size() > SQUAD_MAX - 1 else []
+	var enemy_queue: Array = enemies.slice(SQUAD_MAX) if enemies.size() > SQUAD_MAX else []
+	allies = allies.slice(0, SQUAD_MAX - 1)
+	enemies = enemies.slice(0, SQUAD_MAX)
 	GameState.state["combat"] = {
 		"active": true, "context": context, "veinId": vein_id, "enemies": enemies,
+		"enemyQueue": enemy_queue, "allyQueue": ally_queue,
 		"locationKey": location_key_for(context, vein_id) if location_key_override == null else str(location_key_override),
 		# R§2: player/ally/enemy selection. Defaults to the first enemy.
 		"selection": { "type": "enemy", "index": 0 },
@@ -1484,9 +1492,14 @@ static func _enemy_turn(combat: Dictionary, enemy: Dictionary, enemy_index: int,
 
 	if not combat.has("frozenSkipped"):
 		combat["frozenSkipped"] = []
-	if combat["frozenTurns"] > 0 and combat["frozenSkipped"].has(enemy_index):
+	var exempt: bool = enemy.get("freezeExempt", false)
+	# Nobody left for the freeze to land on: it lapses.
+	if exempt and combat["frozenTurns"] > 0 and _all_living_enemies_skipped(combat):
+		combat["frozenTurns"] = 1
 		_end_freeze_rotation(combat, enemy_index, beats)
-	if combat["frozenTurns"] > 0:
+	if combat["frozenTurns"] > 0 and not exempt and combat["frozenSkipped"].has(enemy_index):
+		_end_freeze_rotation(combat, enemy_index, beats)
+	if combat["frozenTurns"] > 0 and not exempt:
 		combat["frozenSkipped"].append(enemy_index)
 		_log(combat, beats, "%s is frozen — no turn." % enemy["name"], BEAT_ENEMY_FROZEN,
 			{ "actorType": "enemy", "actorIndex": enemy_index })
@@ -1570,13 +1583,16 @@ static func _end_freeze_rotation(combat: Dictionary, enemy_index: int, beats: Va
 	combat["frozenTurns"] -= 1
 	combat["frozenSkipped"] = []
 	if combat["frozenTurns"] == 0:
+		for enemy in combat["enemies"]:
+			enemy.erase("freezeExempt")
 		_log(combat, beats, "The time effect wears off. They're coming back round.", BEAT_FROZEN_WEARS_OFF,
 			{ "actorType": "enemy", "actorIndex": enemy_index })
 
 
 static func _all_living_enemies_skipped(combat: Dictionary) -> bool:
 	for i in range(combat["enemies"].size()):
-		if not combat["enemies"][i]["koed"] and not combat["frozenSkipped"].has(i):
+		var enemy: Dictionary = combat["enemies"][i]
+		if not enemy["koed"] and not enemy.get("freezeExempt", false) and not combat["frozenSkipped"].has(i):
 			return false
 	return true
 
@@ -1675,11 +1691,12 @@ static func _enemy_attack_ally(combat: Dictionary, enemy: Dictionary, ally: Dict
 			{ "actorType": "ally", "actorIndex": ally_index, "effectKey": "failsafe" })
 	if ally["hp"] <= 0:
 		ally["koed"] = true
-		clamp_selection(combat)
 		_log(combat, beats, "%s is knocked out of the fight." % ally["name"], BEAT_ALLY_KO,
 			{ "targetType": "ally", "targetIndex": ally_index })
 		if ally.has("contactId"):
 			Contacts.knock_out(ally["contactId"], GameState.state["world"]["day"])
+		_admit_reinforcement(combat, "allies", ally_index, beats)
+		clamp_selection(combat)
 
 
 # Also returns `beats`, same shape as player_attack()'s -- the failed-flee
@@ -1942,8 +1959,9 @@ static func _maybe_win_from_direct_damage(combat: Dictionary, enemy: Dictionary,
 	if enemy["hp"] > 0:
 		return
 	enemy["koed"] = true
+	_admit_reinforcement(combat, "enemies", _roster_index(combat["enemies"], enemy), beats)
 	clamp_selection(combat)
-	if not _all_enemies_koed(combat["enemies"]):
+	if not _all_enemies_koed(combat["enemies"]) or not combat.get("enemyQueue", []).is_empty():
 		return
 	combat["outcome"] = "win"
 	var line: String = "They go down. Vein is yours."
@@ -1953,6 +1971,32 @@ static func _maybe_win_from_direct_damage(combat: Dictionary, enemy: Dictionary,
 		line = "They're gone."
 	_log(combat, beats, line, BEAT_COMBAT_WIN, {})
 	_dispatch_on_win()
+
+
+# A KO'd active fighter's place goes to the next same-side reinforcement,
+# in the same index so selection and the turn queue point at the entrant.
+# `roster_key` is "enemies" or "allies". An enemy entering mid-freeze is
+# exempt from it until the freeze ends (_enemy_turn()); a fighter queued when
+# an AoE lands is never in its target list. No-op with an empty queue.
+static func _admit_reinforcement(combat: Dictionary, roster_key: String, index: int, beats: Variant = null) -> void:
+	var queue: Array = combat.get("enemyQueue" if roster_key == "enemies" else "allyQueue", [])
+	if queue.is_empty() or index < 0:
+		return
+	var entrant: Dictionary = queue.pop_front()
+	if roster_key == "enemies" and combat["frozenTurns"] > 0:
+		entrant["freezeExempt"] = true
+	combat[roster_key][index] = entrant
+	# PROSE-REVIEW: reinforcement entry line.
+	_log(combat, beats, "%s steps in." % entrant["name"], BEAT_REINFORCEMENT_ENTER,
+		{ "targetType": "enemy" if roster_key == "enemies" else "ally", "targetIndex": index })
+
+
+# Index of `fighter` by identity (two KO'd fighters can compare equal by value).
+static func _roster_index(roster: Array, fighter: Dictionary) -> int:
+	for i in range(roster.size()):
+		if is_same(roster[i], fighter):
+			return i
+	return -1
 
 
 static func _all_enemies_koed(enemies: Array) -> bool:

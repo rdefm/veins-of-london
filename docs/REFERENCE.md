@@ -547,7 +547,7 @@ state = {
   combat: { active:false, context:"raid", veinId:null, enemies:[], focusedEnemyIndex:0, log:[],
             outcome:null, frozenTurns:0, motionTurns:0, motionPower:0,
             evadeTurns:0, evadeChance:0.0, onWin:null, snapshots:[],
-            allies:[], raiderKit:{}, guardKit:{}, slotsUsed:[] },  # slotsUsed: loadout slot indices spent this fight, §3.7 Player loadout;  # 44-archie-combat-ally / §3.7a: see below; raiderKit §3.7 Raider kits; guardKit §3.7 Guard allies; a stockpile raid's fight adds stockpileFactionId (§3.12)
+            allies:[], enemyQueue:[], allyQueue:[], raiderKit:{}, guardKit:{}, slotsUsed:[] },  # slotsUsed: loadout slot indices spent this fight, §3.7 Player loadout;  # 44-archie-combat-ally / §3.7a: see below; raiderKit §3.7 Raider kits; guardKit §3.7 Guard allies; a stockpile raid's fight adds stockpileFactionId (§3.12)
 
   jamesJob: null,             # { type:"craft", recipeKey, recipeName, symbol, qty, payPerItem, totalPay, byDay } | { type:"flatPay", pay } | null
   pendingSaleCut: 0,
@@ -757,7 +757,7 @@ The dock (`NavBar`, now 3 slots: Phone · Map · HQ) is hidden on `title, intro,
 
 ### 3.7a Squad combat, turn order, and Combat Skill (2026-08-30 pass — extends/supersedes §3.7)
 
-Supersedes the single-`enemy` framing in §3.7 wherever it conflicts: `combat.enemy` becomes `combat.enemies: Array` (up to 3 entries, per-entry shape per §2 above, plus `speed:int` and `koed:bool`), and `combat.focusedEnemyIndex: int` (default 0) is added. Every other §3.7 mechanic — attack ranges, shield/blast/time-pearl/black-hole, ally behaviour, onWin dispatch, Rewind — carries over unchanged except where noted below.
+Supersedes the single-`enemy` framing in §3.7 wherever it conflicts: `combat.enemy` becomes `combat.enemies: Array` (active fighters, at most 3; per-entry shape per §2 above, plus `speed:int` and `koed:bool`), and `combat.focusedEnemyIndex: int` (default 0) is added. **Reinforcements:** each side has at most 3 active fighters (the player counts toward the friendly 3, so `combat.allies` holds at most 2). Overflow waits in `combat.enemyQueue` / `combat.allyQueue` (same entry shapes; friendly order = selected recruits, partner helpers, hired guards; enemy order = generated). Queued fighters do not act, take damage or appear as targets; AoE and freeze hit only fighters active when applied. A KO'd active fighter's index is immediately taken by the next same-side queue entry (in KO order), and an enemy entering mid-freeze carries `freezeExempt` until the freeze ends. Victory needs `enemies` all koed and `enemyQueue` empty. Raid guard counts and mugging rolls are no longer clamped to 3. Every other §3.7 mechanic — attack ranges, shield/blast/time-pearl/black-hole, ally behaviour, onWin dispatch, Rewind — carries over unchanged except where noted below.
 
 - **Combat Skill** (new player stat, `player.combatSkill`/`player.combatXP`, levels 1–5, mechanical name only — display/flavour name TBD): reuses the exact `[0, 0, 80, 220, 500, 1000]` XP curve crafting/cultivating skill already use (`GameData.COMBAT_XP_LEVELS`, same `Progression.award_xp()` mechanism). Two additive, level-indexed effects (curves in `data/enemies.json`, §1.10 — **both draft, need balance sign-off**):
   - **Attack bonus**, `COMBAT_ATTACK_BONUS_BY_LEVEL = [0, 0, 2, 4, 7, 11]`, added to both `attackMin`/`attackMax` in `Combat.get_attack_range()`. Level 1 = today's baseline, unchanged.

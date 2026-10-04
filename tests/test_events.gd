@@ -723,14 +723,15 @@ func run() -> void:
 		assert_eq(GameState.state["combat"]["veinId"], "fv_test")
 	)
 
-	run_case("start_raid_combat_vein_guards_spawns_one_enemy_per_vein_guard_clamped_1_to_squad_max", func():
-		for case in [["warded", 0, 1], ["guarded", 1, 2], ["guarded", 3, 3]]:
+	run_case("start_raid_combat_vein_guards_spawns_one_enemy_per_vein_guard_extras_queue", func():
+		for case in [["warded", 0, 1], ["guarded", 1, 2], ["guarded", 3, 4]]:
 			GameState.reset()
 			var vein := _faction_vein_of_level(2, "physics", case[0])
 			vein["extraGuards"] = case[1]
 			GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
 			Events.apply_effects([{ "op": "start_raid_combat", "site_id": "s1", "guards": Events.RAID_GUARDS_FROM_VEIN }])
-			assert_eq(GameState.state["combat"]["enemies"].size(), case[2], "%s + %d extras -> %d enemies" % case)
+			var combat: Dictionary = GameState.state["combat"]
+			assert_eq(combat["enemies"].size() + combat["enemyQueue"].size(), case[2], "%s + %d extras -> %d enemies" % case)
 	)
 
 	run_case("start_raid_combat_integer_guards_still_spawns_that_many", func():
