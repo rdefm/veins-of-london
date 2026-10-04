@@ -161,8 +161,10 @@ func run() -> void:
 	run_case("exhaustion_skips_exactly_one_round_then_recovers", func():
 		var cp := _fresh_prototype("brawler")  # script == ["heavy"], always aimed at the player
 		Rng.set_seed(6)
-		CombatPrototype.take_player_action(CombatPrototype.ACTION_FAST)  # round 1: brawler commits heavy -> exhausted next turn
 		var enemy: Dictionary = cp["enemies"][0]
+		enemy["hp"] = 1000  # outlast the three rounds regardless of player damage
+		enemy["hpMax"] = 1000
+		CombatPrototype.take_player_action(CombatPrototype.ACTION_FAST)  # round 1: brawler commits heavy -> exhausted next turn
 		assert_true(enemy["exhaustedNextTurn"], "round 1's committed Heavy should exhaust the brawler")
 		assert_eq(enemy["scriptIndex"], 1, "the script index advances once for round 1's real commit")
 		var hp_before_round_2: int = cp["player"]["hp"]

@@ -121,7 +121,7 @@ func new_game_state() -> Dictionary:
 			# Playable protagonist -- a data/combat_visuals.json templates key.
 			"model": "territorial3",
 			"hp": 40, "hpMax": 40,
-			"attackMin": 3, "attackMax": 7,
+			"attackMin": 7, "attackMax": 15,
 			# Shield absorption pool (no turn cap) and Healing Salve's
 			# 2-day heal-over-time timer -- both persist across
 			# Combat.exit_combat()'s teardown/rebuild.

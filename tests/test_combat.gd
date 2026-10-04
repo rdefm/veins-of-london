@@ -1029,13 +1029,13 @@ func run() -> void:
 		assert_true(not player.has("equipment") and not player.has("items"), "no weapon/equipment fields in new-game state")
 		assert_eq(player["combatSkill"], 1, "sanity: Combat Skill 1")
 		var range := Combat.get_attack_range()
-		assert_eq(range["min"], 3, "unarmed Combat Skill 1 attackMin")
-		assert_eq(range["max"], 7, "unarmed Combat Skill 1 attackMax")
-		# Seeded: every player damage roll stays within 3-7.
+		assert_eq(range["min"], 7, "unarmed Combat Skill 1 attackMin")
+		assert_eq(range["max"], 15, "unarmed Combat Skill 1 attackMax")
+		# Seeded: every player damage roll stays within 7-15.
 		seed(1234)
 		for i in 50:
 			var dmg := randi_range(range["min"], range["max"])
-			assert_true(dmg >= 3 and dmg <= 7, "seeded roll %d within 3-7" % dmg)
+			assert_true(dmg >= 7 and dmg <= 15, "seeded roll %d within 7-15" % dmg)
 	)
 
 	run_case("enemy_weapon_bonus_still_applies", func():

@@ -399,7 +399,7 @@ Muggers: generated, see §3.7.
 
 ```
 state = {
-  meta: { saveVersion: 5 },
+  meta: { saveVersion: 6 },
   currentScreen: "title",     # see screen list below
   modal: null,                # { type: String, data: Dictionary } | null
   bagDrawerOpen: false,        # M1 D4.4; the global BagDrawer bottom sheet, independent of `modal`
@@ -428,7 +428,7 @@ state = {
     cash: 40,
     model: "territorial3",    # playable protagonist sprite set: a data/combat_visuals.json `templates` key
     hp: 40, hpMax: 40,
-    attackMin: 3, attackMax: 7,
+    attackMin: 7, attackMax: 15,
     orichalchum: {},          # { oreType: int }
     veins: [],                # vein dicts, §2.1
     inventory: { timePearl: {}, enhancementPowder: {}, rewind: {} },  # bugfixes-64: { recipeKey: { "<tier>": count } } — tier-bucketed, not a flat count. Tier keys are stringified ints; tiers run 1..5 — tier 0 is retired (v4): `inventory_add`/`add_item` floor any lower tier at 1, and purchases/grants/migrated bare counts file under tier "1". Crafting.inventory_qty/_add/_remove/_remove_from_tier are the only sanctioned readers/writers — see §3.5.
@@ -710,7 +710,7 @@ The dock (`NavBar`, now 3 slots: Phone · Map · HQ) is hidden on `title, intro,
 ### 3.7 Combat (M0 port — pre-intent system)
 - Muggers: `count = rand(1,3)`; hp `28 × count`; atk `4 + 2(count−1)` to `10 + 3(count−1)`; name "A mugger" / "N muggers".
 - Vein-raid enemy (attacking an NPC-claimed vein): template scaled `hp = round(hpBase × (1 + (veinLevel−1)×0.3) × guards)`, atkMax `+ (veinLevel−1)`. (Reachable in M0 only via debug; keep functions.)
-- `getAttackRange()` = unarmed base (3–7) + Combat Skill attack bonus (§3.7a). Players have no weapon.
+- `getAttackRange()` = unarmed base (7–15) + Combat Skill attack bonus (§3.7a). Players have no weapon.
 - **Player attack turn:** push combat snapshot first (§3.9). Attacks this turn: 1, or with motionTurns > 0: `motionPower ≥ 3 ? 3 : 2` (log line). Each hit: first `chance(enemy.evadeChance)` (§1.10) → enemy dodges, no damage, log, next hit; else `dmg = rand(atkMin, atkMax)`; enemy hp −= dmg; log "You attack — X damage. Enemy: h/H HP." Enemy at 0 → outcome "win", dispatch onWin. After attacks: motionTurns −= 1 if active (log expiry at 0); enemy.ability.lockedTurns −= 1 if locked (log at 0, "back online" — see `Combat.disarm_enemy`, §1.10); frozenTurns > 0 → −1 (log expiry at 0) and enemy skips; else enemy attacks.
 - **Enemy attack:** if evadeTurns > 0: decrement; `chance(evadeChance)` → miss (log), return. Else `dmg = rand(enemy atk range)`, where enemy atk range is atkMin/atkMax plus the enemy's equipped `weapon` bonus if any (§1.10); if `player.shieldPool > 0` (calc-effect-wiring-02), absorb 1:1 first (`absorbed = min(dmg, shieldPool)`, `shieldPool -= absorbed`, `dmg -= absorbed`) before applying the remainder; player hp −= dmg; at 0 → outcome "loss", log, revive `hp = round(hpMax * 0.3)`.
 - **Flee:** `chance(0.65)` → outcome "fled"; else enemy gets a free attack. calc-effect-wiring-02: Blast's flee boost (below) raises this to `chance(0.90)` for exactly one attempt, then clears regardless of outcome.
@@ -750,7 +750,7 @@ Supersedes the single-`enemy` framing in §3.7 wherever it conflicts: `combat.en
   - **Attack bonus**, `COMBAT_ATTACK_BONUS_BY_LEVEL = [0, 0, 2, 4, 7, 11]`, added to both `attackMin`/`attackMax` in `Combat.get_attack_range()`. Level 1 = today's baseline, unchanged.
   - **Speed**, `COMBAT_SPEED_BY_LEVEL = [0, 10, 12, 14, 17, 21]` — the player's turn-order value (below). Allies and enemies are not trainable: each carries its own flat, authored `speed` (ally: contact combat-kit constants, §1.11; enemy: per template, §1.10).
   - **HP bonus**, `COMBAT_HP_BONUS_BY_LEVEL = [0, 0, 0, 55, 55, 140]` — cumulative bonus over the fresh player's hpMax. On each Combat Skill level-up (`Combat.award_xp()`), `hpMax` and current `hp` both rise by that level's delta (`curve[L] − curve[L−1]`), stacking with Home Gym's flat bonus.
-  - **Balance basis** (playtest ticket 12, 2026-09-26): fresh player hp 40 / atk 3–7 and all three curves tuned with `scripts/sim_combat_balance.gd` (itemless, ally-less, always Attack) so each "matched" raid lands at 60–80% wins with the winner usually under 40% HP: L1 vs 1 guard t1, L2 vs 1 guard t2, L3 vs 2 guards t2, L4 vs 2 guards t3, L5 vs 3 guards t4.
+  - **Balance basis** (playtest ticket 12, 2026-09-26): fresh player hp 40 / atk 3–7 (since raised to 7–15, not re-tuned) and all three curves tuned with `scripts/sim_combat_balance.gd` (itemless, ally-less, always Attack) so each "matched" raid lands at 60–80% wins with the winner usually under 40% HP: L1 vs 1 guard t1, L2 vs 1 guard t2, L3 vs 2 guards t2, L4 vs 2 guards t3, L5 vs 3 guards t4.
   - **XP sources:** `Combat.player_attack()` awards a flat `COMBAT_XP_PER_ATTACK_TURN = 5` once per player turn taken (mirrors `Dial.cast_complication()`'s flat +10 — taking a turn is the "attempt", no success/fail split). A new HQ action, **Train**, always available on the HQ screen (no `homeGym` required): costs 1 time block (same currency every other block-consuming HQ action uses — Lab, veinStation, a James job fulfilment), no separate cooldown — the 3-blocks/day economy is the only throttle. Without `homeGym` built it awards a flat `COMBAT_XP_PER_WORKOUT_SESSION = 10`; once `homeGym` is built it awards the larger flat `COMBAT_XP_PER_GYM_SESSION = 30` instead. `homeGym`'s existing one-time `+10 hpMax` build bonus (§1.7) is unchanged and independent of this.
 
 - **Turn order:** every combat round, build one queue: every non-koed combatant (player, living allies, living enemies) sorted by `speed` descending; ties break player > allies (array order) > enemies (array order) — deterministic, no RNG in the sort itself. Each queue entry resolves as one atomic turn (today's player-attack/ally-turn/enemy-turn bodies per §3.7, invoked once per queue entry instead of once per round). `frozenTurns` skips a combatant's entry in place (no-op + decrement, same log line as today) rather than removing it from the queue. `motionTurns`/`motionPower` (Enhancement Powder, or a loaded `enhancementPowder` Complication) changes from today's in-place 2×/3× attack loop inside one `player_attack()` call to **one extra queue entry inserted immediately after the boosted combatant's own slot**, for that round only — a visible second turn, not a hidden multiplier.
@@ -916,7 +916,7 @@ A save without `factionPressure` backfills `{ snapshots: {}, collectiveFirmJoine
 
 Every load clamps player and pair relations to −100..100, makes `factionRelations` symmetric (each pair gets the rounded mean of its two directions) and backfills a missing faction `activityLog` as `[]`. A save without `factionStances` gets the starting pair stances; a pair relation outside its starting stance's band is set to that stance's `startingRelation`; player stances are read from relation without overlap or hysteresis (Collective held neutral per §3.1 "Stances"). No `saveVersion` bump.
 
-Save versioning (v5): `SaveManager.SAVE_VERSION = 5`, `MIN_SUPPORTED_VERSION = 3`; older/newer saves are rejected. `_migrate_versions` runs `_migrate_from_v<N>` for each N from the save's version to current (one `match` arm per bump), then stamps current. v3→v4 folds every `"0"` tier bucket into `"1"` (counts merged) in player/stash inventory, vein and HQ `guardKit`, faction `holdings.items`, `combat.guardKit`/`raiderKit` pools, and sets loaded Dial Complication tier 0 → 1. v4→v5 drops `player.items` and `player.equipment.weapon` (retired player weapons, no compensation).
+Save versioning (v6): `SaveManager.SAVE_VERSION = 6`, `MIN_SUPPORTED_VERSION = 3`; older/newer saves are rejected. `_migrate_versions` runs `_migrate_from_v<N>` for each N from the save's version to current (one `match` arm per bump), then stamps current. v3→v4 folds every `"0"` tier bucket into `"1"` (counts merged) in player/stash inventory, vein and HQ `guardKit`, faction `holdings.items`, `combat.guardKit`/`raiderKit` pools, and sets loaded Dial Complication tier 0 → 1. v4→v5 drops `player.items` and `player.equipment.weapon` (retired player weapons, no compensation). v5→v6 raises a stock 3–7 `attackMin`/`attackMax` to 7–15.
 
 A save whose `player.model` is `"protagonist2"` loads as `"territorial3"` (the same sprite set, renamed); any other value is left as-is. No `saveVersion` bump.
 

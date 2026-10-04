@@ -4,7 +4,7 @@ extends Node
 # autosaves. autosave() is called from daily_tick, exit_combat, event
 # completion, and every successful cash purchase.
 
-const SAVE_VERSION := 5
+const SAVE_VERSION := 6
 # Oldest save version _migrate_versions() can still bring forward.
 const MIN_SUPPORTED_VERSION := 3
 const SLOT_COUNT := 3
@@ -330,8 +330,19 @@ func _migrate_versions(save: Dictionary) -> void:
 				_migrate_from_v3(save)
 			4:
 				_migrate_from_v4(save)
+			5:
+				_migrate_from_v5(save)
 	meta["saveVersion"] = SAVE_VERSION
 	save["meta"] = meta
+
+
+# v6 raises the unarmed base attack from 3–7 to 7–15 (the old crowbar total);
+# a save whose base was edited away from 3–7 is left alone.
+func _migrate_from_v5(save: Dictionary) -> void:
+	var player: Dictionary = save.get("player", {})
+	if int(player.get("attackMin", 3)) == 3 and int(player.get("attackMax", 7)) == 7:
+		player["attackMin"] = 7
+		player["attackMax"] = 15
 
 
 # v5 retires player weapons: the crowbar item list and the equipped-weapon slot

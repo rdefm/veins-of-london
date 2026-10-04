@@ -1318,6 +1318,18 @@ func run() -> void:
 		assert_eq(GameState.state["meta"]["saveVersion"], SaveManager.SAVE_VERSION, "stamped current")
 	)
 
+	run_case("loading_a_v5_save_raises_stock_unarmed_attack_to_7_15", func():
+		GameState.reset()
+		var save: Dictionary = GameState.deep_copy(GameState.state)
+		save["meta"]["saveVersion"] = 5
+		save["player"]["attackMin"] = 3
+		save["player"]["attackMax"] = 7
+		var result := SaveManager.import_string(JSON.stringify(save))
+		assert_true(result["ok"], "a v5 save should load")
+		assert_eq(GameState.state["player"]["attackMin"], 7, "attackMin raised")
+		assert_eq(GameState.state["player"]["attackMax"], 15, "attackMax raised")
+	)
+
 	run_case("loading_a_save_at_the_current_version_succeeds", func():
 		GameState.reset()
 		var save: Dictionary = GameState.deep_copy(GameState.state)
