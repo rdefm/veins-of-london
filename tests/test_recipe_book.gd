@@ -200,6 +200,30 @@ func run() -> void:
 		assert_true(FileAccess.file_exists("res://assets/fonts/OFL.txt"), "font license ships with the font")
 	)
 
+	run_case("stock_line_sits_below_description_inside_entry", func():
+		GameState.reset()
+		_find_everything()
+		var layer := _open_book({ "ore": "physics", "page": 0 })
+		var book: RecipeBookPage = layer.find_children("", "RecipeBookPage", true, false)[0]
+		var description_rects: Array = []
+		var stock_rects: Array = []
+		var hit_rects: Array = []
+		for entry in book._placed:
+			var node: Control = entry["node"]
+			if node is Label and node.max_lines_visible == 3:
+				description_rects.append(entry["rect"])
+			elif node is Label and node.text.begins_with("Stock:"):
+				stock_rects.append(entry["rect"])
+			elif node.has_meta("recipeKey"):
+				hit_rects.append(entry["rect"])
+		assert_true(stock_rects.size() > 0, "fixture: entries on the page")
+		assert_eq(stock_rects.size(), description_rects.size())
+		for i in range(stock_rects.size()):
+			assert_true(stock_rects[i].position.y >= description_rects[i].end.y, "stock below 3-line description")
+			assert_true(stock_rects[i].end.y <= hit_rects[i].end.y, "stock inside entry area")
+		layer.free()
+	)
+
 	run_case("page_places_children_in_art_space_without_cropping", func():
 		var page := RecipeBookPage.new()
 		page.size = Vector2(300, 600)

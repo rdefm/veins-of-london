@@ -18,7 +18,7 @@ const TAB_X := 947.0
 const TAB_HIT := Vector2(125, 200)
 const ENTRY_TOP := 205.0
 const ENTRY_STEP := 290.0
-const ENTRY_HEIGHT := 208.0
+const ENTRY_HEIGHT := 250.0
 
 
 # One live ore glyph, centred in its control.
@@ -140,7 +140,7 @@ static func _build_entry(book: RecipeBookPage, recipe_key: String, slot: int, or
 	book.place(description, Rect2(452, top + 66, 376, 100), 28.0, 10)
 
 	var stock := _page_label("Stock: %d" % Crafting.inventory_qty(recipe_key), RecipeBookPage.INK)
-	book.place(stock, Rect2(452, top + 164, 376, 36), 26.0, 10)
+	book.place(stock, Rect2(452, top + 207, 376, 36), 26.0, 10)
 
 	var hit := Button.new()
 	hit.flat = true
