@@ -1318,6 +1318,19 @@ func run() -> void:
 		assert_eq(GameState.state["meta"]["saveVersion"], SaveManager.SAVE_VERSION, "stamped current")
 	)
 
+	run_case("loading_a_v8_save_returns_hq_kit_overflow_to_inventory", func():
+		GameState.reset()
+		var save: Dictionary = GameState.deep_copy(GameState.state)
+		save["meta"]["saveVersion"] = 8
+		save["home"]["guardCount"] = 1
+		save["home"]["guardKit"] = { "blast": { "1": 2 }, "shield": { "3": 1 } }
+		save["player"]["inventory"] = { "blast": { "1": 1 } }
+		var result := SaveManager.import_string(JSON.stringify(save))
+		assert_true(result["ok"], "a v8 save should load")
+		assert_eq(GameState.state["home"]["guardKit"], { "blast": { "1": 1 }, "shield": { "3": 1 } })
+		assert_eq(GameState.state["player"]["inventory"]["blast"]["1"], 2, "overflow unit back in inventory")
+	)
+
 	run_case("loading_a_v7_save_grants_a_recruited_james_his_dial_and_leaves_stock_alone", func():
 		GameState.reset()
 		var save: Dictionary = GameState.deep_copy(GameState.state)

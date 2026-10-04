@@ -2357,10 +2357,12 @@ static func exit_combat() -> Dictionary:
 	var guard_used: Dictionary = combat.get("guardKit", {}).get("used", {})
 	if not guard_used.is_empty() and context == CONTEXT_HOME_ALARM_DEFEND:
 		GuardKit.remove_units(GameState.state["home"].get("guardKit", {}), guard_used)
+		GuardKit.refill_hq(GuardKit.recipe_totals(guard_used))
 	elif not guard_used.is_empty() and combat["veinId"] != null:
 		var vein = Cultivating.find_vein(str(combat["veinId"]))
 		if vein != null:
 			GuardKit.remove_units(vein.get("guardKit", {}), guard_used)
+			GuardKit.refill_vein(vein, GuardKit.recipe_totals(guard_used))
 
 	GameState.state["combat"] = {
 		"active": false, "context": CONTEXT_RAID, "veinId": null, "enemies": [],

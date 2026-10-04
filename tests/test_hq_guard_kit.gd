@@ -62,7 +62,7 @@ func run() -> void:
 		var screen := HqGuardKitScreen.new()
 		screen._ready()
 		var hq_row := _row(screen, "hq")
-		assert_eq(hq_row.text, "HQ\nGuard kit 4/3 · Blast ×4 · idle ›")
+		assert_eq(hq_row.text, "HQ\nGuard kit 4/2 · Blast ×4 · idle ›")
 		var rows := screen.find_children("GuardKitRow_*", "Button", true, false)
 		assert_eq(rows[0], hq_row, "HQ row first")
 		hq_row.pressed.emit()

@@ -168,7 +168,7 @@ func run() -> void:
 		var target := { "kind": "vein", "veinId": "v1" }
 		assert_eq(GuardKit.target_capacity(target), 4)
 		assert_eq(GuardKit.target_guard_count(target), 2)
-		assert_true(GuardKit.stock_target(target, "shield", 2, 3)["ok"])
+		assert_true(GuardKit.stock_target(target, "shield", 2, 3)["ok"])  # 3 of 4
 		assert_eq(GuardKit.target_kit(target), { "shield": { "2": 3 } })
 		assert_true(GuardKit.unstock_target(target, "shield", 2, 1)["ok"])
 		assert_eq(vein["guardKit"], { "shield": { "2": 2 } })
@@ -273,12 +273,12 @@ func run() -> void:
 		assert_eq(typeof(GameState.state["home"]["guardKit"]["shield"]["3"]), TYPE_INT)
 	)
 
-	run_case("hq_stock_fills_three_slots_per_guard_then_refuses", func():
+	run_case("hq_stock_fills_two_slots_per_guard_then_refuses", func():
 		_seed_hq(1)
 		Crafting.inventory_add("blast", 1, 4)
-		assert_eq(GuardKit.hq_capacity(), 3)
-		assert_true(GuardKit.stock_hq("blast", 1, 3)["ok"])
-		assert_eq(GameState.state["home"]["guardKit"], { "blast": { "1": 3 } })
+		assert_eq(GuardKit.hq_capacity(), 2)
+		assert_true(GuardKit.stock_hq("blast", 1, 2)["ok"])
+		assert_eq(GameState.state["home"]["guardKit"], { "blast": { "1": 2 } })
 		var before: Dictionary = GameState.deep_copy(GameState.state)
 		assert_true(not GuardKit.stock_hq("blast", 1, 1)["ok"], "full kit refuses")
 		assert_eq(GameState.state, before)
@@ -310,7 +310,7 @@ func run() -> void:
 		_seed_hq(2)
 		Crafting.inventory_add("shield", 2, 3)
 		var target := { "kind": "hq" }
-		assert_eq(GuardKit.target_capacity(target), 6)
+		assert_eq(GuardKit.target_capacity(target), 4)
 		assert_eq(GuardKit.target_guard_count(target), 2)
 		assert_eq(GuardKit.target_name(target), "HQ")
 		assert_true(GuardKit.stock_target(target, "shield", 2, 3)["ok"])
@@ -324,8 +324,53 @@ func run() -> void:
 		GameState.state["home"]["guardKit"] = { "blast": { "1": 5 } }
 		assert_true(Home.drop_guard())
 		assert_eq(GameState.state["home"]["guardKit"], { "blast": { "1": 5 } }, "kit kept")
-		assert_eq(GuardKit.hq_active_units(), { "blast": { "1": 3 } })
+		assert_eq(GuardKit.hq_active_units(), { "blast": { "1": 2 } })
 		assert_true(GuardKit.unstock_hq("blast", 1, 5)["ok"], "over-capacity return allowed")
+	)
+
+	run_case("refill_restocks_only_spent_recipes_highest_tier_first_up_to_capacity", func():
+		var vein := _seed(2)  # cap 4
+		vein["guardKit"] = { "shield": { "1": 1 } }
+		Crafting.inventory_add("blast", 1, 5)
+		Crafting.inventory_add("blast", 3, 1)
+		Crafting.inventory_add("shield", 2, 4)
+		Crafting.inventory_add("timePearl", 1, 4)
+		GuardKit.refill_vein(vein, { "blast": 3 })
+		assert_eq(vein["guardKit"], { "shield": { "1": 1 }, "blast": { "3": 1, "1": 2 } }, "3 blasts, best tier first")
+		assert_eq(GameState.state["player"]["inventory"]["blast"].get("1", 0), 3)
+		assert_eq(GameState.state["player"]["inventory"]["shield"]["2"], 4, "unspent recipe untouched")
+		GuardKit.refill_vein(vein, { "blast": 3 })
+		assert_eq(GuardKit.unit_count(vein["guardKit"]), 4, "capped at 2 x guards")
+	)
+
+	run_case("refill_stops_when_inventory_runs_out", func():
+		_seed_hq(3)
+		GameState.state["home"]["guardKit"] = {}
+		Crafting.inventory_add("blast", 1, 1)
+		GuardKit.refill_hq({ "blast": 2, "shield": 2 })
+		assert_eq(GameState.state["home"]["guardKit"], { "blast": { "1": 1 } })
+	)
+
+	run_case("hq_overflow_returns_lowest_tiers_and_conserves_units", func():
+		_seed_hq(1)  # cap 2
+		var kit := { "blast": { "1": 2, "3": 1 }, "shield": { "2": 2 } }
+		var inventory := { "blast": { "1": 1 } }
+		GuardKit.return_overflow(kit, 2, inventory)
+		assert_eq(kit, { "blast": { "3": 1 }, "shield": { "2": 1 } })
+		assert_eq(inventory, { "blast": { "1": 3 }, "shield": { "2": 1 } })
+	)
+
+	run_case("fought_vein_defence_refills_spent_units_after_exit", func():
+		var vein := _seed(1)
+		Crafting.inventory_add("blast", 1, 3)
+		vein["guardKit"] = { "blast": { "2": 2 } }
+		GameState.state["combat"]["active"] = true
+		GameState.state["combat"]["context"] = Combat.CONTEXT_DEFEND_VEIN
+		GameState.state["combat"]["veinId"] = "v1"
+		GameState.state["combat"]["guardKit"] = { "items": { "blast": { "2": 1 } }, "used": { "blast": { "2": 1 } } }
+		GameState.state["combat"]["outcome"] = "win"
+		Combat.exit_combat()
+		assert_eq(Cultivating.find_vein("v1")["guardKit"], { "blast": { "2": 1, "1": 1 } }, "one blast refilled from inventory")
 	)
 
 # "v1" with 1 guard holding 3 tier-2 blasts (1 idle) and 1 tier-1 shield.

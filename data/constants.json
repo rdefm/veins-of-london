@@ -35,7 +35,7 @@
   "guardKit": {
     "items": ["blast", "shield", "blackHole", "timePearl", "healingBurst", "prophetsBreath", "enhancementPowder", "failsafe", "rewind"],
     "slotsPerGuard": 2,
-    "hqSlotsPerGuard": 3,
+    "hqSlotsPerGuard": 2,
     "repelBonus": { "weak": 0.03, "medium": 0.05, "strong": 0.08 },
     "repelTier": {
       "healingBurst": "weak", "prophetsBreath": "weak", "enhancementPowder": "weak", "failsafe": "weak",

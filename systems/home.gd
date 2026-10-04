@@ -120,6 +120,7 @@ static func _guards_repel_pending_raid() -> bool:
 	var used := GuardKit.spend_repel_units(GameState.state["home"].get("guardKit", {}), active)
 	if not Rng.chance(chance):
 		return false
+	GuardKit.refill_hq(GuardKit.recipe_totals_of_list(used))
 	var text := "Your guards caught them at HQ and saw them off before you got back. Nothing lost."
 	if not used.is_empty():
 		text += " They went through %s." % GuardKit.used_items_text(used)

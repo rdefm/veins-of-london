@@ -317,6 +317,88 @@ static func remove_units(kit: Dictionary, units: Dictionary) -> void:
 			kit.erase(recipe_key)
 
 
+# Per-recipe unit totals of a kit-shaped dict, e.g. { "blast": 3 }.
+static func recipe_totals(units: Dictionary) -> Dictionary:
+	var totals := {}
+	for recipe_key in units:
+		var count := unit_count({ recipe_key: units[recipe_key] })
+		if count > 0:
+			totals[recipe_key] = count
+	return totals
+
+
+# Per-recipe totals of a recipe-key list (one unit each), e.g. a repel's used list.
+static func recipe_totals_of_list(recipe_keys: Array) -> Dictionary:
+	var totals := {}
+	for recipe_key in recipe_keys:
+		totals[recipe_key] = int(totals.get(recipe_key, 0)) + 1
+	return totals
+
+
+# Restocks `kit` after a defence: for each spent recipe, moves up to the spent
+# count from player.inventory (highest tier first) while the kit holds fewer
+# than `cap` units. Unspent recipes and spare capacity are never filled. No emit.
+static func refill_kit(kit: Dictionary, spent: Dictionary, cap: int) -> void:
+	var inventory: Dictionary = GameState.state["player"]["inventory"]
+	for recipe_key in GameData.GUARD_KIT["items"]:
+		var want := int(spent.get(recipe_key, 0))
+		var held: Dictionary = inventory.get(recipe_key, {})
+		for tier_key in _tiers_high_first(held):
+			var take := mini(mini(want, int(held[tier_key])), cap - unit_count(kit))
+			if take <= 0:
+				break
+			Crafting.inventory_remove_from_tier(recipe_key, int(tier_key), take)
+			if not (kit.get(recipe_key) is Dictionary):
+				kit[recipe_key] = {}
+			kit[recipe_key][tier_key] = int(kit[recipe_key].get(tier_key, 0)) + take
+			want -= take
+
+
+static func refill_vein(vein: Dictionary, spent: Dictionary) -> void:
+	if not (vein.get("guardKit") is Dictionary):
+		vein["guardKit"] = {}
+	refill_kit(vein["guardKit"], spent, capacity(vein))
+
+
+static func refill_hq(spent: Dictionary) -> void:
+	var home: Dictionary = GameState.state["home"]
+	if not (home.get("guardKit") is Dictionary):
+		home["guardKit"] = {}
+	refill_kit(home["guardKit"], spent, hq_capacity())
+
+
+# Brings the HQ kit down to capacity: keeps the highest tiers (equal tiers in
+# allowlist order), returns the rest to `inventory` (player.inventory shape).
+# Units conserved. Takes dicts so the save migration can call it. No emit.
+static func return_overflow(kit: Dictionary, cap: int, inventory: Dictionary) -> void:
+	var over := unit_count(kit) - cap
+	if over <= 0:
+		return
+	var entries: Array = []
+	var order: Array = GameData.GUARD_KIT["items"]
+	for recipe_key in kit:
+		for tier_key in kit[recipe_key]:
+			entries.append({ "recipe": recipe_key, "tier": tier_key, "order": order.find(recipe_key) })
+	entries.sort_custom(func(a, b):
+		if int(a["tier"]) != int(b["tier"]):
+			return int(a["tier"]) < int(b["tier"])
+		return a["order"] > b["order"])
+	var returned := {}
+	for entry in entries:
+		if over <= 0:
+			break
+		var take := mini(int(kit[entry["recipe"]][entry["tier"]]), over)
+		if not returned.has(entry["recipe"]):
+			returned[entry["recipe"]] = {}
+		returned[entry["recipe"]][entry["tier"]] = take
+		if not (inventory.get(entry["recipe"]) is Dictionary):
+			inventory[entry["recipe"]] = {}
+		var held: Dictionary = inventory[entry["recipe"]]
+		held[entry["tier"]] = int(held.get(entry["tier"], 0)) + take
+		over -= take
+	remove_units(kit, returned)
+
+
 static func _tiers_high_first(buckets: Dictionary) -> Array:
 	var keys: Array = buckets.keys()
 	keys.sort_custom(func(a, b): return int(a) > int(b))

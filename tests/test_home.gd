@@ -273,9 +273,9 @@ func run() -> void:
 			var found := false
 			for seed in range(300):
 				GameState.reset()
-				# 1 guard = 3 active slots: blast T3 + blast T1 + shield T2 active; timePearl inactive.
-				GameState.state["home"]["guardCount"] = 1
-				GameState.state["home"]["guardKit"] = { "blast": { "1": 1, "3": 1 }, "shield": { "2": 1 }, "timePearl": { "1": 1 } }
+				# 2 guards = 4 active slots: blast T3 + 2x blast T1 + shield T2 active; timePearl inactive.
+				GameState.state["home"]["guardCount"] = 2
+				GameState.state["home"]["guardKit"] = { "blast": { "1": 2, "3": 1 }, "shield": { "2": 1 }, "timePearl": { "1": 1 } }
 				GameState.state["home"]["pendingRaid"] = true
 				GameState.state["player"]["orichalchum"] = { "time": 100 }
 				GameState.state["player"]["inventory"] = {}
@@ -285,7 +285,7 @@ func run() -> void:
 				if repelled != want_repel:
 					continue
 				found = true
-				var left := { "blast": { "1": 1 }, "timePearl": { "1": 1 } }
+				var left := { "blast": { "1": 2 }, "timePearl": { "1": 1 } }
 				assert_eq(GameState.state["home"]["guardKit"], left, "repel=%s: tier-3 blast + shield used; inactive pearl kept" % want_repel)
 				var notes: Array = GameState.state["notifications"]
 				if repelled:

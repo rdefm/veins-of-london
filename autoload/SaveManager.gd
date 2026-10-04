@@ -4,7 +4,7 @@ extends Node
 # autosaves. autosave() is called from daily_tick, exit_combat, event
 # completion, and every successful cash purchase.
 
-const SAVE_VERSION := 8
+const SAVE_VERSION := 9
 # Oldest save version _migrate_versions() can still bring forward.
 const MIN_SUPPORTED_VERSION := 3
 const SLOT_COUNT := 3
@@ -336,8 +336,23 @@ func _migrate_versions(save: Dictionary) -> void:
 				_migrate_from_v6(save)
 			7:
 				_migrate_from_v7(save)
+			8:
+				_migrate_from_v8(save)
 	meta["saveVersion"] = SAVE_VERSION
 	save["meta"] = meta
+
+
+# v9 drops HQ kit capacity from three to two units per guard: overflow returns
+# to player inventory, highest tiers staying in the kit.
+func _migrate_from_v8(save: Dictionary) -> void:
+	var home: Variant = save.get("home")
+	var player: Variant = save.get("player")
+	if not (home is Dictionary) or not (player is Dictionary) or not (home.get("guardKit") is Dictionary):
+		return
+	if not (player.get("inventory") is Dictionary):
+		player["inventory"] = {}
+	var cap := GuardKit.capacity_of(int(home.get("guardCount", 0)), int(GameData.GUARD_KIT["hqSlotsPerGuard"]))
+	GuardKit.return_overflow(home["guardKit"], cap, player["inventory"])
 
 
 # v8 makes Dials per-owner: a recruited contact with a grantDial (James) gains

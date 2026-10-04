@@ -712,6 +712,7 @@ static func _guards_repel_defend_raid(outcome: Dictionary) -> bool:
 	var used := GuardKit.spend_repel_units(vein.get("guardKit", {}), active)
 	if not Rng.chance(chance):
 		return false
+	GuardKit.refill_vein(vein, GuardKit.recipe_totals_of_list(used))
 	FactionAI.note_fight_lost(outcome["attackerId"], Shares.PLAYER)
 
 	var district_name: String = GameData.DISTRICTS[vein["district"]]["name"]

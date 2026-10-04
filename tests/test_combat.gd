@@ -1904,7 +1904,7 @@ func run() -> void:
 		assert_eq(combat["allies"].size(), Combat.SQUAD_MAX, "4 guards capped at SQUAD_MAX")
 		for ally in combat["allies"]:
 			assert_true(ally.get("guardAlly", false))
-		assert_eq(combat["guardKit"]["items"], { "blast": { "2": 12 } }, "only the 12 active units (4 guards x 3 slots)")
+		assert_eq(combat["guardKit"]["items"], { "blast": { "2": 8 } }, "only the 8 active units (4 guards x 2 slots)")
 		assert_eq(combat["guardKit"]["used"], {})
 	)
 
