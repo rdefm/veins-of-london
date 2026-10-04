@@ -99,8 +99,24 @@ func run() -> void:
 		assert_true(NodeQuery.find_button(phone, "Rent for £420/week") != null, "rent offer previews studio's rent")
 		assert_true(NodeQuery.find_button(phone, "Buy for £80000") != null, "buy offer shows studio's buyPrice")
 		assert_true(texts.has("Or buy for £80000 · then £245/week in utilities"), "buy offer previews studio's owned bill override")
-		assert_true(texts.has("Moving clears every installed room. No refunds."))
+		assert_true(not texts.any(func(t: String) -> bool: return t.begins_with("Rooms moving") or t.begins_with("Left behind")), "no rooms, no carryover lines")
 
+		phone.free()
+	)
+
+	run_case("property_offer_previews_rooms_kept_dropped_and_refund", func():
+		GameState.reset()
+		GameState.state["home"]["tier"] = "townhouse"
+		GameState.state["home"]["rooms"] = ["homeGym", "workshop"]
+		GameState.state["phoneNav"]["app"] = "property"
+
+		var phone := PhoneScreen.new()
+		phone._ready()
+		_open_listing(phone, "flat")
+		var texts := NodeQuery.label_texts(phone)
+		assert_true(texts.has("Rooms moving with you: Workshop."), "flat holds one room: the dearer workshop")
+		assert_true(texts.has("Left behind: Home Gym. £300 back at half price."))
+		assert_eq(GameState.state["home"]["rooms"], ["homeGym", "workshop"], "previewing moves nothing")
 		phone.free()
 	)
 
@@ -119,8 +135,11 @@ func run() -> void:
 		assert_true(section != null, "the plan sits in its own Floorplan section")
 		var texts := NodeQuery.label_texts(phone)
 		assert_true(texts.find("Floorplan") > texts.find(GameData.HOME_TIERS["flat"]["particulars"]), "the plan follows the copy")
-		assert_true(texts.find("Floorplan") < texts.find("Moving clears every installed room. No refunds."), "the offer box comes after the plan")
-		assert_true(NodeQuery.find_button(phone, "Rent for £560/week") != null, "the Flat still offers its rent")
+		var body: Node = section.get_parent()
+		var rent_button: Node = NodeQuery.find_button(body, "Rent for £560/week")
+		assert_true(rent_button != null, "the Flat still offers its rent")
+		var tree_order: Array[Node] = body.find_children("*", "", true, false)
+		assert_true(tree_order.find(section) < tree_order.find(rent_button), "the offer box comes after the plan")
 		assert_eq(phone.find_child(FloorplanView.slot_node_name(0), true, false), null, "the listing plan is static: no selectable slot")
 		for room_id in GameData.HOME_ROOMS.keys():
 			assert_true(NodeQuery.find_button(phone, "£%d" % GameData.HOME_ROOMS[room_id]["cost"]) == null, "Harrow's sells no room upgrades (%s)" % room_id)

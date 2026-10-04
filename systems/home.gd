@@ -275,17 +275,27 @@ static func net_buy_cost(tier_id: String) -> int:
 	return buy_price(tier_id) - sale_credit()
 
 
-# Shared tier move (ADR 0006): every installed room is wiped with no refund
-# (staff unassigned, gym bonus reverted with hp clamped), security whose
-# minTier is above the new tier is lost (guards follow the "guard" row), and
-# the tenure is set. No cash moves here — callers charge first. Returns
-# { roomsLost: Array, securityLost: Array, guardsLost: int }.
+# Shared tier move (ADR 0006 "Rooms move with HQ"): rooms carry over per
+# room_carryover — dropped rooms lose their effects and staff, kept rooms
+# above their tier's seat cap shed seats and the staff in them — and the
+# half-price refund is credited. Security whose minTier is above the new tier
+# is lost (guards follow the "guard" row) and the tenure is set. No other
+# cash moves here — callers charge first. Returns { roomsLost, roomsKept,
+# seatsLost, refund, securityLost, guardsLost }.
 static func change_tier(new_tier_id: String, tenure: String) -> Dictionary:
 	var home: Dictionary = GameState.state["home"]
-	var rooms_lost: Array = home["rooms"].duplicate()
-	for room_id in rooms_lost:
+	var plan: Dictionary = room_carryover(new_tier_id)
+	for room_id in plan["dropped"]:
 		_remove_room_effects(room_id)
-	home["rooms"] = []
+	for room_id in plan["seatsLost"]:
+		var seats: int = room_seats(room_id) - int(plan["seatsLost"][room_id])
+		home["roomSeats"][room_id] = seats
+		_unseat_over_cap(room_id, seats)
+	home["rooms"] = plan["kept"].duplicate()
+	var refund: int = plan["refund"]
+	if refund > 0:
+		GameState.state["player"]["cash"] += refund
+		Bank.record(refund, "HQ room refund")
 
 	var security_lost: Array = security_lost_moving_to(new_tier_id)
 	for security_id in security_lost:
@@ -297,7 +307,98 @@ static func change_tier(new_tier_id: String, tenure: String) -> Dictionary:
 	home["tier"] = new_tier_id
 	home["tenure"] = tenure
 	EventBus.state_changed.emit()
-	return { "roomsLost": rooms_lost, "securityLost": security_lost, "guardsLost": guards_lost }
+	return {
+		"roomsLost": plan["dropped"], "roomsKept": plan["kept"], "seatsLost": plan["seatsLost"],
+		"refund": refund, "securityLost": security_lost, "guardsLost": guards_lost,
+	}
+
+
+# What a move to tier_id does to installed rooms (R§3.3 "Tier moves"): rooms
+# whose minTier is above it drop; if more remain than its maxRooms, the most
+# expensive (build cost plus bought seats) stay, earlier slot winning ties;
+# kept rooms shed bought seats whose minTier is above it. Every dropped room
+# or seat refunds half its price. Returns { kept: Array (slot order),
+# dropped: Array, seatsLost: { roomId: int }, refund: int }.
+static func room_carryover(tier_id: String) -> Dictionary:
+	var rooms: Array = GameState.state["home"]["rooms"]
+	var eligible: Array = []
+	var dropped: Array = []
+	for room_id in rooms:
+		if _tier_below_min(tier_id, GameData.HOME_ROOMS[room_id]["minTier"]):
+			dropped.append(room_id)
+		else:
+			eligible.append(room_id)
+
+	var max_rooms: int = GameData.HOME_TIERS[tier_id]["maxRooms"]
+	if eligible.size() > max_rooms:
+		var ranked: Array = eligible.duplicate()
+		ranked.sort_custom(func(a: String, b: String) -> bool:
+			var pa := room_paid(a)
+			var pb := room_paid(b)
+			return pa > pb if pa != pb else rooms.find(a) < rooms.find(b))
+		for room_id in ranked.slice(max_rooms):
+			eligible.erase(room_id)
+			dropped.append(room_id)
+
+	var refund := 0
+	for room_id in dropped:
+		refund += GameState.round_epsilon(room_paid(room_id) * 0.5)
+	var seats_lost := {}
+	for room_id in eligible:
+		var lost := 0
+		var allowed := true
+		for upgrade in _bought_seat_upgrades(room_id):
+			allowed = allowed and not _tier_below_min(tier_id, upgrade["minTier"])
+			if not allowed:
+				lost += 1
+				refund += GameState.round_epsilon(int(upgrade["cost"]) * 0.5)
+		if lost > 0:
+			seats_lost[room_id] = lost
+	return { "kept": eligible, "dropped": dropped, "seatsLost": seats_lost, "refund": refund }
+
+
+# What the player paid for room_id: build cost plus every bought seat upgrade.
+static func room_paid(room_id: String) -> int:
+	var paid: int = GameData.HOME_ROOMS[room_id]["cost"]
+	for upgrade in _bought_seat_upgrades(room_id):
+		paid += int(upgrade["cost"])
+	return paid
+
+
+# room_id's seatUpgrades entries already bought, in seat order.
+static func _bought_seat_upgrades(room_id: String) -> Array:
+	var bought: Array = []
+	var seats := room_seats(room_id)
+	for upgrade in GameData.HOME_ROOMS[room_id].get("seatUpgrades", []):
+		if int(upgrade["seats"]) <= seats:
+			bought.append(upgrade)
+	return bought
+
+
+# Unseats non-founder staff in room_id beyond `seats`, last listed first.
+static func _unseat_over_cap(room_id: String, seats: int) -> void:
+	var staff: Array = []
+	for contact_id in Contacts.contacts_in_room(room_id):
+		if not Contacts.is_founder(contact_id):
+			staff.append(contact_id)
+	while staff.size() > seats:
+		Contacts.unassign_from_room(staff.pop_back())
+
+
+# PROSE-REVIEW: tier-move room summary, drafted against CONTENT-GUIDE.md.
+# " Left behind: Library, 1 Improved Lab seat. £3350 back at half price." or
+# "" when the move kept every room and seat. Takes change_tier's result or a
+# room_carryover plan (keys "roomsLost"/"dropped").
+static func room_drop_text(result: Dictionary) -> String:
+	var parts: Array[String] = []
+	for room_id in result.get("roomsLost", result.get("dropped", [])):
+		parts.append(GameData.HOME_ROOMS[room_id]["name"])
+	for room_id in result["seatsLost"]:
+		var n: int = result["seatsLost"][room_id]
+		parts.append("%d %s seat%s" % [n, GameData.HOME_ROOMS[room_id]["name"], "" if n == 1 else "s"])
+	if parts.is_empty():
+		return ""
+	return " Left behind: %s. £%d back at half price." % [", ".join(parts), result["refund"]]
 
 
 # Installed security ids (not guards; see guards_lost_moving_to) a move to
@@ -344,12 +445,12 @@ static func rent_to(tier_id: String) -> Dictionary:
 		return refusal
 	var moving_down: bool = _tier_below_min(tier_id, GameState.state["home"]["tier"])
 	var sold_name: String = _sell_current_home()
-	change_tier(tier_id, TENURE_RENTED)
+	var moved: Dictionary = change_tier(tier_id, TENURE_RENTED)
 	var tier_name: String = GameData.HOME_TIERS[tier_id]["name"]
 	var text: String = ("Moved down to a rented %s." if moving_down else "Signed the lease on the %s.") % tier_name
 	if sold_name != "":
 		text = ("Sold the %s and moved down to a rented %s." if moving_down else "Sold the %s and signed the lease on the %s.") % [sold_name, tier_name]
-	Notify.push(text, Notify.CATEGORY_SUCCESS)
+	Notify.push(text + room_drop_text(moved), Notify.CATEGORY_SUCCESS)
 	SaveManager.autosave()
 	return { "ok": true }
 
@@ -411,11 +512,11 @@ static func _buy_move(tier_id: String) -> Dictionary:
 	var sold_name: String = _sell_current_home()
 	player["cash"] -= price
 	Bank.record(-price, "HQ purchase: %s" % tier["name"])
-	change_tier(tier_id, TENURE_OWNED)
+	var moved: Dictionary = change_tier(tier_id, TENURE_OWNED)
+	var text: String = "Bought the %s. The keys are yours." % tier["name"]
 	if sold_name != "":
-		Notify.push("Sold the %s and bought the %s. The keys are yours." % [sold_name, tier["name"]], Notify.CATEGORY_SUCCESS)
-	else:
-		Notify.push("Bought the %s. The keys are yours." % tier["name"], Notify.CATEGORY_SUCCESS)
+		text = "Sold the %s and bought the %s. The keys are yours." % [sold_name, tier["name"]]
+	Notify.push(text + room_drop_text(moved), Notify.CATEGORY_SUCCESS)
 	SaveManager.autosave()  # R§6: autosave on purchase
 	return { "ok": true }
 

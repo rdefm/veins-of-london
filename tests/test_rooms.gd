@@ -629,7 +629,7 @@ func run() -> void:
 		GameState.state["home"]["tier"] = "compound"
 		GameState.state["home"]["rooms"] = ["lab"]
 		Home.buy_seat_upgrade("lab")
-		Home.change_tier("mansion", "rented")
+		Home.change_tier("safehouse", "rented")
 		assert_eq(Home.room_seats("lab"), 1, "rebuilt rooms start at one seat")
 	)
 

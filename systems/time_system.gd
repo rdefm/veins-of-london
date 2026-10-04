@@ -238,8 +238,7 @@ static func _force_downgrade() -> Dictionary:
 	home["arrearsWeeks"] = 0
 
 	var text := "The %s's gone for unpaid bills. You're in a rented %s now." % [lost_tier_name, GameData.HOME_TIERS[prev_tier_id]["name"]]
-	if not result["roomsLost"].is_empty():
-		text += " Rooms lost: %d." % result["roomsLost"].size()
+	text += Home.room_drop_text(result)
 	if was_owned:
 		text += " The debt went with it."
 	else:

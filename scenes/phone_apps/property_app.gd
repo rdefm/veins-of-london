@@ -456,7 +456,7 @@ func _offer_box(tier_id: String) -> Control:
 			maths.append_array(_trade_in_parts(tier_id))
 			offer.add_child(_text(" · ".join(maths), 12, MUTED))
 
-	offer.add_child(_text("Moving clears every installed room. No refunds.", 12, MUTED))
+	_add_room_carryover(offer, tier_id)
 	var lost: Array[String] = []
 	for security_id in Home.security_lost_moving_to(tier_id):
 		lost.append(GameData.HOME_SECURITY[security_id]["name"])
@@ -466,6 +466,22 @@ func _offer_box(tier_id: String) -> Control:
 	if not lost.is_empty():
 		offer.add_child(_text("Left behind: %s." % ", ".join(lost), 12, MUTED))
 	return box
+
+
+# What the move does to installed rooms (Home.room_carryover): rooms kept,
+# then rooms/seats left behind with the half-price refund. Nothing when no
+# rooms are installed.
+# PROSE-REVIEW: Harrow's room carryover lines.
+func _add_room_carryover(offer: VBoxContainer, tier_id: String) -> void:
+	var plan: Dictionary = Home.room_carryover(tier_id)
+	if not plan["kept"].is_empty():
+		var kept: Array[String] = []
+		for room_id in plan["kept"]:
+			kept.append(GameData.HOME_ROOMS[room_id]["name"])
+		offer.add_child(_text("Rooms moving with you: %s." % ", ".join(kept), 12, MUTED))
+	var dropped: String = Home.room_drop_text(plan).strip_edges()
+	if dropped != "":
+		offer.add_child(_text(dropped, 12, MUTED))
 
 
 # Trade-in maths for an owned home (R§3.3 "Tier moves"): the sale credit,

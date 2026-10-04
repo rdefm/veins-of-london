@@ -339,7 +339,7 @@ func run() -> void:
 		assert_true(home["arrears"] > 4 * 350, "interest keeps accruing")
 	)
 
-	run_case("forced_downgrade_wipes_rooms_unassigns_staff_reverts_gym_and_drops_security", func():
+	run_case("forced_downgrade_drops_ineligible_rooms_with_refund_unassigns_staff_reverts_gym_and_drops_security", func():
 		GameState.reset()
 		var home: Dictionary = GameState.state["home"]
 		var player: Dictionary = GameState.state["player"]
@@ -358,12 +358,14 @@ func run() -> void:
 		home["arrearsWeeks"] = 1
 		TimeSystem._apply_living_costs()
 		assert_eq(home["tier"], "studio")
-		assert_eq(home["rooms"], [], "rooms wiped")
+		assert_eq(home["rooms"], [], "the gym (minTier flat) can't come to the studio")
 		assert_eq(Contacts.contacts_in_room("homeGym"), [], "staff unassigned")
+		assert_eq(GameState.state["contacts"][contact_id]["assignedRoom"], null)
 		assert_eq(player["hpMax"], hp_max_with_gym - 10, "gym bonus reverted")
 		assert_eq(player["hp"], player["hpMax"], "hp clamped")
 		assert_eq(home["security"], ["lock", "alarm"], "lock and alarm (minTier studio) kept")
-		assert_eq(player["cash"], 0, "cash never negative")
+		assert_eq(player["cash"], 300, "half the gym's £600 refunded")
+		assert_true(String(GameState.state["notifications"][-1]["text"]).contains("Left behind: Home Gym. £300 back at half price."))
 	)
 
 	run_case("arrears_snapshot_round_trip_restores_arrears_clock_and_tenure", func():

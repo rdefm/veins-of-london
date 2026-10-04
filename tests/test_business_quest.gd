@@ -225,10 +225,10 @@ func run() -> void:
 		assert_eq(_partnership_texts(), 1, "the permanent flag blocks re-firing")
 	)
 
-	run_case("tier_move_wiping_the_workshop_un_meets_beat_4", func():
+	run_case("tier_move_dropping_the_workshop_un_meets_beat_4", func():
 		_to_beat_3()
 		_build_workshop()
-		Home.change_tier("townhouse", "rented")
+		Home.change_tier("studio", "rented")
 		assert_eq(_business_item("biz_a1_apprentice")["checks"][1]["done"], false, "the Workshop check is live")
 		GameState.state["contacts"]["owen"]["cultivatingSkill"] = 2
 		TimeSystem.do_rest()

@@ -193,3 +193,25 @@ Worked example, rented flat, cash 0 every Monday: MON 1 → arrears 560,
 weeks 1; MON 8 → interest 28, arrears 1148, weeks 2 → rented studio, debt
 kept, weeks 0. Owned flat: 406, then 20 + 406 = 832 → rented studio, debt
 cleared.
+
+## Follow-up decision (2026-10-04): rooms move with HQ
+
+Supersedes "Any tier change clears all installed rooms without refund", the
+forced downgrade's "all rooms are cleared", and "Room wipe unassigns staff"
+above.
+
+- **Rooms are kept on any move** — rent or buy, up or down, and the forced
+  arrears downgrade.
+- **Moving down drops what won't fit.** First every room whose `minTier` is
+  above the new tier. Then, if more remain than the new `maxRooms`, the
+  cheapest go: rank by what was paid (build cost plus bought seat upgrades),
+  earlier slot winning ties. Kept rooms keep their slot order.
+- **Seat upgrades follow their own `minTier`.** A kept room loses each bought
+  seat upgrade whose `minTier` is above the new tier.
+- **Half refund.** Each dropped room or seat upgrade refunds 50% of what was
+  paid for it, credited to cash and named in the move's notification.
+- **Staff in dropped rooms or seats are unseated.** Nothing else happens to
+  them. Dropping the Home Gym still reverts its bonus.
+- **Harrow's shows the outcome first.** The offer box lists rooms kept, rooms
+  and seats dropped, and the refund before the player taps Rent or Buy.
+- Security is unchanged: it already carries over, dropped by `minTier`.
