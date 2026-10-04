@@ -132,7 +132,9 @@ func _unit_line(unit: Dictionary) -> Control:
 		line.add_child(rect)
 	var tier := int(unit["tier"])
 	var tier_text := "untiered" if tier <= 0 else "tier %d" % tier
-	line.add_child(_label("%s · %s" % [GameData.RECIPES[recipe_key]["name"], tier_text], 13, TEXT))
+	var text := _label("%s · %s" % [GameData.RECIPES[recipe_key]["name"], tier_text], 13, TEXT)
+	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	line.add_child(text)
 	return line
 
 
