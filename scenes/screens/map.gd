@@ -21,8 +21,6 @@ var _menu_button: Button
 var _bubble_district_id: String = ""
 var _bubble_mode: String = ""
 var _bubble_stop: Dictionary = {}
-var _raid_bring_archie: bool = false
-var _raid_bring_archie_site_id: String = ""
 
 func _ready() -> void:
 	UI.anchor_full_rect(self)
@@ -396,10 +394,6 @@ func _build_faction_vein_content(content: VBoxContainer, vein: Dictionary, site_
 	var ore: Dictionary = GameData.ORE_TYPES[vein["oreType"]]
 	var district: String = vein["district"]
 
-	if _raid_bring_archie_site_id != site_id:
-		_raid_bring_archie_site_id = site_id
-		_raid_bring_archie = false
-
 	var band: Dictionary = Cultivating.growth_band(vein)
 
 	var c := _map_card()
@@ -407,22 +401,10 @@ func _build_faction_vein_content(content: VBoxContainer, vein: Dictionary, site_
 	c["content"].add_child(MapCardStyle.tint_symbols(UI.symbol_row([{ "symbol": ore["symbol"], "fallback": SymbolGlyph.ore_fallback(vein["oreType"]) }, " %s — %s" % [ore["name"], band["label"]]]), MapCardStyle.dim()))
 	c["content"].add_child(_security_line(vein, MapCardStyle.dim()))
 
-	if Contacts.can_assist_raid("archie"):
-		var archie_toggle := Button.new()
-		archie_toggle.clip_text = true
-		archie_toggle.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-		archie_toggle.text = _archie_raid_toggle_label()
-		UI.style_action_button(archie_toggle, MapCardStyle.ink())
-		archie_toggle.pressed.connect(func():
-			_raid_bring_archie = not _raid_bring_archie
-			archie_toggle.text = _archie_raid_toggle_label()
-		)
-		c["content"].add_child(archie_toggle)
-
 	var actions := UI.hflow()
 
 	var raid_button := UI.button(UI.format_block_cost_label("Raid", 1, Travel.can_afford(district, 1)), func():
-		Raiding.prepare_raid(vein,["archie"] if _raid_bring_archie else [])
+		Raiding.prepare_raid(vein)
 	)
 	raid_button.disabled = not Travel.can_afford(district, 1) or Collective.is_quest_locked_vein(vein["id"])
 	actions.add_child(MapCardStyle.style_button(raid_button))
@@ -432,8 +414,6 @@ func _build_faction_vein_content(content: VBoxContainer, vein: Dictionary, site_
 	c["content"].add_child(actions)
 
 	content.add_child(c["panel"])
-func _archie_raid_toggle_label() -> String:
-	return "✓ Archie's coming" if _raid_bring_archie else "Bring Archie"
 
 func _build_claimed_site_content(content: VBoxContainer, site: Dictionary) -> void:
 	var veins := _veins_for_site(site["id"])

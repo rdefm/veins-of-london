@@ -844,7 +844,7 @@ static func is_defend_notification_pending(notification_id: String) -> bool:
 # has_pending_defend()/is_defend_notification_pending() rendered the
 # button from) in case the window closed between render and tap -- e.g.
 # the player left the sheet open across a daily_tick.
-static func trigger_defend(vein_id: String) -> bool:
+static func trigger_defend(vein_id: String, ally_ids: Variant = null) -> bool:
 	var i := _pending_defend_index(vein_id)
 	if i == -1:
 		return false
@@ -854,16 +854,16 @@ static func trigger_defend(vein_id: String) -> bool:
 	var pending: Array = GameState.state["world"]["pendingDefendRaids"]
 	var outcome: Dictionary = pending[i]
 	pending.remove_at(i)
-	_start_defend_combat(outcome, vein)
+	_start_defend_combat(outcome, vein, ally_ids)
 	return true
 
 
 # The raiders carry the attacker's attack kit (Combat.start_defend_vein sizes
 # it by the roster); what they use leaves its stock in resolve_defend_outcome(),
 # in place of the full-kit burn every unfought raid logs.
-static func _start_defend_combat(outcome: Dictionary, vein: Dictionary) -> void:
+static func _start_defend_combat(outcome: Dictionary, vein: Dictionary, ally_ids: Variant = null) -> void:
 	GameState.state["world"]["activeDefendRaid"] = outcome
-	Combat.start_defend_vein(vein["id"], Cultivating.combined_magnitude(vein), outcome["attackerId"], Partners.defence_helpers(outcome["attackerId"]))
+	Combat.start_defend_vein(vein["id"], Cultivating.combined_magnitude(vein), outcome["attackerId"], Partners.defence_helpers(outcome["attackerId"]), ally_ids)
 
 
 # The committed "Leave undefended" path. The caller supplies the

@@ -152,13 +152,13 @@ static func has_pending_raid() -> bool:
 
 
 # Re-checks the pending flag in case the window closed between render and tap.
-static func trigger_defend() -> bool:
+static func trigger_defend(ally_ids: Array = []) -> bool:
 	var home: Dictionary = GameState.state["home"]
 	if not home["pendingRaid"]:
 		return false
 	home["pendingRaid"] = false
 	home["pendingRaidNotificationId"] = null
-	Combat.start_home_alarm_defend_combat()
+	Combat.start_home_alarm_defend_combat(ally_ids)
 	return true
 
 

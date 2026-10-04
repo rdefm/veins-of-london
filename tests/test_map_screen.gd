@@ -411,21 +411,7 @@ func run() -> void:
 
 	# ── 45-archie-raid-assist ────────────────────────────────────────────
 
-	run_case("bring_archie_toggle_hidden_when_archie_ineligible", func():
-		GameState.reset()
-		var faction_vein := _faction_vein_with()
-
-		var screen := MapScreen.new()
-		var content := UI.vbox()
-		screen._build_faction_vein_content(content, faction_vein, faction_vein["siteId"])
-
-		assert_eq(_buttons_labelled(content, "Bring Archie").size(), 0, "not recruited, relation below threshold -- no toggle offered")
-
-		content.free()
-		screen.free()
-	)
-
-	run_case("bring_archie_toggle_shown_once_eligible_and_flips_the_raid_choice_on_tap", func():
+	run_case("site_sheet_has_no_bring_archie_toggle_recruits_are_picked_in_preparation", func():
 		GameState.reset()
 		GameState.state["contacts"]["archie"]["recruited"] = true
 		GameState.state["contacts"]["archie"]["relation"] = 50
@@ -435,11 +421,7 @@ func run() -> void:
 		var content := UI.vbox()
 		screen._build_faction_vein_content(content, faction_vein, faction_vein["siteId"])
 
-		var toggles := _buttons_labelled(content, "Bring Archie")
-		assert_eq(toggles.size(), 1, "eligible -- toggle offered")
-
-		(toggles[0] as Button).pressed.emit()
-		assert_eq(_buttons_labelled(content, "✓ Archie's coming").size(), 1, "tapping should flip the label to the chosen state")
+		assert_eq(_buttons_labelled(content, "Bring Archie").size(), 0)
 
 		content.free()
 		screen.free()

@@ -379,9 +379,14 @@ static func start_home_raid_combat() -> void:
 
 # Called by Home.trigger_defend(): same raider, no onWin (Home resolves it).
 # HQ guards join and spend home.guardKit (guard-kit spec §HQ guard kit).
-static func start_home_alarm_defend_combat() -> void:
+static func start_home_alarm_defend_combat(ally_ids: Array = []) -> void:
 	var log_lines := ["They're in the flat. You've got your hands. This is happening."]
 	var allies: Array = []
+	for contact_id in ally_ids:
+		if Contacts.can_join_combat(contact_id):
+			allies.append(Contacts.build_combat_ally(contact_id))
+			# PROSE-REVIEW: recruit joining an HQ defence.
+			log_lines.append("%s is in the flat with you." % Contacts.display_name(contact_id))
 	_add_guard_allies(allies, Home.get_guard_count(), log_lines)
 	var guard_kit := { "items": GuardKit.hq_active_units().duplicate(true), "used": {} }
 	_start_combat(CONTEXT_HOME_ALARM_DEFEND, null, [_home_raider_enemy()], log_lines,
@@ -442,7 +447,7 @@ static func _gather_raid_allies(ally_ids: Array, log_lines: Array) -> Array:
 # full roster (FactionSim.raider_kit(); "" = none); see _enemy_try_item().
 # partner_ids: partner factions
 # sending a fighter (Partners.defence_helpers), joining after contacts.
-static func start_defend_vein(vein_id: String, value_tier: int, attacker_id: String = "", partner_ids: Array = []) -> void:
+static func start_defend_vein(vein_id: String, value_tier: int, attacker_id: String = "", partner_ids: Array = [], ally_ids: Variant = null) -> void:
 	var enemies := generate_raid_enemy(vein_id, value_tier)
 	var raider_kit: Dictionary = {} if attacker_id == "" else FactionSim.raider_kit(attacker_id, "attack", enemies.size())
 	var log_lines := ["The alarm wasn't lying. %s is already there." % _guard_group_name(enemies)]
@@ -451,7 +456,7 @@ static func start_defend_vein(vein_id: String, value_tier: int, attacker_id: Str
 	if vein_id == GameState.state["collective"].get("nadiaDefendVeinId") and not GameState.state["flags"].get("colA2DefendReminderShown", false):
 		log_lines.push_front("Nadia, in your ear: \"Go on then. That's what the Blast and the Shield were for — use them properly this time, not for luck.\"")
 		GameState.state["flags"]["colA2DefendReminderShown"] = true
-	var allies := _gather_defend_allies(log_lines)
+	var allies := _gather_defend_allies(log_lines, ally_ids)
 	for faction_id in partner_ids:
 		allies.append(build_partner_ally(faction_id))
 		log_lines.append(Partners.join_line(faction_id))
@@ -461,11 +466,13 @@ static func start_defend_vein(vein_id: String, value_tier: int, attacker_id: Str
 	_start_combat(CONTEXT_DEFEND_VEIN, vein_id, enemies, log_lines, "", allies, null, raider_kit, guard_kit)
 
 
-# Vein-defense fights only: every recruited contact with a combat kit
-# joins automatically (no offer/decline step). Generic over contact_id.
-static func _gather_defend_allies(log_lines: Array) -> Array:
+# Vein-defense fights: the preparation screen's chosen recruits, in chosen
+# order, re-validated at start; null (no preparation) takes every eligible
+# recruit in contact order. Generic over contact_id.
+static func _gather_defend_allies(log_lines: Array, ally_ids: Variant = null) -> Array:
+	var ids: Array = GameState.state["contacts"].keys() if ally_ids == null else ally_ids
 	var allies: Array = []
-	for contact_id in GameState.state["contacts"].keys():
+	for contact_id in ids:
 		if Contacts.can_join_combat(contact_id):
 			allies.append(Contacts.build_combat_ally(contact_id))
 			log_lines.append("%s peels off to help cover the vein." % Contacts.display_name(contact_id))

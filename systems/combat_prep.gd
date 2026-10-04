@@ -41,8 +41,12 @@ static func request(kind: String, args: Dictionary = {}) -> void:
 	var return_screen: String = GameState.state.get("currentScreen", "map")
 	if return_screen == SCREEN:
 		return_screen = str(pending().get("returnScreen", "map"))
+	var prep_args := args.duplicate(true)
+	if kind == KIND_VEIN_DEFEND or kind == KIND_HQ_DEFEND:
+		# Defences open with every eligible recruit chosen, in contact order.
+		prep_args["allyIds"] = recruit_pool(kind)
 	GameState.state["combatPrep"] = {
-		"kind": kind, "args": args.duplicate(true), "forced": is_forced(kind),
+		"kind": kind, "args": prep_args, "forced": is_forced(kind),
 		"returnScreen": return_screen,
 	}
 	GameState.state["currentScreen"] = SCREEN
@@ -80,13 +84,13 @@ static func _dispatch(kind: String, args: Dictionary) -> Dictionary:
 			var vein: Variant = Sites.find_faction_vein(str(args["veinId"]))
 			if vein == null:
 				return { "ok": false, "reason": "That vein is gone." }
-			return Raiding.begin_raid(vein, args.get("allyIds", []))
+			return Raiding.begin_raid(vein, chosen_recruits(kind, args))
 		KIND_STOCKPILE_RAID:
-			return Raiding.begin_stockpile_raid(str(args["factionId"]), args.get("allyIds", []))
+			return Raiding.begin_stockpile_raid(str(args["factionId"]), chosen_recruits(kind, args))
 		KIND_VEIN_DEFEND:
-			return { "ok": Raiding.trigger_defend(str(args["veinId"])) }
+			return { "ok": Raiding.trigger_defend(str(args["veinId"]), chosen_recruits(kind, args)) }
 		KIND_HQ_DEFEND:
-			return { "ok": Home.trigger_defend() }
+			return { "ok": Home.trigger_defend(chosen_recruits(kind, args)) }
 		KIND_MUGGING:
 			Combat.start_mugging(bool(args.get("veinIncluded", false)))
 		KIND_ARCHIE_DEAL_MUGGING:
@@ -132,19 +136,90 @@ static func participants(prep: Dictionary) -> Array:
 
 
 static func _ally_contact_ids(kind: String, args: Dictionary) -> Array:
-	var ids: Array = []
 	match kind:
 		KIND_MUGGING, KIND_ARCHIE_DEAL_MUGGING:
-			ids.append("archie")
-		KIND_VEIN_RAID, KIND_STOCKPILE_RAID, KIND_DEBUG:
-			for contact_id in args.get("allyIds", []):
-				if Contacts.can_join_combat(contact_id):
-					ids.append(contact_id)
-		KIND_VEIN_DEFEND:
-			for contact_id in GameState.state["contacts"].keys():
-				if Contacts.can_join_combat(contact_id):
-					ids.append(contact_id)
+			return ["archie"]
+		KIND_DEBUG:
+			return args.get("allyIds", []).filter(Contacts.can_join_combat)
+	return chosen_recruits(kind, args)
+
+
+# ── recruit selection (R§3.7a "Preparation") ─────────────────────────────
+
+# Planned raids and defences let the player pick and order recruits; muggings,
+# scripted fights and the debug setup keep their own roster.
+static func has_recruit_choice(kind: String) -> bool:
+	return kind == KIND_VEIN_RAID or kind == KIND_STOCKPILE_RAID or kind == KIND_VEIN_DEFEND or kind == KIND_HQ_DEFEND
+
+
+static func _recruit_eligible(kind: String, contact_id: String) -> bool:
+	if kind == KIND_VEIN_RAID or kind == KIND_STOCKPILE_RAID:
+		return Contacts.can_assist_raid(contact_id)
+	return Contacts.can_join_combat(contact_id)
+
+
+# Every recruit this encounter could take right now, in contact order.
+static func recruit_pool(kind: String) -> Array:
+	var ids: Array = []
+	if not has_recruit_choice(kind):
+		return ids
+	for contact_id in GameState.state["contacts"].keys():
+		if _recruit_eligible(kind, contact_id):
+			ids.append(contact_id)
 	return ids
+
+
+# The chosen recruits still eligible, in chosen order; what the fight receives.
+static func chosen_recruits(kind: String, args: Dictionary) -> Array:
+	var ids: Array = []
+	if not has_recruit_choice(kind):
+		return ids
+	for contact_id in args.get("allyIds", []):
+		if _recruit_eligible(kind, contact_id) and not ids.has(contact_id):
+			ids.append(contact_id)
+	return ids
+
+
+# Chosen recruits first (in order), then eligible ones left behind.
+static func recruit_options(prep: Dictionary) -> Array:
+	var kind := str(prep.get("kind", ""))
+	var options: Array = chosen_recruits(kind, prep.get("args", {}))
+	for contact_id in recruit_pool(kind):
+		if not options.has(contact_id):
+			options.append(contact_id)
+	return options
+
+
+static func toggle_recruit(contact_id: String) -> bool:
+	var prep := pending()
+	var kind := str(prep.get("kind", ""))
+	if prep.is_empty() or not _recruit_eligible(kind, contact_id) or not has_recruit_choice(kind):
+		return false
+	var ids := chosen_recruits(kind, prep["args"])
+	if ids.has(contact_id):
+		ids.erase(contact_id)
+	else:
+		ids.append(contact_id)
+	prep["args"]["allyIds"] = ids
+	EventBus.state_changed.emit()
+	return true
+
+
+# Moves a chosen recruit one place earlier (-1) or later (+1) in the order.
+static func move_recruit(contact_id: String, step: int) -> bool:
+	var prep := pending()
+	if prep.is_empty():
+		return false
+	var ids := chosen_recruits(str(prep["kind"]), prep["args"])
+	var from := ids.find(contact_id)
+	var to := from + step
+	if from == -1 or to < 0 or to >= ids.size():
+		return false
+	ids.remove_at(from)
+	ids.insert(to, contact_id)
+	prep["args"]["allyIds"] = ids
+	EventBus.state_changed.emit()
+	return true
 
 
 static func _ally_guard_count(kind: String, args: Dictionary) -> int:

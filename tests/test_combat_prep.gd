@@ -46,6 +46,8 @@ func run() -> void:
 		GameState.reset()
 		var vein := _faction_vein()
 		GameState.state["world"]["sites"] = [Fixtures.site_with_vein(vein["siteId"], vein)]
+		Contacts.force_recruit("archie")
+		GameState.state["contacts"]["archie"]["relation"] = 100
 		Raiding.prepare_raid(vein, ["archie"])
 
 		var result := CombatPrep.commit()
@@ -183,6 +185,97 @@ func run() -> void:
 		assert_eq(rows[1]["name"], "Archie")
 		assert_eq(rows[1]["role"], "ally")
 		assert_eq(rows[rows.size() - 1]["role"], "foe")
+	)
+
+	run_case("recruit_pool_offers_only_eligible_combat_recruits", func():
+		GameState.reset()
+		for id in ["archie", "james"]:
+			Contacts.force_recruit(id)
+			GameState.state["contacts"][id]["relation"] = 100
+		assert_eq(CombatPrep.recruit_pool(CombatPrep.KIND_VEIN_DEFEND).size(), 2)
+		GameState.state["contacts"]["archie"]["koCooldownUntilDay"] = GameState.state["world"]["day"] + 3
+		assert_eq(CombatPrep.recruit_pool(CombatPrep.KIND_VEIN_DEFEND), ["james"], "KO cooldown hides archie")
+		assert_eq(CombatPrep.recruit_pool(CombatPrep.KIND_MUGGING), [], "scripted fights offer no choice")
+		assert_eq(CombatPrep.recruit_pool(CombatPrep.KIND_DEBUG), [])
+	)
+
+	run_case("raid_recruits_toggle_and_reorder_then_fight_in_that_order", func():
+		GameState.reset()
+		for id in ["archie", "james"]:
+			Contacts.force_recruit(id)
+			GameState.state["contacts"][id]["relation"] = 100
+		var vein := _faction_vein()
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein(vein["siteId"], vein)]
+		Raiding.prepare_raid(vein)
+		assert_eq(CombatPrep.chosen_recruits(CombatPrep.KIND_VEIN_RAID, CombatPrep.pending()["args"]), [], "raids start with nobody chosen")
+
+		assert_true(CombatPrep.toggle_recruit("archie"))
+		assert_true(CombatPrep.toggle_recruit("james"))
+		assert_true(CombatPrep.move_recruit("james", -1))
+		assert_true(not CombatPrep.move_recruit("james", -1), "already first")
+		assert_eq(CombatPrep.pending()["args"]["allyIds"], ["james", "archie"])
+		assert_true(CombatPrep.toggle_recruit("archie"))
+		assert_true(CombatPrep.toggle_recruit("archie"))
+		assert_eq(CombatPrep.pending()["args"]["allyIds"], ["james", "archie"], "re-added recruit goes last")
+
+		CombatPrep.commit()
+		assert_eq(GameState.state["event"]["context"]["ally_ids"], ["james", "archie"])
+	)
+
+	run_case("vein_defend_orders_recruits_then_partners_then_guards", func():
+		GameState.reset()
+		for id in ["archie", "james"]:
+			Contacts.force_recruit(id)
+		var vein := _player_vein()
+		vein["alarmUpgrades"] = ["alarm"]
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "collective", "veinId": "pv_test", "siteId": "s_player", "success": true }]
+		Raiding.prepare_defend("pv_test")
+		assert_eq(CombatPrep.pending()["args"]["allyIds"].size(), 2, "defence opens with every eligible recruit")
+		CombatPrep.toggle_recruit("archie")
+		CombatPrep.toggle_recruit("archie")
+		assert_eq(CombatPrep.pending()["args"]["allyIds"], ["james", "archie"])
+
+		CombatPrep.commit()
+		var combat: Dictionary = GameState.state["combat"]
+		var names: Array = []
+		for ally in combat["allies"] + combat["allyQueue"]:
+			names.append(ally["name"])
+		assert_eq(names.slice(0, 2), ["James", "Archie"])
+	)
+
+	run_case("hq_defend_takes_chosen_recruits_and_unchosen_stay_home", func():
+		GameState.reset()
+		for id in ["archie", "james"]:
+			Contacts.force_recruit(id)
+		GameState.state["home"]["pendingRaid"] = true
+		Home.prepare_defend()
+		CombatPrep.toggle_recruit("archie")
+		CombatPrep.commit()
+		var combat: Dictionary = GameState.state["combat"]
+		var ids: Array = []
+		for ally in combat["allies"] + combat["allyQueue"]:
+			ids.append(ally.get("contactId", ""))
+		assert_eq(ids, ["james"])
+	)
+
+	run_case("a_recruit_who_goes_ineligible_in_prep_is_dropped_at_fight", func():
+		GameState.reset()
+		Contacts.force_recruit("james")
+		GameState.state["home"]["pendingRaid"] = true
+		Home.prepare_defend()
+		GameState.state["contacts"]["james"]["koCooldownUntilDay"] = GameState.state["world"]["day"] + 2
+		assert_eq(CombatPrep.recruit_options(CombatPrep.pending()), [])
+		CombatPrep.commit()
+		assert_eq(GameState.state["combat"]["allies"].size(), 0)
+	)
+
+	run_case("mugging_roster_ignores_recruit_choice", func():
+		GameState.reset()
+		Contacts.force_recruit("james")
+		CombatPrep.request(CombatPrep.KIND_MUGGING)
+		assert_true(not CombatPrep.toggle_recruit("james"))
+		assert_eq(CombatPrep.recruit_options(CombatPrep.pending()), [])
 	)
 
 	run_case("pending_prep_round_trips_save_load", func():

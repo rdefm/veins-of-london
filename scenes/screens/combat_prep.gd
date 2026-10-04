@@ -44,6 +44,9 @@ func _render() -> void:
 	var body := UI.vbox(8)
 	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	margin.add_child(body)
+	var options := CombatPrep.recruit_options(prep)
+	if not options.is_empty():
+		body.add_child(_recruit_panel(prep, options))
 	for row in CombatPrep.participants(prep):
 		body.add_child(_participant_row(row))
 	_build_footer(layout, prep)
@@ -61,6 +64,35 @@ func _build_header(layout: VBoxContainer, prep: Dictionary) -> void:
 	# PROSE-REVIEW: prep screen notes.
 	var note := "No way out of this one." if prep["forced"] else "Nothing is spent until you fight."
 	content.add_child(_label(note, 12, MUTED))
+
+
+# Recruit picker: tick to bring, ▲▼ to reorder. Order is fight order; anyone
+# past the first friendly place waits in the reinforcement queue.
+func _recruit_panel(prep: Dictionary, options: Array) -> Control:
+	var panel := _surface(SURFACE, 12)
+	var box := UI.vbox(6)
+	panel.add_child(box)
+	# PROSE-REVIEW: recruit picker heading and hint.
+	box.add_child(_label("RECRUITS", 11, MUTED))
+	box.add_child(_label("Order is fight order. Past the front line, they wait their turn.", 12, MUTED))
+	var chosen := CombatPrep.chosen_recruits(str(prep["kind"]), prep["args"])
+	for contact_id in options:
+		var picked := chosen.has(contact_id)
+		var line := UI.hbox(8)
+		box.add_child(line)
+		var toggle := _button(("✓ " if picked else "") + Contacts.display_name(contact_id), CombatPrep.toggle_recruit.bind(contact_id), UI.action_colour() if picked else Color.TRANSPARENT, 44)
+		toggle.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		line.add_child(toggle)
+		if picked:
+			var up := _button("▲", CombatPrep.move_recruit.bind(contact_id, -1), Color.TRANSPARENT, 44)
+			up.custom_minimum_size.x = 44
+			up.disabled = chosen.find(contact_id) == 0
+			line.add_child(up)
+			var down := _button("▼", CombatPrep.move_recruit.bind(contact_id, 1), Color.TRANSPARENT, 44)
+			down.custom_minimum_size.x = 44
+			down.disabled = chosen.find(contact_id) == chosen.size() - 1
+			line.add_child(down)
+	return panel
 
 
 func _participant_row(row: Dictionary) -> Control:
