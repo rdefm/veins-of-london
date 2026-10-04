@@ -527,9 +527,6 @@ func _new_contacts_state() -> Dictionary:
 			"combatHp": defaults.get("combatHpMax", 0),
 			"combatAttackMin": defaults.get("combatAttackMin", 0),
 			"combatAttackMax": defaults.get("combatAttackMax", 0),
-			"combatStashMax": defaults.get("combatStashMax", 0),
-			"combatStash": defaults.get("combatStashMax", 0),
-			"combatHealAmount": defaults.get("combatHealAmount", 0),
 			# Fixed authored turn-order value (not trainable, unlike the
 			# player's Combat Skill-driven speed) -- copied into
 			# combat.allies, which Combat.build_turn_queue() sorts on.
@@ -543,6 +540,9 @@ func _new_contacts_state() -> Dictionary:
 			# but for Archie -- he has no faction, he *is* the lane.
 			"tradeProgress": 0,
 		}
+		# Two personal consumable slots (systems/loadout.gd), combat-capable contacts only.
+		if int(defaults.get("combatHpMax", 0)) > 0:
+			contacts[contact_id]["loadout"] = { "slots": [null, null], "lastRecipe": ["", ""] }
 	return contacts
 
 

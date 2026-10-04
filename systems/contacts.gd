@@ -252,10 +252,10 @@ static func build_combat_ally(contact_id: String) -> Dictionary:
 		"hpMax": c["combatHpMax"],
 		"attackMin": c["combatAttackMin"],
 		"attackMax": c["combatAttackMax"],
-		"stash": c["combatStash"],
-		"healAmount": c["combatHealAmount"],
 		"speed": c["combatSpeed"],
 		"dialCharges": c.get("dialCharges", 0),
+		"slots": GameState.deep_copy(c.get("loadout", {}).get("slots", [])),
+		"slotsUsed": [],
 		"koed": false,
 	}
 
@@ -300,7 +300,6 @@ static func replenish_after_combat(allies: Array) -> void:
 			continue
 		var c: Dictionary = contacts[contact_id]
 		c["combatHp"] = c["combatHpMax"]
-		c["combatStash"] = c["combatStashMax"]
 		# Dial charges are per day, not per fight -- spent casts carry over.
 		if ally.has("dialCharges"):
 			c["dialCharges"] = ally["dialCharges"]

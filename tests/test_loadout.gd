@@ -244,3 +244,50 @@ func run() -> void:
 		Combat.push_combat_snapshot()
 		assert_eq(Combat.slot_block_reason(1), "")
 	)
+
+	run_case("combat_recruits_have_two_slots_and_noncombat_contacts_none", func():
+		GameState.reset()
+		assert_eq(GameState.state["contacts"]["archie"]["loadout"]["slots"], [null, null])
+		assert_eq(GameState.state["contacts"]["james"]["loadout"]["slots"], [null, null])
+		assert_true(not GameState.state["contacts"]["des"].has("loadout"))
+		assert_eq(Loadout.recruit_ids(), [], "nobody recruited yet")
+		GameState.state["contacts"]["archie"]["recruited"] = true
+		GameState.state["contacts"]["des"]["recruited"] = true
+		assert_eq(Loadout.recruit_ids(), ["archie"])
+	)
+
+	run_case("recruit_equip_conserves_stock_and_refuses_wormhole", func():
+		GameState.reset()
+		Crafting.inventory_add("blast", 2, 1)
+		Crafting.inventory_add("wormhole", 1, 1)
+		assert_true(Loadout.equip(0, "blast", 2, "archie")["ok"])
+		assert_eq(_stock("blast", 2), 0)
+		assert_eq(Loadout.slot(0, "archie"), { "recipe": "blast", "tier": 2 })
+		assert_eq(Loadout.slot(0), null, "player slot untouched")
+		assert_true(not Loadout.equip(1, "wormhole", 1, "archie")["ok"], "allies can't carry Wormhole")
+		assert_true(Loadout.equip(1, "wormhole", 1)["ok"], "the player can")
+		assert_true(not Loadout.equippable_stock("archie").any(func(e): return e["recipe"] == "wormhole"))
+		assert_true(not Loadout.equip(0, "blast", 2, "des")["ok"], "noncombat contact has no slots")
+		assert_true(Loadout.unequip(0, "archie")["ok"])
+		assert_eq(_stock("blast", 2), 1)
+	)
+
+	run_case("settlement_refills_player_then_recruits_in_roster_order_with_scarce_stock", func():
+		GameState.reset()
+		GameState.state["contacts"]["archie"]["recruited"] = true
+		GameState.state["contacts"]["james"]["recruited"] = true
+		for contact_id in ["archie", "james"]:
+			GameState.state["contacts"][contact_id]["loadout"]["lastRecipe"] = ["blast", "blast"]
+		GameState.state["player"]["loadout"]["lastRecipe"] = ["blast", "blast"]
+		Crafting.inventory_add("blast", 1, 3)
+		var allies: Array = [
+			{ "contactId": "james", "slotsUsed": [0, 1] },
+			{ "contactId": "archie", "slotsUsed": [1] },
+		]
+		Loadout.refill_used([0, 1])
+		Loadout.settle_allies(allies)
+		assert_true(Loadout.slot(0) != null and Loadout.slot(1) != null, "player first")
+		assert_true(Loadout.slot(1, "archie") != null, "archie (roster order) before james")
+		assert_eq(Loadout.slot(0, "james"), null)
+		assert_eq(_stock("blast", 1), 0)
+	)

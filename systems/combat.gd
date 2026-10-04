@@ -486,8 +486,6 @@ static func build_guard_ally() -> Dictionary:
 		"hpMax": int(stats["hpMax"]),
 		"attackMin": int(stats["attackMin"]),
 		"attackMax": int(stats["attackMax"]),
-		"stash": 0,
-		"healAmount": 0,
 		"speed": int(stats["speed"]),
 		"dialCharges": 0,
 		"koed": false,
@@ -1112,24 +1110,17 @@ static func _resolve_player_turn(combat: Dictionary, beats: Variant = null, moti
 	_maybe_win_from_direct_damage(combat, enemy, beats)
 
 
-# One atomic ally turn: patch up from stash below the heal threshold, or
-# attack the player's focused enemy. Same evade/damage shape as the
+# One atomic ally turn: Dial cast, else an equipped item (guard kit pool or a
+# recruit's own slots), else attack the player's focused enemy. Same evade/damage shape as the
 # player's own attack. `ally_index` is only needed to stamp onto the beat.
 static func _ally_turn(combat: Dictionary, ally: Dictionary, ally_index: int, beats: Variant = null) -> void:
 	if _ally_try_cast(combat, ally, ally_index, beats):
 		return
-	if ally.get("guardAlly", false) and _guard_try_item(combat, ally, ally_index, beats):
+	if _ally_try_item(combat, ally, ally_index, beats):
 		return
 
 	var enemy: Dictionary = _focused_enemy(combat)
 	var target_index: int = _enemy_action_index(combat)
-
-	if ally["hp"] < ally["hpMax"] * ALLY_HEAL_THRESHOLD_FRACTION and ally["stash"] > 0:
-		ally["stash"] -= 1
-		ally["hp"] = mini(ally["hpMax"], ally["hp"] + ally["healAmount"])
-		_log(combat, beats, "%s patches themselves up. %s: %d/%d HP." % [ally["name"], ally["name"], ally["hp"], ally["hpMax"]], BEAT_ALLY_HEAL,
-			{ "actorType": "ally", "actorIndex": ally_index, "amount": ally["healAmount"] })
-		return
 
 	if Rng.chance(enemy.get("evadeChance", 0.0)):
 		_log(combat, beats, "%s swings at %s — they dodge." % [ally["name"], enemy["name"]], BEAT_ENEMY_EVADE,
@@ -1193,8 +1184,49 @@ static func _ally_try_cast(combat: Dictionary, ally: Dictionary, ally_index: int
 # Blast on the lowest-hp enemy; Enhancement Powder on itself, once per guard
 # per fight (extra queue entries from the next round). Failsafe fires from
 # _enemy_attack_ally(), Rewind from _try_guard_rewind().
-static func _guard_try_item(combat: Dictionary, ally: Dictionary, ally_index: int, beats: Variant) -> bool:
-	var pool: Dictionary = combat.get("guardKit", {})
+static func _ally_try_item(combat: Dictionary, ally: Dictionary, ally_index: int, beats: Variant) -> bool:
+	var pool: Dictionary = _ally_item_pool(combat, ally)
+	if not _guard_try_item(combat, ally, ally_index, beats, pool):
+		return false
+	_sync_ally_slots(ally, pool)
+	return true
+
+
+# The pool an ally draws from: a guard's shared combat.guardKit; a recruit's is
+# built from its own equipped slots ({items, used}, one unit each); {} otherwise.
+static func _ally_item_pool(combat: Dictionary, ally: Dictionary) -> Dictionary:
+	if ally.get("guardAlly", false):
+		return combat.get("guardKit", {})
+	var items := {}
+	for unit in ally.get("slots", []):
+		if unit is Dictionary:
+			var key: String = str(int(unit["tier"]))
+			if not (items.get(unit["recipe"]) is Dictionary):
+				items[unit["recipe"]] = {}
+			items[unit["recipe"]][key] = int(items[unit["recipe"]].get(key, 0)) + 1
+	return { "items": items, "used": {} } if not items.is_empty() else {}
+
+
+# Empties the recruit slots whose unit the last pool use spent, marking them
+# for settlement refill. Guards have no slots, so this is a no-op for them.
+static func _sync_ally_slots(ally: Dictionary, pool: Dictionary) -> void:
+	if ally.get("guardAlly", false) or not ally.has("slots"):
+		return
+	var used: Dictionary = pool.get("used", {})
+	for recipe_key in used:
+		for tier_key in used[recipe_key]:
+			for _n in int(used[recipe_key][tier_key]):
+				for i in ally["slots"].size():
+					var unit: Variant = ally["slots"][i]
+					if unit is Dictionary and unit["recipe"] == recipe_key and str(int(unit["tier"])) == tier_key:
+						ally["slots"][i] = null
+						if not ally["slotsUsed"].has(i):
+							ally["slotsUsed"].append(i)
+						break
+	pool["used"] = {}
+
+
+static func _guard_try_item(combat: Dictionary, ally: Dictionary, ally_index: int, beats: Variant, pool: Dictionary) -> bool:
 	if pool.is_empty():
 		return false
 	var player: Dictionary = GameState.state["player"]
@@ -1310,13 +1342,18 @@ static func _most_hurt_unshielded(combat: Dictionary) -> Dictionary:
 		best = { "type": "player", "index": -1 }
 	var allies: Array = combat["allies"]
 	for i in range(allies.size()):
-		if allies[i]["koed"] or not allies[i].get("guardAlly", false) or int(allies[i].get("shieldPool", 0)) > 0:
+		if allies[i]["koed"] or not _uses_items(allies[i]) or int(allies[i].get("shieldPool", 0)) > 0:
 			continue
 		var fraction: float = float(allies[i]["hp"]) / float(allies[i]["hpMax"])
 		if fraction < best_fraction:
 			best_fraction = fraction
 			best = { "type": "ally", "index": i }
 	return best
+
+
+# Guards and recruits (allies with loadout slots) take part in item rules.
+static func _uses_items(ally: Dictionary) -> bool:
+	return ally.get("guardAlly", false) or ally.has("slots")
 
 
 # Index of the living enemy with the lowest hp, or -1 when none stand.
@@ -1620,8 +1657,10 @@ static func _enemy_attack_ally(combat: Dictionary, enemy: Dictionary, ally: Dict
 		_log(combat, beats, "%s lets off a blast at %s — %d damage%s. %s: %d/%d HP." % [enemy["name"], ally["name"], dmg, shield_note, ally["name"], ally["hp"], ally["hpMax"]], BEAT_ENEMY_ITEM, beat_extra)
 	else:
 		_log(combat, beats, "%s hits %s for %d%s. %s: %d/%d HP." % [enemy["name"], ally["name"], dmg, shield_note, ally["name"], ally["hp"], ally["hpMax"]], BEAT_ENEMY_ATTACK, beat_extra)
-	if ally["hp"] <= 0 and ally.get("guardAlly", false) and _guard_pool_has(combat.get("guardKit", {}), "failsafe"):
-		_spend_guard_item(combat["guardKit"], "failsafe")
+	var item_pool: Dictionary = _ally_item_pool(combat, ally) if ally["hp"] <= 0 else {}
+	if not item_pool.is_empty() and _guard_pool_has(item_pool, "failsafe"):
+		_spend_guard_item(item_pool, "failsafe")
+		_sync_ally_slots(ally, item_pool)
 		ally["hp"] = 1
 		# PROSE-REVIEW: guard Failsafe line.
 		_log(combat, beats, "%s's failsafe fires. Back up on 1 HP." % ally["name"], BEAT_ALLY_CAST,
@@ -2266,12 +2305,16 @@ static func _try_ally_rewind(combat: Dictionary, player: Dictionary) -> bool:
 # lethal hit -- on every would-be KO while the pool has one. Same snapshot
 # restore (and skipped reverse replay) as _try_failsafe().
 static func _try_guard_rewind(combat: Dictionary, player: Dictionary) -> bool:
-	if combat["snapshots"].is_empty() or not _guard_pool_has(combat.get("guardKit", {}), "rewind"):
+	if combat["snapshots"].is_empty():
 		return false
 	for ally in combat["allies"]:
-		if ally["koed"] or not ally.get("guardAlly", false):
+		if ally["koed"] or not _uses_items(ally):
 			continue
-		_spend_guard_item(combat["guardKit"], "rewind")
+		var pool: Dictionary = _ally_item_pool(combat, ally)
+		if not _guard_pool_has(pool, "rewind"):
+			continue
+		_spend_guard_item(pool, "rewind")
+		_sync_ally_slots(ally, pool)
 		_restore_from_snapshot(combat, player)
 		# PROSE-REVIEW: guard kit Rewind line.
 		combat["log"].append("⟲ %s breaks a Rewind. You're still standing." % ally["name"])
@@ -2313,7 +2356,8 @@ static func exit_combat() -> Dictionary:
 	var stockpile_faction_id: String = combat.get("stockpileFactionId", "")
 
 	Loadout.refill_used(combat.get("slotsUsed", []))
-	# Hand any allies' ending hp/stash back to persistent contact state
+	Loadout.settle_allies(combat["allies"])
+	# Hand any allies' ending hp back to persistent contact state
 	# before the combat dict is torn down below.
 	Contacts.replenish_after_combat(combat["allies"])
 	# Guard-kit spec §Defend fight: units guards spent come off the vein's

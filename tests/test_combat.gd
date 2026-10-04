@@ -2212,29 +2212,43 @@ func run() -> void:
 		assert_true(found, "ally attack should be logged")
 	)
 
-	run_case("ally_heals_from_stash_instead_of_attacking_below_the_threshold_and_it_depletes", func():
+	run_case("ally_with_empty_slots_attacks_even_when_hurt", func():
 		GameState.reset()
 		GameState.state["player"]["attackMin"] = 0
 		GameState.state["player"]["attackMax"] = 0
-		GameState.state["combat"] = {
-			"active": true, "context": Combat.CONTEXT_DEFEND_VEIN, "veinId": "v1",
-			"enemies": [{ "name": "Test Enemy", "hp": 100, "hpMax": 100, "attackMin": 0, "attackMax": 0, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false }],
-			"selection": { "type": "enemy", "index": 0 },
-			"log": [], "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
-			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [], "beatsSinceSnapshot": [], "turnCursor": { "queue": [], "index": 0, "round": 0 },
-			"allies": [{ "contactId": "archie", "name": "Archie", "hp": 10, "hpMax": 50, "attackMin": 5, "attackMax": 5, "stash": 1, "healAmount": 15, "speed": 9, "koed": false }],
-		}
+		var combat := _multi_enemy_combat([{ "hp": 100 }], [Contacts.build_combat_ally("archie")])
+		combat["allies"][0]["hp"] = 10
 		Rng.set_seed(1)
 		Combat.player_attack()
-		var ally: Dictionary = GameState.state["combat"]["allies"][0]
-		assert_eq(ally["hp"], 25, "10 + healAmount(15), below hpMax")
-		assert_eq(ally["stash"], 0, "the heal charge should be spent")
-		assert_eq(GameState.state["combat"]["enemies"][0]["hp"], 100, "healing should replace the ally's attack this turn, not stack with it")
-		var found := false
-		for line in GameState.state["combat"]["log"]:
-			if line.contains("patches themselves up"):
-				found = true
-		assert_true(found, "should log the self-heal")
+		assert_true(combat["enemies"][0]["hp"] < 100, "a hurt ally with no items attacks; no free self-heal")
+		assert_eq(combat["allies"][0]["hp"], 10)
+	)
+
+	run_case("recruit_ally_uses_only_its_equipped_item_and_marks_the_slot_for_refill", func():
+		GameState.reset()
+		GameState.state["player"]["attackMin"] = 0
+		GameState.state["player"]["attackMax"] = 0
+		GameState.state["contacts"]["archie"]["loadout"]["slots"][1] = { "recipe": "blast", "tier": 2 }
+		var combat := _multi_enemy_combat([{ "hp": 1000 }], [Contacts.build_combat_ally("archie")])
+		Combat.player_attack()
+		var ally: Dictionary = combat["allies"][0]
+		assert_true(combat["enemies"][0]["hp"] < 1000, "blast landed")
+		assert_eq(ally["slots"][1], null, "the unit is spent")
+		assert_eq(ally["slotsUsed"], [1])
+		assert_true(combat["log"].any(func(l): return str(l).contains("blast")), "blast logged")
+	)
+
+	run_case("recruit_ally_item_self_effect_applies_to_the_acting_ally", func():
+		GameState.reset()
+		GameState.state["player"]["attackMin"] = 0
+		GameState.state["player"]["attackMax"] = 0
+		GameState.state["contacts"]["archie"]["loadout"]["slots"][0] = { "recipe": "healingBurst", "tier": 2 }
+		var combat := _multi_enemy_combat([{ "hp": 1000 }], [Contacts.build_combat_ally("archie")])
+		combat["allies"][0]["hp"] = 10
+		GameState.state["player"]["hp"] = GameState.state["player"]["hpMax"]
+		Combat.player_attack()
+		assert_true(combat["allies"][0]["hp"] > 10, "most-hurt friendly (the ally itself) is healed")
+		assert_eq(combat["allies"][0]["slots"][0], null)
 	)
 
 	run_case("enemy_can_target_an_ally_and_ko_removes_them_without_ending_the_fight", func():
@@ -2265,7 +2279,7 @@ func run() -> void:
 		assert_true(found, "should log the KO")
 	)
 
-	run_case("exit_combat_replenishes_ally_hp_and_stash_but_leaves_the_ko_cooldown_alone", func():
+	run_case("exit_combat_replenishes_ally_hp_but_leaves_the_ko_cooldown_alone", func():
 		GameState.reset()
 		GameState.state["contacts"]["archie"]["recruited"] = true
 		GameState.state["contacts"]["archie"]["koCooldownUntilDay"] = 9
@@ -2281,7 +2295,6 @@ func run() -> void:
 		Combat.exit_combat()
 
 		assert_eq(GameState.state["contacts"]["archie"]["combatHp"], 50, "ally hp should be topped back up to hpMax on combat exit")
-		assert_eq(GameState.state["contacts"]["archie"]["combatStash"], 2, "ally stash should replenish to combatStashMax on combat exit")
 		assert_eq(GameState.state["contacts"]["archie"]["koCooldownUntilDay"], 9, "replenish should not touch an existing KO cooldown")
 	)
 

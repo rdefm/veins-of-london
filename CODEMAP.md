@@ -95,7 +95,7 @@ Data file per system: see `data/*.json` below.
 | rooms.gd | Per-block staff step (one action per cultivator, then producers take turns crafting until targets met or ore short), which recipes each crafter's `specialities` allow and the Production list, writes/trims `productionLog`, Production targets/priority and when they are settable, per-cultivator vein lists (`cultivatorVeins`) and per-vein targets |
 | shares.gd | Shares: 14-day daily buckets per producer (player, factions, independents) of ore harvested, ore spent on successful crafts, contract deliveries and faction London buys; Independents slice crediting (⑥.5e); pure ore/crafting share, overview, delivery and supplier-share reads (split + intake) (R§3.14) |
 | sites.gd | Sites & prospecting |
-| loadout.gd | Player's two personal consumable slots (`player.loadout`): equip/unequip (refused in combat), find/consume a slot unit, settlement refill from highest-tier stock, last-recipe memory, equippable stock list |
+| loadout.gd | Two personal consumable slots for the player (`player.loadout`) and combat recruits (`contacts[id].loadout`): equip/unequip (refused in combat; allies refuse Wormhole), consume, settlement refill (player, then recruits in roster order), equippable stock |
 | stash.gd | Personal stash vs. shared pools |
 | station_bubble.gd | Site/vein-stop tap-bubble decision |
 | calendar.gd | Pure `world.day` → calendar date (`MON 3 JAN`, `Y2`+ suffix) per R§3.1 "Calendar"; every player-facing date string uses `Calendar.format_day`; weekday/Monday helpers for the weekly cadence |
@@ -227,7 +227,7 @@ overlays.
 | todo_app.gd | ToDo app: collapsible questline sections from Todo, all_of checks as indented sub-rows; session-only expand/collapse overrides in a static var |
 | factions_app.gd | London share table (ore/crafting toggle), London's politics (stance per pair, war/truce markers) and faction cards: archetype, ores, crafts, share bars, stance, pressure, peace talks at war, Gift, favour asked/owed (`Diplomacy`), partner price ask and trouble asks (`Partners`), intel level and what it reveals (`Intel`), activity log. |
 | ticker_app.gd | Ticker News: state stories by recency, newest-first wires, full state and wire articles, live impact, same-axis Influence sheet. Stock Market: filters, Ore/Items lists, demand modifiers, price detail and chart, annotations and demand drivers |
-| profile_app.gd | Stats, skills, equipment, and the two-slot Loadout card (equip/unequip buttons) |
+| profile_app.gd | Stats, skills, equipment, and a two-slot Loadout card (equip/unequip) for the player and each recruited combat contact |
 | dialer_app.gd | Phone recent-calls placeholder; no telephony state/actions |
 | settings_app.gd | Reduced-motion and alarm-vibration preference controls |
 | saveload_app.gd | Save slots, export/import (with copy-to-clipboard), New Game confirm |

@@ -1318,6 +1318,22 @@ func run() -> void:
 		assert_eq(GameState.state["meta"]["saveVersion"], SaveManager.SAVE_VERSION, "stamped current")
 	)
 
+	run_case("loading_a_v6_save_drops_the_contact_stash_and_gives_combat_recruits_slots", func():
+		GameState.reset()
+		var save: Dictionary = GameState.deep_copy(GameState.state)
+		save["meta"]["saveVersion"] = 6
+		save["contacts"]["archie"].erase("loadout")
+		save["contacts"]["archie"]["combatStash"] = 2
+		save["contacts"]["archie"]["combatStashMax"] = 2
+		save["contacts"]["archie"]["combatHealAmount"] = 15
+		var result := SaveManager.import_string(JSON.stringify(save))
+		assert_true(result["ok"], "a v6 save should load")
+		var archie: Dictionary = GameState.state["contacts"]["archie"]
+		assert_true(not archie.has("combatStash") and not archie.has("combatHealAmount"), "stash retired")
+		assert_eq(archie["loadout"]["slots"], [null, null])
+		assert_true(not GameState.state["contacts"]["des"].has("loadout"), "noncombat contacts have no slots")
+	)
+
 	run_case("loading_a_v5_save_raises_stock_unarmed_attack_to_7_15", func():
 		GameState.reset()
 		var save: Dictionary = GameState.deep_copy(GameState.state)

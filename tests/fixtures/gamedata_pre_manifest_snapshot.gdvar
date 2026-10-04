@@ -762,10 +762,8 @@
 "archie": {
 "combatAttackMax": 9,
 "combatAttackMin": 4,
-"combatHealAmount": 15,
 "combatHpMax": 50,
 "combatSpeed": 9,
-"combatStashMax": 2,
 "koCooldownDays": 2,
 "raidAssistThreshold": 50,
 "recruitThreshold": 80,
@@ -815,10 +813,8 @@
 "complications": ["timePearl", "rewind", "healingBurst"],
 "tier": 3
 },
-"combatHealAmount": 0,
 "combatHpMax": 35,
 "combatSpeed": 6,
-"combatStashMax": 0,
 "koCooldownDays": 2,
 "recruitThreshold": 100,
 "recruitable": false,

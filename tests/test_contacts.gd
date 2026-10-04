@@ -207,7 +207,6 @@ func run() -> void:
 	run_case("build_combat_ally_snapshots_the_contacts_current_combat_kit", func():
 		GameState.reset()
 		GameState.state["contacts"]["archie"]["combatHp"] = 30
-		GameState.state["contacts"]["archie"]["combatStash"] = 1
 		var ally := Contacts.build_combat_ally("archie")
 		assert_eq(ally["contactId"], "archie")
 		assert_eq(ally["name"], "Archie")
@@ -215,8 +214,7 @@ func run() -> void:
 		assert_eq(ally["hpMax"], 50)
 		assert_eq(ally["attackMin"], 4)
 		assert_eq(ally["attackMax"], 9)
-		assert_eq(ally["stash"], 1)
-		assert_eq(ally["healAmount"], 15)
+		assert_eq(ally["slots"], [null, null])
 		assert_true(not ally["koed"], "joins alive")
 	)
 
@@ -226,13 +224,11 @@ func run() -> void:
 		assert_eq(GameState.state["contacts"]["archie"]["koCooldownUntilDay"], 12, "10 + koCooldownDays(2)")
 	)
 
-	run_case("replenish_after_combat_tops_up_hp_and_stash_for_every_ally_that_fought", func():
+	run_case("replenish_after_combat_tops_up_hp_for_every_ally_that_fought", func():
 		GameState.reset()
 		GameState.state["contacts"]["archie"]["combatHp"] = 5
-		GameState.state["contacts"]["archie"]["combatStash"] = 0
 		Contacts.replenish_after_combat([{ "contactId": "archie" }])
 		assert_eq(GameState.state["contacts"]["archie"]["combatHp"], 50)
-		assert_eq(GameState.state["contacts"]["archie"]["combatStash"], 2)
 	)
 
 	# ── 45-archie-raid-assist ────────────────────────────────────────────
@@ -276,7 +272,6 @@ func run() -> void:
 		assert_eq(ally["attackMin"], 2)
 		assert_eq(ally["attackMax"], 4)
 		assert_eq(ally["speed"], 6)
-		assert_eq(ally["stash"], 0)
 		assert_eq(ally["dialCharges"], 3)
 	)
 

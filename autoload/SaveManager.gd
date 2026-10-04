@@ -4,7 +4,7 @@ extends Node
 # autosaves. autosave() is called from daily_tick, exit_combat, event
 # completion, and every successful cash purchase.
 
-const SAVE_VERSION := 6
+const SAVE_VERSION := 7
 # Oldest save version _migrate_versions() can still bring forward.
 const MIN_SUPPORTED_VERSION := 3
 const SLOT_COUNT := 3
@@ -332,8 +332,22 @@ func _migrate_versions(save: Dictionary) -> void:
 				_migrate_from_v4(save)
 			5:
 				_migrate_from_v5(save)
+			6:
+				_migrate_from_v6(save)
 	meta["saveVersion"] = SAVE_VERSION
 	save["meta"] = meta
+
+
+# v7 retires the contact combat stash (Archie's self-heal); recruits gain loadout
+# slots through the new-contact-key backfill.
+func _migrate_from_v6(save: Dictionary) -> void:
+	var contacts: Variant = save.get("contacts")
+	if not (contacts is Dictionary):
+		return
+	for contact in contacts.values():
+		if contact is Dictionary:
+			for key in ["combatStashMax", "combatStash", "combatHealAmount"]:
+				contact.erase(key)
 
 
 # v6 raises the unarmed base attack from 3–7 to 7–15 (the old crowbar total);
@@ -642,7 +656,7 @@ func _backfill_contact_combat_kits(result: Dictionary, defaults: Dictionary) -> 
 		var fresh: Dictionary = default_contacts[contact_id]
 		if int(contact.get("combatHpMax", 0)) > 0 or int(fresh["combatHpMax"]) <= 0:
 			continue
-		for key in ["combatHpMax", "combatHp", "combatAttackMin", "combatAttackMax", "combatStashMax", "combatStash", "combatHealAmount", "combatSpeed", "koCooldownDays", "dialCharges"]:
+		for key in ["combatHpMax", "combatHp", "combatAttackMin", "combatAttackMax", "combatSpeed", "koCooldownDays", "dialCharges"]:
 			contact[key] = fresh[key]
 
 
@@ -1064,8 +1078,11 @@ func _restore_int_types(state: Dictionary) -> void:
 
 	if state.has("contacts"):
 		for contact in state["contacts"].values():
+			for slot in contact.get("loadout", {}).get("slots", []):
+				if slot is Dictionary:
+					_int_key(slot, "tier")
 			for key in ["relation", "recruitThreshold", "raidAssistThreshold", "craftingSkill", "craftingXP", "cultivatingSkill", "cultivatingXP", "salesSkill", "salesXP", "stealthSkill", "stealthXP",
-					"combatHpMax", "combatHp", "combatAttackMin", "combatAttackMax", "combatStashMax", "combatStash", "combatHealAmount", "combatSpeed", "koCooldownDays", "koCooldownUntilDay",
+					"combatHpMax", "combatHp", "combatAttackMin", "combatAttackMax", "combatSpeed", "koCooldownDays", "koCooldownUntilDay",
 					"dialCharges", "tradeProgress"]:
 				_int_key(contact, key)
 
@@ -1145,8 +1162,14 @@ func _restore_combat_int_types(combat: Dictionary) -> void:
 			_restore_turn_cursor_int_types(snap["turnCursor"])
 	# allies[] entries (Contacts.build_combat_ally), speed included.
 	for ally in combat.get("allies", []):
-		for key in ["hp", "hpMax", "attackMin", "attackMax", "stash", "healAmount", "speed", "dialCharges"]:
+		for key in ["hp", "hpMax", "attackMin", "attackMax", "speed", "dialCharges"]:
 			_int_key(ally, key)
+		for slot in ally.get("slots", []):
+			if slot is Dictionary:
+				_int_key(slot, "tier")
+		var used: Array = ally.get("slotsUsed", [])
+		for i in used.size():
+			used[i] = int(used[i])
 	if combat.has("turnCursor"):
 		_restore_turn_cursor_int_types(combat["turnCursor"])
 

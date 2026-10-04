@@ -10,6 +10,8 @@ func build(content: VBoxContainer) -> void:
 	content.add_child(_build_skills_card())
 	content.add_child(_build_equipment_card())
 	content.add_child(_build_loadout_card())
+	for contact_id in Loadout.recruit_ids():
+		content.add_child(_build_loadout_card(contact_id))
 
 
 func _build_stats_card() -> Control:
@@ -53,28 +55,28 @@ func _build_equipment_card() -> Control:
 	return c["panel"]
 
 
-func _build_loadout_card() -> Control:
+func _build_loadout_card(contact_id: String = "") -> Control:
 	var c := UI.card()
-	c["content"].add_child(UI.heading("Loadout", 14))
-	var stock := Loadout.equippable_stock()
+	c["content"].add_child(UI.heading("Loadout" if contact_id == "" else "%s — Loadout" % Contacts.display_name(contact_id), 14))
+	var stock := Loadout.equippable_stock(contact_id)
 	for index in Loadout.slot_count():
-		var unit: Variant = Loadout.slot(index)
+		var unit: Variant = Loadout.slot(index, contact_id)
 		if unit == null:
 			c["content"].add_child(UI.muted_label("Slot %d: empty" % (index + 1)))
 			for entry in stock:
-				c["content"].add_child(UI.button("Equip %s T%d (×%d)" % [GameData.RECIPES[entry["recipe"]]["name"], entry["tier"], entry["qty"]], _on_equip.bind(index, entry["recipe"], entry["tier"])))
+				c["content"].add_child(UI.button("Equip %s T%d (×%d)" % [GameData.RECIPES[entry["recipe"]]["name"], entry["tier"], entry["qty"]], _on_equip.bind(index, entry["recipe"], entry["tier"], contact_id)))
 		else:
 			c["content"].add_child(UI.label("Slot %d: %s T%d" % [index + 1, GameData.RECIPES[unit["recipe"]]["name"], int(unit["tier"])]))
-			c["content"].add_child(UI.button("Unequip slot %d" % (index + 1), _on_unequip.bind(index)))
+			c["content"].add_child(UI.button("Unequip slot %d" % (index + 1), _on_unequip.bind(index, contact_id)))
 	return c["panel"]
 
 
-func _on_equip(index: int, recipe_key: String, tier: int) -> void:
-	Loadout.equip(index, recipe_key, tier)
+func _on_equip(index: int, recipe_key: String, tier: int, contact_id: String) -> void:
+	Loadout.equip(index, recipe_key, tier, contact_id)
 
 
-func _on_unequip(index: int) -> void:
-	Loadout.unequip(index)
+func _on_unequip(index: int, contact_id: String) -> void:
+	Loadout.unequip(index, contact_id)
 
 
 func _dial_summary_label(player: Dictionary) -> Control:

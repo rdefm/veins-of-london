@@ -5,13 +5,13 @@
     "archie": { "startRelation": 10, "unlocked": true,  "recruitThreshold": 80, "recruitable": false,
                 "roomFreeRoles": true, "roleFlags": { "sales": "bizArchieSalesRole" },
                 "combatHpMax": 50, "combatAttackMin": 4, "combatAttackMax": 9,
-                "combatStashMax": 2, "combatHealAmount": 15, "koCooldownDays": 2,
+                "koCooldownDays": 2,
                 "raidAssistThreshold": 50, "combatSpeed": 9 },
     "james":  { "startRelation": 0,  "unlocked": false, "recruitThreshold": 100, "recruitable": false,
                 "roomFreeRoles": true, "roleFlags": { "production": "bizJamesProductionRole" },
                 "specialities": ["time", "life"],
                 "combatHpMax": 35, "combatAttackMin": 2, "combatAttackMax": 4,
-                "combatStashMax": 0, "combatHealAmount": 0, "koCooldownDays": 2, "combatSpeed": 6,
+                "koCooldownDays": 2, "combatSpeed": 6,
                 "combatDial": { "chargesPerDay": 3, "tier": 3, "complications": ["timePearl", "rewind", "healingBurst"] } },
     "des":    { "startRelation": 0,  "unlocked": false, "recruitThreshold": 0,   "recruitable": false },
     "nadia":  { "startRelation": 0,  "unlocked": false, "recruitThreshold": 0,   "recruitable": false },
@@ -45,6 +45,7 @@
   },
   "loadout": {
     "slotCount": 2,
+    "allyExcluded": ["wormhole"],
     "items": ["timePearl", "enhancementPowder", "blast", "shield", "blackHole", "healingBurst", "prophetsBreath", "wormhole", "failsafe", "rewind"]
   },
   "guardUpkeep": {
