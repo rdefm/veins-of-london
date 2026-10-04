@@ -468,7 +468,7 @@ state = {
     stash: { orichalchum: {}, inventory: {} },
     # personal consumable slots (§3.7 "Player loadout"): slots[i] null | { recipe, tier };
     # lastRecipe[i] = recipe last assigned to slot i ("" never). Old saves backfill empty.
-    loadout: { slots: [null, null], lastRecipe: ["", ""] },
+    loadout: { slots: [null, null], lastRecipe: ["", ""] },  # equipped units live only here, not in inventory: every out-of-combat flow (sell, gift, guard-kit stock, stash, event items) reads inventory alone, so equipped units are unavailable to them
   },
 
   world: {

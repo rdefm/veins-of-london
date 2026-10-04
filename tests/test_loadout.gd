@@ -66,6 +66,56 @@ func run() -> void:
 			Loadout.unequip(0)
 	)
 
+	run_case("equipped_units_are_not_sellable", func():
+		GameState.reset()
+		Crafting.inventory_add("blast", 2, 2)
+		Loadout.equip(0, "blast", 2)
+		Loadout.equip(1, "blast", 2)
+		var cash: int = int(GameState.state["player"]["cash"])
+		GameState.state["sellState"]["con_blast_2"] = 2
+		Economy.sell_from_sell_state()
+		assert_eq(int(GameState.state["player"]["cash"]), cash, "nothing sold")
+		assert_eq(Loadout.equipped_units().size(), 2, "slots untouched")
+		Loadout.unequip(1)
+		GameState.state["sellState"]["con_blast_2"] = 2
+		Economy.sell_from_sell_state()
+		assert_eq(_stock("blast", 2), 0, "only the unequipped remainder sold")
+		assert_eq(Loadout.equipped_units().size(), 1, "equipped unit stays")
+	)
+
+	run_case("equipped_units_cannot_be_gifted", func():
+		GameState.reset()
+		Crafting.inventory_add("prophetsBreath", 1, 1)
+		Loadout.equip(0, "prophetsBreath", 1)
+		assert_true(not Diplomacy.giftable_items().has("prophetsBreath"), "not offered")
+		assert_true(not Diplomacy.gift_item("lusk", "prophetsBreath")["ok"], "refused")
+		assert_eq(Loadout.slot(0), { "recipe": "prophetsBreath", "tier": 1 })
+		Crafting.inventory_add("prophetsBreath", 1, 1)
+		assert_true(Diplomacy.gift_item("lusk", "prophetsBreath")["ok"], "remainder giftable")
+		assert_eq(Loadout.slot(0), { "recipe": "prophetsBreath", "tier": 1 })
+	)
+
+	run_case("equipped_units_cannot_stock_a_guard_kit", func():
+		GameState.reset()
+		Crafting.inventory_add("blast", 1, 1)
+		Loadout.equip(0, "blast", 1)
+		var owner: Dictionary = {}
+		assert_true(not GuardKit.stock_into(owner, "guardKit", 4, "blast", 1, 1)["ok"], "refused")
+		assert_eq(Loadout.slot(0), { "recipe": "blast", "tier": 1 })
+		Crafting.inventory_add("blast", 1, 1)
+		assert_true(GuardKit.stock_into(owner, "guardKit", 4, "blast", 1, 1)["ok"], "remainder stockable")
+		assert_eq(Loadout.slot(0), { "recipe": "blast", "tier": 1 })
+	)
+
+	run_case("an_equipped_rewind_is_not_event_usable_stock", func():
+		GameState.reset()
+		Crafting.inventory_add("rewind", 1, 1)
+		assert_eq(EventItems._count({ "source": "consumable", "recipeKey": "rewind" }), 1)
+		Loadout.equip(0, "rewind", 1)
+		assert_eq(EventItems._count({ "source": "consumable", "recipeKey": "rewind" }), 0)
+		assert_eq(Crafting.inventory_qty("rewind"), 0)
+	)
+
 	run_case("slots_and_remembered_recipe_survive_save_and_load", func():
 		GameState.reset()
 		Crafting.inventory_add("timePearl", 2, 1)
