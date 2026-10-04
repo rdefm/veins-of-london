@@ -3,6 +3,9 @@ extends PhoneApp
 
 
 func build(content: VBoxContainer) -> void:
+	if CombatPrep.is_editing_loadout():
+		_build_prep_focus(content)
+		return
 	content.add_child(back_button())
 	content.add_child(UI.heading("Profile"))
 
@@ -19,6 +22,18 @@ func build(content: VBoxContainer) -> void:
 			content.add_child(ally_dial_card)
 	for contact_id in Loadout.recruit_ids():
 		content.add_child(_build_loadout_card(contact_id))
+
+
+# Preparation's Change loadout route: only the participants' personal items and
+# Dials; Back returns to the pending encounter.
+func _build_prep_focus(content: VBoxContainer) -> void:
+	content.add_child(UI.button("‹ Back", func(): CombatPrep.finish_loadout_edit()))
+	content.add_child(UI.heading("Loadout"))
+	for owner_id in CombatPrep.loadout_owner_ids(CombatPrep.pending()):
+		content.add_child(_build_loadout_card(owner_id))
+		var dial_card: Variant = MapPalette.build_light(func(): return DialLoadoutMenu.build(owner_id))
+		if dial_card != null:
+			content.add_child(dial_card)
 
 
 func _build_stats_card() -> Control:

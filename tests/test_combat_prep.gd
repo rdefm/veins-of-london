@@ -187,6 +187,38 @@ func run() -> void:
 		assert_eq(rows[rows.size() - 1]["role"], "foe")
 	)
 
+	run_case("loadout_warning_names_participants_with_empty_slot_and_stock_only", func():
+		GameState.reset()
+		Contacts.force_recruit("archie")
+		CombatPrep.request(CombatPrep.KIND_MUGGING)
+		assert_eq(CombatPrep.loadout_warning_names(CombatPrep.pending()), [], "no stock -> no warning")
+
+		GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
+		var names := CombatPrep.loadout_warning_names(CombatPrep.pending())
+		assert_true(names.has("You"), "player empty slot + stock")
+
+		for i in range(Loadout.slot_count()):
+			GameState.state["player"]["loadout"]["slots"][i] = { "recipe": "rewind", "tier": 1 }
+		assert_true(not CombatPrep.loadout_warning_names(CombatPrep.pending()).has("You"), "full slots -> no player warning")
+	)
+
+	run_case("change_loadout_round_trips_to_the_same_pending_encounter_uncommitted", func():
+		GameState.reset()
+		GameState.state["currentScreen"] = "map"
+		CombatPrep.request(CombatPrep.KIND_MUGGING)
+		var before: Dictionary = GameState.state["combatPrep"].duplicate(true)
+		assert_true(CombatPrep.change_loadout())
+		assert_true(CombatPrep.is_editing_loadout())
+		assert_eq(GameState.state["currentScreen"], "phone")
+		assert_eq(GameState.state["phoneNav"]["app"], "profile")
+		assert_true(not GameState.state["combat"]["active"], "nothing committed")
+
+		CombatPrep.finish_loadout_edit()
+		assert_true(not CombatPrep.is_editing_loadout())
+		assert_eq(GameState.state["currentScreen"], CombatPrep.SCREEN)
+		assert_eq(GameState.state["combatPrep"], before, "same pending encounter")
+	)
+
 	run_case("recruit_pool_offers_only_eligible_combat_recruits", func():
 		GameState.reset()
 		for id in ["archie", "james"]:

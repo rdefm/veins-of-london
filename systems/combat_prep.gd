@@ -3,7 +3,7 @@ extends RefCounted
 
 # Pending pre-fight preparation (R§3.7 "Preparation"). Every combat entry path
 # parks here as state.combatPrep before its costs, rolls or first turn:
-#   { kind, args, forced, returnScreen }
+#   { kind, args, forced, returnScreen, loadoutEdit? }
 # Fight (commit) replays the path's existing entry; Cancel (planned only)
 # clears it and spends nothing. Forced/scripted encounters have no Cancel.
 
@@ -220,6 +220,54 @@ static func move_recruit(contact_id: String, step: int) -> bool:
 	prep["args"]["allyIds"] = ids
 	EventBus.state_changed.emit()
 	return true
+
+
+# ── loadout warning and Change loadout (R§3.7 "Preparation") ─────────────
+
+# Owner ids ("" = player) of participants whose personal loadout is editable.
+static func loadout_owner_ids(prep: Dictionary) -> Array:
+	var ids: Array = [""]
+	for contact_id in _ally_contact_ids(str(prep.get("kind", "")), prep.get("args", {})):
+		if GameState.state["contacts"].get(contact_id, {}).has("loadout"):
+			ids.append(contact_id)
+	return ids
+
+
+# Names of participants with an empty slot while eligible unequipped stock exists.
+static func loadout_warning_names(prep: Dictionary) -> Array:
+	var names: Array = []
+	for owner_id in loadout_owner_ids(prep):
+		if Loadout.equippable_stock(owner_id).is_empty():
+			continue
+		for i in range(Loadout.slot_count()):
+			if Loadout.slot(i, owner_id) == null:
+				names.append("You" if owner_id == "" else Contacts.display_name(owner_id))
+				break
+	return names
+
+
+static func is_editing_loadout() -> bool:
+	return bool(pending().get("loadoutEdit", false))
+
+
+# Opens Profile focused on the participants. The prep stays pending, uncommitted.
+static func change_loadout() -> bool:
+	var prep := pending()
+	if prep.is_empty():
+		return false
+	prep["loadoutEdit"] = true
+	Nav.go_to("phone")
+	PhoneNav.open_app("profile")
+	return true
+
+
+# Back from Profile to the same pending encounter.
+static func finish_loadout_edit() -> void:
+	var prep := pending()
+	if not prep.is_empty():
+		prep.erase("loadoutEdit")
+	PhoneNav.go_home()
+	Nav.go_to(SCREEN)
 
 
 static func _ally_guard_count(kind: String, args: Dictionary) -> int:

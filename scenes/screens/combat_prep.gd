@@ -44,6 +44,9 @@ func _render() -> void:
 	var body := UI.vbox(8)
 	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	margin.add_child(body)
+	var warned := CombatPrep.loadout_warning_names(prep)
+	if not warned.is_empty():
+		body.add_child(_loadout_warning(warned))
 	var options := CombatPrep.recruit_options(prep)
 	if not options.is_empty():
 		body.add_child(_recruit_panel(prep, options))
@@ -64,6 +67,16 @@ func _build_header(layout: VBoxContainer, prep: Dictionary) -> void:
 	# PROSE-REVIEW: prep screen notes.
 	var note := "No way out of this one." if prep["forced"] else "Nothing is spent until you fight."
 	content.add_child(_label(note, 12, MUTED))
+
+
+func _loadout_warning(names: Array) -> Control:
+	var panel := _surface(SURFACE, 12)
+	var box := UI.vbox(6)
+	panel.add_child(box)
+	# PROSE-REVIEW: empty-slot warning.
+	box.add_child(_label("Empty slots, and kit in the bag: %s." % ", ".join(names), 12, MUTED))
+	box.add_child(_button("Change loadout", CombatPrep.change_loadout, Color.TRANSPARENT, 44))
+	return panel
 
 
 # Recruit picker: tick to bring, ▲▼ to reorder. Order is fight order; anyone

@@ -84,5 +84,5 @@ func _show_screen(screen_id: String) -> void:
 	if current_screen_node != screen_node:
 		return
 
-	nav_bar.visible = not NAV_HIDDEN_SCREENS.has(resolved_id)
+	nav_bar.visible = not NAV_HIDDEN_SCREENS.has(resolved_id) and not CombatPrep.is_editing_loadout()
 	top_bar.visible = not TOP_BAR_HIDDEN_SCREENS.has(resolved_id)
