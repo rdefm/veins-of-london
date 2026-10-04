@@ -135,8 +135,7 @@ static func daily_tick() -> void:
 	Hiring.roll_market_flips()           # ⑥.5j3 LodedInnit candidates flip between open and employed; no ordering dependency
 	Hiring.daily_poach_tick()            # ⑥.5j4 lapsed poach offers resolve as refusals, then Monday offers roll; after ⑥.5h so stances are today's
 	Market.daily_reprice()               # ⑥.6 London reprice, after every step that trades in the tick and after ① so today's Ticker feeds it
-	Dial.daily_regen()                   # ⑦ Dial charge regen
-	Contacts.daily_dial_regen()          # ⑦.1 ally Dial charges refill
+	Dial.daily_regen()                   # ⑦ Dial charge regen (player + ally Dials)
 	Objectives.refresh()                 # ⑧ objectives boundary
 	Collective.maybe_trigger_a2_checkpoint()  # ⑧a after ⑧ so an NPC-claimed reseed counts; also the day-threshold fallback
 	Collective.maybe_trigger_a2_crack()       # ⑧b T10/T11, a day or more behind the beat before each

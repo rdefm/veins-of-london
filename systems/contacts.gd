@@ -42,6 +42,7 @@ static func recruit(contact_id: String) -> Dictionary:
 		return { "ok": false, "reason": "Cannot recruit yet." }
 	var c: Dictionary = GameState.state["contacts"][contact_id]
 	c["recruited"] = true
+	Dial.grant_contact_dial(contact_id)
 	Notify.push("%s is now working with you. Assign them to a room via HQ." % display_name(contact_id), Notify.CATEGORY_SUCCESS)
 	EventBus.state_changed.emit()
 	return { "ok": true }
@@ -54,6 +55,7 @@ static func force_recruit(contact_id: String) -> void:
 	if not contacts.has(contact_id):
 		return
 	contacts[contact_id]["recruited"] = true
+	Dial.grant_contact_dial(contact_id)
 	EventBus.state_changed.emit()
 
 
@@ -253,27 +255,10 @@ static func build_combat_ally(contact_id: String) -> Dictionary:
 		"attackMin": c["combatAttackMin"],
 		"attackMax": c["combatAttackMax"],
 		"speed": c["combatSpeed"],
-		"dialCharges": c.get("dialCharges", 0),
 		"slots": GameState.deep_copy(c.get("loadout", {}).get("slots", [])),
 		"slotsUsed": [],
 		"koed": false,
 	}
-
-
-# constants.json's combatDial block ({chargesPerDay, tier, complications}),
-# or {} for a contact with no Dial.
-static func combat_dial(contact_id: String) -> Dictionary:
-	return GameData.CONTACTS_DEFAULTS.get(contact_id, {}).get("combatDial", {})
-
-
-# Daily tick: every contact with a combatDial gets its day's charges back.
-static func daily_dial_regen() -> void:
-	var contacts: Dictionary = GameState.state["contacts"]
-	for contact_id in contacts.keys():
-		var dial: Dictionary = combat_dial(contact_id)
-		if not dial.is_empty():
-			contacts[contact_id]["dialCharges"] = int(dial["chargesPerDay"])
-	EventBus.state_changed.emit()
 
 
 # Called by Combat when an ally's hp hits 0 mid-fight -- removes them from
@@ -300,9 +285,6 @@ static func replenish_after_combat(allies: Array) -> void:
 			continue
 		var c: Dictionary = contacts[contact_id]
 		c["combatHp"] = c["combatHpMax"]
-		# Dial charges are per day, not per fight -- spent casts carry over.
-		if ally.has("dialCharges"):
-			c["dialCharges"] = ally["dialCharges"]
 
 
 # A raid is offensive (the player's choice), unlike defend's auto-join, so

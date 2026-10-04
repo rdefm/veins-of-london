@@ -2,7 +2,8 @@ class_name DialLoadComplicationModal
 extends RefCounted
 
 
-static func build(container: VBoxContainer, _data: Dictionary) -> void:
+static func build(container: VBoxContainer, data: Dictionary) -> void:
+	var owner_id: String = data.get("owner", "")
 	container.add_child(UI.heading("Load a Complication"))
 	var player: Dictionary = GameState.state["player"]
 	var any_loadable := false
@@ -16,7 +17,7 @@ static func build(container: VBoxContainer, _data: Dictionary) -> void:
 			var captured_key: String = recipe_key
 			var captured_tier: int = int(tier_key)
 			container.add_child(MapCardStyle.symbol_option_row([ItemIcons.part(captured_key), "%s tier %s (%d)" % [recipe["name"], tier_key, buckets[tier_key]]], func():
-				Dial.load_complication(captured_key, captured_tier)
+				Dial.load_complication(captured_key, captured_tier, owner_id)
 				Modal.close()
 			))
 	if not any_loadable:

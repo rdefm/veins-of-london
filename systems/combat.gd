@@ -487,7 +487,6 @@ static func build_guard_ally() -> Dictionary:
 		"attackMin": int(stats["attackMin"]),
 		"attackMax": int(stats["attackMax"]),
 		"speed": int(stats["speed"]),
-		"dialCharges": 0,
 		"koed": false,
 	}
 
@@ -1114,6 +1113,8 @@ static func _resolve_player_turn(combat: Dictionary, beats: Variant = null, moti
 # recruit's own slots), else attack the player's focused enemy. Same evade/damage shape as the
 # player's own attack. `ally_index` is only needed to stamp onto the beat.
 static func _ally_turn(combat: Dictionary, ally: Dictionary, ally_index: int, beats: Variant = null) -> void:
+	if ally.get("contactId", "") != "":
+		Dial.combat_turn_tick(ally["contactId"])
 	if _ally_try_cast(combat, ally, ally_index, beats):
 		return
 	if _ally_try_item(combat, ally, ally_index, beats):
@@ -1133,46 +1134,32 @@ static func _ally_turn(combat: Dictionary, ally: Dictionary, ally_index: int, be
 	_maybe_win_from_direct_damage(combat, enemy, beats)
 
 
-# An ally with a combatDial (constants.json) spends one of the day's
-# charges instead of attacking: Healing Burst on the most-hurt of player /
-# alive allies below ALLY_HEAL_THRESHOLD_FRACTION, else Time Pearl when
-# 2+ enemies stand and none are frozen. Power reads the recipe's
-# effectPower at the Dial's fixed tier. Rewind fires from _try_ally_rewind().
+# An ally holding a Dial (contacts.<id>.dial) casts a loaded Complication
+# instead of attacking, on the same triggers/targets as a guard's items
+# (_guard_try_item). A cast spends one Dial charge and awards Dial XP; power
+# scales with the Dial's Movement and level (Dial.cast_complication()). Loaded
+# Rewind is never cast by an ally.
 static func _ally_try_cast(combat: Dictionary, ally: Dictionary, ally_index: int, beats: Variant) -> bool:
-	if int(ally.get("dialCharges", 0)) <= 0:
-		return false
-	var dial: Dictionary = Contacts.combat_dial(ally.get("contactId", ""))
-	var loaded: Array = dial.get("complications", [])
-	var tier: int = int(dial.get("tier", 0))
+	var pool: Dictionary = _ally_dial_pool(ally)
+	return _guard_try_item(combat, ally, ally_index, beats, pool)
 
-	if loaded.has("healingBurst"):
-		var target: Dictionary = _most_hurt_friendly(combat)
-		if not target.is_empty():
-			var power: int = int(GameData.RECIPES["healingBurst"]["effectPower"][tier])
-			var healed_entry: Dictionary = GameState.state["player"] if target["type"] == "player" else combat["allies"][target["index"]]
-			var old_hp: int = healed_entry["hp"]
-			healed_entry["hp"] = mini(healed_entry["hp"] + power, healed_entry["hpMax"])
-			ally["dialCharges"] -= 1
-			var who: String = "you" if target["type"] == "player" else healed_entry["name"]
-			var extra: Dictionary = { "actorType": "ally", "actorIndex": ally_index, "effectKey": "healingBurst", "castKey": "healingBurst" }
-			if target["type"] == "ally":
-				extra["targetType"] = "ally"
-				extra["targetIndex"] = target["index"]
-			# PROSE-REVIEW: James's dial Healing Burst line.
-			_log(combat, beats, "%s turns the dial. Healing Burst on %s — +%d HP." % [ally["name"], who, healed_entry["hp"] - old_hp], BEAT_ALLY_CAST, extra)
-			return true
 
-	if loaded.has("timePearl") and combat["frozenTurns"] == 0 and _alive_enemy_count(combat) >= 2:
-		var turns: int = int(GameData.RECIPES["timePearl"]["effectPower"][tier])
-		combat["frozenTurns"] += turns
-		ally["dialCharges"] -= 1
-		var turn_word: String = "turn" if turns == 1 else "turns"
-		# PROSE-REVIEW: James's dial Time Pearl line.
-		_log(combat, beats, "%s turns the dial. Time Pearl — enemies frozen for %d %s." % [ally["name"], turns, turn_word], BEAT_ALLY_CAST,
-			{ "actorType": "ally", "actorIndex": ally_index, "effectKey": "timePearl", "castKey": "timePearl" })
-		return true
-
-	return false
+# {} when the ally has no Dial, no charge, or nothing castable loaded; else an
+# item-pool-shaped view of the loaded Complications plus the owner's id.
+static func _ally_dial_pool(ally: Dictionary) -> Dictionary:
+	var owner_id: String = ally.get("contactId", "")
+	var dial: Variant = Dial.dial_of(owner_id) if owner_id != "" else null
+	if dial == null or dial["currentCharge"] < 1:
+		return {}
+	var items := {}
+	for entry in dial["loadedComplications"]:
+		if entry["recipeKey"] == "rewind":
+			continue
+		var key: String = str(int(entry["tier"]))
+		if not (items.get(entry["recipeKey"]) is Dictionary):
+			items[entry["recipeKey"]] = {}
+		items[entry["recipeKey"]][key] = int(items[entry["recipeKey"]].get(key, 0)) + 1
+	return { "items": items, "used": {}, "dialOwner": owner_id } if not items.is_empty() else {}
 
 
 # Guard-kit spec §Defend fight: a guard ally spends one unit of the shared
@@ -1245,7 +1232,7 @@ static func _guard_try_item(combat: Dictionary, ally: Dictionary, ally_index: in
 			return true
 
 	if _guard_pool_has(pool, "prophetsBreath") and player["hp"] > 0 and player["hp"] < player["hpMax"] * ALLY_HEAL_THRESHOLD_FRACTION and combat["evadeTurns"] <= 0:
-		combat["evadeTurns"] = _spend_guard_item(pool, "prophetsBreath")
+		combat["evadeTurns"] = _spend_guard_item(pool, "prophetsBreath") + _pool_turn_bonus(pool)
 		combat["evadeChance"] = 0.50
 		var extra: Dictionary = cast_extra.duplicate()
 		extra["effectKey"] = "prophetsBreath"
@@ -1271,10 +1258,10 @@ static func _guard_try_item(combat: Dictionary, ally: Dictionary, ally_index: in
 			extra["effectKey"] = "blackHole"
 			# PROSE-REVIEW: guard Black Hole line.
 			_log(combat, beats, "%s drops a black hole." % ally["name"], BEAT_ALLY_CAST, extra)
-			_apply_black_hole_aoe(combat, power, 1 + int(floor(float(power) / 8.0)), beats)
+			_apply_black_hole_aoe(combat, power, _pool_black_hole_freeze(pool, power), beats)
 			return true
 		if _guard_pool_has(pool, "timePearl"):
-			var turns := _spend_guard_item(pool, "timePearl")
+			var turns := _spend_guard_item(pool, "timePearl") + _pool_turn_bonus(pool)
 			combat["frozenTurns"] += turns
 			var extra: Dictionary = cast_extra.duplicate()
 			extra["effectKey"] = "timePearl"
@@ -1308,6 +1295,33 @@ static func _guard_try_item(combat: Dictionary, ally: Dictionary, ally_index: in
 	return false
 
 
+# A dial pool's "spend": casts the highest-tier loaded unit of recipe_key through
+# Dial.cast_complication() (charge + XP) and returns its amplified power x targets.
+# The cast is kept on pool.lastCast for the turn-bonus readers below.
+static func _spend_dial_cast(pool: Dictionary, recipe_key: String, tier: int) -> int:
+	var owner_id: String = pool["dialOwner"]
+	var loaded: Array = Dial.dial_of(owner_id)["loadedComplications"]
+	for i in range(loaded.size()):
+		if loaded[i]["recipeKey"] == recipe_key and int(loaded[i]["tier"]) == tier:
+			var cast: Dictionary = Dial.cast_complication(i, owner_id)
+			pool["lastCast"] = cast
+			return int(cast["power"]) * int(cast["targets"])
+	return 0
+
+
+# Extra turns a Dial's last cast adds to a timed effect (0 for item pools).
+static func _pool_turn_bonus(pool: Dictionary) -> int:
+	return int(pool.get("lastCast", {}).get("turnBonus", 0))
+
+
+# Black Hole freeze turns: the player's formula for a Dial cast, the guard's for an item.
+static func _pool_black_hole_freeze(pool: Dictionary, power: int) -> int:
+	var cast: Dictionary = pool.get("lastCast", {})
+	if cast.is_empty():
+		return 1 + int(floor(float(power) / 8.0))
+	return (1 + int(floor(float(cast["turnPower"]) / 8.0))) * int(cast["targets"]) + int(cast["turnBonus"])
+
+
 static func _guard_pool_has(pool: Dictionary, recipe_key: String) -> bool:
 	return GuardKit.unit_count({ recipe_key: pool.get("items", {}).get(recipe_key, {}) }) > 0
 
@@ -1327,6 +1341,8 @@ static func _spend_guard_item(pool: Dictionary, recipe_key: String) -> int:
 	if not (pool["used"].get(recipe_key) is Dictionary):
 		pool["used"][recipe_key] = {}
 	pool["used"][recipe_key][tier_key] = int(pool["used"][recipe_key].get(tier_key, 0)) + 1
+	if pool.has("dialOwner"):
+		return _spend_dial_cast(pool, recipe_key, int(tier_key))
 	var powers: Array = GameData.RECIPES[recipe_key]["effectPower"]
 	return int(powers[clampi(int(tier_key), 1, powers.size() - 1)])
 
@@ -1621,8 +1637,6 @@ static func _enemy_attack_player(combat: Dictionary, enemy: Dictionary, enemy_in
 		# path deliberately stays un-beaten -- rewind-as-animation is its
 		# own, separate mechanism, not this linear beat queue.
 		if _try_failsafe(combat, player):
-			return
-		if _try_ally_rewind(combat, player):
 			return
 		if _try_guard_rewind(combat, player):
 			return
@@ -2279,29 +2293,7 @@ static func _try_failsafe(combat: Dictionary, player: Dictionary) -> bool:
 	return true
 
 
-
-# After the player's own Failsafe: a standing ally with Rewind loaded and a
-# Dial charge left spends it to undo the lethal hit, once per fight. Same
-# snapshot restore (and same skipped reverse replay) as _try_failsafe().
-static func _try_ally_rewind(combat: Dictionary, player: Dictionary) -> bool:
-	if combat["snapshots"].is_empty():
-		return false
-	for ally in combat["allies"]:
-		if ally["koed"] or ally.get("rewindUsed", false) or int(ally.get("dialCharges", 0)) <= 0:
-			continue
-		if not Contacts.combat_dial(ally.get("contactId", "")).get("complications", []).has("rewind"):
-			continue
-		ally["dialCharges"] -= 1
-		ally["rewindUsed"] = true
-		_restore_from_snapshot(combat, player)
-		# PROSE-REVIEW: James's dial Rewind line.
-		combat["log"].append("⟲ %s turns the dial back a notch. You're still standing." % ally["name"])
-		return true
-	return false
-
-
-# Guard-kit spec §Decisions: after the player's Failsafe and an ally Dial
-# Rewind, a standing guard ally spends one guard kit Rewind unit to undo the
+# Guard-kit spec §Decisions: after the player's Failsafe, a standing guard ally spends one guard kit Rewind unit to undo the
 # lethal hit -- on every would-be KO while the pool has one. Same snapshot
 # restore (and skipped reverse replay) as _try_failsafe().
 static func _try_guard_rewind(combat: Dictionary, player: Dictionary) -> bool:

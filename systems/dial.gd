@@ -6,6 +6,17 @@ extends RefCounted
 # Static funcs only, same discipline as sites.gd/crafting.gd.
 
 
+# Dials are per-owner: owner_id "" is the player's (player.dial), a contact id is
+# that contact's (contacts.<id>.dial). Stock and calc always come from the player.
+static func dial_of(owner_id: String = "") -> Variant:
+	if owner_id == "":
+		return GameState.state["player"]["dial"]
+	var contact: Variant = GameState.state["contacts"].get(owner_id)
+	if contact is Dictionary:
+		return contact.get("dial")
+	return null
+
+
 static func seed_success_chance() -> float:
 	var player: Dictionary = GameState.state["player"]
 	# Same shape as Crafting.craft_chance() (R§3.5), using DIAL_SEED_BASE_SUCCESS in place of a recipe's baseSuccess.
@@ -75,7 +86,7 @@ static func find_loaded_rewind_complication_index() -> int:
 # Freshly seeded: no Movement, zero charge/regen; capacityMax is populated from
 # level 1 regardless (R§3.5). Public: DebugStart.apply() seeds a bare Dial
 # directly, bypassing attempt_seed()'s gate/cost/roll.
-static func new_dial(haft_id: String) -> Dictionary:
+static func new_dial(haft_id: String, day: int = -1) -> Dictionary:
 	return {
 		"level": 1,
 		"xp": 0,
@@ -85,12 +96,39 @@ static func new_dial(haft_id: String) -> Dictionary:
 		# Player-turn counter toward the tier-5 Recharge Movement's in-combat regen; reset on every (re)seat/unseat.
 		"combatRegenTurnCounter": 0,
 		# Guards daily_regen(); set to the seeding day so a Dial seeded today doesn't regen until tomorrow.
-		"lastRegenDay": GameState.state["world"]["day"],
+		"lastRegenDay": day if day >= 0 else GameState.state["world"]["day"],
 		"capacityMax": capacity_max(1),
 		"movement": null,
 		"loadedComplications": [],
 		"haftId": haft_id,
 	}
+
+
+# A contact's granted Dial from constants.json's grantDial spec ({haft, level,
+# movement: {archetype, oreType, tier}, complications: [{recipe, tier}]}): level,
+# seated Movement and loaded Complications as specced, charge full. Pure --
+# touches no state, so the save migration can call it too.
+static func build_granted_dial(spec: Dictionary, day: int) -> Dictionary:
+	var dial: Dictionary = new_dial(str(spec["haft"]), day)
+	dial["level"] = int(spec["level"])
+	dial["capacityMax"] = capacity_max(dial["level"])
+	var seated: Dictionary = spec["movement"]
+	dial["movement"] = _new_movement(seated["archetype"], seated["oreType"], int(seated["tier"]))
+	_apply_level_charge_bonus(dial)
+	dial["currentCharge"] = dial["maxCharge"]
+	for entry in spec["complications"]:
+		dial["loadedComplications"].append({ "recipeKey": entry["recipe"], "tier": int(entry["tier"]), "detent": dial["loadedComplications"].size() })
+	return dial
+
+
+# Gives a recruited contact their grantDial, if constants.json defines one and
+# they don't already hold a Dial. Player stock is never touched.
+static func grant_contact_dial(contact_id: String) -> void:
+	var contacts: Dictionary = GameState.state["contacts"]
+	var spec: Variant = GameData.CONTACTS_DEFAULTS.get(contact_id, {}).get("grantDial")
+	if not (spec is Dictionary) or not contacts.has(contact_id) or contacts[contact_id].get("dial") != null:
+		return
+	contacts[contact_id]["dial"] = build_granted_dial(spec, GameState.state["world"]["day"])
 
 
 # Movement crafting/seating/attunement (R§3.5). Movements are a Dial-only
@@ -164,16 +202,17 @@ static func _new_movement(archetype: String, ore_type: String, tier: int) -> Dic
 
 # Swaps in the Movement at inventory_index; whatever was seated returns to
 # inventory intact. _activate_charge_pool() below resizes the charge pool from scratch -- a reseat never inherits the previous Movement's reserve.
-static func seat_movement(inventory_index: int) -> Dictionary:
+static func seat_movement(inventory_index: int, owner_id: String = "") -> Dictionary:
 	var player: Dictionary = GameState.state["player"]
-	if player["dial"] == null:
+	var dial_v: Variant = dial_of(owner_id)
+	if dial_v == null:
 		return { "ok": false, "reason": "No Dial." }
 	var inventory: Array = player["movementInventory"]
 	if inventory_index < 0 or inventory_index >= inventory.size():
 		return { "ok": false, "reason": "No such Movement." }
 
 	var incoming: Dictionary = inventory[inventory_index]
-	var dial: Dictionary = player["dial"]
+	var dial: Dictionary = dial_v
 	var previous: Variant = dial["movement"]
 
 	inventory.remove_at(inventory_index)
@@ -187,11 +226,12 @@ static func seat_movement(inventory_index: int) -> Dictionary:
 
 
 # Returns the seated Movement to inventory intact. _deactivate_charge_pool() below zeroes the charge pool back to the inert-Dial shape.
-static func unseat_movement() -> Dictionary:
+static func unseat_movement(owner_id: String = "") -> Dictionary:
 	var player: Dictionary = GameState.state["player"]
-	if player["dial"] == null:
+	var dial_v: Variant = dial_of(owner_id)
+	if dial_v == null:
 		return { "ok": false, "reason": "No Dial." }
-	var dial: Dictionary = player["dial"]
+	var dial: Dictionary = dial_v
 	if dial["movement"] == null:
 		return { "ok": false, "reason": "No Movement seated." }
 
@@ -250,9 +290,10 @@ static func capacity_used(dial: Dictionary) -> int:
 # Moves one unit of recipe_key at tier from the tiered inventory into
 # loadedComplications; refused once it would exceed capacityMax (populated from
 # capacity_max() at seed time, R§3.5). Works identically with no Movement seated.
-static func load_complication(recipe_key: String, tier: int) -> Dictionary:
+static func load_complication(recipe_key: String, tier: int, owner_id: String = "") -> Dictionary:
 	var player: Dictionary = GameState.state["player"]
-	if player["dial"] == null:
+	var dial_v: Variant = dial_of(owner_id)
+	if dial_v == null:
 		return { "ok": false, "reason": "No Dial." }
 	if not GameData.RECIPES.has(recipe_key):
 		return { "ok": false, "reason": "Unknown recipe." }
@@ -262,7 +303,7 @@ static func load_complication(recipe_key: String, tier: int) -> Dictionary:
 	if buckets.get(tier_key, 0) <= 0:
 		return { "ok": false, "reason": "Nothing to load." }
 
-	var dial: Dictionary = player["dial"]
+	var dial: Dictionary = dial_v
 	if capacity_used(dial) + 1 > dial["capacityMax"]:
 		return { "ok": false, "reason": "Not enough capacity." }
 
@@ -276,11 +317,11 @@ static func load_complication(recipe_key: String, tier: int) -> Dictionary:
 
 # Reverses load_complication() exactly, returning the unit to its original tier
 # bucket. Indexes loadedComplications directly since two loaded units can share a recipeKey/tier.
-static func unload_complication(index: int) -> Dictionary:
-	var player: Dictionary = GameState.state["player"]
-	if player["dial"] == null:
+static func unload_complication(index: int, owner_id: String = "") -> Dictionary:
+	var dial_v: Variant = dial_of(owner_id)
+	if dial_v == null:
 		return { "ok": false, "reason": "No Dial." }
-	var loaded: Array = player["dial"]["loadedComplications"]
+	var loaded: Array = dial_v["loadedComplications"]
 	if index < 0 or index >= loaded.size():
 		return { "ok": false, "reason": "No such Complication." }
 
@@ -388,11 +429,12 @@ static func winding_cost_per_charge(archetype: String, tier: int) -> int:
 
 # Instant, calc-only -- doesn't spend a time block. amount clamps to headroom
 # under maxCharge so calc is never spent on charge that would be discarded at the cap.
-static func wind(amount: int = 1) -> Dictionary:
+static func wind(amount: int = 1, owner_id: String = "") -> Dictionary:
 	var player: Dictionary = GameState.state["player"]
-	if player["dial"] == null:
+	var dial_v: Variant = dial_of(owner_id)
+	if dial_v == null:
 		return { "ok": false, "reason": "No Dial." }
-	var dial: Dictionary = player["dial"]
+	var dial: Dictionary = dial_v
 	if dial["movement"] == null:
 		return { "ok": false, "reason": "No Movement seated." }
 	if amount <= 0:
@@ -421,14 +463,14 @@ static func wind(amount: int = 1) -> Dictionary:
 # Called once per day from time_system.gd's daily_tick; lastRegenDay guards
 # against ticking twice in one day. Trailing emit is unconditional even on a no-op. Null dial is a silent no-op.
 static func daily_regen() -> void:
-	var player: Dictionary = GameState.state["player"]
-	if player["dial"] == null:
-		return
-	var dial: Dictionary = player["dial"]
 	var day: int = GameState.state["world"]["day"]
-	if dial["lastRegenDay"] < day:
-		dial["currentCharge"] = minf(dial["maxCharge"], dial["currentCharge"] + dial["rechargeRate"])
-		dial["lastRegenDay"] = day
+	var owners: Array = [""]
+	owners.append_array(GameState.state["contacts"].keys())
+	for owner_id in owners:
+		var dial: Variant = dial_of(owner_id)
+		if dial != null and dial["lastRegenDay"] < day:
+			dial["currentCharge"] = minf(dial["maxCharge"], dial["currentCharge"] + dial["rechargeRate"])
+			dial["lastRegenDay"] = day
 	EventBus.state_changed.emit()
 
 
@@ -440,11 +482,11 @@ static func daily_regen() -> void:
 # multiplies power, Spread grants extra full-power targets; Recharge/Capacitor
 # apply none (that curve is already claimed by the charge economy).
 # Directly-thrown consumables (combat.gd's use_*()) never call this and never amplify.
-static func cast_complication(index: int) -> Dictionary:
-	var player: Dictionary = GameState.state["player"]
-	if player["dial"] == null:
+static func cast_complication(index: int, owner_id: String = "") -> Dictionary:
+	var dial_v: Variant = dial_of(owner_id)
+	if dial_v == null:
 		return { "ok": false, "reason": "No Dial." }
-	var dial: Dictionary = player["dial"]
+	var dial: Dictionary = dial_v
 	var loaded: Array = dial["loadedComplications"]
 	if index < 0 or index >= loaded.size():
 		return { "ok": false, "reason": "No such Complication." }
@@ -463,7 +505,8 @@ static func cast_complication(index: int) -> Dictionary:
 	var on_level_up := func():
 		dial["capacityMax"] = capacity_max(dial["level"])
 		_apply_level_charge_bonus(dial)
-		Notify.push("Your Dial has levelled up — now level %d." % dial["level"], Notify.CATEGORY_SUCCESS)
+		var who: String = "Your" if owner_id == "" else "%s's" % Contacts.display_name(owner_id)
+		Notify.push("%s Dial has levelled up — now level %d." % [who, dial["level"]], Notify.CATEGORY_SUCCESS)
 	Progression.award_xp(dial, "xp", "level", GameData.DIAL_XP_LEVELS, 10, on_level_up)
 
 	EventBus.state_changed.emit()
@@ -525,11 +568,11 @@ static func cast_turn_bonus(recipe_key: String, level: int) -> int:
 # Tier-5 Recharge Movement's in-combat regen (R§3.5) -- the only archetype that
 # regenerates charge mid-combat rather than only via daily_regen()/winding.
 # Called once per player turn from combat.gd's player_attack(). No-op unless a tier-5+ Recharge Movement is seated.
-static func combat_turn_tick() -> void:
-	var player: Dictionary = GameState.state["player"]
-	if player["dial"] == null:
+static func combat_turn_tick(owner_id: String = "") -> void:
+	var dial_v: Variant = dial_of(owner_id)
+	if dial_v == null:
 		return
-	var dial: Dictionary = player["dial"]
+	var dial: Dictionary = dial_v
 	var movement: Variant = dial["movement"]
 	if movement == null or movement["archetype"] != "recharge" or movement["tier"] < 5:
 		return

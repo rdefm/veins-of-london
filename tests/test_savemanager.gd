@@ -1318,6 +1318,26 @@ func run() -> void:
 		assert_eq(GameState.state["meta"]["saveVersion"], SaveManager.SAVE_VERSION, "stamped current")
 	)
 
+	run_case("loading_a_v7_save_grants_a_recruited_james_his_dial_and_leaves_stock_alone", func():
+		GameState.reset()
+		var save: Dictionary = GameState.deep_copy(GameState.state)
+		save["meta"]["saveVersion"] = 7
+		save["contacts"]["james"]["recruited"] = true
+		save["contacts"]["james"].erase("dial")
+		save["contacts"]["james"]["dialCharges"] = 1
+		save["player"]["inventory"] = { "timePearl": { "2": 3 } }
+		var result := SaveManager.import_string(JSON.stringify(save))
+		assert_true(result["ok"], "a v7 save should load")
+		var james: Dictionary = GameState.state["contacts"]["james"]
+		assert_true(not james.has("dialCharges"), "per-day counter retired")
+		assert_eq(james["dial"]["level"], 2)
+		assert_eq(james["dial"]["movement"]["archetype"], "recharge")
+		assert_eq(james["dial"]["loadedComplications"].size(), 2)
+		assert_eq(james["dial"]["currentCharge"], float(james["dial"]["maxCharge"]))
+		assert_eq(GameState.state["player"]["inventory"], { "timePearl": { "2": 3 } })
+		assert_eq(GameState.state["contacts"]["archie"]["dial"], null)
+	)
+
 	run_case("loading_a_v6_save_drops_the_contact_stash_and_gives_combat_recruits_slots", func():
 		GameState.reset()
 		var save: Dictionary = GameState.deep_copy(GameState.state)

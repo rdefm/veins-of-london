@@ -13,6 +13,10 @@ func build(content: VBoxContainer) -> void:
 	var dial_card: Variant = MapPalette.build_light(func(): return DialLoadoutMenu.build())
 	if dial_card != null:
 		content.add_child(dial_card)
+	for contact_id in DialLoadoutMenu.contact_owner_ids():
+		var ally_dial_card: Variant = MapPalette.build_light(func(): return DialLoadoutMenu.build(contact_id))
+		if ally_dial_card != null:
+			content.add_child(ally_dial_card)
 	for contact_id in Loadout.recruit_ids():
 		content.add_child(_build_loadout_card(contact_id))
 

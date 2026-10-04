@@ -4,7 +4,7 @@ extends Node
 # autosaves. autosave() is called from daily_tick, exit_combat, event
 # completion, and every successful cash purchase.
 
-const SAVE_VERSION := 7
+const SAVE_VERSION := 8
 # Oldest save version _migrate_versions() can still bring forward.
 const MIN_SUPPORTED_VERSION := 3
 const SLOT_COUNT := 3
@@ -334,8 +334,28 @@ func _migrate_versions(save: Dictionary) -> void:
 				_migrate_from_v5(save)
 			6:
 				_migrate_from_v6(save)
+			7:
+				_migrate_from_v7(save)
 	meta["saveVersion"] = SAVE_VERSION
 	save["meta"] = meta
+
+
+# v8 makes Dials per-owner: a recruited contact with a grantDial (James) gains
+# it, charge full, and the per-day dialCharges counter is dropped. Player
+# stock is untouched.
+func _migrate_from_v7(save: Dictionary) -> void:
+	var contacts: Variant = save.get("contacts")
+	if not (contacts is Dictionary):
+		return
+	var day: int = int(save.get("world", {}).get("day", 1))
+	for contact_id in contacts:
+		var contact: Variant = contacts[contact_id]
+		if not (contact is Dictionary):
+			continue
+		contact.erase("dialCharges")
+		var spec: Variant = GameData.CONTACTS_DEFAULTS.get(contact_id, {}).get("grantDial")
+		if spec is Dictionary and contact.get("recruited", false) and contact.get("dial") == null:
+			contact["dial"] = Dial.build_granted_dial(spec, day)
 
 
 # v7 retires the contact combat stash (Archie's self-heal); recruits gain loadout
@@ -350,7 +370,7 @@ func _migrate_from_v6(save: Dictionary) -> void:
 				contact.erase(key)
 
 
-# v6 raises the unarmed base attack from 3–7 to 7–15 (the old crowbar total);
+# v6 raises the unarmed base attack from 3–7 to 7–15 (the crowbar total);
 # a save whose base was edited away from 3–7 is left alone.
 func _migrate_from_v5(save: Dictionary) -> void:
 	var player: Dictionary = save.get("player", {})
@@ -656,7 +676,7 @@ func _backfill_contact_combat_kits(result: Dictionary, defaults: Dictionary) -> 
 		var fresh: Dictionary = default_contacts[contact_id]
 		if int(contact.get("combatHpMax", 0)) > 0 or int(fresh["combatHpMax"]) <= 0:
 			continue
-		for key in ["combatHpMax", "combatHp", "combatAttackMin", "combatAttackMax", "combatSpeed", "koCooldownDays", "dialCharges"]:
+		for key in ["combatHpMax", "combatHp", "combatAttackMin", "combatAttackMax", "combatSpeed", "koCooldownDays"]:
 			contact[key] = fresh[key]
 
 
@@ -732,6 +752,16 @@ func _backfill_new_home_keys(result: Dictionary, defaults: Dictionary) -> void:
 # schema, immediately after backfill so every top-level key is guaranteed
 # present. Genuinely-float fields (combat.evadeChance, combatPrototype.
 # enemy.evadeChance, mapView.zoom) are deliberately left untouched.
+func _restore_dial_ints(dial: Dictionary) -> void:
+	for key in ["level", "xp", "currentCharge", "maxCharge", "capacityMax", "lastRegenDay"]:
+		_int_key(dial, key)
+	# rechargeRate is "possibly fractional" per the PRD (Implementation
+	# Decisions, "Charge model") — intentionally not touched here, same
+	# convention as combat.evadeChance/mapView.zoom above.
+	if dial.get("movement") != null:
+		_int_key(dial["movement"], "tier")
+
+
 func _restore_int_types(state: Dictionary) -> void:
 	_int_key(state, "pendingSaleCut")
 	_int_key(state, "pendingArchieDealCut")
@@ -920,14 +950,7 @@ func _restore_int_types(state: Dictionary) -> void:
 		# devicesInProgress[].progress is a float (10.0, +5.0 on success —
 		# see systems/devices.gd) — intentionally not touched here.
 		if player.get("dial") != null:
-			var dial: Dictionary = player["dial"]
-			for key in ["level", "xp", "currentCharge", "maxCharge", "capacityMax"]:
-				_int_key(dial, key)
-			# rechargeRate is "possibly fractional" per the PRD (Implementation
-			# Decisions, "Charge model") — intentionally not touched here, same
-			# convention as combat.evadeChance/mapView.zoom above.
-			if dial.get("movement") != null:
-				_int_key(dial["movement"], "tier")
+			_restore_dial_ints(player["dial"])
 		# Crafted-but-unseated Movements carry the same tier field.
 		for movement in player.get("movementInventory", []):
 			_int_key(movement, "tier")
@@ -1083,8 +1106,10 @@ func _restore_int_types(state: Dictionary) -> void:
 					_int_key(slot, "tier")
 			for key in ["relation", "recruitThreshold", "raidAssistThreshold", "craftingSkill", "craftingXP", "cultivatingSkill", "cultivatingXP", "salesSkill", "salesXP", "stealthSkill", "stealthXP",
 					"combatHpMax", "combatHp", "combatAttackMin", "combatAttackMax", "combatSpeed", "koCooldownDays", "koCooldownUntilDay",
-					"dialCharges", "tradeProgress"]:
+					"tradeProgress"]:
 				_int_key(contact, key)
+			if contact.get("dial") != null:
+				_restore_dial_ints(contact["dial"])
 
 	if state.has("barometer"):
 		var barometer: Dictionary = state["barometer"]
@@ -1162,7 +1187,7 @@ func _restore_combat_int_types(combat: Dictionary) -> void:
 			_restore_turn_cursor_int_types(snap["turnCursor"])
 	# allies[] entries (Contacts.build_combat_ally), speed included.
 	for ally in combat.get("allies", []):
-		for key in ["hp", "hpMax", "attackMin", "attackMax", "speed", "dialCharges"]:
+		for key in ["hp", "hpMax", "attackMin", "attackMax", "speed"]:
 			_int_key(ally, key)
 		for slot in ally.get("slots", []):
 			if slot is Dictionary:

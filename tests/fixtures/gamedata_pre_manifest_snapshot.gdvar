@@ -808,13 +808,24 @@
 "james": {
 "combatAttackMax": 4,
 "combatAttackMin": 2,
-"combatDial": {
-"chargesPerDay": 3,
-"complications": ["timePearl", "rewind", "healingBurst"],
-"tier": 3
-},
 "combatHpMax": 35,
 "combatSpeed": 6,
+"grantDial": {
+"complications": [{
+"recipe": "timePearl",
+"tier": 3
+}, {
+"recipe": "healingBurst",
+"tier": 3
+}],
+"haft": "firm_baton",
+"level": 2,
+"movement": {
+"archetype": "recharge",
+"oreType": "time",
+"tier": 1
+}
+},
 "koCooldownDays": 2,
 "recruitThreshold": 100,
 "recruitable": false,

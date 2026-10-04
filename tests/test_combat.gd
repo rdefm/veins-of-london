@@ -3834,17 +3834,18 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["hp"], hp_before - 5)
 	)
 
-	# ── James's ally Dial (constants.json contacts.james.combatDial) ──────
+	# ── James's ally Dial (constants.json contacts.james.grantDial) ──────
 
 	run_case("james_dial_heals_the_player_below_40_percent_with_healing_burst", func():
-		var combat := _multi_enemy_combat([{ "hp": 50 }], [_james_ally()])
+		var combat := _combat_with_james([{ "hp": 50 }])
 		GameState.state["player"]["hpMax"] = 100
 		GameState.state["player"]["hp"] = 30
+		var charge_before: float = GameState.state["contacts"]["james"]["dial"]["currentCharge"]
 		var beats: Array = []
 		Combat._ally_turn(combat, combat["allies"][0], 0, beats)
-		var power: int = GameData.RECIPES["healingBurst"]["effectPower"][3]
+		var power: int = GameState.round_epsilon(float(Crafting.effect_power("healingBurst", 3)) * Dial.cast_level_multiplier(2))
 		assert_eq(GameState.state["player"]["hp"], 30 + power)
-		assert_eq(combat["allies"][0]["dialCharges"], 2)
+		assert_eq(GameState.state["contacts"]["james"]["dial"]["currentCharge"], charge_before - 1.0)
 		assert_eq(combat["enemies"][0]["hp"], 50, "a cast replaces the attack")
 		assert_eq(beats[-1]["kind"], Combat.BEAT_ALLY_CAST)
 		assert_eq(beats[-1]["effectKey"], "healingBurst")
@@ -3852,7 +3853,7 @@ func run() -> void:
 
 	run_case("james_dial_heals_the_most_hurt_ally_by_fraction", func():
 		var archie := _test_ally(4, 20)
-		var combat := _multi_enemy_combat([{ "hp": 50 }], [_james_ally(), archie])
+		var combat := _combat_with_james([{ "hp": 50 }], [archie])
 		GameState.state["player"]["hpMax"] = 100
 		GameState.state["player"]["hp"] = 35
 		var beats: Array = []
@@ -3864,59 +3865,88 @@ func run() -> void:
 	)
 
 	run_case("james_dial_freezes_with_time_pearl_when_two_enemies_stand", func():
-		var combat := _multi_enemy_combat([{ "hp": 50 }, { "hp": 50 }], [_james_ally()])
+		var combat := _combat_with_james([{ "hp": 50 }, { "hp": 50 }])
 		var beats: Array = []
 		Combat._ally_turn(combat, combat["allies"][0], 0, beats)
-		assert_eq(combat["frozenTurns"], GameData.RECIPES["timePearl"]["effectPower"][3])
-		assert_eq(combat["allies"][0]["dialCharges"], 2)
+		assert_eq(combat["frozenTurns"], int(GameData.RECIPES["timePearl"]["effectPower"][3]) + 2, "base turns + Dial level bonus")
 		assert_eq(beats[-1]["effectKey"], "timePearl")
 
+		var charge: float = GameState.state["contacts"]["james"]["dial"]["currentCharge"]
 		Combat._ally_turn(combat, combat["allies"][0], 0, beats)
-		assert_eq(combat["allies"][0]["dialCharges"], 2, "already frozen -- he attacks instead")
+		assert_eq(GameState.state["contacts"]["james"]["dial"]["currentCharge"], charge, "already frozen -- he attacks instead")
 	)
 
-	run_case("james_attacks_when_no_cast_is_warranted_or_out_of_charges", func():
-		var combat := _multi_enemy_combat([{ "hp": 50 }], [_james_ally()])
+	run_case("james_cast_awards_dial_xp", func():
+		var combat := _combat_with_james([{ "hp": 50 }, { "hp": 50 }])
+		var xp_before: int = GameState.state["contacts"]["james"]["dial"]["xp"]
+		Combat._ally_turn(combat, combat["allies"][0], 0, [])
+		assert_eq(GameState.state["contacts"]["james"]["dial"]["xp"], xp_before + 10)
+		assert_eq(GameState.state["player"]["dial"], null, "the player's own Dial is untouched")
+	)
+
+	run_case("james_attacks_when_no_cast_is_warranted_or_out_of_charge", func():
+		var combat := _combat_with_james([{ "hp": 50 }])
 		Rng.set_seed(1)
+		var dial: Dictionary = GameState.state["contacts"]["james"]["dial"]
+		var full: float = dial["currentCharge"]
 		Combat._ally_turn(combat, combat["allies"][0], 0, [])
 		assert_true(combat["enemies"][0]["hp"] < 50, "one enemy, nobody hurt -- he swings")
-		assert_eq(combat["allies"][0]["dialCharges"], 3)
+		assert_eq(dial["currentCharge"], full)
 
-		combat["allies"][0]["dialCharges"] = 0
+		dial["currentCharge"] = 0.0
 		GameState.state["player"]["hp"] = 1
 		var beats: Array = []
 		Combat._ally_turn(combat, combat["allies"][0], 0, beats)
-		assert_true(beats[-1]["kind"] != Combat.BEAT_ALLY_CAST, "no charges -- no cast")
+		assert_true(beats[-1]["kind"] != Combat.BEAT_ALLY_CAST, "no charge -- no cast")
 	)
 
-	run_case("james_dial_rewinds_a_lethal_hit_once_per_fight", func():
-		var combat := _multi_enemy_combat([{ "hp": 50, "attackMin": 500, "attackMax": 500 }], [_james_ally()])
+	run_case("ally_turn_order_is_dial_then_item_then_attack", func():
+		var combat := _combat_with_james([{ "hp": 50 }])
+		GameState.state["player"]["hpMax"] = 100
+		GameState.state["player"]["hp"] = 30
+		combat["allies"][0]["slots"] = [{ "recipe": "healingBurst", "tier": 1 }, null]
+		var dial: Dictionary = GameState.state["contacts"]["james"]["dial"]
+		var full: float = dial["currentCharge"]
+		Combat._ally_turn(combat, combat["allies"][0], 0, [])
+		assert_eq(combat["allies"][0]["slots"][0]["recipe"], "healingBurst", "item untouched -- the Dial cast first")
+		assert_eq(dial["currentCharge"], full - 1.0)
+
+		dial["currentCharge"] = 0.0
+		GameState.state["player"]["hp"] = 30
+		Combat._ally_turn(combat, combat["allies"][0], 0, [])
+		assert_eq(combat["allies"][0]["slots"][0], null, "item spent once the Dial is dry")
+
+		GameState.state["player"]["hp"] = 100
+		Rng.set_seed(1)
+		Combat._ally_turn(combat, combat["allies"][0], 0, [])
+		assert_true(combat["enemies"][0]["hp"] < 50, "nothing left -- attack")
+	)
+
+	run_case("james_never_casts_a_loaded_rewind_for_the_player", func():
+		var combat := _combat_with_james([{ "hp": 50, "attackMin": 500, "attackMax": 500 }])
+		GameState.state["contacts"]["james"]["dial"]["loadedComplications"].append({ "recipeKey": "rewind", "tier": 3, "detent": 2 })
 		GameState.state["player"]["hpMax"] = 100
 		GameState.state["player"]["hp"] = 100
-		var snap := { "playerHp": 90, "enemyHp": 50, "enemyIndex": 0, "selection": { "type": "enemy", "index": 0 }, "log": ["turn 1"], "frozenTurns": 0, "motionTurns": 0, "motionPower": 0, "evadeTurns": 0, "evadeChance": 0.0, "turnCursor": { "queue": [], "index": 0, "round": 0 } }
-		Snapshots.push("combat", combat["snapshots"], snap.duplicate(true))
-		Combat._enemy_attack_player(combat, combat["enemies"][0])
-		assert_eq(combat["outcome"], null)
-		assert_eq(GameState.state["player"]["hp"], 90)
-		assert_eq(combat["allies"][0]["dialCharges"], 2)
-
-		Snapshots.push("combat", combat["snapshots"], snap.duplicate(true))
-		Combat._enemy_attack_player(combat, combat["enemies"][0])
-		assert_eq(combat["outcome"], "loss", "rewind is once per fight")
-		assert_eq(combat["allies"][0]["dialCharges"], 2)
-	)
-
-	run_case("koed_james_cannot_rewind", func():
-		var james := _james_ally()
-		james["koed"] = true
-		var combat := _multi_enemy_combat([{ "hp": 50, "attackMin": 500, "attackMax": 500 }], [james])
 		Snapshots.push("combat", combat["snapshots"], { "playerHp": 90, "enemyHp": 50, "enemyIndex": 0, "selection": { "type": "enemy", "index": 0 }, "log": [], "frozenTurns": 0, "motionTurns": 0, "motionPower": 0, "evadeTurns": 0, "evadeChance": 0.0, "turnCursor": { "queue": [], "index": 0, "round": 0 } })
 		Combat._enemy_attack_player(combat, combat["enemies"][0])
-		assert_eq(combat["outcome"], "loss")
+		assert_eq(combat["outcome"], "loss", "ally Dials have no Rewind")
 	)
+
+	run_case("ally_dial_movement_does_not_feed_player_attunement", func():
+		_james_ally()
+		assert_eq(GameState.state["contacts"]["james"]["dial"]["movement"]["oreType"], "time")
+		assert_eq(Dial.attunement_bonus("time"), 0.0, "player has no Dial -- James's Movement attunes nothing for them")
+	)
+
+
+func _combat_with_james(specs: Array, others: Array = []) -> Dictionary:
+	var combat := _multi_enemy_combat(specs)
+	Contacts.force_recruit("james")
+	combat["allies"] = [Contacts.build_combat_ally("james")] + others
+	return combat
 
 
 func _james_ally() -> Dictionary:
 	GameState.reset()
-	GameState.state["contacts"]["james"]["recruited"] = true
+	Contacts.force_recruit("james")
 	return Contacts.build_combat_ally("james")

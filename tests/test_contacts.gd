@@ -263,7 +263,7 @@ func run() -> void:
 		assert_true(not Contacts.can_assist_raid("des"), "des has no combat kit -- can_join_combat excludes him regardless")
 	)
 
-	run_case("recruited_james_joins_combat_with_his_kit_and_full_dial", func():
+	run_case("recruited_james_joins_combat_with_his_kit", func():
 		GameState.reset()
 		GameState.state["contacts"]["james"]["recruited"] = true
 		assert_true(Contacts.can_join_combat("james"))
@@ -272,20 +272,55 @@ func run() -> void:
 		assert_eq(ally["attackMin"], 2)
 		assert_eq(ally["attackMax"], 4)
 		assert_eq(ally["speed"], 6)
-		assert_eq(ally["dialCharges"], 3)
 	)
 
-	run_case("dial_charges_carry_over_between_fights_and_refill_daily", func():
+	run_case("recruiting_james_grants_a_level_2_dial_at_full_charge", func():
 		GameState.reset()
-		var ally := Contacts.build_combat_ally("james")
-		ally["dialCharges"] = 1
-		Contacts.replenish_after_combat([ally])
-		assert_eq(GameState.state["contacts"]["james"]["dialCharges"], 1, "spent casts stay spent after the fight")
-		assert_eq(GameState.state["contacts"]["archie"]["dialCharges"], 0, "archie has no dial")
+		var stock_before: Dictionary = GameState.deep_copy(GameState.state["player"]["inventory"])
+		var movements_before: Array = GameState.deep_copy(GameState.state["player"]["movementInventory"])
+		assert_eq(GameState.state["contacts"]["james"]["dial"], null)
+		Contacts.force_recruit("james")
+		var dial: Dictionary = GameState.state["contacts"]["james"]["dial"]
+		assert_eq(dial["level"], 2)
+		assert_eq(dial["movement"]["archetype"], "recharge")
+		assert_eq(dial["movement"]["tier"], 1)
+		assert_eq(dial["loadedComplications"].size(), 2)
+		assert_eq(dial["loadedComplications"][0]["recipeKey"], "timePearl")
+		assert_eq(dial["loadedComplications"][0]["tier"], 3)
+		assert_eq(dial["loadedComplications"][1]["recipeKey"], "healingBurst")
+		assert_eq(dial["loadedComplications"][1]["tier"], 3)
+		assert_eq(dial["currentCharge"], float(dial["maxCharge"]), "charge starts full")
+		assert_eq(GameState.state["player"]["inventory"], stock_before, "player stock untouched")
+		assert_eq(GameState.state["player"]["movementInventory"], movements_before)
+		assert_eq(GameState.state["contacts"]["archie"]["dial"], null, "archie gets no Dial")
+	)
 
-		Contacts.daily_dial_regen()
-		assert_eq(GameState.state["contacts"]["james"]["dialCharges"], 3)
-		assert_eq(GameState.state["contacts"]["archie"]["dialCharges"], 0, "no combatDial -- nothing to refill")
+	run_case("ally_dial_regens_daily_by_the_player_rules", func():
+		GameState.reset()
+		Contacts.force_recruit("james")
+		var dial: Dictionary = GameState.state["contacts"]["james"]["dial"]
+		dial["currentCharge"] = 0.0
+		GameState.state["world"]["day"] += 1
+		Dial.daily_regen()
+		assert_eq(dial["currentCharge"], dial["rechargeRate"])
+		Dial.daily_regen()
+		assert_eq(dial["currentCharge"], dial["rechargeRate"], "once per day")
+	)
+
+	run_case("ally_dial_winds_and_levels_like_the_players", func():
+		GameState.reset()
+		Contacts.force_recruit("james")
+		var dial: Dictionary = GameState.state["contacts"]["james"]["dial"]
+		dial["currentCharge"] = 0.0
+		GameState.state["player"]["orichalchum"]["time"] = 100
+		var result := Dial.wind(2, "james")
+		assert_true(result["ok"])
+		assert_eq(dial["currentCharge"], 2.0)
+		assert_true(GameState.state["player"]["orichalchum"]["time"] < 100, "calc comes from the player")
+		dial["xp"] = GameData.DIAL_XP_LEVELS[3] - 10
+		Dial.cast_complication(0, "james")
+		assert_eq(dial["level"], 3)
+		assert_eq(dial["capacityMax"], Dial.capacity_max(3))
 	)
 
 	run_case("old_save_with_kitless_james_adopts_the_new_combat_kit", func():
@@ -294,12 +329,10 @@ func run() -> void:
 		var james: Dictionary = save["contacts"]["james"]
 		for key in ["combatHpMax", "combatHp", "combatAttackMin", "combatAttackMax", "combatSpeed", "koCooldownDays"]:
 			james[key] = 0
-		james.erase("dialCharges")
 		save["contacts"]["archie"]["combatHp"] = 7
 		var out: Dictionary = SaveManager.backfill_defaults(save)
 		assert_eq(out["contacts"]["james"]["combatHpMax"], 35)
 		assert_eq(out["contacts"]["james"]["combatSpeed"], 6)
-		assert_eq(out["contacts"]["james"]["dialCharges"], 3)
 		assert_eq(out["contacts"]["archie"]["combatHp"], 7, "a contact that already had a kit is untouched")
 	)
 
