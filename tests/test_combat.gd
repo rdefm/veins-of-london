@@ -750,6 +750,23 @@ func run() -> void:
 		assert_eq(_equipped_qty("timePearl"), 0, "casting a loaded Complication must never touch regular inventory")
 	)
 
+	run_case("cast_complication_time_pearl_adds_one_turn_per_dial_level", func():
+		_fresh_combat()
+		GameState.state["player"]["craftingSkill"] = 1
+		var dial := Fixtures.dial_with_loaded("timePearl", 1, 5)
+		dial["level"] = 3
+		GameState.state["player"]["dial"] = dial
+		var expected: int = int(Crafting.effect_power("timePearl", 1)) + 3
+
+		Combat.cast_complication(0)
+
+		var found := false
+		for line in GameState.state["combat"]["log"]:
+			if line.contains("Enemy frozen for %d" % expected):
+				found = true
+		assert_true(found, "a level-3 Dial adds 3 turns to the base freeze")
+	)
+
 	run_case("cast_complication_refuses_a_loaded_rewind_recipe", func():
 		_fresh_combat()
 		GameState.state["player"]["dial"] = Fixtures.dial_with_loaded("rewind", 1, 5)
@@ -795,7 +812,7 @@ func run() -> void:
 		assert_true(result["ok"], "casting a loaded blast Complication should succeed")
 		var targets: int = result["targets"]
 		assert_true(targets > 1, "a tier-5 Spread Movement should grant more than one target")
-		assert_eq(hp_before - enemy["hp"], base_power * targets, "each target should land at full, undiluted power")
+		assert_eq(hp_before - enemy["hp"], GameState.round_epsilon(float(base_power) * 1.25) * targets, "each target should land at full, undiluted power")
 	)
 
 	# dial-device ticket 07: player_attack() ticks Dial.combat_turn_tick()

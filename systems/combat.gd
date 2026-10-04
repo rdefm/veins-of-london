@@ -2096,7 +2096,7 @@ static func cast_complication(index: int) -> Dictionary:
 	# that set a `dmg` field on their beats -- the juice layer keys off that.
 	match recipe_key:
 		"timePearl":
-			var total: int = int(power) * targets
+			var total: int = int(power) * targets + int(cast["turnBonus"])
 			combat["frozenTurns"] += total
 			var turn_word: String = "turn" if total == 1 else "turns"
 			_log(combat, beats, "You trigger %s. Enemy frozen for %d %s." % [recipe["name"], total, turn_word], BEAT_COMPLICATION_TIME_PEARL, { "effectKey": "timePearl" })
@@ -2122,7 +2122,7 @@ static func cast_complication(index: int) -> Dictionary:
 			# AoE, ignores selection -- hits every non-koed enemy
 			# independently at full power, same as use_black_hole() above.
 			var dmg: int = int(power) * targets
-			var freeze_turns: int = (1 + int(floor(float(power) / 8.0))) * targets
+			var freeze_turns: int = (1 + int(floor(float(cast["turnPower"]) / 8.0))) * targets + int(cast["turnBonus"])
 			_log(combat, beats, "You trigger %s." % recipe["name"], BEAT_COMPLICATION_BLACK_HOLE_ANNOUNCE, {})
 			_apply_black_hole_aoe(combat, dmg, freeze_turns, beats)
 		"healingBurst":
@@ -2139,7 +2139,7 @@ static func cast_complication(index: int) -> Dictionary:
 				var healed: int = player["hp"] - old_hp
 				_log(combat, beats, "You trigger %s — +%d HP. %d/%d HP." % [recipe["name"], healed, player["hp"], player["hpMax"]], BEAT_COMPLICATION_HEALING_BURST, { "effectKey": "healingBurst" })
 		"prophetsBreath":
-			combat["evadeTurns"] = int(power) * targets
+			combat["evadeTurns"] = int(power) * targets + int(cast["turnBonus"])
 			combat["evadeChance"] = 0.50
 			_log(combat, beats, "You trigger %s. For a few seconds, you can see it coming." % recipe["name"], BEAT_COMPLICATION_PROPHETS_BREATH, {})
 		"wormhole":

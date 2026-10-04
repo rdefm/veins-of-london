@@ -454,7 +454,7 @@ static func cast_complication(index: int) -> Dictionary:
 	var entry: Dictionary = loaded[index]
 	var recipe_key: String = entry["recipeKey"]
 	var base_power = Crafting.effect_power(recipe_key, entry["tier"])
-	var amplified := _amplify_cast(base_power, dial["movement"])
+	var amplified := _amplify_cast(base_power, dial["movement"], int(dial["level"]), recipe_key)
 
 	dial["currentCharge"] -= 1
 
@@ -467,26 +467,59 @@ static func cast_complication(index: int) -> Dictionary:
 	Progression.award_xp(dial, "xp", "level", GameData.DIAL_XP_LEVELS, 10, on_level_up)
 
 	EventBus.state_changed.emit()
-	return { "ok": true, "recipeKey": recipe_key, "power": amplified["power"], "targets": amplified["targets"] }
+	return { "ok": true, "recipeKey": recipe_key, "power": amplified["power"], "targets": amplified["targets"], "turnPower": amplified["turnPower"], "turnBonus": amplified["turnBonus"] }
 
 
 # Pure function of (base_power, movement), split out of cast_complication() for isolated testing.
-static func _amplify_cast(base_power: Variant, movement: Variant) -> Dictionary:
-	if movement == null:
-		return { "power": base_power, "targets": 1 }
-
-	var m: Dictionary = GameData.DIAL_MOVEMENTS[movement["archetype"]]
-	var t: int = clampi(movement["tier"], 0, m["bonus"].size() - 1)
-	match movement["archetype"]:
-		"impact":
-			# Multiplicative boost to base power (tier 5's 1.2 bonus more than doubles it).
-			return { "power": GameState.round_epsilon(float(base_power) * (1.0 + m["bonus"][t])), "targets": 1 }
-		"spread":
-			# Every target gets the untouched base_power (no dilution); bonus is an integer extra-target count.
-			return { "power": base_power, "targets": 1 + int(m["bonus"][t]) }
-		_:
+static func _amplify_cast(base_power: Variant, movement: Variant, level: int = 0, recipe_key: String = "") -> Dictionary:
+	var impact_mult: float = 1.0
+	var targets: int = 1
+	if movement != null:
+		var m: Dictionary = GameData.DIAL_MOVEMENTS[movement["archetype"]]
+		var t: int = clampi(movement["tier"], 0, m["bonus"].size() - 1)
+		match movement["archetype"]:
+			"impact":
+				# Multiplicative boost to base power (tier 5's 1.2 bonus more than doubles it).
+				impact_mult = 1.0 + m["bonus"][t]
+			"spread":
+				# Every target gets the untouched base_power (no dilution); bonus is an integer extra-target count.
+				targets = 1 + int(m["bonus"][t])
 			# Recharge/Capacitor's "bonus" array is the charge economy, not effect magnitude -- casting is identical to no Movement seated.
-			return { "power": base_power, "targets": 1 }
+
+	# One rounding over Impact x level multiplier (R§3.5). turnPower is the Impact-only
+	# power that timed effects derive their base turns from -- the level multiplier never touches turns.
+	var magnitude: int = GameState.round_epsilon(float(base_power) * impact_mult * cast_level_multiplier(level))
+	var turn_power: int = GameState.round_epsilon(float(base_power) * impact_mult)
+	var power: int = magnitude
+	var turn_bonus: int = 0
+	match recipe_key:
+		"timePearl", "prophetsBreath":
+			power = turn_power
+			turn_bonus = maxi(level, 0)
+		"blackHole":
+			turn_bonus = cast_black_hole_freeze_bonus(level)
+	return { "power": power, "targets": targets, "turnPower": turn_power, "turnBonus": turn_bonus }
+
+
+# 1 + 0.25 x level (data/dial.json castMagnitudePerLevel). Level 0 (no Dial) is 1.0.
+static func cast_level_multiplier(level: int) -> float:
+	return 1.0 + GameData.DIAL_CAST_MAGNITUDE_PER_LEVEL * maxi(level, 0)
+
+
+static func cast_black_hole_freeze_bonus(level: int) -> int:
+	var curve: Array = GameData.DIAL_CAST_BLACK_HOLE_FREEZE_BONUS_BY_LEVEL
+	return int(curve[clampi(level, 0, curve.size() - 1)])
+
+
+# Extra turns a Dial of `level` adds to a timed Complication's cast (once per cast,
+# after Spread); 0 for recipes without a turn effect. Read by the UI readout.
+static func cast_turn_bonus(recipe_key: String, level: int) -> int:
+	match recipe_key:
+		"timePearl", "prophetsBreath":
+			return maxi(level, 0)
+		"blackHole":
+			return cast_black_hole_freeze_bonus(level)
+	return 0
 
 
 # Tier-5 Recharge Movement's in-combat regen (R§3.5) -- the only archetype that

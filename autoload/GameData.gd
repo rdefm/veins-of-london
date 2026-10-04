@@ -54,6 +54,8 @@ var DIAL_CAPACITY_BY_LEVEL: Array = []
 var DIAL_XP_LEVELS: Array = []
 var DIAL_MAX_CHARGE_BONUS_BY_LEVEL: Array = []
 var DIAL_RECHARGE_RATE_BONUS_BY_LEVEL: Array = []
+var DIAL_CAST_MAGNITUDE_PER_LEVEL: float = 0.0
+var DIAL_CAST_BLACK_HOLE_FREEZE_BONUS_BY_LEVEL: Array = []
 
 
 var VEIN_SECURITY: Dictionary = {}
@@ -350,6 +352,8 @@ const MANIFEST: Array[Dictionary] = [
 		{"field": "DIAL_XP_LEVELS", "key": "xpLevels", "type": TYPE_ARRAY},
 		{"field": "DIAL_MAX_CHARGE_BONUS_BY_LEVEL", "key": "maxChargeBonusByLevel", "type": TYPE_ARRAY},
 		{"field": "DIAL_RECHARGE_RATE_BONUS_BY_LEVEL", "key": "rechargeRateBonusByLevel", "type": TYPE_ARRAY},
+		{"field": "DIAL_CAST_MAGNITUDE_PER_LEVEL", "key": "castMagnitudePerLevel", "type": TYPE_FLOAT},
+		{"field": "DIAL_CAST_BLACK_HOLE_FREEZE_BONUS_BY_LEVEL", "key": "castBlackHoleFreezeBonusByLevel", "type": TYPE_ARRAY},
 	]},
 	{"table": "vein_security", "file": "res://data/vein_security.json", "fields": [
 		{"field": "VEIN_SECURITY", "key": "", "type": TYPE_DICTIONARY},

@@ -784,7 +784,7 @@ func run() -> void:
 		GameState.state["player"]["dial"] = dial
 
 		var result := Dial.cast_complication(0)
-		assert_eq(result["power"], Crafting.effect_power("blast", 4), "cast power should equal effect_power() at the loaded unit's own tier, unamplified with no Movement seated")
+		assert_eq(result["power"], GameState.round_epsilon(float(Crafting.effect_power("blast", 4)) * 1.25), "cast power should be effect_power() at the loaded tier times the level-1 multiplier, no Movement seated")
 		assert_eq(result["targets"], 1, "no Movement seated means a single, unextended target")
 	)
 
@@ -798,7 +798,7 @@ func run() -> void:
 		GameState.state["player"]["dial"] = dial
 
 		var result := Dial.cast_complication(0)
-		assert_eq(result["power"], Crafting.effect_power("blast", 5), "cast power must come from the loaded tier, not the player's current crafting skill")
+		assert_eq(result["power"], GameState.round_epsilon(float(Crafting.effect_power("blast", 5)) * 1.25), "cast power must come from the loaded tier, not the player's current crafting skill")
 	)
 
 	run_case("cast_complication_impact_movement_amplifies_power_by_its_tier_bonus", func():
@@ -812,7 +812,7 @@ func run() -> void:
 
 		var result := Dial.cast_complication(0)
 		var base_power: int = Crafting.effect_power("blast", 4)
-		var expected: int = GameState.round_epsilon(float(base_power) * (1.0 + GameData.DIAL_MOVEMENTS["impact"]["bonus"][5]))
+		var expected: int = GameState.round_epsilon(float(base_power) * (1.0 + GameData.DIAL_MOVEMENTS["impact"]["bonus"][5]) * 1.25)
 		assert_eq(result["power"], expected, "an Impact Movement should multiply the base power by its tier-indexed bonus")
 		assert_eq(result["targets"], 1, "Impact never extends the target count")
 	)
@@ -829,9 +829,45 @@ func run() -> void:
 		var result := Dial.cast_complication(0)
 		var base_power: int = Crafting.effect_power("blast", 4)
 		var expected_targets: int = 1 + int(GameData.DIAL_MOVEMENTS["spread"]["bonus"][3])
-		assert_eq(result["power"], base_power, "Spread must never dilute per-target power")
+		assert_eq(result["power"], GameState.round_epsilon(float(base_power) * 1.25), "Spread must never dilute per-target power")
 		assert_eq(result["targets"], expected_targets, "Spread's tier-indexed bonus is an extra-target count on top of the normal single target")
 		assert_true(result["targets"] > 1, "a Spread cast at tier 3 should extend to more than one target")
+	)
+
+	run_case("cast_level_multiplier_is_1_plus_quarter_per_level", func():
+		var expected := [1.25, 1.5, 1.75, 2.0, 2.25]
+		for level in range(1, 6):
+			assert_eq(Dial.cast_level_multiplier(level), expected[level - 1], "level %d multiplier" % level)
+	)
+
+	run_case("amplify_cast_composes_impact_and_level_with_a_single_rounding", func():
+		var movement := { "archetype": "impact", "oreType": "physics", "tier": 1 }
+		var result := Dial._amplify_cast(10, movement, 2, "blast")
+		assert_eq(result["power"], GameState.round_epsilon(10.0 * 1.15 * 1.5), "Impact and level multiply, rounded once")
+		assert_eq(result["turnPower"], GameState.round_epsilon(10.0 * 1.15), "turnPower carries Impact only")
+	)
+
+	run_case("amplify_cast_time_pearl_and_prophets_breath_add_level_turns_not_multiplier", func():
+		for key in ["timePearl", "prophetsBreath"]:
+			var result := Dial._amplify_cast(2, null, 4, key)
+			assert_eq(result["power"], 2, "%s base power untouched by the level multiplier" % key)
+			assert_eq(result["turnBonus"], 4, "%s adds one turn per Dial level" % key)
+	)
+
+	run_case("amplify_cast_black_hole_freeze_bonus_by_level_and_damage_uses_multiplier", func():
+		var bonuses := [0, 0, 0, 1, 1, 2]
+		for level in range(1, 6):
+			var result := Dial._amplify_cast(8, null, level, "blackHole")
+			assert_eq(result["turnBonus"], bonuses[level], "black hole freeze bonus at level %d" % level)
+			assert_eq(result["turnPower"], 8, "base freeze power not multiplied")
+			assert_eq(result["power"], GameState.round_epsilon(8.0 * (1.0 + 0.25 * level)), "black hole damage multiplied at level %d" % level)
+	)
+
+	run_case("amplify_cast_enhancement_powder_power_is_multiplied_before_thresholds", func():
+		var result := Dial._amplify_cast(2, null, 1, "enhancementPowder")
+		assert_eq(result["power"], GameState.round_epsilon(2.0 * 1.25), "powder power takes the multiplier")
+		var result5 := Dial._amplify_cast(2, null, 5, "enhancementPowder")
+		assert_true(result5["power"] >= 3, "power 2 at level 5 reaches the 3+ extra-turn threshold")
 	)
 
 	run_case("cast_complication_recharge_or_capacitor_seated_leaves_the_cast_unamplified", func():
@@ -844,7 +880,7 @@ func run() -> void:
 		GameState.state["player"]["dial"] = dial
 
 		var result := Dial.cast_complication(0)
-		assert_eq(result["power"], Crafting.effect_power("blast", 4), "Capacitor's bonus is charge economy, not effect magnitude -- casting under it is unamplified")
+		assert_eq(result["power"], GameState.round_epsilon(float(Crafting.effect_power("blast", 4)) * 1.25), "Capacitor's bonus is charge economy, not effect magnitude -- only the level multiplier applies")
 		assert_eq(result["targets"], 1, "Capacitor never extends the target count")
 	)
 

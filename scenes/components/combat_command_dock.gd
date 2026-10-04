@@ -131,6 +131,9 @@ func _build_complication_detail(dial: Variant) -> Control:
 			glyph.symbol = recipe["symbol"]
 			glyph.icon = ItemIcons.texture(entry["recipeKey"])
 			text = "%s — tier %d" % [recipe["name"], entry["tier"]]
+			var turn_bonus: int = Dial.cast_turn_bonus(entry["recipeKey"], int(dial["level"]))
+			if turn_bonus > 0:
+				text += " (+%d %s)" % [turn_bonus, "turn" if turn_bonus == 1 else "turns"]
 
 	# Read-only readout of the Dial's selection (casting is the Dial's own
 	# trigger), so a plain row rather than a Button -- same height/inset.

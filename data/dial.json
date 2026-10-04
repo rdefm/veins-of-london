@@ -63,5 +63,7 @@
   "capacityByLevel": [0, 1, 2, 3, 4, 4],
   "xpLevels": [0, 0, 50, 150, 400, 1000],
   "maxChargeBonusByLevel": [0, 0, 5, 12, 22, 35],
-  "rechargeRateBonusByLevel": [0, 0, 0, 0, 0.5, 1.0]
+  "rechargeRateBonusByLevel": [0, 0, 0, 0, 0.5, 1.0],
+  "castMagnitudePerLevel": 0.25,
+  "castBlackHoleFreezeBonusByLevel": [0, 0, 0, 1, 1, 2]
 }

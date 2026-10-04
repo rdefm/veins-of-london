@@ -365,7 +365,7 @@ static func cast_dial_complication(dial_index: int, target_index: int = -1) -> D
 		return cast
 
 	var pre_beats: Array = []
-	_apply_item_effect(cp, recipe_key, cast["power"], cast["targets"], resolved_target, pre_beats)
+	_apply_item_effect(cp, recipe_key, cast["power"], cast["targets"], resolved_target, pre_beats, cast["turnBonus"], cast["turnPower"])
 
 	# Same reordering as use_item() -- see the comment there.
 	if started_round:
@@ -379,10 +379,10 @@ static func cast_dial_complication(dial_index: int, target_index: int = -1) -> D
 # Movement multiplier (always 1 for the direct-bag path); enhancementPowder
 # is deliberately exempt (motionPower/motionTurns read `power` directly),
 # matching that same branch in Combat.cast_complication().
-static func _apply_item_effect(cp: Dictionary, item_id: String, power, targets: int, target_index: int, beats: Array) -> void:
+static func _apply_item_effect(cp: Dictionary, item_id: String, power, targets: int, target_index: int, beats: Array, turn_bonus: int = 0, turn_power: int = -1) -> void:
 	match item_id:
 		"timePearl":
-			var total: int = int(power) * targets
+			var total: int = int(power) * targets + turn_bonus
 			cp["frozenTurns"] += total
 			_log(cp, beats, "You throw a time pearl. Everything slows. (%d turn%s)" % [total, "" if total == 1 else "s"], "use_time_pearl", { "effectKey": "timePearl" })
 		"enhancementPowder":
@@ -404,7 +404,7 @@ static func _apply_item_effect(cp: Dictionary, item_id: String, power, targets: 
 				_log(cp, beats, "The shove knocks them off balance.", "use_disarm", { "targetType": "enemy", "targetIndex": target_index })
 		"blackHole":
 			var per_enemy_dmg: int = int(power) * targets
-			var freeze_turns: int = (1 + int(floor(float(power) / 8.0))) * targets
+			var freeze_turns: int = (1 + int(floor(float(power if turn_power < 0 else turn_power) / 8.0))) * targets + turn_bonus
 			_log(cp, beats, "You drop a black hole.", "use_black_hole_announce", {})
 			for i in range(cp["enemies"].size()):
 				if cp["enemies"][i]["koed"]:
