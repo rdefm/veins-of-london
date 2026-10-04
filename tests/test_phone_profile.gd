@@ -137,6 +137,35 @@ func run() -> void:
 		phone.free()
 	)
 
+	run_case("profile_shows_two_empty_loadout_slots_and_equips_and_unequips_from_stock", func():
+		GameState.reset()
+		Crafting.inventory_add("blast", 2, 1)
+		GameState.state["phoneNav"]["app"] = "profile"
+
+		var phone := PhoneScreen.new()
+		phone._ready()
+
+		var texts := NodeQuery.symbol_row_texts(phone)
+		assert_true(texts.has("Slot 1: empty") and texts.has("Slot 2: empty"), "two empty slots")
+		var equip_btn := NodeQuery.find_button(phone, "Equip Blast T2 (×1)")
+		assert_true(equip_btn != null, "an equip control for the stocked unit")
+		equip_btn.pressed.emit()
+		assert_eq(Loadout.slot(0), { "recipe": "blast", "tier": 2 }, "equip button fills the first slot")
+		assert_eq(Crafting.inventory_qty("blast"), 0)
+
+		var phone2 := PhoneScreen.new()
+		phone2._ready()
+		assert_true(NodeQuery.symbol_row_texts(phone2).has("Slot 1: Blast T2"), "filled slot shows its unit")
+		var unequip_btn := NodeQuery.find_button(phone2, "Unequip slot 1")
+		assert_true(unequip_btn != null, "an unequip control")
+		unequip_btn.pressed.emit()
+		assert_eq(Loadout.slot(0), null)
+		assert_eq(Crafting.inventory_qty("blast"), 1)
+
+		phone.free()
+		phone2.free()
+	)
+
 	run_case("profile_does_not_show_cash_or_day_time_block", func():
 		GameState.reset()
 		GameState.state["phoneNav"]["app"] = "profile"

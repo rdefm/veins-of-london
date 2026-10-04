@@ -466,6 +466,9 @@ state = {
     # Moves are instant/reversible/tier-preserving, clamped to whatever's
     # actually available on the source side.
     stash: { orichalchum: {}, inventory: {} },
+    # personal consumable slots (§3.7 "Player loadout"): slots[i] null | { recipe, tier };
+    # lastRecipe[i] = recipe last assigned to slot i ("" never). Old saves backfill empty.
+    loadout: { slots: [null, null], lastRecipe: ["", ""] },
   },
 
   world: {
@@ -715,6 +718,7 @@ The dock (`NavBar`, now 3 slots: Phone · Map · HQ) is hidden on `title, intro,
 - **Enemy attack:** if evadeTurns > 0: decrement; `chance(evadeChance)` → miss (log), return. Else `dmg = rand(enemy atk range)`, where enemy atk range is atkMin/atkMax plus the enemy's equipped `weapon` bonus if any (§1.10); if `player.shieldPool > 0` (calc-effect-wiring-02), absorb 1:1 first (`absorbed = min(dmg, shieldPool)`, `shieldPool -= absorbed`, `dmg -= absorbed`) before applying the remainder; player hp −= dmg; at 0 → outcome "loss", log, revive `hp = round(hpMax * 0.3)`.
 - **Flee:** `chance(0.65)` → outcome "fled"; else enemy gets a free attack. calc-effect-wiring-02: Blast's flee boost (below) raises this to `chance(0.90)` for exactly one attempt, then clears regardless of outcome.
 - **Direct item power (§3.7, all personal consumable uses):** `effectPower` is read at the consumed unit's stored tier (lowest tier consumed first), not `craftingSkill`; no Dial amplification applies.
+- **Player loadout** (`constants.json` `loadout`, `GameData.LOADOUT`; `systems/loadout.gd`): `slotCount 2`; `items` allowlist `[timePearl, enhancementPowder, blast, shield, blackHole, healingBurst, prophetsBreath, wormhole, failsafe, rewind]` (Healing Salve excluded). Each slot holds one `{recipe, tier}` unit. Equip moves that exact tiered unit from `player.inventory` into an empty slot (refused: no stock, filled slot, non-allowlisted); unequip returns it at its stored tier. Same recipe may fill both slots. Slots start empty; `lastRecipe[i]` remembers the recipe last equipped in slot i (kept on unequip). Managed from Profile.
 - **Use Time Pearl:** blocked if frozenTurns > 0 ("Already frozen. Save the pearl."); consume; `frozenTurns = effectPower`. Freezes **every** living enemy, not the selected one (human-confirmed 2026-09-25).
 - **Frozen pool:** each point of `frozenTurns` costs every living enemy one turn. Each frozen enemy turn logs "X is frozen — no turn." (`enemy_frozen` beat) and joins `combat.frozenSkipped`; once every living enemy is in it (or an enemy already in it comes round again, i.e. an unskipped peer was KO'd), `frozenTurns −= 1` and the list clears (log expiry at 0). `frozenSkipped` is snapshotted with `frozenTurns`. Applies to every freeze source (Time Pearl, Black Hole, ally Dial).
 - **Use Enhancement Powder:** blocked if motionTurns > 0; consume; `motionPower = effectPower`; `motionTurns = power ≥ 3 ? 2 : 1`.

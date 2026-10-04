@@ -883,6 +883,9 @@ func _restore_int_types(state: Dictionary) -> void:
 		var stash: Dictionary = player.get("stash", {})
 		_int_dict_values(stash.get("orichalchum", {}))
 		_migrate_inventory(stash.get("inventory", {}))
+		for slot in player.get("loadout", {}).get("slots", []):
+			if slot is Dictionary:
+				_int_key(slot, "tier")
 		if player.has("bench"):
 			var bench: Dictionary = player["bench"]
 			_int_dict_values(bench.get("surveyed", {}))

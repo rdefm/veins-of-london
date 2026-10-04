@@ -9,6 +9,7 @@ func build(content: VBoxContainer) -> void:
 	content.add_child(_build_stats_card())
 	content.add_child(_build_skills_card())
 	content.add_child(_build_equipment_card())
+	content.add_child(_build_loadout_card())
 
 
 func _build_stats_card() -> Control:
@@ -50,6 +51,30 @@ func _build_equipment_card() -> Control:
 	c["content"].add_child(UI.heading("Equipment", 14))
 	c["content"].add_child(_dial_summary_label(player))
 	return c["panel"]
+
+
+func _build_loadout_card() -> Control:
+	var c := UI.card()
+	c["content"].add_child(UI.heading("Loadout", 14))
+	var stock := Loadout.equippable_stock()
+	for index in Loadout.slot_count():
+		var unit: Variant = Loadout.slot(index)
+		if unit == null:
+			c["content"].add_child(UI.muted_label("Slot %d: empty" % (index + 1)))
+			for entry in stock:
+				c["content"].add_child(UI.button("Equip %s T%d (×%d)" % [GameData.RECIPES[entry["recipe"]]["name"], entry["tier"], entry["qty"]], _on_equip.bind(index, entry["recipe"], entry["tier"])))
+		else:
+			c["content"].add_child(UI.label("Slot %d: %s T%d" % [index + 1, GameData.RECIPES[unit["recipe"]]["name"], int(unit["tier"])]))
+			c["content"].add_child(UI.button("Unequip slot %d" % (index + 1), _on_unequip.bind(index)))
+	return c["panel"]
+
+
+func _on_equip(index: int, recipe_key: String, tier: int) -> void:
+	Loadout.equip(index, recipe_key, tier)
+
+
+func _on_unequip(index: int) -> void:
+	Loadout.unequip(index)
 
 
 func _dial_summary_label(player: Dictionary) -> Control:

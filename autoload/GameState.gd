@@ -140,6 +140,10 @@ func new_game_state() -> Dictionary:
 			# unit from orichalchum/inventory the moment it moves in, so
 			# this is a transfer destination, not a second view.
 			"stash": { "orichalchum": {}, "inventory": {} },
+			# Personal combat consumable slots (systems/loadout.gd): slots[i]
+			# is null or { recipe, tier }; lastRecipe[i] is the recipe last
+			# assigned to slot i ("" if never).
+			"loadout": { "slots": [null, null], "lastRecipe": ["", ""] },
 			# null until Dial.attempt_seed() succeeds (refuses outright
 			# once non-null). Seeded shape: { level, xp, currentCharge,
 			# maxCharge, rechargeRate, lastRegenDay, combatRegenTurnCounter,

@@ -95,6 +95,7 @@ Data file per system: see `data/*.json` below.
 | rooms.gd | Per-block staff step (one action per cultivator, then producers take turns crafting until targets met or ore short), which recipes each crafter's `specialities` allow and the Production list, writes/trims `productionLog`, Production targets/priority and when they are settable, per-cultivator vein lists (`cultivatorVeins`) and per-vein targets |
 | shares.gd | Shares: 14-day daily buckets per producer (player, factions, independents) of ore harvested, ore spent on successful crafts, contract deliveries and faction London buys; Independents slice crediting (⑥.5e); pure ore/crafting share, overview, delivery and supplier-share reads (split + intake) (R§3.14) |
 | sites.gd | Sites & prospecting |
+| loadout.gd | Player's two personal consumable slots (`player.loadout`): equip/unequip one tiered unit from shared inventory, allowlist check, last-assigned-recipe memory, equippable stock list |
 | stash.gd | Personal stash vs. shared pools |
 | station_bubble.gd | Site/vein-stop tap-bubble decision |
 | calendar.gd | Pure `world.day` → calendar date (`MON 3 JAN`, `Y2`+ suffix) per R§3.1 "Calendar"; every player-facing date string uses `Calendar.format_day`; weekday/Monday helpers for the weekly cadence |
@@ -226,7 +227,7 @@ overlays.
 | todo_app.gd | ToDo app: collapsible questline sections from Todo, all_of checks as indented sub-rows; session-only expand/collapse overrides in a static var |
 | factions_app.gd | London share table (ore/crafting toggle), London's politics (stance per pair, war/truce markers) and faction cards: archetype, ores, crafts, share bars, stance, pressure, peace talks at war, Gift, favour asked/owed (`Diplomacy`), partner price ask and trouble asks (`Partners`), intel level and what it reveals (`Intel`), activity log. |
 | ticker_app.gd | Ticker News: state stories by recency, newest-first wires, full state and wire articles, live impact, same-axis Influence sheet. Stock Market: filters, Ore/Items lists, demand modifiers, price detail and chart, annotations and demand drivers |
-| profile_app.gd | Stats, skills, equipment |
+| profile_app.gd | Stats, skills, equipment, and the two-slot Loadout card (equip/unequip buttons) |
 | dialer_app.gd | Phone recent-calls placeholder; no telephony state/actions |
 | settings_app.gd | Reduced-motion and alarm-vibration preference controls |
 | saveload_app.gd | Save slots, export/import (with copy-to-clipboard), New Game confirm |
@@ -248,7 +249,7 @@ overlays.
 | combat_prototype.json | combat_prototype.gd |
 | combat_visuals.json | combat_stage.gd (locationBackdrops, backdrops, pose sheets, stage.spriteScale); GameData.gd (territorialVariant pose spec); combat_director.gd (pacing.turnPause); turn_order_strip.gd (cardFrames) |
 | contact_texts.json | contact_texts.gd (per-contact gate, interval, hold, vein source, rewards, text pool: Owen, Archie, Hakim, James, Nadia, Des; Nadia opens after her vein-sale closing beat, Des after meeting) |
-| constants.json | calendar.gd (calendar), time_system.gd, jobs.gd, GameState.gd, contacts.gd (roster, roleFlags, skillCaps), rooms.gd (specialities), business.gd (weekly wages), rooms.gd (productionLogDays), business_stats.gd (businessStatsDays), shares.gd (sharesDays, sharesWindowDays), GUARD_UPKEEP (guardUpkeep), guard_kit.gd (GUARD_KIT) |
+| constants.json | calendar.gd (calendar), time_system.gd, jobs.gd, GameState.gd, contacts.gd (roster, roleFlags, skillCaps), rooms.gd (specialities), business.gd (weekly wages), rooms.gd (productionLogDays), business_stats.gd (businessStatsDays), shares.gd (sharesDays, sharesWindowDays), GUARD_UPKEEP (guardUpkeep), guard_kit.gd (GUARD_KIT), loadout.gd (LOADOUT) |
 | constants.json (faction politics) | factions.gd (factionRivalry), faction_sim.gd (factionFloor), faction_ai.gd (factionStances, factionPressure, factionEscalation, factionWar, factionConclave), intel.gd (intel), raiding.gd (stockpileRaid), network_handler.gd (networkMenu), diplomacy.gd (factionFavours, factionGifts), partners.gd (partners), barometer.gd (factionEscalation.headlineCap) |
 | daily_cycle.json | time_transition.gd (circle layout, sky clips, colours, timing) |
 | dial.json | dial.gd |

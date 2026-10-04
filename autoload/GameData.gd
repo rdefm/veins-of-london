@@ -177,6 +177,9 @@ var GUARD_UPKEEP: Dictionary = {}
 #   guardAlly {name, hpMax, attackMin, attackMax, speed} }.
 var GUARD_KIT: Dictionary = {}
 
+# Player loadout config: { slotCount, items (equippable recipe allowlist) }.
+var LOADOUT: Dictionary = {}
+
 # Cultivating XP a staffed cultivator earns per block action (prune or
 # cultivate roll, success or fail), R§3.10.
 var CULTIVATOR_ACTION_XP: int = 0
@@ -429,6 +432,7 @@ const MANIFEST: Array[Dictionary] = [
 		{"field": "GUARD_REPEL_CHANCE_CAP", "key": "guardRepel.cap", "type": TYPE_FLOAT},
 		{"field": "GUARD_UPKEEP", "key": "guardUpkeep", "type": TYPE_DICTIONARY},
 		{"field": "GUARD_KIT", "key": "guardKit", "type": TYPE_DICTIONARY},
+		{"field": "LOADOUT", "key": "loadout", "type": TYPE_DICTIONARY},
 		{"field": "CULTIVATOR_ACTION_XP", "key": "cultivatorActionXp", "type": TYPE_INT},
 		{"field": "PRODUCTION_LOG_DAYS", "key": "productionLogDays", "type": TYPE_INT},
 		{"field": "PRODUCTION_TARGET_MAX", "key": "productionTargetMax", "type": TYPE_INT},

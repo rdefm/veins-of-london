@@ -43,6 +43,10 @@
     "repelCap": 0.90,
     "guardAlly": { "name": "Hired Guard", "hpMax": 30, "attackMin": 4, "attackMax": 10, "speed": 8 }
   },
+  "loadout": {
+    "slotCount": 2,
+    "items": ["timePearl", "enhancementPowder", "blast", "shield", "blackHole", "healingBurst", "prophetsBreath", "wormhole", "failsafe", "rewind"]
+  },
   "guardUpkeep": {
     "weeklyWage": 500,
     "graceDays": 1,
