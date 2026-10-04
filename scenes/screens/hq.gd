@@ -36,7 +36,7 @@ func _build_locked_view() -> void:
 	c["content"].add_child(MapCardStyle.section_label("Actions", 14))
 	c["content"].add_child(MapCardStyle.text_button(GameData.DAY_CLOCK["restLabel"], func(): TimeSystem.do_rest()))
 	if Home.has_pending_raid():
-		c["content"].add_child(MapCardStyle.text_button("Defend", func(): Home.trigger_defend()))
+		c["content"].add_child(MapCardStyle.text_button("Defend", func(): Home.prepare_defend()))
 	content.add_child(c["panel"])
 func _build_locked_background() -> void:
 	var bedsit_plate: Dictionary = GameData.HQ_VISUALS["rooms"]["bedsit"].duplicate(true)
@@ -97,7 +97,7 @@ func _on_zone_tapped(zone_id: String) -> void:
 			Nav.go_to("hq_lab_bench")
 		"security":
 			if Home.has_pending_raid():
-				Home.trigger_defend()
+				Home.prepare_defend()
 			else:
 				Nav.go_to("hq_door")
 		"rest":

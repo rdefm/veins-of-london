@@ -56,8 +56,8 @@ static func defend(situation_id: String) -> bool:
 		if row["id"] != situation_id:
 			continue
 		if row["kind"] == "home":
-			return Home.trigger_defend()
-		return Raiding.trigger_defend(row["veinId"])
+			return Home.prepare_defend()
+		return Raiding.prepare_defend(row["veinId"])
 	return false
 
 

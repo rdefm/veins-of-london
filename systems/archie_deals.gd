@@ -116,7 +116,7 @@ static func accept_deal(pending_id: String) -> void:
 		# No archie_deal_result modal yet -- outcome isn't known until the
 		# mugging resolves; resolve_mugging() opens it once that happens.
 		GameState.state["pendingArchieDealCut"] = player_cut
-		Combat.start_archie_deal_mugging()
+		CombatPrep.request(CombatPrep.KIND_ARCHIE_DEAL_MUGGING)
 		EventBus.state_changed.emit()
 		return
 

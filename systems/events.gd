@@ -331,14 +331,14 @@ static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 		"set_stage":
 			GameState.state["flags"]["tutorialStage"] = effect["value"]
 		"start_home_raid_combat":
-			Combat.start_home_raid_combat()
+			CombatPrep.request(CombatPrep.KIND_HOME_RAID)
 		"chance":
 			if Rng.chance(effect["p"]):
 				apply_effects(effect.get("on_success", []), context)
 			else:
 				apply_effects(effect.get("on_fail", []), context)
 		"start_street_mugging":
-			Combat.start_street_mugging()
+			CombatPrep.request(CombatPrep.KIND_STREET_MUGGING)
 		"npc_claim_best_unclaimed_site":
 			Sites.npc_claim_best_unclaimed_site(GameState.state["world"]["currentDistrict"])
 		"lose_time_block":

@@ -31,6 +31,7 @@ Data file per system: see `data/*.json` below.
 | bench.gd | Lab discovery engine (type-set × approach) |
 | bubble_layout.gd | Popup-position math for MapBubble |
 | collective.gd | Collective faction doors, Nadia settlement, Collective questline beat triggers + Act 2 scripted vein losses + Nadia defend raid, Hakim retake gate + site ruin (ruinedByFirm), T7 Firm provocation (timed Firm-targeting weight), Act 2 relation awards (T8 missions, alarm-defend daily cap), Act 2 gate + T14 spine reward (Hakim intel's weak-enemy-vein branch) + T15 closer delivery |
+| combat_prep.gd | CombatPrep: `state.combatPrep` request/cancel/commit for every combat entry (planned raids/defences cancellable, forced encounters not), replaying the existing Raiding/Home/Combat entries on Fight; lists participants + equipped units |
 | combat.gd | Turn-based combat engine + rewind. Resumable progression via `combat.turnCursor` + `prime_`/`conclude_decision_point()`; pure `project_queue()` (no koed slots, empty after outcome; R§3.7a). `occurrence`-tagged beats. `set_selection()`/`clamp_selection()`; `selection_block_reason()` gates commands. Per-side `enemyQueue`/`allyQueue` reinforcements fill KO'd places in-index. Raider/guard kit item use (R§3.7). Stamps `combat.locationKey` |
 | network_handler.gd | Network handler Targets (timed `collective.networkIntel` claim_bonus/security_freeze), Sourcing (site delivered by handler text), the intel menu (relation- and gouge-priced, gated products: raid/market intel, raid warnings, boost, privacy, disinformation, reduction), and factions' daily budgeted buys of the same products |
 | combat_pacing.gd | Persisted normal/quick pacing toggle |
@@ -113,6 +114,7 @@ overlays.
 
 | File | Renders |
 |---|---|
+| combat_prep.gd | Preparation sheet (screen `combat_prep`) on the Trade sheet chrome: participants with equipped units, opposition, Cancel (planned only) / Fight footer |
 | combat.gd | Combat screen: orchestrator over CombatStage (fills the upper region)/CombatCommandDock -- owns turn flow, director bridging, band sync. Keeps one persistent strip and steps its queue beat by beat during (and Rewind) playback. `_select_target()` is the sole tap->`Combat.set_selection()` route; a stage tap during playback fast-forwards |
 | combat_prototype.gd | Minimal combat-prototype screen, Debug-app only |
 | contacts.gd | Contacts app inside PhoneDeviceShell; directory of unlocked contacts by display name (`Contacts.directory_ids`) with inline flag-gated actions; generic key-member card |

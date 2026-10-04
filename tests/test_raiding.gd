@@ -1518,6 +1518,7 @@ func run() -> void:
 		var result := Travel.travel_to("camden")
 
 		assert_true(result["ok"])
+		assert_true(CombatPrep.commit()["ok"])
 		assert_true(GameState.state["combat"]["active"], "travelling into the pending district should start the defend combat")
 		assert_eq(GameState.state["combat"]["context"], "defend_vein")
 		assert_eq(GameState.state["world"]["pendingDefendRaids"], [], "the pending entry should be consumed")
@@ -1550,6 +1551,7 @@ func run() -> void:
 		var result := Sites.prospect("camden")
 
 		assert_true(result["ok"])
+		assert_true(CombatPrep.commit()["ok"])
 		assert_true(GameState.state["combat"]["active"], "arriving on the day's last block should still start the defend combat")
 		assert_eq(GameState.state["combat"]["context"], "defend_vein")
 		assert_eq(GameState.state["player"]["veins"].size(), 1, "the vein must not be auto-resolved out from under an in-time arrival")

@@ -154,7 +154,7 @@ static func _build_defend_row(vein: Dictionary) -> Variant:
 	var warning := _label("Under raid — defend before next tick.", 11, MapPalette.colour("danger"))
 	warning.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(warning)
-	var defend := UI.button("Defend", func(): Raiding.trigger_defend(vein_id))
+	var defend := UI.button("Defend", func(): Raiding.prepare_defend(vein_id))
 	UI.style_action_button(defend, MapPalette.colour("danger"))
 	row.add_child(defend)
 	return row

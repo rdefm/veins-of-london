@@ -118,6 +118,8 @@ func run() -> void:
 		assert_true(defend_button != null, "Defend must render on the locked fallback while a raid is pending")
 
 		defend_button.pressed.emit()
+		assert_true(CombatPrep.is_pending())
+		CombatPrep.commit()
 
 		assert_true(GameState.state["combat"]["active"], "tapping Defend should start combat immediately")
 		assert_eq(GameState.state["combat"]["context"], Combat.CONTEXT_HOME_ALARM_DEFEND)
@@ -256,6 +258,7 @@ func run() -> void:
 		hq._ready()
 
 		UiSim.tap_zone(hq, "security")
+		CombatPrep.commit()
 
 		assert_true(GameState.state["combat"]["active"], "tapping the hostile door must start combat immediately, same as the Defend button")
 		assert_eq(GameState.state["combat"]["context"], Combat.CONTEXT_HOME_ALARM_DEFEND)

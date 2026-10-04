@@ -366,6 +366,8 @@ func run() -> void:
 		var defend_button: Button = _buttons_labelled(card, "Defend")[0]
 		defend_button.pressed.emit()
 
+		assert_true(CombatPrep.is_pending())
+		CombatPrep.commit()
 		assert_true(GameState.state["combat"]["active"], "tapping Defend should start combat immediately")
 		assert_eq(GameState.state["combat"]["context"], "defend_vein")
 

@@ -50,6 +50,8 @@ func _assert_invariants(label: String) -> void:
 
 
 func _force_win_active_combat() -> void:
+	if CombatPrep.is_pending():
+		CombatPrep.commit()
 	var attack_min: int = GameState.state["player"]["attackMin"]
 	var attack_max: int = GameState.state["player"]["attackMax"]
 	GameState.state["combat"]["enemies"][GameState.state["combat"]["selection"]["index"]]["hp"] = 1
@@ -87,6 +89,7 @@ func _play_through_tutorial_and_unlock_prospecting() -> void:
 	Events.start_event("home_raid_intro")
 	for i in range(GameData.EVENTS["home_raid_intro"]["cards"].size()):
 		Events.advance()
+	CombatPrep.commit()
 	assert_true(GameState.state["combat"]["active"], "home_raid_intro should start combat")
 	_force_win_active_combat()
 	for i in range(GameData.EVENTS["home_raid_debrief_win"]["cards"].size()):
@@ -113,7 +116,7 @@ func _drive_active_event_to_completion() -> void:
 	var guard := 0
 	while GameState.state["event"] != null and guard < 50:
 		guard += 1
-		if GameState.state["combat"]["active"]:
+		if GameState.state["combat"]["active"] or CombatPrep.is_pending():
 			_force_win_active_combat()
 		elif Events.is_awaiting_choice():
 			Events.choose(0)
@@ -388,7 +391,7 @@ func _force_win_every_enemy() -> void:
 # them the way the rest of this file does before the next Act 2 beat.
 func _daily_tick_and_settle() -> void:
 	TimeSystem.daily_tick()
-	if GameState.state["combat"]["active"]:
+	if GameState.state["combat"]["active"] or CombatPrep.is_pending():
 		_force_win_active_combat()
 	if GameState.state["event"] != null:
 		_drive_active_event_to_completion()
@@ -506,6 +509,7 @@ func run() -> void:
 			return r["ok"] and r.get("mugged", false)
 		)
 		assert_true(mug_seed != -1, "should find a mugged sale roll")
+		CombatPrep.commit()
 		assert_true(GameState.state["combat"]["active"], "a mugged sale should start combat")
 		_force_win_active_combat()
 		_assert_invariants("post-sale-mugged")
@@ -835,7 +839,7 @@ func run() -> void:
 			Events.advance()  # narration
 			Events.advance()  # speaker
 			Events.choose(1)  # Refuse -> chance(0.4) of start_street_mugging
-			return GameState.state["combat"]["active"]
+			return CombatPrep.is_pending()
 		)
 		assert_true(combat_seed != -1, "should find a seed where refusing camden_shakedown starts combat within 300 tries")
 		assert_true(GameState.state["event"] != null, "the event should still be active while its combat branch resolves")

@@ -177,6 +177,7 @@ func run() -> void:
 		var choice_index := EventPlay.play_to_choice("col_a1_firm_intimidation")
 		Events.choose(2)  # Tell them where to go
 		assert_eq(GameState.state["methodLog"]["firmFirstContact"], "fought")
+		assert_true(CombatPrep.commit()["ok"])
 		assert_true(GameState.state["combat"]["active"], "should launch the street mugging")
 		assert_eq(GameState.state["combat"]["context"], "event_mugging")
 	)

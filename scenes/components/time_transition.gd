@@ -54,7 +54,7 @@ static func outcome_finished() -> bool:
 	var state: Dictionary = GameState.state
 	return state.get("event") == null and not state["combat"].get("active", false) \
 		and state.get("modal") == null and not state.get("bagDrawerOpen", false) \
-		and state.get("currentScreen") not in ["event", "combat", "title", "intro"]
+		and state.get("currentScreen") not in ["event", "combat", "combat_prep", "title", "intro"]
 
 
 func _process(delta: float) -> void:

@@ -180,7 +180,7 @@ func run() -> void:
 			Rng.set_seed(candidate)
 			var entry: Dictionary = Messages.pending_for("archie")[0]
 			ArchieDeals.accept_deal(entry["id"])
-			if not GameState.state["combat"]["active"]:
+			if not CombatPrep.is_pending():
 				seed = candidate
 				break
 			GameState.state = snapshot
@@ -211,7 +211,7 @@ func run() -> void:
 			Rng.set_seed(candidate)
 			var entry: Dictionary = Messages.pending_for("archie")[0]
 			ArchieDeals.accept_deal(entry["id"])
-			if not GameState.state["combat"]["active"]:
+			if not CombatPrep.is_pending():
 				seed = candidate
 				break
 			GameState.state = snapshot
@@ -231,13 +231,15 @@ func run() -> void:
 			Rng.set_seed(candidate)
 			var entry: Dictionary = Messages.pending_for("archie")[0]
 			ArchieDeals.accept_deal(entry["id"])
-			if GameState.state["combat"]["active"]:
+			if CombatPrep.is_pending():
 				seed = candidate
 				break
 		assert_true(seed != -1, "should find a mugged roll within 300 tries")
 
 		assert_eq(GameState.state["player"]["cash"], 40, "cash should NOT increase yet -- payout is deferred")
 		assert_true(GameState.state["pendingArchieDealCut"] > 0, "pendingArchieDealCut should hold the computed cut")
+		assert_eq(GameState.state["combatPrep"]["kind"], CombatPrep.KIND_ARCHIE_DEAL_MUGGING)
+		assert_true(CombatPrep.commit()["ok"])
 		assert_eq(GameState.state["combat"]["context"], Combat.CONTEXT_ARCHIE_DEAL_MUGGING)
 
 		var allies: Array = GameState.state["combat"]["allies"]

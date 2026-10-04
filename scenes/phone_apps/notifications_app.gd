@@ -21,9 +21,9 @@ func _build_notification_row(notification: Dictionary) -> Control:
 
 	var vein_id: Variant = notification.get("veinId")
 	if vein_id != null and Raiding.is_defend_notification_pending(notification["id"]):
-		c["content"].add_child(UI.button("Defend", func(): Raiding.trigger_defend(vein_id)))
+		c["content"].add_child(UI.button("Defend", func(): Raiding.prepare_defend(vein_id)))
 	elif notification.get("homeRaid") == true and Home.is_pending_raid_notification(notification["id"]):
-		c["content"].add_child(UI.button("Defend", func(): Home.trigger_defend()))
+		c["content"].add_child(UI.button("Defend", func(): Home.prepare_defend()))
 	elif GuardUpkeep.is_pending_shortfall_notification(notification):
 		c["content"].add_child(UI.button("Choose guards", func(): PhoneNav.open_short_pay()))
 

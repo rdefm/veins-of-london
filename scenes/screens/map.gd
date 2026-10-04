@@ -422,7 +422,7 @@ func _build_faction_vein_content(content: VBoxContainer, vein: Dictionary, site_
 	var actions := UI.hflow()
 
 	var raid_button := UI.button(UI.format_block_cost_label("Raid", 1, Travel.can_afford(district, 1)), func():
-		Raiding.begin_raid(vein, ["archie"] if _raid_bring_archie else [])
+		Raiding.prepare_raid(vein,["archie"] if _raid_bring_archie else [])
 	)
 	raid_button.disabled = not Travel.can_afford(district, 1) or Collective.is_quest_locked_vein(vein["id"])
 	actions.add_child(MapCardStyle.style_button(raid_button))
@@ -480,7 +480,7 @@ func _build_vein_action_card(vein: Dictionary) -> Control:
 	c["content"].add_child(_security_line(vein, MapCardStyle.ink()))
 	if Raiding.has_pending_defend(vein_id):
 		c["content"].add_child(MapCardStyle.label("Under raid — defend now or lose it at the next tick.", 12, MapPalette.colour("danger")))
-		var defend := UI.button("Defend", func(): Raiding.trigger_defend(vein_id))
+		var defend := UI.button("Defend", func(): Raiding.prepare_defend(vein_id))
 		UI.style_action_button(defend, MapPalette.colour("danger"))
 		c["content"].add_child(defend)
 

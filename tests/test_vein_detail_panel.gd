@@ -161,6 +161,7 @@ func run() -> void:
 		assert_eq(defend_buttons.size(), 1)
 
 		(defend_buttons[0] as Button).pressed.emit()
+		assert_true(CombatPrep.commit()["ok"])
 		assert_true(GameState.state["combat"]["active"], "tapping Defend starts combat immediately, same as the site sheet's own Defend")
 
 		panel.free()

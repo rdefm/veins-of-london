@@ -63,7 +63,10 @@ static func build(container: VBoxContainer, _data: Dictionary) -> void:
 		var location_key: String = location_select.get_item_text(location_select.selected)
 		if location_key == LOCATION_AUTO:
 			location_key = ""
-		Combat.start_debug_combat(context, location_key, value_tier, count, template_key, selected_allies)
+		CombatPrep.request(CombatPrep.KIND_DEBUG, {
+			"context": context, "locationKey": location_key, "valueTier": value_tier,
+			"guards": count, "templateKey": template_key, "allyIds": selected_allies,
+		})
 	)
 	container.add_child(MapCardStyle.footer([MapCardStyle.text_button("Cancel", func(): Modal.close()), fight]))
 

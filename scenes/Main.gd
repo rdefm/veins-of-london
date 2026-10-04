@@ -6,6 +6,7 @@ const SCREEN_SCRIPTS := {
 	"contacts": preload("res://scenes/screens/contacts.gd"),
 	"factions": preload("res://scenes/screens/factions.gd"),
 	"combat": preload("res://scenes/screens/combat.gd"),
+	"combat_prep": preload("res://scenes/screens/combat_prep.gd"),
 	"event": preload("res://scenes/screens/event.gd"),
 	"map": preload("res://scenes/screens/map.gd"),
 	"hq": preload("res://scenes/screens/hq.gd"),
@@ -23,7 +24,7 @@ const RETIRED_SCREEN_IDS := {
 	"lab": "hq",
 	"guild_marketplace": "map", "firm_shop": "map", "network_shop": "map", "conclave_shop": "map",
 }
-const NAV_HIDDEN_SCREENS := ["title", "intro", "event", "combat", "combat_prototype"]
+const NAV_HIDDEN_SCREENS := ["title", "intro", "event", "combat", "combat_prep", "combat_prototype"]
 const TOP_BAR_HIDDEN_SCREENS := ["title", "intro"]
 
 var screen_container: Control

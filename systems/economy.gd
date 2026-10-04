@@ -142,7 +142,7 @@ static func execute_sale(items: Array) -> Dictionary:
 		# or ModalLayer stays visible over combat, swallowing every tap.
 		Modal.close()
 		GameState.state["pendingSaleCut"] = player_cut
-		Combat.start_mugging(vein_included)
+		CombatPrep.request(CombatPrep.KIND_MUGGING, { "veinIncluded": vein_included })
 		EventBus.state_changed.emit()
 		return { "ok": true, "mugged": true, "gross": gross }
 	else:

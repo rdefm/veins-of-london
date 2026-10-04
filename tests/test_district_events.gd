@@ -46,6 +46,8 @@ func run() -> void:
 	run_case("start_street_mugging_op_launches_event_mugging_combat", func():
 		GameState.reset()
 		Events.apply_effects([{ "op": "start_street_mugging" }])
+		assert_eq(GameState.state["combatPrep"]["kind"], CombatPrep.KIND_STREET_MUGGING)
+		CombatPrep.commit()
 		assert_true(GameState.state["combat"]["active"], "should launch combat")
 		assert_eq(GameState.state["combat"]["context"], "event_mugging")
 		assert_eq(GameState.state["combat"]["onWin"], "", "no dispatch — there's no sale to settle")
@@ -55,6 +57,7 @@ func run() -> void:
 		for outcome in ["win", "loss", "fled"]:
 			GameState.reset()
 			Events.apply_effects([{ "op": "start_street_mugging" }])
+			CombatPrep.commit()
 			GameState.state["combat"]["outcome"] = outcome
 			var result := Combat.exit_combat()
 			assert_eq(result["nextScreen"], "event", "outcome '%s' should still route back to the event" % outcome)
@@ -243,9 +246,10 @@ func run() -> void:
 			GameState.reset()
 			var choice_index := EventPlay.play_to_choice("camden_shakedown")
 			Events.choose(1)  # Refuse
-			return GameState.state["combat"]["active"]
+			return CombatPrep.is_pending()
 		)
 		assert_true(seed != -1, "should find a mugging hit within 300 tries at p=0.4")
+		assert_true(CombatPrep.commit()["ok"])
 		assert_eq(GameState.state["combat"]["context"], "event_mugging")
 		assert_eq(GameState.state["player"]["cash"], 40, "refusing costs no cash up front")
 	)
@@ -255,7 +259,7 @@ func run() -> void:
 			GameState.reset()
 			var choice_index := EventPlay.play_to_choice("camden_shakedown")
 			Events.choose(1)
-			return not GameState.state["combat"]["active"]
+			return not CombatPrep.is_pending()
 		)
 		assert_true(seed != -1, "should find a non-mugging miss within 300 tries")
 		assert_eq(GameState.state["player"]["cash"], 40)

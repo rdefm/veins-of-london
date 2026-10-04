@@ -243,7 +243,7 @@ static func prospect(district_id: String) -> Dictionary:
 	# trigger daily_tick() on the day's last block, which would expire this same
 	# pending defend raid (Raiding._expire_pending_defend_raids()) before a
 	# post-action check ever ran. Checking here means arriving is unconditionally enough.
-	if Raiding.maybe_trigger_defend(district_id):
+	if Raiding.maybe_prepare_defend(district_id):
 		return { "ok": true, "district": district_id, "site": null }
 
 	TimeSystem.advance_time_block()

@@ -183,6 +183,8 @@ func run() -> void:
 				defend_button = b
 		assert_true(defend_button != null)
 		defend_button.pressed.emit()
+		assert_true(CombatPrep.is_pending())
+		CombatPrep.commit()
 
 		assert_true(GameState.state["combat"]["active"], "tapping the notification's Defend button should start combat immediately")
 		assert_eq(GameState.state["combat"]["context"], "defend_vein")
@@ -245,6 +247,8 @@ func run() -> void:
 				defend_button = b
 		assert_true(defend_button != null)
 		defend_button.pressed.emit()
+		assert_true(CombatPrep.is_pending())
+		CombatPrep.commit()
 
 		assert_true(GameState.state["combat"]["active"], "tapping the notification's Defend button should start combat immediately")
 		assert_eq(GameState.state["combat"]["context"], Combat.CONTEXT_HOME_ALARM_DEFEND)

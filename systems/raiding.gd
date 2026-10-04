@@ -146,6 +146,18 @@ static func begin_raid(vein: Dictionary, ally_ids: Array = []) -> Dictionary:
 	return { "ok": true }
 
 
+# The Raid button's entry: same refusals as begin_raid(), then parks the raid in
+# preparation. Nothing is spent until Fight runs begin_raid().
+static func prepare_raid(vein: Dictionary, ally_ids: Array = []) -> Dictionary:
+	if Collective.is_quest_locked_vein(vein["id"]):
+		# PROSE-REVIEW: new refusal line.
+		return { "ok": false, "reason": "Not this one. Not yet." }
+	if not Travel.can_afford(vein["district"], 1):
+		return { "ok": false, "reason": "No blocks left today." }
+	CombatPrep.request(CombatPrep.KIND_VEIN_RAID, { "veinId": vein["id"], "allyIds": ally_ids })
+	return { "ok": true }
+
+
 # ── stockpile raids (R§3.12 "Stockpile raids") ──────────────────────────
 # The player raids a faction's stockpile once their intel on it reaches the
 # stockpile-location level. Same event flow as a vein raid: a stealth check
@@ -183,6 +195,17 @@ static func begin_stockpile_raid(faction_id: String, ally_ids: Array = []) -> Di
 	TimeSystem.advance_time_block()
 	var event_id := STOCKPILE_RAID_STASH_EVENT_ID if Intel.knows(Shares.PLAYER, faction_id, Intel.STASH) else STOCKPILE_RAID_EVENT_ID
 	Events.start_event(event_id, { "faction_id": faction_id, "ally_ids": ally_ids })
+	return { "ok": true }
+
+
+# The stockpile pin's entry: as prepare_raid(), for begin_stockpile_raid().
+static func prepare_stockpile_raid(faction_id: String, ally_ids: Array = []) -> Dictionary:
+	if not can_raid_stockpile(faction_id):
+		# PROSE-REVIEW: new refusal line.
+		return { "ok": false, "reason": "You don't know where they keep it." }
+	if not Travel.can_afford(stockpile_district(faction_id), 1):
+		return { "ok": false, "reason": "No blocks left today." }
+	CombatPrep.request(CombatPrep.KIND_STOCKPILE_RAID, { "factionId": faction_id, "allyIds": ally_ids })
 	return { "ok": true }
 
 
@@ -753,6 +776,27 @@ static func maybe_trigger_defend(district_id: String) -> bool:
 			_start_defend_combat(outcome, vein)
 			return true
 	return false
+
+
+# Arrival-time sibling of maybe_trigger_defend(): parks the queued defence in
+# preparation without popping it, so Cancel leaves the raid queued. Returns
+# true when preparation took the screen.
+static func maybe_prepare_defend(district_id: String) -> bool:
+	for outcome in GameState.state["world"]["pendingDefendRaids"]:
+		var vein: Variant = Cultivating.find_vein(outcome["veinId"])
+		if vein != null and vein["district"] == district_id:
+			return prepare_defend(outcome["veinId"])
+	return false
+
+
+# The Defend buttons' entry: parks vein_id's queued raid in preparation.
+static func prepare_defend(vein_id: String) -> bool:
+	var i := _pending_defend_index(vein_id)
+	if i == -1 or Cultivating.find_vein(vein_id) == null:
+		return false
+	var outcome: Dictionary = GameState.state["world"]["pendingDefendRaids"][i]
+	CombatPrep.request(CombatPrep.KIND_VEIN_DEFEND, { "veinId": vein_id, "attackerId": str(outcome.get("attackerId", "")) })
+	return true
 
 
 # Index into pendingDefendRaids of the entry queued for vein_id, or -1.

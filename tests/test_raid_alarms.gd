@@ -40,10 +40,13 @@ func run() -> void:
 		GameState.state["player"]["veins"] = [vein]
 		GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "firm", "veinId": "v1", "siteId": "site_v1", "success": true, "notificationId": "n1" }]
 		assert_true(RaidAlarmsSystem.defend("vein:n1"))
+		assert_true(CombatPrep.is_pending())
+		assert_true(CombatPrep.commit()["ok"])
 		assert_true(GameState.state["combat"]["active"])
 		GameState.reset()
 		assert_true(not RaidAlarmsSystem.defend("vein:n1"))
 		assert_true(not GameState.state["combat"]["active"])
+		assert_true(not CombatPrep.is_pending())
 	)
 
 	run_case("leave_undefended_consumes_only_the_confirmed_raid_once", func():

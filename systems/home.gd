@@ -162,6 +162,15 @@ static func trigger_defend() -> bool:
 	return true
 
 
+# The HQ Defend buttons' entry: parks the pending raid in preparation; it stays
+# pending until Fight runs trigger_defend().
+static func prepare_defend() -> bool:
+	if not GameState.state["home"]["pendingRaid"]:
+		return false
+	CombatPrep.request(CombatPrep.KIND_HQ_DEFEND)
+	return true
+
+
 # Called by Combat's home_alarm_defend exit: a win costs nothing, anything
 # else resolves exactly as an undefended raid.
 static func resolve_defend_outcome(won: bool) -> void:

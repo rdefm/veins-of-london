@@ -95,6 +95,7 @@ func run() -> void:
 		)
 		assert_true(seed != -1, "should find a mugged roll within 200 tries")
 		assert_eq(GameState.state["modal"], null, "the sell_menu modal must be closed so the combat screen's action bar is reachable")
+		assert_true(CombatPrep.commit()["ok"])
 		assert_true(GameState.state["combat"]["active"], "sanity: the mugging did start combat")
 	)
 
@@ -971,5 +972,6 @@ func run() -> void:
 			return result.get("mugged", false)
 		)
 		assert_true(seed != -1, "should find a mugged roll within 200 tries")
+		assert_true(CombatPrep.commit()["ok"])
 		assert_eq(GameState.state["combat"]["enemies"].size() >= Combat.HARD_MUGGER_MIN_COUNT, true, "vein_included mugging should use Combat's harder roster floor")
 	)

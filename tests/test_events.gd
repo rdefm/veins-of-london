@@ -777,6 +777,7 @@ func run() -> void:
 		Events.start_event("home_raid_intro")
 		for i in range(GameData.EVENTS["home_raid_intro"]["cards"].size()):
 			Events.advance()
+		assert_true(CombatPrep.commit()["ok"])
 		assert_eq(GameState.state["event"], null, "event should clear")
 		assert_true(GameState.state["combat"]["active"], "start_home_raid_combat should launch combat")
 		assert_eq(GameState.state["combat"]["context"], Combat.CONTEXT_HOME_RAID)
@@ -904,6 +905,7 @@ func run() -> void:
 		Events.start_event("home_raid_intro")
 		for i in range(GameData.EVENTS["home_raid_intro"]["cards"].size()):
 			Events.advance()
+		assert_true(CombatPrep.commit()["ok"])
 		assert_true(GameState.state["combat"]["active"], "home_raid_intro: combat started")
 		assert_eq(GameState.state["combat"]["context"], Combat.CONTEXT_HOME_RAID)
 

@@ -52,7 +52,7 @@ static func travel_to(district: String, skip_triggers: bool = false) -> Dictiona
 	# Checked first: a pending alarm-defend raid targeting this district takes
 	# the screen over like any combat start, so the district deck's roll
 	# below must be skipped this beat, not stacked on top of it.
-	if Raiding.maybe_trigger_defend(district):
+	if Raiding.maybe_prepare_defend(district):
 		return { "ok": true }
 	DistrictDeck.maybe_trigger(district)  # must stay last; see its own doc comment
 	return { "ok": true }

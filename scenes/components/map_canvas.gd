@@ -930,7 +930,7 @@ func _activate_pin(pin: Dictionary) -> void:
 		"faction_shop":
 			Modal.open("sell_menu", { "factionId": pin["factionId"], "contactId": "" })
 		"stockpile":
-			Raiding.begin_stockpile_raid(pin["factionId"])
+			Raiding.prepare_stockpile_raid(pin["factionId"])
 
 
 
