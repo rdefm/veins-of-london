@@ -174,6 +174,7 @@ func _build_item_groups(body: VBoxContainer, entries: Array) -> void:
 		var glyph := SymbolGlyph.new()
 		glyph.symbol = tiers[0]["symbol"]
 		glyph.draw_fallback = SymbolGlyph.generic_fallback()
+		glyph.icon = ItemIcons.texture(recipe_key)
 		glyph.color = TEXT
 		glyph.font_size = 19
 		glyph.glyph_radius = 8.0
@@ -223,6 +224,7 @@ func _add_row(parent: VBoxContainer, entry: Dictionary, tier_row: bool = false) 
 		else:
 			glyph.symbol = entry["symbol"]
 			glyph.draw_fallback = SymbolGlyph.generic_fallback()
+			glyph.icon = ItemIcons.texture(entry.get("recipeKey", ""))
 		row.add_child(glyph)
 	var info := UI.vbox(2)
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL

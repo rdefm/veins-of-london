@@ -185,7 +185,7 @@ func _build_socket_tile(index: int, loaded: Array) -> Control:
 	var entry: Dictionary = loaded[index]
 	var recipe: Dictionary = GameData.RECIPES[entry["recipeKey"]]
 	var captured_index: int = index
-	var tile := MapCardStyle.style_chip(UI.symbol_button([{ "symbol": recipe["symbol"], "fallback": SymbolGlyph.generic_fallback() }, "%s t%d" % [recipe["name"], entry["tier"]]], func(): Dial.unload_complication(captured_index)))
+	var tile := MapCardStyle.style_chip(UI.symbol_button([ItemIcons.part(entry["recipeKey"]), "%s t%d" % [recipe["name"], entry["tier"]]], func(): Dial.unload_complication(captured_index)))
 	tile.custom_minimum_size = Vector2(SOCKET_TILE_WIDTH, SOCKET_TILE_HEIGHT)
 	tile.clip_contents = true
 	return tile

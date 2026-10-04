@@ -140,6 +140,7 @@ func _build_list(body: VBoxContainer, entries: Array) -> void:
 		var glyph := SymbolGlyph.new()
 		glyph.symbol = tiers[0]["symbol"]
 		glyph.draw_fallback = SymbolGlyph.generic_fallback()
+		glyph.icon = ItemIcons.texture(recipe_key)
 		glyph.color = TEXT
 		glyph.font_size = 19
 		glyph.glyph_radius = 8.0

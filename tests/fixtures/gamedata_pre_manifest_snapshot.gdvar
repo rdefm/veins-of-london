@@ -7249,6 +7249,7 @@
 },
 "effectPower": [0, 1, 1, 1, 2, 2],
 "eventUsable": true,
+"icon": "res://assets/combat/icons/beALady.png",
 "ingredients": {
 "fate": 6
 },
@@ -7269,6 +7270,7 @@
 },
 "effectPower": [0, 8, 10, 13, 16, 20],
 "eventUsable": false,
+"icon": "res://assets/combat/icons/blackHole.png",
 "ingredients": {
 "physics": 7
 },
@@ -7289,6 +7291,7 @@
 },
 "effectPower": [0, 6, 8, 10, 12, 15],
 "eventUsable": false,
+"icon": "res://assets/combat/icons/blast.png",
 "ingredients": {
 "physics": 5
 },
@@ -7309,6 +7312,7 @@
 },
 "effectPower": [0, 1, 1, 2, 2, 3],
 "eventUsable": false,
+"icon": "res://assets/combat/icons/enhancementPowder.png",
 "ingredients": {
 "life": 6
 },
@@ -7330,6 +7334,7 @@
 },
 "effectPower": [0, 1, 1, 2, 2, 2],
 "eventUsable": true,
+"icon": "res://assets/combat/icons/failsafe.png",
 "ingredients": {
 "life": 6,
 "time": 6
@@ -7351,6 +7356,7 @@
 },
 "effectPower": [0, 8, 10, 12, 15, 18],
 "eventUsable": false,
+"icon": "res://assets/combat/icons/healingBurst.png",
 "ingredients": {
 "life": 4,
 "time": 4
@@ -7372,6 +7378,7 @@
 },
 "effectPower": [0, 3, 4, 5, 6, 8],
 "eventUsable": false,
+"icon": "res://assets/combat/icons/healingSalve.png",
 "ingredients": {
 "life": 5
 },
@@ -7392,6 +7399,7 @@
 },
 "effectPower": [0, 2, 3, 4, 5, 6],
 "eventUsable": true,
+"icon": "res://assets/combat/icons/pansPrank.png",
 "ingredients": {
 "emotion": 6
 },
@@ -7412,6 +7420,7 @@
 },
 "effectPower": [0, 1, 1, 2, 2, 3],
 "eventUsable": true,
+"icon": "res://assets/combat/icons/prophetsBreath.png",
 "ingredients": {
 "time": 5
 },
@@ -7432,6 +7441,7 @@
 },
 "effectPower": [0, 0, 0, 0, 0, 0],
 "eventUsable": false,
+"icon": "res://assets/combat/icons/rejuvenation.png",
 "ingredients": {
 "life": 5,
 "time": 5
@@ -7453,6 +7463,7 @@
 },
 "effectPower": [0, 2, 2, 2, 2, 2],
 "eventUsable": true,
+"icon": "res://assets/combat/icons/rewind.png",
 "ingredients": {
 "time": 6
 },
@@ -7474,6 +7485,7 @@
 },
 "effectPower": [0, 4, 5, 6, 8, 10],
 "eventUsable": false,
+"icon": "res://assets/combat/icons/shield.png",
 "ingredients": {
 "physics": 6
 },
@@ -7494,6 +7506,7 @@
 },
 "effectPower": [0, 1, 1, 2, 2, 3],
 "eventUsable": false,
+"icon": "res://assets/combat/icons/timePearl.png",
 "ingredients": {
 "time": 5
 },
@@ -7515,6 +7528,7 @@
 },
 "effectPower": [0, 1, 1, 1, 1, 1],
 "eventUsable": true,
+"icon": "res://assets/combat/icons/wormhole.png",
 "ingredients": {
 "physics": 5,
 "time": 5

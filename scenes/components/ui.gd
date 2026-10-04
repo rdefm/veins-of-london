@@ -164,7 +164,10 @@ static func _symbol_part(part: Variant, heading_size: int, colour: Color) -> Con
 		var glyph := SymbolGlyph.new()
 		glyph.symbol = part.get("symbol", "")
 		glyph.draw_fallback = part.get("fallback", Callable())
+		glyph.icon = part.get("icon", null)
 		var glyph_size: float = SYMBOL_GLYPH_SIZE if heading_size <= 0 else float(heading_size) * 1.1
+		if glyph.icon != null:
+			glyph_size = maxf(glyph_size, ItemIcons.ICON_SIZE)
 		glyph.custom_minimum_size = Vector2(glyph_size, glyph_size)
 		glyph.font_size = heading_size if heading_size > 0 else 11
 		glyph.glyph_radius = glyph_size * 0.34

@@ -217,6 +217,8 @@ func _toggle_item_menu(anchor: Button) -> void:
 	for entry in EventItems.usable_entries():
 		var id: String = entry["id"]
 		var b := UI.button(item_entry_label(entry), func(): _on_item_picked(id))
+		b.icon = ItemIcons.texture(entry["recipeKey"])
+		b.expand_icon = true
 		_style_action_button(b)
 		list.add_child(b)
 	_item_menu.add_child(panel)

@@ -304,7 +304,7 @@ func _build_district_actions(district_id: String) -> Control:
 	else:
 		row.add_child(MapCardStyle.style_button(UI.button("Travel", func(): Travel.travel_to(district_id))))
 		if Crafting.inventory_qty("wormhole") > 0:
-			var wormhole := MapCardStyle.style_button(UI.symbol_button([{ "symbol": GameData.RECIPES["wormhole"]["symbol"], "fallback": SymbolGlyph.generic_fallback() }, " Wormhole"], func(): Travel.travel_via_wormhole(district_id)))
+			var wormhole := MapCardStyle.style_button(UI.symbol_button([ItemIcons.part("wormhole"), " Wormhole"], func(): Travel.travel_via_wormhole(district_id)))
 			MapCardStyle.tint_symbols(wormhole, MapCardStyle.action())
 			row.add_child(wormhole)
 

@@ -47,8 +47,8 @@ static func _build(container: VBoxContainer) -> void:
 	container.add_child(close)
 
 
-static func _ink_row(symbol: String, fallback: Variant, text: String) -> Control:
-	return MapCardStyle.tint_symbols(UI.symbol_row([{ "symbol": symbol, "fallback": fallback }, text]), MapCardStyle.ink())
+static func _ink_row(symbol: String, fallback: Variant, text: String, icon: Texture2D = null) -> Control:
+	return MapCardStyle.tint_symbols(UI.symbol_row([{ "symbol": symbol, "fallback": fallback, "icon": icon }, text]), MapCardStyle.ink())
 
 
 static func _personal_stash_section() -> Control:
@@ -85,7 +85,7 @@ static func _personal_stash_section() -> Control:
 		any_item_row = true
 		var recipe: Dictionary = GameData.RECIPES[recipe_key]
 		content.add_child(_move_row(
-			_ink_row(recipe["symbol"], SymbolGlyph.generic_fallback(), "%s — shared %d / stashed %d" % [recipe["name"], shared_qty, stashed_qty]),
+			_ink_row(recipe["symbol"], SymbolGlyph.generic_fallback(), "%s — shared %d / stashed %d" % [recipe["name"], shared_qty, stashed_qty], ItemIcons.texture(recipe_key)),
 			shared_qty, stashed_qty, Stash.get_item_move_qty(recipe_key),
 			func(delta: int, limit: int): Stash.adjust_item_move_qty(recipe_key, delta, limit),
 			func(): Stash.move_item_to_stash(recipe_key, Stash.get_item_move_qty(recipe_key)),

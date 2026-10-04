@@ -12,7 +12,7 @@ static func _prose_parts(data: Dictionary) -> Array:
 	match data.get("outcome", ""):
 		"found":
 			var r: Dictionary = GameData.RECIPES[data["recipeKey"]]
-			return [{ "symbol": r["symbol"], "fallback": SymbolGlyph.generic_fallback() }, "%s. %s Craftable now." % [r["name"], r["description"]]]
+			return [ItemIcons.part(data["recipeKey"]), "%s. %s Craftable now." % [r["name"], r["description"]]]
 		"hot":
 			return ["Something's in there. It didn't come out this time."]
 		"inert":

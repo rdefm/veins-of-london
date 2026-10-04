@@ -64,6 +64,8 @@ Other cultivating constants (also `data/vein_growth.json`, colocated since their
 
 ### 1.3 `data/recipes.json`
 
+Each recipe also carries an `icon` field (`res://assets/combat/icons/<recipeKey>.png`, pixel-art), resolved by `ItemIcons`; `symbol` remains the text-glyph fallback.
+
 Each recipe's `ingredients` field is a dict of `{oreType: baseCalcCost}` — one key per required ore type, cost computed per-key (§3.5). Existing recipes are all single-ingredient (one-key dicts); nothing in the schema requires that.
 
 | key | name | symbol | ingredients (oreType: baseCalcCost) | baseSuccess | effectPower (index=skill 0–5) | xpReward | eventUsable |

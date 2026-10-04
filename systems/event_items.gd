@@ -8,8 +8,8 @@ extends RefCounted
 # _apply(); the event screen only lists usable_entries() and calls use().
 
 const ENTRIES: Array[Dictionary] = [
-	{ "id": "rewind", "label": "⟲ Rewind", "source": "consumable", "recipeKey": "rewind" },
-	{ "id": "dialRewind", "label": "⟲ Rewind (Dial)", "source": "dial", "recipeKey": "rewind" },
+	{ "id": "rewind", "label": "Rewind", "source": "consumable", "recipeKey": "rewind" },
+	{ "id": "dialRewind", "label": "Rewind (Dial)", "source": "dial", "recipeKey": "rewind" },
 ]
 
 

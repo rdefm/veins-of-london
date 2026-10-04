@@ -33,7 +33,7 @@ static func _found_recipe_rows(types: Array) -> Array:
 		var r: Dictionary = GameData.RECIPES[recipe_key]
 		var tier: int = Bench.get_cell(types, approach_id)["refine"]
 		var row := UI.vbox(4)
-		row.add_child(UI.symbol_row([{ "symbol": r["symbol"], "fallback": SymbolGlyph.generic_fallback() }, "%s — tier %d" % [r["name"], tier]]))
+		row.add_child(UI.symbol_row([ItemIcons.part(recipe_key), "%s — tier %d" % [r["name"], tier]]))
 		LabBenchModalHelpers.append_refine_controls(row, r, types, approach_id)
 		rows.append(row)
 	return rows

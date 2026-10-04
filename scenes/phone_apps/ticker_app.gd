@@ -369,7 +369,7 @@ func _good_name(kind: String, good_type: String) -> String:
 func _good_symbol(kind: String, good_type: String) -> Dictionary:
 	if kind == "ore":
 		return { "symbol": GameData.ORE_TYPES[good_type]["symbol"], "fallback": SymbolGlyph.ore_fallback(good_type) }
-	return { "symbol": GameData.RECIPES[good_type]["symbol"], "fallback": SymbolGlyph.generic_fallback() }
+	return ItemIcons.part(good_type)
 
 
 # One tappable, divided price row: symbol and type opposite the live quote.

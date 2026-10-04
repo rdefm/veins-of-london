@@ -3,6 +3,7 @@
     "timePearl": {
       "name": "Time Pearl",
       "symbol": "⧖",
+      "icon": "res://assets/combat/icons/timePearl.png",
       "ingredients": { "time": 5 },
       "discovery": { "types": ["time"], "approach": "compression" },
       "taughtBy": "tutorial",
@@ -16,6 +17,7 @@
     "enhancementPowder": {
       "name": "Enhancement Powder",
       "symbol": "↯",
+      "icon": "res://assets/combat/icons/enhancementPowder.png",
       "ingredients": { "life": 6 },
       "discovery": { "types": ["life"], "approach": "grinding" },
       "taughtBy": "tutorial",
@@ -29,6 +31,7 @@
     "rewind": {
       "name": "Rewind",
       "symbol": "⟲",
+      "icon": "res://assets/combat/icons/rewind.png",
       "ingredients": { "time": 6 },
       "discovery": { "types": ["time"], "approach": "heat" },
       "taughtBy": "tutorial",
@@ -42,6 +45,7 @@
     "healingSalve": {
       "name": "Healing Salve",
       "symbol": "♥",
+      "icon": "res://assets/combat/icons/healingSalve.png",
       "ingredients": { "life": 5 },
       "discovery": { "types": ["life"], "approach": "heat" },
       "baseSuccess": 0.45,
@@ -54,6 +58,7 @@
     "blast": {
       "name": "Blast",
       "symbol": "☄",
+      "icon": "res://assets/combat/icons/blast.png",
       "ingredients": { "physics": 5 },
       "discovery": { "types": ["physics"], "approach": "grinding" },
       "baseSuccess": 0.40,
@@ -66,6 +71,7 @@
     "shield": {
       "name": "Shield",
       "symbol": "⛨",
+      "icon": "res://assets/combat/icons/shield.png",
       "ingredients": { "physics": 6 },
       "discovery": { "types": ["physics"], "approach": "heat" },
       "baseSuccess": 0.30,
@@ -78,6 +84,7 @@
     "blackHole": {
       "name": "Black Hole",
       "symbol": "⊙",
+      "icon": "res://assets/combat/icons/blackHole.png",
       "ingredients": { "physics": 7 },
       "discovery": { "types": ["physics"], "approach": "compression" },
       "baseSuccess": 0.20,
@@ -90,6 +97,7 @@
     "prophetsBreath": {
       "name": "Prophet's Breath",
       "symbol": "≋",
+      "icon": "res://assets/combat/icons/prophetsBreath.png",
       "ingredients": { "time": 5 },
       "discovery": { "types": ["time"], "approach": "distilling" },
       "baseSuccess": 0.30,
@@ -102,6 +110,7 @@
     "beALady": {
       "name": "Be a Lady",
       "symbol": "☘",
+      "icon": "res://assets/combat/icons/beALady.png",
       "ingredients": { "fate": 6 },
       "discovery": { "types": ["fate"], "approach": "grinding" },
       "baseSuccess": 0.35,
@@ -114,6 +123,7 @@
     "pansPrank": {
       "name": "Pan's Prank",
       "symbol": "☻",
+      "icon": "res://assets/combat/icons/pansPrank.png",
       "ingredients": { "emotion": 6 },
       "discovery": { "types": ["emotion"], "approach": "distilling" },
       "baseSuccess": 0.25,
@@ -126,6 +136,7 @@
     "healingBurst": {
       "name": "Healing Burst",
       "symbol": "✚",
+      "icon": "res://assets/combat/icons/healingBurst.png",
       "ingredients": { "time": 4, "life": 4 },
       "discovery": { "types": ["life", "time"], "approach": "heat" },
       "baseSuccess": 0.30,
@@ -138,6 +149,7 @@
     "failsafe": {
       "name": "Failsafe",
       "symbol": "⚑",
+      "icon": "res://assets/combat/icons/failsafe.png",
       "ingredients": { "time": 6, "life": 6 },
       "discovery": { "types": ["life", "time"], "approach": "distilling" },
       "baseSuccess": 0.12,
@@ -150,6 +162,7 @@
     "rejuvenation": {
       "name": "Rejuvenation",
       "symbol": "❀",
+      "icon": "res://assets/combat/icons/rejuvenation.png",
       "ingredients": { "time": 5, "life": 5 },
       "discovery": { "types": ["life", "time"], "approach": "grinding" },
       "baseSuccess": 0.35,
@@ -162,6 +175,7 @@
     "wormhole": {
       "name": "Wormhole",
       "symbol": "⊗",
+      "icon": "res://assets/combat/icons/wormhole.png",
       "ingredients": { "time": 5, "physics": 5 },
       "discovery": { "types": ["time", "physics"], "approach": "compression" },
       "baseSuccess": 0.18,

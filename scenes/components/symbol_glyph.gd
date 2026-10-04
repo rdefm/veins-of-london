@@ -20,9 +20,17 @@ extends Control
 		queue_redraw()
 
 var draw_fallback: Callable
+var icon: Texture2D:
+	set(value):
+		icon = value
+		queue_redraw()
 
 
 func _draw() -> void:
+	if icon != null:
+		var side := minf(size.x, size.y)
+		draw_texture_rect(icon, Rect2((size - Vector2(side, side)) / 2.0, Vector2(side, side)), false)
+		return
 	draw_symbol(self, ThemeDB.fallback_font, size / 2.0, symbol, color, font_size, glyph_radius, draw_fallback)
 
 

@@ -354,7 +354,7 @@ static func build_james_card() -> Control:
 			elif job["type"] == "flatPay":
 				c["content"].add_child(UI.button(UI.format_block_cost_label("💷 Do the job (£%d)" % job["pay"]), func(): Jobs.fulfil_job()))
 			else:
-				c["content"].add_child(UI.symbol_button(["📦 Deliver job: %d× " % job["qty"], { "symbol": job["symbol"], "fallback": SymbolGlyph.generic_fallback() }, " %s" % job["recipeName"]], func(): Jobs.fulfil_job()))
+				c["content"].add_child(UI.symbol_button(["📦 Deliver job: %d× " % job["qty"], ItemIcons.part(job["recipeKey"]), " %s" % job["recipeName"]], func(): Jobs.fulfil_job()))
 
 	var recruit_row := build_recruit_row("james")
 	if recruit_row != null:

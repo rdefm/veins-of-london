@@ -23,7 +23,7 @@ static func _recipe_row(recipe_key: String) -> Control:
 	var stock: int = Crafting.inventory_qty(recipe_key)
 
 	var c := MapCardStyle.card(12, 0.0)
-	c["content"].add_child(UI.symbol_row([{ "symbol": r["symbol"], "fallback": SymbolGlyph.generic_fallback() }, r["name"]], { "heading_size": 15 }))
+	c["content"].add_child(UI.symbol_row([ItemIcons.part(recipe_key), r["name"]], { "heading_size": 15 }))
 	c["content"].add_child(UI.muted_label(r["description"]))
 	for ingredient in costs:
 		var have: int = player["orichalchum"].get(ingredient, 0)

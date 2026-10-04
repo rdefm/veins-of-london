@@ -166,7 +166,8 @@ overlays.
 | ore_glyphs.gd | Five canonical ore silhouettes as hand-drawn vectors; bundled-font coverage probe for non-map symbol fallback |
 | phone_device_shell.gd | Persistent rounded simulated-phone frame: clipped display, approved London wallpaper, fixed status/widget chrome, dark opened-app surface + shared/custom content mounts |
 | phone_home_dock.gd | Home-only translucent three-destination Phone/Messages/Settings dock |
-| symbol_glyph.gd | Label-or-vector fallback for a symbol |
+| symbol_glyph.gd | Label-or-vector fallback for a symbol; draws an optional `icon` texture instead when set |
+| item_icons.gd | `ItemIcons`: recipe key -> pixel-art icon texture (from recipes.json `icon`) and symbol-row part dict; shared by Bag, Dial, trade, events, combat |
 | time_transition.gd | Transient time queue, input guard, dimmed circular park/sky/sun/moon presentation |
 | top_bar.gd | Top departure board: casing + status lines + NotificationTicker; feeds new notifications (combat hold, combat lines dropped when fight ends, raid-alarm line, reset on load/Rewind); tap opens Notifications app (short-pay menu if latest line is the pending guard shortfall) except in combat |
 | touch_scroll_container.gd | ScrollContainer, touch drag-scroll |

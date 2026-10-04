@@ -127,6 +127,7 @@ func _build_complication_detail(dial: Variant) -> Control:
 			var entry: Dictionary = loaded[index]
 			var recipe: Dictionary = GameData.RECIPES[entry["recipeKey"]]
 			glyph.symbol = recipe["symbol"]
+			glyph.icon = ItemIcons.texture(entry["recipeKey"])
 			text = "%s — tier %d" % [recipe["name"], entry["tier"]]
 
 	# Read-only readout of the Dial's selection (casting is the Dial's own

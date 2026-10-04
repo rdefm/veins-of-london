@@ -93,10 +93,10 @@ func _build() -> void:
 	for recipe_key in CONSUMABLE_KEYS:
 		var recipe: Dictionary = GameData.RECIPES[recipe_key]
 		var qty: int = Crafting.inventory_qty(recipe_key)
-		_content.add_child(UI.symbol_row([{ "symbol": recipe["symbol"], "fallback": SymbolGlyph.generic_fallback() }, "%s: %d" % [recipe["name"], qty]]))
+		_content.add_child(UI.symbol_row([ItemIcons.part(recipe_key), "%s: %d" % [recipe["name"], qty]]))
 
 	if player["healingSalveDaysLeft"] > 0:
-		_content.add_child(UI.symbol_row([{ "symbol": GameData.RECIPES["healingSalve"]["symbol"], "fallback": SymbolGlyph.generic_fallback() }, "Healing Salve active — %d HP/day, %d day(s) left" % [player["healingSalveDailyAmount"], player["healingSalveDaysLeft"]]], { "muted": true }))
+		_content.add_child(UI.symbol_row([ItemIcons.part("healingSalve"), "Healing Salve active — %d HP/day, %d day(s) left" % [player["healingSalveDailyAmount"], player["healingSalveDaysLeft"]]], { "muted": true }))
 
 	if management:
 		_add_out_of_combat_use_buttons(player)
@@ -129,8 +129,7 @@ func _add_out_of_combat_use_buttons(player: Dictionary) -> void:
 
 
 func _symbol_use_button(recipe_key: String, rest_text: String, callback: Callable, disabled: bool = false) -> Button:
-	var symbol: String = GameData.RECIPES[recipe_key]["symbol"]
-	return MapCardStyle.symbol_option_row([{ "symbol": symbol, "fallback": SymbolGlyph.generic_fallback() }, rest_text], callback, disabled)
+	return MapCardStyle.symbol_option_row([ItemIcons.part(recipe_key), rest_text], callback, disabled)
 
 
 func _on_use_healing_salve() -> void:

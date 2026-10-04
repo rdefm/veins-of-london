@@ -15,7 +15,7 @@ static func build(container: VBoxContainer, _data: Dictionary) -> void:
 			any_loadable = true
 			var captured_key: String = recipe_key
 			var captured_tier: int = int(tier_key)
-			container.add_child(MapCardStyle.symbol_option_row([{ "symbol": recipe["symbol"], "fallback": SymbolGlyph.generic_fallback() }, "%s tier %s (%d)" % [recipe["name"], tier_key, buckets[tier_key]]], func():
+			container.add_child(MapCardStyle.symbol_option_row([ItemIcons.part(captured_key), "%s tier %s (%d)" % [recipe["name"], tier_key, buckets[tier_key]]], func():
 				Dial.load_complication(captured_key, captured_tier)
 				Modal.close()
 			))
