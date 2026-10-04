@@ -71,7 +71,7 @@ func run() -> void:
 				"james_job_complete", "sell_menu", "guard_kit", "nadia_supply", "sell_vein_quote",
 				"craft_components_menu", "network_reference", "movement_craft", "movement_swap",
 				"dial_load_complication", "combat_setup", "hq_ore_readout", "hq_gym",
-				"lab_bench_recipe_book", "lab_bench_notes", "lab_bench_probe_result", "lab_bench_confirm", "contract_cancel"]:
+				"lab_bench_recipe_book", "lab_bench_recipe_detail", "lab_bench_notes", "lab_bench_probe_result", "lab_bench_confirm", "contract_cancel"]:
 			assert_true(ModalRegistry.REGISTRY.has(type_id), "%s is registered" % type_id)
 			assert_true(ModalRegistry.REGISTRY[type_id].has_method("build"), "%s exposes build()" % type_id)
 	)
@@ -1272,16 +1272,85 @@ func run() -> void:
 		layer._ready()
 
 		assert_true(NodeQuery.label_texts_with_symbols(layer).has("Time Pearl"), "tutorial-taught recipes are already Found on a fresh save")
-		assert_true(_find_cost_button(layer, "Craft ×1") != null, "each row's batch slider defaults to qty 1")
+		assert_true(_find_cost_button(layer, "Open") != null, "each found recipe row opens its detail")
+		assert_true(_find_cost_button(layer, "Craft ×1") == null, "crafting lives in the detail overlay, not the list")
 
 		layer.free()
+	)
+
+	run_case("lab_bench_recipe_book_row_open_selects_that_recipe_in_the_detail_overlay", func():
+		GameState.reset()
+		Modal.open("lab_bench_recipe_book")
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		_find_cost_button(layer, "Open").pressed.emit()
+
+		assert_eq(GameState.state["modal"]["type"], "lab_bench_recipe_detail")
+		var key: String = GameState.state["modal"]["data"]["recipeKey"]
+		assert_true(Bench.found_recipe_keys().has(key))
+		assert_true(layer._overlay_card.visible, "overlay card shows above the book")
+		assert_true(NodeQuery.label_texts_with_symbols(layer).has("Recipe book"), "book stays rendered beneath")
+		assert_true(NodeQuery.label_texts_with_symbols(layer).has(GameData.RECIPES[key]["description"]), "full description in the overlay")
+		layer.free()
+	)
+
+	run_case("lab_bench_recipe_detail_back_returns_to_the_book", func():
+		GameState.reset()
+		Modal.open("lab_bench_recipe_detail", { "recipeKey": "timePearl" })
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		_find_cost_button(layer, "Back to book").pressed.emit()
+
+		assert_eq(GameState.state["modal"]["type"], "lab_bench_recipe_book")
+		layer.free()
+	)
+
+	run_case("lab_bench_recipe_detail_for_an_unfound_recipe_shows_nothing_and_no_craft", func():
+		GameState.reset()
+		var unfound := ""
+		for key in GameData.RECIPES.keys():
+			if not Bench.found_recipe_keys().has(key):
+				unfound = key
+				break
+		assert_true(unfound != "", "fixture: some recipe is unfound on a fresh save")
+		Modal.open("lab_bench_recipe_detail", { "recipeKey": unfound })
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		assert_true(_find_cost_button(layer, "Craft ×1") == null)
+		layer.free()
+	)
+
+	run_case("lab_bench_recipe_detail_craft_result_got_it_returns_to_the_book", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["time"] = 20
+		Modal.open("lab_bench_recipe_detail", { "recipeKey": "timePearl" })
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		_find_cost_button(layer, "Craft ×1").pressed.emit()
+		assert_eq(GameState.state["modal"]["type"], "craft_batch_result")
+		assert_eq(GameState.state["modal"]["data"]["completed"], 1, "one batch call")
+		Modal.close()
+
+		assert_eq(GameState.state["modal"]["type"], "lab_bench_recipe_book", "result dismissal lands on the book, not the bench")
+		layer.free()
+	)
+
+	run_case("modal_close_without_a_return_target_still_dismisses", func():
+		GameState.reset()
+		Modal.open("craft_batch_result", {})
+		Modal.close()
+		assert_true(GameState.state["modal"] == null)
 	)
 
 	run_case("lab_bench_recipe_book_batch_slider_maxes_at_affordable_and_drives_the_craft_label", func():
 		GameState.reset()
 		var cost: int = Crafting.calc_cost("timePearl", GameState.state["player"]["craftingSkill"])["time"]
 		GameState.state["player"]["orichalchum"]["time"] = cost * 3
-		Modal.open("lab_bench_recipe_book")
+		Modal.open("lab_bench_recipe_detail", { "recipeKey": "timePearl" })
 
 		var layer := ModalLayer.new()
 		layer._ready()
@@ -1319,7 +1388,7 @@ func run() -> void:
 	run_case("lab_bench_recipe_book_craft_button_runs_the_normal_batch_craft_path", func():
 		GameState.reset()
 		GameState.state["player"]["orichalchum"]["time"] = 20
-		Modal.open("lab_bench_recipe_book")
+		Modal.open("lab_bench_recipe_detail", { "recipeKey": "timePearl" })
 
 		var layer := ModalLayer.new()
 		layer._ready()
@@ -1334,7 +1403,7 @@ func run() -> void:
 		GameState.reset()
 		for ore_type in GameData.ORE_TYPES.keys():
 			GameState.state["player"]["orichalchum"][ore_type] = 0
-		Modal.open("lab_bench_recipe_book")
+		Modal.open("lab_bench_recipe_detail", { "recipeKey": "timePearl" })
 
 		var layer := ModalLayer.new()
 		layer._ready()
@@ -1349,7 +1418,7 @@ func run() -> void:
 	run_case("lab_bench_recipe_book_refine_button_is_disabled_when_not_enough_calc", func():
 		GameState.reset()
 		GameState.state["player"]["orichalchum"]["time"] = 0
-		Modal.open("lab_bench_recipe_book")
+		Modal.open("lab_bench_recipe_detail", { "recipeKey": "timePearl" })
 
 		var layer := ModalLayer.new()
 		layer._ready()

@@ -78,7 +78,7 @@ Data file per system: see `data/*.json` below.
 | map_view.gd | Persists Network camera |
 | map_zoom.gd | Zoom-level math for the diagram |
 | messages.gd | Messages data layer + conversation-index projections, total unread count, per-contact clear (read + contact notifications seen) |
-| modal.gd | Modal open/close state; holds an event deferred behind a modal flow (`followEvent`) and starts it on close |
+| modal.gd | Modal open/close state; holds an event deferred behind a modal flow (`followEvent`) and starts it on close; `returnTo` reopens a parked modal on close |
 | morning_accounts.gd | Rollover capture (incl. arrears exceptions and countdown, payday statement, wage shortfalls, Monday guard wages, guard shortfall/walk-offs), per-block staff output accumulation, BizBrief routing, arrears/payday/wage-prompt/guard-wage labels |
 | nav.gd | Screen navigation |
 | notify.gd | Notifications append/evict; per-contact dismiss via contactId meta |
@@ -163,7 +163,7 @@ overlays.
 | map_palette.gd | MapPalette: resolves Map palette tokens (data/map_palette.json) for the current light/dark mode (`meta.mapDarkMode`), plus faction/ore colours with optional dark-only overrides; every Map-tab colour reads through it; build_light() scopes a light-only build for off-Map reusers |
 | map_legend.gd | Persistent faction-colour key; restyles in place on a dark-mode toggle |
 | map_zoom_buttons.gd | Floating +/- zoom control; restyles in place on a dark-mode toggle |
-| modal_layer.gd | Dim background + light map_card_style.gd card (content built inside MapPalette.build_light), with navy/red chrome for BizBrief contract cancellation; mounts full-screen sheets for sell_menu (Trade) and guard_kit, and dispatches other content through modal_registry.gd; tap-outside dismiss |
+| modal_layer.gd | Dim background + light map_card_style.gd card (content built inside MapPalette.build_light), with navy/red chrome for BizBrief contract cancellation; mounts full-screen sheets for sell_menu (Trade) and guard_kit, and dispatches other content through modal_registry.gd; draws recipe detail as a second card over the recipe book (book scroll kept); tap-outside dismiss |
 | notification_ticker.gd | Top board's one-message notice row: presentation-only queue, roll-up from below, marquee for overflow, 4s hold; latest stays when empty; transient (combat-log) or keyed (notification id) queued entries droppable |
 | nav_bar.gd | Bottom nav dock (Phone·Map·HQ); swaps to MapPalette dark chrome tokens while the Map tab shows with Map dark mode on |
 | ore_glyphs.gd | Five canonical ore silhouettes as hand-drawn vectors; bundled-font coverage probe for non-map symbol fallback |
@@ -210,7 +210,8 @@ overlays.
 | hq_ore_readout_modal.gd | Ore-store slip with raid-risk stamp + personal-stash move controls, map_card_style.gd-skinned (always light) |
 | hq_gym_modal.gd | Combat skill card (level, XP bar, current + next-level HP/ATK/SPD via `Combat.skill_summary()`) + Train action card |
 | lab_bench_modal_helpers.gd | Refine controls, batch total text + outcome headings shared by the lab-bench modals |
-| lab_bench_recipe_book_modal.gd | Found recipes: cost/chance, batch slider + total, Craft, Refine |
+| lab_bench_recipe_book_modal.gd | Found-recipe list (icon, name, stock, Open); Open raises lab_bench_recipe_detail |
+| lab_bench_recipe_detail_modal.gd | One found recipe above the book: description, ingredients, chance/effect/stock, batch slider + Craft (result returns to the book via `Modal.set_return`), Refine, Back to book |
 | lab_bench_notes_modal.gd | Per-pairing survey notes with found-recipe refine rows |
 | lab_bench_probe_result_modal.gd | Probe outcome card |
 | lab_bench_confirm_modal.gd | Gear-tap confirm: probe, craft ×N (batch slider, max = affordable) or inert warning, by cell state |
