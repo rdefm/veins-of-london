@@ -65,7 +65,7 @@ func _build_seeded_screen(player: Dictionary, dial: Dictionary) -> void:
 
 	chrome.add_child(UI.back_button("hq"))
 	chrome.add_child(UI.heading("Dial"))
-	_build_top_block(chrome, player, dial)
+	_build_top_block(chrome)
 	chrome.add_child(MapCardStyle.text_button("Craft Components", func(): Modal.open("lab_bench_recipe_book")))
 	var device_wrap := _build_device_art(dial)
 	device_wrap.position = Vector2(device_x, device_top)
@@ -150,32 +150,11 @@ func _needle_rotation_degrees(dial: Dictionary) -> float:
 		return NEEDLE_MIN_DEG
 	var fraction: float = clampf(dial["currentCharge"] / max_charge, 0.0, 1.0)
 	return lerpf(NEEDLE_MIN_DEG, NEEDLE_MAX_DEG, fraction)
-func _build_top_block(content: VBoxContainer, player: Dictionary, dial: Dictionary) -> void:
-	var c := MapCardStyle.card()
-	var haft_name: String = Dial.haft_name(dial)
-	c["content"].add_child(UI.label("Level %d Dial — %s" % [dial["level"], haft_name]))
-	c["content"].add_child(UI.muted_label("Charge %s/%d (regen %s/day)" % [str(int(dial["currentCharge"])), dial["maxCharge"], str(dial["rechargeRate"])]))
-	c["content"].add_child(UI.muted_label("Capacity %d/%d" % [Dial.capacity_used(dial), dial["capacityMax"]]))
-
-	var movement: Variant = dial["movement"]
-	if movement != null:
-		var m: Dictionary = GameData.DIAL_MOVEMENTS[movement["archetype"]]
-		c["content"].add_child(UI.symbol_row([{ "symbol": m["symbol"], "fallback": SymbolGlyph.generic_fallback() }, "%s (seated) — attuned %s, tier %d" % [m["name"], movement["oreType"], movement["tier"]]]))
-		c["content"].add_child(MapCardStyle.text_button("Unseat", func(): Dial.unseat_movement()))
-		var cost: int = Dial.winding_cost_per_charge(movement["archetype"], movement["tier"])
-		var have: int = player["orichalchum"].get(movement["oreType"], 0)
-		var wind_button := MapCardStyle.symbol_text_button(["Wind +1 (%d " % cost, { "symbol": GameData.ORE_TYPES[movement["oreType"]]["symbol"], "fallback": SymbolGlyph.ore_fallback(movement["oreType"]) }, ")"], func(): Dial.wind(1), dial["currentCharge"] >= dial["maxCharge"] or have < cost)
-		wind_button.custom_minimum_size = Vector2(0, SOCKET_TILE_HEIGHT)
-		c["content"].add_child(wind_button)
-	else:
-		c["content"].add_child(UI.muted_label("No Movement seated — the Dial is inert."))
-
-	c["content"].add_child(MapCardStyle.footer([
-		MapCardStyle.text_button("Craft new Movement", func(): Modal.open("craft_components_menu")),
-		MapCardStyle.text_button("Swap", func(): Modal.open("movement_swap"), player["movementInventory"].is_empty()),
-	]))
-
-	content.add_child(c["panel"])
+func _build_top_block(content: VBoxContainer) -> void:
+	# Complications sit in the flanking sockets on the device art.
+	var card := DialLoadoutMenu.build("", false)
+	if card != null:
+		content.add_child(card)
 func _build_socket_tile(index: int, loaded: Array) -> Control:
 	if index >= loaded.size():
 		var empty := MapCardStyle.chip_button("Empty", func(): Modal.open("dial_load_complication"))

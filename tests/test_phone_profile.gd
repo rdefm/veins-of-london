@@ -8,7 +8,60 @@ const NodeQuery := preload("res://tests/support/node_query.gd")
 # headless-scene pattern as tests/test_phone_home_grid.gd.
 
 
+static func _dial() -> Dictionary:
+	return {
+		"level": 1, "xp": 0, "currentCharge": 0, "maxCharge": 0, "rechargeRate": 0,
+		"combatRegenTurnCounter": 0, "lastRegenDay": GameState.state["world"]["day"],
+		"capacityMax": Dial.capacity_max(1), "movement": null, "loadedComplications": [],
+		"haftId": "collective_brolly",
+	}
+
+
 func run() -> void:
+	run_case("profile_dial_menu_absent_without_a_dial_and_for_non_player_owners", func():
+		GameState.reset()
+		assert_true(DialLoadoutMenu.build() == null, "no Dial -> no menu")
+		GameState.state["player"]["dial"] = _dial()
+		assert_true(DialLoadoutMenu.build() != null, "player with Dial -> menu")
+		assert_true(DialLoadoutMenu.build("some_recruit") == null, "owner without a Dial -> no menu")
+	)
+
+	run_case("profile_dial_menu_wind_unload_unseat_work_and_conserve_units", func():
+		GameState.reset()
+		var player: Dictionary = GameState.state["player"]
+		var dial := _dial()
+		dial["maxCharge"] = 10
+		player["dial"] = dial
+		player["orichalchum"]["time"] = 50
+		player["inventory"]["timePearl"] = { "1": 1 }
+		Dial.load_complication("timePearl", 1)
+		dial["movement"] = { "archetype": "recharge", "oreType": "time", "tier": 1 }
+		var world_before: Dictionary = GameState.state["world"].duplicate(true)
+
+		GameState.state["phoneNav"]["app"] = "profile"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		var wind_btn := _button_starting_with(phone, "Wind +1 (")
+		assert_true(wind_btn != null, "Profile shows Wind")
+		if wind_btn != null:
+			wind_btn.pressed.emit()
+		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 1, "wind adds 1 charge")
+		assert_eq(GameState.state["world"], world_before, "wind never advances time")
+		phone.free()
+
+		phone = PhoneScreen.new()
+		phone._ready()
+		NodeQuery.find_button_by_effective_text(phone, "Unload Time Pearl t1").pressed.emit()
+		assert_eq(Crafting.inventory_qty("timePearl"), 1, "unload returns the unit")
+		phone.free()
+
+		phone = PhoneScreen.new()
+		phone._ready()
+		NodeQuery.find_button_by_effective_text(phone, "Unseat").pressed.emit()
+		assert_eq(GameState.state["player"]["movementInventory"].size(), 1, "unseat returns the Movement")
+		phone.free()
+	)
+
 	run_case("profile_shows_hp_and_hp_bar_for_a_fresh_game", func():
 		GameState.reset()
 		GameState.state["phoneNav"]["app"] = "profile"
@@ -213,3 +266,11 @@ func run() -> void:
 
 		phone.free()
 	)
+
+
+static func _button_starting_with(root: Node, prefix: String) -> Button:
+	for b in root.find_children("", "Button", true, false):
+		var btn := b as Button
+		if btn.get_child_count() > 0 and NodeQuery.effective_text(btn.get_child(0) as Control).begins_with(prefix):
+			return btn
+	return null

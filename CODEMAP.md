@@ -119,7 +119,8 @@ overlays.
 | event.gd | Event-card screen (VN and non-VN layouts); Item button + popup over EventItems; choices row, or stack full-width when they don't fit; Leave-only fallback when state.event's id has no definition |
 | factions.gd | Factions tab |
 | hq.gd | HQ tab: renders the home tier's room plate (bedsit fallback), routes zone taps to sub-screens |
-| hq_dial.gd | Dial loadout sub-view (Movements, Complications) |
+| hq_dial.gd | HQ Dial sub-view: embeds DialLoadoutMenu (no complication rows) above the device art with flanking Complication sockets |
+| dial_loadout_menu.gd | `DialLoadoutMenu.build(owner_id, with_complication_rows)`: shared Dial loadout card (readouts, seat/unseat/swap, wind, load/unload); null when owner has no Dial. Used by Profile and HQ Dial |
 | hq_door.gd | Security zone (lock/cameras/door/alarm/guard/ward); guard tile shows hire advance and weekly guard cost (links to Guard Costs); HQ kit row opens the HQ stocking sheet; Guard kits row opens hq_guard_kit |
 | hq_guard_kit.gd | Guard Kit list: HQ kit row on top (`build_hq_row`, shared with hq_door), then one row per player vein with guards or a non-empty kit (name, n/cap, summary, idle); a row opens that kit's stocking sheet |
 | hq_floorplan.gd | Noticeboard: tiers with a plan show FloorplanView (tap slot → choose/replace use); others show the room-tile grid. Contact assignment, Let go for hires, seats used/total and seat upgrade for staffed rooms |
@@ -227,7 +228,7 @@ overlays.
 | todo_app.gd | ToDo app: collapsible questline sections from Todo, all_of checks as indented sub-rows; session-only expand/collapse overrides in a static var |
 | factions_app.gd | London share table (ore/crafting toggle), London's politics (stance per pair, war/truce markers) and faction cards: archetype, ores, crafts, share bars, stance, pressure, peace talks at war, Gift, favour asked/owed (`Diplomacy`), partner price ask and trouble asks (`Partners`), intel level and what it reveals (`Intel`), activity log. |
 | ticker_app.gd | Ticker News: state stories by recency, newest-first wires, full state and wire articles, live impact, same-axis Influence sheet. Stock Market: filters, Ore/Items lists, demand modifiers, price detail and chart, annotations and demand drivers |
-| profile_app.gd | Stats, skills, equipment, and a two-slot Loadout card (equip/unequip) for the player and each recruited combat contact |
+| profile_app.gd | Stats, skills, equipment, and a two-slot Loadout card (equip/unequip) for the player and each recruited combat contact, plus the shared Dial loadout card |
 | dialer_app.gd | Phone recent-calls placeholder; no telephony state/actions |
 | settings_app.gd | Reduced-motion and alarm-vibration preference controls |
 | saveload_app.gd | Save slots, export/import (with copy-to-clipboard), New Game confirm |
