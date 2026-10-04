@@ -1685,6 +1685,46 @@ func run() -> void:
 		screen.free()
 	)
 
+	run_case("waiting_fighters_stage_as_up_to_three_small_reserve_sprites_then_plus_n", func():
+		var roster: Array = []
+		for i in range(8):
+			var e := Fixtures.enemy("R%d" % i)
+			e["rid"] = i
+			roster.append(e)
+		_setup_combat(roster.slice(0, 3))
+		GameState.state["combat"]["enemyQueue"] = roster.slice(3)
+		var screen := CombatScreen.new()
+		screen._ready()
+		var stage: CombatStage = screen._stage
+		var reserves: Dictionary = stage._reserve_slots["enemy"]
+		assert_eq(reserves.size(), 3, "five waiting enemies show only three reserve sprites")
+		assert_eq(stage._reserve_order["enemy"], ["e3", "e4", "e5"], "reserve sprites follow queue order")
+		assert_eq(stage._reserve_labels["enemy"].text, "+2", "the other two collapse into +N")
+		assert_true(stage._reserve_labels["enemy"].visible, "+N shows while fighters overflow")
+		var front: CombatStage.StageSlot = stage._enemy_slots[0]
+		for id in reserves:
+			assert_true(reserves[id].size.y < front.size.y * 0.5, "reserve sprites are much smaller than active ones")
+			assert_eq(reserves[id].mouse_filter, Control.MOUSE_FILTER_IGNORE, "reserves are not tappable")
+		assert_eq(stage._reserve_slots["player"].size(), 0, "no waiting allies, no friendly reserves")
+
+		# R0 is KO'd; R3 steps into its place and the queue shortens.
+		var combat: Dictionary = GameState.state["combat"]
+		combat["selection"] = { "type": "enemy", "index": 1 }
+		combat["enemies"][0]["koed"] = true
+		combat["enemies"][0] = combat["enemyQueue"].pop_front()
+		screen._stage.sync(combat, GameState.state["player"], {})
+		assert_eq(stage._enemy_slots[0].combatant_name, "R3", "the entrant takes the active place")
+		assert_eq(stage._reserve_order["enemy"], ["e4", "e5", "e6"], "the entrant leaves the queue and the next fighter shows")
+		assert_eq(stage._reserve_labels["enemy"].text, "+1", "+N counts down")
+		assert_eq(combat["selection"], { "type": "enemy", "index": 1 }, "an entry leaves the player's selection alone")
+
+		combat["enemyQueue"].clear()
+		screen._stage.sync(combat, GameState.state["player"], {})
+		assert_eq(stage._reserve_slots["enemy"].size(), 0, "an empty queue shows no reserves")
+		assert_true(not stage._reserve_labels["enemy"].visible, "and no +N")
+		screen.free()
+	)
+
 	run_case("concurrent_same_template_enemies_reuse_the_one_sheet_and_alternate_the_extra_mirror", func():
 		_setup_combat([
 			Fixtures.enemy("A mugger", 20, 20, false, 10, true),

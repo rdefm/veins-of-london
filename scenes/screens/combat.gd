@@ -324,7 +324,10 @@ func _on_dial_triggered(result: Dictionary) -> void:
 
 func _play_round(action: Callable) -> void:
 	var combat: Dictionary = GameState.state["combat"]
-	_frozen_roster = { "enemies": combat["enemies"].duplicate(true), "allies": combat["allies"].duplicate(true) }
+	_frozen_roster = {
+		"enemies": combat["enemies"].duplicate(true), "allies": combat["allies"].duplicate(true),
+		"enemyQueue": combat.get("enemyQueue", []).duplicate(true), "allyQueue": combat.get("allyQueue", []).duplicate(true),
+	}
 	var log_before: int = combat["log"].size()
 	var result: Dictionary = action.call()
 	await _play_beats(result.get("beats", []), log_before)

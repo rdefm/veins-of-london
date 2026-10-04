@@ -541,7 +541,17 @@
 },
 "stage": {
 "_note": "spriteScale: multiplier on every combat stage slot's height (player, allies, enemies) over the base zone ratios in scenes/components/combat_stage.gd.",
-"spriteScale": 1.5
+"spriteScale": 1.5,
+"reserve": {
+"_note": "Waiting fighters (combat.enemyQueue/allyQueue): up to maxVisible small distant sprites per side in queue order, then +N. heightRatio/bottomRatio are fractions of the staging zone (height, and the sprites' bottom edge below the zone top); stepXOfWidth spaces them along the outer edge; entryDuration is the slide into the active place.",
+"maxVisible": 3,
+"heightRatio": 0.2,
+"bottomRatio": 0.4,
+"stepXOfWidth": 0.9,
+"edgeMargin": 6,
+"alpha": 0.75,
+"entryDuration": 0.35
+}
 },
 "templates": {
 "archie": {

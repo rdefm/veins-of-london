@@ -532,6 +532,14 @@ var _top_clearance: float = 0.0
 # Display keys per side in front-to-back order, as of the last sync().
 var _player_order: Array = []
 var _enemy_order: Array = []
+# Waiting fighters per side: fighter id -> small distant StageSlot, plus the
+# "+N" overflow label.
+var _reserve_slots: Dictionary = { "player": {}, "enemy": {} }
+var _reserve_order: Dictionary = { "player": [], "enemy": [] }
+var _reserve_overflow: Dictionary = { "player": 0, "enemy": 0 }
+var _reserve_labels: Dictionary = {}  # side -> Label
+# Slots just created for a fighter that was waiting: slot -> Rect2 it enters from.
+var _entering: Dictionary = {}
 var _figure_box_by_frame: Dictionary = {}  # first idle frame's instance id -> Rect2 (px)
 var _backdrop_texture: TextureRect
 var _backdrop_fill: ColorRect
@@ -586,6 +594,8 @@ func sync(combat: Dictionary, player: Dictionary, frozen_roster: Dictionary) -> 
 
 	var enemies: Array = frozen_roster.get("enemies", combat["enemies"])
 	var allies: Array = frozen_roster.get("allies", combat["allies"])
+	var enemy_queue: Array = frozen_roster.get("enemyQueue", combat.get("enemyQueue", []))
+	var ally_queue: Array = frozen_roster.get("allyQueue", combat.get("allyQueue", []))
 	var selection: Dictionary = combat["selection"]
 	var player_entries := _player_display_entries(player, allies, selection)
 	_sync_band(_player_slots, player_entries, "player")
@@ -595,6 +605,9 @@ func sync(combat: Dictionary, player: Dictionary, frozen_roster: Dictionary) -> 
 	_player_order = player_entries.map(func(e): return e["index"])
 	_enemy_order = enemy_entries.map(func(e): return e["index"])
 	_layout_all_slots()
+	_start_entries()
+	_sync_reserves("player", ally_queue.map(func(a): return _ally_fighter_id(a)), ally_queue, "contactId")
+	_sync_reserves("enemy", enemy_queue.map(func(e): return _enemy_fighter_id(e, -1)), enemy_queue, "")
 	var frozen: bool = combat["frozenTurns"] > 0
 	for slot in _enemy_slots.values():
 		slot.set_time_scale(0.1 if frozen else 1.0)
@@ -856,7 +869,7 @@ func _enemy_display_entries(enemies: Array, selection: Dictionary) -> Array:
 	for i in range(enemies.size()):
 		if not enemies[i]["koed"]:
 			var enemy: Dictionary = enemies[i]
-			display.append({ "name": enemy["name"], "isFocused": is_enemy_selected and i == selection["index"], "index": i, "templateKey": enemy_template_key(enemy) })
+			display.append({ "name": enemy["name"], "isFocused": is_enemy_selected and i == selection["index"], "index": i, "templateKey": enemy_template_key(enemy), "fighterId": _enemy_fighter_id(enemy, i) })
 			if display.size() >= Combat.SQUAD_MAX:
 				break
 	return display
@@ -873,11 +886,11 @@ static func enemy_template_key(enemy: Dictionary) -> String:
 		return "homeRaidRaider"
 	return ""
 func _player_display_entries(player: Dictionary, allies: Array, selection: Dictionary) -> Array:
-	var display: Array = [{ "name": "You", "isFocused": selection["type"] == "player", "index": -1, "templateKey": player.get("model", "") }]
+	var display: Array = [{ "name": "You", "isFocused": selection["type"] == "player", "index": -1, "templateKey": player.get("model", ""), "fighterId": "player" }]
 	var is_ally_selected: bool = selection["type"] == "ally"
 	for i in range(allies.size()):
 		if not allies[i]["koed"]:
-			display.append({ "name": allies[i]["name"], "isFocused": is_ally_selected and i == selection["index"], "index": i, "templateKey": allies[i].get("contactId", "") })
+			display.append({ "name": allies[i]["name"], "isFocused": is_ally_selected and i == selection["index"], "index": i, "templateKey": allies[i].get("contactId", ""), "fighterId": _ally_fighter_id(allies[i]) })
 			if display.size() >= Combat.SQUAD_MAX:
 				break
 	return display
@@ -897,6 +910,15 @@ func _sync_band(pool: Dictionary, display_entries: Array, side: String) -> void:
 		var entry: Dictionary = display_entries[i]
 		var key = entry["index"]
 		var slot: StageSlot
+		var fighter_id: String = entry.get("fighterId", "")
+		# A different fighter now holds this place (a reinforcement took a KO'd
+		# fighter's index): replace the slot rather than re-skin it.
+		if pool.has(key) and pool[key].get_meta("fighter_id", fighter_id) != fighter_id:
+			var replaced: StageSlot = pool[key]
+			_entering.erase(replaced)
+			_slot_layer.remove_child(replaced)
+			replaced.queue_free()
+			pool.erase(key)
 		if pool.has(key):
 			slot = pool[key]
 		else:
@@ -908,6 +930,10 @@ func _sync_band(pool: Dictionary, display_entries: Array, side: String) -> void:
 			slot.gui_input.connect(_on_slot_gui_input.bind(side, key))
 			_slot_layer.add_child(slot)
 			pool[key] = slot
+			slot.set_meta("fighter_id", fighter_id)
+			var waiting: StageSlot = _reserve_slots[side].get(fighter_id)
+			if waiting != null:
+				_entering[slot] = Rect2(waiting.position, waiting.size)
 		slot.combatant_name = entry["name"]
 		slot.fill_color = _placeholder_color(entry["name"])
 		slot.is_focused = entry["isFocused"]
@@ -934,6 +960,125 @@ func _sync_band(pool: Dictionary, display_entries: Array, side: String) -> void:
 			var setter: Callable = action[3]
 			setter.call(resolved["frames"], resolved["fps"])
 		slot.set_attack_variants(_attack_keyposes_by_template.get(template_key, {}).get("variants", []))
+
+
+static func _enemy_fighter_id(enemy: Dictionary, index: int) -> String:
+	return "e%s" % str(enemy.get("rid", "%s#%d" % [enemy.get("name", ""), index]))
+
+
+static func _ally_fighter_id(ally: Dictionary) -> String:
+	return "a%s" % str(ally.get("contactId", ally.get("name", "")))
+
+
+# Reserve config from data/combat_visuals.json stage.reserve.
+static func _reserve_config() -> Dictionary:
+	return GameData.COMBAT_VISUALS.get("stage", {}).get("reserve", {})
+
+
+# Up to maxVisible small distant sprites per side in queue order along the
+# outer edge, then the "+N" overflow label. Returns { "rects": [...],
+# "label": Rect2 } -- the label rect is empty when nothing overflows.
+static func reserve_layout(count: int, side: String, stage_size: Vector2, top_clearance: float) -> Dictionary:
+	var cfg := _reserve_config()
+	var max_visible: int = int(cfg.get("maxVisible", 3))
+	var zone_top: float = top_clearance + SELECTION_ARROW_CLEARANCE
+	var zone: float = maxf(0.0, stage_size.y * (1.0 - FLOOR_MARGIN_RATIO) - zone_top)
+	var height: float = zone * float(cfg.get("heightRatio", 0.2))
+	var bottom: float = zone_top + zone * float(cfg.get("bottomRatio", 0.4))
+	var width: float = height * SLOT_ASPECT
+	var step: float = width * float(cfg.get("stepXOfWidth", 0.9))
+	var margin: float = float(cfg.get("edgeMargin", 6.0))
+	var rects: Array[Rect2] = []
+	var shown: int = mini(count, max_visible)
+	var is_enemy := side == "enemy"
+	for i in range(shown):
+		var x: float = (stage_size.x - margin - width - i * step) if is_enemy else (margin + i * step)
+		rects.append(Rect2(Vector2(x, bottom - height), Vector2(width, height)))
+	var label := Rect2()
+	if count > shown:
+		var lx: float = (stage_size.x - margin - width - shown * step) if is_enemy else (margin + shown * step)
+		label = Rect2(Vector2(lx, bottom - height * 0.5), Vector2(width, height * 0.5))
+	return { "rects": rects, "label": label }
+
+
+# Creates/removes the waiting-fighter sprites for one side and lays them out.
+# `ids` are the queued fighters' ids in queue order, `fighters` their entries.
+func _sync_reserves(side: String, ids: Array, fighters: Array, template_field: String) -> void:
+	var pool: Dictionary = _reserve_slots[side]
+	var shown: int = mini(ids.size(), int(_reserve_config().get("maxVisible", 3)))
+	var wanted: Dictionary = {}
+	for i in range(shown):
+		wanted[ids[i]] = true
+	for id in pool.keys().duplicate():
+		if not wanted.has(id):
+			var stale: StageSlot = pool[id]
+			_slot_layer.remove_child(stale)
+			stale.queue_free()
+			pool.erase(id)
+	var layout := reserve_layout(ids.size(), side, size, _top_clearance)
+	var rects: Array = layout["rects"]
+	var alpha: float = float(_reserve_config().get("alpha", 0.75))
+	var order: Array = []
+	for i in range(shown):
+		var id: String = ids[i]
+		var fighter: Dictionary = fighters[i]
+		var slot: StageSlot = pool.get(id)
+		if slot == null:
+			slot = StageSlot.new()
+			slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			slot.set_side(side)
+			_slot_layer.add_child(slot)
+			pool[id] = slot
+			var template_key: String = enemy_template_key(fighter) if side == "enemy" else str(fighter.get(template_field, ""))
+			var default_idle: Dictionary = _idle_frames_by_template.get("default", {})
+			var idle := _resolve_action_keyposes(_idle_frames_by_template, template_key, default_idle.get("frames", _empty_idle_frames), default_idle.get("fps", 0.0))
+			slot.combatant_name = fighter.get("name", "")
+			slot.fill_color = _placeholder_color(slot.combatant_name)
+			slot.set_idle_animation(idle["frames"], idle["fps"])
+			slot.set_figure_box(_figure_box_for(idle["frames"]))
+		slot.modulate.a = alpha
+		slot.custom_minimum_size = rects[i].size
+		slot.size = rects[i].size
+		slot.position = rects[i].position
+		slot.layout_figure()
+		order.append(id)
+	_reserve_order[side] = order
+	_reserve_overflow[side] = ids.size() - shown
+
+	var label: Label = _reserve_labels.get(side)
+	if label == null:
+		label = Label.new()
+		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		label.add_theme_font_size_override("font_size", 14)
+		label.add_theme_color_override("font_color", Color(1, 1, 1, 0.85))
+		label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+		label.add_theme_constant_override("outline_size", 4)
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		_slot_layer.add_child(label)
+		_reserve_labels[side] = label
+	label.visible = ids.size() > shown
+	label.text = "+%d" % (ids.size() - shown)
+	label.position = layout["label"].position
+	label.size = layout["label"].size
+	_sort_slots_by_depth()
+
+
+# Slides each slot whose fighter was just waiting from its reserve place to
+# its active place.
+func _start_entries() -> void:
+	var duration: float = float(_reserve_config().get("entryDuration", 0.35))
+	for slot in _entering.keys():
+		var from: Rect2 = _entering[slot]
+		var to := Rect2(slot.position, slot.size)
+		if not slot.is_inside_tree() or duration <= 0.0:
+			continue
+		var tween: Tween = slot.create_tween()
+		tween.tween_method(func(t: float) -> void:
+			slot.position = from.position.lerp(to.position, t)
+			slot.size = from.size.lerp(to.size, t)
+			slot.layout_figure(), 0.0, 1.0, duration)
+	_entering.clear()
 
 
 func _layout_all_slots() -> void:
