@@ -201,7 +201,7 @@ func _sync_footer(combat: Dictionary, player: Dictionary) -> void:
 		_footer_holder.add_child(_build_outcome_button(combat["outcome"], combat["context"]))
 		_command_dock.hide_deck()
 	else:
-		_command_dock.configure(player, _on_attack_pressed, _on_run_pressed, _on_dial_triggered, _director.is_playing(), _on_item_pressed)
+		_command_dock.configure(player, _on_attack_pressed, _on_run_pressed, _on_dial_triggered, _director.is_playing() or combat.get("playerKoed", false), _on_item_pressed)
 func _configure_turn_order_strip(combat: Dictionary, player: Dictionary) -> void:
 	var entries: Array = _turn_order_strip.build_entries(combat, player)
 	var selected_pos := _selected_strip_pos(entries, combat)

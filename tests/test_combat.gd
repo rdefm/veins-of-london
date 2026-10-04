@@ -733,7 +733,7 @@ func run() -> void:
 		assert_true(caught_seed != -1, "should find a failed-flee roll (enemy gets a free hit) within 200 tries")
 	)
 
-	run_case("loss_revives_at_30_percent_hpMax", func():
+	run_case("loss_with_no_friendlies_settles_at_10_percent_hpMax", func():
 		_fresh_combat()
 		GameState.state["player"]["hp"] = 1
 		GameState.state["player"]["hpMax"] = 100
@@ -741,8 +741,57 @@ func run() -> void:
 		GameState.state["combat"]["enemies"][0]["attackMax"] = 50
 		Rng.set_seed(1)
 		Combat.enemy_attack()
-		assert_eq(GameState.state["combat"]["outcome"], "loss", "hp hitting 0 should set outcome to loss")
-		assert_eq(GameState.state["player"]["hp"], 30, "revives at round(100*0.3) = 30")
+		assert_eq(GameState.state["combat"]["outcome"], "loss", "hp hitting 0 with no friendly left is a loss")
+		assert_eq(GameState.state["player"]["hp"], 10, "settles at round(100*0.1) = 10")
+	)
+
+	run_case("player_ko_hands_the_freed_place_to_the_next_queued_ally", func():
+		var combat := _multi_enemy_combat([{ "hp": 100, "attackMin": 50, "attackMax": 50 }])
+		combat["allies"] = [Combat.build_guard_ally(), Combat.build_guard_ally()]
+		combat["allyQueue"] = [Combat.build_guard_ally()]
+		GameState.state["player"]["hp"] = 1
+		Combat._enemy_attack_player(combat, combat["enemies"][0])
+		assert_true(combat["playerKoed"], "player is out")
+		assert_eq(combat["outcome"], null, "allies fight on")
+		assert_eq(combat["allies"].size(), 3, "queued ally entered")
+		assert_eq(combat["allyQueue"].size(), 0)
+		assert_eq(GameState.state["player"]["hp"], 0, "hp holds at 0 mid-fight")
+		assert_eq(Combat.build_turn_queue(combat).filter(func(e): return e["type"] == "player").size(), 0, "no player slot")
+	)
+
+	run_case("allies_win_after_player_ko_with_normal_win_and_10_percent_hp", func():
+		var ally: Dictionary = Combat.build_guard_ally()
+		ally["attackMin"] = 50
+		ally["attackMax"] = 50
+		var combat := _multi_enemy_combat([{ "hp": 10 }], [ally])
+		combat["onWin"] = "raidWon"
+		GameState.state["player"]["hpMax"] = 100
+		GameState.state["player"]["hp"] = 0
+		combat["playerKoed"] = true
+		Combat.advance_to_next_decision(combat, [])
+		assert_eq(combat["outcome"], "win", "allies resolve the fight on their own")
+		assert_eq(GameState.state["player"]["hp"], 10, "player settles at 10% hpMax")
+	)
+
+	run_case("ally_ko_with_player_ko_and_no_reserves_is_a_loss", func():
+		var combat := _multi_enemy_combat([{ "hp": 100, "attackMin": 500, "attackMax": 500 }], [_test_ally(5, 5)])
+		GameState.state["player"]["hpMax"] = 100
+		GameState.state["player"]["hp"] = 0
+		combat["playerKoed"] = true
+		Combat.advance_to_next_decision(combat, [])
+		assert_eq(combat["outcome"], "loss")
+		assert_eq(GameState.state["player"]["hp"], 10, "player settles at 10% hpMax")
+	)
+
+	run_case("healing_burst_cannot_bring_back_a_koed_player", func():
+		var combat := _multi_enemy_combat([{ "hp": 100 }], [Combat.build_guard_ally()])
+		combat["playerKoed"] = true
+		GameState.state["player"]["hp"] = 0
+		_equip_slot(0, "healingBurst")
+		var result: Dictionary = Consumables.use_healing_burst({ "type": "player", "index": -1 }, 0)
+		assert_true(not result["ok"], "burst refused")
+		assert_eq(GameState.state["player"]["hp"], 0)
+		assert_eq(_equipped_qty("healingBurst"), 1, "unit not spent")
 	)
 
 	run_case("evade_consumes_turns_and_can_miss", func():
@@ -1773,7 +1822,7 @@ func run() -> void:
 
 		assert_eq(_equipped_qty("failsafe"), 1, "failsafe should not be spent with nothing to restore to")
 		assert_eq(combat["outcome"], "loss", "the loss should resolve normally")
-		assert_eq(GameState.state["player"]["hp"], 30, "should revive at 30% hpMax, the normal loss path")
+		assert_eq(GameState.state["player"]["hp"], 10, "should settle at 10% hpMax, the normal loss path")
 	)
 
 	run_case("failsafe_is_tried_before_a_manually_held_rewind_consumable_or_device", func():
@@ -2117,7 +2166,7 @@ func run() -> void:
 		combat["evadeTurns"] = 0
 		Combat.push_combat_snapshot()
 		Combat._enemy_attack_player(combat, combat["enemies"][0], 0, null)
-		assert_eq(combat["outcome"], "loss", "empty pool -- no save")
+		assert_true(combat["playerKoed"], "empty pool -- no save, the player is KO'd")
 	)
 
 	run_case("guard_rewind_waits_for_the_players_own_failsafe", func():
@@ -4077,7 +4126,7 @@ func run() -> void:
 		GameState.state["player"]["hp"] = 100
 		Snapshots.push("combat", combat["snapshots"], { "playerHp": 90, "enemyHp": 50, "enemyIndex": 0, "selection": { "type": "enemy", "index": 0 }, "log": [], "frozenTurns": 0, "motionTurns": 0, "motionPower": 0, "evadeTurns": 0, "evadeChance": 0.0, "turnCursor": { "queue": [], "index": 0, "round": 0 } })
 		Combat._enemy_attack_player(combat, combat["enemies"][0])
-		assert_eq(combat["outcome"], "loss", "ally Dials have no Rewind")
+		assert_true(combat["playerKoed"], "ally Dials have no Rewind -- the player is KO'd")
 	)
 
 	run_case("ally_dial_movement_does_not_feed_player_attunement", func():

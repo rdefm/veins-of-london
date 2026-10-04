@@ -39,6 +39,10 @@ static func use_healing_burst(target: Dictionary = {}, slot: int = -1) -> Dictio
 	elif Crafting.inventory_qty("healingBurst") <= 0:
 		return { "ok": false, "reason": "No healing burst." }
 
+	# A KO'd player is out of the fight: no command, and no Burst brings them back.
+	if combat["active"] and combat.get("playerKoed", false):
+		return { "ok": false, "reason": "You're out of the fight." }
+
 	var ally_index: int = -1
 	if target.get("type", "") == "ally":
 		ally_index = int(target.get("index", -1))

@@ -55,6 +55,7 @@ const BEAT_FROZEN_WEARS_OFF := "frozen_wears_off"
 const BEAT_ENEMY_FROZEN := "enemy_frozen"
 const BEAT_ALLY_KO := "ally_ko"
 const BEAT_REINFORCEMENT_ENTER := "reinforcement_enter"
+const BEAT_PLAYER_KO := "player_ko"
 const BEAT_COMBAT_WIN := "combat_win"
 const BEAT_COMBAT_LOSS := "combat_loss"
 const BEAT_MOTION_ANNOUNCE := "motion_announce"
@@ -150,6 +151,10 @@ const COMBAT_XP_PER_WORKOUT_SESSION := 10
 # combat.enemyQueue / combat.allyQueue.
 const ENEMY_INSTANCE_VARIANCE := 0.15
 const SQUAD_MAX := 3
+
+# R§3.7a "Player KO": the player's hp once a fight they were KO'd in settles
+# (an ally-won victory or a loss), as a fraction of hpMax.
+const PLAYER_KO_HP_FRACTION := 0.1
 
 # The data/enemies.json raidGuards key whose spawned entries carry a
 # `variant` (a GameData.TERRITORIAL_VARIANTS key, or the fallback template).
@@ -785,6 +790,9 @@ static func build_turn_queue(combat: Dictionary) -> Array:
 		for _n in range(ally_attack_count - 1):
 			queue.insert(ally_pos + 1, { "type": "ally", "index": i, "speed": ally.get("speed", 0), "extra": true })
 
+	# A KO'd player has left the fight: no slot, no Motion extras.
+	if combat.get("playerKoed", false):
+		queue = queue.filter(func(e): return e["type"] != "player")
 	return queue
 
 
@@ -843,7 +851,12 @@ static func advance_to_next_decision(combat: Dictionary, beats: Variant = null) 
 
 		var entry: Dictionary = cursor["queue"][cursor["index"]]
 		if entry["type"] == "player":
-			return
+			# The player was KO'd after this round's queue was built: their
+			# remaining slots are skipped, never parked on.
+			if not combat.get("playerKoed", false):
+				return
+			cursor["index"] += 1
+			continue
 
 		var turn_beats_start: int = beats.size() if beats != null else 0
 		cursor["index"] += 1
@@ -963,7 +976,7 @@ static func project_queue(combat: Dictionary, from_round_start: bool = false) ->
 
 static func _entry_koed(combat: Dictionary, entry: Dictionary) -> bool:
 	if entry["type"] == "player":
-		return false
+		return combat.get("playerKoed", false)
 	var roster: Array = combat["allies"] if entry["type"] == "ally" else combat["enemies"]
 	var idx: int = entry["index"]
 	return idx < 0 or idx >= roster.size() or roster[idx]["koed"]
@@ -1460,7 +1473,7 @@ static func _pick_enemy_target(combat: Dictionary) -> int:
 			alive_indices.append(i)
 	if alive_indices.is_empty():
 		return -1
-	var candidates: Array = [-1]
+	var candidates: Array = [] if combat.get("playerKoed", false) else [-1]
 	candidates.append_array(alive_indices)
 	return candidates[Rng.randi_range(0, candidates.size() - 1)]
 
@@ -1659,9 +1672,45 @@ static func _enemy_attack_player(combat: Dictionary, enemy: Dictionary, enemy_in
 			return
 		if _try_guard_rewind(combat, player):
 			return
-		combat["outcome"] = "loss"
-		_log(combat, beats, "You're done. You come round somewhere unpleasant.", BEAT_COMBAT_LOSS, {})
-		player["hp"] = GameState.round_epsilon(player["hpMax"] * 0.3)
+		_player_ko(combat, player, beats)
+
+
+# R§3.7a "Player KO": the player leaves the fight (hp stays 0 while it runs).
+# The next queued ally takes the freed place; with no friendly left standing
+# the fight is lost, otherwise the allies fight on until it resolves.
+static func _player_ko(combat: Dictionary, player: Dictionary, beats: Variant) -> void:
+	combat["playerKoed"] = true
+	# PROSE-REVIEW: player KO line.
+	_log(combat, beats, "You go down. It's up to them now.", BEAT_PLAYER_KO, { "targetType": "player" })
+	var ally_queue: Array = combat.get("allyQueue", [])
+	if not ally_queue.is_empty():
+		var entrant: Dictionary = ally_queue.pop_front()
+		combat["allies"].append(entrant)
+		# PROSE-REVIEW: reinforcement entry line.
+		_log(combat, beats, "%s steps in." % entrant["name"], BEAT_REINFORCEMENT_ENTER,
+			{ "targetType": "ally", "targetIndex": combat["allies"].size() - 1 })
+	clamp_selection(combat)
+	_lose_if_no_friendlies(combat, beats)
+
+
+# Only a KO'd player can lose here -- a standing player is never "out of friendlies".
+static func _lose_if_no_friendlies(combat: Dictionary, beats: Variant) -> void:
+	if not combat.get("playerKoed", false) or combat["outcome"] != null:
+		return
+	for ally in combat["allies"]:
+		if not ally["koed"]:
+			return
+	if not combat.get("allyQueue", []).is_empty():
+		return
+	combat["outcome"] = "loss"
+	_log(combat, beats, "You're done. You come round somewhere unpleasant.", BEAT_COMBAT_LOSS, {})
+	_settle_player_ko_hp()
+
+
+# After an ally-won victory or a loss the player wakes at PLAYER_KO_HP_FRACTION of hpMax.
+static func _settle_player_ko_hp() -> void:
+	var player: Dictionary = GameState.state["player"]
+	player["hp"] = maxi(1, GameState.round_epsilon(player["hpMax"] * PLAYER_KO_HP_FRACTION))
 
 
 # No evade. A guard kit Shield (ally.shieldPool) absorbs 1:1 before hp, and a
@@ -1706,6 +1755,7 @@ static func _enemy_attack_ally(combat: Dictionary, enemy: Dictionary, ally: Dict
 			Contacts.knock_out(ally["contactId"], GameState.state["world"]["day"])
 		_admit_reinforcement(combat, "allies", ally_index, beats)
 		clamp_selection(combat)
+		_lose_if_no_friendlies(combat, beats)
 
 
 # Also returns `beats`, same shape as player_attack()'s -- the failed-flee
@@ -1979,6 +2029,8 @@ static func _maybe_win_from_direct_damage(combat: Dictionary, enemy: Dictionary,
 	elif HOME_CONTEXTS.has(combat["context"]):
 		line = "They're gone."
 	_log(combat, beats, line, BEAT_COMBAT_WIN, {})
+	if combat.get("playerKoed", false):
+		_settle_player_ko_hp()
 	_dispatch_on_win()
 
 
