@@ -48,18 +48,8 @@ func _build_equipment_card() -> Control:
 	var player: Dictionary = GameState.state["player"]
 	var c := UI.card()
 	c["content"].add_child(UI.heading("Equipment", 14))
-	c["content"].add_child(_equipped_weapon_label(player))
 	c["content"].add_child(_dial_summary_label(player))
 	return c["panel"]
-
-
-func _equipped_weapon_label(player: Dictionary) -> Control:
-	var weapon_id: Variant = player["equipment"]["weapon"]
-	for item in player["items"]:
-		if item["id"] == weapon_id:
-			var def: Dictionary = GameData.ITEMS.get(item["type"], {})
-			return UI.label("%s %s (equipped)" % [def.get("symbol", ""), def.get("name", "")])
-	return UI.muted_label("Weapon: none equipped")
 
 
 func _dial_summary_label(player: Dictionary) -> Control:

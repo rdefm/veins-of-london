@@ -55,7 +55,6 @@ var DIAL_XP_LEVELS: Array = []
 var DIAL_MAX_CHARGE_BONUS_BY_LEVEL: Array = []
 var DIAL_RECHARGE_RATE_BONUS_BY_LEVEL: Array = []
 
-var ITEMS: Dictionary = {}
 
 var VEIN_SECURITY: Dictionary = {}
 
@@ -349,9 +348,6 @@ const MANIFEST: Array[Dictionary] = [
 		{"field": "DIAL_MAX_CHARGE_BONUS_BY_LEVEL", "key": "maxChargeBonusByLevel", "type": TYPE_ARRAY},
 		{"field": "DIAL_RECHARGE_RATE_BONUS_BY_LEVEL", "key": "rechargeRateBonusByLevel", "type": TYPE_ARRAY},
 	]},
-	{"table": "items", "file": "res://data/items.json", "fields": [
-		{"field": "ITEMS", "key": "", "type": TYPE_DICTIONARY},
-	]},
 	{"table": "vein_security", "file": "res://data/vein_security.json", "fields": [
 		{"field": "VEIN_SECURITY", "key": "", "type": TYPE_DICTIONARY},
 	]},
@@ -596,7 +592,6 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_vein_growth(t.get("vein_growth", {}), t.get("cultivating_xp_levels", []), errors)
 	_validate_recipes(t.get("recipes", {}), t.get("ore_types", {}), errors)
 	_validate_dial(t, errors)
-	_validate_items(t.get("items", {}), errors)
 	_validate_vein_security(t.get("vein_security", {}), errors)
 	_validate_vein_alarm(t.get("vein_alarm", {}), errors)
 	_validate_stealth(t.get("stealth_xp_levels", []), errors)
@@ -842,11 +837,6 @@ func _validate_dial(t: Dictionary, errors: Array[String]) -> void:
 		errors.append("dial.maxChargeBonusByLevel: expected 6 entries (index=level 0..5), got %d" % max_charge_bonus_by_level.size())
 	if recharge_rate_bonus_by_level.size() != 6:
 		errors.append("dial.rechargeRateBonusByLevel: expected 6 entries (index=level 0..5), got %d" % recharge_rate_bonus_by_level.size())
-
-
-func _validate_items(items: Dictionary, errors: Array[String]) -> void:
-	for key in items.keys():
-		_require_keys(items[key], ["name", "slot", "description"], "items.%s" % key, errors)
 
 
 func _validate_vein_security(security: Dictionary, errors: Array[String]) -> void:

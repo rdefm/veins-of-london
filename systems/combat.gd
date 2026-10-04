@@ -298,25 +298,13 @@ static func _guard_group_name(entries: Array) -> String:
 
 static func get_attack_range() -> Dictionary:
 	var player: Dictionary = GameState.state["player"]
-	# R§3.7a: Combat Skill's attack bonus applies before the weapon bonus
-	# below; level 1 is 0, so a fresh save's math is unaffected.
+	# R§3.7a: unarmed base plus Combat Skill's attack bonus (level 1 is 0).
 	var skill_bonus: int = GameData.COMBAT_ATTACK_BONUS_BY_LEVEL[player["combatSkill"]]
-	var min_atk: int = player["attackMin"] + skill_bonus
-	var max_atk: int = player["attackMax"] + skill_bonus
-	var weapon_id = player["equipment"]["weapon"]
-	if weapon_id != null:
-		for item in player["items"]:
-			if item["id"] == weapon_id:
-				var def: Dictionary = GameData.ITEMS.get(item["type"], {})
-				if def.has("attackBonus"):
-					min_atk += def["attackBonus"]["min"]
-					max_atk += def["attackBonus"]["max"]
-				break
-	return { "min": min_atk, "max": max_atk }
+	return { "min": player["attackMin"] + skill_bonus, "max": player["attackMax"] + skill_bonus }
 
 
-# Mirrors get_attack_range() for the enemy side: base attack + equipped
-# weapon bonus, if any (the same weapon disarm_enemy() strips).
+# Enemy side: base attack + the enemy's equipped weapon bonus, if any (the
+# same weapon disarm_enemy() strips).
 static func get_enemy_attack_range(enemy: Dictionary) -> Dictionary:
 	var min_atk: int = enemy["attackMin"]
 	var max_atk: int = enemy["attackMax"]
@@ -377,14 +365,14 @@ static func start_street_mugging() -> void:
 # Called by combat_intro events via the start_home_raid_combat effect op.
 static func start_home_raid_combat() -> void:
 	_start_combat(CONTEXT_HOME_RAID, null, [_home_raider_enemy()],
-		["They're in the flat. You've got the crowbar. This is happening."],
+		["They're in the flat. You've got your hands. This is happening."],
 		"homeRaidWon")
 
 
 # Called by Home.trigger_defend(): same raider, no onWin (Home resolves it).
 # HQ guards join and spend home.guardKit (guard-kit spec §HQ guard kit).
 static func start_home_alarm_defend_combat() -> void:
-	var log_lines := ["They're in the flat. You've got the crowbar. This is happening."]
+	var log_lines := ["They're in the flat. You've got your hands. This is happening."]
 	var allies: Array = []
 	_add_guard_allies(allies, Home.get_guard_count(), log_lines)
 	var guard_kit := { "items": GuardKit.hq_active_units().duplicate(true), "used": {} }

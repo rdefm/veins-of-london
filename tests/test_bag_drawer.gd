@@ -105,12 +105,11 @@ func run() -> void:
 	run_case("management_controls_present_and_drawer_taller_outside_combat_and_events", func():
 		GameState.reset()
 		Bag.open()
-		GameState.state["player"]["items"] = [{ "id": "item1", "type": "crowbar" }]
 
 		var drawer := BagDrawer.new()
 		drawer._ready()
 
-		assert_true(NodeQuery.find_button_by_effective_text(drawer, "Equip") != null, "an unequipped weapon should get an Equip button")
+		assert_true(NodeQuery.find_button_by_effective_text(drawer, "Equip") == null, "no weapon controls exist")
 		assert_eq(drawer._card.offset_top, -BagDrawer.MANAGEMENT_DRAWER_HEIGHT, "drawer grows to the management height")
 
 		drawer.free()
@@ -120,12 +119,10 @@ func run() -> void:
 		GameState.reset()
 		Bag.open()
 		GameState.state["combat"]["active"] = true
-		GameState.state["player"]["items"] = [{ "id": "item1", "type": "crowbar" }]
 
 		var drawer := BagDrawer.new()
 		drawer._ready()
 
-		assert_true(NodeQuery.find_button_by_effective_text(drawer, "Equip") == null, "no Equip button during combat")
 		assert_eq(drawer._card.offset_top, -BagDrawer.DRAWER_HEIGHT, "drawer stays the short read-only height")
 
 		drawer.free()
@@ -194,7 +191,7 @@ func run() -> void:
 		var labels := NodeQuery.label_texts_with_symbols(drawer)
 		assert_true(labels.has("Ore"), "Ore section outside combat")
 		assert_true(labels.has("Consumables"), "Consumables section outside combat")
-		assert_true(labels.has("Weapon: none equipped"), "read-only equipped summary outside combat")
+		assert_true(labels.has("Equipped"), "read-only equipped summary outside combat")
 		assert_true(labels.has("Dial: none"), "read-only Dial summary outside combat")
 
 		drawer.free()
@@ -205,35 +202,16 @@ func run() -> void:
 	run_case("management_controls_hidden_during_an_item_hook_event_card", func():
 		GameState.reset()
 		Bag.open()
-		GameState.state["player"]["items"] = [{ "id": "item1", "type": "crowbar" }]
 		var original_events := _install_item_hook_event()
 
 		var drawer := BagDrawer.new()
 		drawer._ready()
 
-		assert_true(NodeQuery.find_button_by_effective_text(drawer, "Equip") == null, "no Equip button while the current event card carries itemHooks")
 		assert_eq(drawer._card.offset_top, -BagDrawer.DRAWER_HEIGHT, "drawer stays the short read-only height")
 
 		drawer.free()
 		GameData.EVENTS = original_events
 		GameState.state["event"] = null
-	)
-
-	run_case("equip_and_unequip_weapon_from_the_drawer_matches_equipment_system", func():
-		GameState.reset()
-		Bag.open()
-		GameState.state["player"]["items"] = [{ "id": "item1", "type": "crowbar" }]
-
-		var drawer := BagDrawer.new()
-		drawer._ready()
-
-		NodeQuery.find_button_by_effective_text(drawer, "Equip").pressed.emit()
-		assert_eq(GameState.state["player"]["equipment"]["weapon"], "item1", "drawer's Equip button should equip via Equipment.equip_weapon")
-
-		NodeQuery.find_button_by_effective_text(drawer, "Unequip").pressed.emit()
-		assert_eq(GameState.state["player"]["equipment"]["weapon"], null, "drawer's Unequip button should unequip via Equipment.unequip_weapon")
-
-		drawer.free()
 	)
 
 	# hq-diorama ticket 09: the drawer's Seat/Unseat/Load/Unload Dial cases
@@ -332,17 +310,3 @@ func run() -> void:
 	# seat_view" (the drawer's Seat button for a freshly-crafted Movement)
 	# also moved to tests/test_hq_dial.gd, same reasoning as above.
 
-	run_case("weapon_card_stays_drag_to_scroll_safe", func():
-		GameState.reset()
-		Bag.open()
-		var player: Dictionary = GameState.state["player"]
-		player["items"] = [{ "id": "item1", "type": "crowbar" }]
-
-		var drawer := BagDrawer.new()
-		drawer._ready()
-
-		for panel in drawer._content.find_children("", "PanelContainer", true, false):
-			assert_eq((panel as PanelContainer).mouse_filter, Control.MOUSE_FILTER_PASS, "a management card must not swallow a drag that starts on top of it")
-
-		drawer.free()
-	)

@@ -139,11 +139,9 @@ Descriptions (verbatim):
 
 **Leveling** — `Dial.cast_complication()` (§3.5) awards XP the same +10-per-cast, `Progression.award_xp()`-table way the old `Devices.activate()` did: `xpLevels = [0, 0, 50, 150, 400, 1000]`. `maxChargeBonusByLevel = [0, 0, 5, 12, 22, 35]` and `capacityByLevel` above are the primary per-level curves; `rechargeRateBonusByLevel = [0, 0, 0, 0, 0.5, 1.0]` is the deliberately sparser one. Both layer on top of the seated Movement's own archetype/tier charge stats (`_apply_level_charge_bonus`); Movements never modify capacity, and levelling never touches which Movement is seated or its attunement.
 
-### 1.5 `data/items.json` (equippables)
+### 1.5 (retired)
 
-| key | name | slot | attackBonus | description |
-|---|---|---|---|---|
-| crowbar | Crowbar | weapon | {min:4, max:8} | "A 60cm steel crowbar. Heavy enough to matter. Also useful for doors, if you have legitimate reasons to open them." |
+Player-equippable weapons (the crowbar, `data/items.json`) no longer exist. Enemy `weapon` bonuses (§1.10) are unaffected.
 
 ### 1.6 `data/vein_security.json` (per-vein security tiers)
 
@@ -401,7 +399,7 @@ Muggers: generated, see §3.7.
 
 ```
 state = {
-  meta: { saveVersion: 4 },
+  meta: { saveVersion: 5 },
   currentScreen: "title",     # see screen list below
   modal: null,                # { type: String, data: Dictionary } | null
   bagDrawerOpen: false,        # M1 D4.4; the global BagDrawer bottom sheet, independent of `modal`
@@ -436,8 +434,7 @@ state = {
     inventory: { timePearl: {}, enhancementPowder: {}, rewind: {} },  # bugfixes-64: { recipeKey: { "<tier>": count } } — tier-bucketed, not a flat count. Tier keys are stringified ints; tiers run 1..5 — tier 0 is retired (v4): `inventory_add`/`add_item` floor any lower tier at 1, and purchases/grants/migrated bare counts file under tier "1". Crafting.inventory_qty/_add/_remove/_remove_from_tier are the only sanctioned readers/writers — see §3.5.
     shieldPool: 0,             # calc-effect-wiring-02: Shield's absorption pool, §3.7
     healingSalveDaysLeft: 0, healingSalveDailyAmount: 0,  # calc-effect-wiring-02: Healing Salve HoT, §3.1/§3.7
-    equipment: { weapon: null },
-    items: [],                # [{ id:String, type:String }]
+    # No equipment/items: player weapons retired (save v5 drops them on load).
     # dial-device ticket 07: replaces the old single-slot device system
     # (equipment.device, devicesInProgress, devicesCompleted — deleted
     # outright, along with systems/devices.gd and data/devices.json). null
@@ -713,7 +710,7 @@ The dock (`NavBar`, now 3 slots: Phone · Map · HQ) is hidden on `title, intro,
 ### 3.7 Combat (M0 port — pre-intent system)
 - Muggers: `count = rand(1,3)`; hp `28 × count`; atk `4 + 2(count−1)` to `10 + 3(count−1)`; name "A mugger" / "N muggers".
 - Vein-raid enemy (attacking an NPC-claimed vein): template scaled `hp = round(hpBase × (1 + (veinLevel−1)×0.3) × guards)`, atkMax `+ (veinLevel−1)`. (Reachable in M0 only via debug; keep functions.)
-- `getAttackRange()` = player atk + equipped weapon bonus.
+- `getAttackRange()` = unarmed base (3–7) + Combat Skill attack bonus (§3.7a). Players have no weapon.
 - **Player attack turn:** push combat snapshot first (§3.9). Attacks this turn: 1, or with motionTurns > 0: `motionPower ≥ 3 ? 3 : 2` (log line). Each hit: first `chance(enemy.evadeChance)` (§1.10) → enemy dodges, no damage, log, next hit; else `dmg = rand(atkMin, atkMax)`; enemy hp −= dmg; log "You attack — X damage. Enemy: h/H HP." Enemy at 0 → outcome "win", dispatch onWin. After attacks: motionTurns −= 1 if active (log expiry at 0); enemy.ability.lockedTurns −= 1 if locked (log at 0, "back online" — see `Combat.disarm_enemy`, §1.10); frozenTurns > 0 → −1 (log expiry at 0) and enemy skips; else enemy attacks.
 - **Enemy attack:** if evadeTurns > 0: decrement; `chance(evadeChance)` → miss (log), return. Else `dmg = rand(enemy atk range)`, where enemy atk range is atkMin/atkMax plus the enemy's equipped `weapon` bonus if any (§1.10); if `player.shieldPool > 0` (calc-effect-wiring-02), absorb 1:1 first (`absorbed = min(dmg, shieldPool)`, `shieldPool -= absorbed`, `dmg -= absorbed`) before applying the remainder; player hp −= dmg; at 0 → outcome "loss", log, revive `hp = round(hpMax * 0.3)`.
 - **Flee:** `chance(0.65)` → outcome "fled"; else enemy gets a free attack. calc-effect-wiring-02: Blast's flee boost (below) raises this to `chance(0.90)` for exactly one attempt, then clears regardless of outcome.
@@ -750,7 +747,7 @@ The dock (`NavBar`, now 3 slots: Phone · Map · HQ) is hidden on `title, intro,
 Supersedes the single-`enemy` framing in §3.7 wherever it conflicts: `combat.enemy` becomes `combat.enemies: Array` (up to 3 entries, per-entry shape per §2 above, plus `speed:int` and `koed:bool`), and `combat.focusedEnemyIndex: int` (default 0) is added. Every other §3.7 mechanic — attack ranges, shield/blast/time-pearl/black-hole, ally behaviour, onWin dispatch, Rewind — carries over unchanged except where noted below.
 
 - **Combat Skill** (new player stat, `player.combatSkill`/`player.combatXP`, levels 1–5, mechanical name only — display/flavour name TBD): reuses the exact `[0, 0, 80, 220, 500, 1000]` XP curve crafting/cultivating skill already use (`GameData.COMBAT_XP_LEVELS`, same `Progression.award_xp()` mechanism). Two additive, level-indexed effects (curves in `data/enemies.json`, §1.10 — **both draft, need balance sign-off**):
-  - **Attack bonus**, `COMBAT_ATTACK_BONUS_BY_LEVEL = [0, 0, 2, 4, 7, 11]`, added to both `attackMin`/`attackMax` in `Combat.get_attack_range()`, before the weapon bonus. Level 1 = today's baseline, unchanged.
+  - **Attack bonus**, `COMBAT_ATTACK_BONUS_BY_LEVEL = [0, 0, 2, 4, 7, 11]`, added to both `attackMin`/`attackMax` in `Combat.get_attack_range()`. Level 1 = today's baseline, unchanged.
   - **Speed**, `COMBAT_SPEED_BY_LEVEL = [0, 10, 12, 14, 17, 21]` — the player's turn-order value (below). Allies and enemies are not trainable: each carries its own flat, authored `speed` (ally: contact combat-kit constants, §1.11; enemy: per template, §1.10).
   - **HP bonus**, `COMBAT_HP_BONUS_BY_LEVEL = [0, 0, 0, 55, 55, 140]` — cumulative bonus over the fresh player's hpMax. On each Combat Skill level-up (`Combat.award_xp()`), `hpMax` and current `hp` both rise by that level's delta (`curve[L] − curve[L−1]`), stacking with Home Gym's flat bonus.
   - **Balance basis** (playtest ticket 12, 2026-09-26): fresh player hp 40 / atk 3–7 and all three curves tuned with `scripts/sim_combat_balance.gd` (itemless, ally-less, always Attack) so each "matched" raid lands at 60–80% wins with the winner usually under 40% HP: L1 vs 1 guard t1, L2 vs 1 guard t2, L3 vs 2 guards t2, L4 vs 2 guards t3, L5 vs 3 guards t4.
@@ -919,7 +916,7 @@ A save without `factionPressure` backfills `{ snapshots: {}, collectiveFirmJoine
 
 Every load clamps player and pair relations to −100..100, makes `factionRelations` symmetric (each pair gets the rounded mean of its two directions) and backfills a missing faction `activityLog` as `[]`. A save without `factionStances` gets the starting pair stances; a pair relation outside its starting stance's band is set to that stance's `startingRelation`; player stances are read from relation without overlap or hysteresis (Collective held neutral per §3.1 "Stances"). No `saveVersion` bump.
 
-Save versioning (v4): `SaveManager.SAVE_VERSION = 4`, `MIN_SUPPORTED_VERSION = 3`; older/newer saves are rejected. `_migrate_versions` runs `_migrate_from_v<N>` for each N from the save's version to current (one `match` arm per bump), then stamps current. v3→v4 folds every `"0"` tier bucket into `"1"` (counts merged) in player/stash inventory, vein and HQ `guardKit`, faction `holdings.items`, `combat.guardKit`/`raiderKit` pools, and sets loaded Dial Complication tier 0 → 1.
+Save versioning (v5): `SaveManager.SAVE_VERSION = 5`, `MIN_SUPPORTED_VERSION = 3`; older/newer saves are rejected. `_migrate_versions` runs `_migrate_from_v<N>` for each N from the save's version to current (one `match` arm per bump), then stamps current. v3→v4 folds every `"0"` tier bucket into `"1"` (counts merged) in player/stash inventory, vein and HQ `guardKit`, faction `holdings.items`, `combat.guardKit`/`raiderKit` pools, and sets loaded Dial Complication tier 0 → 1. v4→v5 drops `player.items` and `player.equipment.weapon` (retired player weapons, no compensation).
 
 A save whose `player.model` is `"protagonist2"` loads as `"territorial3"` (the same sprite set, renamed); any other value is left as-is. No `saveVersion` bump.
 

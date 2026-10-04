@@ -115,26 +115,8 @@ func run() -> void:
 		phone._ready()
 
 		var texts := NodeQuery.symbol_row_texts(phone)
-		assert_true(texts.has("Weapon: none equipped"), "no weapon equipped on a fresh game")
+		assert_true(not texts.has("Weapon: none equipped"), "no weapon row at all")
 		assert_true(texts.has("Dial: none"), "no Dial seeded on a fresh game")
-
-		phone.free()
-	)
-
-	run_case("profile_shows_the_equipped_weapon_read_only", func():
-		GameState.reset()
-		var player: Dictionary = GameState.state["player"]
-		player["items"].append({ "id": "item1", "type": "crowbar" })
-		player["equipment"]["weapon"] = "item1"
-		GameState.state["phoneNav"]["app"] = "profile"
-
-		var phone := PhoneScreen.new()
-		phone._ready()
-
-		var def: Dictionary = GameData.ITEMS["crowbar"]
-		var expected := "%s %s (equipped)" % [def.get("symbol", ""), def.get("name", "")]
-		assert_true(NodeQuery.symbol_row_texts(phone).has(expected), "equipped weapon summary reads from GameData.ITEMS, read-only (no equip/unequip control)")
-		assert_true(phone.find_children("", "Button", true, false).all(func(b): return (b as Button).text != "Unequip"), "Profile is read-only -- no unequip button")
 
 		phone.free()
 	)

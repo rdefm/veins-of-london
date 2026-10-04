@@ -44,10 +44,6 @@ static func apply(model: String = "") -> void:
 	for recipe_key in debug_items:
 		Crafting.inventory_add(recipe_key, player["craftingSkill"], debug_items[recipe_key])
 
-	var crowbar_id := "item_" + str(Time.get_ticks_usec())
-	player["items"] = [{ "id": crowbar_id, "type": "crowbar" }]
-	player["equipment"]["weapon"] = crowbar_id
-
 	# Dial.new_dial()'s bare inert shape (no Movement, no Complications),
 	# skipping attempt_seed()'s gift-gate/cost/roll like everything else in
 	# this file. The player still crafts/seats a Movement themselves.

@@ -345,8 +345,6 @@ func run() -> void:
 		# would just wipe it out again.
 		var prepared_cp := _fresh_prototype("brawler")
 		GameState.state["player"]["combatSkill"] = 5
-		GameState.state["player"]["equipment"]["weapon"] = "w1"
-		GameState.state["player"]["items"].append({ "id": "w1", "type": "crowbar" })
 		var prepared_enemy_hp_max: int = prepared_cp["enemies"][0]["hpMax"]
 		var prepared_enemy_atk: Array = [prepared_cp["enemies"][0]["attackMin"], prepared_cp["enemies"][0]["attackMax"]]
 		var prepared_range := Combat.get_attack_range()

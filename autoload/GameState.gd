@@ -140,8 +140,6 @@ func new_game_state() -> Dictionary:
 			# unit from orichalchum/inventory the moment it moves in, so
 			# this is a transfer destination, not a second view.
 			"stash": { "orichalchum": {}, "inventory": {} },
-			"equipment": { "weapon": null },
-			"items": [],
 			# null until Dial.attempt_seed() succeeds (refuses outright
 			# once non-null). Seeded shape: { level, xp, currentCharge,
 			# maxCharge, rechargeRate, lastRegenDay, combatRegenTurnCounter,

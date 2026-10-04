@@ -1304,6 +1304,20 @@ func run() -> void:
 		assert_true(result["ok"], "a save with no meta.saveVersion at all should be treated as the current version")
 	)
 
+	run_case("loading_a_v4_save_drops_crowbars_and_the_equipped_weapon", func():
+		GameState.reset()
+		var save: Dictionary = GameState.deep_copy(GameState.state)
+		save["meta"]["saveVersion"] = 4
+		save["player"]["items"] = [{ "id": "item1", "type": "crowbar" }]
+		save["player"]["equipment"] = { "weapon": "item1" }
+		var result := SaveManager.import_string(JSON.stringify(save))
+		assert_true(result["ok"], "a v4 save should load")
+		var player: Dictionary = GameState.state["player"]
+		assert_true(not player.has("items"), "held crowbars removed")
+		assert_true(not player.get("equipment", {}).has("weapon"), "equipped weapon removed")
+		assert_eq(GameState.state["meta"]["saveVersion"], SaveManager.SAVE_VERSION, "stamped current")
+	)
+
 	run_case("loading_a_save_at_the_current_version_succeeds", func():
 		GameState.reset()
 		var save: Dictionary = GameState.deep_copy(GameState.state)

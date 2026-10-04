@@ -100,10 +100,8 @@ func _build() -> void:
 
 	if management:
 		_add_out_of_combat_use_buttons(player)
-		_build_weapon_management(player)
 	else:
 		_content.add_child(UI.heading("Equipped", 14))
-		_content.add_child(_build_equipped_weapon_label(player))
 		_content.add_child(_build_dial_summary_label(player))
 
 	_content.add_child(MapCardStyle.footer([MapCardStyle.text_button("Close", func(): Bag.close())]))
@@ -135,38 +133,6 @@ func _symbol_use_button(recipe_key: String, rest_text: String, callback: Callabl
 func _on_use_healing_salve() -> void:
 	Bag.close()
 	Consumables.use_healing_salve()
-
-
-func _build_weapon_management(player: Dictionary) -> void:
-	_content.add_child(UI.heading("Weapon", 14))
-	if player["items"].is_empty():
-		_content.add_child(UI.muted_label("No weapons yet."))
-		return
-
-	for item in player["items"]:
-		var def: Dictionary = GameData.ITEMS.get(item["type"], {})
-		if def.is_empty():
-			continue
-		var is_equipped: bool = player["equipment"]["weapon"] == item["id"]
-		var item_id: String = item["id"]
-		var c := MapCardStyle.card(12, 0.0)
-		c["content"].add_child(UI.label("%s%s" % [def["name"], " (equipped)" if is_equipped else ""]))
-		c["content"].add_child(UI.muted_label(def["description"]))
-		c["content"].add_child(UI.muted_label("+%d–%d attack" % [def["attackBonus"]["min"], def["attackBonus"]["max"]]))
-		if is_equipped:
-			c["content"].add_child(MapCardStyle.text_button("Unequip", func(): Equipment.unequip_weapon()))
-		else:
-			c["content"].add_child(MapCardStyle.text_button("Equip", func(): Equipment.equip_weapon(item_id)))
-		_content.add_child(c["panel"])
-
-
-func _build_equipped_weapon_label(player: Dictionary) -> Control:
-	var weapon_id = player["equipment"]["weapon"]
-	for item in player["items"]:
-		if item["id"] == weapon_id:
-			var def: Dictionary = GameData.ITEMS.get(item["type"], {})
-			return UI.label("%s %s (equipped)" % [def.get("symbol", ""), def.get("name", "")])
-	return UI.muted_label("Weapon: none equipped")
 
 
 func _build_dial_summary_label(player: Dictionary) -> Control:

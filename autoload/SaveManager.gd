@@ -4,7 +4,7 @@ extends Node
 # autosaves. autosave() is called from daily_tick, exit_combat, event
 # completion, and every successful cash purchase.
 
-const SAVE_VERSION := 4
+const SAVE_VERSION := 5
 # Oldest save version _migrate_versions() can still bring forward.
 const MIN_SUPPORTED_VERSION := 3
 const SLOT_COUNT := 3
@@ -328,8 +328,20 @@ func _migrate_versions(save: Dictionary) -> void:
 		match from_version:
 			3:
 				_migrate_from_v3(save)
+			4:
+				_migrate_from_v4(save)
 	meta["saveVersion"] = SAVE_VERSION
 	save["meta"] = meta
+
+
+# v5 retires player weapons: the crowbar item list and the equipped-weapon slot
+# are dropped with no compensation.
+func _migrate_from_v4(save: Dictionary) -> void:
+	var player: Dictionary = save.get("player", {})
+	player.erase("items")
+	var equipment: Variant = player.get("equipment")
+	if equipment is Dictionary:
+		equipment.erase("weapon")
 
 
 # v4 retires tier 0: every tier-0 unit in every store becomes tier 1, merged

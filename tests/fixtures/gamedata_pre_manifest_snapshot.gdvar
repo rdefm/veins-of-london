@@ -6699,17 +6699,6 @@
 "overestimatePenalty": 0.15
 }
 },
-"ITEMS": {
-"crowbar": {
-"attackBonus": {
-"max": 8,
-"min": 4
-},
-"description": "A 60cm steel crowbar. Heavy enough to matter. Also useful for doors, if you have legitimate reasons to open them.",
-"name": "Crowbar",
-"slot": "weapon"
-}
-},
 "JAMES_JOB_TRUST_BANDS": [{
 "maxRelation": 1,
 "qtyMax": 3,

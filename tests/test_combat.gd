@@ -1023,23 +1023,26 @@ func run() -> void:
 		assert_true(not GameState.state["combat"]["active"], "combat torn down")
 	)
 
-	run_case("get_attack_range_includes_equipped_weapon_bonus", func():
+	run_case("player_has_no_weapon_state_and_attacks_unarmed", func():
 		GameState.reset()
-		GameState.state["player"]["attackMin"] = 5
-		GameState.state["player"]["attackMax"] = 12
-		GameState.state["player"]["items"] = [{ "id": "item1", "type": "crowbar" }]
-		GameState.state["player"]["equipment"]["weapon"] = "item1"
+		var player: Dictionary = GameState.state["player"]
+		assert_true(not player.has("equipment") and not player.has("items"), "no weapon/equipment fields in new-game state")
+		assert_eq(player["combatSkill"], 1, "sanity: Combat Skill 1")
 		var range := Combat.get_attack_range()
-		# crowbar attackBonus {min:4, max:8}
-		assert_eq(range["min"], 9, "5 + 4")
-		assert_eq(range["max"], 20, "12 + 8")
+		assert_eq(range["min"], 3, "unarmed Combat Skill 1 attackMin")
+		assert_eq(range["max"], 7, "unarmed Combat Skill 1 attackMax")
+		# Seeded: every player damage roll stays within 3-7.
+		seed(1234)
+		for i in 50:
+			var dmg := randi_range(range["min"], range["max"])
+			assert_true(dmg >= 3 and dmg <= 7, "seeded roll %d within 3-7" % dmg)
 	)
 
-	run_case("get_attack_range_with_no_weapon_equipped", func():
-		GameState.reset()
-		var range := Combat.get_attack_range()
-		assert_eq(range["min"], 3, "bare player attackMin")
-		assert_eq(range["max"], 7, "bare player attackMax")
+	run_case("enemy_weapon_bonus_still_applies", func():
+		var enemy := { "attackMin": 2, "attackMax": 4, "weapon": { "min": 1, "max": 3 } }
+		var range := Combat.get_enemy_attack_range(enemy)
+		assert_eq(range["min"], 3, "enemy atkMin + weapon min")
+		assert_eq(range["max"], 7, "enemy atkMax + weapon max")
 	)
 
 	# ── hygiene-03: canonical context constants/validation ──────────────
@@ -3107,18 +3110,15 @@ func run() -> void:
 		assert_eq(range["max"], 12, "level 1's attack bonus must be 0 -- today's baseline, unchanged")
 	)
 
-	run_case("get_attack_range_adds_the_level_indexed_combat_skill_bonus_before_the_weapon_bonus", func():
+	run_case("get_attack_range_adds_the_level_indexed_combat_skill_bonus", func():
 		GameState.reset()
 		GameState.state["player"]["attackMin"] = 5
 		GameState.state["player"]["attackMax"] = 12
 		GameState.state["player"]["combatSkill"] = 3
-		GameState.state["player"]["items"] = [{ "id": "item1", "type": "crowbar" }]
-		GameState.state["player"]["equipment"]["weapon"] = "item1"
 		var bonus: int = GameData.COMBAT_ATTACK_BONUS_BY_LEVEL[3]
 		var range := Combat.get_attack_range()
-		# crowbar attackBonus {min:4, max:8}, applied on top of the skill bonus
-		assert_eq(range["min"], 5 + bonus + 4, "skill bonus should stack with (and apply before) the weapon bonus")
-		assert_eq(range["max"], 12 + bonus + 8, "skill bonus should stack with (and apply before) the weapon bonus")
+		assert_eq(range["min"], 5 + bonus, "skill bonus on the unarmed base")
+		assert_eq(range["max"], 12 + bonus, "skill bonus on the unarmed base")
 	)
 
 	run_case("build_turn_queue_regression_level_1_player_speed_matches_pre_ticket_placeholder", func():

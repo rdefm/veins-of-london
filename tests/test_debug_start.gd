@@ -24,9 +24,7 @@ func run() -> void:
 			"healingSalve": { "3": 2 }, "blast": { "3": 3 }, "shield": { "3": 2 }, "blackHole": { "3": 2 }, "healingBurst": { "3": 3 },
 		}, "consumables")
 
-		assert_eq(p["items"].size(), 1, "one item (the crowbar)")
-		assert_eq(p["items"][0]["type"], "crowbar", "item is a crowbar")
-		assert_eq(p["equipment"]["weapon"], p["items"][0]["id"], "crowbar equipped")
+		assert_true(not p.has("items") and not p.has("equipment"), "no weapon fields")
 
 		assert_eq(p["veins"].size(), 3, "3 debug veins")
 		var by_type := {}

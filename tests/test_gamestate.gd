@@ -23,7 +23,7 @@ func run() -> void:
 		assert_eq(s["player"]["orichalchum"], {}, "player.orichalchum")
 		assert_eq(s["player"]["veins"], [], "player.veins")
 		assert_eq(s["player"]["inventory"], { "timePearl": {}, "enhancementPowder": {}, "rewind": {} }, "player.inventory")
-		assert_eq(s["player"]["equipment"], { "weapon": null }, "player.equipment")
+		assert_true(not s["player"].has("equipment") and not s["player"].has("items"), "no weapon fields")
 		assert_eq(s["player"]["dial"], null, "player.dial")
 		assert_eq(s["player"]["craftingSkill"], 1, "player.craftingSkill")
 		assert_eq(s["player"]["cultivatingSkill"], 1, "player.cultivatingSkill")
