@@ -53,6 +53,11 @@ const BEAT_PLAYER_EVADE := "player_evade"
 const BEAT_ABILITY_UNLOCKED := "ability_unlocked"
 const BEAT_FROZEN_WEARS_OFF := "frozen_wears_off"
 const BEAT_ENEMY_FROZEN := "enemy_frozen"
+const BEAT_ENEMY_COWER := "enemy_cower"
+const BEAT_ENEMY_FLEE := "enemy_flee"
+const BEAT_ENEMY_RAPTURE := "enemy_rapture"
+const BEAT_USE_PANIC := "use_panic"
+const BEAT_USE_RAPTURE := "use_rapture"
 const BEAT_ALLY_KO := "ally_ko"
 const BEAT_REINFORCEMENT_ENTER := "reinforcement_enter"
 const BEAT_PLAYER_KO := "player_ko"
@@ -92,6 +97,8 @@ const BEAT_USE_HEALING_BURST := "use_healing_burst"
 const BLAST_FLEE_BOOST_CHANCE := 0.90
 const BLAST_DISARM_CHANCE := 0.15
 const BLAST_DISARM_TURNS := 2
+# Panic: each affected enemy turn, independently, cower (turn lost) or run off.
+const PANIC_FLEE_CHANCE := 0.5
 
 # recipeKeys with a defined combat effect; cast_complication() refuses
 # anything else (rejuvenation/beALady/the Pan recipes/healingSalve have no
@@ -110,6 +117,8 @@ const COMMAND_TARGETING := {
 	"attack": TARGETING_ENEMY,
 	"timePearl": TARGETING_ENEMY,
 	"blast": TARGETING_ENEMY,
+	"panic": TARGETING_ENEMY,
+	"pansRapture": TARGETING_ENEMY,
 	"enhancementPowder": TARGETING_SELF,
 	"shield": TARGETING_SELF,
 	"prophetsBreath": TARGETING_SELF,
@@ -1558,9 +1567,35 @@ static func _enemy_turn(combat: Dictionary, enemy: Dictionary, enemy_index: int,
 			_end_freeze_rotation(combat, enemy_index, beats)
 		return
 
+	if _enemy_status_turn(combat, enemy, enemy_index, beats):
+		return
 	if _enemy_try_item(combat, enemy, enemy_index, beats):
 		return
 	_resolve_enemy_attack(combat, enemy, enemy_index, beats)
+
+
+# Panic / Pan's Rapture on this enemy's own turn. True when the turn is
+# spent: Rapture just idles; Panic rolls cower vs. run off, and running off
+# is a defeat (hp 0 -> koed, win check, XP) the same as a kill.
+static func _enemy_status_turn(combat: Dictionary, enemy: Dictionary, enemy_index: int, beats: Variant) -> bool:
+	var actor: Dictionary = { "actorType": "enemy", "actorIndex": enemy_index }
+	if int(enemy.get("raptureTurns", 0)) > 0:
+		enemy["raptureTurns"] -= 1
+		# PROSE-REVIEW: rapture idle line.
+		_log(combat, beats, "%s is grinning at nothing. No attack." % enemy["name"], BEAT_ENEMY_RAPTURE, actor)
+		return true
+	if int(enemy.get("panicTurns", 0)) > 0:
+		enemy["panicTurns"] -= 1
+		if Rng.chance(PANIC_FLEE_CHANCE):
+			# PROSE-REVIEW: panic flee line.
+			_log(combat, beats, "%s bolts. Gone." % enemy["name"], BEAT_ENEMY_FLEE, actor)
+			enemy["hp"] = 0
+			_maybe_win_from_direct_damage(combat, enemy, beats)
+		else:
+			# PROSE-REVIEW: panic cower line.
+			_log(combat, beats, "%s cowers, hands over their head." % enemy["name"], BEAT_ENEMY_COWER, actor)
+		return true
+	return false
 
 
 # Raider kit heals, tried in this order.
@@ -1943,6 +1978,50 @@ static func use_blast(slot: int = -1) -> Dictionary:
 			_log(combat, beats, "The shove knocks their weapon loose.", BEAT_USE_DISARM, { "targetType": "enemy", "targetIndex": target_index })
 
 		_maybe_win_from_direct_damage(combat, enemy, beats)
+
+	conclude_decision_point(combat, beats)
+
+	EventBus.state_changed.emit()
+	return { "ok": true, "beats": beats }
+
+
+static func use_panic(slot: int = -1) -> Dictionary:
+	return _use_pan_status("panic", "panicTurns", "No panic.", "You press the panic into their hands.", BEAT_USE_PANIC, slot)
+
+
+static func use_pans_rapture(slot: int = -1) -> Dictionary:
+	return _use_pan_status("pansRapture", "raptureTurns", "No rapture.", "You hand over the rapture. They take it gladly.", BEAT_USE_RAPTURE, slot)
+
+
+# Single-target, effectPower-at-tier turns on the selected enemy, counted
+# down on that enemy's own turns (_enemy_status_turn()). A target already
+# under either status refuses a second.
+# PROSE-REVIEW: Panic / Pan's Rapture use lines and refusal reasons.
+static func _use_pan_status(recipe_key: String, status_key: String, empty_reason: String, line: String, beat_kind: String, slot: int) -> Dictionary:
+	var combat: Dictionary = GameState.state["combat"]
+	if not combat["active"] or combat["outcome"] != null:
+		return { "ok": false, "reason": "Combat not active." }
+	var blocked: String = selection_block_reason(recipe_key)
+	if not blocked.is_empty():
+		return { "ok": false, "reason": blocked }
+	var slot_index: int = Loadout.find_slot(recipe_key, slot)
+	if slot_index < 0:
+		return { "ok": false, "reason": empty_reason }
+	var enemy: Dictionary = _focused_enemy(combat)
+	if int(enemy.get("panicTurns", 0)) > 0 or int(enemy.get("raptureTurns", 0)) > 0:
+		return { "ok": false, "reason": "Already out of it." }
+
+	var beats: Array = []
+	if not prime_decision_point(combat, beats):
+		EventBus.state_changed.emit()
+		return { "ok": true, "beats": beats }
+	push_combat_snapshot()
+
+	var turns: int = int(Loadout.consume(slot_index))
+	enemy[status_key] = turns
+	var target_index: int = _enemy_action_index(combat)
+	_log(combat, beats, "%s (%d turn%s)" % [line, turns, "" if turns == 1 else "s"], beat_kind,
+		{ "targetType": "enemy", "targetIndex": target_index, "effectKey": recipe_key })
 
 	conclude_decision_point(combat, beats)
 
@@ -2383,6 +2462,10 @@ static func use_slot(index: int) -> Dictionary:
 			return use_shield(index)
 		"blackHole":
 			return use_black_hole(index)
+		"panic":
+			return use_panic(index)
+		"pansRapture":
+			return use_pans_rapture(index)
 		"prophetsBreath":
 			return use_prophets_breath(index)
 		"wormhole":
@@ -2444,6 +2527,8 @@ static func _restore_from_snapshot(combat: Dictionary, player: Dictionary) -> vo
 	var focused_enemy: Dictionary = combat["enemies"][snap["enemyIndex"]]
 	focused_enemy["hp"] = snap["enemyHp"]
 	focused_enemy["koed"] = focused_enemy["hp"] <= 0
+	for status_key in ["panicTurns", "raptureTurns"]:
+		focused_enemy[status_key] = int(snap.get("enemy", {}).get(status_key, 0))
 	var new_log: Array = snap["log"].duplicate()
 	new_log.append("⟲ Time unspools. The moment resets. Only you remember.")
 	combat["log"] = new_log

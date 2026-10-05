@@ -1539,6 +1539,53 @@ func run() -> void:
 		assert_eq(GameState.state["combat"]["blastFleeBoost"], true, "should grant a one-use flee boost")
 	)
 
+	run_case("use_panic_sets_effectPower_turns_on_the_selected_enemy", func():
+		_fresh_combat()
+		_equip_slot(0, "panic")
+		var result := Combat.use_panic()
+		assert_true(result["ok"], "panic usable from the loadout")
+		# panic effectPower at tier 1 = 2
+		assert_true(String(result["beats"][0]["logLine"]).contains("(2 turns)"), "tier-1 panic lasts effectPower turns")
+		assert_eq(_equipped_qty("panic"), 0, "one panic consumed")
+		_equip_slot(0, "pansRapture")
+		GameState.state["combat"]["enemies"][0]["panicTurns"] = 2
+		assert_true(not Combat.use_pans_rapture()["ok"], "target already afflicted refuses a second status")
+	)
+
+	run_case("panicked_enemy_cowers_or_flees_and_flee_wins_the_fight", func():
+		var fled := 0
+		var cowered := 0
+		for seed in range(40):
+			_fresh_combat()
+			Rng.set_seed(seed)
+			var combat: Dictionary = GameState.state["combat"]
+			var enemy: Dictionary = combat["enemies"][0]
+			enemy["panicTurns"] = 1
+			var hp_before: int = GameState.state["player"]["hp"]
+			Combat._enemy_turn(combat, enemy, 0, [])
+			assert_eq(GameState.state["player"]["hp"], hp_before, "a panicked enemy never attacks")
+			assert_eq(enemy["panicTurns"], 0, "each affected turn spends one")
+			if enemy["koed"]:
+				fled += 1
+				assert_eq(combat["outcome"], "win", "running off counts as a win")
+			else:
+				cowered += 1
+		assert_true(fled > 0 and cowered > 0, "both outcomes occur across seeds")
+	)
+
+	run_case("rapturous_enemy_skips_attacks_for_its_duration", func():
+		_fresh_combat()
+		var combat: Dictionary = GameState.state["combat"]
+		var enemy: Dictionary = combat["enemies"][0]
+		enemy["raptureTurns"] = 2
+		var hp_before: int = GameState.state["player"]["hp"]
+		Combat._enemy_turn(combat, enemy, 0, [])
+		Combat._enemy_turn(combat, enemy, 0, [])
+		assert_eq(GameState.state["player"]["hp"], hp_before, "no attacks while raptured")
+		assert_eq(enemy["raptureTurns"], 0, "duration spent")
+		assert_true(not enemy["koed"], "rapture does not defeat")
+	)
+
 	run_case("use_blast_fails_with_none_in_inventory", func():
 		_fresh_combat()
 		pass
