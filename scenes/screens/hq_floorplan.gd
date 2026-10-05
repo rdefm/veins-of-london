@@ -130,7 +130,10 @@ func _buy(slot: int, room_id: String) -> void:
 func _effect_text(room: Dictionary) -> String:
 	match room["bonus"]:
 		"crafting":
-			return "Crafting success +%d%%" % int(round(room["bonusValue"] * 100))
+			var text := "Crafting success +%d%%" % int(round(room["bonusValue"] * 100))
+			if room.has("progressBonus"):
+				text += " · Lab progress +%.2f per success" % room["progressBonus"]
+			return text
 		"body":
 			return "Max HP +%d" % int(room["bonusValue"])
 	return ""

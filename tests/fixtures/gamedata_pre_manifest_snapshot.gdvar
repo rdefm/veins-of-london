@@ -6070,9 +6070,10 @@
 "bonus": "crafting",
 "bonusValue": 0.08,
 "cost": 1200,
-"description": "Reference books, field notes. Stacks with the workshop bonus.",
+"description": "Reference books, field notes. Stacks with the workshop bonus, including Lab experiment progress.",
 "id": "library",
 "minTier": "townhouse",
+"progressBonus": 0.5,
 "name": "Library"
 },
 "ops": {
@@ -6115,10 +6116,11 @@
 "bonus": "crafting",
 "bonusValue": 0.08,
 "cost": 800,
-"description": "Bench, tools, decent lighting. Slightly increases crafting success chance.",
+"description": "Bench, tools, decent lighting. Slightly increases crafting success chance and Lab experiment progress.",
 "id": "workshop",
 "minTier": "flat",
-"name": "Workshop"
+"name": "Workshop",
+"progressBonus": 0.5
 }
 },
 "HOME_SECURITY": {

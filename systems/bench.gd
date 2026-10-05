@@ -28,7 +28,7 @@ const EXPERIMENT_SKILL_BONUS := 0.10
 const EXPERIMENT_TIER_PENALTY := 0.15
 const EXPERIMENT_CHANCE_FLOOR := 0.08
 const PROGRESS_PER_SUCCESS := 1
-const PROGRESS_TO_TIER := 3
+const PROGRESS_TO_TIER := 5
 const MAX_TIER := 5
 
 enum GrantResult { GRANTED, ALREADY_KNOWN }
@@ -174,8 +174,13 @@ static func item_tier(recipe_key: String) -> int:
 	return get_cell(discovery["types"], discovery["approach"])["tier"]
 
 
-static func tier_progress(types: Array, approach: String) -> int:
+static func tier_progress(types: Array, approach: String) -> float:
 	return get_cell(types, approach)["progress"]
+
+
+# Progress one successful experiment adds: the base step plus installed rooms' bonus (Home.get_experiment_progress_bonus).
+static func progress_per_success() -> float:
+	return PROGRESS_PER_SUCCESS + Home.get_experiment_progress_bonus()
 
 
 static func is_max_tier(types: Array, approach: String) -> bool:
@@ -220,7 +225,7 @@ static func can_experiment(types: Array, approach: String) -> bool:
 
 # Re-experiments an already-found effect. Ore is spent regardless of outcome
 # (M3 §7's "ore deduction: always"); bench work costs no time block. A success
-# adds PROGRESS_PER_SUCCESS to the cell's bar; a full bar advances the tier and
+# adds progress_per_success() to the cell's bar; a full bar advances the tier and
 # resets progress. Tier never drops. Inert and never-found cells are never reachable here (M3 §5).
 static func experiment(types: Array, approach: String) -> Dictionary:
 	var reason := experiment_block_reason(types, approach)
@@ -238,7 +243,7 @@ static func experiment(types: Array, approach: String) -> Dictionary:
 
 	if Rng.chance(chance):
 		var cell := get_cell(types, approach)
-		var progress: int = cell["progress"] + PROGRESS_PER_SUCCESS
+		var progress: float = snappedf(cell["progress"] + progress_per_success(), 0.001)  # snapped: no float drift across fractional steps
 		if progress >= PROGRESS_TO_TIER:
 			outcome = "tier_up"
 			_set_cell(types, approach, { "tier": cell["tier"] + 1, "progress": 0 })

@@ -742,6 +742,14 @@ static func get_workshop_bonus() -> float:
 	return bonus
 
 
+# Extra Lab-bench progress per successful experiment, summed over installed rooms' `progressBonus`.
+static func get_experiment_progress_bonus() -> float:
+	var bonus := 0.0
+	for room_id in GameState.state["home"]["rooms"]:
+		bonus += GameData.HOME_ROOMS[room_id].get("progressBonus", 0.0)
+	return bonus
+
+
 static func has_room(room_id: String) -> bool:
 	return GameState.state["home"]["rooms"].has(room_id)
 

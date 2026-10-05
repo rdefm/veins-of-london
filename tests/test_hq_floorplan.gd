@@ -50,7 +50,7 @@ func run() -> void:
 		var library := NodeQuery.find_button(screen, "£%d" % GameData.HOME_ROOMS["library"]["cost"])
 		assert_true(library != null and library.disabled, "Library is listed but locked at the Flat")
 		assert_true(NodeQuery.label_texts(screen).has("Requires Townhouse or better."), "a locked use says why")
-		assert_true(NodeQuery.label_texts(screen).has("Crafting success +8%"), "a use shows its effect")
+		assert_true(NodeQuery.label_texts(screen).has("Crafting success +8% · Lab progress +0.50 per success"), "a use shows its effect")
 
 		NodeQuery.find_button(screen, "£800").pressed.emit()
 		assert_eq(GameState.state["home"]["rooms"], ["workshop"], "the Workshop occupies room 02")

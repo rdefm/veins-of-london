@@ -315,9 +315,40 @@ func run() -> void:
 				seed = candidate
 				break
 		assert_true(seed != -1, "should find a success roll within 500 tries")
-		assert_eq(Bench.get_cell(["life", "time"], "heat")["progress"], Bench.PROGRESS_PER_SUCCESS, "a success fills the bar by one step")
+		assert_almost_eq(Bench.get_cell(["life", "time"], "heat")["progress"], float(Bench.PROGRESS_PER_SUCCESS), 0.0001, "a success with no rooms fills the bar by one step")
 		assert_eq(Bench.get_cell(["life", "time"], "heat")["tier"], 1, "a partial bar leaves the tier alone")
 		assert_eq(GameState.state["player"]["craftingXP"], 30, "success awards XP_EXPERIMENT")
+	)
+
+	run_case("experiment_success_with_workshop_and_library_adds_room_progress_bonus", func():
+		var seed := -1
+		for candidate in range(500):
+			GameState.reset()
+			GameState.state["home"]["rooms"] = ["workshop", "library"]
+			GameState.state["player"]["orichalchum"]["time"] = 100
+			GameState.state["player"]["orichalchum"]["life"] = 100
+			GameState.state["player"]["craftingSkill"] = 5
+			GameState.state["player"]["bench"]["cells"]["life+time|heat"] = { "state": "found", "misses": 0, "tier": 1, "progress": 0 }
+			Rng.set_seed(candidate)
+			var result := Bench.experiment(["life", "time"], "heat")
+			if result.get("outcome") == "progress":
+				seed = candidate
+				break
+		assert_true(seed != -1, "should find a success roll within 500 tries")
+		assert_almost_eq(Bench.get_cell(["life", "time"], "heat")["progress"], 2.0, 0.0001, "workshop + library each add 0.5 per success")
+	)
+
+	run_case("room_progress_bonus_does_not_change_experiment_chance", func():
+		GameState.reset()
+		GameState.state["player"]["bench"]["cells"]["life+time|heat"] = { "state": "found", "misses": 0, "tier": 1, "progress": 0 }
+		var without := Bench.experiment_chance(["life", "time"], "heat", 3)
+		GameState.state["home"]["rooms"] = ["workshop", "library"]
+		assert_almost_eq(Bench.experiment_chance(["life", "time"], "heat", 3), without, 0.0001, "rooms boost progress, not the success roll")
+		assert_almost_eq(Bench.progress_per_success(), 2.0, 0.0001)
+		GameState.state["home"]["rooms"] = ["workshop"]
+		assert_almost_eq(Bench.progress_per_success(), 1.5, 0.0001, "one room adds one bonus")
+		GameState.state["home"]["rooms"] = []
+		assert_almost_eq(Bench.progress_per_success(), 1.0, 0.0001, "no rooms, base step")
 	)
 
 	run_case("experiment_filling_the_bar_advances_the_tier_and_resets_progress", func():
