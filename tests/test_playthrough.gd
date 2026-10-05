@@ -982,7 +982,7 @@ func run() -> void:
 			assert_true(not GameState.state["objectives"]["col_a2_nadia_supplies"]["complete"], "%s alone must not complete supplies" % recipe_key)
 			assert_true(not GameState.state["objectives"]["col_a2_nadia_defend"]["active"], "defend stays shut while supplies is open")
 			assert_true(GameState.state["event"] == null, "T8a must not fire before supplies completes")
-		_craft_until_success("pansPrank")
+		_craft_until_success("panic")
 		assert_true(GameState.state["objectives"]["col_a2_nadia_supplies"]["complete"])
 		assert_eq(GameState.state["event"]["eventId"], "col_a2_nadia_defend_brief", "T8a autofires on the craft that completes supplies")
 		assert_true(not GameState.state["objectives"]["col_a2_nadia_defend"]["active"], "defend opens only once T8a resolves, not before")

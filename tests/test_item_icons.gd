@@ -2,7 +2,7 @@ extends "res://tests/test_base.gd"
 
 # ItemIcons lookup + SymbolGlyph icon binding on the Bag drawer's Consumables rows.
 
-const CONSUMABLES := ["timePearl", "enhancementPowder", "rewind", "healingSalve", "blast", "shield", "blackHole", "prophetsBreath", "beALady", "pansPrank", "healingBurst", "failsafe", "rejuvenation", "wormhole"]
+const CONSUMABLES := ["timePearl", "enhancementPowder", "rewind", "healingSalve", "blast", "shield", "blackHole", "prophetsBreath", "beALady", "panic", "panger", "pandemonium", "pansRapture", "healingBurst", "failsafe", "rejuvenation", "wormhole"]
 
 
 func run() -> void:

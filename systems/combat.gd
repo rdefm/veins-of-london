@@ -94,7 +94,7 @@ const BLAST_DISARM_CHANCE := 0.15
 const BLAST_DISARM_TURNS := 2
 
 # recipeKeys with a defined combat effect; cast_complication() refuses
-# anything else (rejuvenation/beALady/pansPrank/healingSalve have no
+# anything else (rejuvenation/beALady/the Pan recipes/healingSalve have no
 # in-combat mechanic; rewind casts via combat_rewind()'s own fallback).
 const COMBAT_COMPLICATION_RECIPES: Array[String] = ["timePearl", "enhancementPowder", "blast", "shield", "blackHole", "healingBurst", "prophetsBreath", "wormhole"]
 

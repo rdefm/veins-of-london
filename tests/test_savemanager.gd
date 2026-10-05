@@ -1345,6 +1345,23 @@ func run() -> void:
 		assert_eq(GameState.state["meta"]["saveVersion"], SaveManager.SAVE_VERSION, "stamped current")
 	)
 
+	run_case("loading_a_v10_save_renames_pansPrank_to_panic", func():
+		GameState.reset()
+		var save: Dictionary = GameState.deep_copy(GameState.state)
+		save["meta"]["saveVersion"] = 10
+		save["player"]["inventory"] = { "pansPrank": { "2": 3 } }
+		save["player"]["craftedCounts"] = { "pansPrank": 4 }
+		save["player"]["equippedLoadout"] = ["pansPrank"]
+		var result := SaveManager.import_string(JSON.stringify(save))
+		assert_true(result["ok"], "a v10 save should load")
+		var player: Dictionary = GameState.state["player"]
+		assert_eq(player["inventory"]["panic"]["2"], 3, "inventory key renamed")
+		assert_true(not player["inventory"].has("pansPrank"), "old inventory key gone")
+		assert_eq(player["craftedCounts"]["panic"], 4)
+		assert_eq(player["equippedLoadout"], ["panic"], "string values renamed")
+		assert_eq(GameState.state["meta"]["saveVersion"], SaveManager.SAVE_VERSION)
+	)
+
 	run_case("loading_a_v9_save_maps_refine_levels_to_tiers_with_empty_progress", func():
 		GameState.reset()
 		var save: Dictionary = GameState.deep_copy(GameState.state)

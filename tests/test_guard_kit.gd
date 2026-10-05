@@ -19,7 +19,7 @@ func run() -> void:
 
 	run_case("stock_refuses_items_off_the_allowlist", func():
 		var vein := _seed(2)
-		for recipe_key in ["healingSalve", "wormhole", "pansPrank"]:
+		for recipe_key in ["healingSalve", "wormhole", "panic"]:
 			Crafting.inventory_add(recipe_key, 1, 1)
 			var before: Dictionary = GameState.deep_copy(GameState.state)
 			assert_true(not GuardKit.stock("v1", recipe_key, 1, 1)["ok"], recipe_key + " refused")

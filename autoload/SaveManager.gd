@@ -4,7 +4,7 @@ extends Node
 # autosaves. autosave() is called from daily_tick, exit_combat, event
 # completion, and every successful cash purchase.
 
-const SAVE_VERSION := 10
+const SAVE_VERSION := 11
 # Oldest save version _migrate_versions() can still bring forward.
 const MIN_SUPPORTED_VERSION := 3
 const SLOT_COUNT := 3
@@ -342,6 +342,27 @@ func _migrate_versions(save: Dictionary) -> void:
 				_migrate_from_v9(save)
 	meta["saveVersion"] = SAVE_VERSION
 	save["meta"] = meta
+
+
+# v11: the `pansPrank` id becomes `panic` wherever it appears as a key or string
+# value (inventories, kits, holdings, crafted counts, bench cells, loadouts).
+func _migrate_from_v10(save: Dictionary) -> void:
+	_rename_recipe_id(save, "pansPrank", "panic")
+
+
+func _rename_recipe_id(node: Variant, old_id: String, new_id: String) -> Variant:
+	if node is Dictionary:
+		if node.has(old_id):
+			node[new_id] = node[old_id]
+			node.erase(old_id)
+		for key in node.keys():
+			node[key] = _rename_recipe_id(node[key], old_id, new_id)
+	elif node is Array:
+		for i in node.size():
+			node[i] = _rename_recipe_id(node[i], old_id, new_id)
+	elif node is String and node == old_id:
+		return new_id
+	return node
 
 
 # v10 bench cells carry `tier` + `progress`: a v9 cell's `refine` level maps to

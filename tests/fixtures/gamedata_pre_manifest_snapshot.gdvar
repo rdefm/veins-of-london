@@ -760,7 +760,10 @@
 "failsafe": 270,
 "healingBurst": 180,
 "healingSalve": 120,
-"pansPrank": 180,
+"panic": 180,
+"panger": 180,
+"pandemonium": 180,
+"pansRapture": 180,
 "prophetsBreath": 180,
 "rejuvenation": 280,
 "rewind": 210,
@@ -5677,7 +5680,7 @@
 "joinRelation": 40,
 "keyMembers": [{
 "contactId": "ingram",
-"giftPrefs": ["failsafe", "pansPrank"],
+"giftPrefs": ["failsafe", "panic"],
 "id": "ingram",
 "intro": "\"Dr Ingram, Assay Warden to the Guild of Applied Alchemists. Your name has come before the Court twice this month. Once would have been sufficient.\"",
 "name": "Ingram",
@@ -5766,12 +5769,24 @@
 },
 "craftSkill": 3,
 "craftTargets": {
-"pansPrank": {
+"panic": {
 "kitUse": 1,
-"sellQuota": 63
+"sellQuota": 15
+},
+"panger": {
+"kitUse": 0,
+"sellQuota": 16
+},
+"pandemonium": {
+"kitUse": 0,
+"sellQuota": 16
+},
+"pansRapture": {
+"kitUse": 0,
+"sellQuota": 16
 }
 },
-"crafts": ["pansPrank"],
+"crafts": ["panic", "panger", "pandemonium", "pansRapture"],
 "cultivateSkill": 2,
 "description": "No one's quite sure who runs The Network or what they actually want. They surface occasionally to broker information — who has what vein, who is selling, what the barometer is doing. They seem to know things before they happen. They are interested in you, which should be flattering and is mostly unsettling.",
 "fieldwork": {
@@ -5797,7 +5812,7 @@
 "primaryOre": "emotion",
 "raidKits": {
 "attack": {
-"pansPrank": 1
+"panic": 1
 },
 "defend": {}
 },
@@ -5828,7 +5843,10 @@
 "speaker": "handler",
 "startingHoldings": {
 "items": {
-"pansPrank": 5,
+"panic": 2,
+"panger": 1,
+"pandemonium": 1,
+"pansRapture": 1,
 "prophetsBreath": 3
 },
 "ore": {
@@ -7205,11 +7223,11 @@
 "col_a2_nadia_supplies": {
 "activateFlag": "colA2LedgerStarted",
 "completeFlag": "colA2NadiaSuppliesDone",
-"detail": "Craft one Blast, one Shield, one Pan's Prank.",
+"detail": "Craft one Blast, one Shield, one Panic.",
 "id": "col_a2_nadia_supplies",
 "params": {
 "minEach": 1,
-"recipeKeys": ["blast", "shield", "pansPrank"]
+"recipeKeys": ["blast", "shield", "panic"]
 },
 "questline": "collective",
 "title": "Stock the Collective's kit",
@@ -7568,21 +7586,72 @@
 "symbol": "♥",
 "xpReward": 20
 },
-"pansPrank": {
+"panic": {
 "baseSuccess": 0.25,
-"description": "Aimed at a crowd, not a person. Pick the feeling; the crowd supplies the consequences.",
+"description": "Fear, pressed down until it keeps. Aimed at a crowd, it does not stay a crowd for long.",
+"discovery": {
+"approach": "compression",
+"types": ["emotion"]
+},
+"effectPower": [0, 2, 2, 3, 4, 5],
+"eventUsable": true,
+"icon": "res://assets/combat/icons/panic.png",
+"ingredients": {
+"emotion": 6
+},
+"name": "Panic",
+"symbol": "☹",
+"xpReward": 30
+},
+"panger": {
+"baseSuccess": 0.25,
+"description": "Anger, ground fine. The target stops being careful and starts being loud.",
+"discovery": {
+"approach": "grinding",
+"types": ["emotion"]
+},
+"effectPower": [0, 2, 2, 3, 4, 5],
+"eventUsable": true,
+"icon": "res://assets/combat/icons/panger.png",
+"ingredients": {
+"emotion": 6
+},
+"name": "Panger",
+"symbol": "☠",
+"xpReward": 30
+},
+"pandemonium": {
+"baseSuccess": 0.25,
+"description": "Fury, brought to the boil. Nobody in range remembers whose side they were on.",
+"discovery": {
+"approach": "heat",
+"types": ["emotion"]
+},
+"effectPower": [0, 2, 2, 3, 4, 5],
+"eventUsable": true,
+"icon": "res://assets/combat/icons/pandemonium.png",
+"ingredients": {
+"emotion": 6
+},
+"name": "Pandemonium",
+"symbol": "♨",
+"xpReward": 30
+},
+"pansRapture": {
+"baseSuccess": 0.25,
+"description": "Joy, distilled to the last clear drop. Pleasant until you notice nobody is going home.",
 "discovery": {
 "approach": "distilling",
 "types": ["emotion"]
 },
 "effectPower": [0, 2, 2, 3, 4, 5],
 "eventUsable": true,
-"icon": "res://assets/combat/icons/pansPrank.png",
+"icon": "res://assets/combat/icons/pansRapture.png",
 "ingredients": {
 "emotion": 6
 },
-"name": "Pan's Prank",
-"symbol": "☻",
+"name": "Pan's Rapture",
+"symbol": "☺",
 "xpReward": 30
 },
 "prophetsBreath": {

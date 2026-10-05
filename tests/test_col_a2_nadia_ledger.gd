@@ -46,7 +46,7 @@ func run() -> void:
 
 		assert_true(GameState.state["player"]["cash"] > cash_before, "Nadia funds the missions, not the player")
 		assert_true(GameState.state["player"]["orichalchum"]["physics"] >= 11, "enough physics for one Blast (5) and one Shield (6)")
-		assert_true(GameState.state["player"]["orichalchum"]["emotion"] >= 6, "enough emotion for one Pan's Prank")
+		assert_true(GameState.state["player"]["orichalchum"]["emotion"] >= 6, "enough emotion for one Panic")
 		assert_true(GameState.state["flags"]["colA2LedgerStarted"])
 		assert_eq(GameState.state["flags"]["colA2Stage"], "hardening")
 
@@ -74,7 +74,7 @@ func run() -> void:
 		_craft_until_success("shield")
 		assert_true(not GameState.state["objectives"]["col_a2_nadia_supplies"]["complete"], "two of three recipes is not enough")
 
-		_craft_until_success("pansPrank")
+		_craft_until_success("panic")
 		assert_true(GameState.state["objectives"]["col_a2_nadia_supplies"]["complete"], "all three recipes crafted -- supplies complete")
 		assert_eq(GameState.state["event"]["eventId"], "col_a2_nadia_defend_brief", "the moment supplies completes, the brief scene autofires")
 

@@ -304,7 +304,7 @@ func run() -> void:
 	run_case("items_crafted_set_requires_at_least_minEach_of_every_recipe_since_activation", func():
 		GameState.reset()
 		var original := Fixtures.install_objectives({
-			"t1": _objective("t1", "items_crafted_set", { "recipeKeys": ["blast", "shield", "pansPrank"], "minEach": 1 }),
+			"t1": _objective("t1", "items_crafted_set", { "recipeKeys": ["blast", "shield", "panic"], "minEach": 1 }),
 		})
 		GameState.state["flags"]["testActive"] = true
 		Objectives.refresh()
@@ -317,7 +317,7 @@ func run() -> void:
 		Objectives.refresh()
 		assert_eq(GameState.state["objectives"]["t1"]["complete"], false, "2 of 3 recipes crafted must not complete early")
 
-		GameState.state["player"]["craftedCounts"]["pansPrank"] = 1
+		GameState.state["player"]["craftedCounts"]["panic"] = 1
 		Objectives.refresh()
 		assert_eq(GameState.state["objectives"]["t1"]["complete"], true, "all 3 required recipes now crafted at least once")
 		GameData.OBJECTIVES = original
@@ -325,9 +325,9 @@ func run() -> void:
 
 	run_case("items_crafted_set_ignores_crafts_that_predate_activation", func():
 		GameState.reset()
-		GameState.state["player"]["craftedCounts"] = { "blast": 1, "shield": 1, "pansPrank": 1 }
+		GameState.state["player"]["craftedCounts"] = { "blast": 1, "shield": 1, "panic": 1 }
 		var original := Fixtures.install_objectives({
-			"t1": _objective("t1", "items_crafted_set", { "recipeKeys": ["blast", "shield", "pansPrank"], "minEach": 1 }),
+			"t1": _objective("t1", "items_crafted_set", { "recipeKeys": ["blast", "shield", "panic"], "minEach": 1 }),
 		})
 		GameState.state["flags"]["testActive"] = true
 		Objectives.refresh()  # baseline snapshot captures the pre-existing counts
@@ -335,7 +335,7 @@ func run() -> void:
 
 		GameState.state["player"]["craftedCounts"]["blast"] += 1
 		GameState.state["player"]["craftedCounts"]["shield"] += 1
-		GameState.state["player"]["craftedCounts"]["pansPrank"] += 1
+		GameState.state["player"]["craftedCounts"]["panic"] += 1
 		Objectives.refresh()
 		assert_eq(GameState.state["objectives"]["t1"]["complete"], true, "one fresh craft of each since activation completes it")
 		GameData.OBJECTIVES = original

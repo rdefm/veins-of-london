@@ -169,7 +169,7 @@
     "raidKits": { "attack": {}, "defend": {} },
     "speaker": "ingram",
     "keyMembers": [
-      {"id": "ingram", "contactId": "ingram", "name": "Ingram", "role": "The Guild · Assay Warden", "unlock": "firstMessage", "giftPrefs": ["failsafe", "pansPrank"], "intro": "\"Dr Ingram, Assay Warden to the Guild of Applied Alchemists. Your name has come before the Court twice this month. Once would have been sufficient.\""}
+      {"id": "ingram", "contactId": "ingram", "name": "Ingram", "role": "The Guild · Assay Warden", "unlock": "firstMessage", "giftPrefs": ["failsafe", "panic"], "intro": "\"Dr Ingram, Assay Warden to the Guild of Applied Alchemists. Your name has come before the Court twice this month. Once would have been sufficient.\""}
     ],
     "sampleFavours": [
       {"id": "guild_time_supply", "kind": "deliver", "params": {"kind": "ore", "type": "time", "qty": 15, "days": 6}, "text": "\"The Court requires fifteen time by the sixth day. Assayed, weighed, and not in a carrier bag.\""},
@@ -215,19 +215,22 @@
     "cultivateSkill": 2,
     "fieldwork": { "actionsPerBlock": 1, "tendAtOrBelow": 50, "pruneFloor": 51, "pruneDepthMult": 2 },
     "craftSkill": 3,
-    "craftTargets": { "pansPrank": { "kitUse": 1, "sellQuota": 63 } },
+    "craftTargets": { "panic": { "kitUse": 1, "sellQuota": 15 }, "panger": { "kitUse": 0, "sellQuota": 16 }, "pandemonium": { "kitUse": 0, "sellQuota": 16 }, "pansRapture": { "kitUse": 0, "sellQuota": 16 } },
     "primaryOre": "emotion",
     "secondaryOre": "fate",
     "aggressionPersonality": 0.84,
     "weariness": { "acceptPeace": 45, "offerPeace": 70 },
     "claimWeights": { "base": 1, "presence": 17, "primaryOre": 6, "secondaryOre": 3 },
     "crafts": [
-      "pansPrank"
+      "panic",
+      "panger",
+      "pandemonium",
+      "pansRapture"
     ],
     "consumes": {
       "prophetsBreath": 3
     },
-    "raidKits": { "attack": { "pansPrank": 1 }, "defend": {} },
+    "raidKits": { "attack": { "panic": 1 }, "defend": {} },
     "speaker": "handler",
     "keyMembers": [
       {"id": "handler", "contactId": "handler", "name": "Handler", "role": "The Network · Clerkenwell", "unlock": "quest", "giftPrefs": ["prophetsBreath", "beALady"], "intro": ""}
@@ -242,7 +245,10 @@
         "fate": 20
       },
       "items": {
-        "pansPrank": 5,
+        "panic": 2,
+        "panger": 1,
+        "pandemonium": 1,
+        "pansRapture": 1,
         "prophetsBreath": 3
       }
     }

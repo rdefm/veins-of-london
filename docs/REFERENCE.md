@@ -79,7 +79,10 @@ Each recipe's `ingredients` field is a dict of `{oreType: baseCalcCost}` — one
 | blackHole | Black Hole | ⊙ | {physics: 7} | 0.20 | [0,6,8,10,13,16] | 35 | false |
 | prophetsBreath | Prophet's Breath | ≋ | {time: 5} | 0.30 | [0,1,1,1,2,2] | 30 | true |
 | beALady | Be a Lady | ☘ | {fate: 6} | 0.35 | [0,1,1,1,2,2] | 25 | true |
-| pansPrank | Pan's Prank | ☻ | {emotion: 6} | 0.25 | [0,2,2,3,4,5] | 30 | true |
+| panic | Panic | ☹ | {emotion: 6} | 0.25 | [0,2,2,3,4,5] (inert in combat until the Pan combat tickets) | 30 | true |
+| panger | Panger | ☠ | {emotion: 6} | 0.25 | [0,2,2,3,4,5] (inert in combat until the Pan combat tickets) | 30 | true |
+| pandemonium | Pandemonium | ♨ | {emotion: 6} | 0.25 | [0,2,2,3,4,5] (inert in combat until the Pan combat tickets) | 30 | true |
+| pansRapture | Pan's Rapture | ☺ | {emotion: 6} | 0.25 | [0,2,2,3,4,5] (inert in combat until the Pan combat tickets) | 30 | true |
 | healingBurst | Healing Burst | ✚ | {time: 4, life: 4} | 0.30 | [0,6,8,10,12,15] | 30 | false |
 | failsafe | Failsafe | ⚑ | {time: 6, life: 6} | 0.12 | [0,1,1,2,2,2] | 45 | true |
 | rejuvenation | Rejuvenation | ❀ | {time: 5, life: 5} | 0.35 | [0,0,0,0,0,0] (no gameplay effect — sale good only) | 20 | false |
@@ -92,7 +95,7 @@ Descriptions (verbatim):
 - enhancementPowder: "Rub on skin before a fight. Life-type acceleration — you act faster than anyone can track."
 - rewind: "Shaped like an hourglass. Briefly unspools time — only you remember what happened. Difficult and expensive to produce."
 
-`CRAFTING_XP_LEVELS = [0, 0, 80, 220, 500, 1000]`. `CONSUMABLE_PRICES` (ticket 80: all 14 craftable recipes are sellable) `= { timePearl: 120, enhancementPowder: 150, rewind: 210, healingSalve: 120, blast: 150, shield: 180, blackHole: 210, prophetsBreath: 180, beALady: 150, pansPrank: 180, healingBurst: 180, failsafe: 270, rejuvenation: 280, wormhole: 240 }`. **Needs balance sign-off** (ticket 80): the 12 new prices are `xpReward * 6` — the exact formula both pre-existing prices already satisfy (timePearl 20xp→120, enhancementPowder 25xp→150) — with one deliberate exception: `rejuvenation` (20xp, formula would give 120) is instead priced at 280, the highest of all 14, to honor its own flavor text ("Sells for more than anything else on this bench, which tells you who's buying it."). Flagging that override specifically, since it's the one price not derived from crafting cost/XP.
+`CRAFTING_XP_LEVELS = [0, 0, 80, 220, 500, 1000]`. `CONSUMABLE_PRICES` (ticket 80: all 17 craftable recipes are sellable) `= { timePearl: 120, enhancementPowder: 150, rewind: 210, healingSalve: 120, blast: 150, shield: 180, blackHole: 210, prophetsBreath: 180, beALady: 150, panic: 180, panger: 180, pandemonium: 180, pansRapture: 180, healingBurst: 180, failsafe: 270, rejuvenation: 280, wormhole: 240 }`. **Needs balance sign-off** (ticket 80): the new prices are `xpReward * 6` — the exact formula both pre-existing prices already satisfy (timePearl 20xp→120, enhancementPowder 25xp→150) — with one deliberate exception: `rejuvenation` (20xp, formula would give 120) is instead priced at 280, the highest of all 14, to honor its own flavor text ("Sells for more than anything else on this bench, which tells you who's buying it."). Flagging that override specifically, since it's the one price not derived from crafting cost/XP.
 
 ### 1.4 `data/dial.json`
 
@@ -246,7 +249,7 @@ Five factions; copy `name`, `shortName`, `tagline`, `industries`, `description`,
 | collective | producer | life | emotion | healingSalve, enhancementPowder | healingSalve 3 |
 | firm | producer | physics | life | blast, shield, healingBurst | blast 3, shield 3, healingBurst 3, enhancementPowder 3 |
 | guild | crafter | time | physics | timePearl, rewind, wormhole, prophetsBreath, rejuvenation, blackHole | timePearl 1, enhancementPowder 1 |
-| network | informationBroker | emotion | fate | pansPrank | prophetsBreath 3 |
+| network | informationBroker | emotion | fate | panic, panger, pandemonium, pansRapture | prophetsBreath 3 |
 | conclave | manipulator | fate | time | failsafe, beALady | failsafe 3, rejuvenation 3 |
 
 **`claimWeights`** (biz-act2-faction-economy — **placeholder weights**): `{ base, presence, primaryOre, secondaryOre }`, all factions currently `{1, 17, 6, 3}`. The NPC claim roll (`Factions.pick_claimant(district, oreType)`, §3.1 step ⑤b) is a weighted pick across all 5 factions; each faction's weight is `base`, `+presence` if it is the district's `factionPresence`, `+primaryOre` if its `primaryOre` is the site's ore, else `+secondaryOre` if its `secondaryOre` is. E.g. a physics site in Shoreditch (Collective presence): Collective 18, Firm 7, Guild 4, Network 1, Conclave 1.
@@ -265,14 +268,14 @@ Five factions; copy `name`, `shortName`, `tagline`, `industries`, `description`,
 
 Most factions tend anything at/under neutral and harvest back to just above it, so a harvested vein drifts back up and never dies. The Firm harvests harder per prune (`pruneDepthMult` 4) and only rescues veins at 30 or lower.
 
-**`craftSkill` + `craftTargets`** (biz-act2-faction-economy §Crafting — pinned by the tuning tool: each `sellQuota` ≈ `10.5 × (1 + p) / p` at craft chance `p`, so a faction sells ~10 of each item a day, ~21 of pansPrank/beALady): drive `FactionSim.craft()` (§3.1 step ⑤f). `craftTargets = { recipeKey: { kitUse, sellQuota } }` for each of the faction's `crafts`. **Target holding** (`FactionSim.craft_target`) = `consumes[recipeKey]` (weekly, 0 if absent) + `kitUse` + `sellQuota`. Each faction walks its `crafts` in data order; per item it makes up to `target − held` attempts (all tiers counted), stopping once its `holdings.ore` can't cover `calc_cost(recipe, craftSkill)` (§3.5; earlier items in the list get ore first). Every attempt spends its full cost; it succeeds on `chance(Crafting.faction_craft_chance(recipe, craftSkill))` — the player's `craftChance` with no workshop bonus, no Dial attunement. A success adds 1 item under tier `str(craftSkill)` (no Bench refine) and `Shares.record_craft(factionId, cost)`; a failure credits nothing. At or above target, no attempts.
+**`craftSkill` + `craftTargets`** (biz-act2-faction-economy §Crafting — pinned by the tuning tool: each `sellQuota` ≈ `10.5 × (1 + p) / p` at craft chance `p`, so a faction sells ~10 of each item a day, ~21 of each Pan recipe/beALady): drive `FactionSim.craft()` (§3.1 step ⑤f). `craftTargets = { recipeKey: { kitUse, sellQuota } }` for each of the faction's `crafts`. **Target holding** (`FactionSim.craft_target`) = `consumes[recipeKey]` (weekly, 0 if absent) + `kitUse` + `sellQuota`. Each faction walks its `crafts` in data order; per item it makes up to `target − held` attempts (all tiers counted), stopping once its `holdings.ore` can't cover `calc_cost(recipe, craftSkill)` (§3.5; earlier items in the list get ore first). Every attempt spends its full cost; it succeeds on `chance(Crafting.faction_craft_chance(recipe, craftSkill))` — the player's `craftChance` with no workshop bonus, no Dial attunement. A success adds 1 item under tier `str(craftSkill)` (no Bench refine) and `Shares.record_craft(factionId, cost)`; a failure credits nothing. At or above target, no attempts.
 
 | id | craftSkill | craftTargets `item kitUse/sellQuota` |
 |---|---|---|
 | collective | 2 | healingSalve 1/28, enhancementPowder 0/31 |
 | firm | 2 | blast 2/29, shield 2/34, healingBurst 2/34 |
 | guild | 4 | timePearl 0/23, rewind 0/23, wormhole 0/28, prophetsBreath 0/25, rejuvenation 0/24, blackHole 0/27 |
-| network | 3 | pansPrank 1/63 |
+| network | 3 | panic 1/15, panger 0/16, pandemonium 0/16, pansRapture 0/16 |
 | conclave | 3 | failsafe 1/37, beALady 0/56 |
 
 **`raidKits` + consumption** (biz-act2-faction-economy §Consumption — **placeholder kits, awaiting human OK**): `raidKits = { attack: {recipeKey: qty}, defend: {recipeKey: qty} }`. A fight logs the kit it used into `factions[id].kitBurns` (`FactionSim.log_kit_burn`); `FactionSim.consume()` (§3.1 step ⑤g) applies them. Per faction, per `consumes` item, in integer thousandths of an item (`CONSUME_UNIT` 1000, so the carry survives a JSON save): `owed = consumeAccrued[item] + round(weekly × Barometer.get_item_demand_mult(item) × 1000 / 7)`, draw `floor(owed / 1000)`, carry `owed mod 1000` in `consumeAccrued` (a week draws `weekly` at multiplier 1). Logged burns are taken first, capped by holdings (`take_items`, highest tier first); a `defend` burn also releases that much of the kit reserve; then each draw takes at most `held − remaining reserve` (see Per-vein kit allocation); `kitBurns` clears; `shortfall = {item: (burns + draw) − taken}` (only items short), overwritten each consume.
@@ -284,7 +287,7 @@ Most factions tend anything at/under neutral and harvest back to just above it, 
 | collective | healingSalve 1 | healingSalve 1 |
 | firm | blast 2, healingBurst 1 | shield 2, healingBurst 1 |
 | guild | — | — |
-| network | pansPrank 1 | — |
+| network | panic 1 | — |
 | conclave | — | failsafe 1 |
 
 **`trading` + faction cash** (biz-act2-faction-economy §Buying and selling, §Faction cash — **placeholder values**): `resources` is the faction's £ wallet, never below £0. In: London sales, shop sales to the player (§3.6a), `industryIncome` (£/day, §3.1 ⑤h, regardless of vein count; replaces the old per-industry table — `industries` is flavour only). Out: London buys, buying from the player (§3.6a), security upgrades and guard hires (⑤j, see **Faction guard hiring** below), Monday guard wages (⑤h2, see **Faction guard wages** below). `FactionSim.trade()` (§3.1 step ⑤g3), per faction, per good — every ore type, then every item it consumes, crafts, carries in a kit or holds:
@@ -329,7 +332,7 @@ Conclave arbitrage: `arbBuyMult` 0.7, `arbSellMult` 1.3, `arbDailyVolume` 30.
 |---|---|---|---|
 | collective | nadia | Nadia, Des, Hakim (quest) | Nadia timePearl/enhancementPowder; Des prophetsBreath/healingSalve; Hakim rejuvenation/healingBurst |
 | firm | lusk | Lusk (firstMessage) | rejuvenation, prophetsBreath |
-| guild | ingram | Ingram (firstMessage) | failsafe, pansPrank |
+| guild | ingram | Ingram (firstMessage) | failsafe, panic |
 | network | handler | Handler (quest) | prophetsBreath, beALady |
 | conclave | fairweather | Fairweather (firstMessage) | timePearl, wormhole |
 
@@ -900,7 +903,7 @@ The roll happens once, at `Raiding.roll_raid_odds()` time (alongside the existin
 - **London supply and demand:** supply is recorded real activity (player and faction trades) plus the Independents slice. Per-good `normalStock` and `civilianDemand` in `market.json` goods. `civilianDemand` (`Market.civilian_demand`) is London's permanent consumption, Ticker-scaled for items, and the good's London volume for the Independents slice and annotation thresholds.
 - **Independents slice** (`Market.independents_supply`, not Ticker-scaled): items `independentsShare` × `civilianDemand`; ores `independentsOreShare` × `civilianDemand` + `independentsBuyCover` × today's faction London buys of that ore (the faction demand tally, so it runs after ⑤g3 and before the reprice clears it). All three are 0..1. Credited to the `independents` producer in Shares (§3.14). A kind whose share is 0 has no slice; with both shares 0 the Independents row vanishes.
 - **Resting stock** (no player or faction trade, no Ticker effect): `normalStock + (independents − demand) × (1 − reversion) / reversion`; items: `demand = civilianDemand`; ores: `demand = civilianDemand + derived(ore)` at every item's whole-unit resting stock.
-- **Pinned values** (biz-act2-faction-economy tuning, `scripts/sim_faction_economy.gd`): `priceMinMult` 0.2, `priceMaxMult` 4.0, `curveExponent` 1.5, `reversion` 0.6, `smoothing` 0.8, `historyDays` 28, `priceLot` ore 10 / consumable 1, `oreConversionRate` 0.1, `independentsShare` 0.3, `independentsOreShare` 0.4, `independentsBuyCover` 0.5. Ore: normalStock 800, civilianDemand time 160 / physics 160 / life 160 / fate 135 / emotion 190 → resting (no trade) idle ≈ 1.12–1.17× base; a week of player output (730 units) in one day drops the next day's price > 15% and is back within 10% in 4 days. Items: normalStock 50, civilianDemand 15 (pansPrank and beALady 100 / 30). With the real economy running (day-one veins, factions trading, player 104 life/day), ore sits ≈ 0.85–1.15× base (range 0.64–1.26× over days 31–60, 4 seeds) and items ≈ 1.0–1.45×. *Known gap:* war with nobody crafting shields no longer lifts physics +50–100% (item volume is small against ore volume); deferred to Ticker work.
+- **Pinned values** (biz-act2-faction-economy tuning, `scripts/sim_faction_economy.gd`): `priceMinMult` 0.2, `priceMaxMult` 4.0, `curveExponent` 1.5, `reversion` 0.6, `smoothing` 0.8, `historyDays` 28, `priceLot` ore 10 / consumable 1, `oreConversionRate` 0.1, `independentsShare` 0.3, `independentsOreShare` 0.4, `independentsBuyCover` 0.5. Ore: normalStock 800, civilianDemand time 160 / physics 160 / life 160 / fate 135 / emotion 190 → resting (no trade) idle ≈ 1.12–1.17× base; a week of player output (730 units) in one day drops the next day's price > 15% and is back within 10% in 4 days. Items: normalStock 50, civilianDemand 15 (the four Pan recipes and beALady 100 / 30). With the real economy running (day-one veins, factions trading, player 104 life/day), ore sits ≈ 0.85–1.15× base (range 0.64–1.26× over days 31–60, 4 seeds) and items ≈ 1.0–1.45×. *Known gap:* war with nobody crafting shields no longer lifts physics +50–100% (item volume is small against ore volume); deferred to Ticker work.
 
 ### 3.14 Shares (`systems/shares.gd`)
 - **Producers:** `player`, the five faction ids (data order), `independents` (only while `market.json` `independentsShare` or `independentsOreShare` > 0).
@@ -935,7 +938,7 @@ A save without `factionPressure` backfills `{ snapshots: {}, collectiveFirmJoine
 
 Every load clamps player and pair relations to −100..100, makes `factionRelations` symmetric (each pair gets the rounded mean of its two directions) and backfills a missing faction `activityLog` as `[]`. A save without `factionStances` gets the starting pair stances; a pair relation outside its starting stance's band is set to that stance's `startingRelation`; player stances are read from relation without overlap or hysteresis (Collective held neutral per §3.1 "Stances"). No `saveVersion` bump.
 
-Save versioning (v8): `SaveManager.SAVE_VERSION = 8`, `MIN_SUPPORTED_VERSION = 3`; older/newer saves are rejected. `_migrate_versions` runs `_migrate_from_v<N>` for each N from the save's version to current (one `match` arm per bump), then stamps current. v3→v4 folds every `"0"` tier bucket into `"1"` (counts merged) in player/stash inventory, vein and HQ `guardKit`, faction `holdings.items`, `combat.guardKit`/`raiderKit` pools, and sets loaded Dial Complication tier 0 → 1. v4→v5 drops `player.items` and `player.equipment.weapon` (retired player weapons, no compensation). v5→v6 raises a stock 3–7 `attackMin`/`attackMax` to 7–15. v6→v7 drops the contact combat stash fields. v7→v8 (per-owner Dials) drops `contacts.*.dialCharges` and gives a recruited contact with a `grantDial` (James) that Dial at full charge; player stock is untouched.
+Save versioning (v8): `SaveManager.SAVE_VERSION = 8`, `MIN_SUPPORTED_VERSION = 3`; older/newer saves are rejected. `_migrate_versions` runs `_migrate_from_v<N>` for each N from the save's version to current (one `match` arm per bump), then stamps current. v3→v4 folds every `"0"` tier bucket into `"1"` (counts merged) in player/stash inventory, vein and HQ `guardKit`, faction `holdings.items`, `combat.guardKit`/`raiderKit` pools, and sets loaded Dial Complication tier 0 → 1. v4→v5 drops `player.items` and `player.equipment.weapon` (retired player weapons, no compensation). v5→v6 raises a stock 3–7 `attackMin`/`attackMax` to 7–15. v6→v7 drops the contact combat stash fields. v7→v8 (per-owner Dials) drops `contacts.*.dialCharges` and gives a recruited contact with a `grantDial` (James) that Dial at full charge; player stock is untouched. v10→v11 renames the retired `pansPrank` id to `panic` (key or string value) throughout the save.
 
 A save whose `player.model` is `"protagonist2"` loads as `"territorial3"` (the same sprite set, renamed); any other value is left as-is. No `saveVersion` bump.
 

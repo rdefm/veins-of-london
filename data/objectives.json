@@ -135,9 +135,9 @@
   "col_a2_nadia_supplies": {
     "id": "col_a2_nadia_supplies",
     "title": "Stock the Collective's kit",
-    "detail": "Craft one Blast, one Shield, one Pan's Prank.",
+    "detail": "Craft one Blast, one Shield, one Panic.",
     "type": "items_crafted_set",
-    "params": { "recipeKeys": ["blast", "shield", "pansPrank"], "minEach": 1 },
+    "params": { "recipeKeys": ["blast", "shield", "panic"], "minEach": 1 },
     "activateFlag": "colA2LedgerStarted",
     "completeFlag": "colA2NadiaSuppliesDone",
     "questline": "collective"

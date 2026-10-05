@@ -111,17 +111,53 @@
       "eventUsable": true,
       "description": "For one action, the numbers stop arguing with you. Fate calc, temporarily very agreeable."
     },
-    "pansPrank": {
-      "name": "Pan's Prank",
-      "symbol": "☻",
-      "icon": "res://assets/combat/icons/pansPrank.png",
+    "panic": {
+      "name": "Panic",
+      "symbol": "☹",
+      "icon": "res://assets/combat/icons/panic.png",
+      "ingredients": { "emotion": 6 },
+      "discovery": { "types": ["emotion"], "approach": "compression" },
+      "baseSuccess": 0.25,
+      "effectPower": [0, 2, 2, 3, 4, 5],
+      "xpReward": 30,
+      "eventUsable": true,
+      "description": "Fear, pressed down until it keeps. Aimed at a crowd, it does not stay a crowd for long."
+    },
+    "panger": {
+      "name": "Panger",
+      "symbol": "☠",
+      "icon": "res://assets/combat/icons/panger.png",
+      "ingredients": { "emotion": 6 },
+      "discovery": { "types": ["emotion"], "approach": "grinding" },
+      "baseSuccess": 0.25,
+      "effectPower": [0, 2, 2, 3, 4, 5],
+      "xpReward": 30,
+      "eventUsable": true,
+      "description": "Anger, ground fine. The target stops being careful and starts being loud."
+    },
+    "pandemonium": {
+      "name": "Pandemonium",
+      "symbol": "♨",
+      "icon": "res://assets/combat/icons/pandemonium.png",
+      "ingredients": { "emotion": 6 },
+      "discovery": { "types": ["emotion"], "approach": "heat" },
+      "baseSuccess": 0.25,
+      "effectPower": [0, 2, 2, 3, 4, 5],
+      "xpReward": 30,
+      "eventUsable": true,
+      "description": "Fury, brought to the boil. Nobody in range remembers whose side they were on."
+    },
+    "pansRapture": {
+      "name": "Pan's Rapture",
+      "symbol": "☺",
+      "icon": "res://assets/combat/icons/pansRapture.png",
       "ingredients": { "emotion": 6 },
       "discovery": { "types": ["emotion"], "approach": "distilling" },
       "baseSuccess": 0.25,
       "effectPower": [0, 2, 2, 3, 4, 5],
       "xpReward": 30,
       "eventUsable": true,
-      "description": "Aimed at a crowd, not a person. Pick the feeling; the crowd supplies the consequences."
+      "description": "Joy, distilled to the last clear drop. Pleasant until you notice nobody is going home."
     },
     "healingBurst": {
       "name": "Healing Burst",
@@ -183,7 +219,10 @@
     "blackHole": 210,
     "prophetsBreath": 180,
     "beALady": 150,
-    "pansPrank": 180,
+    "panic": 180,
+    "panger": 180,
+    "pandemonium": 180,
+    "pansRapture": 180,
     "healingBurst": 180,
     "failsafe": 270,
     "rejuvenation": 280,

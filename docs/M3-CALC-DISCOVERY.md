@@ -431,7 +431,10 @@ Initial roster supplied in `docs/calc-effects.txt` (13 effects, 5 canonical type
 | Prophet's Breath | time | Distilling | inhaled vapor, thematically distilled |
 | Time Pearl | time | Compression | tutorial-granted (§9.2); folded in so it can be refined |
 | Be a Lady | fate | Grinding | only fate effect; no strong technical theme |
-| Pan's Prank | emotion | Distilling | mind-altering vapor |
+| Panic | emotion | Compression | fear, pressed down |
+| Panger | emotion | Grinding | anger, ground fine |
+| Pandemonium | emotion | Heat | fury, brought to the boil |
+| Pan's Rapture | emotion | Distilling | joy, distilled |
 | Healing Burst | time+life | Heat | starter combat elixir |
 | Failsafe | time+life | Distilling | "very expensive and difficult to make" — late gate |
 | Rejuvenation | time+life | Grinding | bulk-produced luxury sale good |
