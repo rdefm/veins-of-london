@@ -2062,6 +2062,20 @@ static func _has_pan_status(enemy: Dictionary) -> bool:
 	return int(enemy.get("panicTurns", 0)) > 0 or int(enemy.get("raptureTurns", 0)) > 0 or enemy.get("anger") is Dictionary
 
 
+# Enemies a Pan status lands on: every living enemy not already under a Pan
+# status when multi, else just the focused one (refused upstream if statused).
+static func _pan_target_indices(combat: Dictionary, multi: bool) -> Array:
+	var indices: Array = []
+	if not multi:
+		indices.append(_enemy_action_index(combat))
+		return indices
+	for i in range(combat["enemies"].size()):
+		var enemy: Dictionary = combat["enemies"][i]
+		if not enemy["koed"] and not _has_pan_status(enemy):
+			indices.append(i)
+	return indices
+
+
 # The enemy.anger status a Panger / Pandemonium of `tier` sets.
 static func _anger_status(tier: int, fury: bool, magnitude_mult: float = 1.0) -> Dictionary:
 	return { "turns": ANGER_PHASE_TURNS * 2, "pct": GameState.round_epsilon(float(ANGER_PCT_PER_TIER * tier) * magnitude_mult), "fury": fury }
@@ -2082,14 +2096,15 @@ static func _use_anger(recipe_key: String, fury: bool, empty_reason: String, lin
 	var combat: Dictionary = GameState.state["combat"]
 	if not combat["active"] or combat["outcome"] != null:
 		return { "ok": false, "reason": "Combat not active." }
-	var blocked: String = selection_block_reason(recipe_key)
-	if not blocked.is_empty():
-		return { "ok": false, "reason": blocked }
 	var slot_index: int = Loadout.find_slot(recipe_key, slot)
 	if slot_index < 0:
 		return { "ok": false, "reason": empty_reason }
-	var enemy: Dictionary = _focused_enemy(combat)
-	if _has_pan_status(enemy):
+	var multi: bool = Loadout.slot_is_multi(slot_index)
+	var blocked: String = "" if multi else selection_block_reason(recipe_key)
+	if not blocked.is_empty():
+		return { "ok": false, "reason": blocked }
+	var targets: Array = _pan_target_indices(combat, multi)
+	if targets.is_empty() or (not multi and _has_pan_status(_focused_enemy(combat))):
 		return { "ok": false, "reason": "Already out of it." }
 
 	var beats: Array = []
@@ -2100,9 +2115,11 @@ static func _use_anger(recipe_key: String, fury: bool, empty_reason: String, lin
 
 	var tier: int = int(GameState.state["player"]["loadout"]["slots"][slot_index]["tier"])
 	Loadout.consume(slot_index)
-	enemy["anger"] = _anger_status(tier, fury)
-	_log(combat, beats, "%s (%d%%)" % [line, enemy["anger"]["pct"]], beat_kind,
-		{ "targetType": "enemy", "targetIndex": _enemy_action_index(combat), "effectKey": recipe_key })
+	for target_index in targets:
+		var enemy: Dictionary = combat["enemies"][target_index]
+		enemy["anger"] = _anger_status(tier, fury)
+		_log(combat, beats, "%s (%d%%)" % [line, enemy["anger"]["pct"]], beat_kind,
+			{ "targetType": "enemy", "targetIndex": target_index, "effectKey": recipe_key })
 
 	conclude_decision_point(combat, beats)
 
@@ -2118,14 +2135,15 @@ static func _use_pan_status(recipe_key: String, status_key: String, empty_reason
 	var combat: Dictionary = GameState.state["combat"]
 	if not combat["active"] or combat["outcome"] != null:
 		return { "ok": false, "reason": "Combat not active." }
-	var blocked: String = selection_block_reason(recipe_key)
-	if not blocked.is_empty():
-		return { "ok": false, "reason": blocked }
 	var slot_index: int = Loadout.find_slot(recipe_key, slot)
 	if slot_index < 0:
 		return { "ok": false, "reason": empty_reason }
-	var enemy: Dictionary = _focused_enemy(combat)
-	if _has_pan_status(enemy):
+	var multi: bool = Loadout.slot_is_multi(slot_index)
+	var blocked: String = "" if multi else selection_block_reason(recipe_key)
+	if not blocked.is_empty():
+		return { "ok": false, "reason": blocked }
+	var targets: Array = _pan_target_indices(combat, multi)
+	if targets.is_empty() or (not multi and _has_pan_status(_focused_enemy(combat))):
 		return { "ok": false, "reason": "Already out of it." }
 
 	var beats: Array = []
@@ -2135,10 +2153,10 @@ static func _use_pan_status(recipe_key: String, status_key: String, empty_reason
 	push_combat_snapshot()
 
 	var turns: int = int(Loadout.consume(slot_index))
-	enemy[status_key] = turns
-	var target_index: int = _enemy_action_index(combat)
-	_log(combat, beats, "%s (%d turn%s)" % [line, turns, "" if turns == 1 else "s"], beat_kind,
-		{ "targetType": "enemy", "targetIndex": target_index, "effectKey": recipe_key })
+	for target_index in targets:
+		combat["enemies"][target_index][status_key] = turns
+		_log(combat, beats, "%s (%d turn%s)" % [line, turns, "" if turns == 1 else "s"], beat_kind,
+			{ "targetType": "enemy", "targetIndex": target_index, "effectKey": recipe_key })
 
 	conclude_decision_point(combat, beats)
 
@@ -2466,7 +2484,10 @@ static func cast_complication(index: int) -> Dictionary:
 		EventBus.state_changed.emit()
 		return { "ok": false, "reason": "Shield already active." }
 
-	if PAN_STATUS_RECIPES.has(recipe_key) and _has_pan_status(_focused_enemy(combat)):
+	var pan_targets: Array = []
+	if PAN_STATUS_RECIPES.has(recipe_key):
+		pan_targets = _pan_target_indices(combat, multi)
+	if PAN_STATUS_RECIPES.has(recipe_key) and (pan_targets.is_empty() or (not multi and _has_pan_status(_focused_enemy(combat)))):
 		return { "ok": false, "reason": "Already out of it." }
 
 	var beats: Array = []
@@ -2521,17 +2542,17 @@ static func cast_complication(index: int) -> Dictionary:
 		"panic", "pansRapture":
 			var turns: int = int(power) + int(cast["turnBonus"])
 			var status_key: String = "panicTurns" if recipe_key == "panic" else "raptureTurns"
-			var status_index: int = _enemy_action_index(combat)
-			combat["enemies"][status_index][status_key] = turns
-			# PROSE-REVIEW: Panic / Pan's Rapture Complication line.
-			_log(combat, beats, "You trigger %s (%d turn%s)." % [recipe["name"], turns, "" if turns == 1 else "s"], BEAT_USE_PANIC if recipe_key == "panic" else BEAT_USE_RAPTURE,
-				{ "targetType": "enemy", "targetIndex": status_index, "effectKey": recipe_key })
+			for status_index in pan_targets:
+				combat["enemies"][status_index][status_key] = turns
+				# PROSE-REVIEW: Panic / Pan's Rapture Complication line.
+				_log(combat, beats, "You trigger %s (%d turn%s)." % [recipe["name"], turns, "" if turns == 1 else "s"], BEAT_USE_PANIC if recipe_key == "panic" else BEAT_USE_RAPTURE,
+					{ "targetType": "enemy", "targetIndex": status_index, "effectKey": recipe_key })
 		"panger", "pandemonium":
-			var anger_index: int = _enemy_action_index(combat)
-			combat["enemies"][anger_index]["anger"] = _anger_status(int(cast["tier"]), recipe_key == "pandemonium", float(cast["magnitudeMult"]))
-			# PROSE-REVIEW: Panger / Pandemonium Complication line.
-			_log(combat, beats, "You trigger %s (%d%%)." % [recipe["name"], combat["enemies"][anger_index]["anger"]["pct"]], BEAT_USE_PANGER if recipe_key == "panger" else BEAT_USE_PANDEMONIUM,
-				{ "targetType": "enemy", "targetIndex": anger_index, "effectKey": recipe_key })
+			for anger_index in pan_targets:
+				combat["enemies"][anger_index]["anger"] = _anger_status(int(cast["tier"]), recipe_key == "pandemonium", float(cast["magnitudeMult"]))
+				# PROSE-REVIEW: Panger / Pandemonium Complication line.
+				_log(combat, beats, "You trigger %s (%d%%)." % [recipe["name"], combat["enemies"][anger_index]["anger"]["pct"]], BEAT_USE_PANGER if recipe_key == "panger" else BEAT_USE_PANDEMONIUM,
+					{ "targetType": "enemy", "targetIndex": anger_index, "effectKey": recipe_key })
 		"shield":
 			player["shieldPool"] += int(power) * targets
 			if multi:

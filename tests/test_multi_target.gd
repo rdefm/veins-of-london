@@ -207,3 +207,54 @@ func run() -> void:
 		assert_eq(_stock("shield_multi", 3), 1)
 		assert_eq(Crafting.inventory_qty("shield"), 0)
 	)
+
+	run_case("multi_pan_items_craftable_at_tier_3_only", func():
+		for key in ["panic", "panger", "pandemonium", "pansRapture"]:
+			_set_tier(key, 2)
+			assert_true(not Crafting.multi_craft_available(key), "%s tier 2: hidden" % key)
+			_set_tier(key, 3)
+			assert_true(Crafting.multi_craft_available(key), "%s tier 3: shown" % key)
+	)
+
+	run_case("multi_pan_statuses_hit_every_living_unafflicted_enemy_from_loadout", func():
+		for key in ["panic", "pansRapture", "panger", "pandemonium"]:
+			GameState.reset()
+			Crafting.inventory_add(key + "_multi", 3, 1)
+			Loadout.equip(0, key, 3, "", true)
+			var combat := _fight(4)
+			combat["enemies"][2]["koed"] = true
+			combat["enemies"][3]["raptureTurns"] = 2
+			combat["selection"] = { "type": "ally", "index": 0 }
+			var result := Combat.use_slot(0)
+			assert_true(result["ok"], "%s: %s" % [key, str(result)])
+			for i in [0, 1]:
+				assert_true(Combat._has_pan_status(combat["enemies"][i]), "%s hits enemy %d" % [key, i])
+			assert_true(not Combat._has_pan_status(combat["enemies"][2]), "%s skips koed" % key)
+			assert_eq(combat["enemies"][3].get("panicTurns", 0), 0, "%s skips already afflicted" % key)
+	)
+
+	run_case("dial_multi_pan_statuses_hit_every_enemy_without_a_selection", func():
+		for key in ["panic", "pansRapture", "panger", "pandemonium"]:
+			GameState.reset()
+			var combat := _fight(3)
+			combat["selection"] = { "type": "ally", "index": 0 }
+			var dial: Dictionary = Fixtures.dial_with_loaded(key, 3, 5)
+			dial["loadedComplications"][0]["multi"] = true
+			GameState.state["player"]["dial"] = dial
+			var result := Combat.cast_complication(0)
+			assert_true(result["ok"], "%s: %s" % [key, str(result)])
+			for i in range(3):
+				assert_true(Combat._has_pan_status(combat["enemies"][i]), "%s hits enemy %d" % [key, i])
+	)
+
+	run_case("multi_pan_refused_when_every_enemy_already_afflicted", func():
+		GameState.reset()
+		var combat := _fight(2)
+		for enemy in combat["enemies"]:
+			enemy["panicTurns"] = 1
+		var dial: Dictionary = Fixtures.dial_with_loaded("panger", 3, 5)
+		dial["loadedComplications"][0]["multi"] = true
+		GameState.state["player"]["dial"] = dial
+		assert_true(not Combat.cast_complication(0)["ok"])
+		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 5, "no charge spent")
+	)
