@@ -491,23 +491,30 @@ static func resolve_steal_outcome(outcome: Dictionary) -> void:
 # dayOneFactionMaxLevelShare of each faction's roster starts at its tier's level
 # cap, the rest one level below. District counts match data/districts.json's
 # siteCap bump -- each district below appears in exactly that many starting veins.
+# Each faction's districts are adjacent on the hex map (R§1.8 "Day-one roster").
 const DAY_ONE_ROSTER: Dictionary = {
 	"collective": [
 		{ "district": "shoreditch", "ores": ["life", "life", "emotion", "life"] },
-		{ "district": "whitechapel", "ores": ["life", "emotion", "life", "emotion"] },
+		{ "district": "kingscross", "ores": ["life", "emotion"] },
+		{ "district": "whitechapel", "ores": ["life", "emotion"] },
 	],
 	"firm": [
-		{ "district": "camden", "ores": ["physics", "physics", "time", "physics", "time"] },
-		{ "district": "battersea", "ores": ["physics", "life", "physics", "time"] },
+		{ "district": "battersea", "ores": ["physics", "life", "physics"] },
+		{ "district": "clapham", "ores": ["physics", "time", "physics"] },
+		{ "district": "chelsea", "ores": ["physics", "time", "time"] },
 	],
 	"guild": [
-		{ "district": "greenwich", "ores": ["time", "time", "physics", "time", "time", "physics", "time", "physics", "time"] },
+		{ "district": "greenwich", "ores": ["time", "time", "physics", "time", "time", "physics", "time"] },
+		{ "district": "whitechapel", "ores": ["time", "physics"] },
 	],
 	"network": [
-		{ "district": "kingscross", "ores": ["emotion", "emotion", "fate", "emotion", "emotion"] },
+		{ "district": "kingscross", "ores": ["emotion", "emotion", "fate"] },
+		{ "district": "camden", "ores": ["emotion", "emotion"] },
 	],
 	"conclave": [
-		{ "district": "city", "ores": ["fate", "fate", "time", "fate", "time", "fate", "time", "fate", "life", "fate", "time"] },
+		{ "district": "city", "ores": ["fate", "fate", "time", "fate", "time"] },
+		{ "district": "kensington", "ores": ["fate", "time", "life"] },
+		{ "district": "camden", "ores": ["fate", "fate", "time"] },
 	],
 }
 

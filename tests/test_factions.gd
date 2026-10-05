@@ -26,6 +26,19 @@ static func _seed_faction_guards(extras_a: int, extras_b: int) -> int:
 	return Calendar.monday_on_or_after(8)
 
 
+func _district_counts(entries: Array) -> Dictionary:
+	var counts := {}
+	for e in entries:
+		counts[e["site"]["district"]] = int(counts.get(e["site"]["district"], 0)) + 1
+	return counts
+
+
+func _districts_adjacent(a: String, b: String) -> bool:
+	var pa: Array = GameData.MAP_LAYOUT["districts"][a]["anchor"]
+	var pb: Array = GameData.MAP_LAYOUT["districts"][b]["anchor"]
+	return Vector2(pa[0], pa[1]).distance_to(Vector2(pb[0], pb[1])) < 200.0
+
+
 static func _day_one_faction_veins(faction_id: String) -> Array:
 	var result := []
 	for site in GameState.state["world"]["sites"]:
@@ -909,35 +922,57 @@ func _run_cases() -> void:
 
 		var collective := _day_one_faction_veins("collective")
 		assert_eq(collective.size(), 8, "collective: 8 starting veins")
-		var collective_shoreditch := collective.filter(func(e): return e["site"]["district"] == "shoreditch")
-		var collective_whitechapel := collective.filter(func(e): return e["site"]["district"] == "whitechapel")
-		assert_eq(collective_shoreditch.size(), 4, "collective: 4/4 shoreditch/whitechapel split")
-		assert_eq(collective_whitechapel.size(), 4, "collective: 4/4 shoreditch/whitechapel split")
+		assert_eq(_district_counts(collective), {"shoreditch": 4, "kingscross": 2, "whitechapel": 2}, "collective district split")
 		assert_eq(collective.map(func(e): return e["vein"]["oreType"]), ["life", "life", "emotion", "life", "life", "emotion", "life", "emotion"], "collective ore types are the roster's fixed list, in placement order")
 
 		var firm := _day_one_faction_veins("firm")
 		assert_eq(firm.size(), 9, "firm: 9 starting veins")
-		assert_eq(firm.filter(func(e): return e["site"]["district"] == "camden").size(), 5, "firm: 5/4 camden/battersea split")
-		assert_eq(firm.filter(func(e): return e["site"]["district"] == "battersea").size(), 4, "firm: 5/4 camden/battersea split")
-		assert_eq(firm.map(func(e): return e["vein"]["oreType"]), ["physics", "physics", "time", "physics", "time", "physics", "life", "physics", "time"], "firm ore types")
+		assert_eq(_district_counts(firm), {"battersea": 3, "clapham": 3, "chelsea": 3}, "firm district split")
+		assert_eq(firm.map(func(e): return e["vein"]["oreType"]), ["physics", "life", "physics", "physics", "time", "physics", "physics", "time", "time"], "firm ore types")
 
 		var guild := _day_one_faction_veins("guild")
 		assert_eq(guild.size(), 9, "guild: 9 starting veins")
-		for e in guild:
-			assert_eq(e["site"]["district"], "greenwich", "every guild starting vein is in greenwich")
-		assert_eq(guild.map(func(e): return e["vein"]["oreType"]), ["time", "time", "physics", "time", "time", "physics", "time", "physics", "time"], "guild ore types")
+		assert_eq(_district_counts(guild), {"greenwich": 7, "whitechapel": 2}, "guild district split")
+		assert_eq(guild.map(func(e): return e["vein"]["oreType"]), ["time", "time", "physics", "time", "time", "physics", "time", "time", "physics"], "guild ore types")
 
 		var network := _day_one_faction_veins("network")
 		assert_eq(network.size(), 5, "network: 5 starting veins")
-		for e in network:
-			assert_eq(e["site"]["district"], "kingscross", "every network starting vein is in king's cross")
+		assert_eq(_district_counts(network), {"kingscross": 3, "camden": 2}, "network district split")
 		assert_eq(network.map(func(e): return e["vein"]["oreType"]), ["emotion", "emotion", "fate", "emotion", "emotion"], "network ore types")
 
 		var conclave := _day_one_faction_veins("conclave")
 		assert_eq(conclave.size(), 11, "conclave: 11 starting veins")
-		for e in conclave:
-			assert_eq(e["site"]["district"], "city", "every conclave starting vein is in the city")
-		assert_eq(conclave.map(func(e): return e["vein"]["oreType"]), ["fate", "fate", "time", "fate", "time", "fate", "time", "fate", "life", "fate", "time"], "conclave ore types")
+		assert_eq(_district_counts(conclave), {"city": 5, "kensington": 3, "camden": 3}, "conclave district split")
+		assert_eq(conclave.map(func(e): return e["vein"]["oreType"]), ["fate", "fate", "time", "fate", "time", "fate", "time", "life", "fate", "fate", "time"], "conclave ore types")
+
+		# Veins thinned across more districts: none holds more than before the spread.
+		var per_district := {}
+		for faction_id in Factions.DAY_ONE_ROSTER:
+			for e in _day_one_faction_veins(faction_id):
+				per_district[e["site"]["district"]] = int(per_district.get(e["site"]["district"], 0)) + 1
+		assert_eq(per_district.size(), 10, "starting veins span 10 districts")
+		var old_max := {"shoreditch": 4, "whitechapel": 4, "camden": 5, "battersea": 4, "greenwich": 9, "kingscross": 5, "city": 11}
+		for district_id in old_max:
+			assert_true(per_district.get(district_id, 0) <= old_max[district_id], "%s holds no more starting veins than before" % district_id)
+
+		# Each faction's districts form one adjacent cluster on the hex map.
+		for faction_id in Factions.DAY_ONE_ROSTER:
+			var ids: Array = []
+			for group in Factions.DAY_ONE_ROSTER[faction_id]:
+				ids.append(group["district"])
+			var seen: Array = [ids[0]]
+			var grew := true
+			while grew:
+				grew = false
+				for a in ids:
+					if a in seen:
+						continue
+					for b in seen:
+						if _districts_adjacent(a, b):
+							seen.append(a)
+							grew = true
+							break
+			assert_eq(seen.size(), ids.size(), "%s starting districts are contiguous on the map" % faction_id)
 
 		# Growth 70, tier bumped off barren, first 75% (rounded) of each roster at
 		# its tier's level cap and the rest one below.
@@ -986,18 +1021,26 @@ func _run_cases() -> void:
 		# (base + placed), so this checks the loaded data reflects that —
 		# not a runtime mutation, since the rosters (and therefore the bump)
 		# are fixed constants.
-		assert_eq(GameData.DISTRICTS["shoreditch"]["siteCap"], 7, "shoreditch: base 3 + collective's 4")
-		assert_eq(GameData.DISTRICTS["whitechapel"]["siteCap"], 7, "whitechapel: base 3 + collective's 4")
-		assert_eq(GameData.DISTRICTS["camden"]["siteCap"], 9, "camden: base 4 + firm's 5")
-		assert_eq(GameData.DISTRICTS["battersea"]["siteCap"], 7, "battersea: base 3 + firm's 4")
-		assert_eq(GameData.DISTRICTS["greenwich"]["siteCap"], 12, "greenwich: base 3 + guild's 9")
-		assert_eq(GameData.DISTRICTS["kingscross"]["siteCap"], 8, "kingscross: base 3 + network's 5")
-		assert_eq(GameData.DISTRICTS["city"]["siteCap"], 13, "city: base 2 + conclave's 11")
+		var expected_caps := {
+			"shoreditch": 7, "whitechapel": 7, "camden": 9, "battersea": 6, "greenwich": 10,
+			"kingscross": 8, "city": 7, "kensington": 7, "chelsea": 7, "clapham": 9,
+		}
+		var bases := {
+			"shoreditch": 3, "whitechapel": 3, "camden": 4, "battersea": 3, "greenwich": 3,
+			"kingscross": 3, "city": 2, "kensington": 4, "chelsea": 4, "clapham": 6,
+		}
+		var placed := {}
+		for faction_id in Factions.DAY_ONE_ROSTER:
+			for group in Factions.DAY_ONE_ROSTER[faction_id]:
+				placed[group["district"]] = int(placed.get(group["district"], 0)) + group["ores"].size()
+		for district_id in expected_caps:
+			assert_eq(GameData.DISTRICTS[district_id]["siteCap"], expected_caps[district_id], "%s siteCap" % district_id)
+			assert_eq(GameData.DISTRICTS[district_id]["siteCap"], bases[district_id] + placed[district_id], "%s: base + placed" % district_id)
 
 		GameState.reset()
 		Rng.set_seed(3)
 		Factions.seed_day_one_veins()
-		for district_id in ["shoreditch", "whitechapel", "camden", "battersea", "greenwich", "kingscross", "city"]:
+		for district_id in expected_caps:
 			var site_cap: int = GameData.DISTRICTS[district_id]["siteCap"]
 			assert_true(Sites.sites_in_district(district_id).size() <= site_cap, "%s: starting veins alone must never exceed the bumped siteCap" % district_id)
 	)

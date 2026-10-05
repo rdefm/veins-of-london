@@ -18,7 +18,7 @@
     "siteQualityMod": -0.05,
     "dangerMod": -0.05,
     "priceMod": 0.15,
-    "siteCap": 13,
+    "siteCap": 7,
     "special": "",
     "factionPresence": "conclave",
     "blurb": "Every building is a bank, a firm, or both, and something older underneath. Fate ore turns up more than anything else; the City's always been in the business of who owes what to whom."
@@ -30,7 +30,7 @@
     "siteQualityMod": 0.05,
     "dangerMod": 0.00,
     "priceMod": 0.00,
-    "siteCap": 12,
+    "siteCap": 10,
     "special": "",
     "factionPresence": "guild",
     "blurb": "The Meridian runs through it, which the locals will mention unprompted. Time ore turns up here more than anywhere else in London."
@@ -44,7 +44,7 @@
     "priceMod": -0.05,
     "siteCap": 9,
     "special": "",
-    "factionPresence": "firm",
+    "factionPresence": "conclave",
     "blurb": "Markets, market stalls, and men who are technically also a market stall. Physics ore is most of what comes up — nothing here holds still long enough to settle."
   },
   "kingscross": {
@@ -66,7 +66,7 @@
     "siteQualityMod": 0.05,
     "dangerMod": 0.00,
     "priceMod": 0.00,
-    "siteCap": 7,
+    "siteCap": 6,
     "special": "",
     "factionPresence": "firm",
     "blurb": "The power station stopped generating decades ago. Something still hums. Physics ore is most of what turns up — the old cooling towers never really switched off."
@@ -126,9 +126,9 @@
     "siteQualityMod": 0.05,
     "dangerMod": -0.05,
     "priceMod": 0.10,
-    "siteCap": 4,
+    "siteCap": 7,
     "special": "",
-    "factionPresence": "",
+    "factionPresence": "conclave",
     "blurb": "Museums full of things nobody asked to have kept. Time and fate ore turn up in roughly equal measure; the collections have never been properly audited."
   },
   "chelsea": {
@@ -138,9 +138,9 @@
     "siteQualityMod": 0.00,
     "dangerMod": -0.05,
     "priceMod": 0.15,
-    "siteCap": 4,
+    "siteCap": 7,
     "special": "",
-    "factionPresence": "",
+    "factionPresence": "firm",
     "blurb": "Money here is polite about itself. Fate ore is most of what comes up — the King's Road has always known who owes whom, and mostly declines to say."
   },
   "clapham": {
@@ -150,9 +150,9 @@
     "siteQualityMod": 0.05,
     "dangerMod": 0.00,
     "priceMod": 0.00,
-    "siteCap": 6,
+    "siteCap": 9,
     "special": "",
-    "factionPresence": "",
+    "factionPresence": "firm",
     "blurb": "The Common is always full of someone's weekend. Life and emotion ore surface in about equal measure — brunch is a kind of grief, if you stay long enough."
   }
 }

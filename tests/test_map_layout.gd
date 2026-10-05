@@ -340,7 +340,7 @@ func run() -> void:
 
 	run_case("faction_first_presence_anchor_picks_the_first_matching_district_in_key_order", func():
 		assert_eq(MapLayout.faction_first_presence_anchor("collective"), MapLayout.district_anchor("shoreditch"), "shoreditch precedes whitechapel (both collective) in district key order")
-		assert_eq(MapLayout.faction_first_presence_anchor("firm"), MapLayout.district_anchor("camden"), "camden precedes battersea (both firm) in district key order")
+		assert_eq(MapLayout.faction_first_presence_anchor("firm"), MapLayout.district_anchor("battersea"), "battersea precedes clapham and chelsea (all firm) in district key order")
 		assert_eq(MapLayout.faction_first_presence_anchor("guild"), MapLayout.district_anchor("greenwich"))
 	)
 
@@ -461,11 +461,11 @@ func run() -> void:
 		# leaving them all live on the map at once rather than retiring
 		# each round like the 94 regression test above. Peak live-stop
 		# count here (siteCap * 2) is more than the old +2 margin could
-		# ever cover for this district (siteCap + 2 = 9 < 14 needed).
+		# ever cover for this district (siteCap + 2 = 8 < 12 needed).
 		GameState.reset()
 		var district := "battersea"
 		var site_cap: int = GameData.DISTRICTS[district]["siteCap"]
-		assert_eq(site_cap, 7, "battersea siteCap (test assumes this to size the scenario)")
+		assert_eq(site_cap, 6, "battersea siteCap (test assumes this to size the scenario)")
 
 		var natural_veins: Array = []
 		for i in range(site_cap):

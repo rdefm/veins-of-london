@@ -15,20 +15,20 @@ Same rules of engagement as M0. New data is canonical HERE (this doc extends REF
 | id | name | oreBias | siteQualityMod | dangerMod | priceMod | siteCap | special | factionPresence |
 |---|---|---|---|---|---|---|---|---|
 | shoreditch | Shoreditch | {} (uniform) | 0.00 | 0.00 | 0.00 | 7 | home base | collective |
-| city | The City | {fate:0.75} | −0.05 | −0.05 | +0.15 | 13 | — | conclave |
-| greenwich | Greenwich | {time:0.75} | +0.05 | 0.00 | 0.00 | 12 | — | guild |
-| camden | Camden | {physics:0.75} | +0.05 | +0.10 | −0.05 | 9 | — | firm |
+| city | The City | {fate:0.75} | −0.05 | −0.05 | +0.15 | 7 | — | conclave |
+| greenwich | Greenwich | {time:0.75} | +0.05 | 0.00 | 0.00 | 10 | — | guild |
+| camden | Camden | {physics:0.75} | +0.05 | +0.10 | −0.05 | 9 | — | conclave |
 | kingscross | King's Cross | {time:0.375, physics:0.375} | 0.00 | +0.05 | 0.00 | 8 | veins here: +1 rightward drift, −1 leftward drift (min 0) | network |
-| battersea | Battersea | {physics:0.75} | +0.05 | 0.00 | 0.00 | 7 | — | firm |
+| battersea | Battersea | {physics:0.75} | +0.05 | 0.00 | 0.00 | 6 | — | firm |
 | hampstead | Hampstead | {life:0.75} | +0.10 | −0.05 | +0.05 | 2 | — | — |
 | whitechapel | Whitechapel | {emotion:0.75} | +0.10 | +0.10 | 0.00 | 7 | vein NPC-raid chance ×1.5 (when vein raids land, M2) | collective |
 | soho | Soho | — | — | −0.05 | +0.10 | 0 | marketplace (M4); no veins, no prospecting | network |
 | nottinghill | Notting Hill | {emotion:0.75} | +0.05 | 0.00 | +0.05 | 4 | — | — |
-| kensington | Kensington | {time:0.375, fate:0.375} | +0.05 | −0.05 | +0.10 | 4 | — | — |
-| chelsea | Chelsea | {fate:0.75} | 0.00 | −0.05 | +0.15 | 4 | — | — |
-| clapham | Clapham | {life:0.375, emotion:0.375} | +0.05 | 0.00 | 0.00 | 6 | — | — |
+| kensington | Kensington | {time:0.375, fate:0.375} | +0.05 | −0.05 | +0.10 | 7 | — | conclave |
+| chelsea | Chelsea | {fate:0.75} | 0.00 | −0.05 | +0.15 | 7 | — | firm |
+| clapham | Clapham | {life:0.375, emotion:0.375} | +0.05 | 0.00 | 0.00 | 9 | — | firm |
 
-`siteCap` above already includes the day-1 faction-vein bump (D2, below) — shoreditch/whitechapel/camden/battersea/greenwich/kingscross/city are each `base + starting-veins-placed-there`; hampstead/soho have no faction presence to seed and keep their original base values. The west/southwest districts (nottinghill, kensington, chelsea, clapham) likewise have no faction presence and carry their base siteCap; each has one flavour deck event (`nottinghill_carnival`, `kensington_exhibit`, `chelsea_pensioner`, `clapham_common`: +1 of the district's main ore, no choices).
+`siteCap` above already includes the day-1 faction-vein bump (D2, below) — shoreditch/whitechapel/camden/battersea/greenwich/kingscross/city/kensington/chelsea/clapham are each `base + starting-veins-placed-there` (bases 3/3/4/3/3/3/2/4/4/6); hampstead/soho/nottinghill have no faction presence to seed and keep their base values. `factionPresence` names the district's largest day-1 holder. The west/southwest districts each have one flavour deck event (`nottinghill_carnival`, `kensington_exhibit`, `chelsea_pensioner`, `clapham_common`: +1 of the district's main ore, no choices).
 
 oreBias semantics: listed weights are the probability of that type; remainder split uniformly among the other types (uniform = 0.2 each).
 
@@ -78,13 +78,13 @@ Terroir tier also drives yield directly: `terroirYieldMult` (poor 0.6 / fair 1.0
 
 | faction | count | district(s) | ores (placement order) |
 |---|---|---|---|
-| Collective | 8 | Shoreditch (4) / Whitechapel (4) | life ×5, emotion ×3 |
-| Firm | 9 | Camden (5) / Battersea (4) | physics ×5, time ×3, life ×1 |
-| Guild | 9 | Greenwich | time ×6, physics ×3 |
-| Network | 5 | King's Cross | emotion ×4, fate ×1 |
-| Conclave | 11 | City | fate ×6, time ×4, life ×1 |
+| Collective | 8 | Shoreditch (4) / King's Cross (2) / Whitechapel (2) | life ×5, emotion ×3 |
+| Firm | 9 | Battersea (3) / Clapham (3) / Chelsea (3) | physics ×5, time ×3, life ×1 |
+| Guild | 9 | Greenwich (7) / Whitechapel (2) | time ×6, physics ×3 |
+| Network | 5 | King's Cross (3) / Camden (2) | emotion ×4, fate ×1 |
+| Conclave | 11 | City (5) / Kensington (3) / Camden (3) | fate ×6, time ×4, life ×1 |
 
-Each faction's ore mix matches what its recipes consume (R§1.8). The ores are fixed constants (`Factions.DAY_ONE_ROSTER`); every starting vein seeds at growth `dayOneFactionGrowth` (70), its rolled terroir tier bumped `dayOneFactionTierBump` (1) tier, and the first `dayOneFactionMaxLevelShare` (75%, rounded) of each faction's roster at its tier's level cap, the rest one below (R§1.2 `data/vein_growth.json`). Everything else about each starting vein (site tier roll, discovery bonuses, security tier) is rolled fresh each new game using the exact same procedural logic a normal prospect/NPC-claim would use. The ongoing daily NPC-claim tick (⑤b above) and its probability curve are completely unchanged by this; it is a new-game-init-only addition. `data/districts.json`'s `siteCap` for every district that receives starting veins is bumped by exactly that count (base + placed, not spent from the base) so normal prospecting capacity is unaffected — see the D1 table's siteCap column and footnote above. `data/map_layout.json`'s per-district `stopSlots` keep the `siteCap * 2` buffer GameData validates at boot.
+Each faction's districts are contiguous on the hex map (Firm in the south/west, Conclave and Network around the centre, Collective and Guild in the east), and no district holds more starting veins than before the spread. Each faction's ore mix matches what its recipes consume (R§1.8). The ores are fixed constants (`Factions.DAY_ONE_ROSTER`); every starting vein seeds at growth `dayOneFactionGrowth` (70), its rolled terroir tier bumped `dayOneFactionTierBump` (1) tier, and the first `dayOneFactionMaxLevelShare` (75%, rounded) of each faction's roster at its tier's level cap, the rest one below (R§1.2 `data/vein_growth.json`). Everything else about each starting vein (site tier roll, discovery bonuses, security tier) is rolled fresh each new game using the exact same procedural logic a normal prospect/NPC-claim would use. The ongoing daily NPC-claim tick (⑤b above) and its probability curve are completely unchanged by this; it is a new-game-init-only addition. `data/districts.json`'s `siteCap` for every district that receives starting veins is bumped by exactly that count (base + placed, not spent from the base) so normal prospecting capacity is unaffected — see the D1 table's siteCap column and footnote above. `data/map_layout.json`'s per-district `stopSlots` keep the `siteCap * 2` buffer GameData validates at boot.
 
 ## D3 — Travel (the one rule)
 

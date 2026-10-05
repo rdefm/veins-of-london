@@ -1022,14 +1022,14 @@
 "physics": 0.75
 },
 "priceMod": 0,
-"siteCap": 7,
+"siteCap": 6,
 "siteQualityMod": 0.05,
 "special": ""
 },
 "camden": {
 "blurb": "Markets, market stalls, and men who are technically also a market stall. Physics ore is most of what comes up — nothing here holds still long enough to settle.",
 "dangerMod": 0.1,
-"factionPresence": "firm",
+"factionPresence": "conclave",
 "id": "camden",
 "name": "Camden",
 "oreBias": {
@@ -1043,14 +1043,14 @@
 "chelsea": {
 "blurb": "Money here is polite about itself. Fate ore is most of what comes up — the King's Road has always known who owes whom, and mostly declines to say.",
 "dangerMod": -0.05,
-"factionPresence": "",
+"factionPresence": "firm",
 "id": "chelsea",
 "name": "Chelsea",
 "oreBias": {
 "fate": 0.75
 },
 "priceMod": 0.15,
-"siteCap": 4,
+"siteCap": 7,
 "siteQualityMod": 0,
 "special": ""
 },
@@ -1064,14 +1064,14 @@
 "fate": 0.75
 },
 "priceMod": 0.15,
-"siteCap": 13,
+"siteCap": 7,
 "siteQualityMod": -0.05,
 "special": ""
 },
 "clapham": {
 "blurb": "The Common is always full of someone's weekend. Life and emotion ore surface in about equal measure — brunch is a kind of grief, if you stay long enough.",
 "dangerMod": 0,
-"factionPresence": "",
+"factionPresence": "firm",
 "id": "clapham",
 "name": "Clapham",
 "oreBias": {
@@ -1079,7 +1079,7 @@
 "life": 0.375
 },
 "priceMod": 0,
-"siteCap": 6,
+"siteCap": 9,
 "siteQualityMod": 0.05,
 "special": ""
 },
@@ -1093,7 +1093,7 @@
 "time": 0.75
 },
 "priceMod": 0,
-"siteCap": 12,
+"siteCap": 10,
 "siteQualityMod": 0.05,
 "special": ""
 },
@@ -1114,7 +1114,7 @@
 "kensington": {
 "blurb": "Museums full of things nobody asked to have kept. Time and fate ore turn up in roughly equal measure; the collections have never been properly audited.",
 "dangerMod": -0.05,
-"factionPresence": "",
+"factionPresence": "conclave",
 "id": "kensington",
 "name": "Kensington",
 "oreBias": {
@@ -1122,7 +1122,7 @@
 "time": 0.375
 },
 "priceMod": 0.1,
-"siteCap": 4,
+"siteCap": 7,
 "siteQualityMod": 0.05,
 "special": ""
 },
@@ -6916,7 +6916,7 @@
 "chelsea": {
 "anchor": [265, 887],
 "labelAnchor": [265, 812],
-"stopSlots": [[265, 842], [304, 864], [304, 910], [265, 932], [226, 910], [226, 864], [345, 887], [305, 956]],
+"stopSlots": [[265, 842], [304, 864], [304, 910], [265, 932], [226, 910], [226, 864], [345, 887], [305, 956], [328, 904], [282, 950], [219, 933], [202, 870], [248, 824], [311, 841]],
 "zonePolygon": [[375, 887], [320, 982], [210, 982], [155, 887], [210, 792], [320, 792]]
 },
 "city": {
@@ -6928,7 +6928,7 @@
 "clapham": {
 "anchor": [430, 982],
 "labelAnchor": [430, 907],
-"stopSlots": [[430, 937], [469, 960], [469, 1004], [430, 1027], [391, 1004], [391, 960], [510, 982], [470, 1051], [390, 1051], [350, 982], [390, 913], [470, 913]],
+"stopSlots": [[430, 937], [469, 960], [469, 1004], [430, 1027], [391, 1004], [391, 960], [510, 982], [470, 1051], [390, 1051], [350, 982], [390, 913], [470, 913], [493, 999], [447, 1045], [384, 1028], [367, 965], [413, 919], [476, 936]],
 "zonePolygon": [[540, 982], [485, 1077], [375, 1077], [320, 982], [375, 887], [485, 887]]
 },
 "greenwich": {
@@ -6946,7 +6946,7 @@
 "kensington": {
 "anchor": [265, 696],
 "labelAnchor": [265, 621],
-"stopSlots": [[265, 651], [304, 674], [304, 718], [265, 741], [226, 718], [226, 674], [345, 696], [305, 765]],
+"stopSlots": [[265, 651], [304, 674], [304, 718], [265, 741], [226, 718], [226, 674], [345, 696], [305, 765], [328, 713], [282, 759], [219, 742], [202, 679], [248, 633], [311, 650]],
 "zonePolygon": [[375, 696], [320, 791], [210, 791], [155, 696], [210, 601], [320, 601]]
 },
 "kingscross": {

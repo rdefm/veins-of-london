@@ -73,7 +73,7 @@ func run() -> void:
 		var expected_counts := {
 			"hampstead": 4, "kingscross": 16, "camden": 18, "shoreditch": 14,
 			"city": 26, "soho": 2, "whitechapel": 14, "battersea": 14, "greenwich": 24,
-			"nottinghill": 8, "kensington": 8, "chelsea": 8, "clapham": 12,
+			"nottinghill": 8, "kensington": 14, "chelsea": 14, "clapham": 18,
 		}
 		for district_id in expected_counts.keys():
 			var slots: Array = GameData.MAP_LAYOUT["districts"][district_id]["stopSlots"]
