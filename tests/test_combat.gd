@@ -1671,6 +1671,8 @@ func run() -> void:
 		for key in ["panger", "pandemonium"]:
 			_fresh_combat()
 			GameState.state["player"]["dial"] = Fixtures.dial_with_loaded(key, 3, 5)
+			GameState.state["player"]["dial"]["level"] = 0
+			GameState.state["player"]["dial"]["movement"] = null
 			var result := Combat.cast_complication(0)
 			assert_true(result["ok"], "%s castable from the dial" % key)
 			var anger: Dictionary = GameState.state["combat"]["enemies"][0]["anger"]
@@ -1679,6 +1681,13 @@ func run() -> void:
 			assert_eq(GameState.state["player"]["dial"]["currentCharge"], 4, "one charge spent")
 			GameState.state["player"]["dial"] = Fixtures.dial_with_loaded(key, 3, 5)
 			assert_true(not Combat.cast_complication(0)["ok"], "already afflicted refuses a second cast")
+		_fresh_combat()
+		GameState.state["player"]["dial"] = Fixtures.dial_with_loaded("panger", 2, 5)
+		GameState.state["player"]["dial"]["level"] = 2
+		GameState.state["player"]["dial"]["movement"] = null
+		Combat.cast_complication(0)
+		# tier 2 = 50%, level 2 multiplier 1.5
+		assert_eq(GameState.state["combat"]["enemies"][0]["anger"]["pct"], 75, "dial level amplifies the +/-X%")
 	)
 
 	run_case("use_blast_fails_with_none_in_inventory", func():

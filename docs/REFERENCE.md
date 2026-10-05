@@ -80,7 +80,7 @@ Each recipe's `ingredients` field is a dict of `{oreType: baseCalcCost}` — one
 | prophetsBreath | Prophet's Breath | ≋ | {time: 5} | 0.30 | [0,1,1,1,2,2] | 30 | true |
 | beALady | Be a Lady | ☘ | {fate: 6} | 0.35 | [0,1,1,1,2,2] | 25 | true |
 | panic | Panic | ☹ | {emotion: 6} | 0.25 | [0,2,2,3,4,5] (effectPower = status turns on one enemy; each of its turns it cowers or bolts (50%, bolting = defeated, win/XP as a kill)) | 30 | true |
-| panger | Panger | ☠ | {emotion: 6} | 0.25 | [0,2,2,3,4,5] (combat ignores effectPower: single enemy gets `anger` = 2 own turns dealing +X%/taking −X%, then 2 turns the reverse; X = 25 × tier; reductions floor at 0 damage) | 30 | true |
+| panger | Panger | ☠ | {emotion: 6} | 0.25 | [0,2,2,3,4,5] (combat ignores effectPower; a Dial cast multiplies X by Impact × level multiplier: single enemy gets `anger` = 2 own turns dealing +X%/taking −X%, then 2 turns the reverse; X = 25 × tier; reductions floor at 0 damage) | 30 | true |
 | pandemonium | Pandemonium | ♨ | {emotion: 6} | 0.25 | [0,2,2,3,4,5] (as Panger, plus the target attacks a random other living enemy instead; no ally left → attacks as normal) | 30 | true |
 | pansRapture | Pan's Rapture | ☺ | {emotion: 6} | 0.25 | [0,2,2,3,4,5] (effectPower = status turns; target skips attacking) | 30 | true |
 | healingBurst | Healing Burst | ✚ | {time: 4, life: 4} | 0.30 | [0,6,8,10,12,15] | 30 | false |

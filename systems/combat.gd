@@ -2063,8 +2063,8 @@ static func _has_pan_status(enemy: Dictionary) -> bool:
 
 
 # The enemy.anger status a Panger / Pandemonium of `tier` sets.
-static func _anger_status(tier: int, fury: bool) -> Dictionary:
-	return { "turns": ANGER_PHASE_TURNS * 2, "pct": ANGER_PCT_PER_TIER * tier, "fury": fury }
+static func _anger_status(tier: int, fury: bool, magnitude_mult: float = 1.0) -> Dictionary:
+	return { "turns": ANGER_PHASE_TURNS * 2, "pct": GameState.round_epsilon(float(ANGER_PCT_PER_TIER * tier) * magnitude_mult), "fury": fury }
 
 
 static func use_panger(slot: int = -1) -> Dictionary:
@@ -2528,7 +2528,7 @@ static func cast_complication(index: int) -> Dictionary:
 				{ "targetType": "enemy", "targetIndex": status_index, "effectKey": recipe_key })
 		"panger", "pandemonium":
 			var anger_index: int = _enemy_action_index(combat)
-			combat["enemies"][anger_index]["anger"] = _anger_status(int(cast["tier"]), recipe_key == "pandemonium")
+			combat["enemies"][anger_index]["anger"] = _anger_status(int(cast["tier"]), recipe_key == "pandemonium", float(cast["magnitudeMult"]))
 			# PROSE-REVIEW: Panger / Pandemonium Complication line.
 			_log(combat, beats, "You trigger %s (%d%%)." % [recipe["name"], combat["enemies"][anger_index]["anger"]["pct"]], BEAT_USE_PANGER if recipe_key == "panger" else BEAT_USE_PANDEMONIUM,
 				{ "targetType": "enemy", "targetIndex": anger_index, "effectKey": recipe_key })
