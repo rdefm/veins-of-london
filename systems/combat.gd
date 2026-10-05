@@ -58,6 +58,10 @@ const BEAT_ENEMY_FLEE := "enemy_flee"
 const BEAT_ENEMY_RAPTURE := "enemy_rapture"
 const BEAT_USE_PANIC := "use_panic"
 const BEAT_USE_RAPTURE := "use_rapture"
+const BEAT_USE_PANGER := "use_panger"
+const BEAT_USE_PANDEMONIUM := "use_pandemonium"
+const BEAT_ENEMY_FURY_ATTACK := "enemy_fury_attack"
+const BEAT_ENEMY_ANGER_END := "enemy_anger_end"
 const BEAT_ALLY_KO := "ally_ko"
 const BEAT_REINFORCEMENT_ENTER := "reinforcement_enter"
 const BEAT_PLAYER_KO := "player_ko"
@@ -99,11 +103,16 @@ const BLAST_DISARM_CHANCE := 0.15
 const BLAST_DISARM_TURNS := 2
 # Panic: each affected enemy turn, independently, cower (turn lost) or run off.
 const PANIC_FLEE_CHANCE := 0.5
+# Panger / Pandemonium: enemy.anger = {turns, pct, fury}. The first
+# ANGER_PHASE_TURNS enemy turns deal +pct% / take -pct%, the next
+# ANGER_PHASE_TURNS the reverse; pct = ANGER_PCT_PER_TIER x the unit's tier.
+const ANGER_PHASE_TURNS := 2
+const ANGER_PCT_PER_TIER := 25
 
 # recipeKeys with a defined combat effect; cast_complication() refuses
 # anything else (rejuvenation/beALady/the Pan recipes/healingSalve have no
 # in-combat mechanic; rewind casts via combat_rewind()'s own fallback).
-const COMBAT_COMPLICATION_RECIPES: Array[String] = ["timePearl", "enhancementPowder", "blast", "shield", "blackHole", "healingBurst", "prophetsBreath", "wormhole", "panic", "pansRapture"]
+const COMBAT_COMPLICATION_RECIPES: Array[String] = ["timePearl", "enhancementPowder", "blast", "shield", "blackHole", "healingBurst", "prophetsBreath", "wormhole", "panic", "panger", "pandemonium", "pansRapture"]
 
 # R§3.7 ally-targetable table + R§2 selection: what each command/effect
 # may target. "enemy" needs selection.type == "enemy"; "self" is refused
@@ -113,11 +122,15 @@ const TARGETING_ENEMY := "enemy"
 const TARGETING_SELF := "self"
 const TARGETING_ALLY := "ally"
 const TARGETING_UNTARGETED := "untargeted"
+const PAN_STATUS_RECIPES: Array[String] = ["panic", "panger", "pandemonium", "pansRapture"]
+
 const COMMAND_TARGETING := {
 	"attack": TARGETING_ENEMY,
 	"timePearl": TARGETING_ENEMY,
 	"blast": TARGETING_ENEMY,
 	"panic": TARGETING_ENEMY,
+	"panger": TARGETING_ENEMY,
+	"pandemonium": TARGETING_ENEMY,
 	"pansRapture": TARGETING_ENEMY,
 	"enhancementPowder": TARGETING_SELF,
 	"shield": TARGETING_SELF,
@@ -1569,9 +1582,61 @@ static func _enemy_turn(combat: Dictionary, enemy: Dictionary, enemy_index: int,
 
 	if _enemy_status_turn(combat, enemy, enemy_index, beats):
 		return
-	if _enemy_try_item(combat, enemy, enemy_index, beats):
+	if not _enemy_fury_attack(combat, enemy, enemy_index, beats) and not _enemy_try_item(combat, enemy, enemy_index, beats):
+		_resolve_enemy_attack(combat, enemy, enemy_index, beats)
+	_tick_anger(combat, enemy, enemy_index, beats)
+
+
+# Multiplier on damage `enemy` deals (dealing) or takes under Panger/
+# Pandemonium: buffed phase +pct deals / -pct takes, debuffed phase the
+# reverse. Floored at 0 (a >100% reduction is full immunity, not healing).
+static func _anger_factor(enemy: Dictionary, dealing: bool) -> float:
+	var anger: Variant = enemy.get("anger")
+	if not (anger is Dictionary):
+		return 1.0
+	var buffed: bool = int(anger["turns"]) > ANGER_PHASE_TURNS
+	var sign: float = 1.0 if buffed == dealing else -1.0
+	return maxf(0.0, 1.0 + sign * float(anger["pct"]) / 100.0)
+
+
+static func _scale_dealt(enemy: Dictionary, dmg: int) -> int:
+	return GameState.round_epsilon(float(dmg) * _anger_factor(enemy, true))
+
+
+# Pandemonium: the enemy swings at a random other living enemy instead of
+# its enemies. False (normal attack) when not furious or no ally stands.
+static func _enemy_fury_attack(combat: Dictionary, enemy: Dictionary, enemy_index: int, beats: Variant) -> bool:
+	var anger: Variant = enemy.get("anger")
+	if not (anger is Dictionary) or not bool(anger["fury"]):
+		return false
+	var candidates: Array = []
+	for i in range(combat["enemies"].size()):
+		var other: Dictionary = combat["enemies"][i]
+		if i != enemy_index and not other["koed"]:
+			candidates.append(i)
+	if candidates.is_empty():
+		return false
+	var target_index: int = candidates[Rng.randi_range(0, candidates.size() - 1)]
+	var target: Dictionary = combat["enemies"][target_index]
+	var atk := get_enemy_attack_range(enemy)
+	var extra: Dictionary = { "actorType": "enemy", "actorIndex": enemy_index, "targetType": "enemy", "targetIndex": target_index }
+	var shield_note := _hit_enemy(target, _scale_dealt(enemy, Rng.randi_range(atk["min"], atk["max"])), extra)
+	# PROSE-REVIEW: fury attack line.
+	_log(combat, beats, "%s turns on %s — %d damage%s. %s: %d/%d HP." % [enemy["name"], target["name"], extra["dmg"], shield_note, target["name"], target["hp"], target["hpMax"]], BEAT_ENEMY_FURY_ATTACK, extra)
+	_maybe_win_from_direct_damage(combat, target, beats)
+	return true
+
+
+# One of the enemy's own turns spent under Panger/Pandemonium.
+static func _tick_anger(combat: Dictionary, enemy: Dictionary, enemy_index: int, beats: Variant) -> void:
+	var anger: Variant = enemy.get("anger")
+	if not (anger is Dictionary):
 		return
-	_resolve_enemy_attack(combat, enemy, enemy_index, beats)
+	anger["turns"] = int(anger["turns"]) - 1
+	if anger["turns"] <= 0:
+		enemy.erase("anger")
+		# PROSE-REVIEW: anger wears-off line.
+		_log(combat, beats, "%s comes down, spent." % enemy["name"], BEAT_ENEMY_ANGER_END, { "actorType": "enemy", "actorIndex": enemy_index })
 
 
 # Panic / Pan's Rapture on this enemy's own turn. True when the turn is
@@ -1701,7 +1766,7 @@ static func _enemy_attack_player(combat: Dictionary, enemy: Dictionary, enemy_in
 	var dmg: int = blast_power
 	if dmg <= 0:
 		var atk := get_enemy_attack_range(enemy)
-		dmg = Rng.randi_range(atk["min"], atk["max"])
+		dmg = _scale_dealt(enemy, Rng.randi_range(atk["min"], atk["max"]))
 	var player: Dictionary = GameState.state["player"]
 
 	# Shield absorbs 1:1 out of player.shieldPool before HP takes anything --
@@ -1786,7 +1851,7 @@ static func _enemy_attack_ally(combat: Dictionary, enemy: Dictionary, ally: Dict
 	var dmg: int = blast_power
 	if dmg <= 0:
 		var atk := get_enemy_attack_range(enemy)
-		dmg = Rng.randi_range(atk["min"], atk["max"])
+		dmg = _scale_dealt(enemy, Rng.randi_range(atk["min"], atk["max"]))
 	var shield_note := ""
 	var absorbed: int = mini(dmg, int(ally.get("shieldPool", 0)))
 	if absorbed > 0:
@@ -1993,6 +2058,58 @@ static func use_pans_rapture(slot: int = -1) -> Dictionary:
 	return _use_pan_status("pansRapture", "raptureTurns", "No rapture.", "You hand over the rapture. They take it gladly.", BEAT_USE_RAPTURE, slot)
 
 
+static func _has_pan_status(enemy: Dictionary) -> bool:
+	return int(enemy.get("panicTurns", 0)) > 0 or int(enemy.get("raptureTurns", 0)) > 0 or enemy.get("anger") is Dictionary
+
+
+# The enemy.anger status a Panger / Pandemonium of `tier` sets.
+static func _anger_status(tier: int, fury: bool) -> Dictionary:
+	return { "turns": ANGER_PHASE_TURNS * 2, "pct": ANGER_PCT_PER_TIER * tier, "fury": fury }
+
+
+static func use_panger(slot: int = -1) -> Dictionary:
+	return _use_anger("panger", false, "No panger.", "You grind the anger in.", BEAT_USE_PANGER, slot)
+
+
+static func use_pandemonium(slot: int = -1) -> Dictionary:
+	return _use_anger("pandemonium", true, "No pandemonium.", "You bring the fury to the boil.", BEAT_USE_PANDEMONIUM, slot)
+
+
+# Single target: sets enemy.anger at the unit's tier. A target already under
+# any Pan status refuses another.
+# PROSE-REVIEW: Panger / Pandemonium use lines and refusal reasons.
+static func _use_anger(recipe_key: String, fury: bool, empty_reason: String, line: String, beat_kind: String, slot: int) -> Dictionary:
+	var combat: Dictionary = GameState.state["combat"]
+	if not combat["active"] or combat["outcome"] != null:
+		return { "ok": false, "reason": "Combat not active." }
+	var blocked: String = selection_block_reason(recipe_key)
+	if not blocked.is_empty():
+		return { "ok": false, "reason": blocked }
+	var slot_index: int = Loadout.find_slot(recipe_key, slot)
+	if slot_index < 0:
+		return { "ok": false, "reason": empty_reason }
+	var enemy: Dictionary = _focused_enemy(combat)
+	if _has_pan_status(enemy):
+		return { "ok": false, "reason": "Already out of it." }
+
+	var beats: Array = []
+	if not prime_decision_point(combat, beats):
+		EventBus.state_changed.emit()
+		return { "ok": true, "beats": beats }
+	push_combat_snapshot()
+
+	var tier: int = int(GameState.state["player"]["loadout"]["slots"][slot_index]["tier"])
+	Loadout.consume(slot_index)
+	enemy["anger"] = _anger_status(tier, fury)
+	_log(combat, beats, "%s (%d%%)" % [line, enemy["anger"]["pct"]], beat_kind,
+		{ "targetType": "enemy", "targetIndex": _enemy_action_index(combat), "effectKey": recipe_key })
+
+	conclude_decision_point(combat, beats)
+
+	EventBus.state_changed.emit()
+	return { "ok": true, "beats": beats }
+
+
 # Single-target, effectPower-at-tier turns on the selected enemy, counted
 # down on that enemy's own turns (_enemy_status_turn()). A target already
 # under either status refuses a second.
@@ -2008,7 +2125,7 @@ static func _use_pan_status(recipe_key: String, status_key: String, empty_reason
 	if slot_index < 0:
 		return { "ok": false, "reason": empty_reason }
 	var enemy: Dictionary = _focused_enemy(combat)
-	if int(enemy.get("panicTurns", 0)) > 0 or int(enemy.get("raptureTurns", 0)) > 0:
+	if _has_pan_status(enemy):
 		return { "ok": false, "reason": "Already out of it." }
 
 	var beats: Array = []
@@ -2121,6 +2238,7 @@ static func use_black_hole(slot: int = -1) -> Dictionary:
 # hp damage onto the beat's `dmg` (plus `shieldAbsorbed` when the shield
 # took some) and returns the log line's shield note.
 static func _hit_enemy(enemy: Dictionary, dmg: int, extra: Dictionary) -> String:
+	dmg = GameState.round_epsilon(float(dmg) * _anger_factor(enemy, false))
 	var absorbed: int = mini(dmg, int(enemy.get("shieldPool", 0)))
 	var note := ""
 	if absorbed > 0:
@@ -2348,7 +2466,7 @@ static func cast_complication(index: int) -> Dictionary:
 		EventBus.state_changed.emit()
 		return { "ok": false, "reason": "Shield already active." }
 
-	if (recipe_key == "panic" or recipe_key == "pansRapture") and _focused_enemy(combat).get("panicTurns", 0) + _focused_enemy(combat).get("raptureTurns", 0) > 0:
+	if PAN_STATUS_RECIPES.has(recipe_key) and _has_pan_status(_focused_enemy(combat)):
 		return { "ok": false, "reason": "Already out of it." }
 
 	var beats: Array = []
@@ -2408,6 +2526,12 @@ static func cast_complication(index: int) -> Dictionary:
 			# PROSE-REVIEW: Panic / Pan's Rapture Complication line.
 			_log(combat, beats, "You trigger %s (%d turn%s)." % [recipe["name"], turns, "" if turns == 1 else "s"], BEAT_USE_PANIC if recipe_key == "panic" else BEAT_USE_RAPTURE,
 				{ "targetType": "enemy", "targetIndex": status_index, "effectKey": recipe_key })
+		"panger", "pandemonium":
+			var anger_index: int = _enemy_action_index(combat)
+			combat["enemies"][anger_index]["anger"] = _anger_status(int(cast["tier"]), recipe_key == "pandemonium")
+			# PROSE-REVIEW: Panger / Pandemonium Complication line.
+			_log(combat, beats, "You trigger %s (%d%%)." % [recipe["name"], combat["enemies"][anger_index]["anger"]["pct"]], BEAT_USE_PANGER if recipe_key == "panger" else BEAT_USE_PANDEMONIUM,
+				{ "targetType": "enemy", "targetIndex": anger_index, "effectKey": recipe_key })
 		"shield":
 			player["shieldPool"] += int(power) * targets
 			if multi:
@@ -2477,6 +2601,10 @@ static func use_slot(index: int) -> Dictionary:
 			return use_panic(index)
 		"pansRapture":
 			return use_pans_rapture(index)
+		"panger":
+			return use_panger(index)
+		"pandemonium":
+			return use_pandemonium(index)
 		"prophetsBreath":
 			return use_prophets_breath(index)
 		"wormhole":
@@ -2540,6 +2668,11 @@ static func _restore_from_snapshot(combat: Dictionary, player: Dictionary) -> vo
 	focused_enemy["koed"] = focused_enemy["hp"] <= 0
 	for status_key in ["panicTurns", "raptureTurns"]:
 		focused_enemy[status_key] = int(snap.get("enemy", {}).get(status_key, 0))
+	var snap_anger: Variant = snap.get("enemy", {}).get("anger")
+	if snap_anger is Dictionary:
+		focused_enemy["anger"] = snap_anger.duplicate()
+	else:
+		focused_enemy.erase("anger")
 	var new_log: Array = snap["log"].duplicate()
 	new_log.append("⟲ Time unspools. The moment resets. Only you remember.")
 	combat["log"] = new_log

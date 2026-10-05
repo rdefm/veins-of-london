@@ -514,7 +514,7 @@ static func cast_complication(index: int, owner_id: String = "") -> Dictionary:
 	Progression.award_xp(dial, "xp", "level", GameData.DIAL_XP_LEVELS, 10, on_level_up)
 
 	EventBus.state_changed.emit()
-	return { "ok": true, "recipeKey": recipe_key, "power": amplified["power"], "targets": amplified["targets"], "turnPower": amplified["turnPower"], "turnBonus": amplified["turnBonus"], "multi": bool(entry.get("multi", false)) }
+	return { "ok": true, "recipeKey": recipe_key, "power": amplified["power"], "targets": amplified["targets"], "turnPower": amplified["turnPower"], "turnBonus": amplified["turnBonus"], "tier": int(entry["tier"]), "multi": bool(entry.get("multi", false)) }
 
 
 # Pure function of (base_power, movement), split out of cast_complication() for isolated testing.

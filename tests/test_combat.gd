@@ -1601,6 +1601,86 @@ func run() -> void:
 		assert_true(not enemy["koed"], "rapture does not defeat")
 	)
 
+	run_case("use_panger_and_pandemonium_set_anger_at_tier_pct_for_four_turns", func():
+		for key in ["panger", "pandemonium"]:
+			for tier in [1, 3, 5]:
+				_fresh_combat()
+				_equip_slot(0, key, tier)
+				var result := Combat.use_panger() if key == "panger" else Combat.use_pandemonium()
+				assert_true(result["ok"], "%s usable from the loadout" % key)
+				var anger: Dictionary = GameState.state["combat"]["enemies"][0]["anger"]
+				assert_eq(anger["pct"], 25 * tier, "%s T%d pct" % [key, tier])
+				# the enemy's first turn already ran as the use concluded the decision point
+				assert_eq(anger["turns"], 3, "2 buffed + 2 debuffed turns, one spent")
+				assert_eq(Combat._anger_status(tier, false)["turns"], 4, "fresh status lasts 2 + 2")
+				assert_eq(anger["fury"], key == "pandemonium", "only pandemonium is furious")
+				assert_eq(_equipped_qty(key), 0, "one unit consumed")
+		_fresh_combat()
+		_equip_slot(0, "panger")
+		GameState.state["combat"]["enemies"][0]["raptureTurns"] = 1
+		assert_true(not Combat.use_panger()["ok"], "target already afflicted refuses a second status")
+	)
+
+	run_case("anger_scales_dealt_and_taken_damage_by_phase_and_floors_at_zero", func():
+		_fresh_combat()
+		var enemy: Dictionary = GameState.state["combat"]["enemies"][0]
+		enemy["anger"] = { "turns": 4, "pct": 50, "fury": false }
+		assert_eq(Combat._scale_dealt(enemy, 10), 15, "buffed phase deals +50%")
+		var extra := {}
+		Combat._hit_enemy(enemy, 10, extra)
+		assert_eq(extra["dmg"], 5, "buffed phase takes -50%")
+		enemy["anger"]["turns"] = 2
+		assert_eq(Combat._scale_dealt(enemy, 10), 5, "debuffed phase deals -50%")
+		extra = {}
+		Combat._hit_enemy(enemy, 10, extra)
+		assert_eq(extra["dmg"], 15, "debuffed phase takes +50%")
+		enemy["anger"] = { "turns": 4, "pct": 125, "fury": false }
+		extra = {}
+		Combat._hit_enemy(enemy, 10, extra)
+		assert_eq(extra["dmg"], 0, "T5 buffed phase is full immunity, not healing")
+	)
+
+	run_case("panger_enemy_turn_buffs_then_debuffs_its_attack_then_expires", func():
+		_fresh_combat()
+		var combat: Dictionary = GameState.state["combat"]
+		var enemy: Dictionary = combat["enemies"][0]
+		enemy["anger"] = { "turns": 4, "pct": 100, "fury": false }
+		var dealt: Array = []
+		for i in range(4):
+			var hp_before: int = GameState.state["player"]["hp"]
+			Combat._enemy_turn(combat, enemy, 0, [])
+			dealt.append(hp_before - GameState.state["player"]["hp"])
+		assert_eq(dealt, [10, 10, 0, 0], "5 base: +100% twice, then -100% twice")
+		assert_true(not enemy.has("anger"), "status gone after four turns")
+	)
+
+	run_case("pandemonium_enemy_attacks_its_allies_and_falls_back_to_the_player", func():
+		var combat := _multi_enemy_combat([{ "hp": 50, "attackMin": 4, "attackMax": 4 }, { "hp": 50 }])
+		var furious: Dictionary = combat["enemies"][0]
+		furious["anger"] = { "turns": 4, "pct": 0, "fury": true }
+		var hp_before: int = GameState.state["player"]["hp"]
+		Combat._enemy_turn(combat, furious, 0, [])
+		assert_eq(combat["enemies"][1]["hp"], 46, "furious enemy hits its ally")
+		assert_eq(GameState.state["player"]["hp"], hp_before, "player untouched while an ally stands")
+		combat["enemies"][1]["koed"] = true
+		Combat._enemy_turn(combat, furious, 0, [])
+		assert_eq(GameState.state["player"]["hp"], hp_before - 4, "no ally left: attacks the player")
+	)
+
+	run_case("cast_complication_casts_panger_and_pandemonium_from_the_dial", func():
+		for key in ["panger", "pandemonium"]:
+			_fresh_combat()
+			GameState.state["player"]["dial"] = Fixtures.dial_with_loaded(key, 3, 5)
+			var result := Combat.cast_complication(0)
+			assert_true(result["ok"], "%s castable from the dial" % key)
+			var anger: Dictionary = GameState.state["combat"]["enemies"][0]["anger"]
+			assert_eq(anger["pct"], 75, "%s tier-3 pct" % key)
+			assert_eq(anger["fury"], key == "pandemonium", "%s fury flag" % key)
+			assert_eq(GameState.state["player"]["dial"]["currentCharge"], 4, "one charge spent")
+			GameState.state["player"]["dial"] = Fixtures.dial_with_loaded(key, 3, 5)
+			assert_true(not Combat.cast_complication(0)["ok"], "already afflicted refuses a second cast")
+	)
+
 	run_case("use_blast_fails_with_none_in_inventory", func():
 		_fresh_combat()
 		pass
