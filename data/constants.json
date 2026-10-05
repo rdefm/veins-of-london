@@ -137,6 +137,7 @@
     "pairRecoveryRate": 0.02,
     "labels": { "calm": "Calm", "watching": "Watching", "annoyed": "Annoyed", "movingAgainst": "Moving against you" }
   },
+  "craftCostPerSkill": 0.8,
   "factionFloor": { "weakMaxVeins": 1, "weakCashBelow": 1000, "pruneYieldMult": 1.5, "craftChanceBonus": 0.15 },
   "factionEscalation": {
     "warningAboveRaid": 18,

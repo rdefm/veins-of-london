@@ -221,6 +221,7 @@ var PRODUCTION_TARGET_MAX: int = 0
 var BUSINESS_STATS_DAYS: int = 0
 
 # Share buckets kept in state.shares.days, and the share window, R§3.14.
+var CRAFT_COST_PER_SKILL: float = 0.0
 var SHARES_DAYS: int = 0
 var SHARES_WINDOW_DAYS: int = 0
 
@@ -443,6 +444,7 @@ const MANIFEST: Array[Dictionary] = [
 		{"field": "PRODUCTION_LOG_DAYS", "key": "productionLogDays", "type": TYPE_INT},
 		{"field": "PRODUCTION_TARGET_MAX", "key": "productionTargetMax", "type": TYPE_INT},
 		{"field": "BUSINESS_STATS_DAYS", "key": "businessStatsDays", "type": TYPE_INT},
+		{"field": "CRAFT_COST_PER_SKILL", "key": "craftCostPerSkill", "type": TYPE_FLOAT},
 		{"field": "SHARES_DAYS", "key": "sharesDays", "type": TYPE_INT},
 		{"field": "SHARES_WINDOW_DAYS", "key": "sharesWindowDays", "type": TYPE_INT},
 		{"field": "FACTION_RIVALRY", "key": "factionRivalry", "type": TYPE_BOOL},

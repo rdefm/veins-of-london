@@ -685,7 +685,7 @@ The dock (`NavBar`, now 3 slots: Phone · Map · HQ) is hidden on `title, intro,
 
 ### 3.5 Crafting & the Dial
 - `craftChance(r) = min(0.95, r.baseSuccess + (skill−1) * 0.13 + workshopBonus)`.
-- `calcCost(r) = { oreType: max(1, round(baseCalcCost − (skill−1) * 0.8)) for oreType, baseCalcCost in r.ingredients }` — computed independently per ingredient key.
+- `calcCost(r) = { oreType: max(1, round(baseCalcCost − (skill−1) * craftCostPerSkill)) for oreType, baseCalcCost in r.ingredients }` (`craftCostPerSkill` 0.8, constants.json) — computed independently per ingredient key. A function of crafting skill only; item tier never enters.
 - `effectPower(r, tier) = r.effectPower[tier]` — the item tier (`Bench.item_tier()`, 1–5), not crafting skill.
 - **qualityTier(r)** (bugfixes-64): the tier a craft at this moment would file its inventory unit under — `Bench.item_tier(r)`: the recipe's Lab cell tier (1–5), or 1 for a recipe with no Lab cell. Crafting skill does not enter.
 - **attemptCraft:** requires cost in each ingredient type; deduct ALL ingredients ALWAYS; success → `Crafting.inventory_add(recipeKey, qualityTier(r, skill))` (+1 unit filed under that tier's bucket, §2), full XP; fail → `floor(xp/3)`. Result modal.

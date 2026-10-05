@@ -32,7 +32,7 @@ static func calc_cost(recipe_key: String, skill: int) -> Dictionary:
 	var costs := {}
 	for ingredient in r["ingredients"]:
 		var base: int = r["ingredients"][ingredient]
-		costs[ingredient] = maxi(1, GameState.round_epsilon(base - (skill - 1) * 0.8))
+		costs[ingredient] = maxi(1, GameState.round_epsilon(base - (skill - 1) * GameData.CRAFT_COST_PER_SKILL))
 	return costs
 
 

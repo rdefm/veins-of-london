@@ -17,6 +17,16 @@ func run() -> void:
 		assert_eq(costs["time"], 1, "calcCost should never go below 1")
 	)
 
+	run_case("calc_cost_scales_with_skill_constant_not_tier", func():
+		var before := Crafting.calc_cost("timePearl", 3)
+		var saved: float = GameData.CRAFT_COST_PER_SKILL
+		GameData.CRAFT_COST_PER_SKILL = 1.5
+		var after := Crafting.calc_cost("timePearl", 3)
+		GameData.CRAFT_COST_PER_SKILL = saved
+		assert_eq(before["time"], 3, "5 - 2*0.8 = 3.4 -> 3")
+		assert_eq(after["time"], 2, "5 - 2*1.5 = 2")
+	)
+
 	run_case("calc_cost_at_skill_1_matches_base", func():
 		var costs := Crafting.calc_cost("timePearl", 1)
 		assert_eq(costs["time"], 5, "at skill 1, (skill-1)*0.8 = 0, so cost = baseCalcCost")
