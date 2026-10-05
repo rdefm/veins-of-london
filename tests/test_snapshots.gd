@@ -46,7 +46,7 @@ func run() -> void:
 		GameState.reset()
 		var bench: Dictionary = GameState.state["player"]["bench"]
 		bench["surveyed"]["life+time"] = 3
-		bench["cells"]["life+time|heat"] = { "state": "found", "misses": 2, "refine": 1 }
+		bench["cells"]["life+time|heat"] = { "state": "found", "misses": 2, "tier": 2, "progress": 0 }
 		bench["notes"]["life+time"] = [{ "day": 9, "approach": "heat", "outcome": "found" }]
 
 		var stack: Array = []

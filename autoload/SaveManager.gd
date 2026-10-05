@@ -951,7 +951,8 @@ func _restore_int_types(state: Dictionary) -> void:
 			_int_dict_values(bench.get("surveyed", {}))
 			for cell in bench.get("cells", {}).values():
 				_int_key(cell, "misses")
-				_int_key(cell, "refine")
+				_int_key(cell, "tier")
+				_int_key(cell, "progress")
 			for note_list in bench.get("notes", {}).values():
 				for note in note_list:
 					_int_key(note, "day")

@@ -19,7 +19,7 @@ static func build(container: VBoxContainer, data: Dictionary) -> void:
 	var r: Dictionary = GameData.RECIPES[recipe_key]
 	var costs: Dictionary = Crafting.calc_cost(recipe_key, skill)
 	var chance: float = Crafting.craft_chance(recipe_key, skill)
-	var power = Crafting.effect_power(recipe_key, skill)
+	var power = Crafting.effect_power(recipe_key, Crafting.quality_tier(recipe_key))
 	var stock: int = Crafting.inventory_qty(recipe_key)
 
 	container.add_child(UI.symbol_row([ItemIcons.part(recipe_key), r["name"]], { "heading_size": 18 }))
@@ -46,7 +46,7 @@ static func build(container: VBoxContainer, data: Dictionary) -> void:
 
 	var discovery: Dictionary = r.get("discovery", {})
 	if not discovery.is_empty():
-		LabBenchModalHelpers.append_refine_controls(container, r, discovery["types"], discovery["approach"])
+		LabBenchModalHelpers.append_experiment_controls(container, r, discovery["types"], discovery["approach"])
 	container.add_child(MapCardStyle.footer([MapCardStyle.text_button("Back to book", func(): close())]))
 
 

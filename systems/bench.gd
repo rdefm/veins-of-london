@@ -18,15 +18,18 @@ const ORE_COST_PER_TYPE := 3
 const XP_FOUND := 50
 const XP_HOT := 12
 const XP_INERT := 6
-const XP_REFINE := 30
+const XP_EXPERIMENT := 30
 
 const NOTES_CAP := 20
 
-const REFINE_ORE_PER_TYPE := 3
-const REFINE_BASE_CHANCE := 0.55
-const REFINE_SKILL_BONUS := 0.10
-const REFINE_TIER_PENALTY := 0.15
-const REFINE_CHANCE_FLOOR := 0.08
+const EXPERIMENT_ORE_PER_TYPE := 3
+const EXPERIMENT_BASE_CHANCE := 0.55
+const EXPERIMENT_SKILL_BONUS := 0.10
+const EXPERIMENT_TIER_PENALTY := 0.15
+const EXPERIMENT_CHANCE_FLOOR := 0.08
+const PROGRESS_PER_SUCCESS := 1
+const PROGRESS_TO_TIER := 3
+const MAX_TIER := 5
 
 enum GrantResult { GRANTED, ALREADY_KNOWN }
 
@@ -51,7 +54,7 @@ static func _default_cell(types: Array, approach: String) -> Dictionary:
 	var recipe_key := find_recipe_for_cell(types, approach)
 	if recipe_key != "" and not GameData.RECIPES[recipe_key].get("taughtBy", "").is_empty():
 		state = "found"
-	return { "state": state, "misses": 0, "refine": 0 }
+	return { "state": state, "misses": 0, "tier": 1, "progress": 0 }
 
 
 static func get_cell(types: Array, approach: String) -> Dictionary:
@@ -163,60 +166,47 @@ static func discovery_chance(types: Array, approach: String, skill: int) -> floa
 	return minf(DISCOVERY_CHANCE_CAP, DISCOVERY_BASE_CHANCE + (skill - 1) * DISCOVERY_SKILL_BONUS + Home.get_workshop_bonus() + pity)
 
 
-# The tier a refinement attempt is pushing toward -- 1 on a freshly found cell (refine == 0), 2 on its next successful refinement, and so on, uncapped (M3 §5).
-static func refine_tier_target(types: Array, approach: String) -> int:
-	return get_cell(types, approach)["refine"] + 1
+# The tier (1..MAX_TIER) of a found recipe's cell -- an item's power comes from this, not from crafting skill. Recipes with no Lab cell sit at tier 1.
+static func item_tier(recipe_key: String) -> int:
+	var discovery: Dictionary = GameData.RECIPES[recipe_key].get("discovery", {})
+	if discovery.is_empty():
+		return 1
+	return get_cell(discovery["types"], discovery["approach"])["tier"]
 
 
-static func refine_cost(types: Array, approach: String) -> Dictionary:
-	var n := refine_tier_target(types, approach)
+static func tier_progress(types: Array, approach: String) -> int:
+	return get_cell(types, approach)["progress"]
+
+
+static func is_max_tier(types: Array, approach: String) -> bool:
+	return get_cell(types, approach)["tier"] >= MAX_TIER
+
+
+static func experiment_cost(types: Array, approach: String) -> Dictionary:
+	var tier: int = get_cell(types, approach)["tier"]
 	var costs := {}
 	for ore_type in types:
-		costs[ore_type] = REFINE_ORE_PER_TYPE * (n + 1)
+		costs[ore_type] = EXPERIMENT_ORE_PER_TYPE * (tier + 1)
 	return costs
 
 
-# Odds fall with each tier but never hit the floor (M3 §7). Refinement has no pity channel -- only tier and skill move this number.
-static func refine_chance(types: Array, approach: String, skill: int) -> float:
-	var n := refine_tier_target(types, approach)
-	return maxf(REFINE_CHANCE_FLOOR, REFINE_BASE_CHANCE + (skill - 1) * REFINE_SKILL_BONUS - REFINE_TIER_PENALTY * (n - 1))
-
-
-# The value a refineStep-targeted recipe field takes on at an arbitrary tier --
-# derived from the recipe's authored base value, never by mutating
-# GameData.RECIPES. Split out from refined_value() below so the result screen
-# can show a before/after comparison by asking for tier-1 and the current tier
-# separately. The targeted field can be a scalar or the skill-indexed array
-# convention crafted recipes use for effectPower (systems/crafting.gd's
-# effect_power()) -- refinement stacks as a flat bonus on that per-skill base
-# rather than replacing it. `skill` is required, not defaulted, so an Array-field caller can't silently fall back to skill 1.
-static func value_at_refine_tier(recipe_key: String, tier: int, skill: int) -> Variant:
-	var r: Dictionary = GameData.RECIPES[recipe_key]
-	var step: Dictionary = r["refineStep"]
-	var field: String = step["field"]
-	var base: Variant = r[field]
-	if base is Array:
-		base = base[skill]
-	return base + step["add"] * tier
-
-
-# The current value of a refineStep-targeted recipe field. Deriving it this way
-# is what makes refine progress survive Rewind and an app close/reopen (M3 §10,
-# spec stories 47-48) for free: the tier count is the only thing that needs to persist.
-static func refined_value(recipe_key: String, types: Array, approach: String, skill: int) -> Variant:
-	var tier: int = get_cell(types, approach)["refine"]
-	return value_at_refine_tier(recipe_key, tier, skill)
+# Odds fall with each tier but never hit the floor (M3 §7). No pity channel -- only tier and skill move this number.
+static func experiment_chance(types: Array, approach: String, skill: int) -> float:
+	var tier: int = get_cell(types, approach)["tier"]
+	return maxf(EXPERIMENT_CHANCE_FLOOR, EXPERIMENT_BASE_CHANCE + (skill - 1) * EXPERIMENT_SKILL_BONUS - EXPERIMENT_TIER_PENALTY * (tier - 1))
 
 
 # Public: the confirm screen shows this exact reason text next to a disabled
 # Confirm button, same "reason, not apology" convention as every other cost-gated action (CONTENT-GUIDE §4).
-static func refine_block_reason(types: Array, approach: String) -> String:
+static func experiment_block_reason(types: Array, approach: String) -> String:
 	if not Approaches.is_known(approach):
 		return "You haven't the technique for that yet."
 	var state: String = cell_state(types, approach)
 	if state != "found":
-		return "Nothing here to refine."
-	var costs := refine_cost(types, approach)
+		return "Nothing here to experiment on."
+	if is_max_tier(types, approach):
+		return "Already at the top tier."
+	var costs := experiment_cost(types, approach)
 	var orichalchum: Dictionary = GameState.state["player"]["orichalchum"]
 	for ore_type in costs:
 		if orichalchum.get(ore_type, 0) < costs[ore_type]:
@@ -224,34 +214,40 @@ static func refine_block_reason(types: Array, approach: String) -> String:
 	return ""
 
 
-static func can_refine(types: Array, approach: String) -> bool:
-	return refine_block_reason(types, approach) == ""
+static func can_experiment(types: Array, approach: String) -> bool:
+	return experiment_block_reason(types, approach) == ""
 
 
-# Re-experiments an already-found effect to push it toward its next tier. Ore
-# is spent regardless of outcome (M3 §7's "ore deduction: always"); bench work
-# costs no time block. On success the cell's refine tier increments, which is the entirety
-# of "applying" refineStep -- refined_value() reads it back out. Inert and never-found cells are never reachable here (M3 §5).
-static func refine(types: Array, approach: String) -> Dictionary:
-	var reason := refine_block_reason(types, approach)
+# Re-experiments an already-found effect. Ore is spent regardless of outcome
+# (M3 §7's "ore deduction: always"); bench work costs no time block. A success
+# adds PROGRESS_PER_SUCCESS to the cell's bar; a full bar advances the tier and
+# resets progress. Tier never drops. Inert and never-found cells are never reachable here (M3 §5).
+static func experiment(types: Array, approach: String) -> Dictionary:
+	var reason := experiment_block_reason(types, approach)
 	if reason != "":
 		return { "ok": false, "reason": reason }
 
 	var player: Dictionary = GameState.state["player"]
-	var costs := refine_cost(types, approach)
+	var costs := experiment_cost(types, approach)
 	for ore_type in costs:
 		player["orichalchum"][ore_type] = maxi(0, player["orichalchum"].get(ore_type, 0) - costs[ore_type])
 
 	var skill: int = player["craftingSkill"]
-	var chance := refine_chance(types, approach, skill)
+	var chance := experiment_chance(types, approach, skill)
 	var outcome: String
 
 	if Rng.chance(chance):
-		outcome = "refined"
-		_set_cell(types, approach, { "refine": refine_tier_target(types, approach) })
-		Crafting.award_crafting_xp(XP_REFINE)
+		var cell := get_cell(types, approach)
+		var progress: int = cell["progress"] + PROGRESS_PER_SUCCESS
+		if progress >= PROGRESS_TO_TIER:
+			outcome = "tier_up"
+			_set_cell(types, approach, { "tier": cell["tier"] + 1, "progress": 0 })
+		else:
+			outcome = "progress"
+			_set_cell(types, approach, { "progress": progress })
+		Crafting.award_crafting_xp(XP_EXPERIMENT)
 	else:
-		outcome = "refine_failed"
+		outcome = "no_progress"
 
 	_append_note(types, approach, outcome)
 	EventBus.state_changed.emit()
@@ -259,7 +255,7 @@ static func refine(types: Array, approach: String) -> Dictionary:
 	return { "ok": true, "outcome": outcome }
 
 
-# Public for the same reason as refine_block_reason() above.
+# Public for the same reason as experiment_block_reason() above.
 static func probe_block_reason(types: Array, approach: String) -> String:
 	if not Approaches.is_known(approach):
 		return "You haven't the technique for that yet."
@@ -267,7 +263,7 @@ static func probe_block_reason(types: Array, approach: String) -> String:
 	if state == "inert":
 		return "Nothing here. Already confirmed."
 	if state == "found":
-		return "Already discovered. Refine it instead."
+		return "Already discovered. Experiment on it instead."
 	var costs := discovery_cost(types)
 	var orichalchum: Dictionary = GameState.state["player"]["orichalchum"]
 	for ore_type in costs:
@@ -305,7 +301,7 @@ static func grant_effect(recipe_key: String) -> GrantResult:
 	return GrantResult.GRANTED
 
 
-# Type sets the player has touched -- probed or refined at least once. Bench
+# Type sets the player has touched -- probed or experimented on at least once. Bench
 # notes' listing source (spec story 41). Unions notes' and cells' keys rather
 # than trusting notes alone, so a direct cell write with no experiment behind
 # it (e.g. grant_effect()) still surfaces here. Sorted so render order is deterministic across calls.

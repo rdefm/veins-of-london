@@ -340,7 +340,7 @@ func run() -> void:
 	run_case("hq_lab_bench_inert_gear_tap_opens_the_warning_and_spends_nothing", func():
 		GameState.reset()
 		GameState.state["player"]["orichalchum"]["fate"] = 5
-		GameState.state["player"]["bench"]["cells"]["fate|heat"] = { "state": "inert", "misses": 0, "refine": 0 }
+		GameState.state["player"]["bench"]["cells"]["fate|heat"] = { "state": "inert", "misses": 0, "tier": 1, "progress": 0 }
 		var screen := HqLabBenchScreen.new()
 		screen._ready()
 

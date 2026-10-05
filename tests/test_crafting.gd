@@ -246,9 +246,9 @@ func run() -> void:
 		assert_eq(GameState.state["notifications"], [], "crafting xp/level-up never notifies, unlike cultivating")
 	)
 
-	# ── calc-discovery ticket 10: refine tier wired into effect_power() ───
+	# ── item tier drives effect_power() ───
 
-	run_case("effect_power_at_refine_tier_zero_matches_the_plain_skill_indexed_value", func():
+	run_case("effect_power_indexes_effectPower_by_item_tier", func():
 		GameState.reset()
 		GameData.RECIPES["_testRefinable"] = {
 			"name": "Test Refinable", "symbol": "?",
@@ -256,26 +256,10 @@ func run() -> void:
 			"discovery": { "types": ["fate", "physics"], "approach": "heat" },
 			"baseSuccess": 1.0,
 			"effectPower": [0, 5, 6, 7, 8, 9],
-			"refineStep": { "field": "effectPower", "add": 3 },
 			"xpReward": 10, "eventUsable": false, "description": "",
 		}
-		assert_eq(Crafting.effect_power("_testRefinable", 3), 7, "tier 0 (unrefined, absent cell) reads the plain skill-indexed value (effectPower[3] = 7) -- regression check against the pre-Lab behaviour")
-		GameData.RECIPES.erase("_testRefinable")
-	)
-
-	run_case("effect_power_at_refine_tier_gt_zero_adds_the_refine_bonus_on_top_of_the_skill_indexed_value", func():
-		GameState.reset()
-		GameData.RECIPES["_testRefinable"] = {
-			"name": "Test Refinable", "symbol": "?",
-			"ingredients": { "fate": 1 },
-			"discovery": { "types": ["fate", "physics"], "approach": "heat" },
-			"baseSuccess": 1.0,
-			"effectPower": [0, 5, 6, 7, 8, 9],
-			"refineStep": { "field": "effectPower", "add": 3 },
-			"xpReward": 10, "eventUsable": false, "description": "",
-		}
-		GameState.state["player"]["bench"]["cells"]["fate+physics|heat"] = { "state": "found", "misses": 0, "refine": 2 }
-		assert_eq(Crafting.effect_power("_testRefinable", 3), 7 + 3 * 2, "tier 2 stacks refineStep.add * tier on top of the skill-indexed base (effectPower[3] = 7), not a replacement of it")
+		assert_eq(Crafting.effect_power("_testRefinable", 3), 7, "tier 3 reads effectPower[3]")
+		assert_eq(Crafting.effect_power("_testRefinable", 99), 9, "a tier past the table clamps to the top entry")
 		GameData.RECIPES.erase("_testRefinable")
 	)
 
@@ -391,27 +375,27 @@ func run() -> void:
 		assert_eq(GameState.state["modal"]["data"]["attempts"].size(), 2, "modal data carries every attempt, not just an aggregate")
 	)
 
-	run_case("attempt_craft_at_a_refined_tier_grants_the_refined_potency_not_the_base_value", func():
+	run_case("attempt_craft_grants_the_cell_tier_potency_not_the_crafting_skill_potency", func():
 		GameData.RECIPES["_testRefinable"] = {
 			"name": "Test Refinable", "symbol": "?",
 			"ingredients": { "fate": 1 },
 			"discovery": { "types": ["fate", "physics"], "approach": "heat" },
 			"baseSuccess": 0.90,
 			"effectPower": [0, 5, 6, 7, 8, 9],
-			"refineStep": { "field": "effectPower", "add": 3 },
 			"xpReward": 10, "eventUsable": false, "description": "",
 		}
 		var seed := -1
 		for candidate in range(200):
 			GameState.reset()
 			GameState.state["player"]["orichalchum"]["fate"] = 100
-			GameState.state["player"]["craftingSkill"] = 3
-			GameState.state["player"]["bench"]["cells"]["fate+physics|heat"] = { "state": "found", "misses": 0, "refine": 2 }
+			GameState.state["player"]["craftingSkill"] = 5
+			GameState.state["player"]["bench"]["cells"]["fate+physics|heat"] = { "state": "found", "misses": 0, "tier": 2, "progress": 0 }
 			Rng.set_seed(candidate)
 			var result := Crafting.attempt_craft("_testRefinable")
 			if result.get("success", false):
 				seed = candidate
-				assert_eq(result["power"], 13, "7 (skill 3 base, effectPower[3]) + 3*2 (refine tier 2 bonus) = 13")
+				assert_eq(result["power"], 6, "tier 2 -> effectPower[2], regardless of skill 5")
+				assert_eq(GameState.state["player"]["inventory"]["_testRefinable"], { "2": 1 }, "the unit files under the item tier")
 				break
 		assert_true(seed != -1, "should find a successful craft roll within 200 tries")
 		GameData.RECIPES.erase("_testRefinable")
@@ -419,47 +403,47 @@ func run() -> void:
 
 	# ── ticket 64: tier-bucketed inventory ───────────────────────────────
 
-	run_case("crafting_at_different_skill_levels_files_into_different_tier_buckets", func():
+	run_case("crafting_at_different_item_tiers_files_into_different_tier_buckets", func():
 		var seed_lo := -1
 		for candidate in range(200):
 			GameState.reset()
 			GameState.state["player"]["orichalchum"]["time"] = 100
-			GameState.state["player"]["craftingSkill"] = 1
+			GameState.state["player"]["bench"]["cells"]["time|compression"] = { "state": "found", "misses": 0, "tier": 1, "progress": 0 }
 			Rng.set_seed(candidate)
 			if Crafting.attempt_craft("timePearl").get("success", false):
 				seed_lo = candidate
 				break
-		assert_true(seed_lo != -1, "should find a successful skill-1 craft within 200 tries")
-		assert_eq(GameState.state["player"]["inventory"]["timePearl"], { "1": 1 }, "a skill-1 craft files into the tier-1 bucket")
+		assert_true(seed_lo != -1, "should find a successful tier-1 craft within 200 tries")
+		assert_eq(GameState.state["player"]["inventory"]["timePearl"], { "1": 1 }, "a tier-1 craft files into the tier-1 bucket")
 
 		var seed_hi := -1
 		for candidate in range(200):
 			GameState.reset()
 			GameState.state["player"]["orichalchum"]["time"] = 100
-			GameState.state["player"]["craftingSkill"] = 5
+			GameState.state["player"]["bench"]["cells"]["time|compression"] = { "state": "found", "misses": 0, "tier": 5, "progress": 0 }
 			Rng.set_seed(candidate)
 			if Crafting.attempt_craft("timePearl").get("success", false):
 				seed_hi = candidate
 				break
-		assert_true(seed_hi != -1, "should find a successful skill-5 craft within 200 tries")
-		assert_eq(GameState.state["player"]["inventory"]["timePearl"], { "5": 1 }, "a skill-5 craft files into a separate tier-5 bucket, distinct from tier 1")
+		assert_true(seed_hi != -1, "should find a successful tier-5 craft within 200 tries")
+		assert_eq(GameState.state["player"]["inventory"]["timePearl"], { "5": 1 }, "a tier-5 craft files into a separate tier-5 bucket, distinct from tier 1")
 
 		# Craft one of each in the same game -- proves they stack in separate
 		# buckets rather than one overwriting or merging with the other.
 		GameState.reset()
 		GameState.state["player"]["orichalchum"]["time"] = 100
-		GameState.state["player"]["craftingSkill"] = 1
+		GameState.state["player"]["bench"]["cells"]["time|compression"] = { "state": "found", "misses": 0, "tier": 1, "progress": 0 }
 		Rng.set_seed(seed_lo)
 		Crafting.attempt_craft("timePearl")
 		GameState.state["player"]["orichalchum"]["time"] = 100
-		GameState.state["player"]["craftingSkill"] = 5
+		GameState.state["player"]["bench"]["cells"]["time|compression"] = { "state": "found", "misses": 0, "tier": 5, "progress": 0 }
 		Rng.set_seed(seed_hi)
 		Crafting.attempt_craft("timePearl")
 		assert_eq(GameState.state["player"]["inventory"]["timePearl"], { "1": 1, "5": 1 }, "distinct tiers accumulate in separate buckets, not merged")
 		assert_eq(Crafting.inventory_qty("timePearl"), 2, "inventory_qty sums across every tier bucket")
 	)
 
-	run_case("quality_tier_at_a_refined_tier_reports_the_refine_tier_not_the_skill", func():
+	run_case("quality_tier_reports_the_cell_tier_not_the_skill", func():
 		GameState.reset()
 		GameData.RECIPES["_testRefinable"] = {
 			"name": "Test Refinable", "symbol": "?",
@@ -467,11 +451,11 @@ func run() -> void:
 			"discovery": { "types": ["fate", "physics"], "approach": "heat" },
 			"baseSuccess": 1.0,
 			"effectPower": [0, 5, 6, 7, 8, 9],
-			"refineStep": { "field": "effectPower", "add": 3 },
 			"xpReward": 10, "eventUsable": false, "description": "",
 		}
-		assert_eq(Crafting.quality_tier("_testRefinable", 3), 3, "tier 0 (unrefined) reports the skill index, same as effect_power()'s own fallback")
-		GameState.state["player"]["bench"]["cells"]["fate+physics|heat"] = { "state": "found", "misses": 0, "refine": 2 }
-		assert_eq(Crafting.quality_tier("_testRefinable", 3), 2, "refined past tier 0 reports the Bench refine tier instead of the skill index")
+		GameState.state["player"]["craftingSkill"] = 4
+		assert_eq(Crafting.quality_tier("_testRefinable"), 1, "a fresh cell is tier 1 whatever the skill")
+		GameState.state["player"]["bench"]["cells"]["fate+physics|heat"] = { "state": "found", "misses": 0, "tier": 3, "progress": 0 }
+		assert_eq(Crafting.quality_tier("_testRefinable"), 3, "reports the cell tier")
 		GameData.RECIPES.erase("_testRefinable")
 	)

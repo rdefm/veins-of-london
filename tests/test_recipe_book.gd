@@ -24,7 +24,7 @@ static func _find_everything() -> void:
 	var cells: Dictionary = GameState.state["player"]["bench"]["cells"]
 	for recipe_key in GameData.RECIPES:
 		var discovery: Dictionary = GameData.RECIPES[recipe_key]["discovery"]
-		cells[Bench.cell_key(discovery["types"], discovery["approach"])] = { "state": "found", "misses": 0, "refine": 0 }
+		cells[Bench.cell_key(discovery["types"], discovery["approach"])] = { "state": "found", "misses": 0, "tier": 1, "progress": 0 }
 
 
 static func _open_book(data: Dictionary = {}) -> ModalLayer:

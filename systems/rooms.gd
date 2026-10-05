@@ -398,7 +398,7 @@ static func _producer_act(contact_id: String, items_out: Dictionary, entry: Dict
 			ore[ingredient] = ore.get(ingredient, 0) - costs[ingredient]
 		var xp_reward: int = GameData.RECIPES[recipe_key]["xpReward"]
 		if Rng.chance(Crafting.craft_chance(recipe_key, skill)):
-			var tier := Crafting.quality_tier(recipe_key, skill)
+			var tier := Crafting.quality_tier(recipe_key)
 			Crafting.inventory_add(recipe_key, tier)
 			Shares.record_craft(Shares.PLAYER, costs)
 			items_out[recipe_key] = items_out.get(recipe_key, 0) + 1

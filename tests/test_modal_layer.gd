@@ -1372,9 +1372,9 @@ func run() -> void:
 		# Override the 3 tutorial-taught cells (otherwise Found by default with
 		# no stored cells entry, per Bench._default_cell()) back to untried.
 		var cells: Dictionary = GameState.state["player"]["bench"]["cells"]
-		cells["time|compression"] = { "state": "untried", "misses": 0, "refine": 0 }
-		cells["life|grinding"] = { "state": "untried", "misses": 0, "refine": 0 }
-		cells["time|heat"] = { "state": "untried", "misses": 0, "refine": 0 }
+		cells["time|compression"] = { "state": "untried", "misses": 0, "tier": 1, "progress": 0 }
+		cells["life|grinding"] = { "state": "untried", "misses": 0, "tier": 1, "progress": 0 }
+		cells["time|heat"] = { "state": "untried", "misses": 0, "tier": 1, "progress": 0 }
 		Modal.open("lab_bench_recipe_book")
 
 		var layer := ModalLayer.new()
@@ -1423,9 +1423,9 @@ func run() -> void:
 		var layer := ModalLayer.new()
 		layer._ready()
 
-		var refine_button := _find_cost_button(layer, "Refine to tier 1")
+		var refine_button := _find_cost_button(layer, "Experiment")
 		assert_true(refine_button != null, "§5.6: every Found recipe exposes Refine as a book-page action")
-		assert_true(refine_button.disabled, "not enough calc -- Bench.refine_block_reason() blocks it")
+		assert_true(refine_button.disabled, "not enough calc -- Bench.experiment_block_reason() blocks it")
 
 		layer.free()
 	)
@@ -1459,13 +1459,13 @@ func run() -> void:
 
 	run_case("lab_bench_notes_modal_shows_a_found_recipes_current_refine_tier", func():
 		GameState.reset()
-		GameState.state["player"]["bench"]["cells"]["life|heat"] = { "state": "found", "misses": 0, "refine": 2 }
+		GameState.state["player"]["bench"]["cells"]["life|heat"] = { "state": "found", "misses": 0, "tier": 3, "progress": 0 }
 		Modal.open("lab_bench_notes")
 
 		var layer := ModalLayer.new()
 		layer._ready()
 
-		assert_true(NodeQuery.label_texts_with_symbols(layer).has("Healing Salve — tier 2"), "§5.2 point 2: the notebook shows current recipe levels, not just that something was found")
+		assert_true(NodeQuery.label_texts_with_symbols(layer).has("Healing Salve — tier 3"), "§5.2 point 2: the notebook shows current recipe levels, not just that something was found")
 
 		layer.free()
 	)
@@ -1475,13 +1475,13 @@ func run() -> void:
 	run_case("lab_bench_notes_modal_found_recipe_row_shows_a_refine_button", func():
 		GameState.reset()
 		GameState.state["player"]["orichalchum"]["life"] = 100
-		GameState.state["player"]["bench"]["cells"]["life|heat"] = { "state": "found", "misses": 0, "refine": 2 }
+		GameState.state["player"]["bench"]["cells"]["life|heat"] = { "state": "found", "misses": 0, "tier": 3, "progress": 0 }
 		Modal.open("lab_bench_notes")
 
 		var layer := ModalLayer.new()
 		layer._ready()
 
-		var refine_button := _find_cost_button(layer, "Refine to tier 3")
+		var refine_button := _find_cost_button(layer, "Experiment")
 		assert_true(refine_button != null, "a Found recipe's notebook row exposes the same next-tier action the recipe book does")
 		assert_true(not refine_button.disabled, "enough calc and a known technique -- nothing should block this tap")
 
@@ -1491,12 +1491,12 @@ func run() -> void:
 	run_case("lab_bench_notes_modal_refine_button_runs_the_experiment_immediately_with_no_picker", func():
 		GameState.reset()
 		GameState.state["player"]["orichalchum"]["life"] = 100
-		GameState.state["player"]["bench"]["cells"]["life|heat"] = { "state": "found", "misses": 0, "refine": 2 }
+		GameState.state["player"]["bench"]["cells"]["life|heat"] = { "state": "found", "misses": 0, "tier": 3, "progress": 0 }
 		Modal.open("lab_bench_notes")
 
 		var layer := ModalLayer.new()
 		layer._ready()
-		_find_cost_button(layer, "Refine to tier 3").pressed.emit()
+		_find_cost_button(layer, "Experiment").pressed.emit()
 
 		assert_eq(GameState.state["player"]["orichalchum"]["life"], 88, "the tap spends the recipe's own established ore combo (3 * (3+1) = 12) at once -- no intermediate ore/apparatus picker")
 		assert_eq(GameState.state["modal"]["type"], "lab_bench_notes", "the experiment resolves in place -- no picker or result modal opens over the notebook")
@@ -1507,15 +1507,15 @@ func run() -> void:
 	run_case("lab_bench_notes_modal_refine_button_is_disabled_when_not_enough_calc", func():
 		GameState.reset()
 		GameState.state["player"]["orichalchum"]["life"] = 0
-		GameState.state["player"]["bench"]["cells"]["life|heat"] = { "state": "found", "misses": 0, "refine": 2 }
+		GameState.state["player"]["bench"]["cells"]["life|heat"] = { "state": "found", "misses": 0, "tier": 3, "progress": 0 }
 		Modal.open("lab_bench_notes")
 
 		var layer := ModalLayer.new()
 		layer._ready()
 
-		var refine_button := _find_cost_button(layer, "Refine to tier 3")
+		var refine_button := _find_cost_button(layer, "Experiment")
 		assert_true(refine_button != null)
-		assert_true(refine_button.disabled, "not enough calc -- Bench.refine_block_reason() blocks it, same reason the recipe book's button respects")
+		assert_true(refine_button.disabled, "not enough calc -- Bench.experiment_block_reason() blocks it, same reason the recipe book's button respects")
 		assert_true(NodeQuery.label_texts_with_symbols(layer).has("Not enough calc."), "a disabled refine button always states why -- never a dead tap with no reason")
 
 		layer.free()
@@ -1533,15 +1533,15 @@ func run() -> void:
 		var gated_recipe: Dictionary = GameData.RECIPES["blackHole"].duplicate(true)
 		gated_recipe["discovery"]["approach"] = "_testGated"
 		GameData.RECIPES["_testGatedRecipe"] = gated_recipe
-		GameState.state["player"]["bench"]["cells"]["physics|_testGated"] = { "state": "found", "misses": 0, "refine": 0 }
+		GameState.state["player"]["bench"]["cells"]["physics|_testGated"] = { "state": "found", "misses": 0, "tier": 1, "progress": 0 }
 		Modal.open("lab_bench_notes")
 
 		var layer := ModalLayer.new()
 		layer._ready()
 
-		var refine_button := _find_cost_button(layer, "Refine to tier 1")
+		var refine_button := _find_cost_button(layer, "Experiment")
 		assert_true(refine_button != null)
-		assert_true(refine_button.disabled, "the gated approach isn't known -- Bench.refine_block_reason() blocks it")
+		assert_true(refine_button.disabled, "the gated approach isn't known -- Bench.experiment_block_reason() blocks it")
 		assert_true(NodeQuery.label_texts_with_symbols(layer).has("You haven't the technique for that yet."))
 
 		layer.free()

@@ -28,7 +28,7 @@ Data file per system: see `data/*.json` below.
 | business_quest.gd | business_empire questline side effects (state.businessQuest): Beat 1/3/5/6/7/8 trigger texts, Beat 2 starter-offer chain, recurring offers (ore from Beat 3, Time Pearl from Beat 6; reissued a day after lapse), Beat 8 closing payload from the latest payday record, James's crafting-skill set, Owen's crafting-event trigger. Rules: REFERENCE.md "Business Empire questline" |
 | business_stats.gd | BizBrief Stats tab's daily tally (revenue, expenses split by kind staff/guard/calc, cultivator/player ore); rollover snapshot with productionLog items into `businessStats.days`, 10-day trim, zero-filled chart series |
 | business.gd | Business pot (contract settlements; Sales calc purchases as `calc` expenses), float (donate/withdraw; backs wages and calc, never split), hire first-week prepay (`paidThroughDay`), weekly payday (staff wages, then Monday guard bill from pot+float or a reserve when short, 3-way split, ledger), owed wages + float top-up, Staff tab pay labels |
-| bench.gd | Lab discovery engine (type-set × approach) |
+| bench.gd | Lab discovery engine (type-set × approach); per-cell item tier (1–5) + progress bar, `experiment()` roll, `item_tier()` |
 | bubble_layout.gd | Popup-position math for MapBubble |
 | collective.gd | Collective faction doors, Nadia settlement, Collective questline beat triggers + Act 2 scripted vein losses + Nadia defend raid, Hakim retake gate + site ruin (ruinedByFirm), T7 Firm provocation (timed Firm-targeting weight), Act 2 relation awards (T8 missions, alarm-defend daily cap), Act 2 gate + T14 spine reward (Hakim intel's weak-enemy-vein branch) + T15 closer delivery |
 | combat_prep.gd | CombatPrep: `state.combatPrep` request/cancel/commit for every combat entry (planned raids/defences cancellable, forced encounters not), replaying the existing Raiding/Home/Combat entries on Fight; lists participants + equipped units; empty-slot warning + Change loadout (`loadoutEdit` round-trip to Profile); recruit pool/toggle/reorder for planned raids and vein/HQ defences |
@@ -211,10 +211,10 @@ overlays.
 | network_reference_modal.gd | Network Map legend |
 | hq_ore_readout_modal.gd | Ore-store slip with raid-risk stamp + personal-stash move controls, map_card_style.gd-skinned (always light) |
 | hq_gym_modal.gd | Combat skill card (level, XP bar, current + next-level HP/ATK/SPD via `Combat.skill_summary()`) + Train action card |
-| lab_bench_modal_helpers.gd | Refine controls, batch total text + outcome headings shared by the lab-bench modals |
+| lab_bench_modal_helpers.gd | Experiment controls, batch total text + outcome headings shared by the lab-bench modals |
 | lab_bench_recipe_book_modal.gd | Recipe notebook page: five ore side tabs (live glyphs), found recipes filtered by ingredient ore, four entries per page with Prev/Next; tab+page live in modal data; an entry raises lab_bench_recipe_detail |
-| lab_bench_recipe_detail_modal.gd | One found recipe above the book: description, ingredients, chance/effect/stock, batch slider + Craft (result returns to the book via `Modal.set_return`), Refine, Back to book |
-| lab_bench_notes_modal.gd | Per-pairing survey notes with found-recipe refine rows |
+| lab_bench_recipe_detail_modal.gd | One found recipe above the book: description, ingredients, chance/effect/stock, batch slider + Craft (result returns to the book via `Modal.set_return`), Experiment, Back to book |
+| lab_bench_notes_modal.gd | Per-pairing survey notes with found-recipe tier + experiment rows |
 | lab_bench_probe_result_modal.gd | Probe outcome card |
 | lab_bench_confirm_modal.gd | Gear-tap confirm: probe, craft ×N (batch slider, max = affordable) or inert warning, by cell state |
 | contract_cancel_modal.gd | Navy BizBrief contract cancel confirm (Keep / Confirm → `Contracts.cancel`) |

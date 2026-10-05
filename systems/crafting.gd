@@ -36,26 +36,10 @@ static func calc_cost(recipe_key: String, skill: int) -> Dictionary:
 	return costs
 
 
-# Shared by effect_power()/quality_tier(): returns the active Bench refine
-# tier if refined past 0 and refineStep targets effectPower, else -1.
-static func _active_refine_tier(recipe_key: String) -> int:
-	var r: Dictionary = GameData.RECIPES[recipe_key]
-	var discovery: Dictionary = r.get("discovery", {})
-	var refine_step: Dictionary = r.get("refineStep", {})
-	if discovery.is_empty() or refine_step.get("field") != "effectPower":
-		return -1
-	var tier: int = Bench.get_cell(discovery["types"], discovery["approach"])["refine"]
-	return tier if tier > 0 else -1
-
-
-static func effect_power(recipe_key: String, skill: int) -> Variant:
-	var refine_tier := _active_refine_tier(recipe_key)
-	if refine_tier > 0:
-		var r: Dictionary = GameData.RECIPES[recipe_key]
-		var discovery: Dictionary = r["discovery"]
-		return Bench.refined_value(recipe_key, discovery["types"], discovery["approach"], skill)
+# Power at an item tier (1..5) -- indexes the recipe's effectPower array directly.
+static func effect_power(recipe_key: String, tier: int) -> Variant:
 	var powers: Array = GameData.RECIPES[recipe_key]["effectPower"]
-	return powers[skill]
+	return powers[clampi(tier, 1, powers.size() - 1)]
 
 
 # Direct personal use: removes one unit (lowest tier first) and returns its
@@ -68,9 +52,8 @@ static func use_one(recipe_key: String) -> Variant:
 
 # The quality tier a craft right now would produce -- the inventory bucket a
 # successful craft files under, and what Economy scales sale price by.
-static func quality_tier(recipe_key: String, skill: int) -> int:
-	var refine_tier := _active_refine_tier(recipe_key)
-	return refine_tier if refine_tier > 0 else skill
+static func quality_tier(recipe_key: String) -> int:
+	return Bench.item_tier(recipe_key)
 
 
 # player.inventory[recipe_key] is { "<tier>": count, ... }, keys stringified
@@ -173,8 +156,9 @@ static func attempt_craft(recipe_key: String) -> Dictionary:
 	var chance: float = min(0.95, craft_chance(recipe_key, skill) + attunement)
 	var success: bool = Rng.chance(chance)
 	if success:
-		var power = effect_power(recipe_key, skill)
-		inventory_add(recipe_key, quality_tier(recipe_key, skill))
+		var tier := quality_tier(recipe_key)
+		var power = effect_power(recipe_key, tier)
+		inventory_add(recipe_key, tier)
 		Shares.record_craft(Shares.PLAYER, costs)
 		var counts: Dictionary = player["craftedCounts"]
 		counts[recipe_key] = int(counts.get(recipe_key, 0)) + 1

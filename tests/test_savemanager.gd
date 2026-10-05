@@ -627,8 +627,8 @@ func run() -> void:
 		GameState.reset()
 		var bench: Dictionary = GameState.state["player"]["bench"]
 		bench["surveyed"]["life+time"] = 3
-		bench["cells"]["life+time|heat"] = { "state": "found", "misses": 2, "refine": 1 }
-		bench["cells"]["life+time|compression"] = { "state": "hot", "misses": 3, "refine": 0 }
+		bench["cells"]["life+time|heat"] = { "state": "found", "misses": 2, "tier": 2, "progress": 0 }
+		bench["cells"]["life+time|compression"] = { "state": "hot", "misses": 3, "tier": 1, "progress": 0 }
 		bench["notes"]["life+time"] = [{ "day": 9, "approach": "heat", "outcome": "found" }]
 		var original: Dictionary = GameState.deep_copy(GameState.state)
 
@@ -644,7 +644,8 @@ func run() -> void:
 		assert_eq(typeof(restored["surveyed"]["life+time"]), TYPE_INT, "surveyed count should be restored as int, not float")
 		assert_eq(restored["cells"]["life+time|heat"]["state"], "found", "found cell state should be restored")
 		assert_eq(typeof(restored["cells"]["life+time|heat"]["misses"]), TYPE_INT, "cell misses should be restored as int, not float")
-		assert_eq(typeof(restored["cells"]["life+time|heat"]["refine"]), TYPE_INT, "cell refine should be restored as int, not float")
+		assert_eq(typeof(restored["cells"]["life+time|heat"]["tier"]), TYPE_INT, "cell tier should be restored as int, not float")
+		assert_eq(typeof(restored["cells"]["life+time|heat"]["progress"]), TYPE_INT, "cell progress should be restored as int, not float")
 		assert_eq(typeof(restored["notes"]["life+time"][0]["day"]), TYPE_INT, "note day should be restored as int, not float")
 		assert_eq(GameState.state, original, "the full state tree (including player.bench) should deep-equal what was saved")
 

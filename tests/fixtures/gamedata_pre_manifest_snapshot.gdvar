@@ -7458,10 +7458,6 @@
 "fate": 6
 },
 "name": "Be a Lady",
-"refineStep": {
-"add": 1,
-"field": "effectPower"
-},
 "symbol": "☘",
 "xpReward": 25
 },
@@ -7479,10 +7475,6 @@
 "physics": 7
 },
 "name": "Black Hole",
-"refineStep": {
-"add": 2,
-"field": "effectPower"
-},
 "symbol": "⊙",
 "xpReward": 35
 },
@@ -7500,10 +7492,6 @@
 "physics": 5
 },
 "name": "Blast",
-"refineStep": {
-"add": 2,
-"field": "effectPower"
-},
 "symbol": "☄",
 "xpReward": 25
 },
@@ -7521,10 +7509,6 @@
 "life": 6
 },
 "name": "Enhancement Powder",
-"refineStep": {
-"add": 1,
-"field": "effectPower"
-},
 "symbol": "↯",
 "taughtBy": "tutorial",
 "xpReward": 25
@@ -7544,10 +7528,6 @@
 "time": 6
 },
 "name": "Failsafe",
-"refineStep": {
-"add": 1,
-"field": "effectPower"
-},
 "symbol": "⚑",
 "xpReward": 45
 },
@@ -7566,10 +7546,6 @@
 "time": 4
 },
 "name": "Healing Burst",
-"refineStep": {
-"add": 3,
-"field": "effectPower"
-},
 "symbol": "✚",
 "xpReward": 30
 },
@@ -7587,10 +7563,6 @@
 "life": 5
 },
 "name": "Healing Salve",
-"refineStep": {
-"add": 1,
-"field": "effectPower"
-},
 "symbol": "♥",
 "xpReward": 20
 },
@@ -7608,10 +7580,6 @@
 "emotion": 6
 },
 "name": "Pan's Prank",
-"refineStep": {
-"add": 1,
-"field": "effectPower"
-},
 "symbol": "☻",
 "xpReward": 30
 },
@@ -7629,10 +7597,6 @@
 "time": 5
 },
 "name": "Prophet's Breath",
-"refineStep": {
-"add": 1,
-"field": "effectPower"
-},
 "symbol": "≋",
 "xpReward": 30
 },
@@ -7651,10 +7615,6 @@
 "time": 5
 },
 "name": "Rejuvenation",
-"refineStep": {
-"add": 0,
-"field": "effectPower"
-},
 "symbol": "❀",
 "xpReward": 20
 },
@@ -7672,10 +7632,6 @@
 "time": 6
 },
 "name": "Rewind",
-"refineStep": {
-"add": 1,
-"field": "effectPower"
-},
 "symbol": "⟲",
 "taughtBy": "tutorial",
 "xpReward": 35
@@ -7694,10 +7650,6 @@
 "physics": 6
 },
 "name": "Shield",
-"refineStep": {
-"add": 1,
-"field": "effectPower"
-},
 "symbol": "⛨",
 "xpReward": 30
 },
@@ -7715,10 +7667,6 @@
 "time": 5
 },
 "name": "Time Pearl",
-"refineStep": {
-"add": 1,
-"field": "effectPower"
-},
 "symbol": "⧖",
 "taughtBy": "tutorial",
 "xpReward": 20
@@ -7738,10 +7686,6 @@
 "time": 5
 },
 "name": "Wormhole",
-"refineStep": {
-"add": 0,
-"field": "effectPower"
-},
 "symbol": "⊗",
 "xpReward": 40
 }

@@ -48,7 +48,7 @@ func run() -> void:
 
 	run_case("hot_cell_still_shows_the_probe_modal", func():
 		GameState.reset()
-		GameState.state["player"]["bench"]["cells"]["physics|heat"] = { "state": "hot", "misses": 1, "refine": 0 }
+		GameState.state["player"]["bench"]["cells"]["physics|heat"] = { "state": "hot", "misses": 1, "tier": 1, "progress": 0 }
 		assert_eq(LabBenchNav.confirm_variant(["physics"], "heat"), LabBenchNav.CONFIRM_PROBE)
 	)
 
@@ -146,7 +146,7 @@ func run() -> void:
 	run_case("inert_cell_shows_a_warning_with_no_action", func():
 		GameState.reset()
 		GameState.state["player"]["orichalchum"]["fate"] = 5
-		GameState.state["player"]["bench"]["cells"]["fate|heat"] = { "state": "inert", "misses": 0, "refine": 0 }
+		GameState.state["player"]["bench"]["cells"]["fate|heat"] = { "state": "inert", "misses": 0, "tier": 1, "progress": 0 }
 		var modal := _build(["fate"], "heat")
 
 		assert_true(NodeQuery.label_texts(modal).has(LabBenchConfirmModal.INERT_TEXT))

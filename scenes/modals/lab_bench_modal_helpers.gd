@@ -3,18 +3,20 @@ class_name LabBenchModalHelpers
 extends RefCounted
 
 
-static func append_refine_controls(container: Control, recipe: Dictionary, types: Array, approach: String) -> void:
-	var tier := Bench.refine_tier_target(types, approach)
-	var reason := Bench.refine_block_reason(types, approach)
-	container.add_child(MapCardStyle.action_button("Refine to tier %d" % tier, func(): _on_refine_pressed(recipe["name"], types, approach, tier), reason != "", reason))
+static func append_experiment_controls(container: Control, recipe: Dictionary, types: Array, approach: String) -> void:
+	var reason := Bench.experiment_block_reason(types, approach)
+	container.add_child(MapCardStyle.action_button("Experiment", func(): _on_experiment_pressed(recipe["name"], types, approach), reason != "", reason))
 
 
-static func _on_refine_pressed(recipe_name: String, types: Array, approach: String, tier: int) -> void:
-	var result := Bench.refine(types, approach)
-	if result.get("outcome", "") == "refined":
-		Notify.push("%s refined to tier %d." % [recipe_name, tier], Notify.CATEGORY_SUCCESS)
-	else:
-		Notify.push("No improvement this time. Still tier %d." % (tier - 1), Notify.CATEGORY_WARNING)
+static func _on_experiment_pressed(recipe_name: String, types: Array, approach: String) -> void:
+	var result := Bench.experiment(types, approach)
+	match result.get("outcome", ""):
+		"tier_up":
+			Notify.push("%s reached tier %d." % [recipe_name, Bench.get_cell(types, approach)["tier"]], Notify.CATEGORY_SUCCESS)
+		"progress":
+			Notify.push("%s improves. Not there yet." % recipe_name, Notify.CATEGORY_SUCCESS)
+		_:
+			Notify.push("No progress this time.", Notify.CATEGORY_WARNING)
 
 
 # "Total: 10 Time · 6 Fate" -- a batch's whole calc cost, per ore.
@@ -33,9 +35,11 @@ static func outcome_heading(outcome: String) -> String:
 			return "Something's there."
 		"inert":
 			return "Inert."
-		"refined":
-			return "Refined."
-		"refine_failed":
+		"tier_up":
+			return "Tier up."
+		"progress":
+			return "Progress."
+		"no_progress":
 			return "No better this time."
 		_:
 			return ""

@@ -31,10 +31,10 @@ static func _found_recipe_rows(types: Array) -> Array:
 		if recipe_key == "" or Bench.cell_state(types, approach_id) != "found":
 			continue
 		var r: Dictionary = GameData.RECIPES[recipe_key]
-		var tier: int = Bench.get_cell(types, approach_id)["refine"]
+		var tier: int = Bench.get_cell(types, approach_id)["tier"]
 		var row := UI.vbox(4)
 		row.add_child(UI.symbol_row([ItemIcons.part(recipe_key), "%s — tier %d" % [r["name"], tier]]))
-		LabBenchModalHelpers.append_refine_controls(row, r, types, approach_id)
+		LabBenchModalHelpers.append_experiment_controls(row, r, types, approach_id)
 		rows.append(row)
 	return rows
 

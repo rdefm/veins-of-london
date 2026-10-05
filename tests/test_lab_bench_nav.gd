@@ -73,8 +73,8 @@ func run() -> void:
 
 	run_case("confirm_variant_follows_the_cell_state", func():
 		GameState.reset()
-		GameState.state["player"]["bench"]["cells"]["fate|heat"] = { "state": "inert", "misses": 0, "refine": 0 }
-		GameState.state["player"]["bench"]["cells"]["physics|grinding"] = { "state": "hot", "misses": 1, "refine": 0 }
+		GameState.state["player"]["bench"]["cells"]["fate|heat"] = { "state": "inert", "misses": 0, "tier": 1, "progress": 0 }
+		GameState.state["player"]["bench"]["cells"]["physics|grinding"] = { "state": "hot", "misses": 1, "tier": 1, "progress": 0 }
 		assert_eq(LabBenchNav.confirm_variant(["time"], "heat"), LabBenchNav.CONFIRM_CRAFT, "rewind is tutorial-found")
 		assert_eq(LabBenchNav.confirm_variant(["physics"], "heat"), LabBenchNav.CONFIRM_PROBE, "untried")
 		assert_eq(LabBenchNav.confirm_variant(["physics"], "grinding"), LabBenchNav.CONFIRM_PROBE, "hot")
@@ -85,7 +85,7 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["player"]["orichalchum"]["physics"] = Bench.ORE_COST_PER_TYPE
 		GameState.state["player"]["orichalchum"]["time"] = 0
-		GameState.state["player"]["bench"]["cells"]["physics|grinding"] = { "state": "inert", "misses": 0, "refine": 0 }
+		GameState.state["player"]["bench"]["cells"]["physics|grinding"] = { "state": "inert", "misses": 0, "tier": 1, "progress": 0 }
 		assert_true(LabBenchNav.gear_ready(["physics"], "heat"), "affordable probe")
 		assert_true(not LabBenchNav.gear_ready(["physics"], "grinding"), "inert is never ready")
 		assert_true(LabBenchNav.gear_ready(["time"], "heat"), "a found recipe is ready even with no ore")
