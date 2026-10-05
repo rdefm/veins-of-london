@@ -1,5 +1,7 @@
 extends "res://tests/test_base.gd"
 
+const Fixtures := preload("res://tests/support/fixtures.gd")
+
 # Multi-target crafting (Crafting.multi_craft_available, "_multi" inventory
 # key) and combat honouring it through Loadout slots.
 
@@ -163,4 +165,45 @@ func run() -> void:
 		Loadout.refill_used([0])
 		assert_eq(Loadout.slot(0), { "recipe": "blast", "tier": 3, "multi": true })
 		assert_eq(_stock("blast", 5), 1, "single stock left alone")
+	)
+
+	run_case("dial_multi_shield_covers_allies_single_shield_only_the_caster", func():
+		for multi in [true, false]:
+			GameState.reset()
+			GameState.state["contacts"]["archie"]["recruited"] = true
+			var combat := _fight(1, [Contacts.build_combat_ally("archie")])
+			var dial: Dictionary = Fixtures.dial_with_loaded("shield", 3, 5)
+			if multi:
+				dial["loadedComplications"][0]["multi"] = true
+			GameState.state["player"]["dial"] = dial
+			var result := Combat.cast_complication(0)
+			assert_true(result["ok"], str(result))
+			assert_true(GameState.state["player"]["shieldPool"] > 0, "caster shielded")
+			assert_eq(int(combat["allies"][0].get("shieldPool", 0)) > 0, multi, "ally shielded only when multi")
+	)
+
+	run_case("dial_multi_blast_hits_all_without_a_selection", func():
+		GameState.reset()
+		var combat := _fight(2)
+		combat["selection"] = { "type": "ally", "index": 0 }
+		var dial: Dictionary = Fixtures.dial_with_loaded("blast", 3, 5)
+		dial["loadedComplications"][0]["multi"] = true
+		GameState.state["player"]["dial"] = dial
+		var result := Combat.cast_complication(0)
+		assert_true(result["ok"], str(result))
+		assert_true(combat["enemies"][0]["hp"] < 100 and combat["enemies"][1]["hp"] < 100)
+	)
+
+	run_case("dial_load_and_unload_round_trip_the_multi_key", func():
+		GameState.reset()
+		GameState.state["player"]["dial"] = Fixtures.dial_with_loaded("shield", 1, 5)
+		GameState.state["player"]["dial"]["loadedComplications"].clear()
+		GameState.state["player"]["dial"]["capacityMax"] = 3
+		Crafting.inventory_add("shield_multi", 3, 1)
+		assert_true(Dial.load_complication("shield", 3, "", true)["ok"])
+		assert_eq(GameState.state["player"]["dial"]["loadedComplications"][0]["multi"], true)
+		assert_eq(_stock("shield_multi", 3), 0)
+		Dial.unload_complication(0)
+		assert_eq(_stock("shield_multi", 3), 1)
+		assert_eq(Crafting.inventory_qty("shield"), 0)
 	)

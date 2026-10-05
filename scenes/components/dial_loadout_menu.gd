@@ -67,4 +67,4 @@ static func _add_complication_rows(content: VBoxContainer, dial: Dictionary, own
 		var entry: Dictionary = loaded[i]
 		var recipe: Dictionary = GameData.RECIPES[entry["recipeKey"]]
 		var captured_index: int = i
-		content.add_child(MapCardStyle.symbol_text_button([ItemIcons.part(entry["recipeKey"]), "Unload %s t%d" % [recipe["name"], entry["tier"]]], func(): Dial.unload_complication(captured_index, owner_id)))
+		content.add_child(MapCardStyle.symbol_text_button([ItemIcons.part(entry["recipeKey"]), "Unload %s%s t%d" % [recipe["name"], " multi" if entry.get("multi", false) else "", entry["tier"]]], func(): Dial.unload_complication(captured_index, owner_id)))

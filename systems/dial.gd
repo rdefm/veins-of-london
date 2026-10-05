@@ -273,7 +273,7 @@ static func apply_attunement(base_chance: float, ore_type: String) -> float:
 # Complications: load/unload and the Dial-level capacity budget (R§3.5). Loading
 # moves a unit out of Crafting's tiered player.inventory into
 # player.dial.loadedComplications unchanged in tier; unloading reverses it. Each
-# loaded entry ({recipeKey, tier, detent}) costs exactly one slot regardless of recipe/tier; detent is a cosmetic display-order index only.
+# loaded entry ({recipeKey, tier, detent, multi?}) costs exactly one slot regardless of recipe/tier; detent is a cosmetic display-order index only.
 
 
 # Capacity is Dial-level only (data/dial.json's capacityByLevel), independent of the seated Movement (R§3.5).
@@ -290,7 +290,7 @@ static func capacity_used(dial: Dictionary) -> int:
 # Moves one unit of recipe_key at tier from the tiered inventory into
 # loadedComplications; refused once it would exceed capacityMax (populated from
 # capacity_max() at seed time, R§3.5). Works identically with no Movement seated.
-static func load_complication(recipe_key: String, tier: int, owner_id: String = "") -> Dictionary:
+static func load_complication(recipe_key: String, tier: int, owner_id: String = "", multi: bool = false) -> Dictionary:
 	var player: Dictionary = GameState.state["player"]
 	var dial_v: Variant = dial_of(owner_id)
 	if dial_v == null:
@@ -298,7 +298,8 @@ static func load_complication(recipe_key: String, tier: int, owner_id: String = 
 	if not GameData.RECIPES.has(recipe_key):
 		return { "ok": false, "reason": "Unknown recipe." }
 
-	var buckets: Dictionary = player["inventory"].get(recipe_key, {})
+	var inventory_key := Crafting.inventory_key(recipe_key, multi)
+	var buckets: Dictionary = player["inventory"].get(inventory_key, {})
 	var tier_key := str(tier)
 	if buckets.get(tier_key, 0) <= 0:
 		return { "ok": false, "reason": "Nothing to load." }
@@ -307,9 +308,12 @@ static func load_complication(recipe_key: String, tier: int, owner_id: String = 
 	if capacity_used(dial) + 1 > dial["capacityMax"]:
 		return { "ok": false, "reason": "Not enough capacity." }
 
-	Crafting.inventory_remove_from_tier(recipe_key, tier, 1)
+	Crafting.inventory_remove_from_tier(inventory_key, tier, 1)
 	var loaded: Array = dial["loadedComplications"]
-	loaded.append({ "recipeKey": recipe_key, "tier": tier, "detent": loaded.size() })
+	var entry := { "recipeKey": recipe_key, "tier": tier, "detent": loaded.size() }
+	if multi:
+		entry["multi"] = true
+	loaded.append(entry)
 
 	EventBus.state_changed.emit()
 	return { "ok": true }
@@ -327,7 +331,7 @@ static func unload_complication(index: int, owner_id: String = "") -> Dictionary
 
 	var entry: Dictionary = loaded[index]
 	loaded.remove_at(index)
-	Crafting.inventory_add(entry["recipeKey"], entry["tier"], 1)
+	Crafting.inventory_add(Crafting.inventory_key(entry["recipeKey"], entry.get("multi", false)), entry["tier"], 1)
 
 	EventBus.state_changed.emit()
 	return { "ok": true }
@@ -510,7 +514,7 @@ static func cast_complication(index: int, owner_id: String = "") -> Dictionary:
 	Progression.award_xp(dial, "xp", "level", GameData.DIAL_XP_LEVELS, 10, on_level_up)
 
 	EventBus.state_changed.emit()
-	return { "ok": true, "recipeKey": recipe_key, "power": amplified["power"], "targets": amplified["targets"], "turnPower": amplified["turnPower"], "turnBonus": amplified["turnBonus"] }
+	return { "ok": true, "recipeKey": recipe_key, "power": amplified["power"], "targets": amplified["targets"], "turnPower": amplified["turnPower"], "turnBonus": amplified["turnBonus"], "multi": bool(entry.get("multi", false)) }
 
 
 # Pure function of (base_power, movement), split out of cast_complication() for isolated testing.

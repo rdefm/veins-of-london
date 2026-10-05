@@ -2251,7 +2251,8 @@ static func cast_complication(index: int) -> Dictionary:
 		return { "ok": false, "reason": "Use Rewind for a rewind unit." }
 	if not COMBAT_COMPLICATION_RECIPES.has(recipe_key):
 		return { "ok": false, "reason": "No combat effect for that unit." }
-	var blocked: String = selection_block_reason(recipe_key)
+	var multi: bool = bool(loaded[index].get("multi", false))
+	var blocked: String = "" if multi else selection_block_reason(recipe_key)
 	if not blocked.is_empty():
 		return { "ok": false, "reason": blocked }
 
@@ -2300,17 +2301,29 @@ static func cast_complication(index: int) -> Dictionary:
 			_log(combat, beats, "You trigger %s. Movement accelerated." % recipe["name"], BEAT_COMPLICATION_MOTION, {})
 		"blast":
 			var dmg: int = int(power) * targets
-			var target_index: int = _enemy_action_index(combat)
-			var blast_extra: Dictionary = { "targetType": "enemy", "targetIndex": target_index, "effectKey": "blast" }
-			var shield_note := _hit_enemy(enemy, dmg, blast_extra)
-			_log(combat, beats, "You trigger %s — %d damage%s. Enemy: %d/%d HP." % [recipe["name"], blast_extra["dmg"], shield_note, enemy["hp"], enemy["hpMax"]], BEAT_COMPLICATION_BLAST, blast_extra)
 			combat["blastFleeBoost"] = true
-			if Rng.chance(BLAST_DISARM_CHANCE):
-				disarm_enemy(enemy, BLAST_DISARM_TURNS)
-				_log(combat, beats, "The shove knocks their weapon loose.", BEAT_COMPLICATION_DISARM, { "targetType": "enemy", "targetIndex": target_index })
-			_maybe_win_from_direct_damage(combat, enemy, beats)
+			var target_indices: Array = []
+			if multi:
+				for i in range(combat["enemies"].size()):
+					if not combat["enemies"][i]["koed"]:
+						target_indices.append(i)
+			else:
+				target_indices.append(_enemy_action_index(combat))
+			for target_index in target_indices:
+				var target: Dictionary = combat["enemies"][target_index]
+				var blast_extra: Dictionary = { "targetType": "enemy", "targetIndex": target_index, "effectKey": "blast" }
+				var shield_note := _hit_enemy(target, dmg, blast_extra)
+				_log(combat, beats, "You trigger %s — %d damage%s. Enemy: %d/%d HP." % [recipe["name"], blast_extra["dmg"], shield_note, target["hp"], target["hpMax"]], BEAT_COMPLICATION_BLAST, blast_extra)
+				if Rng.chance(BLAST_DISARM_CHANCE):
+					disarm_enemy(target, BLAST_DISARM_TURNS)
+					_log(combat, beats, "The shove knocks their weapon loose.", BEAT_COMPLICATION_DISARM, { "targetType": "enemy", "targetIndex": target_index })
+				_maybe_win_from_direct_damage(combat, target, beats)
 		"shield":
 			player["shieldPool"] += int(power) * targets
+			if multi:
+				for ally in combat["allies"]:
+					if not ally["koed"]:
+						ally["shieldPool"] = int(ally.get("shieldPool", 0)) + int(power) * targets
 			_log(combat, beats, "You trigger %s. Shield up — %d absorption." % [recipe["name"], player["shieldPool"]], BEAT_COMPLICATION_SHIELD, { "effectKey": "shield" })
 		"blackHole":
 			# AoE, ignores selection -- hits every non-koed enemy
@@ -2320,7 +2333,11 @@ static func cast_complication(index: int) -> Dictionary:
 			_log(combat, beats, "You trigger %s." % recipe["name"], BEAT_COMPLICATION_BLACK_HOLE_ANNOUNCE, {})
 			_apply_black_hole_aoe(combat, dmg, freeze_turns, beats)
 		"healingBurst":
-			var ally_index: int = selected_ally_index(combat)
+			var ally_index: int = -1 if multi else selected_ally_index(combat)
+			if multi:
+				for standing in combat["allies"]:
+					if not standing["koed"]:
+						heal_ally(standing, int(power) * targets)
 			if ally_index >= 0:
 				var ally: Dictionary = combat["allies"][ally_index]
 				var healed: int = heal_ally(ally, int(power) * targets)
