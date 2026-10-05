@@ -6,6 +6,13 @@ var _drag_index := -100  # touch index, or -1 for the mouse; -100 = no active dr
 var _last_position: Vector2
 var _touches: Dictionary[int, Vector2] = {}  # touch index -> current position, every active touch
 
+func _init() -> void:
+	# Bars are display-only: a finger landing on one would drag the bar (content
+	# moves opposite the finger) instead of the content.
+	get_v_scroll_bar().mouse_filter = Control.MOUSE_FILTER_IGNORE
+	get_h_scroll_bar().mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch:
 		if event.pressed:

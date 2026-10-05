@@ -14,6 +14,13 @@ const UiSim := preload("res://tests/support/ui_sim.gd")
 
 
 func run() -> void:
+	run_case("scroll_bars_are_not_grabbable", func():
+		var c := TouchScrollContainer.new()
+		assert_eq(c.get_v_scroll_bar().mouse_filter, Control.MOUSE_FILTER_IGNORE)
+		assert_eq(c.get_h_scroll_bar().mouse_filter, Control.MOUSE_FILTER_IGNORE)
+		c.free()
+	)
+
 	run_case("a_single_finger_touch_down_starts_a_drag", func():
 		var c := TouchScrollContainer.new()
 		c._gui_input(UiSim.touch(0, true, Vector2(10, 10)))
