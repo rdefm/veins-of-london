@@ -159,10 +159,10 @@ func _draw() -> void:
 		draw_string(font, Vector2(PAD_LEFT, PAD_TOP - 4.0), "%s%d" % [_prefix, top_value], HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE, text)
 	if not _days.is_empty():
 		var label_y := size.y - 4.0
-		var first_day := "D%d" % _days[0] if _inspectable else Calendar.format_day(_days[0])
+		var first_day := Calendar.format_day(_days[0])
 		draw_string(font, Vector2(plot.position.x, label_y), first_day, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE, text)
 		if _days.size() > 1:
-			var last_day := "D%d" % _days[-1] if _inspectable else Calendar.format_day(_days[-1])
+			var last_day := Calendar.format_day(_days[-1])
 			draw_string(font, Vector2(plot.position.x, label_y), last_day, HORIZONTAL_ALIGNMENT_RIGHT, plot.size.x, FONT_SIZE, text)
 
 	for i in range(lines.size() - 1, -1, -1):

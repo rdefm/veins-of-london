@@ -481,10 +481,10 @@ func _build_good_detail(content: VBoxContainer, kind: String, good_type: String)
 		var chart: LineChart = LineChartScript.new()
 		chart.name = "TickerPriceChart"
 		content.add_child(chart.setup(series["values"], days, "calc_gold_light", "£").with_primary_colour(MARKET_PRICE).with_markers(markers).with_inspection())
-		var selected := _news_text(copy["selectedQuote"] % [days[-1], UI.price_text(kind, int(series["values"][-1]))], 13, NEWS_INK)
+		var selected := _news_text(copy["selectedQuote"] % [Calendar.format_day(int(days[-1])), UI.price_text(kind, int(series["values"][-1]))], 13, NEWS_INK)
 		selected.name = "TickerSelectedQuote"
 		chart.point_selected.connect(func(index: int):
-			selected.text = copy["selectedQuote"] % [days[index], UI.price_text(kind, int(series["values"][index]))]
+			selected.text = copy["selectedQuote"] % [Calendar.format_day(int(days[index])), UI.price_text(kind, int(series["values"][index]))]
 		)
 		content.add_child(_news_margins(selected, 0, 10, 0, 0))
 		var hint: String = copy["chartHint"] if markers.is_empty() else copy["eventHint"] % marked_count
@@ -498,7 +498,7 @@ func _build_good_detail(content: VBoxContainer, kind: String, good_type: String)
 	for i in range(notes.size() - 1, -1, -1):
 		var note: Dictionary = notes[i]
 		var note_row := UI.hbox(12)
-		var note_day := _news_text(copy["noteDay"] % int(note["day"]), 11, NEWS_MUTED)
+		var note_day := _news_text(copy["noteDay"] % Calendar.format_day(int(note["day"])), 11, NEWS_MUTED)
 		note_day.custom_minimum_size.x = 48
 		note_day.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 		note_row.add_child(note_day)
