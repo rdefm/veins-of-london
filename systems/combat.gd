@@ -645,6 +645,8 @@ static func slot_block_reason(index: int) -> String:
 		return "" if not GameState.state["combat"]["snapshots"].is_empty() else REASON_NOTHING_TO_UNDO
 	if recipe_key == "shield" and GameState.state["player"]["shieldPool"] > 0:
 		return REASON_SHIELD_UP
+	if Loadout.slot_is_multi(index):
+		return ""
 	return selection_block_reason(recipe_key)
 
 
@@ -1906,12 +1908,13 @@ static func use_blast(slot: int = -1) -> Dictionary:
 	if not combat["active"] or combat["outcome"] != null:
 		return { "ok": false, "reason": "Combat not active." }
 	var player: Dictionary = GameState.state["player"]
-	var blocked: String = selection_block_reason("blast")
-	if not blocked.is_empty():
-		return { "ok": false, "reason": blocked }
 	var slot_index: int = Loadout.find_slot("blast", slot)
 	if slot_index < 0:
 		return { "ok": false, "reason": "No blast." }
+	var multi: bool = Loadout.slot_is_multi(slot_index)
+	var blocked: String = "" if multi else selection_block_reason("blast")
+	if not blocked.is_empty():
+		return { "ok": false, "reason": blocked }
 
 	var beats: Array = []
 	if not prime_decision_point(combat, beats):
@@ -1920,18 +1923,26 @@ static func use_blast(slot: int = -1) -> Dictionary:
 	push_combat_snapshot()
 
 	var power = Loadout.consume(slot_index)
-	var enemy: Dictionary = _focused_enemy(combat)
-	var target_index: int = _enemy_action_index(combat)
-	var blast_extra: Dictionary = { "targetType": "enemy", "targetIndex": target_index, "effectKey": "blast" }
-	var shield_note := _hit_enemy(enemy, int(power), blast_extra)
-	_log(combat, beats, "You let off a blast — %d damage%s. Enemy: %d/%d HP." % [blast_extra["dmg"], shield_note, enemy["hp"], enemy["hpMax"]], BEAT_USE_BLAST, blast_extra)
 	combat["blastFleeBoost"] = true
+	# A multi-target blast hits every living enemy at full power.
+	var target_indices: Array = []
+	if multi:
+		for i in range(combat["enemies"].size()):
+			if not combat["enemies"][i]["koed"]:
+				target_indices.append(i)
+	else:
+		target_indices.append(_enemy_action_index(combat))
+	for target_index in target_indices:
+		var enemy: Dictionary = combat["enemies"][target_index]
+		var blast_extra: Dictionary = { "targetType": "enemy", "targetIndex": target_index, "effectKey": "blast" }
+		var shield_note := _hit_enemy(enemy, int(power), blast_extra)
+		_log(combat, beats, "You let off a blast — %d damage%s. Enemy: %d/%d HP." % [blast_extra["dmg"], shield_note, enemy["hp"], enemy["hpMax"]], BEAT_USE_BLAST, blast_extra)
 
-	if Rng.chance(BLAST_DISARM_CHANCE):
-		disarm_enemy(enemy, BLAST_DISARM_TURNS)
-		_log(combat, beats, "The shove knocks their weapon loose.", BEAT_USE_DISARM, { "targetType": "enemy", "targetIndex": target_index })
+		if Rng.chance(BLAST_DISARM_CHANCE):
+			disarm_enemy(enemy, BLAST_DISARM_TURNS)
+			_log(combat, beats, "The shove knocks their weapon loose.", BEAT_USE_DISARM, { "targetType": "enemy", "targetIndex": target_index })
 
-	_maybe_win_from_direct_damage(combat, enemy, beats)
+		_maybe_win_from_direct_damage(combat, enemy, beats)
 
 	conclude_decision_point(combat, beats)
 
@@ -1946,12 +1957,13 @@ static func use_shield(slot: int = -1) -> Dictionary:
 	if not combat["active"] or combat["outcome"] != null:
 		return { "ok": false, "reason": "Combat not active." }
 	var player: Dictionary = GameState.state["player"]
-	var blocked: String = selection_block_reason("shield")
-	if not blocked.is_empty():
-		return { "ok": false, "reason": blocked }
 	var slot_index: int = Loadout.find_slot("shield", slot)
 	if slot_index < 0:
 		return { "ok": false, "reason": "No shield." }
+	var multi: bool = Loadout.slot_is_multi(slot_index)
+	var blocked: String = "" if multi else selection_block_reason("shield")
+	if not blocked.is_empty():
+		return { "ok": false, "reason": blocked }
 	if player["shieldPool"] > 0:
 		combat["log"].append("Shield's already up. Save it.")
 		EventBus.state_changed.emit()
@@ -1965,6 +1977,10 @@ static func use_shield(slot: int = -1) -> Dictionary:
 
 	var power = Loadout.consume(slot_index)
 	player["shieldPool"] = power
+	if multi:
+		for ally in combat["allies"]:
+			if not ally["koed"]:
+				ally["shieldPool"] = maxi(int(ally.get("shieldPool", 0)), int(power))
 	_log(combat, beats, "A shimmer folds around you. Shield up — %d absorption." % power, BEAT_USE_SHIELD, { "effectKey": "shield" })
 
 	conclude_decision_point(combat, beats)

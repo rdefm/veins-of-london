@@ -48,6 +48,7 @@
   "loadout": {
     "slotCount": 2,
     "allyExcluded": ["wormhole"],
+    "multiTarget": { "minTier": 3, "craftable": ["blast", "shield", "healingBurst"], "always": ["blackHole"] },
     "items": ["timePearl", "enhancementPowder", "blast", "shield", "blackHole", "healingBurst", "prophetsBreath", "wormhole", "failsafe", "rewind"]
   },
   "guardUpkeep": {

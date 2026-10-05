@@ -59,6 +59,37 @@ static func quality_tier(recipe_key: String) -> int:
 # player.inventory[recipe_key] is { "<tier>": count, ... }, keys stringified
 # (JSON). Tiers run 1..5; inventory_add() floors any lower tier at 1.
 
+# Multi-target units live under a parallel inventory key, same tier buckets.
+# Only Loadout reads that key; every other consumer sees single-target stock.
+const MULTI_SUFFIX := "_multi"
+
+
+static func inventory_key(recipe_key: String, multi: bool) -> String:
+	return recipe_key + MULTI_SUFFIX if multi else recipe_key
+
+
+# Whether the player may pick multi-target when crafting recipe_key right now:
+# craftable list, and the bench tier has reached the minimum.
+static func multi_craft_available(recipe_key: String) -> bool:
+	var cfg: Dictionary = GameData.LOADOUT["multiTarget"]
+	return cfg["craftable"].has(recipe_key) and quality_tier(recipe_key) >= int(cfg["minTier"])
+
+
+# The checkbox state, false whenever multi isn't available.
+static func get_craft_multi(recipe_key: String) -> bool:
+	return bool(GameState.state["craftMulti"].get(recipe_key, false)) and multi_craft_available(recipe_key)
+
+
+static func set_craft_multi(recipe_key: String, multi: bool) -> void:
+	GameState.state["craftMulti"][recipe_key] = multi
+	EventBus.state_changed.emit()
+
+
+# True for items that always hit every target (Black Hole): no checkbox.
+static func is_always_multi(recipe_key: String) -> bool:
+	return GameData.LOADOUT["multiTarget"]["always"].has(recipe_key)
+
+
 static func inventory_qty(recipe_key: String) -> int:
 	var buckets: Dictionary = GameState.state["player"]["inventory"].get(recipe_key, {})
 	var total := 0
@@ -132,7 +163,8 @@ static func can_craft(recipe_key: String) -> bool:
 	return craft_block_reason(recipe_key) == ""
 
 
-static func attempt_craft(recipe_key: String) -> Dictionary:
+static func attempt_craft(recipe_key: String, multi: bool = false) -> Dictionary:
+	multi = multi and multi_craft_available(recipe_key)
 	var reason := craft_block_reason(recipe_key)
 	if reason != "":
 		return { "ok": false, "reason": reason }
@@ -158,7 +190,7 @@ static func attempt_craft(recipe_key: String) -> Dictionary:
 	if success:
 		var tier := quality_tier(recipe_key)
 		var power = effect_power(recipe_key, tier)
-		inventory_add(recipe_key, tier)
+		inventory_add(inventory_key(recipe_key, multi), tier)
 		Shares.record_craft(Shares.PLAYER, costs)
 		var counts: Dictionary = player["craftedCounts"]
 		counts[recipe_key] = int(counts.get(recipe_key, 0)) + 1
@@ -206,11 +238,11 @@ static func _clamp_qty(recipe_key: String, qty: int) -> int:
 # Loops attempt_craft() `quantity` times, each independently rolled and
 # deducted. Stops early if can_craft() would refuse the next attempt, so
 # running low on calc mid-batch just yields a short `attempts` list.
-static func attempt_craft_batch(recipe_key: String, quantity: int) -> Dictionary:
+static func attempt_craft_batch(recipe_key: String, quantity: int, multi: bool = false) -> Dictionary:
 	var attempts: Array[Dictionary] = []
 	var successes := 0
 	for i in range(quantity):
-		var result := attempt_craft(recipe_key)
+		var result := attempt_craft(recipe_key, multi)
 		if not result["ok"]:
 			break
 		attempts.append(result)

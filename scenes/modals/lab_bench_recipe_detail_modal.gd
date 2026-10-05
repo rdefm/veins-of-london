@@ -33,7 +33,8 @@ static func build(container: VBoxContainer, data: Dictionary) -> void:
 	var qty: int = Crafting.get_craft_qty(recipe_key)
 	var block_reason := Crafting.craft_block_reason(recipe_key)
 	var picked := [qty]
-	var craft := MapCardStyle.action_button("Craft ×%d" % qty, func(): _on_craft(recipe_key, picked[0]), block_reason != "", block_reason)
+	var picked_multi := [Crafting.get_craft_multi(recipe_key)]
+	var craft := MapCardStyle.action_button("Craft ×%d" % qty, func(): _on_craft(recipe_key, picked[0], picked_multi[0]), block_reason != "", block_reason)
 	var craft_button := craft.get_child(0) as Button
 	var total := UI.label(LabBenchModalHelpers.batch_total_text(costs, qty))
 	var on_change := func(value: int) -> void:
@@ -42,6 +43,7 @@ static func build(container: VBoxContainer, data: Dictionary) -> void:
 		craft_button.text = "Craft ×%d" % value
 	container.add_child(MapCardStyle.quantity_slider("Batch", qty, Crafting.max_craftable_qty(recipe_key), on_change, func(value: int): Crafting.set_craft_qty(recipe_key, value)))
 	container.add_child(total)
+	LabBenchModalHelpers.append_multi_checkbox(container, recipe_key, picked_multi)
 	container.add_child(craft)
 
 	var discovery: Dictionary = r.get("discovery", {})
@@ -50,9 +52,9 @@ static func build(container: VBoxContainer, data: Dictionary) -> void:
 	container.add_child(MapCardStyle.footer([MapCardStyle.text_button("Back to book", func(): close())]))
 
 
-static func _on_craft(recipe_key: String, quantity: int) -> void:
+static func _on_craft(recipe_key: String, quantity: int, multi: bool = false) -> void:
 	var book := book_data()
-	Crafting.attempt_craft_batch(recipe_key, quantity)
+	Crafting.attempt_craft_batch(recipe_key, quantity, multi)
 	Modal.set_return(BOOK_TYPE, book)
 
 

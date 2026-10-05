@@ -113,6 +113,7 @@ func new_game_state() -> Dictionary:
 		# keys "ore_<oreType>"/"item_<recipeKey>" -> qty, shared by a row's
 		# stash/unstash buttons.
 		"craftQty": {},
+		"craftMulti": {},
 		"stashQty": {},
 		"event": null,
 

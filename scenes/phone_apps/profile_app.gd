@@ -86,15 +86,15 @@ func _build_loadout_card(contact_id: String = "") -> Control:
 		if unit == null:
 			c["content"].add_child(UI.muted_label("Slot %d: empty" % (index + 1)))
 			for entry in stock:
-				c["content"].add_child(UI.button("Equip %s T%d (×%d)" % [GameData.RECIPES[entry["recipe"]]["name"], entry["tier"], entry["qty"]], _on_equip.bind(index, entry["recipe"], entry["tier"], contact_id)))
+				c["content"].add_child(UI.button("Equip %s T%d%s (×%d)" % [GameData.RECIPES[entry["recipe"]]["name"], entry["tier"], " multi" if entry["multi"] else "", entry["qty"]], _on_equip.bind(index, entry["recipe"], entry["tier"], contact_id, entry["multi"])))
 		else:
-			c["content"].add_child(UI.label("Slot %d: %s T%d" % [index + 1, GameData.RECIPES[unit["recipe"]]["name"], int(unit["tier"])]))
+			c["content"].add_child(UI.label("Slot %d: %s T%d%s" % [index + 1, GameData.RECIPES[unit["recipe"]]["name"], int(unit["tier"]), " multi" if unit.get("multi", false) else ""]))
 			c["content"].add_child(UI.button("Unequip slot %d" % (index + 1), _on_unequip.bind(index, contact_id)))
 	return c["panel"]
 
 
-func _on_equip(index: int, recipe_key: String, tier: int, contact_id: String) -> void:
-	Loadout.equip(index, recipe_key, tier, contact_id)
+func _on_equip(index: int, recipe_key: String, tier: int, contact_id: String, multi: bool) -> void:
+	Loadout.equip(index, recipe_key, tier, contact_id, multi)
 
 
 func _on_unequip(index: int, contact_id: String) -> void:

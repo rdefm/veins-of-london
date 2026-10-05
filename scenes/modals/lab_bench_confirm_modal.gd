@@ -53,7 +53,8 @@ static func _build_craft(container: VBoxContainer, types: Array, approach: Strin
 	var total := UI.label(LabBenchModalHelpers.batch_total_text(costs, qty))
 	var reason := Crafting.craft_block_reason(recipe_key)
 	var picked := [qty]
-	var confirm := MapCardStyle.action_button("Confirm ×%d" % qty, func(): Crafting.attempt_craft_batch(recipe_key, picked[0]), reason != "", reason)
+	var picked_multi := [Crafting.get_craft_multi(recipe_key)]
+	var confirm := MapCardStyle.action_button("Confirm ×%d" % qty, func(): Crafting.attempt_craft_batch(recipe_key, picked[0], picked_multi[0]), reason != "", reason)
 	var confirm_button := confirm.get_child(0) as Button
 	var on_change := func(value: int) -> void:
 		picked[0] = value
@@ -61,6 +62,7 @@ static func _build_craft(container: VBoxContainer, types: Array, approach: Strin
 		confirm_button.text = "Confirm ×%d" % value
 	container.add_child(MapCardStyle.quantity_slider("Batch", qty, Crafting.max_craftable_qty(recipe_key), on_change, func(value: int): Crafting.set_craft_qty(recipe_key, value)))
 	container.add_child(total)
+	LabBenchModalHelpers.append_multi_checkbox(container, recipe_key, picked_multi)
 	container.add_child(confirm)
 	container.add_child(MapCardStyle.footer([MapCardStyle.text_button("Cancel", func(): Modal.close())]))
 

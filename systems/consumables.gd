@@ -58,9 +58,16 @@ static func use_healing_burst(target: Dictionary = {}, slot: int = -1) -> Dictio
 			return { "ok": true, "beats": beats }
 		Combat.push_combat_snapshot()
 
+	var multi: bool = slot_index >= 0 and Loadout.slot_is_multi(slot_index)
 	var power = Loadout.consume(slot_index) if slot_index >= 0 else Crafting.use_one("healingBurst")
 	var line: String
 	var beat_extra := { "effectKey": "healingBurst" }
+	if multi:
+		# Every standing ally plus the player, each at full power.
+		for ally in combat["allies"]:
+			if not ally["koed"]:
+				Combat.heal_ally(ally, int(power))
+		ally_index = -1
 	if ally_index >= 0:
 		var ally: Dictionary = combat["allies"][ally_index]
 		var ally_healed: int = Combat.heal_ally(ally, int(power))

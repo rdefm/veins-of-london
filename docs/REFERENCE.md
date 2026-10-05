@@ -425,6 +425,7 @@ state = {
   hiring: { status: { candidateId: { state: "open"|"employed"|"ours", employer: factionId|null, since: day } }, poach: { candidateId: { attempts, pending: { factionId, offer, expiresDay }|null } }, feed: [ { postId:"<candidateId>:<voiceIndex>", seq, authorKind:"individual", author, day, block, likes, comments:["<commenterId>:<commentId>"] } ], feedSeen: int (last seq seen), feedUsed: { candidateId: [spent voice indexes] } },  # §3.10 "Hiring"/"LodedInnit Feed"; status flips at rollover ⑥.5j3, poach offers at ⑥.5j4; old saves backfill every candidate open, empty feed
   businessQuest: { starterIndex:0, starterReissueDay:null }, # §3.10 "Business Empire questline": which biz_starter_* template Archie issues next, and the earliest day it may be (re)issued (null = as soon as none is outstanding).
   craftQty: {},                # bugfixes-57: Lab batch-craft qty selections, keyed by recipeKey, transient (not restored on load, same as sellState)
+  craftMulti: {},              # item-tiers 07: Lab "multi-target" checkbox, keyed by recipeKey -> bool, transient (not restored on load)
   stashQty: {},                # day-rhythm-business-and-combat ticket 22: personal-stash move-qty steppers, keyed "ore_<oreType>"/"item_<recipeKey>" (one shared qty per row), transient (not restored on load)
   event: null,                # M0-T13 event runner state: { eventId, cardIndex, snapshots:[] } | null
 

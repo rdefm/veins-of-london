@@ -40,7 +40,7 @@ Data file per system: see `data/*.json` below.
 | contacts.gd | Relation, recruiting (incl. story `force_recruit`), seat-capped room assignment (`contacts_in_room`/`assign_to_room`), room→role lookup from hiring.json (`room_roles`), founder staff roles (`set_role`/`role_of`/`available_roles`), capped XP (`skill_cap`, `xp_levels`), ally combat kit (Dial grant on recruit via `Dial.grant_contact_dial`), display names, directory order |
 | contact_texts.gd | Per-contact random texts: rollover scheduling, gated selection, vein templating, reply rewards, and ticker notices; content from contact_texts.json |
 | contracts.gd | Block-end Sales auto-delivery (full, then partials by priority; goods to buyer holdings + supplier share), settlement to pot; recurring periods pay on fill, lock (`periodFilled`) until Monday renewal, expire at term end; per-contract `buyCalc` calc buys from the pot; unattended-proof taint (`playerAssisted`) and `qualified` settlements; `cancel()` (unpaid, hurts counterparty) |
-| crafting.gd | Recipe crafting |
+| crafting.gd | Recipe crafting; tiered inventory buckets; multi-target variant (from tier 3, `<recipe>_multi` inventory key, `craftMulti` checkbox state) |
 | cultivating.gd | Vein growth / cultivate / prune; security tiers (lock/ward prices, guard tiers hired via GuardUpkeep) + raid resist; shared vein `value_order`; vein guard count + `drop_vein_guard` |
 | debug_start.gd | Maximal-unlock debug state; `apply(model)` keeps a picked `player.model` through its reset |
 | debug_tools.gd | Debug phone-app state adjusters; `fire_event()` preps any event (state-path veins/sites, addressed contacts, raid/reveal site context) then starts it |
@@ -96,7 +96,7 @@ Data file per system: see `data/*.json` below.
 | rooms.gd | Per-block staff step (one action per cultivator, then producers take turns crafting until targets met or ore short), which recipes each crafter's `specialities` allow and the Production list, writes/trims `productionLog`, Production targets/priority and when they are settable, per-cultivator vein lists (`cultivatorVeins`) and per-vein targets; cultivator speciality yield bonus |
 | shares.gd | Shares: 14-day daily buckets per producer (player, factions, independents) of ore harvested, ore spent on successful crafts, contract deliveries and faction London buys; Independents slice crediting (⑥.5e); pure ore/crafting share, overview, delivery and supplier-share reads (split + intake) (R§3.14) |
 | sites.gd | Sites & prospecting |
-| loadout.gd | Two personal consumable slots for the player (`player.loadout`) and combat recruits (`contacts[id].loadout`): equip/unequip (refused in combat; allies refuse Wormhole), consume, settlement refill (player, then recruits in roster order), equippable stock |
+| loadout.gd | Two personal consumable slots for the player (`player.loadout`) and combat recruits (`contacts[id].loadout`): equip/unequip (refused in combat; allies refuse Wormhole), consume, settlement refill (player, then recruits in roster order), equippable stock; multi-target units (`multi` flag, refilled as the same variant) |
 | stash.gd | Personal stash vs. shared pools |
 | station_bubble.gd | Site/vein-stop tap-bubble decision |
 | calendar.gd | Pure `world.day` → calendar date (`MON 3 JAN`, `Y2`+ suffix) per R§3.1 "Calendar"; every player-facing date string uses `Calendar.format_day`; weekday/Monday helpers for the weekly cadence |

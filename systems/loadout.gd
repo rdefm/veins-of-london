@@ -52,7 +52,7 @@ static func equipped_units() -> Array:
 
 # Moves one unit of recipe_key at `tier` from shared inventory into the slot.
 # An occupied slot is refused; unequip first.
-static func equip(index: int, recipe_key: String, tier: int, contact_id: String = "") -> Dictionary:
+static func equip(index: int, recipe_key: String, tier: int, contact_id: String = "", multi: bool = false) -> Dictionary:
 	var loadout: Dictionary = _loadout(contact_id)
 	if loadout.is_empty() or index < 0 or index >= slot_count():
 		return { "ok": false, "reason": "No such slot." }
@@ -62,12 +62,16 @@ static func equip(index: int, recipe_key: String, tier: int, contact_id: String 
 		return { "ok": false, "reason": "That can't be carried in a slot." }
 	if loadout["slots"][index] != null:
 		return { "ok": false, "reason": "Slot already filled." }
-	var buckets: Dictionary = GameState.state["player"]["inventory"].get(recipe_key, {})
+	var inventory_key := Crafting.inventory_key(recipe_key, multi)
+	var buckets: Dictionary = GameState.state["player"]["inventory"].get(inventory_key, {})
 	if int(buckets.get(str(tier), 0)) <= 0:
 		return { "ok": false, "reason": "None in stock." }
-	Crafting.inventory_remove_from_tier(recipe_key, tier, 1)
+	Crafting.inventory_remove_from_tier(inventory_key, tier, 1)
 	loadout["slots"][index] = { "recipe": recipe_key, "tier": tier }
+	if multi:
+		loadout["slots"][index]["multi"] = true
 	loadout["lastRecipe"][index] = recipe_key
+	_set_last_multi(loadout, index, multi)
 	EventBus.state_changed.emit()
 	return { "ok": true }
 
@@ -82,27 +86,52 @@ static func unequip(index: int, contact_id: String = "") -> Dictionary:
 	var entry: Variant = loadout["slots"][index]
 	if entry == null:
 		return { "ok": false, "reason": "Slot is empty." }
-	Crafting.inventory_add(entry["recipe"], int(entry["tier"]), 1)
+	Crafting.inventory_add(Crafting.inventory_key(entry["recipe"], entry.get("multi", false)), int(entry["tier"]), 1)
 	loadout["slots"][index] = null
 	EventBus.state_changed.emit()
 	return { "ok": true }
 
 
-# Equippable shared-inventory stock as [{ recipe, tier, qty }, ...]: allowlist
-# order, then ascending tier.
+# Equippable shared-inventory stock as [{ recipe, tier, qty, multi }, ...]:
+# allowlist order, single-target then multi-target, then ascending tier.
 static func equippable_stock(contact_id: String = "") -> Array:
 	var stock: Array = []
 	var inventory: Dictionary = GameState.state["player"]["inventory"]
 	for recipe_key in GameData.LOADOUT["items"]:
 		if not is_equippable(recipe_key, contact_id):
 			continue
-		var buckets: Dictionary = inventory.get(recipe_key, {})
-		var tier_keys: Array = buckets.keys()
-		tier_keys.sort_custom(func(a, b): return int(a) < int(b))
-		for tier_key in tier_keys:
-			if int(buckets[tier_key]) > 0:
-				stock.append({ "recipe": recipe_key, "tier": int(tier_key), "qty": int(buckets[tier_key]) })
+		for multi in [false, true]:
+			var buckets: Dictionary = inventory.get(Crafting.inventory_key(recipe_key, multi), {})
+			var tier_keys: Array = buckets.keys()
+			tier_keys.sort_custom(func(a, b): return int(a) < int(b))
+			for tier_key in tier_keys:
+				if int(buckets[tier_key]) > 0:
+					stock.append({ "recipe": recipe_key, "tier": int(tier_key), "qty": int(buckets[tier_key]), "multi": multi })
 	return stock
+
+
+# Whether the unit in slot `index` hits every target: crafted multi, or an
+# always-multi item (Black Hole).
+static func slot_is_multi(index: int) -> bool:
+	var unit: Variant = slot(index)
+	if unit == null:
+		return false
+	return bool(unit.get("multi", false)) or Crafting.is_always_multi(unit["recipe"])
+
+
+# lastMulti[i] remembers whether slot i's last unit was multi-target, so
+# settlement refills the same variant. Created lazily; absent reads false.
+static func _set_last_multi(loadout: Dictionary, index: int, multi: bool) -> void:
+	var flags: Array = loadout.get("lastMulti", [])
+	while flags.size() <= index:
+		flags.append(false)
+	flags[index] = multi
+	loadout["lastMulti"] = flags
+
+
+static func _last_multi(loadout: Dictionary, index: int) -> bool:
+	var flags: Array = loadout.get("lastMulti", [])
+	return index < flags.size() and bool(flags[index])
 
 
 # The slot a combat use of recipe_key spends: `preferred` if it holds that
@@ -149,15 +178,19 @@ static func refill_used(used: Array, contact_id: String = "") -> void:
 		var recipe_key: String = last_recipe(index, contact_id)
 		if recipe_key == "":
 			continue
-		var buckets: Dictionary = GameState.state["player"]["inventory"].get(recipe_key, {})
+		var multi := _last_multi(loadout, index)
+		var inventory_key := Crafting.inventory_key(recipe_key, multi)
+		var buckets: Dictionary = GameState.state["player"]["inventory"].get(inventory_key, {})
 		var best := 0
 		for tier_key in buckets:
 			if int(buckets[tier_key]) > 0:
 				best = maxi(best, int(tier_key))
 		if best <= 0:
 			continue
-		Crafting.inventory_remove_from_tier(recipe_key, best, 1)
+		Crafting.inventory_remove_from_tier(inventory_key, best, 1)
 		loadout["slots"][index] = { "recipe": recipe_key, "tier": best }
+		if multi:
+			loadout["slots"][index]["multi"] = true
 
 
 # Settlement for the allies of a finished fight: each recruit's spent slots

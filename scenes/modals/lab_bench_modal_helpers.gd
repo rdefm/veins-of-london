@@ -33,6 +33,20 @@ static func _on_experiment_pressed(recipe_name: String, types: Array, approach: 
 
 
 # "Total: 10 Time · 6 Fate" -- a batch's whole calc cost, per ore.
+# The multi-target checkbox, shown only once Crafting says it's offered
+# (tier threshold met, recipe craftable multi). picked[0] tracks the ticked state.
+static func append_multi_checkbox(container: Control, recipe_key: String, picked: Array) -> void:
+	if not Crafting.multi_craft_available(recipe_key):
+		return
+	var box := CheckBox.new()
+	box.text = "Multi-target (hits all)"
+	box.button_pressed = picked[0]
+	box.toggled.connect(func(on: bool) -> void:
+		picked[0] = on
+		Crafting.set_craft_multi(recipe_key, on))
+	container.add_child(box)
+
+
 static func batch_total_text(costs: Dictionary, qty: int) -> String:
 	var parts: Array[String] = []
 	for ore_type in costs:
