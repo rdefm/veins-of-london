@@ -7468,7 +7468,7 @@
 "approach": "compression",
 "types": ["physics"]
 },
-"effectPower": [0, 8, 10, 13, 16, 20],
+"effectPower": [0, 6, 8, 10, 13, 16],
 "eventUsable": false,
 "icon": "res://assets/combat/icons/blackHole.png",
 "ingredients": {
@@ -7485,7 +7485,7 @@
 "approach": "grinding",
 "types": ["physics"]
 },
-"effectPower": [0, 6, 8, 10, 12, 15],
+"effectPower": [0, 4, 6, 8, 10, 12],
 "eventUsable": false,
 "icon": "res://assets/combat/icons/blast.png",
 "ingredients": {
@@ -7538,7 +7538,7 @@
 "approach": "heat",
 "types": ["life", "time"]
 },
-"effectPower": [0, 8, 10, 12, 15, 18],
+"effectPower": [0, 6, 8, 10, 12, 15],
 "eventUsable": false,
 "icon": "res://assets/combat/icons/healingBurst.png",
 "ingredients": {
@@ -7556,7 +7556,7 @@
 "approach": "heat",
 "types": ["life"]
 },
-"effectPower": [0, 3, 4, 5, 6, 8],
+"effectPower": [0, 2, 3, 4, 5, 6],
 "eventUsable": false,
 "icon": "res://assets/combat/icons/healingSalve.png",
 "ingredients": {
@@ -7573,7 +7573,7 @@
 "approach": "distilling",
 "types": ["emotion"]
 },
-"effectPower": [0, 2, 3, 4, 5, 6],
+"effectPower": [0, 2, 2, 3, 4, 5],
 "eventUsable": true,
 "icon": "res://assets/combat/icons/pansPrank.png",
 "ingredients": {
@@ -7590,7 +7590,7 @@
 "approach": "distilling",
 "types": ["time"]
 },
-"effectPower": [0, 1, 1, 2, 2, 3],
+"effectPower": [0, 1, 1, 1, 2, 2],
 "eventUsable": true,
 "icon": "res://assets/combat/icons/prophetsBreath.png",
 "ingredients": {
@@ -7643,7 +7643,7 @@
 "approach": "heat",
 "types": ["physics"]
 },
-"effectPower": [0, 4, 5, 6, 8, 10],
+"effectPower": [0, 3, 4, 5, 6, 8],
 "eventUsable": false,
 "icon": "res://assets/combat/icons/shield.png",
 "ingredients": {
@@ -7660,7 +7660,7 @@
 "approach": "compression",
 "types": ["time"]
 },
-"effectPower": [0, 1, 1, 2, 2, 3],
+"effectPower": [0, 1, 2, 3, 4, 5],
 "eventUsable": false,
 "icon": "res://assets/combat/icons/timePearl.png",
 "ingredients": {

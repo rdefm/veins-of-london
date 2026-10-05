@@ -433,7 +433,7 @@ func run() -> void:
 
 	run_case("black_hole_hits_every_living_enemy_independently", func():
 		var cp := _fresh_prototype("mixedCrew")
-		Crafting.inventory_add("blackHole", 1, 1)
+		Crafting.inventory_add("blackHole", 2, 1)
 		Rng.set_seed(34)
 		CombatPrototype.use_item("blackHole")
 		for enemy in cp["enemies"]:

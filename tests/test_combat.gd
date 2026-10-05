@@ -508,12 +508,12 @@ func run() -> void:
 		_fresh_combat()
 		var combat: Dictionary = GameState.state["combat"]
 		combat["enemies"] = [
-			{ "name": "First", "hp": 5, "hpMax": 5, "attackMin": 0, "attackMax": 0, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false },
-			{ "name": "Second", "hp": 5, "hpMax": 5, "attackMin": 0, "attackMax": 0, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false },
+			{ "name": "First", "hp": 4, "hpMax": 4, "attackMin": 0, "attackMax": 0, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false },
+			{ "name": "Second", "hp": 4, "hpMax": 4, "attackMin": 0, "attackMax": 0, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false },
 		]
 		combat["selection"] = { "type": "enemy", "index": 0 }
 		_equip_slot(0, "blast")
-		GameState.state["player"]["craftingSkill"] = 1  # blast effectPower at skill 1 = 6, lethal against hp 5
+		GameState.state["player"]["craftingSkill"] = 1  # blast effectPower at tier 1 = 4, lethal against hp 4
 
 		Combat.use_blast()
 
@@ -1533,8 +1533,8 @@ func run() -> void:
 		var hp_before: int = GameState.state["combat"]["enemies"][0]["hp"]
 		var result := Combat.use_blast()
 		assert_true(result["ok"], "should succeed with a blast in hand")
-		# blast effectPower at skill 1 = 6
-		assert_eq(GameState.state["combat"]["enemies"][0]["hp"], hp_before - 6, "should deal effectPower damage immediately")
+		# blast effectPower at tier 1 = 4
+		assert_eq(GameState.state["combat"]["enemies"][0]["hp"], hp_before - 4, "should deal effectPower damage immediately")
 		assert_eq(_equipped_qty("blast"), 0, "one blast consumed")
 		assert_eq(GameState.state["combat"]["blastFleeBoost"], true, "should grant a one-use flee boost")
 	)
@@ -1619,8 +1619,8 @@ func run() -> void:
 		GameState.state["player"]["craftingSkill"] = 1
 		var result := Combat.use_shield()
 		assert_true(result["ok"], "should succeed with a shield in hand")
-		# shield effectPower at skill 1 = 4
-		assert_eq(GameState.state["player"]["shieldPool"], 4, "shieldPool should be set from effectPower")
+		# shield effectPower at tier 1 = 3
+		assert_eq(GameState.state["player"]["shieldPool"], 3, "shieldPool should be set from effectPower")
 		assert_eq(_equipped_qty("shield"), 0, "one shield consumed")
 	)
 
@@ -1667,13 +1667,13 @@ func run() -> void:
 
 	run_case("use_black_hole_deals_immediate_damage_and_adds_to_frozenTurns", func():
 		_fresh_combat()
-		_equip_slot(0, "blackHole")
+		_equip_slot(0, "blackHole", 2)
 		GameState.state["player"]["craftingSkill"] = 1
 		GameState.state["combat"]["frozenTurns"] = 1
 		var hp_before: int = GameState.state["combat"]["enemies"][0]["hp"]
 		var result := Combat.use_black_hole()
 		assert_true(result["ok"], "should succeed with a black hole in hand")
-		# blackHole effectPower at skill 1 = 8 -> freeze = 1 + floor(8/8) = 2
+		# blackHole effectPower at tier 2 = 8 -> freeze = 1 + floor(8/8) = 2
 		assert_eq(GameState.state["combat"]["enemies"][0]["hp"], hp_before - 8, "should deal effectPower damage immediately")
 		# R§3.7a: using the item resolves the queued player turn, and the
 		# engine runs forward -- the enemy's own queued turn follows
@@ -1694,7 +1694,7 @@ func run() -> void:
 
 	run_case("use_black_hole_can_defeat_the_enemy_outright", func():
 		_fresh_combat()
-		_equip_slot(0, "blackHole")
+		_equip_slot(0, "blackHole", 2)
 		GameState.state["player"]["craftingSkill"] = 1
 		GameState.state["combat"]["enemies"][0]["hp"] = 3
 		Combat.use_black_hole()
@@ -1703,7 +1703,7 @@ func run() -> void:
 
 	run_case("use_black_hole_never_damages_or_freezes_the_player", func():
 		_fresh_combat()
-		_equip_slot(0, "blackHole")
+		_equip_slot(0, "blackHole", 2)
 		GameState.state["player"]["craftingSkill"] = 1
 		GameState.state["combat"]["enemies"][0]["attackMin"] = 10
 		GameState.state["combat"]["enemies"][0]["attackMax"] = 10
@@ -2802,9 +2802,9 @@ func run() -> void:
 		# here) specifically so an untouched 30 vs. a floored-at-0 30 are
 		# distinguishable -- proving the skip, not just that 0 stayed 0.
 		var combat := _multi_enemy_combat([{ "hp": 50 }, { "hp": 50 }, { "hp": 30, "koed": true }])
-		_equip_slot(0, "blackHole")
+		_equip_slot(0, "blackHole", 2)
 		GameState.state["player"]["craftingSkill"] = 1
-		# blackHole effectPower at skill 1 = 8 -> freeze = 1 + floor(8/8) = 2 turns for every enemy
+		# blackHole effectPower at tier 2 = 8 -> freeze = 1 + floor(8/8) = 2 turns for every enemy
 
 		var result := Combat.use_black_hole()
 
@@ -2821,7 +2821,7 @@ func run() -> void:
 	run_case("cast_complication_black_hole_applies_full_undiluted_damage_and_freeze_to_every_non_koed_enemy_independently", func():
 		var combat := _multi_enemy_combat([{ "hp": 50 }, { "hp": 50 }, { "hp": 30, "koed": true }])
 		GameState.state["player"]["craftingSkill"] = 1
-		GameState.state["player"]["dial"] = Fixtures.dial_with_loaded("blackHole", 1, 5)
+		GameState.state["player"]["dial"] = Fixtures.dial_with_loaded("blackHole", 2, 5)
 
 		var result := Combat.cast_complication(0)
 
@@ -2913,7 +2913,7 @@ func run() -> void:
 	run_case("cast_complication_black_hole_returns_an_announce_beat_plus_one_damaging_beat_per_enemy_hit", func():
 		var combat := _multi_enemy_combat([{ "hp": 50 }, { "hp": 50 }, { "hp": 30, "koed": true }])
 		GameState.state["player"]["craftingSkill"] = 1
-		GameState.state["player"]["dial"] = Fixtures.dial_with_loaded("blackHole", 1, 5)
+		GameState.state["player"]["dial"] = Fixtures.dial_with_loaded("blackHole", 2, 5)
 
 		var result := Combat.cast_complication(0)
 
@@ -3046,7 +3046,7 @@ func run() -> void:
 
 	run_case("use_black_hole_returns_an_announce_beat_plus_one_hit_beat_per_living_enemy_with_effectKey_blackHole", func():
 		var combat := _multi_enemy_combat([{ "hp": 50 }, { "hp": 50 }, { "hp": 30, "koed": true }])
-		_equip_slot(0, "blackHole")
+		_equip_slot(0, "blackHole", 2)
 		GameState.state["player"]["craftingSkill"] = 1
 		var result := Combat.use_black_hole()
 		var beats: Array = result["beats"]
@@ -3738,7 +3738,7 @@ func run() -> void:
 
 	run_case("black_hole_ignores_an_ally_selection_and_hits_every_living_enemy", func():
 		var combat := _multi_enemy_combat([{ "hp": 50 }, { "hp": 50 }], [_test_ally(20, 20)])
-		_equip_slot(0, "blackHole")
+		_equip_slot(0, "blackHole", 2)
 		GameState.state["player"]["craftingSkill"] = 1
 		Combat.set_selection("ally", 0)
 

@@ -459,3 +459,26 @@ func run() -> void:
 		assert_eq(Crafting.quality_tier("_testRefinable"), 3, "reports the cell tier")
 		GameData.RECIPES.erase("_testRefinable")
 	)
+
+	run_case("effect_power_table_per_item_tier_1_to_5", func():
+		var expected := {
+			"timePearl": [1, 2, 3, 4, 5],
+			"enhancementPowder": [1, 1, 2, 2, 3],
+			"rewind": [2, 2, 2, 2, 2],
+			"healingSalve": [2, 3, 4, 5, 6],
+			"blast": [4, 6, 8, 10, 12],
+			"shield": [3, 4, 5, 6, 8],
+			"blackHole": [6, 8, 10, 13, 16],
+			"prophetsBreath": [1, 1, 1, 2, 2],
+			"beALady": [1, 1, 1, 2, 2],
+			"pansPrank": [2, 2, 3, 4, 5],
+			"healingBurst": [6, 8, 10, 12, 15],
+			"failsafe": [1, 1, 2, 2, 2],
+			"rejuvenation": [0, 0, 0, 0, 0],
+			"wormhole": [1, 1, 1, 1, 1],
+		}
+		for key in expected:
+			for tier in range(1, 6):
+				assert_eq(Crafting.effect_power(key, tier), expected[key][tier - 1], "%s tier %d" % [key, tier])
+		assert_eq(expected.size(), GameData.RECIPES.size(), "every recipe has a tier table asserted")
+	)

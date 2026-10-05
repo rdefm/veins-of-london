@@ -10,9 +10,9 @@ func run() -> void:
 		GameState.state["player"]["craftingSkill"] = 1
 		var result := Consumables.use_healing_salve()
 		assert_true(result["ok"], "should succeed with a salve in hand")
-		# healingSalve effectPower at skill 1 = 3
+		# healingSalve effectPower at tier 1 = 2
 		assert_eq(GameState.state["player"]["healingSalveDaysLeft"], 2, "activates a 2-day timer")
-		assert_eq(GameState.state["player"]["healingSalveDailyAmount"], 3, "daily amount from effectPower")
+		assert_eq(GameState.state["player"]["healingSalveDailyAmount"], 2, "daily amount from effectPower")
 		assert_eq(Crafting.inventory_qty("healingSalve"), 1, "one salve consumed")
 	)
 
@@ -24,9 +24,9 @@ func run() -> void:
 		GameState.state["player"]["healingSalveDaysLeft"] = 1  # simulate a day having passed
 		GameState.state["player"]["inventory"]["healingSalve"] = { "5": 1 }
 		Consumables.use_healing_salve()
-		# healingSalve effectPower at tier 5 = 8
+		# healingSalve effectPower at tier 5 = 6
 		assert_eq(GameState.state["player"]["healingSalveDaysLeft"], 2, "reusing refreshes back to 2 days, not 3")
-		assert_eq(GameState.state["player"]["healingSalveDailyAmount"], 8, "daily amount updates to the new activation's power")
+		assert_eq(GameState.state["player"]["healingSalveDailyAmount"], 6, "daily amount updates to the new activation's power")
 	)
 
 	run_case("use_healing_salve_fails_with_none_in_inventory", func():

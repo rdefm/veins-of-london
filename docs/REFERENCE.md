@@ -68,19 +68,19 @@ Each recipe also carries an `icon` field (`res://assets/combat/icons/<recipeKey>
 
 Each recipe's `ingredients` field is a dict of `{oreType: baseCalcCost}` — one key per required ore type, cost computed per-key (§3.5). Existing recipes are all single-ingredient (one-key dicts); nothing in the schema requires that.
 
-| key | name | symbol | ingredients (oreType: baseCalcCost) | baseSuccess | effectPower (index=skill 0–5) | xpReward | eventUsable |
+| key | name | symbol | ingredients (oreType: baseCalcCost) | baseSuccess | effectPower (index=item tier 0–5; 0 unused) | xpReward | eventUsable |
 |---|---|---|---|---|---|---|---|
-| timePearl | Time Pearl | ⧖ | {time: 5} | 0.40 | [0,1,1,2,2,3] (frozen turns) | 20 | false |
+| timePearl | Time Pearl | ⧖ | {time: 5} | 0.40 | [0,1,2,3,4,5] (frozen turns) | 20 | false |
 | enhancementPowder | Enhancement Powder | ↯ | {life: 6} | 0.35 | [0,1,1,2,2,3] (see combat §3.8) | 25 | false |
 | rewind | Rewind | ⟲ | {time: 6} | 0.40 | [0,2,2,2,2,2] (turns rewound) | 35 | true |
-| healingSalve | Healing Salve | ♥ | {life: 5} | 0.45 | [0,3,4,5,6,8] | 20 | false |
-| blast | Blast | ☄ | {physics: 5} | 0.40 | [0,6,8,10,12,15] | 25 | false |
-| shield | Shield | ⛨ | {physics: 6} | 0.30 | [0,4,5,6,8,10] | 30 | false |
-| blackHole | Black Hole | ⊙ | {physics: 7} | 0.20 | [0,8,10,13,16,20] | 35 | false |
-| prophetsBreath | Prophet's Breath | ≋ | {time: 5} | 0.30 | [0,1,1,2,2,3] | 30 | true |
+| healingSalve | Healing Salve | ♥ | {life: 5} | 0.45 | [0,2,3,4,5,6] | 20 | false |
+| blast | Blast | ☄ | {physics: 5} | 0.40 | [0,4,6,8,10,12] | 25 | false |
+| shield | Shield | ⛨ | {physics: 6} | 0.30 | [0,3,4,5,6,8] | 30 | false |
+| blackHole | Black Hole | ⊙ | {physics: 7} | 0.20 | [0,6,8,10,13,16] | 35 | false |
+| prophetsBreath | Prophet's Breath | ≋ | {time: 5} | 0.30 | [0,1,1,1,2,2] | 30 | true |
 | beALady | Be a Lady | ☘ | {fate: 6} | 0.35 | [0,1,1,1,2,2] | 25 | true |
-| pansPrank | Pan's Prank | ☻ | {emotion: 6} | 0.25 | [0,2,3,4,5,6] | 30 | true |
-| healingBurst | Healing Burst | ✚ | {time: 4, life: 4} | 0.30 | [0,8,10,12,15,18] | 30 | false |
+| pansPrank | Pan's Prank | ☻ | {emotion: 6} | 0.25 | [0,2,2,3,4,5] | 30 | true |
+| healingBurst | Healing Burst | ✚ | {time: 4, life: 4} | 0.30 | [0,6,8,10,12,15] | 30 | false |
 | failsafe | Failsafe | ⚑ | {time: 6, life: 6} | 0.12 | [0,1,1,2,2,2] | 45 | true |
 | rejuvenation | Rejuvenation | ❀ | {time: 5, life: 5} | 0.35 | [0,0,0,0,0,0] (no gameplay effect — sale good only) | 20 | false |
 | wormhole | Wormhole | ⊗ | {time: 5, physics: 5} | 0.18 | [0,1,1,1,1,1] | 40 | true |

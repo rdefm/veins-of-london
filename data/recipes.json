@@ -8,7 +8,7 @@
       "discovery": { "types": ["time"], "approach": "compression" },
       "taughtBy": "tutorial",
       "baseSuccess": 0.40,
-      "effectPower": [0, 1, 1, 2, 2, 3],
+      "effectPower": [0, 1, 2, 3, 4, 5],
       "xpReward": 20,
       "eventUsable": false,
       "description": "Throw at your feet. Freezes enemy for N turns. Elegant, if you ignore what it actually is."
@@ -46,7 +46,7 @@
       "ingredients": { "life": 5 },
       "discovery": { "types": ["life"], "approach": "heat" },
       "baseSuccess": 0.45,
-      "effectPower": [0, 3, 4, 5, 6, 8],
+      "effectPower": [0, 2, 3, 4, 5, 6],
       "xpReward": 20,
       "eventUsable": false,
       "description": "Rubbed on the worst of it. Speeds up what your body was doing anyway. No drama, mildly less itching."
@@ -58,7 +58,7 @@
       "ingredients": { "physics": 5 },
       "discovery": { "types": ["physics"], "approach": "grinding" },
       "baseSuccess": 0.40,
-      "effectPower": [0, 6, 8, 10, 12, 15],
+      "effectPower": [0, 4, 6, 8, 10, 12],
       "xpReward": 25,
       "eventUsable": false,
       "description": "A concentrated shove of physics calc. Knocks them back, occasionally knocks the gun out of their hand. Mostly the former."
@@ -70,7 +70,7 @@
       "ingredients": { "physics": 6 },
       "discovery": { "types": ["physics"], "approach": "heat" },
       "baseSuccess": 0.30,
-      "effectPower": [0, 4, 5, 6, 8, 10],
+      "effectPower": [0, 3, 4, 5, 6, 8],
       "xpReward": 30,
       "eventUsable": false,
       "description": "Absorbs the next couple of hits, then quietly stops working. Recharges itself if you're lucky, which is not a policy."
@@ -82,7 +82,7 @@
       "ingredients": { "physics": 7 },
       "discovery": { "types": ["physics"], "approach": "compression" },
       "baseSuccess": 0.20,
-      "effectPower": [0, 8, 10, 13, 16, 20],
+      "effectPower": [0, 6, 8, 10, 13, 16],
       "xpReward": 35,
       "eventUsable": false,
       "description": "A localised gravity fault, contained mostly to the size of a dinner plate. Everything nearby gets pulled toward the middle — you keep your distance and let it do the work."
@@ -94,7 +94,7 @@
       "ingredients": { "time": 5 },
       "discovery": { "types": ["time"], "approach": "distilling" },
       "baseSuccess": 0.30,
-      "effectPower": [0, 1, 1, 2, 2, 3],
+      "effectPower": [0, 1, 1, 1, 2, 2],
       "xpReward": 30,
       "eventUsable": true,
       "description": "Two lungfuls buys you a few seconds of foresight. Enough to flinch correctly."
@@ -118,7 +118,7 @@
       "ingredients": { "emotion": 6 },
       "discovery": { "types": ["emotion"], "approach": "distilling" },
       "baseSuccess": 0.25,
-      "effectPower": [0, 2, 3, 4, 5, 6],
+      "effectPower": [0, 2, 2, 3, 4, 5],
       "xpReward": 30,
       "eventUsable": true,
       "description": "Aimed at a crowd, not a person. Pick the feeling; the crowd supplies the consequences."
@@ -130,7 +130,7 @@
       "ingredients": { "time": 4, "life": 4 },
       "discovery": { "types": ["life", "time"], "approach": "heat" },
       "baseSuccess": 0.30,
-      "effectPower": [0, 8, 10, 12, 15, 18],
+      "effectPower": [0, 6, 8, 10, 12, 15],
       "xpReward": 30,
       "eventUsable": false,
       "description": "Faster than the salve, weaker than patience. Time and life calc, for when you don't have either."
