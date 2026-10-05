@@ -185,7 +185,7 @@ static func _symbol_part(part: Variant, heading_size: int, colour: Color) -> Con
 
 
 static func symbol_button(parts: Array, callback: Callable) -> Button:
-	var b := Button.new()
+	var b := TapButton.new()
 	b.pressed.connect(callback)
 	b.clip_text = true
 	b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -228,7 +228,7 @@ static func option_button(items: Array) -> OptionButton:
 
 
 static func button(text: String, callback: Callable) -> Button:
-	var b := Button.new()
+	var b := TapButton.new()
 	b.text = text
 	b.clip_text = true
 	b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -258,7 +258,7 @@ const ICON_BUTTON_SIZE := 40.0
 const ICON_GLYPH_SCALE := 1.4
 
 static func icon_button(draw_icon: Callable, callback: Callable, colour_override: Variant = null) -> Button:
-	var b := Button.new()
+	var b := TapButton.new()
 	b.custom_minimum_size = Vector2(ICON_BUTTON_SIZE, ICON_BUTTON_SIZE)
 	b.pressed.connect(callback)
 

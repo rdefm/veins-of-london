@@ -15,6 +15,8 @@ var _dragged := false
 func _init() -> void:
 	mouse_filter = Control.MOUSE_FILTER_PASS
 	focus_mode = Control.FOCUS_NONE
+	# toggle_mode only so set_pressed_no_signal() shows the pressed style while held.
+	toggle_mode = true
 
 
 func _gui_input(event: InputEvent) -> void:
@@ -40,9 +42,12 @@ func _gui_input(event: InputEvent) -> void:
 			_pressing = true
 			_dragged = false
 			_press_position = position
+			set_pressed_no_signal(true)
 		elif _pressing:
 			_pressing = false
+			set_pressed_no_signal(false)
 			if not _dragged and _press_position.distance_to(position) < TAP_SLOP:
 				pressed.emit()
 	elif is_motion and _pressing and _press_position.distance_to(position) >= TAP_SLOP:
 		_dragged = true
+		set_pressed_no_signal(false)

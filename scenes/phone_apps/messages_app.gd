@@ -85,7 +85,7 @@ func _build_conversation_row(contact_id: String) -> Control:
 
 
 func _plain_button(callback: Callable) -> Button:
-	var b := Button.new()
+	var b := TapButton.new()
 	b.pressed.connect(callback)
 	b.set_meta(ContactCards.OWN_STYLE_META, true)
 	var empty := StyleBoxEmpty.new()

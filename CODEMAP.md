@@ -175,7 +175,7 @@ overlays.
 | time_transition.gd | Transient time queue, input guard, dimmed circular park/sky/sun/moon presentation |
 | top_bar.gd | Top departure board: casing + status lines + NotificationTicker; feeds new notifications (combat hold, combat lines dropped when fight ends, raid-alarm line, reset on load/Rewind); tap opens Notifications app (short-pay menu if latest line is the pending guard shortfall) except in combat |
 | touch_scroll_container.gd | ScrollContainer, touch drag-scroll |
-| tap_button.gd | Button for cards in scroll surfaces; fires pressed only on a still release (TAP_SLOP), lets drags bubble to the scroller |
+| tap_button.gd | Button behind UI.button/symbol_button/icon_button and card taps; shows pressed style while held, fires pressed only on a still release (TAP_SLOP), lets drags bubble to the scroller |
 | turn_order_strip.gd | Combat turn-order strip: one card per projected turn occurrence. Tap selects; drag scrolls (offset survives re-configure). Selected card grows into a reserved band on the decision turn only; uniform during playback. Nine-slice sign frame per damage tier (cardFrames), HP ghost drain, `_reveal_pos()`, and playback reflow via `playback_occurrences()` + `advance_to()` |
 | ui.gd | Shared Control builders, time-cost labels, lot price text ("£75/10"), ui_action_red accent + bordered-panel/action-button StyleBoxFlat helpers |
 | vein_bubble.gd | Compact player-vein tap bubble: pin-anchored card, Lv segments, condition needle with 50/90+ scale, outline development/raid cues, round Harvest (light/hard chooser)/Cultivate actions, cultivator picker + hold-target stepper (via Rooms) while anyone holds Cultivation; tapping the info area opens vein_detail_panel.gd instead of running an action |

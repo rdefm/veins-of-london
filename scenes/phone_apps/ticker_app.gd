@@ -668,7 +668,7 @@ func _news_text(value: String, size: int, colour: Color, serif: bool = false) ->
 # Ticker controls use local newsprint/market chrome instead of UI.button's
 # shared amber theme. Every state is overridden so hover/disabled stay branded.
 func _ticker_button(value: String, action: Callable, variant: String, paper: bool = false, selected: bool = true) -> Button:
-	var button := Button.new()
+	var button := TapButton.new()
 	button.text = value
 	button.clip_text = true
 	button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS

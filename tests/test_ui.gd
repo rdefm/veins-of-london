@@ -220,7 +220,7 @@ func run() -> void:
 		var b := UI.button("Go", func(): pressed[0] = true)
 		c["content"].add_child(b)
 
-		assert_eq(b.mouse_filter, Control.MOUSE_FILTER_STOP, "a button inside a card must keep capturing its own taps, unaffected by the card's now-PASS filter")
+		assert_eq(b.mouse_filter, Control.MOUSE_FILTER_PASS, "a button inside a card must let drags bubble to the scroller; it fires its own tap via TapButton")
 		b.pressed.emit()
 		assert_true(pressed[0], "a button nested in a card must still fire its callback")
 
