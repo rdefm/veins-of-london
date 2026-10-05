@@ -1108,12 +1108,32 @@ static func _log(combat: Dictionary, beats: Variant, line: String, kind: String,
 		return
 	var beat: Dictionary = { "kind": kind, "logLine": line }
 	beat.merge(extra)
+	_stamp_hp_after(combat, beat)
 	beats.append(beat)
 	# Mirrors every threaded beat onto a rolling accumulator combat_rewind()
 	# hands back (reversed) for replay, cleared only when
 	# _restore_from_snapshot() consumes it -- purely cosmetic (GameState is
 	# already correctly restored by then).
 	combat["beatsSinceSnapshot"].append(beat)
+
+
+# A damaging beat carries its target's hp right after the hit
+# ("hpAfter"), so playback drives the bar and KO per beat, not from the
+# fully-resolved state.
+static func _stamp_hp_after(combat: Dictionary, beat: Dictionary) -> void:
+	if int(beat.get("dmg", 0)) <= 0:
+		return
+	var target_type: String = beat.get("targetType", "")
+	var index: int = int(beat.get("targetIndex", -1))
+	var target: Dictionary = {}
+	if target_type == "player":
+		target = GameState.state["player"]
+	elif target_type == "ally" and index >= 0 and index < combat["allies"].size():
+		target = combat["allies"][index]
+	elif target_type == "enemy" and index >= 0 and index < combat["enemies"].size():
+		target = combat["enemies"][index]
+	if not target.is_empty():
+		beat["hpAfter"] = int(target["hp"])
 
 
 # Public entry point for a system outside this file (Consumables.

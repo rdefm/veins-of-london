@@ -57,6 +57,13 @@ class NameplateCard extends Control:
 	var faction_label: Label = null
 
 	var ghost_hp: Variant = null
+	var hp_label: Label = null
+
+	func set_hp(value: int) -> void:
+		hp = value
+		if hp_label != null:
+			hp_label.text = "%d/%d HP" % [hp, hp_max]
+		queue_redraw()
 
 	func set_ghost_hp(value: float) -> void:
 		ghost_hp = int(round(value))
@@ -290,10 +297,19 @@ func reset_scroll() -> void:
 
 func clear_ghosts() -> void:
 	_ghost_hp_by_key.clear()
+	_shown_hp_by_key.clear()
 	for cards in _cards_by_key.values():
 		for card: NameplateCard in cards:
 			card.ghost_hp = null
 			card.queue_redraw()
+
+
+# Playback-time bar hp for a combatant, applied to every card of it and
+# re-applied to rebuilt cards until clear_ghosts().
+func set_shown_hp(key_string: String, hp: int) -> void:
+	_shown_hp_by_key[key_string] = hp
+	for card: NameplateCard in _cards_by_key.get(key_string, []):
+		card.set_hp(hp)
 
 
 var _entries: Array = []
@@ -322,6 +338,7 @@ var _cards_by_key: Dictionary = {}
 # combatant key string -> ghost hp, re-applied to the fresh cards every
 # _rebuild() so a queue advance mid-playback never drops a draining ghost.
 var _ghost_hp_by_key: Dictionary = {}
+var _shown_hp_by_key: Dictionary = {}
 var _advance_tween: Tween = null
 # True while a round plays back (advance_to() until the next configure()):
 # no card expands, so every beat reads at the same size -- the selected card
@@ -434,7 +451,9 @@ func _build_card(entry: Dictionary, is_focused: bool, card_size: Vector2) -> Nam
 	card.entry_key = entry["key"]
 	card.combatant_name = entry["name"]
 	card.level = entry["level"]
-	card.hp = entry["hp"]
+	var key_string: String = card_key_string(entry["key"])
+	var shown_hp: int = _shown_hp_by_key.get(key_string, entry["hp"])
+	card.hp = shown_hp
 	card.hp_max = entry["hpMax"]
 	card.faction_name = entry["factionName"]
 	card.faction_colour = entry["factionColour"]
@@ -442,7 +461,7 @@ func _build_card(entry: Dictionary, is_focused: bool, card_size: Vector2) -> Nam
 	card.is_enemy = entry["isEnemy"]
 	card.shows_exact_hp = is_focused
 
-	var frac: float = clampf(float(entry["hp"]) / float(maxi(1, entry["hpMax"])), 0.0, 1.0)
+	var frac: float = clampf(float(shown_hp) / float(maxi(1, entry["hpMax"])), 0.0, 1.0)
 	card.is_pulsing = frac < PULSE_HP_FRACTION
 	if frac < RUINED_HP_FRACTION:
 		card.damage_tier = 2
@@ -460,7 +479,6 @@ func _build_card(entry: Dictionary, is_focused: bool, card_size: Vector2) -> Nam
 			card.tell_image = _tell_image_for(enemy)
 
 	_build_card_content(card)
-	var key_string: String = card_key_string(entry["key"])
 	if not _cards_by_key.has(key_string):
 		_cards_by_key[key_string] = []
 	_cards_by_key[key_string].append(card)
@@ -547,6 +565,7 @@ func _build_card_content(card: NameplateCard) -> void:
 		hp_label.add_theme_font_size_override("font_size", 10)
 		hp_label.add_theme_color_override("font_color", _palette_colour(SIGN_LETTERING_ID))
 		box.add_child(hp_label)
+		card.hp_label = hp_label
 
 	for line in card.status_lines:
 		var status_label := Label.new()

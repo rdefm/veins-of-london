@@ -4135,6 +4135,21 @@ func run() -> void:
 		assert_eq(Dial.attunement_bonus("time"), 0.0, "player has no Dial -- James's Movement attunes nothing for them")
 	)
 
+	run_case("damaging_beats_carry_per_beat_hp_after", func():
+		_fresh_combat()
+		var combat: Dictionary = GameState.state["combat"]
+		GameState.state["player"]["hpMax"] = 100
+		GameState.state["player"]["hp"] = 100
+		var beats: Array = []
+		Combat._enemy_attack_player(combat, combat["enemies"][0], 0, beats)
+		Combat._enemy_attack_player(combat, combat["enemies"][0], 0, beats)
+		assert_eq(beats[0]["hpAfter"], 95, "first hit leaves 95, not the final 90")
+		assert_eq(beats[1]["hpAfter"], 90)
+		assert_eq(CombatScreen.playback_start_hp(beats), { "player:-1": 100 }, "start hp = first hpAfter + dmg")
+		assert_true(not CombatScreen.beat_plays_ko(beats[0], true), "non-lethal beat never plays KO even if final state is KO'd")
+		assert_true(CombatScreen.beat_plays_ko({ "hpAfter": 0, "dmg": 5 }, true))
+	)
+
 
 func _combat_with_james(specs: Array, others: Array = []) -> Dictionary:
 	var combat := _multi_enemy_combat(specs)

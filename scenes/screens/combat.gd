@@ -475,28 +475,36 @@ func _hp_max_for(target: Dictionary) -> int:
 
 func _init_ghost_tracker(beats: Array) -> void:
 	_ghost_tracker.clear()
-	var total_dmg: Dictionary = {}
-	var target_by_key: Dictionary = {}
-	for beat in beats:
-		if not CombatDirector.beat_is_damaging(beat):
-			continue
-		var target: Dictionary = _beat_target(beat)
-		var key: String = TurnOrderStrip.card_key_string(target)
-		total_dmg[key] = total_dmg.get(key, 0) + int(beat["dmg"])
-		target_by_key[key] = target
-
-	for key in total_dmg.keys():
-		var start_hp: int = _hp_for(target_by_key[key]) + total_dmg[key]
-		_ghost_tracker[key] = start_hp
+	var start_hp: Dictionary = playback_start_hp(beats)
+	for key in start_hp.keys():
+		_ghost_tracker[key] = start_hp[key]
 		if _turn_order_strip != null:
-			_turn_order_strip.set_initial_ghost(key, start_hp)
+			_turn_order_strip.set_shown_hp(key, start_hp[key])
+			_turn_order_strip.set_initial_ghost(key, start_hp[key])
 
-func _drain_ghost(key: String, dmg: int) -> void:
+# Card-key string -> hp each damaged combatant had before its first damaging
+# beat (that beat's hpAfter plus its dmg).
+static func playback_start_hp(beats: Array) -> Dictionary:
+	var start: Dictionary = {}
+	for beat in beats:
+		if not CombatDirector.beat_is_damaging(beat) or not beat.has("hpAfter"):
+			continue
+		var key: String = TurnOrderStrip.card_key_string(CombatStage._beat_target(beat))
+		if not start.has(key):
+			start[key] = int(beat["hpAfter"]) + int(beat["dmg"])
+	return start
+
+# KO plays only on the beat that drops the target to 0 and leaves it KO'd.
+static func beat_plays_ko(beat: Dictionary, target_koed: bool) -> bool:
+	return target_koed and int(beat.get("hpAfter", 1)) <= 0
+
+func _drain_ghost(key: String, hp_after: int) -> void:
 	if not _ghost_tracker.has(key):
 		return
-	_ghost_tracker[key] = maxi(0, _ghost_tracker[key] - dmg)
+	_ghost_tracker[key] = hp_after
 	if _turn_order_strip != null:
-		_turn_order_strip.drain_ghost_to(key, _ghost_tracker[key], _director.beat_duration)
+		_turn_order_strip.set_shown_hp(key, hp_after)
+		_turn_order_strip.drain_ghost_to(key, hp_after, _director.beat_duration)
 
 func _play_juice(beat: Dictionary) -> void:
 	var target: Dictionary = _beat_target(beat)
@@ -506,13 +514,14 @@ func _play_juice(beat: Dictionary) -> void:
 	if slot != null:
 		slot.flash_hit()
 		_stage.spawn_damage_number(slot, dmg)
-		if _target_state(target).get("koed", false):
+		if beat_plays_ko(beat, _target_state(target).get("koed", false)):
 			slot.play_ko()
 		else:
 			slot.play_hit()
 
 	_stage.shake(dmg, _hp_max_for(target))
-	_drain_ghost(TurnOrderStrip.card_key_string(target), dmg)
+	if beat.has("hpAfter"):
+		_drain_ghost(TurnOrderStrip.card_key_string(target), int(beat["hpAfter"]))
 
 func _build_outcome_button(outcome: String, context: String) -> Control:
 	var label: String
