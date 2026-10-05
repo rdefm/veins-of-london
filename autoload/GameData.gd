@@ -185,6 +185,7 @@ var LOADOUT: Dictionary = {}
 # Cultivating XP a staffed cultivator earns per block action (prune or
 # cultivate roll, success or fail), R§3.10.
 var CULTIVATOR_ACTION_XP: int = 0
+var CULTIVATOR_SPECIALITY_YIELD_MULT: float = 1.0
 
 # Days of staff production kept in state.productionLog, R§2.
 var PRODUCTION_LOG_DAYS: int = 0
@@ -438,6 +439,7 @@ const MANIFEST: Array[Dictionary] = [
 		{"field": "GUARD_KIT", "key": "guardKit", "type": TYPE_DICTIONARY},
 		{"field": "LOADOUT", "key": "loadout", "type": TYPE_DICTIONARY},
 		{"field": "CULTIVATOR_ACTION_XP", "key": "cultivatorActionXp", "type": TYPE_INT},
+		{"field": "CULTIVATOR_SPECIALITY_YIELD_MULT", "key": "cultivatorSpecialityYieldMult", "type": TYPE_FLOAT},
 		{"field": "PRODUCTION_LOG_DAYS", "key": "productionLogDays", "type": TYPE_INT},
 		{"field": "PRODUCTION_TARGET_MAX", "key": "productionTargetMax", "type": TYPE_INT},
 		{"field": "BUSINESS_STATS_DAYS", "key": "businessStatsDays", "type": TYPE_INT},

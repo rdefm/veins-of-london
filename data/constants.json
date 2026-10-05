@@ -57,6 +57,7 @@
     "faction": { "maxExtraGuardsPerVein": 3, "wageReserveWeeks": 2 }
   },
   "cultivatorActionXp": 2,
+  "cultivatorSpecialityYieldMult": 1.2,
   "productionLogDays": 10,
   "productionTargetMax": 50,
   "businessStatsDays": 10,

@@ -290,6 +290,23 @@ func run() -> void:
 		assert_eq(GameState.state["contacts"]["archie"]["cultivatingXP"], xp_before + GameData.CULTIVATOR_ACTION_XP, "+2 XP for a prune")
 	)
 
+	run_case("cultivator_speciality_ore_prune_yields_bonus_and_other_ore_does_not", func():
+		GameState.reset()
+		_staff_station("archie")
+		var vein := _vein("vs1", 95)
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["cultivatorVeins"] = { "archie": ["vs1"] }
+		GameState.state["veinStationTargets"] = { "vs1": 70 }
+		GameState.state["contacts"]["archie"]["specialities"] = ["time"]
+		assert_eq(Rooms.speciality_yield("archie", "time", 70), 84, "+20% on a speciality ore")
+		assert_eq(Rooms.speciality_yield("archie", "life", 70), 70, "non-speciality unchanged")
+		Rng.set_seed(1)
+		Rooms.process_staff_block()
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], 84, "70 * 1.2 credited")
+		GameState.state["contacts"]["archie"]["specialities"] = []
+		assert_eq(Rooms.speciality_yield("archie", "time", 70), 70, "no specialities -> unaffected")
+	)
+
 	# Automated cultivation applies the same eligibility invariant as manual
 	# cultivate()/prune() -- a drop below developmentThreshold clears the streak.
 	run_case("cultivator_prune_below_90_clears_the_development_streak_same_as_manual_prune", func():

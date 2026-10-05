@@ -294,6 +294,15 @@ static func pick_vein(contact_id: String) -> Variant:
 	return best
 
 
+# A cultivator pruning an ore type among their specialities yields
+# CULTIVATOR_SPECIALITY_YIELD_MULT x the prune yield (R§3.10 Hiring).
+static func speciality_yield(contact_id: String, ore_type: String, amount: int) -> int:
+	var specialities: Array = GameState.state["contacts"].get(contact_id, {}).get("specialities", [])
+	if not specialities.has(ore_type):
+		return amount
+	return GameState.round_epsilon(amount * GameData.CULTIVATOR_SPECIALITY_YIELD_MULT)
+
+
 # Above the band: prune down to target, yield into shared stock. Below: one
 # cultivate roll at the contact's skill. Drives Cultivating's prune-yield/
 # cultivate-gain math directly rather than through Cultivating.prune()/
@@ -307,7 +316,7 @@ static func _cultivator_act(contact_id: String, ore_out: Dictionary) -> void:
 	var growth: int = vein["growth"]
 	if growth > target:
 		var depth: int = growth - target
-		var amount: int = Cultivating.prune_yield(vein, depth)
+		var amount: int = speciality_yield(contact_id, vein["oreType"], Cultivating.prune_yield(vein, depth))
 		vein["growth"] = maxi(0, growth - depth)
 		vein["rampantDays"] = 0
 		Cultivating.apply_growth_change(vein, growth)

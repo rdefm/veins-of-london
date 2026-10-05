@@ -28,6 +28,14 @@ static func seat_text(candidate_id: String) -> String:
 	return "%s · %d of %d seats free" % [room_name, maxi(free, 0), total]
 
 
+# Cultivator speciality bonus line; "" for roles whose specialities drive something else.
+static func speciality_bonus_text(candidate_id: String) -> String:
+	var data := Hiring.candidate(candidate_id)
+	if data.get("role", "") != "cultivation" or (data.get("specialities", []) as Array).is_empty():
+		return ""
+	return "Prunes speciality ore at +%d%% yield." % roundi((GameData.CULTIVATOR_SPECIALITY_YIELD_MULT - 1.0) * 100.0)
+
+
 static func experience_text(candidate_id: String) -> String:
 	var e := experience(candidate_id)
 	if e["next"] < 0:

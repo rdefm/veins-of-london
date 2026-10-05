@@ -34,6 +34,7 @@ const PROFILE_AVATAR_NODE_NAME := "LodedInnitProfileAvatar"
 const PROFILE_BADGE_NODE_NAME := "LodedInnitProfileBadge"
 const PROFILE_GRID_NODE_NAME := "LodedInnitProfileGrid"
 const PROFILE_SPECIALITIES_NODE_NAME := "LodedInnitProfileSpecialities"
+const PROFILE_BONUS_NODE_NAME := "LodedInnitProfileSpecialityBonus"
 const PROFILE_ROLE_NODE_NAME := "LodedInnitProfileRole"
 const PROFILE_LEVEL_NODE_NAME := "LodedInnitProfileLevel"
 const PROFILE_WAGE_NODE_NAME := "LodedInnitProfileWage"
@@ -863,6 +864,9 @@ func _build_profile(content: VBoxContainer) -> void:
 	grid.add_child(_profile_fact("ROOM / SEATS", LodedInnitProfile.seat_text(candidate_id), PROFILE_SEAT_NODE_NAME))
 	content.add_child(grid_margin)
 
+	var bonus_text := LodedInnitProfile.speciality_bonus_text(candidate_id)
+	if bonus_text != "":
+		content.add_child(_profile_section("SPECIALITY BONUS", bonus_text, PROFILE_BONUS_NODE_NAME))
 	content.add_child(_profile_section("EXPERIENCE", LodedInnitProfile.experience_text(candidate_id), PROFILE_XP_NODE_NAME))
 	content.add_child(_profile_section("BACKGROUND", data["about"]))
 	content.add_child(_profile_section("APPOINTMENT", "First week paid from the business pot, then float."))

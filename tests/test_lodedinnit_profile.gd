@@ -73,6 +73,16 @@ func run() -> void:
 		phone.free()
 	)
 
+	run_case("cultivator_profile_states_speciality_bonus_and_crafter_does_not", func():
+		_setup()
+		assert_eq(LodedInnitProfile.speciality_bonus_text("marcia"), "Prunes speciality ore at +20% yield.")
+		var phone := PhoneScreen.new()
+		_open_profile(phone, "marcia")
+		assert_true(NodeQuery.label_texts(phone).has("Prunes speciality ore at +20% yield."))
+		phone.free()
+		assert_eq(LodedInnitProfile.speciality_bonus_text("priya"), "")
+	)
+
 	run_case("all_specialities_have_readable_labels", func():
 		_setup()
 		var phone := PhoneScreen.new()
