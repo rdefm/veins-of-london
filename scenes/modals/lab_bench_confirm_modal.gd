@@ -47,6 +47,7 @@ static func _build_craft(container: VBoxContainer, types: Array, approach: Strin
 
 	container.add_child(UI.symbol_row([ItemIcons.part(recipe_key), r["name"]], { "heading_size": 18 }))
 	container.add_child(UI.muted_label("%s · %s" % [LabBenchNav.pairing_label(types), LabBenchNav.apparatus_name(approach)]))
+	container.add_child(LabBenchModalHelpers.tier_progress_block(types, approach))
 	for ore_type in costs:
 		container.add_child(_ore_row(ore_type, costs[ore_type]))
 	var total := UI.label(LabBenchModalHelpers.batch_total_text(costs, qty))

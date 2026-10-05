@@ -211,7 +211,7 @@ overlays.
 | network_reference_modal.gd | Network Map legend |
 | hq_ore_readout_modal.gd | Ore-store slip with raid-risk stamp + personal-stash move controls, map_card_style.gd-skinned (always light) |
 | hq_gym_modal.gd | Combat skill card (level, XP bar, current + next-level HP/ATK/SPD via `Combat.skill_summary()`) + Train action card |
-| lab_bench_modal_helpers.gd | Experiment controls, batch total text + outcome headings shared by the lab-bench modals |
+| lab_bench_modal_helpers.gd | Tier + progress-bar block, experiment controls, batch total text + outcome headings shared by the lab-bench modals |
 | lab_bench_recipe_book_modal.gd | Recipe notebook page: five ore side tabs (live glyphs), found recipes filtered by ingredient ore, four entries per page with Prev/Next; tab+page live in modal data; an entry raises lab_bench_recipe_detail |
 | lab_bench_recipe_detail_modal.gd | One found recipe above the book: description, ingredients, chance/effect/stock, batch slider + Craft (result returns to the book via `Modal.set_return`), Experiment, Back to book |
 | lab_bench_notes_modal.gd | Per-pairing survey notes with found-recipe tier + experiment rows |

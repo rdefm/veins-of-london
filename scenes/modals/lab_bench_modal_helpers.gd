@@ -3,7 +3,20 @@ class_name LabBenchModalHelpers
 extends RefCounted
 
 
+# "Tier 2 / 5 · 1/3 to next" with a fill bar toward the next tier; at the top tier the bar is full and reads "Max tier".
+static func tier_progress_block(types: Array, approach: String) -> Control:
+	var block := UI.vbox(2)
+	var maxed := Bench.is_max_tier(types, approach)
+	var tier: int = Bench.get_cell(types, approach)["tier"]
+	var progress: int = Bench.tier_progress(types, approach)
+	var text := "Max tier (%d)" % tier if maxed else "Tier %d / %d · %d/%d to next" % [tier, Bench.MAX_TIER, progress, Bench.PROGRESS_TO_TIER]
+	block.add_child(UI.muted_label(text))
+	block.add_child(MapCardStyle.style_bar(UI.bar(Bench.PROGRESS_TO_TIER if maxed else progress, Bench.PROGRESS_TO_TIER)))
+	return block
+
+
 static func append_experiment_controls(container: Control, recipe: Dictionary, types: Array, approach: String) -> void:
+	container.add_child(tier_progress_block(types, approach))
 	var reason := Bench.experiment_block_reason(types, approach)
 	container.add_child(MapCardStyle.action_button("Experiment", func(): _on_experiment_pressed(recipe["name"], types, approach), reason != "", reason))
 

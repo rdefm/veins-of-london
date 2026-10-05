@@ -35,6 +35,19 @@ func _slide_to(slider: HSlider, value: int) -> void:
 
 
 func run() -> void:
+	run_case("tier_progress_block_shows_tier_bar_and_max_state", func():
+		GameState.reset()
+		GameState.state["player"]["bench"]["cells"]["time|heat"] = { "state": "found", "misses": 0, "tier": 2, "progress": 1 }
+		var block := LabBenchModalHelpers.tier_progress_block(["time"], "heat")
+		var bar := block.find_children("", "ProgressBar", true, false)[0] as ProgressBar
+		assert_eq(bar.value, 1.0, "bar fill = progress")
+		assert_eq(bar.max_value, float(Bench.PROGRESS_TO_TIER), "bar spans one tier")
+		GameState.state["player"]["bench"]["cells"]["time|heat"] = { "state": "found", "misses": 0, "tier": Bench.MAX_TIER, "progress": 0 }
+		var maxed := LabBenchModalHelpers.tier_progress_block(["time"], "heat")
+		assert_eq((maxed.find_children("", "ProgressBar", true, false)[0] as ProgressBar).value, float(Bench.PROGRESS_TO_TIER), "max tier bar is full")
+		assert_true((maxed.get_child(0) as Label).text.begins_with("Max tier"), "max-tier label")
+	)
+
 	run_case("untried_cell_shows_a_probe_modal_with_no_stepper", func():
 		GameState.reset()
 		GameState.state["player"]["orichalchum"]["physics"] = 5
