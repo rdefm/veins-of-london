@@ -210,10 +210,9 @@ func _build_listing_card(caption: String, tier_id: String) -> Control:
 	action.add_child(_text("View particulars →", 14, brand_green(), _bold_font()))
 	card["column"].add_child(action)
 
-	var tap := Button.new()
+	var tap := TapButton.new()
 	tap.name = listing_node_name(tier_id)
 	tap.flat = true
-	tap.focus_mode = Control.FOCUS_NONE
 	tap.pressed.connect(_open_particulars.bind(tier_id))
 	card["panel"].add_child(tap)
 	return card["panel"]

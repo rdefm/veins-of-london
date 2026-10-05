@@ -721,7 +721,7 @@ func _on_person_row_input(event: InputEvent, row: Control, candidate_id: String)
 		elif row.has_meta("tap_start"):
 			var start: Vector2 = row.get_meta("tap_start")
 			row.remove_meta("tap_start")
-			if start.distance_to(event.position) < 12.0:
+			if start.distance_to(event.position) < TapButton.TAP_SLOP:
 				_open_profile(candidate_id)
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
@@ -729,7 +729,7 @@ func _on_person_row_input(event: InputEvent, row: Control, candidate_id: String)
 		elif row.has_meta("tap_start"):
 			var start: Vector2 = row.get_meta("tap_start")
 			row.remove_meta("tap_start")
-			if start.distance_to(event.position) < 12.0:
+			if start.distance_to(event.position) < TapButton.TAP_SLOP:
 				_open_profile(candidate_id)
 
 

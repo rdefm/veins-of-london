@@ -216,7 +216,7 @@ func _build_wires_card(wires: Array) -> Control:
 		column.add_child(_news_text(GameData.BAROMETER_NEWS["emptyWires"], 12, NEWS_MUTED))
 	for entry in wires:
 		column.add_child(_news_rule(NEWS_RULE, 1))
-		var wire := Button.new()
+		var wire := TapButton.new()
 		wire.name = "TickerWire"
 		wire.flat = true
 		wire.custom_minimum_size.y = 72
@@ -375,7 +375,7 @@ func _good_symbol(kind: String, good_type: String) -> Dictionary:
 # One tappable, divided price row: symbol and type opposite the live quote.
 func _good_row(kind: String, good_type: String) -> Control:
 	var move := Market.day_move(kind, good_type)
-	var b := Button.new()
+	var b := TapButton.new()
 	b.name = "TickerGood_%s_%s" % [kind, good_type]
 	b.custom_minimum_size.y = 64
 	b.pressed.connect(func(): _select_good(kind, good_type))
@@ -591,7 +591,7 @@ func _build_headline_card(section: String, featured: bool) -> Control:
 	var category: String = GameData.BAROMETER_NEWS["categories"][section]
 	var column := UI.vbox(0)
 	column.add_child(_section_heading(category))
-	var story := Button.new()
+	var story := TapButton.new()
 	story.name = "TickerStory_%s" % section
 	story.text = ""
 	story.custom_minimum_size.y = 212 if featured else 156
