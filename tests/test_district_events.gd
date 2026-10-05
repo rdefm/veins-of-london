@@ -447,3 +447,21 @@ func run() -> void:
 		_play_full("roman_brick")
 		assert_eq(GameState.state["flags"]["oddities"], 2, "repeat draws keep incrementing the counter")
 	)
+
+	run_case("west_southwest_districts_each_have_a_deck_event_that_plays_to_the_map", func():
+		var expected := {
+			"nottinghill": ["nottinghill_carnival", "emotion"],
+			"kensington": ["kensington_exhibit", "time"],
+			"chelsea": ["chelsea_pensioner", "fate"],
+			"hammersmith": ["hammersmith_flyover", "physics"],
+			"clapham": ["clapham_common", "life"],
+		}
+		for district_id in expected.keys():
+			GameState.reset()
+			var ids: Array = []
+			for e in DistrictDeck.eligible_entries(district_id):
+				ids.append(e["id"])
+			assert_true(ids.has(expected[district_id][0]), "%s deck should hold %s" % [district_id, expected[district_id][0]])
+			_play_full(expected[district_id][0])
+			assert_eq(GameState.state["player"]["orichalchum"][expected[district_id][1]], 1)
+	)

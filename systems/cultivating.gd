@@ -31,6 +31,11 @@ const DISTRICT_STREETS: Dictionary = {
 	"kingscross": ["York Way", "Pentonville Rd", "Caledonian Rd", "Euston Rd", "Grays Inn Rd", "Goods Way"],
 	"battersea": ["Battersea Park Rd", "Lavender Hill", "Northcote Rd", "Falcon Rd", "Queenstown Rd", "York Rd"],
 	"hampstead": ["Heath St", "Flask Walk", "Rosslyn Hill", "Fitzjohn's Ave", "Well Walk", "South End Rd"],
+	"nottinghill": ["Portobello Rd", "Ladbroke Grove", "Westbourne Grove", "Kensington Park Rd", "Pembridge Rd", "Golborne Rd"],
+	"kensington": ["Kensington High St", "Exhibition Rd", "Gloucester Rd", "Cromwell Rd", "Earl's Court Rd", "Queen's Gate"],
+	"chelsea": ["King's Rd", "Fulham Rd", "Sloane Ave", "Cheyne Walk", "Old Church St", "Lots Rd"],
+	"hammersmith": ["King St", "Fulham Palace Rd", "Shepherd's Bush Rd", "Askew Rd", "Brook Green", "Hammersmith Broadway"],
+	"clapham": ["Clapham High St", "Venn St", "Northcote Rd", "Abbeville Rd", "Clapham Common South Side", "Lavender Hill"],
 	"whitechapel": LOCATION_STREETS,
 }
 

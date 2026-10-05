@@ -29,6 +29,17 @@ const ADJACENT_PAIRS := [
 	["shoreditch", "whitechapel"],
 	["shoreditch", "battersea"],
 	["whitechapel", "greenwich"],
+	["hampstead", "nottinghill"],
+	["camden", "nottinghill"],
+	["soho", "nottinghill"],
+	["soho", "kensington"],
+	["city", "kensington"],
+	["battersea", "kensington"],
+	["battersea", "chelsea"],
+	["kensington", "chelsea"],
+	["kensington", "hammersmith"],
+	["chelsea", "hammersmith"],
+	["battersea", "clapham"],
 ]
 
 
@@ -64,6 +75,7 @@ func run() -> void:
 		var expected_counts := {
 			"hampstead": 4, "kingscross": 16, "camden": 18, "shoreditch": 14,
 			"city": 26, "soho": 2, "whitechapel": 14, "battersea": 14, "greenwich": 24,
+			"nottinghill": 8, "kensington": 8, "chelsea": 8, "hammersmith": 10, "clapham": 12,
 		}
 		for district_id in expected_counts.keys():
 			var slots: Array = GameData.MAP_LAYOUT["districts"][district_id]["stopSlots"]

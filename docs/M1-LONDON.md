@@ -23,8 +23,13 @@ Same rules of engagement as M0. New data is canonical HERE (this doc extends REF
 | hampstead | Hampstead | {life:0.75} | +0.10 | −0.05 | +0.05 | 2 | — | — |
 | whitechapel | Whitechapel | {emotion:0.75} | +0.10 | +0.10 | 0.00 | 7 | vein NPC-raid chance ×1.5 (when vein raids land, M2) | collective |
 | soho | Soho | — | — | −0.05 | +0.10 | 0 | marketplace (M4); no veins, no prospecting | network |
+| nottinghill | Notting Hill | {emotion:0.75} | +0.05 | 0.00 | +0.05 | 4 | — | — |
+| kensington | Kensington | {time:0.375, fate:0.375} | +0.05 | −0.05 | +0.10 | 4 | — | — |
+| chelsea | Chelsea | {fate:0.75} | 0.00 | −0.05 | +0.15 | 4 | — | — |
+| hammersmith | Hammersmith | {physics:0.375, emotion:0.375} | 0.00 | +0.05 | 0.00 | 5 | — | — |
+| clapham | Clapham | {life:0.375, emotion:0.375} | +0.05 | 0.00 | 0.00 | 6 | — | — |
 
-`siteCap` above already includes the day-1 faction-vein bump (D2, below) — shoreditch/whitechapel/camden/battersea/greenwich/kingscross/city are each `base + starting-veins-placed-there`; hampstead/soho have no faction presence to seed and keep their original base values.
+`siteCap` above already includes the day-1 faction-vein bump (D2, below) — shoreditch/whitechapel/camden/battersea/greenwich/kingscross/city are each `base + starting-veins-placed-there`; hampstead/soho have no faction presence to seed and keep their original base values. The west/southwest districts (nottinghill, kensington, chelsea, hammersmith, clapham) likewise have no faction presence and carry their base siteCap; each has one flavour deck event (`nottinghill_carnival`, `kensington_exhibit`, `chelsea_pensioner`, `hammersmith_flyover`, `clapham_common`: +1 of the district's main ore, no choices).
 
 oreBias semantics: listed weights are the probability of that type; remainder split uniformly among the other types (uniform = 0.2 each).
 

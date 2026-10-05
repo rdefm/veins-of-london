@@ -1,0 +1,34 @@
+{
+  "id": "chelsea_pensioner",
+  "cards": [
+    {
+      "type": "narration",
+      "label": "Chelsea",
+      "speaker": null,
+      "text": "A man in a scarlet coat sits on a bench by the river and watches you pass with the patience of someone who has seen every kind of debt come due. He doesn't nod. He does, very slightly, un-nod."
+    },
+    {
+      "type": "resolution",
+      "label": null,
+      "speaker": null,
+      "text": "Somewhere behind you a bell rings once, for no one. The fate-type in your bag lands a touch heavier than it should."
+    }
+  ],
+  "on_complete": [
+    {
+      "op": "add_ore",
+      "type": "fate",
+      "qty": 1
+    },
+    {
+      "op": "set_screen",
+      "screen": "map"
+    }
+  ],
+  "deck": {
+    "district": "chelsea",
+    "weight": 1,
+    "excludeIfFlag": null,
+    "barometerState": null
+  }
+}

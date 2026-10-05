@@ -1,0 +1,34 @@
+{
+  "id": "nottinghill_carnival",
+  "cards": [
+    {
+      "type": "narration",
+      "label": "Notting Hill",
+      "speaker": null,
+      "text": "A man on Portobello Road is hanging bunting from a window that isn't his. Nobody stops him. The street has the look of somewhere that is always about to throw a party and never quite admits it's already started."
+    },
+    {
+      "type": "resolution",
+      "label": null,
+      "speaker": null,
+      "text": "He hands you a paper flag on the way past, as though you'd been on the guest list all along. The emotion-type in your bag warms by a degree."
+    }
+  ],
+  "on_complete": [
+    {
+      "op": "add_ore",
+      "type": "emotion",
+      "qty": 1
+    },
+    {
+      "op": "set_screen",
+      "screen": "map"
+    }
+  ],
+  "deck": {
+    "district": "nottinghill",
+    "weight": 1,
+    "excludeIfFlag": null,
+    "barometerState": null
+  }
+}

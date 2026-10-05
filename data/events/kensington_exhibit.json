@@ -1,0 +1,34 @@
+{
+  "id": "kensington_exhibit",
+  "cards": [
+    {
+      "type": "narration",
+      "label": "Kensington",
+      "speaker": null,
+      "text": "A museum guard holds a side door open and doesn't look at you. Inside, a case of Victorian clocks tick slightly out of step with the building, and a laminated sign apologises for the inconvenience."
+    },
+    {
+      "type": "resolution",
+      "label": null,
+      "speaker": null,
+      "text": "The door closes behind you with the soft administrative click of something being logged. You leave with a splinter of spare time in your pocket and no receipt."
+    }
+  ],
+  "on_complete": [
+    {
+      "op": "add_ore",
+      "type": "time",
+      "qty": 1
+    },
+    {
+      "op": "set_screen",
+      "screen": "map"
+    }
+  ],
+  "deck": {
+    "district": "kensington",
+    "weight": 1,
+    "excludeIfFlag": null,
+    "barometerState": null
+  }
+}

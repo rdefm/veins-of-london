@@ -850,3 +850,14 @@ func run() -> void:
 
 		assert_true(Sites.find_faction_vein("nope") == null, "an unmatched vein id should return null, not crash")
 	)
+
+	run_case("prospect_works_in_each_west_southwest_district", func():
+		for district_id in ["nottinghill", "kensington", "chelsea", "hammersmith", "clapham"]:
+			GameState.reset()
+			Rng.set_seed(5)
+			var result := Sites.prospect(district_id)
+			assert_true(result["ok"], "prospect should succeed in %s" % district_id)
+			var sites: Array = GameState.state["world"]["sites"]
+			assert_eq(sites.size(), 1, "%s: one site created" % district_id)
+			assert_eq(sites[0]["district"], district_id)
+	)

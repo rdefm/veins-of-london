@@ -751,7 +751,7 @@ func run() -> void:
 		assert_eq(GameData.CONSUMABLE_PRICES["timePearl"], 120, "timePearl consumable price")
 		assert_eq(GameData.SEED_ORE_COST, 100, "SEED_ORE_COST")
 		assert_eq(GameData.ARCHIE_ORE_GOAL, 10, "ARCHIE_ORE_GOAL")
-		assert_eq(GameData.DISTRICTS.size(), 9, "9 districts")
+		assert_eq(GameData.DISTRICTS.size(), 14, "14 districts")
 		assert_eq(GameData.DISTRICTS["camden"]["siteCap"], 9, "camden siteCap (base 4 + the Firm's 5 day-one veins)")
 		assert_eq(GameData.DISTRICTS["kingscross"]["oreBias"]["time"], 0.375, "kingscross oreBias.time")
 		assert_almost_eq(GameData.DISTRICTS["city"]["priceMod"], 0.15, 0.0001, "city priceMod")
@@ -763,7 +763,7 @@ func run() -> void:
 		assert_eq(GameData.SITE_DISCOVERY_BONUS_POOL.size(), 3, "3 discovery bonus types")
 		assert_almost_eq(GameData.SITE_NATURAL_VEIN_CHANCE, 0.05, 0.0001, "natural vein chance")
 		assert_eq(GameData.MAP_LAYOUT["mapSize"], [1170, 1560], "map_layout mapSize")
-		assert_eq(GameData.MAP_LAYOUT["districts"].size(), 9, "map_layout has 9 districts")
+		assert_eq(GameData.MAP_LAYOUT["districts"].size(), 14, "map_layout has 14 districts")
 		assert_eq(GameData.MAP_LAYOUT["districts"]["camden"]["stopSlots"].size(), 18, "camden siteCap 9 -> 18 stopSlots (siteCap*2)")
 		assert_eq(GameData.MAP_LAYOUT["districts"]["soho"]["stopSlots"].size(), 2, "soho siteCap 0 -> 2 stopSlots")
 

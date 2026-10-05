@@ -541,17 +541,17 @@
 },
 "stage": {
 "_note": "spriteScale: multiplier on every combat stage slot's height (player, allies, enemies) over the base zone ratios in scenes/components/combat_stage.gd.",
-"spriteScale": 1.5,
 "reserve": {
 "_note": "Waiting fighters (combat.enemyQueue/allyQueue): up to maxVisible small distant sprites per side in queue order, then +N. heightRatio/bottomRatio are fractions of the staging zone (height, and the sprites' bottom edge below the zone top); stepXOfWidth spaces them along the outer edge; entryDuration is the slide into the active place.",
-"maxVisible": 3,
-"heightRatio": 0.2,
-"bottomRatio": 0.4,
-"stepXOfWidth": 0.9,
-"edgeMargin": 6,
 "alpha": 0.75,
-"entryDuration": 0.35
-}
+"bottomRatio": 0.4,
+"edgeMargin": 6,
+"entryDuration": 0.35,
+"heightRatio": 0.2,
+"maxVisible": 3,
+"stepXOfWidth": 0.9
+},
+"spriteScale": 1.5
 },
 "templates": {
 "archie": {
@@ -1040,6 +1040,20 @@
 "siteQualityMod": 0.05,
 "special": ""
 },
+"chelsea": {
+"blurb": "Money here is polite about itself. Fate ore is most of what comes up — the King's Road has always known who owes whom, and mostly declines to say.",
+"dangerMod": -0.05,
+"factionPresence": "",
+"id": "chelsea",
+"name": "Chelsea",
+"oreBias": {
+"fate": 0.75
+},
+"priceMod": 0.15,
+"siteCap": 4,
+"siteQualityMod": 0,
+"special": ""
+},
 "city": {
 "blurb": "Every building is a bank, a firm, or both, and something older underneath. Fate ore turns up more than anything else; the City's always been in the business of who owes what to whom.",
 "dangerMod": -0.05,
@@ -1052,6 +1066,21 @@
 "priceMod": 0.15,
 "siteCap": 13,
 "siteQualityMod": -0.05,
+"special": ""
+},
+"clapham": {
+"blurb": "The Common is always full of someone's weekend. Life and emotion ore surface in about equal measure — brunch is a kind of grief, if you stay long enough.",
+"dangerMod": 0,
+"factionPresence": "",
+"id": "clapham",
+"name": "Clapham",
+"oreBias": {
+"emotion": 0.375,
+"life": 0.375
+},
+"priceMod": 0,
+"siteCap": 6,
+"siteQualityMod": 0.05,
 "special": ""
 },
 "greenwich": {
@@ -1068,6 +1097,21 @@
 "siteQualityMod": 0.05,
 "special": ""
 },
+"hammersmith": {
+"blurb": "The flyover shakes the flats and the flats have stopped noticing. Physics and emotion ore split most of what surfaces, usually the same night as a gig.",
+"dangerMod": 0.05,
+"factionPresence": "",
+"id": "hammersmith",
+"name": "Hammersmith",
+"oreBias": {
+"emotion": 0.375,
+"physics": 0.375
+},
+"priceMod": 0,
+"siteCap": 5,
+"siteQualityMod": 0,
+"special": ""
+},
 "hampstead": {
 "blurb": "Old money and older trees. The Heath keeps its own counsel, and what grows under it is mostly life ore.",
 "dangerMod": -0.05,
@@ -1080,6 +1124,21 @@
 "priceMod": 0.05,
 "siteCap": 2,
 "siteQualityMod": 0.1,
+"special": ""
+},
+"kensington": {
+"blurb": "Museums full of things nobody asked to have kept. Time and fate ore turn up in roughly equal measure; the collections have never been properly audited.",
+"dangerMod": -0.05,
+"factionPresence": "",
+"id": "kensington",
+"name": "Kensington",
+"oreBias": {
+"fate": 0.375,
+"time": 0.375
+},
+"priceMod": 0.1,
+"siteCap": 4,
+"siteQualityMod": 0.05,
 "special": ""
 },
 "kingscross": {
@@ -1096,6 +1155,20 @@
 "siteCap": 8,
 "siteQualityMod": 0,
 "special": "veins here: +1 rightward drift, -1 leftward drift (min 0)"
+},
+"nottinghill": {
+"blurb": "Pastel terraces and a carnival that never quite leaves. Emotion ore is most of what surfaces — a district built on being looked at tends to feel everything twice.",
+"dangerMod": 0,
+"factionPresence": "",
+"id": "nottinghill",
+"name": "Notting Hill",
+"oreBias": {
+"emotion": 0.75
+},
+"priceMod": 0.05,
+"siteCap": 4,
+"siteQualityMod": 0.05,
+"special": ""
 },
 "shoreditch": {
 "blurb": "Home turf. Rents keep going up and nobody knows why. No ore runs stronger than the rest here — you take whatever surfaces.",
@@ -2111,6 +2184,34 @@
 "screen": "map"
 }]
 },
+"chelsea_pensioner": {
+"cards": [{
+"label": "Chelsea",
+"speaker": null,
+"text": "A man in a scarlet coat sits on a bench by the river and watches you pass with the patience of someone who has seen every kind of debt come due. He doesn't nod. He does, very slightly, un-nod.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": null,
+"text": "Somewhere behind you a bell rings once, for no one. The fate-type in your bag lands a touch heavier than it should.",
+"type": "resolution"
+}],
+"deck": {
+"barometerState": null,
+"district": "chelsea",
+"excludeIfFlag": null,
+"weight": 1
+},
+"id": "chelsea_pensioner",
+"on_complete": [{
+"op": "add_ore",
+"qty": 1,
+"type": "fate"
+}, {
+"op": "set_screen",
+"screen": "map"
+}]
+},
 "city_suit": {
 "cards": [{
 "label": "The City",
@@ -2163,6 +2264,34 @@
 },
 "id": "city_suit",
 "on_complete": [{
+"op": "set_screen",
+"screen": "map"
+}]
+},
+"clapham_common": {
+"cards": [{
+"label": "Clapham",
+"speaker": null,
+"text": "The Common is a single hungover organism in lycra. Someone is doing yoga beside a bin with total conviction. A dog is doing something to a hedge, also with total conviction.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": null,
+"text": "You find a clean fleck of life-type in the grass where the yoga was. It is, on balance, the most Clapham thing that could have happened.",
+"type": "resolution"
+}],
+"deck": {
+"barometerState": null,
+"district": "clapham",
+"excludeIfFlag": null,
+"weight": 1
+},
+"id": "clapham_common",
+"on_complete": [{
+"op": "add_ore",
+"qty": 1,
+"type": "life"
+}, {
 "op": "set_screen",
 "screen": "map"
 }]
@@ -3946,6 +4075,34 @@
 "screen": "map"
 }]
 },
+"hammersmith_flyover": {
+"cards": [{
+"label": "Hammersmith",
+"speaker": null,
+"text": "The flyover hums overhead like a held note. Under it, a busker is tuning a guitar to the exact pitch of the traffic, and a pigeon is declining to move for a bus.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": null,
+"text": "The note changes when you leave, so you know it was you. A little of the vibration comes with you, which is physics, or a cold.",
+"type": "resolution"
+}],
+"deck": {
+"barometerState": null,
+"district": "hammersmith",
+"excludeIfFlag": null,
+"weight": 1
+},
+"id": "hammersmith_flyover",
+"on_complete": [{
+"op": "add_ore",
+"qty": 1,
+"type": "physics"
+}, {
+"op": "set_screen",
+"screen": "map"
+}]
+},
 "heath_dogwalker": {
 "cards": [{
 "label": "Hampstead Heath",
@@ -4576,6 +4733,34 @@
 "screen": "contacts"
 }]
 },
+"kensington_exhibit": {
+"cards": [{
+"label": "Kensington",
+"speaker": null,
+"text": "A museum guard holds a side door open and doesn't look at you. Inside, a case of Victorian clocks tick slightly out of step with the building, and a laminated sign apologises for the inconvenience.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": null,
+"text": "The door closes behind you with the soft administrative click of something being logged. You leave with a splinter of spare time in your pocket and no receipt.",
+"type": "resolution"
+}],
+"deck": {
+"barometerState": null,
+"district": "kensington",
+"excludeIfFlag": null,
+"weight": 1
+},
+"id": "kensington_exhibit",
+"on_complete": [{
+"op": "add_ore",
+"qty": 1,
+"type": "time"
+}, {
+"op": "set_screen",
+"screen": "map"
+}]
+},
 "kx_delay": {
 "cards": [{
 "label": "King's Cross",
@@ -4638,6 +4823,34 @@
 }, {
 "op": "set_screen",
 "screen": "phone"
+}]
+},
+"nottinghill_carnival": {
+"cards": [{
+"label": "Notting Hill",
+"speaker": null,
+"text": "A man on Portobello Road is hanging bunting from a window that isn't his. Nobody stops him. The street has the look of somewhere that is always about to throw a party and never quite admits it's already started.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": null,
+"text": "He hands you a paper flag on the way past, as though you'd been on the guest list all along. The emotion-type in your bag warms by a degree.",
+"type": "resolution"
+}],
+"deck": {
+"barometerState": null,
+"district": "nottinghill",
+"excludeIfFlag": null,
+"weight": 1
+},
+"id": "nottinghill_carnival",
+"on_complete": [{
+"op": "add_ore",
+"qty": 1,
+"type": "emotion"
+}, {
+"op": "set_screen",
+"screen": "map"
 }]
 },
 "pigeon_omen": {
@@ -6743,11 +6956,23 @@
 "stopSlots": [[430, 366], [469, 389], [469, 433], [430, 456], [391, 433], [391, 388], [498, 411], [464, 470], [371, 404], [418, 477], [390, 347], [511, 433], [474, 332], [374, 472], [354, 436], [494, 364], [364, 368], [492, 458]],
 "zonePolygon": [[540, 411], [485, 506], [375, 506], [320, 411], [375, 316], [485, 316]]
 },
+"chelsea": {
+"anchor": [265, 887],
+"labelAnchor": [265, 812],
+"stopSlots": [[265, 842], [304, 864], [304, 910], [265, 932], [226, 910], [226, 864], [345, 887], [305, 956]],
+"zonePolygon": [[375, 887], [320, 982], [210, 982], [155, 887], [210, 792], [320, 792]]
+},
 "city": {
 "anchor": [430, 601],
 "labelAnchor": [430, 526],
 "stopSlots": [[430, 556], [475, 601], [430, 646], [385, 601], [498, 601], [464, 660], [396, 660], [362, 601], [396, 542], [464, 542], [508, 646], [378, 578], [482, 634], [483, 561], [367, 635], [441, 676], [368, 549], [513, 622], [402, 628], [410, 580], [450, 580], [450, 622], [414, 680], [506, 576], [352, 578], [372, 658]],
 "zonePolygon": [[540, 601], [485, 696], [375, 696], [320, 601], [375, 506], [485, 506]]
+},
+"clapham": {
+"anchor": [430, 982],
+"labelAnchor": [430, 907],
+"stopSlots": [[430, 937], [469, 960], [469, 1004], [430, 1027], [391, 1004], [391, 960], [510, 982], [470, 1051], [390, 1051], [350, 982], [390, 913], [470, 913]],
+"zonePolygon": [[540, 982], [485, 1077], [375, 1077], [320, 982], [375, 887], [485, 887]]
 },
 "greenwich": {
 "anchor": [760, 982],
@@ -6755,17 +6980,35 @@
 "stopSlots": [[760, 937], [803, 968], [786, 1018], [734, 1018], [717, 968], [828, 982], [794, 1041], [726, 1041], [692, 982], [726, 923], [794, 923], [838, 1027], [809, 1011], [808, 944], [750, 1047], [761, 913], [696, 1019], [832, 954], [684, 953], [844, 1001], [774, 1061], [716, 997], [700, 931], [744, 959]],
 "zonePolygon": [[870, 982], [815, 1077], [705, 1077], [650, 982], [705, 887], [815, 887]]
 },
+"hammersmith": {
+"anchor": [100, 792],
+"labelAnchor": [100, 717],
+"stopSlots": [[100, 747], [139, 770], [139, 814], [100, 837], [61, 814], [61, 770], [180, 792], [140, 861], [60, 861], [20, 792]],
+"zonePolygon": [[210, 792], [155, 887], [45, 887], [-10, 792], [45, 697], [155, 697]]
+},
 "hampstead": {
 "anchor": [430, 220],
 "labelAnchor": [430, 145],
 "stopSlots": [[430, 175], [475, 220], [430, 265], [385, 220]],
 "zonePolygon": [[540, 220], [485, 315], [375, 315], [320, 220], [375, 125], [485, 125]]
 },
+"kensington": {
+"anchor": [265, 696],
+"labelAnchor": [265, 621],
+"stopSlots": [[265, 651], [304, 674], [304, 718], [265, 741], [226, 718], [226, 674], [345, 696], [305, 765]],
+"zonePolygon": [[375, 696], [320, 791], [210, 791], [155, 696], [210, 601], [320, 601]]
+},
 "kingscross": {
 "anchor": [595, 506],
 "labelAnchor": [595, 431],
 "stopSlots": [[595, 461], [638, 492], [621, 542], [569, 542], [552, 492], [663, 506], [629, 565], [561, 565], [527, 506], [543, 532], [618, 445], [601, 577], [537, 453], [676, 531], [571, 427], [657, 457]],
 "zonePolygon": [[705, 506], [650, 601], [540, 601], [485, 506], [540, 411], [650, 411]]
+},
+"nottinghill": {
+"anchor": [265, 316],
+"labelAnchor": [265, 241],
+"stopSlots": [[265, 271], [304, 294], [304, 338], [265, 361], [226, 338], [226, 294], [345, 316], [305, 385]],
+"zonePolygon": [[375, 316], [320, 411], [210, 411], [155, 316], [210, 221], [320, 221]]
 },
 "shoreditch": {
 "anchor": [595, 696],

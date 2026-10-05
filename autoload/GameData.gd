@@ -961,6 +961,7 @@ func _validate_faction_trade(faction_trade: Dictionary, errors: Array[String]) -
 const CANONICAL_DISTRICT_IDS: Array[String] = [
 	"shoreditch", "city", "greenwich", "camden", "kingscross",
 	"battersea", "hampstead", "whitechapel", "soho",
+	"nottinghill", "kensington", "chelsea", "hammersmith", "clapham",
 ]
 
 
