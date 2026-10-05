@@ -415,6 +415,7 @@ static func apply_pressure() -> void:
 	_join_collective_firm_if_due(pressure)
 	var ids: Array = GameData.FACTIONS.keys()
 	var snapshots := {}
+	Shares.begin_cache()
 	for observer in ids:
 		var row := {}
 		for target in [Shares.PLAYER] + ids:
@@ -426,6 +427,7 @@ static func apply_pressure() -> void:
 				"delta": _snap(drift(observer, target)),
 			}
 		snapshots[observer] = row
+	Shares.end_cache()
 	pressure["snapshots"] = snapshots
 	for faction_id in ids:
 		if not _is_held_player(faction_id):

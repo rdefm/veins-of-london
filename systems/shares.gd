@@ -114,8 +114,34 @@ static func _window_range(week: int) -> Vector2i:
 	return Vector2i(last - GameData.SHARES_WINDOW_DAYS + 1, last)
 
 
+# Read-only memo of window sums for a hot loop that never writes the shares
+# tree: between begin_cache() and end_cache() each window is summed once.
+static var _cache_on := false
+static var _cache := {}
+
+
+static func begin_cache() -> void:
+	_cache_on = true
+	_cache.clear()
+
+
+static func end_cache() -> void:
+	_cache_on = false
+	_cache.clear()
+
+
 # Summed tally over a window: { producer: { oreType: n } }.
 static func window_totals(tally: String, week: int = 0) -> Dictionary:
+	var cache_key := "t:%s:%d" % [tally, week]
+	if _cache_on and _cache.has(cache_key):
+		return _cache[cache_key]
+	var totals := _sum_window(tally, week)
+	if _cache_on:
+		_cache[cache_key] = totals
+	return totals
+
+
+static func _sum_window(tally: String, week: int) -> Dictionary:
 	var span := _window_range(week)
 	var totals := {}
 	for bucket in GameState.state["shares"]["days"]:
@@ -182,6 +208,16 @@ static func ore_equivalent(kind: String, good_type: String, qty: int) -> int:
 # Per-faction totals of a { factionId: n } bucket key over a window; a
 # bucket without the key counts as empty.
 static func _faction_totals(key: String, week: int) -> Dictionary:
+	var cache_key := "f:%s:%d" % [key, week]
+	if _cache_on and _cache.has(cache_key):
+		return _cache[cache_key]
+	var totals := _sum_factions(key, week)
+	if _cache_on:
+		_cache[cache_key] = totals
+	return totals
+
+
+static func _sum_factions(key: String, week: int) -> Dictionary:
 	var span := _window_range(week)
 	var totals := {}
 	for bucket in GameState.state["shares"]["days"]:

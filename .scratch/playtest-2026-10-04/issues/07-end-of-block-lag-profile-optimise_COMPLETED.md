@@ -12,3 +12,9 @@
 - [ ] Hotspots fixed (e.g. repeated full scans, redundant state_changed emits, snapshot duplication, screen rebuilds)
 - [ ] Same seed → identical state before/after (test)
 - [ ] Full suite passes
+
+## Report
+Profile: `godot --headless -s scripts/profile_block_end.gd -- warm=60` (desktop, 127KB state).
+- Mid-day block advance: ~0.13ms. Rollover (advance/rest): 100-112ms -> 63-65ms.
+- FactionAI pressure/stances/wars: 56ms -> 10.7ms (Shares window sums memoised per apply_pressure scope).
+- Left: SaveManager.autosave ~20ms (JSON.stringify of state, on every daily tick), FactionSim.trade ~13ms (mutating, uncacheable without outcome risk), apply_escalation 2.5ms.
