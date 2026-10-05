@@ -1345,6 +1345,32 @@ func run() -> void:
 		assert_eq(GameState.state["meta"]["saveVersion"], SaveManager.SAVE_VERSION, "stamped current")
 	)
 
+	run_case("loading_a_v9_save_maps_refine_levels_to_tiers_with_empty_progress", func():
+		GameState.reset()
+		var save: Dictionary = GameState.deep_copy(GameState.state)
+		save["meta"]["saveVersion"] = 9
+		save["player"]["inventory"] = { "blast": { "2": 3 } }
+		save["player"]["bench"]["cells"] = {
+			"time|physics:a": { "state": "found", "misses": 0, "refine": 0 },
+			"life|fate:b": { "state": "found", "misses": 1, "refine": 2 },
+			"emotion|fate:c": { "state": "found", "misses": 0, "refine": 9 },
+			"time|life:d": { "state": "inert", "misses": 4, "refine": 0 },
+		}
+		save["player"]["bench"]["notes"] = { "time|physics": [{ "day": 1, "approach": "a", "outcome": "refined" }, { "day": 2, "approach": "a", "outcome": "refine_failed" }] }
+		var result := SaveManager.import_string(JSON.stringify(save))
+		assert_true(result["ok"], "a v9 save should load")
+		var bench: Dictionary = GameState.state["player"]["bench"]
+		assert_eq(bench["cells"]["time|physics:a"], { "state": "found", "misses": 0, "tier": 1, "progress": 0 })
+		assert_eq(bench["cells"]["life|fate:b"]["tier"], 3, "refine 2 -> tier 3")
+		assert_eq(bench["cells"]["emotion|fate:c"]["tier"], Bench.MAX_TIER, "capped at max tier")
+		assert_true(not bench["cells"]["life|fate:b"].has("refine"), "refine key dropped")
+		assert_eq(bench["cells"]["time|life:d"]["state"], "inert")
+		assert_eq(bench["notes"]["time|physics"][0]["outcome"], "tier_up")
+		assert_eq(bench["notes"]["time|physics"][1]["outcome"], "no_progress")
+		assert_eq(GameState.state["player"]["inventory"]["blast"]["2"], 3, "inventory buckets untouched")
+		assert_eq(GameState.state["meta"]["saveVersion"], SaveManager.SAVE_VERSION)
+	)
+
 	run_case("loading_a_v8_save_returns_hq_kit_overflow_to_inventory", func():
 		GameState.reset()
 		var save: Dictionary = GameState.deep_copy(GameState.state)

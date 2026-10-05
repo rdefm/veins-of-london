@@ -4,7 +4,7 @@ extends Node
 # autosaves. autosave() is called from daily_tick, exit_combat, event
 # completion, and every successful cash purchase.
 
-const SAVE_VERSION := 9
+const SAVE_VERSION := 10
 # Oldest save version _migrate_versions() can still bring forward.
 const MIN_SUPPORTED_VERSION := 3
 const SLOT_COUNT := 3
@@ -338,8 +338,34 @@ func _migrate_versions(save: Dictionary) -> void:
 				_migrate_from_v7(save)
 			8:
 				_migrate_from_v8(save)
+			9:
+				_migrate_from_v9(save)
 	meta["saveVersion"] = SAVE_VERSION
 	save["meta"] = meta
+
+
+# v10 bench cells carry `tier` + `progress`: a v9 cell's `refine` level maps to
+# tier = refine + 1 (capped at Bench.MAX_TIER), progress 0. v9 note outcomes
+# map to their experiment equivalents.
+func _migrate_from_v9(save: Dictionary) -> void:
+	var player: Variant = save.get("player")
+	if not (player is Dictionary) or not (player.get("bench") is Dictionary):
+		return
+	var bench: Dictionary = player["bench"]
+	var cells: Variant = bench.get("cells")
+	if cells is Dictionary:
+		for cell in cells.values():
+			if cell is Dictionary and cell.has("refine"):
+				cell["tier"] = clampi(int(cell["refine"]) + 1, 1, Bench.MAX_TIER)
+				cell["progress"] = 0
+				cell.erase("refine")
+	var notes: Variant = bench.get("notes")
+	if notes is Dictionary:
+		var renames := { "refined": "tier_up", "refine_failed": "no_progress" }
+		for note_list in notes.values():
+			for note in note_list:
+				if note is Dictionary and renames.has(note.get("outcome")):
+					note["outcome"] = renames[note["outcome"]]
 
 
 # v9 drops HQ kit capacity from three to two units per guard: overflow returns
