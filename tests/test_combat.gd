@@ -921,6 +921,21 @@ func run() -> void:
 
 	# ── dial-device ticket 07: cast_complication() ──────────────────────────
 
+	run_case("cast_complication_casts_panic_and_rapture_from_the_dial", func():
+		for key in ["panic", "pansRapture"]:
+			_fresh_combat()
+			GameState.state["player"]["craftingSkill"] = 1
+			GameState.state["player"]["dial"] = Fixtures.dial_with_loaded(key, 1, 5)
+			var result := Combat.cast_complication(0)
+			assert_true(result["ok"], "%s castable from the dial" % key)
+			var found := false
+			for line in GameState.state["combat"]["log"]:
+				if line.contains("You trigger") and line.contains("turns)"):
+					found = true
+			assert_true(found, "%s logs its turns" % key)
+			assert_eq(GameState.state["player"]["dial"]["currentCharge"], 4, "one charge spent")
+	)
+
 	run_case("cast_complication_casts_a_loaded_time_pearl_freezes_and_spends_charge", func():
 		_fresh_combat()
 		GameState.state["player"]["craftingSkill"] = 1

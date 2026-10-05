@@ -103,7 +103,7 @@ const PANIC_FLEE_CHANCE := 0.5
 # recipeKeys with a defined combat effect; cast_complication() refuses
 # anything else (rejuvenation/beALady/the Pan recipes/healingSalve have no
 # in-combat mechanic; rewind casts via combat_rewind()'s own fallback).
-const COMBAT_COMPLICATION_RECIPES: Array[String] = ["timePearl", "enhancementPowder", "blast", "shield", "blackHole", "healingBurst", "prophetsBreath", "wormhole"]
+const COMBAT_COMPLICATION_RECIPES: Array[String] = ["timePearl", "enhancementPowder", "blast", "shield", "blackHole", "healingBurst", "prophetsBreath", "wormhole", "panic", "pansRapture"]
 
 # R§3.7 ally-targetable table + R§2 selection: what each command/effect
 # may target. "enemy" needs selection.type == "enemy"; "self" is refused
@@ -2348,6 +2348,9 @@ static func cast_complication(index: int) -> Dictionary:
 		EventBus.state_changed.emit()
 		return { "ok": false, "reason": "Shield already active." }
 
+	if (recipe_key == "panic" or recipe_key == "pansRapture") and _focused_enemy(combat).get("panicTurns", 0) + _focused_enemy(combat).get("raptureTurns", 0) > 0:
+		return { "ok": false, "reason": "Already out of it." }
+
 	var beats: Array = []
 	if not prime_decision_point(combat, beats):
 		EventBus.state_changed.emit()
@@ -2397,6 +2400,14 @@ static func cast_complication(index: int) -> Dictionary:
 					disarm_enemy(target, BLAST_DISARM_TURNS)
 					_log(combat, beats, "The shove knocks their weapon loose.", BEAT_COMPLICATION_DISARM, { "targetType": "enemy", "targetIndex": target_index })
 				_maybe_win_from_direct_damage(combat, target, beats)
+		"panic", "pansRapture":
+			var turns: int = int(power) + int(cast["turnBonus"])
+			var status_key: String = "panicTurns" if recipe_key == "panic" else "raptureTurns"
+			var status_index: int = _enemy_action_index(combat)
+			combat["enemies"][status_index][status_key] = turns
+			# PROSE-REVIEW: Panic / Pan's Rapture Complication line.
+			_log(combat, beats, "You trigger %s (%d turn%s)." % [recipe["name"], turns, "" if turns == 1 else "s"], BEAT_USE_PANIC if recipe_key == "panic" else BEAT_USE_RAPTURE,
+				{ "targetType": "enemy", "targetIndex": status_index, "effectKey": recipe_key })
 		"shield":
 			player["shieldPool"] += int(power) * targets
 			if multi:

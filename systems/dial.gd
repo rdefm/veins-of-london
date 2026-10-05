@@ -540,7 +540,7 @@ static func _amplify_cast(base_power: Variant, movement: Variant, level: int = 0
 	var power: int = magnitude
 	var turn_bonus: int = 0
 	match recipe_key:
-		"timePearl", "prophetsBreath":
+		"timePearl", "prophetsBreath", "panic", "pansRapture":
 			power = turn_power
 			turn_bonus = maxi(level, 0)
 		"blackHole":
@@ -562,7 +562,7 @@ static func cast_black_hole_freeze_bonus(level: int) -> int:
 # after Spread); 0 for recipes without a turn effect. Read by the UI readout.
 static func cast_turn_bonus(recipe_key: String, level: int) -> int:
 	match recipe_key:
-		"timePearl", "prophetsBreath":
+		"timePearl", "prophetsBreath", "panic", "pansRapture":
 			return maxi(level, 0)
 		"blackHole":
 			return cast_black_hole_freeze_bonus(level)
