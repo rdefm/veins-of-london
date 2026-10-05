@@ -453,7 +453,6 @@ func run() -> void:
 			"nottinghill": ["nottinghill_carnival", "emotion"],
 			"kensington": ["kensington_exhibit", "time"],
 			"chelsea": ["chelsea_pensioner", "fate"],
-			"hammersmith": ["hammersmith_flyover", "physics"],
 			"clapham": ["clapham_common", "life"],
 		}
 		for district_id in expected.keys():

@@ -852,7 +852,7 @@ func run() -> void:
 	)
 
 	run_case("prospect_works_in_each_west_southwest_district", func():
-		for district_id in ["nottinghill", "kensington", "chelsea", "hammersmith", "clapham"]:
+		for district_id in ["nottinghill", "kensington", "chelsea", "clapham"]:
 			GameState.reset()
 			Rng.set_seed(5)
 			var result := Sites.prospect(district_id)

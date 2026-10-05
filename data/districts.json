@@ -143,18 +143,6 @@
     "factionPresence": "",
     "blurb": "Money here is polite about itself. Fate ore is most of what comes up — the King's Road has always known who owes whom, and mostly declines to say."
   },
-  "hammersmith": {
-    "id": "hammersmith",
-    "name": "Hammersmith",
-    "oreBias": { "physics": 0.375, "emotion": 0.375 },
-    "siteQualityMod": 0.00,
-    "dangerMod": 0.05,
-    "priceMod": 0.00,
-    "siteCap": 5,
-    "special": "",
-    "factionPresence": "",
-    "blurb": "The flyover shakes the flats and the flats have stopped noticing. Physics and emotion ore split most of what surfaces, usually the same night as a gig."
-  },
   "clapham": {
     "id": "clapham",
     "name": "Clapham",
