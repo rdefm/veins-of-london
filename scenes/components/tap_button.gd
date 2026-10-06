@@ -20,7 +20,11 @@ func _init() -> void:
 
 
 func _gui_input(event: InputEvent) -> void:
-	if disabled or TouchInput.is_emulated_mouse(event):
+	if disabled:
+		return
+	# The emulated twin never presses or releases (the real touch does), but its
+	# motion is the only drag signal that reaches a button inside a scroller.
+	if TouchInput.is_emulated_mouse(event) and not event is InputEventMouseMotion:
 		return
 	var position := Vector2.ZERO
 	var pressed_now := false

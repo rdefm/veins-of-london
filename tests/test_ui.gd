@@ -258,6 +258,25 @@ func run() -> void:
 		b.free()
 	)
 
+	# Drag past slop (emulated-mouse motion is the only drag signal) must not fire on release.
+	run_case("tap_button_does_not_fire_after_drag_past_slop", func():
+		var count := [0]
+		var b := TapButton.new()
+		b.pressed.connect(func(): count[0] += 1)
+		var pos := Vector2(5, 5)
+		b._gui_input(UiSim.touch(0, true, pos))
+		var m := InputEventMouseMotion.new()
+		m.device = InputEvent.DEVICE_ID_EMULATION
+		m.position = pos + Vector2(0, TapButton.TAP_SLOP + 4)
+		b._gui_input(m)
+		b._gui_input(UiSim.touch(0, false, pos))
+		assert_eq(count[0], 0, "drag then release must not fire")
+		b._gui_input(UiSim.touch(0, true, pos))
+		b._gui_input(UiSim.touch(0, false, pos))
+		assert_eq(count[0], 1, "still tap fires once")
+		b.free()
+	)
+
 	# Bugfixes ticket 20: no headless run ever opens a real window
 	# (DisplayServer.window_get_size() reports (0, 0) here, same as
 	# check_runner.gd), so the only behaviour this rig can pin down is the
