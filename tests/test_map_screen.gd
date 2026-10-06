@@ -1,5 +1,6 @@
 extends "res://tests/test_base.gd"
 
+const UiSim := preload("res://tests/support/ui_sim.gd")
 const Fixtures := preload("res://tests/support/fixtures.gd")
 
 # Bugfixes ticket 03: tapping the dimmed backdrop behind the site/vein sheet
@@ -138,6 +139,36 @@ func run() -> void:
 
 		assert_eq(screen._menu_button.text, "", "no raw unicode glyph as button text")
 		assert_eq(screen._menu_button.get_child_count(), 1, "carries exactly its drawn Icons glyph")
+
+		screen.free()
+	)
+
+	# A real device tap is touch press/release plus emulated-mouse twins; the
+	# hamburger must toggle the drawer once per tap.
+	run_case("menu_button_device_tap_opens_then_closes_drawer", func():
+		GameState.reset()
+		var screen := MapScreen.new()
+		screen._ready()
+		var btn: Button = screen._menu_button
+		var pos := Vector2(5, 5)
+
+		var device_tap := func():
+			var twin_press := InputEventMouseButton.new()
+			twin_press.button_index = MOUSE_BUTTON_LEFT
+			twin_press.pressed = true
+			twin_press.position = pos
+			twin_press.device = InputEvent.DEVICE_ID_EMULATION
+			var twin_release := twin_press.duplicate()
+			twin_release.pressed = false
+			btn._gui_input(UiSim.touch(0, true, pos))
+			btn._gui_input(twin_press)
+			btn._gui_input(UiSim.touch(0, false, pos))
+			btn._gui_input(twin_release)
+
+		device_tap.call()
+		assert_true(screen._map_controls._is_open, "first tap opens the drawer")
+		device_tap.call()
+		assert_eq(screen._map_controls._is_open, false, "second tap closes it")
 
 		screen.free()
 	)
