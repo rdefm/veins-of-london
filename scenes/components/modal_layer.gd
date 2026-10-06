@@ -79,7 +79,8 @@ func _ready() -> void:
 
 
 func _on_dim_gui_input(event: InputEvent) -> void:
-	if (event is InputEventMouseButton or event is InputEventScreenTouch) and event.pressed:
+	if (event is InputEventMouseButton or event is InputEventScreenTouch) and event.pressed \
+			and not TouchInput.is_emulated_mouse(event):
 		_dismiss_modal()
 
 

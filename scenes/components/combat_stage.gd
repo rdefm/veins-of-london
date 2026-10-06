@@ -620,6 +620,8 @@ func sync(combat: Dictionary, player: Dictionary, frozen_roster: Dictionary) -> 
 
 
 func _on_slot_gui_input(event: InputEvent, side: String, key: int) -> void:
+	if TouchInput.is_emulated_mouse(event):
+		return
 	var pressed: bool = (event is InputEventScreenTouch and event.pressed) or (event is InputEventMouseButton and event.pressed)
 	if not pressed:
 		return

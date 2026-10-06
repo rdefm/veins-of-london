@@ -3,6 +3,8 @@ extends "res://tests/test_base.gd"
 # UI.format_cost_label (D4.4) — the shared cost-label helper every
 # cost-gated button routes through.
 
+const UiSim := preload("res://tests/support/ui_sim.gd")
+
 
 func run() -> void:
 	GameState.reset()
@@ -225,6 +227,35 @@ func run() -> void:
 		assert_true(pressed[0], "a button nested in a card must still fire its callback")
 
 		c["panel"].free()
+	)
+
+	# A touch and its emulated-mouse twin are one physical tap: pressed fires once.
+	run_case("tap_button_fires_once_for_touch_plus_emulated_mouse_twin", func():
+		var count := [0]
+		var b := TapButton.new()
+		b.pressed.connect(func(): count[0] += 1)
+		var pos := Vector2(5, 5)
+		b._gui_input(UiSim.touch(0, true, pos))
+		for pressed_state in [true, false]:
+			var m := InputEventMouseButton.new()
+			m.button_index = MOUSE_BUTTON_LEFT
+			m.pressed = pressed_state
+			m.position = pos
+			m.device = InputEvent.DEVICE_ID_EMULATION
+			b._gui_input(m)
+		b._gui_input(UiSim.touch(0, false, pos))
+		assert_eq(count[0], 1, "touch + emulated twin must fire pressed once")
+
+		var real := InputEventMouseButton.new()
+		real.button_index = MOUSE_BUTTON_LEFT
+		real.position = pos
+		real.pressed = true
+		b._gui_input(real)
+		var up: InputEventMouseButton = real.duplicate()
+		up.pressed = false
+		b._gui_input(up)
+		assert_eq(count[0], 2, "a real mouse click still fires")
+		b.free()
 	)
 
 	# Bugfixes ticket 20: no headless run ever opens a real window

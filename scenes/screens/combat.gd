@@ -280,6 +280,8 @@ func _select_target(target: Dictionary) -> void:
 func _on_stage_gui_input(event: InputEvent) -> void:
 	if not _director.is_playing():
 		return
+	if TouchInput.is_emulated_mouse(event):
+		return
 	var pressed: bool = (event is InputEventScreenTouch and event.pressed) or (event is InputEventMouseButton and event.pressed)
 	if pressed:
 		_director.fast_forward_current_beat()

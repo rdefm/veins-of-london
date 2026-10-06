@@ -80,6 +80,8 @@ func _on_debug_toggle_pressed() -> void:
 	_refresh()
 
 func _on_diorama_gui_input(event: InputEvent) -> void:
+	if TouchInput.is_emulated_mouse(event):
+		return
 	var is_press: bool = (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed) \
 		or (event is InputEventScreenTouch and event.pressed)
 	if not is_press:

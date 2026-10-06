@@ -222,7 +222,8 @@ static func load_icon(app_id: String) -> Texture2D:
 
 
 func _on_gui_input(event: InputEvent) -> void:
-	if (event is InputEventMouseButton or event is InputEventScreenTouch) and event.pressed:
+	if (event is InputEventMouseButton or event is InputEventScreenTouch) and event.pressed \
+			and not TouchInput.is_emulated_mouse(event):
 		tile_pressed.emit(_app_id)
 
 

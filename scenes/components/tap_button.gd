@@ -20,7 +20,7 @@ func _init() -> void:
 
 
 func _gui_input(event: InputEvent) -> void:
-	if disabled:
+	if disabled or TouchInput.is_emulated_mouse(event):
 		return
 	var position := Vector2.ZERO
 	var pressed_now := false

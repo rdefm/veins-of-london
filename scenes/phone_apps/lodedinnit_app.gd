@@ -724,7 +724,8 @@ func _on_person_row_input(event: InputEvent, row: Control, candidate_id: String)
 			row.remove_meta("tap_start")
 			if start.distance_to(event.position) < TapButton.TAP_SLOP:
 				_open_profile(candidate_id)
-	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT \
+			and not TouchInput.is_emulated_mouse(event):
 		if event.pressed:
 			row.set_meta("tap_start", event.position)
 		elif row.has_meta("tap_start"):

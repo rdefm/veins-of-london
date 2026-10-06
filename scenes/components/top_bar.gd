@@ -179,7 +179,8 @@ static func _latest_eligible_text(notifications: Array, combat_active: bool) -> 
 
 
 func _gui_input(event: InputEvent) -> void:
-	if (event is InputEventMouseButton or event is InputEventScreenTouch) and event.pressed:
+	if (event is InputEventMouseButton or event is InputEventScreenTouch) and event.pressed \
+			and not TouchInput.is_emulated_mouse(event):
 		open_notifications_log()
 
 

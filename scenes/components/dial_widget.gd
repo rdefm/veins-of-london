@@ -84,7 +84,8 @@ func handle_trigger() -> void:
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch and event.pressed:
 		_handle_tap_at(event.position)
-	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed \
+			and not TouchInput.is_emulated_mouse(event):
 		_handle_tap_at(event.position)
 
 
