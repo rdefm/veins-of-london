@@ -1118,6 +1118,23 @@ func run() -> void:
 		assert_eq(GameState.state["event"]["eventId"], "home_raid_debrief_win", "a win should chain into the win debrief event")
 	)
 
+	run_case("home_raid_win_double_exit_keeps_debrief_and_unlocks_progression", func():
+		GameState.reset()
+		GameState.state["currentScreen"] = "combat"
+		GameState.state["combat"]["active"] = true
+		GameState.state["combat"]["context"] = Combat.CONTEXT_HOME_RAID
+		GameState.state["combat"]["outcome"] = "win"
+		GameState.state["combat"]["onWin"] = "homeRaidWon"
+		Combat._dispatch_on_win()
+		Combat.exit_combat()
+		Combat.exit_combat()  # a double tap on the outcome button
+		assert_eq(GameState.state["currentScreen"], "event", "a repeat exit should not route home over the debrief")
+		assert_eq(GameState.state["event"]["eventId"], "home_raid_debrief_win", "debrief should still be live")
+		for i in range(GameData.EVENTS["home_raid_debrief_win"]["cards"].size()):
+			Events.advance()
+		assert_eq(GameState.state["flags"]["archiePartnerSeen"], true, "finishing the debrief should set archiePartnerSeen")
+	)
+
 	run_case("exit_combat_mugging_win_routes_home_under_the_sale_modal", func():
 		GameState.reset()
 		GameState.state["currentScreen"] = "combat"
@@ -1131,6 +1148,7 @@ func run() -> void:
 
 	run_case("exit_combat_raid_win_routes_to_phone_home_with_the_bag_drawer_open", func():
 		GameState.reset()
+		GameState.state["combat"]["active"] = true
 		GameState.state["combat"]["context"] = Combat.CONTEXT_RAID
 		GameState.state["combat"]["outcome"] = "win"
 		Combat.exit_combat()
@@ -1139,6 +1157,7 @@ func run() -> void:
 		assert_eq(GameState.state["bagDrawerOpen"], true, "a raid win should open the bag drawer over phone home to show the loot")
 
 		GameState.reset()
+		GameState.state["combat"]["active"] = true
 		GameState.state["combat"]["context"] = Combat.CONTEXT_MUGGING
 		GameState.state["combat"]["outcome"] = "loss"
 		Combat.exit_combat()
@@ -1162,6 +1181,7 @@ func run() -> void:
 	run_case("exit_combat_event_raid_loss_ends_the_event_and_goes_home", func():
 		GameState.reset()
 		Events.start_event("intro")
+		GameState.state["combat"]["active"] = true
 		GameState.state["combat"]["context"] = Combat.CONTEXT_EVENT_RAID
 		GameState.state["combat"]["outcome"] = "loss"
 		Combat.exit_combat()
@@ -1207,6 +1227,7 @@ func run() -> void:
 		GameState.state["player"]["veins"] = [vein]
 		GameState.state["world"]["sites"] = [{ "id": "s_player", "district": "shoreditch", "tier": "fair", "oreType": "time", "bonuses": [], "discoveredDay": 1, "claimed": true, "factionVein": null, "hasNaturalVein": false }]
 		GameState.state["world"]["activeDefendRaid"] = { "attackerId": "collective", "veinId": "pv_test", "siteId": "s_player", "success": true }
+		GameState.state["combat"]["active"] = true
 		GameState.state["combat"]["context"] = Combat.CONTEXT_DEFEND_VEIN
 		GameState.state["combat"]["outcome"] = "win"
 
@@ -1225,6 +1246,7 @@ func run() -> void:
 		GameState.state["player"]["veins"] = [vein]
 		GameState.state["world"]["sites"] = [{ "id": "s_player", "district": "shoreditch", "tier": "fair", "oreType": "physics", "bonuses": [], "discoveredDay": 1, "claimed": true, "factionVein": null, "hasNaturalVein": false }]
 		GameState.state["world"]["activeDefendRaid"] = { "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true }
+		GameState.state["combat"]["active"] = true
 		GameState.state["combat"]["context"] = Combat.CONTEXT_DEFEND_VEIN
 		GameState.state["combat"]["outcome"] = "loss"
 

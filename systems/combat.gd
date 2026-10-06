@@ -2817,6 +2817,10 @@ static func _raid_won() -> void:
 # it on a loss; otherwise phone home, bag drawer opened on a raid win.
 static func exit_combat() -> Dictionary:
 	var combat: Dictionary = GameState.state["combat"]
+	# A repeat call (double tap on the outcome button) finds the torn-down dict
+	# and would route home over the screen the first call opened.
+	if not combat["active"]:
+		return { "nextScreen": null }
 	var outcome = combat["outcome"]
 	var context: String = combat["context"]
 	var raider_items_used: Dictionary = combat.get("raiderKit", {}).get("used", {})
