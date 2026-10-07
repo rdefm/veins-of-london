@@ -22,7 +22,7 @@
     "tomasz": {
       "name": "Tomasz Wójcik", "role": "cultivation", "startLevel": 1, "skillCaps": { "cultivating": 5 },
       "specialities": ["physics"], "baseWage": 200, "wagePerLevel": 60, "trait": "eager", "voice": "tomasz",
-      "headline": "Landscaping grad. Hungry. Will learn anything.",
+      "headline": "Cultivation grad. Hungry. Will learn anything.",
       "about": "First-class degree, no references yet. Early riser. Owns his own boots and most of a van."
     },
     "bernie": {

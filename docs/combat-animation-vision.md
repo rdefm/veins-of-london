@@ -19,12 +19,9 @@ Where it conflicts with `docs/VISION.md` on art direction, **this document
 wins** and VISION.md must be amended in the same ticket that lands the first
 pixel asset (§12), per the project constitution.
 
-**Tone note:** the 2026-08-29 session also produced a narrow, scoped amendment
-to `CONTENT-GUIDE.md` §3.1 (Pratchett-register whimsy permitted in item
-flavour text and rare flourish moments only — never in the combat log, enemy
-framing, or any narrator/character dialogue, which stay strict Adams-dry).
-That edit is already landed; noted here because it was decided as part of
-this combat-visuals conversation.
+**Tone note:** Pratchett-register wit is part of the main tone blend
+(`CONTENT-GUIDE.md` §3), including item flavour text and combat flourish
+moments; the combat log and enemy framing still keep danger sincere.
 
 **Prose:** contains no player-facing copy. Nothing here is `PROSE-REVIEW:`
 material.
@@ -53,9 +50,8 @@ where it naturally is — not neon, not fantasy-saturated, but also not
 "mundane and unremarkable"; that framing is retired. This is still the
 visual expression of the tone bible's "administrative wonder"
 (`CONTENT-GUIDE.md` §3) — the wonder is that magic hides in an ordinary,
-vividly real London, not that the world glows — consistent with §3.1's
-whimsy carve-out staying confined to item flavour text and flourish
-moments, not the stage itself. Per-plate lighting/weather/time-of-day is
+vividly real London, not that the world glows — the humour lives
+in the writing, not in the stage itself. Per-plate lighting/weather/time-of-day is
 now a creative choice made per backdrop (§2.1), not a fixed condition.
 
 ## 2. Battle grammar — the portrait problem

@@ -251,7 +251,7 @@ overlays.
 | File | Consumed by |
 |---|---|
 | approaches.json | approaches.gd |
-| barometer.json | barometer.gd (states/actions/prefs and wire article templates); ticker_app.gd (News branding, state-article headline/deck/body, article/impact labels and category copy; Stock Market list/detail labels and empty states) |
+| barometer.json | barometer.gd (states/actions/prefs and wire article templates); ticker_app.gd (News branding, state-article headline/deck/body, per-category columnist byline + author note (`categoryBylines`), article/impact labels and category copy; Stock Market list/detail labels and empty states) |
 | collective_barks.json | collective.gd |
 | combat_prototype.json | combat_prototype.gd |
 | combat_visuals.json | combat_stage.gd (locationBackdrops, backdrops, pose sheets, stage.spriteScale, stage.reserve); GameData.gd (territorialVariant pose spec); combat_director.gd (pacing.turnPause); turn_order_strip.gd (cardFrames) |

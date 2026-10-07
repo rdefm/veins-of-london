@@ -36,37 +36,16 @@ Mandatory patches during extraction (ore-roster rename; apply EXACTLY these, not
 
 ## 3. Tone bible (enforced, checkable per line)
 
-The blend: **Benedict Jacka's London narrated with Douglas Adams' dryness — 50/50 menace and comedy.** Each makes the other land harder.
+The blend: **Benedict Jacka's London narrated with Douglas Adams' dryness and Terry Pratchett's wit — 50/50 menace and comedy.** Each makes the other land harder.
 
 Rules — audit every new line against ALL of these before shipping:
 1. **Danger is sincere.** Violence has consequences. Nobody monologues. A threat that can't hurt the player doesn't get written.
-2. **Humour is coping, not whimsy.** The narrator jokes the way Londoners joke at a delayed funeral. One dry line per threat — never two, never three.
+2. **Humour is coping, not cuteness.** The narrator jokes the way Londoners joke at a delayed funeral. Pratchett-style absurdist wit is welcome anywhere; cutesy whimsy is not. One dry line per threat — never two, never three.
 3. **The joke sits next to something that could hurt you.** If a scene is all jokes, cut jokes. If it's all menace, one dry observation is allowed to breathe.
 4. **If a line winks at the camera, it dies.** No fourth wall, no "quirky", no exclamation marks in narration, no whimsical similes. The prototype's register is the target: matter-of-fact, observational, administrative.
 5. **The ancient is administrated.** Old secrets are kept via filing systems, livery companies and quiet men with lanyards. Wonder leaks through the mundane; it is never announced.
 6. **Magic is stock.** Orichalchum is a trade commodity with VAT implications. Nobody in-world finds it as remarkable as they should.
 7. **Litmus test:** if the line would work as an Alex Verus aside or a Fallen London snippet, it ships.
-
-### 3.1 Whimsy exception (combat flavour only)
-
-Rule 2 ("never whimsy") holds for the main narrative voice everywhere. One
-narrow, checkable carve-out per the combat art-direction decision
-(`docs/combat-animation-vision.md`): **Pratchett-register whimsy is allowed
-in item/consumable flavour text and infrequent flourish moments (crits, KOs,
-rare item-use one-liners) — nowhere else.**
-
-- **Allowed:** flavour line under an item in the bag/tooltip; a one-off aside
-  on a rare flourish beat (a crit, a KO).
-- **Not allowed:** the combat log itself, enemy/threat naming and framing,
-  any narrator line outside combat, Archie/James/Conclave dialogue. These
-  stay strict Adams-dry under rules 1–7 — whimsy must never touch a line
-  that carries the threat.
-- Frequency is part of the rule: flourish whimsy is opt-in (read on tap) or
-  rare by construction (crits, KOs). If it starts showing up every turn, it
-  has stopped being a flourish and must be cut back to dry.
-- Still subject to rule 1 (danger stays sincere) and rule 4 (no fourth wall,
-  no exclamation marks) — whimsy here means absurdist/Pratchett *wit*, not
-  a wink at the player.
 
 Voices:
 - **Archie** — cockney-inflected, blunt, bitingly funny, generous in deed not word. Magic is stock to shift. Time-allergic (canonical; explains the vein he gave away), permanently annoyed about it. Says "calc". Deflects gratitude by leaving.

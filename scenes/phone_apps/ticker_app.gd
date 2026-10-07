@@ -854,7 +854,10 @@ func _build_state_article(section: String) -> Control:
 	for line in _impact_lines(state_data["effects"]):
 		impact.add_child(_news_text(line, 13, NEWS_PAPER_INK))
 	body.add_child(impact)
-	body.add_child(_news_text(GameData.BAROMETER_NEWS["byline"], 11, NEWS_RED))
+	var columnist: Dictionary = GameData.BAROMETER_NEWS.get("categoryBylines", {}).get(section, {})
+	body.add_child(_news_text(columnist.get("byline", GameData.BAROMETER_NEWS["byline"]), 11, NEWS_RED))
+	if columnist.has("authorNote"):
+		body.add_child(_news_text(columnist["authorNote"], 12, NEWS_MUTED))
 	body.add_child(_news_rule(Color("#c4b7b7"), 1))
 	body.add_child(_news_text(state_data["article"]["body"], 14, NEWS_PAPER_INK))
 	var influence := _ticker_button(copy["influence"], func(): _open_influence(), "action", true)

@@ -74,22 +74,22 @@
 "economic": {
 "boom": {
 "article": {
-"body": "Orders for crafted items are rising across London, giving dealers a larger pool of potential buyers. The increase affects demand throughout the item market. Its effect on any individual quote will depend on available stock and the trading recorded before the next daily close.",
-"deck": "A stronger market is bringing more buyers to finished goods."
+"body": "Demand for orichalchum and its products rose across the board today, with buyers arriving at the Exchange carrying more cash than sense. Prices firmed by the hour. Even the streets around the Bank were noticeably calmer, there being less need to push what people are happy to pay for.\n\nTraders should sell into strength while it lasts. A man at the Exchange called the mood \"sustainable\", which in this column's experience is the word used about a month before it is not. Readers who sold early are advised to enjoy it quietly.",
+"deck": "Cash is plentiful and buyers are spending it, which this correspondent finds suspicious."
 },
 "description": "Demand up. Buyers flush with cash.",
 "effects": {
 "demandAll": 0.1,
 "mugChance": -0.05
 },
-"headlines": ["Demand for crafted goods rises across London", "Crafted-item buyers return in greater numbers across the city."],
+"headlines": ["Buyers flush, demand strong, Exchange in unfamiliar good humour", "Boom lifts London's ore trade; caution advised, and ignored"],
 "id": "boom",
 "label": "Economic Boom"
 },
 "crisis": {
 "article": {
-"body": "Demand for Be a Lady has increased sharply during the financial crisis, setting it apart from the wider item market. At the same time, the risk of mugging has risen across London. Dealers moving valuable stock must weigh that exposure alongside the day’s market quote.",
-"deck": "One finished item attracts more buyers as risks on the street increase."
+"body": "The market suffered what the Exchange is calling a correction, and what everyone outside it is calling something else. Readers may be heartened to hear that quotes only fell in the morning, and dismayed to hear they plummeted after lunch. A man at the Exchange confirmed that \"there will be a statement\", and was not seen again.\n\nDesperate buyers are paying nearly anything for Be a Lady, whose stock is gone from most shelves. The streets have grown rougher alongside, with muggings sharply up and fewer people willing to walk home with anything worth taking. Readers are advised to hold what they have, keep it close and avoid the Bank after dark. This is unfortunate.",
+"deck": "The market has fallen and the streets have noticed. One item alone is in demand."
 },
 "description": "Market collapse. Some ore types in desperate demand.",
 "effects": {
@@ -98,46 +98,46 @@
 },
 "mugChance": 0.12
 },
-"headlines": ["Be a Lady demand rises during financial crisis", "Be a Lady draws buyers as financial crisis unsettles London."],
+"headlines": ["Markets suffer \"a correction\"; Exchange doors remain, for now, open", "Financial crisis grips London; one product almost sells out entirely"],
 "id": "crisis",
 "label": "Financial Crisis"
 },
 "inflation": {
 "article": {
-"body": "High inflation has increased weekly living costs across London. Demand for crafted items has also risen, adding pressure to a market already shaped by daily changes in stock and trade. The barometer does not set a higher price for every good; households will see the increase directly in their living-cost bill.",
-"deck": "Households face higher bills while buyers place more orders for crafted goods."
+"body": "Prices rose again across London today, a movement this correspondent can confirm from the sandwich at the café on Threadneedle Street, which now costs what a full lunch used to. Orichalchum moved with the tide, and buyers kept buying, on the theory that anything bought today is cheaper than it will be tomorrow.\n\nThe daily cost of living is the real wound. Rent, fuel and food are all climbing faster than anyone's income, and the gap is paid for out of stock or savings. Traders may wish to sell a little more often than they otherwise would.",
+"deck": "Day-to-day costs are climbing fast, though buyers are, perversely, still buying."
 },
 "description": "Everything costs more. Daily costs up.",
 "effects": {
 "dailyCost": 0.3,
 "demandAll": 0.05
 },
-"headlines": ["Weekly living costs rise as item demand increases", "Living-cost bills rise while crafted-goods orders grow."],
+"headlines": ["Prices rise again; the sandwich at Threadneedle Street now requires thought", "Inflation bites London: everything costs more, orichalchum included"],
 "id": "inflation",
 "label": "High Inflation"
 },
 "recession": {
 "article": {
-"body": "Demand for crafted goods has fallen as the recession takes hold. Dealers carrying finished stock may have to wait longer for buyers, while those still trading ore will continue to face prices set by the day’s supply and demand. The downturn does not impose a fixed reduction on ore quotes.",
-"deck": "Dealers face fewer buyers for finished items."
+"body": "Orichalchum fell again today on thin trade, with buyers arriving late, asking questions and leaving without buying. Prices softened across nearly every line. Traders described conditions as \"challenging\", a word this column has learned to read as \"grim\".\n\nThe cost is not confined to the floor. Where money is short, people take other people's, and incidents of street theft are up on the week. Readers carrying stock should price for patience and carry less of it in public. The warning was given in the spring. It is repeated now at no extra charge.",
+"deck": "Buyers are tight, prices are soft, and the streets are less patient than the markets."
 },
 "description": "Buyers tighter. Prices softer.",
 "effects": {
 "demandAll": -0.1,
 "mugChance": 0.05
 },
-"headlines": ["Recession reduces London demand for crafted goods", "Finished-goods demand falls under London recession."],
+"headlines": ["Recession deepens; buyers hold their purses, ore prices soften", "As this column warned in the spring, demand has gone"],
 "id": "recession",
 "label": "Recession"
 },
 "stable": {
 "article": {
-"body": "London’s economic barometer remained steady today, with no new citywide change in demand for crafted goods. Traders continue to work from the daily market quote, which responds to stock and buying activity.",
-"deck": "The wider economic reading has not changed, though individual prices can still move."
+"body": "Orichalchum traded within a narrow band today and closed where it opened. Volumes were ordinary, tempers were ordinary, and the one trader seen shouting was shouting about a parking fine. A man at the Exchange described conditions as \"fine\", then looked faintly unwell at having said so.\n\nReaders need do nothing. Holdings may be left alone, quotes need not be checked more than twice, and lunch may be taken at lunchtime. Steadiness of this kind rarely lasts, but this column has been wrong about that before, and hopes to be again.",
+"deck": "An unremarkable day on the floor, which this correspondent will take."
 },
 "description": "Markets function normally. Ore prices steady.",
 "effects": {},
-"headlines": ["Economic outlook remains steady as London traders watch daily quotes", "London's economic reading holds as traders await the next market close."],
+"headlines": ["Markets steady; this column has nothing to add", "Ore prices hold as London's traders find little to dispute"],
 "id": "stable",
 "label": "Stable"
 }
@@ -217,22 +217,22 @@
 "social": {
 "crime": {
 "article": {
-"body": "Mugging risk has risen across London during the crime wave. The chance of a raid on properties has also increased, making the location and amount of carried ore more consequential for its owner. Neither measure records an attack in itself, but both change the risks traders face.",
-"deck": "Traders face greater exposure both on the street and where they keep stock."
+"body": "Six street robberies were reported to this newspaper today before the count was abandoned, partly from fatigue and partly because the reporter had been robbed too, of an umbrella with a duck handle. Its return would be welcomed.\n\nBreak-ins are rising alongside. A close personal source says homes are being done with the attention once given to weddings. Anyone with stock at home and no plan to guard it may find someone insistently offering to look after it instead. Readers carrying much of anything should consider where it sleeps. Lock the door, then check the lock.",
+"deck": "Street theft and break-ins are both up, and nobody is sure who is not involved."
 },
 "description": "Everyone is at it. Mugging risk elevated.",
 "effects": {
 "homeRaid": 0.05,
 "mugChance": 0.15
 },
-"headlines": ["Crime wave increases mugging and property-raid risks", "Mugging and home-raid risks rise during crime wave."],
+"headlines": ["Crime wave: everyone is at it, reports Pip, who is not", "A close personal source \"knows a guy\"; the guy is busy"],
 "id": "crime",
 "label": "Crime Wave"
 },
 "festival": {
 "article": {
-"body": "Festival crowds have brought stronger demand for Blast, Shield, Black Hole and Wormhole. The increase concerns those finished goods rather than a guaranteed rise in physics ore prices. Ore quotes will reflect the stock and trading activity recorded by the London market.",
-"deck": "Blast, Shield, Black Hole and Wormhole draw more buyers."
+"body": "The City Festival filled the streets with flags and a man on stilts who is a genuine hazard to low-flying traffic. One stall sold a Wormhole, described as \"the same as the one in the shop, but with a ribbon\". A close personal source bought one. This reporter did not.\n\nDemand is concentrated on Blasts, Shields, Black Holes and, yes, Wormholes, on the principle that nothing says celebration like something that goes off or keeps people away. Traders report brisk business and sore throats. Crowds are in good spirits and guarding their pockets less closely than usual, and anyone out searching for ore has had better luck than usual. Wear sensible shoes.",
+"deck": "Festival crowds are buying the bangy, shiny and slightly alarming."
 },
 "description": "Energy high, people out. Physics ore in demand.",
 "effects": {
@@ -244,46 +244,46 @@
 },
 "searchFind": 0.05
 },
-"headlines": ["City Festival lifts demand for four crafted items", "Festival buyers turn to Blast, Shield, Black Hole and Wormhole."],
+"headlines": ["London throws a party, buys all the loud things", "City Festival: stilts, flags, and a Wormhole with a ribbon"],
 "id": "festival",
 "label": "City Festival"
 },
 "lockdown": {
 "article": {
-"body": "Lockdown notices have been issued across London, and weekly living costs have risen while the measures remain in force. Traders are assessing the additional expense alongside their usual market commitments. The current market record does not establish a fixed change to ore prices or a closure of travel routes.",
-"deck": "Household budgets bear the immediate cost of the new restrictions."
+"body": "Lockdown notices appeared overnight on lampposts across the city, several of them identical. The instruction is to stay in. One flat visited by this reporter has since established that it can hold a great many snacks.\n\nThe wider cost is less cheerful. With the streets shut, searching is slow and finds are smaller: a resident of one building reports four hours out and nothing but a meal deal to show for it. Costs indoors are rising too, from the landlord, the gas and the TV licence. Officials call the measures temporary, somehow while maintaining a straight face. Keep a biscuit in reserve.",
+"deck": "Restrictions on movement make everything slower and the bills a bit steeper."
 },
 "description": "Movement restricted. Searching harder, yields lower.",
 "effects": {
 "dailyCost": 0.1,
 "searchFind": -0.15
 },
-"headlines": ["Lockdown measures add to weekly living costs", "New lockdown brings higher household costs."],
+"headlines": ["Lockdown notices go up on every lamppost", "Everyone indoors, everyone fine, everyone asking about the rent"],
 "id": "lockdown",
 "label": "Lockdown"
 },
 "stable": {
 "article": {
-"body": "Street activity is holding at its usual level, with no additional effect from the social barometer on raids or mugging risk. Individual incidents remain possible. For traders carrying calc or tending veins, the stable reading leaves ordinary precautions as relevant as they were yesterday.",
-"deck": "The social barometer records no new citywide shift."
+"body": "London was quiet today, a finding verified on foot between Bethnal Green and Waterloo. The 38 ran to time. A seller outside the Underground worked his patch at low volume, which observers class as manners. A bun bought at Waterloo was fine.\n\nA close personal source advises that a calm week is for tidying stock, checking locks and doing the washing. The washing has been done. Readers carrying orichalcum or watching veins may wish to see to the other two, as experts are unclear on how long it will stay like this.",
+"deck": "A calm day citywide, described by this reporter as \"suspicious in a nice way\"."
 },
 "description": "Normal levels of street activity.",
 "effects": {},
-"headlines": ["London street activity remains at usual levels", "Street conditions hold to their usual London pattern."],
+"headlines": ["Nothing happens in London; reporter checks twice", "Quiet day on the streets as the 38 runs to time"],
 "id": "stable",
 "label": "Stable"
 },
 "unrest": {
 "article": {
-"body": "Unrest across London has increased the risk of mugging, theft, and breaking and entering. Police attention is being drawn elsewhere, leaving more room for opportunistic crews. The rise in risk applies across the city, although whether a particular trader or property is attacked still depends on its circumstances.",
-"deck": "Police attention is stretched as disorder spreads between boroughs."
+"body": "Unrest moved through several boroughs overnight, leaving broken windows and one bin found well outside its usual range. Police were largely elsewhere, a position a tired officer described as \"operational\" and a close personal source translated as \"you're on your own, love\". The chip shop on the high street stayed open throughout, to general respect.\n\nWith attention drawn away, anyone carrying valuables may be of interest to the crews who watch for nights like this. Locks are cheaper than losses. The same source notes that some regard a thin police presence as an opportunity.",
+"deck": "With police attention stretched, the city is livelier than anyone asked for."
 },
 "description": "Police busy elsewhere. Raid risks up, but so is opportunity.",
 "effects": {
 "mugChance": 0.08,
 "raidChance": 0.1
 },
-"headlines": ["Unrest raises risk of street theft and property crime", "London unrest leaves traders facing greater street risks."],
+"headlines": ["Unrest spreads between boroughs; police \"elsewhere\"", "Bad night in Hackney, though the chip queue held up"],
 "id": "unrest",
 "label": "Social Unrest"
 }

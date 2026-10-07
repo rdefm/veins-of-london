@@ -10,7 +10,7 @@ Each character has eight sentences, covering personality, relevant context, and 
 He is capable under pressure and protective of the player, with concern showing through practical help and brief moments of unguarded sincerity.
 
 **Context:** An old friend who brings the player into the calc trade, he finds buyers, introduces James and Des, and becomes the player's partner after the home raid.
-His time allergy is explicit canon in the prose guide, while his grievance against Des centres on an unpaid £420 that Des considers settled, exposing their different ideas about obligation.
+His time allergy is explicit canon in the prose guide, while his grievance against Des centres on an unpaid £20 that Des considers settled, exposing their different ideas about obligation.
 
 **Voice:** Use cockney-inflected conversational English, contractions, “calc”, brisk instructions and sharp observations about money, inconvenience and other people's competence.
 Let advice arrive wrapped in a dig, but make the advice useful and the danger real.
@@ -58,7 +58,7 @@ Under threat, keep her decisive and pragmatic, able to accept another person's o
 
 ## Hakim
 
-**Personality:** Hakim is modest, conscientious and easily embarrassed by needing help, with pride in his shop and loyalty to his uncle.
+**Personality:** Hakim is modest, conscientious and easily embarrassed by needing help, with pride in his shop and loyalty to his family
 He habitually minimises his own importance, yet refuses to sell under intimidation and shows quiet courage when that refusal gets him hurt.
 
 **Context:** A Whitechapel Road newsagent, he struggles to maintain the yard vein his uncle once tended, whose declining output matters to the rent.
