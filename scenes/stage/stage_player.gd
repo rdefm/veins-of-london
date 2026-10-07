@@ -28,12 +28,14 @@ var _ambient: Array = []
 var _lights: Array = []
 var _actors: Dictionary = {}
 var _props_root: Node2D
-var _bin: Dictionary = {}
+var _objects: Dictionary = {}  # id -> {"back", "front" (or null), "x"}
 var _fx: Array = []
 var _steps: Array = []
+var _moves: Array = []  # [{target, actor (or null), from, to, t, dur}]
 var _clock := 0.0
 var _camera_x := 0.0
 var _camera_move: Dictionary = {}
+var _wobble_object := ""
 var _wobble_until := -1.0
 var _fit: Dictionary = {"scale": 1, "size": Vector2i(180, 240)}
 var _rng := RandomNumberGenerator.new()
@@ -80,10 +82,10 @@ func _build_world() -> void:
 	var near := _add_parallax_node(1.0)
 	_build_ambient(near, dir)
 	_build_lights(near, dir)
-	var bin_def: Dictionary = set_def["objects"]["bin"]
-	var bin_pos := Vector2(float(bin_def["x"]) - bin_def["size"][0] / 2.0, float(set_def["floor_y"]) + 2.0 - bin_def["size"][1])
-	_bin["back"] = _sprite(near, load(dir + String(bin_def["back"])), bin_pos)
-	_bin["origin"] = bin_pos
+	for object_id in set_def["objects"]:
+		var object_def: Dictionary = set_def["objects"][object_id]
+		_objects[object_id] = {"x": float(object_def["x"]), "front": null,
+			"back": _sprite(near, load(dir + String(object_def["back"])), Vector2.ZERO)}
 	for actor_id in stage["actors"]:
 		var actor_def: Dictionary = stage["actors"][actor_id]
 		var actor := StageActor.new()
@@ -94,7 +96,11 @@ func _build_world() -> void:
 		_actors[actor_id] = actor
 	_props_root = Node2D.new()
 	near.add_child(_props_root)
-	_bin["front"] = _sprite(near, load(dir + String(bin_def["front"])), bin_pos)
+	for object_id in set_def["objects"]:
+		var object_def: Dictionary = set_def["objects"][object_id]
+		if object_def.has("front"):
+			_objects[object_id]["front"] = _sprite(near, load(dir + String(object_def["front"])), Vector2.ZERO)
+	_place_objects()
 	_add_layers("front", dir)
 
 
@@ -194,9 +200,11 @@ func _clear_card() -> void:
 	for child in _props_root.get_children():
 		child.queue_free()
 	_camera_move = {}
+	_moves.clear()
 	_wobble_until = -1.0
 	for actor in _actors.values():
 		actor.stop_talking()
+		actor.set_walking(false)
 
 
 func _set_running(running: bool) -> void:
@@ -208,8 +216,15 @@ func _set_running(running: bool) -> void:
 func _apply_snapshot(snap: Dictionary) -> void:
 	_camera_x = snap["camera_x"]
 	for actor_id in snap["actors"]:
-		_actors[actor_id].apply_attrs(snap["actors"][actor_id])
-		_actors[actor_id].snap_tilt()
+		var look: Dictionary = snap["actors"][actor_id]
+		var actor: StageActor = _actors[actor_id]
+		actor.apply_attrs(look)
+		actor.snap_tilt()
+		actor.position.x = float(look["x"])
+		actor.visible = look["visible"]
+	for object_id in snap["objects"]:
+		_objects[object_id]["x"] = float(snap["objects"][object_id]["x"])
+	_place_objects()
 	for rest in snap["props"]:
 		_prop_sprite(rest["prop"], Vector2(rest["x"], rest["y"]))
 
@@ -236,6 +251,7 @@ func advance(delta: float) -> void:
 	for pending in due:
 		_steps.erase(pending)
 		_run_step(pending["step"])
+	_update_moves(delta)
 	for actor in _actors.values():
 		actor.step(delta)
 	_update_fx(delta)
@@ -260,19 +276,58 @@ func _run_step(step: Dictionary) -> void:
 	elif step.has("drop"):
 		var drop: Dictionary = step["drop"]
 		var from := _anchor_world(drop["from"])
-		var to := StageDirection.drop_landing(stage, drop)
+		var dropper: StageActor = _actors[StageDirection.split_target(drop["from"])[0]]
+		var to := StageDirection.drop_landing(stage, drop, dropper.position.x, dropper.attrs["facing"])
 		_fx.append({"kind": "drop", "sprite": _prop_sprite(drop["prop"], from), "prop": drop["prop"],
 			"from": from, "to": to, "t": 0.0})
 	elif step.has("throw"):
 		var throw: Dictionary = step["throw"]
 		var from := _anchor_world(throw["from"])
-		var bin_def: Dictionary = set_def["objects"][throw["to"]]
-		var to: Vector2 = _bin["origin"] + Vector2(bin_def["mouth"][0], bin_def["mouth"][1] + 6.0)
+		var target_def: Dictionary = set_def["objects"][throw["to"]]
+		var to: Vector2 = _object_origin(throw["to"]) + Vector2(target_def["mouth"][0], target_def["mouth"][1] + 6.0)
 		_fx.append({"kind": "throw", "sprite": _prop_sprite(throw["prop"], from), "from": from, "to": to,
-			"t": 0.0, "dur": float(throw["dur"]), "arc": float(throw["arc"])})
+			"t": 0.0, "dur": float(throw["dur"]), "arc": float(throw["arc"]), "target": throw["to"]})
 	elif step.has("camera"):
 		_camera_move = {"from": _camera_x, "to": float(step["camera"]["x"]), "t": 0.0,
 			"dur": maxf(0.001, float(step["camera"].get("dur", 0.0)))}
+	elif step.has("move"):
+		_start_move(step["move"])
+	elif step.has("show"):
+		_actors[step["show"]].visible = true
+	elif step.has("hide"):
+		_actors[step["hide"]].visible = false
+
+
+func _start_move(move: Dictionary) -> void:
+	var target: String = move["target"]
+	for running in _moves.duplicate():
+		if running["target"] == target:
+			_moves.erase(running)
+	var actor: StageActor = _actors.get(target)
+	var from: float = actor.position.x if actor != null else _objects[target]["x"]
+	_moves.append({"target": target, "actor": actor, "from": from, "to": roundf(float(move["x"])),
+		"t": 0.0, "dur": maxf(0.001, float(move.get("dur", 0.0)))})
+	if actor != null:
+		actor.set_walking(true)
+
+
+func _update_moves(delta: float) -> void:
+	var finished: Array = []
+	for move in _moves:
+		move["t"] += delta
+		var u: float = move["t"] / move["dur"]
+		var x := roundf(lerpf(move["from"], move["to"], StageDirection.ease_move(u)))
+		var actor: StageActor = move["actor"]
+		if actor != null:
+			actor.position.x = x
+		else:
+			_objects[move["target"]]["x"] = x
+		if u >= 1.0:
+			finished.append(move)
+			if actor != null:
+				actor.set_walking(false)
+	for move in finished:
+		_moves.erase(move)
 
 
 func _anchor_world(path: String) -> Vector2:
@@ -308,15 +363,30 @@ func _update_fx(delta: float) -> void:
 			sprite.position = pos.round()
 			if s >= 1.0:
 				sprite.queue_free()
+				_wobble_object = fx["target"]
 				_wobble_until = _clock + WOBBLE_TIME
 				finished.append(fx)
 	for fx in finished:
 		_fx.erase(fx)
-	var wobble := 0.0
-	if _clock < _wobble_until:
-		wobble = 1.0 if int(_clock / 0.06) % 2 == 0 else -1.0
-	_bin["front"].position = _bin["origin"] + Vector2(wobble, 0.0)
-	_bin["back"].position = _bin["origin"] + Vector2(wobble, 0.0)
+	_place_objects()
+
+
+# Top-left of an object's sprites: centred on its x, resting on the floor.
+func _object_origin(object_id: String) -> Vector2:
+	var object_def: Dictionary = set_def["objects"][object_id]
+	var x: float = _objects[object_id]["x"]
+	return Vector2(roundf(x - object_def["size"][0] / 2.0), float(set_def["floor_y"]) + 2.0 - object_def["size"][1])
+
+
+func _place_objects() -> void:
+	for object_id in _objects:
+		var pos := _object_origin(object_id)
+		if object_id == _wobble_object and _clock < _wobble_until:
+			pos.x += 1.0 if int(_clock / 0.06) % 2 == 0 else -1.0
+		var entry: Dictionary = _objects[object_id]
+		entry["back"].position = pos
+		if entry["front"] != null:
+			entry["front"].position = pos
 
 
 func _update_camera(delta: float) -> void:

@@ -186,9 +186,9 @@ overlays.
 
 | File | Purpose |
 |---|---|
-| stage_player.gd | `StagePlayer`: low-res SubViewport world (parallax layers, walkers, vendor, flickering lights, bin, actors, props) shown at an integer pixel scale; `show_card()` snaps to the folded card start then plays its timed steps; reduced motion snaps to card end; `rest()` hides/idles it past the stage's last card |
-| stage_actor.gd | `StageActor`: layered rig sprites (body/head groups), attribute frames, blink/chew/talk/breathe/tilt, rig actions, hand/mouth anchors |
-| stage_direction.gd | `StageDirection`: pure fold of per-card steps into start/end snapshots, drop landing, talk length from quoted speech, integer viewport fit |
+| stage_player.gd | `StagePlayer`: low-res SubViewport world (parallax layers, walkers, vendor, flickering lights, set objects, actors, props) at an integer pixel scale; `show_card()` snaps to the folded card start then plays its timed steps (incl. eased moves, show/hide); reduced motion snaps to card end; `rest()` hides/idles it past the last staged card |
+| stage_actor.gd | `StageActor`: layered rig sprites (body/head groups), attribute frames, blink/chew/talk/breathe/tilt, rig actions, walk cycle, facing flip, hand/mouth anchors (mirrored with facing) |
+| stage_direction.gd | `StageDirection`: pure fold of per-card steps into start/end snapshots (actor attrs/x/facing/visibility, object x, props, camera), drop landing, move easing, talk length, integer viewport fit |
 
  — modal content, one script per type
 

@@ -3,15 +3,19 @@ extends Node2D
 
 # One rigged character (data/stages/rigs/<rig>.json): layered part sprites on
 # a shared canvas, feet at this node's position. Attributes (arm frames, eyes,
-# brows, mouth, tilt) come from StageDirection snapshots and card steps; the
-# idle life on top -- breathing, blinking, chewing, talk flaps -- runs here.
+# brows, mouth, tilt, facing) come from StageDirection snapshots and card
+# steps; the idle life on top -- breathing, blinking, chewing, talk flaps, the
+# walk cycle while the player moves it -- runs here.
 
 var rig: Dictionary
 var attrs: Dictionary = {}
 var motion := true
+var walking := false
 
 var _sprites: Dictionary = {}
 var _textures: Dictionary = {}
+var _shown: Dictionary = {}
+var _walk_clock := 0.0
 var _body: Node2D
 var _head: Node2D
 var _origin: Vector2
@@ -62,6 +66,7 @@ func setup(rig_def: Dictionary) -> void:
 					_body.add_child(_head)
 				_head.add_child(sprite)
 		_sprites[part_id] = sprite
+		_shown[part_id] = frames.keys()[0]
 	_blink_at = _rng.randf_range(rig["behaviour"]["blink_every"][0], rig["behaviour"]["blink_every"][1])
 	apply_attrs(rig["defaults"])
 
@@ -109,14 +114,37 @@ func is_talking() -> bool:
 	return _time < _talk_until
 
 
-# Anchor in this actor's local space (relative to its feet).
+# Starts or stops the rig's walk cycle (no-op for rigs without one); stopping
+# restores the standing frame.
+func set_walking(on: bool) -> void:
+	walking = on
+	_walk_clock = 0.0
+	_redraw()
+
+
+func is_mirrored() -> bool:
+	return StageDirection.is_mirrored(rig, attrs.get("facing", StageDirection.rig_faces(rig)))
+
+
+# Frame id a part is currently showing.
+func shown_frame(part_id: String) -> String:
+	return _shown.get(part_id, "")
+
+
+# Anchor relative to this actor's feet, in its parent's space (mirrored with
+# the rig when it faces the other way).
 func anchor(name: String) -> Vector2:
 	var anchors: Dictionary = rig["anchors"]
+	var point: Vector2
 	if name == "mouth":
 		var mouth := _vec(anchors["mouth"]) - _neck
-		return _body.position + _head.position + mouth.rotated(_head.rotation)
-	var frame: String = attrs.get(name.replace("hand_", "arm_"), "")
-	return _body.position + _vec(anchors[name][frame]) - _origin
+		point = _body.position + _head.position + mouth.rotated(_head.rotation)
+	else:
+		var frame: String = attrs.get(name.replace("hand_", "arm_"), "")
+		point = _body.position + _vec(anchors[name][frame]) - _origin
+	if is_mirrored():
+		point.x = -point.x
+	return point
 
 
 # Driven by StagePlayer.advance() so the whole stage shares one clock.
@@ -147,6 +175,8 @@ func step(delta: float) -> void:
 	elif not is_talking():
 		_talk_frame = ""
 	_chew_clock += delta
+	if walking:
+		_walk_clock += delta
 	# breathing: the whole upper body rises a pixel for part of each breath
 	var period: float = behaviour["breathe_period"]
 	_body.position.y = -1.0 if fmod(_time, period) < period * 0.45 else 0.0
@@ -164,6 +194,14 @@ func _redraw() -> void:
 		_show("eyes", "closed")
 	_show("mouth", _mouth_frame())
 	_head.rotation_degrees = _tilt
+	scale.x = -1.0 if is_mirrored() else 1.0
+	if rig.has("walk"):
+		var walk: Dictionary = rig["walk"]
+		var frames: Array = walk["frames"]
+		var frame: String = walk["stand"]
+		if walking and motion:
+			frame = frames[int(_walk_clock / float(walk["frame_time"])) % frames.size()]
+		_show(walk["part"], frame)
 
 
 func _mouth_frame() -> String:
@@ -189,6 +227,7 @@ func _show(part_id: String, frame_id: String) -> void:
 	var frames: Dictionary = _textures[part_id]
 	if frames.has(frame_id):
 		_sprites[part_id].texture = frames[frame_id]
+		_shown[part_id] = frame_id
 
 
 static func _vec(a: Array) -> Vector2:

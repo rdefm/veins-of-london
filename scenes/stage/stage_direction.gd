@@ -6,13 +6,28 @@ extends RefCounted
 # card -- after Rewind, a resume, or a fast tap -- renders without replaying
 # history. Presentation only: nothing here reads or writes GameState.
 
-# Snapshot shape: {"camera_x": float, "actors": {id: {attr: value}}, "props": [{"prop", "x", "y"}]}
+# Snapshot shape:
+# {"camera_x": float,
+#  "actors": {id: {<rig attrs>, "facing": "left"|"right", "x": int, "visible": bool}},
+#  "objects": {id: {"x": int}},
+#  "props": [{"prop", "x", "y"}]}
 static func initial(stage: Dictionary) -> Dictionary:
 	var actors: Dictionary = {}
 	for actor_id in stage["actors"]:
-		var rig: Dictionary = GameData.STAGE_RIGS[stage["actors"][actor_id]["rig"]]
-		actors[actor_id] = rig["defaults"].duplicate(true)
-	return {"camera_x": float(stage["camera"]["x"]), "actors": actors, "props": []}
+		var actor_def: Dictionary = stage["actors"][actor_id]
+		var rig: Dictionary = GameData.STAGE_RIGS[actor_def["rig"]]
+		var look: Dictionary = rig["defaults"].duplicate(true)
+		look["facing"] = actor_def.get("facing", rig_faces(rig))
+		look["x"] = roundi(float(actor_def["x"]))
+		look["visible"] = not actor_def.get("hidden", false)
+		actors[actor_id] = look
+	var objects: Dictionary = {}
+	var set_objects: Dictionary = GameData.STAGE_SETS[stage["set"]]["objects"]
+	var overrides: Dictionary = stage.get("objects", {})
+	for object_id in set_objects:
+		var x: float = overrides.get(object_id, {}).get("x", set_objects[object_id]["x"])
+		objects[object_id] = {"x": roundi(x)}
+	return {"camera_x": float(stage["camera"]["x"]), "actors": actors, "objects": objects, "props": []}
 
 
 # State at the start of card_index (before any of its own steps run).
@@ -45,7 +60,8 @@ static func sorted_steps(card: Dictionary) -> Array:
 
 
 # The lasting effect of one step: sets and actions change attributes, a drop
-# leaves its prop on the floor, a camera move leaves the camera there. Talk
+# leaves its prop on the floor, a camera move leaves the camera there, a move
+# leaves its actor/object at the target x, show/hide leave the actor so. Talk
 # and throws leave nothing behind.
 static func apply_step_end(stage: Dictionary, snap: Dictionary, step: Dictionary) -> void:
 	if step.has("set"):
@@ -60,10 +76,19 @@ static func apply_step_end(stage: Dictionary, snap: Dictionary, step: Dictionary
 			apply_sets(snap, prefixed)
 	elif step.has("drop"):
 		var drop: Dictionary = step["drop"]
-		var landing := drop_landing(stage, drop)
+		var look: Dictionary = snap["actors"][split_target(drop["from"])[0]]
+		var landing := drop_landing(stage, drop, float(look["x"]), look["facing"])
 		snap["props"].append({"prop": drop["prop"], "x": landing.x, "y": landing.y})
 	elif step.has("camera"):
 		snap["camera_x"] = float(step["camera"]["x"])
+	elif step.has("move"):
+		var move: Dictionary = step["move"]
+		var group := "actors" if stage["actors"].has(move["target"]) else "objects"
+		snap[group][move["target"]]["x"] = roundi(float(move["x"]))
+	elif step.has("show"):
+		snap["actors"][step["show"]]["visible"] = true
+	elif step.has("hide"):
+		snap["actors"][step["hide"]]["visible"] = false
 
 
 static func apply_sets(snap: Dictionary, sets: Dictionary) -> void:
@@ -82,12 +107,28 @@ static func rig_for(stage: Dictionary, actor_id: String) -> Dictionary:
 	return GameData.STAGE_RIGS[stage["actors"][actor_id]["rig"]]
 
 
-# A drop lands relative to the dropping actor's feet: land = [dx, dy].
-static func drop_landing(stage: Dictionary, drop: Dictionary) -> Vector2:
+# The way a rig's art faces as drawn; the other facing mirrors it.
+static func rig_faces(rig: Dictionary) -> String:
+	return rig.get("faces", "right")
+
+
+static func is_mirrored(rig: Dictionary, facing: String) -> bool:
+	return facing != rig_faces(rig)
+
+
+# A drop lands relative to the dropping actor's feet: land = [dx, dy], dx
+# mirrored with the actor.
+static func drop_landing(stage: Dictionary, drop: Dictionary, feet_x: float, facing: String) -> Vector2:
 	var actor_id: String = split_target(drop["from"])[0]
 	var floor_y: float = GameData.STAGE_SETS[stage["set"]]["floor_y"]
 	var land: Array = drop["land"]
-	return Vector2(float(stage["actors"][actor_id]["x"]) + land[0], floor_y + land[1])
+	var dx := float(land[0]) * (-1.0 if is_mirrored(rig_for(stage, actor_id), facing) else 1.0)
+	return Vector2(feet_x + dx, floor_y + land[1])
+
+
+# Eased travel for move steps: u in 0..1 -> 0..1.
+static func ease_move(u: float) -> float:
+	return smoothstep(0.0, 1.0, clampf(u, 0.0, 1.0))
 
 
 # Seconds of mouth movement for a card's line: only the quoted speech counts

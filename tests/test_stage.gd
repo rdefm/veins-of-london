@@ -20,6 +20,10 @@ func run() -> void:
 				var rig_id: String = stage["actors"][actor_id]["rig"]
 				assert_true(GameData.STAGE_RIGS.has(rig_id), "%s: rig %s exists" % [event_id, rig_id])
 				_assert_rig_files(GameData.STAGE_RIGS[rig_id])
+				var facing: String = stage["actors"][actor_id].get("facing", "right")
+				assert_true(facing == "left" or facing == "right", "%s: %s facing is left/right" % [event_id, actor_id])
+			for object_id in stage.get("objects", {}):
+				assert_true(set_def["objects"].has(object_id), "%s: object %s exists in the set" % [event_id, object_id])
 			for card in stage["cards"]:
 				for step in card["steps"]:
 					_assert_step_valid(event_id, stage, set_def, step)
@@ -129,11 +133,186 @@ func run() -> void:
 		GameState.state["meta"]["reducedMotion"] = false
 	)
 
+	run_case("fold_tracks_moves_facing_and_visibility", func():
+		var restore := _install_cast_stage()
+		var stage := _cast_stage()
+		var start := StageDirection.resolve_start(stage, 0)
+		assert_eq(start["objects"]["bin"]["x"], -30, "stage override starts the object off-screen")
+		assert_eq(start["actors"]["buyer"]["visible"], false, "hidden actor starts hidden")
+		assert_eq(start["actors"]["buyer"]["facing"], "left", "actor def sets starting facing")
+		assert_eq(start["actors"]["archie"]["facing"], "right", "rig's drawn facing by default")
+		assert_eq(start["actors"]["archie"]["x"], 230, "actor def x")
+		var card1_end := StageDirection.resolve_end(stage, 0)
+		assert_eq(card1_end["objects"]["bin"]["x"], 100, "object ends where it drove to")
+		assert_eq(card1_end["actors"]["buyer"]["visible"], true, "shown actor stays shown")
+		var card3 := StageDirection.resolve_start(stage, 2)
+		assert_eq(card3["actors"]["buyer"]["x"], 180, "move target x rounded to an integer")
+		assert_eq(card3["actors"]["archie"]["facing"], "left", "facing set persists")
+		var last := StageDirection.resolve_end(stage, 2)
+		assert_eq(last["actors"]["buyer"]["visible"], false, "hide persists")
+		assert_eq(last["actors"]["archie"]["x"], 330, "actor ends at the walk target")
+		assert_eq(last["objects"]["bin"]["x"], 100, "object stays parked")
+		restore.call()
+	)
 
-func _player() -> StagePlayer:
+	run_case("validation_catches_bad_cast_steps", func():
+		var restore := _install_cast_stage()
+		var stage := _cast_stage()
+		var set_def: Dictionary = GameData.STAGE_SETS[stage["set"]]
+		for card in stage["cards"]:
+			for step in card["steps"]:
+				assert_eq(_step_problems(stage, set_def, step).size(), 0, "fixture step %s is valid" % str(step))
+		var bad := [
+			{"t": 0, "move": {"target": "nobody", "x": 10, "dur": 1}},
+			{"t": 0, "move": {"target": "archie", "dur": 1}},
+			{"t": 0, "show": "nobody"},
+			{"t": 0, "hide": "nobody"},
+			{"t": 0, "set": {"archie.facing": "up"}},
+			{"t": 0, "set": {"nobody.arm_l": "rest"}},
+			{"t": 0, "set": {"archie.arm_l": "no_such_frame"}},
+			{"t": 0, "wiggle": "archie"},
+		]
+		for step in bad:
+			assert_true(_step_problems(stage, set_def, step).size() > 0, "caught bad step %s" % str(step))
+		var rig: Dictionary = _walker_rig()
+		assert_eq(_walk_problems(rig).size(), 0, "fixture walk cycle is valid")
+		rig["walk"]["frames"] = ["stride_a", "no_such_frame"]
+		assert_true(_walk_problems(rig).size() > 0, "caught missing walk frame")
+		restore.call()
+	)
+
+	run_case("facing_flip_mirrors_anchors_and_drops", func():
+		GameState.reset()
+		var actor := StageActor.new()
+		actor.setup(GameData.STAGE_RIGS["archie"])
+		var hand := actor.anchor("hand_l")
+		var mouth := actor.anchor("mouth")
+		actor.apply_attrs({"facing": "left"})
+		assert_eq(actor.scale.x, -1.0, "rig flips")
+		assert_eq(actor.anchor("hand_l"), Vector2(-hand.x, hand.y), "hand anchor mirrors")
+		assert_eq(actor.anchor("mouth"), Vector2(-mouth.x, mouth.y), "mouth anchor mirrors")
+		actor.apply_attrs({"facing": "right"})
+		assert_eq(actor.anchor("hand_l"), hand, "facing back restores the anchor")
+		actor.free()
+		var stage := _cast_stage()
+		var drop := {"prop": "falafel_crumb", "from": "archie.mouth", "land": [5, 0]}
+		assert_eq(StageDirection.drop_landing(stage, drop, 100.0, "right").x, 105.0, "drop lands ahead")
+		assert_eq(StageDirection.drop_landing(stage, drop, 100.0, "left").x, 95.0, "mirrored drop lands the other side")
+	)
+
+	run_case("player_moves_walks_and_rewinds_the_cast", func():
+		GameState.reset()
+		GameState.state["meta"]["reducedMotion"] = false
+		var restore := _install_cast_stage()
+		var player := _player(CAST_ID)
+		var buyer: StageActor = player._actors["buyer"]
+		var archie: StageActor = player._actors["archie"]
+		player.show_card(0)
+		assert_eq(player._objects["bin"]["x"], -30.0, "object starts off-screen")
+		assert_true(not buyer.visible, "buyer starts hidden")
+		player.advance(0.5)
+		var mid_x: float = player._objects["bin"]["x"]
+		assert_true(mid_x > -30.0 and mid_x < 100.0, "object is on its way")
+		assert_eq(mid_x, roundf(mid_x), "object x stays integer")
+		for _tick in range(20):
+			player.advance(0.1)
+		assert_eq(player._objects["bin"]["x"], 100.0, "object parked")
+		assert_true(buyer.visible, "buyer appears")
+		player.show_card(1)
+		assert_eq(buyer.position.x, 40.0, "buyer snaps to card start")
+		player.advance(0.05)
+		player.advance(0.3)
+		assert_true(buyer.walking, "buyer walks while moving")
+		assert_true(buyer.shown_frame("legs") in ["stride_a", "stride_b"], "walk cycle plays on the legs")
+		assert_eq(buyer.position.x, roundf(buyer.position.x), "actor x stays integer")
+		for _tick in range(30):
+			player.advance(0.1)
+		assert_eq(buyer.position.x, 180.0, "buyer arrives")
+		assert_true(not buyer.walking, "buyer stops walking on arrival")
+		assert_eq(buyer.shown_frame("legs"), "base", "standing legs restored")
+		assert_eq(archie.scale.x, -1.0, "archie turned to face left")
+		player.show_card(2)
+		player.advance(0.5)
+		assert_true(not buyer.visible, "buyer leaves")
+		assert_eq(archie.shown_frame("legs"), "base", "rig without a walk cycle just slides")
+		player.show_card(0)
+		assert_eq(buyer.position.x, 40.0, "rewind puts the buyer back")
+		assert_true(not buyer.visible, "rewind hides the buyer again")
+		assert_eq(archie.scale.x, 1.0, "rewind restores archie's facing")
+		assert_eq(archie.position.x, 230.0, "rewind restores archie's position")
+		assert_eq(player._moves.size(), 0, "no moves carried across cards")
+		player.free()
+		restore.call()
+	)
+
+	run_case("reduced_motion_snaps_moves_without_walking", func():
+		GameState.reset()
+		GameState.state["meta"]["reducedMotion"] = true
+		var restore := _install_cast_stage()
+		var player := _player(CAST_ID)
+		var buyer: StageActor = player._actors["buyer"]
+		player.show_card(1)
+		assert_eq(buyer.position.x, 180.0, "buyer already at the end position")
+		assert_true(buyer.visible, "buyer shown")
+		assert_true(not buyer.walking, "no walk")
+		assert_eq(buyer.shown_frame("legs"), "base", "standing legs")
+		assert_eq(player._objects["bin"]["x"], 100.0, "object already parked")
+		assert_eq(player._steps.size() + player._moves.size(), 0, "nothing queued")
+		player.show_card(2)
+		assert_eq(player._actors["archie"].position.x, 330.0, "archie already at the exit")
+		player.free()
+		restore.call()
+		GameState.state["meta"]["reducedMotion"] = false
+	)
+
+
+const CAST_ID := "test_stage_cast"
+
+
+# Bin stands in for a car: drives in from off-screen. Buyer uses a rig with a
+# walk cycle; archie's rig has none.
+func _cast_stage() -> Dictionary:
+	return {
+		"set": "spitalfields", "camera": {"x": 205},
+		"actors": {
+			"archie": {"rig": "archie", "x": 230},
+			"buyer": {"rig": "test_walker", "x": 40, "hidden": true, "facing": "left"},
+		},
+		"objects": {"bin": {"x": -30}},
+		"cards": [
+			{"steps": [{"t": 0.0, "move": {"target": "bin", "x": 100, "dur": 1.5}}, {"t": 1.6, "show": "buyer"}]},
+			{"steps": [{"t": 0.0, "move": {"target": "buyer", "x": 180.4, "dur": 2.0}}, {"t": 0.5, "set": {"archie.facing": "left"}}]},
+			{"steps": [{"t": 0.0, "hide": "buyer"}, {"t": 0.0, "move": {"target": "archie", "x": 330, "dur": 2.0}}]},
+		],
+	}
+
+
+func _walker_rig() -> Dictionary:
+	var rig: Dictionary = GameData.STAGE_RIGS["archie"].duplicate(true)
+	rig["id"] = "test_walker"
+	rig["parts"]["legs"]["frames"]["stride_a"] = "legs.png"
+	rig["parts"]["legs"]["frames"]["stride_b"] = "legs.png"
+	rig["walk"] = {"part": "legs", "frames": ["stride_a", "stride_b"], "frame_time": 0.1, "stand": "base"}
+	return rig
+
+
+# Registers the cast stage (and its rig) in GameData; returns the undo.
+func _install_cast_stage() -> Callable:
+	var original_stages: Dictionary = GameData.STAGES
+	var original_rigs: Dictionary = GameData.STAGE_RIGS
+	GameData.STAGE_RIGS = GameData.STAGE_RIGS.duplicate()
+	GameData.STAGE_RIGS["test_walker"] = _walker_rig()
+	GameData.STAGES = GameData.STAGES.duplicate()
+	GameData.STAGES[CAST_ID] = _cast_stage()
+	return func():
+		GameData.STAGES = original_stages
+		GameData.STAGE_RIGS = original_rigs
+
+
+func _player(event_id: String = EVENT_ID) -> StagePlayer:
 	var player := StagePlayer.new()
 	player.size = Vector2(390, 520)
-	player.setup(EVENT_ID)
+	player.setup(event_id)
 	return player
 
 
@@ -157,7 +336,8 @@ func _assert_set_files(set_def: Dictionary) -> void:
 	files.append(set_def["lights"]["file"])
 	for obj in set_def["objects"].values():
 		files.append(obj["back"])
-		files.append(obj["front"])
+		if obj.has("front"):
+			files.append(obj["front"])
 	files.append_array(set_def["props"].values())
 	for file in files:
 		assert_true(ResourceLoader.exists(dir + String(file)), "set file %s exists" % file)
@@ -172,30 +352,84 @@ func _assert_rig_files(rig: Dictionary) -> void:
 		for step in rig["actions"][action_id]:
 			for attr in step["set"]:
 				assert_true(rig["parts"][attr]["frames"].has(step["set"][attr]), "action %s frame %s exists" % [action_id, step["set"][attr]])
+	for problem in _walk_problems(rig):
+		assert_true(false, "%s: %s" % [rig["id"], problem])
 
 
 func _assert_step_valid(event_id: String, stage: Dictionary, set_def: Dictionary, step: Dictionary) -> void:
-	assert_true(step.has("t"), "%s: step has a time" % event_id)
+	for problem in _step_problems(stage, set_def, step):
+		assert_true(false, "%s: %s" % [event_id, problem])
+
+
+# Everything wrong with one direction step (empty = valid).
+func _step_problems(stage: Dictionary, set_def: Dictionary, step: Dictionary) -> Array:
+	var problems: Array = []
+	var actors: Dictionary = stage["actors"]
+	if not step.has("t"):
+		problems.append("step has no time")
 	if step.has("set"):
 		for path in step["set"]:
 			var target := StageDirection.split_target(path)
+			if not actors.has(target[0]):
+				problems.append("set: unknown actor %s" % target[0])
+				continue
 			var rig := StageDirection.rig_for(stage, target[0])
 			var value: Variant = step["set"][path]
 			if target[1] == "tilt":
-				assert_true(typeof(value) == TYPE_INT or typeof(value) == TYPE_FLOAT, "%s: tilt is a number" % event_id)
+				if typeof(value) != TYPE_INT and typeof(value) != TYPE_FLOAT:
+					problems.append("tilt is not a number")
+			elif target[1] == "facing":
+				if value != "left" and value != "right":
+					problems.append("facing %s is not left/right" % value)
 			elif target[1] == "mouth":
-				assert_true(rig["parts"]["mouth"]["frames"].has(value) or rig["mouth_states"].has(value), "%s: mouth %s exists" % [event_id, value])
-			else:
-				assert_true(rig["parts"][target[1]]["frames"].has(value), "%s: %s frame %s exists" % [event_id, target[1], value])
+				if not (rig["parts"]["mouth"]["frames"].has(value) or rig["mouth_states"].has(value)):
+					problems.append("mouth %s missing" % value)
+			elif not rig["parts"].has(target[1]) or not rig["parts"][target[1]]["frames"].has(value):
+				problems.append("%s frame %s missing" % [target[1], value])
 	elif step.has("play"):
 		var target := StageDirection.split_target(step["play"])
-		assert_true(StageDirection.rig_for(stage, target[0])["actions"].has(target[1]), "%s: action %s exists" % [event_id, step["play"]])
+		if not actors.has(target[0]) or not StageDirection.rig_for(stage, target[0])["actions"].has(target[1]):
+			problems.append("action %s missing" % step["play"])
 	elif step.has("talk"):
-		assert_true(stage["actors"].has(step["talk"]), "%s: talking actor exists" % event_id)
+		if not actors.has(step["talk"]):
+			problems.append("talking actor %s missing" % step["talk"])
 	elif step.has("drop"):
-		assert_true(set_def["props"].has(step["drop"]["prop"]), "%s: drop prop exists" % event_id)
+		if not set_def["props"].has(step["drop"]["prop"]):
+			problems.append("drop prop %s missing" % step["drop"]["prop"])
+		if not actors.has(StageDirection.split_target(step["drop"]["from"])[0]):
+			problems.append("drop actor missing")
 	elif step.has("throw"):
-		assert_true(set_def["props"].has(step["throw"]["prop"]), "%s: throw prop exists" % event_id)
-		assert_true(set_def["objects"].has(step["throw"]["to"]), "%s: throw target exists" % event_id)
-	else:
-		assert_true(step.has("camera"), "%s: known step kind" % event_id)
+		if not set_def["props"].has(step["throw"]["prop"]):
+			problems.append("throw prop %s missing" % step["throw"]["prop"])
+		if not set_def["objects"].has(step["throw"]["to"]):
+			problems.append("throw target %s missing" % step["throw"]["to"])
+	elif step.has("move"):
+		var move: Dictionary = step["move"]
+		var target: String = move.get("target", "")
+		if actors.has(target) == set_def["objects"].has(target):
+			problems.append("move target %s is not exactly one actor or object" % target)
+		if typeof(move.get("x")) != TYPE_INT and typeof(move.get("x")) != TYPE_FLOAT:
+			problems.append("move x is not a number")
+	elif step.has("show") or step.has("hide"):
+		if not actors.has(step.get("show", step.get("hide"))):
+			problems.append("show/hide actor %s missing" % step.get("show", step.get("hide")))
+	elif not step.has("camera"):
+		problems.append("unknown step kind %s" % str(step.keys()))
+	return problems
+
+
+# Everything wrong with a rig's walk cycle declaration (empty = valid or none).
+func _walk_problems(rig: Dictionary) -> Array:
+	if not rig.has("walk"):
+		return []
+	var walk: Dictionary = rig["walk"]
+	if not rig["parts"].has(walk.get("part", "")):
+		return ["walk part %s missing" % walk.get("part", "")]
+	var frames: Dictionary = rig["parts"][walk["part"]]["frames"]
+	var problems: Array = []
+	for frame_id in walk["frames"] + [walk["stand"]]:
+		if not frames.has(frame_id):
+			problems.append("walk frame %s missing" % frame_id)
+	if float(walk.get("frame_time", 0.0)) <= 0.0:
+		problems.append("walk frame_time must be positive")
+	return problems

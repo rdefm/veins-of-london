@@ -42,7 +42,7 @@ Prototype content: `archie_craft_chat` (Spitalfields Market + Archie). Ticket: `
 1. `back` layers (far wall, parallax 0.6)
 2. walkers (same parallax as far layer)
 3. `mid` layers (market + floor, parallax 1.0)
-4. near node (parallax 1.0): ambient sprites (vendor) → lights (additive glow) → bin back → actors → props → bin front
+4. near node (parallax 1.0): ambient sprites (vendor) → lights (additive glow) → object backs → actors → props → object fronts
 5. `front` layers (fore, parallax 1.25)
 
 Floor seam: the far layer owns the floor up to `SEAM_Y` (236) so walkers' feet sit on it; the market layer's floor starts there with a kerb line hiding the parallax seam.
@@ -66,9 +66,13 @@ So Rewind, save/resume, fast taps and skipping all render correctly with zero ga
 
 ```
 { "camera_x": float,
-  "actors": { "<actor_id>": { "arm_l", "arm_r", "eyes", "brows", "mouth", "tilt" } },
-  "props":  [ { "prop": "<prop_id>", "x": float, "y": float } ] }   # props resting on the floor
+  "actors":  { "<actor_id>": { "arm_l", "arm_r", "eyes", "brows", "mouth", "tilt",   # rig attrs
+                               "facing": "left"|"right", "x": int, "visible": bool } },
+  "objects": { "<object_id>": { "x": int } },                         # every set object, centre x
+  "props":   [ { "prop": "<prop_id>", "x": float, "y": float } ] }   # props resting on the floor
 ```
+
+Initial values: actor `x` / `facing` / `hidden` from the stage's `actors` entry (`facing` defaults to the rig's `faces`, `hidden` to false); object `x` from the stage's optional `"objects": {"<id>": {"x"}}` override (e.g. a car parked off-screen), else the set manifest.
 
 ### Step kinds (`data/stages/<event_id>.json` → `cards[i].steps[]`, each has `t` seconds)
 
@@ -80,8 +84,11 @@ So Rewind, save/resume, fast taps and skipping all render correctly with zero ga
 | `"drop": {"prop", "from": "archie.mouth", "land": [dx, dy]}` | prop falls (gravity), hops, rests | prop rests at actor feet + `land` |
 | `"throw": {"prop", "from": "archie.hand_l", "to": "bin", "dur", "arc"}` | parabolic flight into the object's mouth, object wobbles | none (prop is gone) |
 | `"camera": {"x", "dur"}` | smoothstep pan | camera stays at `x` |
+| `"move": {"target", "x", "dur"}` | actor or set object travels to `x` (smoothstep, integer px); actors with a rig `walk` cycle play it and stand on arrival, others slide | target stays at `round(x)` |
+| `"show": "<actor_id>"` / `"hide": "<actor_id>"` | actor appears / leaves instantly | visibility persists |
 
-- Targets are `"<actor_id>.<attr>"`. Attributes: `arm_l`, `arm_r`, `eyes`, `brows`, `mouth` (frame names, or a `mouth_states` key like `chew`), `tilt` (degrees, eased).
+- Targets are `"<actor_id>.<attr>"`. Attributes: `arm_l`, `arm_r`, `eyes`, `brows`, `mouth` (frame names, or a `mouth_states` key like `chew`), `tilt` (degrees, eased), `facing` (`left`/`right`; mirrors the whole rig, anchors and drop `land` dx included). Position and visibility are not `set` attrs — use `move` / `show` / `hide`.
+- `move.target` must name exactly one actor or set object. A new move on the same target replaces one in flight. Object moves carry the object's back/front sprites; throws aim at the object's current position.
 - `cards` covers the event's **first N cards** — at most one entry per event card (test enforces `<=`). Empty card = `{ "steps": [] }`.
 - **Partial coverage:** on a card past the last entry (`Events.is_staged_card()` false) the event screen calls `StagePlayer.rest()` (hidden, `_process` off, viewport not rendering, steps/fx/props cleared) and shows `Events.current_image_path()` like a normal illustrated VN event. The event stays in VN mode throughout. Stepping back onto a staged card (Rewind, resume, re-entry) calls `show_card(i)`, which wakes the stage and rebuilds from the fold.
 - Talk length counts only text inside quotes (`"`, `“`, `”`) × `talk_per_char`, clamped `talk_min..talk_max`. Long lines cap at 6 s — schedule late beats (e.g. card 7's tilt at 4.2 s) inside that window.
@@ -94,6 +101,8 @@ Manifest (`data/stages/rigs/archie.json`, generated):
 - Every part frame is a full `96×168` PNG on a shared canvas; `origin` = feet (48,159). Overlays (eyes/brows/mouth) are mostly transparent — cheap and keeps offsets trivial.
 - `order` = draw order. `group`: `root` (static: shadow, legs), `body` (bobs 1 px to breathe: torso, arms), `head` (inside body, rotates about `anchors.neck`: head, eyes, brows, mouth). Arms come after head so a bite can cover the face.
 - `defaults`, `mouth_states` (`chew` → `chew_a/chew_b` cycle), `talk_frames`, `actions`, `behaviour` (blink interval/length, chew timing, talk step, breathe period, tilt speed).
+- Optional `faces` (`"right"` default): the way the art faces as drawn; the other `facing` flips the actor node (`scale.x = -1`).
+- Optional `walk`: `{"part": "legs", "frames": ["walk_0", ...], "frame_time": s, "stand": "base"}` — every frame must exist in that part. Cycles while a `move` runs (motion on), shows `stand` otherwise. Rigs without it slide.
 
 Archie frames: arm_l `rest hold eat wave_a wave_b crumple throw_back throw_release`; arm_r `rest phone_up phone_low`; eyes `open down closed wide`; brows `normal up knit quirk`; mouth `closed chew_a chew_b talk_a talk_b agape smirk`. Actions: `wave`, `bite`, `throw`.
 
@@ -138,10 +147,10 @@ Add to `actions` in `rig_manifest()` in `build_stage_assets.py` (timed `set` lis
 Copy `rig_archie.py` → `rig_<name>.py` with the same canvas/origin convention, add a manifest builder + `write_images`/`write_json` calls in `build_stage_assets.py`. `StageActor` is rig-agnostic as long as the parts use the `root`/`body`/`head` groups and `anchors` include `neck`, `mouth`, `hand_l`, `hand_r`.
 
 **New set**
-New `set_<name>.py` + manifest builder. Required manifest keys: `dir`, `design_size`, `world`, `floor_y`, `layers` (with `slot` back/mid/front), `walkers`, `ambient`, `lights`, `objects`, `props` (empty lists/dicts are fine).
+New `set_<name>.py` + manifest builder. Required manifest keys: `dir`, `design_size`, `world`, `floor_y`, `layers` (with `slot` back/mid/front), `walkers`, `ambient`, `lights`, `objects`, `props` (empty lists/dicts are fine). Each object: `x` (centre), `size`, `back` (drawn behind actors), optional `front` (drawn over actors and props — e.g. a car door someone steps out from behind), `mouth` if it is a throw target.
 
 **New step kind**
-Add it in three places: `StageDirection.apply_step_end` (its lasting effect, if any), `StagePlayer._run_step` (live behaviour), and `_assert_step_valid` in `tests/test_stage.gd`.
+Add it in three places: `StageDirection.apply_step_end` (its lasting effect, if any), `StagePlayer._run_step` (live behaviour), and `_step_problems` in `tests/test_stage.gd` (plus a bad example in `validation_catches_bad_cast_steps`). A new lasting effect also needs a snapshot field and `StagePlayer._apply_snapshot` support.
 
 **Replacing generated art with hand-made art**
 Keep file names, canvas sizes and origins identical, and anchors in the manifest matching the new drawings. Then stop regenerating that rig/set, or the generator will overwrite it. Once a rig is hand-made, move its manifest out of the generator's ownership (hand-edit it).
