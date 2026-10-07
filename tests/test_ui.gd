@@ -277,6 +277,80 @@ func run() -> void:
 		b.free()
 	)
 
+	# Device order seen on Android: emulated mouse event first, then the real touch.
+	# Pushed through the viewport so Button's native handler runs too.
+	run_case("tap_button_viewport_device_sequence_fires_once_and_not_after_drag", func():
+		var root: Window = (Engine.get_main_loop() as SceneTree).root
+		var count := [0]
+		var b := TapButton.new()
+		b.custom_minimum_size = Vector2(100, 100)
+		b.position = Vector2(10, 10)
+		b.pressed.connect(func(): count[0] += 1)
+		root.add_child(b)
+		var pos := Vector2(50, 50)
+		var seq := func(release_pos: Vector2, moved: bool) -> void:
+			var mdn := InputEventMouseButton.new()
+			mdn.button_index = MOUSE_BUTTON_LEFT
+			mdn.pressed = true
+			mdn.position = pos
+			mdn.global_position = pos
+			mdn.device = InputEvent.DEVICE_ID_EMULATION
+			mdn.button_mask = MOUSE_BUTTON_MASK_LEFT
+			root.push_input(mdn, true)
+			root.push_input(UiSim.touch(0, true, pos), true)
+			if moved:
+				var mm := InputEventMouseMotion.new()
+				mm.device = InputEvent.DEVICE_ID_EMULATION
+				mm.position = release_pos
+				mm.global_position = release_pos
+				mm.button_mask = MOUSE_BUTTON_MASK_LEFT
+				root.push_input(mm, true)
+				root.push_input(UiSim.drag(0, release_pos), true)
+			var mup := InputEventMouseButton.new()
+			mup.button_index = MOUSE_BUTTON_LEFT
+			mup.pressed = false
+			mup.position = release_pos
+			mup.global_position = release_pos
+			mup.device = InputEvent.DEVICE_ID_EMULATION
+			root.push_input(mup, true)
+			root.push_input(UiSim.touch(0, false, release_pos), true)
+		seq.call(pos, false)
+		assert_eq(count[0], 1, "one device tap fires pressed once")
+		seq.call(pos + Vector2(0, 30), true)
+		assert_eq(count[0], 1, "drag past slop then release over the button must not fire")
+		seq.call(pos, false)
+		assert_eq(count[0], 2, "still tap after a drag fires once more")
+		b.free()
+	)
+
+	# Native Button handling runs after _gui_input on the same release; the button is
+	# disabled for that dispatch (so it bails) and live again next frame.
+	await run_case("tap_button_is_disabled_for_native_handler_during_release_then_reenabled", func():
+		var root: Window = (Engine.get_main_loop() as SceneTree).root
+		var b := TapButton.new()
+		b.custom_minimum_size = Vector2(100, 100)
+		b.position = Vector2(10, 10)
+		var seen := [null]
+		b.pressed.connect(func(): seen[0] = b.disabled)
+		root.add_child(b)
+		var pos := Vector2(50, 50)
+		b._gui_input(UiSim.touch(0, true, pos))
+		b._gui_input(UiSim.touch(0, false, pos))
+		assert_eq(seen[0], true, "native handler must see a disabled button for the tap release")
+		await (Engine.get_main_loop() as SceneTree).process_frame
+		assert_eq(b.disabled, false, "re-enabled after the frame")
+		b._gui_input(UiSim.touch(0, true, pos))
+		var m := InputEventMouseMotion.new()
+		m.device = InputEvent.DEVICE_ID_EMULATION
+		m.position = pos + Vector2(0, TapButton.TAP_SLOP + 4)
+		b._gui_input(m)
+		b._gui_input(UiSim.touch(0, false, pos))
+		assert_eq(b.disabled, true, "drag release also disables for native handler")
+		await (Engine.get_main_loop() as SceneTree).process_frame
+		assert_eq(b.disabled, false, "re-enabled after drag release")
+		b.free()
+	)
+
 	# Bugfixes ticket 20: no headless run ever opens a real window
 	# (DisplayServer.window_get_size() reports (0, 0) here, same as
 	# check_runner.gd), so the only behaviour this rig can pin down is the
