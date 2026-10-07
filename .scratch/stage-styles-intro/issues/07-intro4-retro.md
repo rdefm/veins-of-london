@@ -4,7 +4,7 @@
 
 **Blocked by:** 05 — intro2: intro cards 1–6 staged in chibi style.
 
-**Relevant files:** everything listed in ticket 05, plus the set/car/buyer generator code and `data/stages/intro2.json` it produced; `tools/stage_art/rig_archie_styles.py` (`RETRO` style, `scale` handling)
+**Relevant files:** everything listed in ticket 05, plus the set/car/buyer generator code and `data/stages/intro2.json` it produced; `tools/stage_art/char_kit.py` (`RETRO` style, `scale` handling) + `tools/stage_art/characters.py`
 
 **Status:** ready-for-agent
 
