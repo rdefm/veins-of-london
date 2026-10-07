@@ -34,7 +34,7 @@ def icon(kind):
         d.text((second_x, bottom_y), "it", font=bold, anchor="lt", fill=WHITE)
     elif kind == "a":
         # Compact Li mark: square silhouette, broad baseline, separate dot.
-        rr((3, 3, 125, 125), 23, "#58598E")
+        rr((3, 3, 125, 125), 23, "#81549A")
         rr((23, 30, 40, 100), 2, WHITE)
         rr((23, 84, 60, 100), 2, WHITE)
         rr((73, 53, 92, 100), 2, WHITE)
@@ -70,7 +70,7 @@ draw.text((38, 27), "LodedInnit  /  launcher icon drafts", font=font_b, fill="#F
 draw.text((38, 65), "Current", font=font, fill="#C2BACB")
 draw.text((354, 65), "A  /  Li monogram", font=font, fill="#C2BACB")
 draw.text((666, 65), "B  /  lo monogram", font=font, fill="#C2BACB")
-current = Image.open(Path("assets/phone/icons/lodedinnit.png")).convert("RGBA")
+current = Image.open(OUT / "option-e-in-it-left.png").convert("RGBA")
 for im, x in ((current, 38), (a, 354), (b, 666)):
     preview = im.resize((192, 192), Image.Resampling.LANCZOS)
     board.paste(preview, (x, 105), preview)
