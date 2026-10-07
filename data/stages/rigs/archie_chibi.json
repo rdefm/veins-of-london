@@ -12,11 +12,11 @@
   "anchors": {
     "mouth": [
       48,
-      94.0
+      94
     ],
     "neck": [
       48,
-      99.0
+      99
     ],
     "hand_l": {
       "rest": [
@@ -50,6 +50,18 @@
       "throw_release": [
         23.7,
         100.7
+      ],
+      "bag": [
+        35.9,
+        123.9
+      ],
+      "bag_wave_a": [
+        29.8,
+        97.4
+      ],
+      "bag_wave_b": [
+        27.1,
+        98.5
       ]
     },
     "hand_r": {
@@ -64,6 +76,22 @@
       "phone_low": [
         60.1,
         122.2
+      ],
+      "pocket": [
+        57.3,
+        121.1
+      ],
+      "vial": [
+        59.6,
+        119.2
+      ],
+      "flick_back": [
+        55.8,
+        119.6
+      ],
+      "flick": [
+        61.8,
+        121.7
       ]
     }
   },
@@ -88,7 +116,11 @@
     "legs": {
       "group": "root",
       "frames": {
-        "base": "legs.png"
+        "base": "legs.png",
+        "walk_0": "legs_walk_0.png",
+        "walk_1": "legs_walk_1.png",
+        "walk_2": "legs_walk_2.png",
+        "walk_3": "legs_walk_3.png"
       }
     },
     "torso": {
@@ -130,7 +162,8 @@
         "talk_a": "mouth_talk_a.png",
         "talk_b": "mouth_talk_b.png",
         "agape": "mouth_agape.png",
-        "smirk": "mouth_smirk.png"
+        "smirk": "mouth_smirk.png",
+        "whistle": "mouth_whistle.png"
       }
     },
     "arm_r": {
@@ -138,7 +171,11 @@
       "frames": {
         "rest": "arm_r_rest.png",
         "phone_up": "arm_r_phone_up.png",
-        "phone_low": "arm_r_phone_low.png"
+        "phone_low": "arm_r_phone_low.png",
+        "pocket": "arm_r_pocket.png",
+        "vial": "arm_r_vial.png",
+        "flick_back": "arm_r_flick_back.png",
+        "flick": "arm_r_flick.png"
       }
     },
     "arm_l": {
@@ -151,7 +188,10 @@
         "wave_b": "arm_l_wave_b.png",
         "crumple": "arm_l_crumple.png",
         "throw_back": "arm_l_throw_back.png",
-        "throw_release": "arm_l_throw_release.png"
+        "throw_release": "arm_l_throw_release.png",
+        "bag": "arm_l_bag.png",
+        "bag_wave_a": "arm_l_bag_wave_a.png",
+        "bag_wave_b": "arm_l_bag_wave_b.png"
       }
     }
   },
@@ -255,6 +295,78 @@
           "arm_l": "rest"
         }
       }
+    ],
+    "bag_wave": [
+      {
+        "t": 0.0,
+        "set": {
+          "arm_l": "bag_wave_a"
+        }
+      },
+      {
+        "t": 0.2,
+        "set": {
+          "arm_l": "bag_wave_b"
+        }
+      },
+      {
+        "t": 0.4,
+        "set": {
+          "arm_l": "bag_wave_a"
+        }
+      },
+      {
+        "t": 0.6,
+        "set": {
+          "arm_l": "bag_wave_b"
+        }
+      },
+      {
+        "t": 0.8,
+        "set": {
+          "arm_l": "bag_wave_a"
+        }
+      },
+      {
+        "t": 1.05,
+        "set": {
+          "arm_l": "bag"
+        }
+      }
+    ],
+    "pocket_draw": [
+      {
+        "t": 0.0,
+        "set": {
+          "arm_r": "pocket"
+        }
+      },
+      {
+        "t": 0.55,
+        "set": {
+          "arm_r": "vial"
+        }
+      }
+    ],
+    "flick": [
+      {
+        "t": 0.0,
+        "set": {
+          "arm_r": "flick_back"
+        }
+      },
+      {
+        "t": 0.14,
+        "set": {
+          "arm_r": "flick"
+        }
+      },
+      {
+        "t": 0.7,
+        "set": {
+          "arm_r": "rest"
+        }
+      }
     ]
   },
   "behaviour": {
@@ -272,5 +384,16 @@
     "talk_max": 6.0,
     "breathe_period": 3.2,
     "tilt_speed": 40.0
+  },
+  "walk": {
+    "part": "legs",
+    "frames": [
+      "walk_0",
+      "walk_1",
+      "walk_2",
+      "walk_3"
+    ],
+    "frame_time": 0.14,
+    "stand": "base"
   }
 }
