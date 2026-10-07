@@ -1,0 +1,399 @@
+{
+  "id": "archie_minimal_plus",
+  "dir": "res://assets/stages/rigs/archie_minimal_plus/",
+  "canvas": [
+    96,
+    168
+  ],
+  "origin": [
+    48,
+    159
+  ],
+  "anchors": {
+    "mouth": [
+      50,
+      66
+    ],
+    "neck": [
+      48,
+      72
+    ],
+    "hand_l": {
+      "rest": [
+        36.4,
+        106.6
+      ],
+      "hold": [
+        39.6,
+        96.2
+      ],
+      "eat": [
+        42.0,
+        72.0
+      ],
+      "wave_a": [
+        24.4,
+        67.4
+      ],
+      "wave_b": [
+        20.4,
+        69.0
+      ],
+      "crumple": [
+        39.6,
+        92.8
+      ],
+      "throw_back": [
+        30.8,
+        64.0
+      ],
+      "throw_release": [
+        15.6,
+        72.2
+      ],
+      "bag": [
+        33.2,
+        105.8
+      ],
+      "bag_wave_a": [
+        24.4,
+        67.4
+      ],
+      "bag_wave_b": [
+        20.4,
+        69.0
+      ]
+    },
+    "hand_r": {
+      "rest": [
+        57.9,
+        106.6
+      ],
+      "phone_up": [
+        53.1,
+        85.0
+      ],
+      "phone_low": [
+        61.1,
+        103.4
+      ],
+      "pocket": [
+        57.1,
+        101.8
+      ],
+      "vial": [
+        60.3,
+        99.8
+      ],
+      "flick_back": [
+        55.6,
+        100.0
+      ],
+      "flick": [
+        63.5,
+        102.6
+      ]
+    }
+  },
+  "order": [
+    "shadow",
+    "legs",
+    "torso",
+    "head",
+    "eyes",
+    "brows",
+    "mouth",
+    "arm_r",
+    "arm_l"
+  ],
+  "parts": {
+    "shadow": {
+      "group": "root",
+      "frames": {
+        "base": "shadow.png"
+      }
+    },
+    "legs": {
+      "group": "root",
+      "frames": {
+        "base": "legs.png",
+        "walk_0": "legs_walk_0.png",
+        "walk_1": "legs_walk_1.png",
+        "walk_2": "legs_walk_2.png",
+        "walk_3": "legs_walk_3.png"
+      }
+    },
+    "torso": {
+      "group": "body",
+      "frames": {
+        "base": "torso.png"
+      }
+    },
+    "head": {
+      "group": "head",
+      "frames": {
+        "base": "head.png"
+      }
+    },
+    "eyes": {
+      "group": "head",
+      "frames": {
+        "open": "eyes_open.png",
+        "down": "eyes_down.png",
+        "closed": "eyes_closed.png",
+        "wide": "eyes_wide.png"
+      }
+    },
+    "brows": {
+      "group": "head",
+      "frames": {
+        "normal": "brows_normal.png",
+        "up": "brows_up.png",
+        "knit": "brows_knit.png",
+        "quirk": "brows_quirk.png"
+      }
+    },
+    "mouth": {
+      "group": "head",
+      "frames": {
+        "closed": "mouth_closed.png",
+        "chew_a": "mouth_chew_a.png",
+        "chew_b": "mouth_chew_b.png",
+        "talk_a": "mouth_talk_a.png",
+        "talk_b": "mouth_talk_b.png",
+        "agape": "mouth_agape.png",
+        "smirk": "mouth_smirk.png",
+        "whistle": "mouth_whistle.png"
+      }
+    },
+    "arm_r": {
+      "group": "body",
+      "frames": {
+        "rest": "arm_r_rest.png",
+        "phone_up": "arm_r_phone_up.png",
+        "phone_low": "arm_r_phone_low.png",
+        "pocket": "arm_r_pocket.png",
+        "vial": "arm_r_vial.png",
+        "flick_back": "arm_r_flick_back.png",
+        "flick": "arm_r_flick.png"
+      }
+    },
+    "arm_l": {
+      "group": "body",
+      "frames": {
+        "rest": "arm_l_rest.png",
+        "hold": "arm_l_hold.png",
+        "eat": "arm_l_eat.png",
+        "wave_a": "arm_l_wave_a.png",
+        "wave_b": "arm_l_wave_b.png",
+        "crumple": "arm_l_crumple.png",
+        "throw_back": "arm_l_throw_back.png",
+        "throw_release": "arm_l_throw_release.png",
+        "bag": "arm_l_bag.png",
+        "bag_wave_a": "arm_l_bag_wave_a.png",
+        "bag_wave_b": "arm_l_bag_wave_b.png"
+      }
+    }
+  },
+  "defaults": {
+    "arm_l": "hold",
+    "arm_r": "phone_low",
+    "eyes": "open",
+    "brows": "normal",
+    "mouth": "closed",
+    "tilt": 0
+  },
+  "mouth_states": {
+    "chew": [
+      "chew_a",
+      "chew_b"
+    ]
+  },
+  "talk_frames": [
+    "talk_a",
+    "talk_b",
+    "closed",
+    "talk_b",
+    "chew_a",
+    "talk_a"
+  ],
+  "actions": {
+    "wave": [
+      {
+        "t": 0.0,
+        "set": {
+          "arm_l": "wave_a"
+        }
+      },
+      {
+        "t": 0.18,
+        "set": {
+          "arm_l": "wave_b"
+        }
+      },
+      {
+        "t": 0.36,
+        "set": {
+          "arm_l": "wave_a"
+        }
+      },
+      {
+        "t": 0.54,
+        "set": {
+          "arm_l": "wave_b"
+        }
+      },
+      {
+        "t": 0.72,
+        "set": {
+          "arm_l": "wave_a"
+        }
+      },
+      {
+        "t": 0.95,
+        "set": {
+          "arm_l": "hold"
+        }
+      }
+    ],
+    "bite": [
+      {
+        "t": 0.0,
+        "set": {
+          "arm_l": "eat"
+        }
+      },
+      {
+        "t": 0.75,
+        "set": {
+          "arm_l": "hold"
+        }
+      }
+    ],
+    "throw": [
+      {
+        "t": 0.0,
+        "set": {
+          "arm_l": "crumple"
+        }
+      },
+      {
+        "t": 0.6,
+        "set": {
+          "arm_l": "throw_back"
+        }
+      },
+      {
+        "t": 0.9,
+        "set": {
+          "arm_l": "throw_release"
+        }
+      },
+      {
+        "t": 1.5,
+        "set": {
+          "arm_l": "rest"
+        }
+      }
+    ],
+    "bag_wave": [
+      {
+        "t": 0.0,
+        "set": {
+          "arm_l": "bag_wave_a"
+        }
+      },
+      {
+        "t": 0.2,
+        "set": {
+          "arm_l": "bag_wave_b"
+        }
+      },
+      {
+        "t": 0.4,
+        "set": {
+          "arm_l": "bag_wave_a"
+        }
+      },
+      {
+        "t": 0.6,
+        "set": {
+          "arm_l": "bag_wave_b"
+        }
+      },
+      {
+        "t": 0.8,
+        "set": {
+          "arm_l": "bag_wave_a"
+        }
+      },
+      {
+        "t": 1.05,
+        "set": {
+          "arm_l": "bag"
+        }
+      }
+    ],
+    "pocket_draw": [
+      {
+        "t": 0.0,
+        "set": {
+          "arm_r": "pocket"
+        }
+      },
+      {
+        "t": 0.55,
+        "set": {
+          "arm_r": "vial"
+        }
+      }
+    ],
+    "flick": [
+      {
+        "t": 0.0,
+        "set": {
+          "arm_r": "flick_back"
+        }
+      },
+      {
+        "t": 0.14,
+        "set": {
+          "arm_r": "flick"
+        }
+      },
+      {
+        "t": 0.7,
+        "set": {
+          "arm_r": "rest"
+        }
+      }
+    ]
+  },
+  "behaviour": {
+    "blink_every": [
+      2.2,
+      5.0
+    ],
+    "blink_len": 0.12,
+    "chew_step": 0.2,
+    "chew_run": 4,
+    "chew_pause": 0.6,
+    "talk_step": 0.11,
+    "talk_per_char": 0.032,
+    "talk_min": 1.0,
+    "talk_max": 6.0,
+    "breathe_period": 3.2,
+    "tilt_speed": 40.0
+  },
+  "walk": {
+    "part": "legs",
+    "frames": [
+      "walk_0",
+      "walk_1",
+      "walk_2",
+      "walk_3"
+    ],
+    "frame_time": 0.14,
+    "stand": "base"
+  }
+}

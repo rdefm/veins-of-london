@@ -14,6 +14,8 @@ drops into the engine as a rig. Styles:
              per material, hard black outline.
   minimal    Tiny "pixel people": drawn at third resolution, ~4.5 heads tall,
              flat 2-tone colour, no outline, dot eyes.
+  minimal_plus  Between minimal and retro: minimal's slim build drawn at half
+             resolution, 3-tone ramps, soft sel-out outline, 1x2 eyes, nose.
 
 Everyone stands in a three-quarter view turned toward viewer-right (TURN):
 face features and the clothes' front line sit right of centre, the far
@@ -287,7 +289,49 @@ MINIMAL = dict(
     },
 )
 
-STYLES = {"chibi": CHIBI, "adventure": ADVENTURE, "retro": RETRO, "minimal": MINIMAL}
+MINIMAL_PLUS = dict(
+    name="minimal_plus", scale=2, outline="selout", ink=None,
+    tones=[(-0.4, 0.04, 0.0), (-0.18, 0.02, 0.0), (0, 0, 0)],
+    face=(24, 29.5, 4.6, 5.0), neck=(24, 36), mouth=(24, 33), face_tones=(0.8, 0.55),
+    hair=dict(cap=(24, 26, 5.4, 3.4), curl_r=1.6, ring=(4.6, 3.4), n=7, inner=2, fringe_y=25),
+    ears=(0.8, 1.2), ear_y=30,
+    torso=dict(top=36, sh_y=37.5, sw=6.8, hem=54, hw=5.8, neck_w=1.5),
+    legs=dict(hip=53, foot=78, leg_w=3, gap=1, shoe_h=2, toe=1),
+    shoulders=((17.4, 38.5), (30.6, 38.5)), arm=(7.6, 7.6), arm_r=(1.6, 1.4), hand_r=1.2,
+    eat_hand=(-3, 3), prop_k=0.45, phone=(2, 3), shadow=(16, 2.2), vial_min=3.5,
+    beard=dict(y=33, side_y=29, side=1.4, mouth=(23, 25, 33, 33), tache=(22, 26, 32)), nose="retro",
+    glasses_bars=True,
+    lines=[(22, 26, 26)],
+    eyes={
+        "key": {"P": ("eye", 0.5), "W": "#f4efe6", "s": ("skin", 0.0)},
+        "open": ((22, 28), ["P", "P"], (26, 28), ["P", "P"]),
+        "down": ((22, 29), ["P"], (26, 29), ["P"]),
+        "closed": ((22, 29), ["s"], (26, 29), ["s"]),
+        "wide": ((21, 28), ["WP", "WP"], (26, 28), ["PW", "PW"]),
+    },
+    brows={
+        "key": {"B": ("brow", 0.5)},
+        "normal": (26, ["BB"]),
+        "up": (25, ["BB"]),
+        "knit": (26, ["B.", ".B"]),
+        "x": (21, 26),
+    },
+    mouths={
+        "key": {"D": "#2a1410", "T": "#f4efe6", "l": ("skin", 0.0), "F": ("food", 0.6)},
+        "x": 22,
+        "closed": (33, [".DD."]),
+        "smile": (32, ["D..D", ".DD."]),
+        "chew_a": (33, ["..DD"]),
+        "chew_b": (33, ["DD.."]),
+        "talk_a": (33, [".DD.", ".DD."]),
+        "talk_b": (33, ["DDDD", ".DD."]),
+        "agape": (32, [".DD.", "DTTD", "DDDD"]),
+        "smirk": (32, ["...D", "DDD."]),
+        "whistle": (32, ["..D.", ".DlD", "..D."]),
+    },
+)
+
+STYLES = {"chibi": CHIBI, "adventure": ADVENTURE, "retro": RETRO, "minimal": MINIMAL, "minimal_plus": MINIMAL_PLUS}
 
 
 # ── style + character → drawing spec ────────────────────────────────
