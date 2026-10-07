@@ -166,6 +166,27 @@ func show_card(card_index: int) -> void:
 	if card_index == shown_card:
 		return
 	shown_card = card_index
+	_set_running(true)
+	_clear_card()
+	var snap := StageDirection.resolve_start(stage, card_index) if motion else StageDirection.resolve_end(stage, card_index)
+	_apply_snapshot(snap)
+	if motion and card_index >= 0 and card_index < stage["cards"].size():
+		for step in StageDirection.sorted_steps(stage["cards"][card_index]):
+			_steps.append({"at": _clock + float(step["t"]), "step": step})
+	_place_camera()
+
+
+# Hides and idles the stage on a card past its last entry, so the event
+# screen's card image shows through; the next show_card() wakes it.
+func rest() -> void:
+	if shown_card == -1 and not visible:
+		return
+	shown_card = -1
+	_clear_card()
+	_set_running(false)
+
+
+func _clear_card() -> void:
 	_steps.clear()
 	for fx in _fx:
 		fx["sprite"].queue_free()
@@ -176,12 +197,12 @@ func show_card(card_index: int) -> void:
 	_wobble_until = -1.0
 	for actor in _actors.values():
 		actor.stop_talking()
-	var snap := StageDirection.resolve_start(stage, card_index) if motion else StageDirection.resolve_end(stage, card_index)
-	_apply_snapshot(snap)
-	if motion and card_index >= 0 and card_index < stage["cards"].size():
-		for step in StageDirection.sorted_steps(stage["cards"][card_index]):
-			_steps.append({"at": _clock + float(step["t"]), "step": step})
-	_place_camera()
+
+
+func _set_running(running: bool) -> void:
+	visible = running
+	set_process(running)
+	_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS if running else SubViewport.UPDATE_DISABLED
 
 
 func _apply_snapshot(snap: Dictionary) -> void:

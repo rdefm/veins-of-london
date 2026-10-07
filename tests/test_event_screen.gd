@@ -493,6 +493,35 @@ func run() -> void:
 		GameData.EVENTS = original_events
 	)
 
+	run_case("vn_mode_short_stage_falls_back_to_card_image_and_back", func():
+		GameState.reset()
+		var original_events := _install_vn_event()
+		var original_stages: Dictionary = GameData.STAGES
+		GameData.STAGES = GameData.STAGES.duplicate()
+		var short: Dictionary = GameData.STAGES["archie_craft_chat"].duplicate()
+		short["cards"] = short["cards"].slice(0, 2)
+		GameData.STAGES["test_vn_event"] = short
+		Events.start_event("test_vn_event")
+		var screen := _fresh_screen()
+		assert_true(screen._vn_stage.visible, "card 1 plays the stage")
+		assert_true(screen._vn_texture.texture == null, "no card image under the stage")
+
+		GameState.state["event"]["cardIndex"] = 2
+		screen._refresh_vn_card()
+		assert_true(not screen._vn_stage.visible, "card 3 is past the stage")
+		assert_true(screen._vn_texture.texture != null, "card 3 shows its own image")
+
+		GameState.state["event"]["cardIndex"] = 0
+		screen._refresh_vn_card()
+		assert_true(screen._vn_stage.visible, "going back brings the stage back")
+		assert_eq(screen._vn_stage.shown_card, 0, "on the right card")
+		assert_true(screen._vn_texture.texture == null, "no stale card image")
+
+		screen.free()
+		GameData.STAGES = original_stages
+		GameData.EVENTS = original_events
+	)
+
 	# event-images ticket 03: VN-mode events fold Continue/Rewind/choice into
 	# the text box itself -- there is no separate action bar to hold them.
 	run_case("vn_mode_builds_no_separate_action_bar_at_all", func():

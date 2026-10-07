@@ -24,7 +24,7 @@ Prototype content: `archie_craft_chat` (Spitalfields Market + Archie). Ticket: `
 | `tools/stage_art/` | Generator: `raster.py`, `rig_archie.py`, `set_spitalfields.py`, `build_stage_assets.py`, `preview_rig.py`, `preview_set.py`. |
 | `autoload/GameData.gd` | `_load_stages()` scans `data/stages/` into `STAGES` / `STAGE_RIGS` / `STAGE_SETS` (keyed by file basename). |
 | `systems/events.gd` | `has_stage()`; `is_vn_mode()` returns true for staged events. |
-| `scenes/screens/event.gd` | VN frame adds a `StagePlayer` to the image slot when `Events.has_stage()`; `_refresh_vn_card()` calls `show_card(cardIndex)` instead of loading a PNG. |
+| `scenes/screens/event.gd` | VN frame adds a `StagePlayer` to the image slot when `Events.has_stage()`; `_refresh_vn_card()` calls `show_card(cardIndex)` on staged cards, `rest()` + card PNG past the stage's last entry. |
 | `tests/test_stage.gd` | Data integrity, fold, talk length, viewport fit, VN mode, full card run, reduced motion. |
 | `scripts/debug_stage_screenshot.gd` | Windowed (not headless) harness; saves frames to `.scratch/stage-engine/shots/`. |
 
@@ -82,7 +82,8 @@ So Rewind, save/resume, fast taps and skipping all render correctly with zero ga
 | `"camera": {"x", "dur"}` | smoothstep pan | camera stays at `x` |
 
 - Targets are `"<actor_id>.<attr>"`. Attributes: `arm_l`, `arm_r`, `eyes`, `brows`, `mouth` (frame names, or a `mouth_states` key like `chew`), `tilt` (degrees, eased).
-- `cards` must have exactly one entry per event card (test enforces). Empty card = `{ "steps": [] }`.
+- `cards` covers the event's **first N cards** — at most one entry per event card (test enforces `<=`). Empty card = `{ "steps": [] }`.
+- **Partial coverage:** on a card past the last entry (`Events.is_staged_card()` false) the event screen calls `StagePlayer.rest()` (hidden, `_process` off, viewport not rendering, steps/fx/props cleared) and shows `Events.current_image_path()` like a normal illustrated VN event. The event stays in VN mode throughout. Stepping back onto a staged card (Rewind, resume, re-entry) calls `show_card(i)`, which wakes the stage and rebuilds from the fold.
 - Talk length counts only text inside quotes (`"`, `“`, `”`) × `talk_per_char`, clamped `talk_min..talk_max`. Long lines cap at 6 s — schedule late beats (e.g. card 7's tilt at 4.2 s) inside that window.
 - Anchors: `mouth` follows head tilt; `hand_l` / `hand_r` use the hand point of the current arm frame.
 

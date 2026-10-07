@@ -12,7 +12,7 @@ func run() -> void:
 		for event_id in GameData.STAGES:
 			var stage: Dictionary = GameData.STAGES[event_id]
 			assert_true(GameData.EVENTS.has(event_id), "%s stage matches an event" % event_id)
-			assert_eq(stage["cards"].size(), GameData.EVENTS[event_id]["cards"].size(), "%s: one direction entry per card" % event_id)
+			assert_true(stage["cards"].size() <= GameData.EVENTS[event_id]["cards"].size(), "%s: no more direction entries than cards" % event_id)
 			assert_true(GameData.STAGE_SETS.has(stage["set"]), "%s: set exists" % event_id)
 			var set_def: Dictionary = GameData.STAGE_SETS[stage["set"]]
 			_assert_set_files(set_def)
@@ -64,6 +64,38 @@ func run() -> void:
 		Events.start_event(EVENT_ID)
 		assert_true(Events.has_stage(), "stage found for the live event")
 		assert_true(Events.is_vn_mode(), "staged event renders in VN layout")
+	)
+
+	run_case("a_short_stage_covers_only_its_first_cards", func():
+		GameState.reset()
+		var original_stages: Dictionary = GameData.STAGES
+		GameData.STAGES = GameData.STAGES.duplicate()
+		var short: Dictionary = GameData.STAGES[EVENT_ID].duplicate()
+		short["cards"] = short["cards"].slice(0, 2)
+		GameData.STAGES[EVENT_ID] = short
+		Events.start_event(EVENT_ID)
+		assert_true(Events.is_staged_card(), "card 1 is staged")
+		GameState.state["event"]["cardIndex"] = 2
+		assert_true(not Events.is_staged_card(), "card 3 is past the stage")
+		assert_true(Events.is_vn_mode(), "unstaged cards keep the VN layout")
+		GameData.STAGES = original_stages
+	)
+
+	run_case("player_rests_and_wakes_cleanly", func():
+		GameState.reset()
+		GameState.state["meta"]["reducedMotion"] = false
+		var player := _player()
+		player.show_card(3)
+		for _tick in range(5):
+			player.advance(0.1)
+		player.rest()
+		assert_true(not player.visible, "a resting stage is hidden")
+		assert_eq(player._steps.size() + player._fx.size(), 0, "nothing left queued or in flight")
+		assert_eq(_resting_props(player), 0, "no props left behind")
+		player.show_card(4)
+		assert_true(player.visible, "the next staged card wakes it")
+		assert_eq(_resting_props(player), 1, "falafel rebuilt from the fold")
+		player.free()
 	)
 
 	run_case("player_steps_through_every_card", func():

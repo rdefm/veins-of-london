@@ -395,9 +395,12 @@ func _refresh_vn_card() -> void:
 	for child in _vn_card_box.get_children():
 		child.queue_free()
 
-	if _vn_stage != null:
+	if Events.is_staged_card():
+		_vn_texture.texture = null
 		_vn_stage.show_card(GameState.state["event"]["cardIndex"])
 	else:
+		if _vn_stage != null:
+			_vn_stage.rest()
 		var image_path: Variant = Events.current_image_path()
 		var showing: bool = image_path != null and typeof(image_path) == TYPE_STRING and ResourceLoader.exists(image_path)
 		_vn_texture.texture = load(image_path) if showing else null
