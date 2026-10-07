@@ -171,7 +171,15 @@ func run() -> void:
 			{"t": 0, "set": {"nobody.arm_l": "rest"}},
 			{"t": 0, "set": {"archie.arm_l": "no_such_frame"}},
 			{"t": 0, "wiggle": "archie"},
+			{"t": 0, "throw": {"prop": "falafel_crumb", "from": "archie.hand_l", "to": "bin", "at": 50, "dur": 1, "arc": 1}},
+			{"t": 0, "throw": {"prop": "falafel_crumb", "from": "archie.hand_l", "dur": 1, "arc": 1}},
+			{"t": 0, "slow": {"x": 10, "scale": 0.5}},
+			{"t": 0, "slow": {"x": 10, "radius": 20, "scale": 0}},
+			{"t": 0, "slow": {"x": 10, "radius": 20, "scale": 1.5}},
 		]
+		for card in _slow_stage()["cards"]:
+			for step in card["steps"]:
+				assert_eq(_step_problems(_slow_stage(), set_def, step).size(), 0, "slow fixture step %s is valid" % str(step))
 		for step in bad:
 			assert_true(_step_problems(stage, set_def, step).size() > 0, "caught bad step %s" % str(step))
 		var rig: Dictionary = _walker_rig()
@@ -265,8 +273,104 @@ func run() -> void:
 		GameState.state["meta"]["reducedMotion"] = false
 	)
 
+	run_case("fold_keeps_slow_fields", func():
+		var restore := _install_cast_stage()
+		var stage := _slow_stage()
+		assert_eq(StageDirection.resolve_start(stage, 0)["fields"].size(), 0, "no field before the vial")
+		var fields: Array = StageDirection.resolve_start(stage, 2)["fields"]
+		assert_eq(fields.size(), 1, "the field persists into later cards")
+		assert_eq(fields[0], {"x": 120, "radius": 40, "height": StageDirection.FIELD_HEIGHT, "scale": 0.25}, "field shape")
+		assert_eq(StageDirection.time_scale_at(fields, 150.0), 0.25, "inside the field runs slow")
+		assert_eq(StageDirection.time_scale_at(fields, 330.0), 1.0, "outside runs at normal speed")
+		var thrown := StageDirection.resolve_end(stage, 0)
+		assert_eq(thrown["props"].size(), 0, "a shattered vial leaves no prop")
+		restore.call()
+	)
+
+	run_case("floor_throw_shatters_and_field_slows_actors_inside", func():
+		GameState.reset()
+		GameState.state["meta"]["reducedMotion"] = false
+		var restore := _install_cast_stage()
+		var player := _player(SLOW_ID)
+		var buyer: StageActor = player._actors["buyer"]
+		var archie: StageActor = player._actors["archie"]
+		player.show_card(0)
+		for _tick in range(7):
+			player.advance(0.1)
+		var shards := player._fx.filter(func(fx: Dictionary) -> bool: return fx["kind"] == "shard")
+		assert_true(shards.size() > 0, "vial shatters on the floor")
+		assert_eq(player._fields.size(), 1, "field stands where it landed")
+		for _tick in range(10):
+			player.advance(0.1)
+		assert_eq(player.time_scale_of(buyer), 0.25, "buyer inside the grown field is slowed")
+		assert_eq(player.time_scale_of(archie), 1.0, "archie outside keeps normal speed")
+		var buyer_t := buyer._time
+		var archie_t := archie._time
+		for _tick in range(10):
+			player.advance(0.1)
+		assert_almost_eq(buyer._time - buyer_t, 0.25, 0.001, "buyer's clock runs at a quarter")
+		assert_almost_eq(archie._time - archie_t, 1.0, 0.001, "archie's clock runs normally")
+		assert_eq(player._fx.size(), 0, "shards have faded")
+		player.show_card(1)
+		assert_eq(player._fields.size(), 1, "later card rebuilds the field from the fold")
+		assert_eq(player.time_scale_of(buyer), 0.25, "buyer slowed straight away on a jump")
+		for _tick in range(10):
+			player.advance(0.1)
+		assert_true(buyer.position.x < 150.0, "slowed walk hasn't arrived after its nominal duration")
+		assert_true(buyer.walking, "still walking")
+		for _tick in range(40):
+			player.advance(0.1)
+		assert_eq(buyer.position.x, 150.0, "slowed walk arrives in the end")
+		player.show_card(0)
+		assert_eq(player._fields.size(), 0, "rewinding before the vial clears the field")
+		assert_eq(player.time_scale_of(buyer), 1.0, "and the buyer runs normally again")
+		player.free()
+		restore.call()
+	)
+
+	run_case("reduced_motion_shows_a_static_field", func():
+		GameState.reset()
+		GameState.state["meta"]["reducedMotion"] = true
+		var restore := _install_cast_stage()
+		var player := _player(SLOW_ID)
+		player.show_card(0)
+		assert_eq(player._fields.size(), 1, "field already standing")
+		var material: ShaderMaterial = player._fields[0]["material"]
+		assert_eq(material.get_shader_parameter("motion"), 0.0, "no ripple")
+		assert_eq(material.get_shader_parameter("grow"), 1.0, "full size, no growth")
+		player.advance(0.5)
+		assert_eq(material.get_shader_parameter("time"), 0.0, "ripple clock held")
+		assert_eq(player._fx.size(), 0, "no shatter")
+		assert_true(not player._actors["buyer"].motion, "slowed actor holds still")
+		player.free()
+		restore.call()
+		GameState.state["meta"]["reducedMotion"] = false
+	)
+
 
 const CAST_ID := "test_stage_cast"
+const SLOW_ID := "test_stage_slow"
+
+
+# Archie throws a vial at the floor by the buyer; a slow field stands there.
+# Archie walks off (outside it); next card the buyer walks inside it.
+func _slow_stage() -> Dictionary:
+	return {
+		"set": "spitalfields", "camera": {"x": 205},
+		"actors": {
+			"archie": {"rig": "archie", "x": 230},
+			"buyer": {"rig": "test_walker", "x": 120},
+		},
+		"cards": [
+			{"steps": [
+				{"t": 0.0, "throw": {"prop": "falafel_crumb", "from": "archie.hand_l", "at": 120, "dur": 0.6, "arc": 30}},
+				{"t": 0.6, "slow": {"x": 120, "radius": 40, "scale": 0.25, "grow": 0.5}},
+				{"t": 0.6, "move": {"target": "archie", "x": 330, "dur": 2.0}},
+			]},
+			{"steps": [{"t": 0.0, "move": {"target": "buyer", "x": 150, "dur": 1.0}}]},
+			{"steps": []},
+		],
+	}
 
 
 # Bin stands in for a car: drives in from off-screen. Buyer uses a rig with a
@@ -304,6 +408,7 @@ func _install_cast_stage() -> Callable:
 	GameData.STAGE_RIGS["test_walker"] = _walker_rig()
 	GameData.STAGES = GameData.STAGES.duplicate()
 	GameData.STAGES[CAST_ID] = _cast_stage()
+	GameData.STAGES[SLOW_ID] = _slow_stage()
 	return func():
 		GameData.STAGES = original_stages
 		GameData.STAGE_RIGS = original_rigs
@@ -399,10 +504,25 @@ func _step_problems(stage: Dictionary, set_def: Dictionary, step: Dictionary) ->
 		if not actors.has(StageDirection.split_target(step["drop"]["from"])[0]):
 			problems.append("drop actor missing")
 	elif step.has("throw"):
-		if not set_def["props"].has(step["throw"]["prop"]):
-			problems.append("throw prop %s missing" % step["throw"]["prop"])
-		if not set_def["objects"].has(step["throw"]["to"]):
-			problems.append("throw target %s missing" % step["throw"]["to"])
+		var throw: Dictionary = step["throw"]
+		if not set_def["props"].has(throw["prop"]):
+			problems.append("throw prop %s missing" % throw["prop"])
+		if throw.has("to") == throw.has("at"):
+			problems.append("throw needs exactly one of to (object) / at (floor x)")
+		elif throw.has("to") and not set_def["objects"].has(throw["to"]):
+			problems.append("throw target %s missing" % throw["to"])
+		elif throw.has("at") and typeof(throw["at"]) != TYPE_INT and typeof(throw["at"]) != TYPE_FLOAT:
+			problems.append("throw at is not a number")
+	elif step.has("slow"):
+		var slow: Dictionary = step["slow"]
+		for key in ["x", "radius", "scale"]:
+			if typeof(slow.get(key)) != TYPE_INT and typeof(slow.get(key)) != TYPE_FLOAT:
+				problems.append("slow %s is not a number" % key)
+		if problems.is_empty():
+			if float(slow["radius"]) <= 0.0:
+				problems.append("slow radius must be positive")
+			if float(slow["scale"]) <= 0.0 or float(slow["scale"]) > 1.0:
+				problems.append("slow scale must be in (0, 1]")
 	elif step.has("move"):
 		var move: Dictionary = step["move"]
 		var target: String = move.get("target", "")

@@ -6,11 +6,14 @@ extends RefCounted
 # card -- after Rewind, a resume, or a fast tap -- renders without replaying
 # history. Presentation only: nothing here reads or writes GameState.
 
+const FIELD_HEIGHT := 150
+
 # Snapshot shape:
 # {"camera_x": float,
 #  "actors": {id: {<rig attrs>, "facing": "left"|"right", "x": int, "visible": bool}},
 #  "objects": {id: {"x": int}},
-#  "props": [{"prop", "x", "y"}]}
+#  "props": [{"prop", "x", "y"}],
+#  "fields": [{"x": int, "radius": int, "height": int, "scale": float}]}
 static func initial(stage: Dictionary) -> Dictionary:
 	var actors: Dictionary = {}
 	for actor_id in stage["actors"]:
@@ -27,7 +30,7 @@ static func initial(stage: Dictionary) -> Dictionary:
 	for object_id in set_objects:
 		var x: float = overrides.get(object_id, {}).get("x", set_objects[object_id]["x"])
 		objects[object_id] = {"x": roundi(x)}
-	return {"camera_x": float(stage["camera"]["x"]), "actors": actors, "objects": objects, "props": []}
+	return {"camera_x": float(stage["camera"]["x"]), "actors": actors, "objects": objects, "props": [], "fields": []}
 
 
 # State at the start of card_index (before any of its own steps run).
@@ -61,8 +64,8 @@ static func sorted_steps(card: Dictionary) -> Array:
 
 # The lasting effect of one step: sets and actions change attributes, a drop
 # leaves its prop on the floor, a camera move leaves the camera there, a move
-# leaves its actor/object at the target x, show/hide leave the actor so. Talk
-# and throws leave nothing behind.
+# leaves its actor/object at the target x, show/hide leave the actor so, a slow
+# leaves its field standing. Talk and throws leave nothing behind.
 static func apply_step_end(stage: Dictionary, snap: Dictionary, step: Dictionary) -> void:
 	if step.has("set"):
 		apply_sets(snap, step["set"])
@@ -89,6 +92,24 @@ static func apply_step_end(stage: Dictionary, snap: Dictionary, step: Dictionary
 		snap["actors"][step["show"]]["visible"] = true
 	elif step.has("hide"):
 		snap["actors"][step["hide"]]["visible"] = false
+	elif step.has("slow"):
+		snap["fields"].append(slow_field(step["slow"]))
+
+
+# A slow step's lasting field: a dome standing on the floor at x.
+static func slow_field(slow: Dictionary) -> Dictionary:
+	return {"x": roundi(float(slow["x"])), "radius": roundi(float(slow["radius"])),
+		"height": roundi(float(slow.get("height", FIELD_HEIGHT))), "scale": float(slow["scale"])}
+
+
+# Time scale for an actor whose feet are at x: the slowest field it stands in,
+# 1.0 outside every field.
+static func time_scale_at(fields: Array, x: float) -> float:
+	var scale := 1.0
+	for field in fields:
+		if absf(x - float(field["x"])) <= float(field["radius"]):
+			scale = minf(scale, float(field["scale"]))
+	return scale
 
 
 static func apply_sets(snap: Dictionary, sets: Dictionary) -> void:

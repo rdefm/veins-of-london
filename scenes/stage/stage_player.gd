@@ -12,6 +12,11 @@ const DROP_GRAVITY := 520.0
 const DROP_HOP_TIME := 0.2
 const DROP_HOP_HEIGHT := 3.0
 const WOBBLE_TIME := 0.35
+const SHARD_COUNT := 8
+const SHARD_LIFE := 0.45
+const SHARD_SPEED := 60.0
+const SHARD_COLOUR := Color(0.85, 0.93, 1.0)
+const FIELD_SHADER := preload("res://scenes/stage/slow_field.gdshader")
 
 var event_id := ""
 var stage: Dictionary
@@ -28,6 +33,9 @@ var _ambient: Array = []
 var _lights: Array = []
 var _actors: Dictionary = {}
 var _props_root: Node2D
+var _near: Node2D
+var _fields: Array = []  # [{field (StageDirection.slow_field), node, material, t, grow}]
+var _pixel: Texture2D
 var _objects: Dictionary = {}  # id -> {"back", "front" (or null), "x"}
 var _fx: Array = []
 var _steps: Array = []
@@ -80,6 +88,7 @@ func _build_world() -> void:
 	_build_walkers(dir)
 	_add_layers("mid", dir)
 	var near := _add_parallax_node(1.0)
+	_near = near
 	_build_ambient(near, dir)
 	_build_lights(near, dir)
 	for object_id in set_def["objects"]:
@@ -199,6 +208,9 @@ func _clear_card() -> void:
 	_fx.clear()
 	for child in _props_root.get_children():
 		child.queue_free()
+	for field in _fields:
+		field["node"].queue_free()
+	_fields.clear()
 	_camera_move = {}
 	_moves.clear()
 	_wobble_until = -1.0
@@ -227,6 +239,8 @@ func _apply_snapshot(snap: Dictionary) -> void:
 	_place_objects()
 	for rest in snap["props"]:
 		_prop_sprite(rest["prop"], Vector2(rest["x"], rest["y"]))
+	for field in snap["fields"]:
+		_add_field(field, 0.0)
 
 
 func _prop_sprite(prop_id: String, pos: Vector2) -> Sprite2D:
@@ -251,9 +265,10 @@ func advance(delta: float) -> void:
 	for pending in due:
 		_steps.erase(pending)
 		_run_step(pending["step"])
+	_update_fields(delta)
 	_update_moves(delta)
 	for actor in _actors.values():
-		actor.step(delta)
+		actor.step(delta * time_scale_of(actor))
 	_update_fx(delta)
 	_update_camera(delta)
 	if motion:
@@ -283,10 +298,15 @@ func _run_step(step: Dictionary) -> void:
 	elif step.has("throw"):
 		var throw: Dictionary = step["throw"]
 		var from := _anchor_world(throw["from"])
-		var target_def: Dictionary = set_def["objects"][throw["to"]]
-		var to: Vector2 = _object_origin(throw["to"]) + Vector2(target_def["mouth"][0], target_def["mouth"][1] + 6.0)
+		var target: String = throw.get("to", "")
+		var to := Vector2(float(throw.get("at", 0.0)), float(set_def["floor_y"]))
+		if target != "":
+			var target_def: Dictionary = set_def["objects"][target]
+			to = _object_origin(target) + Vector2(target_def["mouth"][0], target_def["mouth"][1] + 6.0)
 		_fx.append({"kind": "throw", "sprite": _prop_sprite(throw["prop"], from), "from": from, "to": to,
-			"t": 0.0, "dur": float(throw["dur"]), "arc": float(throw["arc"]), "target": throw["to"]})
+			"t": 0.0, "dur": float(throw["dur"]), "arc": float(throw["arc"]), "target": target})
+	elif step.has("slow"):
+		_add_field(StageDirection.slow_field(step["slow"]), float(step["slow"].get("grow", 0.0)))
 	elif step.has("camera"):
 		_camera_move = {"from": _camera_x, "to": float(step["camera"]["x"]), "t": 0.0,
 			"dur": maxf(0.001, float(step["camera"].get("dur", 0.0)))}
@@ -314,10 +334,10 @@ func _start_move(move: Dictionary) -> void:
 func _update_moves(delta: float) -> void:
 	var finished: Array = []
 	for move in _moves:
-		move["t"] += delta
+		var actor: StageActor = move["actor"]
+		move["t"] += delta * (time_scale_of(actor) if actor != null else 1.0)
 		var u: float = move["t"] / move["dur"]
 		var x := roundf(lerpf(move["from"], move["to"], StageDirection.ease_move(u)))
-		var actor: StageActor = move["actor"]
 		if actor != null:
 			actor.position.x = x
 		else:
@@ -338,6 +358,7 @@ func _anchor_world(path: String) -> Vector2:
 
 func _update_fx(delta: float) -> void:
 	var finished: Array = []
+	var bursts: Array = []
 	for fx in _fx:
 		fx["t"] += delta
 		var sprite: Sprite2D = fx["sprite"]
@@ -356,6 +377,13 @@ func _update_fx(delta: float) -> void:
 			else:
 				sprite.position = to.round()
 				finished.append(fx)
+		elif fx["kind"] == "shard":
+			var t: float = fx["t"]
+			sprite.position = (from + fx["vel"] * t + Vector2(0.0, 0.5 * DROP_GRAVITY * t * t)).round()
+			sprite.modulate.a = 1.0 - t / SHARD_LIFE
+			if t >= SHARD_LIFE:
+				sprite.queue_free()
+				finished.append(fx)
 		else:
 			var s: float = clampf(fx["t"] / fx["dur"], 0.0, 1.0)
 			var pos := from.lerp(to, s)
@@ -363,12 +391,89 @@ func _update_fx(delta: float) -> void:
 			sprite.position = pos.round()
 			if s >= 1.0:
 				sprite.queue_free()
-				_wobble_object = fx["target"]
-				_wobble_until = _clock + WOBBLE_TIME
+				if fx["target"] == "":
+					bursts.append(to)
+				else:
+					_wobble_object = fx["target"]
+					_wobble_until = _clock + WOBBLE_TIME
 				finished.append(fx)
 	for fx in finished:
 		_fx.erase(fx)
+	for at in bursts:
+		_shatter(at)
 	_place_objects()
+
+
+# A floor throw ends in a burst of glass: pixel shards fly up and out, fall,
+# and fade.
+func _shatter(at: Vector2) -> void:
+	if not motion:
+		return
+	if _pixel == null:
+		var image := Image.create(1, 1, false, Image.FORMAT_RGBA8)
+		image.fill(Color.WHITE)
+		_pixel = ImageTexture.create_from_image(image)
+	for i in range(SHARD_COUNT):
+		var angle := PI + PI * (float(i) + _rng.randf_range(0.2, 0.8)) / SHARD_COUNT
+		var sprite := Sprite2D.new()
+		sprite.texture = _pixel
+		sprite.modulate = SHARD_COLOUR
+		sprite.position = at.round()
+		_props_root.add_child(sprite)
+		_fx.append({"kind": "shard", "sprite": sprite, "from": at, "to": at, "t": 0.0,
+			"vel": Vector2.from_angle(angle) * SHARD_SPEED * _rng.randf_range(0.5, 1.0)})
+
+
+# ── slow fields ─────────────────────────────────────────────────────
+
+# Adds a standing slow field; grow > 0 swells it from nothing over that many
+# seconds (motion only).
+func _add_field(field: Dictionary, grow: float) -> void:
+	var width := float(field["radius"]) * 2.0
+	var height := float(field["height"])
+	var material := ShaderMaterial.new()
+	material.shader = FIELD_SHADER
+	material.set_shader_parameter("size_px", Vector2(width, height))
+	material.set_shader_parameter("motion", 1.0 if motion else 0.0)
+	var node := ColorRect.new()
+	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	node.material = material
+	node.position = Vector2(float(field["x"]) - width / 2.0, float(set_def["floor_y"]) + 2.0 - height)
+	node.size = Vector2(width, height)
+	_near.add_child(node)
+	var entry := {"field": field, "node": node, "material": material, "t": 0.0,
+		"grow": grow if motion else 0.0}
+	_fields.append(entry)
+	_shade_field(entry)
+
+
+func _update_fields(delta: float) -> void:
+	for entry in _fields:
+		entry["t"] += delta
+		_shade_field(entry)
+
+
+func _shade_field(entry: Dictionary) -> void:
+	var material: ShaderMaterial = entry["material"]
+	material.set_shader_parameter("grow", _field_growth(entry))
+	material.set_shader_parameter("time", entry["t"] if motion else 0.0)
+
+
+func _field_growth(entry: Dictionary) -> float:
+	if entry["grow"] <= 0.0:
+		return 1.0
+	return smoothstep(0.0, 1.0, clampf(entry["t"] / entry["grow"], 0.0, 1.0))
+
+
+# How fast an actor's own clock runs: slowed inside a slow field (as far as it
+# has grown), normal outside.
+func time_scale_of(actor: StageActor) -> float:
+	var live: Array = []
+	for entry in _fields:
+		var field: Dictionary = entry["field"].duplicate()
+		field["radius"] = float(field["radius"]) * _field_growth(entry)
+		live.append(field)
+	return StageDirection.time_scale_at(live, actor.position.x)
 
 
 # Top-left of an object's sprites: centred on its x, resting on the floor.

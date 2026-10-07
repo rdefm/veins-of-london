@@ -16,6 +16,7 @@ Prototype content: `archie_craft_chat` (Spitalfields Market + Archie). Ticket: `
 |---|---|
 | `scenes/stage/stage_player.gd` | `StagePlayer` (Control). Builds SubViewport world, fits it to the slot, runs card steps, effects, camera, ambient life. One shared clock (`advance(delta)`). |
 | `scenes/stage/stage_actor.gd` | `StageActor` (Node2D). Layered rig sprites, attributes, blink/chew/talk/breathe/tilt, rig actions, anchors. Stepped by the player, not by `_process`. |
+| `scenes/stage/slow_field.gdshader` | Slow-field look: tinted dome on the floor, rippling what's behind it by whole pixels (`hint_screen_texture`); `motion` 0 = static tint. |
 | `scenes/stage/stage_direction.gd` | `StageDirection` — pure static logic: fold card steps into snapshots, drop landing, talk length, viewport fit. No nodes, no GameState writes. |
 | `data/stages/<event_id>.json` | **Hand-authored** direction for one event (set, actors, camera, one `steps` list per event card). Its existence turns the stage on. |
 | `data/stages/rigs/<rig>.json` | **Generated** rig manifest (parts, frames, anchors, defaults, actions, behaviour timings). |
@@ -42,7 +43,7 @@ Prototype content: `archie_craft_chat` (Spitalfields Market + Archie). Ticket: `
 1. `back` layers (far wall, parallax 0.6)
 2. walkers (same parallax as far layer)
 3. `mid` layers (market + floor, parallax 1.0)
-4. near node (parallax 1.0): ambient sprites (vendor) → lights (additive glow) → object backs → actors → props → object fronts
+4. near node (parallax 1.0): ambient sprites (vendor) → lights (additive glow) → object backs → actors → props → object fronts → slow fields
 5. `front` layers (fore, parallax 1.25)
 
 Floor seam: the far layer owns the floor up to `SEAM_Y` (236) so walkers' feet sit on it; the market layer's floor starts there with a kerb line hiding the parallax seam.
@@ -69,7 +70,8 @@ So Rewind, save/resume, fast taps and skipping all render correctly with zero ga
   "actors":  { "<actor_id>": { "arm_l", "arm_r", "eyes", "brows", "mouth", "tilt",   # rig attrs
                                "facing": "left"|"right", "x": int, "visible": bool } },
   "objects": { "<object_id>": { "x": int } },                         # every set object, centre x
-  "props":   [ { "prop": "<prop_id>", "x": float, "y": float } ] }   # props resting on the floor
+  "props":   [ { "prop": "<prop_id>", "x": float, "y": float } ],   # props resting on the floor
+  "fields":  [ { "x": int, "radius": int, "height": int, "scale": float } ] }   # standing slow fields
 ```
 
 Initial values: actor `x` / `facing` / `hidden` from the stage's `actors` entry (`facing` defaults to the rig's `faces`, `hidden` to false); object `x` from the stage's optional `"objects": {"<id>": {"x"}}` override (e.g. a car parked off-screen), else the set manifest.
@@ -83,6 +85,8 @@ Initial values: actor `x` / `facing` / `hidden` from the stage's `actors` entry 
 | `"talk": "archie"` | mouth flaps for `talk_seconds(card text)`, then returns to base mouth | none |
 | `"drop": {"prop", "from": "archie.mouth", "land": [dx, dy]}` | prop falls (gravity), hops, rests | prop rests at actor feet + `land` |
 | `"throw": {"prop", "from": "archie.hand_l", "to": "bin", "dur", "arc"}` | parabolic flight into the object's mouth, object wobbles | none (prop is gone) |
+| `"throw": {"prop", "from", "at": 120, "dur", "arc"}` | parabolic flight to floor x `at`, shatters into a burst of pixel shards (motion only) | none (prop is gone) |
+| `"slow": {"x", "radius", "scale", "height"?, "grow"?}` | slow field (dome on the floor, default height 150) swells over `grow` s; actors whose feet are within `radius` of `x` run their clock at `scale` | field stands for the rest of the event |
 | `"camera": {"x", "dur"}` | smoothstep pan | camera stays at `x` |
 | `"move": {"target", "x", "dur"}` | actor or set object travels to `x` (smoothstep, integer px); actors with a rig `walk` cycle play it and stand on arrival, others slide | target stays at `round(x)` |
 | `"show": "<actor_id>"` / `"hide": "<actor_id>"` | actor appears / leaves instantly | visibility persists |
@@ -92,6 +96,8 @@ Initial values: actor `x` / `facing` / `hidden` from the stage's `actors` entry 
 - `cards` covers the event's **first N cards** — at most one entry per event card (test enforces `<=`). Empty card = `{ "steps": [] }`.
 - **Partial coverage:** on a card past the last entry (`Events.is_staged_card()` false) the event screen calls `StagePlayer.rest()` (hidden, `_process` off, viewport not rendering, steps/fx/props cleared) and shows `Events.current_image_path()` like a normal illustrated VN event. The event stays in VN mode throughout. Stepping back onto a staged card (Rewind, resume, re-entry) calls `show_card(i)`, which wakes the stage and rebuilds from the fold.
 - Talk length counts only text inside quotes (`"`, `“`, `”`) × `talk_per_char`, clamped `talk_min..talk_max`. Long lines cap at 6 s — schedule late beats (e.g. card 7's tilt at 4.2 s) inside that window.
+- A throw takes exactly one of `to` (set object) or `at` (floor x). A floor throw always shatters; pair it with a `slow` step at the landing time for the vial beat.
+- **Slow fields:** each tick `StagePlayer.time_scale_of(actor)` = `StageDirection.time_scale_at(fields, actor x)` (slowest containing field, else 1; a growing field counts its current radius). That scale multiplies the actor's `step()` delta (blink, talk, chew, breathe, walk legs, rig actions) and its in-flight `move` progress — so a slowed walk takes `dur / scale`. It's re-evaluated from position every tick: an actor walking out speeds up. Set objects, camera, ambient and the step schedule are never slowed. Reduced motion: field is a static full-size tint, actors already hold still.
 - Anchors: `mouth` follows head tilt; `hand_l` / `hand_r` use the hand point of the current arm frame.
 
 ## Rigs
@@ -135,7 +141,7 @@ New PNGs need the import pass, otherwise `ResourceLoader.exists()` fails. `*.imp
 **Stage another event with existing rig + set**
 1. Create `data/stages/<event_id>.json` with `set`, `camera`, `actors`, and one `steps` list per card.
 2. Use only frames and actions that exist in the rig manifest (the test checks every reference).
-3. Run `test_stage.gd`, then `godot -s scripts/debug_stage_screenshot.gd` (edit its `SHOTS` / event id) and look at the frames.
+3. Run `test_stage.gd`, then `godot -s scripts/debug_stage_screenshot.gd` (edit its `SHOTS` / event id) and look at the frames. `-- slow` injects a floor throw + slow field into card 5 (shots in `shots/slow/`).
 
 **Add a pose or expression**
 Add an entry to `ARM_L`/`ARM_R`, `EYES`, `BROWS_L`, or `MOUTHS` in `rig_archie.py` (and `build()` / manifest frame lists if it's a new part), then regenerate. New frame names become available to `set` steps straight away.

@@ -1,13 +1,19 @@
 extends SceneTree
 
 # Dev-only visual check for the stage engine, run windowed (not --headless):
-#   godot -s scripts/debug_stage_screenshot.gd [-- <rig_id>]
+#   godot -s scripts/debug_stage_screenshot.gd [-- <rig_id> | slow]
 # Plays archie_craft_chat's EventScreen and saves a frame per sampled moment
-# to .scratch/stage-engine/shots/ (or shots/<rig_id>/ when a rig id is given,
-# which swaps Archie's rig in memory, e.g. archie_chibi).
+# to .scratch/stage-engine/shots/ (or shots/<arg>/ when given). A rig id swaps
+# Archie's rig in memory, e.g. archie_chibi; "slow" adds a floor-thrown vial
+# and a slow field around Archie on card 5.
 
 const OUT_DIR := "res://.scratch/stage-engine/shots/"
 const SHOTS := [[0, 0.5], [0, 2.0], [3, 1.6], [3, 3.5], [6, 5.0], [11, 2.0], [11, 2.6], [11, 4.5]]
+const SLOW_SHOTS := [[4, 0.5], [4, 0.8], [4, 1.3], [4, 3.0], [5, 1.0]]
+const SLOW_STEPS := [
+	{"t": 0.0, "throw": {"prop": "falafel_crumb", "from": "archie.hand_l", "at": 205, "dur": 0.6, "arc": 30}},
+	{"t": 0.6, "slow": {"x": 205, "radius": 45, "scale": 0.25, "grow": 0.6}},
+]
 
 
 func _initialize() -> void:
@@ -16,10 +22,17 @@ func _initialize() -> void:
 
 func _run() -> void:
 	var game_state := root.get_node("GameState")
+	var game_data := root.get_node("GameData")
 	var out_dir := OUT_DIR
+	var shots := SHOTS
 	var args := OS.get_cmdline_user_args()
 	if args.size() > 0:
-		root.get_node("GameData").STAGES["archie_craft_chat"]["actors"]["archie"]["rig"] = args[0]
+		var stage: Dictionary = game_data.STAGES["archie_craft_chat"]
+		if args[0] == "slow":
+			stage["cards"][4]["steps"].append_array(SLOW_STEPS)
+			shots = SLOW_SHOTS
+		else:
+			stage["actors"]["archie"]["rig"] = args[0]
 		out_dir = OUT_DIR + args[0] + "/"
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(out_dir))
 	game_state.reset()
@@ -28,7 +41,7 @@ func _run() -> void:
 	var screen: Control = load("res://scenes/screens/event.gd").new()
 	UI.anchor_full_rect(screen)
 	root.add_child(screen)
-	for shot in SHOTS:
+	for shot in shots:
 		while game_state.state["event"]["cardIndex"] < shot[0]:
 			Events.advance()
 		var start := Time.get_ticks_msec()

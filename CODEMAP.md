@@ -186,9 +186,10 @@ overlays.
 
 | File | Purpose |
 |---|---|
-| stage_player.gd | `StagePlayer`: low-res SubViewport world (parallax layers, walkers, vendor, flickering lights, set objects, actors, props) at an integer pixel scale; `show_card()` snaps to the folded card start then plays its timed steps (incl. eased moves, show/hide); reduced motion snaps to card end; `rest()` hides/idles it past the last staged card |
+| stage_player.gd | `StagePlayer`: low-res SubViewport world (parallax, walkers, lights, objects, actors, props) at integer pixel scale; `show_card()` snaps to the folded card start then plays its steps; slow fields scale actors' clocks; reduced motion snaps to card end; `rest()` idles it past the last staged card |
+| slow_field.gdshader | Slow-field dome: tint + whole-pixel ripple of what's behind (static tint when motion off) |
 | stage_actor.gd | `StageActor`: layered rig sprites (body/head groups), attribute frames, blink/chew/talk/breathe/tilt, rig actions, walk cycle, facing flip, hand/mouth anchors (mirrored with facing) |
-| stage_direction.gd | `StageDirection`: pure fold of per-card steps into start/end snapshots (actor attrs/x/facing/visibility, object x, props, camera), drop landing, move easing, talk length, integer viewport fit |
+| stage_direction.gd | `StageDirection`: pure fold of per-card steps into start/end snapshots (actor attrs/x/facing/visibility, object x, props, camera, slow fields), drop landing, field time scale, move easing, talk length, integer viewport fit |
 
  — modal content, one script per type
 
