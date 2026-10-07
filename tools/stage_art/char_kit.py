@@ -12,6 +12,12 @@ drops into the engine as a rig. Styles:
              head, hue-shifted 4-tone ramps, coloured sel-out outline, no dither.
   retro      NES/PICO-8-style: drawn at half resolution then doubled, 2 tones
              per material, hard black outline.
+  minimal    Tiny "pixel people": drawn at third resolution, ~4.5 heads tall,
+             flat 2-tone colour, no outline, dot eyes.
+
+Everyone stands in a three-quarter view turned toward viewer-right (TURN):
+face features and the clothes' front line sit right of centre, the far
+(viewer-right) shoulder tucks in, both feet point right, the near leg in front.
 
 Arms are posed by 2-bone IK from a shared pose table scaled to each style's
 arm length, so the same rig actions work for every style and character.
@@ -25,6 +31,7 @@ from raster import Canvas, Material, darken, hexc
 
 W, H = 96, 168
 ORIGIN = (48, 159)
+TURN = 0.35
 
 # Hand targets relative to the shoulder, in units of rig_archie's arm (length 38),
 # an elbow hint (which side the elbow bends to) and the held prop. Viewer-left
@@ -54,6 +61,8 @@ POSE_R = {
     "flick": ((5, 32), (5, 18), None),
 }
 VIAL_ANGLE = {"vial": -90, "vial_back": -150}
+# Far-arm frames whose sleeve passes behind the torso in the three-quarter view.
+FAR_TUCKED = {"rest", "pocket", "vial", "flick_back", "flick"}
 # Held-prop tag -> the config prop group that unlocks frames using it.
 PROP_GROUP = {"wrap": "wrap", "ball": "wrap", "phone_up": "phone", "phone_low": "phone",
               "bag": "bag", "vial": "vial", "vial_back": "vial", "behind": "vial"}
@@ -204,7 +213,8 @@ RETRO = dict(
     legs=dict(hip=55, foot=78, leg_w=4, gap=0, shoe_h=3, toe=1),
     shoulders=((17.5, 40.5), (30.5, 40.5)), arm=(8.0, 8.0), arm_r=(2.1, 1.9), hand_r=1.4,
     eat_hand=(-3.5, 3.5), prop_k=0.42, phone=(2, 4), shadow=(10, 1.4),
-    beard=dict(y=34, side_y=30, mouth=(22, 25, 34, 35), tache=(22, 25, 33)), nose="retro",
+    beard=dict(y=34, side_y=30, side=1.6, mouth=(22, 25, 34, 35), tache=(22, 25, 33)), nose="retro",
+    glasses_bars=True,
     lines=[(22, 27, 25)],
     eyes={
         "key": {"P": ("eye", 0.5), "W": "#fcfcfc", "s": ("skin", 0.0)},
@@ -235,7 +245,49 @@ RETRO = dict(
     },
 )
 
-STYLES = {"chibi": CHIBI, "adventure": ADVENTURE, "retro": RETRO}
+MINIMAL = dict(
+    name="minimal", scale=3, outline="none", ink=None,
+    tones=[(-0.3, 0.02, 0.0), (0, 0, 0)],
+    face=(16, 22.5, 3.3, 3.6), neck=(16, 27), mouth=(16, 24.5), face_tones=(0.8, 0.8),
+    hair=dict(cap=(16, 20.5, 3.9, 2.6), curl_r=1.25, ring=(3.3, 2.3), n=6, inner=1, fringe_y=19),
+    ears=(0.7, 1.0), ear_y=23,
+    torso=dict(top=27, sh_y=28, sw=4.6, hem=38, hw=4.0, neck_w=1),
+    legs=dict(hip=37, foot=52, leg_w=2, gap=1, shoe_h=1, toe=1),
+    shoulders=((11.6, 29), (20.4, 29)), arm=(4.8, 4.8), arm_r=(1.15, 1.0), hand_r=0.9,
+    eat_hand=(-2, 2), prop_k=0.32, phone=(1, 2), shadow=(14, 2.0), vial_min=3.0,
+    beard=dict(y=25, side_y=22, side=1.0, mouth=(15, 17, 24, 24), tache=None), nose="none",
+    glasses_bars=True, trims=False,
+    lines=[(15, 20, 17)],
+    eyes={
+        "key": {"P": ("eye", 0.5), "s": ("skin", 0.0)},
+        "open": ((14, 22), ["P"], (17, 22), ["P"]),
+        "down": ((14, 23), ["P"], (17, 23), ["P"]),
+        "closed": ((14, 22), ["s"], (17, 22), ["s"]),
+        "wide": ((14, 21), ["P", "P"], (17, 21), ["P", "P"]),
+    },
+    brows={
+        "key": {"B": ("brow", 0.5)},
+        "normal": (20, ["B"]),
+        "up": (19, ["B"]),
+        "knit": (20, [".B"]),
+        "x": (14, 17),
+    },
+    mouths={
+        "key": {"D": "#2a1410", "T": "#f4efe6", "l": ("skin", 0.0), "F": ("food", 0.6)},
+        "x": 15,
+        "closed": (24, [".D."]),
+        "smile": (24, [".DD"]),
+        "chew_a": (24, [".D."]),
+        "chew_b": (24, ["DD."]),
+        "talk_a": (24, [".D.", ".D."]),
+        "talk_b": (24, ["DDD"]),
+        "agape": (23, [".D.", "DTD", ".D."]),
+        "smirk": (24, ["..D", "DD."]),
+        "whistle": (24, ["lDl"]),
+    },
+)
+
+STYLES = {"chibi": CHIBI, "adventure": ADVENTURE, "retro": RETRO, "minimal": MINIMAL}
 
 
 # ── style + character → drawing spec ────────────────────────────────
@@ -243,7 +295,7 @@ def spec(style, char):
     """The style dict plus the character's materials and build offsets."""
     st = dict(style)
     st["char"] = char
-    outline = None if style["outline"] == "selout" else style["ink"]
+    outline = style["ink"] if style["outline"] == "ink" else None
     tones = style["tones"]
     fit = char["outfit"]
     colours = dict(PROP_COLOURS)
@@ -277,7 +329,11 @@ def spec(style, char):
     st["torso"] = t
     spread = (t["sw"] - style["torso"]["sw"])
     (lx, ly), (rx, ry) = style["shoulders"]
-    st["shoulders"] = ((lx - spread, ly + b["stoop"] * 0.5), (rx + spread, ry + b["stoop"] * 0.5))
+    tuck = TURN * t["sw"] * 0.35
+    st["shoulders"] = ((lx - spread, ly + b["stoop"] * 0.5), (rx + spread - tuck, ry + b["stoop"] * 0.5))
+    st["fdx"] = max(1, round(TURN * style["face"][2] * 0.5))
+    st["front"] = max(1, round(TURN * t["sw"] * 0.7))
+    st["far_in"] = round(TURN * t["sw"] * 0.25)
     lg = dict(g)
     lg["hip"] = g["hip"] + st["dy_body"]
     st["legs"] = lg
@@ -292,14 +348,16 @@ class StyleCanvas(Canvas):
         super().__init__(W // s, H // s, st["mats"])
         self.style = st
 
-    def finish(self, outline=True, dy=0):
+    def finish(self, outline=True, dy=0, dx=0):
+        if self.style["outline"] == "none":
+            outline = False
         if outline and self.style["outline"] == "selout":
             img = self._render_selout()
         else:
             img = self.render(outline=outline)
-        if dy:
+        if dx or dy:
             moved = Image.new("RGBA", img.size, (0, 0, 0, 0))
-            moved.alpha_composite(img, (0, max(0, dy)), (0, max(0, -dy)))
+            moved.alpha_composite(img, (max(0, dx), max(0, dy)), (max(0, -dx), max(0, -dy)))
             img = moved
         s = self.style["scale"]
         return img.resize((W, H), Image.NEAREST) if s != 1 else img
@@ -338,7 +396,8 @@ def _in_ell(x, y, e):
 
 # ── legs + shadow ───────────────────────────────────────────────────
 def legs_canvas(st, pose=((0, 0), (0, 0))):
-    """Legs with each foot offset by (dx, lift) in stride/lift units; the trailing leg draws first."""
+    """Legs with each foot offset by (dx, lift) in stride/lift units. Both feet point right;
+    the far (viewer-right) leg draws first so the near leg stays in front."""
     c = StyleCanvas(st)
     g = st["legs"]
     cx = c.w // 2
@@ -346,20 +405,21 @@ def legs_canvas(st, pose=((0, 0), (0, 0))):
     stride = max(1, round(st["leg_len"] * 0.13))
     lift = max(1, round(st["leg_len"] * 0.08))
     half = gap / 2.0
+    back = max(1, round(lift * 0.4))  # far foot stands a little behind
 
     def leg(side, dx_u, lift_u):
         dx, up = round(dx_u * stride), round(lift_u * lift)
-        f = foot - up
+        f = foot - up - (back if side == "r" else 0)
         ankle = f - sh
         if side == "l":
             x0, x1 = cx - half - lw, cx - half
             c.poly([(x0 - 0.5, hip), (x1, hip), (x1 + dx, ankle + 1), (x0 + 0.5 + dx, ankle + 1)], "trousers", base=0.9, peak=0.3)
             a, b = x0 + dx, x1 + dx
-            c.poly([(a + 0.5, ankle), (b, ankle), (b, f), (a - toe, f), (a - toe, f - 1.5)], "shoe", base=1.0, peak=0.35)
-            xs = range(int(a - toe), int(b))
+            c.poly([(a, ankle), (b - 0.5, ankle), (b + toe, f - 1.5), (b + toe, f), (a, f)], "shoe", base=1.0, peak=0.35)
+            xs = range(int(a), int(b + toe))
         else:
-            x0, x1 = cx + half, cx + half + lw
-            c.poly([(x0, hip), (x1 + 0.5, hip), (x1 - 0.5 + dx, ankle + 1), (x0 + dx, ankle + 1)], "trousers", base=0.75, peak=0.35)
+            x0, x1 = cx + half - st["far_in"], cx + half + lw - st["far_in"]
+            c.poly([(x0, hip), (x1 + 0.5, hip), (x1 - 0.5 + dx, ankle + 1), (x0 + dx, ankle + 1)], "trousers", base=0.6, peak=0.35)
             a, b = x0 + dx, x1 + dx
             c.poly([(a, ankle), (b - 0.5, ankle), (b + toe, f - 1.5), (b + toe, f), (a, f)], "shoe", base=0.9, peak=0.4)
             xs = range(int(a), int(b + toe))
@@ -367,11 +427,8 @@ def legs_canvas(st, pose=((0, 0), (0, 0))):
             c.shade_px(x, f - 1, "sole", 0.6)
 
     (ldx, llift), (rdx, rlift) = pose
-    order = [("l", ldx, llift), ("r", rdx, rlift)]
-    if rdx < ldx:
-        order.reverse()
-    for side, dx_u, lift_u in order:
-        leg(side, dx_u, lift_u)
+    leg("r", rdx, rlift)
+    leg("l", ldx, llift)
     return c
 
 
@@ -394,45 +451,50 @@ def torso_canvas(st):
     c = StyleCanvas(st)
     t = st["torso"]
     dy = st["dy_body"]
-    cx = c.w / 2.0
+    mid = c.w / 2.0
     top, shy, sw, hem, hw, nw = t["top"] + dy, t["sh_y"] + dy, t["sw"], t["hem"] + dy, t["hw"], t["neck_w"]
     kind = st["char"]["outfit"]["top"]["kind"]
     under = st["char"]["outfit"]["under"]["kind"]
-    body = [(cx - nw - 1, top + 1), (cx - sw + 2, shy - 1), (cx - sw, shy + 2), (cx - hw, hem), (cx + hw, hem),
-            (cx + sw, shy + 2), (cx + sw - 2, shy - 1), (cx + nw + 1, top + 1)]
+    far = st["far_in"]
+    body = [(mid - nw - 1, top + 1), (mid - sw + 2, shy - 1), (mid - sw, shy + 2), (mid - hw, hem), (mid + hw - far, hem),
+            (mid + sw - far, shy + 2), (mid + sw - far - 2, shy - 1), (mid + nw + 1, top + 1)]
     c.poly(body, "under" if kind == "waistcoat" else "top", base=0.85, peak=0.3)
-    c.rect(int(cx - nw), int(top - 3), int(cx + nw - 1), int(top + 1), "skin", 0.3)
-    tw = max(2, round(sw * 0.26))
+    c.rect(int(mid - nw), int(top - 3), int(mid + nw - 1), int(top + 1), "skin", 0.3)
+    cx = mid + st["front"]  # the clothes' front line
+    left, right = mid - sw, mid + sw - far  # outer edges at the shoulder
+    lhem, rhem = mid - hw, mid + hw - far
+    tw = max(1, round(sw * 0.26))
     cl = max(2, round(sw * 0.35))
     if kind == "jacket":
         tee = [(cx - tw + 0.5, top + 1), (cx + tw - 0.5, top + 1), (cx + tw, hem), (cx - tw, hem)]
         c.poly(tee, "under", base=1.0, peak=0.4)
-        c.poly([(cx - tw, top), (cx - tw + 1, top + cl + 1), (cx - tw - cl, top + cl - 1), (cx - nw - 1, top)], "collar", base=1.0, cyl=False)
-        c.poly([(cx + tw, top), (cx + tw - 1, top + cl + 1), (cx + tw + cl, top + cl - 1), (cx + nw + 1, top)], "collar", base=0.55, cyl=False)
-        bx = int(cx - tw - 1)
-        step = max(3, (hem - top) // 5)
-        for y in range(int(top + cl + 3), int(hem - 2), step):
-            c.shade_px(bx, y, "top", 0.0)
-        _pocket(c, int(cx + tw + 2), int(cx + sw - 2), int(shy + 3), max(3, round((hem - top) * 0.22)))
+        c.poly([(cx - tw, top), (cx - tw + 1, top + cl + 1), (cx - tw - cl, top + cl - 1), (mid - nw - 1, top)], "collar", base=1.0, cyl=False)
+        c.poly([(cx + tw, top), (cx + tw - 1, top + cl + 1), (cx + tw + cl, top + cl - 1), (mid + nw + 1, top)], "collar", base=0.55, cyl=False)
+        if st.get("trims", True):
+            bx = int(cx - tw - 1)
+            step = max(3, (hem - top) // 5)
+            for y in range(int(top + cl + 3), int(hem - 2), step):
+                c.shade_px(bx, y, "top", 0.0)
+            _pocket(c, int(cx + tw + 2), int(right - 2), int(shy + 3), max(3, round((hem - top) * 0.22)))
     elif kind == "jumper":
-        for x in range(int(cx - nw - 1), int(cx + nw + 1)):
+        for x in range(int(mid - nw - 1), int(mid + nw + 1)):
             c.shade_px(x, int(top + 1), "top", 0.15)
         if under == "shirt":
-            _shirt_collar(c, cx, top, nw, cl)
-        for x in range(int(cx - hw), int(cx + hw)):
+            _shirt_collar(c, mid, top, nw, cl)
+        for x in range(int(lhem), int(rhem)):
             c.shade_px(x, int(hem - 1), "top", 0.2)
     else:  # waistcoat over the shirt
         vy = top + (hem - top) * 0.42
-        lv = [(cx - nw - 1, top + 1), (cx - 0.5, vy), (cx - 0.5, hem + 1.5), (cx - hw, hem), (cx - sw + 1.5, shy + 3),
-              (cx - sw + 3, shy - 0.5)]
-        rv = [(cx + nw + 1, top + 1), (cx + sw - 3, shy - 0.5), (cx + sw - 1.5, shy + 3), (cx + hw, hem),
+        lv = [(mid - nw - 1, top + 1), (cx - 0.5, vy), (cx - 0.5, hem + 1.5), (lhem, hem), (left + 1.5, shy + 3),
+              (left + 3, shy - 0.5)]
+        rv = [(mid + nw + 1, top + 1), (right - 3, shy - 0.5), (right - 1.5, shy + 3), (rhem, hem),
               (cx + 0.5, hem + 1.5), (cx + 0.5, vy)]
         c.poly(lv, "top", base=0.95, peak=0.4)
         c.poly(rv, "top", base=0.6, peak=0.4)
         step = max(2, round((hem - vy) / 4))
         for y in range(int(vy + 2), int(hem), step):
             c.shade_px(int(cx), y, "collar", 1.0)
-        _shirt_collar(c, cx, top, nw, cl)
+        _shirt_collar(c, mid, top, nw, cl)
     return c
 
 
@@ -456,6 +518,7 @@ def _shirt_collar(c, cx, top, nw, cl):
 def hair_curls(st):
     h = st["hair"]
     hx, hy, _, _ = h["cap"]
+    hx -= st["fdx"] * 0.5
     rx, ry = h["ring"]
     r = h["curl_r"]
     curls = []
@@ -498,9 +561,8 @@ def head(st):
     fx, fy, frx, fry = face
     erx, ery = st["ears"]
     lit, shade = st["face_tones"]
-    c.ellipse(fx - frx + 0.2, st["ear_y"], erx, ery, "skin", base=0.7)
-    c.ellipse(fx + frx - 0.2, st["ear_y"], erx, ery, "skin", base=0.45)
     hx, hy, hrx, hry = st["hair"]["cap"]
+    hx -= st["fdx"] * 0.5
     if hair["kind"] == "thinning":
         c.ellipse(hx, hy + hry * 0.3, hrx * 0.85, hry * 0.95, "skin", base=0.85)
     else:
@@ -512,10 +574,15 @@ def head(st):
                 c.shade_px(x, y, "skin", shade)
     if char.get("facial_hair"):
         facial_hair(c, st, char["facial_hair"]["kind"])
+    # near ear, set in from the back of the head by the turn
+    ex = fx - frx * (1 - 0.9 * TURN)
+    c.ellipse(ex, st["ear_y"], erx, ery, "skin", base=0.5)
+    if erx >= 1:
+        c.shade_px(int(ex), int(st["ear_y"]), "skin", 0.1)
     nose(c, st)
     if char.get("lines"):
         for (x0, y, x1) in st["lines"]:
-            for x in range(x0, x1 + 1, 2):
+            for x in range(x0 + st["fdx"], x1 + st["fdx"] + 1, 2):
                 c.shade_px(x, y, "skin", 0.45)
     {"curly": hair_curly, "short": hair_short, "thinning": hair_thinning}[hair["kind"]](c, st, lit, shade)
     return c.finish(dy=st["dy_head"])
@@ -525,17 +592,21 @@ def facial_hair(c, st, kind):
     fx, fy, frx, fry = st["face"]
     face = st["face"]
     b = st["beard"]
+    d = st["fdx"]
     mx0, mx1, my0, my1 = b["mouth"]
-    tx0, tx1, ty = b["tache"]
-    side_w = 1.6 if st["scale"] == 2 else 2.5
+    mx0, mx1 = mx0 + d, mx1 + d
+    tx0, tx1, ty = b["tache"] or (0, -1, -1)
+    tx0, tx1 = tx0 + d, tx1 + d
+    side_w = b.get("side", 2.5)
     for y in range(c.h):
         for x in range(c.w):
             if not _in_ell(x, y, face):
                 continue
-            right = x + 0.5 > fx
+            right = x + 0.5 > fx + d
             in_mouth = mx0 <= x <= mx1 and my0 <= y <= my1
             if kind in ("beard", "stubble"):
-                side = abs(x + 0.5 - fx) >= frx - side_w
+                off = x + 0.5 - fx
+                side = off <= -(frx - side_w * 1.5) or off >= frx - side_w * 0.6
                 if kind == "beard" and (y >= b["y"] or (side and y >= b["side_y"])) and not in_mouth:
                     c.shade_px(x, y, "beard", 0.9 - 0.25 * right)
                 elif kind == "stubble" and y > b["y"] and not in_mouth and (x + y) % 2 == 0:
@@ -543,7 +614,7 @@ def facial_hair(c, st, kind):
             if kind in ("beard", "moustache") and y == ty and tx0 <= x <= tx1:
                 c.shade_px(x, y, "beard", 0.75 - 0.25 * right)
     if kind == "beard":
-        for x in range(int(fx - frx * 0.55), int(fx + frx * 0.55) + 1):
+        for x in range(int(fx + d - frx * 0.55), int(fx + d + frx * 0.55) + 1):
             c.shade_px(x, int(fy + fry), "beard", 0.4)
 
 
@@ -557,14 +628,15 @@ def hair_curly(c, st, lit, shade):
     _fill_holes(c, "hair", 0.45)
     # hairline: forehead clear below the fringe
     fringe = st["hair"]["fringe_y"]
+    hairline = fx + st["fdx"] * 0.5
     for y in range(int(fringe), int(fy)):
         for x in range(c.w):
-            if _in_ell(x, y, face) and c.mat[y][x] == "hair" and abs(x + 0.5 - fx) < frx - 1.2:
+            if _in_ell(x, y, face) and c.mat[y][x] == "hair" and abs(x + 0.5 - hairline) < frx - 1.2:
                 if not (y == int(fringe) and (x % 3 == 0)):
                     c.shade_px(x, y, "skin", lit if x + 0.5 <= fx + frx * 0.55 else shade)
     if st["char"]["hair"].get("lock"):
         r = st["hair"]["curl_r"]
-        lx, ly = fx - frx * 0.22, fringe + r * 0.35
+        lx, ly = fx + st["fdx"] - frx * 0.22, fringe + r * 0.35
         c.ellipse(lx, ly, r * 0.55, r * 0.7, "hair", base=0.9)
         c.shade_px(int(lx + r * 0.3), int(ly + r * 0.55), "hair", 0.05)
 
@@ -604,8 +676,10 @@ def hair_thinning(c, st, lit, shade):
 
 def nose(c, st):
     fx, fy, _, _ = st["face"]
-    x = int(fx)
+    x = int(fx) + st["fdx"]
     kind = st["nose"]
+    if kind == "none":
+        return
     if kind == "chibi":
         c.shade_px(x, int(fy + 4), "skin", 0.3)
     elif kind == "adventure":
@@ -627,7 +701,7 @@ def overlay_eyes(st, frame):
     (lx, ly), lrows, (rx, ry), rrows = e[frame]
     c.stamp(lx, ly, lrows, e["key"])
     c.stamp(rx, ry, rrows, e["key"])
-    return c.finish(outline=False, dy=st["dy_head"])
+    return c.finish(outline=False, dy=st["dy_head"], dx=st["fdx"])
 
 
 def overlay_brows(st, frame):
@@ -638,7 +712,7 @@ def overlay_brows(st, frame):
     yr, rr = b["up" if frame == "quirk" else frame]
     c.stamp(lx, yl, rl, b["key"])
     c.stamp(rx, yr, [row[::-1] for row in rr], b["key"])
-    return c.finish(outline=False, dy=st["dy_head"])
+    return c.finish(outline=False, dy=st["dy_head"], dx=st["fdx"])
 
 
 def overlay_mouth(st, frame):
@@ -648,7 +722,7 @@ def overlay_mouth(st, frame):
         frame = "smile"
     y, rows = m[frame]
     c.stamp(m["x"], y, rows, m["key"])
-    return c.finish(outline=False, dy=st["dy_head"])
+    return c.finish(outline=False, dy=st["dy_head"], dx=st["fdx"])
 
 
 def overlay_glasses(st):
@@ -663,7 +737,7 @@ def overlay_glasses(st):
         for xx in range(x0, x1 + 1):
             c.shade_px(xx, y0, "frame", 0.8)
             c.shade_px(xx, y1, "frame", 0.3)
-        if st["scale"] == 2:
+        if st.get("glasses_bars"):
             for xx in range(x0, x1 + 1):
                 c.clear(xx, y1)
         else:
@@ -673,7 +747,7 @@ def overlay_glasses(st):
         boxes.append((x0, x1, y0))
     for xx in range(boxes[0][1] + 1, boxes[1][0]):
         c.shade_px(xx, boxes[0][2] + 1, "frame", 0.6)
-    return c.finish(outline=False, dy=st["dy_head"])
+    return c.finish(outline=False, dy=st["dy_head"], dx=st["fdx"])
 
 
 # ── arms ────────────────────────────────────────────────────────────
@@ -757,7 +831,7 @@ def vial(c, st, hx, hy, angle_deg):
     k = st["prop_k"]
     a = math.radians(angle_deg)
     dx, dy = math.cos(a), math.sin(a)
-    ln = max(4.0, 8.0 * k)
+    ln = max(st.get("vial_min", 4.0), 8.0 * k)
     r = max(1.0, 1.7 * k)
     base = (hx + dx * 0.5, hy + dy * 0.5)
     tip = (hx + dx * ln, hy + dy * ln)
@@ -775,7 +849,7 @@ def _sleeve_cuff(c, st, elbow, wrist, base):
     c.capsule(p0, wrist, rf * 1.12, rf * 1.12, "collar", base=base)
 
 
-def arm_canvas(st, side, frame, body_mask=None):
+def arm_canvas(st, side, frame, body_mask=None, torso_mask=None):
     c = StyleCanvas(st)
     shoulder, elbow, (hx, hy), prop = arm_pose(st, side, frame)
     ru, rf = st["arm_r"]
@@ -811,6 +885,11 @@ def arm_canvas(st, side, frame, body_mask=None):
     if prop == "ball":
         k = st["prop_k"]
         c.ellipse(hx + 0.5 * k, hy - 2.0 * k, max(1.2, 2.2 * k), max(1.1, 2.0 * k), "paper", base=1.1)
+    if side == "r" and frame in FAR_TUCKED and torso_mask is not None:
+        for y in range(c.h):
+            for x in range(c.w):
+                if torso_mask[y][x] and c.mat[y][x] == st["sleeve"]:
+                    c.clear(x, y)
     if prop == "behind" and body_mask is not None:
         cut = (elbow[1] + hy) / 2
         for y in range(c.h):
@@ -843,12 +922,12 @@ def anchors(st):
                 hy -= 2.0 * k
             if prop in ("vial", "vial_back"):
                 a = math.radians(VIAL_ANGLE[prop])
-                ln = max(4.0, 8.0 * k) * 0.5
+                ln = max(st.get("vial_min", 4.0), 8.0 * k) * 0.5
                 hx, hy = hx + math.cos(a) * ln, hy + math.sin(a) * ln
             hands[side][f] = full((hx, hy))
     mx, my = st["mouth"]
     nx, ny = st["neck"]
-    return {"mouth": full((mx, my + st["dy_head"])), "neck": full((nx, ny + st["dy_head"])),
+    return {"mouth": full((mx + st["fdx"], my + st["dy_head"])), "neck": full((nx, ny + st["dy_head"])),
             "hand_l": hands["l"], "hand_r": hands["r"]}
 
 
@@ -856,8 +935,8 @@ def build(style, char):
     st = spec(style, char)
     torso_c = torso_canvas(st)
     legs_c = legs_canvas(st)
-    body_mask = [[torso_c.mat[y][x] is not None or legs_c.mat[y][x] is not None for x in range(torso_c.w)]
-                 for y in range(torso_c.h)]
+    torso_mask = torso_c.mask()
+    body_mask = [[torso_mask[y][x] or legs_c.mat[y][x] is not None for x in range(torso_c.w)] for y in range(torso_c.h)]
     images = {"shadow.png": shadow(st), "legs.png": legs_c.finish(), "torso.png": torso_c.finish(), "head.png": head(st)}
     for i, pose in enumerate(WALK):
         images["legs_walk_%d.png" % i] = legs_canvas(st, pose).finish()
@@ -871,7 +950,7 @@ def build(style, char):
         images["glasses.png"] = overlay_glasses(st)
     for side, table in (("l", POSE_L), ("r", POSE_R)):
         for f in arm_frames(char, table):
-            images["arm_%s_%s.png" % (side, f)] = arm_canvas(st, side, f, body_mask).finish()
+            images["arm_%s_%s.png" % (side, f)] = arm_canvas(st, side, f, body_mask, torso_mask).finish()
     return images
 
 

@@ -114,7 +114,7 @@ Archie frames: arm_l `rest hold eat wave_a wave_b crumple throw_back throw_relea
 
 Screen sides: `arm_l` = viewer-left (Archie's right hand, holds the wrap); `arm_r` = viewer-right (phone).
 
-Style rigs `archie_{chibi,adventure,retro}` (character kit) add: arm_l `bag bag_wave_a bag_wave_b` (Tesco bag in hand); arm_r `pocket` (hand behind the hip) `vial flick_back flick` (hand_r anchor = the vial, release point on `flick`); mouth `whistle`; legs `walk_0..3` (declared `walk`). Actions: `bag_wave`, `pocket_draw`, `flick`.
+Style rigs `archie_{chibi,adventure,retro,minimal}` (character kit, three-quarter view facing right, so `faces` stays the default) add: arm_l `bag bag_wave_a bag_wave_b` (Tesco bag in hand); arm_r `pocket` (hand behind the hip) `vial flick_back flick` (hand_r anchor = the vial, release point on `flick`); mouth `whistle`; legs `walk_0..3` (declared `walk`). Actions: `bag_wave`, `pocket_draw`, `flick`.
 
 ## Sets
 
@@ -125,7 +125,7 @@ Spitalfields (`data/stages/sets/spitalfields.json`, generated): world `360×320`
 - `raster.py`: draws shapes as **(material, shade)** — `poly` (row-cylinder shading), `capsule` (limbs, normal-lit), `ellipse` (sphere-lit), `stamp` (ASCII pixel stamps for faces), `px` (fixed colours). `render()` quantises shade into each material's palette ramp (optional Bayer dither), darkens edges where listed materials meet (`edge_against`), then adds a 1 px outline from each material's outline colour. Single key light from upper-left.
 - `rig_archie.py`: likeness notes, all part/frame geometry, face stamps, arm pose table (`ARM_L` / `ARM_R`: elbow, hand, held prop, prop angle), anchors.
 - `set_spitalfields.py`: layers, walkers, vendor, glow, props, bin; constants (`FLOOR_Y`, `SEAM_Y`, `STALL_X`, parallax factors) shared with the manifest.
-- `char_kit.py` + `characters.py`: the character kit. A style (chibi/adventure/retro: rendering, proportions, face stamps) plus a character config (build, hair, facial hair, glasses, outfit lit colours, held props) → part PNGs + rig manifest. Arm frames are dropped for props a character doesn't carry. `build_style_mockups.py [sheet_dir]` writes the Archie style rigs and review sheets (`styles.png`, `kit_<style>.png`).
+- `char_kit.py` + `characters.py`: the character kit. A style (chibi/adventure/retro/minimal: rendering, proportions, face stamps) plus a character config (build, hair, facial hair, glasses, outfit lit colours, held props) → part PNGs + rig manifest. Arm frames are dropped for props a character doesn't carry. `build_style_mockups.py [sheet_dir]` writes the Archie style rigs and review sheets (`styles.png`, `kit_<style>.png`).
 - `build_stage_assets.py`: writes PNGs + rig/set manifests. **Edit the generator, never the generated JSON.**
 - `preview_rig.py <out.png>` / `preview_set.py <out.png>`: upscaled review sheets (rig poses + face close-ups; composited set at default and pan camera). Use these to iterate visually before touching Godot.
 
