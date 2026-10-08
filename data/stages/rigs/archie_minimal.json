@@ -369,6 +369,7 @@
       }
     ]
   },
+  "px": 3,
   "behaviour": {
     "blink_every": [
       2.2,
@@ -398,7 +399,9 @@
     "tilt_damping": 8.0,
     "talk_nod": 2.5,
     "talk_nod_chance": 0.4,
-    "talk_dip_chance": 0.15
+    "talk_dip_chance": 0.15,
+    "turn_len": 0.16,
+    "effort_dip": 0.14
   },
   "walk": {
     "part": "legs",

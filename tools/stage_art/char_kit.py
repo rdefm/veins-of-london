@@ -1026,6 +1026,7 @@ def manifest(base, style, char, rig_id):
     st = spec(style, char)
     m = dict(base)
     m["id"] = rig_id
+    m["px"] = st["scale"]
     m["dir"] = "res://assets/stages/rigs/%s/" % rig_id
     m["anchors"] = anchors(st)
     frames = lambda prefix, names: {n: "%s_%s.png" % (prefix, n) for n in names}

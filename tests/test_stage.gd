@@ -242,13 +242,38 @@ func run() -> void:
 		for i in range(40):
 			a.step(0.05)
 			var body: Vector2 = a._body.position
-			assert_eq(body, body.round(), "body offset stays on whole pixels")
+			var px := float(rig["px"])
+			assert_eq(body / px, (body / px).round(), "body offset stays on whole art pixels")
 		assert_almost_eq(a._tilt, -7.0 + a._idle_tilt, 1.0, "tilt spring settles on target plus idle drift")
 		a.motion = false
 		a.apply_attrs({"tilt": 3})
 		assert_eq(a._tilt, 3.0, "reduced motion: tilt snaps with no idle drift")
 		a.free()
 		b.free()
+	)
+
+	run_case("live_turn_dips_then_flips_snapshot_flips_at_once", func():
+		GameState.reset()
+		var actor := StageActor.new()
+		actor.setup(GameData.STAGE_RIGS["archie_minimal"])
+		var turn := float(actor.rig["behaviour"]["turn_len"])
+		actor.set_attr("facing", "left")
+		assert_true(not actor.is_mirrored(), "live turn starts on the old facing")
+		actor.step(turn * 0.25)
+		var px := float(actor.rig["px"])
+		assert_eq(actor._body.position.y, px, "body dips one art pixel into the turn")
+		actor.step(turn * 0.5)
+		assert_true(actor.is_mirrored(), "flips halfway through the turn")
+		assert_eq(actor.scale.x, -1.0, "drawn mirrored after the flip")
+		actor.apply_attrs({"facing": "right"})
+		assert_true(not actor.is_mirrored(), "snapshot apply flips at once")
+		actor.set_attr("arm_r", "vial")
+		actor.step(0.01)
+		assert_eq(actor._body.position.y, px, "arm move dips the body for the effort")
+		actor.motion = false
+		actor.set_attr("facing", "left")
+		assert_true(actor.is_mirrored(), "reduced motion flips at once")
+		actor.free()
 	)
 
 	run_case("player_moves_walks_and_rewinds_the_cast", func():

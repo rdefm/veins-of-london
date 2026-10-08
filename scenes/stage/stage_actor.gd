@@ -2,7 +2,8 @@ class_name StageActor
 extends Node2D
 
 # One rigged character (data/stages/rigs/<rig>.json): layered part sprites on
-# a shared canvas, feet at this node's position. Attributes (arm frames, eyes,
+# a shared canvas, feet at this node's position. Procedural offsets move in
+# whole art pixels (rig `px` canvas pixels each). Attributes (arm frames, eyes,
 # brows, mouth, tilt, facing) come from StageDirection snapshots and card
 # steps; the idle life on top -- breathing, weight-shift sway, idle head drift,
 # blinking, chewing, talk flaps and nods, the walk cycle while the player moves
@@ -41,6 +42,10 @@ var _idle_tilt := 0.0
 var _idle_tilt_at := 0.0
 var _nod := 0.0
 var _dip := 0.0
+var _px := 1.0
+var _mirrored := false
+var _flip_at := -1.0
+var _crouch_until := -1.0
 
 
 func setup(rig_def: Dictionary) -> void:
@@ -77,6 +82,7 @@ func setup(rig_def: Dictionary) -> void:
 				_head.add_child(sprite)
 		_sprites[part_id] = sprite
 		_shown[part_id] = frames.keys()[0]
+	_px = float(rig["px"])
 	_rng.randomize()
 	var behaviour: Dictionary = rig["behaviour"]
 	_blink_at = _rand_in(behaviour["blink_every"])
@@ -92,6 +98,8 @@ func setup(rig_def: Dictionary) -> void:
 func apply_attrs(new_attrs: Dictionary) -> void:
 	for key in new_attrs:
 		attrs[key] = new_attrs[key]
+	_flip_at = -1.0
+	_mirrored = _faces_away()
 	if not motion:
 		_tilt = float(attrs.get("tilt", 0))
 	_redraw()
@@ -104,13 +112,27 @@ func snap_tilt() -> void:
 	_redraw()
 
 
+# A live change: turning dips the body and flips halfway through; an arm
+# moving to a new frame dips the body for the effort.
 func set_attr(key: String, value: Variant) -> void:
+	var changed: bool = attrs.get(key) != value
 	attrs[key] = value
+	if key == "facing":
+		if motion and changed:
+			var turn := float(rig["behaviour"]["turn_len"])
+			_flip_at = _time + turn * 0.5
+			_crouch_until = maxf(_crouch_until, _time + turn)
+		else:
+			_flip_at = -1.0
+			_mirrored = _faces_away()
+	elif key.begins_with("arm_") and changed:
+		_effort()
 	_redraw()
 
 
 # Plays a rig action (timed attribute sets) from now.
 func play(action_id: String) -> void:
+	_effort()
 	for step in rig["actions"][action_id]:
 		_actions.append({"at": _time + float(step["t"]), "set": step["set"]})
 
@@ -124,6 +146,7 @@ func talk(seconds: float) -> void:
 
 
 func stop_talking() -> void:
+	_crouch_until = -1.0
 	_talk_until = -1.0
 	_talk_frame = ""
 	_nod = 0.0
@@ -143,8 +166,19 @@ func set_walking(on: bool) -> void:
 	_redraw()
 
 
+# Whether the actor is drawn mirrored right now (mid-turn it still shows the
+# old facing until the flip).
 func is_mirrored() -> bool:
+	return _mirrored
+
+
+func _faces_away() -> bool:
 	return StageDirection.is_mirrored(rig, attrs.get("facing", StageDirection.rig_faces(rig)))
+
+
+func _effort() -> void:
+	if motion:
+		_crouch_until = maxf(_crouch_until, _time + float(rig["behaviour"]["effort_dip"]))
 
 
 # Frame id a part is currently showing.
@@ -203,20 +237,24 @@ func step(delta: float) -> void:
 	_chew_clock += delta
 	if walking:
 		_walk_clock += delta
-	# breathing: the upper body rises a pixel for part of each breath
+	if _flip_at >= 0.0 and _time >= _flip_at:
+		_flip_at = -1.0
+		_mirrored = _faces_away()
+	# breathing: the upper body rises a pixel for part of each breath; a turn or
+	# an effort sinks it a pixel instead
 	var breath := fmod(_time + _breathe_phase, _breathe_period) < _breathe_period * 0.45
-	_body.position.y = -1.0 if breath else 0.0
+	_body.position.y = _px * (1.0 if _time < _crouch_until else (-1.0 if breath else 0.0))
 	# weight shift: standing, the upper body leans a pixel at the far ends of a
 	# slow sway
 	var sway := 0.0 if walking else sin(TAU * _time / _sway_period + _sway_phase)
-	var lean := float(behaviour["sway_px"])
+	var lean := float(behaviour["sway_px"]) * _px
 	_body.position.x = lean if sway > 0.7 else (-lean if sway < -0.7 else 0.0)
 	# the head drifts to a new small idle angle now and then
 	if _time >= _idle_tilt_at:
 		var drift := float(behaviour["idle_tilt"])
 		_idle_tilt = 0.0 if _rng.randf() < 0.35 else _rng.randf_range(-drift, drift)
 		_idle_tilt_at = _time + _rand_in(behaviour["idle_tilt_every"])
-	_head.position = _neck - _origin + Vector2(0.0, _dip)
+	_head.position = _neck - _origin + Vector2(0.0, _dip * _px)
 	# tilt springs toward its target with a little overshoot
 	var target := float(attrs.get("tilt", 0)) + _idle_tilt + _nod
 	var stiffness := float(behaviour["tilt_stiffness"])

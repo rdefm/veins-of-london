@@ -63,6 +63,7 @@ def rig_manifest():
                 {"t": 0.9, "set": {"arm_l": "throw_release"}}, {"t": 1.5, "set": {"arm_l": "rest"}},
             ],
         },
+        "px": 1,
         "behaviour": {
             "blink_every": [2.2, 5.0], "blink_len": 0.12,
             "chew_step": 0.2, "chew_run": 4, "chew_pause": 0.6,
@@ -72,6 +73,7 @@ def rig_manifest():
             "idle_tilt": 2.5, "idle_tilt_every": [2.5, 6.0],
             "tilt_stiffness": 70.0, "tilt_damping": 8.0,
             "talk_nod": 2.5, "talk_nod_chance": 0.4, "talk_dip_chance": 0.15,
+            "turn_len": 0.16, "effort_dip": 0.14,
         },
     }
 
