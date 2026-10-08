@@ -12,6 +12,8 @@ Colours are lit tones; each style builds its own shadow ramp under them. Keys:
   expression   smile | neutral (what the "closed" mouth frame shows)
   lines        age lines on the forehead
   props        held-prop groups whose arm frames the rig gets: wrap, phone, bag, vial, knife
+  stance       l / r {frame: (hand target, elbow hint)} overriding the kit's POSE_L / POSE_R in the
+               same arm units; feet (near, far) base-pose foot offsets in stride units (+ = forward)
 """
 
 # Archie_reference.png: warm smile, dark-brown loose curls with a lock over the
@@ -36,6 +38,11 @@ ARCHIE = dict(
     expression="smile",
     lines=False,
     props=["wrap", "phone", "bag", "vial"],
+    stance=dict(
+        l={"rest": ((4, 35), (-6, 18)), "bag": ((0, 35), (-7, 18))},
+        r={"rest": ((-4, 34), (2, 17))},
+        feet=(0.35, -0.15),
+    ),
 )
 
 # James_reference.png: older, wild thinning grey hair, glasses, navy waistcoat
@@ -60,6 +67,11 @@ JAMES = dict(
     expression="neutral",
     lines=True,
     props=[],
+    stance=dict(
+        l={"rest": ((6, 33), (-3, 18))},
+        r={"rest": ((3, 34), (-2, 18))},
+        feet=(0.15, -0.1),
+    ),
 )
 
 # Intro buyers (intro/2.jpg): the knife one in a navy jumper with a yellow
@@ -83,6 +95,11 @@ KNIFE = dict(
     expression="neutral",
     lines=False,
     props=["knife"],
+    stance=dict(
+        l={"rest": ((10, 28), (-8, 15))},
+        r={"rest": ((6, 31), (-5, 17))},
+        feet=(-0.9, 0.9),
+    ),
 )
 
 MATE = dict(
@@ -104,6 +121,11 @@ MATE = dict(
     expression="neutral",
     lines=False,
     props=[],
+    stance=dict(
+        l={"rest": ((-3, 35), (-2, 18))},
+        r={"rest": ((5, 28), (-6, 15))},
+        feet=(-0.15, 0.6),
+    ),
 )
 
 CHARACTERS = {"archie": ARCHIE, "james": JAMES, "knife": KNIFE, "mate": MATE}

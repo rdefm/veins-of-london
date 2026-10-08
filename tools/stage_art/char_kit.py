@@ -901,12 +901,20 @@ def _shoulder(st, side):
     return shoulder[0], shoulder[1] + st["dy_body"]
 
 
+def stance(char):
+    """The character's rest stance: per-side arm pose overrides and base foot offsets."""
+    s = char.get("stance", {})
+    return {"l": s.get("l", {}), "r": s.get("r", {}), "feet": s.get("feet", (0, 0))}
+
+
 def key_pose(st, side, frame):
     """IK inputs of a table pose: hand target and elbow hint (canvas points), held prop, its angle,
-    and whether the far sleeve tucks behind the torso."""
+    and whether the far sleeve tucks behind the torso. The character's stance overrides the
+    table's hand target and elbow hint."""
     shoulder = _shoulder(st, side)
     k = sum(st["arm"]) / 38.0
     rel, hint, prop = (POSE_L if side == "l" else POSE_R)[frame]
+    rel, hint = stance(st["char"])[side].get(frame, (rel, hint))
     if rel is None:
         mx, my = st["mouth"]
         target = (mx + st["eat_hand"][0], my + st["dy_head"] + st["eat_hand"][1])
@@ -1168,7 +1176,8 @@ def anchors(st):
 def build(style, char):
     st = spec(style, char)
     torso_c = torso_canvas(st)
-    legs_c = legs_canvas(st)
+    near, far = stance(char)["feet"]
+    legs_c = legs_canvas(st, ((near, 0), (far, 0)))
     torso_mask = torso_c.mask()
     body_mask = [[torso_mask[y][x] or legs_c.mat[y][x] is not None for x in range(torso_c.w)] for y in range(torso_c.h)]
     images = {"shadow.png": shadow(st), "legs.png": legs_c.finish(), "torso.png": torso_c.finish(), "head.png": head(st)}
