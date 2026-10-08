@@ -87,7 +87,7 @@ func run() -> void:
 
 	run_case("intro_mockups_stage_six_intro_cards_and_end_inert", func():
 		var intro: Dictionary = GameData.EVENTS["intro"]
-		for mock_id in ["intro2", "intro6"]:
+		for mock_id in ["intro2", "intro5", "intro6"]:
 			var mock: Dictionary = GameData.EVENTS[mock_id]
 			assert_eq(mock["cards"].size(), intro["cards"].size(), "%s keeps every intro card" % mock_id)
 			for i in range(1, intro["cards"].size()):

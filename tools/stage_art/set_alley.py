@@ -50,6 +50,9 @@ COLOURS = {
     "tyre": "#1d1e22", "hub": "#a4a9b0", "lamp": "#fff1c4", "tail": "#d0342c",
     "coatA": "#2c3140", "coatB": "#5a4a3c", "skin": "#b88a6a", "hair": "#241c18", "legs": "#20232c",
 }
+# Styles with no outline separate the cast from the set by tone alone: the wall
+# sits darker and the bins recede so green jackets don't merge into them.
+UNLINED = {"brick": "#55302a", "mortar": "#30232a", "bin": "#26342d", "lid": "#212d27"}
 
 
 class Paint:
@@ -89,8 +92,11 @@ def materials(style):
         line = lambda r: style["ink"]
     else:
         line = lambda r: darken(r[0], 0.62)
+    colours = dict(COLOURS)
+    if style["outline"] == "none":
+        colours.update(UNLINED)
     out = {}
-    for k, c in COLOURS.items():
+    for k, c in colours.items():
         r = ramp(c, style["tones"])
         out[k] = Material(r, outline=line(r))
     return out
