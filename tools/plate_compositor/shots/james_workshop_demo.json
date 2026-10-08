@@ -1,0 +1,12 @@
+{
+  "plate": "james_workshop",
+  "shots": [
+    {"id": "james_solo", "label": "James solo",
+     "actors": [{"sprite": "assets/character-references/James/James_biz_sprite_master.png", "feet_x": 88, "feet_y": 249}]},
+    {"id": "james_archie_stool", "label": "James + Archie, stool occludes",
+     "actors": [
+       {"sprite": "assets/character-references/James/James_biz_sprite_master.png", "feet_x": 118, "feet_y": 268, "flip": true},
+       {"sprite": "assets/character-references/Archie/Archie_biz_sprite_master.png", "feet_x": 55, "feet_y": 284}
+     ]}
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "image": "assets/reference-plates/james_workshop_blank_plate.png",
+  "scale": 5,
+  "plate_colours": 64,
+  "cast_colours": 20,
+  "horizon_y": 131,
+  "eye_frac": 0.93,
+  "lights": [
+    {"name": "desk lamp", "xy": [170, 150], "rgb": [255, 214, 140], "strength": 1.0},
+    {"name": "window", "xy": [186, 70], "rgb": [205, 222, 255], "strength": 0.6},
+    {"name": "ceiling pendant", "xy": [84, 34], "rgb": [255, 220, 150], "strength": 0.5}
+  ],
+  "occluders": [
+    {"name": "stool", "depth_y": 296, "shapes": [
+      {"ellipse": [103, 220, 138, 237]},
+      {"rect": [117, 236, 125, 277]},
+      {"line": [121, 276, 105, 295], "width": 3},
+      {"line": [121, 276, 137, 293], "width": 3},
+      {"line": [121, 276, 121, 297], "width": 3},
+      {"line": [121, 276, 110, 290], "width": 3},
+      {"line": [121, 276, 132, 289], "width": 3}
+    ]}
+  ]
+}

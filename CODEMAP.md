@@ -347,6 +347,7 @@ the palette swatch; `pack_daily_cycle.py` preserves the retired cycle-atlas pipe
 are the desktop/mobile quest content editors (`data/events/*.json`); `test_quest_editor.js`
 unit-tests the desktop editor.
 `stage_art/` generates stage pixel art + rig/set manifests (`raster.py` shaded-material rasteriser, `rig_archie.py`, `set_spitalfields.py`, `build_stage_assets.py`; `char_kit.py` (people in chibi/retro/minimal/minimal_plus/dig, three-quarter view, from a config) + `characters.py` configs + `build_style_mockups.py` for style rigs; `set_alley.py` + `build_intro_stage.py` for the intro mock-up set/buyers in a kit style; `preview_*.py` render review sheets).
+`plate_compositor/compose.py` composites character sprites onto a blank reference plate (grid/palette lock, perspective scale, shadow, light tint, occluders) from `plates/*.json` + `shots/*.json`; see its README.
 `hq_region_mapper.tscn` (+ `_logic.gd`, Godot) traces per-tier HQ zone hit polygons on `assets/hq/<tier>_room.png` and saves them into `data/hq_visuals.json` "rooms".
 
 ## docs/*.md and docs/adr/
