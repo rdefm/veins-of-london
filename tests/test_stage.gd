@@ -85,6 +85,23 @@ func run() -> void:
 		GameData.STAGES = original_stages
 	)
 
+	run_case("intro2_stages_six_intro_cards_and_ends_inert", func():
+		var intro: Dictionary = GameData.EVENTS["intro"]
+		var mock: Dictionary = GameData.EVENTS["intro2"]
+		assert_eq(mock["cards"].size(), intro["cards"].size(), "intro2 keeps every intro card")
+		for i in range(1, intro["cards"].size()):
+			assert_eq(mock["cards"][i], intro["cards"][i], "intro2 card %d matches intro" % (i + 1))
+		assert_eq(GameData.STAGES["intro2"]["cards"].size(), 6, "intro2 stages cards 1-6")
+		GameState.reset()
+		var flags_before: Dictionary = GameState.state["flags"].duplicate(true)
+		Events.start_event("intro2")
+		for i in range(mock["cards"].size()):
+			assert_eq(Events.is_staged_card(), i < 6, "card %d staged only within the first six" % (i + 1))
+			Events.advance()
+		assert_eq(GameState.state["flags"], flags_before, "intro2 sets no flags or tutorial stage")
+		assert_eq(GameState.state["currentScreen"], "phone", "intro2 ends on the phone")
+	)
+
 	run_case("player_rests_and_wakes_cleanly", func():
 		GameState.reset()
 		GameState.state["meta"]["reducedMotion"] = false

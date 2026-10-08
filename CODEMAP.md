@@ -312,6 +312,8 @@ prose variants generated with the quest editor builder. Implementation briefs ar
 `assets/stages/`; edit the generator, not the JSON.
 `rigs/archie_{chibi,adventure,retro,minimal,minimal_plus}.json` are Archie in five art styles from the character kit (`tools/stage_art/build_style_mockups.py`),
 with bag/vial poses and a walk cycle; staged by the debug-only events `archie_craft_chat2/3/4` (inert `on_complete`).
+`sets/alley_<style>.json` (night alley + Vauxhall) and `rigs/{knife,mate,james}_<style>.json` (the buyers) come from
+`tools/stage_art/build_intro_stage.py <style>`; `intro2` (debug-only inert copy of `intro`) stages cards 1-6 in chibi.
 
 ## assets/phone/
 
@@ -344,7 +346,7 @@ the palette swatch; `pack_daily_cycle.py` preserves the retired cycle-atlas pipe
 `quest-editor.html`/`quest-editor-mobile.html`
 are the desktop/mobile quest content editors (`data/events/*.json`); `test_quest_editor.js`
 unit-tests the desktop editor.
-`stage_art/` generates stage pixel art + rig/set manifests (`raster.py` shaded-material rasteriser, `rig_archie.py`, `set_spitalfields.py`, `build_stage_assets.py`; `char_kit.py` (people in chibi/adventure/retro/minimal/minimal_plus, three-quarter view, from a config) + `characters.py` configs + `build_style_mockups.py` for style rigs; `preview_*.py` render review sheets).
+`stage_art/` generates stage pixel art + rig/set manifests (`raster.py` shaded-material rasteriser, `rig_archie.py`, `set_spitalfields.py`, `build_stage_assets.py`; `char_kit.py` (people in chibi/adventure/retro/minimal/minimal_plus, three-quarter view, from a config) + `characters.py` configs + `build_style_mockups.py` for style rigs; `set_alley.py` + `build_intro_stage.py` for the intro mock-up set/buyers in a kit style; `preview_*.py` render review sheets).
 `hq_region_mapper.tscn` (+ `_logic.gd`, Godot) traces per-tier HQ zone hit polygons on `assets/hq/<tier>_room.png` and saves them into `data/hq_visuals.json` "rooms".
 
 ## docs/*.md and docs/adr/

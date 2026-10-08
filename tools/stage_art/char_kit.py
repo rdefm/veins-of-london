@@ -61,13 +61,16 @@ POSE_R = {
     "vial": ((1, 33), (5, 18), "vial"),
     "flick_back": ((-1, 31), (5, 18), "vial_back"),
     "flick": ((5, 32), (5, 18), None),
+    "knife_low": ((3, 33), (5, 18), "knife"),
+    "knife": ((14, 20), (4, 22), "knife"),
 }
 VIAL_ANGLE = {"vial": -90, "vial_back": -150}
+KNIFE_ANGLE = {"knife_low": -20, "knife": -35}
 # Far-arm frames whose sleeve passes behind the torso in the three-quarter view.
 FAR_TUCKED = {"rest", "pocket", "vial", "flick_back", "flick"}
 # Held-prop tag -> the config prop group that unlocks frames using it.
 PROP_GROUP = {"wrap": "wrap", "ball": "wrap", "phone_up": "phone", "phone_low": "phone",
-              "bag": "bag", "vial": "vial", "vial_back": "vial", "behind": "vial"}
+              "bag": "bag", "vial": "vial", "vial_back": "vial", "behind": "vial", "knife": "knife"}
 EYE_FRAMES = ["open", "down", "closed", "wide"]
 BROW_FRAMES = ["normal", "up", "knit", "quirk"]
 MOUTH_FRAMES = ["closed", "chew_a", "chew_b", "talk_a", "talk_b", "agape", "smirk", "whistle"]
@@ -84,6 +87,7 @@ ACTIONS = {
         {"t": 0.0, "set": {"arm_r": "flick_back"}}, {"t": 0.14, "set": {"arm_r": "flick"}},
         {"t": 0.7, "set": {"arm_r": "rest"}},
     ],
+    "knife_draw": [{"t": 0.0, "set": {"arm_r": "knife_low"}}, {"t": 0.4, "set": {"arm_r": "knife"}}],
 }
 WALK_FRAME_TIME = 0.14
 
@@ -92,6 +96,7 @@ PROP_COLOURS = {
     "paper": "#ece5d6", "food": "#b87538", "phone": "#2d303b",
     "bag": "#f4f5f7", "bagband": "#3567b8", "box": "#c49660",
     "glass": "#d6eef9", "liquid": "#9cc8ff", "cork": "#9a6a3c",
+    "knife": "#e2b326", "blade": "#d9dee4",
 }
 
 
@@ -886,6 +891,19 @@ def vial(c, st, hx, hy, angle_deg):
     return (round(tip[0], 1), round(tip[1], 1))
 
 
+def knife(c, st, hx, hy, angle_deg):
+    """Stanley knife: yellow handle in the fist, short trapezoid blade out of its front end."""
+    k = st["prop_k"]
+    a = math.radians(angle_deg)
+    dx, dy = math.cos(a), math.sin(a)
+    r = max(0.9, 1.5 * k)
+    tail = (hx - dx * 2.0 * k, hy - dy * 2.0 * k)
+    nose_ = (hx + dx * max(2.0, 4.0 * k), hy + dy * max(2.0, 4.0 * k))
+    tip = (nose_[0] + dx * max(1.5, 3.5 * k), nose_[1] + dy * max(1.5, 3.5 * k))
+    c.capsule(nose_, tip, max(0.6, r * 0.8), max(0.5, r * 0.4), "blade", base=1.1)
+    c.capsule(tail, nose_, r, r, "knife", base=1.0)
+
+
 def _sleeve_cuff(c, st, elbow, wrist, base):
     fx, fy = wrist[0] - elbow[0], wrist[1] - elbow[1]
     p0 = (elbow[0] + fx * 0.7, elbow[1] + fy * 0.7)
@@ -919,6 +937,8 @@ def arm_canvas(st, side, frame, body_mask=None, torso_mask=None):
         bag(c, st, hx, hy, BAG_SWING[frame])
     if prop in ("vial", "vial_back"):
         vial(c, st, hx, hy, VIAL_ANGLE[prop])
+    if prop == "knife":
+        knife(c, st, hx, hy, KNIFE_ANGLE[frame])
     if prop != "behind":
         c.ellipse(hx, hy, st["hand_r"], st["hand_r"] * 1.05, "skin", base=1.0)
     if prop == "bag":

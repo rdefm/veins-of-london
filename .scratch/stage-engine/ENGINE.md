@@ -22,7 +22,7 @@ Prototype content: `archie_craft_chat` (Spitalfields Market + Archie). Ticket: `
 | `data/stages/rigs/<rig>.json` | **Generated** rig manifest (parts, frames, anchors, defaults, actions, behaviour timings). |
 | `data/stages/sets/<set>.json` | **Generated** set manifest (layers, walkers, ambient sprites, lights, objects, props). |
 | `assets/stages/rigs/<rig>/*.png`, `assets/stages/sets/<set>/*.png` | Generated art. |
-| `tools/stage_art/` | Generator: `raster.py`, `rig_archie.py`, `set_spitalfields.py`, `build_stage_assets.py`, `preview_rig.py`, `preview_set.py`. |
+| `tools/stage_art/` | Generator: `raster.py`, `rig_archie.py`, `set_spitalfields.py`, `build_stage_assets.py`, `preview_rig.py`, `preview_set.py`; character kit `char_kit.py` + `characters.py`; intro mock-up `set_alley.py` + `build_intro_stage.py`. |
 | `autoload/GameData.gd` | `_load_stages()` scans `data/stages/` into `STAGES` / `STAGE_RIGS` / `STAGE_SETS` (keyed by file basename). |
 | `systems/events.gd` | `has_stage()`; `is_vn_mode()` returns true for staged events. |
 | `scenes/screens/event.gd` | VN frame adds a `StagePlayer` to the image slot when `Events.has_stage()`; `_refresh_vn_card()` calls `show_card(cardIndex)` on staged cards, `rest()` + card PNG past the stage's last entry. |
@@ -120,6 +120,8 @@ Style rigs `archie_{chibi,adventure,retro,minimal,minimal_plus}` (character kit,
 
 Spitalfields (`data/stages/sets/spitalfields.json`, generated): world `360×320`, `floor_y` 300, Archie at x 230, default camera 205, bin at x 72 (camera 150 frames it). Walkers loop across `range` with 4-frame cycles; vendor cycles idle/scoop/look with random holds; lights are glow sprites with additive blend and sine flicker.
 
+Alley (`data/stages/sets/alley_<style>.json`, `set_alley.py` via `build_intro_stage.py <style>`): Mile End Road back alley at night, drawn in a character-kit style (the style's scale, tone ramps and outline, so set and cast share one pixel density). World `360×320`, `floor_y` 300; alley mouth onto the road at x < 40 (walkers cross it in the far layer, `range` −24..64); lamp post, kitchen door and fire-door bulkhead are the lights; steam and a cat are ambient. Object `car` (grey Vauxhall, body + headlight beam, 150×60) is drawn behind the cast — `intro2` parks it off-screen (x 430) and drives it to 200; buyers `show` in front of its doors. Buyer rigs `knife_<style>` (arm_r `knife_low`/`knife`, action `knife_draw`), `mate_<style>`, `james_<style>`.
+
 ## Art generator (`tools/stage_art/`)
 
 - `raster.py`: draws shapes as **(material, shade)** — `poly` (row-cylinder shading), `capsule` (limbs, normal-lit), `ellipse` (sphere-lit), `stamp` (ASCII pixel stamps for faces), `px` (fixed colours). `render()` quantises shade into each material's palette ramp (optional Bayer dither), darkens edges where listed materials meet (`edge_against`), then adds a 1 px outline from each material's outline colour. Single key light from upper-left.
@@ -144,7 +146,7 @@ New PNGs need the import pass, otherwise `ResourceLoader.exists()` fails. `*.imp
 **Stage another event with existing rig + set**
 1. Create `data/stages/<event_id>.json` with `set`, `camera`, `actors`, and one `steps` list per card.
 2. Use only frames and actions that exist in the rig manifest (the test checks every reference).
-3. Run `test_stage.gd`, then `godot -s scripts/debug_stage_screenshot.gd` (edit its `SHOTS` / event id) and look at the frames. `-- slow` injects a floor throw + slow field into card 5 (shots in `shots/slow/`).
+3. Run `test_stage.gd`, then `godot -s scripts/debug_stage_screenshot.gd [-- <event_id>]` (an event id uses `INTRO_SHOTS`; edit the shot lists as needed) and look at the frames. `-- slow` injects a floor throw + slow field into card 5 (shots in `shots/slow/`).
 
 **Add a pose or expression**
 Add an entry to `ARM_L`/`ARM_R`, `EYES`, `BROWS_L`, or `MOUTHS` in `rig_archie.py` (and `build()` / manifest frame lists if it's a new part), then regenerate. New frame names become available to `set` steps straight away.
