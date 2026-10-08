@@ -4,8 +4,9 @@ extends Node2D
 # One rigged character (data/stages/rigs/<rig>.json): layered part sprites on
 # a shared canvas, feet at this node's position. Attributes (arm frames, eyes,
 # brows, mouth, tilt, facing) come from StageDirection snapshots and card
-# steps; the idle life on top -- breathing, blinking, chewing, talk flaps, the
-# walk cycle while the player moves it -- runs here.
+# steps; the idle life on top -- breathing, weight-shift sway, idle head drift,
+# blinking, chewing, talk flaps and nods, the walk cycle while the player moves
+# it -- runs here, each actor on its own jittered rhythm.
 
 var rig: Dictionary
 var attrs: Dictionary = {}
@@ -30,7 +31,16 @@ var _talk_frame := ""
 var _talk_index := 0
 var _chew_clock := 0.0
 var _tilt := 0.0
+var _tilt_vel := 0.0
 var _actions: Array = []
+var _breathe_period := 1.0
+var _breathe_phase := 0.0
+var _sway_period := 1.0
+var _sway_phase := 0.0
+var _idle_tilt := 0.0
+var _idle_tilt_at := 0.0
+var _nod := 0.0
+var _dip := 0.0
 
 
 func setup(rig_def: Dictionary) -> void:
@@ -67,7 +77,15 @@ func setup(rig_def: Dictionary) -> void:
 				_head.add_child(sprite)
 		_sprites[part_id] = sprite
 		_shown[part_id] = frames.keys()[0]
-	_blink_at = _rng.randf_range(rig["behaviour"]["blink_every"][0], rig["behaviour"]["blink_every"][1])
+	_rng.randomize()
+	var behaviour: Dictionary = rig["behaviour"]
+	_blink_at = _rand_in(behaviour["blink_every"])
+	var jitter := float(behaviour["breathe_jitter"])
+	_breathe_period = float(behaviour["breathe_period"]) * _rng.randf_range(1.0 - jitter, 1.0 + jitter)
+	_breathe_phase = _rng.randf() * _breathe_period
+	_sway_period = _rand_in(behaviour["sway_period"])
+	_sway_phase = _rng.randf() * TAU
+	_idle_tilt_at = _rand_in(behaviour["idle_tilt_every"])
 	apply_attrs(rig["defaults"])
 
 
@@ -82,6 +100,7 @@ func apply_attrs(new_attrs: Dictionary) -> void:
 # Jumps the head straight to its target tilt (card snaps, not eased).
 func snap_tilt() -> void:
 	_tilt = float(attrs.get("tilt", 0))
+	_tilt_vel = 0.0
 	_redraw()
 
 
@@ -107,6 +126,8 @@ func talk(seconds: float) -> void:
 func stop_talking() -> void:
 	_talk_until = -1.0
 	_talk_frame = ""
+	_nod = 0.0
+	_dip = 0.0
 	_actions.clear()
 
 
@@ -166,23 +187,46 @@ func step(delta: float) -> void:
 	if _time >= _blink_at:
 		_blink_until = _time + float(behaviour["blink_len"])
 		_blink_at = _time + _rng.randf_range(behaviour["blink_every"][0], behaviour["blink_every"][1])
-	# talk flaps
+	# talk flaps, each beat sometimes nodding or dipping the head
 	if is_talking() and _time >= _talk_next:
 		var talk_frames: Array = rig["talk_frames"]
 		_talk_frame = talk_frames[_talk_index % talk_frames.size()]
 		_talk_index += 1 + _rng.randi_range(0, 1)
 		_talk_next = _time + float(behaviour["talk_step"]) * _rng.randf_range(0.8, 1.3)
+		if _rng.randf() < float(behaviour["talk_nod_chance"]):
+			_nod = _rng.randf_range(-1.0, 1.0) * float(behaviour["talk_nod"])
+		_dip = 1.0 if _rng.randf() < float(behaviour["talk_dip_chance"]) else 0.0
 	elif not is_talking():
 		_talk_frame = ""
+		_nod = 0.0
+		_dip = 0.0
 	_chew_clock += delta
 	if walking:
 		_walk_clock += delta
-	# breathing: the whole upper body rises a pixel for part of each breath
-	var period: float = behaviour["breathe_period"]
-	_body.position.y = -1.0 if fmod(_time, period) < period * 0.45 else 0.0
-	# tilt eases toward its target
-	var target := float(attrs.get("tilt", 0))
-	_tilt = move_toward(_tilt, target, float(behaviour["tilt_speed"]) * delta)
+	# breathing: the upper body rises a pixel for part of each breath
+	var breath := fmod(_time + _breathe_phase, _breathe_period) < _breathe_period * 0.45
+	_body.position.y = -1.0 if breath else 0.0
+	# weight shift: standing, the upper body leans a pixel at the far ends of a
+	# slow sway
+	var sway := 0.0 if walking else sin(TAU * _time / _sway_period + _sway_phase)
+	var lean := float(behaviour["sway_px"])
+	_body.position.x = lean if sway > 0.7 else (-lean if sway < -0.7 else 0.0)
+	# the head drifts to a new small idle angle now and then
+	if _time >= _idle_tilt_at:
+		var drift := float(behaviour["idle_tilt"])
+		_idle_tilt = 0.0 if _rng.randf() < 0.35 else _rng.randf_range(-drift, drift)
+		_idle_tilt_at = _time + _rand_in(behaviour["idle_tilt_every"])
+	_head.position = _neck - _origin + Vector2(0.0, _dip)
+	# tilt springs toward its target with a little overshoot
+	var target := float(attrs.get("tilt", 0)) + _idle_tilt + _nod
+	var stiffness := float(behaviour["tilt_stiffness"])
+	var damping := float(behaviour["tilt_damping"])
+	var left := delta
+	while left > 0.0:
+		var h := minf(left, 1.0 / 120.0)
+		_tilt_vel += (stiffness * (target - _tilt) - damping * _tilt_vel) * h
+		_tilt += _tilt_vel * h
+		left -= h
 	_redraw()
 
 
@@ -228,6 +272,10 @@ func _show(part_id: String, frame_id: String) -> void:
 	if frames.has(frame_id):
 		_sprites[part_id].texture = frames[frame_id]
 		_shown[part_id] = frame_id
+
+
+func _rand_in(span: Array) -> float:
+	return _rng.randf_range(float(span[0]), float(span[1]))
 
 
 static func _vec(a: Array) -> Vector2:

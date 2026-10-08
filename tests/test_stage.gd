@@ -230,6 +230,27 @@ func run() -> void:
 		assert_eq(StageDirection.drop_landing(stage, drop, 100.0, "left").x, 95.0, "mirrored drop lands the other side")
 	)
 
+	run_case("idle_life_is_per_actor_and_springs_to_tilt", func():
+		GameState.reset()
+		var rig: Dictionary = GameData.STAGE_RIGS["archie_minimal"]
+		var a := StageActor.new()
+		var b := StageActor.new()
+		a.setup(rig)
+		b.setup(rig)
+		assert_true(a._breathe_phase != b._breathe_phase or a._breathe_period != b._breathe_period, "two actors breathe on their own rhythm")
+		a.set_attr("tilt", -7)
+		for i in range(40):
+			a.step(0.05)
+			var body: Vector2 = a._body.position
+			assert_eq(body, body.round(), "body offset stays on whole pixels")
+		assert_almost_eq(a._tilt, -7.0 + a._idle_tilt, 1.0, "tilt spring settles on target plus idle drift")
+		a.motion = false
+		a.apply_attrs({"tilt": 3})
+		assert_eq(a._tilt, 3.0, "reduced motion: tilt snaps with no idle drift")
+		a.free()
+		b.free()
+	)
+
 	run_case("player_moves_walks_and_rewinds_the_cast", func():
 		GameState.reset()
 		GameState.state["meta"]["reducedMotion"] = false

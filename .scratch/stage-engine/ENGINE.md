@@ -106,7 +106,7 @@ Manifest (`data/stages/rigs/archie.json`, generated):
 
 - Every part frame is a full `96×168` PNG on a shared canvas; `origin` = feet (48,159). Overlays (eyes/brows/mouth) are mostly transparent — cheap and keeps offsets trivial.
 - `order` = draw order. `group`: `root` (static: shadow, legs), `body` (bobs 1 px to breathe: torso, arms), `head` (inside body, rotates about `anchors.neck`: head, eyes, brows, mouth). Arms come after head so a bite can cover the face.
-- `defaults`, `mouth_states` (`chew` → `chew_a/chew_b` cycle), `talk_frames`, `actions`, `behaviour` (blink interval/length, chew timing, talk step, breathe period, tilt speed).
+- `defaults`, `mouth_states` (`chew` → `chew_a/chew_b` cycle), `talk_frames`, `actions`, `behaviour` (blink interval/length, chew timing, talk step; idle life: breathe period + per-actor jitter, weight-shift sway period/px (body ±1 px x, off while walking), idle head drift angle/interval, tilt spring stiffness/damping (overshoot then settle), talk nod angle/chance and 1 px head dip chance). Each actor randomises its own phases at `setup`, so a group never moves in sync.
 - Optional `faces` (`"right"` default): the way the art faces as drawn; the other `facing` flips the actor node (`scale.x = -1`).
 - Optional `walk`: `{"part": "legs", "frames": ["walk_0", ...], "frame_time": s, "stand": "base"}` — every frame must exist in that part. Cycles while a `move` runs (motion on), shows `stand` otherwise. Rigs without it slide.
 
