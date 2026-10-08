@@ -1,0 +1,178 @@
+{
+  "id": "mate_adventure",
+  "dir": "res://assets/stages/rigs/mate_adventure/",
+  "canvas": [
+    96,
+    168
+  ],
+  "origin": [
+    48,
+    159
+  ],
+  "anchors": {
+    "mouth": [
+      49,
+      59
+    ],
+    "neck": [
+      48,
+      63
+    ],
+    "hand_l": {
+      "rest": [
+        37.8,
+        103.6
+      ],
+      "throw_release": [
+        14.2,
+        64.6
+      ]
+    },
+    "hand_r": {
+      "rest": [
+        56.5,
+        103.6
+      ],
+      "flick": [
+        62.8,
+        99.1
+      ]
+    }
+  },
+  "order": [
+    "shadow",
+    "legs",
+    "torso",
+    "head",
+    "eyes",
+    "brows",
+    "mouth",
+    "arm_r",
+    "arm_l"
+  ],
+  "parts": {
+    "shadow": {
+      "group": "root",
+      "frames": {
+        "base": "shadow.png"
+      }
+    },
+    "legs": {
+      "group": "root",
+      "frames": {
+        "base": "legs.png",
+        "walk_0": "legs_walk_0.png",
+        "walk_1": "legs_walk_1.png",
+        "walk_2": "legs_walk_2.png",
+        "walk_3": "legs_walk_3.png"
+      }
+    },
+    "torso": {
+      "group": "body",
+      "frames": {
+        "base": "torso.png"
+      }
+    },
+    "head": {
+      "group": "head",
+      "frames": {
+        "base": "head.png"
+      }
+    },
+    "eyes": {
+      "group": "head",
+      "frames": {
+        "open": "eyes_open.png",
+        "down": "eyes_down.png",
+        "closed": "eyes_closed.png",
+        "wide": "eyes_wide.png"
+      }
+    },
+    "brows": {
+      "group": "head",
+      "frames": {
+        "normal": "brows_normal.png",
+        "up": "brows_up.png",
+        "knit": "brows_knit.png",
+        "quirk": "brows_quirk.png"
+      }
+    },
+    "mouth": {
+      "group": "head",
+      "frames": {
+        "closed": "mouth_closed.png",
+        "chew_a": "mouth_chew_a.png",
+        "chew_b": "mouth_chew_b.png",
+        "talk_a": "mouth_talk_a.png",
+        "talk_b": "mouth_talk_b.png",
+        "agape": "mouth_agape.png",
+        "smirk": "mouth_smirk.png",
+        "whistle": "mouth_whistle.png"
+      }
+    },
+    "arm_r": {
+      "group": "body",
+      "frames": {
+        "rest": "arm_r_rest.png",
+        "flick": "arm_r_flick.png"
+      }
+    },
+    "arm_l": {
+      "group": "body",
+      "frames": {
+        "rest": "arm_l_rest.png",
+        "throw_release": "arm_l_throw_release.png"
+      }
+    }
+  },
+  "defaults": {
+    "arm_l": "rest",
+    "arm_r": "rest",
+    "eyes": "open",
+    "brows": "normal",
+    "mouth": "closed",
+    "tilt": 0
+  },
+  "mouth_states": {
+    "chew": [
+      "chew_a",
+      "chew_b"
+    ]
+  },
+  "talk_frames": [
+    "talk_a",
+    "talk_b",
+    "closed",
+    "talk_b",
+    "chew_a",
+    "talk_a"
+  ],
+  "actions": {},
+  "behaviour": {
+    "blink_every": [
+      2.2,
+      5.0
+    ],
+    "blink_len": 0.12,
+    "chew_step": 0.2,
+    "chew_run": 4,
+    "chew_pause": 0.6,
+    "talk_step": 0.11,
+    "talk_per_char": 0.032,
+    "talk_min": 1.0,
+    "talk_max": 6.0,
+    "breathe_period": 3.2,
+    "tilt_speed": 40.0
+  },
+  "walk": {
+    "part": "legs",
+    "frames": [
+      "walk_0",
+      "walk_1",
+      "walk_2",
+      "walk_3"
+    ],
+    "frame_time": 0.14,
+    "stand": "base"
+  }
+}

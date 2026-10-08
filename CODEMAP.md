@@ -313,7 +313,7 @@ prose variants generated with the quest editor builder. Implementation briefs ar
 `rigs/archie_{chibi,adventure,retro,minimal,minimal_plus}.json` are Archie in five art styles from the character kit (`tools/stage_art/build_style_mockups.py`),
 with bag/vial poses and a walk cycle; staged by the debug-only events `archie_craft_chat2/3/4` (inert `on_complete`).
 `sets/alley_<style>.json` (night alley + Vauxhall) and `rigs/{knife,mate,james}_<style>.json` (the buyers) come from
-`tools/stage_art/build_intro_stage.py <style>`; debug-only inert copies of `intro` stage cards 1-6: `intro2` in chibi, `intro5` in minimal, `intro6` in minimal_plus.
+`tools/stage_art/build_intro_stage.py <style>`; debug-only inert copies of `intro` stage cards 1-6: `intro2` in chibi, `intro3` in adventure, `intro5` in minimal, `intro6` in minimal_plus.
 
 ## assets/phone/
 
