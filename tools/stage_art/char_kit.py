@@ -1,4 +1,4 @@
-"""Character kit: people in three pixel-art styles, driven by a config.
+"""Character kit: people in several pixel-art styles, driven by a config.
 
 A style fixes rendering, proportions and face stamps; a character config
 (characters.py) fixes build, hair, facial hair, glasses, outfit colours and
@@ -8,14 +8,15 @@ drops into the engine as a rig. Styles:
 
   chibi      SNES/Stardew-style RPG: ~2.5 heads tall, big eyes, flat 3-tone
              cel shading, uniform dark outline.
-  adventure  Point-and-click adventure (LucasArts/Wadjet Eye): lanky, small
-             head, hue-shifted 4-tone ramps, coloured sel-out outline, no dither.
   retro      NES/PICO-8-style: drawn at half resolution then doubled, 2 tones
              per material, hard black outline.
   minimal    Tiny "pixel people": drawn at third resolution, ~4.5 heads tall,
              flat 2-tone colour, no outline, dot eyes.
   minimal_plus  Between minimal and retro: minimal's slim build drawn at half
              resolution, 3-tone ramps, soft sel-out outline, 1x2 eyes, nose.
+  dig        minimal_plus taken toward 90s VGA adventure sprites (The Dig): a
+             touch taller, muted hue-shifted 4-tone ramps, sel-out outline, and
+             clothing detail (seams, folds, creases, belt, ribbing, laces).
 
 Everyone stands in a three-quarter view turned toward viewer-right (TURN):
 face features and the clothes' front line sit right of centre, the far
@@ -124,7 +125,7 @@ PROP_COLOURS = {
     "paper": "#ece5d6", "food": "#b87538", "phone": "#2d303b",
     "bag": "#f4f5f7", "bagband": "#3567b8", "box": "#c49660",
     "glass": "#d6eef9", "liquid": "#9cc8ff", "cork": "#9a6a3c",
-    "knife": "#e2b326", "blade": "#d9dee4",
+    "knife": "#e2b326", "blade": "#d9dee4", "belt": "#3b2a20", "buckle": "#b9a27a",
 }
 
 
@@ -161,7 +162,7 @@ CHIBI = dict(
     hair=dict(cap=(48, 77, 14.5, 9.5), curl_r=4.2, ring=(13.5, 10.0), n=8, inner=4, fringe_y=78),
     ears=(1.8, 2.6), ear_y=88,
     torso=dict(top=98, sh_y=102, sw=12, hem=129, hw=11, neck_w=3),
-    legs=dict(hip=125, foot=158, leg_w=8, gap=1, shoe_h=5, toe=2),
+    legs=dict(hip=125, foot=158, leg_w=8, gap=1, shoe_h=5, toe=2, thigh=1, stand_gap=3),
     shoulders=((37, 104), (59, 104)), arm=(10.5, 10.5), arm_r=(3.8, 3.4), hand_r=2.5,
     eat_hand=(-6, 6), prop_k=0.75, phone=(4, 7), shadow=(18, 2.6),
     beard=dict(y=92, side_y=86, mouth=(44, 51, 93, 95), tache=(43, 52, 91)), nose="chibi",
@@ -195,48 +196,6 @@ CHIBI = dict(
     },
 )
 
-ADV_INK = "#2a161a"
-ADVENTURE = dict(
-    name="adventure", scale=1, outline="selout", ink=ADV_INK,
-    tones=[(-0.68, 0.1, 0.03), (-0.45, 0.06, 0.02), (-0.2, 0.03, 0.01), (0, 0, 0)],
-    face=(48, 52, 7.5, 9.5), neck=(48, 62), mouth=(48, 58), face_tones=(0.8, 0.55),
-    hair=dict(cap=(48, 44.5, 8.6, 6.0), curl_r=2.8, ring=(8.0, 6.6), n=9, inner=3, fringe_y=45),
-    ears=(1.2, 2.2), ear_y=53,
-    torso=dict(top=61, sh_y=66, sw=14, hem=105, hw=12, neck_w=3),
-    legs=dict(hip=100, foot=158, leg_w=7, gap=1, shoe_h=5, toe=4),
-    shoulders=((36, 69), (60, 69)), arm=(17.5, 17.0), arm_r=(3.6, 3.2), hand_r=2.6,
-    eat_hand=(-10, 11), prop_k=0.9, phone=(5, 9), shadow=(22, 3.0),
-    beard=dict(y=56, side_y=51, mouth=(45, 50, 57, 58), tache=(45, 50, 56)), nose="adventure",
-    lines=[(45, 46, 50)],
-    eyes={
-        "key": {"L": ADV_INK, "P": ("eye", 0.5), "W": "#e9e3d6", "s": ("skin", 0.3)},
-        "open": ((44, 51), ["LL", "WP"], (50, 51), ["LL", "PW"]),
-        "down": ((44, 51), ["ss", "LL"], (50, 51), ["ss", "LL"]),
-        "closed": ((44, 52), ["LL"], (50, 52), ["LL"]),
-        "wide": ((44, 50), ["WW", "WP", "WW"], (50, 50), ["WW", "PW", "WW"]),
-    },
-    brows={
-        "key": {"B": ("brow", 0.5)},
-        "normal": (49, ["BBB"]),
-        "up": (48, [".BB", "B.."]),
-        "knit": (48, ["BB.", "..B"]),
-        "x": (43, 50),
-    },
-    mouths={
-        "key": {"D": "#2e1416", "T": "#e9e3d6", "l": ("skin", 0.3), "F": ("food", 0.6)},
-        "x": 46,
-        "closed": (57, ["DDDD"]),
-        "smile": (57, ["D..D", ".DD."]),
-        "chew_a": (57, [".DD."]),
-        "chew_b": (57, [".DD.", ".ll."]),
-        "talk_a": (57, [".DD.", ".DD."]),
-        "talk_b": (57, ["DTTD", ".DD."]),
-        "agape": (57, ["DTTD", "DDDD", "DFDD", ".DD."]),
-        "smirk": (57, ["...D", "DDD."]),
-        "whistle": (57, ["..D.", ".lDl"]),
-    },
-)
-
 BLACK = "#000000"
 RETRO = dict(
     name="retro", scale=2, outline="ink", ink=BLACK,
@@ -245,7 +204,7 @@ RETRO = dict(
     hair=dict(cap=(24, 25.5, 6.8, 4.2), curl_r=1.9, ring=(6.2, 4.6), n=7, inner=2, fringe_y=26),
     ears=(0.9, 1.4), ear_y=31,
     torso=dict(top=36, sh_y=39, sw=7, hem=57, hw=6, neck_w=2),
-    legs=dict(hip=55, foot=78, leg_w=4, gap=0, shoe_h=3, toe=1),
+    legs=dict(hip=55, foot=78, leg_w=5, gap=1, shoe_h=3, toe=1, thigh=0.5, stand_gap=2),
     shoulders=((17.5, 40.5), (30.5, 40.5)), arm=(8.0, 8.0), arm_r=(2.1, 1.9), hand_r=1.4,
     eat_hand=(-3.5, 3.5), prop_k=0.42, phone=(2, 4), shadow=(10, 1.4),
     beard=dict(y=34, side_y=30, side=1.6, mouth=(22, 25, 34, 35), tache=(22, 25, 33)), nose="retro",
@@ -287,7 +246,7 @@ MINIMAL = dict(
     hair=dict(cap=(16, 20.5, 3.9, 2.6), curl_r=1.25, ring=(3.3, 2.3), n=6, inner=1, fringe_y=19),
     ears=(0.7, 1.0), ear_y=23,
     torso=dict(top=27, sh_y=28, sw=4.6, hem=38, hw=4.0, neck_w=1),
-    legs=dict(hip=37, foot=52, leg_w=2, gap=1, shoe_h=1, toe=1),
+    legs=dict(hip=37, foot=52, leg_w=3, gap=1, shoe_h=1, toe=1, stand_gap=1),
     shoulders=((11.6, 29), (20.4, 29)), arm=(4.8, 4.8), arm_r=(1.15, 1.0), hand_r=0.9,
     eat_hand=(-2, 2), prop_k=0.32, phone=(1, 2), shadow=(14, 2.0), vial_min=3.0,
     beard=dict(y=25, side_y=22, side=1.0, mouth=(15, 17, 24, 24), tache=None), nose="none",
@@ -329,7 +288,7 @@ MINIMAL_PLUS = dict(
     hair=dict(cap=(24, 26, 5.4, 3.4), curl_r=1.6, ring=(4.6, 3.4), n=7, inner=2, fringe_y=25),
     ears=(0.8, 1.2), ear_y=30,
     torso=dict(top=36, sh_y=37.5, sw=6.8, hem=54, hw=5.8, neck_w=1.5),
-    legs=dict(hip=53, foot=78, leg_w=3, gap=1, shoe_h=2, toe=1),
+    legs=dict(hip=53, foot=78, leg_w=4, gap=1, shoe_h=2, toe=1, thigh=0.5, stand_gap=2),
     shoulders=((17.4, 38.5), (30.6, 38.5)), arm=(7.6, 7.6), arm_r=(1.6, 1.4), hand_r=1.2,
     eat_hand=(-3, 3), prop_k=0.45, phone=(2, 3), shadow=(16, 2.2), vial_min=3.5,
     beard=dict(y=33, side_y=29, side=1.4, mouth=(23, 25, 33, 33), tache=(22, 26, 32)), nose="retro",
@@ -364,7 +323,49 @@ MINIMAL_PLUS = dict(
     },
 )
 
-STYLES = {"chibi": CHIBI, "adventure": ADVENTURE, "retro": RETRO, "minimal": MINIMAL, "minimal_plus": MINIMAL_PLUS}
+DIG = dict(
+    name="dig", scale=2, outline="selout", ink=None, detail=True,
+    tones=[(-0.55, 0.07, -0.05), (-0.34, 0.04, -0.03), (-0.15, 0.02, -0.01), (0, 0, -0.03)],
+    face=(24, 26.5, 4.4, 4.8), neck=(24, 33), mouth=(24, 30), face_tones=(0.85, 0.5),
+    hair=dict(cap=(24, 23, 5.2, 3.3), curl_r=1.6, ring=(4.4, 3.3), n=7, inner=2, fringe_y=22),
+    ears=(0.8, 1.2), ear_y=27,
+    torso=dict(top=33, sh_y=34.5, sw=6.8, hem=52, hw=5.8, neck_w=1.5),
+    legs=dict(hip=50, foot=78, leg_w=4, gap=1, shoe_h=2, toe=1, thigh=0.5, stand_gap=2),
+    shoulders=((17.4, 35.5), (30.6, 35.5)), arm=(8.6, 8.4), arm_r=(1.7, 1.5), hand_r=1.2,
+    eat_hand=(-3, 3), prop_k=0.45, phone=(2, 3), shadow=(16, 2.2), vial_min=3.5,
+    beard=dict(y=30, side_y=26, side=1.4, mouth=(23, 25, 30, 30), tache=(22, 26, 29)), nose="dig",
+    glasses_bars=True,
+    lines=[(22, 26, 23)],
+    eyes={
+        "key": {"P": ("eye", 0.5), "W": "#e6e0d4", "s": ("skin", 0.0)},
+        "open": ((22, 25), ["P", "P"], (26, 25), ["P", "P"]),
+        "down": ((22, 26), ["P"], (26, 26), ["P"]),
+        "closed": ((22, 26), ["s"], (26, 26), ["s"]),
+        "wide": ((21, 25), ["WP", "WP"], (26, 25), ["PW", "PW"]),
+    },
+    brows={
+        "key": {"B": ("brow", 0.5)},
+        "normal": (23, ["BB"]),
+        "up": (22, ["BB"]),
+        "knit": (23, ["B.", ".B"]),
+        "x": (21, 26),
+    },
+    mouths={
+        "key": {"D": "#2a1410", "T": "#e6e0d4", "l": ("skin", 0.0), "F": ("food", 0.6)},
+        "x": 22,
+        "closed": (30, [".DD."]),
+        "smile": (29, ["D..D", ".DD."]),
+        "chew_a": (30, ["..DD"]),
+        "chew_b": (30, ["DD.."]),
+        "talk_a": (30, [".DD.", ".DD."]),
+        "talk_b": (30, ["DDDD", ".DD."]),
+        "agape": (29, [".DD.", "DTTD", "DDDD"]),
+        "smirk": (29, ["...D", "DDD."]),
+        "whistle": (29, ["..D.", ".DlD", "..D."]),
+    },
+)
+
+STYLES = {"chibi": CHIBI, "retro": RETRO, "minimal": MINIMAL, "minimal_plus": MINIMAL_PLUS, "dig": DIG}
 
 
 # ── style + character → drawing spec ────────────────────────────────
@@ -474,17 +475,30 @@ def _in_ell(x, y, e):
 
 
 # ── legs + shadow ───────────────────────────────────────────────────
-def legs_canvas(st, pose=((0, 0), (0, 0))):
+def legs_canvas(st, pose=((0, 0), (0, 0)), stand=False):
     """Legs with each foot offset by (dx, lift) in stride/lift units. Both feet point right;
-    the far (viewer-right) leg draws first so the near leg stays in front."""
+    the far (viewer-right) leg draws first so the near leg stays in front, a touch narrower
+    (foreshortened by the turn) with the gap between the legs kept open at the hip. Thighs
+    flare out by the style's `thigh` px. Standing (stand=True), the feet are pushed apart until
+    the ankles are at least `stand_gap` px apart, so the legs never fuse into one column."""
     c = StyleCanvas(st)
     g = st["legs"]
     cx = c.w // 2
     hip, foot, lw, gap, sh, toe = g["hip"], g["foot"], g["leg_w"], g["gap"], g["shoe_h"], g["toe"]
+    th = g.get("thigh", 0)
     stride = max(1, round(st["leg_len"] * STRIDE))
     lift = max(1, round(st["leg_len"] * LIFT))
     half = gap / 2.0
     back = max(1, round(lift * 0.4))  # far foot stands a little behind
+    near_x = (cx - half - lw, cx - half)
+    far_x = (cx + half, cx + half + max(2, lw - st["far_in"]))
+    (ldx, llift), (rdx, rlift) = pose
+    ldx, rdx = round(ldx * stride), round(rdx * stride)
+    if stand:
+        short = g.get("stand_gap", 1) - ((far_x[0] + rdx) - (near_x[1] + ldx))
+        if short > 0:
+            ldx -= short // 2
+            rdx += short - short // 2
 
     def knee(dx, ankle, planted):
         """Knee point (x offset from the hip line, y) of a two-bone leg reaching (dx, ankle):
@@ -497,32 +511,68 @@ def legs_canvas(st, pose=((0, 0), (0, 0))):
         bend = math.sqrt(max(0.0, bone * bone - d * d / 4.0))
         return vx / 2.0 + bend * vy / d, hip + vy / 2.0 - bend * vx / d
 
-    def leg(side, dx_u, lift_u):
-        dx, up = round(dx_u * stride), round(lift_u * lift)
+    def leg(side, dx, lift_u):
+        up = round(lift_u * lift)
         f = foot - up - (back if side == "r" else 0)
         ankle = f - sh
         kx, ky = knee(dx, ankle, foot - (back if side == "r" else 0))
+        x0, x1 = near_x if side == "l" else far_x
         if side == "l":
-            x0, x1 = cx - half - lw, cx - half
-            c.poly([(x0 - 0.5, hip), (x1, hip), (x1 + kx, ky), (x1 + dx, ankle + 1), (x0 + 0.5 + dx, ankle + 1), (x0 + kx, ky)],
+            c.poly([(x0 - 0.5 - th, hip), (x1, hip), (x1 + kx, ky), (x1 + dx, ankle + 1), (x0 + 0.5 + dx, ankle + 1), (x0 + kx, ky)],
                    "trousers", base=0.9, peak=0.3)
-            a, b = x0 + dx, x1 + dx
-            c.poly([(a, ankle), (b - 0.5, ankle), (b + toe, f - 1.5), (b + toe, f), (a, f)], "shoe", base=1.0, peak=0.35)
-            xs = range(int(a), int(b + toe))
         else:
-            x0, x1 = cx + half - st["far_in"], cx + half + lw - st["far_in"]
-            c.poly([(x0, hip), (x1 + 0.5, hip), (x1 + kx, ky), (x1 - 0.5 + dx, ankle + 1), (x0 + dx, ankle + 1), (x0 + kx, ky)],
+            c.poly([(x0, hip), (x1 + 0.5 + th, hip), (x1 + kx, ky), (x1 - 0.5 + dx, ankle + 1), (x0 + dx, ankle + 1), (x0 + kx, ky)],
                    "trousers", base=0.6, peak=0.35)
-            a, b = x0 + dx, x1 + dx
-            c.poly([(a, ankle), (b - 0.5, ankle), (b + toe, f - 1.5), (b + toe, f), (a, f)], "shoe", base=0.9, peak=0.4)
-            xs = range(int(a), int(b + toe))
-        for x in xs:
+        a, b = x0 + dx, x1 + dx
+        if st.get("detail"):
+            _trouser_detail(c, side, (x0, x1), dx, (kx, ky), hip, ankle)
+        c.poly([(a, ankle), (b - 0.5, ankle), (b + toe, f - 1.5), (b + toe, f), (a, f)], "shoe",
+               base=1.0 if side == "l" else 0.9, peak=0.35 if side == "l" else 0.4)
+        for x in range(int(a), int(b + toe)):
             c.shade_px(x, f - 1, "sole", 0.6)
+        if st.get("detail"):
+            _shoe_detail(c, a, b, toe, ankle, f, side)
 
-    (ldx, llift), (rdx, rlift) = pose
     leg("r", rdx, rlift)
     leg("l", ldx, llift)
     return c
+
+
+def _on(c, x, y, mat):
+    x, y = int(x), int(y)
+    return 0 <= x < c.w and 0 <= y < c.h and c.mat[y][x] == mat
+
+
+def _mark(c, x, y, mat, v):
+    """Shade one pixel only where `mat` is already drawn."""
+    if _on(c, x, y, mat):
+        c.shade_px(int(x), int(y), mat, v)
+
+
+def _trouser_detail(c, side, xs, dx, kn, hip, ankle):
+    """Front crease down the lit side of the leg, a fold behind the knee, the hem break over the shoe."""
+    x0, x1 = xs
+    kx, ky = kn
+
+    def off(y):
+        if y < ky:
+            return kx * (y - hip) / max(1.0, ky - hip)
+        return kx + (dx - kx) * (y - ky) / max(1.0, ankle - ky)
+
+    lit = 0.85 if side == "l" else 0.6
+    for y in range(int(hip) + 2, int(ankle)):
+        _mark(c, x0 + 1 + off(y), y, "trousers", lit)
+    _mark(c, x1 - 1 + kx, ky, "trousers", 0.1)
+    _mark(c, x1 - 1 + kx, ky + 1, "trousers", 0.2)
+    for x in range(int(x0 + dx), int(x1 + dx) + 1):
+        _mark(c, x, ankle, "trousers", 0.25)
+
+
+def _shoe_detail(c, a, b, toe, ankle, f, side):
+    """Lace highlight on the instep, a darker heel."""
+    _mark(c, b - 1, ankle, "shoe", 1.0)
+    _mark(c, b, ankle + 1 if ankle + 1 < f - 1 else ankle, "shoe", 0.9)
+    _mark(c, a, f - 2, "shoe", 0.25 if side == "l" else 0.15)
 
 
 def shadow(st):
@@ -588,7 +638,51 @@ def torso_canvas(st):
         for y in range(int(vy + 2), int(hem), step):
             c.shade_px(int(cx), y, "collar", 1.0)
         _shirt_collar(c, mid, top, nw, cl)
+    if st.get("detail"):
+        _torso_detail(c, st, kind, mid, cx, tw, top, shy, hem, left, right, lhem, rhem)
     return c
+
+
+def _torso_detail(c, st, kind, mid, cx, tw, top, shy, hem, left, right, lhem, rhem):
+    """Seams and folds: shoulder seams, drape creases from the armpits, a shaded far side seam,
+    then per garment the jacket's zip edge, hem band and the belt across the tee, the jumper's
+    ribbed hem and neck, or the waistcoat's welt pockets."""
+    outer = "under" if kind == "waistcoat" else "top"
+    for x in range(int(left + 2), int(mid - 2)):
+        _mark(c, x, shy - 1, outer, 1.0)
+    for i in range(3):
+        _mark(c, left + 2 + i, shy + 4 + i, outer, 0.35)
+        _mark(c, right - 2 - i, shy + 4 + i, outer, 0.2)
+    for y in range(int(shy + 3), int(hem)):
+        _mark(c, right - 1 - (rhem < right and y > (shy + hem) / 2), y, outer, 0.15)
+    if kind == "jacket":
+        for y in range(int(top + 3), int(hem)):
+            _mark(c, cx + tw, y, "top", 0.2)
+            _mark(c, cx - tw - 2, y, "top", 0.95)
+        for x in range(int(lhem), int(rhem) + 1):
+            _mark(c, x, hem - 1, "top", 0.3)
+        by = int(hem - 3)
+        for x in range(int(cx - tw), int(cx + tw) + 1):
+            if _on(c, x, by, "under"):
+                c.shade_px(x, by, "belt", 0.5)
+        if _on(c, cx, by, "belt"):
+            c.shade_px(int(cx), by, "buckle", 0.8)
+    elif kind == "jumper":
+        for x in range(int(lhem), int(rhem) + 1):
+            _mark(c, x, hem - 1, "top", 0.15 if x % 2 else 0.45)
+            _mark(c, x, hem - 2, "top", 0.35 if x % 2 else 0.6)
+        for x in range(int(mid - 2), int(mid + 3)):
+            _mark(c, x, top + 2, "top", 0.3 if x % 2 else 0.7)
+        for (x, y) in ((mid - 3, hem - 4), (mid - 2, hem - 5), (mid - 1, hem - 6), (mid + 2, hem - 4), (mid + 3, hem - 5)):
+            _mark(c, x, y, "top", 0.3)
+    else:
+        py = int(top + (hem - top) * 0.72)
+        for x in range(int(lhem + 2), int(cx - 1)):
+            _mark(c, x, py, "top", 0.15)
+        for x in range(int(cx + 2), int(rhem - 1)):
+            _mark(c, x, py, "top", 0.1)
+        for x in range(int(lhem), int(rhem) + 1):
+            _mark(c, x, hem - 1, "top", 0.35)
 
 
 def _pocket(c, x0, x1, y0, h):
@@ -775,14 +869,10 @@ def nose(c, st):
         return
     if kind == "chibi":
         c.shade_px(x, int(fy + 4), "skin", 0.3)
-    elif kind == "adventure":
-        for y in range(int(fy), int(fy + 4)):
-            c.shade_px(x - 1, y, "skin", 0.95)
-            c.shade_px(x, y, "skin", 0.55)
-        c.shade_px(x - 2, int(fy + 4), "skin", 0.2)
-        c.shade_px(x - 1, int(fy + 4), "skin", 0.45)
-        c.shade_px(x, int(fy + 4), "skin", 0.2)
-        c.shade_px(x + 1, int(fy + 3), "skin", 0.3)
+    elif kind == "dig":
+        c.shade_px(x, int(fy), "skin", 0.95)
+        c.shade_px(x, int(fy + 1), "skin", 0.7)
+        c.shade_px(x + 1, int(fy + 2), "skin", 0.25)
     else:
         c.shade_px(x, int(fy + 2), "skin", 0.2)
 
@@ -1086,6 +1176,12 @@ def arm_canvas(st, side, frame, body_mask=None, torso_mask=None):
     c.capsule(elbow, wrist, (ru + rf) / 2, rf, sleeve, base=base * 1.05)
     if st["char"]["outfit"]["top"].get("cuffs"):
         _sleeve_cuff(c, st, elbow, wrist, base)
+    elif st.get("detail"):
+        for t in (0.82, 0.9):
+            _mark(c, elbow[0] + (wrist[0] - elbow[0]) * t, elbow[1] + (wrist[1] - elbow[1]) * t, sleeve, 0.25 if t < 0.85 else 0.9)
+    if st.get("detail"):
+        _mark(c, elbow[0] + 0.5, elbow[1], sleeve, 0.15)
+        _mark(c, elbow[0] - 0.5, elbow[1] - 1, sleeve, 1.0)
     if prop == "wrap":
         wrap(c, st, hx, hy, angle)
     if prop == "bag":
@@ -1192,7 +1288,7 @@ def build(style, char):
     st = spec(style, char)
     torso_c = torso_canvas(st)
     near, far = stance(char)["feet"]
-    legs_c = legs_canvas(st, ((near, 0), (far, 0)))
+    legs_c = legs_canvas(st, ((near, 0), (far, 0)), stand=True)
     torso_mask = torso_c.mask()
     body_mask = [[torso_mask[y][x] or legs_c.mat[y][x] is not None for x in range(torso_c.w)] for y in range(torso_c.h)]
     images = {"shadow.png": shadow(st), "legs.png": legs_c.finish(), "torso.png": torso_c.finish(), "head.png": head(st)}

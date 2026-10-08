@@ -1,5 +1,5 @@
 {
-  "set": "alley_adventure",
+  "set": "alley_dig",
   "camera": {
     "x": 110
   },
@@ -10,23 +10,23 @@
   },
   "actors": {
     "archie": {
-      "rig": "archie_adventure",
+      "rig": "archie_dig",
       "x": 70
     },
     "mate": {
-      "rig": "mate_adventure",
+      "rig": "mate_dig",
       "x": 236,
       "facing": "left",
       "hidden": true
     },
     "knife": {
-      "rig": "knife_adventure",
+      "rig": "knife_dig",
       "x": 212,
       "facing": "left",
       "hidden": true
     },
     "james": {
-      "rig": "james_adventure",
+      "rig": "james_dig",
       "x": 250,
       "facing": "left",
       "hidden": true
