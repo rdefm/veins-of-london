@@ -38,8 +38,9 @@ class Plate:
 
     @staticmethod
     def _cast_colours(path: str, n: int) -> np.ndarray:
-        im = Image.open(ROOT / path).convert("RGB")
-        im = im.resize((im.width // 6, im.height // 6), Image.BOX)
+        a = np.asarray(Image.open(ROOT / path).convert("RGBA"))
+        px = a[a[..., 3] >= 128][:, :3][::8]   # opaque pixels only
+        im = Image.fromarray(px.reshape(1, -1, 3).astype(np.uint8))
         q = im.quantize(colors=n, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE)
         return np.array(q.getpalette()[: n * 3]).reshape(-1, 3)
 
@@ -74,6 +75,19 @@ class Plate:
         a = np.asarray(im).astype(float)
         a[..., 3] = (a[..., 3] >= 128) * 255
         return a
+
+    def load_cutout(self, path: str) -> np.ndarray:
+        """Plate-sized cut-out from extract.py, block-averaged to native px (alpha-weighted)."""
+        s = self.scale
+        a = np.asarray(Image.open(ROOT / path).convert("RGBA")).astype(float)
+        a = a[: self.H * s, : self.W * s].reshape(self.H, s, self.W, s, 4)
+        alpha = a[..., 3] / 255.0
+        wsum = alpha.sum((1, 3))
+        rgb = (a[..., :3] * alpha[..., None]).sum((1, 3)) / np.maximum(wsum, 1e-6)[..., None]
+        out = np.zeros((self.H, self.W, 4))
+        out[..., :3] = rgb
+        out[..., 3] = (wsum / (s * s) >= 0.5) * 255
+        return out
 
     def light_sprite(self, spr: np.ndarray, x0: int, y0: int) -> np.ndarray:
         rgb, op = spr[..., :3].copy(), spr[..., 3] > 0
@@ -112,6 +126,11 @@ class Plate:
         canvas = self.base.copy()
         layers = []
         for a in shot["actors"]:
+            if "cutout" in a:   # already posed, scaled and lit by the AI; placed where it was cut
+                spr = self.load_cutout(a["cutout"])
+                feet_y = int(np.nonzero(spr[..., 3].any(1))[0].max())
+                layers.append((feet_y, "cutout", (spr, a)))
+                continue
             spr = self.load_sprite(a["sprite"], a["feet_y"], a.get("flip", False))
             h, w = spr.shape[:2]
             layers.append((a["feet_y"], "actor", (spr, a["feet_x"] - w // 2, a["feet_y"] - h, a)))
@@ -120,6 +139,14 @@ class Plate:
         for _, kind, data in sorted(layers, key=lambda t: t[0]):   # painter's order by floor depth
             if kind == "occ":
                 canvas[data] = self.base[data]
+                continue
+            if kind == "cutout":
+                spr, a = data
+                on = spr[..., 3] > 0
+                if a.get("shadow"):
+                    xs = np.nonzero(on.any(0))[0]
+                    self.shadow(canvas, int(xs.mean()), depth, len(xs))
+                canvas[on] = spr[..., :3][on]
                 continue
             spr, x0, y0, a = data
             self.shadow(canvas, a["feet_x"], a["feet_y"], spr.shape[1])
@@ -144,7 +171,7 @@ def main() -> None:
 
     spec = json.loads(Path(args.shots).read_text())
     plate_cfg = json.loads((HERE / "plates" / f"{spec['plate']}.json").read_text())
-    sprites = [a["sprite"] for s in spec["shots"] for a in s["actors"]]
+    sprites = [a.get("sprite") or a["cutout"] for s in spec["shots"] for a in s["actors"]]
     plate = Plate(plate_cfg, sprites)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)

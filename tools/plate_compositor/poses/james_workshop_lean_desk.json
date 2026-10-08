@@ -1,0 +1,8 @@
+{
+  "plate": "james_workshop",
+  "ai_image": "assets/events/james_meeting/james_meeting_card5.png",
+  "region": {"polygon": [[410, 590], [560, 590], [600, 700], [600, 960], [520, 970], [470, 1260], [300, 1270], [330, 1100], [350, 700]]},
+  "threshold": 60,
+  "close": 4,
+  "out": "assets/character-references/James/poses/workshop_lean_desk.png"
+}

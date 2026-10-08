@@ -32,12 +32,39 @@ the full-res plate in any image editor (cursor position), then divide by 5.
 4. Run `python tools/plate_compositor/compose.py tools/plate_compositor/shots/<event_id>.json --sheet`.
 5. Open `.scratch/plate-compositor/<event_id>_sheet.png` and check that:
    - the feet sit on the floor, not on furniture;
-   - nobody overlaps furniture they should be behind (if they do, add an occluder, step B5);
+   - nobody overlaps furniture they should be behind (if they do, add an occluder, step C5);
    - the shadow sits under the feet.
    To fix one, nudge `feet_x`/`feet_y` by 2–5 px and re-run.
 6. When happy, copy the shot PNG to `assets/events/<event_id>/<event_id>_card<N>.png`.
 
-### B. Set up a new blank plate (once per room)
+### B. Add an AI-posed character (leaning, sitting, holding things)
+
+Sprites only stand. For a pose that touches the room, let the AI draw the character *on the
+plate*, then cut them out so the AI's background drift never reaches the final image.
+
+1. In ChatGPT, upload the **blank plate** and the character's master sprite. Prompt e.g.:
+   "Add this man leaning his hip against the front-left corner of the desk, hands on its edge.
+   Same pixel-art style and scale as the room. Change nothing else. Keep the exact image size."
+   Ask for 3–4 variations; save the best one, e.g. `.scratch/event-art/<event_id>/lean_v2.png`.
+2. Copy `poses/james_workshop_lean_desk.json` to `poses/<plate>_<character>_<pose>.json` and set:
+   - `ai_image`: the saved AI image.
+   - `region`: a loose outline around the character **plus anything they touch** (hand on desk,
+     chair seat), as `polygon` `[[x, y], ...]` or `rect` `[x0, y0, x1, y1]`. **Full-res px
+     here, not native.** Keep it tight-ish; drift inside the outline can sneak in.
+   - `out`: where the cut-out goes, e.g. `assets/character-references/James/poses/workshop_lean_desk.png`.
+3. Run `python tools/plate_compositor/extract.py tools/plate_compositor/poses/<file>.json --sheet`.
+4. Open `.scratch/plate-compositor/<file>_extract_sheet.png`. The pink tint shows exactly what
+   was kept and the cyan line is your outline. Fix problems as follows:
+   - **Background bits kept:** tighten `region`, or raise `threshold` (default 60).
+   - **Holes or missing edges on the character:** lower `threshold` to 40–50, or raise `close`
+     (default 4).
+5. In a shots file, add the actor as `{"cutout": "<out path>"}`. No position or size is needed
+   because the cut-out is plate-sized and keeps its spot. Add `"shadow": true` only if the AI
+   drew none. It mixes freely with normal sprite actors (`shots/james_workshop_lean_demo.json`).
+
+A cut-out only fits **that plate, that spot**. A different desk or room means generating again.
+
+### C. Set up a new blank plate (once per room)
 
 1. Put the blank plate (no characters) in `assets/reference-plates/`.
 2. Copy `plates/james_workshop.json` to `plates/<plate_name>.json` and set `image`.
@@ -84,22 +111,15 @@ room. Each step below removes one of those mismatches.
 
 - `plates/<plate>.json`: per-plate setup: image, scale, palette sizes, horizon, lights,
   occluders. Done once per blank plate; occluder shapes are rough hand-drawn traces.
-- `shots/<name>.json`: `{plate, shots:[{id, label, actors:[{sprite, feet_x, feet_y, flip?}]}]}`.
-  Coordinates are native px (full-res ÷ scale).
+- `shots/<name>.json`: `{plate, shots:[{id, label, actors:[...]}]}`. An actor is either
+  `{sprite, feet_x, feet_y, flip?}` (native px) or `{cutout, shadow?}`.
+- `extract.py` + `poses/<pose>.json`: `{plate, ai_image, region, threshold?, close?, out}`.
+  Region in full-res px. Cut = inside region AND differs from plate (after a ±4 px alignment
+  check), then median denoise, opening, closing, largest connected shape and hole fill.
+  Cut-outs are grid- and palette-locked by compose but not relit; the AI already lit them.
 
 ## Limits
 
-- **Pose comes from the sprite.** Standing figures only: no leaning, sitting or holding
-  anything in the room. That needs new pose art (see below).
+- **Sprite actors only stand.** For leaning, sitting or holding things use a cut-out (section B).
 - Downscaling a high-res sprite master softens faces a little.
 - Occluder traces are rough; tighter polygons, or a painted mask PNG, would be cleaner.
-
-## Next: dynamic poses (planned, not built)
-
-Masked AI inpainting plus a paste-back step:
-
-1. In ChatGPT (or SD/Flux inpaint), brush a mask over the character area on the blank plate,
-   attach the sprite reference, and prompt the pose ("leaning on the desk").
-2. The AI tends to drift the *whole* image, so a script keeps only the masked region from the AI
-   output and composites it onto the untouched plate. The background stays pixel-identical.
-3. Run the result through grid-lock and palette-lock (steps 1–2 above).

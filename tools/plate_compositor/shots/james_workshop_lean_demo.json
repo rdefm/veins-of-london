@@ -1,0 +1,12 @@
+{
+  "plate": "james_workshop",
+  "shots": [
+    {"id": "james_lean_desk", "label": "James lean (cut-out)",
+     "actors": [{"cutout": "assets/character-references/James/poses/workshop_lean_desk.png"}]},
+    {"id": "james_lean_archie", "label": "James lean + Archie (sprite)",
+     "actors": [
+       {"cutout": "assets/character-references/James/poses/workshop_lean_desk.png"},
+       {"sprite": "assets/character-references/Archie/Archie_biz_sprite_master.png", "feet_x": 40, "feet_y": 290}
+     ]}
+  ]
+}
