@@ -224,7 +224,12 @@
     "talk_nod_chance": 0.4,
     "talk_dip_chance": 0.15,
     "turn_len": 0.16,
-    "effort_dip": 0.14
+    "effort_dip": 0.14,
+    "arm_tween": 0.18
+  },
+  "tweens": {
+    "arm_l": {},
+    "arm_r": {}
   },
   "walk": {
     "part": "legs",

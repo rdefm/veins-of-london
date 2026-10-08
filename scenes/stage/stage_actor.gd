@@ -46,6 +46,7 @@ var _px := 1.0
 var _mirrored := false
 var _flip_at := -1.0
 var _crouch_until := -1.0
+var _arm_tweens: Dictionary = {}
 
 
 func setup(rig_def: Dictionary) -> void:
@@ -98,6 +99,7 @@ func setup(rig_def: Dictionary) -> void:
 func apply_attrs(new_attrs: Dictionary) -> void:
 	for key in new_attrs:
 		attrs[key] = new_attrs[key]
+	_arm_tweens.clear()
 	_flip_at = -1.0
 	_mirrored = _faces_away()
 	if not motion:
@@ -113,9 +115,10 @@ func snap_tilt() -> void:
 
 
 # A live change: turning dips the body and flips halfway through; an arm
-# moving to a new frame dips the body for the effort.
+# moving to a new frame plays its in-betweens and dips the body for the effort.
 func set_attr(key: String, value: Variant) -> void:
 	var changed: bool = attrs.get(key) != value
+	_tween_arm(key, attrs.get(key), value)
 	attrs[key] = value
 	if key == "facing":
 		if motion and changed:
@@ -190,6 +193,39 @@ func _faces_away() -> bool:
 	return StageDirection.is_mirrored(rig, attrs.get("facing", StageDirection.rig_faces(rig)))
 
 
+# Starts the rig's in-betweens for an arm moving between two frames (a pair's
+# frames, or its reverse played backwards); no-op without motion or a tween.
+func _tween_arm(part_id: String, from: Variant, to: Variant) -> void:
+	_arm_tweens.erase(part_id)
+	if not motion or from == to or not part_id.begins_with("arm_"):
+		return
+	var pairs: Dictionary = rig.get("tweens", {}).get(part_id, {})
+	var frames: Array = []
+	if pairs.has("%s>%s" % [from, to]):
+		frames = pairs["%s>%s" % [from, to]]
+	elif pairs.has("%s>%s" % [to, from]):
+		frames = pairs["%s>%s" % [to, from]].duplicate()
+		frames.reverse()
+	if not frames.is_empty():
+		_arm_tweens[part_id] = {"frames": frames, "at": _time}
+
+
+# In-between frame an arm shows now, or "" once its tween is over. Ease-out:
+# progress 1 - (1 - x)^2 over `arm_tween` seconds picks the frame, so the arm
+# leaves fast and the last in-between holds before the target lands.
+func _tween_frame(part_id: String) -> String:
+	if not _arm_tweens.has(part_id):
+		return ""
+	var tween: Dictionary = _arm_tweens[part_id]
+	var x := (_time - float(tween["at"])) / float(rig["behaviour"]["arm_tween"])
+	if x >= 1.0:
+		_arm_tweens.erase(part_id)
+		return ""
+	var frames: Array = tween["frames"]
+	var eased := 1.0 - (1.0 - x) * (1.0 - x)
+	return frames[mini(int(eased * frames.size()), frames.size() - 1)]
+
+
 func _effort() -> void:
 	if motion:
 		_crouch_until = maxf(_crouch_until, _time + float(rig["behaviour"]["effort_dip"]))
@@ -226,6 +262,7 @@ func step(delta: float) -> void:
 	for action in due:
 		_actions.erase(action)
 		for key in action["set"]:
+			_tween_arm(key, attrs.get(key), action["set"][key])
 			attrs[key] = action["set"][key]
 	if not motion:
 		_redraw()
@@ -293,6 +330,10 @@ func _redraw() -> void:
 	var stride := walk_index()
 	var swing: int = int(rig["walk"]["swing"][stride]) if stride >= 0 and rig["walk"].has("swing") else 0
 	for part_id in ["arm_l", "arm_r"]:
+		var between := _tween_frame(part_id)
+		if between != "":
+			_show(part_id, between)
+			continue
 		var pose: String = attrs.get(part_id, "")
 		var level := swing if part_id == "arm_l" else -swing
 		var swung := "%s@%d" % [pose, level]

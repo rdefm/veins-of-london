@@ -298,6 +298,43 @@ func run() -> void:
 		actor.free()
 	)
 
+	run_case("live_arm_change_plays_inbetweens_snapshot_snaps", func():
+		GameState.reset()
+		var actor := StageActor.new()
+		actor.setup(GameData.STAGE_RIGS["archie_minimal"])
+		var pairs: Dictionary = actor.rig["tweens"]["arm_r"]
+		var span := float(actor.rig["behaviour"]["arm_tween"]) + 0.05
+		actor.apply_attrs({"arm_r": "rest"})
+		actor.set_attr("arm_r", "pocket")
+		assert_eq(_arm_frames_over(actor, "arm_r", span), pairs["rest>pocket"] + ["pocket"], "in-betweens in order, then the target")
+		actor.set_attr("arm_r", "rest")
+		var back: Array = pairs["rest>pocket"].duplicate()
+		back.reverse()
+		assert_eq(_arm_frames_over(actor, "arm_r", span), back + ["rest"], "the move back plays the pair reversed")
+		actor.apply_attrs({"arm_r": "flick_back"})
+		actor.set_attr("arm_r", "flick")
+		assert_eq(_arm_frames_over(actor, "arm_r", span), pairs["flick_back>flick"] + ["flick"], "fast move overshoots")
+		assert_true(String(pairs["flick_back>flick"][-1]).ends_with(".o"), "overshoot frame comes last")
+		actor.set_attr("arm_r", "flick_back")
+		assert_eq(_arm_frames_over(actor, "arm_r", span), pairs["flick>flick_back"] + ["flick_back"], "reverse skips the overshoot")
+		actor.set_attr("arm_r", "rest")
+		actor.step(0.01)
+		actor.apply_attrs({"arm_r": "vial"})
+		assert_eq(actor.shown_frame("arm_r"), "vial", "snapshot apply snaps to the end frame mid-tween")
+		actor.step(0.01)
+		assert_eq(actor.shown_frame("arm_r"), "vial", "and stays there")
+		actor.apply_attrs({"arm_l": "bag"})
+		actor.play("bag_wave")
+		var waved := _arm_frames_over(actor, "arm_l", 1.4)
+		var arc: Array = ["bag"] + actor.rig["tweens"]["arm_l"]["bag>bag_wave_a"] + ["bag_wave_a"] + actor.rig["tweens"]["arm_l"]["bag_wave_a>bag_wave_b"]
+		assert_eq(waved.slice(0, arc.size()), arc, "a wave action sweeps through its arc")
+		assert_eq(waved[-1], "bag", "and lands on its last frame")
+		actor.motion = false
+		actor.set_attr("arm_r", "pocket")
+		assert_eq(actor.shown_frame("arm_r"), "pocket", "reduced motion snaps to the target")
+		actor.free()
+	)
+
 	run_case("player_moves_walks_and_rewinds_the_cast", func():
 		GameState.reset()
 		GameState.state["meta"]["reducedMotion"] = false
@@ -549,6 +586,22 @@ func _assert_rig_files(rig: Dictionary) -> void:
 				assert_true(rig["parts"][attr]["frames"].has(step["set"][attr]), "action %s frame %s exists" % [action_id, step["set"][attr]])
 	for problem in _walk_problems(rig):
 		assert_true(false, "%s: %s" % [rig["id"], problem])
+	var tweens: Dictionary = rig.get("tweens", {})
+	for part_id in tweens:
+		var frames: Dictionary = rig["parts"][part_id]["frames"]
+		for pair in tweens[part_id]:
+			for frame_id in String(pair).split(">") + PackedStringArray(tweens[part_id][pair]):
+				assert_true(frames.has(frame_id), "%s tween %s frame %s exists" % [rig["id"], pair, frame_id])
+
+
+# Distinct arm frames shown while stepping `seconds` in 10 ms ticks.
+func _arm_frames_over(actor: StageActor, part_id: String, seconds: float) -> Array:
+	var shown: Array = [actor.shown_frame(part_id)]
+	for i in range(int(seconds / 0.01)):
+		actor.step(0.01)
+		if actor.shown_frame(part_id) != shown[-1]:
+			shown.append(actor.shown_frame(part_id))
+	return shown
 
 
 func _assert_step_valid(event_id: String, stage: Dictionary, set_def: Dictionary, step: Dictionary) -> void:

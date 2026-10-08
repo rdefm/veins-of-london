@@ -73,7 +73,7 @@ def rig_manifest():
             "idle_tilt": 2.5, "idle_tilt_every": [2.5, 6.0],
             "tilt_stiffness": 70.0, "tilt_damping": 8.0,
             "talk_nod": 2.5, "talk_nod_chance": 0.4, "talk_dip_chance": 0.15,
-            "turn_len": 0.16, "effort_dip": 0.14,
+            "turn_len": 0.16, "effort_dip": 0.14, "arm_tween": 0.18,
         },
     }
 

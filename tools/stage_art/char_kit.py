@@ -22,7 +22,8 @@ face features and the clothes' front line sit right of centre, the far
 (viewer-right) shoulder tucks in, both feet point right, the near leg in front.
 
 Arms are posed by 2-bone IK from a shared pose table scaled to each style's
-arm length, so the same rig actions work for every style and character.
+arm length, so the same rig actions work for every style and character;
+in-between frames (TWEENS) interpolate the IK targets between pose pairs.
 """
 import colorsys
 import math
@@ -88,6 +89,21 @@ WALK_LEAN = 3.0  # degrees the head leans into the walk
 SWING_DEG = 8.0  # arm rotation about the shoulder per swing level
 # Poses that swing while walking, and how much of the swing each takes (a raised knife barely moves).
 SWING_POSES = {"rest": 1.0, "bag": 0.7, "hold": 0.5, "phone_low": 0.5, "vial": 0.6, "knife_low": 0.6, "knife": 0.25}
+# In-between arm frames: the pose pairs rig actions and stage steps move between, per side, and
+# whether the move is fast enough to overshoot. The kit draws TWEEN_STEPS frames between each pair
+# (hand target and elbow hint swept about the shoulder, prop angle eased), plus one frame
+# OVERSHOOT past the end on a fast move. The engine plays a pair reversed for the move back; an
+# overshooting pair also lists its reverse, without the overshoot, on the same PNGs.
+TWEENS = {
+    "l": [("rest", "hold", False), ("hold", "eat", False), ("hold", "wave_a", False), ("wave_a", "wave_b", False),
+          ("hold", "crumple", False), ("crumple", "throw_back", False), ("throw_back", "throw_release", True),
+          ("throw_release", "rest", False), ("bag", "bag_wave_a", False), ("bag_wave_a", "bag_wave_b", False)],
+    "r": [("rest", "phone_low", False), ("phone_low", "phone_up", False), ("rest", "pocket", False),
+          ("pocket", "vial", False), ("vial", "flick_back", False), ("flick_back", "flick", True),
+          ("flick", "rest", False), ("rest", "knife_low", False), ("knife_low", "knife", True)],
+}
+TWEEN_STEPS = 2
+OVERSHOOT = 0.2  # fraction of the move the overshoot frame carries past the end pose
 ACTIONS = {
     "bag_wave": [
         {"t": 0.0, "set": {"arm_l": "bag_wave_a"}}, {"t": 0.2, "set": {"arm_l": "bag_wave_b"}},
@@ -853,27 +869,101 @@ def _rot(v, deg):
     return (v[0] * math.cos(a) - v[1] * math.sin(a), v[0] * math.sin(a) + v[1] * math.cos(a))
 
 
-def arm_pose(st, side, frame):
-    """Shoulder, elbow, hand and held prop for an arm frame; a swing frame ('rest@2') turns the
-    base pose about the shoulder, forward (+x) for a positive level."""
+def tween_id(a, b, step):
+    """'rest>hold.1' (step 1..TWEEN_STEPS) or 'rest>hold.o' (the overshoot)."""
+    return "%s>%s.%s" % (a, b, step)
+
+
+def split_tween(frame):
+    """'rest>hold.1' -> ('rest', 'hold', 1/3); the overshoot sits past 1; a table frame -> None."""
+    if ">" not in frame:
+        return None
+    pair, step = frame.rsplit(".", 1)
+    a, b = pair.split(">")
+    return a, b, 1.0 + OVERSHOOT if step == "o" else int(step) / (TWEEN_STEPS + 1.0)
+
+
+def prop_angle(frame, prop):
+    """Drawing angle of a table pose's held prop (the bag's swing), or None for props drawn square."""
+    if prop == "wrap":
+        return WRAP_ANGLE[frame]
+    if prop == "bag":
+        return BAG_SWING[frame]
+    if prop in ("vial", "vial_back"):
+        return VIAL_ANGLE[prop]
+    if prop == "knife":
+        return KNIFE_ANGLE[frame]
+    return None
+
+
+def _shoulder(st, side):
     shoulder = st["shoulders"][0 if side == "l" else 1]
-    shoulder = (shoulder[0], shoulder[1] + st["dy_body"])
-    a, b = st["arm"]
-    k = (a + b) / 38.0
-    base, _ = split_swing(frame)
-    rel, hint, prop = (POSE_L if side == "l" else POSE_R)[base]
-    turn = -swing_deg(frame)
-    if rel is not None:
-        rel = _rot(rel, turn)
-    hint = _rot(hint, turn)
+    return shoulder[0], shoulder[1] + st["dy_body"]
+
+
+def key_pose(st, side, frame):
+    """IK inputs of a table pose: hand target and elbow hint (canvas points), held prop, its angle,
+    and whether the far sleeve tucks behind the torso."""
+    shoulder = _shoulder(st, side)
+    k = sum(st["arm"]) / 38.0
+    rel, hint, prop = (POSE_L if side == "l" else POSE_R)[frame]
     if rel is None:
         mx, my = st["mouth"]
         target = (mx + st["eat_hand"][0], my + st["dy_head"] + st["eat_hand"][1])
     else:
         target = (shoulder[0] + rel[0] * k, shoulder[1] + rel[1] * k)
-    hint_pt = (shoulder[0] + hint[0] * k, shoulder[1] + hint[1] * k)
-    elbow, hand = solve_elbow(shoulder, target, a, b, hint_pt)
-    return shoulder, elbow, hand, prop
+    return {"target": target, "hint": (shoulder[0] + hint[0] * k, shoulder[1] + hint[1] * k), "prop": prop,
+            "angle": prop_angle(frame, prop), "tucked": side == "r" and frame in FAR_TUCKED}
+
+
+def _sweep(s, p, q, t):
+    """Point t of the way from p to q swept about s: angle and distance from s eased separately,
+    so a hand travels an arc rather than cutting through the body."""
+    ap, aq = math.atan2(p[1] - s[1], p[0] - s[0]), math.atan2(q[1] - s[1], q[0] - s[0])
+    da = (aq - ap + math.pi) % (2 * math.pi) - math.pi
+    rp, rq = math.hypot(p[0] - s[0], p[1] - s[1]), math.hypot(q[0] - s[0], q[1] - s[1])
+    ang, r = ap + da * t, rp + (rq - rp) * t
+    return s[0] + math.cos(ang) * r, s[1] + math.sin(ang) * r
+
+
+def tween_pose(st, side, a, b, t):
+    """IK inputs t of the way from pose a to b (past 1 overshoots); the prop and sleeve tuck follow
+    the nearer pose, its angle eases when both poses angle it."""
+    s = _shoulder(st, side)
+    pa, pb = key_pose(st, side, a), key_pose(st, side, b)
+    near = pa if t < 0.5 else pb
+    angle = near["angle"]
+    if pa["angle"] is not None and pb["angle"] is not None:
+        angle = pa["angle"] + (pb["angle"] - pa["angle"]) * t
+    elif angle is None:
+        angle = pa["angle"] if pa["angle"] is not None else pb["angle"]
+    return {"target": _sweep(s, pa["target"], pb["target"], t), "hint": _sweep(s, pa["hint"], pb["hint"], t),
+            "prop": near["prop"], "angle": angle, "tucked": near["tucked"]}
+
+
+def arm_pose(st, side, frame):
+    """Shoulder, elbow, hand, held prop, prop angle and sleeve tuck for an arm frame: a table pose,
+    an in-between ('rest>hold.1'), or a swing frame ('rest@2', the pose turned about the shoulder,
+    forward (+x) for a positive level, the prop turning with it)."""
+    shoulder = _shoulder(st, side)
+    tween = split_tween(frame)
+    if tween:
+        pose = tween_pose(st, side, *tween)
+    else:
+        base, _ = split_swing(frame)
+        pose = key_pose(st, side, base)
+        turn = -swing_deg(frame)
+    if not tween and turn:
+        rel = (pose["target"][0] - shoulder[0], pose["target"][1] - shoulder[1])
+        hint = (pose["hint"][0] - shoulder[0], pose["hint"][1] - shoulder[1])
+        rel, hint = _rot(rel, turn), _rot(hint, turn)
+        pose["target"] = (shoulder[0] + rel[0], shoulder[1] + rel[1])
+        pose["hint"] = (shoulder[0] + hint[0], shoulder[1] + hint[1])
+        if pose["angle"] is not None:
+            # the bag lags the swing
+            pose["angle"] += -turn * 0.5 if pose["prop"] == "bag" else turn
+    elbow, hand = solve_elbow(shoulder, pose["target"], st["arm"][0], st["arm"][1], pose["hint"])
+    return shoulder, elbow, hand, pose["prop"], pose["angle"], pose["tucked"]
 
 
 def wrap(c, st, hx, hy, angle_deg):
@@ -955,9 +1045,7 @@ def _sleeve_cuff(c, st, elbow, wrist, base):
 
 def arm_canvas(st, side, frame, body_mask=None, torso_mask=None):
     c = StyleCanvas(st)
-    shoulder, elbow, (hx, hy), prop = arm_pose(st, side, frame)
-    turn = -swing_deg(frame)
-    frame, _ = split_swing(frame)
+    shoulder, elbow, (hx, hy), prop, angle, tucked = arm_pose(st, side, frame)
     ru, rf = st["arm_r"]
     base = 0.95 if side == "l" else 0.75
     sleeve = st["sleeve"]
@@ -976,13 +1064,13 @@ def arm_canvas(st, side, frame, body_mask=None, torso_mask=None):
     if st["char"]["outfit"]["top"].get("cuffs"):
         _sleeve_cuff(c, st, elbow, wrist, base)
     if prop == "wrap":
-        wrap(c, st, hx, hy, WRAP_ANGLE[frame] + turn)
+        wrap(c, st, hx, hy, angle)
     if prop == "bag":
-        bag(c, st, hx, hy, BAG_SWING[frame] - turn * 0.5)  # the bag lags the swing
+        bag(c, st, hx, hy, angle)
     if prop in ("vial", "vial_back"):
-        vial(c, st, hx, hy, VIAL_ANGLE[prop] + turn)
+        vial(c, st, hx, hy, angle)
     if prop == "knife":
-        knife(c, st, hx, hy, KNIFE_ANGLE[frame] + turn)
+        knife(c, st, hx, hy, angle)
     if prop != "behind":
         c.ellipse(hx, hy, st["hand_r"], st["hand_r"] * 1.05, "skin", base=1.0)
     if prop == "bag":
@@ -993,7 +1081,7 @@ def arm_canvas(st, side, frame, body_mask=None, torso_mask=None):
     if prop == "ball":
         k = st["prop_k"]
         c.ellipse(hx + 0.5 * k, hy - 2.0 * k, max(1.2, 2.2 * k), max(1.1, 2.0 * k), "paper", base=1.1)
-    if side == "r" and frame in FAR_TUCKED and torso_mask is not None:
+    if tucked and torso_mask is not None:
         for y in range(c.h):
             for x in range(c.w):
                 if torso_mask[y][x] and c.mat[y][x] == st["sleeve"]:
@@ -1018,7 +1106,34 @@ def arm_frames(char, table):
     return frames + swings
 
 
+def arm_tweens(char, side):
+    """The rig's in-betweens for one side, {'a>b': [frame ids in play order]}: only pairs whose
+    poses this character can reach (rest, poses holding a prop it carries, and the prop-less poses
+    those move to); an overshooting pair adds its overshoot and lists its reverse."""
+    props = set(char.get("props", []))
+    table = POSE_L if side == "l" else POSE_R
+    carried = {f for f, (_, _, p) in table.items() if p is not None and PROP_GROUP[p] in props}
+    reach = carried | {"rest"} | {x for a, b, _ in TWEENS[side] for x, y in ((a, b), (b, a)) if y in carried}
+    out = {}
+    for a, b, over in TWEENS[side]:
+        if a in reach and b in reach:
+            steps = [tween_id(a, b, i) for i in range(1, TWEEN_STEPS + 1)]
+            out["%s>%s" % (a, b)] = steps + ([tween_id(a, b, "o")] if over else [])
+            if over:
+                out["%s>%s" % (b, a)] = steps[::-1]
+    return out
+
+
+def tween_frames(char, side):
+    """Every in-between frame id of one side, once each."""
+    return list(dict.fromkeys(f for frames in arm_tweens(char, side).values() for f in frames))
+
+
 def frame_file(prefix, frame):
+    tween = split_tween(frame)
+    if tween:
+        pair, step = frame.rsplit(".", 1)
+        return "%s_tw_%s_%s.png" % (prefix, pair.replace(">", "_to_"), step)
     base, level = split_swing(frame)
     if level == 0:
         return "%s_%s.png" % (prefix, base)
@@ -1036,7 +1151,7 @@ def anchors(st):
     hands = {"l": {}, "r": {}}
     for side, table in (("l", POSE_L), ("r", POSE_R)):
         for f in arm_frames(char, table):
-            _, _, (hx, hy), prop = arm_pose(st, side, f)
+            _, _, (hx, hy), prop, _, _ = arm_pose(st, side, f)
             if prop == "ball":
                 hy -= 2.0 * k
             if prop in ("vial", "vial_back"):
@@ -1068,7 +1183,7 @@ def build(style, char):
     if char.get("glasses"):
         images["glasses.png"] = overlay_glasses(st)
     for side, table in (("l", POSE_L), ("r", POSE_R)):
-        for f in arm_frames(char, table):
+        for f in arm_frames(char, table) + tween_frames(char, side):
             images[frame_file("arm_" + side, f)] = arm_canvas(st, side, f, body_mask, torso_mask).finish()
     return images
 
@@ -1090,8 +1205,10 @@ def manifest(base, style, char, rig_id):
     parts["eyes"] = {"group": "head", "frames": frames("eyes", EYE_FRAMES)}
     parts["brows"] = {"group": "head", "frames": frames("brows", BROW_FRAMES)}
     parts["mouth"] = {"group": "head", "frames": frames("mouth", MOUTH_FRAMES)}
-    parts["arm_l"] = {"group": "body", "frames": {f: frame_file("arm_l", f) for f in arm_frames(char, POSE_L)}}
-    parts["arm_r"] = {"group": "body", "frames": {f: frame_file("arm_r", f) for f in arm_frames(char, POSE_R)}}
+    for side, table in (("l", POSE_L), ("r", POSE_R)):
+        names = arm_frames(char, table) + tween_frames(char, side)
+        parts["arm_" + side] = {"group": "body", "frames": {f: frame_file("arm_" + side, f) for f in names}}
+    m["tweens"] = {"arm_" + side: arm_tweens(char, side) for side in ("l", "r")}
     order = list(base["order"])
     if char.get("glasses"):
         parts["glasses"] = {"group": "head", "frames": {"base": "glasses.png"}}
