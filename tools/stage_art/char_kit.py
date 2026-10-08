@@ -85,6 +85,7 @@ WALK_BOB = [0, 1, 0, -1, 0, 1, 0, -1]
 WALK_SWING = [-2, -1, 0, 1, 2, 1, 0, -1]
 STRIDE = 0.28  # stride as a fraction of leg length
 LIFT = 0.12
+KNEE_SLACK = 1.004  # leg bones vs. the standing hip-to-ankle length: a relaxed standing knee
 WALK_LEAN = 3.0  # degrees the head leans into the walk
 SWING_DEG = 8.0  # arm rotation about the shoulder per swing level
 # Poses that swing while walking, and how much of the swing each takes (a raised knife barely moves).
@@ -485,19 +486,33 @@ def legs_canvas(st, pose=((0, 0), (0, 0))):
     half = gap / 2.0
     back = max(1, round(lift * 0.4))  # far foot stands a little behind
 
+    def knee(dx, ankle, planted):
+        """Knee point (x offset from the hip line, y) of a two-bone leg reaching (dx, ankle):
+        the bones are a touch longer than the leg standing on `planted` (its foot's floor
+        row), so a planted leg stays nearly straight and a lifted or tucked foot bends the
+        knee forward (feet point right)."""
+        bone = (planted - sh + 1 - hip) * KNEE_SLACK / 2.0
+        vx, vy = dx, ankle + 1 - hip
+        d = math.hypot(vx, vy)
+        bend = math.sqrt(max(0.0, bone * bone - d * d / 4.0))
+        return vx / 2.0 + bend * vy / d, hip + vy / 2.0 - bend * vx / d
+
     def leg(side, dx_u, lift_u):
         dx, up = round(dx_u * stride), round(lift_u * lift)
         f = foot - up - (back if side == "r" else 0)
         ankle = f - sh
+        kx, ky = knee(dx, ankle, foot - (back if side == "r" else 0))
         if side == "l":
             x0, x1 = cx - half - lw, cx - half
-            c.poly([(x0 - 0.5, hip), (x1, hip), (x1 + dx, ankle + 1), (x0 + 0.5 + dx, ankle + 1)], "trousers", base=0.9, peak=0.3)
+            c.poly([(x0 - 0.5, hip), (x1, hip), (x1 + kx, ky), (x1 + dx, ankle + 1), (x0 + 0.5 + dx, ankle + 1), (x0 + kx, ky)],
+                   "trousers", base=0.9, peak=0.3)
             a, b = x0 + dx, x1 + dx
             c.poly([(a, ankle), (b - 0.5, ankle), (b + toe, f - 1.5), (b + toe, f), (a, f)], "shoe", base=1.0, peak=0.35)
             xs = range(int(a), int(b + toe))
         else:
             x0, x1 = cx + half - st["far_in"], cx + half + lw - st["far_in"]
-            c.poly([(x0, hip), (x1 + 0.5, hip), (x1 - 0.5 + dx, ankle + 1), (x0 + dx, ankle + 1)], "trousers", base=0.6, peak=0.35)
+            c.poly([(x0, hip), (x1 + 0.5, hip), (x1 + kx, ky), (x1 - 0.5 + dx, ankle + 1), (x0 + dx, ankle + 1), (x0 + kx, ky)],
+                   "trousers", base=0.6, peak=0.35)
             a, b = x0 + dx, x1 + dx
             c.poly([(a, ankle), (b - 0.5, ankle), (b + toe, f - 1.5), (b + toe, f), (a, f)], "shoe", base=0.9, peak=0.4)
             xs = range(int(a), int(b + toe))

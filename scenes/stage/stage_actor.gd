@@ -5,7 +5,7 @@ extends Node2D
 # a shared canvas, feet at this node's position. Procedural offsets move in
 # whole art pixels (rig `px` canvas pixels each). Attributes (arm frames, eyes,
 # brows, mouth, tilt, facing) come from StageDirection snapshots and card
-# steps; the idle life on top -- breathing, weight-shift sway, idle head drift,
+# steps; the idle life on top -- breathing, idle head drift,
 # blinking, chewing, talk flaps and nods, the walk cycle while the player moves
 # it -- runs here, each actor on its own jittered rhythm.
 
@@ -36,8 +36,6 @@ var _tilt_vel := 0.0
 var _actions: Array = []
 var _breathe_period := 1.0
 var _breathe_phase := 0.0
-var _sway_period := 1.0
-var _sway_phase := 0.0
 var _idle_tilt := 0.0
 var _idle_tilt_at := 0.0
 var _nod := 0.0
@@ -90,8 +88,6 @@ func setup(rig_def: Dictionary) -> void:
 	var jitter := float(behaviour["breathe_jitter"])
 	_breathe_period = float(behaviour["breathe_period"]) * _rng.randf_range(1.0 - jitter, 1.0 + jitter)
 	_breathe_phase = _rng.randf() * _breathe_period
-	_sway_period = _rand_in(behaviour["sway_period"])
-	_sway_phase = _rng.randf() * TAU
 	_idle_tilt_at = _rand_in(behaviour["idle_tilt_every"])
 	apply_attrs(rig["defaults"])
 
@@ -297,11 +293,6 @@ func step(delta: float) -> void:
 	if stride >= 0:
 		rise = float(rig["walk"].get("bob", [])[stride]) if rig["walk"].has("bob") else 0.0
 	_body.position.y = _px * (1.0 if _time < _crouch_until else rise)
-	# weight shift: standing, the upper body leans a pixel at the far ends of a
-	# slow sway
-	var sway := 0.0 if walking else sin(TAU * _time / _sway_period + _sway_phase)
-	var lean := float(behaviour["sway_px"]) * _px
-	_body.position.x = lean if sway > 0.7 else (-lean if sway < -0.7 else 0.0)
 	# the head drifts to a new small idle angle now and then
 	if _time >= _idle_tilt_at:
 		var drift := float(behaviour["idle_tilt"])
