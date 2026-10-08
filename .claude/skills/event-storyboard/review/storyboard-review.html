@@ -1,0 +1,370 @@
+<title>Vein Storyboards</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a single review column — phone-frame preview beside the cut list on wide screens, stacked on phones; shot briefs below. */
+:root {
+  --bg: #eceef1; --surface: #f8f9fa; --sunk: #dfe2e7; --fg: #1a1d23; --muted: #5b6270; --line: #c9ced6;
+  --accent: #946512; --accent-ink: #fff8e8;
+  --new: #946512; --hold: #56627a; --clear: #a2402e; --staged: #2f7a76;
+  --ok: #2e7a45; --warn: #a2402e;
+  --display: "Pixelify Sans", "Courier New", monospace;
+  --body: "Atkinson Hyperlegible", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #14161b; --surface: #1d2027; --sunk: #262a33; --fg: #e8eaee; --muted: #9aa1ae; --line: #343a45;
+  --accent: #e0b04a; --accent-ink: #1a1408;
+  --new: #e0b04a; --hold: #8d9ab3; --clear: #e07a63; --staged: #62bdb6; --ok: #6cc489; --warn: #e07a63; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #14161b; --surface: #1d2027; --sunk: #262a33; --fg: #e8eaee; --muted: #9aa1ae; --line: #343a45;
+  --accent: #e0b04a; --accent-ink: #1a1408;
+  --new: #e0b04a; --hold: #8d9ab3; --clear: #e07a63; --staged: #62bdb6; --ok: #6cc489; --warn: #e07a63; color-scheme: dark }
+
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--fg); font: 15px/1.5 var(--body); }
+.wrap { max-width: 1120px; margin: 0 auto; padding-inline: 16px; padding-block: 20px 64px; display: grid; gap: 28px }
+h1, h2, h3 { font-family: var(--display); font-weight: 700; line-height: 1.15; margin: 0; text-wrap: balance }
+h1 { font-size: 28px } h2 { font-size: 20px } h3 { font-size: 17px }
+.eyebrow { font: 600 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted) }
+.mono { font-family: var(--mono); font-size: 12.5px }
+.muted { color: var(--muted) }
+button, select, textarea { font: inherit; color: inherit }
+button { cursor: pointer }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+
+header.top { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: end; justify-content: space-between }
+header.top .title { display: grid; gap: 6px; min-width: 0 }
+.picker { display: flex; gap: 8px; align-items: center }
+.picker select { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; max-width: 70vw }
+.pill { display: inline-flex; align-items: center; gap: 6px; font: 600 11px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase;
+  padding: 5px 8px; border-radius: 4px; border: 1px solid currentColor }
+.logline { max-width: 68ch; margin: 0 }
+
+.stage { display: grid; grid-template-columns: minmax(0, 340px) minmax(0, 1fr); gap: 24px; align-items: start }
+@media (max-width: 760px) { .stage { grid-template-columns: minmax(0, 1fr) } }
+
+/* Phone preview: 390x544 image frame over a 236px text panel, scaled. */
+.phone { width: 100%; max-width: 340px; margin-inline: auto; background: #0d0e11; border-radius: 22px; padding: 10px; display: grid; gap: 8px; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px) }
+.frame { aspect-ratio: 390 / 544; max-width: 100%; border-radius: 12px; overflow: hidden; background: #22262e; position: relative }
+.frame img { width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; display: block }
+.frame .ph { position: absolute; inset: 0; padding: 16px; display: grid; align-content: center; gap: 8px; color: #d9dde4;
+  background: repeating-linear-gradient(135deg, #22262e 0 10px, #262b34 10px 20px) }
+.frame .ph b { font: 700 22px/1 "Pixelify Sans", monospace; color: #e0b04a }
+.frame .ph p { margin: 0; font-size: 13px; line-height: 1.4 }
+.frame .ph.clear { background: #121317 }
+.frame .tag { position: absolute; left: 8px; top: 8px; font: 600 10px/1 "JetBrains Mono", monospace; background: rgba(0,0,0,.65); color: #fff; padding: 4px 6px; border-radius: 3px }
+.textpanel { background: #f4f2ee; color: #1a1d23; border-radius: 10px; padding: 12px 14px; min-height: 120px; display: grid; gap: 6px; align-content: start }
+.textpanel .who { font: 700 12px/1 "JetBrains Mono", monospace; text-transform: uppercase; letter-spacing: .06em; color: #6b5a33 }
+.textpanel p { margin: 0; font-size: 13.5px; line-height: 1.45; white-space: pre-line }
+.nav { display: flex; justify-content: space-between; align-items: center; gap: 8px; color: #d9dde4 }
+.nav button { background: #2a2f39; border: 0; color: #e8eaee; border-radius: 8px; padding: 8px 14px; font-family: "JetBrains Mono", monospace; font-size: 12px }
+.nav button:disabled { opacity: .35; cursor: default }
+
+/* Cut list: one row per card, grouped into shot runs. */
+.cuts { display: grid; gap: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden }
+.cut { display: grid; grid-template-columns: 34px 72px minmax(0, 1fr); gap: 10px; padding: 10px 12px; border-top: 1px solid var(--line); text-align: left; background: none; border-left: 0; border-right: 0; border-bottom: 0; width: 100% }
+.cut:first-child { border-top: 0 }
+.cut.newrun { border-top: 2px solid var(--fg) }
+.cut[aria-current="true"] { background: var(--sunk) }
+.cut .n { font: 600 13px/1.4 var(--mono); color: var(--muted); font-variant-numeric: tabular-nums }
+.cut .chip { font: 700 10.5px/1 var(--mono); letter-spacing: .06em; padding: 4px 6px; border-radius: 3px; justify-self: start; align-self: start; border: 1px solid currentColor }
+.chip.NEW { color: var(--new) } .chip.HOLD { color: var(--hold) } .chip.CLEAR { color: var(--clear) } .chip.STAGED { color: var(--staged) }
+.cut .body { min-width: 0; display: grid; gap: 3px }
+.cut .line { font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical }
+.cut .why { font-size: 12.5px; color: var(--muted) }
+.cut .shotref { font: 600 11px/1 var(--mono); color: var(--accent) }
+
+.shots { display: grid; gap: 16px }
+.shot { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 14px }
+.shot-head { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: baseline; justify-content: space-between }
+.shot-head .id { font: 700 13px/1 var(--mono); color: var(--accent) }
+.brief { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 8px 16px; margin: 0 }
+.brief dt { font: 600 11px/1.6 var(--mono); letter-spacing: .05em; text-transform: uppercase; color: var(--muted) }
+.brief dd { margin: 0; max-width: 72ch }
+@media (max-width: 520px) { .brief { grid-template-columns: minmax(0, 1fr) } .brief dd { margin-bottom: 6px } }
+.drafts { display: flex; flex-wrap: wrap; gap: 10px }
+.drafts figure { margin: 0; width: 150px; max-width: 100%; display: grid; gap: 4px }
+.drafts img { width: 100%; aspect-ratio: 390/544; object-fit: cover; image-rendering: pixelated; border-radius: 6px; background: var(--sunk) }
+.drafts figcaption { font: 11px/1.3 var(--mono); color: var(--muted) }
+
+.verdict { display: grid; gap: 8px; border-top: 1px dashed var(--line); padding-top: 12px }
+.vbtns { display: flex; flex-wrap: wrap; gap: 6px }
+.vbtns button { border: 1px solid var(--line); background: var(--bg); border-radius: 6px; padding: 6px 12px; font-size: 13.5px }
+.vbtns button[aria-pressed="true"][data-v="approve"] { background: var(--ok); border-color: var(--ok); color: var(--surface) }
+.vbtns button[aria-pressed="true"][data-v="revise"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink) }
+.vbtns button[aria-pressed="true"][data-v="cut"] { background: var(--warn); border-color: var(--warn); color: var(--surface) }
+.verdict textarea { width: 100%; min-height: 64px; resize: vertical; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; font-size: 14px }
+.saverow { display: flex; gap: 10px; align-items: center; flex-wrap: wrap }
+.saverow .save { background: var(--fg); color: var(--bg); border: 0; border-radius: 6px; padding: 7px 14px; font-weight: 700 }
+.saverow .status { font: 12px var(--mono); color: var(--muted) }
+
+.questions { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 72ch }
+.board-verdict { background: var(--surface); border: 2px solid var(--fg); border-radius: 10px; padding: 16px; display: grid; gap: 10px }
+.empty { background: var(--surface); border: 1px dashed var(--line); border-radius: 10px; padding: 28px 20px; display: grid; gap: 8px; max-width: 640px }
+.empty p { margin: 0 }
+section { display: grid; gap: 12px; min-width: 0 }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="title">
+      <span class="eyebrow">Vein · event card art</span>
+      <h1 id="h-title">Storyboards</h1>
+    </div>
+    <div class="picker">
+      <label class="eyebrow" for="board-select">Event</label>
+      <select id="board-select" aria-label="Choose an event storyboard"></select>
+    </div>
+  </header>
+
+  <div id="empty" class="empty">
+    <h2>No storyboards yet</h2>
+    <p>Claude adds one here when you run the event-storyboard skill on an event. Each board shows every card, where the image cuts or holds, and a brief for each new shot.</p>
+    <p class="muted" id="db-note">Connecting to the review store…</p>
+  </div>
+
+  <div id="board" hidden>
+    <div style="display:grid; gap:28px">
+      <section>
+        <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center">
+          <span class="pill" id="phase-pill"></span>
+          <span class="pill" id="round-pill" style="color:var(--muted)"></span>
+          <span class="mono muted" id="count-line"></span>
+        </div>
+        <p class="logline" id="logline"></p>
+      </section>
+
+      <div class="stage">
+        <div class="phone" aria-label="Phone preview of the event screen">
+          <div class="frame" id="frame"></div>
+          <div class="textpanel"><span class="who" id="tp-who"></span><p id="tp-text"></p></div>
+          <div class="nav">
+            <button id="prev" type="button">◀ Prev</button>
+            <span class="mono" id="pos"></span>
+            <button id="next" type="button">Next ▶</button>
+          </div>
+        </div>
+        <section>
+          <h2>Cut list</h2>
+          <p class="muted" style="margin:0">A heavy rule marks a new image. Tap a row to preview that card.</p>
+          <div class="cuts" id="cuts"></div>
+        </section>
+      </div>
+
+      <section id="q-section">
+        <h2>Open questions</h2>
+        <ol class="questions" id="questions"></ol>
+      </section>
+
+      <section>
+        <h2>Shots</h2>
+        <div class="shots" id="shots"></div>
+      </section>
+
+      <section class="board-verdict" id="board-verdict"></section>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const el = (tag, attrs = {}, ...kids) => {
+    const n = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) {
+      if (k === "class") n.className = v; else if (k === "text") n.textContent = v; else n.setAttribute(k, v);
+    }
+    for (const k of kids) if (k != null) n.append(k);
+    return n;
+  };
+
+  let db = null, boards = [], feedback = {}, currentId = null, cardIdx = 0, unsubFb = null;
+  let canWrite = true;
+  const remembered = () => { try { return localStorage.getItem("vein-sb-board"); } catch { return null; } };
+  const remember = (id) => { try { localStorage.setItem("vein-sb-board", id); } catch {} };
+
+  const board = () => boards.find((b) => b.eventId === currentId);
+  const shotById = (b, id) => (b.shots || []).find((s) => s.id === id);
+
+  // The image a card shows: its own shot, or the last NEW shot before it (HOLD), or nothing after CLEAR.
+  function shotForCard(b, i) {
+    for (let j = i; j >= 0; j--) {
+      const c = b.cards[j];
+      if (c.cut === "CLEAR") return null;
+      if (c.cut === "NEW" || c.cut === "STAGED") return c.cut === "STAGED" ? "STAGED" : c.shot;
+    }
+    return null;
+  }
+
+  function renderPicker() {
+    const sel = $("board-select");
+    sel.replaceChildren(...boards.map((b) => el("option", { value: b.eventId, text: b.eventId })));
+    sel.disabled = boards.length === 0;
+    if (currentId) sel.value = currentId;
+  }
+
+  function renderFrame() {
+    const b = board(); if (!b) return;
+    const c = b.cards[cardIdx];
+    const sid = shotForCard(b, cardIdx);
+    const frame = $("frame");
+    frame.replaceChildren();
+    if (sid === "STAGED") {
+      frame.append(el("div", { class: "ph" }, el("b", { text: "LIVE STAGE" }), el("p", { text: "The stage engine directs this card. No still image." })));
+    } else if (!sid) {
+      frame.append(el("div", { class: "ph clear" }, el("p", { text: c.cut === "CLEAR" ? "Image cleared." : "No image yet on this card." })));
+    } else {
+      const s = shotById(b, sid) || { id: sid };
+      const draft = (s.drafts || []).slice(-1)[0];
+      if (draft && draft.url) frame.append(el("img", { src: draft.url, alt: `${s.id} draft: ${s.title || ""}` }));
+      else frame.append(el("div", { class: "ph" }, el("b", { text: s.id }), el("p", { text: s.title || "" }), el("p", { text: s.framing || "" })));
+      frame.append(el("span", { class: "tag", text: `${s.id}${c.cut === "HOLD" ? " · held" : ""}` }));
+    }
+    $("tp-who").textContent = c.speaker || (c.type === "choice" ? "Choice" : c.type === "resolution" ? "Resolution" : "Narration");
+    $("tp-text").textContent = c.text + (c.choices ? "\n" + c.choices.map((x) => "▸ " + x).join("  ") : "");
+    $("pos").textContent = `card ${c.n} / ${b.cards.length}`;
+    $("prev").disabled = cardIdx === 0;
+    $("next").disabled = cardIdx >= b.cards.length - 1;
+    document.querySelectorAll(".cut").forEach((r, i) => r.setAttribute("aria-current", String(i === cardIdx)));
+  }
+
+  function renderCuts(b) {
+    $("cuts").replaceChildren(...b.cards.map((c, i) => {
+      const row = el("button", { class: "cut" + (i > 0 && c.cut !== "HOLD" ? " newrun" : ""), type: "button" },
+        el("span", { class: "n", text: String(c.n) }),
+        el("span", { class: "chip " + c.cut, text: c.cut }),
+        el("span", { class: "body" },
+          c.shot && c.cut === "NEW" ? el("span", { class: "shotref", text: c.shot }) : null,
+          el("span", { class: "line", text: (c.speaker ? c.speaker + ": " : "") + c.text }),
+          c.why ? el("span", { class: "why", text: c.why }) : null));
+      row.addEventListener("click", () => { cardIdx = i; renderFrame(); });
+      return row;
+    }));
+  }
+
+  function verdictBlock(key, phaseLabel, options) {
+    const fb = feedback[key] || {};
+    let chosen = fb.verdict || null;
+    const ta = el("textarea", { id: "note-" + key, placeholder: "Notes for Claude: what to change, keep, or try" });
+    ta.value = fb.note || "";
+    const status = el("span", { class: "status", text: fb.at ? `Saved ${new Date(fb.at).toLocaleString()}` : "" });
+    const btns = options.map(([v, label]) => {
+      const bt = el("button", { type: "button", "data-v": v, "aria-pressed": String(chosen === v), text: label });
+      bt.addEventListener("click", () => {
+        chosen = chosen === v ? null : v;
+        btns.forEach((x) => x.setAttribute("aria-pressed", String(x.dataset.v === chosen)));
+      });
+      return bt;
+    });
+    const save = el("button", { class: "save", type: "button", text: "Save" });
+    save.addEventListener("click", async () => {
+      if (!db) { status.textContent = "Not connected. Your notes are not saved."; return; }
+      const b = board();
+      save.disabled = true; status.textContent = "Saving…";
+      try {
+        await db.doc("feedback/" + key).set({ eventId: b.eventId, round: b.round || 1, phase: b.phase || "storyboard",
+          target: key.split("__")[1], verdict: chosen, note: ta.value.trim(), at: Date.now() });
+        status.textContent = "Saved. Tell Claude you've reviewed.";
+      } catch (e) {
+        status.textContent = e && e.code === "invalid_argument" ? "You can view but not edit this board." : "Couldn't save. Try again in a moment.";
+      } finally { save.disabled = false; }
+    });
+    const box = el("div", { class: "verdict" }, el("span", { class: "eyebrow", text: phaseLabel }),
+      el("div", { class: "vbtns" }, ...btns), ta, el("div", { class: "saverow" }, save, status));
+    if (!canWrite) { btns.forEach((x) => x.disabled = true); ta.readOnly = true; save.hidden = true; }
+    return box;
+  }
+
+  function renderShots(b) {
+    const drafts = b.phase === "drafts";
+    $("shots").replaceChildren(...(b.shots || []).map((s) => {
+      const rows = [
+        ["Cards", s.cards], ["Story job", s.job], ["Frozen instant", s.instant], ["Framing", s.framing],
+        ["Composition", s.composition], ["Light & colour", s.light], ["Crop-safe", s.crop],
+        ["Keep unseen", s.unseen], ["Continuity", (s.continuity || []).join(", ")], ["Canon question", s.canon], ["File", s.file],
+      ].filter(([, v]) => v);
+      const dl = el("dl", { class: "brief" });
+      rows.forEach(([k, v]) => dl.append(el("dt", { text: k }), el("dd", { text: v })));
+      const draftFigs = (s.drafts || []).map((d) => el("figure", {}, el("img", { src: d.url, alt: `${s.id} ${d.label || "draft"}`, loading: "lazy" }), el("figcaption", { text: d.label || "draft" })));
+      const opts = drafts ? [["approve", "Approve draft"], ["revise", "Regenerate"], ["cut", "Drop shot"]]
+                          : [["approve", "Approve shot"], ["revise", "Revise"], ["cut", "Cut it"]];
+      return el("article", { class: "shot", id: "shot-" + s.id },
+        el("div", { class: "shot-head" }, el("h3", { text: s.title || s.id }), el("span", { class: "id", text: s.id })),
+        dl,
+        draftFigs.length ? el("div", { class: "drafts" }, ...draftFigs) : null,
+        verdictBlock(`${b.eventId}__${s.id}`, drafts ? "Your verdict on the draft" : "Your verdict on the shot", opts));
+    }));
+  }
+
+  function renderBoard() {
+    const b = board();
+    $("empty").hidden = !!b; $("board").hidden = !b;
+    if (!b) return;
+    $("h-title").textContent = b.title || b.eventId;
+    const phase = b.phase || "storyboard";
+    const pill = $("phase-pill");
+    pill.textContent = { storyboard: "Storyboard review", drafts: "Draft review", done: "Done" }[phase] || phase;
+    pill.style.color = phase === "done" ? "var(--ok)" : "var(--accent)";
+    $("round-pill").textContent = "Round " + (b.round || 1);
+    const nNew = b.cards.filter((c) => c.cut === "NEW").length;
+    $("count-line").textContent = `${b.cards.length} cards · ${nNew} new shots`;
+    $("logline").textContent = b.logline || "";
+    renderCuts(b);
+    const qs = b.questions || [];
+    $("q-section").hidden = qs.length === 0;
+    $("questions").replaceChildren(...qs.map((q) => el("li", { text: q })));
+    renderShots(b);
+    const bv = $("board-verdict");
+    bv.replaceChildren(el("h2", { text: phase === "drafts" ? "Drafts overall" : "Storyboard overall" }),
+      el("p", { class: "muted", style: "margin:0", text: phase === "drafts"
+        ? "Approve when every shot's draft is good enough to clean up and place."
+        : "Approve the whole board to move on to image prompts. Approval covers drafts only, not final assets." }),
+      verdictBlock(`${b.eventId}__board`, "Your verdict", [["approve", phase === "drafts" ? "Approve drafts" : "Approve storyboard"], ["revise", "Another round"]]));
+    if (cardIdx >= b.cards.length) cardIdx = 0;
+    renderFrame();
+  }
+
+  function selectBoard(id) {
+    currentId = id; cardIdx = 0; remember(id);
+    if (unsubFb) unsubFb();
+    if (db && id) {
+      unsubFb = db.collection("feedback").where("eventId", "==", id).onSnapshot((snap) => {
+        feedback = {}; snap.docs.forEach((d) => { feedback[d.id] = d.data(); });
+        renderShotsAndVerdictOnly();
+      }, () => {});
+    }
+    renderPicker(); renderBoard();
+  }
+
+  // Feedback changes re-render only the verdict areas' source data; keep the preview position.
+  function renderShotsAndVerdictOnly() {
+    const b = board(); if (!b) return;
+    const active = document.activeElement && document.activeElement.tagName === "TEXTAREA";
+    if (active) return; // don't clobber typing
+    renderBoard();
+  }
+
+  $("board-select").addEventListener("change", (e) => selectBoard(e.target.value));
+  $("prev").addEventListener("click", () => { if (cardIdx > 0) { cardIdx--; renderFrame(); } });
+  $("next").addEventListener("click", () => { const b = board(); if (b && cardIdx < b.cards.length - 1) { cardIdx++; renderFrame(); } });
+
+  (async () => {
+    try { db = await window.claude?.use?.("db"); } catch { db = null; }
+    if (!db) { $("db-note").textContent = "The review store isn't available in this view. Open the page from claude.ai while signed in."; return; }
+    try {
+      const user = await window.claude.use("user");
+      if (user && typeof user.can === "function") { const c = await user.can("data.write"); if (c === false) canWrite = false; }
+    } catch {}
+    $("db-note").textContent = "Waiting for Claude to add a board.";
+    db.collection("boards").onSnapshot((snap) => {
+      boards = snap.docs.map((d) => d.data()).filter((b) => b && b.eventId && Array.isArray(b.cards))
+        .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+      const want = currentId && boards.some((b) => b.eventId === currentId) ? currentId
+        : (boards.some((b) => b.eventId === remembered()) ? remembered() : boards[0]?.eventId || null);
+      if (want !== currentId) selectBoard(want); else { renderPicker(); if (!(document.activeElement && document.activeElement.tagName === "TEXTAREA")) renderBoard(); }
+    }, () => { $("db-note").textContent = "Couldn't read the review store. Reload the page."; });
+  })();
+})();
+</script>

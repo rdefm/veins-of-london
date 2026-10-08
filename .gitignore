@@ -42,3 +42,7 @@ __pycache__/
 # shipped game" reasoning as /addons/godot_ai/ above.
 /.agents/
 /.codex-remote-attachments/
+
+# event-storyboard skill: generated drafts and QA sheets stay local
+.scratch/event-art/*/drafts/
+.scratch/event-art/*/qa/
