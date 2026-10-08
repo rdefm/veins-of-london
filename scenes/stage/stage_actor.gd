@@ -182,7 +182,6 @@ func walk_index() -> int:
 
 # Whether the actor is drawn mirrored right now (mid-turn it keeps the
 # facing it turns from until the flip).
-# old facing until the flip).
 func is_mirrored() -> bool:
 	return _mirrored
 
