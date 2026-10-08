@@ -339,6 +339,7 @@ func _update_moves(delta: float) -> void:
 		var u: float = move["t"] / move["dur"]
 		var x := roundf(lerpf(move["from"], move["to"], StageDirection.ease_move(u)))
 		if actor != null:
+			actor.add_stride(x - actor.position.x)
 			actor.position.x = x
 		else:
 			_objects[move["target"]]["x"] = x

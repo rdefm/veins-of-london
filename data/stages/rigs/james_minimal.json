@@ -26,6 +26,22 @@
       "throw_release": [
         15.9,
         87.0
+      ],
+      "rest@-1": [
+        31.7,
+        119.5
+      ],
+      "rest@1": [
+        39.5,
+        119.1
+      ],
+      "rest@-2": [
+        27.8,
+        118.9
+      ],
+      "rest@2": [
+        43.3,
+        118.0
       ]
     },
     "hand_r": {
@@ -36,6 +52,22 @@
       "flick": [
         63.9,
         115.8
+      ],
+      "rest@-1": [
+        54.7,
+        119.1
+      ],
+      "rest@1": [
+        62.5,
+        119.5
+      ],
+      "rest@-2": [
+        50.9,
+        118.0
+      ],
+      "rest@2": [
+        66.4,
+        118.9
       ]
     }
   },
@@ -65,7 +97,11 @@
         "walk_0": "legs_walk_0.png",
         "walk_1": "legs_walk_1.png",
         "walk_2": "legs_walk_2.png",
-        "walk_3": "legs_walk_3.png"
+        "walk_3": "legs_walk_3.png",
+        "walk_4": "legs_walk_4.png",
+        "walk_5": "legs_walk_5.png",
+        "walk_6": "legs_walk_6.png",
+        "walk_7": "legs_walk_7.png"
       }
     },
     "torso": {
@@ -115,14 +151,22 @@
       "group": "body",
       "frames": {
         "rest": "arm_r_rest.png",
-        "flick": "arm_r_flick.png"
+        "flick": "arm_r_flick.png",
+        "rest@-1": "arm_r_rest_swm1.png",
+        "rest@1": "arm_r_rest_swp1.png",
+        "rest@-2": "arm_r_rest_swm2.png",
+        "rest@2": "arm_r_rest_swp2.png"
       }
     },
     "arm_l": {
       "group": "body",
       "frames": {
         "rest": "arm_l_rest.png",
-        "throw_release": "arm_l_throw_release.png"
+        "throw_release": "arm_l_throw_release.png",
+        "rest@-1": "arm_l_rest_swm1.png",
+        "rest@1": "arm_l_rest_swp1.png",
+        "rest@-2": "arm_l_rest_swm2.png",
+        "rest@2": "arm_l_rest_swp2.png"
       }
     },
     "glasses": {
@@ -195,9 +239,34 @@
       "walk_0",
       "walk_1",
       "walk_2",
-      "walk_3"
+      "walk_3",
+      "walk_4",
+      "walk_5",
+      "walk_6",
+      "walk_7"
     ],
-    "frame_time": 0.14,
-    "stand": "base"
+    "stand": "base",
+    "cycle_px": 48,
+    "bob": [
+      0,
+      1,
+      0,
+      -1,
+      0,
+      1,
+      0,
+      -1
+    ],
+    "swing": [
+      -2,
+      -1,
+      0,
+      1,
+      2,
+      1,
+      0,
+      -1
+    ],
+    "lean": 3.0
   }
 }

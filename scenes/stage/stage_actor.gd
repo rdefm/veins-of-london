@@ -17,7 +17,7 @@ var walking := false
 var _sprites: Dictionary = {}
 var _textures: Dictionary = {}
 var _shown: Dictionary = {}
-var _walk_clock := 0.0
+var _walk_dist := 0.0
 var _body: Node2D
 var _head: Node2D
 var _origin: Vector2
@@ -162,11 +162,26 @@ func is_talking() -> bool:
 # restores the standing frame.
 func set_walking(on: bool) -> void:
 	walking = on
-	_walk_clock = 0.0
+	_walk_dist = 0.0
 	_redraw()
 
 
-# Whether the actor is drawn mirrored right now (mid-turn it still shows the
+# Feeds the walk cycle the distance just travelled: frames advance with the
+# feet, not the clock, so they never skate.
+func add_stride(px: float) -> void:
+	_walk_dist += absf(px)
+
+
+# Current walk frame index, or -1 when standing (or the rig has no walk).
+func walk_index() -> int:
+	if not (walking and motion and rig.has("walk")):
+		return -1
+	var walk: Dictionary = rig["walk"]
+	var count: int = walk["frames"].size()
+	return int(_walk_dist / float(walk["cycle_px"]) * count) % count
+
+# Whether the actor is drawn mirrored right now (mid-turn it keeps the
+# facing it turns from until the flip).
 # old facing until the flip).
 func is_mirrored() -> bool:
 	return _mirrored
@@ -235,15 +250,17 @@ func step(delta: float) -> void:
 		_nod = 0.0
 		_dip = 0.0
 	_chew_clock += delta
-	if walking:
-		_walk_clock += delta
 	if _flip_at >= 0.0 and _time >= _flip_at:
 		_flip_at = -1.0
 		_mirrored = _faces_away()
 	# breathing: the upper body rises a pixel for part of each breath; a turn or
 	# an effort sinks it a pixel instead
 	var breath := fmod(_time + _breathe_phase, _breathe_period) < _breathe_period * 0.45
-	_body.position.y = _px * (1.0 if _time < _crouch_until else (-1.0 if breath else 0.0))
+	var rise := -1.0 if breath else 0.0
+	var stride := walk_index()
+	if stride >= 0:
+		rise = float(rig["walk"].get("bob", [])[stride]) if rig["walk"].has("bob") else 0.0
+	_body.position.y = _px * (1.0 if _time < _crouch_until else rise)
 	# weight shift: standing, the upper body leans a pixel at the far ends of a
 	# slow sway
 	var sway := 0.0 if walking else sin(TAU * _time / _sway_period + _sway_phase)
@@ -257,6 +274,8 @@ func step(delta: float) -> void:
 	_head.position = _neck - _origin + Vector2(0.0, _dip * _px)
 	# tilt springs toward its target with a little overshoot
 	var target := float(attrs.get("tilt", 0)) + _idle_tilt + _nod
+	if stride >= 0:
+		target += float(rig["walk"].get("lean", 0.0))
 	var stiffness := float(behaviour["tilt_stiffness"])
 	var damping := float(behaviour["tilt_damping"])
 	var left := delta
@@ -269,8 +288,16 @@ func step(delta: float) -> void:
 
 
 func _redraw() -> void:
-	for part_id in ["arm_l", "arm_r", "eyes", "brows"]:
+	for part_id in ["eyes", "brows"]:
 		_show(part_id, attrs.get(part_id, ""))
+	# arms swing against the legs while walking, where the pose has swing frames
+	var stride := walk_index()
+	var swing: int = int(rig["walk"]["swing"][stride]) if stride >= 0 and rig["walk"].has("swing") else 0
+	for part_id in ["arm_l", "arm_r"]:
+		var pose: String = attrs.get(part_id, "")
+		var level := swing if part_id == "arm_l" else -swing
+		var swung := "%s@%d" % [pose, level]
+		_show(part_id, swung if level != 0 and _textures[part_id].has(swung) else pose)
 	var eyes: String = attrs.get("eyes", "open")
 	if motion and _time < _blink_until and eyes != "closed":
 		_show("eyes", "closed")
@@ -280,10 +307,7 @@ func _redraw() -> void:
 	if rig.has("walk"):
 		var walk: Dictionary = rig["walk"]
 		var frames: Array = walk["frames"]
-		var frame: String = walk["stand"]
-		if walking and motion:
-			frame = frames[int(_walk_clock / float(walk["frame_time"])) % frames.size()]
-		_show(walk["part"], frame)
+		_show(walk["part"], frames[stride] if stride >= 0 else String(walk["stand"]))
 
 
 func _mouth_frame() -> String:

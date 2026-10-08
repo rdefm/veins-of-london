@@ -62,6 +62,54 @@
       "bag_wave_b": [
         27.1,
         98.5
+      ],
+      "rest@-1": [
+        35.2,
+        124.4
+      ],
+      "rest@1": [
+        40.9,
+        124.1
+      ],
+      "rest@-2": [
+        32.4,
+        124.0
+      ],
+      "rest@2": [
+        43.7,
+        123.4
+      ],
+      "hold@-1": [
+        39.4,
+        117.5
+      ],
+      "hold@1": [
+        41.2,
+        117.0
+      ],
+      "hold@-2": [
+        38.4,
+        117.6
+      ],
+      "hold@2": [
+        42.1,
+        116.7
+      ],
+      "bag@-1": [
+        34.0,
+        123.7
+      ],
+      "bag@1": [
+        37.8,
+        123.9
+      ],
+      "bag@-2": [
+        32.1,
+        123.3
+      ],
+      "bag@2": [
+        39.8,
+        123.7
       ]
     },
     "hand_r": {
@@ -92,6 +140,54 @@
       "flick": [
         60.3,
         121.7
+      ],
+      "rest@-1": [
+        53.6,
+        124.1
+      ],
+      "rest@1": [
+        59.3,
+        124.4
+      ],
+      "rest@-2": [
+        50.8,
+        123.4
+      ],
+      "rest@2": [
+        62.1,
+        124.0
+      ],
+      "phone_low@-1": [
+        57.4,
+        122.3
+      ],
+      "phone_low@1": [
+        59.9,
+        122.1
+      ],
+      "phone_low@-2": [
+        56.1,
+        122.2
+      ],
+      "phone_low@2": [
+        61.2,
+        121.9
+      ],
+      "vial@-1": [
+        56.6,
+        119.2
+      ],
+      "vial@1": [
+        59.6,
+        119.1
+      ],
+      "vial@-2": [
+        55.0,
+        119.1
+      ],
+      "vial@2": [
+        61.1,
+        118.9
       ]
     }
   },
@@ -120,7 +216,11 @@
         "walk_0": "legs_walk_0.png",
         "walk_1": "legs_walk_1.png",
         "walk_2": "legs_walk_2.png",
-        "walk_3": "legs_walk_3.png"
+        "walk_3": "legs_walk_3.png",
+        "walk_4": "legs_walk_4.png",
+        "walk_5": "legs_walk_5.png",
+        "walk_6": "legs_walk_6.png",
+        "walk_7": "legs_walk_7.png"
       }
     },
     "torso": {
@@ -175,7 +275,19 @@
         "pocket": "arm_r_pocket.png",
         "vial": "arm_r_vial.png",
         "flick_back": "arm_r_flick_back.png",
-        "flick": "arm_r_flick.png"
+        "flick": "arm_r_flick.png",
+        "rest@-1": "arm_r_rest_swm1.png",
+        "rest@1": "arm_r_rest_swp1.png",
+        "rest@-2": "arm_r_rest_swm2.png",
+        "rest@2": "arm_r_rest_swp2.png",
+        "phone_low@-1": "arm_r_phone_low_swm1.png",
+        "phone_low@1": "arm_r_phone_low_swp1.png",
+        "phone_low@-2": "arm_r_phone_low_swm2.png",
+        "phone_low@2": "arm_r_phone_low_swp2.png",
+        "vial@-1": "arm_r_vial_swm1.png",
+        "vial@1": "arm_r_vial_swp1.png",
+        "vial@-2": "arm_r_vial_swm2.png",
+        "vial@2": "arm_r_vial_swp2.png"
       }
     },
     "arm_l": {
@@ -191,7 +303,19 @@
         "throw_release": "arm_l_throw_release.png",
         "bag": "arm_l_bag.png",
         "bag_wave_a": "arm_l_bag_wave_a.png",
-        "bag_wave_b": "arm_l_bag_wave_b.png"
+        "bag_wave_b": "arm_l_bag_wave_b.png",
+        "rest@-1": "arm_l_rest_swm1.png",
+        "rest@1": "arm_l_rest_swp1.png",
+        "rest@-2": "arm_l_rest_swm2.png",
+        "rest@2": "arm_l_rest_swp2.png",
+        "hold@-1": "arm_l_hold_swm1.png",
+        "hold@1": "arm_l_hold_swp1.png",
+        "hold@-2": "arm_l_hold_swm2.png",
+        "hold@2": "arm_l_hold_swp2.png",
+        "bag@-1": "arm_l_bag_swm1.png",
+        "bag@1": "arm_l_bag_swp1.png",
+        "bag@-2": "arm_l_bag_swm2.png",
+        "bag@2": "arm_l_bag_swp2.png"
       }
     }
   },
@@ -409,9 +533,34 @@
       "walk_0",
       "walk_1",
       "walk_2",
-      "walk_3"
+      "walk_3",
+      "walk_4",
+      "walk_5",
+      "walk_6",
+      "walk_7"
     ],
-    "frame_time": 0.14,
-    "stand": "base"
+    "stand": "base",
+    "cycle_px": 36,
+    "bob": [
+      0,
+      1,
+      0,
+      -1,
+      0,
+      1,
+      0,
+      -1
+    ],
+    "swing": [
+      -2,
+      -1,
+      0,
+      1,
+      2,
+      1,
+      0,
+      -1
+    ],
+    "lean": 3.0
   }
 }

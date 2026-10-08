@@ -276,6 +276,28 @@ func run() -> void:
 		actor.free()
 	)
 
+	run_case("walk_cycle_follows_distance_and_swings_arms", func():
+		GameState.reset()
+		var actor := StageActor.new()
+		actor.setup(GameData.STAGE_RIGS["archie_minimal"])
+		var walk: Dictionary = actor.rig["walk"]
+		var per_frame: float = float(walk["cycle_px"]) / walk["frames"].size()
+		actor.apply_attrs({"arm_l": "bag", "arm_r": "rest"})
+		actor.set_walking(true)
+		actor.step(1.0)
+		assert_eq(actor.shown_frame("legs"), walk["frames"][0], "time alone doesn't advance the walk")
+		actor.add_stride(per_frame * 4.0 + 0.1)
+		actor.step(0.01)
+		assert_eq(actor.shown_frame("legs"), walk["frames"][4], "frames advance with distance")
+		var level := int(walk["swing"][4])
+		assert_eq(actor.shown_frame("arm_l"), "bag@%d" % level, "near arm swings with the stride")
+		assert_eq(actor.shown_frame("arm_r"), "rest@%d" % -level, "far arm swings the other way")
+		assert_eq(actor._body.position.y, float(walk["bob"][4]) * float(actor.rig["px"]), "body bobs with the stride")
+		actor.set_walking(false)
+		assert_eq(actor.shown_frame("arm_l"), "bag", "standing arm drops its swing")
+		actor.free()
+	)
+
 	run_case("player_moves_walks_and_rewinds_the_cast", func():
 		GameState.reset()
 		GameState.state["meta"]["reducedMotion"] = false
@@ -464,7 +486,7 @@ func _walker_rig() -> Dictionary:
 	rig["id"] = "test_walker"
 	rig["parts"]["legs"]["frames"]["stride_a"] = "legs.png"
 	rig["parts"]["legs"]["frames"]["stride_b"] = "legs.png"
-	rig["walk"] = {"part": "legs", "frames": ["stride_a", "stride_b"], "frame_time": 0.1, "stand": "base"}
+	rig["walk"] = {"part": "legs", "frames": ["stride_a", "stride_b"], "cycle_px": 8, "stand": "base"}
 	return rig
 
 
@@ -618,6 +640,9 @@ func _walk_problems(rig: Dictionary) -> Array:
 	for frame_id in walk["frames"] + [walk["stand"]]:
 		if not frames.has(frame_id):
 			problems.append("walk frame %s missing" % frame_id)
-	if float(walk.get("frame_time", 0.0)) <= 0.0:
-		problems.append("walk frame_time must be positive")
+	if float(walk.get("cycle_px", 0.0)) <= 0.0:
+		problems.append("walk cycle_px must be positive")
+	for key in ["bob", "swing"]:
+		if walk.has(key) and walk[key].size() != walk["frames"].size():
+			problems.append("walk %s needs one entry per frame" % key)
 	return problems

@@ -26,6 +26,22 @@
       "throw_release": [
         22.8,
         99.7
+      ],
+      "rest@-1": [
+        34.3,
+        123.4
+      ],
+      "rest@1": [
+        40.0,
+        123.1
+      ],
+      "rest@-2": [
+        31.5,
+        123.0
+      ],
+      "rest@2": [
+        42.7,
+        122.4
       ]
     },
     "hand_r": {
@@ -44,6 +60,54 @@
       "knife": [
         66.1,
         114.1
+      ],
+      "rest@-1": [
+        54.4,
+        123.1
+      ],
+      "rest@1": [
+        60.1,
+        123.4
+      ],
+      "rest@-2": [
+        51.7,
+        122.4
+      ],
+      "rest@2": [
+        62.9,
+        123.0
+      ],
+      "knife_low@-1": [
+        58.5,
+        121.3
+      ],
+      "knife_low@1": [
+        61.6,
+        121.0
+      ],
+      "knife_low@-2": [
+        57.0,
+        121.3
+      ],
+      "knife_low@2": [
+        63.0,
+        120.7
+      ],
+      "knife@-1": [
+        65.7,
+        114.3
+      ],
+      "knife@1": [
+        66.5,
+        113.8
+      ],
+      "knife@-2": [
+        65.3,
+        114.6
+      ],
+      "knife@2": [
+        66.9,
+        113.5
       ]
     }
   },
@@ -72,7 +136,11 @@
         "walk_0": "legs_walk_0.png",
         "walk_1": "legs_walk_1.png",
         "walk_2": "legs_walk_2.png",
-        "walk_3": "legs_walk_3.png"
+        "walk_3": "legs_walk_3.png",
+        "walk_4": "legs_walk_4.png",
+        "walk_5": "legs_walk_5.png",
+        "walk_6": "legs_walk_6.png",
+        "walk_7": "legs_walk_7.png"
       }
     },
     "torso": {
@@ -124,14 +192,30 @@
         "rest": "arm_r_rest.png",
         "flick": "arm_r_flick.png",
         "knife_low": "arm_r_knife_low.png",
-        "knife": "arm_r_knife.png"
+        "knife": "arm_r_knife.png",
+        "rest@-1": "arm_r_rest_swm1.png",
+        "rest@1": "arm_r_rest_swp1.png",
+        "rest@-2": "arm_r_rest_swm2.png",
+        "rest@2": "arm_r_rest_swp2.png",
+        "knife_low@-1": "arm_r_knife_low_swm1.png",
+        "knife_low@1": "arm_r_knife_low_swp1.png",
+        "knife_low@-2": "arm_r_knife_low_swm2.png",
+        "knife_low@2": "arm_r_knife_low_swp2.png",
+        "knife@-1": "arm_r_knife_swm1.png",
+        "knife@1": "arm_r_knife_swp1.png",
+        "knife@-2": "arm_r_knife_swm2.png",
+        "knife@2": "arm_r_knife_swp2.png"
       }
     },
     "arm_l": {
       "group": "body",
       "frames": {
         "rest": "arm_l_rest.png",
-        "throw_release": "arm_l_throw_release.png"
+        "throw_release": "arm_l_throw_release.png",
+        "rest@-1": "arm_l_rest_swm1.png",
+        "rest@1": "arm_l_rest_swp1.png",
+        "rest@-2": "arm_l_rest_swm2.png",
+        "rest@2": "arm_l_rest_swp2.png"
       }
     }
   },
@@ -213,9 +297,34 @@
       "walk_0",
       "walk_1",
       "walk_2",
-      "walk_3"
+      "walk_3",
+      "walk_4",
+      "walk_5",
+      "walk_6",
+      "walk_7"
     ],
-    "frame_time": 0.14,
-    "stand": "base"
+    "stand": "base",
+    "cycle_px": 36,
+    "bob": [
+      0,
+      1,
+      0,
+      -1,
+      0,
+      1,
+      0,
+      -1
+    ],
+    "swing": [
+      -2,
+      -1,
+      0,
+      1,
+      2,
+      1,
+      0,
+      -1
+    ],
+    "lean": 3.0
   }
 }

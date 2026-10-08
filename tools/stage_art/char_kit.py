@@ -74,8 +74,20 @@ PROP_GROUP = {"wrap": "wrap", "ball": "wrap", "phone_up": "phone", "phone_low": 
 EYE_FRAMES = ["open", "down", "closed", "wide"]
 BROW_FRAMES = ["normal", "up", "knit", "quirk"]
 MOUTH_FRAMES = ["closed", "chew_a", "chew_b", "talk_a", "talk_b", "agape", "smirk", "whistle"]
-# Walk cycle (moving right): per leg (stride dx in units of the stride, lift in units of the lift).
-WALK = [((-1, 0.4), (1, 0)), ((0, 1), (0, 0)), ((1, 0), (-1, 0.4)), ((0, 0), (0, 1))]
+# Walk cycle (moving right): per leg (stride dx in units of the stride, lift in units of the lift),
+# near leg first: contact, down, passing, up, then the same off the other foot.
+WALK = [((1, 0), (-1, 0.3)), ((0.5, 0), (-0.6, 0.7)), ((0, 0), (0, 1)), ((-0.5, 0), (0.6, 0.6)),
+        ((-1, 0.3), (1, 0)), ((-0.6, 0.7), (0.5, 0)), ((0, 1), (0, 0)), ((0.6, 0.6), (-0.5, 0))]
+# Upper-body bob per walk frame in art pixels (+ = down): lowest on the down, highest on the up.
+WALK_BOB = [0, 1, 0, -1, 0, 1, 0, -1]
+# Near-arm (arm_l) swing level per walk frame, opposite the near leg; the far arm swings the other way.
+WALK_SWING = [-2, -1, 0, 1, 2, 1, 0, -1]
+STRIDE = 0.28  # stride as a fraction of leg length
+LIFT = 0.12
+WALK_LEAN = 3.0  # degrees the head leans into the walk
+SWING_DEG = 8.0  # arm rotation about the shoulder per swing level
+# Poses that swing while walking, and how much of the swing each takes (a raised knife barely moves).
+SWING_POSES = {"rest": 1.0, "bag": 0.7, "hold": 0.5, "phone_low": 0.5, "vial": 0.6, "knife_low": 0.6, "knife": 0.25}
 ACTIONS = {
     "bag_wave": [
         {"t": 0.0, "set": {"arm_l": "bag_wave_a"}}, {"t": 0.2, "set": {"arm_l": "bag_wave_b"}},
@@ -89,7 +101,6 @@ ACTIONS = {
     ],
     "knife_draw": [{"t": 0.0, "set": {"arm_r": "knife_low"}}, {"t": 0.4, "set": {"arm_r": "knife"}}],
 }
-WALK_FRAME_TIME = 0.14
 
 # Prop colours, shared by every character.
 PROP_COLOURS = {
@@ -453,8 +464,8 @@ def legs_canvas(st, pose=((0, 0), (0, 0))):
     g = st["legs"]
     cx = c.w // 2
     hip, foot, lw, gap, sh, toe = g["hip"], g["foot"], g["leg_w"], g["gap"], g["shoe_h"], g["toe"]
-    stride = max(1, round(st["leg_len"] * 0.13))
-    lift = max(1, round(st["leg_len"] * 0.08))
+    stride = max(1, round(st["leg_len"] * STRIDE))
+    lift = max(1, round(st["leg_len"] * LIFT))
     half = gap / 2.0
     back = max(1, round(lift * 0.4))  # far foot stands a little behind
 
@@ -820,12 +831,41 @@ def solve_elbow(s, h, a, b, hint):
     return best[1], h
 
 
+def swing_id(frame, level):
+    return "%s@%d" % (frame, level)
+
+
+def split_swing(frame):
+    """'bag@-2' -> ('bag', -2); plain frames swing 0."""
+    if "@" in frame:
+        base, level = frame.split("@")
+        return base, int(level)
+    return frame, 0
+
+
+def swing_deg(frame):
+    base, level = split_swing(frame)
+    return level * SWING_DEG * SWING_POSES.get(base, 0.0)
+
+
+def _rot(v, deg):
+    a = math.radians(deg)
+    return (v[0] * math.cos(a) - v[1] * math.sin(a), v[0] * math.sin(a) + v[1] * math.cos(a))
+
+
 def arm_pose(st, side, frame):
+    """Shoulder, elbow, hand and held prop for an arm frame; a swing frame ('rest@2') turns the
+    base pose about the shoulder, forward (+x) for a positive level."""
     shoulder = st["shoulders"][0 if side == "l" else 1]
     shoulder = (shoulder[0], shoulder[1] + st["dy_body"])
     a, b = st["arm"]
     k = (a + b) / 38.0
-    rel, hint, prop = (POSE_L if side == "l" else POSE_R)[frame]
+    base, _ = split_swing(frame)
+    rel, hint, prop = (POSE_L if side == "l" else POSE_R)[base]
+    turn = -swing_deg(frame)
+    if rel is not None:
+        rel = _rot(rel, turn)
+    hint = _rot(hint, turn)
     if rel is None:
         mx, my = st["mouth"]
         target = (mx + st["eat_hand"][0], my + st["dy_head"] + st["eat_hand"][1])
@@ -916,6 +956,8 @@ def _sleeve_cuff(c, st, elbow, wrist, base):
 def arm_canvas(st, side, frame, body_mask=None, torso_mask=None):
     c = StyleCanvas(st)
     shoulder, elbow, (hx, hy), prop = arm_pose(st, side, frame)
+    turn = -swing_deg(frame)
+    frame, _ = split_swing(frame)
     ru, rf = st["arm_r"]
     base = 0.95 if side == "l" else 0.75
     sleeve = st["sleeve"]
@@ -934,13 +976,13 @@ def arm_canvas(st, side, frame, body_mask=None, torso_mask=None):
     if st["char"]["outfit"]["top"].get("cuffs"):
         _sleeve_cuff(c, st, elbow, wrist, base)
     if prop == "wrap":
-        wrap(c, st, hx, hy, WRAP_ANGLE[frame])
+        wrap(c, st, hx, hy, WRAP_ANGLE[frame] + turn)
     if prop == "bag":
-        bag(c, st, hx, hy, BAG_SWING[frame])
+        bag(c, st, hx, hy, BAG_SWING[frame] - turn * 0.5)  # the bag lags the swing
     if prop in ("vial", "vial_back"):
-        vial(c, st, hx, hy, VIAL_ANGLE[prop])
+        vial(c, st, hx, hy, VIAL_ANGLE[prop] + turn)
     if prop == "knife":
-        knife(c, st, hx, hy, KNIFE_ANGLE[frame])
+        knife(c, st, hx, hy, KNIFE_ANGLE[frame] + turn)
     if prop != "behind":
         c.ellipse(hx, hy, st["hand_r"], st["hand_r"] * 1.05, "skin", base=1.0)
     if prop == "bag":
@@ -967,9 +1009,20 @@ def arm_canvas(st, side, frame, body_mask=None, torso_mask=None):
 
 # ── assembly ────────────────────────────────────────────────────────
 def arm_frames(char, table):
-    """Frames of a pose table this character gets (props it doesn't carry are dropped)."""
+    """Frames of a pose table this character gets (props it doesn't carry are dropped), plus the
+    walk-swing frames of its swinging poses."""
     props = set(char.get("props", []))
-    return [f for f, (_, _, p) in table.items() if p is None or PROP_GROUP[p] in props]
+    frames = [f for f, (_, _, p) in table.items() if p is None or PROP_GROUP[p] in props]
+    levels = sorted({abs(v) for v in WALK_SWING if v != 0})
+    swings = [swing_id(f, sgn * v) for f in frames if f in SWING_POSES for v in levels for sgn in (-1, 1)]
+    return frames + swings
+
+
+def frame_file(prefix, frame):
+    base, level = split_swing(frame)
+    if level == 0:
+        return "%s_%s.png" % (prefix, base)
+    return "%s_%s_sw%s%d.png" % (prefix, base, "m" if level < 0 else "p", abs(level))
 
 
 def anchors(st):
@@ -1016,7 +1069,7 @@ def build(style, char):
         images["glasses.png"] = overlay_glasses(st)
     for side, table in (("l", POSE_L), ("r", POSE_R)):
         for f in arm_frames(char, table):
-            images["arm_%s_%s.png" % (side, f)] = arm_canvas(st, side, f, body_mask, torso_mask).finish()
+            images[frame_file("arm_" + side, f)] = arm_canvas(st, side, f, body_mask, torso_mask).finish()
     return images
 
 
@@ -1037,8 +1090,8 @@ def manifest(base, style, char, rig_id):
     parts["eyes"] = {"group": "head", "frames": frames("eyes", EYE_FRAMES)}
     parts["brows"] = {"group": "head", "frames": frames("brows", BROW_FRAMES)}
     parts["mouth"] = {"group": "head", "frames": frames("mouth", MOUTH_FRAMES)}
-    parts["arm_l"] = {"group": "body", "frames": frames("arm_l", arm_frames(char, POSE_L))}
-    parts["arm_r"] = {"group": "body", "frames": frames("arm_r", arm_frames(char, POSE_R))}
+    parts["arm_l"] = {"group": "body", "frames": {f: frame_file("arm_l", f) for f in arm_frames(char, POSE_L)}}
+    parts["arm_r"] = {"group": "body", "frames": {f: frame_file("arm_r", f) for f in arm_frames(char, POSE_R)}}
     order = list(base["order"])
     if char.get("glasses"):
         parts["glasses"] = {"group": "head", "frames": {"base": "glasses.png"}}
@@ -1049,8 +1102,10 @@ def manifest(base, style, char, rig_id):
     actions.update(ACTIONS)
     m["actions"] = {name: steps for name, steps in actions.items()
                     if all(v in parts[p]["frames"] for s in steps for p, v in s["set"].items())}
-    m["walk"] = {"part": "legs", "frames": ["walk_%d" % i for i in range(len(WALK))],
-                 "frame_time": WALK_FRAME_TIME, "stand": "base"}
+    # the planted foot travels two strides per step, two steps per cycle
+    stride = max(1, round(st["leg_len"] * STRIDE))
+    m["walk"] = {"part": "legs", "frames": ["walk_%d" % i for i in range(len(WALK))], "stand": "base",
+                 "cycle_px": 4 * stride * st["scale"], "bob": WALK_BOB, "swing": WALK_SWING, "lean": WALK_LEAN}
     defaults = dict(base["defaults"])
     for part in ("arm_l", "arm_r"):
         if defaults[part] not in parts[part]["frames"]:
