@@ -17,7 +17,7 @@ import random
 
 from PIL import Image
 
-from char_kit import ramp
+from char_kit import ramp, render_selout
 from raster import Canvas, Material, darken, lerp_c
 
 WORLD_W, WORLD_H = 360, 320
@@ -79,7 +79,8 @@ class Paint:
         self.c.shade_px(int(x // self.s), int(y // self.s), mat, v)
 
     def finish(self, outline=True):
-        img = self.c.render(outline=outline and self.style["outline"] != "none")
+        kind = self.style["outline"] if outline else "none"
+        img = render_selout(self.c) if kind == "selout" else self.c.render(outline=kind != "none")
         return img.resize((self.w, self.h), Image.NEAREST) if self.s != 1 else img
 
 

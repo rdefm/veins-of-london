@@ -85,21 +85,26 @@ func run() -> void:
 		GameData.STAGES = original_stages
 	)
 
-	run_case("intro2_stages_six_intro_cards_and_ends_inert", func():
+	run_case("intro_mockups_stage_six_intro_cards_and_end_inert", func():
 		var intro: Dictionary = GameData.EVENTS["intro"]
-		var mock: Dictionary = GameData.EVENTS["intro2"]
-		assert_eq(mock["cards"].size(), intro["cards"].size(), "intro2 keeps every intro card")
-		for i in range(1, intro["cards"].size()):
-			assert_eq(mock["cards"][i], intro["cards"][i], "intro2 card %d matches intro" % (i + 1))
-		assert_eq(GameData.STAGES["intro2"]["cards"].size(), 6, "intro2 stages cards 1-6")
-		GameState.reset()
-		var flags_before: Dictionary = GameState.state["flags"].duplicate(true)
-		Events.start_event("intro2")
-		for i in range(mock["cards"].size()):
-			assert_eq(Events.is_staged_card(), i < 6, "card %d staged only within the first six" % (i + 1))
-			Events.advance()
-		assert_eq(GameState.state["flags"], flags_before, "intro2 sets no flags or tutorial stage")
-		assert_eq(GameState.state["currentScreen"], "phone", "intro2 ends on the phone")
+		for mock_id in ["intro2", "intro6"]:
+			var mock: Dictionary = GameData.EVENTS[mock_id]
+			assert_eq(mock["cards"].size(), intro["cards"].size(), "%s keeps every intro card" % mock_id)
+			for i in range(1, intro["cards"].size()):
+				assert_eq(mock["cards"][i], intro["cards"][i], "%s card %d matches intro" % [mock_id, i + 1])
+			var stage: Dictionary = GameData.STAGES[mock_id]
+			assert_eq(stage["cards"].size(), 6, "%s stages cards 1-6" % mock_id)
+			var style: String = stage["set"].trim_prefix("alley_")
+			for actor in stage["actors"].values():
+				assert_true(actor["rig"].ends_with("_" + style), "%s rig %s matches set style %s" % [mock_id, actor["rig"], style])
+			GameState.reset()
+			var flags_before: Dictionary = GameState.state["flags"].duplicate(true)
+			Events.start_event(mock_id)
+			for i in range(mock["cards"].size()):
+				assert_eq(Events.is_staged_card(), i < 6, "%s card %d staged only within the first six" % [mock_id, i + 1])
+				Events.advance()
+			assert_eq(GameState.state["flags"], flags_before, "%s sets no flags or tutorial stage" % mock_id)
+			assert_eq(GameState.state["currentScreen"], "phone", "%s ends on the phone" % mock_id)
 	)
 
 	run_case("player_rests_and_wakes_cleanly", func():

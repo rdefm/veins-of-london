@@ -401,7 +401,7 @@ class StyleCanvas(Canvas):
         if self.style["outline"] == "none":
             outline = False
         if outline and self.style["outline"] == "selout":
-            img = self._render_selout()
+            img = render_selout(self)
         else:
             img = self.render(outline=outline)
         if dx or dy:
@@ -411,31 +411,33 @@ class StyleCanvas(Canvas):
         s = self.style["scale"]
         return img.resize((W, H), Image.NEAREST) if s != 1 else img
 
-    def _render_selout(self):
-        """Outline in each material's own darkest tone; one step lighter on the lit (upper-left) side."""
-        img = self.render(outline=False)
-        out = img.load()
-        for y in range(self.h):
-            for x in range(self.w):
-                if self.mat[y][x] is not None:
+
+def render_selout(c):
+    """Render a Canvas with its outline in each material's own darkest tone; one step
+    lighter on the lit (upper-left) side."""
+    img = c.render(outline=False)
+    out = img.load()
+    for y in range(c.h):
+        for x in range(c.w):
+            if c.mat[y][x] is not None:
+                continue
+            best = None
+            for ddx, ddy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                nx, ny = x + ddx, y + ddy
+                if not (0 <= nx < c.w and 0 <= ny < c.h) or c.mat[ny][nx] is None:
                     continue
-                best = None
-                for ddx, ddy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-                    nx, ny = x + ddx, y + ddy
-                    if not (0 <= nx < self.w and 0 <= ny < self.h) or self.mat[ny][nx] is None:
-                        continue
-                    m = self.mat[ny][nx]
-                    if m == "_fixed":
-                        c = darken(self.fixed[ny][nx], 0.5)
-                    else:
-                        ramp_ = self.materials[m].ramp
-                        lit = ddx == 1 or ddy == 1
-                        c = ramp_[0] if lit else darken(ramp_[0], 0.62)
-                    if best is None or sum(c[:3]) < sum(best[:3]):
-                        best = c
-                if best is not None:
-                    out[x, y] = best
-        return img
+                m = c.mat[ny][nx]
+                if m == "_fixed":
+                    col = darken(c.fixed[ny][nx], 0.5)
+                else:
+                    ramp_ = c.materials[m].ramp
+                    lit = ddx == 1 or ddy == 1
+                    col = ramp_[0] if lit else darken(ramp_[0], 0.62)
+                if best is None or sum(col[:3]) < sum(best[:3]):
+                    best = col
+            if best is not None:
+                out[x, y] = best
+    return img
 
 
 def _in_ell(x, y, e):
