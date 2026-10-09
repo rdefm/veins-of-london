@@ -27,13 +27,13 @@
     "verdict": "approve"
   },
   {
-    "at": 1791529424968,
     "eventId": "intro-proposal2",
-    "note": "",
+    "round": 2,
     "phase": "storyboard",
-    "round": 1,
     "target": "P2",
-    "verdict": "approve"
+    "verdict": "approve",
+    "note": "",
+    "at": 1791571920556
   },
   {
     "eventId": "intro-proposal2",
@@ -72,13 +72,13 @@
     "at": 1791557452260
   },
   {
-    "at": 1791529641393,
     "eventId": "intro-proposal2",
-    "note": "",
+    "round": 2,
     "phase": "storyboard",
-    "round": 1,
     "target": "S5",
-    "verdict": "approve"
+    "verdict": "approve",
+    "note": "",
+    "at": 1791563416442
   },
   {
     "at": 1791529683643,
@@ -90,13 +90,13 @@
     "verdict": "approve"
   },
   {
-    "at": 1791529763098,
     "eventId": "intro-proposal2",
-    "note": "",
+    "round": 2,
     "phase": "storyboard",
-    "round": 1,
     "target": "S7",
-    "verdict": "approve"
+    "verdict": "approve",
+    "note": "",
+    "at": 1791572103341
   },
   {
     "at": 1791529805575,
