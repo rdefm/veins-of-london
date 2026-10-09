@@ -1,6 +1,6 @@
 # board.json
 
-The same object is saved to `.scratch/event-art/<id>/board.json` and seeded to the review page (`boards/<eventId>`). The page renders exactly these fields.
+Saved to `.scratch/event-art/<id>/board.json`; `tools/storyboard.html` reads it from there and renders exactly these fields.
 
 ```jsonc
 {
@@ -12,7 +12,6 @@ The same object is saved to `.scratch/event-art/<id>/board.json` and seeded to t
   "approved": null,                       // set on approval: {"round": 2, "at": "2026-10-08", "phase": "storyboard" | "drafts"}
   "updatedAt": 1791464688000,              // epoch ms
   "questions": ["…"],                      // open canon/framing questions for the user
-  "present": {"P1": ["clerkenwell_corner_blank_plate.png"]},  // files already on disk per plate/shot id; written by scripts/present_files.py
   "cards": [                               // EVERY card, in order, one-based n
     {
       "n": 1, "type": "narration", "speaker": null,

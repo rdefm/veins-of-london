@@ -373,5 +373,15 @@
       "file": "assets/events/intro/intro_card17.png"
     }
   ],
-  "present": {}
+  "present": {
+    "P1": [
+      "mile_end_yard_blank_plate.png"
+    ],
+    "P1b": [
+      "mile_end_yard_car_blank_plate.png"
+    ],
+    "P2": [
+      "spoons_table_blank_plate.png"
+    ]
+  }
 }

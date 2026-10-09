@@ -1,3 +1,8 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Vein Storyboards</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;600&display=swap">
@@ -35,7 +40,9 @@ button { cursor: pointer }
 
 header.top { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: end; justify-content: space-between }
 header.top .title { display: grid; gap: 6px; min-width: 0 }
-.picker { display: flex; gap: 8px; align-items: center }
+.picker { display: flex; flex-wrap: wrap; gap: 8px; align-items: center }
+.tb { border: 1px solid var(--line); background: var(--surface); border-radius: 6px; padding: 6px 12px; font-size: 13.5px }
+#open { background: var(--fg); color: var(--bg); border-color: var(--fg); font-weight: 700 }
 .picker select { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; max-width: 70vw }
 .pill { display: inline-flex; align-items: center; gap: 6px; font: 600 11px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase;
   padding: 5px 8px; border-radius: 4px; border: 1px solid currentColor }
@@ -130,14 +137,18 @@ header.top .title { display: grid; gap: 6px; min-width: 0 }
 section { display: grid; gap: 12px; min-width: 0 }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important } }
 </style>
-
+</head>
+<body>
 <div class="wrap">
   <header class="top">
     <div class="title">
       <span class="eyebrow">Vein · event card art</span>
       <h1 id="h-title">Storyboards</h1>
     </div>
-    <div class="picker">
+    <div class="picker" id="toolbar">
+      <button type="button" class="tb" id="open">Open repo folder</button>
+      <button type="button" class="tb" id="refresh" hidden>Reload</button>
+      <span class="mono muted" id="folder-name"></span>
       <label class="eyebrow" for="board-select">Event</label>
       <select id="board-select" aria-label="Choose an event storyboard"></select>
     </div>
@@ -145,8 +156,8 @@ section { display: grid; gap: 12px; min-width: 0 }
 
   <div id="empty" class="empty">
     <h2>No storyboards yet</h2>
-    <p>Claude adds one here when you run the event-storyboard skill on an event. Each board shows every card, where the image cuts or holds, and a brief for each new shot.</p>
-    <p class="muted" id="db-note">Connecting to the review store…</p>
+    <p>Open the veins-of-london repo folder (Chrome or Edge on desktop). Boards come from <code>.scratch/event-art/&lt;event&gt;/board.json</code>; uploads save into <code>assets/reference-plates/</code>; verdicts save to the board's <code>feedback.json</code>.</p>
+    <p class="muted" id="db-note">Click "Open repo folder" and pick the veins-of-london folder.</p>
   </div>
 
   <div id="board" hidden>
@@ -199,6 +210,9 @@ section { display: grid; gap: 12px; min-width: 0 }
 </div>
 
 <script>
+// Local storyboard review: reads boards from .scratch/event-art/<id>/board.json, writes verdicts to that
+// folder's feedback.json, and saves uploaded images straight into assets/reference-plates/.
+// Needs the File System Access API (desktop Chrome or Edge), like tools/quest-editor.html.
 (() => {
   const $ = (id) => document.getElementById(id);
   const el = (tag, attrs = {}, ...kids) => {
@@ -210,15 +224,127 @@ section { display: grid; gap: 12px; min-width: 0 }
     return n;
   };
 
-  let db = null, boards = [], feedback = {}, currentId = null, cardIdx = 0, unsubFb = null;
-  let assets = null, uploads = {}, unsubUp = null;
-  let canWrite = true;
+  const IMG_RE = /\.(png|jpe?g|webp)$/i;
+  const EXT = { "image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp" };
+  const PLATES_DIR = ["assets", "reference-plates"];
+  const BOARDS_DIR = [".scratch", "event-art"];
+
+  let root = null, boards = [], feedback = {}, plateFiles = new Map(), currentId = null, cardIdx = 0;
+  const thumbs = new Map(); // name -> {stamp, url}
   const remembered = () => { try { return localStorage.getItem("vein-sb-board"); } catch { return null; } };
   const remember = (id) => { try { localStorage.setItem("vein-sb-board", id); } catch {} };
 
   const board = () => boards.find((b) => b.eventId === currentId);
   const shotById = (b, id) => (b.shots || []).find((s) => s.id === id);
+  const baseName = (p) => (p || "").split("/").pop();
+  const stemOf = (n) => n.replace(/\.[^.]+$/, "");
+  const setNote = (t) => { $("db-note").textContent = t; };
 
+  // ---- folder access -------------------------------------------------------
+  async function dirAt(parts, create = false) {
+    let d = root;
+    for (const p of parts) d = await d.getDirectoryHandle(p, { create });
+    return d;
+  }
+  async function readJSON(dir, name) {
+    try { return JSON.parse(await (await (await dir.getFileHandle(name)).getFile()).text()); }
+    catch { return null; }
+  }
+  async function writeFile(dir, name, data) {
+    const w = await (await dir.getFileHandle(name, { create: true })).createWritable();
+    await w.write(data); await w.close();
+  }
+  // Remember the folder handle between visits (IndexedDB is the only place a handle can live).
+  function idb(mode, fn) {
+    return new Promise((res) => {
+      let req;
+      try { req = indexedDB.open("vein-storyboards", 1); } catch { res(null); return; }
+      req.onupgradeneeded = () => req.result.createObjectStore("kv");
+      req.onerror = () => res(null);
+      req.onsuccess = () => {
+        try {
+          const tx = req.result.transaction("kv", mode); const r = fn(tx.objectStore("kv"));
+          tx.oncomplete = () => res(r && "result" in r ? r.result : null); tx.onerror = () => res(null);
+        } catch { res(null); }
+      };
+    });
+  }
+  const saveHandle = (h) => idb("readwrite", (s) => s.put(h, "root"));
+  const loadHandle = () => idb("readonly", (s) => s.get("root"));
+
+  async function useRoot(h) {
+    try { await h.getDirectoryHandle(".scratch"); await h.getDirectoryHandle("assets"); }
+    catch { setNote(`"${h.name}" isn't the veins-of-london repo folder (no .scratch/ or assets/). Pick the repo root.`); return; }
+    root = h; saveHandle(h);
+    $("folder-name").textContent = h.name;
+    $("refresh").hidden = false;
+    await loadAll();
+  }
+  async function openFolder() {
+    try { await useRoot(await window.showDirectoryPicker({ id: "vein-storyboards", mode: "readwrite" })); }
+    catch (e) { if (!e || e.name !== "AbortError") setNote("Couldn't open the folder: " + (e && e.message)); }
+  }
+  async function reopen(h) {
+    try {
+      const p = await h.requestPermission({ mode: "readwrite" });
+      if (p === "granted") await useRoot(h); else setNote("Permission not granted. Open the repo folder.");
+    } catch { setNote("Couldn't reopen. Open the repo folder."); }
+  }
+
+  async function loadPlates() {
+    plateFiles = new Map();
+    try {
+      for await (const [name, h] of (await dirAt(PLATES_DIR)).entries())
+        if (h.kind === "file" && IMG_RE.test(name)) plateFiles.set(name, h);
+    } catch {}
+  }
+  async function loadAll() {
+    const found = [];
+    feedback = {};
+    try {
+      for await (const [name, h] of (await dirAt(BOARDS_DIR)).entries()) {
+        if (h.kind !== "directory") continue;
+        const b = await readJSON(h, "board.json");
+        if (!b || !b.eventId || !Array.isArray(b.cards)) continue;
+        found.push(b);
+        for (const f of (await readJSON(h, "feedback.json")) || []) if (f && f.target) feedback[`${f.eventId}__${f.target}`] = f;
+      }
+    } catch { setNote("No .scratch/event-art/ folder yet. Ask Claude to storyboard an event."); }
+    await loadPlates();
+    boards = found.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+    setNote(boards.length ? "" : "No storyboards in .scratch/event-art/ yet.");
+    const want = currentId && boards.some((b) => b.eventId === currentId) ? currentId
+      : (boards.some((b) => b.eventId === remembered()) ? remembered() : boards[0]?.eventId || null);
+    selectBoard(want, want === currentId);
+  }
+  async function boardDir(b) {
+    const base = await dirAt(BOARDS_DIR);
+    for await (const [name, h] of base.entries()) {
+      if (h.kind !== "directory") continue;
+      const x = await readJSON(h, "board.json");
+      if (x && x.eventId === b.eventId) return h;
+    }
+    return base.getDirectoryHandle(b.eventId, { create: true });
+  }
+
+  // Files on disk for one save-as path: the stem plus _vN versions and Claude's _clean derivatives, any image extension.
+  function filesFor(saveAs) {
+    const stem = stemOf(baseName(saveAs));
+    const re = new RegExp("^" + stem.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "(_v(\\d+))?(_clean)?$");
+    return [...plateFiles.keys()].map((n) => ({ n, m: stemOf(n).match(re) })).filter((x) => x.m)
+      .sort((a, b) => ((+(a.m[2] || 1)) - (+(b.m[2] || 1))) || ((a.m[3] ? 1 : 0) - (b.m[3] ? 1 : 0))).map((x) => x.n);
+  }
+  async function thumb(name) {
+    const h = plateFiles.get(name); if (!h) return null;
+    const f = await h.getFile(); const stamp = f.lastModified + ":" + f.size;
+    const c = thumbs.get(name);
+    if (c && c.stamp === stamp) return c.url;
+    if (c) URL.revokeObjectURL(c.url);
+    const url = URL.createObjectURL(f); thumbs.set(name, { stamp, url }); return url;
+  }
+  const imgFor = (name, alt) => { const img = el("img", { alt }); thumb(name).then((u) => { if (u) img.src = u; }); return img; };
+
+  // ---- rendering ----------------------------------------------------------
   // The image a card shows: its own shot, or the last NEW shot before it (HOLD), or nothing after CLEAR.
   function shotForCard(b, i) {
     for (let j = i; j >= 0; j--) {
@@ -248,9 +374,10 @@ section { display: grid; gap: 12px; min-width: 0 }
       frame.append(el("div", { class: "ph clear" }, el("p", { text: c.cut === "CLEAR" ? "Image cleared." : "No image yet on this card." })));
     } else {
       const s = shotById(b, sid) || { id: sid };
-      const up = latestUpload(s.id);
-      const draft = up ? { url: "/_blob/" + up.assetId } : (s.drafts || []).slice(-1)[0];
-      if (draft && draft.url) frame.append(el("img", { src: draft.url, alt: `${s.id} draft: ${s.title || ""}` }));
+      const local = s.saveAs ? filesFor(s.saveAs).slice(-1)[0] : null;
+      const draft = (s.drafts || []).slice(-1)[0];
+      if (local) frame.append(imgFor(local, `${s.id}: ${s.title || ""}`));
+      else if (draft && draft.url) frame.append(el("img", { src: draft.url, alt: `${s.id} draft: ${s.title || ""}` }));
       else frame.append(el("div", { class: "ph" }, el("b", { text: s.id }), el("p", { text: s.title || "" }), el("p", { text: s.framing || "" })));
       frame.append(el("span", { class: "tag", text: `${s.id}${c.cut === "HOLD" ? " · held" : ""}` }));
     }
@@ -276,6 +403,13 @@ section { display: grid; gap: 12px; min-width: 0 }
     }));
   }
 
+  async function saveFeedback(b, target, verdict, note) {
+    feedback[`${b.eventId}__${target}`] = { eventId: b.eventId, round: b.round || 1, phase: b.phase || "storyboard",
+      target, verdict, note, at: Date.now() };
+    const docs = Object.values(feedback).filter((f) => f.eventId === b.eventId).sort((x, y) => x.target.localeCompare(y.target));
+    await writeFile(await boardDir(b), "feedback.json", JSON.stringify(docs, null, 2) + "\n");
+  }
+
   function verdictBlock(key, phaseLabel, options) {
     const fb = feedback[key] || {};
     let chosen = fb.verdict || null;
@@ -292,21 +426,14 @@ section { display: grid; gap: 12px; min-width: 0 }
     });
     const save = el("button", { class: "save", type: "button", text: "Save" });
     save.addEventListener("click", async () => {
-      if (!db) { status.textContent = "Not connected. Your notes are not saved."; return; }
       const b = board();
       save.disabled = true; status.textContent = "Saving…";
-      try {
-        await db.doc("feedback/" + key).set({ eventId: b.eventId, round: b.round || 1, phase: b.phase || "storyboard",
-          target: key.split("__")[1], verdict: chosen, note: ta.value.trim(), at: Date.now() });
-        status.textContent = "Saved. Tell Claude you've reviewed.";
-      } catch (e) {
-        status.textContent = e && e.code === "invalid_argument" ? "You can view but not edit this board." : "Couldn't save. Try again in a moment.";
-      } finally { save.disabled = false; }
+      try { await saveFeedback(b, key.split("__")[1], chosen, ta.value.trim()); status.textContent = "Saved to feedback.json. Tell Claude you've reviewed."; }
+      catch (e) { status.textContent = "Couldn't save: " + (e && e.message); }
+      finally { save.disabled = false; }
     });
-    const box = el("div", { class: "verdict" }, el("span", { class: "eyebrow", text: phaseLabel }),
+    return el("div", { class: "verdict" }, el("span", { class: "eyebrow", text: phaseLabel }),
       el("div", { class: "vbtns" }, ...btns), ta, el("div", { class: "saverow" }, save, status));
-    if (!canWrite) { btns.forEach((x) => x.disabled = true); ta.readOnly = true; save.hidden = true; }
-    return box;
   }
 
   function promptBlock(text) {
@@ -322,95 +449,67 @@ section { display: grid; gap: 12px; min-width: 0 }
       el("pre", { text }));
   }
 
-  // Uploads: the image goes to the asset store; uploads/<eventId>__<target> lists them by save-as name.
-  // Claude copies each unsynced file into the repo at the saveAs folder and marks it synced.
-  const baseName = (p) => (p || "").split("/").pop();
-  const stemOf = (n) => n.replace(/\.[^.]+$/, "");
-  const latestUpload = (target) => ((uploads[target] || {}).files || []).slice(-1)[0] || null;
-  const EXT = { "image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp" };
-
-  function filesBlock(b, target, saveAs) {
+  // Upload = write the image into assets/reference-plates/ under the save-as name.
+  function filesBlock(target, saveAs) {
     if (!saveAs) return null;
-    const present = (b.present && b.present[target]) || [];
-    const ups = (uploads[target] || {}).files || [];
-    const rows = new Map();
-    present.forEach((n) => rows.set(n, { name: n, inRepo: true }));
-    ups.forEach((u) => rows.set(u.name, Object.assign({}, rows.get(u.name) || {}, { name: u.name, up: u })));
-    const list = el("ul", {}, ...[...rows.values()].map((r) => el("li", {},
-      r.up ? el("img", { src: "/_blob/" + r.up.assetId, alt: r.name, loading: "lazy" }) : el("span", { class: "nothumb" }),
-      el("span", {}, el("span", { class: "fname", text: r.name }), el("br"),
-        el("span", { class: "fstate" + (r.inRepo && (!r.up || r.up.synced) ? " ok" : ""),
-          text: r.up && !r.up.synced ? (r.up.overwrite ? "Uploaded, will replace the repo copy when Claude syncs" : "Uploaded, waiting for Claude to sync")
-              : r.inRepo ? "In the repo" : "Uploaded" })))));
+    const names = filesFor(saveAs);
+    const list = el("ul", {}, ...names.map((n) => el("li", {}, imgFor(n, n),
+      el("span", {}, el("span", { class: "fname", text: n }), el("br"), el("span", { class: "fstate ok", text: "In assets/reference-plates/" })))));
     const status = el("span", { class: "status" });
     const choice = el("div", { class: "uprow" });
-    // Native label → input: the browser opens the picker itself, no scripted click.
     const input = el("input", { type: "file", accept: "image/png,image/jpeg,image/webp", class: "vh" });
     const pick = el("label", { class: "pickbtn" }, el("span", { text: "Upload image" }), input);
-    const taken = () => new Set([...rows.keys()].map(stemOf));
-    async function send(file, name, overwrite) {
-      choice.replaceChildren(); pick.classList.add("busy"); status.textContent = `Uploading ${name}…`;
+    async function send(file, name) {
+      choice.replaceChildren(); pick.classList.add("busy"); status.textContent = `Saving ${name}…`;
       try {
-        const type = EXT[file.type] ? file.type : "image/png";
-        const res = await assets.upload(file, { type });
-        const cur = ((uploads[target] || {}).files || []).filter((u) => u.name !== name);
-        cur.push({ assetId: res.id, name, contentType: res.contentType, sizeBytes: res.sizeBytes, at: Date.now(), synced: false, overwrite: !!overwrite });
-        await db.doc(`uploads/${b.eventId}__${target}`).set({ eventId: b.eventId, target, dir: saveAs.split("/").slice(0, -1).join("/"), files: cur });
-        status.textContent = "Uploaded. Tell Claude to sync.";
-      } catch (e) {
-        const c = e && e.code;
-        status.textContent = c === "too_large" ? "Too big (20 MB max)." : c === "unsupported_type" ? "PNG, JPEG or WebP only."
-          : c === "not_granted" || c === "capability_disabled" ? "Uploads aren't available in this view."
-          : `Upload failed (${c || (e && e.message) || "unknown"}). Try again.`;
-      } finally { pick.classList.remove("busy"); input.value = ""; }
+        await writeFile(await dirAt(PLATES_DIR, true), name, file);
+        await loadPlates();
+        status.textContent = `Saved ${name}.`;
+        renderAll();
+      } catch (e) { status.textContent = "Couldn't save: " + (e && e.message); }
+      finally { pick.classList.remove("busy"); input.value = ""; }
     }
     function take(file) {
       if (!file) { status.textContent = "No file picked."; return; }
-      if (!EXT[file.type]) { status.textContent = `${file.name}: PNG, JPEG or WebP only.`; return; }
+      const ext = EXT[file.type]; if (!ext) { status.textContent = `${file.name}: PNG, JPEG or WebP only.`; return; }
       const stem = stemOf(baseName(saveAs));
-      const name = stem + (EXT[file.type] || ".png");
-      if (!taken().has(stem)) { send(file, name, false); return; }
-      let v = 2; while (taken().has(`${stem}_v${v}`)) v++;
-      const vName = `${stem}_v${v}${EXT[file.type] || ".png"}`;
-      const over = el("button", { type: "button", text: "Overwrite" });
-      const keep = el("button", { type: "button", text: `Keep both (${vName})` });
+      const taken = new Set(filesFor(saveAs).map(stemOf).filter((s) => !s.endsWith("_clean")));
+      if (!taken.has(stem)) { send(file, stem + ext); return; }
+      let v = 2; while (taken.has(`${stem}_v${v}`)) v++;
+      const existing = filesFor(saveAs).find((n) => stemOf(n) === stem);
+      const over = el("button", { type: "button", text: `Overwrite ${existing}` });
+      const keep = el("button", { type: "button", text: `Keep both (${stem}_v${v}${ext})` });
       const cancel = el("button", { type: "button", text: "Cancel" });
-      over.addEventListener("click", () => send(file, name, true));
-      keep.addEventListener("click", () => send(file, vName, false));
+      over.addEventListener("click", async () => {
+        if (existing !== stem + ext) { try { await (await dirAt(PLATES_DIR)).removeEntry(existing); } catch {} }
+        send(file, stem + ext);
+      });
+      keep.addEventListener("click", () => send(file, `${stem}_v${v}${ext}`));
       cancel.addEventListener("click", () => { choice.replaceChildren(); input.value = ""; });
-      choice.replaceChildren(el("span", { class: "status", text: `${stem} already exists.` }), over, keep, cancel);
+      choice.replaceChildren(el("span", { class: "status", text: `${existing} already exists.` }), over, keep, cancel);
     }
     input.addEventListener("change", () => take(input.files && input.files[0]));
-    // Paste fallback for views that never open a file picker (some in-app browsers).
     const paste = el("div", { class: "pastebox", contenteditable: "true", role: "textbox", "aria-label": "Paste an image here",
-      "data-ph": "Or tap here, then Paste a copied image" });
+      "data-ph": "Or click here and paste a copied image (Ctrl+V)" });
     paste.addEventListener("paste", (e) => {
       e.preventDefault();
       const cd = e.clipboardData;
       let f = cd && cd.files && cd.files[0];
       if (!f && cd && cd.items) for (const it of cd.items) if (it.kind === "file") { f = it.getAsFile(); break; }
       paste.textContent = "";
-      if (!f) { status.textContent = "Clipboard had no image. In ChatGPT, long-press the image → Copy, then paste here."; return; }
+      if (!f) { status.textContent = "Clipboard had no image."; return; }
       take(f);
     });
     paste.addEventListener("input", () => { paste.textContent = ""; });
-    const canUpload = !!(assets && db && canWrite);
-    const why = !db ? "Uploads need the review store (open from claude.ai, signed in)."
-      : !assets ? "Uploads aren't available in this view (needs edit access to the page)."
-      : "Uploading needs edit access.";
     const box = el("div", { class: "files" },
       el("span", { class: "eyebrow", text: "Files" }),
       el("span", { class: "fstate", text: "Saves to " + saveAs }),
-      rows.size ? list : el("span", { class: "fstate", text: "Nothing yet." }),
-      canUpload ? el("div", { class: "uprow" }, pick, el("span", { class: "fstate", text: "or drop an image here" }), status)
-                : el("span", { class: "fstate", text: why }),
-      canUpload ? paste : null,
-      choice);
-    if (canUpload) {
-      box.addEventListener("dragover", (e) => { e.preventDefault(); box.classList.add("drop"); });
-      box.addEventListener("dragleave", () => box.classList.remove("drop"));
-      box.addEventListener("drop", (e) => { e.preventDefault(); box.classList.remove("drop"); take(e.dataTransfer && e.dataTransfer.files[0]); });
-    }
+      names.length ? list : el("span", { class: "fstate", text: "Nothing yet." }),
+      el("div", { class: "uprow" }, pick, el("span", { class: "fstate", text: "or drop an image here" }), status),
+      paste, choice);
+    box.addEventListener("dragover", (e) => { e.preventDefault(); box.classList.add("drop"); });
+    box.addEventListener("dragleave", () => box.classList.remove("drop"));
+    box.addEventListener("drop", (e) => { e.preventDefault(); box.classList.remove("drop"); take(e.dataTransfer && e.dataTransfer.files[0]); });
     return box;
   }
 
@@ -423,13 +522,16 @@ section { display: grid; gap: 12px; min-width: 0 }
   function renderPlates(b) {
     const ps = b.plates || [];
     $("p-section").hidden = ps.length === 0;
-    $("plates").replaceChildren(...ps.map((p) => el("article", { class: "shot", id: "plate-" + p.id },
-      el("div", { class: "shot-head" }, el("h3", { text: p.name || p.id }), el("span", { class: "id", text: p.id })),
-      briefList([["Camera", p.camera], ["Variant of", p.variantOf], ["Used by", p.shots],
-        ["Attach", (p.attach || []).join("\n")], ["Compositor", p.notes], ["Save as", p.name ? `assets/reference-plates/${p.name}_blank_plate.png` : null]]),
-      promptBlock(p.prompt),
-      filesBlock(b, p.id, p.name ? `assets/reference-plates/${p.name}_blank_plate.png` : null),
-      verdictBlock(`${b.eventId}__${p.id}`, "Your verdict on the plate", [["approve", "Approve plate"], ["revise", "Revise"], ["cut", "Cut it"]]))));
+    $("plates").replaceChildren(...ps.map((p) => {
+      const save = p.name ? `assets/reference-plates/${p.name}_blank_plate.png` : null;
+      return el("article", { class: "shot", id: "plate-" + p.id },
+        el("div", { class: "shot-head" }, el("h3", { text: p.name || p.id }), el("span", { class: "id", text: p.id })),
+        briefList([["Camera", p.camera], ["Variant of", p.variantOf], ["Used by", p.shots],
+          ["Attach", (p.attach || []).join("\n")], ["Compositor", p.notes], ["Save as", save]]),
+        promptBlock(p.prompt),
+        filesBlock(p.id, save),
+        verdictBlock(`${b.eventId}__${p.id}`, "Your verdict on the plate", [["approve", "Approve plate"], ["revise", "Revise"], ["cut", "Cut it"]]));
+    }));
   }
 
   function renderShots(b) {
@@ -440,17 +542,15 @@ section { display: grid; gap: 12px; min-width: 0 }
         ["Cards", s.cards], ["Plate", s.plate ? plateName(s.plate) : null], ["Method", s.method], ["Story job", s.job],
         ["Frozen instant", s.instant], ["Framing", s.framing],
         ["Composition", s.composition], ["Light & colour", s.light], ["Crop-safe", s.crop],
-        ["Keep unseen", s.unseen], ["Attach", (s.attach || []).join("\n")], ["Reuse", s.reuse], ["Save as", s.saveAs], ["Continuity", (s.continuity || []).join(", ")],
-        ["Canon question", s.canon], ["File", s.file],
+        ["Keep unseen", s.unseen], ["Attach", (s.attach || []).join("\n")], ["Reuse", s.reuse], ["Save as", s.saveAs],
+        ["Continuity", (s.continuity || []).join(", ")], ["Canon question", s.canon], ["File", s.file],
       ]);
       const draftFigs = (s.drafts || []).map((d) => el("figure", {}, el("img", { src: d.url, alt: `${s.id} ${d.label || "draft"}`, loading: "lazy" }), el("figcaption", { text: d.label || "draft" })));
       const opts = drafts ? [["approve", "Approve draft"], ["revise", "Regenerate"], ["cut", "Drop shot"]]
                           : [["approve", "Approve shot"], ["revise", "Revise"], ["cut", "Cut it"]];
       return el("article", { class: "shot", id: "shot-" + s.id },
         el("div", { class: "shot-head" }, el("h3", { text: s.title || s.id }), el("span", { class: "id", text: s.id })),
-        dl,
-        promptBlock(s.prompt),
-        filesBlock(b, s.id, s.saveAs),
+        dl, promptBlock(s.prompt), filesBlock(s.id, s.saveAs),
         draftFigs.length ? el("div", { class: "drafts" }, ...draftFigs) : null,
         verdictBlock(`${b.eventId}__${s.id}`, drafts ? "Your verdict on the draft" : "Your verdict on the shot", opts));
     }));
@@ -463,8 +563,8 @@ section { display: grid; gap: 12px; min-width: 0 }
     $("h-title").textContent = b.title || b.eventId;
     const phase = b.phase || "storyboard";
     const pill = $("phase-pill");
-    pill.textContent = { storyboard: "Storyboard review", drafts: "Draft review", done: "Done" }[phase] || phase;
-    pill.style.color = phase === "done" ? "var(--ok)" : "var(--accent)";
+    pill.textContent = b.approved ? `Approved (${b.approved.phase})` : ({ storyboard: "Storyboard review", drafts: "Draft review", done: "Done" }[phase] || phase);
+    pill.style.color = phase === "done" || b.approved ? "var(--ok)" : "var(--accent)";
     $("round-pill").textContent = "Round " + (b.round || 1);
     const nNew = b.cards.filter((c) => c.cut === "NEW").length;
     $("count-line").textContent = `${b.cards.length} cards · ${nNew} new shots`;
@@ -475,8 +575,7 @@ section { display: grid; gap: 12px; min-width: 0 }
     $("questions").replaceChildren(...qs.map((q) => el("li", { text: q })));
     renderPlates(b);
     renderShots(b);
-    const bv = $("board-verdict");
-    bv.replaceChildren(el("h2", { text: phase === "drafts" ? "Drafts overall" : "Storyboard overall" }),
+    $("board-verdict").replaceChildren(el("h2", { text: phase === "drafts" ? "Drafts overall" : "Storyboard overall" }),
       el("p", { class: "muted", style: "margin:0", text: phase === "drafts"
         ? "Approve when every shot's draft is good enough to clean up and place."
         : "Approve the whole board to move on to image prompts. Approval covers drafts only, not final assets." }),
@@ -485,52 +584,34 @@ section { display: grid; gap: 12px; min-width: 0 }
     renderFrame();
   }
 
-  function selectBoard(id) {
-    currentId = id; cardIdx = 0; remember(id);
-    if (unsubFb) unsubFb();
-    if (unsubUp) unsubUp();
-    uploads = {};
-    if (db && id) {
-      unsubUp = db.collection("uploads").where("eventId", "==", id).onSnapshot((snap) => {
-        uploads = {}; snap.docs.forEach((d) => { const x = d.data(); if (x && x.target) uploads[x.target] = x; });
-        renderShotsAndVerdictOnly();
-      }, () => {});
-      unsubFb = db.collection("feedback").where("eventId", "==", id).onSnapshot((snap) => {
-        feedback = {}; snap.docs.forEach((d) => { feedback[d.id] = d.data(); });
-        renderShotsAndVerdictOnly();
-      }, () => {});
-    }
+  const typing = () => document.activeElement && (document.activeElement.tagName === "TEXTAREA" || document.activeElement.isContentEditable);
+  function renderAll() { renderPicker(); if (!typing()) renderBoard(); }
+  function selectBoard(id, keepCard) {
+    if (!keepCard) cardIdx = 0;
+    currentId = id; if (id) remember(id);
     renderPicker(); renderBoard();
-  }
-
-  // Feedback changes re-render only the verdict areas' source data; keep the preview position.
-  function renderShotsAndVerdictOnly() {
-    const b = board(); if (!b) return;
-    const active = document.activeElement && (document.activeElement.tagName === "TEXTAREA" || document.activeElement.isContentEditable);
-    if (active) return; // don't clobber typing
-    renderBoard();
   }
 
   $("board-select").addEventListener("change", (e) => selectBoard(e.target.value));
   $("prev").addEventListener("click", () => { if (cardIdx > 0) { cardIdx--; renderFrame(); } });
   $("next").addEventListener("click", () => { const b = board(); if (b && cardIdx < b.cards.length - 1) { cardIdx++; renderFrame(); } });
+  $("open").addEventListener("click", openFolder);
+  $("refresh").addEventListener("click", () => root && loadAll());
+  // Claude edits board.json between rounds: pick that up when the window regains focus.
+  window.addEventListener("focus", () => { if (root && !typing()) loadAll(); });
 
-  (async () => {
-    try { db = await window.claude?.use?.("db"); } catch { db = null; }
-    if (!db) { $("db-note").textContent = "The review store isn't available in this view. Open the page from claude.ai while signed in."; return; }
-    try {
-      const user = await window.claude.use("user");
-      if (user && typeof user.can === "function") { const c = await user.can("data.write"); if (c === false) canWrite = false; }
-    } catch {}
-    try { assets = await window.claude.use("assets"); } catch { assets = null; }
-    $("db-note").textContent = "Waiting for Claude to add a board.";
-    db.collection("boards").onSnapshot((snap) => {
-      boards = snap.docs.map((d) => d.data()).filter((b) => b && b.eventId && Array.isArray(b.cards))
-        .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
-      const want = currentId && boards.some((b) => b.eventId === currentId) ? currentId
-        : (boards.some((b) => b.eventId === remembered()) ? remembered() : boards[0]?.eventId || null);
-      if (want !== currentId) selectBoard(want); else { renderPicker(); if (!(document.activeElement && (document.activeElement.tagName === "TEXTAREA" || document.activeElement.isContentEditable))) renderBoard(); }
-    }, () => { $("db-note").textContent = "Couldn't read the review store. Reload the page."; });
-  })();
+  if (!window.showDirectoryPicker) {
+    setNote("This tool needs the File System Access API. Open it in a recent desktop Chrome or Edge.");
+    $("open").disabled = true;
+  } else {
+    loadHandle().then((h) => {
+      if (!h) return;
+      const again = el("button", { type: "button", class: "tb", text: `Reopen ${h.name}` });
+      again.addEventListener("click", () => { again.remove(); reopen(h); });
+      $("toolbar").prepend(again);
+    });
+  }
 })();
 </script>
+</body>
+</html>
