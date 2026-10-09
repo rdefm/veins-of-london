@@ -17,7 +17,7 @@ Saved to `.scratch/event-art/<id>/board.json`; `tools/storyboard.html` reads it 
       "n": 1, "type": "narration", "speaker": null,
       "text": "full card text",
       "choices": ["Pay £50", "Refuse"],     // choice cards only: option labels
-      "cut": "NEW",                         // NEW | HOLD | CLEAR | STAGED
+      "cut": "NEW",                         // NEW | HOLD | CLEAR
       "shot": "S1",                         // NEW: the shot that starts (may be an earlier id = return to it); HOLD: the shot still showing; else null
       "why": "Location established; Nadia waiting sets who called this."
     }
@@ -56,7 +56,7 @@ Saved to `.scratch/event-art/<id>/board.json`; `tools/storyboard.html` reads it 
 ```
 
 Rules:
-- Card 1 of a VN event must not start blank: card 1 is `NEW` unless it's `STAGED`.
+- Card 1 of a VN event must not start blank: card 1 is `NEW`.
 - A `NEW` card reusing an earlier shot id ships as a second copy of that file at the new card index.
 - `CLEAR` = explicit `image: null` in JSON. Avoid it; it needs a JSON edit.
 - **Plate prompts** describe the whole set once: location, camera position and lens, what's where (screen-left/right, foreground/background), light sources, weather, time. They say "no people", "no text unless vital to the scene" (and if it is, the exact words), portrait 2:3 (1024×1536), and carry the house technique/mood/no-text lines from `prompt-pack.md`. A variant plate's prompt is an edit: "Attach <parent>_blank_plate.png. Add only … Change nothing else. Keep the exact image size."

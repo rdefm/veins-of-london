@@ -6,7 +6,7 @@
 :root {
   --bg: #eceef1; --surface: #f8f9fa; --sunk: #dfe2e7; --fg: #1a1d23; --muted: #5b6270; --line: #c9ced6;
   --accent: #946512; --accent-ink: #fff8e8;
-  --new: #946512; --hold: #56627a; --clear: #a2402e; --staged: #2f7a76;
+  --new: #946512; --hold: #56627a; --clear: #a2402e;
   --ok: #2e7a45; --warn: #a2402e;
   --display: "Pixelify Sans", "Courier New", monospace;
   --body: "Atkinson Hyperlegible", system-ui, sans-serif;
@@ -15,11 +15,11 @@
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --bg: #14161b; --surface: #1d2027; --sunk: #262a33; --fg: #e8eaee; --muted: #9aa1ae; --line: #343a45;
   --accent: #e0b04a; --accent-ink: #1a1408;
-  --new: #e0b04a; --hold: #8d9ab3; --clear: #e07a63; --staged: #62bdb6; --ok: #6cc489; --warn: #e07a63; color-scheme: dark } }
+  --new: #e0b04a; --hold: #8d9ab3; --clear: #e07a63; --ok: #6cc489; --warn: #e07a63; color-scheme: dark } }
 :root[data-theme="dark"] {
   --bg: #14161b; --surface: #1d2027; --sunk: #262a33; --fg: #e8eaee; --muted: #9aa1ae; --line: #343a45;
   --accent: #e0b04a; --accent-ink: #1a1408;
-  --new: #e0b04a; --hold: #8d9ab3; --clear: #e07a63; --staged: #62bdb6; --ok: #6cc489; --warn: #e07a63; color-scheme: dark }
+  --new: #e0b04a; --hold: #8d9ab3; --clear: #e07a63; --ok: #6cc489; --warn: #e07a63; color-scheme: dark }
 
 * { box-sizing: border-box }
 body { background: var(--bg); color: var(--fg); font: 15px/1.5 var(--body); }
@@ -41,8 +41,8 @@ header.top .title { display: grid; gap: 6px; min-width: 0 }
   padding: 5px 8px; border-radius: 4px; border: 1px solid currentColor }
 .logline { max-width: 68ch; margin: 0 }
 
-.stage { display: grid; grid-template-columns: minmax(0, 340px) minmax(0, 1fr); gap: 24px; align-items: start }
-@media (max-width: 760px) { .stage { grid-template-columns: minmax(0, 1fr) } }
+.preview { display: grid; grid-template-columns: minmax(0, 340px) minmax(0, 1fr); gap: 24px; align-items: start }
+@media (max-width: 760px) { .preview { grid-template-columns: minmax(0, 1fr) } }
 
 /* Phone preview: 390x544 image frame over a 236px text panel, scaled. */
 .phone { width: 100%; max-width: 340px; margin-inline: auto; background: #0d0e11; border-radius: 22px; padding: 10px; display: grid; gap: 8px; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px) }
@@ -69,7 +69,7 @@ header.top .title { display: grid; gap: 6px; min-width: 0 }
 .cut[aria-current="true"] { background: var(--sunk) }
 .cut .n { font: 600 13px/1.4 var(--mono); color: var(--muted); font-variant-numeric: tabular-nums }
 .cut .chip { font: 700 10.5px/1 var(--mono); letter-spacing: .06em; padding: 4px 6px; border-radius: 3px; justify-self: start; align-self: start; border: 1px solid currentColor }
-.chip.NEW { color: var(--new) } .chip.HOLD { color: var(--hold) } .chip.CLEAR { color: var(--clear) } .chip.STAGED { color: var(--staged) }
+.chip.NEW { color: var(--new) } .chip.HOLD { color: var(--hold) } .chip.CLEAR { color: var(--clear) }
 .cut .body { min-width: 0; display: grid; gap: 3px }
 .cut .line { font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical }
 .cut .why { font-size: 12.5px; color: var(--muted) }
@@ -160,7 +160,7 @@ section { display: grid; gap: 12px; min-width: 0 }
         <p class="logline" id="logline"></p>
       </section>
 
-      <div class="stage">
+      <div class="preview">
         <div class="phone" aria-label="Phone preview of the event screen">
           <div class="frame" id="frame"></div>
           <div class="textpanel"><span class="who" id="tp-who"></span><p id="tp-text"></p></div>
@@ -224,7 +224,7 @@ section { display: grid; gap: 12px; min-width: 0 }
     for (let j = i; j >= 0; j--) {
       const c = b.cards[j];
       if (c.cut === "CLEAR") return null;
-      if (c.cut === "NEW" || c.cut === "STAGED") return c.cut === "STAGED" ? "STAGED" : c.shot;
+      if (c.cut === "NEW") return c.shot;
     }
     return null;
   }
@@ -242,9 +242,7 @@ section { display: grid; gap: 12px; min-width: 0 }
     const sid = shotForCard(b, cardIdx);
     const frame = $("frame");
     frame.replaceChildren();
-    if (sid === "STAGED") {
-      frame.append(el("div", { class: "ph" }, el("b", { text: "LIVE STAGE" }), el("p", { text: "The stage engine directs this card. No still image." })));
-    } else if (!sid) {
+    if (!sid) {
       frame.append(el("div", { class: "ph clear" }, el("p", { text: c.cut === "CLEAR" ? "Image cleared." : "No image yet on this card." })));
     } else {
       const s = shotById(b, sid) || { id: sid };

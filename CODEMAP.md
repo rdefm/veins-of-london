@@ -8,7 +8,7 @@ file owns today, no history.
 | File | Purpose |
 |---|---|
 | EventBus.gd | Central signal bus — systems emit, screens redraw |
-| GameData.gd | Loads/validates every `data/*.json` table at boot; scans `assets/combat/territorial<N>/` folders into `TERRITORIAL_VARIANTS` and builds their sprite sets in `combat_templates()`; scans `data/stages/` into `STAGES`/`STAGE_RIGS`/`STAGE_SETS` |
+| GameData.gd | Loads/validates every `data/*.json` table at boot; scans `assets/combat/territorial<N>/` folders into `TERRITORIAL_VARIANTS` and builds their sprite sets in `combat_templates()` |
 | GameState.gd | Pure state tree (Dicts/Arrays/primitives); screens read only |
 | Rng.gd | Seeded RNG for every probabilistic system |
 | SaveManager.gd | Save/load/autosave/export-import; backfills missing keys (pre-tenure homes load owned, bedsit rented), restores JSON ints, KO-clamps a loaded fight's selection, founder fix-ups (room→role, Archie recruited past home raid), strips unowned veins from cultivator lists |
@@ -52,7 +52,7 @@ Data file per system: see `data/*.json` below.
 | districts.gd | Derived district info for Map tab |
 | economy.gd | Selling (Archie lane — ore at London quote, records supply — + faction lanes), faction-lane buying/selling for all five factions against FactionSim holdings and the faction's £ `resources` wallet (pricing incl. Network gouge, lane access via unlockFlag, R§3.6a); `complete_shop_trade` settles a faction shop's Trade-menu cart |
 | event_items.gd | Registry of items usable from an event's Item button (Rewind consumable + Dial Rewind): eligibility, counts, effect |
-| events.gd | Event-card runner + rewind, auto-discovers art; `has_stage()` makes a staged event VN; `is_staged_card()` says whether the stage directs the current card |
+| events.gd | Event-card runner + rewind, auto-discovers art |
 | faction_sim.gd | FactionSim: holdings (ore, items by tier); stockpile pick and guards; vein tend + prune, sparing one maturing vein (`fieldwork`); crafting toward targets; consumption + kit burns → shortfall; kit allocation, `vein_kit`, tiered roster-capped `raider_kit` + `settle_raider_kit`; London trade vs reserve + smart boosts, Conclave arbitrage; flood/undercut/deny/stabilise/stock-up/position moves; raid harvest; is_weak bonus |
 | faction_ai.gd | FactionAI (R§3.1 stances through Conclave positions): stances + matrix, flip headlines, activity log; pressure drift, Collective–Firm hold; escalation moves (Network intel, stockpile raids, raid bias, shortfall steal); wars, weariness, nags; truces, peace talks, truce payments; Conclave stabiliser + stockpile; war squeeze; Conclave positions + Ticker push; move forecast |
 | intel.gd | Intel (R§3.1 "Intel"): observer → target intel meters for player and factions, level reads, scout/raid gains, daily decay, stockpile relocation cap; privacy/raid-warning/disinformation timers; intel's raid-odds shift and target scoring |
@@ -118,7 +118,7 @@ overlays.
 | combat.gd | Combat screen: orchestrator over CombatStage (fills the upper region)/CombatCommandDock -- owns turn flow, director bridging, band sync. Keeps one persistent strip and steps its queue beat by beat during (and Rewind) playback. `_select_target()` is the sole tap->`Combat.set_selection()` route; a stage tap during playback fast-forwards |
 | combat_prototype.gd | Minimal combat-prototype screen, Debug-app only |
 | contacts.gd | Contacts app inside PhoneDeviceShell; directory of unlocked contacts by display name (`Contacts.directory_ids`) with inline flag-gated actions; generic key-member card |
-| event.gd | Event-card screen (VN and non-VN layouts; VN image slot hosts a StagePlayer when the event has a stage); Item button + popup over EventItems; choices row, or stack full-width when they don't fit; Leave-only fallback when state.event's id has no definition |
+| event.gd | Event-card screen (VN and non-VN layouts); Item button + popup over EventItems; choices row, or stack full-width when they don't fit; Leave-only fallback when state.event's id has no definition |
 | factions.gd | Factions tab |
 | hq.gd | HQ tab: renders the home tier's room plate (bedsit fallback), routes zone taps to sub-screens |
 | hq_dial.gd | HQ Dial sub-view: embeds DialLoadoutMenu (no complication rows) above the device art with flanking Complication sockets |
@@ -182,16 +182,7 @@ overlays.
 | vein_bubble.gd | Compact player-vein tap bubble: pin-anchored card, Lv segments, condition needle with 50/90+ scale, outline development/raid cues, round Harvest (light/hard chooser)/Cultivate actions, cultivator picker + hold-target stepper (via Rooms) while anyone holds Cultivation; tapping the info area opens vein_detail_panel.gd instead of running an action |
 | vein_detail_panel.gd | Floating map_card_style.gd-skinned vein detail (mapNav.selectedVeinId): compact level/location, condition, drift/development/raid/security cues, three icon action tiles, security/guard kit row/alarm/Defend; reuses VeinBubble's level/condition builders |
 
-## scenes/stage/*.gd — live pixel-art event stages
-
-| File | Purpose |
-|---|---|
-| stage_player.gd | `StagePlayer`: low-res SubViewport world (parallax, walkers, lights, objects, actors, props) at integer pixel scale; `show_card()` snaps to the folded card start then plays its steps; slow fields scale actors' clocks; reduced motion snaps to card end; `rest()` idles it past the last staged card |
-| slow_field.gdshader | Slow-field dome: tint + whole-pixel ripple of what's behind (static tint when motion off) |
-| stage_actor.gd | `StageActor`: layered rig sprites (body/head groups), attribute frames, blink/chew/talk/breathe/tilt, rig actions, arm in-betweens, walk cycle, facing flip, hand/mouth anchors (mirrored with facing) |
-| stage_direction.gd | `StageDirection`: pure fold of per-card steps into start/end snapshots (actor attrs/x/facing/visibility, object x, props, camera, slow fields), drop landing, field time scale, move easing, talk length, integer viewport fit |
-
- — modal content, one script per type
+## scenes/modals/*.gd — modal content, one script per type
 
 | File | Purpose |
 |---|---|
@@ -304,17 +295,6 @@ loaded, keyed by filename; no id-list const to keep in sync. Each is the cards/o
 prose variants generated with the quest editor builder. Implementation briefs are in
 `data/events/_to_be_coded/drafts/*.notes.md`; these drafts are not loaded by the game.
 
-## data/stages/
-
-`<event_id>.json` (hand-authored) gives an event a live stage: set, actors, camera, and one
-`steps` list per event card for its first N cards; later cards show their card art (`set`/`play`/`talk`/`drop`/`throw`/`camera`). `rigs/*.json` and
-`sets/*.json` are generated by `tools/stage_art/build_stage_assets.py` alongside their PNGs in
-`assets/stages/`; edit the generator, not the JSON.
-`rigs/archie_{chibi,retro,minimal,minimal_plus,dig}.json` are Archie in five art styles from the character kit (`tools/stage_art/build_style_mockups.py`),
-with bag/vial poses and a walk cycle; staged by the debug-only events `archie_craft_chat2/3/4` (inert `on_complete`).
-`sets/alley_<style>.json` (night alley + Vauxhall) and `rigs/{knife,mate,james}_<style>.json` (the buyers) come from
-`tools/stage_art/build_intro_stage.py <style>`; debug-only inert copies of `intro` stage cards 1-6: `intro2` in chibi, `intro3` in dig, `intro4` in retro, `intro5` in minimal, `intro6` in minimal_plus.
-
 ## assets/phone/
 
 | File | Purpose |
@@ -334,7 +314,7 @@ infrastructure, excluded from discovery.
 `check_all.sh` syntax-checks .gd files, then runs `lint_tokens.sh` (row-cap + comment-vocab ban).
 `run_tests.sh` runs the headless suite. `setup_godot.sh`/`setup_godot_ai.sh` set up the headless
 binary and the godot-ai MCP server; `soak.sh` repeats the playthrough test. The two
-`debug_combat_*_screenshot.gd` files and `debug_stage_screenshot.gd` are windowed dev screenshot harnesses;
+`debug_combat_*_screenshot.gd` files are windowed dev screenshot harnesses;
 `diagnose_115_timing.gd` is a hang-timing probe; `verify_map_camera_persistence.gd` is a
 live-tree check. `sim_combat_balance.gd` (+ `_impl.gd`) is the headless itemless-combat win-rate
 sim behind R§3.7a's balance numbers.
@@ -346,7 +326,6 @@ the palette swatch; `pack_daily_cycle.py` preserves the retired cycle-atlas pipe
 `quest-editor.html`/`quest-editor-mobile.html`
 are the desktop/mobile quest content editors (`data/events/*.json`); `test_quest_editor.js`
 unit-tests the desktop editor. `storyboard.html` is the local event-art storyboard review tool (boards in `.scratch/event-art/`, uploads into `assets/reference-plates/`).
-`stage_art/` generates stage pixel art + rig/set manifests (`raster.py` shaded-material rasteriser, `rig_archie.py`, `set_spitalfields.py`, `build_stage_assets.py`; `char_kit.py` (people in chibi/retro/minimal/minimal_plus/dig, three-quarter view, from a config) + `characters.py` configs + `build_style_mockups.py` for style rigs; `set_alley.py` + `build_intro_stage.py` for the intro mock-up set/buyers in a kit style; `preview_*.py` render review sheets).
 `plate_compositor/`: `compose.py` composites sprite or cut-out actors onto a blank reference plate (grid/palette lock, perspective scale, shadow, light tint, occluders) from `plates/*.json` + `shots/*.json`; `extract.py` cuts an AI-posed character off an AI-on-plate image (`poses/*.json`). See its README.
 `hq_region_mapper.tscn` (+ `_logic.gd`, Godot) traces per-tier HQ zone hit polygons on `assets/hq/<tier>_room.png` and saves them into `data/hq_visuals.json` "rooms".
 

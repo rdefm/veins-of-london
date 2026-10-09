@@ -23,10 +23,9 @@ Review tool: **`tools/storyboard.html`**. The user opens it in desktop Chrome/Ed
 
 ## Phase 1 — Read
 
-1. `PYTHONIOENCODING=utf-8 python .claude/skills/event-storyboard/scripts/event_digest.py <id>` — every card one-based, choice results, current art per card, staged range, cast + reference sheets.
-2. **Staged events:** cards a live stage directs (`data/stages/<id>.json`, first N cards) get cut `STAGED` and no shot. Storyboard only the cards after it.
-3. Context, grepped not read whole: who triggers this event and what comes next (`grep -rn "<id>" data/ systems/ --include=*.json --include=*.gd`), the art of the neighbouring events in the chain (`assets/events/<neighbour>/` — look at them; shared locations must match), `docs/CONTENT-GUIDE.md` tone pillars, `docs/ui-vision.md` §2 mood, `docs/ART-BIBLE.md` §1.
-4. **Look at** every cast member's reference PNG (`assets/character-references/<Name>/`). Cast without a reference is a canon question for the board, not something to invent silently. Being *mentioned* (e.g. "asks after Hakim") does not put someone on screen.
+1. `PYTHONIOENCODING=utf-8 python .claude/skills/event-storyboard/scripts/event_digest.py <id>` — every card one-based, choice results, current art per card, cast + reference sheets.
+2. Context, grepped not read whole: who triggers this event and what comes next (`grep -rn "<id>" data/ systems/ --include=*.json --include=*.gd`), the art of the neighbouring events in the chain (`assets/events/<neighbour>/` — look at them; shared locations must match), `docs/CONTENT-GUIDE.md` tone pillars, `docs/ui-vision.md` §2 mood, `docs/ART-BIBLE.md` §1.
+3. **Look at** every cast member's reference PNG (`assets/character-references/<Name>/`). Cast without a reference is a canon question for the board, not something to invent silently. Being *mentioned* (e.g. "asks after Hakim") does not put someone on screen.
 
 ## Phase 2 — Board
 

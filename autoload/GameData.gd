@@ -284,13 +284,6 @@ var BUSINESS_OWEN_CRAFT_MIN_CULTIVATING: int = 0
 # sub-object, not a separate list.
 var EVENTS: Dictionary = {}
 
-# Stage engine (scenes/stage/): per-event direction from data/stages/*.json
-# keyed by event id, plus the generated rig and set manifests under
-# data/stages/rigs/ and data/stages/sets/ keyed by file basename.
-var STAGES: Dictionary = {}
-var STAGE_RIGS: Dictionary = {}
-var STAGE_SETS: Dictionary = {}
-
 # Per-vendor flavour lines on completing a Collective trade (systems/
 # collective.gd) -- cosmetic only, all three doors trade at identical
 # terms. Keyed by contact id.
@@ -512,7 +505,6 @@ func load_all() -> void:
 
 	_load_palette()
 	_load_events()
-	_load_stages()
 	_scan_territorial_variants()
 	_merge_candidate_contacts()
 
@@ -592,34 +584,6 @@ func _load_events() -> void:
 		var event_def := _load_json("res://data/events/%s.json" % event_id, "events.%s" % event_id)
 		if not event_def.is_empty():
 			EVENTS[event_id] = event_def
-
-
-# Bespoke like _load_events(): directory scans, no id roster.
-func _load_stages() -> void:
-	STAGES = _load_json_dir("res://data/stages/", "stages")
-	STAGE_RIGS = _load_json_dir("res://data/stages/rigs/", "stage_rigs")
-	STAGE_SETS = _load_json_dir("res://data/stages/sets/", "stage_sets")
-
-
-func _load_json_dir(dir_path: String, table: String) -> Dictionary:
-	var result: Dictionary = {}
-	var dir := DirAccess.open(dir_path)
-	if dir == null:
-		return result
-	var names: Array[String] = []
-	dir.list_dir_begin()
-	var file_name := dir.get_next()
-	while file_name != "":
-		if not dir.current_is_dir() and file_name.ends_with(".json"):
-			names.append(file_name)
-		file_name = dir.get_next()
-	dir.list_dir_end()
-	names.sort()
-	for name in names:
-		var parsed := _load_json(dir_path + name, "%s.%s" % [table, name.get_basename()])
-		if not parsed.is_empty():
-			result[name.get_basename()] = parsed
-	return result
 
 
 func validate() -> bool:

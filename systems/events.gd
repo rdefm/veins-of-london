@@ -135,29 +135,12 @@ static func _convention_image_path(event_id: String, card_number: int) -> Varian
 	return null
 
 
-# A live pixel-art stage (data/stages/<event_id>.json, scenes/stage/) replaces
-# the event's static card art, on the cards it directs, when one exists.
-static func has_stage() -> bool:
-	return GameData.STAGES.has(GameState.state["event"]["eventId"])
-
-
-# A stage may direct only an event's first N cards; cards past its last entry
-# fall back to current_image_path().
-static func is_staged_card() -> bool:
-	if not has_stage():
-		return false
-	var event_state: Dictionary = GameState.state["event"]
-	return event_state["cardIndex"] < GameData.STAGES[event_state["eventId"]]["cards"].size()
-
-
 # Decides VN mode once for the whole event from the static definition (not
 # revealed_cards(), which grows and would flip the layout mid-event). True iff
 # current_image_path() could ever return non-null across the full run: a
 # top-level "image" key on any card, or a non-null "image" on any choice
 # option, regardless of which is picked.
 static func is_vn_mode() -> bool:
-	if has_stage():
-		return true
 	var cards: Array = _event_def()["cards"]
 	var event_id: String = GameState.state["event"]["eventId"]
 	for i in range(cards.size()):

@@ -24,7 +24,6 @@ var _vn_mode: bool = false
 var _vn_frame: Control
 var _vn_image_frame: Control
 var _vn_texture: TextureRect
-var _vn_stage: StagePlayer
 var _vn_card_box: VBoxContainer
 var _vn_text_frame: VBoxContainer
 var _vn_card_panel: PanelContainer
@@ -369,12 +368,6 @@ func _build_vn_frame() -> Control:
 	_vn_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	_vn_image_frame.add_child(_vn_texture)
 
-	if Events.has_stage():
-		_vn_stage = StagePlayer.new()
-		UI.anchor_full_rect(_vn_stage)
-		_vn_image_frame.add_child(_vn_stage)
-		_vn_stage.setup(GameState.state["event"]["eventId"])
-
 	_vn_card_box = UI.vbox(0)
 	_vn_card_box.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 	_vn_card_box.offset_left = 16.0
@@ -395,15 +388,9 @@ func _refresh_vn_card() -> void:
 	for child in _vn_card_box.get_children():
 		child.queue_free()
 
-	if Events.is_staged_card():
-		_vn_texture.texture = null
-		_vn_stage.show_card(GameState.state["event"]["cardIndex"])
-	else:
-		if _vn_stage != null:
-			_vn_stage.rest()
-		var image_path: Variant = Events.current_image_path()
-		var showing: bool = image_path != null and typeof(image_path) == TYPE_STRING and ResourceLoader.exists(image_path)
-		_vn_texture.texture = load(image_path) if showing else null
+	var image_path: Variant = Events.current_image_path()
+	var showing: bool = image_path != null and typeof(image_path) == TYPE_STRING and ResourceLoader.exists(image_path)
+	_vn_texture.texture = load(image_path) if showing else null
 
 	var card: Dictionary = Events.revealed_cards().back()
 	var built := UI.card()

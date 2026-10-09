@@ -1,6 +1,5 @@
 """Print a storyboard-ready digest of one event: every card (one-based), its
-type/speaker/text, choice results, whether a live stage directs it, what art
-it currently shows (explicit, discovered, or held), and which speakers/named
+type/speaker/text, choice results, what art it currently shows (explicit, discovered, or held), and which speakers/named
 characters have a reference sheet.
 
 Usage: python .claude/skills/event-storyboard/scripts/event_digest.py <event_id> [--json]
@@ -30,11 +29,6 @@ def main():
     event_id = args[0]
     with open(f"data/events/{event_id}.json", encoding="utf-8") as f:
         event = json.load(f)
-    staged_count = 0
-    stage_path = f"data/stages/{event_id}.json"
-    if os.path.exists(stage_path):
-        with open(stage_path, encoding="utf-8") as f:
-            staged_count = len(json.load(f).get("cards", []))
 
     refs = {}
     if os.path.isdir(REF_DIR):
@@ -47,8 +41,7 @@ def main():
     cards = []
     showing = None
     all_text = ""
-    for i, card in enumerate(event["cards"]):
-        n = i + 1
+    for n, card in enumerate(event["cards"], 1):
         if "image" in card:
             showing, source = card["image"], "explicit" if card["image"] else "cleared"
         else:
@@ -63,7 +56,6 @@ def main():
             "label": card.get("label"),
             "speaker": card.get("speaker"),
             "text": card.get("text", ""),
-            "staged": i < staged_count,
             "art": showing,
             "art_source": source,
         }
@@ -84,7 +76,6 @@ def main():
     out = {
         "event_id": event_id,
         "card_count": len(cards),
-        "staged_cards": staged_count,
         "cast": {name: refs.get(name, []) for name in cast},
         "cast_without_reference": [n for n in cast if not refs.get(n)],
         "cards": cards,
@@ -93,14 +84,13 @@ def main():
         print(json.dumps(out, indent=1, ensure_ascii=False))
         return
 
-    print(f"# {event_id} — {len(cards)} cards"
-          + (f", stage directs cards 1-{staged_count} (do not storyboard those)" if staged_count else ""))
+    print(f"# {event_id} — {len(cards)} cards")
     print("\n## Cast")
     for name, paths in out["cast"].items():
         print(f"- {name}: {', '.join(paths) if paths else 'NO REFERENCE — canon question'}")
     print("\n## Cards")
     for c in cards:
-        tag = "STAGED" if c["staged"] else f"art={c['art_source']}" + (f" ({c['art']})" if c["art"] else "")
+        tag = f"art={c['art_source']}" + (f" ({c['art']})" if c["art"] else "")
         who = c["speaker"] or c["type"]
         print(f"\n[{c['n']}] {c['type']}{' @' + c['label'] if c['label'] else ''} — {who} — {tag}")
         print(f"    {c['text']}")
