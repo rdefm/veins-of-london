@@ -45,13 +45,13 @@
     "at": 1791545193504
   },
   {
-    "at": 1791529477714,
     "eventId": "intro-proposal2",
-    "note": "",
+    "round": 2,
     "phase": "storyboard",
-    "round": 1,
     "target": "S2",
-    "verdict": "approve"
+    "verdict": "approve",
+    "note": "",
+    "at": 1791549291088
   },
   {
     "at": 1791529531050,

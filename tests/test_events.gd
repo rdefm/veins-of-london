@@ -596,10 +596,11 @@ func run() -> void:
 	run_case("intro_pilot_images_swap_at_their_wired_cards_and_resolve_to_real_files", func():
 		GameState.reset()
 		Events.start_event("intro")
-		assert_eq(Events.current_image_path(), null, "opening card sets no image")
+		var expected: Variant = "res://assets/events/intro/intro_card1.png"
+		assert_eq(Events.current_image_path(), expected, "opening card discovers intro_card1.png")
 
-		var wired_at := { 1: "res://assets/events/intro/1.jpg", 2: "res://assets/events/intro/2.jpg", 6: "res://assets/events/intro/3.png", 14: "res://assets/events/intro/4.png" }
-		var expected: Variant = null
+		# card indexes are zero-based; intro_card5 is found by convention, the rest are explicit keys
+		var wired_at := { 4: "res://assets/events/intro/intro_card5.png", 5: "res://assets/events/intro/1.jpg", 6: "res://assets/events/intro/2.jpg", 10: "res://assets/events/intro/3.png", 17: "res://assets/events/intro/4.png" }
 		var card_count: int = GameData.EVENTS["intro"]["cards"].size()
 		for i in range(card_count - 1):
 			Events.advance()

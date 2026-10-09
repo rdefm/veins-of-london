@@ -1,0 +1,9 @@
+{
+  "plate": "mile_end_yard",
+  "shots": [
+    {"id": "intro-proposal2_card1", "label": "S1 Archie on the wall (cards 1-4)",
+     "actors": [{"cutout": "assets/character-references/Archie/poses/yard_wall_lean.png"}]},
+    {"id": "intro-proposal2_card5", "label": "S2 Mr Bean vibe (card 5)",
+     "actors": [{"cutout": "assets/character-references/Archie/poses/yard_size_up.png"}]}
+  ]
+}

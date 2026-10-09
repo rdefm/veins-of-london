@@ -70,6 +70,8 @@ A cut-out only fits **that plate, that spot**. A different desk or room means ge
 2. Copy `plates/james_workshop.json` to `plates/<plate_name>.json` and set `image`.
 3. `scale`: the plate's apparent pixel size in full-res px. Zoom in and count how wide one
    "pixel" block is; 5 is typical for ChatGPT pixel art at ~937 px wide.
+   If small saturated props (crates, signs) come out grey or brown on the review sheet, set
+   `"quantize": "octree"` and raise `plate_colours` to ~96 (`plates/mile_end_yard.json`).
 4. `horizon_y`: the camera's eye level in native px, where a standing adult's eyes would
    be anywhere on the floor. Either take it from a test image with a person in it, or find
    where the floor and ceiling lines converge. If figures come out too big or too small,
@@ -128,7 +130,7 @@ room. Each step below removes one of those mismatches.
 Process
 
 1. Generate in ChatGPT.
-   - Upload the blank plate and James's master sprite.
+   - Upload the blank plate and character's master sprite.
    - Prompt along the lines of: "Add this man leaning his hip against the front-left corner of the desk, hands on its edge. Same pixel-art style and scale as the room. Change nothing else. Keep the exact image size."
    - Ask for 3–4 variations and pick the best pose.
 2. Cut him out (new script). A plain difference check won't work alone, because of the drift. Combine three things:

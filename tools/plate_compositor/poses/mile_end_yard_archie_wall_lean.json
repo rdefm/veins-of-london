@@ -1,0 +1,8 @@
+{
+  "plate": "mile_end_yard",
+  "ai_image": "assets/reference-plates/mile_end_yard_S1_archie_wall_lean.png",
+  "region": {"polygon": [[800, 460], [955, 460], [975, 560], [975, 990], [890, 1000], [880, 1115], [760, 1115], [730, 980], [730, 820], [790, 700]]},
+  "threshold": 60,
+  "close": 4,
+  "out": "assets/character-references/Archie/poses/yard_wall_lean.png"
+}

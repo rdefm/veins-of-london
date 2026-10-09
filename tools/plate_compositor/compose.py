@@ -28,7 +28,9 @@ class Plate:
         self.W, self.H = full.width // self.scale, full.height // self.scale
         native = full.resize((self.W, self.H), Image.BOX)
         n = cfg["plate_colours"]
-        q = native.quantize(colors=n, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE)
+        # octree keeps small saturated props (crates, signs) that median-cut averages away
+        method = {"mediancut": Image.Quantize.MEDIANCUT, "octree": Image.Quantize.FASTOCTREE}[cfg.get("quantize", "mediancut")]
+        q = native.quantize(colors=n, method=method, dither=Image.Dither.NONE)
         pal = [np.array(q.getpalette()[: n * 3]).reshape(-1, 3)]
         for path in sorted(set(actor_sprites)):
             pal.append(self._cast_colours(path, cfg["cast_colours"]))
