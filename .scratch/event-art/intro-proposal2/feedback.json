@@ -63,13 +63,13 @@
     "verdict": "approve"
   },
   {
-    "at": 1791529617968,
     "eventId": "intro-proposal2",
-    "note": "You reference intro_card6.png but this won't be ready when we generate this image (we'll process them all at once). You should reference S3_buyers_arrive.png here",
+    "round": 2,
     "phase": "storyboard",
-    "round": 1,
     "target": "S4",
-    "verdict": null
+    "verdict": null,
+    "note": "You reference intro_card6.png but this won't be ready when we generate this image (we'll process them all at once). You should reference S3_buyers_arrive.png here",
+    "at": 1791557452260
   },
   {
     "at": 1791529641393,

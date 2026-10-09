@@ -57,7 +57,7 @@ Draft approval in Phase 4 saves the same way (`approved.phase: "drafts"`, messag
 
 Build `prompts.md` per `reference/prompt-pack.md`: the approved plate and shot prompts from the board, in generation order (plates first, parents before variants). Every generated image (plates and shot drafts) lives in `assets/reference-plates/`, where the compositor reads it: plates as `<plate>_blank_plate.png`, shots as their `saveAs`.
 
-**Uploads.** The user saves each image with the tool's Upload button (or drag-drop/paste) on its plate or shot card, which writes it straight into `assets/reference-plates/`. When they say images are in, list that folder for the board's save-as names. An approved plate gets its `tools/plate_compositor/plates/<plate>.json` (README §D) before any shot on it is composed; posed shots go through `extract.py` then `compose.py` (README §C, §A).
+**Uploads.** The user saves each image with the tool's Upload button (or drag-drop/paste) on its plate or shot card, which writes it straight into `assets/reference-plates/`. When they say images are in, list that folder for the board's save-as names. An approved plate gets its `tools/plate_compositor/plates/<plate>.json` (README §D) before any shot on it is composed; posed shots go through `extract.py` then `compose.py` (README §C, §A). The `plate-compositor` skill runs all of this, through to placement, for a board.
 
 Per new draft:
 1. `python .claude/skills/event-storyboard/scripts/pixelize.py <draft> .scratch/event-art/<id>/qa [--scale 4]` and **look at** the `_qa.png` sheet (source | cleaned with crop outlines | small / baseline / tall phone crops).

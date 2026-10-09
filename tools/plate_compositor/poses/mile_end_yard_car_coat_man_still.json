@@ -1,0 +1,8 @@
+{
+  "plate": "mile_end_yard_car",
+  "ai_image": "assets/reference-plates/mile_end_yard_car_S4_archie_steps_in.png",
+  "region": {"polygon": [[585,560],[625,560],[640,600],[668,625],[678,700],[672,800],[655,815],[655,920],[556,920],[558,800],[555,700],[566,620],[585,600]]},
+  "out": "assets/character-references/extras/poses/yard_car_coat_man_still.png",
+  "threshold": 40,
+  "close": 7
+}

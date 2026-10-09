@@ -61,9 +61,11 @@ plate*, then cut them out so the AI's background drift never reaches the final i
 5. In a shots file, add the actor as `{"cutout": "<out path>"}`. No position or size is needed
    because the cut-out is plate-sized and keeps its spot. Add `"shadow": true` only if the AI
    drew none. It mixes freely with normal sprite actors (`shots/james_workshop_lean_demo.json`).
-   If the AI drew the character with finer pixels than the plate's `scale` and grid-locking
-   blurs the face, add `"full_res": true`: the cut-out is pasted after the upscale, unsnapped,
-   still behind anything with a lower floor position.
+   Cut-outs are pasted after the upscale at the AI's own pixel size (unsnapped, unlit), still
+   behind anything with a lower floor position. ChatGPT draws characters finer than the plate's
+   `scale`, and grid-locking them blurs faces. `"full_res": false` snaps one to the plate grid
+   instead. `"grow": 1.08` resizes a cut-out about its feet (nearest-neighbour), so it stays on
+   the same floor spot and depth.
 
 A cut-out only fits **that plate, that spot**. A different desk or room means generating again.
 
@@ -118,7 +120,9 @@ room. Each step below removes one of those mismatches.
 
 - `plates/<plate>.json`: per-plate setup: image, scale, palette sizes, horizon, lights,
   occluders. Done once per blank plate; occluder shapes are rough hand-drawn traces.
-- `shots/<name>.json`: `{plate, shots:[{id, label, actors:[...]}]}`. An actor is either
+- `shots/<name>.json`: `{plate, shots:[{id, board?, label, plate?, actors:[...]}]}`. A shot's own
+  `plate` overrides the file's, so one event file can span rooms; `board` is the storyboard shot id.
+  `compose.py ... --only S3 intro_card6` composes just those shots (by `id` or `board`). An actor is either
   `{sprite, feet_x, feet_y, flip?}` (native px) or `{cutout, shadow?}`.
 - `extract.py` + `poses/<pose>.json`: `{plate, ai_image, region, threshold?, close?, out}`.
   Region in full-res px. Cut = inside region AND differs from plate (after a ±4 px alignment
@@ -151,3 +155,6 @@ Process
    - shadow optional (the AI usually draws one, which gets cut out with him).
 
 One limit: a cut-out pose only fits that room and that spot. Reusing it at another desk, or in a different room, means generating it again.
+
+Example of running this skill once you've got the images;
+/plate-compositor intro-proposal2 S3

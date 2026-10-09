@@ -1,9 +1,21 @@
 {
   "plate": "mile_end_yard",
   "shots": [
-    {"id": "intro-proposal2_card1", "label": "S1 Archie on the wall (cards 1-4)",
+    {"id": "intro_card1", "board": "S1", "label": "S1 Archie on the wall (cards 1-4)",
      "actors": [{"cutout": "assets/character-references/Archie/poses/yard_wall_lean.png"}]},
-    {"id": "intro-proposal2_card5", "label": "S2 Mr Bean vibe (card 5)",
-     "actors": [{"cutout": "assets/character-references/Archie/poses/yard_size_up.png"}]}
+    {"id": "intro_card5", "board": "S2", "label": "S2 Mr Bean vibe (card 5)",
+     "actors": [{"cutout": "assets/character-references/Archie/poses/yard_size_up.png"}]},
+    {"id": "intro_card6", "board": "S3", "label": "S3 Three of them (card 6)", "plate": "mile_end_yard_car",
+     "actors": [{"cutout": "assets/character-references/Archie/poses/yard_wall_lean.png"},
+                {"cutout": "assets/character-references/extras/poses/yard_car_buyers_pair.png"},
+                {"cutout": "assets/character-references/extras/poses/yard_car_coat_man.png"}]},
+    {"id": "intro_card7", "board": "S4", "label": "S4 Into the gap (card 7)", "plate": "mile_end_yard_car",
+     "actors": [{"cutout": "assets/character-references/extras/poses/yard_car_coat_man_still.png", "grow": 1.08},
+                {"cutout": "assets/character-references/extras/poses/yard_car_thugs_advance.png", "grow": 1.08},
+                {"cutout": "assets/character-references/Archie/poses/yard_steps_in.png"}]},
+    {"id": "intro_card8", "board": "S5", "label": "S5 Have a look (card 8)", "plate": "mile_end_yard_car",
+     "actors": [{"cutout": "assets/character-references/extras/poses/yard_car_coat_man_watch_bag.png", "grow": 1.08},
+                {"cutout": "assets/character-references/extras/poses/yard_car_thugs_watch_bag.png", "grow": 1.08},
+                {"cutout": "assets/character-references/Archie/poses/yard_bag_raised.png"}]}
   ]
 }

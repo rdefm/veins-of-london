@@ -1,0 +1,59 @@
+{
+  "plate": "mile_end_yard_car",
+  "ai_image": "assets/reference-plates/mile_end_yard_car_S3_buyers_arrive.png",
+  "region": {
+    "polygon": [
+      [
+        685,
+        530
+      ],
+      [
+        712,
+        530
+      ],
+      [
+        722,
+        565
+      ],
+      [
+        737,
+        585
+      ],
+      [
+        737,
+        690
+      ],
+      [
+        728,
+        700
+      ],
+      [
+        728,
+        787
+      ],
+      [
+        670,
+        787
+      ],
+      [
+        668,
+        700
+      ],
+      [
+        662,
+        690
+      ],
+      [
+        662,
+        600
+      ],
+      [
+        678,
+        575
+      ]
+    ]
+  },
+  "out": "assets/character-references/extras/poses/yard_car_coat_man.png",
+  "threshold": 40,
+  "close": 7
+}

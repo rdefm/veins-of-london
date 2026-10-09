@@ -4371,13 +4371,11 @@
 "text": "He looks you up and down. \"You've got a bit more of a Mr Bean vibe, but you make do with what you've got, innit?\"",
 "type": "speaker"
 }, {
-"image": "res://assets/events/intro/1.jpg",
 "label": null,
 "speaker": null,
 "text": "The buyers arrive in a grey Vauxhall. Three of them. That's one more than Archie mentioned. He stops whistling.",
 "type": "narration"
 }, {
-"image": "res://assets/events/intro/2.jpg",
 "label": "It goes wrong",
 "speaker": null,
 "text": "The nearest one opens a Stanley knife and comes at you, not Archie. Archie shifts his weight, and is suddenly standing in the gap between you. The third man stays at the mouth of the alley, which is somehow worse.",

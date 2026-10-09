@@ -78,10 +78,24 @@ class Plate:
         a[..., 3] = (a[..., 3] >= 128) * 255
         return a
 
-    def load_cutout(self, path: str) -> np.ndarray:
+    def cutout_full(self, a: dict) -> np.ndarray:
+        """Plate-sized full-res cut-out; `grow` resizes it about its feet (bottom centre) so floor contact stays put."""
+        img = Image.open(ROOT / a["cutout"]).convert("RGBA")
+        g = a.get("grow", 1.0)
+        if g == 1.0:
+            return np.asarray(img)
+        x0, y0, x1, y1 = img.getbbox()
+        part = img.crop((x0, y0, x1, y1))
+        w, h = round(part.width * g), round(part.height * g)
+        part = part.resize((w, h), Image.NEAREST)
+        out = Image.new("RGBA", img.size)
+        out.paste(part, (round((x0 + x1) / 2 - w / 2), y1 - h), part)
+        return np.asarray(out)
+
+    def load_cutout(self, a: dict) -> np.ndarray:
         """Plate-sized cut-out from extract.py, block-averaged to native px (alpha-weighted)."""
         s = self.scale
-        a = np.asarray(Image.open(ROOT / path).convert("RGBA")).astype(float)
+        a = self.cutout_full(a).astype(float)
         a = a[: self.H * s, : self.W * s].reshape(self.H, s, self.W, s, 4)
         alpha = a[..., 3] / 255.0
         wsum = alpha.sum((1, 3))
@@ -131,7 +145,7 @@ class Plate:
         layers = []
         for a in shot["actors"]:
             if "cutout" in a:   # already posed, scaled and lit by the AI; placed where it was cut
-                spr = self.load_cutout(a["cutout"])
+                spr = self.load_cutout(a)
                 feet_y = int(np.nonzero(spr[..., 3].any(1))[0].max())
                 layers.append((feet_y, "cutout", (spr, a)))
                 continue
@@ -151,8 +165,8 @@ class Plate:
                 if a.get("shadow"):
                     xs = np.nonzero(on.any(0))[0]
                     self.shadow(canvas, int(xs.mean()), depth, len(xs))
-                if a.get("full_res"):   # pasted after upscale at the AI's own pixel size
-                    full_res.append((depth, a["cutout"]))
+                if a.get("full_res", True):   # pasted after upscale at the AI's own pixel size; false snaps to the plate grid
+                    full_res.append((depth, a))
                     continue
                 canvas[on] = spr[..., :3][on]
                 owner[on] = depth
@@ -174,8 +188,8 @@ class Plate:
             return img
         out = np.asarray(img).copy()
         owner_full = np.kron(owner, np.ones((self.scale, self.scale), int))
-        for depth, path in full_res:   # unsnapped, unlit; anything painted in front of it stays in front
-            cut = np.asarray(Image.open(ROOT / path).convert("RGBA"))[: out.shape[0], : out.shape[1]]
+        for depth, a in full_res:   # unsnapped, unlit; anything painted in front of it stays in front
+            cut = self.cutout_full(a)[: out.shape[0], : out.shape[1]]
             on = (cut[..., 3] >= 128) & (owner_full <= depth)
             out[on] = cut[..., :3][on]
         return Image.fromarray(out)
@@ -186,18 +200,24 @@ def main() -> None:
     ap.add_argument("shots")
     ap.add_argument("--out", default=str(ROOT / ".scratch/plate-compositor"))
     ap.add_argument("--sheet", action="store_true", help="also write a side-by-side review sheet")
+    ap.add_argument("--only", nargs="+", help="compose just these shots (by id or board shot id)")
     args = ap.parse_args()
 
     spec = json.loads(Path(args.shots).read_text())
-    plate_cfg = json.loads((HERE / "plates" / f"{spec['plate']}.json").read_text())
-    sprites = [a.get("sprite") or a["cutout"] for s in spec["shots"] for a in s["actors"]]
-    plate = Plate(plate_cfg, sprites)
+    shots = [s for s in spec["shots"] if not args.only or s["id"] in args.only or s.get("board") in args.only]
+    if not shots:
+        raise SystemExit("no shots match --only")
+    plates = {}   # a shot's own "plate" overrides the file's, so one event file can span rooms
+    for name in dict.fromkeys(s.get("plate", spec.get("plate")) for s in shots):
+        cfg = json.loads((HERE / "plates" / f"{name}.json").read_text())
+        sprites = [a.get("sprite") or a["cutout"] for s in shots if s.get("plate", spec.get("plate")) == name for a in s["actors"]]
+        plates[name] = Plate(cfg, sprites)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
 
     results = []
-    for shot in spec["shots"]:
-        img = plate.compose(shot)
+    for shot in shots:
+        img = plates[shot.get("plate", spec.get("plate"))].compose(shot)
         img.save(out / f"{shot['id']}.png")
         results.append((shot.get("label", shot["id"]), img))
         print("wrote", out / f"{shot['id']}.png")
