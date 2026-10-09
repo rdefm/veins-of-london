@@ -1,19 +1,19 @@
 {
   "image": "assets/reference-plates/mile_end_yard_blank_plate.png",
-  "scale": 5,
+  "scale": 4,
   "plate_colours": 96,
   "quantize": "octree",
   "cast_colours": 20,
-  "horizon_y": 105,
+  "horizon_y": 131,
   "eye_frac": 0.93,
   "lights": [
-    {"name": "strip light", "xy": [26, 53], "rgb": [215, 230, 255], "strength": 1.0},
-    {"name": "sodium lamp", "xy": [127, 70], "rgb": [255, 180, 90], "strength": 0.6}
+    {"name": "strip light", "xy": [32, 66], "rgb": [215, 230, 255], "strength": 1.0},
+    {"name": "sodium lamp", "xy": [159, 88], "rgb": [255, 180, 90], "strength": 0.6}
   ],
   "occluders": [
-    {"name": "crates", "depth_y": 215, "shapes": [{"rect": [0, 121, 25, 215]}]},
-    {"name": "bins", "depth_y": 180, "shapes": [{"rect": [51, 131, 74, 180]}]},
-    {"name": "box by bins", "depth_y": 164, "shapes": [{"rect": [70, 145, 79, 164]}]},
-    {"name": "box by drainpipe", "depth_y": 239, "shapes": [{"rect": [184, 199, 201, 239]}]}
+    {"name": "crates", "depth_y": 269, "shapes": [{"rect": [0, 151, 31, 269]}]},
+    {"name": "bins", "depth_y": 225, "shapes": [{"rect": [64, 164, 92, 225]}]},
+    {"name": "box by bins", "depth_y": 205, "shapes": [{"rect": [88, 181, 99, 205]}]},
+    {"name": "box by drainpipe", "depth_y": 299, "shapes": [{"rect": [230, 249, 251, 299]}]}
   ]
 }

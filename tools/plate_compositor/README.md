@@ -14,8 +14,8 @@ Output goes to `.scratch/plate-compositor/` by default (`--out DIR` to change).
 
 ## Step by step
 
-All coordinates are **native px** = full-res px ÷ `scale` (5 for the workshop). Read them off
-the full-res plate in any image editor (cursor position), then divide by 5.
+All coordinates are **native px** = full-res px ÷ `scale` (default 4; the workshop plate uses 5). Read
+them off the full-res plate in any image editor (cursor position), then divide by the plate's `scale`.
 
 ### A. Make a shot on an existing plate
 
@@ -61,6 +61,9 @@ plate*, then cut them out so the AI's background drift never reaches the final i
 5. In a shots file, add the actor as `{"cutout": "<out path>"}`. No position or size is needed
    because the cut-out is plate-sized and keeps its spot. Add `"shadow": true` only if the AI
    drew none. It mixes freely with normal sprite actors (`shots/james_workshop_lean_demo.json`).
+   If the AI drew the character with finer pixels than the plate's `scale` and grid-locking
+   blurs the face, add `"full_res": true`: the cut-out is pasted after the upscale, unsnapped,
+   still behind anything with a lower floor position.
 
 A cut-out only fits **that plate, that spot**. A different desk or room means generating again.
 
@@ -69,7 +72,9 @@ A cut-out only fits **that plate, that spot**. A different desk or room means ge
 1. Put the blank plate (no characters) in `assets/reference-plates/`.
 2. Copy `plates/james_workshop.json` to `plates/<plate_name>.json` and set `image`.
 3. `scale`: the plate's apparent pixel size in full-res px. Zoom in and count how wide one
-   "pixel" block is; 5 is typical for ChatGPT pixel art at ~937 px wide.
+   "pixel" block is. Default 4 (omit the key): plate prompts ask for ~4×4 px art pixels, and
+   ChatGPT draws characters at 3–4 px, so a coarser grid blurs faces. `james_workshop` stays 5
+   because its coordinates were traced at 5.
    If small saturated props (crates, signs) come out grey or brown on the review sheet, set
    `"quantize": "octree"` and raise `plate_colours` to ~96 (`plates/mile_end_yard.json`).
 4. `horizon_y`: the camera's eye level in native px, where a standing adult's eyes would
@@ -87,14 +92,14 @@ A cut-out only fits **that plate, that spot**. A different desk or room means ge
 
 ## Why sprites look pasted on
 
-AI pixel-art plates are pseudo-pixel art: about 5px "pixels" on no strict grid, with 250k+ colours.
+AI pixel-art plates are pseudo-pixel art: about 4–5px "pixels" on no strict grid, with 250k+ colours.
 A sprite dropped on top has a different pixel size, its own colours, and no lighting from the
 room. Each step below removes one of those mismatches.
 
 ## Pipeline (per shot)
 
-1. **Grid-lock.** Box-downscale the plate by `scale` (5) to its native size (187×335 for
-   the workshop). All compositing happens there, then a nearest-neighbour upscale. Plate and
+1. **Grid-lock.** Box-downscale the plate by `scale` (default 4) to its native size (256×384
+   for a 1024×1536 plate). All compositing happens there, then a nearest-neighbour upscale. Plate and
    sprites end up on the same pixel grid.
 2. **Palette-lock.** `plate_colours` (64) median-cut from the plate, plus `cast_colours` (20)
    from each actor's sprite, so costume colours the room lacks survive (otherwise James's blue

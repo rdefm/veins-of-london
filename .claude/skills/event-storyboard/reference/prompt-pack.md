@@ -31,7 +31,7 @@ Save as: <shot saveAs>   (upload on the shot's card; raw ChatGPT output → extr
 ## House lines (every plate prompt carries these)
 
 ```
-Genuine pixel art: visible pixel grid with roughly 5×5 screen pixels per art
+Genuine pixel art: visible pixel grid with roughly 4×4 screen pixels per art
 pixel, limited palette, dithered shading, crisp hard edges, no anti-aliasing, no
 painterly blur, no vector/cel-shaded linework.
 Grounded, realistic London colour: brick, shopfront paint, wet pavement, sodium

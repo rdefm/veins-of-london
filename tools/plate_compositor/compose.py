@@ -23,7 +23,7 @@ ROOT = HERE.parents[1]
 class Plate:
     def __init__(self, cfg: dict, actor_sprites: list[str]):
         self.cfg = cfg
-        self.scale = cfg["scale"]
+        self.scale = cfg.get("scale", 4)
         full = Image.open(ROOT / cfg["image"]).convert("RGB")
         self.W, self.H = full.width // self.scale, full.height // self.scale
         native = full.resize((self.W, self.H), Image.BOX)
@@ -126,6 +126,8 @@ class Plate:
 
     def compose(self, shot: dict) -> Image.Image:
         canvas = self.base.copy()
+        owner = np.full((self.H, self.W), -1)   # floor depth of whatever was painted last per pixel
+        full_res = []
         layers = []
         for a in shot["actors"]:
             if "cutout" in a:   # already posed, scaled and lit by the AI; placed where it was cut
@@ -138,9 +140,10 @@ class Plate:
             layers.append((a["feet_y"], "actor", (spr, a["feet_x"] - w // 2, a["feet_y"] - h, a)))
         for mask, depth in self.occluders:
             layers.append((depth, "occ", mask))
-        for _, kind, data in sorted(layers, key=lambda t: t[0]):   # painter's order by floor depth
+        for depth, kind, data in sorted(layers, key=lambda t: t[0]):   # painter's order by floor depth
             if kind == "occ":
                 canvas[data] = self.base[data]
+                owner[data] = depth
                 continue
             if kind == "cutout":
                 spr, a = data
@@ -148,7 +151,11 @@ class Plate:
                 if a.get("shadow"):
                     xs = np.nonzero(on.any(0))[0]
                     self.shadow(canvas, int(xs.mean()), depth, len(xs))
+                if a.get("full_res"):   # pasted after upscale at the AI's own pixel size
+                    full_res.append((depth, a["cutout"]))
+                    continue
                 canvas[on] = spr[..., :3][on]
+                owner[on] = depth
                 continue
             spr, x0, y0, a = data
             self.shadow(canvas, a["feet_x"], a["feet_y"], spr.shape[1])
@@ -160,8 +167,18 @@ class Plate:
             on = part[..., 3] > 0
             region = canvas[cy0:cy1, cx0:cx1]
             region[on] = part[..., :3][on]
+            owner[cy0:cy1, cx0:cx1][on] = depth
         img = Image.fromarray(self.snap(canvas).astype(np.uint8))
-        return img.resize((self.W * self.scale, self.H * self.scale), Image.NEAREST)
+        img = img.resize((self.W * self.scale, self.H * self.scale), Image.NEAREST)
+        if not full_res:
+            return img
+        out = np.asarray(img).copy()
+        owner_full = np.kron(owner, np.ones((self.scale, self.scale), int))
+        for depth, path in full_res:   # unsnapped, unlit; anything painted in front of it stays in front
+            cut = np.asarray(Image.open(ROOT / path).convert("RGBA"))[: out.shape[0], : out.shape[1]]
+            on = (cut[..., 3] >= 128) & (owner_full <= depth)
+            out[on] = cut[..., :3][on]
+        return Image.fromarray(out)
 
 
 def main() -> None:
