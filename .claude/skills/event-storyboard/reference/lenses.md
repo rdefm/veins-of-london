@@ -8,6 +8,7 @@ Work through them in order. Each one can veto the one before.
 - **What is this event for?** Name its single dramatic job in one sentence (the board's `logline`). Every shot should serve it. If a shot only illustrates a noun in the text, cut it.
 - **Budget.** Each shot costs a generation session, QA and cleanup. Rough guide: 1 shot per 2–4 cards; a 2–4 card ambient event usually earns 1 shot; a quest set-piece earns more. More than 1 shot per 2 cards needs a reason written in `why`. Under-shooting a big moment is as much a failure as over-shooting a corridor conversation.
 - **Spend on the turn.** The shot most worth making is the one where the event's meaning lands: the reveal, the decision, the cost. Put the strongest framing there, not on card 1.
+- **Plates are the big cost.** A new camera setup means a new blank plate plus compositor setup; a new shot on an existing plate is one pose generation. Vary shot size by staging (an actor near the lens reads as a close shot) before you add a camera. Spend a second plate on a location only where the story needs a genuinely different angle (a POV across a table, a reverse).
 - **Reuse is free.** Returning to an earlier shot (same file at a later card) costs nothing and reads as "back to the conversation". Prefer it to a near-duplicate new shot.
 - **Series continuity.** A location, prop or character already drawn in a neighbouring event is canon. Match it, or flag it.
 

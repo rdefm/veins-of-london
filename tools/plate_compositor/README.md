@@ -32,12 +32,12 @@ the full-res plate in any image editor (cursor position), then divide by 5.
 4. Run `python tools/plate_compositor/compose.py tools/plate_compositor/shots/<event_id>.json --sheet`.
 5. Open `.scratch/plate-compositor/<event_id>_sheet.png` and check that:
    - the feet sit on the floor, not on furniture;
-   - nobody overlaps furniture they should be behind (if they do, add an occluder, step C5);
+   - nobody overlaps furniture they should be behind (if they do, add an occluder, step D5);
    - the shadow sits under the feet.
    To fix one, nudge `feet_x`/`feet_y` by 2–5 px and re-run.
 6. When happy, copy the shot PNG to `assets/events/<event_id>/<event_id>_card<N>.png`.
 
-### B. Add an AI-posed character (leaning, sitting, holding things)
+### C. Add an AI-posed character (leaning, sitting, holding things)
 
 Sprites only stand. For a pose that touches the room, let the AI draw the character *on the
 plate*, then cut them out so the AI's background drift never reaches the final image.
@@ -64,7 +64,7 @@ plate*, then cut them out so the AI's background drift never reaches the final i
 
 A cut-out only fits **that plate, that spot**. A different desk or room means generating again.
 
-### C. Set up a new blank plate (once per room)
+### D. Set up a new blank plate (once per room)
 
 1. Put the blank plate (no characters) in `assets/reference-plates/`.
 2. Copy `plates/james_workshop.json` to `plates/<plate_name>.json` and set `image`.
@@ -120,6 +120,27 @@ room. Each step below removes one of those mismatches.
 
 ## Limits
 
-- **Sprite actors only stand.** For leaning, sitting or holding things use a cut-out (section B).
+- **Sprite actors only stand.** For leaning, sitting or holding things use a cut-out (section C).
 - Downscaling a high-res sprite master softens faces a little.
 - Occluder traces are rough; tighter polygons, or a painted mask PNG, would be cleaner.
+
+## Cutout
+Process
+
+1. Generate in ChatGPT.
+   - Upload the blank plate and James's master sprite.
+   - Prompt along the lines of: "Add this man leaning his hip against the front-left corner of the desk, hands on its edge. Same pixel-art style and scale as the room. Change nothing else. Keep the exact image size."
+   - Ask for 3–4 variations and pick the best pose.
+2. Cut him out (new script). A plain difference check won't work alone, because of the drift. Combine three things:
+   - A rough outline from you: a loose loop around James, including the desk area he touches. This can be four corners typed into the shot file, or a painted mask image.
+   - Changed pixels: inside that outline, keep only pixels that differ clearly from the plate.
+   - Clean-up: keep the largest connected shape, fill any holes, and drop stray specks. Fallback for messy cases: rembg, a free local background-removal tool.
+3. Save the cut-out as a pose: assets/character-references/James/poses/workshop_lean_desk.png, plus its position in the room. Because it's fixed to that position, it never needs resizing or re-angling.
+4. Composite it. The compositor gets a new "cut-out" character type:
+   - placed at its saved position, not resized;
+   - no added lighting, since the AI already lit it to match;
+   - still matched to the room's pixel size and colours;
+   - still drawn behind furniture where needed;
+   - shadow optional (the AI usually draws one, which gets cut out with him).
+
+One limit: a cut-out pose only fits that room and that spot. Reusing it at another desk, or in a different room, means generating it again.

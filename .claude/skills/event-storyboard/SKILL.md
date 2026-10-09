@@ -28,11 +28,19 @@ Review page: **https://claude.ai/artifact/9M8iYmgcD1wiZmtttJVwNt** (source `revi
 
 ## Phase 2 — Board
 
-Apply the three lenses in `reference/lenses.md` (producer, director, game-UI). Read it every time; it holds the cut rules, shot grammar and frame constraints. Then write `board.json` per `reference/board-schema.md` and seed it:
+Apply the three lenses in `reference/lenses.md` (producer, director, game-UI). Read it every time; it holds the cut rules, shot grammar and frame constraints.
+
+Images are made with the plate compositor (`tools/plate_compositor/README.md`): one blank **plate** per camera setup, generated once with no people in it, then characters and props added per shot. So plan plates before shots:
+- A **plate** = one location seen from one fixed camera. Every shot that keeps that camera reuses it; a new camera position or lens is a new plate. Prefer staging a location's shots on as few plates as the story allows (size changes come from how near the camera an actor stands, not a new camera).
+- A lasting change to the set (a car parks, a door is boarded) is a **variant plate**: an edit of its parent plate, with its own name.
+- The plate is described in full **once**, in its own prompt. Shots name the plate and describe only who/what is added and how.
+- Every prompt is copy-paste ready for ChatGPT and names every attachment by exact file name (`Archie_biz_sprite_master.png`, `mile_end_yard_blank_plate.png`). Prefer the character's `*_biz_sprite_master.png` (the sprite the compositor uses) as their reference. Props with existing game art use that art (crafted items: the recipe icon in `data/recipes.json`, e.g. `assets/combat/icons/timePearl.png`). Grep for existing art before describing a prop from scratch.
+
+Then write `board.json` per `reference/board-schema.md` and seed it:
 
 `ArtifactData set` → url above, collection `boards`, doc_id `<eventId>`, data = the board (`round: 1`, `phase: "storyboard"`, `updatedAt` = epoch ms).
 
-In the terminal, give the user only: the link, one line per shot (`S1 cards 1-2 · WS · Nadia waiting on the Clerkenwell corner`), the open questions, and your strongest recommendation where you pushed back on the obvious reading. Don't paste the whole board.
+In the terminal, give the user only: the link, one line per plate (`P1 mile_end_yard · from the shop door toward the yard mouth · S1–S5`), one line per shot (`S1 cards 1-2 · P1 · Nadia waiting on the Clerkenwell corner`), the open questions, and your strongest recommendation where you pushed back on the obvious reading. Don't paste the whole board.
 
 ## Phase 3 — Review rounds
 
@@ -50,12 +58,18 @@ Draft approval in Phase 4 saves the same way (`approved.phase: "drafts"`, messag
 
 ## Phase 4 — Prompts, then drafts
 
-Build `prompts.md` per `reference/prompt-pack.md`: generation order, one prompt per shot, exact attachments, which ChatGPT conversation each shot belongs to. Tell the user where to drop results: `.scratch/event-art/<id>/drafts/<shotId>[_vN].png`.
+Build `prompts.md` per `reference/prompt-pack.md`: the approved plate and shot prompts from the board, in generation order (plates first, parents before variants). Every generated image (plates and shot drafts) lives in `assets/reference-plates/`, where the compositor reads it: plates as `<plate>_blank_plate.png`, shots as their `saveAs`.
 
-When drafts arrive, per draft:
+**Uploads.** The user uploads each image on the review page (Upload button on its plate/shot card). The page stores it in the artifact's asset store and lists it in `uploads/<eventId>__<target>` as `{files: [{assetId, name, synced, overwrite}]}`. If the name already exists (in the repo or uploaded), the page asks the user to overwrite or keep both (`_v2`, `_v3`…). When the user says "synced"/"uploaded", or before any draft review:
+1. `ArtifactData query` collection `uploads` where `eventId == <id>`.
+2. For each file with `synced: false`: `Artifact read` with the page `url`, `path` = `assetId`, `out_dir` = the scratchpad; then move it to `assets/reference-plates/<name>`. Replace an existing file only when the entry has `overwrite: true`. Otherwise a name clash means stop and ask.
+3. Set `synced: true` on those entries (`ArtifactData update`, pinned to the version you read).
+4. `python .claude/skills/event-storyboard/scripts/present_files.py <id>` refreshes the board's `present` map (what's already on disk), then re-seed the board so the page shows it. An approved plate gets its `tools/plate_compositor/plates/<plate>.json` (README §D) before any shot on it is composed; posed shots go through `extract.py` then `compose.py` (README §C, §A).
+
+After syncing, per new draft:
 1. `python .claude/skills/event-storyboard/scripts/pixelize.py <draft> .scratch/event-art/<id>/qa [--scale 4]` and **look at** the `_qa.png` sheet (source | cleaned with crop outlines | small / baseline / tall phone crops).
 2. QA against the brief: story accuracy at the frozen instant, character identity vs. reference, set continuity vs. sibling shots and neighbouring events, focal point survives the small-phone crop, nothing story-critical in the bottom ~10%, no legible text/logos, no player face (unless decided otherwise), pixel-grid quality. One line each, pass/fail.
-3. Upload to the review page: Artifact publish with `url` + `asset: true` + `file_paths` (raw draft, plus `_clean.png` when cleanup is on). Append `{url, label}` to the shot's `drafts` (label e.g. `v2 raw`, `v2 clean 64c`), set board `phase: "drafts"`, bump `round`, re-seed.
+3. The raw upload already shows on the page. Only a derived image you made (a `_clean.png`, a composite) needs uploading: Artifact publish with `url` + `asset: true` + `file_paths`, then append `{url, label}` to the shot's `drafts` (label e.g. `v2 clean 64c`). Set board `phase: "drafts"`, bump `round`, re-seed.
 
 `revise` on a draft → write a *delta* prompt (what to change, "keep everything else identical") for the same ChatGPT conversation rather than a fresh prompt. Never re-prompt a character from scratch once a shot of them is approved — attach the approved draft instead (ART-BIBLE §4).
 
@@ -63,7 +77,7 @@ Pixel cleanup is **optional** until the user says otherwise: offer raw and clean
 
 ## Phase 5 — Place (only on explicit ask)
 
-1. Copy each approved file (raw or clean, as chosen) to `assets/events/<id>/<id>_card<n>.png`, where `n` = the shot's first card. Discovery handles HOLD; no JSON edit needed. Explicit `image` keys in the event JSON beat discovery — check with the digest that none shadow a new file. Choice-result shots need an explicit `image` on that choice: that IS a JSON edit, so ask first.
+1. Copy each approved composite from `.scratch/plate-compositor/` (or raw/clean draft, as chosen) to `assets/events/<id>/<id>_card<n>.png`, where `n` = the shot's first card. Discovery handles HOLD; no JSON edit needed. Explicit `image` keys in the event JSON beat discovery — check with the digest that none shadow a new file. Choice-result shots need an explicit `image` on that choice: that IS a JSON edit, so ask first.
 2. `godot --headless --import` (generates `.import` files), then `scripts/run_tests.sh` once.
 3. Set board `phase: "done"`; report the placed files plus one short on-device checklist (each new card on a small and a tall phone; holds read correctly; choice/resolution images).
 4. Commit per the repo's rules only when asked.

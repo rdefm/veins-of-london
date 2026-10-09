@@ -1,0 +1,119 @@
+[
+  {
+    "at": 1791529411141,
+    "eventId": "intro-proposal2",
+    "note": "Specify here (and add this to the skill for future storyboards) to specify to have no text in the image unless it's vital for the scene",
+    "phase": "storyboard",
+    "round": 1,
+    "target": "P1",
+    "verdict": "approve"
+  },
+  {
+    "at": 1791529375291,
+    "eventId": "intro-proposal2",
+    "note": "",
+    "phase": "storyboard",
+    "round": 1,
+    "target": "P1b",
+    "verdict": "approve"
+  },
+  {
+    "at": 1791529424968,
+    "eventId": "intro-proposal2",
+    "note": "",
+    "phase": "storyboard",
+    "round": 1,
+    "target": "P2",
+    "verdict": "approve"
+  },
+  {
+    "at": 1791529453793,
+    "eventId": "intro-proposal2",
+    "note": "",
+    "phase": "storyboard",
+    "round": 1,
+    "target": "S1",
+    "verdict": "approve"
+  },
+  {
+    "at": 1791529477714,
+    "eventId": "intro-proposal2",
+    "note": "",
+    "phase": "storyboard",
+    "round": 1,
+    "target": "S2",
+    "verdict": "approve"
+  },
+  {
+    "at": 1791529531050,
+    "eventId": "intro-proposal2",
+    "note": "",
+    "phase": "storyboard",
+    "round": 1,
+    "target": "S3",
+    "verdict": "approve"
+  },
+  {
+    "at": 1791529617968,
+    "eventId": "intro-proposal2",
+    "note": "You reference intro_card6.png but this won't be ready when we generate this image (we'll process them all at once). You should reference S3_buyers_arrive.png here",
+    "phase": "storyboard",
+    "round": 1,
+    "target": "S4",
+    "verdict": null
+  },
+  {
+    "at": 1791529641393,
+    "eventId": "intro-proposal2",
+    "note": "",
+    "phase": "storyboard",
+    "round": 1,
+    "target": "S5",
+    "verdict": "approve"
+  },
+  {
+    "at": 1791529683643,
+    "eventId": "intro-proposal2",
+    "note": "",
+    "phase": "storyboard",
+    "round": 1,
+    "target": "S6",
+    "verdict": "approve"
+  },
+  {
+    "at": 1791529763098,
+    "eventId": "intro-proposal2",
+    "note": "",
+    "phase": "storyboard",
+    "round": 1,
+    "target": "S7",
+    "verdict": "approve"
+  },
+  {
+    "at": 1791529805575,
+    "eventId": "intro-proposal2",
+    "note": "",
+    "phase": "storyboard",
+    "round": 1,
+    "target": "S8",
+    "verdict": "approve"
+  },
+  {
+    "at": 1791529812833,
+    "eventId": "intro-proposal2",
+    "note": "",
+    "phase": "storyboard",
+    "round": 1,
+    "target": "S9",
+    "verdict": "approve"
+  },
+  {
+    "at": 1791529816437,
+    "eventId": "intro-proposal2",
+    "note": "",
+    "phase": "storyboard",
+    "round": 1,
+    "target": "board",
+    "verdict": "approve"
+  }
+]

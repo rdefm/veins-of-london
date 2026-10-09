@@ -81,7 +81,7 @@ header.top .title { display: grid; gap: 6px; min-width: 0 }
 .shot-head .id { font: 700 13px/1 var(--mono); color: var(--accent) }
 .brief { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 8px 16px; margin: 0 }
 .brief dt { font: 600 11px/1.6 var(--mono); letter-spacing: .05em; text-transform: uppercase; color: var(--muted) }
-.brief dd { margin: 0; max-width: 72ch }
+.brief dd { margin: 0; max-width: 72ch; white-space: pre-line; overflow-wrap: anywhere }
 @media (max-width: 520px) { .brief { grid-template-columns: minmax(0, 1fr) } .brief dd { margin-bottom: 6px } }
 .drafts { display: flex; flex-wrap: wrap; gap: 10px }
 .drafts figure { margin: 0; width: 150px; max-width: 100%; display: grid; gap: 4px }
@@ -99,6 +99,22 @@ header.top .title { display: grid; gap: 6px; min-width: 0 }
 .saverow .save { background: var(--fg); color: var(--bg); border: 0; border-radius: 6px; padding: 7px 14px; font-weight: 700 }
 .saverow .status { font: 12px var(--mono); color: var(--muted) }
 
+.prompt { display: grid; gap: 6px }
+.prompt-head { display: flex; justify-content: space-between; align-items: center; gap: 8px }
+.prompt pre { margin: 0; white-space: pre-wrap; word-break: break-word; background: var(--sunk); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; font: 12.5px/1.5 var(--mono); max-width: 80ch }
+.copy { border: 1px solid var(--line); background: var(--bg); border-radius: 6px; padding: 4px 10px; font: 600 11.5px var(--mono) }
+.plate-tag { font: 600 11px/1 var(--mono); color: var(--muted) }
+.files { display: grid; gap: 8px; border-top: 1px dashed var(--line); padding-top: 12px }
+.files ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px }
+.files li { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 10px; align-items: center }
+.files li img, .files li .nothumb { width: 44px; height: 44px; object-fit: cover; image-rendering: pixelated; border-radius: 4px; background: var(--sunk) }
+.files .fname { font: 12.5px/1.3 var(--mono); overflow-wrap: anywhere }
+.files .fstate { font-size: 12.5px; color: var(--muted) }
+.files .fstate.ok { color: var(--ok) }
+.uprow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center }
+.uprow button { border: 1px solid var(--line); background: var(--bg); border-radius: 6px; padding: 6px 12px; font-size: 13.5px }
+.uprow .primary { background: var(--fg); color: var(--bg); border-color: var(--fg); font-weight: 700 }
+.uprow .status { font: 12px var(--mono); color: var(--muted) }
 .questions { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 72ch }
 .board-verdict { background: var(--surface); border: 2px solid var(--fg); border-radius: 10px; padding: 16px; display: grid; gap: 10px }
 .empty { background: var(--surface); border: 1px dashed var(--line); border-radius: 10px; padding: 28px 20px; display: grid; gap: 8px; max-width: 640px }
@@ -158,6 +174,12 @@ section { display: grid; gap: 12px; min-width: 0 }
         <ol class="questions" id="questions"></ol>
       </section>
 
+      <section id="p-section">
+        <h2>Plates</h2>
+        <p class="muted" style="margin:0">Blank backgrounds, one per camera setup. Generate these first; shots add the cast onto them.</p>
+        <div class="shots" id="plates"></div>
+      </section>
+
       <section>
         <h2>Shots</h2>
         <div class="shots" id="shots"></div>
@@ -181,6 +203,7 @@ section { display: grid; gap: 12px; min-width: 0 }
   };
 
   let db = null, boards = [], feedback = {}, currentId = null, cardIdx = 0, unsubFb = null;
+  let assets = null, uploads = {}, unsubUp = null;
   let canWrite = true;
   const remembered = () => { try { return localStorage.getItem("vein-sb-board"); } catch { return null; } };
   const remember = (id) => { try { localStorage.setItem("vein-sb-board", id); } catch {} };
@@ -217,7 +240,8 @@ section { display: grid; gap: 12px; min-width: 0 }
       frame.append(el("div", { class: "ph clear" }, el("p", { text: c.cut === "CLEAR" ? "Image cleared." : "No image yet on this card." })));
     } else {
       const s = shotById(b, sid) || { id: sid };
-      const draft = (s.drafts || []).slice(-1)[0];
+      const up = latestUpload(s.id);
+      const draft = up ? { url: "/_blob/" + up.assetId } : (s.drafts || []).slice(-1)[0];
       if (draft && draft.url) frame.append(el("img", { src: draft.url, alt: `${s.id} draft: ${s.title || ""}` }));
       else frame.append(el("div", { class: "ph" }, el("b", { text: s.id }), el("p", { text: s.title || "" }), el("p", { text: s.framing || "" })));
       frame.append(el("span", { class: "tag", text: `${s.id}${c.cut === "HOLD" ? " · held" : ""}` }));
@@ -277,22 +301,121 @@ section { display: grid; gap: 12px; min-width: 0 }
     return box;
   }
 
+  function promptBlock(text) {
+    if (!text) return null;
+    const btn = el("button", { class: "copy", type: "button", text: "Copy prompt" });
+    btn.addEventListener("click", async () => {
+      try { await navigator.clipboard.writeText(text); btn.textContent = "Copied"; }
+      catch { btn.textContent = "Select the text to copy"; }
+      setTimeout(() => { btn.textContent = "Copy prompt"; }, 1600);
+    });
+    return el("div", { class: "prompt" },
+      el("div", { class: "prompt-head" }, el("span", { class: "eyebrow", text: "Prompt" }), btn),
+      el("pre", { text }));
+  }
+
+  // Uploads: the image goes to the asset store; uploads/<eventId>__<target> lists them by save-as name.
+  // Claude copies each unsynced file into the repo at the saveAs folder and marks it synced.
+  const baseName = (p) => (p || "").split("/").pop();
+  const stemOf = (n) => n.replace(/\.[^.]+$/, "");
+  const latestUpload = (target) => ((uploads[target] || {}).files || []).slice(-1)[0] || null;
+  const EXT = { "image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp" };
+
+  function filesBlock(b, target, saveAs) {
+    if (!saveAs) return null;
+    const present = (b.present && b.present[target]) || [];
+    const ups = (uploads[target] || {}).files || [];
+    const rows = new Map();
+    present.forEach((n) => rows.set(n, { name: n, inRepo: true }));
+    ups.forEach((u) => rows.set(u.name, Object.assign({}, rows.get(u.name) || {}, { name: u.name, up: u })));
+    const list = el("ul", {}, ...[...rows.values()].map((r) => el("li", {},
+      r.up ? el("img", { src: "/_blob/" + r.up.assetId, alt: r.name, loading: "lazy" }) : el("span", { class: "nothumb" }),
+      el("span", {}, el("span", { class: "fname", text: r.name }), el("br"),
+        el("span", { class: "fstate" + (r.inRepo && (!r.up || r.up.synced) ? " ok" : ""),
+          text: r.up && !r.up.synced ? (r.up.overwrite ? "Uploaded, will replace the repo copy when Claude syncs" : "Uploaded, waiting for Claude to sync")
+              : r.inRepo ? "In the repo" : "Uploaded" })))));
+    const status = el("span", { class: "status" });
+    const choice = el("div", { class: "uprow" });
+    const input = el("input", { type: "file", accept: "image/png,image/jpeg,image/webp", hidden: "" });
+    const pick = el("button", { type: "button", class: "primary", text: "Upload image" });
+    pick.addEventListener("click", () => input.click());
+    const taken = () => new Set([...rows.keys()].map(stemOf));
+    async function send(file, name, overwrite) {
+      choice.replaceChildren(); pick.disabled = true; status.textContent = "Uploading…";
+      try {
+        const type = EXT[file.type] ? file.type : "image/png";
+        const res = await assets.upload(file, { type });
+        const cur = ((uploads[target] || {}).files || []).filter((u) => u.name !== name);
+        cur.push({ assetId: res.id, name, contentType: res.contentType, sizeBytes: res.sizeBytes, at: Date.now(), synced: false, overwrite: !!overwrite });
+        await db.doc(`uploads/${b.eventId}__${target}`).set({ eventId: b.eventId, target, dir: saveAs.split("/").slice(0, -1).join("/"), files: cur });
+        status.textContent = "Uploaded. Tell Claude to sync.";
+      } catch (e) {
+        const c = e && e.code;
+        status.textContent = c === "too_large" ? "Too big (20 MB max)." : c === "unsupported_type" ? "PNG, JPEG or WebP only."
+          : c === "not_granted" || c === "capability_disabled" ? "Uploads aren't available in this view." : "Upload failed. Try again.";
+      } finally { pick.disabled = false; input.value = ""; }
+    }
+    input.addEventListener("change", () => {
+      const file = input.files && input.files[0]; if (!file) return;
+      const stem = stemOf(baseName(saveAs));
+      const name = stem + (EXT[file.type] || ".png");
+      if (!taken().has(stem)) { send(file, name, false); return; }
+      let v = 2; while (taken().has(`${stem}_v${v}`)) v++;
+      const vName = `${stem}_v${v}${EXT[file.type] || ".png"}`;
+      const over = el("button", { type: "button", text: "Overwrite" });
+      const keep = el("button", { type: "button", text: `Keep both (${vName})` });
+      const cancel = el("button", { type: "button", text: "Cancel" });
+      over.addEventListener("click", () => send(file, name, true));
+      keep.addEventListener("click", () => send(file, vName, false));
+      cancel.addEventListener("click", () => { choice.replaceChildren(); input.value = ""; });
+      choice.replaceChildren(el("span", { class: "status", text: `${stem} already exists.` }), over, keep, cancel);
+    });
+    const canUpload = !!(assets && db && canWrite);
+    return el("div", { class: "files" },
+      el("span", { class: "eyebrow", text: "Files" }),
+      el("span", { class: "fstate", text: "Saves to " + saveAs }),
+      rows.size ? list : el("span", { class: "fstate", text: "Nothing yet." }),
+      canUpload ? el("div", { class: "uprow" }, pick, status) : el("span", { class: "fstate", text: "Uploading needs edit access." }),
+      choice, input);
+  }
+
+  function briefList(rows) {
+    const dl = el("dl", { class: "brief" });
+    rows.filter(([, v]) => v).forEach(([k, v]) => dl.append(el("dt", { text: k }), el("dd", { text: v })));
+    return dl;
+  }
+
+  function renderPlates(b) {
+    const ps = b.plates || [];
+    $("p-section").hidden = ps.length === 0;
+    $("plates").replaceChildren(...ps.map((p) => el("article", { class: "shot", id: "plate-" + p.id },
+      el("div", { class: "shot-head" }, el("h3", { text: p.name || p.id }), el("span", { class: "id", text: p.id })),
+      briefList([["Camera", p.camera], ["Variant of", p.variantOf], ["Used by", p.shots],
+        ["Attach", (p.attach || []).join("\n")], ["Compositor", p.notes], ["Save as", p.name ? `assets/reference-plates/${p.name}_blank_plate.png` : null]]),
+      promptBlock(p.prompt),
+      filesBlock(b, p.id, p.name ? `assets/reference-plates/${p.name}_blank_plate.png` : null),
+      verdictBlock(`${b.eventId}__${p.id}`, "Your verdict on the plate", [["approve", "Approve plate"], ["revise", "Revise"], ["cut", "Cut it"]]))));
+  }
+
   function renderShots(b) {
     const drafts = b.phase === "drafts";
+    const plateName = (id) => { const p = (b.plates || []).find((x) => x.id === id); return p ? `${id} · ${p.name}` : id; };
     $("shots").replaceChildren(...(b.shots || []).map((s) => {
-      const rows = [
-        ["Cards", s.cards], ["Story job", s.job], ["Frozen instant", s.instant], ["Framing", s.framing],
+      const dl = briefList([
+        ["Cards", s.cards], ["Plate", s.plate ? plateName(s.plate) : null], ["Method", s.method], ["Story job", s.job],
+        ["Frozen instant", s.instant], ["Framing", s.framing],
         ["Composition", s.composition], ["Light & colour", s.light], ["Crop-safe", s.crop],
-        ["Keep unseen", s.unseen], ["Continuity", (s.continuity || []).join(", ")], ["Canon question", s.canon], ["File", s.file],
-      ].filter(([, v]) => v);
-      const dl = el("dl", { class: "brief" });
-      rows.forEach(([k, v]) => dl.append(el("dt", { text: k }), el("dd", { text: v })));
+        ["Keep unseen", s.unseen], ["Attach", (s.attach || []).join("\n")], ["Reuse", s.reuse], ["Save as", s.saveAs], ["Continuity", (s.continuity || []).join(", ")],
+        ["Canon question", s.canon], ["File", s.file],
+      ]);
       const draftFigs = (s.drafts || []).map((d) => el("figure", {}, el("img", { src: d.url, alt: `${s.id} ${d.label || "draft"}`, loading: "lazy" }), el("figcaption", { text: d.label || "draft" })));
       const opts = drafts ? [["approve", "Approve draft"], ["revise", "Regenerate"], ["cut", "Drop shot"]]
                           : [["approve", "Approve shot"], ["revise", "Revise"], ["cut", "Cut it"]];
       return el("article", { class: "shot", id: "shot-" + s.id },
         el("div", { class: "shot-head" }, el("h3", { text: s.title || s.id }), el("span", { class: "id", text: s.id })),
         dl,
+        promptBlock(s.prompt),
+        filesBlock(b, s.id, s.saveAs),
         draftFigs.length ? el("div", { class: "drafts" }, ...draftFigs) : null,
         verdictBlock(`${b.eventId}__${s.id}`, drafts ? "Your verdict on the draft" : "Your verdict on the shot", opts));
     }));
@@ -315,6 +438,7 @@ section { display: grid; gap: 12px; min-width: 0 }
     const qs = b.questions || [];
     $("q-section").hidden = qs.length === 0;
     $("questions").replaceChildren(...qs.map((q) => el("li", { text: q })));
+    renderPlates(b);
     renderShots(b);
     const bv = $("board-verdict");
     bv.replaceChildren(el("h2", { text: phase === "drafts" ? "Drafts overall" : "Storyboard overall" }),
@@ -329,7 +453,13 @@ section { display: grid; gap: 12px; min-width: 0 }
   function selectBoard(id) {
     currentId = id; cardIdx = 0; remember(id);
     if (unsubFb) unsubFb();
+    if (unsubUp) unsubUp();
+    uploads = {};
     if (db && id) {
+      unsubUp = db.collection("uploads").where("eventId", "==", id).onSnapshot((snap) => {
+        uploads = {}; snap.docs.forEach((d) => { const x = d.data(); if (x && x.target) uploads[x.target] = x; });
+        renderShotsAndVerdictOnly();
+      }, () => {});
       unsubFb = db.collection("feedback").where("eventId", "==", id).onSnapshot((snap) => {
         feedback = {}; snap.docs.forEach((d) => { feedback[d.id] = d.data(); });
         renderShotsAndVerdictOnly();
@@ -357,6 +487,7 @@ section { display: grid; gap: 12px; min-width: 0 }
       const user = await window.claude.use("user");
       if (user && typeof user.can === "function") { const c = await user.can("data.write"); if (c === false) canWrite = false; }
     } catch {}
+    try { assets = await window.claude.use("assets"); } catch { assets = null; }
     $("db-note").textContent = "Waiting for Claude to add a board.";
     db.collection("boards").onSnapshot((snap) => {
       boards = snap.docs.map((d) => d.data()).filter((b) => b && b.eventId && Array.isArray(b.cards))

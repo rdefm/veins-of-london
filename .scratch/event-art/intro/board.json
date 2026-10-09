@@ -1,0 +1,340 @@
+{
+  "eventId": "intro",
+  "title": "Intro — Mile End Road",
+  "logline": "A broke nobody watches calc stop three muggers cold, then takes the job. The alley has to make the magic real; the pub has to make it ordinary.",
+  "phase": "storyboard",
+  "round": 2,
+  "approved": null,
+  "updatedAt": 1791526582846,
+  "questions": [
+    "Round 2 moves every shot onto plates (P1/P1b yard, P2 pub). S1 keeps the story you approved, but its brief is now a plate plus a prompt, so its round-1 approval is stale. Please re-check it.",
+    "Camera: the whole alley is one fixed camera (you, standing by the shop door), so S3's close knife and S4's over-the-shoulder come from staging people nearer the lens, not new angles. S5 drops the round-1 low angle for the same reason. The cost of more angles is one more plate each. OK?",
+    "Archie's exit: so he doesn't walk past the three men, P1 has a narrow side passage screen-right, and S5 puts him there. The text says 'the exit of the alley'. Is a side passage fine?",
+    "Old art (1.jpg–4.png): the event JSON points at these files directly, so the new images need those image entries removed at placement. I'll ask before making that JSON edit. intro2–6 mock-ups stay untouched.",
+    "Player face: still open from col_a2/biz_a1. This board keeps 'you' faceless. There's only your pint on the table, no hand.",
+    "The buyers have no sprites. They're described in words in S2, and S3–S5 attach the approved earlier draft to keep them consistent.",
+    "Budget: 3 plates, 9 shots. Optional cuts: S2 (S1 holds) and S7 (S6 holds).",
+    "Text note: card 13 says 'balnace'. Flagging only, not edited."
+  ],
+  "cards": [
+    {
+      "n": 1,
+      "type": "narration",
+      "speaker": null,
+      "text": "Rent is due Friday. The job search has been exhausting and fruitless. You have forty quid left in your account. An old friend, Archie, said he might be able to help. So here you are, behind a chicken shop on Mile End Road at half ten on a Tuesday, while Archie holds a plastic Tesco bag with what looks like an opened Amazon box inside.",
+      "cut": "NEW",
+      "shot": "S1",
+      "why": "Card 1 can't start blank. Place, hour and Archie with the bag: everything the deal is about."
+    },
+    {
+      "n": 2,
+      "type": "narration",
+      "speaker": null,
+      "text": "The buyers arrive in a grey Vauxhall. Three of them. That's one more than Archie mentioned. He notices too - you can tell by the way he stops whistling.",
+      "cut": "NEW",
+      "shot": "S2",
+      "why": "A new presence enters: the car, and one man too many. Archie going still is the beat."
+    },
+    {
+      "n": 3,
+      "type": "tension",
+      "speaker": null,
+      "text": "The one nearest to you produces a Stanley knife. His mate walks towards Arch and the bag. The third one just stands there, which is somehow worse. Archie says, very quietly: \"Yeah, okay.\"",
+      "cut": "NEW",
+      "shot": "S3",
+      "why": "Power flips: a weapon is shown. The knife man steps right up to the lens."
+    },
+    {
+      "n": 4,
+      "type": "speaker",
+      "speaker": "Archie",
+      "text": "\"Alright chaps?\" he lifts the arm with the bag to wave, drawing everyone's eyes. You notice the other hand slip smoothly into his back pocket and pull something small out.",
+      "cut": "NEW",
+      "shot": "S4",
+      "why": "Decisive physical action, and the text says 'you notice'. From behind Archie, only you see the pearl."
+    },
+    {
+      "n": 5,
+      "type": "narration",
+      "speaker": null,
+      "text": "He doesn't even move his arm, just flicks his wrist in a practiced motion and whatever he was holding flies through the air. Only one of the thugs even clocks it, eyes tracing it as it lands harmlessly on the ground between him and his mates. It shatters. The air around the three men goes thick and syrupy. They slow. Not stop - but slow, like a video buffering. Archie wraps the Tesco bag handle around his hand and walks, briskly, to the exit of the alley.",
+      "cut": "NEW",
+      "shot": "S5",
+      "why": "The turn of the whole event: first sight of calc working. Strongest staging goes here."
+    },
+    {
+      "n": 6,
+      "type": "speaker",
+      "speaker": "Archie",
+      "text": "\"Coming, or what?\"",
+      "cut": "HOLD",
+      "shot": "S5",
+      "why": "Same moment. S5 already has Archie at the side passage, half-turned back toward you."
+    },
+    {
+      "n": 7,
+      "type": "resolution",
+      "speaker": null,
+      "text": "Archie orders two pints and a portion of chips. You sit down opposite him. Neither of you say anything until the chips arrive.",
+      "cut": "NEW",
+      "shot": "S6",
+      "why": "Location and time change. Establish the Spoons and the silence across the table."
+    },
+    {
+      "n": 8,
+      "type": "speaker",
+      "speaker": "You",
+      "text": "\"What the hell was that?\"",
+      "cut": "HOLD",
+      "shot": "S6",
+      "why": "Your line, same moment. Faceless 'you' is the camera."
+    },
+    {
+      "n": 9,
+      "type": "speaker",
+      "speaker": "Archie",
+      "text": "\"Orichalchum. Time-type. Slows things down in a radius - maybe four, five seconds of real time bought, if you compress it right. Was my last one, actually, so cheers for that\". He raises his pint to the door, as though saluting the muggers.",
+      "cut": "NEW",
+      "shot": "S7",
+      "why": "Archie's toast to the door is the attitude shot: the danger is already a joke to him."
+    },
+    {
+      "n": 10,
+      "type": "speaker",
+      "speaker": "You",
+      "text": "\"Is that... magic?\"",
+      "cut": "HOLD",
+      "shot": "S7",
+      "why": "Your line, same moment."
+    },
+    {
+      "n": 11,
+      "type": "speaker",
+      "speaker": "Archie",
+      "text": "\"Nah\". He sips his pint, \"Well, almost. It's basically magic. Don't make a big deal out of it. It's just like any product-  some people source it, some people turn it into something useful, some people use it. In between all that, people like us can make a quid or two connecting them. If we're lucky.\"",
+      "cut": "HOLD",
+      "shot": "S7",
+      "why": "'He sips his pint': the raised-glass pose still agrees."
+    },
+    {
+      "n": 12,
+      "type": "speaker",
+      "speaker": "Archie",
+      "text": "\"Look. You need rent money. I need someone who isn't a liability. Come out with me tomorrow - I've still got the calc from tonight, and I need to move it properly. I'd feel better doing so with backup. You in?\"",
+      "cut": "NEW",
+      "shot": "S8",
+      "why": "The ask. Archie leans in; the scene shifts from story to offer."
+    },
+    {
+      "n": 13,
+      "type": "speaker",
+      "speaker": "You",
+      "text": "You sigh, thinking about your bank balnace. \"Yeah.\"",
+      "cut": "HOLD",
+      "shot": "S8",
+      "why": "Your answer. Holding on Archie keeps the weight on what you just agreed to."
+    },
+    {
+      "n": 14,
+      "type": "speaker",
+      "speaker": "Archie",
+      "text": "\"Good. I'll text you in the morning. Don't do anything that ends you up in hospital before then.\"",
+      "cut": "HOLD",
+      "shot": "S8",
+      "why": "His reply, same moment."
+    },
+    {
+      "n": 15,
+      "type": "narration",
+      "speaker": null,
+      "text": "He finishes his pint and leaves. You sit with what's left of your pint, the chips, and the fact that your rent problem has somehow become a different problem entirely.",
+      "cut": "NEW",
+      "shot": "S9",
+      "why": "He's gone. The empty seat is the payoff and the hand-off to the game."
+    }
+  ],
+  "plates": [
+    {
+      "id": "P1",
+      "name": "mile_end_yard",
+      "variantOf": null,
+      "camera": "Player's eye level by the chicken shop back door, looking down the yard to its mouth",
+      "shots": "S1 (P1b carries S2–S5)",
+      "attach": [
+        "assets/events/col_a1_intro/col_a1_intro_card1.png"
+      ],
+      "prompt": "Attach: col_a1_intro_card1.png.\nA blank background plate for a pixel-art game scene: the small service yard behind a chicken shop just off Mile End Road, East London, half ten on a Tuesday night, damp after rain.\nCamera: standing eye height, about 1.6 m, slightly wide lens, from just outside the shop's back door, looking straight down the yard to where it opens onto a side street.\nSet: screen-left foreground, the chicken shop's propped-open steel back door with a buzzing white strip light above it, a steel extractor vent, stacked plastic crates and two wheelie bins. Screen-right, a brick wall with a drainpipe and, in the midground, a narrow dark passage between buildings leading away. Background, the yard mouth onto a side street: a sodium street lamp, a parked van, a brick terrace across the road, the glow of the main road beyond. Wet tarmac, puddles, a few flattened boxes.\nLight: cold white strip light from screen-left foreground. Warm orange sodium light spilling in from the yard mouth. Wet ground reflects both.\nGenuine pixel art: visible pixel grid with roughly 5×5 screen pixels per art pixel, limited palette, dithered shading, crisp hard edges, no anti-aliasing, no painterly blur, no vector/cel-shaded linework. Match the pixel-art technique and colour treatment of col_a1_intro_card1.png, not its content.\nGrounded, realistic London colour: brick, shopfront paint, wet pavement, sodium and LED light. Vivid where the real city is, restrained elsewhere. No neon, no fantasy glow.\nPortrait 2:3 (1024×1536), full-bleed, no border. No people. No text, letters, numbers or logos anywhere: signs, number plates, screens and paper show shapes only.\nKeep the floor clear in the middle of the frame where people will stand. The top and bottom 15% may be cropped, so only sky/ceiling/floor goes there.",
+      "notes": "Lights: strip light (cold white, screen-left foreground, strength 1.0), sodium lamp (warm orange, yard mouth, 0.6). Occluders: crates, bins."
+    },
+    {
+      "id": "P1b",
+      "name": "mile_end_yard_car",
+      "variantOf": "P1",
+      "camera": "As P1, with the buyers' car in the yard mouth",
+      "shots": "S2, S3, S4, S5",
+      "attach": [
+        "assets/reference-plates/mile_end_yard_blank_plate.png"
+      ],
+      "prompt": "Attach: mile_end_yard_blank_plate.png.\nUsing mile_end_yard_blank_plate.png, add only a grey Vauxhall Astra hatchback, about fifteen years old, nosed into the yard mouth facing the camera, engine running, headlights on and glaring toward the camera. Driver's door, front passenger door and rear left door standing open. Number plate blank, no characters. Headlight glare lights the wet tarmac between the car and the camera. No people. Change nothing else. Keep the exact image size.",
+      "notes": "Lights: as P1, plus headlights (hard white, yard mouth, strength 1.0, now the key). Occluders: the car body and open doors."
+    },
+    {
+      "id": "P2",
+      "name": "spoons_table",
+      "variantOf": null,
+      "camera": "Seated POV across a pub table, looking at the empty seat opposite",
+      "shots": "S6, S7, S8, S9",
+      "attach": [
+        "assets/events/col_a1_intro/col_a1_intro_card1.png"
+      ],
+      "prompt": "Attach: col_a1_intro_card1.png.\nA blank background plate for a pixel-art game scene: inside a Wetherspoons on Mile End Road, around eleven at night on a weekday.\nCamera: seated eye height across a small dark wooden table for two, looking straight at the empty seat opposite. The near table edge runs along the bottom of the frame.\nSet: the table is empty and clean. Opposite, a low-backed upholstered bench seat in worn red-and-gold patterned fabric, centred. Behind it, screen-left, a large window onto the dark main road (a bus shelter, passing headlights). Screen-right background: the long bar with a row of hand pumps, a fruit machine glowing in the far corner, a few drinkers as distant blurry shapes only. Patterned carpet, high ceiling, framed local-history prints.\nLight: flat, slightly too bright warm-white ceiling light. The fruit machine adds a small coloured spot far screen-right. The window is cool night blue.\nGenuine pixel art: visible pixel grid with roughly 5×5 screen pixels per art pixel, limited palette, dithered shading, crisp hard edges, no anti-aliasing, no painterly blur, no vector/cel-shaded linework. Match the pixel-art technique and colour treatment of col_a1_intro_card1.png, not its content.\nGrounded, realistic London colour: brick, shopfront paint, wet pavement, sodium and LED light. Vivid where the real city is, restrained elsewhere. No neon, no fantasy glow.\nPortrait 2:3 (1024×1536), full-bleed, no border. No people in the foreground or midground; far drinkers only as faint shapes. No text, letters, numbers or logos anywhere: signs, number plates, screens and paper show shapes only.\nKeep the floor clear in the middle of the frame where people will stand. The top and bottom 15% may be cropped, so only sky/ceiling/floor goes there.",
+      "notes": "Lights: ceiling (warm white, overhead, 1.0), window (cool blue, screen-left behind the seat, 0.3). Occluders: the table edge, in front of anyone seated opposite."
+    }
+  ],
+  "shots": [
+    {
+      "id": "S1",
+      "title": "Archie waiting behind the chicken shop",
+      "cards": "1",
+      "plate": "P1",
+      "method": "pose",
+      "job": "Where, when and who: a dead-end yard at half ten, Archie holding the bag that is the whole deal.",
+      "attach": [
+        "assets/reference-plates/mile_end_yard_blank_plate.png",
+        "assets/character-references/Archie/Archie_biz_sprite_master.png"
+      ],
+      "prompt": "Attach: mile_end_yard_blank_plate.png, Archie_biz_sprite_master.png.\nUsing the yard in mile_end_yard_blank_plate.png, add the man from Archie_biz_sprite_master.png (same face, hair, beard and clothes) standing mid-yard, centre-right, a few metres from the camera, turned three-quarters away toward the yard mouth. Weight on one leg, lips pursed, whistling. One hand hangs a thin white plastic carrier bag (no logo) with the corner of a flattened brown cardboard box showing through. Same pixel-art style and scale as the room. Change nothing else in the room. Keep the exact image size.",
+      "unseen": "The car and the buyers. The yard mouth is empty.",
+      "file": "assets/events/intro/intro_card1.png"
+    },
+    {
+      "id": "S2",
+      "title": "Headlights, and one man too many",
+      "cards": "2",
+      "plate": "P1b",
+      "method": "pose",
+      "job": "The deal turns: three men instead of two, and Archie has stopped whistling.",
+      "attach": [
+        "assets/reference-plates/mile_end_yard_car_blank_plate.png",
+        "assets/character-references/Archie/Archie_biz_sprite_master.png"
+      ],
+      "prompt": "Attach: mile_end_yard_car_blank_plate.png, Archie_biz_sprite_master.png.\nUsing the yard in mile_end_yard_car_blank_plate.png, add the man from Archie_biz_sprite_master.png in the same spot as before: mid-yard, centre-right, turned three-quarters away toward the car, the white carrier bag in one hand. He has gone still, mouth closed, watching the car. At the car, three men in their twenties to thirties, ordinary not cartoonish: one in a black puffer jacket and grey trackies (the knife man), one in a dark green hoodie and jeans, and an older one in a long dark coat, just climbing out of the open doors, mostly dark shapes against the headlights, faces barely readable. Same pixel-art style and scale as the room. Change nothing else in the room. Keep the exact image size.",
+      "unseen": "Any weapon. No knife yet.",
+      "file": "assets/events/intro/intro_card2.png",
+      "canon": "Optional shot. Cut it and S1 holds through card 2, which loses the arrival beat."
+    },
+    {
+      "id": "S3",
+      "title": "The Stanley knife",
+      "cards": "3",
+      "plate": "P1b",
+      "method": "pose",
+      "job": "The threat, as you see it: a blade aimed at you, a man moving on Archie, and a third who just waits.",
+      "attach": [
+        "assets/reference-plates/mile_end_yard_car_blank_plate.png",
+        "assets/character-references/Archie/Archie_biz_sprite_master.png",
+        ".scratch/event-art/intro/drafts/S2.png"
+      ],
+      "prompt": "Attach: mile_end_yard_car_blank_plate.png, Archie_biz_sprite_master.png, S2.png.\nUsing the yard in mile_end_yard_car_blank_plate.png, add these people (the three buyers look exactly as in S2.png):\n- The knife man (black puffer, grey trackies) very close to the camera, centre-left, waist-up and large in frame, facing the camera, holding a yellow Stanley knife low with the blade a few clicks out. Hard, flat stare.\n- The man in the green hoodie walking from the car toward Archie, midground.\n- The older man in the long coat leaning on the open driver's door, arms folded, perfectly still.\n- The man from Archie_biz_sprite_master.png in his usual spot mid-yard, centre-right, carrier bag in hand, face turned toward the man walking at him.\nSame pixel-art style and scale as the room. Change nothing else in the room. Keep the exact image size.",
+      "unseen": "Anything in Archie's hands but the bag. No pearl.",
+      "file": "assets/events/intro/intro_card3.png"
+    },
+    {
+      "id": "S4",
+      "title": "Alright chaps?",
+      "cards": "4",
+      "plate": "P1b",
+      "method": "pose",
+      "job": "The misdirection. Everyone watches the waving bag; only you see the other hand.",
+      "attach": [
+        "assets/reference-plates/mile_end_yard_car_blank_plate.png",
+        "assets/character-references/Archie/Archie_biz_sprite_master.png",
+        "assets/combat/icons/timePearl.png",
+        ".scratch/event-art/intro/drafts/S3.png"
+      ],
+      "prompt": "Attach: mile_end_yard_car_blank_plate.png, Archie_biz_sprite_master.png, timePearl.png, S3.png.\nUsing the yard in mile_end_yard_car_blank_plate.png, add the man from Archie_biz_sprite_master.png, closer to the camera than before, centre-right, his back three-quarters to the camera. He lifts the arm holding the white carrier bag high in a cheery wave. His other hand is at his back jeans pocket, drawing out a small pearl, the one in timePearl.png (pale, pearly, in a thin gold band), held between two fingers and clearly visible to the camera. Beyond him, the three buyers (as in S3.png) are spread across the midground in front of the car, all looking up at the bag. The knife man is still holding the Stanley knife. Same pixel-art style and scale as the room. Change nothing else in the room. Keep the exact image size.",
+      "unseen": "Any glow or effect. The pearl is just a small object.",
+      "file": "assets/events/intro/intro_card4.png"
+    },
+    {
+      "id": "S5",
+      "title": "Like a video buffering",
+      "cards": "5–6",
+      "plate": "P1b",
+      "method": "pose",
+      "job": "Calc's first appearance in the game: the air goes thick around three men, and Archie is already leaving.",
+      "attach": [
+        "assets/reference-plates/mile_end_yard_car_blank_plate.png",
+        "assets/character-references/Archie/Archie_biz_sprite_master.png",
+        "assets/combat/icons/timePearl.png",
+        ".scratch/event-art/intro/drafts/S4.png"
+      ],
+      "prompt": "Attach: mile_end_yard_car_blank_plate.png, Archie_biz_sprite_master.png, timePearl.png, S4.png.\nUsing the yard in mile_end_yard_car_blank_plate.png, add:\n- On the wet ground in the midground centre, the shattered pearl from timePearl.png: pearly fragments and a bent gold band.\n- Around it, the three buyers (as in S4.png) caught in slowed time: the knife man mid-lunge, the hoodie man mid-step, the older man's eyes dragging down toward the fragments. The air in a rough dome around them is visibly thick, like heat haze in cold air: raindrops hang as short streaks and the headlight glare smears sideways. A faint cold blue tint inside the dome, no glow, no sparkles.\n- The man from Archie_biz_sprite_master.png at the mouth of the dark side passage, screen-right midground, the carrier bag handle wrapped round his fist, half-turned back toward the camera with a 'coming?' tilt of the head.\nSame pixel-art style and scale as the room. Change nothing else in the room. Keep the exact image size.",
+      "unseen": "Anything that says magic out loud: no runes, sparkles or beams.",
+      "file": "assets/events/intro/intro_card5.png",
+      "canon": "The slowed-air look becomes the house look for time-type calc. Proposal: haze, hanging rain, smeared light, faint ore_time blue (#4d78a8). Approve or change."
+    },
+    {
+      "id": "S6",
+      "title": "Two pints at the Spoons",
+      "cards": "7–8",
+      "plate": "P2",
+      "method": "pose",
+      "job": "Aftermath. Fluorescent normality, and Archie sitting there as if nothing happened.",
+      "attach": [
+        "assets/reference-plates/spoons_table_blank_plate.png",
+        "assets/character-references/Archie/Archie_biz_sprite_master.png"
+      ],
+      "prompt": "Attach: spoons_table_blank_plate.png, Archie_biz_sprite_master.png.\nUsing the pub in spoons_table_blank_plate.png, add the man from Archie_biz_sprite_master.png sitting on the bench seat opposite, centre, leaning back, one hand round a full pint of lager, looking at the table, saying nothing. The white carrier bag sits on the bench beside him. On the table: his pint, a second full pint near the bottom-left edge (yours), and a basket of chips just put down between them with a ramekin of ketchup. Same pixel-art style and scale as the room. Change nothing else in the room. Keep the exact image size.",
+      "unseen": "Any calc or glow. No grey car outside the window.",
+      "file": "assets/events/intro/intro_card7.png"
+    },
+    {
+      "id": "S7",
+      "title": "Cheers for that",
+      "cards": "9–11",
+      "plate": "P2",
+      "method": "pose",
+      "job": "Archie's attitude: the danger is already a joke.",
+      "attach": [
+        "assets/reference-plates/spoons_table_blank_plate.png",
+        "assets/character-references/Archie/Archie_biz_sprite_master.png",
+        ".scratch/event-art/intro/drafts/S6.png"
+      ],
+      "prompt": "Attach: spoons_table_blank_plate.png, Archie_biz_sprite_master.png, S6.png.\nUsing the pub in spoons_table_blank_plate.png, add the man from Archie_biz_sprite_master.png on the bench seat opposite (as in S6.png), raising his pint toward something off-frame to the right, with a dry half-smile, eyes on the door, not the camera. Carrier bag beside him. On the table: your pint near the bottom-left edge, about a third drunk, and the basket of chips half eaten. Same pixel-art style and scale as the room. Change nothing else in the room. Keep the exact image size.",
+      "unseen": "The door itself, and anyone outside.",
+      "file": "assets/events/intro/intro_card9.png",
+      "canon": "Optional shot. Cut it and S6 holds through card 11."
+    },
+    {
+      "id": "S8",
+      "title": "You in?",
+      "cards": "12–14",
+      "plate": "P2",
+      "method": "pose",
+      "job": "The offer that starts the game. Archie stops performing and asks for real.",
+      "attach": [
+        "assets/reference-plates/spoons_table_blank_plate.png",
+        "assets/character-references/Archie/Archie_biz_sprite_master.png",
+        ".scratch/event-art/intro/drafts/S6.png"
+      ],
+      "prompt": "Attach: spoons_table_blank_plate.png, Archie_biz_sprite_master.png, S6.png.\nUsing the pub in spoons_table_blank_plate.png, add the man from Archie_biz_sprite_master.png on the bench seat opposite (as in S6.png), leaning right in on his forearms on the table, looking straight into the camera, eyebrows slightly raised, waiting for an answer. His pint pushed to one side, mostly drunk. Carrier bag beside him. Your pint near the bottom-left edge, half drunk. The chips basket nearly empty. Same pixel-art style and scale as the room. Change nothing else in the room. Keep the exact image size.",
+      "unseen": "Money or calc on the table. The deal hasn't happened yet.",
+      "file": "assets/events/intro/intro_card12.png"
+    },
+    {
+      "id": "S9",
+      "title": "The empty seat",
+      "cards": "15",
+      "plate": "P2",
+      "method": "props",
+      "job": "He's gone. You have a pint, the chips, and a different problem.",
+      "attach": [
+        "assets/reference-plates/spoons_table_blank_plate.png"
+      ],
+      "prompt": "Attach: spoons_table_blank_plate.png.\nUsing the pub in spoons_table_blank_plate.png, add only, on the table: a drained pint glass with foam rings on the far side where someone sat, a half-finished pint near the bottom-left edge, and a basket with a few cold chips and a smear of ketchup. The bench seat opposite stays empty. No people. Same pixel-art style and scale as the room. Change nothing else in the room. Keep the exact image size.",
+      "unseen": "Archie, even leaving through the door. The carrier bag is gone.",
+      "file": "assets/events/intro/intro_card15.png"
+    }
+  ]
+}
