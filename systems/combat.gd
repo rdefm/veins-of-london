@@ -393,10 +393,15 @@ static func start_street_mugging() -> void:
 
 
 # Called by combat_intro events via the start_home_raid_combat effect op.
-static func start_home_raid_combat() -> void:
-	_start_combat(CONTEXT_HOME_RAID, null, [_home_raider_enemy()],
+# `mods` are the event's opening modifiers: enemyHpMult scales the raider's
+# starting hp (hpMax unchanged); enemyFirst puts every enemy ahead of the
+# player and allies in round 1 only.
+static func start_home_raid_combat(mods: Dictionary = {}) -> void:
+	_start_combat(CONTEXT_HOME_RAID, null, [_home_raider_enemy(float(mods.get("enemyHpMult", 1.0)))],
 		["They're in the flat. You've got your hands. This is happening."],
 		"homeRaidWon")
+	if bool(mods.get("enemyFirst", false)):
+		GameState.state["combat"]["enemyFirst"] = true
 
 
 # Called by Home.trigger_defend(): same raider, no onWin (Home resolves it).
@@ -415,10 +420,10 @@ static func start_home_alarm_defend_combat(ally_ids: Array = []) -> void:
 		"", allies, null, {}, guard_kit)
 
 
-static func _home_raider_enemy() -> Dictionary:
+static func _home_raider_enemy(hp_mult: float = 1.0) -> Dictionary:
 	var raider: Dictionary = GameData.ENEMY_HOME_RAID_RAIDER
 	var enemy := {
-		"name": raider["name"], "hp": raider["hp"], "hpMax": raider["hp"],
+		"name": raider["name"], "hp": maxi(1, int(round(raider["hp"] * hp_mult))), "hpMax": raider["hp"],
 		"attackMin": raider["attackMin"], "attackMax": raider["attackMax"],
 		"isMugging": false,
 	}
@@ -790,6 +795,12 @@ static func build_turn_queue(combat: Dictionary) -> Array:
 			return entries[a]["speed"] > entries[b]["speed"]
 		return a < b
 	)
+	# combat.enemyFirst (a home-raid opening modifier): round 1 moves every
+	# enemy ahead of the player and allies, keeping each side's speed order.
+	if combat.get("enemyFirst", false) and combat["turnCursor"]["round"] == 0:
+		var enemies_first: Array = order.filter(func(i): return entries[i]["type"] == "enemy")
+		enemies_first.append_array(order.filter(func(i): return entries[i]["type"] != "enemy"))
+		order = enemies_first
 	var queue: Array = []
 	for i in order:
 		queue.append(entries[i])
@@ -2798,8 +2809,7 @@ static func _dispatch_on_win() -> void:
 		"raidWon":
 			_raid_won()
 		"homeRaidWon":
-			GameState.state["flags"]["homeRaidWon"] = true
-			GameState.state["flags"]["homeRaidEventSeen"] = true
+			_apply_home_raid_outcome("win")
 		_:
 			pass
 
@@ -2866,7 +2876,7 @@ static func exit_combat() -> Dictionary:
 	if context == CONTEXT_EVENT_MUGGING:
 		return _exit_event_mugging()
 	if context == CONTEXT_HOME_RAID:
-		return _exit_home_raid(outcome)
+		return resolve_home_raid(outcome)
 	if context == CONTEXT_HOME_ALARM_DEFEND:
 		return _exit_home_alarm_defend(outcome)
 	if context == CONTEXT_EVENT_RAID:
@@ -2914,8 +2924,11 @@ static func _route_phone_home() -> void:
 	PhoneNav.go_home()
 
 
-static func _exit_home_raid(outcome) -> Dictionary:
-	_after_home_raid_combat(outcome)
+# The one home-raid outcome path, fought or not (events.gd's resolve_home_raid
+# op skips the fight): applies the win/loss consequence, then opens the
+# matching debrief event (R§3.8).
+static func resolve_home_raid(outcome) -> Dictionary:
+	_apply_home_raid_outcome(outcome)
 	var debrief_id: String = "home_raid_debrief_win" if outcome == "win" else "home_raid_debrief_loss"
 	Events.start_event(debrief_id)
 	return { "nextScreen": "event" }
@@ -2961,14 +2974,16 @@ static func _exit_default(outcome, context: String) -> Dictionary:
 	return { "nextScreen": "phone" }
 
 
-# R§3.8: on loss, carried orichalchum is halved (floor). Only one pool
-# (player.orichalchum) to lose -- see systems/home.gd.
-static func _after_home_raid_combat(outcome) -> void:
+# R§3.8: a win sets the homeRaidWon flags; any other outcome halves carried
+# orichalchum (floor). Only one pool (player.orichalchum) to lose -- see
+# systems/home.gd.
+static func _apply_home_raid_outcome(outcome) -> void:
+	GameState.state["flags"]["homeRaidEventSeen"] = true
 	if outcome == "win":
+		GameState.state["flags"]["homeRaidWon"] = true
 		return
 
 	GameState.state["flags"]["homeRaidWon"] = false
-	GameState.state["flags"]["homeRaidEventSeen"] = true
 
 	var player: Dictionary = GameState.state["player"]
 	var lost := 0

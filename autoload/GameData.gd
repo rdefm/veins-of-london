@@ -1550,6 +1550,8 @@ const VALID_EFFECT_OPS: Array[String] = [
 	# Chains straight into a second event, so a branch's own on_complete
 	# can reach cards a sibling branch must never see.
 	"start_event",
+	# resolve_home_raid: the home raid's win/loss consequence and debrief, no fight.
+	"resolve_home_raid",
 	# scripted_seed creates a site + claimed vein at seedGrowth + map
 	# events, bypassing siteCap/ore-cost/travel. join_faction is the
 	# only Factions.join() path when the generic Join button is suppressed.
@@ -1588,9 +1590,9 @@ const VALID_EFFECT_OPS: Array[String] = [
 # by Events.advance() itself -- an on_complete forgetting a "set_screen"
 # op leaves EventScreen mounted dereferencing a null state.event.
 # "start_home_raid_combat" (sets currentScreen itself in combat.gd) and
-# "start_event" (Events.start_event() navigates to the next event) are
-# the exceptions.
-const SELF_NAVIGATING_ON_COMPLETE_OPS: Array[String] = ["start_home_raid_combat", "start_event"]
+# "start_event" / "resolve_home_raid" (Events.start_event() navigates to
+# the next event) are the exceptions.
+const SELF_NAVIGATING_ON_COMPLETE_OPS: Array[String] = ["start_home_raid_combat", "start_event", "resolve_home_raid"]
 
 
 func _on_complete_navigates(on_complete: Array) -> bool:
@@ -1709,6 +1711,8 @@ func _validate_effect_list(effects: Array, context: String, errors: Array[String
 			_require_keys(effect, ["on_success", "on_caught"], context, errors)
 			_validate_effect_list(effect.get("on_success", []), "%s.stealth_check.on_success" % context, errors)
 			_validate_effect_list(effect.get("on_caught", []), "%s.stealth_check.on_caught" % context, errors)
+		if effect["op"] == "resolve_home_raid" and not ["win", "loss"].has(effect.get("outcome")):
+			errors.append("%s: resolve_home_raid outcome must be 'win' or 'loss'" % context)
 
 
 # M1-LONDON D5's deck filter metadata: district (or "any"), weight,

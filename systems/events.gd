@@ -689,8 +689,16 @@ static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 			Notify.push(effect["text"])
 		"set_stage":
 			GameState.state["flags"]["tutorialStage"] = effect["value"]
+		# Optional opening modifiers ride the prep's args to Combat.start_home_raid_combat().
 		"start_home_raid_combat":
-			CombatPrep.request(CombatPrep.KIND_HOME_RAID)
+			var mods := {}
+			for key in ["enemyHpMult", "enemyFirst"]:
+				if effect.has(key):
+					mods[key] = effect[key]
+			CombatPrep.request(CombatPrep.KIND_HOME_RAID, mods)
+		# Skips the fight: same consequence and debrief as the combat outcome.
+		"resolve_home_raid":
+			Combat.resolve_home_raid(effect["outcome"])
 		"chance":
 			if Rng.chance(effect["p"]):
 				apply_effects(effect.get("on_success", []), context)

@@ -11,7 +11,7 @@ Proposal only.
 
 **Blocked by:** 11 — Intro proposal (pub and brave option ids).
 
-**Relevant files:** `data/events/home_raid_intro.json`, `data/events/home_raid_debrief_win.json`, `data/events/home_raid_debrief_loss.json`, `systems/combat.gd` (`_after_home_raid_combat`), `.scratch/writing-revamp/writing-guide.md`, `docs/CONTENT-GUIDE.md`, review §18.4.
+**Relevant files:** `data/events/home_raid_intro.json`, `data/events/home_raid_debrief_win.json`, `data/events/home_raid_debrief_loss.json`, `systems/combat.gd` (`resolve_home_raid`, `_apply_home_raid_outcome`), `.scratch/writing-revamp/writing-guide.md`, `docs/CONTENT-GUIDE.md`, review §18.4.
 
 **Status:** ready-for-agent
 

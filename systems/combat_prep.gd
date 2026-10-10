@@ -98,7 +98,7 @@ static func _dispatch(kind: String, args: Dictionary) -> Dictionary:
 		KIND_STREET_MUGGING:
 			Combat.start_street_mugging()
 		KIND_HOME_RAID:
-			Combat.start_home_raid_combat()
+			Combat.start_home_raid_combat(args)
 		KIND_DEBUG:
 			Combat.start_debug_combat(str(args["context"]), str(args["locationKey"]), int(args["valueTier"]),
 				int(args["guards"]), str(args["templateKey"]), args.get("allyIds", []))

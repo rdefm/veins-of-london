@@ -1135,6 +1135,92 @@ func run() -> void:
 		assert_eq(GameState.state["flags"]["archiePartnerSeen"], true, "finishing the debrief should set archiePartnerSeen")
 	)
 
+	# ── home raid opening modifiers + no-fight resolution ──────────────
+
+	run_case("home_raid_without_mods_starts_at_full_hp_in_speed_order", func():
+		GameState.reset()
+		Combat.start_home_raid_combat()
+		var combat: Dictionary = GameState.state["combat"]
+		var raider: Dictionary = combat["enemies"][0]
+		assert_eq(raider["hp"], raider["hpMax"], "no modifier: full hp")
+		assert_true(not combat.has("enemyFirst"), "no modifier: no enemyFirst key")
+		var plain: Array = Combat.build_turn_queue(combat)
+		var expect_player_first: bool = Combat._player_speed() >= int(raider.get("speed", 0))
+		assert_eq(plain[0]["type"] == "player", expect_player_first, "plain speed order")
+	)
+
+	run_case("home_raid_hp_mult_scales_starting_hp_only", func():
+		GameState.reset()
+		Combat.start_home_raid_combat({ "enemyHpMult": 0.7 })
+		var raider: Dictionary = GameState.state["combat"]["enemies"][0]
+		var full: int = GameData.ENEMY_HOME_RAID_RAIDER["hp"]
+		assert_eq(raider["hp"], int(round(full * 0.7)), "raider starts at 70% hp")
+		assert_eq(raider["hpMax"], full, "hpMax unchanged")
+	)
+
+	run_case("home_raid_enemy_first_puts_the_raider_ahead_in_round_one_only", func():
+		GameState.reset()
+		GameState.state["player"]["combatSkill"] = GameData.COMBAT_SPEED_BY_LEVEL.size() - 1  # player outpaces the raider
+		Combat.start_home_raid_combat({ "enemyFirst": true })
+		var combat: Dictionary = GameState.state["combat"]
+		assert_true(Combat.prime_decision_point(combat), "the raider's opener isn't lethal")
+		var cursor: Dictionary = combat["turnCursor"]
+		assert_eq(cursor["round"], 1)
+		assert_eq(cursor["queue"][0]["type"], "enemy", "round 1: raider acts first")
+		assert_eq(cursor["index"], 1, "raider's turn already resolved before the player's first decision")
+		var next_round: Array = Combat.build_turn_queue(combat)
+		assert_eq(next_round[0]["type"], "player", "round 2 onward: plain speed order")
+	)
+
+	run_case("home_raid_mods_survive_combat_prep_and_rewind", func():
+		GameState.reset()
+		GameState.state["currentScreen"] = "event"
+		Events.apply_effects([{ "op": "start_home_raid_combat", "enemyHpMult": 0.7, "enemyFirst": true }])
+		assert_eq(CombatPrep.pending()["args"], { "enemyHpMult": 0.7, "enemyFirst": true }, "mods parked on the prep")
+		var snapshot: Dictionary = GameState.deep_copy(GameState.state)
+		GameState.state["combatPrep"] = null
+		GameState.state = snapshot  # what a Rewind restore does
+		var saved: Variant = JSON.parse_string(JSON.stringify(CombatPrep.pending()))
+		GameState.state["combatPrep"] = saved
+		assert_true(CombatPrep.commit()["ok"])
+		var combat: Dictionary = GameState.state["combat"]
+		assert_eq(combat["enemies"][0]["hp"], int(round(GameData.ENEMY_HOME_RAID_RAIDER["hp"] * 0.7)), "hp mult applied on Fight")
+		assert_true(combat.get("enemyFirst", false), "enemyFirst applied on Fight")
+	)
+
+	run_case("resolve_home_raid_win_skips_combat_into_the_win_debrief", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"] = { "time": 10 }
+		Events.apply_effects([{ "op": "resolve_home_raid", "outcome": "win" }])
+		assert_true(not GameState.state["combat"]["active"], "no fight")
+		assert_eq(GameState.state["currentScreen"], "event")
+		assert_eq(GameState.state["event"]["eventId"], "home_raid_debrief_win")
+		assert_true(GameState.state["flags"]["homeRaidWon"])
+		assert_true(GameState.state["flags"]["homeRaidEventSeen"])
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], 10, "a win keeps the ore")
+	)
+
+	run_case("resolve_home_raid_loss_halves_ore_into_the_loss_debrief", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"] = { "time": 10, "physics": 7 }
+		Events.apply_effects([{ "op": "resolve_home_raid", "outcome": "loss" }])
+		assert_true(not GameState.state["combat"]["active"], "no fight")
+		assert_eq(GameState.state["event"]["eventId"], "home_raid_debrief_loss")
+		assert_true(not GameState.state["flags"]["homeRaidWon"])
+		assert_true(GameState.state["flags"]["homeRaidEventSeen"])
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], 5)
+		assert_eq(GameState.state["player"]["orichalchum"]["physics"], 4)
+	)
+
+	run_case("resolve_home_raid_validator_rejects_an_unknown_outcome", func():
+		var errors: Array[String] = []
+		GameData._validate_effect_list([{ "op": "resolve_home_raid", "outcome": "draw" }], "t", errors)
+		assert_eq(errors.size(), 1)
+		errors.clear()
+		GameData._validate_effect_list([{ "op": "resolve_home_raid", "outcome": "loss" }], "t", errors)
+		assert_eq(errors.size(), 0)
+	)
+
 	run_case("exit_combat_mugging_win_routes_home_under_the_sale_modal", func():
 		GameState.reset()
 		GameState.state["currentScreen"] = "combat"
