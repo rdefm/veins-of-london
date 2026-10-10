@@ -27,7 +27,7 @@ Deeper sources, only when needed:
   - `speaker`: one character. It can open with a short action beat before the quote: `He's whistling... "Two blokes, cash..."`.
   - `tension`: the moment danger arrives.
   - `resolution`: the aftermath or cool-down.
-  - `choice`: player decision. Keep the existing `choices[].effects`; you only rewrite `text`, `label` and `result_text`.
+  - `choice`: player decision. Keep the existing `choices[].effects`; you only rewrite `text`, `label` and `result_text`. **Exception, opening events** (intro, buyer, james_meeting, archie_craft_chat, archie_cultivation, home raid intro/debriefs): the beat table in `.scratch/opening-choices/spec.md` "Content" (review §18.4) supersedes this. Add or change choices, option `id`s, `check`/`success`/`fail`, `requires`, `goto` and effects as it specifies (`docs/REFERENCE.md` §3.9a). Reference example: `intro-proposal3.md`.
 - **Merge consecutive cards** from the same speaker unless the split is a deliberate pause.
 - **Don't duplicate a reveal.** If a character is going to explain something (Archie's allergy), the narrator shows only the symptom ("His eyes are streaming."), not the diagnosis.
 - **Handoff:** read the previous and next event in the chain. Names, objects and promises must line up ("I'll text you" → the next event opens on a text).
@@ -65,7 +65,7 @@ Before writing, give each speaking character, from their CHARACTER-VOICE-GUIDE e
 - The ore types are `time`, `physics`, `life`, `fate`, `emotion`, and nothing else. Currency is `£`, whole pounds.
 - Staff cultivate veins. Never use gardening words (soil, clay, digging, planting) for that work.
 - Don't invent mechanics, prices or numbers in prose that contradict `docs/REFERENCE.md`. If prose needs a figure, grep for it first or leave it vague.
-- Keep `id`, `on_complete`, choice `effects` and image paths and order exactly as they are. Moving an image to a different card is allowed, but call it out.
+- Keep `id`, `on_complete`, choice `effects` and image paths and order exactly as they are (opening events: see the §2 `choice` exception). Moving an image to a different card is allowed, but call it out. Convention art (`<id>_card<N>`) follows card *index*, so when cards are added or removed, pin shifted art with explicit `image` keys.
 - Preserve canonical names: characters, places, factions, items and ore types exactly as `CONTEXT.md` / `docs/REFERENCE.md` and the existing events spell them. Don't rename or add nicknames without flagging it.
 - `reference/london-orichalchum.html` (the old prototype) is a source of prose only. Never take mechanics, numbers or data from it.
 

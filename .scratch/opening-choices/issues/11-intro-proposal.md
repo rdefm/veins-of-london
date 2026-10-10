@@ -13,8 +13,8 @@ Also proposes `at` (Tuesday Evening) and fixed labels (no "Earlier tonight" drif
 
 **Status:** ready-for-agent
 
-- [ ] Proposal file `.scratch/writing-revamp/intro-proposal3.md` with full card list, option ids, check numbers, outcome text, and modifier labels in the game's voice.
-- [ ] Card count stated vs current 18.
-- [ ] Cards needing new art listed (composited intro art preserved).
-- [ ] Writing-guide note added.
+- [x] Proposal file `.scratch/writing-revamp/intro-proposal3.md` with full card list, option ids, check numbers, outcome text, and modifier labels in the game's voice.
+- [x] Card count stated vs current 18.
+- [x] Cards needing new art listed (composited intro art preserved).
+- [x] Writing-guide note added.
 - [ ] Report flags `PROSE-REVIEW:`; ticket stops for owner approval.
