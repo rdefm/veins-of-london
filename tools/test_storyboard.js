@@ -28,6 +28,7 @@ const {
   setCheckNote, setCheckOn, setOptionMechanics, setEffects, addBySuccess, deleteBySuccess, setConditionKind,
   addComment, updateComment, deleteComment, filterComments, commentCount, anchorText, anchorType, proseComments,
   cardImageName, freeImageName, setCardImage, eventImageDir, SHOT_FIELDS, serialiseBoard, setShotField, shotFieldText,
+  LIVE_EVENTS_DIR, proposalFileName, importBoard, blankBoard, duplicateBoard,
 } = new Function(
   html.slice(ss, se) + html.slice(s, e) +
     "\nreturn { parseProposal, parseDraft, serialiseDraft, ensureKeys, legacyToDraft, nextPos, playOrder, flatCards, thenText," +
@@ -38,7 +39,8 @@ const {
     " outcomeSlots, addOption, deleteOption, moveOption, setOptionField, setOutcomeText, setOutcomeGoto, routeToNewBranch," +
     " setCheckNote, setCheckOn, setOptionMechanics, setEffects, addBySuccess, deleteBySuccess, setConditionKind," +
     " addComment, updateComment, deleteComment, filterComments, commentCount, anchorText, anchorType, proseComments," +
-    " cardImageName, freeImageName, setCardImage, eventImageDir, SHOT_FIELDS, serialiseBoard, setShotField, shotFieldText };"
+    " cardImageName, freeImageName, setCardImage, eventImageDir, SHOT_FIELDS, serialiseBoard, setShotField, shotFieldText," +
+    " LIVE_EVENTS_DIR, proposalFileName, importBoard, blankBoard, duplicateBoard };"
 )();
 
 let passed = 0;
@@ -247,8 +249,16 @@ test("writableProposal: only .scratch/writing-revamp, never data/events", () => 
   assert.strictEqual(writableProposal([".scratch", "writing-revamp", "..", "..", "data", "events"]), false);
 });
 
-test("the tool never names data/events as a directory to open or write", () => {
-  assert(!/\[\s*["']data["']\s*,\s*["']events["']/.test(html), "storyboard.html references a data/events dir path");
+test("data/events is named once, as the read-only import source, and never opened for writing", () => {
+  const named = html.match(/\[\s*["']data["']\s*,\s*["']events["']/g) || [];
+  assert.strictEqual(named.length, 1, "data/events dir path named outside LIVE_EVENTS_DIR");
+  assert.deepStrictEqual(LIVE_EVENTS_DIR, ["data", "events"]);
+  assert.strictEqual(writableProposal(LIVE_EVENTS_DIR), false);
+  const uses = html.match(/[^\n]*LIVE_EVENTS_DIR[^\n]*/g).filter((l) => !/const LIVE_EVENTS_DIR =/.test(l));
+  for (const l of uses) {
+    assert(!/writeFile|create:\s*true|LIVE_EVENTS_DIR\s*,\s*true/.test(l), "LIVE_EVENTS_DIR used for writing: " + l.trim());
+    assert(/fileNames\(LIVE_EVENTS_DIR,|readText\(await dirAt\(LIVE_EVENTS_DIR\)/.test(l), "unexpected LIVE_EVENTS_DIR use: " + l.trim());
+  }
 });
 
 test("makeHistory undoes one step at a time and skips duplicate snapshots", () => {
@@ -392,6 +402,82 @@ for (const f of proposals) {
     assert.strictEqual(flatCards(parseProposal(f, out).draft)[0].card.text, card.text);
   });
 }
+
+// ---- new boards ------------------------------------------------------------
+test("proposalFileName hyphenates the id and skips taken names", () => {
+  assert.strictEqual(proposalFileName("james_meeting", []), "james-meeting-proposal.md");
+  assert.strictEqual(proposalFileName("intro", ["intro-proposal.md", "intro-proposal2.md"]), "intro-proposal3.md");
+});
+
+// Every live event imports as a proposal that re-parses as a branch draft, plays to an end and keeps every card.
+const liveDir = path.join(__dirname, "..", "data", "events");
+const liveFiles = fs.existsSync(liveDir) ? fs.readdirSync(liveDir).filter((f) => f.endsWith(".json")) : [];
+test("live events exist to sweep", () => assert(liveFiles.length > 0));
+for (const f of liveFiles) {
+  test("live event imports: " + f, () => {
+    const text = fs.readFileSync(path.join(liveDir, f), "utf-8"), ev = JSON.parse(text);
+    const { file, md } = importBoard(f, text, []);
+    assert.match(file, /-proposal\.md$/);
+    const b = parseProposal(file, md);
+    assert(b && b.error === undefined, b && b.error);
+    assert.strictEqual(b.legacy, false);
+    assert.strictEqual(b.draft.id, ev.id || f.replace(/\.json$/, ""));
+    assert.deepStrictEqual(flatCards(b.draft).map((x) => x.card.text), ev.cards.map((c) => c.text));
+    const first = (card) => { const o = card.choices[0]; return o.check ? o.success : o; };
+    assert(playOrder(b.draft, first).length > 0);
+    assert.strictEqual(hasCycle(b.draft), false);
+  });
+}
+
+test("importBoard: bad JSON or no cards array throws", () => {
+  assert.throws(() => importBoard("x.json", "{ nope", []), /x\.json doesn't parse/);
+  assert.throws(() => importBoard("x.json", "{}", []), /no cards array/);
+});
+
+test("blankBoard: one main branch, one blank card, saved as a proposal", () => {
+  const { file, md } = blankBoard("new_thing", ["new-thing-proposal.md"], []);
+  assert.strictEqual(file, "new-thing-proposal2.md");
+  const b = parseProposal(file, md);
+  assert.strictEqual(b.title, "new_thing");
+  assert.strictEqual(b.logline, "");
+  assert.deepStrictEqual(b.draft, { id: "new_thing", start: "main",
+    branches: { main: { title: "Start", cards: [{ key: "c1", type: "narration", text: "" }] } } });
+});
+
+test("blankBoard refuses a bad id or a live event's id", () => {
+  for (const id of ["", "Bad", "1x", "a-b", "a b"]) assert.throws(() => blankBoard(id, [], []), /event id must be/);
+  assert.throws(() => blankBoard("intro", [], ["intro"]), /already a live event/);
+});
+
+test("duplicateBoard: new id, comments and prose kept or dropped", () => {
+  const draft = parseDraft(draftText).draft;
+  addComment(draft, { card: "c2" }, "claude", "Tighten this.");
+  const srcMd = "# James meeting\n\nLogline here.\n\n```json\n" + serialiseDraft(draft) + "\n```\n\n## Open points\n\n- One?\n";
+  const kept = duplicateBoard("james-meeting-proposal.md", srcMd, "james_again", true, [], []);
+  assert.strictEqual(kept.file, "james-again-proposal.md");
+  const k = parseProposal(kept.file, kept.md);
+  assert.strictEqual(k.title, "james_again — copy of james-meeting-proposal.md");
+  assert.strictEqual(k.draft.id, "james_again");
+  assert.strictEqual(k.draft._comments.length, 1);
+  assert.strictEqual(k.logline, "Logline here.");
+  assert.deepStrictEqual(k.questions, ["One?"]);
+  assert.deepStrictEqual(Object.keys(k.draft), Object.keys(draft), "id keeps its place in the key order");
+  const dropped = parseProposal("d.md", duplicateBoard("james-meeting-proposal.md", srcMd, "james_again", false, [], []).md);
+  assert.strictEqual(dropped.draft._comments, undefined);
+  assert.strictEqual(dropped.logline, "");
+  assert.deepStrictEqual(dropped.questions, []);
+  assert.deepStrictEqual(flatCards(dropped.draft).map((x) => x.card.key), flatCards(draft).map((x) => x.card.key));
+});
+
+test("duplicateBoard needs a new id; a legacy source comes out as branches", () => {
+  const srcMd = "# L\n\n```json\n" + JSON.stringify(legacy) + "\n```\n";
+  assert.throws(() => duplicateBoard("l.md", srcMd, legacy.id, true, [], []), /needs a new id/);
+  assert.throws(() => duplicateBoard("l.md", srcMd, "taken", true, [], ["taken"]), /already a live event/);
+  assert.throws(() => duplicateBoard("l.md", "# no block", "x", true, [], []), /no JSON block/);
+  const b = parseProposal("c.md", duplicateBoard("l.md", srcMd, "copy_of_l", true, [], []).md);
+  assert.strictEqual(b.legacy, false);
+  assert.strictEqual(b.draft.id, "copy_of_l");
+});
 
 // ---- flowchart graph -------------------------------------------------------
 const edgeList = (g) => g.edges.map((e) => `${e.from} > ${e.to} [${e.kind}] ${e.label}`.trim());

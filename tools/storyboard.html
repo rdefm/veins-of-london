@@ -218,6 +218,14 @@ section { display: grid; gap: 12px; min-width: 0 }
 .imgpick::backdrop { background: rgba(0,0,0,.55) }
 .imgpick #ip-filter { background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font-size: 13.5px; width: 100% }
 .imgpick #ip-note { margin: 0; min-height: 1.5em }
+.newboard { width: min(520px, calc(100vw - 32px)); background: var(--surface); color: var(--fg); border: 1px solid var(--line); border-radius: 10px; padding: 14px }
+.newboard[open] { display: grid; gap: 12px }
+.newboard::backdrop { background: rgba(0,0,0,.55) }
+.newboard .seg { justify-self: start }
+.newboard .ce-fields { grid-template-columns: 1fr }
+.newboard .keep { display: flex; gap: 6px; align-items: center }
+.newboard #nb-note { margin: 0; min-height: 1.5em }
+.newboard [hidden] { display: none }
 .ip-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; overflow: auto; min-height: 120px }
 .ip-grid button { display: grid; gap: 4px; padding: 6px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--fg); text-align: left; cursor: pointer }
 .ip-grid button:hover, .ip-grid button:focus-visible { border-color: var(--accent) }
@@ -288,6 +296,7 @@ section { display: grid; gap: 12px; min-width: 0 }
     <div class="picker" id="toolbar">
       <button type="button" class="tb" id="open">Open repo folder</button>
       <button type="button" class="tb" id="refresh" hidden>Reload</button>
+      <button type="button" class="tb" id="new-board" hidden title="Start a new proposal in .scratch/writing-revamp/">New board</button>
       <span class="mono muted" id="folder-name"></span>
       <label class="eyebrow" for="board-select">Event</label>
       <select id="board-select" aria-label="Choose an event storyboard"></select>
@@ -429,6 +438,25 @@ section { display: grid; gap: 12px; min-width: 0 }
     <button type="button" class="tb" id="ip-hold" title="No image of its own: keep showing the previous card's image">HOLD</button>
     <button type="button" class="tb" id="ip-clear" title="Show no image from this card on">CLEAR</button>
     <button type="button" class="tb" id="ip-close">Cancel</button>
+  </div>
+</dialog>
+
+<dialog class="newboard" id="newboard" aria-labelledby="nb-title">
+  <div class="editor-head"><h2 id="nb-title">New board</h2><span class="mono muted">saves to .scratch/writing-revamp/</span></div>
+  <div class="seg" role="group" aria-label="Start from" id="nb-modes">
+    <button type="button" data-mode="import" title="Convert a live data/events/ event into named branches">Import live event</button>
+    <button type="button" data-mode="blank" title="One main branch with one blank card">Blank event</button>
+    <button type="button" data-mode="duplicate" title="Copy an existing proposal under a new id">Duplicate proposal</button>
+  </div>
+  <div class="ce-fields">
+    <label id="nb-source-wrap"><span class="eyebrow" id="nb-source-label">Source</span><select id="nb-source"></select></label>
+    <label id="nb-id-wrap"><span class="eyebrow">New event id</span><input type="text" id="nb-id" autocomplete="off" spellcheck="false" placeholder="lower_case_id"></label>
+  </div>
+  <label class="keep" id="nb-keep-wrap"><input type="checkbox" id="nb-keep"> Keep its comments and prose (logline, open points)</label>
+  <p class="mono muted" id="nb-note" role="status"></p>
+  <div class="ce-tools">
+    <button type="button" class="save" id="nb-create">Create</button>
+    <button type="button" class="tb" id="nb-close">Cancel</button>
   </div>
 </dialog>
 
@@ -956,6 +984,7 @@ function checkOddsBlock(opt, changed, restructure) {
     root = h; saveHandle(h);
     $("folder-name").textContent = h.name;
     $("refresh").hidden = false;
+    $("new-board").hidden = false;
     await loadAll();
   }
   async function openFolder() {
@@ -981,6 +1010,8 @@ function checkOddsBlock(opt, changed, restructure) {
   // "End draft model" and unit-tests it. Draft format: .scratch/storyboard-editor/spec.md § Draft format.
   const PROPOSAL_PREFIX = "proposal:";
   const PROPOSALS_DIR = [".scratch", "writing-revamp"];
+  // Read only: the import source for new boards.
+  const LIVE_EVENTS_DIR = ["data", "events"];
   const JSON_BLOCK_RE = /```json[^\n]*\n([\s\S]*?)\n```/;
   const plain = (s) => s.replace(/\*\*(.+?)\*\*/g, "$1").replace(/`([^`]+)`/g, "$1").trim();
   // A proposal is a Markdown file whose first ```json block is a whole event: a branch draft ({id, start,
@@ -1808,6 +1839,52 @@ function checkOddsBlock(opt, changed, restructure) {
     const rank = (k) => { const i = order.indexOf(k); return i < 0 ? order.length : i; };
     const sorted = Object.keys(shot).map((k, i) => [k, i]).sort((a, b) => rank(a[0]) - rank(b[0]) || a[1] - b[1]);
     replaceContents(shot, Object.fromEntries(sorted.map(([k]) => [k, shot[k]])));
+  }
+
+  // New boards: each returns {file, md}, a new proposal for .scratch/writing-revamp/. taken: file names already
+  // in that folder; liveIds: ids of the live events in data/events/ (read only, never written).
+  const EVENT_ID_RE = /^[a-z][a-z0-9_]*$/;
+  function checkNewId(id, liveIds, sourceId) {
+    if (!EVENT_ID_RE.test(id || "")) throw new Error(`event id must be lower-case letters, digits and _, starting with a letter (got ${JSON.stringify(id)})`);
+    if (id === sourceId) throw new Error(`the copy needs a new id, not ${id}`);
+    if (liveIds.includes(id)) throw new Error(`${id} is already a live event in data/events/`);
+  }
+  // First free name for an event's proposal: james_meeting → james-meeting-proposal.md, then -proposal2.md, ...
+  function proposalFileName(id, taken) {
+    const stem = id.replace(/_/g, "-") + "-proposal";
+    let n = 1, name = stem + ".md";
+    while (taken.includes(name)) name = `${stem}${++n}.md`;
+    return name;
+  }
+  const proposalMd = (heading, draft) => `# ${heading}\n\n\`\`\`json\n${serialiseDraft(draft)}\n\`\`\`\n`;
+  // A live flat event (data/events/<file> text) as named branches.
+  function importBoard(file, text, taken) {
+    let ev;
+    try { ev = JSON.parse(text); } catch (e) { throw new Error(`${file} doesn't parse: ${e.message}`); }
+    if (!ev || !Array.isArray(ev.cards)) throw new Error(`${file} has no cards array`);
+    const draft = legacyToDraft({ id: file.replace(/\.json$/, ""), ...ev });
+    return { file: proposalFileName(draft.id, taken), md: proposalMd(`${draft.id} — imported from data/events/${file}`, draft) };
+  }
+  // A blank event: one `main` branch holding one blank narration card.
+  function blankBoard(id, taken, liveIds) {
+    checkNewId(id, liveIds);
+    const draft = { id, start: "main", branches: { main: { title: "Start", cards: [{ key: "c1", type: "narration", text: "" }] } } };
+    return { file: proposalFileName(id, taken), md: proposalMd(id, draft) };
+  }
+  // A copy of a proposal under a new id. keepComments keeps its comments and its prose (logline, open points);
+  // otherwise both go and the copy starts clean.
+  function duplicateBoard(srcFile, srcMd, id, keepComments, taken, liveIds) {
+    const src = parseProposal(srcFile, srcMd);
+    if (!src) throw new Error(`${srcFile} has no JSON block`);
+    if (src.error) throw new Error(`${srcFile}: ${src.error}`);
+    checkNewId(id, liveIds, src.draft.id);
+    const draft = src.draft;
+    draft.id = id;
+    const heading = `${id} — copy of ${srcFile}`;
+    if (!keepComments) { delete draft._comments; return { file: proposalFileName(id, taken), md: proposalMd(heading, draft) }; }
+    const md = spliceDraft(srcMd, draft);
+    const h1 = /^#[ \t]+[^\r\n]+/m;
+    return { file: proposalFileName(id, taken), md: h1.test(md) ? md.replace(h1, () => `# ${heading}`) : `# ${heading}\n\n${md}` };
   }
   /* ---------- End draft model ---------- */
 
@@ -2868,6 +2945,65 @@ function checkOddsBlock(opt, changed, restructure) {
     return true;
   }
 
+  // ---- new boards: import a live event, a blank event, or a copy of a proposal --------------------------------
+  let nbMode = "import", nbLive = [];
+  async function fileNames(parts, re) {
+    const out = [];
+    try { for await (const [name, h] of (await dirAt(parts)).entries()) if (h.kind === "file" && re.test(name)) out.push(name); }
+    catch {}
+    return out.sort();
+  }
+  async function openNewBoard() {
+    if (!root) return;
+    nbLive = await fileNames(LIVE_EVENTS_DIR, /\.json$/);
+    $("nb-id").value = ""; $("nb-keep").checked = true; $("nb-note").textContent = "";
+    renderNewBoard();
+    $("newboard").showModal();
+  }
+  function renderNewBoard() {
+    for (const btn of $("nb-modes").children) btn.setAttribute("aria-pressed", String(btn.dataset.mode === nbMode));
+    const dup = nbMode === "duplicate";
+    $("nb-source-wrap").hidden = nbMode === "blank";
+    $("nb-id-wrap").hidden = nbMode === "import";
+    $("nb-keep-wrap").hidden = !dup;
+    $("nb-source-label").textContent = dup ? "Proposal to copy" : "Live event (data/events/)";
+    const names = dup ? boards.filter((b) => b.kind === "proposal" && !b.error).map((b) => b.file) : nbLive;
+    $("nb-source").replaceChildren(...names.map((n) => el("option", { value: n, text: n })));
+  }
+  // Builds the new proposal from what is on disk now, writes it under .scratch/writing-revamp/ (never over an
+  // existing file) and opens it.
+  async function createBoard() {
+    const note = (t) => { $("nb-note").textContent = t; };
+    const src = $("nb-source").value, id = $("nb-id").value.trim();
+    if (nbMode !== "blank" && !src) { note("Nothing to pick from."); return; }
+    if (!writableProposal(PROPOSALS_DIR)) { note("Refusing to write outside .scratch/writing-revamp/."); return; }
+    $("nb-create").disabled = true;
+    try {
+      const dir = await dirAt(PROPOSALS_DIR, true);
+      const taken = await fileNames(PROPOSALS_DIR, /./), liveIds = nbLive.map((n) => n.replace(/\.json$/, ""));
+      let made;
+      if (nbMode === "import") {
+        const text = await readText(await dirAt(LIVE_EVENTS_DIR), src);
+        if (text == null) throw new Error(`couldn't read ${src}`);
+        made = importBoard(src, text, taken);
+      } else if (nbMode === "blank") made = blankBoard(id, taken, liveIds);
+      else {
+        const md = await readText(dir, src);
+        if (md == null) throw new Error(`couldn't read ${src}`);
+        made = duplicateBoard(src, md, id, $("nb-keep").checked, taken, liveIds);
+      }
+      if (await readText(dir, made.file) != null) throw new Error(`${made.file} already exists`);
+      if (!leaveBoard()) return;
+      await writeFile(dir, made.file, made.md);
+      $("newboard").close();
+      await loadAll();
+      selectBoard(PROPOSAL_PREFIX + made.file);
+      showTab("storyboard");
+      renderEditBar(`Created ${made.file}`);
+    } catch (e) { note("Couldn't create: " + (e && e.message)); }
+    finally { $("nb-create").disabled = false; }
+  }
+
   function renderFrame() {
     const b = board(); if (!b) return;
     if (b.kind === "proposal") { renderProposalFrame(b); return; }
@@ -3265,6 +3401,10 @@ function checkOddsBlock(opt, changed, restructure) {
   });
   $("open").addEventListener("click", openFolder);
   $("refresh").addEventListener("click", () => root && loadAll());
+  $("new-board").addEventListener("click", openNewBoard);
+  for (const btn of $("nb-modes").children) btn.addEventListener("click", () => { nbMode = btn.dataset.mode; $("nb-note").textContent = ""; renderNewBoard(); });
+  $("nb-create").addEventListener("click", createBoard);
+  $("nb-close").addEventListener("click", () => $("newboard").close());
   // Claude edits board.json between rounds: pick that up when the window regains focus.
   window.addEventListener("focus", () => { if (root && !typing()) loadAll(); });
 
