@@ -616,6 +616,10 @@
     "dateFormat": "%s %d %s",
     "yearSuffix": " Y%d"
   },
+  "eventLabels": {
+    "weekdayNames": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+    "todayPhrases": ["This morning", "This afternoon", "Tonight"]
+  },
   "dayClock": {
     "dayFormat": "%s %s %s",
     "phaseCues": [

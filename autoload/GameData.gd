@@ -160,6 +160,8 @@ var DAY_CLOCK: Dictionary = {}
 var CALENDAR: Dictionary = {}
 # Event choice checks: default clamp, hint-word thresholds, UI strings (Events.check_odds()).
 var EVENT_CHECKS: Dictionary = {}
+# Event card label tokens' words (R§3.9c, Events._with_label_tokens()).
+var EVENT_LABELS: Dictionary = {}
 var DAILY_CYCLE: Dictionary = {}
 var ARCHIE_ORE_GOAL: int = 0
 var CONTACTS_DEFAULTS: Dictionary = {}
@@ -434,6 +436,7 @@ const MANIFEST: Array[Dictionary] = [
 		{"field": "DAY_CLOCK", "key": "dayClock", "type": TYPE_DICTIONARY},
 		{"field": "CALENDAR", "key": "calendar", "type": TYPE_DICTIONARY},
 		{"field": "EVENT_CHECKS", "key": "eventChecks", "type": TYPE_DICTIONARY},
+		{"field": "EVENT_LABELS", "key": "eventLabels", "type": TYPE_DICTIONARY},
 		{"field": "ARCHIE_ORE_GOAL", "key": "archieOreGoal", "type": TYPE_INT},
 		{"field": "CONTACTS_DEFAULTS", "key": "contacts", "type": TYPE_DICTIONARY},
 		{"field": "JAMES_JOB_TRUST_BANDS", "key": "jamesJobTrustBands", "type": TYPE_ARRAY},

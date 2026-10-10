@@ -72,7 +72,7 @@ static func _event_def() -> Dictionary:
 static func current_card() -> Dictionary:
 	var event_state: Dictionary = GameState.state["event"]
 	var cards: Array = _event_def()["cards"]
-	return cards[event_state["cardIndex"]]
+	return _with_label_tokens(cards[event_state["cardIndex"]])
 
 
 # True once the current card is an unresolved "choice" card -- the runner must not advance() past it via Continue.
@@ -96,7 +96,7 @@ static func revealed_cards() -> Array:
 	var fill: bool = _event_def().get("fillFromContext", false)
 	var result: Array = []
 	for i in _visited_indices():
-		var card: Dictionary = cards[i]
+		var card: Dictionary = _with_label_tokens(cards[i])
 		if fill:
 			card = card.duplicate()
 			card["text"] = String(card["text"]).format(event_state.get("context", {}))
@@ -111,6 +111,28 @@ static func revealed_cards() -> Array:
 					resolution_card[key] = resolution[key]
 			result.append(resolution_card)
 	return result
+
+
+# R§3.9c "Label tokens": the card, with its label's {weekday}/{date}/
+# {block}/{today} filled from the calendar and current block; a card without
+# a token comes back as-is.
+static func _with_label_tokens(card: Dictionary) -> Dictionary:
+	var label: Variant = card.get("label")
+	if not label is String or not String(label).contains("{"):
+		return card
+	var world: Dictionary = GameState.state["world"]
+	var day: int = int(world["day"])
+	var block: int = int(world["timeBlock"])
+	var labels: Dictionary = GameData.EVENT_LABELS
+	var tokens := {
+		"weekday": labels["weekdayNames"][Calendar.weekday_index(day)],
+		"date": Calendar.format_day(day),
+		"block": GameData.TIME_BLOCKS[block],
+		"today": labels["todayPhrases"][block],
+	}
+	var resolved: Dictionary = card.duplicate()
+	resolved["label"] = String(label).format(tokens)
+	return resolved
 
 
 # Derived state for the event screen's persistent image slot (ui-vision.md §11):
