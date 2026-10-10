@@ -12,6 +12,6 @@ Fixes "Two days later" after a text that said "Tomorrow" (proposes `at` + labels
 
 **Status:** ready-for-agent
 
-- [ ] Proposal file `.scratch/writing-revamp/buyer-proposal.md`: cards, option ids, checks, outcomes, exact cash per path (incl. 60/40 split).
-- [ ] Card count vs current 12; art-needing cards listed.
-- [ ] Report flags `PROSE-REVIEW:`; stops for owner approval.
+- [x] Proposal file `.scratch/writing-revamp/buyer-proposal.md`: cards, option ids, checks, outcomes, exact cash per path (incl. 60/40 split).
+- [x] Card count vs current 12; art-needing cards listed.
+- [x] Report flags `PROSE-REVIEW:`; stops for owner approval.
