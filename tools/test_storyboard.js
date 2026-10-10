@@ -14,6 +14,10 @@ const endMarker = "/* ---------- End draft model ---------- */";
 const s = html.indexOf(startMarker);
 const e = html.indexOf(endMarker);
 assert(s !== -1 && e !== -1, "could not locate draft model markers in storyboard.html");
+// The draft model calls into the shared Choice mechanics section (optionToCheck etc.), so it's prepended.
+const sharedStart = "/* ---------- Choice mechanics (shared) ---------- */", sharedEnd = "/* ---------- End choice mechanics ---------- */";
+const ss = html.indexOf(sharedStart), se = html.indexOf(sharedEnd);
+assert(ss !== -1 && se !== -1, "could not locate shared mechanics markers in storyboard.html");
 const {
   parseProposal, parseDraft, serialiseDraft, ensureKeys, legacyToDraft, nextPos, playOrder, flatCards, thenText,
   jsonBlockRange, spliceDraft, writableProposal, cardByKey, makeHistory,
@@ -21,14 +25,16 @@ const {
   findCycle, addBranch, renameBranch, deleteBranch, inboundLinks, setCardGoto, setThen,
   COND_KINDS, condKind, blankCond, condGet, condSet,
   outcomeSlots, addOption, deleteOption, moveOption, setOptionField, setOutcomeText, setOutcomeGoto, routeToNewBranch,
+  setCheckNote, setCheckOn, setOptionMechanics, setEffects, addBySuccess, deleteBySuccess, setConditionKind,
 } = new Function(
-  html.slice(s, e) +
+  html.slice(ss, se) + html.slice(s, e) +
     "\nreturn { parseProposal, parseDraft, serialiseDraft, ensureKeys, legacyToDraft, nextPos, playOrder, flatCards, thenText," +
     " jsonBlockRange, spliceDraft, writableProposal, cardByKey, makeHistory," +
     " cardPos, insertCard, deleteCard, moveCard, danglingLinks, hasCycle, buildGraph, elkGraph, placeLayout," +
     " findCycle, addBranch, renameBranch, deleteBranch, inboundLinks, setCardGoto, setThen," +
     " COND_KINDS, condKind, blankCond, condGet, condSet," +
-    " outcomeSlots, addOption, deleteOption, moveOption, setOptionField, setOutcomeText, setOutcomeGoto, routeToNewBranch };"
+    " outcomeSlots, addOption, deleteOption, moveOption, setOptionField, setOutcomeText, setOutcomeGoto, routeToNewBranch," +
+    " setCheckNote, setCheckOn, setOptionMechanics, setEffects, addBySuccess, deleteBySuccess, setConditionKind };"
 )();
 
 let passed = 0;
@@ -783,6 +789,124 @@ test("option edits show in the graph and save into the block", () => {
   assert(g.edges.some((e) => e.from === "b:after" && e.to === "b:coda" && e.label === "Walk out" && e.kind === "outcome"));
   const back = parseProposal("p.md", spliceDraft(md, draft)).draft;
   assert.deepStrictEqual(cardByKey(back, "c9").choices, [{ id: "option1", label: "Walk out", result_text: "", goto: { branch: "coda" } }]);
+});
+
+test("setCheckNote sets the intent on any option; blank drops it; the graph's card node shows it", () => {
+  const { draft } = parseDraft(draftText);
+  const i = addOption(draft, "c9");
+  setCheckNote(draft, "c9", i, "easy Charm, ~70%");
+  assert.strictEqual(cardByKey(draft, "c9").choices[i].checkNote, "easy Charm, ~70%", "a plain option takes a note too");
+  const node = buildGraph(draft, ["after", "main"]).nodes.find((n) => n.id === "c:c9");
+  assert.deepStrictEqual(node.notes, ["easy Charm, ~70%"]);
+  assert.deepStrictEqual(buildGraph(draft, ["main"]).nodes.find((n) => n.id === "c:c2").notes, ["steady, ~55% x2"]);
+  const laid = elkGraph(buildGraph(draft, ["after"]));
+  const sizeOf = (id) => laid.children.flatMap((n) => [n, ...(n.children || [])]).find((n) => n.id === id);
+  assert(sizeOf("c:c9").height > sizeOf("c:c8").height, "a card with notes gets a taller node");
+  setCheckNote(draft, "c9", i, "  ");
+  assert(!("checkNote" in cardByKey(draft, "c9").choices[i]));
+  assert.throws(() => setCheckNote(draft, "c9", 5, "x"), /no option 6/);
+});
+
+test("setCheckOn swaps result_text for success / fail and back; never both", () => {
+  const { draft } = parseDraft(draftText);
+  const i = addOption(draft, "c9");
+  setOutcomeText(draft, "c9", i, "result", "Done.");
+  setOutcomeGoto(draft, "c9", i, "result", { branch: "watched" });
+  setCheckOn(draft, "c9", i, true);
+  let o = cardByKey(draft, "c9").choices[i];
+  assert(!("result_text" in o) && !("goto" in o));
+  assert.deepStrictEqual(o.check, { base: 0.5, mods: [] });
+  assert.deepStrictEqual(o.success, { result_text: "Done.", effects: [], goto: { branch: "watched" } });
+  assert.deepStrictEqual(o.fail, { result_text: null, effects: [] });
+  assert.deepStrictEqual(outcomeSlots(o).map((x) => x.slot), ["success", "fail"]);
+  setCheckOn(draft, "c9", i, true);
+  assert.deepStrictEqual(cardByKey(draft, "c9").choices[i].check, { base: 0.5, mods: [] }, "already on: no-op");
+  addBySuccess(draft, "c9", i, 0);
+  setCheckOn(draft, "c9", i, false);
+  o = cardByKey(draft, "c9").choices[i];
+  for (const k of ["check", "success", "fail", "bySuccesses"]) assert(!(k in o), k + " dropped");
+  assert.strictEqual(o.result_text, "Done.");
+  assert.deepStrictEqual(o.goto, { branch: "watched" });
+});
+
+test("setOptionMechanics copies requires and the check's odds and mods; perSuccess stays the draft's", () => {
+  const { draft } = parseDraft(draftText);
+  setEffects(draft, "c2", 0, "perSuccess", [{ op: "relation", contact: "james", value: 1 }]);
+  const w = JSON.parse(JSON.stringify(cardByKey(draft, "c2").choices[0]));
+  w.requires = {}; setConditionKind(w.requires, "flag", false); w.requires.flag = "metJames";
+  w.check.base = 0.4; w.check.min = 0.1;
+  const m = {}; setConditionKind(m, "relation", true); m.relation = "james"; m.atLeast = 2; m.add = 0.1; m.label = "James likes you";
+  w.check.mods = [m];
+  w.check.perSuccess = [{ op: "bogus" }];
+  w.label = "ignored";
+  setOptionMechanics(draft, "c2", 0, w);
+  const o = cardByKey(draft, "c2").choices[0];
+  assert.deepStrictEqual(o.requires, { flag: "metJames" });
+  assert.deepStrictEqual(o.check, { base: 0.4, attempts: 2, min: 0.1,
+    mods: [{ relation: "james", atLeast: 2, add: 0.1, label: "James likes you" }],
+    perSuccess: [{ op: "relation", contact: "james", value: 1 }] });
+  assert.strictEqual(o.label, "Take your time", "only mechanics fields are copied");
+  w.check.base = 0.9;
+  assert.strictEqual(o.check.base, 0.4, "the draft holds a copy, not the working object");
+  delete w.requires;
+  setOptionMechanics(draft, "c2", 0, w);
+  assert(!("requires" in o));
+});
+
+test("setEffects: option, perSuccess and outcome effect lists; malformed lists refused", () => {
+  const { draft } = parseDraft(draftText);
+  const fx = [{ op: "set_flag", flag: "jamesImpressed" }];
+  setEffects(draft, "c2", 0, "option", fx);
+  setEffects(draft, "c2", 0, "fail", [{ op: "relation", contact: "james", value: -1 }]);
+  setEffects(draft, "c2", 0, "perSuccess", fx);
+  const o = cardByKey(draft, "c2").choices[0];
+  assert.deepStrictEqual(o.effects, fx);
+  assert.deepStrictEqual(o.fail.effects, [{ op: "relation", contact: "james", value: -1 }]);
+  assert.deepStrictEqual(o.check.perSuccess, fx);
+  setEffects(draft, "c2", 0, "perSuccess", []);
+  assert(!("perSuccess" in o.check), "an empty per-success list drops the key");
+  const before = serialiseDraft(draft);
+  assert.throws(() => setEffects(draft, "c2", 0, "option", { op: "x" }), /JSON list/);
+  assert.throws(() => setEffects(draft, "c2", 0, "option", [{ flag: "x" }]), /effect 1 needs an "op"/);
+  assert.throws(() => setEffects(draft, "c2", 0, "result", []), /no "result" outcome/);
+  assert.strictEqual(serialiseDraft(draft), before);
+  const i = addOption(draft, "c9");
+  assert.throws(() => setEffects(draft, "c9", i, "perSuccess", fx), /only a check/);
+});
+
+test("bySuccesses outcomes: added per success count, routable, played at that count, removable", () => {
+  const { draft } = parseDraft(draftText);
+  addBySuccess(draft, "c2", 0, 2);
+  addBySuccess(draft, "c2", 0, 0);
+  const o = cardByKey(draft, "c2").choices[0];
+  assert.deepStrictEqual(Object.keys(o.bySuccesses), ["0", "2"], "kept in count order");
+  assert.deepStrictEqual(outcomeSlots(o).map((x) => x.slot), ["success", "fail", "by:0", "by:2"]);
+  assert.throws(() => addBySuccess(draft, "c2", 0, 2), /already/);
+  assert.throws(() => addBySuccess(draft, "c2", 0, 3), /0 to 2/);
+  assert.throws(() => addBySuccess(draft, "c2", 0, 1.5), /0 to 2/);
+  setOutcomeText(draft, "c2", 0, "by:2", "Clean, twice.");
+  setOutcomeGoto(draft, "c2", 0, "by:2", { branch: "watched" });
+  assert.deepStrictEqual(o.bySuccesses["2"], { result_text: "Clean, twice.", effects: [], goto: { branch: "watched" } });
+  assert(buildGraph(draft).edges.some((e) => e.from === "b:main" && e.to === "b:watched" && e.label === "Take your time 2✓"));
+  assert.deepStrictEqual(nextPos(draft, { branch: "main", idx: 1 }, o.bySuccesses["2"]), { branch: "watched", idx: 0 });
+  deleteBySuccess(draft, "c2", 0, 2);
+  assert.deepStrictEqual(Object.keys(o.bySuccesses), ["0"]);
+  deleteBySuccess(draft, "c2", 0, 0);
+  assert(!("bySuccesses" in o));
+  assert.throws(() => deleteBySuccess(draft, "c2", 0, 0), /no outcome for 0/);
+  const i = addOption(draft, "c9");
+  assert.throws(() => addBySuccess(draft, "c9", i, 0), /only a check/);
+});
+
+test("check edits save into the block", () => {
+  const md = "# T\n\n```json\n" + draftText + "\n```\n";
+  const { draft } = parseProposal("p.md", md);
+  setCheckNote(draft, "c2", 0, "hard Wits, ~40%");
+  addBySuccess(draft, "c2", 0, 1);
+  const back = parseProposal("p.md", spliceDraft(md, draft)).draft;
+  const o = cardByKey(back, "c2").choices[0];
+  assert.strictEqual(o.checkNote, "hard Wits, ~40%");
+  assert.deepStrictEqual(o.bySuccesses, { 1: { result_text: "", effects: [] } });
 });
 
 console.log(`${passed} passed${process.exitCode ? ", some FAILED" : ""}`);

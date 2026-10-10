@@ -182,9 +182,9 @@
 
 /* ---------- Choice mechanics (shared) ---------- */
 
-// Byte-identical in tools/quest-editor.html and tools/quest-editor-mobile.html
-// (tools/test_quest_editor.js enforces it): the option and event mechanics
-// both editors author, per docs/REFERENCE.md §3.9a (option id, check,
+// Byte-identical in tools/quest-editor.html, tools/quest-editor-mobile.html
+// and tools/storyboard.html (tools/test_quest_editor.js enforces it): the
+// option and event mechanics the editors author, per docs/REFERENCE.md §3.9a (option id, check,
 // success/fail, requires, goto) and §3.9b (event `at`). Effects stay
 // read-only and pass through untouched.
 
@@ -566,6 +566,19 @@ function outcomeBlock(opt, key, title, changed, restructure) {
 function checkRows(opt, changed, restructure) {
   const check = opt.check;
   const rows = [];
+  const odds = checkOddsBlock(opt, changed, restructure);
+  if (check.perSuccess !== undefined) odds.appendChild(mechReadonly("Per success effects (read-only)", check.perSuccess));
+  rows.push(odds);
+
+  rows.push(outcomeBlock(opt, "success", "On success", changed, restructure));
+  rows.push(outcomeBlock(opt, "fail", "On failure", changed, restructure));
+  if (opt.bySuccesses !== undefined) rows.push(mechReadonly("By success count (read-only)", opt.bySuccesses));
+  return rows;
+}
+
+// The check's odds (base, min, max, show, attempts) and its modifiers.
+function checkOddsBlock(opt, changed, restructure) {
+  const check = opt.check;
   const odds = mechEl("div", "mech-sub");
   odds.appendChild(mechEl("div", "mech-heading", "Check"));
   const row = mechEl("div", "mech-row");
@@ -589,13 +602,7 @@ function checkRows(opt, changed, restructure) {
     check.mods.push(m);
     restructure();
   }));
-  if (check.perSuccess !== undefined) odds.appendChild(mechReadonly("Per success effects (read-only)", check.perSuccess));
-  rows.push(odds);
-
-  rows.push(outcomeBlock(opt, "success", "On success", changed, restructure));
-  rows.push(outcomeBlock(opt, "fail", "On failure", changed, restructure));
-  if (opt.bySuccesses !== undefined) rows.push(mechReadonly("By success count (read-only)", opt.bySuccesses));
-  return rows;
+  return odds;
 }
 
 /* ---------- End choice mechanics ---------- */

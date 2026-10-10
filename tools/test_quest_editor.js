@@ -368,8 +368,10 @@ function saveModel(raw, model) {
   return applyEdits(raw, collectModelEdits(raw, root, nodeToPlain(root), model));
 }
 
-test("the shared mechanics section is byte-identical in both editors", () => {
+test("the shared mechanics section is byte-identical in both editors and the storyboard tool", () => {
   assert.strictEqual(sharedSection(mobileHtml, "quest-editor-mobile.html"), sharedSource);
+  const storyboardHtml = fs.readFileSync(path.join(__dirname, "storyboard.html"), "utf-8");
+  assert.strictEqual(sharedSection(storyboardHtml, "storyboard.html"), sharedSource);
 });
 
 test("desktop: an event with every new field loads and saves (no edits) to identical bytes", () => {
