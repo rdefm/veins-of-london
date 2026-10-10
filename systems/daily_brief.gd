@@ -2,9 +2,9 @@ class_name DailyBrief
 extends RefCounted
 
 # BizBrief's Today card (.scratch/bizbrief-today/spec.md): a pure projection
-# of the day's plan over GameState. It never writes state. Each row is plain
-# data; `action` is a destination descriptor BizBrief routes through
-# existing navigation. Tiers, templates and labels live in
+# of the day's plan over GameState; mark_acted() is its only state write.
+# Each row is plain data; `action` is a destination descriptor BizBrief
+# routes through existing navigation. Tiers, templates and labels live in
 # data/daily_brief.json.
 
 const BADGE_TIERS := ["urgent", "story"]
@@ -43,6 +43,16 @@ static func items() -> Array[Dictionary]:
 	for i in order:
 		ordered.append(rows[i])
 	return ordered
+
+
+# Records a row's key as acted on today (morningAccounts.briefTicks, cleared
+# at rollover). A ticked row shows `done` while its condition still holds.
+static func mark_acted(key: String) -> void:
+	var ticks: Array = GameState.state["morningAccounts"]["briefTicks"]
+	if ticks.has(key):
+		return
+	ticks.append(key)
+	EventBus.state_changed.emit()
 
 
 # Urgent + Story rows: what the Phone home BizBrief badge counts.
@@ -350,6 +360,6 @@ static func _row(template_id: String, key: String, values: Dictionary, action: D
 		"consequence": String(template["consequence"]).format(values),
 		"action": action,
 		"actionLabel": template["actionLabel"],
-		"done": false,
+		"done": GameState.state["morningAccounts"]["briefTicks"].has(key),
 		"sort": sort,
 	}

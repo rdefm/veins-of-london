@@ -63,6 +63,12 @@ var _open_brief_sections := {}
 # Today card view state: rows past the cap shown, Routine summary expanded.
 var _today_more_open := false
 var _routine_open := false
+# Ticked row keys already shown ticked (view state); a row ticked since then
+# fades in its tick.
+var _shown_ticks := {}
+# Set by an expand toggle ("more" or "routine") so the next build fades in
+# the rows it revealed.
+var _reveal := ""
 # Pending wage prompt cards on the Brief tab, contact id -> Control.
 var _wage_prompt_anchors := {}
 # Pending offer cards on the Manage tab, offer id -> Control.
@@ -342,15 +348,25 @@ func _build_today() -> Control:
 	if _today_more_open:
 		rows = rows + card["hidden"]
 	var labels: Dictionary = GameData.DAILY_BRIEF
-	for row in rows:
+	var reveal_more := _reveal == "more"
+	var reveal_routine := _reveal == "routine"
+	_reveal = ""
+	# Ticks cleared at rollover can fade in again when re-ticked.
+	var ticks: Array = GameState.state["morningAccounts"]["briefTicks"]
+	for key in _shown_ticks.keys():
+		if not ticks.has(key):
+			_shown_ticks.erase(key)
+	for i in rows.size():
+		var row: Dictionary = rows[i]
+		var past_cap: bool = i >= card["visible"].size()
 		if row["kind"] == "routineSummary":
 			var toggle_label: String = labels["routineCollapseLabel"] if _routine_open else labels["routineExpandLabel"]
-			c["content"].add_child(_today_row(row, toggle_label, _toggle_routine))
+			c["content"].add_child(_today_row(row, reveal_more and past_cap, toggle_label, _toggle_routine))
 			if _routine_open:
 				for child in row["children"]:
-					c["content"].add_child(_today_row(child))
+					c["content"].add_child(_today_row(child, reveal_routine))
 		else:
-			c["content"].add_child(_today_row(row))
+			c["content"].add_child(_today_row(row, reveal_more and past_cap))
 	if card["more"] > 0:
 		var more_label: String = labels["lessLabel"] if _today_more_open else String(labels["moreLabel"]).format({ "n": card["more"] })
 		var more := UI.button(more_label, _toggle_today_more)
@@ -359,29 +375,46 @@ func _build_today() -> Control:
 	return c["panel"]
 
 
-# One Today row; on_press defaults to routing the row's action.
-func _today_row(row: Dictionary, button_label: String = "", on_press: Callable = Callable()) -> Control:
+# One Today row; on_press defaults to ticking the row and routing its
+# action. A done row carries the doneMark; it fades in when newly ticked or
+# just revealed by an expand toggle, unless reduced motion is on.
+func _today_row(row: Dictionary, revealed: bool = false, button_label: String = "", on_press: Callable = Callable()) -> Control:
 	var action: Dictionary = row["action"]
+	var key: String = row["key"]
 	var line := UI.hbox()
-	line.name = "TodayRow_%s" % String(row["key"]).validate_node_name()
+	line.name = "TodayRow_%s" % key.validate_node_name()
 	var text := UI.vbox(2)
-	text.add_child(UI.label(row["label"]))
+	if row["done"]:
+		text.add_child(UI.muted_label("%s %s" % [GameData.DAILY_BRIEF["doneMark"], row["label"]]))
+	else:
+		text.add_child(UI.label(row["label"]))
 	if row["consequence"] != "":
 		text.add_child(UI.muted_label(row["consequence"]))
 	line.add_child(UI.expand_fill(text))
 	if on_press.is_null():
-		on_press = func(): _open_today_action(action)
+		on_press = func():
+			DailyBrief.mark_acted(key)
+			_open_today_action(action)
 	line.add_child(UI.button(row["actionLabel"] if button_label == "" else button_label, on_press))
+	var newly_ticked: bool = row["done"] and not _shown_ticks.has(key)
+	if row["done"]:
+		_shown_ticks[key] = true
+	if (revealed or newly_ticked) and not GameState.state["meta"].get("reducedMotion", false):
+		line.modulate.a = 0.0
+		# The row isn't in the tree yet, so the tween comes from the SceneTree.
+		(Engine.get_main_loop() as SceneTree).create_tween().bind_node(line).tween_property(line, "modulate:a", 1.0, float(GameData.DAILY_BRIEF["revealSeconds"]))
 	return line
 
 
 func _toggle_routine() -> void:
 	_routine_open = not _routine_open
+	_reveal = "routine" if _routine_open else ""
 	refresh()
 
 
 func _toggle_today_more() -> void:
 	_today_more_open = not _today_more_open
+	_reveal = "more" if _today_more_open else ""
 	refresh()
 
 

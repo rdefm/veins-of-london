@@ -11,6 +11,7 @@ static func begin_rollover() -> Dictionary:
 	var player: Dictionary = GameState.state["player"]
 	var block: Dictionary = _block_production()
 	GameState.state["morningAccounts"]["blockProduction"] = _empty_block_production()
+	GameState.state["morningAccounts"]["briefTicks"] = []
 	return {
 		"day": GameState.state["world"]["day"],
 		"openingBalance": player["cash"],

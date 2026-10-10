@@ -67,8 +67,10 @@ func new_game_state() -> Dictionary:
 		# autoOpenedDay is the once-only presentation receipt -- both
 		# persist so reopening never reruns daily processing.
 		# blockProduction accumulates today's staff block output until the
-		# next rollover folds it into latest.
-		"morningAccounts": { "latest": null, "autoOpenedDay": 0, "blockProduction": { "ore": {}, "items": {}, "oreMovement": {} } },
+		# next rollover folds it into latest. briefTicks are the DailyBrief
+		# row keys acted on today, cleared at rollover (DailyBrief is the
+		# only writer).
+		"morningAccounts": { "latest": null, "autoOpenedDay": 0, "blockProduction": { "ore": {}, "items": {}, "oreMovement": {} }, "briefTicks": [] },
 		# Staff producers' per-day, per-block record (R§2), oldest first,
 		# trimmed to PRODUCTION_LOG_DAYS at rollover; Rooms is the only writer.
 		"productionLog": [],

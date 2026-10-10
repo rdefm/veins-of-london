@@ -517,6 +517,7 @@ func backfill_defaults(save: Dictionary) -> Dictionary:
 	_backfill_new_flag_keys(result, defaults)
 	_backfill_new_business_keys(result, defaults)
 	_backfill_new_barometer_keys(result, defaults)
+	_backfill_new_morning_accounts_keys(result, defaults)
 	Hiring.backfill(result["hiring"])
 	_backfill_new_guard_upkeep_keys(result, defaults)
 	_backfill_new_faction_war_keys(result, defaults)
@@ -532,6 +533,15 @@ func _backfill_new_barometer_keys(result: Dictionary, defaults: Dictionary) -> v
 	for key in ["changeSeq", "changedAt"]:
 		if not barometer.has(key):
 			barometer[key] = GameState.deep_copy(defaults["barometer"][key])
+
+
+# A morningAccounts key added after the save was made (e.g. briefTicks)
+# starts at its new-game default.
+func _backfill_new_morning_accounts_keys(result: Dictionary, defaults: Dictionary) -> void:
+	var accounts: Dictionary = result["morningAccounts"]
+	for key in defaults["morningAccounts"].keys():
+		if not accounts.has(key):
+			accounts[key] = GameState.deep_copy(defaults["morningAccounts"][key])
 
 
 # Every player vein carries a guardKit (spec §State); a save without one gets {}.

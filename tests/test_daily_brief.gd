@@ -492,6 +492,37 @@ func run() -> void:
 		assert_eq(DailyBrief.empty_text(), GameData.DAILY_BRIEF["emptyState"])
 	)
 
+	run_case("a_ticked_row_is_done_while_its_condition_holds_and_drops_off_when_cleared", func():
+		GameState.reset()
+		GameState.state["home"]["pendingRaid"] = true
+		DailyBrief.mark_acted("alarm:home")
+		DailyBrief.mark_acted("alarm:home")
+		assert_eq(GameState.state["morningAccounts"]["briefTicks"], ["alarm:home"], "one tick per key")
+		assert_eq(_kind("alarm").map(func(r): return r["done"]), [true], "ticked and still raided")
+		GameState.state["home"]["pendingRaid"] = false
+		assert_eq(_kind("alarm"), [], "condition cleared: the row is gone, not ticked")
+	)
+
+	run_case("ticks_survive_save_load_and_old_saves_backfill_an_empty_list", func():
+		GameState.reset()
+		GameState.state["home"]["pendingRaid"] = true
+		DailyBrief.mark_acted("alarm:home")
+		assert_true(SaveManager.import_string(SaveManager.export_string())["ok"])
+		assert_eq(GameState.state["morningAccounts"]["briefTicks"], ["alarm:home"])
+		assert_true(_kind("alarm")[0]["done"], "still ticked after load")
+		GameState.state["morningAccounts"].erase("briefTicks")
+		assert_true(SaveManager.import_string(SaveManager.export_string())["ok"])
+		assert_eq(GameState.state["morningAccounts"]["briefTicks"], [], "old save backfills an empty list")
+	)
+
+	run_case("ticks_clear_at_rollover", func():
+		GameState.reset()
+		GameState.state["home"]["pendingRaid"] = true
+		DailyBrief.mark_acted("alarm:home")
+		TimeSystem.daily_tick()
+		assert_eq(GameState.state["morningAccounts"]["briefTicks"], [], "a new day starts unticked")
+	)
+
 
 var _next_offer := 0
 

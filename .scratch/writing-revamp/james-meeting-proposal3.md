@@ -218,7 +218,7 @@ Expected pearls: slow 1.1 (watched 1.3), rush 1.2 (watched 1.6). Rush has the hi
                   "value": true
                 }
               ],
-              "result_text": "\"Yes. It did it when you walked in.\" He writes something in the ledger. \"Calc does that for perhaps one person in a few thousand. I have met two.\" A pause. \"Don't mention it to anyone who sells the stuff. They'll want to weigh you.\""
+              "result_text": "\"Yes. It did it when you walked in.\" He writes something in the ledger. \"Calc does that for perhaps one person in a few thousand. I have met two.\" A pause. \"Don't mention it to anyone. Not even Archie. Trust me.\""
             },
             {
               "id": "sayNothing",
@@ -233,7 +233,8 @@ Expected pearls: slow 1.1 (watched 1.3), rush 1.2 (watched 1.6). Rush has the hi
               "result_text": "You say nothing. James says nothing either. He moves the jar six inches to the left, out of your reach, and writes something in the ledger."
             }
           ],
-          "key": "c15"
+          "key": "c15",
+          "image": "res://assets/events/james_meeting/james_meeting_main_16.png"
         },
         {
           "type": "speaker",
@@ -247,7 +248,8 @@ Expected pearls: slow 1.1 (watched 1.3), rush 1.2 (watched 1.6). Rush has the hi
           "label": null,
           "speaker": "James",
           "text": "He measures out the calc. \"Plato wrote about orichalchum in the Critias. Second only to gold, in Atlantis.\" He glances at you. \"You have no idea what the Critias is, do you.\"",
-          "key": "c17"
+          "key": "c17",
+          "image": "res://assets/events/james_meeting/james_meeting_main_17.png"
         },
         {
           "type": "speaker",
@@ -520,7 +522,8 @@ Expected pearls: slow 1.1 (watched 1.3), rush 1.2 (watched 1.6). Rush has the hi
           "label": "Two hours later",
           "speaker": null,
           "text": "James wipes the bench down, caps the jar and puts it back on its shelf. Then he slides a battered crafting kit across to you.",
-          "key": "c21"
+          "key": "c21",
+          "image": "res://assets/events/james_meeting/james_meeting_b21_1.png"
         },
         {
           "type": "choice",

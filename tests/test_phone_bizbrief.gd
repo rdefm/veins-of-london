@@ -163,6 +163,7 @@ func run() -> void:
 		_button_with_text(row, "Manage").pressed.emit()
 		assert_eq(GameState.state["currentScreen"], "map")
 		assert_eq(GameState.state["mapNav"]["selectedSiteId"], "site_eligible")
+		assert_eq(GameState.state["morningAccounts"]["briefTicks"], ["development:eligible"], "the tap records the tick")
 		phone.free()
 	)
 
@@ -923,6 +924,36 @@ func run() -> void:
 		assert_true(phone.find_child("TodayRow_development_eligible", true, false) != null, "the summary expands to its rows")
 		assert_true(_button_with_text(phone.find_child("TodayRow_routine", true, false), GameData.DAILY_BRIEF["routineCollapseLabel"]) != null)
 		phone.free()
+	)
+
+	run_case("a_ticked_row_shows_done_and_fades_in_unless_reduced_motion", func():
+		for reduced in [false, true]:
+			GameState.reset()
+			GameState.state["meta"]["reducedMotion"] = reduced
+			GameState.state["home"]["pendingRaid"] = true
+			DailyBrief.mark_acted("alarm:home")
+			GameState.state["phoneNav"]["app"] = "bizbrief"
+			var phone := PhoneScreen.new()
+			phone._ready()
+			var row: Control = phone.find_child("TodayRow_alarm_home", true, false)
+			var done_label: String = "%s %s" % [GameData.DAILY_BRIEF["doneMark"], DailyBrief.items()[0]["label"]]
+			assert_true(NodeQuery.label_texts(row).has(done_label), "the row carries the done mark")
+			assert_eq(row.modulate.a, 1.0 if reduced else 0.0, "reduced motion shows the tick at once" if reduced else "a new tick fades in")
+			phone.free()
+	)
+
+	run_case("routine_expansion_fades_in_unless_reduced_motion", func():
+		for reduced in [false, true]:
+			GameState.reset()
+			GameState.state["meta"]["reducedMotion"] = reduced
+			Fixtures.seed_vein("eligible", 95)
+			GameState.state["phoneNav"]["app"] = "bizbrief"
+			var phone := PhoneScreen.new()
+			phone._ready()
+			_expand_routine(phone)
+			var row: Control = phone.find_child("TodayRow_development_eligible", true, false)
+			assert_eq(row.modulate.a, 1.0 if reduced else 0.0, "expanded rows appear at once" if reduced else "expanded rows fade in")
+			phone.free()
 	)
 
 	run_case("today_shows_the_empty_state_when_nothing_is_pressing", func():

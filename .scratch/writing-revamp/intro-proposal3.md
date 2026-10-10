@@ -31,222 +31,310 @@ Max odds: `stepIn` 60% with the cousin modifier, `grabBag` 30%. No failure block
 ```json
 {
   "id": "intro",
-  "at": { "block": "evening", "advance": true },
-  "cards": [
+  "at": {
+    "block": "evening",
+    "advance": true
+  },
+  "on_complete": [
     {
-      "type": "narration",
-      "label": "{today} — Whitechapel",
-      "speaker": null,
-      "text": "Rent's due Monday. You have £40, and this morning's interviewer has promised to keep your details on file. Archie, an old mate, said he might have work. So: Tuesday night, behind a chicken shop on Mile End Road.",
-      "image": "res://assets/events/intro/intro_card1.png"
+      "op": "set_flag",
+      "flag": "metArchie",
+      "value": true
     },
     {
-      "type": "speaker",
-      "label": null,
-      "speaker": "Archie",
-      "text": "He's whistling, a Tesco bag hooked on one finger. \"Two blokes, cash, in and out before the chicken shop shuts. You just stand there looking like you'd be a pain to fight. If I say leg it, you leg it. Don't wait for me.\""
+      "op": "set_stage",
+      "value": "buyer_event"
     },
     {
-      "type": "speaker",
-      "label": null,
-      "speaker": "You",
-      "text": "\"I don't look like I'd be a pain to fight.\""
-    },
-    {
-      "type": "choice",
-      "label": null,
-      "speaker": "Archie",
-      "text": "\"Pretend, then. Vinnie Jones in his prime.\" He looks you up and down. \"Bit more of a Mr Bean vibe, but you make do with what you've got.\" He holds out a fist. \"You in?\"",
-      "image": "res://assets/events/intro/intro_card5.png",
-      "choices": [
-        {
-          "id": "stand",
-          "label": "\"I'll stand there.\"",
-          "effects": [],
-          "result_text": "You bump the fist. \"Lovely,\" says Archie, and goes back to whistling."
-        },
-        {
-          "id": "askBuyers",
-          "label": "\"Who are the buyers?\"",
-          "effects": [
-            { "op": "set_flag", "flag": "introAskedQuestions", "value": true }
-          ],
-          "result_text": "Archie lowers the fist. \"Two lads from Romford. Bought off me twice. Pay cash, don't chat.\" He thinks about it. \"One of them's got a cousin. Never met the cousin.\""
-        },
-        {
-          "id": "wantHalf",
-          "label": "\"I want half.\"",
-          "effects": [
-            { "op": "relation", "contact": "archie", "value": -3 },
-            { "op": "set_flag", "flag": "introWantsHalf", "value": true }
-          ],
-          "result_text": "\"You were getting half.\" Archie looks at you for a long second, fist still out. \"Sixty-forty, then. Your way. Don't make a habit of it.\""
-        }
-      ]
-    },
-    {
-      "type": "narration",
-      "label": null,
-      "speaker": null,
-      "text": "The buyers arrive in a grey Vauxhall. Three of them. That's one more than Archie mentioned. He stops whistling.",
-      "image": "res://assets/events/intro/intro_card6.png"
-    },
-    {
-      "type": "tension",
-      "label": "It goes wrong",
-      "speaker": null,
-      "text": "The nearest one opens a Stanley knife and comes at you, not Archie. Archie shifts his weight, and is suddenly standing in the gap between you. The third man stays at the mouth of the alley, which is somehow worse.",
-      "image": "res://assets/events/intro/intro_card7.png"
-    },
-    {
-      "type": "choice",
-      "label": null,
-      "speaker": null,
-      "text": "The blade is a foot from Archie's chest. The second man has a hand on the Tesco bag.",
-      "choices": [
-        {
-          "id": "freeze",
-          "label": "Freeze",
-          "effects": [
-            { "op": "relation", "contact": "archie", "value": 5 }
-          ],
-          "result_text": "You don't move. Archie doesn't either, and he's wider than you. He stays exactly in the gap."
-        },
-        {
-          "id": "stepIn",
-          "label": "Step in front of Archie",
-          "check": {
-            "base": 0.45,
-            "mods": [
-              { "flag": "introAskedQuestions", "add": 0.15, "label": "You knew about the cousin" }
-            ],
-            "min": 0.15,
-            "show": "odds"
-          },
-          "success": {
-            "result_text": "You step past Archie's shoulder, into the knife's way. The man checks, just for a second, as if this wasn't the plan for him either. A second is enough for Archie.",
-            "effects": [
-              { "op": "set_flag", "flag": "introBrave", "value": true },
-              { "op": "relation", "contact": "archie", "value": 10 }
-            ]
-          },
-          "fail": {
-            "result_text": "You step past Archie's shoulder, into the knife's way. The blade opens your forearm before you feel it. Archie hauls you back behind him by the collar.",
-            "effects": [
-              { "op": "add", "path": "player.hp", "value": -10 },
-              { "op": "set_flag", "flag": "introInjured", "value": true }
-            ]
-          }
-        },
-        {
-          "id": "grabBag",
-          "label": "Go for the bag",
-          "check": {
-            "base": 0.30,
-            "mods": [],
-            "min": 0.15,
-            "show": "odds"
-          },
-          "success": {
-            "result_text": "You grab the bag and yank. The handle tears; Archie catches the rest, and two small chips of calc land in your palm. You close your fist on them.",
-            "effects": [
-              { "op": "add_ore", "type": "time", "qty": 2 },
-              { "op": "set_flag", "flag": "introGrabbedCalc", "value": true }
-            ]
-          },
-          "fail": {
-            "result_text": "You grab for the bag. The second man puts a hand flat on your chest and shoves, and you sit down hard on the tarmac. Archie steps over your legs and stays in the gap.",
-            "effects": [
-              { "op": "relation", "contact": "archie", "value": 5 }
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "type": "speaker",
-      "label": null,
-      "speaker": "Archie",
-      "text": "\"Alright, lads. No need for all that.\" He lifts the bag high, and every eye follows it. \"It's all here. Have a look.\""
-    },
-    {
-      "type": "narration",
-      "label": null,
-      "speaker": null,
-      "text": "His other hand flicks out of his back pocket. Something small hits the tarmac between the men and breaks. They slow. Not stopped — slow, like a video buffering. The knife is still coming. It will take a while."
-    },
-    {
-      "type": "speaker",
-      "label": null,
-      "speaker": "Archie",
-      "text": "\"Coming, or what?\""
-    },
-    {
-      "type": "choice",
-      "label": "Fifteen minutes later — a Wetherspoons",
-      "speaker": null,
-      "text": "Archie buys two pints and chips, puts the chips on your side of the table, and sits facing the door. His eyes are streaming. You have about four questions. He looks good for one.",
-      "image": "res://assets/events/intro/3.png",
-      "choices": [
-        {
-          "id": "whatIsIt",
-          "label": "\"What was that stuff?\"",
-          "effects": [],
-          "result_text": "\"Calc. Orichalchum, if you're being posh about it. That one was time-type. Slows everything round it for a few seconds.\" He dabs his eyes with a napkin. \"Last one I had, and all. Allergic to the stuff, before you ask. Don't.\""
-        },
-        {
-          "id": "howMuch",
-          "label": "\"How much is it worth?\"",
-          "effects": [],
-          "result_text": "\"The calc? Depends who's buying. Bit of time-type like that, seventy-odd quid a chip.\" He dabs his eyes with a napkin. \"Ten chips, you're looking at seven hundred and fifty. Which is why that lot brought a knife.\""
-        },
-        {
-          "id": "whereFrom",
-          "label": "\"Where does it come from?\"",
-          "effects": [
-            { "op": "set_flag", "flag": "introAskedSource", "value": true }
-          ],
-          "result_text": "\"Calc grows. Don't laugh.\" He dabs his eyes with a napkin. \"There's a crack in a wall in Whitechapel that grows the stuff, if you're patient. Vein, they call it. Most of them, someone's already sitting on.\""
-        }
-      ]
-    },
-    {
-      "type": "speaker",
-      "label": null,
-      "speaker": "Archie",
-      "text": "\"It's stock, innit. Someone finds it, someone makes it useful, someone pays through the nose for it. People like us stand in the middle and take a cut.\" He nods at the chips. \"Eat. You're no use to me keeling over.\""
-    },
-    {
-      "type": "speaker",
-      "label": null,
-      "speaker": "Archie",
-      "text": "\"Normally nobody gets a knife out. Still got tonight's calc, ain't I. I'll find a proper buyer. Somewhere with lights. And witnesses. You come along, you get a cut. You've seen how it goes wrong, so no hard feelings if it's a no.\""
-    },
-    {
-      "type": "speaker",
-      "label": null,
-      "speaker": "You",
-      "text": "You look at the door, at the chips, then think about your bank balance. \"I'll come.\""
-    },
-    {
-      "type": "speaker",
-      "label": null,
-      "speaker": "Archie",
-      "text": "\"Lovely. I'll text you.\" He's out the door before you can thank him, for the chips or the knife."
-    },
-    {
-      "type": "narration",
-      "label": null,
-      "speaker": null,
-      "text": "Rent's still due Monday. But somewhere on Mile End Road, in a Tesco bag, is the calc that might pay it.",
-      "image": "res://assets/events/intro/4.png"
+      "op": "set_screen",
+      "screen": "phone"
     }
   ],
-  "on_complete": [
-    { "op": "set_flag", "flag": "metArchie", "value": true },
-    { "op": "set_stage", "value": "buyer_event" },
-    { "op": "set_screen", "screen": "phone" }
-  ]
+  "start": "main",
+  "branches": {
+    "main": {
+      "title": "Start",
+      "cards": [
+        {
+          "type": "narration",
+          "label": "{today} — Whitechapel",
+          "speaker": null,
+          "text": "Rent's due Monday. You have £40, and this morning's interviewer has promised to keep your details on file. Archie, an old mate, said he might have work. So: Tuesday night, behind a chicken shop on Mile End Road.",
+          "image": "res://assets/events/intro/intro_card1.png",
+          "key": "c1"
+        },
+        {
+          "type": "speaker",
+          "label": null,
+          "speaker": "Archie",
+          "text": "He's whistling, a Tesco bag hooked on one finger. \"Two blokes, cash, in and out before the chicken shop shuts. You just stand there looking like you'd be a pain to fight. If I say leg it, you leg it. Don't wait for me.\"",
+          "key": "c2"
+        },
+        {
+          "type": "speaker",
+          "label": null,
+          "speaker": "You",
+          "text": "\"I don't look like I'd be a pain to fight.\"",
+          "key": "c3"
+        },
+        {
+          "type": "choice",
+          "label": null,
+          "speaker": "Archie",
+          "text": "\"Pretend you're Vinnie Jones in his prime, then.\" He looks you up and down. \"Bit more of a Mr Bean vibe, but you make do with what you've got.\" He holds out a fist. \"You in?\"",
+          "image": "res://assets/events/intro/intro_card5.png",
+          "choices": [
+            {
+              "id": "stand",
+              "label": "\"I'll stand there.\"",
+              "effects": [],
+              "result_text": "You bump the fist. \"Lovely,\" says Archie, and goes back to whistling."
+            },
+            {
+              "id": "askBuyers",
+              "label": "\"Who are the buyers?\"",
+              "effects": [
+                {
+                  "op": "set_flag",
+                  "flag": "introAskedQuestions",
+                  "value": true
+                }
+              ],
+              "result_text": "Archie lowers the fist. \"Two lads from Romford. Bought off me twice. Pay cash, don't chat.\" He thinks about it. \"One of them's got a cousin. Never met the cousin.\""
+            },
+            {
+              "id": "wantHalf",
+              "label": "\"I want half.\"",
+              "effects": [
+                {
+                  "op": "relation",
+                  "contact": "archie",
+                  "value": -3
+                },
+                {
+                  "op": "set_flag",
+                  "flag": "introWantsHalf",
+                  "value": true
+                }
+              ],
+              "result_text": "\"You were getting half.\" Archie looks at you for a long second, fist still out. \"Sixty-forty, then. Your way. Don't make a habit of it.\""
+            }
+          ],
+          "key": "c4"
+        },
+        {
+          "type": "narration",
+          "label": null,
+          "speaker": null,
+          "text": "The buyers arrive in a grey Vauxhall. Three of them. That's one more than Archie mentioned. He stops whistling.",
+          "image": "res://assets/events/intro/intro_card6.png",
+          "key": "c5"
+        },
+        {
+          "type": "tension",
+          "label": "It goes wrong",
+          "speaker": null,
+          "text": "The nearest one opens a Stanley knife and comes at you, not Archie. Archie shifts his weight, and is suddenly standing in the gap between you. The third man stays at the mouth of the alley, which is somehow worse.",
+          "image": "res://assets/events/intro/intro_card7.png",
+          "key": "c6"
+        },
+        {
+          "type": "choice",
+          "label": null,
+          "speaker": null,
+          "text": "The blade is a foot from Archie's chest. The second man has a hand on the Tesco bag.",
+          "choices": [
+            {
+              "id": "freeze",
+              "label": "Freeze",
+              "effects": [
+                {
+                  "op": "relation",
+                  "contact": "archie",
+                  "value": 5
+                }
+              ],
+              "result_text": "You don't move. Archie doesn't either, and he's wider than you. He stays exactly in the gap."
+            },
+            {
+              "id": "stepIn",
+              "label": "Step in front of Archie",
+              "check": {
+                "base": 0.45,
+                "mods": [
+                  {
+                    "flag": "introAskedQuestions",
+                    "add": 0.15,
+                    "label": "You knew about the cousin"
+                  }
+                ],
+                "min": 0.15,
+                "show": "odds"
+              },
+              "success": {
+                "result_text": "You step past Archie's shoulder, into the knife's way. The man checks, just for a second, as if this wasn't the plan for him either. A second is enough for Archie.",
+                "effects": [
+                  {
+                    "op": "set_flag",
+                    "flag": "introBrave",
+                    "value": true
+                  },
+                  {
+                    "op": "relation",
+                    "contact": "archie",
+                    "value": 10
+                  }
+                ]
+              },
+              "fail": {
+                "result_text": "You step past Archie's shoulder, into the knife's way. The blade opens your forearm before you feel it. Archie hauls you back behind him by the collar.",
+                "effects": [
+                  {
+                    "op": "add",
+                    "path": "player.hp",
+                    "value": -10
+                  },
+                  {
+                    "op": "set_flag",
+                    "flag": "introInjured",
+                    "value": true
+                  }
+                ]
+              }
+            },
+            {
+              "id": "grabBag",
+              "label": "Go for the bag",
+              "check": {
+                "base": 0.3,
+                "mods": [],
+                "min": 0.15,
+                "show": "odds"
+              },
+              "success": {
+                "result_text": "You grab the bag and yank. The handle tears; Archie catches the rest, and two small chips of calc land in your palm. You close your fist on them.",
+                "effects": [
+                  {
+                    "op": "add_ore",
+                    "type": "time",
+                    "qty": 2
+                  },
+                  {
+                    "op": "set_flag",
+                    "flag": "introGrabbedCalc",
+                    "value": true
+                  }
+                ]
+              },
+              "fail": {
+                "result_text": "You grab for the bag. The second man puts a hand flat on your chest and shoves, and you sit down hard on the tarmac. Archie steps over your legs and stays in the gap.",
+                "effects": [
+                  {
+                    "op": "relation",
+                    "contact": "archie",
+                    "value": 5
+                  }
+                ]
+              }
+            }
+          ],
+          "key": "c7"
+        },
+        {
+          "type": "speaker",
+          "label": null,
+          "speaker": "Archie",
+          "text": "\"Alright, lads. No need for all that.\" He lifts the bag high, and every eye follows it. \"It's all here. Have a look.\"",
+          "key": "c8"
+        },
+        {
+          "type": "narration",
+          "label": null,
+          "speaker": null,
+          "text": "His other hand flicks out of his back pocket. Something small hits the tarmac between the men and breaks. They slow. Not stopped — slow, like a video buffering. The knife is still coming. It will take a while.",
+          "key": "c9"
+        },
+        {
+          "type": "speaker",
+          "label": null,
+          "speaker": "Archie",
+          "text": "\"Coming, or what?\"",
+          "key": "c10"
+        },
+        {
+          "type": "choice",
+          "label": "Fifteen minutes later — a Wetherspoons",
+          "speaker": null,
+          "text": "Archie buys two pints and chips, puts the chips on your side of the table, and sits facing the door. His eyes are streaming. You have about four questions. He looks good for one.",
+          "image": "res://assets/events/intro/intro_main_11.png",
+          "choices": [
+            {
+              "id": "whatIsIt",
+              "label": "\"What was that stuff?\"",
+              "effects": [],
+              "result_text": "\"Calc. Orichalchum, if you're being posh about it. That one was time-type. Slows everything round it for a few seconds.\" He dabs his eyes with a napkin. \"Last one I had, and all. Allergic to the stuff, before you ask. Don't.\""
+            },
+            {
+              "id": "howMuch",
+              "label": "\"How much is it worth?\"",
+              "effects": [],
+              "result_text": "\"The calc? Depends who's buying. Bit of time-type like that, seventy-odd quid a chip.\" He dabs his eyes with a napkin. \"Ten chips, you're looking at seven hundred and fifty. Which is why that lot brought a knife.\""
+            },
+            {
+              "id": "whereFrom",
+              "label": "\"Where does it come from?\"",
+              "effects": [
+                {
+                  "op": "set_flag",
+                  "flag": "introAskedSource",
+                  "value": true
+                }
+              ],
+              "result_text": "\"Calc grows. Don't laugh.\" He dabs his eyes with a napkin. \"There's a crack in a wall in Whitechapel that grows the stuff, if you're patient. Vein, they call it. Most of them, someone's already sitting on.\""
+            }
+          ],
+          "key": "c11"
+        },
+        {
+          "type": "speaker",
+          "label": null,
+          "speaker": "Archie",
+          "text": "\"It's stock, innit. Someone finds it, someone makes it useful, someone pays through the nose for it. People like us stand in the middle and take a cut.\" He nods at the chips. \"Eat. You're no use to me keeling over.\"",
+          "key": "c12"
+        },
+        {
+          "type": "speaker",
+          "label": null,
+          "speaker": "Archie",
+          "text": "\"Normally nobody gets a knife out. Still got tonight's calc, ain't I. I'll find a proper buyer. Somewhere with lights. And witnesses. You come along, you get a cut. You've seen how it goes wrong, so no hard feelings if it's a no.\"",
+          "key": "c13",
+          "image": "res://assets/events/intro/intro_main_13.png"
+        },
+        {
+          "type": "speaker",
+          "label": null,
+          "speaker": "You",
+          "text": "You look at the door, at the chips, then think about your bank balance. \"I'll come.\"",
+          "key": "c14"
+        },
+        {
+          "type": "speaker",
+          "label": null,
+          "speaker": "Archie",
+          "text": "\"Lovely. I'll text you.\" He's out the door before you can thank him, for the chips or the knife.",
+          "key": "c15"
+        },
+        {
+          "type": "narration",
+          "label": null,
+          "speaker": null,
+          "text": "Rent's still due Monday. But somewhere on Mile End Road, in a Tesco bag, is the calc that might pay it.",
+          "image": "res://assets/events/intro/intro_main_16.png",
+          "key": "c16"
+        }
+      ]
+    }
+  }
 }
 ```
 
