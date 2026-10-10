@@ -16,9 +16,11 @@ const e = html.indexOf(endMarker);
 assert(s !== -1 && e !== -1, "could not locate draft model markers in storyboard.html");
 const {
   parseProposal, parseDraft, serialiseDraft, ensureKeys, legacyToDraft, nextPos, playOrder, flatCards, thenText,
+  jsonBlockRange, spliceDraft, writableProposal, cardByKey, makeHistory,
 } = new Function(
   html.slice(s, e) +
-    "\nreturn { parseProposal, parseDraft, serialiseDraft, ensureKeys, legacyToDraft, nextPos, playOrder, flatCards, thenText };"
+    "\nreturn { parseProposal, parseDraft, serialiseDraft, ensureKeys, legacyToDraft, nextPos, playOrder, flatCards, thenText," +
+    " jsonBlockRange, spliceDraft, writableProposal, cardByKey, makeHistory };"
 )();
 
 let passed = 0;
@@ -189,6 +191,69 @@ test("parseProposal: md wrapper, branch draft and legacy", () => {
   assert.match(parseProposal("e.md", md("{}")).error, /neither branches nor a cards array/);
 });
 
+// Prose outside the JSON block must survive a save byte-for-byte.
+function assertSpliceKeepsProse(md, out) {
+  const a = jsonBlockRange(md), b = jsonBlockRange(out);
+  assert.strictEqual(out.slice(0, b.start), md.slice(0, a.start), "prose before the block changed");
+  assert.strictEqual(out.slice(b.end), md.slice(a.end), "prose after the block changed");
+}
+
+test("spliceDraft: edited card text lands in the block; prose before/after byte-identical", () => {
+  const md = "# T\n\nLogline, `code` and $1.\n\n```json\n" + draftText + "\n```\n\n## Open points\n\n- $& and $1 stay literal\n";
+  const { draft } = parseDraft(draftText);
+  cardByKey(draft, "c2").text = "Edited, with $& and a \"quote\".";
+  const out = spliceDraft(md, draft);
+  assertSpliceKeepsProse(md, out);
+  const back = parseProposal("p.md", out).draft;
+  assert.strictEqual(cardByKey(back, "c2").text, "Edited, with $& and a \"quote\".");
+  assert.strictEqual(spliceDraft(md, parseDraft(draftText).draft), md, "unchanged draft is a no-op");
+});
+
+test("spliceDraft keeps CRLF line endings in the block and around it", () => {
+  const md = ("# T\n\nIntro.\n\n```json\n" + draftText + "\n```\n\nAfter.\n").replace(/\n/g, "\r\n");
+  const { draft } = parseProposal("p.md", md);
+  assert.strictEqual(spliceDraft(md, draft), md);
+  cardByKey(draft, "c1").text = "New.";
+  const out = spliceDraft(md, draft);
+  assertSpliceKeepsProse(md, out);
+  assert(!/[^\r]\n/.test(out), "a bare LF crept in");
+});
+
+test("spliceDraft throws without a JSON block", () => {
+  assert.throws(() => spliceDraft("# nothing here\n", { branches: {} }), /no ```json block/);
+});
+
+test("writableProposal: only .scratch/writing-revamp, never data/events", () => {
+  assert.strictEqual(writableProposal([".scratch", "writing-revamp"]), true);
+  assert.strictEqual(writableProposal(["data", "events"]), false);
+  assert.strictEqual(writableProposal([".scratch", "writing-revamp", "..", "..", "data", "events"]), false);
+});
+
+test("the tool never names data/events as a directory to open or write", () => {
+  assert(!/\[\s*["']data["']\s*,\s*["']events["']/.test(html), "storyboard.html references a data/events dir path");
+});
+
+test("makeHistory undoes one step at a time and skips duplicate snapshots", () => {
+  const { draft } = parseDraft(draftText);
+  const h = makeHistory();
+  const texts = [];
+  for (const t of ["A", "B", "C"]) {
+    h.snapshot(serialiseDraft(draft)); h.snapshot(serialiseDraft(draft));
+    texts.push(serialiseDraft(draft));
+    cardByKey(draft, "c1").text = t;
+  }
+  assert.strictEqual(h.size, 3);
+  for (const want of texts.reverse()) assert.strictEqual(h.undo(), want);
+  assert.strictEqual(h.undo(), null);
+  assert.strictEqual(cardByKey(parseDraft(texts[texts.length - 1]).draft, "c1").text, "One.");
+});
+
+test("cardByKey finds cards across branches, null when missing", () => {
+  const { draft } = parseDraft(draftText);
+  assert.strictEqual(cardByKey(draft, "c9").text, "B.");
+  assert.strictEqual(cardByKey(draft, "zz"), null);
+});
+
 // Every real writing proposal converts and plays to an end along every first-option path.
 const propDir = path.join(__dirname, "..", ".scratch", "writing-revamp");
 const proposals = fs.existsSync(propDir) ? fs.readdirSync(propDir).filter((f) => /-proposal.*\.md$/.test(f)) : [];
@@ -201,6 +266,15 @@ for (const f of proposals) {
     assert.strictEqual(new Set(keys).size, keys.length, "duplicate card keys");
     const first = (card) => { const o = card.choices[0]; return o.check ? o.success : o; };
     assert(playOrder(b.draft, first).length > 0);
+  });
+  test("writing proposal saves without touching prose: " + f, () => {
+    const md = fs.readFileSync(path.join(propDir, f), "utf-8");
+    const { draft } = parseProposal(f, md);
+    const card = flatCards(draft)[0].card;
+    card.text = (card.text || "") + " (edited)";
+    const out = spliceDraft(md, draft);
+    assertSpliceKeepsProse(md, out);
+    assert.strictEqual(flatCards(parseProposal(f, out).draft)[0].card.text, card.text);
   });
 }
 

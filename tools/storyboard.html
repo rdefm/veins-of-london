@@ -157,6 +157,16 @@ section { display: grid; gap: 12px; min-width: 0 }
 .tabs button[aria-selected="true"] { background: var(--surface); border-color: var(--line); color: var(--fg) }
 .panel { display: grid; gap: 28px; min-width: 0 }
 .panel[hidden] { display: none }
+/* Proposal editing: save/undo bar under the board summary, card editor above the cut list. */
+.editbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center }
+.editbar[hidden], .editor[hidden] { display: none }
+.editbar .save { background: var(--fg); color: var(--bg); border: 1px solid var(--fg); border-radius: 6px; padding: 6px 14px; font-weight: 700 }
+.editbar button:disabled { opacity: .45; cursor: default }
+.editbar .dirty { font: 12px var(--mono); color: var(--muted) }
+.editbar .dirty.on { color: var(--warn); font-weight: 600 }
+.editor { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px; gap: 8px }
+.editor-head { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; justify-content: space-between }
+.editor textarea { width: 100%; resize: vertical; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; font-size: 14px; line-height: 1.45 }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important } }
 </style>
 </head>
@@ -178,7 +188,7 @@ section { display: grid; gap: 12px; min-width: 0 }
 
   <div id="empty" class="empty">
     <h2>No storyboards yet</h2>
-    <p>Open the veins-of-london repo folder (Chrome or Edge on desktop). Boards come from <code>.scratch/event-art/&lt;event&gt;/board.json</code>; uploads save into <code>assets/reference-plates/</code>; verdicts save to the board's <code>feedback.json</code>. Writing proposals (any <code>.scratch/writing-revamp/*.md</code> with an event JSON block) appear under "Proposals", read-only.</p>
+    <p>Open the veins-of-london repo folder (Chrome or Edge on desktop). Boards come from <code>.scratch/event-art/&lt;event&gt;/board.json</code>; uploads save into <code>assets/reference-plates/</code>; verdicts save to the board's <code>feedback.json</code>. Writing proposals (any <code>.scratch/writing-revamp/*.md</code> with an event JSON block) appear under "Proposals"; edits save back into that file's JSON block.</p>
     <p class="muted" id="db-note">Click "Open repo folder" and pick the veins-of-london folder.</p>
   </div>
 
@@ -189,6 +199,11 @@ section { display: grid; gap: 12px; min-width: 0 }
           <span class="pill" id="phase-pill"></span>
           <span class="pill" id="round-pill" style="color:var(--muted)"></span>
           <span class="mono muted" id="count-line"></span>
+        </div>
+        <div class="editbar" id="editbar" hidden>
+          <button type="button" class="save" id="save" title="Save the draft into the proposal's JSON block (Ctrl+S)">Save</button>
+          <button type="button" class="tb" id="undo" title="Undo the last edit (Ctrl+Z outside a text box)">Undo</button>
+          <span class="dirty" id="dirty" role="status"></span>
         </div>
         <p class="logline" id="logline"></p>
       </section>
@@ -213,6 +228,11 @@ section { display: grid; gap: 12px; min-width: 0 }
           </div>
         </div>
         <section>
+          <section class="editor" id="card-editor" hidden>
+            <div class="editor-head"><h2>Card</h2><span class="mono muted" id="ce-where"></span></div>
+            <label class="eyebrow" for="ce-text">Text</label>
+            <textarea id="ce-text" rows="5"></textarea>
+          </section>
           <h2>Cut list</h2>
           <p class="muted" style="margin:0">A heavy rule marks a new image. Tap a row to preview that card.</p>
           <div class="cuts" id="cuts"></div>
@@ -267,7 +287,6 @@ section { display: grid; gap: 12px; min-width: 0 }
   const EXT = { "image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp" };
   const PLATES_DIR = ["assets", "reference-plates"];
   const BOARDS_DIR = [".scratch", "event-art"];
-  const PROPOSALS_DIR = [".scratch", "writing-revamp"];
 
   let root = null, boards = [], feedback = {}, plateFiles = new Map(), currentId = null, cardIdx = 0;
   // Proposal play-through: cards visited before this one (for Prev), and the picked option/outcome on a choice card.
@@ -356,12 +375,14 @@ section { display: grid; gap: 12px; min-width: 0 }
   // No DOM, no file access: tools/test_storyboard.js extracts everything between this marker and
   // "End draft model" and unit-tests it. Draft format: .scratch/storyboard-editor/spec.md § Draft format.
   const PROPOSAL_PREFIX = "proposal:";
+  const PROPOSALS_DIR = [".scratch", "writing-revamp"];
+  const JSON_BLOCK_RE = /```json[^\n]*\n([\s\S]*?)\n```/;
   const plain = (s) => s.replace(/\*\*(.+?)\*\*/g, "$1").replace(/`([^`]+)`/g, "$1").trim();
   // A proposal is a Markdown file whose first ```json block is a whole event: a branch draft ({id, start,
-  // branches}) or a legacy flat event ({id, cards}), converted to a draft. It becomes a read-only board:
+  // branches}) or a legacy flat event ({id, cards}), converted to a draft. It becomes an editable board:
   // title from the "# " heading, logline from the first paragraph, questions from "## Open points".
   function parseProposal(file, md) {
-    const m = md.match(/```json[^\n]*\n([\s\S]*?)\n```/);
+    const m = md.match(JSON_BLOCK_RE);
     if (!m) return null;
     const title = plain((md.match(/^#\s+(.+)$/m) || [, file])[1]);
     const intro = md.slice(0, m.index).split(/\n\s*\n/).map((p) => p.trim()).find((p) => p && !p.startsWith("#")) || "";
@@ -479,22 +500,60 @@ section { display: grid; gap: 12px; min-width: 0 }
     if (!Array.isArray(then)) return targetText(then);
     return then.map((e) => (e.if ? `if ${JSON.stringify(e.if)}: ` : "else: ") + (e.branch ? targetText(e) : "end")).join("; ");
   }
+  // The proposal's first ```json block: {start, end} offsets of its body in md, or null.
+  function jsonBlockRange(md) {
+    const m = md.match(JSON_BLOCK_RE);
+    if (!m) return null;
+    const start = m.index + m[0].length - m[1].length - 4; // body sits between the fence line and "\n```"
+    return { start, end: start + m[1].length };
+  }
+  // md with its JSON block body replaced by the serialised draft; every byte outside the body is kept, and the
+  // block keeps its CRLF line endings if it had them.
+  function spliceDraft(md, draft) {
+    const r = jsonBlockRange(md);
+    if (!r) throw new Error("proposal has no ```json block");
+    const old = md.slice(r.start, r.end), crlf = old.includes("\r\n");
+    let body = serialiseDraft(draft);
+    if (crlf) body = body.replace(/\n/g, "\r\n") + (old.endsWith("\r") ? "\r" : "");
+    return md.slice(0, r.start) + body + md.slice(r.end);
+  }
+  // Saving only ever targets proposals; live events under data/events/ are written by promote, never by this tool.
+  const writableProposal = (parts) => parts.join("/") === PROPOSALS_DIR.join("/");
+  function cardByKey(draft, key) {
+    for (const name in draft.branches) for (const c of branchCards(draft, name)) if (c.key === key) return c;
+    return null;
+  }
+  // Undo history over serialised drafts: snapshot() before an edit, undo() returns the previous text or null.
+  function makeHistory() {
+    const stack = [];
+    return {
+      snapshot(text) { if (stack.at(-1) !== text) stack.push(text); },
+      undo() { return stack.length ? stack.pop() : null; },
+      get size() { return stack.length; },
+    };
+  }
   /* ---------- End draft model ---------- */
 
   // Image per card, as the event screen resolves it: an explicit "image" key (null clears), else (legacy flat
   // proposals only) the convention asset assets/events/<id>/<id>_card<N>.*, else hold the previous image.
-  async function proposalCards(b) {
-    const conv = new Map();
+  async function loadConventionImages(b) {
+    b.conv = new Map();
     const id = b.draft.id;
     if (b.legacy) try {
       for await (const [name, h] of (await dirAt(["assets", "events", id])).entries())
-        if (h.kind === "file" && IMG_RE.test(name)) conv.set(stemOf(name), `res://assets/events/${id}/${name}`);
+        if (h.kind === "file" && IMG_RE.test(name)) b.conv.set(stemOf(name), `res://assets/events/${id}/${name}`);
     } catch {}
+  }
+  // Rebuilds the flat card list from the draft (after load or any edit).
+  function proposalCards(b) {
+    const id = b.draft.id;
     b.cards = flatCards(b.draft).map(({ branch, idx, card }, i) => {
-      const img = "image" in card ? card.image : conv.get(`${id}_card${i + 1}`);
+      const img = "image" in card ? card.image : b.conv.get(`${id}_card${i + 1}`);
       return { ...card, branch, idx, cut: img === null ? "CLEAR" : img ? "NEW" : "HOLD", shot: img || null };
     });
   }
+  // Unsaved = the draft no longer serialises to what was last loaded or saved.
+  const isDirty = (b) => !!b && b.kind === "proposal" && !!b.draft && serialiseDraft(b.draft) !== b.saved;
   async function loadProposals() {
     const out = [];
     let dir;
@@ -502,10 +561,16 @@ section { display: grid; gap: 12px; min-width: 0 }
     for await (const [name, h] of dir.entries()) {
       if (h.kind !== "file" || !name.endsWith(".md")) continue;
       const f = await h.getFile();
-      const b = parseProposal(name, await f.text());
+      const md = await f.text();
+      const b = parseProposal(name, md);
       if (!b) continue;
       b.updatedAt = f.lastModified;
-      if (b.draft) await proposalCards(b);
+      if (b.draft) {
+        const r = jsonBlockRange(md);
+        Object.assign(b, { diskBlock: md.slice(r.start, r.end), saved: serialiseDraft(b.draft), history: makeHistory() });
+        await loadConventionImages(b);
+        proposalCards(b);
+      }
       out.push(b);
     }
     return out.sort((a, b) => a.file.localeCompare(b.file));
@@ -535,7 +600,17 @@ section { display: grid; gap: 12px; min-width: 0 }
       }
     } catch { setNote("No .scratch/event-art/ folder yet. Ask Claude to storyboard an event."); }
     await loadPlates();
-    boards = found.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).concat(await loadProposals());
+    // A proposal with unsaved edits keeps its in-memory draft across reloads (Save checks the disk copy first);
+    // one whose JSON block is unchanged on disk keeps its undo history.
+    const prev = new Map(boards.filter((b) => b.kind === "proposal" && b.draft).map((b) => [b.eventId, b]));
+    const proposals = (await loadProposals()).map((b) => {
+      const old = prev.get(b.eventId);
+      if (!old) return b;
+      if (isDirty(old)) return old;
+      if (b.draft && old.diskBlock === b.diskBlock) b.history = old.history;
+      return b;
+    });
+    boards = found.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).concat(proposals);
     setNote(boards.length ? "" : "No storyboards in .scratch/event-art/ or proposals in .scratch/writing-revamp/ yet.");
     const want = currentId && boards.some((b) => b.eventId === currentId) ? currentId
       : (boards.some((b) => b.eventId === remembered()) ? remembered() : boards[0]?.eventId || null);
@@ -672,6 +747,7 @@ section { display: grid; gap: 12px; min-width: 0 }
       frame.append(el("div", { class: "ph clear" }, el("p", { text: "No cards." })));
       $("tp-label").textContent = ""; $("tp-who").textContent = ""; $("tp-text").textContent = b.error || "";
       $("pos").textContent = ""; $("next").disabled = true;
+      $("card-editor").hidden = true;
       return;
     }
     const c = b.cards[cardIdx];
@@ -716,11 +792,91 @@ section { display: grid; gap: 12px; min-width: 0 }
     $("pos").textContent = `${c.branch} · ${c.key} · ${cardIdx + 1}/${b.cards.length}`;
     $("next").disabled = nextIndex(b) >= b.cards.length;
     document.querySelectorAll(".cut").forEach((r, i) => r.setAttribute("aria-current", String(i === cardIdx)));
+    renderEditor(b);
+  }
+
+  // ---- proposal editing (draft edits, undo, save) ----------------------------
+  // One undo step per edit session: the draft is snapshotted on the first keystroke after the field gains focus.
+  let editSession = false;
+  function renderEditor(b) {
+    const c = b.cards[cardIdx], ta = $("ce-text");
+    $("card-editor").hidden = !c;
+    if (!c) return;
+    $("ce-where").textContent = `${c.branch} · ${c.key}`;
+    if (document.activeElement !== ta) ta.value = c.text || "";
+  }
+  // msg replaces the status line; otherwise it shows the dirty state (a "Saved …" note stays until the next edit).
+  function renderEditBar(msg) {
+    const b = board(), on = !!b && b.kind === "proposal" && !!b.draft;
+    $("editbar").hidden = !on;
+    if (!on) return;
+    const dirty = isDirty(b);
+    $("save").disabled = !dirty;
+    $("undo").disabled = b.history.size === 0;
+    const d = $("dirty");
+    d.classList.toggle("on", dirty);
+    if (msg) d.textContent = msg;
+    else if (dirty) d.textContent = "● Unsaved changes";
+    else if (!d.textContent.startsWith("Saved")) d.textContent = "No unsaved changes";
+  }
+  // Applies fn(draft) as one edit and re-renders the preview and cut list.
+  function editDraft(fn, newStep) {
+    const b = board(); if (!b || !b.draft) return;
+    if (newStep) b.history.snapshot(serialiseDraft(b.draft));
+    fn(b.draft);
+    proposalCards(b);
+    renderCuts(b); renderFrame(); renderEditBar();
+  }
+  function undoEdit() {
+    const b = board(); if (!b || !b.draft) return;
+    const t = b.history.undo(); if (t == null) return;
+    b.draft = JSON.parse(t);
+    editSession = false;
+    proposalCards(b);
+    if (document.activeElement === $("ce-text")) $("ce-text").blur();
+    renderBoard();
+  }
+  async function saveProposal() {
+    const b = board(); if (!isDirty(b)) return;
+    if (!writableProposal(PROPOSALS_DIR)) { renderEditBar("Refusing to save outside .scratch/writing-revamp/."); return; }
+    if (b.legacy && !confirm(`${b.file} is a flat event. Saving rewrites its JSON block as named branches`
+      + (b.conv.size ? " (its assets/events/ convention images stop showing in this preview)" : "") + ". Save?")) return;
+    $("save").disabled = true; $("dirty").textContent = "Saving…";
+    let msg;
+    try {
+      const dir = await dirAt(PROPOSALS_DIR);
+      const md = await (await (await dir.getFileHandle(b.file)).getFile()).text();
+      const r = jsonBlockRange(md);
+      if (!r) throw new Error("the file no longer has a ```json block");
+      if (md.slice(r.start, r.end) !== b.diskBlock
+        && !confirm(`${b.file}'s JSON block changed on disk since it was loaded. Overwrite it with this draft?`)) {
+        renderEditBar("Save cancelled."); return;
+      }
+      const out = spliceDraft(md, b.draft);
+      await writeFile(dir, b.file, out);
+      const r2 = jsonBlockRange(out);
+      b.diskBlock = out.slice(r2.start, r2.end);
+      b.saved = serialiseDraft(b.draft);
+      b.legacy = false;
+      msg = `Saved ${new Date().toLocaleTimeString()} to ${b.file}`;
+    } catch (e) { msg = "Couldn't save: " + (e && e.message); }
+    renderEditBar(msg);
+  }
+  // Leaving a dirty board discards its edits (after a confirm); false = stay.
+  function leaveBoard() {
+    const b = board();
+    if (!isDirty(b)) return true;
+    if (!confirm(`${b.file} has unsaved changes. Discard them?`)) return false;
+    b.draft = JSON.parse(b.saved);
+    b.history = makeHistory();
+    proposalCards(b);
+    return true;
   }
 
   function renderFrame() {
     const b = board(); if (!b) return;
     if (b.kind === "proposal") { renderProposalFrame(b); return; }
+    $("card-editor").hidden = true;
     $("tp-opts").hidden = true; $("tp-outcome").hidden = true; $("tp-label").textContent = "";
     const c = b.cards[cardIdx];
     const sid = shotForCard(b, cardIdx);
@@ -939,13 +1095,14 @@ section { display: grid; gap: 12px; min-width: 0 }
   function renderBoard() {
     const b = board();
     $("empty").hidden = !!b; $("board").hidden = !b;
+    renderEditBar();
     if (!b) return;
     $("h-title").textContent = b.title || b.eventId;
     const isProposal = b.kind === "proposal";
     $("s-section").hidden = isProposal; $("board-verdict").hidden = isProposal; $("shots-none").hidden = !isProposal;
     if (isProposal) {
       const pill = $("phase-pill");
-      pill.textContent = "Writing proposal · read-only"; pill.style.color = "var(--accent)";
+      pill.textContent = "Writing proposal"; pill.style.color = "var(--accent)";
       $("round-pill").textContent = b.draft ? b.draft.id + (b.draft.at ? ` · at ${b.draft.at.block}${b.draft.at.advance ? " (advance)" : ""}` : "") : "no event";
       const nChoices = b.cards.filter((c) => c.choices).length, nNew = b.cards.filter((c) => c.cut === "NEW").length;
       $("count-line").textContent = b.error || `${b.cards.length} cards · ${nChoices} choices · ${nNew} images · ${b.file}`;
@@ -985,11 +1142,31 @@ section { display: grid; gap: 12px; min-width: 0 }
   function renderAll() { renderPicker(); if (!typing()) renderBoard(); }
   function selectBoard(id, keepCard) {
     if (!keepCard) { cardIdx = 0; trail = []; pick = null; outcomeKey = null; }
+    if (id !== currentId) $("dirty").textContent = "";
     currentId = id; if (id) remember(id);
     renderPicker(); renderBoard();
   }
 
-  $("board-select").addEventListener("change", (e) => selectBoard(e.target.value));
+  $("board-select").addEventListener("change", (e) => {
+    if (!leaveBoard()) { e.target.value = currentId; return; }
+    selectBoard(e.target.value);
+  });
+  $("ce-text").addEventListener("focus", () => { editSession = false; });
+  $("ce-text").addEventListener("input", (e) => {
+    const c = board().cards[cardIdx], text = e.target.value;
+    editDraft((d) => { cardByKey(d, c.key).text = text; }, !editSession);
+    editSession = true;
+  });
+  $("save").addEventListener("click", saveProposal);
+  $("undo").addEventListener("click", undoEdit);
+  document.addEventListener("keydown", (e) => {
+    if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+    const k = e.key.toLowerCase();
+    if (k === "s" && board() && board().kind === "proposal") { e.preventDefault(); saveProposal(); }
+    // Inside a text box Ctrl+Z stays the browser's own text undo.
+    else if (k === "z" && !e.shiftKey && !typing() && !/^(INPUT|SELECT)$/.test(document.activeElement.tagName)) { e.preventDefault(); undoEdit(); }
+  });
+  window.addEventListener("beforeunload", (e) => { if (boards.some(isDirty)) { e.preventDefault(); e.returnValue = ""; } });
   for (const t of TABS) $("tab-" + t).addEventListener("click", () => showTab(t));
   showTab(rememberedTab());
   $("prev").addEventListener("click", () => {
