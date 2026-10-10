@@ -121,6 +121,43 @@
     padding: 8px 10px; font-size: 12px; color: var(--text-dim); line-height: 1.4;
   }
   .add-choice-btn { width: 100%; margin-top: 4px; }
+  .field-row select, .field-row input[type=number] {
+    width: 100%; padding: 9px 10px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--bg); color: var(--text);
+    font-family: inherit; font-size: 16px;
+  }
+  .mech { margin-top: 8px; }
+  .mech-row { display: flex; flex-wrap: wrap; gap: 0 10px; align-items: flex-end; }
+  .mech-cell { flex: 1 1 130px; min-width: 0; }
+  .mech-wide { flex: 1 1 100%; }
+  .mech-sub {
+    border: 1px dashed var(--border); border-radius: 8px;
+    padding: 10px 10px 2px; margin-bottom: 10px;
+  }
+  .mech-heading {
+    font-size: 12px; color: var(--accent); text-transform: uppercase;
+    letter-spacing: 0.04em; margin-bottom: 8px;
+  }
+  .mech-mod { border-top: 1px solid var(--border); padding-top: 8px; }
+  .mech-json {
+    background: var(--bg); border: 1px dashed var(--border); border-radius: 6px;
+    padding: 8px 10px; font-family: ui-monospace, Menlo, monospace; font-size: 12px;
+    white-space: pre-wrap; word-break: break-word; color: var(--text-dim);
+    max-height: 180px; overflow-y: auto;
+  }
+  .mech-check {
+    display: flex; align-items: center; gap: 8px; font-size: 14px;
+    color: var(--text-dim); min-height: 44px; margin-bottom: 10px;
+  }
+  .mech-check input { width: 22px; height: 22px; }
+  .mech-btn {
+    background: var(--panel-alt); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 12px; font-size: 14px; min-height: 44px;
+    margin-bottom: 10px; -webkit-appearance: none; appearance: none;
+  }
+  .mech-btn:active { background: var(--accent-dim); }
+  .mech-btn-danger:active { background: var(--danger); color: #14141a; border-color: var(--danger); }
+
   #add-card-btn { width: 100%; margin-bottom: 16px; }
 </style>
 </head>
@@ -143,23 +180,427 @@
 <script>
 "use strict";
 
-/* ---------- State ---------- */
+/* ---------- Choice mechanics (shared) ---------- */
 
-const state = {
-  draft: null, // { id, cards: [{type,label,speaker,text,choices:[{label,result_text}]}], notesText }
-  loadedFrom: null, // filename this draft was opened from, if any
-  dirty: false,
-};
+// Byte-identical in tools/quest-editor.html and tools/quest-editor-mobile.html
+// (tools/test_quest_editor.js enforces it): the option and event mechanics
+// both editors author, per docs/REFERENCE.md §3.9a (option id, check,
+// success/fail, requires, goto) and §3.9b (event `at`). Effects stay
+// read-only and pass through untouched.
 
-const el = {
-  newBtn: document.getElementById("new-btn"),
-  openBtn: document.getElementById("open-btn"),
-  openInput: document.getElementById("open-input"),
-  saveBtn: document.getElementById("save-btn"),
-  copyBtn: document.getElementById("copy-btn"),
-  status: document.getElementById("status"),
-  content: document.getElementById("content"),
-};
+const AT_BLOCKS = ["morning", "afternoon", "evening", "night"];
+const SHOW_MODES = ["odds", "hint", "hidden"];
+const OPTION_KEY_ORDER = ["label", "id", "requires", "effects", "result_text", "goto", "check", "success", "fail", "bySuccesses"];
+const CONDITION_KINDS = [
+  { kind: "flag", label: "Flag set", modOnly: false },
+  { kind: "choice", label: "Earlier choice", modOnly: false },
+  { kind: "path", label: "State path", modOnly: false },
+  { kind: "relation", label: "Contact relation", modOnly: false },
+  { kind: "cash", label: "Cash", modOnly: false },
+  { kind: "item", label: "Item held", modOnly: false },
+  { kind: "itemEquipped", label: "Item equipped", modOnly: false },
+  { kind: "itemOptional", label: "Item (optional toggle)", modOnly: true },
+];
+
+// Empty prose fields are written as null, matching the convention every
+// hand-authored event file already uses (e.g. a narration card's unused
+// "speaker" key) rather than empty strings.
+function normProse(v) {
+  const t = (v || "").trim();
+  return t === "" ? null : t;
+}
+
+function deepEqual(a, b) {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+function deepClone(v) {
+  return v === undefined ? undefined : JSON.parse(JSON.stringify(v));
+}
+
+function replaceContents(target, source) {
+  for (const k of Object.keys(target)) delete target[k];
+  Object.assign(target, source);
+}
+
+function orderOptionKeys(opt) {
+  const out = {};
+  for (const k of OPTION_KEY_ORDER) if (k in opt) out[k] = opt[k];
+  for (const k of Object.keys(opt)) if (!(k in out)) out[k] = opt[k];
+  return out;
+}
+
+function isCheckOption(opt) {
+  return !!opt && !!opt.check && typeof opt.check === "object";
+}
+
+// Which REFERENCE §3.9a condition a mod / requires object states.
+function conditionKind(c) {
+  if (!c || typeof c !== "object") return "";
+  if ("flag" in c) return "flag";
+  if ("choice" in c) return "choice";
+  if ("path" in c) return "path";
+  if ("relation" in c) return "relation";
+  if ("cash" in c) return "cash";
+  if ("item" in c) return c.optional ? "itemOptional" : c.equipped ? "itemEquipped" : "item";
+  return "";
+}
+
+function conditionTemplate(kind, isMod) {
+  switch (kind) {
+    case "flag": return { flag: "" };
+    case "choice": return { choice: { event: "", card: 0, option: "" } };
+    case "path": return isMod ? { path: "", perPoint: 0 } : { path: "", atLeast: 0 };
+    case "relation": return { relation: "", atLeast: 0 };
+    case "cash": return { cash: { atLeast: 0 } };
+    case "item": return { item: "" };
+    case "itemEquipped": return { item: "", equipped: true };
+    case "itemOptional": return { item: "", optional: true };
+    default: return {};
+  }
+}
+
+// Rewrites obj in place to a fresh condition of `kind`, keeping a mod's
+// add/label or a requires' display/reason.
+function setConditionKind(obj, kind, isMod) {
+  const fresh = conditionTemplate(kind, isMod);
+  if (isMod) {
+    if (kind !== "path") fresh.add = typeof obj.add === "number" ? obj.add : 0;
+    fresh.label = typeof obj.label === "string" ? obj.label : "";
+  } else {
+    for (const k of ["display", "reason"]) if (k in obj) fresh[k] = obj[k];
+  }
+  replaceContents(obj, fresh);
+}
+
+function optionToCheck(opt) {
+  const success = { result_text: opt.result_text === undefined ? null : opt.result_text, effects: [] };
+  if (opt.goto !== undefined) success.goto = opt.goto;
+  const next = Object.assign({}, opt, {
+    check: { base: 0.5, mods: [] },
+    success,
+    fail: { result_text: null, effects: [] },
+  });
+  delete next.result_text;
+  delete next.goto;
+  replaceContents(opt, orderOptionKeys(next));
+}
+
+function optionToPlain(opt) {
+  const success = opt.success && typeof opt.success === "object" ? opt.success : {};
+  const next = Object.assign({}, opt, {
+    effects: Array.isArray(opt.effects) ? opt.effects : [],
+    result_text: success.result_text === undefined ? null : success.result_text,
+  });
+  if (success.goto !== undefined) next.goto = success.goto;
+  for (const k of ["check", "success", "fail", "bySuccesses"]) delete next[k];
+  replaceContents(opt, orderOptionKeys(next));
+}
+
+// Normalizes one editor option into the saved schema: prose trimmed (blank
+// → null), a plain option always carries effects + result_text, a check
+// option's success/fail always carry result_text + effects
+// (GameData._validate_choice_card).
+function buildOptionForSave(opt) {
+  const o = deepClone(opt);
+  o.label = normProse(o.label);
+  if (isCheckOption(o)) {
+    for (const key of ["success", "fail"]) {
+      const out = o[key] && typeof o[key] === "object" ? o[key] : {};
+      o[key] = Object.assign({ result_text: null, effects: [] }, out, { result_text: normProse(out.result_text) });
+    }
+  } else {
+    if (!Array.isArray(o.effects)) o.effects = [];
+    o.result_text = normProse(o.result_text);
+  }
+  return orderOptionKeys(o);
+}
+
+function mechEl(tag, cls, text) {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (text !== undefined) n.textContent = text;
+  return n;
+}
+
+function mechCell(labelText, control, wide) {
+  const row = mechEl("div", "field-row mech-cell" + (wide ? " mech-wide" : ""));
+  row.appendChild(mechEl("label", "", labelText));
+  row.appendChild(control);
+  return row;
+}
+
+// Text control bound to obj[key]. A blank value deletes the key when
+// blank === "delete", stores null when blank === "null", else stores "".
+function mechText(obj, key, changed, blank, multiline, placeholder) {
+  const c = document.createElement(multiline ? "textarea" : "input");
+  if (!multiline) c.type = "text";
+  c.value = obj[key] === null || obj[key] === undefined ? "" : String(obj[key]);
+  if (placeholder) c.placeholder = placeholder;
+  c.addEventListener("input", () => {
+    if (c.value === "" && blank === "delete") delete obj[key];
+    else if (c.value === "" && blank === "null") obj[key] = null;
+    else obj[key] = c.value;
+    changed();
+  });
+  return c;
+}
+
+// Number control bound to obj[key]; blank deletes an optional key, else 0.
+function mechNumber(obj, key, changed, optional, placeholder) {
+  const c = document.createElement("input");
+  c.type = "number";
+  c.step = "any";
+  c.value = typeof obj[key] === "number" ? String(obj[key]) : "";
+  if (placeholder) c.placeholder = placeholder;
+  c.addEventListener("input", () => {
+    const n = c.value.trim() === "" ? NaN : Number(c.value);
+    if (Number.isFinite(n)) obj[key] = n;
+    else if (optional) delete obj[key];
+    else obj[key] = 0;
+    changed();
+  });
+  return c;
+}
+
+function mechSelect(choices, current, onPick) {
+  const s = document.createElement("select");
+  for (const [value, label] of choices) {
+    const o = document.createElement("option");
+    o.value = value;
+    o.textContent = label;
+    if (value === current) o.selected = true;
+    s.appendChild(o);
+  }
+  s.addEventListener("change", () => onPick(s.value));
+  return s;
+}
+
+function mechCheckbox(labelText, checked, onToggle) {
+  const wrap = mechEl("label", "mech-check");
+  const box = document.createElement("input");
+  box.type = "checkbox";
+  box.checked = checked;
+  box.addEventListener("change", () => onToggle(box.checked));
+  wrap.appendChild(box);
+  wrap.appendChild(mechEl("span", "", labelText));
+  return wrap;
+}
+
+function mechButton(text, danger, onClick) {
+  const b = mechEl("button", "mech-btn" + (danger ? " mech-btn-danger" : ""), text);
+  b.type = "button";
+  b.addEventListener("click", onClick);
+  return b;
+}
+
+function mechReadonly(labelText, value) {
+  return mechCell(labelText, mechEl("div", "mech-json", JSON.stringify(value, null, 2)), true);
+}
+
+// Re-renders itself on structural changes (kind/mode switches, add/remove)
+// so typing into a plain field never rebuilds the form under the cursor.
+function renderOptionMechanics(opt, changed) {
+  const box = mechEl("div", "mech");
+  const redraw = () => box.replaceChildren(...optionMechanicsRows(opt, changed, () => { changed(); redraw(); }));
+  redraw();
+  return box;
+}
+
+function renderEventAt(ev, changed) {
+  const box = mechEl("div", "mech");
+  const redraw = () => box.replaceChildren(...eventAtRows(ev, changed, () => { changed(); redraw(); }));
+  redraw();
+  return box;
+}
+
+function eventAtRows(ev, changed, restructure) {
+  const row = mechEl("div", "mech-row");
+  const at = ev.at && typeof ev.at === "object" ? ev.at : null;
+  const blocks = [["", "Whenever triggered"]].concat(AT_BLOCKS.map((b) => [b, b]));
+  row.appendChild(mechCell("Runs at block", mechSelect(blocks, at ? at.block : "", (v) => {
+    if (!v) delete ev.at;
+    else if (at) at.block = v;
+    else ev.at = { block: v, advance: false };
+    restructure();
+  })));
+  if (at) row.appendChild(mechCheckbox("Advance the clock to this block", !!at.advance, (on) => { at.advance = on; changed(); }));
+  return [row];
+}
+
+function optionMechanicsRows(opt, changed, restructure) {
+  const rows = [];
+  const check = isCheckOption(opt);
+  const head = mechEl("div", "mech-row");
+  head.appendChild(mechCell("Option id", mechText(opt, "id", changed, "delete", false, "optional")));
+  head.appendChild(mechCell("Resolves by", mechSelect([["plain", "Fixed result"], ["check", "Check (roll)"]], check ? "check" : "plain", (v) => {
+    if (v === "check") optionToCheck(opt);
+    else if (confirm("Switch to a fixed result? The check, its modifiers and the fail outcome are dropped; the success text becomes the result.")) optionToPlain(opt);
+    restructure();
+  })));
+  rows.push(head);
+  rows.push(requiresBlock(opt, changed, restructure));
+  if (Array.isArray(opt.effects) && (!check || opt.effects.length)) {
+    rows.push(mechReadonly(check ? "Effects before the roll (read-only)" : "Effects (read-only)", opt.effects));
+  }
+  if (check) {
+    rows.push(...checkRows(opt, changed, restructure));
+  } else {
+    rows.push(mechCell("Result text", mechText(opt, "result_text", changed, "null", true), true));
+    rows.push(gotoRow(opt, changed));
+  }
+  return rows;
+}
+
+function gotoRow(obj, changed) {
+  const row = mechEl("div", "mech-row");
+  row.appendChild(mechCell("Go to card idx", mechNumber(obj, "goto", changed, true, "next card")));
+  return row;
+}
+
+function requiresBlock(opt, changed, restructure) {
+  const box = mechEl("div", "mech-sub");
+  const req = opt.requires && typeof opt.requires === "object" ? opt.requires : null;
+  const kinds = [["", "Always available"]].concat(CONDITION_KINDS.filter((k) => !k.modOnly).map((k) => [k.kind, k.label]));
+  const row = mechEl("div", "mech-row");
+  row.appendChild(mechCell("Requires", mechSelect(kinds, conditionKind(req), (v) => {
+    if (!v) delete opt.requires;
+    else {
+      if (!req) opt.requires = {};
+      setConditionKind(opt.requires, v, false);
+    }
+    restructure();
+  })));
+  box.appendChild(row);
+  if (!req) return box;
+  conditionCells(req, false, changed).forEach((c) => row.appendChild(c));
+  const row2 = mechEl("div", "mech-row");
+  row2.appendChild(mechCell("When unmet", mechSelect([["hide", "Hide"], ["disable", "Show disabled"]], req.display === "disable" ? "disable" : "hide", (v) => {
+    if (v === "disable") req.display = "disable";
+    else delete req.display;
+    restructure();
+  })));
+  row2.appendChild(mechCell("Reason (shown when disabled)", mechText(req, "reason", changed, "delete"), true));
+  box.appendChild(row2);
+  return box;
+}
+
+function conditionCells(c, isMod, changed) {
+  const kind = conditionKind(c);
+  const cells = [];
+  if (kind === "flag") cells.push(mechCell("Flag", mechText(c, "flag", changed, "")));
+  if (kind === "choice" && c.choice && typeof c.choice === "object") {
+    const ch = c.choice;
+    cells.push(mechCell("Event id", mechText(ch, "event", changed, "")));
+    cells.push(mechCell("Card idx", mechNumber(ch, "card", changed, false)));
+    const opt = mechText(ch, "option", changed, "", false, "option id or index");
+    // A bare number is an option index; anything else is an option id.
+    opt.addEventListener("input", () => {
+      if (/^\d+$/.test(opt.value)) ch.option = Number(opt.value);
+      changed();
+    });
+    cells.push(mechCell("Option", opt));
+  }
+  if (kind === "path") {
+    cells.push(mechCell("State path", mechText(c, "path", changed, "", false, "e.g. player.cash")));
+    if (isMod) {
+      cells.push(mechCell("Per point", mechNumber(c, "perPoint", changed, false)));
+      cells.push(mechCell("Above", mechNumber(c, "above", changed, true, "0")));
+    } else {
+      cells.push(mechCell("At least", mechNumber(c, "atLeast", changed, false)));
+    }
+  }
+  if (kind === "relation") {
+    cells.push(mechCell("Contact id", mechText(c, "relation", changed, "")));
+    cells.push(mechCell("At least", mechNumber(c, "atLeast", changed, false)));
+  }
+  if (kind === "cash" && c.cash && typeof c.cash === "object") {
+    cells.push(mechCell("Cash at least £", mechNumber(c.cash, "atLeast", changed, false)));
+  }
+  if (kind === "item" || kind === "itemEquipped" || kind === "itemOptional") {
+    cells.push(mechCell("Item id", mechText(c, "item", changed, "")));
+  }
+  if (kind === "itemOptional") {
+    cells.push(mechCheckbox("Consumed on commit", !!c.consume, (on) => {
+      if (on) c.consume = true;
+      else delete c.consume;
+      changed();
+    }));
+  }
+  return cells;
+}
+
+function modBlock(mod, i, mods, changed, restructure) {
+  const row = mechEl("div", "mech-row mech-mod");
+  row.appendChild(mechCell("Modifier " + (i + 1), mechSelect(CONDITION_KINDS.map((k) => [k.kind, k.label]), conditionKind(mod), (v) => {
+    setConditionKind(mod, v, true);
+    restructure();
+  })));
+  conditionCells(mod, true, changed).forEach((c) => row.appendChild(c));
+  if (conditionKind(mod) !== "path") row.appendChild(mechCell("Add", mechNumber(mod, "add", changed, false, "e.g. 0.1")));
+  row.appendChild(mechCell("Label", mechText(mod, "label", changed, ""), true));
+  row.appendChild(mechButton("✕ Remove", true, () => {
+    mods.splice(i, 1);
+    restructure();
+  }));
+  return row;
+}
+
+function outcomeBlock(opt, key, title, changed, restructure) {
+  const box = mechEl("div", "mech-sub");
+  box.appendChild(mechEl("div", "mech-heading", title));
+  const out = opt[key] && typeof opt[key] === "object" ? opt[key] : null;
+  if (!out) {
+    box.appendChild(mechButton("+ Add " + key + " outcome", false, () => {
+      opt[key] = { result_text: null, effects: [] };
+      restructure();
+    }));
+    return box;
+  }
+  box.appendChild(mechCell("Result text", mechText(out, "result_text", changed, "null", true), true));
+  if (Array.isArray(out.effects)) box.appendChild(mechReadonly("Effects (read-only)", out.effects));
+  box.appendChild(gotoRow(out, changed));
+  return box;
+}
+
+function checkRows(opt, changed, restructure) {
+  const check = opt.check;
+  const rows = [];
+  const odds = mechEl("div", "mech-sub");
+  odds.appendChild(mechEl("div", "mech-heading", "Check"));
+  const row = mechEl("div", "mech-row");
+  row.appendChild(mechCell("Base chance", mechNumber(check, "base", changed, false)));
+  row.appendChild(mechCell("Min", mechNumber(check, "min", changed, true, "default")));
+  row.appendChild(mechCell("Max", mechNumber(check, "max", changed, true, "default")));
+  row.appendChild(mechCell("Show", mechSelect(SHOW_MODES.map((m) => [m, m === "odds" ? "odds (default)" : m]), check.show || "odds", (v) => {
+    if (v === "odds") delete check.show;
+    else check.show = v;
+    changed();
+  })));
+  row.appendChild(mechCell("Attempts", mechNumber(check, "attempts", changed, true, "1")));
+  odds.appendChild(row);
+
+  const mods = Array.isArray(check.mods) ? check.mods : [];
+  mods.forEach((mod, i) => odds.appendChild(modBlock(mod, i, mods, changed, restructure)));
+  odds.appendChild(mechButton("+ Add modifier", false, () => {
+    if (!Array.isArray(check.mods)) check.mods = [];
+    const m = {};
+    setConditionKind(m, "flag", true);
+    check.mods.push(m);
+    restructure();
+  }));
+  if (check.perSuccess !== undefined) odds.appendChild(mechReadonly("Per success effects (read-only)", check.perSuccess));
+  rows.push(odds);
+
+  rows.push(outcomeBlock(opt, "success", "On success", changed, restructure));
+  rows.push(outcomeBlock(opt, "fail", "On failure", changed, restructure));
+  if (opt.bySuccesses !== undefined) rows.push(mechReadonly("By success count (read-only)", opt.bySuccesses));
+  return rows;
+}
+
+/* ---------- End choice mechanics ---------- */
+
+/* ---------- Draft bundle ---------- */
 
 const CARD_TYPES = ["narration", "speaker", "choice", "resolution", "craft"];
 const TYPE_LABELS = {
@@ -169,6 +610,8 @@ const TYPE_LABELS = {
   resolution: "Resolution",
   craft: "Craft",
 };
+const CARD_CORE_KEYS = ["type", "label", "speaker", "text", "choices"];
+
 function typeLabel(t) {
   return TYPE_LABELS[t] || (t ? t.charAt(0).toUpperCase() + t.slice(1) : "Card");
 }
@@ -182,6 +625,79 @@ function defaultChoice() {
 function emptyDraft() {
   return { id: "", cards: [defaultCard()], notesText: "" };
 }
+
+// Accepts either a previously-saved draft bundle (format: vein-quest-draft/v1)
+// or a plain quest JSON (id + cards) copied in from data/events/ — either way
+// it becomes an editable draft with no collision/registration checks, since
+// this tool has no view of the real data/events/ folder.
+function draftFromParsed(parsed) {
+  if (!parsed || typeof parsed !== "object" || !Array.isArray(parsed.cards)) return null;
+  const isBundle = parsed.format === "vein-quest-draft/v1";
+  if (!isBundle && typeof parsed.id !== "string") return null;
+  const draft = {
+    id: typeof parsed.id === "string" ? parsed.id : "",
+    cards: parsed.cards.map(cardFromPlain),
+    notesText: isBundle && typeof parsed.notes === "string" ? parsed.notes : "",
+  };
+  if (parsed.at && typeof parsed.at === "object") draft.at = deepClone(parsed.at);
+  return draft;
+}
+
+// Keeps every key a card and its options carry (checks, requires, goto,
+// effects, ...) so a loaded quest saves back without loss.
+function cardFromPlain(c) {
+  c = c && typeof c === "object" ? deepClone(c) : {};
+  return Object.assign(c, {
+    type: typeof c.type === "string" && c.type ? c.type : "narration",
+    label: c.label || "",
+    speaker: c.speaker || "",
+    text: c.text || "",
+    choices: Array.isArray(c.choices) ? c.choices.map((ch) => (ch && typeof ch === "object" ? ch : {})) : [],
+  });
+}
+
+function buildCard(c) {
+  const card = { type: c.type, label: normProse(c.label), speaker: normProse(c.speaker), text: normProse(c.text) };
+  for (const k of Object.keys(c)) if (!CARD_CORE_KEYS.includes(k)) card[k] = deepClone(c[k]);
+  if (c.type === "choice") card.choices = c.choices.map(buildOptionForSave);
+  return card;
+}
+
+// snake_case: lowercase letters/digits, single underscores between segments —
+// matches every id already under data/events/. No collision check here since
+// this tool never sees data/events/; that check happens when the draft is
+// brought back in and turned into a real file.
+function validateId(id) {
+  if (!id) return "Quest id is required.";
+  if (!/^[a-z][a-z0-9]*(_[a-z0-9]+)*$/.test(id)) {
+    return "Must be snake_case: lowercase letters, digits and single underscores, starting with a letter.";
+  }
+  return "";
+}
+
+function buildBundle(draft) {
+  const bundle = { format: "vein-quest-draft/v1", savedAt: new Date().toISOString(), id: draft.id };
+  if (draft.at) bundle.at = deepClone(draft.at);
+  return Object.assign(bundle, { cards: draft.cards.map(buildCard), notes: draft.notesText || "" });
+}
+
+/* ---------- State ---------- */
+
+const state = {
+  draft: null, // { id, at?, cards: [{type,label,speaker,text,choices:[option], ...}], notesText }
+  loadedFrom: null, // filename this draft was opened from, if any
+  dirty: false,
+};
+
+const el = {
+  newBtn: document.getElementById("new-btn"),
+  openBtn: document.getElementById("open-btn"),
+  openInput: document.getElementById("open-input"),
+  saveBtn: document.getElementById("save-btn"),
+  copyBtn: document.getElementById("copy-btn"),
+  status: document.getElementById("status"),
+  content: document.getElementById("content"),
+};
 
 function setStatus(text, kind) {
   el.status.textContent = text;
@@ -240,81 +756,6 @@ el.openInput.addEventListener("change", async () => {
 
 el.saveBtn.addEventListener("click", saveDraft);
 el.copyBtn.addEventListener("click", copyDraftJSON);
-
-// Accepts either a previously-saved draft bundle (format: vein-quest-draft/v1)
-// or a plain quest JSON (id + cards) copied in from data/events/ — either way
-// it becomes an editable draft with no collision/registration checks, since
-// this tool has no view of the real data/events/ folder.
-function draftFromParsed(parsed) {
-  if (!parsed || typeof parsed !== "object") return null;
-  if (parsed.format === "vein-quest-draft/v1" && Array.isArray(parsed.cards)) {
-    return {
-      id: typeof parsed.id === "string" ? parsed.id : "",
-      cards: parsed.cards.map(cardFromPlain),
-      notesText: typeof parsed.notes === "string" ? parsed.notes : "",
-    };
-  }
-  if (typeof parsed.id === "string" && Array.isArray(parsed.cards)) {
-    return {
-      id: parsed.id,
-      cards: parsed.cards.map(cardFromPlain),
-      notesText: "",
-    };
-  }
-  return null;
-}
-
-function cardFromPlain(c) {
-  c = c || {};
-  return {
-    type: CARD_TYPES.includes(c.type) ? c.type : "narration",
-    label: c.label || "",
-    speaker: c.speaker || "",
-    text: c.text || "",
-    choices: Array.isArray(c.choices)
-      ? c.choices.map((ch) => ({ label: (ch && ch.label) || "", result_text: (ch && ch.result_text) || "" }))
-      : [],
-  };
-}
-
-// snake_case: lowercase letters/digits, single underscores between segments —
-// matches every id already under data/events/. No collision check here since
-// this tool never sees data/events/; that check happens when the draft is
-// brought back in and turned into a real file.
-function validateId(id) {
-  if (!id) return "Quest id is required.";
-  if (!/^[a-z][a-z0-9]*(_[a-z0-9]+)*$/.test(id)) {
-    return "Must be snake_case: lowercase letters, digits and single underscores, starting with a letter.";
-  }
-  return "";
-}
-
-// Empty prose fields become null, matching the convention every hand-authored
-// event file already uses (see tools/quest-editor.html's builder).
-function normProse(v) {
-  const t = (v || "").trim();
-  return t === "" ? null : t;
-}
-
-function buildBundle(draft) {
-  return {
-    format: "vein-quest-draft/v1",
-    savedAt: new Date().toISOString(),
-    id: draft.id,
-    cards: draft.cards.map((c) => {
-      const card = { type: c.type, label: normProse(c.label), speaker: normProse(c.speaker), text: normProse(c.text) };
-      if (c.type === "choice") {
-        card.choices = c.choices.map((ch) => ({
-          label: normProse(ch.label),
-          effects: [],
-          result_text: normProse(ch.result_text),
-        }));
-      }
-      return card;
-    }),
-    notes: draft.notesText || "",
-  };
-}
 
 function saveDraft() {
   const d = state.draft;
@@ -402,7 +843,7 @@ function render() {
       "<li>On your computer, hand the file (or pasted JSON) to Claude and ask it to add the quest to <code>data/events/</code> and wire it in.</li>" +
       "</ol>" +
       "<p>Tap <strong>Open draft&hellip;</strong> to resume editing a <code>.draft.json</code> you saved earlier.</p>" +
-      "<p>Effects, ops, deck placement and flags aren't editable here — describe what a choice should <em>do</em> in the notes field, same as the desktop editor.</p>";
+      "<p>Checks, requirements, option ids, gotos and event timing are editable here. Effects, ops and deck placement aren't — describe what a choice should <em>do</em> in the notes field, same as the desktop editor.</p>";
     el.content.appendChild(help);
     return;
   }
@@ -435,6 +876,7 @@ function render() {
   idRow.appendChild(idError);
   idError.textContent = validateId(d.id);
   idPanel.appendChild(idRow);
+  idPanel.appendChild(renderEventAt(d, markDirty));
   el.content.appendChild(idPanel);
 
   d.cards.forEach((card, idx) => el.content.appendChild(renderCard(card, idx, d.cards)));
@@ -474,7 +916,8 @@ function renderCard(card, idx, cardsArray) {
 
   const typeSelect = document.createElement("select");
   typeSelect.className = "type-select";
-  CARD_TYPES.forEach((t) => {
+  // An unknown type loaded from a real quest (e.g. "tension") stays selectable.
+  (CARD_TYPES.includes(card.type) ? CARD_TYPES : CARD_TYPES.concat([card.type])).forEach((t) => {
     const opt = document.createElement("option");
     opt.value = t;
     opt.textContent = typeLabel(t);
@@ -493,7 +936,8 @@ function renderCard(card, idx, cardsArray) {
 
   const indexLabel = document.createElement("span");
   indexLabel.className = "card-index";
-  indexLabel.textContent = "Card " + (idx + 1);
+  // goto / choice-memory card numbers are 0-based indices (REFERENCE §3.9a).
+  indexLabel.textContent = "Card " + (idx + 1) + " · idx " + idx;
   header.appendChild(indexLabel);
 
   const spacer = document.createElement("span");
@@ -549,7 +993,7 @@ function renderChoice(choice, cIdx, choicesArray) {
   const header = document.createElement("div");
   header.className = "choice-block-header";
   const title = document.createElement("span");
-  title.textContent = "Choice " + (cIdx + 1);
+  title.textContent = "Choice " + (cIdx + 1) + " · index " + cIdx;
   header.appendChild(title);
   header.appendChild(iconBtn("✕", "Remove choice", false, true, () => {
     choicesArray.splice(cIdx, 1);
@@ -560,18 +1004,7 @@ function renderChoice(choice, cIdx, choicesArray) {
 
   block.appendChild(field("Choice label", choice, "label", "input"));
 
-  const effRow = document.createElement("div");
-  effRow.className = "field-row";
-  const effLabel = document.createElement("label");
-  effLabel.textContent = "Effects";
-  effRow.appendChild(effLabel);
-  const effNote = document.createElement("div");
-  effNote.className = "readonly-note";
-  effNote.textContent = "Describe in the notes below — filled in later.";
-  effRow.appendChild(effNote);
-  block.appendChild(effRow);
-
-  block.appendChild(field("Result text", choice, "result_text", "textarea"));
+  block.appendChild(renderOptionMechanics(choice, markDirty));
 
   return block;
 }

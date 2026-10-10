@@ -18,9 +18,39 @@ const startIdx = html.indexOf(startMarker);
 const endIdx = html.indexOf(endMarker);
 assert(startIdx !== -1 && endIdx !== -1, "could not locate parser markers in quest-editor.html");
 
+// The option/event mechanics section both editors share; every extraction
+// below prepends it, since the parser and builder sections call into it.
+const sharedStartMarker = "/* ---------- Choice mechanics (shared) ---------- */";
+const sharedEndMarker = "/* ---------- End choice mechanics ---------- */";
+function sharedSection(source, label) {
+  const s = source.indexOf(sharedStartMarker);
+  const e = source.indexOf(sharedEndMarker);
+  assert(s !== -1 && e !== -1, "could not locate shared mechanics markers in " + label);
+  return source.slice(s, e + sharedEndMarker.length);
+}
+const sharedSource = sharedSection(html, "quest-editor.html");
+
 const parserSource = html.slice(startIdx, endIdx);
-const loaded = new Function(parserSource + "\nreturn { parseJSONWithPositions, nodeGet, nodeToPlain, applyEdits };")();
-const { parseJSONWithPositions, nodeGet, nodeToPlain, applyEdits } = loaded;
+const loaded = new Function(
+  sharedSource +
+    parserSource +
+    "\nreturn { parseJSONWithPositions, nodeGet, nodeToPlain, applyEdits, formatJSON, objectEdits, collectModelEdits," +
+    " optionToCheck, optionToPlain, setConditionKind, conditionKind, deepClone };"
+)();
+const {
+  parseJSONWithPositions,
+  nodeGet,
+  nodeToPlain,
+  applyEdits,
+  formatJSON,
+  objectEdits,
+  collectModelEdits,
+  optionToCheck,
+  optionToPlain,
+  setConditionKind,
+  conditionKind,
+  deepClone,
+} = loaded;
 
 // Same extraction trick for the ticket-02 "New quest builder" section. Its
 // pure functions (validateNewQuestId, buildQuestObject, normProse) close
@@ -35,7 +65,8 @@ assert(bStart !== -1 && bEnd !== -1, "could not locate new-quest-builder markers
 const builderSource = html.slice(bStart, bEnd);
 const builderFactory = new Function(
   "state",
-  builderSource +
+  sharedSource +
+    builderSource +
     "\nreturn { validateNewQuestId, buildQuestObject, normProse, defaultCard, defaultChoice, CARD_TYPES };"
 );
 function loadBuilder(files) {
@@ -248,6 +279,279 @@ test("a freshly built quest's saved JSON round-trips through the tool's own pars
   const root = parseJSONWithPositions(text);
   assert.deepStrictEqual(nodeToPlain(root), JSON.parse(text));
   assert.deepStrictEqual(nodeToPlain(root), obj);
+});
+
+/* ---------- Checks, gating, branches and timing (opening-choices 10) ---------- */
+
+const mobilePath = path.join(__dirname, "quest-editor-mobile.html");
+const mobileHtml = fs.readFileSync(mobilePath, "utf-8");
+const bundleStartMarker = "/* ---------- Draft bundle ---------- */";
+const bundleEndMarker = "/* ---------- State ---------- */";
+const mbStart = mobileHtml.indexOf(bundleStartMarker);
+const mbEnd = mobileHtml.indexOf(bundleEndMarker);
+assert(mbStart !== -1 && mbEnd !== -1, "could not locate draft-bundle markers in quest-editor-mobile.html");
+const mobile = new Function(
+  sharedSection(mobileHtml, "quest-editor-mobile.html") +
+    mobileHtml.slice(mbStart, mbEnd) +
+    "\nreturn { draftFromParsed, buildBundle, defaultChoice };"
+)();
+
+// Every REFERENCE §3.9a/§3.9b field: option id, check with each mod type,
+// min/max/show/attempts, success/fail outcomes with goto, requires with
+// display + reason, plain-option goto, bySuccesses/perSuccess, event `at`.
+const ALL_FIELDS_EVENT = {
+  id: "all_fields_fixture",
+  at: { block: "evening", advance: true },
+  cards: [
+    { type: "narration", label: "{today}", speaker: null, text: "It starts." },
+    {
+      type: "choice",
+      label: null,
+      speaker: null,
+      text: "Pick one.",
+      choices: [
+        {
+          label: "Talk him down",
+          id: "talk",
+          requires: { flag: "metJames", display: "disable", reason: "You don't know him yet." },
+          effects: [{ op: "add", path: "player.cash", value: -5 }],
+          check: {
+            base: 0.4,
+            mods: [
+              { flag: "metJames", add: 0.1, label: "You know him" },
+              { choice: { event: "intro", card: 3, option: "ask" }, add: 0.05, label: "You asked" },
+              { choice: { event: "intro", card: 3, option: 1 }, add: -0.05, label: "You walked off" },
+              { path: "player.level", perPoint: 0.02, above: 1, label: "Experience" },
+              { relation: "james", atLeast: 2, add: 0.1, label: "He likes you" },
+              { cash: { atLeast: 100 }, add: 0.05, label: "Flush" },
+              { item: "knuckleduster", add: 0.05, label: "Held" },
+              { item: "knuckleduster", equipped: true, add: 0.1, label: "Equipped" },
+              { item: "timePearl", optional: true, consume: true, add: 0.2, label: "Pearl" },
+            ],
+            min: 0.1,
+            max: 0.9,
+            show: "hint",
+            attempts: 2,
+            perSuccess: [{ op: "add", path: "player.cash", value: 10 }],
+          },
+          success: { result_text: "He backs off.", effects: [], goto: 3 },
+          fail: { result_text: "He doesn't.", effects: [{ op: "set_flag", flag: "jamesAngry", value: true }] },
+          bySuccesses: { 2: { result_text: "Both land.", effects: [], goto: 3 } },
+        },
+        {
+          label: "Leave",
+          requires: { cash: { atLeast: 50 } },
+          effects: [],
+          result_text: "You go.",
+          goto: 3,
+        },
+        { label: "Hold", requires: { path: "player.level", atLeast: 2 }, effects: [], result_text: "You hold." },
+        { label: "Call", requires: { relation: "james", atLeast: 1 }, effects: [], result_text: "You call." },
+        { label: "Show", requires: { item: "knuckleduster", equipped: true }, effects: [], result_text: "You show." },
+        { label: "Flash", requires: { item: "knuckleduster" }, effects: [], result_text: "You flash." },
+        {
+          label: "Remind",
+          requires: { choice: { event: "intro", card: 3, option: "ask" }, display: "hide" },
+          effects: [],
+          result_text: "You remind.",
+        },
+      ],
+    },
+    { type: "resolution", label: null, speaker: null, text: "Skipped." },
+    { type: "resolution", label: null, speaker: null, text: "Landed." },
+  ],
+  on_complete: [{ op: "set_screen", screen: "map" }],
+};
+
+function saveModel(raw, model) {
+  const root = parseJSONWithPositions(raw);
+  return applyEdits(raw, collectModelEdits(raw, root, nodeToPlain(root), model));
+}
+
+test("the shared mechanics section is byte-identical in both editors", () => {
+  assert.strictEqual(sharedSection(mobileHtml, "quest-editor-mobile.html"), sharedSource);
+});
+
+test("desktop: an event with every new field loads and saves (no edits) to identical bytes", () => {
+  for (const raw of [JSON.stringify(ALL_FIELDS_EVENT, null, 2) + "\n", formatJSON(ALL_FIELDS_EVENT, "") + "\n"]) {
+    const root = parseJSONWithPositions(raw);
+    const model = nodeToPlain(root);
+    assert.deepStrictEqual(model, JSON.parse(raw));
+    assert.deepStrictEqual(collectModelEdits(raw, root, nodeToPlain(root), model), []);
+    assert.strictEqual(saveModel(raw, model), raw);
+  }
+});
+
+test("desktop: every legacy event saves unchanged when nothing is edited", () => {
+  for (const f of files) {
+    const raw = fs.readFileSync(path.join(eventsDir, f), "utf-8");
+    assert.strictEqual(saveModel(raw, nodeToPlain(parseJSONWithPositions(raw))), raw, f);
+  }
+});
+
+test("formatJSON output parses back to the same value at any indent", () => {
+  for (const indent of ["", "  ", "          "]) {
+    assert.deepStrictEqual(JSON.parse(formatJSON(ALL_FIELDS_EVENT, indent)), ALL_FIELDS_EVENT);
+  }
+  assert.strictEqual(formatJSON({ block: "evening", advance: true }, "  "), '{ "block": "evening", "advance": true }');
+});
+
+test("desktop: authoring every new field onto a legacy event saves exactly the model, touching nothing else", () => {
+  const raw = fs.readFileSync(path.join(eventsDir, "busker_greenwich.json"), "utf-8");
+  const original = JSON.parse(raw);
+  const model = deepClone(original);
+  model.at = { block: "afternoon", advance: false };
+  const card = model.cards.find((c) => c.choices);
+  const [opt, other] = card.choices;
+  opt.id = "tip";
+  opt.requires = {};
+  setConditionKind(opt.requires, "cash", false);
+  opt.requires.cash.atLeast = 20;
+  opt.requires.display = "disable";
+  opt.requires.reason = "Skint.";
+  optionToCheck(opt);
+  opt.check.min = 0.2;
+  opt.check.max = 0.8;
+  opt.check.show = "hidden";
+  opt.check.attempts = 3;
+  for (const kind of ["flag", "choice", "path", "relation", "cash", "item", "itemEquipped", "itemOptional"]) {
+    const mod = {};
+    setConditionKind(mod, kind, true);
+    assert.strictEqual(conditionKind(mod), kind);
+    opt.check.mods.push(mod);
+  }
+  opt.success.goto = 2;
+  opt.fail.result_text = "He shrugs.";
+  other.goto = 2;
+
+  const saved = saveModel(raw, model);
+  assert.deepStrictEqual(JSON.parse(saved), model);
+  assert.deepStrictEqual(Object.keys(JSON.parse(saved)), ["id", "at", "cards", "on_complete", "deck"].filter((k) => k in model));
+  // The second option's untouched keys keep their original bytes.
+  assert(saved.includes(JSON.stringify(other.result_text)), "untouched result_text must survive verbatim");
+  // Reload + save again with no edits is a no-op.
+  assert.strictEqual(saveModel(saved, JSON.parse(saved)), saved);
+
+  // Reverting everything (check -> plain, drop id/requires/goto/at) restores the original value.
+  const back = JSON.parse(saved);
+  delete back.at;
+  const backCard = back.cards.find((c) => c.choices);
+  optionToPlain(backCard.choices[0]);
+  delete backCard.choices[0].id;
+  delete backCard.choices[0].requires;
+  delete backCard.choices[0].goto;
+  delete backCard.choices[1].goto;
+  backCard.choices[0].effects = original.cards.find((c) => c.choices).choices[0].effects;
+  const reverted = saveModel(saved, back);
+  assert.deepStrictEqual(JSON.parse(reverted), original);
+});
+
+test("objectEdits: dropping the first key rewrites the object; inserts land after the preceding ordered key", () => {
+  const raw = '{\n  "id": "x",\n  "cards": []\n}\n';
+  const root = parseJSONWithPositions(raw);
+  const withAt = applyEdits(raw, objectEdits(raw, root, { id: "x", at: { block: "night", advance: false }, cards: [] }, ["id", "at", "cards"]));
+  assert.strictEqual(withAt, '{\n  "id": "x",\n  "at": { "block": "night", "advance": false },\n  "cards": []\n}\n');
+  const noId = applyEdits(raw, objectEdits(raw, root, { cards: [] }, ["id", "cards"]));
+  assert.deepStrictEqual(JSON.parse(noId), { cards: [] });
+  // A deletion and an insertion sharing a start offset both apply.
+  const swapped = applyEdits(raw, objectEdits(raw, root, { id: "x", at: { block: "night", advance: true } }, ["id", "at", "cards"]));
+  assert.deepStrictEqual(JSON.parse(swapped), { id: "x", at: { block: "night", advance: true } });
+});
+
+test("optionToCheck / optionToPlain carry result_text, goto and effects across the switch", () => {
+  const opt = { label: "Go", effects: [{ op: "set_flag", flag: "a", value: true }], result_text: "Gone.", goto: 4 };
+  optionToCheck(opt);
+  assert.deepStrictEqual(opt, {
+    label: "Go",
+    effects: [{ op: "set_flag", flag: "a", value: true }],
+    check: { base: 0.5, mods: [] },
+    success: { result_text: "Gone.", effects: [], goto: 4 },
+    fail: { result_text: null, effects: [] },
+  });
+  optionToPlain(opt);
+  assert.deepStrictEqual(opt, { label: "Go", effects: [{ op: "set_flag", flag: "a", value: true }], result_text: "Gone.", goto: 4 });
+});
+
+test("setConditionKind keeps a mod's add/label and a requirement's display/reason", () => {
+  const mod = { flag: "x", add: 0.2, label: "L" };
+  setConditionKind(mod, "relation", true);
+  assert.deepStrictEqual(mod, { relation: "", atLeast: 0, add: 0.2, label: "L" });
+  setConditionKind(mod, "path", true);
+  assert.deepStrictEqual(mod, { path: "", perPoint: 0, label: "L" });
+  const req = { flag: "x", display: "disable", reason: "R" };
+  setConditionKind(req, "item", false);
+  assert.deepStrictEqual(req, { item: "", display: "disable", reason: "R" });
+});
+
+test("builder: a new quest with a check option, requires, goto and at builds the runtime schema", () => {
+  const { buildQuestObject } = loadBuilder([]);
+  const checkOpt = { label: " Try ", result_text: "Win." };
+  optionToCheck(checkOpt);
+  checkOpt.id = "try";
+  checkOpt.fail.result_text = "  ";
+  const obj = buildQuestObject({
+    id: "new_check_quest",
+    at: { block: "morning", advance: true },
+    cards: [
+      {
+        type: "choice",
+        label: "",
+        speaker: "",
+        text: "Go?",
+        choices: [checkOpt, { label: "No", result_text: "Fine.", requires: { flag: "f" }, goto: 1 }],
+      },
+      { type: "resolution", label: "", speaker: "", text: "End.", choices: [] },
+    ],
+  });
+  assert.deepStrictEqual(Object.keys(obj), ["id", "at", "cards", "on_complete"]);
+  assert.deepStrictEqual(obj.at, { block: "morning", advance: true });
+  assert.deepStrictEqual(obj.cards[0].choices[0], {
+    label: "Try",
+    id: "try",
+    check: { base: 0.5, mods: [] },
+    success: { result_text: "Win.", effects: [] },
+    fail: { result_text: null, effects: [] },
+  });
+  assert.deepStrictEqual(obj.cards[0].choices[1], { label: "No", requires: { flag: "f" }, effects: [], result_text: "Fine.", goto: 1 });
+});
+
+test("mobile: a quest with every new field round-trips through a draft without loss", () => {
+  const draft = mobile.draftFromParsed(deepClone(ALL_FIELDS_EVENT));
+  const bundle = mobile.buildBundle(draft);
+  assert.deepStrictEqual(bundle.at, ALL_FIELDS_EVENT.at);
+  assert.deepStrictEqual(bundle.cards, ALL_FIELDS_EVENT.cards);
+  // ...and the saved bundle reopens to the same bundle.
+  const again = mobile.buildBundle(mobile.draftFromParsed(JSON.parse(JSON.stringify(bundle))));
+  assert.deepStrictEqual(again.cards, bundle.cards);
+  assert.deepStrictEqual(again.at, bundle.at);
+  assert.strictEqual(again.notes, bundle.notes);
+});
+
+// The mobile editor trims prose and writes blank prose as null (its normProse
+// convention), so legacy prose comes back normalized; everything else is exact.
+const PROSE_KEYS = ["label", "speaker", "text", "result_text"];
+function blankProseToNull(v) {
+  if (Array.isArray(v)) return v.map(blankProseToNull);
+  if (!v || typeof v !== "object") return v;
+  const out = {};
+  for (const [k, x] of Object.entries(v)) {
+    out[k] = PROSE_KEYS.includes(k) && typeof x === "string" ? x.trim() || null : blankProseToNull(x);
+  }
+  return out;
+}
+
+test("mobile: every legacy event's cards survive a draft round-trip", () => {
+  for (const f of files) {
+    const quest = JSON.parse(fs.readFileSync(path.join(eventsDir, f), "utf-8"));
+    const bundle = mobile.buildBundle(mobile.draftFromParsed(deepClone(quest)));
+    assert.deepStrictEqual(bundle.cards, blankProseToNull(quest.cards), f);
+    assert.deepStrictEqual(bundle.at, quest.at, f);
+  }
+});
+
+test("mobile: a fresh choice still saves as {label, effects: [], result_text}", () => {
+  const draft = { id: "x", cards: [{ type: "choice", label: "", speaker: "", text: "", choices: [mobile.defaultChoice()] }], notesText: "" };
+  assert.deepStrictEqual(mobile.buildBundle(draft).cards[0].choices, [{ label: null, effects: [], result_text: null }]);
 });
 
 console.log(passed + " test(s) passed");

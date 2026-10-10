@@ -10,15 +10,17 @@ You'll get either:
 - a `<id>.draft.json` file, or
 - the same JSON pasted directly into the chat (from the tool's "Copy JSON" button)
 
-It has the shape `{format: "vein-quest-draft/v1", id, cards, notes}`. `cards` is already in the
+It has the shape `{format: "vein-quest-draft/v1", id, at?, cards, notes}`. `cards` is already in the
 real event-JSON shape (`type`, `label`, `speaker`, `text`, `choices` with `effects: []` and
-`result_text`) — see `tools/quest-editor.html`'s builder for the same schema.
+`result_text`) — see `tools/quest-editor.html`'s builder for the same schema. Options may also
+carry REFERENCE §3.9a mechanics (`id`, `requires`, `goto`, or `check` + `success`/`fail`), and
+the bundle may carry an event-level `at` (§3.9b); copy those verbatim too.
 
 ## Steps
 
 1. **Check the id doesn't collide.** The mobile tool never saw `data/events/`, so verify
    `data/events/<id>.json` doesn't already exist.
-2. **Write `data/events/<id>.json`** from `id` + `cards` verbatim (they're already normalized —
+2. **Write `data/events/<id>.json`** from `id` + `at` (if present) + `cards` verbatim (they're already normalized —
    empty prose fields are `null`). Add `on_complete` — the bundle doesn't include one; use
    `[{ "op": "set_screen", "screen": "map" }]` as the same inert default
    `quest-editor.html`'s builder writes, unless the notes or surrounding context say otherwise.
