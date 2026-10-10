@@ -20,13 +20,15 @@ const {
   cardPos, insertCard, deleteCard, moveCard, danglingLinks, hasCycle, buildGraph, elkGraph, placeLayout,
   findCycle, addBranch, renameBranch, deleteBranch, inboundLinks, setCardGoto, setThen,
   COND_KINDS, condKind, blankCond, condGet, condSet,
+  outcomeSlots, addOption, deleteOption, moveOption, setOptionField, setOutcomeText, setOutcomeGoto, routeToNewBranch,
 } = new Function(
   html.slice(s, e) +
     "\nreturn { parseProposal, parseDraft, serialiseDraft, ensureKeys, legacyToDraft, nextPos, playOrder, flatCards, thenText," +
     " jsonBlockRange, spliceDraft, writableProposal, cardByKey, makeHistory," +
     " cardPos, insertCard, deleteCard, moveCard, danglingLinks, hasCycle, buildGraph, elkGraph, placeLayout," +
     " findCycle, addBranch, renameBranch, deleteBranch, inboundLinks, setCardGoto, setThen," +
-    " COND_KINDS, condKind, blankCond, condGet, condSet };"
+    " COND_KINDS, condKind, blankCond, condGet, condSet," +
+    " outcomeSlots, addOption, deleteOption, moveOption, setOptionField, setOutcomeText, setOutcomeGoto, routeToNewBranch };"
 )();
 
 let passed = 0;
@@ -655,6 +657,132 @@ test("branch routing edits are undoable through history and save into the block"
   assert.strictEqual(h.size, 4);
   h.undo(); h.undo(); h.undo();
   assert.strictEqual(h.undo(), orig);
+});
+
+test("addOption appends blank options with fresh ids; deleteOption drops choices with the last one", () => {
+  const { draft } = parseDraft(draftText);
+  assert.strictEqual(addOption(draft, "c1"), 0);
+  assert.strictEqual(addOption(draft, "c1"), 1);
+  assert.deepStrictEqual(cardByKey(draft, "c1").choices, [{ id: "option1", label: "", result_text: "" }, { id: "option2", label: "", result_text: "" }]);
+  deleteOption(draft, "c1", 0);
+  assert.strictEqual(addOption(draft, "c1"), 1);
+  assert.deepStrictEqual(cardByKey(draft, "c1").choices.map((o) => o.id), ["option2", "option1"]);
+  deleteOption(draft, "c1", 1); deleteOption(draft, "c1", 0);
+  assert(!("choices" in cardByKey(draft, "c1")));
+  assert.throws(() => deleteOption(draft, "c1", 0), /no option 1/);
+  assert.throws(() => addOption(draft, "nope"), /no card nope/);
+});
+
+test("moveOption reorders within the card, refuses past either end", () => {
+  const { draft } = parseDraft(draftText);
+  addOption(draft, "c1"); addOption(draft, "c1"); setOptionField(draft, "c1", 0, "label", "First");
+  moveOption(draft, "c1", 0, 1);
+  assert.deepStrictEqual(cardByKey(draft, "c1").choices.map((o) => o.label), ["", "First"]);
+  assert.throws(() => moveOption(draft, "c1", 1, 1), /end of the options/);
+  assert.throws(() => moveOption(draft, "c1", 0, -1), /end of the options/);
+});
+
+test("setOptionField: label, id; empty id drops the key, duplicate id refused", () => {
+  const { draft } = parseDraft(draftText);
+  addOption(draft, "c1"); addOption(draft, "c1");
+  setOptionField(draft, "c1", 0, "label", "Leave");
+  setOptionField(draft, "c1", 0, "id", "  leave ");
+  assert.deepStrictEqual(cardByKey(draft, "c1").choices[0], { id: "leave", label: "Leave", result_text: "" });
+  assert.throws(() => setOptionField(draft, "c1", 1, "id", "leave"), /already has id leave/);
+  setOptionField(draft, "c1", 1, "id", "");
+  assert(!("id" in cardByKey(draft, "c1").choices[1]));
+  assert.throws(() => setOptionField(draft, "c1", 0, "goto", 3), /unknown option field/);
+});
+
+test("outcomeSlots: plain option is one result; a check gives success, fail and each bySuccesses count", () => {
+  const { draft } = parseDraft(draftText);
+  const o = cardByKey(draft, "c2").choices[0];
+  assert.deepStrictEqual(outcomeSlots(o).map((s) => s.slot), ["success", "fail"]);
+  o.bySuccesses = { 2: { result_text: "both" } };
+  assert.deepStrictEqual(outcomeSlots(o).map((s) => [s.slot, s.label]), [["success", "Success"], ["fail", "Fail"], ["by:2", "2 successes"]]);
+  assert.deepStrictEqual(outcomeSlots({ label: "x" }).map((s) => s.slot), ["result"]);
+});
+
+test("setOutcomeText writes the plain result or an outcome's, creating success / fail when unset", () => {
+  const { draft } = parseDraft(draftText);
+  addOption(draft, "c1");
+  setOutcomeText(draft, "c1", 0, "result", "You leave.");
+  assert.strictEqual(cardByKey(draft, "c1").choices[0].result_text, "You leave.");
+  assert.throws(() => setOutcomeText(draft, "c1", 0, "success", "x"), /no "success" outcome/);
+  const o = cardByKey(draft, "c2").choices[0];
+  delete o.fail;
+  setOutcomeText(draft, "c2", 0, "fail", "Botched it.");
+  assert.deepStrictEqual(o.fail, { result_text: "Botched it." });
+  assert.throws(() => setOutcomeText(draft, "c2", 0, "result", "x"), /no "result" outcome/);
+});
+
+test("setOutcomeGoto routes plain, success/fail and bySuccesses outcomes; play follows the chosen one", () => {
+  const { draft } = parseDraft(draftText);
+  addOption(draft, "c1"); addOption(draft, "c1");
+  setOutcomeGoto(draft, "c1", 1, "result", { branch: "after", card: "c9" });
+  assert.deepStrictEqual(cardByKey(draft, "c1").choices[1].goto, { branch: "after", card: "c9" });
+  const pickSecond = (card) => (card.key === "c1" ? card.choices[1] : null);
+  assert.deepStrictEqual(keysOf(playOrder(draft, pickSecond)), ["main/0", "after/1"]);
+  const pickFirst = (card) => (card.key === "c1" ? card.choices[0] : null);
+  assert.deepStrictEqual(keysOf(playOrder(draft, pickFirst)), ["main/0", "main/1", "main/2", "after/1"], "unrouted option falls through");
+  setOutcomeGoto(draft, "c1", 1, "result", null);
+  assert(!("goto" in cardByKey(draft, "c1").choices[1]));
+  const o = cardByKey(draft, "c2").choices[0];
+  o.bySuccesses = { 1: { result_text: "one" } };
+  setOutcomeGoto(draft, "c2", 0, "by:1", { branch: "watched" });
+  assert.deepStrictEqual(o.bySuccesses[1].goto, { branch: "watched" });
+  setOutcomeGoto(draft, "c2", 0, "fail", null);
+  assert(!("goto" in o.fail));
+  delete o.success;
+  setOutcomeGoto(draft, "c2", 0, "success", null);
+  assert(!("success" in o), "clearing an unset outcome creates nothing");
+  setOutcomeGoto(draft, "c2", 0, "success", { branch: "after" });
+  assert.deepStrictEqual(o.success, { goto: { branch: "after" } });
+  assert.throws(() => setOutcomeGoto(draft, "c2", 0, "fail", { branch: "nowhere" }), /unknown branch/);
+  assert.throws(() => setOutcomeGoto(draft, "c2", 0, "by:3", { branch: "after" }), /no "by:3" outcome/);
+});
+
+test("a looping outcome link is refused with the loop named; draft unchanged, no outcome left behind", () => {
+  const { draft } = parseDraft(draftText);
+  addOption(draft, "c9");
+  const before = serialiseDraft(draft);
+  assert.throws(() => setOutcomeGoto(draft, "c9", 0, "result", { branch: "main" }), /would loop: .*c9/);
+  assert.strictEqual(serialiseDraft(draft), before);
+  const o = cardByKey(draft, "c2").choices[0];
+  delete o.fail;
+  const before2 = serialiseDraft(draft);
+  assert.throws(() => setOutcomeGoto(draft, "c2", 0, "fail", { branch: "main" }), /would loop/);
+  assert.strictEqual(serialiseDraft(draft), before2);
+  assert.throws(() => setOutcomeGoto(draft, "c2", 0, "success", { branch: "main", card: "c2" }), /would loop/);
+  assert.deepStrictEqual(o.success.goto, { branch: "after" });
+});
+
+test("routeToNewBranch creates a branch and links the outcome to it in one step; bad input creates nothing", () => {
+  const { draft } = parseDraft(draftText);
+  const h = makeHistory(), orig = serialiseDraft(draft);
+  h.snapshot(serialiseDraft(draft));
+  const k = routeToNewBranch(draft, "c2", 0, "fail", "sulk", "Sulking");
+  assert.deepStrictEqual(draft.branches.sulk, { title: "Sulking", cards: [{ key: k, type: "narration", text: "" }] });
+  assert.deepStrictEqual(cardByKey(draft, "c2").choices[0].fail.goto, { branch: "sulk" });
+  assert.strictEqual(h.undo(), orig, "one undo step covers branch + link");
+  const before = serialiseDraft(draft);
+  assert.throws(() => routeToNewBranch(draft, "c2", 0, "fail", "main"), /already exists/);
+  assert.throws(() => routeToNewBranch(draft, "c2", 0, "fail", "9bad"), /branch name/);
+  assert.throws(() => routeToNewBranch(draft, "c2", 0, "result", "fresh"), /no "result" outcome/);
+  assert.throws(() => routeToNewBranch(draft, "c2", 4, "fail", "fresh"), /no option 5/);
+  assert.strictEqual(serialiseDraft(draft), before);
+});
+
+test("option edits show in the graph and save into the block", () => {
+  const md = "# T\n\nIntro.\n\n```json\n" + draftText + "\n```\n\nAfter.\n";
+  const { draft } = parseProposal("p.md", md);
+  const i = addOption(draft, "c9");
+  setOptionField(draft, "c9", i, "label", "Walk out");
+  routeToNewBranch(draft, "c9", i, "result", "coda");
+  const g = buildGraph(draft);
+  assert(g.edges.some((e) => e.from === "b:after" && e.to === "b:coda" && e.label === "Walk out" && e.kind === "outcome"));
+  const back = parseProposal("p.md", spliceDraft(md, draft)).draft;
+  assert.deepStrictEqual(cardByKey(back, "c9").choices, [{ id: "option1", label: "Walk out", result_text: "", goto: { branch: "coda" } }]);
 });
 
 console.log(`${passed} passed${process.exitCode ? ", some FAILED" : ""}`);

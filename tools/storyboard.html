@@ -180,6 +180,13 @@ section { display: grid; gap: 12px; min-width: 0 }
 .cond .kw { font: 600 12px var(--mono); color: var(--accent) }
 .cond button { padding: 3px 8px }
 .cond button:disabled { opacity: .45; cursor: default }
+.opt-ed { display: grid; gap: 10px }
+.opt { display: grid; gap: 6px; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px }
+.opt .route input[type="text"] { flex: 1 1 8em; min-width: 0 }
+.opt .route button { padding: 3px 8px }
+.opt .route button:disabled { opacity: .45; cursor: default }
+.opt .kw { font: 600 12px var(--mono); color: var(--accent) }
+.opt textarea { min-height: 2.6em }
 .editor textarea { width: 100%; resize: vertical; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; font-size: 14px; line-height: 1.45 }
 /* Flowchart: elkjs layout drawn as SVG; nodes are branches (collapsed) or cards inside a branch frame (expanded). */
 #graph-section[hidden] { display: none }
@@ -302,6 +309,9 @@ section { display: grid; gap: 12px; min-width: 0 }
             </div>
             <label class="eyebrow" for="ce-text">Text</label>
             <textarea id="ce-text" rows="5"></textarea>
+            <div class="editor-head"><span class="eyebrow">Player options</span>
+              <button type="button" class="tb" id="ce-add-option" title="Add a player option to this card">+ Option</button></div>
+            <div id="ce-options" class="opt-ed"></div>
             <span class="eyebrow">After this card, go to</span>
             <div class="route" id="ce-goto"></div>
           </section>
@@ -800,6 +810,85 @@ section { display: grid; gap: 12px; min-width: 0 }
     guardCycle(draft, () => { if (next === undefined) delete br.then; else br.then = next; },
       () => { if (had) br.then = old; else delete br.then; });
   }
+  // A choice option's routable outcomes as stored, i.e. what nextPos can resolve it to: the option itself when it
+  // has no check, else success, fail and each bySuccesses count. Each {slot, label, res} (res undefined if unset).
+  function outcomeSlots(o) {
+    if (!o.check) return [{ slot: "result", label: "Result", res: o }];
+    return [{ slot: "success", label: "Success", res: o.success }, { slot: "fail", label: "Fail", res: o.fail },
+      ...Object.keys(o.bySuccesses || {}).map((k) => ({ slot: "by:" + k, label: `${k} success${k === "1" ? "" : "es"}`, res: o.bySuccesses[k] }))];
+  }
+  // Card `key`'s option at index i, as {card, o}; throws if either is missing.
+  function optionAt(draft, key, i) {
+    const card = cardByKey(draft, key);
+    if (!card) throw new Error(`no card ${key}`);
+    const o = (card.choices || [])[i];
+    if (!o) throw new Error(`card ${key} has no option ${i + 1}`);
+    return { card, o };
+  }
+  function findSlot(o, slot) {
+    const s = outcomeSlots(o).find((x) => x.slot === slot);
+    if (!s) throw new Error(`option has no ${JSON.stringify(slot)} outcome`);
+    return s;
+  }
+  // Appends a blank option (fresh id option1, option2, ... unique on the card) to card `key`; returns its index.
+  function addOption(draft, key) {
+    const card = cardByKey(draft, key);
+    if (!card) throw new Error(`no card ${key}`);
+    if (!card.choices) card.choices = [];
+    const used = new Set(card.choices.map((o) => o.id));
+    let n = 1;
+    while (used.has("option" + n)) n++;
+    card.choices.push({ id: "option" + n, label: "", result_text: "" });
+    return card.choices.length - 1;
+  }
+  // Removes option i (and its links); removing the last one drops the card's `choices` key.
+  function deleteOption(draft, key, i) {
+    const { card } = optionAt(draft, key, i);
+    card.choices.splice(i, 1);
+    if (!card.choices.length) delete card.choices;
+  }
+  // Moves option i one place up (-1) or down (+1); refuses past either end. Order never changes routing.
+  function moveOption(draft, key, i, delta) {
+    const { card } = optionAt(draft, key, i), to = i + delta;
+    if (to < 0 || to >= card.choices.length) throw new Error("already at the end of the options");
+    [card.choices[i], card.choices[to]] = [card.choices[to], card.choices[i]];
+  }
+  // Sets option i's "id" or "label". An empty id drops the key (the engine then uses the option's index); an id
+  // another option on the card already has is refused.
+  function setOptionField(draft, key, i, field, value) {
+    const { card, o } = optionAt(draft, key, i);
+    if (field === "label") { o.label = value; return; }
+    if (field !== "id") throw new Error(`unknown option field ${JSON.stringify(field)}`);
+    const id = value.trim();
+    if (!id) { delete o.id; return; }
+    if (card.choices.some((x, j) => j !== i && x.id === id)) throw new Error(`another option on ${key} already has id ${id}`);
+    o.id = id;
+  }
+  // Sets the result_text of option i's outcome `slot` (outcomeSlots), creating success / fail if unset.
+  function setOutcomeText(draft, key, i, slot, text) {
+    const { o } = optionAt(draft, key, i);
+    let res = findSlot(o, slot).res;
+    if (!res) res = o[slot] = {};
+    res.result_text = text;
+  }
+  // Routes option i's outcome `slot` to target {branch, card?}, or unroutes it (null). Refuses a link that loops;
+  // the draft is unchanged on refusal.
+  function setOutcomeGoto(draft, key, i, slot, target) {
+    const { o } = optionAt(draft, key, i), s = findSlot(o, slot);
+    if (!s.res && !target) return;
+    const next = target ? cleanTarget(draft, target) : null, created = !s.res, res = s.res || (o[slot] = {});
+    const had = "goto" in res, old = res.goto;
+    guardCycle(draft, () => { if (next) res.goto = next; else delete res.goto; },
+      () => { if (created) delete o[slot]; else if (had) res.goto = old; else delete res.goto; });
+  }
+  // Creates branch `name` (one blank card, ends) and routes option i's outcome `slot` to it, in one step; returns
+  // the new card's key. A fresh branch ends, so the link can't loop.
+  function routeToNewBranch(draft, key, i, slot, name, title = "") {
+    findSlot(optionAt(draft, key, i).o, slot);
+    const k = addBranch(draft, name, title);
+    setOutcomeGoto(draft, key, i, slot, { branch: name });
+    return k;
+  }
   // Condition kinds a branch `then` entry can test: systems/events.gd condition_met's vocabulary. Each field is
   // [path into the condition, label, "text" | "number" | "bool"]; the first field's head names the kind.
   const COND_KINDS = {
@@ -1177,7 +1266,7 @@ section { display: grid; gap: 12px; min-width: 0 }
       opts.hidden = false;
       opts.append(...c.choices.map((x, i) => {
         const bt = el("button", { type: "button", "aria-pressed": String(pick === i) },
-          el("span", { text: x.label + (x.id ? `  [${x.id}]` : "") }), el("span", { class: "mech", text: optionMech(x) }));
+          el("span", { text: (x.label || "(no label)") + (x.id ? `  [${x.id}]` : "") }), el("span", { class: "mech", text: optionMech(x) }));
         bt.addEventListener("click", () => { pick = pick === i ? null : i; outcomeKey = null; renderFrame(); });
         return bt;
       }));
@@ -1402,7 +1491,48 @@ section { display: grid; gap: 12px; min-width: 0 }
     $("ce-delete").disabled = c.branch === b.draft.start && len === 1;
     keepFocus($("ce-goto"), targetPicker(b.draft, c.goto, "next card / branch's then", "goto",
       (t) => editDraft((d) => setCardGoto(d, c.key, t), true)));
+    renderOptionsEditor(b, c);
     renderBranchEditor(b, c.branch);
+  }
+  // The selected card's player options: id, label, order, and per outcome its result text and route. Text commits
+  // on change (Enter or leaving the box), so the editor isn't rebuilt mid-word. Check mechanics show read-only.
+  function renderOptionsEditor(b, c) {
+    const opts = c.choices || [], edit = (fn) => editDraft(fn, true);
+    // The previewed pick follows its option when two swap places.
+    const move = (i, delta) => edit((d) => { moveOption(d, c.key, i, delta); if (pick === i) pick = i + delta; else if (pick === i + delta) pick = i; });
+    const field = (tag, value, label, fid, onCommit) => {
+      const f = el(tag, tag === "input" ? { type: "text", autocomplete: "off", "aria-label": label, placeholder: label, "data-focus": fid }
+        : { rows: 2, "aria-label": label, placeholder: label, "data-focus": fid });
+      f.value = value || "";
+      f.addEventListener("change", () => onCommit(f.value));
+      return f;
+    };
+    keepFocus($("ce-options"), ...opts.map((o, i) => {
+      const head = el("div", { class: "route" },
+        el("span", { class: "kw", text: `${i + 1}` }),
+        field("input", o.id, "Id", `opt:${i}:id`, (v) => edit((d) => setOptionField(d, c.key, i, "id", v))),
+        field("input", o.label, "Label", `opt:${i}:label`, (v) => edit((d) => setOptionField(d, c.key, i, "label", v))),
+        iconBtn("▲", "Move this option up", i === 0, () => move(i, -1)),
+        iconBtn("▼", "Move this option down", i === opts.length - 1, () => move(i, 1)),
+        iconBtn("✕", "Remove this option", false, () => edit((d) => { deleteOption(d, c.key, i); pick = null; outcomeKey = null; })));
+      const rows = [head];
+      if (o.check) rows.push(el("span", { class: "mech", text: "Check: " + optionMech(o) }));
+      for (const s of outcomeSlots(o)) {
+        const fid = `opt:${i}:${s.slot}`;
+        rows.push(el("div", { class: "route" }, el("span", { class: "kw", text: s.label }),
+          el("span", { class: "kw", text: "→" }),
+          targetPicker(b.draft, s.res && s.res.goto, "no link (card's own route)", fid + ":t",
+            (t) => edit((d) => setOutcomeGoto(d, c.key, i, s.slot, t)),
+            () => {
+              const name = prompt("New branch name (letters, digits and _):");
+              if (name) edit((d) => { routeToNewBranch(d, c.key, i, s.slot, name.trim()); });
+              else renderFrame();
+            })),
+          field("textarea", s.res && s.res.result_text, `${s.label} text`, fid + ":text",
+            (v) => edit((d) => setOutcomeText(d, c.key, i, s.slot, v))));
+      }
+      return el("div", { class: "opt" }, ...rows);
+    }));
   }
   // Replaces box's children; a control inside it that had focus (matched by data-focus) gets it back.
   function keepFocus(box, ...kids) {
@@ -1415,14 +1545,20 @@ section { display: grid; gap: 12px; min-width: 0 }
   // A {branch, card?} link picker: a branch select (noneLabel, when given, is the "no link" entry) and, once a
   // branch is chosen, a card select (its first card, or a named one). onPick gets {branch, card?} or null.
   // A link to a missing branch or card shows as a ⚠ entry rather than silently reading as another target.
-  function targetPicker(draft, t, noneLabel, fid, onPick) {
+  // onNew, when given, adds a "New branch…" entry that calls it instead of onPick.
+  const NEW_BRANCH = "\u0000new";
+  function targetPicker(draft, t, noneLabel, fid, onPick, onNew) {
     const names = Object.keys(draft.branches), has = t && t.branch && draft.branches[t.branch];
     const brSel = el("select", { "aria-label": "Branch", "data-focus": fid + ":b" });
     brSel.append(...(noneLabel ? [optionEl("", noneLabel)] : []),
       ...(t && t.branch && !has ? [optionEl(t.branch, `⚠ ${t.branch} (missing)`)] : []),
-      ...names.map((n) => optionEl(n, n + (draft.branches[n].title ? " · " + draft.branches[n].title : ""))));
+      ...names.map((n) => optionEl(n, n + (draft.branches[n].title ? " · " + draft.branches[n].title : ""))),
+      ...(onNew ? [optionEl(NEW_BRANCH, "+ New branch…")] : []));
     brSel.value = t && t.branch ? t.branch : "";
-    brSel.addEventListener("change", () => onPick(brSel.value ? { branch: brSel.value } : null));
+    brSel.addEventListener("change", () => {
+      if (brSel.value === NEW_BRANCH) onNew();
+      else onPick(brSel.value ? { branch: brSel.value } : null);
+    });
     const box = el("span", { class: "route" }, brSel);
     if (has) {
       const cards = branchCards(draft, t.branch);
@@ -1916,6 +2052,7 @@ section { display: grid; gap: 12px; min-width: 0 }
   $("ce-up").addEventListener("click", () => cardOp((d, key) => { moveCard(d, key, -1); return key; }));
   $("ce-down").addEventListener("click", () => cardOp((d, key) => { moveCard(d, key, 1); return key; }));
   $("ce-delete").addEventListener("click", deleteSelected);
+  $("ce-add-option").addEventListener("click", () => cardOp((d, key) => { pick = addOption(d, key); outcomeKey = null; }));
   const selectedBranch = () => { const b = board(), c = b && b.cards[cardIdx]; return c ? c.branch : null; };
   $("be-new").addEventListener("click", () => {
     const name = prompt("New branch name (letters, digits and _):");
