@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;600&display=swap">
 <style>
-/* Layout: board summary over three tabs — Storyboard (phone-frame preview beside the cut list on wide screens, stacked on phones), Shots (plates, shot briefs, verdicts, uploads), Comments. */
+/* Layout: board summary over three tabs — Storyboard (proposal flowchart, then phone-frame preview beside the cut list on wide screens, stacked on phones), Shots (plates, shot briefs, verdicts, uploads), Comments. */
 :root {
   --bg: #eceef1; --surface: #f8f9fa; --sunk: #dfe2e7; --fg: #1a1d23; --muted: #5b6270; --line: #c9ced6;
   --accent: #946512; --accent-ink: #fff8e8;
@@ -172,8 +172,39 @@ section { display: grid; gap: 12px; min-width: 0 }
 .ce-fields label { display: grid; gap: 4px; min-width: 0 }
 .ce-fields input, .ce-fields select { width: 100%; background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font-size: 14px }
 .editor textarea { width: 100%; resize: vertical; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; font-size: 14px; line-height: 1.45 }
+/* Flowchart: elkjs layout drawn as SVG; nodes are branches (collapsed) or cards inside a branch frame (expanded). */
+#graph-section[hidden] { display: none }
+.graph-head { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden }
+.seg button { border: 0; background: var(--surface); padding: 6px 12px; font-size: 13.5px }
+.seg button + button { border-left: 1px solid var(--line) }
+.seg button[aria-pressed="true"] { background: var(--fg); color: var(--bg); font-weight: 700 }
+.graph { height: 440px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; touch-action: none; cursor: grab }
+.graph.panning { cursor: grabbing }
+.graph svg { width: 100%; height: 100%; display: block; user-select: none }
+.g-frame rect { fill: var(--sunk); stroke: var(--line) }
+.g-frame.start rect { stroke: var(--fg) }
+.g-node { cursor: pointer }
+.g-node > rect { fill: var(--bg); stroke: var(--line); stroke-width: 1.5 }
+.g-node.start > rect { stroke: var(--fg) }
+.g-node.sel > rect { stroke: var(--accent); stroke-width: 3 }
+.g-node:focus-visible { outline: none }
+.g-node:focus-visible > rect { stroke: var(--accent); stroke-dasharray: 4 3 }
+.g-node.end > rect { fill: var(--fg) }
+.g-node.end text { fill: var(--bg); font: 700 11px var(--mono) }
+.g-name { font: 600 11px var(--mono); fill: var(--accent) }
+.g-title { font: 700 13px var(--body); fill: var(--fg) }
+.g-sub { font: 12px var(--body); fill: var(--muted) }
+.g-toggle { font: 700 15px var(--mono); fill: var(--accent); cursor: pointer }
+.g-edge { fill: none; stroke: var(--muted); stroke-width: 1.4 }
+.g-edge.next { stroke: var(--line) }
+.g-edge.then { stroke-dasharray: 5 4 }
+.g-arrow { fill: var(--muted) }
+.g-label rect { fill: var(--surface); stroke: var(--line) }
+.g-label text { font: 11px var(--mono); fill: var(--fg) }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important } }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/elkjs@0.9.3/lib/elk.bundled.js"></script>
 </head>
 <body>
 <div class="wrap">
@@ -220,6 +251,19 @@ section { display: grid; gap: 12px; min-width: 0 }
       </div>
 
       <div class="panel" role="tabpanel" id="panel-storyboard" aria-labelledby="tab-storyboard">
+      <section id="graph-section" hidden>
+        <div class="graph-head">
+          <h2>Flow</h2>
+          <div class="seg" role="group" aria-label="Graph nodes">
+            <button type="button" id="g-branches" title="Collapse every branch to one node">Branches</button>
+            <button type="button" id="g-cards" title="Expand every branch into its cards">Cards</button>
+          </div>
+          <button type="button" class="tb" id="g-fit">Fit</button>
+          <span class="mono muted" id="g-note" role="status"></span>
+        </div>
+        <div class="graph" id="graph"><svg id="g-svg" aria-label="Flowchart of the draft's branches and cards"></svg></div>
+        <p class="muted" style="margin:0">Drag to pan, wheel to zoom. Click a node to preview and edit it; ⊕ expands one branch, ⊖ collapses it.</p>
+      </section>
       <div class="preview">
         <div class="phone" aria-label="Phone preview of the event screen">
           <div class="frame" id="frame"></div>
@@ -322,6 +366,7 @@ section { display: grid; gap: 12px; min-width: 0 }
       $("panel-" + t).hidden = t !== name;
     }
     try { localStorage.setItem("vein-sb-tab", name); } catch {}
+    if (name === "storyboard" && graphFit) fitGraph();
   }
 
   const board = () => boards.find((b) => b.eventId === currentId);
@@ -658,6 +703,130 @@ section { display: grid; gap: 12px; min-width: 0 }
       throw new Error("that order would loop");
     }
   }
+  // A condition (`if`, `requires`, check mods) as a short readable phrase.
+  function condText(c) {
+    if (c.flag) return `flag ${c.flag}`;
+    if (c.choice) return `${c.choice.event} card ${c.choice.card} = ${c.choice.option}`;
+    if (c.relation) return `${c.relation} ≥ ${c.atLeast}`;
+    if (c.cash) return `£${c.cash.atLeast}+`;
+    if (c.item) return c.item + (c.equipped ? " equipped" : c.optional ? (c.consume ? " (optional, spent)" : " (optional)") : " held");
+    if (c.path) return c.path + (c.atLeast != null ? ` ≥ ${c.atLeast}` : c.perPoint != null ? (c.above ? ` above ${c.above}` : "") : "");
+    return "?";
+  }
+  // How play leaves a card, as nextPos reads it: each outcome goto with an edge label, and whether play can also
+  // go on by the card's own goto or fall-through (no options, or some outcome without a goto).
+  function cardExits(card) {
+    const outs = [];
+    (card.choices || []).forEach((o, i) => {
+      const name = o.label || o.id || `option ${i + 1}`;
+      if (!o.check) { outs.push({ label: name, res: o }); return; }
+      outs.push({ label: name + " ✓", res: o.success }, { label: name + " ✗", res: o.fail });
+      for (const [k, r] of Object.entries(o.bySuccesses || {})) outs.push({ label: `${name} ${k}✓`, res: r });
+    });
+    return {
+      gotos: outs.filter((x) => x.res && x.res.goto).map((x) => ({ label: x.label, target: x.res.goto })),
+      onward: !outs.length || outs.some((x) => !x.res || !x.res.goto),
+    };
+  }
+  // Flowchart data for the draft (spec § Branch view). Branches named in `expanded` show as a frame ("g:<branch>")
+  // holding one node per card ("c:<key>"); the rest collapse to one branch node ("b:<branch>") with title, card
+  // count and first line. "end" stands for the event ending. Edges: {id, from, to, label, kind} with kind
+  // "outcome" (option result goto), "goto" (card goto), "next" (fall-through) or "then" (branch `then`; conditional
+  // entries labelled). Links into nowhere and links inside one collapsed branch are left out.
+  function buildGraph(draft, expanded = []) {
+    const names = [draft.start, ...Object.keys(draft.branches).filter((k) => k !== draft.start)];
+    const open = (name) => expanded.includes(name) && branchCards(draft, name).length > 0;
+    const nodes = [], edges = [], seen = new Set();
+    let ends = false;
+    for (const name of names) {
+      const br = draft.branches[name], cards = branchCards(draft, name), start = name === draft.start;
+      if (open(name)) {
+        nodes.push({ id: "g:" + name, kind: "group", branch: name, title: br.title || "", start });
+        cards.forEach((c, i) => nodes.push({ id: "c:" + c.key, kind: "card", parent: "g:" + name, branch: name, key: c.key,
+          type: c.type || "", speaker: c.speaker || "", text: c.text || "", choices: (c.choices || []).length, start: start && i === 0 }));
+      } else {
+        nodes.push({ id: "b:" + name, kind: "branch", branch: name, title: br.title || "", count: cards.length,
+          first: (cards[0] && cards[0].text) || "", start });
+      }
+    }
+    // t: {branch, card?}, or null for the event ending.
+    const link = (from, t, label, kind) => {
+      let to = "end";
+      if (t) {
+        const p = resolveSafe(draft, t);
+        if (!p) {
+          // A branch with no cards yet still shows as a node; anything else unresolvable is a dangling link.
+          if (!draft.branches[t.branch] || t.card != null) return;
+          to = "b:" + t.branch;
+        } else if (open(p.branch)) to = "c:" + branchCards(draft, p.branch)[p.idx].key;
+        else { to = "b:" + p.branch; if (p.idx > 0) label = (label ? label + " " : "") + "· " + t.card; }
+      } else ends = true;
+      const id = `${from}>${to}>${label}`;
+      if (from === to || seen.has(id)) return;
+      seen.add(id);
+      edges.push({ id: "e" + edges.length, from, to, label, kind });
+    };
+    for (const name of names) {
+      const cards = branchCards(draft, name), from = (i) => (open(name) ? "c:" + cards[i].key : "b:" + name);
+      let onward = !cards.length;
+      cards.forEach((c, i) => {
+        const x = cardExits(c);
+        for (const g of x.gotos) link(from(i), g.target, g.label, "outcome");
+        if (!x.onward) return;
+        if (c.goto) link(from(i), c.goto, "", "goto");
+        else if (i + 1 < cards.length) link(from(i), { branch: name, card: cards[i + 1].key }, "", "next");
+        else onward = true;
+      });
+      if (!onward) continue;
+      const src = cards.length ? from(cards.length - 1) : "b:" + name, then = draft.branches[name].then;
+      if (!Array.isArray(then)) { link(src, then && then !== "end" ? then : null, "", "then"); continue; }
+      for (const e of then) link(src, e.branch ? e : null, e.if ? "if " + condText(e.if) : "else", "then");
+      if (then.every((e) => e.if != null)) link(src, null, "else", "then");
+    }
+    if (ends) nodes.push({ id: "end", kind: "end" });
+    return { nodes, edges };
+  }
+  const GRAPH_SIZES = { branch: [210, 66], card: [190, 62], end: [64, 32] };
+  // buildGraph output → elkjs input: layered, left to right, cards nested in their branch frame.
+  function elkGraph(graph) {
+    const byId = new Map(graph.nodes.map((n) => [n.id, n.kind === "group"
+      ? { id: n.id, layoutOptions: { "elk.padding": "[top=36,left=12,bottom=12,right=12]" }, children: [] }
+      : { id: n.id, width: GRAPH_SIZES[n.kind][0], height: GRAPH_SIZES[n.kind][1] }]));
+    const top = [];
+    for (const n of graph.nodes) (n.parent ? byId.get(n.parent).children : top).push(byId.get(n.id));
+    return {
+      id: "root",
+      layoutOptions: {
+        "elk.algorithm": "layered", "elk.direction": "RIGHT", "elk.hierarchyHandling": "INCLUDE_CHILDREN",
+        "elk.spacing.nodeNode": "28", "elk.layered.spacing.nodeNodeBetweenLayers": "56", "elk.spacing.edgeLabel": "4",
+        "elk.layered.considerModelOrder.strategy": "NODES_AND_EDGES", "elk.padding": "[top=16,left=16,bottom=16,right=16]",
+      },
+      children: top,
+      edges: graph.edges.map((e) => ({ id: e.id, sources: [e.from], targets: [e.to],
+        labels: e.label ? [{ text: e.label, width: Math.ceil(e.label.length * 6.6) + 10, height: 16 }] : [] })),
+    };
+  }
+  // elkjs output → absolute geometry: {width, height, boxes: Map id → {x, y, w, h}, edges: Map id → {points, label}}.
+  // elkjs places children relative to their parent and edges relative to their `container` node.
+  function placeLayout(laid) {
+    const boxes = new Map([["root", { x: 0, y: 0, w: laid.width, h: laid.height }]]), edges = new Map(), raw = [];
+    const walk = (n, ox, oy) => {
+      raw.push(...(n.edges || []));
+      for (const c of n.children || []) {
+        const b = { x: ox + c.x, y: oy + c.y, w: c.width, h: c.height };
+        boxes.set(c.id, b); walk(c, b.x, b.y);
+      }
+    };
+    walk(laid, 0, 0);
+    for (const e of raw) {
+      const o = boxes.get(e.container || "root") || boxes.get("root");
+      const points = (e.sections || []).flatMap((s) => [s.startPoint, ...(s.bendPoints || []), s.endPoint]).map((p) => [o.x + p.x, o.y + p.y]);
+      const l = (e.labels || [])[0];
+      edges.set(e.id, { points, label: l ? { x: o.x + l.x, y: o.y + l.y, w: l.width, h: l.height, text: l.text } : null });
+    }
+    boxes.delete("root");
+    return { width: laid.width, height: laid.height, boxes, edges };
+  }
   /* ---------- End draft model ---------- */
 
   // Image per card, as the event screen resolves it: an explicit "image" key (null clears), else (legacy flat
@@ -802,15 +971,6 @@ section { display: grid; gap: 12px; min-width: 0 }
   // ---- proposal rendering (mechanics as short readable lines) ---------------
   const pct = (p) => Math.round(p * 100) + "%";
   const signed = (n) => (n >= 0 ? "+" : "") + n;
-  function condText(c) {
-    if (c.flag) return `flag ${c.flag}`;
-    if (c.choice) return `${c.choice.event} card ${c.choice.card} = ${c.choice.option}`;
-    if (c.relation) return `${c.relation} ≥ ${c.atLeast}`;
-    if (c.cash) return `£${c.cash.atLeast}+`;
-    if (c.item) return c.item + (c.equipped ? " equipped" : c.optional ? (c.consume ? " (optional, spent)" : " (optional)") : " held");
-    if (c.path) return c.path + (c.atLeast != null ? ` ≥ ${c.atLeast}` : c.perPoint != null ? (c.above ? ` above ${c.above}` : "") : "");
-    return "?";
-  }
   const modText = (m) => (m.perPoint != null ? `${signed(Math.round(m.perPoint * 100))}% per point` : `${signed(Math.round((m.add || 0) * 100))}%`)
     + ` ${m.label || ""} (${condText(m)})`;
   function effectText(e) {
@@ -918,8 +1078,189 @@ section { display: grid; gap: 12px; min-width: 0 }
     $("pos").textContent = `${c.branch} · ${c.key} · ${cardIdx + 1}/${b.cards.length}`;
     $("next").disabled = nextIndex(b) >= b.cards.length;
     document.querySelectorAll(".cut").forEach((r, i) => r.setAttribute("aria-current", String(i === cardIdx)));
+    markGraph(b);
     renderEditor(b);
   }
+
+  // ---- flowchart (spec § Branch view): buildGraph → elkjs layout → SVG, with pan/zoom ----------
+  const SVG_NS = "http://www.w3.org/2000/svg";
+  const sv = (tag, attrs = {}, ...kids) => {
+    const n = document.createElementNS(SVG_NS, tag);
+    for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
+    for (const k of kids) if (k != null) n.append(k);
+    return n;
+  };
+  const graphOpen = new Map(); // board id → Set of expanded branch names
+  const view = { x: 0, y: 0, k: 1 };
+  // graphLaid: last layout and the graph structure it was laid out for (text edits redraw without re-laying).
+  let elk = null, graphLaid = null, graphTok = 0, graphFit = true, graphFor = null;
+  function openSet(b) {
+    if (!graphOpen.has(b.eventId)) graphOpen.set(b.eventId, new Set());
+    return graphOpen.get(b.eventId);
+  }
+  const clip = (s, n) => (s.length > n ? s.slice(0, n - 1) + "…" : s);
+  // s word-wrapped to lines of about n chars, at most max lines (the last one ellipsed if cut short).
+  function wrapLines(s, n, max) {
+    const out = [];
+    let line = "";
+    for (const w of s.replace(/\s+/g, " ").trim().split(" ")) {
+      if (line && (line + " " + w).length > n) { out.push(line); line = w; } else line = line ? line + " " + w : w;
+    }
+    if (line) out.push(line);
+    const cut = out.length > max;
+    return out.slice(0, max).map((l, i) => (cut && i === max - 1 ? clip(l, n - 1) + "…" : clip(l, n)));
+  }
+  function renderGraph(b) {
+    const on = !!b && b.kind === "proposal" && !!b.draft;
+    $("graph-section").hidden = !on;
+    const tok = ++graphTok;
+    if (!on) return;
+    if (graphFor !== b.eventId) { graphFor = b.eventId; graphFit = true; }
+    const names = Object.keys(b.draft.branches), open = openSet(b);
+    $("g-branches").setAttribute("aria-pressed", String(names.every((n) => !open.has(n))));
+    $("g-cards").setAttribute("aria-pressed", String(names.every((n) => open.has(n))));
+    const graph = buildGraph(b.draft, [...open]);
+    const key = JSON.stringify([b.eventId, graph.nodes.map((n) => [n.id, n.parent]), graph.edges.map((e) => [e.from, e.to, e.label, e.kind])]);
+    if (graphLaid && graphLaid.key === key) { drawGraph(b, graph, graphLaid.layout); return; }
+    if (!window.ELK) { $("g-note").textContent = "elkjs didn't load (offline?), so no flowchart."; return; }
+    elk = elk || new ELK();
+    elk.layout(elkGraph(graph)).then((laid) => {
+      if (tok !== graphTok) return;
+      graphLaid = { key, layout: placeLayout(laid) };
+      $("g-note").textContent = "";
+      drawGraph(b, graph, graphLaid.layout);
+    }).catch((e) => { if (tok === graphTok) $("g-note").textContent = "Layout failed: " + (e && e.message); });
+  }
+  const toggleGlyph = (branch, expand, x, y) => sv("text", { x, y, class: "g-toggle", "data-toggle": branch,
+    role: "button", tabindex: "0", "aria-label": (expand ? "Expand " : "Collapse ") + branch }, expand ? "⊕" : "⊖");
+  function drawGraph(b, graph, L) {
+    const g = sv("g", { id: "g-view" });
+    // Branch frames under the edges, nodes on top.
+    for (const n of graph.nodes) {
+      const r = L.boxes.get(n.id);
+      if (n.kind !== "group" || !r) continue;
+      g.append(sv("g", { class: "g-frame" + (n.start ? " start" : ""), "data-node": n.id },
+        sv("rect", { x: r.x, y: r.y, width: r.w, height: r.h, rx: 8 }),
+        sv("text", { x: r.x + 10, y: r.y + 22, class: "g-name" }, clip(n.branch + (n.title ? " · " + n.title : ""), Math.max(8, Math.floor((r.w - 44) / 6.6)))),
+        toggleGlyph(n.branch, false, r.x + r.w - 24, r.y + 23)));
+    }
+    for (const e of graph.edges) {
+      const p = L.edges.get(e.id);
+      if (!p || !p.points.length) continue;
+      g.append(sv("path", { class: "g-edge " + e.kind, d: "M" + p.points.map(([x, y]) => `${x},${y}`).join(" L"), "marker-end": "url(#g-arrow)" }));
+      if (p.label) g.append(sv("g", { class: "g-label" },
+        sv("rect", { x: p.label.x, y: p.label.y, width: p.label.w, height: p.label.h, rx: 3 }),
+        sv("text", { x: p.label.x + 5, y: p.label.y + 12 }, e.label)));
+    }
+    for (const n of graph.nodes) {
+      const r = L.boxes.get(n.id);
+      if (n.kind === "group" || !r) continue;
+      const t = (dy, cls, s) => sv("text", { x: r.x + 10, y: r.y + dy, class: cls }, s);
+      const kids = [sv("rect", { x: r.x, y: r.y, width: r.w, height: r.h, rx: n.kind === "end" ? 16 : 6 })];
+      let label = "";
+      if (n.kind === "end") kids.push(sv("text", { x: r.x + r.w / 2, y: r.y + 20, "text-anchor": "middle" }, "END"));
+      else if (n.kind === "branch") {
+        label = `Branch ${n.branch}, ${n.count} cards`;
+        kids.push(t(17, "g-name", clip(n.branch, 22)), t(35, "g-title", clip(n.title || "(untitled)", 25)),
+          t(54, "g-sub", clip(`${n.count} card${n.count === 1 ? "" : "s"} · ${n.first || "—"}`, 31)),
+          n.count ? toggleGlyph(n.branch, true, r.x + r.w - 22, r.y + 19) : null);
+      } else {
+        label = `Card ${n.key} in ${n.branch}`;
+        const head = [n.key, n.type, n.choices ? `${n.choices} option${n.choices > 1 ? "s" : ""}` : ""].filter(Boolean).join(" · ");
+        kids.push(t(17, "g-name", clip(head, 28)),
+          ...wrapLines((n.speaker ? n.speaker + ": " : "") + n.text || "(empty)", 27, 2).map((s, i) => t(36 + i * 17, "g-sub", s)));
+      }
+      const attrs = { class: `g-node ${n.kind}${n.start ? " start" : ""}`, "data-node": n.id };
+      if (label) Object.assign(attrs, { tabindex: "0", role: "button", "aria-label": label });
+      g.append(sv("g", attrs, ...kids));
+    }
+    const defs = sv("defs", {}, sv("marker", { id: "g-arrow", viewBox: "0 0 10 10", refX: "9", refY: "5", markerWidth: "7", markerHeight: "7", orient: "auto-start-reverse" },
+      sv("path", { d: "M0,0 L10,5 L0,10 z", class: "g-arrow" })));
+    $("g-svg").replaceChildren(defs, g);
+    if (graphFit) fitGraph(); else applyView();
+    markGraph(b);
+  }
+  const applyView = () => { const g = $("g-view"); if (g) g.setAttribute("transform", `translate(${view.x},${view.y}) scale(${view.k})`); };
+  // Scales the last layout to fit the graph box; waits for the Storyboard tab if the box is hidden.
+  function fitGraph() {
+    const svg = $("g-svg"), w = svg.clientWidth, h = svg.clientHeight, L = graphLaid && graphLaid.layout;
+    if (!L) return;
+    if (!w || !h) { graphFit = true; return; }
+    graphFit = false;
+    view.k = Math.min(1.2, Math.max(0.15, Math.min(w / L.width, h / L.height)));
+    view.x = Math.max(0, (w - L.width * view.k) / 2); view.y = Math.max(0, (h - L.height * view.k) / 2);
+    applyView();
+  }
+  // Highlights the selected card's node, or its branch node when that branch is collapsed.
+  function markGraph(b) {
+    const c = b && b.cards[cardIdx];
+    document.querySelectorAll("#g-svg .g-node").forEach((n) => {
+      const id = n.getAttribute("data-node");
+      n.classList.toggle("sel", !!c && (id === "c:" + c.key || id === "b:" + c.branch));
+    });
+  }
+  // A click (or Enter) on the graph: ⊕/⊖ toggles a branch; a card selects it; a branch or frame selects its first card.
+  function graphActivate(target) {
+    const b = board();
+    if (!b || !b.draft || !target || !target.closest) return;
+    const tg = target.closest("[data-toggle]");
+    if (tg) {
+      const s = openSet(b), name = tg.getAttribute("data-toggle");
+      if (s.has(name)) s.delete(name); else s.add(name);
+      renderGraph(b);
+      return;
+    }
+    const node = target.closest("[data-node]");
+    if (!node) return;
+    const id = node.getAttribute("data-node"), rest = id.slice(2);
+    const i = id.startsWith("c:") ? b.cards.findIndex((c) => c.key === rest)
+      : /^[bg]:/.test(id) ? b.cards.findIndex((c) => c.branch === rest) : -1;
+    if (i >= 0) { trail = []; goTo(i); }
+  }
+  {
+    const box = $("graph");
+    let drag = null;
+    box.addEventListener("pointerdown", (e) => {
+      if (e.button === 0) drag = { id: e.pointerId, sx: e.clientX, sy: e.clientY, vx: view.x, vy: view.y, moved: false, target: e.target };
+    });
+    box.addEventListener("pointermove", (e) => {
+      if (!drag || e.pointerId !== drag.id) return;
+      const dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
+      if (!drag.moved && Math.hypot(dx, dy) < 4) return;
+      if (!drag.moved) { drag.moved = true; box.setPointerCapture(e.pointerId); box.classList.add("panning"); }
+      view.x = drag.vx + dx; view.y = drag.vy + dy; applyView();
+    });
+    const endDrag = (e) => {
+      if (!drag || e.pointerId !== drag.id) return;
+      const d = drag; drag = null; box.classList.remove("panning");
+      if (!d.moved && e.type === "pointerup") graphActivate(d.target);
+    };
+    box.addEventListener("pointerup", endDrag);
+    box.addEventListener("pointercancel", endDrag);
+    // Wheel zooms about the pointer.
+    box.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      const r = box.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
+      const k = Math.min(3, Math.max(0.15, view.k * Math.exp(-e.deltaY * 0.0015)));
+      view.x = px - (px - view.x) * k / view.k; view.y = py - (py - view.y) * k / view.k; view.k = k;
+      applyView();
+    }, { passive: false });
+    box.addEventListener("keydown", (e) => {
+      if ((e.key === "Enter" || e.key === " ") && e.target.closest && e.target.closest("[data-node],[data-toggle]")) { e.preventDefault(); graphActivate(e.target); }
+    });
+  }
+  function setAllOpen(expand) {
+    const b = board();
+    if (!b || !b.draft) return;
+    const s = openSet(b);
+    s.clear();
+    if (expand) for (const n of Object.keys(b.draft.branches)) s.add(n);
+    graphFit = true;
+    renderGraph(b);
+  }
+  $("g-branches").addEventListener("click", () => setAllOpen(false));
+  $("g-cards").addEventListener("click", () => setAllOpen(true));
+  $("g-fit").addEventListener("click", fitGraph);
 
   // ---- proposal editing (draft edits, undo, save) ----------------------------
   // One undo step per edit session: the draft is snapshotted on the first keystroke after the field gains focus.
@@ -963,6 +1304,7 @@ section { display: grid; gap: 12px; min-width: 0 }
     catch (e) { b.draft = JSON.parse(before); renderEditBar(e.message); return; }
     if (newStep) b.history.snapshot(before);
     proposalCards(b);
+    renderGraph(b);
     if (sel) {
       const i = b.cards.findIndex((x) => x.key === sel);
       if (i >= 0) { cardIdx = i; trail = []; pick = null; outcomeKey = null; }
@@ -1254,6 +1596,7 @@ section { display: grid; gap: 12px; min-width: 0 }
     $("empty").hidden = !!b; $("board").hidden = !b;
     renderEditBar();
     if (!b) return;
+    renderGraph(b);
     $("h-title").textContent = b.title || b.eventId;
     const isProposal = b.kind === "proposal";
     $("s-section").hidden = isProposal; $("board-verdict").hidden = isProposal; $("shots-none").hidden = !isProposal;

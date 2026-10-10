@@ -17,12 +17,12 @@ assert(s !== -1 && e !== -1, "could not locate draft model markers in storyboard
 const {
   parseProposal, parseDraft, serialiseDraft, ensureKeys, legacyToDraft, nextPos, playOrder, flatCards, thenText,
   jsonBlockRange, spliceDraft, writableProposal, cardByKey, makeHistory,
-  cardPos, insertCard, deleteCard, moveCard, danglingLinks, hasCycle,
+  cardPos, insertCard, deleteCard, moveCard, danglingLinks, hasCycle, buildGraph, elkGraph, placeLayout,
 } = new Function(
   html.slice(s, e) +
     "\nreturn { parseProposal, parseDraft, serialiseDraft, ensureKeys, legacyToDraft, nextPos, playOrder, flatCards, thenText," +
     " jsonBlockRange, spliceDraft, writableProposal, cardByKey, makeHistory," +
-    " cardPos, insertCard, deleteCard, moveCard, danglingLinks, hasCycle };"
+    " cardPos, insertCard, deleteCard, moveCard, danglingLinks, hasCycle, buildGraph, elkGraph, placeLayout };"
 )();
 
 let passed = 0;
@@ -376,5 +376,127 @@ for (const f of proposals) {
     assert.strictEqual(flatCards(parseProposal(f, out).draft)[0].card.text, card.text);
   });
 }
+
+// ---- flowchart graph -------------------------------------------------------
+const edgeList = (g) => g.edges.map((e) => `${e.from} > ${e.to} [${e.kind}] ${e.label}`.trim());
+
+test("buildGraph collapsed: one node per branch, outcome / card goto / then edges, end node", () => {
+  const { draft } = parseDraft(draftText);
+  const g = buildGraph(draft);
+  assert.deepStrictEqual(g.nodes.map((n) => n.id), ["b:main", "b:botched", "b:watched", "b:after", "end"]);
+  const main = g.nodes[0];
+  assert.deepStrictEqual([main.kind, main.title, main.count, main.first, main.start], ["branch", "Workshop", 3, "One.", true]);
+  assert.strictEqual(g.nodes[1].start, false);
+  assert.deepStrictEqual(edgeList(g), [
+    "b:main > b:after [outcome] Take your time ✓",
+    "b:main > b:botched [outcome] Take your time ✗",
+    "b:main > b:after [goto] · c9",
+    "b:botched > b:watched [then] if flag jamesWatching",
+    "b:botched > b:after [then] else",
+    "b:watched > end [then]",
+    "b:after > end [then]",
+  ]);
+  assert.strictEqual(new Set(g.edges.map((e) => e.id)).size, g.edges.length);
+});
+
+test("buildGraph expanded: cards nest in their branch frame, fall-through edges, dead fall-through omitted", () => {
+  const { draft } = parseDraft(draftText);
+  const g = buildGraph(draft, Object.keys(draft.branches));
+  assert.deepStrictEqual(g.nodes.map((n) => n.id + (n.parent ? "<" + n.parent : "")), [
+    "g:main", "c:c1<g:main", "c:c2<g:main", "c:c3<g:main", "g:botched", "c:c4<g:botched",
+    "g:watched", "c:c5<g:watched", "g:after", "c:c8<g:after", "c:c9<g:after", "end"]);
+  const c2 = g.nodes.find((n) => n.id === "c:c2");
+  assert.deepStrictEqual([c2.kind, c2.type, c2.text, c2.choices, c2.start], ["card", "narration", "Two.", 1, false]);
+  assert.strictEqual(g.nodes.find((n) => n.id === "c:c1").start, true);
+  // c2's option routes every outcome, so there is no c2 → c3 fall-through; c3's card goto skips main's then.
+  assert.deepStrictEqual(edgeList(g), [
+    "c:c1 > c:c2 [next]",
+    "c:c2 > c:c8 [outcome] Take your time ✓",
+    "c:c2 > c:c4 [outcome] Take your time ✗",
+    "c:c3 > c:c9 [goto]",
+    "c:c4 > c:c5 [then] if flag jamesWatching",
+    "c:c4 > c:c8 [then] else",
+    "c:c5 > end [then]",
+    "c:c8 > c:c9 [next]",
+    "c:c9 > end [then]",
+  ]);
+});
+
+test("buildGraph expands one branch inline; links into it land on its cards", () => {
+  const { draft } = parseDraft(draftText);
+  const g = buildGraph(draft, ["after"]);
+  assert.deepStrictEqual(g.nodes.map((n) => n.id), ["b:main", "b:botched", "b:watched", "g:after", "c:c8", "c:c9", "end"]);
+  assert.deepStrictEqual(edgeList(g), [
+    "b:main > c:c8 [outcome] Take your time ✓",
+    "b:main > b:botched [outcome] Take your time ✗",
+    "b:main > c:c9 [goto]",
+    "b:botched > b:watched [then] if flag jamesWatching",
+    "b:botched > c:c8 [then] else",
+    "b:watched > end [then]",
+    "c:c8 > c:c9 [next]",
+    "c:c9 > end [then]",
+  ]);
+});
+
+test("buildGraph: bySuccesses edges, no else = edge to end, dangling and same-branch links dropped, empty branch", () => {
+  const draft = ensureKeys({ start: "a", branches: {
+    a: { title: "A", cards: [
+      { text: "x", choices: [{ label: "Try", check: { base: 0.5, attempts: 2 },
+        success: { goto: { branch: "b" } }, fail: {}, bySuccesses: { 2: { goto: { branch: "c" } } } }] },
+      { text: "y", goto: { branch: "a", card: "c3" } },
+      { text: "z", goto: { branch: "ghost" } },
+    ], then: [{ if: { flag: "f" }, branch: "b" }] },
+    b: { cards: [{ text: "b1" }], then: { branch: "c" } },
+    c: { title: "Empty", cards: [] },
+  } });
+  const collapsed = buildGraph(draft);
+  assert.deepStrictEqual(edgeList(collapsed), [
+    "b:a > b:b [outcome] Try ✓",
+    "b:a > b:c [outcome] Try 2✓",
+    "b:b > b:c [then]",
+    "b:c > end [then]",
+  ]);
+  // Card c3's goto to a missing branch leaves no edge and no fall-through, so a's conditional then is dead.
+  const open = buildGraph(draft, ["a", "b", "c"]);
+  assert(open.nodes.some((n) => n.id === "b:c" && n.kind === "branch" && n.count === 0), "empty branch stays a branch node");
+  assert.deepStrictEqual(edgeList(open), [
+    "c:c1 > c:c4 [outcome] Try ✓",
+    "c:c1 > b:c [outcome] Try 2✓",
+    "c:c1 > c:c2 [next]",
+    "c:c2 > c:c3 [goto]",
+    "c:c4 > b:c [then]",
+    "b:c > end [then]",
+  ]);
+  // A conditional then with no else entry also routes to the end.
+  delete draft.branches.a.cards[2].goto;
+  assert.deepStrictEqual(edgeList(buildGraph(draft)).filter((s) => s.includes("[then]") && s.startsWith("b:a")),
+    ["b:a > b:b [then] if flag f", "b:a > end [then] else"]);
+});
+
+test("elkGraph nests cards in their frame and sizes labels; placeLayout makes geometry absolute", () => {
+  const { draft } = parseDraft(draftText);
+  const elk = elkGraph(buildGraph(draft, ["after"]));
+  assert.strictEqual(elk.layoutOptions["elk.direction"], "RIGHT");
+  const frame = elk.children.find((c) => c.id === "g:after");
+  assert.deepStrictEqual(frame.children.map((c) => c.id), ["c:c8", "c:c9"]);
+  assert(elk.children.every((c) => c.children || (c.width > 0 && c.height > 0)));
+  assert.strictEqual(elk.edges.length, 8);
+  assert.strictEqual(elk.edges[0].labels[0].text, "Take your time ✓");
+  assert.deepStrictEqual(elk.edges[2].labels, []);
+  // Shape of a real elkjs 0.9.3 result: children relative to parent, edges relative to their container.
+  const L = placeLayout({ id: "root", x: 0, y: 0, width: 699, height: 125,
+    children: [{ id: "b:main", x: 12, y: 47, width: 200, height: 60 },
+      { id: "g:after", x: 287, y: 12, width: 400, height: 101, children: [
+        { id: "c:c8", x: 10, y: 30, width: 180, height: 50 }, { id: "c:c9", x: 210, y: 38, width: 180, height: 50 }] }],
+    edges: [
+      { id: "e1", container: "root", labels: [{ text: "ok", x: 232, y: 50, width: 30, height: 14 }],
+        sections: [{ startPoint: { x: 212, y: 67 }, endPoint: { x: 297, y: 67 } }] },
+      { id: "e2", container: "g:after", sections: [{ startPoint: { x: 190, y: 55 }, bendPoints: [{ x: 200, y: 55 }], endPoint: { x: 210, y: 63 } }] }] });
+  assert.deepStrictEqual(L.boxes.get("c:c8"), { x: 297, y: 42, w: 180, h: 50 });
+  assert(!L.boxes.has("root"));
+  assert.deepStrictEqual(L.edges.get("e1").label, { x: 232, y: 50, w: 30, h: 14, text: "ok" });
+  assert.deepStrictEqual(L.edges.get("e2").points, [[477, 67], [487, 67], [497, 75]]);
+  assert.strictEqual(L.edges.get("e2").label, null);
+});
 
 console.log(`${passed} passed${process.exitCode ? ", some FAILED" : ""}`);
