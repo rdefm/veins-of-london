@@ -10,6 +10,6 @@
 
 - [ ] Schema: `attempts`, per-success effects, result text keyed by success count with a fallback; documented in REFERENCE.md.
 - [ ] Choice memory records the success count.
-- [ ] Deterministic per attempt; same after Rewind (test).
+- [ ] Deterministic per attempt (same seed + roll count → same rolls); after a Rewind each attempt re-rolls best-of-two, per REFERENCE §3.9a "Rewind re-roll" (test).
 - [ ] Modifiers apply to every attempt, including one from an earlier check outcome (e.g. "James is watching" +10%).
 - [ ] Button text shows attempts + per-attempt odds.

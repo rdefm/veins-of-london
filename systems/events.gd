@@ -5,7 +5,7 @@ extends RefCounted
 # text}; a "choice" card adds {choices:[{id?, label, effects, result_text}]};
 # a check option swaps result_text for {check, success, fail} (R§3.9a).
 # Events: {id, cards, on_complete:[effect]}. state.event holds runtime
-# progress: {eventId, cardIndex, snapshots, choiceResults}.
+# progress: {eventId, cardIndex, snapshots, choiceResults, rolled}.
 #
 # Any card (including a choice's own "choices" entries) may carry an optional
 # "image" key -- an asset path, or explicit null to clear the event screen's
@@ -26,7 +26,7 @@ static func start_event(event_id: String, context: Dictionary = {}) -> void:
 	if not GameData.EVENTS.has(event_id):
 		push_error("Events.start_event: unknown event id '%s'" % event_id)
 		return
-	GameState.state["event"] = { "eventId": event_id, "cardIndex": 0, "snapshots": [], "choiceResults": {}, "context": context }
+	GameState.state["event"] = { "eventId": event_id, "cardIndex": 0, "snapshots": [], "choiceResults": {}, "rolled": {}, "context": context }
 	Nav.go_to("event")
 
 
@@ -242,8 +242,9 @@ static func choose(choice_index: int) -> void:
 	var outcome := ""
 	var source: Dictionary = choice
 	if choice.has("check"):
-		outcome = "success" if check_roll(choice_index) < check_odds(choice_index)["probability"] else "fail"
+		outcome = "success" if check_roll(choice_index) < odds_for(choice["check"])["probability"] else "fail"
 		source = choice[outcome]
+		_rolled(event_state)[_roll_key(choice_index)] = prior_rolls(choice_index) + 1
 
 	var resolution: Dictionary = { "text": source["result_text"] }
 	if source.has("image"):
@@ -277,12 +278,38 @@ static func _remember_choice(event_id: String, card_index: int, option_id: Strin
 
 # Odds for the current choice card's option: {} when it has no check, else
 # {probability, base, mods:[{label, delta}], show, hint}. The event screen
-# reads only this; it never computes odds itself.
+# reads only this; it never computes odds itself. A check already rolled
+# before a Rewind rolls twice and keeps the best, so its probability is
+# 1 - (1 - p)^2, listed as one extra modifier.
 static func check_odds(choice_index: int) -> Dictionary:
 	var choice: Dictionary = current_card()["choices"][choice_index]
 	if not choice.has("check"):
 		return {}
-	return odds_for(choice["check"])
+	var odds := odds_for(choice["check"])
+	if prior_rolls(choice_index) > 0:
+		var p: float = odds["probability"]
+		var advantaged: float = 1.0 - (1.0 - p) * (1.0 - p)
+		odds["mods"].append({ "label": GameData.EVENT_CHECKS["rewoundLabel"], "delta": advantaged - p })
+		odds["probability"] = advantaged
+		odds["hint"] = hint_word(advantaged)
+	return odds
+
+
+# How many times this option's check on the current card has been rolled
+# this event run. Kept across Rewind (see rewind()), so a nonzero count means
+# the check is being re-rolled after a Rewind.
+static func prior_rolls(choice_index: int) -> int:
+	return int(GameState.state["event"].get("rolled", {}).get(_roll_key(choice_index), 0))
+
+
+static func _rolled(event_state: Dictionary) -> Dictionary:
+	if not event_state.has("rolled"):
+		event_state["rolled"] = {}
+	return event_state["rolled"]
+
+
+static func _roll_key(choice_index: int) -> String:
+	return "%d|%d" % [int(GameState.state["event"]["cardIndex"]), choice_index]
 
 
 # base + every matching modifier's signed delta, clamped to [min, max].
@@ -338,12 +365,18 @@ static func _option_key(option: Variant) -> String:
 
 
 # The check's roll in [0,1) for the current card's option: a stable hash of
-# world.rollSeed, event id, card index and option index, so a Rewind replays
-# the same result. Never draws from the global Rng stream.
+# world.rollSeed, event id, card index, option index and prior_rolls(), so
+# each re-roll after a Rewind is fresh while a save reload replays the same
+# roll. A re-roll draws a second value and keeps the lower (best of two).
+# Never draws from the global Rng stream.
 static func check_roll(choice_index: int) -> float:
 	var event_state: Dictionary = GameState.state["event"]
-	var key := "%d|%s|%d|%d" % [int(GameState.state["world"]["rollSeed"]), event_state["eventId"], int(event_state["cardIndex"]), choice_index]
-	return Rng.stable_unit(key)
+	var attempt: int = prior_rolls(choice_index)
+	var key := "%d|%s|%d|%d|%d" % [int(GameState.state["world"]["rollSeed"]), event_state["eventId"], int(event_state["cardIndex"]), choice_index, attempt]
+	var roll: float = Rng.stable_unit(key)
+	if attempt > 0:
+		roll = minf(roll, Rng.stable_unit(key + "|adv"))
+	return roll
 
 
 # The committed choice at an event's card, or {} if none was made.
@@ -390,11 +423,15 @@ static func rewind(source: String = "") -> Dictionary:
 	var stack: Array = event_state["snapshots"]
 	var snap: Dictionary = Snapshots.pop_newest(stack)
 	var live_meta: Dictionary = GameState.state["meta"].duplicate()
+	var live_rolled: Dictionary = _rolled(event_state)
 	GameState.state = snap
 	Preferences.carry_forward(live_meta)
 	# snap's own event.snapshots is always [] (see advance()) -- carry the real,
 	# already-popped live stack forward instead of trusting that.
 	GameState.state["event"]["snapshots"] = stack
+	# Roll counts survive the Rewind, so a check rolled before it re-rolls
+	# with advantage (check_odds()).
+	GameState.state["event"]["rolled"] = live_rolled
 
 	if has_consumable:
 		Crafting.inventory_remove("rewind", 1)

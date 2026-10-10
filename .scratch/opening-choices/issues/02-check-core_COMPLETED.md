@@ -32,7 +32,7 @@ Check shape (from the review proposal; encodes the decision):
 - [ ] Odds = base + matching mods, clamped to [min, max]; clamp and each modifier type tested.
 - [ ] Hint thresholds (Likely ≥ 65%, Even 35–64%, Risky < 35%) in data.
 - [ ] Choosing a check option records success/fail in choice memory, shows that outcome's `result_text` as the resolution card, applies its effects.
-- [ ] Same inputs → same result after Rewind (test); global RNG stream untouched.
+- [ ] ~~Same inputs → same result after Rewind~~ Owner change 2026-10-10: a Rewind re-rolls every check rolled before it, best of two (test); a save reload replays the same roll; global RNG stream untouched.
 - [ ] Button shows "Label · 60%" or the hint word; info control opens a modifiers sheet; `hidden` shows neither.
 - [ ] Reduced motion: result appears with no extra animation.
 - [ ] Plain options and legacy `chance` unchanged.

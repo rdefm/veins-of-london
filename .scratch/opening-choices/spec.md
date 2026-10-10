@@ -47,8 +47,8 @@ The event engine gains the check, option gating, choice memory and short branche
 13. As a player, I want a failed roll to cost me something proportionate (cash, HP, a relation point, a worse start to a fight) rather than ending the story, so that risk-taking stays fun.
 14. As a player, I want a few choices to lead to short alternative scenes that rejoin the main story, so that my path feels personal without the story fragmenting.
 15. As a player, I want Rewind to undo a choice I regret, so that the flagship Rewind feature still works in events.
-16. As a player, I want rewinding and picking the same option with the same preparation to give the same result, so that rolls carry real stakes and can't be fished.
-17. As a player, I want changing my preparation (using an item, picking another option) after a rewind to be able to change the outcome, so that Rewind rewards rethinking.
+16. As a player, I want a check I rewind past to roll again with an advantage (best of two), so that Rewind is a real second chance that pays for itself.
+17. As a player, I want reloading a save not to change a roll, so that only Rewind buys a second go.
 18. As a player, in the intro, I want to choose how I answer Archie's pitch (go along, ask who the buyers are, or demand half), so that my character's attitude is mine.
 19. As a player, when the knife comes at me in the intro, I want to choose to freeze, step in front of Archie, or grab for the bag, with visible risk on the bold options, so that the danger demands a reaction.
 20. As a player, if I fail the bold option in the knife scene, I want a real but survivable cost (an injury that lowers my HP for the next few days, remembered later), so that danger is sincere.
@@ -122,7 +122,8 @@ The event engine gains the check, option gating, choice memory and short branche
 - **Odds.** `base` plus every matching modifier, clamped to `[min, max]`. Optional item modifiers count only when the player has toggled them on. The `hint` display maps odds to words (e.g. Likely ≥ 65%, Even 35–64%, Risky < 35%); the thresholds live in data.
 - **Odds query.** Add a pure query on the Events system that returns, for an option, the final probability and the list of applied modifiers (label + signed delta), given the current toggles. The screen reads only this; it never computes odds.
 - **Item toggle in state.** The optional-item toggle is kept in the event's state (pure data) so Rewind and save capture it. Consumed items are removed only when the option is committed.
-- **Deterministic rolls.** A check's roll is derived from the game seed, event id, card index, option index and the set of toggled optional items (a stable hash to [0,1)). It doesn't consume the global RNG stream. Same inputs give the same result after a Rewind; different inputs may differ.
+- **Deterministic rolls.** A check's roll is derived from the game seed, event id, card index, option index, the set of toggled optional items and how many times that check has been rolled this event (a stable hash to [0,1)). It doesn't consume the global RNG stream. A save reload replays the same roll.
+- **Rewind re-roll (owner decision 2026-10-10).** Roll counts survive a Rewind. Any check rolled before the Rewind rolls fresh with advantage when reached again: roll twice, keep the best. The odds query reports the advantaged probability and lists it as a modifier.
 - **Choose returns the outcome.** Choosing an option with a check records which outcome happened, shows that outcome's `result_text` as the resolution card, and applies its effects. An outcome `goto` sets the next card index (forward only, same event). Without `goto`, play continues to the next card as today.
 - **Gating.** `requires` uses the same condition vocabulary as modifiers (flag, choice, path ≥, relation ≥, cash ≥, item held/equipped), plus `"display": "hide" | "disable"` and a `reason` string for disabled options.
 - **Choice memory.** Every committed choice (with or without a check) is recorded in state under the event id and card index: the option's stable `id` (a new optional option field, falling back to its index) and, for checks, success/fail. It's readable by modifiers, `requires` and objectives. The store lives in the flags area of the state tree and is backfilled empty on load.
@@ -175,7 +176,7 @@ The beat table in review §18.4 is the content brief: intro ×3 choices, buyer �
 - **Engine cases.**
   - Odds clamp, and each modifier type.
   - Optional item counted only when toggled, and consumed only on commit.
-  - The same seed and inputs give the same outcome after a rewind, and a changed toggle can change it.
+  - The same seed, inputs and roll count give the same roll (reload can't fish); a rewound check re-rolls best of two; a changed toggle can change the roll.
   - `goto` moves forward only.
   - `requires` hide vs disable with reason.
   - Plain choices and the legacy `chance` effect are unchanged.

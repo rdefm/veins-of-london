@@ -11,6 +11,6 @@
 - [ ] `{ "item": "timePearl", "equipped": true, "add": …, "label": … }` counts only when equipped.
 - [ ] Optional toggle stored in event state; odds query reflects current toggles; toggle unavailable when item not held.
 - [ ] Consumed only on commit of the owning option; toggle-then-pick-other or rewind loses nothing (tests).
-- [ ] Same toggles → same roll after Rewind; changed toggle can change it (test).
+- [ ] Toggled item set is part of the roll key (alongside the roll count, REFERENCE §3.9a); changed toggle can change the roll (test).
 - [ ] Toggle renders under its option in the existing card style.
 - [ ] REFERENCE.md check-schema section updated.

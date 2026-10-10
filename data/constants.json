@@ -599,6 +599,7 @@
     "hintFormat": "%s · %s",
     "infoGlyph": "ⓘ",
     "baseLabel": "Base odds",
+    "rewoundLabel": "Second go, best of two",
     "noModifiers": "Nothing tipping it either way.",
     "outcomeMarkers": { "success": "✓ Came off", "fail": "✗ Didn't come off" }
   },

@@ -627,7 +627,73 @@ func run() -> void:
 		GameData.EVENTS = original_events
 	)
 
-	run_case("a_check_replays_the_same_outcome_after_rewind_without_touching_global_rng", func():
+	run_case("a_rewound_check_rerolls_best_of_two_and_lists_the_advantage", func():
+		GameState.reset()
+		GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
+		var original_events := _install_check_event(0.5)
+		Events.start_event("test_check_event")
+		Events.advance()
+		assert_almost_eq(Events.check_odds(0)["probability"], 0.5, 0.0001, "first roll: plain odds")
+		var first_roll: float = Events.check_roll(0)
+		Events.choose(0)
+		assert_true(Events.rewind()["ok"])
+		assert_eq(Events.prior_rolls(0), 1, "roll count survives the rewind")
+		var odds: Dictionary = Events.check_odds(0)
+		assert_almost_eq(odds["probability"], 0.75, 0.0001, "best of two: 1 - 0.5^2")
+		assert_eq(odds["mods"].back()["label"], GameData.EVENT_CHECKS["rewoundLabel"])
+		assert_almost_eq(odds["mods"].back()["delta"], 0.25, 0.0001)
+		assert_true(Events.check_roll(0) != first_roll, "a fresh roll, not a replay")
+		assert_eq(Events.check_odds(1), {}, "plain option untouched")
+		GameData.EVENTS = original_events
+	)
+
+	run_case("a_check_rewound_past_keeps_its_advantage_when_reached_again", func():
+		GameState.reset()
+		GameState.state["player"]["inventory"]["rewind"] = { "1": 2 }
+		var original_events := _install_check_event(0.5)
+		Events.start_event("test_check_event")
+		Events.advance()
+		Events.choose(0)
+		assert_true(Events.rewind()["ok"])
+		assert_true(Events.rewind()["ok"])
+		assert_eq(GameState.state["event"]["cardIndex"], 0, "back before the check card")
+		Events.advance()
+		assert_almost_eq(Events.check_odds(0)["probability"], 0.75, 0.0001, "still advantaged")
+		GameData.EVENTS = original_events
+	)
+
+	run_case("advantaged_rerolls_succeed_about_three_quarters_of_the_time_at_even_odds", func():
+		var successes := 0
+		for roll_seed in range(1, 201):
+			GameState.reset()
+			GameState.state["world"]["rollSeed"] = roll_seed
+			GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
+			var original_events := _install_check_event(0.5)
+			Events.start_event("test_check_event")
+			Events.advance()
+			Events.choose(0)
+			Events.rewind()
+			Events.choose(0)
+			if Events.choice_record("test_check_event", 1)["outcome"] == "success":
+				successes += 1
+			GameData.EVENTS = original_events
+		assert_true(successes > 130 and successes < 170, "best-of-two near 75%% (got %d/200)" % successes)
+	)
+
+	run_case("same_seed_and_roll_count_give_the_same_roll", func():
+		var outcomes: Array = []
+		for i in range(2):
+			GameState.reset()
+			GameState.state["world"]["rollSeed"] = 99
+			var original_events := _install_check_event(0.5)
+			Events.start_event("test_check_event")
+			Events.advance()
+			outcomes.append(Events.check_roll(0))
+			GameData.EVENTS = original_events
+		assert_eq(outcomes[0], outcomes[1], "a reload can't fish for a new roll")
+	)
+
+	run_case("a_check_never_touches_the_global_rng_stream", func():
 		# The global stream after the same flow with the plain option: the
 		# check must leave it exactly where a plain choice does.
 		GameState.reset()
@@ -656,7 +722,6 @@ func run() -> void:
 			var first: Variant = Events.choice_record("test_check_event", 1)["outcome"]
 			assert_true(Events.rewind()["ok"])
 			Events.choose(0)
-			assert_eq(Events.choice_record("test_check_event", 1)["outcome"], first, "same outcome after rewind (seed %d)" % roll_seed)
 			assert_eq(Rng.randf(), expected_first, "global stream untouched (seed %d)" % roll_seed)
 			seen[first] = true
 			GameData.EVENTS = original_events
