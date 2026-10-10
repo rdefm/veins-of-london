@@ -17,7 +17,7 @@ Turns one event's cards into an approved shot list, then into placed art. Five p
 
 Workspace: `.scratch/event-art/<event_id>/` holding `board.json` (canonical), `feedback.json` (the user's verdicts), `prompts.md`, `qa/` (script output, gitignored).
 
-Review tool: **`tools/storyboard.html`**. The user opens it in desktop Chrome/Edge and picks the repo folder (File System Access API, like `tools/quest-editor.html`). It lists every `.scratch/event-art/*/board.json`, reloads when its window regains focus, writes verdicts to that board's `feedback.json` (array of `{eventId, round, phase, target, verdict, note, at}`, one per target), and saves uploaded images straight into `assets/reference-plates/` under each plate's/shot's save-as name, asking overwrite or keep-both (`_vN`) on a clash. Writing `board.json` is all it takes to publish a board; there is nothing to seed or sync.
+Review tool: **`tools/storyboard.html`**. The user opens it in desktop Chrome/Edge and picks the repo folder (File System Access API, like `tools/quest-editor.html`). It lists every `.scratch/event-art/*/board.json`, reloads when its window regains focus, writes verdicts to that board's `feedback.json` (array of `{eventId, round, phase, target, verdict, note, at}`, one per target), and saves uploaded images straight into `assets/reference-plates/` under each plate's/shot's save-as name, asking overwrite or keep-both (`_vN`) on a clash. Three tabs (the selected one is remembered): **Storyboard** — phone preview + cut list + open questions; **Shots** — plate and shot briefs, prompts, uploads, per-shot verdicts and the board verdict; **Comments** — placeholder. Writing `board.json` is all it takes to publish a board; there is nothing to seed or sync.
 
 (`review/storyboard-review.html` is the older claude.ai artifact version of the same page, at https://claude.ai/artifact/9M8iYmgcD1wiZmtttJVwNt. Use it only if the user asks to review from a phone; its uploads don't work in the mobile app.)
 
@@ -39,7 +39,7 @@ Images are made with the plate compositor (`tools/plate_compositor/README.md`): 
 
 Then write `board.json` per `reference/board-schema.md` (`round: 1`, `phase: "storyboard"`, `updatedAt` = epoch ms).
 
-In the terminal, give the user only: "open `tools/storyboard.html`, pick `<id>`", one line per plate (`P1 mile_end_yard · from the shop door toward the yard mouth · S1–S5`), one line per shot (`S1 cards 1-2 · P1 · Nadia waiting on the Clerkenwell corner`), the open questions, and your strongest recommendation where you pushed back on the obvious reading. Don't paste the whole board.
+In the terminal, give the user only: "open `tools/storyboard.html`, pick `<id>` (cut list on Storyboard, briefs + verdicts on Shots)", one line per plate (`P1 mile_end_yard · from the shop door toward the yard mouth · S1–S5`), one line per shot (`S1 cards 1-2 · P1 · Nadia waiting on the Clerkenwell corner`), the open questions, and your strongest recommendation where you pushed back on the obvious reading. Don't paste the whole board.
 
 ## Phase 3 — Review rounds
 
@@ -57,7 +57,7 @@ Draft approval in Phase 4 saves the same way (`approved.phase: "drafts"`, messag
 
 Build `prompts.md` per `reference/prompt-pack.md`: the approved plate and shot prompts from the board, in generation order (plates first, parents before variants). Every generated image (plates and shot drafts) lives in `assets/reference-plates/`, where the compositor reads it: plates as `<plate>_blank_plate.png`, shots as their `saveAs`.
 
-**Uploads.** The user saves each image with the tool's Upload button (or drag-drop/paste) on its plate or shot card, which writes it straight into `assets/reference-plates/`. When they say images are in, list that folder for the board's save-as names. An approved plate gets its `tools/plate_compositor/plates/<plate>.json` (README §D) before any shot on it is composed; posed shots go through `extract.py` then `compose.py` (README §C, §A). The `plate-compositor` skill runs all of this, through to placement, for a board.
+**Uploads.** The user saves each image with the tool's Upload button (or drag-drop/paste) on its plate or shot card in the Shots tab, which writes it straight into `assets/reference-plates/`. When they say images are in, list that folder for the board's save-as names. An approved plate gets its `tools/plate_compositor/plates/<plate>.json` (README §D) before any shot on it is composed; posed shots go through `extract.py` then `compose.py` (README §C, §A). The `plate-compositor` skill runs all of this, through to placement, for a board.
 
 Per new draft:
 1. `python .claude/skills/event-storyboard/scripts/pixelize.py <draft> .scratch/event-art/<id>/qa [--scale 4]` and **look at** the `_qa.png` sheet (source | cleaned with crop outlines | small / baseline / tall phone crops).

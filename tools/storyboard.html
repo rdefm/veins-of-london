@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;600&display=swap">
 <style>
-/* Layout: a single review column — phone-frame preview beside the cut list on wide screens, stacked on phones; shot briefs below. */
+/* Layout: board summary over three tabs — Storyboard (phone-frame preview beside the cut list on wide screens, stacked on phones), Shots (plates, shot briefs, verdicts, uploads), Comments. */
 :root {
   --bg: #eceef1; --surface: #f8f9fa; --sunk: #dfe2e7; --fg: #1a1d23; --muted: #5b6270; --line: #c9ced6;
   --accent: #946512; --accent-ink: #fff8e8;
@@ -152,6 +152,11 @@ header.top .title { display: grid; gap: 6px; min-width: 0 }
 .empty { background: var(--surface); border: 1px dashed var(--line); border-radius: 10px; padding: 28px 20px; display: grid; gap: 8px; max-width: 640px }
 .empty p { margin: 0 }
 section { display: grid; gap: 12px; min-width: 0 }
+.tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--line) }
+.tabs button { border: 1px solid transparent; border-bottom: 0; background: none; border-radius: 6px 6px 0 0; padding: 8px 14px; margin-bottom: -1px; font: 600 13px/1 var(--mono); color: var(--muted) }
+.tabs button[aria-selected="true"] { background: var(--surface); border-color: var(--line); color: var(--fg) }
+.panel { display: grid; gap: 28px; min-width: 0 }
+.panel[hidden] { display: none }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important } }
 </style>
 </head>
@@ -188,6 +193,13 @@ section { display: grid; gap: 12px; min-width: 0 }
         <p class="logline" id="logline"></p>
       </section>
 
+      <div class="tabs" role="tablist" aria-label="Board views">
+        <button type="button" role="tab" id="tab-storyboard" data-tab="storyboard" aria-controls="panel-storyboard">Storyboard</button>
+        <button type="button" role="tab" id="tab-shots" data-tab="shots" aria-controls="panel-shots">Shots</button>
+        <button type="button" role="tab" id="tab-comments" data-tab="comments" aria-controls="panel-comments">Comments</button>
+      </div>
+
+      <div class="panel" role="tabpanel" id="panel-storyboard" aria-labelledby="tab-storyboard">
       <div class="preview">
         <div class="phone" aria-label="Phone preview of the event screen">
           <div class="frame" id="frame"></div>
@@ -211,7 +223,10 @@ section { display: grid; gap: 12px; min-width: 0 }
         <h2>Open questions</h2>
         <ol class="questions" id="questions"></ol>
       </section>
+      </div>
 
+      <div class="panel" role="tabpanel" id="panel-shots" aria-labelledby="tab-shots" hidden>
+      <p class="muted" id="shots-none" style="margin:0" hidden>Writing proposals have no shots to review.</p>
       <section id="p-section">
         <h2>Plates</h2>
         <p class="muted" style="margin:0">Blank backgrounds, one per camera setup. Generate these first; shots add the cast onto them.</p>
@@ -224,6 +239,11 @@ section { display: grid; gap: 12px; min-width: 0 }
       </section>
 
       <section class="board-verdict" id="board-verdict"></section>
+      </div>
+
+      <div class="panel" role="tabpanel" id="panel-comments" aria-labelledby="tab-comments" hidden>
+        <p class="muted" style="margin:0">No comments yet.</p>
+      </div>
     </div>
   </div>
 </div>
@@ -256,6 +276,17 @@ section { display: grid; gap: 12px; min-width: 0 }
   const thumbs = new Map(); // name -> {stamp, url}
   const remembered = () => { try { return localStorage.getItem("vein-sb-board"); } catch { return null; } };
   const remember = (id) => { try { localStorage.setItem("vein-sb-board", id); } catch {} };
+  const TABS = ["storyboard", "shots", "comments"];
+  const rememberedTab = () => { try { return localStorage.getItem("vein-sb-tab"); } catch { return null; } };
+  function showTab(name) {
+    if (!TABS.includes(name)) name = "storyboard";
+    for (const t of TABS) {
+      $("tab-" + t).setAttribute("aria-selected", String(t === name));
+      $("tab-" + t).tabIndex = t === name ? 0 : -1;
+      $("panel-" + t).hidden = t !== name;
+    }
+    try { localStorage.setItem("vein-sb-tab", name); } catch {}
+  }
 
   const board = () => boards.find((b) => b.eventId === currentId);
   const shotById = (b, id) => (b.shots || []).find((s) => s.id === id);
@@ -911,7 +942,7 @@ section { display: grid; gap: 12px; min-width: 0 }
     if (!b) return;
     $("h-title").textContent = b.title || b.eventId;
     const isProposal = b.kind === "proposal";
-    $("s-section").hidden = isProposal; $("board-verdict").hidden = isProposal;
+    $("s-section").hidden = isProposal; $("board-verdict").hidden = isProposal; $("shots-none").hidden = !isProposal;
     if (isProposal) {
       const pill = $("phase-pill");
       pill.textContent = "Writing proposal · read-only"; pill.style.color = "var(--accent)";
@@ -959,6 +990,8 @@ section { display: grid; gap: 12px; min-width: 0 }
   }
 
   $("board-select").addEventListener("change", (e) => selectBoard(e.target.value));
+  for (const t of TABS) $("tab-" + t).addEventListener("click", () => showTab(t));
+  showTab(rememberedTab());
   $("prev").addEventListener("click", () => {
     const b = board(); if (!b || cardIdx === 0) return;
     if (b.kind === "proposal") { goTo(trail.length ? trail.pop() : cardIdx - 1); return; }
