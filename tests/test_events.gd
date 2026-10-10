@@ -137,6 +137,26 @@ static func _texts(cards: Array) -> Array:
 # key, followed by a card with no "image" key (sticky) and a card that
 # explicitly clears it (image: null) -- Events.current_image_path()'s own
 # fixtures.
+# Card-level routing (R§3.9a "Goto"): card 0 routes to 3 on routeFlag, else
+# to 2; card 2 ends the event; card 3 jumps to 5. Cards 1 and 4 are skipped.
+func _install_routed_event() -> Dictionary:
+	var original_events: Dictionary = GameData.EVENTS
+	GameData.EVENTS = GameData.EVENTS.duplicate()
+	GameData.EVENTS["test_routed_event"] = {
+		"id": "test_routed_event",
+		"cards": [
+			{ "type": "narration", "label": null, "speaker": null, "text": "Setup", "goto": [{ "if": { "flag": "routeFlag" }, "card": 3 }, { "card": 2 }] },
+			{ "type": "narration", "label": null, "speaker": null, "text": "Skipped", "image": "res://skipped.png" },
+			{ "type": "narration", "label": null, "speaker": null, "text": "Else", "image": "res://else.png", "end": true },
+			{ "type": "narration", "label": null, "speaker": null, "text": "Flagged", "image": "res://flagged.png", "goto": 5 },
+			{ "type": "narration", "label": null, "speaker": null, "text": "Never", "image": "res://never.png" },
+			{ "type": "narration", "label": null, "speaker": null, "text": "Finale" },
+		],
+		"on_complete": [{ "op": "set_flag", "flag": "routedDone", "value": true }],
+	}
+	return original_events
+
+
 func _install_image_choice_event() -> Dictionary:
 	var original_events: Dictionary = GameData.EVENTS
 	GameData.EVENTS = GameData.EVENTS.duplicate()
@@ -1174,6 +1194,115 @@ func run() -> void:
 		Events.advance()
 		assert_eq(GameState.state["event"]["cardIndex"], 3)
 		assert_eq(_texts(Events.revealed_cards()), ["Setup", "Pick one", "Paid.", "Rejoin"])
+		GameData.EVENTS = original_events
+	)
+
+	# ── card-level goto and end (R§3.9a "Goto") ─────────────────────────
+
+	run_case("a_card_goto_and_a_matching_conditional_entry_jump_on_continue", func():
+		GameState.reset()
+		var original_events := _install_routed_event()
+		GameState.state["flags"]["routeFlag"] = true
+		Events.start_event("test_routed_event")
+		Events.advance()
+		assert_eq(GameState.state["event"]["cardIndex"], 3, "the first matching entry wins")
+		Events.advance()
+		assert_eq(GameState.state["event"]["cardIndex"], 5, "a plain card goto jumps")
+		assert_eq(_texts(Events.revealed_cards()), ["Setup", "Flagged", "Finale"])
+		assert_eq(Events.current_image_path(), "res://flagged.png", "skipped cards' images never show")
+		GameState.state["flags"]["routeFlag"] = false
+		assert_eq(_texts(Events.revealed_cards()), ["Setup", "Flagged", "Finale"], "the path is fixed once taken")
+		assert_true(Events.is_last_card())
+		GameData.EVENTS = original_events
+	)
+
+	run_case("the_else_entry_routes_and_end_finishes_the_event_there", func():
+		GameState.reset()
+		var original_events := _install_routed_event()
+		Events.start_event("test_routed_event")
+		Events.advance()
+		assert_eq(_texts(Events.revealed_cards()), ["Setup", "Else"])
+		assert_eq(Events.current_image_path(), "res://else.png")
+		assert_true(Events.is_last_card(), "an end card is the last card")
+		Events.advance()
+		assert_eq(GameState.state["event"], null, "Continue on an end card finishes the event")
+		assert_true(GameState.state["flags"].get("routedDone", false), "on_complete ran")
+		GameData.EVENTS = original_events
+	)
+
+	run_case("a_conditional_goto_with_no_match_plays_on_to_the_next_card", func():
+		GameState.reset()
+		var original_events := _install_routed_event()
+		GameData.EVENTS["test_routed_event"]["cards"][0]["goto"] = [{ "if": { "flag": "routeFlag" }, "card": 3 }]
+		Events.start_event("test_routed_event")
+		Events.advance()
+		assert_eq(GameState.state["event"]["cardIndex"], 1)
+		assert_eq(Events.current_image_path(), "res://skipped.png")
+		GameData.EVENTS = original_events
+	)
+
+	run_case("a_backwards_or_out_of_range_card_goto_is_rejected", func():
+		var original_events := _install_routed_event()
+		for bad in [0, 3, 99, "5", [{ "card": 1 }]]:
+			GameState.reset()
+			GameState.state["flags"]["routeFlag"] = true
+			GameData.EVENTS["test_routed_event"]["cards"][3]["goto"] = bad
+			Events.start_event("test_routed_event")
+			Events.advance()
+			Events.advance()
+			assert_eq(GameState.state["event"]["cardIndex"], 4, "card goto %s falls through to the next card" % str(bad))
+		GameData.EVENTS = original_events
+	)
+
+	run_case("rewind_across_a_card_goto_reroutes_on_the_live_condition", func():
+		GameState.reset()
+		var original_events := _install_routed_event()
+		Crafting.inventory_add("rewind", 1, 2)
+		GameState.state["flags"]["routeFlag"] = true
+		Events.start_event("test_routed_event")
+		Events.advance()
+		Events.advance()
+		assert_true(Events.rewind()["ok"])
+		assert_eq(GameState.state["event"]["cardIndex"], 3)
+		assert_eq(_texts(Events.revealed_cards()), ["Setup", "Flagged"])
+		assert_true(Events.rewind()["ok"])
+		assert_eq(_texts(Events.revealed_cards()), ["Setup"])
+		GameState.state["flags"]["routeFlag"] = false
+		Events.advance()
+		assert_eq(_texts(Events.revealed_cards()), ["Setup", "Else"], "a re-continue evaluates the conditions afresh")
+		GameData.EVENTS = original_events
+	)
+
+	run_case("an_option_goto_overrides_its_choice_cards_end", func():
+		var original_events := _install_gated_event()
+		GameData.EVENTS["test_gated_event"]["cards"][1]["end"] = true
+		GameState.reset()
+		Events.start_event("test_gated_event")
+		Events.advance()
+		Events.choose(2)
+		assert_true(Events.is_last_card(), "an option without goto ends at an end card")
+		Events.advance()
+		assert_eq(GameState.state["event"], null)
+		GameState.reset()
+		GameState.state["player"]["cash"] = 60
+		Events.start_event("test_gated_event")
+		Events.advance()
+		Events.choose(0)
+		assert_true(not Events.is_last_card(), "an option goto overrides end")
+		Events.advance()
+		assert_eq(GameState.state["event"]["cardIndex"], 3)
+		GameData.EVENTS = original_events
+	)
+
+	run_case("a_choice_cards_own_goto_applies_when_its_option_has_none", func():
+		var original_events := _install_gated_event()
+		GameData.EVENTS["test_gated_event"]["cards"][1]["goto"] = 3
+		GameState.reset()
+		Events.start_event("test_gated_event")
+		Events.advance()
+		Events.choose(2)
+		Events.advance()
+		assert_eq(_texts(Events.revealed_cards()), ["Setup", "Pick one", "Walked.", "Rejoin"])
 		GameData.EVENTS = original_events
 	)
 

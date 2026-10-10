@@ -2,8 +2,9 @@ extends "res://tests/test_base.gd"
 
 # Card label tokens (R§3.9c) and the event content lint: a data test over
 # every event definition. Rules: card-label time words agree with the
-# event's `at`; every `goto` targets a later card in the same event; every
-# check mod and `requires` names a known flag, item, contact, state path or
+# event's `at`; every `goto` targets a later card in the same event; a card's
+# conditional goto list is well formed; `end` is `true` and never sits beside
+# a card goto; every check mod, `requires` and goto `if` names a known flag, item, contact, state path or
 # remembered choice; no option carries both a fixed result_text and a check.
 
 # The opening chain (spec "opening-choices"); its content tickets rewrite
@@ -83,11 +84,15 @@ func run() -> void:
 					{ "choice": { "event": "lint_probe", "card": 2, "option": "zzz" }, "add": 0.1, "label": "" },
 				] }, "success": { "result_text": "s", "effects": [], "goto": 9 }, "fail": { "result_text": "f", "effects": [] } },
 			] },
+			{ "type": "text", "label": null, "text": "", "end": 1, "goto": 4 },
+			{ "type": "text", "label": null, "text": "", "goto": [{ "card": 6 }, { "if": { "flag": "noRouteFlag" }, "card": 2 }, "x", { "if": "nope", "card": 6 }] },
+			{ "type": "text", "label": null, "text": "", "goto": [{ "if": { "flag": "noRouteFlag" } }] },
+			{ "type": "text", "label": null, "text": "" },
 		] }
 		GameData.EVENTS["lint_probe"] = def
 		var found := _lint_event("lint_probe", def, _known_refs())
 		GameData.EVENTS.erase("lint_probe")
-		for fragment in ["unknown token {bogus}", "'tonight' contradicts at.block morning", "hard-codes a day", "goto 0", "result_text and a check", "unknown flag noSuchFlag", "unknown item noSuchItem", "unknown contact nobody", "unknown path player.nope", "unknown option zzz", "goto 9"]:
+		for fragment in ["unknown token {bogus}", "'tonight' contradicts at.block morning", "hard-codes a day", "goto 0", "result_text and a check", "unknown flag noSuchFlag", "unknown item noSuchItem", "unknown contact nobody", "unknown path player.nope", "unknown option zzz", "goto 9", "card 3 end must be true", "card 3 has both end and goto", "entry 0 has no if but is not last", "entry 1 if: unknown flag noRouteFlag", "entry 1 goto 2", "entry 2 is not an object", "entry 3 if is not a condition", "card 5 goto entry 0 goto <null>"]:
 			assert_true(found.any(func(v): return String(v).contains(fragment)), "expected a violation containing '%s' in %s" % [fragment, found])
 	)
 
@@ -144,6 +149,7 @@ func _lint_event(id: String, def: Dictionary, refs: Dictionary) -> Array:
 		var card: Dictionary = cards[i]
 		if card.get("label") is String:
 			out.append_array(_lint_label(id, i, card["label"], at_block))
+		out.append_array(_lint_card_route(id, i, card, cards, refs))
 		for j in (card.get("choices", []) as Array).size():
 			out.append_array(_lint_option(id, i, j, card["choices"][j], cards, refs))
 	return out
@@ -184,17 +190,52 @@ func _lint_option(id: String, i: int, j: int, option: Dictionary, cards: Array, 
 		for outcome in option["bySuccesses"].values():
 			gotos.append(outcome.get("goto"))
 	for goto in gotos:
-		if goto == null:
-			continue
-		var is_num: bool = typeof(goto) == TYPE_INT or typeof(goto) == TYPE_FLOAT
-		if not is_num or int(goto) <= i or int(goto) >= cards.size():
-			out.append("%s goto %s is not a later card" % [where, str(goto)])
+		out.append_array(_lint_goto(where, goto, i, cards))
 	if option.get("requires") is Dictionary:
 		out.append_array(_lint_condition(where + " requires", option["requires"], refs))
 	if option.get("check") is Dictionary:
 		for mod in option["check"].get("mods", []):
 			out.append_array(_lint_condition(where + " mod", mod, refs))
 	return out
+
+
+# A card's own `goto` (an index or a conditional [{if, card}, ..., {card}]
+# list) and `end` (R§3.9a "Goto").
+func _lint_card_route(id: String, i: int, card: Dictionary, cards: Array, refs: Dictionary) -> Array:
+	var out: Array = []
+	var where := "%s: card %d" % [id, i]
+	if card.has("end") and not (card["end"] is bool and card["end"]):
+		out.append("%s end must be true, not %s" % [where, str(card["end"])])
+	if card.has("end") and card.has("goto"):
+		out.append("%s has both end and goto" % where)
+	var goto: Variant = card.get("goto")
+	if not goto is Array:
+		out.append_array(_lint_goto(where, goto, i, cards))
+		return out
+	for k in (goto as Array).size():
+		var entry: Variant = goto[k]
+		if not entry is Dictionary:
+			out.append("%s goto entry %d is not an object" % [where, k])
+			continue
+		out.append_array(_lint_goto("%s goto entry %d" % [where, k], entry.get("card"), i, cards, true))
+		if entry.has("if"):
+			if entry["if"] is Dictionary:
+				out.append_array(_lint_condition("%s goto entry %d if" % [where, k], entry["if"], refs))
+			else:
+				out.append("%s goto entry %d if is not a condition" % [where, k])
+		elif k < goto.size() - 1:
+			out.append("%s goto entry %d has no if but is not last" % [where, k])
+	return out
+
+
+# A goto value must be null (none) or a later card index in the same event.
+func _lint_goto(where: String, goto: Variant, i: int, cards: Array, required: bool = false) -> Array:
+	if goto == null and not required:
+		return []
+	var is_num: bool = typeof(goto) == TYPE_INT or typeof(goto) == TYPE_FLOAT
+	if not is_num or int(goto) <= i or int(goto) >= cards.size():
+		return ["%s goto %s is not a later card" % [where, str(goto)]]
+	return []
 
 
 # Mirrors Events.condition_met()'s vocabulary (R§3.9a "Mods"/"Requires").

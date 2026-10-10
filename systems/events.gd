@@ -5,9 +5,11 @@ extends RefCounted
 # text}; a "choice" card adds {choices:[{id?, label, effects, result_text}]};
 # a check option swaps result_text for {check, success, fail} (R§3.9a).
 # An option may carry `requires` (option_gate()); it or its outcome may carry
-# `goto`, a later card index Continue jumps to.
+# `goto`, a later card index Continue jumps to. Any card may carry `goto` (an
+# index, or a conditional list [{if, card}, ..., {card}]) or `end: true`
+# (R§3.9a "Goto"); an option/outcome goto takes precedence over both.
 # Events: {id, cards, on_complete:[effect]}. state.event holds runtime
-# progress: {eventId, cardIndex, snapshots, choiceResults, rolled, toggles}.
+# progress: {eventId, cardIndex, snapshots, choiceResults, jumps, rolled, toggles}.
 #
 # Any card (including a choice's own "choices" entries) may carry an optional
 # "image" key -- an asset path, or explicit null to clear the event screen's
@@ -29,7 +31,7 @@ static func start_event(event_id: String, context: Dictionary = {}) -> void:
 		push_error("Events.start_event: unknown event id '%s'" % event_id)
 		return
 	_apply_timing(GameData.EVENTS[event_id].get("at", {}))
-	GameState.state["event"] = { "eventId": event_id, "cardIndex": 0, "snapshots": [], "choiceResults": {}, "rolled": {}, "toggles": {}, "context": context }
+	GameState.state["event"] = { "eventId": event_id, "cardIndex": 0, "snapshots": [], "choiceResults": {}, "jumps": {}, "rolled": {}, "toggles": {}, "context": context }
 	Nav.go_to("event")
 
 
@@ -194,10 +196,17 @@ static func is_vn_mode() -> bool:
 	return false
 
 
+# True when Continue on the current card finishes the event: the final card,
+# or one marked `end: true` whose resolution (if any) has no goto of its own.
 static func is_last_card() -> bool:
 	var event_state: Dictionary = GameState.state["event"]
+	var index: int = int(event_state["cardIndex"])
 	var cards: Array = _event_def()["cards"]
-	return event_state["cardIndex"] >= cards.size() - 1
+	if index >= cards.size() - 1:
+		return true
+	var resolution: Dictionary = event_state["choiceResults"].get(str(index), {})
+	var end: Variant = cards[index].get("end", false)
+	return end is bool and end and not resolution.has("goto")
 
 
 static func can_rewind() -> bool:
@@ -253,11 +262,32 @@ static func advance() -> void:
 		BusinessQuest.maybe_trigger_owen_craft()
 		SaveManager.autosave()  # R§6: autosave on event completion
 	else:
-		event_state["cardIndex"] = _next_index(event_state["cardIndex"])
+		var here: int = int(event_state["cardIndex"])
+		var resolution: Dictionary = event_state["choiceResults"].get(str(here), {})
+		if not resolution.has("goto"):
+			var target := _goto_target(_card_goto(_event_def()["cards"][here]))
+			if target >= 0:
+				if not event_state.has("jumps"):
+					event_state["jumps"] = {}
+				event_state["jumps"][str(here)] = target
+		event_state["cardIndex"] = _next_index(here)
 		EventBus.state_changed.emit()
 
 
-# A resolved option's `goto` as a card index, or -1 for none. Forward only,
+# A card's own `goto` as a plain target: an index as-is, or a conditional
+# list's first entry whose `if` holds (condition_met), an entry without `if`
+# always matching. null when the card has none or no entry matches.
+static func _card_goto(card: Dictionary) -> Variant:
+	var goto: Variant = card.get("goto")
+	if not goto is Array:
+		return goto
+	for entry in goto:
+		if entry is Dictionary and (not entry.has("if") or (entry["if"] is Dictionary and condition_met(entry["if"]))):
+			return entry.get("card")
+	return null
+
+
+# A resolved option's or card's `goto` as a card index, or -1 for none. Forward only,
 # within this event: a backwards, same-card or out-of-range target is
 # rejected (push_error) and play falls through to the next card.
 static func _goto_target(goto: Variant) -> int:
@@ -271,10 +301,14 @@ static func _goto_target(goto: Variant) -> int:
 	return -1
 
 
-# The card Continue moves to from card `index`: its resolution's goto, else the next one.
+# The card Continue moved to from card `index`: its resolution's goto, else
+# the card goto resolved when it was continued past (state.event.jumps), else
+# the next one.
 static func _next_index(index: int) -> int:
-	var resolution: Dictionary = GameState.state["event"]["choiceResults"].get(str(index), {})
-	return maxi(int(resolution.get("goto", index + 1)), index + 1)
+	var event_state: Dictionary = GameState.state["event"]
+	var resolution: Dictionary = event_state["choiceResults"].get(str(index), {})
+	var jump: Variant = event_state.get("jumps", {}).get(str(index), index + 1)
+	return maxi(int(resolution.get("goto", jump)), index + 1)
 
 
 # The card indexes played so far, 0..cardIndex, skipping any a goto jumped past.
