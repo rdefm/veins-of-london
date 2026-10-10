@@ -2,7 +2,8 @@ class_name Events
 extends RefCounted
 
 # Event runner (R§3.9, ui-vision.md §11). Cards: {type, label, speaker,
-# text}; a "choice" card adds {choices:[{id?, label, effects, result_text}]}.
+# text}; a "choice" card adds {choices:[{id?, label, effects, result_text}]};
+# a check option swaps result_text for {check, success, fail} (R§3.9a).
 # Events: {id, cards, on_complete:[effect]}. state.event holds runtime
 # progress: {eventId, cardIndex, snapshots, choiceResults}.
 #
@@ -95,6 +96,8 @@ static func revealed_cards() -> Array:
 			var resolution_card: Dictionary = { "type": "resolution", "label": null, "speaker": null, "text": resolution["text"] }
 			if resolution.has("image"):
 				resolution_card["image"] = resolution["image"]
+			if resolution.has("outcome"):
+				resolution_card["outcome"] = resolution["outcome"]
 			result.append(resolution_card)
 	return result
 
@@ -152,8 +155,9 @@ static func is_vn_mode() -> bool:
 			return true
 		if card["type"] == "choice":
 			for choice in card["choices"]:
-				if choice.get("image") != null:
-					return true
+				for source in [choice, choice.get("success", {}), choice.get("fail", {})]:
+					if source.get("image") != null:
+						return true
 	return false
 
 
@@ -233,21 +237,113 @@ static func choose(choice_index: int) -> void:
 	var card: Dictionary = current_card()
 	var choice: Dictionary = card["choices"][choice_index]
 
-	var resolution: Dictionary = { "text": choice["result_text"] }
-	if choice.has("image"):
+	# A check option resolves through its rolled outcome object instead of
+	# its own result_text; the option's own effects (if any) still apply first.
+	var outcome := ""
+	var source: Dictionary = choice
+	if choice.has("check"):
+		outcome = "success" if check_roll(choice_index) < check_odds(choice_index)["probability"] else "fail"
+		source = choice[outcome]
+
+	var resolution: Dictionary = { "text": source["result_text"] }
+	if source.has("image"):
+		resolution["image"] = source["image"]
+	elif choice.has("image"):
 		resolution["image"] = choice["image"]
+	if outcome != "":
+		resolution["outcome"] = outcome
 	event_state["choiceResults"][str(event_state["cardIndex"])] = resolution
-	_remember_choice(event_state["eventId"], event_state["cardIndex"], str(choice.get("id", choice_index)))
-	apply_effects(choice.get("effects", []))
+	_remember_choice(event_state["eventId"], event_state["cardIndex"], str(choice.get("id", choice_index)), outcome)
+	var effects: Array = choice.get("effects", [])
+	if outcome != "":
+		effects = effects + source.get("effects", [])
+	apply_effects(effects)
 
 
-# Choice memory: flags.choices[eventId][str(cardIndex)] = {id}. Lives in the
-# state tree, so Rewind's snapshot restore drops a rewound pick for free.
-static func _remember_choice(event_id: String, card_index: int, option_id: String) -> void:
+# Choice memory: flags.choices[eventId][str(cardIndex)] = {id, outcome?}
+# (outcome "success"/"fail" for a check option). Lives in the state tree, so
+# Rewind's snapshot restore drops a rewound pick for free.
+static func _remember_choice(event_id: String, card_index: int, option_id: String, outcome: String = "") -> void:
 	var memory: Dictionary = GameState.state["flags"]["choices"]
 	if not memory.has(event_id):
 		memory[event_id] = {}
-	memory[event_id][str(card_index)] = { "id": option_id }
+	var record := { "id": option_id }
+	if outcome != "":
+		record["outcome"] = outcome
+	memory[event_id][str(card_index)] = record
+
+
+# ── checks (opening-choices spec "Event engine": Odds, Deterministic rolls) ──
+
+# Odds for the current choice card's option: {} when it has no check, else
+# {probability, base, mods:[{label, delta}], show, hint}. The event screen
+# reads only this; it never computes odds itself.
+static func check_odds(choice_index: int) -> Dictionary:
+	var choice: Dictionary = current_card()["choices"][choice_index]
+	if not choice.has("check"):
+		return {}
+	return odds_for(choice["check"])
+
+
+# base + every matching modifier's signed delta, clamped to [min, max].
+static func odds_for(check: Dictionary) -> Dictionary:
+	var base: float = float(check.get("base", 0.0))
+	var probability := base
+	var applied: Array = []
+	for mod in check.get("mods", []):
+		var delta: float = _mod_delta(mod)
+		if delta != 0.0:
+			probability += delta
+			applied.append({ "label": mod.get("label", ""), "delta": delta })
+	var lo: float = float(check.get("min", GameData.EVENT_CHECKS["defaultMin"]))
+	var hi: float = float(check.get("max", GameData.EVENT_CHECKS["defaultMax"]))
+	probability = clampf(probability, lo, hi)
+	return { "probability": probability, "base": base, "mods": applied, "show": check.get("show", "odds"), "hint": hint_word(probability) }
+
+
+# The data-driven hint word (constants.json eventChecks.hints, highest
+# threshold first) for a probability.
+static func hint_word(probability: float) -> String:
+	for band in GameData.EVENT_CHECKS["hints"]:
+		if probability + 0.000001 >= float(band["atLeast"]):
+			return band["word"]
+	return GameData.EVENT_CHECKS["hints"].back()["word"]
+
+
+# A modifier's signed delta if its condition holds right now, else 0.
+static func _mod_delta(mod: Dictionary) -> float:
+	var add: float = float(mod.get("add", 0.0))
+	if mod.has("flag"):
+		return add if GameState.state["flags"].get(mod["flag"], false) else 0.0
+	if mod.has("choice"):
+		var c: Dictionary = mod["choice"]
+		return add if choice_id(c["event"], int(c["card"])) == _option_key(c["option"]) else 0.0
+	if mod.has("path"):
+		var value: float = float(GameState.read_path(mod["path"], 0))
+		return float(mod.get("perPoint", 0.0)) * maxf(0.0, value - float(mod.get("above", 0)))
+	if mod.has("relation"):
+		var contact: Dictionary = GameState.state["contacts"].get(mod["relation"], {})
+		return add if contact.get("relation", 0) >= mod["atLeast"] else 0.0
+	if mod.has("cash"):
+		return add if GameState.state["player"]["cash"] >= mod["cash"]["atLeast"] else 0.0
+	return 0.0
+
+
+# An option reference as choice memory stores it: a string id, or an index
+# (JSON parses it as a float) as its integer string.
+static func _option_key(option: Variant) -> String:
+	if option is String:
+		return option
+	return str(int(option))
+
+
+# The check's roll in [0,1) for the current card's option: a stable hash of
+# world.rollSeed, event id, card index and option index, so a Rewind replays
+# the same result. Never draws from the global Rng stream.
+static func check_roll(choice_index: int) -> float:
+	var event_state: Dictionary = GameState.state["event"]
+	var key := "%d|%s|%d|%d" % [int(GameState.state["world"]["rollSeed"]), event_state["eventId"], int(event_state["cardIndex"]), choice_index]
+	return Rng.stable_unit(key)
 
 
 # The committed choice at an event's card, or {} if none was made.

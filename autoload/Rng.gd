@@ -33,3 +33,19 @@ func chance(p: float) -> bool:
 
 func rand_from(array: Array):
 	return array[_rng.randi_range(0, array.size() - 1)]
+
+
+# A new per-game seed (world.rollSeed) drawn from its own generator, so
+# starting a game never shifts the seeded global stream.
+func fresh_seed() -> int:
+	var gen := RandomNumberGenerator.new()
+	gen.randomize()
+	return gen.randi()
+
+
+# Stable [0,1) value for a key string: same key, same value, every run.
+# Doesn't touch the global stream (event checks' deterministic rolls).
+func stable_unit(key: String) -> float:
+	var gen := RandomNumberGenerator.new()
+	gen.seed = key.hash()
+	return gen.randf()

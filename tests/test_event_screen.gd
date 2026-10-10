@@ -23,6 +23,31 @@ func _fresh_screen() -> EventScreen:
 # key, so an event that wants to stay non-VN for these per-card-type
 # rendering checks can't have one anywhere, including there). VN-mode's
 # own image-bearing scenarios live in _install_vn_event() below.
+func _install_check_event(show: String) -> Dictionary:
+	var original_events: Dictionary = GameData.EVENTS
+	GameData.EVENTS = GameData.EVENTS.duplicate()
+	GameData.EVENTS["test_screen_check_event"] = {
+		"id": "test_screen_check_event",
+		"cards": [
+			{
+				"type": "choice", "label": null, "speaker": null, "text": "Push?",
+				"choices": [
+					{
+						"label": "Push",
+						"check": { "base": 0.4, "mods": [{ "flag": "screenFlag", "add": 0.2, "label": "Flagged" }], "min": 0.0, "max": 1.0, "show": show },
+						"success": { "result_text": "Came off.", "effects": [] },
+						"fail": { "result_text": "Didn't.", "effects": [] },
+					},
+					{ "label": "Leave", "effects": [], "result_text": "Left." },
+				],
+			},
+			{ "type": "narration", "label": null, "speaker": null, "text": "After." },
+		],
+		"on_complete": [{ "op": "set_screen", "screen": "phone" }],
+	}
+	return original_events
+
+
 func _install_full_card_event() -> Dictionary:
 	var original_events: Dictionary = GameData.EVENTS
 	GameData.EVENTS = GameData.EVENTS.duplicate()
@@ -248,6 +273,63 @@ func run() -> void:
 		var texts: Array = labels.map(func(l): return l.text)
 		assert_true(texts.has("You picked the first option."), "resolution card carries the picked choice's result_text")
 
+		GameData.EVENTS = original_events
+	)
+
+	# ── check options (opening-choices spec "Presentation") ─────────────
+
+	run_case("a_check_option_shows_its_odds_and_an_info_control", func():
+		GameState.reset()
+		GameState.state["flags"]["screenFlag"] = true
+		var original_events := _install_check_event("odds")
+		Events.start_event("test_screen_check_event")
+
+		var screen := _fresh_screen()
+		var controls := screen._action_bar.get_children()
+		assert_eq(controls.size(), 2)
+		var buttons: Array = controls[0].find_children("", "Button", true, false)
+		assert_eq(buttons.size(), 2, "check option: choice button + info control")
+		assert_eq(buttons[0].text, "Push · 60%", "label carries the odds from Events.check_odds()")
+		assert_eq((controls[1] as Button).text, "Leave", "plain option unchanged")
+
+		buttons[1].pressed.emit()
+		var lines: Array = screen._item_menu.find_children("", "Label", true, false).map(func(l): return l.text)
+		assert_eq(lines, ["Base odds 40%", "+20% Flagged"], "info sheet lists base and signed modifiers")
+
+		GameData.EVENTS = original_events
+	)
+
+	run_case("a_hint_check_shows_the_hint_word", func():
+		GameState.reset()
+		var original_events := _install_check_event("hint")
+		Events.start_event("test_screen_check_event")
+		var screen := _fresh_screen()
+		var buttons: Array = screen._action_bar.get_children()[0].find_children("", "Button", true, false)
+		assert_eq(buttons[0].text, "Push · Even")
+		GameData.EVENTS = original_events
+	)
+
+	run_case("a_hidden_check_shows_neither_odds_nor_info", func():
+		GameState.reset()
+		var original_events := _install_check_event("hidden")
+		Events.start_event("test_screen_check_event")
+		var screen := _fresh_screen()
+		var first: Control = screen._action_bar.get_children()[0]
+		assert_true(first is Button, "a lone button, no info control")
+		assert_eq((first as Button).text, "Push")
+		GameData.EVENTS = original_events
+	)
+
+	run_case("a_check_resolution_card_carries_a_subtle_outcome_marker", func():
+		GameState.reset()
+		var original_events := _install_check_event("odds")
+		GameData.EVENTS["test_screen_check_event"]["cards"][0]["choices"][0]["check"]["min"] = 1.0
+		Events.start_event("test_screen_check_event")
+		Events.choose(0)
+		var screen := _fresh_screen()
+		var cards := screen._cards_box.get_children()
+		var texts: Array = cards.back().find_children("", "Label", true, false).map(func(l): return l.text)
+		assert_eq(texts, [GameData.EVENT_CHECKS["outcomeMarkers"]["success"], "Came off."])
 		GameData.EVENTS = original_events
 	)
 

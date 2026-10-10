@@ -481,6 +481,7 @@ state = {
 
   world: {
     day: 1, timeBlock: 0, timeBlocksDone: [],
+    rollSeed: <int>,          # per-game seed for event checks' deterministic rolls (§3.9a); Rng.fresh_seed() at new game, backfilled on load
     archieChatUnlockDay: null,
     currentDistrict: "shoreditch",   # M1; harmless in M0
   },
@@ -575,7 +576,7 @@ state = {
     archiePartnerSeen: false, homeUnlocked: false, securityContactUnlocked: false,
     firmShopUnlocked: false, networkShopUnlocked: false, conclaveShopUnlocked: false,  # §3.6a faction shop lanes + map pins
     dialGiftGranted: false,   # dial-device ticket 01: gates Dial.attempt_seed(); set only by the Collective Act 2 quest (out of scope for this PRD)
-    choices: {},              # choice memory: { eventId: { "<cardIndex>": { id } } }; id = option's optional "id" field, else its index as a string. Written by Events.choose(), read via Events.choice_record()/choice_id(); a Rewind past the pick drops it. Backfilled {} on load.
+    choices: {},              # choice memory: { eventId: { "<cardIndex>": { id, outcome? } } }; id = option's optional "id" field, else its index as a string; outcome "success"/"fail" for a check option (§3.9a). Written by Events.choose(), read via Events.choice_record()/choice_id(); a Rewind past the pick drops it. Backfilled {} on load.
   },
 }
 ```
@@ -813,6 +814,14 @@ The chain plays once. Later HQ raids defended from the alarm (`Home.trigger_defe
 - `Snapshots.gd`: `push(stack_id, deep_copy_of_state_subset)`, bounded stacks.
 - **Combat rewind:** snapshot at the start of every player attack turn: `{playerHp, enemyHp, log(copy), frozenTurns, motionTurns, motionPower, evadeTurns, evadeChance}` plus the focused `enemy` (full copy) and `enemyQueue` (reinforcement scope: if a reinforcement replaced that focused enemy since, restore puts the original back and returns fighters admitted into that slot to the queue; other slots' KOs/entrants stay, `slotsUsed` is never touched); keep max 2. Using Rewind (a `rewind` unit in a loadout slot, preferred — spent with no refund, or — dial-device ticket 07 — a loaded `rewind` Complication with `currentCharge ≥ 1` as fallback, cast via `Dial.cast_complication()` for its charge/XP side effects only, ignoring its power/targets): consume; restore the OLDEST snapshot; clear stack; append log "⟲ Time unspools. The moment resets. Only you remember."; `outcome = null`; grant `evadeTurns = 2, evadeChance = 0.50`. The event-runner's own Rewind (`Events.rewind()`, card-frame snapshots, M0-T13) follows the same consumable-then-Complication fallback.
 - **Event rewind:** the event runner snapshots full `state` before applying each card's effects; Rewind pops one card-frame (M0-T13). The event screen's Item button lists the `rewind` consumable and a loaded Dial `rewind` Complication as separate entries (`systems/event_items.gd`); the player picks which one pays.
+
+### 3.9a Event choice checks
+- **Schema.** A choice option may replace its `result_text` with `check` + `success` + `fail`: `check = {base, mods: [mod], min?, max?, show?}`; each outcome `= {result_text, effects, goto}` (`goto`: ticket 05). The option's own `effects` (if any) apply first, then the rolled outcome's. Plain options and the legacy `chance` effect op are unchanged.
+- **Mods** (each `{…, label}`; only matching ones count): `{flag, add}` (flag truthy); `{choice: {event, card, option}, add}` (choice memory's id at that card == option; a numeric option compares as its index string); `{path, perPoint, above?}` → `perPoint × max(0, value − above)` (above default 0); `{relation: contactId, atLeast, add}`; `{cash: {atLeast}, add}` (player.cash). Item mods: ticket 03.
+- **Odds.** `p = clamp(base + Σ matching deltas, min, max)`; `min`/`max` default to constants.json `eventChecks.defaultMin` 0.05 / `defaultMax` 0.95. `Events.check_odds(i)` → `{probability, base, mods: [{label, delta}], show, hint}` ({} for a plain option); the screen reads only this.
+- **Show.** `odds` → button "Label · 60%" (`eventChecks.oddsFormat`, rounded); `hint` → "Label · <word>" from `eventChecks.hints` (Likely ≥ 0.65, Even ≥ 0.35, Risky below); `hidden` → plain label, no info control. The info control opens a sheet: base (odds only) + one "±N% label" line per applied mod.
+- **Roll.** `Events.check_roll(i)` = `Rng.stable_unit("<world.rollSeed>|<eventId>|<cardIndex>|<optionIndex>")` — a stable hash to [0,1) via a throwaway generator; never draws from the global stream. Success iff roll < p. `world.rollSeed` is set per new game by `Rng.fresh_seed()` (own generator), so a Rewind replays the same outcome.
+- **Resolve.** `choose()` records `{id, outcome: "success"|"fail"}` in choice memory, splices the outcome's `result_text` as the resolution card (carrying `outcome`; the screen adds a muted `eventChecks.outcomeMarkers` line), and applies its effects.
 
 ### 3.10 Contacts, rooms, jobs
 - `awardRelation(id, n)`. Recruit at threshold (only contacts with `recruitable: true` — Archie, James and Owen are story-recruited via the `recruit_contact` effect op): sets recruited, notification, assignable to rooms (one contact per room; assigning vacates). A tier change that drops a room (§3.3 "Tier moves") unassigns its contact.

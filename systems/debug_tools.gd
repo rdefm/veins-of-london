@@ -66,7 +66,8 @@ static func prepare_event(event_id: String) -> Dictionary:
 	return context
 
 
-# Every effect an event can apply: on_complete, each choice's effects, and
+# Every effect an event can apply: on_complete, each choice's effects
+# (plus a check option's success/fail outcome effects), and
 # the branches nested under chance/stealth_check.
 static func all_effects(event_def: Dictionary) -> Array:
 	var result: Array = []
@@ -74,6 +75,8 @@ static func all_effects(event_def: Dictionary) -> Array:
 	for card in event_def["cards"]:
 		for choice in card.get("choices", []):
 			_collect_effects(choice.get("effects", []), result)
+			for outcome in ["success", "fail"]:
+				_collect_effects(choice.get(outcome, {}).get("effects", []), result)
 	return result
 
 

@@ -168,6 +168,8 @@ func new_game_state() -> Dictionary:
 
 		"world": {
 			"day": 1, "timeBlock": 0, "timeBlocksDone": [],
+			# Per-game seed for event checks' deterministic rolls (Events.check_roll()).
+			"rollSeed": Rng.fresh_seed(),
 			"archieChatUnlockDay": null,
 			"currentDistrict": "shoreditch",
 			"sites": [],

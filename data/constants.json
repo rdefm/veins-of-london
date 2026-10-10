@@ -587,6 +587,21 @@
     }
   },
   "business": { "weeklyWages": { "owen": 250 }, "jamesJoinCraftingSkill": 5, "owenCraftMinCultivating": 2 },
+  "eventChecks": {
+    "defaultMin": 0.05,
+    "defaultMax": 0.95,
+    "hints": [
+      { "atLeast": 0.65, "word": "Likely" },
+      { "atLeast": 0.35, "word": "Even" },
+      { "atLeast": 0.0, "word": "Risky" }
+    ],
+    "oddsFormat": "%s · %d%%",
+    "hintFormat": "%s · %s",
+    "infoGlyph": "ⓘ",
+    "baseLabel": "Base odds",
+    "noModifiers": "Nothing tipping it either way.",
+    "outcomeMarkers": { "success": "✓ Came off", "fail": "✗ Didn't come off" }
+  },
   "calendar": {
     "startMonth": 3,
     "daysPerMonth": 28,

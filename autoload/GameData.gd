@@ -158,6 +158,8 @@ var TIME_BLOCKS: Array = []
 var DAY_CLOCK: Dictionary = {}
 # Calendar display constants (R§3.1 "Calendar"), read by systems/calendar.gd.
 var CALENDAR: Dictionary = {}
+# Event choice checks: default clamp, hint-word thresholds, UI strings (Events.check_odds()).
+var EVENT_CHECKS: Dictionary = {}
 var DAILY_CYCLE: Dictionary = {}
 var ARCHIE_ORE_GOAL: int = 0
 var CONTACTS_DEFAULTS: Dictionary = {}
@@ -431,6 +433,7 @@ const MANIFEST: Array[Dictionary] = [
 		{"field": "TIME_BLOCKS", "key": "timeBlocks", "type": TYPE_ARRAY},
 		{"field": "DAY_CLOCK", "key": "dayClock", "type": TYPE_DICTIONARY},
 		{"field": "CALENDAR", "key": "calendar", "type": TYPE_DICTIONARY},
+		{"field": "EVENT_CHECKS", "key": "eventChecks", "type": TYPE_DICTIONARY},
 		{"field": "ARCHIE_ORE_GOAL", "key": "archieOreGoal", "type": TYPE_INT},
 		{"field": "CONTACTS_DEFAULTS", "key": "contacts", "type": TYPE_DICTIONARY},
 		{"field": "JAMES_JOB_TRUST_BANDS", "key": "jamesJobTrustBands", "type": TYPE_ARRAY},
@@ -1628,12 +1631,23 @@ func _validate_event_pin(pin: Dictionary, districts: Dictionary, context: String
 
 
 # M1-LONDON D5's `choices` card type: { type:"choice", text,
-# choices:[{label, effects, result_text}] }.
+# choices:[{label, effects, result_text}] }. A check option instead carries
+# {label, check:{base, ...}, success:{result_text, effects}, fail:{...}}.
 func _validate_choice_card(card: Dictionary, context: String, errors: Array[String]) -> void:
 	if not card.has("choices") or typeof(card["choices"]) != TYPE_ARRAY:
 		errors.append("%s: 'choice' card missing 'choices' array" % context)
 		return
 	for choice in card["choices"]:
+		if typeof(choice) == TYPE_DICTIONARY and choice.has("check"):
+			_require_keys(choice, ["label", "success", "fail"], "%s.choices" % context, errors)
+			_require_keys(choice["check"], ["base"], "%s.choices.check" % context, errors)
+			for outcome in ["success", "fail"]:
+				if typeof(choice.get(outcome)) != TYPE_DICTIONARY:
+					continue
+				_require_keys(choice[outcome], ["result_text", "effects"], "%s.choices.%s" % [context, outcome], errors)
+				_validate_effect_list(choice[outcome].get("effects", []), "%s.choices.%s.effects" % [context, outcome], errors)
+			_validate_effect_list(choice.get("effects", []), "%s.choices.effects" % context, errors)
+			continue
 		_require_keys(choice, ["label", "effects", "result_text"], "%s.choices" % context, errors)
 		if typeof(choice) != TYPE_DICTIONARY:
 			continue

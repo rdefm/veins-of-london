@@ -28,6 +28,38 @@ func _install_choice_event() -> Dictionary:
 	return original_events
 
 
+# A choice card whose first option is a check at fixed odds `p` (no mods,
+# clamp [0, 1]) and whose second is a plain option.
+static func _check_choice_card(p: float) -> Dictionary:
+	return {
+		"type": "choice", "label": null, "speaker": null, "text": "Push your luck?",
+		"choices": [
+			{
+				"id": "push", "label": "Push for more",
+				"check": { "base": p, "mods": [], "min": 0.0, "max": 1.0, "show": "odds" },
+				"success": { "result_text": "It worked.", "effects": [{ "op": "add", "path": "player.cash", "value": 30 }], "goto": null },
+				"fail": { "result_text": "It didn't.", "effects": [{ "op": "set_flag", "flag": "checkFailed", "value": true }], "goto": null },
+			},
+			{ "id": "leave", "label": "Leave it", "effects": [], "result_text": "You left it." },
+		],
+	}
+
+
+func _install_check_event(p: float) -> Dictionary:
+	var original_events: Dictionary = GameData.EVENTS
+	GameData.EVENTS = GameData.EVENTS.duplicate()
+	GameData.EVENTS["test_check_event"] = {
+		"id": "test_check_event",
+		"cards": [
+			{ "type": "narration", "label": null, "speaker": null, "text": "Setup" },
+			_check_choice_card(p),
+			{ "type": "narration", "label": null, "speaker": null, "text": "Aftermath" },
+		],
+		"on_complete": [],
+	}
+	return original_events
+
+
 # ui-vision.md §11: a choice event whose first option carries an "image"
 # key, followed by a card with no "image" key (sticky) and a card that
 # explicitly clears it (image: null) -- Events.current_image_path()'s own
@@ -479,6 +511,169 @@ func run() -> void:
 		save["flags"].erase("choices")
 		var backfilled: Dictionary = SaveManager.backfill_defaults(save)
 		assert_eq(backfilled["flags"]["choices"], {})
+	)
+
+	# ── checks (opening-choices spec "Event engine") ────────────────────
+
+	run_case("check_odds_is_empty_for_a_plain_option", func():
+		GameState.reset()
+		var original_events := _install_choice_event()
+		Events.start_event("test_choice_event")
+		Events.advance()
+		assert_eq(Events.check_odds(0), {})
+		GameData.EVENTS = original_events
+	)
+
+	run_case("odds_are_base_plus_mods_clamped_to_min_and_max", func():
+		GameState.reset()
+		GameState.state["flags"]["testFlag"] = true
+		var mod := { "flag": "testFlag", "add": 0.3, "label": "Flag" }
+		assert_almost_eq(Events.odds_for({ "base": 0.4, "mods": [mod], "min": 0.0, "max": 1.0 })["probability"], 0.7, 0.0001, "unclamped sum")
+		assert_almost_eq(Events.odds_for({ "base": 0.8, "mods": [mod], "min": 0.05, "max": 0.95 })["probability"], 0.95, 0.0001, "clamped to max")
+		assert_almost_eq(Events.odds_for({ "base": 0.0, "mods": [], "min": 0.05, "max": 0.95 })["probability"], 0.05, 0.0001, "clamped to min")
+		assert_almost_eq(Events.odds_for({ "base": 0.0 })["probability"], GameData.EVENT_CHECKS["defaultMin"], 0.0001, "default min from data")
+		var odds := Events.odds_for({ "base": 0.4, "mods": [mod, { "flag": "unsetFlag", "add": 0.2, "label": "Unset" }] })
+		assert_eq(odds["mods"].size(), 1, "only matching mods are listed")
+		assert_eq(odds["mods"][0]["label"], "Flag")
+		assert_almost_eq(odds["mods"][0]["delta"], 0.3, 0.0001)
+		assert_eq(odds["show"], "odds", "show defaults to odds")
+	)
+
+	run_case("flag_mod_applies_only_when_the_flag_is_set", func():
+		GameState.reset()
+		var check := { "base": 0.4, "mods": [{ "flag": "testFlag", "add": 0.15, "label": "F" }], "min": 0.0, "max": 1.0 }
+		assert_almost_eq(Events.odds_for(check)["probability"], 0.4, 0.0001, "unset")
+		GameState.state["flags"]["testFlag"] = true
+		assert_almost_eq(Events.odds_for(check)["probability"], 0.55, 0.0001, "set")
+	)
+
+	run_case("choice_mod_reads_choice_memory_by_id_or_index", func():
+		GameState.reset()
+		var by_id := { "base": 0.4, "mods": [{ "choice": { "event": "intro", "card": 6, "option": "brave" }, "add": 0.1, "label": "C" }], "min": 0.0, "max": 1.0 }
+		var by_index := { "base": 0.4, "mods": [{ "choice": { "event": "intro", "card": 6, "option": 1 }, "add": 0.1, "label": "C" }], "min": 0.0, "max": 1.0 }
+		assert_almost_eq(Events.odds_for(by_id)["probability"], 0.4, 0.0001, "no memory")
+		GameState.state["flags"]["choices"]["intro"] = { "6": { "id": "brave" } }
+		assert_almost_eq(Events.odds_for(by_id)["probability"], 0.5, 0.0001, "matching id")
+		assert_almost_eq(Events.odds_for(by_index)["probability"], 0.4, 0.0001, "other option")
+		GameState.state["flags"]["choices"]["intro"] = { "6": { "id": "1" } }
+		assert_almost_eq(Events.odds_for(by_index)["probability"], 0.5, 0.0001, "matching index")
+	)
+
+	run_case("path_mod_adds_per_point_above_the_floor", func():
+		GameState.reset()
+		var check := { "base": 0.4, "mods": [{ "path": "player.craftingSkill", "perPoint": 0.05, "above": 1, "label": "P" }], "min": 0.0, "max": 1.0 }
+		GameState.state["player"]["craftingSkill"] = 1
+		assert_almost_eq(Events.odds_for(check)["probability"], 0.4, 0.0001, "at the floor")
+		assert_eq(Events.odds_for(check)["mods"], [], "zero delta isn't listed")
+		GameState.state["player"]["craftingSkill"] = 4
+		assert_almost_eq(Events.odds_for(check)["probability"], 0.55, 0.0001, "3 points above")
+	)
+
+	run_case("relation_mod_applies_at_least_the_threshold", func():
+		GameState.reset()
+		var check := { "base": 0.4, "mods": [{ "relation": "archie", "atLeast": 15, "add": 0.1, "label": "R" }], "min": 0.0, "max": 1.0 }
+		GameState.state["contacts"]["archie"]["relation"] = 14
+		assert_almost_eq(Events.odds_for(check)["probability"], 0.4, 0.0001, "below")
+		GameState.state["contacts"]["archie"]["relation"] = 15
+		assert_almost_eq(Events.odds_for(check)["probability"], 0.5, 0.0001, "at threshold")
+	)
+
+	run_case("cash_mod_applies_at_least_the_threshold", func():
+		GameState.reset()
+		var check := { "base": 0.4, "mods": [{ "cash": { "atLeast": 50 }, "add": -0.05, "label": "£" }], "min": 0.0, "max": 1.0 }
+		GameState.state["player"]["cash"] = 49
+		assert_almost_eq(Events.odds_for(check)["probability"], 0.4, 0.0001, "below")
+		GameState.state["player"]["cash"] = 50
+		assert_almost_eq(Events.odds_for(check)["probability"], 0.35, 0.0001, "at threshold, signed delta")
+		assert_almost_eq(Events.odds_for(check)["mods"][0]["delta"], -0.05, 0.0001)
+	)
+
+	run_case("hint_words_follow_the_data_thresholds", func():
+		assert_eq(Events.hint_word(0.65), "Likely")
+		assert_eq(Events.hint_word(0.64), "Even")
+		assert_eq(Events.hint_word(0.35), "Even")
+		assert_eq(Events.hint_word(0.34), "Risky")
+		assert_eq(Events.hint_word(0.05), "Risky")
+	)
+
+	run_case("a_sure_check_resolves_success_text_effects_and_memory", func():
+		GameState.reset()
+		var original_events := _install_check_event(1.0)
+		var cash_before: int = GameState.state["player"]["cash"]
+		Events.start_event("test_check_event")
+		Events.advance()
+		Events.choose(0)
+		assert_eq(Events.choice_record("test_check_event", 1), { "id": "push", "outcome": "success" })
+		var resolution: Dictionary = Events.revealed_cards().back()
+		assert_eq(resolution["text"], "It worked.")
+		assert_eq(resolution["outcome"], "success")
+		assert_eq(GameState.state["player"]["cash"], cash_before + 30, "success effects applied")
+		assert_true(not GameState.state["flags"].get("checkFailed", false), "fail effects not applied")
+		GameData.EVENTS = original_events
+	)
+
+	run_case("a_hopeless_check_resolves_fail_text_effects_and_memory", func():
+		GameState.reset()
+		var original_events := _install_check_event(0.0)
+		var cash_before: int = GameState.state["player"]["cash"]
+		Events.start_event("test_check_event")
+		Events.advance()
+		Events.choose(0)
+		assert_eq(Events.choice_record("test_check_event", 1), { "id": "push", "outcome": "fail" })
+		assert_eq(Events.revealed_cards().back()["text"], "It didn't.")
+		assert_eq(Events.revealed_cards().back()["outcome"], "fail")
+		assert_eq(GameState.state["player"]["cash"], cash_before, "success effects not applied")
+		assert_true(GameState.state["flags"]["checkFailed"], "fail effects applied")
+		GameData.EVENTS = original_events
+	)
+
+	run_case("a_check_replays_the_same_outcome_after_rewind_without_touching_global_rng", func():
+		# The global stream after the same flow with the plain option: the
+		# check must leave it exactly where a plain choice does.
+		GameState.reset()
+		GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
+		var plain_events := _install_check_event(0.5)
+		Rng.set_seed(4242)
+		Events.start_event("test_check_event")
+		Events.advance()
+		Events.choose(1)
+		assert_true(Events.rewind()["ok"])
+		Events.choose(1)
+		var expected_first: float = Rng.randf()
+		GameData.EVENTS = plain_events
+		# Different roll seeds give both outcomes at even odds, so this
+		# also shows the roll isn't constant.
+		var seen := {}
+		for roll_seed in range(1, 41):
+			GameState.reset()
+			GameState.state["world"]["rollSeed"] = roll_seed
+			GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
+			var original_events := _install_check_event(0.5)
+			Rng.set_seed(4242)
+			Events.start_event("test_check_event")
+			Events.advance()
+			Events.choose(0)
+			var first: Variant = Events.choice_record("test_check_event", 1)["outcome"]
+			assert_true(Events.rewind()["ok"])
+			Events.choose(0)
+			assert_eq(Events.choice_record("test_check_event", 1)["outcome"], first, "same outcome after rewind (seed %d)" % roll_seed)
+			assert_eq(Rng.randf(), expected_first, "global stream untouched (seed %d)" % roll_seed)
+			seen[first] = true
+			GameData.EVENTS = original_events
+		assert_eq(seen.size(), 2, "different seeds reach both outcomes")
+	)
+
+	run_case("roll_seed_is_backfilled_for_saves_missing_it", func():
+		var save: Dictionary = GameState.new_game_state()
+		save["world"].erase("rollSeed")
+		var backfilled: Dictionary = SaveManager.backfill_defaults(save)
+		assert_true(backfilled["world"].has("rollSeed"))
+	)
+
+	run_case("check_events_pass_the_event_validator", func():
+		var errors: Array[String] = []
+		GameData._validate_choice_card(_check_choice_card(0.5), "test", errors)
+		assert_eq(errors, [] as Array[String])
 	)
 
 	# ── current_image_path (ui-vision.md §11) ───────────────────────────

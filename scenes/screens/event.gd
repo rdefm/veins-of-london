@@ -135,6 +135,11 @@ func _populate_card_text(content: VBoxContainer, card: Dictionary) -> void:
 			if card.get("speaker") != null:
 				content.add_child(UI.heading(card["speaker"], 14))
 			content.add_child(UI.label(card["text"]))
+		"resolution":
+			# A check's outcome: a subtle muted marker above the text, no animation.
+			if card.has("outcome"):
+				content.add_child(UI.muted_label(GameData.EVENT_CHECKS["outcomeMarkers"][card["outcome"]]))
+			content.add_child(UI.label(card["text"]))
 		_:
 			content.add_child(UI.label(card["text"]))
 
@@ -246,16 +251,76 @@ func _close_item_menu() -> void:
 		_item_menu.queue_free()
 	_item_menu = null
 
-func _build_choice_button(label: String, choice_index: int) -> Button:
+# A plain option is one button. A check option shown as "odds"/"hint" is a
+# row of the button (label suffixed with its odds or hint word) and an info
+# control opening the modifiers sheet; "hidden" shows neither.
+func _build_choice_button(label: String, choice_index: int) -> Control:
 	var choice: Dictionary = Events.current_card()["choices"][choice_index]
 	for effect in choice.get("effects", []):
 		if effect.get("op", "") == "lose_time_block":
 			label = UI.format_block_cost_label(label)
 			break
+	var odds: Dictionary = Events.check_odds(choice_index)
+	var shown: bool = not odds.is_empty() and odds["show"] != "hidden"
+	if shown:
+		label = odds_label(label, odds)
 	var b := UI.button(label, func(): Events.choose(choice_index))
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_style_action_button(b)
-	return b
+	if not shown:
+		return b
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 4)
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(b)
+	var info := UI.button(GameData.EVENT_CHECKS["infoGlyph"], func(): pass)
+	info.clip_text = false
+	info.pressed.connect(func(): _toggle_odds_sheet(info, odds))
+	_style_action_button(info)
+	row.add_child(info)
+	return row
+
+static func odds_label(label: String, odds: Dictionary) -> String:
+	if odds["show"] == "hint":
+		return GameData.EVENT_CHECKS["hintFormat"] % [label, odds["hint"]]
+	return GameData.EVENT_CHECKS["oddsFormat"] % [label, roundi(odds["probability"] * 100.0)]
+
+# One line per applied modifier with its signed delta; "odds" also leads
+# with the base.
+static func odds_sheet_lines(odds: Dictionary) -> Array:
+	var lines: Array = []
+	if odds["show"] == "odds":
+		lines.append("%s %d%%" % [GameData.EVENT_CHECKS["baseLabel"], roundi(odds["base"] * 100.0)])
+	for mod in odds["mods"]:
+		lines.append("%+d%% %s" % [roundi(mod["delta"] * 100.0), mod["label"]])
+	if odds["mods"].is_empty():
+		lines.append(GameData.EVENT_CHECKS["noModifiers"])
+	return lines
+
+# Shares the Item menu's overlay slot, so only one popup is open at a time.
+func _toggle_odds_sheet(anchor: Button, odds: Dictionary) -> void:
+	if is_instance_valid(_item_menu):
+		_close_item_menu()
+		return
+	_item_menu = Control.new()
+	UI.anchor_full_rect(_item_menu)
+	_item_menu.mouse_filter = Control.MOUSE_FILTER_STOP
+	_item_menu.gui_input.connect(func(ev: InputEvent):
+		if ev is InputEventMouseButton and ev.pressed:
+			_close_item_menu()
+	)
+	var panel := UI.card()
+	for line in odds_sheet_lines(odds):
+		panel["content"].add_child(UI.label(line))
+	_item_menu.add_child(panel["panel"])
+	add_child(_item_menu)
+
+	var sheet: Control = panel["panel"]
+	var sheet_size: Vector2 = sheet.get_combined_minimum_size()
+	var anchor_pos: Vector2 = anchor.global_position - global_position
+	var x: float = clampf(anchor_pos.x + anchor.size.x - sheet_size.x, 16.0, maxf(16.0, _screen_width() - 16.0 - sheet_size.x))
+	var y: float = maxf(UI.top_bar_clearance(), anchor_pos.y - sheet_size.y - 8.0)
+	sheet.position = Vector2(x, y)
 
 func _build_continue_button(text: String) -> Button:
 	var b := UI.button(text, func(): Events.advance())

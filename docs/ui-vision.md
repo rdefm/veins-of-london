@@ -668,7 +668,7 @@ schema supports: narration, speaker, tension, resolution, craft, choice):
 | speaker | Plain card + bold heading (`UI.heading()`) for the speaker name above the body text. Mechanism unchanged from today. |
 | tension | Plain cream fill kept; the border/left-stripe recolours to the *shared* `MapStyle.DANGER_COLOUR` constant (not a private duplicate — `event.gd`'s current `DANGER_COLOR` is numerically identical to it already, so this is a wiring fix, not a redesign) — matches the danger idiom already used in `map.gd`/`vein_list.gd` (tinted warning text/rings), rather than inventing a bespoke event-only danger treatment. The tinted-cream fill is dropped; only the border carries the accent. |
 | craft | Amber panel **kept**, per the documented §6 exception above — border `calc_gold`, fill `calc_gold_light` (`data/palette.json`), replacing the old private `AMBER_COLOR`/`AMBER_BG` constants with the named, shared palette entries. |
-| resolution (synthetic entry spliced in after a resolved choice, `Events.revealed_cards()`) | Identical to narration, no marker — it already reads as a direct continuation of the choice moment. |
+| resolution (synthetic entry spliced in after a resolved choice, `Events.revealed_cards()`) | Identical to narration, no marker — it already reads as a direct continuation of the choice moment. A check option's resolution (REFERENCE §3.9a) adds one muted outcome line above the text, no animation. |
 | choice | Prompt renders like narration/speaker (see bug fix below); the `choices` become action-bar buttons, exactly as today — no layout change. |
 
 **Bug fix folded into this pass:** `_build_card()`'s `match card["type"]`
