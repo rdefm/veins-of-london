@@ -73,6 +73,46 @@ func run() -> void:
 		assert_eq(_kind("development"), [], "pruned below the threshold drops off live")
 	)
 
+	run_case("low_sliding_veins_get_a_nights_estimate_from_the_drift_rule", func():
+		GameState.reset()
+		var vein := Fixtures.seed_vein("sliding", 14)
+		var vg: Dictionary = GameData.VEIN_GROWTH
+		var step: int = int(vein.get("level", 1)) + int((vg["driftRandomMin"] + vg["driftRandomMax"]) / 2.0)
+		var nights := int(ceil(14.0 / step))
+		var rows := _kind("veinAtRisk")
+		assert_eq(rows.size(), 1)
+		assert_eq(nights, Cultivating.days_to_wall(vein), "agrees with the expected-drift rule")
+		var expected_tier := "urgent" if nights <= int(GameData.DAILY_BRIEF["veinCollapseNights"]) else "routine"
+		assert_eq([rows[0]["tier"], rows[0]["key"], rows[0]["action"], rows[0]["sort"]], [expected_tier, "vein_collapse:sliding", { "to": "map_vein", "veinId": "sliding" }, nights])
+		assert_true(String(rows[0]["consequence"]).find("~%d nights" % nights) != -1, "phrased as an estimate")
+		assert_eq(rows[0]["actionLabel"], "Cultivate")
+		vein["level"] = 3  # faster drift, fewer nights
+		assert_true(int(_kind("veinAtRisk")[0]["sort"]) < nights, "level-driven drift shortens the estimate")
+	)
+
+	run_case("vein_at_risk_is_urgent_at_the_threshold_and_routine_above_it", func():
+		GameState.reset()
+		var threshold: int = GameData.DAILY_BRIEF["veinCollapseNights"]
+		var near := Fixtures.seed_vein("near", 8)
+		var far := Fixtures.seed_vein("far", 14)
+		assert_eq(Cultivating.days_to_wall(near), threshold)
+		assert_true(Cultivating.days_to_wall(far) > threshold)
+		var tiers := {}
+		for row in _kind("veinAtRisk"):
+			tiers[row["key"]] = row["tier"]
+		assert_eq(tiers, { "vein_collapse:near": "urgent", "vein_collapse:far": "routine" })
+	)
+
+	run_case("vein_at_risk_ignores_healthy_and_mid_band_veins_and_drops_off_once_lifted", func():
+		GameState.reset()
+		Fixtures.seed_vein("healthy", 70)
+		Fixtures.seed_vein("thinning", 40)
+		var sliding := Fixtures.seed_vein("sliding", 8)
+		assert_eq(_kind("veinAtRisk").size(), 1)
+		sliding["growth"] = 40
+		assert_eq(_kind("veinAtRisk"), [], "out of the risk band: gone")
+	)
+
 	run_case("bill_row_only_inside_the_window_and_when_cash_is_short", func():
 		GameState.reset()
 		var window: int = GameData.DAILY_BRIEF["billWindowDays"]

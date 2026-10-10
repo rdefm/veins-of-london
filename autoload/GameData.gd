@@ -714,6 +714,11 @@ func _validate_daily_brief(daily_brief: Dictionary, errors: Array[String]) -> vo
 		errors.append("daily_brief.rowCap: must be a positive integer")
 	if typeof(daily_brief.get("billWindowDays")) not in [TYPE_INT, TYPE_FLOAT] or int(daily_brief.get("billWindowDays", -1)) < 0:
 		errors.append("daily_brief.billWindowDays: must be a non-negative integer")
+	_require_keys(daily_brief, ["veinRiskBands", "veinCollapseNights"], "daily_brief", errors)
+	if typeof(daily_brief.get("veinCollapseNights")) not in [TYPE_INT, TYPE_FLOAT] or int(daily_brief.get("veinCollapseNights", -1)) < 0:
+		errors.append("daily_brief.veinCollapseNights: must be a non-negative integer")
+	if typeof(daily_brief.get("veinRiskBands")) != TYPE_ARRAY:
+		errors.append("daily_brief.veinRiskBands: must be an Array of band ids")
 	if daily_brief.get("tierOrder") != DAILY_BRIEF_TIERS:
 		errors.append("daily_brief.tierOrder: must be exactly %s" % [DAILY_BRIEF_TIERS])
 	var rows: Variant = daily_brief.get("rows", {})

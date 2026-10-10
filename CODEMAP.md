@@ -80,7 +80,7 @@ Data file per system: see `data/*.json` below.
 | messages.gd | Messages data layer + conversation-index projections, total unread count, per-contact clear (read + contact notifications seen) |
 | modal.gd | Modal open/close state; holds an event deferred behind a modal flow (`followEvent`) and starts it on close; `returnTo` reopens a parked modal on close |
 | morning_accounts.gd | Rollover capture (incl. arrears exceptions and countdown, payday statement, wage shortfalls, Monday guard wages, guard shortfall/walk-offs), per-block staff output accumulation, BizBrief auto-open, arrears/payday/wage-prompt/guard-wage labels |
-| daily_brief.gd | Pure Today-card projection for BizBrief: `items()` (tiered rows with label, consequence, action descriptor), `badge_count()` (Urgent + Story), `summary()` (widget date, blocks left, tier counts); sources raid alarms, guard shortfall, home bill shortfall, arrears, owed wages/prompts, development-eligible veins; templates from daily_brief.json |
+| daily_brief.gd | Pure Today-card projection for BizBrief: `items()` (tiered rows: label, consequence, action descriptor), `badge_count()` (Urgent + Story), `summary()`; sources alarms, guard shortfall, home bill, arrears, wages, low sliding veins (nights via `Cultivating.days_to_wall`), development-eligible veins; templates in daily_brief.json |
 | nav.gd | Screen navigation |
 | notify.gd | Notifications append/evict; per-contact dismiss via contactId meta |
 | objectives.gd | Objective/questline evaluator; all_of live-condition, template_periods_completed (Beat 6) and recurring_proof (Beat 7) objectives + their ToDo checklist rows |
@@ -277,7 +277,7 @@ overlays.
 | offers.json | offers.gd (synthetic catalogue, scripted counterparties, offer expiry days, recurring term weeks, random-offer daily chance curve + qty bands, small-offer threshold, cancel relation hit), business_quest.gd (biz_starter_* chain + Archie nudge text, biz_recurring_* from Beat 3/6) |
 | ore_types.json | widely read (economy, cultivating, sites, factions) |
 | palette.json | GameData.gd (reference combat-art palette; `lodedinnit_*` brand tokens read by lodedinnit_app.gd) |
-| daily_brief.json | GameData.gd + daily_brief.gd (Today card tier order, row cap, bill window, empty state, per-row tier/kind/label/consequence templates and action labels; PROSE-REVIEW) |
+| daily_brief.json | GameData.gd + daily_brief.gd (Today card tier order, row cap, bill window, vein risk bands + collapse-nights threshold, empty state, per-row tier/kind/label/consequence templates and action labels; PROSE-REVIEW) |
 | phone_home.json | GameData.gd + phone_device_shell.gd (wallpaper, per-block status clock times, widget date format + fixed weather/battery copy; shell renders time/date from world.day/timeBlock) |
 | recipes.json | widely read (crafting, bench, combat, dial, jobs, rooms) |
 | sites.json | sites.gd, collective.gd, objectives.gd |

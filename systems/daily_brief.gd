@@ -19,6 +19,7 @@ static func items() -> Array[Dictionary]:
 	_bill_rows(rows)
 	_arrears_rows(rows)
 	_wage_rows(rows)
+	_vein_at_risk_rows(rows)
 	_development_rows(rows)
 	var tiers: Array = GameData.DAILY_BRIEF["tierOrder"]
 	var order: Array = range(rows.size())
@@ -114,6 +115,30 @@ static func _wage_rows(rows: Array[Dictionary]) -> void:
 			rows.append(_row("wagePrompt", "wages:%s" % contact_id, values, { "to": "wage_prompt", "contactId": contact_id }, 0))
 		else:
 			rows.append(_row("wagesOwed", "wages:%s" % contact_id, values, { "to": "bizbrief_staff", "contactId": contact_id }, 0))
+
+
+# Veins in a data-listed low band and leaning down (growth under neutral).
+# Nights come from Cultivating.days_to_wall (expected drift, no RNG); at or
+# under veinCollapseNights the row is Urgent, otherwise Routine.
+static func _vein_at_risk_rows(rows: Array[Dictionary]) -> void:
+	var risk_bands: Array = GameData.DAILY_BRIEF["veinRiskBands"]
+	var neutral: int = GameData.VEIN_GROWTH["neutral"]
+	for vein in GameState.state["player"]["veins"]:
+		var band := Cultivating.growth_band(vein)
+		if not risk_bands.has(band["id"]) or int(vein["growth"]) >= neutral:
+			continue
+		var nights := Cultivating.days_to_wall(vein)
+		if nights < 0:
+			continue
+		var values := {
+			"ore": GameData.ORE_TYPES[vein["oreType"]]["name"],
+			"district": GameData.DISTRICTS[vein["district"]]["name"],
+			"band": band["label"],
+			"growth": vein["growth"],
+			"nights": nights,
+		}
+		var urgent: bool = nights <= int(GameData.DAILY_BRIEF["veinCollapseNights"])
+		rows.append(_row("veinAtRiskUrgent" if urgent else "veinAtRiskRoutine", "vein_collapse:%s" % vein["id"], values, { "to": "map_vein", "veinId": vein["id"] }, nights))
 
 
 # Live eligibility, re-derived from state every call, so a vein pruned past

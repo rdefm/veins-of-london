@@ -2,6 +2,8 @@
   "_comment": "DailyBrief (systems/daily_brief.gd): BizBrief's Today card. tierOrder is the fixed row order; rowCap the visible-row cap; rows maps each row template id to its tier, kind, label/consequence templates ({placeholders} filled by DailyBrief) and action button label. PROSE-REVIEW: every label, consequence, actionLabel and emptyState string here is new copy.",
   "rowCap": 6,
   "billWindowDays": 3,
+  "veinRiskBands": ["barren", "sparse"],
+  "veinCollapseNights": 2,
   "tierOrder": ["urgent", "story", "opportunity", "routine"],
   "emptyState": "Nothing pressing today.",
   "rows": {
@@ -52,6 +54,18 @@
       "label": "{name} is owed £{owed}",
       "consequence": "Stopped working until paid.",
       "actionLabel": "Pay"
+    },
+    "veinAtRiskUrgent": {
+      "tier": "urgent", "kind": "veinAtRisk",
+      "label": "{ore} vein, {district} · {band} ({growth})",
+      "consequence": "Collapses in ~{nights} nights if left.",
+      "actionLabel": "Cultivate"
+    },
+    "veinAtRiskRoutine": {
+      "tier": "routine", "kind": "veinAtRisk",
+      "label": "{ore} vein, {district} · {band} ({growth})",
+      "consequence": "Sliding. Collapse is ~{nights} nights off.",
+      "actionLabel": "Cultivate"
     },
     "development": {
       "tier": "routine", "kind": "development",
