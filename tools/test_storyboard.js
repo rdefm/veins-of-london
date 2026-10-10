@@ -28,7 +28,7 @@ const {
   setCheckNote, setCheckOn, setOptionMechanics, setEffects, addBySuccess, deleteBySuccess, setConditionKind,
   addComment, updateComment, deleteComment, filterComments, commentCount, anchorText, anchorType, proseComments,
   cardImageName, freeImageName, setCardImage, eventImageDir, SHOT_FIELDS, serialiseBoard, setShotField, shotFieldText,
-  LIVE_EVENTS_DIR, proposalFileName, importBoard, blankBoard, duplicateBoard, boardCardLabel,
+  LIVE_EVENTS_DIR, proposalFileName, importBoard, blankBoard, duplicateBoard, boardCardLabel, promoteDraft, serialiseEvent,
 } = new Function(
   html.slice(ss, se) + html.slice(s, e) +
     "\nreturn { parseProposal, parseDraft, serialiseDraft, ensureKeys, legacyToDraft, nextPos, playOrder, flatCards, thenText," +
@@ -40,7 +40,7 @@ const {
     " setCheckNote, setCheckOn, setOptionMechanics, setEffects, addBySuccess, deleteBySuccess, setConditionKind," +
     " addComment, updateComment, deleteComment, filterComments, commentCount, anchorText, anchorType, proseComments," +
     " cardImageName, freeImageName, setCardImage, eventImageDir, SHOT_FIELDS, serialiseBoard, setShotField, shotFieldText," +
-    " LIVE_EVENTS_DIR, proposalFileName, importBoard, blankBoard, duplicateBoard, boardCardLabel };"
+    " LIVE_EVENTS_DIR, proposalFileName, importBoard, blankBoard, duplicateBoard, boardCardLabel, promoteDraft, serialiseEvent };"
 )();
 
 let passed = 0;
@@ -426,6 +426,9 @@ for (const f of liveFiles) {
     const first = (card) => { const o = card.choices[0]; return o.check ? o.success : o; };
     assert(playOrder(b.draft, first).length > 0);
     assert.strictEqual(hasCycle(b.draft), false);
+    const { event, dropped } = promoteDraft(b.draft);
+    assert.deepStrictEqual(dropped, []);
+    assert.deepStrictEqual(event, ev, "import → promote doesn't give the live event back");
   });
 }
 
@@ -1223,6 +1226,144 @@ test("every shot board keys its cards on branch + key, uniquely, and every NEW n
       if (c.cut === "NEW") assert.ok(shots.has(c.shot), `${d}: ${c.key} cuts to unknown shot ${c.shot}`);
     }
   }
+});
+
+// ---- promote ----------------------------------------------------------------
+// Every goto in a flat event (outcome, card, conditional entry) as [from index, to index].
+function flatJumps(ev) {
+  const out = [];
+  ev.cards.forEach((c, i) => {
+    for (const o of c.choices || []) for (const x of [o, o.success, o.fail, ...Object.values(o.bySuccesses || {})]) if (x && x.goto != null) out.push([i, x.goto]);
+    if (Array.isArray(c.goto)) c.goto.forEach((e) => out.push([i, e.card]));
+    else if (c.goto != null) out.push([i, c.goto]);
+  });
+  return out;
+}
+// Play order as card texts, so a draft and its promoted-then-imported copy compare without keys.
+const textsOf = (draft, choose, cond) => playOrder(draft, choose, cond).map((p) => draft.branches[p.branch].cards[p.idx].text);
+const pickBy = (fn) => (card) => { const o = fn(card.choices); return o.check ? o.success : o; };
+const pickFail = (card) => { const o = card.choices[0]; return o.check ? o.fail : o; };
+function assertSameRouting(draft) {
+  const back = legacyToDraft(promoteDraft(draft).event);
+  for (const choose of [pickBy((c) => c[0]), pickBy((c) => c.at(-1)), pickFail])
+    for (const cond of [() => true, () => false])
+      assert.deepStrictEqual(textsOf(back, choose, cond), textsOf(draft, choose, cond));
+}
+
+test("promote: forward-only, index mapping, unreachable cards dropped", () => {
+  const { draft } = parseDraft(draftText);
+  const { event, dropped } = promoteDraft(draft);
+  assert.deepStrictEqual(dropped, ["c3"]); // c2's every outcome jumps, so nothing falls through to c3
+  assert.deepStrictEqual(event.cards.map((c) => c.text), ["One.", "Two.", "Botched.", "A.", "B.", "Watched."]);
+  assert.strictEqual(event.cards[1].choices[0].success.goto, 3);
+  assert.strictEqual(event.cards[1].choices[0].fail.goto, 2);
+  assert.deepStrictEqual(event.cards[2].goto, [{ if: { flag: "jamesWatching" }, card: 5 }]); // else = next card
+  assert.ok(!("goto" in event.cards[3]), "A. falls through to B. without a goto");
+  assert.strictEqual(event.cards[4].end, true);
+  assert.ok(!("end" in event.cards[5]) && !("goto" in event.cards[5]), "the last card just ends");
+  for (const [from, to] of flatJumps(event)) assert.ok(to > from, `goto ${from} → ${to} isn't forward`);
+});
+
+test("promote: strips keys, checkNotes, branch titles, start and comments; keeps event fields in place", () => {
+  const { draft } = parseDraft(draftText);
+  addComment(draft, { card: "c2" }, "claude", "tighten this");
+  const { event } = promoteDraft(draft);
+  assert.deepStrictEqual(Object.keys(event), ["id", "at", "cards"]);
+  assert.deepStrictEqual(event.at, { block: "evening" });
+  const text = JSON.stringify(event);
+  for (const k of ["key", "checkNote", "title", "_comments", "start", "branches", "branch"]) assert.ok(!text.includes(`"${k}"`), `${k} left in`);
+  assert.ok(draft.branches.main.cards[0].key, "the draft itself is untouched");
+});
+
+test("promote → import keeps the draft's routing", () => {
+  assertSameRouting(parseDraft(draftText).draft);
+});
+
+test("promote interleaves branches when cross-branch card links need it", () => {
+  const draft = { id: "x", start: "main", branches: {
+    main: { title: "M", cards: [
+      { key: "m1", type: "choice", text: "m1", choices: [
+        { label: "A", result_text: "a", goto: { branch: "side", card: "s2" } }, { label: "B", result_text: "b", goto: { branch: "side" } }] },
+      { key: "m2", type: "narration", text: "m2" }] },
+    side: { title: "S", cards: [{ key: "s1", type: "narration", text: "s1", goto: { branch: "main", card: "m2" } },
+      { key: "s2", type: "narration", text: "s2" }] },
+  } };
+  const { event } = promoteDraft(draft);
+  assert.deepStrictEqual(event.cards.map((c) => c.text), ["m1", "s1", "m2", "s2"]);
+  assert.deepStrictEqual(event.cards[0].choices.map((o) => o.goto), [3, 1]);
+  assert.ok(!("goto" in event.cards[1]));
+  assert.strictEqual(event.cards[2].end, true);
+  assertSameRouting(draft);
+});
+
+test("promote: card goto and single then become index gotos only when not the next card", () => {
+  const draft = { id: "x", start: "main", branches: {
+    main: { title: "M", cards: [{ key: "a", type: "narration", text: "a", goto: { branch: "far" } }, { key: "b", type: "narration", text: "b" }],
+      then: { branch: "far" } },
+    far: { title: "F", cards: [{ key: "f", type: "narration", text: "f" }] },
+  } };
+  const { event, dropped } = promoteDraft(draft);
+  assert.deepStrictEqual(dropped, ["b"]);
+  assert.deepStrictEqual(event.cards, [{ type: "narration", text: "a" }, { type: "narration", text: "f" }]);
+  assertSameRouting(draft);
+});
+
+test("promote: a conditional then that can end the event is refused; one routing every entry is converted", () => {
+  const mk = (then) => ({ id: "x", start: "main", branches: {
+    main: { title: "M", cards: [{ key: "a", type: "choice", text: "a", choices: [
+      { label: "go", result_text: "g", goto: { branch: "w" } }, { label: "stay", result_text: "s" }] }, { key: "b", type: "narration", text: "b" }], then },
+    w: { title: "W", cards: [{ key: "c", type: "narration", text: "c" }, { key: "d", type: "narration", text: "d" }] },
+  } });
+  // The engine's no-match falls through to the next card, so a no-else or ending entry has no flat form.
+  assert.throws(() => promoteDraft(mk([{ if: { flag: "f" }, branch: "w" }])), /can end the event/);
+  assert.throws(() => promoteDraft(mk([{ if: { flag: "f" } }, { branch: "w" }])), /can end the event/);
+  assert.throws(() => promoteDraft(mk([{ if: { flag: "f" }, branch: "w" }, {}])), /can end the event/);
+  const ok = mk([{ if: { flag: "f" }, branch: "w", card: "d" }, { branch: "w" }]);
+  assert.deepStrictEqual(promoteDraft(ok).event.cards[1].goto, [{ if: { flag: "f" }, card: 3 }], "an else onto the next card is implicit");
+  const far = mk([{ if: { flag: "f" }, branch: "w" }, { branch: "w", card: "d" }]);
+  assert.deepStrictEqual(promoteDraft(far).event.cards[1].goto, [{ if: { flag: "f" }, card: 2 }, { card: 3 }]);
+  assertSameRouting(far);
+  assertSameRouting(ok);
+  // A list with no branch entry at all is just an end.
+  const ends = mk([{}]);
+  assert.strictEqual(promoteDraft(ends).event.cards[1].end, true);
+});
+
+test("promote refuses a looping draft", () => {
+  const draft = { id: "x", start: "main", branches: { main: { title: "M", cards: [{ key: "a", type: "narration", text: "a" }], then: { branch: "main" } } } };
+  assert.throws(() => promoteDraft(draft), /loop/);
+});
+
+test("import: card goto, conditional goto and end become links and branch thens", () => {
+  const ev = { id: "x", cards: [
+    { type: "narration", text: "0", goto: 2 },
+    { type: "narration", text: "1" },
+    { type: "narration", text: "2", goto: [{ if: { flag: "f" }, card: 4 }] },
+    { type: "narration", text: "3", end: true },
+    { type: "narration", text: "4" },
+  ] };
+  const d = legacyToDraft(ev);
+  assert.deepStrictEqual(textsOf(d, null, () => true), ["0", "2", "4"]);
+  assert.deepStrictEqual(textsOf(d, null, () => false), ["0", "2", "3"]);
+  const back = promoteDraft(d);
+  assert.deepStrictEqual(back.dropped, ["c2"]);
+  assert.deepStrictEqual(back.event.cards.map((c) => c.text), ["0", "2", "3", "4"]);
+  assert.deepStrictEqual(back.event.cards[1].goto, [{ if: { flag: "f" }, card: 3 }]);
+  assert.strictEqual(back.event.cards[2].end, true);
+});
+
+test("serialiseEvent: house style, parses back unchanged", () => {
+  const ev = { id: "x", at: { block: "evening" }, cards: [
+    { type: "narration", label: null, speaker: null, text: "Plain card on one line." },
+    { type: "choice", text: "Pick.", choices: [{ label: "A", effects: [{ op: "add", path: "player.cash", value: 5 }], result_text: "ok" }] },
+  ], on_complete: [{ op: "set_flag", flag: "f", value: true }] };
+  const text = serialiseEvent(ev);
+  assert.deepStrictEqual(JSON.parse(text), ev);
+  assert.ok(text.endsWith("}\n"));
+  assert.ok(text.includes('\n  "at": { "block": "evening" },\n'));
+  assert.ok(text.includes('\n    { "type": "narration", "label": null, "speaker": null, "text": "Plain card on one line." },\n'));
+  assert.ok(text.includes('\n      "choices": [\n'), "a choice card expands");
+  assert.ok(text.includes('\n  "on_complete": [ { "op": "set_flag", "flag": "f", "value": true } ]\n'), "a short top-level array stays on one line");
 });
 
 console.log(`${passed} passed${process.exitCode ? ", some FAILED" : ""}`);

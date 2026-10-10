@@ -1056,28 +1056,43 @@ function checkOddsBlock(opt, changed, restructure) {
   function optionOutcomes(o) {
     return [o, o.success, o.fail, ...Object.values(o.bySuccesses || {})].filter((x) => x && typeof x === "object");
   }
-  // Flat event (outcome goto = later card index) → draft. Every goto target starts a new branch; a branch falls
-  // through to the next one via `then`, the last ends. Card N (1-based) gets key cN.
+  // Flat event (goto = later card index) → draft. Every goto target starts a new branch; a branch falls through
+  // to the next one via `then`, the last ends. A card's index goto becomes a card goto; a card with a conditional
+  // goto list or `end: true` closes its branch, which takes that routing as its `then` (no match = next card).
+  // Card N (1-based) gets key cN.
   function legacyToDraft(ev) {
     const { cards, ...rest } = ev;
     const starts = new Set([0]);
-    cards.forEach((c, i) => (c.choices || []).forEach((o) => optionOutcomes(o).forEach((x) => {
-      if (x.goto == null) return;
-      if (!Number.isInteger(x.goto) || x.goto <= i || x.goto >= cards.length) throw new Error(`card ${i}: goto ${JSON.stringify(x.goto)} is not a later card`);
-      starts.add(x.goto);
-    })));
+    const later = (i, t) => {
+      if (!Number.isInteger(t) || t <= i || t >= cards.length) throw new Error(`card ${i}: goto ${JSON.stringify(t)} is not a later card`);
+      starts.add(t);
+    };
+    cards.forEach((c, i) => {
+      (c.choices || []).forEach((o) => optionOutcomes(o).forEach((x) => { if (x.goto != null) later(i, x.goto); }));
+      if (Array.isArray(c.goto)) c.goto.forEach((e) => later(i, e && e.card));
+      else if (c.goto != null) later(i, c.goto);
+      if ((Array.isArray(c.goto) || c.end) && i + 1 < cards.length) starts.add(i + 1);
+    });
     const order = [...starts].sort((a, b) => a - b);
     const nameAt = (i) => (i === 0 ? "main" : "b" + (i + 1));
     const copy = JSON.parse(JSON.stringify(cards));
     copy.forEach((c, i) => {
       if (!c.key) c.key = "c" + (i + 1);
       (c.choices || []).forEach((o) => optionOutcomes(o).forEach((x) => { if (x.goto != null) x.goto = { branch: nameAt(x.goto) }; }));
+      if (Number.isInteger(c.goto)) c.goto = { branch: nameAt(c.goto) };
     });
     const branches = {};
     order.forEach((s, k) => {
-      const end = k + 1 < order.length ? order[k + 1] : cards.length;
+      const end = k + 1 < order.length ? order[k + 1] : cards.length, last = copy[end - 1];
       const br = { title: s === 0 ? "Start" : copy[s].label || `From card ${s + 1}`, cards: copy.slice(s, end) };
-      if (end < cards.length) br.then = { branch: nameAt(end) };
+      if (Array.isArray(last.goto)) {
+        br.then = last.goto.map((e) => ({ ...(e.if != null ? { if: e.if } : {}), branch: nameAt(e.card) }));
+        if (br.then.at(-1).if != null && end < cards.length) br.then.push({ branch: nameAt(end) });
+        delete last.goto;
+      } else if (last.end) {
+        delete last.end;
+        if (end < cards.length) br.then = "end";
+      } else if (end < cards.length) br.then = { branch: nameAt(end) };
       branches[nameAt(s)] = br;
     });
     return ensureKeys({ ...rest, start: "main", branches });
@@ -1887,6 +1902,109 @@ function checkOddsBlock(opt, changed, restructure) {
     const md = spliceDraft(srcMd, draft);
     const h1 = /^#[ \t]+[^\r\n]+/m;
     return { file: proposalFileName(id, taken), md: h1.test(md) ? md.replace(h1, () => `# ${heading}`) : `# ${heading}\n\n${md}` };
+  }
+
+  // Promote (spec § Draft format): draft → flat live event. Cards reachable from the start are laid out in a
+  // topological order of the card graph (start card first; each card followed by its own continuation when that
+  // is free, else the earliest ready card in display order), so every jump is forward. {branch, card?} links
+  // become card indexes; a card whose continuation isn't the next flat card gets a card `goto`, a conditional
+  // `goto` (from a conditional `then`) or `end: true`. Card keys, checkNotes, branch titles and comments are
+  // stripped. Returns {event, dropped}: dropped = keys of cards no path reaches, which are left out.
+  function promoteDraft(draft) {
+    const loop = findCycle(draft);
+    if (loop) throw new Error(`play can loop: ${loop.join(" → ")}`);
+    const keyAt = (p) => branchCards(draft, p.branch)[p.idx].key;
+    const start = resolveTarget(draft, { branch: draft.start });
+    const reach = new Map(), stack = [start];
+    while (stack.length) {
+      const p = stack.pop(), k = keyAt(p);
+      if (reach.has(k)) continue;
+      reach.set(k, p);
+      stack.push(...successors(draft, p));
+    }
+    const succ = new Map(), indeg = new Map([...reach.keys()].map((k) => [k, 0]));
+    for (const [k, p] of reach) {
+      const next = [...new Set(successors(draft, p).map(keyAt))];
+      succ.set(k, next);
+      next.forEach((t) => indeg.set(t, indeg.get(t) + 1));
+    }
+    // Where the card goes when no outcome goto applies: {to: pos}, {end: true} or {cond: then list}.
+    const continuation = (p) => {
+      const list = branchCards(draft, p.branch), card = list[p.idx];
+      if (card.goto) return { to: resolveTarget(draft, card.goto) };
+      if (p.idx + 1 < list.length) return { to: { branch: p.branch, idx: p.idx + 1 } };
+      const then = draft.branches[p.branch].then;
+      if (then == null || then === "end" || (Array.isArray(then) && !then.some((e) => e.branch))) return { end: true };
+      return Array.isArray(then) ? { cond: then } : { to: resolveTarget(draft, then) };
+    };
+    const preferred = (p) => {
+      const c = continuation(p);
+      if (c.to) return keyAt(c.to);
+      const e = c.cond && ([...c.cond].reverse().find((x) => x.if == null && x.branch) || c.cond.find((x) => x.branch));
+      return e ? keyAt(resolveTarget(draft, e)) : null;
+    };
+    const rank = new Map(flatCards(draft).map((f, i) => [f.card.key, i]));
+    const order = [], ready = new Set([keyAt(start)]);
+    let prefer = null;
+    while (ready.size) {
+      const k = ready.has(prefer) ? prefer : [...ready].sort((a, b) => rank.get(a) - rank.get(b))[0];
+      ready.delete(k);
+      order.push(k);
+      for (const t of succ.get(k)) { indeg.set(t, indeg.get(t) - 1); if (!indeg.get(t)) ready.add(t); }
+      prefer = preferred(reach.get(k));
+    }
+    const index = new Map(order.map((k, i) => [k, i]));
+    const cards = order.map((k, i) => {
+      const p = reach.get(k), src = branchCards(draft, p.branch)[p.idx], at = `${p.branch} · ${k}`;
+      const flat = (t) => {
+        const n = index.get(keyAt(resolveTarget(draft, t)));
+        if (!(n > i)) throw new Error(`${at}: link to ${targetText(t)} isn't forward`);
+        return n;
+      };
+      const { key, goto, end, ...card } = deepClone(src);
+      (card.choices || []).forEach((o) => {
+        delete o.checkNote;
+        optionOutcomes(o).forEach((x) => { if (x.goto) x.goto = flat(x.goto); });
+      });
+      if (!cardExits(src).onward) return card;
+      const c = continuation(p), last = i === order.length - 1;
+      if (c.to) { const n = flat({ branch: c.to.branch, card: keyAt(c.to) }); if (n !== i + 1) card.goto = n; }
+      else if (c.end) { if (!last) card.end = true; }
+      else {
+        // The engine's conditional goto falls through to the next card on no match and has no "end" entry.
+        if (c.cond.some((e) => !e.branch) || c.cond.at(-1).if != null)
+          throw new Error(`${p.branch} · then: a conditional then that can end the event (an entry without a branch, or no else) has no flat form; route every entry, else included, to a branch`);
+        const list = c.cond.map((e) => ({ ...(e.if != null ? { if: e.if } : {}), card: flat(e) }));
+        if (list.at(-1).card === i + 1) list.pop(); // an else onto the next card is what no-match does anyway
+        if (list.length === 1 && list[0].if == null) card.goto = list[0].card;
+        else if (list.length) card.goto = list;
+      }
+      return card;
+    });
+    const event = {};
+    for (const [k, v] of Object.entries(draft)) {
+      if (k === "branches") event.cards = cards;
+      else if (k !== "start" && k !== "_comments") event[k] = deepClone(v);
+    }
+    return { event, dropped: flatCards(draft).map((f) => f.card.key).filter((k) => !reach.has(k)) };
+  }
+  // Live-event JSON text in the data/events/ house style: each top-level key on its own line, each element of a
+  // top-level array (a card, an on_complete op) on one line; anything holding `choices` expands, as does any other
+  // nested value whose one-line form runs past 100 columns.
+  function serialiseEvent(ev) {
+    const inline = (v) => (v === null || typeof v !== "object" ? JSON.stringify(v)
+      : Array.isArray(v) ? (v.length ? `[ ${v.map(inline).join(", ")} ]` : "[]")
+      : Object.keys(v).length ? `{ ${Object.entries(v).map(([k, x]) => `${JSON.stringify(k)}: ${inline(x)}`).join(", ")} }` : "{}");
+    const hasChoices = (v) => !!v && typeof v === "object" && ((!Array.isArray(v) && "choices" in v) || Object.values(v).some(hasChoices));
+    const fmt = (v, pad, item) => {
+      const one = inline(v);
+      if (v === null || typeof v !== "object" || (pad && !hasChoices(v) && (item || pad.length + one.length <= 100))) return one;
+      const inner = pad + "  ", arr = Array.isArray(v);
+      const parts = arr ? v.map((x) => inner + fmt(x, inner, pad === "  "))
+        : Object.entries(v).map(([k, x]) => `${inner}${JSON.stringify(k)}: ${fmt(x, inner, false)}`);
+      return (arr ? "[" : "{") + "\n" + parts.join(",\n") + "\n" + pad + (arr ? "]" : "}");
+    };
+    return fmt(ev, "", false) + "\n";
   }
   /* ---------- End draft model ---------- */
 
