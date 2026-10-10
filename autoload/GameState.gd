@@ -383,6 +383,9 @@ func new_game_state() -> Dictionary:
 			# is set once the §7.4 gate is met and opens Hakim's weak-vein
 			# intel; colA2Complete is col_a2_closer's on_complete.
 			"colA2SpineReward": false, "colA2Complete": false,
+			# Choice memory: eventId -> str(cardIndex) -> {id}. Read via
+			# Events.choice_record()/choice_id().
+			"choices": {},
 		},
 
 		# barkCursors backs Collective._next_bark()'s no-repeat-until-

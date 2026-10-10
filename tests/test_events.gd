@@ -426,6 +426,61 @@ func run() -> void:
 		GameData.EVENTS = original_events
 	)
 
+	# ── choice memory (opening-choices spec "Choice memory") ────────────
+
+	run_case("choose_records_the_option_id_under_event_id_and_card_index", func():
+		GameState.reset()
+		var original_events := _install_choice_event()
+		GameData.EVENTS["test_choice_event"] = GameData.EVENTS["test_choice_event"].duplicate(true)
+		GameData.EVENTS["test_choice_event"]["cards"][1]["choices"][0]["id"] = "pay"
+
+		Events.start_event("test_choice_event")
+		Events.advance()
+		assert_eq(Events.choice_id("test_choice_event", 1), null, "nothing recorded before the pick")
+		Events.choose(0)
+		assert_eq(Events.choice_id("test_choice_event", 1), "pay")
+		assert_eq(GameState.state["flags"]["choices"]["test_choice_event"]["1"], { "id": "pay" })
+
+		GameData.EVENTS = original_events
+	)
+
+	run_case("choose_records_the_index_for_an_option_without_an_id", func():
+		GameState.reset()
+		var original_events := _install_choice_event()
+
+		Events.start_event("test_choice_event")
+		Events.advance()
+		Events.choose(1)
+		assert_eq(Events.choice_id("test_choice_event", 1), "1", "falls back to the option's index")
+		assert_eq(Events.choice_record("test_choice_event", 1), { "id": "1" })
+		assert_eq(Events.choice_record("test_choice_event", 0), {}, "unpicked card reads empty")
+		assert_eq(Events.choice_record("no_such_event", 1), {}, "unknown event reads empty")
+
+		GameData.EVENTS = original_events
+	)
+
+	run_case("rewind_removes_the_choice_record", func():
+		GameState.reset()
+		var original_events := _install_choice_event()
+		GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
+
+		Events.start_event("test_choice_event")
+		Events.advance()
+		Events.choose(0)
+		assert_eq(Events.choice_id("test_choice_event", 1), "0")
+		assert_true(Events.rewind()["ok"])
+		assert_eq(Events.choice_id("test_choice_event", 1), null, "rewind past the pick drops its record")
+
+		GameData.EVENTS = original_events
+	)
+
+	run_case("choice_memory_backfills_empty_for_saves_missing_it", func():
+		var save: Dictionary = GameState.new_game_state()
+		save["flags"].erase("choices")
+		var backfilled: Dictionary = SaveManager.backfill_defaults(save)
+		assert_eq(backfilled["flags"]["choices"], {})
+	)
+
 	# ── current_image_path (ui-vision.md §11) ───────────────────────────
 
 	run_case("current_image_path_is_null_when_nothing_has_specified_one", func():

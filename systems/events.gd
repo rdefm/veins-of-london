@@ -2,7 +2,7 @@ class_name Events
 extends RefCounted
 
 # Event runner (R§3.9, ui-vision.md §11). Cards: {type, label, speaker,
-# text}; a "choice" card adds {choices:[{label, effects, result_text}]}.
+# text}; a "choice" card adds {choices:[{id?, label, effects, result_text}]}.
 # Events: {id, cards, on_complete:[effect]}. state.event holds runtime
 # progress: {eventId, cardIndex, snapshots, choiceResults}.
 #
@@ -237,7 +237,28 @@ static func choose(choice_index: int) -> void:
 	if choice.has("image"):
 		resolution["image"] = choice["image"]
 	event_state["choiceResults"][str(event_state["cardIndex"])] = resolution
+	_remember_choice(event_state["eventId"], event_state["cardIndex"], str(choice.get("id", choice_index)))
 	apply_effects(choice.get("effects", []))
+
+
+# Choice memory: flags.choices[eventId][str(cardIndex)] = {id}. Lives in the
+# state tree, so Rewind's snapshot restore drops a rewound pick for free.
+static func _remember_choice(event_id: String, card_index: int, option_id: String) -> void:
+	var memory: Dictionary = GameState.state["flags"]["choices"]
+	if not memory.has(event_id):
+		memory[event_id] = {}
+	memory[event_id][str(card_index)] = { "id": option_id }
+
+
+# The committed choice at an event's card, or {} if none was made.
+static func choice_record(event_id: String, card_index: int) -> Dictionary:
+	var memory: Dictionary = GameState.state["flags"]["choices"]
+	return memory.get(event_id, {}).get(str(card_index), {}).duplicate()
+
+
+# The committed option's id (its "id" field, else its index as a string), or null.
+static func choice_id(event_id: String, card_index: int) -> Variant:
+	return choice_record(event_id, card_index).get("id")
 
 
 # Shared by advance()/choose(). event.snapshots must be emptied before the deep

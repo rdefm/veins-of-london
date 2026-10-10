@@ -575,6 +575,7 @@ state = {
     archiePartnerSeen: false, homeUnlocked: false, securityContactUnlocked: false,
     firmShopUnlocked: false, networkShopUnlocked: false, conclaveShopUnlocked: false,  # §3.6a faction shop lanes + map pins
     dialGiftGranted: false,   # dial-device ticket 01: gates Dial.attempt_seed(); set only by the Collective Act 2 quest (out of scope for this PRD)
+    choices: {},              # choice memory: { eventId: { "<cardIndex>": { id } } }; id = option's optional "id" field, else its index as a string. Written by Events.choose(), read via Events.choice_record()/choice_id(); a Rewind past the pick drops it. Backfilled {} on load.
   },
 }
 ```
