@@ -17,10 +17,12 @@ assert(s !== -1 && e !== -1, "could not locate draft model markers in storyboard
 const {
   parseProposal, parseDraft, serialiseDraft, ensureKeys, legacyToDraft, nextPos, playOrder, flatCards, thenText,
   jsonBlockRange, spliceDraft, writableProposal, cardByKey, makeHistory,
+  cardPos, insertCard, deleteCard, moveCard, danglingLinks, hasCycle,
 } = new Function(
   html.slice(s, e) +
     "\nreturn { parseProposal, parseDraft, serialiseDraft, ensureKeys, legacyToDraft, nextPos, playOrder, flatCards, thenText," +
-    " jsonBlockRange, spliceDraft, writableProposal, cardByKey, makeHistory };"
+    " jsonBlockRange, spliceDraft, writableProposal, cardByKey, makeHistory," +
+    " cardPos, insertCard, deleteCard, moveCard, danglingLinks, hasCycle };"
 )();
 
 let passed = 0;
@@ -254,6 +256,102 @@ test("cardByKey finds cards across branches, null when missing", () => {
   assert.strictEqual(cardByKey(draft, "zz"), null);
 });
 
+const keysIn = (d, b) => d.branches[b].cards.map((c) => c.key);
+
+test("insertCard: blank narration with a fresh key, before / after / at end", () => {
+  const { draft } = parseDraft(draftText);
+  const k1 = insertCard(draft, "after", 0);
+  const k2 = insertCard(draft, "after", 99);
+  assert.deepStrictEqual(keysIn(draft, "after"), [k1, "c8", "c9", k2]);
+  assert.notStrictEqual(k1, k2);
+  assert.strictEqual(new Set(flatCards(draft).map((f) => f.card.key)).size, flatCards(draft).length);
+  assert.deepStrictEqual(cardByKey(draft, k1), { key: k1, type: "narration", text: "" });
+  assert.throws(() => insertCard(draft, "nope", 0), /unknown branch/);
+});
+
+test("links to a card survive insert and reorder", () => {
+  const { draft } = parseDraft(draftText);
+  // main/c3 jumps to after/c9 by key.
+  insertCard(draft, "after", 0);
+  moveCard(draft, "c9", -1);
+  moveCard(draft, "c9", -1);
+  assert.deepStrictEqual(keysIn(draft, "after").slice(0, 1), ["c9"]);
+  const to = nextPos(draft, cardPos(draft, "c3"), null);
+  assert.strictEqual(draft.branches[to.branch].cards[to.idx].key, "c9");
+  const played = playOrder(draft, () => null).map((p) => draft.branches[p.branch].cards[p.idx].key);
+  assert.deepStrictEqual(played.slice(0, 4), ["c1", "c2", "c3", "c9"]);
+});
+
+test("moveCard refuses past the branch edge and leaves the draft unchanged", () => {
+  const { draft } = parseDraft(draftText);
+  const before = serialiseDraft(draft);
+  assert.throws(() => moveCard(draft, "c1", -1), /end of its branch/);
+  assert.throws(() => moveCard(draft, "c3", 1), /end of its branch/);
+  assert.strictEqual(serialiseDraft(draft), before);
+});
+
+test("moveCard refuses an order that loops", () => {
+  // a1 jumps to a3; moving a3 above a1 would make a3 → a1 → a3.
+  const d = { start: "a", branches: { a: { cards: [
+    { key: "a1", goto: { branch: "a", card: "a3" } }, { key: "a2" }, { key: "a3" }] } } };
+  assert.strictEqual(hasCycle(d), false);
+  moveCard(d, "a3", -1);
+  assert.deepStrictEqual(keysIn(d, "a"), ["a1", "a3", "a2"]);
+  const before = serialiseDraft(d);
+  assert.throws(() => moveCard(d, "a3", -1), /loop/);
+  assert.strictEqual(serialiseDraft(d), before);
+});
+
+test("hasCycle follows outcomes, card gotos and every then entry", () => {
+  const { draft } = parseDraft(draftText);
+  assert.strictEqual(hasCycle(draft), false);
+  draft.branches.after.then = [{ if: { flag: "x" }, branch: "main" }, { branch: "watched" }];
+  assert.strictEqual(hasCycle(draft), true);
+});
+
+test("deleting a linked-to card lists the dangling links", () => {
+  const { draft } = parseDraft(draftText);
+  assert.deepStrictEqual(danglingLinks(draft, "c8"), []);
+  const d9 = danglingLinks(draft, "c9");
+  assert.deepStrictEqual(d9.map((l) => l.from), ["main · c3"]);
+  // botched's only card: the fail outcome and nothing else names branch botched.
+  const d4 = danglingLinks(draft, "c4");
+  assert.deepStrictEqual(d4.map((l) => l.from), ['main · c2 · option "patient" fail']);
+  // watched's only card is named by botched's conditional then.
+  assert.deepStrictEqual(danglingLinks(draft, "c5").map((l) => l.from), ["botched · then"]);
+  // A card's own links leave with it.
+  assert.deepStrictEqual(danglingLinks(draft, "c2"), []);
+  deleteCard(draft, "c9");
+  assert.deepStrictEqual(keysIn(draft, "after"), ["c8"]);
+  assert.throws(() => nextPos(draft, cardPos(draft, "c3"), null), /no card c9/);
+});
+
+test("deleteCard refuses to empty the start branch", () => {
+  const d = { start: "a", branches: { a: { cards: [{ key: "k" }] } } };
+  assert.throws(() => deleteCard(d, "k"), /start branch/);
+  assert.throws(() => deleteCard(d, "zz"), /no card zz/);
+});
+
+test("card CRUD is undoable through history and saves into the block", () => {
+  const md = "# T\n\nIntro.\n\n```json\n" + draftText + "\n```\n\nAfter.\n";
+  const { draft } = parseProposal("p.md", md);
+  const h = makeHistory();
+  const orig = serialiseDraft(draft);
+  h.snapshot(serialiseDraft(draft)); const k = insertCard(draft, "main", 1);
+  Object.assign(cardByKey(draft, k), { type: "speaker", speaker: "James", label: "Later", text: "Hi." });
+  h.snapshot(serialiseDraft(draft)); moveCard(draft, "c1", 1);
+  h.snapshot(serialiseDraft(draft)); deleteCard(draft, "c8");
+  const out = spliceDraft(md, draft);
+  assertSpliceKeepsProse(md, out);
+  const back = parseProposal("p.md", out).draft;
+  assert.deepStrictEqual(keysIn(back, "main"), [k, "c1", "c2", "c3"]);
+  assert.deepStrictEqual(cardByKey(back, k), { key: k, type: "speaker", text: "Hi.", speaker: "James", label: "Later" });
+  assert.deepStrictEqual(keysIn(back, "after"), ["c9"]);
+  assert.strictEqual(h.size, 3);
+  h.undo(); h.undo();
+  assert.strictEqual(h.undo(), orig);
+});
+
 // Every real writing proposal converts and plays to an end along every first-option path.
 const propDir = path.join(__dirname, "..", ".scratch", "writing-revamp");
 const proposals = fs.existsSync(propDir) ? fs.readdirSync(propDir).filter((f) => /-proposal.*\.md$/.test(f)) : [];
@@ -266,6 +364,7 @@ for (const f of proposals) {
     assert.strictEqual(new Set(keys).size, keys.length, "duplicate card keys");
     const first = (card) => { const o = card.choices[0]; return o.check ? o.success : o; };
     assert(playOrder(b.draft, first).length > 0);
+    assert.strictEqual(hasCycle(b.draft), false, "card graph loops");
   });
   test("writing proposal saves without touching prose: " + f, () => {
     const md = fs.readFileSync(path.join(propDir, f), "utf-8");

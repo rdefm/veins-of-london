@@ -166,6 +166,11 @@ section { display: grid; gap: 12px; min-width: 0 }
 .editbar .dirty.on { color: var(--warn); font-weight: 600 }
 .editor { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px; gap: 8px }
 .editor-head { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; justify-content: space-between }
+.ce-tools { display: flex; flex-wrap: wrap; gap: 6px }
+.ce-tools button:disabled { opacity: .45; cursor: default }
+.ce-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px }
+.ce-fields label { display: grid; gap: 4px; min-width: 0 }
+.ce-fields input, .ce-fields select { width: 100%; background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font-size: 14px }
 .editor textarea { width: 100%; resize: vertical; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; font-size: 14px; line-height: 1.45 }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important } }
 </style>
@@ -230,6 +235,18 @@ section { display: grid; gap: 12px; min-width: 0 }
         <section>
           <section class="editor" id="card-editor" hidden>
             <div class="editor-head"><h2>Card</h2><span class="mono muted" id="ce-where"></span></div>
+            <div class="ce-tools" role="group" aria-label="Card order">
+              <button type="button" class="tb" id="ce-before" title="Insert a blank card before this one">+ Before</button>
+              <button type="button" class="tb" id="ce-after" title="Insert a blank card after this one">+ After</button>
+              <button type="button" class="tb" id="ce-up" title="Move this card up within its branch">▲ Up</button>
+              <button type="button" class="tb" id="ce-down" title="Move this card down within its branch">▼ Down</button>
+              <button type="button" class="tb" id="ce-delete" title="Delete this card">Delete</button>
+            </div>
+            <div class="ce-fields">
+              <label><span class="eyebrow">Type</span><select id="ce-type"></select></label>
+              <label><span class="eyebrow">Speaker</span><input type="text" id="ce-speaker" autocomplete="off"></label>
+              <label><span class="eyebrow">Label</span><input type="text" id="ce-label" autocomplete="off"></label>
+            </div>
             <label class="eyebrow" for="ce-text">Text</label>
             <textarea id="ce-text" rows="5"></textarea>
           </section>
@@ -532,6 +549,115 @@ section { display: grid; gap: 12px; min-width: 0 }
       get size() { return stack.length; },
     };
   }
+  const CARD_TYPES = ["narration", "speaker", "choice", "resolution", "tension"];
+  // {branch, idx} of the card with this key, or null.
+  function cardPos(draft, key) {
+    for (const name in draft.branches) {
+      const idx = branchCards(draft, name).findIndex((c) => c.key === key);
+      if (idx >= 0) return { branch: name, idx };
+    }
+    return null;
+  }
+  // A key no card in the draft uses yet (c1, c2, ...).
+  function freshKey(draft) {
+    const used = new Set(flatCards(draft).map((f) => f.card.key));
+    let n = 1;
+    while (used.has("c" + n)) n++;
+    return "c" + n;
+  }
+  // Inserts a blank narration card into `branch` at index `idx`; returns its key.
+  function insertCard(draft, branch, idx) {
+    const br = draft.branches[branch];
+    if (!br) throw new Error(`unknown branch ${JSON.stringify(branch)}`);
+    if (!br.cards) br.cards = [];
+    const card = { key: freshKey(draft), type: "narration", text: "" };
+    br.cards.splice(Math.max(0, Math.min(idx, br.cards.length)), 0, card);
+    return card.key;
+  }
+  // Every link in the draft: card gotos, option-outcome gotos and branch `then` targets, each as
+  // {from: readable origin, fromKey: card key or null for a branch `then`, target: {branch, card?}}.
+  function allLinks(draft) {
+    const out = [];
+    for (const { branch, card } of flatCards(draft)) {
+      const at = `${branch} · ${card.key}`;
+      if (card.goto) out.push({ from: at, fromKey: card.key, target: card.goto });
+      (card.choices || []).forEach((o, i) => {
+        const name = `${at} · option ${JSON.stringify(o.id || o.label || i + 1)}`;
+        if (o.goto) out.push({ from: name, fromKey: card.key, target: o.goto });
+        if (o.success && o.success.goto) out.push({ from: name + " success", fromKey: card.key, target: o.success.goto });
+        if (o.fail && o.fail.goto) out.push({ from: name + " fail", fromKey: card.key, target: o.fail.goto });
+        for (const [k, r] of Object.entries(o.bySuccesses || {}))
+          if (r && r.goto) out.push({ from: `${name} ${k} successes`, fromKey: card.key, target: r.goto });
+      });
+    }
+    for (const name in draft.branches) {
+      const then = draft.branches[name].then;
+      if (then && typeof then === "object")
+        for (const t of Array.isArray(then) ? then : [then]) if (t.branch) out.push({ from: `${name} · then`, fromKey: null, target: t });
+    }
+    return out;
+  }
+  // Links left pointing at nothing if the card `key` is deleted: those naming it, plus those naming its branch
+  // without a card when it is the branch's only card. The deleted card's own links go with it.
+  function danglingLinks(draft, key) {
+    const pos = cardPos(draft, key);
+    if (!pos) return [];
+    const emptied = branchCards(draft, pos.branch).length === 1;
+    return allLinks(draft).filter((l) => l.fromKey !== key
+      && (l.target.card === key || (emptied && l.target.card == null && l.target.branch === pos.branch)));
+  }
+  // Removes the card `key`. Refuses to empty the start branch (the event would have nowhere to begin).
+  function deleteCard(draft, key) {
+    const pos = cardPos(draft, key);
+    if (!pos) throw new Error(`no card ${key}`);
+    if (pos.branch === draft.start && branchCards(draft, pos.branch).length === 1) throw new Error("can't delete the start branch's only card");
+    draft.branches[pos.branch].cards.splice(pos.idx, 1);
+  }
+  // Every place play can go after the card at pos (all outcomes, card goto, fall-through, every `then` entry).
+  function successors(draft, pos) {
+    const list = branchCards(draft, pos.branch), card = list[pos.idx];
+    // What an option can resolve to, as nextPos sees it: the option itself, or success / fail / bySuccesses.
+    const outs = (card.choices || []).flatMap((o) => (o.check ? [o.success || {}, o.fail || {}, ...Object.values(o.bySuccesses || {})] : [o]));
+    const targets = outs.filter((x) => x && x.goto).map((x) => x.goto), after = [];
+    if (!outs.length || outs.some((x) => !x || !x.goto)) {
+      if (card.goto) targets.push(card.goto);
+      else if (pos.idx + 1 < list.length) after.push({ branch: pos.branch, idx: pos.idx + 1 });
+      else {
+        const then = draft.branches[pos.branch].then;
+        if (then && typeof then === "object") for (const t of Array.isArray(then) ? then : [then]) if (t.branch) targets.push(t);
+      }
+    }
+    return [...targets.map((t) => resolveSafe(draft, t)).filter(Boolean), ...after];
+  }
+  const resolveSafe = (draft, t) => { try { return resolveTarget(draft, t); } catch { return null; } };
+  // true if any path through the card graph revisits a card.
+  function hasCycle(draft) {
+    const state = new Map(); // key → 1 visiting, 2 done
+    const keyAt = (p) => branchCards(draft, p.branch)[p.idx].key;
+    const visit = (p) => {
+      const k = keyAt(p);
+      if (state.get(k) === 1) return true;
+      if (state.get(k) === 2) return false;
+      state.set(k, 1);
+      if (successors(draft, p).some(visit)) return true;
+      state.set(k, 2);
+      return false;
+    };
+    return flatCards(draft).some((f) => visit({ branch: f.branch, idx: f.idx }));
+  }
+  // Moves the card `key` one place up (-1) or down (+1) within its branch. Refuses at the branch edge or when
+  // the new order would loop; the draft is unchanged on refusal.
+  function moveCard(draft, key, delta) {
+    const pos = cardPos(draft, key);
+    if (!pos) throw new Error(`no card ${key}`);
+    const list = draft.branches[pos.branch].cards, to = pos.idx + delta;
+    if (to < 0 || to >= list.length) throw new Error("already at the end of its branch");
+    [list[pos.idx], list[to]] = [list[to], list[pos.idx]];
+    if (hasCycle(draft)) {
+      [list[pos.idx], list[to]] = [list[to], list[pos.idx]];
+      throw new Error("that order would loop");
+    }
+  }
   /* ---------- End draft model ---------- */
 
   // Image per card, as the event screen resolves it: an explicit "image" key (null clears), else (legacy flat
@@ -798,12 +924,20 @@ section { display: grid; gap: 12px; min-width: 0 }
   // ---- proposal editing (draft edits, undo, save) ----------------------------
   // One undo step per edit session: the draft is snapshotted on the first keystroke after the field gains focus.
   let editSession = false;
+  const CE_FIELDS = ["text", "speaker", "label"];
   function renderEditor(b) {
-    const c = b.cards[cardIdx], ta = $("ce-text");
+    const c = b.cards[cardIdx];
     $("card-editor").hidden = !c;
     if (!c) return;
     $("ce-where").textContent = `${c.branch} · ${c.key}`;
-    if (document.activeElement !== ta) ta.value = c.text || "";
+    for (const f of CE_FIELDS) if (document.activeElement !== $("ce-" + f)) $("ce-" + f).value = c[f] || "";
+    const types = CARD_TYPES.includes(c.type) || !c.type ? CARD_TYPES : [...CARD_TYPES, c.type];
+    $("ce-type").replaceChildren(...types.map((t) => el("option", { value: t, text: t })));
+    $("ce-type").value = c.type || "narration";
+    const len = branchCards(b.draft, c.branch).length;
+    $("ce-up").disabled = c.idx === 0;
+    $("ce-down").disabled = c.idx === len - 1;
+    $("ce-delete").disabled = c.branch === b.draft.start && len === 1;
   }
   // msg replaces the status line; otherwise it shows the dirty state (a "Saved …" note stays until the next edit).
   function renderEditBar(msg) {
@@ -819,13 +953,36 @@ section { display: grid; gap: 12px; min-width: 0 }
     else if (dirty) d.textContent = "● Unsaved changes";
     else if (!d.textContent.startsWith("Saved")) d.textContent = "No unsaved changes";
   }
-  // Applies fn(draft) as one edit and re-renders the preview and cut list.
+  // Applies fn(draft) as one edit and re-renders the preview and cut list. If fn returns a card key, the preview
+  // moves to that card (play trail reset: structural edits shift flat indexes). A throw leaves the draft as it was.
   function editDraft(fn, newStep) {
     const b = board(); if (!b || !b.draft) return;
-    if (newStep) b.history.snapshot(serialiseDraft(b.draft));
-    fn(b.draft);
+    const before = serialiseDraft(b.draft);
+    let sel;
+    try { sel = fn(b.draft); }
+    catch (e) { b.draft = JSON.parse(before); renderEditBar(e.message); return; }
+    if (newStep) b.history.snapshot(before);
     proposalCards(b);
+    if (sel) {
+      const i = b.cards.findIndex((x) => x.key === sel);
+      if (i >= 0) { cardIdx = i; trail = []; pick = null; outcomeKey = null; }
+    }
     renderCuts(b); renderFrame(); renderEditBar();
+  }
+  // A structural edit on the selected card: fn(draft, key) returns the key to select afterwards.
+  function cardOp(fn) {
+    const b = board(), c = b && b.cards[cardIdx]; if (!c) return;
+    editDraft((d) => fn(d, c.key), true);
+  }
+  function deleteSelected() {
+    const b = board(), c = b && b.cards[cardIdx]; if (!c) return;
+    const dangling = danglingLinks(b.draft, c.key);
+    if (dangling.length && !confirm(`Deleting ${c.key} leaves ${dangling.length} link${dangling.length > 1 ? "s" : ""} pointing at nothing:\n\n`
+      + dangling.map((l) => `• ${l.from} → ${targetText(l.target)}`).join("\n") + "\n\nDelete anyway?")) return;
+    // Afterwards select the card that took its place, else the one before it in the branch, else the first card.
+    const list = branchCards(b.draft, c.branch);
+    const next = (list[c.idx + 1] || list[c.idx - 1] || {}).key || b.cards.find((x) => x.key !== c.key).key;
+    cardOp((d, key) => { deleteCard(d, key); return next; });
   }
   function undoEdit() {
     const b = board(); if (!b || !b.draft) return;
@@ -833,7 +990,7 @@ section { display: grid; gap: 12px; min-width: 0 }
     b.draft = JSON.parse(t);
     editSession = false;
     proposalCards(b);
-    if (document.activeElement === $("ce-text")) $("ce-text").blur();
+    if (CE_FIELDS.some((f) => document.activeElement === $("ce-" + f))) document.activeElement.blur();
     renderBoard();
   }
   async function saveProposal() {
@@ -1138,7 +1295,7 @@ section { display: grid; gap: 12px; min-width: 0 }
     renderFrame();
   }
 
-  const typing = () => document.activeElement && (document.activeElement.tagName === "TEXTAREA" || document.activeElement.isContentEditable);
+  const typing = () => { const a = document.activeElement; return !!a && (a.tagName === "TEXTAREA" || a.isContentEditable || (a.tagName === "INPUT" && a.type === "text")); };
   function renderAll() { renderPicker(); if (!typing()) renderBoard(); }
   function selectBoard(id, keepCard) {
     if (!keepCard) { cardIdx = 0; trail = []; pick = null; outcomeKey = null; }
@@ -1151,12 +1308,27 @@ section { display: grid; gap: 12px; min-width: 0 }
     if (!leaveBoard()) { e.target.value = currentId; return; }
     selectBoard(e.target.value);
   });
-  $("ce-text").addEventListener("focus", () => { editSession = false; });
-  $("ce-text").addEventListener("input", (e) => {
-    const c = board().cards[cardIdx], text = e.target.value;
-    editDraft((d) => { cardByKey(d, c.key).text = text; }, !editSession);
-    editSession = true;
+  // Text fields: one undo step per focus. Empty speaker / label drop the key rather than store "".
+  for (const f of CE_FIELDS) {
+    $("ce-" + f).addEventListener("focus", () => { editSession = false; });
+    $("ce-" + f).addEventListener("input", (e) => {
+      const c = board().cards[cardIdx], v = e.target.value;
+      editDraft((d) => {
+        const card = cardByKey(d, c.key);
+        if (v === "" && f !== "text") delete card[f]; else card[f] = v;
+      }, !editSession);
+      editSession = true;
+    });
+  }
+  $("ce-type").addEventListener("change", (e) => {
+    const c = board().cards[cardIdx], v = e.target.value;
+    editDraft((d) => { cardByKey(d, c.key).type = v; }, true);
   });
+  $("ce-before").addEventListener("click", () => cardOp((d, key) => { const p = cardPos(d, key); return insertCard(d, p.branch, p.idx); }));
+  $("ce-after").addEventListener("click", () => cardOp((d, key) => { const p = cardPos(d, key); return insertCard(d, p.branch, p.idx + 1); }));
+  $("ce-up").addEventListener("click", () => cardOp((d, key) => { moveCard(d, key, -1); return key; }));
+  $("ce-down").addEventListener("click", () => cardOp((d, key) => { moveCard(d, key, 1); return key; }));
+  $("ce-delete").addEventListener("click", deleteSelected);
   $("save").addEventListener("click", saveProposal);
   $("undo").addEventListener("click", undoEdit);
   document.addEventListener("keydown", (e) => {
