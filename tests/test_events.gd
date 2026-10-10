@@ -654,8 +654,8 @@ func run() -> void:
 		var expected: Variant = "res://assets/events/intro/intro_card1.png"
 		assert_eq(Events.current_image_path(), expected, "opening card discovers intro_card1.png")
 
-		# card indexes are zero-based; intro_card5 to intro_card8 are found by convention, the rest are explicit keys
-		var wired_at := { 4: "res://assets/events/intro/intro_card5.png", 5: "res://assets/events/intro/intro_card6.png", 6: "res://assets/events/intro/intro_card7.png", 7: "res://assets/events/intro/intro_card8.png", 10: "res://assets/events/intro/3.png", 17: "res://assets/events/intro/4.png" }
+		# card indexes are zero-based; intro_card5 to intro_card9 are found by convention, the rest are explicit keys
+		var wired_at := { 4: "res://assets/events/intro/intro_card5.png", 5: "res://assets/events/intro/intro_card6.png", 6: "res://assets/events/intro/intro_card7.png", 7: "res://assets/events/intro/intro_card8.png", 8: "res://assets/events/intro/intro_card9.png", 10: "res://assets/events/intro/3.png", 17: "res://assets/events/intro/4.png" }
 		var card_count: int = GameData.EVENTS["intro"]["cards"].size()
 		for i in range(card_count - 1):
 			Events.advance()
