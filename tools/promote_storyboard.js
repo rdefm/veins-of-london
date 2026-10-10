@@ -1,6 +1,6 @@
 // Promote a storyboard proposal (a .md file whose first ```json block is a branch draft) to a live flat event,
 // and list / resolve its "for Claude" comments. Runs tools/storyboard.html's own draft model (the section between
-// its "Draft model (pure)" markers), so the conversion is the exact code the tool runs.
+// its "Draft model (pure)" markers), so the conversion is the exact code the tool's Promote button runs.
 //
 //   node tools/promote_storyboard.js comments <proposal.md>          open "for Claude" comments, one per line
 //   node tools/promote_storyboard.js resolve <proposal.md> <id>...   mark those comments resolved (saved in place)
@@ -22,7 +22,7 @@ function loadModel() {
   return new Function(
     section("/* ---------- Choice mechanics (shared) ---------- */", "/* ---------- End choice mechanics ---------- */") +
       section("/* ---------- Draft model (pure) ---------- */", "/* ---------- End draft model ---------- */") +
-      "\nreturn { parseProposal, spliceDraft, filterComments, updateComment, anchorText, promoteDraft, serialiseEvent };"
+      "\nreturn { parseProposal, spliceDraft, filterComments, updateComment, anchorText, promoteForWrite };"
   )();
 }
 
@@ -54,13 +54,11 @@ function main(argv) {
     return;
   }
   if (cmd === "promote") {
-    if (open.length) throw new Error(`${open.length} open comment(s) for Claude: ${open.map((c) => c.id).join(", ")} — action and resolve them first`);
-    const { event, dropped } = m.promoteDraft(draft);
-    const text = m.serialiseEvent(event);
+    const { event, dropped, text, file: name } = m.promoteForWrite(draft);
     if (dropped.length) console.error(`left out (no path reaches them): ${dropped.join(", ")}`);
     if (rest.includes("--stdout")) { process.stdout.write(text); return; }
     const oi = rest.indexOf("--out");
-    const out = oi >= 0 ? rest[oi + 1] : path.join(ROOT, "data", "events", `${event.id}.json`);
+    const out = oi >= 0 ? rest[oi + 1] : path.join(ROOT, "data", "events", name);
     const existed = fs.existsSync(out);
     fs.writeFileSync(out, text);
     console.log(`${existed ? "overwrote" : "wrote"} ${path.relative(ROOT, out)} (${event.cards.length} cards)`);

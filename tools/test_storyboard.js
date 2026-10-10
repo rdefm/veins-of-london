@@ -29,6 +29,7 @@ const {
   addComment, updateComment, deleteComment, filterComments, commentCount, anchorText, anchorType, proseComments,
   cardImageName, freeImageName, setCardImage, eventImageDir, SHOT_FIELDS, serialiseBoard, setShotField, shotFieldText,
   LIVE_EVENTS_DIR, proposalFileName, importBoard, blankBoard, duplicateBoard, boardCardLabel, promoteDraft, serialiseEvent,
+  promoteForWrite, promoteSummary,
 } = new Function(
   html.slice(ss, se) + html.slice(s, e) +
     "\nreturn { parseProposal, parseDraft, serialiseDraft, ensureKeys, legacyToDraft, nextPos, playOrder, flatCards, thenText," +
@@ -40,7 +41,8 @@ const {
     " setCheckNote, setCheckOn, setOptionMechanics, setEffects, addBySuccess, deleteBySuccess, setConditionKind," +
     " addComment, updateComment, deleteComment, filterComments, commentCount, anchorText, anchorType, proseComments," +
     " cardImageName, freeImageName, setCardImage, eventImageDir, SHOT_FIELDS, serialiseBoard, setShotField, shotFieldText," +
-    " LIVE_EVENTS_DIR, proposalFileName, importBoard, blankBoard, duplicateBoard, boardCardLabel, promoteDraft, serialiseEvent };"
+    " LIVE_EVENTS_DIR, proposalFileName, importBoard, blankBoard, duplicateBoard, boardCardLabel, promoteDraft, serialiseEvent," +
+    " promoteForWrite, promoteSummary };"
 )();
 
 let passed = 0;
@@ -249,16 +251,22 @@ test("writableProposal: only .scratch/writing-revamp, never data/events", () => 
   assert.strictEqual(writableProposal([".scratch", "writing-revamp", "..", "..", "data", "events"]), false);
 });
 
-test("data/events is named once, as the read-only import source, and never opened for writing", () => {
+test("data/events is named once, read by import, and written only by Promote after a confirm", () => {
   const named = html.match(/\[\s*["']data["']\s*,\s*["']events["']/g) || [];
   assert.strictEqual(named.length, 1, "data/events dir path named outside LIVE_EVENTS_DIR");
   assert.deepStrictEqual(LIVE_EVENTS_DIR, ["data", "events"]);
   assert.strictEqual(writableProposal(LIVE_EVENTS_DIR), false);
-  const uses = html.match(/[^\n]*LIVE_EVENTS_DIR[^\n]*/g).filter((l) => !/const LIVE_EVENTS_DIR =/.test(l));
+  const ps = html.indexOf("async function promoteBoard("), pe = html.indexOf("\n  }\n", ps);
+  assert(ps !== -1 && pe !== -1, "promoteBoard not found");
+  const promote = html.slice(ps, pe), rest = html.slice(0, ps) + html.slice(pe);
+  const uses = rest.match(/[^\n]*LIVE_EVENTS_DIR[^\n]*/g).filter((l) => !/const LIVE_EVENTS_DIR =/.test(l));
   for (const l of uses) {
     assert(!/writeFile|create:\s*true|LIVE_EVENTS_DIR\s*,\s*true/.test(l), "LIVE_EVENTS_DIR used for writing: " + l.trim());
     assert(/fileNames\(LIVE_EVENTS_DIR,|readText\(await dirAt\(LIVE_EVENTS_DIR\)/.test(l), "unexpected LIVE_EVENTS_DIR use: " + l.trim());
   }
+  assert.strictEqual((promote.match(/writeFile\(/g) || []).length, 1, "promoteBoard writes once");
+  assert(promote.indexOf("confirm(") !== -1 && promote.indexOf("confirm(") < promote.indexOf("writeFile("), "promote writes only after a confirm");
+  assert(!/create:\s*true/.test(promote), "promote never creates directories");
 });
 
 test("makeHistory undoes one step at a time and skips duplicate snapshots", () => {
@@ -1364,6 +1372,53 @@ test("serialiseEvent: house style, parses back unchanged", () => {
   assert.ok(text.includes('\n    { "type": "narration", "label": null, "speaker": null, "text": "Plain card on one line." },\n'));
   assert.ok(text.includes('\n      "choices": [\n'), "a choice card expands");
   assert.ok(text.includes('\n  "on_complete": [ { "op": "set_flag", "flag": "f", "value": true } ]\n'), "a short top-level array stays on one line");
+});
+
+const promoteMini = () => ({ id: "promo_x", start: "main", branches: {
+  main: { cards: [{ key: "a", type: "narration", text: "One." }, { key: "b", type: "narration", text: "Two." }] },
+  stray: { cards: [{ key: "z", type: "narration", text: "Nobody gets here." }] },
+} });
+
+test("promoteForWrite: text and file name; refuses open for-Claude comments and a bad id", () => {
+  const out = promoteForWrite(promoteMini());
+  assert.strictEqual(out.file, "promo_x.json");
+  assert.strictEqual(out.text, serialiseEvent(out.event));
+  assert.deepStrictEqual(out.dropped, ["z"]);
+  const d = promoteMini();
+  const id = addComment(d, { card: "b" }, "claude", "Fix.");
+  assert.throws(() => promoteForWrite(d), /open comment\(s\) for Claude/);
+  updateComment(d, id, { status: "resolved" });
+  addComment(d, {}, "note", "Just a note.");
+  assert.strictEqual(promoteForWrite(d).text, out.text, "resolved comments and notes don't block or show");
+  assert.throws(() => promoteForWrite({ ...promoteMini(), id: "../evil" }), /event id/);
+});
+
+test("promoteSummary: new file, no change, overwrite with changed cards and fields, left-out cards", () => {
+  const out = promoteForWrite(promoteMini());
+  const fresh = promoteSummary(null, out);
+  assert.strictEqual(fresh[0], "New file · 2 cards");
+  assert(fresh.some((l) => l === "Left out (no path reaches them): z"));
+  assert.strictEqual(promoteSummary(out.text, out)[0], "No change: identical to the live file");
+  const old = JSON.parse(out.text);
+  old.cards[1].text = "Old two."; old.cards.push({ type: "narration", text: "Three." }); old.at = { block: "evening" };
+  const lines = promoteSummary(JSON.stringify(old), out);
+  assert.deepStrictEqual(lines.slice(0, 3), ["Overwrites the live event · cards 3 → 2", "Changed cards: #2, #3", "Changed fields: at"]);
+  assert.strictEqual(promoteSummary(JSON.stringify(JSON.parse(out.text)), out)[1], "Same content; formatting or key order only");
+  assert.strictEqual(promoteSummary("not json", out)[0], "Overwrites a live file that isn't a readable event");
+});
+
+test("Promote button output is byte-identical to promote_storyboard.js for the same proposal", () => {
+  const { execFileSync } = require("child_process"), os = require("os");
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "promote-"));
+  try {
+    for (const f of liveFiles.slice(0, 3)) {
+      const { file, md } = importBoard(f, fs.readFileSync(path.join(liveDir, f), "utf-8"), []);
+      const p = path.join(tmp, file);
+      fs.writeFileSync(p, md);
+      const cli = execFileSync(process.execPath, [path.join(__dirname, "promote_storyboard.js"), "promote", p, "--stdout"], { encoding: "utf-8" });
+      assert.strictEqual(cli, promoteForWrite(parseProposal(file, md).draft).text, f);
+    }
+  } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
 });
 
 console.log(`${passed} passed${process.exitCode ? ", some FAILED" : ""}`);

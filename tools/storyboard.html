@@ -320,6 +320,7 @@ section { display: grid; gap: 12px; min-width: 0 }
         <div class="editbar" id="editbar" hidden>
           <button type="button" class="save" id="save" title="Save the draft into the proposal's JSON block (Ctrl+S)">Save</button>
           <button type="button" class="tb" id="undo" title="Undo the last edit (Ctrl+Z outside a text box)">Undo</button>
+          <button type="button" class="tb" id="promote" hidden title="Write the saved proposal as the live event data/events/&lt;id&gt;.json">Promote</button>
           <span class="dirty" id="dirty" role="status"></span>
         </div>
         <p class="logline" id="logline"></p>
@@ -1168,7 +1169,7 @@ function checkOddsBlock(opt, changed, restructure) {
     if (crlf) body = body.replace(/\n/g, "\r\n") + (old.endsWith("\r") ? "\r" : "");
     return md.slice(0, r.start) + body + md.slice(r.end);
   }
-  // Saving only ever targets proposals; live events under data/events/ are written by promote, never by this tool.
+  // Saving only ever targets proposals; live events under data/events/ are written only by Promote.
   const writableProposal = (parts) => parts.join("/") === PROPOSALS_DIR.join("/");
   function cardByKey(draft, key) {
     for (const name in draft.branches) for (const c of branchCards(draft, name)) if (c.key === key) return c;
@@ -1859,7 +1860,7 @@ function checkOddsBlock(opt, changed, restructure) {
   }
 
   // New boards: each returns {file, md}, a new proposal for .scratch/writing-revamp/. taken: file names already
-  // in that folder; liveIds: ids of the live events in data/events/ (read only, never written).
+  // in that folder; liveIds: ids of the live events in data/events/.
   const EVENT_ID_RE = /^[a-z][a-z0-9_]*$/;
   function checkNewId(id, liveIds, sourceId) {
     if (!EVENT_ID_RE.test(id || "")) throw new Error(`event id must be lower-case letters, digits and _, starting with a letter (got ${JSON.stringify(id)})`);
@@ -2005,6 +2006,36 @@ function checkOddsBlock(opt, changed, restructure) {
       return (arr ? "[" : "{") + "\n" + parts.join(",\n") + "\n" + pad + (arr ? "]" : "}");
     };
     return fmt(ev, "", false) + "\n";
+  }
+  // Promote as written to data/events/ (the Promote button and tools/promote_storyboard.js both run this): refuses
+  // while open "for Claude" comments remain. Returns {event, dropped, text, file}; file = "<id>.json".
+  function promoteForWrite(draft) {
+    const open = filterComments(draft, { kind: "claude", status: "open" });
+    if (open.length) throw new Error(`${open.length} open comment(s) for Claude: ${open.map((c) => c.id).join(", ")} — action and resolve them first`);
+    if (!EVENT_ID_RE.test(draft.id || "")) throw new Error(`event id must be lower-case letters, digits and _, starting with a letter (got ${JSON.stringify(draft.id)})`);
+    const { event, dropped } = promoteDraft(draft);
+    return { event, dropped, text: serialiseEvent(event), file: `${event.id}.json` };
+  }
+  // Change summary lines for the Promote confirm. oldText: the live file's current text, null when there is none.
+  function promoteSummary(oldText, out) {
+    const n = out.event.cards.length, lines = [];
+    const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+    let old = null;
+    try { old = oldText == null ? null : JSON.parse(oldText); } catch { old = null; }
+    if (oldText == null) lines.push(`New file · ${n} card${n === 1 ? "" : "s"}`);
+    else if (oldText === out.text) lines.push("No change: identical to the live file");
+    else if (!old || !Array.isArray(old.cards)) lines.push("Overwrites a live file that isn't a readable event");
+    else {
+      lines.push(`Overwrites the live event · cards ${old.cards.length} → ${n}`);
+      const cards = [];
+      for (let i = 0; i < Math.max(old.cards.length, n); i++) if (!same(old.cards[i], out.event.cards[i])) cards.push("#" + (i + 1));
+      const fields = [...new Set([...Object.keys(old), ...Object.keys(out.event)])].filter((k) => k !== "cards" && !same(old[k], out.event[k]));
+      if (cards.length) lines.push(`Changed cards: ${cards.join(", ")}`);
+      if (fields.length) lines.push(`Changed fields: ${fields.join(", ")}`);
+      if (!cards.length && !fields.length) lines.push("Same content; formatting or key order only");
+    }
+    if (out.dropped.length) lines.push(`Left out (no path reaches them): ${out.dropped.join(", ")}`);
+    return lines;
   }
   /* ---------- End draft model ---------- */
 
@@ -2949,6 +2980,8 @@ function checkOddsBlock(opt, changed, restructure) {
     const dirty = isDirty(b);
     $("save").disabled = !dirty;
     $("undo").disabled = b.history.size === 0;
+    $("promote").hidden = !proposal;
+    $("promote").disabled = dirty;
     const d = $("dirty");
     d.classList.toggle("on", dirty);
     if (msg) d.textContent = msg;
@@ -3053,6 +3086,29 @@ function checkOddsBlock(opt, changed, restructure) {
       msg = `Saved ${new Date().toLocaleTimeString()} to ${b.file}`;
     } catch (e) { msg = "Couldn't save: " + (e && e.message); }
     renderEditBar(msg);
+  }
+  // Promote (spec § Promote): the proposal file as saved on disk → data/events/<id>.json, after a confirm naming
+  // the target and the change summary. Reads the file afresh so the output matches tools/promote_storyboard.js.
+  async function promoteBoard() {
+    const b = board(); if (!b || b.kind !== "proposal" || !b.draft) return;
+    if (isDirty(b)) { renderEditBar("Save first: Promote writes the proposal as saved."); return; }
+    try {
+      const md = await readText(await dirAt(PROPOSALS_DIR), b.file);
+      const r = md == null ? null : jsonBlockRange(md);
+      if (!r) throw new Error(`${b.file} has no \`\`\`json block`);
+      if (md.slice(r.start, r.end) !== b.diskBlock) throw new Error(`${b.file} changed on disk since it was loaded; Reload first`);
+      const parsed = parseProposal(b.file, md);
+      if (parsed.error) throw new Error(parsed.error);
+      const out = promoteForWrite(parsed.draft);
+      const dir = await dirAt(LIVE_EVENTS_DIR), target = [...LIVE_EVENTS_DIR, out.file].join("/");
+      const old = await readText(dir, out.file);
+      if (old === out.text) { renderEditBar(`${target} already matches this proposal; nothing to write.`); return; }
+      if (!confirm(`Promote ${b.file} to ${target}?\n\n${promoteSummary(old, out).join("\n")}\n\nTests still run via Claude.`)) {
+        renderEditBar("Promote cancelled."); return;
+      }
+      await writeFile(dir, out.file, out.text);
+      renderEditBar(`${old == null ? "Wrote" : "Overwrote"} ${target} (${out.event.cards.length} cards). Ask Claude to run the tests.`);
+    } catch (e) { renderEditBar("Can't promote: " + (e && e.message)); }
   }
   // Leaving a dirty board discards its edits (after a confirm); false = stay.
   function leaveBoard() {
@@ -3498,6 +3554,7 @@ function checkOddsBlock(opt, changed, restructure) {
   $("imgpick").addEventListener("close", () => { ipTok++; revokeIp(); });
   $("save").addEventListener("click", saveBoard);
   $("undo").addEventListener("click", undoEdit);
+  $("promote").addEventListener("click", promoteBoard);
   document.addEventListener("keydown", (e) => {
     if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
     const k = e.key.toLowerCase();

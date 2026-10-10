@@ -46,248 +46,506 @@ Expected pearls: slow 1.1 (watched 1.3), rush 1.2 (watched 1.6). Rush has the hi
 ```json
 {
   "id": "james_meeting",
-  "cards": [
-    { "type": "narration", "label": "{today} — Bermondsey", "speaker": null, "text": "The storage unit beside the halal supermarket. Archie is already there, which has never happened before. He used his last pearl in Whitechapel, and since then he checks the street every time a car slows." },
-    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"James makes pearls. I need pearls. Next time someone gets a knife out, I'd like more than a carrier bag to wave at them. So be polite, touch nothing, and let me do the talking.\"" },
-    { "type": "narration", "label": null, "speaker": null, "text": "The shutter rattles up. James is in his sixties: glasses with one bent arm, a cardigan with a pencil in the pocket. He looks at Archie, then at you, like a parcel left on the wrong doorstep." },
-    { "type": "speaker", "label": null, "speaker": "James", "text": "\"You're early. That's new. Come in. Touch nothing.\"" },
-    { "type": "narration", "label": null, "speaker": null, "text": "Shelves of jars run to the ceiling, each labelled in biro. It smells of copper and bleach. Archie stays by the shutter and rubs his eyes." },
-    { "type": "narration", "label": null, "speaker": null, "text": "You pass a jar marked TIME. The calc inside shifts. It moves to the side of the glass nearest your hand, as if it noticed you." },
-    { "type": "narration", "label": null, "speaker": null, "text": "You glance up. James is watching you. His expression doesn't change, exactly. But something in it does." },
-    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"James is the best craftsman I know. That pearl in Whitechapel was one of his.\"" },
-    { "type": "speaker", "label": null, "speaker": "James", "text": "\"I'm the only craftsman you know. There's a difference.\" He turns to Archie. \"Forty units of life calc, collected from Stratford within the hour. Do it and your next batch of pearls is at cost.\"" },
-    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Who's the seller? Anyone I need to worry about?\"" },
-    { "type": "speaker", "label": null, "speaker": "James", "text": "\"Nobody who's ever shortchanged me. The address will be on your phone by the time you reach the station.\" He doesn't look at you. \"I need your friend's assistance with something in the meantime.\"" },
-    { "type": "speaker", "label": null, "speaker": "Archie", "text": "He looks at you, not James. \"Your call. Stay here, or come to Stratford and carry a bag.\"" },
-    { "type": "speaker", "label": null, "speaker": "You", "text": "You think about the pearl that stopped the knife, and about rent. \"I'll stay.\"" },
-    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Lovely. Ring me if he's more horrible than usual.\" He's gone before James can answer." },
+  "on_complete": [
     {
-      "type": "choice",
-      "label": null,
-      "speaker": "James",
-      "text": "He takes down the jar marked TIME and sets it on the bench. \"My assistant is indisposed and I have an order for time pearls. You'll do. Gloves.\" Inside the jar, the calc drifts to the side nearest you again. James is looking at the jar, not at you.",
-      "choices": [
+      "op": "set_flag",
+      "flag": "metJames",
+      "value": true
+    },
+    {
+      "op": "set_flag",
+      "flag": "craftingUnlocked",
+      "value": true
+    },
+    {
+      "op": "add",
+      "path": "contacts.james.unlocked",
+      "value": true
+    },
+    {
+      "op": "relation",
+      "contact": "james",
+      "value": 10
+    },
+    {
+      "op": "set_stage",
+      "value": "archie_craft_chat"
+    },
+    {
+      "op": "queue_pending_message",
+      "contact": "archie",
+      "kind": "archie_craft_chat",
+      "text": "Oi — how'd it go with James? Come find me."
+    },
+    {
+      "op": "add",
+      "path": "world.archieChatUnlockDay",
+      "value": 1
+    },
+    {
+      "op": "set_screen",
+      "screen": "phone"
+    }
+  ],
+  "start": "main",
+  "branches": {
+    "main": {
+      "title": "Start",
+      "cards": [
         {
-          "id": "tell",
-          "label": "\"It's doing it again.\"",
-          "effects": [
-            { "op": "relation", "contact": "james", "value": 5 },
-            { "op": "set_flag", "flag": "toldJamesJar", "value": true }
+          "type": "narration",
+          "label": "{today} — Bermondsey",
+          "speaker": null,
+          "text": "The storage unit 2 doors down from the halal supermarket. Archie is already there, which has never happened before. He used his last pearl in Whitechapel, and since then he checks the street every time a car slows.",
+          "key": "c1",
+          "image": "res://assets/events/james_meeting/james_meeting_main_2.png"
+        },
+        {
+          "type": "speaker",
+          "label": null,
+          "speaker": "Archie",
+          "text": "\"James makes pearls. I need pearls. Next time someone gets a knife out, I'd like more than a carrier bag to wave at them. So be polite, touch nothing, and let me do the talking.\"",
+          "key": "c2"
+        },
+        {
+          "type": "narration",
+          "label": null,
+          "speaker": null,
+          "text": "The door opens. James is in his sixties: glasses with one bent arm, a waistcoat with the slightest stain on it. He looks at Archie, then at you, like a parcel left on the wrong doorstep.",
+          "key": "c3"
+        },
+        {
+          "type": "speaker",
+          "label": null,
+          "speaker": "James",
+          "text": "\"You're early. That's new. Come in. Touch nothing.\"",
+          "key": "c4"
+        },
+        {
+          "type": "narration",
+          "label": null,
+          "speaker": null,
+          "text": "Shelves of jars run to the ceiling, each labelled in biro. It smells of copper and bleach. Archie stays by the shutter and rubs his eyes.",
+          "key": "c5"
+        },
+        {
+          "type": "narration",
+          "label": null,
+          "speaker": null,
+          "text": "You pass a jar marked TIME. The calc inside shifts. It moves to the side of the glass nearest your hand, as if it noticed you.",
+          "key": "c6"
+        },
+        {
+          "type": "narration",
+          "label": null,
+          "speaker": null,
+          "text": "You glance up. James is watching you. His expression doesn't change, exactly. But something in it does.",
+          "key": "c7"
+        },
+        {
+          "type": "speaker",
+          "label": null,
+          "speaker": "Archie",
+          "text": "\"James is the best craftsman I know. That pearl in Whitechapel was one of his.\"",
+          "key": "c8"
+        },
+        {
+          "type": "speaker",
+          "label": null,
+          "speaker": "James",
+          "text": "\"I'm the only craftsman you know. There's a difference.\" He turns to Archie. \"Forty units of life calc, collected from Stratford within the hour. Do it and your next batch of pearls is at cost.\"",
+          "key": "c9"
+        },
+        {
+          "type": "speaker",
+          "label": null,
+          "speaker": "Archie",
+          "text": "\"Who's the seller? Anyone I need to worry about?\"",
+          "key": "c10"
+        },
+        {
+          "type": "speaker",
+          "label": null,
+          "speaker": "James",
+          "text": "\"Nobody who's ever shortchanged me. The address will be on your phone by the time you reach the station.\" He doesn't look at you. \"I need your friend's assistance with something in the meantime.\"",
+          "key": "c11"
+        },
+        {
+          "type": "speaker",
+          "label": null,
+          "speaker": "Archie",
+          "text": "He looks at you, not James. \"Your call. Stay here, or come to Stratford and carry a bag.\"",
+          "key": "c12"
+        },
+        {
+          "type": "speaker",
+          "label": null,
+          "speaker": "You",
+          "text": "You think about the pearl that stopped the knife, and about rent. \"I'll stay.\"",
+          "key": "c13"
+        },
+        {
+          "type": "speaker",
+          "label": null,
+          "speaker": "Archie",
+          "text": "\"Lovely. Ring me if he's more horrible than usual.\" He's gone before James can answer.",
+          "key": "c14"
+        },
+        {
+          "type": "choice",
+          "label": null,
+          "speaker": "James",
+          "text": "He takes down the jar marked TIME and sets it on the bench. \"My assistant is indisposed and I have an order for time pearls. You'll do. Gloves.\" Inside the jar, the calc drifts to the side nearest you again. James is looking at the jar, not at you.",
+          "choices": [
+            {
+              "id": "tell",
+              "label": "\"It's doing it again.\"",
+              "effects": [
+                {
+                  "op": "relation",
+                  "contact": "james",
+                  "value": 5
+                },
+                {
+                  "op": "set_flag",
+                  "flag": "toldJamesJar",
+                  "value": true
+                }
+              ],
+              "result_text": "\"Yes. It did it when you walked in.\" He writes something in the ledger. \"Calc does that for perhaps one person in a few thousand. I have met two.\" A pause. \"Don't mention it to anyone who sells the stuff. They'll want to weigh you.\""
+            },
+            {
+              "id": "sayNothing",
+              "label": "Say nothing",
+              "effects": [
+                {
+                  "op": "set_flag",
+                  "flag": "hidJar",
+                  "value": true
+                }
+              ],
+              "result_text": "You say nothing. James says nothing either. He moves the jar six inches to the left, out of your reach, and writes something in the ledger."
+            }
           ],
-          "result_text": "\"Yes. It did it when you walked in.\" He writes something in the ledger. \"Calc does that for perhaps one person in a few thousand. I have met two.\" A pause. \"Don't mention it to anyone who sells the stuff. They'll want to weigh you.\""
+          "key": "c15"
         },
         {
-          "id": "sayNothing",
-          "label": "Say nothing",
-          "effects": [
-            { "op": "set_flag", "flag": "hidJar", "value": true }
+          "type": "speaker",
+          "label": null,
+          "speaker": "James",
+          "text": "\"I assume you've never made one.\" You haven't. \"Then I'll explain it once. A pearl that seals is worth a hundred and twenty pounds to someone frightened. A pearl that doesn't is my calc on the floor. Do try not to fuck it up.\"",
+          "key": "c16"
+        },
+        {
+          "type": "speaker",
+          "label": null,
+          "speaker": "James",
+          "text": "He measures out the calc. \"Plato wrote about orichalchum in the Critias. Second only to gold, in Atlantis.\" He glances at you. \"You have no idea what the Critias is, do you.\"",
+          "key": "c17"
+        },
+        {
+          "type": "speaker",
+          "label": null,
+          "speaker": "James",
+          "text": "You don't answer. \"Two and a half thousand years ago, people knew exactly what this was worth. Today Archie is collecting it outside a Poundland in Stratford. Make of that what you will about humanity.\"",
+          "key": "c18"
+        },
+        {
+          "type": "choice",
+          "label": "Crafting: Time Pearl",
+          "speaker": null,
+          "text": "A measure of time calc, a glass sphere, steady pressure from both palms. Get it right and the sphere seals itself around the calc. Get it wrong and the calc clouds and drains away. Slow and careful, or more spheres and more losses.",
+          "choices": [
+            {
+              "id": "patient",
+              "label": "Take your time",
+              "check": {
+                "base": 0.55,
+                "mods": [],
+                "min": 0.15,
+                "show": "odds",
+                "attempts": 2,
+                "perSuccess": [
+                  {
+                    "op": "add_item",
+                    "item": "timePearl",
+                    "qty": 1
+                  }
+                ]
+              },
+              "success": {
+                "result_text": "You go slowly, and both spheres seal. Two pearls, faintly heavier than they should be. James looks at them for slightly longer than necessary. \"Adequate,\" he says, and logs it.",
+                "effects": [],
+                "goto": {
+                  "branch": "b21"
+                }
+              },
+              "bySuccesses": {
+                "1": {
+                  "result_text": "You go slowly. The first sphere clouds. The second doesn't: the glass closes over the calc with a small click. One pearl. James says nothing, which you're starting to understand is praise.",
+                  "effects": [],
+                  "goto": {
+                    "branch": "b21"
+                  }
+                }
+              },
+              "fail": {
+                "result_text": "You go slowly. It doesn't help. Both spheres cloud and drain while you're still being careful with them. James logs them. Then he takes a pearl from his own tray and sets it by your elbow, without looking at you.",
+                "effects": [
+                  {
+                    "op": "add_item",
+                    "item": "timePearl",
+                    "qty": 1
+                  }
+                ],
+                "goto": {
+                  "branch": "b21"
+                }
+              }
+            },
+            {
+              "id": "rush",
+              "label": "Rush it",
+              "check": {
+                "base": 0.3,
+                "mods": [],
+                "min": 0.15,
+                "show": "odds",
+                "attempts": 4,
+                "perSuccess": [
+                  {
+                    "op": "add_item",
+                    "item": "timePearl",
+                    "qty": 1
+                  }
+                ]
+              },
+              "success": {
+                "result_text": "Four spheres. Four pearls. James puts his pen down. He looks at the pearls, then at you, the way he looked at you over the jar. He doesn't say anything. He picks the pen back up.",
+                "effects": [],
+                "goto": {
+                  "branch": "b21"
+                }
+              },
+              "bySuccesses": {
+                "1": {
+                  "result_text": "You go fast. Three spheres cloud. The fourth seals, more or less by accident. James holds it to the light, turns it once, and puts it on your side. \"Less pressure at the edge. Fewer of those.\"",
+                  "effects": [],
+                  "goto": {
+                    "branch": "b21"
+                  }
+                },
+                "2": {
+                  "result_text": "You go fast. Two cloud, two seal. James logs the losses without comment and lines the pearls up on your side of the bench.",
+                  "effects": [],
+                  "goto": {
+                    "branch": "b21"
+                  }
+                },
+                "3": {
+                  "result_text": "You go fast, and it mostly works. Three pearls seal; the fourth clouds at the last second. James looks at the three for a while. \"Hm,\" he says. From him, that's a lot.",
+                  "effects": [],
+                  "goto": {
+                    "branch": "b21"
+                  }
+                }
+              },
+              "fail": {
+                "result_text": "You go fast. Four spheres, four clouds, four grey puddles of calc on the bench. James logs each one in silence. Then he sets a pearl from his own tray by your elbow. \"Less pressure at the edge. Next time.\"",
+                "effects": [
+                  {
+                    "op": "add_item",
+                    "item": "timePearl",
+                    "qty": 1
+                  }
+                ],
+                "goto": {
+                  "branch": "b21"
+                }
+              }
+            },
+            {
+              "id": "askWatch",
+              "label": "Ask James to watch",
+              "check": {
+                "base": 0.5,
+                "mods": [],
+                "min": 0.15,
+                "show": "odds"
+              },
+              "success": {
+                "result_text": "\"Would you watch?\" James looks at you over his glasses for a long moment. Then he pulls up a stool. \"Thumbs further apart. Further. There.\"",
+                "effects": [
+                  {
+                    "op": "set_flag",
+                    "flag": "jamesWatching",
+                    "value": true
+                  },
+                  {
+                    "op": "relation",
+                    "contact": "james",
+                    "value": 3
+                  }
+                ]
+              },
+              "fail": {
+                "result_text": "\"Would you watch?\" James sighs, at length, and goes back to his ledger. \"I'm not your mother. The calc is on the bench.\"",
+                "effects": []
+              }
+            }
           ],
-          "result_text": "You say nothing. James says nothing either. He moves the jar six inches to the left, out of your reach, and writes something in the ledger."
+          "key": "c19"
+        },
+        {
+          "type": "choice",
+          "label": null,
+          "speaker": null,
+          "text": "The calc is measured out. The spheres are lined up on the bench.",
+          "choices": [
+            {
+              "id": "patient",
+              "label": "Take your time",
+              "check": {
+                "base": 0.55,
+                "mods": [
+                  {
+                    "flag": "jamesWatching",
+                    "add": 0.1,
+                    "label": "James is watching"
+                  }
+                ],
+                "min": 0.15,
+                "show": "odds",
+                "attempts": 2,
+                "perSuccess": [
+                  {
+                    "op": "add_item",
+                    "item": "timePearl",
+                    "qty": 1
+                  }
+                ]
+              },
+              "success": {
+                "result_text": "You go slowly, and both spheres seal. Two pearls, faintly heavier than they should be. James looks at them for slightly longer than necessary. \"Adequate,\" he says, and logs it.",
+                "effects": []
+              },
+              "bySuccesses": {
+                "1": {
+                  "result_text": "You go slowly. The first sphere clouds. The second doesn't: the glass closes over the calc with a small click. One pearl. James says nothing, which you're starting to understand is praise.",
+                  "effects": []
+                }
+              },
+              "fail": {
+                "result_text": "You go slowly. It doesn't help. Both spheres cloud and drain while you're still being careful with them. James logs them. Then he takes a pearl from his own tray and sets it by your elbow, without looking at you.",
+                "effects": [
+                  {
+                    "op": "add_item",
+                    "item": "timePearl",
+                    "qty": 1
+                  }
+                ]
+              }
+            },
+            {
+              "id": "rush",
+              "label": "Rush it",
+              "check": {
+                "base": 0.3,
+                "mods": [
+                  {
+                    "flag": "jamesWatching",
+                    "add": 0.1,
+                    "label": "James is watching"
+                  }
+                ],
+                "min": 0.15,
+                "show": "odds",
+                "attempts": 4,
+                "perSuccess": [
+                  {
+                    "op": "add_item",
+                    "item": "timePearl",
+                    "qty": 1
+                  }
+                ]
+              },
+              "success": {
+                "result_text": "Four spheres. Four pearls. James puts his pen down. He looks at the pearls, then at you, the way he looked at you over the jar. He doesn't say anything. He picks the pen back up.",
+                "effects": []
+              },
+              "bySuccesses": {
+                "1": {
+                  "result_text": "You go fast. Three spheres cloud. The fourth seals, more or less by accident. James holds it to the light, turns it once, and puts it on your side. \"Less pressure at the edge. Fewer of those.\"",
+                  "effects": []
+                },
+                "2": {
+                  "result_text": "You go fast. Two cloud, two seal. James logs the losses without comment and lines the pearls up on your side of the bench.",
+                  "effects": []
+                },
+                "3": {
+                  "result_text": "You go fast, and it mostly works. Three pearls seal; the fourth clouds at the last second. James looks at the three for a while. \"Hm,\" he says. From him, that's a lot.",
+                  "effects": []
+                }
+              },
+              "fail": {
+                "result_text": "You go fast. Four spheres, four clouds, four grey puddles of calc on the bench. James logs each one in silence. Then he sets a pearl from his own tray by your elbow. \"Less pressure at the edge. Next time.\"",
+                "effects": [
+                  {
+                    "op": "add_item",
+                    "item": "timePearl",
+                    "qty": 1
+                  }
+                ]
+              }
+            }
+          ],
+          "key": "c20"
         }
-      ]
+      ],
+      "then": {
+        "branch": "b21"
+      }
     },
-    { "type": "speaker", "label": null, "speaker": "James", "text": "\"I assume you've never made one.\" You haven't. \"Then I'll explain it once. A pearl that seals is worth a hundred and twenty pounds to someone frightened. A pearl that doesn't is my calc on the floor. Do try not to fuck it up.\"" },
-    { "type": "speaker", "label": null, "speaker": "James", "text": "He measures out the calc. \"Plato wrote about orichalchum in the Critias. Second only to gold, in Atlantis.\" He glances at you. \"You have no idea what the Critias is, do you.\"" },
-    { "type": "speaker", "label": null, "speaker": "James", "text": "You don't answer. \"Two and a half thousand years ago, people knew exactly what this was worth. Today Archie is collecting it outside a Poundland in Stratford. Make of that what you will about humanity.\"" },
-    {
-      "type": "choice",
-      "label": "Crafting: Time Pearl",
-      "speaker": null,
-      "text": "A measure of time calc, a glass sphere, steady pressure from both palms. Get it right and the sphere seals itself around the calc. Get it wrong and the calc clouds and drains away. Slow and careful, or more spheres and more losses.",
-      "choices": [
+    "b21": {
+      "title": "Two hours later",
+      "cards": [
         {
-          "id": "patient",
-          "label": "Take your time",
-          "check": {
-            "base": 0.55,
-            "mods": [],
-            "min": 0.15,
-            "show": "odds",
-            "attempts": 2,
-            "perSuccess": [ { "op": "add_item", "item": "timePearl", "qty": 1 } ]
-          },
-          "success": {
-            "result_text": "You go slowly, and both spheres seal. Two pearls, faintly heavier than they should be. James looks at them for slightly longer than necessary. \"Adequate,\" he says, and logs it.",
-            "effects": [],
-            "goto": 20
-          },
-          "bySuccesses": {
-            "1": {
-              "result_text": "You go slowly. The first sphere clouds. The second doesn't: the glass closes over the calc with a small click. One pearl. James says nothing, which you're starting to understand is praise.",
-              "effects": [],
-              "goto": 20
-            }
-          },
-          "fail": {
-            "result_text": "You go slowly. It doesn't help. Both spheres cloud and drain while you're still being careful with them. James logs them. Then he takes a pearl from his own tray and sets it by your elbow, without looking at you.",
-            "effects": [ { "op": "add_item", "item": "timePearl", "qty": 1 } ],
-            "goto": 20
-          }
+          "type": "resolution",
+          "label": "Two hours later",
+          "speaker": null,
+          "text": "James wipes the bench down, caps the jar and puts it back on its shelf. Then he slides a battered crafting kit across to you.",
+          "key": "c21"
         },
         {
-          "id": "rush",
-          "label": "Rush it",
-          "check": {
-            "base": 0.30,
-            "mods": [],
-            "min": 0.15,
-            "show": "odds",
-            "attempts": 4,
-            "perSuccess": [ { "op": "add_item", "item": "timePearl", "qty": 1 } ]
-          },
-          "success": {
-            "result_text": "Four spheres. Four pearls. James puts his pen down. He looks at the pearls, then at you, the way he looked at you over the jar. He doesn't say anything. He picks the pen back up.",
-            "effects": [],
-            "goto": 20
-          },
-          "bySuccesses": {
-            "1": {
-              "result_text": "You go fast. Three spheres cloud. The fourth seals, more or less by accident. James holds it to the light, turns it once, and puts it on your side. \"Less pressure at the edge. Fewer of those.\"",
+          "type": "choice",
+          "label": null,
+          "speaker": "James",
+          "text": "\"The kit is payment. Whatever's on your side of the bench is yours.\" A pause. \"Keep practising and you may yet make more than a living out of this.\"",
+          "choices": [
+            {
+              "id": "leaveTold",
+              "label": "Leave",
+              "requires": {
+                "flag": "toldJamesJar"
+              },
               "effects": [],
-              "goto": 20
+              "result_text": "The shutter comes down behind you. A battered kit, a pocket that clinks a little, and somewhere in James's ledger, a line about you. Archie will want to know how it went."
             },
-            "2": {
-              "result_text": "You go fast. Two cloud, two seal. James logs the losses without comment and lines the pearls up on your side of the bench.",
+            {
+              "id": "leaveHid",
+              "label": "Leave",
+              "requires": {
+                "flag": "hidJar"
+              },
               "effects": [],
-              "goto": 20
-            },
-            "3": {
-              "result_text": "You go fast, and it mostly works. Three pearls seal; the fourth clouds at the last second. James looks at the three for a while. \"Hm,\" he says. From him, that's a lot.",
-              "effects": [],
-              "goto": 20
+              "result_text": "At the shutter James says, without looking up, \"Next time a jar moves for you, mention it.\" Then the shutter comes down behind you. Archie will want to know how it went."
             }
-          },
-          "fail": {
-            "result_text": "You go fast. Four spheres, four clouds, four grey puddles of calc on the bench. James logs each one in silence. Then he sets a pearl from his own tray by your elbow. \"Less pressure at the edge. Next time.\"",
-            "effects": [ { "op": "add_item", "item": "timePearl", "qty": 1 } ],
-            "goto": 20
-          }
-        },
-        {
-          "id": "askWatch",
-          "label": "Ask James to watch",
-          "check": {
-            "base": 0.50,
-            "mods": [],
-            "min": 0.15,
-            "show": "odds"
-          },
-          "success": {
-            "result_text": "\"Would you watch?\" James looks at you over his glasses for a long moment. Then he pulls up a stool. \"Thumbs further apart. Further. There.\"",
-            "effects": [
-              { "op": "set_flag", "flag": "jamesWatching", "value": true },
-              { "op": "relation", "contact": "james", "value": 3 }
-            ]
-          },
-          "fail": {
-            "result_text": "\"Would you watch?\" James sighs, at length, and goes back to his ledger. \"I'm not your mother. The calc is on the bench.\"",
-            "effects": []
-          }
-        }
-      ]
-    },
-    {
-      "type": "choice",
-      "label": null,
-      "speaker": null,
-      "text": "The calc is measured out. The spheres are lined up on the bench.",
-      "choices": [
-        {
-          "id": "patient",
-          "label": "Take your time",
-          "check": {
-            "base": 0.55,
-            "mods": [ { "flag": "jamesWatching", "add": 0.10, "label": "James is watching" } ],
-            "min": 0.15,
-            "show": "odds",
-            "attempts": 2,
-            "perSuccess": [ { "op": "add_item", "item": "timePearl", "qty": 1 } ]
-          },
-          "success": {
-            "result_text": "You go slowly, and both spheres seal. Two pearls, faintly heavier than they should be. James looks at them for slightly longer than necessary. \"Adequate,\" he says, and logs it.",
-            "effects": []
-          },
-          "bySuccesses": {
-            "1": {
-              "result_text": "You go slowly. The first sphere clouds. The second doesn't: the glass closes over the calc with a small click. One pearl. James says nothing, which you're starting to understand is praise.",
-              "effects": []
-            }
-          },
-          "fail": {
-            "result_text": "You go slowly. It doesn't help. Both spheres cloud and drain while you're still being careful with them. James logs them. Then he takes a pearl from his own tray and sets it by your elbow, without looking at you.",
-            "effects": [ { "op": "add_item", "item": "timePearl", "qty": 1 } ]
-          }
-        },
-        {
-          "id": "rush",
-          "label": "Rush it",
-          "check": {
-            "base": 0.30,
-            "mods": [ { "flag": "jamesWatching", "add": 0.10, "label": "James is watching" } ],
-            "min": 0.15,
-            "show": "odds",
-            "attempts": 4,
-            "perSuccess": [ { "op": "add_item", "item": "timePearl", "qty": 1 } ]
-          },
-          "success": {
-            "result_text": "Four spheres. Four pearls. James puts his pen down. He looks at the pearls, then at you, the way he looked at you over the jar. He doesn't say anything. He picks the pen back up.",
-            "effects": []
-          },
-          "bySuccesses": {
-            "1": {
-              "result_text": "You go fast. Three spheres cloud. The fourth seals, more or less by accident. James holds it to the light, turns it once, and puts it on your side. \"Less pressure at the edge. Fewer of those.\"",
-              "effects": []
-            },
-            "2": {
-              "result_text": "You go fast. Two cloud, two seal. James logs the losses without comment and lines the pearls up on your side of the bench.",
-              "effects": []
-            },
-            "3": {
-              "result_text": "You go fast, and it mostly works. Three pearls seal; the fourth clouds at the last second. James looks at the three for a while. \"Hm,\" he says. From him, that's a lot.",
-              "effects": []
-            }
-          },
-          "fail": {
-            "result_text": "You go fast. Four spheres, four clouds, four grey puddles of calc on the bench. James logs each one in silence. Then he sets a pearl from his own tray by your elbow. \"Less pressure at the edge. Next time.\"",
-            "effects": [ { "op": "add_item", "item": "timePearl", "qty": 1 } ]
-          }
-        }
-      ]
-    },
-    { "type": "resolution", "label": "Two hours later", "speaker": null, "text": "James wipes the bench down, caps the jar and puts it back on its shelf. Then he slides a battered crafting kit across to you." },
-    {
-      "type": "choice",
-      "label": null,
-      "speaker": "James",
-      "text": "\"The kit is payment. Whatever's on your side of the bench is yours.\" A pause. \"Keep practising and you may yet make more than a living out of this.\"",
-      "choices": [
-        {
-          "id": "leaveTold",
-          "label": "Leave",
-          "requires": { "flag": "toldJamesJar" },
-          "effects": [],
-          "result_text": "The shutter comes down behind you. A battered kit, a pocket that clinks a little, and somewhere in James's ledger, a line about you. Archie will want to know how it went."
-        },
-        {
-          "id": "leaveHid",
-          "label": "Leave",
-          "requires": { "flag": "hidJar" },
-          "effects": [],
-          "result_text": "At the shutter James says, without looking up, \"Next time a jar moves for you, mention it.\" Then the shutter comes down behind you. Archie will want to know how it went."
+          ],
+          "key": "c22"
         }
       ]
     }
-  ],
-  "on_complete": [
-    { "op": "set_flag", "flag": "metJames", "value": true },
-    { "op": "set_flag", "flag": "craftingUnlocked", "value": true },
-    { "op": "add", "path": "contacts.james.unlocked", "value": true },
-    { "op": "relation", "contact": "james", "value": 10 },
-    { "op": "set_stage", "value": "archie_craft_chat" },
-    { "op": "queue_pending_message", "contact": "archie", "kind": "archie_craft_chat", "text": "Oi — how'd it go with James? Come find me." },
-    { "op": "add", "path": "world.archieChatUnlockDay", "value": 1 },
-    { "op": "set_screen", "screen": "phone" }
-  ]
+  }
 }
 ```
 

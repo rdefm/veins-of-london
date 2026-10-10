@@ -44,6 +44,8 @@ If it refuses:
 - `conditional then that can end the event` — the engine's conditional goto has no "end" entry and falls through on no match. Ask the user which branch the else / ending entry should go to.
 - A target error (`unknown branch`, `no card`, `branch X has no cards`) — a dangling link; ask the user where it should go.
 
+The storyboard tool's **Promote** button writes the same file (same code, byte-identical); if the user already promoted from the tool, skip straight to the diff check and tests.
+
 `git diff data/events/<id>.json` — when overwriting a live event, check the diff is only what the draft changed. Re-check every `image` path still exists.
 
 ## 3. Tests
