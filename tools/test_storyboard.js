@@ -27,7 +27,7 @@ const {
   outcomeSlots, addOption, deleteOption, moveOption, setOptionField, setOutcomeText, setOutcomeGoto, routeToNewBranch,
   setCheckNote, setCheckOn, setOptionMechanics, setEffects, addBySuccess, deleteBySuccess, setConditionKind,
   addComment, updateComment, deleteComment, filterComments, commentCount, anchorText, anchorType, proseComments,
-  cardImageName, freeImageName, setCardImage, eventImageDir,
+  cardImageName, freeImageName, setCardImage, eventImageDir, SHOT_FIELDS, serialiseBoard, setShotField, shotFieldText,
 } = new Function(
   html.slice(ss, se) + html.slice(s, e) +
     "\nreturn { parseProposal, parseDraft, serialiseDraft, ensureKeys, legacyToDraft, nextPos, playOrder, flatCards, thenText," +
@@ -38,7 +38,7 @@ const {
     " outcomeSlots, addOption, deleteOption, moveOption, setOptionField, setOutcomeText, setOutcomeGoto, routeToNewBranch," +
     " setCheckNote, setCheckOn, setOptionMechanics, setEffects, addBySuccess, deleteBySuccess, setConditionKind," +
     " addComment, updateComment, deleteComment, filterComments, commentCount, anchorText, anchorType, proseComments," +
-    " cardImageName, freeImageName, setCardImage, eventImageDir };"
+    " cardImageName, freeImageName, setCardImage, eventImageDir, SHOT_FIELDS, serialiseBoard, setShotField, shotFieldText };"
 )();
 
 let passed = 0;
@@ -1070,6 +1070,53 @@ test("setCardImage: path, CLEAR (null), HOLD (key dropped); assignments survive 
   setCardImage(d, "c3", undefined);
   assert.ok(!("image" in cardByKey(d, "c3")));
   assert.throws(() => setCardImage(d, "zz", null), /no card zz/);
+});
+
+test("setShotField edits shot fields in place; blanks drop the key; lists split; drafts and other keys untouched", () => {
+  const board = {
+    eventId: "ev", title: "Ev", phase: "storyboard", round: 1, updatedAt: 1, questions: [], cards: [{ n: 1, cut: "NEW", shot: "S1" }],
+    plates: [{ id: "P1", name: "corner" }, { id: "P2", name: "pub" }],
+    shots: [{ id: "S1", title: "Old", plate: "P1", method: "pose", prompt: "p", reuse: "Archie", drafts: [{ url: "u", label: "v1" }] }],
+  };
+  const before = serialiseBoard(board);
+  assert.ok(before.endsWith("}\n"));
+  setShotField(board, "S1", "title", "New title");
+  setShotField(board, "S1", "prompt", "Attach: a.png.\nAdd Nadia.\n");
+  setShotField(board, "S1", "reuse", "  ");
+  setShotField(board, "S1", "attach", "a.png\n\n  b.png \n");
+  setShotField(board, "S1", "plate", "P2");
+  setShotField(board, "S1", "method", "sprite");
+  const s = board.shots[0];
+  assert.strictEqual(s.title, "New title");
+  assert.strictEqual(s.prompt, "Attach: a.png.\nAdd Nadia.");
+  assert.ok(!("reuse" in s));
+  assert.deepStrictEqual(s.attach, ["a.png", "b.png"]);
+  assert.strictEqual(shotFieldText(s, "attach"), "a.png\nb.png");
+  assert.strictEqual(s.plate, "P2");
+  assert.strictEqual(s.method, "sprite");
+  assert.deepStrictEqual(s.drafts, [{ url: "u", label: "v1" }]);
+  // A newly added key lands in schema order, ahead of drafts.
+  assert.deepStrictEqual(Object.keys(s), ["id", "title", "plate", "method", "attach", "prompt", "drafts"]);
+  setShotField(board, "S1", "attach", "");
+  assert.ok(!("attach" in s));
+  // Round trip through the file text is lossless.
+  assert.deepStrictEqual(JSON.parse(serialiseBoard(board)), board);
+  assert.deepStrictEqual(Object.keys(JSON.parse(serialiseBoard(board))), Object.keys(JSON.parse(before)));
+});
+
+test("setShotField rejects unknown shots and fields, bad methods and plates; legacy list fields split on commas", () => {
+  const board = { eventId: "ev", cards: [], plates: [{ id: "P1" }], shots: [{ id: "S1", continuity: ["a"] }] };
+  assert.throws(() => setShotField(board, "S9", "title", "x"), /no shot S9/);
+  assert.throws(() => setShotField(board, "S1", "id", "S2"), /not an editable shot field/);
+  assert.throws(() => setShotField(board, "S1", "drafts", "x"), /not an editable shot field/);
+  assert.throws(() => setShotField(board, "S1", "method", "paint"), /method/);
+  assert.throws(() => setShotField(board, "S1", "plate", "P7"), /no plate P7/);
+  setShotField(board, "S1", "continuity", "hat, coat ,, scarf");
+  assert.deepStrictEqual(board.shots[0].continuity, ["hat", "coat", "scarf"]);
+  assert.strictEqual(shotFieldText(board.shots[0], "continuity"), "hat, coat, scarf");
+  setShotField(board, "S1", "method", "");
+  assert.ok(!("method" in board.shots[0]));
+  assert.ok(SHOT_FIELDS.every((f) => f.key !== "id" && f.key !== "drafts"));
 });
 
 console.log(`${passed} passed${process.exitCode ? ", some FAILED" : ""}`);

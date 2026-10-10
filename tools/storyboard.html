@@ -108,6 +108,12 @@ header.top .title { display: grid; gap: 6px; min-width: 0 }
 
 .prompt { display: grid; gap: 6px }
 .prompt-head { display: flex; justify-content: space-between; align-items: center; gap: 8px }
+.shotform { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 8px 16px; align-items: start; margin: 0 }
+.shotform .fl { display: grid; gap: 6px; justify-items: start; padding-top: 7px; font: 600 11px/1.6 var(--mono); letter-spacing: .05em; text-transform: uppercase; color: var(--muted) }
+.shotform input, .shotform select, .shotform textarea { width: 100%; max-width: 80ch; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font-size: 14px; line-height: 1.45 }
+.shotform textarea { resize: vertical }
+.shotform .code { font: 12.5px/1.5 var(--mono) }
+@media (max-width: 520px) { .shotform { grid-template-columns: minmax(0, 1fr) } .shotform .fl { padding-top: 4px } }
 .prompt pre { margin: 0; white-space: pre-wrap; word-break: break-word; background: var(--sunk); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; font: 12.5px/1.5 var(--mono); max-width: 80ch }
 .copy { border: 1px solid var(--line); background: var(--bg); border-radius: 6px; padding: 4px 10px; font: 600 11.5px var(--mono) }
 .plate-tag { font: 600 11px/1 var(--mono); color: var(--muted) }
@@ -908,9 +914,19 @@ function checkOddsBlock(opt, changed, restructure) {
     for (const p of parts) d = await d.getDirectoryHandle(p, { create });
     return d;
   }
-  async function readJSON(dir, name) {
-    try { return JSON.parse(await (await (await dir.getFileHandle(name)).getFile()).text()); }
+  async function readText(dir, name) {
+    try { return await (await (await dir.getFileHandle(name)).getFile()).text(); }
     catch { return null; }
+  }
+  async function readJSON(dir, name) {
+    try { return JSON.parse(await readText(dir, name)); }
+    catch { return null; }
+  }
+  // Save/undo state on a shot board, non-enumerable so board.json never carries it: diskText = the file as last
+  // read or written, saved = its serialised form, history = undo snapshots.
+  function trackBoard(b, diskText) {
+    const meta = { diskText, saved: serialiseBoard(b), history: makeHistory() };
+    for (const [k, value] of Object.entries(meta)) Object.defineProperty(b, k, { value, writable: true, configurable: true, enumerable: false });
   }
   async function writeFile(dir, name, data) {
     const w = await (await dir.getFileHandle(name, { create: true })).createWritable();
@@ -1739,6 +1755,60 @@ function checkOddsBlock(opt, changed, restructure) {
     if (!card) throw new Error(`no card ${key}`);
     if (image === undefined) delete card.image; else card.image = image;
   }
+
+  // Shot board (board.json) editing. Format: .claude/skills/event-storyboard/reference/board-schema.md.
+  // Editable shot fields in file order; kind: line | text | lines (one per line) | list (comma-separated) |
+  // plate | method. legacy fields are shown only on shots that already carry them. id and drafts aren't editable.
+  const SHOT_METHODS = ["pose", "sprite", "props"];
+  const SHOT_FIELDS = [
+    { key: "title", label: "Title", kind: "line" },
+    { key: "cards", label: "Cards", kind: "line" },
+    { key: "plate", label: "Plate", kind: "plate" },
+    { key: "method", label: "Method", kind: "method" },
+    { key: "job", label: "Story job", kind: "text" },
+    { key: "instant", label: "Frozen instant", kind: "text", legacy: true },
+    { key: "framing", label: "Framing", kind: "text", legacy: true },
+    { key: "composition", label: "Composition", kind: "text", legacy: true },
+    { key: "light", label: "Light & colour", kind: "text", legacy: true },
+    { key: "crop", label: "Crop-safe", kind: "text", legacy: true },
+    { key: "attach", label: "Attach", kind: "lines" },
+    { key: "prompt", label: "Prompt", kind: "text" },
+    { key: "saveAs", label: "Save as", kind: "line" },
+    { key: "reuse", label: "Reuse", kind: "text" },
+    { key: "unseen", label: "Keep unseen", kind: "text" },
+    { key: "continuity", label: "Continuity", kind: "list", legacy: true },
+    { key: "canon", label: "Canon question", kind: "text" },
+    { key: "file", label: "File", kind: "line" },
+  ];
+  const serialiseBoard = (board) => JSON.stringify(board, null, 2) + "\n";
+  // The field as the editor shows it: lists joined back into text.
+  function shotFieldText(shot, key) {
+    const f = SHOT_FIELDS.find((x) => x.key === key), v = shot[key];
+    if (Array.isArray(v)) return v.join(f && f.kind === "list" ? ", " : "\n");
+    return v == null ? "" : String(v);
+  }
+  // Sets one shot field from editor text. Blank text drops the key; a newly added key is placed in file order.
+  function setShotField(board, id, key, text) {
+    const shot = (board.shots || []).find((s) => s.id === id);
+    if (!shot) throw new Error(`no shot ${id}`);
+    const f = SHOT_FIELDS.find((x) => x.key === key);
+    if (!f) throw new Error(`${key} is not an editable shot field`);
+    let v = text.trim();
+    if (f.kind === "lines" || f.kind === "list") {
+      v = text.split(f.kind === "lines" ? "\n" : ",").map((x) => x.trim()).filter(Boolean);
+      if (!v.length) v = "";
+    }
+    if (v && f.kind === "method" && !SHOT_METHODS.includes(v)) throw new Error(`method must be one of ${SHOT_METHODS.join(", ")}`);
+    if (v && f.kind === "plate" && !(board.plates || []).some((p) => p.id === v)) throw new Error(`no plate ${v}`);
+    if (v === "") { delete shot[key]; return; }
+    const added = !(key in shot);
+    shot[key] = v;
+    if (!added) return;
+    const order = ["id", ...SHOT_FIELDS.map((x) => x.key)];
+    const rank = (k) => { const i = order.indexOf(k); return i < 0 ? order.length : i; };
+    const sorted = Object.keys(shot).map((k, i) => [k, i]).sort((a, b) => rank(a[0]) - rank(b[0]) || a[1] - b[1]);
+    replaceContents(shot, Object.fromEntries(sorted.map(([k]) => [k, shot[k]])));
+  }
   /* ---------- End draft model ---------- */
 
   // Image per card, as the event screen resolves it: an explicit "image" key (null clears), else (legacy flat
@@ -1760,7 +1830,8 @@ function checkOddsBlock(opt, changed, restructure) {
     });
   }
   // Unsaved = the draft no longer serialises to what was last loaded or saved.
-  const isDirty = (b) => !!b && b.kind === "proposal" && !!b.draft && serialiseDraft(b.draft) !== b.saved;
+  const isDirty = (b) => !!b && b.saved != null
+    && (b.kind === "proposal" ? !!b.draft && serialiseDraft(b.draft) : serialiseBoard(b)) !== b.saved;
   async function loadProposals() {
     const out = [];
     let dir;
@@ -1798,11 +1869,19 @@ function checkOddsBlock(opt, changed, restructure) {
     const found = [];
     feedback = {};
     repoImages = null;
+    // A shot board with unsaved edits stays as it is in memory; one unchanged on disk keeps its undo history.
+    const prevShots = new Map(boards.filter((b) => b.kind !== "proposal").map((b) => [b.eventId, b]));
     try {
       for await (const [name, h] of (await dirAt(BOARDS_DIR)).entries()) {
         if (h.kind !== "directory") continue;
-        const b = await readJSON(h, "board.json");
+        const text = await readText(h, "board.json");
+        let b = null;
+        try { b = JSON.parse(text); } catch {}
         if (!b || !b.eventId || !Array.isArray(b.cards)) continue;
+        trackBoard(b, text);
+        const old = prevShots.get(b.eventId);
+        if (old && isDirty(old)) b = old;
+        else if (old && old.diskText === text) b.history = old.history;
         found.push(b);
         for (const f of (await readJSON(h, "feedback.json")) || []) if (f && f.target) feedback[`${f.eventId}__${f.target}`] = f;
       }
@@ -2666,9 +2745,10 @@ function checkOddsBlock(opt, changed, restructure) {
   }
   // msg replaces the status line; otherwise it shows the dirty state (a "Saved …" note stays until the next edit).
   function renderEditBar(msg) {
-    const b = board(), on = !!b && b.kind === "proposal" && !!b.draft;
+    const b = board(), proposal = !!b && b.kind === "proposal", on = !!b && (!proposal || !!b.draft);
     $("editbar").hidden = !on;
     if (!on) return;
+    $("save").title = proposal ? "Save the draft into the proposal's JSON block (Ctrl+S)" : "Save shot edits to board.json (Ctrl+S)";
     const dirty = isDirty(b);
     $("save").disabled = !dirty;
     $("undo").disabled = b.history.size === 0;
@@ -2710,14 +2790,46 @@ function checkOddsBlock(opt, changed, restructure) {
     const next = (list[c.idx + 1] || list[c.idx - 1] || {}).key || b.cards.find((x) => x.key !== c.key).key;
     cardOp((d, key) => { deleteCard(d, key); return next; });
   }
+  // One shot-field edit from editor text; false (with the reason in the edit bar) if the value was refused.
+  function editShot(id, key, text, newStep) {
+    const b = board(); if (!b || b.kind === "proposal") return false;
+    const before = serialiseBoard(b);
+    try { setShotField(b, id, key, text); }
+    catch (e) { renderEditBar(e.message); return false; }
+    if (newStep) b.history.snapshot(before);
+    renderFrame(); renderEditBar();
+    return true;
+  }
   function undoEdit() {
-    const b = board(); if (!b || !b.draft) return;
+    const b = board(); if (!b || !b.history) return;
     const t = b.history.undo(); if (t == null) return;
-    b.draft = JSON.parse(t);
+    if (b.kind === "proposal") { b.draft = JSON.parse(t); proposalCards(b); }
+    else replaceContents(b, JSON.parse(t));
     editSession = false;
-    proposalCards(b);
-    if (document.activeElement && document.activeElement.closest("#card-editor, #branch-editor")) document.activeElement.blur();
+    if (document.activeElement && document.activeElement.closest("#card-editor, #branch-editor, #shots")) document.activeElement.blur();
     renderBoard();
+  }
+  function saveBoard() {
+    const b = board(); if (!b) return;
+    if (b.kind === "proposal") saveProposal(); else saveShotBoard(b);
+  }
+  async function saveShotBoard(b) {
+    if (!isDirty(b)) return;
+    $("save").disabled = true; $("dirty").textContent = "Saving…";
+    let msg;
+    try {
+      const dir = await boardDir(b);
+      if (await readText(dir, "board.json") !== b.diskText
+        && !confirm(`${b.eventId}'s board.json changed on disk since it was loaded. Overwrite it with these edits?`)) {
+        renderEditBar("Save cancelled."); return;
+      }
+      b.updatedAt = Date.now();
+      const out = serialiseBoard(b);
+      await writeFile(dir, "board.json", out);
+      b.diskText = out; b.saved = out;
+      msg = `Saved ${new Date().toLocaleTimeString()} to board.json`;
+    } catch (e) { msg = "Couldn't save: " + (e && e.message); }
+    renderEditBar(msg);
   }
   async function saveProposal() {
     const b = board(); if (!isDirty(b)) return;
@@ -2749,10 +2861,10 @@ function checkOddsBlock(opt, changed, restructure) {
   function leaveBoard() {
     const b = board();
     if (!isDirty(b)) return true;
-    if (!confirm(`${b.file} has unsaved changes. Discard them?`)) return false;
-    b.draft = JSON.parse(b.saved);
+    if (!confirm(`${b.file || b.title || b.eventId} has unsaved changes. Discard them?`)) return false;
+    if (b.kind === "proposal") { b.draft = JSON.parse(b.saved); proposalCards(b); }
+    else replaceContents(b, JSON.parse(b.saved));
     b.history = makeHistory();
-    proposalCards(b);
     return true;
   }
 
@@ -2954,23 +3066,63 @@ function checkOddsBlock(opt, changed, restructure) {
     }));
   }
 
+  const CODE_FIELDS = new Set(["prompt", "attach", "saveAs", "file"]);
+  // One editable shot field: a label cell (Prompt carries a Copy button) and its control. Text edits are one undo
+  // step per focus; onEdit runs after each accepted edit.
+  function shotField(b, s, f, onEdit) {
+    const fid = `shot-${s.id}-${f.key}`, val = shotFieldText(s, f.key);
+    const label = el("div", { class: "fl" }, el("label", { for: fid, text: f.label }));
+    let ctl;
+    if (f.kind === "plate" || f.kind === "method") {
+      const choices = f.kind === "plate" ? (b.plates || []).map((p) => [p.id, p.name ? `${p.id} · ${p.name}` : p.id]) : SHOT_METHODS.map((m) => [m, m]);
+      if (val && !choices.some(([v]) => v === val)) choices.push([val, `⚠ ${val}`]);
+      ctl = el("select", { id: fid }, optionEl("", "—"), ...choices.map(([v, t]) => optionEl(v, t)));
+      ctl.value = val;
+      ctl.addEventListener("change", () => {
+        if (editShot(s.id, f.key, ctl.value, true)) onEdit(f.key); else ctl.value = shotFieldText(s, f.key);
+      });
+    } else {
+      const lines = val.split("\n").reduce((n, l) => n + Math.max(1, Math.ceil(l.length / 72)), 0);
+      ctl = f.kind === "line" ? el("input", { type: "text", id: fid, autocomplete: "off" })
+        : el("textarea", { id: fid, rows: String(Math.min(14, Math.max(2, lines))) });
+      ctl.value = val;
+      if (CODE_FIELDS.has(f.key)) ctl.classList.add("code");
+      ctl.addEventListener("focus", () => { editSession = false; });
+      ctl.addEventListener("input", () => {
+        if (editShot(s.id, f.key, ctl.value, !editSession)) { editSession = true; onEdit(f.key); }
+      });
+      ctl.addEventListener("change", () => onEdit(f.key, true));
+    }
+    if (f.key === "prompt") {
+      const btn = el("button", { class: "copy", type: "button", text: "Copy prompt" });
+      btn.addEventListener("click", async () => {
+        try { await navigator.clipboard.writeText(ctl.value); btn.textContent = "Copied"; }
+        catch { btn.textContent = "Select the text to copy"; }
+        setTimeout(() => { btn.textContent = "Copy prompt"; }, 1600);
+      });
+      label.append(btn);
+    }
+    return [label, ctl];
+  }
+
   function renderShots(b) {
     const drafts = b.phase === "drafts";
-    const plateName = (id) => { const p = (b.plates || []).find((x) => x.id === id); return p ? `${id} · ${p.name}` : id; };
     $("shots").replaceChildren(...(b.shots || []).map((s) => {
-      const dl = briefList([
-        ["Cards", s.cards], ["Plate", s.plate ? plateName(s.plate) : null], ["Method", s.method], ["Story job", s.job],
-        ["Frozen instant", s.instant], ["Framing", s.framing],
-        ["Composition", s.composition], ["Light & colour", s.light], ["Crop-safe", s.crop],
-        ["Keep unseen", s.unseen], ["Attach", (s.attach || []).join("\n")], ["Reuse", s.reuse], ["Save as", s.saveAs],
-        ["Continuity", (s.continuity || []).join(", ")], ["Canon question", s.canon], ["File", s.file],
-      ]);
+      const h3 = el("h3", { text: s.title || s.id });
+      let files = filesBlock(s.id, s.saveAs) || el("div", { hidden: "" });
+      // committed = the field lost focus after a change: the upload box follows a new Save-as name then, not per keystroke.
+      const onEdit = (key, committed) => {
+        if (key === "title") h3.textContent = s.title || s.id;
+        if (key === "saveAs" && committed) { const nf = filesBlock(s.id, s.saveAs) || el("div", { hidden: "" }); files.replaceWith(nf); files = nf; }
+      };
+      const form = el("div", { class: "shotform" },
+        ...SHOT_FIELDS.filter((f) => !f.legacy || f.key in s).flatMap((f) => shotField(b, s, f, onEdit)));
       const draftFigs = (s.drafts || []).map((d) => el("figure", {}, el("img", { src: d.url, alt: `${s.id} ${d.label || "draft"}`, loading: "lazy" }), el("figcaption", { text: d.label || "draft" })));
       const opts = drafts ? [["approve", "Approve draft"], ["revise", "Regenerate"], ["cut", "Drop shot"]]
                           : [["approve", "Approve shot"], ["revise", "Revise"], ["cut", "Cut it"]];
       return el("article", { class: "shot", id: "shot-" + s.id },
-        el("div", { class: "shot-head" }, el("h3", { text: s.title || s.id }), el("span", { class: "id", text: s.id })),
-        dl, promptBlock(s.prompt), filesBlock(s.id, s.saveAs),
+        el("div", { class: "shot-head" }, h3, el("span", { class: "id", text: s.id })),
+        form, files,
         draftFigs.length ? el("div", { class: "drafts" }, ...draftFigs) : null,
         verdictBlock(`${b.eventId}__${s.id}`, drafts ? "Your verdict on the draft" : "Your verdict on the shot", opts));
     }));
@@ -3088,12 +3240,12 @@ function checkOddsBlock(opt, changed, restructure) {
   $("ip-clear").addEventListener("click", () => { const c = pickerCard(); $("imgpick").close(); if (c) setCard(c.key, null); });
   $("ip-close").addEventListener("click", () => $("imgpick").close());
   $("imgpick").addEventListener("close", () => { ipTok++; revokeIp(); });
-  $("save").addEventListener("click", saveProposal);
+  $("save").addEventListener("click", saveBoard);
   $("undo").addEventListener("click", undoEdit);
   document.addEventListener("keydown", (e) => {
     if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
     const k = e.key.toLowerCase();
-    if (k === "s" && board() && board().kind === "proposal") { e.preventDefault(); saveProposal(); }
+    if (k === "s" && board()) { e.preventDefault(); saveBoard(); }
     // Inside a text box Ctrl+Z stays the browser's own text undo.
     else if (k === "z" && !e.shiftKey && !typing() && !/^(INPUT|SELECT)$/.test(document.activeElement.tagName)) { e.preventDefault(); undoEdit(); }
   });
