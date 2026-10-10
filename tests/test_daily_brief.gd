@@ -224,6 +224,7 @@ func run() -> void:
 
 	run_case("unread_messages_are_not_rows", func():
 		GameState.reset()
+		_quiet_story()
 		Messages.append("archie", "them", "Call me.")
 		assert_eq(DailyBrief.items(), [])
 	)
@@ -245,14 +246,18 @@ func run() -> void:
 
 	run_case("badge_counts_urgent_and_story_only", func():
 		GameState.reset()
+		_quiet_story()
 		Fixtures.seed_vein("eligible", 95)
 		assert_eq(DailyBrief.badge_count(), 0, "routine rows don't badge")
 		GameState.state["home"]["pendingRaid"] = true
 		assert_eq(DailyBrief.badge_count(), 1)
+		GameState.state["objectives"]["tut_meet_archie"]["active"] = true
+		assert_eq(DailyBrief.badge_count(), 2, "the Story row badges too")
 	)
 
 	run_case("summary_reports_date_blocks_left_and_tier_counts", func():
 		GameState.reset()
+		_quiet_story()
 		Fixtures.seed_vein("eligible", 95)
 		GameState.state["home"]["pendingRaid"] = true
 		var summary := DailyBrief.summary()
@@ -263,9 +268,64 @@ func run() -> void:
 		assert_eq(DailyBrief.summary()["blocksLeft"], TimeSystem.BLOCKS_PER_DAY - 1)
 	)
 
+	run_case("story_row_wording_equals_todos_current_objective", func():
+		GameState.reset()
+		var rows := _kind("story")
+		assert_eq(rows.size(), 1)
+		var item := Todo.current_objective()
+		assert_eq(rows[0]["label"], Todo.item_text(item))
+		assert_eq(rows[0]["label"], "Get back to Archie. He's sorting the new buyer.")
+		assert_eq([rows[0]["tier"], rows[0]["key"]], ["story", "story:tut_meet_archie"])
+		assert_eq(DailyBrief.summary()["counts"]["story"], 1)
+	)
+
+	run_case("story_row_action_comes_from_the_objective_data_with_todo_fallback", func():
+		GameState.reset()
+		var row: Dictionary = _kind("story")[0]
+		assert_eq([row["action"], row["actionLabel"]], [{ "to": "thread", "contactId": "archie" }, "Messages"])
+		# An objective with no briefAction falls back to ToDo.
+		_quiet_story()
+		GameState.state["objectives"]["tut_home_raid"]["active"] = true
+		row = _kind("story")[0]
+		assert_eq([row["action"], row["actionLabel"]], [{ "to": "todo" }, "ToDo"])
+		_quiet_story()
+		GameState.state["objectives"]["col_a1_des_sites"]["active"] = true
+		assert_eq(_kind("story")[0]["action"], { "to": "map" })
+	)
+
+	run_case("waiting_tutorial_objective_points_at_rest_until_the_text_arrives", func():
+		GameState.reset()
+		_quiet_story()
+		GameState.state["objectives"]["tut_buyer_event"]["active"] = true
+		GameState.state["world"]["day"] = 1
+		var row: Dictionary = _kind("story")[0]
+		assert_eq([row["action"], row["actionLabel"]], [{ "to": "rest" }, "Rest"])
+		assert_eq(row["consequence"], "Rest at HQ to wait for Archie's text.")
+		assert_eq(row["label"], "Wait for Archie's text — he's lining up the buyer.")
+		GameState.state["world"]["day"] = 2
+		row = _kind("story")[0]
+		assert_eq(row["action"], { "to": "thread", "contactId": "archie" })
+		assert_eq(row["consequence"], "")
+	)
+
+	run_case("todo_nothing_pressing_agrees_with_no_story_row", func():
+		GameState.reset()
+		assert_true(not Todo.current_objective().is_empty())
+		assert_eq(_kind("story").size(), 1)
+		_quiet_story()
+		assert_true(Todo.current_objective().is_empty())
+		assert_eq(_kind("story").size(), 0)
+		# A finished objective is not pressing either.
+		GameState.state["objectives"]["tut_meet_archie"]["active"] = true
+		GameState.state["objectives"]["tut_meet_archie"]["complete"] = true
+		assert_true(Todo.current_objective().is_empty())
+		assert_eq(_kind("story").size(), 0)
+	)
+
 	run_case("works_before_the_business_pot_opens", func():
 		GameState.reset()
 		assert_true(not Business.is_pot_active())
+		_quiet_story()
 		GameState.state["home"]["pendingRaid"] = true
 		assert_eq(DailyBrief.items().size(), 1)
 	)
@@ -285,6 +345,12 @@ func _accept_contract(request: Dictionary) -> Dictionary:
 
 func _kind(kind: String) -> Array:
 	return DailyBrief.items().filter(func(r: Dictionary): return r["kind"] == kind)
+
+
+# Deactivates every objective so ToDo has nothing pressing (no Story row).
+func _quiet_story() -> void:
+	for id in GameState.state["objectives"]:
+		GameState.state["objectives"][id]["active"] = false
 
 
 # A guarded vein's Monday bill with no cash: a pending shortfall.

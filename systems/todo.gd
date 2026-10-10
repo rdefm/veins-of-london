@@ -27,7 +27,7 @@ const QUESTLINES := {
 # Returns one entry per started questline (at least one active objective, or
 # a live Collective ledger) plus every unstarted one with an emptyText: { "questline", "label",
 # "status": "active"|"done"|"placeholder", "defaultExpanded": bool,
-# "items": [{ "title", "detail", "done", "checks" }], "ledger": Array, "emptyText" },
+# "items": [{ "id", "title", "detail", "done", "checks" }], "ledger": Array, "emptyText" },
 # where "checks" is an undone all_of objective's live checklist (Objectives.checklist()).
 # in QUESTLINES' order, items capped to the most recent MAX_ITEMS_PER_SECTION.
 static func get_questline_sections() -> Array[Dictionary]:
@@ -44,6 +44,7 @@ static func get_questline_sections() -> Array[Dictionary]:
 		var items: Array = items_by_questline.get(questline, [])
 		var done: bool = runtime[id].get("complete", false)
 		items.append({
+			"id": id,
 			"title": text["title"],
 			"detail": text["detail"],
 			"done": done,
@@ -79,6 +80,29 @@ static func get_questline_sections() -> Array[Dictionary]:
 	return sections
 
 
+# The first undone item across the active sections, in section order: what
+# BizBrief's Story row shows. Empty when nothing is pending ("nothing
+# pressing"). Same item shape as get_questline_sections().
+static func current_objective() -> Dictionary:
+	for section in get_questline_sections():
+		if section["status"] != "active":
+			continue
+		for item in section["items"]:
+			if not item["done"]:
+				return item
+	return {}
+
+
+# The checklist row's one-line wording, shared by ToDo and the Story row.
+static func item_text(item: Dictionary) -> String:
+	return item["title"] if item["detail"] == "" else "%s — %s" % [item["title"], item["detail"]]
+
+
+# True while the objective shows its day-gated waiting wording.
+static func is_early(def: Dictionary) -> bool:
+	return def.has("earlyTitle") and GameState.state["world"]["day"] < def["earlyTitleBeforeDay"]
+
+
 # Act 2's "the Collective starts keeping records" (spec §5.2): every site
 # currently held as a Collective faction vein, unlocked once colA2Stage
 # reaches "hardening". Pure read over state.world.sites -- no objective/
@@ -107,7 +131,7 @@ static func get_collective_ledger() -> Array[Dictionary]:
 # Count-style objectives (Objectives.count_progress) show "n of N" as their
 # detail.
 static func _display_text(def: Dictionary) -> Dictionary:
-	if def.has("earlyTitle") and GameState.state["world"]["day"] < def["earlyTitleBeforeDay"]:
+	if is_early(def):
 		return { "title": def["earlyTitle"], "detail": "" }
 	var progress := Objectives.count_progress(def)
 	if not progress.is_empty():

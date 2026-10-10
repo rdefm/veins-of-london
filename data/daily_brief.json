@@ -6,7 +6,19 @@
   "veinCollapseNights": 2,
   "tierOrder": ["urgent", "story", "opportunity", "routine"],
   "emptyState": "Nothing pressing today.",
+  "storyActions": {
+    "thread": { "actionLabel": "Messages" },
+    "map": { "actionLabel": "Map" },
+    "rest": { "actionLabel": "Rest" },
+    "todo": { "actionLabel": "ToDo" }
+  },
   "rows": {
+    "story": {
+      "tier": "story", "kind": "story",
+      "label": "{text}",
+      "consequence": "{note}",
+      "actionLabel": "ToDo"
+    },
     "alarmHome": {
       "tier": "urgent", "kind": "alarm",
       "label": "Raid alarm · HQ",

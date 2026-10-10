@@ -37,8 +37,7 @@ func _build_section(section: Dictionary) -> Control:
 	if section["status"] == "placeholder":
 		rows.add_child(UI.muted_label(section["emptyText"]))
 	for item in section["items"]:
-		var text: String = item["title"] if item["detail"] == "" else "%s — %s" % [item["title"], item["detail"]]
-		rows.add_child(UI.checklist_row(text, item["done"]))
+		rows.add_child(UI.checklist_row(Todo.item_text(item), item["done"]))
 		for check in item["checks"]:
 			rows.add_child(_check_row(check))
 		rows.add_child(UI.command_row_rule())

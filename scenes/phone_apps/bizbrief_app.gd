@@ -338,7 +338,8 @@ func _build_today() -> Control:
 		line.name = "TodayRow_%s" % String(row["key"]).validate_node_name()
 		var text := UI.vbox(2)
 		text.add_child(UI.label(row["label"]))
-		text.add_child(UI.muted_label(row["consequence"]))
+		if row["consequence"] != "":
+			text.add_child(UI.muted_label(row["consequence"]))
 		line.add_child(UI.expand_fill(text))
 		line.add_child(UI.button(row["actionLabel"], func(): _open_today_action(action)))
 		c["content"].add_child(line)
@@ -362,7 +363,13 @@ func _open_today_action(action: Dictionary) -> void:
 			_set_tab(STAFF_TAB)
 		"bizbrief_sales":
 			_set_tab(MANAGE_TAB)
-		"bank", "property":
+		"thread":
+			PhoneNav.select_conversation(action["contactId"])
+		"map":
+			Nav.go_to("map")
+		"rest":
+			Nav.go_to("hq")
+		"bank", "property", "todo":
 			PhoneNav.open_app(action["to"])
 
 

@@ -637,7 +637,7 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_constants(t.get("time_blocks", []), t.get("contacts_defaults", {}), errors)
 	_validate_guard_upkeep(t.get("guard_upkeep", {}), errors)
 	_validate_events(t.get("events", {}), t.get("districts", {}), errors)
-	_validate_objectives(t.get("objectives", {}), t.get("factions", {}), t.get("ore_types", {}), t.get("site_tier_order", []), t.get("recipes", {}), errors)
+	_validate_objectives(t.get("objectives", {}), t.get("factions", {}), t.get("ore_types", {}), t.get("site_tier_order", []), t.get("recipes", {}), t.get("daily_brief", {}).get("storyActions", {}), errors)
 	_validate_collective_barks(t.get("collective_barks", {}), errors)
 	_validate_contact_texts(t.get("contact_texts", {}), t.get("recipes", {}), t.get("factions", {}), errors)
 	_validate_phone_home(t.get("phone_home", {}), errors)
@@ -709,7 +709,7 @@ const DAILY_BRIEF_TIERS := ["urgent", "story", "opportunity", "routine"]
 
 
 func _validate_daily_brief(daily_brief: Dictionary, errors: Array[String]) -> void:
-	_require_keys(daily_brief, ["rowCap", "billWindowDays", "tierOrder", "emptyState", "rows"], "daily_brief", errors)
+	_require_keys(daily_brief, ["rowCap", "billWindowDays", "tierOrder", "emptyState", "storyActions", "rows"], "daily_brief", errors)
 	if typeof(daily_brief.get("rowCap")) not in [TYPE_INT, TYPE_FLOAT] or int(daily_brief.get("rowCap", 0)) < 1:
 		errors.append("daily_brief.rowCap: must be a positive integer")
 	if typeof(daily_brief.get("billWindowDays")) not in [TYPE_INT, TYPE_FLOAT] or int(daily_brief.get("billWindowDays", -1)) < 0:
@@ -1794,7 +1794,7 @@ const OBJECTIVE_CONDITION_KEYS: Dictionary = {
 }
 
 
-func _validate_objectives(objectives: Dictionary, factions: Dictionary, ore_types: Dictionary, site_tier_order: Array, recipes: Dictionary, errors: Array[String]) -> void:
+func _validate_objectives(objectives: Dictionary, factions: Dictionary, ore_types: Dictionary, site_tier_order: Array, recipes: Dictionary, story_actions: Dictionary, errors: Array[String]) -> void:
 	for key in objectives.keys():
 		var entry = objectives[key]
 		_require_keys(entry, ["id", "title", "detail", "type", "params", "activateFlag", "completeFlag", "questline"], "objectives.%s" % key, errors)
@@ -1819,6 +1819,18 @@ func _validate_objectives(objectives: Dictionary, factions: Dictionary, ore_type
 				errors.append("objectives.%s: earlyTitle must be a string" % key)
 			if not (entry["earlyTitleBeforeDay"] is float or entry["earlyTitleBeforeDay"] is int):
 				errors.append("objectives.%s: earlyTitleBeforeDay must be a number" % key)
+		# Optional Story-row destinations (systems/daily_brief.gd): each names
+		# a daily_brief.storyActions target; early* pairs with the early title.
+		for action_key in ["briefAction", "earlyBriefAction"]:
+			if not entry.has(action_key):
+				continue
+			var brief_action: Variant = entry[action_key]
+			if typeof(brief_action) != TYPE_DICTIONARY or not story_actions.has(brief_action.get("to")):
+				errors.append("objectives.%s.%s: 'to' must be one of %s" % [key, action_key, story_actions.keys()])
+			elif brief_action["to"] == "thread" and typeof(brief_action.get("contactId")) != TYPE_STRING:
+				errors.append("objectives.%s.%s: thread needs a contactId" % [key, action_key])
+		if entry.has("earlyBriefAction") and not entry.has("earlyTitle"):
+			errors.append("objectives.%s: earlyBriefAction needs earlyTitle" % key)
 
 		var obj_type = entry.get("type")
 		if not OBJECTIVE_TYPES.has(obj_type):

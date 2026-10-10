@@ -294,6 +294,8 @@ func run() -> void:
 
 	run_case("quiet_lead_sections_show_empty_states", func():
 		GameState.reset()
+		for id in GameState.state["objectives"]:
+			GameState.state["objectives"][id]["active"] = false
 		MorningAccountsSystem.finish_rollover(MorningAccountsSystem.begin_rollover())
 		GameState.state["phoneNav"]["app"] = "bizbrief"
 		var phone := PhoneScreen.new()

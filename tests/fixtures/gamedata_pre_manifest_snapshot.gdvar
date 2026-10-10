@@ -7147,6 +7147,9 @@
 "completeFlag": "colA1DesSitesFound",
 "detail": "One fate, one physics. Fair quality or better. Leave them unclaimed.",
 "id": "col_a1_des_sites",
+"briefAction": {
+"to": "map"
+},
 "params": {
 "forcedFinds": {
 "2": "fate",
@@ -7165,6 +7168,9 @@
 "completeFlag": "colA1HakimRescued",
 "detail": "It's been neglected for years. Cultivate it back up past neutral.",
 "id": "col_a1_hakim_rescue",
+"briefAction": {
+"to": "map"
+},
 "params": {
 "threshold": 60,
 "veinIdStatePath": "collective.hakimVeinId"
@@ -7255,6 +7261,10 @@
 "completeFlag": "archieCraftChatSeen",
 "detail": "",
 "id": "tut_archie_craft_chat",
+"briefAction": {
+"contactId": "archie",
+"to": "thread"
+},
 "params": {},
 "questline": "tutorial",
 "title": "Catch up with Archie about what James taught you.",
@@ -7277,6 +7287,14 @@
 "earlyTitle": "Wait for Archie's text — he's lining up the buyer.",
 "earlyTitleBeforeDay": 2,
 "id": "tut_buyer_event",
+"briefAction": {
+"contactId": "archie",
+"to": "thread"
+},
+"earlyBriefAction": {
+"to": "rest"
+},
+"earlyBriefNote": "Rest at HQ to wait for Archie's text.",
 "params": {},
 "questline": "tutorial",
 "title": "Back up Archie on the sale tonight. Check Contacts.",
@@ -7287,6 +7305,10 @@
 "completeFlag": "craftingUnlocked",
 "detail": "",
 "id": "tut_crafting_unlocked",
+"briefAction": {
+"contactId": "james",
+"to": "thread"
+},
 "params": {},
 "questline": "tutorial",
 "title": "Go back to James when he's ready. He'll teach you the basics.",
@@ -7307,6 +7329,10 @@
 "completeFlag": "metArchie",
 "detail": "",
 "id": "tut_meet_archie",
+"briefAction": {
+"contactId": "archie",
+"to": "thread"
+},
 "params": {},
 "questline": "tutorial",
 "title": "Get back to Archie. He's sorting the new buyer.",
@@ -7317,6 +7343,10 @@
 "completeFlag": "metJames",
 "detail": "",
 "id": "tut_meet_james",
+"briefAction": {
+"contactId": "james",
+"to": "thread"
+},
 "params": {},
 "questline": "tutorial",
 "title": "Archie mentioned a contact called James. SMS him to set it up.",

@@ -21,6 +21,7 @@ static func items() -> Array[Dictionary]:
 	_wage_rows(rows)
 	_contract_at_risk_rows(rows)
 	_vein_at_risk_rows(rows)
+	_story_rows(rows)
 	_development_rows(rows)
 	var tiers: Array = GameData.DAILY_BRIEF["tierOrder"]
 	var order: Array = range(rows.size())
@@ -159,6 +160,23 @@ static func _vein_at_risk_rows(rows: Array[Dictionary]) -> void:
 		}
 		var urgent: bool = nights <= int(GameData.DAILY_BRIEF["veinCollapseNights"])
 		rows.append(_row("veinAtRiskUrgent" if urgent else "veinAtRiskRoutine", "vein_collapse:%s" % vein["id"], values, { "to": "map_vein", "veinId": vein["id"] }, nights))
+
+
+# The current ToDo objective (Todo.current_objective) as the one Story row,
+# worded exactly as ToDo words it. Its objective's briefAction (or, while the
+# waiting wording shows, earlyBriefAction) names the destination; no action
+# falls back to ToDo. briefNote/earlyBriefNote is the consequence line.
+static func _story_rows(rows: Array[Dictionary]) -> void:
+	var item := Todo.current_objective()
+	if item.is_empty():
+		return
+	var def: Dictionary = GameData.OBJECTIVES[item["id"]]
+	var early := Todo.is_early(def) and def.has("earlyBriefAction")
+	var action: Dictionary = def.get("earlyBriefAction" if early else "briefAction", { "to": "todo" })
+	var note: String = def.get("earlyBriefNote" if early else "briefNote", "")
+	var row := _row("story", "story:%s" % item["id"], { "text": Todo.item_text(item), "note": note }, action, 0)
+	row["actionLabel"] = GameData.DAILY_BRIEF["storyActions"][action["to"]]["actionLabel"]
+	rows.append(row)
 
 
 # Live eligibility, re-derived from state every call, so a vein pruned past
