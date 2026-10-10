@@ -120,7 +120,8 @@ func run() -> void:
 		assert_eq(phone._badge_count_for("alarms"), 1, "Alarms counts unresolved alarm rows")
 
 		GameState.state["messages"]["archie"] = [{ "id": "m1", "text": "Test", "read": false }]
-		assert_eq(phone._badge_count_for("bizbrief"), MorningAccounts.attention_items().size(), "BizBrief counts unresolved attention items")
+		assert_eq(phone._badge_count_for("bizbrief"), DailyBrief.badge_count(), "BizBrief counts Urgent + Story Today rows")
+		assert_eq(phone._badge_count_for("bizbrief"), 1, "the HQ alarm counts; the unread message doesn't")
 
 		Barometer.ensure_progress()
 		GameState.state["barometer"]["progress"]["economic"]["boom"] = 80

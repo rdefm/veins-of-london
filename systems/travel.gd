@@ -15,9 +15,7 @@ static func blocks_needed(_district: String) -> int:
 # don't need to care that travel is free; Map tab buttons call this to grey
 # themselves out before the player taps them (M1-LONDON §D4.4).
 static func can_afford(_district: String, action_cost: int = 1) -> bool:
-	var world: Dictionary = GameState.state["world"]
-	var blocks_remaining: int = TimeSystem.BLOCKS_PER_DAY - world["timeBlocksDone"].size()
-	return blocks_remaining >= action_cost
+	return TimeSystem.blocks_left() >= action_cost
 
 
 # action_cost: blocks the action itself will spend after this resolves

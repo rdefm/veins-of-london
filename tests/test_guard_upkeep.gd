@@ -279,7 +279,7 @@ func run() -> void:
 		assert_eq(GameState.state["bankLog"][-1]["amount"], -1000)
 		assert_eq(GameState.state["guardUpkeep"]["history"][-1], { "day": monday, "places": { "v1": 500, "home": 500 } })
 		assert_eq(GuardUpkeep.pending_shortfall(), null)
-		assert_eq(MorningAccounts.attention_items().filter(func(i): return i["kind"] == "guardShortfall"), [], "the attention row clears")
+		assert_eq(DailyBrief.items().filter(func(i): return i["kind"] == "guardShortfall"), [], "the Today row clears")
 	)
 
 	run_case("short_pay_confirm_draws_the_reserve_before_cash_and_floats_leftover", func():
@@ -311,14 +311,15 @@ func run() -> void:
 		assert_eq(GameState.state, before, "nothing changed")
 	)
 
-	run_case("attention_row_notification_and_board_tap_open_the_short_pay_menu", func():
+	run_case("today_row_notification_and_board_tap_open_the_short_pay_menu", func():
 		var monday := _seed_guards()
 		GameState.state["world"]["day"] = monday
 		GameState.state["player"]["cash"] = 0
 		GuardUpkeep.pay_monday_bill()
-		var items := MorningAccounts.attention_items().filter(func(i): return i["kind"] == "guardShortfall")
-		assert_eq(items.size(), 1, "a Brief attention row")
-		MorningAccounts.open_attention(items[0])
+		var items := DailyBrief.items().filter(func(i): return i["kind"] == "guardShortfall")
+		assert_eq(items.size(), 1, "a Today row")
+		assert_eq([items[0]["tier"], items[0]["action"]], ["urgent", { "to": "short_pay" }])
+		PhoneNav.open_short_pay()
 		assert_eq([GameState.state["currentScreen"], GameState.state["phoneNav"]["app"], GameState.state["phoneNav"]["bizbriefView"]], ["phone", "bizbrief", "shortPay"])
 		PhoneNav.go_home()
 		var warning: Dictionary = GameState.state["notifications"][-1]

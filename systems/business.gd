@@ -231,6 +231,16 @@ static func pending_wage_prompts() -> Array[String]:
 	return ids
 
 
+# Contact ids owed a business wage, prompt answered or not.
+static func owed_contact_ids() -> Array[String]:
+	var ids: Array[String] = []
+	var wages: Dictionary = _business()["wages"]
+	for contact_id in wages:
+		if int(wages[contact_id]["owed"]) > 0:
+			ids.append(contact_id)
+	return ids
+
+
 # round(weekly × days / 7): a full week's wage, prorated for a partial week.
 static func prorated_wage(weekly: int, days_worked: int) -> int:
 	return GameState.round_epsilon(float(weekly) * float(days_worked) / float(Calendar.days_per_week()))

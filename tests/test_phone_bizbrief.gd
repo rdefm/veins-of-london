@@ -18,6 +18,15 @@ static func _label_with_text(root: Node, text: String) -> Label:
 	return null
 
 
+# Opens every collapsed Brief section (accounts, Treasury, Operations feed).
+static func _expand_brief_sections(root: Node) -> void:
+	for key in ["accounts", "treasury", "operations"]:
+		var section: Node = root.find_child("BizBriefSection_%s" % key, true, false)
+		var header := section.get_child(0) as Button
+		if header.text.ends_with("▸"):
+			header.pressed.emit()
+
+
 static func _assign_button(root: Node) -> Button:
 	for candidate in root.find_children("", "Button", true, false):
 		if (candidate as Button).text.begins_with("Assign "):
@@ -99,7 +108,7 @@ func run() -> void:
 		phone.free()
 	)
 
-	run_case("brief_renders_accounts_operations_and_current_attention", func():
+	run_case("brief_renders_today_card_first_and_expands_collapsed_accounts_treasury_operations", func():
 		GameState.reset()
 		GameState.state["morningAccounts"]["latest"] = {
 			"day": 3, "openingBalance": 200, "closingBalance": 145,
@@ -112,22 +121,38 @@ func run() -> void:
 		GameState.state["phoneNav"]["app"] = "bizbrief"
 		var phone := PhoneScreen.new()
 		phone._ready()
+		var page: Node = phone.find_child("BizBriefPage", true, false)
+		assert_eq(page.get_child(0).name, &"BizBriefToday", "the Today card leads the Brief")
 		var texts := NodeQuery.label_texts(phone)
-		for expected in ["BizBrief", "Morning Brief", "£145", "−£55", "Needs your attention", "Treasury", "Operations feed", "Reynard's", "Operations", "Opening £200 · Closing £145", "Income +£20 · Expenses −£75"]:
+		assert_true(texts.has("Today"))
+		assert_true(page.find_child("BizBriefHero", true, false) == null, "lower sections start collapsed")
+		for key in ["accounts", "treasury", "operations"]:
+			var body: Control = page.find_child("BizBriefSection_%s" % key, true, false).get_child(1)
+			assert_true(not body.visible and body.get_child_count() == 0, "%s starts collapsed" % key)
+		assert_true(not NodeQuery.button_texts(phone).any(func(t: String): return t.find("unread") != -1), "unread messages are not Today rows")
+		_expand_brief_sections(phone)
+		texts = NodeQuery.label_texts(phone)
+		for expected in ["BizBrief", "Morning Brief", "£145", "−£55", "Reynard's", "Operations", "Opening £200 · Closing £145", "Income +£20 · Expenses −£75"]:
 			assert_true(texts.has(expected), "missing %s" % expected)
 		assert_true(_button_with_text(phone, "Full brief →") != null)
 		_button_with_text(phone, "Full brief →").pressed.emit()
 		phone.free()
 	)
 
-	run_case("attention_surfaces_a_live_development_eligible_vein_with_raid_exposure", func():
+	run_case("today_surfaces_a_live_development_eligible_vein_and_its_action_opens_the_vein", func():
 		GameState.reset()
 		Fixtures.seed_vein("eligible", 95)
 		GameState.state["phoneNav"]["app"] = "bizbrief"
 		var phone := PhoneScreen.new()
 		phone._ready()
-		var texts := NodeQuery.button_texts(phone)
-		assert_true(texts.any(func(t: String): return t.find("ready to develop") != -1 and t.find("raid exposure") != -1), "development-eligible vein and its raid exposure are surfaced in Attention")
+		var texts := NodeQuery.label_texts(phone)
+		assert_true(texts.any(func(t: String): return t.find("ready to develop") != -1), "development-eligible vein is a Today row")
+		assert_true(texts.any(func(t: String): return t.find("Raid exposure") != -1), "with its raid exposure")
+		var row: Node = phone.find_child("TodayRow_development_eligible", true, false)
+		assert_true(row != null, "row keyed by vein")
+		_button_with_text(row, "Manage").pressed.emit()
+		assert_eq(GameState.state["currentScreen"], "map")
+		assert_eq(GameState.state["mapNav"]["selectedSiteId"], "site_eligible")
 		phone.free()
 	)
 
@@ -139,13 +164,13 @@ func run() -> void:
 		GameState.state["phoneNav"]["app"] = "bizbrief"
 		var phone := PhoneScreen.new()
 		phone._ready()
+		assert_true(NodeQuery.label_texts(phone).has("Today"), "Today card before rollover")
+		_expand_brief_sections(phone)
 		var texts := NodeQuery.label_texts(phone)
 		assert_true(texts.has("£300"), "live cash in hero")
-		assert_true(texts.has("Needs your attention"), "attention before rollover")
 		assert_true(texts.has("Business pot · £0"))
 		assert_true(texts.has("Bill float · £0"))
 		assert_true(texts.has("No overnight operations to report."))
-		assert_true(NodeQuery.button_texts(phone).any(func(t: String): return t.find("unread") != -1))
 		_button_with_text(phone, "Donate").pressed.emit()
 		assert_eq(GameState.state["business"]["float"], 1)
 		assert_eq(GameState.state["player"]["cash"], 299)
@@ -182,14 +207,14 @@ func run() -> void:
 		phone.free()
 	)
 
-	run_case("attention_never_lists_a_vein_already_at_its_level_cap", func():
+	run_case("today_never_lists_a_vein_already_at_its_level_cap", func():
 		GameState.reset()
 		var capped := Fixtures.seed_vein("capped", 95)
 		capped["level"] = 3  # fair cap 3: already maxed
 		GameState.state["phoneNav"]["app"] = "bizbrief"
 		var phone := PhoneScreen.new()
 		phone._ready()
-		var texts := NodeQuery.button_texts(phone)
+		var texts := NodeQuery.label_texts(phone)
 		assert_true(not texts.any(func(t: String): return t.find("ready to develop") != -1), "a capped vein is never shown as development-eligible")
 		phone.free()
 	)
@@ -273,11 +298,10 @@ func run() -> void:
 		GameState.state["phoneNav"]["app"] = "bizbrief"
 		var phone := PhoneScreen.new()
 		phone._ready()
+		assert_true(NodeQuery.label_texts(phone).has(DailyBrief.empty_text()))
+		_expand_brief_sections(phone)
 		var texts := NodeQuery.label_texts(phone)
 		assert_true(texts.has("Reynard's"))
-		assert_true(texts.has("Needs your attention"))
-		assert_true(texts.has("Nothing needs attention."))
-		assert_true(texts.has("Operations feed"))
 		assert_true(texts.has("No overnight operations to report."))
 		phone.free()
 	)

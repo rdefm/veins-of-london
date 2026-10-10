@@ -143,6 +143,10 @@ var PALETTE: Dictionary = {}
 # enters GameState and never consults host time, battery, or network state.
 var PHONE_HOME: Dictionary = {}
 
+# data/daily_brief.json: BizBrief Today card tier order, row cap and row
+# templates, read by systems/daily_brief.gd.
+var DAILY_BRIEF: Dictionary = {}
+
 # data/map_palette.json (M1.5 §Map palette): "light"/"dark" token -> hex
 # string sets with identical keys, plus "darkOverrides" per faction/ore id.
 # Resolved to Color by scenes/components/map_palette.gd.
@@ -485,6 +489,9 @@ const MANIFEST: Array[Dictionary] = [
 	{"table": "phone_home", "file": "res://data/phone_home.json", "fields": [
 		{"field": "PHONE_HOME", "key": "", "type": TYPE_DICTIONARY},
 	]},
+	{"table": "daily_brief", "file": "res://data/daily_brief.json", "fields": [
+		{"field": "DAILY_BRIEF", "key": "", "type": TYPE_DICTIONARY},
+	]},
 	{"table": "contact_texts", "file": "res://data/contact_texts.json", "fields": [
 		{"field": "CONTACT_TEXTS", "key": "", "type": TYPE_DICTIONARY},
 	]},
@@ -634,6 +641,7 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_collective_barks(t.get("collective_barks", {}), errors)
 	_validate_contact_texts(t.get("contact_texts", {}), t.get("recipes", {}), t.get("factions", {}), errors)
 	_validate_phone_home(t.get("phone_home", {}), errors)
+	_validate_daily_brief(t.get("daily_brief", {}), errors)
 	_validate_map_palette(t.get("map_palette", {}), t.get("factions", {}), t.get("ore_types", {}), errors)
 
 	return errors
@@ -695,6 +703,27 @@ func _validate_phone_home(phone_home: Dictionary, errors: Array[String]) -> void
 	var widget: Dictionary = phone_home.get("widget", {})
 	_require_keys(widget, ["dateFormat", "weather", "temperature", "location", "flavour"], "phone_home.widget", errors)
 	_require_exact_values(widget, {"weather": "☁", "temperature": "12°C", "location": "London", "flavour": "Same city. Different rules."}, "phone_home.widget", errors)
+
+
+const DAILY_BRIEF_TIERS := ["urgent", "story", "opportunity", "routine"]
+
+
+func _validate_daily_brief(daily_brief: Dictionary, errors: Array[String]) -> void:
+	_require_keys(daily_brief, ["rowCap", "tierOrder", "emptyState", "rows"], "daily_brief", errors)
+	if typeof(daily_brief.get("rowCap")) not in [TYPE_INT, TYPE_FLOAT] or int(daily_brief.get("rowCap", 0)) < 1:
+		errors.append("daily_brief.rowCap: must be a positive integer")
+	if daily_brief.get("tierOrder") != DAILY_BRIEF_TIERS:
+		errors.append("daily_brief.tierOrder: must be exactly %s" % [DAILY_BRIEF_TIERS])
+	var rows: Variant = daily_brief.get("rows", {})
+	if typeof(rows) != TYPE_DICTIONARY:
+		errors.append("daily_brief.rows: must be a Dictionary")
+		return
+	for row_id in rows:
+		var context := "daily_brief.rows.%s" % row_id
+		var row: Variant = rows[row_id]
+		_require_keys(row, ["tier", "kind", "label", "consequence", "actionLabel"], context, errors)
+		if typeof(row) == TYPE_DICTIONARY and not DAILY_BRIEF_TIERS.has(row.get("tier")):
+			errors.append("%s.tier: '%s' is not one of %s" % [context, row.get("tier"), DAILY_BRIEF_TIERS])
 
 
 func _require_exact_values(actual: Dictionary, expected: Dictionary, context: String, errors: Array[String]) -> void:

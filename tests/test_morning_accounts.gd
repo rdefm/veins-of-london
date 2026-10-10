@@ -1,7 +1,6 @@
 extends "res://tests/test_base.gd"
 
 const MorningAccountsSystem := preload("res://systems/morning_accounts.gd")
-const Fixtures := preload("res://tests/support/fixtures.gd")
 
 
 func run() -> void:
@@ -87,45 +86,10 @@ func run() -> void:
 		assert_eq(account["oreMovement"]["time"], 67, "the day's block yield (+70) plus the rollover loss (-3)")
 	)
 
-	run_case("attention_is_current_unresolved_alarms_and_unread_messages", func():
+	run_case("open_bank_opens_the_bank_app", func():
 		GameState.reset()
-		GameState.state["home"]["pendingRaid"] = true
-		Messages.append("archie", "them", "Call me.")
-		var items := MorningAccountsSystem.attention_items()
-		assert_eq(items.size(), 2)
-		assert_eq(items[0]["kind"], "alarm")
-		assert_eq(items[1]["kind"], "message")
 		MorningAccountsSystem.open_bank()
 		assert_eq(GameState.state["phoneNav"]["app"], "bank")
-		MorningAccountsSystem.open_attention(items[0])
-		assert_eq(GameState.state["phoneNav"]["app"], "alarms")
-		MorningAccountsSystem.open_attention(items[1])
-		assert_eq(GameState.state["phoneNav"]["app"], "messages")
-		assert_eq(GameState.state["phoneNav"]["selectedContactId"], "archie")
-	)
-
-	run_case("attention_lists_live_development_eligible_veins_with_raid_exposure_but_never_capped_ones", func():
-		GameState.reset()
-		Fixtures.seed_vein("eligible", 95)  # fair cap 3, level 1: eligible
-		var capped := Fixtures.seed_vein("capped", 95)
-		capped["level"] = 3  # fair cap 3: already maxed, never listed
-		var items := MorningAccountsSystem.attention_items()
-		var development_items: Array = items.filter(func(i: Dictionary): return i["kind"] == "development")
-		assert_eq(development_items.size(), 1)
-		assert_eq(development_items[0]["veinId"], "eligible")
-
-		var label := MorningAccountsSystem.attention_label(development_items[0])
-		assert_true(label.find("ready to develop") != -1)
-		assert_true(label.find("raid exposure %d" % Cultivating.combined_magnitude(GameState.state["player"]["veins"][0])) != -1)
-
-		MorningAccountsSystem.open_attention(development_items[0])
-		assert_eq(GameState.state["currentScreen"], "map")
-		assert_eq(GameState.state["mapNav"]["selectedSiteId"], "site_eligible")
-
-		# Harvesting below the threshold live drops the item immediately -- no stale snapshot.
-		Cultivating.prune("eligible", GameData.VEIN_GROWTH["pruneHardDepth"])
-		items = MorningAccountsSystem.attention_items()
-		assert_true(items.filter(func(i: Dictionary): return i["kind"] == "development").is_empty())
 	)
 
 	run_case("expenses_are_arrears_payment_plus_todays_bill_with_no_arrears_exceptions_once_cleared", func():

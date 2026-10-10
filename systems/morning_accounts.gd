@@ -1,8 +1,6 @@
 class_name MorningAccounts
 extends RefCounted
 
-const RaidAlarmsSystem := preload("res://systems/raid_alarms.gd")
-
 # Exact, persisted account of one completed daily tick plus the staff block
 # output of the day before it. The temporary context returned by
 # begin_rollover() exists only while TimeSystem runs the tick;
@@ -285,59 +283,6 @@ static func has_operations(account: Dictionary) -> bool:
 		or account["losses"]["veins"] > 0 \
 		or account.get("guardWages") != null \
 		or not account["exceptions"].is_empty()
-
-
-static func attention_items() -> Array[Dictionary]:
-	var items: Array[Dictionary] = []
-	if GameState.state["home"].get("pendingRaid", false):
-		items.append({ "kind": "alarm", "target": "home" })
-	for raid in GameState.state["world"].get("pendingDefendRaids", []):
-		items.append({ "kind": "alarm", "target": "vein", "veinId": raid["veinId"] })
-	if GuardUpkeep.pending_shortfall() != null:
-		items.append({ "kind": "guardShortfall" })
-	# Live eligibility, re-derived from state every call -- never a rollover
-	# snapshot, so a vein that's been harvested past the threshold since the
-	# last tick drops off immediately rather than lingering as a stale item.
-	for vein in GameState.state["player"]["veins"]:
-		if Cultivating.is_development_eligible(vein):
-			items.append({ "kind": "development", "veinId": vein["id"], "vein": vein })
-	for contact_id in GameState.state["messages"]:
-		var count := Messages.unread_count(contact_id)
-		if count > 0:
-			items.append({ "kind": "message", "contactId": contact_id, "count": count })
-	return items
-
-
-# PROSE-REVIEW: the guard shortfall row.
-static func attention_label(item: Dictionary) -> String:
-	if item["kind"] == "message":
-		return "%s — %d unread" % [Contacts.display_name(item["contactId"]), item["count"]]
-	if item["kind"] == "development":
-		var vein: Dictionary = item["vein"]
-		# R§3.4: combined_magnitude, not raw value_tier -- this vein's earned
-		# level (if any) is felt in the exposure figure the player sees here.
-		var exposure: int = Cultivating.combined_magnitude(vein)
-		return "%s — %s ready to develop · raid exposure %d" % [GameData.ORE_TYPES[vein["oreType"]]["name"], GameData.DISTRICTS[vein["district"]]["name"], exposure]
-	if item["kind"] == "guardShortfall":
-		return "Guard wages short — choose who stays by %s" % Calendar.format_day(int(GuardUpkeep.pending_shortfall()["deadline"]))
-	if item["target"] == "home":
-		return "HQ raid alarm"
-	var vein = Cultivating.find_vein(item["veinId"])
-	if vein == null:
-		return "Vein raid alarm"
-	return "%s — %s" % [GameData.ORE_TYPES[vein["oreType"]]["name"], GameData.DISTRICTS[vein["district"]]["name"]]
-
-
-static func open_attention(item: Dictionary) -> void:
-	if item["kind"] == "message":
-		PhoneNav.select_conversation(item["contactId"])
-	elif item["kind"] == "development":
-		# Same manage-vein navigation VeinList's own Manage option uses.
-		VeinList.apply_option(VeinList.MANAGE_ID, item["veinId"])
-	elif item["kind"] == "guardShortfall":
-		PhoneNav.open_short_pay()
-	else:
-		RaidAlarmsSystem.open()
 
 
 static func open_bank() -> void:

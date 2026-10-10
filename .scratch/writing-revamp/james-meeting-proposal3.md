@@ -128,7 +128,8 @@ Expected pearls: slow 1.1 (watched 1.3), rush 1.2 (watched 1.6). Rush has the hi
           "label": null,
           "speaker": null,
           "text": "Shelves of jars run to the ceiling, each labelled in biro. It smells of copper and bleach. Archie stays by the door and rubs his eyes.",
-          "key": "c5"
+          "key": "c5",
+          "image": "res://assets/events/james_meeting/james_meeting_main_5.png"
         },
         {
           "type": "narration",
@@ -142,14 +143,16 @@ Expected pearls: slow 1.1 (watched 1.3), rush 1.2 (watched 1.6). Rush has the hi
           "label": null,
           "speaker": null,
           "text": "You glance up. James is watching you. His expression doesn't change, exactly. But something in it does.",
-          "key": "c7"
+          "key": "c7",
+          "image": "res://assets/events/james_meeting/james_meeting_main_7.png"
         },
         {
           "type": "speaker",
           "label": null,
           "speaker": "Archie",
           "text": "\"James is the best craftsman I know. That pearl in Whitechapel was one of his.\"",
-          "key": "c8"
+          "key": "c8",
+          "image": "res://assets/events/james_meeting/james_meeting_main_8.png"
         },
         {
           "type": "speaker",
@@ -177,7 +180,8 @@ Expected pearls: slow 1.1 (watched 1.3), rush 1.2 (watched 1.6). Rush has the hi
           "label": null,
           "speaker": "Archie",
           "text": "He looks at you, not James. \"Your call. Stay here, or come to Stratford and carry a bag.\"",
-          "key": "c12"
+          "key": "c12",
+          "image": "res://assets/events/james_meeting/james_meeting_main_12.png"
         },
         {
           "type": "speaker",

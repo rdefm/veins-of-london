@@ -79,7 +79,8 @@ Data file per system: see `data/*.json` below.
 | map_zoom.gd | Zoom-level math for the diagram |
 | messages.gd | Messages data layer + conversation-index projections, total unread count, per-contact clear (read + contact notifications seen) |
 | modal.gd | Modal open/close state; holds an event deferred behind a modal flow (`followEvent`) and starts it on close; `returnTo` reopens a parked modal on close |
-| morning_accounts.gd | Rollover capture (incl. arrears exceptions and countdown, payday statement, wage shortfalls, Monday guard wages, guard shortfall/walk-offs), per-block staff output accumulation, BizBrief routing, arrears/payday/wage-prompt/guard-wage labels |
+| morning_accounts.gd | Rollover capture (incl. arrears exceptions and countdown, payday statement, wage shortfalls, Monday guard wages, guard shortfall/walk-offs), per-block staff output accumulation, BizBrief auto-open, arrears/payday/wage-prompt/guard-wage labels |
+| daily_brief.gd | Pure Today-card projection for BizBrief: `items()` (tiered rows with label, consequence, action descriptor), `badge_count()` (Urgent + Story), `summary()` (widget date, blocks left, tier counts); sources raid alarms, guard shortfall, owed wages/prompts, development-eligible veins; templates from daily_brief.json |
 | nav.gd | Screen navigation |
 | notify.gd | Notifications append/evict; per-contact dismiss via contactId meta |
 | objectives.gd | Objective/questline evaluator; all_of live-condition, template_periods_completed (Beat 6) and recurring_proof (Beat 7) objectives + their ToDo checklist rows |
@@ -99,8 +100,8 @@ Data file per system: see `data/*.json` below.
 | loadout.gd | Two personal consumable slots for the player (`player.loadout`) and combat recruits (`contacts[id].loadout`): equip/unequip (refused in combat; allies refuse Wormhole), consume, settlement refill (player, then recruits in roster order), equippable stock; multi-target units (`multi` flag, refilled as the same variant) |
 | stash.gd | Personal stash vs. shared pools |
 | station_bubble.gd | Site/vein-stop tap-bubble decision |
-| calendar.gd | Pure `world.day` → calendar date (`MON 3 JAN`, `Y2`+ suffix) per R§3.1 "Calendar"; day 1's weekday from `calendar.startWeekday`; every player-facing date string uses `Calendar.format_day`; weekday/Monday helpers for the weekly cadence |
-| time_system.gd | Time blocks (each runs the staff block step + LodedInnit post), forward-only `advance_to_block()` for event `at` timing (R§3.9b), rest, daily tick (Monday-only tenure-aware weekly home bill, weekly arrears clock + interest, forced one-tier downgrade per ADR 0006) |
+| calendar.gd | Pure `world.day` → calendar date (`MON 3 JAN`, `Y2`+ suffix) per R§3.1 "Calendar"; day 1's weekday from `calendar.startWeekday`; every player-facing date string uses `Calendar.format_day`; `widget_date` for the phone widget/Today card; weekday/Monday helpers for the weekly cadence |
+| time_system.gd | Time blocks (each runs the staff block step + LodedInnit post), forward-only `advance_to_block()` for event `at` timing (R§3.9b), `blocks_left()`, rest, daily tick (Monday-only tenure-aware weekly home bill, weekly arrears clock + interest, forced one-tier downgrade per ADR 0006) |
 | todo.gd | ToDo-app sections per questline (Tutorial, Collective, Business Empire) with active/done/placeholder status + default expansion, "n of N" detail for count objectives, all_of checklist sub-items; Collective section carries the ledger read from state.world.sites |
 | travel.gd | District travel (free) |
 | vein_list.gd | Vein-portfolio list decision layer |
@@ -229,7 +230,7 @@ overlays.
 | phone_app.gd | PhoneApp base: shell ref, build(content)/teardown() hooks, shared back button + refresh |
 | phone_app_registry.gd | app id -> PhoneApp script table; the only dispatch path phone.gd uses |
 | alarms_app.gd | Raid alarm rows: defend / leave undefended (two-tap) / decide later |
-| bizbrief_app.gd | Navy BizBrief shell and tabs; Brief accounts, attention and shares; Manage Sales, production and procurement; gated Staff roster; pot-gated Stats (10-day trend, expense totals, ore source, items); hosts Short Pay and Guard Costs; staff poach alerts (Match / Let them go) |
+| bizbrief_app.gd | Navy BizBrief shell and tabs; Brief Today card (DailyBrief rows + action routing), wage prompts, collapsed accounts/Treasury/Operations feed, shares; Manage Sales, production and procurement; gated Staff roster; pot-gated Stats (10-day trend, expense totals, ore source, items); hosts Short Pay and Guard Costs; staff poach alerts (Match / Let them go) |
 | messages_app.gd | Conversation inbox (fixed-height rows: bold name, one-line `…` preview, unread pill, per-contact Clear) + single-thread staged bubble reveal/action bar (incl. Owen's text reply choices); thread opens scrolled to the newest message |
 | todo_app.gd | ToDo app: collapsible questline sections from Todo, all_of checks as indented sub-rows; session-only expand/collapse overrides in a static var |
 | factions_app.gd | London share table (ore/crafting toggle), London's politics (stance per pair, war/truce markers) and faction cards: archetype, ores, crafts, share bars, stance, pressure, peace talks at war, Gift, favour asked/owed (`Diplomacy`), partner price ask and trouble asks (`Partners`), intel level and what it reveals (`Intel`), activity log. |
@@ -276,6 +277,7 @@ overlays.
 | offers.json | offers.gd (synthetic catalogue, scripted counterparties, offer expiry days, recurring term weeks, random-offer daily chance curve + qty bands, small-offer threshold, cancel relation hit), business_quest.gd (biz_starter_* chain + Archie nudge text, biz_recurring_* from Beat 3/6) |
 | ore_types.json | widely read (economy, cultivating, sites, factions) |
 | palette.json | GameData.gd (reference combat-art palette; `lodedinnit_*` brand tokens read by lodedinnit_app.gd) |
+| daily_brief.json | GameData.gd + daily_brief.gd (Today card tier order, row cap, empty state, per-row tier/kind/label/consequence templates and action labels; PROSE-REVIEW) |
 | phone_home.json | GameData.gd + phone_device_shell.gd (wallpaper, per-block status clock times, widget date format + fixed weather/battery copy; shell renders time/date from world.day/timeBlock) |
 | recipes.json | widely read (crafting, bench, combat, dial, jobs, rooms) |
 | sites.json | sites.gd, collective.gd, objectives.gd |

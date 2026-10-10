@@ -1,5 +1,7 @@
-# BizBrief: Brief tab (morning account — bank, payday, wage prompts, operations, attention,
-# moves against you, London and supplier shares),
+# BizBrief: Brief tab (Today card from DailyBrief, wage prompts, then
+# collapsed accounts/Treasury/Operations feed sections, then the morning
+# account — bank, payday, operations, moves against you, London and supplier
+# shares),
 # Manage tab (sales offers/contracts, lab production targets, cultivator
 # procurement), once bizStaffTabOpen is set, Staff tab (recruited
 # contacts, roles, pay) and, once the business pot is active, Stats tab
@@ -56,6 +58,10 @@ var _expanded_log_days := {}
 var _production_log_open := false
 var _sales_history_open := false
 var _sales_details_id := ""
+# Brief sections expanded this session (view state), key -> true.
+var _open_brief_sections := {}
+# Pending wage prompt cards on the Brief tab, contact id -> Control.
+var _wage_prompt_anchors := {}
 var _short_pay := ShortPayViewScript.new()
 var _guard_costs := GuardCostsViewScript.new()
 var _root: Control = null
@@ -281,21 +287,19 @@ func _set_tab(tab: String) -> void:
 
 
 func _build_brief(content: VBoxContainer) -> void:
-	content.add_child(UI.muted_label("Account / %s" % Calendar.format_day(int(GameState.state["world"]["day"]))))
-	var account: Variant = MorningAccountsSystem.latest()
-	content.add_child(_build_brief_hero(account))
-	# Attention is read live, including before the first rollover.
-	var attention: Array[Dictionary] = MorningAccountsSystem.attention_items()
-	content.add_child(_brief_section("Needs your attention", "%02d OPEN" % (attention.size() + Business.pending_wage_prompts().size() + Hiring.pending_poach_ids().size())))
+	# The Today card is read live, including before the first rollover.
+	content.add_child(_build_today())
+	_wage_prompt_anchors = {}
 	for contact_id in Business.pending_wage_prompts():
-		content.add_child(_build_wage_prompt(contact_id))
+		var prompt := _build_wage_prompt(contact_id)
+		_wage_prompt_anchors[contact_id] = prompt
+		content.add_child(prompt)
 	for contact_id in Hiring.pending_poach_ids():
 		content.add_child(_build_poach_alert(contact_id))
-	content.add_child(_build_attention(attention))
-	content.add_child(_brief_section("Treasury"))
-	content.add_child(_build_treasury())
-	content.add_child(_brief_section("Operations feed"))
-	content.add_child(_build_operations_feed(account))
+	var account: Variant = MorningAccountsSystem.latest()
+	content.add_child(_brief_collapsible("accounts", "Account / %s" % Calendar.format_day(int(GameState.state["world"]["day"])), func(body: VBoxContainer): body.add_child(_build_brief_hero(account))))
+	content.add_child(_brief_collapsible("treasury", "Treasury", func(body: VBoxContainer): body.add_child(_build_treasury())))
+	content.add_child(_brief_collapsible("operations", "Operations feed", func(body: VBoxContainer): body.add_child(_build_operations_feed(account))))
 	content.add_child(UI.button("Full brief →", _show_full_brief))
 	_brief_detail_anchor = _brief_section("Morning Brief")
 	content.add_child(_brief_detail_anchor)
@@ -312,6 +316,74 @@ func _build_brief(content: VBoxContainer) -> void:
 	content.add_child(_build_war())
 	content.add_child(_build_london_share())
 	content.add_child(_build_supplier_share())
+
+
+# BizBrief Today card (spec .scratch/bizbrief-today): date, blocks left and
+# one row per DailyBrief item, each with one action button.
+func _build_today() -> Control:
+	var summary := DailyBrief.summary()
+	var c := UI.card()
+	c["panel"].name = "BizBriefToday"
+	var head := UI.hbox()
+	head.add_child(UI.expand_fill(UI.heading("Today", 16)))
+	var blocks: int = summary["blocksLeft"]
+	head.add_child(UI.muted_label("%s · %d block%s left" % [summary["dateLabel"], blocks, "" if blocks == 1 else "s"]))
+	c["content"].add_child(head)
+	var rows := DailyBrief.items()
+	if rows.is_empty():
+		c["content"].add_child(UI.muted_label(DailyBrief.empty_text()))
+	for row in rows:
+		var action: Dictionary = row["action"]
+		var line := UI.hbox()
+		line.name = "TodayRow_%s" % String(row["key"]).validate_node_name()
+		var text := UI.vbox(2)
+		text.add_child(UI.label(row["label"]))
+		text.add_child(UI.muted_label(row["consequence"]))
+		line.add_child(UI.expand_fill(text))
+		line.add_child(UI.button(row["actionLabel"], func(): _open_today_action(action)))
+		c["content"].add_child(line)
+	return c["panel"]
+
+
+# Routes a DailyBrief action descriptor onto existing navigation.
+func _open_today_action(action: Dictionary) -> void:
+	match action["to"]:
+		"alarms":
+			RaidAlarms.open()
+		"short_pay":
+			PhoneNav.open_short_pay()
+		"map_vein":
+			VeinList.apply_option(VeinList.MANAGE_ID, action["veinId"])
+		"wage_prompt":
+			var prompt: Variant = _wage_prompt_anchors.get(action["contactId"])
+			if is_instance_valid(_scroll) and is_instance_valid(prompt):
+				_scroll.ensure_control_visible(prompt)
+		"bizbrief_staff":
+			_set_tab(STAFF_TAB)
+
+
+# A Brief section collapsed by default; expansion is session-only view
+# state, and the body is built only while open.
+func _brief_collapsible(key: String, title: String, build_body: Callable) -> Control:
+	var expanded: bool = _open_brief_sections.has(key)
+	# The toggle runs after creation, so it reads the body through this holder.
+	var holder := {}
+	var section := UI.collapsible_section(title, expanded, func(open: bool): _set_brief_section_open(key, open, holder["body"], build_body))
+	holder["body"] = section["content"]
+	section["panel"].name = "BizBriefSection_%s" % key
+	if expanded:
+		build_body.call(section["content"])
+	return section["panel"]
+
+
+func _set_brief_section_open(key: String, open: bool, body: VBoxContainer, build_body: Callable) -> void:
+	if open:
+		_open_brief_sections[key] = true
+		if body.get_child_count() == 0:
+			build_body.call(body)
+			_style_page(body)
+	else:
+		_open_brief_sections.erase(key)
 
 
 func _show_full_brief() -> void:
@@ -1105,27 +1177,6 @@ func _build_operations(account: Dictionary) -> Control:
 				c["content"].add_child(UI.muted_label(MorningAccountsSystem.wage_shortfall_label(exception)))
 			"guardShortfall", "guardsWalked":
 				c["content"].add_child(UI.muted_label(MorningAccountsSystem.guard_shortfall_label(exception)))
-	return c["panel"]
-
-
-func _build_attention(items: Array[Dictionary]) -> Control:
-	var c := UI.card()
-	if items.is_empty():
-		c["content"].add_child(UI.muted_label("Nothing needs attention."))
-		return c["panel"]
-	for item in items:
-		var captured: Dictionary = item
-		var glyph: Callable = Icons.draw_attack
-		if item["kind"] == "message":
-			glyph = Icons.draw_phone
-		elif item["kind"] == "development":
-			glyph = Icons.draw_cultivate
-		var row := UI.hbox()
-		var icon := UI.icon_glyph_control(glyph, 0.7)
-		icon.custom_minimum_size = Vector2(24, 24)
-		row.add_child(icon)
-		row.add_child(UI.expand_fill(UI.button(MorningAccountsSystem.attention_label(item), func(): MorningAccountsSystem.open_attention(captured))))
-		c["content"].add_child(row)
 	return c["panel"]
 
 

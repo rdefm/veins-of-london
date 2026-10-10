@@ -54,6 +54,11 @@ static func block_index(block_name: String) -> int:
 	return -1
 
 
+# Time blocks still open today.
+static func blocks_left() -> int:
+	return maxi(0, BLOCKS_PER_DAY - GameState.state["world"]["timeBlocksDone"].size())
+
+
 static func is_time_exhausted() -> bool:
 	var world: Dictionary = GameState.state["world"]
 	return world["timeBlocksDone"].size() >= BLOCKS_PER_DAY

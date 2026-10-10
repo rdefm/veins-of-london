@@ -71,8 +71,8 @@ static func back_to_messages() -> void:
 	EventBus.state_changed.emit()
 
 
-# BizBrief's short-pay sub-view (spec §Short-pay flow), from the Brief
-# attention row or the shortfall notification.
+# BizBrief's short-pay sub-view (spec §Short-pay flow), from the Today
+# card row or the shortfall notification.
 static func open_short_pay() -> void:
 	Nav.go_to("phone")
 	open_app("bizbrief")

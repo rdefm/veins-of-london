@@ -2,7 +2,8 @@ class_name Calendar
 extends RefCounted
 
 # Converts the world.day integer into the player-facing calendar date per
-# R§3.1 "Calendar". Pure: reads only GameData.CALENDAR, never state.
+# R§3.1 "Calendar". Pure: reads only GameData.CALENDAR (and the phone
+# widget's date format), never state.
 
 
 # { weekday, dayOfMonth, month, year } for a 1-based world.day. weekday and
@@ -57,3 +58,11 @@ static func format_day(day: int) -> String:
 	if parts["year"] > 1:
 		text += cal["yearSuffix"] % parts["year"]
 	return text
+
+
+# Phone widget date, e.g. "Tue, 1 Apr" (phone_home.json widget.dateFormat);
+# shared by the phone home widget and BizBrief's Today card.
+static func widget_date(day: int) -> String:
+	var parts := date_parts(day)
+	var fmt: String = GameData.PHONE_HOME["widget"]["dateFormat"]
+	return fmt % [String(parts["weekday"]).capitalize(), parts["dayOfMonth"], String(parts["month"]).capitalize()]

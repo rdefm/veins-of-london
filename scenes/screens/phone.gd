@@ -117,7 +117,7 @@ func _badge_count_for(app_id: String) -> int:
 		"alarms":
 			return RaidAlarmsSystem.count()
 		"bizbrief":
-			return MorningAccounts.attention_items().size()
+			return DailyBrief.badge_count()
 		"ticker":
 			return _ticker_rumblings_count()
 		"notifications":

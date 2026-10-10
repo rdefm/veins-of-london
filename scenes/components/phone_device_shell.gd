@@ -178,9 +178,7 @@ static func clock_text() -> String:
 
 # Widget date for world.day via the calendar, e.g. "Tue, 1 Apr".
 static func date_text() -> String:
-	var parts := Calendar.date_parts(int(GameState.state["world"]["day"]))
-	var fmt: String = GameData.PHONE_HOME["widget"]["dateFormat"]
-	return fmt % [String(parts["weekday"]).capitalize(), parts["dayOfMonth"], String(parts["month"]).capitalize()]
+	return Calendar.widget_date(int(GameState.state["world"]["day"]))
 
 
 func _refresh_clock() -> void:

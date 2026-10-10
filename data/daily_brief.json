@@ -1,0 +1,44 @@
+{
+  "_comment": "DailyBrief (systems/daily_brief.gd): BizBrief's Today card. tierOrder is the fixed row order; rowCap the visible-row cap; rows maps each row template id to its tier, kind, label/consequence templates ({placeholders} filled by DailyBrief) and action button label. PROSE-REVIEW: every label, consequence, actionLabel and emptyState string here is new copy.",
+  "rowCap": 6,
+  "tierOrder": ["urgent", "story", "opportunity", "routine"],
+  "emptyState": "Nothing pressing today.",
+  "rows": {
+    "alarmHome": {
+      "tier": "urgent", "kind": "alarm",
+      "label": "Raid alarm · HQ",
+      "consequence": "{deadline}. {consequence}",
+      "actionLabel": "Respond"
+    },
+    "alarmVein": {
+      "tier": "urgent", "kind": "alarm",
+      "label": "Raid alarm · {title}",
+      "consequence": "{deadline}. {consequence}",
+      "actionLabel": "Respond"
+    },
+    "guardShortfall": {
+      "tier": "urgent", "kind": "guardShortfall",
+      "label": "Guard wages short",
+      "consequence": "Unpaid guards walk on {deadline}: {places}.",
+      "actionLabel": "Choose who stays"
+    },
+    "wagePrompt": {
+      "tier": "urgent", "kind": "wages",
+      "label": "{name} is owed £{owed}",
+      "consequence": "Stopped working. The float needs £{topUp} to pay them.",
+      "actionLabel": "Answer"
+    },
+    "wagesOwed": {
+      "tier": "urgent", "kind": "wages",
+      "label": "{name} is owed £{owed}",
+      "consequence": "Stopped working until paid.",
+      "actionLabel": "Pay"
+    },
+    "development": {
+      "tier": "routine", "kind": "development",
+      "label": "{ore} vein, {district} · ready to develop",
+      "consequence": "Raid exposure {exposure}.",
+      "actionLabel": "Manage"
+    }
+  }
+}
