@@ -325,7 +325,7 @@ sim behind R§3.7a's balance numbers.
 the palette swatch; `pack_daily_cycle.py` preserves the retired cycle-atlas pipeline.
 `quest-editor.html`/`quest-editor-mobile.html`
 are the desktop/mobile quest content editors (`data/events/*.json`), sharing a byte-identical "Choice mechanics" section (option id/check/requires/goto, event `at`); `test_quest_editor.js`
-unit-tests both, incl. lossless round-trips. `storyboard.html` is the local event-art storyboard review tool (boards in `.scratch/event-art/`, uploads into `assets/reference-plates/`); it also previews writing proposals (`.scratch/writing-revamp/*.md` JSON blocks) read-only, with clickable choices/outcomes.
+unit-tests both, incl. lossless round-trips. `storyboard.html` is the local event-art storyboard review tool (boards in `.scratch/event-art/`, uploads into `assets/reference-plates/`); it also previews writing proposals (`.scratch/writing-revamp/*.md` JSON blocks: named-branch drafts, or flat events converted to branches) read-only, following outcome/card goto and branch `then`. Its marked "Draft model (pure)" section is unit-tested by `test_storyboard.js`.
 `plate_compositor/`: `compose.py` composites sprite or cut-out actors onto a blank reference plate (grid/palette lock, perspective scale, shadow, light tint, occluders) from `plates/*.json` + `shots/*.json`; `extract.py` cuts an AI-posed character off an AI-on-plate image (`poses/*.json`). See its README.
 `hq_region_mapper.tscn` (+ `_logic.gd`, Godot) traces per-tier HQ zone hit polygons on `assets/hq/<tier>_room.png` and saves them into `data/hq_visuals.json` "rooms".
 
