@@ -55,6 +55,12 @@
       "consequence": "Stopped working until paid.",
       "actionLabel": "Pay"
     },
+    "contractAtRisk": {
+      "tier": "urgent", "kind": "contractAtRisk",
+      "label": "{buyer} order short by {shortfall}",
+      "consequence": "Due {deadline}. Stock and production won't cover it; a short period pays less.",
+      "actionLabel": "Sales"
+    },
     "veinAtRiskUrgent": {
       "tier": "urgent", "kind": "veinAtRisk",
       "label": "{ore} vein, {district} · {band} ({growth})",

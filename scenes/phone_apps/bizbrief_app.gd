@@ -360,6 +360,8 @@ func _open_today_action(action: Dictionary) -> void:
 				_scroll.ensure_control_visible(prompt)
 		"bizbrief_staff":
 			_set_tab(STAFF_TAB)
+		"bizbrief_sales":
+			_set_tab(MANAGE_TAB)
 		"bank", "property":
 			PhoneNav.open_app(action["to"])
 

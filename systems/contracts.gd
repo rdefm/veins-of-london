@@ -338,6 +338,49 @@ static func calc_need(contract: Dictionary) -> Dictionary:
 	return need
 
 
+# Units this period would still fall short of its request on its due day,
+# from shared stock plus reserved production: a crafted line the lab covers
+# for contracts counts the units a working producer can make from calc on
+# hand. `claimed` ({ "ore:<t>": n, "item:<t>": n }) is shared across calls so
+# contracts earlier in priority order take stock and calc first. 0 for a
+# filled period.
+static func period_shortfall(contract: Dictionary, claimed: Dictionary) -> int:
+	if is_period_filled(contract):
+		return 0
+	var short_total := 0
+	for line in request_lines(contract["request"]):
+		var remaining := remaining_qty(contract, line["type"])
+		if remaining <= 0:
+			continue
+		var pool := "%s:%s" % ["ore" if line["kind"] == "ore" else "item", line["type"]]
+		var stock := maxi(0, _shared_stock_for_line(line) - int(claimed.get(pool, 0)))
+		var covered := mini(remaining, stock)
+		claimed[pool] = int(claimed.get(pool, 0)) + covered
+		var short := remaining - covered
+		if short > 0 and line["kind"] != "ore" and Rooms.lab_covers_contracts(line["type"]):
+			short -= _claim_production(line["type"], short, claimed)
+		short_total += short
+	return short_total
+
+
+# Claims the calc for up to `wanted` units from the cheapest working producer
+# and returns how many units that calc buys.
+static func _claim_production(recipe_key: String, wanted: int, claimed: Dictionary) -> int:
+	var costs := _lowest_producer_cost(recipe_key)
+	if costs.is_empty():
+		return 0
+	var makeable := wanted
+	for ore_type in costs:
+		var unit_cost := int(costs[ore_type])
+		if unit_cost <= 0:
+			continue
+		var available := maxi(0, int(GameState.state["player"]["orichalchum"].get(ore_type, 0)) - int(claimed.get("ore:%s" % ore_type, 0)))
+		makeable = mini(makeable, floori(float(available) / unit_cost))
+	for ore_type in costs:
+		claimed["ore:%s" % ore_type] = int(claimed.get("ore:%s" % ore_type, 0)) + makeable * int(costs[ore_type])
+	return makeable
+
+
 static func _lowest_producer_cost(recipe_key: String) -> Dictionary:
 	var best: Dictionary = {}
 	var best_total := -1

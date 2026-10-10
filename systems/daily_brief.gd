@@ -19,6 +19,7 @@ static func items() -> Array[Dictionary]:
 	_bill_rows(rows)
 	_arrears_rows(rows)
 	_wage_rows(rows)
+	_contract_at_risk_rows(rows)
 	_vein_at_risk_rows(rows)
 	_development_rows(rows)
 	var tiers: Array = GameData.DAILY_BRIEF["tierOrder"]
@@ -115,6 +116,25 @@ static func _wage_rows(rows: Array[Dictionary]) -> void:
 			rows.append(_row("wagePrompt", "wages:%s" % contact_id, values, { "to": "wage_prompt", "contactId": contact_id }, 0))
 		else:
 			rows.append(_row("wagesOwed", "wages:%s" % contact_id, values, { "to": "bizbrief_staff", "contactId": contact_id }, 0))
+
+
+# Active contracts whose current period can't be met by its due day from
+# stock plus reserved production (Contracts.period_shortfall). Filled periods
+# are skipped; only active contracts are walked.
+static func _contract_at_risk_rows(rows: Array[Dictionary]) -> void:
+	var claimed := {}
+	for contract in Contracts.active_contracts():
+		var shortfall := Contracts.period_shortfall(contract, claimed)
+		if shortfall <= 0:
+			continue
+		var faction: Dictionary = GameData.FACTIONS.get(contract.get("counterparty", ""), {})
+		var due: int = contract["dueDay"]
+		var values := {
+			"buyer": faction.get("shortName", "A buyer"),
+			"shortfall": shortfall,
+			"deadline": Calendar.format_day(due),
+		}
+		rows.append(_row("contractAtRisk", "contract:%s" % contract["id"], values, { "to": "bizbrief_sales", "contractId": contract["id"] }, due - int(GameState.state["world"]["day"])))
 
 
 # Veins in a data-listed low band and leaning down (growth under neutral).

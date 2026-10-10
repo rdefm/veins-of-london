@@ -80,7 +80,7 @@ Data file per system: see `data/*.json` below.
 | messages.gd | Messages data layer + conversation-index projections, total unread count, per-contact clear (read + contact notifications seen) |
 | modal.gd | Modal open/close state; holds an event deferred behind a modal flow (`followEvent`) and starts it on close; `returnTo` reopens a parked modal on close |
 | morning_accounts.gd | Rollover capture (incl. arrears exceptions and countdown, payday statement, wage shortfalls, Monday guard wages, guard shortfall/walk-offs), per-block staff output accumulation, BizBrief auto-open, arrears/payday/wage-prompt/guard-wage labels |
-| daily_brief.gd | Pure Today-card projection for BizBrief: `items()` (tiered rows: label, consequence, action descriptor), `badge_count()` (Urgent + Story), `summary()`; sources alarms, guard shortfall, home bill, arrears, wages, low sliding veins (nights via `Cultivating.days_to_wall`), development-eligible veins; templates in daily_brief.json |
+| daily_brief.gd | Pure Today-card projection for BizBrief: `items()` (tiered rows: label, consequence, action descriptor), `badge_count()` (Urgent + Story), `summary()`; sources alarms, guard shortfall, home bill, arrears, wages, short contract periods, low sliding veins (nights via `Cultivating.days_to_wall`), development-eligible veins; templates in daily_brief.json |
 | nav.gd | Screen navigation |
 | notify.gd | Notifications append/evict; per-contact dismiss via contactId meta |
 | objectives.gd | Objective/questline evaluator; all_of live-condition, template_periods_completed (Beat 6) and recurring_proof (Beat 7) objectives + their ToDo checklist rows |

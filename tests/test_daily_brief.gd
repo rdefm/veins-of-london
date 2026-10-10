@@ -165,6 +165,63 @@ func run() -> void:
 		assert_eq(_kind("arrears"), [], "cleared arrears drop off")
 	)
 
+	run_case("short_contract_period_is_an_urgent_row_naming_buyer_and_shortfall_until_stock_covers_it", func():
+		GameState.reset()
+		var contract := _accept_contract({ "kind": "ore", "type": "physics", "qty": 5 })
+		var rows := _kind("contractAtRisk")
+		assert_eq(rows.size(), 1)
+		var buyer: String = GameData.FACTIONS[contract["counterparty"]]["shortName"]
+		assert_eq([rows[0]["tier"], rows[0]["key"], rows[0]["action"]], ["urgent", "contract:%s" % contract["id"], { "to": "bizbrief_sales", "contractId": contract["id"] }])
+		assert_eq(rows[0]["sort"], int(contract["dueDay"]) - int(GameState.state["world"]["day"]))
+		assert_true(String(rows[0]["label"]).find(buyer) != -1 and String(rows[0]["label"]).find("short by 5") != -1, "buyer and shortfall")
+		GameState.state["player"]["orichalchum"]["physics"] = 3
+		assert_true(String(_kind("contractAtRisk")[0]["label"]).find("short by 2") != -1, "stock trims the shortfall")
+		GameState.state["player"]["orichalchum"]["physics"] = 5
+		assert_eq(_kind("contractAtRisk"), [], "stock covers the period: drops off")
+	)
+
+	run_case("filled_cancelled_and_delivered_periods_never_show", func():
+		GameState.reset()
+		var filled := _accept_contract({ "kind": "ore", "type": "physics", "qty": 5 })
+		filled["periodFilled"] = true
+		assert_eq(_kind("contractAtRisk"), [], "filled and locked")
+		filled["periodFilled"] = false
+		filled["delivered"] = { "physics": 5 }
+		assert_eq(_kind("contractAtRisk"), [], "nothing remaining")
+		filled["delivered"] = {}
+		assert_eq(_kind("contractAtRisk").size(), 1)
+		Contracts.cancel(filled["id"])
+		assert_eq(_kind("contractAtRisk"), [], "cancelled")
+	)
+
+	run_case("contracts_earlier_in_priority_claim_shared_stock_first", func():
+		GameState.reset()
+		var first := _accept_contract({ "kind": "ore", "type": "physics", "qty": 4 })
+		var second := _accept_contract({ "kind": "ore", "type": "physics", "qty": 4 })
+		GameState.state["player"]["orichalchum"]["physics"] = 4
+		var rows := _kind("contractAtRisk")
+		assert_eq(rows.map(func(r): return r["key"]), ["contract:%s" % second["id"]], "the stock covers only %s" % first["id"])
+	)
+
+	run_case("reserved_production_counts_only_when_covered_staffed_and_affordable", func():
+		GameState.reset()
+		var contacts: Dictionary = GameState.state["contacts"]
+		contacts["james"]["recruited"] = true
+		contacts["james"]["craftingSkill"] = 5
+		contacts["james"]["assignedRole"] = "production"
+		_accept_contract({ "kind": "consumable", "type": "timePearl", "qty": 2 })
+		var per_unit: int = Crafting.calc_cost("timePearl", 5)["time"]
+		GameState.state["player"]["orichalchum"]["time"] = 2 * per_unit
+		assert_eq(_kind("contractAtRisk").size(), 1, "lab not covering contracts: calc alone is no cover")
+		GameState.state["labCoverContracts"]["timePearl"] = true
+		assert_eq(_kind("contractAtRisk"), [], "covered, staffed, calc on hand")
+		GameState.state["player"]["orichalchum"]["time"] = per_unit
+		assert_true(String(_kind("contractAtRisk")[0]["label"]).find("short by 1") != -1, "calc for one unit")
+		contacts["james"]["assignedRole"] = null
+		GameState.state["player"]["orichalchum"]["time"] = 2 * per_unit
+		assert_eq(_kind("contractAtRisk").size(), 1, "no working producer")
+	)
+
 	run_case("unread_messages_are_not_rows", func():
 		GameState.reset()
 		Messages.append("archie", "them", "Call me.")
@@ -212,6 +269,18 @@ func run() -> void:
 		GameState.state["home"]["pendingRaid"] = true
 		assert_eq(DailyBrief.items().size(), 1)
 	)
+
+
+var _next_offer := 0
+
+
+func _accept_contract(request: Dictionary) -> Dictionary:
+	_next_offer += 1
+	var created: Dictionary = Offers.create_offer({
+		"id": "t_brief_%d" % _next_offer, "source": "scripted", "contractType": "recurring", "weekday": 1,
+		"request": request,
+	})
+	return Offers.accept_offer(created["offer"]["id"])["contract"]
 
 
 func _kind(kind: String) -> Array:
