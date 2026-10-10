@@ -21,7 +21,7 @@ assert(ss !== -1 && se !== -1, "could not locate shared mechanics markers in sto
 const {
   parseProposal, parseDraft, serialiseDraft, ensureKeys, legacyToDraft, nextPos, playOrder, flatCards, thenText,
   jsonBlockRange, spliceDraft, writableProposal, cardByKey, makeHistory,
-  cardPos, insertCard, deleteCard, moveCard, danglingLinks, hasCycle, buildGraph, elkGraph, placeLayout,
+  cardPos, insertCard, deleteCard, moveCard, danglingLinks, hasCycle, buildGraph, elkGraph, placeLayout, setNodePositions, clearLayout, applyPositions,
   findCycle, addBranch, renameBranch, deleteBranch, inboundLinks, setCardGoto, setThen,
   COND_KINDS, condKind, blankCond, condGet, condSet,
   outcomeSlots, addOption, deleteOption, moveOption, setOptionField, setOutcomeText, setOutcomeGoto, routeToNewBranch,
@@ -34,7 +34,7 @@ const {
   html.slice(ss, se) + html.slice(s, e) +
     "\nreturn { parseProposal, parseDraft, serialiseDraft, ensureKeys, legacyToDraft, nextPos, playOrder, flatCards, thenText," +
     " jsonBlockRange, spliceDraft, writableProposal, cardByKey, makeHistory," +
-    " cardPos, insertCard, deleteCard, moveCard, danglingLinks, hasCycle, buildGraph, elkGraph, placeLayout," +
+    " cardPos, insertCard, deleteCard, moveCard, danglingLinks, hasCycle, buildGraph, elkGraph, placeLayout, setNodePositions, clearLayout, applyPositions," +
     " findCycle, addBranch, renameBranch, deleteBranch, inboundLinks, setCardGoto, setThen," +
     " COND_KINDS, condKind, blankCond, condGet, condSet," +
     " outcomeSlots, addOption, deleteOption, moveOption, setOptionField, setOutcomeText, setOutcomeGoto, routeToNewBranch," +
@@ -610,6 +610,67 @@ test("elkGraph nests cards in their frame and sizes labels; placeLayout makes ge
   assert.deepStrictEqual(L.edges.get("e1").label, { x: 232, y: 50, w: 30, h: 14, text: "ok" });
   assert.deepStrictEqual(L.edges.get("e2").points, [[477, 67], [487, 67], [497, 75]]);
   assert.strictEqual(L.edges.get("e2").label, null);
+});
+
+// ---- saved node positions ---------------------------------------------------
+// A hand-built layout: collapsed main → frame `after` holding c8 → c9 (edge e1 labelled, e2 inside the frame).
+const posGraph = { nodes: [{ id: "b:main", kind: "branch" }, { id: "g:after", kind: "group" },
+  { id: "c:c8", kind: "card", parent: "g:after" }, { id: "c:c9", kind: "card", parent: "g:after" }],
+edges: [{ id: "e1", from: "b:main", to: "c:c8", label: "ok" }, { id: "e2", from: "c:c8", to: "c:c9", label: "" }] };
+const posLayout = () => ({ x0: 0, y0: 0, width: 700, height: 130, boxes: new Map([
+  ["b:main", { x: 12, y: 47, w: 200, h: 60 }], ["g:after", { x: 287, y: 12, w: 400, h: 100 }],
+  ["c:c8", { x: 297, y: 48, w: 180, h: 50 }], ["c:c9", { x: 497, y: 48, w: 180, h: 50 }]]),
+edges: new Map([["e1", { points: [[212, 77], [297, 73]], label: { x: 230, y: 60, w: 30, h: 16, text: "ok" } }],
+  ["e2", { points: [[477, 73], [497, 73]], label: null }]]) });
+
+test("setNodePositions/clearLayout: rounded corners in the draft's _layout; renameBranch carries a branch's position", () => {
+  const { draft } = parseDraft(draftText);
+  setNodePositions(draft, { "c:c8": [10.4, 20.6], "b:main": [1, 2] });
+  setNodePositions(draft, { "b:main": [5, 6] });
+  assert.deepStrictEqual(draft._layout, { "c:c8": [10, 21], "b:main": [5, 6] });
+  const back = parseDraft(serialiseDraft(draft)).draft;
+  assert.deepStrictEqual(back._layout, draft._layout, "survives save → reload");
+  renameBranch(draft, "main", "opening");
+  assert.deepStrictEqual(draft._layout, { "c:c8": [10, 21], "b:opening": [5, 6] });
+  clearLayout(draft);
+  assert(!("_layout" in draft));
+});
+
+test("applyPositions: no positions leaves the layout as laid; L itself is untouched", () => {
+  const L = posLayout(), A = applyPositions(L, posGraph, undefined);
+  assert.deepStrictEqual([...A.boxes], [...L.boxes]);
+  assert.deepStrictEqual([...A.edges], [...L.edges]);
+  assert.deepStrictEqual([A.x0, A.y0, A.width, A.height], [0, 0, 700, 130]);
+  applyPositions(L, posGraph, { "c:c9": [900, 300], "g:after": [0, 0], "c:gone": [1, 1] });
+  assert.deepStrictEqual([...L.boxes], [...posLayout().boxes]);
+});
+
+test("applyPositions: a moved card takes its corner, its frame refits, its edges reroute, the bounds grow", () => {
+  const A = applyPositions(posLayout(), posGraph, { "c:c9": [900, 300], "g:after": [0, 0] });
+  assert.deepStrictEqual(A.boxes.get("c:c9"), { x: 900, y: 300, w: 180, h: 50 });
+  assert.deepStrictEqual(A.boxes.get("c:c8"), { x: 297, y: 48, w: 180, h: 50 }, "unmoved card stays");
+  assert.deepStrictEqual(A.boxes.get("g:after"), { x: 285, y: 12, w: 807, h: 350 }, "frame fits both cards plus padding; its own position is ignored");
+  assert.deepStrictEqual(A.edges.get("e2").points, [[477, 73], [688.5, 73], [688.5, 325], [900, 325]], "elbow right edge → left edge");
+  assert.deepStrictEqual(A.edges.get("e1"), posLayout().edges.get("e1"), "edge between unmoved nodes kept");
+  assert.deepStrictEqual([A.x0, A.y0, A.width, A.height], [-4, -4, 1112, 382]);
+});
+
+test("applyPositions: a node dragged right of its target gets a straight edge, label at its middle; bounds can go negative", () => {
+  const A = applyPositions(posLayout(), posGraph, { "b:main": [500, 200] });
+  const [[x1, y1], [x2, y2]] = A.edges.get("e1").points;
+  assert.deepStrictEqual([x1, y1, x2, y2].map(Math.round), [559, 200, 421, 98], "clipped to both box edges");
+  assert.deepStrictEqual(A.edges.get("e1").label, { x: 478.5, y: 143.5, w: 30, h: 16, text: "ok" });
+  const B = applyPositions(posLayout(), posGraph, { "b:main": [-100, -50] });
+  assert.deepStrictEqual([B.x0, B.y0], [-116, -66]);
+  assert.strictEqual(B.width, 687 + 16 + 116, "frame edge + padding, from x0");
+});
+
+test("promote strips saved node positions", () => {
+  const { draft } = parseDraft(draftText);
+  setNodePositions(draft, { "b:main": [1, 2] });
+  const { event } = promoteDraft(draft);
+  assert(!("_layout" in event));
+  assert(!JSON.stringify(event).includes("b:main"));
 });
 
 // ---- branch routing editing ------------------------------------------------

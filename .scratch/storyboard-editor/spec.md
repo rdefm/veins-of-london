@@ -65,7 +65,7 @@ Turn `tools/storyboard.html` from a read-only proposal previewer into the place 
 - `goto: {branch, card?}` — on an outcome **or on any card**; omit `card` = branch's first card. No loops: editor rejects any link that creates a cycle in the card graph.
 - Branch `then` — where play goes after its last card: a single `{branch, card?}`, `"end"`, or a **conditional list** evaluated in order, `if` using the existing `condition_met` vocabulary (flag, relation, cash, item, path, past choice); last entry without `if` = else. Omitted = end.
 - `checkNote` = free-text check intent; `check` optional.
-- Promote: branches laid out flat in topological order (start branch first) so every jump is forward, `{branch, card}` → card indexes, keys/notes/comments stripped. Import/older proposals: flat gotos → links, targets split into branches.
+- Promote: branches laid out flat in topological order (start branch first) so every jump is forward, `{branch, card}` → card indexes, keys/notes/comments/`_layout` stripped. Import/older proposals: flat gotos → links, targets split into branches.
 
 ## Required engine work (`systems/events.gd`)
 
@@ -78,7 +78,7 @@ Today only option outcomes can `goto`, no conditional routing, no mid-list end. 
 
 ## Open points
 
-- Graph layout: **elkjs** via CDN (layered, left→right, SVG pan/zoom; expanding a branch re-lays the graph). Optional later ticket: draggable, saved node positions.
+- Graph layout: **elkjs** via CDN (layered, left→right, SVG pan/zoom; expanding a branch re-lays the graph). Dragged nodes keep their position in the draft's `_layout` (node id → [x, y]), overriding the elk layout; "Reset layout" clears it; stripped on promote.
 
 ## Relevant files
 

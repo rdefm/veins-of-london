@@ -241,7 +241,7 @@ section { display: grid; gap: 12px; min-width: 0 }
 .seg button + button { border-left: 1px solid var(--line) }
 .seg button[aria-pressed="true"] { background: var(--fg); color: var(--bg); font-weight: 700 }
 .graph { height: 440px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; touch-action: none; cursor: grab }
-.graph.panning { cursor: grabbing }
+.graph.panning, .graph.moving, .graph.moving .g-node { cursor: grabbing }
 .graph svg { width: 100%; height: 100%; display: block; user-select: none }
 .g-frame rect { fill: var(--sunk); stroke: var(--line) }
 .g-frame.start rect { stroke: var(--fg) }
@@ -341,10 +341,11 @@ section { display: grid; gap: 12px; min-width: 0 }
             <button type="button" id="g-cards" title="Expand every branch into its cards">Cards</button>
           </div>
           <button type="button" class="tb" id="g-fit">Fit</button>
+          <button type="button" class="tb" id="g-reset" title="Drop dragged node positions and go back to the automatic layout">Reset layout</button>
           <span class="mono muted" id="g-note" role="status"></span>
         </div>
         <div class="graph" id="graph"><svg id="g-svg" aria-label="Flowchart of the draft's branches and cards"></svg></div>
-        <p class="muted" style="margin:0">Drag to pan, wheel to zoom. Click a node to preview and edit it; ⊕ expands one branch, ⊖ collapses it.</p>
+        <p class="muted" style="margin:0">Drag the background to pan, wheel to zoom. Drag a node or branch frame to move it (saved with the draft). Click a node to preview and edit it; ⊕ expands one branch, ⊖ collapses it.</p>
       </section>
       <div class="preview">
         <div class="phone" aria-label="Phone preview of the event screen">
@@ -1324,6 +1325,7 @@ function checkOddsBlock(opt, changed, restructure) {
     checkBranchName(draft, to);
     for (const { target } of allLinks(draft)) if (target.branch === from) target.branch = to;
     for (const c of comments(draft)) if (c.anchor && c.anchor.branch === from) c.anchor.branch = to;
+    if (draft._layout && draft._layout["b:" + from]) { draft._layout["b:" + to] = draft._layout["b:" + from]; delete draft._layout["b:" + from]; }
     draft.branches = Object.fromEntries(Object.entries(draft.branches).map(([k, v]) => [k === from ? to : k, v]));
     if (draft.start === from) draft.start = to;
   }
@@ -1673,7 +1675,62 @@ function checkOddsBlock(opt, changed, restructure) {
       edges.set(e.id, { points, label: l ? { x: o.x + l.x, y: o.y + l.y, w: l.width, h: l.height, text: l.text } : null });
     }
     boxes.delete("root");
-    return { width: laid.width, height: laid.height, boxes, edges };
+    return { x0: 0, y0: 0, width: laid.width, height: laid.height, boxes, edges };
+  }
+  // Dragged node positions live in the draft's top-level `_layout`: graph node id ("b:<branch>", "c:<card key>",
+  // "end") → [x, y], the node's top-left corner. Stripped on promote.
+  function setNodePositions(draft, pos) {
+    const out = (draft._layout = draft._layout || {});
+    for (const [id, [x, y]] of Object.entries(pos)) out[id] = [Math.round(x), Math.round(y)];
+  }
+  const clearLayout = (draft) => { delete draft._layout; };
+  const GROUP_PAD = { top: 36, left: 12, bottom: 12, right: 12 };
+  // placeLayout geometry with saved positions laid over it: moved nodes take their saved corner, a branch frame
+  // holding a moved card refits around its cards, and edges touching a moved node are redrawn as elbows between
+  // the boxes. x0/y0/width/height bound the result. Returns a new layout; L is left as it was.
+  function applyPositions(L, graph, pos) {
+    pos = pos || {};
+    const boxes = new Map([...L.boxes].map(([id, r]) => [id, { ...r }])), moved = new Set();
+    for (const [id, p] of Object.entries(pos)) {
+      const r = boxes.get(id);
+      if (!r || id.startsWith("g:")) continue;
+      r.x = p[0]; r.y = p[1]; moved.add(id);
+    }
+    for (const n of graph.nodes) {
+      if (n.kind !== "group") continue;
+      const kids = graph.nodes.filter((k) => k.parent === n.id).map((k) => boxes.get(k.id)).filter(Boolean);
+      if (!kids.length || !graph.nodes.some((k) => k.parent === n.id && moved.has(k.id))) continue;
+      const x = Math.min(...kids.map((r) => r.x)) - GROUP_PAD.left, y = Math.min(...kids.map((r) => r.y)) - GROUP_PAD.top;
+      boxes.set(n.id, { x, y, w: Math.max(...kids.map((r) => r.x + r.w)) + GROUP_PAD.right - x, h: Math.max(...kids.map((r) => r.y + r.h)) + GROUP_PAD.bottom - y });
+    }
+    const edges = new Map(L.edges);
+    for (const e of graph.edges) {
+      const a = boxes.get(e.from), b = boxes.get(e.to), old = L.edges.get(e.id);
+      if (!a || !b || !(moved.has(e.from) || moved.has(e.to))) continue;
+      const sy = a.y + a.h / 2, ty = b.y + b.h / 2;
+      let points, mid;
+      if (b.x >= a.x + a.w + 12) {
+        const sx = a.x + a.w, tx = b.x, mx = (sx + tx) / 2;
+        points = [[sx, sy], [mx, sy], [mx, ty], [tx, ty]]; mid = [mx, (sy + ty) / 2];
+      } else {
+        // Target not to the right: a straight line between the box edges, centre to centre.
+        const clipTo = (r, dx, dy) => { const t = Math.min(dx ? r.w / 2 / Math.abs(dx) : Infinity, dy ? r.h / 2 / Math.abs(dy) : Infinity); return [dx * t, dy * t]; };
+        const cx = a.x + a.w / 2, tx = b.x + b.w / 2, dx = tx - cx, dy = ty - sy;
+        const [ox, oy] = clipTo(a, dx, dy), [ix, iy] = clipTo(b, dx, dy);
+        points = [[cx + ox, sy + oy], [tx - ix, ty - iy]]; mid = [(cx + tx) / 2, (sy + ty) / 2];
+      }
+      const l = old && old.label;
+      edges.set(e.id, { points, label: l ? { ...l, x: mid[0] - l.w / 2, y: mid[1] - l.h / 2 } : null });
+    }
+    const xs = [], ys = [];
+    for (const r of boxes.values()) { xs.push(r.x, r.x + r.w); ys.push(r.y, r.y + r.h); }
+    for (const p of edges.values()) {
+      for (const [x, y] of p.points) { xs.push(x); ys.push(y); }
+      if (p.label) { xs.push(p.label.x, p.label.x + p.label.w); ys.push(p.label.y, p.label.y + p.label.h); }
+    }
+    if (!moved.size || !xs.length) return { ...L, boxes, edges };
+    const x0 = Math.min(0, Math.min(...xs) - 16), y0 = Math.min(0, Math.min(...ys) - 16);
+    return { x0, y0, width: Math.max(L.width, Math.max(...xs) + 16) - x0, height: Math.max(L.height, Math.max(...ys) + 16) - y0, boxes, edges };
   }
   // Comments (spec § Decisions: Comments, Comment storage) live in the draft's top-level `_comments` list, each
   // {id, kind: "claude" | "note", status: "open" | "resolved" (claude only), text, anchor}. The anchor names what
@@ -1909,8 +1966,9 @@ function checkOddsBlock(opt, changed, restructure) {
   // topological order of the card graph (start card first; each card followed by its own continuation when that
   // is free, else the earliest ready card in display order), so every jump is forward. {branch, card?} links
   // become card indexes; a card whose continuation isn't the next flat card gets a card `goto`, a conditional
-  // `goto` (from a conditional `then`) or `end: true`. Card keys, checkNotes, branch titles and comments are
-  // stripped. Returns {event, dropped}: dropped = keys of cards no path reaches, which are left out.
+  // `goto` (from a conditional `then`) or `end: true`. Card keys, checkNotes, branch titles, comments and saved
+  // node positions are stripped. Returns {event, dropped}: dropped = keys of cards no path reaches, which are left
+  // out.
   function promoteDraft(draft) {
     const loop = findCycle(draft);
     if (loop) throw new Error(`play can loop: ${loop.join(" → ")}`);
@@ -1985,7 +2043,7 @@ function checkOddsBlock(opt, changed, restructure) {
     const event = {};
     for (const [k, v] of Object.entries(draft)) {
       if (k === "branches") event.cards = cards;
-      else if (k !== "start" && k !== "_comments") event[k] = deepClone(v);
+      else if (k !== "start" && k !== "_comments" && k !== "_layout") event[k] = deepClone(v);
     }
     return { event, dropped: flatCards(draft).map((f) => f.card.key).filter((k) => !reach.has(k)) };
   }
@@ -2315,7 +2373,8 @@ function checkOddsBlock(opt, changed, restructure) {
   const graphOpen = new Map(); // board id → Set of expanded branch names
   const view = { x: 0, y: 0, k: 1 };
   // graphLaid: last layout and the graph structure it was laid out for (text edits redraw without re-laying).
-  let elk = null, graphLaid = null, graphTok = 0, graphFit = true, graphFor = null;
+  // graphShown: what was last drawn — the graph and graphLaid's layout with saved positions applied.
+  let elk = null, graphLaid = null, graphShown = null, graphTok = 0, graphFit = true, graphFor = null;
   function openSet(b) {
     if (!graphOpen.has(b.eventId)) graphOpen.set(b.eventId, new Set());
     return graphOpen.get(b.eventId);
@@ -2337,20 +2396,21 @@ function checkOddsBlock(opt, changed, restructure) {
     $("graph-section").hidden = !on;
     const tok = ++graphTok;
     if (!on) return;
+    $("g-reset").disabled = !b.draft._layout;
     if (graphFor !== b.eventId) { graphFor = b.eventId; graphFit = true; }
     const names = Object.keys(b.draft.branches), open = openSet(b);
     $("g-branches").setAttribute("aria-pressed", String(names.every((n) => !open.has(n))));
     $("g-cards").setAttribute("aria-pressed", String(names.every((n) => open.has(n))));
     const graph = buildGraph(b.draft, [...open]);
     const key = JSON.stringify([b.eventId, graph.nodes.map((n) => [n.id, n.parent, !!(n.notes && n.notes.length)]), graph.edges.map((e) => [e.from, e.to, e.label, e.kind])]);
-    if (graphLaid && graphLaid.key === key) { drawGraph(b, graph, graphLaid.layout); return; }
+    if (graphLaid && graphLaid.key === key) { drawGraph(b, graph, applyPositions(graphLaid.layout, graph, b.draft._layout)); return; }
     if (!window.ELK) { $("g-note").textContent = "elkjs didn't load (offline?), so no flowchart."; return; }
     elk = elk || new ELK();
     elk.layout(elkGraph(graph)).then((laid) => {
       if (tok !== graphTok) return;
       graphLaid = { key, layout: placeLayout(laid) };
       $("g-note").textContent = "";
-      drawGraph(b, graph, graphLaid.layout);
+      drawGraph(b, graph, applyPositions(graphLaid.layout, graph, b.draft._layout));
     }).catch((e) => { if (tok === graphTok) $("g-note").textContent = "Layout failed: " + (e && e.message); });
   }
   // A count bubble on a node's top-right corner: accent while any comment for Claude is open.
@@ -2406,18 +2466,19 @@ function checkOddsBlock(opt, changed, restructure) {
     const defs = sv("defs", {}, sv("marker", { id: "g-arrow", viewBox: "0 0 10 10", refX: "9", refY: "5", markerWidth: "7", markerHeight: "7", orient: "auto-start-reverse" },
       sv("path", { d: "M0,0 L10,5 L0,10 z", class: "g-arrow" })));
     $("g-svg").replaceChildren(defs, g);
+    graphShown = { graph, layout: L };
     if (graphFit) fitGraph(); else applyView();
     markGraph(b);
   }
   const applyView = () => { const g = $("g-view"); if (g) g.setAttribute("transform", `translate(${view.x},${view.y}) scale(${view.k})`); };
   // Scales the last layout to fit the graph box; waits for the Storyboard tab if the box is hidden.
   function fitGraph() {
-    const svg = $("g-svg"), w = svg.clientWidth, h = svg.clientHeight, L = graphLaid && graphLaid.layout;
+    const svg = $("g-svg"), w = svg.clientWidth, h = svg.clientHeight, L = graphShown && graphShown.layout;
     if (!L) return;
     if (!w || !h) { graphFit = true; return; }
     graphFit = false;
     view.k = Math.min(1.2, Math.max(0.15, Math.min(w / L.width, h / L.height)));
-    view.x = Math.max(0, (w - L.width * view.k) / 2); view.y = Math.max(0, (h - L.height * view.k) / 2);
+    view.x = Math.max(0, (w - L.width * view.k) / 2) - L.x0 * view.k; view.y = Math.max(0, (h - L.height * view.k) / 2) - L.y0 * view.k;
     applyView();
   }
   // Highlights the selected card's node, or its branch node when that branch is collapsed.
@@ -2449,20 +2510,38 @@ function checkOddsBlock(opt, changed, restructure) {
   {
     const box = $("graph");
     let drag = null;
+    // The nodes a drag starting on target moves, with their drawn corners: a node itself, or a branch frame's cards.
+    const dragNodes = (target) => {
+      const el = target && target.closest && !target.closest("[data-toggle]") && target.closest("[data-node]");
+      if (!el || !graphShown) return null;
+      const id = el.getAttribute("data-node"), { graph, layout } = graphShown;
+      const ids = id.startsWith("g:") ? graph.nodes.filter((n) => n.parent === id).map((n) => n.id) : [id];
+      const from = Object.fromEntries(ids.filter((k) => layout.boxes.has(k)).map((k) => [k, [layout.boxes.get(k).x, layout.boxes.get(k).y]]));
+      return Object.keys(from).length ? from : null;
+    };
+    const dragPos = (d, dx, dy) => Object.fromEntries(Object.entries(d.nodes).map(([k, [x, y]]) => [k, [x + dx / view.k, y + dy / view.k]]));
     box.addEventListener("pointerdown", (e) => {
-      if (e.button === 0) drag = { id: e.pointerId, sx: e.clientX, sy: e.clientY, vx: view.x, vy: view.y, moved: false, target: e.target };
+      if (e.button === 0) drag = { id: e.pointerId, sx: e.clientX, sy: e.clientY, vx: view.x, vy: view.y, moved: false, target: e.target, nodes: dragNodes(e.target) };
     });
     box.addEventListener("pointermove", (e) => {
       if (!drag || e.pointerId !== drag.id) return;
       const dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
       if (!drag.moved && Math.hypot(dx, dy) < 4) return;
-      if (!drag.moved) { drag.moved = true; box.setPointerCapture(e.pointerId); box.classList.add("panning"); }
-      view.x = drag.vx + dx; view.y = drag.vy + dy; applyView();
+      if (!drag.moved) { drag.moved = true; box.setPointerCapture(e.pointerId); box.classList.add(drag.nodes ? "moving" : "panning"); }
+      if (!drag.nodes) { view.x = drag.vx + dx; view.y = drag.vy + dy; applyView(); return; }
+      const b = board();
+      if (!b || !b.draft || !graphLaid) return;
+      const { graph } = graphShown;
+      drawGraph(b, graph, applyPositions(graphLaid.layout, graph, { ...b.draft._layout, ...dragPos(drag, dx, dy) }));
     });
     const endDrag = (e) => {
       if (!drag || e.pointerId !== drag.id) return;
-      const d = drag; drag = null; box.classList.remove("panning");
+      const d = drag; drag = null; box.classList.remove("panning", "moving");
       if (!d.moved && e.type === "pointerup") graphActivate(d.target);
+      else if (d.moved && d.nodes) {
+        if (e.type === "pointerup") editDraft((dr) => { setNodePositions(dr, dragPos(d, e.clientX - d.sx, e.clientY - d.sy)); }, true);
+        else renderGraph(board());
+      }
     };
     box.addEventListener("pointerup", endDrag);
     box.addEventListener("pointercancel", endDrag);
@@ -2490,6 +2569,7 @@ function checkOddsBlock(opt, changed, restructure) {
   $("g-branches").addEventListener("click", () => setAllOpen(false));
   $("g-cards").addEventListener("click", () => setAllOpen(true));
   $("g-fit").addEventListener("click", fitGraph);
+  $("g-reset").addEventListener("click", () => { graphFit = true; editDraft(clearLayout, true); });
 
   // ---- proposal editing (draft edits, undo, save) ----------------------------
   // One undo step per edit session: the draft is snapshotted on the first keystroke after the field gains focus.

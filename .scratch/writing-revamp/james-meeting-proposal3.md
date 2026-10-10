@@ -105,14 +105,16 @@ Expected pearls: slow 1.1 (watched 1.3), rush 1.2 (watched 1.6). Rush has the hi
           "label": null,
           "speaker": "Archie",
           "text": "\"James makes pearls. I need pearls. Next time someone gets a knife out, I'd like more than a carrier bag to wave at them. So be polite, touch nothing, and let me do the talking.\"",
-          "key": "c2"
+          "key": "c2",
+          "image": "res://assets/events/james_meeting/james_meeting_main_3.png"
         },
         {
           "type": "narration",
           "label": null,
           "speaker": null,
           "text": "The door opens. James is in his sixties: glasses with one bent arm, a waistcoat with the slightest stain on it. He looks at Archie, then at you, like a parcel left on the wrong doorstep.",
-          "key": "c3"
+          "key": "c3",
+          "image": "res://assets/events/james_meeting/james_meeting_main_4.png"
         },
         {
           "type": "speaker",
@@ -125,7 +127,7 @@ Expected pearls: slow 1.1 (watched 1.3), rush 1.2 (watched 1.6). Rush has the hi
           "type": "narration",
           "label": null,
           "speaker": null,
-          "text": "Shelves of jars run to the ceiling, each labelled in biro. It smells of copper and bleach. Archie stays by the shutter and rubs his eyes.",
+          "text": "Shelves of jars run to the ceiling, each labelled in biro. It smells of copper and bleach. Archie stays by the door and rubs his eyes.",
           "key": "c5"
         },
         {
