@@ -138,7 +138,7 @@ func _populate_card_text(content: VBoxContainer, card: Dictionary) -> void:
 		"resolution":
 			# A check's outcome: a subtle muted marker above the text, no animation.
 			if card.has("outcome"):
-				content.add_child(UI.muted_label(GameData.EVENT_CHECKS["outcomeMarkers"][card["outcome"]]))
+				content.add_child(UI.muted_label(outcome_marker(card)))
 			content.add_child(UI.label(card["text"]))
 		_:
 			content.add_child(UI.label(card["text"]))
@@ -308,7 +308,18 @@ static func item_toggle_label(toggle: Dictionary) -> String:
 		return GameData.EVENT_CHECKS["itemToggleNoneHeld"] % toggle["name"]
 	return GameData.EVENT_CHECKS["itemToggleFormat"] % [toggle["name"], roundi(toggle["delta"] * 100.0)]
 
+# A multi-attempt check's resolution reads "N of M came off"; a single check
+# uses the success/fail marker.
+static func outcome_marker(card: Dictionary) -> String:
+	if card.has("attempts"):
+		return GameData.EVENT_CHECKS["attemptsMarkerFormat"] % [card["successes"], card["attempts"]]
+	return GameData.EVENT_CHECKS["outcomeMarkers"][card["outcome"]]
+
+# "Label · 60%", or "Label · 2 tries · 55%" (per-attempt odds) for a
+# multi-attempt check; hint mode swaps the percentage for the hint word.
 static func odds_label(label: String, odds: Dictionary) -> String:
+	if int(odds.get("attempts", 1)) > 1:
+		label = GameData.EVENT_CHECKS["attemptsFormat"] % [label, odds["attempts"]]
 	if odds["show"] == "hint":
 		return GameData.EVENT_CHECKS["hintFormat"] % [label, odds["hint"]]
 	return GameData.EVENT_CHECKS["oddsFormat"] % [label, roundi(odds["probability"] * 100.0)]

@@ -603,7 +603,9 @@
     "noModifiers": "Nothing tipping it either way.",
     "itemToggleFormat": "Use %s · %+d%%",
     "itemToggleNoneHeld": "%s · none on you",
-    "outcomeMarkers": { "success": "✓ Came off", "fail": "✗ Didn't come off" }
+    "outcomeMarkers": { "success": "✓ Came off", "fail": "✗ Didn't come off" },
+    "attemptsFormat": "%s · %d tries",
+    "attemptsMarkerFormat": "%d of %d came off"
   },
   "calendar": {
     "startMonth": 3,

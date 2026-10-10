@@ -96,8 +96,9 @@ static func revealed_cards() -> Array:
 			var resolution_card: Dictionary = { "type": "resolution", "label": null, "speaker": null, "text": resolution["text"] }
 			if resolution.has("image"):
 				resolution_card["image"] = resolution["image"]
-			if resolution.has("outcome"):
-				resolution_card["outcome"] = resolution["outcome"]
+			for key in ["outcome", "successes", "attempts"]:
+				if resolution.has(key):
+					resolution_card[key] = resolution[key]
 			result.append(resolution_card)
 	return result
 
@@ -241,10 +242,17 @@ static func choose(choice_index: int) -> void:
 	# its own result_text; the option's own effects (if any) still apply first.
 	var outcome := ""
 	var source: Dictionary = choice
+	var attempts := 1
+	var successes := 0
 	if choice.has("check"):
 		var toggled := active_toggles(choice_index)
-		outcome = "success" if check_roll(choice_index) < odds_for(choice["check"], toggled)["probability"] else "fail"
-		source = choice[outcome]
+		var p: float = odds_for(choice["check"], toggled)["probability"]
+		attempts = check_attempts(choice)
+		for attempt in range(attempts):
+			if check_roll(choice_index, attempt) < p:
+				successes += 1
+		outcome = "success" if successes > 0 else "fail"
+		source = choice.get("bySuccesses", {}).get(str(successes), choice[outcome])
 		_rolled(event_state)[_roll_key(choice_index)] = prior_rolls(choice_index) + 1
 		# A toggled consumable is spent only here, on committing its own option.
 		var spent: Array = []
@@ -260,39 +268,48 @@ static func choose(choice_index: int) -> void:
 		resolution["image"] = choice["image"]
 	if outcome != "":
 		resolution["outcome"] = outcome
+	if attempts > 1:
+		resolution["successes"] = successes
+		resolution["attempts"] = attempts
 	event_state["choiceResults"][str(event_state["cardIndex"])] = resolution
-	_remember_choice(event_state["eventId"], event_state["cardIndex"], str(choice.get("id", choice_index)), outcome)
+	_remember_choice(event_state["eventId"], event_state["cardIndex"], str(choice.get("id", choice_index)), outcome, successes if attempts > 1 else -1)
 	var effects: Array = choice.get("effects", [])
 	if outcome != "":
+		for i in range(successes):
+			effects = effects + choice["check"].get("perSuccess", [])
 		effects = effects + source.get("effects", [])
 	apply_effects(effects)
 
 
-# Choice memory: flags.choices[eventId][str(cardIndex)] = {id, outcome?}
-# (outcome "success"/"fail" for a check option). Lives in the state tree, so
-# Rewind's snapshot restore drops a rewound pick for free.
-static func _remember_choice(event_id: String, card_index: int, option_id: String, outcome: String = "") -> void:
+# Choice memory: flags.choices[eventId][str(cardIndex)] = {id, outcome?,
+# successes?} (outcome "success"/"fail" for a check option; successes for a
+# multi-attempt check). Lives in the state tree, so Rewind's snapshot restore
+# drops a rewound pick for free.
+static func _remember_choice(event_id: String, card_index: int, option_id: String, outcome: String = "", successes: int = -1) -> void:
 	var memory: Dictionary = GameState.state["flags"]["choices"]
 	if not memory.has(event_id):
 		memory[event_id] = {}
 	var record := { "id": option_id }
 	if outcome != "":
 		record["outcome"] = outcome
+	if successes >= 0:
+		record["successes"] = successes
 	memory[event_id][str(card_index)] = record
 
 
 # ── checks (opening-choices spec "Event engine": Odds, Deterministic rolls) ──
 
 # Odds for the current choice card's option: {} when it has no check, else
-# {probability, base, mods:[{label, delta}], show, hint}. The event screen
-# reads only this; it never computes odds itself. A check already rolled
-# before a Rewind rolls twice and keeps the best, so its probability is
-# 1 - (1 - p)^2, listed as one extra modifier.
+# {probability, base, mods:[{label, delta}], show, hint, attempts}. The event
+# screen reads only this; it never computes odds itself. probability is per
+# attempt. A check already rolled before a Rewind rolls twice and keeps the
+# best, so its probability is 1 - (1 - p)^2, listed as one extra modifier.
 static func check_odds(choice_index: int) -> Dictionary:
 	var choice: Dictionary = current_card()["choices"][choice_index]
 	if not choice.has("check"):
 		return {}
 	var odds := odds_for(choice["check"], active_toggles(choice_index))
+	odds["attempts"] = check_attempts(choice)
 	if prior_rolls(choice_index) > 0:
 		var p: float = odds["probability"]
 		var advantaged: float = 1.0 - (1.0 - p) * (1.0 - p)
@@ -307,6 +324,11 @@ static func check_odds(choice_index: int) -> Dictionary:
 # the check is being re-rolled after a Rewind.
 static func prior_rolls(choice_index: int) -> int:
 	return int(GameState.state["event"].get("rolled", {}).get(_roll_key(choice_index), 0))
+
+
+# How many times a check option rolls on commit (check.attempts, default 1).
+static func check_attempts(choice: Dictionary) -> int:
+	return maxi(1, int(choice.get("check", {}).get("attempts", 1)))
 
 
 static func _rolled(event_state: Dictionary) -> Dictionary:
@@ -380,19 +402,22 @@ static func _option_key(option: Variant) -> String:
 
 # The check's roll in [0,1) for the current card's option: a stable hash of
 # world.rollSeed, event id, card index, option index, prior_rolls() and the
-# toggled optional items (sorted, appended only when any), so each re-roll
-# after a Rewind is fresh, changed preparation can change it, and a save
-# reload replays the same roll. A re-roll draws a second value and keeps the
-# lower (best of two). Never draws from the global Rng stream.
-static func check_roll(choice_index: int) -> float:
+# toggled optional items (sorted, appended only when any), plus "|a<n>" for
+# attempt n > 0 of a multi-attempt check, so each re-roll after a Rewind is
+# fresh, changed preparation can change it, and a save reload replays the
+# same roll. A re-roll draws a second value per attempt and keeps the lower
+# (best of two). Never draws from the global Rng stream.
+static func check_roll(choice_index: int, attempt_index: int = 0) -> float:
 	var event_state: Dictionary = GameState.state["event"]
-	var attempt: int = prior_rolls(choice_index)
-	var key := "%d|%s|%d|%d|%d" % [int(GameState.state["world"]["rollSeed"]), event_state["eventId"], int(event_state["cardIndex"]), choice_index, attempt]
+	var prior: int = prior_rolls(choice_index)
+	var key := "%d|%s|%d|%d|%d" % [int(GameState.state["world"]["rollSeed"]), event_state["eventId"], int(event_state["cardIndex"]), choice_index, prior]
 	var toggled := active_toggles(choice_index)
 	if not toggled.is_empty():
 		key += "|" + ",".join(PackedStringArray(toggled))
+	if attempt_index > 0:
+		key += "|a%d" % attempt_index
 	var roll: float = Rng.stable_unit(key)
-	if attempt > 0:
+	if prior > 0:
 		roll = minf(roll, Rng.stable_unit(key + "|adv"))
 	return roll
 

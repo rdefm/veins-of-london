@@ -359,6 +359,29 @@ func run() -> void:
 		GameData.EVENTS = original_events
 	)
 
+	run_case("a_multi_attempt_check_shows_tries_and_per_attempt_odds", func():
+		GameState.reset()
+		var original_events := _install_check_event("odds")
+		GameData.EVENTS["test_screen_check_event"]["cards"][0]["choices"][0]["check"]["attempts"] = 2
+		Events.start_event("test_screen_check_event")
+		assert_true(_button_with_text(_fresh_screen(), "Push · 2 tries · 40%") != null)
+		GameData.EVENTS = original_events
+	)
+
+	run_case("a_multi_attempt_resolution_marker_counts_successes", func():
+		GameState.reset()
+		var original_events := _install_check_event("odds")
+		var check: Dictionary = GameData.EVENTS["test_screen_check_event"]["cards"][0]["choices"][0]["check"]
+		check["attempts"] = 3
+		check["min"] = 1.0
+		Events.start_event("test_screen_check_event")
+		Events.choose(0)
+		var cards := _fresh_screen()._cards_box.get_children()
+		var texts: Array = cards.back().find_children("", "Label", true, false).map(func(l): return l.text)
+		assert_eq(texts[0], GameData.EVENT_CHECKS["attemptsMarkerFormat"] % [3, 3])
+		GameData.EVENTS = original_events
+	)
+
 	run_case("continue_button_is_recoloured_to_ui_action_red", func():
 		GameState.reset()
 		var original_events := _install_full_card_event()

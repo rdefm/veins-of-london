@@ -69,6 +69,20 @@ func _install_item_check_event(p: float, consume: bool) -> Dictionary:
 	return original_events
 
 
+# The check event with a multi-attempt check: each success adds one Time
+# Pearl, result text keyed by success count for 0 and 2 (others fall back).
+func _install_attempts_check_event(p: float, attempts: int) -> Dictionary:
+	var original_events := _install_check_event(p)
+	var option: Dictionary = GameData.EVENTS["test_check_event"]["cards"][1]["choices"][0]
+	option["check"]["attempts"] = attempts
+	option["check"]["perSuccess"] = [{ "op": "add_item", "item": "timePearl", "qty": 1 }]
+	option["bySuccesses"] = {
+		"0": { "result_text": "None took.", "effects": [{ "op": "set_flag", "flag": "noneTook", "value": true }] },
+		"2": { "result_text": "Two took.", "effects": [] },
+	}
+	return original_events
+
+
 # ui-vision.md §11: a choice event whose first option carries an "image"
 # key, followed by a card with no "image" key (sticky) and a card that
 # explicitly clears it (image: null) -- Events.current_image_path()'s own
@@ -836,6 +850,129 @@ func run() -> void:
 		var errors: Array[String] = []
 		GameData._validate_choice_card(_check_choice_card(0.5), "test", errors)
 		assert_eq(errors, [] as Array[String])
+	)
+
+	# ── multi-attempt checks (R§3.9a "Attempts") ────────────────────────
+
+	run_case("a_sure_multi_attempt_check_applies_per_success_effects_and_count_text", func():
+		GameState.reset()
+		var original_events := _install_attempts_check_event(1.0, 2)
+		var cash_before: int = GameState.state["player"]["cash"]
+		Events.start_event("test_check_event")
+		Events.advance()
+		assert_eq(Events.check_odds(0)["attempts"], 2)
+		Events.choose(0)
+		assert_eq(Crafting.inventory_qty("timePearl"), 2, "one pearl per success")
+		assert_eq(Events.choice_record("test_check_event", 1), { "id": "push", "outcome": "success", "successes": 2 })
+		var resolution: Dictionary = Events.revealed_cards().back()
+		assert_eq(resolution["text"], "Two took.", "text keyed by success count")
+		assert_eq([resolution["successes"], resolution["attempts"]], [2, 2])
+		assert_eq(GameState.state["player"]["cash"], cash_before, "a keyed outcome replaces the success fallback")
+		GameData.EVENTS = original_events
+	)
+
+	run_case("a_hopeless_multi_attempt_check_uses_the_zero_count_outcome", func():
+		GameState.reset()
+		var original_events := _install_attempts_check_event(0.0, 4)
+		Events.start_event("test_check_event")
+		Events.advance()
+		Events.choose(0)
+		assert_eq(Crafting.inventory_qty("timePearl"), 0)
+		assert_eq(Events.choice_record("test_check_event", 1), { "id": "push", "outcome": "fail", "successes": 0 })
+		assert_eq(Events.revealed_cards().back()["text"], "None took.")
+		assert_true(GameState.state["flags"].get("noneTook", false))
+		assert_true(not GameState.state["flags"].get("checkFailed", false), "fail fallback not used")
+		GameData.EVENTS = original_events
+	)
+
+	run_case("an_unkeyed_success_count_falls_back_to_success", func():
+		GameState.reset()
+		var original_events := _install_attempts_check_event(1.0, 3)
+		var cash_before: int = GameState.state["player"]["cash"]
+		Events.start_event("test_check_event")
+		Events.advance()
+		Events.choose(0)
+		assert_eq(Crafting.inventory_qty("timePearl"), 3)
+		assert_eq(Events.revealed_cards().back()["text"], "It worked.")
+		assert_eq(GameState.state["player"]["cash"], cash_before + 30)
+		GameData.EVENTS = original_events
+	)
+
+	run_case("each_attempt_rolls_its_own_deterministic_value", func():
+		var counts: Array = []
+		for i in range(2):
+			GameState.reset()
+			GameState.state["world"]["rollSeed"] = 77
+			var original_events := _install_attempts_check_event(0.5, 4)
+			Events.start_event("test_check_event")
+			Events.advance()
+			var rolls: Array = []
+			for a in range(4):
+				rolls.append(Events.check_roll(0, a))
+			assert_eq(rolls[0], Events.check_roll(0), "attempt 0 is the single-check roll")
+			assert_true(rolls[1] != rolls[0] and rolls[2] != rolls[1], "attempts roll independently")
+			Events.choose(0)
+			var expected: int = rolls.filter(func(r: float) -> bool: return r < 0.5).size()
+			assert_eq(Events.choice_record("test_check_event", 1)["successes"], expected, "one success per roll under p")
+			counts.append(expected)
+			GameData.EVENTS = original_events
+		assert_eq(counts[0], counts[1], "same seed, same rolls")
+	)
+
+	run_case("a_rewound_multi_attempt_check_rerolls_every_attempt_best_of_two", func():
+		var successes := 0
+		for roll_seed in range(1, 201):
+			GameState.reset()
+			GameState.state["world"]["rollSeed"] = roll_seed
+			GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
+			var original_events := _install_attempts_check_event(0.5, 2)
+			Events.start_event("test_check_event")
+			Events.advance()
+			var first: Array = [Events.check_roll(0, 0), Events.check_roll(0, 1)]
+			Events.choose(0)
+			Events.rewind()
+			assert_eq(Crafting.inventory_qty("timePearl"), 0, "rewind returns the pearls")
+			assert_true(Events.check_roll(0, 1) != first[1], "attempt re-rolls fresh")
+			Events.choose(0)
+			successes += int(Events.choice_record("test_check_event", 1)["successes"])
+			GameData.EVENTS = original_events
+		assert_true(successes > 260 and successes < 340, "best-of-two per attempt near 75%% (got %d/400)" % successes)
+	)
+
+	run_case("an_earlier_check_outcome_mod_applies_to_every_attempt", func():
+		GameState.reset()
+		GameState.state["world"]["rollSeed"] = 5
+		var original_events := _install_check_event(1.0)
+		GameData.EVENTS["test_check_event"]["cards"][1]["choices"][0]["success"]["effects"] = [{ "op": "set_flag", "flag": "jamesWatching", "value": true }]
+		Events.start_event("test_check_event")
+		Events.advance()
+		Events.choose(0)
+		GameData.EVENTS = original_events
+
+		original_events = _install_attempts_check_event(0.45, 4)
+		GameData.EVENTS["test_check_event"]["cards"][1]["choices"][0]["check"]["mods"] = [{ "flag": "jamesWatching", "add": 0.1, "label": "James is watching" }]
+		Events.start_event("test_check_event")
+		Events.advance()
+		assert_almost_eq(Events.check_odds(0)["probability"], 0.55, 0.0001, "the earlier success lifts the odds")
+		var expected := 0
+		for a in range(4):
+			if Events.check_roll(0, a) < 0.55:
+				expected += 1
+		Events.choose(0)
+		assert_eq(Events.choice_record("test_check_event", 1)["successes"], expected, "every attempt rolls against the lifted odds")
+		GameData.EVENTS = original_events
+	)
+
+	run_case("multi_attempt_checks_pass_the_event_validator", func():
+		var original_events := _install_attempts_check_event(0.5, 2)
+		var errors: Array[String] = []
+		GameData._validate_choice_card(GameData.EVENTS["test_check_event"]["cards"][1], "test", errors)
+		assert_eq(errors, [] as Array[String])
+		var bad: Dictionary = GameData.EVENTS["test_check_event"]["cards"][1].duplicate(true)
+		bad["choices"][0]["bySuccesses"]["many"] = { "result_text": "x", "effects": [] }
+		GameData._validate_choice_card(bad, "test", errors)
+		assert_eq(errors.size(), 1, "a non-count key is flagged")
+		GameData.EVENTS = original_events
 	)
 
 	# ── current_image_path (ui-vision.md §11) ───────────────────────────

@@ -1646,6 +1646,15 @@ func _validate_choice_card(card: Dictionary, context: String, errors: Array[Stri
 					continue
 				_require_keys(choice[outcome], ["result_text", "effects"], "%s.choices.%s" % [context, outcome], errors)
 				_validate_effect_list(choice[outcome].get("effects", []), "%s.choices.%s.effects" % [context, outcome], errors)
+			var by_count: Dictionary = choice.get("bySuccesses", {})
+			for count in by_count:
+				if not String(count).is_valid_int() or typeof(by_count[count]) != TYPE_DICTIONARY:
+					errors.append("%s.choices.bySuccesses: '%s' must be a success count mapping to an outcome" % [context, count])
+					continue
+				_require_keys(by_count[count], ["result_text", "effects"], "%s.choices.bySuccesses.%s" % [context, count], errors)
+				_validate_effect_list(by_count[count].get("effects", []), "%s.choices.bySuccesses.%s.effects" % [context, count], errors)
+			if typeof(choice["check"]) == TYPE_DICTIONARY:
+				_validate_effect_list(choice["check"].get("perSuccess", []), "%s.choices.check.perSuccess" % context, errors)
 			_validate_effect_list(choice.get("effects", []), "%s.choices.effects" % context, errors)
 			continue
 		_require_keys(choice, ["label", "effects", "result_text"], "%s.choices" % context, errors)
