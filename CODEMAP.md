@@ -168,7 +168,7 @@ overlays.
 | nav_bar.gd | Bottom nav dock (Phone·Map·HQ); swaps to MapPalette dark chrome tokens while the Map tab shows with Map dark mode on |
 | ore_glyphs.gd | Five canonical ore silhouettes as hand-drawn vectors; bundled-font coverage probe for non-map symbol fallback |
 | recipe_book_page.gd | Aspect-fit recipe-book page art (assets/hq/recipe-book-side-tabs-blank.png) placing children by 1024x1536 art-space rects; owns the book-only Pixelify Sans font loader |
-| phone_device_shell.gd | Persistent rounded simulated-phone frame: clipped display, approved London wallpaper, fixed status/widget chrome, dark opened-app surface + shared/custom content mounts |
+| phone_device_shell.gd | Persistent rounded simulated-phone frame: clipped display, approved London wallpaper, game-clock status time + widget date (live on state_changed), fixed weather/battery chrome, dark opened-app surface + shared/custom content mounts |
 | phone_home_dock.gd | Home-only translucent three-destination Phone/Messages/Settings dock |
 | symbol_glyph.gd | Label-or-vector fallback for a symbol; draws an optional `icon` texture instead when set |
 | item_icons.gd | `ItemIcons`: recipe key -> pixel-art icon texture (from recipes.json `icon`) and symbol-row part dict; shared by Bag, Dial, trade, events, combat |
@@ -276,7 +276,7 @@ overlays.
 | offers.json | offers.gd (synthetic catalogue, scripted counterparties, offer expiry days, recurring term weeks, random-offer daily chance curve + qty bands, small-offer threshold, cancel relation hit), business_quest.gd (biz_starter_* chain + Archie nudge text, biz_recurring_* from Beat 3/6) |
 | ore_types.json | widely read (economy, cultivating, sites, factions) |
 | palette.json | GameData.gd (reference combat-art palette; `lodedinnit_*` brand tokens read by lodedinnit_app.gd) |
-| phone_home.json | GameData.gd + phone_device_shell.gd (fixed wallpaper/status/widget presentation; no GameState or host-service data) |
+| phone_home.json | GameData.gd + phone_device_shell.gd (wallpaper, per-block status clock times, widget date format + fixed weather/battery copy; shell renders time/date from world.day/timeBlock) |
 | recipes.json | widely read (crafting, bench, combat, dial, jobs, rooms) |
 | sites.json | sites.gd, collective.gd, objectives.gd |
 | stealth.json | raiding.gd |

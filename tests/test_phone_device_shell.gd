@@ -31,7 +31,7 @@ func run() -> void:
 		assert_true(not DirAccess.dir_exists_absolute("res://assets/icons"), "no phone-tab assets remain under the general icon directory")
 
 		var texts := NodeQuery.label_texts(phone)
-		for expected in ["08:14", "87%", "Tue, 14 May", "☁  12°C  ·  London", "Same city. Different rules."]:
+		for expected in ["08:14", "87%", "Tue, 1 Apr", "☁  12°C  ·  London", "Same city. Different rules."]:
 			assert_true(texts.has(expected), "home renders fixed presentation text: %s" % expected)
 		var widget_texts := NodeQuery.label_texts(shell.content.get_child(0))
 		assert_true(not widget_texts.has("Phone"), "legacy Phone heading is absent from the home widget")
@@ -53,14 +53,14 @@ func run() -> void:
 		assert_true(not shell.wallpaper.visible and shell.app_surface.visible, "opened app replaces home wallpaper with dark Phone-OS surface")
 		var texts := NodeQuery.label_texts(phone)
 		assert_true(texts.has("08:14") and texts.has("87%"), "persistent internal status bar remains around app content")
-		assert_true(not texts.has("Tue, 14 May") and not texts.has("Same city. Different rules."), "home widget is absent inside an app")
+		assert_true(not texts.has("Tue, 1 Apr") and not texts.has("Same city. Different rules."), "home widget is absent inside an app")
 
 		phone.free()
 	)
 
 	run_case("phone_home_presentation_is_loaded_and_validated_by_GameData", func():
 		assert_eq(GameData.PHONE_HOME["wallpaper"], "res://assets/phone/phone-wallpaper.jpg", "wallpaper reference is data-owned")
-		assert_eq(GameData.PHONE_HOME["status"]["time"], "08:14", "status copy is data-owned")
+		assert_eq(GameData.PHONE_HOME["status"]["blockTimes"], ["08:14", "14:22", "20:07"], "per-block clock times are data-owned")
 		assert_eq(GameData.PHONE_HOME["widget"]["flavour"], "Same city. Different rules.", "widget copy is data-owned")
 
 		var broken: Dictionary = GameData.snapshot().duplicate(true)
@@ -68,9 +68,33 @@ func run() -> void:
 		var errors := GameData.validate_tables(broken)
 		assert_true(_contains_error(errors, "phone_home.widget"), "GameData rejects missing required home-widget copy")
 		broken = GameData.snapshot().duplicate(true)
-		broken["phone_home"]["status"]["time"] = "09:00"
+		broken["phone_home"]["status"]["batteryPercent"] = "50%"
 		errors = GameData.validate_tables(broken)
-		assert_true(_contains_error(errors, "phone_home.status.time"), "GameData rejects altered fixed presentation values")
+		assert_true(_contains_error(errors, "phone_home.status"), "GameData rejects altered fixed presentation values")
+		broken = GameData.snapshot().duplicate(true)
+		broken["phone_home"]["status"]["blockTimes"] = ["08:14", "14:22"]
+		errors = GameData.validate_tables(broken)
+		assert_true(_contains_error(errors, "phone_home.status.blockTimes"), "GameData rejects a blockTimes list that does not cover every block")
+	)
+
+	run_case("status_clock_and_date_widget_follow_the_game_day_and_block", func():
+		GameState.reset()
+		var phone := PhoneScreen.new()
+		phone._ready()
+		var shell: PhoneDeviceShellScript = _find_shell(phone)
+
+		var texts := NodeQuery.label_texts(phone)
+		assert_true(texts.has("08:14") and texts.has("Tue, 1 Apr"), "day 1 Morning renders its block time and calendar date")
+
+		GameState.state["world"]["day"] = 3
+		GameState.state["world"]["timeBlock"] = 2
+		EventBus.state_changed.emit()
+		texts = NodeQuery.label_texts(phone)
+		assert_true(texts.has("20:07") and texts.has("Thu, 3 Apr"), "day 3 Evening re-renders live without reopening the phone")
+		assert_true(not texts.has("08:14") and not texts.has("Tue, 1 Apr"), "stale clock and date are replaced")
+		assert_true(shell != null, "shell stays mounted across the update")
+
+		phone.free()
 	)
 
 	run_case("device_shell_does_not_own_or_reparent_external_bars", func():

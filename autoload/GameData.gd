@@ -679,11 +679,19 @@ func _validate_phone_home(phone_home: Dictionary, errors: Array[String]) -> void
 	elif not FileAccess.file_exists(wallpaper):
 		errors.append("phone_home.wallpaper: approved asset does not exist")
 	var status: Dictionary = phone_home.get("status", {})
-	_require_keys(status, ["time", "cellular", "wifi", "batteryGlyph", "batteryPercent"], "phone_home.status", errors)
-	_require_exact_values(status, {"time": "08:14", "cellular": "▂▄▆█", "wifi": "⌁", "batteryGlyph": "▰", "batteryPercent": "87%"}, "phone_home.status", errors)
+	_require_keys(status, ["blockTimes", "cellular", "wifi", "batteryGlyph", "batteryPercent"], "phone_home.status", errors)
+	_require_exact_values(status, {"cellular": "▂▄▆█", "wifi": "⌁", "batteryGlyph": "▰", "batteryPercent": "87%"}, "phone_home.status", errors)
+	# One representative clock time per time block, indexed by world.timeBlock.
+	var block_times: Variant = status.get("blockTimes", [])
+	if typeof(block_times) != TYPE_ARRAY or (block_times as Array).size() != 3:
+		errors.append("phone_home.status.blockTimes: must be an array of 3 times, one per time block")
+	else:
+		for t in block_times:
+			if typeof(t) != TYPE_STRING or String(t).is_empty():
+				errors.append("phone_home.status.blockTimes: every entry must be a non-empty string")
 	var widget: Dictionary = phone_home.get("widget", {})
-	_require_keys(widget, ["date", "weather", "temperature", "location", "flavour"], "phone_home.widget", errors)
-	_require_exact_values(widget, {"date": "Tue, 14 May", "weather": "☁", "temperature": "12°C", "location": "London", "flavour": "Same city. Different rules."}, "phone_home.widget", errors)
+	_require_keys(widget, ["dateFormat", "weather", "temperature", "location", "flavour"], "phone_home.widget", errors)
+	_require_exact_values(widget, {"weather": "☁", "temperature": "12°C", "location": "London", "flavour": "Same city. Different rules."}, "phone_home.widget", errors)
 
 
 func _require_exact_values(actual: Dictionary, expected: Dictionary, context: String, errors: Array[String]) -> void:

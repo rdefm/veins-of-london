@@ -1,5 +1,5 @@
 # Persistent simulated-device frame for the Phone tab. Owns the clipped
-# display, decorative status chrome, home wallpaper/widget, and the dark
+# display, game-clock status chrome, home wallpaper/widget, and the dark
 # opened-app surface. External TopBar/NavBar remain Main-scene siblings.
 class_name PhoneDeviceShell
 extends Control
@@ -20,6 +20,8 @@ var content: VBoxContainer
 var custom_mount: Control
 
 var _built := false
+var _time_label: Label
+var _date_label: Label
 
 
 func _ready() -> void:
@@ -106,6 +108,7 @@ func ensure_built() -> void:
 	margin.add_child(content)
 	display.add_child(_build_status_bar())
 	set_home_mode(true)
+	EventBus.state_changed.connect(_refresh_clock)
 
 
 func set_home_mode(is_home: bool) -> void:
@@ -142,9 +145,9 @@ func _build_status_bar() -> Control:
 	bar.add_theme_constant_override("separation", 8)
 
 	var status: Dictionary = GameData.PHONE_HOME.get("status", {})
-	var time_label := _status_label(status.get("time", ""), 16)
-	time_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	bar.add_child(time_label)
+	_time_label = _status_label(clock_text(), 16)
+	_time_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bar.add_child(_time_label)
 	bar.add_child(_status_label(status.get("cellular", ""), 12))
 	bar.add_child(_status_label(status.get("wifi", ""), 20))
 	bar.add_child(_status_label(status.get("batteryGlyph", ""), 15))
@@ -158,12 +161,32 @@ func _build_home_widget() -> Control:
 	widget.add_theme_constant_override("separation", 3)
 	var config: Dictionary = GameData.PHONE_HOME.get("widget", {})
 
-	var date := _widget_label(config.get("date", ""), 28, _palette("phone_text_primary"))
-	widget.add_child(date)
+	_date_label = _widget_label(date_text(), 28, _palette("phone_text_primary"))
+	widget.add_child(_date_label)
 	var weather_line := "%s  %s  ·  %s" % [config.get("weather", ""), config.get("temperature", ""), config.get("location", "")]
 	widget.add_child(_widget_label(weather_line, 18, _palette("phone_text_primary")))
 	widget.add_child(_widget_label(config.get("flavour", ""), 14, _palette("phone_text_muted")))
 	return widget
+
+
+# Representative clock time for the current world.timeBlock (phone_home.json
+# status.blockTimes).
+static func clock_text() -> String:
+	var times: Array = GameData.PHONE_HOME["status"]["blockTimes"]
+	return times[int(GameState.state["world"]["timeBlock"])]
+
+
+# Widget date for world.day via the calendar, e.g. "Tue, 1 Apr".
+static func date_text() -> String:
+	var parts := Calendar.date_parts(int(GameState.state["world"]["day"]))
+	var fmt: String = GameData.PHONE_HOME["widget"]["dateFormat"]
+	return fmt % [String(parts["weekday"]).capitalize(), parts["dayOfMonth"], String(parts["month"]).capitalize()]
+
+
+func _refresh_clock() -> void:
+	_time_label.text = clock_text()
+	if is_instance_valid(_date_label):
+		_date_label.text = date_text()
 
 
 func _status_label(text: String, font_size: int) -> Label:

@@ -1,14 +1,14 @@
 {
   "wallpaper": "res://assets/phone/phone-wallpaper.jpg",
   "status": {
-    "time": "08:14",
+    "blockTimes": ["08:14", "14:22", "20:07"],
     "cellular": "▂▄▆█",
     "wifi": "⌁",
     "batteryGlyph": "▰",
     "batteryPercent": "87%"
   },
   "widget": {
-    "date": "Tue, 14 May",
+    "dateFormat": "%s, %d %s",
     "weather": "☁",
     "temperature": "12°C",
     "location": "London",

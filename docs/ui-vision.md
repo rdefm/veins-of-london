@@ -368,14 +368,16 @@ this document. It changes the home presentation, not the opened-app
 content rules later in this section.
 
 - **Device shell:** the simulated screen sits inside a dark rounded phone
-  frame. Its conventional internal status bar shows decorative time,
+  frame. Its conventional internal status bar shows the game time,
   cellular signal, Wi-Fi, battery glyph, and percentage. The frame and
   status bar remain around opened apps.
-- **Fixed presentation, not mechanics:** status time `08:14`, date
-  `Tue, 14 May`, cloudy `12°C`, `London`, and battery `87%` are fixed
-  mockup copy. They create no calendar, weather, connectivity, or battery
-  state; enter neither `GameState` nor save data; and make no host-clock
-  lookup or network request.
+- **Game clock, fixed chrome:** status time and widget date follow the
+  game — `world.day` through the calendar (e.g. `Tue, 1 Apr`) and one
+  representative clock time per time block (`phone_home.json`
+  `status.blockTimes`, e.g. Morning `08:14`). Cloudy `12°C`, `London`,
+  and battery `87%` are fixed mockup copy: they create no weather,
+  connectivity, or battery state, enter neither `GameState` nor save
+  data, and make no host-clock lookup or network request.
 - **Home-only layers:** the approved
   `assets/phone/phone-wallpaper.jpg` fills/crops responsively inside the
   rounded display. The widget carries the fixed presentation above and
