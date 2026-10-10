@@ -322,6 +322,76 @@ func run() -> void:
 		assert_eq(_kind("story").size(), 0)
 	)
 
+	run_case("offer_row_only_inside_the_expiry_window_and_drops_off_when_taken", func():
+		GameState.reset()
+		_quiet_story()
+		var offer: Dictionary = _pending_offer()
+		var today: int = GameState.state["world"]["day"]
+		offer["expiresDay"] = today + 2
+		assert_eq(_kind("offerExpiring"), [], "two days out: outside the 1-day window")
+		offer["expiresDay"] = today + 1
+		var rows := _kind("offerExpiring")
+		assert_eq(rows.size(), 1)
+		assert_eq([rows[0]["tier"], rows[0]["key"], rows[0]["action"], rows[0]["sort"]], ["opportunity", "offer:%s" % offer["id"], { "to": "bizbrief_offer", "offerId": offer["id"] }, 1])
+		assert_true(String(rows[0]["label"]).find("£%d" % int(offer["quote"]["payment"])) != -1, "names the payment")
+		Offers.decline_offer(offer["id"])
+		assert_eq(_kind("offerExpiring"), [], "a declined offer drops off")
+		offer = _pending_offer()
+		offer["expiresDay"] = today
+		assert_eq(_kind("offerExpiring"), [], "a lapsed offer drops off")
+	)
+
+	run_case("demand_row_only_for_held_goods_at_or_above_the_threshold", func():
+		GameState.reset()
+		_quiet_story()
+		GameState.state["flags"]["canSellConsumables"] = true
+		GameState.state["barometer"]["social"] = "festival"
+		var fraction := Barometer.get_item_demand_mult("blast") - 1.0
+		assert_true(fraction >= float(GameData.DAILY_BRIEF["demandThreshold"]), "festival lifts blast past the default threshold")
+		assert_eq(_kind("demandSpike"), [], "not held: no row")
+		Crafting.inventory_add("blast", 1, 3)
+		var rows := _kind("demandSpike")
+		assert_eq(rows.size(), 1)
+		assert_eq([rows[0]["tier"], rows[0]["key"], rows[0]["action"], rows[0]["actionLabel"]], ["opportunity", "demand:blast", { "to": "trade" }, "Sell"])
+		assert_true(String(rows[0]["label"]).find("%d%%" % roundi(fraction * 100.0)) != -1, "names the lift")
+		var default_threshold: float = GameData.DAILY_BRIEF["demandThreshold"]
+		GameData.DAILY_BRIEF["demandThreshold"] = fraction
+		var at_boundary := _kind("demandSpike").size()
+		GameData.DAILY_BRIEF["demandThreshold"] = fraction + 0.01
+		var above_boundary := _kind("demandSpike").size()
+		GameData.DAILY_BRIEF["demandThreshold"] = default_threshold
+		assert_eq([at_boundary, above_boundary], [1, 0], "a lift exactly at the threshold counts; just under it doesn't")
+		Crafting.inventory_remove("blast", 3)
+		assert_eq(_kind("demandSpike"), [], "sold out: drops off")
+		Crafting.inventory_add("blast", 1, 3)
+		GameState.state["barometer"]["social"] = _neutral_social_state()
+		assert_eq(_kind("demandSpike"), [], "demand falls: drops off")
+	)
+
+	run_case("favour_row_per_open_request_until_answered", func():
+		GameState.reset()
+		_quiet_story()
+		var faction_id: String = GameData.FACTIONS.keys()[0]
+		var contact_id := KeyMembers.speaker_for(faction_id)
+		var day: int = GameState.state["world"]["day"]
+		Messages.queue_pending(contact_id, Diplomacy.FAVOUR_KIND, "A favour.", { "factionId": faction_id, "favourId": "f1", "expiresDay": day + 2 })
+		var rows := _kind("favour")
+		assert_eq(rows.size(), 1)
+		assert_eq([rows[0]["tier"], rows[0]["action"], rows[0]["sort"]], ["opportunity", { "to": "thread", "contactId": contact_id }, 2])
+		Diplomacy.decline(GameState.state["pendingMessages"][0]["id"])
+		assert_eq(_kind("favour"), [], "an answered favour drops off")
+	)
+
+	run_case("opportunity_rows_never_badge", func():
+		GameState.reset()
+		_quiet_story()
+		_pending_offer()["expiresDay"] = int(GameState.state["world"]["day"]) + 1
+		var faction_id: String = GameData.FACTIONS.keys()[0]
+		Messages.queue_pending(KeyMembers.speaker_for(faction_id), Diplomacy.FAVOUR_KIND, "A favour.", { "factionId": faction_id, "favourId": "f1", "expiresDay": 99 })
+		assert_eq(DailyBrief.summary()["counts"]["opportunity"], 2)
+		assert_eq(DailyBrief.badge_count(), 0)
+	)
+
 	run_case("works_before_the_business_pot_opens", func():
 		GameState.reset()
 		assert_true(not Business.is_pot_active())
@@ -341,6 +411,22 @@ func _accept_contract(request: Dictionary) -> Dictionary:
 		"request": request,
 	})
 	return Offers.accept_offer(created["offer"]["id"])["contract"]
+
+
+func _pending_offer() -> Dictionary:
+	_next_offer += 1
+	return Offers.create_offer({
+		"id": "t_brief_offer_%d" % _next_offer, "source": "scripted", "contractType": "oneOff",
+		"request": { "kind": "ore", "type": "life", "qty": 10 },
+	})["offer"]
+
+
+# A social Ticker state with no item-demand effect.
+func _neutral_social_state() -> String:
+	for state_id in GameData.BAROMETER_STATES["social"]:
+		if not GameData.BAROMETER_STATES["social"][state_id]["effects"].has("itemDemand"):
+			return state_id
+	return ""
 
 
 func _kind(kind: String) -> Array:

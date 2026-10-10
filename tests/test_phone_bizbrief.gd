@@ -156,6 +156,39 @@ func run() -> void:
 		phone.free()
 	)
 
+	run_case("today_opportunity_actions_open_the_offer_trade_sheet_and_favour_thread", func():
+		GameState.reset()
+		for id in GameState.state["objectives"]:
+			GameState.state["objectives"][id]["active"] = false
+		var offer: Dictionary = Offers.create_offer({ "id": "t_today_offer", "source": "scripted", "contractType": "oneOff", "request": { "kind": "ore", "type": "life", "qty": 10 } })["offer"]
+		offer["expiresDay"] = int(GameState.state["world"]["day"]) + 1
+		GameState.state["flags"]["canSellConsumables"] = true
+		GameState.state["barometer"]["social"] = "festival"
+		Crafting.inventory_add("blast", 1, 2)
+		var faction_id: String = GameData.FACTIONS.keys()[0]
+		var contact_id := KeyMembers.speaker_for(faction_id)
+		Messages.queue_pending(contact_id, Diplomacy.FAVOUR_KIND, "A favour.", { "factionId": faction_id, "favourId": "f1", "expiresDay": 99 })
+		GameState.state["phoneNav"]["app"] = "bizbrief"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		var offer_node := "OfferCard_%s" % String(offer["id"]).validate_node_name()
+		assert_true(phone.find_child(offer_node, true, false) == null, "Brief tab: no offer cards yet")
+		_button_with_text(phone.find_child("TodayRow_offer_%s" % String(offer["id"]).validate_node_name(), true, false), "Offer").pressed.emit()
+		assert_true(phone.find_child(offer_node, true, false) != null, "Offer opens Manage on the offer card")
+		phone.free()
+
+		GameState.state["phoneNav"]["app"] = "bizbrief"
+		phone = PhoneScreen.new()
+		phone._ready()
+		_button_with_text(phone.find_child("TodayRow_demand_blast", true, false), "Sell").pressed.emit()
+		assert_eq(GameState.state["modal"]["type"], "sell_menu", "Sell opens the Trade sheet")
+		GameState.state["modal"] = null
+		var favour_row: Node = phone.find_child("TodayRow_favour_%s" % String(GameState.state["pendingMessages"][0]["id"]).validate_node_name(), true, false)
+		_button_with_text(favour_row, "Messages").pressed.emit()
+		assert_eq([GameState.state["phoneNav"]["app"], GameState.state["phoneNav"]["selectedContactId"]], ["messages", contact_id], "favour opens the key member's thread")
+		phone.free()
+	)
+
 	run_case("brief_lead_is_live_before_rollover_and_treasury_moves_funds", func():
 		GameState.reset()
 		GameState.state["player"]["cash"] = 300

@@ -62,6 +62,8 @@ var _sales_details_id := ""
 var _open_brief_sections := {}
 # Pending wage prompt cards on the Brief tab, contact id -> Control.
 var _wage_prompt_anchors := {}
+# Pending offer cards on the Manage tab, offer id -> Control.
+var _offer_anchors := {}
 var _short_pay := ShortPayViewScript.new()
 var _guard_costs := GuardCostsViewScript.new()
 var _root: Control = null
@@ -363,6 +365,11 @@ func _open_today_action(action: Dictionary) -> void:
 			_set_tab(STAFF_TAB)
 		"bizbrief_sales":
 			_set_tab(MANAGE_TAB)
+		"bizbrief_offer":
+			_set_tab(MANAGE_TAB)
+			_show_offer(action["offerId"])
+		"trade":
+			Modal.open("sell_menu")
 		"thread":
 			PhoneNav.select_conversation(action["contactId"])
 		"map":
@@ -878,6 +885,13 @@ func _show_procurement_assignments() -> void:
 		_scroll.ensure_control_visible(_procurement_anchor)
 
 
+# Deferred so the freshly built Manage tab has its layout before scrolling.
+func _show_offer(offer_id: String) -> void:
+	var anchor: Variant = _offer_anchors.get(offer_id)
+	if is_instance_valid(_scroll) and is_instance_valid(anchor):
+		_scroll.ensure_control_visible.call_deferred(anchor)
+
+
 func _vein_name(vein: Dictionary) -> String:
 	return "%s — %s" % [GameData.DISTRICTS[vein["district"]]["name"], GameData.ORE_TYPES[vein["oreType"]]["name"]]
 
@@ -987,8 +1001,11 @@ func _build_sales() -> Control:
 	section.add_child(UI.heading("Offered contracts · %d" % offers.size(), 14))
 	if offers.is_empty():
 		section.add_child(UI.muted_label("No pending offers."))
+	_offer_anchors = {}
 	for offer in offers:
 		var c := UI.card()
+		c["panel"].name = "OfferCard_%s" % String(offer["id"]).validate_node_name()
+		_offer_anchors[offer["id"]] = c["panel"]
 		var request: Dictionary = offer["request"]
 		var expiry: String = "expires %s" % Calendar.format_day(int(offer["expiresDay"]))
 		c["content"].add_child(_build_contract_tags(offer))

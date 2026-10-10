@@ -22,6 +22,9 @@ static func items() -> Array[Dictionary]:
 	_contract_at_risk_rows(rows)
 	_vein_at_risk_rows(rows)
 	_story_rows(rows)
+	_offer_expiring_rows(rows)
+	_demand_spike_rows(rows)
+	_favour_rows(rows)
 	_development_rows(rows)
 	var tiers: Array = GameData.DAILY_BRIEF["tierOrder"]
 	var order: Array = range(rows.size())
@@ -177,6 +180,59 @@ static func _story_rows(rows: Array[Dictionary]) -> void:
 	var row := _row("story", "story:%s" % item["id"], { "text": Todo.item_text(item), "note": note }, action, 0)
 	row["actionLabel"] = GameData.DAILY_BRIEF["storyActions"][action["to"]]["actionLabel"]
 	rows.append(row)
+
+
+# Pending Sales offers lapsing within offerWindowDays (an offer is gone on
+# its expiresDay, Offers.is_expired).
+static func _offer_expiring_rows(rows: Array[Dictionary]) -> void:
+	var today: int = GameState.state["world"]["day"]
+	for offer in Offers.pending_offers():
+		var days_left: int = int(offer["expiresDay"]) - today
+		if Offers.is_expired(offer) or days_left > int(GameData.DAILY_BRIEF["offerWindowDays"]):
+			continue
+		var faction: Dictionary = GameData.FACTIONS.get(offer.get("counterparty", ""), {})
+		var values := {
+			"buyer": faction.get("shortName", "A buyer"),
+			"payment": int(offer["quote"]["payment"]),
+			"deadline": Calendar.format_day(int(offer["expiresDay"])),
+		}
+		rows.append(_row("offerExpiring", "offer:%s" % offer["id"], values, { "to": "bizbrief_offer", "offerId": offer["id"] }, days_left))
+
+
+# Sellable items the player holds whose Ticker demand modifier
+# (Barometer.get_item_demand_mult − 1) is at or above demandThreshold.
+# Items reach the Trade sheet only once canSellConsumables is set.
+static func _demand_spike_rows(rows: Array[Dictionary]) -> void:
+	if not GameState.state["flags"].get("canSellConsumables", false):
+		return
+	var threshold: float = GameData.DAILY_BRIEF["demandThreshold"]
+	for recipe_key in GameData.CONSUMABLE_PRICES:
+		var held := Crafting.inventory_qty(recipe_key)
+		if held <= 0:
+			continue
+		var fraction := Barometer.get_item_demand_mult(recipe_key) - 1.0
+		# Tolerance so a fraction landing exactly on the threshold counts.
+		if fraction < threshold - 0.000001:
+			continue
+		var values := { "item": GameData.RECIPES[recipe_key]["name"], "percent": roundi(fraction * 100.0), "held": held }
+		rows.append(_row("demandSpike", "demand:%s" % recipe_key, values, { "to": "trade" }, 0))
+
+
+# Open faction favour requests (R§3.10 "Favours"); answerable through the
+# key member's thread until their expiresDay.
+static func _favour_rows(rows: Array[Dictionary]) -> void:
+	var today: int = GameState.state["world"]["day"]
+	for entry in GameState.state["pendingMessages"]:
+		if entry["kind"] != Diplomacy.FAVOUR_KIND:
+			continue
+		var payload: Dictionary = entry["payload"]
+		var expires: int = int(payload.get("expiresDay", today))
+		var values := {
+			"faction": GameData.FACTIONS.get(payload.get("factionId", ""), {}).get("shortName", "A faction"),
+			"name": Contacts.display_name(entry["contactId"]),
+			"deadline": Calendar.format_day(expires),
+		}
+		rows.append(_row("favour", "favour:%s" % entry["id"], values, { "to": "thread", "contactId": entry["contactId"] }, expires - today))
 
 
 # Live eligibility, re-derived from state every call, so a vein pruned past

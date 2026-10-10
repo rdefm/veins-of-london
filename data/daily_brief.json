@@ -4,6 +4,8 @@
   "billWindowDays": 3,
   "veinRiskBands": ["barren", "sparse"],
   "veinCollapseNights": 2,
+  "offerWindowDays": 1,
+  "demandThreshold": 0.25,
   "tierOrder": ["urgent", "story", "opportunity", "routine"],
   "emptyState": "Nothing pressing today.",
   "storyActions": {
@@ -78,6 +80,24 @@
       "label": "{ore} vein, {district} · {band} ({growth})",
       "consequence": "Collapses in ~{nights} nights if left.",
       "actionLabel": "Cultivate"
+    },
+    "offerExpiring": {
+      "tier": "opportunity", "kind": "offerExpiring",
+      "label": "{buyer} offer · £{payment}",
+      "consequence": "Expires {deadline}. Accept it or it walks.",
+      "actionLabel": "Offer"
+    },
+    "demandSpike": {
+      "tier": "opportunity", "kind": "demandSpike",
+      "label": "{item} demand up {percent}%",
+      "consequence": "You hold {held}. London's paying for it today.",
+      "actionLabel": "Sell"
+    },
+    "favour": {
+      "tier": "opportunity", "kind": "favour",
+      "label": "{faction} want a favour",
+      "consequence": "{name} is asking. Open until {deadline}.",
+      "actionLabel": "Messages"
     },
     "veinAtRiskRoutine": {
       "tier": "routine", "kind": "veinAtRisk",
