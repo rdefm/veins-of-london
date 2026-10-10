@@ -267,18 +267,46 @@ func _build_choice_button(label: String, choice_index: int) -> Control:
 	var b := UI.button(label, func(): Events.choose(choice_index))
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_style_action_button(b)
-	if not shown:
-		return b
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 4)
-	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(b)
-	var info := UI.button(GameData.EVENT_CHECKS["infoGlyph"], func(): pass)
-	info.clip_text = false
-	info.pressed.connect(func(): _toggle_odds_sheet(info, odds))
-	_style_action_button(info)
-	row.add_child(info)
-	return row
+	var option: Control = b
+	if shown:
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 4)
+		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(b)
+		var info := UI.button(GameData.EVENT_CHECKS["infoGlyph"], func(): pass)
+		info.clip_text = false
+		info.pressed.connect(func(): _toggle_odds_sheet(info, odds))
+		_style_action_button(info)
+		row.add_child(info)
+		option = row
+	var toggles: Array = Events.item_toggles(choice_index)
+	if toggles.is_empty():
+		return option
+	# Optional item toggles sit under the option they apply to.
+	var stack := UI.vbox(4)
+	stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	stack.add_child(option)
+	for toggle in toggles:
+		stack.add_child(_build_item_toggle(choice_index, toggle))
+	return stack
+
+func _build_item_toggle(choice_index: int, toggle: Dictionary) -> Button:
+	var item: String = toggle["item"]
+	var t := UI.button(item_toggle_label(toggle), func(): Events.toggle_item(choice_index, item))
+	t.toggle_mode = true
+	t.set_pressed_no_signal(toggle["on"])
+	t.disabled = not toggle["held"]
+	t.icon = ItemIcons.texture(item)
+	t.expand_icon = true
+	t.size_flags_horizontal = Control.SIZE_SHRINK_END
+	_style_action_button(t)
+	t.add_theme_stylebox_override("hover_pressed", _action_button_style(UI.action_colour(), 0.30, 1.0))
+	return t
+
+static func item_toggle_label(toggle: Dictionary) -> String:
+	if not toggle["held"]:
+		return GameData.EVENT_CHECKS["itemToggleNoneHeld"] % toggle["name"]
+	return GameData.EVENT_CHECKS["itemToggleFormat"] % [toggle["name"], roundi(toggle["delta"] * 100.0)]
 
 static func odds_label(label: String, odds: Dictionary) -> String:
 	if odds["show"] == "hint":

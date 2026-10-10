@@ -52,7 +52,7 @@ Data file per system: see `data/*.json` below.
 | districts.gd | Derived district info for Map tab |
 | economy.gd | Selling (Archie lane — ore at London quote, records supply — + faction lanes), faction-lane buying/selling for all five factions against FactionSim holdings and the faction's £ `resources` wallet (pricing incl. Network gouge, lane access via unlockFlag, R§3.6a); `complete_shop_trade` settles a faction shop's Trade-menu cart |
 | event_items.gd | Registry of items usable from an event's Item button (Rewind consumable + Dial Rewind): eligibility, counts, effect |
-| events.gd | Event-card runner + rewind, auto-discovers art, choice memory (`flags.choices`, `choice_record()`), choice checks (`check_odds()`, seeded `check_roll()`; R§3.9a) |
+| events.gd | Event-card runner + rewind, auto-discovers art, choice memory (`flags.choices`, `choice_record()`), choice checks (`check_odds()`, seeded `check_roll()`, item mods + `toggle_item()`; R§3.9a) |
 | faction_sim.gd | FactionSim: holdings (ore, items by tier); stockpile pick, guards; vein tend + prune (`fieldwork`); crafting toward targets; consumption + kit burns → shortfall; `vein_kit`, roster-capped `raider_kit` + `settle_raider_kit`; London trade vs reserve + smart boosts, Conclave arbitrage; flood/undercut/deny/stabilise/stock-up/position moves; raid harvest; is_weak bonus |
 | faction_ai.gd | FactionAI (R§3.1 stances through Conclave positions): stances + matrix, flip headlines, activity log; pressure drift, Collective–Firm hold; escalation moves (Network intel, stockpile raids, raid bias, shortfall steal); wars, weariness, nags; truces, peace talks, truce payments; Conclave stabiliser + stockpile; war squeeze; Conclave positions + Ticker push; move forecast |
 | intel.gd | Intel (R§3.1 "Intel"): observer → target intel meters for player and factions, level reads, scout/raid gains, daily decay, stockpile relocation cap; privacy/raid-warning/disinformation timers; intel's raid-odds shift and target scoring |
@@ -118,7 +118,7 @@ overlays.
 | combat.gd | Combat screen: orchestrator over CombatStage (fills the upper region)/CombatCommandDock -- owns turn flow, director bridging, band sync. Keeps one persistent strip and steps its queue beat by beat during (and Rewind) playback. `_select_target()` is the sole tap->`Combat.set_selection()` route; a stage tap during playback fast-forwards |
 | combat_prototype.gd | Minimal combat-prototype screen, Debug-app only |
 | contacts.gd | Contacts app inside PhoneDeviceShell; directory of unlocked contacts by display name (`Contacts.directory_ids`) with inline flag-gated actions; generic key-member card |
-| event.gd | Event-card screen (VN and non-VN layouts); Item button + popup over EventItems; choices row, or stack full-width when they don't fit; check options show odds/hint + info sheet, outcome marker on resolution; Leave-only fallback when state.event's id has no definition |
+| event.gd | Event-card screen (VN and non-VN layouts); Item button + popup over EventItems; choices row, or stack full-width when they don't fit; check options show odds/hint + info sheet and optional-item toggles, outcome marker on resolution; Leave-only fallback when state.event's id has no definition |
 | factions.gd | Factions tab |
 | hq.gd | HQ tab: renders the home tier's room plate (bedsit fallback), routes zone taps to sub-screens |
 | hq_dial.gd | HQ Dial sub-view: embeds DialLoadoutMenu (no complication rows) above the device art with flanking Complication sockets |

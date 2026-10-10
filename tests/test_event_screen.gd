@@ -320,6 +320,32 @@ func run() -> void:
 		GameData.EVENTS = original_events
 	)
 
+	run_case("an_optional_item_toggle_renders_under_its_option", func():
+		GameState.reset()
+		var original_events := _install_check_event("odds")
+		GameData.EVENTS["test_screen_check_event"]["cards"][0]["choices"][0]["check"]["mods"] = [
+			{ "item": "prophetsBreath", "optional": true, "consume": true, "add": 0.25, "label": "Breath" },
+		]
+		Events.start_event("test_screen_check_event")
+
+		var none_held: Button = _button_with_text(_fresh_screen(), "Prophet's Breath · none on you")
+		assert_true(none_held != null and none_held.disabled, "unavailable toggle shown disabled")
+
+		Crafting.inventory_add("prophetsBreath", 1, 1)
+		var screen := _fresh_screen()
+		var option: Control = screen._action_bar.get_children()[0]
+		var toggle: Button = _button_with_text(option, "Use Prophet's Breath · +25%")
+		assert_true(toggle != null, "toggle sits inside the option's own stack")
+		assert_true(toggle.toggle_mode and not toggle.button_pressed and not toggle.disabled)
+		toggle.pressed.emit()
+		assert_eq(Events.active_toggles(0), ["prophetsBreath"], "tap goes through Events.toggle_item()")
+
+		screen = _fresh_screen()
+		assert_true(_button_with_text(screen, "Push · 65%") != null, "odds read the toggle")
+		assert_true(_button_with_text(screen, "Use Prophet's Breath · +25%").button_pressed, "renders on")
+		GameData.EVENTS = original_events
+	)
+
 	run_case("a_check_resolution_card_carries_a_subtle_outcome_marker", func():
 		GameState.reset()
 		var original_events := _install_check_event("odds")

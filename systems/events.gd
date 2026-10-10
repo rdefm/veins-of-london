@@ -5,7 +5,7 @@ extends RefCounted
 # text}; a "choice" card adds {choices:[{id?, label, effects, result_text}]};
 # a check option swaps result_text for {check, success, fail} (R§3.9a).
 # Events: {id, cards, on_complete:[effect]}. state.event holds runtime
-# progress: {eventId, cardIndex, snapshots, choiceResults, rolled}.
+# progress: {eventId, cardIndex, snapshots, choiceResults, rolled, toggles}.
 #
 # Any card (including a choice's own "choices" entries) may carry an optional
 # "image" key -- an asset path, or explicit null to clear the event screen's
@@ -26,7 +26,7 @@ static func start_event(event_id: String, context: Dictionary = {}) -> void:
 	if not GameData.EVENTS.has(event_id):
 		push_error("Events.start_event: unknown event id '%s'" % event_id)
 		return
-	GameState.state["event"] = { "eventId": event_id, "cardIndex": 0, "snapshots": [], "choiceResults": {}, "rolled": {}, "context": context }
+	GameState.state["event"] = { "eventId": event_id, "cardIndex": 0, "snapshots": [], "choiceResults": {}, "rolled": {}, "toggles": {}, "context": context }
 	Nav.go_to("event")
 
 
@@ -242,9 +242,16 @@ static func choose(choice_index: int) -> void:
 	var outcome := ""
 	var source: Dictionary = choice
 	if choice.has("check"):
-		outcome = "success" if check_roll(choice_index) < odds_for(choice["check"])["probability"] else "fail"
+		var toggled := active_toggles(choice_index)
+		outcome = "success" if check_roll(choice_index) < odds_for(choice["check"], toggled)["probability"] else "fail"
 		source = choice[outcome]
 		_rolled(event_state)[_roll_key(choice_index)] = prior_rolls(choice_index) + 1
+		# A toggled consumable is spent only here, on committing its own option.
+		var spent: Array = []
+		for mod in choice["check"].get("mods", []):
+			if mod.get("optional", false) and mod.get("consume", false) and toggled.has(mod["item"]) and not spent.has(mod["item"]):
+				spent.append(mod["item"])
+				Crafting.inventory_remove(mod["item"], 1)
 
 	var resolution: Dictionary = { "text": source["result_text"] }
 	if source.has("image"):
@@ -285,7 +292,7 @@ static func check_odds(choice_index: int) -> Dictionary:
 	var choice: Dictionary = current_card()["choices"][choice_index]
 	if not choice.has("check"):
 		return {}
-	var odds := odds_for(choice["check"])
+	var odds := odds_for(choice["check"], active_toggles(choice_index))
 	if prior_rolls(choice_index) > 0:
 		var p: float = odds["probability"]
 		var advantaged: float = 1.0 - (1.0 - p) * (1.0 - p)
@@ -313,12 +320,13 @@ static func _roll_key(choice_index: int) -> String:
 
 
 # base + every matching modifier's signed delta, clamped to [min, max].
-static func odds_for(check: Dictionary) -> Dictionary:
+# toggled: the optional items switched on for this option (active_toggles()).
+static func odds_for(check: Dictionary, toggled: Array = []) -> Dictionary:
 	var base: float = float(check.get("base", 0.0))
 	var probability := base
 	var applied: Array = []
 	for mod in check.get("mods", []):
-		var delta: float = _mod_delta(mod)
+		var delta: float = _mod_delta(mod, toggled)
 		if delta != 0.0:
 			probability += delta
 			applied.append({ "label": mod.get("label", ""), "delta": delta })
@@ -338,8 +346,14 @@ static func hint_word(probability: float) -> String:
 
 
 # A modifier's signed delta if its condition holds right now, else 0.
-static func _mod_delta(mod: Dictionary) -> float:
+static func _mod_delta(mod: Dictionary, toggled: Array = []) -> float:
 	var add: float = float(mod.get("add", 0.0))
+	if mod.has("item"):
+		if mod.get("equipped", false):
+			return add if Loadout.find_slot(mod["item"]) >= 0 else 0.0
+		if mod.get("optional", false):
+			return add if toggled.has(mod["item"]) else 0.0
+		return 0.0
 	if mod.has("flag"):
 		return add if GameState.state["flags"].get(mod["flag"], false) else 0.0
 	if mod.has("choice"):
@@ -365,18 +379,90 @@ static func _option_key(option: Variant) -> String:
 
 
 # The check's roll in [0,1) for the current card's option: a stable hash of
-# world.rollSeed, event id, card index, option index and prior_rolls(), so
-# each re-roll after a Rewind is fresh while a save reload replays the same
-# roll. A re-roll draws a second value and keeps the lower (best of two).
-# Never draws from the global Rng stream.
+# world.rollSeed, event id, card index, option index, prior_rolls() and the
+# toggled optional items (sorted, appended only when any), so each re-roll
+# after a Rewind is fresh, changed preparation can change it, and a save
+# reload replays the same roll. A re-roll draws a second value and keeps the
+# lower (best of two). Never draws from the global Rng stream.
 static func check_roll(choice_index: int) -> float:
 	var event_state: Dictionary = GameState.state["event"]
 	var attempt: int = prior_rolls(choice_index)
 	var key := "%d|%s|%d|%d|%d" % [int(GameState.state["world"]["rollSeed"]), event_state["eventId"], int(event_state["cardIndex"]), choice_index, attempt]
+	var toggled := active_toggles(choice_index)
+	if not toggled.is_empty():
+		key += "|" + ",".join(PackedStringArray(toggled))
 	var roll: float = Rng.stable_unit(key)
 	if attempt > 0:
 		roll = minf(roll, Rng.stable_unit(key + "|adv"))
 	return roll
+
+
+# ── optional item toggles (spec "Item toggle in state") ──
+
+# The optional item mods on the current card's option, for the screen:
+# [{item, name, delta, on, held}] in mod order. "held" false means none in
+# inventory, so the toggle can't be switched on.
+static func item_toggles(choice_index: int) -> Array:
+	var out: Array = []
+	var stored: Array = _stored_toggles(choice_index)
+	for mod in _optional_mods(choice_index):
+		var item: String = mod["item"]
+		var held: bool = Crafting.inventory_qty(item) > 0
+		out.append({
+			"item": item,
+			"name": GameData.RECIPES.get(item, {}).get("name", item),
+			"delta": float(mod.get("add", 0.0)),
+			"on": held and stored.has(item),
+			"held": held,
+		})
+	return out
+
+
+# Flips an optional item on or off for the current card's option. Kept in
+# state.event.toggles["<cardIndex>|<optionIndex>"], so save and Rewind
+# capture it; takes no snapshot and spends nothing (choose() spends).
+static func toggle_item(choice_index: int, item: String) -> Dictionary:
+	if not is_awaiting_choice():
+		return { "ok": false, "reason": "No choice to prepare for." }
+	if not _optional_mods(choice_index).any(func(m: Dictionary) -> bool: return m["item"] == item):
+		return { "ok": false, "reason": "That item doesn't help here." }
+	var event_state: Dictionary = GameState.state["event"]
+	if not event_state.has("toggles"):
+		event_state["toggles"] = {}
+	var key := _roll_key(choice_index)
+	var stored: Array = event_state["toggles"].get(key, []).duplicate()
+	if stored.has(item):
+		stored.erase(item)
+	elif Crafting.inventory_qty(item) < 1:
+		return { "ok": false, "reason": "None on you." }
+	else:
+		stored.append(item)
+	event_state["toggles"][key] = stored
+	EventBus.state_changed.emit()
+	return { "ok": true }
+
+
+# The toggled optional items that count right now: switched on for this
+# option, still an optional mod on it, and still held. Sorted, so the roll
+# key doesn't depend on toggle order.
+static func active_toggles(choice_index: int) -> Array:
+	var stored: Array = _stored_toggles(choice_index)
+	var out: Array = []
+	for mod in _optional_mods(choice_index):
+		var item: String = mod["item"]
+		if stored.has(item) and not out.has(item) and Crafting.inventory_qty(item) > 0:
+			out.append(item)
+	out.sort()
+	return out
+
+
+static func _stored_toggles(choice_index: int) -> Array:
+	return GameState.state["event"].get("toggles", {}).get(_roll_key(choice_index), [])
+
+
+static func _optional_mods(choice_index: int) -> Array:
+	var choice: Dictionary = current_card()["choices"][choice_index]
+	return choice.get("check", {}).get("mods", []).filter(func(m: Dictionary) -> bool: return m.has("item") and m.get("optional", false))
 
 
 # The committed choice at an event's card, or {} if none was made.

@@ -601,6 +601,8 @@
     "baseLabel": "Base odds",
     "rewoundLabel": "Second go, best of two",
     "noModifiers": "Nothing tipping it either way.",
+    "itemToggleFormat": "Use %s · %+d%%",
+    "itemToggleNoneHeld": "%s · none on you",
     "outcomeMarkers": { "success": "✓ Came off", "fail": "✗ Didn't come off" }
   },
   "calendar": {

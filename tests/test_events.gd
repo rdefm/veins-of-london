@@ -60,6 +60,15 @@ func _install_check_event(p: float) -> Dictionary:
 	return original_events
 
 
+# The check event with an optional Prophet's Breath mod (+0.25) on its check option.
+func _install_item_check_event(p: float, consume: bool) -> Dictionary:
+	var original_events := _install_check_event(p)
+	GameData.EVENTS["test_check_event"]["cards"][1]["choices"][0]["check"]["mods"] = [
+		{ "item": "prophetsBreath", "optional": true, "consume": consume, "add": 0.25, "label": "Breath" },
+	]
+	return original_events
+
+
 # ui-vision.md §11: a choice event whose first option carries an "image"
 # key, followed by a card with no "image" key (sticky) and a card that
 # explicitly clears it (image: null) -- Events.current_image_path()'s own
@@ -726,6 +735,94 @@ func run() -> void:
 			seen[first] = true
 			GameData.EVENTS = original_events
 		assert_eq(seen.size(), 2, "different seeds reach both outcomes")
+	)
+
+	# ── check item mods (spec "Item toggle in state") ───────────────────
+
+	run_case("an_equipped_item_mod_counts_only_when_equipped", func():
+		GameState.reset()
+		var check := { "base": 0.4, "mods": [{ "item": "timePearl", "equipped": true, "add": 0.15, "label": "Pearl" }], "min": 0.0, "max": 1.0 }
+		Crafting.inventory_add("timePearl", 1, 1)
+		assert_almost_eq(Events.odds_for(check)["probability"], 0.4, 0.0001, "held but not equipped")
+		assert_true(Loadout.equip(0, "timePearl", 1)["ok"])
+		assert_almost_eq(Events.odds_for(check)["probability"], 0.55, 0.0001, "equipped")
+	)
+
+	run_case("an_optional_toggle_lives_in_event_state_and_moves_the_odds", func():
+		GameState.reset()
+		var original_events := _install_item_check_event(0.4, true)
+		Events.start_event("test_check_event")
+		Events.advance()
+		assert_eq(Events.item_toggles(0)[0]["held"], false, "none held")
+		assert_true(not Events.toggle_item(0, "prophetsBreath")["ok"], "can't switch on without one")
+		Crafting.inventory_add("prophetsBreath", 1, 1)
+		assert_true(Events.toggle_item(0, "prophetsBreath")["ok"])
+		assert_eq(GameState.state["event"]["toggles"], { "1|0": ["prophetsBreath"] }, "pure data in state.event")
+		assert_almost_eq(Events.check_odds(0)["probability"], 0.65, 0.0001, "counted while on")
+		assert_eq(Events.check_odds(0)["mods"][0]["label"], "Breath")
+		assert_true(not Events.toggle_item(1, "prophetsBreath")["ok"], "not an item for the plain option")
+		assert_true(Events.toggle_item(0, "prophetsBreath")["ok"])
+		assert_almost_eq(Events.check_odds(0)["probability"], 0.4, 0.0001, "off again")
+		GameData.EVENTS = original_events
+	)
+
+	run_case("a_toggled_consumable_is_spent_only_on_committing_its_option", func():
+		GameState.reset()
+		GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
+		Crafting.inventory_add("prophetsBreath", 1, 1)
+		var original_events := _install_item_check_event(0.4, true)
+		Events.start_event("test_check_event")
+		Events.advance()
+		Events.toggle_item(0, "prophetsBreath")
+		Events.choose(1)
+		assert_eq(Crafting.inventory_qty("prophetsBreath"), 1, "picking the other option spends nothing")
+		assert_true(Events.rewind()["ok"])
+		assert_eq(Events.active_toggles(0), ["prophetsBreath"], "Rewind keeps the preparation")
+		Events.choose(0)
+		assert_eq(Crafting.inventory_qty("prophetsBreath"), 0, "spent on commit")
+		GameData.EVENTS = original_events
+	)
+
+	run_case("rewinding_a_committed_toggle_returns_the_item", func():
+		GameState.reset()
+		GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
+		Crafting.inventory_add("prophetsBreath", 1, 1)
+		var original_events := _install_item_check_event(0.4, true)
+		Events.start_event("test_check_event")
+		Events.advance()
+		Events.toggle_item(0, "prophetsBreath")
+		Events.choose(0)
+		assert_true(Events.rewind()["ok"])
+		assert_eq(Crafting.inventory_qty("prophetsBreath"), 1, "rewind loses nothing")
+		GameData.EVENTS = original_events
+	)
+
+	run_case("a_non_consuming_optional_item_is_kept_on_commit", func():
+		GameState.reset()
+		Crafting.inventory_add("prophetsBreath", 1, 1)
+		var original_events := _install_item_check_event(0.4, false)
+		Events.start_event("test_check_event")
+		Events.advance()
+		Events.toggle_item(0, "prophetsBreath")
+		Events.choose(0)
+		assert_eq(Crafting.inventory_qty("prophetsBreath"), 1)
+		GameData.EVENTS = original_events
+	)
+
+	run_case("the_toggled_item_set_is_part_of_the_roll_key", func():
+		GameState.reset()
+		GameState.state["world"]["rollSeed"] = 99
+		Crafting.inventory_add("prophetsBreath", 1, 1)
+		var original_events := _install_item_check_event(0.4, true)
+		Events.start_event("test_check_event")
+		Events.advance()
+		var bare: float = Events.check_roll(0)
+		Events.toggle_item(0, "prophetsBreath")
+		var prepared: float = Events.check_roll(0)
+		assert_true(prepared != bare, "changed preparation, different roll")
+		Events.toggle_item(0, "prophetsBreath")
+		assert_eq(Events.check_roll(0), bare, "same preparation, same roll")
+		GameData.EVENTS = original_events
 	)
 
 	run_case("roll_seed_is_backfilled_for_saves_missing_it", func():
