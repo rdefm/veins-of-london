@@ -26,6 +26,8 @@ static func items() -> Array[Dictionary]:
 	_demand_spike_rows(rows)
 	_favour_rows(rows)
 	_development_rows(rows)
+	_idle_staff_rows(rows)
+	_ore_short_rows(rows)
 	var tiers: Array = GameData.DAILY_BRIEF["tierOrder"]
 	var order: Array = range(rows.size())
 	order.sort_custom(func(a: int, b: int) -> bool:
@@ -64,6 +66,38 @@ static func summary() -> Dictionary:
 
 static func empty_text() -> String:
 	return GameData.DAILY_BRIEF["emptyState"]
+
+
+# What the Today card shows: every non-Routine row in order, then one
+# routineSummary row (its `children` are the Routine rows) when any exist;
+# `visible` is the first rowCap of those, `hidden` the rest, `more` its size.
+static func card() -> Dictionary:
+	var shown: Array[Dictionary] = []
+	var routine: Array[Dictionary] = []
+	for row in items():
+		if row["tier"] == "routine":
+			routine.append(row)
+		else:
+			shown.append(row)
+	if not routine.is_empty():
+		shown.append(_routine_summary(routine))
+	var cap: int = GameData.DAILY_BRIEF["rowCap"]
+	return { "visible": shown.slice(0, cap), "hidden": shown.slice(cap), "more": maxi(0, shown.size() - cap) }
+
+
+# One row counting the Routine rows by kind, in data routineParts order.
+static func _routine_summary(routine: Array[Dictionary]) -> Dictionary:
+	var by_kind := {}
+	for row in routine:
+		by_kind[row["kind"]] = by_kind.get(row["kind"], 0) + 1
+	var parts: Array[String] = []
+	var part_templates: Dictionary = GameData.DAILY_BRIEF["routineParts"]
+	for kind in part_templates:
+		if by_kind.has(kind):
+			parts.append(String(part_templates[kind]).format({ "n": by_kind[kind] }))
+	var row := _row("routineSummary", "routine", { "count": routine.size(), "parts": " · ".join(parts) }, { "to": "routine" }, 0)
+	row["children"] = routine
+	return row
 
 
 static func _alarm_rows(rows: Array[Dictionary]) -> void:
@@ -249,6 +283,61 @@ static func _development_rows(rows: Array[Dictionary]) -> void:
 			"exposure": Cultivating.combined_magnitude(vein),
 		}
 		rows.append(_row("development", "development:%s" % vein["id"], values, { "to": "map_vein", "veinId": vein["id"] }, 0))
+
+
+# Recruited, working staff with nothing to do: no role while one is open to
+# them (a founder with no unlocked role isn't idle), or a cultivator with an
+# empty vein list. Unpaid staff are already the wage rows.
+static func _idle_staff_rows(rows: Array[Dictionary]) -> void:
+	var contacts: Dictionary = GameState.state["contacts"]
+	for contact_id in contacts:
+		if not contacts[contact_id]["recruited"] or not Payroll.is_working(contact_id):
+			continue
+		var role: Variant = Contacts.role_of(contact_id)
+		var template_id := ""
+		if role == null and (not Contacts.is_founder(contact_id) or not Contacts.available_roles(contact_id).is_empty()):
+			template_id = "idleStaffNoRole"
+		elif role == "cultivation" and Rooms.cultivator_veins(contact_id).is_empty():
+			template_id = "idleStaffNoVeins"
+		if template_id != "":
+			rows.append(_row(template_id, "idle:%s" % contact_id, { "name": Contacts.display_name(contact_id) }, { "to": "bizbrief_staff", "contactId": contact_id }, 0))
+
+
+# Production recipes under their effective target that no working producer
+# able to make them can afford one attempt of from shared ore (the same
+# check Rooms._producer_act makes); the short ore types are the first such
+# producer's.
+static func _ore_short_rows(rows: Array[Dictionary]) -> void:
+	var producers: Array = Contacts.contacts_in_role("production").filter(func(contact_id: String) -> bool: return Payroll.is_working(contact_id))
+	var ore: Dictionary = GameState.state["player"]["orichalchum"]
+	for recipe_key in GameData.RECIPES:
+		var held := Crafting.inventory_qty(recipe_key)
+		var target := Rooms.effective_lab_target(recipe_key)
+		if held >= target:
+			continue
+		var short_types: Array = []
+		var makers := 0
+		var affordable := false
+		for contact_id in producers:
+			if not Rooms.producible_recipes(contact_id).has(recipe_key):
+				continue
+			makers += 1
+			var costs: Dictionary = Crafting.calc_cost(recipe_key, GameState.state["contacts"][contact_id].get("craftingSkill", 1))
+			var lacking: Array = costs.keys().filter(func(ingredient: String) -> bool: return ore.get(ingredient, 0) < costs[ingredient])
+			if lacking.is_empty():
+				affordable = true
+				break
+			if short_types.is_empty():
+				short_types = lacking
+		if makers == 0 or affordable:
+			continue
+		var values := {
+			"item": GameData.RECIPES[recipe_key]["name"],
+			"ore": ", ".join(short_types.map(func(t: String) -> String: return GameData.ORE_TYPES[t]["name"])),
+			"held": held,
+			"target": target,
+		}
+		rows.append(_row("oreShort", "oreShort:%s" % recipe_key, values, { "to": "bizbrief_manage" }, 0))
 
 
 static func _row(template_id: String, key: String, values: Dictionary, action: Dictionary, sort: int) -> Dictionary:

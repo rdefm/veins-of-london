@@ -401,6 +401,98 @@ func run() -> void:
 	)
 
 
+	run_case("idle_staff_are_routine_rows_until_given_work", func():
+		GameState.reset()
+		_quiet_story()
+		var james: Dictionary = GameState.state["contacts"]["james"]
+		james["recruited"] = true
+		assert_eq(_kind("idleStaff"), [], "a founder with no role open to them isn't idle")
+		GameState.state["flags"]["bizJamesProductionRole"] = true
+		var rows := _kind("idleStaff")
+		assert_eq(rows.size(), 1)
+		assert_eq([rows[0]["tier"], rows[0]["key"], rows[0]["action"]], ["routine", "idle:james", { "to": "bizbrief_staff", "contactId": "james" }])
+		assert_true(Contacts.set_role("james", "production")["ok"])
+		assert_eq(_kind("idleStaff"), [], "a role clears it")
+		GameState.state["contacts"]["owen"]["recruited"] = true
+		GameState.state["flags"]["bizOwenCultivationRole"] = true
+		assert_true(Contacts.set_role("owen", "cultivation")["ok"])
+		rows = _kind("idleStaff")
+		assert_eq(rows.map(func(r): return r["key"]), ["idle:owen"], "a cultivator with no veins is idle")
+		assert_eq(rows[0]["consequence"], GameData.DAILY_BRIEF["rows"]["idleStaffNoVeins"]["consequence"])
+		Fixtures.seed_vein("tended", 50)
+		assert_true(Rooms.assign_vein("owen", "tended")["ok"])
+		assert_eq(_kind("idleStaff"), [], "a vein on the list clears it")
+	)
+
+	run_case("production_short_of_ore_is_a_routine_row_until_stocked_or_met", func():
+		GameState.reset()
+		_quiet_story()
+		GameState.state["contacts"]["james"]["recruited"] = true
+		GameState.state["flags"]["bizJamesProductionRole"] = true
+		assert_true(Contacts.set_role("james", "production")["ok"])
+		GameState.state["player"]["orichalchum"] = { "time": 0, "life": 0 }
+		assert_eq(_kind("oreShort"), [], "no target, nothing short")
+		GameState.state["labThresholds"]["timePearl"] = 3
+		var rows := _kind("oreShort")
+		assert_eq(rows.size(), 1)
+		assert_eq([rows[0]["tier"], rows[0]["key"], rows[0]["action"]], ["routine", "oreShort:timePearl", { "to": "bizbrief_manage" }])
+		assert_true(String(rows[0]["label"]).find(GameData.ORE_TYPES["time"]["name"]) != -1, "names the missing ore")
+		assert_true(String(rows[0]["consequence"]).find("0 of 3") != -1, "held of target")
+		GameState.state["player"]["orichalchum"]["time"] = 1000
+		assert_eq(_kind("oreShort"), [], "stocked ore clears it")
+		GameState.state["player"]["orichalchum"]["time"] = 0
+		for i in 3:
+			Crafting.inventory_add("timePearl", 1)
+		assert_eq(_kind("oreShort"), [], "a met target clears it")
+	)
+
+	run_case("routine_rows_collapse_into_one_summary_row_with_counts", func():
+		GameState.reset()
+		_quiet_story()
+		Fixtures.seed_vein("eligible", 95)
+		Fixtures.seed_vein("eligible2", 95)
+		GameState.state["contacts"]["james"]["recruited"] = true
+		GameState.state["flags"]["bizJamesProductionRole"] = true
+		var card := DailyBrief.card()
+		assert_eq(card["visible"].size(), 1, "one summary row for three routine items")
+		var summary: Dictionary = card["visible"][0]
+		assert_eq([summary["tier"], summary["kind"], summary["key"]], ["routine", "routineSummary", "routine"])
+		assert_eq(summary["children"].map(func(r): return r["key"]), ["development:eligible", "development:eligible2", "idle:james"])
+		var parts: Dictionary = GameData.DAILY_BRIEF["routineParts"]
+		assert_eq(summary["consequence"], "%s · %s" % [String(parts["development"]).format({ "n": 2 }), String(parts["idleStaff"]).format({ "n": 1 })])
+		assert_true(String(summary["label"]).find("3") != -1, "total count")
+		assert_eq(card["more"], 0)
+	)
+
+	run_case("card_caps_visible_rows_with_more_and_routine_takes_at_most_one_row", func():
+		GameState.reset()
+		_quiet_story()
+		var raids: Array = []
+		for i in 7:
+			Fixtures.seed_vein("raided%d" % i, 50)
+			raids.append({ "veinId": "raided%d" % i, "siteId": "site_raided%d" % i, "outcomeType": "claim", "notificationId": "n%d" % i })
+		GameState.state["world"]["pendingDefendRaids"] = raids
+		for i in 3:
+			Fixtures.seed_vein("eligible%d" % i, 95)
+		var cap: int = GameData.DAILY_BRIEF["rowCap"]
+		var card := DailyBrief.card()
+		assert_eq(card["visible"].size(), cap)
+		assert_eq(card["more"], 8 - cap, "seven alarms plus one routine summary")
+		assert_eq(card["hidden"].size(), card["more"])
+		var all_rows: Array = card["visible"] + card["hidden"]
+		assert_eq(all_rows.filter(func(r): return r["tier"] == "routine").size(), 1, "routine never takes more than one row")
+		assert_eq(all_rows[-1]["children"].size(), 3)
+	)
+
+	run_case("empty_card_shows_the_data_empty_state", func():
+		GameState.reset()
+		_quiet_story()
+		var card := DailyBrief.card()
+		assert_true(card["visible"].is_empty() and card["hidden"].is_empty() and card["more"] == 0, "no rows")
+		assert_eq(DailyBrief.empty_text(), GameData.DAILY_BRIEF["emptyState"])
+	)
+
+
 var _next_offer := 0
 
 

@@ -1,5 +1,5 @@
 {
-  "_comment": "DailyBrief (systems/daily_brief.gd): BizBrief's Today card. tierOrder is the fixed row order; rowCap the visible-row cap; rows maps each row template id to its tier, kind, label/consequence templates ({placeholders} filled by DailyBrief) and action button label. PROSE-REVIEW: every label, consequence, actionLabel and emptyState string here is new copy.",
+  "_comment": "DailyBrief (systems/daily_brief.gd): BizBrief's Today card. tierOrder is the fixed row order; rowCap the visible-row cap; rows maps each row template id to its tier, kind, label/consequence templates ({placeholders} filled by DailyBrief) and action button label. PROSE-REVIEW: every label, consequence, actionLabel, routinePart, more/less label and emptyState string here is new copy.",
   "rowCap": 6,
   "billWindowDays": 3,
   "veinRiskBands": ["barren", "sparse"],
@@ -8,6 +8,16 @@
   "demandThreshold": 0.25,
   "tierOrder": ["urgent", "story", "opportunity", "routine"],
   "emptyState": "Nothing pressing today.",
+  "moreLabel": "+{n} more",
+  "lessLabel": "Show less",
+  "routineExpandLabel": "Show",
+  "routineCollapseLabel": "Hide",
+  "routineParts": {
+    "veinAtRisk": "{n} sliding",
+    "development": "{n} ready to develop",
+    "idleStaff": "{n} staff idle",
+    "oreShort": "{n} short of ore"
+  },
   "storyActions": {
     "thread": { "actionLabel": "Messages" },
     "map": { "actionLabel": "Map" },
@@ -110,6 +120,30 @@
       "label": "{ore} vein, {district} · ready to develop",
       "consequence": "Raid exposure {exposure}.",
       "actionLabel": "Manage"
+    },
+    "idleStaffNoRole": {
+      "tier": "routine", "kind": "idleStaff",
+      "label": "{name} is idle",
+      "consequence": "No role, so no work.",
+      "actionLabel": "Staff"
+    },
+    "idleStaffNoVeins": {
+      "tier": "routine", "kind": "idleStaff",
+      "label": "{name} is idle",
+      "consequence": "No veins on their list.",
+      "actionLabel": "Staff"
+    },
+    "oreShort": {
+      "tier": "routine", "kind": "oreShort",
+      "label": "{item} short of {ore}",
+      "consequence": "Production stalls at {held} of {target}.",
+      "actionLabel": "Production"
+    },
+    "routineSummary": {
+      "tier": "routine", "kind": "routineSummary",
+      "label": "Routine · {count}",
+      "consequence": "{parts}",
+      "actionLabel": "Show"
     }
   }
 }

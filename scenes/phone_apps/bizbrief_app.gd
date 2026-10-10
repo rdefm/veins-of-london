@@ -60,6 +60,9 @@ var _sales_history_open := false
 var _sales_details_id := ""
 # Brief sections expanded this session (view state), key -> true.
 var _open_brief_sections := {}
+# Today card view state: rows past the cap shown, Routine summary expanded.
+var _today_more_open := false
+var _routine_open := false
 # Pending wage prompt cards on the Brief tab, contact id -> Control.
 var _wage_prompt_anchors := {}
 # Pending offer cards on the Manage tab, offer id -> Control.
@@ -321,7 +324,8 @@ func _build_brief(content: VBoxContainer) -> void:
 
 
 # BizBrief Today card (spec .scratch/bizbrief-today): date, blocks left and
-# one row per DailyBrief item, each with one action button.
+# one row per DailyBrief.card() row, each with one action button. Routine
+# items sit behind one summary row; rows past the cap behind "+N more".
 func _build_today() -> Control:
 	var summary := DailyBrief.summary()
 	var c := UI.card()
@@ -331,21 +335,54 @@ func _build_today() -> Control:
 	var blocks: int = summary["blocksLeft"]
 	head.add_child(UI.muted_label("%s · %d block%s left" % [summary["dateLabel"], blocks, "" if blocks == 1 else "s"]))
 	c["content"].add_child(head)
-	var rows := DailyBrief.items()
+	var card := DailyBrief.card()
+	var rows: Array = card["visible"]
 	if rows.is_empty():
 		c["content"].add_child(UI.muted_label(DailyBrief.empty_text()))
+	if _today_more_open:
+		rows = rows + card["hidden"]
+	var labels: Dictionary = GameData.DAILY_BRIEF
 	for row in rows:
-		var action: Dictionary = row["action"]
-		var line := UI.hbox()
-		line.name = "TodayRow_%s" % String(row["key"]).validate_node_name()
-		var text := UI.vbox(2)
-		text.add_child(UI.label(row["label"]))
-		if row["consequence"] != "":
-			text.add_child(UI.muted_label(row["consequence"]))
-		line.add_child(UI.expand_fill(text))
-		line.add_child(UI.button(row["actionLabel"], func(): _open_today_action(action)))
-		c["content"].add_child(line)
+		if row["kind"] == "routineSummary":
+			var toggle_label: String = labels["routineCollapseLabel"] if _routine_open else labels["routineExpandLabel"]
+			c["content"].add_child(_today_row(row, toggle_label, _toggle_routine))
+			if _routine_open:
+				for child in row["children"]:
+					c["content"].add_child(_today_row(child))
+		else:
+			c["content"].add_child(_today_row(row))
+	if card["more"] > 0:
+		var more_label: String = labels["lessLabel"] if _today_more_open else String(labels["moreLabel"]).format({ "n": card["more"] })
+		var more := UI.button(more_label, _toggle_today_more)
+		more.name = "TodayMore"
+		c["content"].add_child(more)
 	return c["panel"]
+
+
+# One Today row; on_press defaults to routing the row's action.
+func _today_row(row: Dictionary, button_label: String = "", on_press: Callable = Callable()) -> Control:
+	var action: Dictionary = row["action"]
+	var line := UI.hbox()
+	line.name = "TodayRow_%s" % String(row["key"]).validate_node_name()
+	var text := UI.vbox(2)
+	text.add_child(UI.label(row["label"]))
+	if row["consequence"] != "":
+		text.add_child(UI.muted_label(row["consequence"]))
+	line.add_child(UI.expand_fill(text))
+	if on_press.is_null():
+		on_press = func(): _open_today_action(action)
+	line.add_child(UI.button(row["actionLabel"] if button_label == "" else button_label, on_press))
+	return line
+
+
+func _toggle_routine() -> void:
+	_routine_open = not _routine_open
+	refresh()
+
+
+func _toggle_today_more() -> void:
+	_today_more_open = not _today_more_open
+	refresh()
 
 
 # Routes a DailyBrief action descriptor onto existing navigation.
@@ -363,7 +400,7 @@ func _open_today_action(action: Dictionary) -> void:
 				_scroll.ensure_control_visible(prompt)
 		"bizbrief_staff":
 			_set_tab(STAFF_TAB)
-		"bizbrief_sales":
+		"bizbrief_sales", "bizbrief_manage":
 			_set_tab(MANAGE_TAB)
 		"bizbrief_offer":
 			_set_tab(MANAGE_TAB)

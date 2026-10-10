@@ -27,6 +27,14 @@ static func _expand_brief_sections(root: Node) -> void:
 			header.pressed.emit()
 
 
+static func _expand_routine(root: Node) -> void:
+	_button_with_text(root.find_child("TodayRow_routine", true, false), GameData.DAILY_BRIEF["routineExpandLabel"]).pressed.emit()
+
+
+static func _today_rows(today: Node) -> Array:
+	return today.find_children("TodayRow_*", "", true, false)
+
+
 static func _assign_button(root: Node) -> Button:
 	for candidate in root.find_children("", "Button", true, false):
 		if (candidate as Button).text.begins_with("Assign "):
@@ -145,6 +153,8 @@ func run() -> void:
 		GameState.state["phoneNav"]["app"] = "bizbrief"
 		var phone := PhoneScreen.new()
 		phone._ready()
+		assert_true(phone.find_child("TodayRow_development_eligible", true, false) == null, "routine rows start behind the summary")
+		_expand_routine(phone)
 		var texts := NodeQuery.label_texts(phone)
 		assert_true(texts.any(func(t: String): return t.find("ready to develop") != -1), "development-eligible vein is a Today row")
 		assert_true(texts.any(func(t: String): return t.find("Raid exposure") != -1), "with its raid exposure")
@@ -247,6 +257,7 @@ func run() -> void:
 		GameState.state["phoneNav"]["app"] = "bizbrief"
 		var phone := PhoneScreen.new()
 		phone._ready()
+		assert_true(phone.find_child("TodayRow_routine", true, false) == null, "no routine summary without routine rows")
 		var texts := NodeQuery.label_texts(phone)
 		assert_true(not texts.any(func(t: String): return t.find("ready to develop") != -1), "a capped vein is never shown as development-eligible")
 		phone.free()
@@ -885,5 +896,44 @@ func run() -> void:
 		var phone := PhoneScreen.new()
 		phone._ready()
 		assert_true(NodeQuery.label_texts(phone).has("No contract deliveries in the last %d days." % GameData.SHARES_WINDOW_DAYS))
+		phone.free()
+	)
+
+	run_case("today_caps_rows_with_more_toggle_and_routine_summary_expands", func():
+		GameState.reset()
+		for id in GameState.state["objectives"]:
+			GameState.state["objectives"][id]["active"] = false
+		var raids: Array = []
+		for i in 7:
+			Fixtures.seed_vein("raided%d" % i, 50)
+			raids.append({ "veinId": "raided%d" % i, "siteId": "site_raided%d" % i, "outcomeType": "claim", "notificationId": "n%d" % i })
+		GameState.state["world"]["pendingDefendRaids"] = raids
+		Fixtures.seed_vein("eligible", 95)
+		GameState.state["phoneNav"]["app"] = "bizbrief"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		var today: Node = phone.find_child("BizBriefToday", true, false)
+		var cap: int = GameData.DAILY_BRIEF["rowCap"]
+		assert_eq(_today_rows(today).size(), cap, "capped")
+		assert_true(today.find_child("TodayRow_routine", true, false) == null, "the summary sits past the cap")
+		_button_with_text(today, String(GameData.DAILY_BRIEF["moreLabel"]).format({ "n": 8 - cap })).pressed.emit()
+		today = phone.find_child("BizBriefToday", true, false)
+		assert_eq(_today_rows(today).size(), 8, "+N more shows the rest")
+		_expand_routine(phone)
+		assert_true(phone.find_child("TodayRow_development_eligible", true, false) != null, "the summary expands to its rows")
+		assert_true(_button_with_text(phone.find_child("TodayRow_routine", true, false), GameData.DAILY_BRIEF["routineCollapseLabel"]) != null)
+		phone.free()
+	)
+
+	run_case("today_shows_the_empty_state_when_nothing_is_pressing", func():
+		GameState.reset()
+		for id in GameState.state["objectives"]:
+			GameState.state["objectives"][id]["active"] = false
+		GameState.state["phoneNav"]["app"] = "bizbrief"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		var today: Node = phone.find_child("BizBriefToday", true, false)
+		assert_true(NodeQuery.label_texts(today).has(GameData.DAILY_BRIEF["emptyState"]))
+		assert_eq(_today_rows(today).size(), 0)
 		phone.free()
 	)
