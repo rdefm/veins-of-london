@@ -709,9 +709,11 @@ const DAILY_BRIEF_TIERS := ["urgent", "story", "opportunity", "routine"]
 
 
 func _validate_daily_brief(daily_brief: Dictionary, errors: Array[String]) -> void:
-	_require_keys(daily_brief, ["rowCap", "tierOrder", "emptyState", "rows"], "daily_brief", errors)
+	_require_keys(daily_brief, ["rowCap", "billWindowDays", "tierOrder", "emptyState", "rows"], "daily_brief", errors)
 	if typeof(daily_brief.get("rowCap")) not in [TYPE_INT, TYPE_FLOAT] or int(daily_brief.get("rowCap", 0)) < 1:
 		errors.append("daily_brief.rowCap: must be a positive integer")
+	if typeof(daily_brief.get("billWindowDays")) not in [TYPE_INT, TYPE_FLOAT] or int(daily_brief.get("billWindowDays", -1)) < 0:
+		errors.append("daily_brief.billWindowDays: must be a non-negative integer")
 	if daily_brief.get("tierOrder") != DAILY_BRIEF_TIERS:
 		errors.append("daily_brief.tierOrder: must be exactly %s" % [DAILY_BRIEF_TIERS])
 	var rows: Variant = daily_brief.get("rows", {})

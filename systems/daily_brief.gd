@@ -16,6 +16,8 @@ static func items() -> Array[Dictionary]:
 	var rows: Array[Dictionary] = []
 	_alarm_rows(rows)
 	_guard_shortfall_rows(rows)
+	_bill_rows(rows)
+	_arrears_rows(rows)
 	_wage_rows(rows)
 	_development_rows(rows)
 	var tiers: Array = GameData.DAILY_BRIEF["tierOrder"]
@@ -74,6 +76,34 @@ static func _guard_shortfall_rows(rows: Array[Dictionary]) -> void:
 	var deadline: int = shortfall["deadline"]
 	var values := { "deadline": Calendar.format_day(deadline), "places": GuardUpkeep.places_text(shortfall["places"].keys()) }
 	rows.append(_row("guardShortfall", "guardShortfall", values, { "to": "short_pay" }, deadline - int(GameState.state["world"]["day"])))
+
+
+# The next weekly home bill, when its Monday rollover falls within
+# billWindowDays and cash won't cover it.
+static func _bill_rows(rows: Array[Dictionary]) -> void:
+	var days_left: int = Home.next_bill_day() - int(GameState.state["world"]["day"])
+	if days_left > int(GameData.DAILY_BRIEF["billWindowDays"]):
+		return
+	var bill := Home.weekly_bill_due()
+	var cash: int = GameState.state["player"]["cash"]
+	if cash >= bill:
+		return
+	var template_id := "billRent" if GameState.state["home"]["tenure"] == Home.TENURE_RENTED else "billUtilities"
+	var values := { "bill": bill, "shortfall": bill - cash, "weekday": GameData.EVENT_LABELS["weekdayNames"][Calendar.weekday_index(Home.next_bill_day())] }
+	rows.append(_row(template_id, "bill", values, { "to": "bank" }, days_left))
+
+
+# Carried arrears, with the days to the next consequence from
+# Home.arrears_countdown().
+static func _arrears_rows(rows: Array[Dictionary]) -> void:
+	var countdown := Home.arrears_countdown()
+	if countdown.is_empty():
+		return
+	var values := { "arrears": countdown["arrears"], "countdown": " ".join(MorningAccounts.countdown_lines(countdown)) }
+	# Interest already charged compounds at the next Monday rollover.
+	var next_monday: int = Home.next_bill_day() - int(GameState.state["world"]["day"])
+	var days := mini(int(countdown.get("interestInDays", next_monday)), int(countdown.get("downgradeInDays", next_monday)))
+	rows.append(_row("arrears", "arrears", values, { "to": "property" }, days))
 
 
 static func _wage_rows(rows: Array[Dictionary]) -> void:

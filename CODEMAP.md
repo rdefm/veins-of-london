@@ -59,7 +59,7 @@ Data file per system: see `data/*.json` below.
 | factions.gd | Faction joining |
 | guard_kit.gd | Guard kit: allowlisted items by tier on a vein's or HQ's (`home.guardKit`) kit; capacity (2 × guards), active units, `stock`/`unstock` and `*_hq` twins; repel boost/spend; post-defence `refill_*` (spent recipes only, highest tier first, capped) and `return_overflow`; kit-dict helpers (incl. `remove_units`); target helpers (vein/hq), summary/status text, `kit_veins` |
 | guard_upkeep.gd | Guard wages: hire advance, weekly cost/labels, per-day per-place `guardUpkeep.history`, pre-pot Monday bill from cash, faction Monday bill (vein + stockpile guards) and wage-reserve gate, pending guard shortfall (grace, auto-resolve drop order, short-pay quote/confirm), place labels, Guard Costs reads (history window, per-place series, places, next Monday bill) |
-| home.gd | Home tier/tenure/security/rooms/raid chance; per-day and weekly bill base (rent or utilities); arrears countdown to Monday; tier moves via shared `change_tier` (room carryover, security loss); HQ `drop_guard`; per-slot room purchase/replacement (`set_room_use`), seat upgrades; daily raid roll, alarm queue/expiry + guard (kit) repel, and alarm-defend win/loss resolution (R§3.8) |
+| home.gd | Home tier/tenure/security/rooms/raid chance; bill base, scaled bill due, next bill day; arrears countdown; tier moves via shared `change_tier` (room carryover, security loss); HQ `drop_guard`; per-slot room purchase/replacement (`set_room_use`), seat upgrades; daily raid roll, alarm queue/expiry + guard (kit) repel, and alarm-defend win/loss resolution (R§3.8) |
 | lodedinnit_directory.gd | LodedInnit People projection: role groups in roster order, Role/ore-specialism filters, per-group wage sort (roster → desc → asc alternating), filter option lists |
 | lodedinnit_profile.gd | LodedInnit profile projection: role-skill experience (xp / next-level threshold), role-room seat line (built, seats free), cultivator speciality-bonus text |
 | lodedinnit_feed.gd | LodedInnit Feed: per-block post roll (weighted author, no repeat until pool spent, likes, 0-2 canned comments, cap 50), templated hire-status posts (`post_status`: hired/let go/poached/market flip), unseen badge count, `mark_seen`, card display model (R§3.10 "LodedInnit Feed") |
@@ -80,7 +80,7 @@ Data file per system: see `data/*.json` below.
 | messages.gd | Messages data layer + conversation-index projections, total unread count, per-contact clear (read + contact notifications seen) |
 | modal.gd | Modal open/close state; holds an event deferred behind a modal flow (`followEvent`) and starts it on close; `returnTo` reopens a parked modal on close |
 | morning_accounts.gd | Rollover capture (incl. arrears exceptions and countdown, payday statement, wage shortfalls, Monday guard wages, guard shortfall/walk-offs), per-block staff output accumulation, BizBrief auto-open, arrears/payday/wage-prompt/guard-wage labels |
-| daily_brief.gd | Pure Today-card projection for BizBrief: `items()` (tiered rows with label, consequence, action descriptor), `badge_count()` (Urgent + Story), `summary()` (widget date, blocks left, tier counts); sources raid alarms, guard shortfall, owed wages/prompts, development-eligible veins; templates from daily_brief.json |
+| daily_brief.gd | Pure Today-card projection for BizBrief: `items()` (tiered rows with label, consequence, action descriptor), `badge_count()` (Urgent + Story), `summary()` (widget date, blocks left, tier counts); sources raid alarms, guard shortfall, home bill shortfall, arrears, owed wages/prompts, development-eligible veins; templates from daily_brief.json |
 | nav.gd | Screen navigation |
 | notify.gd | Notifications append/evict; per-contact dismiss via contactId meta |
 | objectives.gd | Objective/questline evaluator; all_of live-condition, template_periods_completed (Beat 6) and recurring_proof (Beat 7) objectives + their ToDo checklist rows |
@@ -277,7 +277,7 @@ overlays.
 | offers.json | offers.gd (synthetic catalogue, scripted counterparties, offer expiry days, recurring term weeks, random-offer daily chance curve + qty bands, small-offer threshold, cancel relation hit), business_quest.gd (biz_starter_* chain + Archie nudge text, biz_recurring_* from Beat 3/6) |
 | ore_types.json | widely read (economy, cultivating, sites, factions) |
 | palette.json | GameData.gd (reference combat-art palette; `lodedinnit_*` brand tokens read by lodedinnit_app.gd) |
-| daily_brief.json | GameData.gd + daily_brief.gd (Today card tier order, row cap, empty state, per-row tier/kind/label/consequence templates and action labels; PROSE-REVIEW) |
+| daily_brief.json | GameData.gd + daily_brief.gd (Today card tier order, row cap, bill window, empty state, per-row tier/kind/label/consequence templates and action labels; PROSE-REVIEW) |
 | phone_home.json | GameData.gd + phone_device_shell.gd (wallpaper, per-block status clock times, widget date format + fixed weather/battery copy; shell renders time/date from world.day/timeBlock) |
 | recipes.json | widely read (crafting, bench, combat, dial, jobs, rooms) |
 | sites.json | sites.gd, collective.gd, objectives.gd |

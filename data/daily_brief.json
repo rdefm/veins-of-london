@@ -1,6 +1,7 @@
 {
   "_comment": "DailyBrief (systems/daily_brief.gd): BizBrief's Today card. tierOrder is the fixed row order; rowCap the visible-row cap; rows maps each row template id to its tier, kind, label/consequence templates ({placeholders} filled by DailyBrief) and action button label. PROSE-REVIEW: every label, consequence, actionLabel and emptyState string here is new copy.",
   "rowCap": 6,
+  "billWindowDays": 3,
   "tierOrder": ["urgent", "story", "opportunity", "routine"],
   "emptyState": "Nothing pressing today.",
   "rows": {
@@ -21,6 +22,24 @@
       "label": "Guard wages short",
       "consequence": "Unpaid guards walk on {deadline}: {places}.",
       "actionLabel": "Choose who stays"
+    },
+    "billRent": {
+      "tier": "urgent", "kind": "bill",
+      "label": "Rent due {weekday} · £{bill}",
+      "consequence": "Short £{shortfall} for {weekday}. The gap goes on the arrears.",
+      "actionLabel": "Bank"
+    },
+    "billUtilities": {
+      "tier": "urgent", "kind": "bill",
+      "label": "Bills due {weekday} · £{bill}",
+      "consequence": "Short £{shortfall} for {weekday}. The gap goes on the arrears.",
+      "actionLabel": "Bank"
+    },
+    "arrears": {
+      "tier": "urgent", "kind": "arrears",
+      "label": "Owed £{arrears} on the bills",
+      "consequence": "{countdown}",
+      "actionLabel": "Property"
     },
     "wagePrompt": {
       "tier": "urgent", "kind": "wages",

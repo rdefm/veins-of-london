@@ -206,6 +206,19 @@ static func weekly_bill_base() -> int:
 	return weekly_bill_for(home["tier"], home["tenure"])
 
 
+# The week's bill the next Monday rollover charges: weekly_bill_base() scaled
+# by the barometer's dailyCost effect (ADR 0006 "Weekly ordering").
+static func weekly_bill_due() -> int:
+	var fx: Dictionary = Barometer.get_merged_effects()
+	return GameState.round_epsilon(weekly_bill_base() * (1.0 + fx.get("dailyCost", 0.0)))
+
+
+# The day whose rollover charges the next weekly bill: the next Monday after
+# today (today's own Monday bill, if any, has already been charged).
+static func next_bill_day() -> int:
+	return Calendar.next_weekday_after(int(GameState.state["world"]["day"]), 0)
+
+
 # Days left before each arrears consequence (ADR 0006 "Weekly ordering"),
 # read from live state; both land on a Monday rollover. Empty when not in
 # arrears. "interestInDays" is absent once interest has been charged;

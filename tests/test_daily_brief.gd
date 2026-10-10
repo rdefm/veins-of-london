@@ -73,6 +73,58 @@ func run() -> void:
 		assert_eq(_kind("development"), [], "pruned below the threshold drops off live")
 	)
 
+	run_case("bill_row_only_inside_the_window_and_when_cash_is_short", func():
+		GameState.reset()
+		var window: int = GameData.DAILY_BRIEF["billWindowDays"]
+		var bill := Home.weekly_bill_due()
+		GameState.state["player"]["cash"] = bill - 270
+		GameState.state["world"]["day"] = 8 - window - 1  # day 8 is the next Monday
+		assert_eq(_kind("bill"), [], "outside the window")
+		GameState.state["world"]["day"] = 8 - window
+		var rows := _kind("bill")
+		assert_eq(rows.size(), 1)
+		assert_eq(Home.next_bill_day(), 8, "Home's due day")
+		assert_eq([rows[0]["tier"], rows[0]["key"], rows[0]["action"], rows[0]["sort"]], ["urgent", "bill", { "to": "bank" }, window])
+		assert_true(String(rows[0]["consequence"]).find("Short £270 for Monday") != -1, "shortfall against Home.weekly_bill_due()")
+		assert_true(String(rows[0]["label"]).find("Rent") != -1, "rented: rent")
+		GameState.state["player"]["cash"] = bill
+		assert_eq(_kind("bill"), [], "cash covers the bill: drops off")
+	)
+
+	run_case("bill_shortfall_matches_what_the_monday_rollover_charges", func():
+		GameState.reset()
+		GameState.state["barometer"]["economic"] = "inflation"
+		GameState.state["home"]["tier"] = GameData.HOME_TIER_ORDER[1]
+		GameState.state["home"]["tenure"] = Home.TENURE_OWNED
+		GameState.state["world"]["day"] = 7
+		GameState.state["player"]["cash"] = 10
+		var rows := _kind("bill")
+		assert_true(String(rows[0]["label"]).find("Bills") != -1, "owned: utilities")
+		var shortfall: int = Home.weekly_bill_due() - 10
+		assert_true(Home.weekly_bill_due() > Home.weekly_bill_base(), "inflation scales the bill")
+		assert_true(String(rows[0]["consequence"]).find("Short £%d" % shortfall) != -1)
+		GameState.state["world"]["day"] = 8
+		TimeSystem._apply_living_costs()
+		assert_eq(GameState.state["home"]["arrears"], shortfall, "the rollover's shortfall is the row's")
+	)
+
+	run_case("arrears_row_shows_the_home_countdown_until_cleared", func():
+		GameState.reset()
+		GameState.state["world"]["day"] = 3
+		GameState.state["player"]["cash"] = 1000000
+		GameState.state["home"]["tier"] = GameData.HOME_TIER_ORDER[1]
+		GameState.state["home"]["arrears"] = 400
+		GameState.state["home"]["arrearsWeeks"] = 1
+		var rows := _kind("arrears")
+		assert_eq(rows.size(), 1)
+		var countdown := Home.arrears_countdown()
+		assert_eq([rows[0]["tier"], rows[0]["action"], rows[0]["sort"]], ["urgent", { "to": "property" }, mini(countdown["interestInDays"], countdown["downgradeInDays"])])
+		assert_true(String(rows[0]["label"]).find("£400") != -1)
+		assert_eq(rows[0]["consequence"], " ".join(MorningAccounts.countdown_lines(countdown)), "countdown text from arrears_countdown")
+		GameState.state["home"]["arrears"] = 0
+		assert_eq(_kind("arrears"), [], "cleared arrears drop off")
+	)
+
 	run_case("unread_messages_are_not_rows", func():
 		GameState.reset()
 		Messages.append("archie", "them", "Call me.")

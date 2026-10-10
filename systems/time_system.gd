@@ -187,7 +187,7 @@ static func daily_tick() -> void:
 
 # Home bill per ADR 0006 "Weekly ordering": on the rollover into a Monday
 # only -- interest on carried arrears, pay arrears, pay the week's bill
-# (Home.weekly_bill_base(), barometer-scaled), shortfall into arrears,
+# (Home.weekly_bill_due()), shortfall into arrears,
 # advance the week clock, then the forced downgrade check. Cash never goes
 # negative. Returns what happened for the morning account: { interest,
 # shortfall, arrears, downgrade } (downgrade is {} unless one fired); on any
@@ -213,8 +213,7 @@ static func _apply_living_costs() -> Dictionary:
 	if arrears_paid > 0:
 		Bank.record(-arrears_paid, "Arrears")
 
-	var fx: Dictionary = Barometer.get_merged_effects()
-	var bill: int = GameState.round_epsilon(Home.weekly_bill_base() * (1.0 + fx.get("dailyCost", 0.0)))
+	var bill: int = Home.weekly_bill_due()
 	var bill_paid: int = mini(player["cash"], bill)
 	player["cash"] -= bill_paid
 	if bill_paid > 0:
