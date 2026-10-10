@@ -27,6 +27,7 @@ const {
   outcomeSlots, addOption, deleteOption, moveOption, setOptionField, setOutcomeText, setOutcomeGoto, routeToNewBranch,
   setCheckNote, setCheckOn, setOptionMechanics, setEffects, addBySuccess, deleteBySuccess, setConditionKind,
   addComment, updateComment, deleteComment, filterComments, commentCount, anchorText, anchorType, proseComments,
+  cardImageName, freeImageName, setCardImage, eventImageDir,
 } = new Function(
   html.slice(ss, se) + html.slice(s, e) +
     "\nreturn { parseProposal, parseDraft, serialiseDraft, ensureKeys, legacyToDraft, nextPos, playOrder, flatCards, thenText," +
@@ -36,7 +37,8 @@ const {
     " COND_KINDS, condKind, blankCond, condGet, condSet," +
     " outcomeSlots, addOption, deleteOption, moveOption, setOptionField, setOutcomeText, setOutcomeGoto, routeToNewBranch," +
     " setCheckNote, setCheckOn, setOptionMechanics, setEffects, addBySuccess, deleteBySuccess, setConditionKind," +
-    " addComment, updateComment, deleteComment, filterComments, commentCount, anchorText, anchorType, proseComments };"
+    " addComment, updateComment, deleteComment, filterComments, commentCount, anchorText, anchorType, proseComments," +
+    " cardImageName, freeImageName, setCardImage, eventImageDir };"
 )();
 
 let passed = 0;
@@ -1037,6 +1039,37 @@ test("comments round-trip through the proposal's JSON block; logline and Open po
     ["prose:q1", "Open point", "note", "Is c3 needed?", "board"],
     ["prose:q2", "Open point", "note", "Odds too kind?", "board"],
   ]);
+});
+
+test("canonical card image name; a different file already there bumps n, identical bytes reuse it", () => {
+  assert.strictEqual(cardImageName("buyer", "main", 2), "buyer_main_2.png");
+  assert.deepStrictEqual(eventImageDir("buyer"), ["assets", "events", "buyer"]);
+  const none = new Set();
+  assert.strictEqual(freeImageName("buyer", "main", 2, none, none), "buyer_main_2.png");
+  const taken = new Set(["buyer_main_2.png", "buyer_main_3.png", "buyer_alt_4.png"]);
+  assert.strictEqual(freeImageName("buyer", "main", 2, taken, none), "buyer_main_4.png");
+  assert.strictEqual(freeImageName("buyer", "main", 2, taken, new Set(["buyer_main_3.png"])), "buyer_main_3.png");
+  assert.strictEqual(freeImageName("buyer", "main", 2, taken, new Set(["buyer_main_2.png"])), "buyer_main_2.png");
+});
+
+test("setCardImage: path, CLEAR (null), HOLD (key dropped); assignments survive insert, reorder and save", () => {
+  const md = "# T\n\n```json\n" + draftText + "\n```\n";
+  const b = parseProposal("p.md", md);
+  const d = b.draft;
+  setCardImage(d, "c2", "res://assets/events/james_meeting/james_meeting_main_2.png");
+  setCardImage(d, "c3", null);
+  assert.strictEqual(cardByKey(d, "c2").image, "res://assets/events/james_meeting/james_meeting_main_2.png");
+  assert.strictEqual(cardByKey(d, "c3").image, null);
+  insertCard(d, "main", 0);
+  moveCard(d, "c3", -1);
+  assert.strictEqual(cardByKey(d, "c2").image, "res://assets/events/james_meeting/james_meeting_main_2.png");
+  assert.strictEqual(cardByKey(d, "c3").image, null);
+  const back = parseProposal("p.md", spliceDraft(md, d)).draft;
+  assert.strictEqual(cardByKey(back, "c2").image, "res://assets/events/james_meeting/james_meeting_main_2.png");
+  assert.ok("image" in cardByKey(back, "c3") && cardByKey(back, "c3").image === null);
+  setCardImage(d, "c3", undefined);
+  assert.ok(!("image" in cardByKey(d, "c3")));
+  assert.throws(() => setCardImage(d, "zz", null), /no card zz/);
 });
 
 console.log(`${passed} passed${process.exitCode ? ", some FAILED" : ""}`);

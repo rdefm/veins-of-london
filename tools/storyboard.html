@@ -203,6 +203,21 @@ section { display: grid; gap: 12px; min-width: 0 }
 .mech-ed .mech-check { display: flex; gap: 6px; align-items: center; font-size: 12px; color: var(--muted); margin-bottom: 8px }
 .mech-ed .mech-check input { width: auto }
 .mech-ed .mech-btn { padding: 3px 8px; font-size: 12px; margin-bottom: 6px }
+.frame.pickable { cursor: pointer }
+.frame.pickable:hover { outline: 2px solid var(--accent); outline-offset: 2px }
+.imgpick { width: min(920px, calc(100vw - 32px)); max-height: calc(100vh - 32px); background: var(--surface); color: var(--fg);
+  border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: none; gap: 10px }
+.imgpick[open] { display: grid; grid-template-rows: auto auto auto auto minmax(0, 1fr) auto }
+.imgpick .seg { justify-self: start; flex-wrap: wrap }
+.imgpick::backdrop { background: rgba(0,0,0,.55) }
+.imgpick #ip-filter { background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font-size: 13.5px; width: 100% }
+.imgpick #ip-note { margin: 0; min-height: 1.5em }
+.ip-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; overflow: auto; min-height: 120px }
+.ip-grid button { display: grid; gap: 4px; padding: 6px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--fg); text-align: left; cursor: pointer }
+.ip-grid button:hover, .ip-grid button:focus-visible { border-color: var(--accent) }
+.ip-grid button[aria-current="true"] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) }
+.ip-grid img { width: 100%; aspect-ratio: 390/544; object-fit: cover; image-rendering: pixelated; border-radius: 4px; background: var(--sunk) }
+.ip-grid span { font: 11px/1.3 var(--mono); word-break: break-all }
 .editor textarea { width: 100%; resize: vertical; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; font-size: 14px; line-height: 1.45 }
 /* Flowchart: elkjs layout drawn as SVG; nodes are branches (collapsed) or cards inside a branch frame (expanded). */
 #graph-section[hidden] { display: none }
@@ -344,6 +359,8 @@ section { display: grid; gap: 12px; min-width: 0 }
             </div>
             <label class="eyebrow" for="ce-text">Text</label>
             <textarea id="ce-text" rows="5"></textarea>
+            <span class="eyebrow">Image</span>
+            <div class="route" id="ce-image"></div>
             <div class="editor-head"><span class="eyebrow">Player options</span>
               <button type="button" class="tb" id="ce-add-option" title="Add a player option to this card">+ Option</button></div>
             <div id="ce-options" class="opt-ed"></div>
@@ -395,6 +412,19 @@ section { display: grid; gap: 12px; min-width: 0 }
     </div>
   </div>
 </div>
+
+<dialog class="imgpick" id="imgpick" aria-labelledby="ip-title">
+  <div class="editor-head"><h2 id="ip-title">Card image</h2><span class="mono muted" id="ip-where"></span></div>
+  <div class="seg" role="group" aria-label="Image source" id="ip-sources"></div>
+  <input type="text" id="ip-filter" autocomplete="off" placeholder="Filter by path" aria-label="Filter images by path">
+  <p class="mono muted" id="ip-note" role="status"></p>
+  <div class="ip-grid" id="ip-grid"></div>
+  <div class="ce-tools">
+    <button type="button" class="tb" id="ip-hold" title="No image of its own: keep showing the previous card's image">HOLD</button>
+    <button type="button" class="tb" id="ip-clear" title="Show no image from this card on">CLEAR</button>
+    <button type="button" class="tb" id="ip-close">Cancel</button>
+  </div>
+</dialog>
 
 <script>
 "use strict";
@@ -1690,6 +1720,25 @@ function checkOddsBlock(opt, changed, restructure) {
     return [...(b.logline ? [{ id: "prose:logline", kind: "note", source: "Logline", text: b.logline, anchor: {} }] : []),
       ...(b.questions || []).map((q, i) => ({ id: "prose:q" + (i + 1), kind: "note", source: "Open point", text: q, anchor: {} }))];
   }
+
+  // Card images: a picked file is copied to assets/events/<id>/<id>_<branch>_<n>.png and stored as the card's
+  // explicit `image`, so the mapping rides on the card through inserts and reorders.
+  const eventImageDir = (id) => ["assets", "events", id];
+  const cardImageName = (id, branch, n) => `${id}_${branch}_${n}.png`;
+  // The first canonical name from n upward that is free on disk or already holds the picked bytes; a different
+  // existing file is never overwritten. taken: names in the folder; same: those identical to the picked file.
+  function freeImageName(id, branch, n, taken, same) {
+    for (let k = n; ; k++) {
+      const name = cardImageName(id, branch, k);
+      if (!taken.has(name) || same.has(name)) return name;
+    }
+  }
+  // image: a res:// path, null (CLEAR: no image from here) or undefined (HOLD: drop the key, keep the previous image).
+  function setCardImage(draft, key, image) {
+    const card = cardByKey(draft, key);
+    if (!card) throw new Error(`no card ${key}`);
+    if (image === undefined) delete card.image; else card.image = image;
+  }
   /* ---------- End draft model ---------- */
 
   // Image per card, as the event screen resolves it: an explicit "image" key (null clears), else (legacy flat
@@ -1748,6 +1797,7 @@ function checkOddsBlock(opt, changed, restructure) {
   async function loadAll() {
     const found = [];
     feedback = {};
+    repoImages = null;
     try {
       for await (const [name, h] of (await dirAt(BOARDS_DIR)).entries()) {
         if (h.kind !== "directory") continue;
@@ -1890,6 +1940,8 @@ function checkOddsBlock(opt, changed, restructure) {
   function renderProposalFrame(b) {
     const frame = $("frame"), opts = $("tp-opts"), out = $("tp-outcome");
     frame.replaceChildren(); opts.replaceChildren(); out.replaceChildren();
+    frame.classList.toggle("pickable", !!b.draft && b.cards.length > 0);
+    frame.title = b.draft && b.cards.length ? "Click to pick this card's image" : "";
     opts.hidden = true; out.hidden = true;
     $("prev").disabled = cardIdx === 0;
     if (!b.cards.length) {
@@ -2154,9 +2206,136 @@ function checkOddsBlock(opt, changed, restructure) {
     $("ce-delete").disabled = c.branch === b.draft.start && len === 1;
     keepFocus($("ce-goto"), targetPicker(b.draft, c.goto, "next card / branch's then", "goto",
       (t) => editDraft((d) => setCardGoto(d, c.key, t), true)));
+    renderImageRow(c);
     renderOptionsEditor(b, c);
     keepFocus($("ce-comments"), ...commentSection(b, { card: c.key }, comments(b.draft).filter((x) => x.anchor && x.anchor.card === c.key)));
     renderBranchEditor(b, c.branch);
+  }
+
+  // ---- card image picker ----------------------------------------------------
+  // Sources: shots of the shot board for this event (latest local file per save-as), the event's
+  // assets/events/<id>/ folder, assets/reference-plates/, or any image in the repo. A pick from outside the event
+  // folder is copied there under the card's canonical name (freeImageName) and set as the card's `image`.
+  const IP_SOURCES = [["shots", "Board shots"], ["event", "Event folder"], ["plates", "Reference plates"], ["repo", "Any repo image"]];
+  const REPO_SKIP = new Set(["node_modules", "__pycache__"]);
+  const IP_MAX = 150;
+  let ipSource = "shots", ipTok = 0, ipUrls = [], repoImages = null, ipBusy = false;
+  const setCard = (key, image) => editDraft((d) => setCardImage(d, key, image), true);
+  function renderImageRow(c) {
+    const now = c.cut === "NEW" ? baseName(c.shot) + ("image" in c ? "" : " (convention file)")
+      : c.cut === "HOLD" ? "HOLD · keeps the previous image" : "CLEAR · no image";
+    $("ce-image").replaceChildren(el("span", { class: "mono", text: now }),
+      iconBtn("Pick…", "Pick an image for this card", false, openImagePicker),
+      iconBtn("HOLD", "Hold: no image of its own, keep the previous card's", !("image" in c), () => setCard(c.key, undefined)),
+      iconBtn("CLEAR", "Clear: show no image from this card on", c.image === null, () => setCard(c.key, null)));
+  }
+  const pickerCard = () => { const b = board(); return b && b.kind === "proposal" && b.draft ? b.cards[cardIdx] || null : null; };
+  function openImagePicker() {
+    if (!pickerCard()) return;
+    $("ip-filter").value = "";
+    $("imgpick").showModal();
+    renderImagePicker();
+  }
+  function revokeIp() { ipUrls.forEach((u) => URL.revokeObjectURL(u)); ipUrls = []; }
+  async function listDir(parts) {
+    const out = [];
+    try {
+      for await (const [n, h] of (await dirAt(parts)).entries())
+        if (h.kind === "file" && IMG_RE.test(n)) out.push({ label: n, parts: [...parts, n], handle: h });
+    } catch {}
+    return out.sort((a, b) => a.label.localeCompare(b.label));
+  }
+  async function walkImages(dir, parts, out) {
+    for await (const [n, h] of dir.entries()) {
+      if (h.kind === "file") { if (IMG_RE.test(n)) out.push({ label: [...parts, n].join("/"), parts: [...parts, n], handle: h }); }
+      else if (!REPO_SKIP.has(n) && !(n.startsWith(".") && n !== ".scratch")) await walkImages(h, [...parts, n], out);
+    }
+    return out;
+  }
+  async function listSource(src, id) {
+    if (src === "shots") return boards.filter((x) => x.kind !== "proposal" && x.eventId === id).flatMap((x) => (x.shots || []).map((s) => {
+      const n = s.saveAs ? filesFor(s.saveAs).slice(-1)[0] : null;
+      return n ? { label: `${s.id} · ${n}`, parts: [...PLATES_DIR, n], handle: plateFiles.get(n) } : null;
+    })).filter(Boolean);
+    if (src === "event") return listDir(eventImageDir(id));
+    if (src === "plates") return listDir(PLATES_DIR);
+    if (!repoImages) repoImages = (await walkImages(root, [], [])).sort((a, b) => a.label.localeCompare(b.label));
+    return repoImages;
+  }
+  const IP_EMPTY = { shots: "No shot board with local shot files for this event.", event: "No images in assets/events/%s/ yet.",
+    plates: "No images in assets/reference-plates/.", repo: "No images found in the repo." };
+  async function renderImagePicker() {
+    const c = pickerCard(); if (!c) { $("imgpick").close(); return; }
+    const id = board().draft.id, tok = ++ipTok;
+    $("ip-where").textContent = `${c.branch} · ${c.key}`;
+    $("ip-sources").replaceChildren(...IP_SOURCES.map(([k, t]) => {
+      const bt = el("button", { type: "button", "aria-pressed": String(k === ipSource), text: t });
+      bt.addEventListener("click", () => { ipSource = k; renderImagePicker(); });
+      return bt;
+    }));
+    $("ip-hold").disabled = !("image" in c);
+    $("ip-clear").disabled = c.image === null;
+    $("ip-note").textContent = ipSource === "repo" && !repoImages ? "Scanning the repo…" : "";
+    let list = [];
+    try { list = await listSource(ipSource, id); } catch (e) { $("ip-note").textContent = "Couldn't list images: " + (e && e.message); }
+    if (tok !== ipTok) return;
+    const q = $("ip-filter").value.trim().toLowerCase();
+    const hits = list.filter((x) => !q || x.parts.join("/").toLowerCase().includes(q));
+    const current = typeof c.image === "string" ? c.image.replace(/^res:\/\//, "") : null;
+    revokeIp();
+    $("ip-note").textContent = !hits.length ? (q ? "Nothing matches the filter." : IP_EMPTY[ipSource].replace("%s", id))
+      : hits.length > IP_MAX ? `Showing ${IP_MAX} of ${hits.length}; filter to narrow.` : `${hits.length} image${hits.length > 1 ? "s" : ""}`;
+    $("ip-grid").replaceChildren(...hits.slice(0, IP_MAX).map((x) => {
+      const img = el("img", { alt: "" });
+      x.handle.getFile().then((f) => { if (tok !== ipTok) return; const u = URL.createObjectURL(f); ipUrls.push(u); img.src = u; }).catch(() => {});
+      const path = x.parts.join("/");
+      const bt = el("button", { type: "button", title: path, "aria-current": String(path === current) }, img, el("span", { text: x.label }));
+      bt.addEventListener("click", () => assignImage(c.key, x));
+      return bt;
+    }));
+  }
+  async function sameBytes(a, b) {
+    if (a.size !== b.size) return false;
+    const [x, y] = await Promise.all([a.arrayBuffer(), b.arrayBuffer()]).then((r) => r.map((v) => new Uint8Array(v)));
+    return x.every((v, i) => v === y[i]);
+  }
+  // The canonical name is .png, so a JPEG or WebP pick is re-encoded (pixels unchanged).
+  async function toPng(file) {
+    if (file.type === "image/png" || /\.png$/i.test(file.name)) return file;
+    const bmp = await createImageBitmap(file);
+    const cv = new OffscreenCanvas(bmp.width, bmp.height);
+    cv.getContext("2d").drawImage(bmp, 0, 0);
+    return cv.convertToBlob({ type: "image/png" });
+  }
+  // A file already in the event folder is used where it is; anything else is copied in under the card's
+  // canonical name, bumping n past any different file already holding that name.
+  async function assignImage(key, src) {
+    const b = board(), id = b && b.draft && b.draft.id, c = b && b.cards.find((x) => x.key === key);
+    if (!c || ipBusy) return;
+    if (!id) { $("ip-note").textContent = "The draft has no \"id\", so there's no assets/events/<id>/ folder to copy into."; return; }
+    const dirParts = eventImageDir(id);
+    let name = src.parts.at(-1), copied = false;
+    ipBusy = true;
+    try {
+      if (src.parts.slice(0, -1).join("/") !== dirParts.join("/")) {
+        $("ip-note").textContent = "Copying…";
+        const png = await toPng(await src.handle.getFile());
+        const dir = await dirAt(dirParts, true);
+        const taken = new Set(), same = new Set();
+        for await (const [n, h] of dir.entries()) {
+          if (h.kind !== "file") continue;
+          taken.add(n);
+          if (n.startsWith(`${id}_${c.branch}_`) && await sameBytes(await h.getFile(), png)) same.add(n);
+        }
+        name = freeImageName(id, c.branch, c.idx + 1, taken, same);
+        if (!same.has(name)) { await writeFile(dir, name, png); copied = true; }
+      }
+    } catch (e) { $("ip-note").textContent = "Couldn't copy the image: " + (e && e.message); return; }
+    finally { ipBusy = false; }
+    $("imgpick").close();
+    const path = [...dirParts, name].join("/");
+    setCard(key, "res://" + path);
+    renderEditBar(`● Unsaved · ${key} image ${copied ? "copied to" : "set to"} ${path}`);
   }
   // The selected card's player options: id, label, order, and per outcome its result text and route. Text commits
   // on change (Enter or leaving the box), so the editor isn't rebuilt mid-word. Each option also carries its check
@@ -2582,6 +2761,7 @@ function checkOddsBlock(opt, changed, restructure) {
     if (b.kind === "proposal") { renderProposalFrame(b); return; }
     $("card-editor").hidden = true; $("branch-editor").hidden = true;
     $("tp-opts").hidden = true; $("tp-outcome").hidden = true; $("tp-label").textContent = "";
+    $("frame").classList.remove("pickable"); $("frame").title = "";
     const c = b.cards[cardIdx];
     const sid = shotForCard(b, cardIdx);
     const frame = $("frame");
@@ -2902,6 +3082,12 @@ function checkOddsBlock(opt, changed, restructure) {
     editDraft((d) => { d.branches[name].title = v; }, !editSession);
     editSession = true;
   });
+  $("frame").addEventListener("click", openImagePicker);
+  $("ip-filter").addEventListener("input", renderImagePicker);
+  $("ip-hold").addEventListener("click", () => { const c = pickerCard(); $("imgpick").close(); if (c) setCard(c.key, undefined); });
+  $("ip-clear").addEventListener("click", () => { const c = pickerCard(); $("imgpick").close(); if (c) setCard(c.key, null); });
+  $("ip-close").addEventListener("click", () => $("imgpick").close());
+  $("imgpick").addEventListener("close", () => { ipTok++; revokeIp(); });
   $("save").addEventListener("click", saveProposal);
   $("undo").addEventListener("click", undoEdit);
   document.addEventListener("keydown", (e) => {
