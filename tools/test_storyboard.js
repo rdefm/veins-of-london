@@ -18,11 +18,15 @@ const {
   parseProposal, parseDraft, serialiseDraft, ensureKeys, legacyToDraft, nextPos, playOrder, flatCards, thenText,
   jsonBlockRange, spliceDraft, writableProposal, cardByKey, makeHistory,
   cardPos, insertCard, deleteCard, moveCard, danglingLinks, hasCycle, buildGraph, elkGraph, placeLayout,
+  findCycle, addBranch, renameBranch, deleteBranch, inboundLinks, setCardGoto, setThen,
+  COND_KINDS, condKind, blankCond, condGet, condSet,
 } = new Function(
   html.slice(s, e) +
     "\nreturn { parseProposal, parseDraft, serialiseDraft, ensureKeys, legacyToDraft, nextPos, playOrder, flatCards, thenText," +
     " jsonBlockRange, spliceDraft, writableProposal, cardByKey, makeHistory," +
-    " cardPos, insertCard, deleteCard, moveCard, danglingLinks, hasCycle, buildGraph, elkGraph, placeLayout };"
+    " cardPos, insertCard, deleteCard, moveCard, danglingLinks, hasCycle, buildGraph, elkGraph, placeLayout," +
+    " findCycle, addBranch, renameBranch, deleteBranch, inboundLinks, setCardGoto, setThen," +
+    " COND_KINDS, condKind, blankCond, condGet, condSet };"
 )();
 
 let passed = 0;
@@ -497,6 +501,160 @@ test("elkGraph nests cards in their frame and sizes labels; placeLayout makes ge
   assert.deepStrictEqual(L.edges.get("e1").label, { x: 232, y: 50, w: 30, h: 14, text: "ok" });
   assert.deepStrictEqual(L.edges.get("e2").points, [[477, 67], [487, 67], [497, 75]]);
   assert.strictEqual(L.edges.get("e2").label, null);
+});
+
+// ---- branch routing editing ------------------------------------------------
+test("addBranch: new branch with one blank card, after the others; bad or taken names refused", () => {
+  const { draft } = parseDraft(draftText);
+  const k = addBranch(draft, "late_night", "Late night");
+  assert.deepStrictEqual(Object.keys(draft.branches).slice(-1), ["late_night"]);
+  assert.deepStrictEqual(draft.branches.late_night, { title: "Late night", cards: [{ key: k, type: "narration", text: "" }] });
+  assert.strictEqual(new Set(flatCards(draft).map((f) => f.card.key)).size, flatCards(draft).length);
+  const before = serialiseDraft(draft);
+  assert.throws(() => addBranch(draft, "after"), /already/);
+  assert.throws(() => addBranch(draft, "two words"), /letters, digits/);
+  assert.throws(() => addBranch(draft, ""), /letters, digits/);
+  assert.strictEqual(serialiseDraft(draft), before);
+});
+
+test("renameBranch rewrites every link and start, keeps branch order", () => {
+  const { draft } = parseDraft(draftText);
+  renameBranch(draft, "after", "wrap");
+  renameBranch(draft, "main", "workshop");
+  assert.deepStrictEqual(Object.keys(draft.branches), ["workshop", "botched", "watched", "wrap"]);
+  assert.strictEqual(draft.start, "workshop");
+  const c2 = cardByKey(draft, "c2").choices[0];
+  assert.deepStrictEqual(c2.success.goto, { branch: "wrap" });
+  assert.deepStrictEqual(cardByKey(draft, "c3").goto, { branch: "wrap", card: "c9" });
+  assert.deepStrictEqual(draft.branches.botched.then, [{ if: { flag: "jamesWatching" }, branch: "watched" }, { branch: "wrap" }]);
+  assert.deepStrictEqual(keysOf(playOrder(draft, () => null)), ["workshop/0", "workshop/1", "workshop/2", "wrap/1"]);
+  assert.throws(() => renameBranch(draft, "wrap", "botched"), /already/);
+  assert.throws(() => renameBranch(draft, "nope", "x"), /unknown branch/);
+  assert.throws(() => renameBranch(draft, "wrap", "a-b"), /letters, digits/);
+  renameBranch(draft, "wrap", "wrap");
+});
+
+test("inboundLinks lists links into a branch from elsewhere; deleteBranch removes it, refuses start", () => {
+  const { draft } = parseDraft(draftText);
+  assert.deepStrictEqual(inboundLinks(draft, "after").map((l) => l.from),
+    ['main · c2 · option "patient" success', "main · c3", "botched · then"]);
+  assert.deepStrictEqual(inboundLinks(draft, "main"), []);
+  // A branch's links into itself don't count.
+  draft.branches.after.cards[0].goto = { branch: "after", card: "c9" };
+  assert.strictEqual(inboundLinks(draft, "after").length, 3);
+  deleteBranch(draft, "watched");
+  assert.deepStrictEqual(Object.keys(draft.branches), ["main", "botched", "after"]);
+  assert.throws(() => deleteBranch(draft, "main"), /start branch/);
+  assert.throws(() => deleteBranch(draft, "nope"), /unknown branch/);
+});
+
+test("setCardGoto sets, clears and validates a card's goto", () => {
+  const { draft } = parseDraft(draftText);
+  setCardGoto(draft, "c1", { branch: "after", card: "c9" });
+  assert.deepStrictEqual(cardByKey(draft, "c1").goto, { branch: "after", card: "c9" });
+  setCardGoto(draft, "c1", { branch: "botched", card: null });
+  assert.deepStrictEqual(cardByKey(draft, "c1").goto, { branch: "botched" });
+  setCardGoto(draft, "c1", null);
+  assert.strictEqual("goto" in cardByKey(draft, "c1"), false);
+  assert.throws(() => setCardGoto(draft, "c1", { branch: "nope" }), /unknown branch/);
+  assert.throws(() => setCardGoto(draft, "c1", { branch: "after", card: "c1" }), /no card c1 in branch after/);
+  assert.throws(() => setCardGoto(draft, "zz", null), /no card zz/);
+});
+
+test("a cycle-creating card goto is refused with the loop spelled out; draft unchanged", () => {
+  const { draft } = parseDraft(draftText);
+  const before = serialiseDraft(draft);
+  assert.throws(() => setCardGoto(draft, "c9", { branch: "main" }), /would loop: (\w+ · c\d+ → )+\w+ · c\d+/);
+  assert.throws(() => setCardGoto(draft, "c1", { branch: "main", card: "c1" }), /would loop: main · c1 → main · c1/);
+  assert.strictEqual(serialiseDraft(draft), before);
+});
+
+test("a draft that already loops still takes link edits (one may be the fix)", () => {
+  const { draft } = parseDraft(draftText);
+  draft.branches.after.then = { branch: "botched" };
+  setCardGoto(draft, "c1", { branch: "watched" });
+  setThen(draft, "after", "end");
+  assert.strictEqual(hasCycle(draft), false);
+});
+
+test("findCycle returns the looping card keys, null when acyclic", () => {
+  const { draft } = parseDraft(draftText);
+  assert.strictEqual(findCycle(draft), null);
+  draft.branches.after.then = { branch: "botched" };
+  const loop = findCycle(draft);
+  assert.strictEqual(loop[0], loop.at(-1));
+  assert(loop.includes("c4") && loop.includes("c9"), loop.join(","));
+});
+
+test("setThen: single, end, omitted and conditional forms", () => {
+  const { draft } = parseDraft(draftText);
+  setThen(draft, "after", { branch: "watched", card: null });
+  assert.deepStrictEqual(draft.branches.after.then, { branch: "watched" });
+  setThen(draft, "after", "end");
+  assert.strictEqual(draft.branches.after.then, "end");
+  setThen(draft, "after", undefined);
+  assert.strictEqual("then" in draft.branches.after, false);
+  setThen(draft, "after", [{ if: { cash: { atLeast: 50 } }, branch: "watched", card: null }, { if: { flag: "x" } }, { branch: "watched", card: "c5" }]);
+  assert.deepStrictEqual(draft.branches.after.then,
+    [{ if: { cash: { atLeast: 50 } }, branch: "watched" }, { if: { flag: "x" } }, { branch: "watched", card: "c5" }]);
+  assert.strictEqual(thenText(draft.branches.after.then), 'if {"cash":{"atLeast":50}}: watched; if {"flag":"x"}: end; else: watched · c5');
+});
+
+test("setThen refuses unknown targets, a misplaced else and loops; draft unchanged", () => {
+  const { draft } = parseDraft(draftText);
+  const before = serialiseDraft(draft);
+  assert.throws(() => setThen(draft, "nope", "end"), /unknown branch/);
+  assert.throws(() => setThen(draft, "after", { branch: "ghost" }), /unknown branch/);
+  assert.throws(() => setThen(draft, "after", [{ branch: "watched" }, { if: { flag: "x" }, branch: "watched" }]), /else.*last/);
+  assert.throws(() => setThen(draft, "after", "sideways"), /then/);
+  assert.throws(() => setThen(draft, "after", [{ if: { flag: "x" }, branch: "main" }]), /would loop/);
+  assert.throws(() => setThen(draft, "botched", { branch: "botched" }), /would loop: botched · c4 → botched · c4/);
+  assert.strictEqual(serialiseDraft(draft), before);
+});
+
+test("a then that can't be reached (last card has its own goto) may point anywhere", () => {
+  const { draft } = parseDraft(draftText);
+  // With after's last card c9 jumping by its own goto, after's then is dead and can't loop.
+  setCardGoto(draft, "c9", { branch: "watched" });
+  setThen(draft, "after", { branch: "after" });
+  assert.deepStrictEqual(draft.branches.after.then, { branch: "after" });
+  // Clearing that goto would bring the dead then to life: refused.
+  assert.throws(() => setCardGoto(draft, "c9", null), /would loop: after · c8 → after · c9 → after · c8/);
+});
+
+test("COND_KINDS covers condition_met's vocabulary; condKind / blankCond / condGet / condSet", () => {
+  assert.deepStrictEqual(Object.keys(COND_KINDS), ["flag", "relation", "cash", "item", "path", "choice"]);
+  for (const k of Object.keys(COND_KINDS)) assert.strictEqual(condKind(blankCond(k)), k);
+  assert.deepStrictEqual(blankCond("cash"), { cash: { atLeast: 0 } });
+  assert.deepStrictEqual(blankCond("choice"), { choice: { event: "", card: 0, option: "" } });
+  assert.deepStrictEqual(blankCond("item"), { item: "" });
+  assert.strictEqual(condKind({ item: "torch", flag: "f" }), "item", "engine checks item before flag");
+  assert.strictEqual(condKind({ nonsense: 1 }), null);
+  const c = blankCond("relation");
+  condSet(c, "relation", "james"); condSet(c, "atLeast", 3);
+  assert.deepStrictEqual(c, { relation: "james", atLeast: 3 });
+  const ch = blankCond("choice");
+  condSet(ch, "choice.option", "patient");
+  assert.strictEqual(condGet(ch, "choice.option"), "patient");
+  const it = blankCond("item");
+  condSet(it, "equipped", true); assert.deepStrictEqual(it, { item: "", equipped: true });
+  condSet(it, "equipped", false); assert.deepStrictEqual(it, { item: "" });
+});
+
+test("branch routing edits are undoable through history and save into the block", () => {
+  const md = "# T\n\nIntro.\n\n```json\n" + draftText + "\n```\n\nAfter.\n";
+  const { draft } = parseProposal("p.md", md);
+  const h = makeHistory(), orig = serialiseDraft(draft);
+  h.snapshot(serialiseDraft(draft)); addBranch(draft, "coda", "Coda");
+  h.snapshot(serialiseDraft(draft)); setThen(draft, "after", [{ if: blankCond("flag"), branch: "coda" }]);
+  h.snapshot(serialiseDraft(draft)); setCardGoto(draft, "c1", { branch: "botched" });
+  h.snapshot(serialiseDraft(draft)); renameBranch(draft, "botched", "oops");
+  const back = parseProposal("p.md", spliceDraft(md, draft)).draft;
+  assert.deepStrictEqual(back.branches.after.then, [{ if: { flag: "" }, branch: "coda" }]);
+  assert.deepStrictEqual(cardByKey(back, "c1").goto, { branch: "oops" });
+  assert.strictEqual(h.size, 4);
+  h.undo(); h.undo(); h.undo();
+  assert.strictEqual(h.undo(), orig);
 });
 
 console.log(`${passed} passed${process.exitCode ? ", some FAILED" : ""}`);

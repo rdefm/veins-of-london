@@ -171,6 +171,15 @@ section { display: grid; gap: 12px; min-width: 0 }
 .ce-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px }
 .ce-fields label { display: grid; gap: 4px; min-width: 0 }
 .ce-fields input, .ce-fields select { width: 100%; background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font-size: 14px }
+.route, .cond { display: flex; flex-wrap: wrap; gap: 6px; align-items: center }
+.route select, .route input, .cond select, .cond input:not([type="checkbox"]) { background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 5px 7px; font-size: 13.5px; max-width: 100% }
+.cond input[type="number"] { width: 6em }
+.cond label { display: inline-flex; gap: 4px; align-items: center; font-size: 12.5px; color: var(--muted) }
+.then-ed { display: grid; gap: 8px }
+.cond { border-left: 3px solid var(--line); padding-left: 8px }
+.cond .kw { font: 600 12px var(--mono); color: var(--accent) }
+.cond button { padding: 3px 8px }
+.cond button:disabled { opacity: .45; cursor: default }
 .editor textarea { width: 100%; resize: vertical; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; font-size: 14px; line-height: 1.45 }
 /* Flowchart: elkjs layout drawn as SVG; nodes are branches (collapsed) or cards inside a branch frame (expanded). */
 #graph-section[hidden] { display: none }
@@ -293,6 +302,21 @@ section { display: grid; gap: 12px; min-width: 0 }
             </div>
             <label class="eyebrow" for="ce-text">Text</label>
             <textarea id="ce-text" rows="5"></textarea>
+            <span class="eyebrow">After this card, go to</span>
+            <div class="route" id="ce-goto"></div>
+          </section>
+          <section class="editor" id="branch-editor" hidden>
+            <div class="editor-head"><h2>Branch</h2><span class="mono muted" id="be-where"></span></div>
+            <div class="ce-tools" role="group" aria-label="Branches">
+              <button type="button" class="tb" id="be-new" title="Create a new branch with one blank card">+ New branch</button>
+              <button type="button" class="tb" id="be-delete" title="Delete this branch and its cards">Delete branch</button>
+            </div>
+            <div class="ce-fields">
+              <label><span class="eyebrow">Name</span><input type="text" id="be-name" autocomplete="off" title="Renaming updates every link to this branch (applies on Enter or leaving the box)"></label>
+              <label><span class="eyebrow">Title</span><input type="text" id="be-title" autocomplete="off"></label>
+            </div>
+            <span class="eyebrow">After its last card</span>
+            <div id="be-then" class="then-ed"></div>
           </section>
           <h2>Cut list</h2>
           <p class="muted" style="margin:0">A heavy rule marks a new image. Tap a row to preview that card.</p>
@@ -620,25 +644,24 @@ section { display: grid; gap: 12px; min-width: 0 }
     return card.key;
   }
   // Every link in the draft: card gotos, option-outcome gotos and branch `then` targets, each as
-  // {from: readable origin, fromKey: card key or null for a branch `then`, target: {branch, card?}}.
+  // {from: readable origin, fromKey: card key or null for a branch `then`, fromBranch, target: {branch, card?}}.
   function allLinks(draft) {
     const out = [];
     for (const { branch, card } of flatCards(draft)) {
-      const at = `${branch} · ${card.key}`;
-      if (card.goto) out.push({ from: at, fromKey: card.key, target: card.goto });
+      const at = `${branch} · ${card.key}`, push = (from, target) => out.push({ from, fromKey: card.key, fromBranch: branch, target });
+      if (card.goto) push(at, card.goto);
       (card.choices || []).forEach((o, i) => {
         const name = `${at} · option ${JSON.stringify(o.id || o.label || i + 1)}`;
-        if (o.goto) out.push({ from: name, fromKey: card.key, target: o.goto });
-        if (o.success && o.success.goto) out.push({ from: name + " success", fromKey: card.key, target: o.success.goto });
-        if (o.fail && o.fail.goto) out.push({ from: name + " fail", fromKey: card.key, target: o.fail.goto });
-        for (const [k, r] of Object.entries(o.bySuccesses || {}))
-          if (r && r.goto) out.push({ from: `${name} ${k} successes`, fromKey: card.key, target: r.goto });
+        if (o.goto) push(name, o.goto);
+        if (o.success && o.success.goto) push(name + " success", o.success.goto);
+        if (o.fail && o.fail.goto) push(name + " fail", o.fail.goto);
+        for (const [k, r] of Object.entries(o.bySuccesses || {})) if (r && r.goto) push(`${name} ${k} successes`, r.goto);
       });
     }
     for (const name in draft.branches) {
       const then = draft.branches[name].then;
       if (then && typeof then === "object")
-        for (const t of Array.isArray(then) ? then : [then]) if (t.branch) out.push({ from: `${name} · then`, fromKey: null, target: t });
+        for (const t of Array.isArray(then) ? then : [then]) if (t.branch) out.push({ from: `${name} · then`, fromKey: null, fromBranch: name, target: t });
     }
     return out;
   }
@@ -675,20 +698,33 @@ section { display: grid; gap: 12px; min-width: 0 }
     return [...targets.map((t) => resolveSafe(draft, t)).filter(Boolean), ...after];
   }
   const resolveSafe = (draft, t) => { try { return resolveTarget(draft, t); } catch { return null; } };
-  // true if any path through the card graph revisits a card.
-  function hasCycle(draft) {
-    const state = new Map(); // key → 1 visiting, 2 done
-    const keyAt = (p) => branchCards(draft, p.branch)[p.idx].key;
+  // A path through the card graph that revisits a card, as card keys from the first visit to the repeat
+  // (first key = last key), or null if play can never loop.
+  function findCycle(draft) {
+    const state = new Map(), path = []; // key → 1 visiting, 2 done
     const visit = (p) => {
-      const k = keyAt(p);
-      if (state.get(k) === 1) return true;
-      if (state.get(k) === 2) return false;
-      state.set(k, 1);
-      if (successors(draft, p).some(visit)) return true;
-      state.set(k, 2);
-      return false;
+      const k = branchCards(draft, p.branch)[p.idx].key;
+      if (state.get(k) === 1) return [...path.slice(path.indexOf(k)), k];
+      if (state.get(k) === 2) return null;
+      state.set(k, 1); path.push(k);
+      for (const s of successors(draft, p)) { const loop = visit(s); if (loop) return loop; }
+      path.pop(); state.set(k, 2);
+      return null;
     };
-    return flatCards(draft).some((f) => visit({ branch: f.branch, idx: f.idx }));
+    for (const f of flatCards(draft)) { const loop = visit({ branch: f.branch, idx: f.idx }); if (loop) return loop; }
+    return null;
+  }
+  const hasCycle = (draft) => !!findCycle(draft);
+  // Runs apply(); if that made the card graph loop, runs revert() and throws an error naming the loop. A draft
+  // that already loops (hand-edited) takes any edit, since any edit may be the fix.
+  function guardCycle(draft, apply, revert) {
+    const was = hasCycle(draft);
+    apply();
+    if (was) return;
+    const loop = findCycle(draft);
+    if (!loop) return;
+    revert();
+    throw new Error("that link would loop: " + loop.map((k) => `${cardPos(draft, k).branch} · ${k}`).join(" → "));
   }
   // Moves the card `key` one place up (-1) or down (+1) within its branch. Refuses at the branch edge or when
   // the new order would loop; the draft is unchanged on refusal.
@@ -702,6 +738,91 @@ section { display: grid; gap: 12px; min-width: 0 }
       [list[pos.idx], list[to]] = [list[to], list[pos.idx]];
       throw new Error("that order would loop");
     }
+  }
+  const BRANCH_NAME_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
+  function checkBranchName(draft, name) {
+    if (typeof name !== "string" || !BRANCH_NAME_RE.test(name)) throw new Error(`branch name ${JSON.stringify(name)}: use letters, digits and _ (not starting with a digit)`);
+    if (draft.branches[name]) throw new Error(`a branch called ${name} already exists`);
+  }
+  // Adds branch `name` (one blank narration card, no `then` = ends) after the others; returns the card's key.
+  function addBranch(draft, name, title = "") {
+    checkBranchName(draft, name);
+    draft.branches[name] = { title, cards: [] };
+    return insertCard(draft, name, 0);
+  }
+  // Renames branch `from` to `to`, rewriting `start` and every link; the branch keeps its place in the order.
+  function renameBranch(draft, from, to) {
+    if (!draft.branches[from]) throw new Error(`unknown branch ${JSON.stringify(from)}`);
+    if (from === to) return;
+    checkBranchName(draft, to);
+    for (const { target } of allLinks(draft)) if (target.branch === from) target.branch = to;
+    draft.branches = Object.fromEntries(Object.entries(draft.branches).map(([k, v]) => [k === from ? to : k, v]));
+    if (draft.start === from) draft.start = to;
+  }
+  // Links into branch `name` from other branches (its links into itself don't count).
+  const inboundLinks = (draft, name) => allLinks(draft).filter((l) => l.target.branch === name && l.fromBranch !== name);
+  // Removes branch `name`; links into it are left dangling (the editor warns first). Refuses the start branch.
+  function deleteBranch(draft, name) {
+    if (!draft.branches[name]) throw new Error(`unknown branch ${JSON.stringify(name)}`);
+    if (name === draft.start) throw new Error("can't delete the start branch");
+    delete draft.branches[name];
+  }
+  // A link target as stored: {branch} or {branch, card}. Throws on an unknown branch, or a card not in that branch.
+  function cleanTarget(draft, t) {
+    if (!t || !draft.branches[t.branch]) throw new Error(`unknown branch ${JSON.stringify(t && t.branch)}`);
+    if (t.card == null || t.card === "") return { branch: t.branch };
+    if (!branchCards(draft, t.branch).some((c) => c.key === t.card)) throw new Error(`no card ${t.card} in branch ${t.branch}`);
+    return { branch: t.branch, card: t.card };
+  }
+  // Sets card `key`'s goto to target {branch, card?}, or removes it (null). Refuses a link that loops.
+  function setCardGoto(draft, key, target) {
+    const card = cardByKey(draft, key);
+    if (!card) throw new Error(`no card ${key}`);
+    const had = "goto" in card, old = card.goto, next = target ? cleanTarget(draft, target) : null;
+    guardCycle(draft, () => { if (next) card.goto = next; else delete card.goto; },
+      () => { if (had) card.goto = old; else delete card.goto; });
+  }
+  // Sets branch `name`'s then: undefined (omitted = end), "end", a target {branch, card?}, or a conditional list of
+  // {if?, branch?, card?} (no branch = end; one entry without `if`, the else, allowed only last). Refuses loops.
+  function setThen(draft, name, then) {
+    const br = draft.branches[name];
+    if (!br) throw new Error(`unknown branch ${JSON.stringify(name)}`);
+    let next = then;
+    if (Array.isArray(then)) {
+      next = then.map((e, i) => {
+        if (e.if == null && i < then.length - 1) throw new Error("the else entry (no if) must be last");
+        const out = e.if != null ? { if: e.if } : {};
+        return e.branch ? { ...out, ...cleanTarget(draft, e) } : out;
+      });
+    } else if (then && typeof then === "object") next = cleanTarget(draft, then);
+    else if (then !== undefined && then !== "end") throw new Error(`then must be "end", a branch target or a conditional list, not ${JSON.stringify(then)}`);
+    const had = "then" in br, old = br.then;
+    guardCycle(draft, () => { if (next === undefined) delete br.then; else br.then = next; },
+      () => { if (had) br.then = old; else delete br.then; });
+  }
+  // Condition kinds a branch `then` entry can test: systems/events.gd condition_met's vocabulary. Each field is
+  // [path into the condition, label, "text" | "number" | "bool"]; the first field's head names the kind.
+  const COND_KINDS = {
+    flag: [["flag", "Flag", "text"]],
+    relation: [["relation", "Contact", "text"], ["atLeast", "Relation ≥", "number"]],
+    cash: [["cash.atLeast", "Cash ≥ £", "number"]],
+    item: [["item", "Item", "text"], ["equipped", "Equipped", "bool"]],
+    path: [["path", "State path", "text"], ["atLeast", "≥", "number"]],
+    choice: [["choice.event", "Event", "text"], ["choice.card", "Card #", "number"], ["choice.option", "Option", "text"]],
+  };
+  // The kind condition_met reads c as (it tests item, flag, choice, path, relation, cash in that order), or null.
+  const condKind = (c) => ["item", "flag", "choice", "path", "relation", "cash"].find((k) => c && k in c) || null;
+  const condGet = (c, path) => path.split(".").reduce((o, k) => (o == null ? undefined : o[k]), c);
+  // Sets the field at path; a false bool drops its key.
+  function condSet(c, path, v) {
+    const ks = path.split("."), last = ks.pop();
+    const o = ks.reduce((o, k) => (o[k] = o[k] && typeof o[k] === "object" ? o[k] : {}), c);
+    if (v === false) delete o[last]; else o[last] = v;
+  }
+  function blankCond(kind) {
+    const c = {};
+    for (const [path, , type] of COND_KINDS[kind]) condSet(c, path, type === "number" ? 0 : type === "bool" ? false : "");
+    return c;
   }
   // A condition (`if`, `requires`, check mods) as a short readable phrase.
   function condText(c) {
@@ -1033,7 +1154,7 @@ section { display: grid; gap: 12px; min-width: 0 }
       frame.append(el("div", { class: "ph clear" }, el("p", { text: "No cards." })));
       $("tp-label").textContent = ""; $("tp-who").textContent = ""; $("tp-text").textContent = b.error || "";
       $("pos").textContent = ""; $("next").disabled = true;
-      $("card-editor").hidden = true;
+      $("card-editor").hidden = true; $("branch-editor").hidden = true;
       return;
     }
     const c = b.cards[cardIdx];
@@ -1268,7 +1389,7 @@ section { display: grid; gap: 12px; min-width: 0 }
   const CE_FIELDS = ["text", "speaker", "label"];
   function renderEditor(b) {
     const c = b.cards[cardIdx];
-    $("card-editor").hidden = !c;
+    $("card-editor").hidden = !c; $("branch-editor").hidden = !c;
     if (!c) return;
     $("ce-where").textContent = `${c.branch} · ${c.key}`;
     for (const f of CE_FIELDS) if (document.activeElement !== $("ce-" + f)) $("ce-" + f).value = c[f] || "";
@@ -1279,6 +1400,129 @@ section { display: grid; gap: 12px; min-width: 0 }
     $("ce-up").disabled = c.idx === 0;
     $("ce-down").disabled = c.idx === len - 1;
     $("ce-delete").disabled = c.branch === b.draft.start && len === 1;
+    keepFocus($("ce-goto"), targetPicker(b.draft, c.goto, "next card / branch's then", "goto",
+      (t) => editDraft((d) => setCardGoto(d, c.key, t), true)));
+    renderBranchEditor(b, c.branch);
+  }
+  // Replaces box's children; a control inside it that had focus (matched by data-focus) gets it back.
+  function keepFocus(box, ...kids) {
+    const a = document.activeElement, id = a && box.contains(a) ? a.getAttribute("data-focus") : null;
+    box.replaceChildren(...kids);
+    const again = id && [...box.querySelectorAll("[data-focus]")].find((n) => n.getAttribute("data-focus") === id);
+    if (again) again.focus();
+  }
+  const optionEl = (value, text) => el("option", { value, text });
+  // A {branch, card?} link picker: a branch select (noneLabel, when given, is the "no link" entry) and, once a
+  // branch is chosen, a card select (its first card, or a named one). onPick gets {branch, card?} or null.
+  // A link to a missing branch or card shows as a ⚠ entry rather than silently reading as another target.
+  function targetPicker(draft, t, noneLabel, fid, onPick) {
+    const names = Object.keys(draft.branches), has = t && t.branch && draft.branches[t.branch];
+    const brSel = el("select", { "aria-label": "Branch", "data-focus": fid + ":b" });
+    brSel.append(...(noneLabel ? [optionEl("", noneLabel)] : []),
+      ...(t && t.branch && !has ? [optionEl(t.branch, `⚠ ${t.branch} (missing)`)] : []),
+      ...names.map((n) => optionEl(n, n + (draft.branches[n].title ? " · " + draft.branches[n].title : ""))));
+    brSel.value = t && t.branch ? t.branch : "";
+    brSel.addEventListener("change", () => onPick(brSel.value ? { branch: brSel.value } : null));
+    const box = el("span", { class: "route" }, brSel);
+    if (has) {
+      const cards = branchCards(draft, t.branch);
+      const cSel = el("select", { "aria-label": "Card in " + t.branch, "data-focus": fid + ":c" });
+      cSel.append(optionEl("", "first card"),
+        ...(t.card && !cards.some((x) => x.key === t.card) ? [optionEl(t.card, `⚠ ${t.card} (missing)`)] : []),
+        ...cards.map((x) => optionEl(x.key, `${x.key} · ${clip(x.text || "(blank)", 34)}`)));
+      cSel.value = t.card || "";
+      cSel.addEventListener("change", () => onPick({ branch: t.branch, card: cSel.value || null }));
+      box.append(cSel);
+    }
+    return box;
+  }
+  // The selected card's branch: name (rename on commit), title, delete, and its `then` (end / go to / conditional).
+  function renderBranchEditor(b, name) {
+    const d = b.draft, br = d.branches[name];
+    $("branch-editor").hidden = false;
+    $("be-where").textContent = name === d.start ? "start branch" : "";
+    if (document.activeElement !== $("be-name")) $("be-name").value = name;
+    if (document.activeElement !== $("be-title")) $("be-title").value = br.title || "";
+    $("be-delete").disabled = name === d.start;
+    const then = br.then, mode = Array.isArray(then) ? "cond" : then && typeof then === "object" ? "goto" : "end";
+    const modeSel = el("select", { "aria-label": "Then", "data-focus": "then:mode" });
+    modeSel.append(optionEl("end", "End the event"), optionEl("goto", "Go to"), optionEl("cond", "Conditional"));
+    modeSel.value = mode;
+    modeSel.addEventListener("change", () => setThenMode(name, modeSel.value));
+    const thenEdit = (next) => editDraft((dd) => setThen(dd, name, next), true);
+    const rows = [el("div", { class: "route" }, modeSel,
+      mode === "goto" ? targetPicker(d, then, null, "then:goto", (t) => thenEdit(t)) : null)];
+    if (mode === "cond") {
+      const ifs = then.filter((e) => e.if != null), other = then.find((e) => e.if == null);
+      const els = other && other.branch ? other : null;
+      const commit = (list, e2 = els) => thenEdit([...list, ...(e2 ? [e2] : [])]);
+      ifs.forEach((e, i) => {
+        const with_ = (patch) => commit(ifs.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+        const move = (dir) => { const l = [...ifs]; [l[i], l[i + dir]] = [l[i + dir], l[i]]; commit(l); };
+        rows.push(el("div", { class: "cond" },
+          el("span", { class: "kw", text: i === 0 ? "if" : "else if" }),
+          ...condControls(e.if, `then:${i}`, (c) => with_({ if: c })),
+          el("span", { class: "kw", text: "→" }),
+          targetPicker(d, e.branch ? e : null, "end", `then:${i}:t`, (t) => {
+            const { branch, card, ...rest } = e;
+            commit(ifs.map((x, j) => (j === i ? { ...rest, ...(t || {}) } : x)));
+          }),
+          iconBtn("▲", "Check this condition earlier", i === 0, () => move(-1)),
+          iconBtn("▼", "Check this condition later", i === ifs.length - 1, () => move(1)),
+          iconBtn("✕", "Remove this condition", false, () => commit(ifs.filter((_, j) => j !== i)))));
+      });
+      const add = el("button", { type: "button", class: "tb", text: "+ Condition" });
+      add.addEventListener("click", () => commit([...ifs, { if: blankCond("flag") }]));
+      rows.push(el("div", { class: "cond" }, el("span", { class: "kw", text: ifs.length ? "else" : "always" }),
+        el("span", { class: "kw", text: "→" }),
+        targetPicker(d, els, "end", "then:else", (t) => commit(ifs, t))), el("div", {}, add));
+    }
+    keepFocus($("be-then"), ...rows);
+  }
+  function iconBtn(text, title, disabled, onClick) {
+    const bt = el("button", { type: "button", class: "tb", title, "aria-label": title, text });
+    bt.disabled = disabled;
+    bt.addEventListener("click", onClick);
+    return bt;
+  }
+  // Controls for one condition: a kind select (condition_met's vocabulary) and that kind's fields. Text and
+  // number fields commit on change (Enter or leaving the box), so the editor isn't rebuilt mid-word.
+  function condControls(c, fid, onChange) {
+    const kind = condKind(c);
+    const kindSel = el("select", { "aria-label": "Condition kind", "data-focus": fid + ":k" });
+    kindSel.append(...(kind ? [] : [optionEl("", "?")]), ...Object.keys(COND_KINDS).map((k) => optionEl(k, k)));
+    kindSel.value = kind || "";
+    kindSel.addEventListener("change", () => onChange(blankCond(kindSel.value)));
+    if (!kind) return [kindSel, el("span", { class: "mono muted", text: JSON.stringify(c) })];
+    return [kindSel, ...COND_KINDS[kind].map(([path, label, type]) => {
+      const v = condGet(c, path), f = `${fid}:${path}`;
+      const set = (val) => { const next = JSON.parse(JSON.stringify(c)); condSet(next, path, val); onChange(next); };
+      let input;
+      if (type === "bool") {
+        input = el("input", { type: "checkbox", "data-focus": f });
+        input.checked = !!v;
+        input.addEventListener("change", () => set(input.checked));
+      } else {
+        input = el("input", { type: type === "number" ? "number" : "text", "data-focus": f, autocomplete: "off" });
+        input.value = v == null ? "" : String(v);
+        input.addEventListener("change", () => set(type === "number" ? Number(input.value) || 0 : input.value));
+      }
+      return el("label", {}, label, input);
+    })];
+  }
+  // Switching a `then` form keeps what it can: go-to takes the conditional's else, conditional keeps the single
+  // target as its else. Go-to from end picks the first branch that doesn't loop.
+  function setThenMode(name, mode) {
+    editDraft((d) => {
+      const then = d.branches[name].then;
+      if (mode === "end") return setThen(d, name, "end");
+      if (mode === "cond") return setThen(d, name, [{ if: blankCond("flag") }, ...(then && then.branch ? [then] : [])]);
+      const els = Array.isArray(then) ? then.find((e) => e.if == null && e.branch) : null;
+      for (const t of [...(els ? [els] : []), ...Object.keys(d.branches).map((n) => ({ branch: n }))]) {
+        try { return setThen(d, name, t); } catch {}
+      }
+      throw new Error(`every branch would loop back into ${name}: add a new branch first`);
+    }, true);
   }
   // msg replaces the status line; otherwise it shows the dirty state (a "Saved …" note stays until the next edit).
   function renderEditBar(msg) {
@@ -1301,7 +1545,7 @@ section { display: grid; gap: 12px; min-width: 0 }
     const before = serialiseDraft(b.draft);
     let sel;
     try { sel = fn(b.draft); }
-    catch (e) { b.draft = JSON.parse(before); renderEditBar(e.message); return; }
+    catch (e) { b.draft = JSON.parse(before); proposalCards(b); renderFrame(); renderEditBar(e.message); return; }
     if (newStep) b.history.snapshot(before);
     proposalCards(b);
     renderGraph(b);
@@ -1332,7 +1576,7 @@ section { display: grid; gap: 12px; min-width: 0 }
     b.draft = JSON.parse(t);
     editSession = false;
     proposalCards(b);
-    if (CE_FIELDS.some((f) => document.activeElement === $("ce-" + f))) document.activeElement.blur();
+    if (document.activeElement && document.activeElement.closest("#card-editor, #branch-editor")) document.activeElement.blur();
     renderBoard();
   }
   async function saveProposal() {
@@ -1375,7 +1619,7 @@ section { display: grid; gap: 12px; min-width: 0 }
   function renderFrame() {
     const b = board(); if (!b) return;
     if (b.kind === "proposal") { renderProposalFrame(b); return; }
-    $("card-editor").hidden = true;
+    $("card-editor").hidden = true; $("branch-editor").hidden = true;
     $("tp-opts").hidden = true; $("tp-outcome").hidden = true; $("tp-label").textContent = "";
     const c = b.cards[cardIdx];
     const sid = shotForCard(b, cardIdx);
@@ -1672,6 +1916,33 @@ section { display: grid; gap: 12px; min-width: 0 }
   $("ce-up").addEventListener("click", () => cardOp((d, key) => { moveCard(d, key, -1); return key; }));
   $("ce-down").addEventListener("click", () => cardOp((d, key) => { moveCard(d, key, 1); return key; }));
   $("ce-delete").addEventListener("click", deleteSelected);
+  const selectedBranch = () => { const b = board(), c = b && b.cards[cardIdx]; return c ? c.branch : null; };
+  $("be-new").addEventListener("click", () => {
+    const name = prompt("New branch name (letters, digits and _):");
+    if (name) editDraft((d) => addBranch(d, name.trim()), true);
+  });
+  $("be-delete").addEventListener("click", () => {
+    const b = board(), name = selectedBranch(); if (!name) return;
+    const inbound = inboundLinks(b.draft, name), n = branchCards(b.draft, name).length;
+    const warn = inbound.length ? `\n\n${inbound.length} link${inbound.length > 1 ? "s" : ""} will point at nothing:\n`
+      + inbound.map((l) => `• ${l.from} → ${targetText(l.target)}`).join("\n") : "";
+    if (!confirm(`Delete branch ${name} and its ${n} card${n === 1 ? "" : "s"}?${warn}`)) return;
+    editDraft((d) => { deleteBranch(d, name); return branchCards(d, d.start)[0].key; }, true);
+  });
+  $("be-name").addEventListener("change", (e) => {
+    const b = board(), from = selectedBranch(), to = e.target.value.trim(); if (!from || to === from) return;
+    editDraft((d) => {
+      renameBranch(d, from, to);
+      const open = openSet(b);
+      if (open.delete(from)) open.add(to);
+    }, true);
+  });
+  $("be-title").addEventListener("focus", () => { editSession = false; });
+  $("be-title").addEventListener("input", (e) => {
+    const name = selectedBranch(), v = e.target.value;
+    editDraft((d) => { d.branches[name].title = v; }, !editSession);
+    editSession = true;
+  });
   $("save").addEventListener("click", saveProposal);
   $("undo").addEventListener("click", undoEdit);
   document.addEventListener("keydown", (e) => {
