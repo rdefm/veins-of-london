@@ -162,7 +162,12 @@ func _fill_controls(box: BoxContainer, available_width: float, continue_text: St
 	if Events.is_awaiting_choice():
 		var choices: Array = Events.current_card()["choices"]
 		for i in range(choices.size()):
-			controls.append(_build_choice_button(choices[i]["label"], i))
+			var gate: Dictionary = Events.option_gate(i)
+			match gate["display"]:
+				"show":
+					controls.append(_build_choice_button(choices[i]["label"], i))
+				"disable":
+					controls.append(_build_disabled_option(choices[i]["label"], gate["reason"]))
 		var widths: Array = controls.map(func(c: Control) -> float: return c.get_combined_minimum_size().x)
 		box.vertical = not fits_in_row(widths, ACTION_SEPARATION, available_width)
 		if box.vertical and item_button != null:
@@ -288,6 +293,22 @@ func _build_choice_button(label: String, choice_index: int) -> Control:
 	stack.add_child(option)
 	for toggle in toggles:
 		stack.add_child(_build_item_toggle(choice_index, toggle))
+	return stack
+
+# A gated option shown "disable": a greyed button that commits nothing, with
+# its reason as a wrapped muted line under it.
+func _build_disabled_option(label: String, reason: String) -> Control:
+	var b := UI.button(label, func(): pass)
+	b.disabled = true
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_style_action_button(b)
+	b.add_theme_color_override("font_disabled_color", Color(UI.action_colour(), 0.45))
+	if reason == "":
+		return b
+	var stack := UI.vbox(2)
+	stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	stack.add_child(b)
+	stack.add_child(UI.muted_label(reason))
 	return stack
 
 func _build_item_toggle(choice_index: int, toggle: Dictionary) -> Button:

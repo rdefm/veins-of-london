@@ -4,6 +4,8 @@ extends RefCounted
 # Event runner (R§3.9, ui-vision.md §11). Cards: {type, label, speaker,
 # text}; a "choice" card adds {choices:[{id?, label, effects, result_text}]};
 # a check option swaps result_text for {check, success, fail} (R§3.9a).
+# An option may carry `requires` (option_gate()); it or its outcome may carry
+# `goto`, a later card index Continue jumps to.
 # Events: {id, cards, on_complete:[effect]}. state.event holds runtime
 # progress: {eventId, cardIndex, snapshots, choiceResults, rolled, toggles}.
 #
@@ -74,7 +76,7 @@ static func is_awaiting_choice() -> bool:
 	return not event_state["choiceResults"].has(str(event_state["cardIndex"]))
 
 
-# All cards revealed so far (index 0..cardIndex inclusive). A resolved "choice"
+# All cards revealed so far (_visited_indices()). A resolved "choice"
 # card's result_text is spliced in right after it as a synthetic resolution
 # card, without consuming its own cardIndex slot.
 static func revealed_cards() -> Array:
@@ -85,7 +87,7 @@ static func revealed_cards() -> Array:
 	# fillFromContext: card text's {key} placeholders read the event's context.
 	var fill: bool = _event_def().get("fillFromContext", false)
 	var result: Array = []
-	for i in range(event_state["cardIndex"] + 1):
+	for i in _visited_indices():
 		var card: Dictionary = cards[i]
 		if fill:
 			card = card.duplicate()
@@ -112,7 +114,7 @@ static func current_image_path() -> Variant:
 	var event_id: String = event_state["eventId"]
 	var cards: Array = _event_def()["cards"]
 	var choice_results: Dictionary = event_state["choiceResults"]
-	for i in range(event_state["cardIndex"] + 1):
+	for i in _visited_indices():
 		var card: Dictionary = cards[i]
 		if card.has("image"):
 			result = card["image"]
@@ -221,8 +223,39 @@ static func advance() -> void:
 		BusinessQuest.maybe_trigger_owen_craft()
 		SaveManager.autosave()  # R§6: autosave on event completion
 	else:
-		event_state["cardIndex"] += 1
+		event_state["cardIndex"] = _next_index(event_state["cardIndex"])
 		EventBus.state_changed.emit()
+
+
+# A resolved option's `goto` as a card index, or -1 for none. Forward only,
+# within this event: a backwards, same-card or out-of-range target is
+# rejected (push_error) and play falls through to the next card.
+static func _goto_target(goto: Variant) -> int:
+	if goto == null:
+		return -1
+	var here: int = int(GameState.state["event"]["cardIndex"])
+	var size: int = _event_def()["cards"].size()
+	if (typeof(goto) == TYPE_INT or typeof(goto) == TYPE_FLOAT) and int(goto) > here and int(goto) < size:
+		return int(goto)
+	push_error("Events: goto %s from card %d of '%s' is not a later card" % [str(goto), here, GameState.state["event"]["eventId"]])
+	return -1
+
+
+# The card Continue moves to from card `index`: its resolution's goto, else the next one.
+static func _next_index(index: int) -> int:
+	var resolution: Dictionary = GameState.state["event"]["choiceResults"].get(str(index), {})
+	return maxi(int(resolution.get("goto", index + 1)), index + 1)
+
+
+# The card indexes played so far, 0..cardIndex, skipping any a goto jumped past.
+static func _visited_indices() -> Array:
+	var visited: Array = []
+	var last: int = int(GameState.state["event"]["cardIndex"])
+	var i := 0
+	while i <= last:
+		visited.append(i)
+		i = _next_index(i)
+	return visited
 
 
 # Resolves the current "choice" card: applies the picked choice's effects, then
@@ -231,6 +264,8 @@ static func advance() -> void:
 static func choose(choice_index: int) -> void:
 	if not is_awaiting_choice():
 		return
+	if option_gate(choice_index)["display"] != "show":
+		return  # a hidden or disabled option can't be committed
 
 	_snapshot_before_mutation()
 
@@ -271,6 +306,9 @@ static func choose(choice_index: int) -> void:
 	if attempts > 1:
 		resolution["successes"] = successes
 		resolution["attempts"] = attempts
+	var target := _goto_target(source.get("goto"))
+	if target >= 0:
+		resolution["goto"] = target
 	event_state["choiceResults"][str(event_state["cardIndex"])] = resolution
 	_remember_choice(event_state["eventId"], event_state["cardIndex"], str(choice.get("id", choice_index)), outcome, successes if attempts > 1 else -1)
 	var effects: Array = choice.get("effects", [])
@@ -367,29 +405,55 @@ static func hint_word(probability: float) -> String:
 	return GameData.EVENT_CHECKS["hints"].back()["word"]
 
 
-# A modifier's signed delta if its condition holds right now, else 0.
+# A modifier's signed delta: a {path, perPoint} mod scales with the value;
+# every other mod adds its "add" when condition_met() holds right now.
 static func _mod_delta(mod: Dictionary, toggled: Array = []) -> float:
-	var add: float = float(mod.get("add", 0.0))
-	if mod.has("item"):
-		if mod.get("equipped", false):
-			return add if Loadout.find_slot(mod["item"]) >= 0 else 0.0
-		if mod.get("optional", false):
-			return add if toggled.has(mod["item"]) else 0.0
-		return 0.0
-	if mod.has("flag"):
-		return add if GameState.state["flags"].get(mod["flag"], false) else 0.0
-	if mod.has("choice"):
-		var c: Dictionary = mod["choice"]
-		return add if choice_id(c["event"], int(c["card"])) == _option_key(c["option"]) else 0.0
-	if mod.has("path"):
+	if mod.has("path") and mod.has("perPoint"):
 		var value: float = float(GameState.read_path(mod["path"], 0))
-		return float(mod.get("perPoint", 0.0)) * maxf(0.0, value - float(mod.get("above", 0)))
-	if mod.has("relation"):
-		var contact: Dictionary = GameState.state["contacts"].get(mod["relation"], {})
-		return add if contact.get("relation", 0) >= mod["atLeast"] else 0.0
-	if mod.has("cash"):
-		return add if GameState.state["player"]["cash"] >= mod["cash"]["atLeast"] else 0.0
-	return 0.0
+		return float(mod["perPoint"]) * maxf(0.0, value - float(mod.get("above", 0)))
+	return float(mod.get("add", 0.0)) if condition_met(mod, toggled) else 0.0
+
+
+# The condition vocabulary shared by check mods and option `requires`
+# (R§3.9a): {item} held, {item, equipped} in a loadout slot, {item, optional}
+# toggled on (toggled = active_toggles()), {flag} truthy, {choice: {event,
+# card, option}} remembered, {path, atLeast}, {relation, atLeast},
+# {cash: {atLeast}}. Unknown shapes never hold.
+static func condition_met(condition: Dictionary, toggled: Array = []) -> bool:
+	if condition.has("item"):
+		if condition.get("equipped", false):
+			return Loadout.find_slot(condition["item"]) >= 0
+		if condition.get("optional", false):
+			return toggled.has(condition["item"])
+		return Crafting.inventory_qty(condition["item"]) > 0
+	if condition.has("flag"):
+		return true if GameState.state["flags"].get(condition["flag"], false) else false
+	if condition.has("choice"):
+		var c: Dictionary = condition["choice"]
+		return choice_id(c["event"], int(c["card"])) == _option_key(c["option"])
+	if condition.has("path"):
+		return float(GameState.read_path(condition["path"], 0)) >= float(condition["atLeast"])
+	if condition.has("relation"):
+		var contact: Dictionary = GameState.state["contacts"].get(condition["relation"], {})
+		return contact.get("relation", 0) >= condition["atLeast"]
+	if condition.has("cash"):
+		return GameState.state["player"]["cash"] >= condition["cash"]["atLeast"]
+	return false
+
+
+# ── option gating (R§3.9a "Requires") ──
+
+# How the current card's option shows: {display: "show"|"hide"|"disable",
+# reason}. An option with no `requires`, or whose condition holds, shows;
+# otherwise its requires.display decides (default "hide"). Only a "show"
+# option can be committed.
+static func option_gate(choice_index: int) -> Dictionary:
+	var choice: Dictionary = current_card()["choices"][choice_index]
+	var requires: Variant = choice.get("requires")
+	if not requires is Dictionary or condition_met(requires):
+		return { "display": "show", "reason": "" }
+	var display: String = requires.get("display", "hide")
+	return { "display": display if display == "disable" else "hide", "reason": String(requires.get("reason", "")) }
 
 
 # An option reference as choice memory stores it: a string id, or an index
@@ -690,8 +754,8 @@ static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 			var sale := VeinTrade.sell_to_faction(GameState.read_path(effect["veinIdStatePath"]), effect["faction"], effect["price"])
 			if sale.get("ok", false):
 				_set_path(effect["veinIdStatePath"], sale["factionVeinId"])
-		# Chains straight into a second event from a choice's own effects -- advance()'s
-		# cardIndex has no branching, so two divergent card sequences live as two separate events instead.
+		# Chains straight into a second event from a choice's own effects -- for
+		# divergent card sequences that don't rejoin (a `goto` only jumps forward within one event).
 		"start_event":
 			start_event(effect["event"])
 		# Creates the site+vein+claim directly (see _scripted_seed() below) rather than

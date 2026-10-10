@@ -346,6 +346,32 @@ func run() -> void:
 		GameData.EVENTS = original_events
 	)
 
+	run_case("a_disabled_option_greys_out_with_its_reason_and_a_hidden_one_is_absent", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 0
+		var original_events := _install_check_event("odds")
+		var choices: Array = GameData.EVENTS["test_screen_check_event"]["cards"][0]["choices"]
+		choices.append({ "label": "Bribe the doorman", "requires": { "cash": { "atLeast": 50 }, "display": "disable", "reason": "Needs £50 — the doorman doesn't do favours" }, "effects": [], "result_text": "Paid." })
+		choices.append({ "label": "Secret door", "requires": { "flag": "secretFlag", "display": "hide" }, "effects": [], "result_text": "Secret." })
+		Events.start_event("test_screen_check_event")
+
+		var screen := _fresh_screen()
+		assert_eq(screen._action_bar.get_children().size(), 3, "Push, Leave and the disabled option; the hidden one isn't rendered")
+		assert_eq(_button_with_text(screen, "Secret door"), null)
+		var bribe: Button = _button_with_text(screen, "Bribe the doorman")
+		assert_true(bribe != null and bribe.disabled, "disabled option renders greyed")
+		var reason: Label = bribe.get_parent().find_children("", "Label", true, false).filter(func(l): return l.get_parent() == bribe.get_parent())[0]
+		assert_eq(reason.text, "Needs £50 — the doorman doesn't do favours")
+		assert_true(reason.autowrap_mode != TextServer.AUTOWRAP_OFF, "reason wraps")
+		assert_true(reason.get_combined_minimum_size().x <= 390.0 - 32.0, "reason fits phone width inside the gutters")
+		bribe.pressed.emit()
+		assert_true(Events.is_awaiting_choice(), "pressing a disabled option commits nothing")
+
+		GameState.state["flags"]["secretFlag"] = true
+		assert_true(_button_with_text(_fresh_screen(), "Secret door") != null, "a met gate renders the option")
+		GameData.EVENTS = original_events
+	)
+
 	run_case("a_check_resolution_card_carries_a_subtle_outcome_marker", func():
 		GameState.reset()
 		var original_events := _install_check_event("odds")

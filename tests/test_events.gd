@@ -83,6 +83,43 @@ func _install_attempts_check_event(p: float, attempts: int) -> Dictionary:
 	return original_events
 
 
+# Gated options and short branches: option 0 needs £50 (disabled with a
+# reason) and jumps to card 3; option 1 needs secretFlag (hidden); option 2
+# is plain; option 3 is a sure check whose success jumps to card 3. Card 2
+# is the branch a goto skips.
+func _install_gated_event() -> Dictionary:
+	var original_events: Dictionary = GameData.EVENTS
+	GameData.EVENTS = GameData.EVENTS.duplicate()
+	GameData.EVENTS["test_gated_event"] = {
+		"id": "test_gated_event",
+		"cards": [
+			{ "type": "narration", "label": null, "speaker": null, "text": "Setup" },
+			{
+				"type": "choice", "label": null, "speaker": null, "text": "Pick one",
+				"choices": [
+					{ "id": "pay", "label": "Pay", "requires": { "cash": { "atLeast": 50 }, "display": "disable", "reason": "Needs £50" }, "effects": [{ "op": "add", "path": "player.cash", "value": -50 }], "result_text": "Paid.", "goto": 3 },
+					{ "id": "secret", "label": "Secret", "requires": { "flag": "secretFlag" }, "effects": [], "result_text": "Secret." },
+					{ "id": "walk", "label": "Walk", "effects": [], "result_text": "Walked." },
+					{
+						"id": "push", "label": "Push",
+						"check": { "base": 1.0, "mods": [], "min": 0.0, "max": 1.0 },
+						"success": { "result_text": "Pushed through.", "effects": [], "goto": 3 },
+						"fail": { "result_text": "Stalled.", "effects": [], "goto": null },
+					},
+				],
+			},
+			{ "type": "narration", "label": null, "speaker": null, "text": "Branch", "image": "res://branch.png" },
+			{ "type": "narration", "label": null, "speaker": null, "text": "Rejoin" },
+		],
+		"on_complete": [],
+	}
+	return original_events
+
+
+static func _texts(cards: Array) -> Array:
+	return cards.map(func(c: Dictionary) -> String: return c["text"])
+
+
 # ui-vision.md §11: a choice event whose first option carries an "image"
 # key, followed by a card with no "image" key (sticky) and a card that
 # explicitly clears it (image: null) -- Events.current_image_path()'s own
@@ -972,6 +1009,158 @@ func run() -> void:
 		bad["choices"][0]["bySuccesses"]["many"] = { "result_text": "x", "effects": [] }
 		GameData._validate_choice_card(bad, "test", errors)
 		assert_eq(errors.size(), 1, "a non-count key is flagged")
+		GameData.EVENTS = original_events
+	)
+
+	# ── requires and goto (R§3.9a "Requires", "Goto") ───────────────────
+
+	run_case("requires_and_mods_share_one_condition_evaluator", func():
+		GameState.reset()
+		var conditions: Array = [
+			{ "flag": "condFlag" },
+			{ "choice": { "event": "condEvent", "card": 2, "option": "brave" } },
+			{ "path": "player.craftingSkill", "atLeast": 3 },
+			{ "relation": "archie", "atLeast": 15 },
+			{ "cash": { "atLeast": 50 } },
+			{ "item": "enhancementPowder" },
+			{ "item": "timePearl", "equipped": true },
+		]
+		GameState.state["player"]["cash"] = 0
+		GameState.state["player"]["craftingSkill"] = 1
+		for cond in conditions:
+			assert_true(not Events.condition_met(cond), "unmet: %s" % str(cond))
+			var mod: Dictionary = cond.duplicate()
+			mod["add"] = 0.1
+			assert_almost_eq(Events.odds_for({ "base": 0.4, "mods": [mod], "min": 0.0, "max": 1.0 })["probability"], 0.4, 0.0001, "mod off: %s" % str(cond))
+		GameState.state["flags"]["condFlag"] = true
+		GameState.state["flags"]["choices"]["condEvent"] = { "2": { "id": "brave" } }
+		GameState.state["player"]["craftingSkill"] = 3
+		GameState.state["contacts"]["archie"]["relation"] = 15
+		GameState.state["player"]["cash"] = 50
+		Crafting.inventory_add("timePearl", 1, 1)
+		Crafting.inventory_add("enhancementPowder", 1, 1)
+		assert_true(Loadout.equip(0, "timePearl", 1)["ok"])
+		for cond in conditions:
+			assert_true(Events.condition_met(cond), "met: %s" % str(cond))
+			var mod: Dictionary = cond.duplicate()
+			mod["add"] = 0.1
+			assert_almost_eq(Events.odds_for({ "base": 0.4, "mods": [mod], "min": 0.0, "max": 1.0 })["probability"], 0.5, 0.0001, "mod on: %s" % str(cond))
+	)
+
+	run_case("a_gated_option_hides_or_disables_and_cant_be_committed", func():
+		GameState.reset()
+		var original_events := _install_gated_event()
+		GameState.state["player"]["cash"] = 20
+		Events.start_event("test_gated_event")
+		Events.advance()
+		var snapshots_before: int = GameState.state["event"]["snapshots"].size()
+		assert_eq(Events.option_gate(0), { "display": "disable", "reason": "Needs £50" })
+		assert_eq(Events.option_gate(1)["display"], "hide", "display defaults to hide")
+		assert_eq(Events.option_gate(2), { "display": "show", "reason": "" }, "no requires: shows")
+		Events.choose(0)
+		Events.choose(1)
+		assert_true(Events.is_awaiting_choice(), "neither gated option commits")
+		assert_eq(GameState.state["player"]["cash"], 20, "no effects ran")
+		assert_eq(Events.choice_record("test_gated_event", 1), {}, "nothing remembered")
+		assert_eq(GameState.state["event"]["snapshots"].size(), snapshots_before, "no snapshot taken")
+		GameState.state["player"]["cash"] = 60
+		GameState.state["flags"]["secretFlag"] = true
+		assert_eq(Events.option_gate(0)["display"], "show", "met: shows")
+		assert_eq(Events.option_gate(1)["display"], "show")
+		Events.choose(0)
+		assert_eq(GameState.state["player"]["cash"], 10, "a met gate commits")
+		GameData.EVENTS = original_events
+	)
+
+	run_case("a_plain_option_goto_jumps_forward_past_the_branch", func():
+		GameState.reset()
+		var original_events := _install_gated_event()
+		GameState.state["player"]["cash"] = 60
+		Events.start_event("test_gated_event")
+		Events.advance()
+		Events.choose(0)
+		Events.advance()
+		assert_eq(GameState.state["event"]["cardIndex"], 3)
+		assert_eq(_texts(Events.revealed_cards()), ["Setup", "Pick one", "Paid.", "Rejoin"], "the skipped card is never revealed")
+		assert_eq(Events.current_image_path(), null, "the skipped card's image never shows")
+		assert_true(Events.is_last_card())
+		GameData.EVENTS = original_events
+	)
+
+	run_case("an_option_without_goto_plays_on_to_the_next_card", func():
+		GameState.reset()
+		var original_events := _install_gated_event()
+		Events.start_event("test_gated_event")
+		Events.advance()
+		Events.choose(2)
+		Events.advance()
+		assert_eq(_texts(Events.revealed_cards()), ["Setup", "Pick one", "Walked.", "Branch"])
+		assert_eq(Events.current_image_path(), "res://branch.png")
+		Events.advance()
+		assert_eq(_texts(Events.revealed_cards()), ["Setup", "Pick one", "Walked.", "Branch", "Rejoin"])
+		GameData.EVENTS = original_events
+	)
+
+	run_case("a_check_outcome_goto_jumps_forward", func():
+		GameState.reset()
+		var original_events := _install_gated_event()
+		Events.start_event("test_gated_event")
+		Events.advance()
+		Events.choose(3)
+		Events.advance()
+		assert_eq(_texts(Events.revealed_cards()), ["Setup", "Pick one", "Pushed through.", "Rejoin"])
+		GameData.EVENTS = original_events
+	)
+
+	run_case("a_backwards_same_card_or_out_of_range_goto_is_rejected", func():
+		var original_events := _install_gated_event()
+		for bad in [0, 1, 4, 99, -1, "3"]:
+			GameState.reset()
+			GameState.state["player"]["cash"] = 60
+			GameData.EVENTS["test_gated_event"]["cards"][1]["choices"][0]["goto"] = bad
+			Events.start_event("test_gated_event")
+			Events.advance()
+			Events.choose(0)
+			assert_true(not GameState.state["event"]["choiceResults"]["1"].has("goto"), "goto %s not recorded" % str(bad))
+			Events.advance()
+			assert_eq(GameState.state["event"]["cardIndex"], 2, "goto %s falls through to the next card" % str(bad))
+		GameData.EVENTS = original_events
+	)
+
+	run_case("rewind_across_a_goto_restores_the_revealed_history", func():
+		GameState.reset()
+		var original_events := _install_gated_event()
+		GameState.state["player"]["cash"] = 60
+		Crafting.inventory_add("rewind", 1, 2)
+		Events.start_event("test_gated_event")
+		Events.advance()
+		Events.choose(0)
+		Events.advance()
+		assert_eq(GameState.state["event"]["cardIndex"], 3)
+		assert_true(Events.rewind()["ok"])
+		assert_eq(GameState.state["event"]["cardIndex"], 1, "back on the resolved choice card")
+		assert_eq(_texts(Events.revealed_cards()), ["Setup", "Pick one", "Paid."])
+		assert_true(Events.rewind()["ok"])
+		assert_true(Events.is_awaiting_choice(), "the pick is undone")
+		assert_eq(_texts(Events.revealed_cards()), ["Setup", "Pick one"])
+		assert_eq(GameState.state["player"]["cash"], 60)
+		Events.choose(2)
+		Events.advance()
+		assert_eq(_texts(Events.revealed_cards()), ["Setup", "Pick one", "Walked.", "Branch"], "a different pick takes the branch")
+		GameData.EVENTS = original_events
+	)
+
+	run_case("a_goto_survives_a_save_round_trip_as_a_float", func():
+		GameState.reset()
+		var original_events := _install_gated_event()
+		GameState.state["player"]["cash"] = 60
+		Events.start_event("test_gated_event")
+		Events.advance()
+		Events.choose(0)
+		GameState.state["event"]["choiceResults"]["1"]["goto"] = 3.0  # as JSON reloads it
+		Events.advance()
+		assert_eq(GameState.state["event"]["cardIndex"], 3)
+		assert_eq(_texts(Events.revealed_cards()), ["Setup", "Pick one", "Paid.", "Rejoin"])
 		GameData.EVENTS = original_events
 	)
 
