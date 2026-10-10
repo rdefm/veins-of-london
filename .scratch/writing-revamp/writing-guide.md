@@ -77,7 +77,7 @@ A Markdown file in `.scratch/writing-revamp/` named `<event-id>-proposal.md`, co
 3. A line confirming `id` / `on_complete` / images are unchanged, or listing exactly what changed.
 4. **Open points for review:** lines you're unsure about (a possible third joke, a canon stretch, an alternative ending).
 
-Never edit `data/events/*.json` until the human asks you to apply a proposal. When asked to suggest changes, post them in chat as **Now / Proposed / Why** per card, and don't touch the file. Flag new prose in your report as `PROSE-REVIEW: <path>`.
+The owner reviews proposals in `tools/storyboard.html` (picker → "Proposals"), which reads the first ```json block, so keep exactly one complete event block per file. Never edit `data/events/*.json` until the human asks you to apply a proposal. When asked to suggest changes, post them in chat as **Now / Proposed / Why** per card, and don't touch the file. Flag new prose in your report as `PROSE-REVIEW: <path>`.
 
 ## 7. Final audit (tick every line before delivering)
 

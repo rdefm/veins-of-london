@@ -131,6 +131,20 @@ header.top .title { display: grid; gap: 6px; min-width: 0 }
 .pastebox:focus { outline: 2px solid var(--accent); outline-offset: 2px }
 .files.drop { outline: 2px dashed var(--accent); outline-offset: 4px; border-radius: 6px }
 .questions { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 72ch }
+/* Writing proposals: playable choices in the phone, option lines in the cut list. */
+.opts { display: grid; gap: 6px }
+.opts button { text-align: left; background: #2a2f39; border: 1px solid #3a404c; color: #e8eaee; border-radius: 8px; padding: 8px 10px; font-size: 13px; line-height: 1.35 }
+.opts button[aria-pressed="true"] { border-color: #e0b04a; background: #3a3424 }
+.opts .mech { display: block; font: 11px/1.4 "JetBrains Mono", monospace; color: #b9bfca }
+.outcome { background: #e9e4d8; color: #1a1d23; border-radius: 10px; padding: 10px 12px; display: grid; gap: 6px }
+.outcome p { margin: 0; font-size: 13.5px; line-height: 1.45 }
+.outcome .mech { font: 11px/1.4 "JetBrains Mono", monospace; color: #6b5a33 }
+.otabs { display: flex; flex-wrap: wrap; gap: 4px }
+.otabs button { border: 1px solid #b7ad97; background: transparent; color: #1a1d23; border-radius: 5px; padding: 3px 7px; font: 600 11px/1.2 "JetBrains Mono", monospace }
+.otabs button[aria-pressed="true"] { background: #6b5a33; border-color: #6b5a33; color: #fff8e8 }
+.cut .opt { font-size: 12.5px; color: var(--muted); overflow-wrap: anywhere }
+.cut .opt b { color: var(--fg); font-weight: 600 }
+.chip.TYPE { color: var(--muted) }
 .board-verdict { background: var(--surface); border: 2px solid var(--fg); border-radius: 10px; padding: 16px; display: grid; gap: 10px }
 .empty { background: var(--surface); border: 1px dashed var(--line); border-radius: 10px; padding: 28px 20px; display: grid; gap: 8px; max-width: 640px }
 .empty p { margin: 0 }
@@ -156,7 +170,7 @@ section { display: grid; gap: 12px; min-width: 0 }
 
   <div id="empty" class="empty">
     <h2>No storyboards yet</h2>
-    <p>Open the veins-of-london repo folder (Chrome or Edge on desktop). Boards come from <code>.scratch/event-art/&lt;event&gt;/board.json</code>; uploads save into <code>assets/reference-plates/</code>; verdicts save to the board's <code>feedback.json</code>.</p>
+    <p>Open the veins-of-london repo folder (Chrome or Edge on desktop). Boards come from <code>.scratch/event-art/&lt;event&gt;/board.json</code>; uploads save into <code>assets/reference-plates/</code>; verdicts save to the board's <code>feedback.json</code>. Writing proposals (any <code>.scratch/writing-revamp/*.md</code> with an event JSON block) appear under "Proposals", read-only.</p>
     <p class="muted" id="db-note">Click "Open repo folder" and pick the veins-of-london folder.</p>
   </div>
 
@@ -174,7 +188,9 @@ section { display: grid; gap: 12px; min-width: 0 }
       <div class="preview">
         <div class="phone" aria-label="Phone preview of the event screen">
           <div class="frame" id="frame"></div>
-          <div class="textpanel"><span class="who" id="tp-who"></span><p id="tp-text"></p></div>
+          <div class="textpanel"><span class="eyebrow" id="tp-label"></span><span class="who" id="tp-who"></span><p id="tp-text"></p></div>
+          <div class="opts" id="tp-opts" hidden></div>
+          <div class="outcome" id="tp-outcome" hidden></div>
           <div class="nav">
             <button id="prev" type="button">◀ Prev</button>
             <span class="mono" id="pos"></span>
@@ -199,7 +215,7 @@ section { display: grid; gap: 12px; min-width: 0 }
         <div class="shots" id="plates"></div>
       </section>
 
-      <section>
+      <section id="s-section">
         <h2>Shots</h2>
         <div class="shots" id="shots"></div>
       </section>
@@ -228,8 +244,13 @@ section { display: grid; gap: 12px; min-width: 0 }
   const EXT = { "image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp" };
   const PLATES_DIR = ["assets", "reference-plates"];
   const BOARDS_DIR = [".scratch", "event-art"];
+  const PROPOSALS_DIR = [".scratch", "writing-revamp"];
+  const PROPOSAL_PREFIX = "proposal:";
 
   let root = null, boards = [], feedback = {}, plateFiles = new Map(), currentId = null, cardIdx = 0;
+  // Proposal play-through: cards visited before this one (for Prev), and the picked option/outcome on a choice card.
+  let trail = [], pick = null, outcomeKey = null;
+  const resUrls = new Map(); // res:// path -> object URL
   const thumbs = new Map(); // name -> {stamp, url}
   const remembered = () => { try { return localStorage.getItem("vein-sb-board"); } catch { return null; } };
   const remember = (id) => { try { localStorage.setItem("vein-sb-board", id); } catch {} };
@@ -298,6 +319,64 @@ section { display: grid; gap: 12px; min-width: 0 }
         if (h.kind === "file" && IMG_RE.test(name)) plateFiles.set(name, h);
     } catch {}
   }
+  // ---- writing proposals ---------------------------------------------------
+  // A proposal is a Markdown file whose first ```json block is a whole event ({id, cards}). It becomes a
+  // read-only board: title from the "# " heading, logline from the first paragraph, questions from "## Open points".
+  const plain = (s) => s.replace(/\*\*(.+?)\*\*/g, "$1").replace(/`([^`]+)`/g, "$1").trim();
+  function parseProposal(file, md) {
+    const m = md.match(/```json[^\n]*\n([\s\S]*?)\n```/);
+    if (!m) return null;
+    const title = plain((md.match(/^#\s+(.+)$/m) || [, file])[1]);
+    const intro = md.slice(0, m.index).split(/\n\s*\n/).map((p) => p.trim()).find((p) => p && !p.startsWith("#")) || "";
+    const op = md.match(/^##\s+Open points[^\n]*\n([\s\S]*?)(?=^##\s|(?![\s\S]))/m);
+    const questions = op ? op[1].split(/\n(?=- )/).map((q) => plain(q.replace(/^- /, "").replace(/\s*\n\s*/g, " "))).filter(Boolean) : [];
+    const board = { kind: "proposal", eventId: PROPOSAL_PREFIX + file, file, title, logline: plain(intro), questions, cards: [] };
+    let ev;
+    try { ev = JSON.parse(m[1]); } catch (e) { board.error = `JSON block doesn't parse: ${e.message}`; return board; }
+    if (!ev || !Array.isArray(ev.cards)) { board.error = "JSON block has no cards array."; return board; }
+    board.event = ev;
+    return board;
+  }
+  // Image per card, as the event screen resolves it: an explicit "image" key (null clears), else the
+  // convention asset assets/events/<id>/<id>_card<N>.*, else hold the previous image.
+  async function proposalCards(b) {
+    const conv = new Map();
+    try {
+      for await (const [name, h] of (await dirAt(["assets", "events", b.event.id])).entries())
+        if (h.kind === "file" && IMG_RE.test(name)) conv.set(stemOf(name), `res://assets/events/${b.event.id}/${name}`);
+    } catch {}
+    b.cards = b.event.cards.map((c, i) => {
+      const img = "image" in c ? c.image : conv.get(`${b.event.id}_card${i + 1}`);
+      return { ...c, n: i, cut: img === null ? "CLEAR" : img ? "NEW" : "HOLD", shot: img || null };
+    });
+  }
+  async function loadProposals() {
+    const out = [];
+    let dir;
+    try { dir = await dirAt(PROPOSALS_DIR); } catch { return out; }
+    for await (const [name, h] of dir.entries()) {
+      if (h.kind !== "file" || !name.endsWith(".md")) continue;
+      const f = await h.getFile();
+      const b = parseProposal(name, await f.text());
+      if (!b) continue;
+      b.updatedAt = f.lastModified;
+      if (b.event) await proposalCards(b);
+      out.push(b);
+    }
+    return out.sort((a, b) => a.file.localeCompare(b.file));
+  }
+  async function resImg(path, alt) {
+    const img = el("img", { alt });
+    try {
+      const parts = path.replace(/^res:\/\//, "").split("/");
+      const f = await (await (await dirAt(parts.slice(0, -1))).getFileHandle(parts.at(-1))).getFile();
+      const stamp = f.lastModified + ":" + f.size, c = resUrls.get(path);
+      if (c && c.stamp === stamp) img.src = c.url;
+      else { if (c) URL.revokeObjectURL(c.url); const url = URL.createObjectURL(f); resUrls.set(path, { stamp, url }); img.src = url; }
+      return img;
+    } catch { return null; }
+  }
+
   async function loadAll() {
     const found = [];
     feedback = {};
@@ -311,8 +390,8 @@ section { display: grid; gap: 12px; min-width: 0 }
       }
     } catch { setNote("No .scratch/event-art/ folder yet. Ask Claude to storyboard an event."); }
     await loadPlates();
-    boards = found.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
-    setNote(boards.length ? "" : "No storyboards in .scratch/event-art/ yet.");
+    boards = found.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).concat(await loadProposals());
+    setNote(boards.length ? "" : "No storyboards in .scratch/event-art/ or proposals in .scratch/writing-revamp/ yet.");
     const want = currentId && boards.some((b) => b.eventId === currentId) ? currentId
       : (boards.some((b) => b.eventId === remembered()) ? remembered() : boards[0]?.eventId || null);
     selectBoard(want, want === currentId);
@@ -357,13 +436,133 @@ section { display: grid; gap: 12px; min-width: 0 }
 
   function renderPicker() {
     const sel = $("board-select");
-    sel.replaceChildren(...boards.map((b) => el("option", { value: b.eventId, text: b.eventId })));
+    const opt = (b) => el("option", { value: b.eventId, text: b.kind === "proposal" ? b.file : b.eventId });
+    const groups = [["Storyboards", boards.filter((b) => b.kind !== "proposal")], ["Proposals", boards.filter((b) => b.kind === "proposal")]]
+      .filter(([, list]) => list.length).map(([label, list]) => el("optgroup", { label }, ...list.map(opt)));
+    sel.replaceChildren(...groups);
     sel.disabled = boards.length === 0;
     if (currentId) sel.value = currentId;
   }
 
+  // ---- proposal rendering (mechanics as short readable lines) ---------------
+  const pct = (p) => Math.round(p * 100) + "%";
+  const signed = (n) => (n >= 0 ? "+" : "") + n;
+  function condText(c) {
+    if (c.flag) return `flag ${c.flag}`;
+    if (c.choice) return `${c.choice.event} card ${c.choice.card} = ${c.choice.option}`;
+    if (c.relation) return `${c.relation} ≥ ${c.atLeast}`;
+    if (c.cash) return `£${c.cash.atLeast}+`;
+    if (c.item) return c.item + (c.equipped ? " equipped" : c.optional ? (c.consume ? " (optional, spent)" : " (optional)") : " held");
+    if (c.path) return c.path + (c.atLeast != null ? ` ≥ ${c.atLeast}` : c.perPoint != null ? (c.above ? ` above ${c.above}` : "") : "");
+    return "?";
+  }
+  const modText = (m) => (m.perPoint != null ? `${signed(Math.round(m.perPoint * 100))}% per point` : `${signed(Math.round((m.add || 0) * 100))}%`)
+    + ` ${m.label || ""} (${condText(m)})`;
+  function effectText(e) {
+    switch (e.op) {
+      case "relation": return `${e.contact} ${signed(e.value)}`;
+      case "set_flag": return e.value === false ? `unset ${e.flag}` : `flag ${e.flag}`;
+      case "add_item": return `+${e.qty ?? 1} ${e.item}`;
+      case "add_ore": return `+${e.qty} ${e.type} ore`;
+      case "add": return `${e.path} ${typeof e.value === "number" ? signed(e.value) : JSON.stringify(e.value)}`;
+      default: return e.op;
+    }
+  }
+  const effectsText = (list) => (list || []).map(effectText).join(", ");
+  function optionMech(o) {
+    const bits = [];
+    if (o.requires) bits.push(`needs ${condText(o.requires)}${o.requires.display === "disable" ? " (greyed)" : " (hidden)"}`);
+    if (o.check) {
+      const k = o.check, n = k.attempts || 1;
+      bits.push(`${n > 1 ? n + " tries × " : ""}${pct(k.base)}${(k.mods || []).length ? ", " + k.mods.map(modText).join(", ") : ""}`);
+      if (k.perSuccess) bits.push(`per success ${effectsText(k.perSuccess)}`);
+    }
+    const e = effectsText(o.effects); if (e) bits.push(e);
+    if (o.goto != null) bits.push(`→ card ${o.goto}`);
+    return bits.join(" · ");
+  }
+  const binom = (n, k, p) => { let c = 1; for (let i = 0; i < k; i++) c = c * (n - i) / (i + 1); return c * p ** k * (1 - p) ** (n - k); };
+  // Every way an option can resolve: one plain result, success/fail, or one per success count (bySuccesses, else success/fail).
+  function outcomesOf(o) {
+    if (!o.check) return [{ key: "result", label: "", res: { result_text: o.result_text, effects: [], goto: o.goto, image: o.image } }];
+    const n = o.check.attempts || 1, p = o.check.base, by = o.bySuccesses || {};
+    if (n > 1) return Array.from({ length: n + 1 }, (_, k) => ({ key: String(k), label: `${k} of ${n}`, prob: binom(n, k, p), res: by[k] || (k ? o.success : o.fail) }));
+    return [{ key: "success", label: "Success", prob: p, res: o.success }, { key: "fail", label: "Fail", prob: 1 - p, res: o.fail }];
+  }
+  function picked(b) {
+    const c = b.cards[cardIdx];
+    const o = pick != null && c && c.choices ? c.choices[pick] : null;
+    if (!o) return {};
+    const outs = outcomesOf(o);
+    return { o, outs, oc: outs.find((x) => x.key === outcomeKey) || outs[0] };
+  }
+  function nextIndex(b) {
+    const { oc } = picked(b);
+    const g = oc && oc.res ? oc.res.goto : null;
+    return typeof g === "number" && g > cardIdx ? g : cardIdx + 1;
+  }
+  const goTo = (i) => { cardIdx = i; pick = null; outcomeKey = null; renderFrame(); };
+  let frameTok = 0;
+
+  function renderProposalFrame(b) {
+    const frame = $("frame"), opts = $("tp-opts"), out = $("tp-outcome");
+    frame.replaceChildren(); opts.replaceChildren(); out.replaceChildren();
+    opts.hidden = true; out.hidden = true;
+    $("prev").disabled = cardIdx === 0;
+    if (!b.cards.length) {
+      frame.append(el("div", { class: "ph clear" }, el("p", { text: "No cards." })));
+      $("tp-label").textContent = ""; $("tp-who").textContent = ""; $("tp-text").textContent = b.error || "";
+      $("pos").textContent = ""; $("next").disabled = true;
+      return;
+    }
+    const c = b.cards[cardIdx];
+    const { o, outs, oc } = picked(b);
+    const img = oc && oc.res && oc.res.image != null ? oc.res.image : shotForCard(b, cardIdx);
+    const tok = ++frameTok;
+    if (img) {
+      resImg(img, baseName(img)).then((i) => {
+        if (tok !== frameTok) return;
+        frame.prepend(i || el("div", { class: "ph" }, el("b", { text: "Missing" }), el("p", { text: img })));
+      });
+      frame.append(el("span", { class: "tag", text: baseName(img) + (c.cut === "HOLD" ? " · held" : "") }));
+    } else {
+      frame.append(el("div", { class: "ph clear" }, el("p", { text: c.cut === "CLEAR" ? "Image cleared." : "No image on this card." })));
+    }
+    $("tp-label").textContent = c.label || "";
+    $("tp-who").textContent = c.speaker || c.type;
+    $("tp-text").textContent = c.text;
+    if (c.choices) {
+      opts.hidden = false;
+      opts.append(...c.choices.map((x, i) => {
+        const bt = el("button", { type: "button", "aria-pressed": String(pick === i) },
+          el("span", { text: x.label + (x.id ? `  [${x.id}]` : "") }), el("span", { class: "mech", text: optionMech(x) }));
+        bt.addEventListener("click", () => { pick = pick === i ? null : i; outcomeKey = null; renderFrame(); });
+        return bt;
+      }));
+    }
+    if (o && oc) {
+      out.hidden = false;
+      if (outs.length > 1) {
+        out.append(el("div", { class: "otabs" }, ...outs.map((x) => {
+          const t = el("button", { type: "button", "aria-pressed": String(x === oc), text: `${x.label} · ${pct(x.prob)}` });
+          t.addEventListener("click", () => { outcomeKey = x.key; renderFrame(); });
+          return t;
+        })));
+      }
+      const res = oc.res || {};
+      const mech = [effectsText(res.effects), res.goto != null ? `→ card ${res.goto}` : ""].filter(Boolean).join(" · ");
+      out.append(el("p", { text: res.result_text || "(no result text)" }), mech ? el("span", { class: "mech", text: mech }) : null);
+      if (outs.length > 1) out.append(el("span", { class: "mech", text: "Odds at base, before mods." }));
+    }
+    $("pos").textContent = `card ${c.n} · ${cardIdx + 1}/${b.cards.length}`;
+    $("next").disabled = nextIndex(b) >= b.cards.length;
+    document.querySelectorAll(".cut").forEach((r, i) => r.setAttribute("aria-current", String(i === cardIdx)));
+  }
+
   function renderFrame() {
     const b = board(); if (!b) return;
+    if (b.kind === "proposal") { renderProposalFrame(b); return; }
+    $("tp-opts").hidden = true; $("tp-outcome").hidden = true; $("tp-label").textContent = "";
     const c = b.cards[cardIdx];
     const sid = shotForCard(b, cardIdx);
     const frame = $("frame");
@@ -387,7 +586,26 @@ section { display: grid; gap: 12px; min-width: 0 }
     document.querySelectorAll(".cut").forEach((r, i) => r.setAttribute("aria-current", String(i === cardIdx)));
   }
 
+  function renderProposalCuts(b) {
+    $("cuts").replaceChildren(...b.cards.map((c, i) => {
+      const row = el("button", { class: "cut" + (i > 0 && c.cut !== "HOLD" ? " newrun" : ""), type: "button" },
+        el("span", { class: "n", text: String(c.n) }),
+        el("span", { class: "chip " + c.cut, text: c.cut }),
+        el("span", { class: "body" },
+          c.cut === "NEW" ? el("span", { class: "shotref", text: baseName(c.shot) }) : null,
+          el("span", { class: "why", text: [c.type, c.label].filter(Boolean).join(" · ") }),
+          el("span", { class: "line", text: (c.speaker ? c.speaker + ": " : "") + c.text }),
+          ...(c.choices || []).map((x) => {
+            const mech = optionMech(x);
+            return el("span", { class: "opt" }, "▸ ", el("b", { text: x.label }), mech ? " · " + mech : "");
+          })));
+      row.addEventListener("click", () => { trail = []; goTo(i); });
+      return row;
+    }));
+  }
+
   function renderCuts(b) {
+    if (b.kind === "proposal") { renderProposalCuts(b); return; }
     $("cuts").replaceChildren(...b.cards.map((c, i) => {
       const row = el("button", { class: "cut" + (i > 0 && c.cut !== "HOLD" ? " newrun" : ""), type: "button" },
         el("span", { class: "n", text: String(c.n) }),
@@ -559,6 +777,23 @@ section { display: grid; gap: 12px; min-width: 0 }
     $("empty").hidden = !!b; $("board").hidden = !b;
     if (!b) return;
     $("h-title").textContent = b.title || b.eventId;
+    const isProposal = b.kind === "proposal";
+    $("s-section").hidden = isProposal; $("board-verdict").hidden = isProposal;
+    if (isProposal) {
+      const pill = $("phase-pill");
+      pill.textContent = "Writing proposal · read-only"; pill.style.color = "var(--accent)";
+      $("round-pill").textContent = b.event ? b.event.id + (b.event.at ? ` · at ${b.event.at.block}${b.event.at.advance ? " (advance)" : ""}` : "") : "no event";
+      const nChoices = b.cards.filter((c) => c.choices).length, nNew = b.cards.filter((c) => c.cut === "NEW").length;
+      $("count-line").textContent = b.error || `${b.cards.length} cards · ${nChoices} choices · ${nNew} images · ${b.file}`;
+      $("logline").textContent = b.logline;
+      renderCuts(b);
+      $("q-section").hidden = b.questions.length === 0;
+      $("questions").replaceChildren(...b.questions.map((q) => el("li", { text: q })));
+      $("p-section").hidden = true;
+      if (cardIdx >= b.cards.length) cardIdx = 0;
+      renderFrame();
+      return;
+    }
     const phase = b.phase || "storyboard";
     const pill = $("phase-pill");
     pill.textContent = b.approved ? `Approved (${b.approved.phase})` : ({ storyboard: "Storyboard review", drafts: "Draft review", done: "Done" }[phase] || phase);
@@ -585,14 +820,23 @@ section { display: grid; gap: 12px; min-width: 0 }
   const typing = () => document.activeElement && (document.activeElement.tagName === "TEXTAREA" || document.activeElement.isContentEditable);
   function renderAll() { renderPicker(); if (!typing()) renderBoard(); }
   function selectBoard(id, keepCard) {
-    if (!keepCard) cardIdx = 0;
+    if (!keepCard) { cardIdx = 0; trail = []; pick = null; outcomeKey = null; }
     currentId = id; if (id) remember(id);
     renderPicker(); renderBoard();
   }
 
   $("board-select").addEventListener("change", (e) => selectBoard(e.target.value));
-  $("prev").addEventListener("click", () => { if (cardIdx > 0) { cardIdx--; renderFrame(); } });
-  $("next").addEventListener("click", () => { const b = board(); if (b && cardIdx < b.cards.length - 1) { cardIdx++; renderFrame(); } });
+  $("prev").addEventListener("click", () => {
+    const b = board(); if (!b || cardIdx === 0) return;
+    if (b.kind === "proposal") { goTo(trail.length ? trail.pop() : cardIdx - 1); return; }
+    cardIdx--; renderFrame();
+  });
+  $("next").addEventListener("click", () => {
+    const b = board(); if (!b) return;
+    // Proposals follow the picked outcome's goto, so skipped branch cards stay skipped (as in the game).
+    if (b.kind === "proposal") { const n = nextIndex(b); if (n < b.cards.length) { trail.push(cardIdx); goTo(n); } return; }
+    if (cardIdx < b.cards.length - 1) { cardIdx++; renderFrame(); }
+  });
   $("open").addEventListener("click", openFolder);
   $("refresh").addEventListener("click", () => root && loadAll());
   // Claude edits board.json between rounds: pick that up when the window regains focus.
