@@ -15,24 +15,24 @@
     "Budget: 5 shots across 12 cards. This is the chain opener, and S1/S2 become reusable set and prop references for 5 more events in the same room. A leaner board would cut S3 and let S4 start at card 5, but that loses the moment James's attention moves from Archie to you."
   ],
   "cards": [
-    {"n": 1, "type": "narration", "speaker": null, "text": "James answers the door and shows you inside. Archie is already there, standing well back from the shelves, the way he always does - partly the allergy, partly James.", "cut": "NEW", "shot": "S1", "why": "Arrival in a known set. Card 1 can't be blank. Archie's distance from the shelves is the beat, and it carries the whole pitch."},
-    {"n": 2, "type": "speaker", "speaker": "Archie", "text": "\"Right. Before James starts: you've got two veins going. Two's not a hobby. Two's a supply.\"", "cut": "HOLD", "shot": "S1", "why": "Archie is S1's focal figure, framed to read at MS scale. His pitch plays over his own spot by the wall."},
-    {"n": 3, "type": "speaker", "speaker": "Archie", "text": "\"So here's the pitch. I sell. James makes. You grow it. Everyone does one job properly instead of three badly, and we split what comes in.\"", "cut": "HOLD", "shot": "S1", "why": "Same pitch, same moment. A new line from the same speaker doesn't earn a cut."},
-    {"n": 4, "type": "narration", "speaker": null, "text": "James has a small brass hourglass on the workbench. He turns it over while Archie talks, and again when Archie stops. It is an ordinary hourglass you've seen him use to time glue.", "cut": "NEW", "shot": "S2", "why": "A new important prop and a decisive small action. It's cheap to make and becomes the motif for the whole chain."},
-    {"n": 5, "type": "speaker", "speaker": "James", "text": "\"You are proposing that I go into business with a man who cannot stand within two metres of his own product, and someone I taught to make a pearl.\"", "cut": "NEW", "shot": "S3", "why": "Power flips to James. An OTS past Archie keeps the man being described in frame."},
-    {"n": 6, "type": "speaker", "speaker": "Archie", "text": "\"When you say it like that it sounds bad.\"", "cut": "HOLD", "shot": "S3", "why": "Archie's shoulder is in the foreground, so the speaker is present. The joke lands on James's unmoved face."},
-    {"n": 7, "type": "speaker", "speaker": "James", "text": "\"I said it accurately.\"", "cut": "HOLD", "shot": "S3", "why": "Same exchange."},
-    {"n": 8, "type": "speaker", "speaker": "James", "text": "\"I have my own business. It carries on whatever I decide here; my clients have no interest in who your friends are. If I put my name to a second business, I want two things first.\"", "cut": "NEW", "shot": "S4", "why": "The turn: James stops answering Archie and sets terms to you. Spend the strongest frame here: POV, MCU, eye contact."},
-    {"n": 9, "type": "speaker", "speaker": "James", "text": "\"One: a market that pays reliably. Three orders delivered in full. Not most of an order - in full. Whatever you have already delivered counts. I have no wish to watch you repeat yourself.\"", "cut": "HOLD", "shot": "S4", "why": "Terms are dialogue inside the same moment. Hold."},
-    {"n": 10, "type": "speaker", "speaker": "James", "text": "\"Two: a serious investment. Anyone can sell a few jars. I want to see you put money into this that you would miss.\"", "cut": "HOLD", "shot": "S4", "why": "Second term, same moment."},
-    {"n": 11, "type": "speaker", "speaker": "Archie", "text": "\"Market and money. Done.\" He's already on his phone, then says to you, \"I'll send you proper orders - buyers I know pay. They'll come through on BizBrief.\"", "cut": "NEW", "shot": "S5", "why": "A decisive physical change: Archie is already on his phone. He has taken a non-answer as a deal, and the frame has to show it."},
-    {"n": 12, "type": "resolution", "speaker": null, "text": "James turns the hourglass once more and goes back to his glue. He has not said yes. He has not said no, either, and Archie is treating that as a signature.", "cut": "HOLD", "shot": "S5", "why": "S5 already shows James at his glue and Archie on his phone. The resolution's whole sentence is in the frame."}
+    {"branch": "main", "key": "c1", "type": "narration", "speaker": null, "text": "James answers the door and shows you inside. Archie is already there, standing well back from the shelves, the way he always does - partly the allergy, partly James.", "cut": "NEW", "shot": "S1", "why": "Arrival in a known set. Card 1 can't be blank. Archie's distance from the shelves is the beat, and it carries the whole pitch."},
+    {"branch": "main", "key": "c2", "type": "speaker", "speaker": "Archie", "text": "\"Right. Before James starts: you've got two veins going. Two's not a hobby. Two's a supply.\"", "cut": "HOLD", "shot": "S1", "why": "Archie is S1's focal figure, framed to read at MS scale. His pitch plays over his own spot by the wall."},
+    {"branch": "main", "key": "c3", "type": "speaker", "speaker": "Archie", "text": "\"So here's the pitch. I sell. James makes. You grow it. Everyone does one job properly instead of three badly, and we split what comes in.\"", "cut": "HOLD", "shot": "S1", "why": "Same pitch, same moment. A new line from the same speaker doesn't earn a cut."},
+    {"branch": "main", "key": "c4", "type": "narration", "speaker": null, "text": "James has a small brass hourglass on the workbench. He turns it over while Archie talks, and again when Archie stops. It is an ordinary hourglass you've seen him use to time glue.", "cut": "NEW", "shot": "S2", "why": "A new important prop and a decisive small action. It's cheap to make and becomes the motif for the whole chain."},
+    {"branch": "main", "key": "c5", "type": "speaker", "speaker": "James", "text": "\"You are proposing that I go into business with a man who cannot stand within two metres of his own product, and someone I taught to make a pearl.\"", "cut": "NEW", "shot": "S3", "why": "Power flips to James. An OTS past Archie keeps the man being described in frame."},
+    {"branch": "main", "key": "c6", "type": "speaker", "speaker": "Archie", "text": "\"When you say it like that it sounds bad.\"", "cut": "HOLD", "shot": "S3", "why": "Archie's shoulder is in the foreground, so the speaker is present. The joke lands on James's unmoved face."},
+    {"branch": "main", "key": "c7", "type": "speaker", "speaker": "James", "text": "\"I said it accurately.\"", "cut": "HOLD", "shot": "S3", "why": "Same exchange."},
+    {"branch": "main", "key": "c8", "type": "speaker", "speaker": "James", "text": "\"I have my own business. It carries on whatever I decide here; my clients have no interest in who your friends are. If I put my name to a second business, I want two things first.\"", "cut": "NEW", "shot": "S4", "why": "The turn: James stops answering Archie and sets terms to you. Spend the strongest frame here: POV, MCU, eye contact."},
+    {"branch": "main", "key": "c9", "type": "speaker", "speaker": "James", "text": "\"One: a market that pays reliably. Three orders delivered in full. Not most of an order - in full. Whatever you have already delivered counts. I have no wish to watch you repeat yourself.\"", "cut": "HOLD", "shot": "S4", "why": "Terms are dialogue inside the same moment. Hold."},
+    {"branch": "main", "key": "c10", "type": "speaker", "speaker": "James", "text": "\"Two: a serious investment. Anyone can sell a few jars. I want to see you put money into this that you would miss.\"", "cut": "HOLD", "shot": "S4", "why": "Second term, same moment."},
+    {"branch": "main", "key": "c11", "type": "speaker", "speaker": "Archie", "text": "\"Market and money. Done.\" He's already on his phone, then says to you, \"I'll send you proper orders - buyers I know pay. They'll come through on BizBrief.\"", "cut": "NEW", "shot": "S5", "why": "A decisive physical change: Archie is already on his phone. He has taken a non-answer as a deal, and the frame has to show it."},
+    {"branch": "main", "key": "c12", "type": "resolution", "speaker": null, "text": "James turns the hourglass once more and goes back to his glue. He has not said yes. He has not said no, either, and Archie is treating that as a signature.", "cut": "HOLD", "shot": "S5", "why": "S5 already shows James at his glue and Archie on his phone. The resolution's whole sentence is in the frame."}
   ],
   "shots": [
     {
       "id": "S1",
       "title": "Archie against the far wall",
-      "cards": "1–3",
+      "cards": "main: c1–c3",
       "job": "Place the meeting in James's known unit, and show Archie keeping as far from the stock as the room allows, plus the friction between him and James.",
       "instant": "Just inside the door. James is walking ahead toward his bench with his back half to camera, one hand gesturing you in. Archie stands pressed against the left wall by the coat hooks, arms folded, mid-sentence, looking at you.",
       "framing": "MWS, eye level, from the doorway (player POV, nothing of the player visible). Tighter than the existing unit wides, so Archie reads at roughly waist-up scale.",
@@ -47,7 +47,7 @@
     {
       "id": "S2",
       "title": "Insert: the hourglass turned",
-      "cards": "4",
+      "cards": "main: c4",
       "job": "Introduce the hourglass as an ordinary object James uses to make people wait. It becomes the chain's motif.",
       "instant": "James's hand has just set the hourglass down upside-down. Sand has started falling in a thin stream and the top bulb is still full.",
       "framing": "Insert, CU, slight high angle onto the workbench.",
@@ -63,7 +63,7 @@
     {
       "id": "S3",
       "title": "James over his glasses, past Archie",
-      "cards": "5–7",
+      "cards": "main: c5–c7",
       "job": "Power moves to James: he takes the pitch apart, dryly, to Archie's face.",
       "instant": "James is seated on his bench stool, turned toward Archie, looking at him over the top of his glasses, one hand resting beside the running hourglass. Archie, in the foreground, has just opened his hands in a 'come on' shrug.",
       "framing": "OTS from behind Archie's left shoulder, MS on James. Eye level, or very slightly low on James.",
@@ -78,7 +78,7 @@
     {
       "id": "S4",
       "title": "James sets the terms",
-      "cards": "8–10",
+      "cards": "main: c8–c10",
       "job": "The turn: James stops answering Archie and addresses you. He sets the price of his name.",
       "instant": "James is turned fully toward camera on the stool, glasses pushed up, hands flat on his knees or the bench edge, looking straight at you. This is the moment he says 'two things'. The hourglass beside him is half run through.",
       "framing": "MCU, player POV, very slightly low angle so he has the weight. The 'serious investment' look.",
@@ -93,7 +93,7 @@
     {
       "id": "S5",
       "title": "Archie takes silence as a yes",
-      "cards": "11–12",
+      "cards": "main: c11–c12",
       "job": "Payoff: James hasn't agreed, and Archie is already running the business.",
       "instant": "James is bent back over his work in the foreground, brush in the glue pot, not looking up, and the hourglass has been freshly turned beside him. Behind him Archie has his phone up and is thumbing it, grinning, and glancing over it toward camera.",
       "framing": "MWS two-shot, eye level, from the bench end of the room.",

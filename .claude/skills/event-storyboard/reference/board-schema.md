@@ -12,9 +12,10 @@ Saved to `.scratch/event-art/<id>/board.json`; `tools/storyboard.html` reads it 
   "approved": null,                       // set on approval: {"round": 2, "at": "2026-10-08", "phase": "storyboard" | "drafts"}
   "updatedAt": 1791464688000,              // epoch ms
   "questions": ["…"],                      // open canon/framing questions for the user
-  "cards": [                               // EVERY card, in order, one-based n
+  "cards": [                               // EVERY card, in play order
     {
-      "n": 1, "type": "narration", "speaker": null,
+      "branch": "main", "key": "c1",         // the card's draft branch + stable card key (see "Card keys" below)
+      "type": "narration", "speaker": null,
       "text": "full card text",
       "choices": ["Pay £50", "Refuse"],     // choice cards only: option labels
       "cut": "NEW",                         // NEW | HOLD | CLEAR
@@ -38,7 +39,7 @@ Saved to `.scratch/event-art/<id>/board.json`; `tools/storyboard.html` reads it 
     {
       "id": "S1",
       "title": "Nadia on the Clerkenwell corner",
-      "cards": "1–2 (returns at 9)",
+      "cards": "main: c1–c2 (returns at c9)",  // branch + card keys, as on the cards
       "plate": "P1",
       "method": "pose",                      // pose (AI adds the cast onto the plate → extract.py cut-out) | sprite (standing sprites, compose.py only) | props (plate edit, no cast)
       "job": "story job, one sentence",
@@ -54,6 +55,12 @@ Saved to `.scratch/event-art/<id>/board.json`; `tools/storyboard.html` reads it 
   ]
 }
 ```
+
+Card keys:
+- A board card names its event card by `branch` + `key`, the same pair the storyboard tool's draft uses, so inserting, deleting or moving cards in the draft never renumbers a shot's cards. Never key on a card's position.
+- For a live flat event (`data/events/<id>.json`), take both from `event_digest.py`: card N is key `cN`; branch is `main` until the first outcome `goto` target, and a branch starting at card N is `bN` — exactly what the tool's import produces. For a branch draft, copy the draft's own branch names and keys.
+- Shot `cards` text uses the same keys (`main: c3–c5`, `b7: c7`).
+- Placed art is separate: discovery still finds `<id>_card<n>.png` by the card's 1-based position in the live event (for a live event that is the `N` in key `cN`).
 
 Rules:
 - Card 1 of a VN event must not start blank: card 1 is `NEW`.

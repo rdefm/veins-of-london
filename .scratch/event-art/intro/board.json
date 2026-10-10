@@ -18,7 +18,8 @@
   ],
   "cards": [
     {
-      "n": 1,
+      "branch": "main",
+      "key": "c1",
       "type": "narration",
       "speaker": null,
       "text": "Rent is due Friday. The job search has been exhausting and fruitless. You have forty quid left in your account. An old friend, Archie, said he might be able to help. So here you are, behind a chicken shop on Mile End Road at half ten on a Tuesday, while Archie holds a plastic Tesco bag with what looks like an opened Amazon box inside.",
@@ -27,7 +28,8 @@
       "why": "Card 1 can't start blank. Place, hour and Archie with the bag: everything the deal is about."
     },
     {
-      "n": 2,
+      "branch": "main",
+      "key": "c2",
       "type": "narration",
       "speaker": null,
       "text": "The buyers arrive in a grey Vauxhall. Three of them. That's one more than Archie mentioned. He notices too - you can tell by the way he stops whistling.",
@@ -36,7 +38,8 @@
       "why": "A new presence enters: the car, and one man too many. Archie going still is the beat."
     },
     {
-      "n": 3,
+      "branch": "main",
+      "key": "c3",
       "type": "tension",
       "speaker": null,
       "text": "The one nearest to you produces a Stanley knife. His mate walks towards Arch and the bag. The third one just stands there, which is somehow worse. Archie says, very quietly: \"Yeah, okay.\"",
@@ -45,7 +48,8 @@
       "why": "Power flips: a weapon is shown. The knife man steps right up to the lens."
     },
     {
-      "n": 4,
+      "branch": "main",
+      "key": "c4",
       "type": "speaker",
       "speaker": "Archie",
       "text": "\"Alright chaps?\" he lifts the arm with the bag to wave, drawing everyone's eyes. You notice the other hand slip smoothly into his back pocket and pull something small out.",
@@ -54,7 +58,8 @@
       "why": "Decisive physical action, and the text says 'you notice'. From behind Archie, only you see the pearl."
     },
     {
-      "n": 5,
+      "branch": "main",
+      "key": "c5",
       "type": "narration",
       "speaker": null,
       "text": "He doesn't even move his arm, just flicks his wrist in a practiced motion and whatever he was holding flies through the air. Only one of the thugs even clocks it, eyes tracing it as it lands harmlessly on the ground between him and his mates. It shatters. The air around the three men goes thick and syrupy. They slow. Not stop - but slow, like a video buffering. Archie wraps the Tesco bag handle around his hand and walks, briskly, to the exit of the alley.",
@@ -63,7 +68,8 @@
       "why": "The turn of the whole event: first sight of calc working. Strongest staging goes here."
     },
     {
-      "n": 6,
+      "branch": "main",
+      "key": "c6",
       "type": "speaker",
       "speaker": "Archie",
       "text": "\"Coming, or what?\"",
@@ -72,7 +78,8 @@
       "why": "Same moment. S5 already has Archie at the side passage, half-turned back toward you."
     },
     {
-      "n": 7,
+      "branch": "main",
+      "key": "c7",
       "type": "resolution",
       "speaker": null,
       "text": "Archie orders two pints and a portion of chips. You sit down opposite him. Neither of you say anything until the chips arrive.",
@@ -81,7 +88,8 @@
       "why": "Location and time change. Establish the Spoons and the silence across the table."
     },
     {
-      "n": 8,
+      "branch": "main",
+      "key": "c8",
       "type": "speaker",
       "speaker": "You",
       "text": "\"What the hell was that?\"",
@@ -90,7 +98,8 @@
       "why": "Your line, same moment. Faceless 'you' is the camera."
     },
     {
-      "n": 9,
+      "branch": "main",
+      "key": "c9",
       "type": "speaker",
       "speaker": "Archie",
       "text": "\"Orichalchum. Time-type. Slows things down in a radius - maybe four, five seconds of real time bought, if you compress it right. Was my last one, actually, so cheers for that\". He raises his pint to the door, as though saluting the muggers.",
@@ -99,7 +108,8 @@
       "why": "Archie's toast to the door is the attitude shot: the danger is already a joke to him."
     },
     {
-      "n": 10,
+      "branch": "main",
+      "key": "c10",
       "type": "speaker",
       "speaker": "You",
       "text": "\"Is that... magic?\"",
@@ -108,7 +118,8 @@
       "why": "Your line, same moment."
     },
     {
-      "n": 11,
+      "branch": "main",
+      "key": "c11",
       "type": "speaker",
       "speaker": "Archie",
       "text": "\"Nah\". He sips his pint, \"Well, almost. It's basically magic. Don't make a big deal out of it. It's just like any product-  some people source it, some people turn it into something useful, some people use it. In between all that, people like us can make a quid or two connecting them. If we're lucky.\"",
@@ -117,7 +128,8 @@
       "why": "'He sips his pint': the raised-glass pose still agrees."
     },
     {
-      "n": 12,
+      "branch": "main",
+      "key": "c12",
       "type": "speaker",
       "speaker": "Archie",
       "text": "\"Look. You need rent money. I need someone who isn't a liability. Come out with me tomorrow - I've still got the calc from tonight, and I need to move it properly. I'd feel better doing so with backup. You in?\"",
@@ -126,7 +138,8 @@
       "why": "The ask. Archie leans in; the scene shifts from story to offer."
     },
     {
-      "n": 13,
+      "branch": "main",
+      "key": "c13",
       "type": "speaker",
       "speaker": "You",
       "text": "You sigh, thinking about your bank balnace. \"Yeah.\"",
@@ -135,7 +148,8 @@
       "why": "Your answer. Holding on Archie keeps the weight on what you just agreed to."
     },
     {
-      "n": 14,
+      "branch": "main",
+      "key": "c14",
       "type": "speaker",
       "speaker": "Archie",
       "text": "\"Good. I'll text you in the morning. Don't do anything that ends you up in hospital before then.\"",
@@ -144,7 +158,8 @@
       "why": "His reply, same moment."
     },
     {
-      "n": 15,
+      "branch": "main",
+      "key": "c15",
       "type": "narration",
       "speaker": null,
       "text": "He finishes his pint and leaves. You sit with what's left of your pint, the chips, and the fact that your rent problem has somehow become a different problem entirely.",
@@ -195,7 +210,7 @@
     {
       "id": "S1",
       "title": "Archie waiting behind the chicken shop",
-      "cards": "1",
+      "cards": "main: c1",
       "plate": "P1",
       "method": "pose",
       "job": "Where, when and who: a dead-end yard at half ten, Archie holding the bag that is the whole deal.",
@@ -210,7 +225,7 @@
     {
       "id": "S2",
       "title": "Headlights, and one man too many",
-      "cards": "2",
+      "cards": "main: c2",
       "plate": "P1b",
       "method": "pose",
       "job": "The deal turns: three men instead of two, and Archie has stopped whistling.",
@@ -226,7 +241,7 @@
     {
       "id": "S3",
       "title": "The Stanley knife",
-      "cards": "3",
+      "cards": "main: c3",
       "plate": "P1b",
       "method": "pose",
       "job": "The threat, as you see it: a blade aimed at you, a man moving on Archie, and a third who just waits.",
@@ -242,7 +257,7 @@
     {
       "id": "S4",
       "title": "Alright chaps?",
-      "cards": "4",
+      "cards": "main: c4",
       "plate": "P1b",
       "method": "pose",
       "job": "The misdirection. Everyone watches the waving bag; only you see the other hand.",
@@ -259,7 +274,7 @@
     {
       "id": "S5",
       "title": "Like a video buffering",
-      "cards": "5–6",
+      "cards": "main: c5–c6",
       "plate": "P1b",
       "method": "pose",
       "job": "Calc's first appearance in the game: the air goes thick around three men, and Archie is already leaving.",
@@ -277,7 +292,7 @@
     {
       "id": "S6",
       "title": "Two pints at the Spoons",
-      "cards": "7–8",
+      "cards": "main: c7–c8",
       "plate": "P2",
       "method": "pose",
       "job": "Aftermath. Fluorescent normality, and Archie sitting there as if nothing happened.",
@@ -292,7 +307,7 @@
     {
       "id": "S7",
       "title": "Cheers for that",
-      "cards": "9–11",
+      "cards": "main: c9–c11",
       "plate": "P2",
       "method": "pose",
       "job": "Archie's attitude: the danger is already a joke.",
@@ -309,7 +324,7 @@
     {
       "id": "S8",
       "title": "You in?",
-      "cards": "12–14",
+      "cards": "main: c12–c14",
       "plate": "P2",
       "method": "pose",
       "job": "The offer that starts the game. Archie stops performing and asks for real.",
@@ -325,7 +340,7 @@
     {
       "id": "S9",
       "title": "The empty seat",
-      "cards": "15",
+      "cards": "main: c15",
       "plate": "P2",
       "method": "props",
       "job": "He's gone. You have a pint, the chips, and a different problem.",

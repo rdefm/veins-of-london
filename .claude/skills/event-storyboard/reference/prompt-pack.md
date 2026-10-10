@@ -15,7 +15,7 @@ Save as: assets/reference-plates/<name>_blank_plate.png   (upload on the plate's
 ## P1b — <variant name> (variant of P1; used by …)
 …
 
-## S1 — <title> (cards 1–2) · plate P1 · pose
+## S1 — <title> (main: c1–c2) · plate P1 · pose
 Attach: <files>
 <shot prompt>
 Save as: <shot saveAs>   (upload on the shot's card; raw ChatGPT output → extract.py; not the card file)

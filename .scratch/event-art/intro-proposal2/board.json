@@ -18,7 +18,8 @@
   ],
   "cards": [
     {
-      "n": 1,
+      "branch": "main",
+      "key": "c1",
       "type": "narration",
       "speaker": null,
       "text": "Rent is due Friday. You have £40, and this morning's interviewer has promised to keep your details on file. Archie, an old mate, said he might have work. So: half ten on a Tuesday, behind a chicken shop on Mile End Road.",
@@ -27,7 +28,8 @@
       "why": "Card 1 can't start blank. Place, hour, and Archie (named here) leaning on the wall with the bag."
     },
     {
-      "n": 2,
+      "branch": "main",
+      "key": "c2",
       "type": "speaker",
       "speaker": "Archie",
       "text": "He's whistling, a Tesco bag hooked on one finger. \"Two blokes, cash, in and out before the chicken shop shuts. You just stand there looking like you'd be a pain to fight. If I say leg it, you leg it. Don't wait for me.\"",
@@ -36,7 +38,8 @@
       "why": "His patter, same moment. S1 already shows the whistling and the bag on one finger."
     },
     {
-      "n": 3,
+      "branch": "main",
+      "key": "c3",
       "type": "speaker",
       "speaker": "You",
       "text": "\"I don't look like I'd be a pain to fight.\"",
@@ -45,7 +48,8 @@
       "why": "Your line. Faceless 'you' is the camera."
     },
     {
-      "n": 4,
+      "branch": "main",
+      "key": "c4",
       "type": "speaker",
       "speaker": "Archie",
       "text": "\"Pretend then. Imagine you're Vinnie Jones in his prime.\"",
@@ -54,7 +58,8 @@
       "why": "Same exchange."
     },
     {
-      "n": 5,
+      "branch": "main",
+      "key": "c5",
       "type": "speaker",
       "speaker": "Archie",
       "text": "He looks you up and down. \"You've got a bit more of a Mr Bean vibe, but you make do with what you've got, innit?\"",
@@ -63,7 +68,8 @@
       "why": "'Looks you up and down': a reaction carries the joke. Archie turns to size you up."
     },
     {
-      "n": 6,
+      "branch": "main",
+      "key": "c6",
       "type": "narration",
       "speaker": null,
       "text": "The buyers arrive in a grey Vauxhall. Three of them. That's one more than Archie mentioned. He stops whistling.",
@@ -72,7 +78,8 @@
       "why": "New presence: the car, and one man too many. Archie's whistle stops (back on the wall, S1 cut-out)."
     },
     {
-      "n": 7,
+      "branch": "main",
+      "key": "c7",
       "type": "tension",
       "speaker": null,
       "text": "The nearest one opens a Stanley knife and comes at you, not Archie. Archie shifts his weight, and is suddenly standing in the gap between you. The third man stays at the mouth of the alley, which is somehow worse.",
@@ -81,7 +88,8 @@
       "why": "Power flips twice: the knife comes at you, and Archie steps into the gap. The Archie-as-person beat."
     },
     {
-      "n": 8,
+      "branch": "main",
+      "key": "c8",
       "type": "speaker",
       "speaker": "Archie",
       "text": "\"Alright, lads. No need for all that.\" He lifts the bag high, and every eye follows it. \"It's all here. Have a look.\"",
@@ -90,7 +98,8 @@
       "why": "Decisive action: the bag goes high and every eye follows. His other hand stays out of sight."
     },
     {
-      "n": 9,
+      "branch": "main",
+      "key": "c9",
       "type": "narration",
       "speaker": null,
       "text": "His other hand flicks out of his back pocket. Something small hits the tarmac between the men and breaks. They slow. Not stopped — slow, like a video buffering. The knife is still coming. It will take a while.",
@@ -99,7 +108,8 @@
       "why": "The turn of the event: calc's first appearance. Knife still coming, slowly."
     },
     {
-      "n": 10,
+      "branch": "main",
+      "key": "c10",
       "type": "speaker",
       "speaker": "Archie",
       "text": "\"Coming, or what?\"",
@@ -108,7 +118,8 @@
       "why": "Same moment. S6 already has Archie at the side passage, half-turned back to you."
     },
     {
-      "n": 11,
+      "branch": "main",
+      "key": "c11",
       "type": "resolution",
       "speaker": null,
       "text": "Archie buys two pints and chips, puts the chips on your side of the table, and sits facing the door. His eyes are streaming.",
@@ -117,7 +128,8 @@
       "why": "Location and time change. Chips on your side, Archie facing the door, eyes streaming."
     },
     {
-      "n": 12,
+      "branch": "main",
+      "key": "c12",
       "type": "speaker",
       "speaker": "You",
       "text": "\"What was that?\"",
@@ -126,7 +138,8 @@
       "why": "Your line."
     },
     {
-      "n": 13,
+      "branch": "main",
+      "key": "c13",
       "type": "speaker",
       "speaker": "Archie",
       "text": "\"Calc. Orichalchum, if you're being posh about it. That one was time-type. Slows everything round it for a few seconds.\" He dabs his eyes with a napkin. \"Last one I had, and all. Allergic to the stuff, before you ask. Don't.\"",
@@ -135,7 +148,8 @@
       "why": "He dabs his eyes. S7 already has the napkin in hand."
     },
     {
-      "n": 14,
+      "branch": "main",
+      "key": "c14",
       "type": "speaker",
       "speaker": "Archie",
       "text": "\"It's stock, innit. Someone finds it, someone makes it useful, someone pays through the nose for it. People like us stand in the middle and take a cut. Normally nobody gets a knife out.\" He nods at the chips. \"Eat. You're no use to me keeling over.\"",
@@ -144,7 +158,8 @@
       "why": "The game's pitch, then the offer. Archie leans in and talks business."
     },
     {
-      "n": 15,
+      "branch": "main",
+      "key": "c15",
       "type": "speaker",
       "speaker": "Archie",
       "text": "\"Still got tonight's calc, ain't I. I'll find a proper buyer. Somewhere with lights. And witnesses. You come along, you get a cut. You've seen how it goes wrong, so no hard feelings if it's a no.\"",
@@ -153,7 +168,8 @@
       "why": "Same pose carries the offer."
     },
     {
-      "n": 16,
+      "branch": "main",
+      "key": "c16",
       "type": "speaker",
       "speaker": "You",
       "text": "You look at the door, at the chips, then think about your bank balance. \"I'll come.\"",
@@ -162,7 +178,8 @@
       "why": "Your answer. Holding on Archie keeps the weight on what you agreed to."
     },
     {
-      "n": 17,
+      "branch": "main",
+      "key": "c17",
       "type": "speaker",
       "speaker": "Archie",
       "text": "\"Lovely. I'll text you.\" He's out the door before you can thank him, for the chips or the knife.",
@@ -171,7 +188,8 @@
       "why": "'He's out the door before you can thank him.' The empty seat."
     },
     {
-      "n": 18,
+      "branch": "main",
+      "key": "c18",
       "type": "narration",
       "speaker": null,
       "text": "Rent is still due Friday. But somewhere on Mile End Road, in a Tesco bag, is the calc that might pay it.",
@@ -222,7 +240,7 @@
     {
       "id": "S1",
       "title": "Archie on the wall",
-      "cards": "1–4",
+      "cards": "main: c1–c4",
       "plate": "P1",
       "method": "pose",
       "job": "Where, when and who: a dead-end yard at half ten, Archie relaxed, holding the bag that is the whole deal.",
@@ -238,7 +256,7 @@
     {
       "id": "S2",
       "title": "Mr Bean vibe",
-      "cards": "5",
+      "cards": "main: c5",
       "plate": "P1",
       "method": "pose",
       "job": "The joke lands on Archie's face: he sizes you up and makes do.",
@@ -256,7 +274,7 @@
     {
       "id": "S3",
       "title": "Three of them",
-      "cards": "6",
+      "cards": "main: c6",
       "plate": "P1b",
       "method": "pose",
       "job": "The deal turns: three men instead of two, and Archie has stopped whistling.",
@@ -273,7 +291,7 @@
     {
       "id": "S4",
       "title": "Into the gap",
-      "cards": "7",
+      "cards": "main: c7",
       "plate": "P1b",
       "method": "pose",
       "job": "The knife comes at you and Archie, without a word, is suddenly standing in front of you.",
@@ -290,7 +308,7 @@
     {
       "id": "S5",
       "title": "Have a look",
-      "cards": "8",
+      "cards": "main: c8",
       "plate": "P1b",
       "method": "pose",
       "job": "The misdirection. Everyone watches the bag.",
@@ -307,7 +325,7 @@
     {
       "id": "S6",
       "title": "Like a video buffering",
-      "cards": "9–10",
+      "cards": "main: c9–c10",
       "plate": "P1b",
       "method": "pose",
       "job": "Calc's first appearance in the game: the knife is still coming, slowly, and Archie is already leaving.",
@@ -326,7 +344,7 @@
     {
       "id": "S7",
       "title": "Streaming eyes",
-      "cards": "11–13",
+      "cards": "main: c11–c13",
       "plate": "P2",
       "method": "pose",
       "job": "Aftermath. Normality, and Archie paying for it in more ways than one.",
@@ -342,7 +360,7 @@
     {
       "id": "S8",
       "title": "Proper buyer",
-      "cards": "14–16",
+      "cards": "main: c14–c16",
       "plate": "P2",
       "method": "pose",
       "job": "The pitch and the offer that start the game. Archie stops performing and talks business.",
@@ -359,7 +377,7 @@
     {
       "id": "S9",
       "title": "Out the door",
-      "cards": "17–18",
+      "cards": "main: c17–c18",
       "plate": "P2",
       "method": "props",
       "job": "He's gone before you can thank him. You have rent due, chips, and a lead.",

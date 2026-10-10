@@ -1812,6 +1812,8 @@ function checkOddsBlock(opt, changed, restructure) {
     { key: "file", label: "File", kind: "line" },
   ];
   const serialiseBoard = (board) => JSON.stringify(board, null, 2) + "\n";
+  // A shot-board card's name: branch + card key, the pair the draft uses, so draft edits never renumber it.
+  const boardCardLabel = (c) => `${c.branch || "main"} · ${c.key}`;
   // The field as the editor shows it: lists joined back into text.
   function shotFieldText(shot, key) {
     const f = SHOT_FIELDS.find((x) => x.key === key), v = shot[key];
@@ -3027,7 +3029,7 @@ function checkOddsBlock(opt, changed, restructure) {
     }
     $("tp-who").textContent = c.speaker || (c.type === "choice" ? "Choice" : c.type === "resolution" ? "Resolution" : "Narration");
     $("tp-text").textContent = c.text + (c.choices ? "\n" + c.choices.map((x) => "▸ " + x).join("  ") : "");
-    $("pos").textContent = `card ${c.n} / ${b.cards.length}`;
+    $("pos").textContent = `${boardCardLabel(c)} · ${cardIdx + 1}/${b.cards.length}`;
     $("prev").disabled = cardIdx === 0;
     $("next").disabled = cardIdx >= b.cards.length - 1;
     document.querySelectorAll(".cut").forEach((r, i) => r.setAttribute("aria-current", String(i === cardIdx)));
@@ -3060,7 +3062,7 @@ function checkOddsBlock(opt, changed, restructure) {
     if (b.kind === "proposal") { renderProposalCuts(b); return; }
     $("cuts").replaceChildren(...b.cards.map((c, i) => {
       const row = el("button", { class: "cut" + (i > 0 && c.cut !== "HOLD" ? " newrun" : ""), type: "button" },
-        el("span", { class: "n", text: String(c.n) }),
+        el("span", { class: "n", text: c.key }),
         el("span", { class: "chip " + c.cut, text: c.cut }),
         el("span", { class: "body" },
           c.shot && c.cut === "NEW" ? el("span", { class: "shotref", text: c.shot }) : null,

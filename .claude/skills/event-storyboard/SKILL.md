@@ -23,7 +23,7 @@ Review tool: **`tools/storyboard.html`**. The user opens it in desktop Chrome/Ed
 
 ## Phase 1 — Read
 
-1. `PYTHONIOENCODING=utf-8 python .claude/skills/event-storyboard/scripts/event_digest.py <id>` — every card one-based, choice results, current art per card, cast + reference sheets.
+1. `PYTHONIOENCODING=utf-8 python .claude/skills/event-storyboard/scripts/event_digest.py <id>` — every card by branch + key (`main · c3`, the keys board cards use), choice results, current art per card, cast + reference sheets.
 2. Context, grepped not read whole: who triggers this event and what comes next (`grep -rn "<id>" data/ systems/ --include=*.json --include=*.gd`), the art of the neighbouring events in the chain (`assets/events/<neighbour>/` — look at them; shared locations must match), `docs/CONTENT-GUIDE.md` tone pillars, `docs/ui-vision.md` §2 mood, `docs/ART-BIBLE.md` §1.
 3. **Look at** every cast member's reference PNG (`assets/character-references/<Name>/`). Cast without a reference is a canon question for the board, not something to invent silently. Being *mentioned* (e.g. "asks after Hakim") does not put someone on screen.
 
@@ -37,9 +37,9 @@ Images are made with the plate compositor (`tools/plate_compositor/README.md`): 
 - The plate is described in full **once**, in its own prompt. Shots name the plate and describe only who/what is added and how.
 - Every prompt is copy-paste ready for ChatGPT and names every attachment by exact file name (`Archie_biz_sprite_master.png`, `mile_end_yard_blank_plate.png`). Prefer the character's `*_biz_sprite_master.png` (the sprite the compositor uses) as their reference. Props with existing game art use that art (crafted items: the recipe icon in `data/recipes.json`, e.g. `assets/combat/icons/timePearl.png`). Grep for existing art before describing a prop from scratch.
 
-Then write `board.json` per `reference/board-schema.md` (`round: 1`, `phase: "storyboard"`, `updatedAt` = epoch ms).
+Then write `board.json` per `reference/board-schema.md`, keying every card on the digest's branch + key (never position) (`round: 1`, `phase: "storyboard"`, `updatedAt` = epoch ms).
 
-In the terminal, give the user only: "open `tools/storyboard.html`, pick `<id>` (cut list on Storyboard, briefs + verdicts on Shots)", one line per plate (`P1 mile_end_yard · from the shop door toward the yard mouth · S1–S5`), one line per shot (`S1 cards 1-2 · P1 · Nadia waiting on the Clerkenwell corner`), the open questions, and your strongest recommendation where you pushed back on the obvious reading. Don't paste the whole board.
+In the terminal, give the user only: "open `tools/storyboard.html`, pick `<id>` (cut list on Storyboard, briefs + verdicts on Shots)", one line per plate (`P1 mile_end_yard · from the shop door toward the yard mouth · S1–S5`), one line per shot (`S1 main: c1–c2 · P1 · Nadia waiting on the Clerkenwell corner`), the open questions, and your strongest recommendation where you pushed back on the obvious reading. Don't paste the whole board.
 
 ## Phase 3 — Review rounds
 
@@ -70,7 +70,7 @@ Pixel cleanup is **optional** until the user says otherwise: offer raw and clean
 
 ## Phase 5 — Place (only on explicit ask)
 
-1. Copy each approved composite from `.scratch/plate-compositor/` (or raw/clean draft, as chosen) to `assets/events/<id>/<id>_card<n>.png`, where `n` = the shot's first card. Discovery handles HOLD; no JSON edit needed. Explicit `image` keys in the event JSON beat discovery — check with the digest that none shadow a new file. Choice-result shots need an explicit `image` on that choice: that IS a JSON edit, so ask first.
+1. Copy each approved composite from `.scratch/plate-compositor/` (or raw/clean draft, as chosen) to `assets/events/<id>/<id>_card<n>.png`, where `n` = the 1-based position of the shot's first card in the live event (key `cN` → `n` = N). Discovery handles HOLD; no JSON edit needed. Explicit `image` keys in the event JSON beat discovery — check with the digest that none shadow a new file. Choice-result shots need an explicit `image` on that choice: that IS a JSON edit, so ask first.
 2. `godot --headless --import` (generates `.import` files), then `scripts/run_tests.sh` once.
 3. Set board `phase: "done"`; report the placed files plus one short on-device checklist (each new card on a small and a tall phone; holds read correctly; choice/resolution images).
 4. Commit per the repo's rules only when asked.

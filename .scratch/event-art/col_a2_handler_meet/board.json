@@ -13,21 +13,21 @@
     "Budget: 4 core shots across 9 cards, plus 2 optional cuts (S2b, S3b). Approve an optional shot to add it, or cut it to keep the board lean."
   ],
   "cards": [
-    {"n": 1, "type": "narration", "speaker": null, "text": "Nadia doesn't ask if you're free. She texts an address in Clerkenwell and a time, and then she's waiting on the corner when you get there.", "cut": "NEW", "shot": "S1", "why": "New location. Card 1 can't start blank. Nadia waiting tells you who called this meeting."},
-    {"n": 2, "type": "speaker", "speaker": "Nadia", "text": "\"I know we said not yet. That was before something we couldn't explain took a vein we'd done everything right by. I'm done waiting for an explanation to turn up on its own.\"", "cut": "HOLD", "shot": "S1", "why": "Same moment, her line. S1 is framed close enough that her resolve reads on her face."},
-    {"n": 3, "type": "narration", "speaker": null, "text": "Des is already there, on the step, with his coat buttoned to the top. He came. Nobody asked him to and nobody asked him not to.", "cut": "NEW", "shot": "S2", "why": "Reveal. Des is held out of S1 so he lands here. The buttoned coat is the whole beat."},
-    {"n": 4, "type": "speaker", "speaker": "Des", "text": "\"For the record, I think this is a mistake. I'd like that written down somewhere.\"", "cut": "HOLD", "shot": "S2", "why": "His objection plays over his own shot."},
-    {"n": 5, "type": "narration", "speaker": null, "text": "Nadia holds the door. He looks at it for a moment, then goes in first. It is the least comfortable you have ever seen him.", "cut": "HOLD", "shot": "S2", "why": "S2's closed door, with Nadia's hand reaching for it, carries this. Optional S2b would cut here."},
-    {"n": 6, "type": "narration", "speaker": null, "text": "The office is small and very tidy. The handler stands when you come in, shakes everyone's hand, and asks after Hakim by name.", "cut": "NEW", "shot": "S3", "why": "New location, new character. First uncluttered room in the Collective's story."},
-    {"n": 7, "type": "speaker", "speaker": "Handler", "text": "\"Two things, and I'll be brief. Name a vein you think is weak and I'll tell you whether it is. Name what you want in the ground and I'll find you one.\"", "cut": "HOLD", "shot": "S3", "why": "The pitch plays over the room. Optional S3b would cut to the Handler's face here."},
-    {"n": 8, "type": "speaker", "speaker": "Handler", "text": "\"Everything I tell you will be true. You'll pay for it either way. That includes the answers you don't like.\"", "cut": "HOLD", "shot": "S3", "why": "Same conversation. A cut here would only dilute S4."},
-    {"n": 9, "type": "resolution", "speaker": null, "text": "The handler writes a number on the back of a card and slides it across. Nobody is hurried out. There is no need.", "cut": "NEW", "shot": "S4", "why": "Payoff insert. The deal is one small object. Cheap to make and the most memorable frame."}
+    {"branch": "main", "key": "c1", "type": "narration", "speaker": null, "text": "Nadia doesn't ask if you're free. She texts an address in Clerkenwell and a time, and then she's waiting on the corner when you get there.", "cut": "NEW", "shot": "S1", "why": "New location. Card 1 can't start blank. Nadia waiting tells you who called this meeting."},
+    {"branch": "main", "key": "c2", "type": "speaker", "speaker": "Nadia", "text": "\"I know we said not yet. That was before something we couldn't explain took a vein we'd done everything right by. I'm done waiting for an explanation to turn up on its own.\"", "cut": "HOLD", "shot": "S1", "why": "Same moment, her line. S1 is framed close enough that her resolve reads on her face."},
+    {"branch": "main", "key": "c3", "type": "narration", "speaker": null, "text": "Des is already there, on the step, with his coat buttoned to the top. He came. Nobody asked him to and nobody asked him not to.", "cut": "NEW", "shot": "S2", "why": "Reveal. Des is held out of S1 so he lands here. The buttoned coat is the whole beat."},
+    {"branch": "main", "key": "c4", "type": "speaker", "speaker": "Des", "text": "\"For the record, I think this is a mistake. I'd like that written down somewhere.\"", "cut": "HOLD", "shot": "S2", "why": "His objection plays over his own shot."},
+    {"branch": "main", "key": "c5", "type": "narration", "speaker": null, "text": "Nadia holds the door. He looks at it for a moment, then goes in first. It is the least comfortable you have ever seen him.", "cut": "HOLD", "shot": "S2", "why": "S2's closed door, with Nadia's hand reaching for it, carries this. Optional S2b would cut here."},
+    {"branch": "main", "key": "c6", "type": "narration", "speaker": null, "text": "The office is small and very tidy. The handler stands when you come in, shakes everyone's hand, and asks after Hakim by name.", "cut": "NEW", "shot": "S3", "why": "New location, new character. First uncluttered room in the Collective's story."},
+    {"branch": "main", "key": "c7", "type": "speaker", "speaker": "Handler", "text": "\"Two things, and I'll be brief. Name a vein you think is weak and I'll tell you whether it is. Name what you want in the ground and I'll find you one.\"", "cut": "HOLD", "shot": "S3", "why": "The pitch plays over the room. Optional S3b would cut to the Handler's face here."},
+    {"branch": "main", "key": "c8", "type": "speaker", "speaker": "Handler", "text": "\"Everything I tell you will be true. You'll pay for it either way. That includes the answers you don't like.\"", "cut": "HOLD", "shot": "S3", "why": "Same conversation. A cut here would only dilute S4."},
+    {"branch": "main", "key": "c9", "type": "resolution", "speaker": null, "text": "The handler writes a number on the back of a card and slides it across. Nobody is hurried out. There is no need.", "cut": "NEW", "shot": "S4", "why": "Payoff insert. The deal is one small object. Cheap to make and the most memorable frame."}
   ],
   "shots": [
     {
       "id": "S1",
       "title": "Nadia on the Clerkenwell corner",
-      "cards": "1–2",
+      "cards": "main: c1–c2",
       "job": "Place and pressure: Nadia summoned you, and she's already decided.",
       "instant": "Nadia stands on the corner, phone lowered in one hand, turned toward camera as 'you' arrive. Her expression is set, not warm.",
       "framing": "Medium-wide, eye level, from across the narrow street (player POV approaching). Nadia framed from about the knees up, so her face reads on a phone.",
@@ -41,7 +41,7 @@
     {
       "id": "S2",
       "title": "Des on the step, coat buttoned",
-      "cards": "3–5",
+      "cards": "main: c3–c5",
       "job": "Des came anyway, and hates it. His posture makes the objection before he speaks.",
       "instant": "Des stands on the doorstep, coat buttoned to the collar, hands in pockets, looking at the closed door rather than at anyone. Nadia's hand enters frame screen-left, reaching for the door.",
       "framing": "Medium shot, slight low angle from the pavement (a step's height below him). It gives the doorway weight and makes the door the destination.",
@@ -56,7 +56,7 @@
     {
       "id": "S2b",
       "title": "Optional: reverse angle, Des on the threshold",
-      "cards": "5 only",
+      "cards": "main: c5 only",
       "job": "Turn the hesitation into a held breath. Shot from inside, the open door frames Des against the street, the last moment before he crosses.",
       "instant": "From inside the dim hallway looking out: the door is open, Nadia holds it (half in frame), and Des stands on the threshold looking in at us. He hasn't stepped yet.",
       "framing": "Medium shot, eye level, from deep in the hallway. The doorway is a bright rectangle in a dark frame.",
@@ -70,7 +70,7 @@
     {
       "id": "S3",
       "title": "The tidy office, the Handler standing",
-      "cards": "6–8",
+      "cards": "main: c6–c8",
       "job": "Introduce the Handler and the Network's register: courteous, ordered, nothing out of place. Polite enough to be frightening.",
       "instant": "The Handler has just stood up behind a bare desk and is half-turned toward Nadia with a hand extended. Des stands stiffly just inside the door.",
       "framing": "Wide-medium, eye level, player POV from the doorway. It takes in the whole small room.",
@@ -85,7 +85,7 @@
     {
       "id": "S3b",
       "title": "Optional: the Handler, across the desk",
-      "cards": "7–8",
+      "cards": "main: c7–c8",
       "job": "Put a face on 'everything I tell you will be true'. A calm, direct address to the player.",
       "instant": "The Handler is seated, forearms resting on the desk, hands loosely folded, looking straight into the lens with a small, patient expression.",
       "framing": "Medium close-up, eye level, player POV across the desk.",
@@ -99,7 +99,7 @@
     {
       "id": "S4",
       "title": "Insert: the card slid across the desk",
-      "cards": "9",
+      "cards": "main: c9",
       "job": "The deal, reduced to one small object. A quiet, final image.",
       "instant": "The Handler's fingertips push a plain white business card across the bare desk toward camera. Handwritten digits are on the back, shown as pen strokes with no legible numbers.",
       "framing": "Insert / close-up, high angle looking down at the desk surface from the player's seat.",

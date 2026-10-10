@@ -28,7 +28,7 @@ const {
   setCheckNote, setCheckOn, setOptionMechanics, setEffects, addBySuccess, deleteBySuccess, setConditionKind,
   addComment, updateComment, deleteComment, filterComments, commentCount, anchorText, anchorType, proseComments,
   cardImageName, freeImageName, setCardImage, eventImageDir, SHOT_FIELDS, serialiseBoard, setShotField, shotFieldText,
-  LIVE_EVENTS_DIR, proposalFileName, importBoard, blankBoard, duplicateBoard,
+  LIVE_EVENTS_DIR, proposalFileName, importBoard, blankBoard, duplicateBoard, boardCardLabel,
 } = new Function(
   html.slice(ss, se) + html.slice(s, e) +
     "\nreturn { parseProposal, parseDraft, serialiseDraft, ensureKeys, legacyToDraft, nextPos, playOrder, flatCards, thenText," +
@@ -40,7 +40,7 @@ const {
     " setCheckNote, setCheckOn, setOptionMechanics, setEffects, addBySuccess, deleteBySuccess, setConditionKind," +
     " addComment, updateComment, deleteComment, filterComments, commentCount, anchorText, anchorType, proseComments," +
     " cardImageName, freeImageName, setCardImage, eventImageDir, SHOT_FIELDS, serialiseBoard, setShotField, shotFieldText," +
-    " LIVE_EVENTS_DIR, proposalFileName, importBoard, blankBoard, duplicateBoard };"
+    " LIVE_EVENTS_DIR, proposalFileName, importBoard, blankBoard, duplicateBoard, boardCardLabel };"
 )();
 
 let passed = 0;
@@ -1160,7 +1160,7 @@ test("setCardImage: path, CLEAR (null), HOLD (key dropped); assignments survive 
 
 test("setShotField edits shot fields in place; blanks drop the key; lists split; drafts and other keys untouched", () => {
   const board = {
-    eventId: "ev", title: "Ev", phase: "storyboard", round: 1, updatedAt: 1, questions: [], cards: [{ n: 1, cut: "NEW", shot: "S1" }],
+    eventId: "ev", title: "Ev", phase: "storyboard", round: 1, updatedAt: 1, questions: [], cards: [{ branch: "main", key: "c1", cut: "NEW", shot: "S1" }],
     plates: [{ id: "P1", name: "corner" }, { id: "P2", name: "pub" }],
     shots: [{ id: "S1", title: "Old", plate: "P1", method: "pose", prompt: "p", reuse: "Archie", drafts: [{ url: "u", label: "v1" }] }],
   };
@@ -1203,6 +1203,26 @@ test("setShotField rejects unknown shots and fields, bad methods and plates; leg
   setShotField(board, "S1", "method", "");
   assert.ok(!("method" in board.shots[0]));
   assert.ok(SHOT_FIELDS.every((f) => f.key !== "id" && f.key !== "drafts"));
+});
+
+test("boardCardLabel names a shot-board card by branch + key", () => {
+  assert.strictEqual(boardCardLabel({ branch: "b5", key: "c7" }), "b5 · c7");
+  assert.strictEqual(boardCardLabel({ key: "c2" }), "main · c2");
+});
+
+test("every shot board keys its cards on branch + key, uniquely, and every NEW names a shot on the board", () => {
+  const root = path.join(__dirname, "..", ".scratch", "event-art");
+  const dirs = fs.existsSync(root) ? fs.readdirSync(root).filter((d) => fs.existsSync(path.join(root, d, "board.json"))) : [];
+  for (const d of dirs) {
+    const b = JSON.parse(fs.readFileSync(path.join(root, d, "board.json"), "utf-8"));
+    const seen = new Set(), shots = new Set((b.shots || []).map((x) => x.id));
+    for (const c of b.cards) {
+      assert.ok(c.branch && c.key && !("n" in c), `${d}: card ${JSON.stringify(c.key || c.n)} not keyed on branch + key`);
+      assert.ok(!seen.has(c.key), `${d}: duplicate key ${c.key}`);
+      seen.add(c.key);
+      if (c.cut === "NEW") assert.ok(shots.has(c.shot), `${d}: ${c.key} cuts to unknown shot ${c.shot}`);
+    }
+  }
 });
 
 console.log(`${passed} passed${process.exitCode ? ", some FAILED" : ""}`);

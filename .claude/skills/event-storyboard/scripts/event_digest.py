@@ -1,4 +1,5 @@
-"""Print a storyboard-ready digest of one event: every card (one-based), its
+"""Print a storyboard-ready digest of one event: every card keyed as the storyboard tool keys
+it (branch + card key; card N is `cN`, in the branch its goto targets split it into), its
 type/speaker/text, choice results, what art it currently shows (explicit, discovered, or held), and which speakers/named
 characters have a reference sheet.
 
@@ -21,6 +22,26 @@ def convention_path(event_id, n):
     return None
 
 
+def outcomes(choice):
+    return [x for x in [choice, choice.get("success"), choice.get("fail"),
+                        *(choice.get("bySuccesses") or {}).values()] if isinstance(x, dict)]
+
+
+def branch_names(cards):
+    """Each card's branch, named as tools/storyboard.html's legacyToDraft names them: every outcome
+    goto target starts a branch; the first is `main`, one starting at card index i is `b<i+1>`."""
+    starts = {0}
+    for card in cards:
+        for choice in card.get("choices", []):
+            starts.update(x["goto"] for x in outcomes(choice) if isinstance(x.get("goto"), int))
+    names, current = [], "main"
+    for i in range(len(cards)):
+        if i in starts:
+            current = "main" if i == 0 else f"b{i + 1}"
+        names.append(current)
+    return names
+
+
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     as_json = "--json" in sys.argv
@@ -41,6 +62,7 @@ def main():
     cards = []
     showing = None
     all_text = ""
+    branches = branch_names(event["cards"])
     for n, card in enumerate(event["cards"], 1):
         if "image" in card:
             showing, source = card["image"], "explicit" if card["image"] else "cleared"
@@ -51,6 +73,8 @@ def main():
             else:
                 source = "held" if showing else "none"
         entry = {
+            "branch": branches[n - 1],
+            "key": card.get("key") or f"c{n}",
             "n": n,
             "type": card.get("type"),
             "label": card.get("label"),
@@ -92,7 +116,7 @@ def main():
     for c in cards:
         tag = f"art={c['art_source']}" + (f" ({c['art']})" if c["art"] else "")
         who = c["speaker"] or c["type"]
-        print(f"\n[{c['n']}] {c['type']}{' @' + c['label'] if c['label'] else ''} — {who} — {tag}")
+        print(f"\n[{c['branch']} · {c['key']}] {c['type']}{' @' + c['label'] if c['label'] else ''} — {who} — {tag}")
         print(f"    {c['text']}")
         for ch in c.get("choices", []):
             print(f"    > {ch['label']}: {ch['result_text']}"
