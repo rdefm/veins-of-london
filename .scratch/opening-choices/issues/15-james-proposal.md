@@ -12,7 +12,7 @@ The pearls made replace the fixed 2-pearl grant. Proposal only.
 
 **Status:** ready-for-agent
 
-- [ ] Proposal file `.scratch/writing-revamp/james-meeting-proposal3.md`: cards, option ids, checks (incl. `attempts`), outcomes per pearl count, tell/hide branches.
-- [ ] Pacing: confirm whether 0 pearls is acceptable (later raid ambush mod needs one equipped) or propose a floor.
-- [ ] Card count vs current 24; art-needing cards listed.
-- [ ] Report flags `PROSE-REVIEW:`; stops for owner approval.
+- [x] Proposal file `.scratch/writing-revamp/james-meeting-proposal3.md`: cards, option ids, checks (incl. `attempts`), outcomes per pearl count, tell/hide branches.
+- [x] Pacing: confirm whether 0 pearls is acceptable (later raid ambush mod needs one equipped) or propose a floor.
+- [x] Card count vs current 24; art-needing cards listed.
+- [x] Report flags `PROSE-REVIEW:`; stops for owner approval.
