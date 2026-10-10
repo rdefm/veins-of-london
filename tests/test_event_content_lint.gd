@@ -19,7 +19,6 @@ const OPENING_EVENTS := [
 # the lint does not find.
 const KNOWN_OPENING := [
 	"buyer: card 0 label 'The next morning' says 'morning' but the event has no at",
-	"james_meeting: card 0 label 'Two days later — Bermondsey' hard-codes a day; use {weekday}/{date}",
 ]
 
 # Violations in non-opening events left for their owner to fix.

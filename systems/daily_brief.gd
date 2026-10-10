@@ -285,12 +285,10 @@ static func _development_rows(rows: Array[Dictionary]) -> void:
 	for vein in GameState.state["player"]["veins"]:
 		if not Cultivating.is_development_eligible(vein):
 			continue
-		# R§3.4: combined_magnitude, so the vein's earned level shows in the
-		# exposure figure.
 		var values := {
 			"ore": GameData.ORE_TYPES[vein["oreType"]]["name"],
 			"district": GameData.DISTRICTS[vein["district"]]["name"],
-			"exposure": Cultivating.combined_magnitude(vein),
+			"threshold": int(GameData.VEIN_GROWTH["developmentThreshold"]),
 		}
 		rows.append(_row("development", "development:%s" % vein["id"], values, { "to": "map_vein", "veinId": vein["id"] }, 0))
 

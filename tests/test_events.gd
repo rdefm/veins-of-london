@@ -1479,10 +1479,12 @@ func run() -> void:
 		var expected: Variant = "res://assets/events/intro/intro_card1.png"
 		assert_eq(Events.current_image_path(), expected, "opening card discovers intro_card1.png")
 
-		# card indexes are zero-based; intro_card5 to intro_card9 are found by convention, the rest are explicit keys
-		var wired_at := { 4: "res://assets/events/intro/intro_card5.png", 5: "res://assets/events/intro/intro_card6.png", 6: "res://assets/events/intro/intro_card7.png", 7: "res://assets/events/intro/intro_card8.png", 8: "res://assets/events/intro/intro_card9.png", 10: "res://assets/events/intro/3.png", 17: "res://assets/events/intro/4.png" }
+		# card indexes are zero-based; intro_card8/9 are found by convention, the rest are explicit keys
+		var wired_at := { 3: "res://assets/events/intro/intro_card5.png", 4: "res://assets/events/intro/intro_card6.png", 5: "res://assets/events/intro/intro_card7.png", 7: "res://assets/events/intro/intro_card8.png", 8: "res://assets/events/intro/intro_card9.png", 10: "res://assets/events/intro/intro_main_11.png", 12: "res://assets/events/intro/intro_main_13.png", 15: "res://assets/events/intro/intro_main_16.png" }
 		var card_count: int = GameData.EVENTS["intro"]["cards"].size()
 		for i in range(card_count - 1):
+			if Events.is_awaiting_choice():
+				Events.choose(0)
 			Events.advance()
 			var card_index: int = GameState.state["event"]["cardIndex"]
 			if wired_at.has(card_index):
@@ -1724,9 +1726,13 @@ func run() -> void:
 	run_case("full_tutorial_playthrough_lands_every_r311_change", func():
 		GameState.reset()
 
-		# 1. Intro
+		# 1. Intro (first option at every choice)
 		Events.start_event("intro")
-		for i in range(GameData.EVENTS["intro"]["cards"].size()):
+		for step in range(100):
+			if GameState.state["event"] == null:
+				break
+			if Events.is_awaiting_choice():
+				Events.choose(0)
 			Events.advance()
 		assert_true(GameState.state["flags"]["metArchie"], "intro: metArchie")
 		assert_eq(GameState.state["flags"]["tutorialStage"], "buyer_event", "intro: stage")
@@ -1749,15 +1755,22 @@ func run() -> void:
 		assert_eq(Messages.pending_for("archie")[0]["kind"], "james_meeting", "buyer: pending entry starts james_meeting")
 
 		# 3. James meeting (SMS thread 1 has no state effects of its own)
+		# First option at every choice: tell James about the jar (+5), craft patiently (1-2 pearls).
 		var day: int = GameState.state["world"]["day"]
+		var james_relation_before_meeting: int = GameState.state["contacts"]["james"]["relation"]
 		Events.start_event("james_meeting")
-		for i in range(GameData.EVENTS["james_meeting"]["cards"].size()):
+		for step in range(100):
+			if GameState.state["event"] == null:
+				break
+			if Events.is_awaiting_choice():
+				Events.choose(0)
 			Events.advance()
-		assert_eq(Crafting.inventory_qty("timePearl"), 2, "james_meeting: +2 timePearl")
+		var pearls: int = Crafting.inventory_qty("timePearl")
+		assert_true(pearls >= 1 and pearls <= 2, "james_meeting: patient craft yields 1-2 timePearl")
 		assert_true(GameState.state["flags"]["metJames"], "james_meeting: metJames")
 		assert_true(GameState.state["flags"]["craftingUnlocked"], "james_meeting: craftingUnlocked")
 		assert_true(GameState.state["contacts"]["james"]["unlocked"], "james_meeting: james unlocked")
-		assert_eq(GameState.state["contacts"]["james"]["relation"], 10, "james_meeting: james relation +10")
+		assert_eq(GameState.state["contacts"]["james"]["relation"], james_relation_before_meeting + 15, "james_meeting: james relation +5 (told) +10 (on_complete)")
 		assert_eq(GameState.state["flags"]["tutorialStage"], "archie_craft_chat", "james_meeting: stage")
 		assert_eq(GameState.state["world"]["archieChatUnlockDay"], day + 1, "james_meeting: archieChatUnlockDay = day+1")
 		assert_eq(GameState.state["currentScreen"], "phone", "james_meeting: -> phone home, no longer hq")

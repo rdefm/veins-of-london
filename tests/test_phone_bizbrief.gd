@@ -157,10 +157,10 @@ func run() -> void:
 		_expand_routine(phone)
 		var texts := NodeQuery.label_texts(phone)
 		assert_true(texts.any(func(t: String): return t.find("ready to develop") != -1), "development-eligible vein is a Today row")
-		assert_true(texts.any(func(t: String): return t.find("Raid exposure") != -1), "with its raid exposure")
+		assert_true(texts.any(func(t: String): return t.find("higher raid risk") != -1), "with its raid risk")
 		var row: Node = phone.find_child("TodayRow_development_eligible", true, false)
 		assert_true(row != null, "row keyed by vein")
-		_button_with_text(row, "Manage").pressed.emit()
+		_button_with_text(row, "Tend vein").pressed.emit()
 		assert_eq(GameState.state["currentScreen"], "map")
 		assert_eq(GameState.state["mapNav"]["selectedSiteId"], "site_eligible")
 		assert_eq(GameState.state["morningAccounts"]["briefTicks"], ["development:eligible"], "the tap records the tick")
@@ -184,8 +184,8 @@ func run() -> void:
 		phone._ready()
 		var offer_node := "OfferCard_%s" % String(offer["id"]).validate_node_name()
 		assert_true(phone.find_child(offer_node, true, false) == null, "Brief tab: no offer cards yet")
-		_button_with_text(phone.find_child("TodayRow_offer_%s" % String(offer["id"]).validate_node_name(), true, false), "Offer").pressed.emit()
-		assert_true(phone.find_child(offer_node, true, false) != null, "Offer opens Manage on the offer card")
+		_button_with_text(phone.find_child("TodayRow_offer_%s" % String(offer["id"]).validate_node_name(), true, false), "View offer").pressed.emit()
+		assert_true(phone.find_child(offer_node, true, false) != null, "View offer opens Manage on the offer card")
 		phone.free()
 
 		GameState.state["phoneNav"]["app"] = "bizbrief"
@@ -195,7 +195,7 @@ func run() -> void:
 		assert_eq(GameState.state["modal"]["type"], "sell_menu", "Sell opens the Trade sheet")
 		GameState.state["modal"] = null
 		var favour_row: Node = phone.find_child("TodayRow_favour_%s" % String(GameState.state["pendingMessages"][0]["id"]).validate_node_name(), true, false)
-		_button_with_text(favour_row, "Messages").pressed.emit()
+		_button_with_text(favour_row, "Read message").pressed.emit()
 		assert_eq([GameState.state["phoneNav"]["app"], GameState.state["phoneNav"]["selectedContactId"]], ["messages", contact_id], "favour opens the key member's thread")
 		phone.free()
 	)

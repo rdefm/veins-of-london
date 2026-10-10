@@ -68,7 +68,7 @@ func run() -> void:
 		var rows := _kind("development")
 		assert_eq(rows.size(), 1)
 		assert_eq([rows[0]["tier"], rows[0]["key"], rows[0]["action"]], ["routine", "development:eligible", { "to": "map_vein", "veinId": "eligible" }])
-		assert_true(String(rows[0]["consequence"]).find(str(Cultivating.combined_magnitude(GameState.state["player"]["veins"][0]))) != -1, "raid exposure shown")
+		assert_true(String(rows[0]["consequence"]).find("%d+" % int(GameData.VEIN_GROWTH["developmentThreshold"])) != -1, "development threshold shown")
 		Cultivating.prune("eligible", GameData.VEIN_GROWTH["pruneHardDepth"])
 		assert_eq(_kind("development"), [], "pruned below the threshold drops off live")
 	)
@@ -282,12 +282,12 @@ func run() -> void:
 	run_case("story_row_action_comes_from_the_objective_data_with_todo_fallback", func():
 		GameState.reset()
 		var row: Dictionary = _kind("story")[0]
-		assert_eq([row["action"], row["actionLabel"]], [{ "to": "thread", "contactId": "archie" }, "Messages"])
+		assert_eq([row["action"], row["actionLabel"]], [{ "to": "thread", "contactId": "archie" }, "Read message"])
 		# An objective with no briefAction falls back to ToDo.
 		_quiet_story()
 		GameState.state["objectives"]["tut_home_raid"]["active"] = true
 		row = _kind("story")[0]
-		assert_eq([row["action"], row["actionLabel"]], [{ "to": "todo" }, "ToDo"])
+		assert_eq([row["action"], row["actionLabel"]], [{ "to": "todo" }, "Open ToDo"])
 		_quiet_story()
 		GameState.state["objectives"]["col_a1_des_sites"]["active"] = true
 		assert_eq(_kind("story")[0]["action"], { "to": "map" })
@@ -299,7 +299,7 @@ func run() -> void:
 		GameState.state["objectives"]["tut_buyer_event"]["active"] = true
 		GameState.state["world"]["day"] = 1
 		var row: Dictionary = _kind("story")[0]
-		assert_eq([row["action"], row["actionLabel"]], [{ "to": "rest" }, "Rest"])
+		assert_eq([row["action"], row["actionLabel"]], [{ "to": "rest" }, "Go to HQ"])
 		assert_eq(row["consequence"], "Rest at HQ to wait for Archie's text.")
 		assert_eq(row["label"], "Wait for Archie's text — he's lining up the buyer.")
 		GameState.state["world"]["day"] = 2

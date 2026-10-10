@@ -21,17 +21,17 @@
     "oreShort": "{n} short of ore"
   },
   "storyActions": {
-    "thread": { "actionLabel": "Messages" },
-    "map": { "actionLabel": "Map" },
-    "rest": { "actionLabel": "Rest" },
-    "todo": { "actionLabel": "ToDo" }
+    "thread": { "actionLabel": "Read message" },
+    "map": { "actionLabel": "Open map" },
+    "rest": { "actionLabel": "Go to HQ" },
+    "todo": { "actionLabel": "Open ToDo" }
   },
   "rows": {
     "story": {
       "tier": "story", "kind": "story",
       "label": "{text}",
       "consequence": "{note}",
-      "actionLabel": "ToDo"
+      "actionLabel": "Open ToDo"
     },
     "alarmHome": {
       "tier": "urgent", "kind": "alarm",
@@ -55,19 +55,19 @@
       "tier": "urgent", "kind": "bill",
       "label": "Rent due {weekday} · £{bill}",
       "consequence": "Short £{shortfall} for {weekday}. The gap goes on the arrears.",
-      "actionLabel": "Bank"
+      "actionLabel": "Pay rent"
     },
     "billUtilities": {
       "tier": "urgent", "kind": "bill",
       "label": "Bills due {weekday} · £{bill}",
       "consequence": "Short £{shortfall} for {weekday}. The gap goes on the arrears.",
-      "actionLabel": "Bank"
+      "actionLabel": "Pay bills"
     },
     "arrears": {
       "tier": "urgent", "kind": "arrears",
       "label": "Owed £{arrears} on the bills",
       "consequence": "{countdown}",
-      "actionLabel": "Property"
+      "actionLabel": "Clear arrears"
     },
     "wagePrompt": {
       "tier": "urgent", "kind": "wages",
@@ -85,7 +85,7 @@
       "tier": "urgent", "kind": "contractAtRisk",
       "label": "{buyer} order short by {shortfall}",
       "consequence": "Due {deadline}. Stock and production won't cover it; a short period pays less.",
-      "actionLabel": "Sales"
+      "actionLabel": "Check order"
     },
     "veinAtRiskUrgent": {
       "tier": "urgent", "kind": "veinAtRisk",
@@ -96,20 +96,20 @@
     "offerExpiring": {
       "tier": "opportunity", "kind": "offerExpiring",
       "label": "{buyer} offer · £{payment}",
-      "consequence": "Expires {deadline}. Accept it or it walks.",
-      "actionLabel": "Offer"
+      "consequence": "Expires {deadline}.",
+      "actionLabel": "View offer"
     },
     "demandSpike": {
       "tier": "opportunity", "kind": "demandSpike",
       "label": "{item} demand up {percent}%",
-      "consequence": "You hold {held}. London's paying for it today.",
+      "consequence": "You hold {held}. Prices are up today.",
       "actionLabel": "Sell"
     },
     "favour": {
       "tier": "opportunity", "kind": "favour",
       "label": "{faction} want a favour",
       "consequence": "{name} is asking. Open until {deadline}.",
-      "actionLabel": "Messages"
+      "actionLabel": "Read message"
     },
     "veinAtRiskRoutine": {
       "tier": "routine", "kind": "veinAtRisk",
@@ -120,26 +120,26 @@
     "development": {
       "tier": "routine", "kind": "development",
       "label": "{ore} vein, {district} · ready to develop",
-      "consequence": "Raid exposure {exposure}.",
-      "actionLabel": "Manage"
+      "consequence": "Vein at {threshold}+. Chance to level up each day, and higher raid risk.",
+      "actionLabel": "Tend vein"
     },
     "idleStaffNoRole": {
       "tier": "routine", "kind": "idleStaff",
       "label": "{name} is idle",
       "consequence": "No role, so no work.",
-      "actionLabel": "Staff"
+      "actionLabel": "Assign"
     },
     "idleStaffNoVeins": {
       "tier": "routine", "kind": "idleStaff",
       "label": "{name} is idle",
       "consequence": "No veins on their list.",
-      "actionLabel": "Staff"
+      "actionLabel": "Assign"
     },
     "oreShort": {
       "tier": "routine", "kind": "oreShort",
       "label": "{item} short of {ore}",
       "consequence": "Production stalls at {held} of {target}.",
-      "actionLabel": "Production"
+      "actionLabel": "Fix production"
     },
     "routineSummary": {
       "tier": "routine", "kind": "routineSummary",
