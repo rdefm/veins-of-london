@@ -26,6 +26,7 @@ const {
   COND_KINDS, condKind, blankCond, condGet, condSet,
   outcomeSlots, addOption, deleteOption, moveOption, setOptionField, setOutcomeText, setOutcomeGoto, routeToNewBranch,
   setCheckNote, setCheckOn, setOptionMechanics, setEffects, addBySuccess, deleteBySuccess, setConditionKind,
+  addComment, updateComment, deleteComment, filterComments, commentCount, anchorText, anchorType, proseComments,
 } = new Function(
   html.slice(ss, se) + html.slice(s, e) +
     "\nreturn { parseProposal, parseDraft, serialiseDraft, ensureKeys, legacyToDraft, nextPos, playOrder, flatCards, thenText," +
@@ -34,7 +35,8 @@ const {
     " findCycle, addBranch, renameBranch, deleteBranch, inboundLinks, setCardGoto, setThen," +
     " COND_KINDS, condKind, blankCond, condGet, condSet," +
     " outcomeSlots, addOption, deleteOption, moveOption, setOptionField, setOutcomeText, setOutcomeGoto, routeToNewBranch," +
-    " setCheckNote, setCheckOn, setOptionMechanics, setEffects, addBySuccess, deleteBySuccess, setConditionKind };"
+    " setCheckNote, setCheckOn, setOptionMechanics, setEffects, addBySuccess, deleteBySuccess, setConditionKind," +
+    " addComment, updateComment, deleteComment, filterComments, commentCount, anchorText, anchorType, proseComments };"
 )();
 
 let passed = 0;
@@ -907,6 +909,134 @@ test("check edits save into the block", () => {
   const o = cardByKey(back, "c2").choices[0];
   assert.strictEqual(o.checkNote, "hard Wits, ~40%");
   assert.deepStrictEqual(o.bySuccesses, { 1: { result_text: "", effects: [] } });
+});
+
+test("addComment on every anchor type; ids unique; claude opens, a note has no status; bad anchors refused", () => {
+  const { draft } = parseDraft(draftText);
+  const ids = [
+    addComment(draft, {}, "note", "Whole board."),
+    addComment(draft, { branch: "botched" }, "claude", "Make this harsher."),
+    addComment(draft, { card: "c3" }, "claude", "Trim."),
+    addComment(draft, { card: "c2", option: 0 }, "note", "Odds feel right."),
+    addComment(draft, { card: "c2", option: 0, slot: "fail" }, "claude", "Fail text too long."),
+  ];
+  assert.deepStrictEqual(ids, ["m1", "m2", "m3", "m4", "m5"]);
+  assert.deepStrictEqual(draft._comments.map((c) => anchorType(c.anchor)), ["board", "branch", "card", "option", "option"]);
+  assert.deepStrictEqual(draft._comments.map((c) => c.status), [undefined, "open", "open", undefined, "open"]);
+  assert.deepStrictEqual(draft._comments.map((c) => anchorText(draft, c.anchor)),
+    ["board", "branch botched", "main · c3", 'main · c2 · option 1 "Take your time"', 'main · c2 · option 1 "Take your time" · fail']);
+  assert.throws(() => addComment(draft, { card: "c99" }, "note", "x"), /no card c99/);
+  assert.throws(() => addComment(draft, { branch: "nope" }, "note", "x"), /unknown branch/);
+  assert.throws(() => addComment(draft, { card: "c2", option: 4 }, "note", "x"), /no option 5/);
+  assert.throws(() => addComment(draft, { card: "c2", option: 0, slot: "result" }, "note", "x"), /no "result" outcome/);
+  assert.throws(() => addComment(draft, {}, "todo", "x"), /unknown comment kind/);
+  assert.strictEqual(draft._comments.length, 5, "refusals add nothing");
+});
+
+test("updateComment edits text, resolves / reopens, switches kind; deleteComment drops the key when empty", () => {
+  const { draft } = parseDraft(draftText);
+  const id = addComment(draft, { card: "c1" }, "claude", "Fix.");
+  updateComment(draft, id, { status: "resolved", text: "Fixed?" });
+  assert.deepStrictEqual(draft._comments[0], { id, kind: "claude", status: "resolved", text: "Fixed?", anchor: { card: "c1" } });
+  updateComment(draft, id, { kind: "note" });
+  assert(!("status" in draft._comments[0]));
+  assert.throws(() => updateComment(draft, id, { status: "open" }), /only a comment for Claude/);
+  updateComment(draft, id, { kind: "claude" });
+  assert.strictEqual(draft._comments[0].status, "open");
+  assert.throws(() => updateComment(draft, id, { status: "done" }), /unknown status/);
+  assert.throws(() => updateComment(draft, "m9", { text: "x" }), /no comment m9/);
+  deleteComment(draft, id);
+  assert(!("_comments" in draft));
+});
+
+test("comments survive card reorder and insert (anchored by key); follow option moves and branch renames", () => {
+  const { draft } = parseDraft(draftText);
+  const onC3 = addComment(draft, { card: "c3" }, "claude", "c3");
+  addComment(draft, { card: "c2", option: 0 }, "note", "patient");
+  const i = addOption(draft, "c2");
+  addComment(draft, { card: "c2", option: i }, "note", "second");
+  addComment(draft, { branch: "after" }, "note", "after");
+  moveCard(draft, "c3", -1);
+  insertCard(draft, "main", 0);
+  assert.strictEqual(anchorText(draft, draft._comments.find((c) => c.id === onC3).anchor), "main · c3");
+  moveOption(draft, "c2", 0, 1);
+  assert.deepStrictEqual(draft._comments.slice(1, 3).map((c) => [c.text, c.anchor.option]), [["patient", 1], ["second", 0]]);
+  renameBranch(draft, "after", "wrap");
+  assert.deepStrictEqual(draft._comments[3].anchor, { branch: "wrap" });
+});
+
+test("deleting an option, card or branch moves its comments up a level, remembering where they were", () => {
+  const { draft } = parseDraft(draftText);
+  addOption(draft, "c2");
+  addComment(draft, { card: "c2", option: 0, slot: "success" }, "claude", "on option 1");
+  addComment(draft, { card: "c2", option: 1 }, "note", "on option 2");
+  addComment(draft, { card: "c4" }, "claude", "on c4");
+  addComment(draft, { branch: "botched" }, "note", "on botched");
+  addComment(draft, { card: "c9" }, "note", "on c9");
+  deleteOption(draft, "c2", 0);
+  assert.deepStrictEqual(draft._comments[0].anchor, { card: "c2" });
+  assert.strictEqual(draft._comments[0].was, 'main · c2 · option 1 "Take your time" · success');
+  assert.deepStrictEqual(draft._comments[1].anchor, { card: "c2", option: 0 }, "later options shift down");
+  deleteCard(draft, "c9");
+  assert.deepStrictEqual([draft._comments[4].anchor, draft._comments[4].was], [{ branch: "after" }, "after · c9"]);
+  deleteBranch(draft, "botched");
+  assert.deepStrictEqual(draft._comments.slice(2, 4).map((c) => [c.anchor, c.was]), [[{}, "botched · c4"], [{}, "branch botched"]]);
+});
+
+test("check on / off and removing a per-count outcome keep outcome comments on something that exists", () => {
+  const { draft } = parseDraft(draftText);
+  addBySuccess(draft, "c2", 0, 1);
+  addComment(draft, { card: "c2", option: 0, slot: "success" }, "note", "s");
+  addComment(draft, { card: "c2", option: 0, slot: "fail" }, "note", "f");
+  addComment(draft, { card: "c2", option: 0, slot: "by:1" }, "note", "one");
+  deleteBySuccess(draft, "c2", 0, 1);
+  assert.deepStrictEqual(draft._comments[2].anchor, { card: "c2", option: 0 });
+  setCheckOn(draft, "c2", 0, false);
+  assert.deepStrictEqual(draft._comments.map((c) => c.anchor.slot), ["result", undefined, undefined]);
+  assert.strictEqual(draft._comments[1].was, 'main · c2 · option 1 "Take your time" · fail');
+  setCheckOn(draft, "c2", 0, true);
+  assert.strictEqual(draft._comments[0].anchor.slot, "success");
+});
+
+test("filterComments by kind, status and anchor; commentCount for graph badges", () => {
+  const { draft } = parseDraft(draftText);
+  addComment(draft, {}, "note", "board");
+  const r = addComment(draft, { branch: "main" }, "claude", "main");
+  addComment(draft, { card: "c2" }, "claude", "c2");
+  addComment(draft, { card: "c2", option: 0, slot: "fail" }, "note", "fail");
+  addComment(draft, { card: "c5" }, "claude", "c5");
+  updateComment(draft, r, { status: "resolved" });
+  const texts = (f) => filterComments(draft, f).map((c) => c.text);
+  assert.deepStrictEqual(texts({}), ["board", "main", "c2", "fail", "c5"]);
+  assert.deepStrictEqual(texts({ kind: "claude" }), ["main", "c2", "c5"]);
+  assert.deepStrictEqual(texts({ kind: "claude", status: "open" }), ["c2", "c5"]);
+  assert.deepStrictEqual(texts({ status: "resolved" }), ["main"]);
+  assert.deepStrictEqual(texts({ anchor: "board" }), ["board"]);
+  assert.deepStrictEqual(texts({ anchor: "branch:main" }), ["main", "c2", "fail"]);
+  assert.deepStrictEqual(commentCount(draft, { card: "c2" }), { total: 2, open: 1 });
+  assert.deepStrictEqual(commentCount(draft, { branch: "main" }), { total: 1, open: 0 });
+  assert.deepStrictEqual(commentCount(draft, { branch: "main", deep: true }), { total: 3, open: 1 });
+  const g = buildGraph(draft, ["watched"]);
+  const node = (id) => g.nodes.find((n) => n.id === id);
+  assert.deepStrictEqual(node("b:main").comments, { total: 3, open: 1 });
+  assert.deepStrictEqual(node("c:c5").comments, { total: 1, open: 1 });
+  assert.deepStrictEqual(node("g:watched").comments, { total: 0, open: 0 });
+});
+
+test("comments round-trip through the proposal's JSON block; logline and Open points become board notes", () => {
+  const md = "# T\n\nA heist that goes wrong.\n\n```json\n" + draftText + "\n```\n\n## Open points\n\n- Is c3 needed?\n- Odds\n  too kind?\n";
+  const b = parseProposal("p.md", md);
+  addComment(b.draft, { card: "c2", option: 0, slot: "success" }, "claude", "Punchier.");
+  addComment(b.draft, {}, "note", "Tone check.");
+  moveCard(b.draft, "c3", -1);
+  const back = parseProposal("p.md", spliceDraft(md, b.draft));
+  assert.deepStrictEqual(back.draft._comments, b.draft._comments);
+  assert.strictEqual(serialiseDraft(back.draft), serialiseDraft(b.draft));
+  assert.deepStrictEqual(proseComments(back).map((c) => [c.id, c.source, c.kind, c.text, anchorType(c.anchor)]), [
+    ["prose:logline", "Logline", "note", "A heist that goes wrong.", "board"],
+    ["prose:q1", "Open point", "note", "Is c3 needed?", "board"],
+    ["prose:q2", "Open point", "note", "Odds too kind?", "board"],
+  ]);
 });
 
 console.log(`${passed} passed${process.exitCode ? ", some FAILED" : ""}`);

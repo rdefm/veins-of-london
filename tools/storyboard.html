@@ -130,7 +130,6 @@ header.top .title { display: grid; gap: 6px; min-width: 0 }
 .pastebox:empty::before { content: attr(data-ph) }
 .pastebox:focus { outline: 2px solid var(--accent); outline-offset: 2px }
 .files.drop { outline: 2px dashed var(--accent); outline-offset: 4px; border-radius: 6px }
-.questions { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 72ch }
 /* Writing proposals: playable choices in the phone, option lines in the cut list. */
 .opts { display: grid; gap: 6px }
 .opts button { text-align: left; background: #2a2f39; border: 1px solid #3a404c; color: #e8eaee; border-radius: 8px; padding: 8px 10px; font-size: 13px; line-height: 1.35 }
@@ -236,6 +235,24 @@ section { display: grid; gap: 12px; min-width: 0 }
 .g-arrow { fill: var(--muted) }
 .g-label rect { fill: var(--surface); stroke: var(--line) }
 .g-label text { font: 11px var(--mono); fill: var(--fg) }
+.g-cmt circle { fill: var(--muted); stroke: var(--surface); stroke-width: 1.5 }
+.g-cmt.open circle { fill: var(--accent) }
+.g-cmt text { font: 700 10px var(--mono); fill: var(--surface) }
+/* Comments: for-Claude (accent edge, open / resolved) and notes; in the card / branch editors and the Comments tab. */
+.cmts { display: grid; gap: 8px }
+.cmt { display: grid; gap: 6px; border: 1px solid var(--line); border-left: 3px solid var(--hold); border-radius: 8px; padding: 8px 10px; background: var(--surface) }
+.cmt.claude { border-left-color: var(--accent) }
+.cmt.resolved { opacity: .62 }
+.cmt.flash { outline: 2px solid var(--accent) }
+.cmt-head { font-size: 12.5px; color: var(--muted) }
+.cmt-head button { padding: 3px 8px }
+.cmt .anchor { font: 12px var(--mono); color: var(--accent); background: none; border: 0; padding: 0; text-decoration: underline; cursor: pointer }
+.cmt .src { font: 600 12px var(--mono); color: var(--fg) }
+.cmt p { margin: 0; white-space: pre-wrap; max-width: 72ch }
+.cmt textarea { width: 100%; min-height: 2.6em; resize: vertical; background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font-size: 13.5px; line-height: 1.45 }
+.cmt-bar { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center }
+.cmt-bar label { display: inline-flex; gap: 6px; align-items: center; font-size: 12.5px; color: var(--muted) }
+.cmt-bar select { background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 5px 7px; font-size: 13.5px }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important } }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/elkjs@0.9.3/lib/elk.bundled.js"></script>
@@ -332,6 +349,7 @@ section { display: grid; gap: 12px; min-width: 0 }
             <div id="ce-options" class="opt-ed"></div>
             <span class="eyebrow">After this card, go to</span>
             <div class="route" id="ce-goto"></div>
+            <div id="ce-comments" class="cmts"></div>
           </section>
           <section class="editor" id="branch-editor" hidden>
             <div class="editor-head"><h2>Branch</h2><span class="mono muted" id="be-where"></span></div>
@@ -345,17 +363,13 @@ section { display: grid; gap: 12px; min-width: 0 }
             </div>
             <span class="eyebrow">After its last card</span>
             <div id="be-then" class="then-ed"></div>
+            <div id="be-comments" class="cmts"></div>
           </section>
           <h2>Cut list</h2>
           <p class="muted" style="margin:0">A heavy rule marks a new image. Tap a row to preview that card.</p>
           <div class="cuts" id="cuts"></div>
         </section>
       </div>
-
-      <section id="q-section">
-        <h2>Open questions</h2>
-        <ol class="questions" id="questions"></ol>
-      </section>
       </div>
 
       <div class="panel" role="tabpanel" id="panel-shots" aria-labelledby="tab-shots" hidden>
@@ -375,7 +389,8 @@ section { display: grid; gap: 12px; min-width: 0 }
       </div>
 
       <div class="panel" role="tabpanel" id="panel-comments" aria-labelledby="tab-comments" hidden>
-        <p class="muted" style="margin:0">No comments yet.</p>
+        <div class="cmt-bar" id="cmt-bar"></div>
+        <div class="cmts" id="cmt-list"></div>
       </div>
     </div>
   </div>
@@ -1137,6 +1152,7 @@ function checkOddsBlock(opt, changed, restructure) {
     const pos = cardPos(draft, key);
     if (!pos) throw new Error(`no card ${key}`);
     if (pos.branch === draft.start && branchCards(draft, pos.branch).length === 1) throw new Error("can't delete the start branch's only card");
+    reanchor(draft, (a) => (a.card === key ? { branch: pos.branch } : a));
     draft.branches[pos.branch].cards.splice(pos.idx, 1);
   }
   // Every place play can go after the card at pos (all outcomes, card goto, fall-through, every `then` entry).
@@ -1214,6 +1230,7 @@ function checkOddsBlock(opt, changed, restructure) {
     if (from === to) return;
     checkBranchName(draft, to);
     for (const { target } of allLinks(draft)) if (target.branch === from) target.branch = to;
+    for (const c of comments(draft)) if (c.anchor && c.anchor.branch === from) c.anchor.branch = to;
     draft.branches = Object.fromEntries(Object.entries(draft.branches).map(([k, v]) => [k === from ? to : k, v]));
     if (draft.start === from) draft.start = to;
   }
@@ -1223,6 +1240,7 @@ function checkOddsBlock(opt, changed, restructure) {
   function deleteBranch(draft, name) {
     if (!draft.branches[name]) throw new Error(`unknown branch ${JSON.stringify(name)}`);
     if (name === draft.start) throw new Error("can't delete the start branch");
+    reanchor(draft, (a) => (anchorBranch(draft, a) === name ? {} : a));
     delete draft.branches[name];
   }
   // A link target as stored: {branch} or {branch, card}. Throws on an unknown branch, or a card not in that branch.
@@ -1292,6 +1310,8 @@ function checkOddsBlock(opt, changed, restructure) {
   // Removes option i (and its links); removing the last one drops the card's `choices` key.
   function deleteOption(draft, key, i) {
     const { card } = optionAt(draft, key, i);
+    reanchor(draft, (a) => (a.card === key && a.option === i ? { card: key } : a));
+    for (const c of comments(draft)) if (c.anchor && c.anchor.card === key && c.anchor.option > i) c.anchor.option--;
     card.choices.splice(i, 1);
     if (!card.choices.length) delete card.choices;
   }
@@ -1300,6 +1320,7 @@ function checkOddsBlock(opt, changed, restructure) {
     const { card } = optionAt(draft, key, i), to = i + delta;
     if (to < 0 || to >= card.choices.length) throw new Error("already at the end of the options");
     [card.choices[i], card.choices[to]] = [card.choices[to], card.choices[i]];
+    for (const c of comments(draft)) if (c.anchor && c.anchor.card === key && (c.anchor.option === i || c.anchor.option === to)) c.anchor.option = c.anchor.option === i ? to : i;
   }
   // Sets option i's "id" or "label". An empty id drops the key (the engine then uses the option's index); an id
   // another option on the card already has is refused.
@@ -1347,6 +1368,13 @@ function checkOddsBlock(opt, changed, restructure) {
   function setCheckOn(draft, key, i, on) {
     const { o } = optionAt(draft, key, i);
     if (!!o.check === on) return;
+    // Outcome comments follow the outcome: result <-> success; fail / per-count ones move up to the option.
+    const at = (a) => a.card === key && a.option === i && a.slot;
+    if (on) for (const c of comments(draft)) { if (at(c.anchor || {}) === "result") c.anchor.slot = "success"; }
+    else {
+      reanchor(draft, (a) => (at(a) && a.slot !== "success" ? { card: key, option: i } : a));
+      for (const c of comments(draft)) if (at(c.anchor || {}) === "success") c.anchor.slot = "result";
+    }
     if (on) optionToCheck(o); else optionToPlain(o);
   }
   // Copies the shared mechanics widgets' fields (requires; the check's odds and mods) from working copy w onto
@@ -1399,6 +1427,7 @@ function checkOddsBlock(opt, changed, restructure) {
   function deleteBySuccess(draft, key, i, count) {
     const { o } = optionAt(draft, key, i);
     if (!o.bySuccesses || !(String(count) in o.bySuccesses)) throw new Error(`no outcome for ${count} successes`);
+    reanchor(draft, (a) => (a.card === key && a.option === i && a.slot === "by:" + count ? { card: key, option: i } : a));
     delete o.bySuccesses[String(count)];
     if (!Object.keys(o.bySuccesses).length) delete o.bySuccesses;
   }
@@ -1453,7 +1482,8 @@ function checkOddsBlock(opt, changed, restructure) {
   }
   // Flowchart data for the draft (spec § Branch view). Branches named in `expanded` show as a frame ("g:<branch>")
   // holding one node per card ("c:<key>"); the rest collapse to one branch node ("b:<branch>") with title, card
-  // count and first line. "end" stands for the event ending. Edges: {id, from, to, label, kind} with kind
+  // count and first line. "end" stands for the event ending. Card, branch and frame nodes carry `comments`
+  // ({total, open}: commentCount; a collapsed branch counts its cards' too). Edges: {id, from, to, label, kind} with kind
   // "outcome" (option result goto), "goto" (card goto), "next" (fall-through) or "then" (branch `then`; conditional
   // entries labelled). Links into nowhere and links inside one collapsed branch are left out.
   function buildGraph(draft, expanded = []) {
@@ -1464,13 +1494,13 @@ function checkOddsBlock(opt, changed, restructure) {
     for (const name of names) {
       const br = draft.branches[name], cards = branchCards(draft, name), start = name === draft.start;
       if (open(name)) {
-        nodes.push({ id: "g:" + name, kind: "group", branch: name, title: br.title || "", start });
+        nodes.push({ id: "g:" + name, kind: "group", branch: name, title: br.title || "", start, comments: commentCount(draft, { branch: name }) });
         cards.forEach((c, i) => nodes.push({ id: "c:" + c.key, kind: "card", parent: "g:" + name, branch: name, key: c.key,
           type: c.type || "", speaker: c.speaker || "", text: c.text || "", choices: (c.choices || []).length, start: start && i === 0,
-          notes: (c.choices || []).map((o) => o.checkNote).filter(Boolean) }));
+          notes: (c.choices || []).map((o) => o.checkNote).filter(Boolean), comments: commentCount(draft, { card: c.key }) }));
       } else {
         nodes.push({ id: "b:" + name, kind: "branch", branch: name, title: br.title || "", count: cards.length,
-          first: (cards[0] && cards[0].text) || "", start });
+          first: (cards[0] && cards[0].text) || "", start, comments: commentCount(draft, { branch: name, deep: true }) });
       }
     }
     // t: {branch, card?}, or null for the event ending.
@@ -1551,6 +1581,114 @@ function checkOddsBlock(opt, changed, restructure) {
     }
     boxes.delete("root");
     return { width: laid.width, height: laid.height, boxes, edges };
+  }
+  // Comments (spec § Decisions: Comments, Comment storage) live in the draft's top-level `_comments` list, each
+  // {id, kind: "claude" | "note", status: "open" | "resolved" (claude only), text, anchor}. The anchor names what
+  // the comment is on by key, never by position: {} the whole board, {branch}, {card} (card key), or
+  // {card, option: index, slot?} an option or one of its outcomes (outcomeSlots' slot).
+  const COMMENT_KINDS = { claude: "For Claude", note: "Note" };
+  const comments = (draft) => draft._comments || [];
+  const anchorType = (a) => (a.option != null ? "option" : a.card ? "card" : a.branch ? "branch" : "board");
+  function commentById(draft, id) {
+    const c = comments(draft).find((x) => x.id === id);
+    if (!c) throw new Error(`no comment ${id}`);
+    return c;
+  }
+  // The anchor as stored ({} / {branch} / {card} / {card, option, slot?}); throws if what it names is missing.
+  function cleanAnchor(draft, a) {
+    a = a || {};
+    if (a.card) {
+      const card = cardByKey(draft, a.card);
+      if (!card) throw new Error(`no card ${a.card}`);
+      if (a.option == null) return { card: a.card };
+      const o = (card.choices || [])[a.option];
+      if (!o) throw new Error(`card ${a.card} has no option ${a.option + 1}`);
+      if (a.slot == null) return { card: a.card, option: a.option };
+      findSlot(o, a.slot);
+      return { card: a.card, option: a.option, slot: a.slot };
+    }
+    if (a.branch) {
+      if (!draft.branches[a.branch]) throw new Error(`unknown branch ${JSON.stringify(a.branch)}`);
+      return { branch: a.branch };
+    }
+    return {};
+  }
+  // Adds a comment; returns its id (m1, m2, ... unique in the draft).
+  function addComment(draft, anchor, kind, text) {
+    if (!COMMENT_KINDS[kind]) throw new Error(`unknown comment kind ${JSON.stringify(kind)}`);
+    const a = cleanAnchor(draft, anchor), used = new Set(comments(draft).map((c) => c.id));
+    let n = 1;
+    while (used.has("m" + n)) n++;
+    const c = { id: "m" + n, kind, ...(kind === "claude" ? { status: "open" } : {}), text, anchor: a };
+    (draft._comments = draft._comments || []).push(c);
+    return c.id;
+  }
+  // patch: {text?, kind?, status?}. A note has no status; switching a note to "for Claude" opens it.
+  function updateComment(draft, id, patch) {
+    const c = commentById(draft, id);
+    if ("kind" in patch) {
+      if (!COMMENT_KINDS[patch.kind]) throw new Error(`unknown comment kind ${JSON.stringify(patch.kind)}`);
+      if (patch.kind === "note") delete c.status; else if (c.kind !== "claude") c.status = "open";
+      c.kind = patch.kind;
+    }
+    if ("status" in patch) {
+      if (c.kind !== "claude") throw new Error("only a comment for Claude has a status");
+      if (patch.status !== "open" && patch.status !== "resolved") throw new Error(`unknown status ${JSON.stringify(patch.status)}`);
+      c.status = patch.status;
+    }
+    if ("text" in patch) c.text = patch.text;
+  }
+  // Removes a comment; the last one drops the `_comments` key.
+  function deleteComment(draft, id) {
+    commentById(draft, id);
+    draft._comments = comments(draft).filter((x) => x.id !== id);
+    if (!draft._comments.length) delete draft._comments;
+  }
+  // Re-anchors comments when what they're on goes away: fn(anchor) returns the new anchor, or the same one.
+  // A moved comment remembers where it was in `was`.
+  function reanchor(draft, fn) {
+    for (const c of comments(draft)) {
+      const next = fn(c.anchor || {});
+      if (next === c.anchor) continue;
+      if (!c.was) c.was = anchorText(draft, c.anchor || {});
+      c.anchor = next;
+    }
+  }
+  // The branch a card-or-option anchor sits in (null for board, or a card that's gone).
+  const anchorBranch = (draft, a) => (a.card ? (cardPos(draft, a.card) || {}).branch || null : a.branch || null);
+  // Readable anchor: "board", "branch main", "main · c3", "main · c3 · option 2 "Take your time" · success".
+  function anchorText(draft, a) {
+    const type = anchorType(a);
+    if (type === "board") return "board";
+    if (type === "branch") return `branch ${a.branch}`;
+    const pos = cardPos(draft, a.card), at = pos ? `${pos.branch} · ${a.card}` : `${a.card} (missing)`;
+    if (type === "card") return at;
+    const card = cardByKey(draft, a.card), o = card && (card.choices || [])[a.option];
+    const name = o && (o.label || o.id) ? ` ${JSON.stringify(o.label || o.id)}` : "";
+    const slot = a.slot ? ` · ${(o && outcomeSlots(o).find((s) => s.slot === a.slot) || { label: a.slot }).label.toLowerCase()}` : "";
+    return `${at} · option ${a.option + 1}${name}${slot}`;
+  }
+  // Comments matching filter {kind?, status?, anchor?}: kind "claude" / "note"; status "open" / "resolved";
+  // anchor "board", or "branch:<name>" for everything in that branch (the branch, its cards and their options).
+  function filterComments(draft, f = {}) {
+    return comments(draft).filter((c) => (!f.kind || c.kind === f.kind)
+      && (!f.status || c.status === f.status)
+      && (!f.anchor || (f.anchor === "board" ? anchorType(c.anchor || {}) === "board"
+        : anchorBranch(draft, c.anchor || {}) === f.anchor.replace(/^branch:/, ""))));
+  }
+  // {total, open} for comments on card `key` (and its options), or on branch `name` (deep: also its cards).
+  function commentCount(draft, { card, branch, deep }) {
+    const list = comments(draft).filter((c) => {
+      const a = c.anchor || {};
+      if (card) return a.card === card;
+      return a.branch === branch || (deep && a.card && anchorBranch(draft, a) === branch);
+    });
+    return { total: list.length, open: list.filter((c) => c.status === "open").length };
+  }
+  // A proposal's own prose as read-only board notes: the logline / intro and each "## Open points" item.
+  function proseComments(b) {
+    return [...(b.logline ? [{ id: "prose:logline", kind: "note", source: "Logline", text: b.logline, anchor: {} }] : []),
+      ...(b.questions || []).map((q, i) => ({ id: "prose:q" + (i + 1), kind: "note", source: "Open point", text: q, anchor: {} }))];
   }
   /* ---------- End draft model ---------- */
 
@@ -1856,6 +1994,11 @@ function checkOddsBlock(opt, changed, restructure) {
       drawGraph(b, graph, graphLaid.layout);
     }).catch((e) => { if (tok === graphTok) $("g-note").textContent = "Layout failed: " + (e && e.message); });
   }
+  // A count bubble on a node's top-right corner: accent while any comment for Claude is open.
+  const commentBadge = (cm, r) => (cm && cm.total ? sv("g", { class: "g-cmt" + (cm.open ? " open" : "") },
+    sv("circle", { cx: r.x + r.w - 2, cy: r.y + 2, r: 9 }),
+    sv("text", { x: r.x + r.w - 2, y: r.y + 5.5, "text-anchor": "middle" }, cm.total > 9 ? "9+" : String(cm.total))) : null);
+  const commentsLabel = (cm) => (cm && cm.total ? `, ${cm.total} comment${cm.total > 1 ? "s" : ""}${cm.open ? `, ${cm.open} open` : ""}` : "");
   const toggleGlyph = (branch, expand, x, y) => sv("text", { x, y, class: "g-toggle", "data-toggle": branch,
     role: "button", tabindex: "0", "aria-label": (expand ? "Expand " : "Collapse ") + branch }, expand ? "⊕" : "⊖");
   function drawGraph(b, graph, L) {
@@ -1867,7 +2010,7 @@ function checkOddsBlock(opt, changed, restructure) {
       g.append(sv("g", { class: "g-frame" + (n.start ? " start" : ""), "data-node": n.id },
         sv("rect", { x: r.x, y: r.y, width: r.w, height: r.h, rx: 8 }),
         sv("text", { x: r.x + 10, y: r.y + 22, class: "g-name" }, clip(n.branch + (n.title ? " · " + n.title : ""), Math.max(8, Math.floor((r.w - 44) / 6.6)))),
-        toggleGlyph(n.branch, false, r.x + r.w - 24, r.y + 23)));
+        toggleGlyph(n.branch, false, r.x + r.w - 24, r.y + 23), commentBadge(n.comments, r)));
     }
     for (const e of graph.edges) {
       const p = L.edges.get(e.id);
@@ -1897,7 +2040,8 @@ function checkOddsBlock(opt, changed, restructure) {
           n.notes.length ? t(70, "g-note", clip("⚄ " + n.notes.join("; "), 29)) : null);
       }
       const attrs = { class: `g-node ${n.kind}${n.start ? " start" : ""}`, "data-node": n.id };
-      if (label) Object.assign(attrs, { tabindex: "0", role: "button", "aria-label": label });
+      if (label) Object.assign(attrs, { tabindex: "0", role: "button", "aria-label": label + commentsLabel(n.comments) });
+      kids.push(commentBadge(n.comments, r));
       g.append(sv("g", attrs, ...kids));
     }
     const defs = sv("defs", {}, sv("marker", { id: "g-arrow", viewBox: "0 0 10 10", refX: "9", refY: "5", markerWidth: "7", markerHeight: "7", orient: "auto-start-reverse" },
@@ -2011,6 +2155,7 @@ function checkOddsBlock(opt, changed, restructure) {
     keepFocus($("ce-goto"), targetPicker(b.draft, c.goto, "next card / branch's then", "goto",
       (t) => editDraft((d) => setCardGoto(d, c.key, t), true)));
     renderOptionsEditor(b, c);
+    keepFocus($("ce-comments"), ...commentSection(b, { card: c.key }, comments(b.draft).filter((x) => x.anchor && x.anchor.card === c.key)));
     renderBranchEditor(b, c.branch);
   }
   // The selected card's player options: id, label, order, and per outcome its result text and route. Text commits
@@ -2036,6 +2181,7 @@ function checkOddsBlock(opt, changed, restructure) {
         field("input", o.label, "Label", `opt:${i}:label`, (v) => edit((d) => setOptionField(d, c.key, i, "label", v))),
         iconBtn("▲", "Move this option up", i === 0, () => move(i, -1)),
         iconBtn("▼", "Move this option down", i === opts.length - 1, () => move(i, 1)),
+        commentBtn(b, { card: c.key, option: i }, "this option"),
         iconBtn("✕", "Remove this option", false, () => edit((d) => { deleteOption(d, c.key, i); pick = null; outcomeKey = null; })));
       const rows = [head];
       rows.push(el("label", { class: "route" }, el("span", { class: "kw", text: "Intent" }),
@@ -2064,6 +2210,7 @@ function checkOddsBlock(opt, changed, restructure) {
               if (name) edit((d) => { routeToNewBranch(d, c.key, i, s.slot, name.trim()); });
               else renderFrame();
             })),
+          commentBtn(b, { card: c.key, option: i, slot: s.slot }, `the ${s.label.toLowerCase()} outcome`),
           s.slot.startsWith("by:") ? iconBtn("✕", `Remove the ${s.label} outcome`, false,
             () => edit((d) => deleteBySuccess(d, c.key, i, Number(s.slot.slice(3))))) : null,
           field("textarea", s.res && s.res.result_text, `${s.label} text`, fid + ":text",
@@ -2190,6 +2337,108 @@ function checkOddsBlock(opt, changed, restructure) {
         targetPicker(d, els, "end", "then:else", (t) => commit(ifs, t))), el("div", {}, add));
     }
     keepFocus($("be-then"), ...rows);
+    keepFocus($("be-comments"), ...commentSection(b, { branch: name }, comments(d).filter((x) => x.anchor && x.anchor.branch === name)));
+  }
+  // ---- comments ---------------------------------------------------------------
+  let cmtFilter = { kind: "", status: "", anchor: "" };
+  // Prompts for a new comment's text and adds it on `anchor` as one undoable edit.
+  function promptComment(anchor, kind) {
+    const b = board(); if (!b || !b.draft) return;
+    const text = prompt(`${COMMENT_KINDS[kind]} on ${anchorText(b.draft, anchor)}:`);
+    if (text && text.trim()) editDraft((d) => { addComment(d, anchor, kind, text.trim()); }, true);
+  }
+  // 💬 button (with its comment count) that adds a comment for Claude on an option or outcome.
+  function commentBtn(b, anchor, what) {
+    const n = comments(b.draft).filter((x) => JSON.stringify(x.anchor) === JSON.stringify(anchor)).length;
+    return iconBtn("💬" + (n || ""), `Comment for Claude on ${what}` + (n ? ` (${n} so far, listed under the card's comments)` : ""), false,
+      () => promptComment(anchor, "claude"));
+  }
+  // An editor's comment block: heading, add buttons for `anchor`, and the comments in `list`.
+  function commentSection(b, anchor, list) {
+    const add = (kind, text) => { const bt = el("button", { type: "button", class: "tb", text }); bt.addEventListener("click", () => promptComment(anchor, kind)); return bt; };
+    return [el("div", { class: "editor-head" }, el("span", { class: "eyebrow", text: `Comments${list.length ? ` (${list.length})` : ""}` }),
+      el("span", { class: "route" }, add("claude", "+ For Claude"), add("note", "+ Note"))),
+      ...list.map((c) => commentItem(b, c, anchorType(c.anchor || {}) === "option"))];
+  }
+  // One comment: kind, resolve / reopen (for Claude), where it is (a jump link when showAnchor), delete, and its
+  // text (commits on change). Proposal prose items are read-only.
+  function commentItem(b, c, showAnchor) {
+    const a = c.anchor || {};
+    if (c.source) return el("div", { class: "cmt note" }, el("div", { class: "route cmt-head" },
+      el("span", { class: "src", text: c.source }), el("span", { text: "from the proposal's prose · board" })), el("p", { text: c.text }));
+    const edit = (fn) => editDraft(fn, true);
+    const kindSel = el("select", { "aria-label": "Comment kind", "data-focus": `cmt:${c.id}:kind` });
+    kindSel.append(...Object.entries(COMMENT_KINDS).map(([k, t]) => optionEl(k, t)));
+    kindSel.value = c.kind;
+    kindSel.addEventListener("change", () => edit((d) => updateComment(d, c.id, { kind: kindSel.value })));
+    const head = [kindSel];
+    if (c.kind === "claude") {
+      const done = c.status === "resolved";
+      head.push(el("span", { class: "kw", text: done ? "resolved" : "open" }),
+        iconBtn(done ? "Reopen" : "Resolve", done ? "Mark this open again" : "Mark this done", false,
+          () => edit((d) => updateComment(d, c.id, { status: done ? "open" : "resolved" }))));
+    }
+    if (showAnchor) {
+      const go = el("button", { type: "button", class: "anchor", text: anchorText(b.draft, a), title: "Show this in the Storyboard tab" });
+      go.addEventListener("click", () => jumpTo(c));
+      head.push(anchorType(a) === "board" ? el("span", { class: "mono", text: "board" }) : go);
+    }
+    if (c.was) head.push(el("span", { class: "mono", text: `(was on ${c.was})` }));
+    head.push(iconBtn("✕", "Delete this comment", false, () => { if (confirm("Delete this comment?")) edit((d) => deleteComment(d, c.id)); }));
+    const text = el("textarea", { rows: 2, "aria-label": "Comment text", "data-focus": `cmt:${c.id}:text` });
+    text.value = c.text || "";
+    text.addEventListener("change", () => edit((d) => updateComment(d, c.id, { text: text.value })));
+    return el("div", { class: `cmt ${c.kind}${c.status === "resolved" ? " resolved" : ""}`, "data-cmt": c.id },
+      el("div", { class: "route cmt-head" }, ...head), text);
+  }
+  // Comments tab: filters (kind, status, anchor), board-level add buttons, then the proposal's prose (logline and
+  // Open points) as board notes followed by the draft's comments. The tab label counts open comments for Claude.
+  function renderComments(b) {
+    const d = b && b.kind === "proposal" ? b.draft : null;
+    const open = d ? filterComments(d, { kind: "claude", status: "open" }).length : 0;
+    $("tab-comments").textContent = "Comments" + (open ? ` (${open} open)` : "");
+    if (d && cmtFilter.anchor.startsWith("branch:") && !d.branches[cmtFilter.anchor.slice(7)]) cmtFilter.anchor = "";
+    const sel = (key, label, choices) => {
+      const s = el("select", { "data-focus": "cmtf:" + key });
+      s.append(...choices.map(([v, t]) => optionEl(v, t)));
+      s.value = cmtFilter[key];
+      s.addEventListener("change", () => { cmtFilter[key] = s.value; renderComments(board()); });
+      return el("label", {}, label, s);
+    };
+    const bar = [sel("kind", "Kind", [["", "All"], ...Object.entries(COMMENT_KINDS)]),
+      sel("status", "Status", [["", "All"], ["open", "Open"], ["resolved", "Resolved"]])];
+    if (d) {
+      bar.push(sel("anchor", "On", [["", "Everything"], ["board", "Board"], ...Object.keys(d.branches).map((n) => ["branch:" + n, `Branch ${n} (and its cards)`])]));
+      for (const [kind, text] of [["claude", "+ For Claude (board)"], ["note", "+ Note (board)"]]) {
+        const bt = el("button", { type: "button", class: "tb", text });
+        bt.addEventListener("click", () => promptComment({}, kind));
+        bar.push(bt);
+      }
+    }
+    keepFocus($("cmt-bar"), ...bar);
+    const f = cmtFilter;
+    const prose = b && (!f.kind || f.kind === "note") && !f.status && (!f.anchor || f.anchor === "board") ? proseComments(b) : [];
+    const list = [...prose, ...(d ? filterComments(d, { kind: f.kind || undefined, status: f.status || undefined, anchor: f.anchor || undefined }) : [])];
+    const total = (d ? comments(d).length : 0) + (b ? proseComments(b).length : 0);
+    const none = el("p", { class: "muted", style: "margin:0", text: total ? "No comments match the filters."
+      : d ? "No comments yet." : "No comments. Comments are saved in writing proposals' drafts." });
+    keepFocus($("cmt-list"), ...(list.length ? list.map((c) => commentItem(b, c, true)) : [none]));
+  }
+  // Shows a comment's anchor in the Storyboard tab: selects its card (a branch's first card), scrolls the editor
+  // to it and flashes the comment there.
+  function jumpTo(c) {
+    const b = board(), a = c.anchor || {};
+    if (!b || !b.draft) return;
+    const key = a.card || (a.branch && (branchCards(b.draft, a.branch)[0] || {}).key);
+    const i = key ? b.cards.findIndex((x) => x.key === key) : -1;
+    if (i < 0) return;
+    showTab("storyboard");
+    trail = []; goTo(i);
+    const box = a.card ? $("card-editor") : $("branch-editor");
+    const hit = box.querySelector(`[data-cmt="${c.id}"]`) || box;
+    hit.scrollIntoView({ block: "center" });
+    hit.classList.add("flash");
+    setTimeout(() => hit.classList.remove("flash"), 1500);
   }
   function iconBtn(text, title, disabled, onClick) {
     const bt = el("button", { type: "button", class: "tb", title, "aria-label": title, text });
@@ -2265,7 +2514,7 @@ function checkOddsBlock(opt, changed, restructure) {
       const i = b.cards.findIndex((x) => x.key === sel);
       if (i >= 0) { cardIdx = i; trail = []; pick = null; outcomeKey = null; }
     }
-    renderCuts(b); renderFrame(); renderEditBar();
+    renderCuts(b); renderFrame(); renderComments(b); renderEditBar();
   }
   // A structural edit on the selected card: fn(draft, key) returns the key to select afterwards.
   function cardOp(fn) {
@@ -2564,8 +2813,7 @@ function checkOddsBlock(opt, changed, restructure) {
       $("count-line").textContent = b.error || `${b.cards.length} cards · ${nChoices} choices · ${nNew} images · ${b.file}`;
       $("logline").textContent = b.logline;
       renderCuts(b);
-      $("q-section").hidden = b.questions.length === 0;
-      $("questions").replaceChildren(...b.questions.map((q) => el("li", { text: q })));
+      renderComments(b);
       $("p-section").hidden = true;
       if (cardIdx >= b.cards.length) cardIdx = 0;
       renderFrame();
@@ -2580,9 +2828,7 @@ function checkOddsBlock(opt, changed, restructure) {
     $("count-line").textContent = `${b.cards.length} cards · ${nNew} new shots`;
     $("logline").textContent = b.logline || "";
     renderCuts(b);
-    const qs = b.questions || [];
-    $("q-section").hidden = qs.length === 0;
-    $("questions").replaceChildren(...qs.map((q) => el("li", { text: q })));
+    renderComments(b);
     renderPlates(b);
     renderShots(b);
     $("board-verdict").replaceChildren(el("h2", { text: phase === "drafts" ? "Drafts overall" : "Storyboard overall" }),
