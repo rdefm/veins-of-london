@@ -4,6 +4,7 @@ const OffersSystem := preload("res://systems/offers.gd")
 
 
 func run() -> void:
+	calendar_start_weekday = 0  # fixtures count days from a Monday day 1
 	run_case("scripted_offer_snapshots_quote_and_acceptance_creates_contract", func():
 		GameState.reset()
 		GameState.state["world"]["day"] = 10

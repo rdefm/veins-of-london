@@ -19,6 +19,7 @@ func _assert_quote_lines_are_ints(quote: Dictionary, label: String) -> void:
 
 
 func run() -> void:
+	calendar_start_weekday = 0  # fixtures count days from a Monday day 1
 	run_case("ticker_recency_backfills_and_round_trips", func():
 		GameState.reset()
 		var old_save: Dictionary = GameState.deep_copy(GameState.state)

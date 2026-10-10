@@ -9,6 +9,7 @@ const NodeQuery := preload("res://tests/support/node_query.gd")
 
 
 func run() -> void:
+	calendar_start_weekday = 0  # fixtures count days from a Monday day 1
 	run_case("property_shows_the_current_tiers_stats", func():
 		GameState.reset()
 		GameState.state["player"]["orichalchum"] = { "time": 50 }  # nudges raid risk off the floor, deterministic

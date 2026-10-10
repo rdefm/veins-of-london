@@ -5,6 +5,7 @@ const EventPlay := preload("res://tests/support/event_play.gd")
 
 
 func run() -> void:
+	calendar_start_weekday = 0  # fixtures count days from a Monday day 1
 	run_case("beat_1_fires_at_two_veins_with_no_collective_progress", func():
 		GameState.reset()
 		GameState.state["contacts"]["archie"]["recruited"] = true

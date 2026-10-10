@@ -4,6 +4,7 @@ const Fixtures := preload("res://tests/support/fixtures.gd")
 
 
 func run() -> void:
+	calendar_start_weekday = 0  # fixtures count days from a Monday day 1
 	run_case("three_blocks_tick_a_day", func():
 		GameState.reset()
 		assert_eq(GameState.state["world"]["day"], 1, "starts on day 1")

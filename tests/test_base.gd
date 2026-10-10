@@ -8,6 +8,10 @@ extends RefCounted
 var passed := 0
 var failed := 0
 var _case_failures: Array[String] = []
+# >= 0 pins GameData.CALENDAR.startWeekday (0 = MON) for each case, restored
+# after it -- set at the top of run() by weekly-cadence files whose fixtures
+# count days from a Monday day 1.
+var calendar_start_weekday := -1
 
 
 func run() -> void:
@@ -31,7 +35,11 @@ func run_case(case_name: String, fn: Callable) -> void:
 	# (run() in the case's own test file) then has to `await run_case(...)`
 	# in turn for that suspension to actually propagate, same as
 	# tests/test_runner.gd now `await`s each file's run().
+	var start_weekday: int = GameData.CALENDAR["startWeekday"]
+	if calendar_start_weekday >= 0:
+		GameData.CALENDAR["startWeekday"] = calendar_start_weekday
 	await fn.call()
+	GameData.CALENDAR["startWeekday"] = start_weekday
 	_disconnect_and_free_new_eventbus_connections(eventbus_before)
 	if _case_failures.is_empty():
 		passed += 1

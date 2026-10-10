@@ -27,6 +27,33 @@ static func advance_time_block() -> void:
 	EventBus.state_changed.emit()
 
 
+# Moves the clock forward within today to the named block (lowercase
+# constants.json timeBlocks name), running the staff block step for each
+# skipped block exactly as advance_time_block() would. Never moves backwards
+# or across a rollover; "night" and unknown names are no-ops. No
+# time_advanced emit: the caller is starting an event in the new block, so
+# there is no transition to play. Returns true if the clock moved.
+static func advance_to_block(block_name: String) -> bool:
+	var target: int = block_index(block_name)
+	var world: Dictionary = GameState.state["world"]
+	if target <= int(world["timeBlock"]):
+		return false
+	while int(world["timeBlock"]) < target:
+		run_staff_block()
+		world["timeBlocksDone"].append(world["timeBlock"])
+		world["timeBlock"] += 1
+	EventBus.state_changed.emit()
+	return true
+
+
+# 0-based block index for a lowercase block name, or -1 (incl. "night").
+static func block_index(block_name: String) -> int:
+	for i in GameData.TIME_BLOCKS.size():
+		if String(GameData.TIME_BLOCKS[i]).to_lower() == block_name:
+			return i
+	return -1
+
+
 static func is_time_exhausted() -> bool:
 	var world: Dictionary = GameState.state["world"]
 	return world["timeBlocksDone"].size() >= BLOCKS_PER_DAY

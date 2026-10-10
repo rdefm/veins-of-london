@@ -4,6 +4,7 @@ const Fixtures := preload("res://tests/support/fixtures.gd")
 
 
 func run() -> void:
+	calendar_start_weekday = 0  # fixtures count days from a Monday day 1
 	run_case("monday_rollover_bills_every_vein_and_hq_guard_from_cash", func():
 		var monday := _seed_guards()
 		GameState.state["world"]["day"] = monday

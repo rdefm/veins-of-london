@@ -28,8 +28,16 @@ static func start_event(event_id: String, context: Dictionary = {}) -> void:
 	if not GameData.EVENTS.has(event_id):
 		push_error("Events.start_event: unknown event id '%s'" % event_id)
 		return
+	_apply_timing(GameData.EVENTS[event_id].get("at", {}))
 	GameState.state["event"] = { "eventId": event_id, "cardIndex": 0, "snapshots": [], "choiceResults": {}, "rolled": {}, "toggles": {}, "context": context }
 	Nav.go_to("event")
+
+
+# R§3.9b "Event timing": `at.advance` moves the clock forward to `at.block`
+# before the first card; a passed block or "night" leaves it where it is.
+static func _apply_timing(at: Dictionary) -> void:
+	if at.get("advance", false):
+		TimeSystem.advance_to_block(String(at.get("block", "")))
 
 
 # False when state.event names an id with no definition (e.g. one carried in

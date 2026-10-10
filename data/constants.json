@@ -609,6 +609,7 @@
   },
   "calendar": {
     "startMonth": 3,
+    "startWeekday": 1,
     "daysPerMonth": 28,
     "monthNames": ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"],
     "weekdayNames": ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"],

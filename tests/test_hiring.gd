@@ -6,6 +6,7 @@ const CANDIDATES := ["marcia", "tomasz", "bernie", "saoirse", "priya", "dot", "g
 
 
 func run() -> void:
+	calendar_start_weekday = 0  # fixtures count days from a Monday day 1
 	run_case("roster_is_seeded_locked_unrecruited_and_open", func():
 		GameState.reset()
 		for candidate_id in CANDIDATES:

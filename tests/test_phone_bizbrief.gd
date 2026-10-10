@@ -31,6 +31,7 @@ static func _brief_vein() -> Dictionary:
 
 
 func run() -> void:
+	calendar_start_weekday = 0  # fixtures count days from a Monday day 1
 	run_case("bizbrief_chrome_keeps_device_and_live_header", func():
 		GameState.reset()
 		GameState.state["world"]["day"] = 24

@@ -22,11 +22,11 @@ static func date_parts(day: int) -> Dictionary:
 	}
 
 
-# 0-based index into weekdayNames for a 1-based world.day (0 = MON).
+# 0-based index into weekdayNames for a 1-based world.day (0 = MON); day 1
+# falls on calendar.startWeekday.
 static func weekday_index(day: int) -> int:
 	var cal: Dictionary = GameData.CALENDAR
-	var index: int = maxi(0, day - 1) + int(cal["startMonth"]) * int(cal["daysPerMonth"])
-	return index % (cal["weekdayNames"] as Array).size()
+	return (maxi(0, day - 1) + int(cal["startWeekday"])) % days_per_week()
 
 
 static func days_per_week() -> int:

@@ -28,6 +28,19 @@ func _install_choice_event() -> Dictionary:
 	return original_events
 
 
+# A one-card event with `at` timing; returns the original GameData.EVENTS.
+func _install_timed_event(block: String, advance: bool) -> Dictionary:
+	var original_events: Dictionary = GameData.EVENTS
+	GameData.EVENTS = GameData.EVENTS.duplicate()
+	GameData.EVENTS["test_timed_event"] = {
+		"id": "test_timed_event",
+		"at": { "block": block, "advance": advance },
+		"cards": [{ "type": "narration", "label": null, "speaker": null, "text": "Later." }],
+		"on_complete": [{ "op": "set_screen", "screen": "phone" }],
+	}
+	return original_events
+
+
 # A choice card whose first option is a check at fixed odds `p` (no mods,
 # clamp [0, 1]) and whose second is a plain option.
 static func _check_choice_card(p: float) -> Dictionary:
@@ -1729,4 +1742,57 @@ func run() -> void:
 		Events.start_event("no_such_event")
 		assert_eq(GameState.state["event"], null, "no state.event for an id with no definition")
 		assert_eq(GameState.state["currentScreen"], screen_before, "no navigation to a blank event screen")
+	)
+
+
+	run_case("at_advance_moves_the_clock_forward_running_skipped_staff_blocks", func():
+		GameState.reset()
+		Rng.set_seed(99)
+		GameState.state["flags"]["bizA1JamesJoined"] = true  # LodedInnit posts once per staff block step
+		var original_events := _install_timed_event("evening", true)
+		Events.start_event("test_timed_event")
+		var world: Dictionary = GameState.state["world"]
+		GameData.EVENTS = original_events
+		assert_eq(world["timeBlock"], 2, "moved to evening")
+		assert_eq(world["timeBlocksDone"], [0, 1], "skipped blocks counted as done")
+		assert_eq(world["day"], 1, "same day")
+		assert_eq(GameState.state["hiring"]["feed"].size(), 2, "one staff block step per skipped block")
+	)
+
+	run_case("at_advance_never_moves_backwards", func():
+		GameState.reset()
+		GameState.state["world"]["timeBlock"] = 2
+		GameState.state["world"]["timeBlocksDone"] = [0, 1]
+		var original_events := _install_timed_event("morning", true)
+		Events.start_event("test_timed_event")
+		GameData.EVENTS = original_events
+		assert_eq(GameState.state["world"]["timeBlock"], 2, "a passed block runs in the current one")
+		assert_eq(GameState.state["world"]["day"], 1)
+		assert_eq(GameState.state["event"]["eventId"], "test_timed_event", "the event still runs")
+	)
+
+	run_case("at_night_never_moves_the_clock", func():
+		GameState.reset()
+		var original_events := _install_timed_event("night", true)
+		Events.start_event("test_timed_event")
+		GameData.EVENTS = original_events
+		assert_eq(GameState.state["world"]["timeBlock"], 0)
+		assert_eq(GameState.state["world"]["timeBlocksDone"], [])
+		assert_eq(GameState.state["world"]["day"], 1)
+	)
+
+	run_case("at_without_advance_leaves_the_clock", func():
+		GameState.reset()
+		var original_events := _install_timed_event("evening", false)
+		Events.start_event("test_timed_event")
+		GameData.EVENTS = original_events
+		assert_eq(GameState.state["world"]["timeBlock"], 0)
+	)
+
+	run_case("new_game_intro_runs_in_the_evening_of_tuesday_day_one", func():
+		GameState.reset()
+		Events.start_event("intro")
+		assert_eq(GameState.state["world"]["day"], 1)
+		assert_eq(GameState.state["world"]["timeBlock"], 2, "intro runs in Evening")
+		assert_eq(Calendar.format_day(1).substr(0, 3), "TUE")
 	)

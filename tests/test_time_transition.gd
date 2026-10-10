@@ -26,7 +26,7 @@ func run() -> void:
 		var resolved := SaveManager.export_string()
 		UiSim.advance(overlay, 0.8)
 		assert_true(overlay.active)
-		assert_eq(overlay.destination.text, "MON 1 APR — Afternoon")
+		assert_eq(overlay.destination.text, "TUE 1 APR — Afternoon")
 		UiSim.advance(overlay, 1.6)
 		assert_true(overlay.active, "non-skippable duration has not elapsed")
 		UiSim.advance(overlay, 0.2)

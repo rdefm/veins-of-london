@@ -5,6 +5,7 @@ const Fixtures := preload("res://tests/support/fixtures.gd")
 
 
 func run() -> void:
+	calendar_start_weekday = 0  # fixtures count days from a Monday day 1
 	run_case("daily_tick_stores_resulting_day_and_actual_reynards_totals", func():
 		GameState.reset()
 		GameState.state["world"]["day"] = 8

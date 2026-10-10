@@ -4,6 +4,7 @@ const Fixtures := preload("res://tests/support/fixtures.gd")
 
 
 func run() -> void:
+	calendar_start_weekday = 0  # fixtures count days from a Monday day 1
 	run_case("split_rounds_remainders_to_the_player", func():
 		assert_eq(Business.split(100, 2), { "partner": 33, "player": 34 })
 		assert_eq(Business.split(5, 2), { "partner": 1, "player": 3 })

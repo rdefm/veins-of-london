@@ -76,6 +76,8 @@ func _play_through_tutorial_and_unlock_prospecting() -> void:
 		for i in range(GameData.EVENTS[event_id]["cards"].size()):
 			Events.advance()
 		_assert_invariants("post-%s" % event_id)
+		if event_id == "intro":
+			TimeSystem.do_rest()  # the intro runs in the Evening; real play rests to the next morning
 		# 83-contacts-archie-james-sms-port: buyer.json/james_meeting.json's
 		# on_complete each queue the next beat as a real pendingMessages
 		# entry for archie (ARCHIE_SMS_1's Continue, then the

@@ -4345,6 +4345,10 @@
 }]
 },
 "intro": {
+"at": {
+"advance": true,
+"block": "evening"
+},
 "cards": [{
 "label": "Earlier tonight — Whitechapel",
 "speaker": null,

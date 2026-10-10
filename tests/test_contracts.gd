@@ -6,6 +6,7 @@ const Fixtures := preload("res://tests/support/fixtures.gd")
 
 
 func run() -> void:
+	calendar_start_weekday = 0  # fixtures count days from a Monday day 1
 	run_case("request_ore_types_covers_ore_mixed_and_crafted", func():
 		assert_eq(ContractsSystem.request_ore_types({ "kind": "ore", "type": "life", "qty": 3 }), ["life"])
 		assert_eq(ContractsSystem.request_ore_types({ "kind": "consumable", "type": "timePearl", "qty": 2 }), ["time"])

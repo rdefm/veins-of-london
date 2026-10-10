@@ -1504,6 +1504,7 @@ func _validate_contact_text_reward(reward: Dictionary, recipes: Dictionary, fact
 
 
 const VALID_CARD_TYPES: Array[String] = ["narration", "speaker", "tension", "resolution", "craft", "choice"]
+const VALID_EVENT_BLOCKS: Array[String] = ["morning", "afternoon", "evening", "night"]
 const VALID_EFFECT_OPS: Array[String] = [
 	"set_flag", "add", "add_ore", "add_item", "relation",
 	"set_screen", "notify", "set_stage", "start_home_raid_combat",
@@ -1612,6 +1613,19 @@ func _validate_events(events: Dictionary, districts: Dictionary, errors: Array[S
 			_validate_deck_entry(entry["deck"], "events.%s.deck" % key, errors)
 		if entry.has("pin"):
 			_validate_event_pin(entry["pin"], districts, "events.%s.pin" % key, errors)
+		if entry.has("at"):
+			_validate_event_at(entry["at"], "events.%s.at" % key, errors)
+
+
+# R§3.9b "Event timing": at = {block, advance}.
+func _validate_event_at(at: Variant, context: String, errors: Array[String]) -> void:
+	if typeof(at) != TYPE_DICTIONARY:
+		errors.append("%s: must be an object" % context)
+		return
+	if not VALID_EVENT_BLOCKS.has(at.get("block")):
+		errors.append("%s: block '%s' is not one of %s" % [context, at.get("block"), VALID_EVENT_BLOCKS])
+	if typeof(at.get("advance")) != TYPE_BOOL:
+		errors.append("%s: advance must be true or false" % context)
 
 
 # Contact pin (docs/M1.5-NETWORK-MAP.md N2): { district, showWhenFlagsTrue:

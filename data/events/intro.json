@@ -1,5 +1,6 @@
 {
   "id": "intro",
+  "at": { "block": "evening", "advance": true },
   "cards": [
     { "type": "narration", "label": "Earlier tonight — Whitechapel", "speaker": null, "text": "Rent is due Friday. You have £40, and this morning's interviewer has promised to keep your details on file. Archie, an old mate, said he might have work. So: half ten on a Tuesday, behind a chicken shop on Mile End Road." },
     { "type": "speaker", "label": null, "speaker": "Archie", "text": "He's whistling, a Tesco bag hooked on one finger. \"Two blokes, cash, in and out before the chicken shop shuts. You just stand there looking like you'd be a pain to fight. If I say leg it, you leg it. Don't wait for me.\"" },
