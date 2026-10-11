@@ -64,6 +64,8 @@ var _manage_page := ""
 # Offer/contract id (Sales) or recipe key (Production) the next page build
 # scrolls to.
 var _page_focus_id := ""
+# Cultivator whose Assign vein chooser replaces the Procurement list ("" = list).
+var _vein_chooser_for := ""
 var _ore_source := "oreCultivator"
 # Production-log days shown expanded (view state), day -> true.
 var _expanded_log_days := {}
@@ -95,7 +97,6 @@ var _root: Control = null
 var _scroll: ScrollContainer = null
 var _brief_detail_anchor: Control = null
 var _production_log_anchor: Control = null
-var _procurement_anchor: Control = null
 var _serif: SystemFont = null
 
 
@@ -315,6 +316,7 @@ func _set_tab(tab: String) -> void:
 		return
 	_tab = tab
 	_manage_page = ""
+	_vein_chooser_for = ""
 	refresh()
 
 
@@ -324,6 +326,7 @@ func _open_manage_page(page: String, focus_id: String = "") -> void:
 	_tab = MANAGE_TAB
 	_manage_page = page
 	_page_focus_id = focus_id
+	_vein_chooser_for = ""
 	if focus_id != "" and ContractsSystem.active_contracts().any(func(c: Dictionary) -> bool: return c["id"] == focus_id):
 		_sales_details_id = focus_id
 	refresh()
@@ -1066,14 +1069,12 @@ static func _target_text(recipe_key: String, target: int, covering: bool) -> Str
 	return text + " · contracts not covered"
 
 
+# Each cultivator's assigned veins, or the Assign vein chooser for one of
+# them while _vein_chooser_for names a current cultivator.
 func _build_procurement() -> Control:
 	var section := UI.vbox(7)
-	var title := UI.hbox(6)
-	title.add_child(UI.expand_fill(UI.heading("Procurement", 16)))
-	title.add_child(UI.button("ASSIGN VEINS →", func(): _show_procurement_assignments()))
-	section.add_child(title)
+	section.add_child(UI.heading("Procurement", 16))
 	var c := UI.card()
-	_procurement_anchor = c["panel"]
 	section.add_child(c["panel"])
 
 	var cultivators: Array = Contacts.contacts_in_role("cultivation")
@@ -1089,14 +1090,61 @@ func _build_procurement() -> Control:
 		c["content"].add_child(UI.muted_label("No veins yet."))
 		return section
 
+	if cultivators.has(_vein_chooser_for):
+		_build_vein_chooser(c["content"], _vein_chooser_for, veins)
+		return section
+	_vein_chooser_for = ""
 	for contact_id in cultivators:
 		c["content"].add_child(_build_cultivator_section(contact_id, veins))
 	return section
 
 
-func _show_procurement_assignments() -> void:
-	if is_instance_valid(_scroll) and is_instance_valid(_procurement_anchor):
-		_scroll.ensure_control_visible(_procurement_anchor)
+func _open_vein_chooser(contact_id: String) -> void:
+	_vein_chooser_for = contact_id
+	refresh()
+	if is_instance_valid(_scroll):
+		_scroll.scroll_vertical = 0
+
+
+func _close_vein_chooser() -> void:
+	_vein_chooser_for = ""
+	refresh()
+
+
+# Closes the chooser first: assign_vein's state_changed rebuilds the page.
+func _pick_vein(contact_id: String, vein_id: String) -> void:
+	_vein_chooser_for = ""
+	Rooms.assign_vein(contact_id, vein_id)
+
+
+# Veins not on the cultivator's own list, in vein-list order.
+func _eligible_veins(contact_id: String, veins: Array) -> Array:
+	var assigned: Array = Rooms.cultivator_veins(contact_id)
+	return veins.filter(func(vein: Dictionary) -> bool: return not assigned.has(vein["id"]))
+
+
+# One row per eligible vein; a vein another cultivator holds shows who has
+# it, and picking it moves it (Rooms.assign_vein).
+func _build_vein_chooser(content: VBoxContainer, contact_id: String, veins: Array) -> void:
+	var title := UI.hbox(6)
+	title.name = "VeinChooser"
+	title.add_child(UI.expand_fill(UI.heading("Assign vein · %s" % Contacts.display_name(contact_id), 14)))
+	title.add_child(UI.button("Cancel", func(): _close_vein_chooser()))
+	content.add_child(title)
+	var eligible := _eligible_veins(contact_id, veins)
+	if eligible.is_empty():
+		content.add_child(UI.muted_label("Every vein is already theirs."))
+	for vein in eligible:
+		var vein_id: String = vein["id"]
+		var row := UI.vbox(2)
+		row.name = "VeinChoice_%s" % vein_id
+		var pick := UI.button(_vein_name(vein), func(): _pick_vein(contact_id, vein_id))
+		pick.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		row.add_child(pick)
+		var held_text: Variant = Rooms.vein_station_target_text(vein_id)
+		if held_text != null:
+			row.add_child(UI.muted_label(String(held_text)))
+		content.add_child(row)
 
 
 # Scrolls to the offer, contract or recipe _open_manage_page() named, once.
@@ -1112,28 +1160,20 @@ func _vein_name(vein: Dictionary) -> String:
 	return "%s — %s" % [GameData.DISTRICTS[vein["district"]]["name"], GameData.ORE_TYPES[vein["oreType"]]["name"]]
 
 
-# One cultivator: their assigned veins with target controls, then a picker
-# of every vein not on their list (picking one held elsewhere moves it).
+# One cultivator: their assigned veins with target controls, then one
+# Assign vein button opening the chooser.
 func _build_cultivator_section(contact_id: String, veins: Array) -> Control:
 	var box := UI.vbox(4)
+	box.name = "Cultivator_%s" % contact_id
 	var assigned: Array = Rooms.cultivator_veins(contact_id)
 	box.add_child(UI.heading(Contacts.display_name(contact_id), 14))
 	if assigned.is_empty():
 		box.add_child(UI.muted_label("No veins assigned."))
-	var unassigned: Array = []
 	for vein in veins:
 		if assigned.has(vein["id"]):
 			box.add_child(_build_procurement_vein_row(vein))
-		else:
-			unassigned.append(vein)
-	if not unassigned.is_empty():
-		var picker := UI.hflow()
-		if _procurement_anchor == null or _procurement_anchor is PanelContainer:
-			_procurement_anchor = picker
-		for vein in unassigned:
-			var vein_id: String = vein["id"]
-			picker.add_child(UI.button("Assign %s" % _vein_name(vein), func(): Rooms.assign_vein(contact_id, vein_id)))
-		box.add_child(picker)
+	if not _eligible_veins(contact_id, veins).is_empty():
+		box.add_child(UI.button("Assign vein", func(): _open_vein_chooser(contact_id)))
 	return box
 
 

@@ -642,12 +642,88 @@ func run() -> void:
 		_open_manage_page(phone, "procurement")
 
 		assert_true(NodeQuery.label_texts(phone).has("Archie"), "cultivator section heading")
-		assert_true(_button_with_text(phone, "ASSIGN VEINS →") != null)
-		var assign := _assign_button(phone)
-		assert_true(assign != null and assign.text.contains("Time Orichalchum"), "picker identifies the ore/district")
-		assign.pressed.emit()
+		assert_true(NodeQuery.label_texts(phone).has("No veins assigned."))
+		assert_true(phone.find_child("VeinChoice_v1", true, false) == null, "list page does not repeat unassigned veins")
+		_button_with_text(phone, "Assign vein").pressed.emit()
+
+		assert_true(phone.find_child("VeinChooser", true, false) != null, "chooser opens")
+		assert_true(NodeQuery.label_texts(phone).has("Assign vein · Archie"))
+		var choice := phone.find_child("VeinChoice_v1", true, false).get_child(0) as Button
+		assert_true(choice.text.contains("Time Orichalchum"), "choice identifies the ore/district")
+		choice.pressed.emit()
 
 		assert_eq(Rooms.cultivator_veins("archie"), ["v1"])
+		assert_true(phone.find_child("VeinChooser", true, false) == null, "picking closes the chooser")
+		assert_true(NodeQuery.label_texts(phone).has("Target: 70"), "assigned vein shows on the list")
+		assert_true(_button_with_text(phone, "Assign vein") == null, "no Assign vein once every vein is theirs")
+		phone.free()
+	)
+
+	run_case("procurement_chooser_cancel_returns_to_the_list", func():
+		GameState.reset()
+		GameState.state["home"]["rooms"].append("veinStation")
+		GameState.state["player"]["veins"] = [_brief_vein()]
+		GameState.state["contacts"]["archie"]["recruited"] = true
+		Contacts.assign_to_room("archie", "veinStation")
+		GameState.state["phoneNav"]["app"] = "bizbrief"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		_open_manage_page(phone, "procurement")
+		_button_with_text(phone, "Assign vein").pressed.emit()
+		_button_with_text(phone, "Cancel").pressed.emit()
+
+		assert_true(phone.find_child("VeinChooser", true, false) == null)
+		assert_true(NodeQuery.label_texts(phone).has("No veins assigned."))
+		assert_eq(Rooms.cultivator_veins("archie"), [])
+		phone.free()
+	)
+
+	run_case("procurement_chooser_moves_a_vein_held_by_another_cultivator", func():
+		GameState.reset()
+		GameState.state["home"]["rooms"].append("veinStation")
+		GameState.state["player"]["veins"] = [_brief_vein()]
+		GameState.state["contacts"]["archie"]["recruited"] = true
+		Contacts.assign_to_room("archie", "veinStation")
+		GameState.state["contacts"]["owen"]["recruited"] = true
+		GameState.state["flags"]["bizOwenCultivationRole"] = true
+		Contacts.set_role("owen", "cultivation")
+		Rooms.assign_vein("archie", "v1")
+		Rooms.set_vein_station_target("v1", 85)
+		GameState.state["phoneNav"]["app"] = "bizbrief"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		_open_manage_page(phone, "procurement")
+
+		assert_true(phone.find_child("Cultivator_archie", true, false).find_children("", "Button", true, false).all(func(b: Button) -> bool: return b.text != "Assign vein"), "Archie holds every vein")
+		_button_with_text(phone.find_child("Cultivator_owen", true, false), "Assign vein").pressed.emit()
+		assert_true(NodeQuery.label_texts(phone).has("Cultivated by Archie · target 85"), "chooser names the current holder")
+		(phone.find_child("VeinChoice_v1", true, false).get_child(0) as Button).pressed.emit()
+
+		assert_eq(Rooms.cultivator_veins("archie"), [])
+		assert_eq(Rooms.cultivator_veins("owen"), ["v1"])
+		assert_eq(Rooms.vein_station_target("v1"), 85, "move keeps the target")
+		phone.free()
+	)
+
+	run_case("procurement_empty_states_are_distinct", func():
+		GameState.reset()
+		GameState.state["home"]["rooms"].append("veinStation")
+		GameState.state["player"]["veins"] = [_brief_vein()]
+		GameState.state["phoneNav"]["app"] = "bizbrief"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		_open_manage_page(phone, "procurement")
+		assert_true(NodeQuery.label_texts(phone).has("No cultivators yet."))
+		phone.free()
+
+		GameState.state["player"]["veins"] = []
+		GameState.state["contacts"]["archie"]["recruited"] = true
+		Contacts.assign_to_room("archie", "veinStation")
+		phone = PhoneScreen.new()
+		phone._ready()
+		_open_manage_page(phone, "procurement")
+		assert_true(NodeQuery.label_texts(phone).has("No veins yet."))
+		assert_true(_assign_button(phone) == null, "nothing to assign")
 		phone.free()
 	)
 

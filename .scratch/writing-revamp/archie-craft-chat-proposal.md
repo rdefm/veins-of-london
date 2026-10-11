@@ -110,7 +110,7 @@ Both are small. Without them, the fallback is one flat result for every pearl co
                   "value": 5
                 }
               ],
-              "result_text": "You put a pearl on the table between you. Archie stops chewing. His eyes start to stream and he leans back from it, but he doesn't stop looking. \"You made that?\" A pause. \"I've had nothing in my pocket since Whitechapel but keys.\""
+              "result_text": ""
             },
             {
               "id": "vague",
@@ -124,6 +124,12 @@ Both are small. Without them, the fallback is one flat result for every pearl co
           ],
           "key": "c3",
           "image": "res://assets/events/archie_craft_chat/archie_craft_chat_card4.png"
+        },
+        {
+          "key": "c10",
+          "type": "narration",
+          "text": "You put a pearl on the table between you. Archie stops chewing. His eyes start to stream and he leans back from it, but he doesn't stop looking. \"You made that?\" A pause. \"I've had nothing in my pocket since Whitechapel but keys.\"",
+          "image": "res://assets/events/archie_craft_chat/archie_craft_chat_main_4.png"
         }
       ],
       "then": [
@@ -176,7 +182,8 @@ Both are small. Without them, the fallback is one flat result for every pearl co
           "label": null,
           "speaker": "Archie",
           "text": "\"That your only one?\" He pushes it back across the table with one finger, eyes still running. \"Keep it on you. Nights especially. Give me the next one you make.\"",
-          "key": "c5"
+          "key": "c5",
+          "image": "res://assets/events/archie_craft_chat/archie_craft_chat_only_1.png"
         }
       ],
       "then": {
