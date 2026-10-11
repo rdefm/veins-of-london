@@ -80,7 +80,7 @@ Data file per system: see `data/*.json` below.
 | messages.gd | Messages data layer + conversation-index projections, total unread count, per-contact clear (read + contact notifications seen) |
 | modal.gd | Modal open/close state; holds an event deferred behind a modal flow (`followEvent`) and starts it on close; `returnTo` reopens a parked modal on close |
 | morning_accounts.gd | Rollover capture (incl. arrears exceptions and countdown, payday statement, wage shortfalls, Monday guard wages, guard shortfall/walk-offs), per-block staff output accumulation, BizBrief auto-open, arrears/payday/wage-prompt/guard-wage labels |
-| daily_brief.gd | Pure Today-card projection for BizBrief: `items()` (tiered rows + action), `card()` (Routine folded to one summary row, capped, "+N more"), `badge_count()`, `summary()`, `mark_acted()` (only writer: today's ticks); sources: alarms, guard/bill/arrears/wage/contract shortfalls, poach, low veins, Story, offers, demand, favours, development, idle staff, ore-short |
+| daily_brief.gd | Pure BizBrief Today projection: `items()` (tiered rows + action), `card()` (Routine and 2+ demand spikes each fold to one summary row; capped, "+N more"), `badge_count()`, `summary()`, `mark_acted()` (only writer: today's ticks); sources: alarms, guard/bill/arrears/wage/contract shortfall, poach, low veins, Story, offers, demand, favours, development, idle staff, ore-short |
 | nav.gd | Screen navigation |
 | notify.gd | Notifications append/evict; per-contact dismiss via contactId meta |
 | objectives.gd | Objective/questline evaluator; all_of live-condition, template_periods_completed (Beat 6) and recurring_proof (Beat 7) objectives + their ToDo checklist rows |
@@ -277,7 +277,7 @@ overlays.
 | offers.json | offers.gd (synthetic catalogue, scripted counterparties, offer expiry days, recurring term weeks, random-offer daily chance curve + qty bands, small-offer threshold, cancel relation hit), business_quest.gd (biz_starter_* chain + Archie nudge text, biz_recurring_* from Beat 3/6) |
 | ore_types.json | widely read (economy, cultivating, sites, factions) |
 | palette.json | GameData.gd (reference combat-art palette; `lodedinnit_*` brand tokens read by lodedinnit_app.gd) |
-| daily_brief.json | GameData.gd + daily_brief.gd (Today card tier order + heading labels, row cap, bill window, vein risk bands + collapse-nights threshold, offer window, demand threshold, empty state, more/less + Routine toggle labels, routineParts, storyActions button labels, doneMark + revealSeconds fade, per-row tier/kind/label/consequence templates and action labels; PROSE-REVIEW) |
+| daily_brief.json | GameData.gd + daily_brief.gd (Today card tier order + labels, row cap, bill window, vein risk bands + collapse-nights threshold, offer window, demand threshold, empty state, more/less + Routine/demand toggle labels, routineParts, demandPart, storyActions button labels, doneMark + revealSeconds fade, per-row tier/kind/label/consequence/action templates; PROSE-REVIEW) |
 | phone_home.json | GameData.gd + phone_device_shell.gd (wallpaper, per-block status clock times, widget date format + fixed weather/battery copy; shell renders time/date from world.day/timeBlock) |
 | recipes.json | widely read (crafting, bench, combat, dial, jobs, rooms) |
 | sites.json | sites.gd, collective.gd, objectives.gd |

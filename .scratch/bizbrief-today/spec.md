@@ -105,11 +105,11 @@ The card only points; the player acts. Nothing is automated.
   - **Story:** the first active objective from the Objectives/ToDo sections, using the same text. Tutorial objectives that need time to pass get a data-driven action pointing to HQ Rest.
   - **Opportunity:**
     - pending offers expiring within 1 day;
-    - goods held by the player whose current demand modifier is ≥ the data threshold (default +25%);
+    - goods held by the player whose current demand modifier is ≥ the data threshold (default +25%). One qualifying good is a direct row; two or more fold into one demand summary row (amended 2026-10-11, `.scratch/bizbrief-structure` ticket 07) that names each good and its lift and expands on tap to the per-good rows, each with its held quantity, demand signal and Sell route. Grouping is presentation only: eligibility, price math, tiers, badge and per-good ticks are unchanged; the summary reads done once every good under it is;
     - open faction favour requests.
   - **Routine:** one summary row aggregating veins ready to prune, idle staff and production short of ore. It expands to individual rows in the UI.
 - **Unread messages** are no longer standalone rows. Messages tied to a Story or Opportunity surface through those rows; general unread counts stay on the Messages badge. This removes the current duplication with the Messages app.
-- **Ordering.** Fixed tier order, then `sort` within a tier. Cap the visible rows (data, default 6). The Routine summary always occupies at most one row.
+- **Ordering.** Fixed tier order, then `sort` within a tier. Cap the visible rows (data, default 6). The Routine summary always occupies at most one row, as does a demand summary; tier heading counts count card rows, so a summary counts once.
 - **Ticks.** "Acted on today" keys live in state under the morning-accounts area as a per-day list, cleared at rollover and backfilled on load. A row is `done` if its key is ticked and its condition is still true. Rows whose condition cleared simply disappear. Ticks are set when the player taps the row's action, via a system call from the screen.
 - **Thresholds and wording** live in a data table: day windows, the demand threshold, the collapse-nights threshold, the row cap, per-kind label/consequence templates, action labels, the empty-state line and the per-block clock labels. Templates are flagged `PROSE-REVIEW:`.
 - **Navigation.** The BizBrief screen maps `action.to` values onto existing navigation (phone app/sub-view deep links, Map drill-down to a vein, opening the Trade sheet or a Sales offer, a contact's Messages thread, an HQ zone). No new navigation system.

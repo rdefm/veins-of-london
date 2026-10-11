@@ -79,9 +79,11 @@ var _sales_history_open := false
 var _sales_details_id := ""
 # Brief sections expanded this session (view state), key -> true.
 var _open_brief_sections := {}
-# Today card view state: rows past the cap shown, Routine summary expanded.
+# Today card view state: rows past the cap shown, Routine and demand
+# summaries expanded.
 var _today_more_open := false
 var _routine_open := false
+var _demand_open := false
 # Ticked row keys already shown ticked (view state); a row ticked since then
 # fades in its tick.
 var _shown_ticks := {}
@@ -380,8 +382,9 @@ func _build_brief(content: VBoxContainer) -> void:
 
 # BizBrief Today card (spec .scratch/bizbrief-today §Brief tab layout): date,
 # blocks left, then one compact full-width row per DailyBrief.card() row under
-# its tier heading, each with one action button. Routine items sit behind one
-# summary row; rows past the cap behind "+N more".
+# its tier heading, each with one action button. Routine items, and two or
+# more demand spikes, each sit behind one summary row; rows past the cap
+# behind "+N more".
 func _build_today() -> Control:
 	var summary := DailyBrief.summary()
 	var c := UI.card()
@@ -408,6 +411,7 @@ func _build_today() -> Control:
 	var labels: Dictionary = GameData.DAILY_BRIEF
 	var reveal_more := _reveal == "more"
 	var reveal_routine := _reveal == "routine"
+	var reveal_demand := _reveal == "demand"
 	_reveal = ""
 	# Ticks cleared at rollover can fade in again when re-ticked.
 	var ticks: Array = GameState.state["morningAccounts"]["briefTicks"]
@@ -430,6 +434,13 @@ func _build_today() -> Control:
 				for child in row["children"]:
 					c["content"].add_child(_today_rule())
 					c["content"].add_child(_today_row(child, reveal_routine))
+		elif row["kind"] == "demandSummary":
+			var toggle_label: String = labels["demandCollapseLabel"] if _demand_open else labels["demandExpandLabel"]
+			c["content"].add_child(_today_row(row, reveal_more and past_cap, toggle_label, _toggle_demand))
+			if _demand_open:
+				for child in row["children"]:
+					c["content"].add_child(_today_rule())
+					c["content"].add_child(_today_row(child, reveal_demand))
 		else:
 			c["content"].add_child(_today_row(row, reveal_more and past_cap))
 	if card["more"] > 0:
@@ -516,6 +527,12 @@ func _today_row(row: Dictionary, revealed: bool = false, button_label: String = 
 func _toggle_routine() -> void:
 	_routine_open = not _routine_open
 	_reveal = "routine" if _routine_open else ""
+	refresh()
+
+
+func _toggle_demand() -> void:
+	_demand_open = not _demand_open
+	_reveal = "demand" if _demand_open else ""
 	refresh()
 
 

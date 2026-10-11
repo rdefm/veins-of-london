@@ -1,5 +1,5 @@
 {
-  "_comment": "DailyBrief (systems/daily_brief.gd): BizBrief's Today card. tierOrder is the fixed row order; tierLabels the Today card's tier headings; rowCap the visible-row cap; doneMark prefixes a row ticked today; revealSeconds is the fade for newly ticked or expanded rows (none under reduced motion); rows maps each row template id to its tier, kind, label/consequence templates ({placeholders} filled by DailyBrief) and action button label. PROSE-REVIEW: every label, consequence, actionLabel, routinePart, more/less label and emptyState string here is new copy.",
+  "_comment": "DailyBrief (systems/daily_brief.gd): BizBrief's Today card. tierOrder is the fixed row order; tierLabels the Today card's tier headings; rowCap the visible-row cap; doneMark prefixes a row ticked today; revealSeconds is the fade for newly ticked or expanded rows (none under reduced motion); demandPart is one good's piece of the demandSummary line (two or more demandSpike rows fold into it), demandExpand/CollapseLabel its toggle; rows maps each row template id to its tier, kind, label/consequence templates ({placeholders} filled by DailyBrief) and action button label. PROSE-REVIEW: every label, consequence, actionLabel, routinePart, demandPart, toggle label, more/less label and emptyState string here is new copy.",
   "rowCap": 6,
   "billWindowDays": 3,
   "veinRiskBands": ["barren", "sparse"],
@@ -15,6 +15,9 @@
   "revealSeconds": 0.25,
   "routineExpandLabel": "Show",
   "routineCollapseLabel": "Hide",
+  "demandExpandLabel": "Show",
+  "demandCollapseLabel": "Hide",
+  "demandPart": "{item} +{percent}%",
   "routineParts": {
     "veinAtRisk": "{n} sliding",
     "development": "{n} ready to develop",
@@ -111,6 +114,12 @@
       "label": "{item} demand up {percent}%",
       "consequence": "You hold {held}. Prices are up today.",
       "actionLabel": "Sell"
+    },
+    "demandSummary": {
+      "tier": "opportunity", "kind": "demandSummary",
+      "label": "{count} goods you hold in demand",
+      "consequence": "{parts}",
+      "actionLabel": "Show"
     },
     "favour": {
       "tier": "opportunity", "kind": "favour",

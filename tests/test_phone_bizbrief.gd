@@ -1244,6 +1244,34 @@ func run() -> void:
 		phone.free()
 	)
 
+	run_case("today_demand_summary_expands_to_one_sell_route_per_good", func():
+		GameState.reset()
+		for id in GameState.state["objectives"]:
+			GameState.state["objectives"][id]["active"] = false
+		GameState.state["flags"]["canSellConsumables"] = true
+		GameState.state["barometer"]["social"] = "festival"
+		Crafting.inventory_add("blast", 1, 3)
+		Crafting.inventory_add("shield", 1, 2)
+		GameState.state["phoneNav"]["app"] = "bizbrief"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		assert_true(phone.find_child("TodayRow_demand_blast", true, false) == null, "goods sit behind the summary")
+		var heading := phone.find_child("TodayTier_opportunity", true, false).get_child(0) as Label
+		assert_true(heading.text.ends_with("· 1"), "the summary is one visible row")
+		_button_with_text(phone.find_child("TodayRow_demand", true, false), GameData.DAILY_BRIEF["demandExpandLabel"]).pressed.emit()
+		for recipe_key in ["blast", "shield"]:
+			var row: Node = phone.find_child("TodayRow_demand_%s" % recipe_key, true, false)
+			assert_true(row != null, "%s listed" % recipe_key)
+			var texts := NodeQuery.label_texts(row)
+			assert_true(texts.any(func(t: String): return t.find(GameData.RECIPES[recipe_key]["name"]) != -1), "names the good")
+			assert_true(texts.any(func(t: String): return t.find(str(Crafting.inventory_qty(recipe_key))) != -1), "names held quantity")
+		_button_with_text(phone.find_child("TodayRow_demand_shield", true, false), "Sell").pressed.emit()
+		assert_eq(GameState.state["modal"]["type"], "sell_menu", "Sell opens the Trade sheet")
+		assert_true(GameState.state["morningAccounts"]["briefTicks"].has("demand:shield"), "ticks that good")
+		GameState.state["modal"] = null
+		phone.free()
+	)
+
 	run_case("a_ticked_row_shows_done_and_fades_in_unless_reduced_motion", func():
 		for reduced in [false, true]:
 			GameState.reset()

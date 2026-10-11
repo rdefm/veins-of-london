@@ -394,6 +394,57 @@ func run() -> void:
 		assert_eq(_kind("demandSpike"), [], "demand falls: drops off")
 	)
 
+	run_case("card_groups_two_or_more_demand_spikes_into_one_summary_row", func():
+		GameState.reset()
+		_quiet_story()
+		GameState.state["flags"]["canSellConsumables"] = true
+		GameState.state["barometer"]["social"] = "festival"
+		assert_true(DailyBrief.card()["visible"].is_empty(), "none held: no row")
+		Crafting.inventory_add("blast", 1, 3)
+		var card := DailyBrief.card()
+		assert_eq(card["visible"].map(func(r): return r["key"]), ["demand:blast"], "one good keeps its direct row")
+		Crafting.inventory_add("shield", 1, 2)
+		var before := GameState.state.duplicate(true)
+		card = DailyBrief.card()
+		assert_eq(GameState.state, before, "grouping never mutates state")
+		assert_eq(card["visible"].size(), 1, "two goods: one summary row")
+		var summary: Dictionary = card["visible"][0]
+		assert_eq([summary["tier"], summary["kind"], summary["key"], summary["done"]], ["opportunity", "demandSummary", "demand", false])
+		var spikes := _kind("demandSpike")
+		assert_eq(summary["children"].map(func(r): return r["key"]), spikes.map(func(r): return r["key"]), "children are the spike rows, untouched")
+		for child in summary["children"]:
+			assert_eq([child["action"], child["actionLabel"]], [{ "to": "trade" }, "Sell"], "each child routes to Trade")
+			assert_true(String(child["consequence"]).find(str(Crafting.inventory_qty(String(child["key"]).trim_prefix("demand:")))) != -1, "names held quantity")
+			assert_true(String(summary["consequence"]).find(GameData.RECIPES[String(child["key"]).trim_prefix("demand:")]["name"]) != -1, "summary names every good")
+		assert_true(String(summary["label"]).find("2") != -1, "summary counts the goods")
+		assert_eq(DailyBrief.summary()["counts"]["opportunity"], 1, "the summary counts as one card row")
+		assert_eq(DailyBrief.badge_count(), 0, "still never badges")
+		DailyBrief.mark_acted("demand:blast")
+		assert_eq(DailyBrief.card()["visible"][0]["done"], false, "one child ticked: summary not done")
+		DailyBrief.mark_acted("demand:shield")
+		assert_eq(DailyBrief.card()["visible"][0]["done"], true, "every child ticked: summary done")
+	)
+
+	run_case("demand_summary_takes_one_row_against_the_cap", func():
+		GameState.reset()
+		_quiet_story()
+		GameState.state["flags"]["canSellConsumables"] = true
+		GameState.state["barometer"]["social"] = "festival"
+		for recipe_key in ["blast", "shield", "blackHole", "wormhole"]:
+			Crafting.inventory_add(recipe_key, 1, 1)
+		var cap: int = GameData.DAILY_BRIEF["rowCap"]
+		for i in cap:
+			_pending_offer()["expiresDay"] = int(GameState.state["world"]["day"]) + 1
+		var card := DailyBrief.card()
+		var all_rows: Array = card["visible"] + card["hidden"]
+		assert_eq(all_rows.size(), cap + 1, "offers plus one demand summary")
+		assert_eq(card["more"], 1)
+		var demand_rows := all_rows.filter(func(r): return String(r["kind"]).begins_with("demand"))
+		assert_eq(demand_rows.size(), 1)
+		assert_true(_kind("demandSpike").size() >= 3, "festival lifts several held goods")
+		assert_eq(demand_rows[0]["children"].size(), _kind("demandSpike").size())
+	)
+
 	run_case("favour_row_per_open_request_until_answered", func():
 		GameState.reset()
 		_quiet_story()

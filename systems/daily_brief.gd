@@ -61,12 +61,14 @@ static func badge_count() -> int:
 	return items().filter(func(row: Dictionary): return BADGE_TIERS.has(row["tier"])).size()
 
 
-# Card header data: date label, time blocks left today, rows per tier.
+# Card header data: date label, time blocks left today, card rows per tier
+# (a summary row counts once).
 static func summary() -> Dictionary:
 	var counts := {}
 	for tier in GameData.DAILY_BRIEF["tierOrder"]:
 		counts[tier] = 0
-	for row in items():
+	var shown := card()
+	for row in shown["visible"] + shown["hidden"]:
 		counts[row["tier"]] += 1
 	return {
 		"dateLabel": Calendar.widget_date(int(GameState.state["world"]["day"])),
@@ -79,17 +81,29 @@ static func empty_text() -> String:
 	return GameData.DAILY_BRIEF["emptyState"]
 
 
-# What the Today card shows: every non-Routine row in order, then one
-# routineSummary row (its `children` are the Routine rows) when any exist;
-# `visible` is the first rowCap of those, `hidden` the rest, `more` its size.
+# What the Today card shows: every non-Routine row in order, two or more
+# demandSpike rows folded into one demandSummary row where the first stood,
+# then one routineSummary row when any Routine rows exist (a summary's
+# `children` are its rows); `visible` is the first rowCap of those, `hidden`
+# the rest, `more` its size.
 static func card() -> Dictionary:
 	var shown: Array[Dictionary] = []
 	var routine: Array[Dictionary] = []
+	var demand: Array[Dictionary] = []
+	var demand_at := -1
 	for row in items():
 		if row["tier"] == "routine":
 			routine.append(row)
-		else:
-			shown.append(row)
+			continue
+		if row["kind"] == "demandSpike":
+			if demand.is_empty():
+				demand_at = shown.size()
+				shown.append(row)
+			demand.append(row)
+			continue
+		shown.append(row)
+	if demand.size() > 1:
+		shown[demand_at] = _demand_summary(demand)
 	if not routine.is_empty():
 		shown.append(_routine_summary(routine))
 	var cap: int = GameData.DAILY_BRIEF["rowCap"]
@@ -108,6 +122,19 @@ static func _routine_summary(routine: Array[Dictionary]) -> Dictionary:
 			parts.append(String(part_templates[kind]).format({ "n": by_kind[kind] }))
 	var row := _row("routineSummary", "routine", { "count": routine.size(), "parts": " · ".join(parts) }, { "to": "routine" }, 0)
 	row["children"] = routine
+	return row
+
+
+# One row naming each qualifying good and its lift; done once every
+# demandSpike row under it is.
+static func _demand_summary(demand: Array[Dictionary]) -> Dictionary:
+	var part_template := String(GameData.DAILY_BRIEF["demandPart"])
+	var parts: Array[String] = []
+	for row in demand:
+		parts.append(part_template.format(row["values"]))
+	var row := _row("demandSummary", "demand", { "count": demand.size(), "parts": " · ".join(parts) }, { "to": "demand" }, demand[0]["sort"])
+	row["done"] = demand.all(func(child: Dictionary) -> bool: return child["done"])
+	row["children"] = demand
 	return row
 
 
@@ -275,7 +302,10 @@ static func _demand_spike_rows(rows: Array[Dictionary]) -> void:
 		if fraction < threshold - 0.000001:
 			continue
 		var values := { "item": GameData.RECIPES[recipe_key]["name"], "percent": roundi(fraction * 100.0), "held": held }
-		rows.append(_row("demandSpike", "demand:%s" % recipe_key, values, { "to": "trade" }, 0))
+		var row := _row("demandSpike", "demand:%s" % recipe_key, values, { "to": "trade" }, 0)
+		# Kept for the card's demandSummary line.
+		row["values"] = values
+		rows.append(row)
 
 
 # Open faction favour requests (R§3.10 "Favours"); answerable through the
