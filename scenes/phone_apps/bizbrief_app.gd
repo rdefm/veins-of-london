@@ -4,10 +4,11 @@
 # shares),
 # Manage tab (an index of Sales, Production and Procurement rows, each
 # opening its own page: sales offers/contracts, lab production targets,
-# cultivator procurement), once bizStaffTabOpen is set, Staff tab (recruited
-# contacts, roles, pay) and, once the business pot is active, Stats tab
+# cultivator procurement), once bizStaffTabOpen is set, Staff tab (a roster
+# row per recruit, each opening role, skills, pay, assignments and any poach
+# decision) and, once the business pot is active, Stats tab
 # (10-day business performance charts, expenses split by kind). The
-# selected tab, Manage page and ore-chart source are view state held here, not in
+# selected tab, Manage page, Staff person and ore-chart source are view state held here, not in
 # state.phoneNav, so they reset with the screen. state.phoneNav.bizbriefView "shortPay" shows the
 # short-pay sub-view (ShortPayView) instead while a guard shortfall is pending;
 # "guardCosts" shows the Guard Costs sub-view (GuardCostsView), pot or not.
@@ -66,6 +67,8 @@ var _manage_page := ""
 var _page_focus_id := ""
 # Cultivator whose Assign vein chooser replaces the Procurement list ("" = list).
 var _vein_chooser_for := ""
+# The recruit whose Staff detail is open; "" shows the roster.
+var _staff_person := ""
 var _ore_source := "oreCultivator"
 # Production-log days shown expanded (view state), day -> true.
 var _expanded_log_days := {}
@@ -91,6 +94,8 @@ var _offer_anchors := {}
 var _contract_anchors := {}
 # Recipe rows on the Production page, recipe key -> Control.
 var _recipe_anchors := {}
+# Procurement cultivator sections by contact id, for Staff's Assignments link.
+var _cultivator_anchors := {}
 var _short_pay := ShortPayViewScript.new()
 var _guard_costs := GuardCostsViewScript.new()
 var _root: Control = null
@@ -289,8 +294,8 @@ func _build_tab(tabs: HBoxContainer, title: String, tab_id: String) -> void:
 	var selected := _tab == tab_id
 	var button := UI.button(title, func(): _set_tab(tab_id))
 	button.name = "BizBriefTab_%s" % tab_id
-	# A selected tab stays tappable while a sub-page is open: it returns to the index.
-	button.disabled = selected and _manage_page == ""
+	# A selected tab stays tappable while a sub-page or person is open: it returns to the index.
+	button.disabled = selected and _manage_page == "" and _staff_person == ""
 	button.custom_minimum_size = Vector2(0, 46)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.add_theme_font_size_override("font_size", 11)
@@ -310,23 +315,26 @@ func _staff_tab_open() -> bool:
 
 
 func _set_tab(tab: String) -> void:
-	if tab == _tab and _manage_page == "":
+	if tab == _tab and _manage_page == "" and _staff_person == "":
 		return
 	if (tab == STAFF_TAB and not _staff_tab_open()) or (tab == STATS_TAB and not Business.is_pot_active()):
 		return
 	_tab = tab
 	_manage_page = ""
 	_vein_chooser_for = ""
+	_staff_person = ""
 	refresh()
 
 
 # Opens a Manage workstream page; focus_id names a Sales offer or contract
-# (a contract also opens its details) or a Production recipe to land on.
+# (a contract also opens its details), a Production recipe or a Procurement
+# cultivator to land on.
 func _open_manage_page(page: String, focus_id: String = "") -> void:
 	_tab = MANAGE_TAB
 	_manage_page = page
 	_page_focus_id = focus_id
 	_vein_chooser_for = ""
+	_staff_person = ""
 	if focus_id != "" and ContractsSystem.active_contracts().any(func(c: Dictionary) -> bool: return c["id"] == focus_id):
 		_sales_details_id = focus_id
 	refresh()
@@ -663,6 +671,7 @@ func _build_manage(content: VBoxContainer) -> void:
 		PROCUREMENT_PAGE:
 			content.add_child(_build_manage_subnav())
 			content.add_child(_build_procurement())
+			_focus_page_item()
 		_:
 			content.add_child(UI.muted_label("WORKSTREAMS"))
 			content.add_child(_build_manage_row(SALES_PAGE, _sales_status()))
@@ -683,23 +692,34 @@ func _build_manage_subnav() -> Control:
 # A full-width workstream row: title, one live status, chevron. The flat
 # button laid over the card makes the whole row the touch target.
 func _build_manage_row(page: String, status: String) -> Control:
+	return _build_nav_row("ManageRow_%s" % page, MANAGE_PAGE_TITLES[page], [status], func(): _open_manage_page(page))
+
+
+# A tappable row: title, muted status lines, optional signal badge, chevron.
+# node_name ends "Row_<id>"; the full-row button is named "RowButton_<id>".
+func _build_nav_row(node_name: String, title: String, lines: Array, on_press: Callable, badge: String = "") -> Control:
 	var panel := PanelContainer.new()
-	panel.name = "ManageRow_%s" % page
+	panel.name = node_name
 	var row := UI.hbox(8)
 	panel.add_child(row)
 	var text := UI.vbox(3)
 	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	text.add_child(UI.heading(MANAGE_PAGE_TITLES[page], 16))
-	text.add_child(UI.muted_label(status))
+	text.add_child(UI.heading(title, 16))
+	for line in lines:
+		text.add_child(UI.muted_label(line))
 	row.add_child(text)
+	if badge != "":
+		var tag := UI.tinted_label(badge, SIGNAL)
+		tag.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		row.add_child(tag)
 	var chevron := UI.heading("›", 20)
 	chevron.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	chevron.add_theme_color_override("font_color", SIGNAL)
 	row.add_child(chevron)
 	var tap := Button.new()
-	tap.name = "ManageRowButton_%s" % page
+	tap.name = node_name.replace("Row_", "RowButton_")
 	tap.custom_minimum_size.y = 44
-	tap.pressed.connect(func(): _open_manage_page(page))
+	tap.pressed.connect(on_press)
 	var press := StyleBoxFlat.new()
 	press.bg_color = Color(PAPER, 0.06)
 	for state in ["normal", "focus"]:
@@ -763,12 +783,22 @@ func _procurement_status() -> String:
 	return "%d of %d veins assigned" % [mini(assigned, veins.size()), veins.size()]
 
 
-func _build_staff(content: VBoxContainer) -> void:
+func _recruited_ids() -> Array[String]:
 	var contacts: Dictionary = GameState.state["contacts"]
 	var recruited: Array[String] = []
 	for contact_id in contacts.keys():
 		if contacts[contact_id]["recruited"]:
 			recruited.append(contact_id)
+	return recruited
+
+
+# The roster, or one person's detail while _staff_person names a recruit.
+func _build_staff(content: VBoxContainer) -> void:
+	var recruited := _recruited_ids()
+	if recruited.has(_staff_person):
+		_build_staff_detail(content, _staff_person)
+		return
+	_staff_person = ""
 	content.add_child(UI.heading("Staff", 16))
 	content.add_child(UI.muted_label("ROSTER / %02d RECRUITED" % recruited.size()))
 	var owed_total := 0
@@ -785,14 +815,61 @@ func _build_staff(content: VBoxContainer) -> void:
 	content.add_child(summary["panel"])
 	if recruited.is_empty():
 		content.add_child(UI.muted_label("No recruited contacts yet."))
-	for index in recruited.size():
-		var contact_id := recruited[index]
-		content.add_child(_brief_section("%02d / %s" % [index + 1, Contacts.display_name(contact_id)]))
-		content.add_child(_build_staff_card(contact_id))
-	content.add_child(_brief_section("Assignments"))
-	var assignments := UI.card()
-	assignments["content"].add_child(UI.button("Vein picking: Manage → Procurement", func(): _open_manage_page(PROCUREMENT_PAGE)))
-	content.add_child(assignments["panel"])
+	for contact_id in recruited:
+		content.add_child(_build_staff_row(contact_id))
+
+
+# One roster row: name, role, working/owed status; a decision or debt badges it.
+func _build_staff_row(contact_id: String) -> Control:
+	var role: Variant = Contacts.role_of(contact_id)
+	var lines := ["No role" if role == null else String(role).capitalize(), Business.staff_status(contact_id)]
+	var badge := ""
+	if Hiring.pending_poach_ids().has(contact_id):
+		badge = "OFFER"
+	elif Business.owed(contact_id) > 0:
+		badge = "DUE"
+	return _build_nav_row("StaffRow_%s" % contact_id, Contacts.display_name(contact_id), lines, func(): _open_staff_person(contact_id), badge)
+
+
+# Opens one recruit's detail on the Staff tab: role, skills, pay, assignments
+# and any pending poach decision.
+func _open_staff_person(contact_id: String) -> void:
+	if not _staff_tab_open():
+		return
+	_tab = STAFF_TAB
+	_manage_page = ""
+	_vein_chooser_for = ""
+	_staff_person = contact_id
+	refresh()
+	if is_instance_valid(_scroll):
+		_scroll.scroll_vertical = 0
+
+
+func _build_staff_detail(content: VBoxContainer, contact_id: String) -> void:
+	var nav := UI.hbox(4)
+	nav.name = "StaffSubnav"
+	nav.add_child(_quiet_link("‹ Staff", _close_staff_person, "StaffBack"))
+	var crumb := UI.muted_label("/ %s" % Contacts.display_name(contact_id))
+	crumb.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	nav.add_child(crumb)
+	content.add_child(nav)
+	if Hiring.pending_poach_ids().has(contact_id):
+		content.add_child(_build_poach_alert(contact_id))
+	content.add_child(_build_staff_card(contact_id))
+	if Contacts.role_of(contact_id) == "cultivation":
+		content.add_child(_brief_section("Assignments"))
+		var assignments := UI.card()
+		var count: int = Rooms.cultivator_veins(contact_id).size()
+		assignments["content"].add_child(UI.muted_label("%d vein%s assigned" % [count, "" if count == 1 else "s"]))
+		var link := UI.button("Veins: Manage → Procurement", func(): _open_manage_page(PROCUREMENT_PAGE, contact_id))
+		link.name = "StaffAssignmentsLink"
+		assignments["content"].add_child(link)
+		content.add_child(assignments["panel"])
+
+
+func _close_staff_person() -> void:
+	_staff_person = ""
+	refresh()
 
 
 func _build_stats(content: VBoxContainer) -> void:
@@ -1094,8 +1171,11 @@ func _build_procurement() -> Control:
 		_build_vein_chooser(c["content"], _vein_chooser_for, veins)
 		return section
 	_vein_chooser_for = ""
+	_cultivator_anchors = {}
 	for contact_id in cultivators:
-		c["content"].add_child(_build_cultivator_section(contact_id, veins))
+		var cultivator := _build_cultivator_section(contact_id, veins)
+		_cultivator_anchors[contact_id] = cultivator
+		c["content"].add_child(cultivator)
 	return section
 
 
@@ -1147,10 +1227,10 @@ func _build_vein_chooser(content: VBoxContainer, contact_id: String, veins: Arra
 		content.add_child(row)
 
 
-# Scrolls to the offer, contract or recipe _open_manage_page() named, once.
+# Scrolls to the offer, contract, recipe or cultivator _open_manage_page() named, once.
 # Deferred so the freshly built page has its layout before scrolling.
 func _focus_page_item() -> void:
-	var anchor: Variant = _offer_anchors.get(_page_focus_id, _contract_anchors.get(_page_focus_id, _recipe_anchors.get(_page_focus_id)))
+	var anchor: Variant = _offer_anchors.get(_page_focus_id, _contract_anchors.get(_page_focus_id, _recipe_anchors.get(_page_focus_id, _cultivator_anchors.get(_page_focus_id))))
 	_page_focus_id = ""
 	if is_instance_valid(_scroll) and is_instance_valid(anchor):
 		_scroll.ensure_control_visible.call_deferred(anchor)

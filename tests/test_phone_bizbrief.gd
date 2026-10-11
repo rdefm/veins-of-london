@@ -37,6 +37,11 @@ static func _open_manage_page(root: Node, page: String) -> void:
 	(root.find_child("ManageRowButton_%s" % page, true, false) as Button).pressed.emit()
 
 
+# Staff roster → one recruit's detail.
+static func _open_staff_person(root: Node, contact_id: String) -> void:
+	(root.find_child("StaffRowButton_%s" % contact_id, true, false) as Button).pressed.emit()
+
+
 static func _today_rows(today: Node) -> Array:
 	return today.find_children("TodayRow_*", "", true, false)
 
@@ -883,14 +888,12 @@ func run() -> void:
 		phone.free()
 	)
 
-	run_case("staff_tab_lists_recruited_contacts_with_terms_skills_and_status", func():
+	run_case("staff_roster_shows_one_status_row_per_recruit", func():
 		GameState.reset()
 		GameState.state["flags"]["bizStaffTabOpen"] = true
 		GameState.state["flags"]["bizOwenCultivationRole"] = true
 		GameState.state["contacts"]["archie"]["recruited"] = true
 		GameState.state["contacts"]["owen"]["recruited"] = true
-		GameState.state["contacts"]["owen"]["cultivatingSkill"] = 2
-		GameState.state["contacts"]["owen"]["cultivatingXP"] = 40
 		Contacts.set_role("owen", "cultivation")
 		Business.activate()
 		GameState.state["business"]["wages"]["owen"]["unpaid"] = true
@@ -901,13 +904,53 @@ func run() -> void:
 		_button_with_text(phone, "Staff").pressed.emit()
 
 		var texts := NodeQuery.label_texts(phone)
-		for expected in ["ROSTER / 02 RECRUITED", "PAYROLL EXPOSURE", "£120 owed", "01 / Archie", "02 / Owen", "Archie", "Owen", "No role · ⅓ share", "Cultivation · £%d a week" % int(GameData.BUSINESS_WEEKLY_WAGES["owen"]), "Unpaid · owed £120", "CULTIVATING", "LV 2 / 40 XP · cap 3", "Assignments"]:
+		for expected in ["ROSTER / 02 RECRUITED", "PAYROLL EXPOSURE", "£120 owed"]:
 			assert_true(texts.has(expected), "missing %s" % expected)
-		assert_true(not texts.has("James"), "unrecruited James not listed")
+		var owen_texts := NodeQuery.label_texts(phone.find_child("StaffRow_owen", true, false))
+		for expected in ["Owen", "Cultivation", "Unpaid · owed £120", "DUE"]:
+			assert_true(owen_texts.has(expected), "Owen row missing %s" % expected)
+		var archie_texts := NodeQuery.label_texts(phone.find_child("StaffRow_archie", true, false))
+		for expected in ["Archie", "No role", "Idle"]:
+			assert_true(archie_texts.has(expected), "Archie row missing %s" % expected)
+		assert_true(not archie_texts.has("DUE"))
+		assert_true(phone.find_child("StaffRow_james", true, false) == null, "unrecruited James not listed")
+		assert_true(not texts.has("CULTIVATING"), "skills stay in the person detail")
+		assert_true(_button_with_text(phone, "Top up £120 and pay") == null, "pay action stays in the person detail")
 		phone.free()
 	)
 
-	run_case("staff_exposure_sums_wages_and_pay_disables_when_cash_short", func():
+	run_case("staff_person_detail_shows_role_skills_pay_and_returns_to_roster", func():
+		GameState.reset()
+		GameState.state["flags"]["bizStaffTabOpen"] = true
+		GameState.state["flags"]["bizOwenCultivationRole"] = true
+		GameState.state["contacts"]["archie"]["recruited"] = true
+		GameState.state["contacts"]["owen"]["recruited"] = true
+		GameState.state["contacts"]["owen"]["cultivatingSkill"] = 2
+		GameState.state["contacts"]["owen"]["cultivatingXP"] = 40
+		Contacts.set_role("owen", "cultivation")
+		Business.activate()
+		GameState.state["phoneNav"]["app"] = "bizbrief"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		_button_with_text(phone, "Staff").pressed.emit()
+		_open_staff_person(phone, "owen")
+
+		var texts := NodeQuery.label_texts(phone)
+		for expected in ["/ Owen", "Cultivation · £%d a week" % int(GameData.BUSINESS_WEEKLY_WAGES["owen"]), "Working", "CULTIVATING", "LV 2 / 40 XP · cap 3", "Assignments", "0 veins assigned"]:
+			assert_true(texts.has(expected), "missing %s" % expected)
+		assert_true(phone.find_child("StaffRow_archie", true, false) == null, "detail replaces the roster")
+		assert_true(not _button_with_text(phone, "Staff").disabled, "Staff tab returns to the roster")
+		_button_with_text(phone, "‹ Staff").pressed.emit()
+		assert_true(phone.find_child("StaffRow_archie", true, false) != null)
+		_open_staff_person(phone, "archie")
+		assert_true(NodeQuery.label_texts(phone).has("No role · ⅓ share"))
+		assert_true(not NodeQuery.label_texts(phone).has("Assignments"), "no vein work, no Assignments link")
+		_button_with_text(phone, "Staff").pressed.emit()
+		assert_true(phone.find_child("StaffRow_owen", true, false) != null)
+		phone.free()
+	)
+
+	run_case("staff_detail_pay_disables_when_cash_short", func():
 		GameState.reset()
 		GameState.state["flags"]["bizStaffTabOpen"] = true
 		GameState.state["contacts"]["owen"]["recruited"] = true
@@ -924,15 +967,17 @@ func run() -> void:
 		var phone := PhoneScreen.new()
 		phone._ready()
 		_button_with_text(phone, "Staff").pressed.emit()
-		var texts := NodeQuery.label_texts(phone)
-		assert_true(texts.has("£160 owed"))
-		assert_true(texts.has("Unpaid · owed £40"))
+		assert_true(NodeQuery.label_texts(phone).has("£160 owed"))
+		_open_staff_person(phone, "owen")
 		assert_true(_button_with_text(phone, "Top up £120 and pay").disabled)
+		_button_with_text(phone, "‹ Staff").pressed.emit()
+		_open_staff_person(phone, "james")
+		assert_true(NodeQuery.label_texts(phone).has("Unpaid · owed £40"))
 		assert_true(not _button_with_text(phone, "Top up £40 and pay").disabled)
 		phone.free()
 	)
 
-	run_case("staff_tab_shows_no_pay_for_a_room_hire_without_a_business_wage", func():
+	run_case("staff_detail_shows_no_pay_for_a_room_hire_without_a_business_wage", func():
 		GameState.reset()
 		GameState.state["flags"]["bizStaffTabOpen"] = true
 		GameState.state["contacts"]["des"]["recruited"] = true
@@ -941,8 +986,10 @@ func run() -> void:
 		var phone := PhoneScreen.new()
 		phone._ready()
 		_button_with_text(phone, "Staff").pressed.emit()
-		var texts := NodeQuery.label_texts(phone)
-		assert_true(texts.has("Production · No pay"), "only a business wage entry carries pay terms")
+		_open_staff_person(phone, "des")
+		assert_true(NodeQuery.label_texts(phone).has("Production · No pay"), "only a business wage entry carries pay terms")
+		for button in phone.find_children("", "Button", true, false):
+			assert_true(not (button as Button).text.begins_with("Top up"), "no business wage, no pay action")
 		phone.free()
 	)
 
@@ -955,10 +1002,12 @@ func run() -> void:
 		var phone := PhoneScreen.new()
 		phone._ready()
 		_button_with_text(phone, "Staff").pressed.emit()
+		_open_staff_person(phone, "owen")
 
 		assert_true(_button_with_text(phone, "Production") == null, "production not yet available")
 		_button_with_text(phone, "Cultivation").pressed.emit()
 		assert_eq(Contacts.role_of("owen"), "cultivation")
+		assert_true(NodeQuery.label_texts(phone).has("/ Owen"), "role change keeps the detail open")
 
 		_button_with_text(phone, "Clear role").pressed.emit()
 		assert_eq(Contacts.role_of("owen"), null)
@@ -974,6 +1023,7 @@ func run() -> void:
 		var phone := PhoneScreen.new()
 		phone._ready()
 		_button_with_text(phone, "Staff").pressed.emit()
+		_open_staff_person(phone, "owen")
 		assert_true(_button_with_text(phone, "Top up £120 and pay") == null)
 		phone.free()
 
@@ -983,6 +1033,7 @@ func run() -> void:
 		phone = PhoneScreen.new()
 		phone._ready()
 		_button_with_text(phone, "Staff").pressed.emit()
+		_open_staff_person(phone, "owen")
 		_button_with_text(phone, "Top up £120 and pay").pressed.emit()
 		assert_eq(GameState.state["player"]["cash"], 380)
 		assert_eq(GameState.state["business"]["float"], 0, "the top-up is spent on the wage")
@@ -991,15 +1042,52 @@ func run() -> void:
 		phone.free()
 	)
 
-	run_case("staff_procurement_link_opens_manage", func():
+	run_case("staff_assignments_link_lands_on_the_cultivators_procurement_controls", func():
 		GameState.reset()
 		GameState.state["flags"]["bizStaffTabOpen"] = true
+		GameState.state["flags"]["bizOwenCultivationRole"] = true
+		GameState.state["home"]["rooms"].append("veinStation")
+		GameState.state["player"]["veins"] = [_brief_vein()]
+		GameState.state["contacts"]["owen"]["recruited"] = true
+		Contacts.set_role("owen", "cultivation")
+		Rooms.assign_vein("owen", "v1")
 		GameState.state["phoneNav"]["app"] = "bizbrief"
 		var phone := PhoneScreen.new()
 		phone._ready()
 		_button_with_text(phone, "Staff").pressed.emit()
-		_button_with_text(phone, "Vein picking: Manage → Procurement").pressed.emit()
+		_open_staff_person(phone, "owen")
+		assert_true(NodeQuery.label_texts(phone).has("1 vein assigned"))
+		(phone.find_child("StaffAssignmentsLink", true, false) as Button).pressed.emit()
 		assert_true(NodeQuery.label_texts(phone).has("/ Procurement"), "opens the Procurement page")
+		var section := phone.find_child("Cultivator_owen", true, false)
+		assert_true(section != null, "Owen's procurement controls are on the page")
+		assert_true(_button_with_text(section, "Unassign") != null)
+		phone.free()
+	)
+
+	run_case("staff_pending_poach_decision_lives_on_the_persons_detail", func():
+		GameState.reset()
+		GameState.state["world"]["day"] = 9
+		Business.activate()
+		GameState.state["flags"]["bizStaffTabOpen"] = true
+		GameState.state["flags"]["bizA1JamesJoined"] = true
+		GameState.state["home"]["rooms"] = ["veinStation", "lab"]
+		GameState.state["business"]["float"] = 5000
+		Hiring.hire("priya")
+		var faction_id: String = GameState.state["factions"].keys()[0]
+		GameState.state["hiring"]["poach"]["priya"] = { "attempts": 1, "pending": { "factionId": faction_id, "offer": 999, "expiresDay": 11 } }
+		GameState.state["phoneNav"]["app"] = "bizbrief"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		_button_with_text(phone, "Staff").pressed.emit()
+		assert_true(NodeQuery.label_texts(phone.find_child("StaffRow_priya", true, false)).has("OFFER"))
+		assert_true(phone.find_child("PoachMatch", true, false) == null, "decision is on the detail, not the roster")
+		_open_staff_person(phone, "priya")
+		assert_true(phone.find_child("BizBriefPoach_priya", true, false) != null)
+		(phone.find_child("PoachMatch", true, false) as Button).pressed.emit()
+		assert_eq(GameState.state["business"]["wages"]["priya"]["weekly"], 999)
+		assert_true(Hiring.pending_poach("priya").is_empty())
+		assert_true(phone.find_child("PoachMatch", true, false) == null, "resolved decision leaves the detail")
 		phone.free()
 	)
 
