@@ -2,11 +2,12 @@
 # collapsed accounts/Treasury/Operations feed sections, then the morning
 # account — bank, payday, operations, moves against you, London and supplier
 # shares),
-# Manage tab (sales offers/contracts, lab production targets, cultivator
-# procurement), once bizStaffTabOpen is set, Staff tab (recruited
+# Manage tab (an index of Sales, Production and Procurement rows, each
+# opening its own page: sales offers/contracts, lab production targets,
+# cultivator procurement), once bizStaffTabOpen is set, Staff tab (recruited
 # contacts, roles, pay) and, once the business pot is active, Stats tab
 # (10-day business performance charts, expenses split by kind). The
-# selected tab and ore-chart source are view state held here, not in
+# selected tab, Manage page and ore-chart source are view state held here, not in
 # state.phoneNav, so they reset with the screen. state.phoneNav.bizbriefView "shortPay" shows the
 # short-pay sub-view (ShortPayView) instead while a guard shortfall is pending;
 # "guardCosts" shows the Guard Costs sub-view (GuardCostsView), pot or not.
@@ -27,12 +28,18 @@ const SALES_STATUS_TEXT := {
 	true: "Sales delivers from shared stock at the end of each block.",
 }
 
+const SALES_EMPTY_TEXT := "No offers or orders yet."
+
 const CONTRACT_TYPE_PIP_TEXT := { "oneOff": "ONE-OFF", "recurring": "WEEKLY" }
 
 const BRIEF_TAB := "brief"
 const MANAGE_TAB := "manage"
 const STAFF_TAB := "staff"
 const STATS_TAB := "stats"
+const SALES_PAGE := "sales"
+const PRODUCTION_PAGE := "production"
+const PROCUREMENT_PAGE := "procurement"
+const MANAGE_PAGE_TITLES := { SALES_PAGE: "Sales", PRODUCTION_PAGE: "Production", PROCUREMENT_PAGE: "Procurement" }
 const ICON_PATH := "res://assets/phone/icons/bizbrief.png"
 const NAVY := Color("#101923")
 const HEADER := Color("#172431")
@@ -52,6 +59,10 @@ const EXPENSE_KIND_LINES := [
 ]
 
 var _tab := BRIEF_TAB
+# Manage workstream page shown ("" = the Manage index), view state.
+var _manage_page := ""
+# Offer or contract id the next Sales build scrolls to.
+var _sales_focus_id := ""
 var _ore_source := "oreCultivator"
 # Production-log days shown expanded (view state), day -> true.
 var _expanded_log_days := {}
@@ -73,6 +84,8 @@ var _reveal := ""
 var _wage_prompt_anchors := {}
 # Pending offer cards on the Manage tab, offer id -> Control.
 var _offer_anchors := {}
+# Active contract cards on the Sales page, contract id -> Control.
+var _contract_anchors := {}
 var _short_pay := ShortPayViewScript.new()
 var _guard_costs := GuardCostsViewScript.new()
 var _root: Control = null
@@ -146,26 +159,19 @@ func _build_header() -> Control:
 	style.bg_color = HEADER
 	style.border_color = LINE
 	style.border_width_bottom = 1
-	style.content_margin_left = 17
-	style.content_margin_right = 17
-	style.content_margin_top = 8
-	style.content_margin_bottom = 10
+	style.content_margin_left = 6
+	style.content_margin_right = 13
+	style.content_margin_top = 2
+	style.content_margin_bottom = 2
 	panel.add_theme_stylebox_override("panel", style)
-	var column := UI.vbox(3)
-	panel.add_child(column)
-	var back := UI.button("‹ Phone", func(): PhoneNav.go_home())
-	back.name = "BizBriefBack"
-	back.flat = true
-	back.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	back.custom_minimum_size.y = 26
-	for state in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
-		back.add_theme_color_override(state, MUTED)
-	column.add_child(back)
-	var row := UI.hbox(9)
-	column.add_child(row)
+	# One row: back route, icon, wordmark, live day/block.
+	var row := UI.hbox(7)
+	panel.add_child(row)
+	row.add_child(_quiet_link("‹ Phone", func(): PhoneNav.go_home(), "BizBriefBack"))
 	var icon := TextureRect.new()
 	icon.name = "BizBriefIcon"
-	icon.custom_minimum_size = Vector2(30, 30)
+	icon.custom_minimum_size = Vector2(24, 24)
+	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon.texture = load(ICON_PATH) as Texture2D
@@ -174,11 +180,12 @@ func _build_header() -> Control:
 		if not image.is_empty():
 			icon.texture = ImageTexture.create_from_image(image)
 	row.add_child(icon)
-	var brand := UI.heading("BizBrief", 24)
+	var brand := UI.heading("BizBrief", 20)
 	brand.name = "BizBriefBrand"
 	brand.add_theme_font_override("font", _serif_font())
 	brand.add_theme_color_override("font_color", PAPER)
 	brand.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	brand.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	row.add_child(brand)
 	var world: Dictionary = GameState.state["world"]
 	var phase: int = clampi(int(world["timeBlock"]), 0, GameData.TIME_BLOCKS.size() - 1)
@@ -187,12 +194,21 @@ func _build_header() -> Control:
 	day.add_theme_font_size_override("font_size", 9)
 	day.add_theme_color_override("font_color", MUTED)
 	day.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	day.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	row.add_child(day)
-	var subhead := UI.label("Business, under control.")
-	subhead.add_theme_font_size_override("font_size", 11)
-	subhead.add_theme_color_override("font_color", MUTED)
-	column.add_child(subhead)
 	return panel
+
+
+# Flat, muted back/route link with a full-height touch target.
+func _quiet_link(text: String, on_press: Callable, node_name: String) -> Button:
+	var link := UI.button(text, on_press)
+	link.name = node_name
+	link.flat = true
+	link.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	link.custom_minimum_size.y = 44
+	for state in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		link.add_theme_color_override(state, MUTED)
+	return link
 
 
 func _serif_font() -> Font:
@@ -269,7 +285,8 @@ func _build_tab(tabs: HBoxContainer, title: String, tab_id: String) -> void:
 	var selected := _tab == tab_id
 	var button := UI.button(title, func(): _set_tab(tab_id))
 	button.name = "BizBriefTab_%s" % tab_id
-	button.disabled = selected
+	# A selected tab stays tappable while a sub-page is open: it returns to the index.
+	button.disabled = selected and _manage_page == ""
 	button.custom_minimum_size = Vector2(0, 46)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.add_theme_font_size_override("font_size", 11)
@@ -289,11 +306,23 @@ func _staff_tab_open() -> bool:
 
 
 func _set_tab(tab: String) -> void:
-	if tab == _tab:
+	if tab == _tab and _manage_page == "":
 		return
 	if (tab == STAFF_TAB and not _staff_tab_open()) or (tab == STATS_TAB and not Business.is_pot_active()):
 		return
 	_tab = tab
+	_manage_page = ""
+	refresh()
+
+
+# Opens a Manage workstream page; for Sales, focus_id names an offer or
+# contract to land on (a contract also opens its details).
+func _open_manage_page(page: String, focus_id: String = "") -> void:
+	_tab = MANAGE_TAB
+	_manage_page = page
+	_sales_focus_id = focus_id
+	if focus_id != "" and ContractsSystem.active_contracts().any(func(c: Dictionary) -> bool: return c["id"] == focus_id):
+		_sales_details_id = focus_id
 	refresh()
 
 
@@ -433,11 +462,12 @@ func _open_today_action(action: Dictionary) -> void:
 				_scroll.ensure_control_visible(prompt)
 		"bizbrief_staff":
 			_set_tab(STAFF_TAB)
-		"bizbrief_sales", "bizbrief_manage":
+		"bizbrief_manage":
 			_set_tab(MANAGE_TAB)
+		"bizbrief_sales":
+			_open_manage_page(SALES_PAGE, String(action.get("contractId", "")))
 		"bizbrief_offer":
-			_set_tab(MANAGE_TAB)
-			_show_offer(action["offerId"])
+			_open_manage_page(SALES_PAGE, String(action["offerId"]))
 		"trade":
 			Modal.open("sell_menu")
 		"thread":
@@ -615,10 +645,111 @@ static func _percent_points(fraction: float) -> int:
 
 
 func _build_manage(content: VBoxContainer) -> void:
-	content.add_child(UI.muted_label("Operations / Sales pipeline"))
-	content.add_child(_build_sales())
-	content.add_child(_build_production())
-	content.add_child(_build_procurement())
+	match _manage_page:
+		SALES_PAGE:
+			content.add_child(_build_manage_subnav())
+			content.add_child(_build_sales())
+			_focus_sales_item()
+		PRODUCTION_PAGE:
+			content.add_child(_build_manage_subnav())
+			content.add_child(_build_production())
+		PROCUREMENT_PAGE:
+			content.add_child(_build_manage_subnav())
+			content.add_child(_build_procurement())
+		_:
+			content.add_child(UI.muted_label("WORKSTREAMS"))
+			content.add_child(_build_manage_row(SALES_PAGE, _sales_status()))
+			content.add_child(_build_manage_row(PRODUCTION_PAGE, _production_status()))
+			content.add_child(_build_manage_row(PROCUREMENT_PAGE, _procurement_status()))
+
+
+func _build_manage_subnav() -> Control:
+	var row := UI.hbox(4)
+	row.name = "ManageSubnav"
+	row.add_child(_quiet_link("‹ Manage", func(): _set_tab(MANAGE_TAB), "ManageBack"))
+	var crumb := UI.muted_label("/ %s" % MANAGE_PAGE_TITLES[_manage_page])
+	crumb.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	row.add_child(crumb)
+	return row
+
+
+# A full-width workstream row: title, one live status, chevron. The flat
+# button laid over the card makes the whole row the touch target.
+func _build_manage_row(page: String, status: String) -> Control:
+	var panel := PanelContainer.new()
+	panel.name = "ManageRow_%s" % page
+	var row := UI.hbox(8)
+	panel.add_child(row)
+	var text := UI.vbox(3)
+	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text.add_child(UI.heading(MANAGE_PAGE_TITLES[page], 16))
+	text.add_child(UI.muted_label(status))
+	row.add_child(text)
+	var chevron := UI.heading("›", 20)
+	chevron.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	chevron.add_theme_color_override("font_color", SIGNAL)
+	row.add_child(chevron)
+	var tap := Button.new()
+	tap.name = "ManageRowButton_%s" % page
+	tap.custom_minimum_size.y = 44
+	tap.pressed.connect(func(): _open_manage_page(page))
+	var press := StyleBoxFlat.new()
+	press.bg_color = Color(PAPER, 0.06)
+	for state in ["normal", "focus"]:
+		tap.add_theme_stylebox_override(state, StyleBoxEmpty.new())
+	for state in ["hover", "pressed"]:
+		tap.add_theme_stylebox_override(state, press)
+	panel.add_child(tap)
+	return panel
+
+
+func _sales_status() -> String:
+	var counts := _sales_counts()
+	if counts == "":
+		return SALES_EMPTY_TEXT
+	if not ContractsSystem.active_contracts().is_empty() and not ContractsSystem.has_staffed_sales():
+		counts += " · nobody on Sales"
+	return counts
+
+
+# "2 active · 1 offer waiting", omitting zero parts; "" when both are zero.
+func _sales_counts() -> String:
+	var offers: int = OffersSystem.pending_offers().size()
+	var active: int = ContractsSystem.active_contracts().size()
+	var parts: Array[String] = []
+	if active > 0:
+		parts.append("%d active" % active)
+	if offers > 0:
+		parts.append("%d offer%s waiting" % [offers, "" if offers == 1 else "s"])
+	return " · ".join(parts)
+
+
+func _production_status() -> String:
+	if not Rooms.production_settings_open():
+		return "Needs the Improved Lab."
+	var recipe_keys := Rooms.production_recipes()
+	if recipe_keys.is_empty():
+		return "Nothing your crafters can make yet."
+	var targeted := 0
+	for recipe_key in recipe_keys:
+		if int(GameState.state["labThresholds"].get(recipe_key, 0)) > 0 or Rooms.lab_covers_contracts(recipe_key):
+			targeted += 1
+	if targeted == 0:
+		return "No targets set."
+	return "%d of %d recipes targeted" % [targeted, recipe_keys.size()]
+
+
+func _procurement_status() -> String:
+	var cultivators: Array = Contacts.contacts_in_role("cultivation")
+	if cultivators.is_empty():
+		return "No cultivators yet." if GameState.state["home"]["rooms"].has("veinStation") else "Needs the Vein Cultivation Station."
+	var veins: Array = VeinList.veins(null, null)
+	if veins.is_empty():
+		return "No veins yet."
+	var assigned := 0
+	for contact_id in cultivators:
+		assigned += Rooms.cultivator_veins(contact_id).size()
+	return "%d of %d veins assigned" % [mini(assigned, veins.size()), veins.size()]
 
 
 func _build_staff(content: VBoxContainer) -> void:
@@ -649,7 +780,7 @@ func _build_staff(content: VBoxContainer) -> void:
 		content.add_child(_build_staff_card(contact_id))
 	content.add_child(_brief_section("Assignments"))
 	var assignments := UI.card()
-	assignments["content"].add_child(UI.button("Vein picking: Manage → Procurement", func(): _set_tab(MANAGE_TAB)))
+	assignments["content"].add_child(UI.button("Vein picking: Manage → Procurement", func(): _open_manage_page(PROCUREMENT_PAGE)))
 	content.add_child(assignments["panel"])
 
 
@@ -955,9 +1086,11 @@ func _show_procurement_assignments() -> void:
 		_scroll.ensure_control_visible(_procurement_anchor)
 
 
-# Deferred so the freshly built Manage tab has its layout before scrolling.
-func _show_offer(offer_id: String) -> void:
-	var anchor: Variant = _offer_anchors.get(offer_id)
+# Scrolls to the offer or contract _open_manage_page() named, once.
+# Deferred so the freshly built page has its layout before scrolling.
+func _focus_sales_item() -> void:
+	var anchor: Variant = _offer_anchors.get(_sales_focus_id, _contract_anchors.get(_sales_focus_id))
+	_sales_focus_id = ""
 	if is_instance_valid(_scroll) and is_instance_valid(anchor):
 		_scroll.ensure_control_visible.call_deferred(anchor)
 
@@ -1059,19 +1192,18 @@ func _build_sales() -> Control:
 	var contracts: Array = ContractsSystem.active_contracts()
 	var history: Array = GameState.state["sales"].get("contractHistory", [])
 	var section := UI.vbox(9)
-	var summary := UI.card()
-	summary["panel"].name = "BizBriefHero"
-	summary["content"].add_child(UI.muted_label("SALES PIPELINE"))
-	var counts := UI.hbox(8)
-	counts.add_child(UI.expand_fill(UI.heading("Sales · %d active" % contracts.size(), 18)))
-	counts.add_child(UI.muted_label("%d OFFER%s" % [offers.size(), "" if offers.size() == 1 else "S"]))
-	summary["content"].add_child(counts)
-	summary["content"].add_child(UI.muted_label(SALES_STATUS_TEXT[ContractsSystem.has_staffed_sales()]))
-	section.add_child(summary["panel"])
-	section.add_child(UI.heading("Offered contracts · %d" % offers.size(), 14))
-	if offers.is_empty():
-		section.add_child(UI.muted_label("No pending offers."))
+	var title := UI.hbox(8)
+	title.add_child(UI.expand_fill(UI.heading("Sales", 20)))
+	title.add_child(UI.button("History →" if not _sales_history_open else "History ▾", func(): _toggle_sales_history()))
+	section.add_child(title)
+	if offers.is_empty() and contracts.is_empty():
+		section.add_child(UI.muted_label(SALES_EMPTY_TEXT))
+	else:
+		section.add_child(UI.muted_label("%s. %s" % [_sales_counts(), SALES_STATUS_TEXT[ContractsSystem.has_staffed_sales()]]))
+	if not offers.is_empty():
+		section.add_child(UI.heading("Offered · %d" % offers.size(), 14))
 	_offer_anchors = {}
+	_contract_anchors = {}
 	for offer in offers:
 		var c := UI.card()
 		c["panel"].name = "OfferCard_%s" % String(offer["id"]).validate_node_name()
@@ -1095,17 +1227,14 @@ func _build_sales() -> Control:
 		offer_row.add_child(UI.button("Decline", func(): OffersSystem.decline_offer(offer["id"])))
 		c["content"].add_child(offer_row)
 		section.add_child(c["panel"])
-	var accepted_row := UI.hbox(8)
-	accepted_row.add_child(UI.expand_fill(UI.heading("Accepted contracts · %d" % contracts.size(), 14)))
-	accepted_row.add_child(UI.button("History →" if not _sales_history_open else "History ▾", func(): _toggle_sales_history()))
-	section.add_child(accepted_row)
-	if contracts.is_empty():
-		section.add_child(UI.muted_label("No accepted contracts."))
-	else:
+	if not contracts.is_empty():
+		section.add_child(UI.heading("Accepted · %d" % contracts.size(), 14))
 		section.add_child(UI.muted_label("Drag cards to set delivery priority."))
 	for index in contracts.size():
 		var contract: Dictionary = contracts[index]
 		var card := ContractCard.new()
+		card.name = "ContractCard_%s" % String(contract["id"]).validate_node_name()
+		_contract_anchors[contract["id"]] = card
 		card.configure(contract["id"], index)
 		var box := UI.vbox(6)
 		card.add_child(box)

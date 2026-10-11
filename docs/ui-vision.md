@@ -596,14 +596,20 @@ its existing axis detail remains the story route until the article ticket.
 
 **BizBrief exception (approved 2026-10-02, `.scratch/bizbrief-redesign/selected-direction.html`):**
 Phone apps may have distinct internal aesthetics. BizBrief uses the existing
-device frame and status bar, then its own icon and serif wordmark header,
-live day/block, navy page and cards (`#101923`, `#1b2a38`), paper-white ink,
+device frame and status bar, then a single-row header (back route, icon,
+serif wordmark, live day/block; no subhead), navy page and cards (`#101923`, `#1b2a38`), paper-white ink,
 and restrained signal-red actions and selected-tab underline (`#e9353c`).
 Brief and Manage are always available; Staff and Stats keep their existing
 unlock gates. Editorial headings and figures use system Georgia/serif with
 engine-font fallback; body text stays on the shared UI sans. Short Pay,
 Guard Costs and contract-cancel surfaces follow this same BizBrief direction.
 Other Phone apps keep their established chrome and action styling.
+Manage is a short workstream index (structure refresh approved 2026-10-11,
+`.scratch/bizbrief-structure/spec.md`): full-width Sales, Production and
+Procurement rows, each with one live status, open their own pages under a
+"‹ Manage / Page" sub-nav; tapping the selected Manage tab also returns to
+the index. Sales holds offers, accepted contracts, priority, details,
+cancellation and history; a Today route lands on the named offer or contract.
 
 **List/detail pattern** (The Ticker, Messages): master rows are flat,
 hairline-divided, no card border per row — title line in ink, one muted

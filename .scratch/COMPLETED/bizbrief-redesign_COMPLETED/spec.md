@@ -1,5 +1,7 @@
 # BizBrief visual redesign
 
+> Amended 2026-10-11: the header and Manage hierarchy are superseded by `.scratch/bizbrief-structure/spec.md` (one-row header without subhead; Manage as a Sales/Production/Procurement index with a page each). Visual language below is unchanged.
+
 ## Approved target
 
 `selected-direction.html` is the target design and aesthetic for BizBrief. Its four phone views are static examples with illustrative values. Implement its navy surfaces, restrained signal red, editorial serif headings and figures, compact rows/cards, brand header, and underline tab navigation inside the existing phone frame and status bar. Keep live values, current gates, and existing gameplay rules. The other Phone apps retain their own styling.
