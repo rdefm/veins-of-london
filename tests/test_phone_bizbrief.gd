@@ -1224,8 +1224,10 @@ func run() -> void:
 		GameState.state["phoneNav"]["app"] = "bizbrief"
 		var phone := PhoneScreen.new()
 		phone._ready()
+		assert_true(not NodeQuery.label_texts(phone).has("Your share of London"), "shares live on Market position, not Brief")
+		_open_brief_page(phone, "market")
 		var texts := NodeQuery.label_texts(phone)
-		for expected in ["Your share of London", "Ore 25% ▼", "Crafting 100% ▲", "Crafting 0%"]:
+		for expected in ["Your share of London", "Last %d days · ▲▼ vs the %d before" % [GameData.SHARES_WINDOW_DAYS, GameData.SHARES_WINDOW_DAYS], "Ore 25% ▼", "Crafting 100% ▲", "Crafting 0%"]:
 			assert_true(texts.has(expected), "missing %s" % expected)
 		assert_eq(_label_with_text(phone, "Ore 25% ▼").get_theme_color("font_color"), PriceMove.colour(-1, Color.WHITE))
 		phone.free()
@@ -1239,6 +1241,7 @@ func run() -> void:
 		GameState.state["phoneNav"]["app"] = "bizbrief"
 		var phone := PhoneScreen.new()
 		phone._ready()
+		_open_brief_page(phone, "market")
 		var texts := NodeQuery.label_texts(phone)
 		assert_true(texts.has(GameData.FACTIONS["guild"]["shortName"]), "delivered-to faction listed")
 		assert_true(texts.has("75% of your deliveries · 25% of their intake"), "guild reads A and B")
@@ -1247,13 +1250,48 @@ func run() -> void:
 		phone.free()
 	)
 
-	run_case("brief_supplier_share_empty_without_deliveries", func():
+	run_case("market_position_quiet_groups_are_single_lines_not_empty_cards", func():
 		GameState.reset()
 		GameState.state["phoneNav"]["app"] = "bizbrief"
 		var phone := PhoneScreen.new()
 		phone._ready()
-		assert_true(NodeQuery.label_texts(phone).has("No contract deliveries in the last %d days." % GameData.SHARES_WINDOW_DAYS))
+		assert_true(_row_texts(phone, "market").has("No rival moves · not at war"))
+		_open_brief_page(phone, "market")
+		var texts := NodeQuery.label_texts(phone)
+		for expected in ["/ Market position", "Moves against you", "War", "Your share of London", "Supplier share",
+				"Nobody has moved against you.", "Not at war · weariness 0 / 100",
+				"No contract deliveries in the last %d days." % GameData.SHARES_WINDOW_DAYS]:
+			assert_true(texts.has(expected), "missing %s" % expected)
+		for card in ["MarketMoves", "MarketWar", "MarketSupplierShare"]:
+			assert_true(phone.find_child(card, true, false) == null, "quiet %s has no card" % card)
+		assert_true(phone.find_child("MarketLondonShare", true, false) != null, "London share always reads")
 		phone.free()
+	)
+
+	run_case("market_position_lists_moves_and_wars_and_back_returns_to_brief", func():
+		for pot_active in [false, true]:
+			GameState.reset()
+			GameState.state["world"]["day"] = 20
+			if pot_active:
+				Business.activate()
+			FactionAI.log_activity("guild", "Undercut your buyers.", { "target": Shares.PLAYER })
+			GameState.state["factionWar"]["wars"] = [{ "parties": [Shares.PLAYER, "conclave"], "startDay": 12, "lastHostileDay": 19, "weariness": { Shares.PLAYER: 0.0, "conclave": 0.0 } }]
+			GameState.state["factionWar"]["weariness"][Shares.PLAYER] = 40.0
+			GameState.state["phoneNav"]["app"] = "bizbrief"
+			var phone := PhoneScreen.new()
+			phone._ready()
+			assert_true(_row_texts(phone, "market").has("1 move against you · At war with %s" % GameData.FACTIONS["conclave"]["shortName"]), "row status (pot %s)" % pot_active)
+			assert_true(phone.find_child("MarketMoves", true, false) == null, "moves not on Brief")
+			_open_brief_page(phone, "market")
+			assert_true(phone.find_child("BizBriefToday", true, false) == null, "the page replaces Today")
+			var moves := NodeQuery.label_texts(phone.find_child("MarketMoves", true, false))
+			assert_true(moves.has("%s · %s: Undercut your buyers." % [Calendar.format_day(20), GameData.FACTIONS["guild"]["shortName"]]))
+			var war := NodeQuery.label_texts(phone.find_child("MarketWar", true, false))
+			for expected in ["40 / 100", "At war with %s · since %s" % [GameData.FACTIONS["conclave"]["shortName"], Calendar.format_day(12)], "Last clash %s" % Calendar.format_day(19)]:
+				assert_true(war.has(expected), "missing %s" % expected)
+			(phone.find_child("BriefBack", true, false) as Button).pressed.emit()
+			assert_true(phone.find_child("BizBriefToday", true, false) != null, "back returns to Brief (pot %s)" % pot_active)
+			phone.free()
 	)
 
 	run_case("today_caps_rows_with_more_toggle_and_routine_summary_expands", func():

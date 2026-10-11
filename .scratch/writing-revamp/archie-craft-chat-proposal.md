@@ -80,14 +80,15 @@ Both are small. Without them, the fallback is one flat result for every pearl co
           "speaker": null,
           "text": "Archie is eating a falafel wrap with his back to a pillar, where he can see both ends of the aisle. He's sat like that since Whitechapel. He waves you over.",
           "key": "c1",
-          "image": "res://assets/events/archie_craft_chat/archie_craft_chat_card1.png"
+          "image": "res://assets/events/archie_craft_chat/archie_craft_chat_main_1.png"
         },
         {
           "type": "speaker",
           "label": null,
           "speaker": "Archie",
           "text": "\"Go on, then. How'd it go with James? He have you sweeping up, or did he let you near the good stuff?\"",
-          "key": "c2"
+          "key": "c2",
+          "image": "res://assets/events/archie_craft_chat/archie_craft_chat_main_2.png"
         },
         {
           "type": "choice",
@@ -122,16 +123,15 @@ Both are small. Without them, the fallback is one flat result for every pearl co
               }
             }
           ],
-          "key": "c3",
-          "image": "res://assets/events/archie_craft_chat/archie_craft_chat_card4.png"
+          "key": "c3"
         },
         {
           "type": "narration",
           "label": null,
           "speaker": null,
-          "text": "You put a pearl on the table between you. Archie stops chewing. His eyes start to stream and he leans back from it, but he doesn't stop looking. \"You made that?\" A pause. \"I've had nothing in my pocket since Whitechapel but keys.\"",
+          "text": "You put a pearl on the table between you. Archie stops chewing, some falafel falling to the floor unnoticed. His eyes start to stream and he leans back from it, but he doesn't stop looking. \"You made that?\"",
           "key": "c10",
-          "image": "res://assets/events/archie_craft_chat/archie_craft_chat_main_c3_offerPearl.png"
+          "image": "res://assets/events/archie_craft_chat/archie_craft_chat_main_4.png"
         }
       ],
       "then": [
@@ -154,7 +154,7 @@ Both are small. Without them, the fallback is one flat result for every pearl co
           "type": "choice",
           "label": null,
           "speaker": "Archie",
-          "text": "He looks at the pearl, then at your pocket, which clinks. \"How many have you got?\" You tell him. He breathes out. \"Then I'll have that one. Next time someone gets a knife out, I'd like a better answer than running.\"",
+          "text": "He looks at the pearl, then at you. \"How many have you got?\" You tell him. He breathes out. \"Then I'll have that one and not leaving you high and dry. Next time things kick off, I'd like a better answer than running.\"",
           "choices": [
             {
               "id": "giveSpare",
@@ -166,7 +166,7 @@ Both are small. Without them, the fallback is one flat result for every pearl co
                   "qty": 1
                 }
               ],
-              "result_text": "He wraps it in a napkin, folds it twice and zips it into his inside pocket, eyes still running. \"That's the Whitechapel one squared. I'll put it on your tab.\" You don't have a tab. Apparently it's in credit.",
+              "result_text": "He wraps it in a napkin, folds it twice and slips it into his inside pocket, eyes still running. \"That's the Whitechapel one squared. I'll put it on your tab.\" You don't have a tab. Apparently it's in credit.",
               "goto": {
                 "branch": "james"
               }
@@ -183,7 +183,7 @@ Both are small. Without them, the fallback is one flat result for every pearl co
           "type": "speaker",
           "label": null,
           "speaker": "Archie",
-          "text": "\"That your only one?\" He pushes it back across the table with one finger, eyes still running. \"Keep it on you. Nights especially. Give me the next one you make.\"",
+          "text": "\"I've had nothing in my pocket since Whitechapel but keys... That your only one?\" He pushes it back across the table with one finger, eyes still running. \"Keep it on you. Nights especially. Give me the next one you make.\"",
           "key": "c5",
           "image": "res://assets/events/archie_craft_chat/archie_craft_chat_only_1.png"
         }
@@ -199,8 +199,13 @@ Both are small. Without them, the fallback is one flat result for every pearl co
           "type": "speaker",
           "label": null,
           "speaker": "Archie",
-          "text": "\"James doesn't show people things. James does things, judges you for not knowing how, and considers that a complete interaction.\" He tilts his head. \"So either he was desperate, or he saw something worth the bother. Don't let it go to your head.\"",
+          "text": "\"James showed you how to craft that? Hm. James doesn't show people things. He usually judges you for not knowing how to do something, and considers that a complete interaction.\" ",
           "key": "c6"
+        },
+        {
+          "key": "c11",
+          "type": "narration",
+          "text": "He tilts his head. \"So either he was desperate, or he saw something worth the bother. Don't let it go to your head.\""
         },
         {
           "type": "speaker",

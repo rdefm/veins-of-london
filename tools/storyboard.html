@@ -2293,8 +2293,11 @@ function checkOddsBlock(opt, changed, restructure) {
     return null;
   }
   // The previewed pick's own result image (null = cleared), else a check option's shared one; undefined = none.
+  // A null or blank result_text shows no result card in play (R§3.9a Goto), so its image never shows.
+  const noResultCard = (res) => !res || res.result_text == null || String(res.result_text).trim() === "";
   function pickedImage(b) {
     const { o, oc } = picked(b);
+    if (oc && noResultCard(oc.res)) return undefined;
     return oc && oc.res && "image" in oc.res ? oc.res.image : o && o.check && "image" in o ? o.image : undefined;
   }
 
@@ -2381,6 +2384,7 @@ function checkOddsBlock(opt, changed, restructure) {
     }
     const c = b.cards[cardIdx];
     const { o, outs, oc } = picked(b);
+    frame.title = !shots && b.draft ? (o && !noResultCard(oc && oc.res) ? "Click to pick this result's image" : "Click to pick this card's image") : "";
     // A previewed result shows its own image, else the image held along the played path.
     const resImage = pickedImage(b);
     const img = shots ? null : resImage !== undefined ? resImage : shotAlong(b);
@@ -2422,7 +2426,7 @@ function checkOddsBlock(opt, changed, restructure) {
       }
       const res = oc.res || {};
       const mech = [effectsText(res.effects), res.goto != null ? `→ ${targetText(res.goto)}` : ""].filter(Boolean).join(" · ");
-      out.append(el("p", { text: res.result_text || "(no result text)" }), mech ? el("span", { class: "mech", text: mech }) : null);
+      out.append(el("p", { text: noResultCard(res) ? "(no result text: no result card, play goes straight on)" : res.result_text }), mech ? el("span", { class: "mech", text: mech }) : null);
       if (outs.length > 1) out.append(el("span", { class: "mech", text: "Odds at base, before mods." }));
     }
     $("pos").textContent = `${c.branch} · ${c.key} · ${cardIdx + 1}/${b.cards.length}`;
@@ -2678,8 +2682,15 @@ function checkOddsBlock(opt, changed, restructure) {
   const IP_MAX = 150;
   // ipTarget: null = the card's own image; {opt, slot} = that option outcome's result image.
   let ipSource = "shots", ipTok = 0, ipUrls = [], repoImages = null, ipBusy = false, ipTarget = null;
-  const setCard = (key, image) => editDraft((d) => setCardImage(d, key, image), true);
-  const setResultImage = (key, t, image) => editDraft((d) => setOutcomeImage(d, key, t.opt, t.slot, image), true);
+  // Storyboard-shot previews ignore image keys, so an image edit switches the preview to the event's own images.
+  function useEventImages() {
+    if (imgMode === "event") return;
+    imgMode = "event";
+    try { localStorage.setItem("vein-sb-imgmode", imgMode); } catch {}
+    $("img-mode").textContent = "Images: event keys";
+  }
+  const setCard = (key, image) => { useEventImages(); editDraft((d) => setCardImage(d, key, image), true); };
+  const setResultImage = (key, t, image) => { useEventImages(); editDraft((d) => setOutcomeImage(d, key, t.opt, t.slot, image), true); };
   // The picker's current image holder: the card, or the targeted option outcome (null when not set yet).
   const ipHolder = (c, t) => {
     if (!t) return c;
@@ -2699,7 +2710,7 @@ function checkOddsBlock(opt, changed, restructure) {
     const now = c.cut === "NEW" ? baseName(c.shot) + ("image" in c ? "" : " (convention file)")
       : c.cut === "HOLD" ? "HOLD · keeps the previous image" : "CLEAR · no image";
     $("ce-image").replaceChildren(el("span", { class: "mono", text: now }),
-      iconBtn("Pick…", "Pick an image for this card", false, openImagePicker),
+      iconBtn("Pick…", "Pick an image for this card", false, () => openImagePicker()),
       iconBtn("HOLD", "Hold: no image of its own, keep the previous card's", !("image" in c), () => setCard(c.key, undefined)),
       iconBtn("CLEAR", "Clear: show no image from this card on", c.image === null, () => setCard(c.key, null)));
   }
@@ -2894,9 +2905,10 @@ function checkOddsBlock(opt, changed, restructure) {
   // CLEAR buttons.
   function resultImageRow(c, i, s) {
     const r = s.res, has = !!r && "image" in r, t = { opt: i, slot: s.slot };
-    const now = !has ? "card's image" : r.image === null ? "CLEAR · no image" : baseName(r.image);
+    const unused = noResultCard(r) ? " (unused: no result text, so no result card)" : "";
+    const now = (!has ? "card's image" : r.image === null ? "CLEAR · no image" : baseName(r.image)) + unused;
     return el("div", { class: "route" }, el("span", { class: "kw", text: `${s.label} image` }), el("span", { class: "mono", text: now }),
-      iconBtn("Pick…", "Pick an image for this result", false, () => openImagePicker(t)),
+      iconBtn("Pick…", unused ? "Add result text first: without it there's no result card to show an image" : "Pick an image for this result", !!unused, () => openImagePicker(t)),
       iconBtn("CARD'S", "No image of its own: the result keeps the choice card's image", !has, () => setResultImage(c.key, t, undefined)),
       iconBtn("CLEAR", "Show no image from this result on", has && r.image === null, () => setResultImage(c.key, t, null)));
   }
@@ -3767,7 +3779,7 @@ function checkOddsBlock(opt, changed, restructure) {
   $("frame").addEventListener("click", () => {
     const b = board();
     if (!b || showingShots(b)) return;
-    const slot = b.draft ? previewSlot(b) : null;
+    const slot = b.draft && !noResultCard(picked(b).oc?.res) ? previewSlot(b) : null;
     openImagePicker(slot ? { opt: pick, slot } : null);
   });
   $("img-mode").addEventListener("click", () => {

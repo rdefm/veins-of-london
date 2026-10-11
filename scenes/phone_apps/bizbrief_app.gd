@@ -44,7 +44,8 @@ const PROCUREMENT_PAGE := "procurement"
 const MANAGE_PAGE_TITLES := { SALES_PAGE: "Sales", PRODUCTION_PAGE: "Production", PROCUREMENT_PAGE: "Procurement" }
 const MORNING_PAGE := "morning"
 const MONEY_PAGE := "money"
-const BRIEF_PAGE_TITLES := { MORNING_PAGE: "Morning report", MONEY_PAGE: "Business money" }
+const MARKET_PAGE := "market"
+const BRIEF_PAGE_TITLES := { MORNING_PAGE: "Morning report", MONEY_PAGE: "Business money", MARKET_PAGE: "Market position" }
 const MORNING_REPORT_EMPTY_TEXT := "No morning report yet. The first comes after you rest."
 const POT_CLOSED_TEXT := "Business pot not open yet."
 const ICON_PATH := "res://assets/phone/icons/bizbrief.png"
@@ -360,6 +361,10 @@ func _build_brief(content: VBoxContainer) -> void:
 			content.add_child(_build_brief_subnav())
 			_build_business_money(content)
 			return
+		MARKET_PAGE:
+			content.add_child(_build_brief_subnav())
+			_build_market_position(content)
+			return
 	# The Today card is read live, including before the first rollover.
 	content.add_child(_build_today())
 	# Today's wage and poach rows open the person's Staff detail; while Staff
@@ -376,10 +381,7 @@ func _build_brief(content: VBoxContainer) -> void:
 	content.add_child(_build_nav_row("BriefRow_%s" % MORNING_PAGE, BRIEF_PAGE_TITLES[MORNING_PAGE], _yesterday_lines(), func(): _open_brief_page(MORNING_PAGE)))
 	content.add_child(_brief_section("Business"))
 	content.add_child(_build_nav_row("BriefRow_%s" % MONEY_PAGE, BRIEF_PAGE_TITLES[MONEY_PAGE], [_money_status()], func(): _open_brief_page(MONEY_PAGE)))
-	content.add_child(_build_moves_against_you())
-	content.add_child(_build_war())
-	content.add_child(_build_london_share())
-	content.add_child(_build_supplier_share())
+	content.add_child(_build_nav_row("BriefRow_%s" % MARKET_PAGE, BRIEF_PAGE_TITLES[MARKET_PAGE], [_market_status()], func(): _open_brief_page(MARKET_PAGE)))
 
 
 # BizBrief Today card (spec .scratch/bizbrief-today §Brief tab layout): date,
@@ -677,14 +679,39 @@ func _build_business_money(content: VBoxContainer) -> void:
 const MOVES_SHOWN := 5
 
 
+# The Market position row's status: rival moves and wars against the player.
+func _market_status() -> String:
+	var moves := FactionAI.moves_against_player().size()
+	var enemies: Array = FactionAI.wars_of(Shares.PLAYER).map(func(w: Dictionary) -> String: return GameData.FACTIONS[FactionAI.war_enemy(w, Shares.PLAYER)]["shortName"])
+	var parts: Array[String] = []
+	if moves > 0:
+		parts.append("%d move%s against you" % [moves, "" if moves == 1 else "s"])
+	if not enemies.is_empty():
+		parts.append("At war with %s" % ", ".join(enemies))
+	return " · ".join(parts) if not parts.is_empty() else "No rival moves · not at war"
+
+
+# Rival moves, war and weariness, London share and supplier share, each under
+# its own heading; a quiet group is one muted line rather than an empty card.
+func _build_market_position(content: VBoxContainer) -> void:
+	content.add_child(_brief_section("Moves against you"))
+	content.add_child(_build_moves_against_you())
+	content.add_child(_brief_section("War"))
+	content.add_child(_build_war())
+	content.add_child(_brief_section("Your share of London"))
+	content.add_child(_build_london_share())
+	content.add_child(_brief_section("Supplier share"))
+	content.add_child(_build_supplier_share())
+
+
 # The latest faction moves against the player, newest first, each naming
 # its faction (spec §Communication).
 func _build_moves_against_you() -> Control:
-	var c := UI.card()
-	c["content"].add_child(UI.heading("Moves against you", 14))
 	var moves := FactionAI.moves_against_player()
 	if moves.is_empty():
-		c["content"].add_child(UI.muted_label("Nobody has moved against you."))
+		return UI.muted_label("Nobody has moved against you.")
+	var c := UI.card()
+	c["panel"].name = "MarketMoves"
 	for move in moves.slice(0, MOVES_SHOWN):
 		c["content"].add_child(UI.label("%s · %s: %s" % [Calendar.format_day(int(move["day"])), GameData.FACTIONS[move["factionId"]]["shortName"], move["text"]]))
 	return c["panel"]
@@ -693,15 +720,17 @@ func _build_moves_against_you() -> Control:
 # The player's weariness meter and the wars they're in (spec §War &
 # weariness).
 func _build_war() -> Control:
-	var c := UI.card()
-	c["content"].add_child(UI.heading("War", 14))
 	var value := FactionAI.weariness(Shares.PLAYER)
+	var wars := FactionAI.wars_of(Shares.PLAYER)
+	if wars.is_empty() and roundi(value) == 0:
+		return UI.muted_label("Not at war · weariness 0 / 100")
+	var c := UI.card()
+	c["panel"].name = "MarketWar"
 	var row := UI.hbox()
 	row.add_child(UI.expand_fill(UI.label("Weariness")))
 	row.add_child(UI.tinted_label("%d / 100" % roundi(value), UI._MUTED_COLOUR))
 	c["content"].add_child(row)
 	c["content"].add_child(UI.bar(value, 100.0))
-	var wars := FactionAI.wars_of(Shares.PLAYER)
 	if wars.is_empty():
 		c["content"].add_child(UI.muted_label("Not at war."))
 	for war in wars:
@@ -715,7 +744,7 @@ func _build_war() -> Control:
 # ▲/▼ versus last week (spec §UI reads).
 func _build_london_share() -> Control:
 	var c := UI.card()
-	c["content"].add_child(UI.heading("Your share of London", 14))
+	c["panel"].name = "MarketLondonShare"
 	c["content"].add_child(UI.muted_label("Last %d days · ▲▼ vs the %d before" % [GameData.SHARES_WINDOW_DAYS, GameData.SHARES_WINDOW_DAYS]))
 	for ore_type in GameData.CANONICAL_ORE_TYPES:
 		var row := UI.hbox()
@@ -738,18 +767,15 @@ func _share_move_label(title: String, now: float, before: float) -> Label:
 # Per buyer faction the player delivered to this week: share of the
 # player's deliveries (read A) and of the faction's intake (read B).
 func _build_supplier_share() -> Control:
-	var c := UI.card()
-	c["content"].add_child(UI.heading("Supplier share", 14))
 	var delivered: Dictionary = Shares.deliveries()
-	var any := false
-	for faction_id in GameData.FACTIONS:
-		if int(delivered.get(faction_id, 0)) <= 0:
-			continue
-		any = true
+	var buyers: Array = GameData.FACTIONS.keys().filter(func(id: String) -> bool: return int(delivered.get(id, 0)) > 0)
+	if buyers.is_empty():
+		return UI.muted_label("No contract deliveries in the last %d days." % GameData.SHARES_WINDOW_DAYS)
+	var c := UI.card()
+	c["panel"].name = "MarketSupplierShare"
+	for faction_id in buyers:
 		c["content"].add_child(UI.label(GameData.FACTIONS[faction_id]["shortName"]))
 		c["content"].add_child(UI.muted_label("%d%% of your deliveries · %d%% of their intake" % [_percent_points(Shares.delivery_split(faction_id)), _percent_points(Shares.intake_share(faction_id))]))
-	if not any:
-		c["content"].add_child(UI.muted_label("No contract deliveries in the last %d days." % GameData.SHARES_WINDOW_DAYS))
 	return c["panel"]
 
 
