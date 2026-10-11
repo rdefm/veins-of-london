@@ -5,7 +5,7 @@ extends RefCounted
 # text}; a "choice" card adds {choices:[{id?, label, effects, result_text}]};
 # a check option swaps result_text for {check, success, fail} (R§3.9a).
 # An option may carry `requires` (option_gate()); it or its outcome may carry
-# `goto`, a later card index Continue jumps to. Any card may carry `goto` (an
+# `goto`, a later card (or earlier choice card) index Continue jumps to. Any card may carry `goto` (an
 # index, or a conditional list [{if, card}, ..., {card}]) or `end: true`
 # (R§3.9a "Goto"); an option/outcome goto takes precedence over both.
 # Events: {id, cards, on_complete:[effect]}. state.event holds runtime
@@ -271,14 +271,32 @@ static func _continue() -> void:
 	else:
 		var here: int = int(event_state["cardIndex"])
 		var resolution: Dictionary = event_state["choiceResults"].get(str(here), {})
-		if not resolution.has("goto"):
-			var target := _goto_target(_card_goto(_event_def()["cards"][here]))
-			if target >= 0:
+		var dest := -1
+		if resolution.has("goto"):
+			dest = int(resolution["goto"])
+		else:
+			dest = _goto_target(_card_goto(_event_def()["cards"][here]))
+			if dest > here:
 				if not event_state.has("jumps"):
 					event_state["jumps"] = {}
-				event_state["jumps"][str(here)] = target
-		event_state["cardIndex"] = _next_index(here)
+				event_state["jumps"][str(here)] = dest
+		if dest >= 0 and dest <= here:
+			_reenter_hub(event_state, dest)
+		else:
+			event_state["cardIndex"] = _next_index(here)
 		EventBus.state_changed.emit()
+
+
+# Backward goto to choice card `hub`: drops the resolutions, jumps and toggles
+# of every card from the hub on, so the hub is unresolved and the revealed
+# list shows it once, as on first arrival.
+static func _reenter_hub(event_state: Dictionary, hub: int) -> void:
+	for key in ["choiceResults", "jumps", "toggles"]:
+		var table: Dictionary = event_state.get(key, {})
+		for entry in table.keys():
+			if int(String(entry).split("|")[0]) >= hub:
+				table.erase(entry)
+	event_state["cardIndex"] = hub
 
 
 # A card's own `goto` as a plain target: an index as-is, or a conditional
@@ -294,17 +312,23 @@ static func _card_goto(card: Dictionary) -> Variant:
 	return null
 
 
-# A resolved option's or card's `goto` as a card index, or -1 for none. Forward only,
-# within this event: a backwards, same-card or out-of-range target is
-# rejected (push_error) and play falls through to the next card.
+# A resolved option's or card's `goto` as a card index, or -1 for none. Within
+# this event: a later card, or a "choice" card at or before this one (a hub;
+# the choice card itself loops its options back to it). An
+# out-of-range or non-choice backward target is rejected (push_error) and play
+# falls through to the next card.
 static func _goto_target(goto: Variant) -> int:
 	if goto == null:
 		return -1
 	var here: int = int(GameState.state["event"]["cardIndex"])
-	var size: int = _event_def()["cards"].size()
-	if (typeof(goto) == TYPE_INT or typeof(goto) == TYPE_FLOAT) and int(goto) > here and int(goto) < size:
-		return int(goto)
-	push_error("Events: goto %s from card %d of '%s' is not a later card" % [str(goto), here, GameState.state["event"]["eventId"]])
+	var cards: Array = _event_def()["cards"]
+	if typeof(goto) == TYPE_INT or typeof(goto) == TYPE_FLOAT:
+		var target := int(goto)
+		if target > here and target < cards.size():
+			return target
+		if target >= 0 and target <= here and cards[target]["type"] == "choice":
+			return target
+	push_error("Events: goto %s from card %d of '%s' is not a later card or an earlier choice card" % [str(goto), here, GameState.state["event"]["eventId"]])
 	return -1
 
 

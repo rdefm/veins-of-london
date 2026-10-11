@@ -1184,9 +1184,9 @@ func run() -> void:
 		GameData.EVENTS = original_events
 	)
 
-	run_case("a_backwards_same_card_or_out_of_range_goto_is_rejected", func():
+	run_case("a_backwards_non_choice_or_out_of_range_goto_is_rejected", func():
 		var original_events := _install_gated_event()
-		for bad in [0, 1, 4, 99, -1, "3"]:
+		for bad in [0, 4, 99, -1, "3"]:
 			GameState.reset()
 			GameState.state["player"]["cash"] = 60
 			GameData.EVENTS["test_gated_event"]["cards"][1]["choices"][0]["goto"] = bad
@@ -1196,6 +1196,45 @@ func run() -> void:
 			assert_true(not GameState.state["event"]["choiceResults"]["1"].has("goto"), "goto %s not recorded" % str(bad))
 			Events.advance()
 			assert_eq(GameState.state["event"]["cardIndex"], 2, "goto %s falls through to the next card" % str(bad))
+		GameData.EVENTS = original_events
+	)
+
+	run_case("a_backward_goto_to_a_choice_card_loops_back_to_an_unresolved_hub", func():
+		GameState.reset()
+		var original_events := _install_gated_event()
+		var cards: Array = GameData.EVENTS["test_gated_event"]["cards"]
+		cards[1]["choices"][2]["goto"] = 1  # "Walk": back to the hub
+		cards[1]["choices"][0]["goto"] = null
+		GameState.state["player"]["cash"] = 60
+		Crafting.inventory_add("rewind", 1, 2)
+		Events.start_event("test_gated_event")
+		Events.advance()
+		Events.choose(2)
+		assert_eq(GameState.state["event"]["choiceResults"]["1"]["goto"], 1, "backward goto to a choice card recorded")
+		Events.advance()
+		assert_eq(GameState.state["event"]["cardIndex"], 1, "cursor back on the hub")
+		assert_true(Events.is_awaiting_choice(), "hub is selectable again")
+		assert_eq(_texts(Events.revealed_cards()), ["Setup", "Pick one"], "no stale result, no duplicate cards")
+		Events.choose(2)
+		Events.advance()
+		Events.choose(0)  # Pay: exits the loop forward, no goto -> next card
+		assert_eq(_texts(Events.revealed_cards()), ["Setup", "Pick one", "Paid."])
+		assert_true(Events.rewind()["ok"])
+		assert_true(Events.is_awaiting_choice(), "rewind mid-loop restores the hub")
+		assert_eq(_texts(Events.revealed_cards()), ["Setup", "Pick one"])
+		GameData.EVENTS = original_events
+	)
+
+	run_case("a_backward_goto_to_a_non_choice_card_still_errors", func():
+		GameState.reset()
+		var original_events := _install_gated_event()
+		GameData.EVENTS["test_gated_event"]["cards"][2]["goto"] = 0
+		Events.start_event("test_gated_event")
+		Events.advance()
+		Events.choose(2)
+		Events.advance()
+		Events.advance()
+		assert_eq(GameState.state["event"]["cardIndex"], 3, "rejected: plays on to the next card")
 		GameData.EVENTS = original_events
 	)
 
