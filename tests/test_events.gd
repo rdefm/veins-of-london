@@ -1204,6 +1204,7 @@ func run() -> void:
 		var original_events := _install_gated_event()
 		var cards: Array = GameData.EVENTS["test_gated_event"]["cards"]
 		cards[1]["choices"][2]["goto"] = 1  # "Walk": back to the hub
+		cards[1]["choices"][2]["reselectable"] = true
 		cards[1]["choices"][0]["goto"] = null
 		GameState.state["player"]["cash"] = 60
 		Crafting.inventory_add("rewind", 1, 2)
@@ -1222,6 +1223,50 @@ func run() -> void:
 		assert_true(Events.rewind()["ok"])
 		assert_true(Events.is_awaiting_choice(), "rewind mid-loop restores the hub")
 		assert_eq(_texts(Events.revealed_cards()), ["Setup", "Pick one"])
+		GameData.EVENTS = original_events
+	)
+
+	run_case("a_picked_one_shot_option_is_hidden_on_hub_return_unless_reselectable", func():
+		GameState.reset()
+		var original_events := _install_gated_event()
+		var cards: Array = GameData.EVENTS["test_gated_event"]["cards"]
+		cards[1]["choices"][2]["goto"] = 1  # "Walk": back-edge
+		cards[1]["choices"][0]["goto"] = null
+		GameState.state["player"]["cash"] = 60
+		Events.start_event("test_gated_event")
+		Events.advance()
+		assert_eq(Events.option_gate(2)["display"], "show", "unpicked shows")
+		Events.choose(2)
+		Events.advance()
+		assert_eq(Events.option_gate(2)["display"], "hide", "picked one-shot hidden on return")
+		Events.choose(2)
+		assert_true(Events.is_awaiting_choice(), "a hidden one-shot cannot be re-picked")
+		assert_true(GameState.state["event"]["picked"]["1"].has(2), "pick recorded as plain data")
+		cards[1]["choices"][2]["reselectable"] = true
+		assert_eq(Events.option_gate(2)["display"], "show", "reselectable stays shown")
+		cards[1]["choices"][2].erase("reselectable")
+		# resets when the event runs again
+		GameState.state["event"] = null
+		Events.start_event("test_gated_event")
+		Events.advance()
+		assert_eq(Events.option_gate(2)["display"], "show", "fresh run resets picks")
+		GameData.EVENTS = original_events
+	)
+
+	run_case("the_last_forward_exit_stays_visible_so_a_hub_cannot_soft_lock", func():
+		GameState.reset()
+		var original_events := _install_gated_event()
+		var cards: Array = GameData.EVENTS["test_gated_event"]["cards"]
+		cards[1]["choices"][2]["goto"] = 1
+		GameState.state["player"]["cash"] = 60
+		Events.start_event("test_gated_event")
+		Events.advance()
+		GameState.state["event"]["picked"] = { "1": [0, 1, 2, 3] }
+		var shown := 0
+		for i in range(cards[1]["choices"].size()):
+			if Events.option_gate(i)["display"] == "show":
+				shown += 1
+		assert_true(shown >= 1, "a forward exit is still shown")
 		GameData.EVENTS = original_events
 	)
 

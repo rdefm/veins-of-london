@@ -406,6 +406,12 @@ static func choose(choice_index: int) -> void:
 	if target >= 0:
 		resolution["goto"] = target
 	event_state["choiceResults"][str(event_state["cardIndex"])] = resolution
+	if not event_state.has("picked"):
+		event_state["picked"] = {}
+	var picked: Array = event_state["picked"].get(str(event_state["cardIndex"]), [])
+	if not picked.has(choice_index):
+		picked.append(choice_index)
+	event_state["picked"][str(event_state["cardIndex"])] = picked
 	_remember_choice(event_state["eventId"], event_state["cardIndex"], str(choice.get("id", choice_index)), outcome, successes if attempts > 1 else -1)
 	var effects: Array = choice.get("effects", [])
 	if outcome != "":
@@ -554,11 +560,46 @@ static func condition_met(condition: Dictionary, toggled: Array = []) -> bool:
 # option can be committed.
 static func option_gate(choice_index: int) -> Dictionary:
 	var choice: Dictionary = current_card()["choices"][choice_index]
+	if _spent_one_shot(choice_index):
+		return { "display": "hide", "reason": "" }
 	var requires: Variant = choice.get("requires")
 	if not requires is Dictionary or condition_met(requires):
 		return { "display": "show", "reason": "" }
 	var display: String = requires.get("display", "hide")
 	return { "display": display if display == "disable" else "hide", "reason": String(requires.get("reason", "")) }
+
+
+# True when option `choice_index` of the current card was already picked on an
+# earlier visit to this hub and is one-shot (no `reselectable: true`). Never
+# true for the hub's last remaining forward exit (a non-back-edge option): that
+# one stays visible so the event can finish (push_error).
+static func _spent_one_shot(choice_index: int) -> bool:
+	var event_state: Dictionary = GameState.state["event"]
+	var picked: Array = event_state.get("picked", {}).get(str(event_state["cardIndex"]), [])
+	var choices: Array = current_card()["choices"]
+	if not picked.has(choice_index) or choices[choice_index].get("reselectable", false) == true:
+		return false
+	if not _is_back_edge(choices[choice_index]):
+		for i in range(choices.size()):
+			if i != choice_index and not _is_back_edge(choices[i]) and (not picked.has(i) or choices[i].get("reselectable", false) == true):
+				return true
+		push_error("Events: hub card %d of '%s' has no forward exit left; showing option %d" % [int(event_state["cardIndex"]), event_state["eventId"], choice_index])
+		return false
+	return true
+
+
+# True when the option, or any of its outcomes, has a `goto` to this card or an
+# earlier one (a hub loop).
+static func _is_back_edge(choice: Dictionary) -> bool:
+	var here: int = int(GameState.state["event"]["cardIndex"])
+	var sources: Array = [choice, choice.get("success"), choice.get("fail")]
+	sources.append_array(choice.get("bySuccesses", {}).values())
+	for source in sources:
+		if source is Dictionary:
+			var goto: Variant = source.get("goto")
+			if (typeof(goto) == TYPE_INT or typeof(goto) == TYPE_FLOAT) and int(goto) <= here:
+				return true
+	return false
 
 
 # An option reference as choice memory stores it: a string id, or an index
