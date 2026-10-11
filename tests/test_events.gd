@@ -1253,6 +1253,29 @@ func run() -> void:
 		GameData.EVENTS = original_events
 	)
 
+	run_case("the_demo_hub_event_asks_both_questions_then_advances", func():
+		GameState.reset()
+		var f := FileAccess.open("res://tests/fixtures/demo_hub_questions.json", FileAccess.READ)
+		var original_events := GameData.EVENTS
+		GameData.EVENTS = original_events.duplicate()
+		GameData.EVENTS["demo_hub_questions"] = JSON.parse_string(f.get_as_text())
+		f.close()
+		Events.start_event("demo_hub_questions")
+		Events.advance()
+		assert_true(Events.is_awaiting_choice(), "at the hub")
+		Events.choose(0)  # lease
+		Events.advance()  # answer -> back to the hub
+		assert_true(Events.is_awaiting_choice(), "hub again")
+		assert_eq(Events.option_gate(0)["display"], "hide", "asked question hidden")
+		Events.choose(1)  # neighbours
+		Events.advance()
+		assert_true(Events.is_awaiting_choice(), "hub a third time")
+		Events.choose(2)  # No more questions: null result_text goes straight to the closing card
+		assert_true(not Events.is_awaiting_choice(), "past the hub")
+		assert_true(_texts(Events.revealed_cards()).has("You take the keys. They are warmer than they should be."), "closing card reached")
+		GameData.EVENTS = original_events
+	)
+
 	run_case("the_last_forward_exit_stays_visible_so_a_hub_cannot_soft_lock", func():
 		GameState.reset()
 		var original_events := _install_gated_event()

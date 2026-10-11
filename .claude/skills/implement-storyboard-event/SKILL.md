@@ -21,7 +21,7 @@ Action each comment by editing the draft inside the proposal's JSON block (Edit 
 
 - Prose changes follow `docs/CONTENT-GUIDE.md` §3 tone bible — one dry line per threat, nothing winking at the camera. New or changed lines are draft prose: list the file under `PROSE-REVIEW:` in the report.
 - Mechanics (checks, effects, flags, paths, conditions) follow `docs/REFERENCE.md` §3.9a Event choice checks and the condition vocabulary there. Every number comes from the spec or the comment — never invent one.
-- Routing stays in draft form: `goto: {branch, card?}` on outcomes or cards, branch `then`. Keep card `key`s; give a new card a key no other card uses. No loops.
+- Routing stays in draft form: `goto: {branch, card?}` on outcomes or cards, branch `then`. Keep card `key`s; give a new card a key no other card uses. No loops except a hub: a `goto` back to an earlier `choice` card (options are one-shot unless `reselectable: true`); the hub needs an option that leaves the loop.
 - A comment that asks for a design decision the specs don't make, or that you can't action as written: leave it open and ask the user. Don't promote with it open.
 
 Then resolve what you actioned (writes the status back into the JSON block):
@@ -36,11 +36,12 @@ node tools/promote_storyboard.js resolve <proposal.md> <id> [<id>...]
 node tools/promote_storyboard.js promote <proposal.md>
 ```
 
-Writes `data/events/<id>.json` (house formatting), refusing while open comments remain. It lays branches out in topological order (start first, every jump forward), maps `{branch, card}` to card indexes, turns card gotos / branch `then`s into card `goto` / conditional `goto` / `end: true`, and strips keys, `checkNote`s, branch titles and `_comments`. It prints any cards no path reaches — they're left out; tell the user which.
+Writes `data/events/<id>.json` (house formatting), refusing while open comments remain. It lays branches out in topological order (start first, every jump forward except hub back-edges, which become backward gotos), maps `{branch, card}` to card indexes, turns card gotos / branch `then`s into card `goto` / conditional `goto` / `end: true`, and strips keys, `checkNote`s, branch titles and `_comments`. It prints any cards no path reaches — they're left out; tell the user which.
 
 If it refuses:
 
-- `play can loop` — the draft has a cycle; tell the user, don't break it yourself.
+- `play can loop` — the draft has a cycle that isn't a hub (a back-edge to a choice card); tell the user, don't break it yourself.
+- `hub has no forward exit` — every option of that hub loops back or is hidden after use; tell the user, don't break it yourself.
 - `conditional then that can end the event` — the engine's conditional goto has no "end" entry and falls through on no match. Ask the user which branch the else / ending entry should go to.
 - A target error (`unknown branch`, `no card`, `branch X has no cards`) — a dangling link; ask the user where it should go.
 

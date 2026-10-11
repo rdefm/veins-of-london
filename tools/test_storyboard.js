@@ -177,8 +177,25 @@ test("buildGraph marks the loop edges back to the hub", () => {
   assert.deepStrictEqual(loops, ["c:a1>c:h", "c:b2>c:h"]);
 });
 
-test("promote still refuses a hub loop (strict)", () => {
-  assert.throws(() => promoteDraft(hubDraft()), /loop/);
+test("promote lays out a hub loop as a flat event with backward gotos", () => {
+  const { event, dropped } = promoteDraft(hubDraft());
+  const cards = event.cards, idx = (t) => cards.findIndex((c) => c.text === t), hub = idx("hub");
+  assert.deepStrictEqual(dropped, []);
+  assert.strictEqual(cards[hub].choices[2].goto, idx("bye"));
+  for (const t of ["a", "b2"]) assert.strictEqual(cards[idx(t)].goto, hub, t + " returns to the hub");
+});
+
+test("promote refuses a hub with no forward exit, naming the card", () => {
+  const d = hubDraft();
+  d.branches.main.cards[0].choices.pop();
+  assert.throws(() => promoteDraft(d), /main · h: hub has no forward exit/);
+  d.branches.main.cards[0].choices.push({ id: "x", label: "Again", reselectable: true, goto: { branch: "ans", card: "a1" } });
+  assert.throws(() => promoteDraft(d), /main · h: hub has no forward exit/);
+});
+
+test("flat loop event -> draft -> flat is lossless", () => {
+  const flat = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "tests", "fixtures", "demo_hub_questions.json"), "utf-8"));
+  assert.deepStrictEqual(promoteDraft(legacyToDraft(JSON.parse(JSON.stringify(flat)))).event, flat);
 });
 
 test("setReselectable writes true, clears on untick", () => {
@@ -235,8 +252,8 @@ test("legacy conversion plays the same card order as the flat engine", () => {
   assert.deepStrictEqual(text(playOrder(d, (c) => c.choices[2].bySuccesses[2])), ["0", "1", "5"]);
 });
 
-test("legacy conversion rejects a backwards goto", () => {
-  assert.throws(() => legacyToDraft({ id: "x", cards: [{ text: "a" }, { text: "b", choices: [{ label: "l", goto: 0 }] }] }), /not a later card/);
+test("legacy conversion rejects a backwards goto to a non-choice card", () => {
+  assert.throws(() => legacyToDraft({ id: "x", cards: [{ text: "a" }, { text: "b", choices: [{ label: "l", goto: 0 }] }] }), /neither a later card nor a choice card/);
 });
 
 test("thenText describes every then form", () => {
@@ -479,7 +496,11 @@ for (const f of liveFiles) {
     assert.strictEqual(b.legacy, false);
     assert.strictEqual(b.draft.id, ev.id || f.replace(/\.json$/, ""));
     assert.deepStrictEqual(flatCards(b.draft).map((x) => x.card.text), ev.cards.map((c) => c.text));
-    const first = (card) => { const o = card.choices[0]; return o.check ? o.success : o; };
+    const seen = new Map(), first = (card) => { // a hub offers its next option each visit
+      const n = seen.get(card) || 0, o = card.choices[Math.min(n, card.choices.length - 1)];
+      seen.set(card, n + 1);
+      return o.check ? o.success : o;
+    };
     assert(playOrder(b.draft, first).length > 0);
     assert.strictEqual(hasCycle(b.draft), false);
     const { event, dropped } = promoteDraft(b.draft);

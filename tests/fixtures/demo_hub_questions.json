@@ -1,0 +1,18 @@
+{
+  "id": "demo_hub_questions",
+  "on_complete": [{ "op": "set_screen", "screen": "map" }],
+  "cards": [
+    { "type": "narration", "label": "Demo — Hub", "speaker": null, "text": "The man at the counter has the look of someone who has answered these questions before and will answer them again." },
+    {
+      "type": "choice", "label": null, "speaker": null, "text": "He waits. The kettle does not.",
+      "choices": [
+        { "label": "Ask about the lease", "effects": [], "result_text": null, "goto": 2 },
+        { "label": "Ask about the neighbours", "effects": [], "result_text": null, "goto": 3 },
+        { "label": "No more questions", "effects": [], "result_text": null, "goto": 4 }
+      ]
+    },
+    { "type": "speaker", "label": null, "speaker": "Landlord", "text": "\"Twelve months. Break clause if the roof does.\"", "goto": 1 },
+    { "type": "speaker", "label": null, "speaker": "Landlord", "text": "\"Quiet. Mostly. Number nine plays the cello at three in the morning.\"", "goto": 1 },
+    { "type": "narration", "label": null, "speaker": null, "text": "You take the keys. They are warmer than they should be." }
+  ]
+}

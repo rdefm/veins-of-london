@@ -1068,7 +1068,7 @@ function checkOddsBlock(opt, changed, restructure) {
   function optionOutcomes(o) {
     return [o, o.success, o.fail, ...Object.values(o.bySuccesses || {})].filter((x) => x && typeof x === "object");
   }
-  // Flat event (goto = later card index) → draft. Every goto target starts a new branch; a branch falls through
+  // Flat event (goto = later card index, or an earlier choice card: a hub loop) → draft. Every goto target starts a new branch; a branch falls through
   // to the next one via `then`, the last ends. A card's index goto becomes a card goto; a card with a conditional
   // goto list or `end: true` closes its branch, which takes that routing as its `then` (no match = next card).
   // Card N (1-based) gets key cN.
@@ -1076,7 +1076,7 @@ function checkOddsBlock(opt, changed, restructure) {
     const { cards, ...rest } = ev;
     const starts = new Set([0]);
     const later = (i, t) => {
-      if (!Number.isInteger(t) || t <= i || t >= cards.length) throw new Error(`card ${i}: goto ${JSON.stringify(t)} is not a later card`);
+      if (!Number.isInteger(t) || t < 0 || t >= cards.length || (t <= i && !cards[t].choices)) throw new Error(`card ${i}: goto ${JSON.stringify(t)} is neither a later card nor a choice card`);
       starts.add(t);
     };
     cards.forEach((c, i) => {
@@ -2028,20 +2028,26 @@ function checkOddsBlock(opt, changed, restructure) {
   // node positions are stripped. Returns {event, dropped}: dropped = keys of cards no path reaches, which are left
   // out.
   function promoteDraft(draft) {
-    const loop = findCycle(draft, true);
+    const loop = findCycle(draft);
     if (loop) throw new Error(`play can loop: ${loop.join(" → ")}`);
     const keyAt = (p) => branchCards(draft, p.branch)[p.idx].key;
     const start = resolveTarget(draft, { branch: draft.start });
-    const reach = new Map(), stack = [start];
-    while (stack.length) {
-      const p = stack.pop(), k = keyAt(p);
-      if (reach.has(k)) continue;
-      reach.set(k, p);
-      stack.push(...successors(draft, p));
-    }
+    // Reach and back-edges (an edge into a card still being walked: a hub loop) by depth-first walk from the start.
+    const reach = new Map(), back = new Set(), walking = new Set();
+    const walk = (p) => {
+      const k = keyAt(p);
+      reach.set(k, p); walking.add(k);
+      for (const s of successors(draft, p)) {
+        const t = keyAt(s);
+        if (walking.has(t)) back.add(`${k}>${t}`);
+        else if (!reach.has(t)) walk(s);
+      }
+      walking.delete(k);
+    };
+    walk(start);
     const succ = new Map(), indeg = new Map([...reach.keys()].map((k) => [k, 0]));
     for (const [k, p] of reach) {
-      const next = [...new Set(successors(draft, p).map(keyAt))];
+      const next = [...new Set(successors(draft, p).map(keyAt))].filter((t) => !back.has(`${k}>${t}`));
       succ.set(k, next);
       next.forEach((t) => indeg.set(t, indeg.get(t) + 1));
     }
@@ -2070,12 +2076,24 @@ function checkOddsBlock(opt, changed, restructure) {
       for (const t of succ.get(k)) { indeg.set(t, indeg.get(t) - 1); if (!indeg.get(t)) ready.add(t); }
       prefer = preferred(reach.get(k));
     }
+    // A hub (target of a back-edge) needs an option with an outcome that ends the event or reaches a card from
+    // which the hub can't be reached again; otherwise every option loops or is spent and play is stuck.
+    for (const hub of new Set([...back].map((e) => e.split(">")[1]))) {
+      const p = reach.get(hub), card = branchCards(draft, p.branch)[p.idx];
+      const exits = (card.choices || []).some((o) => optionOutcomes(o).some((x) => {
+        const to = x.goto ? { to: resolveTarget(draft, x.goto) } : continuation(p);
+        if (to.end) return true;
+        if (to.to) return !reachesCard(draft, keyAt(to.to), hub);
+        return to.cond.some((e) => !e.branch || !reachesCard(draft, keyAt(resolveTarget(draft, e)), hub));
+      }));
+      if (!exits) throw new Error(`${p.branch} · ${hub}: hub has no forward exit (every option loops back or is hidden after use)`);
+    }
     const index = new Map(order.map((k, i) => [k, i]));
     const cards = order.map((k, i) => {
       const p = reach.get(k), src = branchCards(draft, p.branch)[p.idx], at = `${p.branch} · ${k}`;
       const flat = (t) => {
         const n = index.get(keyAt(resolveTarget(draft, t)));
-        if (!(n > i)) throw new Error(`${at}: link to ${targetText(t)} isn't forward`);
+        if (!(n > i) && !back.has(`${k}>${keyAt(resolveTarget(draft, t))}`)) throw new Error(`${at}: link to ${targetText(t)} isn't forward`);
         return n;
       };
       const { key, goto, end, ...card } = deepClone(src);

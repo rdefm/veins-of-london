@@ -84,14 +84,14 @@ func run() -> void:
 				] }, "success": { "result_text": "s", "effects": [], "goto": 9 }, "fail": { "result_text": "f", "effects": [] } },
 			] },
 			{ "type": "text", "label": null, "text": "", "end": 1, "goto": 4 },
-			{ "type": "text", "label": null, "text": "", "goto": [{ "card": 6 }, { "if": { "flag": "noRouteFlag" }, "card": 2 }, "x", { "if": "nope", "card": 6 }] },
+			{ "type": "text", "label": null, "text": "", "goto": [{ "card": 6 }, { "if": { "flag": "noRouteFlag" }, "card": 3 }, "x", { "if": "nope", "card": 6 }] },
 			{ "type": "text", "label": null, "text": "", "goto": [{ "if": { "flag": "noRouteFlag" } }] },
 			{ "type": "text", "label": null, "text": "" },
 		] }
 		GameData.EVENTS["lint_probe"] = def
 		var found := _lint_event("lint_probe", def, _known_refs())
 		GameData.EVENTS.erase("lint_probe")
-		for fragment in ["unknown token {bogus}", "'tonight' contradicts at.block morning", "hard-codes a day", "goto 0", "result_text and a check", "unknown flag noSuchFlag", "unknown item noSuchItem", "unknown contact nobody", "unknown path player.nope", "unknown option zzz", "goto 9", "card 3 end must be true", "card 3 has both end and goto", "entry 0 has no if but is not last", "entry 1 if: unknown flag noRouteFlag", "entry 1 goto 2", "entry 2 is not an object", "entry 3 if is not a condition", "card 5 goto entry 0 goto <null>"]:
+		for fragment in ["unknown token {bogus}", "'tonight' contradicts at.block morning", "hard-codes a day", "goto 0", "result_text and a check", "unknown flag noSuchFlag", "unknown item noSuchItem", "unknown contact nobody", "unknown path player.nope", "unknown option zzz", "goto 9", "card 3 end must be true", "card 3 has both end and goto", "entry 0 has no if but is not last", "entry 1 if: unknown flag noRouteFlag", "entry 1 goto 3", "entry 2 is not an object", "entry 3 if is not a condition", "card 5 goto entry 0 goto <null>"]:
 			assert_true(found.any(func(v): return String(v).contains(fragment)), "expected a violation containing '%s' in %s" % [fragment, found])
 	)
 
@@ -227,12 +227,14 @@ func _lint_card_route(id: String, i: int, card: Dictionary, cards: Array, refs: 
 	return out
 
 
-# A goto value must be null (none) or a later card index in the same event.
+# A goto value must be null (none), a later card index in the same event, or an earlier-or-same "choice" card (a hub).
 func _lint_goto(where: String, goto: Variant, i: int, cards: Array, required: bool = false) -> Array:
 	if goto == null and not required:
 		return []
 	var is_num: bool = typeof(goto) == TYPE_INT or typeof(goto) == TYPE_FLOAT
-	if not is_num or int(goto) <= i or int(goto) >= cards.size():
+	if not is_num or int(goto) < 0 or int(goto) >= cards.size():
+		return ["%s goto %s is not a later card" % [where, str(goto)]]
+	if int(goto) <= i and cards[int(goto)].get("type") != "choice":
 		return ["%s goto %s is not a later card" % [where, str(goto)]]
 	return []
 
