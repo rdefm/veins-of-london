@@ -4,7 +4,7 @@
 
 **Blocked by:** 15 — James proposal (pearl outcomes).
 
-**Relevant files:** `data/events/archie_craft_chat.json`, `.scratch/writing-revamp/writing-guide.md`, `docs/CONTENT-GUIDE.md`, `systems/time_system.gd` (archieChatUnlockDay trigger), review §18.4.
+**Relevant files:** `data/events/archie_craft_chat.json`, `docs/writing-guide.md`, `docs/CONTENT-GUIDE.md`, `systems/time_system.gd` (archieChatUnlockDay trigger), review §18.4.
 
 **Status:** ready-for-agent
 

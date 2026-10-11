@@ -8,7 +8,7 @@ Fixes "Two days later" after a text that said "Tomorrow" (proposes `at` + labels
 
 **Blocked by:** 11 — Intro proposal (needs the intro's option ids and flags).
 
-**Relevant files:** `data/events/buyer.json`, `.scratch/writing-revamp/writing-guide.md`, `.scratch/writing-revamp/writing-context.md`, `docs/CONTENT-GUIDE.md`, `data/contact_texts.json` (the lead-in text), `systems/time_system.gd` (`_apply_tutorial_day_triggers`, buyer day trigger), review §18.4.
+**Relevant files:** `data/events/buyer.json`, `docs/writing-guide.md`, `.scratch/writing-revamp/writing-context.md`, `docs/CONTENT-GUIDE.md`, `data/contact_texts.json` (the lead-in text), `systems/time_system.gd` (`_apply_tutorial_day_triggers`, buyer day trigger), review §18.4.
 
 **Status:** ready-for-agent
 

@@ -1,7 +1,8 @@
 # Vein — event writing guide (TL;DR)
 
 Read this, then the event's outline or current JSON, then write. The reference
-example is `intro-proposal2.md` in this folder; when in doubt, copy what it does.
+example is `data/events/intro.json` (the applied `.scratch/writing-revamp/intro-proposal3.md`,
+whose notes explain the choices); when in doubt, copy what it does.
 
 Deeper sources, only when needed:
 - Character personality and voice: `docs/CHARACTER-VOICE-GUIDE.md`. Read the section for every character who speaks.
@@ -15,6 +16,7 @@ Deeper sources, only when needed:
 3. **Be brief.** Players want to get back to the game. Cut any card the player wouldn't miss. Dialogue gives the player what they need to act, and nothing more.
 4. **Be funny twice, never at the threat's expense.** See §3.
 5. **Make every named character a person, not a plot device.** See §4.
+6. **Give it something to remember it by.** No FedEx quests: "bring me ten of X" is a chore, not a story. Every event, however small, needs one moment the player will remember it by: a twist, a surprise, a joke that lands, or something they recognise from their own life. If you can't name that moment in one line, the event isn't finished.
 
 ## 2. Structure and pacing
 
@@ -27,7 +29,7 @@ Deeper sources, only when needed:
   - `speaker`: one character. It can open with a short action beat before the quote: `He's whistling... "Two blokes, cash..."`.
   - `tension`: the moment danger arrives.
   - `resolution`: the aftermath or cool-down.
-  - `choice`: player decision. Keep the existing `choices[].effects`; you only rewrite `text`, `label` and `result_text`. **Exception, opening events** (intro, buyer, james_meeting, archie_craft_chat, archie_cultivation, home raid intro/debriefs): the beat table in `.scratch/opening-choices/spec.md` "Content" (review §18.4) supersedes this. Add or change choices, option `id`s, `check`/`success`/`fail`, `requires`, `goto` and effects as it specifies (`docs/REFERENCE.md` §3.9a). Reference example: `intro-proposal3.md`.
+  - `choice`: player decision. Keep the existing `choices[].effects`; you only rewrite `text`, `label` and `result_text`. **Exception, opening events** (intro, buyer, james_meeting, archie_craft_chat, archie_cultivation, home raid intro/debriefs): the beat table in `.scratch/opening-choices/spec.md` "Content" (review §18.4) supersedes this. Add or change choices, option `id`s, `check`/`success`/`fail`, `requires`, `goto` and effects as it specifies (`docs/REFERENCE.md` §3.9a). Reference example: `data/events/intro.json` (`.scratch/writing-revamp/intro-proposal3.md`).
 - **Merge consecutive cards** from the same speaker unless the split is a deliberate pause.
 - **Don't duplicate a reveal.** If a character is going to explain something (Archie's allergy), the narrator shows only the symptom ("His eyes are streaming."), not the diagnosis.
 - **Handoff:** read the previous and next event in the chain. Names, objects and promises must line up ("I'll text you" → the next event opens on a text).
@@ -72,7 +74,7 @@ Before writing, give each speaking character, from their CHARACTER-VOICE-GUIDE e
 ## 6. Deliverable
 
 A Markdown file in `.scratch/writing-revamp/` named `<event-id>-proposal.md`, containing:
-1. **Title + short intent note:** how the draft meets each of the five goals in §1, in one or two lines each.
+1. **Title + short intent note:** how the draft meets each of the six goals in §1 (for goal 6, name the memorable moment), in one or two lines each.
 2. **One complete, valid ```json block** in the event's existing schema. Check that it parses.
 3. A line confirming `id` / `on_complete` / images are unchanged, or listing exactly what changed.
 4. **Open points for review:** lines you're unsure about (a possible third joke, a canon stretch, an alternative ending).
@@ -82,6 +84,7 @@ The owner reviews proposals in `tools/storyboard.html` (picker → "Proposals"),
 ## 7. Final audit (tick every line before delivering)
 
 - [ ] Card 1 hooks on concrete pressure; last card points at what's next.
+- [ ] Not a FedEx quest: you can name, in one line, the moment the player will remember it by.
 - [ ] Every card is one beat and ≤ ~60 words; no card the player would miss; no back-to-back same-speaker cards without a reason.
 - [ ] Exactly two anchor jokes, each beside danger, never on the threat card; the scene doesn't read like a sketch.
 - [ ] The threat card is played straight and the danger is real.
