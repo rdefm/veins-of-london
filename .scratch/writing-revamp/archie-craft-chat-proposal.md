@@ -35,13 +35,39 @@ Both are small. Without them, the fallback is one flat result for every pearl co
 {
   "id": "archie_craft_chat",
   "on_complete": [
-    { "op": "set_flag", "flag": "archieCraftChatSeen", "value": true },
-    { "op": "set_flag", "flag": "canSellConsumables", "value": true },
-    { "op": "set_stage", "value": "free" },
-    { "op": "relation", "contact": "archie", "value": 5 },
-    { "op": "add_ore", "type": "time", "qty": 20 },
-    { "op": "set_flag", "flag": "homeRaidEventPending", "value": true },
-    { "op": "set_screen", "screen": "phone" }
+    {
+      "op": "set_flag",
+      "flag": "archieCraftChatSeen",
+      "value": true
+    },
+    {
+      "op": "set_flag",
+      "flag": "canSellConsumables",
+      "value": true
+    },
+    {
+      "op": "set_stage",
+      "value": "free"
+    },
+    {
+      "op": "relation",
+      "contact": "archie",
+      "value": 5
+    },
+    {
+      "op": "add_ore",
+      "type": "time",
+      "qty": 20
+    },
+    {
+      "op": "set_flag",
+      "flag": "homeRaidEventPending",
+      "value": true
+    },
+    {
+      "op": "set_screen",
+      "screen": "phone"
+    }
   ],
   "start": "main",
   "branches": {
@@ -52,7 +78,7 @@ Both are small. Without them, the fallback is one flat result for every pearl co
           "type": "narration",
           "label": "{today} — Spitalfields Market",
           "speaker": null,
-          "text": "Archie is eating a falafel wrap with his back to a pillar, where he can see both ends of the aisle. He's sat like that since Whitechapel. He waves you over without looking up from his phone, which is either familiarity or rudeness. Probably both.",
+          "text": "Archie is eating a falafel wrap with his back to a pillar, where he can see both ends of the aisle. He's sat like that since Whitechapel. He waves you over.",
           "key": "c1",
           "image": "res://assets/events/archie_craft_chat/archie_craft_chat_card1.png"
         },
@@ -78,7 +104,11 @@ Both are small. Without them, the fallback is one flat result for every pearl co
                 "reason": "Needs a Time Pearl"
               },
               "effects": [
-                { "op": "relation", "contact": "archie", "value": 5 }
+                {
+                  "op": "relation",
+                  "contact": "archie",
+                  "value": 5
+                }
               ],
               "result_text": "You put a pearl on the table between you. Archie stops chewing. His eyes start to stream and he leans back from it, but he doesn't stop looking. \"You made that?\" A pause. \"I've had nothing in my pocket since Whitechapel but keys.\""
             },
@@ -87,7 +117,9 @@ Both are small. Without them, the fallback is one flat result for every pearl co
               "label": "Keep it vague",
               "effects": [],
               "result_text": "\"Fine. He showed me the basics.\" Archie waits for more. There isn't any. He goes back to his wrap, then stops. \"Hang on. He showed you?\"",
-              "goto": { "branch": "james" }
+              "goto": {
+                "branch": "james"
+              }
             }
           ],
           "key": "c3",
@@ -95,8 +127,16 @@ Both are small. Without them, the fallback is one flat result for every pearl co
         }
       ],
       "then": [
-        { "if": { "item": "timePearl", "atLeast": 2 }, "branch": "spare" },
-        { "branch": "only" }
+        {
+          "if": {
+            "item": "timePearl",
+            "atLeast": 2
+          },
+          "branch": "spare"
+        },
+        {
+          "branch": "only"
+        }
       ]
     },
     "spare": {
@@ -112,10 +152,16 @@ Both are small. Without them, the fallback is one flat result for every pearl co
               "id": "giveSpare",
               "label": "Let him have it",
               "effects": [
-                { "op": "remove_item", "item": "timePearl", "qty": 1 }
+                {
+                  "op": "remove_item",
+                  "item": "timePearl",
+                  "qty": 1
+                }
               ],
               "result_text": "He wraps it in a napkin, folds it twice and zips it into his inside pocket, eyes still running. \"That's the Whitechapel one squared. I'll put it on your tab.\" You don't have a tab. Apparently it's in credit.",
-              "goto": { "branch": "james" }
+              "goto": {
+                "branch": "james"
+              }
             }
           ],
           "key": "c4"
@@ -133,7 +179,9 @@ Both are small. Without them, the fallback is one flat result for every pearl co
           "key": "c5"
         }
       ],
-      "then": { "branch": "james" }
+      "then": {
+        "branch": "james"
+      }
     },
     "james": {
       "title": "James and the trade",
@@ -156,7 +204,7 @@ Both are small. Without them, the fallback is one flat result for every pearl co
           "type": "narration",
           "label": null,
           "speaker": null,
-          "text": "He nudges a carrier bag across the floor to you with his foot, without touching it. \"Twenty units of time calc. Bought it for James, and I can't sit next to it for a whole bus ride. Practise on that.\"",
+          "text": "He nudges a carrier bag across the floor to you with his foot, without touching it. \"Twenty units of time calc. Was going to line up a buyer for it, but if you can turn it into pearls we'll make a lot more. Practise on that.\"",
           "key": "c8"
         },
         {
