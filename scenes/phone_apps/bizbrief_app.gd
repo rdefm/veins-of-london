@@ -1,16 +1,15 @@
 # BizBrief: Brief tab (Today card from DailyBrief; wage and poach decisions
 # sit on their person's Staff detail, or below Today while Staff is locked;
-# then
-# collapsed accounts/Treasury/Operations feed sections, then the morning
-# account — bank, payday, operations, moves against you, London and supplier
-# shares),
+# then a Yesterday row opening the Morning report page (bank, payday,
+# operations) and a Business money row opening the pot/float page, then moves
+# against you, London and supplier shares),
 # Manage tab (an index of Sales, Production and Procurement rows, each
 # opening its own page: sales offers/contracts, lab production targets,
 # cultivator procurement), once bizStaffTabOpen is set, Staff tab (a roster
 # row per recruit, each opening role, skills, pay, assignments and any wage
 # prompt or poach decision) and, once the business pot is active, Stats tab
 # (10-day business performance charts, expenses split by kind). The
-# selected tab, Manage page, Staff person and ore-chart source are view state held here, not in
+# selected tab, Brief page, Manage page, Staff person and ore-chart source are view state held here, not in
 # state.phoneNav, so they reset with the screen. state.phoneNav.bizbriefView "shortPay" shows the
 # short-pay sub-view (ShortPayView) instead while a guard shortfall is pending;
 # "guardCosts" shows the Guard Costs sub-view (GuardCostsView), pot or not.
@@ -43,6 +42,11 @@ const SALES_PAGE := "sales"
 const PRODUCTION_PAGE := "production"
 const PROCUREMENT_PAGE := "procurement"
 const MANAGE_PAGE_TITLES := { SALES_PAGE: "Sales", PRODUCTION_PAGE: "Production", PROCUREMENT_PAGE: "Procurement" }
+const MORNING_PAGE := "morning"
+const MONEY_PAGE := "money"
+const BRIEF_PAGE_TITLES := { MORNING_PAGE: "Morning report", MONEY_PAGE: "Business money" }
+const MORNING_REPORT_EMPTY_TEXT := "No morning report yet. The first comes after you rest."
+const POT_CLOSED_TEXT := "Business pot not open yet."
 const ICON_PATH := "res://assets/phone/icons/bizbrief.png"
 const NAVY := Color("#101923")
 const HEADER := Color("#172431")
@@ -62,6 +66,8 @@ const EXPENSE_KIND_LINES := [
 ]
 
 var _tab := BRIEF_TAB
+# Brief detail page shown ("" = Today and the Brief index), view state.
+var _brief_page := ""
 # Manage workstream page shown ("" = the Manage index), view state.
 var _manage_page := ""
 # Offer/contract id (Sales) or recipe key (Production) the next page build
@@ -77,8 +83,6 @@ var _expanded_log_days := {}
 var _production_log_open := false
 var _sales_history_open := false
 var _sales_details_id := ""
-# Brief sections expanded this session (view state), key -> true.
-var _open_brief_sections := {}
 # Today card view state: rows past the cap shown, Routine and demand
 # summaries expanded.
 var _today_more_open := false
@@ -105,7 +109,6 @@ var _short_pay := ShortPayViewScript.new()
 var _guard_costs := GuardCostsViewScript.new()
 var _root: Control = null
 var _scroll: ScrollContainer = null
-var _brief_detail_anchor: Control = null
 var _production_log_anchor: Control = null
 var _serif: SystemFont = null
 
@@ -300,7 +303,7 @@ func _build_tab(tabs: HBoxContainer, title: String, tab_id: String) -> void:
 	var button := UI.button(title, func(): _set_tab(tab_id))
 	button.name = "BizBriefTab_%s" % tab_id
 	# A selected tab stays tappable while a sub-page or person is open: it returns to the index.
-	button.disabled = selected and _manage_page == "" and _staff_person == ""
+	button.disabled = selected and _brief_page == "" and _manage_page == "" and _staff_person == ""
 	button.custom_minimum_size = Vector2(0, 46)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.add_theme_font_size_override("font_size", 11)
@@ -320,11 +323,12 @@ func _staff_tab_open() -> bool:
 
 
 func _set_tab(tab: String) -> void:
-	if tab == _tab and _manage_page == "" and _staff_person == "":
+	if tab == _tab and _brief_page == "" and _manage_page == "" and _staff_person == "":
 		return
 	if (tab == STAFF_TAB and not _staff_tab_open()) or (tab == STATS_TAB and not Business.is_pot_active()):
 		return
 	_tab = tab
+	_brief_page = ""
 	_manage_page = ""
 	_vein_chooser_for = ""
 	_staff_person = ""
@@ -336,6 +340,7 @@ func _set_tab(tab: String) -> void:
 # cultivator to land on.
 func _open_manage_page(page: String, focus_id: String = "") -> void:
 	_tab = MANAGE_TAB
+	_brief_page = ""
 	_manage_page = page
 	_page_focus_id = focus_id
 	_vein_chooser_for = ""
@@ -346,6 +351,15 @@ func _open_manage_page(page: String, focus_id: String = "") -> void:
 
 
 func _build_brief(content: VBoxContainer) -> void:
+	match _brief_page:
+		MORNING_PAGE:
+			content.add_child(_build_brief_subnav())
+			_build_morning_report(content)
+			return
+		MONEY_PAGE:
+			content.add_child(_build_brief_subnav())
+			_build_business_money(content)
+			return
 	# The Today card is read live, including before the first rollover.
 	content.add_child(_build_today())
 	# Today's wage and poach rows open the person's Staff detail; while Staff
@@ -358,22 +372,10 @@ func _build_brief(content: VBoxContainer) -> void:
 		for contact_id in Hiring.pending_poach_ids():
 			_decision_anchors[contact_id] = _build_poach_alert(contact_id)
 			content.add_child(_decision_anchors[contact_id])
-	var account: Variant = MorningAccountsSystem.latest()
-	content.add_child(_brief_collapsible("accounts", "Account / %s" % Calendar.format_day(int(GameState.state["world"]["day"])), func(body: VBoxContainer): body.add_child(_build_brief_hero(account))))
-	content.add_child(_brief_collapsible("treasury", "Treasury", func(body: VBoxContainer): body.add_child(_build_treasury())))
-	content.add_child(_brief_collapsible("operations", "Operations feed", func(body: VBoxContainer): body.add_child(_build_operations_feed(account))))
-	content.add_child(UI.button("Full brief →", _show_full_brief))
-	_brief_detail_anchor = _brief_section("Morning Brief")
-	content.add_child(_brief_detail_anchor)
-	if account == null:
-		content.add_child(UI.muted_label("No morning account yet."))
-	else:
-		content.add_child(UI.muted_label("%s · overnight changes" % Calendar.format_day(int(account["day"]))))
-		content.add_child(_build_bank(account))
-		if account.get("payday") != null:
-			content.add_child(_build_payday(account["payday"]))
-		if MorningAccountsSystem.has_operations(account):
-			content.add_child(_build_operations(account))
+	content.add_child(_brief_section("Yesterday"))
+	content.add_child(_build_nav_row("BriefRow_%s" % MORNING_PAGE, BRIEF_PAGE_TITLES[MORNING_PAGE], _yesterday_lines(), func(): _open_brief_page(MORNING_PAGE)))
+	content.add_child(_brief_section("Business"))
+	content.add_child(_build_nav_row("BriefRow_%s" % MONEY_PAGE, BRIEF_PAGE_TITLES[MONEY_PAGE], [_money_status()], func(): _open_brief_page(MONEY_PAGE)))
 	content.add_child(_build_moves_against_you())
 	content.add_child(_build_war())
 	content.add_child(_build_london_share())
@@ -578,35 +580,6 @@ func _open_today_action(action: Dictionary) -> void:
 			PhoneNav.open_app(action["to"])
 
 
-# A Brief section collapsed by default; expansion is session-only view
-# state, and the body is built only while open.
-func _brief_collapsible(key: String, title: String, build_body: Callable) -> Control:
-	var expanded: bool = _open_brief_sections.has(key)
-	# The toggle runs after creation, so it reads the body through this holder.
-	var holder := {}
-	var section := UI.collapsible_section(title, expanded, func(open: bool): _set_brief_section_open(key, open, holder["body"], build_body))
-	holder["body"] = section["content"]
-	section["panel"].name = "BizBriefSection_%s" % key
-	if expanded:
-		build_body.call(section["content"])
-	return section["panel"]
-
-
-func _set_brief_section_open(key: String, open: bool, body: VBoxContainer, build_body: Callable) -> void:
-	if open:
-		_open_brief_sections[key] = true
-		if body.get_child_count() == 0:
-			build_body.call(body)
-			_style_page(body)
-	else:
-		_open_brief_sections.erase(key)
-
-
-func _show_full_brief() -> void:
-	if is_instance_valid(_scroll) and is_instance_valid(_brief_detail_anchor):
-		_scroll.ensure_control_visible(_brief_detail_anchor)
-
-
 func _brief_section(title: String, note: String = "") -> Control:
 	var row := UI.hbox()
 	var heading := UI.heading(title, 16)
@@ -616,47 +589,89 @@ func _brief_section(title: String, note: String = "") -> Control:
 	return row
 
 
-func _build_brief_hero(account: Variant) -> Control:
-	var c := UI.card()
-	c["panel"].name = "BizBriefHero"
-	c["content"].add_child(UI.muted_label("CLOSING / REYNARD'S"))
-	var balance: int = int(GameState.state["player"]["cash"]) if account == null else int(account["closingBalance"])
-	var row := UI.hbox()
-	row.add_child(UI.expand_fill(UI.heading("£%d" % balance, 26)))
-	if account != null:
-		var change: int = int(account["closingBalance"]) - int(account["openingBalance"])
-		row.add_child(UI.tinted_label("%s£%d" % ["+" if change >= 0 else "−", absi(change)], SIGNAL if change < 0 else PAPER))
-	c["content"].add_child(row)
-	c["content"].add_child(UI.muted_label("NET CHANGE" if account != null else "No morning account yet."))
-	return c["panel"]
+func _open_brief_page(page: String) -> void:
+	_tab = BRIEF_TAB
+	_brief_page = page
+	_manage_page = ""
+	_vein_chooser_for = ""
+	_staff_person = ""
+	refresh()
 
 
-func _build_treasury() -> Control:
-	var c := UI.card()
-	if Business.is_pot_active():
-		var business: Dictionary = GameState.state["business"]
-		c["content"].add_child(UI.label("Business pot · £%d" % int(business["pot"])))
-		c["content"].add_child(UI.label("Bill float · £%d" % int(business["float"])))
-		c["content"].add_child(_build_float())
+func _build_brief_subnav() -> Control:
+	var row := UI.hbox(4)
+	row.name = "BriefSubnav"
+	row.add_child(_quiet_link("‹ Brief", func(): _set_tab(BRIEF_TAB), "BriefBack"))
+	var crumb := UI.muted_label("/ %s" % BRIEF_PAGE_TITLES[_brief_page])
+	crumb.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	row.add_child(crumb)
+	return row
+
+
+# The Yesterday row's status: Reynard's close and net change from the latest
+# Morning Brief, then which detail sections the report holds.
+func _yesterday_lines() -> Array:
+	var account: Variant = MorningAccountsSystem.latest()
+	if account == null:
+		return [MORNING_REPORT_EMPTY_TEXT]
+	var change: int = int(account["closingBalance"]) - int(account["openingBalance"])
+	var lines := ["Reynard's £%d · %s£%d overnight" % [int(account["closingBalance"]), "+" if change >= 0 else "−", absi(change)]]
+	var parts: Array[String] = []
+	if account.get("payday") != null:
+		parts.append("Payday")
+	if MorningAccountsSystem.has_operations(account):
+		parts.append("Operations")
+	var exceptions: int = account["exceptions"].size()
+	if exceptions > 0:
+		parts.append("%d exception%s" % [exceptions, "" if exceptions == 1 else "s"])
+	lines.append(" · ".join(parts) if not parts.is_empty() else "No payday or operations.")
+	return lines
+
+
+func _money_status() -> String:
+	if not Business.is_pot_active():
+		return POT_CLOSED_TEXT
+	var business: Dictionary = GameState.state["business"]
+	return "Pot £%d · float £%d" % [int(business["pot"]), int(business["float"])]
+
+
+# The full latest Morning Brief: bank, payday and every operations line.
+func _build_morning_report(content: VBoxContainer) -> void:
+	var account: Variant = MorningAccountsSystem.latest()
+	if account == null:
+		content.add_child(UI.muted_label(MORNING_REPORT_EMPTY_TEXT))
+		return
+	content.add_child(UI.muted_label("%s · overnight changes" % Calendar.format_day(int(account["day"]))))
+	content.add_child(_build_bank(account))
+	if account.get("payday") != null:
+		content.add_child(_build_payday(account["payday"]))
+	if MorningAccountsSystem.has_operations(account):
+		content.add_child(_build_operations(account))
 	else:
-		c["content"].add_child(UI.muted_label("Business pot not open yet."))
-	return c["panel"]
+		content.add_child(UI.muted_label("No overnight operations to report."))
 
 
-func _build_operations_feed(account: Variant) -> Control:
-	var c := UI.card()
-	if account == null or not MorningAccountsSystem.has_operations(account):
-		c["content"].add_child(UI.muted_label("No overnight operations to report."))
-		return c["panel"]
-	for ore_type in account["production"]["ore"]:
-		c["content"].add_child(UI.label("%s ore / produced · +%d" % [ore_type.to_upper(), int(account["production"]["ore"][ore_type])]))
-	for recipe_key in account["production"]["items"]:
-		c["content"].add_child(UI.label("%s / made · +%d" % [String(GameData.RECIPES[recipe_key]["name"]).to_upper(), int(account["production"]["items"][recipe_key])]))
-	if account.get("guardWages") != null:
-		c["content"].add_child(UI.label("GUARD WAGES / PAID · −£%d" % int(account["guardWages"]["amount"])))
-	if c["content"].get_child_count() == 0:
-		c["content"].add_child(UI.muted_label("See the full brief below for stock, sales, losses and exceptions."))
-	return c["panel"]
+# Pot and float as separate cards, each with its role (REFERENCE §3.10
+# "Business pot and payday", "Business float"); the float card holds
+# Donate/Withdraw.
+func _build_business_money(content: VBoxContainer) -> void:
+	if not Business.is_pot_active():
+		content.add_child(UI.muted_label(POT_CLOSED_TEXT))
+		return
+	var business: Dictionary = GameState.state["business"]
+	var pot := UI.card()
+	pot["panel"].name = "BizBriefPot"
+	pot["content"].add_child(UI.heading("Business pot", 14))
+	pot["content"].add_child(UI.heading("£%d" % int(business["pot"]), 25))
+	pot["content"].add_child(UI.muted_label("Contract payments land here. Monday's payday pays wages and guards from it, then splits the rest with your partners."))
+	content.add_child(pot["panel"])
+	var float_card := UI.card()
+	float_card["panel"].name = "BizBriefFloat"
+	float_card["content"].add_child(UI.heading("Bill float", 14))
+	float_card["content"].add_child(UI.heading("£%d" % int(business["float"]), 25))
+	float_card["content"].add_child(UI.label("Cash in hand £%d" % int(GameState.state["player"]["cash"])))
+	float_card["content"].add_child(_build_float())
+	content.add_child(float_card["panel"])
 
 
 const MOVES_SHOWN := 5

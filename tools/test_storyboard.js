@@ -24,10 +24,10 @@ const {
   cardPos, insertCard, deleteCard, moveCard, danglingLinks, hasCycle, buildGraph, elkGraph, placeLayout, setNodePositions, clearLayout, applyPositions,
   findCycle, addBranch, renameBranch, deleteBranch, inboundLinks, setCardGoto, setThen,
   COND_KINDS, condKind, blankCond, condGet, condSet,
-  outcomeSlots, addOption, deleteOption, moveOption, setOptionField, setOutcomeText, setOutcomeGoto, routeToNewBranch,
+  outcomeSlots, addOption, deleteOption, moveOption, setOptionField, setOutcomeText, setOutcomeGoto, setOutcomeImage, routeToNewBranch,
   setCheckNote, setCheckOn, setOptionMechanics, setEffects, addBySuccess, deleteBySuccess, setConditionKind,
   addComment, updateComment, deleteComment, filterComments, commentCount, anchorText, anchorType, proseComments,
-  cardImageName, freeImageName, setCardImage, eventImageDir, SHOT_FIELDS, serialiseBoard, setShotField, shotFieldText,
+  cardImageName, freeImageName, freeResultImageName, setCardImage, eventImageDir, SHOT_FIELDS, serialiseBoard, setShotField, shotFieldText,
   LIVE_EVENTS_DIR, proposalFileName, importBoard, blankBoard, duplicateBoard, boardCardLabel, promoteDraft, serialiseEvent,
   promoteForWrite, promoteSummary, shotBoardFor, boardCut, shotOnPath,
 } = new Function(
@@ -37,10 +37,10 @@ const {
     " cardPos, insertCard, deleteCard, moveCard, danglingLinks, hasCycle, buildGraph, elkGraph, placeLayout, setNodePositions, clearLayout, applyPositions," +
     " findCycle, addBranch, renameBranch, deleteBranch, inboundLinks, setCardGoto, setThen," +
     " COND_KINDS, condKind, blankCond, condGet, condSet," +
-    " outcomeSlots, addOption, deleteOption, moveOption, setOptionField, setOutcomeText, setOutcomeGoto, routeToNewBranch," +
+    " outcomeSlots, addOption, deleteOption, moveOption, setOptionField, setOutcomeText, setOutcomeGoto, setOutcomeImage, routeToNewBranch," +
     " setCheckNote, setCheckOn, setOptionMechanics, setEffects, addBySuccess, deleteBySuccess, setConditionKind," +
     " addComment, updateComment, deleteComment, filterComments, commentCount, anchorText, anchorType, proseComments," +
-    " cardImageName, freeImageName, setCardImage, eventImageDir, SHOT_FIELDS, serialiseBoard, setShotField, shotFieldText," +
+    " cardImageName, freeImageName, freeResultImageName, setCardImage, eventImageDir, SHOT_FIELDS, serialiseBoard, setShotField, shotFieldText," +
     " LIVE_EVENTS_DIR, proposalFileName, importBoard, blankBoard, duplicateBoard, boardCardLabel, promoteDraft, serialiseEvent," +
     " promoteForWrite, promoteSummary, shotBoardFor, boardCut, shotOnPath };"
 )();
@@ -882,6 +882,38 @@ test("setOutcomeText writes the plain result or an outcome's, creating success /
   setOutcomeText(draft, "c2", 0, "fail", "Botched it.");
   assert.deepStrictEqual(o.fail, { result_text: "Botched it." });
   assert.throws(() => setOutcomeText(draft, "c2", 0, "result", "x"), /no "result" outcome/);
+});
+
+test("setOutcomeImage sets, clears (null) and drops a result's image; survives save and promote", () => {
+  const md = "# T\n\n```json\n" + draftText + "\n```\n";
+  const d = parseProposal("p.md", md).draft;
+  const path = "res://assets/events/ev/ev_main_c1_option1.png";
+  addOption(d, "c1");
+  setOutcomeImage(d, "c1", 0, "result", path);
+  assert.strictEqual(cardByKey(d, "c1").choices[0].image, path);
+  const back = parseProposal("p.md", spliceDraft(md, d)).draft;
+  assert.strictEqual(cardByKey(back, "c1").choices[0].image, path);
+  assert.ok(JSON.stringify(promoteDraft(d).event).includes(path));
+  setOutcomeImage(d, "c1", 0, "result", null);
+  assert.strictEqual(cardByKey(d, "c1").choices[0].image, null);
+  setOutcomeImage(d, "c1", 0, "result", undefined);
+  assert.ok(!("image" in cardByKey(d, "c1").choices[0]));
+  const o = cardByKey(d, "c2").choices[0];
+  delete o.fail;
+  setOutcomeImage(d, "c2", 0, "fail", undefined);
+  assert.ok(!("fail" in o), "dropping an unset outcome's image doesn't create it");
+  setOutcomeImage(d, "c2", 0, "fail", path);
+  assert.deepStrictEqual(o.fail, { image: path });
+  assert.throws(() => setOutcomeImage(d, "c2", 0, "result", path), /no "result" outcome/);
+});
+
+test("option result image name: card key + option id, slot suffix for checks, bumped past a different file", () => {
+  const none = new Set();
+  assert.strictEqual(freeResultImageName("ev", "main", "c3", "offerPearl", "result", none, none), "ev_main_c3_offerPearl.png");
+  assert.strictEqual(freeResultImageName("ev", "main", "c3", "pick", "by:2", none, none), "ev_main_c3_pick_by2.png");
+  const taken = new Set(["ev_main_c3_pick_fail.png"]);
+  assert.strictEqual(freeResultImageName("ev", "main", "c3", "pick", "fail", taken, none), "ev_main_c3_pick_fail_2.png");
+  assert.strictEqual(freeResultImageName("ev", "main", "c3", "pick", "fail", taken, taken), "ev_main_c3_pick_fail.png");
 });
 
 test("setOutcomeGoto routes plain, success/fail and bySuccesses outcomes; play follows the chosen one", () => {

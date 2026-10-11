@@ -110,7 +110,7 @@ Both are small. Without them, the fallback is one flat result for every pearl co
                   "value": 5
                 }
               ],
-              "result_text": ""
+              "result_text": null
             },
             {
               "id": "vague",
@@ -126,10 +126,12 @@ Both are small. Without them, the fallback is one flat result for every pearl co
           "image": "res://assets/events/archie_craft_chat/archie_craft_chat_card4.png"
         },
         {
-          "key": "c10",
           "type": "narration",
+          "label": null,
+          "speaker": null,
           "text": "You put a pearl on the table between you. Archie stops chewing. His eyes start to stream and he leans back from it, but he doesn't stop looking. \"You made that?\" A pause. \"I've had nothing in my pocket since Whitechapel but keys.\"",
-          "image": "res://assets/events/archie_craft_chat/archie_craft_chat_main_4.png"
+          "key": "c10",
+          "image": "res://assets/events/archie_craft_chat/archie_craft_chat_main_c3_offerPearl.png"
         }
       ],
       "then": [

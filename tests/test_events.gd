@@ -1120,6 +1120,45 @@ func run() -> void:
 		GameData.EVENTS = original_events
 	)
 
+	run_case("a_blank_result_text_shows_no_resolution_and_moves_straight_on", func():
+		GameState.reset()
+		var original_events := _install_gated_event()
+		var options: Array = GameData.EVENTS["test_gated_event"]["cards"][1]["choices"]
+		options[0]["result_text"] = null
+		options[2]["result_text"] = "  "
+		GameState.state["player"]["cash"] = 60
+		Events.start_event("test_gated_event")
+		Events.advance()
+		var snapshots_before: int = GameState.state["event"]["snapshots"].size()
+		Events.choose(0)
+		assert_eq(GameState.state["event"]["cardIndex"], 3, "null result_text: straight to the goto card")
+		assert_eq(_texts(Events.revealed_cards()), ["Setup", "Pick one", "Rejoin"], "no resolution card")
+		assert_eq(GameState.state["player"]["cash"], 10, "the option's effects still apply")
+		assert_eq(GameState.state["event"]["snapshots"].size(), snapshots_before + 1, "one Rewind step for pick + move on")
+		GameState.reset()
+		Events.start_event("test_gated_event")
+		Events.advance()
+		Events.choose(2)
+		assert_eq(GameState.state["event"]["cardIndex"], 2, "blank result_text, no goto: the next card")
+		assert_eq(_texts(Events.revealed_cards()), ["Setup", "Pick one", "Branch"])
+		GameData.EVENTS = original_events
+	)
+
+	run_case("a_blank_result_text_on_the_last_card_finishes_the_event", func():
+		GameState.reset()
+		var original_events := _install_gated_event()
+		var event: Dictionary = GameData.EVENTS["test_gated_event"]
+		event["cards"] = event["cards"].slice(0, 2)
+		event["cards"][1]["choices"][2]["result_text"] = ""
+		event["on_complete"] = [{ "op": "set_flag", "flag": "gatedDone", "value": true }]
+		Events.start_event("test_gated_event")
+		Events.advance()
+		Events.choose(2)
+		assert_eq(GameState.state["event"], null, "the event finished")
+		assert_true(GameState.state["flags"].get("gatedDone", false), "on_complete ran")
+		GameData.EVENTS = original_events
+	)
+
 	run_case("an_option_without_goto_plays_on_to_the_next_card", func():
 		GameState.reset()
 		var original_events := _install_gated_event()

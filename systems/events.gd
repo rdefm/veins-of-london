@@ -105,6 +105,8 @@ static func revealed_cards() -> Array:
 		result.append(card)
 		if choice_results.has(str(i)):
 			var resolution: Dictionary = choice_results[str(i)]
+			if is_silent_text(resolution["text"]):
+				continue
 			var resolution_card: Dictionary = { "type": "resolution", "label": null, "speaker": null, "text": resolution["text"] }
 			if resolution.has("image"):
 				resolution_card["image"] = resolution["image"]
@@ -227,7 +229,12 @@ static func advance() -> void:
 		return  # a "choice" card must be resolved via choose() before Continue works
 
 	_snapshot_before_mutation()
+	_continue()
 
+
+# Continue's state change without its snapshot: shared by advance() and a
+# silent choose(), which already snapshotted before the pick.
+static func _continue() -> void:
 	var event_state: Dictionary = GameState.state["event"]
 	if is_last_card():
 		var on_complete: Array = _event_def().get("on_complete", [])
@@ -324,7 +331,8 @@ static func _visited_indices() -> Array:
 
 # Resolves the current "choice" card: applies the picked choice's effects, then
 # records its result_text so revealed_cards() shows it as a resolution card.
-# Doesn't advance cardIndex -- Continue still moves past the resolution.
+# Doesn't advance cardIndex -- Continue still moves past the resolution -- unless
+# the result_text is blank, when it continues at once.
 static func choose(choice_index: int) -> void:
 	if not is_awaiting_choice():
 		return
@@ -381,6 +389,14 @@ static func choose(choice_index: int) -> void:
 			effects = effects + choice["check"].get("perSuccess", [])
 		effects = effects + source.get("effects", [])
 	apply_effects(effects)
+	# A blank result_text shows no resolution card: play moves straight on (R§3.9a Goto).
+	if is_silent_text(resolution["text"]) and GameState.state["event"] != null:
+		_continue()
+
+
+# True for a result_text that shows no resolution card: null or blank.
+static func is_silent_text(text: Variant) -> bool:
+	return text == null or String(text).strip_edges() == ""
 
 
 # Choice memory: flags.choices[eventId][str(cardIndex)] = {id, outcome?,

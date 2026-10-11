@@ -18,13 +18,13 @@ static func _label_with_text(root: Node, text: String) -> Label:
 	return null
 
 
-# Opens every collapsed Brief section (accounts, Treasury, Operations feed).
-static func _expand_brief_sections(root: Node) -> void:
-	for key in ["accounts", "treasury", "operations"]:
-		var section: Node = root.find_child("BizBriefSection_%s" % key, true, false)
-		var header := section.get_child(0) as Button
-		if header.text.ends_with("▸"):
-			header.pressed.emit()
+# Opens a Brief detail page (morning/money) from its row below Today.
+static func _open_brief_page(root: Node, page: String) -> void:
+	(root.find_child("BriefRowButton_%s" % page, true, false) as Button).pressed.emit()
+
+
+static func _row_texts(root: Node, page: String) -> Array:
+	return NodeQuery.label_texts(root.find_child("BriefRow_%s" % page, true, false))
 
 
 static func _expand_routine(root: Node) -> void:
@@ -127,7 +127,7 @@ func run() -> void:
 		phone.free()
 	)
 
-	run_case("brief_renders_today_card_first_and_expands_collapsed_accounts_treasury_operations", func():
+	run_case("brief_renders_today_first_then_a_yesterday_summary_opening_the_morning_report", func():
 		GameState.reset()
 		GameState.state["morningAccounts"]["latest"] = {
 			"day": 3, "openingBalance": 200, "closingBalance": 145,
@@ -144,17 +144,22 @@ func run() -> void:
 		assert_eq(page.get_child(0).name, &"BizBriefToday", "the Today card leads the Brief")
 		var texts := NodeQuery.label_texts(phone)
 		assert_true(texts.has("Today"))
-		assert_true(page.find_child("BizBriefHero", true, false) == null, "lower sections start collapsed")
-		for key in ["accounts", "treasury", "operations"]:
-			var body: Control = page.find_child("BizBriefSection_%s" % key, true, false).get_child(1)
-			assert_true(not body.visible and body.get_child_count() == 0, "%s starts collapsed" % key)
 		assert_true(not NodeQuery.button_texts(phone).any(func(t: String): return t.find("unread") != -1), "unread messages are not Today rows")
-		_expand_brief_sections(phone)
+		assert_true(texts.has("Yesterday"))
+		for expected in ["Morning report", "Reynard's £145 · −£55 overnight", "Operations"]:
+			assert_true(_row_texts(phone, "morning").has(expected), "Yesterday row missing %s" % expected)
+		assert_true(phone.find_children("BizBriefSection_*", "", true, false).is_empty(), "no expandable account sections")
+		for detail in ["Opening £200 · Closing £145", "Income +£20 · Expenses −£75"]:
+			assert_true(not texts.has(detail), "Brief does not repeat %s" % detail)
+		_open_brief_page(phone, "morning")
 		texts = NodeQuery.label_texts(phone)
-		for expected in ["BizBrief", "Morning Brief", "£145", "−£55", "Reynard's", "Operations", "Opening £200 · Closing £145", "Income +£20 · Expenses −£75"]:
+		assert_true(phone.find_child("BizBriefToday", true, false) == null, "the report replaces Today")
+		for expected in ["/ Morning report", "Reynard's", "£145", "Operations", "Opening £200 · Closing £145", "Income +£20 · Expenses −£75"]:
 			assert_true(texts.has(expected), "missing %s" % expected)
-		assert_true(_button_with_text(phone, "Full brief →") != null)
-		_button_with_text(phone, "Full brief →").pressed.emit()
+		assert_eq(texts.count("Opening £200 · Closing £145"), 1, "each figure once")
+		assert_true(not _button_with_text(phone, "Brief").disabled, "Brief tab returns from the page")
+		(phone.find_child("BriefBack", true, false) as Button).pressed.emit()
+		assert_true(phone.find_child("BizBriefToday", true, false) != null, "back returns to Today")
 		phone.free()
 	)
 
@@ -215,24 +220,49 @@ func run() -> void:
 		phone.free()
 	)
 
-	run_case("brief_lead_is_live_before_rollover_and_treasury_moves_funds", func():
+	run_case("before_first_account_and_pot_both_pages_show_empty_states", func():
 		GameState.reset()
-		GameState.state["player"]["cash"] = 300
-		Messages.append("archie", "them", "Call me.")
-		Business.activate()
 		GameState.state["phoneNav"]["app"] = "bizbrief"
 		var phone := PhoneScreen.new()
 		phone._ready()
-		assert_true(NodeQuery.label_texts(phone).has("Today"), "Today card before rollover")
-		_expand_brief_sections(phone)
+		assert_true(_row_texts(phone, "morning").has(BizBriefApp.MORNING_REPORT_EMPTY_TEXT))
+		assert_true(_row_texts(phone, "money").has(BizBriefApp.POT_CLOSED_TEXT))
+		_open_brief_page(phone, "morning")
 		var texts := NodeQuery.label_texts(phone)
-		assert_true(texts.has("£300"), "live cash in hero")
-		assert_true(texts.has("Business pot · £0"))
-		assert_true(texts.has("Bill float · £0"))
-		assert_true(texts.has("No overnight operations to report."))
+		assert_true(texts.has(BizBriefApp.MORNING_REPORT_EMPTY_TEXT))
+		assert_true(not texts.any(func(t: String): return t.begins_with("Opening £")), "no sample account")
+		_button_with_text(phone, "Brief").pressed.emit()
+		_open_brief_page(phone, "money")
+		texts = NodeQuery.label_texts(phone)
+		assert_true(texts.has("/ Business money"))
+		assert_true(texts.has(BizBriefApp.POT_CLOSED_TEXT))
+		assert_true(_button_with_text(phone, "Donate") == null, "no transfers before the pot opens")
+		phone.free()
+	)
+
+	run_case("business_money_shows_pot_and_float_apart_and_moves_funds", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 300
+		Business.activate()
+		GameState.state["business"]["pot"] = 120
+		GameState.state["phoneNav"]["app"] = "bizbrief"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		assert_true(_row_texts(phone, "money").has("Pot £120 · float £0"))
+		_open_brief_page(phone, "money")
+		var pot: Node = phone.find_child("BizBriefPot", true, false)
+		var float_card: Node = phone.find_child("BizBriefFloat", true, false)
+		assert_true(NodeQuery.label_texts(pot).has("£120"))
+		assert_true(NodeQuery.label_texts(pot).any(func(t: String): return t.begins_with("Contract payments land here.")), "pot role")
+		assert_true(NodeQuery.label_texts(float_card).has("£0"))
+		assert_true(NodeQuery.label_texts(float_card).has("The float pays bills the pot can't. Payday never splits it."), "float role")
+		assert_true(NodeQuery.label_texts(float_card).has("Cash in hand £300"))
+		assert_true(_button_with_text(phone, "Withdraw").disabled, "empty float: nothing to withdraw")
 		_button_with_text(phone, "Donate").pressed.emit()
 		assert_eq(GameState.state["business"]["float"], 1)
 		assert_eq(GameState.state["player"]["cash"], 299)
+		assert_eq(GameState.state["business"]["pot"], 120, "the pot is untouched")
+		assert_true(NodeQuery.label_texts(phone.find_child("BizBriefFloat", true, false)).has("£1"), "page stays open on refresh")
 		_button_with_text(phone, "Withdraw").pressed.emit()
 		assert_eq(GameState.state["business"]["float"], 0)
 		assert_eq(GameState.state["player"]["cash"], 300)
@@ -296,6 +326,8 @@ func run() -> void:
 		GameState.state["phoneNav"]["app"] = "bizbrief"
 		var phone := PhoneScreen.new()
 		phone._ready()
+		assert_true(_row_texts(phone, "morning").has("Operations · 4 exceptions"), "Yesterday counts the exceptions")
+		_open_brief_page(phone, "morning")
 		var texts := NodeQuery.label_texts(phone)
 		for expected in [
 			"Exception: £20 interest on the arrears.",
@@ -323,13 +355,18 @@ func run() -> void:
 		var phone := PhoneScreen.new()
 		phone._ready()
 		var texts := NodeQuery.label_texts(phone)
+		assert_true(texts.has("Owen is owed £214 and has stopped working. Top up the float by £214?"), "the wage decision stays on the Brief")
+		assert_true(not texts.has("Receipts £750"), "payday lives in the Morning report")
+		assert_true(String(_row_texts(phone, "morning")[2]).begins_with("Payday · Operations"))
+		_open_brief_page(phone, "morning")
+		texts = NodeQuery.label_texts(phone)
 		for expected in [
 			"Payday", "Receipts £750", "Wages, Owen −£250", "Calc, The Firm −£30",
 			"Shares: You £158 · Archie £156 · James £156",
 			"Exception: the pot couldn't cover Owen's wages. Owed £214.",
-			"Owen is owed £214 and has stopped working. Top up the float by £214?",
 		]:
 			assert_true(texts.has(expected), "missing %s" % expected)
+		_button_with_text(phone, "‹ Brief").pressed.emit()
 		_button_with_text(phone, "Yes").pressed.emit()
 		assert_eq(Business.owed("owen"), 0, "Yes tops up the float and pays from it")
 		assert_eq(GameState.state["player"]["cash"], 786)
@@ -361,7 +398,8 @@ func run() -> void:
 		var phone := PhoneScreen.new()
 		phone._ready()
 		assert_true(NodeQuery.label_texts(phone).has(DailyBrief.empty_text()))
-		_expand_brief_sections(phone)
+		assert_true(_row_texts(phone, "morning").has("No payday or operations."))
+		_open_brief_page(phone, "morning")
 		var texts := NodeQuery.label_texts(phone)
 		assert_true(texts.has("Reynard's"))
 		assert_true(texts.has("No overnight operations to report."))
@@ -399,7 +437,7 @@ func run() -> void:
 		for expected in ["Sales", "No offers or orders yet.", "Production", "Needs the Improved Lab.", "Procurement", "Needs the Vein Cultivation Station."]:
 			assert_true(texts.has(expected), "missing %s" % expected)
 		assert_true(phone.find_children("OfferCard_*", "", true, false).is_empty(), "index carries no offer cards")
-		assert_true(not texts.has("Morning Brief"), "Manage does not duplicate the Brief tab")
+		assert_true(not texts.has("Yesterday"), "Manage does not duplicate the Brief tab")
 		(phone.find_child("ManageRowButton_sales", true, false) as Button).pressed.emit()
 		texts = NodeQuery.label_texts(phone)
 		assert_eq(texts.count("No offers or orders yet."), 1, "one empty Sales state")
@@ -414,7 +452,7 @@ func run() -> void:
 		var brief := _button_with_text(phone, "Brief")
 		assert_true(brief != null, "Manage keeps the Brief tab available")
 		brief.pressed.emit()
-		assert_true(NodeQuery.label_texts(phone).has("Morning Brief"), "Brief preserves the existing account view")
+		assert_true(NodeQuery.label_texts(phone).has("Yesterday"), "Brief keeps its Yesterday summary")
 		phone.free()
 	)
 

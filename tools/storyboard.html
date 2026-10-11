@@ -915,7 +915,7 @@ function checkOddsBlock(opt, changed, restructure) {
 
   let root = null, boards = [], feedback = {}, plateFiles = new Map(), currentId = null, cardIdx = 0;
   // Proposal play-through: cards visited before this one (for Prev), and the picked option/outcome on a choice card.
-  let trail = [], pick = null, outcomeKey = null;
+  let trail = [], trailImg = [], pick = null, outcomeKey = null;
   // Proposal preview images: "shots" = the linked storyboard's shots, "event" = the draft's own image keys.
   let imgMode = (() => { try { return localStorage.getItem("vein-sb-imgmode") || "shots"; } catch { return "shots"; } })();
   // Boards (a proposal or its shot board) in the order their undo steps were taken, so Undo on a proposal
@@ -1454,6 +1454,14 @@ function checkOddsBlock(opt, changed, restructure) {
     guardCycle(draft, () => { if (next) res.goto = next; else delete res.goto; },
       () => { if (created) delete o[slot]; else if (had) res.goto = old; else delete res.goto; });
   }
+  // Sets the image of option i's outcome `slot`: a res:// path, null (CLEAR: no image from this result on) or
+  // undefined (key dropped: the result keeps the choice card's image). Creates success / fail if unset.
+  function setOutcomeImage(draft, key, i, slot, image) {
+    const { o } = optionAt(draft, key, i), s = findSlot(o, slot);
+    if (!s.res && image === undefined) return;
+    const res = s.res || (o[slot] = {});
+    if (image === undefined) delete res.image; else res.image = image;
+  }
   // Creates branch `name` (one blank card, ends) and routes option i's outcome `slot` to it, in one step; returns
   // the new card's key. A fresh branch ends, so the link can't loop.
   function routeToNewBranch(draft, key, i, slot, name, title = "") {
@@ -1862,6 +1870,15 @@ function checkOddsBlock(opt, changed, restructure) {
       if (!taken.has(name) || same.has(name)) return name;
     }
   }
+  // An option result's canonical image name: <id>_<branch>_<card key>_<option id or n>[_<slot>][_k].png, the first
+  // that is free on disk or already holds the picked bytes (as freeImageName).
+  function freeResultImageName(id, branch, key, opt, slot, taken, same) {
+    const base = `${id}_${branch}_${key}_${opt}${slot === "result" ? "" : "_" + slot.replace(":", "")}`;
+    for (let k = 1; ; k++) {
+      const name = `${base}${k > 1 ? "_" + k : ""}.png`;
+      if (!taken.has(name) || same.has(name)) return name;
+    }
+  }
   // image: a res:// path, null (CLEAR: no image from here) or undefined (HOLD: drop the key, keep the previous image).
   function setCardImage(draft, key, image) {
     const card = cardByKey(draft, key);
@@ -2263,14 +2280,22 @@ function checkOddsBlock(opt, changed, restructure) {
     }
     return null;
   }
-  // Same, for a proposal: holds walk back along the cards actually played (trail), not the flat list.
+  // Same, for a proposal: holds walk back along the cards actually played (trail), not the flat list. A result
+  // image picked on a played card (trailImg, undefined = none) holds like a card image, as in the game.
   function shotAlong(b) {
-    for (const j of [...trail, cardIdx].reverse()) {
-      const c = b.cards[j];
+    const path = [...trail, cardIdx];
+    for (let n = path.length - 1; n >= 0; n--) {
+      if (n < trail.length && trailImg[n] !== undefined) return trailImg[n];
+      const c = b.cards[path[n]];
       if (c.cut === "CLEAR") return null;
       if (c.cut === "NEW") return c.shot;
     }
     return null;
+  }
+  // The previewed pick's own result image (null = cleared), else a check option's shared one; undefined = none.
+  function pickedImage(b) {
+    const { o, oc } = picked(b);
+    return oc && oc.res && "image" in oc.res ? oc.res.image : o && o.check && "image" in o ? o.image : undefined;
   }
 
   function renderPicker() {
@@ -2344,7 +2369,7 @@ function checkOddsBlock(opt, changed, restructure) {
     frame.replaceChildren(); opts.replaceChildren(); out.replaceChildren();
     const shots = showingShots(b);
     frame.classList.toggle("pickable", !shots && !!b.draft && b.cards.length > 0);
-    frame.title = !shots && b.draft && b.cards.length ? "Click to pick this card's image" : "";
+    frame.title = !shots && b.draft && b.cards.length ? (pick != null ? "Click to pick this result's image" : "Click to pick this card's image") : "";
     opts.hidden = true; out.hidden = true;
     $("prev").disabled = cardIdx === 0;
     if (!b.cards.length) {
@@ -2356,7 +2381,9 @@ function checkOddsBlock(opt, changed, restructure) {
     }
     const c = b.cards[cardIdx];
     const { o, outs, oc } = picked(b);
-    const img = shots ? null : oc && oc.res && oc.res.image != null ? oc.res.image : shotAlong(b);
+    // A previewed result shows its own image, else the image held along the played path.
+    const resImage = pickedImage(b);
+    const img = shots ? null : resImage !== undefined ? resImage : shotAlong(b);
     const tok = ++frameTok;
     const sid = shots ? shotOnPath(b.cards, [...trail, cardIdx]) : null;
     if (shots) {
@@ -2367,9 +2394,10 @@ function checkOddsBlock(opt, changed, restructure) {
         if (tok !== frameTok) return;
         frame.prepend(i || el("div", { class: "ph" }, el("b", { text: "Missing" }), el("p", { text: img })));
       });
-      frame.append(el("span", { class: "tag", text: baseName(img) + (c.cut === "HOLD" ? " · held" : "") }));
+      frame.append(el("span", { class: "tag", text: baseName(img) + (resImage ? " · result" : c.cut === "HOLD" ? " · held" : "") }));
     } else {
-      frame.append(el("div", { class: "ph clear" }, el("p", { text: c.cut === "CLEAR" ? "Image cleared." : "No image on this card." })));
+      frame.append(el("div", { class: "ph clear" }, el("p", { text: resImage === null ? "Image cleared by this result."
+        : c.cut === "CLEAR" ? "Image cleared." : "No image on this card." })));
     }
     $("tp-label").textContent = c.label || "";
     $("tp-who").textContent = c.speaker || c.type;
@@ -2547,7 +2575,7 @@ function checkOddsBlock(opt, changed, restructure) {
     const id = node.getAttribute("data-node"), rest = id.slice(2);
     const i = id.startsWith("c:") ? b.cards.findIndex((c) => c.key === rest)
       : /^[bg]:/.test(id) ? b.cards.findIndex((c) => c.branch === rest) : -1;
-    if (i >= 0) { trail = []; goTo(i); }
+    if (i >= 0) { trail = []; trailImg = []; goTo(i); }
   }
   {
     const box = $("graph");
@@ -2648,8 +2676,25 @@ function checkOddsBlock(opt, changed, restructure) {
   const IP_SOURCES = [["shots", "Board shots"], ["event", "Event folder"], ["plates", "Reference plates"], ["repo", "Any repo image"]];
   const REPO_SKIP = new Set(["node_modules", "__pycache__"]);
   const IP_MAX = 150;
-  let ipSource = "shots", ipTok = 0, ipUrls = [], repoImages = null, ipBusy = false;
+  // ipTarget: null = the card's own image; {opt, slot} = that option outcome's result image.
+  let ipSource = "shots", ipTok = 0, ipUrls = [], repoImages = null, ipBusy = false, ipTarget = null;
   const setCard = (key, image) => editDraft((d) => setCardImage(d, key, image), true);
+  const setResultImage = (key, t, image) => editDraft((d) => setOutcomeImage(d, key, t.opt, t.slot, image), true);
+  // The picker's current image holder: the card, or the targeted option outcome (null when not set yet).
+  const ipHolder = (c, t) => {
+    if (!t) return c;
+    const o = (c.choices || [])[t.opt];
+    return o ? outcomeSlots(o).find((x) => x.slot === t.slot)?.res || null : null;
+  };
+  const optName = (c, i) => (c.choices[i] && c.choices[i].id) || String(i + 1);
+  // The outcome slot the previewed pick shows: result / success / fail, or for a multi-try check its count's own
+  // bySuccesses entry, else the success / fail it falls back to.
+  function previewSlot(b) {
+    const { o, oc } = picked(b);
+    if (!o || !oc) return null;
+    if (["result", "success", "fail"].includes(oc.key)) return oc.key;
+    return (o.bySuccesses || {})[oc.key] ? "by:" + oc.key : Number(oc.key) > 0 ? "success" : "fail";
+  }
   function renderImageRow(c) {
     const now = c.cut === "NEW" ? baseName(c.shot) + ("image" in c ? "" : " (convention file)")
       : c.cut === "HOLD" ? "HOLD · keeps the previous image" : "CLEAR · no image";
@@ -2659,8 +2704,9 @@ function checkOddsBlock(opt, changed, restructure) {
       iconBtn("CLEAR", "Clear: show no image from this card on", c.image === null, () => setCard(c.key, null)));
   }
   const pickerCard = () => { const b = board(); return b && b.kind === "proposal" && b.draft ? b.cards[cardIdx] || null : null; };
-  function openImagePicker() {
+  function openImagePicker(target = null) {
     if (!pickerCard()) return;
+    ipTarget = target;
     $("ip-filter").value = "";
     $("imgpick").showModal();
     renderImagePicker();
@@ -2695,22 +2741,26 @@ function checkOddsBlock(opt, changed, restructure) {
     plates: "No images in assets/reference-plates/.", repo: "No images found in the repo." };
   async function renderImagePicker() {
     const c = pickerCard(); if (!c) { $("imgpick").close(); return; }
-    const id = board().draft.id, tok = ++ipTok;
-    $("ip-where").textContent = `${c.branch} · ${c.key}`;
+    const id = board().draft.id, tok = ++ipTok, t = ipTarget, h = ipHolder(c, t);
+    $("ip-title").textContent = t ? "Result image" : "Card image";
+    $("ip-where").textContent = `${c.branch} · ${c.key}` + (t ? ` · option ${optName(c, t.opt)} · ${t.slot}` : "");
+    $("ip-hold").textContent = t ? "CARD'S" : "HOLD";
+    $("ip-hold").title = t ? "No image of its own: the result keeps the choice card's image" : "No image of its own: keep showing the previous card's image";
+    $("ip-clear").title = t ? "Show no image from this result on" : "Show no image from this card on";
     $("ip-sources").replaceChildren(...IP_SOURCES.map(([k, t]) => {
       const bt = el("button", { type: "button", "aria-pressed": String(k === ipSource), text: t });
       bt.addEventListener("click", () => { ipSource = k; renderImagePicker(); });
       return bt;
     }));
-    $("ip-hold").disabled = !("image" in c);
-    $("ip-clear").disabled = c.image === null;
+    $("ip-hold").disabled = !h || !("image" in h);
+    $("ip-clear").disabled = !!h && h.image === null;
     $("ip-note").textContent = ipSource === "repo" && !repoImages ? "Scanning the repo…" : "";
     let list = [];
     try { list = await listSource(ipSource, id); } catch (e) { $("ip-note").textContent = "Couldn't list images: " + (e && e.message); }
     if (tok !== ipTok) return;
     const q = $("ip-filter").value.trim().toLowerCase();
     const hits = list.filter((x) => !q || x.parts.join("/").toLowerCase().includes(q));
-    const current = typeof c.image === "string" ? c.image.replace(/^res:\/\//, "") : null;
+    const current = h && typeof h.image === "string" ? h.image.replace(/^res:\/\//, "") : null;
     revokeIp();
     $("ip-note").textContent = !hits.length ? (q ? "Nothing matches the filter." : IP_EMPTY[ipSource].replace("%s", id))
       : hits.length > IP_MAX ? `Showing ${IP_MAX} of ${hits.length}; filter to narrow.` : `${hits.length} image${hits.length > 1 ? "s" : ""}`;
@@ -2719,7 +2769,7 @@ function checkOddsBlock(opt, changed, restructure) {
       x.handle.getFile().then((f) => { if (tok !== ipTok) return; const u = URL.createObjectURL(f); ipUrls.push(u); img.src = u; }).catch(() => {});
       const path = x.parts.join("/");
       const bt = el("button", { type: "button", title: path, "aria-current": String(path === current) }, img, el("span", { text: x.label }));
-      bt.addEventListener("click", () => assignImage(c.key, x));
+      bt.addEventListener("click", () => assignImage(c.key, x, t));
       return bt;
     }));
   }
@@ -2736,9 +2786,9 @@ function checkOddsBlock(opt, changed, restructure) {
     cv.getContext("2d").drawImage(bmp, 0, 0);
     return cv.convertToBlob({ type: "image/png" });
   }
-  // A file already in the event folder is used where it is; anything else is copied in under the card's
-  // canonical name, bumping n past any different file already holding that name.
-  async function assignImage(key, src) {
+  // A file already in the event folder is used where it is; anything else is copied in under the card's (or, with
+  // target {opt, slot}, the option result's) canonical name, bumping past any different file already holding it.
+  async function assignImage(key, src, target = null) {
     const b = board(), id = b && b.draft && b.draft.id, c = b && b.cards.find((x) => x.key === key);
     if (!c || ipBusy) return;
     if (!id) { $("ip-note").textContent = "The draft has no \"id\", so there's no assets/events/<id>/ folder to copy into."; return; }
@@ -2756,15 +2806,17 @@ function checkOddsBlock(opt, changed, restructure) {
           taken.add(n);
           if (n.startsWith(`${id}_${c.branch}_`) && await sameBytes(await h.getFile(), png)) same.add(n);
         }
-        name = freeImageName(id, c.branch, c.idx + 1, taken, same);
+        name = target ? freeResultImageName(id, c.branch, c.key, optName(c, target.opt), target.slot, taken, same)
+          : freeImageName(id, c.branch, c.idx + 1, taken, same);
         if (!same.has(name)) { await writeFile(dir, name, png); copied = true; }
       }
     } catch (e) { $("ip-note").textContent = "Couldn't copy the image: " + (e && e.message); return; }
     finally { ipBusy = false; }
     $("imgpick").close();
     const path = [...dirParts, name].join("/");
-    setCard(key, "res://" + path);
-    renderEditBar(`● Unsaved · ${key} image ${copied ? "copied to" : "set to"} ${path}`);
+    if (target) setResultImage(key, target, "res://" + path); else setCard(key, "res://" + path);
+    const what = target ? `${key} option ${optName(c, target.opt)} ${target.slot} image` : `${key} image`;
+    renderEditBar(`● Unsaved · ${what} ${copied ? "copied to" : "set to"} ${path}`);
   }
   // The selected card's player options: id, label, order, and per outcome its result text and route. Text commits
   // on change (Enter or leaving the box), so the editor isn't rebuilt mid-word. Each option also carries its check
@@ -2823,6 +2875,7 @@ function checkOddsBlock(opt, changed, restructure) {
             () => edit((d) => deleteBySuccess(d, c.key, i, Number(s.slot.slice(3))))) : null,
           field("textarea", s.res && s.res.result_text, `${s.label} text`, fid + ":text",
             (v) => edit((d) => setOutcomeText(d, c.key, i, s.slot, v))),
+          resultImageRow(c, i, s),
           s.slot === "result" ? null : effectsField(c, i, s.slot, s.res && s.res.effects, `${s.label} effects`));
       }
       if (o.check) {
@@ -2836,6 +2889,16 @@ function checkOddsBlock(opt, changed, restructure) {
       }
       return el("div", { class: "opt" }, ...rows);
     }));
+  }
+  // Option i's outcome slot s's result image: its file, "card's image" (no key) or cleared (null), with Pick / CARD'S /
+  // CLEAR buttons.
+  function resultImageRow(c, i, s) {
+    const r = s.res, has = !!r && "image" in r, t = { opt: i, slot: s.slot };
+    const now = !has ? "card's image" : r.image === null ? "CLEAR · no image" : baseName(r.image);
+    return el("div", { class: "route" }, el("span", { class: "kw", text: `${s.label} image` }), el("span", { class: "mono", text: now }),
+      iconBtn("Pick…", "Pick an image for this result", false, () => openImagePicker(t)),
+      iconBtn("CARD'S", "No image of its own: the result keeps the choice card's image", !has, () => setResultImage(c.key, t, undefined)),
+      iconBtn("CLEAR", "Show no image from this result on", has && r.image === null, () => setResultImage(c.key, t, null)));
   }
   // Option i's shared Choice mechanics widgets (requires; for a check, odds and mods), bound to a working copy of
   // the option. A field edit commits quietly, one undo step per focus; a structural change (kind switch, add or
@@ -3041,7 +3104,7 @@ function checkOddsBlock(opt, changed, restructure) {
     const i = key ? b.cards.findIndex((x) => x.key === key) : -1;
     if (i < 0) return;
     showTab("storyboard");
-    trail = []; goTo(i);
+    trail = []; trailImg = []; goTo(i);
     const box = a.card ? $("card-editor") : $("branch-editor");
     const hit = box.querySelector(`[data-cmt="${c.id}"]`) || box;
     hit.scrollIntoView({ block: "center" });
@@ -3125,7 +3188,7 @@ function checkOddsBlock(opt, changed, restructure) {
     renderGraph(b);
     if (sel) {
       const i = b.cards.findIndex((x) => x.key === sel);
-      if (i >= 0) { cardIdx = i; trail = []; pick = null; outcomeKey = null; }
+      if (i >= 0) { cardIdx = i; trail = []; trailImg = []; pick = null; outcomeKey = null; }
     }
     renderCuts(b); renderFrame(); renderComments(b); renderEditBar();
   }
@@ -3376,7 +3439,7 @@ function checkOddsBlock(opt, changed, restructure) {
             return el("span", { class: "opt" }, "▸ ", el("b", { text: x.label }), mech ? " · " + mech : "");
           }),
           c.goto ? el("span", { class: "opt", text: "→ " + targetText(c.goto) }) : null));
-      row.addEventListener("click", () => { trail = []; goTo(i); });
+      row.addEventListener("click", () => { trail = []; trailImg = []; goTo(i); });
       return [head, row, tail].filter(Boolean);
     }));
   }
@@ -3642,7 +3705,7 @@ function checkOddsBlock(opt, changed, restructure) {
   const typing = () => { const a = document.activeElement; return !!a && (a.tagName === "TEXTAREA" || a.isContentEditable || (a.tagName === "INPUT" && a.type === "text")); };
   function renderAll() { renderPicker(); if (!typing()) renderBoard(); }
   function selectBoard(id, keepCard) {
-    if (!keepCard) { cardIdx = 0; trail = []; pick = null; outcomeKey = null; }
+    if (!keepCard) { cardIdx = 0; trail = []; trailImg = []; pick = null; outcomeKey = null; }
     if (id !== currentId) $("dirty").textContent = "";
     currentId = id; if (id) remember(id);
     renderPicker(); renderBoard();
@@ -3701,15 +3764,24 @@ function checkOddsBlock(opt, changed, restructure) {
     editDraft((d) => { d.branches[name].title = v; }, !editSession);
     editSession = true;
   });
-  $("frame").addEventListener("click", () => { const b = board(); if (b && !showingShots(b)) openImagePicker(); });
+  $("frame").addEventListener("click", () => {
+    const b = board();
+    if (!b || showingShots(b)) return;
+    const slot = b.draft ? previewSlot(b) : null;
+    openImagePicker(slot ? { opt: pick, slot } : null);
+  });
   $("img-mode").addEventListener("click", () => {
     imgMode = imgMode === "shots" ? "event" : "shots";
     try { localStorage.setItem("vein-sb-imgmode", imgMode); } catch {}
     renderBoard();
   });
   $("ip-filter").addEventListener("input", renderImagePicker);
-  $("ip-hold").addEventListener("click", () => { const c = pickerCard(); $("imgpick").close(); if (c) setCard(c.key, undefined); });
-  $("ip-clear").addEventListener("click", () => { const c = pickerCard(); $("imgpick").close(); if (c) setCard(c.key, null); });
+  const ipSet = (image) => {
+    const c = pickerCard(); $("imgpick").close();
+    if (c) { if (ipTarget) setResultImage(c.key, ipTarget, image); else setCard(c.key, image); }
+  };
+  $("ip-hold").addEventListener("click", () => ipSet(undefined));
+  $("ip-clear").addEventListener("click", () => ipSet(null));
   $("ip-close").addEventListener("click", () => $("imgpick").close());
   $("imgpick").addEventListener("close", () => { ipTok++; revokeIp(); });
   $("save").addEventListener("click", saveBoard);
@@ -3727,13 +3799,13 @@ function checkOddsBlock(opt, changed, restructure) {
   showTab(rememberedTab());
   $("prev").addEventListener("click", () => {
     const b = board(); if (!b || cardIdx === 0) return;
-    if (b.kind === "proposal") { goTo(trail.length ? trail.pop() : cardIdx - 1); return; }
+    if (b.kind === "proposal") { if (trail.length) trailImg.pop(); goTo(trail.length ? trail.pop() : cardIdx - 1); return; }
     cardIdx--; renderFrame();
   });
   $("next").addEventListener("click", () => {
     const b = board(); if (!b) return;
     // Proposals follow the picked outcome's goto, so skipped branch cards stay skipped (as in the game).
-    if (b.kind === "proposal") { const n = nextIndex(b); if (n < b.cards.length) { trail.push(cardIdx); goTo(n); } return; }
+    if (b.kind === "proposal") { const n = nextIndex(b); if (n < b.cards.length) { trail.push(cardIdx); trailImg.push(pickedImage(b)); goTo(n); } return; }
     if (cardIdx < b.cards.length - 1) { cardIdx++; renderFrame(); }
   });
   $("open").addEventListener("click", openFolder);
