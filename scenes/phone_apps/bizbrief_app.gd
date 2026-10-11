@@ -59,7 +59,7 @@ const SIGNAL := Color("#e9353c")
 const SERIF_NAMES: PackedStringArray = ["Georgia", "Times New Roman", "Noto Serif", "DejaVu Serif", "serif"]
 const ORE_SOURCES := { "oreCultivator": "Cultivators", "orePlayer": "You" }
 const SKILLS := ["sales", "crafting", "cultivating"]
-# Expense analysis rows: BusinessStats expense kind and label.
+# Expenses-by-kind rows: BusinessStats expense kind and label.
 const EXPENSE_KIND_LINES := [
 	{ "kind": BusinessStats.EXPENSE_STAFF, "label": "Staff wages" },
 	{ "kind": BusinessStats.EXPENSE_GUARD, "label": "Guard wages" },
@@ -999,14 +999,16 @@ func _close_staff_person() -> void:
 	refresh()
 
 
+# Every Stats figure covers BusinessStats.window_days(): completed days only,
+# so today's running tally never shows here (R§3.10 Business stats).
 func _build_stats(content: VBoxContainer) -> void:
-	content.add_child(UI.muted_label("Performance / %d-day window" % GameData.BUSINESS_STATS_DAYS))
+	content.add_child(UI.muted_label(_stats_window_line()))
 	content.add_child(_build_stats_hero())
-	content.add_child(_brief_section("Daily trend"))
+	content.add_child(_brief_section("Revenue vs expenses", "PER DAY"))
 	content.add_child(_build_daily_trend())
-	content.add_child(_brief_section("Expense analysis"))
+	content.add_child(_brief_section("Expenses by kind", _stats_period()))
 	content.add_child(_build_expense_breakdown())
-	content.add_child(_brief_section("Ore yield", "COLLECTION SOURCE"))
+	content.add_child(_brief_section("Ore collected", "PER DAY"))
 	var toggle := UI.hbox()
 	for source in ORE_SOURCES:
 		var button := UI.button(ORE_SOURCES[source], func(): _set_ore_source(source))
@@ -1015,15 +1017,41 @@ func _build_stats(content: VBoxContainer) -> void:
 		toggle.add_child(UI.expand_fill(button))
 	content.add_child(toggle)
 	content.add_child(_build_chart(_ore_source, "calc_gold_light"))
-	content.add_child(_brief_section("Items produced"))
+	content.add_child(_brief_section("Items made", "PER DAY"))
 	var items := UI.card()
 	var item_row := UI.hbox()
-	item_row.add_child(UI.expand_fill(UI.muted_label("%d-DAY TOTAL" % GameData.BUSINESS_STATS_DAYS)))
+	item_row.add_child(UI.expand_fill(UI.muted_label("TOTAL · %s" % _stats_period())))
 	item_row.add_child(UI.heading(str(_stats_total("items")), 18))
 	items["content"].add_child(item_row)
-	var item_chart: LineChart = LineChartScript.new()
-	items["content"].add_child(item_chart.setup(BusinessStats.series("items"), BusinessStats.window_days(), "pastel_teal"))
+	items["content"].add_child(_stats_chart(BusinessStats.series("items"), "pastel_teal"))
 	content.add_child(items["panel"])
+
+
+# The Stats header: which completed days the figures span.
+func _stats_window_line() -> String:
+	var days := BusinessStats.window_days()
+	if days.is_empty():
+		return "No full day on the books yet. Figures start once today ends."
+	var span := Calendar.format_day(days[0])
+	if days.size() > 1:
+		span = "%s – %s" % [span, Calendar.format_day(days[-1])]
+	return "Completed days only · %s. Today joins once it ends." % span
+
+
+# Short window label for totals, e.g. "LAST 10 DAYS".
+func _stats_period() -> String:
+	var count := BusinessStats.window_days().size()
+	if count == 1:
+		return "LAST DAY"
+	return "LAST %d DAYS" % count
+
+
+# A completed-day LineChart, or an empty note before the first full day.
+func _stats_chart(values: Array[int], colour_id: String, prefix: String = "") -> Control:
+	if BusinessStats.window_days().is_empty():
+		return UI.muted_label("No completed days to chart yet.")
+	var chart: LineChart = LineChartScript.new()
+	return chart.setup(values, BusinessStats.window_days(), colour_id, prefix)
 
 
 func _stats_total(metric: String) -> int:
@@ -1046,14 +1074,16 @@ func _build_stats_hero() -> Control:
 	expenses.add_child(UI.heading("£%d" % _stats_total("expenses"), 18))
 	row.add_child(expenses)
 	c["content"].add_child(row)
+	c["content"].add_child(UI.muted_label("TOTALS · %s" % _stats_period()))
 	return c["panel"]
 
 
 func _build_daily_trend() -> Control:
 	var c := UI.card()
-	var chart: LineChart = LineChartScript.new()
-	chart.setup(BusinessStats.series("revenue"), BusinessStats.window_days(), "brick_lit", "£")
-	c["content"].add_child(chart.with_primary_colour(SIGNAL).with_series([{ "values": BusinessStats.series("expenses"), "colour_id": "pastel_blue" }]))
+	var chart := _stats_chart(BusinessStats.series("revenue"), "brick_lit", "£")
+	if chart is LineChart:
+		chart = (chart as LineChart).with_primary_colour(SIGNAL).with_series([{ "values": BusinessStats.series("expenses"), "colour_id": "pastel_blue" }])
+	c["content"].add_child(chart)
 	var legend := UI.hflow()
 	legend.add_child(UI.tinted_label("● REVENUE", SIGNAL))
 	legend.add_child(UI.tinted_label("● EXPENSES", GameData.PALETTE.get("pastel_blue", PAPER)))
@@ -1077,8 +1107,7 @@ func _style_stats_toggle(button: Button, selected: bool) -> void:
 # A card holding one completed-day metric's LineChart.
 func _build_chart(metric: String, colour_id: String) -> Control:
 	var c := UI.card()
-	var chart: LineChart = LineChartScript.new()
-	c["content"].add_child(chart.setup(BusinessStats.series(metric), BusinessStats.window_days(), colour_id))
+	c["content"].add_child(_stats_chart(BusinessStats.series(metric), colour_id))
 	return c["panel"]
 
 

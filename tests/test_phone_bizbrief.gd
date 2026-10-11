@@ -101,7 +101,7 @@ func run() -> void:
 		assert_true(NodeQuery.label_texts(phone).has("Staff"))
 		_button_with_text(phone, "Stats").pressed.emit()
 		assert_true(_button_with_text(phone, "Stats").disabled)
-		assert_true(NodeQuery.label_texts(phone).has("Expense analysis"))
+		assert_true(NodeQuery.label_texts(phone).has("Expenses by kind"))
 		GameState.state["business"]["potActive"] = false
 		GameState.state["flags"]["bizStaffTabOpen"] = false
 		phone._refresh()
@@ -850,8 +850,10 @@ func run() -> void:
 		assert_eq((charts[0] as LineChart)._colour, BizBriefApp.SIGNAL)
 		assert_eq((charts[0] as LineChart)._values[1], 0, "missing completed day is zero filled")
 		var texts := NodeQuery.label_texts(phone)
-		for expected in ["£550", "£150", "£50", "5", "● REVENUE", "● EXPENSES", "STAFF WAGES", "CALC BOUGHT", "Expense analysis", "Ore yield", "Items produced"]:
+		for expected in ["£550", "£150", "£50", "5", "● REVENUE", "● EXPENSES", "STAFF WAGES", "CALC BOUGHT", "Revenue vs expenses", "Expenses by kind", "Ore collected", "Items made", "TOTALS · LAST 10 DAYS", "TOTAL · LAST 10 DAYS", "LAST 10 DAYS"]:
 			assert_true(texts.has(expected), "missing stats value %s" % expected)
+		var window_line := "Completed days only · %s – %s. Today joins once it ends." % [Calendar.format_day(3), Calendar.format_day(12)]
+		assert_true(texts.has(window_line), "header names the completed-day span")
 		assert_true(_button_with_text(phone, "GUARD WAGES ↗") != null, "guard expense opens Guard Costs")
 		assert_true(_button_with_text(phone, "Cultivators").disabled)
 		assert_eq((charts[1] as LineChart)._values, BusinessStats.series("oreCultivator"))
@@ -863,6 +865,35 @@ func run() -> void:
 		assert_eq((charts[1] as LineChart)._values, BusinessStats.series("orePlayer"))
 		assert_eq((charts[2] as LineChart)._values, BusinessStats.series("items"))
 		assert_eq((_button_with_text(phone, "You").get_theme_stylebox("disabled") as StyleBoxFlat).border_color, BizBriefApp.SIGNAL)
+		phone.free()
+	)
+
+	run_case("stats_labels_short_and_empty_history_without_today", func():
+		GameState.reset()
+		Business.activate()
+		GameState.state["phoneNav"]["app"] = "bizbrief"
+		GameState.state["businessStats"]["today"]["revenue"] = 999
+		var phone := PhoneScreen.new()
+		phone._ready()
+		_button_with_text(phone, "Stats").pressed.emit()
+		var texts := NodeQuery.label_texts(phone)
+		assert_eq(phone.find_children("*", "LineChart", true, false).size(), 0, "no chart before a completed day")
+		assert_true(texts.has("No full day on the books yet. Figures start once today ends."))
+		assert_true(texts.has("No completed days to chart yet."))
+		assert_true(not texts.has("£999"), "today's tally is not shown as history")
+		assert_true(_button_with_text(phone, "GUARD WAGES ↗") != null, "Guard Costs route survives empty history")
+		phone.free()
+
+		GameState.state["world"]["day"] = 3
+		GameState.state["businessStats"]["days"] = [{ "day": 2, "revenue": 70, "expenses": 10, "expensesStaff": 10, "expensesGuard": 0, "expensesCalc": 0, "oreCultivator": 1, "orePlayer": 0, "items": 1 }]
+		phone = PhoneScreen.new()
+		phone._ready()
+		_button_with_text(phone, "Stats").pressed.emit()
+		texts = NodeQuery.label_texts(phone)
+		assert_eq(phone.find_children("*", "LineChart", true, false).size(), 3)
+		assert_true(texts.has("TOTALS · LAST 2 DAYS"), "short window names its real length")
+		assert_true(texts.has("£70"))
+		assert_true(not texts.has("£999"))
 		phone.free()
 	)
 
