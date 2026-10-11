@@ -24,7 +24,7 @@ const {
   cardPos, insertCard, deleteCard, moveCard, danglingLinks, hasCycle, buildGraph, elkGraph, placeLayout, setNodePositions, clearLayout, applyPositions,
   findCycle, addBranch, renameBranch, deleteBranch, inboundLinks, setCardGoto, setThen,
   COND_KINDS, condKind, blankCond, condGet, condSet,
-  outcomeSlots, addOption, deleteOption, moveOption, setOptionField, setOutcomeText, setOutcomeGoto, setOutcomeImage, routeToNewBranch,
+  outcomeSlots, setReselectable, addOption, deleteOption, moveOption, setOptionField, setOutcomeText, setOutcomeGoto, setOutcomeImage, routeToNewBranch,
   setCheckNote, setCheckOn, setOptionMechanics, setEffects, addBySuccess, deleteBySuccess, setConditionKind,
   addComment, updateComment, deleteComment, filterComments, commentCount, anchorText, anchorType, proseComments,
   cardImageName, freeImageName, freeResultImageName, setCardImage, eventImageDir, SHOT_FIELDS, serialiseBoard, setShotField, shotFieldText,
@@ -37,7 +37,7 @@ const {
     " cardPos, insertCard, deleteCard, moveCard, danglingLinks, hasCycle, buildGraph, elkGraph, placeLayout, setNodePositions, clearLayout, applyPositions," +
     " findCycle, addBranch, renameBranch, deleteBranch, inboundLinks, setCardGoto, setThen," +
     " COND_KINDS, condKind, blankCond, condGet, condSet," +
-    " outcomeSlots, addOption, deleteOption, moveOption, setOptionField, setOutcomeText, setOutcomeGoto, setOutcomeImage, routeToNewBranch," +
+    " outcomeSlots, setReselectable, addOption, deleteOption, moveOption, setOptionField, setOutcomeText, setOutcomeGoto, setOutcomeImage, routeToNewBranch," +
     " setCheckNote, setCheckOn, setOptionMechanics, setEffects, addBySuccess, deleteBySuccess, setConditionKind," +
     " addComment, updateComment, deleteComment, filterComments, commentCount, anchorText, anchorType, proseComments," +
     " cardImageName, freeImageName, freeResultImageName, setCardImage, eventImageDir, SHOT_FIELDS, serialiseBoard, setShotField, shotFieldText," +
@@ -140,6 +140,54 @@ test("playOrder follows outcome goto, card goto and then", () => {
 test("playOrder rejects a loop", () => {
   const d = { start: "a", branches: { a: { cards: [{ key: "k" }], then: { branch: "a" } } } };
   assert.throws(() => playOrder(d), /loops/);
+});
+
+// A hub: choice card h with options a (one answer card) and b (two-card chain), both returning to h; then exit.
+const hubDraft = () => ({ start: "main", branches: {
+  main: { cards: [{ key: "h", type: "choice", text: "hub", choices: [
+    { id: "a", label: "A", goto: { branch: "ans", card: "a1" } },
+    { id: "b", label: "B", goto: { branch: "ans", card: "b1" } },
+    { id: "x", label: "Leave", goto: { branch: "out" } }] }] },
+  ans: { cards: [{ key: "a1", text: "a", goto: { branch: "main", card: "h" } },
+    { key: "b1", text: "b" }, { key: "b2", text: "b2", goto: { branch: "main", card: "h" } }] },
+  out: { cards: [{ key: "o", text: "bye" }] } } });
+
+test("back-edge to a choice card is accepted; the same link to a non-choice card is refused", () => {
+  const d = hubDraft();
+  assert.strictEqual(hasCycle(d), false);
+  assert.strictEqual(findCycle(d, true) !== null, true, "strict still sees the loop");
+  setCardGoto(d, "b2", { branch: "main", card: "h" });
+  setOutcomeGoto(d, "h", 0, "result", { branch: "ans", card: "a1" });
+  d.branches.main.cards.push({ key: "n", text: "plain" });
+  d.branches.ans.cards[0].goto = { branch: "main", card: "n" };
+  assert.throws(() => setCardGoto(d, "n", { branch: "ans", card: "a1" }), /would loop/);
+});
+
+test("playOrder walks hub -> answer -> hub -> exit; a stuck hub still throws", () => {
+  const d = hubDraft(), seen = [];
+  let n = 0;
+  const choose = (c) => c.choices[[0, 2][n++]];
+  assert.deepStrictEqual(playOrder(d, choose).map((p) => d.branches[p.branch].cards[p.idx].key), ["h", "a1", "h", "o"]);
+  assert.throws(() => playOrder(d, (c) => c.choices[0]), /loops/);
+});
+
+test("buildGraph marks the loop edges back to the hub", () => {
+  const g = buildGraph(hubDraft(), ["main", "ans", "out"]);
+  const loops = g.edges.filter((e) => e.loop).map((e) => e.from + ">" + e.to).sort();
+  assert.deepStrictEqual(loops, ["c:a1>c:h", "c:b2>c:h"]);
+});
+
+test("promote still refuses a hub loop (strict)", () => {
+  assert.throws(() => promoteDraft(hubDraft()), /loop/);
+});
+
+test("setReselectable writes true, clears on untick", () => {
+  const d = hubDraft();
+  setReselectable(d, "h", 0, true);
+  assert.strictEqual(d.branches.main.cards[0].choices[0].reselectable, true);
+  assert(serialiseDraft(d).includes('"reselectable": true'));
+  setReselectable(d, "h", 0, false);
+  assert.strictEqual("reselectable" in d.branches.main.cards[0].choices[0], false);
 });
 
 // Legacy flat event: gotos (0-based card indexes) on a plain option, success/fail and bySuccesses.
@@ -953,8 +1001,8 @@ test("a looping outcome link is refused with the loop named; draft unchanged, no
   const before2 = serialiseDraft(draft);
   assert.throws(() => setOutcomeGoto(draft, "c2", 0, "fail", { branch: "main" }), /would loop/);
   assert.strictEqual(serialiseDraft(draft), before2);
-  assert.throws(() => setOutcomeGoto(draft, "c2", 0, "success", { branch: "main", card: "c2" }), /would loop/);
-  assert.deepStrictEqual(o.success.goto, { branch: "after" });
+  setOutcomeGoto(draft, "c2", 0, "success", { branch: "main", card: "c2" }); // back to a choice card: allowed
+  assert.deepStrictEqual(o.success.goto, { branch: "main", card: "c2" });
 });
 
 test("routeToNewBranch creates a branch and links the outcome to it in one step; bad input creates nothing", () => {
