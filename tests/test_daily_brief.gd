@@ -50,14 +50,39 @@ func run() -> void:
 		wage["promptPending"] = true
 		var rows := _kind("wages")
 		assert_eq(rows.size(), 1)
-		assert_eq([rows[0]["tier"], rows[0]["key"], rows[0]["action"]], ["urgent", "wages:owen", { "to": "wage_prompt", "contactId": "owen" }])
+		assert_eq([rows[0]["tier"], rows[0]["key"], rows[0]["action"]], ["urgent", "wages:owen", { "to": "bizbrief_staff", "contactId": "owen" }])
 		assert_true(String(rows[0]["label"]).find("£120") != -1)
 		Business.decline_wage_prompt("owen")
 		rows = _kind("wages")
-		assert_eq(rows[0]["action"], { "to": "bizbrief_staff", "contactId": "owen" }, "an answered prompt still owes: route to Staff")
+		assert_eq(rows.size(), 1, "an answered prompt still owes: one row, not two")
+		assert_eq(rows[0]["action"], { "to": "bizbrief_staff", "contactId": "owen" })
 		GameState.state["player"]["cash"] = 1000
 		Business.top_up_and_pay_owed("owen")
 		assert_eq(_kind("wages"), [], "paid wages drop off")
+	)
+
+	run_case("a_pending_poach_is_one_urgent_row_naming_offer_and_walk_day_until_answered", func():
+		for answer in ["match", "decline"]:
+			GameState.reset()
+			Business.activate()
+			_seed_poach()
+			var pending := Hiring.pending_poach("priya")
+			var rows := _kind("poach")
+			assert_eq(rows.size(), 1)
+			var day: int = GameState.state["world"]["day"]
+			assert_eq([rows[0]["tier"], rows[0]["key"], rows[0]["action"], rows[0]["sort"]], ["urgent", "poach:priya", { "to": "bizbrief_staff", "contactId": "priya" }, int(pending["expiresDay"]) - day])
+			for part in [Contacts.display_name("priya"), Hiring.faction_name(pending["factionId"]), "£%d" % int(pending["offer"])]:
+				assert_true(String(rows[0]["label"]).find(part) != -1, "label names %s" % part)
+			for part in ["£%d" % Hiring.weekly_wage("priya"), Calendar.format_day(int(pending["expiresDay"]))]:
+				assert_true(String(rows[0]["consequence"]).find(part) != -1, "consequence names %s" % part)
+			assert_true(DailyBrief.badge_count() >= 1, "Urgent counts toward the badge")
+			var before := DailyBrief.badge_count()
+			if answer == "match":
+				Hiring.match_poach("priya")
+			else:
+				Hiring.decline_poach("priya")
+			assert_eq(_kind("poach"), [], "%s resolves the row" % answer)
+			assert_eq(DailyBrief.badge_count(), before - 1, "%s drops it from the badge" % answer)
 	)
 
 	run_case("development_eligible_veins_are_routine_rows_that_open_the_vein", func():
@@ -241,7 +266,8 @@ func run() -> void:
 			assert_true(prev_tier < cur_tier or (prev_tier == cur_tier and int(prev["sort"]) <= int(cur["sort"])), "%s before %s" % [prev["key"], cur["key"]])
 		assert_eq(items[-1]["tier"], "routine", "the development row comes last")
 		var urgent_keys: Array = items.filter(func(r): return r["tier"] == "urgent").map(func(r): return r["key"])
-		assert_eq(urgent_keys[-1], "guardShortfall", "the guard deadline is days off, so it sorts after today's alarm")
+		assert_true(urgent_keys.find("guardShortfall") > urgent_keys.find("alarm:home"), "the guard deadline is days off, so it sorts after today's alarm")
+		assert_true(urgent_keys.find("poach:priya") > urgent_keys.find("wages:owen"), "the poach walk day is days off, so it sorts after today's wages")
 	)
 
 	run_case("badge_counts_urgent_and_story_only", func():
@@ -572,13 +598,24 @@ func _seed_guard_shortfall() -> void:
 	GuardUpkeep.pay_monday_bill()
 
 
-# Every source this ticket projects: alarm, guard shortfall, wage prompt and
-# a development-eligible vein.
+# Priya hired (pot already active) with a rival's offer pending.
+func _seed_poach() -> void:
+	GameState.state["home"]["rooms"] = ["veinStation", "lab"]
+	GameState.state["business"]["float"] = 5000
+	Hiring.hire("priya")
+	var faction_id: String = GameState.state["factions"].keys()[0]
+	var day: int = GameState.state["world"]["day"]
+	GameState.state["hiring"]["poach"]["priya"] = { "attempts": 1, "pending": { "factionId": faction_id, "offer": 999, "expiresDay": day + 2 } }
+
+
+# Every source this ticket projects: alarm, guard shortfall, wage prompt,
+# poach offer and a development-eligible vein.
 func _seed_every_source() -> void:
 	_seed_guard_shortfall()
 	Fixtures.seed_vein("eligible", 95)
 	GameState.state["home"]["pendingRaid"] = true
 	Business.activate()
+	_seed_poach()
 	var wage: Dictionary = GameState.state["business"]["wages"]["owen"]
 	wage["owed"] = 120
 	wage["promptPending"] = true

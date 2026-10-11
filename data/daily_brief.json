@@ -82,6 +82,12 @@
       "consequence": "Stopped working until paid.",
       "actionLabel": "Pay"
     },
+    "poach": {
+      "tier": "urgent", "kind": "poach",
+      "label": "{rival} offer {name} £{offer}/wk",
+      "consequence": "You pay £{wage}. Match it or they leave on {deadline}.",
+      "actionLabel": "Decide"
+    },
     "contractAtRisk": {
       "tier": "urgent", "kind": "contractAtRisk",
       "label": "{buyer} order short by {shortfall}",

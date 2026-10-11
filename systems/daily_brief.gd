@@ -19,6 +19,7 @@ static func items() -> Array[Dictionary]:
 	_bill_rows(rows)
 	_arrears_rows(rows)
 	_wage_rows(rows)
+	_poach_rows(rows)
 	_contract_at_risk_rows(rows)
 	_vein_at_risk_rows(rows)
 	_story_rows(rows)
@@ -160,10 +161,25 @@ static func _wage_rows(rows: Array[Dictionary]) -> void:
 	var prompts := Business.pending_wage_prompts()
 	for contact_id in Business.owed_contact_ids():
 		var values := { "name": Contacts.display_name(contact_id), "owed": Business.owed(contact_id), "topUp": Business.top_up_needed(contact_id) }
-		if prompts.has(contact_id):
-			rows.append(_row("wagePrompt", "wages:%s" % contact_id, values, { "to": "wage_prompt", "contactId": contact_id }, 0))
-		else:
-			rows.append(_row("wagesOwed", "wages:%s" % contact_id, values, { "to": "bizbrief_staff", "contactId": contact_id }, 0))
+		var template_id := "wagePrompt" if prompts.has(contact_id) else "wagesOwed"
+		rows.append(_row(template_id, "wages:%s" % contact_id, values, { "to": "bizbrief_staff", "contactId": contact_id }, 0))
+
+
+# Unanswered poach offers on a hire (R§3.10 "Poached staff"); unmatched, the
+# hire leaves at the rollover into expiresDay.
+static func _poach_rows(rows: Array[Dictionary]) -> void:
+	var today: int = GameState.state["world"]["day"]
+	for contact_id in Hiring.pending_poach_ids():
+		var pending := Hiring.pending_poach(contact_id)
+		var expires: int = pending["expiresDay"]
+		var values := {
+			"name": Contacts.display_name(contact_id),
+			"rival": Hiring.faction_name(pending["factionId"]),
+			"offer": int(pending["offer"]),
+			"wage": Hiring.weekly_wage(contact_id),
+			"deadline": Calendar.format_day(expires),
+		}
+		rows.append(_row("poach", "poach:%s" % contact_id, values, { "to": "bizbrief_staff", "contactId": contact_id }, expires - today))
 
 
 # Active contracts whose current period can't be met by its due day from

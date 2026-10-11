@@ -1091,6 +1091,89 @@ func run() -> void:
 		phone.free()
 	)
 
+	run_case("today_wage_row_opens_the_persons_wage_decision_and_clears_when_paid", func():
+		GameState.reset()
+		Business.activate()
+		GameState.state["flags"]["bizStaffTabOpen"] = true
+		GameState.state["contacts"]["owen"]["recruited"] = true
+		var wage: Dictionary = GameState.state["business"]["wages"]["owen"]
+		wage["owed"] = 214
+		wage["unpaid"] = true
+		wage["promptPending"] = true
+		GameState.state["player"]["cash"] = 100
+		GameState.state["phoneNav"]["app"] = "bizbrief"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		assert_true(phone.find_child("BizBriefWagePrompt_owen", true, false) == null, "no duplicate card below Today")
+		var today: Node = phone.find_child("BizBriefToday", true, false)
+		assert_true(today.find_child("TodayRow_wages_owen", true, false) != null, "the decision sits in Today")
+		_button_with_text(phone.find_child("TodayRow_wages_owen", true, false), "Answer").pressed.emit()
+		var prompt: Node = phone.find_child("BizBriefWagePrompt_owen", true, false)
+		assert_true(prompt != null, "the row opens Owen's detail with the decision")
+		assert_true(NodeQuery.label_texts(phone).has("/ Owen"))
+		assert_true(_button_with_text(prompt, "Yes").disabled, "Yes keeps its cash check")
+		assert_true(NodeQuery.label_texts(prompt).has("Not enough cash."))
+		_button_with_text(prompt, "No").pressed.emit()
+		assert_true(phone.find_child("BizBriefWagePrompt_owen", true, false) == null, "No resolves the prompt")
+		assert_eq(DailyBrief.items().filter(func(r): return r["kind"] == "wages").size(), 1, "still owed: one row remains")
+		GameState.state["player"]["cash"] = 1000
+		phone._refresh()
+		_button_with_text(phone, "Top up £214 and pay").pressed.emit()
+		assert_eq(Business.owed("owen"), 0)
+		_button_with_text(phone, "Brief").pressed.emit()
+		assert_true(phone.find_child("TodayRow_wages_owen", true, false) == null, "paid wages leave Today")
+		phone.free()
+	)
+
+	run_case("today_poach_row_opens_the_persons_match_or_let_go_decision", func():
+		for answer in ["PoachMatch", "PoachLetGo"]:
+			GameState.reset()
+			GameState.state["world"]["day"] = 9
+			Business.activate()
+			GameState.state["flags"]["bizStaffTabOpen"] = true
+			GameState.state["home"]["rooms"] = ["veinStation", "lab"]
+			GameState.state["business"]["float"] = 5000
+			Hiring.hire("priya")
+			var faction_id: String = GameState.state["factions"].keys()[0]
+			GameState.state["hiring"]["poach"]["priya"] = { "attempts": 1, "pending": { "factionId": faction_id, "offer": 999, "expiresDay": 11 } }
+			var badge := DailyBrief.badge_count()
+			GameState.state["phoneNav"]["app"] = "bizbrief"
+			var phone := PhoneScreen.new()
+			phone._ready()
+			assert_true(phone.find_child("BizBriefPoach_priya", true, false) == null, "no duplicate card below Today")
+			var row: Node = phone.find_child("BizBriefToday", true, false).find_child("TodayRow_poach_priya", true, false)
+			assert_true(row != null, "the offer sits in Today")
+			assert_true(phone.find_child("TodayTier_urgent", true, false) != null)
+			_button_with_text(row, GameData.DAILY_BRIEF["rows"]["poach"]["actionLabel"]).pressed.emit()
+			assert_true(phone.find_child("BizBriefPoach_priya", true, false) != null, "the row opens Priya's decision")
+			(phone.find_child(answer, true, false) as Button).pressed.emit()
+			assert_true(Hiring.pending_poach("priya").is_empty(), "%s resolves the offer" % answer)
+			assert_eq(DailyBrief.badge_count(), badge - 1, "badge follows Urgent + Story")
+			_button_with_text(phone, "Brief").pressed.emit()
+			assert_true(phone.find_child("TodayRow_poach_priya", true, false) == null, "resolved offer leaves Today")
+			phone.free()
+	)
+
+	run_case("with_staff_locked_today_decision_rows_land_on_their_brief_cards", func():
+		GameState.reset()
+		Business.activate()
+		GameState.state["flags"]["bizStaffTabOpen"] = false
+		var wage: Dictionary = GameState.state["business"]["wages"]["owen"]
+		wage["owed"] = 214
+		wage["unpaid"] = true
+		wage["promptPending"] = true
+		GameState.state["phoneNav"]["app"] = "bizbrief"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		var prompt: Node = phone.find_child("BizBriefWagePrompt_owen", true, false)
+		assert_true(prompt != null, "locked Staff keeps the decision reachable on Brief")
+		_button_with_text(phone.find_child("TodayRow_wages_owen", true, false), "Answer").pressed.emit()
+		assert_true(_button_with_text(phone, "Brief").disabled, "stays on Brief")
+		assert_true(_button_with_text(phone, "Staff") == null, "Staff stays locked")
+		assert_true(phone.find_child("BizBriefWagePrompt_owen", true, false) != null)
+		phone.free()
+	)
+
 	run_case("brief_shows_player_shares_with_week_on_week_moves", func():
 		GameState.reset()
 		GameState.state["world"]["day"] = 1

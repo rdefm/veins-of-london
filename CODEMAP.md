@@ -80,7 +80,7 @@ Data file per system: see `data/*.json` below.
 | messages.gd | Messages data layer + conversation-index projections, total unread count, per-contact clear (read + contact notifications seen) |
 | modal.gd | Modal open/close state; holds an event deferred behind a modal flow (`followEvent`) and starts it on close; `returnTo` reopens a parked modal on close |
 | morning_accounts.gd | Rollover capture (incl. arrears exceptions and countdown, payday statement, wage shortfalls, Monday guard wages, guard shortfall/walk-offs), per-block staff output accumulation, BizBrief auto-open, arrears/payday/wage-prompt/guard-wage labels |
-| daily_brief.gd | Pure Today-card projection for BizBrief: `items()` (tiered rows + action descriptor), `card()` (Routine folded into one summary row, capped, "+N more"), `badge_count()`, `summary()`, `mark_acted()` (only writer: today's ticks); sources: alarms, guard/bill/arrears/wage/contract shortfalls, low veins, Story, offers, demand, favours, development, idle staff, ore-short |
+| daily_brief.gd | Pure Today-card projection for BizBrief: `items()` (tiered rows + action), `card()` (Routine folded to one summary row, capped, "+N more"), `badge_count()`, `summary()`, `mark_acted()` (only writer: today's ticks); sources: alarms, guard/bill/arrears/wage/contract shortfalls, poach, low veins, Story, offers, demand, favours, development, idle staff, ore-short |
 | nav.gd | Screen navigation |
 | notify.gd | Notifications append/evict; per-contact dismiss via contactId meta |
 | objectives.gd | Objective/questline evaluator; all_of live-condition, template_periods_completed (Beat 6) and recurring_proof (Beat 7) objectives + their ToDo checklist rows |
@@ -230,7 +230,7 @@ overlays.
 | phone_app.gd | PhoneApp base: shell ref, build(content)/teardown() hooks, shared back button + refresh |
 | phone_app_registry.gd | app id -> PhoneApp script table; the only dispatch path phone.gd uses |
 | alarms_app.gd | Raid alarm rows: defend / leave undefended (two-tap) / decide later |
-| bizbrief_app.gd | Navy BizBrief shell/tabs; Brief: tiered Today rows + routes (named offer/contract marked), wage/poach alerts, collapsed accounts/Treasury/Ops, shares; Manage index → Sales/Production/Procurement (vein chooser); gated Staff roster → person detail (skills, pay, role, poach decision, Procurement link); pot-gated Stats; hosts Short Pay and Guard Costs |
+| bizbrief_app.gd | Navy BizBrief shell/tabs; Brief: tiered Today rows + exact routes (wage/poach → person; Brief cards if Staff locked), collapsed accounts/Treasury/Ops, shares; Manage index → Sales/Production/Procurement (vein chooser); gated Staff roster → person detail (skills, pay, role, wage prompt/poach decision, Procurement link); pot-gated Stats; hosts Short Pay and Guard Costs |
 | messages_app.gd | Conversation inbox (fixed-height rows: bold name, one-line `…` preview, unread pill, per-contact Clear) + single-thread staged bubble reveal/action bar (incl. Owen's text reply choices); thread opens scrolled to the newest message |
 | todo_app.gd | ToDo app: collapsible questline sections from Todo, all_of checks as indented sub-rows; session-only expand/collapse overrides in a static var |
 | factions_app.gd | London share table (ore/crafting toggle), London's politics (stance per pair, war/truce markers) and faction cards: archetype, ores, crafts, share bars, stance, pressure, peace talks at war, Gift, favour asked/owed (`Diplomacy`), partner price ask and trouble asks (`Partners`), intel level and what it reveals (`Intel`), activity log. |

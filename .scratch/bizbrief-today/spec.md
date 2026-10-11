@@ -86,7 +86,7 @@ The card only points; the player acts. Nothing is automated.
   {
     "key": "vein_collapse:<veinId>",     // stable per subject, used for ticks + de-duplication
     "tier": "urgent" | "story" | "opportunity" | "routine",
-    "kind": "alarm" | "bill" | "arrears" | "wages" | "guardShortfall" | "veinAtRisk" | "contractAtRisk" | "objective" | "offerExpiring" | "demandSpike" | "favour" | "routineSummary",
+    "kind": "alarm" | "bill" | "arrears" | "wages" | "poach" | "guardShortfall" | "veinAtRisk" | "contractAtRisk" | "objective" | "offerExpiring" | "demandSpike" | "favour" | "routineSummary",
     "label": "Time vein, Whitechapel · Barren (12)",
     "consequence": "collapses in ~2 nights",
     "action": { "to": "map_vein", "veinId": "v3" },   // destination descriptor, no Callables
@@ -98,7 +98,7 @@ The card only points; the player acts. Nothing is automated.
 
 - **Sources (read through existing system APIs, never raw duplication):**
   - **Urgent:**
-    - raid alarms (home, vein); guard shortfall; wage prompts and owed wages (the same sources "Needs your attention" uses today);
+    - raid alarms (home, vein); guard shortfall; wage prompts and owed wages, and pending staff poach offers; each opens that person's Staff detail, where the decision is made (Brief cards only while Staff is locked);
     - the home bill due within N days with cash below it, and arrears with their countdown (the Home system's bill and arrears reads);
     - veins in a low band and leaning down, with an estimated nights-to-collapse from the vein's level-driven drift (expected value, no RNG). Nights-to-collapse ≤ a threshold is Urgent; otherwise the vein goes to Routine;
     - active contracts whose current period can't be met by end of period from stock plus reserved production.

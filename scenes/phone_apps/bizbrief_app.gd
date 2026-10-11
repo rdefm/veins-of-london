@@ -1,12 +1,14 @@
-# BizBrief: Brief tab (Today card from DailyBrief, wage prompts, then
+# BizBrief: Brief tab (Today card from DailyBrief; wage and poach decisions
+# sit on their person's Staff detail, or below Today while Staff is locked;
+# then
 # collapsed accounts/Treasury/Operations feed sections, then the morning
 # account — bank, payday, operations, moves against you, London and supplier
 # shares),
 # Manage tab (an index of Sales, Production and Procurement rows, each
 # opening its own page: sales offers/contracts, lab production targets,
 # cultivator procurement), once bizStaffTabOpen is set, Staff tab (a roster
-# row per recruit, each opening role, skills, pay, assignments and any poach
-# decision) and, once the business pot is active, Stats tab
+# row per recruit, each opening role, skills, pay, assignments and any wage
+# prompt or poach decision) and, once the business pot is active, Stats tab
 # (10-day business performance charts, expenses split by kind). The
 # selected tab, Manage page, Staff person and ore-chart source are view state held here, not in
 # state.phoneNav, so they reset with the screen. state.phoneNav.bizbriefView "shortPay" shows the
@@ -86,8 +88,9 @@ var _shown_ticks := {}
 # Set by an expand toggle ("more" or "routine") so the next build fades in
 # the rows it revealed.
 var _reveal := ""
-# Pending wage prompt cards on the Brief tab, contact id -> Control.
-var _wage_prompt_anchors := {}
+# Wage prompt and poach cards on the Brief tab while Staff is locked,
+# contact id -> Control.
+var _decision_anchors := {}
 # Pending offer cards on the Manage tab, offer id -> Control.
 var _offer_anchors := {}
 # Active contract cards on the Sales page, contract id -> Control.
@@ -343,13 +346,16 @@ func _open_manage_page(page: String, focus_id: String = "") -> void:
 func _build_brief(content: VBoxContainer) -> void:
 	# The Today card is read live, including before the first rollover.
 	content.add_child(_build_today())
-	_wage_prompt_anchors = {}
-	for contact_id in Business.pending_wage_prompts():
-		var prompt := _build_wage_prompt(contact_id)
-		_wage_prompt_anchors[contact_id] = prompt
-		content.add_child(prompt)
-	for contact_id in Hiring.pending_poach_ids():
-		content.add_child(_build_poach_alert(contact_id))
+	# Today's wage and poach rows open the person's Staff detail; while Staff
+	# is locked their decision cards sit here as the rows' destination.
+	_decision_anchors = {}
+	if not _staff_tab_open():
+		for contact_id in Business.pending_wage_prompts():
+			_decision_anchors[contact_id] = _build_wage_prompt(contact_id)
+			content.add_child(_decision_anchors[contact_id])
+		for contact_id in Hiring.pending_poach_ids():
+			_decision_anchors[contact_id] = _build_poach_alert(contact_id)
+			content.add_child(_decision_anchors[contact_id])
 	var account: Variant = MorningAccountsSystem.latest()
 	content.add_child(_brief_collapsible("accounts", "Account / %s" % Calendar.format_day(int(GameState.state["world"]["day"])), func(body: VBoxContainer): body.add_child(_build_brief_hero(account))))
 	content.add_child(_brief_collapsible("treasury", "Treasury", func(body: VBoxContainer): body.add_child(_build_treasury())))
@@ -528,12 +534,15 @@ func _open_today_action(action: Dictionary) -> void:
 			PhoneNav.open_short_pay()
 		"map_vein":
 			VeinList.apply_option(VeinList.MANAGE_ID, action["veinId"])
-		"wage_prompt":
-			var prompt: Variant = _wage_prompt_anchors.get(action["contactId"])
-			if is_instance_valid(_scroll) and is_instance_valid(prompt):
-				_scroll.ensure_control_visible(prompt)
 		"bizbrief_staff":
-			_set_tab(STAFF_TAB)
+			var contact_id := String(action.get("contactId", ""))
+			var anchor: Variant = _decision_anchors.get(contact_id)
+			if contact_id != "" and _staff_tab_open():
+				_open_staff_person(contact_id)
+			elif is_instance_valid(_scroll) and is_instance_valid(anchor):
+				_scroll.ensure_control_visible(anchor)
+			else:
+				_set_tab(STAFF_TAB)
 		"bizbrief_production":
 			_open_manage_page(PRODUCTION_PAGE, String(action.get("recipeKey", "")))
 		"bizbrief_sales":
@@ -890,7 +899,7 @@ func _build_staff_row(contact_id: String) -> Control:
 
 
 # Opens one recruit's detail on the Staff tab: role, skills, pay, assignments
-# and any pending poach decision.
+# and any pending wage prompt or poach decision.
 func _open_staff_person(contact_id: String) -> void:
 	if not _staff_tab_open():
 		return
@@ -911,6 +920,8 @@ func _build_staff_detail(content: VBoxContainer, contact_id: String) -> void:
 	crumb.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	nav.add_child(crumb)
 	content.add_child(nav)
+	if Business.pending_wage_prompts().has(contact_id):
+		content.add_child(_build_wage_prompt(contact_id))
 	if Hiring.pending_poach_ids().has(contact_id):
 		content.add_child(_build_poach_alert(contact_id))
 	content.add_child(_build_staff_card(contact_id))
@@ -1550,6 +1561,7 @@ func _build_payday(payday: Dictionary) -> Control:
 
 func _build_wage_prompt(contact_id: String) -> Control:
 	var c := UI.card()
+	c["panel"].name = "BizBriefWagePrompt_%s" % contact_id
 	c["content"].add_child(UI.label(MorningAccountsSystem.wage_prompt_label(contact_id)))
 	var row := UI.hbox()
 	var short: bool = int(GameState.state["player"]["cash"]) < Business.top_up_needed(contact_id)
