@@ -435,7 +435,7 @@ func run() -> void:
 		GameState.state["labThresholds"]["timePearl"] = 3
 		var rows := _kind("oreShort")
 		assert_eq(rows.size(), 1)
-		assert_eq([rows[0]["tier"], rows[0]["key"], rows[0]["action"]], ["routine", "oreShort:timePearl", { "to": "bizbrief_manage" }])
+		assert_eq([rows[0]["tier"], rows[0]["key"], rows[0]["action"]], ["routine", "oreShort:timePearl", { "to": "bizbrief_production", "recipeKey": "timePearl" }])
 		assert_true(String(rows[0]["label"]).find(GameData.ORE_TYPES["time"]["name"]) != -1, "names the missing ore")
 		assert_true(String(rows[0]["consequence"]).find("0 of 3") != -1, "held of target")
 		GameState.state["player"]["orichalchum"]["time"] = 1000

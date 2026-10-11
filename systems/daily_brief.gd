@@ -345,7 +345,7 @@ static func _ore_short_rows(rows: Array[Dictionary]) -> void:
 			"held": held,
 			"target": target,
 		}
-		rows.append(_row("oreShort", "oreShort:%s" % recipe_key, values, { "to": "bizbrief_manage" }, 0))
+		rows.append(_row("oreShort", "oreShort:%s" % recipe_key, values, { "to": "bizbrief_production", "recipeKey": recipe_key }, 0))
 
 
 static func _row(template_id: String, key: String, values: Dictionary, action: Dictionary, sort: int) -> Dictionary:

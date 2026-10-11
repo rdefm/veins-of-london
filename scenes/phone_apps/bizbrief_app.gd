@@ -61,8 +61,9 @@ const EXPENSE_KIND_LINES := [
 var _tab := BRIEF_TAB
 # Manage workstream page shown ("" = the Manage index), view state.
 var _manage_page := ""
-# Offer or contract id the next Sales build scrolls to.
-var _sales_focus_id := ""
+# Offer/contract id (Sales) or recipe key (Production) the next page build
+# scrolls to.
+var _page_focus_id := ""
 var _ore_source := "oreCultivator"
 # Production-log days shown expanded (view state), day -> true.
 var _expanded_log_days := {}
@@ -86,6 +87,8 @@ var _wage_prompt_anchors := {}
 var _offer_anchors := {}
 # Active contract cards on the Sales page, contract id -> Control.
 var _contract_anchors := {}
+# Recipe rows on the Production page, recipe key -> Control.
+var _recipe_anchors := {}
 var _short_pay := ShortPayViewScript.new()
 var _guard_costs := GuardCostsViewScript.new()
 var _root: Control = null
@@ -315,12 +318,12 @@ func _set_tab(tab: String) -> void:
 	refresh()
 
 
-# Opens a Manage workstream page; for Sales, focus_id names an offer or
-# contract to land on (a contract also opens its details).
+# Opens a Manage workstream page; focus_id names a Sales offer or contract
+# (a contract also opens its details) or a Production recipe to land on.
 func _open_manage_page(page: String, focus_id: String = "") -> void:
 	_tab = MANAGE_TAB
 	_manage_page = page
-	_sales_focus_id = focus_id
+	_page_focus_id = focus_id
 	if focus_id != "" and ContractsSystem.active_contracts().any(func(c: Dictionary) -> bool: return c["id"] == focus_id):
 		_sales_details_id = focus_id
 	refresh()
@@ -462,8 +465,8 @@ func _open_today_action(action: Dictionary) -> void:
 				_scroll.ensure_control_visible(prompt)
 		"bizbrief_staff":
 			_set_tab(STAFF_TAB)
-		"bizbrief_manage":
-			_set_tab(MANAGE_TAB)
+		"bizbrief_production":
+			_open_manage_page(PRODUCTION_PAGE, String(action.get("recipeKey", "")))
 		"bizbrief_sales":
 			_open_manage_page(SALES_PAGE, String(action.get("contractId", "")))
 		"bizbrief_offer":
@@ -649,10 +652,11 @@ func _build_manage(content: VBoxContainer) -> void:
 		SALES_PAGE:
 			content.add_child(_build_manage_subnav())
 			content.add_child(_build_sales())
-			_focus_sales_item()
+			_focus_page_item()
 		PRODUCTION_PAGE:
 			content.add_child(_build_manage_subnav())
 			content.add_child(_build_production())
+			_focus_page_item()
 		PROCUREMENT_PAGE:
 			content.add_child(_build_manage_subnav())
 			content.add_child(_build_procurement())
@@ -731,12 +735,16 @@ func _production_status() -> String:
 	if recipe_keys.is_empty():
 		return "Nothing your crafters can make yet."
 	var targeted := 0
+	var uncovered := 0
 	for recipe_key in recipe_keys:
 		if int(GameState.state["labThresholds"].get(recipe_key, 0)) > 0 or Rooms.lab_covers_contracts(recipe_key):
 			targeted += 1
-	if targeted == 0:
-		return "No targets set."
-	return "%d of %d recipes targeted" % [targeted, recipe_keys.size()]
+		if not Rooms.lab_covers_contracts(recipe_key):
+			uncovered += Rooms.contract_need(recipe_key)
+	var status := "No targets set." if targeted == 0 else "%d of %d recipes targeted" % [targeted, recipe_keys.size()]
+	if uncovered > 0:
+		status = "%s · %d contract need not covered" % [status.trim_suffix("."), uncovered]
+	return status
 
 
 func _procurement_status() -> String:
@@ -950,6 +958,7 @@ func _build_production() -> Control:
 	title.add_child(UI.button("Log →" if not _production_log_open else "Log ▾", func(): _toggle_production_log()))
 	section.add_child(title)
 	var c := UI.card()
+	_recipe_anchors = {}
 
 	if not Rooms.production_settings_open():
 		c["content"].add_child(UI.muted_label("Requires the Improved Lab."))
@@ -1029,11 +1038,13 @@ func _build_production_recipe_row(recipe_key: String) -> Control:
 	var covering: bool = Rooms.lab_covers_contracts(recipe_key)
 
 	var box := UI.vbox(5)
+	box.name = "ProductionRecipe_%s" % recipe_key
+	_recipe_anchors[recipe_key] = box
 	box.add_child(UI.heading(recipe["name"], 14))
 
+	# Target, contract need and coverage sit above the controls.
 	var target_label := UI.muted_label(_target_text(recipe_key, target, covering))
 	box.add_child(target_label)
-	box.add_child(UI.muted_label("Contract need: %d" % Rooms.contract_need(recipe_key)))
 	var on_change := func(value: int) -> void: target_label.text = _target_text(recipe_key, value, covering)
 	box.add_child(MapCardStyle.quantity_slider("Target", target, GameData.PRODUCTION_TARGET_MAX, on_change, func(value: int): Rooms.set_lab_threshold(recipe_key, value), 0))
 
@@ -1046,11 +1057,13 @@ func _build_production_recipe_row(recipe_key: String) -> Control:
 	return box
 
 
+# "Personal target: 5 · contract need: 3 · crafting to: 8" while covering
+# contracts, "... · contracts not covered" otherwise.
 static func _target_text(recipe_key: String, target: int, covering: bool) -> String:
-	var text := "Personal target: %d" % target
+	var text := "Personal target: %d · contract need: %d" % [target, Rooms.contract_need(recipe_key)]
 	if covering:
-		text += " · contract need: %d · crafting to: %d" % [Rooms.contract_need(recipe_key), Rooms.effective_lab_target(recipe_key, target)]
-	return text
+		return text + " · crafting to: %d" % Rooms.effective_lab_target(recipe_key, target)
+	return text + " · contracts not covered"
 
 
 func _build_procurement() -> Control:
@@ -1086,11 +1099,11 @@ func _show_procurement_assignments() -> void:
 		_scroll.ensure_control_visible(_procurement_anchor)
 
 
-# Scrolls to the offer or contract _open_manage_page() named, once.
+# Scrolls to the offer, contract or recipe _open_manage_page() named, once.
 # Deferred so the freshly built page has its layout before scrolling.
-func _focus_sales_item() -> void:
-	var anchor: Variant = _offer_anchors.get(_sales_focus_id, _contract_anchors.get(_sales_focus_id))
-	_sales_focus_id = ""
+func _focus_page_item() -> void:
+	var anchor: Variant = _offer_anchors.get(_page_focus_id, _contract_anchors.get(_page_focus_id, _recipe_anchors.get(_page_focus_id)))
+	_page_focus_id = ""
 	if is_instance_valid(_scroll) and is_instance_valid(anchor):
 		_scroll.ensure_control_visible.call_deferred(anchor)
 

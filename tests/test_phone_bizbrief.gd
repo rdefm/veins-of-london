@@ -526,8 +526,11 @@ func run() -> void:
 			assert_true(texts.has(name), "%s within time+life is listed" % name)
 		assert_true(not texts.has("Blast"), "physics recipe stays off James's list")
 		assert_true(not texts.has("Wormhole"), "time+physics recipe stays off James's list")
-		assert_true(texts.has("Personal target: 0"))
-		assert_true(texts.has("Contract need: 3"))
+		var summary := _label_with_text(phone, "Personal target: 0 · contract need: 3 · contracts not covered")
+		assert_true(summary != null, "target, need and coverage in one summary line")
+		var row: Node = phone.find_child("ProductionRecipe_timePearl", true, false)
+		var slider_row: Node = row.find_children("", "HSlider", true, false)[0].get_parent()
+		assert_true(summary.get_parent() == row and slider_row.get_parent() == row and summary.get_index() < slider_row.get_index(), "summary sits before the controls")
 
 		var sliders: Array = phone.find_children("", "HSlider", true, false)
 		assert_eq(sliders.size(), Rooms.producible_recipes("james").size(), "one target slider per listed recipe")
@@ -535,7 +538,7 @@ func run() -> void:
 		assert_eq([int(slider.min_value), int(slider.max_value)], [0, GameData.PRODUCTION_TARGET_MAX], "target spans 0..the data cap")
 		slider.value = 5
 		slider.value_changed.emit(5.0)
-		assert_true(NodeQuery.label_texts(phone).has("Personal target: 5"), "label follows the drag")
+		assert_true(NodeQuery.label_texts(phone).has("Personal target: 5 · contract need: 3 · contracts not covered"), "label follows the drag")
 		slider.drag_ended.emit(true)
 		assert_eq(GameState.state["labThresholds"]["timePearl"], 5)
 
@@ -544,6 +547,34 @@ func run() -> void:
 		cover.pressed.emit()
 		assert_true(GameState.state["labCoverContracts"]["timePearl"])
 		assert_true(NodeQuery.label_texts(phone).has("Personal target: 5 · contract need: 3 · crafting to: 8"))
+		phone.free()
+	)
+
+	run_case("production_status_and_today_ore_short_route_land_on_the_recipe", func():
+		GameState.reset()
+		for id in GameState.state["objectives"]:
+			GameState.state["objectives"][id]["active"] = false
+		GameState.state["home"]["rooms"].append("lab")
+		GameState.state["contacts"]["james"]["recruited"] = true
+		GameState.state["flags"]["bizJamesProductionRole"] = true
+		assert_true(Contacts.set_role("james", "production")["ok"])
+		GameState.state["player"]["orichalchum"] = { "time": 0, "life": 0 }
+		GameState.state["labThresholds"]["timePearl"] = 3
+		var created: Dictionary = Offers.create_offer({ "id": "status_need", "source": "random", "contractType": "oneOff", "request": { "kind": "consumable", "type": "rewind", "qty": 2 } })
+		Offers.accept_offer(created["offer"]["id"])
+		GameState.state["phoneNav"]["app"] = "bizbrief"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		_button_with_text(phone, "Manage").pressed.emit()
+		var total: int = Rooms.production_recipes().size()
+		assert_true(NodeQuery.label_texts(phone).has("1 of %d recipes targeted · 2 contract need not covered" % total), "Manage status counts targets and uncovered need")
+		_button_with_text(phone, "Brief").pressed.emit()
+		_expand_routine(phone)
+		var today_row: Node = phone.find_child("TodayRow_oreShort_timePearl", true, false)
+		assert_true(today_row != null, "ore-short Today row present")
+		_button_with_text(today_row, "Fix production").pressed.emit()
+		assert_true(phone.find_child("ProductionRecipe_timePearl", true, false) != null, "Fix production opens the Production page")
+		assert_true(NodeQuery.label_texts(phone).has("/ Production"))
 		phone.free()
 	)
 
