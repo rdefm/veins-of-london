@@ -230,7 +230,7 @@ overlays.
 | phone_app.gd | PhoneApp base: shell ref, build(content)/teardown() hooks, shared back button + refresh |
 | phone_app_registry.gd | app id -> PhoneApp script table; the only dispatch path phone.gd uses |
 | alarms_app.gd | Raid alarm rows: defend / leave undefended (two-tap) / decide later |
-| bizbrief_app.gd | Navy BizBrief shell/tabs; Brief: Today card + action routing, wage/poach alerts, collapsed accounts/Treasury/Ops, shares; Manage index → Sales/Production/Procurement (vein chooser); gated Staff roster → person detail (skills, pay, role, poach decision, Procurement link); pot-gated Stats; hosts Short Pay and Guard Costs |
+| bizbrief_app.gd | Navy BizBrief shell/tabs; Brief: tiered Today rows + routes (named offer/contract marked), wage/poach alerts, collapsed accounts/Treasury/Ops, shares; Manage index → Sales/Production/Procurement (vein chooser); gated Staff roster → person detail (skills, pay, role, poach decision, Procurement link); pot-gated Stats; hosts Short Pay and Guard Costs |
 | messages_app.gd | Conversation inbox (fixed-height rows: bold name, one-line `…` preview, unread pill, per-contact Clear) + single-thread staged bubble reveal/action bar (incl. Owen's text reply choices); thread opens scrolled to the newest message |
 | todo_app.gd | ToDo app: collapsible questline sections from Todo, all_of checks as indented sub-rows; session-only expand/collapse overrides in a static var |
 | factions_app.gd | London share table (ore/crafting toggle), London's politics (stance per pair, war/truce markers) and faction cards: archetype, ores, crafts, share bars, stance, pressure, peace talks at war, Gift, favour asked/owed (`Diplomacy`), partner price ask and trouble asks (`Partners`), intel level and what it reveals (`Intel`), activity log. |
@@ -277,7 +277,7 @@ overlays.
 | offers.json | offers.gd (synthetic catalogue, scripted counterparties, offer expiry days, recurring term weeks, random-offer daily chance curve + qty bands, small-offer threshold, cancel relation hit), business_quest.gd (biz_starter_* chain + Archie nudge text, biz_recurring_* from Beat 3/6) |
 | ore_types.json | widely read (economy, cultivating, sites, factions) |
 | palette.json | GameData.gd (reference combat-art palette; `lodedinnit_*` brand tokens read by lodedinnit_app.gd) |
-| daily_brief.json | GameData.gd + daily_brief.gd (Today card tier order, row cap, bill window, vein risk bands + collapse-nights threshold, offer window, demand threshold, empty state, more/less + Routine toggle labels, routineParts, storyActions button labels, doneMark + revealSeconds fade, per-row tier/kind/label/consequence templates and action labels; PROSE-REVIEW) |
+| daily_brief.json | GameData.gd + daily_brief.gd (Today card tier order + heading labels, row cap, bill window, vein risk bands + collapse-nights threshold, offer window, demand threshold, empty state, more/less + Routine toggle labels, routineParts, storyActions button labels, doneMark + revealSeconds fade, per-row tier/kind/label/consequence templates and action labels; PROSE-REVIEW) |
 | phone_home.json | GameData.gd + phone_device_shell.gd (wallpaper, per-block status clock times, widget date format + fixed weather/battery copy; shell renders time/date from world.day/timeBlock) |
 | recipes.json | widely read (crafting, bench, combat, dial, jobs, rooms) |
 | sites.json | sites.gd, collective.gd, objectives.gd |

@@ -63,7 +63,7 @@ The card only points; the player acts. Nothing is automated.
 27. As a player in the tutorial, I want the Story row to explain how to move time forward when that's what the objective needs (e.g. "Rest at HQ to wait for Archie's text"), so that I'm never stuck.
 28. As a player, I want the Today card to update live while BizBrief is open (e.g. after I resolve an alarm elsewhere and come back), so that it never shows stale state.
 29. As a player with reduced motion on, I want ticks and expansion to appear without animation, so that my preference is respected.
-30. As a player, I want the Today card's look to match BizBrief's navy chrome and existing section style, so that it feels native to the app.
+30. As a player, I want the Today card's look to match BizBrief's navy chrome and existing section style, so that it feels native to the app. (Layout amended by the Focused Brief A structure; see Implementation Decisions › Today presentation.)
 31. As a content/design owner, I want tier rules, thresholds (days-ahead windows, demand threshold, row cap) and row wording to live in data, so that tuning needs no code change.
 32. As a content/design owner, I want every row label and consequence line to be a template flagged for prose review, so that the voice stays consistent.
 33. As a developer, I want the plan to come from one pure projection over game state, so that it's testable without UI and can't mutate state.
@@ -115,6 +115,7 @@ The card only points; the player acts. Nothing is automated.
 - **Navigation.** The BizBrief screen maps `action.to` values onto existing navigation (phone app/sub-view deep links, Map drill-down to a vein, opening the Trade sheet or a Sales offer, a contact's Messages thread, an HQ zone). No new navigation system.
 - **Badge.** The phone-app badge configuration for BizBrief reads `badge_count()`.
 - **Brief tab layout.** The Today card is first. The accounts hero, Treasury and Operations feed move below it into collapsible sections, collapsed by default. Expansion state is session-only presentation.
+- **Today presentation (amended 2026-10-11 by `.scratch/bizbrief-structure/spec.md`, Focused Brief A).** The card heads with "Today" and the date · blocks left. Rows sit under visibly distinct tier headings in the fixed order (uppercase tier name and its row count, Urgent in signal red; the Routine heading carries no count because its one summary row does), with no heading for an empty tier and none in the empty state. Each row is compact and full-width: label, muted consequence line, one route button at a 44 px touch height, thin rules between rows. An offer or contract route opens Sales scrolled to that item and marks it with the signal-red edge; a contract also opens its details. Cap, "+N more", Routine expansion, done ticks, reduced-motion behaviour and badge semantics are unchanged.
 - **Auto-open.** The existing after-Rest auto-open is unchanged and lands on the Today card.
 - **Attention items.** The existing projection becomes an internal source for DailyBrief, or is retired if nothing else reads it. Any other callers are updated so there's one source of truth.
 - **CODEMAP** gains rows for the new system and data table.

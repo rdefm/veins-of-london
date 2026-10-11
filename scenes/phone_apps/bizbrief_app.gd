@@ -372,22 +372,31 @@ func _build_brief(content: VBoxContainer) -> void:
 	content.add_child(_build_supplier_share())
 
 
-# BizBrief Today card (spec .scratch/bizbrief-today): date, blocks left and
-# one row per DailyBrief.card() row, each with one action button. Routine
-# items sit behind one summary row; rows past the cap behind "+N more".
+# BizBrief Today card (spec .scratch/bizbrief-today §Brief tab layout): date,
+# blocks left, then one compact full-width row per DailyBrief.card() row under
+# its tier heading, each with one action button. Routine items sit behind one
+# summary row; rows past the cap behind "+N more".
 func _build_today() -> Control:
 	var summary := DailyBrief.summary()
 	var c := UI.card()
 	c["panel"].name = "BizBriefToday"
+	c["content"].add_theme_constant_override("separation", 0)
 	var head := UI.hbox()
-	head.add_child(UI.expand_fill(UI.heading("Today", 16)))
+	head.add_child(UI.expand_fill(UI.heading("Today", 20)))
 	var blocks: int = summary["blocksLeft"]
-	head.add_child(UI.muted_label("%s · %d block%s left" % [summary["dateLabel"], blocks, "" if blocks == 1 else "s"]))
+	var when := UI.muted_label("%s · %d block%s left" % [summary["dateLabel"], blocks, "" if blocks == 1 else "s"])
+	when.name = "TodayWhen"
+	when.custom_minimum_size.x = 0
+	when.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	head.add_child(when)
 	c["content"].add_child(head)
 	var card := DailyBrief.card()
 	var rows: Array = card["visible"]
 	if rows.is_empty():
-		c["content"].add_child(UI.muted_label(DailyBrief.empty_text()))
+		var empty := UI.muted_label(DailyBrief.empty_text())
+		empty.custom_minimum_size.y = 44
+		empty.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		c["content"].add_child(empty)
 	if _today_more_open:
 		rows = rows + card["hidden"]
 	var labels: Dictionary = GameData.DAILY_BRIEF
@@ -399,14 +408,21 @@ func _build_today() -> Control:
 	for key in _shown_ticks.keys():
 		if not ticks.has(key):
 			_shown_ticks.erase(key)
+	var tier := ""
 	for i in rows.size():
 		var row: Dictionary = rows[i]
 		var past_cap: bool = i >= card["visible"].size()
+		if row["tier"] != tier:
+			tier = row["tier"]
+			c["content"].add_child(_today_tier_heading(tier, summary["counts"][tier]))
+		else:
+			c["content"].add_child(_today_rule())
 		if row["kind"] == "routineSummary":
 			var toggle_label: String = labels["routineCollapseLabel"] if _routine_open else labels["routineExpandLabel"]
 			c["content"].add_child(_today_row(row, reveal_more and past_cap, toggle_label, _toggle_routine))
 			if _routine_open:
 				for child in row["children"]:
+					c["content"].add_child(_today_rule())
 					c["content"].add_child(_today_row(child, reveal_routine))
 		else:
 			c["content"].add_child(_today_row(row, reveal_more and past_cap))
@@ -414,8 +430,42 @@ func _build_today() -> Control:
 		var more_label: String = labels["lessLabel"] if _today_more_open else String(labels["moreLabel"]).format({ "n": card["more"] })
 		var more := UI.button(more_label, _toggle_today_more)
 		more.name = "TodayMore"
+		c["content"].add_child(_today_rule())
 		c["content"].add_child(more)
 	return c["panel"]
+
+
+# A tier heading: uppercase tier name, its row count (Routine's one summary
+# row carries its own), and a rule; Urgent in signal red.
+func _today_tier_heading(tier: String, count: int) -> Control:
+	var head := UI.hbox(8)
+	head.name = "TodayTier_%s" % tier
+	head.custom_minimum_size.y = 30
+	var text := String(GameData.DAILY_BRIEF["tierLabels"][tier]).to_upper()
+	if tier != "routine":
+		text += " · %d" % count
+	var title := UI.label(text)
+	title.custom_minimum_size.x = 0
+	title.autowrap_mode = TextServer.AUTOWRAP_OFF
+	title.size_flags_vertical = Control.SIZE_SHRINK_END
+	title.add_theme_font_size_override("font_size", 10)
+	title.add_theme_color_override("font_color", SIGNAL if tier == "urgent" else MUTED)
+	head.add_child(title)
+	var rule := _today_rule()
+	rule.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	rule.size_flags_vertical = Control.SIZE_SHRINK_END
+	head.add_child(rule)
+	return head
+
+
+func _today_rule() -> HSeparator:
+	var rule := HSeparator.new()
+	var line := StyleBoxLine.new()
+	line.color = LINE
+	line.thickness = 1
+	rule.add_theme_stylebox_override("separator", line)
+	rule.add_theme_constant_override("separation", 1)
+	return rule
 
 
 # One Today row; on_press defaults to ticking the row and routing its
@@ -424,21 +474,29 @@ func _build_today() -> Control:
 func _today_row(row: Dictionary, revealed: bool = false, button_label: String = "", on_press: Callable = Callable()) -> Control:
 	var action: Dictionary = row["action"]
 	var key: String = row["key"]
-	var line := UI.hbox()
+	var line := UI.hbox(10)
 	line.name = "TodayRow_%s" % key.validate_node_name()
+	line.custom_minimum_size.y = 52
 	var text := UI.vbox(2)
-	if row["done"]:
-		text.add_child(UI.muted_label("%s %s" % [GameData.DAILY_BRIEF["doneMark"], row["label"]]))
-	else:
-		text.add_child(UI.label(row["label"]))
+	text.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var title := UI.muted_label("%s %s" % [GameData.DAILY_BRIEF["doneMark"], row["label"]]) if row["done"] else UI.label(row["label"])
+	title.custom_minimum_size.x = 0
+	title.add_theme_font_size_override("font_size", 13)
+	text.add_child(title)
 	if row["consequence"] != "":
-		text.add_child(UI.muted_label(row["consequence"]))
+		var consequence := UI.muted_label(row["consequence"])
+		consequence.custom_minimum_size.x = 0
+		consequence.add_theme_font_size_override("font_size", 12)
+		text.add_child(consequence)
 	line.add_child(UI.expand_fill(text))
 	if on_press.is_null():
 		on_press = func():
 			DailyBrief.mark_acted(key)
 			_open_today_action(action)
-	line.add_child(UI.button(row["actionLabel"] if button_label == "" else button_label, on_press))
+	var route := UI.button(row["actionLabel"] if button_label == "" else button_label, on_press)
+	route.custom_minimum_size.y = 44
+	route.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	line.add_child(route)
 	var newly_ticked: bool = row["done"] and not _shown_ticks.has(key)
 	if row["done"]:
 		_shown_ticks[key] = true
@@ -1227,11 +1285,21 @@ func _build_vein_chooser(content: VBoxContainer, contact_id: String, veins: Arra
 		content.add_child(row)
 
 
-# Scrolls to the offer, contract, recipe or cultivator _open_manage_page() named, once.
-# Deferred so the freshly built page has its layout before scrolling.
+# Scrolls to the offer, contract, recipe or cultivator _open_manage_page() named, once,
+# and marks a named card with the signal-red edge. Deferred so the freshly
+# built page has its layout before scrolling.
 func _focus_page_item() -> void:
 	var anchor: Variant = _offer_anchors.get(_page_focus_id, _contract_anchors.get(_page_focus_id, _recipe_anchors.get(_page_focus_id, _cultivator_anchors.get(_page_focus_id))))
 	_page_focus_id = ""
+	if anchor is PanelContainer:
+		var mark := StyleBoxFlat.new()
+		mark.bg_color = Color("#1e3040")
+		mark.border_color = SIGNAL
+		mark.set_border_width_all(1)
+		mark.border_width_left = 3
+		mark.set_corner_radius_all(6)
+		mark.set_content_margin_all(12)
+		(anchor as PanelContainer).add_theme_stylebox_override("panel", mark)
 	if is_instance_valid(_scroll) and is_instance_valid(anchor):
 		_scroll.ensure_control_visible.call_deferred(anchor)
 

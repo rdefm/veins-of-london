@@ -726,6 +726,9 @@ func _validate_daily_brief(daily_brief: Dictionary, errors: Array[String]) -> vo
 		errors.append("daily_brief.veinRiskBands: must be an Array of band ids")
 	if daily_brief.get("tierOrder") != DAILY_BRIEF_TIERS:
 		errors.append("daily_brief.tierOrder: must be exactly %s" % [DAILY_BRIEF_TIERS])
+	var tier_labels: Variant = daily_brief.get("tierLabels")
+	if typeof(tier_labels) != TYPE_DICTIONARY or DAILY_BRIEF_TIERS.any(func(tier: String) -> bool: return typeof(tier_labels.get(tier)) != TYPE_STRING):
+		errors.append("daily_brief.tierLabels: must map each of %s to a String" % [DAILY_BRIEF_TIERS])
 	var rows: Variant = daily_brief.get("rows", {})
 	if typeof(rows) != TYPE_DICTIONARY:
 		errors.append("daily_brief.rows: must be a Dictionary")

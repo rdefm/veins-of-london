@@ -1,5 +1,5 @@
 {
-  "_comment": "DailyBrief (systems/daily_brief.gd): BizBrief's Today card. tierOrder is the fixed row order; rowCap the visible-row cap; doneMark prefixes a row ticked today; revealSeconds is the fade for newly ticked or expanded rows (none under reduced motion); rows maps each row template id to its tier, kind, label/consequence templates ({placeholders} filled by DailyBrief) and action button label. PROSE-REVIEW: every label, consequence, actionLabel, routinePart, more/less label and emptyState string here is new copy.",
+  "_comment": "DailyBrief (systems/daily_brief.gd): BizBrief's Today card. tierOrder is the fixed row order; tierLabels the Today card's tier headings; rowCap the visible-row cap; doneMark prefixes a row ticked today; revealSeconds is the fade for newly ticked or expanded rows (none under reduced motion); rows maps each row template id to its tier, kind, label/consequence templates ({placeholders} filled by DailyBrief) and action button label. PROSE-REVIEW: every label, consequence, actionLabel, routinePart, more/less label and emptyState string here is new copy.",
   "rowCap": 6,
   "billWindowDays": 3,
   "veinRiskBands": ["barren", "sparse"],
@@ -7,6 +7,7 @@
   "offerWindowDays": 1,
   "demandThreshold": 0.25,
   "tierOrder": ["urgent", "story", "opportunity", "routine"],
+  "tierLabels": { "urgent": "Urgent", "story": "Story", "opportunity": "Opportunity", "routine": "Routine" },
   "emptyState": "Nothing pressing today.",
   "moreLabel": "+{n} more",
   "lessLabel": "Show less",
@@ -143,7 +144,7 @@
     },
     "routineSummary": {
       "tier": "routine", "kind": "routineSummary",
-      "label": "Routine · {count}",
+      "label": "{count} to look after",
       "consequence": "{parts}",
       "actionLabel": "Show"
     }

@@ -1201,5 +1201,65 @@ func run() -> void:
 		var today: Node = phone.find_child("BizBriefToday", true, false)
 		assert_true(NodeQuery.label_texts(today).has(GameData.DAILY_BRIEF["emptyState"]))
 		assert_eq(_today_rows(today).size(), 0)
+		assert_eq(today.find_children("TodayTier_*", "", true, false).size(), 0, "no tier headings on a quiet day")
+		phone.free()
+	)
+
+	run_case("today_groups_rows_under_tier_headings_in_fixed_order", func():
+		GameState.reset()
+		GameState.state["home"]["pendingRaid"] = true
+		Fixtures.seed_vein("eligible", 95)
+		var offer: Dictionary = Offers.create_offer({ "id": "t_tier_offer", "source": "scripted", "contractType": "oneOff", "request": { "kind": "ore", "type": "life", "qty": 10 } })["offer"]
+		offer["expiresDay"] = int(GameState.state["world"]["day"]) + 1
+		PhoneNav.open_app("bizbrief")
+		var phone := PhoneScreen.new()
+		phone._ready()
+		var today: Node = phone.find_child("BizBriefToday", true, false)
+		var order: Array = []
+		for node in today.find_children("Today*_*", "", true, false):
+			if String(node.name).begins_with("TodayTier_") or String(node.name).begins_with("TodayRow_"):
+				order.append(String(node.name))
+		var tiers := order.filter(func(n: String) -> bool: return n.begins_with("TodayTier_"))
+		assert_eq(tiers, ["TodayTier_urgent", "TodayTier_story", "TodayTier_opportunity", "TodayTier_routine"], "fixed tier order")
+		assert_eq(order.find("TodayRow_alarm_home"), order.find("TodayTier_urgent") + 1, "the alarm sits under Urgent")
+		assert_true(order.find("TodayRow_offer_%s" % String(offer["id"]).validate_node_name()) > order.find("TodayTier_opportunity"), "the offer sits under Opportunity")
+		assert_eq(order.find("TodayRow_routine"), order.find("TodayTier_routine") + 1, "the summary sits under Routine")
+		var counts: Dictionary = DailyBrief.summary()["counts"]
+		var urgent_label := today.find_child("TodayTier_urgent", true, false).get_child(0) as Label
+		assert_eq(urgent_label.text, "%s · %d" % [String(GameData.DAILY_BRIEF["tierLabels"]["urgent"]).to_upper(), counts["urgent"]])
+		assert_eq(urgent_label.get_theme_color("font_color"), BizBriefApp.SIGNAL, "Urgent heading in signal red")
+		var story_label := today.find_child("TodayTier_story", true, false).get_child(0) as Label
+		assert_eq(story_label.get_theme_color("font_color"), BizBriefApp.MUTED, "other headings muted")
+		var row: Control = today.find_child("TodayRow_alarm_home", true, false)
+		assert_eq(row.find_children("", "Button", true, false).size(), 1, "one route per row")
+		assert_true(row.get_combined_minimum_size().y >= 44, "row touch target")
+		phone.free()
+	)
+
+	run_case("today_offer_and_contract_routes_highlight_the_named_item", func():
+		GameState.reset()
+		for id in GameState.state["objectives"]:
+			GameState.state["objectives"][id]["active"] = false
+		var other: Dictionary = Offers.create_offer({ "id": "t_other_offer", "source": "scripted", "contractType": "oneOff", "request": { "kind": "ore", "type": "time", "qty": 5 } })["offer"]
+		other["expiresDay"] = int(GameState.state["world"]["day"]) + 5
+		var offer: Dictionary = Offers.create_offer({ "id": "t_named_offer", "source": "scripted", "contractType": "oneOff", "request": { "kind": "ore", "type": "life", "qty": 10 } })["offer"]
+		offer["expiresDay"] = int(GameState.state["world"]["day"]) + 1
+		GameState.state["phoneNav"]["app"] = "bizbrief"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		_button_with_text(phone.find_child("TodayRow_offer_%s" % String(offer["id"]).validate_node_name(), true, false), "View offer").pressed.emit()
+		var named := phone.find_child("OfferCard_%s" % String(offer["id"]).validate_node_name(), true, false) as PanelContainer
+		var unnamed := phone.find_child("OfferCard_%s" % String(other["id"]).validate_node_name(), true, false) as PanelContainer
+		assert_eq((named.get_theme_stylebox("panel") as StyleBoxFlat).border_color, BizBriefApp.SIGNAL, "the named offer is marked")
+		assert_eq((unnamed.get_theme_stylebox("panel") as StyleBoxFlat).border_color, BizBriefApp.LINE, "other offers are not")
+		phone.free()
+
+		var contract: Dictionary = Offers.accept_offer(other["id"])["contract"]
+		GameState.state["phoneNav"]["app"] = "bizbrief"
+		phone = PhoneScreen.new()
+		phone._ready()
+		_button_with_text(phone.find_child("TodayRow_%s" % ("contract:%s" % contract["id"]).validate_node_name(), true, false), "Check order").pressed.emit()
+		var card := phone.find_child("ContractCard_%s" % String(contract["id"]).validate_node_name(), true, false) as PanelContainer
+		assert_eq((card.get_theme_stylebox("panel") as StyleBoxFlat).border_color, BizBriefApp.SIGNAL, "the named contract is marked")
 		phone.free()
 	)
