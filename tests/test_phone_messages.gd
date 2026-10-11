@@ -272,7 +272,7 @@ second line")
 
 		assert_eq(GameState.state["event"], null, "accepting opens no event screen")
 		assert_true(Messages.pending_for("archie").is_empty(), "the offer is resolved")
-		assert_true(GameState.state["modal"] != null or GameState.state["combat"]["active"], "the deal resolves to its result modal or a mugging")
+		assert_true(GameState.state["modal"] != null or CombatPrep.is_pending(), "the deal resolves to its result modal or a mugging's fight prep")
 
 		phone.free()
 	)

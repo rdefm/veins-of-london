@@ -389,8 +389,9 @@ static func choose(choice_index: int) -> void:
 			effects = effects + choice["check"].get("perSuccess", [])
 		effects = effects + source.get("effects", [])
 	apply_effects(effects)
-	# A blank result_text shows no resolution card: play moves straight on (R§3.9a Goto).
-	if is_silent_text(resolution["text"]) and GameState.state["event"] != null:
+	# A blank result_text shows no resolution card: play moves straight on (R§3.9a Goto),
+	# unless the effects ended this event or started another.
+	if is_silent_text(resolution["text"]) and is_same(GameState.state["event"], event_state):
 		_continue()
 
 
