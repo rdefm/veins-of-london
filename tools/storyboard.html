@@ -316,6 +316,7 @@ section { display: grid; gap: 12px; min-width: 0 }
           <span class="pill" id="phase-pill"></span>
           <span class="pill" id="round-pill" style="color:var(--muted)"></span>
           <span class="mono muted" id="count-line"></span>
+          <button type="button" class="tb" id="img-mode" hidden title="Preview this proposal with its storyboard's shots, or with the event's own image keys"></button>
         </div>
         <div class="editbar" id="editbar" hidden>
           <button type="button" class="save" id="save" title="Save the draft into the proposal's JSON block (Ctrl+S)">Save</button>
@@ -407,7 +408,7 @@ section { display: grid; gap: 12px; min-width: 0 }
       </div>
 
       <div class="panel" role="tabpanel" id="panel-shots" aria-labelledby="tab-shots" hidden>
-      <p class="muted" id="shots-none" style="margin:0" hidden>Writing proposals have no shots to review.</p>
+      <p class="muted" id="shots-none" style="margin:0" hidden>No storyboard for this proposal yet. Ask Claude to storyboard it.</p>
       <section id="p-section">
         <h2>Plates</h2>
         <p class="muted" style="margin:0">Blank backgrounds, one per camera setup. Generate these first; shots add the cast onto them.</p>
@@ -915,6 +916,11 @@ function checkOddsBlock(opt, changed, restructure) {
   let root = null, boards = [], feedback = {}, plateFiles = new Map(), currentId = null, cardIdx = 0;
   // Proposal play-through: cards visited before this one (for Prev), and the picked option/outcome on a choice card.
   let trail = [], pick = null, outcomeKey = null;
+  // Proposal preview images: "shots" = the linked storyboard's shots, "event" = the draft's own image keys.
+  let imgMode = (() => { try { return localStorage.getItem("vein-sb-imgmode") || "shots"; } catch { return "shots"; } })();
+  // Boards (a proposal or its shot board) in the order their undo steps were taken, so Undo on a proposal
+  // undoes whichever of the two was edited last.
+  let undoLog = [];
   const resUrls = new Map(); // res:// path -> object URL
   const thumbs = new Map(); // name -> {stamp, url}
   const remembered = () => { try { return localStorage.getItem("vein-sb-board"); } catch { return null; } };
@@ -933,6 +939,9 @@ function checkOddsBlock(opt, changed, restructure) {
   }
 
   const board = () => boards.find((b) => b.eventId === currentId);
+  // The shot board the Shots tab edits: the board itself, or a proposal's linked storyboard (null if none).
+  const shotBoard = () => { const b = board(); return b && b.kind === "proposal" ? b.shotBoard || null : b || null; };
+  const showingShots = (b) => b.kind === "proposal" && !!b.shotBoard && imgMode === "shots";
   const shotById = (b, id) => (b.shots || []).find((s) => s.id === id);
   const baseName = (p) => (p || "").split("/").pop();
   const stemOf = (n) => n.replace(/\.[^.]+$/, "");
@@ -2095,6 +2104,31 @@ function checkOddsBlock(opt, changed, restructure) {
     if (out.dropped.length) lines.push(`Left out (no path reaches them): ${out.dropped.join(", ")}`);
     return lines;
   }
+  // The shot board (board.json) storyboarding a proposal: the one whose `source` names the proposal file, else one
+  // whose eventId is the file's stem, else one without a `source` whose eventId is the draft's id.
+  function shotBoardFor(file, draftId, shotBoards) {
+    const bySource = shotBoards.find((s) => typeof s.source === "string" && s.source.split("/").pop() === file);
+    if (bySource) return bySource;
+    const stem = file.replace(/\.md$/, "");
+    return shotBoards.find((s) => s.eventId === stem)
+      || (draftId ? shotBoards.find((s) => !s.source && s.eventId === draftId) : null) || null;
+  }
+  // The shot board's cut for one proposal card (matched on branch + key), or null when the board doesn't list it.
+  function boardCut(shotBoard, branch, key) {
+    const c = (shotBoard.cards || []).find((x) => (x.branch || "main") === branch && x.key === key);
+    return c ? { cut: c.cut, shot: c.shot || null, why: c.why || "" } : null;
+  }
+  // The shot showing on the last card of a played path (indexes into cards, in play order): walks back to the
+  // nearest NEW board cut; CLEAR or no board cut before it shows nothing.
+  function shotOnPath(cards, path) {
+    for (const j of [...path].reverse()) {
+      const bc = cards[j] && cards[j].board;
+      if (!bc) continue;
+      if (bc.cut === "CLEAR") return null;
+      if (bc.cut === "NEW") return bc.shot;
+    }
+    return null;
+  }
   /* ---------- End draft model ---------- */
 
   // Image per card, as the event screen resolves it: an explicit "image" key (null clears), else (legacy flat
@@ -2112,7 +2146,8 @@ function checkOddsBlock(opt, changed, restructure) {
     const id = b.draft.id;
     b.cards = flatCards(b.draft).map(({ branch, idx, card }, i) => {
       const img = "image" in card ? card.image : b.conv.get(`${id}_card${i + 1}`);
-      return { ...card, branch, idx, cut: img === null ? "CLEAR" : img ? "NEW" : "HOLD", shot: img || null };
+      return { ...card, branch, idx, cut: img === null ? "CLEAR" : img ? "NEW" : "HOLD", shot: img || null,
+        board: b.shotBoard ? boardCut(b.shotBoard, branch, card.key) : null };
     });
   }
   // Unsaved = the draft no longer serialises to what was last loaded or saved.
@@ -2183,7 +2218,9 @@ function checkOddsBlock(opt, changed, restructure) {
       if (b.draft && old.diskBlock === b.diskBlock) b.history = old.history;
       return b;
     });
+    for (const p of proposals) if (p.draft) { p.shotBoard = shotBoardFor(p.file, p.draft.id, found); proposalCards(p); }
     boards = found.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).concat(proposals);
+    undoLog = undoLog.filter((x) => boards.includes(x));
     setNote(boards.length ? "" : "No storyboards in .scratch/event-art/ or proposals in .scratch/writing-revamp/ yet.");
     const want = currentId && boards.some((b) => b.eventId === currentId) ? currentId
       : (boards.some((b) => b.eventId === remembered()) ? remembered() : boards[0]?.eventId || null);
@@ -2305,8 +2342,9 @@ function checkOddsBlock(opt, changed, restructure) {
   function renderProposalFrame(b) {
     const frame = $("frame"), opts = $("tp-opts"), out = $("tp-outcome");
     frame.replaceChildren(); opts.replaceChildren(); out.replaceChildren();
-    frame.classList.toggle("pickable", !!b.draft && b.cards.length > 0);
-    frame.title = b.draft && b.cards.length ? "Click to pick this card's image" : "";
+    const shots = showingShots(b);
+    frame.classList.toggle("pickable", !shots && !!b.draft && b.cards.length > 0);
+    frame.title = !shots && b.draft && b.cards.length ? "Click to pick this card's image" : "";
     opts.hidden = true; out.hidden = true;
     $("prev").disabled = cardIdx === 0;
     if (!b.cards.length) {
@@ -2318,9 +2356,13 @@ function checkOddsBlock(opt, changed, restructure) {
     }
     const c = b.cards[cardIdx];
     const { o, outs, oc } = picked(b);
-    const img = oc && oc.res && oc.res.image != null ? oc.res.image : shotAlong(b);
+    const img = shots ? null : oc && oc.res && oc.res.image != null ? oc.res.image : shotAlong(b);
     const tok = ++frameTok;
-    if (img) {
+    const sid = shots ? shotOnPath(b.cards, [...trail, cardIdx]) : null;
+    if (shots) {
+      if (sid) shotFrame(frame, b.shotBoard, sid, !c.board || c.board.cut === "HOLD");
+      else frame.append(el("div", { class: "ph clear" }, el("p", { text: c.board ? "No shot on this card." : "Not on the storyboard." })));
+    } else if (img) {
       resImg(img, baseName(img)).then((i) => {
         if (tok !== frameTok) return;
         frame.prepend(i || el("div", { class: "ph" }, el("b", { text: "Missing" }), el("p", { text: img })));
@@ -3056,12 +3098,14 @@ function checkOddsBlock(opt, changed, restructure) {
     const b = board(), proposal = !!b && b.kind === "proposal", on = !!b && (!proposal || !!b.draft);
     $("editbar").hidden = !on;
     if (!on) return;
-    $("save").title = proposal ? "Save the draft into the proposal's JSON block (Ctrl+S)" : "Save shot edits to board.json (Ctrl+S)";
-    const dirty = isDirty(b);
+    const sb = proposal ? b.shotBoard : null;
+    $("save").title = proposal ? "Save the draft into the proposal's JSON block" + (sb ? " and shot edits to its board.json" : "") + " (Ctrl+S)"
+      : "Save shot edits to board.json (Ctrl+S)";
+    const dirty = isDirty(b) || (!!sb && isDirty(sb));
     $("save").disabled = !dirty;
-    $("undo").disabled = b.history.size === 0;
+    $("undo").disabled = !undoTarget();
     $("promote").hidden = !proposal;
-    $("promote").disabled = dirty;
+    $("promote").disabled = isDirty(b);
     const d = $("dirty");
     d.classList.toggle("on", dirty);
     if (msg) d.textContent = msg;
@@ -3076,7 +3120,7 @@ function checkOddsBlock(opt, changed, restructure) {
     let sel;
     try { sel = fn(b.draft); }
     catch (e) { b.draft = JSON.parse(before); proposalCards(b); renderFrame(); renderEditBar(e.message); return; }
-    if (newStep) b.history.snapshot(before);
+    if (newStep) { b.history.snapshot(before); undoLog.push(b); }
     proposalCards(b);
     renderGraph(b);
     if (sel) {
@@ -3102,26 +3146,37 @@ function checkOddsBlock(opt, changed, restructure) {
   }
   // One shot-field edit from editor text; false (with the reason in the edit bar) if the value was refused.
   function editShot(id, key, text, newStep) {
-    const b = board(); if (!b || b.kind === "proposal") return false;
+    const b = shotBoard(); if (!b) return false;
     const before = serialiseBoard(b);
     try { setShotField(b, id, key, text); }
     catch (e) { renderEditBar(e.message); return false; }
-    if (newStep) b.history.snapshot(before);
+    if (newStep) { b.history.snapshot(before); undoLog.push(b); }
+    if (board().kind === "proposal") renderCuts(board());
     renderFrame(); renderEditBar();
     return true;
   }
+  // The board Undo acts on: the current board, or on a proposal whichever of it and its shot board changed last.
+  function undoTarget() {
+    const cur = board(); if (!cur) return null;
+    const mine = [cur, cur.kind === "proposal" ? cur.shotBoard : null].filter((x) => x && x.history && x.history.size > 0);
+    for (let i = undoLog.length - 1; i >= 0; i--) if (mine.includes(undoLog[i])) return undoLog[i];
+    return mine[0] || null;
+  }
   function undoEdit() {
-    const b = board(); if (!b || !b.history) return;
+    const b = undoTarget(); if (!b) return;
     const t = b.history.undo(); if (t == null) return;
+    const at = undoLog.lastIndexOf(b); if (at >= 0) undoLog.splice(at, 1);
     if (b.kind === "proposal") { b.draft = JSON.parse(t); proposalCards(b); }
-    else replaceContents(b, JSON.parse(t));
+    else { replaceContents(b, JSON.parse(t)); const cur = board(); if (cur.kind === "proposal") proposalCards(cur); }
     editSession = false;
     if (document.activeElement && document.activeElement.closest("#card-editor, #branch-editor, #shots")) document.activeElement.blur();
     renderBoard();
   }
-  function saveBoard() {
+  async function saveBoard() {
     const b = board(); if (!b) return;
-    if (b.kind === "proposal") saveProposal(); else saveShotBoard(b);
+    if (b.kind !== "proposal") { saveShotBoard(b); return; }
+    if (isDirty(b)) await saveProposal();
+    if (b.shotBoard && isDirty(b.shotBoard)) await saveShotBoard(b.shotBoard);
   }
   async function saveShotBoard(b) {
     if (!isDirty(b)) return;
@@ -3137,7 +3192,7 @@ function checkOddsBlock(opt, changed, restructure) {
       const out = serialiseBoard(b);
       await writeFile(dir, "board.json", out);
       b.diskText = out; b.saved = out;
-      msg = `Saved ${new Date().toLocaleTimeString()} to board.json`;
+      msg = `Saved ${new Date().toLocaleTimeString()} to ${b.eventId}/board.json`;
     } catch (e) { msg = "Couldn't save: " + (e && e.message); }
     renderEditBar(msg);
   }
@@ -3193,11 +3248,17 @@ function checkOddsBlock(opt, changed, restructure) {
   // Leaving a dirty board discards its edits (after a confirm); false = stay.
   function leaveBoard() {
     const b = board();
-    if (!isDirty(b)) return true;
-    if (!confirm(`${b.file || b.title || b.eventId} has unsaved changes. Discard them?`)) return false;
-    if (b.kind === "proposal") { b.draft = JSON.parse(b.saved); proposalCards(b); }
-    else replaceContents(b, JSON.parse(b.saved));
-    b.history = makeHistory();
+    const sb = b && b.kind === "proposal" ? b.shotBoard : null;
+    const dirty = [b, sb].filter((x) => x && isDirty(x));
+    if (!dirty.length) return true;
+    if (!confirm(`${dirty.map((x) => x.file || x.title || x.eventId).join(" and ")} ${dirty.length > 1 ? "have" : "has"} unsaved changes. Discard them?`)) return false;
+    for (const x of dirty) {
+      if (x.kind === "proposal") x.draft = JSON.parse(x.saved);
+      else replaceContents(x, JSON.parse(x.saved));
+      x.history = makeHistory();
+    }
+    undoLog = undoLog.filter((x) => !dirty.includes(x));
+    if (b.kind === "proposal") proposalCards(b);
     return true;
   }
 
@@ -3260,6 +3321,17 @@ function checkOddsBlock(opt, changed, restructure) {
     finally { $("nb-create").disabled = false; }
   }
 
+  // A shot in the phone frame: its latest uploaded file, else its last draft, else a placeholder with its brief.
+  function shotFrame(frame, sb, sid, held) {
+    const s = shotById(sb, sid) || { id: sid };
+    const local = s.saveAs ? filesFor(s.saveAs).slice(-1)[0] : null;
+    const draft = (s.drafts || []).slice(-1)[0];
+    if (local) frame.append(imgFor(local, `${s.id}: ${s.title || ""}`));
+    else if (draft && draft.url) frame.append(el("img", { src: draft.url, alt: `${s.id} draft: ${s.title || ""}` }));
+    else frame.append(el("div", { class: "ph" }, el("b", { text: s.id }), el("p", { text: s.title || "" }), el("p", { text: s.framing || s.job || "" })));
+    frame.append(el("span", { class: "tag", text: `${s.id}${held ? " · held" : ""}` }));
+  }
+
   function renderFrame() {
     const b = board(); if (!b) return;
     if (b.kind === "proposal") { renderProposalFrame(b); return; }
@@ -3272,15 +3344,7 @@ function checkOddsBlock(opt, changed, restructure) {
     frame.replaceChildren();
     if (!sid) {
       frame.append(el("div", { class: "ph clear" }, el("p", { text: c.cut === "CLEAR" ? "Image cleared." : "No image yet on this card." })));
-    } else {
-      const s = shotById(b, sid) || { id: sid };
-      const local = s.saveAs ? filesFor(s.saveAs).slice(-1)[0] : null;
-      const draft = (s.drafts || []).slice(-1)[0];
-      if (local) frame.append(imgFor(local, `${s.id}: ${s.title || ""}`));
-      else if (draft && draft.url) frame.append(el("img", { src: draft.url, alt: `${s.id} draft: ${s.title || ""}` }));
-      else frame.append(el("div", { class: "ph" }, el("b", { text: s.id }), el("p", { text: s.title || "" }), el("p", { text: s.framing || "" })));
-      frame.append(el("span", { class: "tag", text: `${s.id}${c.cut === "HOLD" ? " · held" : ""}` }));
-    }
+    } else shotFrame(frame, b, sid, c.cut === "HOLD");
     $("tp-who").textContent = c.speaker || (c.type === "choice" ? "Choice" : c.type === "resolution" ? "Resolution" : "Narration");
     $("tp-text").textContent = c.text + (c.choices ? "\n" + c.choices.map((x) => "▸ " + x).join("  ") : "");
     $("pos").textContent = `${boardCardLabel(c)} · ${cardIdx + 1}/${b.cards.length}`;
@@ -3290,17 +3354,22 @@ function checkOddsBlock(opt, changed, restructure) {
   }
 
   // Cards grouped under a header per branch; the branch's `then` closes it.
+  const shotLabel = (sb, id) => { const s = shotById(sb, id); return s && s.title ? `${id} · ${s.title}` : id || ""; };
   function renderProposalCuts(b) {
+    const shots = showingShots(b);
     $("cuts").replaceChildren(...b.cards.flatMap((c, i) => {
       const br = b.draft.branches[c.branch], last = i + 1 === b.cards.length || b.cards[i + 1].branch !== c.branch;
       const head = c.idx === 0 ? el("div", { class: "bhead" }, el("b", { text: c.branch }), br.title ? " · " + br.title : "") : null;
       const tail = last ? el("div", { class: "bthen", text: "then → " + thenText(br.then) }) : null;
-      const row = el("button", { class: "cut" + (c.idx > 0 && c.cut !== "HOLD" ? " newrun" : ""), type: "button" },
+      const sb = shots ? c.board || { cut: "HOLD", shot: null, why: "Not on the storyboard." } : null;
+      const cut = sb ? sb.cut : c.cut;
+      const row = el("button", { class: "cut" + (c.idx > 0 && cut !== "HOLD" ? " newrun" : ""), type: "button" },
         el("span", { class: "n", text: c.key }),
-        el("span", { class: "chip " + c.cut, text: c.cut }),
+        el("span", { class: "chip " + cut, text: cut }),
         el("span", { class: "body" },
-          c.cut === "NEW" ? el("span", { class: "shotref", text: baseName(c.shot) }) : null,
+          cut === "NEW" ? el("span", { class: "shotref", text: sb ? shotLabel(b.shotBoard, sb.shot) : baseName(c.shot) }) : null,
           el("span", { class: "why", text: [c.type, c.label].filter(Boolean).join(" · ") }),
+          sb && sb.why ? el("span", { class: "why", text: sb.why }) : null,
           el("span", { class: "line", text: (c.speaker ? c.speaker + ": " : "") + c.text }),
           ...(c.choices || []).map((x) => {
             const mech = optionMech(x);
@@ -3350,7 +3419,7 @@ function checkOddsBlock(opt, changed, restructure) {
     });
     const save = el("button", { class: "save", type: "button", text: "Save" });
     save.addEventListener("click", async () => {
-      const b = board();
+      const b = shotBoard();
       save.disabled = true; status.textContent = "Saving…";
       try { await saveFeedback(b, key.split("__")[1], chosen, ta.value.trim()); status.textContent = "Saved to feedback.json. Tell Claude you've reviewed."; }
       catch (e) { status.textContent = "Couldn't save: " + (e && e.message); }
@@ -3527,8 +3596,11 @@ function checkOddsBlock(opt, changed, restructure) {
     if (!b) return;
     renderGraph(b);
     $("h-title").textContent = b.title || b.eventId;
-    const isProposal = b.kind === "proposal";
-    $("s-section").hidden = isProposal; $("board-verdict").hidden = isProposal; $("shots-none").hidden = !isProposal;
+    const isProposal = b.kind === "proposal", sb = shotBoard();
+    $("s-section").hidden = !sb; $("board-verdict").hidden = !sb; $("shots-none").hidden = !!sb;
+    $("img-mode").hidden = !(isProposal && b.shotBoard);
+    $("img-mode").textContent = imgMode === "shots" ? `Images: storyboard ${b.shotBoard ? b.shotBoard.eventId : ""}` : "Images: event keys";
+    if (sb) renderShotTab(sb); else $("p-section").hidden = true;
     if (isProposal) {
       const pill = $("phase-pill");
       pill.textContent = "Writing proposal"; pill.style.color = "var(--accent)";
@@ -3538,7 +3610,6 @@ function checkOddsBlock(opt, changed, restructure) {
       $("logline").textContent = b.logline;
       renderCuts(b);
       renderComments(b);
-      $("p-section").hidden = true;
       if (cardIdx >= b.cards.length) cardIdx = 0;
       renderFrame();
       return;
@@ -3553,6 +3624,12 @@ function checkOddsBlock(opt, changed, restructure) {
     $("logline").textContent = b.logline || "";
     renderCuts(b);
     renderComments(b);
+    if (cardIdx >= b.cards.length) cardIdx = 0;
+    renderFrame();
+  }
+  // Plates, shots and the board verdict of a shot board (the current board, or a proposal's storyboard).
+  function renderShotTab(b) {
+    const phase = b.phase || "storyboard";
     renderPlates(b);
     renderShots(b);
     $("board-verdict").replaceChildren(el("h2", { text: phase === "drafts" ? "Drafts overall" : "Storyboard overall" }),
@@ -3560,8 +3637,6 @@ function checkOddsBlock(opt, changed, restructure) {
         ? "Approve when every shot's draft is good enough to clean up and place."
         : "Approve the whole board to move on to image prompts. Approval covers drafts only, not final assets." }),
       verdictBlock(`${b.eventId}__board`, "Your verdict", [["approve", phase === "drafts" ? "Approve drafts" : "Approve storyboard"], ["revise", "Another round"]]));
-    if (cardIdx >= b.cards.length) cardIdx = 0;
-    renderFrame();
   }
 
   const typing = () => { const a = document.activeElement; return !!a && (a.tagName === "TEXTAREA" || a.isContentEditable || (a.tagName === "INPUT" && a.type === "text")); };
@@ -3626,7 +3701,12 @@ function checkOddsBlock(opt, changed, restructure) {
     editDraft((d) => { d.branches[name].title = v; }, !editSession);
     editSession = true;
   });
-  $("frame").addEventListener("click", openImagePicker);
+  $("frame").addEventListener("click", () => { const b = board(); if (b && !showingShots(b)) openImagePicker(); });
+  $("img-mode").addEventListener("click", () => {
+    imgMode = imgMode === "shots" ? "event" : "shots";
+    try { localStorage.setItem("vein-sb-imgmode", imgMode); } catch {}
+    renderBoard();
+  });
   $("ip-filter").addEventListener("input", renderImagePicker);
   $("ip-hold").addEventListener("click", () => { const c = pickerCard(); $("imgpick").close(); if (c) setCard(c.key, undefined); });
   $("ip-clear").addEventListener("click", () => { const c = pickerCard(); $("imgpick").close(); if (c) setCard(c.key, null); });

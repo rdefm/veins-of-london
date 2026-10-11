@@ -1,6 +1,6 @@
 # BizBrief structure refresh
 
-Status: ticket breakdown awaiting owner review
+Status: approved for tickets (2026-10-11)
 
 ## Direction
 
@@ -37,3 +37,16 @@ Keep BizBrief's approved navy, paper-white, serif and signal-red visual language
 - No state mutation in screens; systems keep pure-state and event-flow boundaries. No new business formulas or game actions.
 - Update the prior Today and visual-direction specs where this hierarchy supersedes them. Preserve their unchanged mechanics, tier order, unlocks, badge semantics, and accessibility behaviour.
 - Each ticket is a runnable vertical slice with focused headless checks using Godot 4.7. The human checks phone layout, scroll, touch targets and legibility on-device.
+
+## Tickets
+
+1. [Compact shell and Sales workstream](issues/01-shell-manage-sales.md)
+2. [Production workstream](issues/02-production-workstream.md)
+3. [Procurement workstream](issues/03-procurement-workstream.md)
+4. [Staff roster and details](issues/04-staff-roster-details.md)
+5. [Focused Today](issues/05-focused-today.md)
+6. [Pay and poach decisions](issues/06-pay-poach-today.md)
+7. [Grouped demand opportunities](issues/07-group-demand-opportunities.md)
+8. [Morning report and money](issues/08-morning-money-details.md)
+9. [Market position detail](issues/09-market-position-detail.md)
+10. [Stats labels and periods](issues/10-stats-labels-periods.md)

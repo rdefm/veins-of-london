@@ -6,6 +6,7 @@ Saved to `.scratch/event-art/<id>/board.json`; `tools/storyboard.html` reads it 
 {
   "eventId": "col_a2_handler_meet",
   "title": "Meeting the Handler",          // human name for the picker/header
+  "source": ".scratch/writing-revamp/col-a2-handler-meet-proposal.md", // the proposal storyboarded, when it is one: links the board to it in the tool
   "logline": "…",                          // the event's single dramatic job, one sentence
   "phase": "storyboard",                   // storyboard | drafts | done
   "round": 1,

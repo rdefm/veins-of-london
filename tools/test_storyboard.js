@@ -29,7 +29,7 @@ const {
   addComment, updateComment, deleteComment, filterComments, commentCount, anchorText, anchorType, proseComments,
   cardImageName, freeImageName, setCardImage, eventImageDir, SHOT_FIELDS, serialiseBoard, setShotField, shotFieldText,
   LIVE_EVENTS_DIR, proposalFileName, importBoard, blankBoard, duplicateBoard, boardCardLabel, promoteDraft, serialiseEvent,
-  promoteForWrite, promoteSummary,
+  promoteForWrite, promoteSummary, shotBoardFor, boardCut, shotOnPath,
 } = new Function(
   html.slice(ss, se) + html.slice(s, e) +
     "\nreturn { parseProposal, parseDraft, serialiseDraft, ensureKeys, legacyToDraft, nextPos, playOrder, flatCards, thenText," +
@@ -42,7 +42,7 @@ const {
     " addComment, updateComment, deleteComment, filterComments, commentCount, anchorText, anchorType, proseComments," +
     " cardImageName, freeImageName, setCardImage, eventImageDir, SHOT_FIELDS, serialiseBoard, setShotField, shotFieldText," +
     " LIVE_EVENTS_DIR, proposalFileName, importBoard, blankBoard, duplicateBoard, boardCardLabel, promoteDraft, serialiseEvent," +
-    " promoteForWrite, promoteSummary };"
+    " promoteForWrite, promoteSummary, shotBoardFor, boardCut, shotOnPath };"
 )();
 
 let passed = 0;
@@ -1480,6 +1480,39 @@ test("Promote button output is byte-identical to promote_storyboard.js for the s
       assert.strictEqual(cli, promoteForWrite(parseProposal(file, md).draft).text, f);
     }
   } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
+});
+
+test("shotBoardFor links a proposal by source, then file stem, then draft id (unsourced boards only)", () => {
+  const bySrc = { eventId: "archie_craft_chat", source: ".scratch/writing-revamp/archie-craft-chat-proposal.md" };
+  const byStem = { eventId: "intro-proposal2" };
+  const byId = { eventId: "james_meeting" };
+  const boards = [bySrc, byStem, byId];
+  assert.strictEqual(shotBoardFor("archie-craft-chat-proposal.md", "archie_craft_chat", boards), bySrc);
+  assert.strictEqual(shotBoardFor("archie-craft-chat-proposal2.md", "archie_craft_chat", boards), null, "sourced board claims only its own file");
+  assert.strictEqual(shotBoardFor("intro-proposal2.md", "intro", boards), byStem);
+  assert.strictEqual(shotBoardFor("james-meeting-proposal3.md", "james_meeting", boards), byId);
+  assert.strictEqual(shotBoardFor("x.md", null, boards), null);
+});
+
+test("boardCut matches branch + key, defaulting a board card's branch to main", () => {
+  const sb = { cards: [{ key: "c1", cut: "NEW", shot: "S1", why: "w" }, { branch: "spare", key: "c4", cut: "NEW", shot: "S2" }] };
+  assert.deepStrictEqual(boardCut(sb, "main", "c1"), { cut: "NEW", shot: "S1", why: "w" });
+  assert.deepStrictEqual(boardCut(sb, "spare", "c4"), { cut: "NEW", shot: "S2", why: "" });
+  assert.strictEqual(boardCut(sb, "only", "c4"), null);
+});
+
+test("shotOnPath holds along the played path, so each branch shows its own shot", () => {
+  const cards = [
+    { board: { cut: "NEW", shot: "S1" } }, { board: { cut: "HOLD", shot: "S1" } },
+    { board: { cut: "NEW", shot: "S2" } }, { board: { cut: "NEW", shot: "S3" } },
+    { board: { cut: "HOLD", shot: "S1" } }, {}, { board: { cut: "CLEAR" } },
+  ];
+  assert.strictEqual(shotOnPath(cards, [0, 1]), "S1");
+  assert.strictEqual(shotOnPath(cards, [0, 1, 2]), "S2");
+  assert.strictEqual(shotOnPath(cards, [0, 1, 3]), "S3");
+  assert.strictEqual(shotOnPath(cards, [0, 1, 4]), "S1", "vague path skips both pearl cards");
+  assert.strictEqual(shotOnPath(cards, [0, 2, 5]), "S2", "a card the board doesn't list holds");
+  assert.strictEqual(shotOnPath(cards, [0, 6]), null);
 });
 
 console.log(`${passed} passed${process.exitCode ? ", some FAILED" : ""}`);
