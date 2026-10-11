@@ -30,7 +30,7 @@ Three independent scarcity gates, in ascending order of importance:
 
 1. **Cost.** Seeding a Dial is expensive in calc across all five ore types (see §Creation).
 2. **Control.** Organisations regulate creation. You cannot control an object that anyone can make, but you can absolutely control the handful of people who can make one — which is what the factions do, and what the Conclave keeps records of.
-3. **The gift.** A Dial can only be seeded by a crafter with a natural affinity for orichalchum. Skill is not enough and never becomes enough. Most crafters — including good ones — will never make a Dial no matter how far they level, because the capacity is not learnable.
+3. **The gift.** A Dial can only be seeded, and a Movement can only be crafted, by a crafter with a natural affinity for orichalchum. Skill is not enough and never becomes enough. Most crafters — including good ones — will never make either no matter how far they level, because the capacity is not learnable.
 
 Gate 3 is the load-bearing one. It is what makes Dials rare rather than merely expensive, and it is what makes the people who can make them valuable enough to be worth controlling.
 
@@ -46,7 +46,7 @@ That is the gift, and James clocked it in the tutorial. The Collective Act 2 Dia
 
 ### Mechanical shape
 
-- The gift is a **prerequisite flag**, not a curve. It gates access to the seeding action; it does not modify any roll.
+- The gift is a **prerequisite flag**, not a curve. It gates access to both Dial seeding and Movement crafting; it does not modify either roll.
 - The existing seeding roll (§Creation) is unchanged — crafting and cultivating skill still determine whether the attempt succeeds. The gift decides whether you may attempt it at all.
 - The player has the gift. This is a fact about the player character, established narratively, not a stat they raise.
 
@@ -74,7 +74,7 @@ This preserves "exactly one device per player, ever" (§Ownership) with fiction 
 
 ## Movements
 
-- Crafted like a normal recipe: player picks **one** ore type as the Movement's ingredient; that ore type becomes the Dial's attunement for as long as that Movement stays seated. Standard recipe mechanics (pay ingredients always, `craftChance` from crafting skill, fail wastes ingredients).
+- Only a gifted crafter can attempt one. With that prerequisite met, it is crafted like a normal recipe: player picks **one** ore type as the Movement's ingredient; that ore type becomes the Dial's attunement for as long as that Movement stays seated. Standard recipe mechanics (pay ingredients always, `craftChance` from crafting skill, fail wastes ingredients).
 - Movements are **not destroyed** when removed — they go back to inventory, freely re-seatable. Swapping is reversible; the cost gate is the Movement's crafting investment, not a destruction penalty.
 - Movement **tier** = the crafted `qualityTier` (existing skill-tier mechanism, §3.5 REFERENCE.md) — not a separate unlock ladder. Each Movement archetype recipe carries a paired bonus-curve and downside-curve indexed by crafting skill (mirrors `effectPower[skill]`, just two arrays instead of one):
   - Tier 1–2 (low skill): small bonus, ~no downside.

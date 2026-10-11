@@ -395,11 +395,12 @@ func _build_today() -> Control:
 	c["panel"].name = "BizBriefToday"
 	c["content"].add_theme_constant_override("separation", 0)
 	var head := UI.hbox()
-	head.add_child(UI.expand_fill(UI.heading("Today", 20)))
+	head.add_child(UI.heading("Today", 20))
 	var blocks: int = summary["blocksLeft"]
 	var when := UI.muted_label("%s · %d block%s left" % [summary["dateLabel"], blocks, "" if blocks == 1 else "s"])
 	when.name = "TodayWhen"
-	when.custom_minimum_size.x = 0
+	UI.expand_fill(when)
+	when.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	when.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	head.add_child(when)
 	c["content"].add_child(head)

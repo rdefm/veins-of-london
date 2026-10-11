@@ -154,7 +154,7 @@ Both are small. Without them, the fallback is one flat result for every pearl co
           "type": "choice",
           "label": null,
           "speaker": "Archie",
-          "text": "He looks at the pearl, then at you. \"How many have you got?\" You tell him. He breathes out. \"Then I'll have that one and not leaving you high and dry. Next time things kick off, I'd like a better answer than running.\"",
+          "text": "He looks at the pearl, then at you. \"How many have you got?\" You tell him. He breathes out. \"Then if I have this one, I'm not leaving you high and dry. Next time things kick off, I'd like a better answer than running.\"",
           "choices": [
             {
               "id": "giveSpare",
@@ -166,7 +166,7 @@ Both are small. Without them, the fallback is one flat result for every pearl co
                   "qty": 1
                 }
               ],
-              "result_text": "He wraps it in a napkin, folds it twice and slips it into his inside pocket, eyes still running. \"That's the Whitechapel one squared. I'll put it on your tab.\" You don't have a tab. Apparently it's in credit.",
+              "result_text": "He wraps it in a napkin, folds it twice and slips it into his pocket, eyes still running. \"That's the Whitechapel one squared. I'll put it on your tab.\" You don't have a tab. Apparently it's in credit.",
               "goto": {
                 "branch": "james"
               }
