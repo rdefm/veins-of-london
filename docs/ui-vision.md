@@ -651,7 +651,9 @@ shared phone frame, status bar and UI sans, but inside the app uses warm
 graphite chrome (`register_graphite`, `register_graphite_edge`, `register_ink`)
 and the oxide-orange brand colour `register_oxide` (`#e47a50`) for the masthead
 rule, selected controls, action buttons and share fills, with dark
-`register_on_oxide` text on filled orange. Faction colours identify factions
+`register_on_oxide` text on filled orange. Masthead band `register_top`, muted text `register_muted`, and flat
+hairline-divided rows on the graphite canvas (the app sets the opened-app
+surface colour; other apps keep the shared one). Faction colours identify factions
 only; the relation meter is ink, not brand colour. The launcher icon is a
 five-node connected mark on the existing 128×128 transparent PNG contract.
 

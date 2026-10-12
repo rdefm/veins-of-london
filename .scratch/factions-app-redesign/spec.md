@@ -2,7 +2,7 @@
 
 Status: approved for tickets (2026-10-12)
 
-The [approved layout spec](../playtest-2026-10-04/factions-app-spec.md) is the design source of truth. Mockup figures are illustrative; implement with live game state and existing mechanics.
+The [approved layout spec](../playtest-2026-10-04/factions-app-spec.md) is the design source of truth. See the [interactive mockup](mockup.html) for the agreed visual design. Mockup figures are illustrative; implement with live game state and existing mechanics.
 
 ## Tickets
 

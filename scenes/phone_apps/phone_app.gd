@@ -19,6 +19,11 @@ func teardown() -> void:
 	pass
 
 
+# Opened-app background override; null keeps the shared phone surface.
+func surface_colour() -> Variant:
+	return null
+
+
 func back_button() -> Control:
 	return UI.button("‹ Back", func(): PhoneNav.go_home())
 

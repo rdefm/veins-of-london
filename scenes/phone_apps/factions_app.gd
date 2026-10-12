@@ -24,6 +24,7 @@ const TALLY_NAMES := { "ore": "Ore", "craft": "Crafting" }
 const PRODUCER_NAMES := { Shares.PLAYER: "You", Shares.INDEPENDENTS: "Independents" }
 
 const ROW_META := "register_row"
+const ROUTE_META := "register_route"
 const METER_RANGE := 100
 const SHARE_BAR_META := "share_bar_producer"
 const SHARE_ORE_META := "share_ore"
@@ -52,13 +53,19 @@ func build(content: VBoxContainer) -> void:
 
 
 func _build_directory(content: VBoxContainer) -> void:
-	content.add_child(UI.button("‹ Back", func(): PhoneNav.go_home()))
+	content.add_child(_back_link("‹ Back", func(): PhoneNav.go_home()))
 	content.add_child(_masthead())
-	content.add_child(UI.muted_label("Your standing"))
+	content.add_child(_page_head())
+	var list := UI.vbox(0)
+	list.add_child(_divider())
 	for faction_id in GameData.FACTIONS.keys():
-		content.add_child(_build_row(faction_id))
-	content.add_child(UI.button("Market shares ›", func(): _open_shares(true)))
-	content.add_child(UI.button("London politics ›", func(): _open_politics(true)))
+		list.add_child(_build_row(faction_id))
+	content.add_child(list)
+	content.add_child(_section_heading("LONDON"))
+	var routes := UI.vbox(0)
+	routes.add_child(_route_row("politics", "London politics", "How the factions stand with each other", func(): _open_politics(true), false))
+	routes.add_child(_route_row("shares", "Market shares", "Ore and crafting across London", func(): _open_shares(true), true))
+	content.add_child(routes)
 
 
 func _open_politics(open: bool) -> void:
@@ -68,7 +75,7 @@ func _open_politics(open: bool) -> void:
 
 
 func _build_dossier(content: VBoxContainer, faction_id: String) -> void:
-	content.add_child(UI.button("‹ The Register", func(): _select("")))
+	content.add_child(_back_link("‹ The Register", func(): _select("")))
 	var f: Dictionary = GameData.FACTIONS[faction_id]
 	var c := UI.card()
 	var box: VBoxContainer = c["content"]
@@ -87,75 +94,226 @@ func _select(faction_id: String) -> void:
 	refresh()
 
 
-func _masthead() -> Control:
-	var box := UI.vbox(4)
-	var title := UI.heading("The Register", 22)
-	title.add_theme_color_override("font_color", _brand("register_oxide", Color("#e47a50")))
-	box.add_child(title)
-	var rule := ColorRect.new()
-	rule.color = _brand("register_oxide", Color("#e47a50"))
-	rule.custom_minimum_size = Vector2(0, 2)
-	box.add_child(rule)
-	return box
+func surface_colour() -> Variant:
+	return _brand("register_graphite", Color("#2b2724"))
 
 
 static func _brand(id: String, fallback: Color) -> Color:
 	return GameData.PALETTE.get(id, fallback)
 
 
-# One whole-row button: faction dot and short name, stored stance, signed
-# relation, centred meter, and any live alert. Stance is the stored read, never
-# derived from the relation number.
+static func _ink() -> Color:
+	return _brand("register_ink", Color("#d9d3cc"))
+
+
+static func _muted() -> Color:
+	return _brand("register_muted", Color("#b4aaa5"))
+
+
+static func _oxide() -> Color:
+	return _brand("register_oxide", Color("#e47a50"))
+
+
+static func _line() -> Color:
+	return _brand("register_graphite_edge", Color("#4a423c"))
+
+
+# Single-line Register text; never intercepts the tap of the row it sits in.
+static func _text(text: String, size: int, colour: Color) -> Label:
+	var l := UI.label(text)
+	l.autowrap_mode = TextServer.AUTOWRAP_OFF
+	l.custom_minimum_size.x = 0
+	l.add_theme_font_size_override("font_size", size)
+	l.add_theme_color_override("font_color", colour)
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return l
+
+
+static func _divider() -> ColorRect:
+	var rule := ColorRect.new()
+	rule.color = _line()
+	rule.custom_minimum_size = Vector2(0, 1)
+	return rule
+
+
+# Flat transparent button body with optional top and bottom hairlines.
+static func _flat_style(top: bool, bottom: bool, shade: float, margin_x: int, margin_y: int) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(_ink(), shade)
+	style.border_color = _line()
+	style.border_width_top = 1 if top else 0
+	style.border_width_bottom = 1 if bottom else 0
+	style.content_margin_left = margin_x
+	style.content_margin_right = margin_x
+	style.content_margin_top = margin_y
+	style.content_margin_bottom = margin_y
+	return style
+
+
+static func _apply_flat(button: Button, top: bool, bottom: bool, margin_x: int, margin_y: int) -> void:
+	button.set_meta(ContactCards.OWN_STYLE_META, true)
+	button.add_theme_stylebox_override("normal", _flat_style(top, bottom, 0.0, margin_x, margin_y))
+	button.add_theme_stylebox_override("hover", _flat_style(top, bottom, 0.04, margin_x, margin_y))
+	button.add_theme_stylebox_override("pressed", _flat_style(top, bottom, 0.08, margin_x, margin_y))
+	button.add_theme_stylebox_override("focus", _flat_style(top, bottom, 0.0, margin_x, margin_y))
+	button.add_theme_stylebox_override("disabled", _flat_style(top, bottom, 0.0, margin_x, margin_y))
+
+
+# Oxide-orange text link used for every Back route.
+func _back_link(text: String, on_press: Callable) -> Button:
+	var button := UI.button(text, on_press)
+	_apply_flat(button, false, false, 0, 0)
+	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	button.custom_minimum_size = Vector2(0, 44)
+	for state_color in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		button.add_theme_color_override(state_color, _oxide())
+	return button
+
+
+# Five-node connected mark, uppercase wordmark and brand line on a dark band
+# with an oxide-orange bottom rule.
+func _masthead() -> Control:
+	var band := PanelContainer.new()
+	band.set_meta(ContactCards.OWN_STYLE_META, true)
+	var style := StyleBoxFlat.new()
+	style.bg_color = _brand("register_top", Color("#2d2422"))
+	style.border_color = _oxide()
+	style.border_width_bottom = 2
+	style.content_margin_left = 14
+	style.content_margin_right = 14
+	style.content_margin_top = 12
+	style.content_margin_bottom = 12
+	band.add_theme_stylebox_override("panel", style)
+	var row := UI.hbox(12)
+	row.add_child(RegisterMark.new())
+	var words := UI.vbox(3)
+	words.add_child(_text("THE REGISTER", 18, _ink()))
+	words.add_child(_text("LONDON POWER INDEX", 10, _oxide()))
+	row.add_child(words)
+	band.add_child(row)
+	return band
+
+
+class RegisterMark extends Control:
+	const SIZE := 36.0
+
+	func _init() -> void:
+		custom_minimum_size = Vector2(SIZE, SIZE)
+		size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _draw() -> void:
+		var brand := FactionsApp._oxide()
+		var far := SIZE - 5.0
+		var nodes := [Vector2(5, 5), Vector2(far, 5), Vector2(SIZE / 2.0, SIZE / 2.0), Vector2(5, far), Vector2(far, far)]
+		draw_rect(Rect2(0.5, 0.5, SIZE - 1.0, SIZE - 1.0), brand, false, 1.0)
+		draw_line(nodes[0], nodes[4], Color(brand, 0.7), 1.0)
+		draw_line(nodes[1], nodes[3], Color(brand, 0.7), 1.0)
+		for node in nodes:
+			draw_circle(node, 2.5, brand)
+
+
+func _page_head() -> Control:
+	var box := UI.vbox(4)
+	box.add_child(_text("YOUR POSITION", 11, _oxide()))
+	box.add_child(_text("Your standing", 23, _ink()))
+	box.add_child(_text("Five factions. One London.", 12, _muted()))
+	return box
+
+
+func _section_heading(text: String) -> Control:
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_top", 10)
+	margin.add_child(_text(text, 11, _oxide()))
+	return margin
+
+
+# Two-line London route: title, short subtitle, orange chevron.
+func _route_row(route: String, title: String, subtitle: String, on_press: Callable, last: bool) -> Button:
+	var row := Button.new()
+	row.set_meta(ROUTE_META, route)
+	_apply_flat(row, true, last, 2, 12)
+	row.custom_minimum_size = Vector2(0, 62)
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.pressed.connect(on_press)
+	var box := UI.hbox(8)
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 2)
+	var words := UI.vbox(4)
+	words.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	words.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	words.add_child(_text(title, 14, _ink()))
+	var sub := _text(subtitle, 11, _muted())
+	sub.clip_text = true
+	words.add_child(sub)
+	box.add_child(words)
+	box.add_child(_chevron(20))
+	row.add_child(box)
+	return row
+
+
+static func _chevron(size: int) -> Label:
+	var l := _text("›", size, _oxide())
+	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	return l
+
+
+# One flat whole-row button: faction dot and short name, stored stance, signed
+# relation on the top line; live alert, centred meter and chevron below. Stance
+# is the stored read, never derived from the relation number.
 func _build_row(faction_id: String) -> Control:
 	var relation := int(GameState.state["factions"][faction_id]["relation"])
 	var row := Button.new()
 	row.set_meta(ROW_META, faction_id)
-	row.set_meta(ContactCards.OWN_STYLE_META, true)
-	row.custom_minimum_size = Vector2(0, 64)
+	_apply_flat(row, false, true, 2, 12)
+	row.custom_minimum_size = Vector2(0, 76)
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var style := StyleBoxFlat.new()
-	style.bg_color = _brand("register_graphite", Color("#2b2724"))
-	style.border_color = _brand("register_graphite_edge", Color("#4a423c"))
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(10)
-	style.set_content_margin_all(10)
-	for state_name in ["normal", "hover", "pressed", "focus"]:
-		row.add_theme_stylebox_override(state_name, style)
 	row.pressed.connect(func(): _select(faction_id))
 
-	var ink := _brand("register_ink", Color("#d9d3cc"))
-	var box := UI.vbox(4)
+	var box := UI.vbox(7)
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 10)
+	box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 2)
 	var top := UI.hbox(8)
 	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var dot := ColorRect.new()
-	dot.color = MapPalette.faction_colour(faction_id)
-	dot.custom_minimum_size = Vector2(12, 12)
-	dot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var dot := FactionDot.new()
+	dot.colour = MapPalette.faction_colour(faction_id)
 	top.add_child(dot)
-	top.add_child(UI.expand_fill(_row_label(GameData.FACTIONS[faction_id]["shortName"], ink)))
-	top.add_child(_row_label(FactionAI.stance_name(FactionAI.player_stance(faction_id)), ink))
-	top.add_child(_row_label("%+d" % relation, ink))
+	top.add_child(UI.expand_fill(_text(GameData.FACTIONS[faction_id]["shortName"], 15, _ink())))
+	top.add_child(_text(FactionAI.stance_name(FactionAI.player_stance(faction_id)), 12, _ink()))
+	top.add_child(_text("%+d" % relation, 12, _muted()))
 	box.add_child(top)
+
+	var bottom := UI.hbox(8)
+	bottom.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var alert := _text(_alert_text(faction_id), 11, _muted())
+	alert.clip_text = true
+	alert.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	alert.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bottom.add_child(alert)
 	var meter := RelationMeter.new()
 	meter.value = relation
-	meter.ink = ink
-	box.add_child(meter)
-	var alert := _alert_text(faction_id)
-	if alert != "":
-		box.add_child(_row_label(alert, _brand("register_oxide", Color("#e47a50"))))
+	meter.ink = _ink()
+	meter.custom_minimum_size.x = 112
+	meter.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	bottom.add_child(meter)
+	bottom.add_child(_chevron(19))
+	box.add_child(bottom)
 	row.add_child(box)
-	row.custom_minimum_size.y = 64 + (20 if alert != "" else 0)
 	return row
 
 
-func _row_label(text: String, colour: Color) -> Label:
-	var l := UI.label(text)
-	l.add_theme_color_override("font_color", colour)
-	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return l
+class FactionDot extends Control:
+	var colour := Color.WHITE
+
+	func _init() -> void:
+		custom_minimum_size = Vector2(10, 10)
+		size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _draw() -> void:
+		draw_circle(size * 0.5, 5.0, colour)
 
 
 # Live war, truce or pending-request note; "" when none applies.
@@ -168,25 +326,27 @@ func _alert_text(faction_id: String) -> String:
 	return ""
 
 
-# Neutral −100..100 relation meter: ink fill from the centre towards the
-# value, with a zero marker.
+# Neutral −100..100 relation meter: a thin track, ink fill from the centre to
+# the value, a zero marker and an endpoint dot.
 class RelationMeter extends Control:
+	const DOT_RADIUS := 5.0
 	var value := 0
 	var ink := Color.WHITE
 
 	func _init() -> void:
-		custom_minimum_size = Vector2(0, 8)
+		custom_minimum_size = Vector2(0, 11)
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	func _draw() -> void:
 		var w := size.x
 		var h := size.y
-		draw_rect(Rect2(0, h * 0.25, w, h * 0.5), Color(ink, 0.18))
+		var mid := h * 0.5
+		draw_rect(Rect2(0, mid - 2.5, w, 5), Color(ink, 0.22))
 		var half := w * 0.5
-		var span := half * clampf(absf(value) / float(METER_RANGE), 0.0, 1.0)
-		var x := half if value >= 0 else half - span
-		draw_rect(Rect2(x, h * 0.25, span, h * 0.5), ink)
-		draw_rect(Rect2(half - 1, 0, 2, h), ink)
+		var span := (w * 0.5 - DOT_RADIUS) * clampf(value / float(METER_RANGE), -1.0, 1.0)
+		draw_rect(Rect2(minf(half, half + span), mid - 2.5, absf(span), 5), Color(ink, 0.9))
+		draw_rect(Rect2(half - 0.5, 0, 1, h), Color(ink, 0.55))
+		draw_circle(Vector2(half + span, mid), DOT_RADIUS, ink)
 
 
 func _open_shares(open: bool) -> void:
@@ -197,7 +357,7 @@ func _open_shares(open: bool) -> void:
 # Market shares page: tally toggle, ore choice, then one oxide bar per producer
 # for the selected tally and ore. Selection is view state.
 func _build_shares_page(content: VBoxContainer) -> void:
-	content.add_child(UI.button("‹ The Register", func(): _open_shares(false)))
+	content.add_child(_back_link("‹ The Register", func(): _open_shares(false)))
 	content.add_child(_masthead())
 	var c := UI.card()
 	var box: VBoxContainer = c["content"]
@@ -261,7 +421,7 @@ const STANCE_GLYPHS := {
 # London politics page: faction-pair stance grid (upper triangle, player pairs
 # excluded), legend, and the selected pair's detail. View state only.
 func _build_politics_page(content: VBoxContainer) -> void:
-	content.add_child(UI.button("‹ The Register", func(): _open_politics(false)))
+	content.add_child(_back_link("‹ The Register", func(): _open_politics(false)))
 	content.add_child(_masthead())
 	var c := UI.card()
 	var box: VBoxContainer = c["content"]

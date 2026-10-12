@@ -39,6 +39,13 @@ static func _button_with_text(root: Node, text: String) -> Button:
 	return null
 
 
+static func _route_button(root: Node, route: String) -> Button:
+	for candidate in root.find_children("", "Button", true, false):
+		if candidate.get_meta(FactionsApp.ROUTE_META, "") == route:
+			return candidate as Button
+	return null
+
+
 static func _choice(root: Node, ore_type: String) -> Button:
 	for candidate in root.find_children("", "Button", true, false):
 		if candidate.get_meta(FactionsApp.SHARE_ORE_META, "") == ore_type:
@@ -122,7 +129,7 @@ func run() -> void:
 		Shares.record_craft("guild", { "fate": 5 })
 		var phone := _open_factions()
 		assert_true(not NodeQuery.label_texts(phone).has("Independents"), "no share table on home")
-		_button_with_text(phone, "Market shares ›").pressed.emit()
+		_route_button(phone, "shares").pressed.emit()
 		var texts := NodeQuery.label_texts(phone)
 		assert_true(texts.has("You") and texts.has("Independents") and texts.has("The Guild"), "producer rows")
 		assert_true(texts.has("25%") and texts.has("75%"), "time ore shares")
@@ -139,7 +146,7 @@ func run() -> void:
 		EventBus.state_changed.emit()
 		assert_true(_choice(phone, "fate").disabled, "refresh keeps ore")
 		_button_with_text(phone, "‹ The Register").pressed.emit()
-		assert_true(_button_with_text(phone, "Market shares ›") != null, "back to home")
+		assert_true(_route_button(phone, "shares") != null, "back to home")
 		phone.free()
 	)
 
@@ -149,7 +156,7 @@ func run() -> void:
 		Shares.record_ore("guild", "life", 3)
 		Shares.record_craft("guild", { "emotion": 2 })
 		var phone := _open_factions()
-		_button_with_text(phone, "Market shares ›").pressed.emit()
+		_route_button(phone, "shares").pressed.emit()
 		for tally in ["ore", "craft"]:
 			_button_with_text(phone, FactionsApp.TALLY_NAMES[tally]).pressed.emit()
 			for ore_type in GameData.CANONICAL_ORE_TYPES:
@@ -171,7 +178,7 @@ func run() -> void:
 		GameData.MARKET["independentsOreShare"] = 0.0
 		GameState.reset()
 		var phone := _open_factions()
-		_button_with_text(phone, "Market shares ›").pressed.emit()
+		_route_button(phone, "shares").pressed.emit()
 		var texts := NodeQuery.label_texts(phone)
 		GameData.MARKET["independentsShare"] = saved_share
 		GameData.MARKET["independentsOreShare"] = saved_ore_share
@@ -195,8 +202,8 @@ func run() -> void:
 		GameState.state["factionStances"]["pairs"][FactionAI.pair_key("collective", "firm")]["stance"] = FactionAI.NEUTRAL
 		GameState.state["factionStances"]["pairs"][FactionAI.pair_key("guild", "network")]["stance"] = FactionAI.HOSTILE
 		var phone := _open_factions()
-		assert_true(_button_with_text(phone, "London politics ›") != null, "route button on home")
-		_button_with_text(phone, "London politics ›").pressed.emit()
+		assert_true(_route_button(phone, "politics") != null, "route button on home")
+		_route_button(phone, "politics").pressed.emit()
 		var cells := phone.find_children("", "Button", true, false).filter(func(b): return b.has_meta(FactionsApp.POLITICS_META))
 		assert_eq(cells.size(), 10, "ten unordered pairs")
 		assert_true(_row_button(phone, "guild") == null, "home rows hidden")
@@ -223,7 +230,7 @@ func run() -> void:
 		GameState.state["factionRelations"]["guild"]["firm"] = -35
 		var phone := _open_factions()
 		var app: FactionsApp = phone.app_instance("factions")
-		_button_with_text(phone, "London politics ›").pressed.emit()
+		_route_button(phone, "politics").pressed.emit()
 		var before := GameState.state.duplicate(true)
 		var cells := phone.find_children("", "Button", true, false).filter(func(b): return b.has_meta(FactionsApp.POLITICS_META))
 		cells.filter(func(b): return b.get_meta(FactionsApp.POLITICS_META) == FactionAI.pair_key("firm", "guild"))[0].pressed.emit()
@@ -268,8 +275,27 @@ func run() -> void:
 				ids.append(candidate.get_meta(FactionsApp.ROW_META))
 		assert_eq(ids, GameData.FACTIONS.keys(), "five rows, canonical order")
 		var texts := NodeQuery.label_texts(phone)
-		assert_true(texts.has("The Register"), "wordmark")
+		assert_true(texts.has("THE REGISTER") and texts.has("LONDON POWER INDEX"), "masthead")
+		assert_true(texts.has("YOUR POSITION") and texts.has("Your standing"), "page head")
+		assert_true(texts.has("LONDON"), "route heading")
+		var routes := []
+		for candidate in phone.find_children("", "Button", true, false):
+			if candidate.has_meta(FactionsApp.ROUTE_META):
+				routes.append(candidate.get_meta(FactionsApp.ROUTE_META))
+		assert_eq(routes, ["politics", "shares"], "London routes in order")
+		assert_eq(phone.device_shell.app_surface.color, GameData.PALETTE["register_graphite"], "Register canvas")
+		var dots := phone.find_children("", "Control", true, false).filter(func(n): return n is FactionsApp.FactionDot)
+		assert_eq(dots.size(), 5, "one faction dot per row")
 		assert_true(not texts.has("Gift →"), "no card actions on the directory")
+		phone.free()
+	)
+
+	run_case("register_canvas_does_not_leak_into_other_apps", func():
+		GameState.reset()
+		GameState.state["phoneNav"]["app"] = "bank"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		assert_eq(phone.device_shell.app_surface.color, GameData.PALETTE["phone_bg_content"], "other apps keep the shared surface")
 		phone.free()
 	)
 

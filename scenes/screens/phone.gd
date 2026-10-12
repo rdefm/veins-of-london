@@ -51,6 +51,8 @@ func _refresh() -> void:
 	else:
 		_build_home()
 	ContactCards.apply_phone_os_chrome(_content)
+	var surface: Variant = _active_app.surface_colour() if _active_app != null else null
+	device_shell.app_surface.color = surface if surface != null else GameData.PALETTE["phone_bg_content"]
 
 
 # One PhoneApp per id, created on first open and kept for the screen's

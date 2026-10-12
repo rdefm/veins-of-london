@@ -614,6 +614,8 @@ static func _style_subtree(node: Node, inside_button: bool) -> void:
 
 
 static func _style_panel(panel: PanelContainer) -> void:
+	if panel.has_meta(OWN_STYLE_META):
+		return
 	var parent := panel.get_parent()
 	if parent is HBoxContainer:
 		_style_bubble_panel(panel, (parent as HBoxContainer).alignment == BoxContainer.ALIGNMENT_END)
