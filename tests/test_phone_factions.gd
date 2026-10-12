@@ -10,6 +10,28 @@ static func _open_factions() -> PhoneScreen:
 	return phone
 
 
+static func _open_dossier(faction_id: String) -> PhoneScreen:
+	var phone := _open_factions()
+	_row_button(phone, faction_id).pressed.emit()
+	return phone
+
+
+static func _row_button(root: Node, faction_id: String) -> Button:
+	for candidate in root.find_children("", "Button", true, false):
+		if candidate.get_meta(FactionsApp.ROW_META, "") == faction_id:
+			return candidate as Button
+	return null
+
+
+static func _all_dossier_texts() -> Array:
+	var texts := []
+	for faction_id in GameData.FACTIONS.keys():
+		var phone := _open_dossier(faction_id)
+		texts.append_array(NodeQuery.label_texts(phone))
+		phone.free()
+	return texts
+
+
 static func _button_with_text(root: Node, text: String) -> Button:
 	for candidate in root.find_children("", "Button", true, false):
 		if (candidate as Button).text == text:
@@ -23,11 +45,9 @@ func run() -> void:
 		Shares.record_ore("collective", "life", 3)
 		Shares.record_ore("player", "life", 1)
 		Shares.record_craft("collective", { "emotion": 2 })
-		var phone := _open_factions()
-		var texts := NodeQuery.label_texts(phone)
+		var texts := _all_dossier_texts()
 		for expected in ["Producer", "Crafter", "Information broker", "Manipulator", "Ore: Life, then Emotion", "Crafts: Healing Salve, Enhancement Powder", "Life ore · 75%", "Emotion crafting · 100%", "Life crafting · 0%"]:
 			assert_true(texts.has(expected), "missing %s" % expected)
-		phone.free()
 	)
 
 	run_case("overview_toggles_between_ore_and_crafting_shares", func():
@@ -88,15 +108,67 @@ func run() -> void:
 
 	run_case("cards_show_stance_and_activity_log", func():
 		GameState.reset()
-		var phone := _open_factions()
+		var phone := _open_dossier("guild")
 		var texts := NodeQuery.label_texts(phone)
 		assert_true(texts.has("Stance: Neutral"), "stance shown")
 		assert_true(texts.has("Pressure: Calm"), "pressure label shown")
 		assert_true(texts.has("Nothing yet."), "empty log")
 		phone.free()
 		FactionAI.log_activity("firm", "Now Partner with The Guild.")
-		phone = _open_factions()
+		phone = _open_dossier("firm")
 		texts = NodeQuery.label_texts(phone)
 		assert_true(texts.has("%s · Now Partner with The Guild." % Calendar.format_day(GameState.state["world"]["day"])), "log entry shown")
+		phone.free()
+	)
+
+	run_case("directory_has_five_rows_in_canonical_order_and_no_cards", func():
+		GameState.reset()
+		var phone := _open_factions()
+		var ids := []
+		for candidate in phone.find_children("", "Button", true, false):
+			if candidate.has_meta(FactionsApp.ROW_META):
+				ids.append(candidate.get_meta(FactionsApp.ROW_META))
+		assert_eq(ids, GameData.FACTIONS.keys(), "five rows, canonical order")
+		var texts := NodeQuery.label_texts(phone)
+		assert_true(texts.has("The Register"), "wordmark")
+		assert_true(not texts.has("Gift →"), "no card actions on the directory")
+		phone.free()
+	)
+
+	run_case("row_shows_stored_stance_independent_of_relation", func():
+		GameState.reset()
+		GameState.state["factions"]["guild"]["relation"] = 80
+		GameState.state["factionStances"]["player"]["guild"]["stance"] = FactionAI.NEUTRAL
+		var phone := _open_factions()
+		var texts := NodeQuery.label_texts(_row_button(phone, "guild"))
+		assert_true(texts.has("+80"), "signed relation")
+		assert_true(texts.has(FactionAI.stance_name(FactionAI.NEUTRAL)), "stored stance read, not inferred from 80")
+		assert_true(not texts.has(FactionAI.stance_name(FactionAI.PARTNER)), "no Partner label")
+		phone.free()
+	)
+
+	run_case("row_alert_shows_war", func():
+		GameState.reset()
+		GameState.state["factionWar"]["wars"].append({ "parties": ["player", "firm"], "startDay": 1, "weariness": { "player": 0.0, "firm": 0.0 } })
+		var phone := _open_factions()
+		assert_true(NodeQuery.label_texts(phone).has("At war"), "war alert")
+		phone.free()
+	)
+
+	run_case("row_opens_dossier_back_returns_to_directory_and_refresh_keeps_it", func():
+		GameState.reset()
+		var phone := _open_dossier("guild")
+		var app: FactionsApp = phone.app_instance("factions")
+		assert_eq(app.selected_faction, "guild", "dossier selected")
+		assert_true(_row_button(phone, "guild") == null, "directory rows gone")
+		assert_true(_button_with_text(phone, "Gift →") != null, "card actions intact")
+		phone._refresh()
+		phone._refresh()
+		assert_eq(phone.find_children("", "Button", true, false).filter(func(b): return b.text == "Gift →").size(), 1, "refresh keeps one Gift button")
+		_button_with_text(phone, "‹ The Register").pressed.emit()
+		assert_eq(app.selected_faction, "", "back to directory")
+		assert_true(_row_button(phone, "guild") != null, "rows back")
+		_button_with_text(phone, "‹ Back").pressed.emit()
+		assert_eq(GameState.state["phoneNav"]["app"], "home", "app back returns to grid")
 		phone.free()
 	)

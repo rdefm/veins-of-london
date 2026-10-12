@@ -1,13 +1,14 @@
-# Factions: a London overview table (player, factions, Independents × ore
-# type, ore/crafting toggle), London's stance matrix with wars and truces,
-# then one card per faction with its economic
-# identity, its ore- and crafting-share bars (spec §UI reads), your stance
-# with it, its pressure label, a Negotiate entry while at war with you, a
-# Gift entry (R§3.10 "Gifts"), its favour request or the favour you owe it (R§3.10 "Favours"),
-# partner price ask and trouble asks (R§3.10 "Partners"), your
-# intel on it, and its activity log, newest first. Holdings, vein
-# security and the stockpile show only past your intel level on that
-# faction (R§3.1 "Intel"). The toggle is view state.
+# The Register (app id "factions"): a five-row directory of the player's
+# standing with each faction (stored stance, signed relation, centred meter,
+# live war/truce or request alert); each row opens that faction's dossier page,
+# the faction card with its economic identity, ore- and crafting-share bars
+# (spec §UI reads), stance, pressure label, Negotiate entry while at war, Gift
+# entry (R§3.10 "Gifts"), favour request or owed favour (R§3.10 "Favours"),
+# partner price ask and trouble asks (R§3.10 "Partners"), your intel on it,
+# and its activity log, newest first. The directory page also keeps London's
+# share overview and stance matrix. Holdings, vein security and the stockpile
+# show only past your intel level on that faction (R§3.1 "Intel"). The tally
+# toggle and the selected dossier are view state.
 class_name FactionsApp
 extends PhoneApp
 
@@ -20,18 +21,144 @@ const ARCHETYPE_NAMES := {
 const TALLY_NAMES := { "ore": "Ore", "craft": "Crafting" }
 const PRODUCER_NAMES := { Shares.PLAYER: "You", Shares.INDEPENDENTS: "Independents" }
 
+const ROW_META := "register_row"
+const METER_RANGE := 100
+
 var _tally := "ore"
+var selected_faction := ""
 
 
 func build(content: VBoxContainer) -> void:
-	content.add_child(back_button())
-	content.add_child(UI.heading("Factions"))
-	content.add_child(UI.muted_label("Build relations. Join. Use rooms."))
+	if selected_faction != "" and not GameData.FACTIONS.has(selected_faction):
+		selected_faction = ""
+	if selected_faction == "":
+		_build_directory(content)
+	else:
+		_build_dossier(content, selected_faction)
+
+
+func _build_directory(content: VBoxContainer) -> void:
+	content.add_child(UI.button("‹ Back", func(): PhoneNav.go_home()))
+	content.add_child(_masthead())
+	content.add_child(UI.muted_label("Your standing"))
+	for faction_id in GameData.FACTIONS.keys():
+		content.add_child(_build_row(faction_id))
 	content.add_child(_build_overview())
 	content.add_child(_build_politics())
 
-	for faction_id in GameData.FACTIONS.keys():
-		content.add_child(ContactCards.build_faction_card(faction_id, _build_economy(faction_id)))
+
+func _build_dossier(content: VBoxContainer, faction_id: String) -> void:
+	content.add_child(UI.button("‹ The Register", func(): _select("")))
+	content.add_child(ContactCards.build_faction_card(faction_id, _build_economy(faction_id)))
+
+
+func _select(faction_id: String) -> void:
+	selected_faction = faction_id
+	refresh()
+
+
+func _masthead() -> Control:
+	var box := UI.vbox(4)
+	var title := UI.heading("The Register", 22)
+	title.add_theme_color_override("font_color", _brand("register_oxide", Color("#e47a50")))
+	box.add_child(title)
+	var rule := ColorRect.new()
+	rule.color = _brand("register_oxide", Color("#e47a50"))
+	rule.custom_minimum_size = Vector2(0, 2)
+	box.add_child(rule)
+	return box
+
+
+static func _brand(id: String, fallback: Color) -> Color:
+	return GameData.PALETTE.get(id, fallback)
+
+
+# One whole-row button: faction dot and short name, stored stance, signed
+# relation, centred meter, and any live alert. Stance is the stored read, never
+# derived from the relation number.
+func _build_row(faction_id: String) -> Control:
+	var relation := int(GameState.state["factions"][faction_id]["relation"])
+	var row := Button.new()
+	row.set_meta(ROW_META, faction_id)
+	row.set_meta(ContactCards.OWN_STYLE_META, true)
+	row.custom_minimum_size = Vector2(0, 64)
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var style := StyleBoxFlat.new()
+	style.bg_color = _brand("register_graphite", Color("#2b2724"))
+	style.border_color = _brand("register_graphite_edge", Color("#4a423c"))
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(10)
+	style.set_content_margin_all(10)
+	for state_name in ["normal", "hover", "pressed", "focus"]:
+		row.add_theme_stylebox_override(state_name, style)
+	row.pressed.connect(func(): _select(faction_id))
+
+	var ink := _brand("register_ink", Color("#d9d3cc"))
+	var box := UI.vbox(4)
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 10)
+	var top := UI.hbox(8)
+	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var dot := ColorRect.new()
+	dot.color = MapPalette.faction_colour(faction_id)
+	dot.custom_minimum_size = Vector2(12, 12)
+	dot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	top.add_child(dot)
+	top.add_child(UI.expand_fill(_row_label(GameData.FACTIONS[faction_id]["shortName"], ink)))
+	top.add_child(_row_label(FactionAI.stance_name(FactionAI.player_stance(faction_id)), ink))
+	top.add_child(_row_label("%+d" % relation, ink))
+	box.add_child(top)
+	var meter := RelationMeter.new()
+	meter.value = relation
+	meter.ink = ink
+	box.add_child(meter)
+	var alert := _alert_text(faction_id)
+	if alert != "":
+		box.add_child(_row_label(alert, _brand("register_oxide", Color("#e47a50"))))
+	row.add_child(box)
+	row.custom_minimum_size.y = 64 + (20 if alert != "" else 0)
+	return row
+
+
+func _row_label(text: String, colour: Color) -> Label:
+	var l := UI.label(text)
+	l.add_theme_color_override("font_color", colour)
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return l
+
+
+# Live war, truce or pending-request note; "" when none applies.
+func _alert_text(faction_id: String) -> String:
+	if FactionAI.at_war(Shares.PLAYER, faction_id):
+		return "At war"
+	var truce := FactionAI.find_truce(Shares.PLAYER, faction_id)
+	if not truce.is_empty():
+		return "Truce until %s" % Calendar.format_day(int(truce["endDay"]))
+	if not Diplomacy.pending_for(faction_id).is_empty() or not Partners.pending_for(faction_id).is_empty():
+		return "Request waiting"
+	return ""
+
+
+# Neutral −100..100 relation meter: ink fill from the centre towards the
+# value, with a zero marker.
+class RelationMeter extends Control:
+	var value := 0
+	var ink := Color.WHITE
+
+	func _init() -> void:
+		custom_minimum_size = Vector2(0, 8)
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _draw() -> void:
+		var w := size.x
+		var h := size.y
+		draw_rect(Rect2(0, h * 0.25, w, h * 0.5), Color(ink, 0.18))
+		var half := w * 0.5
+		var span := half * clampf(absf(value) / float(METER_RANGE), 0.0, 1.0)
+		var x := half if value >= 0 else half - span
+		draw_rect(Rect2(x, h * 0.25, span, h * 0.5), ink)
+		draw_rect(Rect2(half - 1, 0, 2, h), ink)
 
 
 func _build_overview() -> Control:

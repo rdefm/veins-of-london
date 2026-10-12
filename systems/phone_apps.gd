@@ -18,7 +18,7 @@ static func apps() -> Array[Dictionary]:
 		# PROSE-REVIEW: BizBrief / Morning Brief.
 		{ "id": "bizbrief", "label": "BizBrief", "locked": unlocked },
 		{ "id": "ticker", "label": "The Ticker", "locked": unlocked },
-		{ "id": "factions", "label": "Factions", "locked": unlocked },
+		{ "id": "factions", "label": "The Register", "locked": unlocked },
 		# Display-only cash balance + transaction log; brand name doubles as
 		# the in-app heading, same convention as "ticker"/"The Ticker".
 		{ "id": "bank", "label": "Reynard's", "locked": unlocked },

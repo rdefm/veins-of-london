@@ -61,6 +61,12 @@
 
     { "id": "ui_action_red",     "hex": "#c8102e", "group": "ui_action" },
 
+    { "id": "register_oxide",     "hex": "#e47a50", "group": "register" },
+    { "id": "register_graphite",  "hex": "#2b2724", "group": "register" },
+    { "id": "register_graphite_edge", "hex": "#4a423c", "group": "register" },
+    { "id": "register_ink",       "hex": "#d9d3cc", "group": "register" },
+    { "id": "register_on_oxide",  "hex": "#1d1612", "group": "register" },
+
     { "id": "combat_sign_ground", "hex": "#f7f7f4", "group": "combat_ui" },
     { "id": "combat_sign_lettering", "hex": "#171717", "group": "combat_ui" },
     { "id": "combat_sign_border", "hex": "#181818", "group": "combat_ui" },

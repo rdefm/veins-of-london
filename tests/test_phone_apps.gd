@@ -15,7 +15,7 @@ func run() -> void:
 			ids.append(app["id"])
 			labels.append(app["label"])
 		assert_eq(ids, ["alarms", "todo", "bizbrief", "ticker", "factions", "bank", "property", "profile", "contacts", "vfl", "notifications", "saveload"], "grid slot order comes straight from the registry order")
-		assert_eq(labels, ["Alarms", "ToDo", "BizBrief", "The Ticker", "Factions", "Reynard's", "Harrow's", "My File", "Contacts", "VfL", "Notifications", "Save/Load"], "player-facing launcher labels are exact")
+		assert_eq(labels, ["Alarms", "ToDo", "BizBrief", "The Ticker", "The Register", "Reynard's", "Harrow's", "My File", "Contacts", "VfL", "Notifications", "Save/Load"], "player-facing launcher labels are exact")
 	)
 
 	# 01-debug-app: the Debug tile is genuinely absent from the roster on a

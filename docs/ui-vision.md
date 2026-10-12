@@ -645,6 +645,16 @@ final values when the implementation ticket lands and lock them the same
 way. Real per-app icon glyph art (the nine `.png` files the asset contract
 expects). Exact corner radius/spacing now that the frame border is gone.
 
+**The Register exception (approved 2026-10-12, `.scratch/playtest-2026-10-04/factions-app-spec.md`):**
+the Factions app (id `factions`, label and wordmark "The Register") keeps the
+shared phone frame, status bar and UI sans, but inside the app uses warm
+graphite chrome (`register_graphite`, `register_graphite_edge`, `register_ink`)
+and the oxide-orange brand colour `register_oxide` (`#e47a50`) for the masthead
+rule, selected controls, action buttons and share fills, with dark
+`register_on_oxide` text on filled orange. Faction colours identify factions
+only; the relation meter is ink, not brand colour. The launcher icon is a
+five-node connected mark on the existing 128×128 transparent PNG contract.
+
 ## 11. Event/dialogue cards, detailed spec (session 2026-09-12)
 
 Closes the gap flagged in `.scratch/ui-chrome-pass/issues/10-events-ui-design-spec.md`:
