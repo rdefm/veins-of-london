@@ -164,7 +164,7 @@ func run() -> void:
 			for ore_type in GameData.CANONICAL_ORE_TYPES:
 				_choice(phone, ore_type).pressed.emit()
 				var table := Shares.overview(tally)
-				var bars := phone.find_children("", "Control", true, false).filter(func(n): return n is FactionsApp.ShareCell)
+				var bars := phone.find_children("", "Control", true, false).filter(func(n): return n is FactionsApp.ShareRow)
 				assert_eq(bars.size(), Shares.producers().size(), "one bar per visible producer")
 				for bar in bars:
 					var producer: String = bar.get_meta(FactionsApp.SHARE_BAR_META)

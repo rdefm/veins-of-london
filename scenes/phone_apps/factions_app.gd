@@ -443,47 +443,88 @@ func _open_shares(open: bool) -> void:
 func _build_shares_page(content: VBoxContainer) -> void:
 	content.add_child(_back_link("‹ The Register", func(): _open_shares(false)))
 	content.add_child(_masthead())
-	var c := UI.card()
-	var box: VBoxContainer = c["content"]
-	box.add_child(UI.heading("London's calc, last %d days" % GameData.SHARES_WINDOW_DAYS, 15))
-	var toggle := UI.hbox()
-	for tally in TALLY_NAMES:
-		var button := UI.button(TALLY_NAMES[tally], func(): _set_tally(tally))
-		button.disabled = _tally == tally
-		button.set_meta(ContactCards.TOGGLE_OPTION_META, true)
-		toggle.add_child(UI.expand_fill(button))
-	box.add_child(toggle)
+	var box := UI.vbox(14)
+	var head := UI.vbox(4)
+	head.add_child(_text("LONDON", 11, _oxide()))
+	head.add_child(_text("Market shares", 23, _ink()))
+	head.add_child(_text("London's calc, last %d days" % GameData.SHARES_WINDOW_DAYS, 12, _muted()))
+	box.add_child(head)
+	box.add_child(_share_tally_toggle())
 	box.add_child(_share_ore_choices())
+	var title := UI.hbox(8)
+	title.add_child(_ore_glyph(_share_ore))
+	title.add_child(_text("%s · %s" % [_ore_name(_share_ore), TALLY_NAMES[_tally]], 15, _ink()))
+	box.add_child(title)
 	var table := Shares.overview(_tally)
-	var bars := UI.vbox(6)
+	var rows := UI.vbox(0)
 	for producer in Shares.producers():
-		bars.add_child(UI.label(_producer_name(producer)))
 		var fraction: float = table[producer][_share_ore]
-		var bar := ShareCell.make(fraction, _percent(fraction))
-		bar.set_meta(SHARE_BAR_META, producer)
-		bars.add_child(bar)
-	box.add_child(bars)
-	content.add_child(c["panel"])
+		var row := ShareRow.make(_producer_name(producer), fraction, _percent(fraction))
+		row.set_meta(SHARE_BAR_META, producer)
+		rows.add_child(_divider())
+		rows.add_child(row)
+	rows.add_child(_divider())
+	box.add_child(rows)
+	content.add_child(box)
 
 
-func _share_ore_choices() -> Control:
-	var grid := GridContainer.new()
-	grid.columns = 3
-	grid.add_theme_constant_override("h_separation", 6)
-	grid.add_theme_constant_override("v_separation", 6)
-	for ore_type in GameData.CANONICAL_ORE_TYPES:
-		var button := UI.button("      " + _ore_name(ore_type), func(): _set_share_ore(ore_type))
-		button.disabled = _share_ore == ore_type
+# Two-part Ore/Crafting control; the selected part is filled oxide.
+func _share_tally_toggle() -> Control:
+	var toggle := UI.hbox(0)
+	for tally in TALLY_NAMES:
+		var selected: bool = _tally == tally
+		var button := UI.button(TALLY_NAMES[tally], func(): _set_tally(tally))
+		button.disabled = selected
+		button.set_meta(ContactCards.OWN_STYLE_META, true)
 		button.custom_minimum_size.y = 44
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var fill := _oxide() if selected else Color(0, 0, 0, 0)
+		var style := _button_fill(fill, _oxide() if selected else _line(), 12)
+		for state in ["normal", "hover", "pressed", "focus", "disabled"]:
+			button.add_theme_stylebox_override(state, style)
+		var text_colour := _on_oxide() if selected else _ink()
+		for state_color in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_disabled_color"]:
+			button.add_theme_color_override(state_color, text_colour)
+		button.add_theme_font_size_override("font_size", 14)
+		button.alignment = HORIZONTAL_ALIGNMENT_CENTER
+		toggle.add_child(button)
+	return toggle
+
+
+# Five compact glyph tabs; the selected one carries a thick oxide underline.
+func _share_ore_choices() -> Control:
+	var tabs := UI.hbox(0)
+	for ore_type in GameData.CANONICAL_ORE_TYPES:
+		var selected: bool = _share_ore == ore_type
+		var button := UI.button(_ore_name(ore_type), func(): _set_share_ore(ore_type))
+		button.disabled = selected
 		button.set_meta(SHARE_ORE_META, ore_type)
+		button.set_meta(ContactCards.OWN_STYLE_META, true)
+		button.custom_minimum_size = Vector2(0, 62)
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var style := _flat_style(false, true, 0.0, 2, 4)
+		style.border_width_bottom = 3 if selected else 1
+		style.border_color = _oxide() if selected else _line()
+		style.content_margin_top = 30
+		for state in ["normal", "hover", "pressed", "focus", "disabled"]:
+			button.add_theme_stylebox_override(state, style)
+		var text_colour := _ink() if selected else _muted()
+		for state_color in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_disabled_color"]:
+			button.add_theme_color_override(state_color, text_colour)
+		button.add_theme_font_size_override("font_size", 11)
+		button.alignment = HORIZONTAL_ALIGNMENT_CENTER
 		var glyph := _ore_glyph(ore_type)
-		glyph.set_anchors_and_offsets_preset(Control.PRESET_CENTER_LEFT)
-		glyph.position = Vector2(8, (44 - UI.SYMBOL_GLYPH_SIZE) / 2.0)
+		var half := UI.SYMBOL_GLYPH_SIZE / 2.0
+		glyph.anchor_left = 0.5
+		glyph.anchor_right = 0.5
+		glyph.offset_left = -half
+		glyph.offset_right = half
+		glyph.offset_top = 6
+		glyph.offset_bottom = 6 + UI.SYMBOL_GLYPH_SIZE
 		glyph.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		button.add_child(glyph)
-		grid.add_child(button)
-	return grid
+		tabs.add_child(button)
+	return tabs
 
 
 func _set_share_ore(ore_type: String) -> void:
@@ -826,6 +867,47 @@ class ShareCell extends Control:
 		l.add_theme_constant_override("outline_size", 3)
 		cell.add_child(l)
 		return cell
+
+	func _draw() -> void:
+		draw_rect(Rect2(Vector2.ZERO, size), FactionsApp._graphite().lerp(Color.WHITE, 0.1))
+		draw_rect(Rect2(0, 0, size.x * clampf(fraction, 0.0, 1.0), size.y), FactionsApp._oxide())
+
+
+# Market shares row: producer name and exact percentage on one line, then a
+# dark track with a solid oxide fill proportional to the share.
+class ShareRow extends VBoxContainer:
+	var fraction := 0.0
+
+	static func make(producer: String, share: float, text: String) -> ShareRow:
+		var row := ShareRow.new()
+		row.fraction = share
+		row.add_theme_constant_override("separation", 6)
+		var pad := MarginContainer.new()
+		pad.add_theme_constant_override("margin_top", 10)
+		pad.add_theme_constant_override("margin_bottom", 10)
+		var inner := VBoxContainer.new()
+		inner.add_theme_constant_override("separation", 6)
+		var line := UI.hbox(8)
+		var name_label := FactionsApp._text(producer, 14, FactionsApp._ink())
+		name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		line.add_child(name_label)
+		line.add_child(FactionsApp._text(text, 14, FactionsApp._ink()))
+		inner.add_child(line)
+		var track := ShareTrack.new()
+		track.fraction = share
+		inner.add_child(track)
+		pad.add_child(inner)
+		row.add_child(pad)
+		return row
+
+
+class ShareTrack extends Control:
+	var fraction := 0.0
+
+	func _init() -> void:
+		custom_minimum_size = Vector2(0, 10)
+		size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	func _draw() -> void:
 		draw_rect(Rect2(Vector2.ZERO, size), FactionsApp._graphite().lerp(Color.WHITE, 0.1))
