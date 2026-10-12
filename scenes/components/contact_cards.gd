@@ -770,20 +770,30 @@ static func build_faction_card(faction_id: String, economy: Control = null) -> C
 	c["content"].add_child(UI.label("Relation: %d / %d" % [rel, f["joinRelation"]]))
 	c["content"].add_child(UI.bar(rel, f["joinRelation"]))
 
-	if faction_id == "guild" and Economy.can_buy_from_faction("guild"):
-		c["content"].add_child(UI.button("Guild Marketplace", func(): Modal.open("sell_menu", { "factionId": "guild", "contactId": "" })))
+	for action in build_membership_actions(faction_id):
+		c["content"].add_child(action)
 
+	return c["panel"]
+
+
+# Guild Marketplace entry plus the Member badge, Join button or locked
+# "Need N more relation" button; none of the join row for the Collective.
+static func build_membership_actions(faction_id: String) -> Array[Control]:
+	var f: Dictionary = GameData.FACTIONS[faction_id]
+	var state: Dictionary = GameState.state["factions"][faction_id]
+	var actions: Array[Control] = []
+	if faction_id == "guild" and Economy.can_buy_from_faction("guild"):
+		actions.append(UI.button("Guild Marketplace", func(): Modal.open("sell_menu", { "factionId": "guild", "contactId": "" })))
 	if state["joined"]:
 		var member_label := UI.button("✅ Member", func(): pass)
 		member_label.disabled = true
-		c["content"].add_child(member_label)
+		actions.append(member_label)
 	elif faction_id == "collective":
 		pass
 	elif Factions.can_join(faction_id):
-		c["content"].add_child(UI.button("Join %s" % f["name"], func(): Factions.join(faction_id)))
+		actions.append(UI.button("Join %s" % f["name"], func(): Factions.join(faction_id)))
 	else:
-		var locked := UI.button("Need %d more relation" % (f["joinRelation"] - rel), func(): pass)
+		var locked := UI.button("Need %d more relation" % (f["joinRelation"] - int(state["relation"])), func(): pass)
 		locked.disabled = true
-		c["content"].add_child(locked)
-
-	return c["panel"]
+		actions.append(locked)
+	return actions

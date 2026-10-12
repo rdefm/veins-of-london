@@ -40,14 +40,72 @@ static func _button_with_text(root: Node, text: String) -> Button:
 
 
 func run() -> void:
-	run_case("cards_show_archetype_ores_crafts_and_share_bars", func():
+	run_case("cards_show_archetype_ores_crafts", func():
+		GameState.reset()
+		var texts := _all_dossier_texts()
+		for expected in ["Producer", "Crafter", "Information broker", "Manipulator", "Crafts: Healing Salve, Enhancement Powder", "Primary ore:", "Secondary ore:", "Life", "Emotion"]:
+			assert_true(texts.has(expected), "missing %s" % expected)
+	)
+
+	run_case("footprint_grid_shows_four_live_shares_with_proportional_fill", func():
 		GameState.reset()
 		Shares.record_ore("collective", "life", 3)
 		Shares.record_ore("player", "life", 1)
 		Shares.record_craft("collective", { "emotion": 2 })
-		var texts := _all_dossier_texts()
-		for expected in ["Producer", "Crafter", "Information broker", "Manipulator", "Ore: Life, then Emotion", "Crafts: Healing Salve, Enhancement Powder", "Life ore · 75%", "Emotion crafting · 100%", "Life crafting · 0%"]:
-			assert_true(texts.has(expected), "missing %s" % expected)
+		var phone := _open_dossier("collective")
+		var cells := phone.find_children("", "Control", true, false).filter(func(n): return n is FactionsApp.ShareCell)
+		assert_eq(cells.size(), 4, "four cells: two rows by two ores")
+		var f: Dictionary = GameData.FACTIONS["collective"]
+		var expected := [Shares.ore_share("collective", f["primaryOre"]), Shares.ore_share("collective", f["secondaryOre"]), Shares.crafting_share("collective", f["primaryOre"]), Shares.crafting_share("collective", f["secondaryOre"])]
+		for i in 4:
+			assert_true(is_equal_approx(cells[i].fraction, expected[i]), "cell %d fill" % i)
+			assert_true(NodeQuery.label_texts(cells[i]).has("%d%%" % roundi(expected[i] * 100.0)), "cell %d percent" % i)
+		var texts := NodeQuery.label_texts(phone)
+		assert_true(texts.has("Ore") and texts.has("Crafting") and texts.has("Market footprint"), "grid rows")
+		var symbols := []
+		for g in phone.find_children("", "SymbolGlyph", true, false):
+			symbols.append((g as SymbolGlyph).symbol)
+		for ore_type in [f["primaryOre"], f["secondaryOre"]]:
+			assert_true(symbols.has(GameData.ORE_TYPES[ore_type]["symbol"]), "glyph for %s" % ore_type)
+		phone.free()
+	)
+
+
+	run_case("dossier_orders_actions_before_description_and_hides_unreached_intel", func():
+		GameState.reset()
+		var phone := _open_dossier("guild")
+		var texts := NodeQuery.label_texts(phone)
+		var desc_at := texts.find(GameData.FACTIONS["guild"]["description"])
+		assert_true(desc_at > texts.find("Available now"), "Available now precedes description")
+		assert_true(texts.has("Relation %+d" % int(GameState.state["factions"]["guild"]["relation"])), "signed relation")
+		assert_true(_button_with_text(phone, "Gift →") != null, "gift reachable")
+		assert_true(_button_with_text(phone, "Intel ▸") != null and _button_with_text(phone, "Activity ▸") != null, "collapsed sections")
+		for text in texts:
+			assert_true(not (text.begins_with("Ore held") or text.begins_with("Veins:") or text.begins_with("Stockpile")), "leaked: %s" % text)
+		phone.free()
+		Intel.raise(Shares.PLAYER, "guild", 999)
+		phone = _open_dossier("guild")
+		texts = NodeQuery.label_texts(phone)
+		var held := texts.filter(func(t): return t.begins_with("Ore held"))
+		assert_true(not held.is_empty(), "holdings at max intel")
+		_button_with_text(phone, "Intel ▸").pressed.emit()
+		assert_true(_button_with_text(phone, "Intel ▾") != null, "intel opens in one tap")
+		phone.free()
+	)
+
+	run_case("war_shows_in_top_and_negotiate_gate_keeps_reason", func():
+		GameState.reset()
+		GameState.state["factionWar"]["wars"].append({ "parties": ["player", "firm"], "startDay": 1, "weariness": { "player": 0.0, "firm": 0.0 } })
+		FactionAI.log_activity("firm", "First thing.")
+		FactionAI.log_activity("firm", "Second thing.")
+		var phone := _open_dossier("firm")
+		var logged := NodeQuery.label_texts(phone).filter(func(t): return t.ends_with("thing."))
+		assert_true(logged[0].ends_with("Second thing.") and logged[1].ends_with("First thing."), "activity newest first")
+		assert_true(NodeQuery.label_texts(phone).has("At war"), "war in top")
+		assert_true(_button_with_text(phone, "Negotiate peace") != null, "negotiate entry")
+		var check := FactionAI.can_open_talks("firm")
+		assert_eq(_button_with_text(phone, "Negotiate peace").disabled, not check["ok"], "gate mirrors system")
+		phone.free()
 	)
 
 	run_case("overview_toggles_between_ore_and_crafting_shares", func():
