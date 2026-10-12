@@ -81,14 +81,25 @@ Every route proves the same capacity and reaches the same request. The test cann
           "type": "speaker",
           "label": null,
           "speaker": "James",
-          "text": "\"There is another job. Look first. Touch it when I tell you.\" He opens a jar of time calc and measures a pinch onto a glass slide.",
+          "text": "\"There is another job. This stays between us - understood?\" Something about his look makes you nod reflexively. \"Good.\"",
           "key": "c5"
+        },
+        {
+          "key": "c17",
+          "type": "speaker",
+          "text": "This is known as a Dial. Few know about them, and even fewer have them. They are incredibly rare, keyed to an individual, and enhance the effect of orichalchum items.",
+          "speaker": "James"
+        },
+        {
+          "key": "c18",
+          "type": "narration",
+          "text": "They also recharge, providing stronger and, to a point, renewable orichalchum effects. Unfortunately, this one is broken, and crafting expertise alone can't fix it."
         },
         {
           "type": "choice",
           "label": null,
           "speaker": null,
-          "text": "James keeps the tin between you. He is watching your hands, not the work you have just finished.",
+          "text": "\"Look first. Touch it when I tell you.\" He opens a jar of time calc and measures a pinch onto a glass slide. James keeps the tin between you. He is watching your hands, not the work you have just finished.",
           "choices": [
             {
               "id": "askMaker",
@@ -174,7 +185,7 @@ Every route proves the same capacity and reaches the same request. The test cann
           "type": "narration",
           "label": null,
           "speaker": null,
-          "text": "You hold a hand above the slide. The calc gathers under your fingers, just as it did in the jar. The crooked wheel gives a dry click and turns a fraction. It stops before it can turn again. James has not looked away.",
+          "text": "You hold a hand above the slide. The calc gathers under your fingers and you apply it to the Dial. The crooked wheel gives a dry click and turns a fraction. It stops before it can turn again. James has not looked away.",
           "key": "c10"
         },
         {
@@ -184,10 +195,10 @@ Every route proves the same capacity and reaches the same request. The test cann
           "text": "The wheel is still. You feel resistance if you try to move it further. James has not told you to stop.",
           "choices": [
             {
-              "id": "holdSteady",
-              "label": "Hold steady",
+              "id": "forceIt",
+              "label": "Keep forcing it",
               "effects": [],
-              "result_text": "You keep your hand where it is. The wheel moves one more tooth, then catches. James slides the tin away. \"Enough.\"",
+              "result_text": "You press further. The wheel moves one more tooth, then catches. James slides the tin away. \"Enough.\"",
               "goto": {
                 "branch": "conclusion"
               }
@@ -205,7 +216,7 @@ Every route proves the same capacity and reaches the same request. The test cann
               "id": "askControl",
               "label": "Ask James to try",
               "effects": [],
-              "result_text": "James puts his hand where yours was. The calc stays flat; the wheel doesn't move. \"There,\" he says. \"A control. Since you were about to ask.\"",
+              "result_text": "James puts his hand where yours was. The calc stays flat; the wheel doesn't move. ",
               "goto": {
                 "branch": "conclusion"
               }
@@ -222,7 +233,7 @@ Every route proves the same capacity and reaches the same request. The test cann
           "type": "speaker",
           "label": null,
           "speaker": "James",
-          "text": "\"The jar moved for you the first day. I wanted to see it again, somewhere less forgiving than a jar.\" He shuts the tin. \"You have the gift. Skill alone won't make a Movement. You could make one for this Dial.\"",
+          "text": "\"Crafting or fixing a Dial requires both skill and a natural gift. You demonstrated the gift when I first saw you and the calc moved. You've since proven you could develop the skill\"",
           "key": "c12"
         },
         {

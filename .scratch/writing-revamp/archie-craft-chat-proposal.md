@@ -169,7 +169,8 @@ Both are small. Without them, the fallback is one flat result for every pearl co
               "result_text": "He wraps it in a napkin, folds it twice and slips it into his pocket, eyes still running. \"That's the Whitechapel one squared. I'll put it on your tab.\" You don't have a tab. Apparently it's in credit.",
               "goto": {
                 "branch": "james"
-              }
+              },
+              "image": "res://assets/events/archie_craft_chat/archie_craft_chat_spare_c4_giveSpare.png"
             }
           ],
           "key": "c4"
@@ -200,12 +201,14 @@ Both are small. Without them, the fallback is one flat result for every pearl co
           "label": null,
           "speaker": "Archie",
           "text": "\"James showed you how to craft that? Hm. James doesn't show people things. He usually judges you for not knowing how to do something, and considers that a complete interaction.\" ",
-          "key": "c6"
+          "key": "c6",
+          "image": "res://assets/events/archie_craft_chat/archie_craft_chat_james_1.png"
         },
         {
           "key": "c11",
           "type": "narration",
-          "text": "He tilts his head. \"So either he was desperate, or he saw something worth the bother. Don't let it go to your head.\""
+          "text": "He tilts his head. \"So either he was desperate, or he saw something worth the bother. Don't let it go to your head.\"",
+          "image": "res://assets/events/archie_craft_chat/archie_craft_chat_james_2.png"
         },
         {
           "type": "speaker",
