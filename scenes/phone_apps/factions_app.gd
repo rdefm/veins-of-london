@@ -6,9 +6,9 @@
 # ask and trouble asks R§3.10 "Partners", Negotiate while at war, Gift R§3.10
 # "Gifts", Guild Marketplace and Join), then description, identity, the Market
 # footprint grid, and collapsible Intel and Activity (newest first). The
-# directory page also keeps London's share overview and a London politics
-# route: a 5x5 upper-triangle faction-pair stance grid with a selected-pair
-# detail. Holdings, vein security and the stockpile
+# directory page also routes to Market shares (Ore/Crafting toggle, ore choice,
+# one percentage bar per producer) and London politics: a 5x5 upper-triangle
+# faction-pair stance grid with a selected-pair detail. Holdings, vein security and the stockpile
 # show only past your intel level on that faction (R§3.1 "Intel"). The tally
 # toggle and the selected dossier are view state.
 class_name FactionsApp
@@ -25,10 +25,14 @@ const PRODUCER_NAMES := { Shares.PLAYER: "You", Shares.INDEPENDENTS: "Independen
 
 const ROW_META := "register_row"
 const METER_RANGE := 100
+const SHARE_BAR_META := "share_bar_producer"
+const SHARE_ORE_META := "share_ore"
 
 var _tally := "ore"
 var selected_faction := ""
 var politics_open := false
+var shares_open := false
+var _share_ore: String = GameData.CANONICAL_ORE_TYPES[0]
 var selected_pair := ""
 var _intel_open := false
 var _activity_open := false
@@ -37,7 +41,9 @@ var _activity_open := false
 func build(content: VBoxContainer) -> void:
 	if selected_faction != "" and not GameData.FACTIONS.has(selected_faction):
 		selected_faction = ""
-	if selected_faction == "" and politics_open:
+	if selected_faction == "" and shares_open:
+		_build_shares_page(content)
+	elif selected_faction == "" and politics_open:
 		_build_politics_page(content)
 	elif selected_faction == "":
 		_build_directory(content)
@@ -51,8 +57,8 @@ func _build_directory(content: VBoxContainer) -> void:
 	content.add_child(UI.muted_label("Your standing"))
 	for faction_id in GameData.FACTIONS.keys():
 		content.add_child(_build_row(faction_id))
+	content.add_child(UI.button("Market shares ›", func(): _open_shares(true)))
 	content.add_child(UI.button("London politics ›", func(): _open_politics(true)))
-	content.add_child(_build_overview())
 
 
 func _open_politics(open: bool) -> void:
@@ -183,30 +189,64 @@ class RelationMeter extends Control:
 		draw_rect(Rect2(half - 1, 0, 2, h), ink)
 
 
-func _build_overview() -> Control:
+func _open_shares(open: bool) -> void:
+	shares_open = open
+	refresh()
+
+
+# Market shares page: tally toggle, ore choice, then one oxide bar per producer
+# for the selected tally and ore. Selection is view state.
+func _build_shares_page(content: VBoxContainer) -> void:
+	content.add_child(UI.button("‹ The Register", func(): _open_shares(false)))
+	content.add_child(_masthead())
 	var c := UI.card()
-	c["content"].add_child(UI.heading("London's calc, last %d days" % GameData.SHARES_WINDOW_DAYS, 15))
+	var box: VBoxContainer = c["content"]
+	box.add_child(UI.heading("London's calc, last %d days" % GameData.SHARES_WINDOW_DAYS, 15))
 	var toggle := UI.hbox()
 	for tally in TALLY_NAMES:
 		var button := UI.button(TALLY_NAMES[tally], func(): _set_tally(tally))
 		button.disabled = _tally == tally
 		button.set_meta(ContactCards.TOGGLE_OPTION_META, true)
 		toggle.add_child(UI.expand_fill(button))
-	c["content"].add_child(toggle)
-
-	var grid := GridContainer.new()
-	grid.columns = 1 + GameData.CANONICAL_ORE_TYPES.size()
-	grid.add_theme_constant_override("h_separation", 6)
-	grid.add_child(Control.new())
-	for ore_type in GameData.CANONICAL_ORE_TYPES:
-		grid.add_child(_ore_glyph(ore_type))
+	box.add_child(toggle)
+	box.add_child(_share_ore_choices())
 	var table := Shares.overview(_tally)
+	var bars := UI.vbox(6)
 	for producer in Shares.producers():
-		grid.add_child(UI.expand_fill(UI.label(_producer_name(producer))))
-		for ore_type in GameData.CANONICAL_ORE_TYPES:
-			grid.add_child(UI.label(_percent(table[producer][ore_type])))
-	c["content"].add_child(grid)
-	return c["panel"]
+		bars.add_child(UI.label(_producer_name(producer)))
+		var fraction: float = table[producer][_share_ore]
+		var bar := ShareCell.make(fraction, _percent(fraction))
+		bar.set_meta(SHARE_BAR_META, producer)
+		bars.add_child(bar)
+	box.add_child(bars)
+	content.add_child(c["panel"])
+
+
+func _share_ore_choices() -> Control:
+	var grid := GridContainer.new()
+	grid.columns = 3
+	grid.add_theme_constant_override("h_separation", 6)
+	grid.add_theme_constant_override("v_separation", 6)
+	for ore_type in GameData.CANONICAL_ORE_TYPES:
+		var button := UI.button("      " + _ore_name(ore_type), func(): _set_share_ore(ore_type))
+		button.disabled = _share_ore == ore_type
+		button.custom_minimum_size.y = 44
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.set_meta(SHARE_ORE_META, ore_type)
+		var glyph := _ore_glyph(ore_type)
+		glyph.set_anchors_and_offsets_preset(Control.PRESET_CENTER_LEFT)
+		glyph.position = Vector2(8, (44 - UI.SYMBOL_GLYPH_SIZE) / 2.0)
+		glyph.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		button.add_child(glyph)
+		grid.add_child(button)
+	return grid
+
+
+func _set_share_ore(ore_type: String) -> void:
+	if ore_type == _share_ore:
+		return
+	_share_ore = ore_type
+	refresh()
 
 
 const POLITICS_META := "politics_pair"

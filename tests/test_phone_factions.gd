@@ -39,6 +39,13 @@ static func _button_with_text(root: Node, text: String) -> Button:
 	return null
 
 
+static func _choice(root: Node, ore_type: String) -> Button:
+	for candidate in root.find_children("", "Button", true, false):
+		if candidate.get_meta(FactionsApp.SHARE_ORE_META, "") == ore_type:
+			return candidate as Button
+	return null
+
+
 func run() -> void:
 	run_case("cards_show_archetype_ores_crafts", func():
 		GameState.reset()
@@ -114,15 +121,46 @@ func run() -> void:
 		Shares.record_ore("guild", "time", 3)
 		Shares.record_craft("guild", { "fate": 5 })
 		var phone := _open_factions()
+		assert_true(not NodeQuery.label_texts(phone).has("Independents"), "no share table on home")
+		_button_with_text(phone, "Market shares ›").pressed.emit()
 		var texts := NodeQuery.label_texts(phone)
 		assert_true(texts.has("You") and texts.has("Independents") and texts.has("The Guild"), "producer rows")
-		assert_true(texts.has("25%") and texts.has("75%"), "ore shares in the table")
+		assert_true(texts.has("25%") and texts.has("75%"), "time ore shares")
 		assert_true(not (texts.has("100%")), "no crafting share yet")
 		_button_with_text(phone, "Crafting").pressed.emit()
 		texts = NodeQuery.label_texts(phone)
-		assert_true(texts.has("100%"), "crafting tally shown")
-		assert_true(not (texts.has("25%")), "ore tally hidden")
-		assert_true(_button_with_text(phone, "Crafting").disabled, "selected option marked")
+		assert_true(not texts.has("75%"), "ore tally hidden")
+		_choice(phone, "fate").pressed.emit()
+		texts = NodeQuery.label_texts(phone)
+		assert_true(texts.has("100%"), "crafting fate tally shown")
+		assert_true(_button_with_text(phone, "Crafting").disabled, "tally kept after ore change")
+		assert_true(_choice(phone, "fate").disabled, "ore selection marked")
+		assert_eq(phone.find_children("", "Button", true, false).filter(func(b): return b.text == "Crafting").size(), 1, "one toggle")
+		EventBus.state_changed.emit()
+		assert_true(_choice(phone, "fate").disabled, "refresh keeps ore")
+		_button_with_text(phone, "‹ The Register").pressed.emit()
+		assert_true(_button_with_text(phone, "Market shares ›") != null, "back to home")
+		phone.free()
+	)
+
+	run_case("shares_page_bars_cover_every_ore_and_both_tallies", func():
+		GameState.reset()
+		Shares.record_ore("player", "life", 1)
+		Shares.record_ore("guild", "life", 3)
+		Shares.record_craft("guild", { "emotion": 2 })
+		var phone := _open_factions()
+		_button_with_text(phone, "Market shares ›").pressed.emit()
+		for tally in ["ore", "craft"]:
+			_button_with_text(phone, FactionsApp.TALLY_NAMES[tally]).pressed.emit()
+			for ore_type in GameData.CANONICAL_ORE_TYPES:
+				_choice(phone, ore_type).pressed.emit()
+				var table := Shares.overview(tally)
+				var bars := phone.find_children("", "Control", true, false).filter(func(n): return n is FactionsApp.ShareCell)
+				assert_eq(bars.size(), Shares.producers().size(), "one bar per visible producer")
+				for bar in bars:
+					var producer: String = bar.get_meta(FactionsApp.SHARE_BAR_META)
+					assert_eq(bar.fraction, table[producer][ore_type], "bar fill %s %s %s" % [tally, ore_type, producer])
+					assert_true(NodeQuery.label_texts(bar).has("%d%%" % roundi(table[producer][ore_type] * 100.0)), "bar text")
 		phone.free()
 	)
 
@@ -133,6 +171,7 @@ func run() -> void:
 		GameData.MARKET["independentsOreShare"] = 0.0
 		GameState.reset()
 		var phone := _open_factions()
+		_button_with_text(phone, "Market shares ›").pressed.emit()
 		var texts := NodeQuery.label_texts(phone)
 		GameData.MARKET["independentsShare"] = saved_share
 		GameData.MARKET["independentsOreShare"] = saved_ore_share
