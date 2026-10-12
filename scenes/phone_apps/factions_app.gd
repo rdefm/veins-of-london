@@ -1,7 +1,8 @@
 # The Register (app id "factions"): a five-row directory of the player's
 # standing with each faction (stored stance, signed relation, centred meter,
-# live war/truce or request alert); each row opens that faction's dossier page,
-# name, tagline, relation meter, stance, pressure and war/truce first, then
+# live war/truce or request alert); each row opens that faction's dossier page
+# on the Register canvas: kicker, name, tagline, stance, relation, labelled
+# meter, pressure and war/truce first, then
 # Available now (favour request or owed favour R§3.10 "Favours", partner price
 # ask and trouble asks R§3.10 "Partners", Negotiate while at war, Gift R§3.10
 # "Gifts", Guild Marketplace and Join), then description, identity, the Market
@@ -77,16 +78,18 @@ func _open_politics(open: bool) -> void:
 func _build_dossier(content: VBoxContainer, faction_id: String) -> void:
 	content.add_child(_back_link("‹ The Register", func(): _select("")))
 	var f: Dictionary = GameData.FACTIONS[faction_id]
-	var c := UI.card()
-	var box: VBoxContainer = c["content"]
+	var box := UI.vbox(14)
 	box.add_child(_build_dossier_top(faction_id))
 	box.add_child(_build_available(faction_id))
-	box.add_child(UI.label(f["description"]))
+	box.add_child(_wrap(f["description"], 13, _ink()))
 	box.add_child(_build_identity(faction_id))
 	box.add_child(_build_footprint(faction_id))
-	box.add_child(_collapsible("Intel", _intel_open, func(open: bool): _intel_open = open, _build_intel(faction_id)))
-	box.add_child(_collapsible("Activity", _activity_open, func(open: bool): _activity_open = open, _build_activity(faction_id)))
-	content.add_child(c["panel"])
+	var disclosures := UI.vbox(0)
+	disclosures.add_child(_collapsible("Intel", _intel_open, func(open: bool): _intel_open = open, _build_intel(faction_id)))
+	disclosures.add_child(_collapsible("Activity", _activity_open, func(open: bool): _activity_open = open, _build_activity(faction_id)))
+	disclosures.add_child(_divider())
+	box.add_child(disclosures)
+	content.add_child(box)
 
 
 func _select(faction_id: String) -> void:
@@ -127,6 +130,79 @@ static func _text(text: String, size: int, colour: Color) -> Label:
 	l.add_theme_color_override("font_color", colour)
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return l
+
+
+# Wrapping Register body text.
+static func _wrap(text: String, size: int, colour: Color) -> Label:
+	var l := UI.label(text)
+	l.custom_minimum_size.x = 0
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	l.add_theme_font_size_override("font_size", size)
+	l.add_theme_color_override("font_color", colour)
+	return l
+
+
+static func _on_oxide() -> Color:
+	return _brand("register_on_oxide", Color("#1d1612"))
+
+
+static func _graphite() -> Color:
+	return _brand("register_graphite", Color("#2b2724"))
+
+
+static func _button_fill(fill: Color, border: Color, margin_x: int = 12) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = fill
+	style.border_color = border
+	style.set_border_width_all(1)
+	style.content_margin_left = margin_x
+	style.content_margin_right = margin_x
+	style.content_margin_top = 9
+	style.content_margin_bottom = 9
+	return style
+
+
+# Register button: primary is a filled oxide button with dark text, the rest a
+# dark panel with an oxide outline; disabled reads muted on the line colour.
+static func _style_action(button: Button, primary: bool, fill: Color = Color(0, 0, 0, 0)) -> void:
+	button.set_meta(ContactCards.OWN_STYLE_META, true)
+	var oxide := _oxide()
+	var body := fill if fill.a > 0.0 else _graphite().lerp(oxide, 0.14)
+	var text_colour := _on_oxide() if primary else oxide
+	var normal := _button_fill(oxide if primary else body, oxide if primary else (_line() if fill.a > 0.0 else oxide))
+	button.add_theme_stylebox_override("normal", normal)
+	button.add_theme_stylebox_override("focus", normal)
+	var lit := _button_fill((oxide if primary else body).lightened(0.1), normal.border_color)
+	button.add_theme_stylebox_override("hover", lit)
+	button.add_theme_stylebox_override("pressed", _button_fill((oxide if primary else body).darkened(0.12), normal.border_color))
+	button.add_theme_stylebox_override("disabled", _button_fill(Color(0, 0, 0, 0), _line()))
+	for state_color in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		button.add_theme_color_override(state_color, text_colour if fill.a == 0.0 else _ink())
+	button.add_theme_color_override("font_disabled_color", _muted())
+	button.add_theme_font_size_override("font_size", 13)
+	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	button.custom_minimum_size.y = 42
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+
+# A Register action with its disabled reason underneath.
+static func _action(text: String, on_press: Callable, primary: bool, disabled: bool = false, reason: String = "") -> Control:
+	var row := UI.vbox(3)
+	var b := UI.button(text, on_press)
+	b.disabled = disabled
+	_style_action(b, primary)
+	row.add_child(b)
+	if disabled and reason != "":
+		row.add_child(_wrap(reason, 11, _muted()))
+	return row
+
+
+# Restyles every phone-built button under a control as a secondary action.
+static func _restyle_buttons(root: Node) -> void:
+	for node in root.find_children("", "Button", true, false):
+		_style_action(node as Button, false)
+	if root is Button:
+		_style_action(root as Button, false)
 
 
 static func _divider() -> ColorRect:
@@ -329,9 +405,17 @@ func _alert_text(faction_id: String) -> String:
 # Neutral −100..100 relation meter: a thin track, ink fill from the centre to
 # the value, a zero marker and an endpoint dot.
 class RelationMeter extends Control:
-	const DOT_RADIUS := 5.0
 	var value := 0
 	var ink := Color.WHITE
+	var dot_radius := 5.0
+	var track := 5.0
+
+	static func large() -> RelationMeter:
+		var meter := RelationMeter.new()
+		meter.dot_radius = 6.5
+		meter.track = 7.0
+		meter.custom_minimum_size = Vector2(0, 15)
+		return meter
 
 	func _init() -> void:
 		custom_minimum_size = Vector2(0, 11)
@@ -341,12 +425,12 @@ class RelationMeter extends Control:
 		var w := size.x
 		var h := size.y
 		var mid := h * 0.5
-		draw_rect(Rect2(0, mid - 2.5, w, 5), Color(ink, 0.22))
+		draw_rect(Rect2(0, mid - track * 0.5, w, track), Color(ink, 0.22))
 		var half := w * 0.5
-		var span := (w * 0.5 - DOT_RADIUS) * clampf(value / float(METER_RANGE), -1.0, 1.0)
-		draw_rect(Rect2(minf(half, half + span), mid - 2.5, absf(span), 5), Color(ink, 0.9))
+		var span := (w * 0.5 - dot_radius) * clampf(value / float(METER_RANGE), -1.0, 1.0)
+		draw_rect(Rect2(minf(half, half + span), mid - track * 0.5, absf(span), track), Color(ink, 0.9))
 		draw_rect(Rect2(half - 0.5, 0, 1, h), Color(ink, 0.55))
-		draw_circle(Vector2(half + span, mid), DOT_RADIUS, ink)
+		draw_circle(Vector2(half + span, mid), dot_radius, ink)
 
 
 func _open_shares(open: bool) -> void:
@@ -511,22 +595,35 @@ func _build_dossier_top(faction_id: String) -> Control:
 	var f: Dictionary = GameData.FACTIONS[faction_id]
 	var relation := int(GameState.state["factions"][faction_id]["relation"])
 	var joined: bool = GameState.state["factions"][faction_id]["joined"]
-	var ink := _brand("register_ink", Color("#d9d3cc"))
 	var box := UI.vbox(4)
-	box.add_child(UI.heading(f["name"] + (" — Member" if joined else ""), 15))
-	box.add_child(UI.muted_label(f["tagline"]))
+	box.add_child(_text("FACTION DOSSIER", 11, _oxide()))
+	box.add_child(_wrap(f["name"] + (" — Member" if joined else ""), 23, _ink()))
+	box.add_child(_wrap(f["tagline"], 12, _muted()))
+	var standing := UI.vbox(6)
+	standing.add_theme_constant_override("separation", 6)
 	var line := UI.hbox(8)
-	line.add_child(UI.expand_fill(UI.label("Stance: %s" % FactionAI.stance_name(FactionAI.player_stance(faction_id)))))
-	line.add_child(UI.label("Relation %+d" % relation))
-	box.add_child(line)
-	var meter := RelationMeter.new()
+	line.add_child(UI.expand_fill(_wrap("Stance: %s" % FactionAI.stance_name(FactionAI.player_stance(faction_id)), 15, _ink())))
+	line.add_child(_wrap("Relation %+d" % relation, 15, _ink()))
+	standing.add_child(line)
+	var meter := RelationMeter.large()
 	meter.value = relation
-	meter.ink = ink
-	box.add_child(meter)
-	box.add_child(UI.label("Pressure: %s" % FactionAI.pressure_label(faction_id)))
+	meter.ink = _ink()
+	standing.add_child(meter)
+	var ends := UI.hbox(0)
+	for end in [["−100", HORIZONTAL_ALIGNMENT_LEFT], ["0", HORIZONTAL_ALIGNMENT_CENTER], ["+100", HORIZONTAL_ALIGNMENT_RIGHT]]:
+		var l := _wrap(end[0], 11, _muted())
+		l.horizontal_alignment = end[1]
+		ends.add_child(l)
+	standing.add_child(ends)
+	standing.add_child(_wrap("Pressure: %s" % FactionAI.pressure_label(faction_id), 12, _muted()))
 	var alert := _war_truce_text(faction_id)
 	if alert != "":
-		box.add_child(UI.tinted_label(alert, _brand("register_oxide", Color("#e47a50"))))
+		standing.add_child(_wrap(alert, 12, _oxide()))
+	var pad := MarginContainer.new()
+	pad.add_theme_constant_override("margin_top", 10)
+	pad.add_child(standing)
+	box.add_child(pad)
+	box.add_child(_divider())
 	return box
 
 
@@ -543,18 +640,19 @@ func _war_truce_text(faction_id: String) -> String:
 # Existing gated actions and current pending or owed requests, before the
 # archival detail.
 func _build_available(faction_id: String) -> Control:
-	var box := UI.vbox(4)
-	box.add_child(UI.muted_label("Available now"))
+	var box := UI.vbox(7)
+	box.add_child(_text("AVAILABLE NOW", 11, _oxide()))
 	box.add_child(_build_favour(faction_id))
 	box.add_child(_build_partner(faction_id))
 	var talks := FactionAI.negotiation()
 	if talks.get("factionId", "") == faction_id:
-		box.add_child(UI.button("Peace talks →", func(): Modal.open("negotiation")))
+		box.add_child(_action("Peace talks →", func(): Modal.open("negotiation"), false))
 	elif FactionAI.at_war(Shares.PLAYER, faction_id):
 		var check := FactionAI.can_open_talks(faction_id)
-		box.add_child(UI.action_button("Negotiate peace", func(): ContactCards.open_talks(faction_id), not check["ok"], check.get("reason", "")))
-	box.add_child(UI.button("Gift →", func(): Modal.open("gift", { "factionId": faction_id })))
+		box.add_child(_action("Negotiate peace", func(): ContactCards.open_talks(faction_id), false, not check["ok"], check.get("reason", "")))
+	box.add_child(_action("Gift →", func(): Modal.open("gift", { "factionId": faction_id }), true))
 	for action in ContactCards.build_membership_actions(faction_id):
+		_restyle_buttons(action)
 		box.add_child(action)
 	return box
 
@@ -562,20 +660,26 @@ func _build_available(faction_id: String) -> Control:
 # Archetype, primary and secondary ore with glyphs, and crafts.
 func _build_identity(faction_id: String) -> Control:
 	var f: Dictionary = GameData.FACTIONS[faction_id]
-	var box := UI.vbox(4)
-	box.add_child(UI.label(ARCHETYPE_NAMES.get(f["archetype"], String(f["archetype"]).capitalize())))
+	var box := UI.vbox(8)
+	box.add_child(_text("DOSSIER", 11, _oxide()))
+	var archetype := _wrap(ARCHETYPE_NAMES.get(f["archetype"], String(f["archetype"]).capitalize()), 13, _ink())
+	archetype.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	var kind := UI.hbox(8)
+	kind.add_child(_text("Archetype", 12, _muted()))
+	kind.add_child(archetype)
+	box.add_child(kind)
 	box.add_child(_ore_line("Primary ore", f["primaryOre"]))
 	box.add_child(_ore_line("Secondary ore", f["secondaryOre"]))
 	var items: Array[String] = []
 	for recipe_key in f["crafts"]:
 		items.append(GameData.RECIPES[recipe_key]["name"])
-	box.add_child(UI.label("Crafts: %s" % (", ".join(items) if not items.is_empty() else "nothing")))
+	box.add_child(_wrap("Crafts: %s" % (", ".join(items) if not items.is_empty() else "nothing"), 12, _muted()))
 	return box
 
 
 func _ore_line(title: String, ore_type: String) -> Control:
-	var row := UI.hbox(6)
-	row.add_child(UI.label("%s:" % title))
+	var row := UI.hbox(8)
+	row.add_child(UI.expand_fill(_wrap("%s:" % title, 12, _muted())))
 	row.add_child(_ore_tag(ore_type))
 	return row
 
@@ -584,7 +688,9 @@ func _ore_line(title: String, ore_type: String) -> Control:
 func _ore_tag(ore_type: String) -> Control:
 	var row := UI.hbox(4)
 	row.add_child(_ore_glyph(ore_type))
-	row.add_child(UI.label(_ore_name(ore_type)))
+	var title := _wrap(_ore_name(ore_type), 13, _ink())
+	title.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	row.add_child(title)
 	return row
 
 
@@ -592,34 +698,46 @@ func _ore_tag(ore_type: String) -> Control:
 # as the only rows; each cell is the exact share with a proportional fill.
 func _build_footprint(faction_id: String) -> Control:
 	var f: Dictionary = GameData.FACTIONS[faction_id]
-	var box := UI.vbox(4)
-	box.add_child(UI.muted_label("Market footprint"))
+	var box := UI.vbox(8)
+	box.add_child(_text("Market footprint", 12, _muted()))
 	var grid := GridContainer.new()
 	grid.columns = 3
-	grid.add_theme_constant_override("h_separation", 6)
-	grid.add_theme_constant_override("v_separation", 6)
-	grid.add_child(Control.new())
+	grid.add_theme_constant_override("h_separation", 4)
+	grid.add_theme_constant_override("v_separation", 4)
+	var corner := Control.new()
+	corner.custom_minimum_size.x = 67
+	grid.add_child(corner)
 	var ores: Array = [f["primaryOre"], f["secondaryOre"]]
 	for ore_type in ores:
-		grid.add_child(UI.expand_fill(_ore_tag(ore_type)))
-	grid.add_child(UI.label(TALLY_NAMES["ore"]))
+		var head := _ore_tag(ore_type)
+		(head as BoxContainer).alignment = BoxContainer.ALIGNMENT_CENTER
+		head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		grid.add_child(head)
+	grid.add_child(_grid_row_name(TALLY_NAMES["ore"]))
 	for ore_type in ores:
 		grid.add_child(ShareCell.make(Shares.ore_share(faction_id, ore_type), _percent(Shares.ore_share(faction_id, ore_type))))
-	grid.add_child(UI.label(TALLY_NAMES["craft"]))
+	grid.add_child(_grid_row_name(TALLY_NAMES["craft"]))
 	for ore_type in ores:
 		grid.add_child(ShareCell.make(Shares.crafting_share(faction_id, ore_type), _percent(Shares.crafting_share(faction_id, ore_type))))
 	box.add_child(grid)
 	return box
 
 
-# A percentage with an oxide-orange fill proportional to the share.
+func _grid_row_name(text: String) -> Control:
+	var l := _text(text, 12, _muted())
+	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	return l
+
+
+# A percentage centred in a dark cell with a strong oxide fill proportional to
+# the share.
 class ShareCell extends Control:
 	var fraction := 0.0
 
 	static func make(share: float, text: String) -> ShareCell:
 		var cell := ShareCell.new()
 		cell.fraction = share
-		cell.custom_minimum_size = Vector2(0, 28)
+		cell.custom_minimum_size = Vector2(0, 43)
 		cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var l := UI.label(text)
 		l.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -627,53 +745,92 @@ class ShareCell extends Control:
 		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		l.custom_minimum_size.x = 0
+		l.add_theme_font_size_override("font_size", 13)
+		l.add_theme_color_override("font_color", Color.WHITE)
+		l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.7))
+		l.add_theme_constant_override("outline_size", 3)
 		cell.add_child(l)
 		return cell
 
 	func _draw() -> void:
-		var oxide := FactionsApp._brand("register_oxide", Color("#e47a50"))
-		draw_rect(Rect2(Vector2.ZERO, size), Color(oxide, 0.15))
-		draw_rect(Rect2(0, 0, size.x * clampf(fraction, 0.0, 1.0), size.y), Color(oxide, 0.6))
+		draw_rect(Rect2(Vector2.ZERO, size), FactionsApp._graphite().lerp(Color.WHITE, 0.1))
+		draw_rect(Rect2(0, 0, size.x * clampf(fraction, 0.0, 1.0), size.y), FactionsApp._oxide())
 
 
 # Header button that opens or closes a body in one tap; the open state is
 # view state so a refresh keeps it.
 func _collapsible(title: String, expanded: bool, on_toggle: Callable, body: Control) -> Control:
 	var section := UI.collapsible_section(title, expanded, on_toggle)
-	section["content"].add_child(body)
+	var header: Button = section["header"]
+	_apply_flat(header, true, false, 0, 12)
+	header.add_theme_font_size_override("font_size", 14)
+	for state_color in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		header.add_theme_color_override(state_color, _ink())
+	section["panel"].add_theme_constant_override("separation", 0)
+	var pad := MarginContainer.new()
+	pad.add_theme_constant_override("margin_bottom", 12)
+	pad.add_child(body)
+	section["content"].add_child(pad)
 	return section["panel"]
 
 
+# Request or owed-favour panel: an oxide edge, the ask, then compact responses
+# with the first one primary.
+func _request_panel(title: String, text: String, actions: Array[Control]) -> Control:
+	var panel := PanelContainer.new()
+	panel.set_meta(ContactCards.OWN_STYLE_META, true)
+	var style := StyleBoxFlat.new()
+	style.bg_color = _graphite().lerp(_ink(), 0.1)
+	style.border_color = _oxide()
+	style.border_width_left = 2
+	style.content_margin_left = 12
+	style.content_margin_right = 12
+	style.content_margin_top = 12
+	style.content_margin_bottom = 12
+	panel.add_theme_stylebox_override("panel", style)
+	var box := UI.vbox(7)
+	box.add_child(_wrap(title, 13, _ink()))
+	box.add_child(_wrap(text, 12, _ink()))
+	if not actions.is_empty():
+		var buttons := HFlowContainer.new()
+		buttons.add_theme_constant_override("h_separation", 7)
+		buttons.add_theme_constant_override("v_separation", 7)
+		for i in actions.size():
+			var b := actions[i] as Button
+			_style_action(b, i == 0, Color(0, 0, 0, 0) if i == 0 else _graphite().lerp(_ink(), 0.16))
+			b.alignment = HORIZONTAL_ALIGNMENT_CENTER
+			b.custom_minimum_size.y = 39
+			buttons.add_child(b)
+		box.add_child(buttons)
+	panel.add_child(box)
+	return panel
+
+
 func _build_favour(faction_id: String) -> Control:
-	var box := UI.vbox(2)
+	var box := UI.vbox(7)
 	var owed := Diplomacy.accepted_for(faction_id)
 	if not owed.is_empty():
-		box.add_child(UI.muted_label("Favour owed"))
-		box.add_child(UI.label(Diplomacy.describe(owed)))
+		box.add_child(_request_panel("Favour owed", Diplomacy.describe(owed), []))
 	for entry in Diplomacy.pending_for(faction_id):
-		box.add_child(UI.muted_label("Favour asked · answer by %s" % Calendar.format_day(int(entry["payload"]["expiresDay"]))))
-		box.add_child(UI.label(entry["text"]))
-		for action in ContactCards.build_pending_actions(entry, func(_e: Dictionary) -> void: pass):
-			box.add_child(action)
+		var title := "Favour asked · answer by %s" % Calendar.format_day(int(entry["payload"]["expiresDay"]))
+		box.add_child(_request_panel(title, entry["text"], ContactCards.build_pending_actions(entry, func(_e: Dictionary) -> void: pass)))
 	return box
 
 
 # At Partner stance: the price-favour ask or the running partner rate, and
 # any trouble ask (R§3.10 "Partners").
 func _build_partner(faction_id: String) -> Control:
-	var box := UI.vbox(2)
+	var box := UI.vbox(7)
 	if Partners.is_player_partner(faction_id):
 		if Partners.price_favour_active(faction_id):
-			box.add_child(UI.label("Partner rate in their shop until %s" % Calendar.format_day(Partners.price_favour_until(faction_id))))
+			box.add_child(_wrap("Partner rate in their shop until %s" % Calendar.format_day(Partners.price_favour_until(faction_id)), 12, _ink()))
 		else:
 			var check := Partners.can_ask_price_favour(faction_id)
 			var cost := int(GameData.PARTNERS["priceFavour"]["relationCost"])
-			box.add_child(UI.action_button("Ask for a better price (−%d relation)" % cost, func(): ContactCards.notify_failure(Partners.ask_price_favour(faction_id)), not check["ok"], check.get("reason", "")))
+			box.add_child(_action("Ask for a better price (−%d relation)" % cost, func(): ContactCards.notify_failure(Partners.ask_price_favour(faction_id)), false, not check["ok"], check.get("reason", "")))
 	for entry in Partners.pending_for(faction_id):
-		box.add_child(UI.muted_label("Partner asks · answer by %s" % Calendar.format_day(int(entry["payload"]["expiresDay"]))))
-		box.add_child(UI.label(entry["text"]))
-		for action in ContactCards.build_pending_actions(entry, func(_e: Dictionary) -> void: pass):
-			box.add_child(action)
+		var title := "Partner asks · answer by %s" % Calendar.format_day(int(entry["payload"]["expiresDay"]))
+		box.add_child(_request_panel(title, entry["text"], ContactCards.build_pending_actions(entry, func(_e: Dictionary) -> void: pass)))
 	return box
 
 
@@ -682,30 +839,30 @@ func _build_partner(faction_id: String) -> Control:
 func _build_intel(faction_id: String) -> Control:
 	var box := UI.vbox(2)
 	var reached := Intel.level(Shares.PLAYER, faction_id)
-	box.add_child(UI.muted_label("Intel · %s · %d/%d" % [reached.get("name", "None"), Intel.meter(Shares.PLAYER, faction_id), int(GameData.INTEL["max"])]))
+	box.add_child(_wrap("Intel · %s · %d/%d" % [reached.get("name", "None"), Intel.meter(Shares.PLAYER, faction_id), int(GameData.INTEL["max"])], 12, _muted()))
 	var holdings: Dictionary = GameState.state["factions"][faction_id]["holdings"]
 	if Intel.knows(Shares.PLAYER, faction_id, Intel.VEIN_SECURITY):
 		var counts := Intel.vein_security_counts(faction_id)
 		var parts: Array[String] = []
 		for security in counts:
 			parts.append("%d %s" % [counts[security], security])
-		box.add_child(UI.label("Veins: %s" % (", ".join(parts) if not parts.is_empty() else "none")))
+		box.add_child(_wrap("Veins: %s" % (", ".join(parts) if not parts.is_empty() else "none"), 12, _ink()))
 	if Intel.knows(Shares.PLAYER, faction_id, Intel.HOLDINGS):
 		var ores: Array[String] = []
 		for ore_type in GameData.CANONICAL_ORE_TYPES:
 			ores.append("%s %d" % [_ore_name(ore_type), FactionSim.ore_held(faction_id, ore_type)])
-		box.add_child(UI.label("Ore held: %s" % ", ".join(ores)))
-		box.add_child(UI.label("Items held: %s" % _item_list(faction_id, holdings["items"].keys())))
+		box.add_child(_wrap("Ore held: %s" % ", ".join(ores), 12, _ink()))
+		box.add_child(_wrap("Items held: %s" % _item_list(faction_id, holdings["items"].keys()), 12, _ink()))
 	if Intel.knows(Shares.PLAYER, faction_id, Intel.STOCKPILE_LOCATION):
 		var stockpile: Dictionary = GameState.state["factions"][faction_id]["stockpile"]
 		var district: String = GameData.DISTRICTS[stockpile["district"]]["name"] if GameData.DISTRICTS.has(stockpile["district"]) else "somewhere"
-		box.add_child(UI.label("Stockpile: %s, %s" % [stockpile["place"], district]))
+		box.add_child(_wrap("Stockpile: %s, %s" % [stockpile["place"], district], 12, _ink()))
 	if Intel.knows(Shares.PLAYER, faction_id, Intel.STOCKPILE_SECURITY):
 		var kit: Dictionary = GuardKit.recipe_totals(FactionSim.raider_kit(faction_id, "defend")["items"])
 		var kit_parts: Array[String] = []
 		for recipe_key in kit:
 			kit_parts.append("%s ×%d" % [GameData.RECIPES[recipe_key]["name"], kit[recipe_key]])
-		box.add_child(UI.label("Stockpile kit: %s" % (", ".join(kit_parts) if not kit_parts.is_empty() else "none")))
+		box.add_child(_wrap("Stockpile kit: %s" % (", ".join(kit_parts) if not kit_parts.is_empty() else "none"), 12, _ink()))
 	if Intel.knows(Shares.PLAYER, faction_id, Intel.STASH):
 		for recipe_key in holdings["items"]:
 			var tiers: Array[String] = []
@@ -714,7 +871,7 @@ func _build_intel(faction_id: String) -> Control:
 				if qty > 0:
 					tiers.append("%s ×%d" % ["untiered" if int(tier) <= 0 else "tier %s" % tier, qty])
 			if not tiers.is_empty():
-				box.add_child(UI.label("%s: %s" % [GameData.RECIPES[recipe_key]["name"], ", ".join(tiers)]))
+				box.add_child(_wrap("%s: %s" % [GameData.RECIPES[recipe_key]["name"], ", ".join(tiers)], 12, _ink()))
 	return box
 
 
@@ -731,10 +888,10 @@ func _build_activity(faction_id: String) -> Control:
 	var box := UI.vbox(2)
 	var entries := FactionAI.activity_log(faction_id)
 	if entries.is_empty():
-		box.add_child(UI.muted_label("Nothing yet."))
+		box.add_child(_wrap("Nothing yet.", 12, _muted()))
 	for i in range(entries.size() - 1, -1, -1):
 		var entry: Dictionary = entries[i]
-		box.add_child(UI.label("%s · %s" % [Calendar.format_day(int(entry["day"])), entry["text"]]))
+		box.add_child(_wrap("%s · %s" % [Calendar.format_day(int(entry["day"])), entry["text"]], 12, _ink()))
 	return box
 
 
