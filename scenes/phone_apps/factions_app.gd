@@ -507,54 +507,117 @@ const STANCE_GLYPHS := {
 func _build_politics_page(content: VBoxContainer) -> void:
 	content.add_child(_back_link("‹ The Register", func(): _open_politics(false)))
 	content.add_child(_masthead())
-	var c := UI.card()
-	var box: VBoxContainer = c["content"]
-	box.add_child(UI.heading("London politics", 15))
+	var box := UI.vbox(14)
+	var head := UI.vbox(4)
+	head.add_child(_text("LONDON", 11, _oxide()))
+	head.add_child(_text("Politics", 23, _ink()))
+	head.add_child(_text("Tap a square for the pair.", 12, _muted()))
+	box.add_child(head)
 	box.add_child(_politics_grid())
-	box.add_child(UI.muted_label(_politics_legend()))
+	box.add_child(_politics_legend())
 	box.add_child(_pair_detail())
-	content.add_child(c["panel"])
+	content.add_child(box)
 
 
 static func _abbrev(faction_id: String) -> String:
 	return str(GameData.FACTIONS[faction_id]["shortName"]).trim_prefix("The ").substr(0, 3).to_upper()
 
 
-static func _politics_legend() -> String:
-	var parts: Array[String] = []
+# Restrained stance fill: Partner green, Business rival brown, Hostile red-brown,
+# Neutral grey.
+static func _stance_fill(stance: String) -> Color:
+	match stance:
+		FactionAI.PARTNER:
+			return _brand("register_stance_partner", Color("#3d5849"))
+		FactionAI.BUSINESS_RIVAL:
+			return _brand("register_stance_rival", Color("#605047"))
+		FactionAI.HOSTILE:
+			return _brand("register_stance_hostile", Color("#69434a"))
+	return _brand("register_stance_neutral", Color("#333638"))
+
+
+func _politics_legend() -> Control:
+	var flow := HFlowContainer.new()
+	flow.add_theme_constant_override("h_separation", 12)
+	flow.add_theme_constant_override("v_separation", 6)
 	for stance in STANCE_GLYPHS:
-		parts.append("%s %s" % [STANCE_GLYPHS[stance], FactionAI.stance_name(stance)])
-	return " · ".join(parts)
+		var item := UI.hbox(5)
+		var swatch := ColorRect.new()
+		swatch.color = _stance_fill(stance)
+		swatch.custom_minimum_size = Vector2(10, 10)
+		swatch.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		item.add_child(swatch)
+		item.add_child(_text("%s %s" % [STANCE_GLYPHS[stance], FactionAI.stance_name(stance)], 11, _muted()))
+		flow.add_child(item)
+	return flow
+
+
+func _politics_row_label(faction_id: String) -> Control:
+	var row := UI.hbox(4)
+	var dot := FactionDot.new()
+	dot.colour = MapPalette.faction_colour(faction_id)
+	row.add_child(dot)
+	var name_label := _text(str(GameData.FACTIONS[faction_id]["shortName"]).trim_prefix("The "), 11, _ink())
+	name_label.clip_text = true
+	name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(name_label)
+	row.custom_minimum_size.x = 76
+	return row
 
 
 func _politics_grid() -> Control:
 	var ids: Array = GameData.FACTIONS.keys()
 	var grid := GridContainer.new()
 	grid.columns = ids.size() + 1
-	grid.add_theme_constant_override("h_separation", 4)
-	grid.add_theme_constant_override("v_separation", 4)
+	grid.add_theme_constant_override("h_separation", 3)
+	grid.add_theme_constant_override("v_separation", 3)
 	grid.add_child(Control.new())
 	for faction_id in ids:
-		var head := UI.muted_label(_abbrev(faction_id))
+		var head := _text(_abbrev(faction_id), 11, _muted())
 		head.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		grid.add_child(head)
 	for i in ids.size():
-		grid.add_child(UI.muted_label(_abbrev(ids[i])))
+		grid.add_child(_politics_row_label(ids[i]))
 		for j in ids.size():
-			if j <= i:
+			if j < i:
 				grid.add_child(Control.new())
-				continue
-			grid.add_child(_politics_cell(ids[i], ids[j]))
+			elif j == i:
+				var dash := _text("—", 12, _muted())
+				dash.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+				grid.add_child(dash)
+			else:
+				grid.add_child(_politics_cell(ids[i], ids[j]))
 	return grid
 
 
 func _politics_cell(faction_a: String, faction_b: String) -> Control:
 	var key := FactionAI.pair_key(faction_a, faction_b)
-	var button := UI.button(STANCE_GLYPHS.get(FactionAI.pair_stance(faction_a, faction_b), "·"), func(): _select_pair(key))
+	var stance := FactionAI.pair_stance(faction_a, faction_b)
+	var button := UI.button(STANCE_GLYPHS.get(stance, "·"), func(): _select_pair(key))
 	button.set_meta(POLITICS_META, key)
-	button.custom_minimum_size = Vector2(44, 44)
+	button.set_meta(ContactCards.OWN_STYLE_META, true)
+	button.custom_minimum_size = Vector2(0, 44)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	button.disabled = key == selected_pair
+	var fill := _stance_fill(stance)
+	var selected := key == selected_pair
+	var normal := _button_fill(fill, _oxide() if selected else fill, 0)
+	if selected:
+		normal.set_border_width_all(2)
+	for state in ["normal", "focus", "disabled"]:
+		button.add_theme_stylebox_override(state, normal)
+	var lit := normal.duplicate() as StyleBoxFlat
+	lit.bg_color = fill.lightened(0.1)
+	button.add_theme_stylebox_override("hover", lit)
+	var pressed := normal.duplicate() as StyleBoxFlat
+	pressed.bg_color = fill.darkened(0.12)
+	button.add_theme_stylebox_override("pressed", pressed)
+	var text_colour := _muted() if stance == FactionAI.NEUTRAL else _ink()
+	for state_color in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_disabled_color"]:
+		button.add_theme_color_override(state_color, text_colour)
+	button.add_theme_font_size_override("font_size", 15)
+	button.alignment = HORIZONTAL_ALIGNMENT_CENTER
 	return button
 
 
@@ -563,23 +626,35 @@ func _select_pair(key: String) -> void:
 	refresh()
 
 
-# Both full names, stored stance, signed raw pair relation, war and truce.
+# Bordered strip: both full names, stored stance, signed raw pair relation, war and truce.
 func _pair_detail() -> Control:
+	var strip := PanelContainer.new()
+	strip.set_meta(ContactCards.OWN_STYLE_META, true)
+	var style := _flat_style(true, true, 0.0, 2, 13)
+	strip.add_theme_stylebox_override("panel", style)
+	var box := UI.vbox(5)
+	strip.add_child(box)
 	if selected_pair == "":
-		return UI.muted_label("Tap a cell for the pair.")
+		box.add_child(_wrap("Tap a cell for the pair.", 12, _muted()))
+		return strip
 	var ids := selected_pair.split(":")
 	var a: String = ids[0]
 	var b: String = ids[1]
-	var box := UI.vbox(2)
-	box.add_child(UI.heading("%s – %s" % [GameData.FACTIONS[a]["name"], GameData.FACTIONS[b]["name"]], 15))
-	box.add_child(UI.label("Stance: %s" % FactionAI.stance_name(FactionAI.pair_stance(a, b))))
-	box.add_child(UI.label("Relation %+d" % Factions.get_relation(a, b)))
+	var title := UI.hbox(6)
+	for id in [a, b]:
+		var dot := FactionDot.new()
+		dot.colour = MapPalette.faction_colour(id)
+		title.add_child(dot)
+	title.add_child(UI.expand_fill(_wrap("%s – %s" % [GameData.FACTIONS[a]["name"], GameData.FACTIONS[b]["name"]], 15, _ink())))
+	box.add_child(title)
+	box.add_child(_wrap("Stance: %s" % FactionAI.stance_name(FactionAI.pair_stance(a, b)), 12, _muted()))
+	box.add_child(_wrap("Relation %+d" % Factions.get_relation(a, b), 12, _muted()))
 	if FactionAI.at_war(a, b):
-		box.add_child(UI.tinted_label("At war", _brand("register_oxide", Color("#e47a50"))))
+		box.add_child(_wrap("At war", 12, _oxide()))
 	var truce := FactionAI.find_truce(a, b)
 	if not truce.is_empty():
-		box.add_child(UI.tinted_label("Truce until %s" % Calendar.format_day(int(truce["endDay"])), _brand("register_oxide", Color("#e47a50"))))
-	return box
+		box.add_child(_wrap("Truce until %s" % Calendar.format_day(int(truce["endDay"])), 12, _oxide()))
+	return strip
 
 
 func _set_tally(tally: String) -> void:

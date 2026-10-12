@@ -240,7 +240,12 @@ func run() -> void:
 		assert_true(texts.has("%s – %s" % [GameData.FACTIONS["firm"]["name"], GameData.FACTIONS["guild"]["name"]]), "full names")
 		assert_true(texts.has("Relation -35"), "signed raw relation")
 		assert_true(texts.has("At war"), "war detail")
+		cells = phone.find_children("", "Button", true, false).filter(func(b): return b.has_meta(FactionsApp.POLITICS_META))
+		var firm_guild := cells.filter(func(b): return b.get_meta(FactionsApp.POLITICS_META) == FactionAI.pair_key("firm", "guild"))[0] as Button
+		assert_true(not firm_guild.disabled, "selected cell stays enabled")
+		assert_eq(firm_guild.get_theme_stylebox("normal").border_color, FactionsApp._oxide(), "selected cell has oxide outline")
 		phone._refresh()
+		assert_eq(app.selected_pair, FactionAI.pair_key("firm", "guild"), "selection survives refresh")
 		cells = phone.find_children("", "Button", true, false).filter(func(b): return b.has_meta(FactionsApp.POLITICS_META))
 		cells.filter(func(b): return b.get_meta(FactionsApp.POLITICS_META) == FactionAI.pair_key("collective", "firm"))[0].pressed.emit()
 		texts = NodeQuery.label_texts(phone)
