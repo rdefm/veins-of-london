@@ -6,8 +6,9 @@
 # ask and trouble asks R§3.10 "Partners", Negotiate while at war, Gift R§3.10
 # "Gifts", Guild Marketplace and Join), then description, identity, the Market
 # footprint grid, and collapsible Intel and Activity (newest first). The
-# directory page also keeps London's
-# share overview and stance matrix. Holdings, vein security and the stockpile
+# directory page also keeps London's share overview and a London politics
+# route: a 5x5 upper-triangle faction-pair stance grid with a selected-pair
+# detail. Holdings, vein security and the stockpile
 # show only past your intel level on that faction (R§3.1 "Intel"). The tally
 # toggle and the selected dossier are view state.
 class_name FactionsApp
@@ -27,6 +28,8 @@ const METER_RANGE := 100
 
 var _tally := "ore"
 var selected_faction := ""
+var politics_open := false
+var selected_pair := ""
 var _intel_open := false
 var _activity_open := false
 
@@ -34,7 +37,9 @@ var _activity_open := false
 func build(content: VBoxContainer) -> void:
 	if selected_faction != "" and not GameData.FACTIONS.has(selected_faction):
 		selected_faction = ""
-	if selected_faction == "":
+	if selected_faction == "" and politics_open:
+		_build_politics_page(content)
+	elif selected_faction == "":
 		_build_directory(content)
 	else:
 		_build_dossier(content, selected_faction)
@@ -46,8 +51,14 @@ func _build_directory(content: VBoxContainer) -> void:
 	content.add_child(UI.muted_label("Your standing"))
 	for faction_id in GameData.FACTIONS.keys():
 		content.add_child(_build_row(faction_id))
+	content.add_child(UI.button("London politics ›", func(): _open_politics(true)))
 	content.add_child(_build_overview())
-	content.add_child(_build_politics())
+
+
+func _open_politics(open: bool) -> void:
+	politics_open = open
+	selected_pair = ""
+	refresh()
 
 
 func _build_dossier(content: VBoxContainer, faction_id: String) -> void:
@@ -198,20 +209,93 @@ func _build_overview() -> Control:
 	return c["panel"]
 
 
-# London's stance matrix, read-only: one row per pair (you with each
-# faction, then faction pairs) with its stance and any war or truce.
-func _build_politics() -> Control:
+const POLITICS_META := "politics_pair"
+const STANCE_GLYPHS := {
+	FactionAI.PARTNER: "P",
+	FactionAI.BUSINESS_RIVAL: "R",
+	FactionAI.HOSTILE: "H",
+	FactionAI.NEUTRAL: "·",
+}
+
+
+# London politics page: faction-pair stance grid (upper triangle, player pairs
+# excluded), legend, and the selected pair's detail. View state only.
+func _build_politics_page(content: VBoxContainer) -> void:
+	content.add_child(UI.button("‹ The Register", func(): _open_politics(false)))
+	content.add_child(_masthead())
 	var c := UI.card()
-	c["content"].add_child(UI.heading("London's politics", 15))
-	for row in FactionAI.stance_matrix():
-		var parts: Array[String] = [FactionAI.stance_name(row["stance"])]
-		if row["war"]:
-			parts.append("at war")
-		if int(row["truceEndDay"]) >= 0:
-			parts.append("truce until %s" % Calendar.format_day(int(row["truceEndDay"])))
-		c["content"].add_child(UI.muted_label("%s – %s" % [_producer_name(row["a"]), _producer_name(row["b"])]))
-		c["content"].add_child(UI.label(" · ".join(parts)))
-	return c["panel"]
+	var box: VBoxContainer = c["content"]
+	box.add_child(UI.heading("London politics", 15))
+	box.add_child(_politics_grid())
+	box.add_child(UI.muted_label(_politics_legend()))
+	box.add_child(_pair_detail())
+	content.add_child(c["panel"])
+
+
+static func _abbrev(faction_id: String) -> String:
+	return str(GameData.FACTIONS[faction_id]["shortName"]).trim_prefix("The ").substr(0, 3).to_upper()
+
+
+static func _politics_legend() -> String:
+	var parts: Array[String] = []
+	for stance in STANCE_GLYPHS:
+		parts.append("%s %s" % [STANCE_GLYPHS[stance], FactionAI.stance_name(stance)])
+	return " · ".join(parts)
+
+
+func _politics_grid() -> Control:
+	var ids: Array = GameData.FACTIONS.keys()
+	var grid := GridContainer.new()
+	grid.columns = ids.size() + 1
+	grid.add_theme_constant_override("h_separation", 4)
+	grid.add_theme_constant_override("v_separation", 4)
+	grid.add_child(Control.new())
+	for faction_id in ids:
+		var head := UI.muted_label(_abbrev(faction_id))
+		head.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		grid.add_child(head)
+	for i in ids.size():
+		grid.add_child(UI.muted_label(_abbrev(ids[i])))
+		for j in ids.size():
+			if j <= i:
+				grid.add_child(Control.new())
+				continue
+			grid.add_child(_politics_cell(ids[i], ids[j]))
+	return grid
+
+
+func _politics_cell(faction_a: String, faction_b: String) -> Control:
+	var key := FactionAI.pair_key(faction_a, faction_b)
+	var button := UI.button(STANCE_GLYPHS.get(FactionAI.pair_stance(faction_a, faction_b), "·"), func(): _select_pair(key))
+	button.set_meta(POLITICS_META, key)
+	button.custom_minimum_size = Vector2(44, 44)
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.disabled = key == selected_pair
+	return button
+
+
+func _select_pair(key: String) -> void:
+	selected_pair = key
+	refresh()
+
+
+# Both full names, stored stance, signed raw pair relation, war and truce.
+func _pair_detail() -> Control:
+	if selected_pair == "":
+		return UI.muted_label("Tap a cell for the pair.")
+	var ids := selected_pair.split(":")
+	var a: String = ids[0]
+	var b: String = ids[1]
+	var box := UI.vbox(2)
+	box.add_child(UI.heading("%s – %s" % [GameData.FACTIONS[a]["name"], GameData.FACTIONS[b]["name"]], 15))
+	box.add_child(UI.label("Stance: %s" % FactionAI.stance_name(FactionAI.pair_stance(a, b))))
+	box.add_child(UI.label("Relation %+d" % Factions.get_relation(a, b)))
+	if FactionAI.at_war(a, b):
+		box.add_child(UI.tinted_label("At war", _brand("register_oxide", Color("#e47a50"))))
+	var truce := FactionAI.find_truce(a, b)
+	if not truce.is_empty():
+		box.add_child(UI.tinted_label("Truce until %s" % Calendar.format_day(int(truce["endDay"])), _brand("register_oxide", Color("#e47a50"))))
+	return box
 
 
 func _set_tally(tally: String) -> void:
