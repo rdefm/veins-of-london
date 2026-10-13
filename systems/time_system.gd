@@ -127,6 +127,7 @@ static func daily_tick() -> void:
 	Raiding.apply_raid_resolution()      # ⑤d before ⑤g so its kit burns come out of today's consume
 	MorningAccountsSystem.capture_losses(morning_context, "Raid")
 	Collective.maybe_queue_a2_nadia_defend_raid()  # ⑤d2 after ⑤d expires yesterday's window, so it re-queues daily
+	Turf.recompute()                     # ⑤d3 after ⑤b-⑤d so claims, rivalry and raids have moved today's veins; before ⑤e and ⑥.5f so both read it
 	FactionSim.tend_and_prune()          # ⑤e after ⑤b-⑤d so today's claims and ownership changes are tended
 	FactionSim.craft()                   # ⑤f after ⑤e so today's prune ore can be crafted
 	FactionSim.consume()                 # ⑤g after ⑤c/⑤d so today's kit burns are drawn; after ⑤f so today's crafts can cover them

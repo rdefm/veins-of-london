@@ -248,6 +248,9 @@ var FACTION_PRESSURE: Dictionary = {}
 # R§3.1 "Escalation".
 var FACTION_ESCALATION: Dictionary = {}
 
+# Turf control margin, foothold share and flip headlines, R§3.1 "Turf".
+var TURF: Dictionary = {}
+
 # Weakness threshold and last-resort production bonus, R§1.8 "Weakening floor".
 var FACTION_FLOOR: Dictionary = {}
 
@@ -461,6 +464,7 @@ const MANIFEST: Array[Dictionary] = [
 		{"field": "FACTION_STANCES", "key": "factionStances", "type": TYPE_DICTIONARY},
 		{"field": "FACTION_PRESSURE", "key": "factionPressure", "type": TYPE_DICTIONARY},
 		{"field": "FACTION_ESCALATION", "key": "factionEscalation", "type": TYPE_DICTIONARY},
+		{"field": "TURF", "key": "turf", "type": TYPE_DICTIONARY},
 		{"field": "FACTION_FLOOR", "key": "factionFloor", "type": TYPE_DICTIONARY},
 		{"field": "FACTION_WAR", "key": "factionWar", "type": TYPE_DICTIONARY},
 		{"field": "FACTION_CONCLAVE", "key": "factionConclave", "type": TYPE_DICTIONARY},

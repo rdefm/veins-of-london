@@ -140,6 +140,15 @@
   },
   "craftCostPerSkill": 0.8,
   "factionFloor": { "weakMaxVeins": 1, "weakCashBelow": 1000, "pruneYieldMult": 1.5, "craftChanceBonus": 0.15 },
+  "turf": {
+    "controlMargin": 2,
+    "footholdShare": 0.25,
+    "headlines": {
+      "flip": "%s now runs %s.",
+      "flipPlayer": "Someone new runs %s. You.",
+      "contested": "%s is up for grabs."
+    }
+  },
   "factionEscalation": {
     "warningAboveRaid": 18,
     "marketAboveRaid": 12,

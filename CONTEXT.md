@@ -53,6 +53,18 @@ How hard a faction is leaning on another actor (the player or another faction). 
 **Escalation**:
 How a faction acts on its pressure: through its archetype's menu of moves, gated by relation band. Warning first once relation is clearly negative, then market moves as it sinks further, then the raid rung once it is Hostile or below its raid threshold. It always warns before its first move in a new band, picks the affordable move that hurts most, and makes at most one move per target per cooldown. Raids it decides resolve at the next rollover.
 
+**Turf**:
+A district's live political state, recomputed each daily tick from who holds the most veins there (the five factions and the player). Stored as `state.turf`.
+
+**Control**:
+Turf tier of the top contender in a district when it leads second place by at least `controlMargin` (2) veins. The controller is a faction or the player.
+
+**Foothold**:
+Turf tier of a non-controller holding at least `footholdShare` of a district's claimed veins. Effects at reduced strength.
+
+**Contested**:
+A district with claimed veins but no controller (top two within the margin).
+
 **War**:
 Two parties (two factions, or the player and a faction) are at war while their stance is Hostile and a hostile act (raid, flood, stockpile raid, shortfall steal) passed between them within the last week. It ends after a quiet week, when the stance leaves Hostile, or on a truce. Civil business rivalry, however bitter, is not war. A faction-pair war is a Ticker headline.
 

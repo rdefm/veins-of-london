@@ -525,6 +525,8 @@ func backfill_defaults(save: Dictionary) -> Dictionary:
 	_backfill_vein_guard_kits(result)
 	_backfill_expense_kinds(result)
 	FactionAI.migrate_save(result, had_stances)
+	if not save.has("turf"):
+		result["turf"] = Turf.compute(result)
 	return result
 
 

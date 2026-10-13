@@ -72,6 +72,17 @@ static func queue_join_line(district_id: String, vein_id: String, owner: String)
 	})
 
 
+# A district's controller changing (Turf.recompute). from/to are a faction id,
+# "player", or "" for no controller. District-level: has no stop to animate.
+static func queue_turf_flip(district_id: String, from_id: String, to_id: String) -> void:
+	GameState.state["mapEvents"]["queue"].append({
+		"type": "turf_flip",
+		"district": district_id,
+		"from": from_id,
+		"to": to_id,
+	})
+
+
 # The two playback speeds MapCanvas's drain loop supports (MapCanvas._play_batch()):
 # "sequential" plays one event at a time, "simultaneous" plays them all at
 # once. Kept here, not on MapCanvas, so the choice survives save/load.

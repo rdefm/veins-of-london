@@ -304,6 +304,8 @@ func _start_event_visual(event: Dictionary, stop: Dictionary) -> Variant:
 
 
 func _resolve_event_stop(event: Dictionary) -> Variant:
+	if event["type"] == "turf_flip":
+		return null  # district-level event: no stop to animate until the zone-fill ticket
 	var target_id: String = event["siteId"] if event["type"] == "discover" else event["veinId"]
 	for stop in MapLayout.assign_slots(event["district"]):
 		if stop["id"] == target_id:

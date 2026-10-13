@@ -67,6 +67,7 @@ Data file per system: see `data/*.json` below.
 | jobs.gd | James's jobs, trust bands |
 | key_members.gd | Faction key members (R§3.10): member/faction lookup, `speaker_for`, `send` (unlocks + intro on first message, or waits for a quest-gated member's questline) |
 | lab_bench_nav.gd | Lab bench nav: selected ore; gear confirm variant (probe/craft/inert) + readiness |
+| turf.gd | Turf (R§3.1 "Turf"): per-district contender vein counts/shares, controller (top >= second + controlMargin), foothold tier, contested; `recompute()` rewrites `state.turf` once per daily tick (⑤d3), queuing flip headline + `turf_flip` map event. |
 | map_events.gd | Map event queue + playback |
 | market.gd | London market (R§3.13): per-good stock/price/history, quotes, price lots (ore per 10: line_total, affordable_qty), supply/demand + faction move recording (`MOVE_SIDES`), civilian demand + Independents slice, daily reprice (⑥.6), bounded annotations, 7-day sales history, contract-delivery log, Stock Market reads (series, ore demand drivers, demand modifiers) |
 | map_hit_test.gd | Tap-hit geometry, Network diagram |

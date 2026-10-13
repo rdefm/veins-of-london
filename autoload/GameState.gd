@@ -37,6 +37,8 @@ func new_game_state() -> Dictionary:
 		"veinListNav": { "districtId": null, "bandFilter": null, "originScreen": "map" },
 		# pacingMode lives here (not MapCanvas-local) so the player's chosen
 		# event-playback pace survives close/reopen and save/load.
+		# Daily-recomputed district control (R§3.1 "Turf"); Turf is the only writer.
+		"turf": Turf.seed_state(),
 		"mapEvents": { "queue": [], "playing": false, "pacingMode": MapEvents.DEFAULT_PACING_MODE },
 		# selectedContactId drills into one conversation, set only via
 		# PhoneNav.select_conversation() (always a real id), same way
