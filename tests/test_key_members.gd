@@ -16,7 +16,7 @@ func run() -> void:
 				assert_eq(m["giftPrefs"].size(), 2, "%s has two gift prefs" % m["id"])
 				for item in m["giftPrefs"]:
 					assert_true(GameData.RECIPES.has(item), "%s gift pref %s is a real item" % [m["id"], item])
-			assert_eq(GameData.FACTIONS[faction_id]["sampleFavours"].size(), 2, "%s has two sample favours" % faction_id)
+			assert_true(GameData.FACTIONS[faction_id]["sampleFavours"].size() >= 2, "%s has sample favours" % faction_id)
 	)
 
 	run_case("speaker_for_resolves_each_faction_to_its_voice", func():

@@ -376,6 +376,37 @@ func run() -> void:
 		assert_true(not Diplomacy.gift_item("fairweather", "shield")["ok"], "none left")
 	)
 
+	run_case("an_event_favour_queues_its_event_and_the_ops_settle_the_ledger_with_all_three_deltas", func():
+		GameState.reset()
+		var result := _accept("conclave", "conclave_sealed_errand")
+		assert_true(result["ok"])
+		assert_eq(result["favour"]["eventId"], "fav_conclave_sealed_errand")
+		assert_eq(GameState.state["event"]["eventId"], "fav_conclave_sealed_errand", "accepting starts the event")
+		assert_eq(GameState.state["event"]["context"]["favour_id"], "conclave_sealed_errand")
+		var before := _relation("conclave")
+		var firm_before := _relation("firm")
+		var member_before := int(GameState.state["contacts"]["fairweather"]["relation"])
+		Events.apply_effects([{ "op": "favour_kept", "relation": 8, "rival": "firm", "rivalRelation": -5, "memberRelation": 3 }])
+		assert_true(Diplomacy.accepted_for("conclave").is_empty(), "ledger entry closed")
+		assert_eq(_relation("conclave"), before + 8)
+		assert_eq(_relation("firm"), firm_before - 5)
+		assert_eq(int(GameState.state["contacts"]["fairweather"]["relation"]), member_before + 3)
+	)
+
+	run_case("a_failed_event_favour_defaults_to_the_fail_loss_and_a_lapsed_one_fails", func():
+		GameState.reset()
+		_accept("conclave", "conclave_sealed_errand")
+		var before := _relation("conclave")
+		Events.apply_effects([{ "op": "favour_failed" }])
+		assert_eq(_relation("conclave"), before - int(_cfg()["failRelationLoss"]))
+		Events.apply_effects([{ "op": "favour_kept", "relation": 8 }])
+		assert_eq(_relation("conclave"), before - int(_cfg()["failRelationLoss"]), "no entry: no-op")
+		GameState.state["event"] = null
+		var result := _accept("conclave", "conclave_sealed_errand")
+		_tick_on(int(result["favour"]["dueDay"]))
+		assert_true(Diplomacy.accepted_for("conclave").is_empty(), "abandoned errand lapses as failed")
+	)
+
 	run_case("a_quest_locked_member_takes_no_gifts", func():
 		GameState.reset()
 		GameState.state["player"]["cash"] = 1000

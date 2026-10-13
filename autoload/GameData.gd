@@ -1664,6 +1664,8 @@ const VALID_EFFECT_OPS: Array[String] = [
 	"queue_pending_message", "faction_relation",
 	# harassment_add / harassment_clear: Harassment.add_from_event / clear_from_event.
 	"harassment_add", "harassment_clear",
+	# favour_kept / favour_failed: Diplomacy.settle_from_event (the favour event's outcome).
+	"favour_kept", "favour_failed",
 	# fine takes cash (Harassment.fine); spend_block burns time blocks (a hearing).
 	"fine", "spend_block", "raise_intel",
 	"log_method",

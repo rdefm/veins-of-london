@@ -300,7 +300,8 @@
     ],
     "sampleFavours": [
       {"id": "conclave_hold_ground", "kind": "guardVein", "params": {"days": 3}, "text": "\"We'd be grateful if your veins stayed exactly where they are for the next three days. Grateful is the word we'd use.\""},
-      {"id": "conclave_fate_supply", "kind": "deliver", "params": {"kind": "ore", "type": "fate", "qty": 10, "days": 5}, "text": "\"Ten fate, within five days. The address will be somewhere you've walked past.\""}
+      {"id": "conclave_fate_supply", "kind": "deliver", "params": {"kind": "ore", "type": "fate", "qty": 10, "days": 5}, "text": "\"Ten fate, within five days. The address will be somewhere you've walked past.\""},
+      {"id": "conclave_sealed_errand", "kind": "event", "eventId": "fav_conclave_sealed_errand", "params": {"days": 2, "describe": "Carry the Conclave's envelope"}, "text": "\"There's an envelope. It needs to reach someone who won't want it. Could you.\""}
     ],
     "startingHoldings": {
       "ore": {

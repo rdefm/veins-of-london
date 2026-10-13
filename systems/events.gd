@@ -880,6 +880,12 @@ static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 		# Faction-facing twin of the "relation" op above (which is contact-only).
 		"faction_relation":
 			Factions.adjust_player_relation(effect["faction"], effect["value"])
+		# Settle the accepted favour the running event was opened for (Diplomacy.
+		# settle_from_event); relation / rival + rivalRelation / memberRelation are the deltas.
+		"favour_kept", "favour_failed":
+			var favour_event: Variant = GameState.state.get("event")
+			if favour_event != null:
+				Diplomacy.settle_from_event(effect["op"] == "favour_kept", effect, favour_event.get("context", {}))
 		"harassment_add":
 			Harassment.add_from_event(effect)
 		"harassment_clear":

@@ -4107,6 +4107,81 @@ With attention drawn away, anyone carrying valuables may be of interest to the c
 "screen": "map"
 }]
 },
+"fav_conclave_sealed_errand": {
+"cards": [{
+"label": null,
+"speaker": null,
+"text": "The envelope is heavy for paper and cream-coloured. The address is a Firm-owned betting shop in Soho. Nobody there will be pleased to see it.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Fairweather",
+"text": "\"Hand it over the counter. Say nothing. If they open it in front of you, that's their business.\"",
+"type": "speaker"
+}, {
+"choices": [{
+"check": {
+"base": 0.6,
+"min": 0.15,
+"mods": [{
+"add": 0.1,
+"cash": {
+"atLeast": 500
+},
+"label": "A tip for the cashier"
+}],
+"show": "odds"
+},
+"fail": {
+"effects": [{
+"op": "favour_failed",
+"relation": -3,
+"rival": "firm",
+"rivalRelation": -2
+}],
+"goto": 3,
+"result_text": "A man by the fruit machine recognises the envelope, then you. The envelope arrives. You leave faster than it did."
+},
+"id": "walkIn",
+"label": "Walk in and hand it over",
+"success": {
+"effects": [{
+"memberRelation": 3,
+"op": "favour_kept",
+"relation": 8
+}],
+"goto": 3,
+"result_text": "The cashier takes it without looking up. You are three streets away before anyone looks at you."
+}
+}, {
+"effects": [{
+"memberRelation": -4,
+"op": "favour_failed",
+"relation": -8,
+"rival": "firm",
+"rivalRelation": 5
+}],
+"goto": 3,
+"id": "sellItOut",
+"label": "Take it to the Firm's man, unopened, and ask what it's worth",
+"result_text": "Lusk's man holds it up to the light and smiles. \"Tell them we said thank you.\" The Conclave will hear about this by lunch."
+}],
+"label": null,
+"speaker": null,
+"text": "The counter is a long way from the door.",
+"type": "choice"
+}, {
+"label": null,
+"speaker": null,
+"text": "Soho carries on, as it does.",
+"type": "resolution"
+}],
+"id": "fav_conclave_sealed_errand",
+"on_complete": [{
+"op": "set_screen",
+"screen": "phone"
+}]
+},
 "foxes": {
 "cards": [{
 "label": null,
@@ -6092,6 +6167,15 @@ With attention drawn away, anyone carrying valuables may be of interest to the c
 "type": "fate"
 },
 "text": "\"Ten fate, within five days. The address will be somewhere you've walked past.\""
+}, {
+"eventId": "fav_conclave_sealed_errand",
+"id": "conclave_sealed_errand",
+"kind": "event",
+"params": {
+"days": 2,
+"describe": "Carry the Conclave's envelope"
+},
+"text": "\"There's an envelope. It needs to reach someone who won't want it. Could you.\""
 }],
 "secondaryOre": "time",
 "securityBias": 3,

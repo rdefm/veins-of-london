@@ -5,7 +5,9 @@ extends RefCounted
 # through their key member (data/factions.json sampleFavours, tuning in
 # constants.json factionFavours). A deliver or sellBelow favour, once
 # accepted, is a one-off Sales contract with the faction (Offers.
-# sign_favour_contract); a guardVein or sitOut favour is watched here.
+# sign_favour_contract); a guardVein or sitOut favour is watched here; an
+# `event` favour is settled by its authored event (favour.eventId) through the
+# favour_kept / favour_failed event ops (settle_from_event).
 # Gifts (R§3.10 "Gifts"): cash or a consumable to a key member raises their
 # and their faction's relation. Static funcs only.
 
@@ -14,6 +16,7 @@ const DELIVER := "deliver"
 const GUARD_VEIN := "guardVein"
 const SIT_OUT := "sitOut"
 const SELL_BELOW := "sellBelow"
+const EVENT := "event"
 
 
 static func _cfg() -> Dictionary:
@@ -156,6 +159,10 @@ static func accept(pending_id: String) -> Dictionary:
 			if not signed.get("ok", false):
 				return signed
 			record["contractId"] = signed["contract"]["id"]
+		EVENT:
+			if not GameData.EVENTS.has(favour.get("eventId", "")):
+				return { "ok": false, "reason": "Request not found." }
+			record["eventId"] = favour["eventId"]
 		GUARD_VEIN:
 			var vein_ids: Array = []
 			for vein in GameState.state["player"]["veins"]:
@@ -166,6 +173,8 @@ static func accept(pending_id: String) -> Dictionary:
 		_clear_owed(faction_id)
 	accepted().append(record)
 	EventBus.state_changed.emit()
+	if favour["kind"] == EVENT:
+		Events.start_or_defer(favour["eventId"], { "faction_id": faction_id, "favour_id": favour["id"] })
 	return { "ok": true, "favour": record }
 
 
@@ -289,7 +298,9 @@ static func note_player_hostile(target: String) -> void:
 static func _settle_watched() -> void:
 	var day: int = GameState.state["world"]["day"]
 	for entry in accepted().duplicate():
-		if entry["kind"] == GUARD_VEIN and not _still_held(entry["veinIds"]):
+		if entry["kind"] == EVENT and day >= int(entry["dueDay"]):
+			_close(entry, false)
+		elif entry["kind"] == GUARD_VEIN and not _still_held(entry["veinIds"]):
 			_close(entry, false)
 		elif (entry["kind"] == GUARD_VEIN or entry["kind"] == SIT_OUT) and day >= int(entry["dueDay"]):
 			_close(entry, true)
@@ -307,17 +318,33 @@ static func _still_held(vein_ids: Array) -> bool:
 
 # Kept: +relationGain, and +favour intel on each faction the asker is
 # Hostile or at war with. Failed: −failRelationLoss. The key member says so.
-static func _close(entry: Dictionary, kept: bool) -> void:
+# `deltas` (an event's favour_kept / favour_failed params) override the
+# faction swing and add rival-faction and asking-member relation swings.
+static func _close(entry: Dictionary, kept: bool, deltas: Dictionary = {}) -> void:
 	accepted().erase(entry)
 	var faction_id: String = entry["factionId"]
+	var default_delta := int(_cfg()["relationGain"]) if kept else -int(_cfg()["failRelationLoss"])
+	Factions.adjust_player_relation(faction_id, int(deltas.get("relation", default_delta)))
 	if kept:
-		Factions.adjust_player_relation(faction_id, int(_cfg()["relationGain"]))
 		for enemy in enemies_of(faction_id):
 			Intel.gain(Shares.PLAYER, enemy, Intel.SOURCE_FAVOUR)
-	else:
-		Factions.adjust_player_relation(faction_id, -int(_cfg()["failRelationLoss"]))
+	var rival := String(deltas.get("rival", ""))
+	if GameData.FACTIONS.has(rival) and rival != faction_id and deltas.has("rivalRelation"):
+		Factions.adjust_player_relation(rival, int(deltas["rivalRelation"]))
+	if deltas.has("memberRelation"):
+		Contacts.award_relation(KeyMembers.speaker_for(faction_id), int(deltas["memberRelation"]))
 	KeyMembers.send(faction_id, _cfg()["lines"][faction_id]["done" if kept else "failed"])
 	EventBus.state_changed.emit()
+
+
+# favour_kept / favour_failed event ops: settles the accepted favour named by
+# the running event's context ({faction_id, favour_id}). Silent no-op when the
+# ledger holds no such entry.
+static func settle_from_event(kept: bool, deltas: Dictionary, context: Dictionary) -> void:
+	for entry in accepted().duplicate():
+		if entry["factionId"] == context.get("faction_id", "") and entry["favourId"] == context.get("favour_id", ""):
+			_close(entry, kept, deltas)
+			return
 
 
 static func enemies_of(faction_id: String) -> Array[String]:
@@ -339,6 +366,8 @@ static func describe(entry: Dictionary) -> String:
 			return "Hold every vein until %s" % due
 		SIT_OUT:
 			return "Leave %s alone until %s" % [GameData.FACTIONS[params["target"]]["shortName"], due]
+		EVENT:
+			return "%s by %s" % [params.get("describe", "See it through"), due]
 	return ""
 
 
