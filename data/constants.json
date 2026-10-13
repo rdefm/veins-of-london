@@ -151,6 +151,16 @@
       "expired": "Nobody answered %s. London noticed."
     }
   },
+  "warmonger": {
+    "windowDays": 14,
+    "weights": { "raidClaim": 4, "raidLoot": 2, "stockpileRaid": 5 },
+    "coalitionAt": 6,
+    "coordinateAt": 12,
+    "coalitionThreat": 2.0,
+    "pairDrift": 1,
+    "shareIntelPerDay": 5,
+    "jointRaidOddsBonus": 0.1
+  },
   "craftCostPerSkill": 0.8,
   "factionFloor": { "weakMaxVeins": 1, "weakCashBelow": 1000, "pruneYieldMult": 1.5, "craftChanceBonus": 0.15 },
   "turf": {

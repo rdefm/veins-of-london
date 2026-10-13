@@ -96,6 +96,7 @@ static func claim_vein(site_id: String) -> void:
 
 	Factions.adjust_player_relation(faction_id, CLAIM_RELATION_HIT)
 	Grudges.answer(faction_id)
+	Warmonger.record(Warmonger.ACT_RAID_CLAIM)
 	MapEvents.queue_seed_claim(district, vein_id, "player")
 	EventBus.state_changed.emit()
 
@@ -115,6 +116,7 @@ static func loot_vein(site_id: String, caught: bool) -> void:
 	Intel.gain(Shares.PLAYER, vein["factionId"], Intel.SOURCE_RAID)
 
 	Grudges.answer(vein["factionId"])
+	Warmonger.record(Warmonger.ACT_RAID_LOOT)
 	if caught:
 		Factions.adjust_player_relation(vein["factionId"], LOOT_RELATION_HIT)
 		FactionAI.note_hostile_act(Shares.PLAYER, vein["factionId"])
@@ -343,6 +345,7 @@ static func _stockpile_raid_consequences(faction_id: String, value_lost: float) 
 	FactionAI.note_loss(faction_id, Shares.PLAYER, value_lost)
 	Factions.adjust_player_relation(faction_id, int(_stockpile_cfg()["relationHit"]))
 	Grudges.answer(faction_id)
+	Warmonger.record(Warmonger.ACT_STOCKPILE_RAID)
 	Intel.relocate_stockpile(faction_id)
 
 
@@ -459,7 +462,12 @@ static func _faction_may_conquer(faction_id: String) -> bool:
 # its site, or is quest-locked is dropped.
 static func queued_raid_attempts() -> Array:
 	var attempts := []
-	for entry in FactionAI.take_queued_raids(true):
+	var queued := FactionAI.take_queued_raids(true)
+	var attackers := {}
+	for entry in queued:
+		attackers[entry["attackerId"]] = true
+	var joint := Warmonger.joint_raid_bonus(attackers.size())
+	for entry in queued:
 		var vein: Variant = Cultivating.find_vein(entry["veinId"])
 		if vein == null or vein.get("siteId") == null or Sites.find_site(vein["siteId"]) == null or Collective.is_quest_locked_vein(vein["id"]):
 			continue
@@ -468,6 +476,7 @@ static func queued_raid_attempts() -> Array:
 			"veinId": vein["id"],
 			"siteId": vein["siteId"],
 			"move": entry.get("move", FactionAI.MOVE_VEIN_RAID),
+			"jointBonus": joint,
 		})
 	return attempts
 
@@ -525,7 +534,7 @@ static func roll_raid_odds(attempt: Dictionary) -> Dictionary:
 	if vein == null:
 		outcome["success"] = false
 		return outcome
-	outcome["success"] = Rng.chance(raid_success_chance(attempt["attackerId"], vein))
+	outcome["success"] = Rng.chance(clampf(raid_success_chance(attempt["attackerId"], vein) + float(attempt.get("jointBonus", 0.0)), 0.0, 1.0))
 	if outcome["success"]:
 		var may_conquer: bool = _faction_may_conquer(attempt["attackerId"]) and attempt.get("move", FactionAI.MOVE_VEIN_RAID) != FactionAI.MOVE_SHORTFALL_STEAL
 		outcome["outcomeType"] = "claim" if (may_conquer and Rng.chance(claim_chance(vein))) else "loot"

@@ -254,6 +254,7 @@ var FACTION_PRESSURE: Dictionary = {}
 
 # Grudge window, answer reward, revenge bonus and "looks soft" pressure, R§3.1c "Grudges".
 var FACTION_GRUDGE: Dictionary = {}
+var WARMONGER: Dictionary = {}
 
 # Escalation bands, menus per archetype, move costs, cooldown and prose,
 # R§3.1 "Escalation".
@@ -484,6 +485,7 @@ const MANIFEST: Array[Dictionary] = [
 		{"field": "FACTION_STANCES", "key": "factionStances", "type": TYPE_DICTIONARY},
 		{"field": "FACTION_PRESSURE", "key": "factionPressure", "type": TYPE_DICTIONARY},
 		{"field": "FACTION_GRUDGE", "key": "factionGrudge", "type": TYPE_DICTIONARY},
+		{"field": "WARMONGER", "key": "warmonger", "type": TYPE_DICTIONARY},
 		{"field": "FACTION_ESCALATION", "key": "factionEscalation", "type": TYPE_DICTIONARY},
 		{"field": "TURF", "key": "turf", "type": TYPE_DICTIONARY},
 		{"field": "FACTION_FLOOR", "key": "factionFloor", "type": TYPE_DICTIONARY},

@@ -71,6 +71,9 @@ The escalation rung between warning and market moves. A hostile faction queues a
 **Grudge**:
 A score to settle a faction holds after a successful raid on the player's vein. Answered by a player raid on that faction or a security upgrade in the grudge district within the window; unanswered, it expires into a decaying "looks soft" pressure on every faction's Threat toward the player.
 
+**Warmonger**:
+A rolling score of the player's violent hostile acts (raids, stockpile raids) over a window. Non-violent moves never count. High, other factions close ranks against the player; higher, they coordinate (shared intel, joint raids).
+
 **War**:
 Two parties (two factions, or the player and a faction) are at war while their stance is Hostile and a hostile act (raid, flood, stockpile raid, shortfall steal) passed between them within the last week. It ends after a quiet week, when the stance leaves Hostile, or on a truce. Civil business rivalry, however bitter, is not war. A faction-pair war is a Ticker headline.
 

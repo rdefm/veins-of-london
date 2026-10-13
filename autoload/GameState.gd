@@ -44,6 +44,8 @@ func new_game_state() -> Dictionary:
 		# Faction grudges and their aftermath (Grudges is the only writer).
 		"grudges": Grudges.new_state(),
 		"grudgeEffects": Grudges.new_effects(),
+		# Rolling violent-act score (Warmonger is the only writer).
+		"warmonger": Warmonger.new_state(),
 		# Timed sell-price penalties from the player's police tips (PlayerMoves is the only writer).
 		"factionPenalties": PlayerMoves.new_state(),
 		# Faction perk bookkeeping: tended = { veinId: last day the player cultivated it }, whipRoundUsed = one-off home bailout spent.

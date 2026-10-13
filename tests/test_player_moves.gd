@@ -57,5 +57,5 @@ func run() -> void:
 	run_case("not a warmonger act", func():
 		_fresh()
 		PlayerMoves.perform(PlayerMoves.MOVE_POLICE, "firm")
-		assert_true(not GameState.state.has("warmonger"), "TODO ticket 20: assert warmonger tally unchanged")
+		assert_eq(Warmonger.score(), 0.0, "warmonger score unchanged")
 	)

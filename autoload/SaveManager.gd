@@ -533,6 +533,8 @@ func backfill_defaults(save: Dictionary) -> Dictionary:
 		result["grudges"] = Grudges.new_state()
 	if not save.has("grudgeEffects"):
 		result["grudgeEffects"] = Grudges.new_effects()
+	if not save.has("warmonger"):
+		result["warmonger"] = Warmonger.new_state()
 	if not save.has("factionPenalties"):
 		result["factionPenalties"] = PlayerMoves.new_state()
 	if not save.has("perks"):
@@ -1181,6 +1183,8 @@ func _restore_int_types(state: Dictionary) -> void:
 	for mark in effects.get("soft", []):
 		_int_key(mark, "sinceDay")
 	_int_dict_values(effects.get("revenge", {}))
+	for act in state.get("warmonger", {}).get("log", []):
+		_int_key(act, "day")
 	_int_dict_values(state.get("perks", {}).get("tended", {}))
 	_int_dict_values(state.get("factionConclave", {}).get("runs", {}))
 	_int_dict_values(state.get("factionConclave", {}).get("stockpile", {}))
