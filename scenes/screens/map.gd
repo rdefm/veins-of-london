@@ -266,6 +266,7 @@ func _build_district_panel(district_id: String) -> void:
 		body.add_child(MapCardStyle.label(" · ".join(indicators), 12, MapCardStyle.dim()))
 
 	body.add_child(_build_district_actions(district_id))
+	_add_turf_section(body, district_id)
 
 	body.add_child(MapCardStyle.label("Sites", 15, MapCardStyle.ink()))
 	var sites := Sites.sites_in_district(district_id)
@@ -274,6 +275,36 @@ func _build_district_panel(district_id: String) -> void:
 	else:
 		for site in sites:
 			body.add_child(_build_site_row(site))
+
+# PROSE-REVIEW: Turf section UI strings.
+func _add_turf_section(body: VBoxContainer, district_id: String) -> void:
+	var turf := TurfPanel.build(district_id)
+	var sections: Dictionary = turf["sections"]
+	if sections["contenders"].is_empty():
+		return
+	var heading := "Turf"
+	if turf["status_label"] != "":
+		heading += " — %s" % turf["status_label"]
+	body.add_child(MapCardStyle.label(heading, 15, MapCardStyle.ink()))
+	for section in TurfPanel.SECTIONS:
+		for row in sections[section]:
+			body.add_child(_dim_label(_turf_row_text(section, row)))
+
+func _turf_row_text(section: String, row: Dictionary) -> String:
+	match section:
+		"contenders":
+			var text := "%s — %d%% (%d)" % [row["name"], row["share_pct"], row["veins"]]
+			if row["tier_label"] != "":
+				text += " · %s" % row["tier_label"]
+			return text
+		"flip":
+			if row["kind"] == "spare":
+				return "Lead to spare: %d vein(s)" % row["veins"]
+			return "Veins to take control: %d" % row["veins"]
+		"modifiers":
+			return "%s %+d%% (%s)" % [row["label"], int(round(float(row["value"]) * 100.0)), row["source_name"]]
+		_:
+			return ""
 
 func _map_card() -> Dictionary:
 	var c := UI.card()

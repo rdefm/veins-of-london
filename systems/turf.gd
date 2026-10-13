@@ -188,6 +188,25 @@ static func raid_odds_adj(district_id: String) -> float:
 	return 0.0
 
 
+# Per-source breakdown of the non-base modifier shifts: [{ key, source, value }], source = faction id or PLAYER.
+static func modifier_sources(district_id: String) -> Array:
+	var result := []
+	var tiers: Dictionary = GameState.state["turf"].get(district_id, {}).get("tiers", {})
+	for contender in tiers:
+		if contender == PLAYER:
+			continue
+		for key in ["dangerAdj", "priceAdj"]:
+			var adj := _band_adj(int(GameState.state["factions"][contender]["relation"]), key)
+			if tiers[contender] == TIER_FOOTHOLD:
+				adj *= float(GameData.TURF["footholdFactor"])
+			if adj != 0.0:
+				result.append({ "key": key, "source": contender, "value": adj })
+	if controller(district_id) == PLAYER:
+		result.append({ "key": "dangerAdj", "source": PLAYER, "value": float(GameData.TURF["playerControl"]["dangerAdj"]) })
+		result.append({ "key": "raidOddsAdj", "source": PLAYER, "value": float(GameData.TURF["playerControl"]["raidOddsAdj"]) })
+	return result
+
+
 static func player_controlled_count() -> int:
 	var n := 0
 	for district_id in GameState.state["turf"]:
