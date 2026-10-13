@@ -140,3 +140,57 @@ static func shares(district_id: String) -> Dictionary:
 static func is_contested(district_id: String) -> bool:
 	var entry: Dictionary = GameState.state["turf"].get(district_id, {})
 	return entry.get("controller", "") == "" and not entry.get("shares", {}).is_empty()
+
+
+# --- Effective district modifiers (R§3.1a "Turf modifiers") ---
+
+# Relation-band adjustment (key: "dangerAdj" | "priceAdj") for a player-toward-faction relation.
+static func _band_adj(relation: int, key: String) -> float:
+	for band in GameData.TURF["relationBands"]:
+		if relation >= int(band["min"]):
+			return float(band[key])
+	return 0.0
+
+
+# Sum over the district's controller (full) and foothold factions (footholdFactor) of the band adjustment.
+static func _relation_adj(district_id: String, key: String) -> float:
+	var total := 0.0
+	var tiers: Dictionary = GameState.state["turf"].get(district_id, {}).get("tiers", {})
+	for contender in tiers:
+		if contender == PLAYER:
+			continue
+		var adj := _band_adj(int(GameState.state["factions"][contender]["relation"]), key)
+		if tiers[contender] == TIER_FOOTHOLD:
+			adj *= float(GameData.TURF["footholdFactor"])
+		total += adj
+	return total
+
+
+# Danger modifier: district base + controller-relation shift + player-control relief.
+static func danger_mod(district_id: String) -> float:
+	var base: float = GameData.DISTRICTS.get(district_id, {}).get("dangerMod", 0.0)
+	var mod := base + _relation_adj(district_id, "dangerAdj")
+	if controller(district_id) == PLAYER:
+		mod += float(GameData.TURF["playerControl"]["dangerAdj"])
+	return mod
+
+
+# Price modifier: district base + controller-relation shift.
+static func price_mod(district_id: String) -> float:
+	var base: float = GameData.DISTRICTS.get(district_id, {}).get("priceMod", 0.0)
+	return base + _relation_adj(district_id, "priceAdj")
+
+
+# Raid-success shift against a player vein in this district (<= 0 under player control).
+static func raid_odds_adj(district_id: String) -> float:
+	if controller(district_id) == PLAYER:
+		return float(GameData.TURF["playerControl"]["raidOddsAdj"])
+	return 0.0
+
+
+static func player_controlled_count() -> int:
+	var n := 0
+	for district_id in GameState.state["turf"]:
+		if controller(district_id) == PLAYER:
+			n += 1
+	return n

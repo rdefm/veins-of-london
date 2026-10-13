@@ -127,6 +127,7 @@
       "secondaryOre": 2,
       "crafting": 2,
       "homeVeins": 2,
+      "playerDistricts": 1,
       "size": 0.5,
       "jealousyHostile": 3,
       "jealousyRival": 1,
@@ -143,6 +144,15 @@
   "turf": {
     "controlMargin": 2,
     "footholdShare": 0.25,
+    "footholdFactor": 0.5,
+    "relationBands": [
+      { "min": 50, "dangerAdj": -0.03, "priceAdj": 0.03 },
+      { "min": 20, "dangerAdj": -0.015, "priceAdj": 0.015 },
+      { "min": -19, "dangerAdj": 0.0, "priceAdj": 0.0 },
+      { "min": -49, "dangerAdj": 0.02, "priceAdj": -0.02 },
+      { "min": -100, "dangerAdj": 0.04, "priceAdj": -0.04 }
+    ],
+    "playerControl": { "dangerAdj": -0.03, "raidOddsAdj": -0.05 },
     "headlines": {
       "flip": "%s now runs %s.",
       "flipPlayer": "Someone new runs %s. You.",

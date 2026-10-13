@@ -329,8 +329,7 @@ func _entries() -> Array:
 	var player: Dictionary = GameState.state["player"]
 	var sell_state: Dictionary = GameState.state["sellState"]
 	var faction_id := _faction_id()
-	var district: Dictionary = GameData.DISTRICTS.get(GameState.state["world"]["currentDistrict"], {})
-	var price_mod: float = district.get("priceMod", 0.0)
+	var price_mod: float = Turf.price_mod(GameState.state["world"]["currentDistrict"])
 	for ore_type in GameData.ORE_TYPES.keys():
 		var ore: Dictionary = GameData.ORE_TYPES[ore_type]
 		var have: int = player["orichalchum"].get(ore_type, 0)

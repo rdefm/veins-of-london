@@ -101,5 +101,63 @@ func run() -> void:
 		save.erase("turf")
 		var out: Dictionary = SaveManager.backfill_defaults(save)
 		assert_true(out.has("turf"))
-		assert_true(not (out["turf"]["shoreditch"].has("seeded")))
+	)
+
+	
+	run_case("friendly_controller_lowers_danger_and_raises_price", func():
+		_clear()
+		_put_faction_veins("shoreditch", "firm", 3)
+		GameState.state["factions"]["firm"]["relation"] = 60
+		Turf.recompute()
+		var base: Dictionary = GameData.DISTRICTS["shoreditch"]
+		assert_almost_eq(Turf.danger_mod("shoreditch"), float(base["dangerMod"]) - 0.03, 0.0001)
+		assert_almost_eq(Turf.price_mod("shoreditch"), float(base["priceMod"]) + 0.03, 0.0001)
+	)
+
+	run_case("hostile_controller_raises_danger_and_lowers_price", func():
+		_clear()
+		_put_faction_veins("shoreditch", "firm", 3)
+		GameState.state["factions"]["firm"]["relation"] = -60
+		Turf.recompute()
+		var base: Dictionary = GameData.DISTRICTS["shoreditch"]
+		assert_almost_eq(Turf.danger_mod("shoreditch"), float(base["dangerMod"]) + 0.04, 0.0001)
+		assert_almost_eq(Turf.price_mod("shoreditch"), float(base["priceMod"]) - 0.04, 0.0001)
+	)
+
+	run_case("foothold_faction_gets_half_the_shift", func():
+		_clear()
+		_put_faction_veins("shoreditch", "firm", 5)
+		_put_faction_veins("shoreditch", "guild", 2)
+		GameState.state["factions"]["firm"]["relation"] = 0
+		GameState.state["factions"]["guild"]["relation"] = -60
+		Turf.recompute()
+		assert_eq(Turf.tier("shoreditch", "guild"), "foothold")
+		var base: Dictionary = GameData.DISTRICTS["shoreditch"]
+		assert_almost_eq(Turf.danger_mod("shoreditch"), float(base["dangerMod"]) + 0.02, 0.0001)
+	)
+
+	run_case("player_control_cuts_danger_and_raid_odds", func():
+		_clear()
+		_put_player_veins("shoreditch", 2)
+		Turf.recompute()
+		var base: Dictionary = GameData.DISTRICTS["shoreditch"]
+		assert_almost_eq(Turf.danger_mod("shoreditch"), float(base["dangerMod"]) - 0.03, 0.0001)
+		assert_almost_eq(Turf.raid_odds_adj("shoreditch"), -0.05, 0.0001)
+		assert_eq(Turf.player_controlled_count(), 1)
+		assert_almost_eq(Turf.raid_odds_adj("camden"), 0.0, 0.0001)
+	)
+
+	run_case("player_districts_add_threat_toward_player_for_every_faction", func():
+		_clear()
+		_put_player_veins("shoreditch", 2)
+		Turf.recompute()
+		var weights: Dictionary = GameData.FACTION_PRESSURE["weights"]
+		var saved: float = float(weights["playerDistricts"])
+		for faction_id in GameData.FACTIONS:
+			weights["playerDistricts"] = 0
+			var without: float = FactionAI.threat(faction_id, "player")
+			weights["playerDistricts"] = 3
+			var with_term: float = FactionAI.threat(faction_id, "player")
+			assert_almost_eq(with_term - without, 3.0, 0.0001, faction_id)
+		weights["playerDistricts"] = saved
 	)

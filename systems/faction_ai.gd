@@ -305,6 +305,8 @@ static func threat(observer: String, target: String) -> float:
 	value += _weight("crafting") * _crafting_share_in_items(observer, target)
 	value += _weight("homeVeins") * home_vein_share(observer, target)
 	value += _weight("size") * size_share(target)
+	if target == Shares.PLAYER:
+		value += _weight("playerDistricts") * Turf.player_controlled_count()
 	value += _jealousy(observer, target)
 	value -= _weight("partnerShield") * _shared_partners(observer, target)
 	return maxf(value, 0.0)

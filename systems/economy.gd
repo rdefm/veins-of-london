@@ -65,9 +65,8 @@ static func execute_sale(items: Array) -> Dictionary:
 		return { "ok": false, "reason": "Nothing to sell." }
 
 	var player: Dictionary = GameState.state["player"]
-	var district: Dictionary = GameData.DISTRICTS.get(GameState.state["world"]["currentDistrict"], {})
-	var price_mod: float = district.get("priceMod", 0.0)
-	var danger_mod: float = district.get("dangerMod", 0.0)
+	var price_mod: float = Turf.price_mod(GameState.state["world"]["currentDistrict"])
+	var danger_mod: float = Turf.danger_mod(GameState.state["world"]["currentDistrict"])
 
 	# pigeon_omen (M1-LONDON D5): a one-shot flag, consumed on the very next
 	# sale attempt regardless of outcome, with a further 50% chance of a
@@ -264,8 +263,7 @@ static func _faction_effective_price(faction_id: String, kind: String, item_type
 	var price := Market.quote(kind, item_type)
 	var config: Dictionary = GameData.FACTION_TRADE[faction_id]
 	if apply_district and config.get("applyDistrictPriceMod", false):
-		var district: Dictionary = GameData.DISTRICTS.get(GameState.state["world"]["currentDistrict"], {})
-		var price_mod: float = district.get("priceMod", 0.0)
+		var price_mod: float = Turf.price_mod(GameState.state["world"]["currentDistrict"])
 		price = GameState.round_epsilon(price * (1.0 + price_mod))
 	return price
 

@@ -8,8 +8,7 @@ extends RefCounted
 
 
 static func price_indicator(district_id: String) -> String:
-	var district: Dictionary = GameData.DISTRICTS[district_id]
-	var mod: float = district.get("priceMod", 0.0)
+	var mod: float = Turf.price_mod(district_id)
 	if mod == 0.0:
 		return ""
 	var pct: int = GameState.round_epsilon(mod * 100.0)
@@ -21,8 +20,7 @@ static func price_indicator(district_id: String) -> String:
 # tiers — D4 gives "Rough" as its one worked example; a finer-grained
 # ladder isn't specced.
 static func danger_indicator(district_id: String) -> String:
-	var district: Dictionary = GameData.DISTRICTS[district_id]
-	var mod: float = district.get("dangerMod", 0.0)
+	var mod: float = Turf.danger_mod(district_id)
 	if mod > 0.0:
 		return "Rough"
 	if mod < 0.0:

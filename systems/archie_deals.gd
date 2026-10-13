@@ -88,8 +88,7 @@ static func roll_deal(cash: int) -> Dictionary:
 	var qty: int = Rng.randi_range(QTY_BASE_MIN * scale, QTY_BASE_MAX * scale)
 	var ore_type: String = Rng.rand_from(GameData.ORE_TYPES.keys())
 
-	var district: Dictionary = GameData.DISTRICTS.get(GameState.state["world"]["currentDistrict"], {})
-	var price_mod: float = district.get("priceMod", 0.0)
+	var price_mod: float = Turf.price_mod(GameState.state["world"]["currentDistrict"])
 	var gross: int = Market.line_total("ore", Economy.get_archie_ore_price(ore_type, price_mod), qty)
 
 	return { "oreType": ore_type, "qty": qty, "gross": gross, "playerCut": int(floor(gross * 0.5)) }
@@ -106,8 +105,7 @@ static func accept_deal(pending_id: String) -> void:
 	var deal := roll_deal(cash)
 	var player_cut: int = deal["playerCut"]
 
-	var district: Dictionary = GameData.DISTRICTS.get(GameState.state["world"]["currentDistrict"], {})
-	var danger_mod: float = district.get("dangerMod", 0.0)
+	var danger_mod: float = Turf.danger_mod(GameState.state["world"]["currentDistrict"])
 
 	Contacts.award_relation("archie", DEAL_RELATION_GAIN)
 

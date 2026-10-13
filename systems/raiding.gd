@@ -470,8 +470,7 @@ static func raid_success_chance(attacker_id: String, vein: Dictionary) -> float:
 	var relation: int = GameState.state["factions"][attacker_id]["relation"]
 	var relation_tilt: float = -(float(relation) / RAID_RELATION_DIVISOR) * RAID_RELATION_WEIGHT
 
-	var district: Dictionary = GameData.DISTRICTS.get(vein["district"], {})
-	var danger_mod: float = district.get("dangerMod", 0.0)
+	var danger_mod: float = Turf.danger_mod(vein["district"])
 	var danger_tilt: float = danger_mod * RAID_DANGER_WEIGHT
 
 	var raid_resist: int = Cultivating.vein_raid_resist(vein)
@@ -481,7 +480,7 @@ static func raid_success_chance(attacker_id: String, vein: Dictionary) -> float:
 
 	var intel_tilt: float = Intel.raid_odds_shift(attacker_id, Shares.PLAYER)
 
-	var chance: float = RAID_BASE_CHANCE + relation_tilt + danger_tilt + resist_tilt + growth_tilt + intel_tilt
+	var chance: float = RAID_BASE_CHANCE + relation_tilt + danger_tilt + resist_tilt + growth_tilt + intel_tilt + Turf.raid_odds_adj(vein["district"])
 	return clampf(chance, 0.0, 1.0)
 
 
