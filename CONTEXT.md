@@ -65,6 +65,9 @@ Turf tier of a non-controller holding at least `footholdShare` of a district's c
 **Contested**:
 A district with claimed veins but no controller (top two within the margin).
 
+**Harassment**:
+The escalation rung between warning and market moves. A hostile faction queues an authored event against one of the player's veins in its turf; what the event leaves behind persists in `state.harassment.active` and worsens while ignored.
+
 **War**:
 Two parties (two factions, or the player and a faction) are at war while their stance is Hostile and a hostile act (raid, flood, stockpile raid, shortfall steal) passed between them within the last week. It ends after a quiet week, when the stance leaves Hostile, or on a truce. Civil business rivalry, however bitter, is not war. A faction-pair war is a Ticker headline.
 

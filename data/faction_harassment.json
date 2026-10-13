@@ -1,0 +1,14 @@
+{
+  "escalation": { "everyDays": 7, "max": 3 },
+  "kindLabels": { "placeholder": "Harassment" },
+  "entries": {
+    "harass_placeholder_firm": {
+      "id": "harass_placeholder_firm",
+      "factionId": "firm",
+      "eventId": "harass_placeholder",
+      "cost": 100,
+      "target": "vein",
+      "requires": {}
+    }
+  }
+}

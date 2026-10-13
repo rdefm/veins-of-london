@@ -47,7 +47,7 @@ Data file per system: see `data/*.json` below.
 | dial.gd | Per-owner Dial mechanic (`dial_of(owner_id)`: player or contact): Movements, charge economy, Complications (single or multi-target variant), casts/XP; `build_granted_dial`/`grant_contact_dial` for contact grants |
 | diplomacy.gd | Diplomacy (R§3.10 "Favours", "Gifts"): faction favour requests as key-member pending messages; accept (goods favours sign a one-off contract via Offers), decline, guard/sit-out watches, keep/fail effects; cash/item gifts to key members (cooldown, diminishing returns, prefs) |
 | partners.gd | Partners (R§3.10 "Partners"): partner trouble asks (sell/contract/buy/send) as pending messages; partner-faction discounted trades; warnings of planned moves; faction raid warned-odds cut; intel leaks |
-| turf_panel.gd | TurfPanel: pure rows for the district panel's Turf section (contender shares/tier, flip margin, modifiers tagged with source faction; empty benefits/harassment slots). |
+| turf_panel.gd | TurfPanel: pure rows for the district panel's Turf section (contender shares/tier, flip margin, modifiers tagged with source faction; active harassment rows per district). |
 | perks.gd | Faction perk queries from `faction_perks.json`: `player_tier`, cumulative `active_global`, `active_turf(district)`, `preview`. Hooks per faction: Collective (watch, tend, whip-round), Firm (racket, muscle, danger), Guild (craft XP/chance, free cultivate, commissions), Network (`daily_intel`, `forewarning_active`, `commission_market_move`), Conclave (`danger_adj`, `recover_vein`, `conclave_nudge`, `sync_lore`). State `perks`. |
 | district_bubble.gd | District tap-bubble decision |
 | district_deck.gd | Weighted district event deck picker |
@@ -69,6 +69,7 @@ Data file per system: see `data/*.json` below.
 | jobs.gd | James's jobs, trust bands |
 | key_members.gd | Faction key members (R§3.10): member/faction lookup, `speaker_for`, `send` (unlocks + intro on first message, or waits for a quest-gated member's questline) |
 | lab_bench_nav.gd | Lab bench nav: selected ore; gear confirm variant (probe/craft/inert) + readiness |
+| harassment.gd | Harassment: `state.harassment` (queued events, persistent `active` effects), per-faction `candidate` for the harass rung (eligible turf veins), `tick` (expiry, escalation by cadence), `harassment_add`/`harassment_clear` op helpers, district panel rows. Data: faction_harassment.json. |
 | turf.gd | Turf (R§3.1 "Turf"): per-district contender vein counts/shares, controller (top >= second + controlMargin), foothold tier, contested; `recompute()` rewrites `state.turf` once per daily tick (⑤d3), queuing flip headline + `turf_flip` map event. `danger_mod`/`price_mod`/`raid_odds_adj`: effective district modifiers (relation bands, foothold half, player control). |
 | map_events.gd | Map event queue + playback |
 | market.gd | London market (R§3.13): per-good stock/price/history, quotes, price lots (ore per 10: line_total, affordable_qty), supply/demand + faction move recording (`MOVE_SIDES`), civilian demand + Independents slice, daily reprice (⑥.6), bounded annotations, 7-day sales history, contract-delivery log, Stock Market reads (series, ore demand drivers, demand modifiers) |
@@ -268,6 +269,7 @@ overlays.
 | enemies.json | combat.gd |
 | faction_trade.json | economy.gd |
 | faction_perks.json | perks.gd |
+| faction_harassment.json | harassment.gd (entries, escalation cadence, kind labels), faction_ai.gd (menu ids) |
 | factions.json | factions.gd, sites.gd, raiding.gd, debug_start.gd, faction_sim.gd (`startingHoldings`, `stockpilePlaces`, `stockpileGuards`, `cultivateSkill`, `fieldwork`, `craftSkill`, `craftTargets`, `raidKits`, `consumes`, `trading`, `industryIncome`), key_members.gd (`keyMembers`, `speaker`), diplomacy.gd (`sampleFavours`, `giftPrefs`), faction_ai.gd (`aggressionPersonality`, `weariness`) |
 | lodedinnit.json | GameData.gd (`LODEDINNIT_*`), lodedinnit_feed.gd: feed cap/likes/author weights, per-candidate post voices (trait variants), shared canned comments, hire-status templates |
 | hiring.json | contacts.gd (`roles` → `room_roles`), payroll.gd (`roles` → `role_skill_keys`): staff role registry; hiring.gd (`candidates`, merged into contact defaults by GameData.gd; `market`, `traits`): LodedInnit roster, flip/poach numbers, trait skip chance / role-XP mult |

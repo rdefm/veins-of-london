@@ -502,10 +502,12 @@ static func pressure_label(faction_id: String) -> String:
 
 const BAND_NONE := ""
 const BAND_WARNING := "warning"
+const BAND_HARASS := "harass"
 const BAND_MARKET := "market"
 const BAND_RAID := "raid"
-const BAND_ORDER: Array[String] = [BAND_NONE, BAND_WARNING, BAND_MARKET, BAND_RAID]
+const BAND_ORDER: Array[String] = [BAND_NONE, BAND_WARNING, BAND_HARASS, BAND_MARKET, BAND_RAID]
 const MOVE_VEIN_RAID := "veinRaid"
+const MOVE_HARASS := "harass"
 const MOVE_STOCKPILE_RAID := "stockpileRaid"
 const MOVE_FLOOD := "flood"
 const MOVE_WITHHOLD := "withhold"
@@ -576,11 +578,15 @@ static func _stance_to(observer: String, target: String) -> String:
 	return player_stance(observer) if target == Shares.PLAYER else pair_stance(observer, target)
 
 
-# The faction's market and warning lines: its raidThreshold plus
-# marketAboveRaid / warningAboveRaid, so every faction's bands run
-# warning > market > raid.
+# The faction's market, harass and warning lines: its raidThreshold plus
+# marketAboveRaid / harassAboveRaid / warningAboveRaid, so every faction's
+# bands run warning > harass > market > raid.
 static func market_line(faction_id: String) -> int:
 	return int(GameData.FACTIONS[faction_id]["raidThreshold"]) + int(_ecfg()["marketAboveRaid"])
+
+
+static func harass_line(faction_id: String) -> int:
+	return int(GameData.FACTIONS[faction_id]["raidThreshold"]) + int(_ecfg()["harassAboveRaid"][faction_id])
 
 
 static func warning_line(faction_id: String) -> int:
@@ -589,13 +595,16 @@ static func warning_line(faction_id: String) -> int:
 
 # The deepest band open to observer against target: raid when Hostile or
 # below the observer's raidThreshold, else market below its market line,
-# else warning below its warning line, else none.
+# else harass below its harass line, else warning below its warning line,
+# else none.
 static func band(observer: String, target: String) -> String:
 	var relation := _relation_to(observer, target)
 	if _stance_to(observer, target) == HOSTILE or relation < int(GameData.FACTIONS[observer]["raidThreshold"]):
 		return BAND_RAID
 	if relation < market_line(observer):
 		return BAND_MARKET
+	if relation < harass_line(observer):
+		return BAND_HARASS
 	if relation < warning_line(observer):
 		return BAND_WARNING
 	return BAND_NONE
@@ -655,6 +664,7 @@ static func _cooling(entry: Dictionary, day: int) -> bool:
 # the target is negative. Off cooldown, a band deeper than the one last
 # warned about gets a warning; otherwise the best affordable move is made.
 static func apply_escalation() -> void:
+	Harassment.tick()
 	_drop_lapsed_withholds()
 	_drop_lapsed_gouges()
 	_drop_lapsed_lowballs()
@@ -702,12 +712,15 @@ static func _warn(observer: String, target: String, band_id: String) -> void:
 		log_activity(observer, log_cfg["warningPair"] % GameData.FACTIONS[target]["shortName"])
 
 
-# Move ids open in band_id: the archetype's market moves and every
+# Move ids open in band_id: the archetype's harassment entries from the
+# harass band, the archetype's market moves and every
 # faction's sharedMarket moves from the market band, plus its raid moves in
 # the raid band.
 static func _open_moves(observer: String, band_id: String) -> Array:
 	var menu: Dictionary = _ecfg()["menus"][GameData.FACTIONS[observer]["archetype"]]
 	var moves := []
+	if _depth(band_id) >= _depth(BAND_HARASS):
+		moves.append_array(menu["harass"])
 	if _depth(band_id) >= _depth(BAND_MARKET):
 		moves.append_array(menu["market"])
 		for move_id in _ecfg().get("sharedMarket", []):
@@ -738,6 +751,8 @@ static func _move_cost(move_id: String) -> int:
 # { move, damage, cost, ... } for one move against target, or {} when the
 # move isn't available (not built yet, or nothing to hit).
 static func _move_candidate(observer: String, target: String, move_id: String) -> Dictionary:
+	if GameData.FACTION_HARASSMENT["entries"].has(move_id):
+		return Harassment.candidate(observer, move_id) if target == Shares.PLAYER else {}
 	match move_id:
 		MOVE_VEIN_RAID:
 			return _vein_raid_candidate(observer, target)
@@ -1324,6 +1339,10 @@ static func _join_names(ids: Array, key: String) -> String:
 # and are reported now: today's reprice (⑥.6) prices a flood in.
 static func _make_move(observer: String, target: String, move: Dictionary) -> void:
 	match move["move"]:
+		MOVE_HARASS:
+			Harassment.queue(move, observer)
+			note_hostile_act(observer, target)
+			log_activity(observer, _ecfg()["log"][MOVE_HARASS]["player"], { "target": target, "move": MOVE_HARASS })
 		MOVE_VEIN_RAID:
 			GameState.state["factionEscalation"]["queuedRaids"].append({
 				"attackerId": observer, "targetId": target, "veinId": move["veinId"], "siteId": move["siteId"],

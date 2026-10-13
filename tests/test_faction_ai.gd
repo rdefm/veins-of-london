@@ -289,19 +289,19 @@ func run() -> void:
 	run_case("a_key_member_warning_precedes_the_first_move_in_each_new_band", func():
 		_fresh()
 		_under_pressure("guild")
-		Factions.adjust_player_relation("guild", -14)
+		Factions.adjust_player_relation("guild", -34)
 		_escalate_on(1)
 		assert_eq(_last_message("ingram"), _warning("crafter", "warning"))
 		assert_eq(_target_entry("guild")["warnedBand"], FactionAI.BAND_WARNING, "flag stored guild → player")
-		Factions.adjust_player_relation("guild", -17)
+		Factions.adjust_player_relation("guild", -18)
 		_escalate_on(1 + _cooldown())
-		assert_eq(_last_message("ingram"), _warning("crafter", "raid"), "below raidThreshold −30 → raid band")
+		assert_eq(_last_message("ingram"), _warning("crafter", "raid"), "below raidThreshold −50 → raid band")
 		assert_eq(_target_entry("guild")["warnedBand"], FactionAI.BAND_RAID)
 		assert_true(_log_texts("guild").has(GameData.FACTION_ESCALATION["log"]["warningPlayer"]))
 		_under_pressure("collective")
-		Factions.adjust_player_relation("collective", -35 - _player_relation("collective"))
+		Factions.adjust_player_relation("collective", -55 - _player_relation("collective"))
 		_escalate_on(1 + 2 * _cooldown())
-		assert_eq(_target_entry("collective")["warnedBand"], FactionAI.BAND_MARKET, "market band warned on entry, above raidThreshold −40")
+		assert_eq(_target_entry("collective")["warnedBand"], FactionAI.BAND_MARKET, "market band warned on entry, above raidThreshold −60")
 	)
 
 	run_case("no_warning_without_pressure_below_the_raid_band", func():
@@ -314,7 +314,7 @@ func run() -> void:
 	run_case("recovering_a_band_rearms_its_warning", func():
 		_fresh()
 		_under_pressure("guild")
-		Factions.adjust_player_relation("guild", -14)
+		Factions.adjust_player_relation("guild", -34)
 		_escalate_on(1)
 		Factions.adjust_player_relation("guild", 30)
 		_escalate_on(2)
@@ -377,7 +377,7 @@ func run() -> void:
 		for day in range(1, 30):
 			_escalate_on(day)
 		assert_eq(_queued().size(), 0, "market band: no raid")
-		Factions.adjust_player_relation("collective", -30)
+		Factions.adjust_player_relation("collective", -45)
 		_escalate_on(30)
 		assert_eq(_queued().size(), 0, "raid band entered: warning first")
 		_escalate_on(30 + _cooldown())
@@ -805,7 +805,7 @@ func run() -> void:
 	run_case("a_poached_renewal_the_player_matches_stays_at_the_matched_price", func():
 		_market_fresh(5)
 		var offer := _renewal("firm")
-		_move_ready("guild", -35)
+		_move_ready("guild", -55)
 		FactionAI.apply_escalation()
 		assert_eq(FactionAI.moves_against_player()[0]["move"], FactionAI.MOVE_POACH)
 		assert_eq(offer["poach"]["factionId"], "guild")
@@ -821,7 +821,7 @@ func run() -> void:
 	run_case("an_unmatched_poached_renewal_lapses_to_the_rival", func():
 		_market_fresh(5)
 		var offer := _renewal("firm")
-		_move_ready("guild", -35)
+		_move_ready("guild", -55)
 		FactionAI.apply_escalation()
 		GameState.state["world"]["day"] = int(offer["expiresDay"])
 		Offers.expire_pending_offers()
@@ -848,7 +848,7 @@ func run() -> void:
 		FactionSim.add_item("guild", "timePearl", 1, 10)
 		var stock := FactionSim.for_sale("guild", "consumable", "timePearl")
 		assert_true(stock >= 10, "control: on sale")
-		_move_ready("guild", -35)
+		_move_ready("guild", -55)
 		FactionAI.apply_escalation()
 		assert_eq(FactionAI.moves_against_player()[0]["move"], FactionAI.MOVE_WITHHOLD_ITEMS)
 		var item_name: String = GameData.RECIPES["timePearl"]["name"]
@@ -866,7 +866,7 @@ func run() -> void:
 		var vein := Fixtures.seed_vein("pv", 60)
 		GameState.state["player"]["cash"] = 100
 		var quote := VeinTrade.quote(vein)
-		_move_ready("guild", -35)
+		_move_ready("guild", -55)
 		GameState.state["factions"]["guild"]["resources"] = quote * 2
 		FactionAI.apply_escalation()
 		var pending := Messages.pending_for("ingram")
@@ -887,7 +887,7 @@ func run() -> void:
 		_market_fresh(5)
 		Fixtures.seed_vein("pv", 60)
 		GameState.state["player"]["cash"] = 100000
-		_move_ready("guild", -35)
+		_move_ready("guild", -55)
 		GameState.state["factions"]["guild"]["resources"] = 1000000
 		FactionAI.apply_escalation()
 		assert_true(Messages.pending_for("ingram").is_empty(), "flush player: no lowball")

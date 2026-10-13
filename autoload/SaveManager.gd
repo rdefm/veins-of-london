@@ -527,6 +527,8 @@ func backfill_defaults(save: Dictionary) -> Dictionary:
 	FactionAI.migrate_save(result, had_stances)
 	if not save.has("turf"):
 		result["turf"] = Turf.compute(result)
+	if not save.has("harassment"):
+		result["harassment"] = Harassment.new_state()
 	if not save.has("perks"):
 		result["perks"] = GameState.deep_copy(defaults["perks"])
 	return result
@@ -1162,6 +1164,11 @@ func _restore_int_types(state: Dictionary) -> void:
 		for line in truce.get("weekly", []):
 			_int_key(line, "amount")
 	_int_dict_values(war.get("peaceCooldown", {}))
+	var harassment: Dictionary = state.get("harassment", {})
+	_int_key(harassment, "nextId")
+	for entry in harassment.get("active", []):
+		for key in ["sinceDay", "untilDay", "escalation"]:
+			_int_key(entry, key)
 	_int_dict_values(state.get("perks", {}).get("tended", {}))
 	_int_dict_values(state.get("factionConclave", {}).get("runs", {}))
 	_int_dict_values(state.get("factionConclave", {}).get("stockpile", {}))

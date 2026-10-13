@@ -87,6 +87,7 @@ var FACTION_TRADE: Dictionary = {}
 
 # Per-faction tiered perks (friendly/partner/sworn), read by Perks.
 var FACTION_PERKS: Dictionary = {}
+var FACTION_HARASSMENT: Dictionary = {}
 
 # London market constants, Independents share and per-good civilian volumes, read by Market.
 var MARKET: Dictionary = {}
@@ -399,6 +400,9 @@ const MANIFEST: Array[Dictionary] = [
 	{"table": "faction_trade", "file": "res://data/faction_trade.json", "fields": [
 		{"field": "FACTION_TRADE", "key": "", "type": TYPE_DICTIONARY},
 	]},
+	{"table": "faction_harassment", "file": "res://data/faction_harassment.json", "fields": [
+		{"field": "FACTION_HARASSMENT", "key": "", "type": TYPE_DICTIONARY},
+	]},
 	{"table": "faction_perks", "file": "res://data/faction_perks.json", "fields": [
 		{"field": "FACTION_PERKS", "key": "", "type": TYPE_DICTIONARY},
 	]},
@@ -635,6 +639,7 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_factions(t.get("factions", {}), errors)
 	_validate_faction_trade(t.get("faction_trade", {}), errors)
 	_validate_faction_perks(t.get("faction_perks", {}), errors)
+	_validate_faction_harassment(t.get("faction_harassment", {}), errors)
 	_validate_market(t.get("market", {}), t.get("ore_types", {}), t.get("consumable_prices", {}), errors)
 	_validate_districts(t.get("districts", {}), t.get("ore_types", {}), errors)
 	_validate_map_layout(t.get("map_layout", {}), t.get("districts", {}), errors)
@@ -1052,6 +1057,17 @@ func _validate_faction_perks(perks: Dictionary, errors: Array[String]) -> void:
 				if seen.has(perk.get("id", "")):
 					errors.append("%s: duplicate perk id '%s'" % [context, perk.get("id", "")])
 				seen[perk.get("id", "")] = true
+
+
+func _validate_faction_harassment(harassment: Dictionary, errors: Array[String]) -> void:
+	_require_keys(harassment, ["escalation", "kindLabels", "entries"], "faction_harassment", errors)
+	for id in harassment.get("entries", {}):
+		var entry: Dictionary = harassment["entries"][id]
+		_require_keys(entry, ["id", "factionId", "eventId", "cost", "target", "requires"], "faction_harassment.%s" % id, errors)
+		if entry.get("id", "") != id:
+			errors.append("faction_harassment.%s: id mismatch" % id)
+		if not ["vein", "player"].has(entry.get("target", "")):
+			errors.append("faction_harassment.%s: target must be vein|player" % id)
 
 
 const CANONICAL_DISTRICT_IDS: Array[String] = [
@@ -1618,6 +1634,8 @@ const VALID_EFFECT_OPS: Array[String] = [
 	# faction_relation is "relation"'s faction-facing twin (Factions.
 	# adjust_player_relation); log_method writes state.methodLog[key]=value.
 	"queue_pending_message", "faction_relation",
+	# harassment_add / harassment_clear: Harassment.add_from_event / clear_from_event.
+	"harassment_add", "harassment_clear",
 	"log_method",
 	# Seeds a faction vein on each site recorded in a named objective's progress.
 	"faction_seed_reported_sites",

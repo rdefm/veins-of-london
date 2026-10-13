@@ -76,6 +76,10 @@ static func build(district_id: String) -> Dictionary:
 			"tier_label": Perks.tier_label(perk_entry["tier"]),
 			"scale": perk_entry["scale"],
 		})
+	# harassment: { id, faction, source_name, kind, label, escalation, veinId } -- ignored effects on your veins here.
+	for row in Harassment.rows_for_district(district_id):
+		row["source_name"] = contender_name(row["faction"])
+		sections["harassment"].append(row)
 	return {
 		"district": district_id,
 		"status": status,

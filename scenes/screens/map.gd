@@ -332,6 +332,11 @@ func _turf_row_text(section: String, row: Dictionary) -> String:
 			if float(row["scale"]) < 1.0:
 				text += " · reduced"
 			return text
+		"harassment":
+			var text := "%s (%s)" % [row["label"], row["source_name"]]
+			if int(row["escalation"]) > 0:
+				text += " · worsening x%d" % int(row["escalation"])
+			return text
 		_:
 			return ""
 

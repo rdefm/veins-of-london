@@ -878,6 +878,10 @@ static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 		# Faction-facing twin of the "relation" op above (which is contact-only).
 		"faction_relation":
 			Factions.adjust_player_relation(effect["faction"], effect["value"])
+		"harassment_add":
+			Harassment.add_from_event(effect)
+		"harassment_clear":
+			Harassment.clear_from_event(effect)
 		"log_method":
 			GameState.state["methodLog"][effect["key"]] = effect["value"]
 		# col_a2_nadia_defend_brief (T8a, spec §6.8a): no per-raid context to
