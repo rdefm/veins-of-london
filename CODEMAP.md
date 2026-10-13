@@ -75,7 +75,7 @@ Data file per system: see `data/*.json` below.
 | map_nav.gd | Map drill-down nav (list → panel → site sheet or vein detail panel, mutually exclusive) |
 | map_pins.gd | Contact map-pins for waiting events; which faction shop pins are open (faction_trade.json mapShopPin + unlock); raidable stockpile pins (stockpile-location intel) |
 | map_routing.gd | Octilinear line-routing geometry |
-| map_style.gd | Filter-chip re-styling math |
+| map_style.gd | Filter-chip re-styling math + zone_fill_kind (turf controller → player/faction/contested/none zone tint) |
 | map_view.gd | Persists Network camera |
 | map_zoom.gd | Zoom-level math for the diagram |
 | messages.gd | Messages data layer + conversation-index projections, total unread count, per-contact clear (read + contact notifications seen) |

@@ -89,6 +89,13 @@ func run() -> void:
 			assert_true(not MapStyle.is_risk_band(band_id), band_id)
 	)
 
+	run_case("zone_fill_kind_follows_live_turf", func():
+		assert_eq(MapStyle.zone_fill_kind("firm", false), "faction", "faction controller tints")
+		assert_eq(MapStyle.zone_fill_kind("player", false), "player", "player control uses player colour")
+		assert_eq(MapStyle.zone_fill_kind("", true), "contested", "contested is striped neutral")
+		assert_eq(MapStyle.zone_fill_kind("", false), "none", "unclaimed district is untinted")
+	)
+
 	# ── security ─────────────────────────────────────────────────────────
 	run_case("security_enlarges_padlocks_and_flags_unsecured_veins", func():
 		assert_eq(MapStyle.badge_scale("security"), MapStyle.BADGE_ENLARGE_SCALE)

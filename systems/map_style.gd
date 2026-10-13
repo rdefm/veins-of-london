@@ -104,6 +104,17 @@ static func is_risk_band(band_id: String) -> bool:
 	return RISK_BANDS.has(band_id)
 
 
+# ── zone fill ────────────────────────────────────────────────────────────
+# Zone tint kind from live turf (state.turf): "player" · "faction" ·
+# "contested" (striped neutral) · "none". Footholds never tint.
+static func zone_fill_kind(controller: String, contested: bool) -> String:
+	if controller == "player":
+		return "player"
+	if controller != "":
+		return "faction"
+	return "contested" if contested else "none"
+
+
 # ── growth fill ──────────────────────────────────────────────────────────
 # The progress arc's one pure seam: how full a vein's stop reads, 0.0
 # (growth 0) to 1.0 (growth at/above ceiling(vein)) — flat proportional

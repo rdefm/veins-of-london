@@ -104,7 +104,7 @@ func run() -> void:
 	run_case("every_dark_line_arc_and_danger_colour_has_3_to_1_contrast", func():
 		var paper := MapPalette.colour_in("paper", true)
 		var checks: Dictionary = {}
-		for key in ["player", "muted", "ink", "warded", "guarded", "danger"]:
+		for key in ["player", "contested", "muted", "ink", "warded", "guarded", "danger"]:
 			checks["token " + key] = MapPalette.colour_in(key, true)
 		for faction_id in GameData.FACTIONS:
 			checks["faction " + faction_id] = MapPalette.faction_colour_in(faction_id, true)

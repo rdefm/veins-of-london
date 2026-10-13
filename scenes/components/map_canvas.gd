@@ -14,6 +14,9 @@ signal _batch_finished
 # draw time, so the diagram follows the Map palette's current light/dark set.
 
 const ZONE_ALPHA := 0.08
+const ZONE_STRIPE_ALPHA := 0.22
+const ZONE_STRIPE_WIDTH := 2.0
+const ZONE_STRIPE_GAP := 14.0
 const RIVER_WIDTH := 14.0
 const LINE_WIDTH := 6.0
 const LINE_MIN_VISUAL_GAP := 4.0
@@ -503,14 +506,40 @@ func _draw_paper() -> void:
 
 func _draw_zones() -> void:
 	for district_id in GameData.DISTRICTS.keys():
-		var district: Dictionary = GameData.DISTRICTS[district_id]
-		var faction_id: String = district.get("factionPresence", "")
-		if faction_id == "" or not GameData.FACTIONS.has(faction_id):
-			continue
-		var colour: Color = MapPalette.faction_colour(faction_id)
+		var controller: String = Turf.controller(district_id)
+		var kind := MapStyle.zone_fill_kind(controller, Turf.is_contested(district_id))
+		var colour: Color
+		match kind:
+			"player":
+				colour = MapPalette.colour("player")
+			"faction":
+				if not GameData.FACTIONS.has(controller):
+					continue
+				colour = MapPalette.faction_colour(controller)
+			"contested":
+				colour = MapPalette.colour("contested")
+			_:
+				continue
 		colour.a = ZONE_ALPHA
 		var polygon := MapHitTest.to_vector2_array(GameData.MAP_LAYOUT["districts"][district_id]["zonePolygon"])
 		draw_colored_polygon(polygon, colour)
+		if kind == "contested":
+			_draw_zone_stripes(polygon, colour)
+
+
+# Diagonal hatch clipped to the zone polygon.
+func _draw_zone_stripes(polygon: PackedVector2Array, fill: Color) -> void:
+	var bounds := Rect2(polygon[0], Vector2.ZERO)
+	for p in polygon:
+		bounds = bounds.expand(p)
+	var stripe := fill
+	stripe.a = ZONE_STRIPE_ALPHA
+	var x := bounds.position.x - bounds.size.y
+	while x < bounds.end.x:
+		var line := PackedVector2Array([Vector2(x, bounds.end.y), Vector2(x + bounds.size.y, bounds.position.y)])
+		for piece in Geometry2D.intersect_polyline_with_polygon(line, polygon):
+			draw_polyline(piece, stripe, ZONE_STRIPE_WIDTH)
+		x += ZONE_STRIPE_GAP
 
 
 func _draw_river() -> void:
