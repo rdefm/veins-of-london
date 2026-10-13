@@ -812,6 +812,12 @@ With attention drawn away, anyone carrying valuables may be of interest to the c
 "startRelation": 10,
 "unlocked": true
 },
+"courier": {
+"recruitThreshold": 0,
+"recruitable": false,
+"startRelation": 0,
+"unlocked": false
+},
 "des": {
 "recruitThreshold": 0,
 "recruitable": false,
@@ -880,6 +886,12 @@ With attention drawn away, anyone carrying valuables may be of interest to the c
 "startRelation": 0,
 "unlocked": false
 },
+"mercer": {
+"recruitThreshold": 0,
+"recruitable": false,
+"startRelation": 0,
+"unlocked": false
+},
 "nadia": {
 "recruitThreshold": 0,
 "recruitable": false,
@@ -900,6 +912,18 @@ With attention drawn away, anyone carrying valuables may be of interest to the c
 "cultivating": 3
 },
 "specialities": ["life"],
+"startRelation": 0,
+"unlocked": false
+},
+"pryce": {
+"recruitThreshold": 0,
+"recruitable": false,
+"startRelation": 0,
+"unlocked": false
+},
+"wren": {
+"recruitThreshold": 0,
+"recruitable": false,
 "startRelation": 0,
 "unlocked": false
 }
@@ -6133,29 +6157,47 @@ With attention drawn away, anyone carrying valuables may be of interest to the c
 "industryIncome": 6,
 "joinRelation": 25,
 "keyMembers": [{
+"aggressionMult": 1.3,
 "contactId": "nadia",
 "giftPrefs": ["timePearl", "enhancementPowder"],
 "id": "nadia",
 "intro": "",
 "name": "Nadia",
+"outlook": "hawk",
+"relationBaseline": -10,
 "role": "The Collective · Hackney",
-"unlock": "quest"
+"seat": "speaker",
+"startStanding": 50,
+"unlock": "quest",
+"want": "collective"
 }, {
+"aggressionMult": 0.7,
 "contactId": "des",
 "giftPrefs": ["prophetsBreath", "healingSalve"],
 "id": "des",
 "intro": "",
 "name": "Des",
+"outlook": "dove",
+"relationBaseline": 10,
 "role": "The Collective · prospector",
-"unlock": "quest"
+"seat": "lieutenant",
+"startStanding": 50,
+"unlock": "quest",
+"want": "business_empire"
 }, {
+"aggressionMult": 1,
 "contactId": "hakim",
 "giftPrefs": ["rejuvenation", "healingBurst"],
 "id": "hakim",
 "intro": "",
 "name": "Hakim",
+"outlook": "",
+"relationBaseline": 0,
 "role": "The Collective · Whitechapel Road",
-"unlock": "quest"
+"seat": "member",
+"startStanding": 0,
+"unlock": "quest",
+"want": ""
 }],
 "name": "The Collective",
 "primaryOre": "life",
@@ -6260,13 +6302,34 @@ With attention drawn away, anyone carrying valuables may be of interest to the c
 "industryIncome": 40,
 "joinRelation": 60,
 "keyMembers": [{
+"aggressionMult": 0.7,
 "contactId": "fairweather",
 "giftPrefs": ["timePearl", "wormhole"],
 "id": "fairweather",
 "intro": "\"Good afternoon. Fairweather, on behalf of the Conclave. There is nothing you need to do. We simply prefer people to know whom to call.\"",
 "name": "Fairweather",
+"outlook": "dove",
+"relationBaseline": 10,
 "role": "The Conclave · Westminster",
-"unlock": "firstMessage"
+"seat": "speaker",
+"startStanding": 50,
+"unlock": "firstMessage",
+"want": "conclave_discretion"
+}, {
+"aggressionMult": 1.3,
+"contactId": "pryce",
+"giftPrefs": ["failsafe", "wormhole"],
+"id": "pryce",
+"intro": "\"Pryce, for the Conclave. Placeholder intro.\"",
+"name": "Pryce",
+"outlook": "hawk",
+"proseReview": true,
+"relationBaseline": -10,
+"role": "The Conclave · Whitehall",
+"seat": "lieutenant",
+"startStanding": 50,
+"unlock": "firstMessage",
+"want": "conclave_reach"
 }],
 "name": "The Conclave",
 "primaryOre": "fate",
@@ -6387,13 +6450,34 @@ With attention drawn away, anyone carrying valuables may be of interest to the c
 "industryIncome": 8,
 "joinRelation": 35,
 "keyMembers": [{
+"aggressionMult": 1.3,
 "contactId": "lusk",
 "giftPrefs": ["rejuvenation", "prophetsBreath"],
 "id": "lusk",
 "intro": "\"Lusk. I look after the Firm's interests south of the river. Some of those interests appear to be yours now. We'll keep this civil for as long as it stays that way.\"",
 "name": "Lusk",
+"outlook": "hawk",
+"relationBaseline": -10,
 "role": "The Firm · Bermondsey",
-"unlock": "firstMessage"
+"seat": "speaker",
+"startStanding": 50,
+"unlock": "firstMessage",
+"want": "firm_ascendancy"
+}, {
+"aggressionMult": 0.7,
+"contactId": "mercer",
+"giftPrefs": ["healingBurst", "shield"],
+"id": "mercer",
+"intro": "\"Mercer. Lusk's deputy. Placeholder intro.\"",
+"name": "Mercer",
+"outlook": "dove",
+"proseReview": true,
+"relationBaseline": 10,
+"role": "The Firm · Deptford",
+"seat": "lieutenant",
+"startStanding": 50,
+"unlock": "firstMessage",
+"want": "firm_legitimacy"
 }],
 "name": "The Firm",
 "primaryOre": "physics",
@@ -6519,13 +6603,34 @@ With attention drawn away, anyone carrying valuables may be of interest to the c
 "industryIncome": 12,
 "joinRelation": 40,
 "keyMembers": [{
+"aggressionMult": 1.3,
 "contactId": "ingram",
 "giftPrefs": ["failsafe", "panic"],
 "id": "ingram",
 "intro": "\"Dr Ingram, Assay Warden to the Guild of Applied Alchemists. Your name has come before the Court twice this month. Once would have been sufficient.\"",
 "name": "Ingram",
+"outlook": "hawk",
+"relationBaseline": -10,
 "role": "The Guild · Assay Warden",
-"unlock": "firstMessage"
+"seat": "speaker",
+"startStanding": 50,
+"unlock": "firstMessage",
+"want": "guild_audit"
+}, {
+"aggressionMult": 0.7,
+"contactId": "wren",
+"giftPrefs": ["rewind", "timePearl"],
+"id": "wren",
+"intro": "\"Registrar Wren, for the Guild. Placeholder intro.\"",
+"name": "Wren",
+"outlook": "dove",
+"proseReview": true,
+"relationBaseline": 10,
+"role": "The Guild · Registrar",
+"seat": "lieutenant",
+"startStanding": 50,
+"unlock": "firstMessage",
+"want": "guild_charter"
 }],
 "name": "The Guild of Applied Alchemists",
 "primaryOre": "time",
@@ -6640,13 +6745,34 @@ With attention drawn away, anyone carrying valuables may be of interest to the c
 "industryIncome": 10,
 "joinRelation": 30,
 "keyMembers": [{
+"aggressionMult": 0.7,
 "contactId": "handler",
 "giftPrefs": ["prophetsBreath", "beALady"],
 "id": "handler",
 "intro": "",
 "name": "Handler",
+"outlook": "dove",
+"relationBaseline": 10,
 "role": "The Network · Clerkenwell",
-"unlock": "quest"
+"seat": "speaker",
+"startStanding": 50,
+"unlock": "quest",
+"want": "network_quiet_trade"
+}, {
+"aggressionMult": 1.3,
+"contactId": "courier",
+"giftPrefs": ["panic", "prophetsBreath"],
+"id": "courier",
+"intro": "\"Courier. I carry what the Handler won't write down. Placeholder intro.\"",
+"name": "Courier",
+"outlook": "hawk",
+"proseReview": true,
+"relationBaseline": -10,
+"role": "The Network · Clerkenwell",
+"seat": "lieutenant",
+"startStanding": 50,
+"unlock": "firstMessage",
+"want": "network_expansion"
 }],
 "name": "The Network",
 "primaryOre": "emotion",
