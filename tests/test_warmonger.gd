@@ -121,3 +121,12 @@ func run() -> void:
 		assert_true(SaveManager.import_string(SaveManager.export_string())["ok"])
 		assert_eq(GameState.state["warmonger"], Warmonger.new_state(), "old save backfills")
 	)
+
+	run_case("clean_loot_does_not_log_but_caught_loot_does", func():
+		GameState.reset()
+		Fixtures.seed_faction_vein("fv", 40, "firm")
+		Raiding.loot_vein("site_fv", false)
+		assert_eq(Warmonger.score(), 0.0)
+		Raiding.loot_vein("site_fv", true)
+		assert_eq(Warmonger.score(), float(_cfg()["weights"]["raidLoot"]))
+	)

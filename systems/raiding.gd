@@ -116,8 +116,8 @@ static func loot_vein(site_id: String, caught: bool) -> void:
 	Intel.gain(Shares.PLAYER, vein["factionId"], Intel.SOURCE_RAID)
 
 	Grudges.answer(vein["factionId"])
-	Warmonger.record(Warmonger.ACT_RAID_LOOT)
 	if caught:
+		Warmonger.record(Warmonger.ACT_RAID_LOOT)
 		Factions.adjust_player_relation(vein["factionId"], LOOT_RELATION_HIT)
 		FactionAI.note_hostile_act(Shares.PLAYER, vein["factionId"])
 		FactionAI.note_loss(vein["factionId"], Shares.PLAYER, float(Market.line_total("ore", Market.quote("ore", vein["oreType"]), LOOT_ORE_QTY)))
