@@ -21,6 +21,7 @@ var _menu_button: Button
 var _bubble_district_id: String = ""
 var _bubble_mode: String = ""
 var _bubble_stop: Dictionary = {}
+var _perk_preview_faction: String = ""
 
 func _ready() -> void:
 	UI.anchor_full_rect(self)
@@ -288,7 +289,30 @@ func _add_turf_section(body: VBoxContainer, district_id: String) -> void:
 	body.add_child(MapCardStyle.label(heading, 15, MapCardStyle.ink()))
 	for section in TurfPanel.SECTIONS:
 		for row in sections[section]:
-			body.add_child(_dim_label(_turf_row_text(section, row)))
+			var text := _turf_row_text(section, row)
+			if section == "contenders" and row["contender"] != Turf.PLAYER:
+				var faction_id: String = row["contender"]
+				body.add_child(MapCardStyle.style_button(UI.button(text, func(): _toggle_perk_preview(faction_id))))
+				if _perk_preview_faction == faction_id:
+					_add_perk_preview(body, faction_id)
+			else:
+				body.add_child(_dim_label(text))
+
+# UI-only selection (not game state): the faction whose perk preview is open.
+func _toggle_perk_preview(faction_id: String) -> void:
+	_perk_preview_faction = "" if _perk_preview_faction == faction_id else faction_id
+	_refresh()
+
+func _add_perk_preview(body: VBoxContainer, faction_id: String) -> void:
+	var preview := TurfPanel.faction_preview(faction_id)
+	body.add_child(MapCardStyle.label("%s — you: %s" % [preview["name"], preview["tier_label"]], 13, MapCardStyle.ink()))
+	for perk in preview["perks"]:
+		var text := "%s · %s%s — %s" % [perk["tier_label"], perk["label"], " (turf)" if perk["turf"] else "", perk["description"]]
+		var line := _dim_label(text)
+		line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		if perk["unlocked"]:
+			line.add_theme_color_override("font_color", MapCardStyle.ink())
+		body.add_child(line)
 
 func _turf_row_text(section: String, row: Dictionary) -> String:
 	match section:
@@ -303,6 +327,11 @@ func _turf_row_text(section: String, row: Dictionary) -> String:
 			return "Veins to take control: %d" % row["veins"]
 		"modifiers":
 			return "%s %+d%% (%s)" % [row["label"], int(round(float(row["value"]) * 100.0)), row["source_name"]]
+		"benefits":
+			var text := "%s (%s %s)" % [row["label"], row["source_name"], row["tier_label"]]
+			if float(row["scale"]) < 1.0:
+				text += " · reduced"
+			return text
 		_:
 			return ""
 

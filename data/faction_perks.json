@@ -1,0 +1,62 @@
+{
+  "friendlyAtOrAbove": 25,
+  "tierOrder": ["friendly", "partner", "sworn"],
+  "tierLabels": { "none": "Stranger", "friendly": "Friendly", "partner": "Partner", "sworn": "Sworn" },
+  "factions": {
+    "collective": {
+      "friendly": [
+        { "id": "collective_neighbourhood_watch", "scope": "turf", "effect": "raidOddsAdj", "params": { "value": -0.1 }, "label": "Neighbourhood watch", "description": "Neighbours keep an eye on your veins here. Raids are less likely to land." }
+      ],
+      "partner": [
+        { "id": "collective_tending", "scope": "turf", "effect": "dailyTend", "params": { "veinsPerDay": 1 }, "label": "Members tend your veins", "description": "On days you skip a vein here, someone local looks after it." }
+      ],
+      "sworn": [
+        { "id": "collective_whip_round", "scope": "global", "effect": "homeBailout", "params": { "oneOff": true }, "label": "Whip-round", "description": "If you are about to lose your home, the community passes the hat. Once." }
+      ]
+    },
+    "firm": {
+      "friendly": [
+        { "id": "firm_protection_racket", "scope": "global", "effect": "protectionRacket", "params": { "weeklyFee": 150, "deterrence": -0.1 }, "label": "Protection", "description": "A weekly fee. The Firm leaves you alone and makes sure others do too." }
+      ],
+      "partner": [
+        { "id": "firm_muscle", "scope": "global", "effect": "raidMuscle", "params": { "raidOddsAdj": 0.1, "allies": 1 }, "label": "Firm muscle", "description": "Hire Firm muscle for your raids. They hit harder with company." }
+      ],
+      "sworn": [
+        { "id": "firm_safe_ground", "scope": "turf", "effect": "countsAsPlayerForDanger", "params": {}, "label": "Safe ground", "description": "Firm districts count as yours when it comes to danger." }
+      ]
+    },
+    "guild": {
+      "friendly": [
+        { "id": "guild_craft_xp", "scope": "global", "effect": "craftXpMult", "params": { "value": 1.25 }, "label": "Guild tuition", "description": "Bonus craft XP on everything you make." }
+      ],
+      "partner": [
+        { "id": "guild_internship", "scope": "turf", "effect": "internship", "params": { "bonusCultivateActions": 1, "bonusCraftAttempts": 1 }, "label": "Internship programme", "description": "Free cultivation actions and a bonus craft attempt on your veins in Guild turf." }
+      ],
+      "sworn": [
+        { "id": "guild_commissions", "scope": "global", "effect": "commissionCrafting", "params": {}, "label": "Commission crafting", "description": "High-margin commission work, offered through the Guild." }
+      ]
+    },
+    "network": {
+      "friendly": [
+        { "id": "network_passive_intel", "scope": "global", "effect": "dailyIntel", "params": { "amount": 1 }, "label": "Passive intel", "description": "Daily intel on one faction of your choosing." }
+      ],
+      "partner": [
+        { "id": "network_forewarning", "scope": "global", "effect": "raidForewarning", "params": {}, "label": "Forewarnings", "description": "Word of raids from every faction before they land." }
+      ],
+      "sworn": [
+        { "id": "network_commissioned_move", "scope": "global", "effect": "commissionMarketMove", "params": { "moves": ["sellIntel", "priceGouge", "disinformation"] }, "label": "Commissioned move", "description": "Have the Network run a market move against a rival for you." }
+      ]
+    },
+    "conclave": {
+      "friendly": [
+        { "id": "conclave_legal_cover", "scope": "turf", "effect": "dangerAdj", "params": { "value": -0.03 }, "label": "Legal cover", "description": "In Conclave turf the authorities look the other way." }
+      ],
+      "partner": [
+        { "id": "conclave_recovery", "scope": "global", "effect": "veinRecovery", "params": { "oneOff": true }, "label": "Legal recovery", "description": "Their lawyers recover one vein lost in a raid, no fight needed." }
+      ],
+      "sworn": [
+        { "id": "conclave_deep_vein", "scope": "global", "effect": "barometerAndLore", "params": { "loreFlag": "deepVeinRoute" }, "label": "Ancient order", "description": "A say in the barometer, and the Deep Vein lore route." }
+      ]
+    }
+  }
+}

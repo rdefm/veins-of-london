@@ -60,12 +60,50 @@ static func build(district_id: String) -> Dictionary:
 			"source": src["source"],
 			"source_name": contender_name(src["source"]),
 		})
+	# benefits: { perk_id, label, description, source, source_name, tier, tier_label, scale }.
+	var active := Perks.active_global()
+	for perk_entry in active:
+		perk_entry["scale"] = 1.0
+	active.append_array(Perks.active_turf(district_id))
+	for perk_entry in active:
+		sections["benefits"].append({
+			"perk_id": perk_entry["perk"]["id"],
+			"label": perk_entry["perk"]["label"],
+			"description": perk_entry["perk"]["description"],
+			"source": perk_entry["faction"],
+			"source_name": contender_name(perk_entry["faction"]),
+			"tier": perk_entry["tier"],
+			"tier_label": Perks.tier_label(perk_entry["tier"]),
+			"scale": perk_entry["scale"],
+		})
 	return {
 		"district": district_id,
 		"status": status,
 		"status_label": CONTESTED_LABEL if status == "contested" else "",
 		"controller": controller,
 		"sections": sections,
+	}
+
+
+# Faction preview: { faction, name, tier, tier_label, perks: [{ tier, tier_label, unlocked, turf, label, description }] }.
+static func faction_preview(faction_id: String) -> Dictionary:
+	var tier := Perks.player_tier(faction_id)
+	var perks := []
+	for row in Perks.preview(faction_id):
+		perks.append({
+			"tier": row["tier"],
+			"tier_label": Perks.tier_label(row["tier"]),
+			"unlocked": row["unlocked"],
+			"turf": row["perk"]["scope"] == "turf",
+			"label": row["perk"]["label"],
+			"description": row["perk"]["description"],
+		})
+	return {
+		"faction": faction_id,
+		"name": contender_name(faction_id),
+		"tier": tier,
+		"tier_label": Perks.tier_label(tier),
+		"perks": perks,
 	}
 
 

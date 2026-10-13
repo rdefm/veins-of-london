@@ -85,6 +85,9 @@ var FACTIONS: Dictionary = {}
 # Per-faction trade lane config, read by Economy.get_faction_*.
 var FACTION_TRADE: Dictionary = {}
 
+# Per-faction tiered perks (friendly/partner/sworn), read by Perks.
+var FACTION_PERKS: Dictionary = {}
+
 # London market constants, Independents share and per-good civilian volumes, read by Market.
 var MARKET: Dictionary = {}
 
@@ -397,6 +400,9 @@ const MANIFEST: Array[Dictionary] = [
 	{"table": "faction_trade", "file": "res://data/faction_trade.json", "fields": [
 		{"field": "FACTION_TRADE", "key": "", "type": TYPE_DICTIONARY},
 	]},
+	{"table": "faction_perks", "file": "res://data/faction_perks.json", "fields": [
+		{"field": "FACTION_PERKS", "key": "", "type": TYPE_DICTIONARY},
+	]},
 	{"table": "market", "file": "res://data/market.json", "fields": [
 		{"field": "MARKET", "key": "", "type": TYPE_DICTIONARY},
 	]},
@@ -629,6 +635,7 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_approaches(t.get("approaches", {}), t.get("home_rooms", {}), errors)
 	_validate_factions(t.get("factions", {}), errors)
 	_validate_faction_trade(t.get("faction_trade", {}), errors)
+	_validate_faction_perks(t.get("faction_perks", {}), errors)
 	_validate_market(t.get("market", {}), t.get("ore_types", {}), t.get("consumable_prices", {}), errors)
 	_validate_districts(t.get("districts", {}), t.get("ore_types", {}), errors)
 	_validate_map_layout(t.get("map_layout", {}), t.get("districts", {}), errors)
@@ -1022,6 +1029,30 @@ func _validate_faction_trade(faction_trade: Dictionary, errors: Array[String]) -
 			errors.append("faction_trade: missing faction '%s'" % key)
 			continue
 		_require_keys(faction_trade[key], ["anchorRelation", "zeroRelation", "sellSpreadMax", "sellSpreadMin", "buySpreadMax", "buySpreadMin", "memberOnly", "unlockFlag", "applyDistrictPriceMod", "mugRisk"], "faction_trade.%s" % key, errors)
+
+
+# Every faction has perks at each tier; each perk has a unique id and a global|turf scope.
+func _validate_faction_perks(perks: Dictionary, errors: Array[String]) -> void:
+	_require_keys(perks, ["friendlyAtOrAbove", "tierOrder", "tierLabels", "factions"], "faction_perks", errors)
+	var seen := {}
+	for key in ["collective", "firm", "guild", "network", "conclave"]:
+		var entry: Variant = perks.get("factions", {}).get(key)
+		if entry == null:
+			errors.append("faction_perks: missing faction '%s'" % key)
+			continue
+		for tier in ["friendly", "partner", "sworn"]:
+			var list: Variant = entry.get(tier)
+			if typeof(list) != TYPE_ARRAY or list.is_empty():
+				errors.append("faction_perks.%s: tier '%s' needs at least one perk" % [key, tier])
+				continue
+			for perk in list:
+				var context := "faction_perks.%s.%s" % [key, tier]
+				_require_keys(perk, ["id", "scope", "effect", "params", "label", "description"], context, errors)
+				if not ["global", "turf"].has(perk.get("scope", "")):
+					errors.append("%s: perk '%s' scope must be global|turf" % [context, perk.get("id", "?")])
+				if seen.has(perk.get("id", "")):
+					errors.append("%s: duplicate perk id '%s'" % [context, perk.get("id", "")])
+				seen[perk.get("id", "")] = true
 
 
 const CANONICAL_DISTRICT_IDS: Array[String] = [
