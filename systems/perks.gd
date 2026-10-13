@@ -294,23 +294,23 @@ static func _internship_today() -> Dictionary:
 	var day: int = int(GameState.state["world"]["day"])
 	var ledger: Dictionary = perks_state.get("internship", {})
 	if int(ledger.get("day", -1)) != day:
-		ledger = { "day": day, "cultivateUsed": 0, "craftUsed": 0 }
+		ledger = { "day": day, "cultivateUsed": 0 }
 		perks_state["internship"] = ledger
 	return ledger
 
 
 # Summed internship param over the active turf perks in a district.
-static func _internship_budget(district_id: String, param: String) -> int:
-	var total := 0
+static func _internship_budget(district_id: String, param: String) -> float:
+	var total := 0.0
 	for entry in active_turf(district_id):
 		if entry["perk"]["effect"] == "internship":
-			total += int(entry["perk"]["params"][param])
+			total += float(entry["perk"]["params"][param])
 	return total
 
 
 # Consumes one free cultivation (no time block) for a vein in this district.
 static func take_free_cultivate(district_id: String) -> bool:
-	var budget := _internship_budget(district_id, "bonusCultivateActions")
+	var budget := int(_internship_budget(district_id, "bonusCultivateActions"))
 	if budget <= 0:
 		return false
 	var ledger := _internship_today()
@@ -320,19 +320,10 @@ static func take_free_cultivate(district_id: String) -> bool:
 	return true
 
 
-# True while today's bonus craft attempt is unspent and the player holds a vein
-# in internship turf.
-static func free_craft_available() -> bool:
-	var budget := 0
+# Crafting success-chance bonus: the best internship bonus among districts
+# where the player holds a vein.
+static func craft_chance_bonus() -> float:
+	var best := 0.0
 	for vein in GameState.state["player"]["veins"]:
-		budget = maxi(budget, _internship_budget(vein["district"], "bonusCraftAttempts"))
-	return budget > 0 and int(_internship_today()["craftUsed"]) < budget
-
-
-# Spends today's bonus craft attempt (a craft with no calc cost).
-static func take_free_craft() -> bool:
-	if not free_craft_available():
-		return false
-	var ledger := _internship_today()
-	ledger["craftUsed"] = int(ledger["craftUsed"]) + 1
-	return true
+		best = maxf(best, _internship_budget(vein["district"], "craftChanceBonus"))
+	return best

@@ -255,7 +255,7 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["craftingXP"] - before, 25)
 	)
 
-	run_case("internship_free_cultivate_and_craft_reset_daily", func():
+	run_case("internship_free_cultivate_daily_and_craft_chance_bonus", func():
 		GameState.reset()
 		GameState.state["turf"]["soho"] = { "controller": "guild", "tiers": { "guild": Turf.TIER_CONTROL }, "shares": {} }
 		GameState.state["factionStances"]["player"]["guild"]["stance"] = FactionAI.PARTNER
@@ -263,22 +263,17 @@ func run() -> void:
 		vein["id"] = "pv_soho"
 		GameState.state["player"]["veins"] = [vein]
 		var blocks_before: int = GameState.state["world"]["timeBlock"]
-		var day: int = GameState.state["world"]["day"]
 		assert_true(Cultivating.cultivate(vein["id"])["ok"])
 		assert_eq(GameState.state["world"]["timeBlock"], blocks_before, "free: no block")
-		assert_eq(GameState.state["world"]["day"], day)
 		Cultivating.cultivate(vein["id"])
 		assert_true(GameState.state["world"]["timeBlock"] != blocks_before, "second costs a block")
-		var recipe: String = GameData.RECIPES.keys()[0]
-		GameState.state["player"]["orichalchum"] = { "time": 0, "physics": 0, "life": 0, "fate": 0, "emotion": 0 }
-		assert_true(Crafting.can_craft(recipe), "bonus attempt needs no calc")
-		assert_true(Crafting.attempt_craft(recipe)["ok"])
-		assert_true(not Crafting.can_craft(recipe), "spent")
 		GameState.state["world"]["day"] += 1
-		assert_true(Crafting.can_craft(recipe), "reset next day")
-		GameState.state["world"]["day"] += 1
+		var again: int = GameState.state["world"]["timeBlock"]
+		Cultivating.cultivate(vein["id"])
+		assert_eq(GameState.state["world"]["timeBlock"], again, "free again next day")
+		assert_almost_eq(Perks.craft_chance_bonus(), 0.05, 0.0001)
 		vein["district"] = "camden"
-		assert_true(not Crafting.can_craft(recipe), "no Guild-turf vein")
+		assert_eq(Perks.craft_chance_bonus(), 0.0)
 	)
 
 	run_case("sworn_guild_commission_offer", func():

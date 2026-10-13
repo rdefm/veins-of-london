@@ -154,7 +154,7 @@ static func craft_block_reason(recipe_key: String) -> String:
 	var costs: Dictionary = calc_cost(recipe_key, skill)
 	var orichalchum: Dictionary = GameState.state["player"]["orichalchum"]
 	for ingredient in costs:
-		if orichalchum.get(ingredient, 0) < costs[ingredient] and not Perks.free_craft_available():
+		if orichalchum.get(ingredient, 0) < costs[ingredient]:
 			return "Not enough calc."
 	return ""
 
@@ -175,9 +175,7 @@ static func attempt_craft(recipe_key: String, multi: bool = false) -> Dictionary
 	var costs: Dictionary = calc_cost(recipe_key, skill)
 	Contracts.note_player_supplied(recipe_key)
 
-	# Deducted regardless of outcome; the internship's daily bonus attempt is free.
-	if Perks.take_free_craft():
-		costs = {}
+	# Deducted regardless of outcome.
 	for ingredient in costs:
 		player["orichalchum"][ingredient] = maxi(0, player["orichalchum"].get(ingredient, 0) - costs[ingredient])
 
@@ -187,7 +185,7 @@ static func attempt_craft(recipe_key: String, multi: bool = false) -> Dictionary
 	var attunement := 0.0
 	for ingredient_ore in recipe_ore_types(recipe_key):
 		attunement = maxf(attunement, Dial.attunement_bonus(ingredient_ore))
-	var chance: float = min(0.95, craft_chance(recipe_key, skill) + attunement)
+	var chance: float = min(0.95, craft_chance(recipe_key, skill) + attunement + Perks.craft_chance_bonus())
 	var success: bool = Rng.chance(chance)
 	if success:
 		var tier := quality_tier(recipe_key)

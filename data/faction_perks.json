@@ -30,10 +30,10 @@
         { "id": "guild_craft_xp", "scope": "global", "effect": "craftXpMult", "params": { "value": 1.25 }, "label": "Guild tuition", "description": "Bonus craft XP on everything you make." }
       ],
       "partner": [
-        { "id": "guild_internship", "scope": "turf", "effect": "internship", "params": { "bonusCultivateActions": 1, "bonusCraftAttempts": 1 }, "label": "Internship programme", "description": "Free cultivation actions and a bonus craft attempt on your veins in Guild turf." }
+        { "id": "guild_internship", "scope": "turf", "effect": "internship", "params": { "bonusCultivateActions": 1, "craftChanceBonus": 0.05 }, "label": "Internship programme", "description": "A free cultivation action a day and a better crafting success chance with your veins in Guild turf." }
       ],
       "sworn": [
-        { "id": "guild_commissions", "scope": "global", "effect": "commissionCrafting", "params": { "chancePerDay": 0.35, "margin": 1.5, "templates": ["guild_commission_pearl"] }, "label": "Commission crafting", "description": "High-margin commission work, offered through the Guild." }
+        { "id": "guild_commissions", "scope": "global", "effect": "commissionCrafting", "params": { "chancePerDay": 0.35, "margin": 1.5, "templates": ["guild_commission"], "goods": [{ "kind": "ore", "type": "time" }, { "kind": "ore", "type": "physics" }, { "kind": "ore", "type": "life" }, { "kind": "ore", "type": "fate" }, { "kind": "ore", "type": "emotion" }, { "kind": "consumable", "type": "timePearl" }, { "kind": "consumable", "type": "enhancementPowder" }], "qtyMin": 10, "qtyMax": 100 }, "label": "Commission crafting", "description": "High-margin commission work, offered through the Guild." }
       ]
     },
     "network": {

@@ -86,11 +86,20 @@ static func _maybe_guild_commission() -> void:
 	var template: Dictionary = GameData.OFFER_TEMPLATES.get(Rng.rand_from(params["templates"]), {})
 	if template.is_empty():
 		return
+	template = template.duplicate(true)
+	template["request"] = _commission_request(params)
 	var result := create_offer(template, true)
 	if result["ok"]:
 		var quote: Dictionary = result["offer"]["quote"]
 		quote["payment"] = int(round(float(quote["payment"]) * float(params["margin"])))
 		Notify.push("The Guild has a commission for you.", Notify.CATEGORY_INFO)
+
+
+# A random good from the perk's pool in a random volume.
+static func _commission_request(params: Dictionary) -> Dictionary:
+	var request: Dictionary = Rng.rand_from(params["goods"]).duplicate()
+	request["qty"] = Rng.randi_range(int(params["qtyMin"]), int(params["qtyMax"]))
+	return request
 
 
 static func random_templates() -> Array:
