@@ -498,6 +498,10 @@ func _new_factions_state() -> Dictionary:
 			# Smart-reserve stock kept back on top of the base reserve,
 			# set each FactionSim.trade(): { ore: { oreType: int }, consumable: { recipeKey: int } }.
 			"reserveBoosts": {},
+			# Hidden 0-100 standing of each contender key member (contact id), and
+			# the contender currently leading (the faction's speaker).
+			"standing": KeyMembers.starting_standing(faction_id),
+			"leader": KeyMembers.default_leader(faction_id),
 		}
 	return factions
 

@@ -7,6 +7,8 @@ extends RefCounted
 
 const UNLOCK_FIRST_MESSAGE := "firstMessage"
 const UNLOCK_QUEST := "quest"
+const SEAT_SPEAKER := "speaker"
+const SEAT_LIEUTENANT := "lieutenant"
 
 
 static func members(faction_id: String) -> Array:
@@ -29,9 +31,33 @@ static func faction_of(contact_id: String) -> String:
 	return ""
 
 
-# The contact id of the key member who speaks for faction_id, or "".
-static func speaker_for(faction_id: String) -> String:
+# The faction's initial leader (data `speaker`), or "".
+static func default_leader(faction_id: String) -> String:
 	return str(GameData.FACTIONS.get(faction_id, {}).get("speaker", ""))
+
+
+# Key members who can lead (seat speaker or lieutenant), in data order.
+static func contenders(faction_id: String) -> Array:
+	return members(faction_id).filter(func(m): return m.get("seat", "") in [SEAT_SPEAKER, SEAT_LIEUTENANT])
+
+
+# Hidden standing (0-100) of each contender, keyed by contact id.
+static func starting_standing(faction_id: String) -> Dictionary:
+	var standing := {}
+	for m in contenders(faction_id):
+		standing[m["contactId"]] = int(m.get("startStanding", 50))
+	return standing
+
+
+# The contender currently leading faction_id (state.factions[id].leader).
+static func leader_of(faction_id: String) -> String:
+	var faction: Dictionary = GameState.state["factions"].get(faction_id, {})
+	return str(faction.get("leader", default_leader(faction_id)))
+
+
+# The contact id of the key member who speaks for faction_id (its leader), or "".
+static func speaker_for(faction_id: String) -> String:
+	return leader_of(faction_id)
 
 
 # A "quest" member speaks only once their questline has unlocked them; a

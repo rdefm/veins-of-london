@@ -130,6 +130,7 @@ func _load_save_dict(raw: Dictionary) -> Dictionary:
 	_fix_up_founders(filled)
 	_migrate_nadia_supply_order(filled)
 	_migrate_faction_holdings(filled)
+	_migrate_key_member_standing(filled)
 	_migrate_player_model(filled)
 	_migrate_weekly_cadence(filled)
 	_migrate_drop_delegation(filled)
@@ -190,6 +191,20 @@ func _migrate_player_model(save: Dictionary) -> void:
 	var player: Dictionary = save.get("player", {})
 	if player.get("model", "") == "protagonist2":
 		player["model"] = "territorial3"
+
+
+# A faction saved before leadership existed gets each contender's starting
+# standing and its current speaker as leader; existing values are kept.
+func _migrate_key_member_standing(save: Dictionary) -> void:
+	for faction_id in save.get("factions", {}):
+		var faction: Dictionary = save["factions"][faction_id]
+		if not faction.has("standing"):
+			faction["standing"] = {}
+		for contact_id in KeyMembers.starting_standing(faction_id):
+			if not faction["standing"].has(contact_id):
+				faction["standing"][contact_id] = KeyMembers.starting_standing(faction_id)[contact_id]
+		if not faction.has("leader"):
+			faction["leader"] = KeyMembers.default_leader(faction_id)
 
 
 # A save without faction holdings gets the placeholder starting stock, with
@@ -1110,6 +1125,7 @@ func _restore_int_types(state: Dictionary) -> void:
 				_int_dict_values(buckets)
 			_int_dict_values(faction.get("shortfall", {}))
 			_int_dict_values(faction.get("consumeAccrued", {}))
+			_int_dict_values(faction.get("standing", {}))
 			for burn in faction.get("kitBurns", []):
 				_int_key(burn, "day")
 				_int_dict_values(burn.get("items", {}))

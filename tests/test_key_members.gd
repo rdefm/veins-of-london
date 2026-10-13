@@ -74,3 +74,46 @@ func run() -> void:
 			GameState.state["contacts"][contact_id]["unlocked"] = true
 		assert_eq(Contacts.directory_ids(), ["archie", "des", "fairweather", "handler", "james"])
 	)
+
+
+	run_case("every_faction_has_a_speaker_and_lieutenant_with_opposing_outlooks", func():
+		GameState.reset()
+		for faction_id in FACTION_IDS:
+			var contenders := KeyMembers.contenders(faction_id)
+			assert_eq(contenders.size(), 2, "%s has two contenders" % faction_id)
+			assert_eq(contenders[0]["seat"], "speaker")
+			assert_eq(contenders[1]["seat"], "lieutenant")
+			assert_true(contenders[0]["outlook"] != contenders[1]["outlook"], "%s outlooks oppose" % faction_id)
+			for m in contenders:
+				assert_true(m["outlook"] in ["hawk", "dove"])
+				assert_true(str(m["want"]) != "", "%s has a want" % m["id"])
+				assert_true(m.has("aggressionMult") and m.has("relationBaseline"))
+			assert_eq(contenders[0]["contactId"], GameData.FACTIONS[faction_id]["speaker"], "speaker leads at start")
+		assert_eq(KeyMembers.member("hakim")["seat"], "member")
+		assert_eq(KeyMembers.contenders("collective").map(func(m): return m["id"]), ["nadia", "des"])
+		for contact_id in ["mercer", "wren", "courier", "pryce"]:
+			assert_true(KeyMembers.member(contact_id).get("proseReview", false), "%s flagged" % contact_id)
+	)
+
+	run_case("new_game_has_standing_and_leader_and_speaker_follows_the_leader", func():
+		GameState.reset()
+		var col: Dictionary = GameState.state["factions"]["collective"]
+		assert_eq(col["leader"], "nadia")
+		assert_eq(col["standing"], { "nadia": 50, "des": 50 })
+		col["leader"] = "des"
+		assert_eq(KeyMembers.speaker_for("collective"), "des")
+		assert_eq(KeyMembers.leader_of("collective"), "des")
+	)
+
+	run_case("old_saves_backfill_standing_and_leader_from_the_speaker", func():
+		GameState.reset()
+		var save := { "factions": { "firm": { "relation": 3 } } }
+		SaveManager._migrate_key_member_standing(save)
+		assert_eq(save["factions"]["firm"]["leader"], "lusk")
+		assert_eq(save["factions"]["firm"]["standing"], { "lusk": 50, "mercer": 50 })
+		save["factions"]["firm"]["standing"]["lusk"] = 80
+		save["factions"]["firm"]["leader"] = "mercer"
+		SaveManager._migrate_key_member_standing(save)
+		assert_eq(save["factions"]["firm"]["standing"]["lusk"], 80, "kept")
+		assert_eq(save["factions"]["firm"]["leader"], "mercer", "kept")
+	)

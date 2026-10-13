@@ -90,6 +90,12 @@ _Avoid_: "intel" for the Network's timed per-site tips (those are site intel).
 **Key member**:
 A named person in a faction the player can message and gift to: Lusk for the Firm, Ingram for the Guild, Fairweather for the Conclave, Nadia, Des and Hakim for the Collective, the handler for the Network. One key member per faction is its speaker (Nadia for the Collective): every faction message to the player comes from the speaker, never from the faction as a faceless whole.
 
+**Contender**: a key member with seat `speaker` or `lieutenant` (opposing `hawk`/`dove` outlooks); Hakim is a non-contender member.
+
+**Standing**: hidden 0–100 per contender (`factions[id].standing[contactId]`), distinct from the player's personal `relation` with them.
+
+**Leader**: the contender currently leading a faction (`factions[id].leader`); the speaker follows the leader.
+
 **The Network**:
 In-fiction name for the game's map screen (a Beck-style transit diagram). Never call it "the tube map," "the Underground," or "London Underground" in player-facing text — see `plans/M1-LONDON.md` D4.1 for the legal rationale.
 
