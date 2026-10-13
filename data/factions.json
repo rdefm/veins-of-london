@@ -40,8 +40,8 @@
     "raidKits": { "attack": { "healingSalve": 1 }, "defend": { "healingSalve": 1 } },
     "speaker": "nadia",
     "keyMembers": [
-      {"id": "nadia", "contactId": "nadia", "seat": "speaker", "outlook": "dove", "want": "collective", "aggressionMult": 0.7, "relationBaseline": 10, "startStanding": 50, "name": "Nadia", "role": "The Collective · Hackney", "unlock": "quest", "giftPrefs": ["timePearl", "enhancementPowder"], "intro": ""},
-      {"id": "des", "contactId": "des", "seat": "lieutenant", "outlook": "hawk", "want": "business_empire", "aggressionMult": 1.3, "relationBaseline": -10, "startStanding": 50, "name": "Des", "role": "The Collective · prospector", "unlock": "quest", "giftPrefs": ["prophetsBreath", "healingSalve"], "intro": ""},
+      {"id": "nadia", "contactId": "nadia", "seat": "speaker", "outlook": "hawk", "want": "collective", "aggressionMult": 1.3, "relationBaseline": -10, "startStanding": 50, "name": "Nadia", "role": "The Collective · Hackney", "unlock": "quest", "giftPrefs": ["timePearl", "enhancementPowder"], "intro": ""},
+      {"id": "des", "contactId": "des", "seat": "lieutenant", "outlook": "dove", "want": "business_empire", "aggressionMult": 0.7, "relationBaseline": 10, "startStanding": 50, "name": "Des", "role": "The Collective · prospector", "unlock": "quest", "giftPrefs": ["prophetsBreath", "healingSalve"], "intro": ""},
       {"id": "hakim", "contactId": "hakim", "seat": "member", "outlook": "", "want": "", "aggressionMult": 1.0, "relationBaseline": 0, "startStanding": 0, "name": "Hakim", "role": "The Collective · Whitechapel Road", "unlock": "quest", "giftPrefs": ["rejuvenation", "healingBurst"], "intro": ""}
     ],
     "sampleFavours": [
