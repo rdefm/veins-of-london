@@ -1,11 +1,16 @@
 {
-  "escalation": { "everyDays": 7, "max": 3 },
+  "escalation": {
+    "everyDays": 7,
+    "max": 3
+  },
   "repairCost": 100,
   "kindLabels": {
     "placeholder": "Harassment",
     "securityDegrade": "Tampered security",
     "workBan": "Work ban",
-    "freeze": "Frozen by injunction"
+    "freeze": "Frozen by injunction",
+    "sellPenalty": "Marked-down prices",
+    "shopBar": "Barred from shop"
   },
   "entries": {
     "harass_placeholder_firm": {
@@ -34,6 +39,24 @@
       "target": "vein",
       "requires": {},
       "notice": "PROSE-REVIEW placeholder: \"A document has arrived concerning one of your premises. Do read it.\""
+    },
+    "harass_placeholder_guild": {
+      "id": "harass_placeholder_guild",
+      "factionId": "guild",
+      "eventId": "harass_placeholder_guild",
+      "cost": 100,
+      "target": "player",
+      "requires": {},
+      "notice": "PROSE-REVIEW placeholder: \"A batch of yours has failed inspection. Do come and talk to us.\""
+    },
+    "harass_placeholder_network": {
+      "id": "harass_placeholder_network",
+      "factionId": "network",
+      "eventId": "harass_placeholder_network",
+      "cost": 100,
+      "target": "player",
+      "requires": {},
+      "notice": "PROSE-REVIEW placeholder: \"People are saying things about you. I thought you'd want to hear them from me.\""
     }
   }
 }

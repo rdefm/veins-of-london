@@ -1637,7 +1637,7 @@ const VALID_EFFECT_OPS: Array[String] = [
 	# harassment_add / harassment_clear: Harassment.add_from_event / clear_from_event.
 	"harassment_add", "harassment_clear",
 	# fine takes cash (Harassment.fine); spend_block burns time blocks (a hearing).
-	"fine", "spend_block",
+	"fine", "spend_block", "raise_intel",
 	"log_method",
 	# Seeds a faction vein on each site recorded in a named objective's progress.
 	"faction_seed_reported_sites",

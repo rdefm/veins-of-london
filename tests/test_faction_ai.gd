@@ -803,6 +803,7 @@ func run() -> void:
 	)
 
 	run_case("a_poached_renewal_the_player_matches_stays_at_the_matched_price", func():
+		var harass_menu := _mute_harass("crafter")
 		_market_fresh(5)
 		var offer := _renewal("firm")
 		_move_ready("guild", -55)
@@ -816,9 +817,11 @@ func run() -> void:
 		assert_true(result["ok"], "matched")
 		assert_eq(int(result["contract"]["signedQuote"]["payment"]), rival_price, "signed at the matched price")
 		assert_eq(result["contract"]["counterparty"], "firm", "the buyer stays")
+		_restore_harass("crafter", harass_menu)
 	)
 
 	run_case("an_unmatched_poached_renewal_lapses_to_the_rival", func():
+		var harass_menu := _mute_harass("crafter")
 		_market_fresh(5)
 		var offer := _renewal("firm")
 		_move_ready("guild", -55)
@@ -829,6 +832,7 @@ func run() -> void:
 		assert_true(Offers.active_contracts().is_empty())
 		var lapsed: String = GameData.FACTION_ESCALATION["log"]["poach"]["lapsed"] % "Firm"
 		assert_true(_log_texts("guild").has(lapsed), "the Guild took the buyer")
+		_restore_harass("crafter", harass_menu)
 	)
 
 	run_case("poach_is_skipped_between_factions", func():
@@ -862,6 +866,7 @@ func run() -> void:
 	)
 
 	run_case("a_lowball_buyout_is_below_the_quote_and_accepting_sells_the_vein", func():
+		var harass_menu := _mute_harass("crafter")
 		_market_fresh(5)
 		var vein := Fixtures.seed_vein("pv", 60)
 		GameState.state["player"]["cash"] = 100
@@ -881,9 +886,11 @@ func run() -> void:
 		assert_eq(int(GameState.state["player"]["cash"]), 100 + price, "paid")
 		assert_eq(int(GameState.state["factions"]["guild"]["resources"]), quote * 2 - price, "from the Guild's cash")
 		assert_true(Messages.pending_for("ingram").is_empty(), "resolved")
+		_restore_harass("crafter", harass_menu)
 	)
 
 	run_case("lowball_waits_for_a_squeeze_and_a_lost_vein_counts", func():
+		var harass_menu := _mute_harass("crafter")
 		_market_fresh(5)
 		Fixtures.seed_vein("pv", 60)
 		GameState.state["player"]["cash"] = 100000
@@ -899,6 +906,7 @@ func run() -> void:
 		_target_entry("guild")["lastMoveDay"] = GameState.state["world"]["day"]
 		FactionAI.apply_escalation()
 		assert_true(Messages.pending_for("ingram").is_empty(), "an unanswered lowball lapses")
+		_restore_harass("crafter", harass_menu)
 	)
 
 	run_case("a_spike_held_for_the_run_gets_a_conclave_sell_at_a_loss", func():
@@ -1442,6 +1450,18 @@ static func _move_ready(faction_id: String, relation: int) -> void:
 	Factions.adjust_player_relation(faction_id, relation - _player_relation(faction_id))
 	_under_pressure(faction_id)
 	_target_entry(faction_id)["warnedBand"] = FactionAI.band(faction_id, "player")
+
+
+# Market-move tests drive one archetype's market band; its harass menu would outbid the move.
+static func _mute_harass(archetype: String) -> Array:
+	var menu: Dictionary = GameData.FACTION_ESCALATION["menus"][archetype]
+	var saved: Array = menu["harass"]
+	menu["harass"] = []
+	return saved
+
+
+static func _restore_harass(archetype: String, saved: Array) -> void:
+	GameData.FACTION_ESCALATION["menus"][archetype]["harass"] = saved
 
 
 static func _holdings(faction_id: String) -> Dictionary:

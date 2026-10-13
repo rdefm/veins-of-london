@@ -4180,6 +4180,94 @@
 "screen": "map"
 }]
 },
+"harass_placeholder_guild": {
+"cards": [{
+"label": null,
+"speaker": null,
+"text": "PROSE-REVIEW placeholder: a Guild inspector has decertified a batch of your goods.",
+"type": "narration"
+}, {
+"choices": [{
+"effects": [{
+"op": "add",
+"path": "player.cash",
+"value": -100
+}],
+"label": "Pay the re-inspection fee (£100)",
+"result_text": "PROSE-REVIEW placeholder: the batch is recertified."
+}, {
+"effects": [{
+"kind": "sellPenalty",
+"op": "harassment_add",
+"params": {
+"class": "item",
+"days": 7,
+"mult": 0.8
+}
+}, {
+"kind": "shopBar",
+"op": "harassment_add",
+"params": {
+"days": 7,
+"factionId": "guild"
+}
+}],
+"label": "Leave it",
+"result_text": "PROSE-REVIEW placeholder: your goods sell for less and the Guild shop is shut to you for a week."
+}],
+"label": null,
+"speaker": null,
+"text": "PROSE-REVIEW placeholder: the stamp can be bought back, or you can sell at a loss.",
+"type": "choice"
+}],
+"id": "harass_placeholder_guild",
+"on_complete": [{
+"op": "set_screen",
+"screen": "map"
+}]
+},
+"harass_placeholder_network": {
+"cards": [{
+"label": null,
+"speaker": null,
+"text": "PROSE-REVIEW placeholder: the Network has been talking about you, to everyone.",
+"type": "narration"
+}, {
+"choices": [{
+"effects": [{
+"op": "add",
+"path": "player.cash",
+"value": -100
+}],
+"label": "Pay for a retraction (£100)",
+"result_text": "PROSE-REVIEW placeholder: the rumour dies."
+}, {
+"effects": [{
+"amount": 15,
+"op": "raise_intel"
+}, {
+"kind": "sellPenalty",
+"op": "harassment_add",
+"params": {
+"class": "ore",
+"days": 7,
+"mult": 0.85
+}
+}],
+"label": "Leave it",
+"result_text": "PROSE-REVIEW placeholder: every faction now knows more about you, and ore buyers offer less."
+}],
+"label": null,
+"speaker": null,
+"text": "PROSE-REVIEW placeholder: a retraction can be arranged.",
+"type": "choice"
+}],
+"id": "harass_placeholder_network",
+"on_complete": [{
+"op": "set_screen",
+"screen": "map"
+}]
+},
 "heath_dogwalker": {
 "cards": [{
 "label": "Hampstead Heath",

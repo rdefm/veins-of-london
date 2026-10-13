@@ -223,9 +223,68 @@ func run() -> void:
 	)
 
 	run_case("every_placeholder_event_applies_cleanly", func():
-		for id in ["harass_placeholder", "harass_placeholder_collective", "harass_placeholder_conclave"]:
+		for id in ["harass_placeholder", "harass_placeholder_collective", "harass_placeholder_conclave", "harass_placeholder_guild", "harass_placeholder_network"]:
 			for card in GameData.EVENTS[id]["cards"]:
 				for choice in card.get("choices", []):
 					for effect in choice["effects"]:
 						assert_true(GameData.VALID_EFFECT_OPS.has(effect["op"]), "%s op %s" % [id, effect["op"]])
+	)
+
+
+	run_case("sell_penalty_hits_only_its_class_and_goods_in_every_lane", func():
+		_fresh()
+		var ore_base := Economy.get_archie_ore_price("life", 0.0)
+		var other_ore_base := Economy.get_archie_ore_price("time", 0.0)
+		var item_base := Economy.get_archie_consumable_price("timePearl", 1, 0.0)
+		var lane_base := Economy.get_faction_sell_price("guild", "ore", "life")
+		Events.apply_effects([{ "op": "harassment_add", "kind": "sellPenalty", "faction": "network", "params": { "class": "ore", "goods": ["life"], "mult": 0.5 } }])
+		assert_eq(Economy.get_archie_ore_price("life", 0.0), GameState.round_epsilon(ore_base * 0.5))
+		assert_eq(Economy.get_archie_ore_price("time", 0.0), other_ore_base, "other ore untouched")
+		assert_eq(Economy.get_archie_consumable_price("timePearl", 1, 0.0), item_base, "items untouched by an ore penalty")
+		assert_true(Economy.get_faction_sell_price("guild", "ore", "life") < lane_base, "faction lane too")
+		Events.apply_effects([{ "op": "harassment_clear", "kind": "sellPenalty", "faction": "network" }])
+		assert_eq(Economy.get_archie_ore_price("life", 0.0), ore_base, "cleared")
+		Events.apply_effects([{ "op": "harassment_add", "kind": "sellPenalty", "faction": "guild", "params": { "class": "item", "mult": 0.5, "days": 3 } }])
+		assert_eq(Economy.get_archie_consumable_price("timePearl", 1, 0.0), GameState.round_epsilon(item_base * 0.5))
+		assert_eq(Economy.get_archie_ore_price("life", 0.0), ore_base, "ores untouched by an item penalty")
+		GameState.state["world"]["day"] = 10
+		Harassment.tick()
+		assert_eq(Economy.get_archie_consumable_price("timePearl", 1, 0.0), item_base, "expired")
+	)
+
+	run_case("shop_bar_closes_that_factions_shop_until_expiry", func():
+		_fresh()
+		GameState.state["factions"]["guild"]["joined"] = true
+		GameState.state["flags"][str(GameData.FACTION_TRADE["guild"].get("unlockFlag", "x"))] = true
+		assert_true(Economy.can_buy_from_faction("guild"), "open before the bar")
+		Events.apply_effects([{ "op": "harassment_add", "kind": "shopBar", "faction": "guild", "params": { "factionId": "guild", "days": 3 } }])
+		assert_true(not Economy.can_buy_from_faction("guild"))
+		assert_true(not Economy.complete_shop_trade("guild")["ok"])
+		GameState.state["world"]["day"] = 10
+		Harassment.tick()
+		assert_true(Economy.can_buy_from_faction("guild"), "reopens")
+	)
+
+	run_case("raise_intel_lifts_every_faction_on_the_player", func():
+		_fresh()
+		Intel.raise("firm", Shares.PLAYER, 5)
+		Events.apply_effects([{ "op": "raise_intel", "amount": 15 }])
+		assert_eq(Intel.meter("firm", Shares.PLAYER), 20)
+		for faction_id in GameData.FACTIONS.keys():
+			assert_true(Intel.meter(faction_id, Shares.PLAYER) >= 15, "%s knows more" % faction_id)
+		assert_eq(Intel.meter("firm", "collective"), 0, "other pairs untouched")
+	)
+
+	run_case("guild_and_network_cards_apply_through_the_event_runner", func():
+		_fresh()
+		GameState.state["factions"]["guild"]["joined"] = true
+		for id in ["harass_placeholder_guild", "harass_placeholder_network"]:
+			var ignore: Dictionary = GameData.EVENTS[id]["cards"][1]["choices"][1]
+			GameState.state["event"] = { "eventId": id, "context": { "faction_id": id.trim_prefix("harass_placeholder_"), "vein_id": "" } }
+			Events.apply_effects(ignore["effects"])
+		assert_true(Harassment.is_shop_barred("guild"))
+		assert_true(Harassment.sell_mult("consumable", "timePearl") < 1.0)
+		assert_true(Harassment.sell_mult("ore", "life") < 1.0)
+		assert_true(Intel.meter("conclave", Shares.PLAYER) > 0)
+		GameState.state["event"] = null
 	)

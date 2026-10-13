@@ -167,8 +167,8 @@
     "headlineCap": 10,
     "menus": {
       "producer": { "harass": ["harass_placeholder_firm", "harass_placeholder_collective"], "market": ["flood", "outbid", "withhold"], "raid": ["veinRaid", "stockpileRaid"] },
-      "crafter": { "harass": [], "market": ["poach", "withholdItems", "lowballBuyout"], "raid": ["stockpileRaid"] },
-      "informationBroker": { "harass": [], "market": ["sellIntel", "priceGouge", "disinformation"], "raid": ["stockpileRaid"] },
+      "crafter": { "harass": ["harass_placeholder_guild"], "market": ["poach", "withholdItems", "lowballBuyout"], "raid": ["stockpileRaid"] },
+      "informationBroker": { "harass": ["harass_placeholder_network"], "market": ["sellIntel", "priceGouge", "disinformation"], "raid": ["stockpileRaid"] },
       "manipulator": { "harass": ["harass_placeholder_conclave"], "market": ["undercut", "denyGoods", "tickerPush"], "raid": [] }
     },
     "sharedMarket": ["lowballBuyout"],

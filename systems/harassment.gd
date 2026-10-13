@@ -15,6 +15,8 @@ const PENDING_KIND := "faction_harassment"
 const KIND_SECURITY_DEGRADE := "securityDegrade"
 const KIND_WORK_BAN := "workBan"
 const KIND_FREEZE := "freeze"
+const KIND_SELL_PENALTY := "sellPenalty"
+const KIND_SHOP_BAR := "shopBar"
 
 
 static func _cfg() -> Dictionary:
@@ -267,3 +269,47 @@ static func spend_blocks(count: int) -> void:
 	for i in count:
 		if not TimeSystem.is_time_exhausted():
 			TimeSystem.advance_time_block()
+
+
+# ── economic and information effects ─────────────────────────────────────
+
+# Product of every active sellPenalty row that covers the good. params.class
+# "ore" covers ores, "item" covers consumables; params.goods (optional) narrows
+# it to those ore ids / recipe keys.
+static func sell_mult(kind: String, good: String) -> float:
+	var item_class := "ore" if kind == "ore" else "item"
+	var mult := 1.0
+	for row in active():
+		if row["kind"] != KIND_SELL_PENALTY:
+			continue
+		var params: Dictionary = row["params"]
+		if params.get("class", "") != item_class:
+			continue
+		var goods: Array = params.get("goods", [])
+		if not goods.is_empty() and not goods.has(good):
+			continue
+		mult *= float(params.get("mult", 1.0))
+	return mult
+
+
+# True when any sellPenalty row is active, for the sell menu's notice.
+static func has_sell_penalty() -> bool:
+	for row in active():
+		if row["kind"] == KIND_SELL_PENALTY:
+			return true
+	return false
+
+
+# True while a shopBar row bars the player from the faction's shop.
+static func is_shop_barred(faction_id: String) -> bool:
+	for row in active():
+		if row["kind"] == KIND_SHOP_BAR and row["params"].get("factionId", row["factionId"]) == faction_id:
+			return true
+	return false
+
+
+# raise_intel event op: every faction's intel on the player rises by amount.
+static func raise_intel(amount: int) -> void:
+	for faction_id in GameData.FACTIONS.keys():
+		Intel.raise(faction_id, Shares.PLAYER, amount)
+	EventBus.state_changed.emit()

@@ -96,6 +96,8 @@ func _build_header(layout: VBoxContainer) -> void:
 	top.add_child(close)
 	var note := "Direct trade. No cut or mugging." if _is_faction() else "Archie's cut changes with your relation."
 	content.add_child(_label(note, 12, MUTED))
+	if Harassment.has_sell_penalty():
+		content.add_child(_label("Some prices are marked down against you.", 12, MUTED))
 	if _is_faction() and not _review:
 		var direction_row := UI.hbox(5)
 		content.add_child(direction_row)

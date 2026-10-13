@@ -886,6 +886,8 @@ static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 			Harassment.fine(int(effect["amount"]))
 		"spend_block":
 			Harassment.spend_blocks(int(effect.get("count", 1)))
+		"raise_intel":
+			Harassment.raise_intel(int(effect["amount"]))
 		"log_method":
 			GameState.state["methodLog"][effect["key"]] = effect["value"]
 		# col_a2_nadia_defend_brief (T8a, spec §6.8a): no per-raid context to

@@ -37,13 +37,13 @@ static func get_archie_vein_price(vein: Dictionary) -> int:
 # Archie's ore price (per Market.price_lot units) before his cut: today's London quote with the
 # district/omen modifier on top (R§3.6).
 static func get_archie_ore_price(ore_type: String, price_mod: float) -> int:
-	return GameState.round_epsilon(Market.quote("ore", ore_type) * (1.0 + price_mod))
+	return GameState.round_epsilon(Market.quote("ore", ore_type) * (1.0 + price_mod) * Harassment.sell_mult("ore", ore_type))
 
 
 # Archie's per-unit consumable price before his cut: London quote, then the
 # tier's quality multiplier, then the district/omen modifier (R§3.6).
 static func get_archie_consumable_price(recipe_key: String, tier: int, price_mod: float) -> int:
-	return GameState.round_epsilon(Market.quote("consumable", recipe_key) * quality_price_multiplier(tier) * (1.0 + price_mod))
+	return GameState.round_epsilon(Market.quote("consumable", recipe_key) * quality_price_multiplier(tier) * (1.0 + price_mod) * Harassment.sell_mult("consumable", recipe_key))
 
 
 static func get_archie_cut_ratio() -> float:
@@ -278,7 +278,7 @@ static func get_faction_buy_price(faction_id: String, kind: String, item_type: S
 
 static func get_faction_sell_price(faction_id: String, kind: String, item_type: String) -> int:
 	var effective := _faction_effective_price(faction_id, kind, item_type)
-	return GameState.round_epsilon(effective * (1.0 - get_faction_sell_spread(faction_id)))
+	return GameState.round_epsilon(effective * (1.0 - get_faction_sell_spread(faction_id)) * Harassment.sell_mult(kind, item_type))
 
 
 # The Guild marketplace's and sell menu's buy-row qty sliders need a
@@ -351,6 +351,8 @@ static func receive_faction_ore(faction_id: String, ore_type: String, qty: int) 
 # Whether the player can currently buy from a faction lane: a member-only
 # lane needs membership; any other lane opens with its unlockFlag.
 static func can_buy_from_faction(faction_id: String) -> bool:
+	if Harassment.is_shop_barred(faction_id):
+		return false
 	var config: Dictionary = GameData.FACTION_TRADE[faction_id]
 	if config.get("memberOnly", false):
 		return bool(GameState.state["factions"][faction_id]["joined"])
@@ -531,6 +533,8 @@ static func sell_to_faction_from_sell_state(faction_id: String, contact_id: Stri
 # A faction shop's Trade-menu confirm (no contact attached): settles the cart
 # against the faction's holdings and cash, then shows the sale result.
 static func complete_shop_trade(faction_id: String) -> Dictionary:
+	if Harassment.is_shop_barred(faction_id):
+		return { "ok": false, "reason": "Barred from this shop." }
 	var result := sell_to_faction_from_sell_state(faction_id)
 	if result.get("ok", false):
 		Modal.open("sale_result", { "earned": result["earned"], "gross": result["earned"], "mugged": false })

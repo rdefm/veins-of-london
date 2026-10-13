@@ -1,0 +1,55 @@
+{
+  "id": "harass_placeholder_network",
+  "cards": [
+    {
+      "type": "narration",
+      "label": null,
+      "speaker": null,
+      "text": "PROSE-REVIEW placeholder: the Network has been talking about you, to everyone."
+    },
+    {
+      "type": "choice",
+      "label": null,
+      "speaker": null,
+      "text": "PROSE-REVIEW placeholder: a retraction can be arranged.",
+      "choices": [
+        {
+          "label": "Pay for a retraction (£100)",
+          "effects": [
+            {
+              "op": "add",
+              "path": "player.cash",
+              "value": -100
+            }
+          ],
+          "result_text": "PROSE-REVIEW placeholder: the rumour dies."
+        },
+        {
+          "label": "Leave it",
+          "effects": [
+            {
+              "op": "raise_intel",
+              "amount": 15
+            },
+            {
+              "op": "harassment_add",
+              "kind": "sellPenalty",
+              "params": {
+                "class": "ore",
+                "mult": 0.85,
+                "days": 7
+              }
+            }
+          ],
+          "result_text": "PROSE-REVIEW placeholder: every faction now knows more about you, and ore buyers offer less."
+        }
+      ]
+    }
+  ],
+  "on_complete": [
+    {
+      "op": "set_screen",
+      "screen": "map"
+    }
+  ]
+}
