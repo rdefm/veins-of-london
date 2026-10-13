@@ -9,6 +9,8 @@
 
 Placeholder cards cover the Firm, Collective and Conclave menus.
 
+**Delivery (gap from 14):** `Harassment.start_next()` starts the oldest entry in `state.harassment.queued`, but nothing calls it. Surface queued harassment to the player (e.g. a phone/daily-brief prompt or auto-start at the next safe point via `Events.start_or_defer`), so queued events actually play. Decide the entry point with the human before building.
+
 **Blocked by:** 14 — Harassment rung core
 
 **Relevant files:** `systems/events.gd` (action runner ~line 780, whitelist), `systems/cultivating.gd` (security tiers, cultivate/tend gating), `systems/time_system.gd` (blocks), `systems/vein_list.gd` / vein detail readers for frozen/banned state, `scenes/components/vein_detail_panel.gd` (show state), placeholder events in `data/events/`, tests: events, cultivating, `test_harassment`. REFERENCE.md §3.9a-adjacent action list, Harassment §.
@@ -20,4 +22,5 @@ Placeholder cards cover the Firm, Collective and Conclave menus.
 - [ ] Work ban blocks actions on that vein for the given block; freeze blocks all actions until expiry
 - [ ] Fine deducts cash; hearing spends a block
 - [ ] Each tested through the Events action runner
+- [ ] A queued harassment event reaches the player and plays (tested: queue -> start_next -> event runs, queue empties)
 - [ ] Placeholder cards flagged `PROSE-REVIEW`; UI QA list in the report
