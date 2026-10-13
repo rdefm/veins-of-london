@@ -767,6 +767,8 @@ func _build_available(faction_id: String) -> Control:
 		var check := FactionAI.can_open_talks(faction_id)
 		box.add_child(_action("Negotiate peace", func(): ContactCards.open_talks(faction_id), false, not check["ok"], check.get("reason", "")))
 	box.add_child(_action("Gift →", func(): Modal.open("gift", { "factionId": faction_id }), true))
+	if faction_id != PlayerMoves.EXEMPT_FACTION:
+		box.add_child(_action("Move against →", func(): Modal.open("player_moves", { "factionId": faction_id }), true))
 	for action in ContactCards.build_membership_actions(faction_id):
 		_restyle_buttons(action)
 		box.add_child(action)

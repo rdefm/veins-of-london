@@ -44,6 +44,8 @@ func new_game_state() -> Dictionary:
 		# Faction grudges and their aftermath (Grudges is the only writer).
 		"grudges": Grudges.new_state(),
 		"grudgeEffects": Grudges.new_effects(),
+		# Timed sell-price penalties from the player's police tips (PlayerMoves is the only writer).
+		"factionPenalties": PlayerMoves.new_state(),
 		# Faction perk bookkeeping: tended = { veinId: last day the player cultivated it }, whipRoundUsed = one-off home bailout spent.
 		"perks": { "tended": {}, "whipRoundUsed": false, "racket": false, "intelTarget": "" },
 		"mapEvents": { "queue": [], "playing": false, "pacingMode": MapEvents.DEFAULT_PACING_MODE },

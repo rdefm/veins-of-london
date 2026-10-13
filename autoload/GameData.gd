@@ -88,6 +88,8 @@ var FACTION_TRADE: Dictionary = {}
 # Per-faction tiered perks (friendly/partner/sworn), read by Perks.
 var FACTION_PERKS: Dictionary = {}
 var FACTION_HARASSMENT: Dictionary = {}
+# Player's non-violent moves against a faction (complaint, police tip, Ticker leak), read by PlayerMoves.
+var PLAYER_MOVES: Dictionary = {}
 
 # London market constants, Independents share and per-good civilian volumes, read by Market.
 var MARKET: Dictionary = {}
@@ -405,6 +407,9 @@ const MANIFEST: Array[Dictionary] = [
 	]},
 	{"table": "faction_harassment", "file": "res://data/faction_harassment.json", "fields": [
 		{"field": "FACTION_HARASSMENT", "key": "", "type": TYPE_DICTIONARY},
+	]},
+	{"table": "player_moves", "file": "res://data/player_moves.json", "fields": [
+		{"field": "PLAYER_MOVES", "key": "", "type": TYPE_DICTIONARY},
 	]},
 	{"table": "faction_perks", "file": "res://data/faction_perks.json", "fields": [
 		{"field": "FACTION_PERKS", "key": "", "type": TYPE_DICTIONARY},

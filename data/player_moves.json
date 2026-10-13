@@ -1,0 +1,38 @@
+{
+  "relationHit": 8,
+  "otherFactionsRelationHit": 2,
+  "moves": {
+    "fileComplaint": {
+      "id": "fileComplaint",
+      "label": "File a complaint",
+      "description": "Paperwork against a faction vein. Its security upgrades stall for a few days.",
+      "needsVein": true,
+      "cost": { "cash": 150, "blocks": 1 },
+      "intelGate": "veinSecurity",
+      "durationDays": 5,
+      "log": "Complaint filed. %s will be tied up in paperwork."
+    },
+    "tipPolice": {
+      "id": "tipPolice",
+      "label": "Tip off the police",
+      "description": "An anonymous word to the Met. The faction's goods sell for less while they're watched.",
+      "needsVein": false,
+      "cost": { "cash": 250, "blocks": 1 },
+      "intelGate": "holdings",
+      "durationDays": 7,
+      "sellMult": 0.85,
+      "log": "Tip passed on. %s will be selling under scrutiny."
+    },
+    "leakTicker": {
+      "id": "leakTicker",
+      "label": "Leak to the Ticker",
+      "description": "Feed the press something the faction would rather keep quiet. Pulls the Ticker against what they want.",
+      "needsVein": false,
+      "cost": { "cash": 100, "blocks": 1 },
+      "intelGate": "holdings",
+      "strengthMult": 3,
+      "headline": "Leaked papers embarrass %s",
+      "log": "Leak placed. The Ticker will turn on %s."
+    }
+  }
+}

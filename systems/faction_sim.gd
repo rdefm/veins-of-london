@@ -646,7 +646,7 @@ static func _sell(faction_id: String, kind: String, good_type: String, qty: int,
 		take_ore(faction_id, good_type, qty)
 	else:
 		take_items(faction_id, good_type, qty)
-	GameState.state["factions"][faction_id]["resources"] += Market.line_total(kind, price, qty)
+	GameState.state["factions"][faction_id]["resources"] += roundi(Market.line_total(kind, price, qty) * PlayerMoves.sell_mult(faction_id))
 	Market.record_supply(kind, good_type, qty, faction_id)
 
 

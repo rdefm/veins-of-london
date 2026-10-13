@@ -70,6 +70,7 @@ Data file per system: see `data/*.json` below.
 | key_members.gd | Faction key members (R§3.10): member/faction lookup, `speaker_for`, `send` (unlocks + intro on first message, or waits for a quest-gated member's questline) |
 | lab_bench_nav.gd | Lab bench nav: selected ore; gear confirm variant (probe/craft/inert) + readiness |
 | grudges.gd | Grudges: `state.grudges` (per-faction score to settle after a successful raid on you), `state.grudgeEffects` (soft marks, revenge windows), `record`, `answer`/`answer_district` hooks, `raid_odds_bonus`, `daily_tick` expiry, `soft_pressure` (read by `FactionAI.threat`), district rows. Data: constants.json `factionGrudge`. |
+| player_moves.gd | Player non-violent moves vs a faction (complaint = vein security freeze, police tip = timed sell penalty in `state.factionPenalties`, Ticker leak = reversed faction prefs + headline + hit with other factions): `block_reason`, `perform`, `sell_mult`. Hostile act, relation drop, answers grudge. Data: player_moves.json. |
 | harassment.gd | Harassment: `state.harassment` (queued events, persistent `active` effects), harass-rung `candidate`, `tick` (expiry, escalation), pending prompt per event, event-op helpers (add/clear/fine/spend_block/raise_intel), security repair, `vein_gate`, `sell_mult` price penalty, `is_shop_barred`, panel rows. Data: faction_harassment.json. |
 | turf.gd | Turf (R§3.1 "Turf"): per-district contender vein counts/shares, controller (top >= second + controlMargin), foothold tier, contested; `recompute()` rewrites `state.turf` once per daily tick (⑤d3), queuing flip headline + `turf_flip` map event. `danger_mod`/`price_mod`/`raid_odds_adj`: effective district modifiers (relation bands, foothold half, player control). |
 | map_events.gd | Map event queue + playback |
@@ -225,6 +226,7 @@ overlays.
 | lab_bench_probe_result_modal.gd | Probe outcome card |
 | lab_bench_confirm_modal.gd | Gear-tap confirm: probe, craft ×N (batch slider, max = affordable) or inert warning, by cell state |
 | contract_cancel_modal.gd | Navy BizBrief contract cancel confirm (Keep / Confirm → `Contracts.cancel`) |
+| player_moves_modal.gd | "Move against" sheet for one faction: vein picker plus the three `PlayerMoves` rows with cost and block reason |
 | gift_modal.gd | Gift sheet for one faction: key members with relation, likes and cooldown; pick a member, give a cash option or one held consumable via `Diplomacy`; a landed gift opens the member's thread |
 | negotiation_modal.gd | Peace talks sheet: the faction's standing terms + Accept, the player's draft (truce days, cash/weekly each way, vein toggles), Propose / Walk away (not when binding); all via FactionAI |
 
@@ -270,6 +272,7 @@ overlays.
 | enemies.json | combat.gd |
 | faction_trade.json | economy.gd |
 | faction_perks.json | perks.gd |
+| player_moves.json | player_moves.gd (moves: cost, intel gate, duration, sell mult, leak strength; relation hits) |
 | faction_harassment.json | harassment.gd (entries, escalation cadence, kind labels), faction_ai.gd (menu ids) |
 | factions.json | factions.gd, sites.gd, raiding.gd, debug_start.gd, faction_sim.gd (`startingHoldings`, `stockpilePlaces`, `stockpileGuards`, `cultivateSkill`, `fieldwork`, `craftSkill`, `craftTargets`, `raidKits`, `consumes`, `trading`, `industryIncome`), key_members.gd (`keyMembers`, `speaker`), diplomacy.gd (`sampleFavours`, `giftPrefs`), faction_ai.gd (`aggressionPersonality`, `weariness`) |
 | lodedinnit.json | GameData.gd (`LODEDINNIT_*`), lodedinnit_feed.gd: feed cap/likes/author weights, per-candidate post voices (trait variants), shared canned comments, hire-status templates |

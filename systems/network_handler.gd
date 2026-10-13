@@ -72,11 +72,11 @@ static func is_vulnerable(site_id: String, effect: String) -> bool:
 # network_reveal_vulnerable_vein op: writes a timed networkIntel entry when
 # the named vein is genuinely vulnerable to `effect`, nothing otherwise.
 # Returns the verdict.
-static func reveal_vulnerable_vein(site_id: String, effect: String) -> bool:
+static func reveal_vulnerable_vein(site_id: String, effect: String, duration_days: int = INTEL_DURATION_DAYS) -> bool:
 	if not is_vulnerable(site_id, effect):
 		return false
 	GameState.state["collective"]["networkIntel"][site_id] = {
-		"expiresDay": GameState.state["world"]["day"] + INTEL_DURATION_DAYS,
+		"expiresDay": GameState.state["world"]["day"] + duration_days,
 		"effect": effect,
 		"magnitude": CLAIM_BONUS_MAGNITUDE if effect == EFFECT_CLAIM_BONUS else 0.0,
 	}

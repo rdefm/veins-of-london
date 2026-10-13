@@ -533,6 +533,8 @@ func backfill_defaults(save: Dictionary) -> Dictionary:
 		result["grudges"] = Grudges.new_state()
 	if not save.has("grudgeEffects"):
 		result["grudgeEffects"] = Grudges.new_effects()
+	if not save.has("factionPenalties"):
+		result["factionPenalties"] = PlayerMoves.new_state()
 	if not save.has("perks"):
 		result["perks"] = GameState.deep_copy(defaults["perks"])
 	return result

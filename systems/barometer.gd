@@ -87,6 +87,11 @@ static func queue_push(faction_id: String, section: String, state_id: String, di
 	barometer["pushes"].append({ "factionId": faction_id, "section": section, "state": state_id, "direction": direction, "strength": strength })
 
 
+# The Ticker states faction_id pushes or pulls each tick (data factionPrefs).
+static func leak_prefs(faction_id: String) -> Array:
+	return GameData.FACTION_BAROMETER_PREFS.get(faction_id, [])
+
+
 # Queued pushes awaiting the next tick.
 static func queued_pushes() -> Array:
 	return GameState.state["barometer"].get("pushes", [])
