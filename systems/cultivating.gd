@@ -253,7 +253,8 @@ static func cultivate(vein_id: String) -> Dictionary:
 	# Tainted before the block ends, so a rollover settlement sees it.
 	Contracts.note_player_tended_vein(vein_id)
 	Perks.note_player_tended(vein_id)
-	TimeSystem.advance_time_block()
+	if not Perks.take_free_cultivate(vein["district"]):
+		TimeSystem.advance_time_block()
 
 	var player: Dictionary = GameState.state["player"]
 	var skill: int = player["cultivatingSkill"]

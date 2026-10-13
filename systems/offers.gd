@@ -56,6 +56,7 @@ static func random_offer_chance() -> float:
 
 static func daily_tick() -> void:
 	expire_pending_offers()
+	_maybe_guild_commission()
 	if random_pending_count() >= PENDING_CAP:
 		return
 	# An unpaid Sales occupant sources nothing; an unassigned room isn't gated
@@ -69,6 +70,27 @@ static func daily_tick() -> void:
 	if templates.is_empty():
 		return
 	create_offer(Rng.rand_from(templates))
+
+
+# Sworn Guild: a high-margin commission may land in the pending list, one at a
+# time, outside the random-offer cap (Perks.commission_params).
+static func _maybe_guild_commission() -> void:
+	var params := Perks.commission_params()
+	if params.is_empty():
+		return
+	for offer in pending_offers():
+		if offer.get("source", "") == "commission":
+			return
+	if not Rng.chance(float(params["chancePerDay"])):
+		return
+	var template: Dictionary = GameData.OFFER_TEMPLATES.get(Rng.rand_from(params["templates"]), {})
+	if template.is_empty():
+		return
+	var result := create_offer(template, true)
+	if result["ok"]:
+		var quote: Dictionary = result["offer"]["quote"]
+		quote["payment"] = int(round(float(quote["payment"]) * float(params["margin"])))
+		Notify.push("The Guild has a commission for you.", Notify.CATEGORY_INFO)
 
 
 static func random_templates() -> Array:
@@ -86,8 +108,8 @@ static func create_scripted_offer(template_id: String) -> Dictionary:
 	return create_offer(template)
 
 
-static func create_offer(template: Dictionary) -> Dictionary:
-	if random_pending_count() >= PENDING_CAP:
+static func create_offer(template: Dictionary, bypass_cap: bool = false) -> Dictionary:
+	if not bypass_cap and random_pending_count() >= PENDING_CAP:
 		return { "ok": false, "reason": "Pending offers are full." }
 	var request: Dictionary = template.get("request", {}).duplicate(true)
 	var contract_type: String = template.get("contractType", "oneOff")

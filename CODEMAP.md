@@ -48,7 +48,7 @@ Data file per system: see `data/*.json` below.
 | diplomacy.gd | Diplomacy (R§3.10 "Favours", "Gifts"): faction favour requests as key-member pending messages; accept (goods favours sign a one-off contract via Offers), decline, guard/sit-out watches, keep/fail effects; cash/item gifts to key members (cooldown, diminishing returns, prefs) |
 | partners.gd | Partners (R§3.10 "Partners"): player price favour on a partner's shop; partner trouble asks (sell/contract/buy/send) as pending messages; partner-faction discounted trades; warnings of planned moves; defence-fight helpers and faction raid odds cut; intel leaks |
 | turf_panel.gd | TurfPanel: pure rows for the district panel's Turf section (contender shares/tier, flip margin, modifiers tagged with source faction; empty benefits/harassment slots). |
-| perks.gd | Perks: faction perk queries from `faction_perks.json`. `player_tier` (sworn = joined, partner = Partner stance, friendly = relation cut), cumulative `active_global`, `active_turf(district)` scaled control 1.0 / foothold `footholdFactor`, per-tier `preview`. Hooks: `raid_odds_adj`, `daily_tend`, `try_whip_round`; Firm racket/muscle/`counts_as_player_for_danger` (state `perks`). |
+| perks.gd | Perks: faction perk queries from `faction_perks.json`. `player_tier` (sworn = joined, partner = Partner stance, friendly = relation cut), cumulative `active_global`, `active_turf(district)` scaled control 1.0 / foothold `footholdFactor`, per-tier `preview`. Hooks: `raid_odds_adj`, `daily_tend`, `try_whip_round`; Firm racket/muscle/`counts_as_player_for_danger`; Guild `craft_xp_mult`, internship free cultivate/craft, `commission_params` (state `perks`). |
 | district_bubble.gd | District tap-bubble decision |
 | district_deck.gd | Weighted district event deck picker |
 | districts.gd | Derived district info for Map tab |
@@ -87,7 +87,7 @@ Data file per system: see `data/*.json` below.
 | nav.gd | Screen navigation |
 | notify.gd | Notifications append/evict; per-contact dismiss via contactId meta |
 | objectives.gd | Objective/questline evaluator; all_of live-condition, template_periods_completed (Beat 6) and recurring_proof (Beat 7) objectives + their ToDo checklist rows |
-| offers.gd | Sales offers: quoting (price fixed at issue), counterparty faction pick (authored / identity-weighted / Collective-Firm fit), acceptance (quote → contract `signedQuote`, recurring term), renewal offers, random-only pending cap, poach match/lapse, 2-day expiry |
+| offers.gd | Sales offers: quoting (price fixed at issue), counterparty faction pick (authored / identity-weighted / Collective-Firm fit), acceptance (quote → contract `signedQuote`, recurring term), renewal offers, random-only pending cap, Sworn-Guild commission offers, poach match/lapse, 2-day expiry |
 | payroll.gd | `role_skill_keys()` (room → skill field, from the role registry); `is_working()` gate for staff actions (false while the business owes them a wage) |
 | phone_apps.gd | Phone main-grid roster/order/labels (LodedInnit absent until James joins) + badge-config projection |
 | phone_nav.gd | Phone app/index/thread drill-down nav; BizBrief short-pay and Guard Costs sub-view deep links |

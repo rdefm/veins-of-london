@@ -154,7 +154,7 @@ static func craft_block_reason(recipe_key: String) -> String:
 	var costs: Dictionary = calc_cost(recipe_key, skill)
 	var orichalchum: Dictionary = GameState.state["player"]["orichalchum"]
 	for ingredient in costs:
-		if orichalchum.get(ingredient, 0) < costs[ingredient]:
+		if orichalchum.get(ingredient, 0) < costs[ingredient] and not Perks.free_craft_available():
 			return "Not enough calc."
 	return ""
 
@@ -175,7 +175,9 @@ static func attempt_craft(recipe_key: String, multi: bool = false) -> Dictionary
 	var costs: Dictionary = calc_cost(recipe_key, skill)
 	Contracts.note_player_supplied(recipe_key)
 
-	# Deducted regardless of outcome.
+	# Deducted regardless of outcome; the internship's daily bonus attempt is free.
+	if Perks.take_free_craft():
+		costs = {}
 	for ingredient in costs:
 		player["orichalchum"][ingredient] = maxi(0, player["orichalchum"].get(ingredient, 0) - costs[ingredient])
 
@@ -265,4 +267,5 @@ static func attempt_craft_batch(recipe_key: String, quantity: int, multi: bool =
 # awardCraftingXP (unlike awardCultivatingXP) never calls pushNotification.
 static func award_crafting_xp(amount: int) -> void:
 	var player: Dictionary = GameState.state["player"]
+	amount = int(round(float(amount) * Perks.craft_xp_mult()))
 	Progression.award_xp(player, "craftingXP", "craftingSkill", GameData.CRAFTING_XP_LEVELS, amount)

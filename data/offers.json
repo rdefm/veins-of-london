@@ -14,6 +14,7 @@
     "biz_starter_3": { "id": "biz_starter_3", "source": "scripted", "counterparty": "collective", "contractType": "oneOff", "deadlineAfterDays": 5, "request": { "kind": "ore", "type": "life", "qty": 5 }, "nudge": "\"Another on BizBrief. Five life. She's fussy about dates, so don't be late.\"" },
     "biz_recurring_time_pearl": { "id": "biz_recurring_time_pearl", "source": "scripted", "counterparty": "guild", "contractType": "recurring", "request": { "kind": "consumable", "type": "timePearl", "qty": 5 } },
     "biz_recurring_time_ore": { "id": "biz_recurring_time_ore", "source": "scripted", "counterparty": "guild", "contractType": "recurring", "request": { "kind": "ore", "type": "time", "qty": 6 } },
+    "guild_commission_pearl": { "id": "guild_commission_pearl", "source": "commission", "counterparty": "guild", "contractType": "oneOff", "deadlineAfterDays": 5, "request": { "kind": "consumable", "type": "timePearl", "qty": 4 } },
     "biz_recurring_life_ore": { "id": "biz_recurring_life_ore", "source": "scripted", "counterparty": "collective", "contractType": "recurring", "request": { "kind": "ore", "type": "life", "qty": 6 } }
   }
 }

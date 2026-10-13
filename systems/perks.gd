@@ -274,3 +274,65 @@ static func muscle_ally() -> Dictionary:
 # Sworn Firm: its districts count as the player's for danger.
 static func counts_as_player_for_danger(district_id: String) -> bool:
 	return Turf.controller(district_id) == FIRM and has_perk("firm_safe_ground", district_id)
+
+
+# ── Guild perks ───────────────────────────────────────────────────────────
+
+# Friendly Guild: multiplier on crafting XP (1.0 when none).
+static func craft_xp_mult() -> float:
+	return float(_global_params("craftXpMult").get("value", 1.0))
+
+
+# Sworn Guild: commission offer params, or {} when not sworn.
+static func commission_params() -> Dictionary:
+	return _global_params("commissionCrafting")
+
+
+# Today's internship ledger, reset when the day turns.
+static func _internship_today() -> Dictionary:
+	var perks_state: Dictionary = GameState.state["perks"]
+	var day: int = int(GameState.state["world"]["day"])
+	var ledger: Dictionary = perks_state.get("internship", {})
+	if int(ledger.get("day", -1)) != day:
+		ledger = { "day": day, "cultivateUsed": 0, "craftUsed": 0 }
+		perks_state["internship"] = ledger
+	return ledger
+
+
+# Summed internship param over the active turf perks in a district.
+static func _internship_budget(district_id: String, param: String) -> int:
+	var total := 0
+	for entry in active_turf(district_id):
+		if entry["perk"]["effect"] == "internship":
+			total += int(entry["perk"]["params"][param])
+	return total
+
+
+# Consumes one free cultivation (no time block) for a vein in this district.
+static func take_free_cultivate(district_id: String) -> bool:
+	var budget := _internship_budget(district_id, "bonusCultivateActions")
+	if budget <= 0:
+		return false
+	var ledger := _internship_today()
+	if int(ledger["cultivateUsed"]) >= budget:
+		return false
+	ledger["cultivateUsed"] = int(ledger["cultivateUsed"]) + 1
+	return true
+
+
+# True while today's bonus craft attempt is unspent and the player holds a vein
+# in internship turf.
+static func free_craft_available() -> bool:
+	var budget := 0
+	for vein in GameState.state["player"]["veins"]:
+		budget = maxi(budget, _internship_budget(vein["district"], "bonusCraftAttempts"))
+	return budget > 0 and int(_internship_today()["craftUsed"]) < budget
+
+
+# Spends today's bonus craft attempt (a craft with no calc cost).
+static func take_free_craft() -> bool:
+	if not free_craft_available():
+		return false
+	var ledger := _internship_today()
+	ledger["craftUsed"] = int(ledger["craftUsed"]) + 1
+	return true

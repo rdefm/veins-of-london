@@ -33,7 +33,7 @@
         { "id": "guild_internship", "scope": "turf", "effect": "internship", "params": { "bonusCultivateActions": 1, "bonusCraftAttempts": 1 }, "label": "Internship programme", "description": "Free cultivation actions and a bonus craft attempt on your veins in Guild turf." }
       ],
       "sworn": [
-        { "id": "guild_commissions", "scope": "global", "effect": "commissionCrafting", "params": {}, "label": "Commission crafting", "description": "High-margin commission work, offered through the Guild." }
+        { "id": "guild_commissions", "scope": "global", "effect": "commissionCrafting", "params": { "chancePerDay": 0.35, "margin": 1.5, "templates": ["guild_commission_pearl"] }, "label": "Commission crafting", "description": "High-margin commission work, offered through the Guild." }
       ]
     },
     "network": {

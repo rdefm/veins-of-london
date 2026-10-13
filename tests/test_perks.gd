@@ -241,3 +241,64 @@ func run() -> void:
 		assert_true(Turf.danger_mod("soho") < before)
 		assert_true(not Perks.counts_as_player_for_danger("camden"))
 	)
+
+	run_case("guild_craft_xp_multiplier", func():
+		GameState.reset()
+		GameState.state["factions"]["guild"]["relation"] = 0
+		assert_eq(Perks.craft_xp_mult(), 1.0)
+		var before: int = GameState.state["player"]["craftingXP"]
+		Crafting.award_crafting_xp(20)
+		assert_eq(GameState.state["player"]["craftingXP"] - before, 20)
+		GameState.state["factions"]["guild"]["relation"] = 30
+		before = GameState.state["player"]["craftingXP"]
+		Crafting.award_crafting_xp(20)
+		assert_eq(GameState.state["player"]["craftingXP"] - before, 25)
+	)
+
+	run_case("internship_free_cultivate_and_craft_reset_daily", func():
+		GameState.reset()
+		GameState.state["turf"]["soho"] = { "controller": "guild", "tiers": { "guild": Turf.TIER_CONTROL }, "shares": {} }
+		GameState.state["factionStances"]["player"]["guild"]["stance"] = FactionAI.PARTNER
+		var vein := _RAIDING._player_vein_of(30, "time", "none", "soho")
+		vein["id"] = "pv_soho"
+		GameState.state["player"]["veins"] = [vein]
+		var blocks_before: int = GameState.state["world"]["timeBlock"]
+		var day: int = GameState.state["world"]["day"]
+		assert_true(Cultivating.cultivate(vein["id"])["ok"])
+		assert_eq(GameState.state["world"]["timeBlock"], blocks_before, "free: no block")
+		assert_eq(GameState.state["world"]["day"], day)
+		Cultivating.cultivate(vein["id"])
+		assert_true(GameState.state["world"]["timeBlock"] != blocks_before, "second costs a block")
+		var recipe: String = GameData.RECIPES.keys()[0]
+		GameState.state["player"]["orichalchum"] = { "time": 0, "physics": 0, "life": 0, "fate": 0, "emotion": 0 }
+		assert_true(Crafting.can_craft(recipe), "bonus attempt needs no calc")
+		assert_true(Crafting.attempt_craft(recipe)["ok"])
+		assert_true(not Crafting.can_craft(recipe), "spent")
+		GameState.state["world"]["day"] += 1
+		assert_true(Crafting.can_craft(recipe), "reset next day")
+		GameState.state["world"]["day"] += 1
+		vein["district"] = "camden"
+		assert_true(not Crafting.can_craft(recipe), "no Guild-turf vein")
+	)
+
+	run_case("sworn_guild_commission_offer", func():
+		GameState.reset()
+		GameState.state["factions"]["guild"]["joined"] = true
+		GameState.state["sales"]["pendingOffers"] = []
+		for i in 40:
+			Offers.daily_tick()
+		var found := []
+		for o in Offers.pending_offers():
+			if o["source"] == "commission":
+				found.append(o)
+		assert_eq(found.size(), 1, "one at a time")
+		assert_eq(found[0]["counterparty"], "guild")
+		var plain: int = Offers.quote_for_request(found[0]["request"], Offers.sales_skill())["payment"]
+		assert_true(found[0]["quote"]["payment"] > plain)
+		GameState.state["factions"]["guild"]["joined"] = false
+		GameState.state["sales"]["pendingOffers"] = []
+		for i in 40:
+			Offers.daily_tick()
+		for o in Offers.pending_offers():
+			assert_true(o["source"] != "commission")
+	)

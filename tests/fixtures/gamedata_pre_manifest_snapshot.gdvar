@@ -7708,6 +7708,18 @@
 },
 "OFFER_EXPIRY_DAYS": 2,
 "OFFER_TEMPLATES": {
+"guild_commission_pearl": {
+"contractType": "oneOff",
+"counterparty": "guild",
+"deadlineAfterDays": 5,
+"id": "guild_commission_pearl",
+"request": {
+"kind": "consumable",
+"qty": 4,
+"type": "timePearl"
+},
+"source": "commission"
+},
 "biz_recurring_life_ore": {
 "contractType": "recurring",
 "counterparty": "collective",
