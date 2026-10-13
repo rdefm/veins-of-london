@@ -480,7 +480,7 @@ static func raid_success_chance(attacker_id: String, vein: Dictionary) -> float:
 
 	var intel_tilt: float = Intel.raid_odds_shift(attacker_id, Shares.PLAYER)
 
-	var chance: float = RAID_BASE_CHANCE + relation_tilt + danger_tilt + resist_tilt + growth_tilt + intel_tilt + Turf.raid_odds_adj(vein["district"])
+	var chance: float = RAID_BASE_CHANCE + relation_tilt + danger_tilt + resist_tilt + growth_tilt + intel_tilt + Turf.raid_odds_adj(vein["district"]) + Perks.raid_odds_adj(vein["district"])
 	return clampf(chance, 0.0, 1.0)
 
 

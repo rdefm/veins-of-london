@@ -252,6 +252,7 @@ static func cultivate(vein_id: String) -> Dictionary:
 	var level_before: int = vein.get("level", 1)
 	# Tainted before the block ends, so a rollover settlement sees it.
 	Contracts.note_player_tended_vein(vein_id)
+	Perks.note_player_tended(vein_id)
 	TimeSystem.advance_time_block()
 
 	var player: Dictionary = GameState.state["player"]
@@ -312,6 +313,7 @@ static func prune(vein_id: String, depth: int) -> Dictionary:
 		return travel
 
 	Contracts.note_player_tended_vein(vein_id)
+	Perks.note_player_tended(vein_id)
 	TimeSystem.advance_time_block()
 
 	var amount: int = prune_yield(vein, depth)

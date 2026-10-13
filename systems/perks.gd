@@ -105,3 +105,74 @@ static func has_perk(perk_id: String, district_id: String = "") -> bool:
 			if entry["perk"]["id"] == perk_id:
 				return true
 	return false
+
+
+# ── effect hooks ──────────────────────────────────────────────────────────
+
+# Summed raidOddsAdj of active turf perks in a district, scaled by Control/Foothold.
+static func raid_odds_adj(district_id: String) -> float:
+	var total := 0.0
+	for entry in active_turf(district_id):
+		if entry["perk"]["effect"] == "raidOddsAdj":
+			total += float(entry["perk"]["params"]["value"]) * float(entry["scale"])
+	return total
+
+
+# Records that the player tended (cultivated or pruned) a vein today.
+static func note_player_tended(vein_id: String) -> void:
+	GameState.state["perks"]["tended"][vein_id] = int(GameState.state["world"]["day"])
+
+
+# ⑤d2b: in each district with a dailyTend perk, up to veinsPerDay of the
+# player's veins they did not tend on the day just ended get tended by members
+# through FactionSim's tend step (Foothold scale does not shrink the count).
+static func daily_tend() -> void:
+	var perks_state: Dictionary = GameState.state["perks"]
+	var ended_day: int = int(GameState.state["world"]["day"]) - 1
+	var skill: int = GameState.state["player"]["cultivatingSkill"]
+	var used := {}
+	var live := {}
+	for vein in GameState.state["player"]["veins"]:
+		var vein_id: String = vein["id"]
+		var tended_day: int = int(perks_state["tended"].get(vein_id, -1))
+		if tended_day >= 0:
+			live[vein_id] = tended_day
+		if tended_day == ended_day:
+			continue
+		var district: String = vein["district"]
+		if int(used.get(district, 0)) >= _tend_budget(district):
+			continue
+		FactionSim._tend(vein, skill)
+		used[district] = int(used.get(district, 0)) + 1
+	perks_state["tended"] = live
+
+
+# veinsPerDay of the dailyTend perks active in a district (0 when none).
+static func _tend_budget(district_id: String) -> int:
+	var total := 0
+	for entry in active_turf(district_id):
+		if entry["perk"]["effect"] == "dailyTend":
+			total += int(entry["perk"]["params"]["veinsPerDay"])
+	return total
+
+
+# Sworn Collective whip-round: before a forced home downgrade, once per game,
+# the arrears are cleared instead. Returns true if it fired.
+static func try_whip_round() -> bool:
+	var perks_state: Dictionary = GameState.state["perks"]
+	if perks_state["whipRoundUsed"] or not _has_global_effect("homeBailout"):
+		return false
+	var home: Dictionary = GameState.state["home"]
+	var cleared: int = home["arrears"]
+	perks_state["whipRoundUsed"] = true
+	home["arrears"] = 0
+	home["arrearsWeeks"] = 0
+	Notify.push("The Collective passes the hat. £%d of arrears gone, and you keep your home. Once." % cleared, Notify.CATEGORY_INFO)
+	return true
+
+
+static func _has_global_effect(effect: String) -> bool:
+	for entry in active_global():
+		if entry["perk"]["effect"] == effect:
+			return true
+	return false

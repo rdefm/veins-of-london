@@ -127,6 +127,7 @@ static func daily_tick() -> void:
 	Raiding.apply_raid_resolution()      # ⑤d before ⑤g so its kit burns come out of today's consume
 	MorningAccountsSystem.capture_losses(morning_context, "Raid")
 	Collective.maybe_queue_a2_nadia_defend_raid()  # ⑤d2 after ⑤d expires yesterday's window, so it re-queues daily
+	Perks.daily_tend()                   # ⑤d2b members tend Partner-perk turf veins the player skipped yesterday; after ⑤d so raided-away veins are gone
 	Turf.recompute()                     # ⑤d3 after ⑤b-⑤d so claims, rivalry and raids have moved today's veins; before ⑤e and ⑥.5f so both read it
 	FactionSim.tend_and_prune()          # ⑤e after ⑤b-⑤d so today's claims and ownership changes are tended
 	FactionSim.craft()                   # ⑤f after ⑤e so today's prune ore can be crafted
@@ -260,6 +261,8 @@ static func _force_downgrade() -> Dictionary:
 	var home: Dictionary = GameState.state["home"]
 	var prev_tier_id: String = Home.get_prev_tier_id(home["tier"])
 	if prev_tier_id == "":
+		return {}
+	if Perks.try_whip_round():
 		return {}
 	var from_tier_id: String = home["tier"]
 	var lost_tier_name: String = GameData.HOME_TIERS[home["tier"]]["name"]

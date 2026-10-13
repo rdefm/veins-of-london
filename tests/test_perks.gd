@@ -2,6 +2,8 @@ extends "res://tests/test_base.gd"
 
 # Perks: tier mapping, global/turf queries, preview, and the panel's benefit rows.
 
+const _RAIDING := preload("res://tests/test_raiding.gd")
+
 
 func _claim(site_idx: int, district: String, faction: String) -> void:
 	var site: Dictionary = GameState.state["world"]["sites"][site_idx]
@@ -106,4 +108,76 @@ func run() -> void:
 		assert_eq(rows.size(), 1)
 		assert_eq(rows[0]["source"], "conclave")
 		assert_eq(rows[0]["perk_id"], "conclave_legal_cover")
+	)
+
+	run_case("watch_lowers_raid_odds_full_in_control_reduced_at_foothold_none_elsewhere", func():
+		GameState.reset()
+		GameState.state["factions"]["firm"]["relation"] = -100
+		var friendly: int = int(GameData.FACTION_PERKS["friendlyAtOrAbove"])
+		GameState.state["factions"]["collective"]["relation"] = friendly
+		var vein := _RAIDING._player_vein_of(30, "time", "none", "soho")
+		var other := _RAIDING._player_vein_of(30, "time", "none", "camden")
+		GameState.state["turf"]["soho"] = { "controller": "collective", "shares": {}, "tiers": { "collective": Turf.TIER_CONTROL } }
+		GameData.FACTION_PERKS["friendlyAtOrAbove"] = 101  # same turf danger band, perk locked
+		var base := Raiding.raid_success_chance("firm", vein)
+		GameData.FACTION_PERKS["friendlyAtOrAbove"] = friendly
+		var full := Raiding.raid_success_chance("firm", vein)
+		assert_almost_eq(full, base - 0.1, 0.0001)
+		GameState.state["turf"]["soho"]["tiers"]["collective"] = Turf.TIER_FOOTHOLD
+		GameData.FACTION_PERKS["friendlyAtOrAbove"] = 101
+		var foot_base := Raiding.raid_success_chance("firm", vein)
+		GameData.FACTION_PERKS["friendlyAtOrAbove"] = friendly
+		var part := Raiding.raid_success_chance("firm", vein)
+		assert_almost_eq(part, foot_base - 0.1 * float(GameData.TURF["footholdFactor"]), 0.0001)
+		GameState.state["factions"]["collective"]["relation"] = 0
+		var other_base := Raiding.raid_success_chance("firm", other)
+		GameState.state["factions"]["collective"]["relation"] = int(GameData.FACTION_PERKS["friendlyAtOrAbove"])
+		assert_almost_eq(Raiding.raid_success_chance("firm", other), other_base, 0.0001)
+	)
+
+	run_case("partner_tending_tends_only_skipped_turf_veins_once", func():
+		GameState.reset()
+		GameState.state["factions"]["collective"]["relation"] = 0
+		GameState.state["factionStances"]["player"]["collective"]["stance"] = FactionAI.PARTNER
+		GameState.state["turf"]["soho"] = { "controller": "collective", "shares": {}, "tiers": { "collective": Turf.TIER_CONTROL } }
+		var a := _RAIDING._player_vein_of(30, "time", "none", "soho")
+		a["id"] = "va"
+		var b := _RAIDING._player_vein_of(30, "time", "none", "soho")
+		b["id"] = "vb"
+		var c := _RAIDING._player_vein_of(30, "time", "none", "camden")
+		c["id"] = "vc"
+		GameState.state["player"]["veins"] = [a, b, c]
+		GameState.state["world"]["day"] = 5
+		GameState.state["player"]["cultivatingSkill"] = 5
+		GameState.state["world"]["day"] = 4
+		Perks.note_player_tended("va")
+		GameState.state["world"]["day"] = 5
+		Perks.daily_tend()
+		assert_eq(a["growth"], 30, "player-tended vein left alone")
+		assert_true(b["growth"] > 30, "skipped turf vein tended")
+		assert_eq(c["growth"], 30, "non-turf vein untouched")
+	)
+
+	run_case("whip_round_fires_once_before_forced_downgrade", func():
+		GameState.reset()
+		GameState.state["factions"]["collective"]["joined"] = true
+		var home: Dictionary = GameState.state["home"]
+		home["tier"] = "flat"
+		home["tenure"] = Home.TENURE_RENTED
+		var day := 7
+		while not Calendar.is_monday(day):
+			day += 1
+		GameState.state["world"]["day"] = day
+		GameState.state["player"]["cash"] = 0
+		home["arrears"] = 500
+		home["arrearsWeeks"] = int(GameData.HOME_BILLS["downgradeThresholdWeeks"]) - 1
+		var first: Dictionary = TimeSystem._apply_living_costs()
+		assert_true(first["downgrade"].is_empty(), "bailout stops downgrade")
+		assert_eq(home["tier"], "flat")
+		assert_eq(home["arrears"], 0)
+		assert_true(GameState.state["perks"]["whipRoundUsed"])
+		home["arrears"] = 500
+		home["arrearsWeeks"] = int(GameData.HOME_BILLS["downgradeThresholdWeeks"]) - 1
+		var second: Dictionary = TimeSystem._apply_living_costs()
+		assert_true(not second["downgrade"].is_empty(), "second time downgrades")
 	)

@@ -39,6 +39,8 @@ func new_game_state() -> Dictionary:
 		# event-playback pace survives close/reopen and save/load.
 		# Daily-recomputed district control (R§3.1 "Turf"); Turf is the only writer.
 		"turf": Turf.seed_state(),
+		# Faction perk bookkeeping: tended = { veinId: last day the player cultivated it }, whipRoundUsed = one-off home bailout spent.
+		"perks": { "tended": {}, "whipRoundUsed": false },
 		"mapEvents": { "queue": [], "playing": false, "pacingMode": MapEvents.DEFAULT_PACING_MODE },
 		# selectedContactId drills into one conversation, set only via
 		# PhoneNav.select_conversation() (always a real id), same way
