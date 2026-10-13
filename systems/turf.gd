@@ -169,7 +169,7 @@ static func _relation_adj(district_id: String, key: String) -> float:
 # Danger modifier: district base + controller-relation shift + player-control relief.
 static func danger_mod(district_id: String) -> float:
 	var base: float = GameData.DISTRICTS.get(district_id, {}).get("dangerMod", 0.0)
-	var mod := base + _relation_adj(district_id, "dangerAdj")
+	var mod := base + _relation_adj(district_id, "dangerAdj") + Perks.danger_adj(district_id)
 	if controller(district_id) == PLAYER or Perks.counts_as_player_for_danger(district_id):
 		mod += float(GameData.TURF["playerControl"]["dangerAdj"])
 	return mod

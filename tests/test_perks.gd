@@ -25,6 +25,7 @@ func _ids(entries: Array) -> Array:
 
 func run() -> void:
 	_register_network_cases()
+	_register_conclave_cases()
 
 	run_case("data_has_three_tiers_and_fifteen_perks", func():
 		assert_eq(GameData.validate_tables(GameData.snapshot()).size(), 0)
@@ -365,3 +366,86 @@ func _register_network_cases() -> void:
 		assert_true(not Perks.commission_market_move("priceGouge", "network")["ok"])
 	)
 
+
+
+func _conclave_standing(tier: String) -> void:
+	GameState.reset()
+	for fid in GameData.FACTIONS.keys():
+		GameState.state["factions"][fid]["relation"] = 0
+	GameState.state["factions"]["conclave"]["relation"] = 30
+	if tier == "sworn":
+		GameState.state["factions"]["conclave"]["joined"] = true
+
+
+# A player vein raided away by `attacker`, the way the raid resolver does it.
+func _raid_lost_vein(attacker: String) -> void:
+	var vein := _RAIDING._player_vein_of(50, "physics", "none", "camden")
+	GameState.state["player"]["veins"] = [vein]
+	GameState.state["world"]["sites"] = [_RAIDING._player_site_with_vein("s_player", vein)]
+	Raiding.resolve_raid_outcome({ "attackerId": attacker, "veinId": "pv_test", "siteId": "s_player", "success": true })
+
+
+func _register_conclave_cases() -> void:
+	run_case("conclave_legal_cover_lowers_danger_in_conclave_turf", func():
+		_conclave_standing("none")
+		GameState.state["factions"]["conclave"]["relation"] = 0
+		var sites: Array = GameState.state["world"]["sites"]
+		for i in 3:
+			var vein := _RAIDING._player_vein_of(30, "time", "none", "soho", "s_c%d" % i)
+			sites.append(_RAIDING._player_site_with_vein("s_c%d" % i, vein))
+		_clear_veins()
+		for i in 3:
+			_claim(sites.size() - 3 + i, "soho", "conclave")
+		GameState.state["turf"] = Turf.compute(GameState.state)
+		assert_eq(Perks.danger_adj("soho"), 0.0)
+		GameState.state["factions"]["conclave"]["relation"] = 30
+		var base: float = GameData.DISTRICTS["soho"].get("dangerMod", 0.0)
+		assert_true(Perks.danger_adj("soho") < 0.0)
+		assert_eq(Turf.danger_mod("soho"), base + Turf._relation_adj("soho", "dangerAdj") + Perks.danger_adj("soho"))
+		assert_eq(Perks.danger_adj("camden"), 0.0)
+	)
+
+	run_case("conclave_recovery_returns_raid_lost_vein_once", func():
+		_conclave_standing("friendly")
+		_raid_lost_vein("firm")
+		assert_true(Perks.recoverable_veins().is_empty())
+		GameState.state["factions"]["conclave"]["relation"] = 80
+		GameState.state["factions"]["conclave"]["joined"] = false
+		GameState.state["factionStances"]["player"]["conclave"]["stance"] = FactionAI.PARTNER
+		assert_eq(Perks.recoverable_veins().size(), 1)
+		assert_true(Perks.recover_vein("pv_test")["ok"])
+		assert_eq(GameState.state["player"]["veins"].size(), 1)
+		assert_true(Perks.recovery_used())
+		assert_true(not Perks.recover_vein("pv_test")["ok"])
+	)
+
+	run_case("conclave_recovery_refuses_without_perk_or_when_vein_gone", func():
+		_conclave_standing("friendly")
+		_raid_lost_vein("firm")
+		assert_true(not Perks.recover_vein("pv_test")["ok"])
+		_conclave_standing("sworn")
+		_raid_lost_vein("firm")
+		Sites.find_site("s_player")["factionVein"] = null
+		assert_true(not Perks.recover_vein("pv_test")["ok"])
+		assert_true(not Perks.recovery_used())
+	)
+
+	run_case("conclave_sworn_nudge_moves_barometer_and_sets_lore", func():
+		_conclave_standing("friendly")
+		assert_true(not Perks.conclave_nudge("economic", "boom", "push")["ok"])
+		_conclave_standing("sworn")
+		Perks.sync_lore()
+		assert_true(GameState.state["flags"]["deepVeinRoute"])
+		GameState.state["player"]["cash"] = 5000
+		Barometer.ensure_progress()
+		var before: int = GameState.state["barometer"]["progress"]["economic"]["boom"]
+		var target := "boom" if GameState.state["barometer"]["economic"] != "boom" else "recession"
+		before = GameState.state["barometer"]["progress"]["economic"][target]
+		var res := Perks.conclave_nudge("economic", target, "push")
+		assert_true(res["ok"])
+		assert_eq(int(GameState.state["player"]["cash"]), 5000 - int(res["cost"]))
+		assert_true(GameState.state["barometer"]["economic"] == target or GameState.state["barometer"]["progress"]["economic"][target] > before)
+		assert_true(not Perks.conclave_nudge("economic", target, "pull")["ok"])
+		GameState.state["world"]["day"] += 7
+		assert_eq(Perks.nudge_cooldown_left(), 0)
+	)

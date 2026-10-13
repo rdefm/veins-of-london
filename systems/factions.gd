@@ -19,6 +19,7 @@ static func join(faction_id: String) -> Dictionary:
 	if not can_join(faction_id):
 		return { "ok": false, "reason": "Not eligible yet." }
 	GameState.state["factions"][faction_id]["joined"] = true
+	Perks.sync_lore()
 	EventBus.state_changed.emit()
 	return { "ok": true }
 

@@ -575,6 +575,7 @@ static func resolve_raid_outcome(outcome: Dictionary, missed_defend: bool = fals
 	FactionAI.note_loss(Shares.PLAYER, outcome["attackerId"], Factions.lost_vein_value(vein))
 	var took_kit := GuardKit.hand_kit_to_faction(vein, outcome["attackerId"])
 	transfer_player_vein_to_faction(vein, site, outcome["attackerId"])
+	Perks.note_raid_loss(String(vein["id"]), String(outcome["attackerId"]))
 
 	# PROSE-REVIEW: drafted against CONTENT-GUIDE.md's tone bible.
 	var text: String

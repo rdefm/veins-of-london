@@ -261,6 +261,16 @@ static func _manual_action(section: String, state_id: String, direction: String)
 	return { "ok": true }
 
 
+# Moves one state's progress by delta (clamped) and resolves the section; used by perks.
+static func shift_state(section: String, state_id: String, delta: int) -> void:
+	ensure_progress()
+	ensure_cooldowns()
+	var progress: Dictionary = GameState.state["barometer"]["progress"][section]
+	progress[state_id] = clampi(int(progress[state_id]) + delta, 0, 100)
+	_resolve_section(section)
+	EventBus.state_changed.emit()
+
+
 # Sum of the three currently-active states' `effects` dicts; `itemDemand`
 # sums per recipe key. `effectMod` then scales the demand keys
 # (`demandAll`, every `itemDemand` fraction) by (1 + effectMod).

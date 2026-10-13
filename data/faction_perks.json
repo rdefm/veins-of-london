@@ -55,7 +55,7 @@
         { "id": "conclave_recovery", "scope": "global", "effect": "veinRecovery", "params": { "oneOff": true }, "label": "Legal recovery", "description": "Their lawyers recover one vein lost in a raid, no fight needed." }
       ],
       "sworn": [
-        { "id": "conclave_deep_vein", "scope": "global", "effect": "barometerAndLore", "params": { "loreFlag": "deepVeinRoute" }, "label": "Ancient order", "description": "A say in the barometer, and the Deep Vein lore route." }
+        { "id": "conclave_deep_vein", "scope": "global", "effect": "barometerAndLore", "params": { "loreFlag": "deepVeinRoute", "cost": 1000, "cooldownDays": 7, "strength": 20 }, "label": "Ancient order", "description": "A say in the barometer, and the Deep Vein lore route." }
       ]
     }
   }

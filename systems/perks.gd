@@ -404,3 +404,110 @@ static func commission_market_move(move_id: String, target_id: String) -> Dictio
 	FactionAI._make_move(NETWORK, target_id, candidate)
 	EventBus.state_changed.emit()
 	return { "ok": true, "cost": cost }
+
+
+# ── Conclave perks ────────────────────────────────────────────────────────
+
+const CONCLAVE := "conclave"
+
+
+# Friendly Conclave: summed dangerAdj of active turf perks in a district, scaled by Control/Foothold.
+static func danger_adj(district_id: String) -> float:
+	var total := 0.0
+	for entry in active_turf(district_id):
+		if entry["perk"]["effect"] == "dangerAdj":
+			total += float(entry["perk"]["params"]["value"]) * float(entry["scale"])
+	return total
+
+
+# Raid-loss bookkeeping: a claimed vein is remembered as { veinId, attacker } until recovered.
+static func note_raid_loss(vein_id: String, attacker_id: String) -> void:
+	var perks_state: Dictionary = GameState.state["perks"]
+	if not perks_state.has("raidLost"):
+		perks_state["raidLost"] = []
+	perks_state["raidLost"].append({ "veinId": vein_id, "attacker": attacker_id })
+
+
+# Partner Conclave: the one-off recovery is on offer and unspent.
+static func recovery_available() -> bool:
+	return not recovery_used() and not _global_params("veinRecovery").is_empty()
+
+
+static func recovery_used() -> bool:
+	return bool(GameState.state["perks"].get("recoveryUsed", false))
+
+
+# Raid-lost veins the raider still holds: [{ veinId, attacker, siteId, district }].
+static func recoverable_veins() -> Array:
+	var result := []
+	if not recovery_available():
+		return result
+	for entry in GameState.state["perks"].get("raidLost", []):
+		for site in Sites.sites_with_faction_vein(String(entry["attacker"])):
+			if site["factionVein"]["id"] == entry["veinId"]:
+				result.append({ "veinId": entry["veinId"], "attacker": entry["attacker"], "siteId": site["id"], "district": site["district"] })
+	return result
+
+
+# Conclave lawyers return a raid-lost vein with no fight and no price. Once.
+static func recover_vein(vein_id: String) -> Dictionary:
+	if recovery_used():
+		return { "ok": false, "reason": "The lawyers have already done their one favour." }
+	if not recovery_available():
+		return { "ok": false, "reason": "The Conclave's lawyers don't act for you." }
+	for row in recoverable_veins():
+		if row["veinId"] != vein_id:
+			continue
+		var result := VeinTrade.transfer_from_faction(vein_id, String(row["attacker"]))
+		if not result["ok"]:
+			return result
+		var perks_state: Dictionary = GameState.state["perks"]
+		perks_state["recoveryUsed"] = true
+		perks_state["raidLost"] = []
+		Notify.push("Conclave lawyers find the paperwork. The vein is yours again.", Notify.CATEGORY_INFO)
+		EventBus.state_changed.emit()
+		return { "ok": true }
+	return { "ok": false, "reason": "Nothing there to recover." }
+
+
+# Sworn Conclave: barometer nudge params, or {} when not sworn.
+static func nudge_params() -> Dictionary:
+	return _global_params("barometerAndLore")
+
+
+# Days until the next nudge is allowed (0 = ready).
+static func nudge_cooldown_left() -> int:
+	var params := nudge_params()
+	if params.is_empty():
+		return 0
+	var ready: int = int(GameState.state["perks"].get("nudgeDay", -999)) + int(params["cooldownDays"])
+	return maxi(0, ready - int(GameState.state["world"]["day"]))
+
+
+# The Conclave leans on a Ticker state for the player: costs params.cost, then params.cooldownDays.
+static func conclave_nudge(section: String, state_id: String, direction: String) -> Dictionary:
+	var params := nudge_params()
+	if params.is_empty():
+		return { "ok": false, "reason": "The Conclave doesn't take your calls." }
+	if not Barometer.SECTIONS.has(section) or not GameData.BAROMETER_STATES[section].has(state_id) or not ["push", "pull"].has(direction):
+		return { "ok": false, "reason": "Unknown target." }
+	if nudge_cooldown_left() > 0:
+		return { "ok": false, "reason": "The Conclave is still acting on your last request." }
+	var player: Dictionary = GameState.state["player"]
+	var cost := int(params["cost"])
+	if int(player["cash"]) < cost:
+		return { "ok": false, "reason": "You can't cover £%d." % cost }
+	player["cash"] -= cost
+	Bank.record(-cost, "Conclave nudge")
+	GameState.state["perks"]["nudgeDay"] = int(GameState.state["world"]["day"])
+	var strength := int(params["strength"])
+	Barometer.shift_state(section, state_id, strength if direction == "push" else -strength)
+	return { "ok": true, "cost": cost }
+
+
+# Sworn Conclave sets its lore flag; called at rollover and on joining.
+static func sync_lore() -> void:
+	var params := nudge_params()
+	if params.is_empty():
+		return
+	GameState.state["flags"][String(params["loreFlag"])] = true
