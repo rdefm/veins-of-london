@@ -110,8 +110,31 @@ func _run_cases() -> void:
 		assert_eq(Factions.claim_weight("firm", "shoreditch", "life"), float(fw["base"] + fw["secondaryOre"]))
 	)
 
+	run_case("claim_weight_presence_follows_live_controller_not_heritage", func():
+		GameState.reset()
+		GameState.state["turf"]["shoreditch"]["controller"] = "firm"
+		var fw: Dictionary = GameData.FACTIONS["firm"]["claimWeights"]
+		var cw: Dictionary = GameData.FACTIONS["collective"]["claimWeights"]
+		assert_eq(Factions.claim_weight("firm", "shoreditch", "fate"), float(fw["base"] + fw["presence"]), "live controller gets presence")
+		assert_eq(Factions.claim_weight("collective", "shoreditch", "fate"), float(cw["base"]), "heritage faction loses it")
+	)
+
+	run_case("home_vein_share_reads_live_control_stockpile_homes_stay_heritage", func():
+		GameState.reset()
+		GameState.state["player"]["veins"] = []
+		GameState.state["world"]["sites"] = []
+		for district_id in GameData.DISTRICTS:
+			GameState.state["turf"][district_id]["controller"] = ""
+		GameState.state["turf"]["hampstead"]["controller"] = "firm"
+		GameState.state["player"]["veins"] = [{ "district": "hampstead" }]
+		assert_eq(FactionAI.home_vein_share("firm", "player"), 1.0, "firm's live turf holds the vein")
+		assert_eq(FactionAI.home_vein_share("collective", "player"), 0.0, "no live turf, no home veins")
+		assert_true(FactionSim.home_districts("collective").has("shoreditch"), "heritage homes unchanged")
+	)
+
 	run_case("pick_claimant_presence_faction_still_leads_on_an_off_identity_ore", func():
 		# collective (shoreditch presence) has no physics affinity; firm (primary) and guild (secondary) do.
+		GameState.reset()
 		var counts := {}
 		for seed in range(400):
 			Rng.set_seed(seed)
@@ -126,6 +149,7 @@ func _run_cases() -> void:
 
 	run_case("pick_claimant_skews_toward_primary_then_secondary_ore_factions", func():
 		# hampstead has no factionPresence, so only ore affinity separates the factions.
+		GameState.reset()
 		for ore_type in GameData.ORE_TYPES:
 			var primary := ""
 			var secondary := ""

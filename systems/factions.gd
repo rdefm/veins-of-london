@@ -61,13 +61,13 @@ const SECURITY_BASE_WEIGHTS: Dictionary = { "none": 40.0, "basic": 30.0, "warded
 
 
 # A faction's weight in a site's claim roll (R§1.8 claimWeights): base, plus
-# presence if it's the district's factionPresence, plus primaryOre/secondaryOre
+# presence if it's the district's live Turf controller, plus primaryOre/secondaryOre
 # if that ore matches the site's.
 static func claim_weight(faction_id: String, district_id: String, ore_type: String) -> float:
 	var faction: Dictionary = GameData.FACTIONS[faction_id]
 	var w: Dictionary = faction["claimWeights"]
 	var weight: float = w["base"]
-	if GameData.DISTRICTS.get(district_id, {}).get("factionPresence", "") == faction_id:
+	if Turf.controller(district_id) == faction_id:
 		weight += w["presence"]
 	if faction["primaryOre"] == ore_type:
 		weight += w["primaryOre"]

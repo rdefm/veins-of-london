@@ -340,10 +340,13 @@ static func _crafting_share_in_items(observer: String, target: String) -> float:
 	return best
 
 
-# Target's fraction of every vein (player and faction) in the observer's
-# home districts; 0 when there are none.
+# Target's fraction of every vein (player and faction) in the districts the
+# observer controls (live Turf); 0 when there are none.
 static func home_vein_share(observer: String, target: String) -> float:
-	var homes := FactionSim.home_districts(observer)
+	var homes: Array = []
+	for district_id in GameData.DISTRICTS:
+		if Turf.controller(district_id) == observer:
+			homes.append(district_id)
 	var total := 0
 	var owned := 0
 	for vein in GameState.state["player"]["veins"]:
