@@ -4,9 +4,9 @@ extends RefCounted
 # Pure decision layer for the district panel's Turf section. Returns display
 # rows from state.turf (daily value) plus live vein counts; the screen only
 # renders them. Row "section" slots ("contenders", "flip", "modifiers",
-# "benefits", "harassment") let later sections append rows without restructure.
+# "benefits", "harassment", "grudges") let later sections append rows without restructure.
 
-const SECTIONS := ["contenders", "flip", "modifiers", "benefits", "harassment"]
+const SECTIONS := ["contenders", "flip", "modifiers", "benefits", "harassment", "grudges"]
 
 const TIER_LABELS := { "control": "Control", "foothold": "Foothold", "none": "" }
 const CONTESTED_LABEL := "Contested"
@@ -80,6 +80,10 @@ static func build(district_id: String) -> Dictionary:
 	for row in Harassment.rows_for_district(district_id):
 		row["source_name"] = contender_name(row["faction"])
 		sections["harassment"].append(row)
+	# grudges: { faction, source_name, daysLeft } -- unanswered scores to settle set in this district.
+	for row in Grudges.rows_for_district(district_id):
+		row["source_name"] = contender_name(row["faction"])
+		sections["grudges"].append(row)
 	return {
 		"district": district_id,
 		"status": status,

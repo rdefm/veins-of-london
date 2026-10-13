@@ -684,6 +684,7 @@ static func upgrade_vein_security(vein_id: String) -> Dictionary:
 		# PROSE-REVIEW: drafted against CONTENT-GUIDE.md's tone bible.
 		Notify.push("Hired another guard for your %s vein — %d guards on watch now." % [GameData.ORE_TYPES[vein["oreType"]]["name"], vein["extraGuards"]], Notify.CATEGORY_SUCCESS)
 
+	Grudges.answer_district(vein["district"])
 	EventBus.state_changed.emit()
 	SaveManager.autosave()  # R§6: autosave on purchase
 	return { "ok": true }

@@ -31,7 +31,7 @@ static func stealth_success_chance(stealth_skill: int, vein: Dictionary, consuma
 	var value_tilt: float = -(value / STEALTH_VALUE_DIVISOR) * STEALTH_VALUE_WEIGHT
 
 	var intel_bonus: float = NetworkHandler.claim_bonus(vein.get("siteId", ""))
-	var chance: float = STEALTH_BASE_CHANCE + skill_tilt + resist_tilt + value_tilt + consumable_bonus + intel_bonus
+	var chance: float = STEALTH_BASE_CHANCE + skill_tilt + resist_tilt + value_tilt + consumable_bonus + intel_bonus + Grudges.raid_odds_bonus(vein.get("siteId", ""))
 	return clampf(chance, 0.0, 1.0)
 
 
@@ -95,6 +95,7 @@ static func claim_vein(site_id: String) -> void:
 	FactionAI.note_loss(faction_id, Shares.PLAYER, Factions.lost_vein_value(faction_vein))
 
 	Factions.adjust_player_relation(faction_id, CLAIM_RELATION_HIT)
+	Grudges.answer(faction_id)
 	MapEvents.queue_seed_claim(district, vein_id, "player")
 	EventBus.state_changed.emit()
 
@@ -113,6 +114,7 @@ static func loot_vein(site_id: String, caught: bool) -> void:
 	ore[vein["oreType"]] = ore.get(vein["oreType"], 0) + LOOT_ORE_QTY
 	Intel.gain(Shares.PLAYER, vein["factionId"], Intel.SOURCE_RAID)
 
+	Grudges.answer(vein["factionId"])
 	if caught:
 		Factions.adjust_player_relation(vein["factionId"], LOOT_RELATION_HIT)
 		FactionAI.note_hostile_act(Shares.PLAYER, vein["factionId"])
@@ -340,6 +342,7 @@ static func _stockpile_raid_consequences(faction_id: String, value_lost: float) 
 	FactionAI.note_hostile_act(Shares.PLAYER, faction_id)
 	FactionAI.note_loss(faction_id, Shares.PLAYER, value_lost)
 	Factions.adjust_player_relation(faction_id, int(_stockpile_cfg()["relationHit"]))
+	Grudges.answer(faction_id)
 	Intel.relocate_stockpile(faction_id)
 
 
@@ -566,8 +569,10 @@ static func resolve_raid_outcome(outcome: Dictionary, missed_defend: bool = fals
 	var district_name: String = GameData.DISTRICTS[vein["district"]]["name"]
 	var faction_name: String = GameData.FACTIONS[outcome["attackerId"]]["shortName"]
 	Intel.gain(outcome["attackerId"], Shares.PLAYER, Intel.SOURCE_RAID)
+	var is_loot: bool = outcome.get("outcomeType", "claim") == "loot"
+	Grudges.record(outcome["attackerId"], vein["district"], "" if is_loot else String(outcome["siteId"]))
 
-	if outcome.get("outcomeType", "claim") == "loot":
+	if is_loot:
 		_apply_raid_loot(vein, outcome["attackerId"], faction_name, district_name, missed_defend)
 		return
 

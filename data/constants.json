@@ -139,6 +139,18 @@
     "pairRecoveryRate": 0.02,
     "labels": { "calm": "Calm", "watching": "Watching", "annoyed": "Annoyed", "movingAgainst": "Moving against you" }
   },
+  "factionGrudge": {
+    "windowDays": 7,
+    "answerRelationGain": 10,
+    "revengeOddsBonus": 0.15,
+    "revengeDays": 14,
+    "softThreat": 1.5,
+    "softDecayDays": 10,
+    "log": {
+      "answered": "You answered %s. They noticed.",
+      "expired": "Nobody answered %s. London noticed."
+    }
+  },
   "craftCostPerSkill": 0.8,
   "factionFloor": { "weakMaxVeins": 1, "weakCashBelow": 1000, "pruneYieldMult": 1.5, "craftChanceBonus": 0.15 },
   "turf": {

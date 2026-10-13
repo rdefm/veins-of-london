@@ -529,6 +529,10 @@ func backfill_defaults(save: Dictionary) -> Dictionary:
 		result["turf"] = Turf.compute(result)
 	if not save.has("harassment"):
 		result["harassment"] = Harassment.new_state()
+	if not save.has("grudges"):
+		result["grudges"] = Grudges.new_state()
+	if not save.has("grudgeEffects"):
+		result["grudgeEffects"] = Grudges.new_effects()
 	if not save.has("perks"):
 		result["perks"] = GameState.deep_copy(defaults["perks"])
 	return result
@@ -1169,6 +1173,12 @@ func _restore_int_types(state: Dictionary) -> void:
 	for entry in harassment.get("active", []):
 		for key in ["sinceDay", "untilDay", "escalation"]:
 			_int_key(entry, key)
+	for grudge in state.get("grudges", {}).values():
+		_int_key(grudge, "sinceDay")
+	var effects: Dictionary = state.get("grudgeEffects", {})
+	for mark in effects.get("soft", []):
+		_int_key(mark, "sinceDay")
+	_int_dict_values(effects.get("revenge", {}))
 	_int_dict_values(state.get("perks", {}).get("tended", {}))
 	_int_dict_values(state.get("factionConclave", {}).get("runs", {}))
 	_int_dict_values(state.get("factionConclave", {}).get("stockpile", {}))

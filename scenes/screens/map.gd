@@ -337,6 +337,8 @@ func _turf_row_text(section: String, row: Dictionary) -> String:
 			if int(row["escalation"]) > 0:
 				text += " · worsening x%d" % int(row["escalation"])
 			return text
+		"grudges":
+			return "Score to settle with %s · %d day(s) to answer" % [row["source_name"], int(row["daysLeft"])]
 		_:
 			return ""
 

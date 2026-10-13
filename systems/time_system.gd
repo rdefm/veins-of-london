@@ -155,6 +155,7 @@ static func daily_tick() -> void:
 	BusinessQuest.maybe_issue_recurring()  # ⑥.5c recurring-offer reissues, after ⑥.5b so the starter chain goes first
 	Shares.roll_buckets()                # ⑥.5d drop share buckets past the 14-day window, before ⑥.6 reads supply
 	Shares.record_independents()         # ⑥.5e credit today's Independents slice, after ⑥.5d so it lands in a kept bucket
+	Grudges.daily_tick()                 # ⑥.5e2 expire unanswered grudges into the soft mark, before ⑥.5f reads it
 	FactionAI.apply_pressure()           # ⑥.5f threat/dependence drift, after ⑥.5d/⑥.5e so it reads today's shares; before ⑥.6
 	FactionAI.update_stances()           # ⑥.5g after ⑥.5f so stances read today's drifted relation; before ⑥.6
 	FactionAI.update_wars()              # ⑥.5g2 after ⑥.5g so wars read today's stances and ⑤c/⑤d's raids; before ⑥.5h

@@ -41,6 +41,9 @@ func new_game_state() -> Dictionary:
 		"turf": Turf.seed_state(),
 		# Faction harassment: queued events and persistent effects (Harassment is the only writer).
 		"harassment": Harassment.new_state(),
+		# Faction grudges and their aftermath (Grudges is the only writer).
+		"grudges": Grudges.new_state(),
+		"grudgeEffects": Grudges.new_effects(),
 		# Faction perk bookkeeping: tended = { veinId: last day the player cultivated it }, whipRoundUsed = one-off home bailout spent.
 		"perks": { "tended": {}, "whipRoundUsed": false, "racket": false, "intelTarget": "" },
 		"mapEvents": { "queue": [], "playing": false, "pacingMode": MapEvents.DEFAULT_PACING_MODE },
