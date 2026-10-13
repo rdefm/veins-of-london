@@ -1,0 +1,41 @@
+{
+  "id": "inc_raided_revenge",
+  "cards": [
+    {
+      "type": "narration",
+      "label": null,
+      "speaker": null,
+      "text": "PROSE-REVIEW placeholder: A message arrives with an offer folded into it."
+    },
+    {
+      "type": "choice",
+      "label": null,
+      "speaker": null,
+      "text": "PROSE-REVIEW placeholder: They want you to hit back, and they will point you at the door.",
+      "choices": [
+        {
+          "label": "Take the offer",
+          "effects": [],
+          "result_text": "PROSE-REVIEW placeholder: You say yes. They tell you where to look."
+        },
+        {
+          "label": "Keep your head down",
+          "effects": [],
+          "result_text": "PROSE-REVIEW placeholder: You say no. The offer is withdrawn politely."
+        }
+      ]
+    },
+    {
+      "type": "resolution",
+      "label": null,
+      "speaker": null,
+      "text": "PROSE-REVIEW placeholder: London carries on."
+    }
+  ],
+  "on_complete": [
+    {
+      "op": "set_screen",
+      "screen": "phone"
+    }
+  ]
+}

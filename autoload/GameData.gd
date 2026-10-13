@@ -88,6 +88,7 @@ var FACTION_TRADE: Dictionary = {}
 # Per-faction tiered perks (friendly/partner/sworn), read by Perks.
 var FACTION_PERKS: Dictionary = {}
 var FACTION_HARASSMENT: Dictionary = {}
+var FACTION_INCIDENTS: Dictionary = {}
 # Player's non-violent moves against a faction (complaint, police tip, Ticker leak), read by PlayerMoves.
 var PLAYER_MOVES: Dictionary = {}
 
@@ -412,6 +413,9 @@ const MANIFEST: Array[Dictionary] = [
 	{"table": "faction_harassment", "file": "res://data/faction_harassment.json", "fields": [
 		{"field": "FACTION_HARASSMENT", "key": "", "type": TYPE_DICTIONARY},
 	]},
+	{"table": "faction_incidents", "file": "res://data/faction_incidents.json", "fields": [
+		{"field": "FACTION_INCIDENTS", "key": "", "type": TYPE_DICTIONARY},
+	]},
 	{"table": "player_moves", "file": "res://data/player_moves.json", "fields": [
 		{"field": "PLAYER_MOVES", "key": "", "type": TYPE_DICTIONARY},
 	]},
@@ -656,6 +660,7 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_faction_trade(t.get("faction_trade", {}), errors)
 	_validate_faction_perks(t.get("faction_perks", {}), errors)
 	_validate_faction_harassment(t.get("faction_harassment", {}), errors)
+	_validate_faction_incidents(t.get("faction_incidents", {}), errors)
 	_validate_market(t.get("market", {}), t.get("ore_types", {}), t.get("consumable_prices", {}), errors)
 	_validate_districts(t.get("districts", {}), t.get("ore_types", {}), errors)
 	_validate_map_layout(t.get("map_layout", {}), t.get("districts", {}), errors)
@@ -1073,6 +1078,19 @@ func _validate_faction_perks(perks: Dictionary, errors: Array[String]) -> void:
 				if seen.has(perk.get("id", "")):
 					errors.append("%s: duplicate perk id '%s'" % [context, perk.get("id", "")])
 				seen[perk.get("id", "")] = true
+
+
+func _validate_faction_incidents(incidents: Dictionary, errors: Array[String]) -> void:
+	_require_keys(incidents, ["queueCap", "entries"], "faction_incidents", errors)
+	for id in incidents.get("entries", {}):
+		var entry: Dictionary = incidents["entries"][id]
+		_require_keys(entry, ["id", "trigger", "eventId", "cooldownDays", "conditions", "notice"], "faction_incidents.%s" % id, errors)
+		if entry.get("id", "") != id:
+			errors.append("faction_incidents.%s: id mismatch" % id)
+		if not FactionIncidents.TRIGGER_IDS.has(String(entry.get("trigger", ""))):
+			errors.append("faction_incidents.%s: unregistered trigger '%s'" % [id, entry.get("trigger", "")])
+		if not EVENTS.has(String(entry.get("eventId", ""))):
+			errors.append("faction_incidents.%s: unknown eventId '%s'" % [id, entry.get("eventId", "")])
 
 
 func _validate_faction_harassment(harassment: Dictionary, errors: Array[String]) -> void:

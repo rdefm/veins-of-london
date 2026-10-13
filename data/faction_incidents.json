@@ -1,0 +1,37 @@
+{
+  "queueCap": 6,
+  "entries": {
+    "inc_raided_revenge": {
+      "id": "inc_raided_revenge",
+      "trigger": "raidedByFaction",
+      "eventId": "inc_raided_revenge",
+      "cooldownDays": 10,
+      "conditions": { "maxAgeDays": 2 },
+      "notice": "PROSE-REVIEW placeholder: Heard what happened to your vein. We could make them regret it."
+    },
+    "inc_war_courting": {
+      "id": "inc_war_courting",
+      "trigger": "warBetween",
+      "eventId": "inc_war_courting",
+      "cooldownDays": 14,
+      "conditions": { "minWarDays": 2 },
+      "notice": "PROSE-REVIEW placeholder: There's a war on. We'd like a word before the other side gets one."
+    },
+    "inc_truce_expiring": {
+      "id": "inc_truce_expiring",
+      "trigger": "truceExpiring",
+      "eventId": "inc_truce_expiring",
+      "cooldownDays": 10,
+      "conditions": { "withinDays": 2, "playerInvolved": true },
+      "notice": "PROSE-REVIEW placeholder: Our truce runs out soon. Worth talking about what happens next."
+    },
+    "inc_turf_flip_fallout": {
+      "id": "inc_turf_flip_fallout",
+      "trigger": "turfFlip",
+      "eventId": "inc_turf_flip_fallout",
+      "cooldownDays": 7,
+      "conditions": { "involvesPlayer": true },
+      "notice": "PROSE-REVIEW placeholder: The streets changed hands. You should hear it from us."
+    }
+  }
+}

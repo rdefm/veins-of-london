@@ -69,6 +69,7 @@ Data file per system: see `data/*.json` below.
 | jobs.gd | James's jobs, trust bands |
 | key_members.gd | Faction key members (R§3.10): member/faction lookup, `speaker_for`, `send` (unlocks + intro on first message, or waits for a quest-gated member's questline) |
 | lab_bench_nav.gd | Lab bench nav: selected ore; gear confirm variant (probe/craft/inert) + readiness |
+| faction_incidents.gd | FactionIncidents (R§3.1f): daily tick runs data-driven triggers (`raidedByFaction`, `warBetween`, `truceExpiring`, `turfFlip`) with cooldowns/conditions; a hit queues its event + key-member pending message; `start_pending` plays it. Data: faction_incidents.json. |
 | grudges.gd | Grudges: `state.grudges` (per-faction score to settle after a successful raid on you), `state.grudgeEffects` (soft marks, revenge windows), `record`, `answer`/`answer_district` hooks, `raid_odds_bonus`, `daily_tick` expiry, `soft_pressure` (read by `FactionAI.threat`), district rows. Data: constants.json `factionGrudge`. |
 | warmonger.gd | Warmonger (R§3.1e): `state.warmonger` rolling violent-act log/score, `record(act)`, window roll-off, coalition `pressure` + pair drift, coordinated intel share, `joint_raid_bonus`. |
 | ambush.gd | Ambush (R§3.1d): `maybe_trigger(district)` keyed-stable roll of `Turf.ambush_chance` after a block-spending district action, opens the `faction_ambush` intro event; `resolve(faction, won)` feeds relation and grudges after the fight. |
@@ -275,6 +276,7 @@ overlays.
 | faction_trade.json | economy.gd |
 | faction_perks.json | perks.gd |
 | player_moves.json | player_moves.gd (moves: cost, intel gate, duration, sell mult, leak strength; relation hits) |
+| faction_incidents.json | faction_incidents.gd (entries: trigger, eventId, cooldownDays, conditions, notice; queueCap) |
 | faction_harassment.json | harassment.gd (entries, escalation cadence, kind labels), faction_ai.gd (menu ids) |
 | factions.json | factions.gd, sites.gd, raiding.gd, debug_start.gd, faction_sim.gd (`startingHoldings`, `stockpilePlaces`, `stockpileGuards`, `cultivateSkill`, `fieldwork`, `craftSkill`, `craftTargets`, `raidKits`, `consumes`, `trading`, `industryIncome`), key_members.gd (`keyMembers`, `speaker`), diplomacy.gd (`sampleFavours`, `giftPrefs`), faction_ai.gd (`aggressionPersonality`, `weariness`) |
 | lodedinnit.json | GameData.gd (`LODEDINNIT_*`), lodedinnit_feed.gd: feed cap/likes/author weights, per-candidate post voices (trait variants), shared canned comments, hire-status templates |

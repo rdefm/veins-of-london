@@ -43,6 +43,8 @@ func new_game_state() -> Dictionary:
 		"harassment": Harassment.new_state(),
 		# Faction grudges and their aftermath (Grudges is the only writer).
 		"grudges": Grudges.new_state(),
+		# Faction incidents: queued authored events, cooldowns, unseen turf flips (FactionIncidents is the only writer).
+		"factionIncidents": FactionIncidents.new_state(),
 		"grudgeEffects": Grudges.new_effects(),
 		# Rolling violent-act score (Warmonger is the only writer).
 		"warmonger": Warmonger.new_state(),

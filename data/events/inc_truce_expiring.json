@@ -1,0 +1,41 @@
+{
+  "id": "inc_truce_expiring",
+  "cards": [
+    {
+      "type": "narration",
+      "label": null,
+      "speaker": null,
+      "text": "PROSE-REVIEW placeholder: The truce has a few days left and nobody has mentioned it."
+    },
+    {
+      "type": "choice",
+      "label": null,
+      "speaker": null,
+      "text": "PROSE-REVIEW placeholder: Someone has to bring it up.",
+      "choices": [
+        {
+          "label": "Raise it first",
+          "effects": [],
+          "result_text": "PROSE-REVIEW placeholder: You bring it up. They were waiting for you to."
+        },
+        {
+          "label": "Let it lapse",
+          "effects": [],
+          "result_text": "PROSE-REVIEW placeholder: You say nothing. The date comes anyway."
+        }
+      ]
+    },
+    {
+      "type": "resolution",
+      "label": null,
+      "speaker": null,
+      "text": "PROSE-REVIEW placeholder: London carries on."
+    }
+  ],
+  "on_complete": [
+    {
+      "op": "set_screen",
+      "screen": "phone"
+    }
+  ]
+}

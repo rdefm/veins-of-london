@@ -121,6 +121,7 @@ static func _report_flip(district_id: String, from_id: String, to_id: String) ->
 		text = headlines["flip"] % [GameData.FACTIONS[to_id]["shortName"], district_name]
 	Barometer.push_headline(text, "turfFlip", { "district": district_id, "from": from_id, "to": to_id })
 	MapEvents.queue_turf_flip(district_id, from_id, to_id)
+	FactionIncidents.record_flip(district_id, from_id, to_id)
 
 
 # --- Pure queries over the stored (daily) value ---

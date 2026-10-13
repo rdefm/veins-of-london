@@ -531,6 +531,8 @@ func backfill_defaults(save: Dictionary) -> Dictionary:
 		result["harassment"] = Harassment.new_state()
 	if not save.has("grudges"):
 		result["grudges"] = Grudges.new_state()
+	if not save.has("factionIncidents"):
+		result["factionIncidents"] = FactionIncidents.new_state()
 	if not save.has("grudgeEffects"):
 		result["grudgeEffects"] = Grudges.new_effects()
 	if not save.has("warmonger"):
@@ -1180,6 +1182,11 @@ func _restore_int_types(state: Dictionary) -> void:
 	for entry in harassment.get("active", []):
 		for key in ["sinceDay", "untilDay", "escalation"]:
 			_int_key(entry, key)
+	var incidents: Dictionary = state.get("factionIncidents", {})
+	_int_key(incidents, "nextId")
+	_int_dict_values(incidents.get("cooldowns", {}))
+	for flip in incidents.get("flips", []):
+		_int_key(flip, "day")
 	for grudge in state.get("grudges", {}).values():
 		_int_key(grudge, "sinceDay")
 	var effects: Dictionary = state.get("grudgeEffects", {})

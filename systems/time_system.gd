@@ -171,6 +171,7 @@ static func daily_tick() -> void:
 	Intel.expire_timers()                # ⑥.5i2 drop lapsed privacy/raid-warning/disinformation timers; reads check the day anyway
 	Diplomacy.daily_tick()               # ⑥.5j favours: settle guard/sit-out watches, withdraw lapsed requests, issue new ones; after ⑥.5g2 so war state is today's
 	Partners.daily_tick()                # ⑥.5j2 partner asks, partner trades, warnings and leaks; after ⑥.5h so warnings see today's queued raids
+	FactionIncidents.daily_tick()        # ⑥.5j2b incidents: queue authored events from today's raids, wars, truces and turf flips; after ⑥.5g2 and ⑤d3
 	Hiring.roll_market_flips()           # ⑥.5j3 LodedInnit candidates flip between open and employed; no ordering dependency
 	Hiring.daily_poach_tick()            # ⑥.5j4 lapsed poach offers resolve as refusals, then Monday offers roll; after ⑥.5h so stances are today's
 	Market.daily_reprice()               # ⑥.6 London reprice, after every step that trades in the tick and after ① so today's Ticker feeds it
