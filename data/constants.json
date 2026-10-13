@@ -166,10 +166,10 @@
     "cooldownDays": 4,
     "headlineCap": 10,
     "menus": {
-      "producer": { "harass": ["harass_placeholder_firm"], "market": ["flood", "outbid", "withhold"], "raid": ["veinRaid", "stockpileRaid"] },
+      "producer": { "harass": ["harass_placeholder_firm", "harass_placeholder_collective"], "market": ["flood", "outbid", "withhold"], "raid": ["veinRaid", "stockpileRaid"] },
       "crafter": { "harass": [], "market": ["poach", "withholdItems", "lowballBuyout"], "raid": ["stockpileRaid"] },
       "informationBroker": { "harass": [], "market": ["sellIntel", "priceGouge", "disinformation"], "raid": ["stockpileRaid"] },
-      "manipulator": { "harass": [], "market": ["undercut", "denyGoods", "tickerPush"], "raid": [] }
+      "manipulator": { "harass": ["harass_placeholder_conclave"], "market": ["undercut", "denyGoods", "tickerPush"], "raid": [] }
     },
     "sharedMarket": ["lowballBuyout"],
     "moveCosts": { "veinRaid": 500, "shortfallSteal": 500, "stockpileRaid": 500, "withhold": 150, "outbid": 400, "poach": 200, "withholdItems": 150, "tickerPush": 300, "sellIntel": 0, "priceGouge": 200, "disinformation": 300 },

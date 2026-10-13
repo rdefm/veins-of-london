@@ -4070,7 +4070,7 @@
 "cards": [{
 "label": null,
 "speaker": null,
-"text": "PROSE-REVIEW placeholder: someone has been at your vein. Nothing broken. Nothing missing. Everything very slightly wrong.",
+"text": "PROSE-REVIEW placeholder: the lock on your vein has been tampered with. The cameras point at the wall.",
 "type": "narration"
 }, {
 "choices": [{
@@ -4080,22 +4080,101 @@
 "value": -100
 }],
 "label": "Pay to put it right (£100)",
-"result_text": "PROSE-REVIEW placeholder: you pay. It stops, for now."
+"result_text": "PROSE-REVIEW placeholder: you pay. The lock is a lock again."
 }, {
 "effects": [{
-"kind": "placeholder",
+"kind": "securityDegrade",
 "op": "harassment_add",
-"params": {}
+"params": {
+"cost": 100,
+"tiers": 1
+}
 }],
-"label": "Ignore it",
-"result_text": "PROSE-REVIEW placeholder: you ignore it. It does not ignore you."
+"label": "Leave it",
+"result_text": "PROSE-REVIEW placeholder: you leave it. The vein is easier to get into now."
 }],
 "label": null,
 "speaker": null,
-"text": "PROSE-REVIEW placeholder: it will keep happening.",
+"text": "PROSE-REVIEW placeholder: it will stay that way until someone pays.",
 "type": "choice"
 }],
 "id": "harass_placeholder",
+"on_complete": [{
+"op": "set_screen",
+"screen": "map"
+}]
+},
+"harass_placeholder_collective": {
+"cards": [{
+"label": null,
+"speaker": null,
+"text": "PROSE-REVIEW placeholder: a noise complaint, lodged by a neighbour you have never met.",
+"type": "narration"
+}, {
+"choices": [{
+"effects": [{
+"kind": "workBan",
+"op": "harassment_add",
+"params": {
+"block": "morning",
+"days": 7
+}
+}],
+"label": "Keep it quiet",
+"result_text": "PROSE-REVIEW placeholder: no work at the vein in the mornings for a week."
+}, {
+"effects": [{
+"amount": 100,
+"op": "fine"
+}],
+"label": "Pay it off (£100)",
+"result_text": "PROSE-REVIEW placeholder: the complaint is withdrawn."
+}],
+"label": null,
+"speaker": null,
+"text": "PROSE-REVIEW placeholder: the council would like quiet.",
+"type": "choice"
+}],
+"id": "harass_placeholder_collective",
+"on_complete": [{
+"op": "set_screen",
+"screen": "map"
+}]
+},
+"harass_placeholder_conclave": {
+"cards": [{
+"label": null,
+"speaker": null,
+"text": "PROSE-REVIEW placeholder: an injunction, served by hand, concerning one of your veins.",
+"type": "narration"
+}, {
+"choices": [{
+"effects": [{
+"count": 1,
+"op": "spend_block"
+}, {
+"amount": 100,
+"op": "fine"
+}],
+"label": "Attend the hearing",
+"result_text": "PROSE-REVIEW placeholder: a morning of paperwork and a fine. The injunction is lifted."
+}, {
+"effects": [{
+"kind": "freeze",
+"op": "harassment_add",
+"params": {
+"days": 7
+}
+}],
+"label": "Ignore it",
+"result_text": "PROSE-REVIEW placeholder: the vein is frozen for a week."
+}],
+"label": null,
+"speaker": null,
+"text": "PROSE-REVIEW placeholder: a hearing has been scheduled.",
+"type": "choice"
+}],
+"id": "harass_placeholder_conclave",
 "on_complete": [{
 "op": "set_screen",
 "screen": "map"

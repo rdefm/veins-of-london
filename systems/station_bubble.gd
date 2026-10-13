@@ -38,7 +38,10 @@ static func _player_vein_options(vein: Dictionary) -> Array:
 
 	var cultivate_disabled := true
 	var cultivate_reason := ""
-	if at_ceiling:
+	var held := Harassment.vein_gate(vein["id"], true)
+	if not held["ok"]:
+		cultivate_reason = held["reason"]
+	elif at_ceiling:
 		cultivate_reason = "Vein at ceiling"
 	elif not Travel.can_afford(district, 1):
 		cultivate_reason = "No blocks left today."

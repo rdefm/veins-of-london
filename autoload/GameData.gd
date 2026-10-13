@@ -1060,10 +1060,10 @@ func _validate_faction_perks(perks: Dictionary, errors: Array[String]) -> void:
 
 
 func _validate_faction_harassment(harassment: Dictionary, errors: Array[String]) -> void:
-	_require_keys(harassment, ["escalation", "kindLabels", "entries"], "faction_harassment", errors)
+	_require_keys(harassment, ["escalation", "repairCost", "kindLabels", "entries"], "faction_harassment", errors)
 	for id in harassment.get("entries", {}):
 		var entry: Dictionary = harassment["entries"][id]
-		_require_keys(entry, ["id", "factionId", "eventId", "cost", "target", "requires"], "faction_harassment.%s" % id, errors)
+		_require_keys(entry, ["id", "factionId", "eventId", "cost", "target", "requires", "notice"], "faction_harassment.%s" % id, errors)
 		if entry.get("id", "") != id:
 			errors.append("faction_harassment.%s: id mismatch" % id)
 		if not ["vein", "player"].has(entry.get("target", "")):
@@ -1636,6 +1636,8 @@ const VALID_EFFECT_OPS: Array[String] = [
 	"queue_pending_message", "faction_relation",
 	# harassment_add / harassment_clear: Harassment.add_from_event / clear_from_event.
 	"harassment_add", "harassment_clear",
+	# fine takes cash (Harassment.fine); spend_block burns time blocks (a hearing).
+	"fine", "spend_block",
 	"log_method",
 	# Seeds a faction vein on each site recorded in a named objective's progress.
 	"faction_seed_reported_sites",

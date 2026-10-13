@@ -539,7 +539,7 @@ func _build_vein_action_card(vein: Dictionary) -> Control:
 
 	var cultivate_label := "Vein at ceiling" if at_ceiling else UI.format_block_cost_label("Cultivate", 1, Travel.can_afford(district, 1))
 	var cultivate_button := UI.button(cultivate_label, func(): Cultivating.cultivate(vein_id))
-	cultivate_button.disabled = at_ceiling or not Travel.can_afford(district, 1)
+	cultivate_button.disabled = at_ceiling or not Travel.can_afford(district, 1) or not Harassment.vein_gate(vein_id, true)["ok"]
 	actions.add_child(MapCardStyle.style_button(cultivate_button))
 
 	actions.add_child(_build_prune_button("Prune (light)", vein, GameData.VEIN_GROWTH["pruneLightDepth"], district))

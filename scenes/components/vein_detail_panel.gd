@@ -143,7 +143,22 @@ static func _build_detail_note(vein: Dictionary) -> Control:
 	if guard_cost != "":
 		security_row.add_child(MapCardStyle.text_button("%s ›" % guard_cost, func(): PhoneNav.open_guard_costs()))
 	col.add_child(security_row)
+	for line in _harassment_lines(vein):
+		col.add_child(_label(line, 10, MapPalette.colour("danger")))
+	var repair_cost: int = Harassment.security_repair_cost(vein["id"])
+	if repair_cost > 0:
+		var vein_id: String = vein["id"]
+		col.add_child(MapCardStyle.text_button("Repair security · £%d" % repair_cost, func(): Harassment.repair_security(vein_id)))
 	return col
+
+
+# Active harassment effects on this vein, one short line each.
+static func _harassment_lines(vein: Dictionary) -> Array[String]:
+	var lines: Array[String] = []
+	for row in Harassment.active():
+		if row.get("veinId", "") == vein["id"]:
+			lines.append(str(GameData.FACTION_HARASSMENT["kindLabels"].get(row["kind"], row["kind"])))
+	return lines
 
 
 static func _build_defend_row(vein: Dictionary) -> Variant:

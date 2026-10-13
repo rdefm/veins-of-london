@@ -1,6 +1,12 @@
 {
   "escalation": { "everyDays": 7, "max": 3 },
-  "kindLabels": { "placeholder": "Harassment" },
+  "repairCost": 100,
+  "kindLabels": {
+    "placeholder": "Harassment",
+    "securityDegrade": "Tampered security",
+    "workBan": "Work ban",
+    "freeze": "Frozen by injunction"
+  },
   "entries": {
     "harass_placeholder_firm": {
       "id": "harass_placeholder_firm",
@@ -8,7 +14,26 @@
       "eventId": "harass_placeholder",
       "cost": 100,
       "target": "vein",
-      "requires": {}
+      "requires": {},
+      "notice": "PROSE-REVIEW placeholder: \"Someone's been at your locks. Not us, obviously. Come and have a look.\""
+    },
+    "harass_placeholder_collective": {
+      "id": "harass_placeholder_collective",
+      "factionId": "collective",
+      "eventId": "harass_placeholder_collective",
+      "cost": 100,
+      "target": "vein",
+      "requires": {},
+      "notice": "PROSE-REVIEW placeholder: \"Neighbours have been complaining about your vein. Loudly. Officially.\""
+    },
+    "harass_placeholder_conclave": {
+      "id": "harass_placeholder_conclave",
+      "factionId": "conclave",
+      "eventId": "harass_placeholder_conclave",
+      "cost": 100,
+      "target": "vein",
+      "requires": {},
+      "notice": "PROSE-REVIEW placeholder: \"A document has arrived concerning one of your premises. Do read it.\""
     }
   }
 }

@@ -8,7 +8,13 @@ extends RefCounted
 # data/faction_harassment.json; the rung itself lives in FactionAI.
 # state.harassment = { active: [ { id, factionId, veinId?, kind, params,
 # sinceDay, untilDay?, escalation } ], queued: [ { harassmentId, factionId,
-# eventId, veinId } ], nextId: int }.
+# eventId, veinId } ], nextId: int }. Each queued entry also sends a pending
+# message from the faction's key member (PENDING_KIND); tapping it plays the event.
+
+const PENDING_KIND := "faction_harassment"
+const KIND_SECURITY_DEGRADE := "securityDegrade"
+const KIND_WORK_BAN := "workBan"
+const KIND_FREEZE := "freeze"
 
 
 static func _cfg() -> Dictionary:
@@ -64,6 +70,8 @@ static func candidate(observer: String, harassment_id: String) -> Dictionary:
 	if not requires.is_empty() and not Events.condition_met(requires):
 		return {}
 	var vein_id := ""
+	if not KeyMembers.can_speak(observer):
+		return {}
 	if row["target"] == "vein":
 		var veins := eligible_veins(observer)
 		if veins.is_empty():
@@ -80,6 +88,7 @@ static func queue(move: Dictionary, faction_id: String) -> void:
 		"harassmentId": move["harassmentId"], "factionId": faction_id,
 		"eventId": move["eventId"], "veinId": move["veinId"],
 	})
+	KeyMembers.send(faction_id, str(entry(move["harassmentId"])["notice"]), PENDING_KIND, { "veinId": move["veinId"] })
 
 
 # Starts the oldest queued harassment event; false when none is waiting.
@@ -91,6 +100,12 @@ static func start_next() -> bool:
 		"faction_id": next["factionId"], "vein_id": next["veinId"], "harassment_id": next["harassmentId"],
 	})
 	return true
+
+
+# Pending-message tap: resolves the message and plays the oldest queued event.
+static func start_pending(pending_id: String) -> void:
+	Messages.resolve_pending(pending_id)
+	start_next()
 
 
 # Records an effect an event left behind. params.days (optional) sets untilDay.
@@ -152,6 +167,8 @@ static func tick() -> void:
 		kept.append(row)
 	GameState.state["harassment"]["active"] = kept
 	GameState.state["harassment"]["queued"] = queued().filter(func(r: Dictionary) -> bool: return veins.has(r["veinId"]) or r["veinId"] == "")
+	GameState.state["pendingMessages"] = GameState.state["pendingMessages"].filter(func(m: Dictionary) -> bool:
+		return m["kind"] != PENDING_KIND or veins.has(m["payload"].get("veinId", "")))
 
 
 # Active effects touching a district's veins, for the district panel:
@@ -170,3 +187,83 @@ static func rows_for_district(district_id: String) -> Array:
 				"escalation": int(row["escalation"]), "veinId": row["veinId"],
 			})
 	return rows
+
+
+# ── physical and legal effects ───────────────────────────────────────────
+
+static func _rows(vein_id: String, kind: String) -> Array:
+	return active().filter(func(r: Dictionary) -> bool: return r.get("veinId", "") == vein_id and r["kind"] == kind)
+
+
+# Security tiers knocked off a vein: each securityDegrade row's tiers plus its escalation.
+static func security_degrade_tiers(vein_id: String) -> int:
+	var total := 0
+	for row in _rows(vein_id, KIND_SECURITY_DEGRADE):
+		total += int(row["params"].get("tiers", 1)) + int(row["escalation"])
+	return total
+
+
+# £ to put a vein's degraded security right: the rows' params.cost, else the data default; 0 when intact.
+static func security_repair_cost(vein_id: String) -> int:
+	var total := 0
+	for row in _rows(vein_id, KIND_SECURITY_DEGRADE):
+		total += int(row["params"].get("cost", _cfg()["repairCost"]))
+	return total
+
+
+static func is_frozen(vein_id: String) -> bool:
+	return not _rows(vein_id, KIND_FREEZE).is_empty()
+
+
+# True when a workBan row bans the current time block.
+static func is_work_banned(vein_id: String) -> bool:
+	var block: int = GameState.state["world"]["timeBlock"]
+	for row in _rows(vein_id, KIND_WORK_BAN):
+		if TimeSystem.block_index(str(row["params"].get("block", ""))) == block:
+			return true
+	return false
+
+
+# { ok, reason } for acting on a vein: a freeze stops everything; work (cultivate, harvest) is also stopped in a banned block.
+static func vein_gate(vein_id: String, is_work: bool) -> Dictionary:
+	if is_frozen(vein_id):
+		return { "ok": false, "reason": "Frozen by injunction." }
+	if is_work and is_work_banned(vein_id):
+		return { "ok": false, "reason": "Work banned this block." }
+	return { "ok": true, "reason": "" }
+
+
+# Player pays to put degraded security right; clears the vein's securityDegrade rows.
+static func repair_security(vein_id: String) -> Dictionary:
+	var cost := security_repair_cost(vein_id)
+	if cost == 0:
+		return { "ok": false, "reason": "Nothing to repair." }
+	var gate := vein_gate(vein_id, false)
+	if not gate["ok"]:
+		return gate
+	var player: Dictionary = GameState.state["player"]
+	if player["cash"] < cost:
+		return { "ok": false, "reason": "Not enough cash." }
+	player["cash"] -= cost
+	Bank.record(-cost, "Vein security repair")
+	GameState.state["harassment"]["active"] = active().filter(func(r: Dictionary) -> bool:
+		return not (r.get("veinId", "") == vein_id and r["kind"] == KIND_SECURITY_DEGRADE))
+	EventBus.state_changed.emit()
+	return { "ok": true }
+
+
+# fine event op: takes up to amount from the player's cash.
+static func fine(amount: int) -> int:
+	var player: Dictionary = GameState.state["player"]
+	var paid := mini(amount, int(player["cash"]))
+	if paid > 0:
+		player["cash"] -= paid
+		Bank.record(-paid, "Fine")
+	return paid
+
+
+# spend_block event op: burns count time blocks (a hearing).
+static func spend_blocks(count: int) -> void:
+	for i in count:
+		if not TimeSystem.is_time_exhausted():
+			TimeSystem.advance_time_block()

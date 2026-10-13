@@ -505,6 +505,8 @@ static func build_pending_actions(entry: Dictionary, on_continue: Callable) -> A
 	if entry["kind"] == ArchieDeals.PENDING_KIND:
 		actions.append(UI.button("Accept", _on_archie_deal_accept.bind(entry)))
 		actions.append(UI.button("Decline", _on_archie_deal_decline.bind(entry)))
+	elif entry["kind"] == Harassment.PENDING_KIND:
+		actions.append(UI.button("See what happened →", func(): Harassment.start_pending(entry["id"])))
 	elif entry["kind"] == FactionAI.LOWBALL_KIND:
 		actions.append(UI.button("Sell for £%d" % int(entry["payload"]["price"]), func(): FactionAI.accept_lowball(entry["id"])))
 		actions.append(UI.button("Decline", func(): FactionAI.decline_lowball(entry["id"])))

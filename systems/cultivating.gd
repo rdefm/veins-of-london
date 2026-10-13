@@ -243,6 +243,9 @@ static func cultivate(vein_id: String) -> Dictionary:
 	if vein == null:
 		return { "ok": false, "reason": "Vein not found." }
 
+	var gate := Harassment.vein_gate(vein_id, true)
+	if not gate["ok"]:
+		return gate
 	var travel := Travel.ensure_district(vein["district"])
 	if not travel["ok"]:
 		return travel
@@ -298,6 +301,9 @@ static func prune_yield(vein: Dictionary, depth: int) -> int:
 # both map.gd's site sheet and station_bubble.gd need the same rule. Pruning
 # at/below neutral is allowed (it just yields 0, per prune_yield above); only time-block affordability gates the button.
 static func prune_gate(vein: Dictionary, depth: int, district: String) -> Dictionary:
+	var held := Harassment.vein_gate(vein["id"], true)
+	if not held["ok"]:
+		return { "disabled": true, "reason": held["reason"] }
 	if not Travel.can_afford(district, 1):
 		return { "disabled": true, "reason": "No blocks left today." }
 	return { "disabled": false, "reason": "" }
@@ -309,6 +315,9 @@ static func prune(vein_id: String, depth: int) -> Dictionary:
 	if vein == null:
 		return { "ok": false, "reason": "Vein not found." }
 
+	var gate := Harassment.vein_gate(vein_id, true)
+	if not gate["ok"]:
+		return gate
 	var travel := Travel.ensure_district(vein["district"])
 	if not travel["ok"]:
 		return travel
@@ -596,7 +605,8 @@ const EXTRA_GUARD_RAID_RESIST := 20
 # Factions.rivalry_success_chance) reads defensive strength through here rather
 # than indexing GameData.VEIN_SECURITY directly. extraGuards defaults to 0 via .get() for veins that predate it.
 static func vein_raid_resist(vein: Dictionary) -> int:
-	var base: int = GameData.VEIN_SECURITY[vein["security"]]["raidResist"]
+	var tier: String = VEIN_SECURITY_ORDER[maxi(0, VEIN_SECURITY_ORDER.find(vein["security"]) - Harassment.security_degrade_tiers(vein["id"]))]
+	var base: int = GameData.VEIN_SECURITY[tier]["raidResist"]
 	return base + vein.get("extraGuards", 0) * EXTRA_GUARD_RAID_RESIST
 
 
@@ -649,6 +659,9 @@ static func upgrade_vein_security(vein_id: String) -> Dictionary:
 	if vein == null:
 		return { "ok": false, "reason": "Vein not found." }
 
+	var gate := Harassment.vein_gate(vein_id, false)
+	if not gate["ok"]:
+		return gate
 	var upgrade: Dictionary = next_security_upgrade(vein)
 	if upgrade["isGuard"]:
 		var paid: Dictionary = GuardUpkeep.pay_hire_advance(vein_id)
@@ -687,6 +700,9 @@ static func add_alarm(vein_id: String) -> Dictionary:
 	if vein == null:
 		return { "ok": false, "reason": "Vein not found." }
 
+	var gate := Harassment.vein_gate(vein_id, false)
+	if not gate["ok"]:
+		return gate
 	if vein["alarmUpgrades"].has(ALARM_UPGRADE_ID):
 		return { "ok": false, "reason": "Already installed." }
 

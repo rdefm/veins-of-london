@@ -131,3 +131,101 @@ func run() -> void:
 			for id in menu["harass"]:
 				assert_true(GameData.FACTION_HARASSMENT["entries"].has(id), "menu id %s defined" % id)
 	)
+
+
+	run_case("security_degrade_lowers_raid_resist_until_repaired_for_a_fee", func():
+		_firm_ready(0)
+		var vein: Dictionary = GameState.state["player"]["veins"][0]
+		vein["security"] = "warded"
+		var intact := Cultivating.vein_raid_resist(vein)
+		GameState.state["event"] = { "eventId": "harass_placeholder", "context": { "faction_id": "firm", "vein_id": "pv" } }
+		Events.apply_effects([{ "op": "harassment_add", "kind": "securityDegrade", "params": { "tiers": 1, "cost": 80 } }])
+		assert_eq(Cultivating.vein_raid_resist(vein), int(GameData.VEIN_SECURITY["basic"]["raidResist"]))
+		assert_true(Cultivating.vein_raid_resist(vein) < intact)
+		assert_eq(Harassment.security_repair_cost("pv"), 80)
+		GameState.state["player"]["cash"] = 10
+		assert_true(not Harassment.repair_security("pv")["ok"], "can't afford")
+		GameState.state["player"]["cash"] = 500
+		assert_true(Harassment.repair_security("pv")["ok"])
+		assert_eq(int(GameState.state["player"]["cash"]), 420)
+		assert_eq(Cultivating.vein_raid_resist(vein), intact)
+		assert_true(Harassment.active().is_empty())
+		Events.apply_effects([{ "op": "harassment_add", "kind": "securityDegrade", "params": { "tiers": 1 } }])
+		Events.apply_effects([{ "op": "harassment_clear", "kind": "securityDegrade" }])
+		assert_eq(Cultivating.vein_raid_resist(vein), intact, "marked repaired by the event")
+		GameState.state["event"] = null
+	)
+
+	run_case("degrade_cannot_drop_below_unsecured", func():
+		_firm_ready(0)
+		Harassment.add("firm", "securityDegrade", "pv", { "tiers": 5 })
+		assert_eq(Cultivating.vein_raid_resist(GameState.state["player"]["veins"][0]), 0)
+	)
+
+	run_case("work_ban_blocks_work_only_in_its_block", func():
+		_firm_ready(0)
+		GameState.state["event"] = { "eventId": "x", "context": { "faction_id": "collective", "vein_id": "pv" } }
+		Events.apply_effects([{ "op": "harassment_add", "kind": "workBan", "params": { "block": "morning", "days": 3 } }])
+		GameState.state["world"]["timeBlock"] = 0
+		var blocks_before := TimeSystem.blocks_left()
+		assert_true(not Cultivating.cultivate("pv")["ok"], "banned in the morning")
+		assert_true(not Cultivating.prune("pv", 9)["ok"])
+		assert_true(Cultivating.prune_gate(GameState.state["player"]["veins"][0], 9, "shoreditch")["disabled"])
+		assert_eq(TimeSystem.blocks_left(), blocks_before, "no block spent")
+		assert_true(Harassment.vein_gate("pv", false)["ok"], "non-work actions still allowed")
+		GameState.state["world"]["timeBlock"] = 1
+		assert_true(Cultivating.cultivate("pv")["ok"], "afternoon is free")
+		Events.apply_effects([{ "op": "harassment_clear", "kind": "workBan" }])
+		GameState.state["world"]["timeBlock"] = 0
+		assert_true(Harassment.vein_gate("pv", true)["ok"], "ban cleared")
+		GameState.state["event"] = null
+	)
+
+	run_case("freeze_blocks_all_actions_until_expiry", func():
+		_firm_ready(0)
+		GameState.state["world"]["day"] = 5
+		GameState.state["player"]["cash"] = 1000
+		Harassment.add("conclave", "freeze", "pv", { "days": 3 })
+		assert_true(not Cultivating.cultivate("pv")["ok"])
+		assert_true(not Cultivating.upgrade_vein_security("pv")["ok"])
+		assert_true(not Cultivating.add_alarm("pv")["ok"])
+		assert_true(StationBubble.station_options({ "kind": "vein", "vein": GameState.state["player"]["veins"][0], "owner": "player" })[0]["disabled"])
+		GameState.state["world"]["day"] = 9
+		Harassment.tick()
+		assert_true(not Harassment.is_frozen("pv"), "expired")
+		assert_true(Cultivating.cultivate("pv")["ok"])
+	)
+
+	run_case("fine_and_hearing_ops", func():
+		_firm_ready(0)
+		GameState.state["player"]["cash"] = 250
+		var blocks_before := TimeSystem.blocks_left()
+		Events.apply_effects([{ "op": "fine", "amount": 100 }, { "op": "spend_block", "count": 1 }])
+		assert_eq(int(GameState.state["player"]["cash"]), 150)
+		assert_eq(TimeSystem.blocks_left(), blocks_before - 1)
+		Events.apply_effects([{ "op": "fine", "amount": 1000 }])
+		assert_eq(int(GameState.state["player"]["cash"]), 0, "fine can't take more than held")
+	)
+
+	run_case("queued_harassment_reaches_the_phone_and_plays", func():
+		_firm_ready(FactionAI.harass_line("firm") - 1)
+		_escalate_on(1)
+		assert_eq(Harassment.queued().size(), 1)
+		var pending: Array[Dictionary] = Messages.pending_for(KeyMembers.speaker_for("firm"))
+		assert_eq(pending.size(), 1, "key member's message carries the prompt")
+		assert_eq(pending[0]["kind"], Harassment.PENDING_KIND)
+		Harassment.start_pending(pending[0]["id"])
+		assert_true(Harassment.queued().is_empty(), "queue empties")
+		assert_true(Messages.pending_for(KeyMembers.speaker_for("firm")).is_empty())
+		assert_eq(GameState.state["event"]["eventId"], "harass_placeholder")
+		assert_eq(GameState.state["event"]["context"]["vein_id"], "pv")
+		GameState.state["event"] = null
+	)
+
+	run_case("every_placeholder_event_applies_cleanly", func():
+		for id in ["harass_placeholder", "harass_placeholder_collective", "harass_placeholder_conclave"]:
+			for card in GameData.EVENTS[id]["cards"]:
+				for choice in card.get("choices", []):
+					for effect in choice["effects"]:
+						assert_true(GameData.VALID_EFFECT_OPS.has(effect["op"]), "%s op %s" % [id, effect["op"]])
+	)
