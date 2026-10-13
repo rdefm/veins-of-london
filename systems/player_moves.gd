@@ -13,7 +13,6 @@ extends RefCounted
 const MOVE_COMPLAINT := "fileComplaint"
 const MOVE_POLICE := "tipPolice"
 const MOVE_LEAK := "leakTicker"
-const EXEMPT_FACTION := "collective"
 
 
 static func new_state() -> Dictionary:
@@ -40,7 +39,7 @@ static func _day() -> int:
 # moves with needsVein.
 static func block_reason(move_id: String, faction_id: String, site_id: String = "") -> String:
 	var m := move(move_id)
-	if faction_id == EXEMPT_FACTION or not GameData.FACTIONS.has(faction_id):
+	if not GameData.FACTIONS.has(faction_id):
 		return "Not a target."
 	if not Intel.knows(Shares.PLAYER, faction_id, String(m["intelGate"])):
 		return "Need more intel on them."
