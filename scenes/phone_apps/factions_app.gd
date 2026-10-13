@@ -972,7 +972,25 @@ func _build_favour(faction_id: String) -> Control:
 	for entry in Diplomacy.pending_for(faction_id):
 		var title := "Favour asked · answer by %s" % Calendar.format_day(int(entry["payload"]["expiresDay"]))
 		box.add_child(_request_panel(title, entry["text"], ContactCards.build_pending_actions(entry, func(_e: Dictionary) -> void: pass)))
+	if Diplomacy.is_owed(faction_id):
+		box.add_child(_request_panel("You owe them one", "They joined your war. Their next ask is not optional.", []))
+	for enemy_id in GameData.FACTIONS.keys():
+		if enemy_id != faction_id and FactionAI.at_war(Shares.PLAYER, enemy_id):
+			box.add_child(_build_aid_ask(faction_id, enemy_id))
 	return box
+
+
+# Call for aid against one enemy of the player (R§3.1e).
+func _build_aid_ask(faction_id: String, enemy_id: String) -> Control:
+	var enemy_name: String = GameData.FACTIONS[enemy_id]["shortName"]
+	var block := Diplomacy.aid_block(faction_id, enemy_id)
+	var actions: Array[Control] = []
+	var text := "Ask them to join your war on the %s." % enemy_name
+	if block == "":
+		actions.append(UI.button("Call for aid", func(): Diplomacy.ask_aid(faction_id, enemy_id)))
+	else:
+		text = "%s %s" % [text, block]
+	return _request_panel("Call for aid · %s" % enemy_name, text, actions)
 
 
 # At Partner stance: any trouble ask (R§3.10 "Partners").

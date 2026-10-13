@@ -36,6 +36,11 @@ static func _tick_on(day: int) -> void:
 	_cfg()["issueChance"] = chance
 
 
+static func _set_pair_relation(a: String, b: String, value: int) -> void:
+	GameState.state["factionRelations"][a][b] = value
+	GameState.state["factionRelations"][b][a] = value
+
+
 static func _set_pair(faction_a: String, faction_b: String, stance: String) -> void:
 	GameState.state["factionStances"]["pairs"][FactionAI.pair_key(faction_a, faction_b)]["stance"] = stance
 
@@ -221,6 +226,90 @@ func run() -> void:
 		GameState.state.erase("favours")
 		assert_true(SaveManager.import_string(SaveManager.export_string())["ok"])
 		assert_eq(GameState.state["favours"], Diplomacy.new_state())
+	)
+
+	run_case("calling_for_aid_needs_a_war_with_the_enemy_and_respects_the_cooldown", func():
+		GameState.reset()
+		assert_true(Diplomacy.aid_block("network", "guild") != "", "not at war")
+		FactionAI.enter_war(Shares.PLAYER, "guild")
+		assert_eq(Diplomacy.aid_block("network", "guild"), "")
+		assert_true(Diplomacy.aid_block("guild", "guild") != "", "can't ask the enemy itself")
+		var aid: Dictionary = GameData.CALL_FOR_AID
+		var base: float = aid["baseChance"]
+		aid["baseChance"] = -5.0
+		aid["minChance"] = 0.0
+		Rng.set_seed(1)
+		assert_true(Diplomacy.ask_aid("network", "guild")["ok"])
+		assert_true(Diplomacy.aid_block("network", "guild") != "", "cooling")
+		GameState.state["world"]["day"] += int(aid["cooldownDays"])
+		assert_eq(Diplomacy.aid_block("network", "guild"), "")
+		aid["baseChance"] = base
+		aid["minChance"] = 0.05
+	)
+
+	run_case("the_aid_chance_follows_relation_pair_relation_weariness_and_warmonger", func():
+		GameState.reset()
+		var aid: Dictionary = GameData.CALL_FOR_AID
+		GameState.state["factions"]["network"]["relation"] = 100
+		_set_pair_relation("network", "guild", -100)
+		assert_eq(Diplomacy.aid_chance("network", "guild"), float(aid["maxChance"]), "friend of a rival: capped")
+		GameState.state["factions"]["network"]["relation"] = -100
+		_set_pair_relation("network", "guild", 100)
+		FactionAI._war()["weariness"]["network"] = 100.0
+		assert_eq(Diplomacy.aid_chance("network", "guild"), float(aid["minChance"]), "enemy of the player, tired: floored")
+		GameState.state["factions"]["network"]["relation"] = 0
+		_set_pair_relation("network", "guild", 0)
+		FactionAI._war()["weariness"]["network"] = 0.0
+		var calm := Diplomacy.aid_chance("network", "guild")
+		assert_eq(calm, float(aid["baseChance"]))
+		GameState.state["warmonger"]["score"] = 1000.0
+		assert_eq(Diplomacy.aid_chance("network", "guild"), calm - float(aid["warmongerWeight"]), "a warmonger gets less help")
+	)
+
+	run_case("accepted_aid_starts_their_war_and_leaves_a_debt_that_refusing_costs_relation", func():
+		GameState.reset()
+		FactionAI.enter_war(Shares.PLAYER, "guild")
+		var aid: Dictionary = GameData.CALL_FOR_AID
+		var base: float = aid["baseChance"]
+		var max_chance: float = aid["maxChance"]
+		aid["baseChance"] = 5.0
+		aid["maxChance"] = 1.0
+		var result := Diplomacy.ask_aid("firm", "guild")
+		aid["baseChance"] = base
+		aid["maxChance"] = max_chance
+		assert_true(result["accepted"])
+		assert_true(FactionAI.at_war("firm", "guild"))
+		assert_true(Diplomacy.is_owed("firm"))
+		assert_true(Diplomacy.aid_block("firm", "guild") != "", "can't ask while owing")
+		var before := _relation("firm")
+		var chance: float = _cfg()["issueChance"]
+		_cfg()["issueChance"] = 0.0
+		GameState.state["world"]["day"] += 1
+		Diplomacy.issue_favours()
+		_cfg()["issueChance"] = chance
+		var asks := Diplomacy.pending_for("firm")
+		assert_eq(asks.size(), 1, "the debt is called regardless of the roll")
+		assert_true(asks[0]["payload"]["owed"])
+		Diplomacy.decline(asks[0]["id"])
+		assert_true(not Diplomacy.is_owed("firm"))
+		assert_eq(_relation("firm"), before - int(aid["refuseRelationLoss"]))
+	)
+
+	run_case("honouring_the_owed_favour_clears_the_debt_for_free_and_a_lapse_counts_as_refusing", func():
+		GameState.reset()
+		GameState.state["favours"]["owed"].append({ "factionId": "firm", "sinceDay": 0 })
+		var before := _relation("firm")
+		var payload := { "factionId": "firm", "favourId": "firm_sit_out", "expiresDay": 5, "owed": true }
+		KeyMembers.send("firm", "x", Diplomacy.FAVOUR_KIND, payload)
+		assert_true(Diplomacy.accept(Diplomacy.pending_for("firm")[0]["id"])["ok"])
+		assert_true(not Diplomacy.is_owed("firm"))
+		assert_eq(_relation("firm"), before)
+		GameState.state["favours"]["owed"].append({ "factionId": "guild", "sinceDay": 0 })
+		var guild_before := _relation("guild")
+		KeyMembers.send("guild", "x", Diplomacy.FAVOUR_KIND, { "factionId": "guild", "favourId": "guild_time_supply", "expiresDay": 5, "owed": true })
+		_tick_on(6)
+		assert_true(not Diplomacy.is_owed("guild"))
+		assert_eq(_relation("guild"), guild_before - int(GameData.CALL_FOR_AID["refuseRelationLoss"]))
 	)
 
 	run_case("a_cash_gift_raises_the_members_and_factions_relation_and_takes_the_cash", func():

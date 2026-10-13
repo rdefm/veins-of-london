@@ -161,6 +161,32 @@
     "shareIntelPerDay": 5,
     "jointRaidOddsBonus": 0.1
   },
+  "callForAid": {
+    "cooldownDays": 7,
+    "baseChance": 0.3,
+    "relationWeight": 0.4,
+    "pairWeight": 0.3,
+    "wearinessWeight": 0.3,
+    "warmongerWeight": 0.2,
+    "minChance": 0.05,
+    "maxChance": 0.95,
+    "refuseRelationLoss": 10,
+    "acceptLines": {
+      "collective": "\"Right. We'll lean on them. You'll owe us one.\"",
+      "firm": "\"Consider it done. Consider yourself owing.\"",
+      "guild": "\"The Court will join the action. The Court will expect recompense.\"",
+      "network": "\"We've started talking about them. You'll owe us.\"",
+      "conclave": "\"We'll stand with you. Remember that we did.\""
+    },
+    "refuseLines": {
+      "collective": "\"Not our fight. Sorry.\"",
+      "firm": "\"Not interested.\"",
+      "guild": "\"The Court declines to be drawn in.\"",
+      "network": "\"Can't help. Won't help.\"",
+      "conclave": "\"We can't. Not now.\""
+    },
+    "owedFailLine": "\"We helped when you asked. This is how you answer?\""
+  },
   "craftCostPerSkill": 0.8,
   "factionFloor": { "weakMaxVeins": 1, "weakCashBelow": 1000, "pruneYieldMult": 1.5, "craftChanceBonus": 0.15 },
   "turf": {

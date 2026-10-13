@@ -1786,6 +1786,15 @@ static func _start_war(party_a: String, party_b: String, day: int) -> void:
 		"warDeclared", { "first": party_a, "second": party_b })
 
 
+# Puts two parties at war now (a called-in ally), under the usual war rules:
+# it lapses unless hostilities continue.
+static func enter_war(party_a: String, party_b: String) -> void:
+	var day: int = GameState.state["world"]["day"]
+	_war()["lastHostile"][war_key(party_a, party_b)] = day
+	if _find_war(war_key(party_a, party_b)).is_empty():
+		_start_war(party_a, party_b, day)
+
+
 static func _end_war(war: Dictionary) -> void:
 	_war()["wars"].erase(war)
 	var a: String = war["parties"][0]

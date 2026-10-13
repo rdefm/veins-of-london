@@ -1133,6 +1133,9 @@ func _restore_int_types(state: Dictionary) -> void:
 				_int_key(entry.get("payload", {}), key)
 	var favours: Dictionary = state.get("favours", {})
 	_int_dict_values(favours.get("lastIssued", {}))
+	_int_dict_values(favours.get("aidAsked", {}))
+	for entry in favours.get("owed", []):
+		_int_key(entry, "sinceDay")
 	for entry in favours.get("accepted", []):
 		for key in ["acceptedDay", "dueDay"]:
 			_int_key(entry, key)

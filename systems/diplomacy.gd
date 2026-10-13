@@ -21,13 +21,19 @@ static func _cfg() -> Dictionary:
 
 
 # state.favours: accepted [{ factionId, favourId, kind, params, acceptedDay,
-# dueDay, contractId?, veinIds? }], lastIssued { factionId: day }.
+# dueDay, contractId?, veinIds? }], lastIssued { factionId: day }, owed
+# [{ factionId, sinceDay }] (aid the player owes), aidAsked { factionId: day }.
 static func new_state() -> Dictionary:
-	return { "accepted": [], "lastIssued": {} }
+	return { "accepted": [], "lastIssued": {}, "owed": [], "aidAsked": {} }
 
 
 static func _state() -> Dictionary:
-	return GameState.state["favours"]
+	var state: Dictionary = GameState.state["favours"]
+	if not state.has("owed"):
+		state["owed"] = []
+	if not state.has("aidAsked"):
+		state["aidAsked"] = {}
+	return state
 
 
 static func favour_def(faction_id: String, favour_id: String) -> Dictionary:
@@ -82,16 +88,20 @@ static func issue_favours() -> void:
 			continue
 		if not pending_for(faction_id).is_empty() or not accepted_for(faction_id).is_empty():
 			continue
-		var last: int = int(_state()["lastIssued"].get(faction_id, -1))
-		if last >= 0 and day - last < int(_cfg()["cooldownDays"]):
-			continue
-		if not Rng.chance(float(_cfg()["issueChance"])):
-			continue
+		var owed := is_owed(faction_id)
+		if not owed:
+			var last: int = int(_state()["lastIssued"].get(faction_id, -1))
+			if last >= 0 and day - last < int(_cfg()["cooldownDays"]):
+				continue
+			if not Rng.chance(float(_cfg()["issueChance"])):
+				continue
 		var options: Array = GameData.FACTIONS[faction_id].get("sampleFavours", []).filter(_can_do)
 		if options.is_empty():
 			continue
 		var favour: Dictionary = Rng.rand_from(options)
 		var payload := { "factionId": faction_id, "favourId": favour["id"], "expiresDay": day + int(_cfg()["expiryDays"]) }
+		if owed:
+			payload["owed"] = true
 		if KeyMembers.send(faction_id, favour["text"], FAVOUR_KIND, payload):
 			_state()["lastIssued"][faction_id] = day
 
@@ -109,8 +119,11 @@ static func _can_do(favour: Dictionary) -> bool:
 
 static func _drop_lapsed_requests() -> void:
 	var day: int = GameState.state["world"]["day"]
-	GameState.state["pendingMessages"] = GameState.state["pendingMessages"].filter(func(e: Dictionary) -> bool:
-		return e["kind"] != FAVOUR_KIND or day <= int(e["payload"].get("expiresDay", 0)))
+	for entry in GameState.state["pendingMessages"].duplicate():
+		if entry["kind"] == FAVOUR_KIND and day > int(entry["payload"].get("expiresDay", 0)):
+			if entry["payload"].get("owed", false):
+				_refuse_owed(entry["payload"]["factionId"])
+			GameState.state["pendingMessages"].erase(entry)
 
 
 # Accepting commits the player: goods favours sign their contract now,
@@ -149,14 +162,99 @@ static func accept(pending_id: String) -> Dictionary:
 				vein_ids.append(vein["id"])
 			record["veinIds"] = vein_ids
 	Messages.resolve_pending(pending_id)
+	if payload.get("owed", false):
+		_clear_owed(faction_id)
 	accepted().append(record)
 	EventBus.state_changed.emit()
 	return { "ok": true, "favour": record }
 
 
-# Ignoring costs nothing.
+# Ignoring costs nothing, unless the request settles aid the faction gave.
 static func decline(pending_id: String) -> void:
+	var entry := _find_pending(pending_id)
 	Messages.resolve_pending(pending_id)
+	if not entry.is_empty() and entry["payload"].get("owed", false):
+		_refuse_owed(entry["payload"]["factionId"])
+
+
+# ── Call for aid (R§3.1e) ───────────────────────────────────────────────
+
+static func _acfg() -> Dictionary:
+	return GameData.CALL_FOR_AID
+
+
+static func is_owed(faction_id: String) -> bool:
+	for entry in _state()["owed"]:
+		if entry["factionId"] == faction_id:
+			return true
+	return false
+
+
+static func _clear_owed(faction_id: String) -> void:
+	_state()["owed"] = _state()["owed"].filter(func(e: Dictionary) -> bool: return e["factionId"] != faction_id)
+
+
+# The owed favour went unanswered: the debt is written off at a relation cost.
+static func _refuse_owed(faction_id: String) -> void:
+	_clear_owed(faction_id)
+	Factions.adjust_player_relation(faction_id, -int(_acfg()["refuseRelationLoss"]))
+	KeyMembers.send(faction_id, _acfg()["owedFailLine"])
+
+
+# Day the faction can be asked again (0 when it never was).
+static func next_aid_day(faction_id: String) -> int:
+	if not _state()["aidAsked"].has(faction_id):
+		return 0
+	return int(_state()["aidAsked"][faction_id]) + int(_acfg()["cooldownDays"])
+
+
+# Why the player can't ask faction_id to fight enemy_id, or "".
+static func aid_block(faction_id: String, enemy_id: String) -> String:
+	if faction_id == enemy_id or not GameData.FACTIONS.has(faction_id) or not GameData.FACTIONS.has(enemy_id):
+		return "Not a faction."
+	if not FactionAI.at_war(Shares.PLAYER, enemy_id):
+		return "You're not at war with them."
+	if FactionAI.at_war(Shares.PLAYER, faction_id):
+		return "They're at war with you."
+	if FactionAI.at_war(faction_id, enemy_id) or FactionAI.is_held_pair(faction_id, enemy_id):
+		return "They're already against them." if FactionAI.at_war(faction_id, enemy_id) else "They can't fight them."
+	if is_owed(faction_id):
+		return "You still owe them one."
+	if int(GameState.state["world"]["day"]) < next_aid_day(faction_id):
+		return "Asked recently."
+	return ""
+
+
+# base + relationWeight × player relation − pairWeight × their relation with
+# the enemy − wearinessWeight × their weariness − warmongerWeight × the
+# warmonger score as a share of coordinateAt, all /100 where raw, clamped.
+static func aid_chance(faction_id: String, enemy_id: String) -> float:
+	var cfg := _acfg()
+	var relation := float(GameState.state["factions"][faction_id]["relation"]) / 100.0
+	var pair := float(Factions.get_relation(faction_id, enemy_id)) / 100.0
+	var weary := FactionAI.weariness(faction_id) / 100.0
+	var monger := minf(Warmonger.score() / float(GameData.WARMONGER["coordinateAt"]), 1.0)
+	var chance := float(cfg["baseChance"]) + float(cfg["relationWeight"]) * relation - float(cfg["pairWeight"]) * pair \
+		- float(cfg["wearinessWeight"]) * weary - float(cfg["warmongerWeight"]) * monger
+	return clampf(chance, float(cfg["minChance"]), float(cfg["maxChance"]))
+
+
+# Asks faction_id to join the player's war on enemy_id. Spends the cooldown
+# either way; acceptance starts their war and leaves the player owing a favour.
+static func ask_aid(faction_id: String, enemy_id: String) -> Dictionary:
+	var block := aid_block(faction_id, enemy_id)
+	if block != "":
+		return { "ok": false, "reason": block }
+	var day: int = GameState.state["world"]["day"]
+	_state()["aidAsked"][faction_id] = day
+	var accepted_aid := Rng.chance(aid_chance(faction_id, enemy_id))
+	if accepted_aid:
+		FactionAI.enter_war(faction_id, enemy_id)
+		_state()["owed"].append({ "factionId": faction_id, "sinceDay": day })
+	var lines: Dictionary = _acfg()["acceptLines" if accepted_aid else "refuseLines"]
+	KeyMembers.send(faction_id, lines[faction_id])
+	EventBus.state_changed.emit()
+	return { "ok": true, "accepted": accepted_aid }
 
 
 # The request priced at London value × deliverPriceMult (deliver) or the
