@@ -44,7 +44,7 @@
         { "id": "network_forewarning", "scope": "global", "effect": "raidForewarning", "params": {}, "label": "Forewarnings", "description": "Word of raids from every faction before they land." }
       ],
       "sworn": [
-        { "id": "network_commissioned_move", "scope": "global", "effect": "commissionMarketMove", "params": { "moves": ["sellIntel", "priceGouge", "disinformation"] }, "label": "Commissioned move", "description": "Have the Network run a market move against a rival for you." }
+        { "id": "network_commissioned_move", "scope": "global", "effect": "commissionMarketMove", "params": { "moves": ["sellIntel", "priceGouge", "disinformation"], "cost": 600, "cooldownDays": 7 }, "label": "Commissioned move", "description": "Have the Network run a market move against a rival for you." }
       ]
     },
     "conclave": {

@@ -24,6 +24,8 @@ func _ids(entries: Array) -> Array:
 
 
 func run() -> void:
+	_register_network_cases()
+
 	run_case("data_has_three_tiers_and_fifteen_perks", func():
 		assert_eq(GameData.validate_tables(GameData.snapshot()).size(), 0)
 		var n := 0
@@ -297,3 +299,69 @@ func run() -> void:
 		for o in Offers.pending_offers():
 			assert_true(o["source"] != "commission")
 	)
+
+
+func _network_standing(tier: String) -> void:
+	GameState.reset()
+	for fid in GameData.FACTIONS.keys():
+		GameState.state["factions"][fid]["relation"] = 0
+	GameState.state["factions"]["network"]["relation"] = 30
+	if tier == "sworn":
+		GameState.state["factions"]["network"]["joined"] = true
+
+
+func _register_network_cases() -> void:
+	run_case("network_daily_intel_on_chosen_faction", func():
+		_network_standing("friendly")
+		assert_true(Perks.set_intel_target("firm")["ok"])
+		var before := Intel.meter(Shares.PLAYER, "firm")
+		Perks.daily_intel()
+		assert_eq(Intel.meter(Shares.PLAYER, "firm"), before + 1)
+		Perks.set_intel_target("guild")
+		var firm := Intel.meter(Shares.PLAYER, "firm")
+		Perks.daily_intel()
+		assert_eq(Intel.meter(Shares.PLAYER, "firm"), firm)
+		assert_eq(Intel.meter(Shares.PLAYER, "guild"), 1)
+		GameState.state["factions"]["network"]["relation"] = 0
+		Perks.daily_intel()
+		assert_eq(Intel.meter(Shares.PLAYER, "guild"), 1)
+		assert_true(not Perks.set_intel_target("firm")["ok"])
+	)
+
+	run_case("network_forewarning_texts_raids_for_partner_only", func():
+		_network_standing("friendly")
+		assert_true(not Perks.forewarning_active())
+		GameState.state["factionStances"]["player"]["network"]["stance"] = FactionAI.PARTNER
+		assert_true(Perks.forewarning_active())
+		GameState.state["world"]["sites"].append({ "id": "s_fw", "district": "soho" })
+		var site_id := "s_fw"
+		var msgs: int = GameState.state["messages"].get(NetworkHandler.CONTACT_ID, []).size()
+		NetworkHandler.warn_of_raid("firm", site_id)
+		assert_eq(GameState.state["messages"][NetworkHandler.CONTACT_ID].size(), msgs + 1)
+	)
+
+	run_case("network_commissioned_move_costs_cash_and_cools_down", func():
+		_network_standing("sworn")
+		GameState.state["player"]["cash"] = 5000
+		GameState.state["factions"]["collective"]["resources"] = 0
+		var res := Perks.commission_market_move("priceGouge", "firm")
+		assert_true(res["ok"])
+		assert_eq(int(GameState.state["player"]["cash"]), 5000 - int(res["cost"]))
+		assert_true(FactionAI.gouge_mult("firm") > 1.0)
+		assert_true(not Perks.commission_market_move("priceGouge", "guild")["ok"])
+		assert_true(Perks.commission_cooldown_left() > 0)
+		GameState.state["world"]["day"] += 7
+		assert_eq(Perks.commission_cooldown_left(), 0)
+	)
+
+	run_case("network_commission_rejects_bad_orders", func():
+		_network_standing("friendly")
+		assert_true(not Perks.commission_market_move("priceGouge", "firm")["ok"])
+		_network_standing("sworn")
+		GameState.state["player"]["cash"] = 0
+		assert_true(not Perks.commission_market_move("priceGouge", "firm")["ok"])
+		GameState.state["player"]["cash"] = 5000
+		assert_true(not Perks.commission_market_move("flood", "firm")["ok"])
+		assert_true(not Perks.commission_market_move("priceGouge", "network")["ok"])
+	)
+

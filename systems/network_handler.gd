@@ -306,7 +306,7 @@ static func buy_raid_warnings() -> Dictionary:
 # FactionAI's raid rung calls this as it queues a raid on the player: the
 # handler texts the attacker and district while raid warnings run.
 static func warn_of_raid(attacker_id: String, site_id: String) -> void:
-	if not Intel.raid_warnings_active(Shares.PLAYER):
+	if not Intel.raid_warnings_active(Shares.PLAYER) and not Perks.forewarning_active():
 		return
 	var site: Variant = Sites.find_site(site_id)
 	if site == null:

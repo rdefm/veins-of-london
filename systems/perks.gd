@@ -327,3 +327,80 @@ static func craft_chance_bonus() -> float:
 	for vein in GameState.state["player"]["veins"]:
 		best = maxf(best, _internship_budget(vein["district"], "craftChanceBonus"))
 	return best
+
+
+# ── Network perks ─────────────────────────────────────────────────────────
+
+const NETWORK := "network"
+
+
+# Friendly Network: the faction the player watches ("" = none).
+static func intel_target() -> String:
+	return String(GameState.state["perks"].get("intelTarget", ""))
+
+
+static func intel_perk_available() -> bool:
+	return not _global_params("dailyIntel").is_empty()
+
+
+static func set_intel_target(faction_id: String) -> Dictionary:
+	if not intel_perk_available():
+		return { "ok": false, "reason": "The Network has no time for you yet." }
+	if faction_id != "" and not GameData.FACTIONS.has(faction_id):
+		return { "ok": false, "reason": "Unknown faction." }
+	GameState.state["perks"]["intelTarget"] = faction_id
+	EventBus.state_changed.emit()
+	return { "ok": true }
+
+
+# Rollover ⑥.5i1: the watched faction's intel rises by the perk's amount
+# while Friendly+ (privacy still blocks it).
+static func daily_intel() -> void:
+	var target := intel_target()
+	if target == "" or not intel_perk_available() or Intel.privacy_active(target):
+		return
+	Intel.raise(Shares.PLAYER, target, int(_global_params("dailyIntel")["amount"]))
+
+
+# Partner Network: raids against the player are texted ahead by the handler.
+static func forewarning_active() -> bool:
+	return _has_global_effect("raidForewarning")
+
+
+# Sworn Network: commission params, or {} when not sworn.
+static func commission_move_params() -> Dictionary:
+	return _global_params("commissionMarketMove")
+
+
+# Days until the next commission is allowed (0 = ready).
+static func commission_cooldown_left() -> int:
+	var params := commission_move_params()
+	if params.is_empty():
+		return 0
+	var ready: int = int(GameState.state["perks"].get("commissionDay", -999)) + int(params["cooldownDays"])
+	return maxi(0, ready - int(GameState.state["world"]["day"]))
+
+
+# The Network runs a market move against target for the player. Costs
+# params.cost cash, then params.cooldownDays before the next one.
+static func commission_market_move(move_id: String, target_id: String) -> Dictionary:
+	var params := commission_move_params()
+	if params.is_empty():
+		return { "ok": false, "reason": "The Network doesn't take your orders." }
+	if not params["moves"].has(move_id) or not GameData.FACTIONS.has(target_id) or target_id == NETWORK:
+		return { "ok": false, "reason": "Unknown order." }
+	if commission_cooldown_left() > 0:
+		return { "ok": false, "reason": "The Network is still busy with your last one." }
+	var player: Dictionary = GameState.state["player"]
+	var cost := int(params["cost"])
+	if int(player["cash"]) < cost:
+		return { "ok": false, "reason": "You can't cover £%d." % cost }
+	var candidate := FactionAI._move_candidate(NETWORK, target_id, move_id)
+	if candidate.is_empty():
+		return { "ok": false, "reason": "Nothing there for them to work with." }
+	player["cash"] -= cost
+	Bank.record(-cost, "Network commission")
+	GameState.state["perks"]["commissionDay"] = int(GameState.state["world"]["day"])
+	FactionAI._make_move(NETWORK, target_id, candidate)
+	EventBus.state_changed.emit()
+	return { "ok": true, "cost": cost }

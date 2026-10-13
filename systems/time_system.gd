@@ -164,6 +164,7 @@ static func daily_tick() -> void:
 	FactionAI.apply_escalation()         # ⑥.5h after ⑥.5g so bands read today's stances; raids it queues resolve at the next ⑤c/⑤d
 	NetworkHandler.faction_purchases()   # ⑥.5h2 faction intel purchases, after ⑥.5h so bands and the Network's gouges are today's
 	Intel.decay()                        # ⑥.5i intel decay, after ⑥.5h2
+	Perks.daily_intel()                  # ⑥.5i1 Friendly Network passive intel on the watched faction, after decay
 	Intel.expire_timers()                # ⑥.5i2 drop lapsed privacy/raid-warning/disinformation timers; reads check the day anyway
 	Diplomacy.daily_tick()               # ⑥.5j favours: settle guard/sit-out watches, withdraw lapsed requests, issue new ones; after ⑥.5g2 so war state is today's
 	Partners.daily_tick()                # ⑥.5j2 partner asks, partner trades, warnings and leaks; after ⑥.5h so warnings see today's queued raids
