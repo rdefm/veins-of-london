@@ -256,7 +256,8 @@ static func cultivate(vein_id: String) -> Dictionary:
 	# Tainted before the block ends, so a rollover settlement sees it.
 	Contracts.note_player_tended_vein(vein_id)
 	Perks.note_player_tended(vein_id)
-	if not Perks.take_free_cultivate(vein["district"]):
+	var spent_block := not Perks.take_free_cultivate(vein["district"])
+	if spent_block:
 		TimeSystem.advance_time_block()
 
 	var player: Dictionary = GameState.state["player"]
@@ -273,6 +274,8 @@ static func cultivate(vein_id: String) -> Dictionary:
 	Objectives.refresh()
 	EventBus.vein_cultivated.emit(vein_id, shown_growth, vein["growth"], vein.get("level", 1) > level_before)
 	EventBus.state_changed.emit()
+	if spent_block:
+		Ambush.maybe_trigger(vein["district"])
 	return { "ok": true, "success": true, "gain": gain, "veinId": vein_id, "growth": vein["growth"] }
 
 
@@ -340,6 +343,7 @@ static func prune(vein_id: String, depth: int) -> Dictionary:
 
 	Objectives.refresh()
 	EventBus.state_changed.emit()
+	Ambush.maybe_trigger(vein["district"])
 	return { "ok": true, "amount": amount, "oreType": ore_type, "veinId": vein_id, "growth": vein["growth"] }
 
 

@@ -8,6 +8,9 @@ extends RefCounted
 const CONTEXT_RAID: String = "raid"
 const CONTEXT_MUGGING: String = "mugging"
 const CONTEXT_EVENT_MUGGING: String = "event_mugging"
+# A hostile faction's squad ambushing the player mid-action; resumes the
+# still-active intro event, Ambush.resolve() settles relation and grudge.
+const CONTEXT_FACTION_AMBUSH: String = "faction_ambush"
 const CONTEXT_HOME_RAID: String = "home_raid"
 # A later HQ raid defended from its alarm (Home.trigger_defend()); no quest
 # dialogue, Home owns the win/loss consequence (R§3.8).
@@ -19,14 +22,14 @@ const CONTEXT_DEFEND_VEIN: String = "defend_vein"
 const CONTEXT_ARCHIE_DEAL_MUGGING: String = "archie_deal_mugging"
 
 const CANONICAL_CONTEXTS: Array[String] = [
-	CONTEXT_RAID, CONTEXT_MUGGING, CONTEXT_EVENT_MUGGING,
+	CONTEXT_RAID, CONTEXT_MUGGING, CONTEXT_EVENT_MUGGING, CONTEXT_FACTION_AMBUSH,
 	CONTEXT_HOME_RAID, CONTEXT_EVENT_RAID, CONTEXT_DEFEND_VEIN,
 	CONTEXT_ARCHIE_DEAL_MUGGING, CONTEXT_HOME_ALARM_DEFEND,
 ]
 
-# Contexts that are a mugging in flavour (no vein at stake) rather than a
+# Contexts that are a mugging or ambush in flavour (no vein at stake) rather than a
 # raid; shared with scenes/screens/combat.gd's win-line/label logic.
-const NON_LETHAL_MUGGING_CONTEXTS: Array[String] = [CONTEXT_MUGGING, CONTEXT_EVENT_MUGGING, CONTEXT_ARCHIE_DEAL_MUGGING]
+const NON_LETHAL_MUGGING_CONTEXTS: Array[String] = [CONTEXT_MUGGING, CONTEXT_EVENT_MUGGING, CONTEXT_ARCHIE_DEAL_MUGGING, CONTEXT_FACTION_AMBUSH]
 
 # Contexts fought in the player's own flat (no vein at stake); shared with
 # scenes/screens/combat.gd's win-line/label logic.
@@ -390,6 +393,29 @@ static func start_street_mugging() -> void:
 	_start_combat(CONTEXT_EVENT_MUGGING, null, enemies,
 		["%s want a word. This is about to get physical." % _mugger_intro_label(enemies.size())],
 		"")
+
+
+# Faction-ambush intro event's fight (Ambush): a weighted pick from the
+# faction's data/enemies.json factionSquads, built from raidGuards templates.
+static func start_faction_ambush(faction_id: String) -> void:
+	var squads: Array = GameData.ENEMY_FACTION_SQUADS[faction_id]
+	var total := 0.0
+	for s in squads:
+		total += float(s["weight"])
+	var roll := Rng.randf() * total
+	var squad: Dictionary = squads[-1]
+	for s in squads:
+		roll -= float(s["weight"])
+		if roll < 0.0:
+			squad = s
+			break
+	var enemies: Array = []
+	for template_key in squad["enemies"]:
+		enemies.append_array(generate_raid_enemy(null, 1, 1, template_key))
+	# PROSE-REVIEW: ambush intro line.
+	var log_lines := ["%s squad closes in. This was planned." % GameData.FACTIONS[faction_id]["shortName"]]
+	_start_combat(CONTEXT_FACTION_AMBUSH, null, enemies, log_lines, "")
+	GameState.state["combat"]["ambushFactionId"] = faction_id
 
 
 # Called by combat_intro events via the start_home_raid_combat effect op.
@@ -2829,6 +2855,7 @@ static func exit_combat() -> Dictionary:
 	var context: String = combat["context"]
 	var raider_items_used: Dictionary = combat.get("raiderKit", {}).get("used", {})
 	var stockpile_faction_id: String = combat.get("stockpileFactionId", "")
+	var ambush_faction_id: String = combat.get("ambushFactionId", "")
 
 	Loadout.refill_used(combat.get("slotsUsed", []))
 	Loadout.settle_allies(combat["allies"])
@@ -2868,6 +2895,9 @@ static func exit_combat() -> Dictionary:
 	if context == CONTEXT_ARCHIE_DEAL_MUGGING:
 		return _exit_archie_deal_mugging(outcome)
 	if context == CONTEXT_EVENT_MUGGING:
+		return _exit_event_mugging()
+	if context == CONTEXT_FACTION_AMBUSH:
+		Ambush.resolve(ambush_faction_id, outcome == "win")
 		return _exit_event_mugging()
 	if context == CONTEXT_HOME_RAID:
 		return resolve_home_raid(outcome)

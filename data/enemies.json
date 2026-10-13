@@ -9,6 +9,28 @@
     "veinGuard":            { "name": "Vein Guard",            "hpBase": 30, "attackMin": 4, "attackMax": 10, "evadeChance": 0, "speed": 8 },
     "orichalchumDealer":    { "name": "Orichalchum Dealer",    "hpBase": 25, "attackMin": 5, "attackMax": 12, "evadeChance": 0, "speed": 10 }
   },
+  "factionSquads": {
+    "collective": [
+      { "weight": 3, "enemies": ["territorialScrapper", "territorialScrapper"] },
+      { "weight": 1, "enemies": ["territorialScrapper", "veinGuard", "territorialScrapper"] }
+    ],
+    "firm": [
+      { "weight": 3, "enemies": ["veinGuard", "orichalchumDealer"] },
+      { "weight": 1, "enemies": ["veinGuard", "veinGuard", "orichalchumDealer"] }
+    ],
+    "guild": [
+      { "weight": 3, "enemies": ["orichalchumDealer", "territorialScrapper"] },
+      { "weight": 1, "enemies": ["orichalchumDealer", "orichalchumDealer", "veinGuard"] }
+    ],
+    "network": [
+      { "weight": 3, "enemies": ["territorialScrapper", "orichalchumDealer"] },
+      { "weight": 1, "enemies": ["territorialScrapper", "territorialScrapper", "orichalchumDealer"] }
+    ],
+    "conclave": [
+      { "weight": 3, "enemies": ["veinGuard", "veinGuard"] },
+      { "weight": 1, "enemies": ["veinGuard", "orichalchumDealer", "veinGuard"] }
+    ]
+  },
   "homeRaidRaider": {
     "name": "The raider",
     "hp": 35,

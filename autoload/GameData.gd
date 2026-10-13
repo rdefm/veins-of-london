@@ -113,6 +113,8 @@ var FACTION_BAROMETER_PREFS: Dictionary = {}
 
 var ENEMY_RAID_GUARDS: Dictionary = {}
 var ENEMY_HOME_RAID_RAIDER: Dictionary = {}
+# Hostile-faction ambush squads (R§3.1d): { factionId: [{ weight, enemies: [raidGuards keys] }] }.
+var ENEMY_FACTION_SQUADS: Dictionary = {}
 
 # Bounded solo combat prototype's teaching roster (systems/
 # combat_prototype.gd) -- prototype-only, not production balance. Own
@@ -441,6 +443,7 @@ const MANIFEST: Array[Dictionary] = [
 	{"table": "enemies", "file": "res://data/enemies.json", "fields": [
 		{"field": "ENEMY_RAID_GUARDS", "key": "raidGuards", "type": TYPE_DICTIONARY},
 		{"field": "ENEMY_HOME_RAID_RAIDER", "key": "homeRaidRaider", "type": TYPE_DICTIONARY},
+		{"field": "ENEMY_FACTION_SQUADS", "key": "factionSquads", "type": TYPE_DICTIONARY},
 		{"field": "COMBAT_XP_LEVELS", "key": "combatXpLevels", "type": TYPE_ARRAY},
 		{"field": "COMBAT_ATTACK_BONUS_BY_LEVEL", "key": "combatAttackBonusByLevel", "type": TYPE_ARRAY},
 		{"field": "COMBAT_SPEED_BY_LEVEL", "key": "combatSpeedByLevel", "type": TYPE_ARRAY},
@@ -1266,6 +1269,18 @@ func _validate_enemies(t: Dictionary, errors: Array[String]) -> void:
 	for key in raid_guards.keys():
 		_require_keys(raid_guards[key], ["name", "hpBase", "attackMin", "attackMax", "speed"], "enemies.raidGuards.%s" % key, errors)
 	_require_keys(home_raid_raider, ["name", "hp", "attackMin", "attackMax", "speed"], "enemies.homeRaidRaider", errors)
+	var squads: Dictionary = t.get("enemy_faction_squads", {})
+	for faction_id in FACTIONS:
+		if not squads.has(faction_id) or squads[faction_id].is_empty():
+			errors.append("enemies.factionSquads.%s: no squads authored" % faction_id)
+			continue
+		for squad in squads[faction_id]:
+			if float(squad.get("weight", 0)) <= 0.0 or squad.get("enemies", []).is_empty():
+				errors.append("enemies.factionSquads.%s: squad needs weight > 0 and enemies" % faction_id)
+				continue
+			for key in squad["enemies"]:
+				if not raid_guards.has(key):
+					errors.append("enemies.factionSquads.%s: unknown template '%s'" % [faction_id, key])
 
 	# Same "6 entries, index=level 0..5" shape every skill ladder enforces.
 	if combat_xp_levels.size() != 6:
@@ -1629,7 +1644,7 @@ const VALID_EFFECT_OPS: Array[String] = [
 	# forces one free successful cultivate.
 	"grant_vein_with_site", "tutorial_cultivate",
 	"stealth_check", "start_raid_combat", "claim_raid_vein", "loot_raid_vein",
-	"stockpile_stealth_check", "start_stockpile_raid_combat", "loot_stockpile",
+	"stockpile_stealth_check", "start_stockpile_raid_combat", "loot_stockpile", "start_faction_ambush_combat",
 	# unlock_contact flips contacts.<id>.unlocked; push_message appends
 	# a plain unread text (no follow-up action); queue_pending_message
 	# is push_message's follow-up-action cousin (Messages.queue_pending()).

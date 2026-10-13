@@ -260,7 +260,7 @@ static func prospect(district_id: String) -> Dictionary:
 	EventBus.state_changed.emit()
 	# The story beat is checked first -- it's Rng-free, so a genuine early return
 	# never touches the deck's own seeded roll. DistrictDeck.maybe_trigger() must stay the last thing either branch does.
-	if not Collective.maybe_trigger_weather_beat(site):
+	if not Collective.maybe_trigger_weather_beat(site) and not Ambush.maybe_trigger(district_id):
 		DistrictDeck.maybe_trigger(district_id)
 	return { "ok": true, "district": district_id, "site": site }
 
@@ -438,10 +438,12 @@ static func attempt_seed(site_id: String) -> Dictionary:
 		Cultivating.award_xp(30)
 		BusinessQuest.maybe_trigger_proposition()
 		Modal.open("seed_result", { "success": true, "oreType": ore_type, "siteId": site_id })
+		Ambush.maybe_trigger(district)
 		return { "ok": true, "success": true, "siteId": site_id, "veinId": vein["id"], "naturalVeinId": natural_vein_id }
 	else:
 		Cultivating.award_xp(5)
 		Modal.open("seed_result", { "success": false, "oreType": ore_type, "siteId": site_id })
+		Ambush.maybe_trigger(site["district"])
 		return { "ok": true, "success": false, "siteId": site_id }
 
 

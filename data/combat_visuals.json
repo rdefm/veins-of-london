@@ -36,6 +36,7 @@
     "raid": { "image": "res://assets/combat/backdrops/street.png", "fallbackColor": "brick_shadow" },
     "mugging": { "image": "res://assets/combat/backdrops/street.png", "fallbackColor": "pavement_wet" },
     "event_mugging": { "image": "res://assets/combat/backdrops/street.png", "fallbackColor": "pavement_wet" },
+    "faction_ambush": { "image": "res://assets/combat/backdrops/street.png", "fallbackColor": "pavement_wet" },
     "home_raid": { "image": "", "fallbackColor": "slate_dark" },
     "home_alarm_defend": { "image": "", "fallbackColor": "slate_dark" },
     "event_raid": { "image": "", "fallbackColor": "brick_shadow" },

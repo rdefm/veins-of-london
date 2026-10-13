@@ -17,9 +17,10 @@ const KIND_DEBUG := "debug"
 const KIND_MUGGING := "mugging"
 const KIND_ARCHIE_DEAL_MUGGING := "archie_deal_mugging"
 const KIND_STREET_MUGGING := "street_mugging"
+const KIND_FACTION_AMBUSH := "faction_ambush"
 const KIND_HOME_RAID := "home_raid"
 
-const FORCED_KINDS: Array[String] = [KIND_MUGGING, KIND_ARCHIE_DEAL_MUGGING, KIND_STREET_MUGGING, KIND_HOME_RAID]
+const FORCED_KINDS: Array[String] = [KIND_MUGGING, KIND_ARCHIE_DEAL_MUGGING, KIND_STREET_MUGGING, KIND_FACTION_AMBUSH, KIND_HOME_RAID]
 
 
 static func is_pending() -> bool:
@@ -97,6 +98,8 @@ static func _dispatch(kind: String, args: Dictionary) -> Dictionary:
 			Combat.start_archie_deal_mugging()
 		KIND_STREET_MUGGING:
 			Combat.start_street_mugging()
+		KIND_FACTION_AMBUSH:
+			Combat.start_faction_ambush(str(args["factionId"]))
 		KIND_HOME_RAID:
 			Combat.start_home_raid_combat(args)
 		KIND_DEBUG:
@@ -318,6 +321,8 @@ static func foe_label(prep: Dictionary) -> String:
 			return "Raiders" if attacker == "" else "%s raiders" % GameData.FACTIONS[attacker]["shortName"]
 		KIND_HQ_DEFEND, KIND_HOME_RAID:
 			return "Raider"
+		KIND_FACTION_AMBUSH:
+			return "%s squad" % GameData.FACTIONS[str(args["factionId"])]["shortName"]
 		KIND_DEBUG:
 			return "Raid guards"
 	return "Muggers"

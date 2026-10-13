@@ -213,3 +213,34 @@ static func player_controlled_count() -> int:
 		if controller(district_id) == PLAYER:
 			n += 1
 	return n
+
+
+# --- Ambush odds (R§3.1d) ---
+
+# Per-faction ambush chance in one district: zero at or above the relation
+# line, rising perPoint per relation point below it up to maxChance, halved
+# (footholdFactor) for a foothold faction. { factionId: chance } for every
+# faction with chance > 0.
+static func ambush_chances(district_id: String) -> Dictionary:
+	var cfg: Dictionary = GameData.TURF["ambush"]
+	var result := {}
+	var tiers: Dictionary = GameState.state["turf"].get(district_id, {}).get("tiers", {})
+	for contender in tiers:
+		if contender == PLAYER:
+			continue
+		var below: int = int(cfg["relationLine"]) - int(GameState.state["factions"][contender]["relation"])
+		if below <= 0:
+			continue
+		var chance := minf(float(cfg["maxChance"]), below * float(cfg["perPoint"]))
+		if tiers[contender] == TIER_FOOTHOLD:
+			chance *= float(GameData.TURF["footholdFactor"])
+		result[contender] = chance
+	return result
+
+
+# Chance that any hostile faction ambushes the player's block in the district.
+static func ambush_chance(district_id: String) -> float:
+	var miss := 1.0
+	for chance in ambush_chances(district_id).values():
+		miss *= 1.0 - float(chance)
+	return 1.0 - miss

@@ -822,6 +822,8 @@ static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 				apply_effects(effect.get("on_fail", []), context)
 		"start_street_mugging":
 			CombatPrep.request(CombatPrep.KIND_STREET_MUGGING)
+		"start_faction_ambush_combat":
+			CombatPrep.request(CombatPrep.KIND_FACTION_AMBUSH, { "factionId": _event_faction_id(effect) })
 		"npc_claim_best_unclaimed_site":
 			Sites.npc_claim_best_unclaimed_site(GameState.state["world"]["currentDistrict"])
 		"lose_time_block":
