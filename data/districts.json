@@ -78,7 +78,7 @@
     "siteQualityMod": 0.10,
     "dangerMod": -0.05,
     "priceMod": 0.05,
-    "siteCap": 2,
+    "siteCap": 6,
     "special": "",
     "factionPresence": "",
     "blurb": "Old money and older trees. The Heath keeps its own counsel, and what grows under it is mostly life ore."
@@ -98,14 +98,14 @@
   "soho": {
     "id": "soho",
     "name": "Soho",
-    "oreBias": {},
+    "oreBias": { "emotion": 0.375, "time": 0.375 },
     "siteQualityMod": 0.00,
     "dangerMod": -0.05,
     "priceMod": 0.10,
-    "siteCap": 0,
-    "special": "marketplace (M4); no veins, no prospecting",
-    "factionPresence": "network",
-    "blurb": "Nothing grows here — no sites, no veins, nothing to prospect. Everything gets sold here eventually."
+    "siteCap": 4,
+    "special": "marketplace (M4)",
+    "factionPresence": "",
+    "blurb": "Everything gets sold here eventually. The old cellars under the clubs hold a few veins of their own, mostly emotion and time, and nobody admits to owning them."
   },
   "nottinghill": {
     "id": "nottinghill",

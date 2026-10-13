@@ -755,7 +755,7 @@ func run() -> void:
 		assert_eq(GameData.DISTRICTS["camden"]["siteCap"], 9, "camden siteCap (base 4 + the Firm's 5 day-one veins)")
 		assert_eq(GameData.DISTRICTS["kingscross"]["oreBias"]["time"], 0.375, "kingscross oreBias.time")
 		assert_almost_eq(GameData.DISTRICTS["city"]["priceMod"], 0.15, 0.0001, "city priceMod")
-		assert_eq(GameData.DISTRICTS["soho"]["siteCap"], 0, "soho has no sites (marketplace, no prospecting)")
+		assert_eq(GameData.DISTRICTS["soho"]["siteCap"], 4, "soho siteCap (unowned, contestable)")
 		assert_eq(GameData.SITE_TIER_WEIGHTS["fair"], 32, "site tier base weight: fair")
 		assert_eq(GameData.SITE_AT_CAP_TIER_WEIGHTS["poor"], 45, "site at-cap tier weight: poor")
 		assert_eq(GameData.SITE_PROSPECT_XP["saturated"], 40, "prospect XP: saturated")
@@ -765,7 +765,7 @@ func run() -> void:
 		assert_eq(GameData.MAP_LAYOUT["mapSize"], [1170, 1560], "map_layout mapSize")
 		assert_eq(GameData.MAP_LAYOUT["districts"].size(), 13, "map_layout has 13 districts")
 		assert_eq(GameData.MAP_LAYOUT["districts"]["camden"]["stopSlots"].size(), 18, "camden siteCap 9 -> 18 stopSlots (siteCap*2)")
-		assert_eq(GameData.MAP_LAYOUT["districts"]["soho"]["stopSlots"].size(), 2, "soho siteCap 0 -> 2 stopSlots")
+		assert_eq(GameData.MAP_LAYOUT["districts"]["soho"]["stopSlots"].size(), 8, "soho siteCap 4 -> 8 stopSlots")
 
 		# collective1-07, spec §9.3/§9.5
 		for key in ["archie", "james", "owen"]:

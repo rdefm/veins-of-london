@@ -22,7 +22,7 @@ const LOCATION_SUFFIXES: Array[String] = [
 ]
 
 # Per-district street names (M1-LONDON §D2), real street names, no
-# PROSE-REVIEW needed. soho is omitted — siteCap 0, no prospecting/veins.
+# PROSE-REVIEW needed.
 const DISTRICT_STREETS: Dictionary = {
 	"shoreditch": ["Old St", "Redchurch St", "Rivington St", "Curtain Rd", "Kingsland Rd", "Shoreditch High St"],
 	"city": ["Cheapside", "Cornhill", "Threadneedle St", "Leadenhall St", "Fenchurch St", "Bishopsgate"],
@@ -35,6 +35,7 @@ const DISTRICT_STREETS: Dictionary = {
 	"kensington": ["Kensington High St", "Exhibition Rd", "Gloucester Rd", "Cromwell Rd", "Earl's Court Rd", "Queen's Gate"],
 	"chelsea": ["King's Rd", "Fulham Rd", "Sloane Ave", "Cheyne Walk", "Old Church St", "Lots Rd"],
 	"clapham": ["Clapham High St", "Venn St", "Northcote Rd", "Abbeville Rd", "Clapham Common South Side", "Lavender Hill"],
+	"soho": ["Wardour St", "Old Compton St", "Berwick St", "Dean St", "Greek St", "Frith St"],
 	"whitechapel": LOCATION_STREETS,
 }
 

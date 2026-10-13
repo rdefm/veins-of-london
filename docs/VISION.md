@@ -112,7 +112,7 @@ London divides into **9 districts** on one stylised hand-drawn map — an occult
 | **Battersea** | physics | The power station hums at a frequency estate agents don't mention. |
 | **Hampstead** | life | The Heath is basically a life-ore farm with dog walkers. |
 | **Whitechapel** | emotion | Old grief soaked into the brick. Rich sites, high raid risk. |
-| **Soho** | — | The **marketplace** district (§13). Buyers, faction fronts, premium prices, no veins. |
+| **Soho** | emotion / time | The **marketplace** district (§13). Buyers, faction fronts, premium prices. Unowned, contestable: real sites (`siteCap` 4, TBD) leaning emotion/time. **Amendment (faction-relations 02):** supersedes "no veins". |
 
 **`DISTRICTS` table:** `oreBias`, `siteQualityMod`, `dangerMod`, `priceMod`, `siteCap`, `flavor[]`, `factionPresence`.
 

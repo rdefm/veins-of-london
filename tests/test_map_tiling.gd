@@ -71,8 +71,8 @@ func run() -> void:
 	run_case("every_district_keeps_its_expected_stopSlots_count", func():
 		# siteCap*2 per district.
 		var expected_counts := {
-			"hampstead": 4, "kingscross": 16, "camden": 18, "shoreditch": 14,
-			"city": 26, "soho": 2, "whitechapel": 14, "battersea": 14, "greenwich": 24,
+			"hampstead": 12, "kingscross": 16, "camden": 18, "shoreditch": 14,
+			"city": 26, "soho": 8, "whitechapel": 14, "battersea": 14, "greenwich": 24,
 			"nottinghill": 8, "kensington": 14, "chelsea": 14, "clapham": 18,
 		}
 		for district_id in expected_counts.keys():

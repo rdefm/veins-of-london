@@ -13,10 +13,12 @@ extends "res://tests/test_base.gd"
 func run() -> void:
 	run_case("district_options_disables_prospect_with_a_reason_when_siteCap_is_zero", func():
 		GameState.reset()
+		GameData.DISTRICTS["soho"]["siteCap"] = 0
 		var options := DistrictBubble.district_options("soho")
+		GameData.DISTRICTS["soho"]["siteCap"] = 4
 
 		assert_eq(options[0]["id"], DistrictBubble.PROSPECT_ID)
-		assert_true(options[0]["disabled"], "soho has siteCap 0 -- no prospecting")
+		assert_true(options[0]["disabled"], "siteCap 0 -- no prospecting")
 		assert_eq(options[0]["reason"], "No prospecting here")
 	)
 

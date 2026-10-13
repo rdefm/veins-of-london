@@ -20,9 +20,9 @@ Same rules of engagement as M0. New data is canonical HERE (this doc extends REF
 | camden | Camden | {physics:0.75} | +0.05 | +0.10 | −0.05 | 9 | — | conclave |
 | kingscross | King's Cross | {time:0.375, physics:0.375} | 0.00 | +0.05 | 0.00 | 8 | veins here: +1 rightward drift, −1 leftward drift (min 0) | network |
 | battersea | Battersea | {physics:0.75} | +0.05 | 0.00 | 0.00 | 6 | — | firm |
-| hampstead | Hampstead | {life:0.75} | +0.10 | −0.05 | +0.05 | 2 | — | — |
+| hampstead | Hampstead | {life:0.75} | +0.10 | −0.05 | +0.05 | 6 (TBD) | — | — |
 | whitechapel | Whitechapel | {emotion:0.75} | +0.10 | +0.10 | 0.00 | 7 | vein NPC-raid chance ×1.5 (when vein raids land, M2) | collective |
-| soho | Soho | — | — | −0.05 | +0.10 | 0 | marketplace (M4); no veins, no prospecting | network |
+| soho | Soho | {emotion:0.375, time:0.375} | — | −0.05 | +0.10 | 4 (TBD) | marketplace (M4) | — |
 | nottinghill | Notting Hill | {emotion:0.75} | +0.05 | 0.00 | +0.05 | 4 | — | — |
 | kensington | Kensington | {time:0.375, fate:0.375} | +0.05 | −0.05 | +0.10 | 7 | — | conclave |
 | chelsea | Chelsea | {fate:0.75} | 0.00 | −0.05 | +0.15 | 7 | — | firm |

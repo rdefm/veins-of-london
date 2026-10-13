@@ -34,6 +34,9 @@ static func _site_with_faction_vein(vein: Dictionary) -> Dictionary:
 
 
 func run() -> void:
+	# The cap-mechanics cases below are written against a 2-site district; pin hampstead to that, restored at the end.
+	var real_hampstead_cap: int = GameData.DISTRICTS["hampstead"]["siteCap"]
+	GameData.DISTRICTS["hampstead"]["siteCap"] = 2
 	# ── tier weight math ────────────────────────────────────────────
 
 	run_case("compute_tier_weights_matches_base_table_at_skill_1_and_zero_mod", func():
@@ -256,12 +259,14 @@ func run() -> void:
 		assert_eq(GameState.state["world"]["sites"], [], "no site created when blocked")
 	)
 
-	run_case("prospect_refuses_soho_which_has_no_siteCap", func():
+	run_case("prospect_refuses_district_with_no_siteCap", func():
 		GameState.reset()
+		GameData.DISTRICTS["soho"]["siteCap"] = 0
 		var result := Sites.prospect("soho")
-		assert_true(not result["ok"], "soho has siteCap 0 — no prospecting")
+		assert_true(not result["ok"], "siteCap 0 — no prospecting")
 		assert_eq(GameState.state["world"]["sites"], [], "no site created")
 		assert_eq(GameState.state["world"]["timeBlocksDone"], [], "no block spent when refused outright")
+		GameData.DISTRICTS["soho"]["siteCap"] = 4
 	)
 
 	run_case("prospect_at_siteCap_rerolls_the_worst_unclaimed_site_only", func():
@@ -379,8 +384,10 @@ func run() -> void:
 
 	run_case("prospect_refused_outright_queues_nothing", func():
 		GameState.reset()
+		GameData.DISTRICTS["soho"]["siteCap"] = 0
 		Sites.prospect("soho")
-		assert_true(not MapEvents.has_pending(), "soho has no siteCap — nothing was created to queue")
+		GameData.DISTRICTS["soho"]["siteCap"] = 4
+		assert_true(not MapEvents.has_pending(), "siteCap 0 — nothing was created to queue")
 	)
 
 	# ── 87-map-slot-index-recycling: next_slot_index()/release_slot_index() ──
@@ -413,7 +420,7 @@ func run() -> void:
 		GameState.reset()
 		var district := "hampstead"  # siteCap 2 -> the old fixed buffer was siteCap+2 = 4 stopSlots
 		var buffer_size: int = GameData.MAP_LAYOUT["districts"][district]["stopSlots"].size()
-		assert_eq(buffer_size, 4, "sanity: hampstead's real map_layout.json buffer is 4 slots")
+		assert_true(buffer_size >= 4, "sanity: hampstead's real map_layout.json buffer covers siteCap+2")
 
 		# Two permanently-live stops, then churn (free one, mint a replacement)
 		# many times past the old fixed buffer -- before this ticket, every
@@ -861,3 +868,5 @@ func run() -> void:
 			assert_eq(sites.size(), 1, "%s: one site created" % district_id)
 			assert_eq(sites[0]["district"], district_id)
 	)
+
+	GameData.DISTRICTS["hampstead"]["siteCap"] = real_hampstead_cap
