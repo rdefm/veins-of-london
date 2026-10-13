@@ -482,9 +482,7 @@ static func _add_hired_muscle(allies: Array, log_lines: Array) -> void:
 # window. onWin is "" -- a loss is handled by Raiding.resolve_defend_outcome().
 # attacker_id's attack kit becomes the squad's shared item pool, sized by the
 # full roster (FactionSim.raider_kit(); "" = none); see _enemy_try_item().
-# partner_ids: partner factions
-# sending a fighter (Partners.defence_helpers), joining after contacts.
-static func start_defend_vein(vein_id: String, value_tier: int, attacker_id: String = "", partner_ids: Array = [], ally_ids: Variant = null) -> void:
+static func start_defend_vein(vein_id: String, value_tier: int, attacker_id: String = "", ally_ids: Variant = null) -> void:
 	var enemies := generate_raid_enemy(vein_id, value_tier)
 	var raider_kit: Dictionary = {} if attacker_id == "" else FactionSim.raider_kit(attacker_id, "attack", enemies.size())
 	var log_lines := ["The alarm wasn't lying. %s is already there." % _guard_group_name(enemies)]
@@ -494,9 +492,6 @@ static func start_defend_vein(vein_id: String, value_tier: int, attacker_id: Str
 		log_lines.push_front("Nadia, in your ear: \"Go on then. That's what the Blast and the Shield were for — use them properly this time, not for luck.\"")
 		GameState.state["flags"]["colA2DefendReminderShown"] = true
 	var allies := _gather_defend_allies(log_lines, ally_ids)
-	for faction_id in partner_ids:
-		allies.append(build_partner_ally(faction_id))
-		log_lines.append(Partners.join_line(faction_id))
 	var vein = Cultivating.find_vein(vein_id)
 	_add_guard_allies(allies, 0 if vein == null else Cultivating.vein_guard_count(vein), log_lines)
 	var guard_kit: Dictionary = {} if vein == null else { "items": GuardKit.active_units(vein).duplicate(true), "used": {} }
@@ -517,7 +512,7 @@ static func _gather_defend_allies(log_lines: Array, ally_ids: Variant = null) ->
 
 
 # Guard-kit spec §Defend fight: one guard ally per guard joins `allies`, after
-# contacts and partner helpers. A KO only lasts the fight -- no contactId, so
+# contacts. A KO only lasts the fight -- no contactId, so
 # nothing persistent is touched.
 static func _add_guard_allies(allies: Array, guard_count: int, log_lines: Array) -> void:
 	var joining: int = maxi(guard_count, 0)
@@ -541,17 +536,6 @@ static func build_guard_ally() -> Dictionary:
 		"speed": int(stats["speed"]),
 		"koed": false,
 	}
-
-
-# A partner faction's fighter (R§3.10 "Partners"): guardAlly stats under the
-# faction's helper name. No contactId (a KO lasts the fight) and no
-# guardAlly flag (it doesn't draw on the vein's guard kit).
-static func build_partner_ally(faction_id: String) -> Dictionary:
-	var ally := build_guard_ally()
-	ally.erase("guardAlly")
-	ally["name"] = Partners.helper_name(faction_id)
-	ally["partnerFactionId"] = faction_id
-	return ally
 
 
 # Debug-only (combat_setup_modal.gd): raid-guard roster under any

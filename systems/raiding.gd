@@ -369,8 +369,7 @@ static func faction_stockpile_loot_share(attacker_id: String, defender_id: Strin
 # and the pair relation hit (pairRelationHit), and the stockpile relocates. A haul worth at least
 # headlineValue is a Ticker headline. A no-op unless constants.json
 # factionRivalry is on and the attacker still knows the stockpile's location.
-# The defender's partners' warning (warned_by) and help cut the odds
-# (Partners.faction_defence_cut).
+# A partner's warning (warned_by) cuts the odds (Partners.warned_odds_cut).
 static func resolve_faction_stockpile_raid(attacker_id: String, defender_id: String, warned_by: String = "") -> void:
 	if not GameData.FACTION_RIVALRY or not faction_can_raid_stockpile(attacker_id, defender_id):
 		return
@@ -378,7 +377,7 @@ static func resolve_faction_stockpile_raid(attacker_id: String, defender_id: Str
 	var district_id := stockpile_district(defender_id)
 	FactionSim.log_kit_burn(attacker_id, "attack", "stockpileRaid")
 	FactionSim.log_kit_burn(defender_id, "defend", "stockpileRaid")
-	var odds: float = Factions.stockpile_rivalry_chance(attacker_id, defender_id) - Partners.faction_defence_cut(attacker_id, defender_id, warned_by)
+	var odds: float = Factions.stockpile_rivalry_chance(attacker_id, defender_id) - Partners.warned_odds_cut(warned_by)
 	var success := Rng.chance(clampf(odds, 0.0, 1.0))
 	var guards := FactionSim.stockpile_guards(defender_id)
 	if success and guards > 0 and Rng.chance(guard_repel_chance(guards)):
@@ -870,7 +869,7 @@ static func trigger_defend(vein_id: String, ally_ids: Variant = null) -> bool:
 # in place of the full-kit burn every unfought raid logs.
 static func _start_defend_combat(outcome: Dictionary, vein: Dictionary, ally_ids: Variant = null) -> void:
 	GameState.state["world"]["activeDefendRaid"] = outcome
-	Combat.start_defend_vein(vein["id"], Cultivating.combined_magnitude(vein), outcome["attackerId"], Partners.defence_helpers(outcome["attackerId"]), ally_ids)
+	Combat.start_defend_vein(vein["id"], Cultivating.combined_magnitude(vein), outcome["attackerId"], ally_ids)
 
 
 # The committed "Leave undefended" path. The caller supplies the

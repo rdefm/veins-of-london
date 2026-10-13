@@ -247,7 +247,7 @@ func new_game_state() -> Dictionary:
 		# Last gift day and recent-gift count per key member contact id
 		# ({ contactId: { lastDay, count } }, R§3.10 "Gifts").
 		"gifts": {},
-		# Partner price favours, ask/trouble cooldowns and warning stamps
+		# Partner trouble cooldowns and warning stamps
 		# (Partners.new_state(), R§3.10 "Partners").
 		"partners": Partners.new_state(),
 

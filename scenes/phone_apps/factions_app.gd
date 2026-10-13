@@ -974,17 +974,9 @@ func _build_favour(faction_id: String) -> Control:
 	return box
 
 
-# At Partner stance: the price-favour ask or the running partner rate, and
-# any trouble ask (R§3.10 "Partners").
+# At Partner stance: any trouble ask (R§3.10 "Partners").
 func _build_partner(faction_id: String) -> Control:
 	var box := UI.vbox(7)
-	if Partners.is_player_partner(faction_id):
-		if Partners.price_favour_active(faction_id):
-			box.add_child(_wrap("Partner rate in their shop until %s" % Calendar.format_day(Partners.price_favour_until(faction_id)), 12, _ink()))
-		else:
-			var check := Partners.can_ask_price_favour(faction_id)
-			var cost := int(GameData.PARTNERS["priceFavour"]["relationCost"])
-			box.add_child(_action("Ask for a better price (−%d relation)" % cost, func(): ContactCards.notify_failure(Partners.ask_price_favour(faction_id)), false, not check["ok"], check.get("reason", "")))
 	for entry in Partners.pending_for(faction_id):
 		var title := "Partner asks · answer by %s" % Calendar.format_day(int(entry["payload"]["expiresDay"]))
 		box.add_child(_request_panel(title, entry["text"], ContactCards.build_pending_actions(entry, func(_e: Dictionary) -> void: pass)))

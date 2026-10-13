@@ -1129,8 +1129,9 @@ func _restore_int_types(state: Dictionary) -> void:
 		for key in ["qty", "days"]:
 			_int_key(entry.get("params", {}), key)
 	var partners: Dictionary = state.get("partners", {})
-	for key in ["priceFavours", "lastPriceAsk", "lastTrouble"]:
-		_int_dict_values(partners.get(key, {}))
+	partners.erase("priceFavours")
+	partners.erase("lastPriceAsk")
+	_int_dict_values(partners.get("lastTrouble", {}))
 	for row in partners.get("warned", {}).values():
 		_int_dict_values(row)
 	for entry in state.get("gifts", {}).values():

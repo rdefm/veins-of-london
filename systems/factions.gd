@@ -356,7 +356,7 @@ static func rivalry_success_chance(attempt: Dictionary) -> float:
 	var raid_resist: int = Cultivating.vein_raid_resist(site["factionVein"])
 	# Network Targets intel is the Collective's own (spec §5.3), so it only tilts Collective attacks.
 	var intel_bonus: float = NetworkHandler.claim_bonus(attempt["veinSiteId"]) if attempt["attackerId"] == "collective" else 0.0
-	# oddsCut: the defender's partners' warning and help (Partners.faction_defence_cut).
+	# oddsCut: a partner's warning (Partners.warned_odds_cut).
 	return clampf(_rivalry_chance(attempt["attackerId"], attempt["defenderId"], raid_resist, intel_bonus) - float(attempt.get("oddsCut", 0.0)), 0.0, 1.0)
 
 
@@ -413,7 +413,7 @@ static func apply_rivalry_resolution() -> void:
 		# Every attempt, won or lost, burns both sides' raid kits (spec §Consumption).
 		FactionSim.log_kit_burn(attempt["attackerId"], "attack", "rivalry")
 		FactionSim.log_kit_burn(attempt["defenderId"], "defend", "rivalry")
-		attempt["oddsCut"] = Partners.faction_defence_cut(attempt["attackerId"], attempt["defenderId"], str(attempt.get("warnedBy", "")))
+		attempt["oddsCut"] = Partners.warned_odds_cut(str(attempt.get("warnedBy", "")))
 		var outcome := roll_rivalry_odds(attempt)
 		var district_id: String = Sites.find_site(attempt["veinSiteId"])["district"]
 		if not outcome["success"]:

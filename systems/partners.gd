@@ -2,12 +2,10 @@ class_name Partners
 extends RefCounted
 
 # Partner perks (R§3.10 "Partners"), data in constants.json partners.
-# Player side: a price favour on a partner's shop for a relation cost, a
-# partner in trouble asking the player for a deal, warnings of planned moves
-# against the player, help in vein-defence fights and intel leaks. Faction
-# side: partner factions warn each other of queued raids, help each other's
-# defence in faction raids, sell each other short goods at a partner's rate
-# and leak intel. Static funcs only.
+# Player side: a partner in trouble asking the player for a deal, warnings of
+# planned moves against the player and intel leaks. Faction side: partner
+# factions warn each other of queued raids, sell each other short goods at a
+# partner's rate and leak intel. Static funcs only.
 
 const TROUBLE_KIND := "partner_trouble"
 const ASK_GOODS := "goods"
@@ -24,11 +22,10 @@ static func _cfg() -> Dictionary:
 	return GameData.PARTNERS
 
 
-# state.partners: priceFavours { factionId: untilDay }, lastPriceAsk
-# { factionId: day }, lastTrouble { factionId or pair key: day }, warned
+# state.partners: lastTrouble { factionId or pair key: day }, warned
 # { partnerId: { aggressorId: day } }.
 static func new_state() -> Dictionary:
-	return { "priceFavours": {}, "lastPriceAsk": {}, "lastTrouble": {}, "warned": {} }
+	return { "lastTrouble": {}, "warned": {} }
 
 
 static func _state() -> Dictionary:
@@ -88,49 +85,6 @@ static func _faction_partners(faction_id: String, min_relation: int, except: Str
 # A partner only speaks of an aggressor it isn't Hostile-band with.
 static func _on_terms(partner: String, aggressor: String) -> bool:
 	return FactionAI.relation_toward(partner, aggressor) > int(GameData.FACTION_STANCES["hostileAtOrBelow"])
-
-
-# ── Price favour (player → partner) ──────────────────────────────────────
-
-static func can_ask_price_favour(faction_id: String) -> Dictionary:
-	var cfg: Dictionary = _cfg()["priceFavour"]
-	if not is_player_partner(faction_id):
-		return { "ok": false, "reason": "Only partners do favours on price." }
-	if price_favour_active(faction_id):
-		return { "ok": false, "reason": "You already have their partner rate." }
-	var last := int(_state()["lastPriceAsk"].get(faction_id, -1))
-	if last >= 0 and _day() - last < int(cfg["cooldownDays"]):
-		return { "ok": false, "reason": "Too soon to ask again." }
-	return { "ok": true }
-
-
-# −relationCost now; the partner's shop sells to the player at
-# (1 − discount) for `days`.
-static func ask_price_favour(faction_id: String) -> Dictionary:
-	var check := can_ask_price_favour(faction_id)
-	if not check["ok"]:
-		return check
-	var cfg: Dictionary = _cfg()["priceFavour"]
-	Factions.adjust_player_relation(faction_id, -int(cfg["relationCost"]))
-	_state()["priceFavours"][faction_id] = _day() + int(cfg["days"])
-	_state()["lastPriceAsk"][faction_id] = _day()
-	KeyMembers.send(faction_id, _line(faction_id, "priceFavour"))
-	EventBus.state_changed.emit()
-	return { "ok": true }
-
-
-static func price_favour_until(faction_id: String) -> int:
-	return int(_state()["priceFavours"].get(faction_id, -1))
-
-
-# Runs to its until-day while the faction stays a Partner.
-static func price_favour_active(faction_id: String) -> bool:
-	return is_player_partner(faction_id) and _day() <= price_favour_until(faction_id)
-
-
-# Multiplier on the faction's shop buy prices to the player.
-static func price_mult(faction_id: String) -> float:
-	return 1.0 - float(_cfg()["priceFavour"]["discount"]) if price_favour_active(faction_id) else 1.0
 
 
 # ── Trouble (partner → player, and between partner factions) ─────────────
@@ -419,40 +373,9 @@ static func warn_factions() -> void:
 				break
 
 
-# ── Defence help ─────────────────────────────────────────────────────────
-
-# Partners at ≥ minRelation (not the attacker) each roll `chance` to send a
-# fighter into the player's vein-defence fight.
-static func defence_helpers(attacker_id: String) -> Array[String]:
-	var cfg: Dictionary = _cfg()["defenceHelp"]
-	var helpers: Array[String] = []
-	for faction_id in GameData.FACTIONS.keys():
-		if faction_id != attacker_id and _close_partner(faction_id, int(cfg["minRelation"])) and Rng.chance(float(cfg["chance"])):
-			helpers.append(faction_id)
-	return helpers
-
-
-static func helper_name(faction_id: String) -> String:
-	return _cfg()["defenceHelp"]["names"][faction_id]
-
-
-static func join_line(faction_id: String) -> String:
-	return _cfg()["defenceHelp"]["joinLine"] % helper_name(faction_id)
-
-
-# Raid odds taken off attacker_id's faction raid on defender_id:
-# warnedOddsCut when a partner warned of it, plus oddsCut when the
-# defender's first partner at ≥ minRelation (not the attacker) rolls to help.
-static func faction_defence_cut(attacker_id: String, defender_id: String, warned_by: String) -> float:
-	var cfg: Dictionary = _cfg()["raidHelp"]
-	var cut := float(cfg["warnedOddsCut"]) if warned_by != "" else 0.0
-	var helpers := _faction_partners(defender_id, int(cfg["minRelation"]), attacker_id)
-	if not helpers.is_empty() and Rng.chance(float(cfg["chance"])):
-		var helper: String = helpers[0]
-		cut += float(cfg["oddsCut"])
-		FactionAI.log_activity(helper, _cfg()["log"]["raidHelp"] % [_name(defender_id), _name(attacker_id)])
-		FactionAI.log_activity(defender_id, _cfg()["log"]["raidHelped"] % [_name(helper), _name(attacker_id)])
-	return cut
+# Raid odds taken off a faction raid on a defender a partner warned of.
+static func warned_odds_cut(warned_by: String) -> float:
+	return float(_cfg()["warnedOddsCut"]) if warned_by != "" else 0.0
 
 
 # ── Leaks ────────────────────────────────────────────────────────────────

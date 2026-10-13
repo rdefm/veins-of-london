@@ -61,30 +61,6 @@ static func _with_trouble_chance(chance: float, fn: Callable) -> void:
 
 
 func run() -> void:
-	run_case("a_price_favour_discounts_the_partner_shop_and_costs_relation", func():
-		GameState.reset()
-		_make_player_partner("guild", 60)
-		var cfg: Dictionary = _cfg()["priceFavour"]
-		var result := Partners.ask_price_favour("guild")
-		assert_true(result["ok"], "a partner grants it")
-		assert_eq(_relation("guild"), 60 - int(cfg["relationCost"]), "it costs relation")
-		var discounted := Economy.get_faction_buy_price("guild", "ore", "time")
-		var favours: Dictionary = GameState.state["partners"]["priceFavours"]
-		var until: int = favours["guild"]
-		favours["guild"] = -1
-		var full := Economy.get_faction_buy_price("guild", "ore", "time")
-		favours["guild"] = until
-		assert_almost_eq(float(discounted), full * (1.0 - float(cfg["discount"])), 1.0, "the shop price drops by the discount")
-		assert_true(discounted < full)
-		assert_true(not Partners.ask_price_favour("guild")["ok"], "one at a time")
-		GameState.state["world"]["day"] += int(cfg["days"]) + 1
-		assert_eq(Economy.get_faction_buy_price("guild", "ore", "time"), full, "the partner rate lapses")
-		assert_true(not Partners.ask_price_favour("guild")["ok"], "still cooling down")
-		GameState.state["world"]["day"] += int(cfg["cooldownDays"])
-		assert_true(Partners.ask_price_favour("guild")["ok"], "askable again after the cooldown")
-		assert_true(not Partners.ask_price_favour("firm")["ok"], "a non-partner refuses")
-	)
-
 	run_case("the_rollover_sends_a_trouble_ask_and_accepting_raises_relation", func():
 		GameState.reset()
 		_make_player_partner("guild", 60)
@@ -172,47 +148,21 @@ func run() -> void:
 			assert_eq(said, setup["warned"], "the warning explains how it knows")
 	)
 
-	run_case("seeded_defence_help_adds_the_partner_to_a_vein_defence_fight", func():
-		GameState.reset()
-		Rng.set_seed(21)
-		_make_player_partner("guild", 85)
-		var help: Dictionary = _cfg()["defenceHelp"]
-		var saved: float = help["chance"]
-		help["chance"] = 1.0
-		var vein := Fixtures.seed_vein("v1", 40, "physics")
-		GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "firm", "veinId": vein["id"], "siteId": vein["siteId"], "success": true, "notificationId": "n1" }]
-		assert_true(Raiding.maybe_trigger_defend(vein["district"]), "the defend fight starts")
-		help["chance"] = saved
-		var allies: Array = GameState.state["combat"]["allies"]
-		var partner_allies := allies.filter(func(a: Dictionary) -> bool: return a.get("partnerFactionId", "") == "guild")
-		assert_eq(partner_allies.size(), 1, "the Guild sends a fighter")
-		assert_eq(partner_allies[0]["name"], help["names"]["guild"])
-		assert_true(not partner_allies[0].has("contactId") and not partner_allies[0].has("guardAlly"))
-		assert_true(Partners.defence_helpers("guild").is_empty(), "a partner never helps against itself")
-	)
-
-	run_case("partner_factions_warn_and_help_each_other_in_faction_raids", func():
+	run_case("partner_factions_warn_each_other_in_faction_raids", func():
 		GameState.reset()
 		_set_pair("guild", "collective", FactionAI.PARTNER, 85)
 		_set_pair("guild", "firm", FactionAI.NEUTRAL, 0)
-		var help: Dictionary = _cfg()["raidHelp"]
 		var vein := Fixtures.seed_faction_vein("fv1", 40, "collective", "life")
 		GameState.state["factionEscalation"]["queuedRaids"].append({ "attackerId": "firm", "targetId": "collective", "veinId": vein["id"], "siteId": "site_fv1" })
 		Partners.warn_factions()
 		assert_eq(GameState.state["factionEscalation"]["queuedRaids"][0]["warnedBy"], "guild", "the Guild tips off its partner")
-		var saved: float = help["chance"]
-		help["chance"] = 1.0
-		var cut := Partners.faction_defence_cut("firm", "collective", "guild")
-		help["chance"] = 0.0
-		var warned_only := Partners.faction_defence_cut("firm", "collective", "guild")
-		help["chance"] = saved
-		assert_almost_eq(cut, float(help["warnedOddsCut"]) + float(help["oddsCut"]), 0.0001, "warning plus help")
-		assert_almost_eq(warned_only, float(help["warnedOddsCut"]), 0.0001)
+		var cut := Partners.warned_odds_cut("guild")
+		assert_almost_eq(cut, float(_cfg()["warnedOddsCut"]), 0.0001, "the warning cuts the odds")
+		assert_eq(Partners.warned_odds_cut(""), 0.0, "no warning, no cut")
 		var attempt := { "attackerId": "firm", "defenderId": "collective", "veinSiteId": "site_fv1" }
 		var base := Factions.rivalry_success_chance(attempt)
 		attempt["oddsCut"] = cut
 		assert_almost_eq(Factions.rivalry_success_chance(attempt), maxf(0.0, base - cut), 0.0001, "the cut lowers the raid odds")
-		assert_true(FactionAI.activity_log("guild").any(func(e: Dictionary) -> bool: return str(e["text"]).contains("Sent help")), "logged on the helper")
 	)
 
 	run_case("partner_factions_sell_short_goods_and_leak_intel_to_each_other", func():

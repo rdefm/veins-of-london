@@ -282,8 +282,7 @@ var FACTION_FAVOURS: Dictionary = {}
 # cash options and key-member reaction lines, R§3.10 "Gifts".
 var FACTION_GIFTS: Dictionary = {}
 
-# Partner perks: price favour, trouble asks, warnings, defence and raid
-# help, intel leaks, and partner lines, R§3.10 "Partners".
+# Partner perks: trouble asks, warnings, intel leaks, and partner lines, R§3.10 "Partners".
 var PARTNERS: Dictionary = {}
 
 # Business pot payday cadence (days) and weekly wage per waged staff
