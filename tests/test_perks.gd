@@ -181,3 +181,63 @@ func run() -> void:
 		var second: Dictionary = TimeSystem._apply_living_costs()
 		assert_true(not second["downgrade"].is_empty(), "second time downgrades")
 	)
+
+	run_case("racket_fee_charged_on_monday_and_ends_when_unpaid", func():
+		GameState.reset()
+		GameState.state["factions"]["firm"]["relation"] = 30
+		assert_true(Perks.set_racket(true)["ok"])
+		var day := 7
+		while not Calendar.is_monday(day):
+			day += 1
+		GameState.state["world"]["day"] = day
+		GameState.state["player"]["cash"] = 1000
+		assert_eq(Perks.pay_racket_fee(), 150)
+		assert_eq(GameState.state["player"]["cash"], 850)
+		GameState.state["player"]["cash"] = 10
+		assert_eq(Perks.pay_racket_fee(), 0)
+		assert_true(not Perks.racket_active(), "missed fee ends racket")
+		GameState.state["factions"]["firm"]["relation"] = 0
+		assert_true(not Perks.set_racket(true)["ok"], "needs Friendly")
+	)
+
+	run_case("racket_blocks_firm_raids_and_deters_others", func():
+		GameState.reset()
+		GameState.state["factions"]["firm"]["relation"] = 30
+		var vein := _RAIDING._player_vein_of(30, "time", "none", "soho")
+		var base := Raiding.raid_success_chance("collective", vein)
+		assert_true(not Perks.racket_blocks("firm", Shares.PLAYER, "veinRaid"))
+		Perks.set_racket(true)
+		assert_true(Perks.racket_blocks("firm", Shares.PLAYER, "veinRaid"))
+		assert_true(not Perks.racket_blocks("firm", Shares.PLAYER, "flood"), "market moves stay")
+		assert_true(not Perks.racket_blocks("guild", Shares.PLAYER, "veinRaid"))
+		assert_true(Raiding.raid_success_chance("collective", vein) < base, "deterrence")
+	)
+
+	run_case("muscle_adds_odds_and_combat_ally", func():
+		GameState.reset()
+		GameState.state["factionStances"]["player"]["firm"]["stance"] = FactionAI.PARTNER
+		var vein := _RAIDING._player_vein_of(30, "time", "none", "soho")
+		var plain := Raiding.stealth_success_chance(1, vein, 0.0)
+		GameState.state["event"] = { "eventId": "x", "context": { "muscle": true } }
+		assert_eq(Perks.muscle_odds_bonus(), 0.1)
+		GameState.state["event"] = { "eventId": "x", "context": {} }
+		assert_eq(Perks.muscle_odds_bonus(), 0.0)
+		assert_true(plain > 0.0)
+		Raiding.prepare_raid(vein)
+		GameState.state["combatPrep"] = { "kind": CombatPrep.KIND_VEIN_RAID, "args": {}, "forced": false, "returnScreen": "map" }
+		assert_true(CombatPrep.toggle_muscle())
+		assert_true(bool(GameState.state["combatPrep"]["args"]["muscle"]))
+		var rows := CombatPrep.participants(GameState.state["combatPrep"])
+		assert_eq(rows[1]["name"], "Firm muscle")
+		GameState.state["factionStances"]["player"]["firm"]["stance"] = FactionAI.NEUTRAL
+		assert_true(not CombatPrep.toggle_muscle(), "needs Partner")
+	)
+
+	run_case("sworn_firm_districts_count_as_player_for_danger", func():
+		GameState.reset()
+		GameState.state["turf"]["soho"] = { "controller": "firm", "tiers": { "firm": Turf.TIER_CONTROL }, "shares": {} }
+		var before := Turf.danger_mod("soho")
+		GameState.state["factions"]["firm"]["joined"] = true
+		assert_true(Turf.danger_mod("soho") < before)
+		assert_true(not Perks.counts_as_player_for_danger("camden"))
+	)

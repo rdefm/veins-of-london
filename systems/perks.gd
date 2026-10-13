@@ -176,3 +176,101 @@ static func _has_global_effect(effect: String) -> bool:
 		if entry["perk"]["effect"] == effect:
 			return true
 	return false
+
+
+# ── Firm perks ────────────────────────────────────────────────────────────
+
+const FIRM := "firm"
+const _RACKET_PROTECTED_MOVES := ["veinRaid", "stockpileRaid", "shortfallSteal"]
+
+
+static func _global_params(effect: String) -> Dictionary:
+	for entry in active_global():
+		if entry["perk"]["effect"] == effect:
+			return entry["perk"]["params"]
+	return {}
+
+
+# Friendly Firm: the protection racket is on offer.
+static func racket_available() -> bool:
+	return not _global_params("protectionRacket").is_empty()
+
+
+# Opted in and still entitled (losing Friendly ends the racket).
+static func racket_active() -> bool:
+	return bool(GameState.state["perks"].get("racket", false)) and racket_available()
+
+
+static func racket_fee() -> int:
+	return int(_global_params("protectionRacket").get("weeklyFee", 0))
+
+
+static func set_racket(on: bool) -> Dictionary:
+	if on and not racket_available():
+		return { "ok": false, "reason": "The Firm has no time for you yet." }
+	GameState.state["perks"]["racket"] = on
+	EventBus.state_changed.emit()
+	return { "ok": true }
+
+
+# True when the racket stops this faction using this move on the player.
+static func racket_blocks(observer: String, target: String, move_id: String) -> bool:
+	return observer == FIRM and target == Shares.PLAYER and _RACKET_PROTECTED_MOVES.has(move_id) and racket_active()
+
+
+# Odds shift on other factions' raids against the player while the racket runs.
+static func racket_deterrence(attacker_id: String) -> float:
+	if attacker_id == FIRM or not racket_active():
+		return 0.0
+	return float(_global_params("protectionRacket").get("deterrence", 0.0))
+
+
+# Monday bills: the weekly fee from cash, in full. Short cash ends the racket.
+# Returns the amount paid.
+static func pay_racket_fee() -> int:
+	if not Calendar.is_monday(GameState.state["world"]["day"]) or not racket_active():
+		return 0
+	var fee := racket_fee()
+	var player: Dictionary = GameState.state["player"]
+	if int(player["cash"]) < fee:
+		GameState.state["perks"]["racket"] = false
+		Notify.push("You can't cover the Firm's £%d. The protection ends." % fee, Notify.CATEGORY_WARNING)
+		EventBus.state_changed.emit()
+		return 0
+	player["cash"] -= fee
+	Bank.record(-fee, "Protection")
+	Notify.push("Protection: -£%d to the Firm this week." % fee)
+	EventBus.state_changed.emit()
+	return fee
+
+
+# Partner Firm: muscle can be hired for a raid.
+static func muscle_available() -> bool:
+	return not _global_params("raidMuscle").is_empty()
+
+
+# Raid-odds bonus while the running raid event has muscle hired.
+static func muscle_odds_bonus() -> float:
+	if not muscle_available() or not event_has_muscle():
+		return 0.0
+	return float(_global_params("raidMuscle")["raidOddsAdj"])
+
+
+static func event_has_muscle() -> bool:
+	var event_state: Variant = GameState.state.get("event")
+	return event_state != null and bool(event_state.get("context", {}).get("muscle", false))
+
+
+# The hired fighter as a combat ally (no contactId: a KO lasts the fight).
+static func muscle_ally() -> Dictionary:
+	var ally: Dictionary = _global_params("raidMuscle")["ally"]
+	return {
+		"name": ally["name"], "hp": ally["hp"], "hpMax": ally["hp"],
+		"attackMin": ally["attackMin"], "attackMax": ally["attackMax"], "speed": ally["speed"],
+		"slots": [], "slotsUsed": [], "koed": false,
+	}
+
+
+# Sworn Firm: its districts count as the player's for danger.
+static func counts_as_player_for_danger(district_id: String) -> bool:
+	return Turf.controller(district_id) == FIRM and has_perk("firm_safe_ground", district_id)

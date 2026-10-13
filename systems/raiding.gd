@@ -51,7 +51,7 @@ static func award_stealth_xp(amount: int) -> void:
 # events.gd's "stealth_check" op can branch into on_success/on_caught.
 static func resolve_stealth_check(vein: Dictionary, consumable_bonus: float) -> bool:
 	var skill: int = GameState.state["player"]["stealthSkill"]
-	var success: bool = Rng.chance(stealth_success_chance(skill, vein, consumable_bonus))
+	var success: bool = Rng.chance(stealth_success_chance(skill, vein, consumable_bonus + Perks.muscle_odds_bonus()))
 	award_stealth_xp(STEALTH_XP_SUCCESS if success else STEALTH_XP_CAUGHT)
 	if vein.has("factionId"):
 		Intel.gain(Shares.PLAYER, vein["factionId"], Intel.SOURCE_SCOUT)
@@ -133,7 +133,7 @@ const RAID_EVENT_ID := "vein_raid"
 # Standard travel/time-block gating, then hands off to the event engine.
 # ally_ids carries the raid-initiation UI's chosen allies into the event
 # context for Combat.start_raid() to gather later.
-static func begin_raid(vein: Dictionary, ally_ids: Array = []) -> Dictionary:
+static func begin_raid(vein: Dictionary, ally_ids: Array = [], muscle: bool = false) -> Dictionary:
 	if Collective.is_quest_locked_vein(vein["id"]):
 		# PROSE-REVIEW: new refusal line.
 		return { "ok": false, "reason": "Not this one. Not yet." }
@@ -142,8 +142,15 @@ static func begin_raid(vein: Dictionary, ally_ids: Array = []) -> Dictionary:
 		return travel
 
 	TimeSystem.advance_time_block()
-	Events.start_event(RAID_EVENT_ID, { "site_id": vein["siteId"], "ally_ids": ally_ids })
+	Events.start_event(RAID_EVENT_ID, _with_muscle({ "site_id": vein["siteId"], "ally_ids": ally_ids }, muscle))
 	return { "ok": true }
+
+
+# Adds the hired-muscle flag to a raid event context when the hire is valid.
+static func _with_muscle(context: Dictionary, muscle: bool) -> Dictionary:
+	if muscle and Perks.muscle_available():
+		context["muscle"] = true
+	return context
 
 
 # The Raid button's entry: same refusals as begin_raid(), then parks the raid in
@@ -184,7 +191,7 @@ static func can_raid_stockpile(faction_id: String) -> bool:
 
 # Travel/time-block gating as begin_raid(), then the stockpile raid event,
 # its stash variant when the player has stash-level intel.
-static func begin_stockpile_raid(faction_id: String, ally_ids: Array = []) -> Dictionary:
+static func begin_stockpile_raid(faction_id: String, ally_ids: Array = [], muscle: bool = false) -> Dictionary:
 	if not can_raid_stockpile(faction_id):
 		# PROSE-REVIEW: new refusal line.
 		return { "ok": false, "reason": "You don't know where they keep it." }
@@ -194,7 +201,7 @@ static func begin_stockpile_raid(faction_id: String, ally_ids: Array = []) -> Di
 
 	TimeSystem.advance_time_block()
 	var event_id := STOCKPILE_RAID_STASH_EVENT_ID if Intel.knows(Shares.PLAYER, faction_id, Intel.STASH) else STOCKPILE_RAID_EVENT_ID
-	Events.start_event(event_id, { "faction_id": faction_id, "ally_ids": ally_ids })
+	Events.start_event(event_id, _with_muscle({ "faction_id": faction_id, "ally_ids": ally_ids }, muscle))
 	return { "ok": true }
 
 
@@ -225,7 +232,7 @@ static func stockpile_stealth_chance(stealth_skill: int, faction_id: String, con
 # resolve_stealth_check() for a stockpile.
 static func resolve_stockpile_stealth_check(faction_id: String, consumable_bonus: float) -> bool:
 	var skill: int = GameState.state["player"]["stealthSkill"]
-	var success: bool = Rng.chance(stockpile_stealth_chance(skill, faction_id, consumable_bonus))
+	var success: bool = Rng.chance(stockpile_stealth_chance(skill, faction_id, consumable_bonus + Perks.muscle_odds_bonus()))
 	award_stealth_xp(STEALTH_XP_SUCCESS if success else STEALTH_XP_CAUGHT)
 	Intel.gain(Shares.PLAYER, faction_id, Intel.SOURCE_SCOUT)
 	return success
@@ -480,7 +487,7 @@ static func raid_success_chance(attacker_id: String, vein: Dictionary) -> float:
 
 	var intel_tilt: float = Intel.raid_odds_shift(attacker_id, Shares.PLAYER)
 
-	var chance: float = RAID_BASE_CHANCE + relation_tilt + danger_tilt + resist_tilt + growth_tilt + intel_tilt + Turf.raid_odds_adj(vein["district"]) + Perks.raid_odds_adj(vein["district"])
+	var chance: float = RAID_BASE_CHANCE + relation_tilt + danger_tilt + resist_tilt + growth_tilt + intel_tilt + Turf.raid_odds_adj(vein["district"]) + Perks.raid_odds_adj(vein["district"]) + Perks.racket_deterrence(attacker_id)
 	return clampf(chance, 0.0, 1.0)
 
 

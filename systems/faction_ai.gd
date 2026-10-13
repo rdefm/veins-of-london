@@ -724,7 +724,7 @@ static func _best_move(observer: String, target: String, band_id: String) -> Dic
 	var best := {}
 	for move_id in _open_moves(observer, band_id):
 		var candidate := _move_candidate(observer, target, move_id)
-		if candidate.is_empty() or int(candidate["cost"]) > resources:
+		if candidate.is_empty() or int(candidate["cost"]) > resources or Perks.racket_blocks(observer, target, move_id):
 			continue
 		if best.is_empty() or float(candidate["damage"]) > float(best["damage"]):
 			best = candidate

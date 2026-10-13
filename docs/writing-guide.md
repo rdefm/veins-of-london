@@ -18,6 +18,14 @@ Deeper sources, only when needed:
 5. **Make every named character a person, not a plot device.** See §4.
 6. **Give it something to remember it by.** No FedEx quests: "bring me ten of X" is a chore, not a story. Every event, however small, needs one moment the player will remember it by: a twist, a surprise, a joke that lands, or something they recognise from their own life. If you can't name that moment in one line, the event isn't finished.
 
+### Core principles
+
+- Every character should want something, even if it's only a glass of water.
+- Every sentence must either reveal character or advance the action.
+- Be a sadist. No matter how sweet and innocent your characters, make awful things happen to them so the reader can see what they are made of.
+- Give the reader as much information as possible as soon as possible. Don't artificially hold back information; suspense comes from HOW the information becomes meaningful. Readers should have such complete understanding of what is going on, where and why, that they could finish the story themselves if their game irreparably crashed.
+- Break any of these rules when it better serves the story.
+
 ## 2. Structure and pacing
 
 - **One beat per card**, readable on a phone: aim for 15–45 words, hard ceiling ~60. Alternate action → reaction → dialogue. Let pauses do work: a short card after a big one ("He stops whistling.") lands harder than more words.

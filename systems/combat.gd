@@ -438,6 +438,7 @@ static func start_raid(vein_id: String, value_tier: int, guards: int = 1, templa
 	var enemies := generate_raid_enemy(vein_id, value_tier, guards, template_key)
 	var log_lines := ["%s steps out to meet you." % _guard_group_name(enemies)]
 	var allies := _gather_raid_allies(ally_ids, log_lines)
+	_add_hired_muscle(allies, log_lines)
 	_start_combat(context, vein_id, enemies, log_lines, "raidWon", allies)
 
 
@@ -450,6 +451,7 @@ static func start_stockpile_raid(faction_id: String, value_tier: int, guards: in
 	var enemies := generate_raid_enemy(null, value_tier, guards, template_key)
 	var log_lines := ["%s steps out to meet you." % _guard_group_name(enemies)]
 	var allies := _gather_raid_allies(ally_ids, log_lines)
+	_add_hired_muscle(allies, log_lines)
 	_start_combat(CONTEXT_EVENT_RAID, null, enemies, log_lines, "raidWon", allies, Raiding.stockpile_district(faction_id), FactionSim.raider_kit(faction_id, "defend", enemies.size()))
 	GameState.state["combat"]["stockpileFactionId"] = faction_id
 
@@ -465,6 +467,14 @@ static func _gather_raid_allies(ally_ids: Array, log_lines: Array) -> Array:
 			allies.append(Contacts.build_combat_ally(contact_id))
 			log_lines.append("%s comes in behind you." % Contacts.display_name(contact_id))
 	return allies
+
+
+# Firm muscle hired at the Raid button rides in the running raid event's context.
+static func _add_hired_muscle(allies: Array, log_lines: Array) -> void:
+	if Perks.muscle_available() and Perks.event_has_muscle():
+		var muscle := Perks.muscle_ally()
+		allies.append(muscle)
+		log_lines.append("%s comes in behind you." % muscle["name"])
 
 
 # The alarm-upgrade defend encounter, called by Raiding.maybe_trigger_defend()

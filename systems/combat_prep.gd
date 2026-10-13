@@ -84,9 +84,9 @@ static func _dispatch(kind: String, args: Dictionary) -> Dictionary:
 			var vein: Variant = Sites.find_faction_vein(str(args["veinId"]))
 			if vein == null:
 				return { "ok": false, "reason": "That vein is gone." }
-			return Raiding.begin_raid(vein, chosen_recruits(kind, args))
+			return Raiding.begin_raid(vein, chosen_recruits(kind, args), bool(args.get("muscle", false)))
 		KIND_STOCKPILE_RAID:
-			return Raiding.begin_stockpile_raid(str(args["factionId"]), chosen_recruits(kind, args))
+			return Raiding.begin_stockpile_raid(str(args["factionId"]), chosen_recruits(kind, args), bool(args.get("muscle", false)))
 		KIND_VEIN_DEFEND:
 			return { "ok": Raiding.trigger_defend(str(args["veinId"]), chosen_recruits(kind, args)) }
 		KIND_HQ_DEFEND:
@@ -128,6 +128,8 @@ static func participants(prep: Dictionary) -> Array:
 	var rows: Array = [{ "name": "You", "role": "you", "units": Loadout.equipped_units().duplicate(true), "note": "" }]
 	for contact_id in _ally_contact_ids(kind, args):
 		rows.append({ "name": Contacts.display_name(contact_id), "role": "ally", "units": _contact_units(contact_id), "note": "" })
+	if bool(args.get("muscle", false)) and Perks.muscle_available():
+		rows.append({ "name": Perks.muscle_ally()["name"], "role": "ally", "units": [], "note": "" })
 	var guards := _ally_guard_count(kind, args)
 	if guards > 0:
 		rows.append({ "name": "Guards" if guards > 1 else "Guard", "role": "ally", "units": [], "note": "×%d" % guards })
@@ -188,6 +190,17 @@ static func recruit_options(prep: Dictionary) -> Array:
 		if not options.has(contact_id):
 			options.append(contact_id)
 	return options
+
+
+# Planned raids only: hire (or release) Firm muscle for this raid.
+static func toggle_muscle() -> bool:
+	var prep := pending()
+	var kind := str(prep.get("kind", ""))
+	if prep.is_empty() or not (kind == KIND_VEIN_RAID or kind == KIND_STOCKPILE_RAID) or not Perks.muscle_available():
+		return false
+	prep["args"]["muscle"] = not bool(prep["args"].get("muscle", false))
+	EventBus.state_changed.emit()
+	return true
 
 
 static func toggle_recruit(contact_id: String) -> bool:

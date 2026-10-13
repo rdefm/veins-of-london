@@ -19,7 +19,7 @@
         { "id": "firm_protection_racket", "scope": "global", "effect": "protectionRacket", "params": { "weeklyFee": 150, "deterrence": -0.1 }, "label": "Protection", "description": "A weekly fee. The Firm leaves you alone and makes sure others do too." }
       ],
       "partner": [
-        { "id": "firm_muscle", "scope": "global", "effect": "raidMuscle", "params": { "raidOddsAdj": 0.1, "allies": 1 }, "label": "Firm muscle", "description": "Hire Firm muscle for your raids. They hit harder with company." }
+        { "id": "firm_muscle", "scope": "global", "effect": "raidMuscle", "params": { "raidOddsAdj": 0.1, "ally": { "name": "Firm muscle", "hp": 40, "attackMin": 4, "attackMax": 8, "speed": 9 } }, "label": "Firm muscle", "description": "Hire Firm muscle for your raids. They hit harder with company." }
       ],
       "sworn": [
         { "id": "firm_safe_ground", "scope": "turf", "effect": "countsAsPlayerForDanger", "params": {}, "label": "Safe ground", "description": "Firm districts count as yours when it comes to danger." }

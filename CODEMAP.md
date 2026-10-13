@@ -48,7 +48,7 @@ Data file per system: see `data/*.json` below.
 | diplomacy.gd | Diplomacy (R§3.10 "Favours", "Gifts"): faction favour requests as key-member pending messages; accept (goods favours sign a one-off contract via Offers), decline, guard/sit-out watches, keep/fail effects; cash/item gifts to key members (cooldown, diminishing returns, prefs) |
 | partners.gd | Partners (R§3.10 "Partners"): player price favour on a partner's shop; partner trouble asks (sell/contract/buy/send) as pending messages; partner-faction discounted trades; warnings of planned moves; defence-fight helpers and faction raid odds cut; intel leaks |
 | turf_panel.gd | TurfPanel: pure rows for the district panel's Turf section (contender shares/tier, flip margin, modifiers tagged with source faction; empty benefits/harassment slots). |
-| perks.gd | Perks: faction perk queries from `faction_perks.json`. `player_tier` (sworn = joined, partner = Partner stance, friendly = relation cut), cumulative `active_global`, `active_turf(district)` scaled control 1.0 / foothold `footholdFactor`, per-tier `preview`. Collective hooks: `raid_odds_adj`, `daily_tend`, `try_whip_round` (state `perks`). |
+| perks.gd | Perks: faction perk queries from `faction_perks.json`. `player_tier` (sworn = joined, partner = Partner stance, friendly = relation cut), cumulative `active_global`, `active_turf(district)` scaled control 1.0 / foothold `footholdFactor`, per-tier `preview`. Hooks: `raid_odds_adj`, `daily_tend`, `try_whip_round`; Firm racket/muscle/`counts_as_player_for_danger` (state `perks`). |
 | district_bubble.gd | District tap-bubble decision |
 | district_deck.gd | Weighted district event deck picker |
 | districts.gd | Derived district info for Map tab |
