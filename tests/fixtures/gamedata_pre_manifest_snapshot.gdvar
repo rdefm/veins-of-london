@@ -457,7 +457,7 @@ With attention drawn away, anyone carrying valuables may be of interest to the c
 },
 "faction_ambush": {
 "fallbackColor": "pavement_wet",
-"image": "res://assets/combat/backdrops/street.png"
+"image": ""
 },
 "home_alarm_defend": {
 "fallbackColor": "slate_dark",
