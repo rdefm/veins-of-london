@@ -613,6 +613,10 @@ func run() -> void:
 			assert_true(GameData.ORE_TYPES.has(site_before_seed["oreType"]), "%s: ore type is visible pre-seed" % district_id)
 
 			# --- seed: claim the site ---
+			# Earlier districts' seed searches spend the same ore type (Camden and
+			# Hampstead are both physics), so refill the site's ore for the search.
+			var site_ore: Dictionary = GameState.state["player"]["orichalchum"]
+			site_ore[site_before_seed["oreType"]] = site_ore.get(site_before_seed["oreType"], 0) + 300
 			var seed_seed := SeedSearch.find_seed_for(500, func():
 				return Sites.attempt_seed(site_id).get("success", false)
 			)
