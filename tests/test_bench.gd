@@ -638,3 +638,36 @@ func run() -> void:
 		assert_true(Bench.found_recipe_keys().has("enhancementPowder"))
 		assert_true(Bench.found_recipe_keys().has("rewind"))
 	)
+
+
+	run_case("every_recipe_with_a_discovery_field_is_discoverable_and_craftable_through_the_bench", func():
+		var keys: Array = []
+		for recipe_key in GameData.RECIPES:
+			if not GameData.RECIPES[recipe_key].get("discovery", {}).is_empty():
+				keys.append(recipe_key)
+		assert_true(keys.has("panic"), "panic carries a discovery field")
+		for recipe_key in keys:
+			var discovery: Dictionary = GameData.RECIPES[recipe_key]["discovery"]
+			var types: Array = discovery["types"]
+			var approach: String = discovery["approach"]
+			GameState.reset()
+			for ore_type in GameData.ORE_TYPES:
+				GameState.state["player"]["orichalchum"][ore_type] = 500
+			assert_eq(Bench.find_recipe_for_cell(types, approach), recipe_key, "%s: its own cell resolves back to it" % recipe_key)
+			assert_true(Approaches.is_known(approach), "%s: approach %s is known" % [recipe_key, approach])
+			for attempt in range(40):
+				if Bench.cell_state(types, approach) == "found":
+					break
+				var result := Bench.probe(types, approach)
+				assert_true(result["ok"], "%s: probe not blocked (%s)" % [recipe_key, result.get("reason", "")])
+				assert_true(result.get("outcome") != "inert", "%s: cell is occupied, never inert" % recipe_key)
+			assert_eq(Bench.cell_state(types, approach), "found", "%s: discovered within 40 probes" % recipe_key)
+			assert_true(Bench.found_recipe_keys().has(recipe_key), "%s: listed as found" % recipe_key)
+			assert_true(Crafting.can_craft(recipe_key), "%s: craftable once found" % recipe_key)
+			var stock_before := Crafting.inventory_qty(recipe_key)
+			for attempt in range(40):
+				Crafting.attempt_craft(recipe_key)
+				if Crafting.inventory_qty(recipe_key) > stock_before:
+					break
+			assert_true(Crafting.inventory_qty(recipe_key) > stock_before, "%s: a craft eventually lands" % recipe_key)
+	)

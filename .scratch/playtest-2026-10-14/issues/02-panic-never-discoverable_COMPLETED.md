@@ -12,3 +12,6 @@
 - [ ] Headless test: experiment with the Panic discovery inputs can find Panic and craft it (bench + craft path)
 - [ ] Same test sweep proves every recipe with a `discovery` field is reachable
 - [ ] Human check: discover and craft Panic in the Lab
+
+## Comments
+Root cause NOT reproduced headless: bench discover+craft path works for every recipe with a `discovery` field (sweep test added). Real defects found + fixed: (1) save migration had no `10` arm, so v10 saves never ran the pansPrank→panic rename; (2) "inert" cells are permanent, so a cell probed before Panic/Panger/Pandemonium were authored into emotion|compression/grinding/heat stayed hidden. Load now reopens inert cells a recipe occupies. Fresh-game autosave on dev machine has empty bench, so (2) is the likely on-device cause but unconfirmed — human check needed.

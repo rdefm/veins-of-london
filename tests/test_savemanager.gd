@@ -1713,3 +1713,25 @@ func run() -> void:
 			if FileAccess.file_exists(SaveManager.autosave_path(i)):
 				DirAccess.remove_absolute(SaveManager.autosave_path(i))
 	)
+
+
+	run_case("loading_a_save_reopens_an_inert_bench_cell_a_recipe_now_occupies", func():
+		GameState.reset()
+		var legacy: Dictionary = GameState.deep_copy(GameState.state)
+		var cells: Dictionary = legacy["player"]["bench"]["cells"]
+		cells["emotion|compression"] = { "state": "inert", "misses": 0, "tier": 1, "progress": 0 }
+		cells["fate+physics|heat"] = { "state": "inert", "misses": 0, "tier": 1, "progress": 0 }
+		assert_true(SaveManager._load_save_dict(legacy)["ok"])
+		assert_eq(Bench.cell_state(["emotion"], "compression"), "untried", "Panic's cell is probeable again")
+		assert_eq(Bench.cell_state(["fate", "physics"], "heat"), "inert", "a genuinely empty cell stays inert")
+	)
+
+	run_case("a_v10_save_migrates_pansPrank_to_panic", func():
+		GameState.reset()
+		var legacy: Dictionary = GameState.deep_copy(GameState.state)
+		legacy["meta"]["saveVersion"] = 10
+		legacy["player"]["craftedCounts"]["pansPrank"] = 2
+		assert_true(SaveManager._load_save_dict(legacy)["ok"])
+		assert_eq(GameState.state["player"]["craftedCounts"].get("panic", 0), 2)
+		assert_true(not GameState.state["player"]["craftedCounts"].has("pansPrank"))
+	)

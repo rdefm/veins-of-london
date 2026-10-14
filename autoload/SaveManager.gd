@@ -124,6 +124,7 @@ func _load_save_dict(raw: Dictionary) -> Dictionary:
 	var filled := backfill_defaults(raw)
 	_restore_int_types(filled)
 	_migrate_versions(filled)
+	_reopen_inert_occupied_bench_cells(filled)
 	_clamp_loaded_combat_selection(filled)
 	_migrate_vein_station_veins(filled)
 	_strip_unowned_cultivator_veins(filled)
@@ -359,6 +360,8 @@ func _migrate_versions(save: Dictionary) -> void:
 				_migrate_from_v8(save)
 			9:
 				_migrate_from_v9(save)
+			10:
+				_migrate_from_v10(save)
 	meta["saveVersion"] = SAVE_VERSION
 	save["meta"] = meta
 
@@ -367,6 +370,24 @@ func _migrate_versions(save: Dictionary) -> void:
 # value (inventories, kits, holdings, crafted counts, bench cells, loadouts).
 func _migrate_from_v10(save: Dictionary) -> void:
 	_rename_recipe_id(save, "pansPrank", "panic")
+
+
+# An "inert" bench cell is permanent, so one probed before a recipe was authored
+# into it would hide that recipe forever. Drop any inert cell a recipe now occupies.
+func _reopen_inert_occupied_bench_cells(save: Dictionary) -> void:
+	var player: Variant = save.get("player")
+	if not (player is Dictionary) or not (player.get("bench") is Dictionary):
+		return
+	var cells: Variant = player["bench"].get("cells")
+	if not (cells is Dictionary):
+		return
+	for key in cells.keys():
+		var cell: Variant = cells[key]
+		if not (cell is Dictionary) or cell.get("state") != "inert":
+			continue
+		var parts: PackedStringArray = String(key).split("|")
+		if parts.size() == 2 and Bench.find_recipe_for_cell(Array(parts[0].split("+")), parts[1]) != "":
+			cells.erase(key)
 
 
 func _rename_recipe_id(node: Variant, old_id: String, new_id: String) -> Variant:
