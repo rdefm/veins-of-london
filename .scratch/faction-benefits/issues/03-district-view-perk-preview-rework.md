@@ -4,6 +4,8 @@
 
 **Blocked by:** 01 — Benefit rows read.
 
+**Visual reference:** `mockups/district.png` (source `district.html`). Layout, grouping and content only — colours are illustrative. Keep the Map tab's existing theme (`map_palette.json` light/dark tokens via MapCardStyle, incl. Dark map), not the mockup colours.
+
 **Relevant files:** `scenes/screens/map.gd` (`_add_perk_preview`, `_toggle_perk_preview`, ~line 295-320), `scenes/screens/map_card_style.gd`, `systems/turf_panel.gd` (`faction_preview`), `tests/test_turf_panel.gd`, `docs/ui-vision.md`, `CODEMAP.md`.
 
 **Status:** ready-for-agent

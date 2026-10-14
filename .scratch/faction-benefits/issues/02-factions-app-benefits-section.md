@@ -4,6 +4,8 @@
 
 **Blocked by:** 01 — Benefit rows read.
 
+**Visual reference:** `mockups/factions.png` (source `factions.html`). Layout, hierarchy and content only — colours are illustrative. Keep the Factions app's existing theme/palette (ui-vision Family 2 phone-OS chrome), not the mockup colours.
+
 **Relevant files:** `scenes/screens/factions.gd`, `scenes/screens/contact_cards.gd`, `scenes/screens/map_card_style.gd` (style helpers), `systems/turf_panel.gd` / `systems/perks.gd` (read from 01), `docs/ui-vision.md` (palette/typography), `CODEMAP.md`. Screens render only; no state mutation.
 
 **Status:** ready-for-agent

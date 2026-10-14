@@ -1,0 +1,45 @@
+<!doctype html><meta charset=utf-8><style>
+*{box-sizing:border-box}body{margin:0;background:#e9e6dc;font-family:Segoe UI,Arial,sans-serif;color:#252e30;width:390px}
+.top{background:#faf8f3;border-bottom:1px solid #d4cfc4;padding:10px 14px;font-size:13px}
+.pad{padding:12px}h1{font-size:22px;margin:4px 0 2px}.muted{color:#65716c;font-size:12px}
+.card{background:#f0eee6;border:1px solid #c0c8bb;border-radius:12px;padding:12px;margin:10px 0}
+.card h2{font-size:16px;margin:0}.row{display:flex;justify-content:space-between;align-items:center}
+.pill{font-size:11px;border-radius:10px;padding:2px 8px;background:#dedfd3;color:#252e30}
+.pill.on{background:#3a7a52;color:#fff}.pill.red{background:#c8102e;color:#fff}.pill.warn{background:#957019;color:#fff}
+.ladder{margin:10px 0 4px;position:relative;padding-left:22px}
+.ladder:before{content:"";position:absolute;left:8px;top:8px;bottom:14px;width:2px;background:#c0c8bb}
+.step{position:relative;margin-bottom:10px}
+.dot{position:absolute;left:-19px;top:2px;width:12px;height:12px;border-radius:50%;background:#f0eee6;border:2px solid #c0c8bb}
+.step.got .dot{background:#3a7a52;border-color:#3a7a52}.step.cur .dot{box-shadow:0 0 0 3px #3a7a5240}
+.step.lock{opacity:.6}.sh{font-weight:600;font-size:13px}.req{font-size:11px;color:#65716c}
+.perk{background:#fff8;border:1px solid #d4cfc4;border-radius:8px;padding:6px 8px;margin-top:4px;font-size:12px}
+.perk b{font-size:13px}.grp{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#957019;margin:12px 0 4px;font-weight:700}
+.bar{height:10px;border-radius:5px;background:#dedfd3;overflow:hidden;display:flex}
+.tab{display:flex;border-top:1px solid #d4cfc4;background:#faf8f3;margin-top:8px}.tab div{flex:1;text-align:center;padding:10px;font-size:12px;color:#65716c}.tab .a{color:#c8102e;font-weight:700}
+.note{font-size:11px;color:#957019;margin-top:6px}
+</style><body>
+<div class=top>Map · Whitechapel</div><div class=pad>
+<div class=card><div class=row><h2>Whitechapel</h2><span class="pill red">Collective turf</span></div>
+<div class=grp>Turf</div>
+<div class=row style="font-size:12px"><span>The Collective — 60% (3)</span><span class=pill>Partner</span></div>
+<div class=bar style="margin:4px 0 8px"><div style="width:60%;background:#c8873a"></div><div style="width:20%;background:#3a7a52"></div><div style="width:20%;background:#8a8a8a"></div></div>
+<div class=muted>The Firm — 20% (1) · You — 20% (1)</div>
+
+<div class=grp>Your perks here</div>
+<div class=muted style="margin-bottom:4px">Perks from factions you're on good terms with. Strength depends on how much of Whitechapel they hold.</div>
+
+<div class=perk><div class=row><b>The Collective</b><span class="pill on">Holds district · full strength</span></div>
+ <div style="margin-top:6px"><div class=row><span>Neighbourhood watch</span><span class="pill on">Active</span></div><div class=req>Raids here are 10% less likely · needs Friendly</div></div>
+ <div style="margin-top:6px"><div class=row><span>Members tend your veins</span><span class="pill on">Active</span></div><div class=req>A member tends one skipped vein a day · needs Partner (you are)</div></div></div>
+
+<div class=perk><div class=row><b>The Guild</b><span class="pill warn">Foothold · half strength</span></div>
+ <div style="margin-top:6px"><div class=row><span>Internship programme</span><span class=pill>Locked</span></div><div class=req>Reach Partner with the Guild (you are Friendly)</div></div></div>
+
+<div class=perk><div class=row><b>The Firm</b><span class=pill>Stranger</span></div><div class=req>Relation 25+ to unlock Friendly perks here (you: 8)</div></div>
+
+<div class=grp>Everywhere</div>
+<div class=muted style="margin-bottom:4px">Not tied to this district.</div>
+<div class=perk><div class=row><b>Guild tuition</b><span class="pill on">Active</span></div><div class=req>+25% craft XP · Guild, Friendly</div></div>
+<div class=perk><div class=row><b>Whip-round</b><span class=pill>Locked</span></div><div class=req>Join the Collective</div></div>
+<div class=muted style="margin-top:8px">Full ladder for each faction: Phone › Factions</div>
+</div></div><div class=tab><div>Phone</div><div class=a>Map</div><div>HQ</div></div>
