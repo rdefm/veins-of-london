@@ -48,7 +48,7 @@ Data file per system: see `data/*.json` below.
 | diplomacy.gd | Diplomacy (R§3.10 "Favours", "Gifts"): faction favour requests as key-member pending messages; accept (goods favours sign a contract via Offers; `event` favours start their `eventId`, settled by `favour_kept`/`favour_failed` ops), decline, guard/sit-out watches; cash/item gifts to key members; `ask_aid`/`aid_chance` call-for-aid (R§3.1e) + owed-favour debt |
 | partners.gd | Partners (R§3.10 "Partners"): partner trouble asks (sell/contract/buy/send) as pending messages; partner-faction discounted trades; warnings of planned moves; faction raid warned-odds cut; intel leaks |
 | turf_panel.gd | TurfPanel: pure rows for the district panel's Turf section (contender shares/tier, flip margin, modifiers tagged with source faction; active harassment rows per district). |
-| perks.gd | Faction perk queries from `faction_perks.json`: `player_tier`, cumulative `active_global`, `active_turf(district)`, `preview`. Per-faction hooks: Collective (watch, tend, whip-round), Firm (racket, muscle, danger), Guild (craft, free cultivate, commissions), Network (`daily_intel`, forewarning, market move), Conclave (`danger_adj`, `recover_vein`, nudge, lore). State `perks`.
+| perks.gd | Faction perk queries (`faction_perks.json`): `player_tier`, `active_global`, `active_turf(district)`, `preview`, `benefit_rows` / `district_benefit_rows` (requirement, scope, active, full/reduced). Hooks: Collective, Firm, Guild, Network, Conclave perks (tend, racket, commissions, intel, nudge, lore). State `perks`. |
 | district_bubble.gd | District tap-bubble decision |
 | district_deck.gd | Weighted district event deck picker |
 | districts.gd | Derived district info for Map tab |

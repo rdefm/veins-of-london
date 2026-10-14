@@ -83,6 +83,48 @@ func run() -> void:
 		assert_eq(Perks.active_turf("soho")[0]["scale"], float(GameData.TURF["footholdFactor"]))
 	)
 
+	run_case("benefit_rows_requirements_scope_and_activity", func():
+		GameState.reset()
+		_clear_veins()
+		GameState.state["turf"] = {}
+		for fid in GameData.FACTIONS.keys():
+			GameState.state["factions"][fid]["relation"] = 0
+		var friendly: int = int(GameData.FACTION_PERKS["friendlyAtOrAbove"])
+		var rows := Perks.benefit_rows("collective")
+		assert_eq(rows.size(), 3)
+		assert_eq(rows[0]["requirement"], "Relation ≥%d" % friendly)
+		assert_eq(rows[1]["requirement"], "Partner stance")
+		assert_eq(rows[2]["requirement"], "Joined")
+		assert_eq(rows[0]["scope"], "turf")
+		assert_eq(rows[2]["scope"], "global")
+		for r in rows:
+			assert_true(not r["unlocked"] and not r["active"] and r["districts"].is_empty())
+		GameState.state["factions"]["collective"]["relation"] = friendly
+		GameState.state["turf"]["soho"] = { "controller": "collective", "shares": {}, "tiers": { "collective": Turf.TIER_CONTROL } }
+		GameState.state["turf"]["camden"] = { "controller": "", "shares": {}, "tiers": { "collective": Turf.TIER_FOOTHOLD } }
+		rows = Perks.benefit_rows("collective")
+		assert_true(rows[0]["unlocked"] and rows[0]["active"])
+		assert_true(not rows[1]["unlocked"] and not rows[1]["active"])
+		var by_district := {}
+		for d in rows[0]["districts"]:
+			by_district[d["district"]] = d["strength"]
+		assert_eq(by_district, { "soho": "full", "camden": "reduced" })
+		var soho := Perks.district_benefit_rows("collective", "soho")
+		assert_eq(soho[0]["here"], "full")
+		assert_eq(soho[1]["here"], "inactive")
+		assert_eq(Perks.district_benefit_rows("collective", "camden")[0]["here"], "reduced")
+		assert_eq(Perks.district_benefit_rows("collective", "hampstead")[0]["here"], "inactive")
+		# Global perk: active wherever, once the tier is reached.
+		GameState.state["factions"]["collective"]["joined"] = true
+		rows = Perks.benefit_rows("collective")
+		assert_true(rows[2]["active"] and rows[2]["districts"].is_empty())
+		assert_eq(Perks.district_benefit_rows("collective", "hampstead")[2]["here"], "full")
+		# Control without the tier: turf perk stays inactive.
+		GameState.state["factions"]["collective"]["joined"] = false
+		GameState.state["factions"]["collective"]["relation"] = 0
+		assert_eq(Perks.district_benefit_rows("collective", "soho")[0]["here"], "inactive")
+	)
+
 	run_case("preview_lists_all_tiers_and_marks_turf", func():
 		GameState.reset()
 		GameState.state["factions"]["conclave"]["relation"] = 0

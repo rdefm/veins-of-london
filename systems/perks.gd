@@ -50,6 +50,62 @@ static func preview(faction_id: String) -> Array:
 	return rows
 
 
+# What a tier asks of the player, derived from the perk config.
+static func requirement_text(tier: String) -> String:
+	match tier:
+		"friendly":
+			return "Relation ≥%d" % int(_cfg()["friendlyAtOrAbove"])
+		"partner":
+			return "Partner stance"
+		"sworn":
+			return "Joined"
+	return ""
+
+
+# Benefit rows for a faction: preview rows plus { tier_label, requirement, scope, active,
+# districts: [{ district, scale, strength }] }. Global perks are active when unlocked;
+# turf perks are active where the faction holds Control ("full") or Foothold ("reduced").
+static func benefit_rows(faction_id: String) -> Array:
+	var rows := []
+	for row in preview(faction_id):
+		var scope: String = row["perk"]["scope"]
+		var districts := []
+		if scope == "turf" and row["unlocked"]:
+			for district_id in GameData.DISTRICTS.keys():
+				var scale := turf_scale(district_id, faction_id)
+				if scale > 0.0:
+					districts.append({ "district": district_id, "scale": scale, "strength": _strength(scale) })
+		rows.append({
+			"tier": row["tier"],
+			"tier_label": tier_label(row["tier"]),
+			"requirement": requirement_text(row["tier"]),
+			"unlocked": row["unlocked"],
+			"scope": scope,
+			"perk": row["perk"],
+			"active": row["unlocked"] if scope == "global" else not districts.is_empty(),
+			"districts": districts,
+		})
+	return rows
+
+
+# benefit_rows for one district, each with "here": "full" | "reduced" | "inactive".
+static func district_benefit_rows(faction_id: String, district_id: String) -> Array:
+	var scale := turf_scale(district_id, faction_id)
+	var rows := benefit_rows(faction_id)
+	for row in rows:
+		var here := "inactive"
+		if row["unlocked"]:
+			here = "full" if row["scope"] == "global" else _strength(scale)
+		row["here"] = here
+	return rows
+
+
+static func _strength(scale: float) -> String:
+	if scale >= 1.0:
+		return "full"
+	return "reduced" if scale > 0.0 else "inactive"
+
+
 # Perks the player has unlocked with a faction, filtered by scope ("" = both).
 static func _unlocked(faction_id: String, scope: String) -> Array:
 	var perks := []
