@@ -246,17 +246,23 @@ static func craft() -> void:
 			_craft_toward_target(faction_id, recipe_key)
 
 
+# The faction's craftSkill less what its defectors took with them (min 1).
+static func craft_skill(faction_id: String) -> int:
+	var loss := int(GameState.state["factions"][faction_id].get("craftSkillLoss", 0))
+	return maxi(1, int(GameData.FACTIONS[faction_id]["craftSkill"]) - loss)
+
+
 # faction_craft_chance at craftSkill, plus factionFloor.craftChanceBonus
 # (capped at 1) while the faction is_weak().
 static func craft_chance(faction_id: String, recipe_key: String) -> float:
-	var chance := Crafting.faction_craft_chance(recipe_key, int(GameData.FACTIONS[faction_id]["craftSkill"]))
+	var chance := Crafting.faction_craft_chance(recipe_key, craft_skill(faction_id))
 	if is_weak(faction_id):
 		chance = minf(1.0, chance + float(GameData.FACTION_FLOOR["craftChanceBonus"]))
 	return chance
 
 
 static func _craft_toward_target(faction_id: String, recipe_key: String) -> void:
-	var skill: int = GameData.FACTIONS[faction_id]["craftSkill"]
+	var skill := craft_skill(faction_id)
 	var costs: Dictionary = Crafting.calc_cost(recipe_key, skill)
 	var gap: int = craft_target(faction_id, recipe_key) - item_held(faction_id, recipe_key)
 	var chance := craft_chance(faction_id, recipe_key)
@@ -500,7 +506,7 @@ static func ore_reserve(faction_id: String, ore_type: String) -> int:
 	var reserve_days: float = float(data["trading"]["reserveDays"])
 	var reserve := 0
 	for recipe_key in data.get("crafts", []):
-		var qty: int = int(Crafting.calc_cost(recipe_key, int(data["craftSkill"])).get(ore_type, 0))
+		var qty: int = int(Crafting.calc_cost(recipe_key, craft_skill(faction_id)).get(ore_type, 0))
 		if qty <= 0:
 			continue
 		var target := craft_target(faction_id, recipe_key)

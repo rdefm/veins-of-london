@@ -3,6 +3,7 @@
   "succession": { "margin": 15, "days": 5, "weights": { "favourKept": 6, "favourFailed": -6, "questStep": 8, "hostileAct": 2, "peaceDeal": 4, "warLoss": -10 } },
   "personal": {
     "insideManAt": 60, "horizonDays": 7, "repeatDays": 5, "leakChance": 0.15, "leakAmount": 6,
+    "defectAt": 80, "defectRelationHit": 15, "defectCraftSkillLoss": 1,
     "leakLine": "PROSE-REVIEW placeholder: \"Something for your file on us. Don't ask where it came from.\"",
     "lines": {
       "collective": { "warn": "PROSE-REVIEW placeholder: \"Between us: we're planning %s, %s. I didn't say.\"", "truce": "PROSE-REVIEW placeholder: \"If you want this ended, talk to me. Quietly.\"" },
@@ -13,6 +14,14 @@
     }
   },
   "entries": {
+    "inc_defection": {
+      "id": "inc_defection",
+      "trigger": "defection",
+      "eventId": "inc_defection",
+      "cooldownDays": 10,
+      "conditions": {},
+      "notice": "PROSE-REVIEW placeholder: I need to talk to you. Not here. Not as one of theirs."
+    },
     "inc_succession": {
       "id": "inc_succession",
       "trigger": "succession",

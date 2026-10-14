@@ -13,7 +13,7 @@ extends RefCounted
 # nextId: int }.
 
 const PENDING_KIND := "faction_incident"
-const TRIGGER_IDS: PackedStringArray = ["raidedByFaction", "warBetween", "truceExpiring", "turfFlip", "succession"]
+const TRIGGER_IDS: PackedStringArray = ["raidedByFaction", "warBetween", "truceExpiring", "turfFlip", "succession", "defection"]
 
 
 static func _cfg() -> Dictionary:
@@ -43,7 +43,7 @@ static func record_flip(district_id: String, from_id: String, to_id: String) -> 
 
 # A trigger function takes the entry's conditions and returns hits:
 # { subject: String (cooldown key), speakers: [factionId] (first able to speak
-# sends the notice), context: Dictionary (the event's context) }.
+# sends the notice; optional `from`: a key member's contact id who sends it instead), context: Dictionary (the event's context) }.
 static func _trigger_fn(trigger: String) -> Callable:
 	match trigger:
 		"raidedByFaction":
@@ -56,6 +56,8 @@ static func _trigger_fn(trigger: String) -> Callable:
 			return _trigger_flip
 		"succession":
 			return _trigger_succession
+		"defection":
+			return _trigger_defection
 	return Callable()
 
 
@@ -146,6 +148,19 @@ static func _trigger_succession(_conditions: Dictionary) -> Array:
 	return hits
 
 
+# A key member ready to change sides (KeyMembers.can_defect); they send the notice.
+static func _trigger_defection(_conditions: Dictionary) -> Array:
+	var hits := []
+	for contact_id in KeyMembers.defectors():
+		hits.append({
+			"subject": contact_id,
+			"speakers": [KeyMembers.faction_of(contact_id)],
+			"from": contact_id,
+			"context": { "faction_id": KeyMembers.faction_of(contact_id), "contact_id": contact_id },
+		})
+	return hits
+
+
 # Daily step (⑥.5j2b): runs every entry's trigger, queues the hits that are off
 # cooldown, then drops the consumed flips and lapsed cooldowns.
 static func daily_tick() -> void:
@@ -175,6 +190,11 @@ static func daily_tick() -> void:
 # Queues the entry's event and sends its notice; false (nothing queued) when no
 # party to the hit can speak.
 static func _fire(entry: Dictionary, hit: Dictionary) -> bool:
+	var from_member: String = hit.get("from", "")
+	if from_member != "":
+		var queue_from := _queue(entry, hit)
+		Messages.queue_pending(from_member, PENDING_KIND, str(entry["notice"]), { "queueId": queue_from })
+		return true
 	var speaker := ""
 	for faction_id in hit["speakers"]:
 		if KeyMembers.can_speak(faction_id):
@@ -182,12 +202,17 @@ static func _fire(entry: Dictionary, hit: Dictionary) -> bool:
 			break
 	if speaker == "":
 		return false
+	var queue_id := _queue(entry, hit)
+	KeyMembers.send(speaker, str(entry["notice"]), PENDING_KIND, { "queueId": queue_id })
+	return true
+
+
+static func _queue(entry: Dictionary, hit: Dictionary) -> String:
 	var state := _state()
 	var queue_id := "i%d" % int(state["nextId"])
 	state["nextId"] = int(state["nextId"]) + 1
 	state["queued"].append({ "queueId": queue_id, "incidentId": entry["id"], "eventId": entry["eventId"], "context": hit["context"] })
-	KeyMembers.send(speaker, str(entry["notice"]), PENDING_KIND, { "queueId": queue_id })
-	return true
+	return queue_id
 
 
 # Starts the queued event with queue_id; false when it is gone.

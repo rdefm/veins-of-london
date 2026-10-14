@@ -862,6 +862,9 @@ static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 			GameState.state["contacts"][effect["contact"]]["unlocked"] = true
 		"recruit_contact":
 			Contacts.force_recruit(effect["contact"])
+		"accept_defection":
+			var defector: String = effect.get("contact", context.get("contact_id", _live_event_context().get("contact_id", "")))
+			KeyMembers.defect(defector)
 		"activate_business":
 			Business.activate()
 		"set_james_crafting_skill":
@@ -1050,6 +1053,11 @@ static func _find_tutorial_cultivation_vein() -> Variant:
 # Raiding.begin_raid() passes it via start_event()'s context instead. A live
 # choice-card effect reads GameState.state["event"].context directly; an
 # on_complete effect (state.event already null by then) falls back to the explicitly-threaded fallback_context.
+static func _live_event_context() -> Dictionary:
+	var event_state: Variant = GameState.state.get("event")
+	return event_state.get("context", {}) if event_state != null else {}
+
+
 static func _event_site_id(effect: Dictionary, fallback_context: Dictionary = {}) -> String:
 	if effect.has("site_id"):
 		return effect["site_id"]

@@ -8,8 +8,8 @@
 
 **Status:** ready-for-agent
 
-- [ ] Defection fires only when the gates hold; at most once per member
-- [ ] Acceptance moves the member to the player's contacts and grants the configured prize
-- [ ] Faction penalty applied (relation hit + perk-tier effect or craftSkill loss)
-- [ ] A defected member no longer counts for leadership
-- [ ] Placeholder card `PROSE-REVIEW`
+- [x] Defection fires only when the gates hold; at most once per member
+- [x] Acceptance moves the member to the player's contacts and grants the configured prize
+- [x] Faction penalty applied (relation hit + perk-tier effect or craftSkill loss)
+- [x] A defected member no longer counts for leadership
+- [x] Placeholder card `PROSE-REVIEW`

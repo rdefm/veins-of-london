@@ -265,3 +265,57 @@ func run() -> void:
 		cfg["leakChance"] = saved
 		assert_eq(Intel.meter(Shares.PLAYER, "firm"), before, "no leak without an inside man")
 	)
+
+	run_case("defection_needs_closeness_a_failing_faction_and_a_non_leader", func():
+		GameState.reset()
+		var at := int(GameData.FACTION_INCIDENTS["personal"]["defectAt"])
+		GameState.state["factions"]["firm"]["resources"] = 100000
+		GameState.state["contacts"]["mercer"]["unlocked"] = true
+		GameState.state["contacts"]["mercer"]["relation"] = at
+		assert_true(not KeyMembers.can_defect("mercer"), "firm is not failing")
+		GameState.state["factionWar"]["wars"].append({ "parties": [Shares.PLAYER, "firm"], "startDay": 0, "lastHostileDay": 0, "weariness": { Shares.PLAYER: 0.0, "firm": 0.0 } })
+		GameState.state["factionWar"]["weariness"]["firm"] = float(FactionAI.accept_peace_at("firm"))
+		assert_true(KeyMembers.can_defect("mercer"), "losing a war against the player")
+		GameState.state["contacts"]["mercer"]["relation"] = at - 1
+		assert_true(not KeyMembers.can_defect("mercer"), "not close enough")
+		GameState.state["contacts"]["mercer"]["relation"] = at
+		GameState.state["contacts"]["lusk"]["unlocked"] = true
+		GameState.state["contacts"]["lusk"]["relation"] = at
+		assert_true(not KeyMembers.can_defect("lusk"), "the leader has no prize and stays")
+		GameState.state["factions"]["firm"]["leader"] = "mercer"
+		assert_true(not KeyMembers.can_defect("mercer"), "a leader does not defect")
+	)
+
+	run_case("defection_moves_the_member_grants_the_prize_and_docks_the_faction", func():
+		GameState.reset()
+		GameState.state["contacts"]["mercer"]["unlocked"] = true
+		GameState.state["contacts"]["mercer"]["relation"] = 100
+		GameState.state["factionWar"]["wars"].append({ "parties": [Shares.PLAYER, "firm"], "startDay": 0, "lastHostileDay": 0, "weariness": { Shares.PLAYER: 0.0, "firm": 0.0 } })
+		GameState.state["factionWar"]["weariness"]["firm"] = 100.0
+		GameState.state["factions"]["firm"]["relation"] = 0
+		var skill_before := FactionSim.craft_skill("firm")
+		assert_true(KeyMembers.defect("mercer"))
+		assert_true(GameState.state["contacts"]["mercer"]["recruited"], "now the player's contact")
+		assert_true(GameState.state["contacts"]["mercer"]["specialities"].has("physics"), "prize granted")
+		assert_eq(GameState.state["factions"]["firm"]["relation"], -int(GameData.FACTION_INCIDENTS["personal"]["defectRelationHit"]))
+		assert_eq(FactionSim.craft_skill("firm"), maxi(1, skill_before - 1), "craftSkill lowered, floor 1")
+		assert_true(KeyMembers.is_defected("mercer"))
+		assert_true(not KeyMembers.can_defect("mercer"), "once per member")
+		assert_true(not KeyMembers.defect("mercer"), "no second defection")
+	)
+
+	run_case("defection_incident_fires_once_and_accepting_plays_the_event_op", func():
+		GameState.reset()
+		GameState.state["contacts"]["mercer"]["unlocked"] = true
+		GameState.state["contacts"]["mercer"]["relation"] = 100
+		GameState.state["factionWar"]["wars"].append({ "parties": [Shares.PLAYER, "firm"], "startDay": 0, "lastHostileDay": 0, "weariness": { Shares.PLAYER: 0.0, "firm": 0.0 } })
+		GameState.state["factionWar"]["weariness"]["firm"] = 100.0
+		FactionIncidents.daily_tick()
+		var queued := FactionIncidents.queued().filter(func(q): return q["eventId"] == "inc_defection")
+		assert_eq(queued.size(), 1)
+		assert_eq(queued[0]["context"]["contact_id"], "mercer")
+		assert_eq(Messages.pending_for("mercer").size(), 1, "the member sends the notice")
+		Events.apply_effects([{ "op": "accept_defection" }], queued[0]["context"])
+		assert_true(KeyMembers.is_defected("mercer"), "op ran")
+	)
+

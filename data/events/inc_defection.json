@@ -1,0 +1,41 @@
+{
+  "id": "inc_defection",
+  "cards": [
+    {
+      "type": "narration",
+      "label": null,
+      "speaker": null,
+      "text": "PROSE-REVIEW placeholder: They've been standing outside for an hour, pretending to read a bus timetable."
+    },
+    {
+      "type": "choice",
+      "label": null,
+      "speaker": null,
+      "text": "PROSE-REVIEW placeholder: \"I'm done with them. I'd rather be done with them in your direction.\"",
+      "choices": [
+        {
+          "label": "Take them on",
+          "effects": [{ "op": "accept_defection" }],
+          "result_text": "PROSE-REVIEW placeholder: They bring what they can carry. Their old employers will count what's missing."
+        },
+        {
+          "label": "Turn them away",
+          "effects": [],
+          "result_text": "PROSE-REVIEW placeholder: They nod as if they expected it, and don't look back."
+        }
+      ]
+    },
+    {
+      "type": "resolution",
+      "label": null,
+      "speaker": null,
+      "text": "PROSE-REVIEW placeholder: London keeps its own accounts."
+    }
+  ],
+  "on_complete": [
+    {
+      "op": "set_screen",
+      "screen": "phone"
+    }
+  ]
+}
