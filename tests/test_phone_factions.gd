@@ -326,6 +326,21 @@ func run() -> void:
 		phone.free()
 	)
 
+	run_case("page_changes_scroll_to_top_and_ore_tags_do_not_wrap", func():
+		GameState.reset()
+		var phone := _open_dossier("guild")
+		var app: FactionsApp = phone.app_instance("factions")
+		phone.device_shell.content_scroll.scroll_vertical = 300
+		app._select("")
+		assert_eq(phone.device_shell.content_scroll.scroll_vertical, 0, "directory opens at top")
+		app._select("guild")
+		for node in phone.find_children("", "Label", true, false):
+			var l := node as Label
+			if l.text == "Time" or l.text == "Physics" or l.text == "Life" or l.text == "Fate" or l.text == "Emotion":
+				assert_eq(l.autowrap_mode, TextServer.AUTOWRAP_OFF, "ore tag %s never wraps" % l.text)
+		phone.free()
+	)
+
 	run_case("row_opens_dossier_back_returns_to_directory_and_refresh_keeps_it", func():
 		GameState.reset()
 		var phone := _open_dossier("guild")

@@ -72,7 +72,7 @@ func _build_directory(content: VBoxContainer) -> void:
 func _open_politics(open: bool) -> void:
 	politics_open = open
 	selected_pair = ""
-	refresh()
+	_show_page()
 
 
 func _build_dossier(content: VBoxContainer, faction_id: String) -> void:
@@ -94,7 +94,14 @@ func _build_dossier(content: VBoxContainer, faction_id: String) -> void:
 
 func _select(faction_id: String) -> void:
 	selected_faction = faction_id
+	_show_page()
+
+
+# Rebuilds for a page change and returns the scroll to the top so the
+# page's Back link is on screen.
+func _show_page() -> void:
 	refresh()
+	shell.device_shell.content_scroll.scroll_vertical = 0
 
 
 func surface_colour() -> Variant:
@@ -435,7 +442,7 @@ class RelationMeter extends Control:
 
 func _open_shares(open: bool) -> void:
 	shares_open = open
-	refresh()
+	_show_page()
 
 
 # Market shares page: tally toggle, ore choice, then one oxide bar per producer
@@ -805,9 +812,7 @@ func _ore_line(title: String, ore_type: String) -> Control:
 func _ore_tag(ore_type: String) -> Control:
 	var row := UI.hbox(4)
 	row.add_child(_ore_glyph(ore_type))
-	var title := _wrap(_ore_name(ore_type), 13, _ink())
-	title.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	row.add_child(title)
+	row.add_child(_text(_ore_name(ore_type), 13, _ink()))
 	return row
 
 
