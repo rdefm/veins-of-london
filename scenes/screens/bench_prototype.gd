@@ -3,7 +3,7 @@ extends Control
 
 # Debug-app-only sandbox screen for systems/bench_prototype.gd: slice
 # switcher, debug controls (skill, bonus type, refill), per-recipe cards
-# (best rank, hint level, batch), the fake-run control, Rewind and the
+# (best rank, per-hint level toggles, batch), the fake-run control, Rewind and the
 # slice ledger.
 
 const LEDGER_ROWS := 12
@@ -85,10 +85,12 @@ func _build_recipe_card(slice_id: String, s: Dictionary, recipe_id: String) -> C
 	c["content"].add_child(UI.muted_label("Cost per item: %s" % _pool_text(recipe["baseCalc"])))
 
 	var levels: Array = GameData.BENCH_PROTOTYPE["hintLevels"]
-	var hint_select := UI.option_button(levels.map(func(l): return "Hints: %s" % l))
-	hint_select.selected = maxi(0, levels.find(s["hintLevels"][recipe_id]))
-	hint_select.item_selected.connect(func(index: int): BenchPrototype.set_hint_level(slice_id, recipe_id, levels[index]))
-	c["content"].add_child(hint_select)
+	for hint in BenchPrototype.hints(slice_id, recipe_id):
+		var hint_id: String = hint["id"]
+		var hint_select := UI.option_button(levels.map(func(l): return "%s: %s" % [hint["label"], l]))
+		hint_select.selected = maxi(0, levels.find(BenchPrototype.hint_level(slice_id, recipe_id, hint_id)))
+		hint_select.item_selected.connect(func(index: int): BenchPrototype.set_hint_level(slice_id, recipe_id, hint_id, levels[index]))
+		c["content"].add_child(hint_select)
 
 	var row := UI.hbox()
 	for n in BenchPrototype.BATCH_SIZES:
@@ -141,7 +143,7 @@ func _build_procedure_card(s: Dictionary) -> Control:
 		var recipe_id: String = roster[_recipe_index]
 		var steps := BenchPrototype.known_procedure(recipe_id)
 		for i in steps.size():
-			c["content"].add_child(UI.muted_label(_step_text(recipe_id, i, steps[i])))
+			_add_step_rows(c["content"], "", recipe_id, i, steps[i])
 		c["content"].add_child(MapCardStyle.text_button("Begin", func(): BenchPrototype.begin_procedure_run(roster[_recipe_index]),
 			not BenchPrototype.can_afford(BenchPrototype.SLICE_PROCEDURE, BenchPrototype.procedure_cost(steps))))
 		return c["panel"]
@@ -151,7 +153,7 @@ func _build_procedure_card(s: Dictionary) -> Control:
 	var done: int = run["performed"].size()
 	for i in run["procedure"].size():
 		var mark: String = "✓ " if i < done else ("▸ " if i == done else "  ")
-		c["content"].add_child(UI.muted_label(mark + _step_text(recipe_id, i, run["procedure"][i])))
+		_add_step_rows(c["content"], mark, recipe_id, i, run["procedure"][i])
 	var step = BenchPrototype.current_step()
 	if step != null:
 		_add_step_gauge(c["content"], recipe_id, step)
@@ -160,7 +162,7 @@ func _build_procedure_card(s: Dictionary) -> Control:
 
 
 func _add_step_gauge(content: VBoxContainer, recipe_id: String, step: Dictionary) -> void:
-	var band := BenchPrototype.known_band(recipe_id, step)
+	var band := BenchPrototype.step_region(recipe_id, step)
 	var g := BenchPrototype.gauge(step["apparatus"])
 	match step["apparatus"]:
 		"heat", "compression":
@@ -192,13 +194,18 @@ func _add_step_gauge(content: VBoxContainer, recipe_id: String, step: Dictionary
 func _add_gauge(content: VBoxContainer, gauge: StepGauge, band: Dictionary) -> void:
 	gauge.band_low = band["low"]
 	gauge.band_high = band["high"]
+	gauge.band_vague = band["vague"]
 	content.add_child(gauge)
 
 
-func _step_text(recipe_id: String, index: int, step: Dictionary) -> String:
+# A known step's row, plus its hint note when a hint revealed it.
+func _add_step_rows(content: VBoxContainer, mark: String, recipe_id: String, index: int, step: Dictionary) -> void:
 	var apparatus: String = GameData.APPROACHES[step["apparatus"]]["name"]
-	var band := BenchPrototype.known_band(recipe_id, step)
-	return "%d. %s → band %d–%d" % [index + 1, apparatus, roundi(band["low"]), roundi(band["high"])]
+	var region := BenchPrototype.step_region(recipe_id, step)
+	var kind: String = "somewhere in" if region["vague"] else "band"
+	content.add_child(UI.muted_label("%s%d. %s → %s %d–%d" % [mark, index + 1, apparatus, kind, roundi(region["low"]), roundi(region["high"])]))
+	if step.has("note"):
+		content.add_child(UI.muted_label("      %s" % step["note"]))
 
 
 func _build_ledger_card(ledger: Array) -> Control:
@@ -255,12 +262,14 @@ func _steps_text(steps: Array) -> String:
 	return " · ".join(parts)
 
 
-# Placeholder gauge base: a horizontal 0-100 track with the known band.
+# Placeholder gauge base: a horizontal 0-100 track with the known band, or
+# a faded fuzzy region for a vague step.
 # Gauges report raw input through their own committed signal and score
 # nothing themselves.
 class StepGauge extends Control:
 	var band_low := 0.0
 	var band_high := 0.0
+	var band_vague := false
 
 	func _init() -> void:
 		custom_minimum_size = Vector2(0, 56)
@@ -278,7 +287,8 @@ class StepGauge extends Control:
 	func _draw_track() -> Rect2:
 		var track := Rect2(Vector2(0, size.y * 0.3), Vector2(size.x, size.y * 0.4))
 		draw_rect(track, MapCardStyle.line())
-		draw_rect(Rect2(Vector2(_x(band_low), track.position.y), Vector2(_x(band_high - band_low), track.size.y)), MapCardStyle.sage())
+		var band_colour := Color(MapCardStyle.sage(), 0.35) if band_vague else MapCardStyle.sage()
+		draw_rect(Rect2(Vector2(_x(band_low), track.position.y), Vector2(_x(band_high - band_low), track.size.y)), band_colour)
 		return track
 
 	func _draw_needle(value: float) -> void:

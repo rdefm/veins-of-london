@@ -1,5 +1,5 @@
 {
-  "_comment": "Sandboxed Lab-revamp bench prototype (systems/bench_prototype.gd, .scratch/lab-revamp/spec.md) -- provisional numbers, not production balance, not cross-referenced by REFERENCE.md. rankThresholds[i] is the minimum score for rank i+1. baseCalc is spent per item crafted (a manual run makes one). baseXp is per item, display-only. recipes.*.procedure (Slice A): ideal = the authored perfect procedure (apparatus = data/approaches.json id, target on a 0-100 gauge, weight; weights sum to 100); base = the procedure known at start, its steps' calc summing to baseCalc and spent step by step; baseTolerance = band half-width before skill widening. gauges (one per procedure apparatus): heat/compression.risePerSec = needle speed while held; compression.crackAt = the needle value that cracks the vessel and ends the run; grinding.strokes = taps per grind step, swingPeriodSec = one full 0-100-0 pestle swing; distilling.drips = drips per distil step, drip i falls from 0 to 100 over fallMsec starting at i x beatMsec, and a tap reads the falling drip's position against the step target; leadInMsec = screen-only pause before drip 0 (a tap in it is stray). PROSE-REVIEW: every badRun.lines entry is new copy, drafted against CONTENT-GUIDE.md's tone bible.",
+  "_comment": "Sandboxed Lab-revamp bench prototype (systems/bench_prototype.gd, .scratch/lab-revamp/spec.md) -- provisional numbers, not production balance, not cross-referenced by REFERENCE.md. rankThresholds[i] is the minimum score for rank i+1. baseCalc is spent per item crafted (a manual run makes one). baseXp is per item, display-only. recipes.*.procedure (Slice A): ideal = the authored perfect procedure (apparatus = data/approaches.json id, target on a 0-100 gauge, weight; weights sum to 100); base = the procedure known at start, its steps' calc summing to baseCalc and spent step by step; baseTolerance = band half-width before skill widening; hints = the hidden improvements, each naming the ideal step index it reveals (a base step matching that ideal step gets its target corrected, otherwise the ideal step is inserted, no calc). A vague hint shows a region of the band widened by vagueSpread each side and shifted by its offset (|offset| <= vagueSpread, so the band always sits inside); an exact hint shows the true band. PROSE-REVIEW: every hints label/note is new copy. gauges (one per procedure apparatus): heat/compression.risePerSec = needle speed while held; compression.crackAt = the needle value that cracks the vessel and ends the run; grinding.strokes = taps per grind step, swingPeriodSec = one full 0-100-0 pestle swing; distilling.drips = drips per distil step, drip i falls from 0 to 100 over fallMsec starting at i x beatMsec, and a tap reads the falling drip's position against the step target; leadInMsec = screen-only pause before drip 0 (a tap in it is stray). PROSE-REVIEW: every badRun.lines entry is new copy, drafted against CONTENT-GUIDE.md's tone bible.",
   "roster": ["healingSalve", "timePearl", "healingBurst"],
   "recipes": {
     "healingSalve": {
@@ -14,6 +14,14 @@
         "base": [
           { "apparatus": "grinding", "target": 50, "calc": { "life": 3 } },
           { "apparatus": "heat", "target": 50 }
+        ],
+        "hints": [
+          { "id": "heatHigher", "label": "Heat higher", "step": 1,
+            "vague": { "note": "Heat it a bit hotter.", "offset": 6 },
+            "exact": { "note": "Heat to 62, not 50." } },
+          { "id": "distilFinish", "label": "Finish with a distil", "step": 2,
+            "vague": { "note": "Finish with a distil. Catch the drips somewhere in the middle.", "offset": -5 },
+            "exact": { "note": "Finish with a distil: four drips, each caught halfway." } }
         ]
       }
     },
@@ -29,6 +37,14 @@
         "base": [
           { "apparatus": "compression", "target": 70, "calc": { "time": 3 } },
           { "apparatus": "heat", "target": 25 }
+        ],
+        "hints": [
+          { "id": "compressLonger", "label": "Compress longer", "step": 0,
+            "vague": { "note": "Compress it a bit longer.", "offset": -8 },
+            "exact": { "note": "Compress to 82. Stop well short of the red line." } },
+          { "id": "grindBetween", "label": "Grind between", "step": 1,
+            "vague": { "note": "Grind it once between the press and the heat.", "offset": 7 },
+            "exact": { "note": "Grind between the press and the heat, mid-swing." } }
         ]
       }
     },
@@ -46,6 +62,14 @@
           { "apparatus": "grinding", "target": 50, "calc": { "life": 2 } },
           { "apparatus": "compression", "target": 60, "calc": { "time": 2 } },
           { "apparatus": "heat", "target": 45 }
+        ],
+        "hints": [
+          { "id": "distilBetween", "label": "Distil between", "step": 2,
+            "vague": { "note": "Distil it between the press and the heat.", "offset": -6 },
+            "exact": { "note": "Distil between the press and the heat, drips caught halfway." } },
+          { "id": "heatLower", "label": "Heat lower", "step": 3,
+            "vague": { "note": "Heat it lower than you'd think.", "offset": 5 },
+            "exact": { "note": "Heat to 35. Lower than you'd think." } }
         ]
       }
     }
@@ -55,6 +79,7 @@
   "skillFactor": 0.08,
   "skillMax": 10,
   "extraStepPenalty": 5,
+  "vagueSpread": 15,
   "gauges": {
     "heat": { "risePerSec": 40 },
     "compression": { "risePerSec": 30, "crackAt": 95 },

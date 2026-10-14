@@ -1382,7 +1382,7 @@ func _validate_combat_prototype_enemy(entry: Dictionary, path: String, errors: A
 # types the pool seeds; thresholds ascend from 0; the bonus default names a
 # real type; badRun has lines to pick from.
 func _validate_bench_prototype(bench: Dictionary, approaches: Dictionary, errors: Array[String]) -> void:
-	_require_keys(bench, ["roster", "recipes", "poolSeed", "rankThresholds", "skillFactor", "skillMax", "extraStepPenalty", "gauges", "baseXp", "hintLevels", "bonus", "badRun"], "bench_prototype", errors)
+	_require_keys(bench, ["roster", "recipes", "poolSeed", "rankThresholds", "skillFactor", "skillMax", "extraStepPenalty", "vagueSpread", "gauges", "baseXp", "hintLevels", "bonus", "badRun"], "bench_prototype", errors)
 	var recipes: Dictionary = bench.get("recipes", {})
 	var pool_seed: Dictionary = bench.get("poolSeed", {})
 	var roster: Array = bench.get("roster", [])
@@ -1399,6 +1399,7 @@ func _validate_bench_prototype(bench: Dictionary, approaches: Dictionary, errors
 			if not pool_seed.has(ore_type):
 				errors.append("bench_prototype.recipes.%s.baseCalc: ore type '%s' not in poolSeed" % [recipe_id, ore_type])
 		_validate_bench_prototype_procedure(recipe_id, recipes[recipe_id], approaches, bench.get("gauges", {}), errors)
+		_validate_bench_prototype_hints(recipe_id, recipes[recipe_id].get("procedure", {}), float(bench.get("vagueSpread", 0)), errors)
 	var thresholds: Array = bench.get("rankThresholds", [])
 	if thresholds.size() != 5 or (not thresholds.is_empty() and int(thresholds[0]) != 0):
 		errors.append("bench_prototype.rankThresholds: must be 5 entries starting at 0")
@@ -1448,6 +1449,42 @@ func _validate_bench_prototype_procedure(recipe_id: String, recipe: Dictionary, 
 		expected[ore_type] = int(recipe["baseCalc"][ore_type])
 	if base_calc != expected:
 		errors.append("%s.base: step calc %s does not sum to baseCalc %s" % [where, base_calc, expected])
+
+
+# Each hint names the ideal step it reveals (one hint per step) and has a
+# vague and an exact note; a vague offset past vagueSpread would push the
+# true band out of the fuzzy region; a hint on a base-matched step must
+# actually correct its target.
+func _validate_bench_prototype_hints(recipe_id: String, procedure: Dictionary, vague_spread: float, errors: Array[String]) -> void:
+	var where := "bench_prototype.recipes.%s.procedure.hints" % recipe_id
+	var ideal: Array = procedure.get("ideal", [])
+	var base: Array = procedure.get("base", [])
+	var base_targets := {}
+	var base_matches := BenchPrototype.match_ideal(ideal, base)
+	for i in base.size():
+		base_targets[base_matches[i]] = float(base[i].get("target", -1))
+	var ids := {}
+	var steps := {}
+	for hint in procedure.get("hints", []):
+		_require_keys(hint, ["id", "label", "step", "vague", "exact"], where, errors)
+		var hint_id: String = hint.get("id", "")
+		if ids.has(hint_id):
+			errors.append("%s: duplicate id '%s'" % [where, hint_id])
+		ids[hint_id] = true
+		var step := int(hint.get("step", -1))
+		if step < 0 or step >= ideal.size():
+			errors.append("%s.%s: step %d is not an ideal step index" % [where, hint_id, step])
+			continue
+		if steps.has(step):
+			errors.append("%s.%s: ideal step %d already has a hint" % [where, hint_id, step])
+		steps[step] = true
+		if base_targets.has(step) and is_equal_approx(base_targets[step], float(ideal[step].get("target", -1))):
+			errors.append("%s.%s: base step already has the ideal target" % [where, hint_id])
+		for level in ["vague", "exact"]:
+			if str(hint.get(level, {}).get("note", "")).is_empty():
+				errors.append("%s.%s.%s: note must not be empty" % [where, hint_id, level])
+		if absf(float(hint.get("vague", {}).get("offset", 0))) > vague_spread:
+			errors.append("%s.%s.vague.offset: |offset| must be <= vagueSpread" % [where, hint_id])
 
 
 # Every context in Combat.CANONICAL_CONTEXTS must have a backdrop entry.

@@ -39,7 +39,7 @@ static func _data() -> Dictionary:
 static func new_state() -> Dictionary:
 	var slices := {}
 	for slice_id in SLICES:
-		slices[slice_id] = new_slice()
+		slices[slice_id] = new_slice(slice_id)
 	return {
 		"activeSlice": SLICE_PROCEDURE,
 		# null = follow the player's real craftingSkill (read only).
@@ -49,15 +49,19 @@ static func new_state() -> Dictionary:
 	}
 
 
-static func new_slice() -> Dictionary:
+static func new_slice(slice_id: String) -> Dictionary:
 	var best_ranks := {}
 	var hint_levels := {}
 	for recipe_id in _data().get("roster", []):
 		best_ranks[recipe_id] = 0
-		hint_levels[recipe_id] = "off"
+		var levels := {}
+		for hint in hints(slice_id, recipe_id):
+			levels[hint["id"]] = "off"
+		hint_levels[recipe_id] = levels
 	return {
 		"pool": _data().get("poolSeed", {}).duplicate(),
 		"bestRanks": best_ranks,
+		# recipeId -> { hintId -> "off" | "vague" | "exact" }.
 		"hintLevels": hint_levels,
 		"ledger": [],
 		"xpTotal": 0,
@@ -168,13 +172,34 @@ static func set_bonus_type(bonus_type: String) -> Dictionary:
 	return { "ok": true }
 
 
-static func set_hint_level(slice_id: String, recipe_id: String, level: String) -> Dictionary:
+# The authored hints a slice's debug toggles can grant for a recipe.
+static func hints(slice_id: String, recipe_id: String) -> Array:
+	if slice_id != SLICE_PROCEDURE or not _data()["recipes"].has(recipe_id):
+		return []
+	return procedure_def(recipe_id).get("hints", [])
+
+
+static func hint_def(slice_id: String, recipe_id: String, hint_id: String) -> Dictionary:
+	for hint in hints(slice_id, recipe_id):
+		if hint["id"] == hint_id:
+			return hint
+	return {}
+
+
+static func hint_level(slice_id: String, recipe_id: String, hint_id: String) -> String:
+	var levels = slice(slice_id)["hintLevels"].get(recipe_id)
+	return levels.get(hint_id, "off") if levels is Dictionary else "off"
+
+
+static func set_hint_level(slice_id: String, recipe_id: String, hint_id: String, level: String) -> Dictionary:
 	if not _data().get("hintLevels", []).has(level):
 		return { "ok": false, "reason": "Unknown hint level." }
+	if hint_def(slice_id, recipe_id, hint_id).is_empty():
+		return { "ok": false, "reason": "Unknown hint." }
 	var s := slice(slice_id)
-	if not s["hintLevels"].has(recipe_id):
-		return { "ok": false, "reason": "Unknown recipe." }
-	s["hintLevels"][recipe_id] = level
+	if not s["hintLevels"].get(recipe_id) is Dictionary:
+		s["hintLevels"][recipe_id] = {}
+	s["hintLevels"][recipe_id][hint_id] = level
 	EventBus.state_changed.emit()
 	return { "ok": true }
 
@@ -273,13 +298,52 @@ static func procedure_def(recipe_id: String) -> Dictionary:
 	return _data()["recipes"][recipe_id]["procedure"]
 
 
-# The steps the player knows: the base procedure (spec §Slice A Knowledge).
-# Targets are floats so a saved run round-trips unchanged.
+# The steps the player knows (spec §Slice A Knowledge display): the base
+# procedure, where each granted hint either corrects the target of the base
+# step matching its ideal step or inserts that ideal step (no calc) in ideal
+# order. An unknown ideal step is simply absent. Each step carries
+# knowledge "base", "vague" or "exact"; a hinted one also its hintId and
+# note. Targets are floats so a saved run round-trips unchanged.
 static func known_procedure(recipe_id: String) -> Array:
-	var steps: Array = procedure_def(recipe_id)["base"].duplicate(true)
-	for step in steps:
+	var procedure := procedure_def(recipe_id)
+	var ideal: Array = procedure["ideal"]
+	var base: Array = procedure["base"]
+	var granted := {}
+	for hint in procedure.get("hints", []):
+		var level := hint_level(SLICE_PROCEDURE, recipe_id, hint["id"])
+		if level != "off":
+			granted[int(hint["step"])] = { "hint": hint, "level": level }
+	var steps := []
+	var next_ideal := 0
+	var base_matches := match_ideal(ideal, base)
+	for i in base.size():
+		var m: int = base_matches[i]
+		if m >= 0:
+			_insert_hinted(steps, ideal, granted, next_ideal, m)
+			next_ideal = m + 1
+		var step: Dictionary = base[i].duplicate(true)
 		step["target"] = float(step["target"])
+		step["knowledge"] = "base"
+		if granted.has(m):
+			_apply_hint(step, ideal[m], granted[m])
+		steps.append(step)
+	_insert_hinted(steps, ideal, granted, next_ideal, ideal.size())
 	return steps
+
+
+static func _insert_hinted(steps: Array, ideal: Array, granted: Dictionary, from: int, to: int) -> void:
+	for i in range(from, to):
+		if granted.has(i):
+			var step := { "apparatus": ideal[i]["apparatus"] }
+			_apply_hint(step, ideal[i], granted[i])
+			steps.append(step)
+
+
+static func _apply_hint(step: Dictionary, ideal_step: Dictionary, grant: Dictionary) -> void:
+	step["target"] = float(ideal_step["target"])
+	step["knowledge"] = grant["level"]
+	step["hintId"] = grant["hint"]["id"]
+	step["note"] = grant["hint"][grant["level"]]["note"]
 
 
 # band_half_width = base_tol × (1 + skillFactor × craftingSkill).
@@ -287,11 +351,21 @@ static func band_half_width(recipe_id: String) -> float:
 	return float(procedure_def(recipe_id)["baseTolerance"]) * skill_multiplier()
 
 
-# The exact band shown for a known step, clamped to the 0-100 gauge.
-static func known_band(recipe_id: String, step: Dictionary) -> Dictionary:
+# What the gauge shows for a known step, clamped to the 0-100 gauge: the
+# band around its target, or for a vague step a fuzzy region vagueSpread
+# wider each side and shifted by the hint's offset (|offset| <= vagueSpread,
+# so the true band always sits inside it).
+static func step_region(recipe_id: String, step: Dictionary) -> Dictionary:
 	var half := band_half_width(recipe_id)
-	var target := float(step["target"])
-	return { "low": maxf(0.0, target - half), "high": minf(100.0, target + half) }
+	var low := float(step["target"]) - half
+	var high := float(step["target"]) + half
+	var vague: bool = step.get("knowledge", "base") == "vague"
+	if vague:
+		var spread := float(_data().get("vagueSpread", 0))
+		var offset := float(hint_def(SLICE_PROCEDURE, recipe_id, step["hintId"])["vague"]["offset"])
+		low += offset - spread
+		high += offset + spread
+	return { "low": maxf(0.0, low), "high": minf(100.0, high), "vague": vague }
 
 
 # 1.0 inside the band, falling linearly to 0 at 2× the band.

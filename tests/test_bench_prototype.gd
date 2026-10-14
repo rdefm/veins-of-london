@@ -62,7 +62,9 @@ func run() -> void:
 			assert_eq(s["pool"], _data()["poolSeed"], "%s pool seeds from data" % slice_id)
 			for recipe_id in _data()["roster"]:
 				assert_eq(s["bestRanks"][recipe_id], 0, "%s.%s starts unranked" % [slice_id, recipe_id])
-				assert_eq(s["hintLevels"][recipe_id], "off", "%s.%s hints start off" % [slice_id, recipe_id])
+				for hint in BenchPrototype.hints(slice_id, recipe_id):
+					assert_eq(s["hintLevels"][recipe_id][hint["id"]], "off", "%s.%s.%s starts off" % [slice_id, recipe_id, hint["id"]])
+				assert_eq(s["hintLevels"][recipe_id].size(), BenchPrototype.hints(slice_id, recipe_id).size(), "%s.%s: one level per hint" % [slice_id, recipe_id])
 		var parsed = JSON.parse_string(JSON.stringify(root))
 		assert_true(parsed is Dictionary, "benchPrototype survives a JSON round-trip (pure data)")
 		root["slices"][P]["pool"]["life"] = 1
@@ -218,7 +220,7 @@ func run() -> void:
 	run_case("rewind_restores_slice_exactly", func():
 		var root := _fresh()
 		_run(P, "healingSalve", 45)
-		BenchPrototype.set_hint_level(P, "timePearl", "vague")
+		BenchPrototype.set_hint_level(P, "timePearl", "grindBetween", "vague")
 		var before: Dictionary = GameState.deep_copy(root["slices"][P])
 		before.erase("snapshots")
 		_run(P, "healingSalve", 95)
@@ -253,12 +255,88 @@ func run() -> void:
 		assert_eq(BenchPrototype.effective_skill(), 4)
 	)
 
-	run_case("hint_levels_are_per_slice_per_recipe", func():
+	run_case("hint_levels_are_per_slice_per_recipe_per_hint", func():
 		var root := _fresh()
-		assert_true(BenchPrototype.set_hint_level(P, "healingBurst", "exact")["ok"])
-		assert_true(not BenchPrototype.set_hint_level(P, "healingBurst", "loud")["ok"], "unknown level refused")
-		assert_eq(root["slices"][P]["hintLevels"]["healingBurst"], "exact")
-		assert_eq(root["slices"][C]["hintLevels"]["healingBurst"], "off")
+		assert_true(BenchPrototype.set_hint_level(P, "healingBurst", "heatLower", "exact")["ok"])
+		assert_true(not BenchPrototype.set_hint_level(P, "healingBurst", "heatLower", "loud")["ok"], "unknown level refused")
+		assert_true(not BenchPrototype.set_hint_level(P, "healingBurst", "heatHigher", "exact")["ok"], "another recipe's hint refused")
+		assert_true(not BenchPrototype.set_hint_level(C, "healingBurst", "heatLower", "exact")["ok"], "procedure hints aren't chart hints")
+		assert_eq(root["slices"][P]["hintLevels"]["healingBurst"], { "distilBetween": "off", "heatLower": "exact" })
+		assert_eq(root["slices"][C]["hintLevels"]["healingBurst"], {})
+	)
+
+	run_case("every_authored_hint_has_vague_and_exact_forms", func():
+		_fresh()
+		var ids := []
+		for recipe_id in _data()["roster"]:
+			var hints := BenchPrototype.hints(P, recipe_id)
+			assert_eq(hints.size(), 2, "%s: both table improvements authored" % recipe_id)
+			for hint in hints:
+				ids.append(hint["id"])
+				for level in ["vague", "exact"]:
+					assert_true(not str(hint[level]["note"]).is_empty(), "%s.%s has a note" % [hint["id"], level])
+		assert_eq(ids, ["heatHigher", "distilFinish", "compressLonger", "grindBetween", "distilBetween", "heatLower"])
+	)
+
+	run_case("hints_reshape_the_known_procedure", func():
+		_fresh()
+		var salve := BenchPrototype.known_procedure("healingSalve")
+		assert_eq(salve.map(func(s): return s["knowledge"]), ["base", "base"], "no hints: base only, distil hidden")
+		assert_eq(salve[1]["target"], 50.0)
+		BenchPrototype.set_hint_level(P, "healingSalve", "heatHigher", "exact")
+		BenchPrototype.set_hint_level(P, "healingSalve", "distilFinish", "vague")
+		salve = BenchPrototype.known_procedure("healingSalve")
+		assert_eq(salve.map(func(s): return s["apparatus"]), ["grinding", "heat", "distilling"], "distil appended")
+		assert_eq(salve[1]["target"], 62.0, "exact hint corrects the heat target")
+		assert_eq(salve[1]["knowledge"], "exact")
+		assert_eq(salve[0]["calc"], { "life": 3 }, "base calc stays on its step")
+		assert_eq(salve[2]["knowledge"], "vague")
+		assert_true(not salve[2].has("calc"), "inserted step costs nothing")
+		assert_eq(salve[2]["note"], BenchPrototype.hint_def(P, "healingSalve", "distilFinish")["vague"]["note"], "vague note shown")
+		BenchPrototype.set_hint_level(P, "timePearl", "grindBetween", "exact")
+		assert_eq(BenchPrototype.known_procedure("timePearl").map(func(s): return s["apparatus"]), ["compression", "grinding", "heat"], "grind inserted between")
+		BenchPrototype.set_hint_level(P, "healingBurst", "distilBetween", "vague")
+		assert_eq(BenchPrototype.known_procedure("healingBurst").map(func(s): return s["apparatus"]), ["grinding", "compression", "distilling", "heat"], "distil inserted before heat")
+		BenchPrototype.set_hint_level(P, "healingSalve", "distilFinish", "off")
+		assert_eq(BenchPrototype.known_procedure("healingSalve").size(), 2, "off hides the step again")
+	)
+
+	run_case("vague_region_always_contains_the_true_band", func():
+		_fresh()
+		for skill in range(0, 11):
+			BenchPrototype.set_skill_override(skill)
+			for recipe_id in _data()["roster"]:
+				var ideal: Array = BenchPrototype.procedure_def(recipe_id)["ideal"]
+				var half := BenchPrototype.band_half_width(recipe_id)
+				for hint in BenchPrototype.hints(P, recipe_id):
+					var target := float(ideal[int(hint["step"])]["target"])
+					for level in ["vague", "exact"]:
+						BenchPrototype.set_hint_level(P, recipe_id, hint["id"], level)
+						var step: Dictionary = BenchPrototype.known_procedure(recipe_id).filter(func(s): return s.get("hintId") == hint["id"])[0]
+						var region := BenchPrototype.step_region(recipe_id, step)
+						var low := maxf(0.0, target - half)
+						var high := minf(100.0, target + half)
+						var label := "%s.%s %s at skill %d" % [recipe_id, hint["id"], level, skill]
+						if level == "exact":
+							assert_true(is_equal_approx(region["low"], low) and is_equal_approx(region["high"], high) and not region["vague"], label + ": true band")
+						else:
+							assert_true(region["low"] <= low and region["high"] >= high and region["vague"], label + ": region contains band")
+							assert_true(region["high"] - region["low"] > high - low, label + ": region is wider")
+	)
+
+	run_case("all_hints_exact_and_a_perfect_run_reaches_rank_5", func():
+		var root := _fresh()
+		BenchPrototype.set_skill_override(0)
+		for recipe_id in _data()["roster"]:
+			for hint in BenchPrototype.hints(P, recipe_id):
+				BenchPrototype.set_hint_level(P, recipe_id, hint["id"], "exact")
+			var steps := BenchPrototype.known_procedure(recipe_id)
+			assert_true(BenchPrototype.begin_procedure_run(recipe_id)["ok"], "%s opens" % recipe_id)
+			var result := {}
+			for step in steps:
+				result = _perform_at(float(step["target"]))
+			assert_eq(result["entry"]["score"], 100, "%s: perfect with every hint" % recipe_id)
+			assert_eq(root["slices"][P]["bestRanks"][recipe_id], 5, "%s reaches rank 5" % recipe_id)
 	)
 
 	run_case("no_prototype_action_touches_state_outside_bench_prototype", func():
@@ -269,7 +347,7 @@ func run() -> void:
 		BenchPrototype.set_bonus_type("calcRefund")
 		for slice_id in BenchPrototype.SLICES:
 			BenchPrototype.set_active_slice(slice_id)
-			BenchPrototype.set_hint_level(slice_id, "timePearl", "exact")
+			BenchPrototype.set_hint_level(slice_id, "timePearl", "compressLonger", "exact")
 			_run(slice_id, "healingSalve", 92)
 			_run(slice_id, "healingBurst", 5)
 			BenchPrototype.batch(slice_id, "healingSalve", 5)
@@ -318,7 +396,7 @@ func run() -> void:
 		assert_eq(BenchPrototype.band_half_width("healingSalve"), 8.0, "skill 0 = base tolerance")
 		BenchPrototype.set_skill_override(10)
 		assert_true(is_equal_approx(BenchPrototype.band_half_width("healingSalve"), 14.4), "skill 10 = base × 1.8")
-		var band := BenchPrototype.known_band("healingSalve", { "target": 50 })
+		var band := BenchPrototype.step_region("healingSalve", { "target": 50 })
 		assert_true(is_equal_approx(band["low"], 35.6) and is_equal_approx(band["high"], 64.4), "known band is target ± half-width")
 	)
 
@@ -344,7 +422,7 @@ func run() -> void:
 		assert_eq(BenchPrototype.score_procedure("healingSalve", [{ "apparatus": "compression", "value": 0.0 }])["score"], 0, "score clamps at 0")
 	)
 
-	run_case("base_procedure_executed_perfectly_caps_at_rank_2_to_3", func():
+	run_case("base_only_procedure_executed_perfectly_caps_at_rank_2_to_3", func():
 		_fresh()
 		for skill in [0, 10]:
 			BenchPrototype.set_skill_override(skill)
