@@ -273,7 +273,7 @@ static func _faction_effective_price(faction_id: String, kind: String, item_type
 static func get_faction_buy_price(faction_id: String, kind: String, item_type: String, apply_district: bool = true) -> int:
 	var effective := _faction_effective_price(faction_id, kind, item_type, apply_district)
 	var gouge := FactionAI.gouge_mult(Shares.PLAYER) if faction_id == "network" else 1.0
-	return GameState.round_epsilon(effective * (1.0 + get_faction_buy_spread(faction_id)) * gouge)
+	return GameState.round_epsilon(effective * (1.0 + get_faction_buy_spread(faction_id)) * gouge * KeyMembers.shop_mult(faction_id))
 
 
 static func get_faction_sell_price(faction_id: String, kind: String, item_type: String) -> int:

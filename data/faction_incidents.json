@@ -1,6 +1,21 @@
 {
   "queueCap": 6,
   "succession": { "margin": 15, "days": 5, "weights": { "favourKept": 6, "favourFailed": -6, "questStep": 8, "hostileAct": 2, "peaceDeal": 4, "warLoss": -10 } },
+  "personal": {
+    "insideManAt": 60, "betrayAt": -20, "shopMult": 0.9, "horizonDays": 7, "repeatDays": 5, "betrayChance": 0.05,
+    "leakKinds": ["stockpile", "raidTiming"],
+    "leaks": {
+      "stockpile": { "amount": 12, "notice": "PROSE-REVIEW placeholder: %s let slip where you keep your stock. The %s now know." },
+      "raidTiming": { "amount": 8, "notice": "PROSE-REVIEW placeholder: %s sold your raid timing. The %s are listening." }
+    },
+    "lines": {
+      "collective": { "warn": "PROSE-REVIEW placeholder: \"Between us: we're planning %s, %s. I didn't say.\"", "truce": "PROSE-REVIEW placeholder: \"If you want this ended, talk to me. Quietly.\"" },
+      "firm": { "warn": "PROSE-REVIEW placeholder: \"Off the record: %s, %s. Not from me.\"", "truce": "PROSE-REVIEW placeholder: \"There's a back door to the table. I can hold it open.\"" },
+      "guild": { "warn": "PROSE-REVIEW placeholder: \"A courtesy, unofficial: %s, %s.\"", "truce": "PROSE-REVIEW placeholder: \"A private settlement can be arranged. Come through me.\"" },
+      "network": { "warn": "PROSE-REVIEW placeholder: \"You didn't hear it here: %s, %s.\"", "truce": "PROSE-REVIEW placeholder: \"I can get you a quiet word with the people deciding.\"" },
+      "conclave": { "warn": "PROSE-REVIEW placeholder: \"Informally: %s, %s. Do with that what you will.\"", "truce": "PROSE-REVIEW placeholder: \"The chamber need not know we spoke. Terms can be discussed.\"" }
+    }
+  },
   "entries": {
     "inc_succession": {
       "id": "inc_succession",

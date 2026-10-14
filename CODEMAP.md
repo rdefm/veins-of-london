@@ -67,7 +67,7 @@ Data file per system: see `data/*.json` below.
 | lodedinnit_feed.gd | LodedInnit Feed: per-block post roll (weighted author, no repeat until pool spent, likes, 0-2 canned comments, cap 50), templated hire-status posts (`post_status`: hired/let go/poached/market flip), unseen badge count, `mark_seen`, card display model (R§3.10 "LodedInnit Feed") |
 | hiring.gd | LodedInnit roster + `state.hiring` status, rollover market flips; profile level/cap/wage; `hire()` (or poach: ×premium, relation cost) into a free role-room seat, first week prepaid pot→float or float top-up ask; wage refresh; `let_go()`; weekly faction poach offers on hires (`daily_poach_tick`, `match_poach`, `decline_poach`) (R§3.10 "Hiring") |
 | jobs.gd | James's jobs, trust bands |
-| key_members.gd | Faction key members (R§3.10): member/faction lookup, `contenders`, `leader_of`, `speaker_for` (= the faction leader), `send` (unlocks + intro on first message, or waits for a quest-gated member's questline); contender standing sources (favours, questline steps, player acts, war loss), `daily_tick` succession, and FactionAI's `aggression_scale`/`baseline_shift` |
+| key_members.gd | Faction key members (R§3.10): member/faction lookup, `contenders`, `leader_of`, `speaker_for` (= the faction leader), `send` (unlocks + intro first); standing sources, `daily_tick` succession, `aggression_scale`/`baseline_shift`, `inside_man` (warnings, shop discount, talks back channel), `betray` leaks |
 | lab_bench_nav.gd | Lab bench nav: selected ore; gear confirm variant (probe/craft/inert) + readiness |
 | faction_incidents.gd | FactionIncidents (R§3.1f): daily tick runs data-driven triggers (`raidedByFaction`, `warBetween`, `truceExpiring`, `turfFlip`, `succession`) with cooldowns/conditions; a hit queues its event + key-member pending message; `start_pending` plays it. Data: faction_incidents.json. |
 | grudges.gd | Grudges: `state.grudges` (per-faction score to settle after a successful raid on you), `state.grudgeEffects` (soft marks, revenge windows), `record`, `answer`/`answer_district` hooks, `raid_odds_bonus`, `daily_tick` expiry, `soft_pressure` (read by `FactionAI.threat`), district rows. Data: constants.json `factionGrudge`. |
@@ -276,7 +276,7 @@ overlays.
 | faction_trade.json | economy.gd |
 | faction_perks.json | perks.gd |
 | player_moves.json | player_moves.gd (moves: cost, intel gate, duration, sell mult, leak strength; relation hits) |
-| faction_incidents.json | faction_incidents.gd (entries: trigger, eventId, cooldownDays, conditions, notice; queueCap) |
+| faction_incidents.json | faction_incidents.gd (entries: trigger, eventId, cooldownDays, conditions, notice; queueCap; succession, personal) |
 | faction_harassment.json | harassment.gd (entries, escalation cadence, kind labels), faction_ai.gd (menu ids) |
 | factions.json | factions.gd, sites.gd, raiding.gd, debug_start.gd, faction_sim.gd (`startingHoldings`, `stockpilePlaces`, `stockpileGuards`, `cultivateSkill`, `fieldwork`, `craftSkill`, `craftTargets`, `raidKits`, `consumes`, `trading`, `industryIncome`), key_members.gd (`keyMembers`, `speaker`), diplomacy.gd (`sampleFavours`, `giftPrefs`), faction_ai.gd (`aggressionPersonality`, `weariness`) |
 | lodedinnit.json | GameData.gd (`LODEDINNIT_*`), lodedinnit_feed.gd: feed cap/likes/author weights, per-candidate post voices (trait variants), shared canned comments, hire-status templates |

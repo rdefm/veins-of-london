@@ -2239,7 +2239,7 @@ static func can_open_talks(faction_id: String) -> Dictionary:
 		return { "ok": false, "reason": "Finish the talks you're in first." }
 	if not at_war(Shares.PLAYER, faction_id):
 		return { "ok": false, "reason": "You're not at war with them." }
-	if peace_cooling(faction_id):
+	if peace_cooling(faction_id) and KeyMembers.inside_man(faction_id) == "":
 		return { "ok": false, "reason": "They won't talk again yet." }
 	return { "ok": true }
 

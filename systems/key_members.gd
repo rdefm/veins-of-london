@@ -208,3 +208,109 @@ static func aggression_scale(faction_id: String) -> float:
 static func baseline_shift(faction_id: String) -> int:
 	var base := int(member(default_leader(faction_id)).get("relationBaseline", 0))
 	return int(member(leader_of(faction_id)).get("relationBaseline", base)) - base
+
+
+# ── Inside man and betrayal (R§3.10 "Key members") ──────────────────────
+# Personal relations cut across faction lines (faction_incidents.json
+# `personal`): a close member of a faction that's Annoyed with the player
+# warns of its planned moves, opens a back channel for truce talks and
+# discounts its shop; a neglected member may leak the player's affairs to a rival.
+
+static func _pcfg() -> Dictionary:
+	return GameData.FACTION_INCIDENTS["personal"]
+
+
+static func personal_relation(contact_id: String) -> int:
+	return int(GameState.state["contacts"].get(contact_id, {}).get("relation", 0))
+
+
+static func _met(contact_id: String) -> bool:
+	return bool(GameState.state["contacts"].get(contact_id, {}).get("unlocked", false))
+
+
+# The closest unlocked member of faction_id at personal relation ≥ insideManAt
+# while the faction's player relation is below its warning line, or "".
+static func inside_man(faction_id: String) -> String:
+	if not GameState.state["factions"].has(faction_id):
+		return ""
+	if int(GameState.state["factions"][faction_id]["relation"]) >= FactionAI.warning_line(faction_id):
+		return ""
+	var best := ""
+	for m in members(faction_id):
+		var id: String = m["contactId"]
+		if _met(id) and personal_relation(id) >= int(_pcfg()["insideManAt"]):
+			if best == "" or personal_relation(id) > personal_relation(best):
+				best = id
+	return best
+
+
+# Price multiplier on faction_id's shop while it has an inside man.
+static func shop_mult(faction_id: String) -> float:
+	return float(_pcfg()["shopMult"]) if inside_man(faction_id) != "" else 1.0
+
+
+static func _warned_recently(contact_id: String, key: String) -> bool:
+	var warned: Dictionary = GameState.state["partners"]["warned"]
+	var last := int(warned.get(contact_id, {}).get(key, -1))
+	return last >= 0 and int(GameState.state["world"]["day"]) - last < int(_pcfg()["repeatDays"])
+
+
+static func _mark_warned(contact_id: String, key: String) -> void:
+	var warned: Dictionary = GameState.state["partners"]["warned"]
+	if not warned.has(contact_id):
+		warned[contact_id] = {}
+	warned[contact_id][key] = int(GameState.state["world"]["day"])
+
+
+# Each faction's inside man warns of the soonest move it plans against the
+# player within horizonDays, and mentions the back channel while at war.
+static func inside_man_tick() -> void:
+	var cfg: Dictionary = _pcfg()
+	var plans := FactionAI.planned_moves(int(cfg["horizonDays"])).filter(func(p: Dictionary) -> bool:
+		return p["targetId"] == Shares.PLAYER and p["move"] != FactionAI.PLAN_WARNING)
+	for faction_id in GameData.FACTIONS.keys():
+		var contact_id := inside_man(faction_id)
+		if contact_id == "":
+			continue
+		for plan in plans:
+			if plan["factionId"] != faction_id or _warned_recently(contact_id, "warn"):
+				continue
+			Messages.append(contact_id, "them", cfg["lines"][faction_id]["warn"] % [NetworkHandler.move_label(plan), NetworkHandler.when_text(int(plan["day"]))])
+			_mark_warned(contact_id, "warn")
+		if FactionAI.at_war(Shares.PLAYER, faction_id) and not _warned_recently(contact_id, "truce"):
+			Messages.append(contact_id, "them", cfg["lines"][faction_id]["truce"])
+			_mark_warned(contact_id, "truce")
+
+
+# The faction other than faction_id with the lowest player relation: the
+# rival most likely to act on a leak.
+static func _leak_rival(faction_id: String) -> String:
+	var rival := ""
+	for other in GameData.FACTIONS.keys():
+		if other == faction_id:
+			continue
+		if rival == "" or int(GameState.state["factions"][other]["relation"]) < int(GameState.state["factions"][rival]["relation"]):
+			rival = other
+	return rival
+
+
+# A member at personal relation ≤ betrayAt may sell the player out, raising
+# a rival's intel on the player. Returns true if a leak happened.
+static func betray(contact_id: String) -> bool:
+	var faction_id := faction_of(contact_id)
+	var rival := _leak_rival(faction_id)
+	if rival == "":
+		return false
+	var cfg: Dictionary = _pcfg()
+	var kind: String = cfg["leakKinds"][Rng.randi_range(0, cfg["leakKinds"].size() - 1)]
+	Intel.raise(rival, Shares.PLAYER, int(cfg["leaks"][kind]["amount"]))
+	Notify.push(cfg["leaks"][kind]["notice"] % [str(member(contact_id).get("name", contact_id)), GameData.FACTIONS[rival]["shortName"]])
+	return true
+
+
+static func betrayal_tick() -> void:
+	for faction_id in GameData.FACTIONS.keys():
+		for m in members(faction_id):
+			var id: String = m["contactId"]
+			if _met(id) and personal_relation(id) <= int(_pcfg()["betrayAt"]) and Rng.chance(float(_pcfg()["betrayChance"])):
+				betray(id)
