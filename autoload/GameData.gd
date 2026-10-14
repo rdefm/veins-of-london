@@ -1398,7 +1398,7 @@ func _validate_bench_prototype(bench: Dictionary, approaches: Dictionary, errors
 		for ore_type in base_calc.keys():
 			if not pool_seed.has(ore_type):
 				errors.append("bench_prototype.recipes.%s.baseCalc: ore type '%s' not in poolSeed" % [recipe_id, ore_type])
-		_validate_bench_prototype_procedure(recipe_id, recipes[recipe_id], approaches, errors)
+		_validate_bench_prototype_procedure(recipe_id, recipes[recipe_id], approaches, bench.get("gauges", {}), errors)
 	var thresholds: Array = bench.get("rankThresholds", [])
 	if thresholds.size() != 5 or (not thresholds.is_empty() and int(thresholds[0]) != 0):
 		errors.append("bench_prototype.rankThresholds: must be 5 entries starting at 0")
@@ -1414,8 +1414,9 @@ func _validate_bench_prototype(bench: Dictionary, approaches: Dictionary, errors
 
 
 # Slice A procedure: ideal weights sum to 100; every step names a real
-# apparatus and a 0-100 target; the base steps' calc sums to baseCalc.
-func _validate_bench_prototype_procedure(recipe_id: String, recipe: Dictionary, approaches: Dictionary, errors: Array[String]) -> void:
+# apparatus with a gauges entry and a 0-100 target; the base steps' calc
+# sums to baseCalc.
+func _validate_bench_prototype_procedure(recipe_id: String, recipe: Dictionary, approaches: Dictionary, gauges: Dictionary, errors: Array[String]) -> void:
 	var where := "bench_prototype.recipes.%s.procedure" % recipe_id
 	var procedure: Dictionary = recipe.get("procedure", {})
 	_require_keys(procedure, ["baseTolerance", "ideal", "base"], where, errors)
@@ -1434,6 +1435,8 @@ func _validate_bench_prototype_procedure(recipe_id: String, recipe: Dictionary, 
 		for step in steps:
 			if not approaches.has(step.get("apparatus", "")):
 				errors.append("%s.%s: unknown apparatus '%s'" % [where, list_name, step.get("apparatus", "")])
+			elif not gauges.has(step["apparatus"]):
+				errors.append("%s.%s: no gauges entry for apparatus '%s'" % [where, list_name, step["apparatus"]])
 			var target := float(step.get("target", -1))
 			if target < 0.0 or target > 100.0:
 				errors.append("%s.%s: target must be 0-100" % [where, list_name])

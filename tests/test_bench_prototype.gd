@@ -24,6 +24,30 @@ func _run(slice_id: String, recipe_id: String, score: int) -> Dictionary:
 
 
 # Everything in GameState.state except the prototype's own tree.
+# Performs the open procedure run's current step dead on value, with the
+# raw input each gauge reports.
+func _perform_at(value: float) -> Dictionary:
+	var apparatus: String = BenchPrototype.current_step()["apparatus"]
+	match apparatus:
+		"grinding":
+			var readings := []
+			for i in int(_data()["gauges"]["grinding"]["strokes"]):
+				readings.append(value)
+			return BenchPrototype.perform_grind(readings)
+		"distilling":
+			return BenchPrototype.perform_distil(_distil_taps(value))
+	return BenchPrototype.perform_step(value)
+
+
+# One tap per drip, each as the drip passes value.
+func _distil_taps(value: float) -> Array:
+	var g: Dictionary = _data()["gauges"]["distilling"]
+	var taps := []
+	for i in int(g["drips"]):
+		taps.append(i * float(g["beatMsec"]) + value / 100.0 * float(g["fallMsec"]))
+	return taps
+
+
 func _outside_state() -> Dictionary:
 	var copy: Dictionary = GameState.deep_copy(GameState.state)
 	copy.erase("benchPrototype")
@@ -332,31 +356,140 @@ func run() -> void:
 				assert_true(rank >= 2 and rank <= 3, "%s at skill %d reaches rank %d" % [recipe_id, skill, rank])
 	)
 
-	run_case("procedure_run_spends_per_step_auto_passes_and_scores_heat", func():
+	run_case("procedure_run_spends_per_step_and_scores_grind_then_heat", func():
 		var root := _fresh()
 		var before := _outside_state()
 		Rng.set_seed(1)
 		BenchPrototype.set_skill_override(0)
 		var s: Dictionary = root["slices"][P]
 		var opened := BenchPrototype.begin_procedure_run("healingSalve")
-		assert_true(opened["ok"] and not opened["done"], "run opens and waits on heat")
-		assert_eq(s["pool"]["life"], 37, "auto-passed grind spent its life calc")
-		assert_eq(BenchPrototype.current_step()["apparatus"], "heat", "current step is the heat step")
+		assert_true(opened["ok"] and not opened["done"], "run opens and waits on the grind")
+		assert_eq(s["pool"]["life"], 40, "nothing spent until a step is performed")
+		assert_eq(BenchPrototype.current_step()["apparatus"], "grinding", "no step auto-passes")
+		assert_true(not BenchPrototype.perform_step(50.0)["ok"], "a hold reading can't perform a grind")
+		assert_true(not BenchPrototype.perform_distil([])["ok"], "nor can distil taps")
+		assert_true(not BenchPrototype.perform_grind([50.0, 50.0, 50.0])["done"])
+		assert_eq(s["pool"]["life"], 37, "grind spent its life calc")
+		assert_true(not BenchPrototype.perform_grind([50.0])["ok"], "grind is done; heat is next")
 		var result := BenchPrototype.perform_step(62.0)
 		assert_true(result["ok"] and result["done"], "last step finishes the run")
 		assert_eq(result["entry"]["score"], 70, "grind 30 + heat 40, distil missing")
 		assert_eq(result["entry"]["rank"], 3)
 		assert_eq(s["bestRanks"]["healingSalve"], 3, "best rank set via the core")
 		assert_eq(s["ledger"].size(), 1, "ledger logs the run")
+		assert_eq(result["entry"]["steps"][0], { "apparatus": "grinding", "readings": [50.0, 50.0, 50.0], "accuracy": 1.0 }, "ledger keeps the grind strokes")
 		assert_eq(result["entry"]["steps"][1], { "apparatus": "heat", "value": 62.0, "accuracy": 1.0 }, "ledger keeps per-step results")
 		assert_eq(s["activeRun"], null, "run closed")
 		assert_eq(_outside_state(), before, "real state untouched")
+	)
+
+	run_case("grind_scores_mean_stroke_accuracy_short_strokes_miss", func():
+		_fresh()
+		BenchPrototype.set_skill_override(0)
+		# healingSalve ±8 band on target 50: 62 is half accuracy, 70 is none.
+		var acc := func(readings: Array) -> float:
+			return BenchPrototype.performed_accuracy({ "readings": readings }, 50.0, 8.0)
+		assert_true(is_equal_approx(acc.call([50.0, 62.0, 70.0]), 0.5), "mean of 1, 0.5, 0")
+		assert_true(is_equal_approx(acc.call([38.0, 62.0, 50.0]), 2.0 / 3.0), "errors either side don't cancel")
+		BenchPrototype.begin_procedure_run("healingSalve")
+		BenchPrototype.perform_grind([50.0, 999.0, 50.0, 50.0, 50.0])
+		var performed: Dictionary = GameState.state["benchPrototype"]["slices"][P]["activeRun"]["performed"][0]
+		assert_eq(performed["readings"], [50.0, 100.0, 50.0], "clamped, extras past the stroke count ignored")
+		BenchPrototype.abandon_run(P)
+		BenchPrototype.begin_procedure_run("healingSalve")
+		BenchPrototype.perform_grind([50.0])
+		performed = GameState.state["benchPrototype"]["slices"][P]["activeRun"]["performed"][0]
+		assert_eq(performed["readings"], [50.0, null, null], "missing strokes read as misses")
+		assert_true(is_equal_approx(acc.call(performed["readings"]), 1.0 / 3.0), "a miss scores 0")
+	)
+
+	run_case("compress_past_crack_line_ends_run_and_loses_calc", func():
+		var root := _fresh()
+		var s: Dictionary = root["slices"][P]
+		var crack_at := float(_data()["gauges"]["compression"]["crackAt"])
+		BenchPrototype.begin_procedure_run("timePearl")
+		var safe := BenchPrototype.perform_step(crack_at - 0.5)
+		assert_true(safe["ok"] and not safe.get("cracked", false), "just under the line holds")
+		BenchPrototype.abandon_run(P)
+		BenchPrototype.rewind(P)
+		s = root["slices"][P]
+		BenchPrototype.begin_procedure_run("timePearl")
+		var cracked := BenchPrototype.perform_step(crack_at)
+		assert_true(cracked["ok"] and cracked["done"] and cracked["cracked"], "the crack line ends the run")
+		assert_eq(cracked["entry"]["kind"], "cracked")
+		assert_eq(cracked["entry"]["items"], 0, "no item")
+		assert_eq(s["pool"]["time"], 37, "the compress step's calc is lost")
+		assert_eq(s["activeRun"], null, "run closed")
+		assert_eq(s["bestRanks"]["timePearl"], 0, "no rank from a crack")
+		assert_true(not BenchPrototype.perform_step(25.0)["ok"], "heat never runs")
+		BenchPrototype.rewind(P)
+		assert_eq(root["slices"][P]["pool"], _data()["poolSeed"], "rewind restores the calc")
+		# A heat step at the same value is no crack.
+		BenchPrototype.begin_procedure_run("timePearl")
+		BenchPrototype.perform_step(80.0)
+		assert_true(not BenchPrototype.perform_step(crack_at).get("cracked", false), "only compression cracks")
+	)
+
+	run_case("distil_taps_read_drip_positions_stray_tap_spoils", func():
+		_fresh()
+		var g: Dictionary = _data()["gauges"]["distilling"]
+		var beat := float(g["beatMsec"])
+		var fall := float(g["fallMsec"])
+		var clean := BenchPrototype.distil_readings(_distil_taps(50.0))
+		assert_eq(clean, { "readings": [50.0, 50.0, 50.0, 50.0], "stray": false }, "one mid-fall tap per drip")
+		var missed := BenchPrototype.distil_readings([fall * 0.25, 2 * beat + fall * 0.5])
+		assert_eq(missed, { "readings": [25.0, null, 50.0, null], "stray": false }, "untapped drips read null")
+		for stray_tap in [-10.0, fall + 50.0, 4 * beat]:
+			assert_true(BenchPrototype.distil_readings([stray_tap])["stray"], "tap at %d is stray" % stray_tap)
+		assert_true(BenchPrototype.distil_readings([100.0, 200.0])["stray"], "a second tap on one drip is stray")
+		assert_eq(BenchPrototype.performed_accuracy({ "readings": [50.0, 50.0, 50.0, 50.0], "stray": true }, 50.0, 8.0), 0.0, "stray spoils the step")
+		assert_true(is_equal_approx(BenchPrototype.performed_accuracy(missed, 50.0, 8.0), 0.25), "one drip in band of four")
+	)
+
+	run_case("distil_step_performs_in_a_run_with_the_hidden_step", func():
+		var root := _fresh()
+		BenchPrototype.set_skill_override(0)
+		BenchPrototype.begin_procedure_run("healingSalve")
+		var run: Dictionary = root["slices"][P]["activeRun"]
+		run["procedure"][1]["target"] = 62.0
+		run["procedure"].append({ "apparatus": "distilling", "target": 50.0 })
+		_perform_at(50.0)
+		_perform_at(62.0)
+		var result := _perform_at(50.0)
+		assert_true(result["done"], "distil closes the run")
+		assert_eq(result["entry"]["score"], 100, "full ideal performed dead on")
+		var spoiled_taps := _distil_taps(50.0)
+		spoiled_taps.append(-10.0)
+		BenchPrototype.begin_procedure_run("healingSalve")
+		run = root["slices"][P]["activeRun"]
+		run["procedure"][1]["target"] = 62.0
+		run["procedure"].append({ "apparatus": "distilling", "target": 50.0 })
+		_perform_at(50.0)
+		_perform_at(62.0)
+		result = BenchPrototype.perform_distil(spoiled_taps)
+		assert_eq(result["entry"]["score"], 70, "a stray tap zeroes the distil's 30")
+	)
+
+	run_case("every_recipe_plays_end_to_end_with_no_auto_steps", func():
+		var root := _fresh()
+		for recipe_id in _data()["roster"]:
+			var steps := BenchPrototype.known_procedure(recipe_id)
+			BenchPrototype.begin_procedure_run(recipe_id)
+			var result := {}
+			for step in steps:
+				assert_eq(root["slices"][P]["activeRun"]["performed"].size(), steps.find(step), "%s: waits on step %s" % [recipe_id, step["apparatus"]])
+				result = _perform_at(float(step["target"]))
+				assert_true(result["ok"], "%s: %s performs" % [recipe_id, step["apparatus"]])
+			assert_true(result["done"] and result["entry"]["kind"] == "run", "%s finishes" % recipe_id)
+			assert_eq(result["entry"]["steps"].size(), steps.size(), "%s: one result per step" % recipe_id)
 	)
 
 	run_case("abandoned_procedure_run_loses_spent_calc_and_rewind_restores_it", func():
 		var root := _fresh()
 		var s: Dictionary = root["slices"][P]
 		BenchPrototype.begin_procedure_run("healingBurst")
+		_perform_at(50.0)
+		_perform_at(60.0)
 		assert_eq(s["pool"], { "life": 38, "time": 38 }, "grind and compress spent step by step")
 		assert_eq(s["activeRun"]["calcSpent"], { "life": 2, "time": 2 })
 		BenchPrototype.abandon_run(P)
@@ -403,4 +536,10 @@ func run() -> void:
 				calc = true
 		assert_true(weights, "weights not summing to 100 flagged")
 		assert_true(calc, "base calc not matching baseCalc flagged")
+		corrupted["bench_prototype"]["gauges"].erase("distilling")
+		var gauges := false
+		for e in GameData.validate_tables(corrupted):
+			if e.contains("no gauges entry for apparatus 'distilling'"):
+				gauges = true
+		assert_true(gauges, "an apparatus with no gauge flagged")
 	)

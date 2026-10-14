@@ -153,23 +153,50 @@ func _build_procedure_card(s: Dictionary) -> Control:
 		var mark: String = "✓ " if i < done else ("▸ " if i == done else "  ")
 		c["content"].add_child(UI.muted_label(mark + _step_text(recipe_id, i, run["procedure"][i])))
 	var step = BenchPrototype.current_step()
-	if step != null and step["apparatus"] == "heat":
-		var band := BenchPrototype.known_band(recipe_id, step)
-		var gauge := HeatGauge.new()
-		gauge.band_low = band["low"]
-		gauge.band_high = band["high"]
-		gauge.rise_per_sec = float(GameData.BENCH_PROTOTYPE["gauges"]["heat"]["risePerSec"])
-		gauge.committed.connect(func(value: float): BenchPrototype.perform_step(value))
-		c["content"].add_child(UI.muted_label("Hold to heat. Release inside the band."))
-		c["content"].add_child(gauge)
+	if step != null:
+		_add_step_gauge(c["content"], recipe_id, step)
 	c["content"].add_child(MapCardStyle.text_button("Abandon", func(): BenchPrototype.abandon_run(BenchPrototype.SLICE_PROCEDURE)))
 	return c["panel"]
 
 
+func _add_step_gauge(content: VBoxContainer, recipe_id: String, step: Dictionary) -> void:
+	var band := BenchPrototype.known_band(recipe_id, step)
+	var g := BenchPrototype.gauge(step["apparatus"])
+	match step["apparatus"]:
+		"heat", "compression":
+			var hold := HoldGauge.new()
+			hold.rise_per_sec = float(g["risePerSec"])
+			hold.crack_at = float(g.get("crackAt", -1.0))
+			hold.committed.connect(func(value: float): BenchPrototype.perform_step(value))
+			content.add_child(UI.muted_label("Hold to heat. Release inside the band." if step["apparatus"] == "heat"
+				else "Hold to build pressure. Release inside the band — past the red line it cracks."))
+			_add_gauge(content, hold, band)
+		"grinding":
+			var grind := GrindGauge.new()
+			grind.strokes = int(g["strokes"])
+			grind.period_sec = float(g["swingPeriodSec"])
+			grind.committed.connect(func(readings: Array): BenchPrototype.perform_grind(readings))
+			content.add_child(UI.muted_label("Tap %d strokes as the pestle swings through the band." % grind.strokes))
+			_add_gauge(content, grind, band)
+		"distilling":
+			var distil := DistilGauge.new()
+			distil.drips = int(g["drips"])
+			distil.beat_msec = float(g["beatMsec"])
+			distil.fall_msec = float(g["fallMsec"])
+			distil.lead_in_msec = float(g["leadInMsec"])
+			distil.committed.connect(func(taps: Array): BenchPrototype.perform_distil(taps))
+			content.add_child(UI.muted_label("Tap once as each drip crosses the band. A stray tap spoils it."))
+			_add_gauge(content, distil, band)
+
+
+func _add_gauge(content: VBoxContainer, gauge: StepGauge, band: Dictionary) -> void:
+	gauge.band_low = band["low"]
+	gauge.band_high = band["high"]
+	content.add_child(gauge)
+
+
 func _step_text(recipe_id: String, index: int, step: Dictionary) -> String:
 	var apparatus: String = GameData.APPROACHES[step["apparatus"]]["name"]
-	if not BenchPrototype.INTERACTIVE_APPARATUS.has(step["apparatus"]):
-		return "%d. %s → %d (auto)" % [index + 1, apparatus, step["target"]]
 	var band := BenchPrototype.known_band(recipe_id, step)
 	return "%d. %s → band %d–%d" % [index + 1, apparatus, roundi(band["low"]), roundi(band["high"])]
 
@@ -198,6 +225,8 @@ func _entry_text(entry: Dictionary) -> String:
 			return "Batch %s ×%d at rank %d · +%d XP" % [recipe_name, entry["items"], entry["rank"], entry["xp"]]
 		"abandoned":
 			return "Abandoned %s · %.1fs" % [recipe_name, entry["durationMsec"] / 1000.0]
+		"cracked":
+			return "Cracked the vessel on %s · %.1fs · calc lost" % [recipe_name, entry["durationMsec"] / 1000.0]
 	var bonus_text := ""
 	if entry["bonus"] != null:
 		bonus_text = " · bonus: %s" % GameData.BENCH_PROTOTYPE["bonus"]["types"][entry["bonus"]]["label"]
@@ -215,47 +244,156 @@ func _steps_text(steps: Array) -> String:
 	var parts := PackedStringArray()
 	for step in steps:
 		var accuracy: String = "extra" if step["accuracy"] == null else "%d%%" % roundi(step["accuracy"] * 100.0)
-		parts.append("%s %d (%s)" % [step["apparatus"], roundi(step["value"]), accuracy])
+		var reading: String
+		if step.get("stray", false):
+			reading = "spoiled"
+		elif step.has("readings"):
+			reading = "/".join(PackedStringArray(step["readings"].map(func(r): return "–" if r == null else str(roundi(r)))))
+		else:
+			reading = str(roundi(step["value"]))
+		parts.append("%s %s (%s)" % [step["apparatus"], reading, accuracy])
 	return " · ".join(parts)
 
 
-# Placeholder heat gauge: hold and the needle rises; release commits the
-# raw needle value. Draws the known band; scores nothing itself.
-class HeatGauge extends Control:
-	signal committed(value: float)
-
+# Placeholder gauge base: a horizontal 0-100 track with the known band.
+# Gauges report raw input through their own committed signal and score
+# nothing themselves.
+class StepGauge extends Control:
 	var band_low := 0.0
 	var band_high := 0.0
-	var rise_per_sec := 0.0
-	var _value := 0.0
-	var _holding := false
 
 	func _init() -> void:
 		custom_minimum_size = Vector2(0, 56)
 		mouse_filter = Control.MOUSE_FILTER_STOP
+
+	func _pressed(event: InputEvent) -> int:
+		if not (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT):
+			return 0
+		accept_event()
+		return 1 if event.pressed else -1
+
+	func _x(value: float) -> float:
+		return size.x * value / 100.0
+
+	func _draw_track() -> Rect2:
+		var track := Rect2(Vector2(0, size.y * 0.3), Vector2(size.x, size.y * 0.4))
+		draw_rect(track, MapCardStyle.line())
+		draw_rect(Rect2(Vector2(_x(band_low), track.position.y), Vector2(_x(band_high - band_low), track.size.y)), MapCardStyle.sage())
+		return track
+
+	func _draw_needle(value: float) -> void:
+		draw_line(Vector2(_x(value), 0), Vector2(_x(value), size.y), MapCardStyle.ink(), 3.0)
+
+
+# Heat / compress: hold and the needle rises; release commits the raw
+# needle value. With crack_at set, reaching it commits at once.
+class HoldGauge extends StepGauge:
+	signal committed(value: float)
+
+	var rise_per_sec := 0.0
+	var crack_at := -1.0
+	var _value := 0.0
+	var _holding := false
+
+	func _ready() -> void:
 		set_process(false)
 
 	func _gui_input(event: InputEvent) -> void:
-		if not (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT):
-			return
-		accept_event()
-		if event.pressed:
+		var press := _pressed(event)
+		if press > 0:
 			_holding = true
 			_value = 0.0
 			set_process(true)
-		elif _holding:
-			_holding = false
-			set_process(false)
-			committed.emit(_value)
+		elif press < 0 and _holding:
+			_release()
+
+	func _release() -> void:
+		_holding = false
+		set_process(false)
+		committed.emit(_value)
 
 	func _process(delta: float) -> void:
 		_value = minf(100.0, _value + rise_per_sec * delta)
 		queue_redraw()
+		if crack_at >= 0.0 and _value >= crack_at:
+			_release()
 
 	func _draw() -> void:
-		var track := Rect2(Vector2(0, size.y * 0.3), Vector2(size.x, size.y * 0.4))
-		draw_rect(track, MapCardStyle.line())
-		var band_x := size.x * band_low / 100.0
-		draw_rect(Rect2(Vector2(band_x, track.position.y), Vector2(size.x * (band_high - band_low) / 100.0, track.size.y)), MapCardStyle.sage())
-		var needle_x := size.x * _value / 100.0
-		draw_line(Vector2(needle_x, 0), Vector2(needle_x, size.y), MapCardStyle.ink(), 3.0)
+		var track := _draw_track()
+		if crack_at >= 0.0:
+			draw_line(Vector2(_x(crack_at), track.position.y), Vector2(_x(crack_at), track.end.y), MapCardStyle.action(), 3.0)
+		_draw_needle(_value)
+
+
+# Grind: the pestle needle swings 0-100-0 every period_sec; each tap reads
+# its position as a stroke, and the last stroke commits them all.
+class GrindGauge extends StepGauge:
+	signal committed(readings: Array)
+
+	var strokes := 0
+	var period_sec := 1.0
+	var _elapsed := 0.0
+	var _readings := []
+
+	func _position() -> float:
+		var phase := fposmod(_elapsed / period_sec, 1.0)
+		return 200.0 * (phase if phase < 0.5 else 1.0 - phase)
+
+	func _gui_input(event: InputEvent) -> void:
+		if _pressed(event) <= 0 or _readings.size() >= strokes:
+			return
+		_readings.append(_position())
+		queue_redraw()
+		if _readings.size() >= strokes:
+			set_process(false)
+			committed.emit(_readings)
+
+	func _process(delta: float) -> void:
+		_elapsed += delta
+		queue_redraw()
+
+	func _draw() -> void:
+		var track := _draw_track()
+		for reading in _readings:
+			draw_circle(Vector2(_x(reading), track.end.y + 8.0), 4.0, MapCardStyle.gold())
+		_draw_needle(_position())
+
+
+# Distil: after lead_in_msec, drip i falls across the track from 0 to 100
+# over fall_msec, starting at i × beat_msec. Taps are reported as msec since
+# drip 0 started (negative in the lead-in); the last drip's fall commits.
+class DistilGauge extends StepGauge:
+	signal committed(taps: Array)
+
+	var drips := 0
+	var beat_msec := 1.0
+	var fall_msec := 1.0
+	var lead_in_msec := 0.0
+	var _elapsed_msec := 0.0
+	var _taps := []
+
+	func _clock() -> float:
+		return _elapsed_msec - lead_in_msec
+
+	func _gui_input(event: InputEvent) -> void:
+		if _pressed(event) > 0:
+			_taps.append(_clock())
+			queue_redraw()
+
+	func _process(delta: float) -> void:
+		_elapsed_msec += delta * 1000.0
+		queue_redraw()
+		if _clock() > (drips - 1) * beat_msec + fall_msec:
+			set_process(false)
+			committed.emit(_taps)
+
+	func _draw() -> void:
+		var track := _draw_track()
+		var t := _clock()
+		var drip := floori(t / beat_msec)
+		var into := t - drip * beat_msec
+		if t >= 0.0 and drip < drips and into <= fall_msec:
+			draw_circle(Vector2(_x(100.0 * into / fall_msec), track.get_center().y), track.size.y * 0.4, MapCardStyle.ink())
+		for i in drips:
+			draw_circle(Vector2(8.0 + i * 14.0, track.end.y + 10.0), 4.0, MapCardStyle.dim() if i < drip else MapCardStyle.line())
+		draw_string(get_theme_default_font(), Vector2(size.x - 60.0, track.end.y + 16.0), "taps %d" % _taps.size(), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, MapCardStyle.muted())

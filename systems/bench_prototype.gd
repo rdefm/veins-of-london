@@ -13,10 +13,12 @@ extends RefCounted
 # up front; finish_run() turns the score into a rank, raises best rank,
 # rolls the re-run bonus and the bad-run flavour line, and logs the item.
 #
-# The procedure slice's real run is begin_procedure_run() -> perform_step()
-# per interactive step: calc is spent step by step as each step is
-# performed, and the last step scores the run (spec §Slice A) and hands
-# the score to finish_run().
+# The procedure slice's real run is begin_procedure_run() -> one perform_*()
+# per step with the raw gauge input (heat/compress released value, grind
+# stroke readings, distil tap timings). Calc is spent step by step as each
+# step is performed; the last step scores the run (spec §Slice A) and hands
+# the score to finish_run(). A compress released at or past crackAt cracks
+# the vessel and ends the run with no item.
 
 const SLICE_PROCEDURE := "procedure"
 const SLICE_CHART := "chart"
@@ -24,9 +26,8 @@ const SLICES: Array[String] = [SLICE_PROCEDURE, SLICE_CHART]
 
 const BATCH_SIZES: Array[int] = [1, 5, 10]
 
-# Apparatus the procedure slice asks the player to perform; every other
-# step auto-passes at its known target.
-const INTERACTIVE_APPARATUS: Array[String] = ["heat"]
+# Apparatus whose step is one hold-and-release reading (perform_step).
+const HOLD_APPARATUS: Array[String] = ["heat", "compression"]
 
 
 static func _data() -> Dictionary:
@@ -62,7 +63,8 @@ static func new_slice() -> Dictionary:
 		"xpTotal": 0,
 		# null, or { recipeId, startedMsec, calcSpent } while a manual run is
 		# open; a procedure run adds procedure (steps being run) and
-		# performed ([{ apparatus, value }] so far).
+		# performed (so far: { apparatus, value } for a hold step,
+		# { apparatus, readings } for grind, plus stray for distil).
 		"activeRun": null,
 		"snapshots": [],
 	}
@@ -247,17 +249,22 @@ static func finish_run(slice_id: String, score: int, extra: Dictionary = {}) -> 
 # Ends an open run without an item; the calc spent so far stays spent.
 static func abandon_run(slice_id: String) -> Dictionary:
 	var s := slice(slice_id)
-	var run = s["activeRun"]
-	if run == null:
+	if s["activeRun"] == null:
 		return { "ok": false, "reason": "No run open." }
-	_log(s, {
-		"kind": "abandoned", "recipeId": run["recipeId"], "items": 0, "rank": 0,
+	return { "ok": true, "entry": _close_run(s, "abandoned") }
+
+
+static func _close_run(s: Dictionary, kind: String) -> Dictionary:
+	var run: Dictionary = s["activeRun"]
+	var entry := {
+		"kind": kind, "recipeId": run["recipeId"], "items": 0, "rank": 0,
 		"score": 0, "durationMsec": maxi(0, Time.get_ticks_msec() - int(run["startedMsec"])),
 		"bonus": null, "xp": 0, "flavour": null,
-	})
+	}
+	_log(s, entry)
 	s["activeRun"] = null
 	EventBus.state_changed.emit()
-	return { "ok": true }
+	return entry
 
 
 # ── Procedure (Slice A) ──────────────────────────────────────────────────
@@ -312,6 +319,24 @@ static func match_ideal(ideal: Array, performed: Array) -> Array[int]:
 	return matches
 
 
+# A performed step's accuracy against its ideal target: a hold step's one
+# value, or the mean over a grind/distil step's readings (a missed one
+# scores 0). A stray distil tap spoils the whole step.
+static func performed_accuracy(performed: Dictionary, target: float, half_width: float) -> float:
+	if performed.get("stray", false):
+		return 0.0
+	if not performed.has("readings"):
+		return step_accuracy(float(performed["value"]), target, half_width)
+	var readings: Array = performed["readings"]
+	if readings.is_empty():
+		return 0.0
+	var total := 0.0
+	for reading in readings:
+		if reading != null:
+			total += step_accuracy(float(reading), target, half_width)
+	return total / readings.size()
+
+
 # score = Σ weight × accuracy over the ideal steps (a missing one scores 0),
 # minus extraStepPenalty per extra step, clamped 0-100. accuracies is per
 # performed step (null for an extra).
@@ -327,7 +352,7 @@ static func score_procedure(recipe_id: String, performed: Array) -> Dictionary:
 			accuracies.append(null)
 			continue
 		var ideal_step: Dictionary = ideal[matches[i]]
-		var accuracy := step_accuracy(float(performed[i]["value"]), float(ideal_step["target"]), half)
+		var accuracy := performed_accuracy(performed[i], float(ideal_step["target"]), half)
 		total += float(ideal_step["weight"]) * accuracy
 		accuracies.append(accuracy)
 	return { "score": clampi(roundi(total), 0, 100), "accuracies": accuracies }
@@ -370,40 +395,91 @@ static func current_step() -> Variant:
 	return run["procedure"][index] if index < run["procedure"].size() else null
 
 
-# Commits the raw value the screen read off the current step's gauge.
+static func gauge(apparatus: String) -> Dictionary:
+	return _data()["gauges"][apparatus]
+
+
+# Heat or compress: commits the raw needle value at release. A compress at
+# or past crackAt cracks the vessel: the step's calc is spent and the run
+# ends with no item.
 static func perform_step(value: float) -> Dictionary:
-	if current_step() == null:
-		return { "ok": false, "reason": "No procedure run open." }
+	var step = current_step()
+	if step == null or not HOLD_APPARATUS.has(step["apparatus"]):
+		return { "ok": false, "reason": "No hold step to perform." }
 	var s := slice(SLICE_PROCEDURE)
-	_perform(s, value)
+	value = clampf(value, 0.0, 100.0)
+	_perform(s, { "value": value })
+	if step["apparatus"] == "compression" and value >= float(gauge("compression")["crackAt"]):
+		return { "ok": true, "done": true, "cracked": true, "entry": _close_run(s, "cracked") }
 	return _advance(s)
 
 
-static func _perform(s: Dictionary, value: float) -> void:
+# Grind: commits the pestle meter reading at each stroke. Strokes past the
+# gauge's count are ignored; strokes short of it read as misses.
+static func perform_grind(readings: Array) -> Dictionary:
+	var step = current_step()
+	if step == null or step["apparatus"] != "grinding":
+		return { "ok": false, "reason": "No grind step to perform." }
+	var clamped := []
+	for i in int(gauge("grinding")["strokes"]):
+		clamped.append(clampf(float(readings[i]), 0.0, 100.0) if i < readings.size() else null)
+	var s := slice(SLICE_PROCEDURE)
+	_perform(s, { "readings": clamped })
+	return _advance(s)
+
+
+# Distil: commits the tap times (msec since the first drip started).
+static func perform_distil(tap_msecs: Array) -> Dictionary:
+	var step = current_step()
+	if step == null or step["apparatus"] != "distilling":
+		return { "ok": false, "reason": "No distil step to perform." }
+	var s := slice(SLICE_PROCEDURE)
+	_perform(s, distil_readings(tap_msecs))
+	return _advance(s)
+
+
+# Drip i falls from 0 to 100 over fallMsec, starting at i × beatMsec. A tap
+# during a drip's fall reads its position; a tap between drips, after the
+# last, or a second tap on the same drip is stray. Untapped drips read null.
+static func distil_readings(tap_msecs: Array) -> Dictionary:
+	var g := gauge("distilling")
+	var beat := float(g["beatMsec"])
+	var fall := float(g["fallMsec"])
+	var readings := []
+	readings.resize(int(g["drips"]))
+	var stray := false
+	for tap in tap_msecs:
+		var t := float(tap)
+		var drip := floori(t / beat)
+		var into := t - drip * beat
+		if drip < 0 or drip >= readings.size() or into > fall or readings[drip] != null:
+			stray = true
+			continue
+		readings[drip] = 100.0 * into / fall
+	return { "readings": readings, "stray": stray }
+
+
+static func _perform(s: Dictionary, record: Dictionary) -> void:
 	var run: Dictionary = s["activeRun"]
 	var step: Dictionary = run["procedure"][run["performed"].size()]
 	var calc: Dictionary = step.get("calc", {})
 	_spend(s, calc)
 	for ore_type in calc.keys():
 		run["calcSpent"][ore_type] = int(run["calcSpent"].get(ore_type, 0)) + int(calc[ore_type])
-	run["performed"].append({ "apparatus": step["apparatus"], "value": clampf(value, 0.0, 100.0) })
+	record["apparatus"] = step["apparatus"]
+	run["performed"].append(record)
 
 
-# Auto-passes non-interactive steps at their known target, then scores the
-# run once every step is performed.
+# Scores the run once every step is performed.
 static func _advance(s: Dictionary) -> Dictionary:
-	var step = current_step()
-	while step != null and not INTERACTIVE_APPARATUS.has(step["apparatus"]):
-		_perform(s, float(step["target"]))
-		step = current_step()
-	if step != null:
+	if current_step() != null:
 		EventBus.state_changed.emit()
 		return { "ok": true, "done": false }
 	var run: Dictionary = s["activeRun"]
 	var scored := score_procedure(run["recipeId"], run["performed"])
 	var steps := []
 	for i in run["performed"].size():
-		var performed: Dictionary = run["performed"][i].duplicate()
+		var performed: Dictionary = run["performed"][i].duplicate(true)
 		performed["accuracy"] = scored["accuracies"][i]
 		steps.append(performed)
 	var result := finish_run(SLICE_PROCEDURE, scored["score"], { "steps": steps })
