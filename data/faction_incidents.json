@@ -3,7 +3,7 @@
   "succession": { "margin": 15, "days": 5, "weights": { "favourKept": 6, "favourFailed": -6, "questStep": 8, "hostileAct": 2, "peaceDeal": 4, "warLoss": -10 } },
   "personal": {
     "insideManAt": 60, "horizonDays": 7, "repeatDays": 5, "leakChance": 0.15, "leakAmount": 6,
-    "offerAt": 80, "offerRelationHit": 10, "offerPersonalGain": 20, "offerStandingGain": 15, "offerLeaderLoss": 15, "offerGoodsShare": 0.25,
+    "offerAt": 80, "offerRelationHit": 10, "offerPersonalGain": 20, "offerStandingGain": 15, "offerLeaderLoss": 15, "offerGoodsShare": 0.25, "gratitudeMult": 0.5, "gratitudeFloor": 0.1, "gratitudeDecay": 0.1,
     "leakLine": "PROSE-REVIEW placeholder: \"Something for your file on us. Don't ask where it came from.\"",
     "lines": {
       "collective": { "warn": "PROSE-REVIEW placeholder: \"Between us: we're planning %s, %s. I didn't say.\"", "truce": "PROSE-REVIEW placeholder: \"If you want this ended, talk to me. Quietly.\"" },

@@ -361,6 +361,31 @@ func run() -> void:
 		assert_eq(int(GameState.state["player"]["orichalchum"]["life"]), life_before + floori(40.0 * share))
 	)
 
+	run_case("grateful_leader_tempers_aggression_stacks_decays_and_hostile_acts_cancel", func():
+		GameState.reset()
+		_seed_firm_vein()
+		var f: Dictionary = GameState.state["factions"]["firm"]
+		f["gratitude"] = { "mercer": 1.0 }
+		assert_eq(KeyMembers.gratitude_scale("firm"), 1.0, "not leading: no effect")
+		f["leader"] = "mercer"
+		var one := KeyMembers.gratitude_scale("firm")
+		assert_eq(one, float(GameData.FACTION_INCIDENTS["personal"]["gratitudeMult"]))
+		f["gratitude"]["mercer"] = 2.0
+		assert_true(KeyMembers.gratitude_scale("firm") < one, "stacks")
+		KeyMembers.daily_tick()
+		assert_true(float(f["gratitude"]["mercer"]) < 2.0, "decays")
+		KeyMembers.note_player_act("firm", KeyMembers.ACT_HOSTILE)
+		assert_eq(KeyMembers.gratitude_scale("firm"), 1.0, "hostile act cancels")
+	)
+
+	run_case("accepting_offers_counts_per_instigator", func():
+		GameState.reset()
+		_open_offer("des")
+		GameState.state["factions"]["collective"]["stockpile"]["district"] = "hackney"
+		assert_true(KeyMembers.accept_offer("des"))
+		assert_eq(GameState.state["factions"]["collective"]["gratitude"]["des"], 1.0)
+	)
+
 	run_case("tip_offer_reveals_the_stockpile_for_the_existing_raid", func():
 		GameState.reset()
 		_open_offer("des")

@@ -151,6 +151,8 @@ static func note_quest_step(questline: String) -> void:
 # A player act toward faction_id (ACT_HOSTILE helps its hawks, ACT_PEACE its
 # doves); the opposite outlook loses the same.
 static func note_player_act(faction_id: String, act: String) -> void:
+	if act == ACT_HOSTILE:
+		GameState.state["factions"][faction_id]["gratitude"] = {}
 	var favoured := OUTLOOK_HAWK if act == ACT_HOSTILE else OUTLOOK_DOVE
 	for m in contenders(faction_id):
 		var outlook: String = m.get("outlook", "")
@@ -170,6 +172,17 @@ static func note_war_loss(faction_id: String) -> void:
 static func daily_tick() -> void:
 	for faction_id in GameState.state["factions"].keys():
 		_update_challenge(faction_id)
+		_decay_gratitude(faction_id)
+
+
+static func _decay_gratitude(faction_id: String) -> void:
+	var gratitude: Dictionary = GameState.state["factions"][faction_id]["gratitude"]
+	for contact_id in gratitude.keys():
+		var left := float(gratitude[contact_id]) - float(_pcfg()["gratitudeDecay"])
+		if left > 0.0:
+			gratitude[contact_id] = left
+		else:
+			gratitude.erase(contact_id)
 
 
 static func _update_challenge(faction_id: String) -> void:
@@ -197,11 +210,19 @@ static func _update_challenge(faction_id: String) -> void:
 
 
 # FactionAI's multiplier on a faction's aggressionPersonality: the leader's
-# aggressionMult relative to the initial leader's, so an unchanged faction is ×1.
+# aggressionMult relative to the initial leader's (an unchanged faction is ×1),
+# times the leader's gratitude tempering.
 static func aggression_scale(faction_id: String) -> float:
 	var base := float(member(default_leader(faction_id)).get("aggressionMult", 1.0))
 	var current := float(member(leader_of(faction_id)).get("aggressionMult", base))
-	return current / base if base > 0.0 else 1.0
+	return (current / base if base > 0.0 else 1.0) * gratitude_scale(faction_id)
+
+
+# state.factions[id].gratitude = { contactId: handovers still remembered }.
+# The leader's gratitudeMult per remembered handover, floored at gratitudeFloor.
+static func gratitude_scale(faction_id: String) -> float:
+	var owed := float(GameState.state["factions"][faction_id]["gratitude"].get(leader_of(faction_id), 0.0))
+	return maxf(pow(float(_pcfg()["gratitudeMult"]), owed), float(_pcfg()["gratitudeFloor"]))
 
 
 # How far the leader's relationBaseline sits from the initial leader's.
@@ -359,6 +380,8 @@ static func accept_offer(contact_id: String) -> bool:
 	Contacts.award_relation(contact_id, int(cfg["offerPersonalGain"]))
 	adjust_standing(contact_id, int(cfg["offerStandingGain"]))
 	adjust_standing(leader_of(faction_id), -int(cfg["offerLeaderLoss"]))
+	var gratitude: Dictionary = GameState.state["factions"][faction_id]["gratitude"]
+	gratitude[contact_id] = float(gratitude.get(contact_id, 0.0)) + 1.0
 	EventBus.state_changed.emit()
 	return true
 

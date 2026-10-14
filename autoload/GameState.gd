@@ -503,6 +503,8 @@ func _new_factions_state() -> Dictionary:
 			"standing": KeyMembers.starting_standing(faction_id),
 			"leader": KeyMembers.default_leader(faction_id),
 			"succession": KeyMembers.new_succession(),
+			# { contactId: float } secret-offer handovers still remembered; tempers the faction once that member leads.
+			"gratitude": {},
 		}
 	return factions
 

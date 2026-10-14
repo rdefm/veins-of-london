@@ -207,6 +207,8 @@ func _migrate_key_member_standing(save: Dictionary) -> void:
 			faction["leader"] = KeyMembers.default_leader(faction_id)
 		if not faction.has("succession"):
 			faction["succession"] = KeyMembers.new_succession()
+		if not faction.has("gratitude"):
+			faction["gratitude"] = {}
 
 
 # A save without faction holdings gets the placeholder starting stock, with
