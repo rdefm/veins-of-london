@@ -14,36 +14,26 @@ func run() -> void:
 	# ── load manifest: field values, load-error naming ──────────────────
 
 	# tests/fixtures/gamedata_pre_manifest_snapshot.gdvar is a var_to_str()
-	# dump of every GameData public loader field. var_to_str/str_to_var (not
-	# JSON) round-trips int vs. float exactly -- Dictionary/Array equality
-	# in Godot compares element types, not just numeric value, so a JSON
-	# round-trip (which reads every number back as float) would falsely
-	# flag fields that are legitimately int.
-	#
-	# DAILY_CYCLE is the one deliberate exception: it loads through the same
-	# _load_json/_normalize_numbers pipeline every other table does, which
-	# turns its whole-number fields (e.g. frameCount) into int. Every reader
-	# of those fields already casts with int()/float() (scenes/components/
-	# time_transition.gd etc.), so this is safe. Compared here against the
-	# fixture's own value passed through _normalize_numbers, to prove that's
-	# the *only* difference from the fixture.
-	run_case("public_fields_match_pre_manifest_load_snapshot", func():
+	# dump of every GameData public loader field from before the manifest
+	# existed. It guards the manifest refactor's shape, not content: every
+	# snapshotted field must still exist, keep its Variant type (so an int
+	# field doesn't silently become float or null) and stay non-empty if it
+	# was. Values are free to change -- data edits (events, prose, tuning)
+	# must not need a fixture edit.
+	run_case("public_fields_keep_the_pre_manifest_snapshot_shape", func():
 		var f := FileAccess.open("res://tests/fixtures/gamedata_pre_manifest_snapshot.gdvar", FileAccess.READ)
 		assert_true(f != null, "pre-manifest snapshot fixture should be readable")
 		var expected: Dictionary = str_to_var(f.get_as_text())
 		f.close()
 		for field in expected.keys():
-			if field == "DAILY_CYCLE":
+			var want: Variant = expected[field]
+			var got: Variant = GameData.get(field)
+			# DAILY_CYCLE's whole-number fields normalize float -> int at load.
+			if field != "DAILY_CYCLE" and typeof(want) != typeof(got):
+				assert_true(false, "%s changed type: fixture %d, loaded %d" % [field, typeof(want), typeof(got)])
 				continue
-			if field == "CONTACTS_DEFAULTS":
-				# Hiring candidates merge in at boot (R§3.10 "Hiring"); the rest must match.
-				var constants_only: Dictionary = GameData.CONTACTS_DEFAULTS.duplicate()
-				for candidate_id in GameData.HIRING_CANDIDATES:
-					constants_only.erase(candidate_id)
-				assert_eq(constants_only, expected[field], "CONTACTS_DEFAULTS less candidates should match the snapshot fixture")
-				continue
-			assert_eq(GameData.get(field), expected[field], "%s should match the load manifest's snapshot fixture" % field)
-		assert_eq(GameData.DAILY_CYCLE, GameData._normalize_numbers(expected["DAILY_CYCLE"]), "DAILY_CYCLE should match the fixture once normalized the same way every other table already is")
+			if (want is Dictionary or want is Array) and not want.is_empty():
+				assert_true(not got.is_empty(), "%s was non-empty in the snapshot and loaded empty" % field)
 	)
 
 	run_case("manifest_missing_file_reports_a_load_error_naming_the_table", func():
