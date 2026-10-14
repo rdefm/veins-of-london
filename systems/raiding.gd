@@ -258,23 +258,38 @@ static func stockpile_loot_share(faction_id: String, take_all: bool) -> float:
 # PROSE-REVIEW: the loot notification.
 static func loot_stockpile(faction_id: String, take_all: bool) -> Dictionary:
 	var taken := _take_stockpile_share(faction_id, stockpile_loot_share(faction_id, take_all))
-	var stolen := { "ore": taken["ore"], "items": {} }
+	var stolen := give_taken_to_player(taken)
+	Notify.push("Stockpile emptied into your bag: %d calc, %d items." % [_sum(stolen["ore"]), _sum(stolen["items"])], Notify.CATEGORY_SUCCESS)
+	_stockpile_raid_consequences(faction_id, float(taken["value"]))
+	return stolen
+
+
+# Moves floor(share × held) of faction_id's holdings to the player with no
+# raid consequences. Returns { ore: { oreType: qty }, items: { recipeKey: qty } }.
+static func transfer_holdings_share_to_player(faction_id: String, share: float) -> Dictionary:
+	return give_taken_to_player(_take_stockpile_share(faction_id, share))
+
+
+# Credits a _take_stockpile_share() result to the player's ore and bag.
+static func give_taken_to_player(taken: Dictionary) -> Dictionary:
+	var given := { "ore": taken["ore"], "items": {} }
 	var player_ore: Dictionary = GameState.state["player"]["orichalchum"]
-	var ore_total := 0
 	for ore_type in taken["ore"].keys():
 		player_ore[ore_type] = int(player_ore.get(ore_type, 0)) + int(taken["ore"][ore_type])
-		ore_total += int(taken["ore"][ore_type])
-	var item_total := 0
 	for recipe_key in taken["items"].keys():
 		var qty := 0
 		for leg in taken["items"][recipe_key]:
 			Crafting.inventory_add(recipe_key, int(leg["tier"]), int(leg["qty"]))
 			qty += int(leg["qty"])
-		stolen["items"][recipe_key] = qty
-		item_total += qty
-	Notify.push("Stockpile emptied into your bag: %d calc, %d items." % [ore_total, item_total], Notify.CATEGORY_SUCCESS)
-	_stockpile_raid_consequences(faction_id, float(taken["value"]))
-	return stolen
+		given["items"][recipe_key] = qty
+	return given
+
+
+static func _sum(counts: Dictionary) -> int:
+	var total := 0
+	for qty in counts.values():
+		total += int(qty)
+	return total
 
 
 # Removes floor(share × held) of every ore and item line from faction_id's

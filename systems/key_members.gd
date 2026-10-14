@@ -282,11 +282,17 @@ static func inside_man_tick() -> void:
 
 # ── Secret offers (R§3.10 "Key members") ────────────────────────────────
 # A contender close to the player who trails their faction's leader may
-# secretly hand over a faction vein. They stay in their faction; accepting
-# costs the faction's relation and shifts standing toward the offerer.
+# secretly hand over a prize: a faction vein, a share of the faction's ore and
+# items, or a tip revealing its stockpile. They stay in their faction;
+# accepting costs the faction's relation and shifts standing toward the offerer.
+
+const PRIZE_VEIN := "vein"
+const PRIZE_GOODS := "goods"
+const PRIZE_TIP := "tip"
+
 
 # Offerer is a met, non-leading contender at personal relation ≥ offerAt,
-# standing below the leader's, and their faction has a vein to hand over.
+# standing below the leader's, and their faction has a prize to hand over.
 static func can_offer(contact_id: String) -> bool:
 	var m := member(contact_id)
 	if m.is_empty() or not m.get("seat", "") in [SEAT_SPEAKER, SEAT_LIEUTENANT] or not _met(contact_id):
@@ -297,19 +303,58 @@ static func can_offer(contact_id: String) -> bool:
 		return false
 	if standing_of(contact_id) >= standing_of(leader):
 		return false
-	return not Sites.sites_with_faction_vein(faction_id).is_empty()
+	return offer_prize(contact_id) != ""
 
 
-# Hands over a faction vein; docks the faction's relation, raises the offerer's
-# personal relation and standing, lowers the leader's standing. False when they
-# can't offer.
+# The prize this member would hand over: the first of their `offerPrizes`
+# (default vein only) the faction can currently supply, "" when none.
+static func offer_prize(contact_id: String) -> String:
+	var faction_id := faction_of(contact_id)
+	for kind in member(contact_id).get("offerPrizes", [PRIZE_VEIN]):
+		if _prize_available(faction_id, kind):
+			return kind
+	return ""
+
+
+static func _prize_available(faction_id: String, kind: String) -> bool:
+	match kind:
+		PRIZE_VEIN:
+			return not Sites.sites_with_faction_vein(faction_id).is_empty()
+		PRIZE_GOODS:
+			return _goods_qty(faction_id) > 0
+		PRIZE_TIP:
+			return Raiding.stockpile_district(faction_id) != "" and not Raiding.can_raid_stockpile(faction_id)
+	return false
+
+
+# Units the goods prize would move (floor(offerGoodsShare × held) per line).
+static func _goods_qty(faction_id: String) -> int:
+	var share := float(_pcfg()["offerGoodsShare"])
+	var holdings: Dictionary = GameState.state["factions"][faction_id]["holdings"]
+	var total := 0
+	for ore_type in holdings["ore"].keys():
+		total += floori(float(FactionSim.ore_held(faction_id, ore_type)) * share)
+	for recipe_key in holdings["items"].keys():
+		total += floori(float(FactionSim.item_held(faction_id, recipe_key)) * share)
+	return total
+
+
+# Hands over the member's prize; docks the faction's relation, raises the
+# offerer's personal relation and standing, lowers the leader's standing.
+# False when they can't offer.
 static func accept_offer(contact_id: String) -> bool:
 	if not can_offer(contact_id):
 		return false
 	var faction_id := faction_of(contact_id)
 	var cfg := _pcfg()
-	var site: Dictionary = Sites.sites_with_faction_vein(faction_id)[0]
-	VeinTrade.transfer_from_faction(site["factionVein"]["id"], faction_id)
+	match offer_prize(contact_id):
+		PRIZE_VEIN:
+			var site: Dictionary = Sites.sites_with_faction_vein(faction_id)[0]
+			VeinTrade.transfer_from_faction(site["factionVein"]["id"], faction_id)
+		PRIZE_GOODS:
+			Raiding.transfer_holdings_share_to_player(faction_id, float(cfg["offerGoodsShare"]))
+		PRIZE_TIP:
+			Intel.raise(Shares.PLAYER, faction_id, maxi(0, Intel.level_at(Intel.STOCKPILE_LOCATION) - Intel.meter(Shares.PLAYER, faction_id)))
 	Factions.adjust_player_relation(faction_id, -int(cfg["offerRelationHit"]))
 	Contacts.award_relation(contact_id, int(cfg["offerPersonalGain"]))
 	adjust_standing(contact_id, int(cfg["offerStandingGain"]))

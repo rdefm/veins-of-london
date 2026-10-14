@@ -329,6 +329,48 @@ func run() -> void:
 	)
 
 
+	run_case("offer_prize_follows_member_data_and_falls_back_when_unavailable", func():
+		GameState.reset()
+		_seed_firm_vein()
+		assert_eq(KeyMembers.offer_prize("mercer"), "vein", "default prize is a vein")
+		GameState.state["factions"]["collective"]["stockpile"]["district"] = ""
+		assert_eq(KeyMembers.offer_prize("des"), "goods", "no stockpile to tip about; goods next")
+		var held: Dictionary = GameState.state["factions"]["collective"]["holdings"].duplicate(true)
+		GameState.state["factions"]["collective"]["stockpile"]["district"] = "hackney"
+		assert_eq(KeyMembers.offer_prize("des"), "tip")
+		GameState.state["factions"]["collective"]["holdings"] = held
+		GameState.state["intel"][Shares.PLAYER]["collective"] = Intel.level_at(Intel.STOCKPILE_LOCATION)
+		assert_eq(KeyMembers.offer_prize("des"), "goods", "location already known")
+		for ore_type in GameState.state["factions"]["collective"]["holdings"]["ore"].keys():
+			GameState.state["factions"]["collective"]["holdings"]["ore"][ore_type] = 0
+		GameState.state["factions"]["collective"]["holdings"]["items"] = {}
+		assert_eq(KeyMembers.offer_prize("des"), "", "nothing left, no vein")
+	)
+
+	run_case("goods_offer_moves_holdings_share_to_the_player", func():
+		GameState.reset()
+		_open_offer("des")
+		GameState.state["factions"]["collective"]["stockpile"]["district"] = "hackney"
+		GameState.state["intel"][Shares.PLAYER]["collective"] = Intel.level_at(Intel.STOCKPILE_LOCATION)
+		GameState.state["factions"]["collective"]["holdings"]["ore"] = { "life": 40 }
+		GameState.state["factions"]["collective"]["holdings"]["items"] = {}
+		var share := float(GameData.FACTION_INCIDENTS["personal"]["offerGoodsShare"])
+		var life_before := int(GameState.state["player"]["orichalchum"].get("life", 0))
+		assert_true(KeyMembers.accept_offer("des"))
+		assert_eq(FactionSim.ore_held("collective", "life"), 40 - floori(40.0 * share))
+		assert_eq(int(GameState.state["player"]["orichalchum"]["life"]), life_before + floori(40.0 * share))
+	)
+
+	run_case("tip_offer_reveals_the_stockpile_for_the_existing_raid", func():
+		GameState.reset()
+		_open_offer("des")
+		GameState.state["factions"]["collective"]["stockpile"]["district"] = "hackney"
+		assert_true(not Raiding.can_raid_stockpile("collective"))
+		assert_true(KeyMembers.accept_offer("des"))
+		assert_true(Raiding.can_raid_stockpile("collective"), "raidable now")
+		assert_eq(KeyMembers.offer_prize("des"), "goods", "tip spent; falls to next kind")
+	)
+
 # One firm vein on a single fixture site.
 static func _seed_firm_vein() -> void:
 	var vein := {
@@ -338,3 +380,10 @@ static func _seed_firm_vein() -> void:
 		"hospitability": { "tier": "fair", "bonuses": [] },
 	}
 	GameState.state["world"]["sites"] = [Fixtures.site_with_vein("test_site", vein)]
+
+
+static func _open_offer(contact_id: String) -> void:
+	GameState.state["contacts"][contact_id]["unlocked"] = true
+	GameState.state["contacts"][contact_id]["relation"] = 100
+	var faction_id := KeyMembers.faction_of(contact_id)
+	GameState.state["factions"][faction_id]["standing"][contact_id] = 10

@@ -8,8 +8,8 @@
 
 **Status:** ready-for-agent
 
-- [ ] Per-member data selects vein, ore/items or safehouse tip
-- [ ] Ore/items move from faction holdings to the player
-- [ ] Safehouse tip reveals a stockpile and makes it raidable via the existing raid flow
-- [ ] Missing asset falls back to the next kind; nothing granted only if all are unavailable
-- [ ] Tests, REFERENCE and CODEMAP updated
+- [x] Per-member data selects vein, ore/items or safehouse tip
+- [x] Ore/items move from faction holdings to the player
+- [x] Safehouse tip reveals a stockpile and makes it raidable via the existing raid flow
+- [x] Missing asset falls back to the next kind; nothing granted only if all are unavailable
+- [x] Tests, REFERENCE and CODEMAP updated
