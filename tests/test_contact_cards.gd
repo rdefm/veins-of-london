@@ -364,6 +364,21 @@ func run() -> void:
 		assert_eq(inner_label.get_theme_color("font_color"), GameData.PALETTE["phone_text_primary"], "symbol_button()'s own baked-in label colour must be overridden too, or it stays illegible ink-on-red")
 	)
 
+	run_case("faction_card_benefits_lists_every_perk_with_tier_ladder_and_current_marker", func():
+		GameState.reset()
+		GameState.state["factions"]["guild"]["relation"] = 30
+		var card := ContactCards.build_faction_card("guild")
+		var texts := []
+		for l in card.find_children("", "Label", true, false):
+			texts.append((l as Label).text)
+		var joined := "
+".join(texts)
+		assert_true(joined.contains("Benefits"), "heading")
+		assert_true(joined.contains("Friendly — Relation ≥25  ◀ you are here"), "current tier marked")
+		assert_true(joined.contains("Sworn — Joined  🔒"), "locked tier hinted")
+		card.free()
+	)
+
 	run_case("guild_faction_card_shows_the_marketplace_button_only_to_members_and_opens_the_trade_menu", func():
 		GameState.reset()
 		var card := ContactCards.build_faction_card("guild")

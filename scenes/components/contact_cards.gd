@@ -779,7 +779,48 @@ static func build_faction_card(faction_id: String, economy: Control = null) -> C
 	for action in build_membership_actions(faction_id):
 		c["content"].add_child(action)
 
+	c["content"].add_child(build_benefits(faction_id))
 	return c["panel"]
+
+
+# Benefits section: tier ladder (current tier marked, locked steps dimmed with the
+# unlock requirement), each perk with an active-now badge and, for turf perks, the
+# districts where it is active.
+static func build_benefits(faction_id: String) -> Control:
+	var box := UI.vbox(4)
+	box.add_child(UI.heading("Benefits", 14))
+	var current := Perks.player_tier(faction_id)
+	var last_tier := ""
+	for row in Perks.benefit_rows(faction_id):
+		if row["tier"] != last_tier:
+			last_tier = row["tier"]
+			var title := "%s — %s" % [row["tier_label"], row["requirement"]]
+			if last_tier == current:
+				title += "  ◀ you are here"
+			elif not row["unlocked"]:
+				title += "  🔒"
+			var tier_label := UI.tinted_label(title, Color.WHITE if row["unlocked"] else Color(1, 1, 1, 0.5))
+			box.add_child(tier_label)
+		var perk: Dictionary = row["perk"]
+		var badge := "ACTIVE" if row["active"] else ("idle" if row["unlocked"] else "locked")
+		var text := "%s%s [%s]
+%s" % [perk["label"], " (turf)" if row["scope"] == "turf" else "", badge, perk["description"]]
+		if row["scope"] == "turf" and row["unlocked"]:
+			if row["districts"].is_empty():
+				text += "
+No turf held yet."
+			else:
+				var parts := PackedStringArray()
+				for d in row["districts"]:
+					parts.append(GameData.DISTRICTS[d["district"]]["name"] + (" (reduced)" if d["strength"] == "reduced" else ""))
+				text += "
+Active in: " + ", ".join(parts)
+		var line := UI.label(text)
+		line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		if not row["unlocked"]:
+			line.modulate = Color(1, 1, 1, 0.45)
+		box.add_child(line)
+	return box
 
 
 # Guild Marketplace entry plus the Member badge, Join button or locked
