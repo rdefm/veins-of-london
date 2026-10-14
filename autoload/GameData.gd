@@ -1434,9 +1434,17 @@ func _validate_bench_prototype_region(recipe_id: String, recipe: Dictionary, err
 
 
 # Slice B chart: every pourable type is in poolSeed with an [x, y]
-# direction; speeds and view bounds are positive.
+# direction; speeds and view bounds are positive; each apparatus has its
+# positive transform number, and distil pulls back less than all the way.
 func _validate_bench_prototype_chart(chart: Dictionary, pool_seed: Dictionary, errors: Array[String]) -> void:
-	_require_keys(chart, ["directions", "pourSpeed", "unitsPerCalc", "viewMin", "viewMax"], "bench_prototype.chart", errors)
+	_require_keys(chart, ["directions", "pourSpeed", "unitsPerCalc", "viewMin", "viewMax", "apparatus"], "bench_prototype.chart", errors)
+	var apparatus: Dictionary = chart.get("apparatus", {})
+	for pair in [["heat", "rotateDeg"], ["grinding", "speedMul"], ["compression", "speedMul"], ["distilling", "pullBack"]]:
+		var value = apparatus.get(pair[0], {}).get(pair[1])
+		if not (value is float or value is int) or float(value) <= 0.0:
+			errors.append("bench_prototype.chart.apparatus.%s.%s: must be a number > 0" % pair)
+	if float(apparatus.get("distilling", {}).get("pullBack", 0)) >= 1.0:
+		errors.append("bench_prototype.chart.apparatus.distilling.pullBack: must be < 1")
 	for ore_type in chart.get("directions", {}).keys():
 		var direction = chart["directions"][ore_type]
 		if not pool_seed.has(ore_type):

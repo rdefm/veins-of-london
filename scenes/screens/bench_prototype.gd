@@ -4,8 +4,8 @@ extends Control
 # Debug-app-only sandbox screen for systems/bench_prototype.gd: slice
 # switcher, debug controls (skill, bonus type, refill), per-recipe cards
 # (best rank, per-hint level toggles, batch), the procedure run with its
-# plan editor and notebook or the chart run with its pour jars, Rewind and
-# the slice ledger.
+# plan editor and notebook or the chart run with its apparatus buttons,
+# next-pour queue and pour jars, Rewind and the slice ledger.
 
 const LEDGER_ROWS := 12
 
@@ -128,6 +128,12 @@ func _build_chart_card(s: Dictionary) -> Control:
 	c["content"].add_child(UI.label("Running: %s" % GameData.BENCH_PROTOTYPE["recipes"][recipe_id]["name"]))
 	c["content"].add_child(UI.muted_label("Hold a jar to pour. 1 calc per %d units. Spent this run: %s" % [roundi(float(chart["unitsPerCalc"])), spent]))
 	_add_chart_view(c["content"], view, recipe_id, run["path"])
+	var apparatus_row := UI.hbox()
+	for pair in [["heat", "Heat ⟲"], ["grinding", "Grind ½"], ["compression", "Compress ×2"], ["distilling", "Distil ↩"]]:
+		var apparatus: String = pair[0]
+		apparatus_row.add_child(MapCardStyle.text_button(pair[1], func(): BenchPrototype.apply_apparatus(apparatus)))
+	c["content"].add_child(apparatus_row)
+	c["content"].add_child(UI.muted_label("Next pour: %s" % _queue_text(BenchPrototype.chart_queue())))
 	var jars := UI.hbox()
 	for ore_type in chart["directions"].keys():
 		var jar := PourJar.new()
@@ -340,6 +346,17 @@ func _entry_text(entry: Dictionary) -> String:
 	if entry.has("marker"):
 		bonus_text = " · bottled at (%d, %d)%s" % [roundi(entry["marker"][0]), roundi(entry["marker"][1]), bonus_text]
 	return "Run %s ×%d · score %d → rank %d · %.1fs · +%d XP%s" % [recipe_name, entry["items"], entry["score"], entry["rank"], entry["durationMsec"] / 1000.0, entry["xp"], bonus_text]
+
+
+func _queue_text(queue: Dictionary) -> String:
+	var parts: Array[String] = []
+	var turn := roundi(float(queue["rotateDeg"])) % 360
+	if turn != 0:
+		parts.append("turned %d° anticlockwise" % turn)
+	var speed := float(queue["speedMul"])
+	if not is_equal_approx(speed, 1.0):
+		parts.append("speed ×%s" % str(snappedf(speed, 0.001)))
+	return ", ".join(parts) if not parts.is_empty() else "straight, normal speed"
 
 
 func _pool_text(pool: Dictionary) -> String:
@@ -570,9 +587,10 @@ class ChartView extends Control:
 		draw_circle(_px(marker()), 6.0, MapCardStyle.ink())
 
 
-# A calc jar: hold to pour. While held it previews the slide and its cost
-# on the chart (BenchPrototype.pour_preview) and lets go by itself when the
-# pool runs dry; release reports the raw hold seconds through poured.
+# A calc jar: hold to pour. While held it previews the slide (queued
+# transforms included) and its cost on the chart
+# (BenchPrototype.pour_preview) and lets go by itself when the pool runs
+# dry; release reports the raw hold seconds through poured.
 class PourJar extends Control:
 	signal poured(hold_sec: float)
 
@@ -611,8 +629,8 @@ class PourJar extends Control:
 	func _process(delta: float) -> void:
 		_held_sec += delta
 		var preview := BenchPrototype.pour_preview(ore_type, _held_sec)
-		var direction: Array = GameData.BENCH_PROTOTYPE["chart"]["directions"][ore_type]
-		var to := view.marker() + Vector2(float(direction[0]), float(direction[1])) * float(preview["distance"])
+		var direction: Vector2 = preview["direction"]
+		var to := view.marker() + direction * float(preview["distance"])
 		var dry: String = " · out of calc" if preview["stopped"] else ""
 		view.set_preview(to, "%s −%d calc%s" % [ore_type, preview["cost"], dry])
 		if preview["stopped"]:

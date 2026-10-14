@@ -882,6 +882,111 @@ func run() -> void:
 		assert_eq(GameState.state["benchPrototype"], expected, "open chart run survives a save")
 	)
 
+	run_case("heat_rotates_the_next_pour_and_stacks", func():
+		var root := _fresh()
+		var s: Dictionary = root["slices"][C]
+		var speed := float(_data()["chart"]["pourSpeed"])
+		BenchPrototype.begin_chart_run("healingBurst")
+		assert_true(BenchPrototype.apply_apparatus("heat")["ok"])
+		assert_almost_eq(BenchPrototype.chart_queue()["rotateDeg"], 45.0, 0.001, "queued 45°")
+		BenchPrototype.pour("life", 10.0 / speed)
+		var marker := BenchPrototype.chart_marker()
+		assert_almost_eq(marker.x, 10.0 * cos(PI / 4.0), 0.001, "life turned 45° anticlockwise: x")
+		assert_almost_eq(marker.y, 10.0 * sin(PI / 4.0), 0.001, "and y")
+		assert_eq(BenchPrototype.chart_queue(), { "rotateDeg": 0.0, "speedMul": 1.0 }, "the pour consumed the queue")
+		BenchPrototype.pour("life", 10.0 / speed)
+		assert_almost_eq(BenchPrototype.chart_marker().x - marker.x, 10.0, 0.001, "the next pour is straight again")
+		assert_almost_eq(BenchPrototype.chart_marker().y, marker.y, 0.001, "and doesn't climb")
+		BenchPrototype.apply_apparatus("heat")
+		BenchPrototype.apply_apparatus("heat")
+		var before := BenchPrototype.chart_marker()
+		BenchPrototype.pour("life", 10.0 / speed)
+		assert_almost_eq(BenchPrototype.chart_marker().x, before.x, 0.001, "heat ×2 = 90°: life pours ↑")
+		assert_almost_eq(BenchPrototype.chart_marker().y - before.y, 10.0, 0.001, "a full 10 units up")
+		assert_eq(s["activeRun"]["calcSpent"].keys(), ["life"], "rotated life still costs life")
+	)
+
+	run_case("grind_halves_compress_doubles_and_they_cancel", func():
+		_fresh()
+		var speed := float(_data()["chart"]["pourSpeed"])
+		BenchPrototype.begin_chart_run("healingSalve")
+		BenchPrototype.apply_apparatus("grinding")
+		assert_almost_eq(BenchPrototype.pour("life", 1.0)["distance"], speed * 0.5, 0.001, "grind halves the speed")
+		BenchPrototype.apply_apparatus("compression")
+		assert_almost_eq(BenchPrototype.pour("life", 1.0)["distance"], speed * 2.0, 0.001, "compress doubles it")
+		BenchPrototype.apply_apparatus("grinding")
+		BenchPrototype.apply_apparatus("compression")
+		assert_almost_eq(BenchPrototype.chart_queue()["speedMul"], 1.0, 0.0001, "grind + compress cancel")
+		assert_almost_eq(BenchPrototype.pour("life", 1.0)["distance"], speed, 0.001, "so the pour is normal speed")
+		BenchPrototype.apply_apparatus("grinding")
+		BenchPrototype.apply_apparatus("grinding")
+		var preview := BenchPrototype.pour_preview("time", 1.0)
+		assert_almost_eq(preview["distance"], speed * 0.25, 0.001, "grind ×2 quarters the preview")
+		assert_almost_eq(BenchPrototype.pour("time", 1.0)["distance"], preview["distance"], 0.001, "preview matches the pour")
+	)
+
+	run_case("distil_pulls_the_marker_back_now_and_keeps_the_queue", func():
+		var root := _fresh()
+		var s: Dictionary = root["slices"][C]
+		var speed := float(_data()["chart"]["pourSpeed"])
+		var pull := float(_data()["chart"]["apparatus"]["distilling"]["pullBack"])
+		assert_true(not BenchPrototype.apply_apparatus("distilling")["ok"], "no run, no distil")
+		BenchPrototype.begin_chart_run("healingBurst")
+		BenchPrototype.pour("life", 40.0 / speed)
+		BenchPrototype.pour("time", 20.0 / speed)
+		var pool_before: Dictionary = s["pool"].duplicate()
+		BenchPrototype.apply_apparatus("heat")
+		assert_true(BenchPrototype.apply_apparatus("distilling")["ok"])
+		assert_almost_eq(BenchPrototype.chart_marker().x, 40.0 * (1.0 - pull), 0.001, "x pulled toward origin")
+		assert_almost_eq(BenchPrototype.chart_marker().y, 20.0 * (1.0 - pull), 0.001, "y pulled toward origin")
+		assert_eq(s["activeRun"]["path"].size(), 4, "distil leaves a path point")
+		assert_eq(s["pool"], pool_before, "distil costs no calc")
+		assert_almost_eq(BenchPrototype.chart_queue()["rotateDeg"], 45.0, 0.001, "the queued heat waits for the pour")
+		assert_true(not BenchPrototype.apply_apparatus("bogus")["ok"], "unknown apparatus rejected")
+	)
+
+	run_case("rewind_restores_marker_queue_and_calc", func():
+		var root := _fresh()
+		var before: Dictionary = GameState.deep_copy(root["slices"][C])
+		before.erase("snapshots")
+		BenchPrototype.begin_chart_run("healingBurst")
+		BenchPrototype.apply_apparatus("heat")
+		BenchPrototype.pour("life", 1.0)
+		BenchPrototype.apply_apparatus("distilling")
+		BenchPrototype.apply_apparatus("compression")
+		assert_true(BenchPrototype.rewind(C)["ok"])
+		var after: Dictionary = GameState.deep_copy(root["slices"][C])
+		after.erase("snapshots")
+		assert_eq(after, before, "rewind undoes the whole run: marker, queue and calc")
+		assert_eq(BenchPrototype.chart_queue(), { "rotateDeg": 0.0, "speedMul": 1.0 }, "no queue left over")
+		assert_eq(BenchPrototype.chart_marker(), Vector2.ZERO, "no marker left over")
+	)
+
+	run_case("save_round_trip_preserves_queued_transforms", func():
+		var root := _fresh()
+		BenchPrototype.begin_chart_run("healingBurst")
+		BenchPrototype.pour("life", 0.7)
+		BenchPrototype.apply_apparatus("heat")
+		BenchPrototype.apply_apparatus("grinding")
+		var expected: Dictionary = GameState.deep_copy(root)
+		var raw = JSON.parse_string(JSON.stringify(GameState.state))
+		assert_true(SaveManager._load_save_dict(raw)["ok"], "save loads")
+		assert_eq(GameState.state["benchPrototype"], expected, "queued transforms survive a save")
+	)
+
+	run_case("validator_flags_missing_apparatus_transform", func():
+		_fresh()
+		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+		corrupted["bench_prototype"]["chart"]["apparatus"]["distilling"]["pullBack"] = 1.5
+		corrupted["bench_prototype"]["chart"]["apparatus"]["heat"].erase("rotateDeg")
+		var found := { "pullBack": false, "rotateDeg": false }
+		for e in GameData.validate_tables(corrupted):
+			for key in found.keys():
+				if e.contains("chart.apparatus") and e.contains(key):
+					found[key] = true
+		assert_eq(found, { "pullBack": true, "rotateDeg": true }, "bad transforms are flagged")
+	)
+
 	run_case("validator_flags_bullseye_not_inside_region", func():
 		_fresh()
 		var corrupted: Dictionary = GameData.snapshot().duplicate(true)

@@ -27,7 +27,9 @@ extends RefCounted
 # The chart slice's run is begin_chart_run() -> pour() per jar hold (raw
 # hold seconds; the marker slides along the ore type's direction and calc
 # is charged per distance) -> bottle(), which scores the marker's distance
-# to the recipe's bullseye (spec §Slice B).
+# to the recipe's bullseye (spec §Slice B). Between pours, apply_apparatus()
+# queues heat/grind/compress onto the next pour or distils the marker back
+# toward the origin at once (spec §Slice B Moving the marker).
 
 const SLICE_PROCEDURE := "procedure"
 const SLICE_CHART := "chart"
@@ -832,6 +834,7 @@ static func begin_chart_run(recipe_id: String) -> Dictionary:
 	s["activeRun"] = {
 		"recipeId": recipe_id, "startedMsec": Time.get_ticks_msec(), "calcSpent": {},
 		"marker": [0.0, 0.0], "path": [[0.0, 0.0]], "poured": {},
+		"queue": _empty_queue(),
 	}
 	EventBus.state_changed.emit()
 	return { "ok": true }
@@ -842,21 +845,60 @@ static func chart_marker() -> Vector2:
 	return _vec(run["marker"]) if run != null and run.has("marker") else Vector2.ZERO
 
 
-# How far a hold of hold_sec on ore_type's jar would carry the marker, and
-# the calc it would charge, capped by what the pool can still pay for.
-# stopped = the pool ran dry before the hold ended.
+static func _empty_queue() -> Dictionary:
+	return { "rotateDeg": 0.0, "speedMul": 1.0 }
+
+
+# The transforms waiting on the next pour: rotateDeg counter-clockwise and
+# a speed multiplier (1.0 = unchanged).
+static func chart_queue() -> Dictionary:
+	var run = slice(SLICE_CHART)["activeRun"]
+	return run.get("queue", _empty_queue()) if run != null and run.has("marker") else _empty_queue()
+
+
+# ore_type's pour direction turned by the queued rotation.
+static func pour_direction(ore_type: String) -> Vector2:
+	return _vec(chart_def()["directions"][ore_type]).rotated(deg_to_rad(float(chart_queue()["rotateDeg"])))
+
+
+# Heat, grind and compress stack onto the next pour; distil pulls the
+# marker pullBack of the way to the origin now and leaves the queue alone.
+static func apply_apparatus(apparatus: String) -> Dictionary:
+	var run = slice(SLICE_CHART)["activeRun"]
+	if run == null or not run.has("marker"):
+		return { "ok": false, "reason": "No chart run open." }
+	var transform: Dictionary = chart_def()["apparatus"].get(apparatus, {})
+	if transform.is_empty():
+		return { "ok": false, "reason": "Unknown apparatus." }
+	if transform.has("pullBack"):
+		var marker := _vec(run["marker"]) * (1.0 - float(transform["pullBack"]))
+		run["marker"] = [marker.x, marker.y]
+		run["path"].append([marker.x, marker.y])
+	else:
+		var queue: Dictionary = run.get("queue", _empty_queue()).duplicate()
+		queue["rotateDeg"] = float(queue["rotateDeg"]) + float(transform.get("rotateDeg", 0.0))
+		queue["speedMul"] = float(queue["speedMul"]) * float(transform.get("speedMul", 1.0))
+		run["queue"] = queue
+	EventBus.state_changed.emit()
+	return { "ok": true }
+
+
+# How far a hold of hold_sec on ore_type's jar would carry the marker (at
+# the queued speed, along the queued direction), and the calc it would
+# charge, capped by what the pool can still pay for. stopped = the pool ran
+# dry before the hold ended.
 static func pour_preview(ore_type: String, hold_sec: float) -> Dictionary:
 	var run = slice(SLICE_CHART)["activeRun"]
 	if run == null or not run.has("marker") or not chart_def()["directions"].has(ore_type):
-		return { "distance": 0.0, "cost": 0, "stopped": true }
+		return { "distance": 0.0, "cost": 0, "stopped": true, "direction": Vector2.ZERO }
 	var units := float(chart_def()["unitsPerCalc"])
 	var poured := float(run["poured"].get(ore_type, 0.0))
 	var charged: int = int(run["calcSpent"].get(ore_type, 0))
 	var pool: int = int(slice(SLICE_CHART)["pool"].get(ore_type, 0))
 	var limit := maxf(0.0, (charged + pool) * units - poured)
-	var wanted := maxf(0.0, hold_sec) * float(chart_def()["pourSpeed"])
+	var wanted := maxf(0.0, hold_sec) * float(chart_def()["pourSpeed"]) * float(chart_queue()["speedMul"])
 	var distance := minf(wanted, limit)
-	return { "distance": distance, "cost": _calc_for(poured + distance, units) - charged, "stopped": wanted >= limit }
+	return { "distance": distance, "cost": _calc_for(poured + distance, units) - charged, "stopped": wanted >= limit, "direction": pour_direction(ore_type) }
 
 
 # Calc owed for a run's total poured distance of one type.
@@ -864,8 +906,9 @@ static func _calc_for(distance: float, units: float) -> int:
 	return ceili(distance / units - 0.000001)
 
 
-# Moves the marker along ore_type's direction for a raw hold of hold_sec
-# and charges the calc per distance; an empty pool stops the pour short.
+# Moves the marker along ore_type's (queue-transformed) direction for a raw
+# hold of hold_sec and charges the calc per distance; an empty pool stops
+# the pour short. A pour that moves consumes the queue.
 static func pour(ore_type: String, hold_sec: float) -> Dictionary:
 	var s := slice(SLICE_CHART)
 	var run = s["activeRun"]
@@ -880,9 +923,11 @@ static func pour(ore_type: String, hold_sec: float) -> Dictionary:
 	_spend(s, { ore_type: preview["cost"] })
 	run["calcSpent"][ore_type] = int(run["calcSpent"].get(ore_type, 0)) + int(preview["cost"])
 	run["poured"][ore_type] = float(run["poured"].get(ore_type, 0.0)) + distance
-	var marker := _vec(run["marker"]) + _vec(chart_def()["directions"][ore_type]) * distance
+	var direction: Vector2 = preview["direction"]
+	var marker := _vec(run["marker"]) + direction * distance
 	run["marker"] = [marker.x, marker.y]
 	run["path"].append([marker.x, marker.y])
+	run["queue"] = _empty_queue()
 	EventBus.state_changed.emit()
 	return { "ok": true, "distance": distance, "cost": preview["cost"], "stopped": preview["stopped"] }
 
