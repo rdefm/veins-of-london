@@ -862,9 +862,9 @@ static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 			GameState.state["contacts"][effect["contact"]]["unlocked"] = true
 		"recruit_contact":
 			Contacts.force_recruit(effect["contact"])
-		"accept_defection":
-			var defector: String = effect.get("contact", context.get("contact_id", _live_event_context().get("contact_id", "")))
-			KeyMembers.defect(defector)
+		"accept_secret_offer":
+			var offerer: String = effect.get("contact", context.get("contact_id", _live_event_context().get("contact_id", "")))
+			KeyMembers.accept_offer(offerer)
 		"activate_business":
 			Business.activate()
 		"set_james_crafting_skill":

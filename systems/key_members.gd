@@ -280,73 +280,49 @@ static func inside_man_tick() -> void:
 			Messages.append(contact_id, "them", cfg["leakLine"])
 
 
-# ── Defection (R§3.10 "Key members") ────────────────────────────────────
-# A member with a data `defection` prize, close to the player while their
-# faction is weak or losing a war against the player, may change sides.
-# state.factions[id].defected = [contactId]; craftSkillLoss lowers the
-# faction's craftSkill (FactionSim.craft_skill).
+# ── Secret offers (R§3.10 "Key members") ────────────────────────────────
+# A contender close to the player who trails their faction's leader may
+# secretly hand over a faction vein. They stay in their faction; accepting
+# costs the faction's relation and shifts standing toward the offerer.
 
-static func is_defected(contact_id: String) -> bool:
-	var faction_id := faction_of(contact_id)
-	return faction_id != "" and GameState.state["factions"].get(faction_id, {}).get("defected", []).has(contact_id)
-
-
-# The faction is weak, or at war with the player with weariness at its
-# acceptPeace line.
-static func faction_failing(faction_id: String) -> bool:
-	if FactionSim.is_weak(faction_id):
-		return true
-	return FactionAI.at_war(Shares.PLAYER, faction_id) and FactionAI.weariness(faction_id) >= FactionAI.accept_peace_at(faction_id)
-
-
-static func can_defect(contact_id: String) -> bool:
+# Offerer is a met, non-leading contender at personal relation ≥ offerAt,
+# standing below the leader's, and their faction has a vein to hand over.
+static func can_offer(contact_id: String) -> bool:
 	var m := member(contact_id)
-	if m.is_empty() or not m.has("defection") or is_defected(contact_id):
+	if m.is_empty() or not m.get("seat", "") in [SEAT_SPEAKER, SEAT_LIEUTENANT] or not _met(contact_id):
 		return false
 	var faction_id := faction_of(contact_id)
-	if leader_of(faction_id) == contact_id or not _met(contact_id):
+	var leader := leader_of(faction_id)
+	if leader == contact_id or personal_relation(contact_id) < int(_pcfg()["offerAt"]):
 		return false
-	return personal_relation(contact_id) >= int(_pcfg()["defectAt"]) and faction_failing(faction_id)
+	if standing_of(contact_id) >= standing_of(leader):
+		return false
+	return not Sites.sites_with_faction_vein(faction_id).is_empty()
 
 
-# Moves the member to the player's contacts, grants their prize and docks the
-# faction. False when they can't defect.
-static func defect(contact_id: String) -> bool:
-	if not can_defect(contact_id):
+# Hands over a faction vein; docks the faction's relation, raises the offerer's
+# personal relation and standing, lowers the leader's standing. False when they
+# can't offer.
+static func accept_offer(contact_id: String) -> bool:
+	if not can_offer(contact_id):
 		return false
 	var faction_id := faction_of(contact_id)
-	var faction: Dictionary = GameState.state["factions"][faction_id]
-	if not faction.has("defected"):
-		faction["defected"] = []
-	faction["defected"].append(contact_id)
-	faction["craftSkillLoss"] = int(faction.get("craftSkillLoss", 0)) + int(_pcfg()["defectCraftSkillLoss"])
-	Factions.adjust_player_relation(faction_id, -int(_pcfg()["defectRelationHit"]))
-	Contacts.force_recruit(contact_id)
-	_grant_prize(contact_id, faction_id, member(contact_id)["defection"])
+	var cfg := _pcfg()
+	var site: Dictionary = Sites.sites_with_faction_vein(faction_id)[0]
+	VeinTrade.transfer_from_faction(site["factionVein"]["id"], faction_id)
+	Factions.adjust_player_relation(faction_id, -int(cfg["offerRelationHit"]))
+	Contacts.award_relation(contact_id, int(cfg["offerPersonalGain"]))
+	adjust_standing(contact_id, int(cfg["offerStandingGain"]))
+	adjust_standing(leader_of(faction_id), -int(cfg["offerLeaderLoss"]))
 	EventBus.state_changed.emit()
 	return true
 
 
-static func _grant_prize(contact_id: String, faction_id: String, prize: Dictionary) -> void:
-	var contact: Dictionary = GameState.state["contacts"][contact_id]
-	match String(prize["kind"]):
-		"vein":
-			for site in Sites.sites_with_faction_vein(faction_id):
-				VeinTrade.transfer_from_faction(site["factionVein"]["id"], faction_id)
-				return
-		"speciality":
-			if not contact["specialities"].has(prize["ore"]):
-				contact["specialities"].append(prize["ore"])
-		"skill":
-			var key := "%sSkill" % prize["skill"]
-			contact[key] = maxi(int(contact[key]), int(prize["level"]))
-
-
-# Contact ids that can defect today (data order).
-static func defectors() -> Array:
+# Contact ids that can offer today (data order).
+static func offerers() -> Array:
 	var ids := []
 	for faction_id in GameData.FACTIONS.keys():
-		for m in members(faction_id):
-			if can_defect(m["contactId"]):
+		for m in contenders(faction_id):
+			if can_offer(m["contactId"]):
 				ids.append(m["contactId"])
 	return ids

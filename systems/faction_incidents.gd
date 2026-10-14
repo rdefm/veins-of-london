@@ -13,7 +13,7 @@ extends RefCounted
 # nextId: int }.
 
 const PENDING_KIND := "faction_incident"
-const TRIGGER_IDS: PackedStringArray = ["raidedByFaction", "warBetween", "truceExpiring", "turfFlip", "succession", "defection"]
+const TRIGGER_IDS: PackedStringArray = ["raidedByFaction", "warBetween", "truceExpiring", "turfFlip", "succession", "secretOffer"]
 
 
 static func _cfg() -> Dictionary:
@@ -56,8 +56,8 @@ static func _trigger_fn(trigger: String) -> Callable:
 			return _trigger_flip
 		"succession":
 			return _trigger_succession
-		"defection":
-			return _trigger_defection
+		"secretOffer":
+			return _trigger_secret_offer
 	return Callable()
 
 
@@ -148,10 +148,10 @@ static func _trigger_succession(_conditions: Dictionary) -> Array:
 	return hits
 
 
-# A key member ready to change sides (KeyMembers.can_defect); they send the notice.
-static func _trigger_defection(_conditions: Dictionary) -> Array:
+# A contender ready to make a secret offer (KeyMembers.can_offer); they send the notice.
+static func _trigger_secret_offer(_conditions: Dictionary) -> Array:
 	var hits := []
-	for contact_id in KeyMembers.defectors():
+	for contact_id in KeyMembers.offerers():
 		hits.append({
 			"subject": contact_id,
 			"speakers": [KeyMembers.faction_of(contact_id)],

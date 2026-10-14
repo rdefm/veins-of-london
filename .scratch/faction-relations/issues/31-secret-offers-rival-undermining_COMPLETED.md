@@ -12,9 +12,9 @@ Gates (all): contender seat (speaker/lieutenant), not the current leader, unlock
 
 **Status:** ready-for-agent
 
-- [ ] Defection recruit/`defected`/craftSkill-loss/war-or-weak gate/speciality+skill prizes removed
-- [ ] Offer fires only for unlocked non-leader contenders at relation ≥ threshold and standing below the leader; per-member cooldown, repeatable
-- [ ] Accept hands over a faction vein; member is not recruited
-- [ ] Accept: faction relation falls a little, instigator personal relation rises a lot, instigator standing up, leader standing down
-- [ ] Decline changes nothing
-- [ ] Tests, REFERENCE and CODEMAP updated; placeholder card `PROSE-REVIEW`
+- [x] Defection recruit/`defected`/craftSkill-loss/war-or-weak gate/speciality+skill prizes removed
+- [x] Offer fires only for unlocked non-leader contenders at relation ≥ threshold and standing below the leader; per-member cooldown, repeatable
+- [x] Accept hands over a faction vein; member is not recruited
+- [x] Accept: faction relation falls a little, instigator personal relation rises a lot, instigator standing up, leader standing down
+- [x] Decline changes nothing
+- [x] Tests, REFERENCE and CODEMAP updated; placeholder card `PROSE-REVIEW`

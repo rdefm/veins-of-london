@@ -41,8 +41,8 @@
     "speaker": "nadia",
     "keyMembers": [
       {"id": "nadia", "contactId": "nadia", "seat": "speaker", "outlook": "hawk", "want": "collective", "aggressionMult": 1.3, "relationBaseline": -10, "startStanding": 50, "name": "Nadia", "role": "The Collective · Hackney", "unlock": "quest", "giftPrefs": ["timePearl", "enhancementPowder"], "intro": ""},
-      {"id": "des", "contactId": "des", "defection": {"kind": "skill", "skill": "cultivating", "level": 3}, "seat": "lieutenant", "outlook": "dove", "want": "business_empire", "aggressionMult": 0.7, "relationBaseline": 10, "startStanding": 50, "name": "Des", "role": "The Collective · prospector", "unlock": "quest", "giftPrefs": ["prophetsBreath", "healingSalve"], "intro": ""},
-      {"id": "hakim", "contactId": "hakim", "defection": {"kind": "vein"}, "seat": "member", "outlook": "", "want": "", "aggressionMult": 1.0, "relationBaseline": 0, "startStanding": 0, "name": "Hakim", "role": "The Collective · Whitechapel Road", "unlock": "quest", "giftPrefs": ["rejuvenation", "healingBurst"], "intro": ""}
+      {"id": "des", "contactId": "des", "seat": "lieutenant", "outlook": "dove", "want": "business_empire", "aggressionMult": 0.7, "relationBaseline": 10, "startStanding": 50, "name": "Des", "role": "The Collective · prospector", "unlock": "quest", "giftPrefs": ["prophetsBreath", "healingSalve"], "intro": ""},
+      {"id": "hakim", "contactId": "hakim", "seat": "member", "outlook": "", "want": "", "aggressionMult": 1.0, "relationBaseline": 0, "startStanding": 0, "name": "Hakim", "role": "The Collective · Whitechapel Road", "unlock": "quest", "giftPrefs": ["rejuvenation", "healingBurst"], "intro": ""}
     ],
     "sampleFavours": [
       {"id": "collective_time_order", "kind": "deliver", "params": {"kind": "ore", "type": "time", "qty": 10, "days": 5}, "text": "\"I'm short on time calc again. Ten by the end of the week and I'll remember it.\""},
@@ -105,7 +105,7 @@
     "speaker": "lusk",
     "keyMembers": [
       {"id": "lusk", "contactId": "lusk", "seat": "speaker", "outlook": "hawk", "want": "firm_ascendancy", "aggressionMult": 1.3, "relationBaseline": -10, "startStanding": 50, "name": "Lusk", "role": "The Firm · Bermondsey", "unlock": "firstMessage", "giftPrefs": ["rejuvenation", "prophetsBreath"], "intro": "\"Lusk. I look after the Firm's interests south of the river. Some of those interests appear to be yours now. We'll keep this civil for as long as it stays that way.\""},
-      {"id": "mercer", "contactId": "mercer", "defection": {"kind": "speciality", "ore": "physics"}, "name": "Mercer", "role": "The Firm · Deptford", "unlock": "firstMessage", "seat": "lieutenant", "outlook": "dove", "want": "firm_legitimacy", "aggressionMult": 0.7, "relationBaseline": 10, "startStanding": 50, "proseReview": true, "giftPrefs": ["healingBurst", "shield"], "intro": "\"Mercer. Lusk's deputy. Placeholder intro.\""}
+      {"id": "mercer", "contactId": "mercer", "name": "Mercer", "role": "The Firm · Deptford", "unlock": "firstMessage", "seat": "lieutenant", "outlook": "dove", "want": "firm_legitimacy", "aggressionMult": 0.7, "relationBaseline": 10, "startStanding": 50, "proseReview": true, "giftPrefs": ["healingBurst", "shield"], "intro": "\"Mercer. Lusk's deputy. Placeholder intro.\""}
     ],
     "sampleFavours": [
       {"id": "firm_sit_out", "kind": "sitOut", "params": {"target": "collective", "days": 5}, "text": "\"Something's happening east of here this week. You'll be somewhere else. That's the whole favour.\""},
@@ -171,7 +171,7 @@
     "speaker": "ingram",
     "keyMembers": [
       {"id": "ingram", "contactId": "ingram", "seat": "speaker", "outlook": "hawk", "want": "guild_audit", "aggressionMult": 1.3, "relationBaseline": -10, "startStanding": 50, "name": "Ingram", "role": "The Guild · Assay Warden", "unlock": "firstMessage", "giftPrefs": ["failsafe", "panic"], "intro": "\"Dr Ingram, Assay Warden to the Guild of Applied Alchemists. Your name has come before the Court twice this month. Once would have been sufficient.\""},
-      {"id": "wren", "contactId": "wren", "defection": {"kind": "speciality", "ore": "time"}, "name": "Wren", "role": "The Guild · Registrar", "unlock": "firstMessage", "seat": "lieutenant", "outlook": "dove", "want": "guild_charter", "aggressionMult": 0.7, "relationBaseline": 10, "startStanding": 50, "proseReview": true, "giftPrefs": ["rewind", "timePearl"], "intro": "\"Registrar Wren, for the Guild. Placeholder intro.\""}
+      {"id": "wren", "contactId": "wren", "name": "Wren", "role": "The Guild · Registrar", "unlock": "firstMessage", "seat": "lieutenant", "outlook": "dove", "want": "guild_charter", "aggressionMult": 0.7, "relationBaseline": 10, "startStanding": 50, "proseReview": true, "giftPrefs": ["rewind", "timePearl"], "intro": "\"Registrar Wren, for the Guild. Placeholder intro.\""}
     ],
     "sampleFavours": [
       {"id": "guild_time_supply", "kind": "deliver", "params": {"kind": "ore", "type": "time", "qty": 15, "days": 6}, "text": "\"The Court requires fifteen time by the sixth day. Assayed, weighed, and not in a carrier bag.\""},
@@ -236,7 +236,7 @@
     "speaker": "handler",
     "keyMembers": [
       {"id": "handler", "contactId": "handler", "seat": "speaker", "outlook": "dove", "want": "network_quiet_trade", "aggressionMult": 0.7, "relationBaseline": 10, "startStanding": 50, "name": "Handler", "role": "The Network · Clerkenwell", "unlock": "quest", "giftPrefs": ["prophetsBreath", "beALady"], "intro": ""},
-      {"id": "courier", "contactId": "courier", "defection": {"kind": "skill", "skill": "crafting", "level": 2}, "name": "Courier", "role": "The Network · Clerkenwell", "unlock": "firstMessage", "seat": "lieutenant", "outlook": "hawk", "want": "network_expansion", "aggressionMult": 1.3, "relationBaseline": -10, "startStanding": 50, "proseReview": true, "giftPrefs": ["panic", "prophetsBreath"], "intro": "\"Courier. I carry what the Handler won't write down. Placeholder intro.\""}
+      {"id": "courier", "contactId": "courier", "name": "Courier", "role": "The Network · Clerkenwell", "unlock": "firstMessage", "seat": "lieutenant", "outlook": "hawk", "want": "network_expansion", "aggressionMult": 1.3, "relationBaseline": -10, "startStanding": 50, "proseReview": true, "giftPrefs": ["panic", "prophetsBreath"], "intro": "\"Courier. I carry what the Handler won't write down. Placeholder intro.\""}
     ],
     "sampleFavours": [
       {"id": "network_breath_drop", "kind": "deliver", "params": {"kind": "consumable", "type": "prophetsBreath", "qty": 3, "days": 4}, "text": "\"Three prophet's breath. Four days. Leave them where you'd least expect.\""},
@@ -300,7 +300,7 @@
     "speaker": "fairweather",
     "keyMembers": [
       {"id": "fairweather", "contactId": "fairweather", "seat": "speaker", "outlook": "dove", "want": "conclave_discretion", "aggressionMult": 0.7, "relationBaseline": 10, "startStanding": 50, "name": "Fairweather", "role": "The Conclave · Westminster", "unlock": "firstMessage", "giftPrefs": ["timePearl", "wormhole"], "intro": "\"Good afternoon. Fairweather, on behalf of the Conclave. There is nothing you need to do. We simply prefer people to know whom to call.\""},
-      {"id": "pryce", "contactId": "pryce", "defection": {"kind": "vein"}, "name": "Pryce", "role": "The Conclave · Whitehall", "unlock": "firstMessage", "seat": "lieutenant", "outlook": "hawk", "want": "conclave_reach", "aggressionMult": 1.3, "relationBaseline": -10, "startStanding": 50, "proseReview": true, "giftPrefs": ["failsafe", "wormhole"], "intro": "\"Pryce, for the Conclave. Placeholder intro.\""}
+      {"id": "pryce", "contactId": "pryce", "name": "Pryce", "role": "The Conclave · Whitehall", "unlock": "firstMessage", "seat": "lieutenant", "outlook": "hawk", "want": "conclave_reach", "aggressionMult": 1.3, "relationBaseline": -10, "startStanding": 50, "proseReview": true, "giftPrefs": ["failsafe", "wormhole"], "intro": "\"Pryce, for the Conclave. Placeholder intro.\""}
     ],
     "sampleFavours": [
       {"id": "conclave_hold_ground", "kind": "guardVein", "params": {"days": 3}, "text": "\"We'd be grateful if your veins stayed exactly where they are for the next three days. Grateful is the word we'd use.\""},

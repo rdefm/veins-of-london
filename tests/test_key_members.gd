@@ -266,56 +266,75 @@ func run() -> void:
 		assert_eq(Intel.meter(Shares.PLAYER, "firm"), before, "no leak without an inside man")
 	)
 
-	run_case("defection_needs_closeness_a_failing_faction_and_a_non_leader", func():
+	run_case("offer_needs_closeness_a_trailing_contender_and_a_faction_vein", func():
 		GameState.reset()
-		var at := int(GameData.FACTION_INCIDENTS["personal"]["defectAt"])
-		GameState.state["factions"]["firm"]["resources"] = 100000
+		var at := int(GameData.FACTION_INCIDENTS["personal"]["offerAt"])
+		_seed_firm_vein()
 		GameState.state["contacts"]["mercer"]["unlocked"] = true
 		GameState.state["contacts"]["mercer"]["relation"] = at
-		assert_true(not KeyMembers.can_defect("mercer"), "firm is not failing")
-		GameState.state["factionWar"]["wars"].append({ "parties": [Shares.PLAYER, "firm"], "startDay": 0, "lastHostileDay": 0, "weariness": { Shares.PLAYER: 0.0, "firm": 0.0 } })
-		GameState.state["factionWar"]["weariness"]["firm"] = float(FactionAI.accept_peace_at("firm"))
-		assert_true(KeyMembers.can_defect("mercer"), "losing a war against the player")
+		GameState.state["factions"]["firm"]["standing"]["mercer"] = 30
+		assert_true(KeyMembers.can_offer("mercer"), "trailing lieutenant, close, vein present")
 		GameState.state["contacts"]["mercer"]["relation"] = at - 1
-		assert_true(not KeyMembers.can_defect("mercer"), "not close enough")
+		assert_true(not KeyMembers.can_offer("mercer"), "not close enough")
 		GameState.state["contacts"]["mercer"]["relation"] = at
+		GameState.state["factions"]["firm"]["standing"]["mercer"] = GameState.state["factions"]["firm"]["standing"]["lusk"]
+		assert_true(not KeyMembers.can_offer("mercer"), "not below the leader")
+		GameState.state["factions"]["firm"]["standing"]["mercer"] = 10
 		GameState.state["contacts"]["lusk"]["unlocked"] = true
 		GameState.state["contacts"]["lusk"]["relation"] = at
-		assert_true(not KeyMembers.can_defect("lusk"), "the leader has no prize and stays")
-		GameState.state["factions"]["firm"]["leader"] = "mercer"
-		assert_true(not KeyMembers.can_defect("mercer"), "a leader does not defect")
+		assert_true(not KeyMembers.can_offer("lusk"), "the leader never offers")
+		GameState.state["contacts"]["mercer"]["unlocked"] = false
+		assert_true(not KeyMembers.can_offer("mercer"), "locked")
+		GameState.state["contacts"]["mercer"]["unlocked"] = true
+		for site in GameState.state["world"]["sites"]:
+			site["factionVein"] = null
+		assert_true(not KeyMembers.can_offer("mercer"), "no vein to hand over")
 	)
 
-	run_case("defection_moves_the_member_grants_the_prize_and_docks_the_faction", func():
+	run_case("accepting_an_offer_hands_over_a_vein_and_shifts_relation_and_standing", func():
 		GameState.reset()
+		var cfg: Dictionary = GameData.FACTION_INCIDENTS["personal"]
+		_seed_firm_vein()
 		GameState.state["contacts"]["mercer"]["unlocked"] = true
-		GameState.state["contacts"]["mercer"]["relation"] = 100
-		GameState.state["factionWar"]["wars"].append({ "parties": [Shares.PLAYER, "firm"], "startDay": 0, "lastHostileDay": 0, "weariness": { Shares.PLAYER: 0.0, "firm": 0.0 } })
-		GameState.state["factionWar"]["weariness"]["firm"] = 100.0
+		GameState.state["contacts"]["mercer"]["relation"] = 80
 		GameState.state["factions"]["firm"]["relation"] = 0
-		var skill_before := FactionSim.craft_skill("firm")
-		assert_true(KeyMembers.defect("mercer"))
-		assert_true(GameState.state["contacts"]["mercer"]["recruited"], "now the player's contact")
-		assert_true(GameState.state["contacts"]["mercer"]["specialities"].has("physics"), "prize granted")
-		assert_eq(GameState.state["factions"]["firm"]["relation"], -int(GameData.FACTION_INCIDENTS["personal"]["defectRelationHit"]))
-		assert_eq(FactionSim.craft_skill("firm"), maxi(1, skill_before - 1), "craftSkill lowered, floor 1")
-		assert_true(KeyMembers.is_defected("mercer"))
-		assert_true(not KeyMembers.can_defect("mercer"), "once per member")
-		assert_true(not KeyMembers.defect("mercer"), "no second defection")
+		GameState.state["factions"]["firm"]["standing"]["mercer"] = 40
+		var leader_before := KeyMembers.standing_of("lusk")
+		assert_true(KeyMembers.accept_offer("mercer"))
+		assert_true(Sites.sites_with_faction_vein("firm").is_empty(), "vein handed over")
+		assert_true(not GameState.state["contacts"]["mercer"]["recruited"], "not recruited")
+		assert_eq(GameState.state["factions"]["firm"]["relation"], -int(cfg["offerRelationHit"]))
+		assert_eq(GameState.state["contacts"]["mercer"]["relation"], 80 + int(cfg["offerPersonalGain"]))
+		assert_eq(KeyMembers.standing_of("mercer"), 40 + int(cfg["offerStandingGain"]))
+		assert_eq(KeyMembers.standing_of("lusk"), leader_before - int(cfg["offerLeaderLoss"]))
+		assert_true(not KeyMembers.accept_offer("mercer"), "no vein left")
 	)
 
-	run_case("defection_incident_fires_once_and_accepting_plays_the_event_op", func():
+	run_case("offer_incident_fires_per_cooldown_and_accepting_plays_the_event_op", func():
 		GameState.reset()
+		_seed_firm_vein()
 		GameState.state["contacts"]["mercer"]["unlocked"] = true
 		GameState.state["contacts"]["mercer"]["relation"] = 100
-		GameState.state["factionWar"]["wars"].append({ "parties": [Shares.PLAYER, "firm"], "startDay": 0, "lastHostileDay": 0, "weariness": { Shares.PLAYER: 0.0, "firm": 0.0 } })
-		GameState.state["factionWar"]["weariness"]["firm"] = 100.0
+		GameState.state["factions"]["firm"]["standing"]["mercer"] = 30
 		FactionIncidents.daily_tick()
-		var queued := FactionIncidents.queued().filter(func(q): return q["eventId"] == "inc_defection")
+		var queued := FactionIncidents.queued().filter(func(q): return q["eventId"] == "inc_secret_offer")
 		assert_eq(queued.size(), 1)
 		assert_eq(queued[0]["context"]["contact_id"], "mercer")
 		assert_eq(Messages.pending_for("mercer").size(), 1, "the member sends the notice")
-		Events.apply_effects([{ "op": "accept_defection" }], queued[0]["context"])
-		assert_true(KeyMembers.is_defected("mercer"), "op ran")
+		FactionIncidents.daily_tick()
+		assert_eq(FactionIncidents.queued().filter(func(q): return q["eventId"] == "inc_secret_offer").size(), 1, "cooldown holds")
+		var before := Sites.sites_with_faction_vein("firm").size()
+		Events.apply_effects([{ "op": "accept_secret_offer" }], queued[0]["context"])
+		assert_eq(Sites.sites_with_faction_vein("firm").size(), before - 1, "op ran")
 	)
 
+
+# One firm vein on a single fixture site.
+static func _seed_firm_vein() -> void:
+	var vein := {
+		"id": "fv_test", "factionId": "firm", "oreType": "physics", "growth": 10,
+		"rampantDays": 0, "security": "none", "alarmUpgrades": [], "claimedOnDay": 1,
+		"district": "shoreditch", "siteId": "test_site", "level": 3, "developmentStreak": 0,
+		"hospitability": { "tier": "fair", "bonuses": [] },
+	}
+	GameState.state["world"]["sites"] = [Fixtures.site_with_vein("test_site", vein)]

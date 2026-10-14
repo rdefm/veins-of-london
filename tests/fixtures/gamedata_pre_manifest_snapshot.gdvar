@@ -4708,7 +4708,7 @@ With attention drawn away, anyone carrying valuables may be of interest to the c
 "op": "start_home_raid_combat"
 }]
 },
-"inc_defection": {
+"inc_secret_offer": {
 "cards": [{
 "label": null,
 "speaker": null,
@@ -4717,18 +4717,18 @@ With attention drawn away, anyone carrying valuables may be of interest to the c
 }, {
 "choices": [{
 "effects": [{
-"op": "accept_defection"
+"op": "accept_secret_offer"
 }],
-"label": "Take them on",
-"result_text": "PROSE-REVIEW placeholder: They bring what they can carry. Their old employers will count what's missing."
+"label": "Take the vein",
+"result_text": "PROSE-REVIEW placeholder: The keys arrive in an envelope. Nobody signs for them."
 }, {
 "effects": [],
-"label": "Turn them away",
-"result_text": "PROSE-REVIEW placeholder: They nod as if they expected it, and don't look back."
+"label": "Leave it",
+"result_text": "PROSE-REVIEW placeholder: They nod as if they expected it, and the offer is never mentioned again."
 }],
 "label": null,
 "speaker": null,
-"text": "PROSE-REVIEW placeholder: \"I'm done with them. I'd rather be done with them in your direction.\"",
+"text": "PROSE-REVIEW placeholder: \"There's a vein of ours nobody will miss for a week. Take it. Remember who handed it over.\"",
 "type": "choice"
 }, {
 "label": null,
@@ -4736,7 +4736,7 @@ With attention drawn away, anyone carrying valuables may be of interest to the c
 "text": "PROSE-REVIEW placeholder: London keeps its own accounts.",
 "type": "resolution"
 }],
-"id": "inc_defection",
+"id": "inc_secret_offer",
 "on_complete": [{
 "op": "set_screen",
 "screen": "phone"
@@ -6239,11 +6239,6 @@ With attention drawn away, anyone carrying valuables may be of interest to the c
 }, {
 "aggressionMult": 0.7,
 "contactId": "des",
-"defection": {
-"kind": "skill",
-"level": 3,
-"skill": "cultivating"
-},
 "giftPrefs": ["prophetsBreath", "healingSalve"],
 "id": "des",
 "intro": "",
@@ -6258,9 +6253,6 @@ With attention drawn away, anyone carrying valuables may be of interest to the c
 }, {
 "aggressionMult": 1,
 "contactId": "hakim",
-"defection": {
-"kind": "vein"
-},
 "giftPrefs": ["rejuvenation", "healingBurst"],
 "id": "hakim",
 "intro": "",
@@ -6392,9 +6384,6 @@ With attention drawn away, anyone carrying valuables may be of interest to the c
 }, {
 "aggressionMult": 1.3,
 "contactId": "pryce",
-"defection": {
-"kind": "vein"
-},
 "giftPrefs": ["failsafe", "wormhole"],
 "id": "pryce",
 "intro": "\"Pryce, for the Conclave. Placeholder intro.\"",
@@ -6543,10 +6532,6 @@ With attention drawn away, anyone carrying valuables may be of interest to the c
 }, {
 "aggressionMult": 0.7,
 "contactId": "mercer",
-"defection": {
-"kind": "speciality",
-"ore": "physics"
-},
 "giftPrefs": ["healingBurst", "shield"],
 "id": "mercer",
 "intro": "\"Mercer. Lusk's deputy. Placeholder intro.\"",
@@ -6700,10 +6685,6 @@ With attention drawn away, anyone carrying valuables may be of interest to the c
 }, {
 "aggressionMult": 0.7,
 "contactId": "wren",
-"defection": {
-"kind": "speciality",
-"ore": "time"
-},
 "giftPrefs": ["rewind", "timePearl"],
 "id": "wren",
 "intro": "\"Registrar Wren, for the Guild. Placeholder intro.\"",
@@ -6846,11 +6827,6 @@ With attention drawn away, anyone carrying valuables may be of interest to the c
 }, {
 "aggressionMult": 1.3,
 "contactId": "courier",
-"defection": {
-"kind": "skill",
-"level": 2,
-"skill": "crafting"
-},
 "giftPrefs": ["panic", "prophetsBreath"],
 "id": "courier",
 "intro": "\"Courier. I carry what the Handler won't write down. Placeholder intro.\"",
