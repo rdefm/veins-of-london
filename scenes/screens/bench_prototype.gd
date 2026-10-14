@@ -3,15 +3,14 @@ extends Control
 
 # Debug-app-only sandbox screen for systems/bench_prototype.gd: slice
 # switcher, debug controls (skill, bonus type, refill), per-recipe cards
-# (best rank, per-hint level toggles, batch), the fake-run control or the
-# procedure run with its plan editor and notebook, Rewind and the slice ledger.
+# (best rank, per-hint level toggles, batch), the procedure run with its
+# plan editor and notebook or the chart run with its pour jars, Rewind and
+# the slice ledger.
 
 const LEDGER_ROWS := 12
 
-# View state only: the picked recipe, fake-run score and insert picks, kept
-# across rebuilds.
+# View state only: the picked recipe and insert picks, kept across rebuilds.
 var _recipe_index: int = 0
-var _score: int = 50
 var _insert_apparatus: int = 0
 var _insert_position: int = 0
 
@@ -46,7 +45,7 @@ func _build() -> void:
 	if slice_id == BenchPrototype.SLICE_PROCEDURE:
 		_content.add_child(_build_procedure_card(s))
 	else:
-		_content.add_child(_build_fake_run_card(slice_id, s))
+		_content.add_child(_build_chart_card(s))
 	_content.add_child(MapCardStyle.text_button("Rewind", func(): BenchPrototype.rewind(slice_id), s["snapshots"].is_empty()))
 	_content.add_child(_build_ledger_card(s["ledger"]))
 
@@ -103,31 +102,60 @@ func _build_recipe_card(slice_id: String, s: Dictionary, recipe_id: String) -> C
 	return c["panel"]
 
 
-func _build_fake_run_card(slice_id: String, s: Dictionary) -> Control:
+func _build_chart_card(s: Dictionary) -> Control:
 	var c := MapCardStyle.card()
-	c["content"].add_child(UI.heading("Fake run", 14))
+	c["content"].add_child(UI.heading("Chart run", 14))
 	var roster: Array = GameData.BENCH_PROTOTYPE["roster"]
+	var chart: Dictionary = GameData.BENCH_PROTOTYPE["chart"]
 	var run = s["activeRun"]
+	var view := ChartView.new()
+	view.view_min = float(chart["viewMin"])
+	view.view_max = float(chart["viewMax"])
 	if run == null:
 		var recipe_select := UI.option_button(roster.map(func(r): return GameData.BENCH_PROTOTYPE["recipes"][r]["name"]))
 		_recipe_index = clampi(_recipe_index, 0, roster.size() - 1)
 		recipe_select.selected = _recipe_index
-		recipe_select.item_selected.connect(func(index: int): _recipe_index = index)
+		recipe_select.item_selected.connect(func(index: int):
+			_recipe_index = index
+			_refresh())
 		c["content"].add_child(recipe_select)
-		var recipe_id: String = roster[_recipe_index]
-		c["content"].add_child(MapCardStyle.text_button("Begin", func(): BenchPrototype.begin_run(slice_id, roster[_recipe_index]),
-			not BenchPrototype.can_afford(slice_id, BenchPrototype.recipe_cost(recipe_id))))
+		_add_chart_view(c["content"], view, roster[_recipe_index], [[0.0, 0.0]])
+		c["content"].add_child(MapCardStyle.text_button("Begin", func(): BenchPrototype.begin_chart_run(roster[_recipe_index])))
 		return c["panel"]
 
-	c["content"].add_child(UI.label("Running: %s" % GameData.BENCH_PROTOTYPE["recipes"][run["recipeId"]]["name"]))
-	c["content"].add_child(MapCardStyle.quantity_slider("Score", _score, 100,
-		func(qty: int): _score = qty,
-		func(qty: int): _score = qty, 0))
+	var recipe_id: String = run["recipeId"]
+	var spent: String = _pool_text(run["calcSpent"]) if not run["calcSpent"].is_empty() else "nothing yet"
+	c["content"].add_child(UI.label("Running: %s" % GameData.BENCH_PROTOTYPE["recipes"][recipe_id]["name"]))
+	c["content"].add_child(UI.muted_label("Hold a jar to pour. 1 calc per %d units. Spent this run: %s" % [roundi(float(chart["unitsPerCalc"])), spent]))
+	_add_chart_view(c["content"], view, recipe_id, run["path"])
+	var jars := UI.hbox()
+	for ore_type in chart["directions"].keys():
+		var jar := PourJar.new()
+		jar.ore_type = ore_type
+		jar.view = view
+		jar.poured.connect(func(hold_sec: float): BenchPrototype.pour(ore_type, hold_sec))
+		jars.add_child(jar)
+	c["content"].add_child(jars)
 	var row := UI.hbox()
-	row.add_child(MapCardStyle.text_button("Finish", func(): BenchPrototype.finish_run(slice_id, _score)))
-	row.add_child(MapCardStyle.text_button("Abandon", func(): BenchPrototype.abandon_run(slice_id)))
+	row.add_child(MapCardStyle.text_button("Bottle", func(): BenchPrototype.bottle()))
+	row.add_child(MapCardStyle.text_button("Abandon", func(): BenchPrototype.abandon_run(BenchPrototype.SLICE_CHART)))
 	c["content"].add_child(row)
 	return c["panel"]
+
+
+# Every recipe's region (the picked one highlighted; bullseyes stay hidden
+# at base knowledge), the run's path, and the marker at its end.
+func _add_chart_view(content: VBoxContainer, view: ChartView, recipe_id: String, path: Array) -> void:
+	for id in GameData.BENCH_PROTOTYPE["roster"]:
+		var region: Dictionary = BenchPrototype.recipe_chart(id)
+		view.regions.append({
+			"centre": Vector2(float(region["centre"][0]), float(region["centre"][1])),
+			"radius": float(region["radius"]), "target": id == recipe_id,
+			"name": GameData.BENCH_PROTOTYPE["recipes"][id]["name"],
+		})
+	for point in path:
+		view.path.append(Vector2(float(point[0]), float(point[1])))
+	content.add_child(view)
 
 
 func _build_procedure_card(s: Dictionary) -> Control:
@@ -309,6 +337,8 @@ func _entry_text(entry: Dictionary) -> String:
 	var bonus_text := ""
 	if entry["bonus"] != null:
 		bonus_text = " · bonus: %s" % GameData.BENCH_PROTOTYPE["bonus"]["types"][entry["bonus"]]["label"]
+	if entry.has("marker"):
+		bonus_text = " · bottled at (%d, %d)%s" % [roundi(entry["marker"][0]), roundi(entry["marker"][1]), bonus_text]
 	return "Run %s ×%d · score %d → rank %d · %.1fs · +%d XP%s" % [recipe_name, entry["items"], entry["score"], entry["rank"], entry["durationMsec"] / 1000.0, entry["xp"], bonus_text]
 
 
@@ -479,3 +509,115 @@ class DistilGauge extends StepGauge:
 		for i in drips:
 			draw_circle(Vector2(8.0 + i * 14.0, track.end.y + 10.0), 4.0, MapCardStyle.dim() if i < drip else MapCardStyle.line())
 		draw_string(get_theme_default_font(), Vector2(size.x - 60.0, track.end.y + 16.0), "taps %d" % _taps.size(), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, MapCardStyle.muted())
+
+
+# Placeholder resonance chart: square, y up, view_min..view_max on both
+# axes. Draws the regions, the run's path trail and marker, plus the live
+# pour preview a held PourJar feeds it. Scores and moves nothing itself.
+class ChartView extends Control:
+	var view_min := 0.0
+	var view_max := 100.0
+	var regions := []
+	var path: Array[Vector2] = []
+	var _preview_to := Vector2.ZERO
+	var _preview_text := ""
+	var _previewing := false
+
+	func _init() -> void:
+		custom_minimum_size = Vector2(0, 320)
+
+	func set_preview(to: Vector2, text: String) -> void:
+		_previewing = true
+		_preview_to = to
+		_preview_text = text
+		queue_redraw()
+
+	func clear_preview() -> void:
+		_previewing = false
+		queue_redraw()
+
+	func marker() -> Vector2:
+		return path[-1] if not path.is_empty() else Vector2.ZERO
+
+	func _side() -> float:
+		return minf(size.x, size.y)
+
+	func _scale() -> float:
+		return _side() / (view_max - view_min)
+
+	func _px(point: Vector2) -> Vector2:
+		var left := (size.x - _side()) / 2.0
+		return Vector2(left + (point.x - view_min) * _scale(), (view_max - point.y) * _scale())
+
+	func _draw() -> void:
+		draw_rect(Rect2(_px(Vector2(view_min, view_max)), Vector2(_side(), _side())), MapCardStyle.line(), false, 1.0)
+		draw_line(_px(Vector2(view_min, 0.0)), _px(Vector2(view_max, 0.0)), MapCardStyle.dim(), 1.0)
+		draw_line(_px(Vector2(0.0, view_min)), _px(Vector2(0.0, view_max)), MapCardStyle.dim(), 1.0)
+		var font := get_theme_default_font()
+		for region in regions:
+			var colour: Color = MapCardStyle.sage() if region["target"] else MapCardStyle.line()
+			var centre := _px(region["centre"])
+			var radius: float = region["radius"] * _scale()
+			draw_circle(centre, radius, Color(colour, 0.25))
+			draw_arc(centre, radius, 0.0, TAU, 48, colour, 2.0 if region["target"] else 1.0)
+			draw_string(font, centre + Vector2(-30.0, 4.0), region["name"], HORIZONTAL_ALIGNMENT_LEFT, -1, 11, MapCardStyle.muted())
+		for i in range(1, path.size()):
+			draw_line(_px(path[i - 1]), _px(path[i]), MapCardStyle.gold(), 2.0)
+		if _previewing:
+			draw_line(_px(marker()), _px(_preview_to), MapCardStyle.action(), 3.0)
+			draw_circle(_px(_preview_to), 5.0, MapCardStyle.action())
+			draw_string(font, Vector2(8.0, 16.0), _preview_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, MapCardStyle.ink())
+		draw_circle(_px(marker()), 6.0, MapCardStyle.ink())
+
+
+# A calc jar: hold to pour. While held it previews the slide and its cost
+# on the chart (BenchPrototype.pour_preview) and lets go by itself when the
+# pool runs dry; release reports the raw hold seconds through poured.
+class PourJar extends Control:
+	signal poured(hold_sec: float)
+
+	var ore_type := ""
+	var view: ChartView
+	var _held_sec := 0.0
+	var _holding := false
+
+	func _init() -> void:
+		custom_minimum_size = Vector2(120, 64)
+		size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		mouse_filter = Control.MOUSE_FILTER_STOP
+
+	func _ready() -> void:
+		set_process(false)
+
+	func _gui_input(event: InputEvent) -> void:
+		if not (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT):
+			return
+		accept_event()
+		if event.pressed:
+			_holding = true
+			_held_sec = 0.0
+			set_process(true)
+			queue_redraw()
+		elif _holding:
+			_release()
+
+	func _release() -> void:
+		_holding = false
+		set_process(false)
+		view.clear_preview()
+		queue_redraw()
+		poured.emit(_held_sec)
+
+	func _process(delta: float) -> void:
+		_held_sec += delta
+		var preview := BenchPrototype.pour_preview(ore_type, _held_sec)
+		var direction: Array = GameData.BENCH_PROTOTYPE["chart"]["directions"][ore_type]
+		var to := view.marker() + Vector2(float(direction[0]), float(direction[1])) * float(preview["distance"])
+		var dry: String = " · out of calc" if preview["stopped"] else ""
+		view.set_preview(to, "%s −%d calc%s" % [ore_type, preview["cost"], dry])
+		if preview["stopped"]:
+			_release()
+
+	func _draw() -> void:
+		draw_rect(Rect2(Vector2.ZERO, size), MapCardStyle.action() if _holding else MapCardStyle.line())
+		draw_string(get_theme_default_font(), Vector2(10.0, size.y / 2.0 + 5.0), "Pour %s" % ore_type, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, MapCardStyle.ink())

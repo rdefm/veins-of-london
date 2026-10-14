@@ -1382,7 +1382,7 @@ func _validate_combat_prototype_enemy(entry: Dictionary, path: String, errors: A
 # types the pool seeds; thresholds ascend from 0; the bonus default names a
 # real type; badRun has lines to pick from.
 func _validate_bench_prototype(bench: Dictionary, approaches: Dictionary, errors: Array[String]) -> void:
-	_require_keys(bench, ["roster", "recipes", "poolSeed", "rankThresholds", "skillFactor", "skillMax", "extraStepPenalty", "vagueSpread", "insertTarget", "nudgeStep", "vagueToExactHits", "gauges", "baseXp", "hintLevels", "bonus", "badRun"], "bench_prototype", errors)
+	_require_keys(bench, ["roster", "recipes", "poolSeed", "rankThresholds", "skillFactor", "skillMax", "extraStepPenalty", "vagueSpread", "insertTarget", "nudgeStep", "vagueToExactHits", "gauges", "chart", "baseXp", "hintLevels", "bonus", "badRun"], "bench_prototype", errors)
 	var gauges: Dictionary = bench.get("gauges", {})
 	for apparatus in gauges.keys():
 		var words: Dictionary = gauges[apparatus].get("directionWords", {})
@@ -1405,6 +1405,8 @@ func _validate_bench_prototype(bench: Dictionary, approaches: Dictionary, errors
 				errors.append("bench_prototype.recipes.%s.baseCalc: ore type '%s' not in poolSeed" % [recipe_id, ore_type])
 		_validate_bench_prototype_procedure(recipe_id, recipes[recipe_id], approaches, bench.get("gauges", {}), errors)
 		_validate_bench_prototype_hints(recipe_id, recipes[recipe_id].get("procedure", {}), float(bench.get("vagueSpread", 0)), errors)
+		_validate_bench_prototype_region(recipe_id, recipes[recipe_id], errors)
+	_validate_bench_prototype_chart(bench.get("chart", {}), pool_seed, errors)
 	var thresholds: Array = bench.get("rankThresholds", [])
 	if thresholds.size() != 5 or (not thresholds.is_empty() and int(thresholds[0]) != 0):
 		errors.append("bench_prototype.rankThresholds: must be 5 entries starting at 0")
@@ -1417,6 +1419,34 @@ func _validate_bench_prototype(bench: Dictionary, approaches: Dictionary, errors
 		errors.append("bench_prototype.bonus.defaultType: must name a bonus.types entry")
 	if bench.get("badRun", {}).get("lines", []).is_empty():
 		errors.append("bench_prototype.badRun.lines: must not be empty")
+
+
+# Slice B region: a centre point, and a bullseye smaller than the region.
+func _validate_bench_prototype_region(recipe_id: String, recipe: Dictionary, errors: Array[String]) -> void:
+	var where := "bench_prototype.recipes.%s.chart" % recipe_id
+	var region: Dictionary = recipe.get("chart", {})
+	_require_keys(region, ["centre", "radius", "bullseyeRadius"], where, errors)
+	if not (region.get("centre") is Array and region["centre"].size() == 2):
+		errors.append("%s.centre: must be [x, y]" % where)
+	var bullseye := float(region.get("bullseyeRadius", 0))
+	if bullseye <= 0.0 or bullseye >= float(region.get("radius", 0)):
+		errors.append("%s: bullseyeRadius must be > 0 and < radius" % where)
+
+
+# Slice B chart: every pourable type is in poolSeed with an [x, y]
+# direction; speeds and view bounds are positive.
+func _validate_bench_prototype_chart(chart: Dictionary, pool_seed: Dictionary, errors: Array[String]) -> void:
+	_require_keys(chart, ["directions", "pourSpeed", "unitsPerCalc", "viewMin", "viewMax"], "bench_prototype.chart", errors)
+	for ore_type in chart.get("directions", {}).keys():
+		var direction = chart["directions"][ore_type]
+		if not pool_seed.has(ore_type):
+			errors.append("bench_prototype.chart.directions: ore type '%s' not in poolSeed" % ore_type)
+		if not (direction is Array and direction.size() == 2):
+			errors.append("bench_prototype.chart.directions.%s: must be [x, y]" % ore_type)
+	if float(chart.get("pourSpeed", 0)) <= 0.0 or float(chart.get("unitsPerCalc", 0)) <= 0.0:
+		errors.append("bench_prototype.chart: pourSpeed and unitsPerCalc must be > 0")
+	if float(chart.get("viewMax", 0)) <= float(chart.get("viewMin", 0)):
+		errors.append("bench_prototype.chart: viewMax must exceed viewMin")
 
 
 # Slice A procedure: ideal weights sum to 100; every step names a real

@@ -23,6 +23,11 @@ extends RefCounted
 # Before a run the player edits a per-recipe plan (insert, remove, nudge);
 # after it the notebook records one clue per step, and those clues grant
 # vague hints and upgrade them to exact (spec §Slice A Experimenting).
+#
+# The chart slice's run is begin_chart_run() -> pour() per jar hold (raw
+# hold seconds; the marker slides along the ore type's direction and calc
+# is charged per distance) -> bottle(), which scores the marker's distance
+# to the recipe's bullseye (spec §Slice B).
 
 const SLICE_PROCEDURE := "procedure"
 const SLICE_CHART := "chart"
@@ -780,6 +785,115 @@ static func _sync_plan_knowledge(s: Dictionary, recipe_id: String) -> void:
 		if level != "off":
 			step["knowledge"] = level
 			step["note"] = hint_def(SLICE_PROCEDURE, recipe_id, step["hintId"])[level]["note"]
+
+
+# ── Chart (Slice B) ──────────────────────────────────────────────────────
+
+static func chart_def() -> Dictionary:
+	return _data()["chart"]
+
+
+static func recipe_chart(recipe_id: String) -> Dictionary:
+	return _data()["recipes"][recipe_id]["chart"]
+
+
+static func _vec(pair: Array) -> Vector2:
+	return Vector2(float(pair[0]), float(pair[1]))
+
+
+static func bullseye_radius(recipe_id: String) -> float:
+	return float(recipe_chart(recipe_id)["bullseyeRadius"]) * skill_multiplier()
+
+
+# 100 inside the bullseye, falling linearly to the rank-1 threshold at the
+# region edge, 0 outside the region (spec §Slice B Finishing a run).
+static func chart_score(recipe_id: String, marker: Vector2) -> int:
+	var region := recipe_chart(recipe_id)
+	var radius := float(region["radius"])
+	var bullseye := minf(bullseye_radius(recipe_id), radius)
+	var distance := marker.distance_to(_vec(region["centre"]))
+	if distance > radius:
+		return 0
+	if distance <= bullseye:
+		return 100
+	var edge_score := float(_data()["rankThresholds"][0])
+	return roundi(lerpf(100.0, edge_score, (distance - bullseye) / (radius - bullseye)))
+
+
+# Opens a chart run with the marker at the origin. Calc is only spent as
+# the marker is poured.
+static func begin_chart_run(recipe_id: String) -> Dictionary:
+	var s := slice(SLICE_CHART)
+	if s["activeRun"] != null:
+		return { "ok": false, "reason": "A run is already open." }
+	if not _data()["recipes"].has(recipe_id):
+		return { "ok": false, "reason": "Unknown recipe." }
+	_push_snapshot(s)
+	s["activeRun"] = {
+		"recipeId": recipe_id, "startedMsec": Time.get_ticks_msec(), "calcSpent": {},
+		"marker": [0.0, 0.0], "path": [[0.0, 0.0]], "poured": {},
+	}
+	EventBus.state_changed.emit()
+	return { "ok": true }
+
+
+static func chart_marker() -> Vector2:
+	var run = slice(SLICE_CHART)["activeRun"]
+	return _vec(run["marker"]) if run != null and run.has("marker") else Vector2.ZERO
+
+
+# How far a hold of hold_sec on ore_type's jar would carry the marker, and
+# the calc it would charge, capped by what the pool can still pay for.
+# stopped = the pool ran dry before the hold ended.
+static func pour_preview(ore_type: String, hold_sec: float) -> Dictionary:
+	var run = slice(SLICE_CHART)["activeRun"]
+	if run == null or not run.has("marker") or not chart_def()["directions"].has(ore_type):
+		return { "distance": 0.0, "cost": 0, "stopped": true }
+	var units := float(chart_def()["unitsPerCalc"])
+	var poured := float(run["poured"].get(ore_type, 0.0))
+	var charged: int = int(run["calcSpent"].get(ore_type, 0))
+	var pool: int = int(slice(SLICE_CHART)["pool"].get(ore_type, 0))
+	var limit := maxf(0.0, (charged + pool) * units - poured)
+	var wanted := maxf(0.0, hold_sec) * float(chart_def()["pourSpeed"])
+	var distance := minf(wanted, limit)
+	return { "distance": distance, "cost": _calc_for(poured + distance, units) - charged, "stopped": wanted >= limit }
+
+
+# Calc owed for a run's total poured distance of one type.
+static func _calc_for(distance: float, units: float) -> int:
+	return ceili(distance / units - 0.000001)
+
+
+# Moves the marker along ore_type's direction for a raw hold of hold_sec
+# and charges the calc per distance; an empty pool stops the pour short.
+static func pour(ore_type: String, hold_sec: float) -> Dictionary:
+	var s := slice(SLICE_CHART)
+	var run = s["activeRun"]
+	if run == null or not run.has("marker"):
+		return { "ok": false, "reason": "No chart run open." }
+	if not chart_def()["directions"].has(ore_type):
+		return { "ok": false, "reason": "Unknown calc jar." }
+	var preview := pour_preview(ore_type, hold_sec)
+	var distance: float = preview["distance"]
+	if distance <= 0.0:
+		return { "ok": false, "reason": "Not enough calc." }
+	_spend(s, { ore_type: preview["cost"] })
+	run["calcSpent"][ore_type] = int(run["calcSpent"].get(ore_type, 0)) + int(preview["cost"])
+	run["poured"][ore_type] = float(run["poured"].get(ore_type, 0.0)) + distance
+	var marker := _vec(run["marker"]) + _vec(chart_def()["directions"][ore_type]) * distance
+	run["marker"] = [marker.x, marker.y]
+	run["path"].append([marker.x, marker.y])
+	EventBus.state_changed.emit()
+	return { "ok": true, "distance": distance, "cost": preview["cost"], "stopped": preview["stopped"] }
+
+
+# Ends the chart run and scores the marker's distance to the bullseye.
+static func bottle() -> Dictionary:
+	var run = slice(SLICE_CHART)["activeRun"]
+	if run == null or not run.has("marker"):
+		return { "ok": false, "reason": "No chart run open." }
+	var marker: Array = run["marker"]
+	return finish_run(SLICE_CHART, chart_score(run["recipeId"], _vec(marker)), { "marker": marker.duplicate() })
 
 
 # ── Batch ────────────────────────────────────────────────────────────────

@@ -753,3 +753,142 @@ func run() -> void:
 		assert_true(SaveManager._load_save_dict(raw)["ok"], "save loads")
 		assert_eq(GameState.state["benchPrototype"], expected, "plans, notebook and hits survive a save")
 	)
+
+	# ── Chart (Slice B) ──
+
+	run_case("chart_data_covers_every_recipe_and_pour_direction", func():
+		_fresh()
+		for recipe_id in _data()["roster"]:
+			var region: Dictionary = BenchPrototype.recipe_chart(recipe_id)
+			assert_eq(region["centre"].size(), 2, "%s centre" % recipe_id)
+			assert_true(float(region["bullseyeRadius"]) < float(region["radius"]), "%s bullseye inside region" % recipe_id)
+		assert_eq(_data()["chart"]["directions"]["life"], [1, 0], "life pours →")
+		assert_eq(_data()["chart"]["directions"]["time"], [0, 1], "time pours ↑")
+	)
+
+	run_case("chart_score_bullseye_100_edge_rank_1_outside_0", func():
+		_fresh()
+		BenchPrototype.set_skill_override(0)
+		var region: Dictionary = BenchPrototype.recipe_chart("healingSalve")
+		var centre := Vector2(region["centre"][0], region["centre"][1])
+		var radius := float(region["radius"])
+		var bullseye := float(region["bullseyeRadius"])
+		assert_eq(BenchPrototype.chart_score("healingSalve", centre), 100, "dead centre")
+		assert_eq(BenchPrototype.chart_score("healingSalve", centre + Vector2(bullseye, 0)), 100, "bullseye rim")
+		var edge := BenchPrototype.chart_score("healingSalve", centre + Vector2(0, radius))
+		assert_eq(edge, int(_data()["rankThresholds"][0]), "region edge is the rank-1 threshold")
+		assert_eq(BenchPrototype.rank_for_score(edge), 1, "edge is rank 1")
+		assert_eq(BenchPrototype.chart_score("healingSalve", centre + Vector2(radius + 0.5, 0)), 0, "outside the region")
+		var midway := BenchPrototype.chart_score("healingSalve", centre + Vector2((bullseye + radius) / 2.0, 0))
+		assert_eq(midway, roundi(lerpf(100.0, edge, 0.5)), "linear fall-off")
+	)
+
+	run_case("skill_widens_the_bullseye", func():
+		_fresh()
+		var region: Dictionary = BenchPrototype.recipe_chart("healingBurst")
+		var centre := Vector2(region["centre"][0], region["centre"][1])
+		var off := centre + Vector2(float(region["bullseyeRadius"]) * 1.5, 0)
+		BenchPrototype.set_skill_override(0)
+		assert_almost_eq(BenchPrototype.bullseye_radius("healingBurst"), float(region["bullseyeRadius"]), 0.0001, "skill 0 = base radius")
+		assert_true(BenchPrototype.chart_score("healingBurst", off) < 100, "skill 0 misses the bullseye")
+		BenchPrototype.set_skill_override(10)
+		assert_almost_eq(BenchPrototype.bullseye_radius("healingBurst"), float(region["bullseyeRadius"]) * (1.0 + float(_data()["skillFactor"]) * 10), 0.0001, "base × (1 + skillFactor × skill)")
+		assert_eq(BenchPrototype.chart_score("healingBurst", off), 100, "skill 10 hits it")
+	)
+
+	run_case("pour_slides_the_marker_and_charges_calc_per_distance", func():
+		var root := _fresh()
+		var s: Dictionary = root["slices"][C]
+		var speed := float(_data()["chart"]["pourSpeed"])
+		var units := float(_data()["chart"]["unitsPerCalc"])
+		var life: int = s["pool"]["life"]
+		assert_true(BenchPrototype.begin_chart_run("healingSalve")["ok"])
+		assert_eq(s["pool"]["life"], life, "opening a chart run spends nothing")
+		var hold := units * 1.5 / speed
+		var preview := BenchPrototype.pour_preview("life", hold)
+		assert_eq(s["pool"]["life"], life, "preview spends nothing")
+		var poured := BenchPrototype.pour("life", hold)
+		assert_true(poured["ok"])
+		assert_almost_eq(poured["distance"], units * 1.5, 0.001, "hold × speed")
+		assert_eq(poured["cost"], preview["cost"], "preview matches the pour")
+		assert_eq(s["pool"]["life"], life - 2, "1.5 units' worth rounds up to 2 calc")
+		BenchPrototype.pour("life", units * 0.5 / speed)
+		assert_eq(s["pool"]["life"], life - 2, "the remainder was already paid for")
+		BenchPrototype.pour("time", units / speed)
+		assert_almost_eq(BenchPrototype.chart_marker().x, units * 2.0, 0.001, "life moves →")
+		assert_almost_eq(BenchPrototype.chart_marker().y, units, 0.001, "time moves ↑")
+		assert_eq(s["activeRun"]["path"].size(), 4, "origin plus one point per pour")
+		assert_eq(s["activeRun"]["calcSpent"], { "life": 2, "time": 1 }, "run tracks its spend")
+	)
+
+	run_case("running_out_of_calc_stops_the_pour", func():
+		var root := _fresh()
+		var s: Dictionary = root["slices"][C]
+		var units := float(_data()["chart"]["unitsPerCalc"])
+		s["pool"]["life"] = 1
+		BenchPrototype.begin_chart_run("healingSalve")
+		var poured := BenchPrototype.pour("life", 60.0)
+		assert_true(poured["stopped"], "pour stopped short")
+		assert_almost_eq(poured["distance"], units, 0.001, "one calc's worth of distance")
+		assert_eq(s["pool"]["life"], 0, "pool spent")
+		assert_true(not BenchPrototype.pour("life", 1.0)["ok"], "dry jar won't pour")
+		assert_true(BenchPrototype.pour("time", 0.1)["ok"], "other jars still pour")
+	)
+
+	run_case("bottle_in_the_bullseye_scores_100_and_feeds_the_shared_core", func():
+		var root := _fresh()
+		var s: Dictionary = root["slices"][C]
+		BenchPrototype.set_skill_override(0)
+		var life: int = s["pool"]["life"]
+		var centre: Array = BenchPrototype.recipe_chart("healingSalve")["centre"]
+		BenchPrototype.begin_chart_run("healingSalve")
+		BenchPrototype.pour("life", float(centre[0]) / float(_data()["chart"]["pourSpeed"]))
+		var bottled := BenchPrototype.bottle()
+		assert_true(bottled["ok"])
+		assert_eq(bottled["entry"]["score"], 100)
+		assert_eq(bottled["entry"]["rank"], 5)
+		assert_eq(s["bestRanks"]["healingSalve"], 5, "best rank rises")
+		assert_eq(s["activeRun"], null, "bottling ends the run")
+		assert_eq(s["ledger"][-1]["recipeId"], "healingSalve", "logged")
+		assert_eq(s["pool"]["life"], life - int(_data()["recipes"]["healingSalve"]["baseCalc"]["life"]), "straight pour costs the base calc")
+		assert_true(not BenchPrototype.pour("life", 1.0)["ok"], "no pouring after bottling")
+		assert_true(BenchPrototype.rewind(C)["ok"])
+		assert_eq(s["pool"]["life"], life, "rewind restores calc")
+		assert_eq(s["bestRanks"]["healingSalve"], 0, "and the rank")
+	)
+
+	run_case("bottle_outside_the_region_scores_zero_and_abandon_loses_calc", func():
+		var root := _fresh()
+		var s: Dictionary = root["slices"][C]
+		BenchPrototype.begin_chart_run("timePearl")
+		BenchPrototype.pour("life", 1.0)
+		assert_eq(BenchPrototype.bottle()["entry"]["score"], 0, "nowhere near the pearl")
+		var life: int = s["pool"]["life"]
+		BenchPrototype.begin_chart_run("timePearl")
+		BenchPrototype.pour("life", 1.0)
+		BenchPrototype.abandon_run(C)
+		assert_true(s["pool"]["life"] < life, "abandoning keeps the spend")
+		assert_eq(s["ledger"][-1]["kind"], "abandoned")
+	)
+
+	run_case("save_round_trip_preserves_open_chart_run", func():
+		var root := _fresh()
+		BenchPrototype.begin_chart_run("healingBurst")
+		BenchPrototype.pour("life", 0.7)
+		BenchPrototype.pour("time", 1.3)
+		var expected: Dictionary = GameState.deep_copy(root)
+		var raw = JSON.parse_string(JSON.stringify(GameState.state))
+		assert_true(SaveManager._load_save_dict(raw)["ok"], "save loads")
+		assert_eq(GameState.state["benchPrototype"], expected, "open chart run survives a save")
+	)
+
+	run_case("validator_flags_bullseye_not_inside_region", func():
+		_fresh()
+		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+		corrupted["bench_prototype"]["recipes"]["timePearl"]["chart"]["bullseyeRadius"] = 99
+		var found := false
+		for e in GameData.validate_tables(corrupted):
+			if e.contains("timePearl.chart") and e.contains("bullseyeRadius"):
+				found = true
+		assert_true(found, "a bullseye wider than its region should be flagged")
+	)
