@@ -1,5 +1,5 @@
 # Debug app (present only on a Debug Start save): cash/calc/site spawners,
-# combat launchers, safe-area dump, one relation adjuster over every contact
+# combat and bench-prototype launchers, safe-area dump, one relation adjuster over every contact
 # and faction, and an any-event trigger.
 class_name DebugApp
 extends PhoneApp
@@ -17,6 +17,7 @@ func build(content: VBoxContainer) -> void:
 	content.add_child(_build_spawn_site_card())
 	content.add_child(_build_combat_card())
 	content.add_child(_build_combat_prototype_card())
+	content.add_child(_build_bench_prototype_card())
 	content.add_child(_build_safe_area_card())
 	content.add_child(_build_relation_card())
 	content.add_child(_build_trigger_event_card())
@@ -122,6 +123,14 @@ func _build_combat_prototype_card() -> Control:
 
 func _build_combat_prototype_launch_button(encounter_id: String, label: String) -> Control:
 	return UI.button("Start: %s" % label, func(): CombatPrototype.start_encounter(encounter_id))
+
+
+func _build_bench_prototype_card() -> Control:
+	var c := UI.card()
+	c["content"].add_child(UI.heading("Bench Prototype", 14))
+	c["content"].add_child(UI.muted_label("Sandboxed Lab revamp — own calc, ranks and ledger."))
+	c["content"].add_child(UI.button("Open", func(): BenchPrototype.open()))
+	return c["panel"]
 
 
 func _build_safe_area_card() -> Control:

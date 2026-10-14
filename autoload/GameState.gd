@@ -320,6 +320,9 @@ func new_game_state() -> Dictionary:
 			"snapshots": [], "beatsSinceSnapshot": [],
 			"_pending": null, "_waveCleared": false,
 		},
+		# Sandboxed Lab-revamp bench prototype (systems/bench_prototype.gd):
+		# two slices, each its own calc pool, ranks, ledger and Rewind stack.
+		"benchPrototype": BenchPrototype.new_state(),
 
 		"jamesJob": null,
 		"pendingSaleCut": 0,

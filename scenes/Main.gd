@@ -18,13 +18,14 @@ const SCREEN_SCRIPTS := {
 	"hq_lab_bench": preload("res://scenes/screens/hq_lab_bench.gd"),
 	"hq_dial": preload("res://scenes/screens/hq_dial.gd"),
 	"combat_prototype": preload("res://scenes/screens/combat_prototype.gd"),
+	"bench_prototype": preload("res://scenes/screens/bench_prototype.gd"),
 }
 const RETIRED_SCREEN_IDS := {
 	"home": "phone", "you": "phone", "bag": "phone", "inventory": "phone",
 	"lab": "hq",
 	"guild_marketplace": "map", "firm_shop": "map", "network_shop": "map", "conclave_shop": "map",
 }
-const NAV_HIDDEN_SCREENS := ["title", "intro", "event", "combat", "combat_prep", "combat_prototype"]
+const NAV_HIDDEN_SCREENS := ["title", "intro", "event", "combat", "combat_prep", "combat_prototype", "bench_prototype"]
 const TOP_BAR_HIDDEN_SCREENS := ["title", "intro"]
 
 var screen_container: Control

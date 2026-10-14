@@ -122,6 +122,10 @@ var ENEMY_FACTION_SQUADS: Dictionary = {}
 # table so a validation/balance pass over the real roster skips it.
 var COMBAT_PROTOTYPE: Dictionary = {}
 
+# Sandboxed Lab-revamp bench prototype (systems/bench_prototype.gd) --
+# prototype-only, not production balance.
+var BENCH_PROTOTYPE: Dictionary = {}
+
 # Player Combat Skill curves (R§3.7a), colocated in data/enemies.json
 # rather than a new file of their own.
 var COMBAT_XP_LEVELS: Array = []
@@ -458,6 +462,9 @@ const MANIFEST: Array[Dictionary] = [
 	{"table": "combat_prototype", "file": "res://data/combat_prototype.json", "fields": [
 		{"field": "COMBAT_PROTOTYPE", "key": "", "type": TYPE_DICTIONARY},
 	]},
+	{"table": "bench_prototype", "file": "res://data/bench_prototype.json", "fields": [
+		{"field": "BENCH_PROTOTYPE", "key": "", "type": TYPE_DICTIONARY},
+	]},
 	{"table": "combat_visuals", "file": "res://data/combat_visuals.json", "fields": [
 		{"field": "COMBAT_VISUALS", "key": "", "type": TYPE_DICTIONARY},
 	]},
@@ -668,6 +675,7 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_barometer(t.get("barometer_states", {}), t.get("barometer_actions", []), t.get("faction_prefs", {}), t.get("factions", {}), t.get("recipes", {}), errors)
 	_validate_enemies(t, errors)
 	_validate_combat_prototype(t.get("combat_prototype", {}), errors)
+	_validate_bench_prototype(t.get("bench_prototype", {}), errors)
 	_validate_combat_visuals(t.get("combat_visuals", {}), t.get("palette", {}), errors)
 	_validate_hq_visuals(t.get("hq_visuals", {}), t.get("palette", {}), errors)
 	_validate_constants(t.get("time_blocks", []), t.get("contacts_defaults", {}), errors)
@@ -1368,6 +1376,40 @@ func _validate_combat_prototype_enemy(entry: Dictionary, path: String, errors: A
 	for action in script:
 		if not CombatPrototype.SCRIPTABLE_ACTIONS.has(action):
 			errors.append("%s.script: unknown action '%s'" % [path, action])
+
+
+# Every roster id needs a recipes entry with a non-empty baseCalc whose ore
+# types the pool seeds; thresholds ascend from 0; the bonus default names a
+# real type; badRun has lines to pick from.
+func _validate_bench_prototype(bench: Dictionary, errors: Array[String]) -> void:
+	_require_keys(bench, ["roster", "recipes", "poolSeed", "rankThresholds", "skillFactor", "skillMax", "baseXp", "hintLevels", "bonus", "badRun"], "bench_prototype", errors)
+	var recipes: Dictionary = bench.get("recipes", {})
+	var pool_seed: Dictionary = bench.get("poolSeed", {})
+	var roster: Array = bench.get("roster", [])
+	if roster.is_empty():
+		errors.append("bench_prototype.roster: must not be empty")
+	for recipe_id in roster:
+		if not recipes.has(recipe_id):
+			errors.append("bench_prototype.recipes: missing entry for roster id '%s'" % recipe_id)
+			continue
+		var base_calc: Dictionary = recipes[recipe_id].get("baseCalc", {})
+		if base_calc.is_empty():
+			errors.append("bench_prototype.recipes.%s.baseCalc: must not be empty" % recipe_id)
+		for ore_type in base_calc.keys():
+			if not pool_seed.has(ore_type):
+				errors.append("bench_prototype.recipes.%s.baseCalc: ore type '%s' not in poolSeed" % [recipe_id, ore_type])
+	var thresholds: Array = bench.get("rankThresholds", [])
+	if thresholds.size() != 5 or (not thresholds.is_empty() and int(thresholds[0]) != 0):
+		errors.append("bench_prototype.rankThresholds: must be 5 entries starting at 0")
+	for i in range(1, thresholds.size()):
+		if int(thresholds[i]) <= int(thresholds[i - 1]):
+			errors.append("bench_prototype.rankThresholds: must ascend")
+	var bonus: Dictionary = bench.get("bonus", {})
+	var bonus_types: Dictionary = bonus.get("types", {})
+	if not bonus_types.has(bonus.get("defaultType", "")):
+		errors.append("bench_prototype.bonus.defaultType: must name a bonus.types entry")
+	if bench.get("badRun", {}).get("lines", []).is_empty():
+		errors.append("bench_prototype.badRun.lines: must not be empty")
 
 
 # Every context in Combat.CANONICAL_CONTEXTS must have a backdrop entry.

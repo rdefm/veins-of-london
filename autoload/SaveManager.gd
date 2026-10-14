@@ -1290,6 +1290,9 @@ func _restore_int_types(state: Dictionary) -> void:
 	if state.has("combatPrototype"):
 		_restore_combat_prototype_int_types(state["combatPrototype"])
 
+	if state.has("benchPrototype"):
+		_restore_bench_prototype_int_types(state["benchPrototype"])
+
 	# state.objectives[*].progress is a free-form bag (systems/objectives.gd)
 	# -- only its known numeric shapes need restoring (activatedDay,
 	# traded_with_faction's baseline snapshot, alarm_defend_wins' win
@@ -1406,6 +1409,30 @@ func _restore_combat_prototype_int_types(cp: Dictionary) -> void:
 		for snap_enemy in snap.get("enemies", []):
 			_int_key(snap_enemy, "hp")
 			_int_key(snap_enemy, "scriptIndex")
+
+
+# systems/bench_prototype.gd's slices, and each slice's Rewind frames
+# (same shape minus "snapshots").
+func _restore_bench_prototype_int_types(bench: Dictionary) -> void:
+	if typeof(bench.get("skillOverride")) == TYPE_FLOAT:
+		bench["skillOverride"] = int(bench["skillOverride"])
+	for s in bench.get("slices", {}).values():
+		_restore_bench_prototype_slice_ints(s)
+		for frame in s.get("snapshots", []):
+			_restore_bench_prototype_slice_ints(frame)
+
+
+func _restore_bench_prototype_slice_ints(s: Dictionary) -> void:
+	_int_dict_values(s.get("pool", {}))
+	_int_dict_values(s.get("bestRanks", {}))
+	_int_key(s, "xpTotal")
+	for entry in s.get("ledger", []):
+		for key in ["items", "rank", "score", "durationMsec", "xp"]:
+			_int_key(entry, key)
+	var run = s.get("activeRun")
+	if run is Dictionary:
+		_int_key(run, "startedMsec")
+		_int_dict_values(run.get("calcSpent", {}))
 
 
 # state.modal.data's shape depends on modal.type (systems/crafting.gd,

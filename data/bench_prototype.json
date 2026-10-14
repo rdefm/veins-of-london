@@ -1,0 +1,35 @@
+{
+  "_comment": "Sandboxed Lab-revamp bench prototype (systems/bench_prototype.gd, .scratch/lab-revamp/spec.md) -- provisional numbers, not production balance, not cross-referenced by REFERENCE.md. rankThresholds[i] is the minimum score for rank i+1. baseCalc is spent per item crafted (a manual run makes one). baseXp is per item, display-only. PROSE-REVIEW: every badRun.lines entry is new copy, drafted against CONTENT-GUIDE.md's tone bible.",
+  "roster": ["healingSalve", "timePearl", "healingBurst"],
+  "recipes": {
+    "healingSalve": { "name": "Healing Salve", "baseCalc": { "life": 3 } },
+    "timePearl": { "name": "Time Pearl", "baseCalc": { "time": 3 } },
+    "healingBurst": { "name": "Healing Burst", "baseCalc": { "life": 2, "time": 2 } }
+  },
+  "poolSeed": { "life": 40, "time": 40 },
+  "rankThresholds": [0, 40, 60, 75, 90],
+  "skillFactor": 0.08,
+  "skillMax": 10,
+  "baseXp": 10,
+  "hintLevels": ["off", "vague", "exact"],
+  "bonus": {
+    "chance": 0.3,
+    "defaultType": "extraItem",
+    "types": {
+      "extraItem": { "label": "+1 item", "extraItems": 1 },
+      "calcRefund": { "label": "Half calc back", "refundFraction": 0.5 },
+      "xp": { "label": "XP ×1.5", "xpMultiplier": 1.5 }
+    }
+  },
+  "badRun": {
+    "scoreBelow": 15,
+    "oneIn": 3,
+    "lines": [
+      "The mixture sets into something the colour of a bruise. You bin it, and the spoon.",
+      "The flask makes a small, polite noise and then a less polite one. The bench will need a new mat.",
+      "Whatever this was going to be, it has decided against it.",
+      "It smells of burnt hair and Tuesday. You open a window and write nothing down.",
+      "The calc goes grey and stays grey. Somewhere, a ledger notes the loss."
+    ]
+  }
+}
