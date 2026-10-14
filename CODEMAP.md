@@ -350,7 +350,7 @@ unit-tests both, incl. lossless round-trips. `storyboard.html` is the local even
 
 See CLAUDE.md's source-of-truth table for REFERENCE.md, M0-PORT.md, M1-LONDON.md,
 M1.5-NETWORK-MAP.md, CONTENT-GUIDE.md, CONTEXT.md, docs/adr/. Not in that table: `VISION.md`,
-`M3-CALC-DISCOVERY.md`/`device-plan-spec.md` (provisional drafts),
+`M3-CALC-DISCOVERY.md`/`device-plan-spec.md`/`story-restructure.md` (provisional drafts; the last maps questlines to features),
 `hq-diorama-vision.md`/`combat-animation-vision.md`/`ART-BIBLE.md` (screen/art direction),
 `BUGS.md`, `BUGHUNT-2026-07-17.md`, `android-setup.md`, `agents/*.md` (see CLAUDE.md's Agent
 skills section). `docs/adr/0001`–`0005`: Network Map deferral, site/NPC-claim rules, app-icon
