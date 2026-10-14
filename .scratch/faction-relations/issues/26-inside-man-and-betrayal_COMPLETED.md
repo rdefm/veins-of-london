@@ -8,8 +8,8 @@
 
 **Status:** ready-for-agent
 
-- [ ] Inside-man warnings fire for the member's faction's planned moves when the gates hold
-- [ ] Back-channel truce offer is available through the member
-- [ ] Shop discount applies on that faction's shop while gated
-- [ ] Betrayal raises a rival's intel on the player (seeded chance), with a notice/headline where the spec implies one
-- [ ] Strings `PROSE-REVIEW`
+- [x] Inside-man warnings fire for the member's faction's planned moves when the gates hold
+- [x] Back-channel truce offer is available through the member
+- [-] Shop discount: dropped by the human (no sensible motive)
+- [-] Betrayal: deferred by the human; replaced by: [x] inside man leaks intel on their own faction to the player (seeded daily chance)
+- [x] Strings `PROSE-REVIEW`
