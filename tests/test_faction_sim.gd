@@ -45,6 +45,22 @@ func run() -> void:
 		assert_true(survivors >= 7, "most tended veins survive 30 rollovers (got %d/10)" % survivors)
 	)
 
+	# Over a long unattended run no faction is
+	# stripped of all turf for good, none snowballs, and the weakening floor holds.
+	run_case("a_long_run_leaves_no_permanent_zero_turf_faction_and_no_runaway_leader", func():
+		var sim = load("res://scripts/sim_faction_economy_impl.gd").new()
+		var saved_annotations: Dictionary = GameData.MARKET["annotations"].duplicate(true)
+		var saved_rivalry: bool = GameData.FACTION_RIVALRY
+		for seed in [1, 5]:
+			var summary: Dictionary = sim.run({ "days": 120, "seed": seed, "player": 25, "playerOre": "life", "quiet": 1 })
+			assert_eq(summary["permanentZero"], [], "seed %d: no faction ends with zero turf" % seed)
+			assert_true(not summary["runaway"], "seed %d: leader holds %.0f%% of districts" % [seed, 100.0 * summary["leaderShare"]])
+			for faction_id in GameData.FACTIONS:
+				assert_true(int(summary["minPresence"][faction_id]) > 0, "seed %d: %s never loses all turf" % [seed, faction_id])
+		GameData.MARKET["annotations"] = saved_annotations
+		GameData.FACTION_RIVALRY = saved_rivalry
+	)
+
 	run_case("a_prune_adds_ore_to_holdings_and_credits_the_factions_ore_share", func():
 		GameState.reset()
 		var vein := _vein("s1", "collective", "life", 90)

@@ -5,7 +5,9 @@ extends RefCounted
 const SETTLE_FROM := 31  # price range columns cover days SETTLE_FROM..end
 
 
-func run(opts: Dictionary) -> void:
+# Returns the turf summary (see _turf_summary) so tests can assert on it;
+# opts.quiet = 1 skips the report.
+func run(opts: Dictionary) -> Dictionary:
 	GameState.reset()
 	Rng.set_seed(opts["seed"])
 	GameData.FACTION_RIVALRY = int(opts.get("rivalry", 1)) != 0
@@ -22,6 +24,7 @@ func run(opts: Dictionary) -> void:
 	var start_veins := _vein_counts()
 	var days: int = opts["days"]
 	var diplo := { "lines": [], "events": [], "firsts": {}, "warEnds": {}, "minVeins": {} }
+	var turf := { "flips": 0, "controllers": {}, "series": [], "minControl": {}, "minPresence": {}, "zeroSince": {}, "peakControl": {} }
 	for i in days:
 		var world: Dictionary = GameState.state["world"]
 		world["day"] += 1
@@ -35,12 +38,16 @@ func run(opts: Dictionary) -> void:
 		TimeSystem.daily_tick()
 		_tally_churn(churn, owners_before, _vein_owners())
 		_track_diplomacy(diplo, diplo_before)
+		_track_turf(turf)
 		if world["day"] >= SETTLE_FROM:
 			_track_ranges(ranges)
 			_accumulate_harvest(harvest)
 			_accumulate_flows(flows)
 		if world["day"] % 10 == 0:
 			timeline.append("day %d: %s" % [world["day"], _vein_counts()])
+	var summary := _turf_summary(turf, days)
+	if int(opts.get("quiet", 0)) != 0:
+		return summary
 	print("== %d days, seed %d, player %d %s/day, rivalry %s ==" % [days, opts["seed"], opts["player"], opts["playerOre"], GameData.FACTION_RIVALRY])
 	var ticker: Array = []
 	for section in Barometer.SECTIONS:
@@ -60,6 +67,8 @@ func run(opts: Dictionary) -> void:
 	_print_shares("craft")
 	_print_factions()
 	_print_diplomacy(diplo, int(opts.get("every", 1)))
+	_print_turf(turf, summary)
+	return summary
 
 
 # Pins a Ticker state active (war=N holds political war from day N on).
@@ -388,3 +397,95 @@ func _print_diplomacy(diplo: Dictionary, every: int) -> void:
 	print("
 war endings: %s" % diplo["warEnds"])
 	print("min faction veins: %s" % diplo["minVeins"])
+
+
+# ── Turf ────────────────────────────────────────────────────────────────
+
+const TURF_ZERO_WINDOW := 30  # a faction with no turf this many days at the end is permanently out
+const TURF_LEADER_MAX_SHARE := 0.6  # of districts, at the end; above = runaway
+
+
+# control = districts a faction controls; presence = control or foothold.
+func _turf_counts() -> Dictionary:
+	var control := {}
+	var presence := {}
+	for faction_id in GameData.FACTIONS:
+		control[faction_id] = 0
+		presence[faction_id] = 0
+	for district_id in GameState.state["turf"]:
+		var entry: Dictionary = GameState.state["turf"][district_id]
+		if entry.get("seeded", false):
+			continue
+		if control.has(entry["controller"]):
+			control[entry["controller"]] += 1
+		for contender in entry["tiers"]:
+			if presence.has(contender):
+				presence[contender] += 1
+	return { "control": control, "presence": presence }
+
+
+func _track_turf(turf: Dictionary) -> void:
+	var day: int = GameState.state["world"]["day"]
+	for district_id in GameState.state["turf"]:
+		var entry: Dictionary = GameState.state["turf"][district_id]
+		if entry.get("seeded", false):
+			continue
+		var now: String = entry["controller"]
+		if turf["controllers"].has(district_id) and turf["controllers"][district_id] != now:
+			turf["flips"] += 1
+		turf["controllers"][district_id] = now
+	var counts := _turf_counts()
+	for faction_id in GameData.FACTIONS:
+		var c: int = counts["control"][faction_id]
+		var p: int = counts["presence"][faction_id]
+		turf["minControl"][faction_id] = mini(int(turf["minControl"].get(faction_id, c)), c)
+		turf["minPresence"][faction_id] = mini(int(turf["minPresence"].get(faction_id, p)), p)
+		turf["peakControl"][faction_id] = maxi(int(turf["peakControl"].get(faction_id, c)), c)
+		if p > 0:
+			turf["zeroSince"].erase(faction_id)
+		elif not turf["zeroSince"].has(faction_id):
+			turf["zeroSince"][faction_id] = day
+	turf["series"].append({ "day": day, "control": counts["control"], "presence": counts["presence"] })
+	turf["last"] = counts
+
+
+# { flips, finalControl, finalPresence, permanentZero: [faction], leader, leaderShare,
+#   minControl, minPresence, peakControl, runaway: bool }
+func _turf_summary(turf: Dictionary, days: int) -> Dictionary:
+	var last: Dictionary = turf.get("last", { "control": {}, "presence": {} })
+	var permanent_zero: Array = []
+	for faction_id in turf["zeroSince"]:
+		if days - int(turf["zeroSince"][faction_id]) + 1 >= TURF_ZERO_WINDOW:
+			permanent_zero.append(faction_id)
+	var leader := ""
+	var best := -1
+	for faction_id in last["control"]:
+		if int(last["control"][faction_id]) > best:
+			best = int(last["control"][faction_id])
+			leader = faction_id
+	var leader_share := float(best) / maxi(1, GameData.DISTRICTS.size())
+	return {
+		"flips": turf["flips"], "finalControl": last["control"], "finalPresence": last["presence"],
+		"permanentZero": permanent_zero, "leader": leader, "leaderShare": leader_share,
+		"minControl": turf["minControl"], "minPresence": turf["minPresence"], "peakControl": turf["peakControl"],
+		"runaway": leader_share > TURF_LEADER_MAX_SHARE,
+	}
+
+
+func _print_turf(turf: Dictionary, summary: Dictionary) -> void:
+	print("
+-- turf (districts controlled / present; foothold counts as present) --")
+	var series: Array = turf["series"]
+	for i in series.size():
+		if (i + 1) % 10 != 0:
+			continue
+		var parts: Array = []
+		for faction_id in GameData.FACTIONS:
+			parts.append("%s %d/%d" % [_party(faction_id), series[i]["control"][faction_id], series[i]["presence"][faction_id]])
+		print("day %-3d %s" % [series[i]["day"], "  ".join(parts)])
+	print("flips: %d" % summary["flips"])
+	print("min control: %s" % summary["minControl"])
+	print("min presence: %s" % summary["minPresence"])
+	print("peak control: %s" % summary["peakControl"])
+	print("final leader: %s holds %.0f%% of districts%s" % [summary["leader"], 100.0 * summary["leaderShare"], " (RUNAWAY)" if summary["runaway"] else ""])
+	print("permanent zero-turf factions: %s" % [summary["permanentZero"]])
