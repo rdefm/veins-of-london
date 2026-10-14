@@ -1,6 +1,15 @@
 {
   "queueCap": 6,
+  "succession": { "margin": 15, "days": 5, "weights": { "favourKept": 6, "favourFailed": -6, "questStep": 8, "hostileAct": 2, "peaceDeal": 4, "warLoss": -10 } },
   "entries": {
+    "inc_succession": {
+      "id": "inc_succession",
+      "trigger": "succession",
+      "eventId": "inc_succession",
+      "cooldownDays": 10,
+      "conditions": {},
+      "notice": "PROSE-REVIEW placeholder: There's been a change at the top. You'll want to hear it from us."
+    },
     "inc_raided_revenge": {
       "id": "inc_raided_revenge",
       "trigger": "raidedByFaction",

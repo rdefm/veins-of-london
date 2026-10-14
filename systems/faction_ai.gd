@@ -274,7 +274,7 @@ static func new_pressure_state() -> Dictionary:
 
 
 static func personality(faction_id: String) -> float:
-	return float(GameData.FACTIONS[faction_id].get("aggressionPersonality", 1.0))
+	return float(GameData.FACTIONS[faction_id].get("aggressionPersonality", 1.0)) * KeyMembers.aggression_scale(faction_id)
 
 
 static func _collective_complete() -> bool:
@@ -450,7 +450,8 @@ static func apply_pressure() -> void:
 # The pair relation's daily pull back toward its starting relation:
 # pairRecoveryRate × (starting − current).
 static func pair_recovery(faction_a: String, faction_b: String) -> float:
-	var gap := starting_pair_relation(faction_a, faction_b) - Factions.get_relation(faction_a, faction_b)
+	var shift := (KeyMembers.baseline_shift(faction_a) + KeyMembers.baseline_shift(faction_b)) / 2.0
+	var gap := starting_pair_relation(faction_a, faction_b) + shift - Factions.get_relation(faction_a, faction_b)
 	return float(_pcfg()["pairRecoveryRate"]) * gap
 
 
@@ -1665,6 +1666,7 @@ static func note_hostile_act(party_a: String, party_b: String) -> void:
 	_war()["lastHostile"][war_key(party_a, party_b)] = int(GameState.state["world"]["day"])
 	if party_a == Shares.PLAYER:
 		Diplomacy.note_player_hostile(party_b)
+		KeyMembers.note_player_act(party_b, KeyMembers.ACT_HOSTILE)
 
 
 static func _add_hit(party: String, enemy: String, points: float) -> void:
@@ -1799,6 +1801,8 @@ static func _end_war(war: Dictionary) -> void:
 	_war()["wars"].erase(war)
 	var a: String = war["parties"][0]
 	var b: String = war["parties"][1]
+	if a != Shares.PLAYER and b != Shares.PLAYER and weariness(a) != weariness(b):
+		KeyMembers.note_war_loss(a if weariness(a) > weariness(b) else b)
 	var log_cfg: Dictionary = _wcfg()["log"]
 	if a == Shares.PLAYER:
 		log_activity(b, log_cfg["endedPlayer"])
@@ -1947,6 +1951,8 @@ static func sign_truce(party_a: String, party_b: String, terms: Dictionary) -> v
 	escalation["withholds"] = _withholds().filter(func(w: Dictionary) -> bool:
 		return war_key(w["factionId"], w["targetId"]) != key)
 	_log_truce(party_a, party_b, "signedPair", "signedPlayer")
+	if party_a == Shares.PLAYER or party_b == Shares.PLAYER:
+		KeyMembers.note_player_act(party_b if party_a == Shares.PLAYER else party_a, KeyMembers.ACT_PEACE)
 	if party_a != Shares.PLAYER and party_b != Shares.PLAYER:
 		Barometer.push_headline(_tcfg()["headlines"]["signed"] % [_party_name(party_a), _party_name(party_b)],
 			"truceSigned", { "first": party_a, "second": party_b, "endDay": end_day })

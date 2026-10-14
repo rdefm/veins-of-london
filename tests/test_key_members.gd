@@ -117,3 +117,89 @@ func run() -> void:
 		assert_eq(save["factions"]["firm"]["standing"]["lusk"], 80, "kept")
 		assert_eq(save["factions"]["firm"]["leader"], "mercer", "kept")
 	)
+
+	run_case("standing_sources_move_by_data_weights_and_clamp", func():
+		GameState.reset()
+		var w: Dictionary = GameData.FACTION_INCIDENTS["succession"]["weights"]
+		KeyMembers.note_favour("mercer", true)
+		assert_eq(KeyMembers.standing_of("mercer"), 50 + int(w["favourKept"]))
+		KeyMembers.note_favour("mercer", false)
+		assert_eq(KeyMembers.standing_of("mercer"), 50)
+		KeyMembers.note_quest_step("firm_legitimacy")
+		assert_eq(KeyMembers.standing_of("mercer"), 50 + int(w["questStep"]))
+		assert_eq(KeyMembers.standing_of("lusk"), 50, "other member untouched")
+		KeyMembers.note_player_act("firm", KeyMembers.ACT_HOSTILE)
+		assert_eq(KeyMembers.standing_of("lusk"), 50 + int(w["hostileAct"]), "hawk gains")
+		assert_eq(KeyMembers.standing_of("mercer"), 50 + int(w["questStep"]) - int(w["hostileAct"]), "dove loses")
+		KeyMembers.note_player_act("firm", KeyMembers.ACT_PEACE)
+		assert_eq(KeyMembers.standing_of("lusk"), 50 + int(w["hostileAct"]) - int(w["peaceDeal"]))
+		KeyMembers.note_war_loss("firm")
+		assert_eq(KeyMembers.standing_of("lusk"), 50 + int(w["hostileAct"]) - int(w["peaceDeal"]) + int(w["warLoss"]))
+		for i in 20:
+			KeyMembers.note_quest_step("firm_legitimacy")
+		assert_eq(KeyMembers.standing_of("mercer"), 100, "clamped")
+	)
+
+	run_case("player_hostile_act_and_truce_feed_outlook_standing", func():
+		GameState.reset()
+		FactionAI.note_hostile_act(Shares.PLAYER, "firm")
+		assert_true(KeyMembers.standing_of("lusk") > 50 and KeyMembers.standing_of("mercer") < 50)
+		var lusk := KeyMembers.standing_of("lusk")
+		var mercer := KeyMembers.standing_of("mercer")
+		FactionAI.sign_truce(Shares.PLAYER, "firm", {})
+		assert_true(KeyMembers.standing_of("lusk") < lusk and KeyMembers.standing_of("mercer") > mercer, "peace deal favours the dove")
+	)
+
+	run_case("succession_needs_margin_held_for_days_and_fires_once", func():
+		GameState.reset()
+		var cfg: Dictionary = GameData.FACTION_INCIDENTS["succession"]
+		var firm: Dictionary = GameState.state["factions"]["firm"]
+		firm["standing"]["mercer"] = 50 + int(cfg["margin"]) - 1
+		for i in int(cfg["days"]) + 2:
+			KeyMembers.daily_tick()
+		assert_eq(KeyMembers.leader_of("firm"), "lusk", "below margin never fires")
+		firm["standing"]["mercer"] = 50 + int(cfg["margin"])
+		for i in int(cfg["days"]) - 1:
+			KeyMembers.daily_tick()
+		assert_eq(KeyMembers.leader_of("firm"), "lusk", "not before N days")
+		firm["standing"]["mercer"] = 50
+		KeyMembers.daily_tick()
+		assert_eq(firm["succession"]["days"], 0, "margin lost resets the count")
+		firm["standing"]["mercer"] = 50 + int(cfg["margin"])
+		for i in int(cfg["days"]):
+			KeyMembers.daily_tick()
+		assert_eq(KeyMembers.leader_of("firm"), "mercer")
+		assert_eq(KeyMembers.speaker_for("firm"), "mercer", "the Speaker switches")
+		assert_eq([firm["succession"]["from"], firm["succession"]["to"]], ["lusk", "mercer"])
+		for i in 10:
+			KeyMembers.daily_tick()
+		assert_eq(KeyMembers.leader_of("firm"), "mercer", "changes once")
+		assert_eq(firm["succession"]["days"], 0)
+	)
+
+	run_case("succession_queues_the_incident_from_the_new_leader", func():
+		GameState.reset()
+		GameState.state["world"]["day"] = 20
+		var firm: Dictionary = GameState.state["factions"]["firm"]
+		firm["standing"]["mercer"] = 90
+		firm["succession"]["challenger"] = "mercer"
+		firm["succession"]["days"] = int(GameData.FACTION_INCIDENTS["succession"]["days"]) - 1
+		KeyMembers.daily_tick()
+		FactionIncidents.daily_tick()
+		assert_eq(FactionIncidents.queued().size(), 1)
+		assert_eq(FactionIncidents.queued()[0]["eventId"], "inc_succession")
+		assert_eq(FactionIncidents.queued()[0]["context"]["to"], "mercer")
+		assert_eq(GameState.state["pendingMessages"][0]["contactId"], "mercer")
+	)
+
+	run_case("new_leader_sets_effective_aggression_and_relation_baseline", func():
+		GameState.reset()
+		var base := float(GameData.FACTIONS["firm"]["aggressionPersonality"])
+		assert_eq(FactionAI.personality("firm"), base, "initial leader leaves it unchanged")
+		assert_eq(KeyMembers.baseline_shift("firm"), 0)
+		var before := FactionAI.pair_recovery("firm", "guild")
+		GameState.state["factions"]["firm"]["leader"] = "mercer"
+		assert_true(absf(FactionAI.personality("firm") - base * 0.7 / 1.3) < 0.000001, "dove leader scales it")
+		assert_eq(KeyMembers.baseline_shift("firm"), 20)
+		assert_true(FactionAI.pair_recovery("firm", "guild") > before, "dove baseline pulls relations up")
+	)

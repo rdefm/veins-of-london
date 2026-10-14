@@ -150,7 +150,7 @@ static func accept(pending_id: String) -> Dictionary:
 	var params: Dictionary = favour["params"]
 	var record := {
 		"factionId": faction_id, "favourId": favour["id"], "kind": favour["kind"],
-		"params": params.duplicate(true), "acceptedDay": day,
+		"params": params.duplicate(true), "acceptedDay": day, "memberId": KeyMembers.speaker_for(faction_id),
 		"dueDay": day + int(params.get("days", _cfg()["sellBelowDays"])),
 	}
 	match favour["kind"]:
@@ -333,6 +333,7 @@ static func _close(entry: Dictionary, kept: bool, deltas: Dictionary = {}) -> vo
 		Factions.adjust_player_relation(rival, int(deltas["rivalRelation"]))
 	if deltas.has("memberRelation"):
 		Contacts.award_relation(KeyMembers.speaker_for(faction_id), int(deltas["memberRelation"]))
+	KeyMembers.note_favour(String(entry.get("memberId", KeyMembers.speaker_for(faction_id))), kept)
 	KeyMembers.send(faction_id, _cfg()["lines"][faction_id]["done" if kept else "failed"])
 	EventBus.state_changed.emit()
 

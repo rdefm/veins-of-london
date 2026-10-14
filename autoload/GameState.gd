@@ -502,6 +502,7 @@ func _new_factions_state() -> Dictionary:
 			# the contender currently leading (the faction's speaker).
 			"standing": KeyMembers.starting_standing(faction_id),
 			"leader": KeyMembers.default_leader(faction_id),
+			"succession": KeyMembers.new_succession(),
 		}
 	return factions
 

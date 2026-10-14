@@ -205,6 +205,8 @@ func _migrate_key_member_standing(save: Dictionary) -> void:
 				faction["standing"][contact_id] = KeyMembers.starting_standing(faction_id)[contact_id]
 		if not faction.has("leader"):
 			faction["leader"] = KeyMembers.default_leader(faction_id)
+		if not faction.has("succession"):
+			faction["succession"] = KeyMembers.new_succession()
 
 
 # A save without faction holdings gets the placeholder starting stock, with
@@ -1126,6 +1128,9 @@ func _restore_int_types(state: Dictionary) -> void:
 			_int_dict_values(faction.get("shortfall", {}))
 			_int_dict_values(faction.get("consumeAccrued", {}))
 			_int_dict_values(faction.get("standing", {}))
+			var succession: Dictionary = faction.get("succession", {})
+			_int_key(succession, "days")
+			_int_key(succession, "day")
 			for burn in faction.get("kitBurns", []):
 				_int_key(burn, "day")
 				_int_dict_values(burn.get("items", {}))

@@ -4740,6 +4740,38 @@ With attention drawn away, anyone carrying valuables may be of interest to the c
 "screen": "phone"
 }]
 },
+"inc_succession": {
+"cards": [{
+"label": null,
+"speaker": null,
+"text": "PROSE-REVIEW placeholder: The faction has a new voice. The old one has stepped aside.",
+"type": "narration"
+}, {
+"choices": [{
+"effects": [],
+"label": "Congratulate them",
+"result_text": "PROSE-REVIEW placeholder: They accept it as their due."
+}, {
+"effects": [],
+"label": "Say nothing",
+"result_text": "PROSE-REVIEW placeholder: They notice. They always notice."
+}],
+"label": null,
+"speaker": null,
+"text": "PROSE-REVIEW placeholder: Someone should say something to the new one.",
+"type": "choice"
+}, {
+"label": null,
+"speaker": null,
+"text": "PROSE-REVIEW placeholder: London adjusts.",
+"type": "resolution"
+}],
+"id": "inc_succession",
+"on_complete": [{
+"op": "set_screen",
+"screen": "phone"
+}]
+},
 "inc_truce_expiring": {
 "cards": [{
 "label": null,

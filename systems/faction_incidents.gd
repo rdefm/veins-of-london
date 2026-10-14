@@ -13,7 +13,7 @@ extends RefCounted
 # nextId: int }.
 
 const PENDING_KIND := "faction_incident"
-const TRIGGER_IDS: PackedStringArray = ["raidedByFaction", "warBetween", "truceExpiring", "turfFlip"]
+const TRIGGER_IDS: PackedStringArray = ["raidedByFaction", "warBetween", "truceExpiring", "turfFlip", "succession"]
 
 
 static func _cfg() -> Dictionary:
@@ -54,6 +54,8 @@ static func _trigger_fn(trigger: String) -> Callable:
 			return _trigger_truce
 		"turfFlip":
 			return _trigger_flip
+		"succession":
+			return _trigger_succession
 	return Callable()
 
 
@@ -125,6 +127,21 @@ static func _trigger_flip(conditions: Dictionary) -> Array:
 			"subject": "%s@%d" % [flip["district"], int(flip["day"])],
 			"speakers": speakers,
 			"context": { "district": flip["district"], "from": from_id, "to": to_id, "faction_id": speakers[0] if not speakers.is_empty() else "" },
+		})
+	return hits
+
+
+# A leader change made today (KeyMembers.daily_tick); the new leader speaks.
+static func _trigger_succession(_conditions: Dictionary) -> Array:
+	var hits := []
+	for faction_id in GameState.state["factions"].keys():
+		var change: Dictionary = GameState.state["factions"][faction_id]["succession"]
+		if int(change["day"]) != _day():
+			continue
+		hits.append({
+			"subject": "%s@%d" % [faction_id, int(change["day"])],
+			"speakers": [faction_id],
+			"context": { "faction_id": faction_id, "from": change["from"], "to": change["to"] },
 		})
 	return hits
 

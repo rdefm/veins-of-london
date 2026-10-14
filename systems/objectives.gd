@@ -47,6 +47,7 @@ static func _refresh_one(id: String, def: Dictionary) -> void:
 	if not runtime["complete"] and now_active and _evaluate(def, runtime["progress"]):
 		runtime["complete"] = true
 		GameState.state["flags"][def["completeFlag"]] = true
+		KeyMembers.note_quest_step(str(def.get("questline", "")))
 
 	objectives[id] = runtime
 
