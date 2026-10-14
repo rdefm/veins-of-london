@@ -93,28 +93,6 @@ static func build(district_id: String) -> Dictionary:
 	}
 
 
-# Faction preview: { faction, name, tier, tier_label, perks: [{ tier, tier_label, unlocked, turf, label, description }] }.
-static func faction_preview(faction_id: String) -> Dictionary:
-	var tier := Perks.player_tier(faction_id)
-	var perks := []
-	for row in Perks.preview(faction_id):
-		perks.append({
-			"tier": row["tier"],
-			"tier_label": Perks.tier_label(row["tier"]),
-			"unlocked": row["unlocked"],
-			"turf": row["perk"]["scope"] == "turf",
-			"label": row["perk"]["label"],
-			"description": row["perk"]["description"],
-		})
-	return {
-		"faction": faction_id,
-		"name": contender_name(faction_id),
-		"tier": tier,
-		"tier_label": Perks.tier_label(tier),
-		"perks": perks,
-	}
-
-
 # Veins you need to take control (or the lead you can spare while holding it).
 static func _flip_row(counts: Dictionary, controller: String) -> Dictionary:
 	if counts.is_empty():

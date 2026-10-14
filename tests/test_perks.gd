@@ -125,18 +125,6 @@ func run() -> void:
 		assert_eq(Perks.district_benefit_rows("collective", "soho")[0]["here"], "inactive")
 	)
 
-	run_case("preview_lists_all_tiers_and_marks_turf", func():
-		GameState.reset()
-		GameState.state["factions"]["conclave"]["relation"] = 0
-		var panel := TurfPanel.faction_preview("conclave")
-		assert_eq(panel["perks"].size(), 3)
-		assert_eq(panel["tier"], "none")
-		assert_true(panel["perks"][0]["turf"])
-		assert_true(not panel["perks"][1]["turf"])
-		for p in panel["perks"]:
-			assert_true(not p["unlocked"])
-	)
-
 	run_case("panel_benefit_rows_carry_source_faction", func():
 		GameState.reset()
 		_clear_veins()

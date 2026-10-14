@@ -21,7 +21,6 @@ var _menu_button: Button
 var _bubble_district_id: String = ""
 var _bubble_mode: String = ""
 var _bubble_stop: Dictionary = {}
-var _perk_preview_faction: String = ""
 
 func _ready() -> void:
 	UI.anchor_full_rect(self)
@@ -268,6 +267,7 @@ func _build_district_panel(district_id: String) -> void:
 
 	body.add_child(_build_district_actions(district_id))
 	_add_turf_section(body, district_id)
+	_add_perks_section(body, district_id)
 
 	body.add_child(MapCardStyle.label("Sites", 15, MapCardStyle.ink()))
 	var sites := Sites.sites_in_district(district_id)
@@ -290,29 +290,47 @@ func _add_turf_section(body: VBoxContainer, district_id: String) -> void:
 	for section in TurfPanel.SECTIONS:
 		for row in sections[section]:
 			var text := _turf_row_text(section, row)
-			if section == "contenders" and row["contender"] != Turf.PLAYER:
-				var faction_id: String = row["contender"]
-				body.add_child(MapCardStyle.style_button(UI.button(text, func(): _toggle_perk_preview(faction_id))))
-				if _perk_preview_faction == faction_id:
-					_add_perk_preview(body, faction_id)
-			else:
-				body.add_child(_dim_label(text))
+			body.add_child(_dim_label(text))
 
-# UI-only selection (not game state): the faction whose perk preview is open.
-func _toggle_perk_preview(faction_id: String) -> void:
-	_perk_preview_faction = "" if _perk_preview_faction == faction_id else faction_id
-	_refresh()
+# PROSE-REVIEW: Perks section UI strings.
+# Perks from the factions contending here: turf perks scoped to this district, then
+# global perks. Each states whether it is active here and what unlocks it.
+func _add_perks_section(body: VBoxContainer, district_id: String) -> void:
+	var turf_entries: Array = []
+	var global_entries: Array = []
+	for row in TurfPanel.build(district_id)["sections"]["contenders"]:
+		if row["contender"] == Turf.PLAYER:
+			continue
+		for perk_row in Perks.district_benefit_rows(row["contender"], district_id):
+			var entry := { "faction": row["name"], "row": perk_row }
+			(turf_entries if perk_row["scope"] == "turf" else global_entries).append(entry)
+	if not turf_entries.is_empty():
+		body.add_child(MapCardStyle.label("Perks here", 15, MapCardStyle.ink()))
+		body.add_child(_dim_label("Only work where the faction holds ground. Foothold = half strength."))
+		for entry in turf_entries:
+			body.add_child(_perk_line(entry))
+	if not global_entries.is_empty():
+		body.add_child(MapCardStyle.label("Everywhere", 15, MapCardStyle.ink()))
+		for entry in global_entries:
+			body.add_child(_perk_line(entry))
 
-func _add_perk_preview(body: VBoxContainer, faction_id: String) -> void:
-	var preview := TurfPanel.faction_preview(faction_id)
-	body.add_child(MapCardStyle.label("%s — you: %s" % [preview["name"], preview["tier_label"]], 13, MapCardStyle.ink()))
-	for perk in preview["perks"]:
-		var text := "%s · %s%s — %s" % [perk["tier_label"], perk["label"], " (turf)" if perk["turf"] else "", perk["description"]]
-		var line := _dim_label(text)
-		line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		if perk["unlocked"]:
-			line.add_theme_color_override("font_color", MapCardStyle.ink())
-		body.add_child(line)
+func _perk_line(entry: Dictionary) -> Label:
+	var row: Dictionary = entry["row"]
+	var perk: Dictionary = row["perk"]
+	var status := "Locked — needs %s" % row["requirement"]
+	match row["here"]:
+		"full":
+			status = "Active"
+		"reduced":
+			status = "Active, half strength"
+		_:
+			if row["unlocked"]:
+				status = "Idle here — no ground held"
+	var line := _dim_label("%s · %s — %s\n%s" % [entry["faction"], perk["label"], status, perk["description"]])
+	line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	if row["here"] != "inactive":
+		line.add_theme_color_override("font_color", MapCardStyle.ink())
+	return line
 
 func _turf_row_text(section: String, row: Dictionary) -> String:
 	match section:
