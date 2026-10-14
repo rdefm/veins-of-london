@@ -218,13 +218,11 @@ func run() -> void:
 		assert_eq(KeyMembers.inside_man("firm"), "", "not close enough")
 	)
 
-	run_case("inside_man_discounts_shop_and_reopens_talks", func():
+	run_case("inside_man_reopens_talks_past_the_cooldown", func():
 		GameState.reset()
-		var base := Economy.get_faction_buy_price("firm", "ore", "physics", false)
 		GameState.state["contacts"]["lusk"]["unlocked"] = true
 		GameState.state["contacts"]["lusk"]["relation"] = 100
 		GameState.state["factions"]["firm"]["relation"] = -50
-		assert_true(Economy.get_faction_buy_price("firm", "ore", "physics", false) < base, "discounted")
 		GameState.state["factionWar"]["peaceCooldown"]["firm"] = 99
 		GameState.state["factionWar"]["wars"].append({ "parties": [Shares.PLAYER, "firm"], "startDay": 0, "lastHostileDay": 0, "weariness": { Shares.PLAYER: 0.0, "firm": 0.0 } })
 		assert_true(FactionAI.can_open_talks("firm")["ok"], "back channel skips the cooldown")
@@ -250,24 +248,20 @@ func run() -> void:
 		assert_eq(GameState.state["messages"]["lusk"].size(), count, "not repeated within repeatDays")
 	)
 
-	run_case("betrayal_raises_a_rivals_intel_on_the_player", func():
+	run_case("inside_man_leaks_intel_on_their_faction_to_the_player", func():
 		GameState.reset()
 		GameState.state["contacts"]["lusk"]["unlocked"] = true
-		GameState.state["contacts"]["lusk"]["relation"] = int(GameData.FACTION_INCIDENTS["personal"]["betrayAt"])
-		GameState.state["factions"]["guild"]["relation"] = -90
-		var before := Intel.meter("guild", Shares.PLAYER)
-		assert_true(KeyMembers.betray("lusk"))
-		assert_true(Intel.meter("guild", Shares.PLAYER) > before, "lowest-relation rival learns")
-		var saved: float = GameData.FACTION_INCIDENTS["personal"]["betrayChance"]
-		GameData.FACTION_INCIDENTS["personal"]["betrayChance"] = 1.0
-		var mid := Intel.meter("guild", Shares.PLAYER)
-		KeyMembers.betrayal_tick()
-		assert_true(Intel.meter("guild", Shares.PLAYER) > mid, "tick leaks when chance rolls")
-		GameData.FACTION_INCIDENTS["personal"]["betrayChance"] = saved
+		GameState.state["contacts"]["lusk"]["relation"] = 100
+		GameState.state["factions"]["firm"]["relation"] = -50
+		var cfg: Dictionary = GameData.FACTION_INCIDENTS["personal"]
+		var saved: float = cfg["leakChance"]
+		cfg["leakChance"] = 1.0
+		var before := Intel.meter(Shares.PLAYER, "firm")
+		KeyMembers.inside_man_tick()
+		assert_eq(Intel.meter(Shares.PLAYER, "firm"), before + int(cfg["leakAmount"]))
 		GameState.state["contacts"]["lusk"]["relation"] = 0
-		mid = Intel.meter("guild", Shares.PLAYER)
-		GameData.FACTION_INCIDENTS["personal"]["betrayChance"] = 1.0
-		KeyMembers.betrayal_tick()
-		GameData.FACTION_INCIDENTS["personal"]["betrayChance"] = saved
-		assert_eq(Intel.meter("guild", Shares.PLAYER), mid, "no leak above betrayAt")
+		before = Intel.meter(Shares.PLAYER, "firm")
+		KeyMembers.inside_man_tick()
+		cfg["leakChance"] = saved
+		assert_eq(Intel.meter(Shares.PLAYER, "firm"), before, "no leak without an inside man")
 	)

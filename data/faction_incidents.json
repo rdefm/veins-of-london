@@ -2,12 +2,8 @@
   "queueCap": 6,
   "succession": { "margin": 15, "days": 5, "weights": { "favourKept": 6, "favourFailed": -6, "questStep": 8, "hostileAct": 2, "peaceDeal": 4, "warLoss": -10 } },
   "personal": {
-    "insideManAt": 60, "betrayAt": -20, "shopMult": 0.9, "horizonDays": 7, "repeatDays": 5, "betrayChance": 0.05,
-    "leakKinds": ["stockpile", "raidTiming"],
-    "leaks": {
-      "stockpile": { "amount": 12, "notice": "PROSE-REVIEW placeholder: %s let slip where you keep your stock. The %s now know." },
-      "raidTiming": { "amount": 8, "notice": "PROSE-REVIEW placeholder: %s sold your raid timing. The %s are listening." }
-    },
+    "insideManAt": 60, "horizonDays": 7, "repeatDays": 5, "leakChance": 0.15, "leakAmount": 6,
+    "leakLine": "PROSE-REVIEW placeholder: \"Something for your file on us. Don't ask where it came from.\"",
     "lines": {
       "collective": { "warn": "PROSE-REVIEW placeholder: \"Between us: we're planning %s, %s. I didn't say.\"", "truce": "PROSE-REVIEW placeholder: \"If you want this ended, talk to me. Quietly.\"" },
       "firm": { "warn": "PROSE-REVIEW placeholder: \"Off the record: %s, %s. Not from me.\"", "truce": "PROSE-REVIEW placeholder: \"There's a back door to the table. I can hold it open.\"" },
