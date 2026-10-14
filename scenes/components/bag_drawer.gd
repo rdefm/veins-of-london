@@ -79,6 +79,9 @@ func _build() -> void:
 		var recipe: Dictionary = GameData.RECIPES[recipe_key]
 		var qty: int = Crafting.inventory_qty(recipe_key)
 		_content.add_child(UI.symbol_row([ItemIcons.part(recipe_key), "%s: %d" % [recipe["name"], qty]]))
+		var multi_qty: int = Crafting.inventory_qty(Crafting.inventory_key(recipe_key, true))
+		if multi_qty > 0:
+			_content.add_child(UI.symbol_row([ItemIcons.part(recipe_key), "%s (multi): %d" % [recipe["name"], multi_qty]]))
 
 	if player["healingSalveDaysLeft"] > 0:
 		_content.add_child(UI.symbol_row([ItemIcons.part("healingSalve"), "Healing Salve active — %d HP/day, %d day(s) left" % [player["healingSalveDailyAmount"], player["healingSalveDaysLeft"]]], { "muted": true }))

@@ -365,6 +365,21 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["inventory"]["timePearl"], { "1": 3, "5": 4 }, "each tier's stock is drawn down independently")
 	)
 
+	run_case("sell_from_sell_state_sells_multi_target_stock_at_the_base_price_from_its_own_bucket", func():
+		var seed := SeedSearch.find_seed_for(200, func():
+			GameState.reset()
+			GameState.state["player"]["inventory"]["blast"] = { "3": 2 }
+			GameState.state["player"]["inventory"]["blast_multi"] = { "3": 4 }
+			Economy.set_sell_qty(Economy.sell_key("blast", "3", true), 3, 4)
+			var result := Economy.sell_from_sell_state()
+			return not result["mugged"]
+		)
+		assert_true(seed != -1, "should find a non-mugged roll within 200 tries")
+		assert_eq(GameState.state["player"]["inventory"]["blast"], { "3": 2 }, "single-target stock untouched")
+		assert_eq(GameState.state["player"]["inventory"]["blast_multi"], { "3": 1 }, "multi stock drawn down")
+		assert_true(GameState.state["player"]["cash"] > 40, "cash rose from the multi sale")
+	)
+
 	# ── Faction trade lanes (bugfixes-28, generalized by collective1-01) ─
 
 	run_case("guild_buy_price_above_ticker_base_at_full_spread", func():

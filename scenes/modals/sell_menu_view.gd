@@ -149,7 +149,7 @@ func _build_item_groups(body: VBoxContainer, entries: Array) -> void:
 	var groups: Dictionary = {}
 	var order: Array[String] = []
 	for entry in entries:
-		var recipe_key: String = entry["recipeKey"]
+		var recipe_key: String = entry["groupKey"]
 		if not groups.has(recipe_key):
 			groups[recipe_key] = []
 			order.append(recipe_key)
@@ -176,7 +176,7 @@ func _build_item_groups(body: VBoxContainer, entries: Array) -> void:
 		var glyph := SymbolGlyph.new()
 		glyph.symbol = tiers[0]["symbol"]
 		glyph.draw_fallback = SymbolGlyph.generic_fallback()
-		glyph.icon = ItemIcons.texture(recipe_key)
+		glyph.icon = ItemIcons.texture(tiers[0]["recipeKey"])
 		glyph.color = TEXT
 		glyph.font_size = 19
 		glyph.glyph_radius = 8.0
@@ -351,26 +351,29 @@ func _entries() -> Array:
 	if GameState.state["flags"]["canSellConsumables"]:
 		for recipe_key in GameData.CONSUMABLE_PRICES.keys():
 			var recipe: Dictionary = GameData.RECIPES[recipe_key]
-			var buckets: Dictionary = player["inventory"].get(recipe_key, {})
-			var tier_keys: Array = buckets.keys()
-			tier_keys.sort_custom(func(a, b): return int(a) < int(b))
-			for tier_key in tier_keys:
-				var have: int = buckets[tier_key]
-				if have <= 0:
-					continue
-				var tier := int(tier_key)
-				var price: int
-				if _is_faction():
-					price = Economy.get_faction_sell_price(faction_id, "consumable", recipe_key)
-				else:
-					price = Economy.get_archie_consumable_price(recipe_key, tier, price_mod)
-				var key := "con_%s_%s" % [recipe_key, tier_key]
-				var tier_label := "untiered" if tier <= 0 else "tier %d" % tier
-				var item := _entry("sell", "items", "consumable", key, "%s · %s" % [recipe["name"], tier_label], "", recipe["symbol"], price, have, _sell_max(have, "consumable", recipe_key), sell_state.get(key, 0))
-				item["recipeKey"] = recipe_key
-				item["groupName"] = recipe["name"]
-				item["tier"] = tier
-				entries.append(item)
+			for multi in [false, true]:
+				var buckets: Dictionary = player["inventory"].get(Crafting.inventory_key(recipe_key, multi), {})
+				var tier_keys: Array = buckets.keys()
+				tier_keys.sort_custom(func(a, b): return int(a) < int(b))
+				for tier_key in tier_keys:
+					var have: int = buckets[tier_key]
+					if have <= 0:
+						continue
+					var tier := int(tier_key)
+					var price: int
+					if _is_faction():
+						price = Economy.get_faction_sell_price(faction_id, "consumable", recipe_key)
+					else:
+						price = Economy.get_archie_consumable_price(recipe_key, tier, price_mod)
+					var key := Economy.sell_key(recipe_key, tier_key, multi)
+					var tier_label := "untiered" if tier <= 0 else "tier %d" % tier
+					var item_name: String = recipe["name"] + (" (multi)" if multi else "")
+					var item := _entry("sell", "items", "consumable", key, "%s · %s" % [item_name, tier_label], "", recipe["symbol"], price, have, _sell_max(have, "consumable", recipe_key), sell_state.get(key, 0))
+					item["recipeKey"] = recipe_key
+					item["groupName"] = item_name
+					item["groupKey"] = recipe_key + ("_multi" if multi else "")
+					item["tier"] = tier
+					entries.append(item)
 			if _is_faction():
 				var buy_key := "buyCon_%s" % recipe_key
 				var stock := FactionSim.for_sale(faction_id, "consumable", recipe_key)

@@ -111,7 +111,7 @@ static func execute_sale(items: Array) -> Dictionary:
 			var tier: int = item.get("tier", 0)
 			gross += Market.line_total("consumable", get_archie_consumable_price(item_type, tier, price_mod), qty)
 			cons_sold += qty
-			Crafting.inventory_remove_from_tier(item_type, tier, qty)
+			Crafting.inventory_remove_from_tier(Crafting.inventory_key(item_type, bool(item.get("multi", false))), tier, qty)
 			Market.record_supply("consumable", item_type, qty, "player")
 
 	if cons_sold > 0:
@@ -195,6 +195,24 @@ static func toggle_buy_vein(vein_id: String) -> void:
 	EventBus.state_changed.emit()
 
 
+# Consumable lines of the sellState cart: "con_<recipe>_<tier>" for single-target
+# stock, "conm_<recipe>_<tier>" for multi-target (same price, own inventory bucket).
+static func _consumable_items_from_sell_state(sell_state: Dictionary) -> Array:
+	var items: Array = []
+	for recipe_key in GameData.CONSUMABLE_PRICES.keys():
+		for multi in [false, true]:
+			var buckets: Dictionary = GameState.state["player"]["inventory"].get(Crafting.inventory_key(recipe_key, multi), {})
+			for tier_key in buckets.keys():
+				var qty: int = sell_state.get(sell_key(recipe_key, tier_key, multi), 0)
+				if qty > 0:
+					items.append({ "kind": "consumable", "type": recipe_key, "tier": int(tier_key), "qty": qty, "multi": multi })
+	return items
+
+
+static func sell_key(recipe_key: String, tier_key: Variant, multi: bool) -> String:
+	return "%s_%s_%s" % ["conm" if multi else "con", recipe_key, tier_key]
+
+
 # Builds the items array from sellState + current stock (ore_<type> /
 # con_<recipeKey>_<tier> keys), then sells it.
 static func sell_from_sell_state() -> Dictionary:
@@ -206,12 +224,7 @@ static func sell_from_sell_state() -> Dictionary:
 		if qty > 0:
 			items.append({ "kind": "ore", "type": ore_type, "qty": qty })
 
-	for recipe_key in GameData.CONSUMABLE_PRICES.keys():
-		var buckets: Dictionary = GameState.state["player"]["inventory"].get(recipe_key, {})
-		for tier_key in buckets.keys():
-			var qty: int = sell_state.get("con_%s_%s" % [recipe_key, tier_key], 0)
-			if qty > 0:
-				items.append({ "kind": "consumable", "type": recipe_key, "tier": int(tier_key), "qty": qty })
+	items.append_array(_consumable_items_from_sell_state(sell_state))
 
 	# Same "vein_<id>" keys toggle_sell_vein()/sell_to_faction_from_sell_state()
 	# use; Archie's Assets section reuses the wiring, folded into execute_sale's items.
@@ -409,7 +422,7 @@ static func execute_faction_sale(faction_id: String, items: Array, contact_id: S
 			entry["transactions"] += 1
 			ore_sold[item_type] = entry
 		else:
-			for leg in _take_player_items(item_type, qty, int(item.get("tier", -1))):
+			for leg in _take_player_items(item_type, qty, int(item.get("tier", -1)), bool(item.get("multi", false))):
 				FactionSim.add_item(faction_id, item_type, leg["tier"], leg["qty"])
 		sold.append({ "kind": kind, "type": item_type, "qty": qty })
 
@@ -429,11 +442,12 @@ static func execute_faction_sale(faction_id: String, items: Array, contact_id: S
 
 # Removes qty of one item from the player's inventory -- from `tier` when
 # it's >= 0, else lowest tier first -- returning [{ tier, qty }, ...].
-static func _take_player_items(recipe_key: String, qty: int, tier: int) -> Array:
+static func _take_player_items(recipe_key: String, qty: int, tier: int, multi: bool = false) -> Array:
+	var inv_key := Crafting.inventory_key(recipe_key, multi)
 	if tier >= 0:
-		Crafting.inventory_remove_from_tier(recipe_key, tier, qty)
+		Crafting.inventory_remove_from_tier(inv_key, tier, qty)
 		return [{ "tier": tier, "qty": qty }]
-	var buckets: Dictionary = GameState.state["player"]["inventory"].get(recipe_key, {})
+	var buckets: Dictionary = GameState.state["player"]["inventory"].get(inv_key, {})
 	var tier_keys: Array = buckets.keys()
 	tier_keys.sort_custom(func(a, b): return int(a) < int(b))
 	var legs: Array = []
@@ -444,7 +458,7 @@ static func _take_player_items(recipe_key: String, qty: int, tier: int) -> Array
 			legs.append({ "tier": int(tier_key), "qty": take })
 			remaining -= take
 	for leg in legs:
-		Crafting.inventory_remove_from_tier(recipe_key, leg["tier"], leg["qty"])
+		Crafting.inventory_remove_from_tier(inv_key, leg["tier"], leg["qty"])
 	return legs
 
 
@@ -470,12 +484,7 @@ static func sell_to_faction_from_sell_state(faction_id: String, contact_id: Stri
 		if qty > 0:
 			items.append({ "kind": "ore", "type": ore_type, "qty": qty })
 
-	for recipe_key in GameData.CONSUMABLE_PRICES.keys():
-		var buckets: Dictionary = GameState.state["player"]["inventory"].get(recipe_key, {})
-		for tier_key in buckets.keys():
-			var qty: int = sell_state.get("con_%s_%s" % [recipe_key, tier_key], 0)
-			if qty > 0:
-				items.append({ "kind": "consumable", "type": recipe_key, "tier": int(tier_key), "qty": qty })
+	items.append_array(_consumable_items_from_sell_state(sell_state))
 
 	var buy_items: Array = []
 	for ore_type in GameData.ORE_TYPES.keys():
