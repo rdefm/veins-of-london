@@ -1435,6 +1435,15 @@ func _restore_bench_prototype_slice_ints(s: Dictionary) -> void:
 		_int_dict_values(run.get("calcSpent", {}))
 		for step in run.get("procedure", []):
 			_int_dict_values(step.get("calc", {}))
+	for plan in s.get("plans", {}).values():
+		for step in plan:
+			_int_dict_values(step.get("calc", {}))
+	for hits in s.get("vagueHits", {}).values():
+		_int_dict_values(hits)
+	for clues in s.get("notebook", {}).values():
+		for clue in clues:
+			_int_key(clue, "ideal")
+			_int_key(clue, "hits")
 
 
 # state.modal.data's shape depends on modal.type (systems/crafting.gd,

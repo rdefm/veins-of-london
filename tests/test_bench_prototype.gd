@@ -621,3 +621,135 @@ func run() -> void:
 				gauges = true
 		assert_true(gauges, "an apparatus with no gauge flagged")
 	)
+
+	run_case("plan_edits_insert_remove_nudge_and_feed_the_next_run", func():
+		var root := _fresh()
+		var s: Dictionary = root["slices"][P]
+		assert_eq(BenchPrototype.planned_procedure("healingSalve"), BenchPrototype.known_procedure("healingSalve"), "unedited plan = known procedure")
+		assert_true(BenchPrototype.insert_step("healingSalve", 2, "distilling")["ok"])
+		assert_true(not BenchPrototype.insert_step("healingSalve", 4, "distilling")["ok"], "no slot past the end")
+		assert_true(not BenchPrototype.insert_step("healingSalve", 0, "stirring")["ok"], "unknown apparatus refused")
+		var plan := BenchPrototype.planned_procedure("healingSalve")
+		assert_eq(plan.size(), 3)
+		assert_eq(plan[2], { "apparatus": "distilling", "target": float(_data()["insertTarget"]), "knowledge": "inserted" })
+		assert_true(BenchPrototype.nudge_step("healingSalve", 1, 4.0)["ok"])
+		assert_eq(BenchPrototype.planned_procedure("healingSalve")[1]["target"], 54.0, "heat nudged up")
+		BenchPrototype.nudge_step("healingSalve", 1, 200.0)
+		assert_eq(BenchPrototype.planned_procedure("healingSalve")[1]["target"], 100.0, "nudge clamps to the gauge")
+		assert_true(not BenchPrototype.remove_step("healingSalve", 0)["ok"], "a base step can't be removed")
+		assert_eq(BenchPrototype.known_procedure("healingSalve").size(), 2, "editing never changes knowledge")
+		BenchPrototype.begin_procedure_run("healingSalve")
+		assert_eq(s["activeRun"]["procedure"].size(), 3, "the run performs the plan")
+		assert_true(not BenchPrototype.insert_step("healingSalve", 0, "heat")["ok"], "no edits mid-run")
+		assert_true(not BenchPrototype.nudge_step("healingSalve", 0, 2.0)["ok"], "no nudges mid-run")
+		BenchPrototype.abandon_run(P)
+		assert_true(BenchPrototype.remove_step("healingSalve", 2)["ok"], "an inserted step can be removed")
+		assert_eq(BenchPrototype.planned_procedure("healingSalve").size(), 2)
+		BenchPrototype.reset_plan("healingSalve")
+		assert_eq(BenchPrototype.planned_procedure("healingSalve"), BenchPrototype.known_procedure("healingSalve"), "reset drops edits")
+	)
+
+	run_case("notebook_clues_cover_hit_near_none_and_changed", func():
+		_fresh()
+		BenchPrototype.set_skill_override(0)
+		var procedure := [
+			{ "apparatus": "grinding", "target": 50.0, "knowledge": "base" },
+			{ "apparatus": "heat", "target": 50.0, "knowledge": "base" },
+			{ "apparatus": "distilling", "target": 50.0, "knowledge": "inserted" },
+			{ "apparatus": "compression", "target": 50.0, "knowledge": "inserted" },
+		]
+		var performed := [
+			{ "apparatus": "grinding", "readings": [50.0, 52.0, 48.0] },
+			{ "apparatus": "heat", "value": 40.0 },
+			BenchPrototype.distil_readings(_distil_taps(50.0)).merged({ "apparatus": "distilling" }),
+			{ "apparatus": "compression", "value": 50.0 },
+		]
+		var clues := BenchPrototype.notebook_clues("healingSalve", procedure, performed)
+		assert_eq(clues.map(func(c): return c["clue"]), ["hit", "near", "changed", "none"])
+		assert_eq(clues[1]["direction"], "higher", "heat 40 under the ideal 62")
+		assert_eq(clues[3]["ideal"], -1, "an extra step matches nothing")
+		performed[1] = { "apparatus": "heat", "value": 80.0 }
+		assert_eq(BenchPrototype.notebook_clues("healingSalve", procedure, performed)[1]["direction"], "lower")
+		performed[0] = { "apparatus": "grinding", "readings": [50.0, 50.0, null] }
+		var missed: Dictionary = BenchPrototype.notebook_clues("healingSalve", procedure, performed)[0]
+		assert_eq([missed["clue"], missed["direction"]], ["near", null], "a missed stroke: right amount, no direction")
+		BenchPrototype.set_hint_level(P, "healingSalve", "distilFinish", "vague")
+		assert_eq(BenchPrototype.notebook_clues("healingSalve", procedure, performed)[2]["clue"], "hit", "a known step isn't a discovery")
+	)
+
+	run_case("notebook_changed_needs_the_hidden_step_in_position", func():
+		_fresh()
+		BenchPrototype.set_skill_override(0)
+		var distil := BenchPrototype.distil_readings(_distil_taps(50.0)).merged({ "apparatus": "distilling" })
+		var procedure := [
+			{ "apparatus": "distilling", "target": 50.0, "knowledge": "inserted" },
+			{ "apparatus": "grinding", "target": 50.0, "knowledge": "base" },
+			{ "apparatus": "heat", "target": 62.0, "knowledge": "base" },
+		]
+		var performed := [distil, { "apparatus": "grinding", "readings": [50.0, 50.0, 50.0] }, { "apparatus": "heat", "value": 62.0 }]
+		var clues := BenchPrototype.notebook_clues("healingSalve", procedure, performed)
+		assert_true(clues[0]["clue"] != "changed", "a distil first displaces the grind and heat")
+		var heat_first := [{ "apparatus": "heat", "target": 50.0, "knowledge": "inserted" }, procedure[1], procedure[2]]
+		var heat_performed := [{ "apparatus": "heat", "value": 62.0 }, performed[1], performed[2]]
+		assert_true(BenchPrototype.notebook_clues("healingSalve", heat_first, heat_performed)[0]["clue"] != "changed",
+			"an inserted step on a base-matched ideal step isn't a discovery")
+	)
+
+	run_case("discovery_grants_vague_then_three_hits_upgrade_to_exact_and_rewind_undoes", func():
+		var root := _fresh()
+		BenchPrototype.set_skill_override(0)
+		BenchPrototype.insert_step("healingSalve", 2, "distilling")
+		BenchPrototype.begin_procedure_run("healingSalve")
+		_perform_at(50.0)
+		_perform_at(62.0)
+		_perform_at(50.0)
+		var s: Dictionary = root["slices"][P]
+		assert_eq(BenchPrototype.hint_level(P, "healingSalve", "distilFinish"), "vague", "something changed → vague")
+		assert_eq(s["notebook"]["healingSalve"][2]["clue"], "changed")
+		assert_eq(s["notebook"]["healingSalve"][2]["learned"], "vague")
+		var plan_step: Dictionary = BenchPrototype.planned_procedure("healingSalve")[2]
+		assert_eq([plan_step["knowledge"], plan_step["hintId"]], ["vague", "distilFinish"], "the inserted step became the hinted one")
+		var needed := int(_data()["vagueToExactHits"])
+		for run_i in needed:
+			BenchPrototype.begin_procedure_run("healingSalve")
+			_perform_at(50.0)
+			_perform_at(62.0)
+			_perform_at(50.0)
+			s = root["slices"][P]
+			var expected: String = "exact" if run_i == needed - 1 else "vague"
+			assert_eq(BenchPrototype.hint_level(P, "healingSalve", "distilFinish"), expected, "after %d ✓ runs" % (run_i + 1))
+			assert_eq(s["notebook"]["healingSalve"][2]["hits"], run_i + 1)
+		assert_eq(BenchPrototype.planned_procedure("healingSalve")[2]["knowledge"], "exact", "plan shows the exact step")
+		BenchPrototype.rewind(P)
+		assert_eq(BenchPrototype.hint_level(P, "healingSalve", "distilFinish"), "vague", "rewind undoes the upgrade")
+		assert_eq(root["slices"][P]["vagueHits"]["healingSalve"]["distilFinish"], needed - 1)
+		for i in needed:
+			BenchPrototype.rewind(P)
+		assert_eq(BenchPrototype.hint_level(P, "healingSalve", "distilFinish"), "off", "rewind undoes the discovery")
+		assert_eq(BenchPrototype.planned_procedure("healingSalve")[2]["knowledge"], "inserted", "plan back to the guess")
+	)
+
+	run_case("debug_hint_toggle_drops_plan_and_hits", func():
+		var root := _fresh()
+		var s: Dictionary = root["slices"][P]
+		BenchPrototype.insert_step("healingSalve", 2, "distilling")
+		s["vagueHits"]["healingSalve"] = { "distilFinish": 2 }
+		BenchPrototype.set_hint_level(P, "healingSalve", "distilFinish", "vague")
+		assert_true(not s["plans"].has("healingSalve"), "plan rebuilt from knowledge")
+		assert_true(not s["vagueHits"]["healingSalve"].has("distilFinish"), "hit count reset")
+	)
+
+	run_case("save_round_trip_preserves_plans_notebook_and_hits", func():
+		var root := _fresh()
+		BenchPrototype.set_skill_override(0)
+		BenchPrototype.insert_step("healingSalve", 2, "distilling")
+		for i in 2:
+			BenchPrototype.begin_procedure_run("healingSalve")
+			_perform_at(50.0)
+			_perform_at(62.0)
+			_perform_at(50.0)
+		var expected: Dictionary = GameState.deep_copy(root)
+		var raw = JSON.parse_string(JSON.stringify(GameState.state))
+		assert_true(SaveManager._load_save_dict(raw)["ok"], "save loads")
+		assert_eq(GameState.state["benchPrototype"], expected, "plans, notebook and hits survive a save")
+	)

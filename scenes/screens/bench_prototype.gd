@@ -3,14 +3,17 @@ extends Control
 
 # Debug-app-only sandbox screen for systems/bench_prototype.gd: slice
 # switcher, debug controls (skill, bonus type, refill), per-recipe cards
-# (best rank, per-hint level toggles, batch), the fake-run control, Rewind and the
-# slice ledger.
+# (best rank, per-hint level toggles, batch), the fake-run control or the
+# procedure run with its plan editor and notebook, Rewind and the slice ledger.
 
 const LEDGER_ROWS := 12
 
-# View state only: the fake run's picked recipe and score, kept across rebuilds.
+# View state only: the picked recipe, fake-run score and insert picks, kept
+# across rebuilds.
 var _recipe_index: int = 0
 var _score: int = 50
+var _insert_apparatus: int = 0
+var _insert_position: int = 0
 
 var _content: VBoxContainer
 
@@ -141,11 +144,16 @@ func _build_procedure_card(s: Dictionary) -> Control:
 			_refresh())
 		c["content"].add_child(recipe_select)
 		var recipe_id: String = roster[_recipe_index]
-		var steps := BenchPrototype.known_procedure(recipe_id)
+		var steps := BenchPrototype.planned_procedure(recipe_id)
 		for i in steps.size():
 			_add_step_rows(c["content"], "", recipe_id, i, steps[i])
+			c["content"].add_child(_build_step_edit_row(recipe_id, i, steps[i]))
+		c["content"].add_child(_build_insert_row(recipe_id, steps.size()))
+		c["content"].add_child(MapCardStyle.text_button("Reset plan", func(): BenchPrototype.reset_plan(recipe_id),
+			not s["plans"].has(recipe_id)))
 		c["content"].add_child(MapCardStyle.text_button("Begin", func(): BenchPrototype.begin_procedure_run(roster[_recipe_index]),
 			not BenchPrototype.can_afford(BenchPrototype.SLICE_PROCEDURE, BenchPrototype.procedure_cost(steps))))
+		_add_notebook(c["content"], s["notebook"].get(recipe_id, []))
 		return c["panel"]
 
 	var recipe_id: String = run["recipeId"]
@@ -203,9 +211,73 @@ func _add_step_rows(content: VBoxContainer, mark: String, recipe_id: String, ind
 	var apparatus: String = GameData.APPROACHES[step["apparatus"]]["name"]
 	var region := BenchPrototype.step_region(recipe_id, step)
 	var kind: String = "somewhere in" if region["vague"] else "band"
-	content.add_child(UI.muted_label("%s%d. %s → %s %d–%d" % [mark, index + 1, apparatus, kind, roundi(region["low"]), roundi(region["high"])]))
+	var inserted: String = " (your guess)" if step.get("knowledge") == "inserted" else ""
+	content.add_child(UI.muted_label("%s%d. %s%s → %s %d–%d" % [mark, index + 1, apparatus, inserted, kind, roundi(region["low"]), roundi(region["high"])]))
 	if step.has("note"):
 		content.add_child(UI.muted_label("      %s" % step["note"]))
+
+
+# Nudge buttons for a planned step, plus remove for an inserted one.
+func _build_step_edit_row(recipe_id: String, index: int, step: Dictionary) -> Control:
+	var nudge := float(GameData.BENCH_PROTOTYPE["nudgeStep"])
+	var row := UI.hbox()
+	row.add_child(MapCardStyle.text_button("−%d" % roundi(nudge), func(): BenchPrototype.nudge_step(recipe_id, index, -nudge)))
+	row.add_child(MapCardStyle.text_button("+%d" % roundi(nudge), func(): BenchPrototype.nudge_step(recipe_id, index, nudge)))
+	if step.get("knowledge") == "inserted":
+		row.add_child(MapCardStyle.text_button("Remove", func(): BenchPrototype.remove_step(recipe_id, index)))
+	return row
+
+
+# Pick an apparatus and a slot (before step 1 .. after the last), then insert.
+func _build_insert_row(recipe_id: String, step_count: int) -> Control:
+	var apparatus_ids: Array = GameData.BENCH_PROTOTYPE["gauges"].keys()
+	var row := UI.hbox()
+	var apparatus_select := UI.option_button(apparatus_ids.map(func(a): return GameData.APPROACHES[a]["name"]))
+	_insert_apparatus = clampi(_insert_apparatus, 0, apparatus_ids.size() - 1)
+	apparatus_select.selected = _insert_apparatus
+	apparatus_select.item_selected.connect(func(index: int): _insert_apparatus = index)
+	row.add_child(apparatus_select)
+	var slots := []
+	for i in step_count + 1:
+		slots.append("as step %d" % (i + 1))
+	var position_select := UI.option_button(slots)
+	_insert_position = clampi(_insert_position, 0, step_count)
+	position_select.selected = _insert_position
+	position_select.item_selected.connect(func(index: int): _insert_position = index)
+	row.add_child(position_select)
+	row.add_child(MapCardStyle.text_button("Insert", func():
+		BenchPrototype.insert_step(recipe_id, _insert_position, apparatus_ids[_insert_apparatus])))
+	return row
+
+
+# The last finished run's clue per step (BenchPrototype.notebook_clues()).
+func _add_notebook(content: VBoxContainer, clues: Array) -> void:
+	content.add_child(UI.heading("Notebook", 14))
+	if clues.is_empty():
+		content.add_child(UI.muted_label("No runs written up yet."))
+		return
+	var needed := int(GameData.BENCH_PROTOTYPE["vagueToExactHits"])
+	for i in clues.size():
+		var clue: Dictionary = clues[i]
+		var apparatus: String = GameData.APPROACHES[clue["apparatus"]]["name"]
+		var text: String
+		match clue["clue"]:
+			"hit":
+				text = "✓ in band"
+			"near":
+				var words: Dictionary = BenchPrototype.gauge(clue["apparatus"])["directionWords"]
+				text = "~ right step, try %s" % words[clue["direction"]] if clue["direction"] != null else "~ right step, not quite"
+			"changed":
+				text = "something changed"
+			_:
+				text = "✗ no effect"
+		if clue.get("learned") == "vague":
+			text += " · new vague hint"
+		elif clue.get("learned") == "exact":
+			text += " · now exact"
+		elif clue.has("hits"):
+			text += " · %d/%d toward exact" % [clue["hits"], needed]
+		content.add_child(UI.muted_label("%d. %s: %s" % [i + 1, apparatus, text]))
 
 
 func _build_ledger_card(ledger: Array) -> Control:

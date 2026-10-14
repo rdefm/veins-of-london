@@ -19,6 +19,10 @@ extends RefCounted
 # step is performed; the last step scores the run (spec §Slice A) and hands
 # the score to finish_run(). A compress released at or past crackAt cracks
 # the vessel and ends the run with no item.
+#
+# Before a run the player edits a per-recipe plan (insert, remove, nudge);
+# after it the notebook records one clue per step, and those clues grant
+# vague hints and upgrade them to exact (spec §Slice A Experimenting).
 
 const SLICE_PROCEDURE := "procedure"
 const SLICE_CHART := "chart"
@@ -70,6 +74,13 @@ static func new_slice(slice_id: String) -> Dictionary:
 		# performed (so far: { apparatus, value } for a hold step,
 		# { apparatus, readings } for grind, plus stray for distil).
 		"activeRun": null,
+		# recipeId -> the edited procedure the next run performs; absent =
+		# the known procedure (planned_procedure()).
+		"plans": {},
+		# recipeId -> { hintId -> in-band runs while the hint is vague }.
+		"vagueHits": {},
+		# recipeId -> the last finished run's clues (notebook_clues()).
+		"notebook": {},
 		"snapshots": [],
 	}
 
@@ -191,17 +202,26 @@ static func hint_level(slice_id: String, recipe_id: String, hint_id: String) -> 
 	return levels.get(hint_id, "off") if levels is Dictionary else "off"
 
 
+# Debug override: also drops the recipe's edited plan and the hint's
+# vague-hit count, so the plan rebuilds from the new knowledge.
 static func set_hint_level(slice_id: String, recipe_id: String, hint_id: String, level: String) -> Dictionary:
 	if not _data().get("hintLevels", []).has(level):
 		return { "ok": false, "reason": "Unknown hint level." }
 	if hint_def(slice_id, recipe_id, hint_id).is_empty():
 		return { "ok": false, "reason": "Unknown hint." }
 	var s := slice(slice_id)
+	_set_hint_level(s, recipe_id, hint_id, level)
+	s["plans"].erase(recipe_id)
+	if s["vagueHits"].get(recipe_id) is Dictionary:
+		s["vagueHits"][recipe_id].erase(hint_id)
+	EventBus.state_changed.emit()
+	return { "ok": true }
+
+
+static func _set_hint_level(s: Dictionary, recipe_id: String, hint_id: String, level: String) -> void:
 	if not s["hintLevels"].get(recipe_id) is Dictionary:
 		s["hintLevels"][recipe_id] = {}
 	s["hintLevels"][recipe_id][hint_id] = level
-	EventBus.state_changed.emit()
-	return { "ok": true }
 
 
 static func refill_pool(slice_id: String) -> void:
@@ -449,7 +469,7 @@ static func begin_procedure_run(recipe_id: String) -> Dictionary:
 		return { "ok": false, "reason": "A run is already open." }
 	if not _data()["recipes"].has(recipe_id):
 		return { "ok": false, "reason": "Unknown recipe." }
-	var steps := known_procedure(recipe_id)
+	var steps := planned_procedure(recipe_id)
 	if not can_afford(SLICE_PROCEDURE, procedure_cost(steps)):
 		return { "ok": false, "reason": "Not enough calc." }
 	_push_snapshot(s)
@@ -550,7 +570,11 @@ static func _advance(s: Dictionary) -> Dictionary:
 		EventBus.state_changed.emit()
 		return { "ok": true, "done": false }
 	var run: Dictionary = s["activeRun"]
-	var scored := score_procedure(run["recipeId"], run["performed"])
+	var recipe_id: String = run["recipeId"]
+	var scored := score_procedure(recipe_id, run["performed"])
+	var clues := notebook_clues(recipe_id, run["procedure"], run["performed"])
+	_learn(s, recipe_id, run["procedure"], clues)
+	s["notebook"][recipe_id] = clues
 	var steps := []
 	for i in run["performed"].size():
 		var performed: Dictionary = run["performed"][i].duplicate(true)
@@ -559,6 +583,203 @@ static func _advance(s: Dictionary) -> Dictionary:
 	var result := finish_run(SLICE_PROCEDURE, scored["score"], { "steps": steps })
 	result["done"] = true
 	return result
+
+
+# ── Experimenting (Slice A) ──────────────────────────────────────────────
+
+# The procedure the next run performs: the recipe's edited plan, or the
+# known procedure when it hasn't been edited. An inserted step has
+# knowledge "inserted" and no calc.
+static func planned_procedure(recipe_id: String) -> Array:
+	var plan = slice(SLICE_PROCEDURE)["plans"].get(recipe_id)
+	return plan.duplicate(true) if plan is Array else known_procedure(recipe_id)
+
+
+static func insert_step(recipe_id: String, position: int, apparatus: String) -> Dictionary:
+	if not _data()["gauges"].has(apparatus):
+		return { "ok": false, "reason": "Unknown apparatus." }
+	var check := _check_plan_edit(recipe_id, position, true)
+	if not check["ok"]:
+		return check
+	_plan(recipe_id).insert(position, {
+		"apparatus": apparatus, "target": float(_data().get("insertTarget", 50)), "knowledge": "inserted",
+	})
+	EventBus.state_changed.emit()
+	return { "ok": true }
+
+
+# Takes out a step the player inserted; known steps stay.
+static func remove_step(recipe_id: String, index: int) -> Dictionary:
+	var check := _check_plan_edit(recipe_id, index, false)
+	if not check["ok"]:
+		return check
+	if planned_procedure(recipe_id)[index].get("knowledge") != "inserted":
+		return { "ok": false, "reason": "Only an inserted step can be removed." }
+	_plan(recipe_id).remove_at(index)
+	EventBus.state_changed.emit()
+	return { "ok": true }
+
+
+# Moves a planned step's target by delta, clamped to the 0-100 gauge.
+static func nudge_step(recipe_id: String, index: int, delta: float) -> Dictionary:
+	var check := _check_plan_edit(recipe_id, index, false)
+	if not check["ok"]:
+		return check
+	var step: Dictionary = _plan(recipe_id)[index]
+	step["target"] = clampf(float(step["target"]) + delta, 0.0, 100.0)
+	EventBus.state_changed.emit()
+	return { "ok": true }
+
+
+static func reset_plan(recipe_id: String) -> Dictionary:
+	var s := slice(SLICE_PROCEDURE)
+	if s["activeRun"] != null:
+		return { "ok": false, "reason": "Finish the open run first." }
+	s["plans"].erase(recipe_id)
+	EventBus.state_changed.emit()
+	return { "ok": true }
+
+
+# Plans are edited only between runs. An insert position may be one past
+# the last step.
+static func _check_plan_edit(recipe_id: String, index: int, inserting: bool) -> Dictionary:
+	if slice(SLICE_PROCEDURE)["activeRun"] != null:
+		return { "ok": false, "reason": "Finish the open run first." }
+	if not _data()["recipes"].has(recipe_id):
+		return { "ok": false, "reason": "Unknown recipe." }
+	var size := planned_procedure(recipe_id).size()
+	if index < 0 or index > size or (index == size and not inserting):
+		return { "ok": false, "reason": "No such step." }
+	return { "ok": true }
+
+
+# The recipe's stored plan, created from the known procedure on first edit.
+static func _plan(recipe_id: String) -> Array:
+	var plans: Dictionary = slice(SLICE_PROCEDURE)["plans"]
+	if not plans.get(recipe_id) is Array:
+		plans[recipe_id] = known_procedure(recipe_id)
+	return plans[recipe_id]
+
+
+# idealIndex -> hintId for each ideal step the player can't see yet: its
+# hint is off and no base step matches it.
+static func hidden_ideal_steps(recipe_id: String) -> Dictionary:
+	var procedure := procedure_def(recipe_id)
+	var base_matches := match_ideal(procedure["ideal"], procedure["base"])
+	var hidden := {}
+	for hint in procedure.get("hints", []):
+		var step := int(hint["step"])
+		if hint_level(SLICE_PROCEDURE, recipe_id, hint["id"]) == "off" and not base_matches.has(step):
+			hidden[step] = hint["id"]
+	return hidden
+
+
+# One notebook clue per performed step (spec §Slice A Experimenting), each
+# { apparatus, ideal (matched ideal index, -1 for none), clue, direction }:
+#   "hit"     in band
+#   "near"    right step, wrong amount; direction "higher"/"lower" moves the
+#             mean reading toward the ideal target (null when it's already
+#             in band, e.g. missed strokes or a stray distil tap)
+#   "none"    no effect: an extra step
+#   "changed" an inserted step lands on a hidden ideal step and every known
+#             step still matches the ideal step it would without it
+static func notebook_clues(recipe_id: String, procedure: Array, performed: Array) -> Array:
+	var ideal: Array = procedure_def(recipe_id)["ideal"]
+	var half := band_half_width(recipe_id)
+	var matches := match_ideal(ideal, performed)
+	var in_place := _known_matches_kept(ideal, procedure, matches)
+	var hidden := hidden_ideal_steps(recipe_id)
+	var clues := []
+	for i in performed.size():
+		var m: int = matches[i]
+		var clue := { "apparatus": performed[i]["apparatus"], "ideal": m, "clue": "none", "direction": null }
+		if m >= 0:
+			var target := float(ideal[m]["target"])
+			if procedure[i].get("knowledge") == "inserted" and hidden.has(m) and in_place:
+				clue["clue"] = "changed"
+			elif performed_accuracy(performed[i], target, half) >= 1.0:
+				clue["clue"] = "hit"
+			else:
+				clue["clue"] = "near"
+				clue["direction"] = _direction(performed[i], target, half)
+		clues.append(clue)
+	return clues
+
+
+static func _known_matches_kept(ideal: Array, procedure: Array, matches: Array[int]) -> bool:
+	var known := []
+	var known_matches: Array[int] = []
+	for i in procedure.size():
+		if procedure[i].get("knowledge") != "inserted":
+			known.append(procedure[i])
+			known_matches.append(matches[i])
+	return match_ideal(ideal, known) == known_matches
+
+
+static func _direction(performed: Dictionary, target: float, half_width: float) -> Variant:
+	var values := []
+	if performed.has("value"):
+		values.append(float(performed["value"]))
+	for reading in performed.get("readings", []):
+		if reading != null:
+			values.append(float(reading))
+	if values.is_empty():
+		return null
+	var mean := 0.0
+	for v in values:
+		mean += v
+	mean /= values.size()
+	if absf(mean - target) <= half_width:
+		return null
+	return "higher" if mean < target else "lower"
+
+
+# Applies a finished run's clues: "changed" grants the hidden step's hint
+# at vague and turns the plan's inserted step into that hinted step; a
+# "hit" on a vague step counts toward vagueToExactHits, which upgrades it
+# to exact. Marks each clue with learned ("vague"/"exact") and, for a
+# counted hit, hits so far.
+static func _learn(s: Dictionary, recipe_id: String, procedure: Array, clues: Array) -> void:
+	var hidden := hidden_ideal_steps(recipe_id)
+	var ideal: Array = procedure_def(recipe_id)["ideal"]
+	for i in clues.size():
+		var clue: Dictionary = clues[i]
+		if clue["clue"] == "changed":
+			var hint_id: String = hidden[clue["ideal"]]
+			_set_hint_level(s, recipe_id, hint_id, "vague")
+			var step := { "apparatus": clue["apparatus"] }
+			_apply_hint(step, ideal[clue["ideal"]], { "hint": hint_def(SLICE_PROCEDURE, recipe_id, hint_id), "level": "vague" })
+			# A debug hint toggle mid-run drops the plan; it then rebuilds
+			# from knowledge, which now has the step.
+			var plan = s["plans"].get(recipe_id)
+			if plan is Array and i < plan.size():
+				plan[i] = step
+			clue["learned"] = "vague"
+		elif clue["clue"] == "hit" and procedure[i].get("knowledge") == "vague":
+			var hint_id: String = procedure[i]["hintId"]
+			if not s["vagueHits"].get(recipe_id) is Dictionary:
+				s["vagueHits"][recipe_id] = {}
+			var hits: int = int(s["vagueHits"][recipe_id].get(hint_id, 0)) + 1
+			s["vagueHits"][recipe_id][hint_id] = hits
+			clue["hits"] = hits
+			if hits >= int(_data().get("vagueToExactHits", 3)):
+				_set_hint_level(s, recipe_id, hint_id, "exact")
+				clue["learned"] = "exact"
+	_sync_plan_knowledge(s, recipe_id)
+
+
+# Refreshes a stored plan's hinted steps to their hint's current level.
+static func _sync_plan_knowledge(s: Dictionary, recipe_id: String) -> void:
+	var plan = s["plans"].get(recipe_id)
+	if not plan is Array:
+		return
+	for step in plan:
+		if not step.has("hintId"):
+			continue
+		var level := hint_level(SLICE_PROCEDURE, recipe_id, step["hintId"])
+		if level != "off":
+			step["knowledge"] = level
+			step["note"] = hint_def(SLICE_PROCEDURE, recipe_id, step["hintId"])[level]["note"]
 
 
 # ── Batch ────────────────────────────────────────────────────────────────

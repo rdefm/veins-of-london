@@ -1382,7 +1382,12 @@ func _validate_combat_prototype_enemy(entry: Dictionary, path: String, errors: A
 # types the pool seeds; thresholds ascend from 0; the bonus default names a
 # real type; badRun has lines to pick from.
 func _validate_bench_prototype(bench: Dictionary, approaches: Dictionary, errors: Array[String]) -> void:
-	_require_keys(bench, ["roster", "recipes", "poolSeed", "rankThresholds", "skillFactor", "skillMax", "extraStepPenalty", "vagueSpread", "gauges", "baseXp", "hintLevels", "bonus", "badRun"], "bench_prototype", errors)
+	_require_keys(bench, ["roster", "recipes", "poolSeed", "rankThresholds", "skillFactor", "skillMax", "extraStepPenalty", "vagueSpread", "insertTarget", "nudgeStep", "vagueToExactHits", "gauges", "baseXp", "hintLevels", "bonus", "badRun"], "bench_prototype", errors)
+	var gauges: Dictionary = bench.get("gauges", {})
+	for apparatus in gauges.keys():
+		var words: Dictionary = gauges[apparatus].get("directionWords", {})
+		if str(words.get("higher", "")).is_empty() or str(words.get("lower", "")).is_empty():
+			errors.append("bench_prototype.gauges.%s.directionWords: needs higher and lower" % apparatus)
 	var recipes: Dictionary = bench.get("recipes", {})
 	var pool_seed: Dictionary = bench.get("poolSeed", {})
 	var roster: Array = bench.get("roster", [])
