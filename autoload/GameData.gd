@@ -675,7 +675,7 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_barometer(t.get("barometer_states", {}), t.get("barometer_actions", []), t.get("faction_prefs", {}), t.get("factions", {}), t.get("recipes", {}), errors)
 	_validate_enemies(t, errors)
 	_validate_combat_prototype(t.get("combat_prototype", {}), errors)
-	_validate_bench_prototype(t.get("bench_prototype", {}), errors)
+	_validate_bench_prototype(t.get("bench_prototype", {}), t.get("approaches", {}), errors)
 	_validate_combat_visuals(t.get("combat_visuals", {}), t.get("palette", {}), errors)
 	_validate_hq_visuals(t.get("hq_visuals", {}), t.get("palette", {}), errors)
 	_validate_constants(t.get("time_blocks", []), t.get("contacts_defaults", {}), errors)
@@ -1381,8 +1381,8 @@ func _validate_combat_prototype_enemy(entry: Dictionary, path: String, errors: A
 # Every roster id needs a recipes entry with a non-empty baseCalc whose ore
 # types the pool seeds; thresholds ascend from 0; the bonus default names a
 # real type; badRun has lines to pick from.
-func _validate_bench_prototype(bench: Dictionary, errors: Array[String]) -> void:
-	_require_keys(bench, ["roster", "recipes", "poolSeed", "rankThresholds", "skillFactor", "skillMax", "baseXp", "hintLevels", "bonus", "badRun"], "bench_prototype", errors)
+func _validate_bench_prototype(bench: Dictionary, approaches: Dictionary, errors: Array[String]) -> void:
+	_require_keys(bench, ["roster", "recipes", "poolSeed", "rankThresholds", "skillFactor", "skillMax", "extraStepPenalty", "gauges", "baseXp", "hintLevels", "bonus", "badRun"], "bench_prototype", errors)
 	var recipes: Dictionary = bench.get("recipes", {})
 	var pool_seed: Dictionary = bench.get("poolSeed", {})
 	var roster: Array = bench.get("roster", [])
@@ -1398,6 +1398,7 @@ func _validate_bench_prototype(bench: Dictionary, errors: Array[String]) -> void
 		for ore_type in base_calc.keys():
 			if not pool_seed.has(ore_type):
 				errors.append("bench_prototype.recipes.%s.baseCalc: ore type '%s' not in poolSeed" % [recipe_id, ore_type])
+		_validate_bench_prototype_procedure(recipe_id, recipes[recipe_id], approaches, errors)
 	var thresholds: Array = bench.get("rankThresholds", [])
 	if thresholds.size() != 5 or (not thresholds.is_empty() and int(thresholds[0]) != 0):
 		errors.append("bench_prototype.rankThresholds: must be 5 entries starting at 0")
@@ -1410,6 +1411,40 @@ func _validate_bench_prototype(bench: Dictionary, errors: Array[String]) -> void
 		errors.append("bench_prototype.bonus.defaultType: must name a bonus.types entry")
 	if bench.get("badRun", {}).get("lines", []).is_empty():
 		errors.append("bench_prototype.badRun.lines: must not be empty")
+
+
+# Slice A procedure: ideal weights sum to 100; every step names a real
+# apparatus and a 0-100 target; the base steps' calc sums to baseCalc.
+func _validate_bench_prototype_procedure(recipe_id: String, recipe: Dictionary, approaches: Dictionary, errors: Array[String]) -> void:
+	var where := "bench_prototype.recipes.%s.procedure" % recipe_id
+	var procedure: Dictionary = recipe.get("procedure", {})
+	_require_keys(procedure, ["baseTolerance", "ideal", "base"], where, errors)
+	if float(procedure.get("baseTolerance", 0)) <= 0.0:
+		errors.append("%s.baseTolerance: must be > 0" % where)
+	var weight_sum := 0
+	for step in procedure.get("ideal", []):
+		weight_sum += int(step.get("weight", 0))
+	if weight_sum != 100:
+		errors.append("%s.ideal: weights sum to %d, not 100" % [where, weight_sum])
+	var base_calc := {}
+	for list_name in ["ideal", "base"]:
+		var steps: Array = procedure.get(list_name, [])
+		if steps.is_empty():
+			errors.append("%s.%s: must not be empty" % [where, list_name])
+		for step in steps:
+			if not approaches.has(step.get("apparatus", "")):
+				errors.append("%s.%s: unknown apparatus '%s'" % [where, list_name, step.get("apparatus", "")])
+			var target := float(step.get("target", -1))
+			if target < 0.0 or target > 100.0:
+				errors.append("%s.%s: target must be 0-100" % [where, list_name])
+			if list_name == "base":
+				for ore_type in step.get("calc", {}).keys():
+					base_calc[ore_type] = int(base_calc.get(ore_type, 0)) + int(step["calc"][ore_type])
+	var expected := {}
+	for ore_type in recipe.get("baseCalc", {}).keys():
+		expected[ore_type] = int(recipe["baseCalc"][ore_type])
+	if base_calc != expected:
+		errors.append("%s.base: step calc %s does not sum to baseCalc %s" % [where, base_calc, expected])
 
 
 # Every context in Combat.CANONICAL_CONTEXTS must have a backdrop entry.

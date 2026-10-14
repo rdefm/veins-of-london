@@ -1,15 +1,61 @@
 {
-  "_comment": "Sandboxed Lab-revamp bench prototype (systems/bench_prototype.gd, .scratch/lab-revamp/spec.md) -- provisional numbers, not production balance, not cross-referenced by REFERENCE.md. rankThresholds[i] is the minimum score for rank i+1. baseCalc is spent per item crafted (a manual run makes one). baseXp is per item, display-only. PROSE-REVIEW: every badRun.lines entry is new copy, drafted against CONTENT-GUIDE.md's tone bible.",
+  "_comment": "Sandboxed Lab-revamp bench prototype (systems/bench_prototype.gd, .scratch/lab-revamp/spec.md) -- provisional numbers, not production balance, not cross-referenced by REFERENCE.md. rankThresholds[i] is the minimum score for rank i+1. baseCalc is spent per item crafted (a manual run makes one). baseXp is per item, display-only. recipes.*.procedure (Slice A): ideal = the authored perfect procedure (apparatus = data/approaches.json id, target on a 0-100 gauge, weight; weights sum to 100); base = the procedure known at start, its steps' calc summing to baseCalc and spent step by step; baseTolerance = band half-width before skill widening. gauges.heat.risePerSec = needle speed while held. PROSE-REVIEW: every badRun.lines entry is new copy, drafted against CONTENT-GUIDE.md's tone bible.",
   "roster": ["healingSalve", "timePearl", "healingBurst"],
   "recipes": {
-    "healingSalve": { "name": "Healing Salve", "baseCalc": { "life": 3 } },
-    "timePearl": { "name": "Time Pearl", "baseCalc": { "time": 3 } },
-    "healingBurst": { "name": "Healing Burst", "baseCalc": { "life": 2, "time": 2 } }
+    "healingSalve": {
+      "name": "Healing Salve", "baseCalc": { "life": 3 },
+      "procedure": {
+        "baseTolerance": 8,
+        "ideal": [
+          { "apparatus": "grinding", "target": 50, "weight": 30 },
+          { "apparatus": "heat", "target": 62, "weight": 40 },
+          { "apparatus": "distilling", "target": 50, "weight": 30 }
+        ],
+        "base": [
+          { "apparatus": "grinding", "target": 50, "calc": { "life": 3 } },
+          { "apparatus": "heat", "target": 50 }
+        ]
+      }
+    },
+    "timePearl": {
+      "name": "Time Pearl", "baseCalc": { "time": 3 },
+      "procedure": {
+        "baseTolerance": 6,
+        "ideal": [
+          { "apparatus": "compression", "target": 82, "weight": 35 },
+          { "apparatus": "grinding", "target": 50, "weight": 25 },
+          { "apparatus": "heat", "target": 25, "weight": 40 }
+        ],
+        "base": [
+          { "apparatus": "compression", "target": 70, "calc": { "time": 3 } },
+          { "apparatus": "heat", "target": 25 }
+        ]
+      }
+    },
+    "healingBurst": {
+      "name": "Healing Burst", "baseCalc": { "life": 2, "time": 2 },
+      "procedure": {
+        "baseTolerance": 4,
+        "ideal": [
+          { "apparatus": "grinding", "target": 50, "weight": 20 },
+          { "apparatus": "compression", "target": 60, "weight": 20 },
+          { "apparatus": "distilling", "target": 50, "weight": 25 },
+          { "apparatus": "heat", "target": 35, "weight": 35 }
+        ],
+        "base": [
+          { "apparatus": "grinding", "target": 50, "calc": { "life": 2 } },
+          { "apparatus": "compression", "target": 60, "calc": { "time": 2 } },
+          { "apparatus": "heat", "target": 45 }
+        ]
+      }
+    }
   },
   "poolSeed": { "life": 40, "time": 40 },
   "rankThresholds": [0, 40, 60, 75, 90],
   "skillFactor": 0.08,
   "skillMax": 10,
+  "extraStepPenalty": 5,
+  "gauges": { "heat": { "risePerSec": 40 } },
   "baseXp": 10,
   "hintLevels": ["off", "vague", "exact"],
   "bonus": {

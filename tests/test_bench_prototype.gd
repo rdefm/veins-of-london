@@ -279,3 +279,128 @@ func run() -> void:
 				found = true
 		assert_true(found, "a roster id with no recipes entry should be flagged")
 	)
+
+	run_case("step_accuracy_is_flat_in_band_then_falls_to_zero_at_twice_the_band", func():
+		_fresh()
+		assert_eq(BenchPrototype.step_accuracy(54.0, 50.0, 4.0), 1.0, "band edge counts as inside")
+		assert_eq(BenchPrototype.step_accuracy(44.0, 50.0, 4.0), 0.5, "halfway to 2× scores 0.5")
+		assert_eq(BenchPrototype.step_accuracy(58.0, 50.0, 4.0), 0.0, "2× the band scores 0")
+		assert_eq(BenchPrototype.step_accuracy(90.0, 50.0, 4.0), 0.0, "never negative")
+	)
+
+	run_case("band_half_width_widens_with_skill", func():
+		_fresh()
+		BenchPrototype.set_skill_override(0)
+		assert_eq(BenchPrototype.band_half_width("healingSalve"), 8.0, "skill 0 = base tolerance")
+		BenchPrototype.set_skill_override(10)
+		assert_true(is_equal_approx(BenchPrototype.band_half_width("healingSalve"), 14.4), "skill 10 = base × 1.8")
+		var band := BenchPrototype.known_band("healingSalve", { "target": 50 })
+		assert_true(is_equal_approx(band["low"], 35.6) and is_equal_approx(band["high"], 64.4), "known band is target ± half-width")
+	)
+
+	run_case("score_sums_weighted_accuracy_missing_scores_zero_extras_cost_five", func():
+		_fresh()
+		BenchPrototype.set_skill_override(0)
+		var perfect := []
+		for step in BenchPrototype.procedure_def("healingSalve")["ideal"]:
+			perfect.append({ "apparatus": step["apparatus"], "value": step["target"] })
+		assert_eq(BenchPrototype.score_procedure("healingSalve", perfect)["score"], 100, "perfect ideal scores 100")
+		var missing := perfect.slice(0, 2)
+		assert_eq(BenchPrototype.score_procedure("healingSalve", missing)["score"], 70, "missing distil (weight 30) scores 0")
+		var extra := perfect.duplicate()
+		extra.insert(1, { "apparatus": "compression", "value": 50.0 })
+		extra.append({ "apparatus": "heat", "value": 50.0 })
+		var scored := BenchPrototype.score_procedure("healingSalve", extra)
+		assert_eq(scored["score"], 90, "two extra steps cost 5 each")
+		assert_eq(scored["accuracies"][1], null, "extra step has no accuracy")
+		var off := [{ "apparatus": "grinding", "value": 50.0 }, { "apparatus": "heat", "value": 50.0 }]
+		assert_eq(BenchPrototype.score_procedure("healingSalve", off)["score"], 50, "skill 0: heat 12 off a ±8 band = half accuracy")
+		BenchPrototype.set_skill_override(10)
+		assert_eq(BenchPrototype.score_procedure("healingSalve", off)["score"], 70, "skill 10: the wider band takes it in")
+		assert_eq(BenchPrototype.score_procedure("healingSalve", [{ "apparatus": "compression", "value": 0.0 }])["score"], 0, "score clamps at 0")
+	)
+
+	run_case("base_procedure_executed_perfectly_caps_at_rank_2_to_3", func():
+		_fresh()
+		for skill in [0, 10]:
+			BenchPrototype.set_skill_override(skill)
+			for recipe_id in _data()["roster"]:
+				var performed := []
+				for step in BenchPrototype.known_procedure(recipe_id):
+					performed.append({ "apparatus": step["apparatus"], "value": step["target"] })
+				var rank := BenchPrototype.rank_for_score(BenchPrototype.score_procedure(recipe_id, performed)["score"])
+				assert_true(rank >= 2 and rank <= 3, "%s at skill %d reaches rank %d" % [recipe_id, skill, rank])
+	)
+
+	run_case("procedure_run_spends_per_step_auto_passes_and_scores_heat", func():
+		var root := _fresh()
+		var before := _outside_state()
+		Rng.set_seed(1)
+		BenchPrototype.set_skill_override(0)
+		var s: Dictionary = root["slices"][P]
+		var opened := BenchPrototype.begin_procedure_run("healingSalve")
+		assert_true(opened["ok"] and not opened["done"], "run opens and waits on heat")
+		assert_eq(s["pool"]["life"], 37, "auto-passed grind spent its life calc")
+		assert_eq(BenchPrototype.current_step()["apparatus"], "heat", "current step is the heat step")
+		var result := BenchPrototype.perform_step(62.0)
+		assert_true(result["ok"] and result["done"], "last step finishes the run")
+		assert_eq(result["entry"]["score"], 70, "grind 30 + heat 40, distil missing")
+		assert_eq(result["entry"]["rank"], 3)
+		assert_eq(s["bestRanks"]["healingSalve"], 3, "best rank set via the core")
+		assert_eq(s["ledger"].size(), 1, "ledger logs the run")
+		assert_eq(result["entry"]["steps"][1], { "apparatus": "heat", "value": 62.0, "accuracy": 1.0 }, "ledger keeps per-step results")
+		assert_eq(s["activeRun"], null, "run closed")
+		assert_eq(_outside_state(), before, "real state untouched")
+	)
+
+	run_case("abandoned_procedure_run_loses_spent_calc_and_rewind_restores_it", func():
+		var root := _fresh()
+		var s: Dictionary = root["slices"][P]
+		BenchPrototype.begin_procedure_run("healingBurst")
+		assert_eq(s["pool"], { "life": 38, "time": 38 }, "grind and compress spent step by step")
+		assert_eq(s["activeRun"]["calcSpent"], { "life": 2, "time": 2 })
+		BenchPrototype.abandon_run(P)
+		assert_eq(s["pool"], { "life": 38, "time": 38 }, "abandon keeps the calc spent")
+		assert_eq(s["ledger"][-1]["kind"], "abandoned")
+		assert_true(not BenchPrototype.perform_step(50.0)["ok"], "no step to perform after abandon")
+		BenchPrototype.rewind(P)
+		s = root["slices"][P]
+		assert_eq(s["pool"], _data()["poolSeed"], "rewind restores the calc")
+		assert_true(s["ledger"].is_empty(), "rewind drops the abandoned entry")
+	)
+
+	run_case("procedure_run_refuses_when_unaffordable_or_already_open", func():
+		var root := _fresh()
+		root["slices"][P]["pool"]["life"] = 2
+		assert_true(not BenchPrototype.begin_procedure_run("healingSalve")["ok"], "can't afford the whole procedure")
+		assert_eq(root["slices"][P]["snapshots"].size(), 0, "no snapshot on refusal")
+		assert_true(BenchPrototype.begin_procedure_run("timePearl")["ok"])
+		assert_true(not BenchPrototype.begin_procedure_run("timePearl")["ok"], "one run at a time")
+	)
+
+	run_case("save_round_trip_preserves_open_procedure_run", func():
+		var root := _fresh()
+		BenchPrototype.begin_procedure_run("timePearl")
+		var expected: Dictionary = GameState.deep_copy(root)
+		var raw = JSON.parse_string(JSON.stringify(GameState.state))
+		assert_true(SaveManager._load_save_dict(raw)["ok"], "save loads")
+		assert_eq(GameState.state["benchPrototype"], expected, "open procedure run survives a save")
+	)
+
+	run_case("validator_flags_bad_procedure_weights_and_calc", func():
+		_fresh()
+		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+		var procedure: Dictionary = corrupted["bench_prototype"]["recipes"]["healingSalve"]["procedure"]
+		procedure["ideal"][0]["weight"] = 10
+		procedure["base"][0]["calc"] = { "life": 1 }
+		var errors := GameData.validate_tables(corrupted)
+		var weights := false
+		var calc := false
+		for e in errors:
+			if e.contains("healingSalve.procedure.ideal") and e.contains("weights"):
+				weights = true
+			if e.contains("healingSalve.procedure.base") and e.contains("baseCalc"):
+				calc = true
+		assert_true(weights, "weights not summing to 100 flagged")
+		assert_true(calc, "base calc not matching baseCalc flagged")
+	)

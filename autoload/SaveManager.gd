@@ -1433,6 +1433,8 @@ func _restore_bench_prototype_slice_ints(s: Dictionary) -> void:
 	if run is Dictionary:
 		_int_key(run, "startedMsec")
 		_int_dict_values(run.get("calcSpent", {}))
+		for step in run.get("procedure", []):
+			_int_dict_values(step.get("calc", {}))
 
 
 # state.modal.data's shape depends on modal.type (systems/crafting.gd,
