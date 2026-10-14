@@ -334,6 +334,8 @@ func run() -> void:
 		app._select("")
 		assert_eq(phone.device_shell.content_scroll.scroll_vertical, 0, "directory opens at top")
 		app._select("guild")
+		var back := _button_with_text(phone, "‹ The Register")
+		assert_true(back.get_combined_minimum_size().x > 40.0, "back link keeps its text width")
 		for node in phone.find_children("", "Label", true, false):
 			var l := node as Label
 			if l.text == "Time" or l.text == "Physics" or l.text == "Life" or l.text == "Fate" or l.text == "Emotion":

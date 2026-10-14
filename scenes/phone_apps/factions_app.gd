@@ -248,7 +248,7 @@ func _back_link(text: String, on_press: Callable) -> Button:
 	_apply_flat(button, false, false, 0, 0)
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	button.custom_minimum_size = Vector2(0, 44)
+	button.custom_minimum_size.y = 44
 	for state_color in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
 		button.add_theme_color_override(state_color, _oxide())
 	return button
