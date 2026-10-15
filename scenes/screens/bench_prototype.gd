@@ -85,7 +85,7 @@ func _show(page: Page) -> void:
 
 # ── Plate ────────────────────────────────────────────────────────────────
 
-# §5.1: the Lab's portrait plate, width-fit in area, the space around it
+# §5.1: the Lab's portrait plate, width-fit in area, the space above it
 # filled with the plate's wall colour and the space below with its floor
 # colour. Undocked it is centred vertically with the status line and Exit;
 # docked it sits at the top of area, with neither. Returns the plate's
@@ -100,7 +100,8 @@ func _build_plate(area: Rect2, docked: bool = false) -> float:
 	var full: Vector2 = size if size.x > 0.0 and size.y > 0.0 else available
 	var floor_top: float = origin.y + scaled.y
 
-	_add_band(plate.get("bandTopColor", ""), Rect2(Vector2.ZERO, full))
+	# Bands never overlap the plate: its art draws at z -1, under them.
+	_add_band(plate.get("bandTopColor", ""), Rect2(0.0, 0.0, full.x, maxf(origin.y, 0.0)))
 	_add_band(plate.get("bandBottomColor", ""), Rect2(0.0, floor_top, full.x, maxf(full.y - floor_top, 0.0)))
 
 	var frame := Control.new()
