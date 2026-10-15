@@ -97,13 +97,15 @@ const PRESENCE_LABELS := { "control": "Holds district · full", "foothold": "Foo
 const LOCKED_SHOWN := 2
 
 
-# Perks section rows for every faction, regardless of presence:
+# Perks section rows: `here` cards only for factions with at least one vein in
+# the district; `everywhere` covers every faction's global perks.
 # { here: [{ faction, name, presence, presence_label, perks: [perk_row] }],
 #   everywhere: [perk_row], locked_hidden: int }.
 # perk_row: { faction_name, label, description, status, note, unlocked }; status is
 # "active" | "half" | "idle" | "locked", note the unlock requirement / ground line.
 static func perk_groups(district_id: String) -> Dictionary:
 	var shares := Turf.shares(district_id)
+	var counts := Turf.counts(GameState.state, district_id)
 	var cards := []
 	var everywhere_unlocked := []
 	var everywhere_locked := []
@@ -111,6 +113,7 @@ static func perk_groups(district_id: String) -> Dictionary:
 	for fid in GameData.FACTIONS.keys():
 		var tier := Turf.tier(district_id, fid)
 		var tiers_cfg := _perk_status_context(fid)
+		tiers_cfg["ground"] = tier
 		var turf_perks := []
 		for row in Perks.district_benefit_rows(fid, district_id):
 			var perk_row := _perk_row(fid, row, tiers_cfg)
@@ -120,7 +123,7 @@ static func perk_groups(district_id: String) -> Dictionary:
 				everywhere_unlocked.append(perk_row)
 			else:
 				everywhere_locked.append(perk_row)
-		if not turf_perks.is_empty():
+		if not turf_perks.is_empty() and int(counts.get(fid, 0)) > 0:
 			cards.append({
 				"faction": fid,
 				"name": contender_name(fid),
@@ -175,7 +178,7 @@ static func _perk_row(faction_id: String, row: Dictionary, ctx: Dictionary) -> D
 				status = "idle"
 	if not row["unlocked"]:
 		note = _needs_text(row["tier"], ctx)
-	if row["scope"] == "turf" and row["here"] == "inactive":
+	if row["scope"] == "turf" and ctx.get("ground", Turf.TIER_NONE) == Turf.TIER_NONE:
 		note = (note + " " if note != "" else "") + "No ground held here yet."
 	return {
 		"faction_name": contender_name(faction_id),

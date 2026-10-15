@@ -146,6 +146,41 @@ static func card(radius: int = 14, shadow_alpha: float = 0.08, sep: int = 8) -> 
 	return { "panel": panel, "content": content }
 
 
+# Small rounded status pill. kind: "active" (guarded fill), "half" (gold
+# fill), "idle" (gold outline), "plain" (no fill, dim text), else locked (sage fill).
+static func pill(text: String, kind: String) -> PanelContainer:
+	var fill := sage()
+	var edge := line()
+	var text_colour := dim()
+	match kind:
+		"active":
+			fill = MapPalette.colour("guarded")
+			edge = fill
+			text_colour = paper()
+		"half":
+			fill = gold()
+			edge = fill
+			text_colour = paper()
+		"idle":
+			fill = Color(0, 0, 0, 0)
+			edge = gold()
+			text_colour = gold()
+		"plain":
+			fill = Color(0, 0, 0, 0)
+	var style := skin(fill, 999)
+	style.border_color = edge
+	style.content_margin_left = 9
+	style.content_margin_right = 9
+	style.content_margin_top = 2
+	style.content_margin_bottom = 2
+	var panel := PanelContainer.new()
+	panel.add_theme_stylebox_override("panel", style)
+	panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	panel.size_flags_horizontal = Control.SIZE_SHRINK_END
+	panel.add_child(label(text, 11, text_colour))
+	return panel
+
+
 # Muted grey section label (a card's small group header or hint line).
 static func section_label(text: String, size: int = 12) -> Label:
 	return label(text, size, dim())

@@ -65,26 +65,18 @@ func run() -> void:
 		assert_eq(panel["sections"]["harassment"].size(), 0)
 	)
 
-	run_case("perk_groups_list_every_faction_with_no_veins", func():
+	run_case("perk_groups_no_veins_lists_no_here_cards_but_every_global_perk", func():
 		GameState.reset()
 		for site in GameState.state["world"]["sites"]:
 			site["factionVein"] = null
 		GameState.state["turf"] = Turf.compute(GameState.state)
 		var g: Dictionary = TurfPanel.perk_groups("soho")
-		var ids := []
-		for card in g["here"]:
-			ids.append(card["faction"])
-			assert_eq(card["presence"], "none")
-			assert_eq(card["presence_label"], "No ground here")
-		assert_eq(ids, ["collective", "firm", "guild", "conclave"])
+		assert_eq(g["here"].size(), 0)
 		assert_eq(g["everywhere"].size() + g["locked_hidden"], 10)
 		assert_true(g["locked_hidden"] > 0)
-		for row in g["here"][0]["perks"]:
-			assert_eq(row["status"], "locked")
-			assert_true(row["note"].contains("No ground held here yet."))
 	)
 
-	run_case("perk_groups_controller_first_foothold_second_and_idle_when_sworn", func():
+	run_case("perk_groups_controller_first_and_factions_without_veins_left_out", func():
 		GameState.reset()
 		var sites: Array = GameState.state["world"]["sites"]
 		for site in sites:
@@ -104,13 +96,10 @@ func run() -> void:
 		assert_eq(first["presence"], tiers["guild"])
 		assert_eq(first["perks"][0]["status"], "locked")
 		assert_true(first["perks"][0]["note"].begins_with("Needs Partner stance"))
-		var firm: Dictionary = {}
+		var ids := []
 		for card in g["here"]:
-			if card["faction"] == "firm":
-				firm = card
-		assert_eq(firm["presence"], "none")
-		assert_eq(firm["perks"][0]["status"], "idle")
-		assert_eq(firm["perks"][0]["note"], "No ground held here yet.")
+			ids.append(card["faction"])
+		assert_eq(ids, ["guild", "collective"])
 	)
 
 	run_case("perk_groups_active_full_and_half", func():

@@ -287,72 +287,143 @@ func _add_turf_section(body: VBoxContainer, district_id: String) -> void:
 	if turf["status_label"] != "":
 		heading += " — %s" % turf["status_label"]
 	body.add_child(MapCardStyle.label(heading, 15, MapCardStyle.ink()))
+	body.add_child(_turf_share_bar(sections["contenders"]))
+	var shares := []
+	for row in sections["contenders"]:
+		shares.append("%s %d%% (%d)" % [row["name"], row["share_pct"], row["veins"]])
+	body.add_child(_wrapped_dim(" · ".join(shares)))
 	for section in TurfPanel.SECTIONS:
+		if section in ["contenders", "benefits"]:
+			continue  # contenders drawn as the bar above; benefits as Perks cards below
 		for row in sections[section]:
 			var text := _turf_row_text(section, row)
 			body.add_child(_dim_label(text))
 
+# Stacked 8px bar, one segment per contender sized by share, in faction/player colours.
+func _turf_share_bar(contenders: Array) -> HBoxContainer:
+	var bar := UI.hbox(0)
+	bar.custom_minimum_size = Vector2(0, 8)
+	for i in contenders.size():
+		var row: Dictionary = contenders[i]
+		if int(row["share_pct"]) <= 0:
+			continue
+		var colour := MapPalette.colour("player") if row["contender"] == Turf.PLAYER else MapPalette.faction_colour(row["contender"])
+		var seg_style := MapCardStyle.skin(colour, 0, false)
+		if i == 0:
+			seg_style.corner_radius_top_left = 4
+			seg_style.corner_radius_bottom_left = 4
+		if i == contenders.size() - 1:
+			seg_style.corner_radius_top_right = 4
+			seg_style.corner_radius_bottom_right = 4
+		var seg := Panel.new()
+		seg.add_theme_stylebox_override("panel", seg_style)
+		seg.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		seg.size_flags_stretch_ratio = float(row["share_pct"])
+		bar.add_child(seg)
+	return bar
+
 # PROSE-REVIEW: Perks section UI strings.
-const _PERK_STATUS_TEXT := { "active": "Active", "half": "Active, half strength", "idle": "Idle here", "locked": "Locked" }
+const _PERK_STATUS_TEXT := { "active": "Active", "half": "Half strength", "idle": "Idle here", "locked": "Locked" }
+const _PRESENCE_PILL := { Turf.TIER_CONTROL: "active", Turf.TIER_FOOTHOLD: "half" }
 
 # All factions' perks: turf perks per faction card (with presence), then global perks.
 func _add_perks_section(body: VBoxContainer, district_id: String) -> void:
 	var groups := TurfPanel.perk_groups(district_id)
-	body.add_child(MapCardStyle.label("Perks here", 15, MapCardStyle.ink()))
-	body.add_child(_dim_label("Only work where that faction holds ground. Foothold = half strength."))
+	body.add_child(_group_heading("Perks here"))
+	body.add_child(_wrapped_dim("Only work where that faction holds ground. Foothold = half strength."))
+	if groups["here"].is_empty():
+		body.add_child(_wrapped_dim("No faction holds ground here yet."))
 	for card in groups["here"]:
-		var dim: bool = card["presence"] == Turf.TIER_NONE
-		var head_color := MapCardStyle.dim() if dim else MapCardStyle.ink()
-		body.add_child(MapCardStyle.label("%s — %s" % [card["name"], card["presence_label"]], 14, head_color))
-		for perk_row in card["perks"]:
-			body.add_child(_perk_line(perk_row, false))
-	body.add_child(MapCardStyle.label("Everywhere", 15, MapCardStyle.ink()))
-	body.add_child(_dim_label("Not tied to this district."))
+		body.add_child(_faction_perk_card(card))
+	body.add_child(_group_heading("Everywhere"))
+	body.add_child(_wrapped_dim("Not tied to this district. Same in every district."))
+	var rows := UI.vbox(0)
+	body.add_child(rows)
 	for perk_row in groups["everywhere"]:
-		body.add_child(_perk_line(perk_row, true))
+		_add_everywhere_row(rows, perk_row)
 	if groups["locked_hidden"] > 0:
-		var more := VBoxContainer.new()
+		var more := UI.vbox(0)
 		more.visible = false
 		for perk_row in groups["everywhere_hidden"]:
-			more.add_child(_perk_line(perk_row, true))
+			_add_everywhere_row(more, perk_row)
 		var toggle := MapCardStyle.style_button(UI.button("+ %d more locked" % groups["locked_hidden"], func(): pass))
 		toggle.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 		toggle.pressed.connect(func():
 			more.visible = true
 			toggle.visible = false)
-		body.add_child(toggle)
 		body.add_child(more)
+		body.add_child(toggle)
 	body.add_child(_dim_label("Full ladder: Phone › Factions."))
 
-func _perk_line(row: Dictionary, with_faction: bool) -> Label:
+func _group_heading(text: String) -> Label:
+	return MapCardStyle.label(text.to_upper(), 12, MapCardStyle.gold())
+
+func _wrapped_dim(text: String) -> Label:
+	var l := _dim_label(text)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	return l
+
+# Bordered card per faction: name + presence pill, then its turf perks.
+func _faction_perk_card(card: Dictionary) -> PanelContainer:
+	var style := MapCardStyle.skin(Color(0, 0, 0, 0), 10)
+	style.content_margin_left = 10
+	style.content_margin_right = 10
+	style.content_margin_top = 10
+	style.content_margin_bottom = 10
+	var panel := PanelContainer.new()
+	panel.add_theme_stylebox_override("panel", style)
+	if card["presence"] == Turf.TIER_NONE:
+		panel.modulate.a = 0.82
+	var col := UI.vbox(8)
+	panel.add_child(col)
+	var head := UI.hbox(8)
+	var fname := MapCardStyle.label(card["name"], 14, MapCardStyle.ink())
+	fname.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(fname)
+	head.add_child(MapCardStyle.pill(card["presence_label"], _PRESENCE_PILL.get(card["presence"], "plain")))
+	col.add_child(head)
+	for perk_row in card["perks"]:
+		col.add_child(_perk_line(perk_row, false))
+	return panel
+
+func _add_everywhere_row(rows: VBoxContainer, perk_row: Dictionary) -> void:
+	if rows.get_child_count() > 0:
+		var rule := ColorRect.new()
+		rule.color = MapCardStyle.line()
+		rule.custom_minimum_size = Vector2(0, 1)
+		rows.add_child(rule)
+	var line := _perk_line(perk_row, true)
+	var pad := MarginContainer.new()
+	pad.add_theme_constant_override("margin_top", 7)
+	pad.add_theme_constant_override("margin_bottom", 7)
+	pad.add_child(line)
+	rows.add_child(pad)
+
+# Perk name over its description / unlock requirement, status pill on the right.
+func _perk_line(row: Dictionary, with_faction: bool) -> HBoxContainer:
 	var name_text: String = row["label"]
 	if with_faction:
 		name_text = "%s · %s" % [row["faction_name"], name_text]
 	var detail: String = row["note"] if row["note"] != "" else row["description"]
-	var line := _dim_label("%s — %s\n%s" % [name_text, _PERK_STATUS_TEXT[row["status"]], detail])
-	line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	if row["unlocked"]:
-		line.add_theme_color_override("font_color", MapCardStyle.ink())
+	var line := UI.hbox(10)
+	var text_col := UI.vbox(1)
+	text_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var name_label := MapCardStyle.label(name_text, 14, MapCardStyle.ink() if row["unlocked"] else MapCardStyle.dim())
+	name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	text_col.add_child(name_label)
+	text_col.add_child(_wrapped_dim(detail))
+	line.add_child(text_col)
+	line.add_child(MapCardStyle.pill(_PERK_STATUS_TEXT[row["status"]], row["status"]))
 	return line
 
 func _turf_row_text(section: String, row: Dictionary) -> String:
 	match section:
-		"contenders":
-			var text := "%s — %d%% (%d)" % [row["name"], row["share_pct"], row["veins"]]
-			if row["tier_label"] != "":
-				text += " · %s" % row["tier_label"]
-			return text
 		"flip":
 			if row["kind"] == "spare":
 				return "Lead to spare: %d vein(s)" % row["veins"]
 			return "Veins to take control: %d" % row["veins"]
 		"modifiers":
 			return "%s %+d%% (%s)" % [row["label"], int(round(float(row["value"]) * 100.0)), row["source_name"]]
-		"benefits":
-			var text := "%s (%s %s)" % [row["label"], row["source_name"], row["tier_label"]]
-			if float(row["scale"]) < 1.0:
-				text += " · reduced"
-			return text
 		"harassment":
 			var text := "%s (%s)" % [row["label"], row["source_name"]]
 			if int(row["escalation"]) > 0:
