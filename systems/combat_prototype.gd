@@ -424,16 +424,19 @@ static func _living_opponents(cp: Dictionary, actor: int) -> Array:
 # Guarded enemy the Feint leaves Open for that next action's Strike; else
 # Guard. Before those, an unspent loadout item takes the action: a heal on
 # the worst-off of itself and its teammates below allyHealBelow of hpMax,
-# else Time Pearl or Black Hole while allyCrowdEnemies or more enemies stand.
-# Allies plan in array order, each reading the earlier ones' Feints and
-# leaving alone a patient an earlier one heals. An ally with a test override
-# plays that instead.
+# else Time Pearl or Black Hole while allyCrowdEnemies or more enemies stand
+# and none is still losing actions to an earlier Pearl, Black Hole or Stun.
+# Allies plan in array order, each reading the earlier ones' Feints, leaving
+# alone a patient an earlier one heals, and holding its Pearl or Black Hole
+# when an earlier one (or its own earlier action) has one out this round. An
+# ally with a test override plays that instead.
 static func _plan_allies(cp: Dictionary, rng: RandomNumberGenerator) -> void:
 	var combatants: Array = cp["combatants"]
 	# { actor, index, target } per Feint planned so far this round.
 	var feints: Array = []
-	# Combatant index per heal planned so far this round.
-	var patients: Array = []
+	# Item uses planned so far this round: combatant index per heal, and
+	# whether a Time Pearl or Black Hole is out.
+	var planned := { "patients": [], "crowd": false }
 	for i in range(combatants.size()):
 		var ally: Dictionary = combatants[i]
 		if ally["side"] != SIDE_ALLY:
@@ -446,20 +449,23 @@ static func _plan_allies(cp: Dictionary, rng: RandomNumberGenerator) -> void:
 			var plan: Array = []
 			var count := actions_per_round(ally)
 			for a in range(count):
-				var action := _ally_item_action(cp, i, plan, patients)
+				var action := _ally_item_action(cp, i, plan, planned)
 				if action.is_empty():
 					action = _ally_action(cp, i, a, count, feints)
 				if action["move"] == MOVE_FEINT:
 					feints.append({ "actor": i, "index": a, "target": action["target"] })
-				if move(action["move"]).get("effect", "") == ITEM_HEAL:
-					patients.append(action["target"])
+				var effect: String = move(action["move"]).get("effect", "")
+				if effect == ITEM_HEAL:
+					planned["patients"].append(action["target"])
+				elif effect in [ITEM_FREEZE, ITEM_BLACK_HOLE]:
+					planned["crowd"] = true
 				plan.append(action)
 			ally["plan"] = plan
 
 
 # The ally's next item action given the `plan` so far (each slot once), or
-# {} when no rule fires.
-static func _ally_item_action(cp: Dictionary, ally: int, plan: Array, patients: Array) -> Dictionary:
+# {} when no rule fires; `planned` as in _plan_allies().
+static func _ally_item_action(cp: Dictionary, ally: int, plan: Array, planned: Dictionary) -> Dictionary:
 	var loadout: Array = cp["combatants"][ally]["loadout"]
 	var free: Array = []
 	for slot in range(loadout.size()):
@@ -468,10 +474,13 @@ static func _ally_item_action(cp: Dictionary, ally: int, plan: Array, patients: 
 	for slot in free:
 		var item_id: String = loadout[slot]["item"]
 		if move(item_id)["effect"] == ITEM_HEAL:
-			var patient := _ally_heal_patient(cp, ally, item_id, patients)
+			var patient := _ally_heal_patient(cp, ally, item_id, planned["patients"])
 			if patient >= 0:
 				return { "move": item_id, "target": patient, "part": 0, "slot": slot }
-	if _living_opponents(cp, ally).size() >= int(_data()["allyCrowdEnemies"]):
+	var opponents := _living_opponents(cp, ally)
+	var combatants: Array = cp["combatants"]
+	var paused: bool = opponents.any(func(e): return combatants[e]["actionsLost"] > 0)
+	if not planned["crowd"] and not paused and opponents.size() >= int(_data()["allyCrowdEnemies"]):
 		for slot in free:
 			var item_id: String = loadout[slot]["item"]
 			if move(item_id)["effect"] in [ITEM_FREEZE, ITEM_BLACK_HOLE]:

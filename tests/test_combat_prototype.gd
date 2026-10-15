@@ -670,6 +670,18 @@ func run() -> void:
 		assert_true(cp["combatants"][ALLY]["loadout"][0]["used"])
 	)
 
+	run_case("an_ally_holds_its_black_hole_until_its_time_pearl_wears_off", func():
+		var cp := _start_items([[["guard", "guard"]], [["guard", "guard"]]], [], [{ "level": 1, "loadout": [{ "item": "timePearl", "tier": 3 }, { "item": "blackHole", "tier": 1 }] }])
+		var ally: Dictionary = cp["combatants"][ALLY]
+		var items_planned := func() -> Array: return ally["plan"].filter(func(a): return a.has("slot")).map(func(a): return a["move"])
+		assert_eq(items_planned.call(), ["timePearl"], "one crowd item a round")
+		CombatPrototype.resolve_round(_plan(["guard", "guard"]))
+		assert_eq(cp["combatants"][2]["actionsLost"], 1, "power 3 carries one lost action over")
+		assert_eq(items_planned.call(), [], "still paused: Black Hole waits")
+		CombatPrototype.resolve_round(_plan(["guard", "guard"]))
+		assert_eq(items_planned.call(), ["blackHole"], "unpaused: Black Hole goes")
+	)
+
 	run_case("an_ally_with_no_matching_item_plays_its_move_rules", func():
 		var enemy_rounds: Array = [[{ "move": "strike", "target": PLAYER }, "guard"]]
 		var bare := _start_items([enemy_rounds], [], [{ "level": 1 }])
