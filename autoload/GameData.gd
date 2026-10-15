@@ -1425,8 +1425,16 @@ func _validate_combat_prototype(cp: Dictionary, skill_curve: Array, recipes: Dic
 			var params: Dictionary = item.get("params", {})
 			if int(params.get("actionsBase", -1)) < 0 or int(params.get("powerPerAction", 0)) < 1:
 				errors.append("%s.params: needs actionsBase >= 0 and powerPerAction >= 1" % path)
+		if item.get("effect", "") == CombatPrototype.ITEM_POWDER:
+			var params: Dictionary = item.get("params", {})
+			if int(params.get("rounds", 0)) < 1 or int(params.get("longRounds", 0)) < 1 or int(params.get("longPowerMin", 0)) < 1:
+				errors.append("%s.params: needs rounds, longRounds and longPowerMin >= 1" % path)
+		if item.get("effect", "") == CombatPrototype.ITEM_LADY:
+			var crit_chance := float(item.get("params", {}).get("critChance", -1.0))
+			if crit_chance < 0.0 or crit_chance > 1.0:
+				errors.append("%s.params.critChance: must be in [0, 1]" % path)
 
-	_require_keys(cp.get("beatLines", {}), ["guard", "hit", "chip", "crit", "ko", "feint", "stun", "fizzle", "lost", "lure", "exposed", "fled", "fleeFailed", "absorb", "frozen", "timePearl", "blackHole", "pull", "blast", "shield", "healSelf", "heal"], "combat_prototype.beatLines", errors)
+	_require_keys(cp.get("beatLines", {}), ["guard", "hit", "chip", "crit", "ko", "feint", "stun", "fizzle", "lost", "lure", "exposed", "fled", "fleeFailed", "absorb", "frozen", "timePearl", "blackHole", "pull", "blast", "shield", "healSelf", "heal", "powder", "sight", "lady"], "combat_prototype.beatLines", errors)
 
 
 func _validate_combat_prototype_stats(entry: Dictionary, path: String, errors: Array[String]) -> void:

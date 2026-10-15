@@ -50,7 +50,10 @@ const ITEM_BLACK_HOLE := "blackHole"
 const ITEM_BLAST := "blast"
 const ITEM_SHIELD := "shield"
 const ITEM_HEAL := "heal"
-const ITEM_EFFECTS: Array[String] = [ITEM_FREEZE, ITEM_BLACK_HOLE, ITEM_BLAST, ITEM_SHIELD, ITEM_HEAL]
+const ITEM_POWDER := "powder"
+const ITEM_SIGHT := "sight"
+const ITEM_LADY := "lady"
+const ITEM_EFFECTS: Array[String] = [ITEM_FREEZE, ITEM_BLACK_HOLE, ITEM_BLAST, ITEM_SHIELD, ITEM_HEAL, ITEM_POWDER, ITEM_SIGHT, ITEM_LADY]
 # Loadout slots per combatant (spec user story 48).
 const LOADOUT_SLOTS := 2
 
@@ -156,6 +159,35 @@ static func actions_per_round(combatant: Dictionary) -> int:
 	return int(_data()["actionsPerRound"][combatant["level"]])
 
 
+# Actions `actor` gets this round: its level's count, +1 while an
+# Enhancement Powder runs (one Powder or two, never more than +1).
+static func actions_this_round(cp: Dictionary, actor: int) -> int:
+	var combatant: Dictionary = cp["combatants"][actor]
+	return actions_per_round(combatant) + (1 if is_powered(cp, combatant) else 0)
+
+
+static func is_powered(cp: Dictionary, combatant: Dictionary) -> bool:
+	return int(cp["round"]) <= int(combatant["powderUntil"])
+
+
+static func has_lady(cp: Dictionary, combatant: Dictionary) -> bool:
+	return int(cp["round"]) <= int(combatant["ladyUntil"])
+
+
+# Whether the player has Prophet's Breath sight this round.
+static func has_sight(cp: Dictionary) -> bool:
+	return int(cp["round"]) <= int(cp["combatants"][PLAYER_INDEX]["sightUntil"])
+
+
+# The attacker's damage roll range: its attack range, or its max both ends
+# under Be a Lady.
+static func damage_range(cp: Dictionary, actor: int) -> Array:
+	var combatant: Dictionary = cp["combatants"][actor]
+	if has_lady(cp, combatant):
+		return [combatant["attackMax"], combatant["attackMax"]]
+	return [combatant["attackMin"], combatant["attackMax"]]
+
+
 static func display_name(combatant: Dictionary) -> String:
 	if combatant["side"] == SIDE_PLAYER:
 		return "You"
@@ -227,7 +259,7 @@ static func start(config: Dictionary = {}) -> Dictionary:
 			combatants[i]["plan"] = _roll_plan(cp, i, 1, rng)
 			combatants[i]["nextPlan"] = _roll_plan(cp, i, 2, rng)
 	_plan_allies(cp, rng)
-	cp["playerPlan"] = _empty_plan(combatants[PLAYER_INDEX])
+	cp["playerPlan"] = _empty_player_plan(cp)
 	cp["rngState"] = rng.state
 
 	GameState.state["combatPrototype"] = cp
@@ -261,6 +293,13 @@ static func _build_combatant(side: String, base: Dictionary, level: int) -> Dict
 		"lure": LURE_NONE,
 		# The running Lure's params.exposedRounds.
 		"lureExposedRounds": 0,
+		# Timed item effects, each running through the end of this round
+		# number: Enhancement Powder's +1 action, Be a Lady's max rolls (at
+		# ladyCrit crit chance) and Prophet's Breath sight.
+		"powderUntil": 0,
+		"ladyUntil": 0,
+		"ladyCrit": 0.0,
+		"sightUntil": 0,
 		# Sandbox items: { item, tier, power, used } per slot.
 		"loadout": [],
 		"plan": [], "nextPlan": [],
@@ -283,9 +322,9 @@ static func _build_loadout(entries: Array) -> Variant:
 	return slots
 
 
-static func _empty_plan(combatant: Dictionary) -> Array:
+static func _empty_player_plan(cp: Dictionary) -> Array:
 	var plan: Array = []
-	plan.resize(actions_per_round(combatant))
+	plan.resize(actions_this_round(cp, PLAYER_INDEX))
 	return plan
 
 
@@ -473,6 +512,9 @@ static func _set_plan_entry(position: int, action: Dictionary) -> Dictionary:
 	if reason != "":
 		return { "ok": false, "reason": reason }
 	var move_id: String = entry["move"]
+	reason = _powder_position_reason(cp, position, entry)
+	if reason != "":
+		return { "ok": false, "reason": reason }
 	var cost := move_cost(move_id)
 	if position + cost > plan.size():
 		return { "ok": false, "reason": _span_reason(move_id) }
@@ -487,6 +529,7 @@ static func _set_plan_entry(position: int, action: Dictionary) -> Dictionary:
 		var filled: Dictionary = entry.duplicate()
 		filled["part"] = part
 		plan[position + part] = filled
+	_fit_player_plan(cp)
 	EventBus.state_changed.emit()
 	return { "ok": true }
 
@@ -499,8 +542,43 @@ static func clear_plan_action(position: int) -> Dictionary:
 	if position < 0 or position >= cp["playerPlan"].size():
 		return { "ok": false, "reason": "No such action." }
 	_clear_span(cp["playerPlan"], position)
+	_fit_player_plan(cp)
 	EventBus.state_changed.emit()
 	return { "ok": true }
+
+
+# How many positions the player's `plan` takes this round: actions this
+# round, plus the extra position an Enhancement Powder in the plan opens at
+# the end (unless one's already running).
+static func player_plan_size(cp: Dictionary, plan: Array) -> int:
+	var size := actions_this_round(cp, PLAYER_INDEX)
+	if is_powered(cp, cp["combatants"][PLAYER_INDEX]):
+		return size
+	for action in plan:
+		if action != null and _is_powder(action["move"]):
+			return size + 1
+	return size
+
+
+static func _is_powder(move_id: String) -> bool:
+	return move(move_id).get("effect", "") == ITEM_POWDER
+
+
+# A Powder can't sit in the extra position it opens itself.
+static func _powder_position_reason(cp: Dictionary, position: int, action: Dictionary) -> String:
+	if _is_powder(action["move"]) and position >= actions_this_round(cp, PLAYER_INDEX):
+		return "Powder goes in one of your usual actions."
+	return ""
+
+
+# Grows or trims the draft to player_plan_size(): placing a Powder opens the
+# extra position, removing it closes the position and drops what was in it.
+static func _fit_player_plan(cp: Dictionary) -> void:
+	var plan: Array = cp["playerPlan"]
+	var size := player_plan_size(cp, plan)
+	for pos in range(size, plan.size()):
+		_clear_span(plan, pos)
+	plan.resize(size)
 
 
 static func _clear_span(plan: Array, position: int) -> void:
@@ -605,11 +683,14 @@ static func _action_block_reason(cp: Dictionary, action) -> String:
 
 # Why `plan` can't be committed this round, or "" if it can.
 static func plan_block_reason(cp: Dictionary, plan: Array) -> String:
-	if plan.size() != actions_per_round(cp["combatants"][PLAYER_INDEX]):
+	if plan.size() != player_plan_size(cp, plan):
 		return "Fill every action."
 	var slots: Dictionary = {}
-	for action in plan:
+	for pos in range(plan.size()):
+		var action = plan[pos]
 		var reason := _action_block_reason(cp, action)
+		if reason == "":
+			reason = _powder_position_reason(cp, pos, action)
 		if reason != "":
 			return reason
 		if action.has("slot"):
@@ -650,6 +731,29 @@ static func _acts_before(cp: Dictionary, actor_a: int, index_a: int, actor_b: in
 
 static func _plan_of(cp: Dictionary, actor: int) -> Array:
 	return cp["playerPlan"] if actor == PLAYER_INDEX else cp["combatants"][actor]["plan"]
+
+
+# What the player can read of enemy `actor`'s plan for this round, or with
+# next_round its pre-rolled plan for the round after. Each entry is
+# { move, name }; under Prophet's Breath sight it adds target and, for a
+# damage move, dmgMin/dmgMax (the roll range before guard and crit). Without
+# sight next round reads as [] (spec user stories 12-13).
+static func enemy_intents(cp: Dictionary, actor: int, next_round: bool = false) -> Array:
+	var sight := has_sight(cp)
+	if next_round and not sight:
+		return []
+	var result: Array = []
+	for action in cp["combatants"][actor]["nextPlan" if next_round else "plan"]:
+		var m := move(action["move"])
+		var intent := { "move": action["move"], "name": m["name"] }
+		if sight:
+			intent["target"] = int(action["target"])
+			if m["effect"] == EFFECT_DAMAGE:
+				var roll_range := damage_range(cp, actor)
+				intent["dmgMin"] = roll_range[0]
+				intent["dmgMax"] = roll_range[1]
+		result.append(intent)
+	return result
 
 
 # A combatant's guard state now, then after each of its planned actions
@@ -700,6 +804,9 @@ static func resolve_round(plan: Array) -> Dictionary:
 		var combatant: Dictionary = combatants[actor]
 		if combatant["koed"] or done.has(actor):
 			continue
+		# A Powder's extra position only plays once the Powder has resolved.
+		if entry["index"] >= actions_this_round(cp, actor):
+			continue
 		var action: Dictionary = _plan_of(cp, actor)[entry["index"]]
 		if combatant["actionsLost"] > 0:
 			combatant["actionsLost"] -= 1
@@ -720,7 +827,7 @@ static func resolve_round(plan: Array) -> Dictionary:
 				combatants[i]["plan"] = _recommit_targets(cp, i, combatants[i]["nextPlan"], rng)
 				combatants[i]["nextPlan"] = [] if combatants[i]["koed"] else _roll_plan(cp, i, cp["round"] + 1, rng)
 		_plan_allies(cp, rng)
-		cp["playerPlan"] = _empty_plan(combatants[PLAYER_INDEX])
+		cp["playerPlan"] = _empty_player_plan(cp)
 	cp["rngState"] = rng.state
 
 	EventBus.state_changed.emit()
@@ -844,17 +951,21 @@ static func _retarget(cp: Dictionary, actor: int, target: int) -> int:
 
 # Damage rolls within the attacker's range: full on an Open (or Exposed)
 # target, round(roll × chipMultiplier) (min 1) on a Guarded one; a crit
-# doubles the final figure (spec §Damage).
+# doubles the final figure (spec §Damage). Under Be a Lady the roll is the
+# attacker's max and the crit chance its ladyCrit (spec §Crit chance).
 static func _strike(cp: Dictionary, actor_idx: int, target_idx: int, move_id: String, rng: RandomNumberGenerator, beats: Array) -> void:
 	var combatants: Array = cp["combatants"]
 	var actor: Dictionary = combatants[actor_idx]
 	var target: Dictionary = combatants[target_idx]
-	var roll := rng.randi_range(actor["attackMin"], actor["attackMax"])
+	var lady := has_lady(cp, actor)
+	var roll_range := damage_range(cp, actor_idx)
+	var roll := rng.randi_range(roll_range[0], roll_range[1])
 	var guarded: bool = not is_open(cp, target)
 	var dmg := roll
 	if guarded:
 		dmg = maxi(1, GameState.round_epsilon(roll * float(_data()["chipMultiplier"])))
-	var crit := rng.randf() < float(_data()["critChance"][actor["level"]])
+	var crit_chance: float = float(actor["ladyCrit"]) if lady else float(_data()["critChance"][actor["level"]])
+	var crit := rng.randf() < crit_chance
 	if crit:
 		dmg *= 2
 	_deal_damage(cp, actor_idx, target_idx, dmg, "chip" if guarded else "hit", move_id, beats, {
@@ -919,6 +1030,22 @@ static func _use_item(cp: Dictionary, actor_idx: int, action: Dictionary, m: Dic
 			var healed: int = mini(power, patient["hpMax"] - patient["hp"])
 			patient["hp"] += healed
 			_beat(cp, beats, "healSelf" if target == actor_idx else "heal", actor_idx, target, move_id, { "amount": healed, "hpAfter": patient["hp"] })
+		ITEM_POWDER:
+			# +1 action from this round on: longRounds rounds at power >=
+			# longPowerMin, else rounds. A second Powder extends, never stacks.
+			var params: Dictionary = m["params"]
+			var rounds: int = int(params["longRounds"]) if power >= int(params["longPowerMin"]) else int(params["rounds"])
+			actor["powderUntil"] = maxi(actor["powderUntil"], int(cp["round"]) + rounds - 1)
+			_beat(cp, beats, "powder", actor_idx, -1, move_id, {})
+		ITEM_SIGHT:
+			# Sight covers the `power` rounds after this one (planning them
+			# reads their targets/damage and the round after's plans).
+			actor["sightUntil"] = maxi(actor["sightUntil"], int(cp["round"]) + power)
+			_beat(cp, beats, "sight", actor_idx, -1, move_id, {})
+		ITEM_LADY:
+			actor["ladyUntil"] = maxi(actor["ladyUntil"], int(cp["round"]) + power - 1)
+			actor["ladyCrit"] = float(m["params"]["critChance"])
+			_beat(cp, beats, "lady", actor_idx, -1, move_id, {})
 
 
 static func _check_outcome(cp: Dictionary) -> void:

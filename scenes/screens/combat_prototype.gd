@@ -5,8 +5,10 @@ extends Control
 # (player, enemy and ally Combat Skill levels, 1-3 enemies by archetype, 0-2
 # allies, a 2-slot sandbox item loadout by recipe and tier), then per round
 # the combatants with their guard-state preview, the shared timeline with
-# enemy intents, ally plans and the player's draft positions (moves plus
-# unspent loadout items), Commit, Rewind and the beat log.
+# enemy intents (type only, or target and damage range plus a next-round
+# preview under Prophet's Breath sight), ally plans and the player's draft
+# positions (moves plus unspent loadout items, and Enhancement Powder's
+# extra position), Commit, Rewind and the beat log.
 
 # Setup's enemy count cap (spec §Out of Scope: no more than 3 per side).
 const MAX_ENEMIES := 3
@@ -176,6 +178,12 @@ func _build_combatant_card(cp: Dictionary, index: int) -> Control:
 			c["content"].add_child(UI.muted_label("Stunned: loses next %d action(s)" % (combatant["actionsLost"] - combatant["frozenActions"])))
 		if combatant["shield"] > 0:
 			c["content"].add_child(UI.muted_label("Shield: %d (counts as Guarded)" % combatant["shield"]))
+		if CombatPrototype.is_powered(cp, combatant):
+			c["content"].add_child(UI.muted_label("Powder: +1 action through round %d" % combatant["powderUntil"]))
+		if CombatPrototype.has_lady(cp, combatant):
+			c["content"].add_child(UI.muted_label("Be a Lady: max rolls through round %d" % combatant["ladyUntil"]))
+		if index == CombatPrototype.PLAYER_INDEX and CombatPrototype.has_sight(cp):
+			c["content"].add_child(UI.muted_label("Sight through round %d" % combatant["sightUntil"]))
 		for slot in combatant["loadout"]:
 			c["content"].add_child(UI.muted_label("%s T%d (power %d)%s" % [CombatPrototype.move(slot["item"])["name"], slot["tier"], slot["power"], " — used" if slot["used"] else ""]))
 	return c["panel"]
@@ -195,6 +203,8 @@ func _build_timeline_card(cp: Dictionary) -> Control:
 		var row := UI.hbox()
 		row.add_child(UI.label("%d · %s" % [position + 1, CombatPrototype.display_name(combatants[actor])]))
 		if actor == CombatPrototype.PLAYER_INDEX:
+			if position >= CombatPrototype.actions_per_round(combatants[actor]):
+				row.add_child(UI.muted_label("(Powder)"))
 			var picked = cp["playerPlan"][position]
 			if picked != null and int(picked.get("part", 0)) > 0:
 				row.add_child(UI.muted_label("(%s, cont.)" % CombatPrototype.move(picked["move"])["name"]))
@@ -216,10 +226,26 @@ func _build_timeline_card(cp: Dictionary) -> Control:
 				aim = " → %s" % CombatPrototype.display_name(combatants[planned["target"]])
 			row.add_child(UI.label("(ally) %s%s" % [m["name"], aim]))
 		else:
-			var intent: Dictionary = combatants[actor]["plan"][position]
-			row.add_child(UI.label(CombatPrototype.move(intent["move"])["name"]))
+			row.add_child(UI.label(_intent_text(cp, CombatPrototype.enemy_intents(cp, actor)[position])))
 		c["content"].add_child(row)
+	if CombatPrototype.has_sight(cp):
+		c["content"].add_child(UI.heading("Next round (Prophet's Breath)", 14))
+		for i in range(combatants.size()):
+			if combatants[i]["side"] != CombatPrototype.SIDE_ENEMY or combatants[i]["koed"]:
+				continue
+			var intents: Array = CombatPrototype.enemy_intents(cp, i, true).map(func(intent): return _intent_text(cp, intent))
+			c["content"].add_child(UI.label("%s: %s" % [CombatPrototype.display_name(combatants[i]), ", ".join(intents)]))
 	return c["panel"]
+
+
+# An enemy intent: its move type, plus target and damage range under sight.
+func _intent_text(cp: Dictionary, intent: Dictionary) -> String:
+	var text: String = intent["name"]
+	if intent.has("target") and int(intent["target"]) >= 0 and CombatPrototype.move(intent["move"])["target"] != CombatPrototype.TARGET_SELF:
+		text += " → %s" % CombatPrototype.display_name(cp["combatants"][intent["target"]])
+	if intent.has("dmgMin"):
+		text += " (%d–%d)" % [intent["dmgMin"], intent["dmgMax"]]
+	return text
 
 
 # Who the player's action at `position` can aim at (living enemies, or for a
