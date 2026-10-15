@@ -1,259 +1,438 @@
 class_name BenchPrototypeScreen
 extends Control
 
-# Debug-app-only sandbox screen for systems/bench_prototype.gd: debug
-# controls (skill, bonus type, refill), per-recipe cards (best rank,
-# per-hint level toggles, batch), the procedure run with its plan editor
-# and notebook, Rewind and the ledger.
+# Debug-app-only sandbox screen for systems/bench_prototype.gd on the live
+# Lab plate (docs/hq-diorama-vision.md §5.1): jar badges show the
+# prototype's calc pool, all four apparatus show, and the recipe-notebook
+# zone opens the prototype's recipe book (known recipes only, §5.2 look).
+# A recipe's page shows best rank and auto-craft at best rank; the book's
+# back page holds every debug control, Rewind and the ledger.
 
 const LEDGER_ROWS := 12
+const _INSET := 4.0
+const _BADGE_HEIGHT := 26.0
+const _BADGE_FONT_SIZE := 14
+const _BADGE_RADIUS := 8
+const _BADGE_PADDING := 6
+const _STATUS_FONT_SIZE := 15
+const _STATUS_MIN_HEIGHT := 32.0
+const _OVERLAY_MARGIN := 8.0
+# Art-space writing area of RecipeBookPage's art, left of the side tabs.
+const _BACK_PAGE_RECT := Rect2(206, 190, 626, 1180)
 
-# View state only: the picked recipe and insert picks, kept across rebuilds.
-var _recipe_index: int = 0
-var _insert_apparatus: int = 0
-var _insert_position: int = 0
+enum Page { NONE, BOOK, RECIPE, DEBUG }
 
-var _content: VBoxContainer
+# View state only: which book page is open and the picked batch size.
+var _page := Page.NONE
+var _book_page := 0
+var _recipe_id := ""
+var _craft_qty := 1
+var _debug_scroll := 0
+
+var _diorama: HqDiorama
+var _debug_scroller: ScrollContainer
 
 
 func _ready() -> void:
 	UI.anchor_full_rect(self)
-	_content = UI.screen_body(self)
 	EventBus.state_changed.connect(_refresh)
+	resized.connect(_refresh)
 	_refresh()
 
 
 func _refresh() -> void:
-	for child in _content.get_children():
+	if is_instance_valid(_debug_scroller):
+		_debug_scroll = _debug_scroller.scroll_vertical
+	_debug_scroller = null
+	for child in get_children():
+		remove_child(child)
 		child.queue_free()
-	_build()
+	_diorama = null
+	_build_plate()
+	match _page:
+		Page.BOOK:
+			_build_overlay(_build_book())
+		Page.RECIPE:
+			_build_overlay(_build_book(), _build_recipe_card())
+		Page.DEBUG:
+			_build_overlay(_build_debug_page())
 
 
-func _build() -> void:
+func _show(page: Page) -> void:
+	_page = page
+	_refresh()
+
+
+# ── Plate ────────────────────────────────────────────────────────────────
+
+# §5.1: the Lab's portrait plate, width-fit and vertically centred, the
+# bands above and below filled with the plate's wall/floor colours.
+func _build_plate() -> void:
+	var plate: Dictionary = GameData.HQ_VISUALS["labBench"]
+	var plate_size := Vector2(plate["width"], plate["height"])
+	var available: Vector2 = size if size.x > 0.0 and size.y > 0.0 else plate_size
+	var scale_factor: float = available.x / plate_size.x
+	var scaled_height: float = plate_size.y * scale_factor
+	var top: float = (available.y - scaled_height) / 2.0
+
+	_add_band(plate.get("bandTopColor", ""), Rect2(0.0, 0.0, available.x, maxf(top, 0.0)))
+	_add_band(plate.get("bandBottomColor", ""), Rect2(0.0, top + scaled_height, available.x, maxf(available.y - top - scaled_height, 0.0)))
+
+	var frame := Control.new()
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.position = Vector2(0.0, top)
+	frame.size = plate_size
+	frame.scale = Vector2(scale_factor, scale_factor)
+	add_child(frame)
+
+	var visible_plate: Dictionary = plate.duplicate(true)
+	_label_ore_regions(visible_plate["regions"])
+	_diorama = HqDiorama.new()
+	_diorama.build(visible_plate)
+	_diorama.gui_input.connect(_on_diorama_gui_input)
+	frame.add_child(_diorama)
+
+	_add_ore_badges(visible_plate["regions"], frame.position, scale_factor)
+	_add_status_line(Rect2(0.0, top + scaled_height, available.x, maxf(available.y - top - scaled_height, _STATUS_MIN_HEIGHT)))
+
+	var back := MapCardStyle.chip_button("‹ Exit", func(): BenchPrototype.exit())
+	back.position = Vector2(_INSET, UI.safe_area_top_inset() + _INSET)
+	add_child(back)
+
+
+func _add_band(palette_id: String, rect: Rect2) -> void:
+	var band := ColorRect.new()
+	band.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	band.color = GameData.PALETTE.get(palette_id, Color.BLACK)
+	band.position = rect.position
+	band.size = rect.size
+	add_child(band)
+
+
+func _pool_count(ore_type: String) -> int:
+	return int(GameState.state["benchPrototype"]["pool"].get(ore_type, 0))
+
+
+func _label_ore_regions(regions: Dictionary) -> void:
+	for ore_type in GameData.ORE_TYPES.keys():
+		var region_id := LabBenchNav.ORE_REGION_PREFIX + String(ore_type)
+		if regions.has(region_id):
+			regions[region_id]["label"] = "%s — %d" % [GameData.ORE_TYPES[ore_type]["name"], _pool_count(ore_type)]
+
+
+# §5.4: a count badge centred on each jar's bottom edge, in screen space so
+# it stays legible at any plate scale -- the prototype's pool, not the
+# player's orichalchum.
+func _add_ore_badges(regions: Dictionary, origin: Vector2, scale_factor: float) -> void:
+	for region_id in regions:
+		if not String(region_id).begins_with(LabBenchNav.ORE_REGION_PREFIX):
+			continue
+		var ore_type := String(region_id).trim_prefix(LabBenchNav.ORE_REGION_PREFIX)
+		var rect := HqDiorama.region_rect(regions[region_id])
+
+		var box := CenterContainer.new()
+		box.name = "OreBadge_%s" % ore_type
+		box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		box.position = origin + Vector2(rect.position.x, rect.end.y) * scale_factor - Vector2(0.0, _BADGE_HEIGHT)
+		box.size = Vector2(rect.size.x * scale_factor, _BADGE_HEIGHT)
+
+		var panel := PanelContainer.new()
+		panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var style := MapCardStyle.skin(MapCardStyle.paper(), _BADGE_RADIUS)
+		style.content_margin_left = _BADGE_PADDING
+		style.content_margin_right = _BADGE_PADDING
+		panel.add_theme_stylebox_override("panel", style)
+		panel.add_child(MapCardStyle.label(str(_pool_count(ore_type)), _BADGE_FONT_SIZE, MapCardStyle.ink()))
+		box.add_child(panel)
+		add_child(box)
+
+
+func _add_status_line(rect: Rect2) -> void:
 	var root: Dictionary = GameState.state["benchPrototype"]
-	var s: Dictionary = root
-
-	_content.add_child(MapCardStyle.text_button("‹ Exit", func(): BenchPrototype.exit()))
-	_content.add_child(UI.heading("Bench Prototype"))
-	_content.add_child(UI.label("Pool: %s · XP %d" % [_pool_text(s["pool"]), s["xpTotal"]]))
-	_content.add_child(_build_debug_card(root))
-	for recipe_id in GameData.BENCH_PROTOTYPE["roster"]:
-		_content.add_child(_build_recipe_card(s, recipe_id))
-	_content.add_child(_build_procedure_card(s))
-	_content.add_child(MapCardStyle.text_button("Rewind", func(): BenchPrototype.rewind(), s["snapshots"].is_empty()))
-	_content.add_child(_build_ledger_card(s["ledger"]))
+	var line := MapCardStyle.label("Bench prototype · XP %d · open the recipe book" % root["xpTotal"], _STATUS_FONT_SIZE, MapCardStyle.paper())
+	line.name = "StatusLine"
+	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	line.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	line.position = rect.position
+	line.size = rect.size
+	add_child(line)
 
 
-func _build_debug_card(root: Dictionary) -> Control:
-	var c := MapCardStyle.card()
-	c["content"].add_child(UI.heading("Debug", 14))
-	var real_note: String = " (real)" if root["skillOverride"] == null else ""
-	c["content"].add_child(UI.muted_label("Crafting skill %d%s · tolerance ×%.2f" % [BenchPrototype.effective_skill(), real_note, BenchPrototype.skill_multiplier()]))
-	c["content"].add_child(MapCardStyle.quantity_slider("Skill", BenchPrototype.effective_skill(), GameData.BENCH_PROTOTYPE["skillMax"],
-		func(_qty: int): pass,
-		func(qty: int): BenchPrototype.set_skill_override(qty), 0))
-	c["content"].add_child(MapCardStyle.text_button("Use real skill", func(): BenchPrototype.clear_skill_override(), root["skillOverride"] == null))
+func _on_diorama_gui_input(event: InputEvent) -> void:
+	# Touch-emulated mouse events twin every real touch; handle one of them.
+	var is_touch_event: bool = (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT \
+			and event.device != InputEvent.DEVICE_ID_EMULATION) \
+		or (event is InputEventScreenTouch)
+	if not is_touch_event or not event.pressed:
+		return
+	if _diorama.zone_at(event.position) == "notebookRecipes":
+		_show(Page.BOOK)
 
-	var types: Dictionary = GameData.BENCH_PROTOTYPE["bonus"]["types"]
-	var type_ids: Array = types.keys()
-	var labels: Array = type_ids.map(func(t): return "Bonus: %s" % types[t]["label"])
-	var bonus_select := UI.option_button(labels)
-	bonus_select.selected = maxi(0, type_ids.find(root["bonusType"]))
-	bonus_select.item_selected.connect(func(index: int): BenchPrototype.set_bonus_type(type_ids[index]))
-	c["content"].add_child(bonus_select)
 
-	c["content"].add_child(MapCardStyle.text_button("Refill pool", func(): BenchPrototype.refill_pool()))
+# ── Book overlay ─────────────────────────────────────────────────────────
+
+# A dim backdrop (tap to step back) under the book column; card, when
+# given, stacks centred above the book like the Lab's recipe detail.
+func _build_overlay(column: Control, card: Control = null) -> void:
+	var dim := ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.5)
+	UI.anchor_full_rect(dim)
+	dim.mouse_filter = Control.MOUSE_FILTER_STOP
+	dim.gui_input.connect(_on_dim_gui_input)
+	add_child(dim)
+
+	UI.anchor_full_rect(column)
+	column.offset_left = _OVERLAY_MARGIN
+	column.offset_right = -_OVERLAY_MARGIN
+	column.offset_top = UI.safe_area_top_inset() + _OVERLAY_MARGIN
+	column.offset_bottom = -_OVERLAY_MARGIN
+	add_child(column)
+
+	if card != null:
+		var centre := CenterContainer.new()
+		UI.anchor_full_rect(centre)
+		centre.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		centre.add_child(card)
+		add_child(centre)
+
+
+func _on_dim_gui_input(event: InputEvent) -> void:
+	if (event is InputEventMouseButton or event is InputEventScreenTouch) and event.pressed \
+			and not TouchInput.is_emulated_mouse(event):
+		_show(Page.BOOK if _page == Page.RECIPE else Page.NONE)
+
+
+func _book_column(page: RecipeBookPage, controls: Array) -> VBoxContainer:
+	var column := UI.vbox(6)
+	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	column.add_child(page)
+	var panel := PanelContainer.new()
+	MapCardStyle.style_panel(panel, 12, 0.0)
+	var row := UI.hbox(6)
+	panel.add_child(row)
+	for control in controls:
+		row.add_child(control)
+	column.add_child(panel)
+	return column
+
+
+func _build_book() -> Control:
+	var known := BenchPrototype.known_recipes()
+	var pages := LabBenchRecipeBookModal.page_count(known.size())
+	_book_page = LabBenchRecipeBookModal.clamped_page(_book_page, known.size())
+	var book := RecipeBookPage.new()
+	if known.is_empty():
+		var empty := _page_label("No recipes known.", RecipeBookPage.INK_MUTED)
+		empty.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		empty.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		book.place(empty, Rect2(240, 560, 560, 400), 40.0, 11)
+	var first := _book_page * LabBenchRecipeBookModal.PER_PAGE
+	for slot in range(mini(LabBenchRecipeBookModal.PER_PAGE, known.size() - first)):
+		_build_entry(book, known[first + slot], slot)
+
+	var counter := UI.label("Page %d/%d" % [_book_page + 1, pages])
+	counter.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	counter.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	return _book_column(book, [
+		MapCardStyle.text_button("‹", func(): _turn_page(-1), _book_page <= 0),
+		counter,
+		MapCardStyle.text_button("›", func(): _turn_page(1), _book_page >= pages - 1),
+		MapCardStyle.text_button("Debug page", func(): _show(Page.DEBUG)),
+		MapCardStyle.text_button("Close", func(): _show(Page.NONE)),
+	])
+
+
+func _turn_page(step: int) -> void:
+	_book_page += step
+	_refresh()
+
+
+func _build_entry(book: RecipeBookPage, recipe_id: String, slot: int) -> void:
+	var recipe: Dictionary = GameData.BENCH_PROTOTYPE["recipes"][recipe_id]
+	var top: float = LabBenchRecipeBookModal.ENTRY_TOP + LabBenchRecipeBookModal.ENTRY_STEP * slot
+
+	var icon := TextureRect.new()
+	icon.texture = ItemIcons.texture(recipe_id)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	book.place(icon, Rect2(232, top + 20, 172, 168))
+
+	var name_size := RecipeBookPage.fit_font(recipe["name"], 372.0, 44.0, 26.0)
+	var name_label := _page_label(recipe["name"], RecipeBookPage.INK)
+	name_label.clip_text = true
+	book.place(name_label, Rect2(452, top + 8, 376, 56), name_size, 11)
+
+	var cost := _page_label("Cost: %s" % _pool_text(recipe["baseCalc"]), RecipeBookPage.INK_MUTED)
+	book.place(cost, Rect2(452, top + 76, 376, 40), 28.0, 10)
+
+	var rank := _page_label("Best rank: %s" % _rank_text(recipe_id), RecipeBookPage.INK)
+	book.place(rank, Rect2(452, top + 207, 376, 36), 26.0, 10)
+
+	var hit := Button.new()
+	hit.flat = true
+	hit.focus_mode = Control.FOCUS_NONE
+	hit.accessibility_name = recipe["name"]
+	hit.set_meta("recipeId", recipe_id)
+	var pressed_style := StyleBoxFlat.new()
+	pressed_style.bg_color = Color(RecipeBookPage.INK, 0.12)
+	pressed_style.set_corner_radius_all(8)
+	hit.add_theme_stylebox_override("pressed", pressed_style)
+	hit.pressed.connect(func(): _open_recipe(recipe_id))
+	book.place(hit, Rect2(206, top, 626, LabBenchRecipeBookModal.ENTRY_HEIGHT))
+
+
+func _page_label(text: String, colour: Color) -> Label:
+	var label := Label.new()
+	label.text = text
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.add_theme_font_override("font", RecipeBookPage.font())
+	label.add_theme_color_override("font_color", colour)
+	return label
+
+
+func _rank_text(recipe_id: String) -> String:
+	var best: int = GameState.state["benchPrototype"]["bestRanks"].get(recipe_id, 0)
+	return str(best) if best > 0 else "—"
+
+
+func _open_recipe(recipe_id: String) -> void:
+	_recipe_id = recipe_id
+	_craft_qty = 1
+	_show(Page.RECIPE)
+
+
+# ── Recipe page ──────────────────────────────────────────────────────────
+
+func _build_recipe_card() -> Control:
+	var c := MapCardStyle.card(18, 0.16)
+	c["panel"].custom_minimum_size.x = 330
+	var content: VBoxContainer = c["content"]
+	if not BenchPrototype.is_known(_recipe_id):
+		content.add_child(UI.muted_label("Nothing known here."))
+		content.add_child(MapCardStyle.footer([MapCardStyle.text_button("Back to book", func(): _show(Page.BOOK))]))
+		return c["panel"]
+
+	var root: Dictionary = GameState.state["benchPrototype"]
+	var recipe_id := _recipe_id
+	var recipe: Dictionary = GameData.BENCH_PROTOTYPE["recipes"][recipe_id]
+	var cost: Dictionary = recipe["baseCalc"]
+	content.add_child(UI.heading(recipe["name"], 18))
+	content.add_child(UI.label("Best rank: %s" % _rank_text(recipe_id)))
+	content.add_child(UI.muted_label("Cost per craft: %s" % _pool_text(cost)))
+
+	var most := BenchPrototype.max_batch(recipe_id)
+	_craft_qty = clampi(_craft_qty, 1, maxi(most, 1))
+	var picked := [_craft_qty]
+	var reason := ""
+	if root["bestRanks"].get(recipe_id, 0) < 1:
+		reason = "No rank yet. Craft one by hand first."
+	elif not BenchPrototype.can_afford(BenchPrototype.recipe_cost(recipe_id, _craft_qty)):
+		reason = "Not enough calc."
+	elif root["activeRun"] != null:
+		reason = "A run is open."
+	var craft := MapCardStyle.action_button("Auto-craft ×%d" % _craft_qty, func(): BenchPrototype.batch(recipe_id, picked[0]), reason != "", reason)
+	var craft_button := craft.get_child(0) as Button
+	var total := UI.label(LabBenchModalHelpers.batch_total_text(cost, _craft_qty))
+	var on_change := func(value: int) -> void:
+		picked[0] = value
+		total.text = LabBenchModalHelpers.batch_total_text(cost, value)
+		craft_button.text = "Auto-craft ×%d" % value
+	content.add_child(MapCardStyle.quantity_slider("Batch", _craft_qty, most, on_change, func(value: int): _craft_qty = value))
+	content.add_child(total)
+	content.add_child(craft)
+	content.add_child(MapCardStyle.text_button("Craft manually", func(): pass, true))
+	content.add_child(MapCardStyle.footer([MapCardStyle.text_button("Back to book", func(): _show(Page.BOOK))]))
 	return c["panel"]
 
 
-func _build_recipe_card(s: Dictionary, recipe_id: String) -> Control:
-	var c := MapCardStyle.card()
-	var recipe: Dictionary = GameData.BENCH_PROTOTYPE["recipes"][recipe_id]
-	var best: int = s["bestRanks"][recipe_id]
-	c["content"].add_child(UI.heading("%s — best rank %s" % [recipe["name"], str(best) if best > 0 else "—"], 14))
-	c["content"].add_child(UI.muted_label("Cost per item: %s" % _pool_text(recipe["baseCalc"])))
+# ── Debug back page ──────────────────────────────────────────────────────
 
+func _build_debug_page() -> Control:
+	var book := RecipeBookPage.new()
+	var scroller := UI.scroll_container()
+	var content := UI.vbox(8)
+	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroller.add_child(content)
+	book.place(scroller, _BACK_PAGE_RECT)
+	_debug_scroller = scroller
+	_restore_debug_scroll.call_deferred(scroller, _debug_scroll)
+
+	var root: Dictionary = GameState.state["benchPrototype"]
+	content.add_child(UI.heading("Debug", 16))
+	content.add_child(UI.label("Pool: %s · XP %d" % [_pool_text(root["pool"]), root["xpTotal"]]))
+	var real_note: String = " (real)" if root["skillOverride"] == null else ""
+	content.add_child(UI.muted_label("Crafting skill %d%s · tolerance ×%.2f" % [BenchPrototype.effective_skill(), real_note, BenchPrototype.skill_multiplier()]))
+	content.add_child(MapCardStyle.quantity_slider("Skill", BenchPrototype.effective_skill(), GameData.BENCH_PROTOTYPE["skillMax"],
+		func(_qty: int): pass,
+		func(qty: int): BenchPrototype.set_skill_override(qty), 0))
+	content.add_child(MapCardStyle.text_button("Use real skill", func(): BenchPrototype.clear_skill_override(), root["skillOverride"] == null))
+
+	var types: Dictionary = GameData.BENCH_PROTOTYPE["bonus"]["types"]
+	var type_ids: Array = types.keys()
+	var bonus_select := UI.option_button(type_ids.map(func(t): return "Bonus: %s" % types[t]["label"]))
+	bonus_select.selected = maxi(0, type_ids.find(root["bonusType"]))
+	bonus_select.item_selected.connect(func(index: int): BenchPrototype.set_bonus_type(type_ids[index]))
+	content.add_child(bonus_select)
+
+	for recipe_id in GameData.BENCH_PROTOTYPE["roster"]:
+		_add_recipe_toggles(content, recipe_id)
+
+	var row := UI.hbox()
+	row.add_child(MapCardStyle.text_button("Refill pool", func(): BenchPrototype.refill_pool()))
+	row.add_child(MapCardStyle.text_button("Rewind", func(): BenchPrototype.rewind(), root["snapshots"].is_empty()))
+	content.add_child(row)
+	_add_ledger(content, root["ledger"])
+
+	return _book_column(book, [
+		MapCardStyle.text_button("‹ Recipes", func(): _show(Page.BOOK)),
+		MapCardStyle.text_button("Close", func(): _show(Page.NONE)),
+	])
+
+
+func _restore_debug_scroll(scroller: ScrollContainer, value: int) -> void:
+	if not is_instance_valid(scroller) or not is_inside_tree():
+		return
+	await get_tree().process_frame
+	if is_instance_valid(scroller):
+		scroller.scroll_vertical = value
+
+
+# A recipe's known toggle and per-hint level pickers.
+func _add_recipe_toggles(content: VBoxContainer, recipe_id: String) -> void:
+	content.add_child(UI.heading(GameData.BENCH_PROTOTYPE["recipes"][recipe_id]["name"], 14))
+	var known := CheckBox.new()
+	known.text = "Known"
+	known.button_pressed = BenchPrototype.is_known(recipe_id)
+	known.toggled.connect(func(on: bool): BenchPrototype.set_known(recipe_id, on))
+	content.add_child(known)
 	var levels: Array = GameData.BENCH_PROTOTYPE["hintLevels"]
 	for hint in BenchPrototype.hints(recipe_id):
 		var hint_id: String = hint["id"]
 		var hint_select := UI.option_button(levels.map(func(l): return "%s: %s" % [hint["label"], l]))
 		hint_select.selected = maxi(0, levels.find(BenchPrototype.hint_level(recipe_id, hint_id)))
 		hint_select.item_selected.connect(func(index: int): BenchPrototype.set_hint_level(recipe_id, hint_id, levels[index]))
-		c["content"].add_child(hint_select)
-
-	var row := UI.hbox()
-	for n in BenchPrototype.BATCH_SIZES:
-		var affordable: bool = BenchPrototype.can_afford(BenchPrototype.recipe_cost(recipe_id, n))
-		row.add_child(MapCardStyle.text_button("Batch ×%d" % n, func(): BenchPrototype.batch(recipe_id, n), best < 1 or not affordable or s["activeRun"] != null))
-	c["content"].add_child(row)
-	return c["panel"]
+		content.add_child(hint_select)
 
 
-func _build_procedure_card(s: Dictionary) -> Control:
-	var c := MapCardStyle.card()
-	c["content"].add_child(UI.heading("Procedure run", 14))
-	var roster: Array = GameData.BENCH_PROTOTYPE["roster"]
-	var run = s["activeRun"]
-	if run == null:
-		var recipe_select := UI.option_button(roster.map(func(r): return GameData.BENCH_PROTOTYPE["recipes"][r]["name"]))
-		_recipe_index = clampi(_recipe_index, 0, roster.size() - 1)
-		recipe_select.selected = _recipe_index
-		recipe_select.item_selected.connect(func(index: int):
-			_recipe_index = index
-			_refresh())
-		c["content"].add_child(recipe_select)
-		var recipe_id: String = roster[_recipe_index]
-		var steps := BenchPrototype.planned_procedure(recipe_id)
-		for i in steps.size():
-			_add_step_rows(c["content"], "", recipe_id, i, steps[i])
-			c["content"].add_child(_build_step_edit_row(recipe_id, i, steps[i]))
-		c["content"].add_child(_build_insert_row(recipe_id, steps.size()))
-		c["content"].add_child(MapCardStyle.text_button("Reset plan", func(): BenchPrototype.reset_plan(recipe_id),
-			not s["plans"].has(recipe_id)))
-		c["content"].add_child(MapCardStyle.text_button("Begin", func(): BenchPrototype.begin_procedure_run(roster[_recipe_index]),
-			not BenchPrototype.can_afford(BenchPrototype.procedure_cost(steps))))
-		_add_notebook(c["content"], s["notebook"].get(recipe_id, []))
-		return c["panel"]
-
-	var recipe_id: String = run["recipeId"]
-	c["content"].add_child(UI.label("Running: %s" % GameData.BENCH_PROTOTYPE["recipes"][recipe_id]["name"]))
-	var done: int = run["performed"].size()
-	for i in run["procedure"].size():
-		var mark: String = "✓ " if i < done else ("▸ " if i == done else "  ")
-		_add_step_rows(c["content"], mark, recipe_id, i, run["procedure"][i])
-	var step = BenchPrototype.current_step()
-	if step != null:
-		_add_step_gauge(c["content"], recipe_id, step)
-	c["content"].add_child(MapCardStyle.text_button("Abandon", func(): BenchPrototype.abandon_run()))
-	return c["panel"]
-
-
-func _add_step_gauge(content: VBoxContainer, recipe_id: String, step: Dictionary) -> void:
-	var band := BenchPrototype.step_region(recipe_id, step)
-	var g := BenchPrototype.gauge(step["apparatus"])
-	match step["apparatus"]:
-		"heat", "compression":
-			var hold := HoldGauge.new()
-			hold.rise_per_sec = float(g["risePerSec"])
-			hold.crack_at = float(g.get("crackAt", -1.0))
-			hold.committed.connect(func(value: float): BenchPrototype.perform_step(value))
-			content.add_child(UI.muted_label("Hold to heat. Release inside the band." if step["apparatus"] == "heat"
-				else "Hold to build pressure. Release inside the band — past the red line it cracks."))
-			_add_gauge(content, hold, band)
-		"grinding":
-			var grind := GrindGauge.new()
-			grind.strokes = int(g["strokes"])
-			grind.period_sec = float(g["swingPeriodSec"])
-			grind.committed.connect(func(readings: Array): BenchPrototype.perform_grind(readings))
-			content.add_child(UI.muted_label("Tap %d strokes as the pestle swings through the band." % grind.strokes))
-			_add_gauge(content, grind, band)
-		"distilling":
-			var distil := DistilGauge.new()
-			distil.drips = int(g["drips"])
-			distil.beat_msec = float(g["beatMsec"])
-			distil.fall_msec = float(g["fallMsec"])
-			distil.lead_in_msec = float(g["leadInMsec"])
-			distil.committed.connect(func(taps: Array): BenchPrototype.perform_distil(taps))
-			content.add_child(UI.muted_label("Tap once as each drip crosses the band. A stray tap spoils it."))
-			_add_gauge(content, distil, band)
-
-
-func _add_gauge(content: VBoxContainer, gauge: StepGauge, band: Dictionary) -> void:
-	gauge.band_low = band["low"]
-	gauge.band_high = band["high"]
-	gauge.band_vague = band["vague"]
-	content.add_child(gauge)
-
-
-# A known step's row, plus its hint note when a hint revealed it.
-func _add_step_rows(content: VBoxContainer, mark: String, recipe_id: String, index: int, step: Dictionary) -> void:
-	var apparatus: String = GameData.APPROACHES[step["apparatus"]]["name"]
-	var region := BenchPrototype.step_region(recipe_id, step)
-	var kind: String = "somewhere in" if region["vague"] else "band"
-	var inserted: String = " (your guess)" if step.get("knowledge") == "inserted" else ""
-	content.add_child(UI.muted_label("%s%d. %s%s → %s %d–%d" % [mark, index + 1, apparatus, inserted, kind, roundi(region["low"]), roundi(region["high"])]))
-	if step.has("note"):
-		content.add_child(UI.muted_label("      %s" % step["note"]))
-
-
-# Nudge buttons for a planned step, plus remove for an inserted one.
-func _build_step_edit_row(recipe_id: String, index: int, step: Dictionary) -> Control:
-	var nudge := float(GameData.BENCH_PROTOTYPE["nudgeStep"])
-	var row := UI.hbox()
-	row.add_child(MapCardStyle.text_button("−%d" % roundi(nudge), func(): BenchPrototype.nudge_step(recipe_id, index, -nudge)))
-	row.add_child(MapCardStyle.text_button("+%d" % roundi(nudge), func(): BenchPrototype.nudge_step(recipe_id, index, nudge)))
-	if step.get("knowledge") == "inserted":
-		row.add_child(MapCardStyle.text_button("Remove", func(): BenchPrototype.remove_step(recipe_id, index)))
-	return row
-
-
-# Pick an apparatus and a slot (before step 1 .. after the last), then insert.
-func _build_insert_row(recipe_id: String, step_count: int) -> Control:
-	var apparatus_ids: Array = GameData.BENCH_PROTOTYPE["gauges"].keys()
-	var row := UI.hbox()
-	var apparatus_select := UI.option_button(apparatus_ids.map(func(a): return GameData.APPROACHES[a]["name"]))
-	_insert_apparatus = clampi(_insert_apparatus, 0, apparatus_ids.size() - 1)
-	apparatus_select.selected = _insert_apparatus
-	apparatus_select.item_selected.connect(func(index: int): _insert_apparatus = index)
-	row.add_child(apparatus_select)
-	var slots := []
-	for i in step_count + 1:
-		slots.append("as step %d" % (i + 1))
-	var position_select := UI.option_button(slots)
-	_insert_position = clampi(_insert_position, 0, step_count)
-	position_select.selected = _insert_position
-	position_select.item_selected.connect(func(index: int): _insert_position = index)
-	row.add_child(position_select)
-	row.add_child(MapCardStyle.text_button("Insert", func():
-		BenchPrototype.insert_step(recipe_id, _insert_position, apparatus_ids[_insert_apparatus])))
-	return row
-
-
-# The last finished run's clue per step (BenchPrototype.notebook_clues()).
-func _add_notebook(content: VBoxContainer, clues: Array) -> void:
-	content.add_child(UI.heading("Notebook", 14))
-	if clues.is_empty():
-		content.add_child(UI.muted_label("No runs written up yet."))
-		return
-	var needed := int(GameData.BENCH_PROTOTYPE["vagueToExactHits"])
-	for i in clues.size():
-		var clue: Dictionary = clues[i]
-		var apparatus: String = GameData.APPROACHES[clue["apparatus"]]["name"]
-		var text: String
-		match clue["clue"]:
-			"hit":
-				text = "✓ in band"
-			"near":
-				var words: Dictionary = BenchPrototype.gauge(clue["apparatus"])["directionWords"]
-				text = "~ right step, try %s" % words[clue["direction"]] if clue["direction"] != null else "~ right step, not quite"
-			"changed":
-				text = "something changed"
-			_:
-				text = "✗ no effect"
-		if clue.get("learned") == "vague":
-			text += " · new vague hint"
-		elif clue.get("learned") == "exact":
-			text += " · now exact"
-		elif clue.has("hits"):
-			text += " · %d/%d toward exact" % [clue["hits"], needed]
-		content.add_child(UI.muted_label("%d. %s: %s" % [i + 1, apparatus, text]))
-
-
-func _build_ledger_card(ledger: Array) -> Control:
-	var c := MapCardStyle.card()
-	c["content"].add_child(UI.heading("Ledger", 14))
+func _add_ledger(content: VBoxContainer, ledger: Array) -> void:
+	content.add_child(UI.heading("Ledger", 14))
 	if ledger.is_empty():
-		c["content"].add_child(UI.muted_label("Nothing crafted yet."))
-		return c["panel"]
+		content.add_child(UI.muted_label("Nothing crafted yet."))
+		return
 	var start := maxi(0, ledger.size() - LEDGER_ROWS)
 	for i in range(ledger.size() - 1, start - 1, -1):
 		var entry: Dictionary = ledger[i]
-		c["content"].add_child(UI.label(_entry_text(entry)))
+		var line := UI.label(_entry_text(entry))
+		line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		content.add_child(line)
 		if entry.has("steps"):
-			c["content"].add_child(UI.muted_label(_steps_text(entry["steps"])))
+			content.add_child(UI.muted_label(_steps_text(entry["steps"])))
 		if entry["flavour"] != null:
-			c["content"].add_child(UI.muted_label(entry["flavour"]))
-	return c["panel"]
+			content.add_child(UI.muted_label(entry["flavour"]))
 
 
 func _entry_text(entry: Dictionary) -> String:

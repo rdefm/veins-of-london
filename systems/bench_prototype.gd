@@ -19,11 +19,12 @@ extends RefCounted
 # score to finish_run(). A compress released at or past crackAt cracks the
 # vessel and ends the run with no item.
 #
+# The recipe book lists only known recipes (known_recipes()), seeded from
+# knownAtStart and toggled from the debug page.
+#
 # Before a run the player edits a per-recipe plan (insert, remove, nudge);
 # after it the notebook records one clue per step, and those clues grant
 # vague hints and upgrade them to exact (spec §Slice A Experimenting).
-
-const BATCH_SIZES: Array[int] = [1, 5, 10]
 
 # Apparatus whose step is one hold-and-release reading (perform_step).
 const HOLD_APPARATUS: Array[String] = ["heat", "compression"]
@@ -52,6 +53,8 @@ static func new_state() -> Dictionary:
 		"skillOverride": null,
 		"bonusType": _data().get("bonus", {}).get("defaultType", ""),
 		"pool": _data().get("poolSeed", {}).duplicate(),
+		# Recipe ids the recipe book lists (known_recipes()).
+		"known": _data().get("knownAtStart", []).duplicate(),
 		"bestRanks": best_ranks,
 		# recipeId -> { hintId -> "off" | "vague" | "exact" }.
 		"hintLevels": hint_levels,
@@ -114,6 +117,18 @@ static func can_afford(cost: Dictionary) -> bool:
 		if int(pool.get(ore_type, 0)) < int(cost[ore_type]):
 			return false
 	return true
+
+
+# How many of a recipe the pool pays for at base calc.
+static func max_batch(recipe_id: String) -> int:
+	var pool: Dictionary = _root()["pool"]
+	var most := -1
+	var base := recipe_cost(recipe_id)
+	for ore_type in base.keys():
+		if int(base[ore_type]) > 0:
+			var fits := floori(float(pool.get(ore_type, 0)) / float(base[ore_type]))
+			most = fits if most < 0 else mini(most, fits)
+	return maxi(most, 0)
 
 
 static func _spend(s: Dictionary, cost: Dictionary) -> void:
@@ -198,6 +213,26 @@ static func _set_hint_level(s: Dictionary, recipe_id: String, hint_id: String, l
 	if not s["hintLevels"].get(recipe_id) is Dictionary:
 		s["hintLevels"][recipe_id] = {}
 	s["hintLevels"][recipe_id][hint_id] = level
+
+
+# Known recipes in roster order.
+static func known_recipes() -> Array:
+	return _data().get("roster", []).filter(func(recipe_id): return is_known(recipe_id))
+
+
+static func is_known(recipe_id: String) -> bool:
+	return _root()["known"].has(recipe_id)
+
+
+static func set_known(recipe_id: String, known: bool) -> Dictionary:
+	if not _data().get("roster", []).has(recipe_id):
+		return { "ok": false, "reason": "Unknown recipe." }
+	var list: Array = _root()["known"]
+	list.erase(recipe_id)
+	if known:
+		list.append(recipe_id)
+	EventBus.state_changed.emit()
+	return { "ok": true }
 
 
 static func refill_pool() -> void:

@@ -1291,8 +1291,13 @@ func _restore_int_types(state: Dictionary) -> void:
 	if state.has("combatPrototype"):
 		state["combatPrototype"] = CombatPrototype.new_state()
 
+	# A bench prototype saved in an older shape restarts fresh (sandbox only).
 	if state.has("benchPrototype"):
-		_restore_bench_prototype_int_types(state["benchPrototype"])
+		var bench: Dictionary = state["benchPrototype"]
+		if bench.has("slices") or not bench.has("known"):
+			state["benchPrototype"] = BenchPrototype.new_state()
+		else:
+			_restore_bench_prototype_int_types(bench)
 
 	# state.objectives[*].progress is a free-form bag (systems/objectives.gd)
 	# -- only its known numeric shapes need restoring (activatedDay,

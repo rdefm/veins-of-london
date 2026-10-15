@@ -1454,7 +1454,7 @@ func _validate_combat_prototype_stats(entry: Dictionary, path: String, errors: A
 # types the pool seeds; thresholds ascend from 0; the bonus default names a
 # real type; badRun has lines to pick from.
 func _validate_bench_prototype(bench: Dictionary, approaches: Dictionary, errors: Array[String]) -> void:
-	_require_keys(bench, ["roster", "recipes", "poolSeed", "rankThresholds", "skillFactor", "skillMax", "extraStepPenalty", "vagueSpread", "insertTarget", "nudgeStep", "vagueToExactHits", "gauges", "baseXp", "hintLevels", "bonus", "badRun"], "bench_prototype", errors)
+	_require_keys(bench, ["roster", "knownAtStart", "recipes", "poolSeed", "rankThresholds", "skillFactor", "skillMax", "extraStepPenalty", "vagueSpread", "insertTarget", "nudgeStep", "vagueToExactHits", "gauges", "baseXp", "hintLevels", "bonus", "badRun"], "bench_prototype", errors)
 	var gauges: Dictionary = bench.get("gauges", {})
 	for apparatus in gauges.keys():
 		var words: Dictionary = gauges[apparatus].get("directionWords", {})
@@ -1465,6 +1465,9 @@ func _validate_bench_prototype(bench: Dictionary, approaches: Dictionary, errors
 	var roster: Array = bench.get("roster", [])
 	if roster.is_empty():
 		errors.append("bench_prototype.roster: must not be empty")
+	for recipe_id in bench.get("knownAtStart", []):
+		if not roster.has(recipe_id):
+			errors.append("bench_prototype.knownAtStart: '%s' not in roster" % recipe_id)
 	for recipe_id in roster:
 		if not recipes.has(recipe_id):
 			errors.append("bench_prototype.recipes: missing entry for roster id '%s'" % recipe_id)

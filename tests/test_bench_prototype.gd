@@ -224,6 +224,45 @@ func run() -> void:
 		assert_eq(after, before, "two rewinds undo the batch then the run")
 	)
 
+	run_case("known_recipes_start_from_data_in_roster_order", func():
+		var root := _fresh()
+		assert_eq(_data()["knownAtStart"], ["healingSalve"], "healingSalve known at start")
+		assert_eq(BenchPrototype.known_recipes(), ["healingSalve"])
+		assert_true(BenchPrototype.is_known("healingSalve"))
+		assert_true(not BenchPrototype.is_known("timePearl"))
+		root["known"].append("x")
+		assert_eq(_data()["knownAtStart"], ["healingSalve"], "seeding doesn't alias GameData")
+	)
+
+	run_case("set_known_toggles_and_the_list_follows_roster_order", func():
+		_fresh()
+		assert_true(BenchPrototype.set_known("healingBurst", true)["ok"])
+		assert_true(BenchPrototype.set_known("timePearl", true)["ok"])
+		assert_eq(BenchPrototype.known_recipes(), ["healingSalve", "timePearl", "healingBurst"], "roster order, not toggle order")
+		BenchPrototype.set_known("timePearl", true)
+		assert_eq(BenchPrototype.known_recipes().size(), 3, "re-marking known doesn't duplicate")
+		assert_true(BenchPrototype.set_known("healingSalve", false)["ok"])
+		assert_eq(BenchPrototype.known_recipes(), ["timePearl", "healingBurst"])
+		assert_true(not BenchPrototype.set_known("bogus", true)["ok"], "unknown recipe refused")
+		assert_true(not BenchPrototype.known_recipes().has("bogus"))
+	)
+
+	run_case("max_batch_is_what_the_pool_affords", func():
+		var root := _fresh()
+		assert_eq(BenchPrototype.max_batch("healingSalve"), 13, "40 life / 3")
+		assert_eq(BenchPrototype.max_batch("healingBurst"), 20, "40 life / 2, 40 time / 2")
+		root["pool"]["time"] = 1
+		assert_eq(BenchPrototype.max_batch("healingBurst"), 0, "short on time")
+	)
+
+	run_case("an_old_shape_save_restarts_the_prototype_fresh", func():
+		GameState.reset()
+		var raw = JSON.parse_string(JSON.stringify(GameState.state))
+		raw["benchPrototype"] = { "activeSlice": "procedure", "slices": {} }
+		assert_true(SaveManager._load_save_dict(raw)["ok"], "save loads")
+		assert_eq(GameState.state["benchPrototype"]["known"], ["healingSalve"], "fresh state")
+	)
+
 	run_case("rewind_leaves_debug_settings_alone", func():
 		var root := _fresh()
 		BenchPrototype.begin_run("timePearl")
