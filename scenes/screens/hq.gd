@@ -19,13 +19,11 @@ func _refresh() -> void:
 		child.queue_free()
 	_diorama = null
 
-	# Off the Map tab: light card family (MapCardStyle).
-	MapPalette.build_light(func():
-		if not GameState.state["flags"]["homeUnlocked"]:
-			_build_locked_view()
-		else:
-			_build_room_view()
-	)
+	if not GameState.state["flags"]["homeUnlocked"]:
+		_build_locked_view()
+	else:
+		_build_room_view()
+
 func _build_locked_view() -> void:
 	_build_locked_background()
 

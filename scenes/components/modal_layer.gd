@@ -28,9 +28,9 @@ func _ready() -> void:
 	_dim.gui_input.connect(_on_dim_gui_input)
 	add_child(_dim)
 
-	# Off the Map tab: every modal is the light vein-popover card (MapCardStyle).
+	# Every modal is the vein-popover card (MapCardStyle).
 	_card = PanelContainer.new()
-	MapPalette.build_light(func(): MapCardStyle.style_panel(_card, 18, 0.16))
+	MapCardStyle.style_panel(_card, 18, 0.16)
 	UI.anchor_center(_card)
 	add_child(_card)
 
@@ -51,7 +51,7 @@ func _ready() -> void:
 
 	# Second card stacked above the book: a recipe's detail over its page.
 	_overlay_card = PanelContainer.new()
-	MapPalette.build_light(func(): MapCardStyle.style_panel(_overlay_card, 18, 0.16))
+	MapCardStyle.style_panel(_overlay_card, 18, 0.16)
 	UI.anchor_center(_overlay_card)
 	_overlay_card.visible = false
 	add_child(_overlay_card)
@@ -141,7 +141,7 @@ func _refresh() -> void:
 		bizbrief_style.set_content_margin_all(18)
 		_card.add_theme_stylebox_override("panel", bizbrief_style)
 	else:
-		MapPalette.build_light(func(): MapCardStyle.style_panel(_card, 18, 0.16))
+		MapCardStyle.style_panel(_card, 18, 0.16)
 
 	for child in _card_content.get_children():
 		child.queue_free()
@@ -164,13 +164,12 @@ func _show_book(modal: Dictionary) -> void:
 	_book_box.offset_top = UI.top_bar_clearance() + 8.0
 	_book_box.offset_bottom = -UI.nav_bar_clearance()
 	var data: Dictionary = modal.get("data", {})
-	MapPalette.build_light(func():
-		if modal.get("type", "") == BOOK_DETAIL_TYPE:
-			ModalRegistry.REGISTRY[BOOK_TYPE].build(_book_box, { "ore": data.get("bookOre", ""), "page": data.get("bookPage", 0) })
-			ModalRegistry.REGISTRY[BOOK_DETAIL_TYPE].build(_overlay_content, data)
-		else:
-			ModalRegistry.REGISTRY[BOOK_TYPE].build(_book_box, data)
-	)
+	MapCardStyle.style_panel(_overlay_card, 18, 0.16)
+	if modal.get("type", "") == BOOK_DETAIL_TYPE:
+		ModalRegistry.REGISTRY[BOOK_TYPE].build(_book_box, { "ore": data.get("bookOre", ""), "page": data.get("bookPage", 0) })
+		ModalRegistry.REGISTRY[BOOK_DETAIL_TYPE].build(_overlay_content, data)
+	else:
+		ModalRegistry.REGISTRY[BOOK_TYPE].build(_book_box, data)
 	_size_overlay_to_content()
 	_size_overlay_to_content.call_deferred()
 
@@ -191,11 +190,9 @@ func _build_modal_content(modal: Dictionary) -> void:
 	var type_id: String = modal.get("type", "")
 	var data: Dictionary = modal.get("data", {})
 
-	MapPalette.build_light(func():
-		if ModalRegistry.REGISTRY.has(type_id):
-			ModalRegistry.REGISTRY[type_id].build(_card_content, data)
-			return
-		_card_content.add_child(UI.heading(type_id))
-		_card_content.add_child(UI.label("…"))
-		_card_content.add_child(MapCardStyle.footer([MapCardStyle.text_button("Close", func(): Modal.close())]))
-	)
+	if ModalRegistry.REGISTRY.has(type_id):
+		ModalRegistry.REGISTRY[type_id].build(_card_content, data)
+		return
+	_card_content.add_child(UI.heading(type_id))
+	_card_content.add_child(UI.label("…"))
+	_card_content.add_child(MapCardStyle.footer([MapCardStyle.text_button("Close", func(): Modal.close())]))

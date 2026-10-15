@@ -8,9 +8,8 @@ extends RefCounted
 const _STAMP_ROTATION_DEGREES := -3.5
 
 
-# Off the Map tab: always the light card family (MapCardStyle).
 static func build(container: VBoxContainer, _data: Dictionary) -> void:
-	MapPalette.build_light(func(): _build(container))
+	_build(container)
 
 
 static func _build(container: VBoxContainer) -> void:

@@ -14,6 +14,10 @@ const CHECK_INDENT := 22
 static var _expanded_overrides: Dictionary = {}
 
 
+func card_chrome() -> bool:
+	return true
+
+
 func build(content: VBoxContainer) -> void:
 	content.add_child(back_button())
 	content.add_child(UI.heading("ToDo"))

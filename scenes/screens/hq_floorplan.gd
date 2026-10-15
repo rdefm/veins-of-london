@@ -17,8 +17,7 @@ func _ready() -> void:
 func _refresh() -> void:
 	for child in get_children():
 		child.queue_free()
-	# Off the Map tab: light card family (MapCardStyle).
-	MapPalette.build_light(_build)
+	_build()
 
 
 func _build() -> void:

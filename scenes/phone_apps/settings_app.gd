@@ -4,6 +4,10 @@ extends PhoneApp
 const Preferences := preload("res://systems/preferences.gd")
 
 
+func card_chrome() -> bool:
+	return true
+
+
 func build(content: VBoxContainer) -> void:
 	content.add_child(back_button())
 	content.add_child(UI.heading("Settings"))

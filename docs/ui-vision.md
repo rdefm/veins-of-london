@@ -540,6 +540,17 @@ app-specific exceptions are Harrow's and BizBrief below. Alarms and BizBrief ret
 the three simulated-dock app behaviours are locked above. This refresh
 changes home placement and the surrounding shell, not gameplay.
 
+**Amended 2026-10-15 (agreed with the human):** the generic apps — Debug,
+Save/Load, Settings, Alarms, Phone (dialer), Notifications, To-do, Profile —
+drop the filled-`ui_action_red` Phone-OS button/panel pass and take the
+map-card family instead (`CardTheme` defaults: quiet accent text buttons,
+card panels, sage dropdown/field chips; follows the Map dark toggle). Only
+their loose text on the dark phone surface keeps Phone-OS text colours
+(`PhoneApp.card_chrome()`). Contacts and the bespoke apps (BizBrief,
+LodedInnit, Harrow's, Messages, Ticker, Factions, Reynard's) keep the chrome
+below. Where a row below says "filled `ui_action_red`" for a generic app,
+this amendment wins.
+
 | App | Shape today (`phone.gd`) | Chrome |
 |---|---|---|
 | Notes | Sectioned checklist (`_build_notes`) | Flat-list pattern: section heading, hairline-divided checklist rows, tick glyph in ink, no push-navigation |

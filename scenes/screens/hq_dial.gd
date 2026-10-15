@@ -21,13 +21,11 @@ func _refresh() -> void:
 
 	var player: Dictionary = GameState.state["player"]
 	var dial: Variant = player["dial"]
-	# Off the Map tab: light card family (MapCardStyle).
-	MapPalette.build_light(func():
-		if dial == null:
-			_build_unseeded_screen(player)
-		else:
-			_build_seeded_screen(player, dial)
-	)
+	if dial == null:
+		_build_unseeded_screen(player)
+	else:
+		_build_seeded_screen(player, dial)
+
 func _build_unseeded_screen(player: Dictionary) -> void:
 	var sc := UI.scroll_container()
 	add_child(sc)

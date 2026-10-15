@@ -50,7 +50,10 @@ func _refresh() -> void:
 		_active_app.build(_content)
 	else:
 		_build_home()
-	ContactCards.apply_phone_os_chrome(_content)
+	if _active_app != null and _active_app.card_chrome():
+		ContactCards.apply_phone_surface_text(_content)
+	else:
+		ContactCards.apply_phone_os_chrome(_content)
 	var surface: Variant = _active_app.surface_colour() if _active_app != null else null
 	device_shell.app_surface.color = surface if surface != null else GameData.PALETTE["phone_bg_content"]
 

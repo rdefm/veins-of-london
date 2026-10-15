@@ -601,6 +601,25 @@ static func apply_phone_os_chrome(root: Node) -> void:
 	_style_subtree(root, false)
 
 
+# Card-chrome apps (PhoneApp.card_chrome()): cards and buttons keep the
+# shared card theme (CardTheme); only labels and toggles sitting loose on the
+# dark phone surface take the Phone-OS text colours.
+static func apply_phone_surface_text(root: Node) -> void:
+	for child in root.get_children():
+		if child is PanelContainer:
+			continue
+		if child is CheckButton or child is CheckBox:
+			var text_colour := _palette(_PHONE_TEXT_PRIMARY, _FALLBACK_TEXT_PRIMARY)
+			for key in ["font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color", "font_focus_color"]:
+				(child as Button).add_theme_color_override(key, text_colour)
+			continue
+		if child is Button:
+			continue
+		if child is Label:
+			_style_label(child as Label)
+		apply_phone_surface_text(child)
+
+
 static func _style_subtree(node: Node, inside_button: bool) -> void:
 	var next_inside_button := inside_button
 	if node is PanelContainer:

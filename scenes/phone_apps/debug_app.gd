@@ -9,6 +9,10 @@ var _relation_target_index: int = 0
 var _event_index: int = 0
 
 
+func card_chrome() -> bool:
+	return true
+
+
 func build(content: VBoxContainer) -> void:
 	content.add_child(back_button())
 	content.add_child(UI.heading("Debug"))

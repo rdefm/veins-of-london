@@ -6,6 +6,10 @@ var _import_box: TextEdit
 var _copy_button: Button
 
 
+func card_chrome() -> bool:
+	return true
+
+
 func build(content: VBoxContainer) -> void:
 	content.add_child(back_button())
 	content.add_child(UI.heading("Save/Load"))

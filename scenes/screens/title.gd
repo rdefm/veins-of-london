@@ -13,8 +13,7 @@ var _on_picked: Callable
 
 func _ready() -> void:
 	UI.anchor_full_rect(self)
-	# Off the Map tab: light card family (MapCardStyle).
-	MapPalette.build_light(_build)
+	_build()
 
 
 func _build() -> void:

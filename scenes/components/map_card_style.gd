@@ -4,8 +4,8 @@ extends RefCounted
 # Shared paper-card look: the vein-popover family (cream rounded card, soft
 # shadow, muted grey labels, dark ink, round icon buttons / quiet text
 # buttons) over the Map palette's card tokens (MapPalette,
-# data/map_palette.json). Map-tab popups follow the Map dark toggle; menus
-# off the Map tab build inside MapPalette.build_light() so they stay light.
+# data/map_palette.json). Every caller follows the Map dark toggle;
+# CardTheme writes the same look into the shared theme as its defaults.
 
 static func paper() -> Color:
 	return MapPalette.colour("cardPaper")

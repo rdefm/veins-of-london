@@ -143,7 +143,7 @@ overlays.
 | phone.gd | Phone tab controller: mounts PhoneDeviceShell, owns four-column home grid + home-only Phone/Messages/Settings dock, live badge-count projections + tile routing, dispatches apps through phone_app_registry.gd |
 | placeholder.gd | Stand-in for a not-yet-built screen |
 | title.gd | Title screen + load-game slot list; sprite picker overlay (idle preview, ◀/▶, Select, Back) that New Game and Debug Start open first |
-| vein_list.gd | Vein-portfolio list (map_card_style.gd-skinned, always light via MapPalette.build_light) |
+| vein_list.gd | Vein-portfolio list (map_card_style.gd-skinned, follows the dark toggle) |
 
 ## scenes/components/*.gd — reusable UI components
 
@@ -155,7 +155,7 @@ overlays.
 | combat_command_dock.gd | Combat's lower command region: full-width near-white surface Panel holding the Dial beside flat 1px-ruled command rows (Complication readout, Attack, two loadout item rows, Leg it), anchored to the true screen bottom; rows disabled per `Combat.selection_block_reason`/`slot_block_reason` |
 | combat_director.gd | Combat beat-queue playback director; holds a data-driven pause (combat_visuals pacing.turnPause) between combatants' turns; emits `playing_changed` so CombatScreen locks its commands during playback |
 | combat_stage.gd | Combat pixel stage: backdrop (location->context->palette); slots in two receding diagonal groups (enemies back/smaller), depth-sorted; up to 3 small reserve sprites per side (queue order) + `+N`, sliding in on entry; keypose one-shots, effects, juice layer. `StageSlot` taps emit `subject_tapped`; selected slot gets an arrow |
-| contact_cards.gd | Shared contact/faction card builders (incl. membership actions, faction Benefits tier ladder, handler card, Owen card, Targets/Sourcing, Nadia's ledger + "Go with Nadia", key-member card, pending-message actions incl. lowball Accept/Decline, peace offer Talk terms/Decline, favour Accept/Decline), inline Contacts action-row layout, OS chrome repaint |
+| contact_cards.gd | Shared contact/faction card builders (incl. membership actions, faction Benefits tier ladder, handler card, Owen card, Targets/Sourcing, Nadia's ledger + "Go with Nadia", key-member card, pending-message actions incl. lowball Accept/Decline, peace-offer and favour responses), inline Contacts action-row layout, Phone-OS chrome repaint (text-only for card-chrome apps) |
 | contract_card.gd | Draggable BizBrief Sales card |
 | line_chart.gd | `_draw` line chart (palette-id or app accent colour, optional overlaid series on a shared scale, max label, first/last day, optional counted event markers); opt-in touch/drag history-point inspection for Ticker, compact chart for BizBrief Stats |
 | price_move.gd | ▲/▼ + £ delta text and colour for a Market day move (Stock Market rows, sell lanes) |
@@ -168,14 +168,15 @@ overlays.
 | hq_diorama.gd | Generic plate/region artwork renderer; outlines regions flagged `selected`; owns the region hit rule (`zone_at`/`regions_at`: traced polygon else rect), the debug hit-shape overlay, and caption placement (polygon-centred for traced regions) |
 | icons.gd | 13 drawn icon glyphs |
 | map_bubble.gd | Popup listing tappable map options; paper-card frame and round action-icon states come from map_card_style.gd |
-| map_card_style.gd | Shared vein-popover card family: card tokens (via map_palette.gd), card/inset/action-circle styleboxes, card()/style_panel(), section_label(), text/symbol_text/chip buttons, option rows, round_button()/stepper()/quantity_slider(), footer(), check-button + symbol tinting. The one button/card look for every non-phone menu; off-map callers build inside MapPalette.build_light |
+| map_card_style.gd | Shared vein-popover card family: card tokens (via map_palette.gd), card/inset/action-circle styleboxes, card()/style_panel(), section_label(), text/symbol_text/chip buttons, option rows, round_button()/stepper()/quantity_slider(), footer(), check-button + symbol tinting. The one button/card look for every menu; card_theme.gd makes it the theme default |
+| card_theme.gd | CardTheme.apply(theme): writes the map-card look (quiet accent Button, sage OptionButton/LineEdit chips, card PanelContainer/Panel/PopupMenu, ink Label, check/bar/slider) into a Theme from current MapPalette tokens; Main re-applies to main_theme.tres on dark-toggle flip |
 | map_canvas.gd | Network diagram: layout/stops/lines, hit-testing (shop pins open the Trade menu, stockpile pins start a stockpile raid), static draw pass; tweens a vein's fullness ring on EventBus.vein_cultivated; delegates persistent halos and event-playback animations to map_halos.gd |
 | map_halos.gd | Persistent vein-charge halo + the five event-playback animations (discover ripple, seed/claim ring, charge burst, drain collapse, join-line growth); owned by map_canvas.gd |
 | map_controls.gd | Map controls drawer (map_card_style.gd-skinned): filters, faction isolate, pacing, Dark map toggle, legend button |
-| map_palette.gd | MapPalette: resolves Map palette tokens (data/map_palette.json) for the current light/dark mode (`meta.mapDarkMode`), plus faction/ore colours with optional dark-only overrides; every Map-tab colour reads through it; build_light() scopes a light-only build for off-Map reusers |
+| map_palette.gd | MapPalette: resolves Map palette tokens (data/map_palette.json) for the current light/dark mode (`meta.mapDarkMode`), plus faction/ore colours with optional dark-only overrides; every Map-tab and card-family colour reads through it |
 | map_legend.gd | Persistent faction-colour key; restyles in place on a dark-mode toggle |
 | map_zoom_buttons.gd | Floating +/- zoom control; restyles in place on a dark-mode toggle |
-| modal_layer.gd | Dim background + light map_card_style.gd card (content built inside MapPalette.build_light), with navy/red chrome for BizBrief contract cancellation; mounts full-screen sheets for sell_menu (Trade) and guard_kit, and dispatches other content through modal_registry.gd; draws the recipe book full-bleed (no card) with recipe detail as a card above it; tap-outside dismiss |
+| modal_layer.gd | Dim background + map_card_style.gd card (follows the dark toggle), with navy/red chrome for BizBrief contract cancellation; mounts full-screen sheets for sell_menu (Trade) and guard_kit, and dispatches other content through modal_registry.gd; draws the recipe book full-bleed (no card) with recipe detail as a card above it; tap-outside dismiss |
 | notification_ticker.gd | Top board's one-message notice row: presentation-only queue, roll-up from below, marquee for overflow, 4s hold; latest stays when empty; transient (combat-log) or keyed (notification id) queued entries droppable |
 | nav_bar.gd | Bottom nav dock (Phone·Map·HQ); swaps to MapPalette dark chrome tokens while the Map tab shows with Map dark mode on |
 | ore_glyphs.gd | Five canonical ore silhouettes as hand-drawn vectors; bundled-font coverage probe for non-map symbol fallback |
@@ -239,7 +240,7 @@ overlays.
 
 | File | Purpose |
 |---|---|
-| phone_app.gd | PhoneApp base: shell ref, build(content)/teardown()/surface_colour() hooks, shared back button + refresh |
+| phone_app.gd | PhoneApp base: shell ref, build(content)/teardown()/surface_colour()/card_chrome() hooks (card_chrome true = card theme, not Phone-OS pass), shared back button + refresh |
 | phone_app_registry.gd | app id -> PhoneApp script table; the only dispatch path phone.gd uses |
 | alarms_app.gd | Raid alarm rows: defend / leave undefended (two-tap) / decide later |
 | bizbrief_app.gd | BizBrief shell/tabs. Brief: tiered Today rows + routes (wage/poach → person, or Brief cards if Staff locked), Yesterday → Morning report page, Business money page, Market position page (moves, war, shares). Manage index → Sales/Production/Procurement pages. Gated Staff roster → person detail. Pot-gated completed-day Stats. Hosts Short Pay, Guard Costs |

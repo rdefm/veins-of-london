@@ -2,6 +2,10 @@ class_name DialerApp
 extends PhoneApp
 
 
+func card_chrome() -> bool:
+	return true
+
+
 func build(content: VBoxContainer) -> void:
 	content.add_child(back_button())
 	content.add_child(UI.heading("Phone"))

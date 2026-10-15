@@ -40,7 +40,7 @@ func _ready() -> void:
 func _refresh() -> void:
 	for child in _content.get_children():
 		child.queue_free()
-	MapPalette.build_light(_build)
+	_build()
 
 
 func _build() -> void:

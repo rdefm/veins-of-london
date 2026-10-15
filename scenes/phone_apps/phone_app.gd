@@ -24,6 +24,12 @@ func surface_colour() -> Variant:
 	return null
 
 
+# True: the app takes the shared card theme (CardTheme) instead of the
+# Phone-OS chrome pass; only loose surface text is re-coloured for the phone.
+func card_chrome() -> bool:
+	return false
+
+
 func back_button() -> Control:
 	return UI.button("‹ Back", func(): PhoneNav.go_home())
 

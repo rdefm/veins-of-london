@@ -4,27 +4,13 @@ extends RefCounted
 # Presentation-side accessor for the Map palette (M1.5 §Map palette,
 # data/map_palette.json): every colour the Map tab draws with resolves
 # through here at draw/build time, picking the light or dark token set from
-# GameState.state["meta"].get("mapDarkMode", false). Faction and ore colours
+# GameState.state["meta"].get("mapDarkMode", false). The same toggle drives
+# the off-map card family (CardTheme, MapCardStyle). Faction and ore colours
 # come from their own data tables, with an optional dark-only override per id.
 
 
-static var _light_scope: int = 0
-
-
 static func is_dark() -> bool:
-	if _light_scope > 0:
-		return false
 	return GameState.state.get("meta", {}).get("mapDarkMode", false)
-
-
-# Runs `build` with every token resolving to the light set, for screens off
-# the Map tab that reuse the map-card family (MapCardStyle) and must not
-# follow the Map-only dark toggle. Returns whatever `build` returns.
-static func build_light(build: Callable) -> Variant:
-	_light_scope += 1
-	var result: Variant = build.call()
-	_light_scope -= 1
-	return result
 
 
 static func colour(key: String) -> Color:

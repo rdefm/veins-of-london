@@ -34,11 +34,15 @@ var top_bar: Control
 var modal_layer: Control
 var bag_drawer: Control
 var current_screen_node: Control = null
+var _theme_dark: bool = false
 
 func _ready() -> void:
 	DisplayServer.screen_set_orientation(DisplayServer.SCREEN_PORTRAIT)
 
 	UI.anchor_full_rect(self)
+	_theme_dark = MapPalette.is_dark()
+	CardTheme.apply(theme)
+	EventBus.state_changed.connect(_sync_theme)
 
 	screen_container = Control.new()
 	screen_container.name = "ScreenContainer"
@@ -63,6 +67,13 @@ func _ready() -> void:
 
 	EventBus.screen_changed.connect(_on_screen_changed)
 	_show_screen(GameState.state["currentScreen"])
+
+# Re-skins the shared theme in place when the Map dark toggle flips.
+func _sync_theme() -> void:
+	if MapPalette.is_dark() == _theme_dark:
+		return
+	_theme_dark = MapPalette.is_dark()
+	CardTheme.apply(theme)
 
 func _on_screen_changed(screen_id: String) -> void:
 	_show_screen(screen_id)

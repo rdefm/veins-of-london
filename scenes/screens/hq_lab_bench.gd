@@ -20,9 +20,8 @@ func _ready() -> void:
 	resized.connect(_refresh)
 	_refresh()
 
-# Off the Map tab: light card family (MapCardStyle).
 func _refresh() -> void:
-	MapPalette.build_light(_build)
+	_build()
 
 
 # §5.1: one portrait plate, width-fit and vertically centred, the bands above

@@ -25,9 +25,7 @@ func _ready() -> void:
 	_dim.gui_input.connect(_on_dim_gui_input)
 	add_child(_dim)
 
-	# Off the Map tab: the light card family (MapCardStyle).
 	_card = PanelContainer.new()
-	MapPalette.build_light(func(): MapCardStyle.style_panel(_card, 18, 0.16))
 	UI.anchor_bottom_wide(_card)
 	_card.offset_top = -DRAWER_HEIGHT
 	_card.offset_bottom = 0
@@ -57,7 +55,8 @@ func _refresh() -> void:
 
 	for child in _content.get_children():
 		child.queue_free()
-	MapPalette.build_light(_build)
+	MapCardStyle.style_panel(_card, 18, 0.16)
+	_build()
 
 
 func _build() -> void:

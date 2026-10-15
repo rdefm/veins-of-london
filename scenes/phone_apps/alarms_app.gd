@@ -6,6 +6,10 @@ const RaidAlarmsSystem := preload("res://systems/raid_alarms.gd")
 var _leave_undefended_situation_id := ""
 
 
+func card_chrome() -> bool:
+	return true
+
+
 func build(content: VBoxContainer) -> void:
 	content.add_child(back_button())
 	content.add_child(UI.heading("Alarms"))

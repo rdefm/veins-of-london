@@ -12,9 +12,8 @@ func _ready() -> void:
 func _refresh() -> void:
 	for child in _content.get_children():
 		child.queue_free()
-	MapPalette.build_light(_build)
+	_build()
 
-# Off the Map tab: always the light map-card look (M1.5 §Map palette).
 func _build() -> void:
 	var nav: Dictionary = GameState.state["veinListNav"]
 	var district_id: Variant = nav.get("districtId")
@@ -96,7 +95,7 @@ func _build_vein_row(vein: Dictionary) -> Control:
 	c["content"].add_child(_dim_label("Growth: %d/%d — %s" % [vein["growth"], vein_ceiling, band["label"]]))
 	c["content"].add_child(MapCardStyle.style_bar(UI.bar(vein["growth"], vein_ceiling)))
 	if collapsed:
-		c["content"].add_child(MapCardStyle.label(Cultivating.COLLAPSED_VEIN_WARNING, 12, MapPalette.light("danger")))
+		c["content"].add_child(MapCardStyle.label(Cultivating.COLLAPSED_VEIN_WARNING, 12, MapPalette.colour("danger")))
 	else:
 		c["content"].add_child(_dim_label(Cultivating.days_to_wall_text(vein)))
 	var station_text: Variant = Rooms.vein_station_target_text(vein["id"])

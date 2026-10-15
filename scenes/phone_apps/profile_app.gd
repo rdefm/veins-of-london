@@ -2,6 +2,10 @@ class_name ProfileApp
 extends PhoneApp
 
 
+func card_chrome() -> bool:
+	return true
+
+
 func build(content: VBoxContainer) -> void:
 	if CombatPrep.is_editing_loadout():
 		_build_prep_focus(content)
@@ -13,11 +17,11 @@ func build(content: VBoxContainer) -> void:
 	content.add_child(_build_skills_card())
 	content.add_child(_build_equipment_card())
 	content.add_child(_build_loadout_card())
-	var dial_card: Variant = MapPalette.build_light(func(): return DialLoadoutMenu.build())
+	var dial_card: Variant = DialLoadoutMenu.build()
 	if dial_card != null:
 		content.add_child(dial_card)
 	for contact_id in DialLoadoutMenu.contact_owner_ids():
-		var ally_dial_card: Variant = MapPalette.build_light(func(): return DialLoadoutMenu.build(contact_id))
+		var ally_dial_card: Variant = DialLoadoutMenu.build(contact_id)
 		if ally_dial_card != null:
 			content.add_child(ally_dial_card)
 	for contact_id in Loadout.recruit_ids():
@@ -31,7 +35,7 @@ func _build_prep_focus(content: VBoxContainer) -> void:
 	content.add_child(UI.heading("Loadout"))
 	for owner_id in CombatPrep.loadout_owner_ids(CombatPrep.pending()):
 		content.add_child(_build_loadout_card(owner_id))
-		var dial_card: Variant = MapPalette.build_light(func(): return DialLoadoutMenu.build(owner_id))
+		var dial_card: Variant = DialLoadoutMenu.build(owner_id)
 		if dial_card != null:
 			content.add_child(dial_card)
 

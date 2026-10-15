@@ -74,15 +74,14 @@ func run() -> void:
 	)
 
 
-	run_case("vein_list_off_the_map_tab_stays_light_with_dark_mode_on", func():
+	run_case("vein_list_off_the_map_tab_follows_dark_mode", func():
 		GameState.reset()
 		GameState.state["meta"]["mapDarkMode"] = true
 		var screen := VeinListScreen.new()
 		screen._ready()
 
 		var panel: PanelContainer = screen._content.get_child(0)
-		assert_eq(_panel_bg(panel), MapPalette.colour_in("cardPaper", false), "vein list card keeps light paper")
-		assert_true(MapPalette.is_dark(), "the light scope ends with the build")
+		assert_eq(_panel_bg(panel), MapPalette.colour_in("cardPaper", true), "vein list card takes dark paper")
 
 		screen.free()
 		GameState.reset()
