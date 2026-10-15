@@ -104,7 +104,10 @@ static func actions_per_round(combatant: Dictionary) -> int:
 
 
 static func display_name(combatant: Dictionary) -> String:
-	return str(combatant["name"]).capitalize() if combatant["side"] == SIDE_ENEMY else "You"
+	if combatant["side"] != SIDE_ENEMY:
+		return "You"
+	var name: String = combatant["name"]
+	return name[0].to_upper() + name.substr(1)
 
 
 # ── Setup ────────────────────────────────────────────────────────────────
@@ -131,10 +134,19 @@ static func start(config: Dictionary = {}) -> Dictionary:
 	var combatants: Array = cp["combatants"]
 	combatants.append(_build_combatant(SIDE_PLAYER, _data()["playerBase"], int(config.get("playerLevel", 1))))
 	var overrides: Array = config.get("enemyPlans", [])
+	var archetype_counts: Dictionary = {}
+	for spec in enemy_specs:
+		archetype_counts[spec["archetype"]] = archetype_counts.get(spec["archetype"], 0) + 1
+	var archetype_seen: Dictionary = {}
 	for i in range(enemy_specs.size()):
 		var spec: Dictionary = enemy_specs[i]
 		var enemy := _build_combatant(SIDE_ENEMY, archetypes[spec["archetype"]], int(spec.get("level", 1)))
 		enemy["archetype"] = spec["archetype"]
+		# Two of a kind get lettered: "the mugger A", "the mugger B".
+		if archetype_counts[spec["archetype"]] > 1:
+			var nth: int = archetype_seen.get(spec["archetype"], 0)
+			archetype_seen[spec["archetype"]] = nth + 1
+			enemy["name"] = "%s %s" % [enemy["name"], char(65 + nth)]
 		enemy["planOverride"] = overrides[i] if i < overrides.size() else null
 		combatants.append(enemy)
 

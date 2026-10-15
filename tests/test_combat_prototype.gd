@@ -30,6 +30,24 @@ func _start_group(enemy_plans: Array, player_level: int = 1, seed_value: int = 1
 	})
 
 
+# First seed in 1..400 whose round, resolved with `plan`, has a player crit
+# landing guarded (or not); returns that crit beat, or {}.
+func _seed_where_player_crits(guarded: bool, enemy_rounds: Array, plan: Array) -> Dictionary:
+	GameState.reset()
+	for s in range(1, 401):
+		CombatPrototype.start({
+			"playerLevel": 2,
+			"enemies": [{ "archetype": "mugger", "level": 1 }],
+			"enemyPlans": [enemy_rounds],
+			"seed": s,
+		})
+		var result := CombatPrototype.resolve_round(_plan(plan))
+		for b in _hits(result["beats"]):
+			if b["actor"] == PLAYER and b["crit"] and b["guarded"] == guarded:
+				return b
+	return {}
+
+
 func _kinds(beats: Array) -> Array:
 	return beats.map(func(b): return [b["actor"], b["kind"]])
 
@@ -185,6 +203,74 @@ func run() -> void:
 		var last: Dictionary = result["beats"][-1]
 		assert_eq(last["actor"], PLAYER)
 		assert_eq(last["kind"], "chip", "the 3rd action resolves last, into the mugger's Guard")
+	)
+
+	run_case("a_level_3_player_against_a_group_acts_third_after_every_second_action", func():
+		var cp := _start_group([[["guard", "guard"]], [["guard", "guard"]]], 3)
+		var result := CombatPrototype.resolve_round(_plan(["guard", "guard", "guard"]))
+		assert_true(result["ok"], str(result))
+		assert_eq(result["beats"].map(func(b): return b["actor"]), [PLAYER, 1, 2, PLAYER, 1, 2, PLAYER], "the 3rd action lands after both enemies' 2nd")
+		assert_eq(cp["playerPlan"].size(), 3)
+	)
+
+	run_case("archetypes_plan_to_their_level_with_their_own_stats", func():
+		GameState.reset()
+		var cp := CombatPrototype.start({ "seed": 4, "enemies": [
+			{ "archetype": "bruiser", "level": 3 }, { "archetype": "turtle", "level": 1 }, { "archetype": "turtle", "level": 1 },
+		] })
+		var bruiser: Dictionary = cp["combatants"][1]
+		var turtle: Dictionary = cp["combatants"][2]
+		var arch: Dictionary = GameData.COMBAT_PROTOTYPE["archetypes"]
+		assert_eq(bruiser["plan"].size(), 3, "a level-3 enemy plans 3 actions")
+		assert_eq(bruiser["nextPlan"].size(), 3)
+		assert_eq(turtle["plan"].size(), 2)
+		assert_eq(bruiser["hpMax"], int(arch["bruiser"]["hpBase"]) + int(GameData.COMBAT_HP_BONUS_BY_LEVEL[3]), "archetype base plus the shared HP curve")
+		assert_eq(bruiser["attackMax"], int(arch["bruiser"]["attackMax"]) + int(GameData.COMBAT_ATTACK_BONUS_BY_LEVEL[3]))
+		assert_eq(bruiser["speed"], int(GameData.COMBAT_SPEED_BY_LEVEL[3]))
+		assert_eq([turtle["name"], cp["combatants"][3]["name"]], ["the turtle A", "the turtle B"], "two of a kind are lettered")
+		assert_eq(bruiser["name"], "the bruiser")
+	)
+
+	run_case("a_seeded_crit_on_an_open_target_doubles_the_hit", func():
+		var crit := _seed_where_player_crits(false, [["strike", "strike"]], ["guard", "strike"])
+		assert_true(not crit.is_empty(), "some seed in range crits")
+		assert_eq(crit["kind"], "hit")
+		assert_eq(crit["dmg"], crit["roll"] * 2)
+		var enemy: Dictionary = GameState.state["combatPrototype"]["combatants"][ENEMY]
+		assert_eq(enemy["hp"], maxi(0, enemy["hpMax"] - crit["dmg"]))
+	)
+
+	run_case("a_seeded_crit_on_a_guarded_target_doubles_the_chip", func():
+		var crit := _seed_where_player_crits(true, [["guard", "guard"]], ["strike", "strike"])
+		assert_true(not crit.is_empty(), "some seed in range crits")
+		assert_eq(crit["kind"], "chip", "a crit doesn't pierce guard")
+		var chip := maxi(1, GameState.round_epsilon(crit["roll"] * float(GameData.COMBAT_PROTOTYPE["chipMultiplier"])))
+		assert_eq(crit["dmg"], chip * 2)
+	)
+
+	run_case("an_action_aimed_at_an_enemy_kod_earlier_in_the_round_retargets_the_next_living_one", func():
+		var cp := _start_group([[["guard", "guard"]], [["guard", "guard"]], [["guard", "guard"]]])
+		cp["combatants"][2]["hp"] = 1
+		var result := CombatPrototype.resolve_round([{ "move": "strike", "target": 2 }, { "move": "strike", "target": 2 }])
+		assert_true(result["ok"], str(result))
+		var hits := _hits(result["beats"])
+		assert_eq(hits.map(func(b): return b["target"]), [2, 3], "the 2nd Strike moves on to the next enemy")
+		assert_true(cp["combatants"][2]["koed"])
+		assert_eq(cp["combatants"][3]["hp"], cp["combatants"][3]["hpMax"] - hits[1]["dmg"])
+		assert_eq(cp["combatants"][1]["hp"], cp["combatants"][1]["hpMax"])
+	)
+
+	run_case("a_multi_enemy_fight_resolves_in_timeline_order", func():
+		GameState.reset()
+		var cp := CombatPrototype.start({
+			"playerLevel": 1,
+			"enemies": [{ "archetype": "turtle", "level": 1 }, { "archetype": "bruiser", "level": 2 }, { "archetype": "mugger", "level": 1 }],
+			"enemyPlans": [[["guard", "guard"]], [["guard", "guard"]], [["guard", "guard"]]],
+			"seed": 2,
+		})
+		assert_true(cp["combatants"][2]["speed"] > cp["combatants"][PLAYER]["speed"], "the level-2 bruiser is fastest")
+		var result := CombatPrototype.resolve_round(_plan(["guard", "guard"]))
+		assert_eq(result["beats"].map(func(b): return b["actor"]), [2, PLAYER, 1, 3, 2, PLAYER, 1, 3], "index, then speed, then player before enemies in array order")
 	)
 
 	run_case("rewind_restores_the_pre_commit_state_with_the_plan_editable", func():

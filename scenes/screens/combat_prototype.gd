@@ -2,12 +2,18 @@ class_name CombatPrototypeScreen
 extends Control
 
 # Debug-app-only sandbox screen for systems/combat_prototype.gd: setup
-# (player Combat Skill level), then per round the combatants with their
-# guard-state preview, the shared timeline with enemy intents and the
-# player's draft positions, Commit, Rewind and the beat log.
+# (player and enemy Combat Skill levels, 1-3 enemies by archetype), then per
+# round the combatants with their guard-state preview, the shared timeline
+# with enemy intents and the player's draft positions, Commit, Rewind and the
+# beat log.
 
-# View state only: the setup level pick, kept across rebuilds.
+# Setup's enemy count cap (spec §Out of Scope: no more than 3 per side).
+const MAX_ENEMIES := 3
+
+# View state only: the setup picks, kept across rebuilds.
 var _player_level: int = 1
+var _enemy_level: int = 1
+var _enemy_archetypes: Array = [CombatPrototype.DEFAULT_ARCHETYPE]
 # View state only: why the last palette pick was refused, until the next pick.
 var _refusal: String = ""
 
@@ -55,16 +61,50 @@ func _build() -> void:
 func _build_setup_card() -> Control:
 	var c := MapCardStyle.card()
 	c["content"].add_child(UI.heading("Setup", 14))
+	c["content"].add_child(_level_select("Your Combat Skill: %d", _player_level, func(level: int): _player_level = level))
+	c["content"].add_child(_level_select("Enemy level: %d", _enemy_level, func(level: int): _enemy_level = level))
+
+	var counts: Array = []
+	for n in range(1, MAX_ENEMIES + 1):
+		counts.append("%d enem%s" % [n, "y" if n == 1 else "ies"])
+	var count_select := UI.option_button(counts)
+	count_select.selected = _enemy_archetypes.size() - 1
+	count_select.item_selected.connect(_set_enemy_count)
+	c["content"].add_child(count_select)
+
+	var archetype_ids: Array = GameData.COMBAT_PROTOTYPE["archetypes"].keys()
+	var archetype_names: Array = archetype_ids.map(func(id): return str(GameData.COMBAT_PROTOTYPE["archetypes"][id]["name"]).capitalize())
+	for i in range(_enemy_archetypes.size()):
+		var select := UI.option_button(archetype_names)
+		select.selected = maxi(0, archetype_ids.find(_enemy_archetypes[i]))
+		select.item_selected.connect(func(index: int): _enemy_archetypes[i] = archetype_ids[index])
+		c["content"].add_child(select)
+
+	c["content"].add_child(MapCardStyle.text_button("Start", func(): CombatPrototype.start({
+		"playerLevel": _player_level,
+		"enemies": _enemy_archetypes.map(func(id): return { "archetype": id, "level": _enemy_level }),
+	})))
+	return c["panel"]
+
+
+func _level_select(text: String, current: int, on_pick: Callable) -> OptionButton:
 	var levels: Array = []
 	for level in range(1, CombatPrototype.level_max() + 1):
-		levels.append("Your Combat Skill: %d" % level)
-	var level_select := UI.option_button(levels)
-	level_select.selected = _player_level - 1
-	level_select.item_selected.connect(func(index: int): _player_level = index + 1)
-	c["content"].add_child(level_select)
-	c["content"].add_child(UI.muted_label("Against one level-1 mugger."))
-	c["content"].add_child(MapCardStyle.text_button("Start", func(): CombatPrototype.start({ "playerLevel": _player_level })))
-	return c["panel"]
+		levels.append(text % level)
+	var select := UI.option_button(levels)
+	select.selected = current - 1
+	select.item_selected.connect(func(index: int): on_pick.call(index + 1))
+	return select
+
+
+# Grows (repeating the last pick) or trims the enemy list, then rebuilds so
+# the per-enemy archetype pickers match.
+func _set_enemy_count(index: int) -> void:
+	var count := index + 1
+	while _enemy_archetypes.size() < count:
+		_enemy_archetypes.append(_enemy_archetypes[-1])
+	_enemy_archetypes.resize(count)
+	_refresh()
 
 
 func _build_combatant_card(cp: Dictionary, index: int) -> Control:

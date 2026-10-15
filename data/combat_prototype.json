@@ -40,6 +40,23 @@
         { "weight": 1, "moves": ["strike", "strike"] },
         { "weight": 1, "moves": ["guard", "guard"] }
       ]
+    },
+    "bruiser": {
+      "name": "the bruiser", "hpBase": 38, "attackMin": 7, "attackMax": 13,
+      "patterns": [
+        { "weight": 4, "moves": ["strike", "strike", "strike"] },
+        { "weight": 3, "moves": ["strike", "strike", "guard"] },
+        { "weight": 2, "moves": ["guard", "strike", "strike"] },
+        { "weight": 1, "moves": ["strike", "guard", "strike"] }
+      ]
+    },
+    "turtle": {
+      "name": "the turtle", "hpBase": 36, "attackMin": 4, "attackMax": 8,
+      "patterns": [
+        { "weight": 5, "moves": ["guard", "guard", "guard"] },
+        { "weight": 3, "moves": ["guard", "strike", "guard"] },
+        { "weight": 2, "moves": ["guard", "guard", "strike"] }
+      ]
     }
   },
   "beatLines": {
