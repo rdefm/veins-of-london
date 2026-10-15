@@ -85,6 +85,18 @@ func run() -> void:
 	)
 
 
+	run_case("dossier_shows_benefits_ladder_open_with_current_tier_marker", func():
+		GameState.reset()
+		GameState.state["factions"]["guild"]["relation"] = 30
+		var phone := _open_dossier("guild")
+		var joined := "
+".join(NodeQuery.label_texts(phone))
+		assert_true(_button_with_text(phone, "Benefits ▾") != null, "benefits open by default")
+		assert_true(joined.contains("Friendly — Relation ≥25  ◀ you are here"), "current tier marked")
+		assert_true(joined.contains("Sworn — Joined  🔒"), "locked tier hinted")
+		phone.free()
+	)
+
 	run_case("dossier_orders_actions_before_description_and_hides_unreached_intel", func():
 		GameState.reset()
 		var phone := _open_dossier("guild")

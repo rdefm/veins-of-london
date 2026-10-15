@@ -36,6 +36,7 @@ var politics_open := false
 var shares_open := false
 var _share_ore: String = GameData.CANONICAL_ORE_TYPES[0]
 var selected_pair := ""
+var _benefits_open := true
 var _intel_open := false
 var _activity_open := false
 
@@ -85,6 +86,7 @@ func _build_dossier(content: VBoxContainer, faction_id: String) -> void:
 	box.add_child(_build_identity(faction_id))
 	box.add_child(_build_footprint(faction_id))
 	var disclosures := UI.vbox(0)
+	disclosures.add_child(_collapsible("Benefits", _benefits_open, func(open: bool): _benefits_open = open, _build_benefits(faction_id)))
 	disclosures.add_child(_collapsible("Intel", _intel_open, func(open: bool): _intel_open = open, _build_intel(faction_id)))
 	disclosures.add_child(_collapsible("Activity", _activity_open, func(open: bool): _activity_open = open, _build_activity(faction_id)))
 	disclosures.add_child(_divider())
@@ -1009,6 +1011,46 @@ func _build_partner(faction_id: String) -> Control:
 
 # Your intel level on the faction and one line per level reached; nothing
 # past the level shows.
+# Tier ladder from Perks.benefit_rows: current tier marked, locked steps dimmed
+# with the unlock requirement, per-perk active badge, turf perks list districts.
+func _build_benefits(faction_id: String) -> Control:
+	var box := UI.vbox(4)
+	var current := Perks.player_tier(faction_id)
+	var last_tier := ""
+	for row in Perks.benefit_rows(faction_id):
+		var unlocked: bool = row["unlocked"]
+		if row["tier"] != last_tier:
+			last_tier = row["tier"]
+			var title := "%s — %s" % [row["tier_label"], row["requirement"]]
+			if last_tier == current:
+				title += "  ◀ you are here"
+			elif not unlocked:
+				title += "  🔒"
+			var head := _wrap(title, 12, _oxide() if unlocked else _muted())
+			head.modulate = Color.WHITE if unlocked else Color(1, 1, 1, 0.6)
+			box.add_child(head)
+		var perk: Dictionary = row["perk"]
+		var badge := "ACTIVE" if row["active"] else ("idle" if unlocked else "locked")
+		var text := "%s%s [%s]
+%s" % [perk["label"], " (turf)" if row["scope"] == "turf" else "", badge, perk["description"]]
+		if row["scope"] == "turf" and unlocked:
+			if row["districts"].is_empty():
+				text += "
+No turf held yet."
+			else:
+				var parts := PackedStringArray()
+				for d in row["districts"]:
+					parts.append(GameData.DISTRICTS[d["district"]]["name"] + (" (reduced)" if d["strength"] == "reduced" else ""))
+				text += "
+Active in: " + ", ".join(parts)
+		var line := _wrap(text, 12, _ink())
+		line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		if not unlocked:
+			line.modulate = Color(1, 1, 1, 0.45)
+		box.add_child(line)
+	return box
+
+
 func _build_intel(faction_id: String) -> Control:
 	var box := UI.vbox(2)
 	var reached := Intel.level(Shares.PLAYER, faction_id)
