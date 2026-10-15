@@ -8,13 +8,13 @@ extends Control
 # A recipe's page shows best rank and auto-craft at best rank; the book's
 # back page holds every debug control, Rewind and the ledger.
 #
-# "Craft manually" docks the book over the bottom half (the plate fits the
-# top half) for a freeform run (.scratch/lab-revamp/spec.md §Slice A):
+# "Craft manually" docks the book in the floor band under the top-aligned
+# plate for a freeform run (.scratch/lab-revamp/spec.md §Slice A):
 # recipe jars tap calc in, apparatus pop their gauge over the plate, and
 # the book's Finish -- the only way out -- shows the result in place.
 
 const LEDGER_ROWS := 12
-const _DOCK_FRACTION := 0.5
+const _DOCK_MIN_HEIGHT := 160.0
 const _GAUGE_WIDTH := 300.0
 const _INSET := 4.0
 const _BADGE_HEIGHT := 26.0
@@ -85,19 +85,18 @@ func _show(page: Page) -> void:
 
 # ── Plate ────────────────────────────────────────────────────────────────
 
-# §5.1: the Lab's portrait plate centred in area, the space around it
+# §5.1: the Lab's portrait plate, width-fit in area, the space around it
 # filled with the plate's wall colour and the space below with its floor
-# colour. Undocked it is width-fit with the status line and Exit; docked
-# it fits whole above the book, with neither.
-func _build_plate(area: Rect2, docked: bool = false) -> void:
+# colour. Undocked it is centred vertically with the status line and Exit;
+# docked it sits at the top of area, with neither. Returns the plate's
+# bottom edge.
+func _build_plate(area: Rect2, docked: bool = false) -> float:
 	var plate: Dictionary = GameData.HQ_VISUALS["labBench"]
 	var plate_size := Vector2(plate["width"], plate["height"])
 	var available: Vector2 = area.size if area.size.x > 0.0 and area.size.y > 0.0 else plate_size
 	var scale_factor: float = available.x / plate_size.x
-	if docked:
-		scale_factor = minf(scale_factor, available.y / plate_size.y)
 	var scaled := plate_size * scale_factor
-	var origin: Vector2 = area.position + (available - scaled) / 2.0
+	var origin: Vector2 = area.position + Vector2(0.0, 0.0 if docked else (available.y - scaled.y) / 2.0)
 	var full: Vector2 = size if size.x > 0.0 and size.y > 0.0 else available
 	var floor_top: float = origin.y + scaled.y
 
@@ -120,12 +119,13 @@ func _build_plate(area: Rect2, docked: bool = false) -> void:
 
 	_add_ore_badges(visible_plate["regions"], frame.position, scale_factor)
 	if docked:
-		return
+		return floor_top
 	_add_status_line(Rect2(0.0, floor_top, full.x, maxf(full.y - floor_top, _STATUS_MIN_HEIGHT)))
 
 	var back := MapCardStyle.chip_button("‹ Exit", func(): BenchPrototype.exit())
 	back.position = Vector2(_INSET, UI.safe_area_top_inset() + _INSET)
 	add_child(back)
+	return floor_top
 
 
 func _add_band(palette_id: String, rect: Rect2) -> void:
@@ -418,8 +418,10 @@ func _undock() -> void:
 
 func _build_run() -> void:
 	var top := UI.safe_area_top_inset()
-	var dock_top: float = size.y * _DOCK_FRACTION
-	_build_plate(Rect2(0.0, top, size.x, maxf(dock_top - top, 0.0)), true)
+	var plate_bottom := _build_plate(Rect2(0.0, top, size.x, maxf(size.y - top, 0.0)), true)
+	# The book takes the floor band under the plate, never less than
+	# _DOCK_MIN_HEIGHT (it then overlaps the plate's bottom edge).
+	var dock_top: float = minf(plate_bottom, size.y - _DOCK_MIN_HEIGHT)
 
 	var book := _build_docked_book()
 	UI.anchor_full_rect(book)
@@ -433,8 +435,8 @@ func _build_run() -> void:
 		var centre := CenterContainer.new()
 		UI.anchor_full_rect(centre)
 		centre.offset_top = top
-		centre.anchor_bottom = _DOCK_FRACTION
-		centre.offset_bottom = 0.0
+		centre.anchor_bottom = 0.0
+		centre.offset_bottom = dock_top
 		centre.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		centre.add_child(_build_gauge_card(_gauge))
 		add_child(centre)
