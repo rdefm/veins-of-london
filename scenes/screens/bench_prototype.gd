@@ -7,8 +7,15 @@ extends Control
 # zone opens the prototype's recipe book (known recipes only, §5.2 look).
 # A recipe's page shows best rank and auto-craft at best rank; the book's
 # back page holds every debug control, Rewind and the ledger.
+#
+# "Craft manually" docks the book over the bottom half (the plate fits the
+# top half) for a freeform run (.scratch/lab-revamp/spec.md §Slice A):
+# recipe jars tap calc in, apparatus pop their gauge over the plate, and
+# the book's Finish -- the only way out -- shows the result in place.
 
 const LEDGER_ROWS := 12
+const _DOCK_FRACTION := 0.5
+const _GAUGE_WIDTH := 300.0
 const _INSET := 4.0
 const _BADGE_HEIGHT := 26.0
 const _BADGE_FONT_SIZE := 14
@@ -20,14 +27,19 @@ const _OVERLAY_MARGIN := 8.0
 # Art-space writing area of RecipeBookPage's art, left of the side tabs.
 const _BACK_PAGE_RECT := Rect2(206, 190, 626, 1180)
 
-enum Page { NONE, BOOK, RECIPE, DEBUG }
+enum Page { NONE, BOOK, RECIPE, DEBUG, RUN }
 
-# View state only: which book page is open and the picked batch size.
+# View state only: which book page is open, the picked batch size, and in a
+# docked run the open gauge's apparatus, the last refusal notice and the
+# finished run's result.
 var _page := Page.NONE
 var _book_page := 0
 var _recipe_id := ""
 var _craft_qty := 1
 var _debug_scroll := 0
+var _gauge := ""
+var _notice := ""
+var _result := {}
 
 var _diorama: HqDiorama
 var _debug_scroller: ScrollContainer
@@ -48,7 +60,15 @@ func _refresh() -> void:
 		remove_child(child)
 		child.queue_free()
 	_diorama = null
-	_build_plate()
+	# An open run keeps the book docked on its recipe until Finish.
+	var run = GameState.state["benchPrototype"]["activeRun"]
+	if run != null:
+		_page = Page.RUN
+		_recipe_id = run["recipeId"]
+	if _page == Page.RUN:
+		_build_run()
+		return
+	_build_plate(Rect2(Vector2.ZERO, size))
 	match _page:
 		Page.BOOK:
 			_build_overlay(_build_book())
@@ -65,22 +85,28 @@ func _show(page: Page) -> void:
 
 # ── Plate ────────────────────────────────────────────────────────────────
 
-# §5.1: the Lab's portrait plate, width-fit and vertically centred, the
-# bands above and below filled with the plate's wall/floor colours.
-func _build_plate() -> void:
+# §5.1: the Lab's portrait plate centred in area, the space around it
+# filled with the plate's wall colour and the space below with its floor
+# colour. Undocked it is width-fit with the status line and Exit; docked
+# it fits whole above the book, with neither.
+func _build_plate(area: Rect2, docked: bool = false) -> void:
 	var plate: Dictionary = GameData.HQ_VISUALS["labBench"]
 	var plate_size := Vector2(plate["width"], plate["height"])
-	var available: Vector2 = size if size.x > 0.0 and size.y > 0.0 else plate_size
+	var available: Vector2 = area.size if area.size.x > 0.0 and area.size.y > 0.0 else plate_size
 	var scale_factor: float = available.x / plate_size.x
-	var scaled_height: float = plate_size.y * scale_factor
-	var top: float = (available.y - scaled_height) / 2.0
+	if docked:
+		scale_factor = minf(scale_factor, available.y / plate_size.y)
+	var scaled := plate_size * scale_factor
+	var origin: Vector2 = area.position + (available - scaled) / 2.0
+	var full: Vector2 = size if size.x > 0.0 and size.y > 0.0 else available
+	var floor_top: float = origin.y + scaled.y
 
-	_add_band(plate.get("bandTopColor", ""), Rect2(0.0, 0.0, available.x, maxf(top, 0.0)))
-	_add_band(plate.get("bandBottomColor", ""), Rect2(0.0, top + scaled_height, available.x, maxf(available.y - top - scaled_height, 0.0)))
+	_add_band(plate.get("bandTopColor", ""), Rect2(Vector2.ZERO, full))
+	_add_band(plate.get("bandBottomColor", ""), Rect2(0.0, floor_top, full.x, maxf(full.y - floor_top, 0.0)))
 
 	var frame := Control.new()
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	frame.position = Vector2(0.0, top)
+	frame.position = origin
 	frame.size = plate_size
 	frame.scale = Vector2(scale_factor, scale_factor)
 	add_child(frame)
@@ -93,7 +119,9 @@ func _build_plate() -> void:
 	frame.add_child(_diorama)
 
 	_add_ore_badges(visible_plate["regions"], frame.position, scale_factor)
-	_add_status_line(Rect2(0.0, top + scaled_height, available.x, maxf(available.y - top - scaled_height, _STATUS_MIN_HEIGHT)))
+	if docked:
+		return
+	_add_status_line(Rect2(0.0, floor_top, full.x, maxf(full.y - floor_top, _STATUS_MIN_HEIGHT)))
 
 	var back := MapCardStyle.chip_button("‹ Exit", func(): BenchPrototype.exit())
 	back.position = Vector2(_INSET, UI.safe_area_top_inset() + _INSET)
@@ -167,8 +195,32 @@ func _on_diorama_gui_input(event: InputEvent) -> void:
 		or (event is InputEventScreenTouch)
 	if not is_touch_event or not event.pressed:
 		return
-	if _diorama.zone_at(event.position) == "notebookRecipes":
+	var zone := _diorama.zone_at(event.position)
+	if _page == Page.RUN:
+		_on_run_zone_tapped(zone)
+	elif zone == "notebookRecipes":
 		_show(Page.BOOK)
+
+
+# Docked run: a jar taps its calc in, an apparatus opens its gauge; a
+# refusal shows as the book's notice. Taps wait while a gauge or the result
+# is open.
+func _on_run_zone_tapped(zone: String) -> void:
+	if _gauge != "" or not _result.is_empty():
+		return
+	var outcome := {}
+	if zone.begins_with(LabBenchNav.ORE_REGION_PREFIX):
+		_notice = ""
+		outcome = BenchPrototype.add_ore(_recipe_id, zone.trim_prefix(LabBenchNav.ORE_REGION_PREFIX))
+	elif zone.begins_with(LabBenchNav.APPARATUS_REGION_PREFIX):
+		outcome = BenchPrototype.check_apparatus()
+		if outcome["ok"]:
+			_notice = ""
+			_gauge = zone.trim_prefix(LabBenchNav.APPARATUS_REGION_PREFIX)
+			_refresh()
+	if not outcome.get("ok", true):
+		_notice = outcome["reason"]
+		_refresh()
 
 
 # ── Book overlay ─────────────────────────────────────────────────────────
@@ -344,9 +396,192 @@ func _build_recipe_card() -> Control:
 	content.add_child(MapCardStyle.quantity_slider("Batch", _craft_qty, most, on_change, func(value: int): _craft_qty = value))
 	content.add_child(total)
 	content.add_child(craft)
-	content.add_child(MapCardStyle.text_button("Craft manually", func(): pass, true))
+	content.add_child(MapCardStyle.text_button("Craft manually", _dock))
 	content.add_child(MapCardStyle.footer([MapCardStyle.text_button("Back to book", func(): _show(Page.BOOK))]))
 	return c["panel"]
+
+
+func _dock() -> void:
+	_gauge = ""
+	_notice = ""
+	_result = {}
+	_show(Page.RUN)
+
+
+# Leaves the docked book for the recipe page; an open run keeps it docked.
+func _undock() -> void:
+	_result = {}
+	_show(Page.RECIPE)
+
+
+# ── Docked run ───────────────────────────────────────────────────────────
+
+func _build_run() -> void:
+	var top := UI.safe_area_top_inset()
+	var dock_top: float = size.y * _DOCK_FRACTION
+	_build_plate(Rect2(0.0, top, size.x, maxf(dock_top - top, 0.0)), true)
+
+	var book := _build_docked_book()
+	UI.anchor_full_rect(book)
+	book.offset_left = _OVERLAY_MARGIN
+	book.offset_right = -_OVERLAY_MARGIN
+	book.offset_top = dock_top
+	book.offset_bottom = -_OVERLAY_MARGIN
+	add_child(book)
+
+	if _gauge != "":
+		var centre := CenterContainer.new()
+		UI.anchor_full_rect(centre)
+		centre.offset_top = top
+		centre.anchor_bottom = _DOCK_FRACTION
+		centre.offset_bottom = 0.0
+		centre.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		centre.add_child(_build_gauge_card(_gauge))
+		add_child(centre)
+
+
+# The docked book page: the recipe's known steps (each with its band on a
+# 0-100 track) and Finish, or after Finish the run's result.
+func _build_docked_book() -> Control:
+	var c := MapCardStyle.card(14, 0.16)
+	var scroller := UI.scroll_container()
+	scroller.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var content := UI.vbox(6)
+	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroller.add_child(content)
+	c["content"].add_child(scroller)
+
+	var recipe: Dictionary = GameData.BENCH_PROTOTYPE["recipes"][_recipe_id]
+	content.add_child(UI.heading(recipe["name"], 18))
+	if not _result.is_empty():
+		_add_result(content)
+		c["content"].add_child(MapCardStyle.footer([MapCardStyle.text_button("Done", _undock)]))
+		return c["panel"]
+
+	var run = GameState.state["benchPrototype"]["activeRun"]
+	if run == null:
+		content.add_child(UI.muted_label("Tap a %s jar to start." % _jar_names(recipe["baseCalc"])))
+	else:
+		content.add_child(UI.label("In the mixture: %s · steps done: %d" % [_pool_text(run["calcSpent"]), run["performed"].size()]))
+	if _notice != "":
+		content.add_child(MapCardStyle.label(_notice, 13, MapCardStyle.action()))
+	var steps := BenchPrototype.known_procedure(_recipe_id)
+	for i in steps.size():
+		_add_known_step(content, i, steps[i])
+	c["content"].add_child(MapCardStyle.footer([MapCardStyle.text_button("Finish", _on_finish)]))
+	return c["panel"]
+
+
+func _jar_names(base_calc: Dictionary) -> String:
+	var names := PackedStringArray()
+	for ore_type in base_calc.keys():
+		names.append(String(ore_type))
+	return " or ".join(names)
+
+
+func _add_known_step(content: VBoxContainer, index: int, step: Dictionary) -> void:
+	var calc: Dictionary = step.get("calc", {})
+	var ores := ""
+	for ore_type in calc.keys():
+		ores += " · %s ×%d" % [ore_type, calc[ore_type]]
+	var region := BenchPrototype.step_region(_recipe_id, step)
+	var band_text: String = "≈ %d–%d" if region["vague"] else "%d–%d"
+	content.add_child(UI.label("%d. %s%s · %s" % [index + 1, LabBenchNav.apparatus_name(step["apparatus"]), ores, band_text % [roundi(region["low"]), roundi(region["high"])]]))
+	var band := BandGauge.new()
+	band.band_low = region["low"]
+	band.band_high = region["high"]
+	band.band_vague = region["vague"]
+	content.add_child(band)
+	if step.has("note"):
+		content.add_child(UI.muted_label(step["note"]))
+
+
+func _on_finish() -> void:
+	if GameState.state["benchPrototype"]["activeRun"] == null:
+		_undock()
+		return
+	_result = BenchPrototype.finish_procedure_run()
+	_refresh()
+
+
+func _add_result(content: VBoxContainer) -> void:
+	var entry: Dictionary = _result["entry"]
+	if entry["kind"] == "cracked":
+		content.add_child(UI.label("The vessel cracked. No item, and the calc is lost."))
+	else:
+		content.add_child(UI.label("Score %d → rank %d" % [entry["score"], entry["rank"]]))
+		if _result.get("newBest", false):
+			content.add_child(MapCardStyle.label("New best rank.", 14, MapCardStyle.action()))
+		content.add_child(UI.muted_label("Best rank: %s · +%d XP" % [_rank_text(entry["recipeId"]), entry["xp"]]))
+		if entry["bonus"] != null:
+			content.add_child(UI.label("Bonus: %s" % GameData.BENCH_PROTOTYPE["bonus"]["types"][entry["bonus"]]["label"]))
+		if entry.has("steps"):
+			var steps := UI.muted_label(_steps_text(entry["steps"]) if not entry["steps"].is_empty() else "No steps performed.")
+			steps.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			content.add_child(steps)
+		if entry["flavour"] != null:
+			var flavour := UI.muted_label(entry["flavour"])
+			flavour.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			content.add_child(flavour)
+	content.add_child(MapCardStyle.text_button("Rewind", _on_rewind, GameState.state["benchPrototype"]["snapshots"].is_empty()))
+
+
+func _on_rewind() -> void:
+	_result = {}
+	_page = Page.RECIPE
+	BenchPrototype.rewind()
+
+
+# The apparatus's gauge over the plate; its commit performs the step.
+func _build_gauge_card(apparatus: String) -> Control:
+	var c := MapCardStyle.card(18, 0.16)
+	c["panel"].custom_minimum_size.x = _GAUGE_WIDTH
+	var content: VBoxContainer = c["content"]
+	content.add_child(UI.heading(LabBenchNav.apparatus_name(apparatus), 16))
+	var g := BenchPrototype.gauge(apparatus)
+	var gauge: StepGauge
+	match apparatus:
+		"grinding":
+			var grind := GrindGauge.new()
+			grind.strokes = int(g["strokes"])
+			grind.period_sec = float(g["swingPeriodSec"])
+			grind.committed.connect(func(readings: Array): _perform(func(): return BenchPrototype.perform_grind(readings)))
+			content.add_child(UI.muted_label("Tap %d strokes on the swing." % grind.strokes))
+			gauge = grind
+		"distilling":
+			var distil := DistilGauge.new()
+			distil.drips = int(g["drips"])
+			distil.beat_msec = float(g["beatMsec"])
+			distil.fall_msec = float(g["fallMsec"])
+			distil.lead_in_msec = float(g["leadInMsec"])
+			distil.committed.connect(func(taps: Array): _perform(func(): return BenchPrototype.perform_distil(taps)))
+			content.add_child(UI.muted_label("Tap each drip as it falls."))
+			gauge = distil
+		_:
+			var hold := HoldGauge.new()
+			hold.rise_per_sec = float(g["risePerSec"])
+			hold.crack_at = float(g.get("crackAt", -1.0))
+			hold.committed.connect(func(value: float): _perform(func(): return BenchPrototype.perform_step(apparatus, value)))
+			content.add_child(UI.muted_label("Hold, then release."))
+			gauge = hold
+	content.add_child(gauge)
+	content.add_child(MapCardStyle.footer([MapCardStyle.text_button("Cancel", _close_gauge)]))
+	return c["panel"]
+
+
+func _close_gauge() -> void:
+	_gauge = ""
+	_refresh()
+
+
+# Closes the gauge before the step's state change rebuilds the screen; a
+# crack ends the run and shows its result on the book.
+func _perform(step: Callable) -> void:
+	_gauge = ""
+	var outcome: Dictionary = step.call()
+	if outcome.get("cracked", false):
+		_result = outcome
+	_refresh()
 
 
 # ── Debug back page ──────────────────────────────────────────────────────
@@ -440,8 +675,6 @@ func _entry_text(entry: Dictionary) -> String:
 	match entry["kind"]:
 		"batch":
 			return "Batch %s ×%d at rank %d · +%d XP" % [recipe_name, entry["items"], entry["rank"], entry["xp"]]
-		"abandoned":
-			return "Abandoned %s · %.1fs" % [recipe_name, entry["durationMsec"] / 1000.0]
 		"cracked":
 			return "Cracked the vessel on %s · %.1fs · calc lost" % [recipe_name, entry["durationMsec"] / 1000.0]
 	var bonus_text := ""
@@ -468,7 +701,8 @@ func _steps_text(steps: Array) -> String:
 			reading = "/".join(PackedStringArray(step["readings"].map(func(r): return "–" if r == null else str(roundi(r)))))
 		else:
 			reading = str(roundi(step["value"]))
-		parts.append("%s %s (%s)" % [step["apparatus"], reading, accuracy])
+		var ores: String = "" if step.get("ores", []).is_empty() else " +" + "+".join(PackedStringArray(step["ores"]))
+		parts.append("%s%s %s (%s)" % [step["apparatus"], ores, reading, accuracy])
 	return " · ".join(parts)
 
 
@@ -503,6 +737,16 @@ class StepGauge extends Control:
 
 	func _draw_needle(value: float) -> void:
 		draw_line(Vector2(_x(value), 0), Vector2(_x(value), size.y), MapCardStyle.ink(), 3.0)
+
+
+# The docked book's read-only track for a known step's band.
+class BandGauge extends StepGauge:
+	func _init() -> void:
+		custom_minimum_size = Vector2(0, 24)
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _draw() -> void:
+		_draw_track()
 
 
 # Heat / compress: hold and the needle rises; release commits the raw

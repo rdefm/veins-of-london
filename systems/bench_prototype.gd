@@ -7,23 +7,23 @@ extends RefCounted
 # Reads the player's real craftingSkill as a default and never writes
 # anything outside benchPrototype -- no real inventory, XP or bench state.
 #
-# A manual run is begin_run() -> finish_run(score) (or abandon_run()).
-# begin_run() pushes the Rewind snapshot and spends the recipe's base calc
-# up front; finish_run() turns the score into a rank, raises best rank,
-# rolls the re-run bonus and the bad-run flavour line, and logs the item.
-#
-# The real run is begin_procedure_run() -> one perform_*() per step with
-# the raw gauge input (heat/compress released value, grind stroke
-# readings, distil tap timings). Calc is spent step by step as each step is
-# performed; the last step scores the run (spec §Slice A) and hands the
-# score to finish_run(). A compress released at or past crackAt cracks the
-# vessel and ends the run with no item.
+# A manual run is freeform (spec §Slice A): add_ore() taps a recipe jar,
+# spending that ore's fixed recipe amount into the mixture -- the first tap
+# opens the run and pushes the Rewind snapshot. Each perform_*() then works
+# the mixture with one apparatus and the raw gauge input (heat/compress
+# released value, grind stroke readings, distil tap timings), recording the
+# ore(s) added since the previous step. Steps come in any order and may
+# repeat. finish_procedure_run() scores the performed steps against the
+# ideal and hands the score to finish_run(), which turns it into a rank,
+# raises best rank, rolls the re-run bonus and the bad-run flavour line,
+# and logs the item. A compress released at or past crackAt cracks the
+# vessel and ends the run with no item. begin_run() taps every recipe jar
+# once.
 #
 # The recipe book lists only known recipes (known_recipes()), seeded from
 # knownAtStart and toggled from the debug page.
 #
-# Before a run the player edits a per-recipe plan (insert, remove, nudge);
-# after it the notebook records one clue per step, and those clues grant
+# notebook_clues() and _learn() turn a run's steps into clues that grant
 # vague hints and upgrade them to exact (spec §Slice A Experimenting).
 
 # Apparatus whose step is one hold-and-release reading (perform_step).
@@ -60,14 +60,12 @@ static func new_state() -> Dictionary:
 		"hintLevels": hint_levels,
 		"ledger": [],
 		"xpTotal": 0,
-		# null, or { recipeId, startedMsec, calcSpent } while a manual run is
-		# open; a procedure run adds procedure (steps being run) and
-		# performed (so far: { apparatus, value } for a hold step,
-		# { apparatus, readings } for grind, plus stray for distil).
+		# null, or while a run is open { recipeId, startedMsec, calcSpent,
+		# performed, added }: performed = steps so far ({ apparatus, ores,
+		# value } for a hold step, { apparatus, ores, readings } for grind,
+		# plus stray for distil); added = ore types tapped in since the last
+		# step.
 		"activeRun": null,
-		# recipeId -> the edited procedure the next run performs; absent =
-		# the known procedure (planned_procedure()).
-		"plans": {},
 		# recipeId -> { hintId -> in-band runs while the hint is vague }.
 		"vagueHits": {},
 		# recipeId -> the last finished run's clues (notebook_clues()).
@@ -193,8 +191,7 @@ static func hint_level(recipe_id: String, hint_id: String) -> String:
 	return levels.get(hint_id, "off") if levels is Dictionary else "off"
 
 
-# Debug override: also drops the recipe's edited plan and the hint's
-# vague-hit count, so the plan rebuilds from the new knowledge.
+# Debug override: also drops the hint's vague-hit count.
 static func set_hint_level(recipe_id: String, hint_id: String, level: String) -> Dictionary:
 	if not _data().get("hintLevels", []).has(level):
 		return { "ok": false, "reason": "Unknown hint level." }
@@ -202,7 +199,6 @@ static func set_hint_level(recipe_id: String, hint_id: String, level: String) ->
 		return { "ok": false, "reason": "Unknown hint." }
 	var s := _root()
 	_set_hint_level(s, recipe_id, hint_id, level)
-	s["plans"].erase(recipe_id)
 	if s["vagueHits"].get(recipe_id) is Dictionary:
 		s["vagueHits"][recipe_id].erase(hint_id)
 	EventBus.state_changed.emit()
@@ -242,18 +238,53 @@ static func refill_pool() -> void:
 
 # ── Manual run ───────────────────────────────────────────────────────────
 
+# Opens a run by tapping every recipe jar once (the whole base calc).
 static func begin_run(recipe_id: String) -> Dictionary:
-	var s := _root()
-	if s["activeRun"] != null:
+	if _root()["activeRun"] != null:
 		return { "ok": false, "reason": "A run is already open." }
 	if not _data()["recipes"].has(recipe_id):
 		return { "ok": false, "reason": "Unknown recipe." }
-	var cost := recipe_cost(recipe_id)
+	if not can_afford(recipe_cost(recipe_id)):
+		return { "ok": false, "reason": "Not enough calc." }
+	for ore_type in recipe_cost(recipe_id).keys():
+		add_ore(recipe_id, ore_type)
+	return { "ok": true }
+
+
+# A jar tap adds this much of the ore: the recipe's base calc of it, 0 for
+# an ore the recipe doesn't use.
+static func jar_amount(recipe_id: String, ore_type: String) -> int:
+	if not _data()["recipes"].has(recipe_id):
+		return 0
+	return int(recipe_cost(recipe_id).get(ore_type, 0))
+
+
+# Taps a jar: spends the ore's fixed recipe amount into the mixture. The
+# first tap opens the run and pushes the Rewind snapshot.
+static func add_ore(recipe_id: String, ore_type: String) -> Dictionary:
+	var s := _root()
+	var run = s["activeRun"]
+	if run != null and run["recipeId"] != recipe_id:
+		return { "ok": false, "reason": "Another run is open." }
+	var amount := jar_amount(recipe_id, ore_type)
+	if amount <= 0:
+		var ore_name: String = GameData.ORE_TYPES.get(ore_type, {}).get("name", ore_type)
+		var recipe_name: String = _data()["recipes"].get(recipe_id, {}).get("name", "This recipe")
+		return { "ok": false, "reason": "%s doesn't use %s." % [recipe_name, ore_name] }
+	var cost := { ore_type: amount }
 	if not can_afford(cost):
 		return { "ok": false, "reason": "Not enough calc." }
-	_push_snapshot(s)
+	if run == null:
+		_push_snapshot(s)
+		run = {
+			"recipeId": recipe_id, "startedMsec": Time.get_ticks_msec(), "calcSpent": {},
+			"performed": [], "added": [],
+		}
+		s["activeRun"] = run
 	_spend(s, cost)
-	s["activeRun"] = { "recipeId": recipe_id, "startedMsec": Time.get_ticks_msec(), "calcSpent": cost }
+	run["calcSpent"][ore_type] = int(run["calcSpent"].get(ore_type, 0)) + amount
+	if not run["added"].has(ore_type):
+		run["added"].append(ore_type)
 	EventBus.state_changed.emit()
 	return { "ok": true }
 
@@ -299,17 +330,10 @@ static func finish_run(score: int, extra: Dictionary = {}) -> Dictionary:
 	_log(s, entry)
 	s["activeRun"] = null
 	EventBus.state_changed.emit()
-	return { "ok": true, "entry": entry }
+	return { "ok": true, "entry": entry, "newBest": rank > prior_best }
 
 
-# Ends an open run without an item; the calc spent so far stays spent.
-static func abandon_run() -> Dictionary:
-	var s := _root()
-	if s["activeRun"] == null:
-		return { "ok": false, "reason": "No run open." }
-	return { "ok": true, "entry": _close_run(s, "abandoned") }
-
-
+# Ends an open run with no item; the calc spent so far stays spent.
 static func _close_run(s: Dictionary, kind: String) -> Dictionary:
 	var run: Dictionary = s["activeRun"]
 	var entry := {
@@ -408,20 +432,30 @@ static func step_accuracy(value: float, target: float, half_width: float) -> flo
 
 
 # Pairs each performed step with an ideal step: in order, same apparatus,
+# the ideal step's ore (if it names one) already in the mixture by then,
 # each ideal step used at most once. -1 marks an extra step.
 static func match_ideal(ideal: Array, performed: Array) -> Array[int]:
 	var matches: Array[int] = []
 	var next := 0
+	var mixture := {}
 	for step in performed:
+		for ore_type in _added_ores(step):
+			mixture[ore_type] = true
 		var found := -1
 		for i in range(next, ideal.size()):
-			if ideal[i]["apparatus"] == step["apparatus"]:
+			if ideal[i]["apparatus"] == step["apparatus"] and (not ideal[i].has("ore") or mixture.has(ideal[i]["ore"])):
 				found = i
 				break
 		matches.append(found)
 		if found >= 0:
 			next = found + 1
 	return matches
+
+
+# The ore types a step adds to the mixture: a performed step's ores, or a
+# base procedure step's calc.
+static func _added_ores(step: Dictionary) -> Array:
+	return step["ores"] if step.has("ores") else step.get("calc", {}).keys()
 
 
 # A performed step's accuracy against its ideal target: a hold step's one
@@ -463,84 +497,56 @@ static func score_procedure(recipe_id: String, performed: Array) -> Dictionary:
 	return { "score": clampi(roundi(total), 0, 100), "accuracies": accuracies }
 
 
-static func procedure_cost(steps: Array) -> Dictionary:
-	var cost := {}
-	for step in steps:
-		var calc: Dictionary = step.get("calc", {})
-		for ore_type in calc.keys():
-			cost[ore_type] = int(cost.get(ore_type, 0)) + int(calc[ore_type])
-	return cost
-
-
-# Opens a procedure run. The whole procedure must be affordable up front,
-# but calc is only spent as each step is performed.
-static func begin_procedure_run(recipe_id: String) -> Dictionary:
-	var s := _root()
-	if s["activeRun"] != null:
-		return { "ok": false, "reason": "A run is already open." }
-	if not _data()["recipes"].has(recipe_id):
-		return { "ok": false, "reason": "Unknown recipe." }
-	var steps := planned_procedure(recipe_id)
-	if not can_afford(procedure_cost(steps)):
-		return { "ok": false, "reason": "Not enough calc." }
-	_push_snapshot(s)
-	s["activeRun"] = {
-		"recipeId": recipe_id, "startedMsec": Time.get_ticks_msec(), "calcSpent": {},
-		"procedure": steps, "performed": [],
-	}
-	return _advance(s)
-
-
-# The open procedure run's next step, or null when none is open.
-static func current_step() -> Variant:
-	var run = _root()["activeRun"]
-	if run == null or not run.has("procedure"):
-		return null
-	var index: int = run["performed"].size()
-	return run["procedure"][index] if index < run["procedure"].size() else null
-
-
 static func gauge(apparatus: String) -> Dictionary:
 	return _data()["gauges"][apparatus]
 
 
+# An apparatus works the mixture only once a jar tap has opened the run.
+static func check_apparatus() -> Dictionary:
+	if _root()["activeRun"] == null:
+		return { "ok": false, "reason": "Add calc from a jar first." }
+	return { "ok": true }
+
+
 # Heat or compress: commits the raw needle value at release. A compress at
-# or past crackAt cracks the vessel: the step's calc is spent and the run
-# ends with no item.
-static func perform_step(value: float) -> Dictionary:
-	var step = current_step()
-	if step == null or not HOLD_APPARATUS.has(step["apparatus"]):
-		return { "ok": false, "reason": "No hold step to perform." }
+# or past crackAt cracks the vessel and ends the run with no item.
+static func perform_step(apparatus: String, value: float) -> Dictionary:
+	if not HOLD_APPARATUS.has(apparatus):
+		return { "ok": false, "reason": "Not a hold apparatus." }
+	var check := check_apparatus()
+	if not check["ok"]:
+		return check
 	var s := _root()
 	value = clampf(value, 0.0, 100.0)
-	_perform(s, { "value": value })
-	if step["apparatus"] == "compression" and value >= float(gauge("compression")["crackAt"]):
-		return { "ok": true, "done": true, "cracked": true, "entry": _close_run(s, "cracked") }
-	return _advance(s)
+	_perform(s, apparatus, { "value": value })
+	if apparatus == "compression" and value >= float(gauge("compression")["crackAt"]):
+		return { "ok": true, "cracked": true, "entry": _close_run(s, "cracked") }
+	EventBus.state_changed.emit()
+	return { "ok": true }
 
 
 # Grind: commits the pestle meter reading at each stroke. Strokes past the
 # gauge's count are ignored; strokes short of it read as misses.
 static func perform_grind(readings: Array) -> Dictionary:
-	var step = current_step()
-	if step == null or step["apparatus"] != "grinding":
-		return { "ok": false, "reason": "No grind step to perform." }
+	var check := check_apparatus()
+	if not check["ok"]:
+		return check
 	var clamped := []
 	for i in int(gauge("grinding")["strokes"]):
 		clamped.append(clampf(float(readings[i]), 0.0, 100.0) if i < readings.size() else null)
-	var s := _root()
-	_perform(s, { "readings": clamped })
-	return _advance(s)
+	_perform(_root(), "grinding", { "readings": clamped })
+	EventBus.state_changed.emit()
+	return { "ok": true }
 
 
 # Distil: commits the tap times (msec since the first drip started).
 static func perform_distil(tap_msecs: Array) -> Dictionary:
-	var step = current_step()
-	if step == null or step["apparatus"] != "distilling":
-		return { "ok": false, "reason": "No distil step to perform." }
-	var s := _root()
-	_perform(s, distil_readings(tap_msecs))
-	return _advance(s)
+	var check := check_apparatus()
+	if not check["ok"]:
+		return check
+	_perform(_root(), "distilling", distil_readings(tap_msecs))
+	EventBus.state_changed.emit()
+	return { "ok": true }
 
 
 # Drip i falls from 0 to 100 over fallMsec, starting at i × beatMsec. A tap
@@ -564,112 +570,32 @@ static func distil_readings(tap_msecs: Array) -> Dictionary:
 	return { "readings": readings, "stray": stray }
 
 
-static func _perform(s: Dictionary, record: Dictionary) -> void:
+# Records the step with the ores tapped in since the previous one.
+static func _perform(s: Dictionary, apparatus: String, record: Dictionary) -> void:
 	var run: Dictionary = s["activeRun"]
-	var step: Dictionary = run["procedure"][run["performed"].size()]
-	var calc: Dictionary = step.get("calc", {})
-	_spend(s, calc)
-	for ore_type in calc.keys():
-		run["calcSpent"][ore_type] = int(run["calcSpent"].get(ore_type, 0)) + int(calc[ore_type])
-	record["apparatus"] = step["apparatus"]
+	record["apparatus"] = apparatus
+	record["ores"] = run["added"]
+	run["added"] = []
 	run["performed"].append(record)
 
 
-# Scores the run once every step is performed.
-static func _advance(s: Dictionary) -> Dictionary:
-	if current_step() != null:
-		EventBus.state_changed.emit()
-		return { "ok": true, "done": false }
-	var run: Dictionary = s["activeRun"]
-	var recipe_id: String = run["recipeId"]
-	var scored := score_procedure(recipe_id, run["performed"])
-	var clues := notebook_clues(recipe_id, run["procedure"], run["performed"])
-	_learn(s, recipe_id, run["procedure"], clues)
-	s["notebook"][recipe_id] = clues
+# Finish: scores the performed steps (none scores 0) and hands the score to
+# finish_run(), which closes the run.
+static func finish_procedure_run() -> Dictionary:
+	var run = _root()["activeRun"]
+	if run == null:
+		return { "ok": false, "reason": "No run open." }
+	var scored := score_procedure(run["recipeId"], run["performed"])
 	var steps := []
 	for i in run["performed"].size():
 		var performed: Dictionary = run["performed"][i].duplicate(true)
 		performed["accuracy"] = scored["accuracies"][i]
 		steps.append(performed)
-	var result := finish_run(scored["score"], { "steps": steps })
-	result["done"] = true
-	return result
+	return finish_run(scored["score"], { "steps": steps })
 
 
 # ── Experimenting (Slice A) ──────────────────────────────────────────────
 
-# The procedure the next run performs: the recipe's edited plan, or the
-# known procedure when it hasn't been edited. An inserted step has
-# knowledge "inserted" and no calc.
-static func planned_procedure(recipe_id: String) -> Array:
-	var plan = _root()["plans"].get(recipe_id)
-	return plan.duplicate(true) if plan is Array else known_procedure(recipe_id)
-
-
-static func insert_step(recipe_id: String, position: int, apparatus: String) -> Dictionary:
-	if not _data()["gauges"].has(apparatus):
-		return { "ok": false, "reason": "Unknown apparatus." }
-	var check := _check_plan_edit(recipe_id, position, true)
-	if not check["ok"]:
-		return check
-	_plan(recipe_id).insert(position, {
-		"apparatus": apparatus, "target": float(_data().get("insertTarget", 50)), "knowledge": "inserted",
-	})
-	EventBus.state_changed.emit()
-	return { "ok": true }
-
-
-# Takes out a step the player inserted; known steps stay.
-static func remove_step(recipe_id: String, index: int) -> Dictionary:
-	var check := _check_plan_edit(recipe_id, index, false)
-	if not check["ok"]:
-		return check
-	if planned_procedure(recipe_id)[index].get("knowledge") != "inserted":
-		return { "ok": false, "reason": "Only an inserted step can be removed." }
-	_plan(recipe_id).remove_at(index)
-	EventBus.state_changed.emit()
-	return { "ok": true }
-
-
-# Moves a planned step's target by delta, clamped to the 0-100 gauge.
-static func nudge_step(recipe_id: String, index: int, delta: float) -> Dictionary:
-	var check := _check_plan_edit(recipe_id, index, false)
-	if not check["ok"]:
-		return check
-	var step: Dictionary = _plan(recipe_id)[index]
-	step["target"] = clampf(float(step["target"]) + delta, 0.0, 100.0)
-	EventBus.state_changed.emit()
-	return { "ok": true }
-
-
-static func reset_plan(recipe_id: String) -> Dictionary:
-	var s := _root()
-	if s["activeRun"] != null:
-		return { "ok": false, "reason": "Finish the open run first." }
-	s["plans"].erase(recipe_id)
-	EventBus.state_changed.emit()
-	return { "ok": true }
-
-
-# Plans are edited only between runs. An insert position may be one past
-# the last step.
-static func _check_plan_edit(recipe_id: String, index: int, inserting: bool) -> Dictionary:
-	if _root()["activeRun"] != null:
-		return { "ok": false, "reason": "Finish the open run first." }
-	if not _data()["recipes"].has(recipe_id):
-		return { "ok": false, "reason": "Unknown recipe." }
-	var size := planned_procedure(recipe_id).size()
-	if index < 0 or index > size or (index == size and not inserting):
-		return { "ok": false, "reason": "No such step." }
-	return { "ok": true }
-
-
-# The recipe's stored plan, created from the known procedure on first edit.
-static func _plan(recipe_id: String) -> Array:
-	var plans: Dictionary = _root()["plans"]
-	if not plans.get(recipe_id) is Array:
-		plans[recipe_id] = known_procedure(recipe_id)
-	return plans[recipe_id]
 
 
 # idealIndex -> hintId for each ideal step the player can't see yet: its
@@ -746,25 +672,16 @@ static func _direction(performed: Dictionary, target: float, half_width: float) 
 
 
 # Applies a finished run's clues: "changed" grants the hidden step's hint
-# at vague and turns the plan's inserted step into that hinted step; a
-# "hit" on a vague step counts toward vagueToExactHits, which upgrades it
-# to exact. Marks each clue with learned ("vague"/"exact") and, for a
-# counted hit, hits so far.
+# at vague; a "hit" on a vague step counts toward vagueToExactHits, which
+# upgrades it to exact. Marks each clue with learned ("vague"/"exact")
+# and, for a counted hit, hits so far.
 static func _learn(s: Dictionary, recipe_id: String, procedure: Array, clues: Array) -> void:
 	var hidden := hidden_ideal_steps(recipe_id)
-	var ideal: Array = procedure_def(recipe_id)["ideal"]
 	for i in clues.size():
 		var clue: Dictionary = clues[i]
 		if clue["clue"] == "changed":
 			var hint_id: String = hidden[clue["ideal"]]
 			_set_hint_level(s, recipe_id, hint_id, "vague")
-			var step := { "apparatus": clue["apparatus"] }
-			_apply_hint(step, ideal[clue["ideal"]], { "hint": hint_def(recipe_id, hint_id), "level": "vague" })
-			# A debug hint toggle mid-run drops the plan; it then rebuilds
-			# from knowledge, which now has the step.
-			var plan = s["plans"].get(recipe_id)
-			if plan is Array and i < plan.size():
-				plan[i] = step
 			clue["learned"] = "vague"
 		elif clue["clue"] == "hit" and procedure[i].get("knowledge") == "vague":
 			var hint_id: String = procedure[i]["hintId"]
@@ -776,21 +693,6 @@ static func _learn(s: Dictionary, recipe_id: String, procedure: Array, clues: Ar
 			if hits >= int(_data().get("vagueToExactHits", 3)):
 				_set_hint_level(s, recipe_id, hint_id, "exact")
 				clue["learned"] = "exact"
-	_sync_plan_knowledge(s, recipe_id)
-
-
-# Refreshes a stored plan's hinted steps to their hint's current level.
-static func _sync_plan_knowledge(s: Dictionary, recipe_id: String) -> void:
-	var plan = s["plans"].get(recipe_id)
-	if not plan is Array:
-		return
-	for step in plan:
-		if not step.has("hintId"):
-			continue
-		var level := hint_level(recipe_id, step["hintId"])
-		if level != "off":
-			step["knowledge"] = level
-			step["note"] = hint_def(recipe_id, step["hintId"])[level]["note"]
 
 
 # ── Batch ────────────────────────────────────────────────────────────────

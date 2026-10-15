@@ -64,7 +64,7 @@ Both slices share one core: recipe roster, score→rank, best rank, batch, re-ru
   - Debug picks which bonus type is active, so each can be felt.
   - XP is display-only.
 - **Bad runs.** A score below 15 has a 1-in-3 chance of showing a flavour line from data. `PROSE-REVIEW:` drafts follow docs/CONTENT-GUIDE.md.
-- **Calc cost.** Calc is spent as the run proceeds. Abandoning or failing loses what was spent.
+- **Calc cost.** Calc is spent as the run proceeds. A bad or failed run loses what was spent.
 - **Rewind.** The Rewind button restores `benchPrototype` to its state before the run.
 - **Skill.** A debug crafting-skill slider (0–10) drives tolerance. Defaults to the player's real `craftingSkill`, which is read only.
 - **Hints.** Debug toggles grant each authored hint at a chosen specificity (vague/exact). This stands in for quest/character sources, which are out of scope. Hints can also be earned by experimenting in-slice (see the slice sections below).
@@ -83,7 +83,13 @@ Base procedure alone, executed perfectly, caps out around rank 2–3. All hints 
 
 ## Slice A — Procedure (KCD-style)
 
-A recipe is an ordered list of steps. Each step is one apparatus with a target value on a 0–100 gauge plus a tolerance band.
+A recipe is an ordered list of steps. Each step is one apparatus with a target value on a 0–100 gauge plus a tolerance band, and an ideal step may also name the ore that must be in the mixture for it.
+
+**Freeform run**
+- "Craft manually" on a recipe page docks the book to the bottom half of the screen, listing that recipe's known steps with their bands. It stays docked until Finish.
+- Only jars for the recipe's ores can be tapped; each tap spends that ore's fixed recipe amount into the mixture. The first tap starts the run and takes the Rewind snapshot. Jars can be tapped at any point.
+- Once a run is open, tapping an apparatus pops its gauge over the plate. The step works the current mixture and records its apparatus, reading and the ore(s) added since the previous step. Steps come in any order and may repeat; the book is reference only.
+- **Finish** on the docked book is the only way to end a run (a compress crack also ends it). The result shows on the book; dismissing it returns to the recipe page.
 
 **Executing a step**
 - **Heat:** hold; the needle rises; release inside the band.
@@ -99,6 +105,7 @@ The screen animates and reports the raw released value or tap timings. The syste
 
 **Score**
 - Each ideal step has a weight; score = Σ weight × accuracy.
+- Performed steps match ideal steps in order. A match needs the same apparatus and, if the ideal step names an ore, that ore already in the mixture.
 - An ideal step that's missing from the player's procedure scores 0, so missing hints cap the score.
 - Extra steps the ideal doesn't have take −5 each.
 
@@ -108,12 +115,12 @@ The screen animates and reports the raw released value or tap timings. The syste
 - An unknown step isn't shown at all.
 
 **Experimenting**
-- The player can insert any apparatus at any position, or nudge a target, before a run.
+- The player experiments by performing steps the book doesn't list (any apparatus, any point in the run).
 - After the run, the notebook shows a clue per step:
   - ✓ in band
   - ~ right step, wrong amount, plus a direction
   - ✗ no effect
-  - "something changed": an inserted step matches a hidden ideal step at that position
+  - "something changed": an off-book step matches a hidden ideal step at that position
 - "Something changed" turns that step into a vague hint. Finding the sweet spot of a vague step on your own (3 runs scoring ✓ on it) upgrades it to exact.
 
 **What the playtest asks**

@@ -1,5 +1,5 @@
 {
-  "_comment": "Sandboxed Lab-revamp bench prototype (systems/bench_prototype.gd, .scratch/lab-revamp/spec.md) -- provisional numbers, not production balance, not cross-referenced by REFERENCE.md. knownAtStart = roster ids listed in the recipe book at start (debug toggles add/remove). rankThresholds[i] is the minimum score for rank i+1. baseCalc is spent per item crafted (a manual run makes one). baseXp is per item, display-only. recipes.*.procedure (Slice A): ideal = the authored perfect procedure (apparatus = data/approaches.json id, target on a 0-100 gauge, weight; weights sum to 100); base = the procedure known at start, its steps' calc summing to baseCalc and spent step by step; baseTolerance = band half-width before skill widening; hints = the hidden improvements, each naming the ideal step index it reveals (a base step matching that ideal step gets its target corrected, otherwise the ideal step is inserted, no calc). A vague hint shows a region of the band widened by vagueSpread each side and shifted by its offset (|offset| <= vagueSpread, so the band always sits inside); an exact hint shows the true band. PROSE-REVIEW: every hints label/note is new copy. gauges (one per procedure apparatus): heat/compression.risePerSec = needle speed while held; compression.crackAt = the needle value that cracks the vessel and ends the run; grinding.strokes = taps per grind step, swingPeriodSec = one full 0-100-0 pestle swing; directionWords = the notebook's ~ direction for a reading below (higher) or above (lower) the ideal target; distilling.drips = drips per distil step, drip i falls from 0 to 100 over fallMsec starting at i x beatMsec, and a tap reads the falling drip's position against the step target; leadInMsec = screen-only pause before drip 0 (a tap in it is stray). Experimenting: insertTarget = an inserted step's starting target; nudgeStep = one nudge of a planned step's target; vagueToExactHits = in-band runs on a vague step that upgrade it to exact. PROSE-REVIEW: every directionWords entry and badRun.lines entry is new copy, drafted against CONTENT-GUIDE.md's tone bible.",
+  "_comment": "Sandboxed Lab-revamp bench prototype (systems/bench_prototype.gd, .scratch/lab-revamp/spec.md) -- provisional numbers, not production balance, not cross-referenced by REFERENCE.md. knownAtStart = roster ids listed in the recipe book at start (debug toggles add/remove). rankThresholds[i] is the minimum score for rank i+1. baseCalc is spent per item crafted (a manual run makes one). baseXp is per item, display-only. recipes.*.procedure (Slice A): ideal = the authored perfect procedure (apparatus = data/approaches.json id, ore = the baseCalc ore that must be in the mixture for the step to match, absent for a step that works the existing mixture, target on a 0-100 gauge, weight; weights sum to 100); base = the procedure known at start, its steps' calc summing to baseCalc (one jar tap adds a recipe ore's baseCalc amount); baseTolerance = band half-width before skill widening; hints = the hidden improvements, each naming the ideal step index it reveals (a base step matching that ideal step gets its target corrected, otherwise the ideal step is inserted, no calc). A vague hint shows a region of the band widened by vagueSpread each side and shifted by its offset (|offset| <= vagueSpread, so the band always sits inside); an exact hint shows the true band. PROSE-REVIEW: every hints label/note is new copy. gauges (one per procedure apparatus): heat/compression.risePerSec = needle speed while held; compression.crackAt = the needle value that cracks the vessel and ends the run; grinding.strokes = taps per grind step, swingPeriodSec = one full 0-100-0 pestle swing; directionWords = the notebook's ~ direction for a reading below (higher) or above (lower) the ideal target; distilling.drips = drips per distil step, drip i falls from 0 to 100 over fallMsec starting at i x beatMsec, and a tap reads the falling drip's position against the step target; leadInMsec = screen-only pause before drip 0 (a tap in it is stray). Experimenting: vagueToExactHits = in-band runs on a vague step that upgrade it to exact. PROSE-REVIEW: every directionWords entry and badRun.lines entry is new copy, drafted against CONTENT-GUIDE.md's tone bible.",
   "roster": ["healingSalve", "timePearl", "healingBurst"],
   "knownAtStart": ["healingSalve"],
   "recipes": {
@@ -8,7 +8,7 @@
       "procedure": {
         "baseTolerance": 8,
         "ideal": [
-          { "apparatus": "grinding", "target": 50, "weight": 30 },
+          { "apparatus": "grinding", "ore": "life", "target": 50, "weight": 30 },
           { "apparatus": "heat", "target": 62, "weight": 40 },
           { "apparatus": "distilling", "target": 50, "weight": 30 }
         ],
@@ -31,7 +31,7 @@
       "procedure": {
         "baseTolerance": 6,
         "ideal": [
-          { "apparatus": "compression", "target": 82, "weight": 35 },
+          { "apparatus": "compression", "ore": "time", "target": 82, "weight": 35 },
           { "apparatus": "grinding", "target": 50, "weight": 25 },
           { "apparatus": "heat", "target": 25, "weight": 40 }
         ],
@@ -54,8 +54,8 @@
       "procedure": {
         "baseTolerance": 4,
         "ideal": [
-          { "apparatus": "grinding", "target": 50, "weight": 20 },
-          { "apparatus": "compression", "target": 60, "weight": 20 },
+          { "apparatus": "grinding", "ore": "life", "target": 50, "weight": 20 },
+          { "apparatus": "compression", "ore": "time", "target": 60, "weight": 20 },
           { "apparatus": "distilling", "target": 50, "weight": 25 },
           { "apparatus": "heat", "target": 35, "weight": 35 }
         ],
@@ -81,8 +81,6 @@
   "skillMax": 10,
   "extraStepPenalty": 5,
   "vagueSpread": 15,
-  "insertTarget": 50,
-  "nudgeStep": 2,
   "vagueToExactHits": 3,
   "gauges": {
     "heat": { "risePerSec": 40,

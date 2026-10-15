@@ -1454,7 +1454,7 @@ func _validate_combat_prototype_stats(entry: Dictionary, path: String, errors: A
 # types the pool seeds; thresholds ascend from 0; the bonus default names a
 # real type; badRun has lines to pick from.
 func _validate_bench_prototype(bench: Dictionary, approaches: Dictionary, errors: Array[String]) -> void:
-	_require_keys(bench, ["roster", "knownAtStart", "recipes", "poolSeed", "rankThresholds", "skillFactor", "skillMax", "extraStepPenalty", "vagueSpread", "insertTarget", "nudgeStep", "vagueToExactHits", "gauges", "baseXp", "hintLevels", "bonus", "badRun"], "bench_prototype", errors)
+	_require_keys(bench, ["roster", "knownAtStart", "recipes", "poolSeed", "rankThresholds", "skillFactor", "skillMax", "extraStepPenalty", "vagueSpread", "vagueToExactHits", "gauges", "baseXp", "hintLevels", "bonus", "badRun"], "bench_prototype", errors)
 	var gauges: Dictionary = bench.get("gauges", {})
 	for apparatus in gauges.keys():
 		var words: Dictionary = gauges[apparatus].get("directionWords", {})
@@ -1495,8 +1495,8 @@ func _validate_bench_prototype(bench: Dictionary, approaches: Dictionary, errors
 
 
 # Slice A procedure: ideal weights sum to 100; every step names a real
-# apparatus with a gauges entry and a 0-100 target; the base steps' calc
-# sums to baseCalc.
+# apparatus with a gauges entry and a 0-100 target; an ideal step's ore is
+# a baseCalc ore; the base steps' calc sums to baseCalc.
 func _validate_bench_prototype_procedure(recipe_id: String, recipe: Dictionary, approaches: Dictionary, gauges: Dictionary, errors: Array[String]) -> void:
 	var where := "bench_prototype.recipes.%s.procedure" % recipe_id
 	var procedure: Dictionary = recipe.get("procedure", {})
@@ -1521,6 +1521,8 @@ func _validate_bench_prototype_procedure(recipe_id: String, recipe: Dictionary, 
 			var target := float(step.get("target", -1))
 			if target < 0.0 or target > 100.0:
 				errors.append("%s.%s: target must be 0-100" % [where, list_name])
+			if list_name == "ideal" and step.has("ore") and not recipe.get("baseCalc", {}).has(step["ore"]):
+				errors.append("%s.ideal: ore '%s' not in baseCalc" % [where, step["ore"]])
 			if list_name == "base":
 				for ore_type in step.get("calc", {}).keys():
 					base_calc[ore_type] = int(base_calc.get(ore_type, 0)) + int(step["calc"][ore_type])

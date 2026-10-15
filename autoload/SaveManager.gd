@@ -1294,7 +1294,7 @@ func _restore_int_types(state: Dictionary) -> void:
 	# A bench prototype saved in an older shape restarts fresh (sandbox only).
 	if state.has("benchPrototype"):
 		var bench: Dictionary = state["benchPrototype"]
-		if bench.has("slices") or not bench.has("known"):
+		if bench.has("slices") or bench.has("plans") or not bench.has("known"):
 			state["benchPrototype"] = BenchPrototype.new_state()
 		else:
 			_restore_bench_prototype_int_types(bench)
@@ -1410,11 +1410,6 @@ func _restore_bench_prototype_frame_ints(s: Dictionary) -> void:
 	if run is Dictionary:
 		_int_key(run, "startedMsec")
 		_int_dict_values(run.get("calcSpent", {}))
-		for step in run.get("procedure", []):
-			_int_dict_values(step.get("calc", {}))
-	for plan in s.get("plans", {}).values():
-		for step in plan:
-			_int_dict_values(step.get("calc", {}))
 	for hits in s.get("vagueHits", {}).values():
 		_int_dict_values(hits)
 	for clues in s.get("notebook", {}).values():
