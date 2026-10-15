@@ -8,14 +8,17 @@ extends RefCounted
 # player, inventory, Dial, XP or calendar. Live combat (Combat) is separate.
 #
 # A fight is start(config), then resolve_round(plan) once per round.
-# Combatants live in one array, the player at index 0 and enemies after, so
-# array order is the timeline's last tie-break (spec §Timeline order). Each
-# enemy holds this round's committed plan and next round's pre-rolled one;
-# the player's draft plan is playerPlan, edited with set_plan_action().
+# Combatants live in one array, the player at index 0, then allies, then
+# enemies, so array order is the timeline's last tie-break (spec §Timeline
+# order). Each enemy holds this round's committed plan and next round's
+# pre-rolled one; each ally holds this round's plan, planned by the ally AI
+# from the enemies' plans; the player's draft plan is playerPlan, edited with
+# set_plan_action().
 # Randomness runs off the fight's own RNG state (rngState), so a Rewind
 # replays the same rolls for the same plan.
 
 const SIDE_PLAYER := "player"
+const SIDE_ALLY := "ally"
 const SIDE_ENEMY := "enemy"
 
 const GUARDED := "guarded"
@@ -48,6 +51,14 @@ const LURE_SPRUNG := "sprung"
 
 const PLAYER_INDEX := 0
 const DEFAULT_ARCHETYPE := "mugger"
+# Squad cap (spec user story 5: 0-2 AI allies).
+const MAX_ALLIES := 2
+
+# The moves the ally AI plans with (spec §Ally AI); GameData checks they exist.
+const MOVE_GUARD := "guard"
+const MOVE_STRIKE := "strike"
+const MOVE_FEINT := "feint"
+const ALLY_AI_MOVES: Array[String] = [MOVE_GUARD, MOVE_STRIKE, MOVE_FEINT]
 
 
 static func _data() -> Dictionary:
@@ -104,7 +115,7 @@ static func actions_per_round(combatant: Dictionary) -> int:
 
 
 static func display_name(combatant: Dictionary) -> String:
-	if combatant["side"] != SIDE_ENEMY:
+	if combatant["side"] == SIDE_PLAYER:
 		return "You"
 	var name: String = combatant["name"]
 	return name[0].to_upper() + name.substr(1)
@@ -113,17 +124,22 @@ static func display_name(combatant: Dictionary) -> String:
 # ── Setup ────────────────────────────────────────────────────────────────
 
 # config: playerLevel (1..levelMax, default 1); enemies, an Array of
-# { archetype, level } (default one level-1 mugger); seed (default fresh);
-# enemyPlans, test-only: per enemy an Array of rounds, each an Array of move
-# ids, used in place of the archetype's patterns (round n reads entry
-# (n-1) mod size). Everyone starts Guarded. Returns the new fight state, or
-# {} for an unknown archetype.
+# { archetype, level } (default one level-1 mugger); allies, an Array of
+# { level } (0..MAX_ALLIES, default none); seed (default fresh);
+# enemyPlans / allyPlans, test-only: per combatant an Array of rounds, each
+# an Array of move ids or { move, target } entries, used in place of the
+# archetype's patterns or the ally AI (round n reads entry (n-1) mod size).
+# Everyone starts Guarded. Returns the new fight state, or {} for an unknown
+# archetype or too many allies.
 static func start(config: Dictionary = {}) -> Dictionary:
 	var archetypes: Dictionary = _data()["archetypes"]
 	var enemy_specs: Array = config.get("enemies", [{ "archetype": DEFAULT_ARCHETYPE, "level": 1 }])
 	for spec in enemy_specs:
 		if not archetypes.has(spec.get("archetype", "")):
 			return {}
+	var ally_specs: Array = config.get("allies", [])
+	if ally_specs.size() > MAX_ALLIES:
+		return {}
 
 	var rng := RandomNumberGenerator.new()
 	rng.seed = int(config.get("seed", Rng.fresh_seed()))
@@ -133,6 +149,13 @@ static func start(config: Dictionary = {}) -> Dictionary:
 	cp["round"] = 1
 	var combatants: Array = cp["combatants"]
 	combatants.append(_build_combatant(SIDE_PLAYER, _data()["playerBase"], int(config.get("playerLevel", 1))))
+	var ally_overrides: Array = config.get("allyPlans", [])
+	for i in range(ally_specs.size()):
+		var ally := _build_combatant(SIDE_ALLY, _data()["allyBase"], int(ally_specs[i].get("level", 1)))
+		if ally_specs.size() > 1:
+			ally["name"] = "%s %s" % [ally["name"], char(65 + i)]
+		ally["planOverride"] = ally_overrides[i] if i < ally_overrides.size() else null
+		combatants.append(ally)
 	var overrides: Array = config.get("enemyPlans", [])
 	var archetype_counts: Dictionary = {}
 	for spec in enemy_specs:
@@ -154,6 +177,7 @@ static func start(config: Dictionary = {}) -> Dictionary:
 		if combatants[i]["side"] == SIDE_ENEMY:
 			combatants[i]["plan"] = _roll_plan(cp, i, 1, rng)
 			combatants[i]["nextPlan"] = _roll_plan(cp, i, 2, rng)
+	_plan_allies(cp, rng)
 	cp["playerPlan"] = _empty_plan(combatants[PLAYER_INDEX])
 	cp["rngState"] = rng.state
 
@@ -193,21 +217,37 @@ static func _empty_plan(combatant: Dictionary) -> Array:
 	return plan
 
 
-# One combatant's committed plan for round `round_no`: a weighted archetype
+# An enemy's committed plan for round `round_no`: a weighted archetype
 # pattern (or the test override), cycled to fill its actions per round,
 # with a target per offensive action.
 static func _roll_plan(cp: Dictionary, actor: int, round_no: int, rng: RandomNumberGenerator) -> Array:
 	var combatant: Dictionary = cp["combatants"][actor]
-	var moves: Array
+	if _has_override(combatant):
+		return _override_plan(cp, actor, round_no, rng)
+	var moves: Array = _pick_pattern(_data()["archetypes"][combatant["archetype"]]["patterns"], rng)["moves"]
+	return _plan_from(cp, actor, moves, rng)
+
+
+static func _has_override(combatant: Dictionary) -> bool:
 	var override = combatant.get("planOverride")
-	if override != null and not override.is_empty():
-		moves = override[(round_no - 1) % override.size()]
-	else:
-		moves = _pick_pattern(_data()["archetypes"][combatant["archetype"]]["patterns"], rng)["moves"]
+	return override != null and not override.is_empty()
+
+
+static func _override_plan(cp: Dictionary, actor: int, round_no: int, rng: RandomNumberGenerator) -> Array:
+	var override: Array = cp["combatants"][actor]["planOverride"]
+	return _plan_from(cp, actor, override[(round_no - 1) % override.size()], rng)
+
+
+# `moves` cycled to the actor's actions per round; each entry a move id
+# (target picked) or { move, target }.
+static func _plan_from(cp: Dictionary, actor: int, moves: Array, rng: RandomNumberGenerator) -> Array:
 	var plan: Array = []
-	for i in range(actions_per_round(combatant)):
-		var move_id: String = moves[i % moves.size()]
-		plan.append({ "move": move_id, "target": _pick_target(cp, actor, move_id, rng), "part": 0 })
+	for i in range(actions_per_round(cp["combatants"][actor])):
+		var entry = moves[i % moves.size()]
+		if entry is Dictionary:
+			plan.append({ "move": entry["move"], "target": int(entry["target"]), "part": 0 })
+		else:
+			plan.append({ "move": entry, "target": _pick_target(cp, actor, entry, rng), "part": 0 })
 	return plan
 
 
@@ -224,7 +264,7 @@ static func _pick_pattern(patterns: Array, rng: RandomNumberGenerator) -> Dictio
 
 
 # Self-targeted moves aim at the actor; offensive ones pick uniformly over
-# the actor's living opponents.
+# the actor's living opponents (for an enemy, the player and living allies).
 static func _pick_target(cp: Dictionary, actor: int, move_id: String, rng: RandomNumberGenerator) -> int:
 	if move(move_id)["target"] == TARGET_SELF:
 		return actor
@@ -236,14 +276,98 @@ static func _pick_target(cp: Dictionary, actor: int, move_id: String, rng: Rando
 	return opponents[rng.randi_range(0, opponents.size() - 1)]
 
 
+# A pre-rolled plan as it's committed: any offensive action aimed at a
+# combatant KO'd since the roll picks again among the living.
+static func _recommit_targets(cp: Dictionary, actor: int, plan: Array, rng: RandomNumberGenerator) -> Array:
+	var combatants: Array = cp["combatants"]
+	for action in plan:
+		var target := int(action["target"])
+		if target >= 0 and target != actor and combatants[target]["koed"]:
+			action["target"] = _pick_target(cp, actor, action["move"], rng)
+	return plan
+
+
 static func _living_opponents(cp: Dictionary, actor: int) -> Array:
 	var combatants: Array = cp["combatants"]
-	var side: String = combatants[actor]["side"]
+	var enemy_side: bool = combatants[actor]["side"] == SIDE_ENEMY
 	var result: Array = []
 	for i in range(combatants.size()):
-		if combatants[i]["side"] != side and not combatants[i]["koed"]:
+		if (combatants[i]["side"] == SIDE_ENEMY) != enemy_side and not combatants[i]["koed"]:
 			result.append(i)
 	return result
+
+
+# ── Ally AI ──────────────────────────────────────────────────────────────
+
+# Plans every living ally's round from the enemies' committed plans (spec
+# §Ally AI), per action: Guard where an enemy strikes it; else Strike an
+# enemy who'll be Open when it acts; else, with an action to follow, Feint a
+# Guarded enemy the Feint leaves Open for that next action's Strike; else
+# Guard. Allies plan in array order, each reading the earlier ones' Feints.
+# An ally with a test override plays that instead.
+static func _plan_allies(cp: Dictionary, rng: RandomNumberGenerator) -> void:
+	var combatants: Array = cp["combatants"]
+	# { actor, index, target } per Feint planned so far this round.
+	var feints: Array = []
+	for i in range(combatants.size()):
+		var ally: Dictionary = combatants[i]
+		if ally["side"] != SIDE_ALLY:
+			continue
+		if ally["koed"]:
+			ally["plan"] = []
+		elif _has_override(ally):
+			ally["plan"] = _override_plan(cp, i, cp["round"], rng)
+		else:
+			var plan: Array = []
+			var count := actions_per_round(ally)
+			for a in range(count):
+				var action := _ally_action(cp, i, a, count, feints)
+				if action["move"] == MOVE_FEINT:
+					feints.append({ "actor": i, "index": a, "target": action["target"] })
+				plan.append(action)
+			ally["plan"] = plan
+
+
+static func _ally_action(cp: Dictionary, ally: int, index: int, count: int, feints: Array) -> Dictionary:
+	var combatants: Array = cp["combatants"]
+	var enemies := _living_opponents(cp, ally)
+	for e in enemies:
+		var plan: Array = combatants[e]["plan"]
+		if index < plan.size() and int(plan[index]["target"]) == ally and move(plan[index]["move"])["effect"] in [EFFECT_DAMAGE, EFFECT_STUN]:
+			return { "move": MOVE_GUARD, "target": ally, "part": 0 }
+	for e in enemies:
+		if _ally_sees_open(cp, e, ally, index, feints):
+			return { "move": MOVE_STRIKE, "target": e, "part": 0 }
+	if index + 1 < count:
+		for e in enemies:
+			var with_feint: Array = feints + [{ "actor": ally, "index": index, "target": e }]
+			if not _ally_sees_open(cp, e, ally, index + 1, feints) and _ally_sees_open(cp, e, ally, index + 1, with_feint):
+				return { "move": MOVE_FEINT, "target": e, "part": 0 }
+	return { "move": MOVE_GUARD, "target": ally, "part": 0 }
+
+
+# Whether enemy `e` will be Open when `observer` takes its action `index`,
+# replaying the enemy's committed guard changes and `feints` on it in
+# timeline order up to that moment. Exposed counts as Open.
+static func _ally_sees_open(cp: Dictionary, e: int, observer: int, index: int, feints: Array) -> bool:
+	var enemy: Dictionary = cp["combatants"][e]
+	if is_exposed(cp, enemy):
+		return true
+	var events: Array = []
+	var plan: Array = enemy["plan"]
+	for i in range(mini(plan.size(), index + 1)):
+		var effect: String = move(plan[i]["move"])["actorGuard"]
+		if effect != UNCHANGED:
+			events.append({ "actor": e, "index": i, "guard": effect })
+	for f in feints:
+		if f["target"] == e:
+			events.append({ "actor": f["actor"], "index": f["index"], "guard": OPEN })
+	events = events.filter(func(ev): return _acts_before(cp, ev["actor"], ev["index"], observer, index))
+	events.sort_custom(func(x, y): return _acts_before(cp, x["actor"], x["index"], y["actor"], y["index"]))
+	var state: String = enemy["guard"]
+	for ev in events:
+		state = ev["guard"]
+	return state == OPEN
 
 
 # ── Planning ─────────────────────────────────────────────────────────────
@@ -377,16 +501,19 @@ static func timeline(cp: Dictionary) -> Array:
 			continue
 		for a in range(_plan_of(cp, i).size()):
 			entries.append({ "actor": i, "index": a })
-	entries.sort_custom(func(x, y):
-		if x["index"] != y["index"]:
-			return x["index"] < y["index"]
-		var sx: int = combatants[x["actor"]]["speed"]
-		var sy: int = combatants[y["actor"]]["speed"]
-		if sx != sy:
-			return sx > sy
-		return x["actor"] < y["actor"]
-	)
+	entries.sort_custom(func(x, y): return _acts_before(cp, x["actor"], x["index"], y["actor"], y["index"]))
 	return entries
+
+
+# Timeline order: action index, then speed descending, then combatant order.
+static func _acts_before(cp: Dictionary, actor_a: int, index_a: int, actor_b: int, index_b: int) -> bool:
+	if index_a != index_b:
+		return index_a < index_b
+	var speed_a: int = cp["combatants"][actor_a]["speed"]
+	var speed_b: int = cp["combatants"][actor_b]["speed"]
+	if speed_a != speed_b:
+		return speed_a > speed_b
+	return actor_a < actor_b
 
 
 static func _plan_of(cp: Dictionary, actor: int) -> Array:
@@ -456,8 +583,9 @@ static func resolve_round(plan: Array) -> Dictionary:
 		for i in range(combatants.size()):
 			combatants[i]["lure"] = LURE_NONE
 			if combatants[i]["side"] == SIDE_ENEMY:
-				combatants[i]["plan"] = combatants[i]["nextPlan"]
+				combatants[i]["plan"] = _recommit_targets(cp, i, combatants[i]["nextPlan"], rng)
 				combatants[i]["nextPlan"] = [] if combatants[i]["koed"] else _roll_plan(cp, i, cp["round"] + 1, rng)
+		_plan_allies(cp, rng)
 		cp["playerPlan"] = _empty_plan(combatants[PLAYER_INDEX])
 	cp["rngState"] = rng.state
 

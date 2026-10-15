@@ -5,6 +5,7 @@
   "critChance": [0, 0.03, 0.04, 0.05, 0.06, 0.07],
   "levelMax": 5,
   "playerBase": { "name": "you", "hpBase": 40, "attackMin": 7, "attackMax": 15 },
+  "allyBase": { "name": "your mate", "hpBase": 40, "attackMin": 7, "attackMax": 15 },
   "moves": {
     "guard": {
       "id": "guard", "name": "Guard", "cost": 1, "actorGuard": "guarded",

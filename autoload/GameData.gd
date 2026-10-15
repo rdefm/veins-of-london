@@ -1326,7 +1326,7 @@ func _validate_enemies(t: Dictionary, errors: Array[String]) -> void:
 # Moves name a known guard effect, target type and effect; curves cover
 # levels 0..levelMax; every archetype pattern names real moves.
 func _validate_combat_prototype(cp: Dictionary, skill_curve: Array, errors: Array[String]) -> void:
-	_require_keys(cp, ["chipMultiplier", "actionsPerRound", "critChance", "levelMax", "playerBase", "moves", "archetypes", "beatLines"], "combat_prototype", errors)
+	_require_keys(cp, ["chipMultiplier", "actionsPerRound", "critChance", "levelMax", "playerBase", "allyBase", "moves", "archetypes", "beatLines"], "combat_prototype", errors)
 	var level_max := int(cp.get("levelMax", 0))
 	if level_max < 1 or level_max >= skill_curve.size():
 		errors.append("combat_prototype.levelMax: must be 1..%d (the Combat Skill curves' top level)" % (skill_curve.size() - 1))
@@ -1346,10 +1346,14 @@ func _validate_combat_prototype(cp: Dictionary, skill_curve: Array, errors: Arra
 		if float(crit[level]) < 0.0 or float(crit[level]) > 1.0:
 			errors.append("combat_prototype.critChance[%d]: must be in [0, 1]" % level)
 	_validate_combat_prototype_stats(cp.get("playerBase", {}), "combat_prototype.playerBase", errors)
+	_validate_combat_prototype_stats(cp.get("allyBase", {}), "combat_prototype.allyBase", errors)
 
 	var moves: Dictionary = cp.get("moves", {})
 	if moves.is_empty():
 		errors.append("combat_prototype.moves: must not be empty")
+	for move_id in CombatPrototype.ALLY_AI_MOVES:
+		if not moves.has(move_id):
+			errors.append("combat_prototype.moves: missing '%s' (the ally AI plans with it)" % move_id)
 	for move_id in moves.keys():
 		var move: Dictionary = moves[move_id]
 		var path := "combat_prototype.moves.%s" % move_id

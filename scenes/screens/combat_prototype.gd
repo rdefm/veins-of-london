@@ -2,10 +2,10 @@ class_name CombatPrototypeScreen
 extends Control
 
 # Debug-app-only sandbox screen for systems/combat_prototype.gd: setup
-# (player and enemy Combat Skill levels, 1-3 enemies by archetype), then per
-# round the combatants with their guard-state preview, the shared timeline
-# with enemy intents and the player's draft positions, Commit, Rewind and the
-# beat log.
+# (player, enemy and ally Combat Skill levels, 1-3 enemies by archetype, 0-2
+# allies), then per round the combatants with their guard-state preview, the
+# shared timeline with enemy intents, ally plans and the player's draft
+# positions, Commit, Rewind and the beat log.
 
 # Setup's enemy count cap (spec §Out of Scope: no more than 3 per side).
 const MAX_ENEMIES := 3
@@ -14,6 +14,8 @@ const MAX_ENEMIES := 3
 var _player_level: int = 1
 var _enemy_level: int = 1
 var _enemy_archetypes: Array = [CombatPrototype.DEFAULT_ARCHETYPE]
+var _ally_count: int = 0
+var _ally_level: int = 1
 # View state only: why the last palette pick was refused, until the next pick.
 var _refusal: String = ""
 
@@ -80,10 +82,25 @@ func _build_setup_card() -> Control:
 		select.item_selected.connect(func(index: int): _enemy_archetypes[i] = archetype_ids[index])
 		c["content"].add_child(select)
 
-	c["content"].add_child(MapCardStyle.text_button("Start", func(): CombatPrototype.start({
-		"playerLevel": _player_level,
-		"enemies": _enemy_archetypes.map(func(id): return { "archetype": id, "level": _enemy_level }),
-	})))
+	var ally_counts: Array = []
+	for n in range(CombatPrototype.MAX_ALLIES + 1):
+		ally_counts.append("%d all%s" % [n, "y" if n == 1 else "ies"])
+	var ally_select := UI.option_button(ally_counts)
+	ally_select.selected = _ally_count
+	ally_select.item_selected.connect(func(index: int): _ally_count = index)
+	c["content"].add_child(ally_select)
+	c["content"].add_child(_level_select("Ally level: %d", _ally_level, func(level: int): _ally_level = level))
+
+	c["content"].add_child(MapCardStyle.text_button("Start", func():
+		var allies: Array = []
+		for i in range(_ally_count):
+			allies.append({ "level": _ally_level })
+		CombatPrototype.start({
+			"playerLevel": _player_level,
+			"enemies": _enemy_archetypes.map(func(id): return { "archetype": id, "level": _enemy_level }),
+			"allies": allies,
+		})
+	))
 	return c["panel"]
 
 
@@ -123,10 +140,10 @@ func _build_combatant_card(cp: Dictionary, index: int) -> Control:
 	return c["panel"]
 
 
-# One row per timeline position: enemy rows show the intent's move type,
-# the player's rows show the move palette with the current pick disabled
-# (a multi-action move's later positions say so), then a target picker
-# when the pick aims at an enemy.
+# One row per timeline position: enemy rows show the intent's move type
+# only, ally rows their planned move and its target, the player's rows the
+# move palette with the current pick disabled (a multi-action move's later
+# positions say so), then a target picker when the pick aims at an enemy.
 func _build_timeline_card(cp: Dictionary) -> Control:
 	var c := MapCardStyle.card()
 	c["content"].add_child(UI.heading("This round", 14))
@@ -145,6 +162,13 @@ func _build_timeline_card(cp: Dictionary) -> Control:
 				row.add_child(MapCardStyle.text_button(CombatPrototype.move(move_id)["name"], func(): _pick(position, move_id, -1), is_picked))
 			if picked != null and CombatPrototype.move(picked["move"])["target"] == CombatPrototype.TARGET_ENEMY:
 				row.add_child(_build_target_picker(cp, position, picked))
+		elif combatants[actor]["side"] == CombatPrototype.SIDE_ALLY:
+			var planned: Dictionary = combatants[actor]["plan"][position]
+			var m := CombatPrototype.move(planned["move"])
+			var aim: String = ""
+			if m["target"] == CombatPrototype.TARGET_ENEMY:
+				aim = " → %s" % CombatPrototype.display_name(combatants[planned["target"]])
+			row.add_child(UI.label("(ally) %s%s" % [m["name"], aim]))
 		else:
 			var intent: Dictionary = combatants[actor]["plan"][position]
 			row.add_child(UI.label(CombatPrototype.move(intent["move"])["name"]))
