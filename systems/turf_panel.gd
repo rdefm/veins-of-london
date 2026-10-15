@@ -93,6 +93,112 @@ static func build(district_id: String) -> Dictionary:
 	}
 
 
+const PRESENCE_LABELS := { "control": "Holds district · full", "foothold": "Foothold · half", "none": "No ground here" }
+const LOCKED_SHOWN := 2
+
+
+# Perks section rows for every faction, regardless of presence:
+# { here: [{ faction, name, presence, presence_label, perks: [perk_row] }],
+#   everywhere: [perk_row], locked_hidden: int }.
+# perk_row: { faction_name, label, description, status, note, unlocked }; status is
+# "active" | "half" | "idle" | "locked", note the unlock requirement / ground line.
+static func perk_groups(district_id: String) -> Dictionary:
+	var shares := Turf.shares(district_id)
+	var cards := []
+	var everywhere_unlocked := []
+	var everywhere_locked := []
+	var order := 0
+	for fid in GameData.FACTIONS.keys():
+		var tier := Turf.tier(district_id, fid)
+		var tiers_cfg := _perk_status_context(fid)
+		var turf_perks := []
+		for row in Perks.district_benefit_rows(fid, district_id):
+			var perk_row := _perk_row(fid, row, tiers_cfg)
+			if row["scope"] == "turf":
+				turf_perks.append(perk_row)
+			elif row["unlocked"]:
+				everywhere_unlocked.append(perk_row)
+			else:
+				everywhere_locked.append(perk_row)
+		if not turf_perks.is_empty():
+			cards.append({
+				"faction": fid,
+				"name": contender_name(fid),
+				"presence": tier,
+				"presence_label": PRESENCE_LABELS.get(tier, PRESENCE_LABELS["none"]),
+				"share": float(shares.get(fid, 0.0)),
+				"order": order,
+				"perks": turf_perks,
+			})
+		order += 1
+	cards.sort_custom(func(a, b):
+		var ga: bool = a["presence"] != Turf.TIER_NONE
+		var gb: bool = b["presence"] != Turf.TIER_NONE
+		if ga != gb:
+			return ga
+		if ga:
+			var ca: bool = a["presence"] == Turf.TIER_CONTROL
+			var cb: bool = b["presence"] == Turf.TIER_CONTROL
+			if ca != cb:
+				return ca
+			if a["share"] != b["share"]:
+				return a["share"] > b["share"]
+		return a["order"] < b["order"])
+	var shown_locked := everywhere_locked.slice(0, LOCKED_SHOWN)
+	var hidden := everywhere_locked.slice(LOCKED_SHOWN)
+	return {
+		"here": cards,
+		"everywhere": everywhere_unlocked + shown_locked,
+		"everywhere_hidden": hidden,
+		"locked_hidden": hidden.size(),
+	}
+
+
+static func _perk_status_context(faction_id: String) -> Dictionary:
+	return {
+		"tier": Perks.player_tier(faction_id),
+		"relation": int(GameState.state["factions"][faction_id]["relation"]),
+	}
+
+
+static func _perk_row(faction_id: String, row: Dictionary, ctx: Dictionary) -> Dictionary:
+	var perk: Dictionary = row["perk"]
+	var status := "locked"
+	var note := ""
+	match row["here"]:
+		"full":
+			status = "active"
+		"reduced":
+			status = "half"
+		_:
+			if row["unlocked"]:
+				status = "idle"
+	if not row["unlocked"]:
+		note = _needs_text(row["tier"], ctx)
+	if row["scope"] == "turf" and row["here"] == "inactive":
+		note = (note + " " if note != "" else "") + "No ground held here yet."
+	return {
+		"faction_name": contender_name(faction_id),
+		"label": perk["label"],
+		"description": perk["description"],
+		"status": status,
+		"note": note,
+		"unlocked": row["unlocked"],
+	}
+
+
+static func _needs_text(tier: String, ctx: Dictionary) -> String:
+	var text := "Needs %s" % Perks.requirement_text(tier)
+	match tier:
+		"friendly":
+			return "%s (you: %d)." % [text, ctx["relation"]]
+		"partner":
+			if ctx["tier"] == Perks.TIER_NONE:
+				return "%s (you: relation %d)." % [text, ctx["relation"]]
+			return "%s (you are %s)." % [text, Perks.tier_label(ctx["tier"])]
+	return "%s." % text
+
+
 # Veins you need to take control (or the lead you can spare while holding it).
 static func _flip_row(counts: Dictionary, controller: String) -> Dictionary:
 	if counts.is_empty():

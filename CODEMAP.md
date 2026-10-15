@@ -48,7 +48,7 @@ Data file per system: see `data/*.json` below.
 | dial.gd | Per-owner Dial mechanic (`dial_of(owner_id)`: player or contact): Movements, charge economy, Complications (single or multi-target variant), casts/XP; `build_granted_dial`/`grant_contact_dial` for contact grants |
 | diplomacy.gd | Diplomacy (R§3.10 "Favours", "Gifts"): faction favour requests as key-member pending messages; accept (goods favours sign a contract via Offers; `event` favours start their `eventId`, settled by `favour_kept`/`favour_failed` ops), decline, guard/sit-out watches; cash/item gifts to key members; `ask_aid`/`aid_chance` call-for-aid (R§3.1e) + owed-favour debt |
 | partners.gd | Partners (R§3.10 "Partners"): partner trouble asks (sell/contract/buy/send) as pending messages; partner-faction discounted trades; warnings of planned moves; faction raid warned-odds cut; intel leaks |
-| turf_panel.gd | TurfPanel: pure rows for the district panel's Turf section (contender shares/tier, flip margin, modifiers tagged with source faction; active harassment rows per district). |
+| turf_panel.gd | TurfPanel: pure rows for the district panel (Turf section: contender shares/tier, flip margin, modifiers tagged with source faction; active harassment rows; `perk_groups` = per-faction perk cards + global perks for the Perks section). |
 | perks.gd | Faction perk queries (`faction_perks.json`): `player_tier`, `active_global`, `active_turf(district)`, `preview`, `benefit_rows` / `district_benefit_rows` (requirement, scope, active, full/reduced). Hooks: Collective, Firm, Guild, Network, Conclave perks (tend, racket, commissions, intel, nudge, lore). State `perks`. |
 | district_bubble.gd | District tap-bubble decision |
 | district_deck.gd | Weighted district event deck picker |
@@ -139,7 +139,7 @@ overlays.
 | hq_guard_kit.gd | Guard Kit list: HQ kit row on top (`build_hq_row`, shared with hq_door), then one row per player vein with guards or a non-empty kit (name, n/cap, summary, idle); a row opens that kit's stocking sheet |
 | hq_floorplan.gd | Noticeboard: tiers with a plan show FloorplanView (tap slot → choose/replace use); others show the room-tile grid. Contact assignment, Let go for hires, seats used/total and seat upgrade for staffed rooms |
 | hq_lab_bench.gd | Lab zone: single portrait bench plate, jar count badges, ready-gear outline, status line; gear tap opens confirm modal |
-| map.gd | Map tab: full-bleed diagram (top board to nav dock) with floating menu button, legend and zoom pill in Map chrome tokens; district panel (turf, per-district perks ladder: turf vs everywhere, active/locked) + sheet |
+| map.gd | Map tab: full-bleed diagram (top board to nav dock) with floating menu button, legend and zoom pill in Map chrome tokens; district panel (turf, Perks here per faction, Everywhere, active/locked) + sheet |
 | phone.gd | Phone tab controller: mounts PhoneDeviceShell, owns four-column home grid + home-only Phone/Messages/Settings dock, live badge-count projections + tile routing, dispatches apps through phone_app_registry.gd |
 | placeholder.gd | Stand-in for a not-yet-built screen |
 | title.gd | Title screen + load-game slot list; sprite picker overlay (idle preview, ◀/▶, Select, Back) that New Game and Debug Start open first |
