@@ -8,6 +8,8 @@ extends Control
 
 # View state only: the setup level pick, kept across rebuilds.
 var _player_level: int = 1
+# View state only: why the last palette pick was refused, until the next pick.
+var _refusal: String = ""
 
 var _content: VBoxContainer
 
@@ -40,6 +42,8 @@ func _build() -> void:
 		_content.add_child(_build_outcome_card(cp["outcome"]))
 	else:
 		_content.add_child(_build_timeline_card(cp))
+		if _refusal != "":
+			_content.add_child(UI.muted_label(_refusal))
 		var reason := CombatPrototype.plan_block_reason(cp, cp["playerPlan"])
 		if reason != "":
 			_content.add_child(UI.muted_label(reason))
@@ -72,11 +76,17 @@ func _build_combatant_card(cp: Dictionary, index: int) -> Control:
 	if not combatant["koed"]:
 		var preview: Array = CombatPrototype.guard_preview(cp, index).map(func(state): return str(state).capitalize())
 		c["content"].add_child(UI.muted_label("Guard: %s" % " → ".join(preview)))
+		if CombatPrototype.is_exposed(cp, combatant):
+			c["content"].add_child(UI.muted_label("Exposed through round %d" % combatant["exposedUntil"]))
+		if combatant["actionsLost"] > 0:
+			c["content"].add_child(UI.muted_label("Stunned: loses next %d action(s)" % combatant["actionsLost"]))
 	return c["panel"]
 
 
 # One row per timeline position: enemy rows show the intent's move type,
-# the player's rows show the move palette with the current pick disabled.
+# the player's rows show the move palette with the current pick disabled
+# (a multi-action move's later positions say so), then a target picker
+# when the pick aims at an enemy.
 func _build_timeline_card(cp: Dictionary) -> Control:
 	var c := MapCardStyle.card()
 	c["content"].add_child(UI.heading("This round", 14))
@@ -88,9 +98,13 @@ func _build_timeline_card(cp: Dictionary) -> Control:
 		row.add_child(UI.label("%d · %s" % [position + 1, CombatPrototype.display_name(combatants[actor])]))
 		if actor == CombatPrototype.PLAYER_INDEX:
 			var picked = cp["playerPlan"][position]
+			if picked != null and int(picked.get("part", 0)) > 0:
+				row.add_child(UI.muted_label("(%s, cont.)" % CombatPrototype.move(picked["move"])["name"]))
 			for move_id in GameData.COMBAT_PROTOTYPE["moves"].keys():
 				var is_picked: bool = picked != null and picked["move"] == move_id
-				row.add_child(MapCardStyle.text_button(CombatPrototype.move(move_id)["name"], func(): CombatPrototype.set_plan_action(position, move_id), is_picked))
+				row.add_child(MapCardStyle.text_button(CombatPrototype.move(move_id)["name"], func(): _pick(position, move_id, -1), is_picked))
+			if picked != null and CombatPrototype.move(picked["move"])["target"] == CombatPrototype.TARGET_ENEMY:
+				row.add_child(_build_target_picker(cp, position, picked))
 		else:
 			var intent: Dictionary = combatants[actor]["plan"][position]
 			row.add_child(UI.label(CombatPrototype.move(intent["move"])["name"]))
@@ -98,9 +112,34 @@ func _build_timeline_card(cp: Dictionary) -> Control:
 	return c["panel"]
 
 
+# Living enemies to aim the player's action at `position`.
+func _build_target_picker(cp: Dictionary, position: int, picked: Dictionary) -> Control:
+	var targets: Array = []
+	var names: Array = []
+	for i in range(cp["combatants"].size()):
+		var combatant: Dictionary = cp["combatants"][i]
+		if combatant["side"] == CombatPrototype.SIDE_ENEMY and not combatant["koed"]:
+			targets.append(i)
+			names.append("→ %s" % CombatPrototype.display_name(combatant))
+	var select := UI.option_button(names)
+	select.selected = maxi(0, targets.find(int(picked["target"])))
+	select.item_selected.connect(func(index: int): _pick(position, picked["move"], targets[index]))
+	return select
+
+
+func _pick(position: int, move_id: String, target: int) -> void:
+	# Cleared first: a successful pick refreshes via state_changed mid-call.
+	_refusal = ""
+	var result := CombatPrototype.set_plan_action(position, move_id, target)
+	if not result["ok"]:
+		_refusal = str(result["reason"])
+		_refresh()
+
+
 func _build_outcome_card(outcome: String) -> Control:
 	var c := MapCardStyle.card()
-	c["content"].add_child(UI.label("You win." if outcome == "win" else "You lose."))
+	var lines := { "win": "You win.", "loss": "You lose.", "fled": "You got away." }
+	c["content"].add_child(UI.label(lines.get(outcome, outcome)))
 	c["content"].add_child(MapCardStyle.text_button("New fight", func(): CombatPrototype.close_fight()))
 	return c["panel"]
 

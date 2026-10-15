@@ -26,6 +26,18 @@ func run() -> void:
 		_render()
 	)
 
+	run_case("planning_renders_lure_target_pickers_and_a_refused_pick", func():
+		GameState.reset()
+		CombatPrototype.start({ "seed": 4, "enemies": [{ "archetype": "mugger", "level": 1 }, { "archetype": "mugger", "level": 1 }] })
+		CombatPrototype.set_plan_action(0, "lure")
+		var screen := _render()
+		screen._pick(1, "stun", 2)
+		assert_eq(GameState.state["combatPrototype"]["playerPlan"][0], null, "the Stun replaced the whole Lure")
+		screen._pick(1, "lure", -1)
+		assert_eq(screen._refusal, "Lure takes 2 actions in a row.")
+		assert_true(screen._content.get_child_count() > 0)
+	)
+
 	run_case("refresh_after_a_committed_round_rebuilds_the_same_body", func():
 		GameState.reset()
 		CombatPrototype.start({ "seed": 2 })

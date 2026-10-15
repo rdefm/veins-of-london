@@ -19,6 +19,32 @@ func _start(enemy_rounds: Array, player_level: int = 1, enemy_level: int = 1, se
 	})
 
 
+# One level-1 mugger per entry of `enemy_plans` (each an Array of rounds).
+func _start_group(enemy_plans: Array, player_level: int = 1, seed_value: int = 1) -> Dictionary:
+	GameState.reset()
+	return CombatPrototype.start({
+		"playerLevel": player_level,
+		"enemies": enemy_plans.map(func(_p): return { "archetype": "mugger", "level": 1 }),
+		"enemyPlans": enemy_plans,
+		"seed": seed_value,
+	})
+
+
+func _kinds(beats: Array) -> Array:
+	return beats.map(func(b): return [b["actor"], b["kind"]])
+
+
+# First seed in 1..60 whose round, resolved with `plan`, ends in (or not in)
+# a successful Leg it, with that fight left in GameState.
+func _seed_where_flee(succeeds: bool, enemy_rounds: Array, plan: Array, player_level: int) -> Dictionary:
+	for s in range(1, 61):
+		_start(enemy_rounds, player_level, 1, s)
+		var result := CombatPrototype.resolve_round(_plan(plan))
+		if (result["outcome"] == "fled") == succeeds:
+			return result
+	return {}
+
+
 func _plan(moves: Array) -> Array:
 	return moves.map(func(m): return { "move": m })
 
@@ -173,7 +199,7 @@ func run() -> void:
 		assert_true(rewound["ok"])
 		cp = GameState.state["combatPrototype"]
 		var expected := before.duplicate(true)
-		expected["playerPlan"] = [{ "move": "guard", "target": PLAYER }, { "move": "strike", "target": ENEMY }]
+		expected["playerPlan"] = [{ "move": "guard", "target": PLAYER, "part": 0 }, { "move": "strike", "target": ENEMY, "part": 0 }]
 		assert_eq(_without_snapshots(cp), expected, "hp, guard, round, log, rng and both rounds of enemy plans are back; the committed plan is the draft")
 
 		assert_true(CombatPrototype.set_plan_action(1, "guard")["ok"], "the plan is editable again")
@@ -184,6 +210,128 @@ func run() -> void:
 	run_case("rewind_with_nothing_committed_fails_cleanly", func():
 		_start([["guard", "guard"]])
 		assert_true(not CombatPrototype.rewind()["ok"])
+	)
+
+	run_case("feint_then_strike_on_a_guarded_target_lands_full", func():
+		var cp := _start([["feint", "guard"]])
+		var result := CombatPrototype.resolve_round(_plan(["feint", "strike"]))
+		assert_true(result["ok"], str(result))
+		var beats: Array = result["beats"]
+		assert_eq(_kinds(beats)[0], [PLAYER, "feint"], "the Guarded mugger is opened")
+		assert_eq(beats[0]["actorGuard"], CombatPrototype.GUARDED, "Feint leaves the actor's own guard alone")
+		var hit: Dictionary = _hits(beats).filter(func(b): return b["actor"] == PLAYER)[0]
+		assert_eq(hit["kind"], "hit")
+		assert_eq(hit["dmg"], _expected_dmg(hit))
+		assert_eq(cp["combatants"][ENEMY]["hp"], cp["combatants"][ENEMY]["hpMax"] - hit["dmg"])
+	)
+
+	run_case("feint_on_an_open_target_is_a_no_op", func():
+		var cp := _start([["strike", "guard"]])
+		var result := CombatPrototype.resolve_round(_plan(["guard", "feint"]))
+		assert_eq(_kinds(result["beats"]), [[PLAYER, "guard"], [ENEMY, "chip"], [PLAYER, "fizzle"], [ENEMY, "guard"]])
+		assert_eq(result["beats"][2]["actorGuard"], CombatPrototype.GUARDED)
+		assert_eq(cp["combatants"][ENEMY]["hp"], cp["combatants"][ENEMY]["hpMax"])
+	)
+
+	run_case("stun_on_a_guarded_target_fizzles", func():
+		var cp := _start([["guard", "strike"]])
+		var result := CombatPrototype.resolve_round(_plan(["stun", "guard"]))
+		assert_eq(_kinds(result["beats"]), [[PLAYER, "fizzle"], [ENEMY, "guard"], [PLAYER, "guard"], [ENEMY, "chip"]], "the mugger keeps its Strike")
+		assert_eq(result["beats"][0]["actorGuard"], CombatPrototype.OPEN, "a Stun still leaves the actor Open")
+		assert_eq(cp["combatants"][ENEMY]["actionsLost"], 0)
+	)
+
+	run_case("stun_on_an_open_target_removes_its_next_action_and_it_stays_open", func():
+		var cp := _start([["strike", "guard"]])
+		var result := CombatPrototype.resolve_round(_plan(["guard", "stun"]))
+		assert_eq(_kinds(result["beats"]), [[PLAYER, "guard"], [ENEMY, "chip"], [PLAYER, "stun"], [ENEMY, "lost"]], "the mugger's Guard is dropped")
+		assert_eq(result["beats"][2]["actorGuard"], CombatPrototype.OPEN)
+		assert_eq(cp["combatants"][ENEMY]["guard"], CombatPrototype.OPEN, "the dropped Guard never restored it")
+		assert_eq(cp["combatants"][ENEMY]["actionsLost"], 0)
+	)
+
+	run_case("a_stun_after_the_targets_last_action_takes_its_first_next_round", func():
+		var cp := _start([["guard", "strike"], ["strike", "guard"]], 1, 2)
+		assert_true(cp["combatants"][ENEMY]["speed"] > cp["combatants"][PLAYER]["speed"], "the mugger acts first at each index")
+		var first := CombatPrototype.resolve_round(_plan(["guard", "stun"]))
+		assert_eq(_kinds(first["beats"])[-1], [PLAYER, "stun"])
+		var result := CombatPrototype.resolve_round(_plan(["guard", "guard"]))
+		assert_eq(_kinds(result["beats"]), [[ENEMY, "lost"], [PLAYER, "guard"], [ENEMY, "guard"], [PLAYER, "guard"]], "round 2's Strike is the one dropped")
+		assert_eq(cp["combatants"][PLAYER]["hp"], cp["combatants"][PLAYER]["hpMax"] - first["beats"][2]["dmg"])
+	)
+
+	run_case("lure_exposes_the_first_attacker_and_the_second_hits_an_open_player", func():
+		var cp := _start_group([[["strike", "guard"], ["guard", "guard"]], [["strike", "guard"]]])
+		var result := CombatPrototype.resolve_round(_plan(["lure", "lure"]))
+		assert_true(result["ok"], str(result))
+		var beats: Array = result["beats"]
+		assert_eq(_kinds(beats), [[PLAYER, "lure"], [1, "chip"], [PLAYER, "exposed"], [2, "hit"], [1, "guard"], [2, "guard"]])
+		assert_eq(beats[1]["guarded"], true, "Lure holds the player Guarded for the first attack")
+		assert_eq(beats[2]["target"], 1, "the first attacker is the one Exposed")
+		assert_eq(beats[3]["guarded"], false, "Lure is spent; the second attacker hits full")
+		assert_eq(cp["combatants"][PLAYER]["guard"], CombatPrototype.OPEN, "the Lure's 2nd position doesn't restore guard once sprung")
+		assert_eq(cp["combatants"][1]["guard"], CombatPrototype.GUARDED, "its own Guard resolved...")
+		assert_true(CombatPrototype.is_exposed(cp, cp["combatants"][1]), "...but it stays Exposed")
+
+		var next := CombatPrototype.resolve_round([{ "move": "strike", "target": 1 }, { "move": "guard" }])
+		var hit: Dictionary = next["beats"][0]
+		assert_eq([hit["actor"], hit["target"], hit["kind"]], [PLAYER, 1, "hit"], "Exposed through the end of next round: full damage into a Guard")
+		assert_true(not CombatPrototype.is_exposed(cp, cp["combatants"][1]), "Exposed has run out by round 3")
+	)
+
+	run_case("an_unbitten_lure_holds_the_player_guarded", func():
+		var cp := _start([["guard", "guard"]])
+		var result := CombatPrototype.resolve_round(_plan(["lure", "lure"]))
+		assert_eq(_kinds(result["beats"]), [[PLAYER, "lure"], [ENEMY, "guard"], [ENEMY, "guard"]])
+		assert_eq(cp["combatants"][PLAYER]["guard"], CombatPrototype.GUARDED)
+	)
+
+	run_case("lure_needs_two_positions_in_a_row", func():
+		var cp := _start([["guard", "guard"]])
+		var refused := CombatPrototype.set_plan_action(1, "lure")
+		assert_true(not refused["ok"])
+		assert_eq(refused["reason"], "Lure takes 2 actions in a row.")
+		assert_true(CombatPrototype.set_plan_action(0, "lure")["ok"])
+		assert_eq(cp["playerPlan"].map(func(a): return [a["move"], a["part"]]), [["lure", 0], ["lure", 1]], "Lure fills both positions")
+		assert_true(CombatPrototype.set_plan_action(1, "guard")["ok"])
+		assert_eq(cp["playerPlan"][0], null, "overwriting half a Lure clears all of it")
+		var bad := CombatPrototype.resolve_round(_plan(["guard", "lure"]))
+		assert_true(not bad["ok"])
+		assert_eq(bad["reason"], "Lure takes 2 actions in a row.")
+	)
+
+	run_case("each_action_picks_its_own_target", func():
+		var cp := _start_group([[["guard", "guard"]], [["guard", "guard"]]])
+		var result := CombatPrototype.resolve_round([{ "move": "strike", "target": 2 }, { "move": "strike", "target": 1 }])
+		assert_true(result["ok"], str(result))
+		var hits := _hits(result["beats"])
+		assert_eq(hits.map(func(b): return b["target"]), [2, 1])
+		var bad := CombatPrototype.resolve_round([{ "move": "strike", "target": PLAYER }, { "move": "guard" }])
+		assert_eq(bad["reason"], "Pick a target.")
+		assert_true(not CombatPrototype.set_plan_action(0, "feint", 5)["ok"], "no such enemy")
+		assert_eq(cp["round"], 2)
+	)
+
+	run_case("guard_guard_leg_it_takes_no_full_hits_and_success_ends_the_fight_fled", func():
+		var result := _seed_where_flee(true, [["strike", "strike"]], ["guard", "guard", "legIt"], 3)
+		assert_true(not result.is_empty(), "some seed in range flees")
+		var cp: Dictionary = GameState.state["combatPrototype"]
+		assert_eq(_kinds(result["beats"]), [[PLAYER, "guard"], [ENEMY, "chip"], [PLAYER, "guard"], [ENEMY, "chip"], [PLAYER, "fled"]])
+		assert_true(_hits(result["beats"]).all(func(b): return b["guarded"]), "only chip landed")
+		assert_eq(result["outcome"], "fled")
+		assert_eq(cp["outcome"], "fled")
+		assert_eq(cp["round"], 1)
+		assert_true(not CombatPrototype.resolve_round(_plan(["guard", "guard", "guard"]))["ok"], "the fight is over")
+	)
+
+	run_case("a_failed_leg_it_leaves_the_player_open_with_no_further_actions", func():
+		var result := _seed_where_flee(false, [["guard", "guard"]], ["legIt", "strike"], 1)
+		assert_true(not result.is_empty(), "some seed in range fails")
+		var cp: Dictionary = GameState.state["combatPrototype"]
+		assert_eq(_kinds(result["beats"]), [[PLAYER, "fleeFailed"], [ENEMY, "guard"], [ENEMY, "guard"]], "the planned Strike is lost")
+		assert_eq(result["outcome"], null)
+		assert_eq(cp["combatants"][PLAYER]["guard"], CombatPrototype.OPEN)
+		assert_eq(cp["combatants"][ENEMY]["hp"], cp["combatants"][ENEMY]["hpMax"])
 	)
 
 	run_case("a_full_fight_never_touches_the_real_player_or_calendar", func():

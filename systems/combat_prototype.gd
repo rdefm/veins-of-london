@@ -29,7 +29,22 @@ const TARGET_TYPES: Array[String] = [TARGET_SELF, TARGET_ENEMY]
 
 const EFFECT_NONE := "none"
 const EFFECT_DAMAGE := "damage"
-const EFFECTS: Array[String] = [EFFECT_NONE, EFFECT_DAMAGE]
+const EFFECT_OPEN := "open"
+const EFFECT_STUN := "stun"
+const EFFECT_LURE := "lure"
+const EFFECT_FLEE := "flee"
+const EFFECTS: Array[String] = [EFFECT_NONE, EFFECT_DAMAGE, EFFECT_OPEN, EFFECT_STUN, EFFECT_LURE, EFFECT_FLEE]
+
+# Move conditions: null (always) or CONDITION_TARGET_OPEN (fizzles on a
+# Guarded target).
+const CONDITION_TARGET_OPEN := "targetOpen"
+const CONDITIONS: Array[String] = [CONDITION_TARGET_OPEN]
+
+# A combatant's "lure" field: none, waiting for a bite, or caught one and
+# spent (the rest of its positions hold the actor Open).
+const LURE_NONE := ""
+const LURE_ACTIVE := "active"
+const LURE_SPRUNG := "sprung"
 
 const PLAYER_INDEX := 0
 const DEFAULT_ARCHETYPE := "mugger"
@@ -47,12 +62,13 @@ static func new_state() -> Dictionary:
 	return {
 		"active": false,
 		"round": 0,
-		# null while the fight runs, then "win" or "loss".
+		# null while the fight runs, then "win", "loss" or "fled".
 		"outcome": null,
 		# Player at PLAYER_INDEX, then enemies; see _build_combatant().
 		"combatants": [],
 		# The player's draft for this round: one entry per action, each
-		# null (unfilled) or { move, target }.
+		# null (unfilled) or { move, target, part }. A move costing n actions
+		# fills n positions in a row, parts 0..n-1.
 		"playerPlan": [],
 		"rngState": 0,
 		# Every resolved beat so far, oldest first (see _beat()).
@@ -147,6 +163,14 @@ static func _build_combatant(side: String, base: Dictionary, level: int) -> Dict
 		"attackMax": int(base["attackMax"]) + attack_bonus,
 		"speed": int(GameData.COMBAT_SPEED_BY_LEVEL[lv]),
 		"guard": GUARDED, "koed": false,
+		# Counts as Open through the end of this round number, whatever its
+		# own guard state (Exposed, spec §Vocabulary).
+		"exposedUntil": 0,
+		# Upcoming actions to drop from the timeline (Stun).
+		"actionsLost": 0,
+		"lure": LURE_NONE,
+		# The running Lure's params.exposedRounds.
+		"lureExposedRounds": 0,
 		"plan": [], "nextPlan": [],
 	}
 
@@ -171,7 +195,7 @@ static func _roll_plan(cp: Dictionary, actor: int, round_no: int, rng: RandomNum
 	var plan: Array = []
 	for i in range(actions_per_round(combatant)):
 		var move_id: String = moves[i % moves.size()]
-		plan.append({ "move": move_id, "target": _pick_target(cp, actor, move_id, rng) })
+		plan.append({ "move": move_id, "target": _pick_target(cp, actor, move_id, rng), "part": 0 })
 	return plan
 
 
@@ -212,32 +236,60 @@ static func _living_opponents(cp: Dictionary, actor: int) -> Array:
 
 # ── Planning ─────────────────────────────────────────────────────────────
 
-# Fills the player's draft action at `position`. target -1 picks the first
-# living enemy for an offensive move.
+static func move_cost(move_id: String) -> int:
+	return int(move(move_id).get("cost", 1))
+
+
+# Fills the player's draft from `position` with `move_id`, taking as many
+# positions as the move costs; any multi-action move it overlaps is cleared
+# whole. target -1 picks the first living enemy for an offensive move.
 static func set_plan_action(position: int, move_id: String, target: int = -1) -> Dictionary:
 	var cp := _root()
 	if not cp["active"] or cp["outcome"] != null:
 		return { "ok": false, "reason": "No fight on." }
-	if position < 0 or position >= cp["playerPlan"].size():
+	var plan: Array = cp["playerPlan"]
+	if position < 0 or position >= plan.size():
 		return { "ok": false, "reason": "No such action." }
 	var entry = _normalize_action(cp, { "move": move_id, "target": target })
 	var reason := _action_block_reason(cp, entry)
 	if reason != "":
 		return { "ok": false, "reason": reason }
-	cp["playerPlan"][position] = entry
+	var cost := move_cost(move_id)
+	if position + cost > plan.size():
+		return { "ok": false, "reason": _span_reason(move_id) }
+	for pos in range(position, position + cost):
+		_clear_span(plan, pos)
+	for part in range(cost):
+		var filled: Dictionary = entry.duplicate()
+		filled["part"] = part
+		plan[position + part] = filled
 	EventBus.state_changed.emit()
 	return { "ok": true }
 
 
+# Clears the draft action at `position` (all of it, for a multi-action move).
 static func clear_plan_action(position: int) -> Dictionary:
 	var cp := _root()
 	if not cp["active"] or cp["outcome"] != null:
 		return { "ok": false, "reason": "No fight on." }
 	if position < 0 or position >= cp["playerPlan"].size():
 		return { "ok": false, "reason": "No such action." }
-	cp["playerPlan"][position] = null
+	_clear_span(cp["playerPlan"], position)
 	EventBus.state_changed.emit()
 	return { "ok": true }
+
+
+static func _clear_span(plan: Array, position: int) -> void:
+	var action = plan[position]
+	if action == null:
+		return
+	var start: int = position - int(action.get("part", 0))
+	for pos in range(maxi(0, start), mini(plan.size(), start + move_cost(action["move"]))):
+		plan[pos] = null
+
+
+static func _span_reason(move_id: String) -> String:
+	return "%s takes %d actions in a row." % [move(move_id)["name"], move_cost(move_id)]
 
 
 static func _normalize_action(cp: Dictionary, action) -> Variant:
@@ -254,12 +306,35 @@ static func _normalize_action(cp: Dictionary, action) -> Variant:
 	return { "move": move_id, "target": target }
 
 
+# Normalizes each action, then numbers the parts of multi-action moves: n
+# positions in a row holding the same move form one action, parts 0..n-1.
+# A run that's too short is left with part -1 (see _action_block_reason).
+static func _normalize_plan(cp: Dictionary, plan: Array) -> Array:
+	var result: Array = plan.map(func(action): return _normalize_action(cp, action))
+	var i := 0
+	while i < result.size():
+		var action = result[i]
+		if action == null or move(action["move"]).is_empty():
+			i += 1
+			continue
+		var cost := move_cost(action["move"])
+		var run := 1
+		while run < cost and i + run < result.size() and result[i + run] != null and result[i + run]["move"] == action["move"]:
+			run += 1
+		for part in range(run):
+			result[i + part]["part"] = part if run == cost else -1
+		i += run
+	return result
+
+
 static func _action_block_reason(cp: Dictionary, action) -> String:
 	if action == null:
 		return "Fill every action."
 	var m := move(action["move"])
 	if m.is_empty():
 		return "Unknown move."
+	if int(action.get("part", 0)) < 0:
+		return _span_reason(action["move"])
 	if m["target"] == TARGET_ENEMY and not _living_opponents(cp, PLAYER_INDEX).has(action["target"]):
 		return "Pick a target."
 	return ""
@@ -325,14 +400,15 @@ static func guard_preview(cp: Dictionary, actor: int) -> Array:
 # Commits the player's plan (Array of { move, target }; target may be
 # omitted for auto-targeting) against the enemies' committed plans and
 # resolves the round in timeline() order. A KO'd combatant's remaining
-# actions are dropped and the fight stops the moment it's won or lost.
+# actions are dropped, as are a Leg it's actor's later ones and any lost
+# to a Stun; the fight stops the moment it's won, lost or fled.
 # Returns { ok, beats, outcome }; on a fight still running, next round's
 # plans move up and the round after's are rolled.
 static func resolve_round(plan: Array) -> Dictionary:
 	var cp := _root()
 	if not cp["active"] or cp["outcome"] != null:
 		return { "ok": false, "reason": "No fight on." }
-	var normalized: Array = plan.map(func(action): return _normalize_action(cp, action))
+	var normalized := _normalize_plan(cp, plan)
 	var reason := plan_block_reason(cp, normalized)
 	if reason != "":
 		return { "ok": false, "reason": reason }
@@ -344,17 +420,29 @@ static func resolve_round(plan: Array) -> Dictionary:
 	rng.state = cp["rngState"]
 	var beats: Array = []
 	var combatants: Array = cp["combatants"]
+	# Actors whose remaining actions this round are gone (Leg it).
+	var done: Dictionary = {}
 	for entry in timeline(cp):
 		if cp["outcome"] != null:
 			break
-		if combatants[entry["actor"]]["koed"]:
+		var actor: int = entry["actor"]
+		var combatant: Dictionary = combatants[actor]
+		if combatant["koed"] or done.has(actor):
 			continue
-		_resolve_action(cp, entry["actor"], _plan_of(cp, entry["actor"])[entry["index"]], rng, beats)
+		var action: Dictionary = _plan_of(cp, actor)[entry["index"]]
+		if combatant["actionsLost"] > 0:
+			combatant["actionsLost"] -= 1
+			_beat(cp, beats, "lost", actor, -1, action["move"], {})
+			continue
+		_resolve_action(cp, actor, action, rng, beats)
+		if move(action["move"])["effect"] == EFFECT_FLEE:
+			done[actor] = true
 	cp["log"].append_array(beats)
 
 	if cp["outcome"] == null:
 		cp["round"] += 1
 		for i in range(combatants.size()):
+			combatants[i]["lure"] = LURE_NONE
 			if combatants[i]["side"] == SIDE_ENEMY:
 				combatants[i]["plan"] = combatants[i]["nextPlan"]
 				combatants[i]["nextPlan"] = [] if combatants[i]["koed"] else _roll_plan(cp, i, cp["round"] + 1, rng)
@@ -365,23 +453,98 @@ static func resolve_round(plan: Array) -> Dictionary:
 	return { "ok": true, "beats": beats, "outcome": cp["outcome"] }
 
 
-# Applies the move's effect, then its effect on the actor's guard state.
+# Applies the move's effect, then its effect on the actor's guard state. A
+# Lure ends when its actor next acts on anything but its own later parts.
 static func _resolve_action(cp: Dictionary, actor_idx: int, action: Dictionary, rng: RandomNumberGenerator, beats: Array) -> void:
 	var m := move(action["move"])
+	var move_id: String = action["move"]
 	var actor: Dictionary = cp["combatants"][actor_idx]
 	var first_beat := beats.size()
+	var continuing_lure: bool = m["effect"] == EFFECT_LURE and int(action.get("part", 0)) > 0
+	if not continuing_lure:
+		actor["lure"] = LURE_NONE
+	var apply_guard := true
 	match m["effect"]:
 		EFFECT_DAMAGE:
 			var target := _retarget(cp, actor_idx, int(action["target"]))
 			if target >= 0:
-				_strike(cp, actor_idx, target, action["move"], rng, beats)
+				_strike(cp, actor_idx, target, move_id, rng, beats)
+		EFFECT_OPEN:
+			var target := _retarget(cp, actor_idx, int(action["target"]))
+			if target >= 0:
+				_feint(cp, actor_idx, target, move_id, beats)
+		EFFECT_STUN:
+			var target := _retarget(cp, actor_idx, int(action["target"]))
+			if target >= 0:
+				_stun(cp, actor_idx, target, move_id, m, beats)
+		EFFECT_LURE:
+			if not continuing_lure:
+				actor["lure"] = LURE_ACTIVE
+				actor["lureExposedRounds"] = int(m["params"]["exposedRounds"])
+				_beat(cp, beats, "lure", actor_idx, -1, move_id, {})
+			elif actor["lure"] == LURE_SPRUNG:
+				# Spent: the actor stays Open for the rest of the Lure.
+				apply_guard = false
+		EFFECT_FLEE:
+			if rng.randf() < float(m["params"]["chance"]):
+				_beat(cp, beats, "fled", actor_idx, -1, move_id, {})
+				if actor_idx == PLAYER_INDEX:
+					cp["outcome"] = "fled"
+			else:
+				_beat(cp, beats, "fleeFailed", actor_idx, -1, move_id, {})
 		_:
-			_beat(cp, beats, action["move"], actor_idx, -1, action["move"], {})
-	if m["actorGuard"] != UNCHANGED and not actor["koed"]:
+			_beat(cp, beats, move_id, actor_idx, -1, move_id, {})
+	if apply_guard and m["actorGuard"] != UNCHANGED and not actor["koed"]:
 		actor["guard"] = m["actorGuard"]
 	for i in range(first_beat, beats.size()):
 		if beats[i]["actor"] == actor_idx:
 			beats[i]["actorGuard"] = actor["guard"]
+
+
+# Open for damage and conditions: its own guard state is Open, or it's
+# Exposed this round.
+static func is_open(cp: Dictionary, combatant: Dictionary) -> bool:
+	return combatant["guard"] == OPEN or is_exposed(cp, combatant)
+
+
+static func is_exposed(cp: Dictionary, combatant: Dictionary) -> bool:
+	return int(cp["round"]) <= int(combatant["exposedUntil"])
+
+
+# Guarded target → Open until its next Guard; no-op on one already Open.
+static func _feint(cp: Dictionary, actor_idx: int, target_idx: int, move_id: String, beats: Array) -> void:
+	var target: Dictionary = cp["combatants"][target_idx]
+	if is_open(cp, target):
+		_beat(cp, beats, "fizzle", actor_idx, target_idx, move_id, {})
+		return
+	target["guard"] = OPEN
+	_beat(cp, beats, "feint", actor_idx, target_idx, move_id, {})
+
+
+# Open target → loses its next params.actions actions (its guard state
+# stays as it was); a Guarded target shrugs it off (spec §Stun and freeze
+# removal). Either way it's an attack, so it can spring a Lure.
+static func _stun(cp: Dictionary, actor_idx: int, target_idx: int, move_id: String, m: Dictionary, beats: Array) -> void:
+	var target: Dictionary = cp["combatants"][target_idx]
+	if m["condition"] == CONDITION_TARGET_OPEN and not is_open(cp, target):
+		_beat(cp, beats, "fizzle", actor_idx, target_idx, move_id, {})
+	else:
+		target["actionsLost"] += int(m["params"]["actions"])
+		_beat(cp, beats, "stun", actor_idx, target_idx, move_id, {})
+	_spring_lure(cp, actor_idx, target_idx, move_id, beats)
+
+
+# The first attack on an actively Luring target leaves the attacker Exposed
+# (through the end of round + exposedRounds) and the lurer Open.
+static func _spring_lure(cp: Dictionary, attacker_idx: int, target_idx: int, move_id: String, beats: Array) -> void:
+	var combatants: Array = cp["combatants"]
+	var target: Dictionary = combatants[target_idx]
+	if target["lure"] != LURE_ACTIVE or target["koed"]:
+		return
+	target["lure"] = LURE_SPRUNG
+	target["guard"] = OPEN
+	combatants[attacker_idx]["exposedUntil"] = int(cp["round"]) + int(target["lureExposedRounds"])
+	_beat(cp, beats, "exposed", target_idx, attacker_idx, move_id, {})
 
 
 # An action aimed at a KO'd opponent moves to the next living one in index
@@ -398,15 +561,15 @@ static func _retarget(cp: Dictionary, actor: int, target: int) -> int:
 	return opponents[0]
 
 
-# Damage rolls within the attacker's range: full on an Open target,
-# round(roll × chipMultiplier) (min 1) on a Guarded one; a crit doubles the
-# final figure (spec §Damage).
+# Damage rolls within the attacker's range: full on an Open (or Exposed)
+# target, round(roll × chipMultiplier) (min 1) on a Guarded one; a crit
+# doubles the final figure (spec §Damage).
 static func _strike(cp: Dictionary, actor_idx: int, target_idx: int, move_id: String, rng: RandomNumberGenerator, beats: Array) -> void:
 	var combatants: Array = cp["combatants"]
 	var actor: Dictionary = combatants[actor_idx]
 	var target: Dictionary = combatants[target_idx]
 	var roll := rng.randi_range(actor["attackMin"], actor["attackMax"])
-	var guarded: bool = target["guard"] == GUARDED
+	var guarded: bool = not is_open(cp, target)
 	var dmg := roll
 	if guarded:
 		dmg = maxi(1, GameState.round_epsilon(roll * float(_data()["chipMultiplier"])))
@@ -417,7 +580,9 @@ static func _strike(cp: Dictionary, actor_idx: int, target_idx: int, move_id: St
 	_beat(cp, beats, "chip" if guarded else "hit", actor_idx, target_idx, move_id, {
 		"roll": roll, "crit": crit, "guarded": guarded, "dmg": dmg, "hpAfter": target["hp"],
 	})
-	if target["hp"] == 0:
+	if target["hp"] > 0:
+		_spring_lure(cp, actor_idx, target_idx, move_id, beats)
+	else:
 		target["koed"] = true
 		_beat(cp, beats, "ko", actor_idx, target_idx, move_id, {})
 		_check_outcome(cp)

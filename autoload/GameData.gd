@@ -1362,10 +1362,27 @@ func _validate_combat_prototype(cp: Dictionary, skill_curve: Array, errors: Arra
 			errors.append("%s.actorGuard: unknown guard effect '%s'" % [path, move.get("actorGuard", "")])
 		if not CombatPrototype.TARGET_TYPES.has(move.get("target", "")):
 			errors.append("%s.target: unknown target type '%s'" % [path, move.get("target", "")])
-		if not CombatPrototype.EFFECTS.has(move.get("effect", "")):
-			errors.append("%s.effect: unknown effect '%s'" % [path, move.get("effect", "")])
+		var effect: String = str(move.get("effect", ""))
+		if not CombatPrototype.EFFECTS.has(effect):
+			errors.append("%s.effect: unknown effect '%s'" % [path, effect])
+		var condition = move.get("condition")
+		if condition != null and not CombatPrototype.CONDITIONS.has(condition):
+			errors.append("%s.condition: unknown condition '%s'" % [path, condition])
 		if typeof(move.get("params")) != TYPE_DICTIONARY:
 			errors.append("%s.params: must be a Dictionary" % path)
+			continue
+		var params: Dictionary = move["params"]
+		match effect:
+			CombatPrototype.EFFECT_STUN:
+				if int(params.get("actions", 0)) < 1:
+					errors.append("%s.params.actions: must be at least 1" % path)
+			CombatPrototype.EFFECT_LURE:
+				if int(params.get("exposedRounds", -1)) < 0:
+					errors.append("%s.params.exposedRounds: must be at least 0" % path)
+			CombatPrototype.EFFECT_FLEE:
+				var chance := float(params.get("chance", -1.0))
+				if chance < 0.0 or chance > 1.0:
+					errors.append("%s.params.chance: must be in [0, 1]" % path)
 
 	var archetypes: Dictionary = cp.get("archetypes", {})
 	if archetypes.is_empty():
@@ -1385,8 +1402,10 @@ func _validate_combat_prototype(cp: Dictionary, skill_curve: Array, errors: Arra
 			for move_id in pattern_moves:
 				if not moves.has(move_id):
 					errors.append("%s.patterns[%d]: unknown move '%s'" % [path, i, move_id])
+				elif int(moves[move_id].get("cost", 1)) != 1:
+					errors.append("%s.patterns[%d]: '%s' costs more than one action; enemy patterns take 1-action moves only" % [path, i, move_id])
 
-	_require_keys(cp.get("beatLines", {}), ["guard", "hit", "chip", "crit", "ko"], "combat_prototype.beatLines", errors)
+	_require_keys(cp.get("beatLines", {}), ["guard", "hit", "chip", "crit", "ko", "feint", "stun", "fizzle", "lost", "lure", "exposed", "fled", "fleeFailed"], "combat_prototype.beatLines", errors)
 
 
 func _validate_combat_prototype_stats(entry: Dictionary, path: String, errors: Array[String]) -> void:

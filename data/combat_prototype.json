@@ -13,6 +13,22 @@
     "strike": {
       "id": "strike", "name": "Strike", "cost": 1, "actorGuard": "open",
       "target": "enemy", "effect": "damage", "params": {}, "condition": null, "level": 1
+    },
+    "feint": {
+      "id": "feint", "name": "Feint", "cost": 1, "actorGuard": "unchanged",
+      "target": "enemy", "effect": "open", "params": {}, "condition": null, "level": 1
+    },
+    "stun": {
+      "id": "stun", "name": "Stun", "cost": 1, "actorGuard": "open",
+      "target": "enemy", "effect": "stun", "params": { "actions": 1 }, "condition": "targetOpen", "level": 1
+    },
+    "lure": {
+      "id": "lure", "name": "Lure", "cost": 2, "actorGuard": "guarded",
+      "target": "self", "effect": "lure", "params": { "exposedRounds": 1 }, "condition": null, "level": 1
+    },
+    "legIt": {
+      "id": "legIt", "name": "Leg it", "cost": 1, "actorGuard": "open",
+      "target": "self", "effect": "flee", "params": { "chance": 0.65 }, "condition": null, "level": 1
     }
   },
   "archetypes": {
@@ -31,6 +47,14 @@
     "hit": { "self": "You catch {target} open. {dmg}.", "other": "{actor} catches {target} open. {dmg}." },
     "chip": { "self": "You hit {target} square on the guard. {dmg} gets through.", "other": "{actor} hits {target} square on the guard. {dmg} gets through." },
     "crit": " Right on the button.",
-    "ko": { "self": "You go down.", "other": "{target} goes down." }
+    "ko": { "self": "You go down.", "other": "{target} goes down." },
+    "feint": { "self": "You sell {target} a dummy. The guard goes with it.", "other": "{actor} sells {target} a dummy. The guard goes with it." },
+    "stun": { "self": "You catch {target} open. Bell rung.", "other": "{actor} catches {target} open. Bell rung." },
+    "fizzle": { "self": "You try it on. Nothing doing.", "other": "{actor} tries it on. Nothing doing." },
+    "lost": { "self": "You're still seeing stars.", "other": "{actor} is still seeing stars." },
+    "lure": { "self": "You leave a gap and wait.", "other": "{actor} leaves a gap and waits." },
+    "exposed": { "self": "{target} bites. Wide open now.", "other": "{actor}'s bait gets a bite." },
+    "fled": { "self": "You leg it. Nobody follows.", "other": "{actor} legs it." },
+    "fleeFailed": { "self": "You try to leg it. They cut you off.", "other": "{actor} tries to leg it and gets cut off." }
   }
 }
