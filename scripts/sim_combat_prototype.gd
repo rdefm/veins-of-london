@@ -9,6 +9,7 @@ extends SceneTree
 #   godot --headless -s scripts/sim_combat_prototype.gd -- n=200 seed=7 levels=1,3,5
 #     elevels=match|1,3 archetypes=mugger,turtle counts=1,2 allies=0,1
 #     loadouts=none,blast+shield,timePearl:2+healingBurst
+#     archetypes.mugger.hpBase=45 chipMultiplier=0.3   (what-if data overrides)
 # Same seed + grid prints the same table. Not part of run_tests.sh. The body
 # lives in sim_combat_prototype_impl.gd, load()ed after autoloads are live
 # (an -s entry script compiles before any autoload registers).

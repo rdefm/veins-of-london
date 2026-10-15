@@ -70,6 +70,32 @@
         { "weight": 3, "moves": ["guard", "strike", "guard"] },
         { "weight": 2, "moves": ["guard", "guard", "strike"] }
       ]
+    },
+    "muggerV2": {
+      "name": "the hard mugger", "hpBase": 65, "attackMin": 13, "attackMax": 21,
+      "patterns": [
+        { "weight": 3, "moves": ["strike", "guard"] },
+        { "weight": 2, "moves": ["guard", "strike"] },
+        { "weight": 1, "moves": ["strike", "strike"] },
+        { "weight": 1, "moves": ["guard", "guard"] }
+      ]
+    },
+    "bruiserV2": {
+      "name": "the hard bruiser", "hpBase": 44, "attackMin": 9, "attackMax": 15,
+      "patterns": [
+        { "weight": 4, "moves": ["strike", "strike", "strike"] },
+        { "weight": 3, "moves": ["strike", "strike", "guard"] },
+        { "weight": 2, "moves": ["guard", "strike", "strike"] },
+        { "weight": 1, "moves": ["strike", "guard", "strike"] }
+      ]
+    },
+    "turtleV2": {
+      "name": "the hard turtle", "hpBase": 75, "attackMin": 13, "attackMax": 20,
+      "patterns": [
+        { "weight": 5, "moves": ["guard", "guard", "guard"] },
+        { "weight": 3, "moves": ["guard", "strike", "guard"] },
+        { "weight": 2, "moves": ["guard", "guard", "strike"] }
+      ]
     }
   },
   "beatLines": {

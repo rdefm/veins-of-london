@@ -17,6 +17,9 @@ const DEFAULTS := {
 func run(raw: Dictionary) -> void:
 	var opts := DEFAULTS.duplicate()
 	opts.merge(raw, true)
+	for key in raw.keys():
+		if not DEFAULTS.has(key) and not _override(key, raw[key]):
+			return
 	var n := int(opts["n"])
 	var base_seed := int(opts["seed"])
 	var matchups := _grid(opts)
@@ -46,6 +49,23 @@ func run(raw: Dictionary) -> void:
 		var t: Dictionary = totals[policy]
 		print("%-7s overall win %5.1f%%, higher win %% in %d of %d matchups" % [
 			policy, 100.0 * t["wins"] / maxi(1, t["fights"]), t["better"], matchups.size()])
+
+
+# What-if override for this run only: a dotted path to an existing number
+# in GameData.COMBAT_PROTOTYPE (e.g. archetypes.mugger.hpBase=45,
+# chipMultiplier=0.3), set to `value` as that number's type. False (with
+# the reason printed) for a path that isn't one.
+func _override(path: String, value: String) -> bool:
+	var keys := path.split(".")
+	var node = GameData.COMBAT_PROTOTYPE
+	for k in keys.slice(0, -1):
+		node = node.get(k) if node is Dictionary else null
+	var last: String = keys[-1]
+	if not (node is Dictionary and node.has(last) and typeof(node[last]) in [TYPE_INT, TYPE_FLOAT]):
+		print("Unknown option or not a number in combat_prototype.json: %s" % path)
+		return false
+	node[last] = float(value) if typeof(node[last]) == TYPE_FLOAT else int(value)
+	return true
 
 
 # One matchup per player level x enemy level x archetype x count x allies x
