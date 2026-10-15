@@ -123,6 +123,8 @@ The screen animates and reports the raw released value or tap timings. The syste
 
 ## Slice B — Resonance chart (Potion Craft-style)
 
+> **Dropped (2026-10-15).** Procedure (Slice A) chosen; the chart slice's code, data and tests are deleted. Kept below for the record only.
+
 A 2D chart. The marker starts at the origin. Each recipe is a circular region somewhere on the chart, with a bullseye at its centre; regions you haven't found are fogged.
 
 **Moving the marker**

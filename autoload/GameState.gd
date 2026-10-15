@@ -314,7 +314,7 @@ func new_game_state() -> Dictionary:
 		# at save time isn't resurrected.
 		"combatPrototype": CombatPrototype.new_state(),
 		# Sandboxed Lab-revamp bench prototype (systems/bench_prototype.gd):
-		# two slices, each its own calc pool, ranks, ledger and Rewind stack.
+		# its own calc pool, ranks, ledger and Rewind stack.
 		"benchPrototype": BenchPrototype.new_state(),
 
 		"jamesJob": null,

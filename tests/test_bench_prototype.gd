@@ -3,11 +3,7 @@ extends "res://tests/test_base.gd"
 const SeedSearch := preload("res://tests/support/seed_search.gd")
 
 # systems/bench_prototype.gd's shared core (.scratch/lab-revamp/spec.md
-# §Shared core rules), driven through the public API on both slices.
-
-const P := BenchPrototype.SLICE_PROCEDURE
-const C := BenchPrototype.SLICE_CHART
-
+# §Shared core rules), driven through the public API.
 
 func _fresh() -> Dictionary:
 	GameState.reset()
@@ -18,9 +14,9 @@ func _data() -> Dictionary:
 	return GameData.BENCH_PROTOTYPE
 
 
-func _run(slice_id: String, recipe_id: String, score: int) -> Dictionary:
-	BenchPrototype.begin_run(slice_id, recipe_id)
-	return BenchPrototype.finish_run(slice_id, score)
+func _run(recipe_id: String, score: int) -> Dictionary:
+	BenchPrototype.begin_run(recipe_id)
+	return BenchPrototype.finish_run(score)
 
 
 # Everything in GameState.state except the prototype's own tree.
@@ -55,20 +51,17 @@ func _outside_state() -> Dictionary:
 
 
 func run() -> void:
-	run_case("new_state_seeds_both_slices_from_data_and_is_pure", func():
+	run_case("new_state_seeds_from_data_and_is_pure", func():
 		var root := _fresh()
-		for slice_id in BenchPrototype.SLICES:
-			var s: Dictionary = root["slices"][slice_id]
-			assert_eq(s["pool"], _data()["poolSeed"], "%s pool seeds from data" % slice_id)
-			for recipe_id in _data()["roster"]:
-				assert_eq(s["bestRanks"][recipe_id], 0, "%s.%s starts unranked" % [slice_id, recipe_id])
-				for hint in BenchPrototype.hints(slice_id, recipe_id):
-					assert_eq(s["hintLevels"][recipe_id][hint["id"]], "off", "%s.%s.%s starts off" % [slice_id, recipe_id, hint["id"]])
-				assert_eq(s["hintLevels"][recipe_id].size(), BenchPrototype.hints(slice_id, recipe_id).size(), "%s.%s: one level per hint" % [slice_id, recipe_id])
+		assert_eq(root["pool"], _data()["poolSeed"], "pool seeds from data")
+		for recipe_id in _data()["roster"]:
+			assert_eq(root["bestRanks"][recipe_id], 0, "%s starts unranked" % recipe_id)
+			for hint in BenchPrototype.hints(recipe_id):
+				assert_eq(root["hintLevels"][recipe_id][hint["id"]], "off", "%s.%s starts off" % [recipe_id, hint["id"]])
+			assert_eq(root["hintLevels"][recipe_id].size(), BenchPrototype.hints(recipe_id).size(), "%s: one level per hint" % recipe_id)
 		var parsed = JSON.parse_string(JSON.stringify(root))
 		assert_true(parsed is Dictionary, "benchPrototype survives a JSON round-trip (pure data)")
-		root["slices"][P]["pool"]["life"] = 1
-		assert_eq(root["slices"][C]["pool"]["life"], _data()["poolSeed"]["life"], "slices don't share a pool dict")
+		root["pool"]["life"] = 1
 		assert_eq(_data()["poolSeed"]["life"], 40, "seeding doesn't alias GameData")
 	)
 
@@ -82,9 +75,9 @@ func run() -> void:
 	run_case("run_spends_base_calc_logs_item_and_sets_best_rank", func():
 		var root := _fresh()
 		Rng.set_seed(1)
-		var result := _run(P, "healingSalve", 62)
+		var result := _run("healingSalve", 62)
 		assert_true(result["ok"], "run finishes")
-		var s: Dictionary = root["slices"][P]
+		var s: Dictionary = root
 		assert_eq(s["bestRanks"]["healingSalve"], 3, "score 62 sets rank 3")
 		var entry: Dictionary = s["ledger"][0]
 		assert_eq(entry["kind"], "run")
@@ -94,31 +87,30 @@ func run() -> void:
 		assert_true(entry.has("bonus"), "bonus field logged")
 		var refunded: int = 0 if entry["bonus"] != "calcRefund" else 1
 		assert_eq(s["pool"]["life"], 40 - 3 + refunded, "base calc spent")
-		assert_eq(root["slices"][C]["pool"]["life"], 40, "other slice untouched")
 	)
 
 	run_case("best_rank_only_rises", func():
 		var root := _fresh()
-		_run(P, "timePearl", 80)
-		_run(P, "timePearl", 10)
-		assert_eq(root["slices"][P]["bestRanks"]["timePearl"], 4, "a worse run doesn't lower best rank")
-		_run(P, "timePearl", 95)
-		assert_eq(root["slices"][P]["bestRanks"]["timePearl"], 5, "a better run raises it")
+		_run("timePearl", 80)
+		_run("timePearl", 10)
+		assert_eq(root["bestRanks"]["timePearl"], 4, "a worse run doesn't lower best rank")
+		_run("timePearl", 95)
+		assert_eq(root["bestRanks"]["timePearl"], 5, "a better run raises it")
 	)
 
 	run_case("begin_refuses_without_calc_or_while_run_open", func():
 		var root := _fresh()
-		root["slices"][P]["pool"]["time"] = 2
-		assert_true(not BenchPrototype.begin_run(P, "timePearl")["ok"], "can't afford 3 time")
-		assert_true(BenchPrototype.begin_run(P, "healingSalve")["ok"])
-		assert_true(not BenchPrototype.begin_run(P, "healingSalve")["ok"], "one run at a time")
+		root["pool"]["time"] = 2
+		assert_true(not BenchPrototype.begin_run("timePearl")["ok"], "can't afford 3 time")
+		assert_true(BenchPrototype.begin_run("healingSalve")["ok"])
+		assert_true(not BenchPrototype.begin_run("healingSalve")["ok"], "one run at a time")
 	)
 
 	run_case("abandon_loses_spent_calc_and_logs_no_item", func():
 		var root := _fresh()
-		BenchPrototype.begin_run(C, "healingBurst")
-		BenchPrototype.abandon_run(C)
-		var s: Dictionary = root["slices"][C]
+		BenchPrototype.begin_run("healingBurst")
+		BenchPrototype.abandon_run()
+		var s: Dictionary = root
 		assert_eq(s["pool"], { "life": 38, "time": 38 }, "calc stays spent")
 		assert_eq(s["ledger"][0]["items"], 0)
 		assert_eq(s["bestRanks"]["healingBurst"], 0, "no rank from an abandoned run")
@@ -126,20 +118,20 @@ func run() -> void:
 
 	run_case("bonus_never_rolls_below_best_rank", func():
 		var root := _fresh()
-		root["slices"][P]["bestRanks"]["healingSalve"] = 4
+		root["bestRanks"]["healingSalve"] = 4
 		for i in range(30):
 			Rng.set_seed(i)
-			var entry: Dictionary = _run(P, "healingSalve", 50)["entry"]
+			var entry: Dictionary = _run("healingSalve", 50)["entry"]
 			assert_eq(entry["bonus"], null, "rank 2 < best 4 never rolls a bonus (seed %d)" % i)
-			BenchPrototype.refill_pool(P)
+			BenchPrototype.refill_pool()
 	)
 
 	run_case("bonus_extra_item_adds_an_item", func():
 		var root := _fresh()
 		BenchPrototype.set_bonus_type("extraItem")
-		var seed := SeedSearch.find_seed_for(200, func(): return _run(P, "healingSalve", 50)["entry"]["bonus"] != null)
+		var seed := SeedSearch.find_seed_for(200, func(): return _run("healingSalve", 50)["entry"]["bonus"] != null)
 		assert_true(seed != -1, "a 30% bonus should land within 200 seeds")
-		var entry: Dictionary = root["slices"][P]["ledger"][-1]
+		var entry: Dictionary = root["ledger"][-1]
 		assert_eq(entry["bonus"], "extraItem")
 		assert_eq(entry["items"], 2, "+1 item")
 		assert_eq(entry["xp"], _data()["baseXp"], "XP unscaled")
@@ -148,19 +140,19 @@ func run() -> void:
 	run_case("bonus_calc_refund_returns_half_the_calc", func():
 		var root := _fresh()
 		BenchPrototype.set_bonus_type("calcRefund")
-		var seed := SeedSearch.find_seed_for(200, func(): return _run(C, "healingBurst", 50)["entry"]["bonus"] != null)
+		var seed := SeedSearch.find_seed_for(200, func(): return _run("healingBurst", 50)["entry"]["bonus"] != null)
 		assert_true(seed != -1, "a bonus should land within 200 seeds")
-		assert_eq(root["slices"][C]["pool"], { "life": 39, "time": 39 }, "2 spent, floor(2 × 0.5) = 1 back per type")
-		assert_eq(root["slices"][C]["ledger"][-1]["items"], 1)
+		assert_eq(root["pool"], { "life": 39, "time": 39 }, "2 spent, floor(2 × 0.5) = 1 back per type")
+		assert_eq(root["ledger"][-1]["items"], 1)
 	)
 
 	run_case("bonus_xp_scales_xp_display_only", func():
 		var root := _fresh()
 		BenchPrototype.set_bonus_type("xp")
 		var xp_before: int = GameState.state["player"]["craftingXP"]
-		var seed := SeedSearch.find_seed_for(200, func(): return _run(P, "timePearl", 50)["entry"]["bonus"] != null)
+		var seed := SeedSearch.find_seed_for(200, func(): return _run("timePearl", 50)["entry"]["bonus"] != null)
 		assert_true(seed != -1, "a bonus should land within 200 seeds")
-		assert_eq(root["slices"][P]["ledger"][-1]["xp"], roundi(_data()["baseXp"] * 1.5), "XP ×1.5")
+		assert_eq(root["ledger"][-1]["xp"], roundi(_data()["baseXp"] * 1.5), "XP ×1.5")
 		assert_eq(GameState.state["player"]["craftingXP"], xp_before, "real crafting XP untouched")
 	)
 
@@ -169,10 +161,10 @@ func run() -> void:
 		Rng.set_seed(42)
 		var hits := 0
 		for i in range(400):
-			if _run(P, "healingSalve", 95)["entry"]["bonus"] != null:
+			if _run("healingSalve", 95)["entry"]["bonus"] != null:
 				hits += 1
-			BenchPrototype.refill_pool(P)
-			root["slices"][P]["ledger"].clear()
+			BenchPrototype.refill_pool()
+			root["ledger"].clear()
 		assert_true(hits > 80 and hits < 160, "~120 of 400 should roll a bonus, got %d" % hits)
 	)
 
@@ -181,24 +173,24 @@ func run() -> void:
 		Rng.set_seed(7)
 		var hits := 0
 		for i in range(300):
-			var entry: Dictionary = _run(P, "healingSalve", 14)["entry"]
+			var entry: Dictionary = _run("healingSalve", 14)["entry"]
 			if entry["flavour"] != null:
 				hits += 1
 				assert_true(_data()["badRun"]["lines"].has(entry["flavour"]), "flavour comes from data")
-			var high: Dictionary = _run(P, "healingSalve", 15)["entry"]
+			var high: Dictionary = _run("healingSalve", 15)["entry"]
 			assert_eq(high["flavour"], null, "score 15 never shows flavour")
-			BenchPrototype.refill_pool(P)
-			root["slices"][P]["ledger"].clear()
+			BenchPrototype.refill_pool()
+			root["ledger"].clear()
 		assert_true(hits > 60 and hits < 140, "~100 of 300 should show flavour, got %d" % hits)
 	)
 
 	run_case("batch_spends_base_calc_per_item_and_logs_n_at_best_rank", func():
 		var root := _fresh()
-		assert_true(not BenchPrototype.batch(P, "healingSalve", 5)["ok"], "no batch before a rank exists")
-		_run(P, "healingSalve", 76)
-		var s: Dictionary = root["slices"][P]
+		assert_true(not BenchPrototype.batch("healingSalve", 5)["ok"], "no batch before a rank exists")
+		_run("healingSalve", 76)
+		var s: Dictionary = root
 		var pool_before: int = s["pool"]["life"]
-		var result := BenchPrototype.batch(P, "healingSalve", 5)
+		var result := BenchPrototype.batch("healingSalve", 5)
 		assert_true(result["ok"])
 		assert_eq(s["pool"]["life"], pool_before - 15, "5 × 3 life")
 		var entry: Dictionary = s["ledger"][-1]
@@ -207,38 +199,48 @@ func run() -> void:
 		assert_eq(entry["rank"], 4, "batch runs at best rank")
 		assert_eq(entry["xp"], _data()["baseXp"] * 5, "XP ×1.0")
 		assert_eq(entry["bonus"], null, "batch never rolls a bonus")
-		assert_true(not BenchPrototype.batch(P, "healingSalve", 10)["ok"], "can't afford 30 more life")
+		assert_true(not BenchPrototype.batch("healingSalve", 10)["ok"], "can't afford 30 more life")
 	)
 
 	run_case("refill_restores_the_pool", func():
 		var root := _fresh()
-		_run(C, "healingBurst", 50)
-		BenchPrototype.refill_pool(C)
-		assert_eq(root["slices"][C]["pool"], _data()["poolSeed"])
+		_run("healingBurst", 50)
+		BenchPrototype.refill_pool()
+		assert_eq(root["pool"], _data()["poolSeed"])
 	)
 
-	run_case("rewind_restores_slice_exactly", func():
+	run_case("rewind_restores_state_exactly", func():
 		var root := _fresh()
-		_run(P, "healingSalve", 45)
-		BenchPrototype.set_hint_level(P, "timePearl", "grindBetween", "vague")
-		var before: Dictionary = GameState.deep_copy(root["slices"][P])
+		_run("healingSalve", 45)
+		BenchPrototype.set_hint_level("timePearl", "grindBetween", "vague")
+		var before: Dictionary = GameState.deep_copy(root)
 		before.erase("snapshots")
-		_run(P, "healingSalve", 95)
-		BenchPrototype.batch(P, "healingSalve", 5)
-		BenchPrototype.rewind(P)
-		BenchPrototype.rewind(P)
-		var after: Dictionary = GameState.deep_copy(root["slices"][P])
+		_run("healingSalve", 95)
+		BenchPrototype.batch("healingSalve", 5)
+		BenchPrototype.rewind()
+		BenchPrototype.rewind()
+		var after: Dictionary = GameState.deep_copy(root)
 		after.erase("snapshots")
 		assert_eq(after, before, "two rewinds undo the batch then the run")
 	)
 
+	run_case("rewind_leaves_debug_settings_alone", func():
+		var root := _fresh()
+		BenchPrototype.begin_run("timePearl")
+		BenchPrototype.set_skill_override(7)
+		BenchPrototype.set_bonus_type("xp")
+		BenchPrototype.rewind()
+		assert_eq(root["skillOverride"], 7)
+		assert_eq(root["bonusType"], "xp")
+	)
+
 	run_case("rewind_mid_run_refunds_and_closes_the_run", func():
 		var root := _fresh()
-		BenchPrototype.begin_run(C, "timePearl")
-		assert_true(BenchPrototype.rewind(C)["ok"])
-		assert_eq(root["slices"][C]["activeRun"], null)
-		assert_eq(root["slices"][C]["pool"], _data()["poolSeed"])
-		assert_true(not BenchPrototype.rewind(C)["ok"], "nothing left to rewind")
+		BenchPrototype.begin_run("timePearl")
+		assert_true(BenchPrototype.rewind()["ok"])
+		assert_eq(root["activeRun"], null)
+		assert_eq(root["pool"], _data()["poolSeed"])
+		assert_true(not BenchPrototype.rewind()["ok"], "nothing left to rewind")
 	)
 
 	run_case("skill_defaults_to_real_crafting_skill_and_override_is_sandboxed", func():
@@ -255,21 +257,19 @@ func run() -> void:
 		assert_eq(BenchPrototype.effective_skill(), 4)
 	)
 
-	run_case("hint_levels_are_per_slice_per_recipe_per_hint", func():
+	run_case("hint_levels_are_per_recipe_per_hint", func():
 		var root := _fresh()
-		assert_true(BenchPrototype.set_hint_level(P, "healingBurst", "heatLower", "exact")["ok"])
-		assert_true(not BenchPrototype.set_hint_level(P, "healingBurst", "heatLower", "loud")["ok"], "unknown level refused")
-		assert_true(not BenchPrototype.set_hint_level(P, "healingBurst", "heatHigher", "exact")["ok"], "another recipe's hint refused")
-		assert_true(not BenchPrototype.set_hint_level(C, "healingBurst", "heatLower", "exact")["ok"], "procedure hints aren't chart hints")
-		assert_eq(root["slices"][P]["hintLevels"]["healingBurst"], { "distilBetween": "off", "heatLower": "exact" })
-		assert_eq(root["slices"][C]["hintLevels"]["healingBurst"], { "bullseyeMark": "off", "routeSegment": "off" })
+		assert_true(BenchPrototype.set_hint_level("healingBurst", "heatLower", "exact")["ok"])
+		assert_true(not BenchPrototype.set_hint_level("healingBurst", "heatLower", "loud")["ok"], "unknown level refused")
+		assert_true(not BenchPrototype.set_hint_level("healingBurst", "heatHigher", "exact")["ok"], "another recipe's hint refused")
+		assert_eq(root["hintLevels"]["healingBurst"], { "distilBetween": "off", "heatLower": "exact" })
 	)
 
 	run_case("every_authored_hint_has_vague_and_exact_forms", func():
 		_fresh()
 		var ids := []
 		for recipe_id in _data()["roster"]:
-			var hints := BenchPrototype.hints(P, recipe_id)
+			var hints := BenchPrototype.hints(recipe_id)
 			assert_eq(hints.size(), 2, "%s: both table improvements authored" % recipe_id)
 			for hint in hints:
 				ids.append(hint["id"])
@@ -283,8 +283,8 @@ func run() -> void:
 		var salve := BenchPrototype.known_procedure("healingSalve")
 		assert_eq(salve.map(func(s): return s["knowledge"]), ["base", "base"], "no hints: base only, distil hidden")
 		assert_eq(salve[1]["target"], 50.0)
-		BenchPrototype.set_hint_level(P, "healingSalve", "heatHigher", "exact")
-		BenchPrototype.set_hint_level(P, "healingSalve", "distilFinish", "vague")
+		BenchPrototype.set_hint_level("healingSalve", "heatHigher", "exact")
+		BenchPrototype.set_hint_level("healingSalve", "distilFinish", "vague")
 		salve = BenchPrototype.known_procedure("healingSalve")
 		assert_eq(salve.map(func(s): return s["apparatus"]), ["grinding", "heat", "distilling"], "distil appended")
 		assert_eq(salve[1]["target"], 62.0, "exact hint corrects the heat target")
@@ -292,12 +292,12 @@ func run() -> void:
 		assert_eq(salve[0]["calc"], { "life": 3 }, "base calc stays on its step")
 		assert_eq(salve[2]["knowledge"], "vague")
 		assert_true(not salve[2].has("calc"), "inserted step costs nothing")
-		assert_eq(salve[2]["note"], BenchPrototype.hint_def(P, "healingSalve", "distilFinish")["vague"]["note"], "vague note shown")
-		BenchPrototype.set_hint_level(P, "timePearl", "grindBetween", "exact")
+		assert_eq(salve[2]["note"], BenchPrototype.hint_def("healingSalve", "distilFinish")["vague"]["note"], "vague note shown")
+		BenchPrototype.set_hint_level("timePearl", "grindBetween", "exact")
 		assert_eq(BenchPrototype.known_procedure("timePearl").map(func(s): return s["apparatus"]), ["compression", "grinding", "heat"], "grind inserted between")
-		BenchPrototype.set_hint_level(P, "healingBurst", "distilBetween", "vague")
+		BenchPrototype.set_hint_level("healingBurst", "distilBetween", "vague")
 		assert_eq(BenchPrototype.known_procedure("healingBurst").map(func(s): return s["apparatus"]), ["grinding", "compression", "distilling", "heat"], "distil inserted before heat")
-		BenchPrototype.set_hint_level(P, "healingSalve", "distilFinish", "off")
+		BenchPrototype.set_hint_level("healingSalve", "distilFinish", "off")
 		assert_eq(BenchPrototype.known_procedure("healingSalve").size(), 2, "off hides the step again")
 	)
 
@@ -308,10 +308,10 @@ func run() -> void:
 			for recipe_id in _data()["roster"]:
 				var ideal: Array = BenchPrototype.procedure_def(recipe_id)["ideal"]
 				var half := BenchPrototype.band_half_width(recipe_id)
-				for hint in BenchPrototype.hints(P, recipe_id):
+				for hint in BenchPrototype.hints(recipe_id):
 					var target := float(ideal[int(hint["step"])]["target"])
 					for level in ["vague", "exact"]:
-						BenchPrototype.set_hint_level(P, recipe_id, hint["id"], level)
+						BenchPrototype.set_hint_level(recipe_id, hint["id"], level)
 						var step: Dictionary = BenchPrototype.known_procedure(recipe_id).filter(func(s): return s.get("hintId") == hint["id"])[0]
 						var region := BenchPrototype.step_region(recipe_id, step)
 						var low := maxf(0.0, target - half)
@@ -328,15 +328,15 @@ func run() -> void:
 		var root := _fresh()
 		BenchPrototype.set_skill_override(0)
 		for recipe_id in _data()["roster"]:
-			for hint in BenchPrototype.hints(P, recipe_id):
-				BenchPrototype.set_hint_level(P, recipe_id, hint["id"], "exact")
+			for hint in BenchPrototype.hints(recipe_id):
+				BenchPrototype.set_hint_level(recipe_id, hint["id"], "exact")
 			var steps := BenchPrototype.known_procedure(recipe_id)
 			assert_true(BenchPrototype.begin_procedure_run(recipe_id)["ok"], "%s opens" % recipe_id)
 			var result := {}
 			for step in steps:
 				result = _perform_at(float(step["target"]))
 			assert_eq(result["entry"]["score"], 100, "%s: perfect with every hint" % recipe_id)
-			assert_eq(root["slices"][P]["bestRanks"][recipe_id], 5, "%s reaches rank 5" % recipe_id)
+			assert_eq(root["bestRanks"][recipe_id], 5, "%s reaches rank 5" % recipe_id)
 	)
 
 	run_case("no_prototype_action_touches_state_outside_bench_prototype", func():
@@ -345,16 +345,14 @@ func run() -> void:
 		Rng.set_seed(3)
 		BenchPrototype.set_skill_override(9)
 		BenchPrototype.set_bonus_type("calcRefund")
-		for slice_id in BenchPrototype.SLICES:
-			BenchPrototype.set_active_slice(slice_id)
-			BenchPrototype.set_hint_level(slice_id, "timePearl", "compressLonger", "exact")
-			_run(slice_id, "healingSalve", 92)
-			_run(slice_id, "healingBurst", 5)
-			BenchPrototype.batch(slice_id, "healingSalve", 5)
-			BenchPrototype.begin_run(slice_id, "timePearl")
-			BenchPrototype.abandon_run(slice_id)
-			BenchPrototype.rewind(slice_id)
-			BenchPrototype.refill_pool(slice_id)
+		BenchPrototype.set_hint_level("timePearl", "compressLonger", "exact")
+		_run("healingSalve", 92)
+		_run("healingBurst", 5)
+		BenchPrototype.batch("healingSalve", 5)
+		BenchPrototype.begin_run("timePearl")
+		BenchPrototype.abandon_run()
+		BenchPrototype.rewind()
+		BenchPrototype.refill_pool()
 		assert_eq(_outside_state(), before, "real inventory, XP, craftingSkill and bench state unchanged")
 	)
 
@@ -362,9 +360,9 @@ func run() -> void:
 		var root := _fresh()
 		Rng.set_seed(5)
 		BenchPrototype.set_skill_override(6)
-		_run(P, "healingSalve", 77)
-		BenchPrototype.batch(P, "healingSalve", 5)
-		BenchPrototype.begin_run(C, "timePearl")
+		_run("healingSalve", 77)
+		BenchPrototype.batch("healingSalve", 5)
+		BenchPrototype.begin_run("timePearl")
 		var expected: Dictionary = GameState.deep_copy(root)
 		var raw = JSON.parse_string(JSON.stringify(GameState.state))
 		assert_true(SaveManager._load_save_dict(raw)["ok"], "save loads")
@@ -439,7 +437,7 @@ func run() -> void:
 		var before := _outside_state()
 		Rng.set_seed(1)
 		BenchPrototype.set_skill_override(0)
-		var s: Dictionary = root["slices"][P]
+		var s: Dictionary = root
 		var opened := BenchPrototype.begin_procedure_run("healingSalve")
 		assert_true(opened["ok"] and not opened["done"], "run opens and waits on the grind")
 		assert_eq(s["pool"]["life"], 40, "nothing spent until a step is performed")
@@ -471,26 +469,26 @@ func run() -> void:
 		assert_true(is_equal_approx(acc.call([38.0, 62.0, 50.0]), 2.0 / 3.0), "errors either side don't cancel")
 		BenchPrototype.begin_procedure_run("healingSalve")
 		BenchPrototype.perform_grind([50.0, 999.0, 50.0, 50.0, 50.0])
-		var performed: Dictionary = GameState.state["benchPrototype"]["slices"][P]["activeRun"]["performed"][0]
+		var performed: Dictionary = GameState.state["benchPrototype"]["activeRun"]["performed"][0]
 		assert_eq(performed["readings"], [50.0, 100.0, 50.0], "clamped, extras past the stroke count ignored")
-		BenchPrototype.abandon_run(P)
+		BenchPrototype.abandon_run()
 		BenchPrototype.begin_procedure_run("healingSalve")
 		BenchPrototype.perform_grind([50.0])
-		performed = GameState.state["benchPrototype"]["slices"][P]["activeRun"]["performed"][0]
+		performed = GameState.state["benchPrototype"]["activeRun"]["performed"][0]
 		assert_eq(performed["readings"], [50.0, null, null], "missing strokes read as misses")
 		assert_true(is_equal_approx(acc.call(performed["readings"]), 1.0 / 3.0), "a miss scores 0")
 	)
 
 	run_case("compress_past_crack_line_ends_run_and_loses_calc", func():
 		var root := _fresh()
-		var s: Dictionary = root["slices"][P]
+		var s: Dictionary = root
 		var crack_at := float(_data()["gauges"]["compression"]["crackAt"])
 		BenchPrototype.begin_procedure_run("timePearl")
 		var safe := BenchPrototype.perform_step(crack_at - 0.5)
 		assert_true(safe["ok"] and not safe.get("cracked", false), "just under the line holds")
-		BenchPrototype.abandon_run(P)
-		BenchPrototype.rewind(P)
-		s = root["slices"][P]
+		BenchPrototype.abandon_run()
+		BenchPrototype.rewind()
+		s = root
 		BenchPrototype.begin_procedure_run("timePearl")
 		var cracked := BenchPrototype.perform_step(crack_at)
 		assert_true(cracked["ok"] and cracked["done"] and cracked["cracked"], "the crack line ends the run")
@@ -500,8 +498,8 @@ func run() -> void:
 		assert_eq(s["activeRun"], null, "run closed")
 		assert_eq(s["bestRanks"]["timePearl"], 0, "no rank from a crack")
 		assert_true(not BenchPrototype.perform_step(25.0)["ok"], "heat never runs")
-		BenchPrototype.rewind(P)
-		assert_eq(root["slices"][P]["pool"], _data()["poolSeed"], "rewind restores the calc")
+		BenchPrototype.rewind()
+		assert_eq(root["pool"], _data()["poolSeed"], "rewind restores the calc")
 		# A heat step at the same value is no crack.
 		BenchPrototype.begin_procedure_run("timePearl")
 		BenchPrototype.perform_step(80.0)
@@ -528,7 +526,7 @@ func run() -> void:
 		var root := _fresh()
 		BenchPrototype.set_skill_override(0)
 		BenchPrototype.begin_procedure_run("healingSalve")
-		var run: Dictionary = root["slices"][P]["activeRun"]
+		var run: Dictionary = root["activeRun"]
 		run["procedure"][1]["target"] = 62.0
 		run["procedure"].append({ "apparatus": "distilling", "target": 50.0 })
 		_perform_at(50.0)
@@ -539,7 +537,7 @@ func run() -> void:
 		var spoiled_taps := _distil_taps(50.0)
 		spoiled_taps.append(-10.0)
 		BenchPrototype.begin_procedure_run("healingSalve")
-		run = root["slices"][P]["activeRun"]
+		run = root["activeRun"]
 		run["procedure"][1]["target"] = 62.0
 		run["procedure"].append({ "apparatus": "distilling", "target": 50.0 })
 		_perform_at(50.0)
@@ -555,7 +553,7 @@ func run() -> void:
 			BenchPrototype.begin_procedure_run(recipe_id)
 			var result := {}
 			for step in steps:
-				assert_eq(root["slices"][P]["activeRun"]["performed"].size(), steps.find(step), "%s: waits on step %s" % [recipe_id, step["apparatus"]])
+				assert_eq(root["activeRun"]["performed"].size(), steps.find(step), "%s: waits on step %s" % [recipe_id, step["apparatus"]])
 				result = _perform_at(float(step["target"]))
 				assert_true(result["ok"], "%s: %s performs" % [recipe_id, step["apparatus"]])
 			assert_true(result["done"] and result["entry"]["kind"] == "run", "%s finishes" % recipe_id)
@@ -564,27 +562,27 @@ func run() -> void:
 
 	run_case("abandoned_procedure_run_loses_spent_calc_and_rewind_restores_it", func():
 		var root := _fresh()
-		var s: Dictionary = root["slices"][P]
+		var s: Dictionary = root
 		BenchPrototype.begin_procedure_run("healingBurst")
 		_perform_at(50.0)
 		_perform_at(60.0)
 		assert_eq(s["pool"], { "life": 38, "time": 38 }, "grind and compress spent step by step")
 		assert_eq(s["activeRun"]["calcSpent"], { "life": 2, "time": 2 })
-		BenchPrototype.abandon_run(P)
+		BenchPrototype.abandon_run()
 		assert_eq(s["pool"], { "life": 38, "time": 38 }, "abandon keeps the calc spent")
 		assert_eq(s["ledger"][-1]["kind"], "abandoned")
 		assert_true(not BenchPrototype.perform_step(50.0)["ok"], "no step to perform after abandon")
-		BenchPrototype.rewind(P)
-		s = root["slices"][P]
+		BenchPrototype.rewind()
+		s = root
 		assert_eq(s["pool"], _data()["poolSeed"], "rewind restores the calc")
 		assert_true(s["ledger"].is_empty(), "rewind drops the abandoned entry")
 	)
 
 	run_case("procedure_run_refuses_when_unaffordable_or_already_open", func():
 		var root := _fresh()
-		root["slices"][P]["pool"]["life"] = 2
+		root["pool"]["life"] = 2
 		assert_true(not BenchPrototype.begin_procedure_run("healingSalve")["ok"], "can't afford the whole procedure")
-		assert_eq(root["slices"][P]["snapshots"].size(), 0, "no snapshot on refusal")
+		assert_eq(root["snapshots"].size(), 0, "no snapshot on refusal")
 		assert_true(BenchPrototype.begin_procedure_run("timePearl")["ok"])
 		assert_true(not BenchPrototype.begin_procedure_run("timePearl")["ok"], "one run at a time")
 	)
@@ -624,7 +622,7 @@ func run() -> void:
 
 	run_case("plan_edits_insert_remove_nudge_and_feed_the_next_run", func():
 		var root := _fresh()
-		var s: Dictionary = root["slices"][P]
+		var s: Dictionary = root
 		assert_eq(BenchPrototype.planned_procedure("healingSalve"), BenchPrototype.known_procedure("healingSalve"), "unedited plan = known procedure")
 		assert_true(BenchPrototype.insert_step("healingSalve", 2, "distilling")["ok"])
 		assert_true(not BenchPrototype.insert_step("healingSalve", 4, "distilling")["ok"], "no slot past the end")
@@ -642,7 +640,7 @@ func run() -> void:
 		assert_eq(s["activeRun"]["procedure"].size(), 3, "the run performs the plan")
 		assert_true(not BenchPrototype.insert_step("healingSalve", 0, "heat")["ok"], "no edits mid-run")
 		assert_true(not BenchPrototype.nudge_step("healingSalve", 0, 2.0)["ok"], "no nudges mid-run")
-		BenchPrototype.abandon_run(P)
+		BenchPrototype.abandon_run()
 		assert_true(BenchPrototype.remove_step("healingSalve", 2)["ok"], "an inserted step can be removed")
 		assert_eq(BenchPrototype.planned_procedure("healingSalve").size(), 2)
 		BenchPrototype.reset_plan("healingSalve")
@@ -673,7 +671,7 @@ func run() -> void:
 		performed[0] = { "apparatus": "grinding", "readings": [50.0, 50.0, null] }
 		var missed: Dictionary = BenchPrototype.notebook_clues("healingSalve", procedure, performed)[0]
 		assert_eq([missed["clue"], missed["direction"]], ["near", null], "a missed stroke: right amount, no direction")
-		BenchPrototype.set_hint_level(P, "healingSalve", "distilFinish", "vague")
+		BenchPrototype.set_hint_level("healingSalve", "distilFinish", "vague")
 		assert_eq(BenchPrototype.notebook_clues("healingSalve", procedure, performed)[2]["clue"], "hit", "a known step isn't a discovery")
 	)
 
@@ -703,8 +701,8 @@ func run() -> void:
 		_perform_at(50.0)
 		_perform_at(62.0)
 		_perform_at(50.0)
-		var s: Dictionary = root["slices"][P]
-		assert_eq(BenchPrototype.hint_level(P, "healingSalve", "distilFinish"), "vague", "something changed → vague")
+		var s: Dictionary = root
+		assert_eq(BenchPrototype.hint_level("healingSalve", "distilFinish"), "vague", "something changed → vague")
 		assert_eq(s["notebook"]["healingSalve"][2]["clue"], "changed")
 		assert_eq(s["notebook"]["healingSalve"][2]["learned"], "vague")
 		var plan_step: Dictionary = BenchPrototype.planned_procedure("healingSalve")[2]
@@ -715,26 +713,26 @@ func run() -> void:
 			_perform_at(50.0)
 			_perform_at(62.0)
 			_perform_at(50.0)
-			s = root["slices"][P]
+			s = root
 			var expected: String = "exact" if run_i == needed - 1 else "vague"
-			assert_eq(BenchPrototype.hint_level(P, "healingSalve", "distilFinish"), expected, "after %d ✓ runs" % (run_i + 1))
+			assert_eq(BenchPrototype.hint_level("healingSalve", "distilFinish"), expected, "after %d ✓ runs" % (run_i + 1))
 			assert_eq(s["notebook"]["healingSalve"][2]["hits"], run_i + 1)
 		assert_eq(BenchPrototype.planned_procedure("healingSalve")[2]["knowledge"], "exact", "plan shows the exact step")
-		BenchPrototype.rewind(P)
-		assert_eq(BenchPrototype.hint_level(P, "healingSalve", "distilFinish"), "vague", "rewind undoes the upgrade")
-		assert_eq(root["slices"][P]["vagueHits"]["healingSalve"]["distilFinish"], needed - 1)
+		BenchPrototype.rewind()
+		assert_eq(BenchPrototype.hint_level("healingSalve", "distilFinish"), "vague", "rewind undoes the upgrade")
+		assert_eq(root["vagueHits"]["healingSalve"]["distilFinish"], needed - 1)
 		for i in needed:
-			BenchPrototype.rewind(P)
-		assert_eq(BenchPrototype.hint_level(P, "healingSalve", "distilFinish"), "off", "rewind undoes the discovery")
+			BenchPrototype.rewind()
+		assert_eq(BenchPrototype.hint_level("healingSalve", "distilFinish"), "off", "rewind undoes the discovery")
 		assert_eq(BenchPrototype.planned_procedure("healingSalve")[2]["knowledge"], "inserted", "plan back to the guess")
 	)
 
 	run_case("debug_hint_toggle_drops_plan_and_hits", func():
 		var root := _fresh()
-		var s: Dictionary = root["slices"][P]
+		var s: Dictionary = root
 		BenchPrototype.insert_step("healingSalve", 2, "distilling")
 		s["vagueHits"]["healingSalve"] = { "distilFinish": 2 }
-		BenchPrototype.set_hint_level(P, "healingSalve", "distilFinish", "vague")
+		BenchPrototype.set_hint_level("healingSalve", "distilFinish", "vague")
 		assert_true(not s["plans"].has("healingSalve"), "plan rebuilt from knowledge")
 		assert_true(not s["vagueHits"]["healingSalve"].has("distilFinish"), "hit count reset")
 	)
@@ -754,358 +752,3 @@ func run() -> void:
 		assert_eq(GameState.state["benchPrototype"], expected, "plans, notebook and hits survive a save")
 	)
 
-	# ── Chart (Slice B) ──
-
-	run_case("chart_data_covers_every_recipe_and_pour_direction", func():
-		_fresh()
-		for recipe_id in _data()["roster"]:
-			var region: Dictionary = BenchPrototype.recipe_chart(recipe_id)
-			assert_eq(region["centre"].size(), 2, "%s centre" % recipe_id)
-			assert_true(float(region["bullseyeRadius"]) < float(region["radius"]), "%s bullseye inside region" % recipe_id)
-		assert_eq(_data()["chart"]["directions"]["life"], [1, 0], "life pours →")
-		assert_eq(_data()["chart"]["directions"]["time"], [0, 1], "time pours ↑")
-	)
-
-	run_case("chart_score_bullseye_100_edge_rank_1_outside_0", func():
-		_fresh()
-		BenchPrototype.set_skill_override(0)
-		var region: Dictionary = BenchPrototype.recipe_chart("healingSalve")
-		var centre := Vector2(region["centre"][0], region["centre"][1])
-		var radius := float(region["radius"])
-		var bullseye := float(region["bullseyeRadius"])
-		assert_eq(BenchPrototype.chart_score("healingSalve", centre), 100, "dead centre")
-		assert_eq(BenchPrototype.chart_score("healingSalve", centre + Vector2(bullseye, 0)), 100, "bullseye rim")
-		var edge := BenchPrototype.chart_score("healingSalve", centre + Vector2(0, radius))
-		assert_eq(edge, int(_data()["rankThresholds"][0]), "region edge is the rank-1 threshold")
-		assert_eq(BenchPrototype.rank_for_score(edge), 1, "edge is rank 1")
-		assert_eq(BenchPrototype.chart_score("healingSalve", centre + Vector2(radius + 0.5, 0)), 0, "outside the region")
-		var midway := BenchPrototype.chart_score("healingSalve", centre + Vector2((bullseye + radius) / 2.0, 0))
-		assert_eq(midway, roundi(lerpf(100.0, edge, 0.5)), "linear fall-off")
-	)
-
-	run_case("skill_widens_the_bullseye", func():
-		_fresh()
-		var region: Dictionary = BenchPrototype.recipe_chart("healingBurst")
-		var centre := Vector2(region["centre"][0], region["centre"][1])
-		var off := centre + Vector2(float(region["bullseyeRadius"]) * 1.5, 0)
-		BenchPrototype.set_skill_override(0)
-		assert_almost_eq(BenchPrototype.bullseye_radius("healingBurst"), float(region["bullseyeRadius"]), 0.0001, "skill 0 = base radius")
-		assert_true(BenchPrototype.chart_score("healingBurst", off) < 100, "skill 0 misses the bullseye")
-		BenchPrototype.set_skill_override(10)
-		assert_almost_eq(BenchPrototype.bullseye_radius("healingBurst"), float(region["bullseyeRadius"]) * (1.0 + float(_data()["skillFactor"]) * 10), 0.0001, "base × (1 + skillFactor × skill)")
-		assert_eq(BenchPrototype.chart_score("healingBurst", off), 100, "skill 10 hits it")
-	)
-
-	run_case("pour_slides_the_marker_and_charges_calc_per_distance", func():
-		var root := _fresh()
-		var s: Dictionary = root["slices"][C]
-		var speed := float(_data()["chart"]["pourSpeed"])
-		var units := float(_data()["chart"]["unitsPerCalc"])
-		var life: int = s["pool"]["life"]
-		assert_true(BenchPrototype.begin_chart_run("healingSalve")["ok"])
-		assert_eq(s["pool"]["life"], life, "opening a chart run spends nothing")
-		var hold := units * 1.5 / speed
-		var preview := BenchPrototype.pour_preview("life", hold)
-		assert_eq(s["pool"]["life"], life, "preview spends nothing")
-		var poured := BenchPrototype.pour("life", hold)
-		assert_true(poured["ok"])
-		assert_almost_eq(poured["distance"], units * 1.5, 0.001, "hold × speed")
-		assert_eq(poured["cost"], preview["cost"], "preview matches the pour")
-		assert_eq(s["pool"]["life"], life - 2, "1.5 units' worth rounds up to 2 calc")
-		BenchPrototype.pour("life", units * 0.5 / speed)
-		assert_eq(s["pool"]["life"], life - 2, "the remainder was already paid for")
-		BenchPrototype.pour("time", units / speed)
-		assert_almost_eq(BenchPrototype.chart_marker().x, units * 2.0, 0.001, "life moves →")
-		assert_almost_eq(BenchPrototype.chart_marker().y, units, 0.001, "time moves ↑")
-		assert_eq(s["activeRun"]["path"].size(), 4, "origin plus one point per pour")
-		assert_eq(s["activeRun"]["calcSpent"], { "life": 2, "time": 1 }, "run tracks its spend")
-	)
-
-	run_case("running_out_of_calc_stops_the_pour", func():
-		var root := _fresh()
-		var s: Dictionary = root["slices"][C]
-		var units := float(_data()["chart"]["unitsPerCalc"])
-		s["pool"]["life"] = 1
-		BenchPrototype.begin_chart_run("healingSalve")
-		var poured := BenchPrototype.pour("life", 60.0)
-		assert_true(poured["stopped"], "pour stopped short")
-		assert_almost_eq(poured["distance"], units, 0.001, "one calc's worth of distance")
-		assert_eq(s["pool"]["life"], 0, "pool spent")
-		assert_true(not BenchPrototype.pour("life", 1.0)["ok"], "dry jar won't pour")
-		assert_true(BenchPrototype.pour("time", 0.1)["ok"], "other jars still pour")
-	)
-
-	run_case("bottle_in_the_bullseye_scores_100_and_feeds_the_shared_core", func():
-		var root := _fresh()
-		var s: Dictionary = root["slices"][C]
-		BenchPrototype.set_skill_override(0)
-		var life: int = s["pool"]["life"]
-		var centre: Array = BenchPrototype.recipe_chart("healingSalve")["centre"]
-		BenchPrototype.begin_chart_run("healingSalve")
-		BenchPrototype.pour("life", float(centre[0]) / float(_data()["chart"]["pourSpeed"]))
-		var bottled := BenchPrototype.bottle()
-		assert_true(bottled["ok"])
-		assert_eq(bottled["entry"]["score"], 100)
-		assert_eq(bottled["entry"]["rank"], 5)
-		assert_eq(s["bestRanks"]["healingSalve"], 5, "best rank rises")
-		assert_eq(s["activeRun"], null, "bottling ends the run")
-		assert_eq(s["ledger"][-1]["recipeId"], "healingSalve", "logged")
-		assert_eq(s["pool"]["life"], life - int(_data()["recipes"]["healingSalve"]["baseCalc"]["life"]), "straight pour costs the base calc")
-		assert_true(not BenchPrototype.pour("life", 1.0)["ok"], "no pouring after bottling")
-		assert_true(BenchPrototype.rewind(C)["ok"])
-		assert_eq(s["pool"]["life"], life, "rewind restores calc")
-		assert_eq(s["bestRanks"]["healingSalve"], 0, "and the rank")
-	)
-
-	run_case("bottle_outside_the_region_scores_zero_and_abandon_loses_calc", func():
-		var root := _fresh()
-		var s: Dictionary = root["slices"][C]
-		BenchPrototype.begin_chart_run("timePearl")
-		BenchPrototype.pour("life", 1.0)
-		assert_eq(BenchPrototype.bottle()["entry"]["score"], 0, "nowhere near the pearl")
-		var life: int = s["pool"]["life"]
-		BenchPrototype.begin_chart_run("timePearl")
-		BenchPrototype.pour("life", 1.0)
-		BenchPrototype.abandon_run(C)
-		assert_true(s["pool"]["life"] < life, "abandoning keeps the spend")
-		assert_eq(s["ledger"][-1]["kind"], "abandoned")
-	)
-
-	run_case("save_round_trip_preserves_open_chart_run", func():
-		var root := _fresh()
-		BenchPrototype.begin_chart_run("healingBurst")
-		BenchPrototype.pour("life", 0.7)
-		BenchPrototype.pour("time", 1.3)
-		var expected: Dictionary = GameState.deep_copy(root)
-		var raw = JSON.parse_string(JSON.stringify(GameState.state))
-		assert_true(SaveManager._load_save_dict(raw)["ok"], "save loads")
-		assert_eq(GameState.state["benchPrototype"], expected, "open chart run survives a save")
-	)
-
-	run_case("heat_rotates_the_next_pour_and_stacks", func():
-		var root := _fresh()
-		var s: Dictionary = root["slices"][C]
-		var speed := float(_data()["chart"]["pourSpeed"])
-		BenchPrototype.begin_chart_run("healingBurst")
-		assert_true(BenchPrototype.apply_apparatus("heat")["ok"])
-		assert_almost_eq(BenchPrototype.chart_queue()["rotateDeg"], 45.0, 0.001, "queued 45°")
-		BenchPrototype.pour("life", 10.0 / speed)
-		var marker := BenchPrototype.chart_marker()
-		assert_almost_eq(marker.x, 10.0 * cos(PI / 4.0), 0.001, "life turned 45° anticlockwise: x")
-		assert_almost_eq(marker.y, 10.0 * sin(PI / 4.0), 0.001, "and y")
-		assert_eq(BenchPrototype.chart_queue(), { "rotateDeg": 0.0, "speedMul": 1.0 }, "the pour consumed the queue")
-		BenchPrototype.pour("life", 10.0 / speed)
-		assert_almost_eq(BenchPrototype.chart_marker().x - marker.x, 10.0, 0.001, "the next pour is straight again")
-		assert_almost_eq(BenchPrototype.chart_marker().y, marker.y, 0.001, "and doesn't climb")
-		BenchPrototype.apply_apparatus("heat")
-		BenchPrototype.apply_apparatus("heat")
-		var before := BenchPrototype.chart_marker()
-		BenchPrototype.pour("life", 10.0 / speed)
-		assert_almost_eq(BenchPrototype.chart_marker().x, before.x, 0.001, "heat ×2 = 90°: life pours ↑")
-		assert_almost_eq(BenchPrototype.chart_marker().y - before.y, 10.0, 0.001, "a full 10 units up")
-		assert_eq(s["activeRun"]["calcSpent"].keys(), ["life"], "rotated life still costs life")
-	)
-
-	run_case("grind_halves_compress_doubles_and_they_cancel", func():
-		_fresh()
-		var speed := float(_data()["chart"]["pourSpeed"])
-		BenchPrototype.begin_chart_run("healingSalve")
-		BenchPrototype.apply_apparatus("grinding")
-		assert_almost_eq(BenchPrototype.pour("life", 1.0)["distance"], speed * 0.5, 0.001, "grind halves the speed")
-		BenchPrototype.apply_apparatus("compression")
-		assert_almost_eq(BenchPrototype.pour("life", 1.0)["distance"], speed * 2.0, 0.001, "compress doubles it")
-		BenchPrototype.apply_apparatus("grinding")
-		BenchPrototype.apply_apparatus("compression")
-		assert_almost_eq(BenchPrototype.chart_queue()["speedMul"], 1.0, 0.0001, "grind + compress cancel")
-		assert_almost_eq(BenchPrototype.pour("life", 1.0)["distance"], speed, 0.001, "so the pour is normal speed")
-		BenchPrototype.apply_apparatus("grinding")
-		BenchPrototype.apply_apparatus("grinding")
-		var preview := BenchPrototype.pour_preview("time", 1.0)
-		assert_almost_eq(preview["distance"], speed * 0.25, 0.001, "grind ×2 quarters the preview")
-		assert_almost_eq(BenchPrototype.pour("time", 1.0)["distance"], preview["distance"], 0.001, "preview matches the pour")
-	)
-
-	run_case("distil_pulls_the_marker_back_now_and_keeps_the_queue", func():
-		var root := _fresh()
-		var s: Dictionary = root["slices"][C]
-		var speed := float(_data()["chart"]["pourSpeed"])
-		var pull := float(_data()["chart"]["apparatus"]["distilling"]["pullBack"])
-		assert_true(not BenchPrototype.apply_apparatus("distilling")["ok"], "no run, no distil")
-		BenchPrototype.begin_chart_run("healingBurst")
-		BenchPrototype.pour("life", 40.0 / speed)
-		BenchPrototype.pour("time", 20.0 / speed)
-		var pool_before: Dictionary = s["pool"].duplicate()
-		BenchPrototype.apply_apparatus("heat")
-		assert_true(BenchPrototype.apply_apparatus("distilling")["ok"])
-		assert_almost_eq(BenchPrototype.chart_marker().x, 40.0 * (1.0 - pull), 0.001, "x pulled toward origin")
-		assert_almost_eq(BenchPrototype.chart_marker().y, 20.0 * (1.0 - pull), 0.001, "y pulled toward origin")
-		assert_eq(s["activeRun"]["path"].size(), 4, "distil leaves a path point")
-		assert_eq(s["pool"], pool_before, "distil costs no calc")
-		assert_almost_eq(BenchPrototype.chart_queue()["rotateDeg"], 45.0, 0.001, "the queued heat waits for the pour")
-		assert_true(not BenchPrototype.apply_apparatus("bogus")["ok"], "unknown apparatus rejected")
-	)
-
-	run_case("rewind_restores_marker_queue_and_calc", func():
-		var root := _fresh()
-		var before: Dictionary = GameState.deep_copy(root["slices"][C])
-		before.erase("snapshots")
-		BenchPrototype.begin_chart_run("healingBurst")
-		BenchPrototype.apply_apparatus("heat")
-		BenchPrototype.pour("life", 1.0)
-		BenchPrototype.apply_apparatus("distilling")
-		BenchPrototype.apply_apparatus("compression")
-		assert_true(BenchPrototype.rewind(C)["ok"])
-		var after: Dictionary = GameState.deep_copy(root["slices"][C])
-		after.erase("snapshots")
-		assert_eq(after, before, "rewind undoes the whole run: marker, queue and calc")
-		assert_eq(BenchPrototype.chart_queue(), { "rotateDeg": 0.0, "speedMul": 1.0 }, "no queue left over")
-		assert_eq(BenchPrototype.chart_marker(), Vector2.ZERO, "no marker left over")
-	)
-
-	run_case("save_round_trip_preserves_queued_transforms", func():
-		var root := _fresh()
-		BenchPrototype.begin_chart_run("healingBurst")
-		BenchPrototype.pour("life", 0.7)
-		BenchPrototype.apply_apparatus("heat")
-		BenchPrototype.apply_apparatus("grinding")
-		var expected: Dictionary = GameState.deep_copy(root)
-		var raw = JSON.parse_string(JSON.stringify(GameState.state))
-		assert_true(SaveManager._load_save_dict(raw)["ok"], "save loads")
-		assert_eq(GameState.state["benchPrototype"], expected, "queued transforms survive a save")
-	)
-
-	run_case("validator_flags_missing_apparatus_transform", func():
-		_fresh()
-		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
-		corrupted["bench_prototype"]["chart"]["apparatus"]["distilling"]["pullBack"] = 1.5
-		corrupted["bench_prototype"]["chart"]["apparatus"]["heat"].erase("rotateDeg")
-		var found := { "pullBack": false, "rotateDeg": false }
-		for e in GameData.validate_tables(corrupted):
-			for key in found.keys():
-				if e.contains("chart.apparatus") and e.contains(key):
-					found[key] = true
-		assert_eq(found, { "pullBack": true, "rotateDeg": true }, "bad transforms are flagged")
-	)
-
-	run_case("validator_flags_bullseye_not_inside_region", func():
-		_fresh()
-		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
-		corrupted["bench_prototype"]["recipes"]["timePearl"]["chart"]["bullseyeRadius"] = 99
-		var found := false
-		for e in GameData.validate_tables(corrupted):
-			if e.contains("timePearl.chart") and e.contains("bullseyeRadius"):
-				found = true
-		assert_true(found, "a bullseye wider than its region should be flagged")
-	)
-
-	# ── Chart knowledge: fog, found regions, hints ──
-
-	run_case("chart_hints_authored_for_every_recipe_and_cloud_holds_bullseye", func():
-		_fresh()
-		for recipe_id in _data()["roster"]:
-			var list := BenchPrototype.hints(C, recipe_id)
-			assert_true(not list.is_empty(), "%s has chart hints" % recipe_id)
-			for hint in list:
-				var offset: Array = hint["vague"]["cloud"]["offset"]
-				assert_true(Vector2(offset[0], offset[1]).length() < float(hint["vague"]["cloud"]["radius"]), "%s/%s cloud holds the bullseye centre" % [recipe_id, hint["id"]])
-				assert_true(hint["exact"].get("bullseye", false) or hint["exact"].has("route"), "%s/%s exact marks or routes" % [recipe_id, hint["id"]])
-	)
-
-	run_case("fog_clears_along_the_path_and_persists_after_the_run", func():
-		var root := _fresh()
-		var s: Dictionary = root["slices"][C]
-		var speed := float(_data()["chart"]["pourSpeed"])
-		BenchPrototype.begin_chart_run("healingSalve")
-		assert_true(BenchPrototype.fog_cleared(Vector2i(0, 0)), "origin cell clear")
-		assert_true(not BenchPrototype.fog_cleared(Vector2i(5, 0)), "far cell still fogged")
-		BenchPrototype.pour("life", 60.0 / speed)
-		assert_true(BenchPrototype.fog_cleared(Vector2i(5, 0)), "path cell cleared")
-		assert_true(not BenchPrototype.fog_cleared(Vector2i(5, 5)), "off-path cell fogged")
-		BenchPrototype.bottle()
-		assert_true(BenchPrototype.fog_cleared(Vector2i(5, 0)), "cleared fog outlives the run")
-		assert_true(s["fog"] is Dictionary and s["found"] is Array, "pure data")
-	)
-
-	run_case("own_region_found_other_regions_found_by_bottling_inside", func():
-		var root := _fresh()
-		var speed := float(_data()["chart"]["pourSpeed"])
-		assert_true(not BenchPrototype.region_found("healingSalve"))
-		BenchPrototype.begin_chart_run("healingSalve")
-		assert_true(BenchPrototype.region_found("healingSalve"), "the run's own region is shown")
-		assert_true(not BenchPrototype.region_found("timePearl"), "others stay fogged")
-		BenchPrototype.pour("time", 60.0 / speed)
-		var done := BenchPrototype.bottle()
-		assert_eq(done["entry"]["revealed"], ["timePearl"], "bottling inside the Time Pearl region finds it")
-		assert_true(BenchPrototype.region_found("timePearl"))
-		assert_true(not BenchPrototype.region_found("healingBurst"))
-		assert_true(root["slices"][C]["found"].has("timePearl"))
-	)
-
-	run_case("chart_knowledge_shows_clouds_for_vague_and_marks_for_exact", func():
-		_fresh()
-		assert_eq(BenchPrototype.chart_knowledge("timePearl"), { "clouds": [], "bullseye": false, "routes": [] }, "base shows nothing")
-		BenchPrototype.set_hint_level(C, "timePearl", "bullseyeMark", "vague")
-		var vague := BenchPrototype.chart_knowledge("timePearl")
-		assert_eq(vague["clouds"].size(), 1)
-		assert_true(vague["clouds"][0]["centre"].distance_to(Vector2(0, 60)) < vague["clouds"][0]["radius"], "cloud contains the bullseye centre")
-		assert_true(not vague["bullseye"], "vague doesn't mark it")
-		BenchPrototype.set_hint_level(C, "timePearl", "bullseyeMark", "exact")
-		BenchPrototype.set_hint_level(C, "timePearl", "routeSegment", "exact")
-		var exact := BenchPrototype.chart_knowledge("timePearl")
-		assert_true(exact["bullseye"] and exact["clouds"].is_empty(), "exact marks the bullseye, no cloud")
-		assert_eq(exact["routes"], [[Vector2(0, 0), Vector2(0, 45)]], "route segment revealed")
-	)
-
-	run_case("three_cloud_landings_sharpen_to_exact_and_rewind_undoes_it", func():
-		var root := _fresh()
-		var speed := float(_data()["chart"]["pourSpeed"])
-		BenchPrototype.set_hint_level(C, "timePearl", "bullseyeMark", "vague")
-		var hit := func() -> Dictionary:
-			BenchPrototype.begin_chart_run("timePearl")
-			BenchPrototype.pour("time", 60.0 / speed)
-			return BenchPrototype.bottle()
-		for n in 2:
-			var result: Dictionary = hit.call()
-			assert_true(not result["entry"].has("sharpened"), "landing %d: still vague" % (n + 1))
-			assert_eq(BenchPrototype.hint_level(C, "timePearl", "bullseyeMark"), "vague")
-		var third: Dictionary = hit.call()
-		assert_eq(third["entry"]["sharpened"], ["bullseyeMark"], "third landing sharpens")
-		assert_eq(BenchPrototype.hint_level(C, "timePearl", "bullseyeMark"), "exact")
-		assert_true(BenchPrototype.rewind(C)["ok"])
-		assert_eq(BenchPrototype.hint_level(C, "timePearl", "bullseyeMark"), "vague", "rewind un-sharpens")
-		assert_eq(root["slices"][C]["vagueHits"]["timePearl"]["bullseyeMark"], 2, "and the count")
-	)
-
-	run_case("landing_outside_the_cloud_does_not_count", func():
-		_fresh()
-		BenchPrototype.set_hint_level(C, "timePearl", "bullseyeMark", "vague")
-		BenchPrototype.begin_chart_run("timePearl")
-		BenchPrototype.bottle()
-		assert_true(not BenchPrototype.slice(C)["vagueHits"].has("timePearl"), "a bottle at the origin misses the cloud")
-	)
-
-	run_case("rewind_rolls_back_fog_and_found_regions", func():
-		var root := _fresh()
-		var speed := float(_data()["chart"]["pourSpeed"])
-		var before: Dictionary = GameState.deep_copy(root["slices"][C])
-		before.erase("snapshots")
-		BenchPrototype.begin_chart_run("healingSalve")
-		BenchPrototype.pour("time", 60.0 / speed)
-		BenchPrototype.bottle()
-		assert_true(BenchPrototype.region_found("timePearl"))
-		BenchPrototype.rewind(C)
-		var after: Dictionary = GameState.deep_copy(root["slices"][C])
-		after.erase("snapshots")
-		assert_eq(after, before, "fog and found regions roll back with the run")
-	)
-
-	run_case("validator_flags_cloud_missing_the_bullseye", func():
-		_fresh()
-		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
-		corrupted["bench_prototype"]["recipes"]["timePearl"]["chart"]["hints"][0]["vague"]["cloud"]["offset"] = [50, 0]
-		var found := false
-		for e in GameData.validate_tables(corrupted):
-			if e.contains("timePearl.chart.hints") and e.contains("bullseye centre"):
-				found = true
-		assert_true(found, "a cloud that can't hold the bullseye should be flagged")
-	)

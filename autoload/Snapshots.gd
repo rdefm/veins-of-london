@@ -11,7 +11,7 @@ const MAX_SIZES := {
 	"combat": 2,
 	"event": 8,
 	"combatPrototype": 2,  # systems/combat_prototype.gd; same cap as "combat".
-	"benchPrototype": 8,  # systems/bench_prototype.gd; per slice.
+	"benchPrototype": 8,  # systems/bench_prototype.gd.
 }
 
 

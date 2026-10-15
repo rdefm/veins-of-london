@@ -1,18 +1,9 @@
 {
-  "_comment": "Sandboxed Lab-revamp bench prototype (systems/bench_prototype.gd, .scratch/lab-revamp/spec.md) -- provisional numbers, not production balance, not cross-referenced by REFERENCE.md. rankThresholds[i] is the minimum score for rank i+1. baseCalc is spent per item crafted (a manual run makes one). baseXp is per item, display-only. recipes.*.procedure (Slice A): ideal = the authored perfect procedure (apparatus = data/approaches.json id, target on a 0-100 gauge, weight; weights sum to 100); base = the procedure known at start, its steps' calc summing to baseCalc and spent step by step; baseTolerance = band half-width before skill widening; hints = the hidden improvements, each naming the ideal step index it reveals (a base step matching that ideal step gets its target corrected, otherwise the ideal step is inserted, no calc). A vague hint shows a region of the band widened by vagueSpread each side and shifted by its offset (|offset| <= vagueSpread, so the band always sits inside); an exact hint shows the true band. PROSE-REVIEW: every hints label/note is new copy. gauges (one per procedure apparatus): heat/compression.risePerSec = needle speed while held; compression.crackAt = the needle value that cracks the vessel and ends the run; grinding.strokes = taps per grind step, swingPeriodSec = one full 0-100-0 pestle swing; directionWords = the notebook's ~ direction for a reading below (higher) or above (lower) the ideal target; distilling.drips = drips per distil step, drip i falls from 0 to 100 over fallMsec starting at i x beatMsec, and a tap reads the falling drip's position against the step target; leadInMsec = screen-only pause before drip 0 (a tap in it is stray). Experimenting: insertTarget = an inserted step's starting target; nudgeStep = one nudge of a planned step's target; vagueToExactHits = in-band runs on a vague step that upgrade it to exact. recipes.*.chart (Slice B): centre = the region and bullseye centre on the chart, radius = the region radius, bullseyeRadius = the bullseye radius before skill widening (must be < radius). chart: directions = each pourable ore type's unit direction (x right, y up); pourSpeed = chart units per second of hold; unitsPerCalc = chart units one calc pays for (a pour charges ceil(distance poured this run / unitsPerCalc) of that type); viewMin/viewMax = the drawn chart bounds on both axes; apparatus = transforms queued onto the next pour and consumed by it (heat.rotateDeg turns it counter-clockwise, adding up; grinding/compression.speedMul scale its speed, multiplying, so one of each cancels) except distilling.pullBack, which immediately moves the marker that fraction of the way back to the origin. PROSE-REVIEW: every directionWords entry and badRun.lines entry is new copy, drafted against CONTENT-GUIDE.md's tone bible. Chart hints (recipes.*.chart.hints; PROSE-REVIEW: every note is new copy): vague.cloud = a fuzzy ring centred at the bullseye centre + offset (|offset| < radius, so it always contains the bullseye centre); exact = bullseye:true marks the bullseye, or route = an authored chart-space polyline revealed. Bottling inside a vague cloud vagueToExactHits times upgrades it to exact. chart.fogCell = fog grid cell size; fogClearRadius = chart units around the marker path that clear fog.",
+  "_comment": "Sandboxed Lab-revamp bench prototype (systems/bench_prototype.gd, .scratch/lab-revamp/spec.md) -- provisional numbers, not production balance, not cross-referenced by REFERENCE.md. rankThresholds[i] is the minimum score for rank i+1. baseCalc is spent per item crafted (a manual run makes one). baseXp is per item, display-only. recipes.*.procedure (Slice A): ideal = the authored perfect procedure (apparatus = data/approaches.json id, target on a 0-100 gauge, weight; weights sum to 100); base = the procedure known at start, its steps' calc summing to baseCalc and spent step by step; baseTolerance = band half-width before skill widening; hints = the hidden improvements, each naming the ideal step index it reveals (a base step matching that ideal step gets its target corrected, otherwise the ideal step is inserted, no calc). A vague hint shows a region of the band widened by vagueSpread each side and shifted by its offset (|offset| <= vagueSpread, so the band always sits inside); an exact hint shows the true band. PROSE-REVIEW: every hints label/note is new copy. gauges (one per procedure apparatus): heat/compression.risePerSec = needle speed while held; compression.crackAt = the needle value that cracks the vessel and ends the run; grinding.strokes = taps per grind step, swingPeriodSec = one full 0-100-0 pestle swing; directionWords = the notebook's ~ direction for a reading below (higher) or above (lower) the ideal target; distilling.drips = drips per distil step, drip i falls from 0 to 100 over fallMsec starting at i x beatMsec, and a tap reads the falling drip's position against the step target; leadInMsec = screen-only pause before drip 0 (a tap in it is stray). Experimenting: insertTarget = an inserted step's starting target; nudgeStep = one nudge of a planned step's target; vagueToExactHits = in-band runs on a vague step that upgrade it to exact. PROSE-REVIEW: every directionWords entry and badRun.lines entry is new copy, drafted against CONTENT-GUIDE.md's tone bible.",
   "roster": ["healingSalve", "timePearl", "healingBurst"],
   "recipes": {
     "healingSalve": {
       "name": "Healing Salve", "baseCalc": { "life": 3 },
-      "chart": { "centre": [60, 0], "radius": 20, "bullseyeRadius": 5,
-        "hints": [
-          { "id": "bullseyeMark", "label": "Mark the bullseye",
-            "vague": { "cloud": { "offset": [3, -2], "radius": 10 }, "note": "Somewhere near the middle of that ring." },
-            "exact": { "bullseye": true, "note": "The bullseye, marked." } },
-          { "id": "routeSegment", "label": "Mark the first stretch",
-            "vague": { "cloud": { "offset": [-4, 3], "radius": 12 }, "note": "The ring is a little off the straight run." },
-            "exact": { "route": [[0, 0], [45, 0]], "note": "Pour life straight along the line, then ease off." } }
-        ] },
       "procedure": {
         "baseTolerance": 8,
         "ideal": [
@@ -36,15 +27,6 @@
     },
     "timePearl": {
       "name": "Time Pearl", "baseCalc": { "time": 3 },
-      "chart": { "centre": [0, 60], "radius": 16, "bullseyeRadius": 4,
-        "hints": [
-          { "id": "bullseyeMark", "label": "Mark the bullseye",
-            "vague": { "cloud": { "offset": [2, 3], "radius": 9 }, "note": "Somewhere near the middle of that ring." },
-            "exact": { "bullseye": true, "note": "The bullseye, marked." } },
-          { "id": "routeSegment", "label": "Mark the first stretch",
-            "vague": { "cloud": { "offset": [-3, -2], "radius": 10 }, "note": "The ring sits a little short of the climb." },
-            "exact": { "route": [[0, 0], [0, 45]], "note": "Pour time straight up the line, then ease off." } }
-        ] },
       "procedure": {
         "baseTolerance": 6,
         "ideal": [
@@ -68,15 +50,6 @@
     },
     "healingBurst": {
       "name": "Healing Burst", "baseCalc": { "life": 2, "time": 2 },
-      "chart": { "centre": [40, 40], "radius": 12, "bullseyeRadius": 3,
-        "hints": [
-          { "id": "bullseyeMark", "label": "Mark the bullseye",
-            "vague": { "cloud": { "offset": [2, -2], "radius": 8 }, "note": "Somewhere near the middle of that ring." },
-            "exact": { "bullseye": true, "note": "The bullseye, marked." } },
-          { "id": "routeSegment", "label": "Mark the first stretch",
-            "vague": { "cloud": { "offset": [-3, 2], "radius": 9 }, "note": "The ring leans toward the corner." },
-            "exact": { "route": [[0, 0], [40, 0], [40, 25]], "note": "Pour life out, then time up. Don't cut the corner." } }
-        ] },
       "procedure": {
         "baseTolerance": 4,
         "ideal": [
@@ -119,19 +92,6 @@
       "directionWords": { "higher": "later in the swing", "lower": "earlier in the swing" } },
     "distilling": { "drips": 4, "beatMsec": 1400, "fallMsec": 1000, "leadInMsec": 1400,
       "directionWords": { "higher": "catch them later", "lower": "catch them sooner" } }
-  },
-  "chart": {
-    "directions": { "life": [1, 0], "time": [0, 1] },
-    "fogCell": 10, "fogClearRadius": 8, "pourSpeed": 20,
-    "unitsPerCalc": 20,
-    "viewMin": -20,
-    "viewMax": 100,
-    "apparatus": {
-      "heat": { "rotateDeg": 45 },
-      "grinding": { "speedMul": 0.5 },
-      "compression": { "speedMul": 2 },
-      "distilling": { "pullBack": 0.25 }
-    }
   },
   "baseXp": 10,
   "hintLevels": ["off", "vague", "exact"],

@@ -2,9 +2,8 @@ class_name BenchPrototype
 extends RefCounted
 
 # Sandboxed Lab-revamp bench prototype (.scratch/lab-revamp/spec.md
-# §Shared core rules). Two independent slices, "procedure" and "chart",
-# each with its own calc pool, per-recipe best ranks, hint levels, item
-# ledger and Rewind stack, all under GameState.state["benchPrototype"].
+# §Shared core rules): one calc pool, per-recipe best ranks, hint levels,
+# item ledger and Rewind stack, all under GameState.state["benchPrototype"].
 # Reads the player's real craftingSkill as a default and never writes
 # anything outside benchPrototype -- no real inventory, XP or bench state.
 #
@@ -13,38 +12,24 @@ extends RefCounted
 # up front; finish_run() turns the score into a rank, raises best rank,
 # rolls the re-run bonus and the bad-run flavour line, and logs the item.
 #
-# The procedure slice's real run is begin_procedure_run() -> one perform_*()
-# per step with the raw gauge input (heat/compress released value, grind
-# stroke readings, distil tap timings). Calc is spent step by step as each
-# step is performed; the last step scores the run (spec §Slice A) and hands
-# the score to finish_run(). A compress released at or past crackAt cracks
-# the vessel and ends the run with no item.
+# The real run is begin_procedure_run() -> one perform_*() per step with
+# the raw gauge input (heat/compress released value, grind stroke
+# readings, distil tap timings). Calc is spent step by step as each step is
+# performed; the last step scores the run (spec §Slice A) and hands the
+# score to finish_run(). A compress released at or past crackAt cracks the
+# vessel and ends the run with no item.
 #
 # Before a run the player edits a per-recipe plan (insert, remove, nudge);
 # after it the notebook records one clue per step, and those clues grant
 # vague hints and upgrade them to exact (spec §Slice A Experimenting).
-#
-# The chart slice's run is begin_chart_run() -> pour() per jar hold (raw
-# hold seconds; the marker slides along the ore type's direction and calc
-# is charged per distance) -> bottle(), which scores the marker's distance
-# to the recipe's bullseye (spec §Slice B). Between pours, apply_apparatus()
-# queues heat/grind/compress onto the next pour or distils the marker back
-# toward the origin at once (spec §Slice B Moving the marker).
-#
-# Chart knowledge (spec §Slice B Knowledge, Experimenting): the marker's path
-# clears fog cells, a recipe's region is found when its run begins or a
-# bottle lands inside it, and chart hints show as vague clouds that sharpen
-# to exact after vagueToExactHits bottles inside them. All of it lives in
-# the chart slice, so Rewind rolls it back.
-
-const SLICE_PROCEDURE := "procedure"
-const SLICE_CHART := "chart"
-const SLICES: Array[String] = [SLICE_PROCEDURE, SLICE_CHART]
 
 const BATCH_SIZES: Array[int] = [1, 5, 10]
 
 # Apparatus whose step is one hold-and-release reading (perform_step).
 const HOLD_APPARATUS: Array[String] = ["heat", "compression"]
+
+# Debug settings Rewind leaves alone (and snapshots don't copy).
+const UNREWOUND_KEYS: Array[String] = ["snapshots", "skillOverride", "bonusType"]
 
 
 static func _data() -> Dictionary:
@@ -54,28 +39,18 @@ static func _data() -> Dictionary:
 # ── State ────────────────────────────────────────────────────────────────
 
 static func new_state() -> Dictionary:
-	var slices := {}
-	for slice_id in SLICES:
-		slices[slice_id] = new_slice(slice_id)
-	return {
-		"activeSlice": SLICE_PROCEDURE,
-		# null = follow the player's real craftingSkill (read only).
-		"skillOverride": null,
-		"bonusType": _data().get("bonus", {}).get("defaultType", ""),
-		"slices": slices,
-	}
-
-
-static func new_slice(slice_id: String) -> Dictionary:
 	var best_ranks := {}
 	var hint_levels := {}
 	for recipe_id in _data().get("roster", []):
 		best_ranks[recipe_id] = 0
 		var levels := {}
-		for hint in hints(slice_id, recipe_id):
+		for hint in hints(recipe_id):
 			levels[hint["id"]] = "off"
 		hint_levels[recipe_id] = levels
 	return {
+		# null = follow the player's real craftingSkill (read only).
+		"skillOverride": null,
+		"bonusType": _data().get("bonus", {}).get("defaultType", ""),
 		"pool": _data().get("poolSeed", {}).duplicate(),
 		"bestRanks": best_ranks,
 		# recipeId -> { hintId -> "off" | "vague" | "exact" }.
@@ -94,20 +69,12 @@ static func new_slice(slice_id: String) -> Dictionary:
 		"vagueHits": {},
 		# recipeId -> the last finished run's clues (notebook_clues()).
 		"notebook": {},
-		# Chart knowledge: recipe ids whose region is found, and the fog
-		# grid cells the marker's path has cleared ("cx,cy" -> true).
-		"found": [],
-		"fog": {},
 		"snapshots": [],
 	}
 
 
 static func _root() -> Dictionary:
 	return GameState.state["benchPrototype"]
-
-
-static func slice(slice_id: String) -> Dictionary:
-	return _root()["slices"][slice_id]
 
 
 # ── Pure core rules ──────────────────────────────────────────────────────
@@ -127,8 +94,8 @@ static func effective_skill() -> int:
 	return int(GameState.state["player"]["craftingSkill"])
 
 
-# Widening multiplier every tolerance band/bullseye radius is scaled by:
-# 1 + skillFactor × craftingSkill (spec §Slice A Tolerance, §Slice B).
+# Widening multiplier every tolerance band is scaled by:
+# 1 + skillFactor × craftingSkill (spec §Slice A Tolerance).
 static func skill_multiplier() -> float:
 	return 1.0 + float(_data().get("skillFactor", 0.0)) * effective_skill()
 
@@ -141,8 +108,8 @@ static func recipe_cost(recipe_id: String, count: int = 1) -> Dictionary:
 	return cost
 
 
-static func can_afford(slice_id: String, cost: Dictionary) -> bool:
-	var pool: Dictionary = slice(slice_id)["pool"]
+static func can_afford(cost: Dictionary) -> bool:
+	var pool: Dictionary = _root()["pool"]
 	for ore_type in cost.keys():
 		if int(pool.get(ore_type, 0)) < int(cost[ore_type]):
 			return false
@@ -174,14 +141,6 @@ static func exit() -> void:
 	Nav.go_to("phone")
 
 
-static func set_active_slice(slice_id: String) -> Dictionary:
-	if not SLICES.has(slice_id):
-		return { "ok": false, "reason": "Unknown slice." }
-	_root()["activeSlice"] = slice_id
-	EventBus.state_changed.emit()
-	return { "ok": true }
-
-
 static func set_skill_override(skill: int) -> void:
 	_root()["skillOverride"] = clampi(skill, 0, int(_data().get("skillMax", 10)))
 	EventBus.state_changed.emit()
@@ -200,35 +159,33 @@ static func set_bonus_type(bonus_type: String) -> Dictionary:
 	return { "ok": true }
 
 
-# The authored hints a slice's debug toggles can grant for a recipe.
-static func hints(slice_id: String, recipe_id: String) -> Array:
+# The authored hints the debug toggles can grant for a recipe.
+static func hints(recipe_id: String) -> Array:
 	if not _data()["recipes"].has(recipe_id):
 		return []
-	if slice_id == SLICE_CHART:
-		return recipe_chart(recipe_id).get("hints", [])
 	return procedure_def(recipe_id).get("hints", [])
 
 
-static func hint_def(slice_id: String, recipe_id: String, hint_id: String) -> Dictionary:
-	for hint in hints(slice_id, recipe_id):
+static func hint_def(recipe_id: String, hint_id: String) -> Dictionary:
+	for hint in hints(recipe_id):
 		if hint["id"] == hint_id:
 			return hint
 	return {}
 
 
-static func hint_level(slice_id: String, recipe_id: String, hint_id: String) -> String:
-	var levels = slice(slice_id)["hintLevels"].get(recipe_id)
+static func hint_level(recipe_id: String, hint_id: String) -> String:
+	var levels = _root()["hintLevels"].get(recipe_id)
 	return levels.get(hint_id, "off") if levels is Dictionary else "off"
 
 
 # Debug override: also drops the recipe's edited plan and the hint's
 # vague-hit count, so the plan rebuilds from the new knowledge.
-static func set_hint_level(slice_id: String, recipe_id: String, hint_id: String, level: String) -> Dictionary:
+static func set_hint_level(recipe_id: String, hint_id: String, level: String) -> Dictionary:
 	if not _data().get("hintLevels", []).has(level):
 		return { "ok": false, "reason": "Unknown hint level." }
-	if hint_def(slice_id, recipe_id, hint_id).is_empty():
+	if hint_def(recipe_id, hint_id).is_empty():
 		return { "ok": false, "reason": "Unknown hint." }
-	var s := slice(slice_id)
+	var s := _root()
 	_set_hint_level(s, recipe_id, hint_id, level)
 	s["plans"].erase(recipe_id)
 	if s["vagueHits"].get(recipe_id) is Dictionary:
@@ -243,21 +200,21 @@ static func _set_hint_level(s: Dictionary, recipe_id: String, hint_id: String, l
 	s["hintLevels"][recipe_id][hint_id] = level
 
 
-static func refill_pool(slice_id: String) -> void:
-	slice(slice_id)["pool"] = _data().get("poolSeed", {}).duplicate()
+static func refill_pool() -> void:
+	_root()["pool"] = _data().get("poolSeed", {}).duplicate()
 	EventBus.state_changed.emit()
 
 
 # ── Manual run ───────────────────────────────────────────────────────────
 
-static func begin_run(slice_id: String, recipe_id: String) -> Dictionary:
-	var s := slice(slice_id)
+static func begin_run(recipe_id: String) -> Dictionary:
+	var s := _root()
 	if s["activeRun"] != null:
 		return { "ok": false, "reason": "A run is already open." }
 	if not _data()["recipes"].has(recipe_id):
 		return { "ok": false, "reason": "Unknown recipe." }
 	var cost := recipe_cost(recipe_id)
-	if not can_afford(slice_id, cost):
+	if not can_afford(cost):
 		return { "ok": false, "reason": "Not enough calc." }
 	_push_snapshot(s)
 	_spend(s, cost)
@@ -267,8 +224,8 @@ static func begin_run(slice_id: String, recipe_id: String) -> Dictionary:
 
 
 # extra is merged into the ledger entry (a procedure run's per-step results).
-static func finish_run(slice_id: String, score: int, extra: Dictionary = {}) -> Dictionary:
-	var s := slice(slice_id)
+static func finish_run(score: int, extra: Dictionary = {}) -> Dictionary:
+	var s := _root()
 	var run = s["activeRun"]
 	if run == null:
 		return { "ok": false, "reason": "No run open." }
@@ -311,8 +268,8 @@ static func finish_run(slice_id: String, score: int, extra: Dictionary = {}) -> 
 
 
 # Ends an open run without an item; the calc spent so far stays spent.
-static func abandon_run(slice_id: String) -> Dictionary:
-	var s := slice(slice_id)
+static func abandon_run() -> Dictionary:
+	var s := _root()
 	if s["activeRun"] == null:
 		return { "ok": false, "reason": "No run open." }
 	return { "ok": true, "entry": _close_run(s, "abandoned") }
@@ -349,7 +306,7 @@ static func known_procedure(recipe_id: String) -> Array:
 	var base: Array = procedure["base"]
 	var granted := {}
 	for hint in procedure.get("hints", []):
-		var level := hint_level(SLICE_PROCEDURE, recipe_id, hint["id"])
+		var level := hint_level(recipe_id, hint["id"])
 		if level != "off":
 			granted[int(hint["step"])] = { "hint": hint, "level": level }
 	var steps := []
@@ -401,7 +358,7 @@ static func step_region(recipe_id: String, step: Dictionary) -> Dictionary:
 	var vague: bool = step.get("knowledge", "base") == "vague"
 	if vague:
 		var spread := float(_data().get("vagueSpread", 0))
-		var offset := float(hint_def(SLICE_PROCEDURE, recipe_id, step["hintId"])["vague"]["offset"])
+		var offset := float(hint_def(recipe_id, step["hintId"])["vague"]["offset"])
 		low += offset - spread
 		high += offset + spread
 	return { "low": maxf(0.0, low), "high": minf(100.0, high), "vague": vague }
@@ -483,13 +440,13 @@ static func procedure_cost(steps: Array) -> Dictionary:
 # Opens a procedure run. The whole procedure must be affordable up front,
 # but calc is only spent as each step is performed.
 static func begin_procedure_run(recipe_id: String) -> Dictionary:
-	var s := slice(SLICE_PROCEDURE)
+	var s := _root()
 	if s["activeRun"] != null:
 		return { "ok": false, "reason": "A run is already open." }
 	if not _data()["recipes"].has(recipe_id):
 		return { "ok": false, "reason": "Unknown recipe." }
 	var steps := planned_procedure(recipe_id)
-	if not can_afford(SLICE_PROCEDURE, procedure_cost(steps)):
+	if not can_afford(procedure_cost(steps)):
 		return { "ok": false, "reason": "Not enough calc." }
 	_push_snapshot(s)
 	s["activeRun"] = {
@@ -501,7 +458,7 @@ static func begin_procedure_run(recipe_id: String) -> Dictionary:
 
 # The open procedure run's next step, or null when none is open.
 static func current_step() -> Variant:
-	var run = slice(SLICE_PROCEDURE)["activeRun"]
+	var run = _root()["activeRun"]
 	if run == null or not run.has("procedure"):
 		return null
 	var index: int = run["performed"].size()
@@ -519,7 +476,7 @@ static func perform_step(value: float) -> Dictionary:
 	var step = current_step()
 	if step == null or not HOLD_APPARATUS.has(step["apparatus"]):
 		return { "ok": false, "reason": "No hold step to perform." }
-	var s := slice(SLICE_PROCEDURE)
+	var s := _root()
 	value = clampf(value, 0.0, 100.0)
 	_perform(s, { "value": value })
 	if step["apparatus"] == "compression" and value >= float(gauge("compression")["crackAt"]):
@@ -536,7 +493,7 @@ static func perform_grind(readings: Array) -> Dictionary:
 	var clamped := []
 	for i in int(gauge("grinding")["strokes"]):
 		clamped.append(clampf(float(readings[i]), 0.0, 100.0) if i < readings.size() else null)
-	var s := slice(SLICE_PROCEDURE)
+	var s := _root()
 	_perform(s, { "readings": clamped })
 	return _advance(s)
 
@@ -546,7 +503,7 @@ static func perform_distil(tap_msecs: Array) -> Dictionary:
 	var step = current_step()
 	if step == null or step["apparatus"] != "distilling":
 		return { "ok": false, "reason": "No distil step to perform." }
-	var s := slice(SLICE_PROCEDURE)
+	var s := _root()
 	_perform(s, distil_readings(tap_msecs))
 	return _advance(s)
 
@@ -599,7 +556,7 @@ static func _advance(s: Dictionary) -> Dictionary:
 		var performed: Dictionary = run["performed"][i].duplicate(true)
 		performed["accuracy"] = scored["accuracies"][i]
 		steps.append(performed)
-	var result := finish_run(SLICE_PROCEDURE, scored["score"], { "steps": steps })
+	var result := finish_run(scored["score"], { "steps": steps })
 	result["done"] = true
 	return result
 
@@ -610,7 +567,7 @@ static func _advance(s: Dictionary) -> Dictionary:
 # known procedure when it hasn't been edited. An inserted step has
 # knowledge "inserted" and no calc.
 static func planned_procedure(recipe_id: String) -> Array:
-	var plan = slice(SLICE_PROCEDURE)["plans"].get(recipe_id)
+	var plan = _root()["plans"].get(recipe_id)
 	return plan.duplicate(true) if plan is Array else known_procedure(recipe_id)
 
 
@@ -651,7 +608,7 @@ static func nudge_step(recipe_id: String, index: int, delta: float) -> Dictionar
 
 
 static func reset_plan(recipe_id: String) -> Dictionary:
-	var s := slice(SLICE_PROCEDURE)
+	var s := _root()
 	if s["activeRun"] != null:
 		return { "ok": false, "reason": "Finish the open run first." }
 	s["plans"].erase(recipe_id)
@@ -662,7 +619,7 @@ static func reset_plan(recipe_id: String) -> Dictionary:
 # Plans are edited only between runs. An insert position may be one past
 # the last step.
 static func _check_plan_edit(recipe_id: String, index: int, inserting: bool) -> Dictionary:
-	if slice(SLICE_PROCEDURE)["activeRun"] != null:
+	if _root()["activeRun"] != null:
 		return { "ok": false, "reason": "Finish the open run first." }
 	if not _data()["recipes"].has(recipe_id):
 		return { "ok": false, "reason": "Unknown recipe." }
@@ -674,7 +631,7 @@ static func _check_plan_edit(recipe_id: String, index: int, inserting: bool) -> 
 
 # The recipe's stored plan, created from the known procedure on first edit.
 static func _plan(recipe_id: String) -> Array:
-	var plans: Dictionary = slice(SLICE_PROCEDURE)["plans"]
+	var plans: Dictionary = _root()["plans"]
 	if not plans.get(recipe_id) is Array:
 		plans[recipe_id] = known_procedure(recipe_id)
 	return plans[recipe_id]
@@ -688,7 +645,7 @@ static func hidden_ideal_steps(recipe_id: String) -> Dictionary:
 	var hidden := {}
 	for hint in procedure.get("hints", []):
 		var step := int(hint["step"])
-		if hint_level(SLICE_PROCEDURE, recipe_id, hint["id"]) == "off" and not base_matches.has(step):
+		if hint_level(recipe_id, hint["id"]) == "off" and not base_matches.has(step):
 			hidden[step] = hint["id"]
 	return hidden
 
@@ -767,7 +724,7 @@ static func _learn(s: Dictionary, recipe_id: String, procedure: Array, clues: Ar
 			var hint_id: String = hidden[clue["ideal"]]
 			_set_hint_level(s, recipe_id, hint_id, "vague")
 			var step := { "apparatus": clue["apparatus"] }
-			_apply_hint(step, ideal[clue["ideal"]], { "hint": hint_def(SLICE_PROCEDURE, recipe_id, hint_id), "level": "vague" })
+			_apply_hint(step, ideal[clue["ideal"]], { "hint": hint_def(recipe_id, hint_id), "level": "vague" })
 			# A debug hint toggle mid-run drops the plan; it then rebuilds
 			# from knowledge, which now has the step.
 			var plan = s["plans"].get(recipe_id)
@@ -795,270 +752,17 @@ static func _sync_plan_knowledge(s: Dictionary, recipe_id: String) -> void:
 	for step in plan:
 		if not step.has("hintId"):
 			continue
-		var level := hint_level(SLICE_PROCEDURE, recipe_id, step["hintId"])
+		var level := hint_level(recipe_id, step["hintId"])
 		if level != "off":
 			step["knowledge"] = level
-			step["note"] = hint_def(SLICE_PROCEDURE, recipe_id, step["hintId"])[level]["note"]
-
-
-# ── Chart (Slice B) ──────────────────────────────────────────────────────
-
-static func chart_def() -> Dictionary:
-	return _data()["chart"]
-
-
-static func recipe_chart(recipe_id: String) -> Dictionary:
-	return _data()["recipes"][recipe_id]["chart"]
-
-
-static func _vec(pair: Array) -> Vector2:
-	return Vector2(float(pair[0]), float(pair[1]))
-
-
-static func bullseye_radius(recipe_id: String) -> float:
-	return float(recipe_chart(recipe_id)["bullseyeRadius"]) * skill_multiplier()
-
-
-# 100 inside the bullseye, falling linearly to the rank-1 threshold at the
-# region edge, 0 outside the region (spec §Slice B Finishing a run).
-static func chart_score(recipe_id: String, marker: Vector2) -> int:
-	var region := recipe_chart(recipe_id)
-	var radius := float(region["radius"])
-	var bullseye := minf(bullseye_radius(recipe_id), radius)
-	var distance := marker.distance_to(_vec(region["centre"]))
-	if distance > radius:
-		return 0
-	if distance <= bullseye:
-		return 100
-	var edge_score := float(_data()["rankThresholds"][0])
-	return roundi(lerpf(100.0, edge_score, (distance - bullseye) / (radius - bullseye)))
-
-
-# Opens a chart run with the marker at the origin. Calc is only spent as
-# the marker is poured.
-static func begin_chart_run(recipe_id: String) -> Dictionary:
-	var s := slice(SLICE_CHART)
-	if s["activeRun"] != null:
-		return { "ok": false, "reason": "A run is already open." }
-	if not _data()["recipes"].has(recipe_id):
-		return { "ok": false, "reason": "Unknown recipe." }
-	_push_snapshot(s)
-	s["activeRun"] = {
-		"recipeId": recipe_id, "startedMsec": Time.get_ticks_msec(), "calcSpent": {},
-		"marker": [0.0, 0.0], "path": [[0.0, 0.0]], "poured": {},
-		"queue": _empty_queue(),
-	}
-	if not s["found"].has(recipe_id):
-		s["found"].append(recipe_id)
-	_clear_fog(s, Vector2.ZERO, Vector2.ZERO)
-	EventBus.state_changed.emit()
-	return { "ok": true }
-
-
-static func chart_marker() -> Vector2:
-	var run = slice(SLICE_CHART)["activeRun"]
-	return _vec(run["marker"]) if run != null and run.has("marker") else Vector2.ZERO
-
-
-static func _empty_queue() -> Dictionary:
-	return { "rotateDeg": 0.0, "speedMul": 1.0 }
-
-
-# The transforms waiting on the next pour: rotateDeg counter-clockwise and
-# a speed multiplier (1.0 = unchanged).
-static func chart_queue() -> Dictionary:
-	var run = slice(SLICE_CHART)["activeRun"]
-	return run.get("queue", _empty_queue()) if run != null and run.has("marker") else _empty_queue()
-
-
-# ore_type's pour direction turned by the queued rotation.
-static func pour_direction(ore_type: String) -> Vector2:
-	return _vec(chart_def()["directions"][ore_type]).rotated(deg_to_rad(float(chart_queue()["rotateDeg"])))
-
-
-# Heat, grind and compress stack onto the next pour; distil pulls the
-# marker pullBack of the way to the origin now and leaves the queue alone.
-static func apply_apparatus(apparatus: String) -> Dictionary:
-	var run = slice(SLICE_CHART)["activeRun"]
-	if run == null or not run.has("marker"):
-		return { "ok": false, "reason": "No chart run open." }
-	var transform: Dictionary = chart_def()["apparatus"].get(apparatus, {})
-	if transform.is_empty():
-		return { "ok": false, "reason": "Unknown apparatus." }
-	if transform.has("pullBack"):
-		var from := _vec(run["marker"])
-		var marker := from * (1.0 - float(transform["pullBack"]))
-		_clear_fog(slice(SLICE_CHART), from, marker)
-		run["marker"] = [marker.x, marker.y]
-		run["path"].append([marker.x, marker.y])
-	else:
-		var queue: Dictionary = run.get("queue", _empty_queue()).duplicate()
-		queue["rotateDeg"] = float(queue["rotateDeg"]) + float(transform.get("rotateDeg", 0.0))
-		queue["speedMul"] = float(queue["speedMul"]) * float(transform.get("speedMul", 1.0))
-		run["queue"] = queue
-	EventBus.state_changed.emit()
-	return { "ok": true }
-
-
-# How far a hold of hold_sec on ore_type's jar would carry the marker (at
-# the queued speed, along the queued direction), and the calc it would
-# charge, capped by what the pool can still pay for. stopped = the pool ran
-# dry before the hold ended.
-static func pour_preview(ore_type: String, hold_sec: float) -> Dictionary:
-	var run = slice(SLICE_CHART)["activeRun"]
-	if run == null or not run.has("marker") or not chart_def()["directions"].has(ore_type):
-		return { "distance": 0.0, "cost": 0, "stopped": true, "direction": Vector2.ZERO }
-	var units := float(chart_def()["unitsPerCalc"])
-	var poured := float(run["poured"].get(ore_type, 0.0))
-	var charged: int = int(run["calcSpent"].get(ore_type, 0))
-	var pool: int = int(slice(SLICE_CHART)["pool"].get(ore_type, 0))
-	var limit := maxf(0.0, (charged + pool) * units - poured)
-	var wanted := maxf(0.0, hold_sec) * float(chart_def()["pourSpeed"]) * float(chart_queue()["speedMul"])
-	var distance := minf(wanted, limit)
-	return { "distance": distance, "cost": _calc_for(poured + distance, units) - charged, "stopped": wanted >= limit, "direction": pour_direction(ore_type) }
-
-
-# Calc owed for a run's total poured distance of one type.
-static func _calc_for(distance: float, units: float) -> int:
-	return ceili(distance / units - 0.000001)
-
-
-# Moves the marker along ore_type's (queue-transformed) direction for a raw
-# hold of hold_sec and charges the calc per distance; an empty pool stops
-# the pour short. A pour that moves consumes the queue.
-static func pour(ore_type: String, hold_sec: float) -> Dictionary:
-	var s := slice(SLICE_CHART)
-	var run = s["activeRun"]
-	if run == null or not run.has("marker"):
-		return { "ok": false, "reason": "No chart run open." }
-	if not chart_def()["directions"].has(ore_type):
-		return { "ok": false, "reason": "Unknown calc jar." }
-	var preview := pour_preview(ore_type, hold_sec)
-	var distance: float = preview["distance"]
-	if distance <= 0.0:
-		return { "ok": false, "reason": "Not enough calc." }
-	_spend(s, { ore_type: preview["cost"] })
-	run["calcSpent"][ore_type] = int(run["calcSpent"].get(ore_type, 0)) + int(preview["cost"])
-	run["poured"][ore_type] = float(run["poured"].get(ore_type, 0.0)) + distance
-	var direction: Vector2 = preview["direction"]
-	var from := _vec(run["marker"])
-	var marker := from + direction * distance
-	_clear_fog(s, from, marker)
-	run["marker"] = [marker.x, marker.y]
-	run["path"].append([marker.x, marker.y])
-	run["queue"] = _empty_queue()
-	EventBus.state_changed.emit()
-	return { "ok": true, "distance": distance, "cost": preview["cost"], "stopped": preview["stopped"] }
-
-
-# Ends the chart run and scores the marker's distance to the bullseye.
-static func bottle() -> Dictionary:
-	var run = slice(SLICE_CHART)["activeRun"]
-	if run == null or not run.has("marker"):
-		return { "ok": false, "reason": "No chart run open." }
-	var marker: Array = run["marker"]
-	var s := slice(SLICE_CHART)
-	var extra := { "marker": marker.duplicate() }
-	var revealed := _reveal_regions(s, _vec(marker))
-	if not revealed.is_empty():
-		extra["revealed"] = revealed
-	var sharpened := _learn_from_landing(s, run["recipeId"], _vec(marker))
-	if not sharpened.is_empty():
-		extra["sharpened"] = sharpened
-	return finish_run(SLICE_CHART, chart_score(run["recipeId"], _vec(marker)), extra)
-
-
-# ── Chart knowledge: fog, found regions, hints ──────────────────────────
-
-static func region_found(recipe_id: String) -> bool:
-	return slice(SLICE_CHART)["found"].has(recipe_id)
-
-
-static func _fog_key(cell: Vector2i) -> String:
-	return "%d,%d" % [cell.x, cell.y]
-
-
-static func fog_cleared(cell: Vector2i) -> bool:
-	return slice(SLICE_CHART)["fog"].has(_fog_key(cell))
-
-
-# Clears every fog cell whose centre is within fogClearRadius of the
-# from→to segment.
-static func _clear_fog(s: Dictionary, from: Vector2, to: Vector2) -> void:
-	var cell_size := float(chart_def()["fogCell"])
-	var reach := float(chart_def()["fogClearRadius"])
-	var low := Vector2(minf(from.x, to.x), minf(from.y, to.y)) - Vector2(reach, reach)
-	var high := Vector2(maxf(from.x, to.x), maxf(from.y, to.y)) + Vector2(reach, reach)
-	for cx in range(floori(low.x / cell_size), floori(high.x / cell_size) + 1):
-		for cy in range(floori(low.y / cell_size), floori(high.y / cell_size) + 1):
-			var centre := (Vector2(cx, cy) + Vector2(0.5, 0.5)) * cell_size
-			var nearest := Geometry2D.get_closest_point_to_segment(centre, from, to)
-			if centre.distance_to(nearest) <= reach:
-				s["fog"][_fog_key(Vector2i(cx, cy))] = true
-
-
-# Bottling anywhere inside an unfound region finds it. Returns the ids found.
-static func _reveal_regions(s: Dictionary, marker: Vector2) -> Array:
-	var revealed := []
-	for recipe_id in _data()["roster"]:
-		if s["found"].has(recipe_id):
-			continue
-		var region := recipe_chart(recipe_id)
-		if marker.distance_to(_vec(region["centre"])) <= float(region["radius"]):
-			s["found"].append(recipe_id)
-			revealed.append(recipe_id)
-	return revealed
-
-
-static func _in_cloud(recipe_id: String, hint: Dictionary, point: Vector2) -> bool:
-	var cloud: Dictionary = hint["vague"]["cloud"]
-	var centre := _vec(recipe_chart(recipe_id)["centre"]) + _vec(cloud["offset"])
-	return point.distance_to(centre) <= float(cloud["radius"])
-
-
-# A bottle landing inside a vague hint's cloud counts toward
-# vagueToExactHits, which sharpens it to exact. Returns the sharpened ids.
-static func _learn_from_landing(s: Dictionary, recipe_id: String, marker: Vector2) -> Array:
-	var sharpened := []
-	for hint in hints(SLICE_CHART, recipe_id):
-		var hint_id: String = hint["id"]
-		if hint_level(SLICE_CHART, recipe_id, hint_id) != "vague" or not _in_cloud(recipe_id, hint, marker):
-			continue
-		if not s["vagueHits"].get(recipe_id) is Dictionary:
-			s["vagueHits"][recipe_id] = {}
-		var hits: int = int(s["vagueHits"][recipe_id].get(hint_id, 0)) + 1
-		s["vagueHits"][recipe_id][hint_id] = hits
-		if hits >= int(_data().get("vagueToExactHits", 3)):
-			_set_hint_level(s, recipe_id, hint_id, "exact")
-			sharpened.append(hint_id)
-	return sharpened
-
-
-# What the granted chart hints show for a recipe: clouds (vague), whether
-# the bullseye is marked, and revealed route polylines (exact).
-static func chart_knowledge(recipe_id: String) -> Dictionary:
-	var clouds := []
-	var routes := []
-	var bullseye_marked := false
-	var centre := _vec(recipe_chart(recipe_id)["centre"])
-	for hint in hints(SLICE_CHART, recipe_id):
-		var level := hint_level(SLICE_CHART, recipe_id, hint["id"])
-		if level == "vague":
-			var cloud: Dictionary = hint["vague"]["cloud"]
-			clouds.append({ "hintId": hint["id"], "centre": centre + _vec(cloud["offset"]), "radius": float(cloud["radius"]) })
-		elif level == "exact":
-			if hint["exact"].get("bullseye", false):
-				bullseye_marked = true
-			if hint["exact"].has("route"):
-				routes.append(hint["exact"]["route"].map(func(p): return _vec(p)))
-	return { "clouds": clouds, "bullseye": bullseye_marked, "routes": routes }
+			step["note"] = hint_def(recipe_id, step["hintId"])[level]["note"]
 
 
 # ── Batch ────────────────────────────────────────────────────────────────
 
 # Auto-craft at best rank: base calc per item, XP at ×1.0, no bonus roll.
-static func batch(slice_id: String, recipe_id: String, count: int) -> Dictionary:
-	var s := slice(slice_id)
+static func batch(recipe_id: String, count: int) -> Dictionary:
+	var s := _root()
 	if s["activeRun"] != null:
 		return { "ok": false, "reason": "Finish the open run first." }
 	if count < 1 or not _data()["recipes"].has(recipe_id):
@@ -1067,7 +771,7 @@ static func batch(slice_id: String, recipe_id: String, count: int) -> Dictionary
 	if best < 1:
 		return { "ok": false, "reason": "No rank yet." }
 	var cost := recipe_cost(recipe_id, count)
-	if not can_afford(slice_id, cost):
+	if not can_afford(cost):
 		return { "ok": false, "reason": "Not enough calc." }
 	_push_snapshot(s)
 	_spend(s, cost)
@@ -1091,14 +795,14 @@ static func _log(s: Dictionary, entry: Dictionary) -> void:
 static func _push_snapshot(s: Dictionary) -> void:
 	var frame := {}
 	for key in s.keys():
-		if key != "snapshots":
+		if not UNREWOUND_KEYS.has(key):
 			frame[key] = s[key]
 	Snapshots.push("benchPrototype", s["snapshots"], frame)
 
 
-# Steps the slice back to before its most recent run or batch.
-static func rewind(slice_id: String) -> Dictionary:
-	var s := slice(slice_id)
+# Steps the prototype back to before its most recent run or batch.
+static func rewind() -> Dictionary:
+	var s := _root()
 	var frame = Snapshots.pop_newest(s["snapshots"])
 	if frame == null:
 		return { "ok": false, "reason": "Nothing to rewind." }

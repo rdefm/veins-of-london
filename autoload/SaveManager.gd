@@ -1384,18 +1384,17 @@ func _restore_turn_cursor_int_types(cursor: Dictionary) -> void:
 
 
 
-# systems/bench_prototype.gd's slices, and each slice's Rewind frames
-# (same shape minus "snapshots").
+# systems/bench_prototype.gd's state, and its Rewind frames (same shape
+# minus "snapshots" and the debug settings).
 func _restore_bench_prototype_int_types(bench: Dictionary) -> void:
 	if typeof(bench.get("skillOverride")) == TYPE_FLOAT:
 		bench["skillOverride"] = int(bench["skillOverride"])
-	for s in bench.get("slices", {}).values():
-		_restore_bench_prototype_slice_ints(s)
-		for frame in s.get("snapshots", []):
-			_restore_bench_prototype_slice_ints(frame)
+	_restore_bench_prototype_frame_ints(bench)
+	for frame in bench.get("snapshots", []):
+		_restore_bench_prototype_frame_ints(frame)
 
 
-func _restore_bench_prototype_slice_ints(s: Dictionary) -> void:
+func _restore_bench_prototype_frame_ints(s: Dictionary) -> void:
 	_int_dict_values(s.get("pool", {}))
 	_int_dict_values(s.get("bestRanks", {}))
 	_int_key(s, "xpTotal")
