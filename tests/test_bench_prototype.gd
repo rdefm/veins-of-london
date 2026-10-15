@@ -262,7 +262,7 @@ func run() -> void:
 		assert_true(not BenchPrototype.set_hint_level(P, "healingBurst", "heatHigher", "exact")["ok"], "another recipe's hint refused")
 		assert_true(not BenchPrototype.set_hint_level(C, "healingBurst", "heatLower", "exact")["ok"], "procedure hints aren't chart hints")
 		assert_eq(root["slices"][P]["hintLevels"]["healingBurst"], { "distilBetween": "off", "heatLower": "exact" })
-		assert_eq(root["slices"][C]["hintLevels"]["healingBurst"], {})
+		assert_eq(root["slices"][C]["hintLevels"]["healingBurst"], { "bullseyeMark": "off", "routeSegment": "off" })
 	)
 
 	run_case("every_authored_hint_has_vague_and_exact_forms", func():
@@ -996,4 +996,116 @@ func run() -> void:
 			if e.contains("timePearl.chart") and e.contains("bullseyeRadius"):
 				found = true
 		assert_true(found, "a bullseye wider than its region should be flagged")
+	)
+
+	# ── Chart knowledge: fog, found regions, hints ──
+
+	run_case("chart_hints_authored_for_every_recipe_and_cloud_holds_bullseye", func():
+		_fresh()
+		for recipe_id in _data()["roster"]:
+			var list := BenchPrototype.hints(C, recipe_id)
+			assert_true(not list.is_empty(), "%s has chart hints" % recipe_id)
+			for hint in list:
+				var offset: Array = hint["vague"]["cloud"]["offset"]
+				assert_true(Vector2(offset[0], offset[1]).length() < float(hint["vague"]["cloud"]["radius"]), "%s/%s cloud holds the bullseye centre" % [recipe_id, hint["id"]])
+				assert_true(hint["exact"].get("bullseye", false) or hint["exact"].has("route"), "%s/%s exact marks or routes" % [recipe_id, hint["id"]])
+	)
+
+	run_case("fog_clears_along_the_path_and_persists_after_the_run", func():
+		var root := _fresh()
+		var s: Dictionary = root["slices"][C]
+		var speed := float(_data()["chart"]["pourSpeed"])
+		BenchPrototype.begin_chart_run("healingSalve")
+		assert_true(BenchPrototype.fog_cleared(Vector2i(0, 0)), "origin cell clear")
+		assert_true(not BenchPrototype.fog_cleared(Vector2i(5, 0)), "far cell still fogged")
+		BenchPrototype.pour("life", 60.0 / speed)
+		assert_true(BenchPrototype.fog_cleared(Vector2i(5, 0)), "path cell cleared")
+		assert_true(not BenchPrototype.fog_cleared(Vector2i(5, 5)), "off-path cell fogged")
+		BenchPrototype.bottle()
+		assert_true(BenchPrototype.fog_cleared(Vector2i(5, 0)), "cleared fog outlives the run")
+		assert_true(s["fog"] is Dictionary and s["found"] is Array, "pure data")
+	)
+
+	run_case("own_region_found_other_regions_found_by_bottling_inside", func():
+		var root := _fresh()
+		var speed := float(_data()["chart"]["pourSpeed"])
+		assert_true(not BenchPrototype.region_found("healingSalve"))
+		BenchPrototype.begin_chart_run("healingSalve")
+		assert_true(BenchPrototype.region_found("healingSalve"), "the run's own region is shown")
+		assert_true(not BenchPrototype.region_found("timePearl"), "others stay fogged")
+		BenchPrototype.pour("time", 60.0 / speed)
+		var done := BenchPrototype.bottle()
+		assert_eq(done["entry"]["revealed"], ["timePearl"], "bottling inside the Time Pearl region finds it")
+		assert_true(BenchPrototype.region_found("timePearl"))
+		assert_true(not BenchPrototype.region_found("healingBurst"))
+		assert_true(root["slices"][C]["found"].has("timePearl"))
+	)
+
+	run_case("chart_knowledge_shows_clouds_for_vague_and_marks_for_exact", func():
+		_fresh()
+		assert_eq(BenchPrototype.chart_knowledge("timePearl"), { "clouds": [], "bullseye": false, "routes": [] }, "base shows nothing")
+		BenchPrototype.set_hint_level(C, "timePearl", "bullseyeMark", "vague")
+		var vague := BenchPrototype.chart_knowledge("timePearl")
+		assert_eq(vague["clouds"].size(), 1)
+		assert_true(vague["clouds"][0]["centre"].distance_to(Vector2(0, 60)) < vague["clouds"][0]["radius"], "cloud contains the bullseye centre")
+		assert_true(not vague["bullseye"], "vague doesn't mark it")
+		BenchPrototype.set_hint_level(C, "timePearl", "bullseyeMark", "exact")
+		BenchPrototype.set_hint_level(C, "timePearl", "routeSegment", "exact")
+		var exact := BenchPrototype.chart_knowledge("timePearl")
+		assert_true(exact["bullseye"] and exact["clouds"].is_empty(), "exact marks the bullseye, no cloud")
+		assert_eq(exact["routes"], [[Vector2(0, 0), Vector2(0, 45)]], "route segment revealed")
+	)
+
+	run_case("three_cloud_landings_sharpen_to_exact_and_rewind_undoes_it", func():
+		var root := _fresh()
+		var speed := float(_data()["chart"]["pourSpeed"])
+		BenchPrototype.set_hint_level(C, "timePearl", "bullseyeMark", "vague")
+		var hit := func() -> Dictionary:
+			BenchPrototype.begin_chart_run("timePearl")
+			BenchPrototype.pour("time", 60.0 / speed)
+			return BenchPrototype.bottle()
+		for n in 2:
+			var result: Dictionary = hit.call()
+			assert_true(not result["entry"].has("sharpened"), "landing %d: still vague" % (n + 1))
+			assert_eq(BenchPrototype.hint_level(C, "timePearl", "bullseyeMark"), "vague")
+		var third: Dictionary = hit.call()
+		assert_eq(third["entry"]["sharpened"], ["bullseyeMark"], "third landing sharpens")
+		assert_eq(BenchPrototype.hint_level(C, "timePearl", "bullseyeMark"), "exact")
+		assert_true(BenchPrototype.rewind(C)["ok"])
+		assert_eq(BenchPrototype.hint_level(C, "timePearl", "bullseyeMark"), "vague", "rewind un-sharpens")
+		assert_eq(root["slices"][C]["vagueHits"]["timePearl"]["bullseyeMark"], 2, "and the count")
+	)
+
+	run_case("landing_outside_the_cloud_does_not_count", func():
+		_fresh()
+		BenchPrototype.set_hint_level(C, "timePearl", "bullseyeMark", "vague")
+		BenchPrototype.begin_chart_run("timePearl")
+		BenchPrototype.bottle()
+		assert_true(not BenchPrototype.slice(C)["vagueHits"].has("timePearl"), "a bottle at the origin misses the cloud")
+	)
+
+	run_case("rewind_rolls_back_fog_and_found_regions", func():
+		var root := _fresh()
+		var speed := float(_data()["chart"]["pourSpeed"])
+		var before: Dictionary = GameState.deep_copy(root["slices"][C])
+		before.erase("snapshots")
+		BenchPrototype.begin_chart_run("healingSalve")
+		BenchPrototype.pour("time", 60.0 / speed)
+		BenchPrototype.bottle()
+		assert_true(BenchPrototype.region_found("timePearl"))
+		BenchPrototype.rewind(C)
+		var after: Dictionary = GameState.deep_copy(root["slices"][C])
+		after.erase("snapshots")
+		assert_eq(after, before, "fog and found regions roll back with the run")
+	)
+
+	run_case("validator_flags_cloud_missing_the_bullseye", func():
+		_fresh()
+		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+		corrupted["bench_prototype"]["recipes"]["timePearl"]["chart"]["hints"][0]["vague"]["cloud"]["offset"] = [50, 0]
+		var found := false
+		for e in GameData.validate_tables(corrupted):
+			if e.contains("timePearl.chart.hints") and e.contains("bullseye centre"):
+				found = true
+		assert_true(found, "a cloud that can't hold the bullseye should be flagged")
 	)

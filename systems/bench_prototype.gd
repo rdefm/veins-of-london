@@ -30,6 +30,12 @@ extends RefCounted
 # to the recipe's bullseye (spec §Slice B). Between pours, apply_apparatus()
 # queues heat/grind/compress onto the next pour or distils the marker back
 # toward the origin at once (spec §Slice B Moving the marker).
+#
+# Chart knowledge (spec §Slice B Knowledge, Experimenting): the marker's path
+# clears fog cells, a recipe's region is found when its run begins or a
+# bottle lands inside it, and chart hints show as vague clouds that sharpen
+# to exact after vagueToExactHits bottles inside them. All of it lives in
+# the chart slice, so Rewind rolls it back.
 
 const SLICE_PROCEDURE := "procedure"
 const SLICE_CHART := "chart"
@@ -88,6 +94,10 @@ static func new_slice(slice_id: String) -> Dictionary:
 		"vagueHits": {},
 		# recipeId -> the last finished run's clues (notebook_clues()).
 		"notebook": {},
+		# Chart knowledge: recipe ids whose region is found, and the fog
+		# grid cells the marker's path has cleared ("cx,cy" -> true).
+		"found": [],
+		"fog": {},
 		"snapshots": [],
 	}
 
@@ -192,8 +202,10 @@ static func set_bonus_type(bonus_type: String) -> Dictionary:
 
 # The authored hints a slice's debug toggles can grant for a recipe.
 static func hints(slice_id: String, recipe_id: String) -> Array:
-	if slice_id != SLICE_PROCEDURE or not _data()["recipes"].has(recipe_id):
+	if not _data()["recipes"].has(recipe_id):
 		return []
+	if slice_id == SLICE_CHART:
+		return recipe_chart(recipe_id).get("hints", [])
 	return procedure_def(recipe_id).get("hints", [])
 
 
@@ -836,6 +848,9 @@ static func begin_chart_run(recipe_id: String) -> Dictionary:
 		"marker": [0.0, 0.0], "path": [[0.0, 0.0]], "poured": {},
 		"queue": _empty_queue(),
 	}
+	if not s["found"].has(recipe_id):
+		s["found"].append(recipe_id)
+	_clear_fog(s, Vector2.ZERO, Vector2.ZERO)
 	EventBus.state_changed.emit()
 	return { "ok": true }
 
@@ -871,7 +886,9 @@ static func apply_apparatus(apparatus: String) -> Dictionary:
 	if transform.is_empty():
 		return { "ok": false, "reason": "Unknown apparatus." }
 	if transform.has("pullBack"):
-		var marker := _vec(run["marker"]) * (1.0 - float(transform["pullBack"]))
+		var from := _vec(run["marker"])
+		var marker := from * (1.0 - float(transform["pullBack"]))
+		_clear_fog(slice(SLICE_CHART), from, marker)
 		run["marker"] = [marker.x, marker.y]
 		run["path"].append([marker.x, marker.y])
 	else:
@@ -924,7 +941,9 @@ static func pour(ore_type: String, hold_sec: float) -> Dictionary:
 	run["calcSpent"][ore_type] = int(run["calcSpent"].get(ore_type, 0)) + int(preview["cost"])
 	run["poured"][ore_type] = float(run["poured"].get(ore_type, 0.0)) + distance
 	var direction: Vector2 = preview["direction"]
-	var marker := _vec(run["marker"]) + direction * distance
+	var from := _vec(run["marker"])
+	var marker := from + direction * distance
+	_clear_fog(s, from, marker)
 	run["marker"] = [marker.x, marker.y]
 	run["path"].append([marker.x, marker.y])
 	run["queue"] = _empty_queue()
@@ -938,7 +957,101 @@ static func bottle() -> Dictionary:
 	if run == null or not run.has("marker"):
 		return { "ok": false, "reason": "No chart run open." }
 	var marker: Array = run["marker"]
-	return finish_run(SLICE_CHART, chart_score(run["recipeId"], _vec(marker)), { "marker": marker.duplicate() })
+	var s := slice(SLICE_CHART)
+	var extra := { "marker": marker.duplicate() }
+	var revealed := _reveal_regions(s, _vec(marker))
+	if not revealed.is_empty():
+		extra["revealed"] = revealed
+	var sharpened := _learn_from_landing(s, run["recipeId"], _vec(marker))
+	if not sharpened.is_empty():
+		extra["sharpened"] = sharpened
+	return finish_run(SLICE_CHART, chart_score(run["recipeId"], _vec(marker)), extra)
+
+
+# ── Chart knowledge: fog, found regions, hints ──────────────────────────
+
+static func region_found(recipe_id: String) -> bool:
+	return slice(SLICE_CHART)["found"].has(recipe_id)
+
+
+static func _fog_key(cell: Vector2i) -> String:
+	return "%d,%d" % [cell.x, cell.y]
+
+
+static func fog_cleared(cell: Vector2i) -> bool:
+	return slice(SLICE_CHART)["fog"].has(_fog_key(cell))
+
+
+# Clears every fog cell whose centre is within fogClearRadius of the
+# from→to segment.
+static func _clear_fog(s: Dictionary, from: Vector2, to: Vector2) -> void:
+	var cell_size := float(chart_def()["fogCell"])
+	var reach := float(chart_def()["fogClearRadius"])
+	var low := Vector2(minf(from.x, to.x), minf(from.y, to.y)) - Vector2(reach, reach)
+	var high := Vector2(maxf(from.x, to.x), maxf(from.y, to.y)) + Vector2(reach, reach)
+	for cx in range(floori(low.x / cell_size), floori(high.x / cell_size) + 1):
+		for cy in range(floori(low.y / cell_size), floori(high.y / cell_size) + 1):
+			var centre := (Vector2(cx, cy) + Vector2(0.5, 0.5)) * cell_size
+			var nearest := Geometry2D.get_closest_point_to_segment(centre, from, to)
+			if centre.distance_to(nearest) <= reach:
+				s["fog"][_fog_key(Vector2i(cx, cy))] = true
+
+
+# Bottling anywhere inside an unfound region finds it. Returns the ids found.
+static func _reveal_regions(s: Dictionary, marker: Vector2) -> Array:
+	var revealed := []
+	for recipe_id in _data()["roster"]:
+		if s["found"].has(recipe_id):
+			continue
+		var region := recipe_chart(recipe_id)
+		if marker.distance_to(_vec(region["centre"])) <= float(region["radius"]):
+			s["found"].append(recipe_id)
+			revealed.append(recipe_id)
+	return revealed
+
+
+static func _in_cloud(recipe_id: String, hint: Dictionary, point: Vector2) -> bool:
+	var cloud: Dictionary = hint["vague"]["cloud"]
+	var centre := _vec(recipe_chart(recipe_id)["centre"]) + _vec(cloud["offset"])
+	return point.distance_to(centre) <= float(cloud["radius"])
+
+
+# A bottle landing inside a vague hint's cloud counts toward
+# vagueToExactHits, which sharpens it to exact. Returns the sharpened ids.
+static func _learn_from_landing(s: Dictionary, recipe_id: String, marker: Vector2) -> Array:
+	var sharpened := []
+	for hint in hints(SLICE_CHART, recipe_id):
+		var hint_id: String = hint["id"]
+		if hint_level(SLICE_CHART, recipe_id, hint_id) != "vague" or not _in_cloud(recipe_id, hint, marker):
+			continue
+		if not s["vagueHits"].get(recipe_id) is Dictionary:
+			s["vagueHits"][recipe_id] = {}
+		var hits: int = int(s["vagueHits"][recipe_id].get(hint_id, 0)) + 1
+		s["vagueHits"][recipe_id][hint_id] = hits
+		if hits >= int(_data().get("vagueToExactHits", 3)):
+			_set_hint_level(s, recipe_id, hint_id, "exact")
+			sharpened.append(hint_id)
+	return sharpened
+
+
+# What the granted chart hints show for a recipe: clouds (vague), whether
+# the bullseye is marked, and revealed route polylines (exact).
+static func chart_knowledge(recipe_id: String) -> Dictionary:
+	var clouds := []
+	var routes := []
+	var bullseye_marked := false
+	var centre := _vec(recipe_chart(recipe_id)["centre"])
+	for hint in hints(SLICE_CHART, recipe_id):
+		var level := hint_level(SLICE_CHART, recipe_id, hint["id"])
+		if level == "vague":
+			var cloud: Dictionary = hint["vague"]["cloud"]
+			clouds.append({ "hintId": hint["id"], "centre": centre + _vec(cloud["offset"]), "radius": float(cloud["radius"]) })
+		elif level == "exact":
+			if hint["exact"].get("bullseye", false):
+				bullseye_marked = true
+			if hint["exact"].has("route"):
+				routes.append(hint["exact"]["route"].map(func(p): return _vec(p)))
+	return { "clouds": clouds, "bullseye": bullseye_marked, "routes": routes }
 
 
 # ── Batch ────────────────────────────────────────────────────────────────

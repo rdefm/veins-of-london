@@ -152,7 +152,22 @@ func _build_chart_card(s: Dictionary) -> Control:
 # Every recipe's region (the picked one highlighted; bullseyes stay hidden
 # at base knowledge), the run's path, and the marker at its end.
 func _add_chart_view(content: VBoxContainer, view: ChartView, recipe_id: String, path: Array) -> void:
+	var chart: Dictionary = GameData.BENCH_PROTOTYPE["chart"]
+	view.fog_cell = float(chart["fogCell"])
+	for key in BenchPrototype.slice(BenchPrototype.SLICE_CHART)["fog"].keys():
+		view.cleared[key] = true
+	var knowledge := BenchPrototype.chart_knowledge(recipe_id)
+	view.clouds = knowledge["clouds"]
+	view.routes = knowledge["routes"]
+	if knowledge["bullseye"]:
+		var recipe_region: Dictionary = BenchPrototype.recipe_chart(recipe_id)
+		view.bullseye = {
+			"centre": Vector2(float(recipe_region["centre"][0]), float(recipe_region["centre"][1])),
+			"radius": BenchPrototype.bullseye_radius(recipe_id),
+		}
 	for id in GameData.BENCH_PROTOTYPE["roster"]:
+		if not BenchPrototype.region_found(id) and id != recipe_id:
+			continue
 		var region: Dictionary = BenchPrototype.recipe_chart(id)
 		view.regions.append({
 			"centre": Vector2(float(region["centre"][0]), float(region["centre"][1])),
@@ -536,6 +551,11 @@ class ChartView extends Control:
 	var view_max := 100.0
 	var regions := []
 	var path: Array[Vector2] = []
+	var fog_cell := 10.0
+	var cleared := {}
+	var clouds := []
+	var routes := []
+	var bullseye := {}
 	var _preview_to := Vector2.ZERO
 	var _preview_text := ""
 	var _previewing := false
@@ -566,10 +586,23 @@ class ChartView extends Control:
 		var left := (size.x - _side()) / 2.0
 		return Vector2(left + (point.x - view_min) * _scale(), (view_max - point.y) * _scale())
 
+	# Shrouds every grid cell the path hasn't cleared.
+	func _draw_fog() -> void:
+		var shroud := Color(MapCardStyle.line(), 0.55)
+		var first := floori(view_min / fog_cell)
+		var last := ceili(view_max / fog_cell)
+		for cx in range(first, last):
+			for cy in range(first, last):
+				if cleared.has("%d,%d" % [cx, cy]):
+					continue
+				var corner := _px(Vector2(cx * fog_cell, (cy + 1) * fog_cell))
+				draw_rect(Rect2(corner, Vector2(fog_cell, fog_cell) * _scale()), shroud)
+
 	func _draw() -> void:
 		draw_rect(Rect2(_px(Vector2(view_min, view_max)), Vector2(_side(), _side())), MapCardStyle.line(), false, 1.0)
 		draw_line(_px(Vector2(view_min, 0.0)), _px(Vector2(view_max, 0.0)), MapCardStyle.dim(), 1.0)
 		draw_line(_px(Vector2(0.0, view_min)), _px(Vector2(0.0, view_max)), MapCardStyle.dim(), 1.0)
+		_draw_fog()
 		var font := get_theme_default_font()
 		for region in regions:
 			var colour: Color = MapCardStyle.sage() if region["target"] else MapCardStyle.line()
@@ -578,6 +611,13 @@ class ChartView extends Control:
 			draw_circle(centre, radius, Color(colour, 0.25))
 			draw_arc(centre, radius, 0.0, TAU, 48, colour, 2.0 if region["target"] else 1.0)
 			draw_string(font, centre + Vector2(-30.0, 4.0), region["name"], HORIZONTAL_ALIGNMENT_LEFT, -1, 11, MapCardStyle.muted())
+		for cloud in clouds:
+			draw_circle(_px(cloud["centre"]), cloud["radius"] * _scale(), Color(MapCardStyle.action(), 0.18))
+		for route in routes:
+			for i in range(1, route.size()):
+				draw_dashed_line(_px(route[i - 1]), _px(route[i]), MapCardStyle.sage(), 2.0, 6.0)
+		if not bullseye.is_empty():
+			draw_arc(_px(bullseye["centre"]), bullseye["radius"] * _scale(), 0.0, TAU, 32, MapCardStyle.gold(), 2.0)
 		for i in range(1, path.size()):
 			draw_line(_px(path[i - 1]), _px(path[i]), MapCardStyle.gold(), 2.0)
 		if _previewing:

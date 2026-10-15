@@ -1431,6 +1431,16 @@ func _validate_bench_prototype_region(recipe_id: String, recipe: Dictionary, err
 	var bullseye := float(region.get("bullseyeRadius", 0))
 	if bullseye <= 0.0 or bullseye >= float(region.get("radius", 0)):
 		errors.append("%s: bullseyeRadius must be > 0 and < radius" % where)
+	for hint in region.get("hints", []):
+		var cloud: Dictionary = hint.get("vague", {}).get("cloud", {})
+		var offset = cloud.get("offset")
+		if not (offset is Array and offset.size() == 2) or float(cloud.get("radius", 0)) <= 0.0:
+			errors.append("%s.hints.%s: vague.cloud needs offset [x, y] and radius > 0" % [where, hint.get("id", "?")])
+		elif Vector2(float(offset[0]), float(offset[1])).length() >= float(cloud["radius"]):
+			errors.append("%s.hints.%s: cloud must contain the bullseye centre (|offset| < radius)" % [where, hint.get("id", "?")])
+		var exact: Dictionary = hint.get("exact", {})
+		if not exact.get("bullseye", false) and not exact.has("route"):
+			errors.append("%s.hints.%s: exact needs bullseye or route" % [where, hint.get("id", "?")])
 
 
 # Slice B chart: every pourable type is in poolSeed with an [x, y]
