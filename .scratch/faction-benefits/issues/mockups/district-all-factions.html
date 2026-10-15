@@ -1,0 +1,100 @@
+<title>District Perks Option 2</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: phone-width Map-tab card mock; game's map_palette tokens (light/dark) */
+:root{
+  --bg:#e6e3d8; --paper:#f0eee6; --ink:#252e30; --dim:#65716c; --line:#c0c8bb;
+  --gold:#957019; --sage:#dedfd3; --action:#c8102e; --guarded:#3a7a52; --chrome:#faf8f3;
+  --player:#c8873a; --contested:#8a8a8a; --onfill:#ffffff;
+  --font:"Source Sans 3",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#1b2124; --paper:#242c2f; --ink:#e8e4da; --dim:#9fa9a4; --line:#3d484c;
+  --gold:#d4a94a; --sage:#333d40; --action:#ff6b7a; --guarded:#5a9e72; --chrome:#242c2f;
+  --contested:#9aa5ab; --onfill:#10161a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#1b2124; --paper:#242c2f; --ink:#e8e4da; --dim:#9fa9a4; --line:#3d484c;
+  --gold:#d4a94a; --sage:#333d40; --action:#ff6b7a; --guarded:#5a9e72; --chrome:#242c2f;
+  --contested:#9aa5ab; --onfill:#10161a; color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:14px;line-height:1.4;
+  padding-block:16px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:420px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+.note{color:var(--dim);font-size:12px}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px}
+h1{font-size:20px;margin:0}
+h2{font-size:15px;margin:6px 0 0}
+.dim{color:var(--dim);font-size:12px}
+.back{align-self:flex-start;background:var(--sage);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:6px 10px;font:inherit;font-size:13px}
+.bar{display:flex;height:8px;border-radius:4px;overflow:hidden;background:var(--line)}
+.bar i{display:block}
+.fac{border:1px solid var(--line);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:8px}
+.fac.none{opacity:.82}
+.fhead{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.fname{font-weight:700}
+.perk{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.perk>div{min-width:0}
+.pname{font-weight:600}
+.locked .pname{color:var(--dim);font-weight:500}
+.pill{font-size:11px;font-weight:700;border-radius:999px;padding:2px 9px;white-space:nowrap;background:var(--sage);color:var(--dim);border:1px solid var(--line)}
+.pill.act{background:var(--guarded);color:var(--onfill);border-color:var(--guarded)}
+.pill.half{background:var(--gold);color:var(--onfill);border-color:var(--gold)}
+.pill.idle{background:transparent;color:var(--gold);border-color:var(--gold)}
+.pill.tier{background:transparent;color:var(--dim)}
+.row{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;padding:7px 0;border-top:1px solid var(--line)}
+.row:first-of-type{border-top:0}
+.gh{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gold);margin-top:4px}
+</style>
+<div class="wrap">
+  <p class="note">Mockup of option 2: every faction listed with its perks. Scenario: Whitechapel. You are Partner with the Collective, Friendly with the Guild, relation 8 with the Firm, nothing with the Network or Conclave.</p>
+
+  <div class="card">
+    <button class="back" type="button">‹ Back to districts</button>
+    <h1>Whitechapel</h1>
+    <div class="dim">Collective turf · 5 veins claimed</div>
+
+    <h2>Turf — contested</h2>
+    <div class="bar"><i style="width:60%;background:var(--gold)"></i><i style="width:20%;background:var(--guarded)"></i><i style="width:20%;background:var(--player)"></i></div>
+    <div class="dim">The Collective 60% (3) · The Guild 20% (1) · You 20% (1)</div>
+
+    <div class="gh">Perks here</div>
+    <div class="dim">Only work where that faction holds ground. Foothold = half strength.</div>
+
+    <div class="fac">
+      <div class="fhead"><span class="fname">The Collective</span><span class="pill act">Holds district · full</span></div>
+      <div class="perk"><div><div class="pname">Neighbourhood watch</div><div class="dim">Raids here are 10% less likely.</div></div><span class="pill act">Active</span></div>
+      <div class="perk"><div><div class="pname">Members tend your veins</div><div class="dim">A local looks after one skipped vein a day.</div></div><span class="pill act">Active</span></div>
+    </div>
+
+    <div class="fac">
+      <div class="fhead"><span class="fname">The Guild</span><span class="pill half">Foothold · half</span></div>
+      <div class="perk locked"><div><div class="pname">Internship programme</div><div class="dim">Needs Partner stance (you are Friendly).</div></div><span class="pill">Locked</span></div>
+    </div>
+
+    <div class="fac none">
+      <div class="fhead"><span class="fname">The Firm</span><span class="pill tier">No ground here</span></div>
+      <div class="perk locked"><div><div class="pname">Safe ground</div><div class="dim">Needs Joined. No ground held here yet.</div></div><span class="pill">Locked</span></div>
+    </div>
+
+    <div class="fac none">
+      <div class="fhead"><span class="fname">The Conclave</span><span class="pill tier">No ground here</span></div>
+      <div class="perk locked"><div><div class="pname">Legal cover</div><div class="dim">Needs Relation ≥25 (you: 0). No ground held here yet.</div></div><span class="pill">Locked</span></div>
+    </div>
+
+    <div class="gh">Everywhere</div>
+    <div class="dim">Not tied to this district. Same in every district.</div>
+    <div>
+      <div class="row"><div><div class="pname">The Guild · Guild tuition</div><div class="dim">+25% craft XP.</div></div><span class="pill act">Active</span></div>
+      <div class="row locked"><div><div class="pname">The Guild · Commission crafting</div><div class="dim">Needs Joined.</div></div><span class="pill">Locked</span></div>
+      <div class="row locked"><div><div class="pname">The Collective · Whip-round</div><div class="dim">Needs Joined.</div></div><span class="pill">Locked</span></div>
+      <div class="row locked"><div><div class="pname">The Firm · Protection</div><div class="dim">Needs Relation ≥25 (you: 8).</div></div><span class="pill">Locked</span></div>
+      <div class="row locked"><div><div class="pname">The Firm · Firm muscle</div><div class="dim">Needs Partner stance.</div></div><span class="pill">Locked</span></div>
+      <div class="row locked"><div><div class="pname">The Network · Passive intel</div><div class="dim">Needs Relation ≥25 (you: 0).</div></div><span class="pill">Locked</span></div>
+      <div class="row locked"><div><div class="pname">The Network · Forewarnings</div><div class="dim">Needs Partner stance.</div></div><span class="pill">Locked</span></div>
+      <div class="row locked"><div><div class="pname">The Conclave · Legal recovery</div><div class="dim">Needs Partner stance.</div></div><span class="pill">Locked</span></div>
+    </div>
+    <div class="dim">+ 2 more locked at Joined (Network, Conclave). Full ladder: Phone › Factions.</div>
+
+    <h2>Sites</h2>
+    <div class="dim">No sites discovered yet. Prospect to find one.</div>
+  </div>
+</div>
