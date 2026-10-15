@@ -108,21 +108,10 @@ func _build_combat_card() -> Control:
 
 func _build_combat_prototype_card() -> Control:
 	var c := UI.card()
-	c["content"].add_child(UI.heading("Solo Combat Prototype", 14))
-	c["content"].add_child(UI.muted_label("Bounded experiment (tickets 14/15) — not production combat."))
-	c["content"].add_child(UI.button("Start Teaching Sequence", func():
-		var order: Array = GameData.COMBAT_PROTOTYPE.get("encounterOrder", [])
-		if not order.is_empty():
-			CombatPrototype.start_encounter(order[0])
-	))
-	var encounters: Dictionary = GameData.COMBAT_PROTOTYPE.get("encounters", {})
-	for encounter_id in CombatPrototype.list_launchable_encounters():
-		c["content"].add_child(_build_combat_prototype_launch_button(encounter_id, encounters[encounter_id].get("name", encounter_id)))
+	c["content"].add_child(UI.heading("Combat Prototype", 14))
+	c["content"].add_child(UI.muted_label("Sandboxed Open/Guarded round planning — not production combat."))
+	c["content"].add_child(UI.button("Open", func(): CombatPrototype.open()))
 	return c["panel"]
-
-
-func _build_combat_prototype_launch_button(encounter_id: String, label: String) -> Control:
-	return UI.button("Start: %s" % label, func(): CombatPrototype.start_encounter(encounter_id))
 
 
 func _build_bench_prototype_card() -> Control:

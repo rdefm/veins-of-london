@@ -878,8 +878,8 @@ func _backfill_new_home_keys(result: Dictionary, defaults: Dictionary) -> void:
 # calls (barometer.gd, combat.gd) require int arguments, and formatting
 # like "£%d" % cash would misbehave. Restore ints in place, per R§2's
 # schema, immediately after backfill so every top-level key is guaranteed
-# present. Genuinely-float fields (combat.evadeChance, combatPrototype.
-# enemy.evadeChance, mapView.zoom) are deliberately left untouched.
+# present. Genuinely-float fields (combat.evadeChance, mapView.zoom) are
+# deliberately left untouched.
 func _restore_dial_ints(dial: Dictionary) -> void:
 	for key in ["level", "xp", "currentCharge", "maxCharge", "capacityMax", "lastRegenDay"]:
 		_int_key(dial, key)
@@ -1287,8 +1287,9 @@ func _restore_int_types(state: Dictionary) -> void:
 	if state.has("combat"):
 		_restore_combat_int_types(state["combat"])
 
+	# The combat prototype sandbox never survives a load.
 	if state.has("combatPrototype"):
-		_restore_combat_prototype_int_types(state["combatPrototype"])
+		state["combatPrototype"] = CombatPrototype.new_state()
 
 	if state.has("benchPrototype"):
 		_restore_bench_prototype_int_types(state["benchPrototype"])
@@ -1381,34 +1382,6 @@ func _restore_turn_cursor_int_types(cursor: Dictionary) -> void:
 		_int_key(entry, "speed")
 		_int_key(entry, "index")
 
-
-# Same fixed-schema restoration as _restore_combat_int_types() above, over
-# the bounded solo combat prototype's own hand-picked snapshot shape
-# (systems/combat_prototype.gd's push_prototype_snapshot()). enemy.
-# evadeChance is a float (0.0-1.0), same convention as combat.evadeChance
-# -- intentionally not touched here.
-func _restore_combat_prototype_int_types(cp: Dictionary) -> void:
-	for key in ["round", "wave", "totalWaves", "frozenTurns", "motionTurns", "motionPower"]:
-		_int_key(cp, key)
-	var player: Dictionary = cp.get("player", {})
-	for key in ["hp", "hpMax", "shieldPool"]:
-		_int_key(player, key)
-	if player.has("committedTarget") and typeof(player["committedTarget"]) == TYPE_FLOAT:
-		player["committedTarget"] = int(player["committedTarget"])
-	for enemy in cp.get("enemies", []):
-		for key in ["hp", "hpMax", "attackMin", "attackMax", "speed", "scriptIndex"]:
-			_int_key(enemy, key)
-	for snap in cp.get("snapshots", []):
-		for key in ["round", "wave", "frozenTurns", "motionTurns", "motionPower"]:
-			_int_key(snap, key)
-		var snap_player: Dictionary = snap.get("player", {})
-		for key in ["hp", "shieldPool"]:
-			_int_key(snap_player, key)
-		if snap_player.has("committedTarget") and typeof(snap_player["committedTarget"]) == TYPE_FLOAT:
-			snap_player["committedTarget"] = int(snap_player["committedTarget"])
-		for snap_enemy in snap.get("enemies", []):
-			_int_key(snap_enemy, "hp")
-			_int_key(snap_enemy, "scriptIndex")
 
 
 # systems/bench_prototype.gd's slices, and each slice's Rewind frames

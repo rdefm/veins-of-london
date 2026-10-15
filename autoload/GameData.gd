@@ -117,9 +117,9 @@ var ENEMY_HOME_RAID_RAIDER: Dictionary = {}
 # Hostile-faction ambush squads (R§3.1d): { factionId: [{ weight, enemies: [raidGuards keys] }] }.
 var ENEMY_FACTION_SQUADS: Dictionary = {}
 
-# Bounded solo combat prototype's teaching roster (systems/
-# combat_prototype.gd) -- prototype-only, not production balance. Own
-# table so a validation/balance pass over the real roster skips it.
+# Open/Guarded round-planning combat prototype's moves, archetypes and
+# curves (systems/combat_prototype.gd) -- prototype-only, not production
+# balance. Own table so a validation/balance pass over the real roster skips it.
 var COMBAT_PROTOTYPE: Dictionary = {}
 
 # Sandboxed Lab-revamp bench prototype (systems/bench_prototype.gd) --
@@ -674,7 +674,7 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_sites(t, errors)
 	_validate_barometer(t.get("barometer_states", {}), t.get("barometer_actions", []), t.get("faction_prefs", {}), t.get("factions", {}), t.get("recipes", {}), errors)
 	_validate_enemies(t, errors)
-	_validate_combat_prototype(t.get("combat_prototype", {}), errors)
+	_validate_combat_prototype(t.get("combat_prototype", {}), t.get("combat_speed_by_level", []), errors)
 	_validate_bench_prototype(t.get("bench_prototype", {}), t.get("approaches", {}), errors)
 	_validate_combat_visuals(t.get("combat_visuals", {}), t.get("palette", {}), errors)
 	_validate_hq_visuals(t.get("hq_visuals", {}), t.get("palette", {}), errors)
@@ -1323,59 +1323,78 @@ func _validate_enemies(t: Dictionary, errors: Array[String]) -> void:
 		errors.append("enemies.combatHpBonusByLevel: expected 6 entries (index=level, 0..5), got %d" % combat_hp_bonus_by_level.size())
 
 
-# Every encounterOrder id needs a matching flat single-enemy `encounters`
-# entry. Any other entry is a squad ('enemies': non-empty array) or a
-# multi-wave roster ('waves': non-empty array of non-empty 'enemies'
-# arrays) -- never both, never flat.
-func _validate_combat_prototype(combat_prototype: Dictionary, errors: Array[String]) -> void:
-	var order: Array = combat_prototype.get("encounterOrder", [])
-	if order.is_empty():
-		errors.append("combat_prototype.encounterOrder: must not be empty")
-	var encounters: Dictionary = combat_prototype.get("encounters", {})
-	for encounter_id in order:
-		if not encounters.has(encounter_id):
-			errors.append("combat_prototype.encounters: missing entry for encounterOrder id '%s'" % encounter_id)
-			continue
-		_validate_combat_prototype_enemy(encounters[encounter_id], "combat_prototype.encounters.%s" % encounter_id, errors)
+# Moves name a known guard effect, target type and effect; curves cover
+# levels 0..levelMax; every archetype pattern names real moves.
+func _validate_combat_prototype(cp: Dictionary, skill_curve: Array, errors: Array[String]) -> void:
+	_require_keys(cp, ["chipMultiplier", "actionsPerRound", "critChance", "levelMax", "playerBase", "moves", "archetypes", "beatLines"], "combat_prototype", errors)
+	var level_max := int(cp.get("levelMax", 0))
+	if level_max < 1 or level_max >= skill_curve.size():
+		errors.append("combat_prototype.levelMax: must be 1..%d (the Combat Skill curves' top level)" % (skill_curve.size() - 1))
+	var chip := float(cp.get("chipMultiplier", 0.0))
+	if chip <= 0.0 or chip > 1.0:
+		errors.append("combat_prototype.chipMultiplier: must be in (0, 1]")
+	var actions: Array = cp.get("actionsPerRound", [])
+	var crit: Array = cp.get("critChance", [])
+	if actions.size() != level_max + 1:
+		errors.append("combat_prototype.actionsPerRound: expected %d entries (index=level 0..%d)" % [level_max + 1, level_max])
+	if crit.size() != level_max + 1:
+		errors.append("combat_prototype.critChance: expected %d entries (index=level 0..%d)" % [level_max + 1, level_max])
+	for level in range(1, mini(actions.size(), level_max + 1)):
+		if int(actions[level]) < 1:
+			errors.append("combat_prototype.actionsPerRound[%d]: must be at least 1" % level)
+	for level in range(crit.size()):
+		if float(crit[level]) < 0.0 or float(crit[level]) > 1.0:
+			errors.append("combat_prototype.critChance[%d]: must be in [0, 1]" % level)
+	_validate_combat_prototype_stats(cp.get("playerBase", {}), "combat_prototype.playerBase", errors)
 
-	for encounter_id in encounters.keys():
-		if order.has(encounter_id):
-			continue
-		var entry: Dictionary = encounters[encounter_id]
-		var path: String = "combat_prototype.encounters.%s" % encounter_id
-		_require_keys(entry, ["name"], path, errors)
-		var has_enemies: bool = entry.has("enemies")
-		var has_waves: bool = entry.has("waves")
-		if has_enemies and has_waves:
-			errors.append("%s: must not set both 'enemies' and 'waves'" % path)
-		elif has_enemies:
-			var roster: Array = entry.get("enemies", [])
-			if roster.is_empty():
-				errors.append("%s.enemies: must not be empty" % path)
-			for i in range(roster.size()):
-				_validate_combat_prototype_enemy(roster[i], "%s.enemies[%d]" % [path, i], errors)
-		elif has_waves:
-			var waves: Array = entry.get("waves", [])
-			if waves.is_empty():
-				errors.append("%s.waves: must not be empty" % path)
-			for w in range(waves.size()):
-				var wave_roster: Array = waves[w]
-				if wave_roster.is_empty():
-					errors.append("%s.waves[%d]: must not be empty" % [path, w])
-				for i in range(wave_roster.size()):
-					_validate_combat_prototype_enemy(wave_roster[i], "%s.waves[%d][%d]" % [path, w, i], errors)
-		else:
-			errors.append("%s: must set either 'enemies' or 'waves' (it's outside encounterOrder, so the flat single-enemy shape doesn't apply)" % path)
+	var moves: Dictionary = cp.get("moves", {})
+	if moves.is_empty():
+		errors.append("combat_prototype.moves: must not be empty")
+	for move_id in moves.keys():
+		var move: Dictionary = moves[move_id]
+		var path := "combat_prototype.moves.%s" % move_id
+		_require_keys(move, ["id", "name", "cost", "actorGuard", "target", "effect", "params", "condition", "level"], path, errors)
+		if str(move.get("id", "")) != move_id:
+			errors.append("%s.id: must match its key" % path)
+		if int(move.get("cost", 0)) < 1:
+			errors.append("%s.cost: must be at least 1" % path)
+		if not CombatPrototype.GUARD_EFFECTS.has(move.get("actorGuard", "")):
+			errors.append("%s.actorGuard: unknown guard effect '%s'" % [path, move.get("actorGuard", "")])
+		if not CombatPrototype.TARGET_TYPES.has(move.get("target", "")):
+			errors.append("%s.target: unknown target type '%s'" % [path, move.get("target", "")])
+		if not CombatPrototype.EFFECTS.has(move.get("effect", "")):
+			errors.append("%s.effect: unknown effect '%s'" % [path, move.get("effect", "")])
+		if typeof(move.get("params")) != TYPE_DICTIONARY:
+			errors.append("%s.params: must be a Dictionary" % path)
+
+	var archetypes: Dictionary = cp.get("archetypes", {})
+	if archetypes.is_empty():
+		errors.append("combat_prototype.archetypes: must not be empty")
+	for archetype_id in archetypes.keys():
+		var archetype: Dictionary = archetypes[archetype_id]
+		var path := "combat_prototype.archetypes.%s" % archetype_id
+		_validate_combat_prototype_stats(archetype, path, errors)
+		var patterns: Array = archetype.get("patterns", [])
+		if patterns.is_empty():
+			errors.append("%s.patterns: must not be empty" % path)
+		for i in range(patterns.size()):
+			var pattern: Dictionary = patterns[i]
+			var pattern_moves: Array = pattern.get("moves", [])
+			if float(pattern.get("weight", 0)) <= 0.0 or pattern_moves.is_empty():
+				errors.append("%s.patterns[%d]: needs weight > 0 and moves" % [path, i])
+			for move_id in pattern_moves:
+				if not moves.has(move_id):
+					errors.append("%s.patterns[%d]: unknown move '%s'" % [path, i, move_id])
+
+	_require_keys(cp.get("beatLines", {}), ["guard", "hit", "chip", "crit", "ko"], "combat_prototype.beatLines", errors)
 
 
-func _validate_combat_prototype_enemy(entry: Dictionary, path: String, errors: Array[String]) -> void:
-	_require_keys(entry, ["name", "hp", "attackMin", "attackMax", "speed", "script"], path, errors)
-	var script: Array = entry.get("script", [])
-	if script.is_empty():
-		errors.append("%s.script: must not be empty" % path)
-	for action in script:
-		if not CombatPrototype.SCRIPTABLE_ACTIONS.has(action):
-			errors.append("%s.script: unknown action '%s'" % [path, action])
+func _validate_combat_prototype_stats(entry: Dictionary, path: String, errors: Array[String]) -> void:
+	_require_keys(entry, ["name", "hpBase", "attackMin", "attackMax"], path, errors)
+	if int(entry.get("hpBase", 0)) < 1:
+		errors.append("%s.hpBase: must be at least 1" % path)
+	if int(entry.get("attackMin", 0)) > int(entry.get("attackMax", 0)):
+		errors.append("%s: attackMin must not exceed attackMax" % path)
 
 
 # Every roster id needs a recipes entry with a non-empty baseCalc whose ore

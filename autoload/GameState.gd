@@ -309,17 +309,10 @@ func new_game_state() -> Dictionary:
 		# to fresh defaults on every fight's end.
 		"combatPacingMode": CombatPacing.DEFAULT_MODE,
 
-		# Bounded solo combat prototype's own state tree, fully separate
-		# from "combat" above. Resets on load like mapNav/veinListNav -- a
-		# fight mid-flight at save time isn't resurrected.
-		"combatPrototype": {
-			"active": false, "encounterId": "", "wave": 0, "totalWaves": 1, "round": 0, "outcome": null, "log": [],
-			"player": { "hp": 0, "hpMax": 0, "committedAction": null, "committedTarget": null, "committedItem": null, "exhaustedNextTurn": false, "stanceTriggered": false, "shieldPool": 0 },
-			"enemies": [],
-			"frozenTurns": 0, "motionTurns": 0, "motionPower": 0, "blastFleeBoost": false,
-			"snapshots": [], "beatsSinceSnapshot": [],
-			"_pending": null, "_waveCleared": false,
-		},
+		# Sandboxed combat prototype (systems/combat_prototype.gd), fully
+		# separate from "combat" above. Resets on load -- a fight mid-flight
+		# at save time isn't resurrected.
+		"combatPrototype": CombatPrototype.new_state(),
 		# Sandboxed Lab-revamp bench prototype (systems/bench_prototype.gd):
 		# two slices, each its own calc pool, ranks, ledger and Rewind stack.
 		"benchPrototype": BenchPrototype.new_state(),

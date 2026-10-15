@@ -1,14 +1,16 @@
 class_name CombatPrototypeScreen
 extends Control
-const ACTION_REMINDERS := {
-	CombatPrototype.ACTION_FAST: "Fast — Catches Dodge",
-	CombatPrototype.ACTION_HEAVY: "Heavy — Bypasses Counter",
-	CombatPrototype.ACTION_COUNTER: "Counter — Stops Fast",
-	CombatPrototype.ACTION_DODGE: "Dodge — Avoids Heavy",
-}
-const SELF_OR_AOE_ITEMS := ["timePearl", "enhancementPowder", "shield", "blackHole", "healingBurst"]
+
+# Debug-app-only sandbox screen for systems/combat_prototype.gd: setup
+# (player Combat Skill level), then per round the combatants with their
+# guard-state preview, the shared timeline with enemy intents and the
+# player's draft positions, Commit, Rewind and the beat log.
+
+# View state only: the setup level pick, kept across rebuilds.
+var _player_level: int = 1
 
 var _content: VBoxContainer
+
 
 func _ready() -> void:
 	UI.anchor_full_rect(self)
@@ -16,163 +18,108 @@ func _ready() -> void:
 	EventBus.state_changed.connect(_refresh)
 	_refresh()
 
+
 func _refresh() -> void:
 	for child in _content.get_children():
 		child.queue_free()
-	# Off the Map tab: light card family (MapCardStyle).
 	MapPalette.build_light(_build)
 
 
 func _build() -> void:
 	var cp: Dictionary = GameState.state["combatPrototype"]
-	if not cp.get("active", false):
-		_content.add_child(UI.back_to_home_button())
-		_content.add_child(UI.heading("Solo Combat Prototype"))
-		_content.add_child(UI.muted_label("No encounter active."))
+	_content.add_child(MapCardStyle.text_button("‹ Exit", func(): CombatPrototype.exit()))
+	_content.add_child(UI.heading("Combat Prototype"))
+	if not cp["active"]:
+		_content.add_child(_build_setup_card())
 		return
 
-	_content.add_child(MapCardStyle.text_button("‹ Exit", func(): CombatPrototype.exit_encounter()))
-
-	var def: Dictionary = GameData.COMBAT_PROTOTYPE["encounters"][cp["encounterId"]]
-	_content.add_child(UI.heading("Solo Combat Prototype — %s" % def.get("name", cp["encounterId"])))
-	var round_note: String = "Teaches: %s. Round %d." % [def.get("teaches", ""), cp["round"]]
-	if cp["totalWaves"] > 1:
-		round_note += " Wave %d/%d." % [cp["wave"] + 1, cp["totalWaves"]]
-	_content.add_child(UI.muted_label(round_note))
-
-	_content.add_child(_build_player_card(cp))
-	for i in range(cp["enemies"].size()):
-		_content.add_child(_build_enemy_card(cp["enemies"][i]))
-
+	_content.add_child(UI.muted_label("Round %d" % cp["round"]))
+	for i in range(cp["combatants"].size()):
+		_content.add_child(_build_combatant_card(cp, i))
+	if cp["outcome"] != null:
+		_content.add_child(_build_outcome_card(cp["outcome"]))
+	else:
+		_content.add_child(_build_timeline_card(cp))
+		var reason := CombatPrototype.plan_block_reason(cp, cp["playerPlan"])
+		if reason != "":
+			_content.add_child(UI.muted_label(reason))
+		_content.add_child(MapCardStyle.text_button("Commit", func(): CombatPrototype.resolve_round(cp["playerPlan"]), reason != ""))
+	_content.add_child(MapCardStyle.text_button("Rewind", func(): CombatPrototype.rewind(), cp["snapshots"].is_empty()))
 	_content.add_child(_build_log_card(cp["log"]))
 
-	if cp["outcome"] != null:
-		_content.add_child(_build_outcome_controls(cp))
-		return
 
-	if cp["player"]["exhaustedNextTurn"] and cp.get("_pending") == null:
-		var c := MapCardStyle.card()
-		c["content"].add_child(UI.label("You're exhausted — catching your breath. No action this round."))
-		c["content"].add_child(MapCardStyle.text_button("Continue", func(): CombatPrototype.skip_exhausted_round()))
-		_content.add_child(c["panel"])
-	else:
-		if cp.get("_pending") != null:
-			_content.add_child(UI.muted_label("Enhancement Powder — one more action this round."))
-		for i in range(cp["enemies"].size()):
-			if not cp["enemies"][i]["koed"]:
-				_content.add_child(_build_enemy_block(cp, i))
-		_content.add_child(_build_items_card())
-		var dial_card := _build_dial_card()
-		if dial_card != null:
-			_content.add_child(dial_card)
-		_content.add_child(MapCardStyle.text_button("Flee", func(): CombatPrototype.take_player_action(CombatPrototype.ACTION_FLEE)))
-
-	_content.add_child(MapCardStyle.text_button("Rewind", func(): CombatPrototype.rewind(), cp["snapshots"].is_empty()))
-
-func _build_player_card(cp: Dictionary) -> Control:
+func _build_setup_card() -> Control:
 	var c := MapCardStyle.card()
-	var player: Dictionary = cp["player"]
-	c["content"].add_child(UI.label("You — %d/%d HP" % [player["hp"], player["hpMax"]]))
-	c["content"].add_child(UI.bar(player["hp"], player["hpMax"]))
-	if player["shieldPool"] > 0:
-		c["content"].add_child(UI.muted_label("Shield: %d absorption." % player["shieldPool"]))
-	if cp["motionTurns"] > 0:
-		c["content"].add_child(UI.muted_label("Moving fast — %d round(s) left." % cp["motionTurns"]))
+	c["content"].add_child(UI.heading("Setup", 14))
+	var levels: Array = []
+	for level in range(1, CombatPrototype.level_max() + 1):
+		levels.append("Your Combat Skill: %d" % level)
+	var level_select := UI.option_button(levels)
+	level_select.selected = _player_level - 1
+	level_select.item_selected.connect(func(index: int): _player_level = index + 1)
+	c["content"].add_child(level_select)
+	c["content"].add_child(UI.muted_label("Against one level-1 mugger."))
+	c["content"].add_child(MapCardStyle.text_button("Start", func(): CombatPrototype.start({ "playerLevel": _player_level })))
 	return c["panel"]
 
-func _build_enemy_card(enemy: Dictionary) -> Control:
+
+func _build_combatant_card(cp: Dictionary, index: int) -> Control:
+	var combatant: Dictionary = cp["combatants"][index]
 	var c := MapCardStyle.card()
-	var status: String = " (down)" if enemy["koed"] else ""
-	c["content"].add_child(UI.label("%s — %d/%d HP%s" % [enemy["name"], enemy["hp"], enemy["hpMax"], status]))
-	c["content"].add_child(UI.bar(enemy["hp"], enemy["hpMax"]))
+	var status: String = " (down)" if combatant["koed"] else ""
+	c["content"].add_child(UI.label("%s — level %d — %d/%d HP%s" % [CombatPrototype.display_name(combatant), combatant["level"], combatant["hp"], combatant["hpMax"], status]))
+	c["content"].add_child(UI.bar(combatant["hp"], combatant["hpMax"]))
+	if not combatant["koed"]:
+		var preview: Array = CombatPrototype.guard_preview(cp, index).map(func(state): return str(state).capitalize())
+		c["content"].add_child(UI.muted_label("Guard: %s" % " → ".join(preview)))
 	return c["panel"]
 
+
+# One row per timeline position: enemy rows show the intent's move type,
+# the player's rows show the move palette with the current pick disabled.
+func _build_timeline_card(cp: Dictionary) -> Control:
+	var c := MapCardStyle.card()
+	c["content"].add_child(UI.heading("This round", 14))
+	var combatants: Array = cp["combatants"]
+	for entry in CombatPrototype.timeline(cp):
+		var actor: int = entry["actor"]
+		var position: int = entry["index"]
+		var row := UI.hbox()
+		row.add_child(UI.label("%d · %s" % [position + 1, CombatPrototype.display_name(combatants[actor])]))
+		if actor == CombatPrototype.PLAYER_INDEX:
+			var picked = cp["playerPlan"][position]
+			for move_id in GameData.COMBAT_PROTOTYPE["moves"].keys():
+				var is_picked: bool = picked != null and picked["move"] == move_id
+				row.add_child(MapCardStyle.text_button(CombatPrototype.move(move_id)["name"], func(): CombatPrototype.set_plan_action(position, move_id), is_picked))
+		else:
+			var intent: Dictionary = combatants[actor]["plan"][position]
+			row.add_child(UI.label(CombatPrototype.move(intent["move"])["name"]))
+		c["content"].add_child(row)
+	return c["panel"]
+
+
+func _build_outcome_card(outcome: String) -> Control:
+	var c := MapCardStyle.card()
+	c["content"].add_child(UI.label("You win." if outcome == "win" else "You lose."))
+	c["content"].add_child(MapCardStyle.text_button("New fight", func(): CombatPrototype.close_fight()))
+	return c["panel"]
+
+
+# Every beat so far, grouped by round, newest round first.
 func _build_log_card(log: Array) -> Control:
 	var c := MapCardStyle.card()
-	c["content"].add_child(UI.heading("Log", 14))
-	var text := "\n".join(log)
-	var log_label := UI.label(text)
-	c["content"].add_child(log_label)
-	return c["panel"]
-func _build_enemy_block(cp: Dictionary, enemy_index: int) -> Control:
-	var enemy: Dictionary = cp["enemies"][enemy_index]
-	var block := MapCardStyle.card()
-	var multi: bool = cp["enemies"].size() > 1
-	if multi:
-		block["content"].add_child(UI.heading("Target: %s" % enemy["name"], 14))
-	var row1 := UI.hbox()
-	row1.add_child(_build_action_button(CombatPrototype.ACTION_FAST, enemy_index))
-	row1.add_child(_build_action_button(CombatPrototype.ACTION_HEAVY, enemy_index))
-	block["content"].add_child(row1)
-	var row2 := UI.hbox()
-	row2.add_child(_build_action_button(CombatPrototype.ACTION_COUNTER, enemy_index))
-	row2.add_child(_build_action_button(CombatPrototype.ACTION_DODGE, enemy_index))
-	block["content"].add_child(row2)
-	if Crafting.inventory_qty("blast") > 0:
-		block["content"].add_child(MapCardStyle.text_button("Blast", func(): CombatPrototype.use_item("blast", enemy_index)))
-	return block["panel"]
-
-func _build_action_button(action: String, enemy_index: int) -> Control:
-	var col := UI.vbox(2)
-	col.add_child(MapCardStyle.text_button(action.capitalize(), func(): CombatPrototype.take_player_action(action, enemy_index)))
-	col.add_child(UI.muted_label(ACTION_REMINDERS[action]))
-	return col
-func _build_items_card() -> Control:
-	var c := MapCardStyle.card()
-	c["content"].add_child(UI.heading("Items", 14))
-	var any_shown := false
-	for item_id in SELF_OR_AOE_ITEMS:
-		var qty: int = Crafting.inventory_qty(item_id)
-		if qty <= 0:
-			continue
-		any_shown = true
-		c["content"].add_child(_build_item_button(item_id, qty))
-	if not any_shown:
-		c["content"].add_child(UI.muted_label("No usable items in stock."))
-	return c["panel"]
-func _build_item_button(item_id: String, qty: int) -> Control:
-	return MapCardStyle.text_button("%s (%d)" % [item_id.capitalize(), qty], func(): CombatPrototype.use_item(item_id))
-func _build_dial_card() -> Control:
-	var dial = GameState.state["player"]["dial"]
-	if dial == null:
-		return null
-	var loaded: Array = dial["loadedComplications"]
-	if loaded.is_empty():
-		return null
-	var c := MapCardStyle.card()
-	c["content"].add_child(UI.heading("Dial", 14))
-	var any_shown := false
-	for i in range(loaded.size()):
-		var recipe_key: String = loaded[i]["recipeKey"]
-		if recipe_key == "blast" or not CombatPrototype.ITEM_RECIPE_KEYS.has(recipe_key):
-			continue
-		any_shown = true
-		var recipe: Dictionary = GameData.RECIPES.get(recipe_key, {})
-		c["content"].add_child(_build_dial_cast_button(i, recipe.get("name", recipe_key)))
-	if not any_shown:
-		c["content"].add_child(UI.muted_label("Nothing loaded this prototype can use."))
-	return c["panel"]
-
-func _build_dial_cast_button(dial_index: int, label: String) -> Control:
-	return MapCardStyle.text_button("Cast: %s" % label, func(): CombatPrototype.cast_dial_complication(dial_index))
-
-func _build_outcome_controls(cp: Dictionary) -> Control:
-	var c := MapCardStyle.card()
-	var outcome: String = cp["outcome"]
-	var encounter_id: String = cp["encounterId"]
-	match outcome:
-		"win":
-			c["content"].add_child(UI.label("You win."))
-			var order: Array = GameData.COMBAT_PROTOTYPE.get("encounterOrder", [])
-			if order.find(encounter_id) + 1 < order.size() and order.has(encounter_id):
-				c["content"].add_child(MapCardStyle.text_button("Next Encounter", func(): CombatPrototype.advance_to_next_encounter()))
-			else:
-				c["content"].add_child(UI.label("Sequence complete."))
-		"loss":
-			c["content"].add_child(UI.label("You go down."))
-			c["content"].add_child(MapCardStyle.text_button("Retry", func(): CombatPrototype.start_encounter(encounter_id)))
-		"fled":
-			c["content"].add_child(UI.label("You fled."))
-			c["content"].add_child(MapCardStyle.text_button("Retry", func(): CombatPrototype.start_encounter(encounter_id)))
-	c["content"].add_child(MapCardStyle.text_button("Exit", func(): CombatPrototype.exit_encounter()))
+	c["content"].add_child(UI.heading("Beats", 14))
+	if log.is_empty():
+		c["content"].add_child(UI.muted_label("Nothing's happened yet."))
+		return c["panel"]
+	var rounds: Dictionary = {}
+	for beat in log:
+		if not rounds.has(beat["round"]):
+			rounds[beat["round"]] = []
+		rounds[beat["round"]].append(beat["text"])
+	var round_ids: Array = rounds.keys()
+	round_ids.reverse()
+	for round_id in round_ids:
+		c["content"].add_child(UI.muted_label("Round %d" % round_id))
+		c["content"].add_child(UI.label("\n".join(rounds[round_id])))
 	return c["panel"]

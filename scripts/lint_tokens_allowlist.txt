@@ -22,8 +22,6 @@ tests/test_col_a1_tuition.gd
 tests/test_collective.gd
 tests/test_combat.gd
 tests/test_combat_director.gd
-tests/test_combat_prototype.gd
-tests/test_combat_prototype_screen.gd
 tests/test_combat_screen.gd
 tests/test_consumables.gd
 tests/test_contracts.gd

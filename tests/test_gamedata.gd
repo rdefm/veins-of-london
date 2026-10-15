@@ -449,29 +449,31 @@ func run() -> void:
 		assert_true(found, "bands that stop short of growth 100 should fail validation")
 	)
 
-	# ── day-rhythm-business-and-combat ticket 14: data/combat_prototype.json ──
+	# ── data/combat_prototype.json ──
 
-	run_case("corrupt_fixture_combat_prototype_missing_encounter_fails", func():
-		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
-		corrupted["combat_prototype"]["encounters"].erase("brawler")
-		var errors := GameData.validate_tables(corrupted)
-		var found := false
-		for e in errors:
-			if e.contains("brawler"):
-				found = true
-		assert_true(found, "an encounterOrder id missing its encounters entry should be flagged")
-	)
-
-	run_case("corrupt_fixture_combat_prototype_unknown_script_action_fails", func():
-		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
-		corrupted["combat_prototype"]["encounters"]["brawler"]["script"] = ["stomp"]
-		var errors := GameData.validate_tables(corrupted)
-		var found := false
-		for e in errors:
-			if e.contains("stomp"):
-				found = true
-		assert_true(found, "a script entry naming an action outside CombatPrototype.SCRIPTABLE_ACTIONS should be flagged")
-	)
+	var combat_prototype_corruptions := {
+		"pattern_unknown_move": [func(cp): cp["archetypes"]["mugger"]["patterns"][0]["moves"] = ["stomp"], "stomp"],
+		"move_unknown_guard_effect": [func(cp): cp["moves"]["guard"]["actorGuard"] = "sideways", "sideways"],
+		"move_unknown_effect": [func(cp): cp["moves"]["strike"]["effect"] = "tickle", "tickle"],
+		"move_id_mismatch": [func(cp): cp["moves"]["strike"]["id"] = "punch", "moves.strike.id"],
+		"actions_curve_wrong_length": [func(cp): cp["actionsPerRound"] = [0, 2], "actionsPerRound"],
+		"crit_curve_out_of_range": [func(cp): cp["critChance"][1] = 1.5, "critChance[1]"],
+		"no_moves": [func(cp): cp.erase("moves"), "'moves'"],
+		"archetype_without_patterns": [func(cp): cp["archetypes"]["mugger"]["patterns"] = [], "mugger.patterns"],
+	}
+	for case_id in combat_prototype_corruptions:
+		var corrupt: Callable = combat_prototype_corruptions[case_id][0]
+		var needle: String = combat_prototype_corruptions[case_id][1]
+		run_case("corrupt_fixture_combat_prototype_%s_fails" % case_id, func():
+			var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+			corrupt.call(corrupted["combat_prototype"])
+			var errors := GameData.validate_tables(corrupted)
+			var found := false
+			for e in errors:
+				if e.contains(needle):
+					found = true
+			assert_true(found, "%s should be flagged (looked for '%s' in %s)" % [case_id, needle, str(errors)])
+		)
 
 	# ── territorial variants: discovered from assets/combat/territorial<N>/ ──
 
