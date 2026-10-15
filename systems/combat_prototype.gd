@@ -29,6 +29,11 @@ const GUARD_EFFECTS: Array[String] = [GUARDED, OPEN, UNCHANGED]
 const TARGET_SELF := "self"
 const TARGET_ENEMY := "enemy"
 const TARGET_TYPES: Array[String] = [TARGET_SELF, TARGET_ENEMY]
+# Item-only target types: every living opponent at once, or the actor or a
+# living teammate.
+const TARGET_ALL_ENEMIES := "allEnemies"
+const TARGET_FRIEND := "friend"
+const ITEM_TARGET_TYPES: Array[String] = [TARGET_SELF, TARGET_ENEMY, TARGET_ALL_ENEMIES, TARGET_FRIEND]
 
 const EFFECT_NONE := "none"
 const EFFECT_DAMAGE := "damage"
@@ -37,6 +42,17 @@ const EFFECT_STUN := "stun"
 const EFFECT_LURE := "lure"
 const EFFECT_FLEE := "flee"
 const EFFECTS: Array[String] = [EFFECT_NONE, EFFECT_DAMAGE, EFFECT_OPEN, EFFECT_STUN, EFFECT_LURE, EFFECT_FLEE]
+
+# Item effects (spec §Prototype item effects), keyed from the data's items
+# table; each reads its power from the recipe's effectPower at the slot's tier.
+const ITEM_FREEZE := "freeze"
+const ITEM_BLACK_HOLE := "blackHole"
+const ITEM_BLAST := "blast"
+const ITEM_SHIELD := "shield"
+const ITEM_HEAL := "heal"
+const ITEM_EFFECTS: Array[String] = [ITEM_FREEZE, ITEM_BLACK_HOLE, ITEM_BLAST, ITEM_SHIELD, ITEM_HEAL]
+# Loadout slots per combatant (spec user story 48).
+const LOADOUT_SLOTS := 2
 
 # Move conditions: null (always) or CONDITION_TARGET_OPEN (fizzles on a
 # Guarded target).
@@ -106,8 +122,34 @@ static func level_max() -> int:
 	return int(_data()["levelMax"])
 
 
+# A move's row, or for a prototype item's recipe id a move-shaped row built
+# from the items table: one action, guard state unchanged, named after the
+# recipe. {} for neither.
 static func move(move_id: String) -> Dictionary:
-	return _data()["moves"].get(move_id, {})
+	if _data()["moves"].has(move_id):
+		return _data()["moves"][move_id]
+	if not _data()["items"].has(move_id):
+		return {}
+	var item: Dictionary = _data()["items"][move_id]
+	return {
+		"id": move_id, "name": GameData.RECIPES[move_id]["name"], "cost": 1,
+		"actorGuard": UNCHANGED, "target": item["target"], "effect": item["effect"],
+		"params": item["params"], "condition": null, "item": true,
+	}
+
+
+static func is_item(move_id: String) -> bool:
+	return _data()["items"].has(move_id)
+
+
+# The prototype items, by recipe id, for the setup picker.
+static func item_ids() -> Array:
+	return _data()["items"].keys()
+
+
+# Highest tier an item's recipe has an effectPower for.
+static func item_tier_max(item_id: String) -> int:
+	return GameData.RECIPES[item_id]["effectPower"].size() - 1
 
 
 static func actions_per_round(combatant: Dictionary) -> int:
@@ -125,12 +167,14 @@ static func display_name(combatant: Dictionary) -> String:
 
 # config: playerLevel (1..levelMax, default 1); enemies, an Array of
 # { archetype, level } (default one level-1 mugger); allies, an Array of
-# { level } (0..MAX_ALLIES, default none); seed (default fresh);
+# { level } (0..MAX_ALLIES, default none); loadout, the player's sandbox
+# items, an Array of up to LOADOUT_SLOTS { item, tier } (item a prototype
+# item's recipe id; default none); seed (default fresh);
 # enemyPlans / allyPlans, test-only: per combatant an Array of rounds, each
 # an Array of move ids or { move, target } entries, used in place of the
 # archetype's patterns or the ally AI (round n reads entry (n-1) mod size).
 # Everyone starts Guarded. Returns the new fight state, or {} for an unknown
-# archetype or too many allies.
+# archetype, too many allies or a bad loadout.
 static func start(config: Dictionary = {}) -> Dictionary:
 	var archetypes: Dictionary = _data()["archetypes"]
 	var enemy_specs: Array = config.get("enemies", [{ "archetype": DEFAULT_ARCHETYPE, "level": 1 }])
@@ -140,6 +184,9 @@ static func start(config: Dictionary = {}) -> Dictionary:
 	var ally_specs: Array = config.get("allies", [])
 	if ally_specs.size() > MAX_ALLIES:
 		return {}
+	var loadout = _build_loadout(config.get("loadout", []))
+	if loadout == null:
+		return {}
 
 	var rng := RandomNumberGenerator.new()
 	rng.seed = int(config.get("seed", Rng.fresh_seed()))
@@ -148,7 +195,9 @@ static func start(config: Dictionary = {}) -> Dictionary:
 	cp["active"] = true
 	cp["round"] = 1
 	var combatants: Array = cp["combatants"]
-	combatants.append(_build_combatant(SIDE_PLAYER, _data()["playerBase"], int(config.get("playerLevel", 1))))
+	var player := _build_combatant(SIDE_PLAYER, _data()["playerBase"], int(config.get("playerLevel", 1)))
+	player["loadout"] = loadout
+	combatants.append(player)
 	var ally_overrides: Array = config.get("allyPlans", [])
 	for i in range(ally_specs.size()):
 		var ally := _build_combatant(SIDE_ALLY, _data()["allyBase"], int(ally_specs[i].get("level", 1)))
@@ -202,13 +251,36 @@ static func _build_combatant(side: String, base: Dictionary, level: int) -> Dict
 		# Counts as Open through the end of this round number, whatever its
 		# own guard state (Exposed, spec §Vocabulary).
 		"exposedUntil": 0,
-		# Upcoming actions to drop from the timeline (Stun).
+		# Upcoming actions to drop from the timeline (Stun, Time Pearl, Black
+		# Hole).
 		"actionsLost": 0,
+		# How many of those are a Time Pearl's freeze, which holds it Open.
+		"frozenActions": 0,
+		# Absorb pool; while above 0 it counts as Guarded (Shield).
+		"shield": 0,
 		"lure": LURE_NONE,
 		# The running Lure's params.exposedRounds.
 		"lureExposedRounds": 0,
+		# Sandbox items: { item, tier, power, used } per slot.
+		"loadout": [],
 		"plan": [], "nextPlan": [],
 	}
+
+
+# Slots from config entries { item, tier }, power read from the recipe's
+# effectPower at that tier; null for too many slots, an unknown item or an
+# out-of-range tier.
+static func _build_loadout(entries: Array) -> Variant:
+	if entries.size() > LOADOUT_SLOTS:
+		return null
+	var slots: Array = []
+	for entry in entries:
+		var item_id: String = str(entry.get("item", ""))
+		var tier: int = int(entry.get("tier", 1))
+		if not is_item(item_id) or tier < 1 or tier > item_tier_max(item_id):
+			return null
+		slots.append({ "item": item_id, "tier": tier, "power": int(GameData.RECIPES[item_id]["effectPower"][tier]), "used": false })
+	return slots
 
 
 static func _empty_plan(combatant: Dictionary) -> Array:
@@ -380,21 +452,37 @@ static func move_cost(move_id: String) -> int:
 # positions as the move costs; any multi-action move it overlaps is cleared
 # whole. target -1 picks the first living enemy for an offensive move.
 static func set_plan_action(position: int, move_id: String, target: int = -1) -> Dictionary:
+	return _set_plan_entry(position, { "move": move_id, "target": target })
+
+
+# Fills the player's draft at `position` with the item in loadout `slot`;
+# target -1 picks the default (first living enemy, or the player for a heal).
+static func set_plan_item(position: int, slot: int, target: int = -1) -> Dictionary:
+	return _set_plan_entry(position, { "slot": slot, "target": target })
+
+
+static func _set_plan_entry(position: int, action: Dictionary) -> Dictionary:
 	var cp := _root()
 	if not cp["active"] or cp["outcome"] != null:
 		return { "ok": false, "reason": "No fight on." }
 	var plan: Array = cp["playerPlan"]
 	if position < 0 or position >= plan.size():
 		return { "ok": false, "reason": "No such action." }
-	var entry = _normalize_action(cp, { "move": move_id, "target": target })
+	var entry = _normalize_action(cp, action)
 	var reason := _action_block_reason(cp, entry)
 	if reason != "":
 		return { "ok": false, "reason": reason }
+	var move_id: String = entry["move"]
 	var cost := move_cost(move_id)
 	if position + cost > plan.size():
 		return { "ok": false, "reason": _span_reason(move_id) }
 	for pos in range(position, position + cost):
 		_clear_span(plan, pos)
+	# An item goes once: picking its slot here moves it from anywhere else.
+	if entry.has("slot"):
+		for pos in range(plan.size()):
+			if plan[pos] != null and int(plan[pos].get("slot", -1)) == int(entry["slot"]):
+				plan[pos] = null
 	for part in range(cost):
 		var filled: Dictionary = entry.duplicate()
 		filled["part"] = part
@@ -428,18 +516,52 @@ static func _span_reason(move_id: String) -> String:
 	return "%s takes %d actions in a row." % [move(move_id)["name"], move_cost(move_id)]
 
 
+# A player action as { move, target } (plus slot for an item): an item
+# action named by its loadout slot takes the slot's item as its move; a
+# self-targeted one aims at the player, an all-enemies one at nobody (-1),
+# and an unset target (-1) at the first of target_options().
 static func _normalize_action(cp: Dictionary, action) -> Variant:
 	if action == null:
 		return null
 	var move_id: String = str(action.get("move", ""))
 	var target: int = int(action.get("target", -1))
-	if not move(move_id).is_empty():
-		if move(move_id)["target"] == TARGET_SELF:
+	var slot: int = int(action.get("slot", -1))
+	if action.has("slot"):
+		var loadout: Array = cp["combatants"][PLAYER_INDEX]["loadout"]
+		move_id = loadout[slot]["item"] if slot >= 0 and slot < loadout.size() else ""
+	var m := move(move_id)
+	if not m.is_empty():
+		var options := target_options(cp, PLAYER_INDEX, move_id)
+		if m["target"] == TARGET_SELF:
 			target = PLAYER_INDEX
+		elif m["target"] == TARGET_ALL_ENEMIES:
+			target = -1
 		elif target < 0:
-			var opponents := _living_opponents(cp, PLAYER_INDEX)
-			target = opponents[0] if not opponents.is_empty() else -1
-	return { "move": move_id, "target": target }
+			target = options[0] if not options.is_empty() else -1
+	var result := { "move": move_id, "target": target }
+	if action.has("slot"):
+		result["slot"] = slot
+	return result
+
+
+# Who `actor` may aim `move_id` at: itself (self), each living opponent
+# (enemy), itself then each living teammate (friend); [] for an
+# all-enemies action, which needs no pick.
+static func target_options(cp: Dictionary, actor: int, move_id: String) -> Array:
+	match move(move_id).get("target", ""):
+		TARGET_SELF:
+			return [actor]
+		TARGET_ENEMY:
+			return _living_opponents(cp, actor)
+		TARGET_FRIEND:
+			var combatants: Array = cp["combatants"]
+			var enemy_side: bool = combatants[actor]["side"] == SIDE_ENEMY
+			var result: Array = [actor]
+			for i in range(combatants.size()):
+				if i != actor and (combatants[i]["side"] == SIDE_ENEMY) == enemy_side and not combatants[i]["koed"]:
+					result.append(i)
+			return result
+	return []
 
 
 # Normalizes each action, then numbers the parts of multi-action moves: n
@@ -471,7 +593,12 @@ static func _action_block_reason(cp: Dictionary, action) -> String:
 		return "Unknown move."
 	if int(action.get("part", 0)) < 0:
 		return _span_reason(action["move"])
-	if m["target"] == TARGET_ENEMY and not _living_opponents(cp, PLAYER_INDEX).has(action["target"]):
+	if m.get("item", false):
+		if not action.has("slot"):
+			return "Items come out of your loadout."
+		if cp["combatants"][PLAYER_INDEX]["loadout"][action["slot"]]["used"]:
+			return "That one's spent."
+	if m["target"] in [TARGET_ENEMY, TARGET_FRIEND] and not target_options(cp, PLAYER_INDEX, action["move"]).has(action["target"]):
 		return "Pick a target."
 	return ""
 
@@ -480,10 +607,15 @@ static func _action_block_reason(cp: Dictionary, action) -> String:
 static func plan_block_reason(cp: Dictionary, plan: Array) -> String:
 	if plan.size() != actions_per_round(cp["combatants"][PLAYER_INDEX]):
 		return "Fill every action."
+	var slots: Dictionary = {}
 	for action in plan:
 		var reason := _action_block_reason(cp, action)
 		if reason != "":
 			return reason
+		if action.has("slot"):
+			if slots.has(action["slot"]):
+				return "Each item goes once a fight."
+			slots[action["slot"]] = true
 	return ""
 
 
@@ -536,11 +668,11 @@ static func guard_preview(cp: Dictionary, actor: int) -> Array:
 
 # ── Resolution ───────────────────────────────────────────────────────────
 
-# Commits the player's plan (Array of { move, target }; target may be
-# omitted for auto-targeting) against the enemies' committed plans and
+# Commits the player's plan (Array of { move, target }, or { slot, target }
+# for a loadout item; target may be omitted for auto-targeting) against the enemies' committed plans and
 # resolves the round in timeline() order. A KO'd combatant's remaining
 # actions are dropped, as are a Leg it's actor's later ones and any lost
-# to a Stun; the fight stops the moment it's won, lost or fled.
+# to a Stun, Time Pearl or Black Hole; the fight stops the moment it's won, lost or fled.
 # Returns { ok, beats, outcome }; on a fight still running, next round's
 # plans move up and the round after's are rolled.
 static func resolve_round(plan: Array) -> Dictionary:
@@ -571,7 +703,9 @@ static func resolve_round(plan: Array) -> Dictionary:
 		var action: Dictionary = _plan_of(cp, actor)[entry["index"]]
 		if combatant["actionsLost"] > 0:
 			combatant["actionsLost"] -= 1
-			_beat(cp, beats, "lost", actor, -1, action["move"], {})
+			var frozen: bool = combatant["frozenActions"] > 0
+			combatant["frozenActions"] = maxi(0, combatant["frozenActions"] - 1)
+			_beat(cp, beats, "frozen" if frozen else "lost", actor, -1, action["move"], {})
 			continue
 		_resolve_action(cp, actor, action, rng, beats)
 		if move(action["move"])["effect"] == EFFECT_FLEE:
@@ -632,8 +766,10 @@ static func _resolve_action(cp: Dictionary, actor_idx: int, action: Dictionary, 
 					cp["outcome"] = "fled"
 			else:
 				_beat(cp, beats, "fleeFailed", actor_idx, -1, move_id, {})
-		_:
+		EFFECT_NONE:
 			_beat(cp, beats, move_id, actor_idx, -1, move_id, {})
+		_:
+			_use_item(cp, actor_idx, action, m, beats)
 	if apply_guard and m["actorGuard"] != UNCHANGED and not actor["koed"]:
 		actor["guard"] = m["actorGuard"]
 	for i in range(first_beat, beats.size()):
@@ -641,9 +777,14 @@ static func _resolve_action(cp: Dictionary, actor_idx: int, action: Dictionary, 
 			beats[i]["actorGuard"] = actor["guard"]
 
 
-# Open for damage and conditions: its own guard state is Open, or it's
-# Exposed this round.
+# Open for damage and conditions: frozen by a Time Pearl; else Guarded while
+# a Shield pool lasts; else its own guard state is Open, or it's Exposed
+# this round.
 static func is_open(cp: Dictionary, combatant: Dictionary) -> bool:
+	if combatant["frozenActions"] > 0:
+		return true
+	if combatant["shield"] > 0:
+		return false
 	return combatant["guard"] == OPEN or is_exposed(cp, combatant)
 
 
@@ -716,16 +857,68 @@ static func _strike(cp: Dictionary, actor_idx: int, target_idx: int, move_id: St
 	var crit := rng.randf() < float(_data()["critChance"][actor["level"]])
 	if crit:
 		dmg *= 2
-	target["hp"] = maxi(0, target["hp"] - dmg)
-	_beat(cp, beats, "chip" if guarded else "hit", actor_idx, target_idx, move_id, {
-		"roll": roll, "crit": crit, "guarded": guarded, "dmg": dmg, "hpAfter": target["hp"],
+	_deal_damage(cp, actor_idx, target_idx, dmg, "chip" if guarded else "hit", move_id, beats, {
+		"roll": roll, "crit": crit, "guarded": guarded,
 	})
-	if target["hp"] > 0:
+	if not target["koed"]:
 		_spring_lure(cp, actor_idx, target_idx, move_id, beats)
-	else:
+
+
+# `dmg` drains the target's Shield pool 1:1 before its HP (spec §Damage);
+# beats `kind` with dmg, absorbed and hpAfter, then the KO if it drops.
+static func _deal_damage(cp: Dictionary, actor_idx: int, target_idx: int, dmg: int, kind: String, move_id: String, beats: Array, extra: Dictionary) -> void:
+	var target: Dictionary = cp["combatants"][target_idx]
+	var absorbed: int = mini(target["shield"], dmg)
+	target["shield"] -= absorbed
+	target["hp"] = maxi(0, target["hp"] - (dmg - absorbed))
+	var fields := { "dmg": dmg, "absorbed": absorbed, "hpAfter": target["hp"] }
+	fields.merge(extra)
+	_beat(cp, beats, kind, actor_idx, target_idx, move_id, fields)
+	if target["hp"] == 0:
 		target["koed"] = true
 		_beat(cp, beats, "ko", actor_idx, target_idx, move_id, {})
 		_check_outcome(cp)
+
+
+# Applies an item's effect at `power` from the action's loadout slot, and
+# spends the slot (spec §Prototype item effects). Item damage ignores guard.
+static func _use_item(cp: Dictionary, actor_idx: int, action: Dictionary, m: Dictionary, beats: Array) -> void:
+	var combatants: Array = cp["combatants"]
+	var actor: Dictionary = combatants[actor_idx]
+	var slot: Dictionary = actor["loadout"][int(action["slot"])]
+	slot["used"] = true
+	var power: int = slot["power"]
+	var move_id: String = action["move"]
+	match m["effect"]:
+		ITEM_FREEZE:
+			_beat(cp, beats, "timePearl", actor_idx, -1, move_id, {})
+			for e in _living_opponents(cp, actor_idx):
+				combatants[e]["actionsLost"] += power
+				combatants[e]["frozenActions"] = combatants[e]["actionsLost"]
+		ITEM_BLACK_HOLE:
+			_beat(cp, beats, "blackHole", actor_idx, -1, move_id, {})
+			var lost: int = int(m["params"]["actionsBase"]) + floori(power / float(m["params"]["powerPerAction"]))
+			for e in _living_opponents(cp, actor_idx):
+				_deal_damage(cp, actor_idx, e, power, "pull", move_id, beats, {})
+				combatants[e]["actionsLost"] += lost
+				if cp["outcome"] != null:
+					return
+		ITEM_BLAST:
+			var target := _retarget(cp, actor_idx, int(action["target"]))
+			if target >= 0:
+				_deal_damage(cp, actor_idx, target, power, "blast", move_id, beats, {})
+		ITEM_SHIELD:
+			actor["shield"] = maxi(actor["shield"], power)
+			_beat(cp, beats, "shield", actor_idx, -1, move_id, {})
+		ITEM_HEAL:
+			var target: int = int(action["target"])
+			var patient: Dictionary = combatants[target]
+			if patient["koed"]:
+				_beat(cp, beats, "fizzle", actor_idx, target, move_id, {})
+				return
+			var healed: int = mini(power, patient["hpMax"] - patient["hp"])
+			patient["hp"] += healed
+			_beat(cp, beats, "healSelf" if target == actor_idx else "heal", actor_idx, target, move_id, { "amount": healed, "hpAfter": patient["hp"] })
 
 
 static func _check_outcome(cp: Dictionary) -> void:
@@ -751,9 +944,12 @@ static func _beat(cp: Dictionary, beats: Array, kind: String, actor: int, target
 		"actor": combatants[actor]["name"],
 		"target": combatants[target]["name"] if target >= 0 else "",
 		"dmg": extra.get("dmg", 0),
+		"amount": extra.get("amount", 0),
 	})
 	if extra.get("crit", false):
 		text += lines["crit"]
+	if extra.get("absorbed", 0) > 0:
+		text += lines["absorb"].format({ "absorbed": extra["absorbed"] })
 	var beat := { "round": cp["round"], "kind": kind, "actor": actor, "target": target, "move": move_id, "text": text[0].to_upper() + text.substr(1) }
 	beat.merge(extra)
 	beats.append(beat)

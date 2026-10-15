@@ -93,6 +93,23 @@ func _expected_dmg(beat: Dictionary) -> int:
 	return dmg * 2 if beat["crit"] else dmg
 
 
+# Level-1 muggers playing `enemy_plans` (one Array of rounds each) against a
+# level-1 player carrying `loadout` ({ item, tier } per slot).
+func _start_items(enemy_plans: Array, loadout: Array, allies: Array = []) -> Dictionary:
+	GameState.reset()
+	return CombatPrototype.start({
+		"enemies": enemy_plans.map(func(_p): return { "archetype": "mugger", "level": 1 }),
+		"enemyPlans": enemy_plans,
+		"allies": allies,
+		"loadout": loadout,
+		"seed": 1,
+	})
+
+
+func _power(item_id: String, tier: int) -> int:
+	return int(GameData.RECIPES[item_id]["effectPower"][tier])
+
+
 func _without_snapshots(cp: Dictionary) -> Dictionary:
 	var copy: Dictionary = GameState.deep_copy(cp)
 	copy.erase("snapshots")
@@ -519,4 +536,127 @@ func run() -> void:
 		assert_eq(result["outcome"], null, "losing an ally isn't a loss")
 		assert_eq(cp["combatants"][ALLY]["plan"], [], "a KO'd ally plans nothing")
 		assert_eq(cp["combatants"][SQUAD_ENEMY]["plan"][0]["target"], PLAYER, "a strike committed at the KO'd ally picks again")
+	)
+
+	run_case("a_loadout_reads_power_at_its_tier_and_a_bad_one_refuses_to_start", func():
+		var cp := _start_items([[["guard", "guard"]]], [{ "item": "blast", "tier": 3 }, { "item": "shield", "tier": 1 }])
+		var loadout: Array = cp["combatants"][PLAYER]["loadout"]
+		assert_eq(loadout.map(func(s): return [s["item"], s["power"], s["used"]]), [["blast", _power("blast", 3), false], ["shield", _power("shield", 1), false]])
+		assert_true(_start_items([[["guard"]]], [{ "item": "rewind", "tier": 1 }]).is_empty(), "not a prototype item")
+		assert_true(_start_items([[["guard"]]], [{ "item": "blast", "tier": 9 }]).is_empty(), "no such tier")
+		assert_true(_start_items([[["guard"]]], [{ "item": "blast", "tier": 1 }, { "item": "blast", "tier": 1 }, { "item": "blast", "tier": 1 }]).is_empty(), "two slots only")
+	)
+
+	run_case("time_pearl_takes_actions_from_every_enemy_ignoring_guard_and_holds_them_open", func():
+		var cp := _start_items([[["guard", "guard"]], [["guard", "guard"]]], [{ "item": "timePearl", "tier": 2 }])
+		var result := CombatPrototype.resolve_round([{ "slot": 0 }, { "move": "strike", "target": 1 }])
+		assert_true(result["ok"], str(result.get("reason", "")))
+		for e in [1, 2]:
+			var enemy_beats: Array = result["beats"].filter(func(b): return b["actor"] == e)
+			assert_eq(enemy_beats.map(func(b): return b["kind"]), ["frozen", "frozen"], "both Guarded enemies lose both actions")
+		var hit: Dictionary = _hits(result["beats"])[0]
+		assert_true(not hit["guarded"], "a frozen enemy is Open whatever its guard")
+		assert_eq(hit["dmg"], _expected_dmg(hit))
+		assert_eq(cp["combatants"][2]["guard"], CombatPrototype.GUARDED, "its own guard state is untouched")
+		assert_eq(cp["combatants"][PLAYER]["guard"], CombatPrototype.OPEN, "the Strike opened the player; the item changed nothing")
+	)
+
+	run_case("an_item_takes_effect_where_it_resolves_on_the_timeline", func():
+		var cp := _start_items([[[{ "move": "strike", "target": PLAYER }, "guard"]]], [{ "item": "timePearl", "tier": 1 }])
+		var result := CombatPrototype.resolve_round([{ "move": "guard" }, { "slot": 0 }])
+		var enemy_beats: Array = result["beats"].filter(func(b): return b["actor"] == ENEMY)
+		assert_eq(enemy_beats.map(func(b): return b["kind"]), ["chip", "frozen"], "the index-1 Pearl doesn't stop the index-0 Strike")
+		assert_eq(cp["combatants"][ENEMY]["frozenActions"], 0, "power 1 spent this round")
+	)
+
+	run_case("black_hole_hurts_and_slows_every_enemy_ignoring_guard", func():
+		var cp := _start_items([[["guard", "guard"]], [["guard", "guard"]]], [{ "item": "blackHole", "tier": 1 }])
+		var power := _power("blackHole", 1)
+		var result := CombatPrototype.resolve_round([{ "slot": 0 }, { "move": "guard" }])
+		for e in [1, 2]:
+			var enemy: Dictionary = cp["combatants"][e]
+			assert_eq(enemy["hp"], enemy["hpMax"] - power, "full power through a Guard")
+			var kinds: Array = result["beats"].filter(func(b): return b["actor"] == e).map(func(b): return b["kind"])
+			assert_eq(kinds, ["lost", "guard"], "loses 1 + floor(power/8) actions")
+		assert_eq(result["beats"].filter(func(b): return b["kind"] == "pull").size(), 2)
+	)
+
+	run_case("blast_on_a_guarded_target_deals_full_power_and_leaves_the_user_guarded", func():
+		var cp := _start_items([[["guard", "guard"]]], [{ "item": "blast", "tier": 3 }])
+		var result := CombatPrototype.resolve_round([{ "move": "guard" }, { "slot": 0 }])
+		var enemy: Dictionary = cp["combatants"][ENEMY]
+		assert_eq(enemy["guard"], CombatPrototype.GUARDED)
+		assert_eq(enemy["hp"], enemy["hpMax"] - _power("blast", 3))
+		assert_eq(cp["combatants"][PLAYER]["guard"], CombatPrototype.GUARDED, "an item leaves guard state unchanged")
+		assert_true(cp["combatants"][PLAYER]["loadout"][0]["used"])
+		assert_true(result["beats"].any(func(b): return b["kind"] == "blast"))
+	)
+
+	run_case("shield_holds_a_striker_guarded_until_its_pool_drains", func():
+		var cp := _start_items([[["guard", { "move": "strike", "target": PLAYER }]]], [{ "item": "shield", "tier": 1 }])
+		var player: Dictionary = cp["combatants"][PLAYER]
+		var plan: Array = [{ "slot": 0 }, { "move": "strike" }]
+		var saw_open_hit := false
+		for _r in range(8):
+			var hp_before: int = player["hp"]
+			var result := CombatPrototype.resolve_round(plan)
+			assert_true(result["ok"], str(result.get("reason", "")))
+			# Guarding first keeps the enemy's chip small, so the fight outlasts the pool.
+			plan = _plan(["guard", "strike"])
+			var on_player: Array = _hits(result["beats"]).filter(func(b): return b["target"] == PLAYER)
+			assert_eq(on_player.size(), 1)
+			var hit: Dictionary = on_player[0]
+			# The one hit a round is the pool's only drain, so it held this much when it landed.
+			var pool: int = player["shield"] + hit["absorbed"]
+			assert_eq(player["guard"], CombatPrototype.OPEN, "its own guard state is Open after its Strike")
+			assert_eq(hit["guarded"], pool > 0, "Guarded exactly while the pool lasts")
+			assert_eq(hit["absorbed"], mini(pool, hit["dmg"]), "the pool drains 1:1 first")
+			assert_eq(player["hp"], hp_before - (hit["dmg"] - hit["absorbed"]))
+			if not hit["guarded"]:
+				saw_open_hit = true
+				break
+		assert_true(saw_open_hit, "the pool ran dry and a full hit landed")
+	)
+
+	run_case("healing_burst_heals_capped_at_hp_max_and_fizzles_on_a_kod_ally", func():
+		var cp := _start_items([[["guard", "guard"]]], [{ "item": "healingBurst", "tier": 1 }])
+		var player: Dictionary = cp["combatants"][PLAYER]
+		player["hp"] = player["hpMax"] - 3
+		var result := CombatPrototype.resolve_round([{ "slot": 0 }, { "move": "guard" }])
+		assert_eq(player["hp"], player["hpMax"], "capped")
+		assert_eq(result["beats"].filter(func(b): return b["kind"] == "healSelf")[0]["amount"], 3)
+
+		cp = _start_items([[[{ "move": "strike", "target": ALLY }, "guard"]]], [{ "item": "healingBurst", "tier": 1 }], [{ "level": 1 }])
+		cp["combatants"][ALLY]["hp"] = 1
+		result = CombatPrototype.resolve_round([{ "move": "guard" }, { "slot": 0, "target": ALLY }])
+		assert_true(result["ok"], str(result.get("reason", "")))
+		assert_true(cp["combatants"][ALLY]["koed"])
+		var heal_beats: Array = result["beats"].filter(func(b): return b["actor"] == PLAYER and b["move"] == "healingBurst")
+		assert_eq(heal_beats.map(func(b): return b["kind"]), ["fizzle"])
+		assert_eq(cp["combatants"][ALLY]["hp"], 0)
+	)
+
+	run_case("each_loadout_slot_goes_once_a_fight", func():
+		_start_items([[["guard", "guard"]]], [{ "item": "blast", "tier": 1 }])
+		assert_true(not CombatPrototype.resolve_round([{ "slot": 0 }, { "slot": 0 }])["ok"], "not twice in a round")
+		assert_true(not CombatPrototype.resolve_round([{ "move": "blast" }, { "move": "guard" }])["ok"], "only from a loadout slot")
+		assert_true(CombatPrototype.resolve_round([{ "slot": 0 }, { "move": "guard" }])["ok"])
+		var again := CombatPrototype.resolve_round([{ "slot": 0 }, { "move": "guard" }])
+		assert_true(not again["ok"], "spent")
+		assert_true(not CombatPrototype.set_plan_item(0, 0)["ok"], "the draft refuses it too")
+		CombatPrototype.rewind()
+		assert_true(not GameState.state["combatPrototype"]["combatants"][PLAYER]["loadout"][0]["used"], "Rewind gives it back")
+	)
+
+	run_case("an_item_fight_never_touches_the_real_inventory", func():
+		GameState.reset()
+		var real_player: Dictionary = GameState.deep_copy(GameState.state["player"])
+		var cp := CombatPrototype.start({ "seed": 5, "loadout": [{ "item": "blast", "tier": 5 }, { "item": "healingBurst", "tier": 5 }] })
+		CombatPrototype.resolve_round([{ "slot": 0 }, { "slot": 1 }])
+		var rounds := 0
+		while cp["outcome"] == null and rounds < 60:
+			CombatPrototype.resolve_round(_plan(["strike", "strike"]))
+			rounds += 1
+		assert_true(cp["outcome"] != null, "the fight should finish")
+		assert_eq(GameState.state["player"], real_player, "real inventory untouched")
 	)

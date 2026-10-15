@@ -674,7 +674,7 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_sites(t, errors)
 	_validate_barometer(t.get("barometer_states", {}), t.get("barometer_actions", []), t.get("faction_prefs", {}), t.get("factions", {}), t.get("recipes", {}), errors)
 	_validate_enemies(t, errors)
-	_validate_combat_prototype(t.get("combat_prototype", {}), t.get("combat_speed_by_level", []), errors)
+	_validate_combat_prototype(t.get("combat_prototype", {}), t.get("combat_speed_by_level", []), t.get("recipes", {}), errors)
 	_validate_bench_prototype(t.get("bench_prototype", {}), t.get("approaches", {}), errors)
 	_validate_combat_visuals(t.get("combat_visuals", {}), t.get("palette", {}), errors)
 	_validate_hq_visuals(t.get("hq_visuals", {}), t.get("palette", {}), errors)
@@ -1324,9 +1324,10 @@ func _validate_enemies(t: Dictionary, errors: Array[String]) -> void:
 
 
 # Moves name a known guard effect, target type and effect; curves cover
-# levels 0..levelMax; every archetype pattern names real moves.
-func _validate_combat_prototype(cp: Dictionary, skill_curve: Array, errors: Array[String]) -> void:
-	_require_keys(cp, ["chipMultiplier", "actionsPerRound", "critChance", "levelMax", "playerBase", "allyBase", "moves", "archetypes", "beatLines"], "combat_prototype", errors)
+# levels 0..levelMax; every archetype pattern names real moves; every item
+# is a recipe with an effectPower curve and a known target type and effect.
+func _validate_combat_prototype(cp: Dictionary, skill_curve: Array, recipes: Dictionary, errors: Array[String]) -> void:
+	_require_keys(cp, ["chipMultiplier", "actionsPerRound", "critChance", "levelMax", "playerBase", "allyBase", "moves", "items", "archetypes", "beatLines"], "combat_prototype", errors)
 	var level_max := int(cp.get("levelMax", 0))
 	if level_max < 1 or level_max >= skill_curve.size():
 		errors.append("combat_prototype.levelMax: must be 1..%d (the Combat Skill curves' top level)" % (skill_curve.size() - 1))
@@ -1409,7 +1410,23 @@ func _validate_combat_prototype(cp: Dictionary, skill_curve: Array, errors: Arra
 				elif int(moves[move_id].get("cost", 1)) != 1:
 					errors.append("%s.patterns[%d]: '%s' costs more than one action; enemy patterns take 1-action moves only" % [path, i, move_id])
 
-	_require_keys(cp.get("beatLines", {}), ["guard", "hit", "chip", "crit", "ko", "feint", "stun", "fizzle", "lost", "lure", "exposed", "fled", "fleeFailed"], "combat_prototype.beatLines", errors)
+	var items: Dictionary = cp.get("items", {})
+	for item_id in items.keys():
+		var item: Dictionary = items[item_id]
+		var path := "combat_prototype.items.%s" % item_id
+		_require_keys(item, ["target", "effect", "params"], path, errors)
+		if not recipes.has(item_id) or recipes[item_id].get("effectPower", []).size() < 2:
+			errors.append("%s: needs a recipe with an effectPower curve" % path)
+		if not CombatPrototype.ITEM_TARGET_TYPES.has(item.get("target", "")):
+			errors.append("%s.target: unknown target type '%s'" % [path, item.get("target", "")])
+		if not CombatPrototype.ITEM_EFFECTS.has(item.get("effect", "")):
+			errors.append("%s.effect: unknown effect '%s'" % [path, item.get("effect", "")])
+		if item.get("effect", "") == CombatPrototype.ITEM_BLACK_HOLE:
+			var params: Dictionary = item.get("params", {})
+			if int(params.get("actionsBase", -1)) < 0 or int(params.get("powerPerAction", 0)) < 1:
+				errors.append("%s.params: needs actionsBase >= 0 and powerPerAction >= 1" % path)
+
+	_require_keys(cp.get("beatLines", {}), ["guard", "hit", "chip", "crit", "ko", "feint", "stun", "fizzle", "lost", "lure", "exposed", "fled", "fleeFailed", "absorb", "frozen", "timePearl", "blackHole", "pull", "blast", "shield", "healSelf", "heal"], "combat_prototype.beatLines", errors)
 
 
 func _validate_combat_prototype_stats(entry: Dictionary, path: String, errors: Array[String]) -> void:
