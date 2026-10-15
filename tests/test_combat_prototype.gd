@@ -636,6 +636,49 @@ func run() -> void:
 		assert_eq(cp["combatants"][ALLY]["hp"], 0)
 	)
 
+	run_case("an_ally_below_the_heal_line_plans_and_resolves_its_healing_burst", func():
+		var ally_loadout: Array = [{ "item": "healingBurst", "tier": 1 }]
+		var cp := _start_items([[["guard", "guard"]]], [], [{ "level": 1, "loadout": ally_loadout }])
+		var ally: Dictionary = cp["combatants"][ALLY]
+		assert_true(not ally["plan"].any(func(a): return a.has("slot")), "no heal at full HP")
+		ally["hp"] = 1
+		CombatPrototype.resolve_round(_plan(["guard", "guard"]))
+		var planned: Dictionary = ally["plan"][0]
+		assert_eq([planned["move"], planned["target"], planned["slot"]], ["healingBurst", ALLY, 0], "heals itself first thing")
+		var result := CombatPrototype.resolve_round(_plan(["guard", "guard"]))
+		var heals: Array = result["beats"].filter(func(b): return b["kind"] == "healSelf" and b["actor"] == ALLY)
+		assert_eq(heals.size(), 1)
+		assert_eq(ally["hp"], mini(ally["hpMax"], 1 + _power("healingBurst", 1)))
+		assert_true(ally["loadout"][0]["used"])
+		assert_true(not ally["plan"].any(func(a): return a.has("slot")), "spent: no second heal")
+
+		cp = _start_items([[["guard", "guard"]]], [], [{ "level": 1, "loadout": ally_loadout }])
+		cp["combatants"][PLAYER]["hp"] = 1
+		CombatPrototype.resolve_round(_plan(["guard", "guard"]))
+		planned = cp["combatants"][ALLY]["plan"][0]
+		assert_eq([planned["move"], planned["target"]], ["healingBurst", PLAYER], "heals a teammate below the line")
+	)
+
+	run_case("an_ally_holding_a_time_pearl_freezes_two_enemies", func():
+		var cp := _start_items([[["guard", "guard"]], [["guard", "guard"]]], [], [{ "level": 1, "loadout": [{ "item": "timePearl", "tier": 2 }] }])
+		var planned: Dictionary = cp["combatants"][ALLY]["plan"][0]
+		assert_eq([planned["move"], planned["slot"]], ["timePearl", 0], "visible in the ally's plan before commit")
+		var result := CombatPrototype.resolve_round(_plan(["guard", "guard"]))
+		for e in [2, 3]:
+			var enemy_beats: Array = result["beats"].filter(func(b): return b["actor"] == e)
+			assert_eq(enemy_beats.map(func(b): return b["kind"]), ["frozen", "frozen"], "both enemies lose their actions")
+		assert_true(cp["combatants"][ALLY]["loadout"][0]["used"])
+	)
+
+	run_case("an_ally_with_no_matching_item_plays_its_move_rules", func():
+		var enemy_rounds: Array = [[{ "move": "strike", "target": PLAYER }, "guard"]]
+		var bare := _start_items([enemy_rounds], [], [{ "level": 1 }])
+		var expected: Array = bare["combatants"][ALLY]["plan"].duplicate(true)
+		var cp := _start_items([enemy_rounds], [], [{ "level": 1, "loadout": [{ "item": "timePearl", "tier": 1 }, { "item": "healingBurst", "tier": 1 }] }])
+		assert_eq(cp["combatants"][ALLY]["plan"], expected, "one enemy and everyone healthy: no item")
+		assert_true(_start_items([enemy_rounds], [], [{ "level": 1, "loadout": [{ "item": "blast", "tier": 9 }] }]).is_empty(), "a bad ally loadout refuses to start")
+	)
+
 	run_case("each_loadout_slot_goes_once_a_fight", func():
 		_start_items([[["guard", "guard"]]], [{ "item": "blast", "tier": 1 }])
 		assert_true(not CombatPrototype.resolve_round([{ "slot": 0 }, { "slot": 0 }])["ok"], "not twice in a round")

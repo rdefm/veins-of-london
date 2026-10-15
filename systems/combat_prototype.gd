@@ -199,9 +199,10 @@ static func display_name(combatant: Dictionary) -> String:
 
 # config: playerLevel (1..levelMax, default 1); enemies, an Array of
 # { archetype, level } (default one level-1 mugger); allies, an Array of
-# { level } (0..MAX_ALLIES, default none); loadout, the player's sandbox
-# items, an Array of up to LOADOUT_SLOTS { item, tier } (item a prototype
-# item's recipe id; default none); seed (default fresh);
+# { level, loadout } (0..MAX_ALLIES, default none); loadout, the player's
+# sandbox items, an Array of up to LOADOUT_SLOTS { item, tier } (item a
+# prototype item's recipe id; default none), an ally's loadout likewise;
+# seed (default fresh);
 # enemyPlans / allyPlans, test-only: per combatant an Array of rounds, each
 # an Array of move ids or { move, target } entries, used in place of the
 # archetype's patterns or the ally AI (round n reads entry (n-1) mod size).
@@ -219,6 +220,12 @@ static func start(config: Dictionary = {}) -> Dictionary:
 	var loadout = _build_loadout(config.get("loadout", []))
 	if loadout == null:
 		return {}
+	var ally_loadouts: Array = []
+	for spec in ally_specs:
+		var ally_loadout = _build_loadout(spec.get("loadout", []))
+		if ally_loadout == null:
+			return {}
+		ally_loadouts.append(ally_loadout)
 
 	var rng := RandomNumberGenerator.new()
 	rng.seed = int(config.get("seed", Rng.fresh_seed()))
@@ -236,6 +243,7 @@ static func start(config: Dictionary = {}) -> Dictionary:
 		if ally_specs.size() > 1:
 			ally["name"] = "%s %s" % [ally["name"], char(65 + i)]
 		ally["planOverride"] = ally_overrides[i] if i < ally_overrides.size() else null
+		ally["loadout"] = ally_loadouts[i]
 		combatants.append(ally)
 	var overrides: Array = config.get("enemyPlans", [])
 	var archetype_counts: Dictionary = {}
@@ -414,12 +422,18 @@ static func _living_opponents(cp: Dictionary, actor: int) -> Array:
 # §Ally AI), per action: Guard where an enemy strikes it; else Strike an
 # enemy who'll be Open when it acts; else, with an action to follow, Feint a
 # Guarded enemy the Feint leaves Open for that next action's Strike; else
-# Guard. Allies plan in array order, each reading the earlier ones' Feints.
-# An ally with a test override plays that instead.
+# Guard. Before those, an unspent loadout item takes the action: a heal on
+# the worst-off of itself and its teammates below allyHealBelow of hpMax,
+# else Time Pearl or Black Hole while allyCrowdEnemies or more enemies stand.
+# Allies plan in array order, each reading the earlier ones' Feints and
+# leaving alone a patient an earlier one heals. An ally with a test override
+# plays that instead.
 static func _plan_allies(cp: Dictionary, rng: RandomNumberGenerator) -> void:
 	var combatants: Array = cp["combatants"]
 	# { actor, index, target } per Feint planned so far this round.
 	var feints: Array = []
+	# Combatant index per heal planned so far this round.
+	var patients: Array = []
 	for i in range(combatants.size()):
 		var ally: Dictionary = combatants[i]
 		if ally["side"] != SIDE_ALLY:
@@ -432,11 +446,52 @@ static func _plan_allies(cp: Dictionary, rng: RandomNumberGenerator) -> void:
 			var plan: Array = []
 			var count := actions_per_round(ally)
 			for a in range(count):
-				var action := _ally_action(cp, i, a, count, feints)
+				var action := _ally_item_action(cp, i, plan, patients)
+				if action.is_empty():
+					action = _ally_action(cp, i, a, count, feints)
 				if action["move"] == MOVE_FEINT:
 					feints.append({ "actor": i, "index": a, "target": action["target"] })
+				if move(action["move"]).get("effect", "") == ITEM_HEAL:
+					patients.append(action["target"])
 				plan.append(action)
 			ally["plan"] = plan
+
+
+# The ally's next item action given the `plan` so far (each slot once), or
+# {} when no rule fires.
+static func _ally_item_action(cp: Dictionary, ally: int, plan: Array, patients: Array) -> Dictionary:
+	var loadout: Array = cp["combatants"][ally]["loadout"]
+	var free: Array = []
+	for slot in range(loadout.size()):
+		if not loadout[slot]["used"] and not plan.any(func(a): return int(a.get("slot", -1)) == slot):
+			free.append(slot)
+	for slot in free:
+		var item_id: String = loadout[slot]["item"]
+		if move(item_id)["effect"] == ITEM_HEAL:
+			var patient := _ally_heal_patient(cp, ally, item_id, patients)
+			if patient >= 0:
+				return { "move": item_id, "target": patient, "part": 0, "slot": slot }
+	if _living_opponents(cp, ally).size() >= int(_data()["allyCrowdEnemies"]):
+		for slot in free:
+			var item_id: String = loadout[slot]["item"]
+			if move(item_id)["effect"] in [ITEM_FREEZE, ITEM_BLACK_HOLE]:
+				return { "move": item_id, "target": -1, "part": 0, "slot": slot }
+	return {}
+
+
+# The lowest-HP-fraction of the ally and its living teammates under
+# allyHealBelow of hpMax and not already in `patients`; -1 for none.
+static func _ally_heal_patient(cp: Dictionary, ally: int, item_id: String, patients: Array) -> int:
+	var combatants: Array = cp["combatants"]
+	var threshold := float(_data()["allyHealBelow"])
+	var best := -1
+	var best_fraction := threshold
+	for i in target_options(cp, ally, item_id):
+		var fraction: float = float(combatants[i]["hp"]) / float(combatants[i]["hpMax"])
+		if fraction < best_fraction and not patients.has(i):
+			best = i
+			best_fraction = fraction
+	return best
 
 
 static func _ally_action(cp: Dictionary, ally: int, index: int, count: int, feints: Array) -> Dictionary:

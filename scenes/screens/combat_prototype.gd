@@ -3,10 +3,11 @@ extends Control
 
 # Debug-app-only sandbox screen for systems/combat_prototype.gd: setup
 # (player, enemy and ally Combat Skill levels, 1-3 enemies by archetype, 0-2
-# allies, a 2-slot sandbox item loadout by recipe and tier), then per round
-# the combatants with their guard-state preview, the shared timeline with
-# enemy intents (type only, or target and damage range plus a next-round
-# preview under Prophet's Breath sight), ally plans and the player's draft
+# allies, a 2-slot sandbox item loadout by recipe and tier for the player
+# and each ally), then per round the combatants with their guard-state
+# preview, the shared timeline with enemy intents (type only, or target and
+# damage range plus a next-round preview under Prophet's Breath sight), ally
+# plans (an [item] tag marking an item use) and the player's draft
 # positions (moves plus unspent loadout items, and Enhancement Powder's
 # extra position), Commit, Rewind and the beat log.
 
@@ -20,7 +21,9 @@ var _enemy_archetypes: Array = [CombatPrototype.DEFAULT_ARCHETYPE]
 var _ally_count: int = 0
 var _ally_level: int = 1
 # One { item, tier } per loadout slot; item "" leaves the slot empty.
-var _loadout: Array = [{ "item": "", "tier": 1 }, { "item": "", "tier": 1 }]
+var _loadout: Array = _empty_loadout()
+# One such loadout per possible ally, by ally order.
+var _ally_loadouts: Array = range(CombatPrototype.MAX_ALLIES).map(func(_i): return _empty_loadout())
 # View state only: why the last palette pick was refused, until the next pick.
 var _refusal: String = ""
 
@@ -92,51 +95,67 @@ func _build_setup_card() -> Control:
 		ally_counts.append("%d all%s" % [n, "y" if n == 1 else "ies"])
 	var ally_select := UI.option_button(ally_counts)
 	ally_select.selected = _ally_count
-	ally_select.item_selected.connect(func(index: int): _ally_count = index)
+	ally_select.item_selected.connect(func(index: int):
+		_ally_count = index
+		_refresh()
+	)
 	c["content"].add_child(ally_select)
 	c["content"].add_child(_level_select("Ally level: %d", _ally_level, func(level: int): _ally_level = level))
 
+	c["content"].add_child(UI.muted_label("Your loadout"))
 	for slot in range(_loadout.size()):
-		c["content"].add_child(_build_loadout_slot(slot))
+		c["content"].add_child(_build_loadout_slot(_loadout, slot))
+	for i in range(_ally_count):
+		c["content"].add_child(UI.muted_label("Ally %s loadout" % char(65 + i) if _ally_count > 1 else "Ally loadout"))
+		for slot in range(_ally_loadouts[i].size()):
+			c["content"].add_child(_build_loadout_slot(_ally_loadouts[i], slot))
 
 	c["content"].add_child(MapCardStyle.text_button("Start", func():
 		var allies: Array = []
 		for i in range(_ally_count):
-			allies.append({ "level": _ally_level })
+			allies.append({ "level": _ally_level, "loadout": _picked_slots(_ally_loadouts[i]) })
 		CombatPrototype.start({
 			"playerLevel": _player_level,
 			"enemies": _enemy_archetypes.map(func(id): return { "archetype": id, "level": _enemy_level }),
 			"allies": allies,
-			"loadout": _loadout.filter(func(s): return s["item"] != ""),
+			"loadout": _picked_slots(_loadout),
 		})
 	))
 	return c["panel"]
 
 
-# Item and tier pickers for one sandbox loadout slot; the tier list follows
-# the picked item's effectPower curve.
-func _build_loadout_slot(slot: int) -> Control:
+static func _empty_loadout() -> Array:
+	return [{ "item": "", "tier": 1 }, { "item": "", "tier": 1 }]
+
+
+static func _picked_slots(loadout: Array) -> Array:
+	return loadout.filter(func(s): return s["item"] != "")
+
+
+# Item and tier pickers for one slot of a sandbox `loadout` (the player's or
+# an ally's); the tier list follows the picked item's effectPower curve.
+func _build_loadout_slot(loadout: Array, slot: int) -> Control:
 	var row := UI.hbox()
 	var item_ids: Array = CombatPrototype.item_ids()
 	var names: Array = ["Slot %d: empty" % (slot + 1)]
 	for id in item_ids:
 		names.append("Slot %d: %s" % [slot + 1, CombatPrototype.move(id)["name"]])
 	var item_select := UI.option_button(names)
-	item_select.selected = item_ids.find(_loadout[slot]["item"]) + 1
+	item_select.selected = item_ids.find(loadout[slot]["item"]) + 1
 	item_select.item_selected.connect(func(index: int):
-		_loadout[slot]["item"] = "" if index == 0 else item_ids[index - 1]
-		_loadout[slot]["tier"] = 1
+		loadout[slot]["item"] = "" if index == 0 else item_ids[index - 1]
+		loadout[slot]["tier"] = 1
 		_refresh()
 	)
 	row.add_child(item_select)
-	var item_id: String = _loadout[slot]["item"]
+	var item_id: String = loadout[slot]["item"]
 	if item_id != "":
 		var tiers: Array = []
 		for tier in range(1, CombatPrototype.item_tier_max(item_id) + 1):
 			tiers.append("Tier %d" % tier)
 		var tier_select := UI.option_button(tiers)
-		tier_select.selected = int(_loadout[slot]["tier"]) - 1
-		tier_select.item_selected.connect(func(index: int): _loadout[slot]["tier"] = index + 1)
+		tier_select.selected = int(loadout[slot]["tier"]) - 1
+		tier_select.item_selected.connect(func(index: int): loadout[slot]["tier"] = index + 1)
 		row.add_child(tier_select)
 	return row
 
@@ -222,9 +241,12 @@ func _build_timeline_card(cp: Dictionary) -> Control:
 			var planned: Dictionary = combatants[actor]["plan"][position]
 			var m := CombatPrototype.move(planned["move"])
 			var aim: String = ""
-			if m["target"] == CombatPrototype.TARGET_ENEMY:
+			if m["target"] in [CombatPrototype.TARGET_ENEMY, CombatPrototype.TARGET_FRIEND] and int(planned["target"]) >= 0:
 				aim = " → %s" % CombatPrototype.display_name(combatants[planned["target"]])
-			row.add_child(UI.label("(ally) %s%s" % [m["name"], aim]))
+			var label: String = m["name"]
+			if planned.has("slot"):
+				label = "[item] %s T%d" % [label, combatants[actor]["loadout"][planned["slot"]]["tier"]]
+			row.add_child(UI.label("(ally) %s%s" % [label, aim]))
 		else:
 			row.add_child(UI.label(_intent_text(cp, CombatPrototype.enemy_intents(cp, actor)[position])))
 		c["content"].add_child(row)

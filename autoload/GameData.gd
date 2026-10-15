@@ -1327,7 +1327,12 @@ func _validate_enemies(t: Dictionary, errors: Array[String]) -> void:
 # levels 0..levelMax; every archetype pattern names real moves; every item
 # is a recipe with an effectPower curve and a known target type and effect.
 func _validate_combat_prototype(cp: Dictionary, skill_curve: Array, recipes: Dictionary, errors: Array[String]) -> void:
-	_require_keys(cp, ["chipMultiplier", "actionsPerRound", "critChance", "levelMax", "playerBase", "allyBase", "moves", "items", "archetypes", "beatLines"], "combat_prototype", errors)
+	_require_keys(cp, ["chipMultiplier", "actionsPerRound", "critChance", "levelMax", "allyHealBelow", "allyCrowdEnemies", "playerBase", "allyBase", "moves", "items", "archetypes", "beatLines"], "combat_prototype", errors)
+	var heal_below := float(cp.get("allyHealBelow", 0.0))
+	if heal_below <= 0.0 or heal_below > 1.0:
+		errors.append("combat_prototype.allyHealBelow: must be in (0, 1]")
+	if int(cp.get("allyCrowdEnemies", 0)) < 1:
+		errors.append("combat_prototype.allyCrowdEnemies: must be at least 1")
 	var level_max := int(cp.get("levelMax", 0))
 	if level_max < 1 or level_max >= skill_curve.size():
 		errors.append("combat_prototype.levelMax: must be 1..%d (the Combat Skill curves' top level)" % (skill_curve.size() - 1))
