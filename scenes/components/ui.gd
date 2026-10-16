@@ -433,8 +433,9 @@ static func scroll_container() -> ScrollContainer:
 	return sc
 
 
-static func screen_body(root: Control) -> VBoxContainer:
+static func screen_body(root: Control, momentum: bool = false) -> VBoxContainer:
 	var sc := scroll_container()
+	(sc as TouchScrollContainer).momentum = momentum
 	anchor_below_bars(sc)
 	root.add_child(sc)
 

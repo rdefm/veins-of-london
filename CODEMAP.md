@@ -188,7 +188,7 @@ overlays.
 | time_transition.gd | Transient time queue, input guard, dimmed circular park/sky/sun/moon presentation |
 | top_bar.gd | Top departure board: casing + status lines + NotificationTicker; feeds new notifications (combat hold, combat lines dropped when fight ends, raid-alarm line, reset on load/Rewind); tap opens Notifications app (short-pay menu if latest line is the pending guard shortfall) except in combat (live or prototype) |
 | touch_input.gd | `TouchInput.is_emulated_mouse(event)`: true for the mouse twin Godot emits for every touch; touch+mouse handlers skip it so one tap acts once |
-| touch_scroll_container.gd | ScrollContainer, touch drag-scroll |
+| touch_scroll_container.gd | ScrollContainer, touch drag-scroll; opt-in `momentum` fling on release (`UI.screen_body(root, true)`) |
 | tap_button.gd | Button behind UI.button/symbol_button/icon_button and card taps; shows pressed style while held, fires pressed only on a still release (TAP_SLOP), lets drags bubble to the scroller |
 | turn_order_strip.gd | Combat turn-order strip: one card per handed entry (turn occurrence). Tap selects; drag scrolls; selected (or `focused`) card expands. Damage-tier sign frames (cardFrames), optional actionText (styled when actionUnread)/guardBadge lines, HP ghost drain, playback reflow via `playback_occurrences()` + `advance_to()`. Static `build_entries*()` adapt live combat |
 | ui.gd | Shared Control builders, time-cost labels, lot price text ("£75/10"), ui_action_red accent + bordered-panel/action-button StyleBoxFlat helpers |

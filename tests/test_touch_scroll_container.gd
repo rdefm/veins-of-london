@@ -95,3 +95,80 @@ func run() -> void:
 		assert_eq(c._drag_index, -100)
 		c.free()
 	)
+
+	# ── fling momentum (opt-in) ──────────────────────────────────────────────
+
+	run_case("a_quick_release_flings_when_momentum_is_on", func():
+		var c := _fling_container(true)
+		_swipe(c, 0)
+		assert_true(c.is_processing(), "a fast swipe keeps scrolling after the finger lifts")
+		assert_true(c._velocity.y < -FLING_TEST_MIN, "fling continues in the finger's direction (upward swipe)")
+		assert_eq(c._velocity.x, 0.0, "the disabled horizontal axis carries no fling")
+		c.free()
+	)
+
+	run_case("no_fling_when_momentum_is_off", func():
+		var c := _fling_container(false)
+		_swipe(c, 0)
+		assert_true(not c.is_processing(), "default containers stop dead on release")
+		c.free()
+	)
+
+	run_case("no_fling_when_the_finger_rested_before_lifting", func():
+		var c := _fling_container(true)
+		_swipe(c, 500000)
+		assert_true(not c.is_processing(), "a held-then-lifted finger is a placement, not a flick")
+		c.free()
+	)
+
+	run_case("a_new_touch_stops_the_fling", func():
+		var c := _fling_container(true)
+		_swipe(c, 0)
+		c._gui_input(UiSim.touch(0, true, Vector2(50, 50)))
+		assert_true(not c.is_processing(), "touching a flinging list catches it")
+		c.free()
+	)
+
+	run_case("the_fling_comes_to_rest", func():
+		var c := _fling_container(true)
+		_swipe(c, 0)
+		for i in 300:
+			if not c.is_processing():
+				break
+			c._process(1.0 / 60.0)
+		assert_true(not c.is_processing(), "friction brings the fling to rest")
+		c.free()
+	)
+
+	run_case("a_pinch_hand_over_never_flings", func():
+		var c := _fling_container(true)
+		c._gui_input(UiSim.touch(0, true, Vector2(50, 400)))
+		c.clock = func(): return 16000
+		c._gui_input(UiSim.drag(0, Vector2(50, 300)))
+		c._gui_input(UiSim.touch(1, true, Vector2(100, 100)))
+		assert_true(not c.is_processing(), "a second finger ends the drag without a fling")
+		c.free()
+	)
+
+
+const FLING_TEST_MIN := 60.0
+
+
+func _fling_container(momentum: bool) -> TouchScrollContainer:
+	var c := TouchScrollContainer.new()
+	c.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	c.momentum = momentum
+	c.clock = func(): return 0
+	return c
+
+
+# Upward swipe, 100px per 16ms frame, lifting `rest_usec` after the last move.
+func _swipe(c: TouchScrollContainer, rest_usec: int) -> void:
+	c._gui_input(UiSim.touch(0, true, Vector2(50, 400)))
+	var t := 0
+	for y in [300, 200, 100]:
+		t += 16000
+		c.clock = func(): return t
+		c._gui_input(UiSim.drag(0, Vector2(55, y)))
+	c.clock = func(): return t + rest_usec
+	c._gui_input(UiSim.touch(0, false, Vector2(55, 100)))

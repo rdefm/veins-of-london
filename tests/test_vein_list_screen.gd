@@ -362,3 +362,22 @@ func run() -> void:
 
 		screen.free()
 	)
+
+	# A drag starting anywhere on the list must bubble to the scroller: no
+	# control between the touch point and it may STOP input.
+	run_case("vein_list_lets_drags_reach_its_momentum_scroller", func():
+		GameState.reset()
+		GameState.state["player"]["veins"] = [Fixtures.player_vein_with({ "growth": 60 })]
+		VeinListNav.open_for_district("shoreditch")
+
+		var screen := VeinListScreen.new()
+		screen._ready()
+
+		var scroll := screen._content.get_parent().get_parent() as TouchScrollContainer
+		assert_true(scroll != null, "the list body lives in a TouchScrollContainer")
+		assert_true(scroll.momentum, "the vein list flings like a phone list")
+		for node in screen._content.find_children("", "Control", true, false):
+			assert_true((node as Control).mouse_filter != Control.MOUSE_FILTER_STOP, "%s (%s) must not swallow a scroll drag" % [node.name, node.get_class()])
+
+		screen.free()
+	)

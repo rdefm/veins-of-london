@@ -26,6 +26,11 @@ var icon: Texture2D:
 		queue_redraw()
 
 
+func _init() -> void:
+	# Display-only: a drag starting on a glyph must bubble to any ancestor scroller.
+	mouse_filter = Control.MOUSE_FILTER_PASS
+
+
 func _draw() -> void:
 	if icon != null:
 		var side := minf(size.x, size.y)

@@ -5,7 +5,7 @@ var _content: VBoxContainer
 
 func _ready() -> void:
 	UI.anchor_full_rect(self)
-	_content = UI.screen_body(self)
+	_content = UI.screen_body(self, true)
 	EventBus.state_changed.connect(_refresh)
 	_refresh()
 
@@ -20,6 +20,7 @@ func _build() -> void:
 	var band_filter: Variant = nav.get("bandFilter")
 
 	var panel := PanelContainer.new()
+	panel.mouse_filter = Control.MOUSE_FILTER_PASS  # drags must reach the scroller
 	panel.add_theme_stylebox_override("panel", MapCardStyle.card_panel(18, 0.12))
 	_content.add_child(panel)
 	var body := UI.vbox(10)
