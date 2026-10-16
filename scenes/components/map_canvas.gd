@@ -13,8 +13,6 @@ signal _batch_finished
 # Every colour below resolves through MapPalette (data/map_palette.json) at
 # draw time, so the diagram follows the Map palette's current light/dark set.
 
-const ZONE_ALPHA := 0.08
-const ZONE_STRIPE_ALPHA := 0.22
 const ZONE_STRIPE_WIDTH := 2.0
 const ZONE_STRIPE_GAP := 14.0
 const RIVER_WIDTH := 14.0
@@ -520,20 +518,23 @@ func _draw_zones() -> void:
 				colour = MapPalette.colour("contested")
 			_:
 				continue
-		colour.a = ZONE_ALPHA
 		var polygon := MapHitTest.to_vector2_array(GameData.MAP_LAYOUT["districts"][district_id]["zonePolygon"])
-		draw_colored_polygon(polygon, colour)
+		draw_colored_polygon(polygon, Color(colour, MapPalette.zone_tint("fillAlpha")))
 		if kind == "contested":
-			_draw_zone_stripes(polygon, colour)
+			_draw_zone_stripes(polygon, Color(colour, MapPalette.zone_tint("stripeAlpha")))
+		var outline_width := MapPalette.zone_tint("outlineWidth")
+		var outline_alpha := MapPalette.zone_tint("outlineAlpha")
+		if outline_width > 0.0 and outline_alpha > 0.0:
+			var ring := polygon.duplicate()
+			ring.append(polygon[0])
+			draw_polyline(ring, Color(colour, outline_alpha), outline_width, true)
 
 
 # Diagonal hatch clipped to the zone polygon.
-func _draw_zone_stripes(polygon: PackedVector2Array, fill: Color) -> void:
+func _draw_zone_stripes(polygon: PackedVector2Array, stripe: Color) -> void:
 	var bounds := Rect2(polygon[0], Vector2.ZERO)
 	for p in polygon:
 		bounds = bounds.expand(p)
-	var stripe := fill
-	stripe.a = ZONE_STRIPE_ALPHA
 	var x := bounds.position.x - bounds.size.y
 	while x < bounds.end.x:
 		var line := PackedVector2Array([Vector2(x, bounds.end.y), Vector2(x + bounds.size.y, bounds.position.y)])

@@ -173,7 +173,7 @@ overlays.
 | map_canvas.gd | Network diagram: layout/stops/lines, hit-testing (shop pins open the Trade menu, stockpile pins start a stockpile raid), static draw pass; tweens a vein's fullness ring on EventBus.vein_cultivated; delegates persistent halos and event-playback animations to map_halos.gd |
 | map_halos.gd | Persistent vein-charge halo + the five event-playback animations (discover ripple, seed/claim ring, charge burst, drain collapse, join-line growth); owned by map_canvas.gd |
 | map_controls.gd | Map controls drawer (map_card_style.gd-skinned): filters, faction isolate, pacing, Dark map toggle, legend button |
-| map_palette.gd | MapPalette: resolves Map palette tokens (data/map_palette.json) for the current light/dark mode (`meta.mapDarkMode`), plus faction/ore colours with optional dark-only overrides; every Map-tab and card-family colour reads through it |
+| map_palette.gd | MapPalette: resolves Map palette tokens (data/map_palette.json) for the current light/dark mode (`meta.mapDarkMode`), plus faction/ore colours and district zone-tint strength (`zoneTint`) with optional dark-only overrides; every Map-tab and card-family colour reads through it |
 | map_legend.gd | Persistent faction-colour key; restyles in place on a dark-mode toggle |
 | map_zoom_buttons.gd | Floating +/- zoom control; restyles in place on a dark-mode toggle |
 | modal_layer.gd | Dim background + map_card_style.gd card (follows the dark toggle), with navy/red chrome for BizBrief contract cancellation; mounts full-screen sheets for sell_menu (Trade) and guard_kit, and dispatches other content through modal_registry.gd; draws the recipe book full-bleed (no card) with recipe detail as a card above it; tap-outside dismiss |
@@ -291,7 +291,7 @@ overlays.
 | hq_visuals.json | hq_diorama.gd, hq*.gd screens |
 | map_layout.json | map_layout.gd, map_hit_test.gd |
 | market.json | market.gd (constants, sim start, priceLot, ore conversion rate, annotation cap/thresholds, delivery-log cap, Independents shares + buy cover, per-good normalStock/civilianDemand); shares.gd (via Market.independents_share) |
-| map_palette.json | GameData.gd (validated) + map_palette.gd (Map tab light/dark colour tokens, faction/ore dark overrides) + map_controls.gd (`darkModeLabel`) |
+| map_palette.json | GameData.gd (validated) + map_palette.gd (Map tab light/dark colour tokens, zone-tint strength, faction/ore/zoneTint dark overrides) + map_controls.gd (`darkModeLabel`) |
 | objectives.json | objectives.gd, todo.gd, daily_brief.gd (optional briefAction / earlyBriefAction + note: Story-row destination), collective.gd, business_quest.gd |
 | offers.json | offers.gd (synthetic catalogue, scripted counterparties, offer expiry days, recurring term weeks, random-offer daily chance curve + qty bands, small-offer threshold, cancel relation hit), business_quest.gd (biz_starter_* chain + Archie nudge text, biz_recurring_* from Beat 3/6) |
 | ore_types.json | widely read (economy, cultivating, sites, factions) |

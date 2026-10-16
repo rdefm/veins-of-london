@@ -1,5 +1,11 @@
 {
   "darkModeLabel": "Dark map",
+  "zoneTint": {
+    "fillAlpha": 0.08,
+    "stripeAlpha": 0.22,
+    "outlineAlpha": 0.0,
+    "outlineWidth": 0.0
+  },
   "light": {
     "paper": "#ffffff",
     "river": "#d4cfc499",
@@ -59,6 +65,12 @@
     "scrim": "#000000"
   },
   "darkOverrides": {
+    "zoneTint": {
+      "fillAlpha": 0.24,
+      "stripeAlpha": 0.5,
+      "outlineAlpha": 0.85,
+      "outlineWidth": 3.0
+    },
     "factions": {
       "firm": "#e0606e",
       "collective": "#5a9e72"

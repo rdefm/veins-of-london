@@ -30,6 +30,25 @@ static func colour_in(key: String, dark: bool) -> Color:
 	return Color(tokens[key])
 
 
+# District zone tint strength (fillAlpha · stripeAlpha · outlineAlpha ·
+# outlineWidth): the shared "zoneTint" values, with darkOverrides.zoneTint
+# replacing any key in dark mode so owner tints read against dark paper.
+static func zone_tint(key: String) -> float:
+	return zone_tint_in(key, is_dark())
+
+
+static func zone_tint_in(key: String, dark: bool) -> float:
+	if dark:
+		var overrides: Dictionary = GameData.MAP_PALETTE.get("darkOverrides", {}).get("zoneTint", {})
+		if overrides.has(key):
+			return float(overrides[key])
+	var base: Dictionary = GameData.MAP_PALETTE.get("zoneTint", {})
+	if not base.has(key):
+		push_error("MapPalette: unknown zoneTint key '%s'" % key)
+		return 0.0
+	return float(base[key])
+
+
 static func faction_colour(faction_id: String) -> Color:
 	return faction_colour_in(faction_id, is_dark())
 

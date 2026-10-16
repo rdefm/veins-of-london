@@ -77,6 +77,17 @@ func run() -> void:
 		GameData.MAP_PALETTE["darkOverrides"] = saved
 	)
 
+	run_case("light_zone_tint_keeps_the_pre_palette_strength", func():
+		assert_almost_eq(MapPalette.zone_tint_in("fillAlpha", false), 0.08, 0.001)
+		assert_almost_eq(MapPalette.zone_tint_in("stripeAlpha", false), 0.22, 0.001)
+		assert_almost_eq(MapPalette.zone_tint_in("outlineWidth", false), 0.0, 0.001, "light zones stay unoutlined")
+	)
+
+	run_case("dark_zone_tint_is_stronger_and_outlined", func():
+		for key in ["fillAlpha", "stripeAlpha", "outlineAlpha", "outlineWidth"]:
+			assert_true(MapPalette.zone_tint_in(key, true) > MapPalette.zone_tint_in(key, false), "dark %s beats light" % key)
+	)
+
 	# ── dark mode preference + dark set ─────────────────────────────────
 
 	run_case("map_dark_mode_defaults_off", func():
@@ -156,6 +167,17 @@ func run() -> void:
 		var errors := _map_palette_errors(corrupted)
 		assert_true(_has_error(errors, "'nobody' is not a known id"), "unknown faction id is flagged")
 		assert_true(_has_error(errors, "darkOverrides.oreTypes.time"), "bad override colour is flagged")
+	)
+
+	run_case("bad_zone_tint_fails", func():
+		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+		corrupted["map_palette"]["zoneTint"].erase("fillAlpha")
+		corrupted["map_palette"]["darkOverrides"]["zoneTint"]["stripeAlpha"] = 1.5
+		corrupted["map_palette"]["darkOverrides"]["zoneTint"]["glow"] = 0.5
+		var errors := _map_palette_errors(corrupted)
+		assert_true(_has_error(errors, "fillAlpha"), "missing base key is flagged")
+		assert_true(_has_error(errors, "darkOverrides.zoneTint.stripeAlpha"), "out-of-range alpha is flagged")
+		assert_true(_has_error(errors, "'glow' is not a known key"), "unknown key is flagged")
 	)
 
 

@@ -692,9 +692,13 @@ func validate_tables(t: Dictionary) -> Array[String]:
 
 
 # The drawer toggle's label is set; every token is a valid colour string and light/dark carry identical keys;
-# darkOverrides may only name real faction/ore ids.
+# darkOverrides may only name real faction/ore ids; zoneTint (and its dark override) holds in-range numbers.
 func _validate_map_palette(map_palette: Dictionary, factions: Dictionary, ore_types: Dictionary, errors: Array[String]) -> void:
-	_require_keys(map_palette, ["darkModeLabel", "light", "dark", "darkOverrides"], "map_palette", errors)
+	_require_keys(map_palette, ["darkModeLabel", "zoneTint", "light", "dark", "darkOverrides"], "map_palette", errors)
+	var zone_tint: Dictionary = map_palette.get("zoneTint", {})
+	_require_keys(zone_tint, ZONE_TINT_KEYS, "map_palette.zoneTint", errors)
+	_validate_zone_tint(zone_tint, "map_palette.zoneTint", errors)
+	_validate_zone_tint(map_palette.get("darkOverrides", {}).get("zoneTint", {}), "map_palette.darkOverrides.zoneTint", errors)
 	var label: Variant = map_palette.get("darkModeLabel")
 	if map_palette.has("darkModeLabel") and (typeof(label) != TYPE_STRING or String(label).is_empty()):
 		errors.append("map_palette.darkModeLabel: must be a non-empty string")
@@ -719,6 +723,21 @@ func _validate_map_palette(map_palette: Dictionary, factions: Dictionary, ore_ty
 			if not group[1].has(id):
 				errors.append("map_palette.darkOverrides.%s: '%s' is not a known id" % [group[0], id])
 			_validate_colour_string(entries[id], "map_palette.darkOverrides.%s.%s" % [group[0], id], errors)
+
+
+const ZONE_TINT_KEYS := ["fillAlpha", "stripeAlpha", "outlineAlpha", "outlineWidth"]
+
+
+# Alphas in [0, 1]; outlineWidth >= 0; no keys beyond ZONE_TINT_KEYS.
+func _validate_zone_tint(zone_tint: Dictionary, context: String, errors: Array[String]) -> void:
+	for key in zone_tint:
+		var value: Variant = zone_tint[key]
+		if not ZONE_TINT_KEYS.has(key):
+			errors.append("%s: '%s' is not a known key" % [context, key])
+		elif typeof(value) != TYPE_FLOAT and typeof(value) != TYPE_INT:
+			errors.append("%s.%s: must be a number" % [context, key])
+		elif float(value) < 0.0 or (key != "outlineWidth" and float(value) > 1.0):
+			errors.append("%s.%s: %s is out of range" % [context, key, str(value)])
 
 
 func _validate_colour_string(value: Variant, context: String, errors: Array[String]) -> void:
