@@ -4,7 +4,8 @@ extends "res://tests/test_base.gd"
 # through start() and choose_move() / choose_item() (plus rewind()), a round
 # at a time via _round(). Enemy plans are scripted with start()'s test-only
 # enemyPlans override; damage figures are checked against each beat's own
-# roll/crit so crits never flake a case.
+# roll/crit so crits never flake a case. The helpers start with the fog off
+# (every intent read); the fog cases opt in, forcing rolls via enemyUnread.
 
 const PLAYER := CombatPrototype.PLAYER_INDEX
 const ENEMY := 1
@@ -21,6 +22,7 @@ func _start_squad(enemy_rounds: Array) -> Dictionary:
 		"enemyPlans": [enemy_rounds],
 		"allies": [{ "level": 1 }],
 		"seed": 1,
+		"fog": false,
 	})
 
 
@@ -31,6 +33,7 @@ func _start(enemy_rounds: Array, player_level: int = 1, enemy_level: int = 1, se
 		"enemies": [{ "archetype": "mugger", "level": enemy_level }],
 		"enemyPlans": [enemy_rounds],
 		"seed": seed_value,
+		"fog": false,
 	})
 
 
@@ -42,6 +45,7 @@ func _start_group(enemy_plans: Array, player_level: int = 1, seed_value: int = 1
 		"enemies": enemy_plans.map(func(_p): return { "archetype": "mugger", "level": 1 }),
 		"enemyPlans": enemy_plans,
 		"seed": seed_value,
+		"fog": false,
 	})
 
 
@@ -124,6 +128,7 @@ func _start_items(enemy_plans: Array, loadout: Array, allies: Array = []) -> Dic
 		"allies": allies,
 		"loadout": loadout,
 		"seed": 1,
+		"fog": false,
 	})
 
 
@@ -596,7 +601,7 @@ func run() -> void:
 			"enemies": [{ "archetype": "mugger", "level": 2 }],
 			"enemyPlans": [[["guard", { "move": "feint", "target": PLAYER }]]],
 			"allies": [{ "level": 1 }],
-			"seed": 1,
+			"seed": 1, "fog": false,
 		})
 		var plan: Array = cp["combatants"][ALLY]["plan"]
 		assert_eq(plan.map(func(a): return [a["move"], a["target"]]), [["feint", SQUAD_ENEMY], ["strike", SQUAD_ENEMY]])
@@ -915,4 +920,127 @@ func run() -> void:
 		var errors := GameData.validate_tables(corrupted)
 		assert_true(errors.has("combat_prototype.archetypes.bruiser.template: unknown template 'nobody'"), str(errors))
 		assert_true(errors.has("combat_prototype.allyTemplates: unknown template 'nobodyElse'"), str(errors))
+	)
+
+	run_case("an_unread_intent_hides_move_target_and_damage_then_reveals_as_it_resolves", func():
+		GameState.reset()
+		var cp := CombatPrototype.start({
+			"enemies": [{ "archetype": "mugger", "level": 1 }],
+			"enemyPlans": [[["strike", "guard"]]], "enemyUnread": [[[true, false]]], "seed": 1,
+		})
+		var intents := CombatPrototype.enemy_intents(cp, ENEMY)
+		assert_eq(intents[0], { "move": "", "name": "", "unread": true }, "nothing of the move shows")
+		assert_eq(intents[1]["move"], "guard", "a read action shows as before")
+		assert_true(not CombatPrototype.is_read(cp, ENEMY, 0) and CombatPrototype.is_read(cp, ENEMY, 1))
+		assert_eq(CombatPrototype.guard_preview(cp, ENEMY), [CombatPrototype.GUARDED, CombatPrototype.UNKNOWN, CombatPrototype.GUARDED], "its guard after it is unknown too")
+		assert_true(CombatPrototype.is_read(cp, PLAYER, 0), "the player's own positions always read")
+
+		CombatPrototype.choose_move("guard")
+		var enemy_beats: Array = cp["log"].filter(func(b): return b["turnActor"] == ENEMY and b["turnIndex"] == 0)
+		assert_true(enemy_beats.any(func(b): return b["actor"] == ENEMY and b["move"] == "strike" and b["kind"] in ["hit", "chip"]), "the Strike resolved as committed: %s" % str(_kinds(enemy_beats)))
+		assert_eq(CombatPrototype.enemy_intents(cp, ENEMY)[0]["move"], "strike", "revealed once resolved")
+	)
+
+	run_case("unread_rate_falls_with_combat_skill_and_rises_with_the_level_gap", func():
+		var rate := func(player_level: int, enemy_level: int) -> float:
+			var unread := 0
+			var total := 0
+			for s in range(1, 151):
+				GameState.reset()
+				var cp := CombatPrototype.start({
+					"playerLevel": player_level, "enemies": [{ "archetype": "turtle", "level": enemy_level }],
+					"enemyPlans": [[["guard", "guard", "guard"]]], "seed": s,
+				})
+				for key in ["plan", "nextPlan"]:
+					for a in range(2):
+						total += 1
+						if cp["combatants"][ENEMY][key][a].get("unread", false):
+							unread += 1
+			return float(unread) / total
+		var even_low: float = rate.call(1, 1)
+		var even_high: float = rate.call(5, 5)
+		var gap: float = rate.call(1, 3)
+		assert_true(even_high < even_low, "skill 5 reads more than skill 1 (%.3f vs %.3f)" % [even_high, even_low])
+		assert_true(gap > even_low, "an enemy two levels up hides more (%.3f vs %.3f)" % [gap, even_low])
+
+		GameState.reset()
+		var cp := CombatPrototype.start({ "enemies": [{ "archetype": "turtle", "level": 1 }], "enemyPlans": [[["guard", "guard"]]], "seed": 1 })
+		assert_true(CombatPrototype.unread_chance(cp, ENEMY, 0) < CombatPrototype.unread_chance(cp, ENEMY, 1), "the first action is likelier read than the second")
+	)
+
+	run_case("sight_reads_everything_this_round_and_next_and_what_it_saw_stays_read", func():
+		GameState.reset()
+		var cp := CombatPrototype.start({
+			"enemies": [{ "archetype": "mugger", "level": 1 }], "enemyPlans": [[["strike", "guard"]]],
+			"enemyUnread": [[[true, true]]], "loadout": [{ "item": "prophetsBreath", "tier": 1 }], "seed": 1,
+		})
+		var any_unread := func(intents: Array) -> bool:
+			return intents.any(func(i): return i.get("unread", false))
+		assert_true(any_unread.call(CombatPrototype.enemy_intents(cp, ENEMY)), "fogged before the Breath")
+		CombatPrototype.choose_item(0)
+		assert_true(not any_unread.call(CombatPrototype.enemy_intents(cp, ENEMY)), "this round all read")
+		assert_true(not any_unread.call(CombatPrototype.enemy_intents(cp, ENEMY, true)) and not CombatPrototype.enemy_intents(cp, ENEMY, true).is_empty(), "next round all read")
+		assert_true(not CombatPrototype.guard_preview(cp, ENEMY).has(CombatPrototype.UNKNOWN))
+		_round(_plan(["guard"]))
+		assert_true(CombatPrototype.has_sight(cp) and not any_unread.call(CombatPrototype.enemy_intents(cp, ENEMY)), "round 2 under sight")
+		_round(_plan(["guard", "guard"]))
+		assert_true(not CombatPrototype.has_sight(cp), "power 1: sight is gone in round 3")
+		assert_true(not any_unread.call(CombatPrototype.enemy_intents(cp, ENEMY)), "round 3's plan was seen in round 2, so it stays read")
+		_round(_plan(["guard", "guard"]))
+		assert_true(any_unread.call(CombatPrototype.enemy_intents(cp, ENEMY)), "round 4's was never seen")
+	)
+
+	run_case("rewind_keeps_the_same_read_and_unread_rolls", func():
+		var seen_unread := false
+		for s in range(1, 9):
+			GameState.reset()
+			var cp := CombatPrototype.start({
+				"enemies": [{ "archetype": "turtle", "level": 5 }], "enemyPlans": [[["guard", "guard", "guard"]]], "seed": s,
+			})
+			var flags := func() -> Array:
+				var enemy: Dictionary = GameState.state["combatPrototype"]["combatants"][ENEMY]
+				return [enemy["plan"].map(func(a): return a["unread"]), enemy["nextPlan"].map(func(a): return a["unread"])]
+			var opening: Array = flags.call()
+			CombatPrototype.choose_move("strike", ENEMY)
+			CombatPrototype.choose_move("strike", ENEMY)
+			assert_eq(int(GameState.state["combatPrototype"]["round"]), 2)
+			var round_two: Array = flags.call()
+			CombatPrototype.rewind()
+			CombatPrototype.rewind()
+			assert_eq(flags.call(), opening, "seed %d: round 1's rolls come back" % s)
+			CombatPrototype.choose_move("guard")
+			CombatPrototype.choose_move("feint", ENEMY)
+			assert_eq(flags.call(), round_two, "seed %d: a different line into round 2 meets the same rolls" % s)
+			seen_unread = seen_unread or (opening + round_two).any(func(r): return r.has(true))
+		assert_true(seen_unread, "the sample had something unread to keep")
+	)
+
+	run_case("ally_ai_never_guards_against_an_unread_strike", func():
+		var squad := func(fog: bool) -> Dictionary:
+			GameState.reset()
+			var cp := CombatPrototype.start({
+				"enemies": [{ "archetype": "mugger", "level": 1 }],
+				"enemyPlans": [[["strike", "strike"], [{ "move": "strike", "target": ALLY }, "guard"]]],
+				"enemyUnread": [[[false, false], [true, false]]],
+				"allies": [{ "level": 1 }], "fog": fog, "seed": 1,
+			})
+			_round(_plan(["guard", "guard"]))
+			assert_eq(int(cp["round"]), 2)
+			assert_eq(cp["combatants"][SQUAD_ENEMY]["guard"], CombatPrototype.OPEN, "round 1's Strikes left it Open")
+			return cp
+		var read: Dictionary = squad.call(false)
+		assert_eq(read["combatants"][ALLY]["plan"][0]["move"], "guard", "a read Strike at it: Guard")
+		var fogged: Dictionary = squad.call(true)
+		assert_eq(fogged["combatants"][ALLY]["plan"][0]["move"], "strike", "unread: it strikes the Open enemy instead")
+	)
+
+	run_case("validator_checks_the_fog_curve", func():
+		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+		corrupted["combat_prototype"]["fog"]["unreadChance"] = [0, 0.3]
+		corrupted["combat_prototype"]["fog"]["perLevelAbove"] = -0.1
+		corrupted["combat_prototype"]["fog"]["positionMultiplier"] = []
+		var errors := GameData.validate_tables(corrupted)
+		assert_true(errors.has("combat_prototype.fog.unreadChance: expected 6 entries (index=level 0..5)"), str(errors))
+		assert_true(errors.has("combat_prototype.fog.perLevelAbove: must be at least 0"), str(errors))
+		assert_true(errors.has("combat_prototype.fog.positionMultiplier: must not be empty"), str(errors))
 	)

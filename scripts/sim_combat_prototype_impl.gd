@@ -4,14 +4,15 @@ extends RefCounted
 # fight only through CombatPrototype.start() / choose_move() / choose_item(),
 # a policy deciding at each pause, reading state through its read-only
 # helpers; enemy plans are read as the player sees them (enemy_intents():
-# targets only under Prophet's Breath sight).
+# targets only under Prophet's Breath sight, unread intents unknown).
 
 const POLICIES := ["naive", "reader"]
 const ROUND_CAP := 60
+const FOG_MODES := { "both": [true, false], "on": [true], "off": [false] }
 const DEFAULTS := {
 	"n": "100", "seed": "1", "levels": "1,3,5", "elevels": "match",
 	"archetypes": "mugger,bruiser,turtle", "counts": "1,2", "allies": "0",
-	"loadouts": "none,blast+shield,prophetsBreath+beALady",
+	"loadouts": "none,blast+shield,prophetsBreath+beALady", "fog": "both",
 }
 
 
@@ -21,10 +22,26 @@ func run(raw: Dictionary) -> void:
 	for key in raw.keys():
 		if not DEFAULTS.has(key) and not _override(key, raw[key]):
 			return
+	if not FOG_MODES.has(opts["fog"]):
+		print("Unknown fog mode: %s (both, on or off)" % opts["fog"])
+		return
+	var overall := {}
+	for fog in FOG_MODES[opts["fog"]]:
+		overall[fog] = _run_table(opts, fog)
+		print("")
+	if overall.size() == 2:
+		for policy in POLICIES:
+			print("%-7s fog cost: overall win %5.1f%% with fog vs %5.1f%% without (%+.1f pts)" % [
+				policy, overall[true][policy], overall[false][policy], overall[true][policy] - overall[false][policy]])
+
+
+# One table over the grid with the fight's fog on or off; returns each
+# policy's overall win %.
+func _run_table(opts: Dictionary, fog: bool) -> Dictionary:
 	var n := int(opts["n"])
 	var base_seed := int(opts["seed"])
 	var matchups := _grid(opts)
-	print("Combat prototype sim: n=%d seed=%d, %d matchups x %d policies" % [n, base_seed, matchups.size(), POLICIES.size()])
+	print("Combat prototype sim: fog %s, n=%d seed=%d, %d matchups x %d policies" % ["on" if fog else "off", n, base_seed, matchups.size(), POLICIES.size()])
 	print("%-4s %-16s %-3s %-30s %-7s %6s %4s %6s %8s %7s" % ["plv", "enemies", "al", "loadout", "policy", "rounds", "p90", "win%", "HP%win", "actions"])
 	var totals := {}
 	for policy in POLICIES:
@@ -33,7 +50,7 @@ func run(raw: Dictionary) -> void:
 		var matchup: Dictionary = matchups[m]
 		var win_pcts := {}
 		for policy in POLICIES:
-			var stats := _run_matchup(matchup, policy, n, base_seed, m)
+			var stats := _run_matchup(matchup, policy, n, base_seed, m, fog)
 			win_pcts[policy] = stats["winPct"]
 			totals[policy]["wins"] += stats["wins"]
 			totals[policy]["fights"] += n
@@ -46,10 +63,13 @@ func run(raw: Dictionary) -> void:
 		elif win_pcts["naive"] > win_pcts["reader"]:
 			totals["naive"]["better"] += 1
 	print("")
+	var overall := {}
 	for policy in POLICIES:
 		var t: Dictionary = totals[policy]
+		overall[policy] = 100.0 * t["wins"] / maxi(1, t["fights"])
 		print("%-7s overall win %5.1f%%, higher win %% in %d of %d matchups" % [
-			policy, 100.0 * t["wins"] / maxi(1, t["fights"]), t["better"], matchups.size()])
+			policy, overall[policy], t["better"], matchups.size()])
+	return overall
 
 
 # What-if override for this run only: a dotted path to an existing number
@@ -110,9 +130,9 @@ func _loadout(spec: String) -> Array:
 	return entries
 
 
-# Fight i of matchup m uses the same seed under every policy, so the
-# policies meet the same opening plans.
-func _run_matchup(matchup: Dictionary, policy: String, n: int, base_seed: int, m: int) -> Dictionary:
+# Fight i of matchup m uses the same seed under every policy and fog mode,
+# so they all meet the same opening plans.
+func _run_matchup(matchup: Dictionary, policy: String, n: int, base_seed: int, m: int, fog: bool) -> Dictionary:
 	var rounds: Array = []
 	var wins := 0
 	var timeouts := 0
@@ -124,7 +144,7 @@ func _run_matchup(matchup: Dictionary, policy: String, n: int, base_seed: int, m
 			allies.append({ "level": matchup["playerLevel"] })
 		var cp := CombatPrototype.start({
 			"playerLevel": matchup["playerLevel"], "enemies": matchup["enemies"],
-			"allies": allies, "loadout": matchup["loadout"],
+			"allies": allies, "loadout": matchup["loadout"], "fog": fog,
 			"seed": base_seed * 1000003 + m * 10007 + i,
 		})
 		assert(not cp.is_empty(), "bad matchup config: %s" % matchup["label"])
@@ -268,9 +288,10 @@ func _threatened(cp: Dictionary, enemies: Array, i: int, size: int) -> bool:
 
 
 # Whether intent `index` (this round's next for enemy e, or next round's
-# with next_round) is a damaging action aimed at the player.
+# with next_round) is a damaging action aimed at the player; an unread one
+# isn't known to be.
 func _strikes(cp: Dictionary, e: int, intents: Array, index: int, next_round: bool = false) -> bool:
-	if index >= intents.size():
+	if index >= intents.size() or intents[index].get("unread", false):
 		return false
 	if not next_round and int(cp["combatants"][e]["actionsLost"]) > 0:
 		return false
@@ -284,7 +305,8 @@ func _strikes(cp: Dictionary, e: int, intents: Array, index: int, next_round: bo
 # the fight paused at the player's action `now`: its guard state now, then
 # its own committed guard changes still to come before i (minus any it's
 # losing) and the player's Feints planned at `feints` indices, in timeline
-# order. A frozen or Exposed enemy reads Open.
+# order. A frozen or Exposed enemy reads Open; an unread intent leaves its
+# guard unknown, which doesn't.
 func _sees_open(cp: Dictionary, e: int, now: int, i: int, feints: Array) -> bool:
 	var enemy: Dictionary = cp["combatants"][e]
 	if CombatPrototype.is_exposed(cp, enemy):
@@ -299,7 +321,7 @@ func _sees_open(cp: Dictionary, e: int, now: int, i: int, feints: Array) -> bool
 	# Events as [index, enemy-first-at-that-index, guard state].
 	var events: Array = []
 	for j in range(resolved, acted):
-		var guard: String = CombatPrototype.move(intents[j]["move"])["actorGuard"]
+		var guard: String = CombatPrototype.UNKNOWN if intents[j].get("unread", false) else CombatPrototype.move(intents[j]["move"])["actorGuard"]
 		if j - resolved >= lost and guard != CombatPrototype.UNCHANGED:
 			events.append([j, faster, guard])
 	for f in feints:

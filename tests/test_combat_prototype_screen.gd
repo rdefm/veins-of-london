@@ -240,12 +240,34 @@ func run() -> void:
 		assert_true(next.size() > 0 and next.all(func(e): return e["factionName"] == "Next round"))
 	)
 
+	run_case("unread_enemy_intents_show_as_a_question_mark_until_they_resolve", func():
+		GameState.reset()
+		CombatPrototype.start({
+			"seed": 1, "enemies": [{ "archetype": "mugger", "level": 1 }],
+			"enemyPlans": [[["strike", "guard"]]], "enemyUnread": [[[true, false]]],
+		})
+		var screen := _render()
+		var enemy_cards := func() -> Array:
+			return screen._strip._entries.filter(func(e): return e["isEnemy"] and not e["nextRound"])
+		var cards: Array = enemy_cards.call()
+		assert_eq(cards.map(func(e): return [e["actionText"], e["actionUnread"]]), [["?", true], ["Guard", false]])
+		assert_eq(cards[0]["guardBadge"], "?", "the hidden move's guard is hidden too")
+		screen._toggle_readouts()
+		var labels: Array = screen._readouts_content.find_children("*", "Label", true, false).filter(func(l): return not _queued(l, screen._readouts_content))
+		assert_true(labels.any(func(l): return l.text == "(unread)"), "the readouts timeline labels it")
+
+		CombatPrototype.choose_move("guard")
+		screen._refresh()
+		cards = enemy_cards.call()
+		assert_eq([cards[0]["actionText"], cards[0]["actionUnread"]], ["Strike", false], "revealed once resolved")
+	)
+
 	run_case("guard_badges_follow_the_guard_preview_then_the_actual_result", func():
 		var screen := _render_squad_fight()
 		var cp: Dictionary = GameState.state["combatPrototype"]
 		for entry in screen._strip._entries:
 			if not CombatPrototype.is_resolved(cp, entry["actor"], entry["index"]):
-				assert_eq(entry["guardBadge"], str(CombatPrototype.guard_preview(cp, entry["actor"])[entry["index"] + 1]).capitalize(), entry["occurrenceId"])
+				assert_eq(entry["guardBadge"], CombatPrototypeScreen._guard_text(CombatPrototype.guard_preview(cp, entry["actor"])[entry["index"] + 1]), entry["occurrenceId"])
 		var pause := CombatPrototype.decision_position(cp)
 		var round_no: int = cp["round"]
 		var result := CombatPrototype.choose_move("guard")

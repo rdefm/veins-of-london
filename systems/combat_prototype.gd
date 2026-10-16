@@ -16,7 +16,9 @@ extends RefCounted
 # round resolves in timeline order from the cursor and pauses at each of the
 # player's positions; the pick there goes into playerPlan and resolves.
 # Randomness runs off the fight's own RNG state (rngState), so a Rewind
-# replays the same rolls for the same pick.
+# replays the same rolls for the same pick. Fog of war (spec §Fog of war)
+# marks each enemy action read or unread as its plan is rolled, off a
+# separate stream (fogRngState), so the fog never shifts the fight's rolls.
 
 const SIDE_PLAYER := "player"
 const SIDE_ALLY := "ally"
@@ -28,6 +30,10 @@ const UNCHANGED := "unchanged"
 const GUARD_EFFECTS: Array[String] = [GUARDED, OPEN, UNCHANGED]
 # guard_marker()'s third state, for a combatant Exposed by a sprung Lure.
 const EXPOSED := "exposed"
+# guard_preview()'s state for an enemy after an unread action.
+const UNKNOWN := "unknown"
+# Salts the fight seed into the fog stream's seed.
+const FOG_SEED_SALT := 0x5F0C0F06
 
 const TARGET_SELF := "self"
 const TARGET_ENEMY := "enemy"
@@ -109,6 +115,10 @@ static func new_state() -> Dictionary:
 		# Where this round's resolution has got to (see _new_cursor()).
 		"cursor": _new_cursor(),
 		"rngState": 0,
+		# Whether enemy actions can be unread (the sim switches it off), and
+		# the fog rolls' own RNG state.
+		"fog": true,
+		"fogRngState": 0,
 		# Every resolved beat so far, oldest first (see _beat()).
 		"log": [],
 		"snapshots": [],
@@ -224,10 +234,13 @@ static func display_name(combatant: Dictionary) -> String:
 # backdrop, { context, locationKey } (context one of
 # Combat.DEBUG_SETUP_CONTEXTS, default DEFAULT_BACKDROP_CONTEXT;
 # locationKey "" or absent derives it as Combat.location_key_for() does for
-# a fight at no vein); seed (default fresh);
+# a fight at no vein); seed (default fresh); fog (default true; false
+# leaves every enemy action read);
 # enemyPlans / allyPlans, test-only: per combatant an Array of rounds, each
 # an Array of move ids or { move, target } entries, used in place of the
-# archetype's patterns or the ally AI (round n reads entry (n-1) mod size).
+# archetype's patterns or the ally AI (round n reads entry (n-1) mod size);
+# enemyUnread, test-only: per enemy an Array of rounds likewise, each an
+# Array of bools, used in place of the fog roll (missing entries read).
 # Everyone starts Guarded. Round 1 then resolves up to the player's first
 # position (beats from anyone faster land in the log). Returns the new
 # fight state, or {} for an unknown archetype, too many allies, a bad
@@ -258,12 +271,16 @@ static func start(config: Dictionary = {}) -> Dictionary:
 			return {}
 		ally_loadouts.append(ally_loadout)
 
+	var seed_value := int(config.get("seed", Rng.fresh_seed()))
 	var rng := RandomNumberGenerator.new()
-	rng.seed = int(config.get("seed", Rng.fresh_seed()))
+	rng.seed = seed_value
+	var fog_rng := RandomNumberGenerator.new()
+	fog_rng.seed = seed_value ^ FOG_SEED_SALT
 
 	var cp := new_state()
 	cp["active"] = true
 	cp["round"] = 1
+	cp["fog"] = bool(config.get("fog", true))
 	cp["backdrop"] = { "context": backdrop_context, "locationKey": location_key }
 	var combatants: Array = cp["combatants"]
 	var player := _build_combatant(SIDE_PLAYER, _data()["playerBase"], int(config.get("playerLevel", 1)))
@@ -278,6 +295,7 @@ static func start(config: Dictionary = {}) -> Dictionary:
 		ally["loadout"] = ally_loadouts[i]
 		combatants.append(ally)
 	var overrides: Array = config.get("enemyPlans", [])
+	var unread_overrides: Array = config.get("enemyUnread", [])
 	var archetype_counts: Dictionary = {}
 	for spec in enemy_specs:
 		archetype_counts[spec["archetype"]] = archetype_counts.get(spec["archetype"], 0) + 1
@@ -292,12 +310,16 @@ static func start(config: Dictionary = {}) -> Dictionary:
 			archetype_seen[spec["archetype"]] = nth + 1
 			enemy["name"] = "%s %s" % [enemy["name"], char(65 + nth)]
 		enemy["planOverride"] = overrides[i] if i < overrides.size() else null
+		enemy["unreadOverride"] = unread_overrides[i] if i < unread_overrides.size() else null
 		combatants.append(enemy)
 
 	for i in range(combatants.size()):
 		if combatants[i]["side"] == SIDE_ENEMY:
 			combatants[i]["plan"] = _roll_plan(cp, i, 1, rng)
+			_roll_fog(cp, i, combatants[i]["plan"], 1, fog_rng)
 			combatants[i]["nextPlan"] = _roll_plan(cp, i, 2, rng)
+			_roll_fog(cp, i, combatants[i]["nextPlan"], 2, fog_rng)
+	cp["fogRngState"] = fog_rng.state
 	_plan_allies(cp, rng)
 	cp["playerPlan"] = _empty_player_plan(cp)
 	var beats: Array = []
@@ -405,6 +427,41 @@ static func _plan_from(cp: Dictionary, actor: int, moves: Array, rng: RandomNumb
 	return plan
 
 
+# Marks each action of enemy `actor`'s freshly rolled `plan` (for round
+# `round_no`) read or unread: a fog roll under unread_chance(), or the test
+# override; every action reads with the fight's fog off. Draws one roll per
+# action the enemy's level gives, whatever the plan holds, so the stream
+# stays in step however the fight goes.
+static func _roll_fog(cp: Dictionary, actor: int, plan: Array, round_no: int, fog_rng: RandomNumberGenerator) -> void:
+	var combatant: Dictionary = cp["combatants"][actor]
+	var override = combatant.get("unreadOverride")
+	var forced: Array = override[(round_no - 1) % override.size()] if override != null and not override.is_empty() else []
+	for a in range(actions_per_round(combatant)):
+		var unread := fog_rng.randf() < unread_chance(cp, actor, a)
+		if a >= plan.size():
+			continue
+		if override != null and not override.is_empty():
+			unread = a < forced.size() and bool(forced[a])
+		plan[a]["unread"] = bool(cp["fog"]) and unread
+
+
+# The chance enemy `actor`'s action `index` rolls unread (data fog): the
+# player's Combat Skill base, raised per level the enemy is above the player
+# (lowered per level below), scaled by the action's position, within [0, 1].
+static func unread_chance(cp: Dictionary, actor: int, index: int) -> float:
+	var fog: Dictionary = _data()["fog"]
+	var player_level: int = cp["combatants"][PLAYER_INDEX]["level"]
+	var gap: int = int(cp["combatants"][actor]["level"]) - player_level
+	var chance := float(fog["unreadChance"][player_level])
+	if gap > 0:
+		chance += gap * float(fog["perLevelAbove"])
+	else:
+		chance += gap * float(fog["perLevelBelow"])
+	var multipliers: Array = fog["positionMultiplier"]
+	chance *= float(multipliers[mini(index, multipliers.size() - 1)])
+	return clampf(chance, 0.0, 1.0)
+
+
 static func _pick_pattern(patterns: Array, rng: RandomNumberGenerator) -> Dictionary:
 	var total := 0.0
 	for pattern in patterns:
@@ -453,9 +510,10 @@ static func _living_opponents(cp: Dictionary, actor: int) -> Array:
 
 # ── Ally AI ──────────────────────────────────────────────────────────────
 
-# Plans every living ally's round from the enemies' committed plans (spec
-# §Ally AI), per action: Guard where an enemy strikes it; else Strike an
-# enemy who'll be Open when it acts; else, with an action to follow, Feint a
+# Plans every living ally's round from the enemies' committed plans as the
+# player reads them (spec §Ally AI, §Fog of war: an unread action is
+# unknown, never a Strike to guard), per action: Guard where an enemy
+# strikes it; else Strike an enemy who'll be Open when it acts; else, with an action to follow, Feint a
 # Guarded enemy the Feint leaves Open for that next action's Strike; else
 # Guard. Before those, an unspent loadout item takes the action: a heal on
 # the worst-off of itself and its teammates below allyHealBelow of hpMax,
@@ -543,7 +601,7 @@ static func _ally_action(cp: Dictionary, ally: int, index: int, count: int, fein
 	var enemies := _living_opponents(cp, ally)
 	for e in enemies:
 		var plan: Array = combatants[e]["plan"]
-		if index < plan.size() and int(plan[index]["target"]) == ally and move(plan[index]["move"])["effect"] in [EFFECT_DAMAGE, EFFECT_STUN]:
+		if index < plan.size() and is_read(cp, e, index) and int(plan[index]["target"]) == ally and move(plan[index]["move"])["effect"] in [EFFECT_DAMAGE, EFFECT_STUN]:
 			return { "move": MOVE_GUARD, "target": ally, "part": 0 }
 	for e in enemies:
 		if _ally_sees_open(cp, e, ally, index, feints):
@@ -558,7 +616,8 @@ static func _ally_action(cp: Dictionary, ally: int, index: int, count: int, fein
 
 # Whether enemy `e` will be Open when `observer` takes its action `index`,
 # replaying the enemy's committed guard changes and `feints` on it in
-# timeline order up to that moment. Exposed counts as Open.
+# timeline order up to that moment. Exposed counts as Open; an unread
+# action leaves its guard Unknown, which doesn't.
 static func _ally_sees_open(cp: Dictionary, e: int, observer: int, index: int, feints: Array) -> bool:
 	var enemy: Dictionary = cp["combatants"][e]
 	if is_exposed(cp, enemy):
@@ -566,7 +625,7 @@ static func _ally_sees_open(cp: Dictionary, e: int, observer: int, index: int, f
 	var events: Array = []
 	var plan: Array = enemy["plan"]
 	for i in range(mini(plan.size(), index + 1)):
-		var effect: String = move(plan[i]["move"])["actorGuard"]
+		var effect: String = move(plan[i]["move"])["actorGuard"] if is_read(cp, e, i) else UNKNOWN
 		if effect != UNCHANGED:
 			events.append({ "actor": e, "index": i, "guard": effect })
 	for f in feints:
@@ -762,13 +821,19 @@ static func _plan_of(cp: Dictionary, actor: int) -> Array:
 # next_round its pre-rolled plan for the round after. Each entry is
 # { move, name }; under Prophet's Breath sight it adds target and, for a
 # damage move, dmgMin/dmgMax (the roll range before guard and crit). Without
-# sight next round reads as [] (spec user stories 12-13).
+# sight next round reads as [] (spec user stories 12-13). An action that
+# isn't read (is_read()) is { move: "", name: "", unread: true }.
 static func enemy_intents(cp: Dictionary, actor: int, next_round: bool = false) -> Array:
 	var sight := has_sight(cp)
 	if next_round and not sight:
 		return []
 	var result: Array = []
-	for action in cp["combatants"][actor]["nextPlan" if next_round else "plan"]:
+	var plan: Array = cp["combatants"][actor]["nextPlan" if next_round else "plan"]
+	for index in range(plan.size()):
+		var action: Dictionary = plan[index]
+		if not next_round and not is_read(cp, actor, index):
+			result.append({ "move": "", "name": "", "unread": true })
+			continue
 		var m := move(action["move"])
 		var intent := { "move": action["move"], "name": m["name"] }
 		if sight:
@@ -797,6 +862,19 @@ static func next_round_timeline(cp: Dictionary) -> Array:
 	return entries
 
 
+# Whether the player can read `actor`'s action `index` this round: always
+# for the player and allies; for an enemy, unless it rolled unread, while
+# Prophet's Breath sight lasts or once the action has resolved.
+static func is_read(cp: Dictionary, actor: int, index: int) -> bool:
+	var combatant: Dictionary = cp["combatants"][actor]
+	if combatant["side"] != SIDE_ENEMY or has_sight(cp):
+		return true
+	var plan: Array = combatant["plan"]
+	if index >= plan.size() or not plan[index].get("unread", false):
+		return true
+	return is_resolved(cp, actor, index)
+
+
 # Whether `actor`'s action `index` on this round's timeline has resolved.
 static func is_resolved(cp: Dictionary, actor: int, index: int) -> bool:
 	var cursor: Dictionary = cp["cursor"]
@@ -810,7 +888,8 @@ static func is_resolved(cp: Dictionary, actor: int, index: int) -> bool:
 # A combatant's guard state now, then after each of its planned actions
 # this round (an unfilled player action leaves it unchanged). With
 # next_round, an enemy's state as this round leaves it, then after each
-# action of its pre-rolled next plan.
+# action of its pre-rolled next plan. An unread enemy action this round
+# leaves it UNKNOWN until a read action sets its guard.
 static func guard_preview(cp: Dictionary, actor: int, next_round: bool = false) -> Array:
 	var state: String = cp["combatants"][actor]["guard"]
 	var plan: Array = _plan_of(cp, actor)
@@ -818,9 +897,12 @@ static func guard_preview(cp: Dictionary, actor: int, next_round: bool = false) 
 		state = guard_preview(cp, actor).back()
 		plan = cp["combatants"][actor]["nextPlan"]
 	var result: Array = [state]
-	for action in plan:
+	for index in range(plan.size()):
+		var action = plan[index]
 		if action != null:
 			var effect: String = move(action["move"]).get("actorGuard", UNCHANGED)
+			if not next_round and not is_read(cp, actor, index):
+				effect = UNKNOWN
 			if effect != UNCHANGED:
 				state = effect
 		result.append(state)
@@ -878,17 +960,29 @@ static func _next_entry(cp: Dictionary) -> Dictionary:
 	return {}
 
 
+# The plans moving up were on show under sight through the round just ended
+# when the player had it, so they all commit read.
 static func _end_round(cp: Dictionary, rng: RandomNumberGenerator) -> void:
 	var combatants: Array = cp["combatants"]
+	var seen := has_sight(cp)
 	cp["round"] += 1
+	var fog_rng := RandomNumberGenerator.new()
+	fog_rng.state = int(cp["fogRngState"])
 	for i in range(combatants.size()):
 		combatants[i]["lure"] = LURE_NONE
 		if combatants[i]["side"] == SIDE_ENEMY:
 			combatants[i]["plan"] = _recommit_targets(cp, i, combatants[i]["nextPlan"], rng)
+			if seen:
+				for action in combatants[i]["plan"]:
+					action["unread"] = false
 			combatants[i]["nextPlan"] = [] if combatants[i]["koed"] else _roll_plan(cp, i, cp["round"] + 1, rng)
+			_roll_fog(cp, i, combatants[i]["nextPlan"], cp["round"] + 1, fog_rng)
+	cp["fogRngState"] = fog_rng.state
+	# The new round's cursor before the ally AI reads, so is_read() sees
+	# nothing of it resolved.
+	cp["cursor"] = _new_cursor()
 	_plan_allies(cp, rng)
 	cp["playerPlan"] = _empty_player_plan(cp)
-	cp["cursor"] = _new_cursor()
 
 
 # Applies the move's effect, then its effect on the actor's guard state. A

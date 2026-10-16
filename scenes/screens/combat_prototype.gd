@@ -21,6 +21,8 @@ extends Control
 
 # Setup's enemy count cap (spec §Out of Scope: no more than 3 per side).
 const MAX_ENEMIES := 3
+# An unread enemy intent, and the guard state it hides (spec §Fog of war).
+const UNREAD_TEXT := "?"
 const _HEADING_ROW_HEIGHT := 40.0
 const _STRIP_TOP_INSET := 6.0
 const _STRIP_SIDE_INSET := 9.0
@@ -261,7 +263,8 @@ func _sync_fight(cp: Dictionary) -> void:
 # order, then under sight one per enemy action next round. Each is a
 # TurnOrderStrip entry keyed by the combatant's stage { type, index }, with
 # "actor"/"index" (its timeline position), "actionText" (_position_text())
-# and "guardBadge" (_guard_badge()); the paused position is "focused".
+# and "guardBadge" (_guard_badge()), "actionUnread" for an unread enemy
+# intent; the paused position is "focused".
 # `pick` ({ move, target }) reads as already placed at the pause -- the
 # cards as a pick's playback starts.
 static func strip_entries(cp: Dictionary, pick: Dictionary = {}) -> Array:
@@ -271,6 +274,7 @@ static func strip_entries(cp: Dictionary, pick: Dictionary = {}) -> Array:
 	for position in CombatPrototype.timeline(cp):
 		var entry := _strip_entry(cp, roster, position, cp["round"])
 		entry["actionText"] = _position_text(cp, position, pick)
+		entry["actionUnread"] = _position_unread(cp, position)
 		entry["guardBadge"] = _guard_badge(cp, position)
 		entry["focused"] = pick.is_empty() and position["actor"] == CombatPrototype.PLAYER_INDEX and position["index"] == pause
 		entries.append(entry)
@@ -278,7 +282,7 @@ static func strip_entries(cp: Dictionary, pick: Dictionary = {}) -> Array:
 		var actor: int = position["actor"]
 		var entry := _strip_entry(cp, roster, position, cp["round"] + 1)
 		entry["actionText"] = _intent_text(cp, CombatPrototype.enemy_intents(cp, actor, true)[position["index"]])
-		entry["guardBadge"] = str(CombatPrototype.guard_preview(cp, actor, true)[position["index"] + 1]).capitalize()
+		entry["guardBadge"] = _guard_text(CombatPrototype.guard_preview(cp, actor, true)[position["index"] + 1])
 		entry["factionName"] = "Next round"
 		entry["focused"] = false
 		entries.append(entry)
@@ -338,7 +342,18 @@ static func _guard_badge(cp: Dictionary, position: Dictionary) -> String:
 		return "Exposed"
 	elif _position_loss(cp, position) == "frozen":
 		return "Open"
-	return str(CombatPrototype.guard_preview(cp, actor)[position["index"] + 1]).capitalize()
+	return _guard_text(CombatPrototype.guard_preview(cp, actor)[position["index"] + 1])
+
+
+# A guard state as a badge reads: "?" for one an unread intent hides.
+static func _guard_text(state: String) -> String:
+	return UNREAD_TEXT if state == CombatPrototype.UNKNOWN else state.capitalize()
+
+
+# Whether a timeline position shows an enemy intent the player can't read
+# (a lost one reads as lost instead).
+static func _position_unread(cp: Dictionary, position: Dictionary) -> bool:
+	return not CombatPrototype.is_read(cp, position["actor"], position["index"]) and _position_loss(cp, position) == ""
 
 
 # What a timeline position holds: an enemy's intent (target and damage
@@ -708,7 +723,7 @@ func _build_combatant_card(cp: Dictionary, index: int) -> Control:
 	c["content"].add_child(UI.label("%s — level %d — %d/%d HP%s" % [CombatPrototype.display_name(combatant), combatant["level"], combatant["hp"], combatant["hpMax"], status]))
 	c["content"].add_child(UI.bar(combatant["hp"], combatant["hpMax"]))
 	if not combatant["koed"]:
-		var preview: Array = CombatPrototype.guard_preview(cp, index).map(func(state): return str(state).capitalize())
+		var preview: Array = CombatPrototype.guard_preview(cp, index).map(func(state): return _guard_text(state))
 		c["content"].add_child(UI.muted_label("Guard: %s" % " → ".join(preview)))
 		if CombatPrototype.is_exposed(cp, combatant):
 			c["content"].add_child(UI.muted_label("Exposed through round %d" % combatant["exposedUntil"]))
@@ -744,6 +759,8 @@ func _build_timeline_card(cp: Dictionary) -> Control:
 		elif combatants[actor]["side"] == CombatPrototype.SIDE_ALLY:
 			row.add_child(UI.muted_label("(ally)"))
 		row.add_child(UI.label(_position_text(cp, entry)))
+		if _position_unread(cp, entry):
+			row.add_child(UI.muted_label("(unread)"))
 		c["content"].add_child(row)
 	if CombatPrototype.has_sight(cp):
 		c["content"].add_child(UI.heading("Next round (Prophet's Breath)", 14))
@@ -755,8 +772,11 @@ func _build_timeline_card(cp: Dictionary) -> Control:
 	return c["panel"]
 
 
-# An enemy intent: its move type, plus target and damage range under sight.
+# An enemy intent: its move type, plus target and damage range under sight;
+# "?" while unread.
 static func _intent_text(cp: Dictionary, intent: Dictionary) -> String:
+	if intent.get("unread", false):
+		return UNREAD_TEXT
 	var text: String = intent["name"]
 	if intent.has("target") and int(intent["target"]) >= 0 and CombatPrototype.move(intent["move"])["target"] != CombatPrototype.TARGET_SELF:
 		text += " → %s" % CombatPrototype.display_name(cp["combatants"][intent["target"]])
@@ -866,8 +886,13 @@ func _advance_strip(beat: Dictionary, patch: bool = true) -> void:
 	var entry: Dictionary = entries[playing]
 	if beat["kind"] in ["lost", "frozen"]:
 		entry["actionText"] = "Frozen" if beat["kind"] == "frozen" else "Lost"
-	elif int(beat["actor"]) == entry["actor"] and beat.has("actorGuard"):
-		entry["guardBadge"] = str(beat["actorGuard"]).capitalize()
+		entry["actionUnread"] = false
+	elif int(beat["actor"]) == entry["actor"]:
+		if entry.get("actionUnread", false) and beat["move"] != "":
+			entry["actionText"] = _aimed(GameState.state["combatPrototype"], CombatPrototype.move(beat["move"])["name"], beat["move"], int(beat["target"]))
+			entry["actionUnread"] = false
+		if beat.has("actorGuard"):
+			entry["guardBadge"] = str(beat["actorGuard"]).capitalize()
 	if beat["kind"] == "ko":
 		for i in range(playing + 1, entries.size()):
 			if entries[i]["actor"] == int(beat["target"]) and not entries[i]["nextRound"]:

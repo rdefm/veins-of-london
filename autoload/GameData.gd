@@ -1328,7 +1328,7 @@ func _validate_enemies(t: Dictionary, errors: Array[String]) -> void:
 # is a recipe with an effectPower curve and a known target type and effect;
 # every archetype and ally slot names a combat_visuals sprite template.
 func _validate_combat_prototype(cp: Dictionary, skill_curve: Array, recipes: Dictionary, templates: Dictionary, errors: Array[String]) -> void:
-	_require_keys(cp, ["chipMultiplier", "actionsPerRound", "critChance", "levelMax", "allyHealBelow", "allyCrowdEnemies", "playerBase", "allyBase", "allyTemplates", "moves", "items", "archetypes", "beatLines"], "combat_prototype", errors)
+	_require_keys(cp, ["chipMultiplier", "actionsPerRound", "critChance", "levelMax", "allyHealBelow", "allyCrowdEnemies", "fog", "playerBase", "allyBase", "allyTemplates", "moves", "items", "archetypes", "beatLines"], "combat_prototype", errors)
 	var ally_templates: Array = cp.get("allyTemplates", [])
 	if ally_templates.size() < CombatPrototype.MAX_ALLIES:
 		errors.append("combat_prototype.allyTemplates: needs one template per ally (%d)" % CombatPrototype.MAX_ALLIES)
@@ -1358,6 +1358,7 @@ func _validate_combat_prototype(cp: Dictionary, skill_curve: Array, recipes: Dic
 	for level in range(crit.size()):
 		if float(crit[level]) < 0.0 or float(crit[level]) > 1.0:
 			errors.append("combat_prototype.critChance[%d]: must be in [0, 1]" % level)
+	_validate_combat_prototype_fog(cp.get("fog", {}), level_max, errors)
 	_validate_combat_prototype_stats(cp.get("playerBase", {}), "combat_prototype.playerBase", errors)
 	_validate_combat_prototype_stats(cp.get("allyBase", {}), "combat_prototype.allyBase", errors)
 
@@ -1449,6 +1450,26 @@ func _validate_combat_prototype(cp: Dictionary, skill_curve: Array, recipes: Dic
 				errors.append("%s.params.critChance: must be in [0, 1]" % path)
 
 	_require_keys(cp.get("beatLines", {}), ["guard", "hit", "chip", "crit", "ko", "feint", "stun", "fizzle", "lost", "lure", "exposed", "fled", "fleeFailed", "absorb", "frozen", "timePearl", "blackHole", "pull", "blast", "shield", "healSelf", "heal", "powder", "sight", "lady"], "combat_prototype.beatLines", errors)
+
+
+# The fog-of-war unread-chance curve (CombatPrototype.unread_chance()).
+func _validate_combat_prototype_fog(fog: Dictionary, level_max: int, errors: Array[String]) -> void:
+	_require_keys(fog, ["unreadChance", "perLevelAbove", "perLevelBelow", "positionMultiplier"], "combat_prototype.fog", errors)
+	var curve: Array = fog.get("unreadChance", [])
+	if curve.size() != level_max + 1:
+		errors.append("combat_prototype.fog.unreadChance: expected %d entries (index=level 0..%d)" % [level_max + 1, level_max])
+	for level in range(curve.size()):
+		if float(curve[level]) < 0.0 or float(curve[level]) > 1.0:
+			errors.append("combat_prototype.fog.unreadChance[%d]: must be in [0, 1]" % level)
+	for key in ["perLevelAbove", "perLevelBelow"]:
+		if float(fog.get(key, -1.0)) < 0.0:
+			errors.append("combat_prototype.fog.%s: must be at least 0" % key)
+	var multipliers: Array = fog.get("positionMultiplier", [])
+	if multipliers.is_empty():
+		errors.append("combat_prototype.fog.positionMultiplier: must not be empty")
+	for i in range(multipliers.size()):
+		if float(multipliers[i]) < 0.0:
+			errors.append("combat_prototype.fog.positionMultiplier[%d]: must be at least 0" % i)
 
 
 func _validate_combat_prototype_stats(entry: Dictionary, path: String, errors: Array[String]) -> void:

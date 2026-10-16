@@ -6,6 +6,13 @@
   "levelMax": 5,
   "allyHealBelow": 0.4,
   "allyCrowdEnemies": 2,
+  "fog": {
+    "_comment": "Unread chance per enemy action = (unreadChance[player Combat Skill] + perLevelAbove x levels the enemy is above the player - perLevelBelow x levels below) x positionMultiplier[action index] (last entry for later indices), clamped to [0, 1]. Draft values for tuning.",
+    "unreadChance": [0, 0.35, 0.28, 0.21, 0.14, 0.07],
+    "perLevelAbove": 0.08,
+    "perLevelBelow": 0.03,
+    "positionMultiplier": [0.35, 1.0, 1.5]
+  },
   "playerBase": { "name": "you", "hpBase": 40, "attackMin": 7, "attackMax": 15 },
   "allyTemplates": ["archie", "james"],
   "allyBase": { "name": "your mate", "hpBase": 40, "attackMin": 7, "attackMax": 15 },

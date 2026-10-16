@@ -20,6 +20,7 @@ const RUINED_TILT_DEGREES := -4.0
 
 const NEUTRAL_COLOUR := Color(0.42, 0.46, 0.55)
 const UNKNOWN_COLOUR := Color(0.32, 0.32, 0.32)
+const UNREAD_FONT_SIZE := 14
 
 const SIGN_GROUND_ID := "combat_sign_ground"
 const SIGN_LETTERING_ID := "combat_sign_lettering"
@@ -48,6 +49,7 @@ class NameplateCard extends Control:
 	var shows_telegraph_slot: bool = false
 	var telegraph_text: String = ""
 	var action_text: String = ""
+	var action_unread: bool = false
 	var guard_badge: String = ""
 	var tell_image: Texture2D = null
 	var tell_rect: TextureRect = null
@@ -113,8 +115,9 @@ class NameplateCard extends Control:
 # is { key, occurrenceId, name, level, hp, hpMax, factionName,
 # factionColour, isEnemy } plus optional "statusLines" (Array[String]),
 # "telegraphText" (String) and "tellImage" (Texture2D or null), all shown
-# on the focused card only; "actionText" (the card's action, String) and
-# "guardBadge" (String), shown on every card; and "focused" (bool), which
+# on the focused card only; "actionText" (the card's action, String),
+# "actionUnread" (bool, styles it as an unread intent) and "guardBadge"
+# (String), shown on every card; and "focused" (bool), which
 # when present decides that card's expansion in place of the selected key,
 # playback included.
 static func build_entries(combat: Dictionary, player: Dictionary) -> Array:
@@ -487,6 +490,7 @@ func _build_card(entry: Dictionary, is_focused: bool, card_size: Vector2) -> Nam
 	card.is_enemy = entry["isEnemy"]
 	card.shows_exact_hp = is_focused
 	card.action_text = entry.get("actionText", "")
+	card.action_unread = entry.get("actionUnread", false)
 	card.guard_badge = entry.get("guardBadge", "")
 
 	var frac: float = clampf(float(shown_hp) / float(maxi(1, entry["hpMax"])), 0.0, 1.0)
@@ -608,8 +612,9 @@ func _build_card_content(card: NameplateCard) -> void:
 		# One line when the faction line below needs the room.
 		action.max_lines_visible = 2 if card.faction_name.is_empty() else 1
 		action.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-		action.add_theme_font_size_override("font_size", 9)
-		action.add_theme_color_override("font_color", _palette_colour(SIGN_INTENT_ID))
+		# An unread intent's "?" stands out: larger, in the status colour.
+		action.add_theme_font_size_override("font_size", UNREAD_FONT_SIZE if card.action_unread else 9)
+		action.add_theme_color_override("font_color", _palette_colour(SIGN_STATUS_ID if card.action_unread else SIGN_INTENT_ID))
 		box.add_child(action)
 
 	for line in card.status_lines:
