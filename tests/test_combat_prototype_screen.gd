@@ -215,7 +215,9 @@ func run() -> void:
 		var cp: Dictionary = GameState.state["combatPrototype"]
 		var entries: Array = screen._strip._entries
 		var positions: Array = entries.map(func(e): return [e["actor"], e["index"]])
-		assert_eq(positions, CombatPrototype.timeline(cp).map(func(t): return [t["actor"], t["index"]]))
+		var timeline: Array = CombatPrototype.timeline(cp).map(func(t): return [t["actor"], t["index"]])
+		var resolved: int = timeline.filter(func(t): return CombatPrototype.is_resolved(cp, t[0], t[1])).size()
+		assert_eq(positions, timeline.slice(resolved) + timeline.slice(0, resolved), "a rolling queue: unresolved positions first, acted ones rejoined at the end")
 		var focused: Array = entries.filter(func(e): return e["focused"])
 		assert_eq(focused.size(), 1)
 		assert_eq([focused[0]["actor"], focused[0]["index"]], [CombatPrototype.PLAYER_INDEX, CombatPrototype.decision_position(cp)])
@@ -258,7 +260,7 @@ func run() -> void:
 
 		CombatPrototype.choose_move("guard")
 		screen._refresh()
-		cards = enemy_cards.call()
+		cards = enemy_cards.call().filter(func(e): return e["index"] == 0)
 		assert_eq([cards[0]["actionText"], cards[0]["actionUnread"]], ["Strike", false], "revealed once resolved")
 	)
 
@@ -307,6 +309,59 @@ func run() -> void:
 		screen._strip_playback = {}
 		screen._refresh()
 		assert_eq(screen._strip._entries.size(), CombatPrototype.timeline(GameState.state["combatPrototype"]).size() + CombatPrototype.next_round_timeline(GameState.state["combatPrototype"]).size())
+	)
+
+	run_case("rolled_entries_puts_acted_positions_after_next_rounds_cards", func():
+		var entry := func(id: String, next_round: bool) -> Dictionary:
+			return { "occurrenceId": id, "nextRound": next_round }
+		var entries: Array = [entry.call("1:0:0", false), entry.call("1:1:0", false), entry.call("1:2:0", false), entry.call("2:1:0", true)]
+		var ids := func(list: Array) -> Array:
+			return list.map(func(e): return e["occurrenceId"])
+		assert_eq(ids.call(CombatPrototypeScreen.rolled_entries(entries, 0)), ["1:0:0", "1:1:0", "1:2:0", "2:1:0"])
+		assert_eq(ids.call(CombatPrototypeScreen.rolled_entries(entries, 2)), ["1:2:0", "2:1:0", "1:0:0", "1:1:0"])
+		assert_eq(ids.call(CombatPrototypeScreen.rolled_entries(entries, 9)), ["2:1:0", "1:0:0", "1:1:0", "1:2:0"], "clamped to this round's positions")
+	)
+
+	run_case("each_played_turn_rolls_its_card_to_the_end_and_settles_on_the_next_decisions_order", func():
+		var screen := _render_squad_fight()
+		var cp: Dictionary = GameState.state["combatPrototype"]
+		var pick := { "move": "strike", "target": -1 }
+		var before := CombatPrototypeScreen.strip_entries(cp, pick)
+		var round_no: int = cp["round"]
+		var result := CombatPrototype.choose_move("strike")
+		assert_true(result["ok"])
+		screen.begin_strip_playback(before, round_no, result["beats"])
+		var first: Dictionary = result["beats"][0]
+		assert_eq(screen._strip._entries[0]["occurrenceId"], "%d:%d:%d" % [first["round"], first["turnActor"], first["turnIndex"]], "playback starts with the pick's card in front")
+		for beat in result["beats"]:
+			screen._advance_strip(beat)
+			if int(beat["round"]) == round_no:
+				var beat_id := "%d:%d:%d" % [beat["round"], beat["turnActor"], beat["turnIndex"]]
+				var shown: Array = screen._strip._entries
+				assert_eq(shown[0]["occurrenceId"], beat_id, "the acting card is in front, those that acted before it rolled to the end")
+				assert_eq(shown.size(), before.size(), "no card dropped by a roll")
+		screen._settle_strip()
+		var settled: Array = screen._strip._entries.map(func(e): return e["occurrenceId"])
+		screen._strip_playback = {}
+		screen._refresh()
+		cp = GameState.state["combatPrototype"]
+		if cp["outcome"] == null and int(cp["round"]) == round_no:
+			assert_eq(settled, screen._strip._entries.map(func(e): return e["occurrenceId"]), "the settle beat lands on the order the next decision shows")
+	)
+
+	run_case("rewind_slides_each_undone_turns_card_back_to_the_front", func():
+		var screen := _render_squad_fight()
+		var round_no: int = GameState.state["combatPrototype"]["round"]
+		_row(screen, "MoveRow_strike").pressed.emit()
+		var beats := screen.begin_rewind_playback()
+		assert_true(not beats.is_empty())
+		for beat in beats:
+			screen._on_rewind_beat_played(beat)
+			if int(beat["round"]) == round_no and screen._strip_playback["round"] == round_no:
+				assert_eq(screen._strip._entries[0]["occurrenceId"], "%d:%d:%d" % [beat["round"], beat["turnActor"], beat["turnIndex"]], "the undone turn's card is back in front")
+		var unwound: Array = screen._strip._entries.map(func(e): return e["occurrenceId"])
+		screen._end_playback()
+		assert_eq(unwound, screen._strip._entries.map(func(e): return e["occurrenceId"]), "the reversed rolls land on the restored pick's order")
 	)
 
 	run_case("every_beat_kind_maps_to_stage_cues", func():

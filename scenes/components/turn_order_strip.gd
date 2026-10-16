@@ -275,15 +275,23 @@ func configure(entries: Array, selected_pos: int, available_width: float, select
 
 # §2.4 Reflow: swaps in the queue as it stands after a played beat. Cards
 # are rebuilt at once (the layout is always the final one for this step);
-# the row then slides from where the surviving cards were, and newly
-# revealed occurrences fade in -- one tween, cut short by the next call or
+# the row then slides from where `anchor_id`'s card was (else the first
+# surviving card's), and newly revealed occurrences fade in. A card that
+# crossed the anchor (wrapped_ids() -- a rolling queue's acted card) leaves
+# as a ghost moving with the row, off the strip's near end, while its new
+# card slides in from the far end. One tween, cut short by the next call or
 # finish_advance().
-func advance_to(entries: Array, duration: float) -> void:
+func advance_to(entries: Array, duration: float, anchor_id: String = "") -> void:
 	finish_advance()
 	var old_row_x: float = _row.position.x if _row != null else 0.0
+	var old_ids: Array = _entries.map(func(e): return e["occurrenceId"])
+	var old_children: Array[Node] = _row.get_children() if _row != null else []
 	var old_x: Dictionary = {}
+	var old_cards: Dictionary = {}
 	for i in range(mini(_entries.size(), _card_rects.size())):
-		old_x[_entries[i]["occurrenceId"]] = _card_rects[i].position.x
+		old_x[old_ids[i]] = _card_rects[i].position.x
+		if i < old_children.size():
+			old_cards[old_ids[i]] = old_children[i]
 	_entries = entries
 	_resolving = true
 	_rebuild(_available_width)
@@ -293,21 +301,56 @@ func advance_to(entries: Array, duration: float) -> void:
 	if duration <= 0.0 or not is_inside_tree():
 		return
 
+	var new_ids: Array = _entries.map(func(e): return e["occurrenceId"])
+	if not old_x.has(anchor_id) or not new_ids.has(anchor_id):
+		var first_kept: int = new_ids.find_custom(func(id): return old_x.has(id))
+		anchor_id = new_ids[first_kept] if first_kept >= 0 else ""
 	var shift: float = 0.0
-	for i in range(_entries.size()):
-		var occurrence_id: String = _entries[i]["occurrenceId"]
-		if old_x.has(occurrence_id):
-			shift = old_x[occurrence_id] - _card_rects[i].position.x
-			break
+	if anchor_id != "":
+		shift = old_x[anchor_id] - _card_rects[new_ids.find(anchor_id)].position.x
+	var row_from: float = old_row_x + shift
+	var row_to: float = -_scroll_offset
 	_advance_tween = create_tween().set_parallel(true)
-	_row.position.x = old_row_x + shift
-	_advance_tween.tween_property(_row, "position:x", -_scroll_offset, duration)
+	_row.position.x = row_from
+	_advance_tween.tween_property(_row, "position:x", row_to, duration)
 	var cards: Array[Node] = _row.get_children()
 	for i in range(cards.size()):
 		var card: NameplateCard = cards[i]
-		if not old_x.has(_entries[i]["occurrenceId"]) and not card.is_pulsing:
+		if not old_x.has(new_ids[i]) and not card.is_pulsing:
 			card.modulate.a = 0.0
 			_advance_tween.tween_property(card, "modulate:a", 1.0, duration)
+	var ghosts: Array[Control] = []
+	for occurrence_id in wrapped_ids(old_ids, new_ids, anchor_id):
+		var ghost: Control = old_cards.get(occurrence_id)
+		if ghost == null:
+			continue
+		ghost.get_parent().remove_child(ghost)
+		add_child(ghost)
+		ghost.position.x = old_row_x + old_x[occurrence_id]
+		_advance_tween.tween_property(ghost, "position:x", ghost.position.x + row_to - row_from, duration)
+		ghosts.append(ghost)
+	if not ghosts.is_empty():
+		_advance_tween.chain().tween_callback(func():
+			for ghost in ghosts:
+				if is_instance_valid(ghost):
+					ghost.queue_free()
+		)
+
+
+# The occurrences a reflow carried across `anchor_id`: before it in
+# `old_ids` and after it in `new_ids`, or the reverse -- a rolling queue's
+# card leaving one end of the strip to rejoin at the other.
+static func wrapped_ids(old_ids: Array, new_ids: Array, anchor_id: String) -> Array:
+	var old_anchor: int = old_ids.find(anchor_id)
+	var new_anchor: int = new_ids.find(anchor_id)
+	if old_anchor < 0 or new_anchor < 0:
+		return []
+	var wrapped: Array = []
+	for i in range(new_ids.size()):
+		var old_i: int = old_ids.find(new_ids[i])
+		if old_i >= 0 and (old_i < old_anchor) != (i < new_anchor):
+			wrapped.append(new_ids[i])
+	return wrapped
 
 
 func finish_advance() -> void:

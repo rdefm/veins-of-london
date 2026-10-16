@@ -808,6 +808,36 @@ func run() -> void:
 		assert_true(not TurnOrderStrip.card_is_expanded(key, { "type": "player", "index": -1 }, false))
 	)
 
+	run_case("wrapped_ids_finds_the_cards_a_roll_carried_across_the_anchor_either_way", func():
+		assert_eq(TurnOrderStrip.wrapped_ids(["a", "b", "c"], ["b", "c", "a"], "b"), ["a"], "forward: the front card rejoined at the end")
+		assert_eq(TurnOrderStrip.wrapped_ids(["b", "c", "a"], ["a", "b", "c"], "b"), ["a"], "backward: the end card slid back to the front")
+		assert_eq(TurnOrderStrip.wrapped_ids(["a", "b", "c"], ["b", "c"], "b"), [], "a dropped card isn't a wrap")
+		assert_eq(TurnOrderStrip.wrapped_ids(["a", "b"], ["b", "a"], ""), [], "no anchor, no wrap")
+	)
+
+	run_case("an_animated_roll_ghosts_the_wrapped_card_off_the_strip_and_frees_it", func():
+		GameState.reset()
+		var entries: Array = []
+		for i in range(3):
+			entries.append({ "key": { "type": "enemy", "index": i }, "occurrenceId": "1:%d:0" % i, "name": "E%d" % i, "level": null,
+				"hp": 20, "hpMax": 20, "factionName": "", "factionColour": TurnOrderStrip.NEUTRAL_COLOUR, "isEnemy": true })
+		var strip := TurnOrderStrip.new()
+		Engine.get_main_loop().root.add_child(strip)
+		strip.configure(entries, 0, 600.0, Callable())
+		strip.advance_to(entries, 0.0)
+		var leaving: Node = strip._row.get_child(0)
+
+		strip.advance_to([entries[1], entries[2], entries[0]], 0.3, "1:1:0")
+
+		assert_true(leaving.get_parent() == strip, "the acted card's old node rides out as a ghost over the strip")
+		assert_eq(strip._row.position.x, TurnOrderStrip.MAX_CARD_WIDTH + TurnOrderStrip.CARD_SEPARATION, "the row starts where the kept cards were")
+		strip.finish_advance()
+		assert_true(leaving.is_queued_for_deletion(), "the ghost is freed once the slide ends")
+		assert_eq(strip._row.position.x, 0.0)
+		assert_eq(strip._entries.map(func(e): return e["occurrenceId"]), ["1:1:0", "1:2:0", "1:0:0"])
+		strip.free()
+	)
+
 	run_case("advance_to_rebuilds_the_cards_in_the_new_order_and_keeps_a_draining_ghost", func():
 		GameState.reset()
 		var player: Dictionary = GameState.state["player"]

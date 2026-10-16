@@ -9,7 +9,7 @@ extends Control
 # to target it), a CombatCommandDock in generic-rows mode (each move, then
 # each loadout item; a row is disabled with the system's block reason,
 # which its "?" opens in the combat_block_reason modal), a TurnOrderStrip over the stage showing the
-# round's timeline (strip_entries()), and a CombatDirector playing each
+# round's timeline as a rolling queue (strip_entries(), rolled_entries()), and a CombatDirector playing each
 # pick's beats (beat_cues()) on the stage and strip with the dock locked,
 # each beat's line to the top-bar ticker, a guard marker on every sprite,
 # at live combat's pacing toggle; Rewind plays the undone beats back in
@@ -29,6 +29,8 @@ const _STRIP_SIDE_INSET := 9.0
 # Beat kinds that play nothing past the guard overlay their marks set.
 const _OVERLAY_KINDS: Array[String] = ["guard", "lure", "exposed", "lost", "frozen"]
 const _CAST_KINDS: Array[String] = ["powder", "sight", "lady"]
+# The screen's own closing beat after a pick's beats (_play_beats()).
+const _SETTLE_KIND := "settle"
 # Item beat kinds -> the data/combat_visuals.json effect sheet they play.
 const _ITEM_EFFECTS := {
 	"timePearl": "timePearl", "blackHole": "blackHole", "blast": "blast", "shield": "shield",
@@ -233,7 +235,8 @@ func _sync_fight(cp: Dictionary) -> void:
 		_apply_marks(cp, _held_marks if not _held_marks.is_empty() else CombatPrototype.stage_marks(cp))
 	_strip.visible = cp["outcome"] == null or _busy()
 	if _strip_playback.is_empty():
-		var entries := strip_entries(cp)
+		var timeline_entries := strip_entries(cp)
+		var entries := rolled_entries(timeline_entries, resolved_count(cp, timeline_entries))
 		var focus: int = entries.find_custom(func(e): return e["focused"])
 		_strip.configure(entries, maxi(0, focus), CombatStage.STAGE_WIDTH - _STRIP_SIDE_INSET * 2.0, _on_strip_selection_changed)
 
@@ -287,6 +290,22 @@ static func strip_entries(cp: Dictionary, pick: Dictionary = {}) -> Array:
 		entry["focused"] = false
 		entries.append(entry)
 	return entries
+
+
+# The strip as a rolling queue: strip_entries() `entries` from this round's
+# position `rolled` on, next round's cards, then this round's first `rolled`
+# positions -- each acted card rejoins at the end.
+static func rolled_entries(entries: Array, rolled: int) -> Array:
+	var this_round: Array = entries.filter(func(e): return not e["nextRound"])
+	var next_round: Array = entries.filter(func(e): return e["nextRound"])
+	var k: int = clampi(rolled, 0, this_round.size())
+	return this_round.slice(k) + next_round + this_round.slice(0, k)
+
+
+# How many of `entries`' positions this round have resolved -- always a
+# leading run, timeline order being resolution order.
+static func resolved_count(cp: Dictionary, entries: Array) -> int:
+	return entries.filter(func(e): return not e["nextRound"] and CombatPrototype.is_resolved(cp, e["actor"], e["index"])).size()
 
 
 static func _strip_entry(cp: Dictionary, roster: Dictionary, position: Dictionary, round_no: int) -> Dictionary:
@@ -415,29 +434,38 @@ func _on_pacing_button_pressed() -> void:
 
 
 # Undoes the last pick, then plays its beats back in reverse on the stage
-# and strip (the overlay and strip held as they stood until then) before the
+# and strip (the overlay and strip held as they stood until then; each
+# beat's card slides back from the strip's end to its front) before the
 # restored pick shows.
 func _on_rewind_pressed() -> void:
 	if _busy():
 		return
 	_refusal = ""
+	var beats := begin_rewind_playback()
+	if not beats.is_empty() and is_inside_tree():
+		await _director.play(beats, _on_rewind_beat_played)
+	_end_playback()
+
+
+# Undoes the last pick with the overlay and strip held, arming the strip to
+# step back through it; the undone beats as rewind_beats() orders them, []
+# when there's nothing to undo.
+func begin_rewind_playback() -> Array:
 	var cp: Dictionary = GameState.state["combatPrototype"]
 	var log_before: Array = cp["log"]
 	_held_marks = CombatPrototype.stage_marks(cp)
-	_strip_playback = { "entries": strip_entries(cp), "round": cp["round"], "after": [] }
-	for entry in _strip_playback["entries"]:
+	var entries := strip_entries(cp)
+	for entry in entries:
 		entry["focused"] = false
+	var shown := rolled_entries(entries, resolved_count(cp, entries))
+	_strip_playback = { "entries": entries, "round": cp["round"], "after": [], "front": shown[0]["occurrenceId"] if not shown.is_empty() else "" }
 	if not CombatPrototype.rewind()["ok"]:
-		_end_playback()
-		return
+		return []
 	cp = GameState.state["combatPrototype"]
 	_strip_playback["after"] = strip_entries(cp)
 	for entry in _strip_playback["after"]:
 		entry["focused"] = false
-	var beats := rewind_beats(log_before.slice(cp["log"].size()), CombatPrototype.stage_marks(cp))
-	if not beats.is_empty() and is_inside_tree():
-		await _director.play(beats, _on_rewind_beat_played)
-	_end_playback()
+	return rewind_beats(log_before.slice(cp["log"].size()), CombatPrototype.stage_marks(cp))
 
 
 # `undone` (the undone pick's beats, oldest first) newest first, each a copy
@@ -833,11 +861,13 @@ func _resolve(choose: Callable, pick: Dictionary) -> void:
 # its hp before its first hit and a ghost to drain from there.
 func begin_strip_playback(before: Array, round_no: int, beats: Array) -> void:
 	var cp: Dictionary = GameState.state["combatPrototype"]
-	_strip_playback = { "entries": before, "round": round_no, "after": strip_entries(cp) }
+	var first_id := "" if beats.is_empty() else "%d:%d:%d" % [beats[0]["round"], beats[0]["turnActor"], beats[0]["turnIndex"]]
+	var shown := rolled_entries(before, maxi(0, before.find_custom(func(e): return e["occurrenceId"] == first_id)))
+	_strip_playback = { "entries": before, "round": round_no, "after": strip_entries(cp), "front": shown[0]["occurrenceId"] if not shown.is_empty() else "" }
 	for entry in _strip_playback["after"]:
 		entry["focused"] = false
 	_strip.reset_scroll()
-	_strip.advance_to(before, 0.0)
+	_strip.advance_to(shown, 0.0)
 	var roster := stage_roster(cp, -1)
 	var seen: Dictionary = {}
 	for beat in beats:
@@ -851,10 +881,11 @@ func begin_strip_playback(before: Array, round_no: int, beats: Array) -> void:
 			_strip.set_initial_ghost(key, start_hp)
 
 
-# Off-tree there's no tween to wait on, so the beats land at once.
+# Off-tree there's no tween to wait on, so the beats land at once. A last
+# settle beat rolls the final acted card to the strip's end.
 func _play_beats(beats: Array) -> void:
 	if not beats.is_empty() and is_inside_tree():
-		await _director.play(beats, _on_beat_played)
+		await _director.play(beats + [{ "kind": _SETTLE_KIND }], _on_beat_played)
 	_end_playback()
 
 
@@ -866,23 +897,54 @@ func _end_playback() -> void:
 	_refresh()
 
 
-# Moves the strip's focus to `beat`'s timeline position; with `patch`, also
-# shows that position's actual guard result, a lost action, or a KO's
-# dropped ones.
+# Rolls the strip to `beat`'s timeline position and focuses it: the cards
+# ahead of it (already acted) slide off the front and rejoin at the end, or
+# with `patch` false (Rewind) its card slides back from the end to the
+# front. With `patch`, also shows that position's actual guard result, a
+# lost action, or a KO's dropped ones.
 func _advance_strip(beat: Dictionary, patch: bool = true) -> void:
 	if _strip_playback.is_empty():
 		return
 	var same_round: bool = int(beat["round"]) == int(_strip_playback["round"])
-	var entries: Array = _strip_playback["entries"] if same_round else _strip_playback["after"]
+	var list_key := "entries" if same_round else "after"
+	var entries: Array = _strip_playback[list_key]
 	var playing_id := "%d:%d:%d" % [beat["round"], beat["turnActor"], beat["turnIndex"]]
 	var playing: int = entries.find_custom(func(e): return e["occurrenceId"] == playing_id)
 	if playing < 0:
 		return
 	for i in range(entries.size()):
 		entries[i]["focused"] = i == playing
-	if not patch:
-		_strip.advance_to(entries, _director.beat_duration)
+	if patch:
+		_patch_strip_entry(entries, playing, beat)
+	_roll_strip(list_key, playing, not patch)
+
+
+# After a pick's last beat: the strip rolls past every resolved position,
+# landing on the queue the next decision shows.
+func _settle_strip() -> void:
+	var cp: Dictionary = GameState.state["combatPrototype"]
+	if _strip_playback.is_empty() or cp["outcome"] != null:
 		return
+	var list_key := "entries" if int(cp["round"]) == int(_strip_playback["round"]) else "after"
+	var entries: Array = _strip_playback[list_key]
+	for entry in entries:
+		entry["focused"] = false
+	_roll_strip(list_key, resolved_count(cp, entries))
+
+
+# Shows playback list `list_key` rolled past its first `rolled` positions
+# over one beat. The row slides from the card that holds its place: the
+# card landing in front, or when `backward` the card in front until now.
+func _roll_strip(list_key: String, rolled: int, backward: bool = false) -> void:
+	var shown := rolled_entries(_strip_playback[list_key], rolled)
+	if shown.is_empty():
+		return
+	var anchor: String = _strip_playback["front"] if backward else shown[0]["occurrenceId"]
+	_strip_playback["front"] = shown[0]["occurrenceId"]
+	_strip.advance_to(shown, _director.beat_duration, anchor)
+
+
+func _patch_strip_entry(entries: Array, playing: int, beat: Dictionary) -> void:
 	var entry: Dictionary = entries[playing]
 	if beat["kind"] in ["lost", "frozen"]:
 		entry["actionText"] = "Frozen" if beat["kind"] == "frozen" else "Lost"
@@ -897,12 +959,14 @@ func _advance_strip(beat: Dictionary, patch: bool = true) -> void:
 		for i in range(playing + 1, entries.size()):
 			if entries[i]["actor"] == int(beat["target"]) and not entries[i]["nextRound"]:
 				entries[i]["actionText"] = "Down"
-	_strip.advance_to(entries, _director.beat_duration)
 
 
 # A beat as it plays: its line to the top-bar ticker (as live combat's log
 # lines go), the strip, the guard overlay to the beat's marks, then its cues.
 func _on_beat_played(beat: Dictionary) -> void:
+	if beat["kind"] == _SETTLE_KIND:
+		_settle_strip()
+		return
 	Notify.push(beat["text"], Notify.CATEGORY_INFO, { Notify.META_COMBAT_LOG: true })
 	_advance_strip(beat)
 	var cp: Dictionary = GameState.state["combatPrototype"]
