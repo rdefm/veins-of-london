@@ -1406,6 +1406,7 @@ func _restore_bench_prototype_frame_ints(s: Dictionary) -> void:
 	for entry in s.get("ledger", []):
 		for key in ["items", "rank", "score", "durationMsec", "xp"]:
 			_int_key(entry, key)
+		_restore_bench_prototype_clue_ints(entry.get("clues", []))
 	var run = s.get("activeRun")
 	if run is Dictionary:
 		_int_key(run, "startedMsec")
@@ -1413,9 +1414,13 @@ func _restore_bench_prototype_frame_ints(s: Dictionary) -> void:
 	for hits in s.get("vagueHits", {}).values():
 		_int_dict_values(hits)
 	for clues in s.get("notebook", {}).values():
-		for clue in clues:
-			_int_key(clue, "ideal")
-			_int_key(clue, "hits")
+		_restore_bench_prototype_clue_ints(clues)
+
+
+func _restore_bench_prototype_clue_ints(clues: Array) -> void:
+	for clue in clues:
+		_int_key(clue, "ideal")
+		_int_key(clue, "hits")
 
 
 # state.modal.data's shape depends on modal.type (systems/crafting.gd,

@@ -417,6 +417,10 @@ func run() -> void:
 		Rng.set_seed(5)
 		BenchPrototype.set_skill_override(6)
 		_run("healingSalve", 77)
+		BenchPrototype.set_hint_level("healingSalve", "distilFinish", "vague")
+		_play("healingSalve", [["life", "grinding", 50.0], ["", "heat", 62.0], ["", "distilling", 50.0]])
+		BenchPrototype.finish_procedure_run()
+		assert_true(root["notebook"]["healingSalve"][2].has("hits"), "a clue with hits to round-trip")
 		BenchPrototype.batch("healingSalve", 5)
 		BenchPrototype.begin_run("timePearl")
 		var expected: Dictionary = GameState.deep_copy(root)
@@ -736,47 +740,92 @@ func run() -> void:
 	run_case("notebook_clues_cover_hit_near_none_and_changed", func():
 		_fresh()
 		BenchPrototype.set_skill_override(0)
-		var procedure := [
-			{ "apparatus": "grinding", "target": 50.0, "knowledge": "base", "calc": { "life": 3 } },
-			{ "apparatus": "heat", "target": 50.0, "knowledge": "base" },
-			{ "apparatus": "distilling", "target": 50.0, "knowledge": "inserted" },
-			{ "apparatus": "compression", "target": 50.0, "knowledge": "inserted" },
-		]
 		var performed := [
 			{ "apparatus": "grinding", "ores": ["life"], "readings": [50.0, 52.0, 48.0] },
-			{ "apparatus": "heat", "value": 40.0 },
-			BenchPrototype.distil_readings(_distil_taps(50.0)).merged({ "apparatus": "distilling" }),
-			{ "apparatus": "compression", "value": 50.0 },
+			{ "apparatus": "heat", "ores": [], "value": 40.0 },
+			BenchPrototype.distil_readings(_distil_taps(50.0)).merged({ "apparatus": "distilling", "ores": [] }),
+			{ "apparatus": "compression", "ores": [], "value": 50.0 },
 		]
-		var clues := BenchPrototype.notebook_clues("healingSalve", procedure, performed)
+		var clues := BenchPrototype.notebook_clues("healingSalve", performed)
 		assert_eq(clues.map(func(c): return c["clue"]), ["hit", "near", "changed", "none"])
 		assert_eq(clues[1]["direction"], "higher", "heat 40 under the ideal 62")
 		assert_eq(clues[3]["ideal"], -1, "an extra step matches nothing")
-		performed[1] = { "apparatus": "heat", "value": 80.0 }
-		assert_eq(BenchPrototype.notebook_clues("healingSalve", procedure, performed)[1]["direction"], "lower")
+		performed[1] = { "apparatus": "heat", "ores": [], "value": 80.0 }
+		assert_eq(BenchPrototype.notebook_clues("healingSalve", performed)[1]["direction"], "lower")
 		performed[0] = { "apparatus": "grinding", "ores": ["life"], "readings": [50.0, 50.0, null] }
-		var missed: Dictionary = BenchPrototype.notebook_clues("healingSalve", procedure, performed)[0]
+		var missed: Dictionary = BenchPrototype.notebook_clues("healingSalve", performed)[0]
 		assert_eq([missed["clue"], missed["direction"]], ["near", null], "a missed stroke: right amount, no direction")
 		BenchPrototype.set_hint_level("healingSalve", "distilFinish", "vague")
-		assert_eq(BenchPrototype.notebook_clues("healingSalve", procedure, performed)[2]["clue"], "hit", "a known step isn't a discovery")
+		assert_eq(BenchPrototype.notebook_clues("healingSalve", performed)[2]["clue"], "hit", "a known step isn't a discovery")
 	)
 
 	run_case("notebook_changed_needs_the_hidden_step_in_position", func():
 		_fresh()
 		BenchPrototype.set_skill_override(0)
-		var distil := BenchPrototype.distil_readings(_distil_taps(50.0)).merged({ "apparatus": "distilling" })
-		var procedure := [
-			{ "apparatus": "distilling", "target": 50.0, "knowledge": "inserted" },
-			{ "apparatus": "grinding", "target": 50.0, "knowledge": "base", "calc": { "life": 3 } },
-			{ "apparatus": "heat", "target": 62.0, "knowledge": "base" },
+		var distil := BenchPrototype.distil_readings(_distil_taps(50.0)).merged({ "apparatus": "distilling", "ores": [] })
+		var performed := [distil, { "apparatus": "grinding", "ores": ["life"], "readings": [50.0, 50.0, 50.0] }, { "apparatus": "heat", "ores": [], "value": 62.0 }]
+		assert_true(BenchPrototype.notebook_clues("healingSalve", performed)[0]["clue"] != "changed", "a distil first displaces the grind and heat")
+		var pearl := [
+			{ "apparatus": "compression", "ores": ["time"], "value": 82.0 },
+			{ "apparatus": "grinding", "ores": [], "readings": [50.0, 50.0, 50.0] },
+			{ "apparatus": "heat", "ores": [], "value": 25.0 },
 		]
-		var performed := [distil, { "apparatus": "grinding", "ores": ["life"], "readings": [50.0, 50.0, 50.0] }, { "apparatus": "heat", "value": 62.0 }]
-		var clues := BenchPrototype.notebook_clues("healingSalve", procedure, performed)
-		assert_true(clues[0]["clue"] != "changed", "a distil first displaces the grind and heat")
-		var heat_first := [{ "apparatus": "heat", "target": 50.0, "knowledge": "inserted" }, procedure[1], procedure[2]]
-		var heat_performed := [{ "apparatus": "heat", "value": 62.0 }, performed[1], performed[2]]
-		assert_true(BenchPrototype.notebook_clues("healingSalve", heat_first, heat_performed)[0]["clue"] != "changed",
-			"an inserted step on a base-matched ideal step isn't a discovery")
+		assert_eq(BenchPrototype.notebook_clues("timePearl", pearl).map(func(c): return c["clue"]), ["hit", "changed", "hit"], "grind between press and heat")
+	)
+
+	run_case("wrong_ore_never_yields_a_hit_or_something_changed", func():
+		_fresh()
+		BenchPrototype.set_skill_override(0)
+		var grind := [{ "apparatus": "grinding", "ores": ["time"], "readings": [50.0, 50.0, 50.0] }]
+		assert_eq(BenchPrototype.notebook_clues("healingBurst", grind)[0]["clue"], "none", "grind needs life in the mixture")
+		var root := _fresh()
+		_play("healingBurst", [["life", "compression", 60.0]])
+		var entry: Dictionary = BenchPrototype.finish_procedure_run()["entry"]
+		assert_eq(entry["clues"][0]["clue"], "none", "compress needs time, played through Finish")
+		assert_eq(root["hintLevels"]["healingBurst"].values(), ["off", "off"], "nothing learned")
+	)
+
+	run_case("finish_off_book_step_grants_a_vague_hint_on_the_book", func():
+		var root := _fresh()
+		BenchPrototype.set_skill_override(0)
+		_play("healingSalve", [["life", "grinding", 50.0], ["", "heat", 62.0], ["", "distilling", 50.0]])
+		var entry: Dictionary = BenchPrototype.finish_procedure_run()["entry"]
+		assert_eq(entry["clues"].map(func(c): return c["clue"]), ["hit", "hit", "changed"])
+		assert_eq(entry["clues"][2].get("learned"), "vague", "something changed · new vague hint")
+		assert_eq(root["notebook"]["healingSalve"], entry["clues"], "notebook keeps the last run's clues")
+		assert_eq(BenchPrototype.hint_level("healingSalve", "distilFinish"), "vague")
+		var book := BenchPrototype.known_procedure("healingSalve")
+		assert_eq([book[2]["apparatus"], book[2]["knowledge"]], ["distilling", "vague"], "the book shows the learned step faded")
+		assert_true(BenchPrototype.step_region("healingSalve", book[2])["vague"], "vague region")
+	)
+
+	run_case("three_hits_on_a_vague_step_upgrade_it_to_exact", func():
+		var root := _fresh()
+		BenchPrototype.set_skill_override(0)
+		BenchPrototype.set_hint_level("healingSalve", "distilFinish", "vague")
+		var needed := int(_data()["vagueToExactHits"])
+		var last := {}
+		for run in needed:
+			_play("healingSalve", [["life", "grinding", 50.0], ["", "heat", 62.0], ["", "distilling", 50.0]])
+			last = BenchPrototype.finish_procedure_run()["entry"]["clues"][2]
+			if run < needed - 1:
+				assert_eq([last["clue"], last["hits"], last.has("learned")], ["hit", run + 1, false], "n/3 toward exact")
+		assert_eq(last.get("learned"), "exact", "now exact")
+		assert_eq(BenchPrototype.hint_level("healingSalve", "distilFinish"), "exact")
+		assert_eq(BenchPrototype.known_procedure("healingSalve")[2]["knowledge"], "exact")
+		_play("healingSalve", [["life", "grinding", 50.0], ["", "heat", 62.0], ["", "distilling", 50.0]])
+		assert_true(not BenchPrototype.finish_procedure_run()["entry"]["clues"][2].has("hits"), "an exact step stops counting")
+		assert_eq(root["vagueHits"]["healingSalve"]["distilFinish"], needed)
+	)
+
+	run_case("a_near_miss_on_a_vague_step_does_not_count", func():
+		var root := _fresh()
+		BenchPrototype.set_skill_override(0)
+		BenchPrototype.set_hint_level("healingSalve", "heatHigher", "vague")
+		_play("healingSalve", [["life", "grinding", 50.0], ["", "heat", 50.0]])
+		var clue: Dictionary = BenchPrototype.finish_procedure_run()["entry"]["clues"][1]
+		assert_eq([clue["clue"], clue.has("hits")], ["near", false])
+		assert_true(not root["vagueHits"].has("healingSalve"), "no hit recorded")
 	)
 
 	run_case("debug_hint_toggle_drops_vague_hits", func():

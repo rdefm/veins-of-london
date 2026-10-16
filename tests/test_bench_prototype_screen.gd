@@ -91,6 +91,7 @@ func run() -> void:
 		assert_eq(root["activeRun"], null, "Finish ends the run")
 		assert_true(NodeQuery.find_button(screen, "Done") != null, "the result shows on the book")
 		assert_true(NodeQuery.find_button(screen, "Rewind") != null, "with Rewind")
+		assert_true(NodeQuery.label_texts(screen).has("1. %s · ✓" % LabBenchNav.apparatus_name("heat")), "a clue per performed step")
 		NodeQuery.find_button(screen, "Done").pressed.emit()
 		assert_true(NodeQuery.find_button(screen, "Craft manually") != null, "Done returns to the recipe page")
 		screen.free()

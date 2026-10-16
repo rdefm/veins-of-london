@@ -1454,7 +1454,7 @@ func _validate_combat_prototype_stats(entry: Dictionary, path: String, errors: A
 # types the pool seeds; thresholds ascend from 0; the bonus default names a
 # real type; badRun has lines to pick from.
 func _validate_bench_prototype(bench: Dictionary, approaches: Dictionary, errors: Array[String]) -> void:
-	_require_keys(bench, ["roster", "knownAtStart", "recipes", "poolSeed", "rankThresholds", "skillFactor", "skillMax", "extraStepPenalty", "vagueSpread", "vagueToExactHits", "gauges", "baseXp", "hintLevels", "bonus", "badRun"], "bench_prototype", errors)
+	_require_keys(bench, ["roster", "knownAtStart", "recipes", "poolSeed", "rankThresholds", "skillFactor", "skillMax", "extraStepPenalty", "vagueSpread", "vagueToExactHits", "clueText", "gauges", "baseXp", "hintLevels", "bonus", "badRun"], "bench_prototype", errors)
 	var gauges: Dictionary = bench.get("gauges", {})
 	for apparatus in gauges.keys():
 		var words: Dictionary = gauges[apparatus].get("directionWords", {})

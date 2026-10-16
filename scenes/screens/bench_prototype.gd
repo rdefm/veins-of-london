@@ -518,6 +518,8 @@ func _add_result(content: VBoxContainer) -> void:
 		content.add_child(UI.muted_label("Best rank: %s · +%d XP" % [_rank_text(entry["recipeId"]), entry["xp"]]))
 		if entry["bonus"] != null:
 			content.add_child(UI.label("Bonus: %s" % GameData.BENCH_PROTOTYPE["bonus"]["types"][entry["bonus"]]["label"]))
+		for i in entry.get("clues", []).size():
+			content.add_child(UI.label("%d. %s" % [i + 1, _clue_text(entry["clues"][i])]))
 		if entry.has("steps"):
 			var steps := UI.muted_label(_steps_text(entry["steps"]) if not entry["steps"].is_empty() else "No steps performed.")
 			steps.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -527,6 +529,23 @@ func _add_result(content: VBoxContainer) -> void:
 			flavour.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			content.add_child(flavour)
 	content.add_child(MapCardStyle.text_button("Rewind", _on_rewind, GameState.state["benchPrototype"]["snapshots"].is_empty()))
+
+
+# A notebook clue as the result shows it: apparatus, mark, direction word
+# for a near miss, then what it taught.
+func _clue_text(clue: Dictionary) -> String:
+	var data: Dictionary = GameData.BENCH_PROTOTYPE
+	var words: Dictionary = data["clueText"]
+	var parts := PackedStringArray([LabBenchNav.apparatus_name(clue["apparatus"]), words[clue["clue"]]])
+	if clue["direction"] != null:
+		parts[1] += " " + String(BenchPrototype.gauge(clue["apparatus"])["directionWords"][clue["direction"]])
+	if clue.get("learned") == "vague":
+		parts.append(words["learnedVague"])
+	elif clue.get("learned") == "exact":
+		parts.append(words["learnedExact"])
+	elif clue.has("hits"):
+		parts.append(words["towardExact"] % [clue["hits"], int(data["vagueToExactHits"])])
+	return " · ".join(parts)
 
 
 func _on_rewind() -> void:

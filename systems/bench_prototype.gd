@@ -579,24 +579,28 @@ static func _perform(s: Dictionary, apparatus: String, record: Dictionary) -> vo
 	run["performed"].append(record)
 
 
-# Finish: scores the performed steps (none scores 0) and hands the score to
+# Finish: scores the performed steps (none scores 0), turns them into
+# notebook clues and learns from them, then hands the score to
 # finish_run(), which closes the run.
 static func finish_procedure_run() -> Dictionary:
 	var run = _root()["activeRun"]
 	if run == null:
 		return { "ok": false, "reason": "No run open." }
-	var scored := score_procedure(run["recipeId"], run["performed"])
+	var s := _root()
+	var recipe_id: String = run["recipeId"]
+	var scored := score_procedure(recipe_id, run["performed"])
+	var clues := notebook_clues(recipe_id, run["performed"])
+	_learn(s, recipe_id, clues)
+	s["notebook"][recipe_id] = clues
 	var steps := []
 	for i in run["performed"].size():
 		var performed: Dictionary = run["performed"][i].duplicate(true)
 		performed["accuracy"] = scored["accuracies"][i]
 		steps.append(performed)
-	return finish_run(scored["score"], { "steps": steps })
+	return finish_run(scored["score"], { "steps": steps, "clues": clues.duplicate(true) })
 
 
 # ── Experimenting (Slice A) ──────────────────────────────────────────────
-
-
 
 # idealIndex -> hintId for each ideal step the player can't see yet: its
 # hint is off and no base step matches it.
@@ -617,22 +621,22 @@ static func hidden_ideal_steps(recipe_id: String) -> Dictionary:
 #   "near"    right step, wrong amount; direction "higher"/"lower" moves the
 #             mean reading toward the ideal target (null when it's already
 #             in band, e.g. missed strokes or a stray distil tap)
-#   "none"    no effect: an extra step
-#   "changed" an inserted step lands on a hidden ideal step and every known
-#             step still matches the ideal step it would without it
-static func notebook_clues(recipe_id: String, procedure: Array, performed: Array) -> Array:
+#   "none"    no effect: an extra step (a wrong-ore step never matches)
+#   "changed" an off-book step lands on a hidden ideal step and every
+#             on-book step still matches the ideal step it would without it
+static func notebook_clues(recipe_id: String, performed: Array) -> Array:
 	var ideal: Array = procedure_def(recipe_id)["ideal"]
 	var half := band_half_width(recipe_id)
 	var matches := match_ideal(ideal, performed)
-	var in_place := _known_matches_kept(ideal, procedure, matches)
 	var hidden := hidden_ideal_steps(recipe_id)
+	var in_place := _book_matches_kept(ideal, performed, matches, hidden)
 	var clues := []
 	for i in performed.size():
 		var m: int = matches[i]
 		var clue := { "apparatus": performed[i]["apparatus"], "ideal": m, "clue": "none", "direction": null }
 		if m >= 0:
 			var target := float(ideal[m]["target"])
-			if procedure[i].get("knowledge") == "inserted" and hidden.has(m) and in_place:
+			if hidden.has(m) and in_place:
 				clue["clue"] = "changed"
 			elif performed_accuracy(performed[i], target, half) >= 1.0:
 				clue["clue"] = "hit"
@@ -643,14 +647,22 @@ static func notebook_clues(recipe_id: String, procedure: Array, performed: Array
 	return clues
 
 
-static func _known_matches_kept(ideal: Array, procedure: Array, matches: Array[int]) -> bool:
-	var known := []
-	var known_matches: Array[int] = []
-	for i in procedure.size():
-		if procedure[i].get("knowledge") != "inserted":
-			known.append(procedure[i])
-			known_matches.append(matches[i])
-	return match_ideal(ideal, known) == known_matches
+# Whether dropping the off-book steps (those matching a hidden ideal step)
+# leaves every other step's match unchanged.
+static func _book_matches_kept(ideal: Array, performed: Array, matches: Array[int], hidden: Dictionary) -> bool:
+	var book := []
+	var book_matches: Array[int] = []
+	var mixture := []
+	for i in performed.size():
+		mixture.append_array(_added_ores(performed[i]))
+		if hidden.has(matches[i]):
+			continue
+		var step: Dictionary = performed[i].duplicate()
+		step["ores"] = mixture
+		mixture = []
+		book.append(step)
+		book_matches.append(matches[i])
+	return match_ideal(ideal, book) == book_matches
 
 
 static func _direction(performed: Dictionary, target: float, half_width: float) -> Variant:
@@ -671,28 +683,40 @@ static func _direction(performed: Dictionary, target: float, half_width: float) 
 	return "higher" if mean < target else "lower"
 
 
-# Applies a finished run's clues: "changed" grants the hidden step's hint
-# at vague; a "hit" on a vague step counts toward vagueToExactHits, which
-# upgrades it to exact. Marks each clue with learned ("vague"/"exact")
-# and, for a counted hit, hits so far.
-static func _learn(s: Dictionary, recipe_id: String, procedure: Array, clues: Array) -> void:
+# The hint at an ideal step, or {} when it has none.
+static func _hint_for_step(recipe_id: String, ideal_index: int) -> Dictionary:
+	for hint in hints(recipe_id):
+		if int(hint["step"]) == ideal_index:
+			return hint
+	return {}
+
+
+# Applies a finished run's clues to hintLevels -- the same state the debug
+# toggles set: "changed" grants the hidden step's hint at vague; a "hit" on
+# a vague step counts toward vagueToExactHits, which upgrades it to exact.
+# Marks each clue with learned ("vague"/"exact") and, for a counted hit,
+# hits so far.
+static func _learn(s: Dictionary, recipe_id: String, clues: Array) -> void:
 	var hidden := hidden_ideal_steps(recipe_id)
-	for i in clues.size():
-		var clue: Dictionary = clues[i]
+	for clue in clues:
 		if clue["clue"] == "changed":
-			var hint_id: String = hidden[clue["ideal"]]
-			_set_hint_level(s, recipe_id, hint_id, "vague")
+			_set_hint_level(s, recipe_id, hidden[clue["ideal"]], "vague")
 			clue["learned"] = "vague"
-		elif clue["clue"] == "hit" and procedure[i].get("knowledge") == "vague":
-			var hint_id: String = procedure[i]["hintId"]
-			if not s["vagueHits"].get(recipe_id) is Dictionary:
-				s["vagueHits"][recipe_id] = {}
-			var hits: int = int(s["vagueHits"][recipe_id].get(hint_id, 0)) + 1
-			s["vagueHits"][recipe_id][hint_id] = hits
-			clue["hits"] = hits
-			if hits >= int(_data().get("vagueToExactHits", 3)):
-				_set_hint_level(s, recipe_id, hint_id, "exact")
-				clue["learned"] = "exact"
+			continue
+		if clue["clue"] != "hit":
+			continue
+		var hint := _hint_for_step(recipe_id, clue["ideal"])
+		if hint.is_empty() or hint_level(recipe_id, hint["id"]) != "vague":
+			continue
+		var hint_id: String = hint["id"]
+		if not s["vagueHits"].get(recipe_id) is Dictionary:
+			s["vagueHits"][recipe_id] = {}
+		var hits: int = int(s["vagueHits"][recipe_id].get(hint_id, 0)) + 1
+		s["vagueHits"][recipe_id][hint_id] = hits
+		clue["hits"] = hits
+		if hits >= int(_data().get("vagueToExactHits", 3)):
+			_set_hint_level(s, recipe_id, hint_id, "exact")
+			clue["learned"] = "exact"
 
 
 # ── Batch ────────────────────────────────────────────────────────────────
