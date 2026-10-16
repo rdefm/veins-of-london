@@ -350,6 +350,27 @@ func run() -> void:
 		assert_eq(result["beats"].map(func(b): return b["actor"]), [2, PLAYER, 1, 3, 2, PLAYER, 1, 3], "index, then speed, then player before enemies in array order")
 	)
 
+	run_case("beats_name_their_timeline_position_and_resolved_positions_read_so", func():
+		var cp := _start([["guard", "strike"]])
+		var pause := CombatPrototype.decision_position(cp)
+		assert_true(not CombatPrototype.is_resolved(cp, PLAYER, pause))
+		var result := CombatPrototype.choose_move("guard")
+		for beat in result["beats"]:
+			assert_true(beat.has("turnActor") and beat.has("turnIndex"), str(beat))
+		var mine: Array = result["beats"].filter(func(b): return b["actor"] == PLAYER)
+		assert_eq([mine[0]["turnActor"], mine[0]["turnIndex"]], [PLAYER, pause])
+		assert_true(CombatPrototype.is_resolved(cp, PLAYER, pause))
+		assert_true(not CombatPrototype.is_resolved(cp, PLAYER, CombatPrototype.decision_position(cp)))
+	)
+
+	run_case("next_round_timeline_and_guard_preview_need_sight", func():
+		var cp := _start([["guard", "strike"]])
+		assert_eq(CombatPrototype.next_round_timeline(cp), [])
+		cp["combatants"][PLAYER]["sightUntil"] = cp["round"]
+		assert_eq(CombatPrototype.next_round_timeline(cp), [{ "actor": ENEMY, "index": 0 }, { "actor": ENEMY, "index": 1 }])
+		assert_eq(CombatPrototype.guard_preview(cp, ENEMY, true), [CombatPrototype.OPEN, CombatPrototype.GUARDED, CombatPrototype.OPEN], "from this round's Strike, then Guard, Strike")
+	)
+
 	run_case("rewind_steps_back_one_pick_at_a_time_across_the_round_boundary", func():
 		GameState.reset()
 		var cp := CombatPrototype.start({ "seed": 7 })

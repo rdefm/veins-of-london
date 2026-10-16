@@ -763,12 +763,44 @@ static func enemy_intents(cp: Dictionary, actor: int, next_round: bool = false) 
 	return result
 
 
+# Next round's enemy actions in timeline order, as timeline() entries; []
+# without Prophet's Breath sight (the player's own next picks aren't known).
+static func next_round_timeline(cp: Dictionary) -> Array:
+	if not has_sight(cp):
+		return []
+	var combatants: Array = cp["combatants"]
+	var entries: Array = []
+	for i in range(combatants.size()):
+		if combatants[i]["side"] != SIDE_ENEMY or combatants[i]["koed"]:
+			continue
+		for a in range(combatants[i]["nextPlan"].size()):
+			entries.append({ "actor": i, "index": a })
+	entries.sort_custom(func(x, y): return _acts_before(cp, x["actor"], x["index"], y["actor"], y["index"]))
+	return entries
+
+
+# Whether `actor`'s action `index` on this round's timeline has resolved.
+static func is_resolved(cp: Dictionary, actor: int, index: int) -> bool:
+	var cursor: Dictionary = cp["cursor"]
+	if int(cursor["index"]) < 0:
+		return false
+	if actor == int(cursor["actor"]) and index == int(cursor["index"]):
+		return true
+	return _acts_before(cp, actor, index, cursor["actor"], cursor["index"])
+
+
 # A combatant's guard state now, then after each of its planned actions
-# this round (an unfilled player action leaves it unchanged).
-static func guard_preview(cp: Dictionary, actor: int) -> Array:
+# this round (an unfilled player action leaves it unchanged). With
+# next_round, an enemy's state as this round leaves it, then after each
+# action of its pre-rolled next plan.
+static func guard_preview(cp: Dictionary, actor: int, next_round: bool = false) -> Array:
 	var state: String = cp["combatants"][actor]["guard"]
+	var plan: Array = _plan_of(cp, actor)
+	if next_round:
+		state = guard_preview(cp, actor).back()
+		plan = cp["combatants"][actor]["nextPlan"]
 	var result: Array = [state]
-	for action in _plan_of(cp, actor):
+	for action in plan:
 		if action != null:
 			var effect: String = move(action["move"]).get("actorGuard", UNCHANGED)
 			if effect != UNCHANGED:
@@ -1065,9 +1097,10 @@ static func _check_outcome(cp: Dictionary) -> void:
 	cp["outcome"] = "win"
 
 
-# One beat: { round, kind, actor, target, move, text } plus `extra`. The
-# line's "self" variant is used when the player is the actor (or, for a
-# KO, the one going down).
+# One beat: { round, kind, actor, target, move, text, turnActor, turnIndex }
+# plus `extra`; turnActor/turnIndex name the timeline position whose action
+# produced it. The line's "self" variant is used when the player is the
+# actor (or, for a KO, the one going down).
 static func _beat(cp: Dictionary, beats: Array, kind: String, actor: int, target: int, move_id: String, extra: Dictionary) -> void:
 	var lines: Dictionary = _data()["beatLines"]
 	var combatants: Array = cp["combatants"]
@@ -1083,7 +1116,11 @@ static func _beat(cp: Dictionary, beats: Array, kind: String, actor: int, target
 		text += lines["crit"]
 	if extra.get("absorbed", 0) > 0:
 		text += lines["absorb"].format({ "absorbed": extra["absorbed"] })
-	var beat := { "round": cp["round"], "kind": kind, "actor": actor, "target": target, "move": move_id, "text": text[0].to_upper() + text.substr(1) }
+	var beat := {
+		"round": cp["round"], "kind": kind, "actor": actor, "target": target, "move": move_id,
+		"text": text[0].to_upper() + text.substr(1),
+		"turnActor": int(cp["cursor"]["actor"]), "turnIndex": int(cp["cursor"]["index"]),
+	}
 	beat.merge(extra)
 	beats.append(beat)
 

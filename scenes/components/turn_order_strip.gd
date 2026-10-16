@@ -47,6 +47,8 @@ class NameplateCard extends Control:
 	var status_lines: Array[String] = []
 	var shows_telegraph_slot: bool = false
 	var telegraph_text: String = ""
+	var action_text: String = ""
+	var guard_badge: String = ""
 	var tell_image: Texture2D = null
 	var tell_rect: TextureRect = null
 	var is_pulsing: bool = false
@@ -111,7 +113,10 @@ class NameplateCard extends Control:
 # is { key, occurrenceId, name, level, hp, hpMax, factionName,
 # factionColour, isEnemy } plus optional "statusLines" (Array[String]),
 # "telegraphText" (String) and "tellImage" (Texture2D or null), all shown
-# on the focused card only.
+# on the focused card only; "actionText" (the card's action, String) and
+# "guardBadge" (String), shown on every card; and "focused" (bool), which
+# when present decides that card's expansion in place of the selected key,
+# playback included.
 static func build_entries(combat: Dictionary, player: Dictionary) -> Array:
 	return build_entries_for(Combat.project_queue(combat), combat, player)
 
@@ -271,12 +276,17 @@ func configure(entries: Array, selected_pos: int, available_width: float, select
 # revealed occurrences fade in -- one tween, cut short by the next call or
 # finish_advance().
 func advance_to(entries: Array, duration: float) -> void:
+	finish_advance()
+	var old_row_x: float = _row.position.x if _row != null else 0.0
 	var old_x: Dictionary = {}
 	for i in range(mini(_entries.size(), _card_rects.size())):
 		old_x[_entries[i]["occurrenceId"]] = _card_rects[i].position.x
 	_entries = entries
 	_resolving = true
 	_rebuild(_available_width)
+	var focused_pos: int = _entries.find_custom(func(e): return e.get("focused", false))
+	if focused_pos >= 0:
+		_reveal_pos(focused_pos)
 	if duration <= 0.0 or not is_inside_tree():
 		return
 
@@ -287,7 +297,7 @@ func advance_to(entries: Array, duration: float) -> void:
 			shift = old_x[occurrence_id] - _card_rects[i].position.x
 			break
 	_advance_tween = create_tween().set_parallel(true)
-	_row.position.x = -_scroll_offset + shift
+	_row.position.x = old_row_x + shift
 	_advance_tween.tween_property(_row, "position:x", -_scroll_offset, duration)
 	var cards: Array[Node] = _row.get_children()
 	for i in range(cards.size()):
@@ -400,6 +410,12 @@ static func card_is_expanded(entry_key: Dictionary, selected_key: Dictionary, re
 	return not resolving and entry_key == selected_key
 
 
+func _is_expanded(entry: Dictionary) -> bool:
+	if entry.has("focused"):
+		return entry["focused"]
+	return card_is_expanded(entry["key"], _selected_key, _resolving)
+
+
 func _rebuild(available_width: float) -> void:
 	finish_advance()
 	for child in get_children():
@@ -424,7 +440,7 @@ func _rebuild(available_width: float) -> void:
 	var x: float = 0.0
 	for i in range(_entries.size()):
 		var entry: Dictionary = _entries[i]
-		var is_selected: bool = card_is_expanded(entry["key"], _selected_key, _resolving)
+		var is_selected: bool = _is_expanded(entry)
 		var w: float = base_width + (EXPANDED_WIDTH_BONUS_PX if is_selected else 0.0)
 		var h: float = _expanded_height_for(entry) if is_selected else CARD_HEIGHT
 		_card_rects.append(Rect2(Vector2(x, 0.0), Vector2(w, h)))
@@ -437,7 +453,7 @@ func _rebuild(available_width: float) -> void:
 
 	for i in range(_entries.size()):
 		var entry: Dictionary = _entries[i]
-		var is_selected: bool = card_is_expanded(entry["key"], _selected_key, _resolving)
+		var is_selected: bool = _is_expanded(entry)
 		var card := _build_card(entry, is_selected, _card_rects[i].size)
 		card.size_flags_vertical = Control.SIZE_FILL if is_selected else Control.SIZE_SHRINK_BEGIN
 		_row.add_child(card)
@@ -470,6 +486,8 @@ func _build_card(entry: Dictionary, is_focused: bool, card_size: Vector2) -> Nam
 	card.is_focused = is_focused
 	card.is_enemy = entry["isEnemy"]
 	card.shows_exact_hp = is_focused
+	card.action_text = entry.get("actionText", "")
+	card.guard_badge = entry.get("guardBadge", "")
 
 	var frac: float = clampf(float(shown_hp) / float(maxi(1, entry["hpMax"])), 0.0, 1.0)
 	card.is_pulsing = frac < PULSE_HP_FRACTION
@@ -482,7 +500,7 @@ func _build_card(entry: Dictionary, is_focused: bool, card_size: Vector2) -> Nam
 
 	if is_focused:
 		card.status_lines.assign(entry.get("statusLines", []))
-		card.shows_telegraph_slot = entry["isEnemy"]
+		card.shows_telegraph_slot = entry["isEnemy"] and entry.has("telegraphText")
 		if card.shows_telegraph_slot:
 			card.telegraph_text = entry.get("telegraphText", "")
 			card.tell_image = entry.get("tellImage")
@@ -561,6 +579,13 @@ func _build_card_content(card: NameplateCard) -> void:
 		level_label.add_theme_color_override("font_color", _palette_colour(SIGN_LETTERING_ID))
 		top_row.add_child(level_label)
 
+	if not card.guard_badge.is_empty():
+		var badge := Label.new()
+		badge.text = card.guard_badge
+		badge.add_theme_font_size_override("font_size", 9)
+		badge.add_theme_color_override("font_color", _palette_colour(SIGN_STATUS_ID))
+		top_row.add_child(badge)
+
 	box.add_child(top_row)
 
 	var bar_spacer := Control.new()
@@ -575,6 +600,17 @@ func _build_card_content(card: NameplateCard) -> void:
 		hp_label.add_theme_color_override("font_color", _palette_colour(SIGN_LETTERING_ID))
 		box.add_child(hp_label)
 		card.hp_label = hp_label
+
+	if not card.action_text.is_empty():
+		var action := Label.new()
+		action.text = card.action_text
+		action.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		# One line when the faction line below needs the room.
+		action.max_lines_visible = 2 if card.faction_name.is_empty() else 1
+		action.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		action.add_theme_font_size_override("font_size", 9)
+		action.add_theme_color_override("font_color", _palette_colour(SIGN_INTENT_ID))
+		box.add_child(action)
 
 	for line in card.status_lines:
 		var status_label := Label.new()
@@ -613,6 +649,7 @@ func _build_card_content(card: NameplateCard) -> void:
 	faction_label.add_theme_color_override("font_color", UNKNOWN_COLOUR if card.faction_name == "UNKNOWN" else card.faction_colour)
 	faction_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	faction_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	faction_label.visible = not card.faction_name.is_empty()
 	box.add_child(faction_label)
 	card.faction_label = faction_label
 

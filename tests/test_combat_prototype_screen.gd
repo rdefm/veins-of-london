@@ -32,6 +32,17 @@ func _queued(node: Node, root: Node) -> bool:
 	return false
 
 
+# A seeded fight: you and one ally against a bruiser and a turtle.
+func _render_squad_fight() -> CombatPrototypeScreen:
+	GameState.reset()
+	CombatPrototype.start({
+		"seed": 1,
+		"enemies": [{ "archetype": "bruiser", "level": 1 }, { "archetype": "turtle", "level": 1 }],
+		"allies": [{ "level": 1, "loadout": [] }],
+	})
+	return _render()
+
+
 func _live_children(node: Node) -> Array:
 	return node.get_children().filter(func(c): return not c.is_queued_for_deletion())
 
@@ -143,6 +154,83 @@ func run() -> void:
 		assert_true(_live_children(screen._readouts_content).size() >= 3, "combatants, timeline and log")
 		screen._toggle_readouts()
 		assert_true(not screen._readouts_panel.visible)
+	)
+
+	run_case("the_strip_shows_the_system_timeline_in_order", func():
+		var screen := _render_squad_fight()
+		var cp: Dictionary = GameState.state["combatPrototype"]
+		var entries: Array = screen._strip._entries
+		var positions: Array = entries.map(func(e): return [e["actor"], e["index"]])
+		assert_eq(positions, CombatPrototype.timeline(cp).map(func(t): return [t["actor"], t["index"]]))
+		var focused: Array = entries.filter(func(e): return e["focused"])
+		assert_eq(focused.size(), 1)
+		assert_eq([focused[0]["actor"], focused[0]["index"]], [CombatPrototype.PLAYER_INDEX, CombatPrototype.decision_position(cp)])
+		assert_eq(focused[0]["actionText"], "Your pick")
+		assert_eq(screen._strip._row.get_child_count(), entries.size(), "one card per position")
+	)
+
+	run_case("enemy_cards_show_target_and_damage_and_next_round_only_under_sight", func():
+		var screen := _render_squad_fight()
+		var enemy_texts := func() -> Array:
+			return screen._strip._entries.filter(func(e): return e["isEnemy"] and not e["nextRound"]).map(func(e): return e["actionText"])
+		for text in enemy_texts.call():
+			assert_true(not text.contains("→") and not text.contains("("), text)
+		assert_true(screen._strip._entries.all(func(e): return not e["nextRound"]), "no next-round cards without sight")
+
+		var cp: Dictionary = GameState.state["combatPrototype"]
+		cp["combatants"][CombatPrototype.PLAYER_INDEX]["sightUntil"] = cp["round"]
+		screen._refresh()
+		assert_true(enemy_texts.call().any(func(t): return t.contains("→") and t.contains("–")), str(enemy_texts.call()))
+		var next: Array = screen._strip._entries.filter(func(e): return e["nextRound"])
+		assert_eq(next.map(func(e): return [e["actor"], e["index"]]), CombatPrototype.next_round_timeline(cp).map(func(t): return [t["actor"], t["index"]]))
+		assert_true(next.size() > 0 and next.all(func(e): return e["factionName"] == "Next round"))
+	)
+
+	run_case("guard_badges_follow_the_guard_preview_then_the_actual_result", func():
+		var screen := _render_squad_fight()
+		var cp: Dictionary = GameState.state["combatPrototype"]
+		for entry in screen._strip._entries:
+			if not CombatPrototype.is_resolved(cp, entry["actor"], entry["index"]):
+				assert_eq(entry["guardBadge"], str(CombatPrototype.guard_preview(cp, entry["actor"])[entry["index"] + 1]).capitalize(), entry["occurrenceId"])
+		var pause := CombatPrototype.decision_position(cp)
+		var round_no: int = cp["round"]
+		var result := CombatPrototype.choose_move("guard")
+		cp = GameState.state["combatPrototype"]
+		if cp["round"] == round_no:
+			var mine: Array = screen._strip._entries.filter(func(e): return e["actor"] == CombatPrototype.PLAYER_INDEX and e["index"] == pause)
+			assert_eq(mine[0]["guardBadge"], "Guarded")
+			assert_eq(mine[0]["actionText"], "Guard")
+		for beat in result["beats"]:
+			if beat.has("actorGuard") and beat["actor"] == beat["turnActor"] and beat["round"] == cp["round"]:
+				var shown: Array = screen._strip._entries.filter(func(e): return e["actor"] == beat["actor"] and e["index"] == beat["turnIndex"] and not e["nextRound"])
+				if not shown.is_empty():
+					assert_eq(shown[0]["guardBadge"], str(beat["actorGuard"]).capitalize())
+	)
+
+	run_case("playback_steps_the_strip_through_the_beats_without_a_mid_beat_rebuild", func():
+		var screen := _render_squad_fight()
+		var cp: Dictionary = GameState.state["combatPrototype"]
+		var pick := { "move": "strike", "target": -1 }
+		var before := CombatPrototypeScreen.strip_entries(cp, pick)
+		var round_no: int = cp["round"]
+		var pause := CombatPrototype.decision_position(cp)
+		var result := CombatPrototype.choose_move("strike")
+		assert_true(result["ok"] and not result["beats"].is_empty())
+		screen.begin_strip_playback(before, round_no, result["beats"])
+		var mine: Array = screen._strip._entries.filter(func(e): return e["actor"] == CombatPrototype.PLAYER_INDEX and e["index"] == pause)
+		assert_true(mine[0]["actionText"].begins_with("Strike →"), mine[0]["actionText"])
+		for beat in result["beats"]:
+			screen._advance_strip(beat)
+			var shown: Array = screen._strip._entries
+			var focused: Array = shown.filter(func(e): return e["focused"])
+			var beat_id := "%d:%d:%d" % [beat["round"], beat["turnActor"], beat["turnIndex"]]
+			if shown.any(func(e): return e["occurrenceId"] == beat_id):
+				assert_eq(focused.map(func(e): return e["occurrenceId"]), [beat_id])
+			screen._refresh()
+			assert_true(is_same(screen._strip._entries, shown), "a state_changed mid-playback leaves the strip alone")
+		screen._strip_playback = {}
+		screen._refresh()
+		assert_eq(screen._strip._entries.size(), CombatPrototype.timeline(GameState.state["combatPrototype"]).size() + CombatPrototype.next_round_timeline(GameState.state["combatPrototype"]).size())
 	)
 
 	run_case("a_whole_fight_plays_through_the_dock_rows_to_an_outcome", func():
