@@ -245,7 +245,7 @@ overlays.
 | phone_app_registry.gd | app id -> PhoneApp script table; the only dispatch path phone.gd uses |
 | alarms_app.gd | Raid alarm rows: defend / leave undefended (two-tap) / decide later |
 | bizbrief_app.gd | BizBrief shell/tabs. Brief: tiered Today rows + routes (wage/poach → person, or Brief cards if Staff locked), Yesterday → Morning report page, Business money page, Market position page (moves, war, shares). Manage index → Sales/Production/Procurement pages. Gated Staff roster → person detail. Pot-gated completed-day Stats. Hosts Short Pay, Guard Costs |
-| messages_app.gd | Conversation inbox (fixed-height rows: bold name, one-line `…` preview, unread pill, per-contact Clear) + single-thread staged bubble reveal/action bar (incl. Owen's text reply choices); thread opens scrolled to the newest message |
+| messages_app.gd | Conversation inbox (fixed-height rows: bold name, one-line `…` preview, unread pill, per-contact Clear) + single-thread texting view: sent replies right/blue, incoming left/grey, each new incoming preceded by a tap-skippable three-dot typing bubble (`Messages.typing_seconds`); action bar incl. Owen's reply choices |
 | todo_app.gd | ToDo app: collapsible questline sections from Todo, all_of checks as indented sub-rows; session-only expand/collapse overrides in a static var |
 | factions_app.gd | The Register (app id `factions`): five-row directory (masthead, dot, stance, relation, meter, alert) opening a dossier page (actions, identity, footprint, Benefits ladder, Intel, Activity); home routes to Market shares (Ore/Crafting, ore choice, bars) and London politics (stance-tinted upper-triangle grid, legend, bordered pair strip). Palette `register_*`. |
 | ticker_app.gd | Ticker News: state stories by recency, newest-first wires, full state and wire articles, live impact, same-axis Influence sheet. Stock Market: filters, Ore/Items lists, demand modifiers, price detail and chart, annotations and demand drivers |
@@ -295,9 +295,9 @@ overlays.
 | objectives.json | objectives.gd, todo.gd, daily_brief.gd (optional briefAction / earlyBriefAction + note: Story-row destination), collective.gd, business_quest.gd |
 | offers.json | offers.gd (synthetic catalogue, scripted counterparties, offer expiry days, recurring term weeks, random-offer daily chance curve + qty bands, small-offer threshold, cancel relation hit), business_quest.gd (biz_starter_* chain + Archie nudge text, biz_recurring_* from Beat 3/6) |
 | ore_types.json | widely read (economy, cultivating, sites, factions) |
-| palette.json | GameData.gd (reference combat-art palette; `lodedinnit_*` brand tokens read by lodedinnit_app.gd) |
+| palette.json | GameData.gd (reference combat-art palette; `lodedinnit_*` brand tokens read by lodedinnit_app.gd; `phone_*` Phone-OS tokens read by contact_cards.gd) |
 | daily_brief.json | GameData.gd + daily_brief.gd (Today card tier order + labels, row cap, bill window, vein risk bands + collapse-nights threshold, offer window, demand threshold, empty state, more/less + Routine/demand toggle labels, routineParts, demandPart, storyActions button labels, doneMark + revealSeconds fade, per-row tier/kind/label/consequence/action templates; PROSE-REVIEW) |
-| phone_home.json | GameData.gd + phone_device_shell.gd (wallpaper, per-block status clock times, widget date format + fixed weather/battery copy; shell renders time/date from world.day/timeBlock) |
+| phone_home.json | GameData.gd + phone_device_shell.gd + messages.gd (`typing` delay bounds; wallpaper, per-block status clock times, widget date format + fixed weather/battery copy; shell renders time/date from world.day/timeBlock) |
 | recipes.json | widely read (crafting, bench, combat, dial, jobs, rooms) |
 | sites.json | sites.gd, collective.gd, objectives.gd |
 | stealth.json | raiding.gd |

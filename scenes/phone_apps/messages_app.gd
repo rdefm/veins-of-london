@@ -1,17 +1,23 @@
 # Conversation index and single-conversation view. Detail mounts its own full-height root on the shell
 # (the shared scroll body is hidden) so the action bar sits below a
 # scrolling thread; messages unread when the conversation was opened are
-# revealed one bubble at a time.
+# revealed one bubble at a time, each incoming one after a three-dot typing
+# bubble (ui-vision.md §10 Messages row) that a tap on the thread skips.
 class_name MessagesApp
 extends PhoneApp
 
 const ROW_HEIGHT := 64.0
 const _PILL_SIZE := 22.0
 const _THEME: Theme = preload("res://theme/main_theme.tres")
+const _TYPING_DOT_PULSE := 0.25
+const _TYPING_DOT_DIM := 0.3
+const _TAP_SLOP := 12.0
 
 var _reveal_from_index: Dictionary = {}
 var _conversation_root: Control = null
 var _bold: FontVariation = null
+var _skip_wait := false
+var _tap_origin: Vector2 = Vector2.INF
 
 
 func build(content: VBoxContainer) -> void:
@@ -161,6 +167,7 @@ func _build_conversation(content: VBoxContainer, contact_id: String) -> void:
 	# Opens on the newest message and follows each revealed bubble down.
 	var v_bar := scroll.get_v_scroll_bar()
 	v_bar.changed.connect(func(): scroll.scroll_vertical = int(v_bar.max_value))
+	scroll.gui_input.connect(_on_thread_input)
 
 	var margin := MarginContainer.new()
 	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -192,13 +199,83 @@ func _build_conversation(content: VBoxContainer, contact_id: String) -> void:
 
 func _reveal_remaining(box: VBoxContainer, thread: Array, start_index: int) -> void:
 	for i in range(start_index, thread.size()):
-		if not is_instance_valid(shell) or not is_instance_valid(box):
+		if not _alive(box):
 			return
-		var bubble := UI.message_bubble(thread[i]["text"], thread[i]["from"] == "player")
+		var from_player: bool = thread[i]["from"] == "player"
+		if not from_player:
+			var typing := _typing_bubble()
+			box.add_child(typing)
+			ContactCards.apply_phone_os_chrome(typing)
+			_animate_typing_dots(typing)
+			await _skippable_wait(Messages.typing_seconds(thread[i]["text"]))
+			if not _alive(box):
+				return
+			box.remove_child(typing)
+			typing.queue_free()
+		var bubble := UI.message_bubble(thread[i]["text"], from_player)
 		box.add_child(bubble)
 		ContactCards.apply_phone_os_chrome(bubble)
-		var delay: float = 0.9 if (i - start_index) % 2 == 0 else 0.6
-		await shell.get_tree().create_timer(delay).timeout
+
+
+func _alive(box: VBoxContainer) -> bool:
+	return is_instance_valid(shell) and is_instance_valid(box) and box.is_inside_tree()
+
+
+# Waits `seconds`, or until a tap on the thread sets _skip_wait.
+func _skippable_wait(seconds: float) -> void:
+	_skip_wait = false
+	var end_msec := Time.get_ticks_msec() + int(seconds * 1000.0)
+	while Time.get_ticks_msec() < end_msec and not _skip_wait:
+		if not is_instance_valid(shell) or not shell.is_inside_tree():
+			return
+		await shell.get_tree().process_frame
+
+
+# A tap (press and release without dragging past _TAP_SLOP) skips the
+# current typing wait; a scroll drag doesn't.
+func _on_thread_input(event: InputEvent) -> void:
+	var pressed: bool
+	var pos: Vector2
+	if event is InputEventScreenTouch:
+		pressed = event.pressed
+		pos = event.position
+	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		pressed = event.pressed
+		pos = event.position
+	else:
+		return
+	if pressed:
+		_tap_origin = pos
+	elif _tap_origin != Vector2.INF and pos.distance_to(_tap_origin) <= _TAP_SLOP:
+		_skip_wait = true
+		_tap_origin = Vector2.INF
+
+
+# An incoming-side bubble holding three dots; apply_phone_os_chrome gives it
+# the incoming fill like any other left-aligned bubble.
+func _typing_bubble() -> Control:
+	var row := UI.hbox()
+	var bubble := UI.card()
+	var dots := UI.hbox(4)
+	dots.name = "TypingDots"
+	for _n in range(3):
+		var dot := Label.new()
+		dot.text = "●"
+		dot.add_theme_color_override("font_color", ContactCards.phone_colour("muted"))
+		dot.modulate.a = _TYPING_DOT_DIM
+		dots.add_child(dot)
+	bubble["content"].add_child(dots)
+	row.add_child(bubble["panel"])
+	return row
+
+
+# Each dot brightens and dims in turn, looping until the bubble is freed.
+func _animate_typing_dots(typing: Control) -> void:
+	var dots := typing.find_child("TypingDots", true, false)
+	var tween := typing.create_tween().set_loops()
+	for dot in dots.get_children():
+		tween.tween_property(dot, "modulate:a", 1.0, _TYPING_DOT_PULSE)
+		tween.tween_property(dot, "modulate:a", _TYPING_DOT_DIM, _TYPING_DOT_PULSE)
 
 
 func _build_action_bar(contact_id: String) -> Control:

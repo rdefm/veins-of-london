@@ -166,3 +166,16 @@ func run() -> void:
 
 		assert_eq(GameState.state["contacts"]["des"]["unlocked"], true)
 	)
+
+	run_case("typing_seconds_scales_with_length_within_the_data_bounds", func():
+		var cfg: Dictionary = GameData.PHONE_HOME["typing"]
+		var lo: float = cfg["minSeconds"]
+		var hi: float = cfg["maxSeconds"]
+		var full: int = cfg["charsForMax"]
+
+		assert_almost_eq(Messages.typing_seconds(""), lo, 0.001, "empty text waits the minimum")
+		assert_almost_eq(Messages.typing_seconds("x".repeat(full)), hi, 0.001, "charsForMax waits the maximum")
+		assert_almost_eq(Messages.typing_seconds("x".repeat(full * 3)), hi, 0.001, "longer text is capped at the maximum")
+		var mid := Messages.typing_seconds("x".repeat(full / 2))
+		assert_true(mid > lo and mid < hi, "a mid-length text falls between the bounds")
+	)

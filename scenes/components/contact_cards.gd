@@ -561,6 +561,7 @@ const _PHONE_DIVIDER := "phone_divider"
 const _PHONE_TEXT_PRIMARY := "phone_text_primary"
 const _PHONE_TEXT_MUTED := "phone_text_muted"
 const _PHONE_BUBBLE_INCOMING := "phone_bubble_incoming"
+const _PHONE_BUBBLE_OUTGOING := "phone_bubble_outgoing"
 
 const _FALLBACK_BG_HOME := Color("#1b1b1d")
 const _FALLBACK_BG_CONTENT := Color("#252528")
@@ -568,7 +569,8 @@ const _FALLBACK_DIVIDER := Color("#424246")
 const _FALLBACK_TEXT_PRIMARY := Color("#ededee")
 const _FALLBACK_TEXT_MUTED := Color("#999a9d")
 const _FALLBACK_ACTION := Color("#c8102e")
-const _FALLBACK_BUBBLE_INCOMING := Color("#333336")
+const _FALLBACK_BUBBLE_INCOMING := Color("#3a3a3c")
+const _FALLBACK_BUBBLE_OUTGOING := Color("#0a84ff")
 
 const _GLOBAL_MUTED_GREY := Color(0.541176, 0.541176, 0.541176, 1)
 
@@ -661,7 +663,7 @@ static func _style_card_panel(panel: PanelContainer) -> void:
 
 static func _style_bubble_panel(panel: PanelContainer, outgoing: bool) -> void:
 	var style := StyleBoxFlat.new()
-	style.bg_color = _palette("ui_action_red", _FALLBACK_ACTION) if outgoing else _palette(_PHONE_BUBBLE_INCOMING, _FALLBACK_BUBBLE_INCOMING)
+	style.bg_color = _palette(_PHONE_BUBBLE_OUTGOING, _FALLBACK_BUBBLE_OUTGOING) if outgoing else _palette(_PHONE_BUBBLE_INCOMING, _FALLBACK_BUBBLE_INCOMING)
 	style.set_corner_radius_all(14)
 	style.content_margin_left = 14
 	style.content_margin_top = 10

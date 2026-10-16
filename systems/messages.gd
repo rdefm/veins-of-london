@@ -93,6 +93,15 @@ static func latest_preview(contact_id: String) -> String:
 	return str(thread[-1].get("text", ""))
 
 
+# How long the thread's typing bubble shows before an incoming message lands:
+# linear in text length from minSeconds up to maxSeconds at charsForMax
+# characters, capped there (phone_home.json `typing`).
+static func typing_seconds(text: String) -> float:
+	var cfg: Dictionary = GameData.PHONE_HOME["typing"]
+	var t := clampf(float(text.length()) / float(cfg["charsForMax"]), 0.0, 1.0)
+	return lerpf(float(cfg["minSeconds"]), float(cfg["maxSeconds"]), t)
+
+
 static func queue_pending(contact_id: String, kind: String, text: String, payload: Dictionary = {}) -> void:
 	append(contact_id, "them", text)
 	var id := str(Time.get_ticks_usec()) + str(Rng.randi_range(1000, 999999))
