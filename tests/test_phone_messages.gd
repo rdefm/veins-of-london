@@ -109,7 +109,7 @@ second line")
 
 	run_case("selecting_a_conversation_marks_it_read_and_renders_its_history_and_trade_button", func():
 		GameState.reset()
-		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0 }
+		GameState.state["contacts"]["des"]["unlocked"] = true
 		Messages.append("des", "them", "Got something for you.")
 		Messages.append("des", "player", "On my way.")
 
@@ -202,7 +202,7 @@ second line")
 
 	run_case("back_from_a_contact_card_conversation_returns_to_messages_index", func():
 		GameState.reset()
-		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0 }
+		GameState.state["contacts"]["des"]["unlocked"] = true
 		PhoneNav.select_conversation("des")
 
 		var phone := PhoneScreen.new()
@@ -220,7 +220,7 @@ second line")
 
 	run_case("a_pending_message_action_button_resolves_the_entry_and_starts_its_event", func():
 		GameState.reset()
-		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0 }
+		GameState.state["contacts"]["des"]["unlocked"] = true
 		Messages.queue_pending("des", "col_a1_des_report", "Got something for you.", { "site_id": "s1" })
 		PhoneNav.select_conversation("des")
 

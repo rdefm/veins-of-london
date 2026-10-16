@@ -451,7 +451,7 @@ func run() -> void:
 		Hiring.daily_poach_tick()
 		assert_eq(Hiring.status("priya")["state"], "employed")
 		assert_eq(Hiring.status("priya")["employer"], faction_id)
-		assert_true(GameState.state["business"]["wages"]["priya"].get("leaving", false))
+		assert_true(not GameState.state["business"]["wages"].has("priya"), "leaving in the prepaid week, nothing owed: the entry drops at once")
 		assert_true(Hiring.pending_poach_ids().is_empty())
 	)
 

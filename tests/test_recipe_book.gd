@@ -1,5 +1,7 @@
 extends "res://tests/test_base.gd"
 
+const NodeQuery := preload("res://tests/support/node_query.gd")
+
 # Recipes notebook: ore side tabs, four entries a page, tab/page kept across
 # the craft overlay (lab_bench_recipe_book_modal.gd, recipe_book_page.gd).
 
@@ -151,7 +153,10 @@ func run() -> void:
 		assert_true(layer._overlay_card.visible, "overlay above the page")
 		assert_eq(_find_buttons(layer, "ore").size(), 5, "book stays rendered beneath")
 
-		_button_named(layer._overlay_card, "Back to book").pressed.emit()
+		var back := NodeQuery.find_button(layer._overlay_card, "Back to book")
+		assert_true(back != null, "the overlay carries Back to book")
+		if back != null:
+			back.pressed.emit()
 		assert_eq(GameState.state["modal"]["type"], "lab_bench_recipe_book")
 		assert_eq(GameState.state["modal"]["data"], { "ore": "time", "page": 0 })
 		layer.free()

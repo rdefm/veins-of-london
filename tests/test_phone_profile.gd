@@ -51,7 +51,10 @@ func run() -> void:
 
 		phone = PhoneScreen.new()
 		phone._ready()
-		NodeQuery.find_button_by_effective_text(phone, "Unload Time Pearl t1").pressed.emit()
+		var unload_btn := NodeQuery.find_button_by_effective_text(phone, GameData.RECIPES["timePearl"]["symbol"] + "Unload Time Pearl t1")
+		assert_true(unload_btn != null, "Profile shows Unload for the loaded unit")
+		if unload_btn != null:
+			unload_btn.pressed.emit()
 		assert_eq(Crafting.inventory_qty("timePearl"), 1, "unload returns the unit")
 		phone.free()
 

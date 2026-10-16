@@ -38,7 +38,7 @@ func run() -> void:
 
 	run_case("messages_conversation_root_is_freed_when_the_shell_rebuilds_for_another_app", func():
 		GameState.reset()
-		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0 }
+		GameState.state["contacts"]["des"]["unlocked"] = true
 		PhoneNav.select_conversation("des")
 		var phone := PhoneScreen.new()
 		phone._ready()

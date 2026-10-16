@@ -149,6 +149,8 @@ func run() -> void:
 		GameState.reset()
 		var screen := MapScreen.new()
 		screen._ready()
+		# Off-tree, screen._ready() doesn't cascade into the drawer's own.
+		screen._map_controls._ready()
 		var btn: Button = screen._menu_button
 		var pos := Vector2(5, 5)
 

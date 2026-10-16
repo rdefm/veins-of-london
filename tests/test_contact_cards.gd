@@ -344,7 +344,7 @@ func run() -> void:
 		GameState.state["flags"]["jamesMotionEventSeen"] = true
 		GameState.state["flags"]["jamesJobActive"] = true
 		GameState.state["flags"]["jamesJobAccepted"] = true
-		GameState.state["jamesJob"] = { "type": "delivery", "qty": 3, "symbol": "physics", "recipeName": "Test Recipe" }
+		GameState.state["jamesJob"] = { "type": "craft", "recipeKey": "timePearl", "recipeName": "Test Recipe", "symbol": "physics", "qty": 3 }
 
 		var card := ContactCards.build_james_card()
 		ContactCards.apply_phone_os_chrome(card)

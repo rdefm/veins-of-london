@@ -671,11 +671,12 @@ func run() -> void:
 		_market_fresh(5)
 		var site := Fixtures.site("site_found", "life", "rich")
 		GameState.state["world"]["sites"].append(site)
-		_move_ready("collective", -20)
-		_target_entry("collective")["warnedBand"] = FactionAI.BAND_WARNING
+		_move_ready("collective", FactionAI.warning_line("collective") - 1)
+		assert_eq(FactionAI.band("collective", "player"), FactionAI.BAND_WARNING)
 		FactionAI.apply_escalation()
 		assert_eq(site["factionVein"], null, "warning band: no market move")
-		_move_ready("collective", -35)
+		_move_ready("collective", FactionAI.market_line("collective") - 1)
+		assert_eq(FactionAI.band("collective", "player"), FactionAI.BAND_MARKET)
 		GameState.state["factions"]["collective"]["resources"] = int(GameData.FACTION_ESCALATION["moveCosts"]["outbid"]) - 1
 		FactionAI.apply_escalation()
 		assert_eq(site["factionVein"], null, "market band but can't afford it")

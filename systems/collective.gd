@@ -145,8 +145,8 @@ static func next_reportable_des_ore_type() -> String:
 # type already reported to Des is skipped.
 static func next_des_forced_ore_type() -> String:
 	var flags: Dictionary = GameState.state["flags"]
-	var def: Dictionary = GameData.OBJECTIVES["col_a1_des_sites"]
-	if not flags.get(def["activateFlag"], false) or flags.get(def["completeFlag"], false):
+	var def: Dictionary = GameData.OBJECTIVES.get("col_a1_des_sites", {})
+	if def.is_empty() or not flags.get(def["activateFlag"], false) or flags.get(def["completeFlag"], false):
 		return ""
 
 	var collective: Dictionary = GameState.state["collective"]
