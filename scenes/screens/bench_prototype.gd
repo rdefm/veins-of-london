@@ -471,8 +471,25 @@ func _build_docked_book() -> Control:
 	var steps := BenchPrototype.known_procedure(_recipe_id)
 	for i in steps.size():
 		_add_known_step(content, i, steps[i])
+	_add_effect_controls(content)
 	c["content"].add_child(MapCardStyle.footer([MapCardStyle.text_button("Finish", _on_finish)]))
 	return c["panel"]
+
+
+# Use item: one button per bench effect, spending a real one from the bag;
+# a running effect shows its blocks left instead.
+func _add_effect_controls(content: VBoxContainer) -> void:
+	var row := UI.hbox()
+	for item in BenchPrototype.usable_effects():
+		var item_name: String = GameData.RECIPES[item]["name"]
+		var effect = ActiveEffects.find(item)
+		if effect != null:
+			# PROSE-REVIEW: bench active-effect status.
+			row.add_child(UI.muted_label("%s · %d left" % [item_name, ActiveEffects.blocks_left(effect)]))
+		else:
+			var qty := Crafting.inventory_qty(item)
+			row.add_child(MapCardStyle.text_button("Use %s (%d)" % [item_name, qty], func(): BenchPrototype.use_effect(item), qty <= 0))
+	content.add_child(row)
 
 
 func _jar_names(base_calc: Dictionary) -> String:
@@ -489,6 +506,9 @@ func _add_known_step(content: VBoxContainer, index: int, step: Dictionary) -> vo
 		ores += " · %s ×%d" % [ore_type, calc[ore_type]]
 	var region := BenchPrototype.step_region(_recipe_id, step)
 	var band_text: String = "≈ %d–%d" if region["vague"] else "%d–%d"
+	if step["knowledge"] == "revealed":
+		# PROSE-REVIEW: tag on a band Prophet's Breath reveals.
+		band_text += " (Breath)"
 	content.add_child(UI.label("%d. %s%s · %s" % [index + 1, LabBenchNav.apparatus_name(step["apparatus"]), ores, band_text % [roundi(region["low"]), roundi(region["high"])]]))
 	var band := BandGauge.new()
 	band.band_low = region["low"]
@@ -512,7 +532,11 @@ func _add_result(content: VBoxContainer) -> void:
 	if entry["kind"] == "cracked":
 		content.add_child(UI.label("The vessel cracked. No item, and the calc is lost."))
 	else:
-		content.add_child(UI.label("Score %d → rank %d" % [entry["score"], entry["rank"]]))
+		if entry.has("ladyBonus"):
+			# PROSE-REVIEW: Be A Lady score line.
+			content.add_child(UI.label("Score %d + %d (Lady) = %d → rank %d" % [entry["rawScore"], entry["ladyBonus"], entry["score"], entry["rank"]]))
+		else:
+			content.add_child(UI.label("Score %d → rank %d" % [entry["score"], entry["rank"]]))
 		if _result.get("newBest", false):
 			content.add_child(MapCardStyle.label("New best rank.", 14, MapCardStyle.action()))
 		content.add_child(UI.muted_label("Best rank: %s · +%d XP" % [_rank_text(entry["recipeId"]), entry["xp"]]))

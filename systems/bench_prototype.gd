@@ -4,8 +4,10 @@ extends RefCounted
 # Sandboxed Lab-revamp bench prototype (.scratch/lab-revamp/spec.md
 # §Shared core rules): one calc pool, per-recipe best ranks, hint levels,
 # item ledger and Rewind stack, all under GameState.state["benchPrototype"].
-# Reads the player's real craftingSkill as a default and never writes
-# anything outside benchPrototype -- no real inventory, XP or bench state.
+# Reads the player's real craftingSkill and active effects (Prophet's
+# Breath reveals true bands, Be A Lady lifts the score) and writes nothing
+# outside benchPrototype -- no real XP or bench state -- except use_effect(),
+# which spends a real Prophet's Breath / Be A Lady to start its effect.
 #
 # A manual run is freeform (spec §Slice A): add_ore() taps a recipe jar,
 # spending that ore's fixed recipe amount into the mixture -- the first tap
@@ -289,13 +291,39 @@ static func add_ore(recipe_id: String, ore_type: String) -> Dictionary:
 	return { "ok": true }
 
 
+# Score points the player's real Be A Lady effect adds to a finished run:
+# item level × ladyScorePerLevel, 0 when inactive.
+static func lady_score_bonus() -> int:
+	var effect = ActiveEffects.find(ActiveEffects.LADY)
+	if effect == null:
+		return 0
+	return int(effect["level"]) * int(_data().get("ladyScorePerLevel", 0))
+
+
+# The active effects the bench's Use item control can start, consuming
+# from the player's real inventory -- the prototype's one write outside
+# benchPrototype.
+static func usable_effects() -> Array:
+	return [ActiveEffects.PROPHETS_BREATH, ActiveEffects.LADY]
+
+
+static func use_effect(item: String) -> Dictionary:
+	if not usable_effects().has(item):
+		return { "ok": false, "reason": "Can't use that here." }
+	return ActiveEffects.use(item)
+
+
 # extra is merged into the ledger entry (a procedure run's per-step results).
+# A running Be A Lady adds lady_score_bonus() to the score (clamped at 100)
+# and logs rawScore and ladyBonus.
 static func finish_run(score: int, extra: Dictionary = {}) -> Dictionary:
 	var s := _root()
 	var run = s["activeRun"]
 	if run == null:
 		return { "ok": false, "reason": "No run open." }
-	score = clampi(score, 0, 100)
+	var lady_bonus := lady_score_bonus()
+	var raw_score := clampi(score, 0, 100)
+	score = clampi(raw_score + lady_bonus, 0, 100)
 	var recipe_id: String = run["recipeId"]
 	var rank := rank_for_score(score)
 	var prior_best: int = int(s["bestRanks"].get(recipe_id, 0))
@@ -326,6 +354,9 @@ static func finish_run(score: int, extra: Dictionary = {}) -> Dictionary:
 		"score": score, "durationMsec": maxi(0, Time.get_ticks_msec() - int(run["startedMsec"])),
 		"bonus": bonus, "xp": xp, "flavour": flavour,
 	}
+	if lady_bonus > 0:
+		entry["rawScore"] = raw_score
+		entry["ladyBonus"] = lady_bonus
 	entry.merge(extra)
 	_log(s, entry)
 	s["activeRun"] = null
@@ -358,7 +389,10 @@ static func procedure_def(recipe_id: String) -> Dictionary:
 # step matching its ideal step or inserts that ideal step (no calc) in ideal
 # order. An unknown ideal step is simply absent. Each step carries
 # knowledge "base", "vague" or "exact"; a hinted one also its hintId and
-# note. Targets are floats so a saved run round-trips unchanged.
+# note. While the player's real Prophet's Breath effect runs, every ideal
+# step not known exact shows its true target as knowledge "revealed"
+# (unknown steps inserted, vague ones sharpened, no note); hint levels are
+# untouched. Targets are floats so a saved run round-trips unchanged.
 static func known_procedure(recipe_id: String) -> Array:
 	var procedure := procedure_def(recipe_id)
 	var ideal: Array = procedure["ideal"]
@@ -368,6 +402,10 @@ static func known_procedure(recipe_id: String) -> Array:
 		var level := hint_level(recipe_id, hint["id"])
 		if level != "off":
 			granted[int(hint["step"])] = { "hint": hint, "level": level }
+	if ActiveEffects.prophets_breath_active():
+		for i in ideal.size():
+			if granted.get(i, {}).get("level") != "exact":
+				granted[i] = { "level": "revealed" }
 	var steps := []
 	var next_ideal := 0
 	var base_matches := match_ideal(ideal, base)
@@ -397,8 +435,10 @@ static func _insert_hinted(steps: Array, ideal: Array, granted: Dictionary, from
 static func _apply_hint(step: Dictionary, ideal_step: Dictionary, grant: Dictionary) -> void:
 	step["target"] = float(ideal_step["target"])
 	step["knowledge"] = grant["level"]
-	step["hintId"] = grant["hint"]["id"]
-	step["note"] = grant["hint"][grant["level"]]["note"]
+	step.erase("note")
+	if grant.has("hint"):
+		step["hintId"] = grant["hint"]["id"]
+		step["note"] = grant["hint"][grant["level"]]["note"]
 
 
 # band_half_width = base_tol × (1 + skillFactor × craftingSkill).

@@ -834,3 +834,51 @@ func run() -> void:
 		BenchPrototype.set_hint_level("healingSalve", "distilFinish", "vague")
 		assert_true(not root["vagueHits"]["healingSalve"].has("distilFinish"), "hit count reset")
 	)
+
+	run_case("use_effect_spends_real_inventory_and_starts_the_effect", func():
+		_fresh()
+		Crafting.inventory_add(ActiveEffects.PROPHETS_BREATH, 2, 2)
+		var before := Crafting.inventory_qty(ActiveEffects.PROPHETS_BREATH)
+		assert_true(BenchPrototype.use_effect(ActiveEffects.PROPHETS_BREATH)["ok"], "used")
+		assert_eq(Crafting.inventory_qty(ActiveEffects.PROPHETS_BREATH), before - 1, "one spent from the real bag")
+		assert_true(ActiveEffects.prophets_breath_active(), "effect running")
+		Crafting.inventory_add("timePearl", 1, 1)
+		var pearls := Crafting.inventory_qty("timePearl")
+		assert_true(not BenchPrototype.use_effect("timePearl")["ok"], "only Breath and Lady")
+		assert_eq(Crafting.inventory_qty("timePearl"), pearls, "untouched")
+	)
+
+	run_case("prophets_breath_reveals_true_bands_on_every_step", func():
+		var root := _fresh()
+		BenchPrototype.set_skill_override(0)
+		BenchPrototype.set_hint_level("healingSalve", "distilFinish", "vague")
+		Crafting.inventory_add(ActiveEffects.PROPHETS_BREATH, 1, 1)
+		BenchPrototype.use_effect(ActiveEffects.PROPHETS_BREATH)
+		var book := BenchPrototype.known_procedure("healingSalve")
+		var ideal: Array = BenchPrototype.procedure_def("healingSalve")["ideal"]
+		assert_eq(book.map(func(s): return s["apparatus"]), ideal.map(func(s): return s["apparatus"]), "every ideal step shown")
+		var half := BenchPrototype.band_half_width("healingSalve")
+		for i in ideal.size():
+			assert_eq(book[i]["knowledge"], "revealed", "step %d revealed" % i)
+			assert_true(not book[i].has("note"), "no hint note")
+			var region := BenchPrototype.step_region("healingSalve", book[i])
+			var target := float(ideal[i]["target"])
+			assert_eq([region["low"], region["high"], region["vague"]], [maxf(0.0, target - half), minf(100.0, target + half), false], "true band %d" % i)
+		assert_eq(root["hintLevels"]["healingSalve"].values(), ["off", "vague"], "hint levels untouched")
+		BenchPrototype.set_hint_level("healingSalve", "heatHigher", "exact")
+		book = BenchPrototype.known_procedure("healingSalve")
+		assert_eq([book[1]["knowledge"], book[1].has("note")], ["exact", true], "an exact step keeps its note")
+	)
+
+	run_case("lady_adds_level_times_ten_to_the_score_clamped", func():
+		var root := _fresh()
+		var plain: Dictionary = _run("healingSalve", 60)["entry"]
+		assert_eq([plain["score"], plain.has("ladyBonus")], [60, false], "no Lady, no bonus")
+		Crafting.inventory_add(ActiveEffects.LADY, 3, 1)
+		BenchPrototype.use_effect(ActiveEffects.LADY)
+		var entry: Dictionary = _run("healingSalve", 60)["entry"]
+		assert_eq([entry["rawScore"], entry["ladyBonus"], entry["score"]], [60, 30, 90], "lvl 3 = +30")
+		assert_eq(entry["rank"], BenchPrototype.rank_for_score(90), "rank from the lifted score")
+		assert_eq(_run("healingSalve", 85)["entry"]["score"], 100, "clamped at 100")
+		assert_eq(root["bestRanks"]["healingSalve"], BenchPrototype.rank_for_score(100))
+	)
