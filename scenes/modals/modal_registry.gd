@@ -26,6 +26,7 @@ static var REGISTRY: Dictionary = {
 	"movement_swap": MovementSwapModal,
 	"dial_load_complication": DialLoadComplicationModal,
 	"combat_setup": CombatSetupModal,
+	"combat_block_reason": CombatBlockReasonModal,
 	"hq_ore_readout": HqOreReadoutModal,
 	"hq_gym": HqGymModal,
 	"lab_bench_recipe_book": LabBenchRecipeBookModal,

@@ -26,6 +26,8 @@ const COMMAND_DOCK_HEIGHT := DialWidget.WIDGET_SIZE.y
 # so it reads as a region of the screen, not a shrink-wrapped card.
 const COMMAND_DOCK_SURFACE_TOP_PADDING := 12.0
 const COMMAND_DOCK_SURFACE_HEIGHT := COMMAND_DOCK_HEIGHT + COMMAND_DOCK_BOTTOM_MARGIN + COMMAND_DOCK_SURFACE_TOP_PADDING
+# Diameter of a disabled generic row's "?" (see _build_explain_button()).
+const EXPLAIN_BUTTON_SIZE := 28.0
 
 var _row: HBoxContainer
 var _dial_selected_index: int = 0
@@ -85,8 +87,9 @@ func configure(player: Dictionary, on_attack: Callable, on_run: Callable, on_dia
 
 
 # Generic mode, for callers other than live combat: each row is
-# { iconKind, label, disabled, disabledReason, callback } (iconKind as
-# _build_row_icon() reads it; disabledReason becomes the row's tooltip),
+# { iconKind, label, disabled, disabledReason, callback, onExplain }
+# (iconKind as _build_row_icon() reads it; disabledReason becomes the row's
+# tooltip; a disabled row with an onExplain callable gets a "?" calling it),
 # `footer` is one more such row below them ({} for none), and the Dial
 # is drawn only when `dial` isn't null.
 func configure_rows(rows: Array, footer: Dictionary = {}, dial: Variant = null, on_dial_triggered: Callable = Callable(), locked: bool = false) -> void:
@@ -267,8 +270,36 @@ func _build_command_row(row: Dictionary, default_name: String) -> Control:
 	var content := _build_row_content(_build_row_icon(row.get("iconKind", ""), accent), row.get("label", ""), accent)
 	content.offset_left = UI.COMMAND_ROW_MARGIN_H
 	content.offset_right = -UI.COMMAND_ROW_MARGIN_H
+	var explain: Callable = row.get("onExplain", Callable())
+	if row.get("disabled", false) and not _locked and explain.is_valid():
+		content.add_child(_build_explain_button(explain))
 	button.add_child(content)
 	return button
+
+
+
+# The small round "?" on a disabled row; it takes its own taps, so it works
+# though the row Button around it is disabled.
+func _build_explain_button(explain: Callable) -> Button:
+	var help := Button.new()
+	help.name = "ExplainButton"
+	help.text = "?"
+	help.focus_mode = Control.FOCUS_NONE
+	help.mouse_filter = Control.MOUSE_FILTER_STOP
+	help.custom_minimum_size = Vector2(EXPLAIN_BUTTON_SIZE, EXPLAIN_BUTTON_SIZE)
+	help.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	help.add_theme_font_size_override("font_size", 14)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0, 0, 0, 0)
+	style.set_border_width_all(1)
+	style.border_color = UI.ACTION_DISABLED_COLOUR
+	style.set_corner_radius_all(int(EXPLAIN_BUTTON_SIZE / 2.0))
+	for state in ["normal", "hover", "pressed", "focus"]:
+		help.add_theme_stylebox_override(state, style)
+	for colour in ["font_color", "font_hover_color", "font_pressed_color"]:
+		help.add_theme_color_override(colour, UI.ACTION_DISABLED_COLOUR)
+	help.pressed.connect(explain)
+	return help
 func _build_row_content(icon: Control, label_text: String, accent: Color) -> HBoxContainer:
 	var row := UI.hbox(10)
 	UI.anchor_full_rect(row)

@@ -109,6 +109,16 @@ func run() -> void:
 		assert_true(item.disabled)
 		assert_eq(item.tooltip_text, "That one's spent.")
 		assert_true(not _row(screen, "MoveRow_guard").disabled)
+		assert_true(_row(screen, "MoveRow_guard").find_child("ExplainButton", true, false) == null, "no ? on an enabled row")
+
+		var help: Button = lure.find_child("ExplainButton", true, false)
+		help.pressed.emit()
+		assert_eq(GameState.state["modal"], { "type": "combat_block_reason", "data": { "action": "Lure", "reason": "Lure takes 2 actions in a row." } })
+		var layer := ModalLayer.new()
+		layer._ready()
+		var texts: Array = layer.find_children("*", "Label", true, false).map(func(l): return l.text)
+		assert_true(texts.has("Lure takes 2 actions in a row."), str(texts))
+		Modal.close()
 	)
 
 	run_case("a_pick_with_no_room_is_refused_with_its_reason", func():

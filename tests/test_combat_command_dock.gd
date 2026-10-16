@@ -63,3 +63,24 @@ func run() -> void:
 		assert_eq(_button_named(dock, "FooterButton"), null, "an empty footer adds no row")
 		dock.free()
 	)
+
+	run_case("a_disabled_row_with_on_explain_gets_a_working_question_mark_unless_locked", func():
+		GameState.reset()
+		var explained: Array = []
+		var rows: Array = [
+			{ "label": "Lure", "disabled": true, "disabledReason": "No room", "callback": Callable(), "onExplain": func(): explained.append("lure") },
+			{ "label": "Guard", "disabled": false, "callback": Callable(), "onExplain": func(): explained.append("guard") },
+		]
+		var dock := CombatCommandDock.new()
+		dock.configure_rows(rows)
+		assert_eq(_button_named(_button_named(dock, "RowButton_1"), "ExplainButton"), null, "an enabled row has no ?")
+		var help := _button_named(_button_named(dock, "RowButton_0"), "ExplainButton")
+		help.pressed.emit()
+		assert_eq(explained, ["lure"])
+		dock.free()
+
+		var locked := CombatCommandDock.new()
+		locked.configure_rows(rows, {}, null, Callable(), true)
+		assert_eq(_button_named(locked, "ExplainButton"), null, "no ? while locked")
+		locked.free()
+	)

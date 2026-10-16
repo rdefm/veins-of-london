@@ -152,7 +152,7 @@ overlays.
 | alarm_presentation.gd | Detects raid alarms; Phone pulse + vibration |
 | app_tile.gd | Normalised icon+label+numeric-count-badge+lock tile for phone launchers |
 | bag_drawer.gd | Global bottom-sheet bag drawer; read-only stock/consumable listing (also during combat; no use buttons, no loadout change); out-of-combat heal buttons in management mode |
-| combat_command_dock.gd | Combat's lower command region: near-white surface Panel: Dial beside 1px-ruled command rows (Complication, Attack, two item rows, Leg it), anchored to screen bottom; live rows disabled per `Combat.selection_block_reason`/`slot_block_reason`. `configure_rows()`: generic caller-built rows + footer, optional Dial; `surface_height_for_rows()` sizes a taller row stack |
+| combat_command_dock.gd | Combat's lower command region: near-white surface Panel: Dial beside 1px-ruled command rows (Complication, Attack, two item rows, Leg it), anchored to screen bottom; live rows gated by `Combat` block reasons. `configure_rows()`: generic caller-built rows ("?" on disabled ones) + footer, optional Dial; `surface_height_for_rows()` fits taller stacks |
 | combat_director.gd | Combat beat-queue playback director; holds a data-driven pause (combat_visuals pacing.turnPause) between combatants' turns; emits `playing_changed` so CombatScreen locks its commands during playback |
 | combat_stage.gd | Combat pixel stage: backdrop (location->context->palette); slots in two receding diagonal groups (enemies back/smaller), depth-sorted; up to 3 reserve sprites per side + `+N`, sliding in; keypose one-shots, effects, juice layer. Slot taps emit `subject_tapped`; selected slot gets an arrow. No GameState reads; target-less effects take a caller fallback |
 | contact_cards.gd | Shared contact/faction card builders (incl. membership actions, faction Benefits tier ladder, handler card, Owen card, Targets/Sourcing, Nadia's ledger + "Go with Nadia", key-member card, pending-message actions incl. lowball Accept/Decline, peace-offer and favour responses), inline Contacts action-row layout, Phone-OS chrome repaint (text-only for card-chrome apps) |
@@ -222,6 +222,7 @@ overlays.
 | movement_swap_modal.gd | Seat a Movement from movementInventory into the Dial |
 | dial_load_complication_modal.gd | Load a crafted complication into the Dial |
 | combat_setup_modal.gd | Debug combat setup: fight type (`Combat.DEBUG_SETUP_CONTEXTS`), location override for backdrop preview, enemy template/count/tier + ally toggles; calls `Combat.start_debug_combat()` |
+| combat_block_reason_modal.gd | Why a combat command row is disabled: the action name and its block reason, opened from the row's "?" (combat_prototype.gd) |
 | network_reference_modal.gd | Network Map legend |
 | hq_ore_readout_modal.gd | Ore-store slip with raid-risk stamp + personal-stash move controls, map_card_style.gd-skinned (always light) |
 | hq_gym_modal.gd | Combat skill card (level, XP bar, current + next-level HP/ATK/SPD via `Combat.skill_summary()`) + Train action card |

@@ -7,12 +7,13 @@ extends Control
 # and each ally), then the fight in the live combat layout: a CombatStage
 # with each combatant's sprite (tap one to target it), a CombatCommandDock
 # in generic-rows mode (each move, then each loadout item; a row is
-# disabled with the system's block reason), and a CombatDirector playing
+# disabled with the system's block reason, which its "?" opens in the
+# combat_block_reason modal), and a CombatDirector playing
 # each pick's beats on the stage with the dock locked. A Readouts window
 # holds the text views: combatants with guard preview and statuses, the
 # round's timeline with enemy intents, and the beat log. The screen adapts
 # prototype state into the components' shapes (stage_roster()) and only
-# ever calls CombatPrototype to change it.
+# ever calls CombatPrototype (and Modal, for the "?") to change it.
 
 # Setup's enemy count cap (spec §Out of Scope: no more than 3 per side).
 const MAX_ENEMIES := 3
@@ -306,24 +307,33 @@ func _dock_rows(cp: Dictionary) -> Array:
 	for move_id in GameData.COMBAT_PROTOTYPE["moves"].keys():
 		var target := _row_target(cp, move_id)
 		var reason := CombatPrototype.move_block_reason(cp, move_id, target)
+		var move_name: String = CombatPrototype.move(move_id)["name"]
 		rows.append({
 			"name": "MoveRow_%s" % move_id, "iconKind": icons.get(move_id, ""),
-			"label": CombatPrototype.move(move_id)["name"],
+			"label": move_name,
 			"disabled": reason != "", "disabledReason": reason,
 			"callback": _pick.bind(move_id, target),
+			"onExplain": _explain_block.bind(move_name, reason),
 		})
 	var loadout: Array = cp["combatants"][CombatPrototype.PLAYER_INDEX]["loadout"]
 	for slot in range(loadout.size()):
 		var item_id: String = loadout[slot]["item"]
 		var target := _row_target(cp, item_id)
 		var reason := CombatPrototype.item_block_reason(cp, slot, target)
+		var item_name: String = CombatPrototype.move(item_id)["name"]
 		rows.append({
 			"name": "ItemRow_%d" % slot, "iconKind": "recipe:" + item_id,
-			"label": "%s — tier %d" % [CombatPrototype.move(item_id)["name"], loadout[slot]["tier"]],
+			"label": "%s — tier %d" % [item_name, loadout[slot]["tier"]],
 			"disabled": reason != "", "disabledReason": reason,
 			"callback": _pick_item.bind(slot, target),
+			"onExplain": _explain_block.bind(item_name, reason),
 		})
 	return rows
+
+
+# A disabled row's "?": the block reason in a modal.
+func _explain_block(action: String, reason: String) -> void:
+	Modal.open("combat_block_reason", { "action": action, "reason": reason })
 
 
 func _on_stage_gui_input(event: InputEvent) -> void:
