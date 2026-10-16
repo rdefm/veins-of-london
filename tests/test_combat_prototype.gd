@@ -380,11 +380,22 @@ func run() -> void:
 		assert_true(not CombatPrototype.is_resolved(cp, PLAYER, CombatPrototype.decision_position(cp)))
 	)
 
-	run_case("next_round_timeline_and_guard_preview_need_sight", func():
+	run_case("next_round_timeline_holds_every_combatants_real_next_round_count_without_sight", func():
 		var cp := _start([["guard", "strike"]])
-		assert_eq(CombatPrototype.next_round_timeline(cp), [])
+		var per_actor := func(entries: Array) -> Array:
+			return [entries.filter(func(e): return e["actor"] == PLAYER).size(), entries.filter(func(e): return e["actor"] == ENEMY).size()]
+		var next := CombatPrototype.next_round_timeline(cp)
+		assert_eq(per_actor.call(next), [CombatPrototype.actions_per_round(cp["combatants"][PLAYER]), cp["combatants"][ENEMY]["nextPlan"].size()], "known without sight")
+		var sorted := next.duplicate()
+		sorted.sort_custom(func(x, y): return CombatPrototype._acts_before(cp, x["actor"], x["index"], y["actor"], y["index"]))
+		assert_eq(next, sorted, "in timeline order")
+		cp["combatants"][PLAYER]["powderUntil"] = cp["round"] + 1
+		assert_eq(per_actor.call(CombatPrototype.next_round_timeline(cp))[0], CombatPrototype.actions_per_round(cp["combatants"][PLAYER]) + 1, "a Powder lasting into next round adds one")
+	)
+
+	run_case("next_round_guard_preview_runs_on_from_this_rounds_end", func():
+		var cp := _start([["guard", "strike"]])
 		cp["combatants"][PLAYER]["sightUntil"] = cp["round"]
-		assert_eq(CombatPrototype.next_round_timeline(cp), [{ "actor": ENEMY, "index": 0 }, { "actor": ENEMY, "index": 1 }])
 		assert_eq(CombatPrototype.guard_preview(cp, ENEMY, true), [CombatPrototype.OPEN, CombatPrototype.GUARDED, CombatPrototype.OPEN], "from this round's Strike, then Guard, Strike")
 	)
 

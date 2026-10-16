@@ -195,6 +195,13 @@ static func actions_this_round(cp: Dictionary, actor: int) -> int:
 	return actions_per_round(combatant) + (1 if is_powered(cp, combatant) else 0)
 
 
+# Actions `actor` gets next round as things stand: its level's count, +1
+# while an Enhancement Powder already running lasts into it.
+static func actions_next_round(cp: Dictionary, actor: int) -> int:
+	var combatant: Dictionary = cp["combatants"][actor]
+	return actions_per_round(combatant) + (1 if int(cp["round"]) + 1 <= int(combatant["powderUntil"]) else 0)
+
+
 static func is_powered(cp: Dictionary, combatant: Dictionary) -> bool:
 	return int(cp["round"]) <= int(combatant["powderUntil"])
 
@@ -846,17 +853,17 @@ static func enemy_intents(cp: Dictionary, actor: int, next_round: bool = false) 
 	return result
 
 
-# Next round's enemy actions in timeline order, as timeline() entries; []
-# without Prophet's Breath sight (the player's own next picks aren't known).
+# Next round's actions in timeline order, as timeline() entries: each
+# enemy's pre-rolled next plan, and the player's and each ally's
+# actions_next_round(). Known with or without sight; sight only reads them.
 static func next_round_timeline(cp: Dictionary) -> Array:
-	if not has_sight(cp):
-		return []
 	var combatants: Array = cp["combatants"]
 	var entries: Array = []
 	for i in range(combatants.size()):
-		if combatants[i]["side"] != SIDE_ENEMY or combatants[i]["koed"]:
+		if combatants[i]["koed"]:
 			continue
-		for a in range(combatants[i]["nextPlan"].size()):
+		var count: int = combatants[i]["nextPlan"].size() if combatants[i]["side"] == SIDE_ENEMY else actions_next_round(cp, i)
+		for a in range(count):
 			entries.append({ "actor": i, "index": a })
 	entries.sort_custom(func(x, y): return _acts_before(cp, x["actor"], x["index"], y["actor"], y["index"]))
 	return entries

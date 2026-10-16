@@ -276,13 +276,13 @@ func configure(entries: Array, selected_pos: int, available_width: float, select
 # §2.4 Reflow: swaps in the queue as it stands after a played beat. Cards
 # are rebuilt at once (the layout is always the final one for this step);
 # the row then slides from where `anchor_id`'s card was (else the first
-# surviving card's), and newly revealed occurrences fade in. A card that
-# crossed the anchor (wrapped_ids() -- a rolling queue's acted card) leaves
-# as a ghost moving with the row, off the strip's near end, while its new
-# card slides in from the far end. One tween, cut short by the next call or
-# finish_advance().
+# surviving card's), and newly revealed occurrences fade in. Given an
+# anchor (a carousel's turn), a card gone from either end (departed_ids())
+# leaves as a ghost moving with the row, off that end of the strip. One
+# tween, cut short by the next call or finish_advance().
 func advance_to(entries: Array, duration: float, anchor_id: String = "") -> void:
 	finish_advance()
+	var carousel := anchor_id != ""
 	var old_row_x: float = _row.position.x if _row != null else 0.0
 	var old_ids: Array = _entries.map(func(e): return e["occurrenceId"])
 	var old_children: Array[Node] = _row.get_children() if _row != null else []
@@ -320,7 +320,7 @@ func advance_to(entries: Array, duration: float, anchor_id: String = "") -> void
 			card.modulate.a = 0.0
 			_advance_tween.tween_property(card, "modulate:a", 1.0, duration)
 	var ghosts: Array[Control] = []
-	for occurrence_id in wrapped_ids(old_ids, new_ids, anchor_id):
+	for occurrence_id in (departed_ids(old_ids, new_ids) if carousel else []):
 		var ghost: Control = old_cards.get(occurrence_id)
 		if ghost == null:
 			continue
@@ -337,20 +337,19 @@ func advance_to(entries: Array, duration: float, anchor_id: String = "") -> void
 		)
 
 
-# The occurrences a reflow carried across `anchor_id`: before it in
-# `old_ids` and after it in `new_ids`, or the reverse -- a rolling queue's
-# card leaving one end of the strip to rejoin at the other.
-static func wrapped_ids(old_ids: Array, new_ids: Array, anchor_id: String) -> Array:
-	var old_anchor: int = old_ids.find(anchor_id)
-	var new_anchor: int = new_ids.find(anchor_id)
-	if old_anchor < 0 or new_anchor < 0:
+# The occurrences a reflow dropped off either end: in `old_ids` but not
+# `new_ids`, before the first card kept or after the last -- a carousel's
+# acted card leaving the front, or on Rewind its end card leaving the back.
+# One dropped from between kept cards isn't a departure; none kept, none.
+static func departed_ids(old_ids: Array, new_ids: Array) -> Array:
+	var kept: Array = range(old_ids.size()).filter(func(i): return new_ids.has(old_ids[i]))
+	if kept.is_empty():
 		return []
-	var wrapped: Array = []
-	for i in range(new_ids.size()):
-		var old_i: int = old_ids.find(new_ids[i])
-		if old_i >= 0 and (old_i < old_anchor) != (i < new_anchor):
-			wrapped.append(new_ids[i])
-	return wrapped
+	var departed: Array = []
+	for i in range(old_ids.size()):
+		if (i < kept[0] or i > kept.back()) and not new_ids.has(old_ids[i]):
+			departed.append(old_ids[i])
+	return departed
 
 
 func finish_advance() -> void:

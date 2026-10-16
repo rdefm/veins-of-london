@@ -61,6 +61,15 @@ func _press_start(screen: CombatPrototypeScreen) -> void:
 	assert_true(false, "no Start button")
 
 
+# The carousel's ids as the system orders them: this round's unresolved
+# positions, then next round's, the first STRIP_SIZE.
+func _upcoming_ids(cp: Dictionary) -> Array:
+	var round_no: int = cp["round"]
+	var ids: Array = CombatPrototype.timeline(cp).filter(func(t): return not CombatPrototype.is_resolved(cp, t["actor"], t["index"])).map(func(t): return "%d:%d:%d" % [round_no, t["actor"], t["index"]])
+	ids.append_array(CombatPrototype.next_round_timeline(cp).map(func(t): return "%d:%d:%d" % [round_no + 1, t["actor"], t["index"]]))
+	return ids.slice(0, CombatPrototypeScreen.STRIP_SIZE)
+
+
 func _live_children(node: Node) -> Array:
 	return node.get_children().filter(func(c): return not c.is_queued_for_deletion())
 
@@ -210,14 +219,14 @@ func run() -> void:
 		assert_true(not screen._readouts_panel.visible)
 	)
 
-	run_case("the_strip_shows_the_system_timeline_in_order", func():
+	run_case("the_strip_shows_the_next_ten_actions_across_the_round_boundary_in_order", func():
 		var screen := _render_squad_fight()
 		var cp: Dictionary = GameState.state["combatPrototype"]
 		var entries: Array = screen._strip._entries
-		var positions: Array = entries.map(func(e): return [e["actor"], e["index"]])
-		var timeline: Array = CombatPrototype.timeline(cp).map(func(t): return [t["actor"], t["index"]])
-		var resolved: int = timeline.filter(func(t): return CombatPrototype.is_resolved(cp, t[0], t[1])).size()
-		assert_eq(positions, timeline.slice(resolved) + timeline.slice(0, resolved), "a rolling queue: unresolved positions first, acted ones rejoined at the end")
+		assert_eq(entries.map(func(e): return e["occurrenceId"]), _upcoming_ids(cp), "this round's unresolved positions, then next round's, up to ten")
+		assert_true(entries.size() <= CombatPrototypeScreen.STRIP_SIZE)
+		assert_true(entries.any(func(e): return e["nextRound"]), "the carousel runs into next round")
+		assert_true(entries.all(func(e): return e["factionName"] == ""), "no next-round relabel")
 		var focused: Array = entries.filter(func(e): return e["focused"])
 		assert_eq(focused.size(), 1)
 		assert_eq([focused[0]["actor"], focused[0]["index"]], [CombatPrototype.PLAYER_INDEX, CombatPrototype.decision_position(cp)])
@@ -230,21 +239,23 @@ func run() -> void:
 		var cp: Dictionary = GameState.state["combatPrototype"]
 		var enemy_texts := func() -> Array:
 			return screen._strip._entries.filter(func(e): return e["isEnemy"] and not e["nextRound"]).map(func(e): return e["actionText"])
-		var all_rejoined := func() -> Array:
-			var entries := CombatPrototypeScreen.strip_entries(GameState.state["combatPrototype"])
-			return CombatPrototypeScreen.rolled_entries(entries, entries.size()).filter(func(e): return e["isEnemy"])
+		var next_enemies := func() -> Array:
+			return CombatPrototypeScreen.strip_entries(GameState.state["combatPrototype"]).filter(func(e): return e["isEnemy"] and e["nextRound"])
 		for text in enemy_texts.call():
 			assert_true(not text.contains("→") and not text.contains("("), text)
-		assert_true(all_rejoined.call().all(func(e): return e["actionText"] == "?" and e["actionUnread"]), "next round unread without sight")
+		assert_true(next_enemies.call().all(func(e): return e["actionText"] == "?" and e["actionUnread"]), "next round unread without sight")
+		var enemies: Array = range(cp["combatants"].size()).filter(func(i): return cp["combatants"][i]["side"] == CombatPrototype.SIDE_ENEMY and not cp["combatants"][i]["koed"])
+		for i in enemies:
+			assert_eq(next_enemies.call().filter(func(e): return e["actor"] == i).size(), cp["combatants"][i]["nextPlan"].size(), "one next-round card per planned action")
+		var ids_without_sight: Array = screen._strip._entries.map(func(e): return e["occurrenceId"])
 
 		cp["combatants"][CombatPrototype.PLAYER_INDEX]["sightUntil"] = cp["round"]
 		screen._refresh()
 		assert_true(enemy_texts.call().any(func(t): return t.contains("→") and t.contains("–")), str(enemy_texts.call()))
-		assert_eq(screen._strip._entries.size(), CombatPrototype.timeline(cp).size(), "sight adds no cards -- one per turn, in order")
-		for e in all_rejoined.call():
+		assert_eq(screen._strip._entries.map(func(e): return e["occurrenceId"]), ids_without_sight, "sight adds no cards and changes no order")
+		for e in next_enemies.call():
 			var intent: Dictionary = CombatPrototype.enemy_intents(cp, e["actor"], true)[e["index"]]
-			assert_eq(e["actionText"], CombatPrototypeScreen._intent_text(cp, intent), "a rejoined enemy card shows its next-round move")
-			assert_eq(e["factionName"], "Next round")
+			assert_eq(e["actionText"], CombatPrototypeScreen._intent_text(cp, intent), "a next-round enemy card shows its move")
 	)
 
 	run_case("unread_enemy_intents_show_as_a_question_mark_until_they_resolve", func():
@@ -273,7 +284,7 @@ func run() -> void:
 		var screen := _render_squad_fight()
 		var cp: Dictionary = GameState.state["combatPrototype"]
 		for entry in screen._strip._entries:
-			if not CombatPrototype.is_resolved(cp, entry["actor"], entry["index"]):
+			if not entry["nextRound"] and not CombatPrototype.is_resolved(cp, entry["actor"], entry["index"]):
 				assert_eq(entry["guardBadge"], CombatPrototypeScreen._guard_text(CombatPrototype.guard_preview(cp, entry["actor"])[entry["index"] + 1]), entry["occurrenceId"])
 		var pause := CombatPrototype.decision_position(cp)
 		var round_no: int = cp["round"]
@@ -313,26 +324,30 @@ func run() -> void:
 			assert_true(is_same(screen._strip._entries, shown), "a state_changed mid-playback leaves the strip alone")
 		screen._strip_playback = {}
 		screen._refresh()
-		assert_eq(screen._strip._entries.size(), CombatPrototype.timeline(GameState.state["combatPrototype"]).size())
+		assert_eq(screen._strip._entries.map(func(e): return e["occurrenceId"]), _upcoming_ids(GameState.state["combatPrototype"]))
 	)
 
-	run_case("rolled_entries_rejoins_acted_positions_at_the_end_as_their_next_turns", func():
-		var entry := func(id: String) -> Dictionary:
-			return { "occurrenceId": id, "nextRound": false, "focused": false, "factionName": "", "actionText": "Strike", "actionUnread": false, "guardBadge": "Open",
-				"nextActionText": "?", "nextActionUnread": true, "nextGuardBadge": "?" }
-		var entries: Array = [entry.call("1:0:0"), entry.call("1:1:0"), entry.call("1:2:0")]
+	run_case("carousel_entries_holds_the_next_ten_from_the_front_and_fewer_at_the_horizon", func():
+		var entries: Array = range(14).map(func(i): return { "occurrenceId": "1:%d:0" % i })
 		var ids := func(list: Array) -> Array:
 			return list.map(func(e): return e["occurrenceId"])
-		assert_eq(ids.call(CombatPrototypeScreen.rolled_entries(entries, 0)), ["1:0:0", "1:1:0", "1:2:0"])
-		var rolled := CombatPrototypeScreen.rolled_entries(entries, 2)
-		assert_eq(ids.call(rolled), ["1:2:0", "1:0:0", "1:1:0"])
-		assert_true(is_same(rolled[0], entries[2]), "the cards still to act are the playback's own entries")
-		assert_eq([rolled[1]["actionText"], rolled[1]["actionUnread"], rolled[1]["guardBadge"], rolled[1]["nextRound"]], ["?", true, "?", true], "a rejoined card shows its next turn")
-		assert_eq(entries[0]["actionText"], "Strike", "rejoining copies, leaving the entry itself alone")
-		assert_eq(ids.call(CombatPrototypeScreen.rolled_entries(entries, 9)), ["1:0:0", "1:1:0", "1:2:0"], "clamped")
+		var shown := CombatPrototypeScreen.carousel_entries(entries, 2)
+		assert_eq(ids.call(shown), ids.call(entries.slice(2, 12)), "ten cards from the front")
+		assert_true(is_same(shown[0], entries[2]), "the playback's own entries, not copies")
+		assert_eq(CombatPrototypeScreen.carousel_entries(entries, 9).size(), 5, "past the horizon, only what's known")
+		assert_eq(CombatPrototypeScreen.carousel_entries(entries, 99), [], "clamped")
 	)
 
-	run_case("each_played_turn_rolls_its_card_to_the_end_and_settles_on_the_next_decisions_order", func():
+	run_case("next_round_cards_use_real_action_counts", func():
+		var screen := _render_squad_fight()
+		var cp: Dictionary = GameState.state["combatPrototype"]
+		cp["combatants"][CombatPrototype.PLAYER_INDEX]["powderUntil"] = cp["round"] + 1
+		var mine: Array = CombatPrototypeScreen.strip_entries(cp).filter(func(e): return e["nextRound"] and e["actor"] == CombatPrototype.PLAYER_INDEX)
+		assert_eq(mine.size(), CombatPrototype.actions_per_round(cp["combatants"][CombatPrototype.PLAYER_INDEX]) + 1, "a Powder lasting into next round shows its extra card")
+		assert_true(mine.all(func(e): return e["actionText"] == "—" and e["occurrenceId"].begins_with("%d:" % (cp["round"] + 1))), "unpicked, next round's ids")
+	)
+
+	run_case("each_played_turn_slides_its_card_off_and_settles_on_the_next_decisions_cards", func():
 		var screen := _render_squad_fight()
 		var cp: Dictionary = GameState.state["combatPrototype"]
 		var pick := { "move": "strike", "target": -1 }
@@ -348,8 +363,9 @@ func run() -> void:
 			if int(beat["round"]) == round_no:
 				var beat_id := "%d:%d:%d" % [beat["round"], beat["turnActor"], beat["turnIndex"]]
 				var shown: Array = screen._strip._entries
-				assert_eq(shown[0]["occurrenceId"], beat_id, "the acting card is in front, those that acted before it rolled to the end")
-				assert_eq(shown.size(), before.size(), "no card dropped by a roll")
+				assert_eq(shown[0]["occurrenceId"], beat_id, "the acting card is in front, those that acted before it slid off")
+				var at: int = before.find_custom(func(e): return e["occurrenceId"] == beat_id)
+				assert_eq(shown.map(func(e): return e["occurrenceId"]), before.slice(at, at + CombatPrototypeScreen.STRIP_SIZE).map(func(e): return e["occurrenceId"]), "the next upcoming actions joined at the end")
 		screen._settle_strip()
 		var settled: Array = screen._strip._entries.map(func(e): return e["occurrenceId"])
 		screen._strip_playback = {}
@@ -359,7 +375,7 @@ func run() -> void:
 			assert_eq(settled, screen._strip._entries.map(func(e): return e["occurrenceId"]), "the settle beat lands on the order the next decision shows")
 	)
 
-	run_case("rewind_slides_each_undone_turns_card_back_to_the_front", func():
+	run_case("rewind_slides_each_undone_actions_card_back_in_at_the_front", func():
 		var screen := _render_squad_fight()
 		var round_no: int = GameState.state["combatPrototype"]["round"]
 		_row(screen, "MoveRow_strike").pressed.emit()
@@ -371,7 +387,7 @@ func run() -> void:
 				assert_eq(screen._strip._entries[0]["occurrenceId"], "%d:%d:%d" % [beat["round"], beat["turnActor"], beat["turnIndex"]], "the undone turn's card is back in front")
 		var unwound: Array = screen._strip._entries.map(func(e): return e["occurrenceId"])
 		screen._end_playback()
-		assert_eq(unwound, screen._strip._entries.map(func(e): return e["occurrenceId"]), "the reversed rolls land on the restored pick's order")
+		assert_eq(unwound, screen._strip._entries.map(func(e): return e["occurrenceId"]), "the reversed turns land on the restored pick's cards")
 	)
 
 	run_case("every_beat_kind_maps_to_stage_cues", func():

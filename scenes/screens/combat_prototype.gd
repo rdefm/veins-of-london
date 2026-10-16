@@ -9,7 +9,7 @@ extends Control
 # to target it), a CombatCommandDock in generic-rows mode (each move, then
 # each loadout item; a row is disabled with the system's block reason,
 # which its "?" opens in the combat_block_reason modal), a TurnOrderStrip over the stage showing the
-# round's timeline as a rolling queue (strip_entries(), rolled_entries()), and a CombatDirector playing each
+# next STRIP_SIZE actions as a carousel (strip_entries(), carousel_entries()), and a CombatDirector playing each
 # pick's beats (beat_cues()) on the stage and strip with the dock locked,
 # each beat's line to the top-bar ticker, a guard marker on every sprite,
 # at live combat's pacing toggle; Rewind plays the undone beats back in
@@ -26,6 +26,8 @@ const UNREAD_TEXT := "?"
 const _HEADING_ROW_HEIGHT := 40.0
 const _STRIP_TOP_INSET := 6.0
 const _STRIP_SIDE_INSET := 9.0
+# How many upcoming actions the strip's carousel holds.
+const STRIP_SIZE := 10
 # Beat kinds that play nothing past the guard overlay their marks set.
 const _OVERLAY_KINDS: Array[String] = ["guard", "lure", "exposed", "lost", "frozen"]
 const _CAST_KINDS: Array[String] = ["powder", "sight", "lady"]
@@ -235,8 +237,8 @@ func _sync_fight(cp: Dictionary) -> void:
 		_apply_marks(cp, _held_marks if not _held_marks.is_empty() else CombatPrototype.stage_marks(cp))
 	_strip.visible = cp["outcome"] == null or _busy()
 	if _strip_playback.is_empty():
-		var timeline_entries := strip_entries(cp)
-		var entries := rolled_entries(timeline_entries, resolved_count(cp, timeline_entries))
+		var all_entries := strip_entries(cp)
+		var entries := carousel_entries(all_entries, resolved_count(cp, all_entries))
 		var focus: int = entries.find_custom(func(e): return e["focused"])
 		_strip.configure(entries, maxi(0, focus), CombatStage.STAGE_WIDTH - _STRIP_SIDE_INSET * 2.0, _on_strip_selection_changed)
 
@@ -262,13 +264,13 @@ func _sync_fight(cp: Dictionary) -> void:
 	_readouts_content.add_child(_build_log_card(cp["log"]))
 
 
-# The strip's cards: one per timeline position this round, in resolution
-# order. Each is a TurnOrderStrip entry keyed by the combatant's stage
-# { type, index }, with "actor"/"index" (its timeline position),
-# "actionText" (_position_text()) and "guardBadge" (_guard_badge()),
-# "actionUnread" for an unread enemy intent, and the same three as "next*"
-# for that position next round (_next_turn()); the paused position is
-# "focused".
+# Every action the system knows of, in resolution order: one card per
+# timeline position this round, then one per next_round_timeline() position
+# ("nextRound"). Each is a TurnOrderStrip entry keyed by the combatant's
+# stage { type, index }, with "actor"/"index" (its position), "actionText"
+# (_position_text(), or _next_round_card() next round) and "guardBadge"
+# (_guard_badge()), and "actionUnread" for an unread enemy intent; the
+# paused position is "focused".
 # `pick` ({ move, target }) reads as already placed at the pause -- the
 # cards as a pick's playback starts.
 static func strip_entries(cp: Dictionary, pick: Dictionary = {}) -> Array:
@@ -276,66 +278,54 @@ static func strip_entries(cp: Dictionary, pick: Dictionary = {}) -> Array:
 	var pause := CombatPrototype.decision_position(cp)
 	var entries: Array = []
 	for position in CombatPrototype.timeline(cp):
-		var entry := _strip_entry(cp, roster, position)
+		var entry := _strip_entry(cp, roster, position, false)
 		entry["actionText"] = _position_text(cp, position, pick)
 		entry["actionUnread"] = _position_unread(cp, position)
 		entry["guardBadge"] = _guard_badge(cp, position)
 		entry["focused"] = pick.is_empty() and position["actor"] == CombatPrototype.PLAYER_INDEX and position["index"] == pause
-		entry.merge(_next_turn(cp, position))
+		entries.append(entry)
+	for position in CombatPrototype.next_round_timeline(cp):
+		var entry := _strip_entry(cp, roster, position, true)
+		entry.merge(_next_round_card(cp, position))
+		entry["focused"] = false
 		entries.append(entry)
 	return entries
 
 
-# A position's turn next round as its card shows it: an enemy's next move
-# and guard under Prophet's Breath sight, else unread; the player's and an
-# ally's are unpicked.
-static func _next_turn(cp: Dictionary, position: Dictionary) -> Dictionary:
+# A next-round position's card text: an enemy's move and guard under
+# Prophet's Breath sight, else unread; the player's and an ally's unpicked.
+static func _next_round_card(cp: Dictionary, position: Dictionary) -> Dictionary:
 	var actor: int = position["actor"]
 	var index: int = position["index"]
 	if cp["combatants"][actor]["side"] != CombatPrototype.SIDE_ENEMY:
-		return { "nextActionText": "—", "nextActionUnread": false, "nextGuardBadge": "" }
+		return { "actionText": "—", "actionUnread": false, "guardBadge": "" }
 	if not CombatPrototype.has_sight(cp):
-		return { "nextActionText": UNREAD_TEXT, "nextActionUnread": true, "nextGuardBadge": UNREAD_TEXT }
-	var intents := CombatPrototype.enemy_intents(cp, actor, true)
-	if index >= intents.size():
-		return { "nextActionText": "—", "nextActionUnread": false, "nextGuardBadge": "" }
+		return { "actionText": UNREAD_TEXT, "actionUnread": true, "guardBadge": UNREAD_TEXT }
 	return {
-		"nextActionText": _intent_text(cp, intents[index]), "nextActionUnread": false,
-		"nextGuardBadge": _guard_text(CombatPrototype.guard_preview(cp, actor, true)[index + 1]),
+		"actionText": _intent_text(cp, CombatPrototype.enemy_intents(cp, actor, true)[index]), "actionUnread": false,
+		"guardBadge": _guard_text(CombatPrototype.guard_preview(cp, actor, true)[index + 1]),
 	}
 
 
-# The strip as a rolling queue, every card in the order its turn comes:
-# strip_entries() `entries` from position `rolled` on, then the first
-# `rolled` (already acted) rejoined at the end as their turns next round --
-# copies showing the "next*" fields, marked "nextRound".
-static func rolled_entries(entries: Array, rolled: int) -> Array:
-	var k: int = clampi(rolled, 0, entries.size())
-	var rejoined: Array = entries.slice(0, k).map(func(e):
-		var next: Dictionary = e.duplicate()
-		next["actionText"] = e["nextActionText"]
-		next["actionUnread"] = e["nextActionUnread"]
-		next["guardBadge"] = e["nextGuardBadge"]
-		next["factionName"] = "Next round"
-		next["nextRound"] = true
-		next["focused"] = false
-		return next
-	)
-	return entries.slice(k) + rejoined
+# The strip as a carousel: the next STRIP_SIZE of strip_entries() `entries`
+# from position `front` on (fewer at the horizon, the end of next round).
+static func carousel_entries(entries: Array, front: int) -> Array:
+	var k: int = clampi(front, 0, entries.size())
+	return entries.slice(k, k + STRIP_SIZE)
 
 
-# How many of `entries`' positions have resolved -- always a leading run,
-# timeline order being resolution order.
+# How many of `entries`' this-round positions have resolved -- always a
+# leading run, timeline order being resolution order.
 static func resolved_count(cp: Dictionary, entries: Array) -> int:
-	return entries.filter(func(e): return CombatPrototype.is_resolved(cp, e["actor"], e["index"])).size()
+	return entries.filter(func(e): return not e["nextRound"] and CombatPrototype.is_resolved(cp, e["actor"], e["index"])).size()
 
 
-static func _strip_entry(cp: Dictionary, roster: Dictionary, position: Dictionary) -> Dictionary:
+static func _strip_entry(cp: Dictionary, roster: Dictionary, position: Dictionary, next_round: bool) -> Dictionary:
 	var actor: int = position["actor"]
 	var c: Dictionary = cp["combatants"][actor]
 	return {
-		"key": _stage_target(roster, actor), "occurrenceId": "%d:%d:%d" % [cp["round"], actor, position["index"]],
-		"actor": actor, "index": position["index"], "nextRound": false,
+		"key": _stage_target(roster, actor), "occurrenceId": "%d:%d:%d" % [int(cp["round"]) + (1 if next_round else 0), actor, position["index"]],
+		"actor": actor, "index": position["index"], "nextRound": next_round,
 		"name": CombatPrototype.display_name(c), "level": null, "hp": c["hp"], "hpMax": c["hpMax"],
 		"factionName": "", "factionColour": TurnOrderStrip.NEUTRAL_COLOUR, "isEnemy": c["side"] == CombatPrototype.SIDE_ENEMY,
 	}
@@ -457,8 +447,8 @@ func _on_pacing_button_pressed() -> void:
 
 # Undoes the last pick, then plays its beats back in reverse on the stage
 # and strip (the overlay and strip held as they stood until then; each
-# beat's card slides back from the strip's end to its front) before the
-# restored pick shows.
+# undone action's card slides back in at the strip's front as the end card
+# leaves) before the restored pick shows.
 func _on_rewind_pressed() -> void:
 	if _busy():
 		return
@@ -479,7 +469,7 @@ func begin_rewind_playback() -> Array:
 	var entries := strip_entries(cp)
 	for entry in entries:
 		entry["focused"] = false
-	var shown := rolled_entries(entries, resolved_count(cp, entries))
+	var shown := carousel_entries(entries, resolved_count(cp, entries))
 	_strip_playback = { "entries": entries, "round": cp["round"], "after": [], "front": shown[0]["occurrenceId"] if not shown.is_empty() else "" }
 	if not CombatPrototype.rewind()["ok"]:
 		return []
@@ -884,7 +874,7 @@ func _resolve(choose: Callable, pick: Dictionary) -> void:
 func begin_strip_playback(before: Array, round_no: int, beats: Array) -> void:
 	var cp: Dictionary = GameState.state["combatPrototype"]
 	var first_id := "" if beats.is_empty() else "%d:%d:%d" % [beats[0]["round"], beats[0]["turnActor"], beats[0]["turnIndex"]]
-	var shown := rolled_entries(before, maxi(0, before.find_custom(func(e): return e["occurrenceId"] == first_id)))
+	var shown := carousel_entries(before, maxi(0, before.find_custom(func(e): return e["occurrenceId"] == first_id)))
 	_strip_playback = { "entries": before, "round": round_no, "after": strip_entries(cp), "front": shown[0]["occurrenceId"] if not shown.is_empty() else "" }
 	for entry in _strip_playback["after"]:
 		entry["focused"] = false
@@ -904,7 +894,7 @@ func begin_strip_playback(before: Array, round_no: int, beats: Array) -> void:
 
 
 # Off-tree there's no tween to wait on, so the beats land at once. A last
-# settle beat rolls the final acted card to the strip's end.
+# settle beat slides the final acted card off the strip.
 func _play_beats(beats: Array) -> void:
 	if not beats.is_empty() and is_inside_tree():
 		await _director.play(beats + [{ "kind": _SETTLE_KIND }], _on_beat_played)
@@ -919,21 +909,25 @@ func _end_playback() -> void:
 	_refresh()
 
 
-# Rolls the strip to `beat`'s timeline position and focuses it: the cards
-# ahead of it (already acted) slide off the front and rejoin at the end, or
-# with `patch` false (Rewind) its card slides back from the end to the
-# front. With `patch`, also shows that position's actual guard result, a
-# lost action, or a KO's dropped ones.
+# Turns the carousel to `beat`'s position and focuses it: the cards ahead
+# of it (already acted) slide off the front as the next upcoming actions
+# join at the end, or with `patch` false (Rewind) its card slides back in
+# at the front as the end card leaves. Its round's playback list holds it,
+# else the other one (a pick or rewind spanning a round boundary). With
+# `patch`, also shows that position's actual guard result, a lost action,
+# or a KO's dropped ones.
 func _advance_strip(beat: Dictionary, patch: bool = true) -> void:
 	if _strip_playback.is_empty():
 		return
-	var same_round: bool = int(beat["round"]) == int(_strip_playback["round"])
-	var list_key := "entries" if same_round else "after"
-	var entries: Array = _strip_playback[list_key]
 	var playing_id := "%d:%d:%d" % [beat["round"], beat["turnActor"], beat["turnIndex"]]
-	var playing: int = entries.find_custom(func(e): return e["occurrenceId"] == playing_id)
+	var list_key := "entries" if int(beat["round"]) == int(_strip_playback["round"]) else "after"
+	var playing: int = _strip_playback[list_key].find_custom(func(e): return e["occurrenceId"] == playing_id)
+	if playing < 0:
+		list_key = "after" if list_key == "entries" else "entries"
+		playing = _strip_playback[list_key].find_custom(func(e): return e["occurrenceId"] == playing_id)
 	if playing < 0:
 		return
+	var entries: Array = _strip_playback[list_key]
 	for i in range(entries.size()):
 		entries[i]["focused"] = i == playing
 	if patch:
@@ -941,8 +935,8 @@ func _advance_strip(beat: Dictionary, patch: bool = true) -> void:
 	_roll_strip(list_key, playing, not patch)
 
 
-# After a pick's last beat: the strip rolls past every resolved position,
-# landing on the queue the next decision shows.
+# After a pick's last beat: the carousel turns past every resolved
+# position, landing on the cards the next decision shows.
 func _settle_strip() -> void:
 	var cp: Dictionary = GameState.state["combatPrototype"]
 	if _strip_playback.is_empty() or cp["outcome"] != null:
@@ -954,11 +948,11 @@ func _settle_strip() -> void:
 	_roll_strip(list_key, resolved_count(cp, entries))
 
 
-# Shows playback list `list_key` rolled past its first `rolled` positions
-# over one beat. The row slides from the card that holds its place: the
-# card landing in front, or when `backward` the card in front until now.
-func _roll_strip(list_key: String, rolled: int, backward: bool = false) -> void:
-	var shown := rolled_entries(_strip_playback[list_key], rolled)
+# Shows playback list `list_key`'s carousel from position `front` over one
+# beat. The row slides from the card that holds its place: the card landing
+# in front, or when `backward` the card in front until now.
+func _roll_strip(list_key: String, front: int, backward: bool = false) -> void:
+	var shown := carousel_entries(_strip_playback[list_key], front)
 	if shown.is_empty():
 		return
 	var anchor: String = _strip_playback["front"] if backward else shown[0]["occurrenceId"]
