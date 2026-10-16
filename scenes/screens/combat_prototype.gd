@@ -10,7 +10,10 @@ extends Control
 # disabled with the system's block reason, which its "?" opens in the
 # combat_block_reason modal), a TurnOrderStrip over the stage showing the
 # round's timeline (strip_entries()), and a CombatDirector playing each
-# pick's beats on the stage and strip with the dock locked. A Readouts window
+# pick's beats (beat_cues()) on the stage and strip with the dock locked,
+# each beat's line to the top-bar ticker, a guard marker on every sprite,
+# at live combat's pacing toggle; Rewind plays the undone beats back in
+# reverse. A Readouts window
 # holds the text views: combatants with guard preview and statuses, the
 # round's timeline with enemy intents, and the beat log. The screen adapts
 # prototype state into the components' shapes (stage_roster()) and only
@@ -23,9 +26,17 @@ const _STRIP_TOP_INSET := 6.0
 const _STRIP_SIDE_INSET := 9.0
 # The stage's context backdrop for every prototype fight.
 const _STAGE_CONTEXT := Combat.CONTEXT_MUGGING
-# Prototype beat kinds whose actor plays its attack pose, for these moves.
-const _ATTACK_POSE_KINDS: Array[String] = ["hit", "chip", "stun", "fizzle"]
-const _ATTACK_POSE_MOVES: Array[String] = [CombatPrototype.MOVE_STRIKE, "stun"]
+# Beat kinds that play nothing past the guard overlay their marks set.
+const _OVERLAY_KINDS: Array[String] = ["guard", "lure", "exposed", "lost", "frozen"]
+const _CAST_KINDS: Array[String] = ["powder", "sight", "lady"]
+# Item beat kinds -> the data/combat_visuals.json effect sheet they play.
+const _ITEM_EFFECTS := {
+	"timePearl": "timePearl", "blackHole": "blackHole", "blast": "blast", "shield": "shield",
+	"heal": "healingBurst", "healSelf": "healingBurst",
+}
+# A damage cue's number and shake scale: lighter on a chip, heavier on a crit.
+const _CHIP_SCALE := 0.7
+const _CRIT_SCALE := 1.5
 
 # View state only: the setup picks, kept across rebuilds.
 var _player_level: int = 1
@@ -51,6 +62,9 @@ var _frozen_roster: Dictionary = {}
 # the pick ("entries", patched as beats play), that round ("round"), and the
 # cards after it ("after") for beats past a round's end. {} otherwise.
 var _strip_playback: Dictionary = {}
+# The stage marks (CombatPrototype.stage_marks()) the overlay holds while a
+# playback runs, as the fight stood before it; [] otherwise.
+var _held_marks: Array = []
 
 # Setup: a scrolling body. Fight: the stage/dock layout below.
 var _content: VBoxContainer
@@ -59,6 +73,7 @@ var _fight_body: Control
 var _round_label: Label
 var _refusal_label: Label
 var _rewind_button: Button
+var _pacing_button: Button
 var _upper_region: Control
 var _stage: CombatStage
 var _strip: TurnOrderStrip
@@ -115,6 +130,8 @@ func _build_fight_layout() -> void:
 	_rewind_button = MapCardStyle.chip_button("Rewind", _on_rewind_pressed)
 	heading_row.add_child(_rewind_button)
 	heading_row.add_child(MapCardStyle.chip_button("Readouts", _toggle_readouts))
+	_pacing_button = MapCardStyle.chip_button("", _on_pacing_button_pressed)
+	heading_row.add_child(_pacing_button)
 	_round_label = UI.muted_label("")
 	heading_row.add_child(_round_label)
 	_refusal_label = UI.muted_label("")
@@ -203,12 +220,14 @@ func _sync_fight(cp: Dictionary) -> void:
 	_round_label.text = "Round %d" % cp["round"]
 	_refusal_label.text = _refusal
 	_rewind_button.disabled = cp["snapshots"].is_empty() or _busy()
+	_pacing_button.text = CombatDirector.pacing_label(_director.pacing_mode)
 
 	# Mid-playback a re-sync would cut the slots' one-shot poses short, and
 	# the strip shows the round as far as the beats have played.
 	if not _director.is_playing():
 		var roster := stage_roster(cp, _target)
 		_stage.sync(roster["combat"], roster["player"], _frozen_roster)
+		_apply_marks(cp, _held_marks if not _held_marks.is_empty() else CombatPrototype.stage_marks(cp))
 	_strip.visible = cp["outcome"] == null or _busy()
 	if _strip_playback.is_empty():
 		var entries := strip_entries(cp)
@@ -374,11 +393,47 @@ func _toggle_readouts() -> void:
 	_refresh()
 
 
+func _on_pacing_button_pressed() -> void:
+	_director.toggle_pacing()
+	_pacing_button.text = CombatDirector.pacing_label(_director.pacing_mode)
+
+
+# Undoes the last pick, then plays its beats back in reverse on the stage
+# and strip (the overlay and strip held as they stood until then) before the
+# restored pick shows.
 func _on_rewind_pressed() -> void:
 	if _busy():
 		return
 	_refusal = ""
-	CombatPrototype.rewind()
+	var cp: Dictionary = GameState.state["combatPrototype"]
+	var log_before: Array = cp["log"]
+	_held_marks = CombatPrototype.stage_marks(cp)
+	_strip_playback = { "entries": strip_entries(cp), "round": cp["round"], "after": [] }
+	for entry in _strip_playback["entries"]:
+		entry["focused"] = false
+	if not CombatPrototype.rewind()["ok"]:
+		_end_playback()
+		return
+	cp = GameState.state["combatPrototype"]
+	_strip_playback["after"] = strip_entries(cp)
+	for entry in _strip_playback["after"]:
+		entry["focused"] = false
+	var beats := rewind_beats(log_before.slice(cp["log"].size()), CombatPrototype.stage_marks(cp))
+	if not beats.is_empty() and is_inside_tree():
+		await _director.play(beats, _on_rewind_beat_played)
+	_end_playback()
+
+
+# `undone` (the undone pick's beats, oldest first) newest first, each a copy
+# carrying "marksBefore": the stage marks as they stood before it (the
+# previous beat's, or `restored_marks` for the first).
+static func rewind_beats(undone: Array, restored_marks: Array) -> Array:
+	var beats: Array = []
+	for i in range(undone.size() - 1, -1, -1):
+		var beat: Dictionary = undone[i].duplicate()
+		beat["marksBefore"] = undone[i - 1].get("marks", restored_marks) if i > 0 else restored_marks
+		beats.append(beat)
+	return beats
 
 
 # The prototype fight in the shapes CombatStage.sync() reads: "combat" (a
@@ -721,12 +776,14 @@ func _resolve(choose: Callable, pick: Dictionary) -> void:
 	var cp: Dictionary = GameState.state["combatPrototype"]
 	var roster := stage_roster(cp, _target)
 	_frozen_roster = { "enemies": roster["combat"]["enemies"], "allies": roster["combat"]["allies"] }
+	_held_marks = CombatPrototype.stage_marks(cp)
 	var round_no: int = cp["round"]
 	var before: Array = [] if CombatPrototype.move(pick["move"]).is_empty() else strip_entries(cp, pick)
 	var result: Dictionary = choose.call()
 	if not result["ok"]:
 		_refusal = str(result["reason"])
 		_frozen_roster = {}
+		_held_marks = []
 		_refresh()
 		return
 	begin_strip_playback(before, round_no, result["beats"])
@@ -760,15 +817,21 @@ func begin_strip_playback(before: Array, round_no: int, beats: Array) -> void:
 func _play_beats(beats: Array) -> void:
 	if not beats.is_empty() and is_inside_tree():
 		await _director.play(beats, _on_beat_played)
+	_end_playback()
+
+
+func _end_playback() -> void:
 	_frozen_roster = {}
 	_strip_playback = {}
+	_held_marks = []
 	_strip.clear_ghosts()
 	_refresh()
 
 
-# Moves the strip's focus to `beat`'s timeline position, showing that
-# position's actual guard result, a lost action, or a KO's dropped ones.
-func _advance_strip(beat: Dictionary) -> void:
+# Moves the strip's focus to `beat`'s timeline position; with `patch`, also
+# shows that position's actual guard result, a lost action, or a KO's
+# dropped ones.
+func _advance_strip(beat: Dictionary, patch: bool = true) -> void:
 	if _strip_playback.is_empty():
 		return
 	var same_round: bool = int(beat["round"]) == int(_strip_playback["round"])
@@ -779,6 +842,9 @@ func _advance_strip(beat: Dictionary) -> void:
 		return
 	for i in range(entries.size()):
 		entries[i]["focused"] = i == playing
+	if not patch:
+		_strip.advance_to(entries, _director.beat_duration)
+		return
 	var entry: Dictionary = entries[playing]
 	if beat["kind"] in ["lost", "frozen"]:
 		entry["actionText"] = "Frozen" if beat["kind"] == "frozen" else "Lost"
@@ -791,29 +857,151 @@ func _advance_strip(beat: Dictionary) -> void:
 	_strip.advance_to(entries, _director.beat_duration)
 
 
+# A beat as it plays: its line to the top-bar ticker (as live combat's log
+# lines go), the strip, the guard overlay to the beat's marks, then its cues.
 func _on_beat_played(beat: Dictionary) -> void:
+	Notify.push(beat["text"], Notify.CATEGORY_INFO, { Notify.META_COMBAT_LOG: true })
 	_advance_strip(beat)
 	var cp: Dictionary = GameState.state["combatPrototype"]
-	var roster := stage_roster(cp, _target)
-	var actor_slot := _stage.resolve_target_slot(_stage_target(roster, int(beat["actor"])))
-	if actor_slot != null and _ATTACK_POSE_KINDS.has(beat["kind"]) and _ATTACK_POSE_MOVES.has(beat["move"]):
-		actor_slot.play_attack()
-	if not CombatDirector.beat_is_damaging(beat):
-		return
-	var target: int = beat["target"]
-	var slot := _stage.resolve_target_slot(_stage_target(roster, target))
-	if beat.has("hpAfter"):
-		var key := TurnOrderStrip.card_key_string(_stage_target(roster, target))
+	if beat.has("marks"):
+		_apply_marks(cp, beat["marks"])
+	if CombatDirector.beat_is_damaging(beat) and beat.has("hpAfter"):
+		var key := TurnOrderStrip.card_key_string(_stage_target(stage_roster(cp, -1), int(beat["target"])))
 		_strip.set_shown_hp(key, int(beat["hpAfter"]))
 		_strip.drain_ghost_to(key, int(beat["hpAfter"]), _director.beat_duration)
-	if slot != null:
-		slot.flash_hit()
-		_stage.spawn_damage_number(slot, int(beat["dmg"]))
-		if int(beat.get("hpAfter", 1)) <= 0:
-			slot.play_ko()
-		else:
+	for cue in beat_cues(beat):
+		_play_cue(cp, cue, false)
+
+
+# A rewound beat: the strip's focus steps back, the overlay and the strip's
+# hp return to how they stood before it, and its cues play undone.
+func _on_rewind_beat_played(beat: Dictionary) -> void:
+	_advance_strip(beat, false)
+	var cp: Dictionary = GameState.state["combatPrototype"]
+	_apply_marks(cp, beat["marksBefore"])
+	if CombatDirector.beat_is_damaging(beat) and beat.has("hpAfter"):
+		var key := TurnOrderStrip.card_key_string(_stage_target(stage_roster(cp, -1), int(beat["target"])))
+		_strip.set_shown_hp(key, int(beat["hpAfter"]) + int(beat["dmg"]) - int(beat.get("absorbed", 0)))
+	for cue in beat_cues(beat):
+		_play_cue(cp, cue, true)
+
+
+# The stage calls a beat plays, in order, each { call, who (combatant
+# index), ... }: "attack", "afterimage", "throw", "cast", "vanish" or
+# "recoil" (a pose on who); "effect" (who's data/combat_visuals.json effect
+# sheet "effect"); "damage" (who's hit, with "dmg" and a juice "scale");
+# "shieldCrack"; "ko"; or "overlay" (nothing past the beat's marks). [] for
+# a beat kind with no mapping.
+static func beat_cues(beat: Dictionary) -> Array:
+	var kind: String = beat["kind"]
+	var actor: int = int(beat["actor"])
+	var target: int = int(beat["target"])
+	var cues: Array = []
+	if _OVERLAY_KINDS.has(kind):
+		return [{ "call": "overlay", "who": actor }]
+	match kind:
+		"hit", "chip", "stun", "feint", "fizzle":
+			cues.append_array(_move_pose_cues(beat["move"], actor))
+		"fled":
+			cues.append({ "call": "vanish", "who": actor })
+		"fleeFailed":
+			cues.append({ "call": "recoil", "who": actor })
+		"ko":
+			cues.append({ "call": "ko", "who": target })
+		"pull":
+			pass
+		"timePearl", "blackHole":
+			cues.append({ "call": "throw", "who": actor })
+			for affected in beat.get("affected", []):
+				cues.append({ "call": "effect", "who": int(affected), "effect": _ITEM_EFFECTS[kind] })
+		"blast", "heal", "healSelf":
+			cues.append({ "call": "throw", "who": actor })
+			cues.append({ "call": "effect", "who": target, "effect": _ITEM_EFFECTS[kind] })
+		"shield":
+			cues.append({ "call": "throw", "who": actor })
+			cues.append({ "call": "effect", "who": actor, "effect": _ITEM_EFFECTS[kind] })
+		_:
+			if not _CAST_KINDS.has(kind):
+				return []
+			cues.append({ "call": "cast", "who": actor })
+	if CombatDirector.beat_is_damaging(beat):
+		var scale: float = _CRIT_SCALE if beat.get("crit", false) else (_CHIP_SCALE if kind == "chip" else 1.0)
+		cues.append({ "call": "damage", "who": target, "dmg": int(beat["dmg"]), "scale": scale })
+		if int(beat.get("absorbed", 0)) > 0:
+			cues.append({ "call": "shieldCrack", "who": target })
+	if cues.is_empty():
+		cues.append({ "call": "overlay", "who": actor })
+	return cues
+
+
+# The actor's pose for a move-driven beat: Strike and Stun swing, a Feint
+# swings with an afterimage, an item (a fizzled Healing Burst) is thrown.
+static func _move_pose_cues(move_id: String, actor: int) -> Array:
+	match move_id:
+		CombatPrototype.MOVE_STRIKE, "stun":
+			return [{ "call": "attack", "who": actor }]
+		"feint":
+			return [{ "call": "attack", "who": actor }, { "call": "afterimage", "who": actor }]
+	if CombatPrototype.item_ids().has(move_id):
+		return [{ "call": "throw", "who": actor }]
+	return []
+
+
+# Plays one beat_cues() cue on the stage; `rewinding` undoes a vanish or KO
+# and skips the damage number.
+func _play_cue(cp: Dictionary, cue: Dictionary, rewinding: bool) -> void:
+	var who: int = int(cue["who"])
+	if who < 0:
+		return
+	var key := _stage_target(stage_roster(cp, -1), who)
+	var slot := _stage.resolve_target_slot(key)
+	if slot == null:
+		return
+	match cue["call"]:
+		"attack":
+			slot.play_attack()
+		"afterimage":
+			slot.spawn_afterimage()
+		"throw":
+			slot.play_throw()
+		"cast":
+			slot.play_cast()
+		"vanish":
+			if rewinding:
+				slot.restore_from_vanish()
+			else:
+				slot.play_wormhole_vanish()
+		"recoil":
 			slot.play_hit()
-	_stage.shake(int(beat["dmg"]), int(cp["combatants"][target]["hpMax"]))
+		"effect":
+			_stage.play_effect({}, cue["effect"], key)
+		"shieldCrack":
+			slot.flash_shield_crack()
+		"ko":
+			if rewinding:
+				slot.clear_pose()
+			else:
+				slot.play_ko()
+		"damage":
+			var scale: float = cue["scale"]
+			slot.flash_hit()
+			if not rewinding:
+				_stage.spawn_damage_number(slot, int(cue["dmg"]), scale)
+			slot.play_hit()
+			_stage.shake(int(cue["dmg"]), int(cp["combatants"][who]["hpMax"]), scale)
+
+
+# Each combatant's slot to its stage marks: guard marker, Shield loop and
+# Time Pearl freeze.
+func _apply_marks(cp: Dictionary, marks: Array) -> void:
+	var roster := stage_roster(cp, -1)
+	for i in range(mini(marks.size(), cp["combatants"].size())):
+		var slot := _stage.resolve_target_slot(_stage_target(roster, i))
+		if slot == null:
+			continue
+		slot.set_guard_marker(marks[i]["guard"])
+		_stage.set_slot_shield(slot, marks[i]["shielded"])
+		_stage.set_slot_frozen(slot, marks[i]["frozen"])
 
 
 func _build_outcome_card(outcome: String) -> Control:

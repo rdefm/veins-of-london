@@ -57,6 +57,16 @@ const FALL_SINK_PX := 10.0
 const FALL_ROTATION_DEG := 20.0
 const FALL_ALPHA := 0.35
 const SELF_PATCH_RISE_PX := 6.0
+# StageSlot.guard_marker values (the prototype's guard overlay).
+const GUARD_MARKER_GUARDED := "guarded"
+const GUARD_MARKER_OPEN := "open"
+const GUARD_MARKER_EXPOSED := "exposed"
+const GUARD_MARKER_SIZE := Vector2(12.0, 14.0)
+const GUARD_MARKER_INSET := 4.0
+const GUARD_MARKER_GUARDED_COLOUR := Color(0.4, 0.85, 1.0, 0.95)
+const GUARD_MARKER_OPEN_COLOUR := Color(0.9, 0.9, 0.9, 0.75)
+const GUARD_MARKER_EXPOSED_COLOUR := Color(1.0, 0.35, 0.3, 0.95)
+const DAMAGE_NUMBER_FONT_SIZE := 16
 const _PLACEHOLDER_PALETTE: Array[Color] = [
 	Color(0.55, 0.33, 0.33),
 	Color(0.33, 0.47, 0.55),
@@ -373,6 +383,15 @@ class StageSlot extends Control:
 		var tween := create_tween()
 		tween.tween_property(ghost, "modulate:a", 0.0, 0.22)
 		tween.tween_callback(ghost.queue_free)
+	# Undoes play_wormhole_vanish(), and any held or running pose.
+	func restore_from_vanish() -> void:
+		_end_one_shot()
+		_sprite_rect.scale = Vector2.ONE
+		_sprite_rect.modulate.a = 1.0
+		_sprite_rect.visible = not _idle_frames.is_empty()
+	# Drops a held pose (a KO's fall) back to idle.
+	func clear_pose() -> void:
+		_end_one_shot()
 	func play_wormhole_vanish() -> void:
 		if not is_inside_tree():
 			return
@@ -386,6 +405,14 @@ class StageSlot extends Control:
 		tween.parallel().tween_property(_sprite_rect, "modulate:a", 0.0, 0.25)
 		tween.tween_callback(func(): _sprite_rect.visible = false)
 	var _shield_crack_alpha: float = 0.0
+	# GUARD_MARKER_* or "" (no marker, as in live combat).
+	var guard_marker: String = ""
+
+	func set_guard_marker(value: String) -> void:
+		if value == guard_marker:
+			return
+		guard_marker = value
+		_overlay.queue_redraw()
 
 	func flash_shield_crack() -> void:
 		_set_shield_crack_alpha(1.0)
@@ -512,6 +539,30 @@ class StageSlot extends Control:
 		if _shield_crack_alpha > 0.0:
 			_overlay.draw_rect(rect, Color(0.4, 0.85, 1.0, _shield_crack_alpha * 0.55), true)
 			_overlay.draw_rect(rect.grow(-2.0), Color(0.85, 0.95, 1.0, _shield_crack_alpha), false, 2.0)
+		if guard_marker != "":
+			_draw_guard_marker()
+
+	# A small shield at the slot's back top corner: filled while Guarded,
+	# hollow while Open, hollow red and slashed while Exposed.
+	func _draw_guard_marker() -> void:
+		var w: float = CombatStage.GUARD_MARKER_SIZE.x
+		var h: float = CombatStage.GUARD_MARKER_SIZE.y
+		var x: float = CombatStage.GUARD_MARKER_INSET if side != "enemy" else size.x - w - CombatStage.GUARD_MARKER_INSET
+		var o := Vector2(x, CombatStage.GUARD_MARKER_INSET)
+		var points := PackedVector2Array([
+			o, o + Vector2(w, 0.0), o + Vector2(w, h * 0.55), o + Vector2(w * 0.5, h), o + Vector2(0.0, h * 0.55),
+		])
+		var outline := points.duplicate()
+		outline.append(o)
+		match guard_marker:
+			CombatStage.GUARD_MARKER_GUARDED:
+				_overlay.draw_colored_polygon(points, CombatStage.GUARD_MARKER_GUARDED_COLOUR)
+				_overlay.draw_polyline(outline, Color(0, 0, 0, 0.6), 1.0)
+			CombatStage.GUARD_MARKER_EXPOSED:
+				_overlay.draw_polyline(outline, CombatStage.GUARD_MARKER_EXPOSED_COLOUR, 2.0)
+				_overlay.draw_line(o + Vector2(w, 0.0), o + Vector2(0.0, h), CombatStage.GUARD_MARKER_EXPOSED_COLOUR, 2.0)
+			_:
+				_overlay.draw_polyline(outline, CombatStage.GUARD_MARKER_OPEN_COLOUR, 2.0)
 
 	# §2.2: a subtle arrow marks the selected sprite.
 	func _draw_selection_arrow() -> void:
@@ -619,6 +670,19 @@ func sync(combat: Dictionary, player: Dictionary, frozen_roster: Dictionary) -> 
 		player_slot.set_shield_loop(shield_entry.get("frames", _empty_idle_frames), shield_entry.get("fps", 0.0), player["shieldPool"] > 0)
 
 
+# Per-slot forms of what sync() sets from the live combat state (the player's
+# Shield loop, every enemy's Time Pearl freeze), for callers that track them
+# per combatant.
+func set_slot_shield(slot: StageSlot, active: bool) -> void:
+	var shield_entry: Dictionary = _effect_frames_by_key.get("shield", {})
+	slot.set_shield_loop(shield_entry.get("frames", _empty_idle_frames), shield_entry.get("fps", 0.0), active)
+
+
+func set_slot_frozen(slot: StageSlot, frozen: bool) -> void:
+	slot.set_time_scale(0.1 if frozen else 1.0)
+	slot.set_frozen_visual(frozen)
+
+
 func _on_slot_gui_input(event: InputEvent, side: String, key: int) -> void:
 	if TouchInput.is_emulated_mouse(event):
 		return
@@ -639,10 +703,12 @@ func resolve_target_slot(target: Dictionary) -> StageSlot:
 	return null
 
 
-func shake(dmg: int, hp_max: int) -> void:
+# `strength` scales the hp-fraction magnitude (a chip's lighter shake, a
+# crit's heavier one).
+func shake(dmg: int, hp_max: int, strength: float = 1.0) -> void:
 	if _stage_shake_layer == null or not _stage_shake_layer.is_inside_tree():
 		return
-	var magnitude: float = _shake_magnitude(dmg, hp_max)
+	var magnitude: float = _shake_magnitude(dmg, hp_max) * strength
 	var base_pos: Vector2 = _stage_shake_layer.position
 	var tween := create_tween()
 	tween.tween_property(_stage_shake_layer, "position", base_pos + Vector2(magnitude, 0.0), 0.03)
@@ -658,13 +724,14 @@ func _shake_magnitude(dmg: int, hp_max: int) -> float:
 	return clampf(SHAKE_MIN_PX + (SHAKE_MAX_PX - SHAKE_MIN_PX) * (frac / SHAKE_FULL_FRACTION), SHAKE_MIN_PX, SHAKE_MAX_PX)
 
 
-func spawn_damage_number(slot: StageSlot, dmg: int) -> void:
+# `size_scale` scales the number's font (a chip's smaller one, a crit's bigger).
+func spawn_damage_number(slot: StageSlot, dmg: int, size_scale: float = 1.0) -> void:
 	var layer: Node = slot.get_parent()
 	if layer == null:
 		return
 	var label := Label.new()
 	label.text = "-%d" % dmg
-	label.add_theme_font_size_override("font_size", 16)
+	label.add_theme_font_size_override("font_size", roundi(DAMAGE_NUMBER_FONT_SIZE * size_scale))
 	label.add_theme_color_override("font_color", Color(1.0, 0.35, 0.3))
 	label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
 	label.add_theme_constant_override("outline_size", 2)

@@ -177,10 +177,10 @@ func _sync() -> void:
 	_sync_footer(combat, player)
 
 func _pacing_button_label() -> String:
-	return "⏱ Quick" if _director.pacing_mode == "quick" else "⏱ Normal"
+	return CombatDirector.pacing_label(_director.pacing_mode)
 
 func _on_pacing_button_pressed() -> void:
-	_director.set_pacing("normal" if _director.pacing_mode == "quick" else "quick")
+	_director.toggle_pacing()
 	_pacing_button.text = _pacing_button_label()
 
 func _context_label(context: String) -> String:

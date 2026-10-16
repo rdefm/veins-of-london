@@ -233,6 +233,102 @@ func run() -> void:
 		assert_eq(screen._strip._entries.size(), CombatPrototype.timeline(GameState.state["combatPrototype"]).size() + CombatPrototype.next_round_timeline(GameState.state["combatPrototype"]).size())
 	)
 
+	run_case("every_beat_kind_maps_to_stage_cues", func():
+		var moves := { "hit": "strike", "chip": "strike", "stun": "stun", "feint": "feint", "fizzle": "feint", "guard": "guard", "lure": "lure", "fled": "legIt", "fleeFailed": "legIt" }
+		var damaging: Array[String] = ["hit", "chip", "pull", "blast"]
+		var lines: Dictionary = GameData.COMBAT_PROTOTYPE["beatLines"]
+		for kind in lines.keys():
+			if not lines[kind] is Dictionary:
+				continue
+			var beat := { "kind": kind, "actor": 0, "target": 1, "move": moves.get(kind, kind), "affected": [1, 2] }
+			if damaging.has(kind):
+				beat["dmg"] = 5
+			assert_true(not CombatPrototypeScreen.beat_cues(beat).is_empty(), "%s is mapped" % kind)
+		var calls := func(beat: Dictionary) -> Array:
+			return CombatPrototypeScreen.beat_cues(beat).map(func(c): return [c["call"], c["who"]])
+		assert_eq(calls.call({ "kind": "feint", "actor": 0, "target": 1, "move": "feint" }), [["attack", 0], ["afterimage", 0]], "feint: swing + afterimage, no damage")
+		assert_eq(calls.call({ "kind": "guard", "actor": 0, "target": -1, "move": "guard" }), [["overlay", 0]])
+		assert_eq(calls.call({ "kind": "fled", "actor": 2, "target": -1, "move": "legIt" }), [["vanish", 2]])
+		assert_eq(calls.call({ "kind": "fleeFailed", "actor": 0, "target": -1, "move": "legIt" }), [["recoil", 0]])
+		assert_eq(calls.call({ "kind": "timePearl", "actor": 0, "target": -1, "move": "timePearl", "affected": [2, 3] }), [["throw", 0], ["effect", 2], ["effect", 3]], "every frozen enemy")
+		assert_eq(calls.call({ "kind": "powder", "actor": 0, "target": -1, "move": "enhancementPowder" }), [["cast", 0]])
+		assert_eq(calls.call({ "kind": "healSelf", "actor": 0, "target": 0, "move": "healingBurst" }), [["throw", 0], ["effect", 0]])
+		var hit := { "kind": "hit", "actor": 0, "target": 1, "move": "strike", "dmg": 8, "absorbed": 3 }
+		assert_eq(calls.call(hit), [["attack", 0], ["damage", 1], ["shieldCrack", 1]], "shield absorb cracks")
+		var scale := func(beat: Dictionary) -> float:
+			return CombatPrototypeScreen.beat_cues(beat).filter(func(c): return c["call"] == "damage")[0]["scale"]
+		var chip := { "kind": "chip", "actor": 0, "target": 1, "move": "strike", "dmg": 2 }
+		var crit := { "kind": "hit", "actor": 0, "target": 1, "move": "strike", "dmg": 16, "crit": true }
+		assert_true(scale.call(chip) < scale.call(hit) and scale.call(hit) < scale.call(crit), "chip smaller, crit bigger")
+		assert_eq(CombatPrototypeScreen.beat_cues({ "kind": "nonsense", "actor": 0, "target": -1, "move": "" }), [], "unknown kinds stay unmapped")
+	)
+
+	run_case("beats_drive_the_guard_overlay_and_the_ticker", func():
+		var screen := _render_squad_fight()
+		var cp: Dictionary = GameState.state["combatPrototype"]
+		var player_slot: CombatStage.StageSlot = screen._stage.resolve_target_slot({ "type": "player", "index": -1 })
+		assert_eq(player_slot.guard_marker, CombatPrototype.stage_marks(cp)[CombatPrototype.PLAYER_INDEX]["guard"], "the overlay shows the state at rest")
+		var result := CombatPrototype.choose_move("guard")
+		assert_true(result["ok"])
+		var before: int = GameState.state["notifications"].size()
+		for beat in result["beats"]:
+			screen._on_beat_played(beat)
+		var pushed: Array = GameState.state["notifications"].slice(before)
+		assert_eq(pushed.map(func(n): return n["text"]), result["beats"].map(func(b): return b["text"]))
+		assert_true(pushed.all(func(n): return n.get(Notify.META_COMBAT_LOG, false)), "pushed as combat-log lines")
+		var mine: Array = result["beats"].filter(func(b): return b["kind"] == "guard" and b["actor"] == CombatPrototype.PLAYER_INDEX)
+		assert_eq(mine[0]["marks"][CombatPrototype.PLAYER_INDEX]["guard"], CombatPrototype.GUARDED)
+		assert_eq(player_slot.guard_marker, result["beats"].back()["marks"][CombatPrototype.PLAYER_INDEX]["guard"], "the overlay follows the beats")
+
+		GameState.state["currentScreen"] = "combat_prototype"
+		var bar := TopBar.new()
+		bar._ready()
+		Notify.push("You get your guard up.", Notify.CATEGORY_INFO, { Notify.META_COMBAT_LOG: true })
+		var line := "YOU GET YOUR GUARD UP."
+		assert_true(bar._ticker.current_text == line or bar._ticker.queued().has(line), "a prototype fight routes the ticker as combat")
+		bar.free()
+		GameState.state["currentScreen"] = "phone"
+		assert_true(not TopBar.in_combat(), "a fight left behind by Exit isn't combat")
+	)
+
+	run_case("rewind_lands_on_the_previous_pick_and_reverses_its_beats", func():
+		var screen := _render_squad_fight()
+		var before: Dictionary = GameState.state["combatPrototype"].duplicate(true)
+		_row(screen, "MoveRow_strike").pressed.emit()
+		var cp: Dictionary = GameState.state["combatPrototype"]
+		var undone: Array = cp["log"].slice(before["log"].size())
+		assert_true(not undone.is_empty())
+		screen._on_rewind_pressed()
+		cp = GameState.state["combatPrototype"]
+		for key in before.keys():
+			if key != "snapshots":
+				assert_eq(cp[key], before[key], key)
+		assert_true(screen._strip_playback.is_empty() and screen._held_marks.is_empty(), "playback ended")
+		assert_true(not _row(screen, "MoveRow_strike").disabled, "back at the pick")
+		var focused: Array = screen._strip._entries.filter(func(e): return e["focused"])
+		assert_eq([focused[0]["actor"], focused[0]["index"]], [CombatPrototype.PLAYER_INDEX, CombatPrototype.decision_position(cp)])
+
+		var restored := CombatPrototype.stage_marks(cp)
+		var reversed := CombatPrototypeScreen.rewind_beats(undone, restored)
+		var texts: Array = undone.map(func(b): return b["text"])
+		texts.reverse()
+		assert_eq(reversed.map(func(b): return b["text"]), texts, "newest first")
+		assert_eq(reversed.back()["marksBefore"], restored, "the oldest beat steps back to the restored marks")
+		if undone.size() > 1:
+			assert_eq(reversed[0]["marksBefore"], undone[-2]["marks"])
+	)
+
+	run_case("the_pacing_toggle_persists_through_the_pacing_system", func():
+		GameState.reset()
+		CombatPrototype.start({ "seed": 1 })
+		var screen := _render()
+		assert_eq(screen._pacing_button.text, CombatDirector.pacing_label("normal"))
+		screen._pacing_button.pressed.emit()
+		assert_eq(CombatPacing.pacing_mode(), "quick")
+		assert_eq(screen._pacing_button.text, CombatDirector.pacing_label("quick"))
+		assert_eq(_render()._pacing_button.text, CombatDirector.pacing_label("quick"), "a new screen reads the saved mode")
+	)
+
 	run_case("a_whole_fight_plays_through_the_dock_rows_to_an_outcome", func():
 		GameState.reset()
 		CombatPrototype.start({ "seed": 3 })

@@ -26,6 +26,8 @@ const GUARDED := "guarded"
 const OPEN := "open"
 const UNCHANGED := "unchanged"
 const GUARD_EFFECTS: Array[String] = [GUARDED, OPEN, UNCHANGED]
+# guard_marker()'s third state, for a combatant Exposed by a sprung Lure.
+const EXPOSED := "exposed"
 
 const TARGET_SELF := "self"
 const TARGET_ENEMY := "enemy"
@@ -843,6 +845,7 @@ static func _advance(cp: Dictionary, rng: RandomNumberGenerator, beats: Array) -
 			var frozen: bool = combatant["frozenActions"] > 0
 			combatant["frozenActions"] = maxi(0, combatant["frozenActions"] - 1)
 			_beat(cp, beats, "frozen" if frozen else "lost", actor, -1, action["move"] if action != null else "", {})
+			beats[-1]["marks"] = stage_marks(cp)
 			continue
 		_resolve_action(cp, actor, action, rng, beats)
 		if move(action["move"])["effect"] == EFFECT_FLEE:
@@ -917,9 +920,33 @@ static func _resolve_action(cp: Dictionary, actor_idx: int, action: Dictionary, 
 			_use_item(cp, actor_idx, action, m, beats)
 	if apply_guard and m["actorGuard"] != UNCHANGED and not actor["koed"]:
 		actor["guard"] = m["actorGuard"]
+	var marks := stage_marks(cp)
 	for i in range(first_beat, beats.size()):
 		if beats[i]["actor"] == actor_idx:
 			beats[i]["actorGuard"] = actor["guard"]
+		beats[i]["marks"] = marks
+
+
+# Each combatant's stage overlay as the fight stands: { guard: guard_marker()
+# ("" once KO'd), shielded (a Shield pool holds), frozen (a Time Pearl
+# freeze holds) }.
+static func stage_marks(cp: Dictionary) -> Array:
+	return cp["combatants"].map(func(c): return {
+		"guard": "" if c["koed"] else guard_marker(cp, c),
+		"shielded": int(c["shield"]) > 0, "frozen": int(c["frozenActions"]) > 0,
+	})
+
+
+# "open", "guarded" or "exposed", in is_open()'s order: a freeze reads Open,
+# a Shield pool Guarded, then Exposed while it lasts, then the guard state.
+static func guard_marker(cp: Dictionary, combatant: Dictionary) -> String:
+	if combatant["frozenActions"] > 0:
+		return OPEN
+	if combatant["shield"] > 0:
+		return GUARDED
+	if is_exposed(cp, combatant):
+		return EXPOSED
+	return combatant["guard"]
 
 
 # Open for damage and conditions: frozen by a Time Pearl; else Guarded while
@@ -1040,12 +1067,12 @@ static func _use_item(cp: Dictionary, actor_idx: int, action: Dictionary, m: Dic
 	var move_id: String = action["move"]
 	match m["effect"]:
 		ITEM_FREEZE:
-			_beat(cp, beats, "timePearl", actor_idx, -1, move_id, {})
+			_beat(cp, beats, "timePearl", actor_idx, -1, move_id, { "affected": _living_opponents(cp, actor_idx) })
 			for e in _living_opponents(cp, actor_idx):
 				combatants[e]["actionsLost"] += power
 				combatants[e]["frozenActions"] = combatants[e]["actionsLost"]
 		ITEM_BLACK_HOLE:
-			_beat(cp, beats, "blackHole", actor_idx, -1, move_id, {})
+			_beat(cp, beats, "blackHole", actor_idx, -1, move_id, { "affected": _living_opponents(cp, actor_idx) })
 			var lost: int = int(m["params"]["actionsBase"]) + floori(power / float(m["params"]["powerPerAction"]))
 			for e in _living_opponents(cp, actor_idx):
 				_deal_damage(cp, actor_idx, e, power, "pull", move_id, beats, {})
@@ -1099,7 +1126,8 @@ static func _check_outcome(cp: Dictionary) -> void:
 
 # One beat: { round, kind, actor, target, move, text, turnActor, turnIndex }
 # plus `extra`; turnActor/turnIndex name the timeline position whose action
-# produced it. The line's "self" variant is used when the player is the
+# produced it. Once that action resolves each of its beats also carries
+# "marks" (stage_marks() after it) and the actor's carry "actorGuard". The line's "self" variant is used when the player is the
 # actor (or, for a KO, the one going down).
 static func _beat(cp: Dictionary, beats: Array, kind: String, actor: int, target: int, move_id: String, extra: Dictionary) -> void:
 	var lines: Dictionary = _data()["beatLines"]

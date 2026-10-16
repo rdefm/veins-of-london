@@ -106,7 +106,7 @@ func _refresh() -> void:
 # Rewind, new game) resets the board to the latest eligible notification
 # with no animation.
 func _sync_ticker() -> void:
-	var combat_active: bool = GameState.state["combat"]["active"]
+	var combat_active := in_combat()
 	var notifications: Array = GameState.state["notifications"]
 	var start := _first_unseen_index(notifications)
 	if start < 0:
@@ -132,6 +132,14 @@ func _sync_ticker() -> void:
 		_ticker.drop_transient(_latest_eligible_text(notifications, false))
 	_was_combat_active = combat_active
 	_initialized = true
+
+
+# A live fight, or a Combat Prototype one on screen (its fight outlives an
+# Exit): either routes the ticker as combat.
+static func in_combat() -> bool:
+	if GameState.state["combat"]["active"]:
+		return true
+	return GameState.state.get("currentScreen", "") == "combat_prototype" and GameState.state.get("combatPrototype", {}).get("active", false)
 
 
 func _first_unseen_index(notifications: Array) -> int:
@@ -188,7 +196,7 @@ func _gui_input(event: InputEvent) -> void:
 # guard shortfall warning, else the Phone's Notifications app; nothing
 # mid-combat.
 static func open_notifications_log() -> bool:
-	if GameState.state["combat"]["active"]:
+	if in_combat():
 		return false
 	var notifications: Array = GameState.state["notifications"]
 	for i in range(notifications.size() - 1, -1, -1):

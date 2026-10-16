@@ -629,6 +629,23 @@ func run() -> void:
 		assert_eq(cp["combatants"][PLAYER]["guard"], CombatPrototype.OPEN, "the Strike opened the player; the item changed nothing")
 	)
 
+	run_case("beats_carry_the_stage_marks_and_who_an_item_hit", func():
+		var cp := _start_items([[["guard", "guard"]], [["guard", "guard"]]], [{ "item": "timePearl", "tier": 2 }])
+		var result := _round([{ "slot": 0 }, { "move": "guard" }])
+		var pearl: Dictionary = result["beats"].filter(func(b): return b["kind"] == "timePearl")[0]
+		assert_eq(pearl["affected"], [1, 2])
+		assert_eq(pearl["marks"][1], { "guard": CombatPrototype.OPEN, "shielded": false, "frozen": true }, "frozen reads Open")
+		assert_true(result["beats"].all(func(b): return b.has("marks")), "every beat")
+		var last: Dictionary = result["beats"].back()
+		assert_eq(last["marks"].size(), cp["combatants"].size())
+		cp["combatants"][PLAYER]["shield"] = 3
+		cp["combatants"][PLAYER]["guard"] = CombatPrototype.OPEN
+		assert_eq(CombatPrototype.guard_marker(cp, cp["combatants"][PLAYER]), CombatPrototype.GUARDED, "a Shield pool reads Guarded")
+		cp["combatants"][PLAYER]["shield"] = 0
+		cp["combatants"][PLAYER]["exposedUntil"] = cp["round"]
+		assert_eq(CombatPrototype.guard_marker(cp, cp["combatants"][PLAYER]), CombatPrototype.EXPOSED)
+	)
+
 	run_case("an_item_takes_effect_where_it_resolves_on_the_timeline", func():
 		var cp := _start_items([[[{ "move": "strike", "target": PLAYER }, "guard"]]], [{ "item": "timePearl", "tier": 1 }])
 		var result := _round([{ "move": "guard" }, { "slot": 0 }])

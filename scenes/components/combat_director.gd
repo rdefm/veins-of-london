@@ -19,6 +19,10 @@ var _skip_requested := false
 var _playing := false
 
 
+func _init() -> void:
+	_apply_pacing(CombatPacing.pacing_mode())
+
+
 func _ready() -> void:
 	_apply_pacing(CombatPacing.pacing_mode())
 
@@ -66,6 +70,16 @@ func set_pacing(mode: String) -> void:
 		return
 	CombatPacing.set_pacing_mode(mode)
 	_apply_pacing(mode)
+
+
+# Flips the persisted pacing mode (the screens' pacing toggle).
+func toggle_pacing() -> void:
+	set_pacing("normal" if pacing_mode == "quick" else "quick")
+
+
+# The pacing toggle's label for `mode`.
+static func pacing_label(mode: String) -> String:
+	return "⏱ Quick" if mode == "quick" else "⏱ Normal"
 
 
 func _apply_pacing(mode: String) -> void:
