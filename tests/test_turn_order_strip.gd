@@ -72,7 +72,7 @@ func run() -> void:
 		var combat := _combat([Fixtures.enemy("Fast Enemy", 20, 20, false, 30)], [Fixtures.ally("Slow Ally", 20, 20, false, 5)])
 
 		var strip := TurnOrderStrip.new()
-		var entries := strip.build_entries(combat, GameState.state["player"])
+		var entries := TurnOrderStrip.build_entries(combat, GameState.state["player"])
 
 		assert_eq(entries.size(), 3, "one card per living combatant")
 		assert_eq(entries[0]["name"], "Fast Enemy", "the fastest entry (the enemy) goes first")
@@ -91,7 +91,7 @@ func run() -> void:
 		combat["motionPower"] = 3  # build_turn_queue() inserts 2 "extra" player entries at this power
 
 		var strip := TurnOrderStrip.new()
-		var entries := strip.build_entries(combat, GameState.state["player"])
+		var entries := TurnOrderStrip.build_entries(combat, GameState.state["player"])
 
 		assert_eq(entries.size(), 4, "3 player occurrences (base + 2 extras) + the one enemy")
 		assert_eq(entries[0]["key"]["type"], "player")
@@ -110,7 +110,7 @@ func run() -> void:
 		)
 
 		var strip := TurnOrderStrip.new()
-		var entries := strip.build_entries(combat, GameState.state["player"])
+		var entries := TurnOrderStrip.build_entries(combat, GameState.state["player"])
 
 		var names: Array = []
 		for e in entries:
@@ -127,7 +127,7 @@ func run() -> void:
 		var combat := _combat([Fixtures.enemy("Enemy")], [Fixtures.ally("Ally")])
 
 		var strip := TurnOrderStrip.new()
-		var entries := strip.build_entries(combat, GameState.state["player"])
+		var entries := TurnOrderStrip.build_entries(combat, GameState.state["player"])
 
 		assert_eq(_entry_of_type(entries, "player")["level"], 3, "the player's badge should reflect combatSkill")
 		assert_eq(_entry_of_type(entries, "enemy")["level"], null, "no level data exists for enemies yet -- see .scratch/combat-presentation/level-system.md")
@@ -142,7 +142,7 @@ func run() -> void:
 		var combat := _combat([Fixtures.enemy("Guard")], [], Combat.CONTEXT_RAID, "fv1")
 
 		var strip := TurnOrderStrip.new()
-		var enemy_entry := _entry_of_type(strip.build_entries(combat, GameState.state["player"]), "enemy")
+		var enemy_entry := _entry_of_type(TurnOrderStrip.build_entries(combat, GameState.state["player"]), "enemy")
 
 		assert_eq(enemy_entry["factionName"], GameData.FACTIONS["collective"]["shortName"], "raid should reveal the target faction's real name -- you chose the vein")
 		assert_eq(enemy_entry["factionColour"], Color(GameData.FACTIONS["collective"]["colour"]), "raid should reveal the target faction's real colour")
@@ -154,7 +154,7 @@ func run() -> void:
 		var combat := _combat([Fixtures.enemy("Guard")], [], Combat.CONTEXT_EVENT_RAID, "fv1")
 
 		var strip := TurnOrderStrip.new()
-		var enemy_entry := _entry_of_type(strip.build_entries(combat, GameState.state["player"]), "enemy")
+		var enemy_entry := _entry_of_type(TurnOrderStrip.build_entries(combat, GameState.state["player"]), "enemy")
 
 		assert_eq(enemy_entry["factionName"], GameData.FACTIONS["firm"]["shortName"], "event_raid is raid-flavoured -- same real-colour reveal")
 	)
@@ -164,7 +164,7 @@ func run() -> void:
 		for context in [Combat.CONTEXT_DEFEND_VEIN, Combat.CONTEXT_HOME_RAID]:
 			var combat := _combat([Fixtures.enemy("Raider")], [], context)
 			var strip := TurnOrderStrip.new()
-			var enemy_entry := _entry_of_type(strip.build_entries(combat, GameState.state["player"]), "enemy")
+			var enemy_entry := _entry_of_type(TurnOrderStrip.build_entries(combat, GameState.state["player"]), "enemy")
 			assert_eq(enemy_entry["factionName"], "UNKNOWN", "%s must always be anonymous -- raid-stealth-anonymity" % context)
 			assert_eq(enemy_entry["factionColour"], TurnOrderStrip.UNKNOWN_COLOUR, "%s must show the UNKNOWN grey" % context)
 	)
@@ -174,7 +174,7 @@ func run() -> void:
 		for context in [Combat.CONTEXT_MUGGING, Combat.CONTEXT_EVENT_MUGGING]:
 			var combat := _combat([Fixtures.enemy("Mugger")], [], context)
 			var strip := TurnOrderStrip.new()
-			var enemy_entry := _entry_of_type(strip.build_entries(combat, GameState.state["player"]), "enemy")
+			var enemy_entry := _entry_of_type(TurnOrderStrip.build_entries(combat, GameState.state["player"]), "enemy")
 			assert_eq(enemy_entry["factionName"], "UNKNOWN", "%s muggers have no faction affiliation at all" % context)
 	)
 
@@ -184,7 +184,7 @@ func run() -> void:
 		var combat := _combat([Fixtures.enemy("Guard")], [Fixtures.ally("Archie")], Combat.CONTEXT_RAID, "fv1")
 
 		var strip := TurnOrderStrip.new()
-		var entries := strip.build_entries(combat, GameState.state["player"])
+		var entries := TurnOrderStrip.build_entries(combat, GameState.state["player"])
 
 		assert_eq(_entry_of_type(entries, "player")["factionName"], "", "the player isn't the encounter's antagonist")
 		assert_eq(_entry_of_type(entries, "ally")["factionName"], "", "allies aren't the encounter's antagonist")
@@ -192,14 +192,38 @@ func run() -> void:
 
 	# ── NameplateCard rendering: collapsed vs. focused, decal tier, pulse ──
 
+	run_case("configure_renders_caller_built_entries_without_live_combat_state", func():
+		GameState.reset()
+		var entries: Array = [
+			{ "key": { "type": "enemy", "index": 0 }, "occurrenceId": "1:0", "name": "Proto Guard", "level": null,
+				"hp": 9, "hpMax": 30, "factionName": "", "factionColour": TurnOrderStrip.NEUTRAL_COLOUR, "isEnemy": true,
+				"statusLines": ["Dazed (1)"], "telegraphText": "Intent: Lunge", "tellImage": null },
+			{ "key": { "type": "player" }, "occurrenceId": "1:1", "name": "You", "level": 3,
+				"hp": 20, "hpMax": 20, "factionName": "", "factionColour": TurnOrderStrip.NEUTRAL_COLOUR, "isEnemy": false },
+		]
+		var strip := TurnOrderStrip.new()
+		strip.configure(entries, 0, 300.0, Callable())
+
+		var guard := _card_named(strip, "Proto Guard")
+		assert_true(guard.is_focused)
+		assert_eq(guard.hp, 9)
+		assert_eq(guard.status_lines, ["Dazed (1)"] as Array[String], "status lines come straight from the entry")
+		assert_eq(guard.telegraph_text, "Intent: Lunge", "intent text comes straight from the entry")
+		assert_true(guard.telegraph_label != null)
+		var you := _card_named(strip, "You")
+		assert_true(not you.is_focused)
+		assert_eq(you.status_lines.size(), 0, "an entry without statusLines renders none")
+		strip.free()
+	)
+
 	run_case("collapsed_card_hides_the_exact_hp_number_and_status_lines", func():
 		GameState.reset()
 		GameState.state["player"]["shieldPool"] = 5
 		var combat := _combat([Fixtures.enemy("Enemy", 15, 20, false, 30)])  # faster than the player -> enemy is focused, player collapses
 
 		var strip := TurnOrderStrip.new()
-		var entries := strip.build_entries(combat, GameState.state["player"])
-		strip.configure(entries, 0, combat, GameState.state["player"], 300.0, Callable())
+		var entries := TurnOrderStrip.build_entries(combat, GameState.state["player"])
+		strip.configure(entries, 0, 300.0, Callable())
 
 		var player_card := _card_named(strip, "You")
 		assert_true(not player_card.is_focused)
@@ -218,9 +242,9 @@ func run() -> void:
 		combat["frozenTurns"] = 3
 
 		var strip := TurnOrderStrip.new()
-		var entries := strip.build_entries(combat, GameState.state["player"])
+		var entries := TurnOrderStrip.build_entries(combat, GameState.state["player"])
 		var enemy_pos: int = entries.find(_entry_of_type(entries, "enemy"))
-		strip.configure(entries, enemy_pos, combat, GameState.state["player"], 300.0, Callable())
+		strip.configure(entries, enemy_pos, 300.0, Callable())
 
 		var card := _card_named(strip, "Guard")
 		assert_true(card.is_focused, "the enemy card should be the one configure() marked focused")
@@ -237,8 +261,8 @@ func run() -> void:
 		var combat := _combat([Fixtures.enemy("Guard", 20, 20, false, 30, false, { "id": "poisonBite", "lockedTurns": 0 })])
 
 		var strip := TurnOrderStrip.new()
-		var entries := strip.build_entries(combat, GameState.state["player"])
-		strip.configure(entries, entries.find(_entry_of_type(entries, "enemy")), combat, GameState.state["player"], 300.0, Callable())
+		var entries := TurnOrderStrip.build_entries(combat, GameState.state["player"])
+		strip.configure(entries, entries.find(_entry_of_type(entries, "enemy")), 300.0, Callable())
 
 		var card := _card_named(strip, "Guard")
 		assert_eq(card.telegraph_text, "Intent: Poison Bite", "an unlocked ability should telegraph its own id, title-cased")
@@ -249,8 +273,8 @@ func run() -> void:
 		var combat := _combat([Fixtures.enemy("Guard", 20, 20, false, 30, false, { "id": "poisonBite", "lockedTurns": 2 })])
 
 		var strip := TurnOrderStrip.new()
-		var entries := strip.build_entries(combat, GameState.state["player"])
-		strip.configure(entries, entries.find(_entry_of_type(entries, "enemy")), combat, GameState.state["player"], 300.0, Callable())
+		var entries := TurnOrderStrip.build_entries(combat, GameState.state["player"])
+		strip.configure(entries, entries.find(_entry_of_type(entries, "enemy")), 300.0, Callable())
 
 		var card := _card_named(strip, "Guard")
 		assert_eq(card.telegraph_text, "Intent: Attacking", "a locked ability must not leak as the telegraphed intent -- it can't actually happen this turn")
@@ -261,8 +285,8 @@ func run() -> void:
 		var combat := _combat([Fixtures.enemy("Scrapper", 20, 20, false, 30, false, null)])
 
 		var strip := TurnOrderStrip.new()
-		var entries := strip.build_entries(combat, GameState.state["player"])
-		strip.configure(entries, entries.find(_entry_of_type(entries, "enemy")), combat, GameState.state["player"], 300.0, Callable())
+		var entries := TurnOrderStrip.build_entries(combat, GameState.state["player"])
+		strip.configure(entries, entries.find(_entry_of_type(entries, "enemy")), 300.0, Callable())
 
 		var card := _card_named(strip, "Scrapper")
 		assert_eq(card.telegraph_text, "Intent: Attacking")
@@ -276,8 +300,8 @@ func run() -> void:
 		var combat := _combat([Fixtures.enemy("Orichalchum Dealer", 20, 20, false, 30, false, null)])
 
 		var strip := TurnOrderStrip.new()
-		var entries := strip.build_entries(combat, GameState.state["player"])
-		strip.configure(entries, entries.find(_entry_of_type(entries, "enemy")), combat, GameState.state["player"], 300.0, Callable())
+		var entries := TurnOrderStrip.build_entries(combat, GameState.state["player"])
+		strip.configure(entries, entries.find(_entry_of_type(entries, "enemy")), 300.0, Callable())
 
 		var card := _card_named(strip, "Orichalchum Dealer")
 		assert_eq(card.tell_image, null, "no templates.orichalchumDealer.tell entry yet -- the text fallback still owns the slot")
@@ -298,8 +322,8 @@ func run() -> void:
 
 		var combat := _combat([Fixtures.enemy("Orichalchum Dealer", 20, 20, false, 30, false, null)])
 		var strip := TurnOrderStrip.new()
-		var entries := strip.build_entries(combat, GameState.state["player"])
-		strip.configure(entries, entries.find(_entry_of_type(entries, "enemy")), combat, GameState.state["player"], 300.0, Callable())
+		var entries := TurnOrderStrip.build_entries(combat, GameState.state["player"])
+		strip.configure(entries, entries.find(_entry_of_type(entries, "enemy")), 300.0, Callable())
 
 		var card := _card_named(strip, "Orichalchum Dealer")
 		assert_true(card.tell_image != null, "an injected templates.orichalchumDealer.tell entry must resolve to a texture")
@@ -323,13 +347,13 @@ func run() -> void:
 		])
 
 		var strip := TurnOrderStrip.new()
-		var entries := strip.build_entries(combat, GameState.state["player"])
+		var entries := TurnOrderStrip.build_entries(combat, GameState.state["player"])
 		assert_eq(entries[0]["name"], "Scrapper", "sanity: Scrapper (speed 30) is next to act, not Guard")
 		var guard_pos: int = -1
 		for i in range(entries.size()):
 			if entries[i]["name"] == "Guard":
 				guard_pos = i
-		strip.configure(entries, guard_pos, combat, GameState.state["player"], 300.0, Callable())
+		strip.configure(entries, guard_pos, 300.0, Callable())
 
 		var card := _card_named(strip, "Guard")
 		assert_true(card.is_focused, "sanity: the player swiped to Guard, not the next-acting Scrapper")
@@ -344,9 +368,9 @@ func run() -> void:
 		combat["motionTurns"] = 2
 
 		var strip := TurnOrderStrip.new()
-		var entries := strip.build_entries(combat, GameState.state["player"])
+		var entries := TurnOrderStrip.build_entries(combat, GameState.state["player"])
 		var player_pos := entries.find(_entry_of_type(entries, "player"))
-		strip.configure(entries, player_pos, combat, GameState.state["player"], 300.0, Callable())
+		strip.configure(entries, player_pos, 300.0, Callable())
 
 		var card := _card_named(strip, "You")
 		assert_true(card.is_focused)
@@ -360,7 +384,7 @@ func run() -> void:
 		var combat := _combat([Fixtures.enemy("Clean", 100, 100), Fixtures.enemy("Cracked", 40, 100), Fixtures.enemy("Ruined", 10, 100)])
 
 		var strip := TurnOrderStrip.new()
-		strip.configure(strip.build_entries(combat, GameState.state["player"]), 0, combat, GameState.state["player"], 300.0, Callable())
+		strip.configure(TurnOrderStrip.build_entries(combat, GameState.state["player"]), 0, 300.0, Callable())
 
 		var clean := _card_named(strip, "Clean")
 		var cracked := _card_named(strip, "Cracked")
@@ -382,7 +406,7 @@ func run() -> void:
 			Fixtures.enemy("At twenty", 20, 100),
 		])
 		var strip := TurnOrderStrip.new()
-		strip.configure(strip.build_entries(combat, GameState.state["player"]), 0, combat, GameState.state["player"], 300.0, Callable())
+		strip.configure(TurnOrderStrip.build_entries(combat, GameState.state["player"]), 0, 300.0, Callable())
 
 		assert_eq(_card_named(strip, "At sixty").damage_tier, 0)
 		assert_eq(_card_named(strip, "At thirty").damage_tier, 1)
@@ -427,7 +451,7 @@ func run() -> void:
 		GameState.reset()
 		var combat := _combat([Fixtures.enemy("Scrapper", 20, 20, false, 30)])
 		var strip := TurnOrderStrip.new()
-		strip.configure(strip.build_entries(combat, GameState.state["player"]), 0, combat, GameState.state["player"], 300.0, Callable())
+		strip.configure(TurnOrderStrip.build_entries(combat, GameState.state["player"]), 0, 300.0, Callable())
 
 		assert_eq(_card_named(strip, "Scrapper").size.y, TurnOrderStrip.EXPANDED_CARD_HEIGHT)
 	)
@@ -437,7 +461,7 @@ func run() -> void:
 		var combat := _combat([Fixtures.enemy("Scrapper", 20, 20, false, 30)])
 		combat["frozenTurns"] = 2
 		var strip := TurnOrderStrip.new()
-		strip.configure(strip.build_entries(combat, GameState.state["player"]), 0, combat, GameState.state["player"], 300.0, Callable())
+		strip.configure(TurnOrderStrip.build_entries(combat, GameState.state["player"]), 0, 300.0, Callable())
 
 		assert_eq(_card_named(strip, "Scrapper").size.y, TurnOrderStrip.MAX_EXPANDED_CARD_HEIGHT)
 	)
@@ -473,9 +497,9 @@ func run() -> void:
 			[Fixtures.ally("A1"), Fixtures.ally("A2")],
 		)
 		var strip := TurnOrderStrip.new()
-		var entries := strip.build_entries(combat, GameState.state["player"])
+		var entries := TurnOrderStrip.build_entries(combat, GameState.state["player"])
 		assert_eq(entries.size(), 6, "sanity: 3 enemies + 2 allies + the player")
-		strip.configure(entries, 0, combat, GameState.state["player"], 300.0, Callable())
+		strip.configure(entries, 0, 300.0, Callable())
 
 		var cards := _cards(strip)
 		assert_eq(cards[0].size.x, TurnOrderStrip.MAX_CARD_WIDTH + TurnOrderStrip.EXPANDED_WIDTH_BONUS_PX)
@@ -495,10 +519,10 @@ func run() -> void:
 		GameState.reset()
 		var combat := _combat([Fixtures.enemy("Enemy", 20, 20, false, 30)], [Fixtures.ally("Ally", 20, 20, false, 1)])
 		var strip := TurnOrderStrip.new()
-		var entries := strip.build_entries(combat, GameState.state["player"])
+		var entries := TurnOrderStrip.build_entries(combat, GameState.state["player"])
 		assert_eq(entries.size(), 3, "sanity: enemy + player + ally")
 		var received: Array = []
-		strip.configure(entries, 0, combat, GameState.state["player"], 300.0, func(key): received.append(key))
+		strip.configure(entries, 0, 300.0, func(key): received.append(key))
 
 		# entries[0] is selected (129px wide), followed by the 4px gap;
 		# entries[1] spans [133, 234]. x=150 lands inside it.
@@ -512,9 +536,9 @@ func run() -> void:
 		GameState.reset()
 		var combat := _combat([Fixtures.enemy("Enemy")])
 		var strip := TurnOrderStrip.new()
-		var entries := strip.build_entries(combat, GameState.state["player"])
+		var entries := TurnOrderStrip.build_entries(combat, GameState.state["player"])
 		var received: Array = []
-		strip.configure(entries, 0, combat, GameState.state["player"], 300.0, func(key): received.append(key))
+		strip.configure(entries, 0, 300.0, func(key): received.append(key))
 
 		strip.handle_tap(-5.0)  # left of every card
 		strip.handle_tap(9999.0)  # far past the last card
@@ -526,9 +550,9 @@ func run() -> void:
 		GameState.reset()
 		var combat := _combat([Fixtures.enemy("Enemy", 20, 20, false, 30)])
 		var strip := TurnOrderStrip.new()
-		var entries := strip.build_entries(combat, GameState.state["player"])
+		var entries := TurnOrderStrip.build_entries(combat, GameState.state["player"])
 		var received: Array = []
-		strip.configure(entries, 0, combat, GameState.state["player"], 300.0, func(key): received.append(key))
+		strip.configure(entries, 0, 300.0, func(key): received.append(key))
 
 		# entries[0] (the enemy) is selected at 129px; entries[1] spans
 		# [133, 234] -- the player.
@@ -542,9 +566,9 @@ func run() -> void:
 		GameState.reset()
 		var combat := _combat([Fixtures.enemy("Enemy", 20, 20, false, 30)], [Fixtures.ally("Ally", 20, 20, false, 1)])
 		var strip := TurnOrderStrip.new()
-		var entries := strip.build_entries(combat, GameState.state["player"])
+		var entries := TurnOrderStrip.build_entries(combat, GameState.state["player"])
 		var received: Array = []
-		strip.configure(entries, 0, combat, GameState.state["player"], 300.0, func(key): received.append(key))
+		strip.configure(entries, 0, 300.0, func(key): received.append(key))
 		var before: Dictionary = GameState.deep_copy(GameState.state)
 
 		strip.handle_drag(-80.0)
@@ -562,8 +586,8 @@ func run() -> void:
 		GameState.reset()
 		var combat := _combat([Fixtures.enemy("Enemy")])
 		var strip := TurnOrderStrip.new()
-		var entries := strip.build_entries(combat, GameState.state["player"])
-		strip.configure(entries, 0, combat, GameState.state["player"], 300.0, Callable())
+		var entries := TurnOrderStrip.build_entries(combat, GameState.state["player"])
+		strip.configure(entries, 0, 300.0, Callable())
 
 		strip._card_rects = [
 			Rect2(Vector2(0, 0), Vector2(100, 88)),
@@ -583,8 +607,8 @@ func run() -> void:
 		GameState.reset()
 		var combat := _combat([Fixtures.enemy("Enemy")])
 		var strip := TurnOrderStrip.new()
-		var entries := strip.build_entries(combat, GameState.state["player"])
-		strip.configure(entries, 0, combat, GameState.state["player"], 300.0, Callable())
+		var entries := TurnOrderStrip.build_entries(combat, GameState.state["player"])
+		strip.configure(entries, 0, 300.0, Callable())
 
 		strip._card_rects = [Rect2(Vector2(0, 0), Vector2(100, 88)), Rect2(Vector2(106, 0), Vector2(100, 88))]
 		strip._max_scroll = 0.0
@@ -603,12 +627,12 @@ func run() -> void:
 		var combat := _combat([Fixtures.enemy("Fast", 20, 20, false, 30), Fixtures.enemy("Slow", 20, 20, false, 5)])
 		var strip := TurnOrderStrip.new()
 
-		var before := strip.build_entries(combat, GameState.state["player"])
+		var before := TurnOrderStrip.build_entries(combat, GameState.state["player"])
 		assert_eq(before[0]["name"], "Fast", "sanity: Fast (speed 30) leads the order")
 
 		combat["enemies"][0]["koed"] = true  # Fast is killed mid-fight
 
-		var after := strip.build_entries(combat, GameState.state["player"])
+		var after := TurnOrderStrip.build_entries(combat, GameState.state["player"])
 		assert_eq(after[0]["name"], "You", "killing the lead entry should re-sort the strip -- the player (speed 10) is now the fastest living combatant")
 		var after_names: Array = []
 		for e in after:
@@ -621,13 +645,13 @@ func run() -> void:
 		var combat := _combat([Fixtures.enemy("Enemy", 20, 20, false, 15)])  # faster than the player's default speed 10
 
 		var strip := TurnOrderStrip.new()
-		var before := strip.build_entries(combat, GameState.state["player"])
+		var before := TurnOrderStrip.build_entries(combat, GameState.state["player"])
 		assert_eq(before[0]["name"], "Enemy", "sanity: the enemy leads before any Motion boost")
 
 		combat["motionTurns"] = 2
 		combat["motionPower"] = 1  # build_turn_queue() inserts an extra player queue slot right after the player's own
 
-		var after := strip.build_entries(combat, GameState.state["player"])
+		var after := TurnOrderStrip.build_entries(combat, GameState.state["player"])
 		assert_eq(after[0]["name"], "Enemy", "Motion doesn't change who's fastest -- the enemy still leads")
 		# combat-refining ticket 04: the inserted extra is its own occurrence
 		# card now, not collapsed into the player's existing one.
@@ -648,8 +672,8 @@ func run() -> void:
 		GameState.reset()
 		var combat := _combat([Fixtures.enemy("Enemy", 12, 20)])
 		var strip := TurnOrderStrip.new()
-		var entries := strip.build_entries(combat, GameState.state["player"])
-		strip.configure(entries, 0, combat, GameState.state["player"], 300.0, Callable())
+		var entries := TurnOrderStrip.build_entries(combat, GameState.state["player"])
+		strip.configure(entries, 0, 300.0, Callable())
 
 		strip.set_initial_ghost("enemy:0", 20)
 
@@ -661,8 +685,8 @@ func run() -> void:
 		GameState.reset()
 		var combat := _combat([Fixtures.enemy("Enemy", 20, 20)])
 		var strip := TurnOrderStrip.new()
-		var entries := strip.build_entries(combat, GameState.state["player"])
-		strip.configure(entries, 0, combat, GameState.state["player"], 300.0, Callable())
+		var entries := TurnOrderStrip.build_entries(combat, GameState.state["player"])
+		strip.configure(entries, 0, 300.0, Callable())
 
 		strip.set_initial_ghost("ally:0", 20)  # no ally on this roster at all
 
@@ -674,8 +698,8 @@ func run() -> void:
 		GameState.reset()
 		var combat := _combat([Fixtures.enemy("Enemy", 8, 20)])
 		var strip := TurnOrderStrip.new()
-		var entries := strip.build_entries(combat, GameState.state["player"])
-		strip.configure(entries, 0, combat, GameState.state["player"], 300.0, Callable())
+		var entries := TurnOrderStrip.build_entries(combat, GameState.state["player"])
+		strip.configure(entries, 0, 300.0, Callable())
 		strip.set_initial_ghost("enemy:0", 20)
 
 		strip.drain_ghost_to("enemy:0", 8, 0.3)  # strip isn't in a live tree in this test, so create_tween() would error -- must fall back to an instant set
@@ -688,8 +712,8 @@ func run() -> void:
 		GameState.reset()
 		var combat := _combat([Fixtures.enemy("Enemy", 20, 20)])
 		var strip := TurnOrderStrip.new()
-		var entries := strip.build_entries(combat, GameState.state["player"])
-		strip.configure(entries, 0, combat, GameState.state["player"], 300.0, Callable())
+		var entries := TurnOrderStrip.build_entries(combat, GameState.state["player"])
+		strip.configure(entries, 0, 300.0, Callable())
 		var card := _card_named(strip, "Enemy")
 
 		assert_eq(card.ghost_hp, null, "a card with no ghost-drain in progress should carry no ghost_hp at all")
@@ -733,11 +757,11 @@ func run() -> void:
 		var player: Dictionary = GameState.state["player"]
 		var combat := _combat([Fixtures.enemy("A"), Fixtures.enemy("B"), Fixtures.enemy("C")])
 		var strip := TurnOrderStrip.new()
-		strip.configure(strip.build_entries(combat, player), 0, combat, player, 200.0, Callable())
+		strip.configure(TurnOrderStrip.build_entries(combat, player), 0, 200.0, Callable())
 		assert_true(strip._max_scroll > 60.0, "sanity: four cards overflow a 200px viewport")
 		strip.handle_drag(-60.0)
 
-		strip.configure(strip.build_entries(combat, player), 0, combat, player, 200.0, Callable())
+		strip.configure(TurnOrderStrip.build_entries(combat, player), 0, 200.0, Callable())
 
 		assert_almost_eq(strip._scroll_offset, 60.0, 0.01, "an unrelated refresh must not move the viewport")
 		strip.free()
@@ -748,7 +772,7 @@ func run() -> void:
 		var player: Dictionary = GameState.state["player"]
 		var combat := _combat([Fixtures.enemy("A"), Fixtures.enemy("B"), Fixtures.enemy("C")])
 		var strip := TurnOrderStrip.new()
-		strip.configure(strip.build_entries(combat, player), 0, combat, player, 200.0, Callable())
+		strip.configure(TurnOrderStrip.build_entries(combat, player), 0, 200.0, Callable())
 		strip.handle_drag(-60.0)
 
 		strip.reset_scroll()
@@ -763,16 +787,16 @@ func run() -> void:
 		var player: Dictionary = GameState.state["player"]
 		var combat := _combat([Fixtures.enemy("E1"), Fixtures.enemy("E2")])
 		var strip := TurnOrderStrip.new()
-		var entries := strip.build_entries(combat, player)
-		strip.configure(entries, 0, combat, player, 300.0, Callable())
+		var entries := TurnOrderStrip.build_entries(combat, player)
+		strip.configure(entries, 0, 300.0, Callable())
 		assert_eq(_cards(strip)[0].size.x, TurnOrderStrip.MAX_CARD_WIDTH + TurnOrderStrip.EXPANDED_WIDTH_BONUS_PX, "sanity: decision turn expands the selected card")
 
-		strip.advance_to(entries, combat, player, 0.0)
+		strip.advance_to(entries, 0.0)
 		for card in _cards(strip):
 			assert_eq(card.size, Vector2(TurnOrderStrip.MAX_CARD_WIDTH, TurnOrderStrip.CARD_HEIGHT), "resolving: every card the same size")
 			assert_true(not card.is_focused)
 
-		strip.configure(entries, 0, combat, player, 300.0, Callable())
+		strip.configure(entries, 0, 300.0, Callable())
 		assert_eq(_cards(strip)[0].size.x, TurnOrderStrip.MAX_CARD_WIDTH + TurnOrderStrip.EXPANDED_WIDTH_BONUS_PX, "back on the decision turn the selected card grows")
 		strip.free()
 	)
@@ -789,11 +813,11 @@ func run() -> void:
 		var player: Dictionary = GameState.state["player"]
 		var combat := _combat([Fixtures.enemy("Enemy", 10, 20)])
 		var strip := TurnOrderStrip.new()
-		var entries := strip.build_entries(combat, player)
-		strip.configure(entries, 0, combat, player, 300.0, Callable())
+		var entries := TurnOrderStrip.build_entries(combat, player)
+		strip.configure(entries, 0, 300.0, Callable())
 		strip.set_initial_ghost("enemy:0", 18)
 
-		strip.advance_to(entries.slice(1), combat, player, 0.3)
+		strip.advance_to(entries.slice(1), 0.3)
 
 		var cards := _cards(strip)
 		assert_eq(cards.size(), entries.size() - 1, "the played occurrence's card is gone, no stale card left behind")

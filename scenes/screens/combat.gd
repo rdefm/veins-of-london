@@ -202,9 +202,9 @@ func _sync_footer(combat: Dictionary, player: Dictionary) -> void:
 	else:
 		_command_dock.configure(player, _on_attack_pressed, _on_run_pressed, _on_dial_triggered, _director.is_playing() or combat.get("playerKoed", false), _on_item_pressed)
 func _configure_turn_order_strip(combat: Dictionary, player: Dictionary) -> void:
-	var entries: Array = _turn_order_strip.build_entries(combat, player)
+	var entries: Array = TurnOrderStrip.build_entries(combat, player)
 	var selected_pos := _selected_strip_pos(entries, combat)
-	_turn_order_strip.configure(entries, maxi(0, selected_pos), combat, player, CombatStage.STAGE_WIDTH - _STRIP_SIDE_INSET * 2.0, _on_strip_selection_changed)
+	_turn_order_strip.configure(entries, maxi(0, selected_pos), CombatStage.STAGE_WIDTH - _STRIP_SIDE_INSET * 2.0, _on_strip_selection_changed)
 
 static func _occurrence_ids(occurrences: Array) -> Array:
 	return occurrences.map(func(o): return o["occurrenceId"])
@@ -250,7 +250,7 @@ func _show_playback_queue(threshold_id: String, inclusive: bool, duration: float
 		_queue_playback["target"], _queue_playback["earlier"], _queue_playback["beats"])
 	var combat: Dictionary = GameState.state["combat"]
 	var player: Dictionary = GameState.state["player"]
-	_turn_order_strip.advance_to(_turn_order_strip.build_entries_for(occurrences, combat, player), combat, player, duration)
+	_turn_order_strip.advance_to(TurnOrderStrip.build_entries_for(occurrences, combat, player), duration)
 
 func _end_queue_playback() -> void:
 	_queue_playback = {}
@@ -405,7 +405,7 @@ func _on_beat_played(beat: Dictionary) -> void:
 			wormhole_slot.play_wormhole_vanish()
 	var effect_key: String = beat.get("effectKey", "")
 	if not effect_key.is_empty():
-		_stage.play_effect(beat, effect_key)
+		_stage.play_effect(beat, effect_key, _effect_fallback_target(effect_key))
 		if effect_key == "healingBurst" and beat.get("targetType", "") != "enemy" and _turn_order_strip != null:
 			var healed_key: Dictionary = { "type": "player", "index": -1 }
 			var healed_entry: Dictionary = GameState.state["player"]
@@ -458,6 +458,14 @@ func _beat_actor(beat: Dictionary) -> Dictionary:
 	var actor_type: String = beat.get("actorType", "")
 	var actor_index: int = -1 if actor_type == "player" else int(beat.get("actorIndex", -1))
 	return { "type": actor_type, "index": actor_index }
+# Where a target-less effect beat lands: Time Pearl on the selected enemy
+# (the first enemy otherwise), everything else on the player.
+func _effect_fallback_target(effect_key: String) -> Dictionary:
+	if effect_key == "timePearl":
+		var selection: Dictionary = GameState.state["combat"]["selection"]
+		var index: int = selection["index"] if selection["type"] == "enemy" else 0
+		return { "type": "enemy", "index": index }
+	return { "type": "player", "index": -1 }
 func _target_state(target: Dictionary) -> Dictionary:
 	var combat: Dictionary = GameState.state["combat"]
 	if target["type"] == "player":

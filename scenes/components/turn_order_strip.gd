@@ -105,14 +105,33 @@ class NameplateCard extends Control:
 # "key" (combatant identity, used for selection/ghosting) and
 # "occurrenceId" (this specific card's identity) are deliberately separate
 # fields -- several entries can share a key.
-func build_entries(combat: Dictionary, player: Dictionary) -> Array:
+#
+# The builders below are live-combat adapters, outside the rendering path:
+# configure()/advance_to() render whatever entries they're handed. An entry
+# is { key, occurrenceId, name, level, hp, hpMax, factionName,
+# factionColour, isEnemy } plus optional "statusLines" (Array[String]),
+# "telegraphText" (String) and "tellImage" (Texture2D or null), all shown
+# on the focused card only.
+static func build_entries(combat: Dictionary, player: Dictionary) -> Array:
 	return build_entries_for(Combat.project_queue(combat), combat, player)
 
 
 # Same card data as build_entries(), for an arbitrary occurrence list --
 # playback lays out intermediate queues (playback_occurrences()) that no
 # single live projection produces.
-func build_entries_for(occurrences: Array, combat: Dictionary, player: Dictionary) -> Array:
+static func build_entries_for(occurrences: Array, combat: Dictionary, player: Dictionary) -> Array:
+	var entries := _base_entries_for(occurrences, combat, player)
+	for entry: Dictionary in entries:
+		var statuses: Array[String] = _status_lines_for(entry["key"], combat, player)
+		entry["statusLines"] = statuses
+		if entry["isEnemy"]:
+			var enemy: Dictionary = combat["enemies"][entry["key"]["index"]]
+			entry["telegraphText"] = _telegraph_text_for(enemy)
+			entry["tellImage"] = _tell_image_for(enemy)
+	return entries
+
+
+static func _base_entries_for(occurrences: Array, combat: Dictionary, player: Dictionary) -> Array:
 	var faction_display: Dictionary = _enemy_faction_display(combat)
 	var entries: Array = []
 	for occurrence in occurrences:
@@ -197,7 +216,7 @@ static func _beat_occurrences(beats: Array) -> Array:
 	return occurrences
 
 
-func _enemy_faction_display(combat: Dictionary) -> Dictionary:
+static func _enemy_faction_display(combat: Dictionary) -> Dictionary:
 	var context: String = combat["context"]
 	var vein_id: Variant = combat.get("veinId")
 	if (context == Combat.CONTEXT_RAID or context == Combat.CONTEXT_EVENT_RAID) and vein_id != null:
@@ -208,7 +227,7 @@ func _enemy_faction_display(combat: Dictionary) -> Dictionary:
 	return { "name": "UNKNOWN", "colour": UNKNOWN_COLOUR }
 
 
-func _status_lines_for(key: Dictionary, combat: Dictionary, player: Dictionary) -> Array[String]:
+static func _status_lines_for(key: Dictionary, combat: Dictionary, player: Dictionary) -> Array[String]:
 	var lines: Array[String] = []
 	if key["type"] == "player":
 		if player["shieldPool"] > 0:
@@ -230,14 +249,12 @@ func _status_lines_for(key: Dictionary, combat: Dictionary, player: Dictionary) 
 # selected, since several entries can be the same combatant's occurrences.
 # The scroll offset survives a re-configure, so an unrelated refresh never
 # yanks the viewport away from what the player is inspecting.
-func configure(entries: Array, selected_pos: int, combat: Dictionary, player: Dictionary, available_width: float, selection_callback: Callable) -> void:
+func configure(entries: Array, selected_pos: int, available_width: float, selection_callback: Callable) -> void:
 	_entries = entries
 	var clamped_pos: int = clampi(selected_pos, 0, maxi(0, entries.size() - 1))
 	var new_key: Dictionary = entries[clamped_pos]["key"] if not entries.is_empty() else {}
 	var selection_changed: bool = new_key != _selected_key
 	_selected_key = new_key
-	_combat = combat
-	_player = player
 	_on_selection_changed = selection_callback
 	_resolving = false
 	_rebuild(available_width)
@@ -252,14 +269,12 @@ func configure(entries: Array, selected_pos: int, combat: Dictionary, player: Di
 # are rebuilt at once (the layout is always the final one for this step);
 # the row then slides from where the surviving cards were, and newly
 # revealed occurrences fade in -- one tween, cut short by the next call or
-# finish_advance(). `combat`/`player` refresh card content only.
-func advance_to(entries: Array, combat: Dictionary, player: Dictionary, duration: float) -> void:
+# finish_advance().
+func advance_to(entries: Array, duration: float) -> void:
 	var old_x: Dictionary = {}
 	for i in range(mini(_entries.size(), _card_rects.size())):
 		old_x[_entries[i]["occurrenceId"]] = _card_rects[i].position.x
 	_entries = entries
-	_combat = combat
-	_player = player
 	_resolving = true
 	_rebuild(_available_width)
 	if duration <= 0.0 or not is_inside_tree():
@@ -314,8 +329,6 @@ func set_shown_hp(key_string: String, hp: int) -> void:
 
 var _entries: Array = []
 var _selected_key: Dictionary = {}
-var _combat: Dictionary = {}
-var _player: Dictionary = {}
 var _on_selection_changed: Callable = Callable()
 
 var _drag_index := -100
@@ -433,13 +446,10 @@ func _rebuild(available_width: float) -> void:
 
 
 func _expanded_height_for(entry: Dictionary) -> float:
-	var statuses := _status_lines_for(entry["key"], _combat, _player)
-	if not statuses.is_empty():
+	if not entry.get("statusLines", []).is_empty():
 		return MAX_EXPANDED_CARD_HEIGHT
-	if entry["isEnemy"]:
-		var enemy: Dictionary = _combat["enemies"][entry["key"]["index"]]
-		if _telegraph_text_for(enemy).length() > 20:
-			return MAX_EXPANDED_CARD_HEIGHT
+	if entry["isEnemy"] and String(entry.get("telegraphText", "")).length() > 20:
+		return MAX_EXPANDED_CARD_HEIGHT
 	return EXPANDED_CARD_HEIGHT
 
 
@@ -471,12 +481,11 @@ func _build_card(entry: Dictionary, is_focused: bool, card_size: Vector2) -> Nam
 		card.damage_tier = 0
 
 	if is_focused:
-		card.status_lines = _status_lines_for(entry["key"], _combat, _player)
+		card.status_lines.assign(entry.get("statusLines", []))
 		card.shows_telegraph_slot = entry["isEnemy"]
 		if card.shows_telegraph_slot:
-			var enemy: Dictionary = _combat["enemies"][entry["key"]["index"]]
-			card.telegraph_text = _telegraph_text_for(enemy)
-			card.tell_image = _tell_image_for(enemy)
+			card.telegraph_text = entry.get("telegraphText", "")
+			card.tell_image = entry.get("tellImage")
 
 	_build_card_content(card)
 	if not _cards_by_key.has(key_string):
@@ -487,14 +496,14 @@ func _build_card(entry: Dictionary, is_focused: bool, card_size: Vector2) -> Nam
 	return card
 
 
-func _telegraph_text_for(enemy: Dictionary) -> String:
+static func _telegraph_text_for(enemy: Dictionary) -> String:
 	var ability: Variant = enemy.get("ability")
 	if ability != null and not Combat.is_ability_locked(enemy):
 		return "Intent: %s" % String(ability["id"]).capitalize()
 	return "Intent: Attacking"
 
 
-func _tell_image_for(enemy: Dictionary) -> Texture2D:
+static func _tell_image_for(enemy: Dictionary) -> Texture2D:
 	var key: String = CombatStage.enemy_template_key(enemy)
 	if key.is_empty():
 		return null

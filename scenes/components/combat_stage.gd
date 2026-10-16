@@ -680,14 +680,16 @@ func spawn_damage_number(slot: StageSlot, dmg: int) -> void:
 	tween.tween_callback(label.queue_free)
 
 
-func play_effect(beat: Dictionary, effect_key: String) -> void:
+# A beat with no target lands on `fallback_target` (caller-supplied, e.g.
+# Time Pearl's selected enemy), or the player when that's empty too.
+func play_effect(beat: Dictionary, effect_key: String, fallback_target: Dictionary = {}) -> void:
 	var entry: Dictionary = _effect_frames_by_key.get(effect_key, {})
 	var frames: Array[Texture2D] = entry.get("frames", _empty_idle_frames)
 	if frames.is_empty():
 		return
 	var target: Dictionary = _beat_target(beat)
 	if target["type"] == "":
-		target = _default_effect_target(effect_key)
+		target = fallback_target if not fallback_target.is_empty() else { "type": "player", "index": -1 }
 	var slot: StageSlot = resolve_target_slot(target)
 	if slot != null:
 		slot.play_effect_sheet(frames, entry.get("fps", 0.0))
@@ -697,14 +699,6 @@ static func _beat_target(beat: Dictionary) -> Dictionary:
 	var target_type: String = beat.get("targetType", "")
 	var target_index: int = -1 if target_type == "player" else int(beat.get("targetIndex", -1))
 	return { "type": target_type, "index": target_index }
-
-
-func _default_effect_target(effect_key: String) -> Dictionary:
-	if effect_key == "timePearl":
-		var selection: Dictionary = GameState.state["combat"]["selection"]
-		var index: int = selection["index"] if selection["type"] == "enemy" else 0
-		return { "type": "enemy", "index": index }
-	return { "type": "player", "index": -1 }
 
 
 func _build() -> void:

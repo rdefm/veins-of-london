@@ -10,6 +10,8 @@ extends Panel
 # Dial's own size. combat.gd owns turn flow/director bridging: Attack and
 # Leg-it forward through the callables passed to configure(), since both
 # need to play a beat queue, which is the screen's job, not this dock's.
+# configure_rows() is the generic mode: caller-built rows (and optional
+# Dial/footer) in the same chrome, with no live-combat reads.
 #
 # Same off-tree-testable shape as DialWidget/TurnOrderStrip: no _ready()
 # override, anchors/theme set in _init() (always runs on .new(), unlike
@@ -32,6 +34,11 @@ var _on_attack_callback: Callable = Callable()
 var _on_run_callback: Callable = Callable()
 var _on_dial_triggered_callback: Callable = Callable()
 var _on_item_callback: Callable = Callable()
+# Generic mode (configure_rows()): caller-built rows replace the live deck.
+var _generic := false
+var _generic_dial: Variant = null
+var _generic_rows: Array = []
+var _generic_footer: Dictionary = {}
 # True while a round's beats play out: every command is dimmed and inert.
 var _locked := false
 
@@ -70,7 +77,23 @@ func configure(player: Dictionary, on_attack: Callable, on_run: Callable, on_dia
 	_on_attack_callback = on_attack
 	_on_run_callback = on_run
 	_on_dial_triggered_callback = on_dial_triggered
+	_generic = false
 	_rebuild(player)
+
+
+# Generic mode, for callers other than live combat: each row is
+# { iconKind, label, disabled, disabledReason, callback } (iconKind as
+# _build_row_icon() reads it; disabledReason becomes the row's tooltip),
+# `footer` is one more such row below them ({} for none), and the Dial
+# is drawn only when `dial` isn't null.
+func configure_rows(rows: Array, footer: Dictionary = {}, dial: Variant = null, on_dial_triggered: Callable = Callable(), locked: bool = false) -> void:
+	_locked = locked
+	_on_dial_triggered_callback = on_dial_triggered
+	_generic = true
+	_generic_rows = rows
+	_generic_footer = footer
+	_generic_dial = dial
+	_rebuild({ "dial": dial })
 
 
 func hide_deck() -> void:
@@ -83,10 +106,13 @@ func _rebuild(player: Dictionary) -> void:
 	for child in _row.get_children():
 		child.queue_free()
 
-	var dial: Variant = player["dial"]
+	var dial: Variant = _generic_dial if _generic else player["dial"]
 	if dial != null:
 		_row.add_child(_build_dial_widget(dial))
-	_row.add_child(_build_action_deck(player))
+	if _generic:
+		_row.add_child(_build_row_column(null, _generic_rows, _generic_footer))
+	else:
+		_row.add_child(_build_action_deck(player))
 
 
 func _build_dial_widget(dial: Dictionary) -> Control:
@@ -149,57 +175,58 @@ func _build_complication_detail(dial: Variant) -> Control:
 # amendment): Complication readout, Attack, item rows, Leg it -- equal height,
 # 1px rules between, no per-row panel or primary-action emphasis.
 func _build_action_deck(player: Dictionary) -> Control:
-	var col := UI.vbox(0)
-	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	col.size_flags_vertical = Control.SIZE_SHRINK_END
-	var rows: Array[Control] = [
-		_build_complication_detail(player["dial"]),
-		_build_action_row("attack", "Attack", _on_attack_pressed, _locked or not Combat.selection_block_reason("attack").is_empty()),
+	var rows: Array = [
+		{ "name": "ActionButton_attack", "iconKind": "attack", "label": "Attack", "disabled": not Combat.selection_block_reason("attack").is_empty(), "callback": _on_attack_pressed },
 	]
 	for index in Loadout.slot_count():
-		rows.append(_build_item_row(index))
-	rows.append(_build_action_row("run", "Leg it", _on_run_pressed, _locked))
-	for i in rows.size():
-		if i > 0:
-			col.add_child(UI.command_row_rule())
-		col.add_child(rows[i])
-	return col
+		rows.append(_live_item_row(index))
+	rows.append({ "name": "ActionButton_run", "iconKind": "run", "label": "Leg it", "disabled": false, "callback": _on_run_pressed })
+	return _build_row_column(_build_complication_detail(player["dial"]), rows, {})
 # One loadout slot, always shown: icon + name + tier, or a disabled "Empty"
 # row; also disabled when Combat.slot_block_reason() refuses it.
-func _build_item_row(index: int) -> Control:
+func _live_item_row(index: int) -> Dictionary:
 	var unit: Variant = Loadout.slot(index)
 	var reason: String = Combat.slot_block_reason(index)
-	var disabled: bool = _locked or not reason.is_empty()
-	var accent: Color = UI.ACTION_DISABLED_COLOUR if disabled else UI.action_colour()
-
-	var glyph := SymbolGlyph.new()
-	glyph.font_size = 20
-	glyph.glyph_radius = 12.0
-	glyph.draw_fallback = SymbolGlyph.generic_fallback()
-	glyph.color = accent
+	var recipe_key: String = ""
 	var text := "Empty"
 	if unit != null:
-		var recipe: Dictionary = GameData.RECIPES[unit["recipe"]]
-		glyph.symbol = recipe["symbol"]
-		glyph.icon = ItemIcons.texture(unit["recipe"])
-		text = "%s — tier %d" % [recipe["name"], int(unit["tier"])]
-
-	var button := Button.new()
-	button.name = "ItemButton_%d" % index
-	button.disabled = disabled
-	button.focus_mode = Control.FOCUS_ALL
-	button.custom_minimum_size.y = UI.COMMAND_ROW_HEIGHT
-	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	UI.style_command_row(button, accent)
-	button.pressed.connect(_on_item_pressed.bind(index))
-	var content := _build_row_content(glyph, text, accent)
-	content.offset_left = UI.COMMAND_ROW_MARGIN_H
-	content.offset_right = -UI.COMMAND_ROW_MARGIN_H
-	button.add_child(content)
-	return button
+		recipe_key = unit["recipe"]
+		text = "%s — tier %d" % [GameData.RECIPES[recipe_key]["name"], int(unit["tier"])]
+	return { "name": "ItemButton_%d" % index, "iconKind": "recipe:" + recipe_key, "label": text, "disabled": not reason.is_empty(), "callback": _on_item_pressed.bind(index) }
 func _on_item_pressed(index: int) -> void:
 	if _on_item_callback.is_valid():
 		_on_item_callback.call(index)
+func _build_row_column(header: Control, rows: Array, footer: Dictionary) -> Control:
+	var col := UI.vbox(0)
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	col.size_flags_vertical = Control.SIZE_SHRINK_END
+	var controls: Array[Control] = []
+	if header != null:
+		controls.append(header)
+	for i in rows.size():
+		controls.append(_build_command_row(rows[i], "RowButton_%d" % i))
+	if not footer.is_empty():
+		controls.append(_build_command_row(footer, "FooterButton"))
+	for i in controls.size():
+		if i > 0:
+			col.add_child(UI.command_row_rule())
+		col.add_child(controls[i])
+	return col
+# iconKind: "attack"/"run" draw an Icons glyph; "recipe:<recipeKey>" draws
+# that recipe's item glyph ("recipe:" alone is the empty-slot glyph).
+func _build_row_icon(icon_kind: String, accent: Color) -> Control:
+	if icon_kind.begins_with("recipe:"):
+		var glyph := SymbolGlyph.new()
+		glyph.font_size = 20
+		glyph.glyph_radius = 12.0
+		glyph.draw_fallback = SymbolGlyph.generic_fallback()
+		glyph.color = accent
+		var recipe_key: String = icon_kind.trim_prefix("recipe:")
+		if GameData.RECIPES.has(recipe_key):
+			glyph.symbol = GameData.RECIPES[recipe_key]["symbol"]
+			glyph.icon = ItemIcons.texture(recipe_key)
+		return glyph
+	return UI.icon_glyph_control(_action_icon_draw_fn(icon_kind), UI.ICON_GLYPH_SCALE, accent)
 static func _action_icon_draw_fn(icon_kind: String) -> Callable:
 	match icon_kind:
 		"attack":
@@ -211,20 +238,23 @@ static func _action_icon_draw_fn(icon_kind: String) -> Callable:
 
 # The whole row is the Button (full-width hit area); icon + caption sit
 # inside it with mouse ignored so taps land on the Button itself.
-func _build_action_row(icon_kind: String, label_text: String, callback: Callable, disabled: bool = false) -> Control:
+func _build_command_row(row: Dictionary, default_name: String) -> Control:
+	var disabled: bool = _locked or row.get("disabled", false)
 	var accent: Color = UI.ACTION_DISABLED_COLOUR if disabled else UI.action_colour()
 
 	var button := Button.new()
-	button.name = "ActionButton_%s" % icon_kind
+	button.name = row.get("name", default_name)
 	button.disabled = disabled
+	button.tooltip_text = row.get("disabledReason", "") if disabled else ""
 	button.focus_mode = Control.FOCUS_ALL
 	button.custom_minimum_size.y = UI.COMMAND_ROW_HEIGHT
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	UI.style_command_row(button, accent)
-	button.pressed.connect(callback)
+	var callback: Callable = row.get("callback", Callable())
+	if callback.is_valid():
+		button.pressed.connect(callback)
 
-	var icon := UI.icon_glyph_control(_action_icon_draw_fn(icon_kind), UI.ICON_GLYPH_SCALE, accent)
-	var content := _build_row_content(icon, label_text, accent)
+	var content := _build_row_content(_build_row_icon(row.get("iconKind", ""), accent), row.get("label", ""), accent)
 	content.offset_left = UI.COMMAND_ROW_MARGIN_H
 	content.offset_right = -UI.COMMAND_ROW_MARGIN_H
 	button.add_child(content)
