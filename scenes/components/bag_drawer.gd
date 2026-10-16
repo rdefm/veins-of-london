@@ -10,7 +10,7 @@ const CONSUMABLE_KEYS := ["timePearl", "enhancementPowder", "rewind", "healingSa
 const OUT_OF_COMBAT_USE_KEYS := ["healingSalve", "healingBurst"]
 
 # PROSE-REVIEW: one-line effect summary on each timed-effect Use row.
-const ACTIVE_EFFECT_BLURBS := { "beALady": "your cultivating and harvests roll their best" }
+const ACTIVE_EFFECT_BLURBS := { "beALady": "your cultivating and harvests roll their best", "prophetsBreath": "you see an ambush coming and step round it" }
 
 var _dim: ColorRect
 var _card: PanelContainer

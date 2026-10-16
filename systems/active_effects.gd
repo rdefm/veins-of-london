@@ -8,6 +8,7 @@ extends RefCounted
 # list live in data/constants.json activeEffects.
 
 const LADY := "beALady"
+const PROPHETS_BREATH := "prophetsBreath"
 # PROSE-REVIEW: preview tag on a max-rolled cultivate/harvest figure.
 const LADY_TAG := "(Lady)"
 
@@ -47,6 +48,10 @@ static func blocks_left(effect: Dictionary) -> int:
 
 static func lady_active() -> bool:
 	return is_active(LADY)
+
+
+static func prophets_breath_active() -> bool:
+	return is_active(PROPHETS_BREATH)
 
 
 # Consumes one unit (lowest level first) and starts the effect, or refreshes

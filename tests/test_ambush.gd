@@ -10,6 +10,16 @@ static func _fresh(relation: int, tier: String = Turf.TIER_CONTROL) -> void:
 	GameState.state["factions"]["firm"]["relation"] = relation
 
 
+# First day (with the reset's time block) whose keyed roll hits; leaves the
+# intro event open, so callers re-_fresh afterwards.
+static func _first_hit_day() -> int:
+	for day in range(2, 200):
+		GameState.state["world"]["day"] = day
+		if Ambush.maybe_trigger("shoreditch"):
+			return day
+	return -1
+
+
 func run() -> void:
 	run_case("every_faction_has_a_squad_of_known_templates", func():
 		for faction_id in GameData.FACTIONS:
@@ -65,6 +75,38 @@ func run() -> void:
 		assert_eq(Rng.randf(), expected)
 		assert_eq(GameState.state["event"]["eventId"], "faction_ambush")
 		assert_eq(GameState.state["event"]["context"]["faction_id"], "firm")
+	)
+
+	run_case("prophets_breath_suppresses_ambush_until_it_expires", func():
+		_fresh(-100)
+		var seed: int = int(GameState.state["world"]["rollSeed"])
+		var hit_day := _first_hit_day()
+		assert_true(hit_day > 1, "a 30% roll hits after day 1 within 200 days")
+		_fresh(-100)
+		GameState.state["world"]["rollSeed"] = seed
+		GameState.state["world"]["day"] = hit_day
+		Crafting.inventory_add(ActiveEffects.PROPHETS_BREATH, 1, 1)
+		assert_true(ActiveEffects.use(ActiveEffects.PROPHETS_BREATH)["ok"], "Bag use starts it")
+		assert_true(ActiveEffects.prophets_breath_active(), "active")
+		assert_true(not Ambush.maybe_trigger("shoreditch"), "suppressed on a hit roll")
+		assert_eq(GameState.state["event"], null)
+
+		_fresh(-100)
+		GameState.state["world"]["rollSeed"] = seed
+		GameState.state["world"]["day"] = hit_day - 1
+		Crafting.inventory_add(ActiveEffects.PROPHETS_BREATH, 1, 1)
+		ActiveEffects.use(ActiveEffects.PROPHETS_BREATH)
+		GameState.state["world"]["day"] = hit_day
+		assert_true(not ActiveEffects.prophets_breath_active(), "expired")
+		assert_true(Ambush.maybe_trigger("shoreditch"), "ambush resumes after expiry")
+	)
+
+	run_case("prophets_breath_leaves_muggings_alone", func():
+		_fresh(-100)
+		Crafting.inventory_add(ActiveEffects.PROPHETS_BREATH, 1, 1)
+		ActiveEffects.use(ActiveEffects.PROPHETS_BREATH)
+		Events.apply_effects([{ "op": "start_street_mugging" }])
+		assert_eq(GameState.state["combatPrep"]["kind"], CombatPrep.KIND_STREET_MUGGING)
 	)
 
 	run_case("event_op_requests_forced_faction_combat_prep", func():

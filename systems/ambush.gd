@@ -20,8 +20,11 @@ static func _unit(district_id: String, salt: String) -> float:
 
 
 # Rolls the district's ambush chance. True when it hit and the intro event
-# has started (the caller then skips anything else it would open).
+# has started (the caller then skips anything else it would open). Never
+# fires while Prophet's Breath is active (R§3.1d).
 static func maybe_trigger(district_id: String) -> bool:
+	if ActiveEffects.prophets_breath_active():
+		return false
 	var chances := Turf.ambush_chances(district_id)
 	if chances.is_empty():
 		return false
