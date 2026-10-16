@@ -265,8 +265,7 @@ palette and accent rules in §6, and the typography in §7.
 per family (sole exception: Harrow's editorial serif, §10):
 
 1. **One UI sans** — covers all vector chrome: Families 2, 3, and 4 alike.
-   Families are differentiated by colour, layout, and per-component object
-   reference (§5), never by swapping typeface. Also the answer to
+   Also the answer to
    `combat-animation-vision.md` §13 item 4 and the ore-glyph problem
    `scenes/components/ore_glyphs.gd` already documents (engine fallback
    font can't render the five ore symbols) — the chosen face needs glyph
@@ -557,7 +556,7 @@ this amendment wins.
 | Factions | Flat directory (`_build_factions`, one card per faction) | Flat-list pattern: row per faction, name + reputation meter inline. Meter fill is **ink, not `ui_action_red`** — §6's accent is for actionable elements, a reputation readout is passive data, same restriction `calc_gold` already has for calc/cash |
 | The Ticker | List → detail (`_build_headline_card` → `_build_axis_detail`) | List/detail pattern (below): headline row → axis detail screen, push/pull buttons in `ui_action_red` |
 | Contacts | Existing contact directory | Existing content and routing stay unchanged; this home refresh only places its launcher tile in slot 9 |
-| Messages (home dock) | Conversation index → existing thread | List/detail pattern (below), thread view as message bubbles: texting-app look: outgoing (player's sent replies) right-aligned, filled `phone_bubble_outgoing` iMessage blue `#0a84ff` (light text); incoming left-aligned, flat iOS dark grey `phone_bubble_incoming` `#3a3a3c` (light text). Each incoming bubble is preceded by an incoming-style three-dot typing bubble, duration scaled by message length (`phone_home.json` `typing`), tap skips |
+| Messages (home dock) | Conversation index → existing thread | List/detail pattern (below), thread view as message bubbles: texting-app look: outgoing (player's sent replies) right-aligned, filled `phone_bubble_outgoing` iMessage blue `#0a84ff` (light text); incoming left-aligned, flat iOS dark grey `phone_bubble_incoming` `#3a3a3c` (light text). Each incoming bubble is preceded by an incoming-style three-dot typing bubble, duration scaled by message length (`phone_home.json` `typing`), tap skips. Thread view (bubbles, typing dots, contact name) set in **Inter** (`assets/fonts/Inter-Regular.ttf` / `Inter-SemiBold.ttf`, SIL OFL 1.1, licence `assets/fonts/Inter-OFL.txt`); inbox and action bar stay on the shared UI sans |
 | Phone (home dock) | Recent-calls placeholder | Flat list only; no call mechanics |
 | Settings (home dock) | Existing preference controls | Reduced-motion and alarm-vibration rows only |
 | Profile | Stat cards (`_build_profile_stats_card`, `_build_profile_skills_card`, `_build_profile_equipment_card`) | Dashboard pattern: label/value rows grouped in cards, ink throughout — no currency shown here (`phone.gd`'s own `_build_profile` comment: cash/day is deliberately excluded, the status bar already shows them), so no `calc_gold` on this screen |

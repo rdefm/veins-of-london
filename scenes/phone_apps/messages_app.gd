@@ -3,12 +3,15 @@
 # scrolling thread; messages unread when the conversation was opened are
 # revealed one bubble at a time, each incoming one after a three-dot typing
 # bubble (ui-vision.md §10 Messages row) that a tap on the thread skips.
+# The thread is set in Inter so it reads as its own app.
 class_name MessagesApp
 extends PhoneApp
 
 const ROW_HEIGHT := 64.0
 const _PILL_SIZE := 22.0
 const _THEME: Theme = preload("res://theme/main_theme.tres")
+const _THREAD_FONT: Font = preload("res://assets/fonts/Inter-Regular.ttf")
+const _THREAD_FONT_BOLD: Font = preload("res://assets/fonts/Inter-SemiBold.ttf")
 const _TYPING_DOT_PULSE := 0.25
 const _TYPING_DOT_DIM := 0.3
 const _TAP_SLOP := 12.0
@@ -158,7 +161,9 @@ func _build_conversation(content: VBoxContainer, contact_id: String) -> void:
 
 	var header := UI.hbox()
 	header.add_child(UI.button("‹ Back", PhoneNav.back_to_messages))
-	header.add_child(UI.heading(Contacts.display_name(contact_id)))
+	var name_label := UI.heading(Contacts.display_name(contact_id))
+	name_label.add_theme_font_override("font", _THREAD_FONT_BOLD)
+	header.add_child(name_label)
 	_conversation_root.add_child(header)
 
 	var scroll := UI.scroll_container()
@@ -183,7 +188,7 @@ func _build_conversation(content: VBoxContainer, contact_id: String) -> void:
 	var thread: Array = GameState.state["messages"].get(contact_id, [])
 	var reveal_from: int = mini(_reveal_from_index.get(contact_id, thread.size()), thread.size())
 	for i in range(reveal_from):
-		box.add_child(UI.message_bubble(thread[i]["text"], thread[i]["from"] == "player"))
+		box.add_child(_bubble(thread[i]["text"], thread[i]["from"] == "player"))
 
 	_conversation_root.add_child(_build_action_bar(contact_id))
 	ContactCards.apply_phone_os_chrome(_conversation_root)
@@ -194,7 +199,7 @@ func _build_conversation(content: VBoxContainer, contact_id: String) -> void:
 			_reveal_remaining(box, thread, reveal_from)
 		else:
 			for i in range(reveal_from, thread.size()):
-				box.add_child(UI.message_bubble(thread[i]["text"], thread[i]["from"] == "player"))
+				box.add_child(_bubble(thread[i]["text"], thread[i]["from"] == "player"))
 
 
 func _reveal_remaining(box: VBoxContainer, thread: Array, start_index: int) -> void:
@@ -212,9 +217,22 @@ func _reveal_remaining(box: VBoxContainer, thread: Array, start_index: int) -> v
 				return
 			box.remove_child(typing)
 			typing.queue_free()
-		var bubble := UI.message_bubble(thread[i]["text"], from_player)
+		var bubble := _bubble(thread[i]["text"], from_player)
 		box.add_child(bubble)
 		ContactCards.apply_phone_os_chrome(bubble)
+
+
+func _bubble(text: String, from_player: bool) -> Control:
+	var row := UI.message_bubble(text, from_player)
+	_set_thread_font(row)
+	return row
+
+
+func _set_thread_font(node: Node) -> void:
+	if node is Label:
+		(node as Label).add_theme_font_override("font", _THREAD_FONT)
+	for child in node.get_children():
+		_set_thread_font(child)
 
 
 func _alive(box: VBoxContainer) -> bool:
@@ -266,6 +284,7 @@ func _typing_bubble() -> Control:
 		dots.add_child(dot)
 	bubble["content"].add_child(dots)
 	row.add_child(bubble["panel"])
+	_set_thread_font(row)
 	return row
 
 
