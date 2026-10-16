@@ -288,13 +288,10 @@ static func prune_resulting_growth(vein: Dictionary, depth: int) -> int:
 	return maxi(0, vein["growth"] - depth)
 
 
-# R§3.4: yield counts only the growth points cleared from above neutral. Pruning at or below neutral always yields 0.
+# R§3.4: yield counts every growth point cleared, above or below neutral. Only a vein already at 0 yields 0.
 static func prune_yield(vein: Dictionary, depth: int) -> int:
 	var vg: Dictionary = GameData.VEIN_GROWTH
-	var neutral: int = vg["neutral"]
-	var growth_before: int = vein["growth"]
-	var growth_after: int = prune_resulting_growth(vein, depth)
-	var points: int = maxi(0, growth_before - neutral) - maxi(0, growth_after - neutral)
+	var points: int = vein["growth"] - prune_resulting_growth(vein, depth)
 	var hard_bonus: float = vg["hardPruneBonus"] if depth == vg["pruneHardDepth"] else 1.0
 	var rolled: int = GameState.round_epsilon(points * vg["yieldPerPoint"] * terroir_yield_mult(vein) * level_yield_mult(vein) * hard_bonus)
 	return apply_yield_bonus(vein, rolled)
@@ -321,8 +318,8 @@ static func prune_yield_range_text(vein: Dictionary, depth: int) -> String:
 
 
 # Shared "always offered, disabled with a reason" gate for a Prune button --
-# both map.gd's site sheet and station_bubble.gd need the same rule. Pruning
-# at/below neutral is allowed (it just yields 0, per prune_yield above); only time-block affordability gates the button.
+# both map.gd's site sheet and station_bubble.gd need the same rule. A
+# zero-yield prune (vein at 0) is allowed; only time-block affordability gates the button.
 static func prune_gate(vein: Dictionary, depth: int, district: String) -> Dictionary:
 	var held := Harassment.vein_gate(vein["id"], true)
 	if not held["ok"]:

@@ -316,18 +316,19 @@ func run() -> void:
 
 	# ── prune (spec §2.4, §11 item 3) ──────────────────────────────────
 
-	run_case("prune_yield_is_zero_at_or_below_neutral", func():
-		assert_eq(Cultivating.prune_yield(_vein(50), 15), 0, "at neutral: nothing above neutral to remove")
-		assert_eq(Cultivating.prune_yield(_vein(30), 15), 0, "below neutral: nothing above neutral to remove")
+	run_case("prune_yield_counts_points_below_neutral_at_full_rate", func():
+		# 9 points cleared either side of neutral -> round(9 * 2.8) = 25
+		assert_eq(Cultivating.prune_yield(_vein(30), 9), 25, "below neutral: every cleared point counts")
+		assert_eq(Cultivating.prune_yield(_vein(55), 9), 25, "straddling neutral: same rate both sides")
+		assert_eq(Cultivating.prune_yield(_vein(5), 9), 14, "clamped at 0: only the 5 points actually cleared")
+		assert_eq(Cultivating.prune_yield(_vein(0), 9), 0, "a vein at 0 has nothing to clear")
 	)
 
-	# ticket 41: prune_gate() no longer disables on a zero-yield projection --
-	# pruning at/below neutral still correctly yields 0 ore, but the player
-	# may choose to spend the block anyway. Only time-block affordability
-	# (the existing Travel.can_afford check) gates the button now.
+	# A zero-yield projection (vein at 0) never disables the prune action;
+	# only time-block affordability gates the button.
 	run_case("prune_gate_is_not_disabled_by_a_zero_yield_projection", func():
 		GameState.reset()
-		var vein := _vein(30)  # below neutral: prune_yield here is 0
+		var vein := _vein(0)  # at 0: prune_yield here is 0
 		assert_eq(Cultivating.prune_yield(vein, GameData.VEIN_GROWTH["pruneLightDepth"]), 0, "sanity: this vein really does project a zero yield")
 
 		var gate := Cultivating.prune_gate(vein, GameData.VEIN_GROWTH["pruneLightDepth"], "shoreditch")
@@ -345,55 +346,53 @@ func run() -> void:
 		assert_eq(gate["reason"], "No blocks left today.")
 	)
 
-	# Confirms the ticket's manual-check claim end to end: pruning a
-	# neutral/low-growth vein is now a real, successful action -- it yields
-	# 0 ore and moves growth down by depth, with no error.
-	run_case("pruning_a_zero_yield_vein_succeeds_and_yields_no_ore", func():
+	# Harvesting a low-growth vein is a real action: it yields ore for the
+	# points cleared and moves growth down by depth.
+	run_case("pruning_a_below_neutral_vein_succeeds_and_yields_ore", func():
 		GameState.reset()
 		GameState.state["player"]["veins"] = [_vein(30, "shoreditch")]
 		Rng.set_seed(1)
 
 		var result := Cultivating.prune("test_vein", GameData.VEIN_GROWTH["pruneLightDepth"])
 
-		assert_true(result["ok"], "pruning a zero-yield vein should still succeed")
-		assert_eq(result["amount"], 0, "yields 0 ore, exactly as prune_yield projected")
+		assert_true(result["ok"], "pruning a below-neutral vein should succeed")
+		assert_true(result["amount"] >= 20 and result["amount"] <= 30, "rolled around the 25 midpoint (9 points x 2.8)")
 		var vein: Dictionary = GameState.state["player"]["veins"][0]
 		assert_eq(vein["growth"], 30 - GameData.VEIN_GROWTH["pruneLightDepth"], "growth still moves down by depth even at zero yield")
 	)
 
-	run_case("hard_prune_from_just_above_neutral_yields_only_the_above_neutral_points", func():
-		# growth 60, hard prune (-24) -> growth_after 36. Only the 10 points
-		# from 60 down to 50 (neutral) count; the other 14 (50 -> 36) are free.
+	run_case("hard_prune_across_neutral_counts_every_point_cleared", func():
+		# growth 60, hard prune (-24) -> growth_after 36: all 24 points count.
 		var vein := _vein(60)
 		var yld := Cultivating.prune_yield(vein, GameData.VEIN_GROWTH["pruneHardDepth"])
-		# points=10, yieldPerPoint 2.8, terroir fair 1.0, hardBonus 1.25 -> round(10*2.8*1.25)=35
-		assert_eq(yld, 35, "only the 10 points above neutral count, at the hard-prune bonus")
+		# points=24, yieldPerPoint 2.8, terroir fair 1.0, hardBonus 1.25 -> round(24*2.8*1.25)=84
+		assert_eq(yld, 84, "all 24 points count, at the hard-prune bonus")
 	)
 
 	run_case("prune_yield_roll_stays_within_min_max_and_is_seed_deterministic", func():
 		var vein := _vein(60)
 		var hard: int = GameData.VEIN_GROWTH["pruneHardDepth"]
-		assert_eq(Cultivating.prune_yield_min(vein, hard), 28, "min = round(35 * 0.8)")
-		assert_eq(Cultivating.prune_yield_max(vein, hard), 42, "max = round(35 * 1.2)")
-		assert_eq(Cultivating.prune_yield_range_text(vein, hard), "28–42", "preview text is min–max")
+		assert_eq(Cultivating.prune_yield_min(vein, hard), 67, "min = round(84 * 0.8)")
+		assert_eq(Cultivating.prune_yield_max(vein, hard), 101, "max = round(84 * 1.2)")
+		assert_eq(Cultivating.prune_yield_range_text(vein, hard), "67–101", "preview text is min–max")
 		var seen_lo := false
 		var seen_hi := false
 		for seed in range(200):
 			Rng.set_seed(seed)
 			var rolled := Cultivating.roll_prune_yield(vein, hard)
-			assert_true(rolled >= 28 and rolled <= 42, "roll in range, seed %d" % seed)
-			seen_lo = seen_lo or rolled == 28
-			seen_hi = seen_hi or rolled == 42
+			assert_true(rolled >= 67 and rolled <= 101, "roll in range, seed %d" % seed)
+			seen_lo = seen_lo or rolled == 67
+			seen_hi = seen_hi or rolled == 101
 			Rng.set_seed(seed)
 			assert_eq(Cultivating.roll_prune_yield(vein, hard), rolled, "same seed, same roll")
 		assert_true(seen_lo and seen_hi, "both bounds are reachable")
 	)
 
-	run_case("prune_yield_range_collapses_to_zero_at_or_below_neutral", func():
+	run_case("prune_yield_range_collapses_to_zero_on_an_empty_vein", func():
 		var light: int = GameData.VEIN_GROWTH["pruneLightDepth"]
-		assert_eq(Cultivating.prune_yield_min(_vein(50), light), 0)
-		assert_eq(Cultivating.prune_yield_max(_vein(50), light), 0)
-		assert_eq(Cultivating.prune_yield_range_text(_vein(50), light), "0", "a collapsed range shows one number")
+		assert_eq(Cultivating.prune_yield_min(_vein(0), light), 0)
+		assert_eq(Cultivating.prune_yield_max(_vein(0), light), 0)
+		assert_eq(Cultivating.prune_yield_range_text(_vein(0), light), "0", "a collapsed range shows one number")
 	)
 
 	run_case("light_prune_yields_less_per_point_than_hard_when_both_land_fully_above_neutral", func():
@@ -603,7 +602,7 @@ func run() -> void:
 		assert_true(result["ok"], "prune should succeed")
 		var vein: Dictionary = GameState.state["player"]["veins"][0]
 		assert_eq(vein["growth"], 36, "growth -= depth")
-		assert_true(result["amount"] >= 28 and result["amount"] <= 42, "rolled within 0.8..1.2 x the 35 midpoint")
+		assert_true(result["amount"] >= 67 and result["amount"] <= 101, "rolled within 0.8..1.2 x the 84 midpoint")
 		assert_eq(GameState.state["player"]["orichalchum"]["time"], result["amount"], "ore credited to player")
 	)
 
@@ -1189,11 +1188,11 @@ func run() -> void:
 	# A single hard prune is capped at pruneHardDepth (24) points regardless
 	# of a vein's headroom, so wildCeiling's extra 20 points of ceiling only
 	# shows up once a vein is pruned past what one hard prune can reach —
-	# this measures the full above-neutral bank each tier can ever convert
-	# to ore (repeated hard prunes from the vein's own ceiling down to 0),
-	# which is where terroir's 4x yieldPerPoint spread compounds with
-	# wildCeiling's extra headroom into the >=5x spec asks for.
-	run_case("terroir_spread_saturated_wildCeiling_total_extraction_at_least_5x_poor", func():
+	# this measures the full bank each tier can ever convert to ore
+	# (repeated hard prunes from the vein's own ceiling down to 0), where
+	# terroir's 4x yieldPerPoint spread compounds with wildCeiling's extra
+	# headroom: (120 x 2.4) / (100 x 0.6) = 4.8x (R§3.4).
+	run_case("terroir_spread_saturated_wildCeiling_total_extraction_at_least_4_8x_poor", func():
 		var poor := _vein(100, "shoreditch", [], "poor")
 		var saturated := _vein(120, "shoreditch", ["wildCeiling"], "saturated")
 		var poor_total := 0
@@ -1204,7 +1203,7 @@ func run() -> void:
 		while saturated["growth"] > 0:
 			saturated_total += Cultivating.prune_yield(saturated, GameData.VEIN_GROWTH["pruneHardDepth"])
 			saturated["growth"] = maxi(0, saturated["growth"] - GameData.VEIN_GROWTH["pruneHardDepth"])
-		assert_true(saturated_total >= poor_total * 5, "saturated+wildCeiling's total extraction (%d) should be at least 5x poor's (%d)" % [saturated_total, poor_total])
+		assert_true(saturated_total >= poor_total * 4.8, "saturated+wildCeiling's total extraction (%d) should be at least 4.8x poor's (%d)" % [saturated_total, poor_total])
 	)
 
 	# ── ceiling() / days_to_wall() ───────────────────────────────────────
