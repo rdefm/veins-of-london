@@ -552,12 +552,14 @@ func _run_cases() -> void:
 		GameState.reset()
 		GameState.state["world"]["sites"] = []
 		var vein := Fixtures.seed_faction_vein("fv_steal", 80, "collective", "physics")
-		var expected: int = Cultivating.prune_yield(vein, int(GameData.VEIN_GROWTH["pruneHardDepth"]))
+		var lo: int = Cultivating.prune_yield_min(vein, int(GameData.VEIN_GROWTH["pruneHardDepth"]))
+		var hi: int = Cultivating.prune_yield_max(vein, int(GameData.VEIN_GROWTH["pruneHardDepth"]))
 		var held_before := FactionSim.ore_held("firm", "physics")
 		var site_id := "site_fv_steal"
 		Factions.resolve_steal_outcome({ "attackerId": "firm", "defenderId": "collective", "veinSiteId": site_id, "success": true })
-		assert_true(expected > 0, "fixture vein yields ore")
-		assert_eq(FactionSim.ore_held("firm", "physics"), held_before + expected, "the whole yield goes to the attacker")
+		assert_true(lo > 0, "fixture vein yields ore")
+		var gained: int = FactionSim.ore_held("firm", "physics") - held_before
+		assert_true(gained >= lo and gained <= hi, "the whole rolled yield goes to the attacker")
 		assert_eq(Sites.find_site(site_id)["factionVein"]["factionId"], "collective", "the vein stays the defender's")
 	)
 

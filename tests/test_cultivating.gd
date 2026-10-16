@@ -370,6 +370,32 @@ func run() -> void:
 		assert_eq(yld, 35, "only the 10 points above neutral count, at the hard-prune bonus")
 	)
 
+	run_case("prune_yield_roll_stays_within_min_max_and_is_seed_deterministic", func():
+		var vein := _vein(60)
+		var hard: int = GameData.VEIN_GROWTH["pruneHardDepth"]
+		assert_eq(Cultivating.prune_yield_min(vein, hard), 28, "min = round(35 * 0.8)")
+		assert_eq(Cultivating.prune_yield_max(vein, hard), 42, "max = round(35 * 1.2)")
+		assert_eq(Cultivating.prune_yield_range_text(vein, hard), "28–42", "preview text is min–max")
+		var seen_lo := false
+		var seen_hi := false
+		for seed in range(200):
+			Rng.set_seed(seed)
+			var rolled := Cultivating.roll_prune_yield(vein, hard)
+			assert_true(rolled >= 28 and rolled <= 42, "roll in range, seed %d" % seed)
+			seen_lo = seen_lo or rolled == 28
+			seen_hi = seen_hi or rolled == 42
+			Rng.set_seed(seed)
+			assert_eq(Cultivating.roll_prune_yield(vein, hard), rolled, "same seed, same roll")
+		assert_true(seen_lo and seen_hi, "both bounds are reachable")
+	)
+
+	run_case("prune_yield_range_collapses_to_zero_at_or_below_neutral", func():
+		var light: int = GameData.VEIN_GROWTH["pruneLightDepth"]
+		assert_eq(Cultivating.prune_yield_min(_vein(50), light), 0)
+		assert_eq(Cultivating.prune_yield_max(_vein(50), light), 0)
+		assert_eq(Cultivating.prune_yield_range_text(_vein(50), light), "0", "a collapsed range shows one number")
+	)
+
 	run_case("light_prune_yields_less_per_point_than_hard_when_both_land_fully_above_neutral", func():
 		var wild := _vein(95)
 		var light_yield := Cultivating.prune_yield(wild, GameData.VEIN_GROWTH["pruneLightDepth"])
@@ -577,7 +603,7 @@ func run() -> void:
 		assert_true(result["ok"], "prune should succeed")
 		var vein: Dictionary = GameState.state["player"]["veins"][0]
 		assert_eq(vein["growth"], 36, "growth -= depth")
-		assert_eq(result["amount"], 35, "matches prune_yield's own math")
+		assert_true(result["amount"] >= 28 and result["amount"] <= 42, "rolled within 0.8..1.2 x the 35 midpoint")
 		assert_eq(GameState.state["player"]["orichalchum"]["time"], result["amount"], "ore credited to player")
 	)
 

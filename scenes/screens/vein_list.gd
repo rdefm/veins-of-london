@@ -133,6 +133,6 @@ func _build_action_button(vein: Dictionary, gate: Dictionary) -> Control:
 func _build_prune_button(action_label: String, vein: Dictionary, depth: int, gate: Dictionary) -> Control:
 	var vein_id: String = vein["id"]
 	var option_id: String = gate["id"]
-	var projected: int = Cultivating.prune_yield(vein, depth)
-	var label_text := "%s · %d ore" % [UI.format_block_cost_label(action_label, 1, not gate["disabled"]), projected]
+	var projected: String = Cultivating.prune_yield_range_text(vein, depth)
+	var label_text := "%s · %s ore" % [UI.format_block_cost_label(action_label, 1, not gate["disabled"]), projected]
 	return MapCardStyle.action_button(label_text, func(): VeinList.apply_option(option_id, vein_id), gate["disabled"], gate["reason"])

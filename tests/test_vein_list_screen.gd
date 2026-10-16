@@ -242,10 +242,10 @@ func run() -> void:
 		var light_button: Button = (actions.get_child(1) as Control).get_child(0)
 		var hard_button: Button = (actions.get_child(2) as Control).get_child(0)
 
-		var expected_light: int = Cultivating.prune_yield(vein, GameData.VEIN_GROWTH["pruneLightDepth"])
-		var expected_hard: int = Cultivating.prune_yield(vein, GameData.VEIN_GROWTH["pruneHardDepth"])
-		assert_true(light_button.text.contains("%d ore" % expected_light))
-		assert_true(hard_button.text.contains("%d ore" % expected_hard))
+		var expected_light: String = Cultivating.prune_yield_range_text(vein, GameData.VEIN_GROWTH["pruneLightDepth"])
+		var expected_hard: String = Cultivating.prune_yield_range_text(vein, GameData.VEIN_GROWTH["pruneHardDepth"])
+		assert_true(light_button.text.contains("%s ore" % expected_light))
+		assert_true(hard_button.text.contains("%s ore" % expected_hard))
 
 		actions.free()
 		screen.free()

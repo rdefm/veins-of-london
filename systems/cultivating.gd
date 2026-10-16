@@ -300,6 +300,26 @@ static func prune_yield(vein: Dictionary, depth: int) -> int:
 	return apply_yield_bonus(vein, rolled)
 
 
+# R§3.4 harvest roll: uniform between pruneYieldRollMin..Max x prune_yield (the midpoint).
+static func prune_yield_min(vein: Dictionary, depth: int) -> int:
+	return GameState.round_epsilon(prune_yield(vein, depth) * GameData.VEIN_GROWTH["pruneYieldRollMin"])
+
+
+static func prune_yield_max(vein: Dictionary, depth: int) -> int:
+	return GameState.round_epsilon(prune_yield(vein, depth) * GameData.VEIN_GROWTH["pruneYieldRollMax"])
+
+
+static func roll_prune_yield(vein: Dictionary, depth: int) -> int:
+	return Rng.randi_range(prune_yield_min(vein, depth), prune_yield_max(vein, depth))
+
+
+# "min–max", or one number when the range collapses (e.g. a 0-yield prune).
+static func prune_yield_range_text(vein: Dictionary, depth: int) -> String:
+	var lo := prune_yield_min(vein, depth)
+	var hi := prune_yield_max(vein, depth)
+	return str(lo) if lo == hi else "%d–%d" % [lo, hi]
+
+
 # Shared "always offered, disabled with a reason" gate for a Prune button --
 # both map.gd's site sheet and station_bubble.gd need the same rule. Pruning
 # at/below neutral is allowed (it just yields 0, per prune_yield above); only time-block affordability gates the button.
@@ -329,7 +349,7 @@ static func prune(vein_id: String, depth: int) -> Dictionary:
 	Perks.note_player_tended(vein_id)
 	TimeSystem.advance_time_block()
 
-	var amount: int = prune_yield(vein, depth)
+	var amount: int = roll_prune_yield(vein, depth)
 	var growth_before: int = vein["growth"]
 	vein["growth"] = prune_resulting_growth(vein, depth)
 	vein["rampantDays"] = 0

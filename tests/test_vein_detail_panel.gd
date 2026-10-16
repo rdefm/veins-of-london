@@ -212,9 +212,9 @@ func run() -> void:
 		var light_buttons := _buttons_labelled(panel, "Harvest (light)")
 		assert_eq(light_buttons.size(), 1)
 
-		var expected_yield: int = Cultivating.prune_yield(vein, GameData.VEIN_GROWTH["pruneLightDepth"])
+		var expected_yield: String = Cultivating.prune_yield_range_text(vein, GameData.VEIN_GROWTH["pruneLightDepth"])
 		var expected_after: int = Cultivating.prune_resulting_growth(vein, GameData.VEIN_GROWTH["pruneLightDepth"])
-		assert_true((light_buttons[0] as Button).text.find("%d ore" % expected_yield) != -1)
+		assert_true((light_buttons[0] as Button).text.find("%s ore" % expected_yield) != -1)
 		assert_true((light_buttons[0] as Button).text.find("70→%d" % expected_after) != -1)
 
 		(light_buttons[0] as Button).pressed.emit()

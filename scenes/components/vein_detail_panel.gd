@@ -261,7 +261,7 @@ static func _tile_hover_style() -> StyleBoxFlat:
 
 
 static func _harvest_caption(vein: Dictionary, depth: int) -> String:
-	return "%d ore · %d→%d" % [Cultivating.prune_yield(vein, depth), vein["growth"], Cultivating.prune_resulting_growth(vein, depth)]
+	return "%s ore · %d→%d" % [Cultivating.prune_yield_range_text(vein, depth), vein["growth"], Cultivating.prune_resulting_growth(vein, depth)]
 
 
 static func _find_option(options: Array, id: String) -> Dictionary:
@@ -280,9 +280,9 @@ static func _cultivate_label(vein: Dictionary, disabled: bool) -> String:
 
 
 static func _harvest_label(label_text: String, vein: Dictionary, depth: int, available: bool) -> String:
-	var projected_yield: int = Cultivating.prune_yield(vein, depth)
+	var projected_yield: String = Cultivating.prune_yield_range_text(vein, depth)
 	var resulting: int = Cultivating.prune_resulting_growth(vein, depth)
-	var base: String = "%s -- %d ore, %d→%d" % [label_text, projected_yield, vein["growth"], resulting]
+	var base: String = "%s -- %s ore, %d→%d" % [label_text, projected_yield, vein["growth"], resulting]
 	return UI.format_block_cost_label(base, 1, available)
 
 

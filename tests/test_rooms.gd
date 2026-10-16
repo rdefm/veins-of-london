@@ -282,11 +282,12 @@ func run() -> void:
 		var output: Dictionary = Rooms.process_staff_block()
 
 		# points = max(0,95-50) - max(0,70-50) = 45-20 = 25
-		# yield = round(25 * 2.8) = 70
+		# midpoint = round(25 * 2.8) = 70, rolled within 56..84
+		var credited: int = GameState.state["player"]["orichalchum"]["time"]
 		assert_eq(vein["growth"], 70, "pruned down exactly to the target")
-		assert_eq(GameState.state["player"]["orichalchum"]["time"], 70, "ore credited using the §2.4 yield formula")
-		assert_eq(output["ore"], { "time": 70 }, "block output reports the yield")
-		assert_eq(Shares.window_totals("ore")["player"], { "time": 70 }, "staff cultivator harvest credits the player's ore share")
+		assert_true(credited >= 56 and credited <= 84, "ore credited using the §3.4 yield roll")
+		assert_eq(output["ore"], { "time": credited }, "block output reports the yield")
+		assert_eq(Shares.window_totals("ore")["player"], { "time": credited }, "staff cultivator harvest credits the player's ore share")
 		assert_eq(GameState.state["contacts"]["archie"]["cultivatingXP"], xp_before + GameData.CULTIVATOR_ACTION_XP, "+2 XP for a prune")
 	)
 
@@ -300,9 +301,12 @@ func run() -> void:
 		GameState.state["contacts"]["archie"]["specialities"] = ["time"]
 		assert_eq(Rooms.speciality_yield("archie", "time", 70), 84, "+20% on a speciality ore")
 		assert_eq(Rooms.speciality_yield("archie", "life", 70), 70, "non-speciality unchanged")
+		var lo: int = Rooms.speciality_yield("archie", "time", Cultivating.prune_yield_min(vein, 25))
+		var hi: int = Rooms.speciality_yield("archie", "time", Cultivating.prune_yield_max(vein, 25))
 		Rng.set_seed(1)
 		Rooms.process_staff_block()
-		assert_eq(GameState.state["player"]["orichalchum"]["time"], 84, "70 * 1.2 credited")
+		var credited: int = GameState.state["player"]["orichalchum"]["time"]
+		assert_true(credited >= lo and credited <= hi, "rolled yield +20% credited")
 		GameState.state["contacts"]["archie"]["specialities"] = []
 		assert_eq(Rooms.speciality_yield("archie", "time", 70), 70, "no specialities -> unaffected")
 	)

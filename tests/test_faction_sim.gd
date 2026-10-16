@@ -68,11 +68,13 @@ func run() -> void:
 		GameState.state["factions"]["collective"]["resources"] = GameData.FACTION_FLOOR["weakCashBelow"]  # not weak: no floor bonus
 		# Collective: cultivateSkill 4, pruneDepthMult 2 -> depth 26 (floor 51 not reached).
 		var depth: int = Cultivating.cultivate_max_gain(4) * 2
-		var expected: int = Cultivating.prune_yield(vein, depth)
+		var lo: int = Cultivating.prune_yield_min(vein, depth)
+		var hi: int = Cultivating.prune_yield_max(vein, depth)
 		var held_before: int = FactionSim.ore_held("collective", "life")
 		FactionSim.tend_and_prune()
-		assert_true(expected > 0, "a prune from 90 clears points above neutral")
-		assert_eq(FactionSim.ore_held("collective", "life") - held_before, expected, "prune yield lands in holdings")
+		assert_true(lo > 0, "a prune from 90 clears points above neutral")
+		var gained: int = FactionSim.ore_held("collective", "life") - held_before
+		assert_true(gained >= lo and gained <= hi, "rolled prune yield lands in holdings")
 		assert_eq(_growth("s1"), 90 - depth, "growth drops by the faction's depth")
 		assert_true(Shares.ore_share("collective", "life") > 0.0, "the prune credits the Collective's ore share")
 	)
@@ -683,6 +685,7 @@ func run() -> void:
 			GameState.state["factions"]["collective"]["resources"] = 0 if weak else GameData.FACTION_FLOOR["weakCashBelow"]
 			assert_eq(FactionSim.is_weak("collective"), weak)
 			var before: int = FactionSim.ore_held("collective", "life")
+			Rng.set_seed(1)  # same harvest roll both passes
 			FactionSim.tend_and_prune()
 			yields[weak] = FactionSim.ore_held("collective", "life") - before
 			var base_chance := Crafting.faction_craft_chance("healingSalve", int(GameData.FACTIONS["collective"]["craftSkill"]))

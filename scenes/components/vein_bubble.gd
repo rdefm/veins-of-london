@@ -304,8 +304,8 @@ func _open_chooser() -> void:
 	_reposition()
 
 
-# The chooser previews both depths' actual ore yield and resulting
-# condition via the same prune_yield()/prune_resulting_growth() math the
+# The chooser previews both depths' ore yield range and resulting
+# condition via the same prune_yield_min/max()/prune_resulting_growth() math the
 # real action uses -- never a placeholder, and never assuming a harvest
 # always exits the development zone.
 func _build_chooser(vein: Dictionary) -> Control:
@@ -319,9 +319,9 @@ func _build_chooser(vein: Dictionary) -> Control:
 
 func _build_chooser_row(label_text: String, vein: Dictionary, depth: int, option_id: String) -> Control:
 	var opt := _find_option(StationBubble.station_options(_stop), option_id)
-	var projected_yield: int = Cultivating.prune_yield(vein, depth)
+	var projected_yield: String = Cultivating.prune_yield_range_text(vein, depth)
 	var resulting: int = Cultivating.prune_resulting_growth(vein, depth)
-	var text := "%s · %d ore · %d→%d" % [label_text, projected_yield, vein["growth"], resulting]
+	var text := "%s · %s ore · %d→%d" % [label_text, projected_yield, vein["growth"], resulting]
 	return MapCardStyle.action_button(text, func(): _select_action(option_id), opt["disabled"], opt["reason"])
 
 

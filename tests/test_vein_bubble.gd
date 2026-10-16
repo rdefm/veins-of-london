@@ -303,9 +303,11 @@ func run() -> void:
 		var chooser: VBoxContainer = bubble._content.get_child(1)
 		var light_row: Control = chooser.get_child(1)
 		var light_button: Button = light_row.get_child(0)
-		var expected_light_yield: int = Cultivating.prune_yield(vein, GameData.VEIN_GROWTH["pruneLightDepth"])
+		var light_min: int = Cultivating.prune_yield_min(vein, GameData.VEIN_GROWTH["pruneLightDepth"])
+		var light_max: int = Cultivating.prune_yield_max(vein, GameData.VEIN_GROWTH["pruneLightDepth"])
 		var expected_light_after: int = Cultivating.prune_resulting_growth(vein, GameData.VEIN_GROWTH["pruneLightDepth"])
-		assert_true(light_button.text.find("%d ore" % expected_light_yield) != -1, "the chooser shows the real projected yield, not a placeholder")
+		assert_true(light_min < light_max, "fixture vein has a real yield range")
+		assert_true(light_button.text.find("%d–%d ore" % [light_min, light_max]) != -1, "the chooser shows the yield min–max, not a placeholder")
 		assert_true(light_button.text.find("70→%d" % expected_light_after) != -1, "the chooser shows the true resulting condition")
 		var back_button: Button = chooser.get_child(3)
 		for b: Button in [light_button, back_button]:

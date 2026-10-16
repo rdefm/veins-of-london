@@ -231,8 +231,8 @@ func _station_option_label(option_id: String, stop: Dictionary, available: bool 
 			return ""
 
 func _prune_option_label(action_label: String, vein: Dictionary, depth: int) -> String:
-	var projected: int = Cultivating.prune_yield(vein, depth)
-	return "%s · %d ore" % [UI.format_block_cost_label(action_label, 1, not Cultivating.prune_gate(vein, depth, vein["district"])["disabled"]), projected]
+	var projected: String = Cultivating.prune_yield_range_text(vein, depth)
+	return "%s · %s ore" % [UI.format_block_cost_label(action_label, 1, not Cultivating.prune_gate(vein, depth, vein["district"])["disabled"]), projected]
 func _manage_option_label(stop: Dictionary) -> String:
 	if stop["kind"] != "vein" or stop.get("owner") != "player":
 		return "Manage"

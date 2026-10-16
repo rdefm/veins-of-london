@@ -316,7 +316,7 @@ static func _cultivator_act(contact_id: String, ore_out: Dictionary) -> void:
 	var growth: int = vein["growth"]
 	if growth > target:
 		var depth: int = growth - target
-		var amount: int = speciality_yield(contact_id, vein["oreType"], Cultivating.prune_yield(vein, depth))
+		var amount: int = speciality_yield(contact_id, vein["oreType"], Cultivating.roll_prune_yield(vein, depth))
 		vein["growth"] = maxi(0, growth - depth)
 		vein["rampantDays"] = 0
 		Cultivating.apply_growth_change(vein, growth)

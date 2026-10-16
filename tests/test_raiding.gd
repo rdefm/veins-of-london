@@ -925,17 +925,19 @@ func run() -> void:
 		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
 		GameState.state["player"]["orichalchum"]["physics"] = 50
 		var depth: int = GameData.VEIN_GROWTH["pruneHardDepth"]
-		var expected: int = Cultivating.prune_yield(vein, depth)
+		var lo: int = Cultivating.prune_yield_min(vein, depth)
+		var hi: int = Cultivating.prune_yield_max(vein, depth)
 		var held_before := FactionSim.ore_held("firm", "physics")
 
 		var outcome := { "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true, "outcomeType": "loot" }
 		Raiding.resolve_raid_outcome(outcome)
 
-		assert_true(expected > 0, "fixture vein yields ore")
+		assert_true(lo > 0, "fixture vein yields ore")
 		assert_eq(GameState.state["player"]["veins"].size(), 1, "the vein stays with the player")
 		var player_vein: Dictionary = GameState.state["player"]["veins"][0]
 		assert_eq(player_vein["growth"], 80 - depth, "the vein is hard-pruned")
-		assert_eq(FactionSim.ore_held("firm", "physics"), held_before + expected, "the whole hard-harvest yield goes to the raider")
+		var gained: int = FactionSim.ore_held("firm", "physics") - held_before
+		assert_true(gained >= lo and gained <= hi, "the whole rolled hard-harvest yield goes to the raider")
 		assert_eq(GameState.state["player"]["orichalchum"]["physics"], 50, "the player's stash is untouched")
 
 		var site: Dictionary = Sites.find_site("s_player")

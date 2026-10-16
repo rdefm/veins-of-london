@@ -204,7 +204,7 @@ static func _tend(vein: Dictionary, skill: int) -> void:
 
 
 static func _prune(faction_id: String, vein: Dictionary, depth: int, yield_mult: float) -> void:
-	var amount: int = roundi(Cultivating.prune_yield(vein, depth) * yield_mult)
+	var amount: int = roundi(Cultivating.roll_prune_yield(vein, depth) * yield_mult)
 	var growth_before: int = vein["growth"]
 	vein["growth"] = Cultivating.prune_resulting_growth(vein, depth)
 	vein["rampantDays"] = 0
@@ -218,7 +218,7 @@ static func _prune(faction_id: String, vein: Dictionary, depth: int, yield_mult:
 # Returns the units taken.
 static func raid_harvest(raider_id: String, vein: Dictionary) -> int:
 	var depth: int = GameData.VEIN_GROWTH["pruneHardDepth"]
-	var amount: int = Cultivating.prune_yield(vein, depth)
+	var amount: int = Cultivating.roll_prune_yield(vein, depth)
 	var growth_before: int = vein["growth"]
 	vein["growth"] = Cultivating.prune_resulting_growth(vein, depth)
 	vein["rampantDays"] = 0
