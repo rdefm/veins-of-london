@@ -41,6 +41,25 @@ func run() -> void:
 		assert_eq(spy.calls_matching("draw_arc").size(), 1, "one shackle arc")
 	)
 
+	run_case("draw_arrow_left_and_right_draw_one_mirrored_triangle_each", func():
+		var center := Vector2(20.0, 20.0)
+		var left_spy := DrawSpy.new()
+		var right_spy := DrawSpy.new()
+
+		Icons.draw_arrow_left(left_spy, center, Color.BLACK, 1.0)
+		Icons.draw_arrow_right(right_spy, center, Color.BLACK, 1.0)
+
+		var left: Array = left_spy.calls_matching("draw_colored_polygon")
+		var right: Array = right_spy.calls_matching("draw_colored_polygon")
+		assert_eq(left.size(), 1, "one filled left triangle")
+		assert_eq(right.size(), 1, "one filled right triangle")
+		var left_points: PackedVector2Array = left[0]["args"][0]
+		var right_points: PackedVector2Array = right[0]["args"][0]
+		assert_eq(left_points.size(), 3)
+		assert_true(left_points[0].x < center.x, "left arrow's tip sits left of centre")
+		assert_true(right_points[0].x > center.x, "right arrow's tip sits right of centre")
+	)
+
 	run_case("draw_pin_draws_a_triangular_point_and_a_circular_head_returning_the_heads_own_centre", func():
 		var spy := DrawSpy.new()
 		var pos := Vector2(5.0, 5.0)

@@ -82,6 +82,25 @@ static func draw_hamburger(target: CanvasItem, center: Vector2, colour: Color, s
 		target.draw_line(center + Vector2(-s, y), center + Vector2(s, y), colour, 1.5 * scale)
 
 
+# Filled triangles; the first point is the tip.
+static func draw_arrow_left(target: Object, center: Vector2, colour: Color, scale: float = 1.0) -> void:
+	_draw_arrow(target, center, -1.0, colour, scale)
+
+
+static func draw_arrow_right(target: Object, center: Vector2, colour: Color, scale: float = 1.0) -> void:
+	_draw_arrow(target, center, 1.0, colour, scale)
+
+
+static func _draw_arrow(target: Object, center: Vector2, direction: float, colour: Color, scale: float) -> void:
+	var s := 5.0 * scale
+	var points := PackedVector2Array([
+		center + Vector2(s * direction, 0),
+		center + Vector2(-s * 0.7 * direction, -s),
+		center + Vector2(-s * 0.7 * direction, s),
+	])
+	target.draw_colored_polygon(points, colour)
+
+
 static func draw_prospect(target: CanvasItem, center: Vector2, colour: Color, scale: float = 1.0) -> void:
 	var s := 7.0 * scale
 	target.draw_line(center + Vector2(-s * 0.7, s), center + Vector2(s * 0.55, -s * 0.75), colour, 2.0 * scale, true)

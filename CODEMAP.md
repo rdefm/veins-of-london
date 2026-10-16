@@ -142,7 +142,7 @@ overlays.
 | map.gd | Map tab: full-bleed diagram (top board to nav dock) with floating menu button, legend and zoom pill in Map chrome tokens; district panel (turf, Perks here per faction, Everywhere, active/locked) + sheet |
 | phone.gd | Phone tab controller: mounts PhoneDeviceShell, owns four-column home grid + home-only Phone/Messages/Settings dock, live badge-count projections + tile routing, dispatches apps through phone_app_registry.gd |
 | placeholder.gd | Stand-in for a not-yet-built screen |
-| title.gd | Title screen + load-game slot list; sprite picker overlay (idle preview, ◀/▶, Select, Back) that New Game and Debug Start open first |
+| title.gd | Title screen + load-game slot list; sprite picker overlay (idle preview, drawn prev/next arrow chips, Select, Back) that New Game and Debug Start open first |
 | vein_list.gd | Vein-portfolio list (map_card_style.gd-skinned, follows the dark toggle) |
 
 ## scenes/components/*.gd — reusable UI components
@@ -166,7 +166,7 @@ overlays.
 | dot_matrix_font.gd | Bitmap font for dot_matrix_board.gd |
 | haptics.gd | Adapter over `Input.vibrate_handheld()` |
 | hq_diorama.gd | Generic plate/region artwork renderer; outlines regions flagged `selected`; owns the region hit rule (`zone_at`/`regions_at`: traced polygon else rect), the debug hit-shape overlay, and caption placement (polygon-centred for traced regions) |
-| icons.gd | 13 drawn icon glyphs |
+| icons.gd | 15 drawn icon glyphs (incl. left/right arrows) |
 | map_bubble.gd | Popup listing tappable map options; paper-card frame and round action-icon states come from map_card_style.gd |
 | map_card_style.gd | Shared vein-popover card family: card tokens (via map_palette.gd), card/inset/action-circle styleboxes, card()/style_panel(), section_label(), text/symbol_text/chip buttons, option rows, round_button()/stepper()/quantity_slider(), footer(), pill(), check-button + symbol tinting. The one button/card look for every menu; card_theme.gd makes it the theme default |
 | card_theme.gd | CardTheme.apply(theme): writes the map-card look (quiet accent Button, sage OptionButton/LineEdit chips, card PanelContainer/Panel/PopupMenu, ink Label, check/bar/slider) into a Theme from current MapPalette tokens; Main re-applies to main_theme.tres on dark-toggle flip |

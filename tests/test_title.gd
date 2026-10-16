@@ -131,12 +131,27 @@ func run() -> void:
 		var seen: Array[String] = []
 		for _i in range(variants.size()):
 			seen.append(title.picker_variant())
-			NodeQuery.find_button(title, "▶").pressed.emit()
-		assert_eq(seen, variants, "▶ steps through every discovered variant in order")
-		assert_eq(title.picker_variant(), variants[0], "▶ wraps back to the first")
+			title._picker_next.pressed.emit()
+		assert_eq(seen, variants, "next steps through every discovered variant in order")
+		assert_eq(title.picker_variant(), variants[0], "next wraps back to the first")
 
-		NodeQuery.find_button(title, "◀").pressed.emit()
-		assert_eq(title.picker_variant(), variants[variants.size() - 1], "◀ wraps to the last")
+		title._picker_prev.pressed.emit()
+		assert_eq(title.picker_variant(), variants[variants.size() - 1], "prev wraps to the last")
+
+		title.free()
+	)
+
+	run_case("picker_arrows_are_drawn_ink_glyphs_not_font_text", func():
+		GameState.reset()
+		var title := TitleScreen.new()
+		title._ready()
+
+		for arrow: Button in [title._picker_prev, title._picker_next]:
+			assert_eq(arrow.text, "", "arrow relies on a drawn glyph, not a font character")
+			var glyph: Control = arrow.get_child(0)
+			assert_eq(glyph.colour_override, MapCardStyle.ink(), "dark ink glyph on the light chip")
+		assert_eq(title._picker_prev.get_child(0).draw_icon, Callable(Icons.draw_arrow_left), "prev points left")
+		assert_eq(title._picker_next.get_child(0).draw_icon, Callable(Icons.draw_arrow_right), "next points right")
 
 		title.free()
 	)
@@ -146,7 +161,7 @@ func run() -> void:
 		var title := TitleScreen.new()
 		title._ready()
 		NodeQuery.find_button(title, "New Game").pressed.emit()
-		NodeQuery.find_button(title, "▶").pressed.emit()
+		title._picker_next.pressed.emit()
 		var picked: String = title.picker_variant()
 
 		NodeQuery.find_button(title, "Select").pressed.emit()
@@ -166,7 +181,7 @@ func run() -> void:
 		assert_true(title._picker.visible, "Debug Start shows the picker")
 		assert_eq(GameState.state["player"]["cash"], GameState.new_game_state()["player"]["cash"], "debug state isn't applied before Select")
 
-		NodeQuery.find_button(title, "▶").pressed.emit()
+		title._picker_next.pressed.emit()
 		var picked: String = title.picker_variant()
 		NodeQuery.find_button(title, "Select").pressed.emit()
 

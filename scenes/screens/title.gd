@@ -8,6 +8,8 @@ var _menu: VBoxContainer
 # starts; `_on_picked` is the flow Select continues with.
 var _picker: VBoxContainer
 var _picker_preview: TextureRect
+var _picker_prev: Button
+var _picker_next: Button
 var _picker_index: int = 0
 var _on_picked: Callable
 
@@ -115,8 +117,10 @@ func _build_picker() -> void:
 
 	var arrows := HBoxContainer.new()
 	arrows.alignment = BoxContainer.ALIGNMENT_CENTER
-	arrows.add_child(MapCardStyle.chip_button("◀", _cycle_picker.bind(-1)))
-	arrows.add_child(MapCardStyle.chip_button("▶", _cycle_picker.bind(1)))
+	_picker_prev = _arrow_button(Icons.draw_arrow_left, -1)
+	_picker_next = _arrow_button(Icons.draw_arrow_right, 1)
+	arrows.add_child(_picker_prev)
+	arrows.add_child(_picker_next)
 	_picker.add_child(arrows)
 
 	_picker.add_child(MapCardStyle.chip_button("Select", _on_picker_select_pressed))
@@ -124,6 +128,14 @@ func _build_picker() -> void:
 
 # With no discovered variants there's nothing to pick: the flow starts on
 # new_game_state()'s default model.
+# Drawn arrow on a round chip: the theme font has no ◀/▶ glyphs.
+func _arrow_button(draw_arrow: Callable, step: int) -> Button:
+	var b := MapCardStyle.style_chip(UI.icon_button(draw_arrow, _cycle_picker.bind(step), MapCardStyle.ink()))
+	for state in ["normal", "hover", "pressed", "disabled"]:
+		(b.get_theme_stylebox(state) as StyleBoxFlat).set_corner_radius_all(int(UI.ICON_BUTTON_SIZE / 2))
+	return b
+
+
 func _open_picker(on_picked: Callable) -> void:
 	if GameData.TERRITORIAL_VARIANTS.is_empty():
 		on_picked.call("")
