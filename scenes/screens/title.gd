@@ -29,15 +29,33 @@ func _build() -> void:
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	layout.add_child(title)
 
-	layout.add_child(MapCardStyle.chip_button("New Game", _on_new_game_pressed))
-	layout.add_child(MapCardStyle.chip_button("Load Game", _on_load_game_pressed, not _any_slot_saved()))
-	layout.add_child(MapCardStyle.chip_button("Debug Start", _on_debug_start_pressed))
+	var menu_buttons: Array[Button] = [
+		MapCardStyle.chip_button("New Game", _on_new_game_pressed),
+		MapCardStyle.chip_button("Load Game", _on_load_game_pressed, not _any_slot_saved()),
+		MapCardStyle.chip_button("Debug Start", _on_debug_start_pressed),
+	]
+	_fit_to_widest_label(menu_buttons)
+	for b in menu_buttons:
+		layout.add_child(b)
 
 	_slot_list = VBoxContainer.new()
 	_slot_list.visible = false
 	layout.add_child(_slot_list)
 	for slot in range(1, SaveManager.SLOT_COUNT + 1):
 		_slot_list.add_child(_build_slot_row(slot))
+
+# One shared width that fits the widest full label inside the button's own
+# (chip) stylebox, so no label ellipsises and the column reads as one block.
+static func _fit_to_widest_label(buttons: Array[Button]) -> void:
+	var width := 0.0
+	for b in buttons:
+		var font: Font = b.get_theme_font("font")
+		var text_w: float = font.get_string_size(b.text, HORIZONTAL_ALIGNMENT_LEFT, -1, b.get_theme_font_size("font_size")).x
+		width = maxf(width, ceilf(text_w + b.get_theme_stylebox("normal").get_minimum_size().x))
+	for b in buttons:
+		b.clip_text = false
+		b.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
+		b.custom_minimum_size.x = width
 
 func _any_slot_saved() -> bool:
 	for slot in range(1, SaveManager.SLOT_COUNT + 1):

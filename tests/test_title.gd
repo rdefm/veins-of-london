@@ -31,6 +31,26 @@ func run() -> void:
 		title.free()
 	)
 
+	run_case("menu_buttons_are_wide_enough_for_their_full_labels", func():
+		GameState.reset()
+
+		var title := TitleScreen.new()
+		title._ready()
+
+		var widths := {}
+		for label in ["New Game", "Load Game", "Debug Start"]:
+			var b: Button = NodeQuery.find_button(title, label)
+			widths[b.custom_minimum_size.x] = true
+			var font: Font = b.get_theme_font("font")
+			var text_w: float = font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, b.get_theme_font_size("font_size")).x
+			var needed: float = text_w + b.get_theme_stylebox("normal").get_minimum_size().x
+			assert_true(b.text_overrun_behavior == TextServer.OVERRUN_NO_TRIMMING, "%s must not ellipsise" % label)
+			assert_true(b.custom_minimum_size.x >= needed, "%s min width %.1f < needed %.1f" % [label, b.custom_minimum_size.x, needed])
+		assert_eq(widths.size(), 1, "menu buttons must share one width")
+
+		title.free()
+	)
+
 	run_case("load_game_button_is_disabled_when_no_save_slots_exist", func():
 		GameState.reset()
 		_delete_all_slots()
