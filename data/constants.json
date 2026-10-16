@@ -710,5 +710,9 @@
     "blockSingular": "%d block",
     "blockPlural": "%d blocks",
     "restLabel": "Rest — next morning"
+  },
+  "activeEffects": {
+    "durationByLevel": [0, 1, 1, 2, 2, 3],
+    "items": ["beALady"]
   }
 }

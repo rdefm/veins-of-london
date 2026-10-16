@@ -145,6 +145,8 @@ func new_game_state() -> Dictionary:
 			# Combat.exit_combat()'s teardown/rebuild.
 			"shieldPool": 0,
 			"healingSalveDaysLeft": 0, "healingSalveDailyAmount": 0,
+			# Timed item effects [{ item, level, expiresAtBlock }] (systems/active_effects.gd).
+			"activeEffects": [],
 			"orichalchum": {},
 			"veins": [],
 			# Quantity per quality tier, not a flat count. Empty buckets ==

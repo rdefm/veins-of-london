@@ -12,11 +12,17 @@ const RaidAlarmsSystem := preload("res://systems/raid_alarms.gd")
 const BAR_HEIGHT := 80.0
 const STATUS_DOT_SIZE := 2.0
 const _SIDE_MARGIN := 4.0
+const EFFECT_CHIP_SIZE := 20.0
+const EFFECT_CHIP_GAP := 2.0
 
 var _casing: DepartureBoardCasing
 var _board: DotMatrixBoard
 var _ticker: NotificationTicker
 var _bag_button: Button
+var _effects_button: Button
+var _effects_row: HBoxContainer
+var _effects_signature := "-"  # never a real signature, so the first sync builds
+var _base_reserved_right := 0.0
 
 var _initialized := false
 var _last_notification_id: String = ""
@@ -67,6 +73,23 @@ func _ready() -> void:
 	_bag_button.offset_bottom = UI.ICON_BUTTON_SIZE / 2.0
 	add_child(_bag_button)
 
+	# Active-effect chips sit left of the bag, level with the status lines;
+	# tapping them opens the active-effects sheet.
+	_base_reserved_right = reserved_right
+	_effects_button = TapButton.new()
+	_effects_button.flat = true
+	_effects_button.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_effects_button.offset_right = _bag_button.offset_left - EFFECT_CHIP_GAP
+	_effects_button.offset_top = frame
+	_effects_button.offset_bottom = frame + _status_lines_height()
+	_effects_button.pressed.connect(func(): Modal.open("active_effects"))
+	add_child(_effects_button)
+	_effects_row = UI.hbox(int(EFFECT_CHIP_GAP))
+	_effects_row.alignment = BoxContainer.ALIGNMENT_END
+	_effects_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	UI.anchor_full_rect(_effects_row)
+	_effects_button.add_child(_effects_row)
+
 	EventBus.state_changed.connect(_refresh)
 	_refresh()
 
@@ -94,8 +117,47 @@ func _progress_line_text() -> String:
 func _refresh() -> void:
 	_apply_safe_area_offsets()
 	var lines: Array[Dictionary] = [DotMatrixBoard.line(_status_line_text(), STATUS_DOT_SIZE), DotMatrixBoard.line(_progress_line_text(), STATUS_DOT_SIZE)]
+	_sync_effect_chips()
 	_board.set_lines(lines)
 	_sync_ticker()
+
+
+# One item-icon chip per running effect; the status lines give up the
+# chips' width while any are shown.
+func _sync_effect_chips() -> void:
+	var items: Array = []
+	for effect in ActiveEffects.effects():
+		if ActiveEffects.blocks_left(effect) > 0:
+			items.append(effect["item"])
+	var signature := ",".join(items)
+	if signature == _effects_signature:
+		return
+	_effects_signature = signature
+	for child in _effects_row.get_children():
+		child.queue_free()
+	for item in items:
+		_effects_row.add_child(_effect_chip(item))
+	var width: float = 0.0 if items.is_empty() else items.size() * (EFFECT_CHIP_SIZE + EFFECT_CHIP_GAP) + EFFECT_CHIP_GAP
+	_effects_button.visible = not items.is_empty()
+	_effects_button.offset_left = _effects_button.offset_right - width
+	_board.reserved_right = _base_reserved_right + width
+	_board.queue_redraw()
+
+
+static func _effect_chip(item: String) -> Control:
+	var tex: Texture2D = ItemIcons.texture(item)
+	if tex == null:
+		var glyph := UI.label(str(GameData.RECIPES.get(item, {}).get("symbol", "?")))
+		glyph.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		return glyph
+	var rect := TextureRect.new()
+	rect.texture = tex
+	rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	rect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	rect.custom_minimum_size = Vector2(EFFECT_CHIP_SIZE, EFFECT_CHIP_SIZE)
+	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return rect
 
 
 # Feeds the ticker every notification pushed since the last sync. During

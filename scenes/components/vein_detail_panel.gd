@@ -192,7 +192,7 @@ static func _build_actions_section(vein: Dictionary) -> Control:
 	row.name = "ActionTiles"
 	var cultivate_opt: Dictionary = _find_option(options, StationBubble.CULTIVATE_ID)
 	var skill: int = GameState.state["player"]["cultivatingSkill"]
-	var cultivate_caption := "+%d–%d condition" % [Cultivating.cultivate_min_gain(skill), Cultivating.cultivate_max_gain(skill)]
+	var cultivate_caption := "%s condition" % Cultivating.player_cultivate_gain_text(skill)
 	if vein["growth"] >= Cultivating.ceiling(vein):
 		cultivate_caption = "At ceiling"
 	row.add_child(_action_tile(_cultivate_label(vein, cultivate_opt["disabled"]), "Cultivate", cultivate_caption, Icons.draw_cultivate, func(): StationBubble.apply_option(StationBubble.CULTIVATE_ID, stop), cultivate_opt))
@@ -261,7 +261,7 @@ static func _tile_hover_style() -> StyleBoxFlat:
 
 
 static func _harvest_caption(vein: Dictionary, depth: int) -> String:
-	return "%s ore · %d→%d" % [Cultivating.prune_yield_range_text(vein, depth), vein["growth"], Cultivating.prune_resulting_growth(vein, depth)]
+	return "%s ore · %d→%d" % [Cultivating.player_prune_yield_text(vein, depth), vein["growth"], Cultivating.prune_resulting_growth(vein, depth)]
 
 
 static func _find_option(options: Array, id: String) -> Dictionary:
@@ -276,11 +276,13 @@ static func _cultivate_label(vein: Dictionary, disabled: bool) -> String:
 		return "Cultivate -- vein at ceiling"
 	var skill: int = GameState.state["player"]["cultivatingSkill"]
 	var base: String = "Cultivate -- roughly +%d to +%d condition (skill %d)" % [Cultivating.cultivate_min_gain(skill), Cultivating.cultivate_max_gain(skill), skill]
+	if ActiveEffects.lady_active():
+		base = "Cultivate -- %s condition (skill %d)" % [Cultivating.player_cultivate_gain_text(skill), skill]
 	return UI.format_block_cost_label(base, 1, not disabled)
 
 
 static func _harvest_label(label_text: String, vein: Dictionary, depth: int, available: bool) -> String:
-	var projected_yield: String = Cultivating.prune_yield_range_text(vein, depth)
+	var projected_yield: String = Cultivating.player_prune_yield_text(vein, depth)
 	var resulting: int = Cultivating.prune_resulting_growth(vein, depth)
 	var base: String = "%s -- %s ore, %d→%d" % [label_text, projected_yield, vein["growth"], resulting]
 	return UI.format_block_cost_label(base, 1, available)

@@ -37,12 +37,13 @@ Data file per system: see `data/*.json` below.
 | bench_prototype.gd | Sandboxed Lab-revamp bench (no real state): own calc pool, known recipes, ranks, hints, ledger, Rewind; score→rank, batch, re-run bonus; freeform runs (jar taps, apparatus steps in any order, ore-aware scoring on Finish, crack); Finish turns steps into clues that learn vague/exact hints. Spec: .scratch/lab-revamp/spec.md |
 | combat_pacing.gd | Persisted normal/quick pacing toggle |
 | combat_prototype.gd | Sandboxed Open/Guarded combat prototype (Debug app): start(config), choose_move/choose_item per player pause, committed enemy plans with seeded fog (read/unread intents), 0-2 AI allies, six moves, 2-slot sandbox loadouts, read-only timeline/guard/intent/block-reason helpers, per-beat stage marks, stage backdrop, Rewind to last pick |
+| active_effects.gd | Timed out-of-combat item effects in `state.player.activeEffects`: `use()` (Bag), `expire()` (TimeSystem on clock moves), `is_active`/`lady_active`, `blocks_left`. Be a Lady = player cultivate/harvest max roll. Data: constants.json `activeEffects`. |
 | consumables.gd | Healing Salve (out-of-combat) + Healing Burst (in or out); in-combat use_healing_burst() resolves the parked player turn-cursor entry (R§3.7a) and heals an ally target instead of the player (R§3.7) |
 | contacts.gd | Relation, recruiting (incl. story `force_recruit`), seat-capped room assignment (`contacts_in_room`/`assign_to_room`), room→role lookup from hiring.json (`room_roles`), founder staff roles (`set_role`/`role_of`/`available_roles`), capped XP (`skill_cap`, `xp_levels`), ally combat kit (Dial grant on recruit via `Dial.grant_contact_dial`), display names, directory order |
 | contact_texts.gd | Per-contact random texts: rollover scheduling, gated selection, vein templating, reply rewards, and ticker notices; content from contact_texts.json |
 | contracts.gd | Block-end Sales auto-delivery (full, then partials by priority; goods to buyer holdings + supplier share), settlement to pot; recurring periods pay on fill, lock (`periodFilled`) until Monday renewal, expire at term end; per-contract `buyCalc` calc buys from the pot; unattended-proof taint (`playerAssisted`) and `qualified` settlements; `cancel()` (unpaid, hurts counterparty) |
 | crafting.gd | Recipe crafting; tiered inventory buckets; multi-target variant (from tier 3, `<recipe>_multi` inventory key, `craftMulti` checkbox state) |
-| cultivating.gd | Vein growth / cultivate / prune; security tiers (lock/ward prices, guard tiers hired via GuardUpkeep) + raid resist; shared vein `value_order`; vein guard count + `drop_vein_guard` |
+| cultivating.gd | Vein growth / cultivate / prune (player rolls max under Be a Lady; `player_*_text` previews); security tiers (lock/ward prices, guard tiers hired via GuardUpkeep) + raid resist; shared vein `value_order`; vein guard count + `drop_vein_guard` |
 | debug_start.gd | Maximal-unlock debug state; `apply(model)` keeps a picked `player.model` through its reset |
 | debug_tools.gd | Debug phone-app state adjusters; `fire_event()` preps any event (state-path veins/sites, addressed contacts, raid/reveal site context) then starts it |
 | dial.gd | Per-owner Dial mechanic (`dial_of(owner_id)`: player or contact): Movements, charge economy, Complications (single or multi-target variant), casts/XP; `build_granted_dial`/`grant_contact_dial` for contact grants |
@@ -151,7 +152,7 @@ overlays.
 |---|---|
 | alarm_presentation.gd | Detects raid alarms; Phone pulse + vibration |
 | app_tile.gd | Normalised icon+label+numeric-count-badge+lock tile for phone launchers |
-| bag_drawer.gd | Global bottom-sheet bag drawer; read-only stock/consumable listing (also during combat; no use buttons, no loadout change); out-of-combat heal buttons in management mode |
+| bag_drawer.gd | Global bottom-sheet bag drawer; read-only stock/consumable listing (also during combat; no use buttons, no loadout change); out-of-combat heal + timed-effect Use buttons in management mode |
 | combat_command_dock.gd | Combat's lower command region: near-white surface Panel: Dial beside 1px-ruled command rows (Complication, Attack, two item rows, Leg it), anchored to screen bottom; live rows gated by `Combat` block reasons. `configure_rows()`: generic caller-built rows ("?" on disabled ones) + footer, optional Dial; `surface_height_for_rows()` fits taller stacks |
 | combat_director.gd | Combat beat-queue playback director; holds a data-driven pause (combat_visuals pacing.turnPause) between combatants' turns; emits `playing_changed` so screens lock commands during playback; owns the pacing toggle (toggle_pacing, pacing_label) |
 | combat_stage.gd | Combat pixel stage: backdrop (location->context->palette); slots in two receding diagonal groups, depth-sorted; up to 3 reserve sprites per side + `+N`, sliding in; keypose one-shots, effects, juice layer. Slot taps emit `subject_tapped`; selected slot gets an arrow; per-slot guard marker/shield/freeze. No GameState reads; target-less effects take a caller fallback |
@@ -186,7 +187,7 @@ overlays.
 | symbol_glyph.gd | Label-or-vector fallback for a symbol; draws an optional `icon` texture instead when set |
 | item_icons.gd | `ItemIcons`: recipe key -> pixel-art icon texture (from recipes.json `icon`) and symbol-row part dict; shared by Bag, Dial, trade, events, combat |
 | time_transition.gd | Transient time queue, input guard, dimmed circular park/sky/sun/moon presentation |
-| top_bar.gd | Top departure board: casing + status lines + NotificationTicker; feeds new notifications (combat hold, combat lines dropped when fight ends, raid-alarm line, reset on load/Rewind); tap opens Notifications app (short-pay menu if latest line is the pending guard shortfall) except in combat (live or prototype) |
+| top_bar.gd | Top departure board: casing + status lines + NotificationTicker + active-effect icon chips (tap → `active_effects` sheet); feeds new notifications (combat hold, combat lines dropped when fight ends, raid-alarm line, reset on load/Rewind); tap opens Notifications app (short-pay menu if latest line is the pending guard shortfall) except in combat (live or prototype) |
 | touch_input.gd | `TouchInput.is_emulated_mouse(event)`: true for the mouse twin Godot emits for every touch; touch+mouse handlers skip it so one tap acts once |
 | touch_scroll_container.gd | ScrollContainer, touch drag-scroll; opt-in `momentum` fling on release (`UI.screen_body(root, true)`) |
 | tap_button.gd | Button behind UI.button/symbol_button/icon_button and card taps; shows pressed style while held, fires pressed only on a still release (TAP_SLOP), lets drags bubble to the scroller |
@@ -233,6 +234,7 @@ overlays.
 | lab_bench_probe_result_modal.gd | Probe outcome card |
 | lab_bench_confirm_modal.gd | Gear-tap confirm: probe, craft ×N (batch slider, max = affordable) or inert warning, by cell state |
 | contract_cancel_modal.gd | Navy BizBrief contract cancel confirm (Keep / Confirm → `Contracts.cancel`) |
+| active_effects_modal.gd | Sheet listing each running timed effect with level and blocks left (from the top bar chips) |
 | player_moves_modal.gd | "Move against" sheet for one faction: vein picker plus the three `PlayerMoves` rows with cost and block reason |
 | gift_modal.gd | Gift sheet for one faction: key members with relation, likes and cooldown; pick a member, give a cash option or one held consumable via `Diplomacy`; a landed gift opens the member's thread |
 | negotiation_modal.gd | Peace talks sheet: the faction's standing terms + Accept, the player's draft (truce days, cash/weekly each way, vein toggles), Propose / Walk away (not when binding); all via FactionAI |

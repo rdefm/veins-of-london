@@ -319,7 +319,7 @@ func _build_chooser(vein: Dictionary) -> Control:
 
 func _build_chooser_row(label_text: String, vein: Dictionary, depth: int, option_id: String) -> Control:
 	var opt := _find_option(StationBubble.station_options(_stop), option_id)
-	var projected_yield: String = Cultivating.prune_yield_range_text(vein, depth)
+	var projected_yield: String = Cultivating.player_prune_yield_text(vein, depth)
 	var resulting: int = Cultivating.prune_resulting_growth(vein, depth)
 	var text := "%s · %s ore · %d→%d" % [label_text, projected_yield, vein["growth"], resulting]
 	return MapCardStyle.action_button(text, func(): _select_action(option_id), opt["disabled"], opt["reason"])

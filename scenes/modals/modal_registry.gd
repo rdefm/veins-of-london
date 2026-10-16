@@ -38,4 +38,5 @@ static var REGISTRY: Dictionary = {
 	"negotiation": NegotiationModal,
 	"gift": GiftModal,
 	"player_moves": PlayerMovesModal,
+	"active_effects": ActiveEffectsModal,
 }

@@ -23,6 +23,7 @@ static func advance_time_block() -> void:
 		world["timeBlocksDone"] = []
 		world["currentDistrict"] = "shoreditch"
 		daily_tick()
+	ActiveEffects.expire()
 	EventBus.time_advanced.emit(source, { "day": world["day"], "phase": world["timeBlock"] })
 	EventBus.state_changed.emit()
 
@@ -42,6 +43,7 @@ static func advance_to_block(block_name: String) -> bool:
 		run_staff_block()
 		world["timeBlocksDone"].append(world["timeBlock"])
 		world["timeBlock"] += 1
+	ActiveEffects.expire()
 	EventBus.state_changed.emit()
 	return true
 
@@ -77,6 +79,7 @@ static func do_rest() -> void:
 	world["timeBlocksDone"] = []
 	world["currentDistrict"] = "shoreditch"
 	daily_tick()
+	ActiveEffects.expire()
 
 	var player: Dictionary = GameState.state["player"]
 	var heal: int = GameState.round_epsilon(player["hpMax"] * REST_HEAL_FRACTION)

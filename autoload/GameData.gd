@@ -173,6 +173,8 @@ var HQ_VISUALS: Dictionary = {}
 
 var TIME_BLOCKS: Array = []
 var DAY_CLOCK: Dictionary = {}
+# Timed item effects: durationByLevel and usable items, read by systems/active_effects.gd.
+var ACTIVE_EFFECTS: Dictionary = {}
 # Calendar display constants (R§3.1 "Calendar"), read by systems/calendar.gd.
 var CALENDAR: Dictionary = {}
 # Event choice checks: default clamp, hint-word thresholds, UI strings (Events.check_odds()).
@@ -474,6 +476,7 @@ const MANIFEST: Array[Dictionary] = [
 	{"table": "constants", "file": "res://data/constants.json", "fields": [
 		{"field": "TIME_BLOCKS", "key": "timeBlocks", "type": TYPE_ARRAY},
 		{"field": "DAY_CLOCK", "key": "dayClock", "type": TYPE_DICTIONARY},
+		{"field": "ACTIVE_EFFECTS", "key": "activeEffects", "type": TYPE_DICTIONARY},
 		{"field": "CALENDAR", "key": "calendar", "type": TYPE_DICTIONARY},
 		{"field": "EVENT_CHECKS", "key": "eventChecks", "type": TYPE_DICTIONARY},
 		{"field": "EVENT_LABELS", "key": "eventLabels", "type": TYPE_DICTIONARY},

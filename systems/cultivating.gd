@@ -232,8 +232,9 @@ static func cultivate_max_gain(skill: int) -> int:
 	return skill + GameData.VEIN_GROWTH["cultivateGainMaxOffset"]
 
 
-static func cultivate_gain(skill: int, growth: int, vein_ceiling: int, attunement_bonus: float = 0.0) -> int:
-	var rolled: int = Rng.randi_range(cultivate_min_gain(skill), cultivate_max_gain(skill))
+# max_roll (the player under Be a Lady) takes the top of the range instead of rolling.
+static func cultivate_gain(skill: int, growth: int, vein_ceiling: int, attunement_bonus: float = 0.0, max_roll: bool = false) -> int:
+	var rolled: int = cultivate_max_gain(skill) if max_roll else Rng.randi_range(cultivate_min_gain(skill), cultivate_max_gain(skill))
 	var boosted: int = GameState.round_epsilon(rolled * (1.0 + attunement_bonus))
 	return mini(boosted, maxi(0, vein_ceiling - growth))
 
@@ -250,8 +251,10 @@ static func cultivate(vein_id: String) -> Dictionary:
 	if not travel["ok"]:
 		return travel
 
-	# Captured before the block advances: a day rollover can level the vein up.
+	# Captured before the block advances: a day rollover can level the vein up,
+	# and the effect covers the block the action is taken in.
 	var shown_growth: int = vein["growth"]
+	var lady := ActiveEffects.lady_active()
 	var level_before: int = vein.get("level", 1)
 	# Tainted before the block ends, so a rollover settlement sees it.
 	Contracts.note_player_tended_vein(vein_id)
@@ -265,7 +268,7 @@ static func cultivate(vein_id: String) -> Dictionary:
 	var vein_ceiling: int = ceiling(vein)
 	var growth_before: int = vein["growth"]
 	var attunement: float = Dial.attunement_bonus(vein["oreType"])
-	var gain: int = cultivate_gain(skill, vein["growth"], vein_ceiling, attunement)
+	var gain: int = cultivate_gain(skill, vein["growth"], vein_ceiling, attunement, lady)
 	vein["growth"] = clampi(vein["growth"] + gain, 0, vein_ceiling)
 	if vein["growth"] < vein_ceiling:
 		vein["rampantDays"] = 0
@@ -306,7 +309,9 @@ static func prune_yield_max(vein: Dictionary, depth: int) -> int:
 	return GameState.round_epsilon(prune_yield(vein, depth) * GameData.VEIN_GROWTH["pruneYieldRollMax"])
 
 
-static func roll_prune_yield(vein: Dictionary, depth: int) -> int:
+static func roll_prune_yield(vein: Dictionary, depth: int, max_roll: bool = false) -> int:
+	if max_roll:
+		return prune_yield_max(vein, depth)
 	return Rng.randi_range(prune_yield_min(vein, depth), prune_yield_max(vein, depth))
 
 
@@ -315,6 +320,20 @@ static func prune_yield_range_text(vein: Dictionary, depth: int) -> String:
 	var lo := prune_yield_min(vein, depth)
 	var hi := prune_yield_max(vein, depth)
 	return str(lo) if lo == hi else "%d–%d" % [lo, hi]
+
+
+# The player's own harvest preview: the range, or the max tagged while Be a Lady holds.
+static func player_prune_yield_text(vein: Dictionary, depth: int) -> String:
+	if ActiveEffects.lady_active():
+		return "%d %s" % [prune_yield_max(vein, depth), ActiveEffects.LADY_TAG]
+	return prune_yield_range_text(vein, depth)
+
+
+# The player's own cultivate preview, "+min–max" or "+max (Lady)".
+static func player_cultivate_gain_text(skill: int) -> String:
+	if ActiveEffects.lady_active():
+		return "+%d %s" % [cultivate_max_gain(skill), ActiveEffects.LADY_TAG]
+	return "+%d–%d" % [cultivate_min_gain(skill), cultivate_max_gain(skill)]
 
 
 # Shared "always offered, disabled with a reason" gate for a Prune button --
@@ -344,9 +363,10 @@ static func prune(vein_id: String, depth: int) -> Dictionary:
 
 	Contracts.note_player_tended_vein(vein_id)
 	Perks.note_player_tended(vein_id)
+	var lady := ActiveEffects.lady_active()
 	TimeSystem.advance_time_block()
 
-	var amount: int = roll_prune_yield(vein, depth)
+	var amount: int = roll_prune_yield(vein, depth, lady)
 	var growth_before: int = vein["growth"]
 	vein["growth"] = prune_resulting_growth(vein, depth)
 	vein["rampantDays"] = 0

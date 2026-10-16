@@ -5,9 +5,12 @@ extends Control
 const DRAWER_HEIGHT := 420.0
 const MANAGEMENT_DRAWER_HEIGHT := 700.0
 
-const CONSUMABLE_KEYS := ["timePearl", "enhancementPowder", "rewind", "healingSalve", "blast", "shield", "blackHole", "healingBurst", "prophetsBreath", "wormhole"]
+const CONSUMABLE_KEYS := ["timePearl", "enhancementPowder", "rewind", "healingSalve", "blast", "shield", "blackHole", "healingBurst", "prophetsBreath", "beALady", "wormhole"]
 
 const OUT_OF_COMBAT_USE_KEYS := ["healingSalve", "healingBurst"]
+
+# PROSE-REVIEW: one-line effect summary on each timed-effect Use row.
+const ACTIVE_EFFECT_BLURBS := { "beALady": "your cultivating and harvests roll their best" }
 
 var _dim: ColorRect
 var _card: PanelContainer
@@ -111,6 +114,10 @@ func _add_out_of_combat_use_buttons(player: Dictionary) -> void:
 		_content.add_child(_symbol_use_button("healingSalve", "Healing Salve (%d) — 2-day heal-over-time" % Crafting.inventory_qty("healingSalve"), _on_use_healing_salve))
 	if Crafting.inventory_qty("healingBurst") > 0:
 		_content.add_child(_symbol_use_button("healingBurst", "Healing Burst (%d) — instant heal" % Crafting.inventory_qty("healingBurst"), _on_use_healing_burst))
+	for item in ActiveEffects.usable_items():
+		var qty: int = Crafting.inventory_qty(item)
+		if qty > 0:
+			_content.add_child(_symbol_use_button(item, "Use %s (%d) — %s" % [GameData.RECIPES[item]["name"], qty, ACTIVE_EFFECT_BLURBS.get(item, "")], func(): _on_use_active_effect(item)))
 
 
 func _symbol_use_button(recipe_key: String, rest_text: String, callback: Callable, disabled: bool = false) -> Button:
@@ -131,6 +138,11 @@ func _build_dial_summary_label(player: Dictionary) -> Control:
 		return UI.label("Dial: Lv%d — no Movement seated (inert)" % dial["level"])
 	var m: Dictionary = GameData.DIAL_MOVEMENTS[movement["archetype"]]
 	return UI.symbol_row(["Dial: Lv%d — " % dial["level"], { "symbol": m["symbol"], "fallback": SymbolGlyph.generic_fallback() }, " %s, charge %d/%d" % [m["name"], int(dial["currentCharge"]), dial["maxCharge"]]])
+
+
+func _on_use_active_effect(item: String) -> void:
+	Bag.close()
+	ActiveEffects.use(item)
 
 
 func _on_use_healing_burst() -> void:
