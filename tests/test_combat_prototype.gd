@@ -856,3 +856,13 @@ func run() -> void:
 				crits += 1
 		assert_true(crits > 70 and crits < 130, "about 1 in 3 (got %d/300)" % crits)
 	)
+
+	run_case("validator_flags_an_unknown_sprite_template", func():
+		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+		assert_true(GameData.validate_tables(corrupted).is_empty(), "shipped data is clean")
+		corrupted["combat_prototype"]["archetypes"]["bruiser"]["template"] = "nobody"
+		corrupted["combat_prototype"]["allyTemplates"][1] = "nobodyElse"
+		var errors := GameData.validate_tables(corrupted)
+		assert_true(errors.has("combat_prototype.archetypes.bruiser.template: unknown template 'nobody'"), str(errors))
+		assert_true(errors.has("combat_prototype.allyTemplates: unknown template 'nobodyElse'"), str(errors))
+	)

@@ -7,6 +7,7 @@
   "allyHealBelow": 0.4,
   "allyCrowdEnemies": 2,
   "playerBase": { "name": "you", "hpBase": 40, "attackMin": 7, "attackMax": 15 },
+  "allyTemplates": ["archie", "james"],
   "allyBase": { "name": "your mate", "hpBase": 40, "attackMin": 7, "attackMax": 15 },
   "moves": {
     "guard": {
@@ -46,7 +47,7 @@
   },
   "archetypes": {
     "mugger": {
-      "name": "the mugger", "hpBase": 30, "attackMin": 5, "attackMax": 10,
+      "name": "the mugger", "template": "mugger", "hpBase": 30, "attackMin": 5, "attackMax": 10,
       "patterns": [
         { "weight": 3, "moves": ["strike", "guard"] },
         { "weight": 2, "moves": ["guard", "strike"] },
@@ -55,7 +56,7 @@
       ]
     },
     "bruiser": {
-      "name": "the bruiser", "hpBase": 38, "attackMin": 7, "attackMax": 13,
+      "name": "the bruiser", "template": "homeRaidRaider", "hpBase": 38, "attackMin": 7, "attackMax": 13,
       "patterns": [
         { "weight": 4, "moves": ["strike", "strike", "strike"] },
         { "weight": 3, "moves": ["strike", "strike", "guard"] },
@@ -64,7 +65,7 @@
       ]
     },
     "turtle": {
-      "name": "the turtle", "hpBase": 36, "attackMin": 4, "attackMax": 8,
+      "name": "the turtle", "template": "veinGuard", "hpBase": 36, "attackMin": 4, "attackMax": 8,
       "patterns": [
         { "weight": 5, "moves": ["guard", "guard", "guard"] },
         { "weight": 3, "moves": ["guard", "strike", "guard"] },
@@ -72,7 +73,7 @@
       ]
     },
     "muggerV2": {
-      "name": "the hard mugger", "hpBase": 65, "attackMin": 13, "attackMax": 21,
+      "name": "the hard mugger", "template": "mugger", "hpBase": 65, "attackMin": 13, "attackMax": 21,
       "patterns": [
         { "weight": 3, "moves": ["strike", "guard"] },
         { "weight": 2, "moves": ["guard", "strike"] },
@@ -81,7 +82,7 @@
       ]
     },
     "bruiserV2": {
-      "name": "the hard bruiser", "hpBase": 44, "attackMin": 9, "attackMax": 15,
+      "name": "the hard bruiser", "template": "homeRaidRaider", "hpBase": 44, "attackMin": 9, "attackMax": 15,
       "patterns": [
         { "weight": 4, "moves": ["strike", "strike", "strike"] },
         { "weight": 3, "moves": ["strike", "strike", "guard"] },
@@ -90,7 +91,7 @@
       ]
     },
     "turtleV2": {
-      "name": "the hard turtle", "hpBase": 75, "attackMin": 13, "attackMax": 20,
+      "name": "the hard turtle", "template": "veinGuard", "hpBase": 75, "attackMin": 13, "attackMax": 20,
       "patterns": [
         { "weight": 5, "moves": ["guard", "guard", "guard"] },
         { "weight": 3, "moves": ["guard", "strike", "guard"] },

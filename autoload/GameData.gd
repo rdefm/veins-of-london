@@ -674,7 +674,7 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_sites(t, errors)
 	_validate_barometer(t.get("barometer_states", {}), t.get("barometer_actions", []), t.get("faction_prefs", {}), t.get("factions", {}), t.get("recipes", {}), errors)
 	_validate_enemies(t, errors)
-	_validate_combat_prototype(t.get("combat_prototype", {}), t.get("combat_speed_by_level", []), t.get("recipes", {}), errors)
+	_validate_combat_prototype(t.get("combat_prototype", {}), t.get("combat_speed_by_level", []), t.get("recipes", {}), t.get("combat_visuals", {}).get("templates", {}), errors)
 	_validate_bench_prototype(t.get("bench_prototype", {}), t.get("approaches", {}), errors)
 	_validate_combat_visuals(t.get("combat_visuals", {}), t.get("palette", {}), errors)
 	_validate_hq_visuals(t.get("hq_visuals", {}), t.get("palette", {}), errors)
@@ -1325,9 +1325,16 @@ func _validate_enemies(t: Dictionary, errors: Array[String]) -> void:
 
 # Moves name a known guard effect, target type and effect; curves cover
 # levels 0..levelMax; every archetype pattern names real moves; every item
-# is a recipe with an effectPower curve and a known target type and effect.
-func _validate_combat_prototype(cp: Dictionary, skill_curve: Array, recipes: Dictionary, errors: Array[String]) -> void:
-	_require_keys(cp, ["chipMultiplier", "actionsPerRound", "critChance", "levelMax", "allyHealBelow", "allyCrowdEnemies", "playerBase", "allyBase", "moves", "items", "archetypes", "beatLines"], "combat_prototype", errors)
+# is a recipe with an effectPower curve and a known target type and effect;
+# every archetype and ally slot names a combat_visuals sprite template.
+func _validate_combat_prototype(cp: Dictionary, skill_curve: Array, recipes: Dictionary, templates: Dictionary, errors: Array[String]) -> void:
+	_require_keys(cp, ["chipMultiplier", "actionsPerRound", "critChance", "levelMax", "allyHealBelow", "allyCrowdEnemies", "playerBase", "allyBase", "allyTemplates", "moves", "items", "archetypes", "beatLines"], "combat_prototype", errors)
+	var ally_templates: Array = cp.get("allyTemplates", [])
+	if ally_templates.size() < CombatPrototype.MAX_ALLIES:
+		errors.append("combat_prototype.allyTemplates: needs one template per ally (%d)" % CombatPrototype.MAX_ALLIES)
+	for template in ally_templates:
+		if not templates.has(template):
+			errors.append("combat_prototype.allyTemplates: unknown template '%s'" % template)
 	var heal_below := float(cp.get("allyHealBelow", 0.0))
 	if heal_below <= 0.0 or heal_below > 1.0:
 		errors.append("combat_prototype.allyHealBelow: must be in (0, 1]")
@@ -1401,6 +1408,8 @@ func _validate_combat_prototype(cp: Dictionary, skill_curve: Array, recipes: Dic
 		var archetype: Dictionary = archetypes[archetype_id]
 		var path := "combat_prototype.archetypes.%s" % archetype_id
 		_validate_combat_prototype_stats(archetype, path, errors)
+		if not templates.has(archetype.get("template", "")):
+			errors.append("%s.template: unknown template '%s'" % [path, archetype.get("template", "")])
 		var patterns: Array = archetype.get("patterns", [])
 		if patterns.is_empty():
 			errors.append("%s.patterns: must not be empty" % path)

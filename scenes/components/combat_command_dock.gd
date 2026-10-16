@@ -68,6 +68,9 @@ func _init() -> void:
 	_row.offset_bottom = -COMMAND_DOCK_BOTTOM_MARGIN
 	_row.offset_top = -(COMMAND_DOCK_BOTTOM_MARGIN + COMMAND_DOCK_HEIGHT)
 	_row.add_theme_constant_override("separation", 8)
+	# Rows taller than the Dial grow up from the bottom edge, never off it;
+	# a caller with more rows makes the surface taller (offset_top) to match.
+	_row.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	add_child(_row)
 
 
@@ -94,6 +97,13 @@ func configure_rows(rows: Array, footer: Dictionary = {}, dial: Variant = null, 
 	_generic_footer = footer
 	_generic_dial = dial
 	_rebuild({ "dial": dial })
+
+
+# Surface height that fits `count` generic rows (and their 1px rules) with
+# no Dial: never less than the Dial-sized default.
+static func surface_height_for_rows(count: int) -> float:
+	var rows_height: float = count * UI.COMMAND_ROW_HEIGHT + maxi(0, count - 1)
+	return maxf(COMMAND_DOCK_SURFACE_HEIGHT, rows_height + COMMAND_DOCK_BOTTOM_MARGIN + COMMAND_DOCK_SURFACE_TOP_PADDING)
 
 
 func hide_deck() -> void:
