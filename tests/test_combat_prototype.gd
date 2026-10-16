@@ -138,6 +138,18 @@ func _without_snapshots(cp: Dictionary) -> Dictionary:
 
 
 func run() -> void:
+	run_case("start_stores_the_backdrop_and_refuses_an_unknown_context", func():
+		GameState.reset()
+		var cp := CombatPrototype.start({ "seed": 1, "backdrop": { "context": Combat.CONTEXT_DEFEND_VEIN, "locationKey": "soho" } })
+		assert_eq(cp["backdrop"], { "context": Combat.CONTEXT_DEFEND_VEIN, "locationKey": "soho" })
+		cp = CombatPrototype.start({ "seed": 1, "backdrop": { "context": Combat.CONTEXT_RAID } })
+		assert_eq(cp["backdrop"], { "context": Combat.CONTEXT_RAID, "locationKey": "" }, "a raid at no vein has no location plate")
+		cp = CombatPrototype.start({ "seed": 1 })
+		assert_eq(cp["backdrop"]["context"], CombatPrototype.DEFAULT_BACKDROP_CONTEXT)
+		assert_eq(cp["backdrop"]["locationKey"], Combat.location_key_for(CombatPrototype.DEFAULT_BACKDROP_CONTEXT, null))
+		assert_eq(CombatPrototype.start({ "backdrop": { "context": Combat.CONTEXT_HOME_RAID } }), {})
+	)
+
 	run_case("start_builds_a_guarded_fight_with_two_rounds_of_enemy_plans", func():
 		GameState.reset()
 		var cp := CombatPrototype.start({ "seed": 3 })

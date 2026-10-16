@@ -73,6 +73,8 @@ const LURE_SPRUNG := "sprung"
 
 const PLAYER_INDEX := 0
 const DEFAULT_ARCHETYPE := "mugger"
+# The stage backdrop context when setup picks none.
+const DEFAULT_BACKDROP_CONTEXT := Combat.CONTEXT_MUGGING
 # Squad cap (spec user story 5: 0-2 AI allies).
 const MAX_ALLIES := 2
 
@@ -110,6 +112,9 @@ static func new_state() -> Dictionary:
 		# Every resolved beat so far, oldest first (see _beat()).
 		"log": [],
 		"snapshots": [],
+		# The stage backdrop: a Combat.DEBUG_SETUP_CONTEXTS context and a
+		# locationKey (the combat_visuals locationBackdrops plate; "" for none).
+		"backdrop": { "context": DEFAULT_BACKDROP_CONTEXT, "locationKey": "" },
 	}
 
 
@@ -216,15 +221,25 @@ static func display_name(combatant: Dictionary) -> String:
 # { level, loadout } (0..MAX_ALLIES, default none); loadout, the player's
 # sandbox items, an Array of up to LOADOUT_SLOTS { item, tier } (item a
 # prototype item's recipe id; default none), an ally's loadout likewise;
-# seed (default fresh);
+# backdrop, { context, locationKey } (context one of
+# Combat.DEBUG_SETUP_CONTEXTS, default DEFAULT_BACKDROP_CONTEXT;
+# locationKey "" or absent derives it as Combat.location_key_for() does for
+# a fight at no vein); seed (default fresh);
 # enemyPlans / allyPlans, test-only: per combatant an Array of rounds, each
 # an Array of move ids or { move, target } entries, used in place of the
 # archetype's patterns or the ally AI (round n reads entry (n-1) mod size).
 # Everyone starts Guarded. Round 1 then resolves up to the player's first
 # position (beats from anyone faster land in the log). Returns the new
-# fight state, or {} for an unknown archetype, too many allies or a bad
-# loadout.
+# fight state, or {} for an unknown archetype, too many allies, a bad
+# loadout or a backdrop context outside Combat.DEBUG_SETUP_CONTEXTS.
 static func start(config: Dictionary = {}) -> Dictionary:
+	var backdrop: Dictionary = config.get("backdrop", {})
+	var backdrop_context: String = backdrop.get("context", DEFAULT_BACKDROP_CONTEXT)
+	if not Combat.DEBUG_SETUP_CONTEXTS.has(backdrop_context):
+		return {}
+	var location_key: String = backdrop.get("locationKey", "")
+	if location_key.is_empty():
+		location_key = Combat.location_key_for(backdrop_context, null)
 	var archetypes: Dictionary = _data()["archetypes"]
 	var enemy_specs: Array = config.get("enemies", [{ "archetype": DEFAULT_ARCHETYPE, "level": 1 }])
 	for spec in enemy_specs:
@@ -249,6 +264,7 @@ static func start(config: Dictionary = {}) -> Dictionary:
 	var cp := new_state()
 	cp["active"] = true
 	cp["round"] = 1
+	cp["backdrop"] = { "context": backdrop_context, "locationKey": location_key }
 	var combatants: Array = cp["combatants"]
 	var player := _build_combatant(SIDE_PLAYER, _data()["playerBase"], int(config.get("playerLevel", 1)))
 	player["loadout"] = loadout

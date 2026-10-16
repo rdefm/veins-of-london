@@ -43,6 +43,24 @@ func _render_squad_fight() -> CombatPrototypeScreen:
 	return _render()
 
 
+# The live setup control called `control_name` (a rebuilt card lingers,
+# queued for deletion, until the frame ends).
+func _setup_control(screen: CombatPrototypeScreen, control_name: String) -> Control:
+	var found: Control = null
+	for node in screen._content.find_children(control_name, "Control", true, false):
+		if not _queued(node, screen._content):
+			found = node
+	return found
+
+
+func _press_start(screen: CombatPrototypeScreen) -> void:
+	for node in screen._content.find_children("*", "Button", true, false):
+		if node.text == "Start" and not _queued(node, screen._content):
+			node.pressed.emit()
+			return
+	assert_true(false, "no Start button")
+
+
 func _live_children(node: Node) -> Array:
 	return node.get_children().filter(func(c): return not c.is_queued_for_deletion())
 
@@ -73,6 +91,42 @@ func run() -> void:
 		assert_eq(_row(screen, "ItemRow_0").get_child(0).get_child(1).text, "Shield — tier 1")
 		assert_true(_row(screen, "ItemRow_1") != null)
 		assert_true(_row(screen, "ItemRow_2") == null)
+	)
+
+	run_case("the_backdrop_picks_survive_rebuilds_and_reach_the_stage", func():
+		GameState.reset()
+		var screen := _render()
+		var context_select: OptionButton = _setup_control(screen, "BackdropContext")
+		var location_select: OptionButton = _setup_control(screen, "BackdropLocation")
+		var contexts: Array = Array(Combat.DEBUG_SETUP_CONTEXTS)
+		var locations: Array = CombatSetupModal.location_options()
+		context_select.selected = contexts.find(Combat.CONTEXT_RAID)
+		context_select.item_selected.emit(context_select.selected)
+		location_select.selected = locations.find(Combat.HOME_LOCATION_KEY)
+		location_select.item_selected.emit(location_select.selected)
+		screen._refresh()
+		assert_eq(_setup_control(screen, "BackdropContext").selected, contexts.find(Combat.CONTEXT_RAID), "context pick survives a rebuild")
+		assert_eq(_setup_control(screen, "BackdropLocation").selected, locations.find(Combat.HOME_LOCATION_KEY), "location pick survives a rebuild")
+		_press_start(screen)
+		var cp: Dictionary = GameState.state["combatPrototype"]
+		assert_true(cp["active"])
+		assert_true(not GameState.state["combat"]["active"], "live combat is untouched")
+		var combat: Dictionary = CombatPrototypeScreen.stage_roster(cp, -1)["combat"]
+		assert_eq(combat["context"], Combat.CONTEXT_RAID)
+		assert_eq(combat["locationKey"], Combat.HOME_LOCATION_KEY)
+		var image: String = GameData.COMBAT_VISUALS["locationBackdrops"][Combat.HOME_LOCATION_KEY]["image"] if GameData.COMBAT_VISUALS["locationBackdrops"].has(Combat.HOME_LOCATION_KEY) else ""
+		if ResourceLoader.exists(image):
+			assert_eq(screen._stage._backdrop_texture.texture.resource_path, image, "the stage shows the picked location plate")
+	)
+
+	run_case("the_default_backdrop_is_valid", func():
+		GameState.reset()
+		var screen := _render()
+		_press_start(screen)
+		var combat: Dictionary = CombatPrototypeScreen.stage_roster(GameState.state["combatPrototype"], -1)["combat"]
+		assert_eq(combat["context"], CombatPrototype.DEFAULT_BACKDROP_CONTEXT)
+		assert_true(GameData.COMBAT_VISUALS["backdrops"].has(combat["context"]))
+		assert_true(screen._stage._backdrop_texture.visible or screen._stage._backdrop_fill.visible, "a backdrop renders")
 	)
 
 	run_case("stage_roster_maps_archetypes_and_allies_to_templates", func():

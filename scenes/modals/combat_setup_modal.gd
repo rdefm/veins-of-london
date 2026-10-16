@@ -33,12 +33,8 @@ static func build(container: VBoxContainer, _data: Dictionary) -> void:
 	var context_select := UI.option_button(context_options)
 	container.add_child(context_select)
 
-	# "Auto" derives locationKey the normal way (R§2); anything else overrides
-	# it so each backdrop tier can be previewed.
-	var location_options: Array = [LOCATION_AUTO, Combat.HOME_LOCATION_KEY]
-	location_options.append_array(GameData.DISTRICTS.keys())
 	container.add_child(UI.label("Location (backdrop)"))
-	var location_select := UI.option_button(location_options)
+	var location_select := UI.option_button(location_options())
 	container.add_child(location_select)
 
 	container.add_child(UI.label("Allies"))
@@ -69,6 +65,14 @@ static func build(container: VBoxContainer, _data: Dictionary) -> void:
 		})
 	)
 	container.add_child(MapCardStyle.footer([MapCardStyle.text_button("Cancel", func(): Modal.close()), fight]))
+
+
+# "Auto" derives locationKey the normal way (R§2); anything else overrides
+# it so each backdrop tier can be previewed.
+static func location_options() -> Array:
+	var options: Array = [LOCATION_AUTO, Combat.HOME_LOCATION_KEY]
+	options.append_array(GameData.DISTRICTS.keys())
+	return options
 
 
 static func _ally_row(contact_id: String, selected_allies: Array) -> Control:

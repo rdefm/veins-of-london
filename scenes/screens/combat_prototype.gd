@@ -4,11 +4,11 @@ extends Control
 # Debug-app-only sandbox screen for systems/combat_prototype.gd. Setup card
 # (player, enemy and ally Combat Skill levels, 1-3 enemies by archetype, 0-2
 # allies, a 2-slot sandbox item loadout by recipe and tier for the player
-# and each ally), then the fight in the live combat layout: a CombatStage
-# with each combatant's sprite (tap one to target it), a CombatCommandDock
-# in generic-rows mode (each move, then each loadout item; a row is
-# disabled with the system's block reason, which its "?" opens in the
-# combat_block_reason modal), a TurnOrderStrip over the stage showing the
+# and each ally, a backdrop context and location), then the fight in the
+# live combat layout: a CombatStage with each combatant's sprite (tap one
+# to target it), a CombatCommandDock in generic-rows mode (each move, then
+# each loadout item; a row is disabled with the system's block reason,
+# which its "?" opens in the combat_block_reason modal), a TurnOrderStrip over the stage showing the
 # round's timeline (strip_entries()), and a CombatDirector playing each
 # pick's beats (beat_cues()) on the stage and strip with the dock locked,
 # each beat's line to the top-bar ticker, a guard marker on every sprite,
@@ -24,8 +24,6 @@ const MAX_ENEMIES := 3
 const _HEADING_ROW_HEIGHT := 40.0
 const _STRIP_TOP_INSET := 6.0
 const _STRIP_SIDE_INSET := 9.0
-# The stage's context backdrop for every prototype fight.
-const _STAGE_CONTEXT := Combat.CONTEXT_MUGGING
 # Beat kinds that play nothing past the guard overlay their marks set.
 const _OVERLAY_KINDS: Array[String] = ["guard", "lure", "exposed", "lost", "frozen"]
 const _CAST_KINDS: Array[String] = ["powder", "sight", "lady"]
@@ -48,6 +46,9 @@ var _ally_level: int = 1
 var _loadout: Array = _empty_loadout()
 # One such loadout per possible ally, by ally order.
 var _ally_loadouts: Array = range(CombatPrototype.MAX_ALLIES).map(func(_i): return _empty_loadout())
+# The backdrop's fight context, and its location ("" for CombatSetupModal's Auto).
+var _backdrop_context: String = CombatPrototype.DEFAULT_BACKDROP_CONTEXT
+var _backdrop_location: String = ""
 # View state only: why the last palette pick was refused, until the next pick.
 var _refusal: String = ""
 # View state only: the combatant index the rows aim at where it's a valid
@@ -437,8 +438,8 @@ static func rewind_beats(undone: Array, restored_marks: Array) -> Array:
 
 
 # The prototype fight in the shapes CombatStage.sync() reads: "combat" (a
-# fixed context, enemies and allies each with a sprite template, no queues,
-# the selection from `target`) and "player" (the save's player model, the
+# fight's backdrop context and locationKey, enemies and allies each with a
+# sprite template, no queues, the selection from `target`) and "player" (the save's player model, the
 # Shield pool), plus "enemyIndex"/"allyIndex": each stage index's combatant
 # index. KO'd combatants stay listed (the stage skips them) so indices hold.
 static func stage_roster(cp: Dictionary, target: int) -> Dictionary:
@@ -458,7 +459,7 @@ static func stage_roster(cp: Dictionary, target: int) -> Dictionary:
 			allies.append({ "name": CombatPrototype.display_name(c), "koed": c["koed"], "contactId": data["allyTemplates"][allies.size()] })
 	var roster := { "enemyIndex": enemy_index, "allyIndex": ally_index }
 	roster["combat"] = {
-		"context": _STAGE_CONTEXT, "locationKey": "",
+		"context": cp["backdrop"]["context"], "locationKey": cp["backdrop"]["locationKey"],
 		"enemies": enemies, "allies": allies, "enemyQueue": [], "allyQueue": [],
 		"selection": _stage_target(roster, target), "frozenTurns": 0,
 	}
@@ -613,6 +614,22 @@ func _build_setup_card() -> Control:
 		for slot in range(_ally_loadouts[i].size()):
 			c["content"].add_child(_build_loadout_slot(_ally_loadouts[i], slot))
 
+	c["content"].add_child(UI.muted_label("Backdrop"))
+	var contexts: Array = Array(Combat.DEBUG_SETUP_CONTEXTS)
+	var context_select := UI.option_button(contexts)
+	context_select.name = "BackdropContext"
+	context_select.selected = maxi(0, contexts.find(_backdrop_context))
+	context_select.item_selected.connect(func(index: int): _backdrop_context = contexts[index])
+	c["content"].add_child(context_select)
+	var locations: Array = CombatSetupModal.location_options()
+	var location_select := UI.option_button(locations)
+	location_select.name = "BackdropLocation"
+	location_select.selected = maxi(0, locations.find(_backdrop_location))
+	location_select.item_selected.connect(func(index: int):
+		_backdrop_location = "" if index == 0 else str(locations[index])
+	)
+	c["content"].add_child(location_select)
+
 	c["content"].add_child(MapCardStyle.text_button("Start", func():
 		var allies: Array = []
 		for i in range(_ally_count):
@@ -622,6 +639,7 @@ func _build_setup_card() -> Control:
 			"enemies": _enemy_archetypes.map(func(id): return { "archetype": id, "level": _enemy_level }),
 			"allies": allies,
 			"loadout": _picked_slots(_loadout),
+			"backdrop": { "context": _backdrop_context, "locationKey": _backdrop_location },
 		})
 	))
 	return c["panel"]
