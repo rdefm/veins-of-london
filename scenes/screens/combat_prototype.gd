@@ -263,11 +263,12 @@ func _sync_fight(cp: Dictionary) -> void:
 
 
 # The strip's cards: one per timeline position this round, in resolution
-# order, then under sight one per enemy action next round. Each is a
-# TurnOrderStrip entry keyed by the combatant's stage { type, index }, with
-# "actor"/"index" (its timeline position), "actionText" (_position_text())
-# and "guardBadge" (_guard_badge()), "actionUnread" for an unread enemy
-# intent; the paused position is "focused".
+# order. Each is a TurnOrderStrip entry keyed by the combatant's stage
+# { type, index }, with "actor"/"index" (its timeline position),
+# "actionText" (_position_text()) and "guardBadge" (_guard_badge()),
+# "actionUnread" for an unread enemy intent, and the same three as "next*"
+# for that position next round (_next_turn()); the paused position is
+# "focused".
 # `pick` ({ move, target }) reads as already placed at the pause -- the
 # cards as a pick's playback starts.
 static func strip_entries(cp: Dictionary, pick: Dictionary = {}) -> Array:
@@ -275,45 +276,66 @@ static func strip_entries(cp: Dictionary, pick: Dictionary = {}) -> Array:
 	var pause := CombatPrototype.decision_position(cp)
 	var entries: Array = []
 	for position in CombatPrototype.timeline(cp):
-		var entry := _strip_entry(cp, roster, position, cp["round"])
+		var entry := _strip_entry(cp, roster, position)
 		entry["actionText"] = _position_text(cp, position, pick)
 		entry["actionUnread"] = _position_unread(cp, position)
 		entry["guardBadge"] = _guard_badge(cp, position)
 		entry["focused"] = pick.is_empty() and position["actor"] == CombatPrototype.PLAYER_INDEX and position["index"] == pause
-		entries.append(entry)
-	for position in CombatPrototype.next_round_timeline(cp):
-		var actor: int = position["actor"]
-		var entry := _strip_entry(cp, roster, position, cp["round"] + 1)
-		entry["actionText"] = _intent_text(cp, CombatPrototype.enemy_intents(cp, actor, true)[position["index"]])
-		entry["guardBadge"] = _guard_text(CombatPrototype.guard_preview(cp, actor, true)[position["index"] + 1])
-		entry["factionName"] = "Next round"
-		entry["focused"] = false
+		entry.merge(_next_turn(cp, position))
 		entries.append(entry)
 	return entries
 
 
-# The strip as a rolling queue: strip_entries() `entries` from this round's
-# position `rolled` on, next round's cards, then this round's first `rolled`
-# positions -- each acted card rejoins at the end.
+# A position's turn next round as its card shows it: an enemy's next move
+# and guard under Prophet's Breath sight, else unread; the player's and an
+# ally's are unpicked.
+static func _next_turn(cp: Dictionary, position: Dictionary) -> Dictionary:
+	var actor: int = position["actor"]
+	var index: int = position["index"]
+	if cp["combatants"][actor]["side"] != CombatPrototype.SIDE_ENEMY:
+		return { "nextActionText": "—", "nextActionUnread": false, "nextGuardBadge": "" }
+	if not CombatPrototype.has_sight(cp):
+		return { "nextActionText": UNREAD_TEXT, "nextActionUnread": true, "nextGuardBadge": UNREAD_TEXT }
+	var intents := CombatPrototype.enemy_intents(cp, actor, true)
+	if index >= intents.size():
+		return { "nextActionText": "—", "nextActionUnread": false, "nextGuardBadge": "" }
+	return {
+		"nextActionText": _intent_text(cp, intents[index]), "nextActionUnread": false,
+		"nextGuardBadge": _guard_text(CombatPrototype.guard_preview(cp, actor, true)[index + 1]),
+	}
+
+
+# The strip as a rolling queue, every card in the order its turn comes:
+# strip_entries() `entries` from position `rolled` on, then the first
+# `rolled` (already acted) rejoined at the end as their turns next round --
+# copies showing the "next*" fields, marked "nextRound".
 static func rolled_entries(entries: Array, rolled: int) -> Array:
-	var this_round: Array = entries.filter(func(e): return not e["nextRound"])
-	var next_round: Array = entries.filter(func(e): return e["nextRound"])
-	var k: int = clampi(rolled, 0, this_round.size())
-	return this_round.slice(k) + next_round + this_round.slice(0, k)
+	var k: int = clampi(rolled, 0, entries.size())
+	var rejoined: Array = entries.slice(0, k).map(func(e):
+		var next: Dictionary = e.duplicate()
+		next["actionText"] = e["nextActionText"]
+		next["actionUnread"] = e["nextActionUnread"]
+		next["guardBadge"] = e["nextGuardBadge"]
+		next["factionName"] = "Next round"
+		next["nextRound"] = true
+		next["focused"] = false
+		return next
+	)
+	return entries.slice(k) + rejoined
 
 
-# How many of `entries`' positions this round have resolved -- always a
-# leading run, timeline order being resolution order.
+# How many of `entries`' positions have resolved -- always a leading run,
+# timeline order being resolution order.
 static func resolved_count(cp: Dictionary, entries: Array) -> int:
-	return entries.filter(func(e): return not e["nextRound"] and CombatPrototype.is_resolved(cp, e["actor"], e["index"])).size()
+	return entries.filter(func(e): return CombatPrototype.is_resolved(cp, e["actor"], e["index"])).size()
 
 
-static func _strip_entry(cp: Dictionary, roster: Dictionary, position: Dictionary, round_no: int) -> Dictionary:
+static func _strip_entry(cp: Dictionary, roster: Dictionary, position: Dictionary) -> Dictionary:
 	var actor: int = position["actor"]
 	var c: Dictionary = cp["combatants"][actor]
 	return {
-		"key": _stage_target(roster, actor), "occurrenceId": "%d:%d:%d" % [round_no, actor, position["index"]],
-		"actor": actor, "index": position["index"], "nextRound": round_no != int(cp["round"]),
+		"key": _stage_target(roster, actor), "occurrenceId": "%d:%d:%d" % [cp["round"], actor, position["index"]],
+		"actor": actor, "index": position["index"], "nextRound": false,
 		"name": CombatPrototype.display_name(c), "level": null, "hp": c["hp"], "hpMax": c["hpMax"],
 		"factionName": "", "factionColour": TurnOrderStrip.NEUTRAL_COLOUR, "isEnemy": c["side"] == CombatPrototype.SIDE_ENEMY,
 	}
@@ -957,7 +979,7 @@ func _patch_strip_entry(entries: Array, playing: int, beat: Dictionary) -> void:
 			entry["guardBadge"] = str(beat["actorGuard"]).capitalize()
 	if beat["kind"] == "ko":
 		for i in range(playing + 1, entries.size()):
-			if entries[i]["actor"] == int(beat["target"]) and not entries[i]["nextRound"]:
+			if entries[i]["actor"] == int(beat["target"]):
 				entries[i]["actionText"] = "Down"
 
 
