@@ -7,9 +7,10 @@ extends Control
 # and each ally), then per round the combatants with their guard-state
 # preview, the shared timeline with enemy intents (type only, or target and
 # damage range plus a next-round preview under Prophet's Breath sight), ally
-# plans (an [item] tag marking an item use) and the player's draft
-# positions (moves plus unspent loadout items, and Enhancement Powder's
-# extra position), Commit, Rewind and the beat log.
+# plans (an [item] tag marking an item use) and the player's positions:
+# picks so far, and at the paused position the move palette plus unspent
+# loadout items (one button per target where there's a choice), each pick
+# resolving at once. Then Rewind (back to the last pick) and the beat log.
 
 # Setup's enemy count cap (spec §Out of Scope: no more than 3 per side).
 const MAX_ENEMIES := 3
@@ -60,10 +61,6 @@ func _build() -> void:
 		_content.add_child(_build_timeline_card(cp))
 		if _refusal != "":
 			_content.add_child(UI.muted_label(_refusal))
-		var reason := CombatPrototype.plan_block_reason(cp, cp["playerPlan"])
-		if reason != "":
-			_content.add_child(UI.muted_label(reason))
-		_content.add_child(MapCardStyle.text_button("Commit", func(): CombatPrototype.resolve_round(cp["playerPlan"]), reason != ""))
 	_content.add_child(MapCardStyle.text_button("Rewind", func(): CombatPrototype.rewind(), cp["snapshots"].is_empty()))
 	_content.add_child(_build_log_card(cp["log"]))
 
@@ -210,12 +207,13 @@ func _build_combatant_card(cp: Dictionary, index: int) -> Control:
 
 # One row per timeline position: enemy rows show the intent's move type
 # only, ally rows their planned move and its target, the player's rows the
-# move palette with the current pick disabled (a multi-action move's later
-# positions say so), then a target picker when the pick aims at an enemy.
+# pick made there (a multi-action move's later positions say so), and at the
+# paused position the palette (see _build_palette()).
 func _build_timeline_card(cp: Dictionary) -> Control:
 	var c := MapCardStyle.card()
 	c["content"].add_child(UI.heading("This round", 14))
 	var combatants: Array = cp["combatants"]
+	var pause := CombatPrototype.decision_position(cp)
 	for entry in CombatPrototype.timeline(cp):
 		var actor: int = entry["actor"]
 		var position: int = entry["index"]
@@ -224,19 +222,17 @@ func _build_timeline_card(cp: Dictionary) -> Control:
 		if actor == CombatPrototype.PLAYER_INDEX:
 			if position >= CombatPrototype.actions_per_round(combatants[actor]):
 				row.add_child(UI.muted_label("(Powder)"))
-			var picked = cp["playerPlan"][position]
-			if picked != null and int(picked.get("part", 0)) > 0:
+			var picked = cp["playerPlan"][position] if position < cp["playerPlan"].size() else null
+			if position == pause:
+				c["content"].add_child(row)
+				c["content"].add_child(_build_palette(cp))
+				continue
+			if picked == null:
+				row.add_child(UI.muted_label("—"))
+			elif int(picked.get("part", 0)) > 0:
 				row.add_child(UI.muted_label("(%s, cont.)" % CombatPrototype.move(picked["move"])["name"]))
-			for move_id in GameData.COMBAT_PROTOTYPE["moves"].keys():
-				var is_picked: bool = picked != null and picked["move"] == move_id
-				row.add_child(MapCardStyle.text_button(CombatPrototype.move(move_id)["name"], func(): _pick(position, move_id, -1), is_picked))
-			var loadout: Array = combatants[actor]["loadout"]
-			for slot in range(loadout.size()):
-				var is_picked: bool = picked != null and int(picked.get("slot", -1)) == slot
-				var label := "%s T%d" % [CombatPrototype.move(loadout[slot]["item"])["name"], loadout[slot]["tier"]]
-				row.add_child(MapCardStyle.text_button(label, func(): _pick_item(position, slot, -1), is_picked or loadout[slot]["used"]))
-			if picked != null and CombatPrototype.move(picked["move"])["target"] in [CombatPrototype.TARGET_ENEMY, CombatPrototype.TARGET_FRIEND]:
-				row.add_child(_build_target_picker(cp, position, picked))
+			else:
+				row.add_child(UI.label(_aimed(cp, CombatPrototype.move(picked["move"])["name"], picked["move"], int(picked["target"]))))
 		elif combatants[actor]["side"] == CombatPrototype.SIDE_ALLY:
 			var planned: Dictionary = combatants[actor]["plan"][position]
 			var m := CombatPrototype.move(planned["move"])
@@ -270,31 +266,52 @@ func _intent_text(cp: Dictionary, intent: Dictionary) -> String:
 	return text
 
 
-# Who the player's action at `position` can aim at (living enemies, or for a
-# heal the player and living allies).
-func _build_target_picker(cp: Dictionary, position: int, picked: Dictionary) -> Control:
-	var targets: Array = CombatPrototype.target_options(cp, CombatPrototype.PLAYER_INDEX, picked["move"])
-	var names: Array = targets.map(func(i): return "→ %s" % CombatPrototype.display_name(cp["combatants"][i]))
-	var select := UI.option_button(names)
-	select.selected = maxi(0, targets.find(int(picked["target"])))
-	select.item_selected.connect(func(index: int):
-		if picked.has("slot"):
-			_pick_item(position, int(picked["slot"]), targets[index])
-		else:
-			_pick(position, picked["move"], targets[index])
-	)
-	return select
+# The pick at the paused position: each move, then each loadout item, as
+# one button per target where it aims at a choice of living enemies (or, for
+# a heal, the player and living allies), each disabled while the system
+# would refuse it.
+func _build_palette(cp: Dictionary) -> Control:
+	var flow := HFlowContainer.new()
+	for move_id in GameData.COMBAT_PROTOTYPE["moves"].keys():
+		var move_name: String = CombatPrototype.move(move_id)["name"]
+		for target in _palette_targets(cp, move_id):
+			var blocked := CombatPrototype.move_block_reason(cp, move_id, target) != ""
+			flow.add_child(MapCardStyle.text_button(_aimed(cp, move_name, move_id, target), func(): _pick(move_id, target), blocked))
+	var loadout: Array = cp["combatants"][CombatPrototype.PLAYER_INDEX]["loadout"]
+	for slot in range(loadout.size()):
+		var item_id: String = loadout[slot]["item"]
+		var label := "%s T%d" % [CombatPrototype.move(item_id)["name"], loadout[slot]["tier"]]
+		for target in _palette_targets(cp, item_id):
+			var blocked := CombatPrototype.item_block_reason(cp, slot, target) != ""
+			flow.add_child(MapCardStyle.text_button(_aimed(cp, label, item_id, target), func(): _pick_item(slot, target), blocked))
+	return flow
 
 
-func _pick(position: int, move_id: String, target: int) -> void:
+# The targets to offer `move_id` at: each option when it aims at a choice
+# of more than one, else just the default (-1).
+func _palette_targets(cp: Dictionary, move_id: String) -> Array:
+	var targets: Array = CombatPrototype.target_options(cp, CombatPrototype.PLAYER_INDEX, move_id)
+	var aims: bool = CombatPrototype.move(move_id)["target"] in [CombatPrototype.TARGET_ENEMY, CombatPrototype.TARGET_FRIEND]
+	return targets if aims and targets.size() > 1 else [-1]
+
+
+# `label`, plus " → target" when `move_id` aims at a chosen combatant.
+func _aimed(cp: Dictionary, label: String, move_id: String, target: int) -> String:
+	var aims: bool = CombatPrototype.move(move_id)["target"] in [CombatPrototype.TARGET_ENEMY, CombatPrototype.TARGET_FRIEND]
+	if not aims or target < 0:
+		return label
+	return "%s → %s" % [label, CombatPrototype.display_name(cp["combatants"][target])]
+
+
+func _pick(move_id: String, target: int) -> void:
 	# Cleared first: a successful pick refreshes via state_changed mid-call.
 	_refusal = ""
-	_show_refusal(CombatPrototype.set_plan_action(position, move_id, target))
+	_show_refusal(CombatPrototype.choose_move(move_id, target))
 
 
-func _pick_item(position: int, slot: int, target: int) -> void:
+func _pick_item(slot: int, target: int) -> void:
 	_refusal = ""
-	_show_refusal(CombatPrototype.set_plan_item(position, slot, target))
+	_show_refusal(CombatPrototype.choose_item(slot, target))
 
 
 func _show_refusal(result: Dictionary) -> void:

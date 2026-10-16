@@ -1,9 +1,10 @@
 extends "res://tests/test_base.gd"
 
 # systems/combat_prototype.gd (.scratch/combat-revamp/spec.md), driven only
-# through start() and resolve_round() (plus rewind()). Enemy plans are
-# scripted with start()'s test-only enemyPlans override; damage figures are
-# checked against each beat's own roll/crit so crits never flake a case.
+# through start() and choose_move() / choose_item() (plus rewind()), a round
+# at a time via _round(). Enemy plans are scripted with start()'s test-only
+# enemyPlans override; damage figures are checked against each beat's own
+# roll/crit so crits never flake a case.
 
 const PLAYER := CombatPrototype.PLAYER_INDEX
 const ENEMY := 1
@@ -55,7 +56,7 @@ func _seed_where_player_crits(guarded: bool, enemy_rounds: Array, plan: Array) -
 			"enemyPlans": [enemy_rounds],
 			"seed": s,
 		})
-		var result := CombatPrototype.resolve_round(_plan(plan))
+		var result := _round(_plan(plan))
 		for b in _hits(result["beats"]):
 			if b["actor"] == PLAYER and b["crit"] and b["guarded"] == guarded:
 				return b
@@ -71,7 +72,7 @@ func _kinds(beats: Array) -> Array:
 func _seed_where_flee(succeeds: bool, enemy_rounds: Array, plan: Array, player_level: int) -> Dictionary:
 	for s in range(1, 61):
 		_start(enemy_rounds, player_level, 1, s)
-		var result := CombatPrototype.resolve_round(_plan(plan))
+		var result := _round(_plan(plan))
 		if (result["outcome"] == "fled") == succeeds:
 			return result
 	return {}
@@ -79,6 +80,26 @@ func _seed_where_flee(succeeds: bool, enemy_rounds: Array, plan: Array, player_l
 
 func _plan(moves: Array) -> Array:
 	return moves.map(func(m): return { "move": m })
+
+
+# Plays the current round's pauses with `picks` in order (each { move,
+# target? } or { slot, target? }), until the round ends or the fight does;
+# picks the round never asks for are left unused. Returns { ok, beats,
+# outcome } with every beat of that round (any resolved before its first
+# pause included), or the first refusal.
+func _round(picks: Array) -> Dictionary:
+	var cp: Dictionary = GameState.state["combatPrototype"]
+	var round_no: int = cp["round"]
+	var queue: Array = picks.duplicate()
+	while cp["outcome"] == null and cp["round"] == round_no:
+		if queue.is_empty():
+			return { "ok": false, "reason": "Ran out of picks." }
+		var pick: Dictionary = queue.pop_front()
+		var result := CombatPrototype.choose_item(pick["slot"], pick.get("target", -1)) if pick.has("slot") else CombatPrototype.choose_move(pick["move"], pick.get("target", -1))
+		if not result["ok"]:
+			return result
+	var beats: Array = cp["log"].filter(func(b): return b["round"] == round_no)
+	return { "ok": true, "beats": beats, "outcome": cp["outcome"] }
 
 
 func _hits(beats: Array) -> Array:
@@ -128,7 +149,8 @@ func run() -> void:
 		var enemy: Dictionary = cp["combatants"][ENEMY]
 		assert_eq(enemy["plan"].size(), 2, "a level-1 mugger plans 2 actions")
 		assert_eq(enemy["nextPlan"].size(), 2, "next round's plan is pre-rolled")
-		assert_eq(cp["playerPlan"], [null, null], "the player's draft starts empty")
+		assert_eq(cp["playerPlan"], [null, null], "no picks yet")
+		assert_eq(CombatPrototype.decision_position(cp), 0, "paused on the player's first action")
 	)
 
 	run_case("unknown_archetype_refuses_to_start", func():
@@ -140,7 +162,7 @@ func run() -> void:
 
 	run_case("guard_then_strike_vs_strike_then_guard_player_takes_chip_enemy_takes_full", func():
 		var cp := _start([["strike", "guard"]])
-		var result := CombatPrototype.resolve_round(_plan(["guard", "strike"]))
+		var result := _round(_plan(["guard", "strike"]))
 		assert_true(result["ok"], str(result))
 		var beats: Array = result["beats"]
 		assert_eq(beats.map(func(b): return [b["actor"], b["kind"]]), [[PLAYER, "guard"], [ENEMY, "chip"], [PLAYER, "hit"], [ENEMY, "guard"]], "equal speed: player first at each action index")
@@ -162,7 +184,7 @@ func run() -> void:
 
 	run_case("strike_into_a_guarded_target_deals_chip", func():
 		var cp := _start([["guard", "guard"]])
-		var result := CombatPrototype.resolve_round(_plan(["strike", "guard"]))
+		var result := _round(_plan(["strike", "guard"]))
 		var hit: Dictionary = _hits(result["beats"])[0]
 		assert_eq(hit["kind"], "chip")
 		assert_true(hit["guarded"])
@@ -174,9 +196,9 @@ func run() -> void:
 	run_case("ending_a_round_on_strike_takes_a_full_hit_from_a_faster_enemy_next_round", func():
 		var cp := _start([["guard", "guard"], ["strike", "guard"]], 1, 2)
 		assert_true(cp["combatants"][ENEMY]["speed"] > cp["combatants"][PLAYER]["speed"], "a level-2 mugger outpaces a level-1 player")
-		CombatPrototype.resolve_round(_plan(["guard", "strike"]))
+		_round(_plan(["guard", "strike"]))
 		assert_eq(cp["combatants"][PLAYER]["guard"], CombatPrototype.OPEN, "guard state carries into the next round")
-		var result := CombatPrototype.resolve_round(_plan(["guard", "guard"]))
+		var result := _round(_plan(["guard", "guard"]))
 		var first: Dictionary = result["beats"][0]
 		assert_eq(first["actor"], ENEMY, "the faster enemy acts first at action 1")
 		assert_eq(first["kind"], "hit")
@@ -187,7 +209,7 @@ func run() -> void:
 	run_case("an_enemy_kod_mid_round_loses_its_remaining_actions_and_the_fight_ends", func():
 		var cp := _start([["strike", "strike"]])
 		cp["combatants"][ENEMY]["hp"] = 1
-		var result := CombatPrototype.resolve_round(_plan(["strike", "guard"]))
+		var result := _round(_plan(["strike", "guard"]))
 		assert_eq(result["outcome"], "win")
 		assert_eq(cp["outcome"], "win")
 		assert_eq(result["beats"].map(func(b): return [b["actor"], b["kind"]]), [[PLAYER, "chip"], [PLAYER, "ko"]], "nothing resolves after the KO ends the fight")
@@ -197,39 +219,44 @@ func run() -> void:
 
 	run_case("a_player_kod_mid_round_loses_the_fight_and_their_remaining_actions", func():
 		var cp := _start([["strike", "strike"]], 1, 2)
+		assert_eq(_kinds(cp["log"]), [[ENEMY, "chip"]], "the faster mugger swung before the first pause")
 		cp["combatants"][PLAYER]["hp"] = 1
-		var result := CombatPrototype.resolve_round(_plan(["strike", "strike"]))
+		var result := _round(_plan(["strike", "strike"]))
 		assert_eq(result["outcome"], "loss")
 		var player_actions: Array = result["beats"].filter(func(b): return b["actor"] == PLAYER)
-		assert_true(player_actions.is_empty(), "the faster mugger dropped the player before either Strike")
-		assert_eq(cp["combatants"][ENEMY]["hp"], cp["combatants"][ENEMY]["hpMax"])
+		assert_eq(player_actions.map(func(b): return b["kind"]), ["hit"], "the second Strike never came")
+		assert_eq(CombatPrototype.decision_position(cp), -1)
 	)
 
 	run_case("plans_roll_forward_each_round", func():
 		GameState.reset()
 		var cp := CombatPrototype.start({ "seed": 5 })
 		var queued: Array = cp["combatants"][ENEMY]["nextPlan"].duplicate(true)
-		CombatPrototype.resolve_round(_plan(["guard", "guard"]))
+		_round(_plan(["guard", "guard"]))
 		assert_eq(cp["combatants"][ENEMY]["plan"], queued, "round 2 plays the plan pre-rolled at start")
 		assert_eq(cp["combatants"][ENEMY]["nextPlan"].size(), 2, "round 3's plan is rolled")
-		assert_eq(cp["playerPlan"], [null, null], "the player's draft clears for the new round")
+		assert_eq(cp["playerPlan"], [null, null], "the player's picks clear for the new round")
 	)
 
-	run_case("an_incomplete_plan_is_refused_and_nothing_resolves", func():
+	run_case("a_refused_pick_resolves_nothing", func():
 		var cp := _start([["strike", "strike"]])
-		var result := CombatPrototype.resolve_round(_plan(["guard"]))
-		assert_true(not result["ok"])
-		assert_eq(result["reason"], "Fill every action.")
-		assert_eq(cp["round"], 1)
-		assert_true(cp["snapshots"].is_empty())
-		var bad := CombatPrototype.resolve_round(_plan(["guard", "headbutt"]))
+		var before := _without_snapshots(cp)
+		var bad := CombatPrototype.choose_move("headbutt")
+		assert_true(not bad["ok"])
 		assert_eq(bad["reason"], "Unknown move.")
+		assert_eq(_without_snapshots(cp), before)
+		assert_true(cp["snapshots"].is_empty())
+		assert_eq(CombatPrototype.move_block_reason(cp, "headbutt"), "Unknown move.", "the screen reads the same reason")
+		assert_eq(CombatPrototype.move_block_reason(cp, "guard"), "")
+		CombatPrototype.close_fight()
+		assert_eq(CombatPrototype.choose_move("guard")["reason"], "No fight on.")
+		assert_eq(CombatPrototype.item_block_reason(GameState.state["combatPrototype"], 0), "No fight on.")
 	)
 
 	run_case("a_level_3_player_gets_a_third_action_after_everyones_second", func():
 		var cp := _start([["guard", "guard"]], 3, 1)
 		assert_eq(cp["playerPlan"].size(), 3)
-		var result := CombatPrototype.resolve_round(_plan(["guard", "guard", "strike"]))
+		var result := _round(_plan(["guard", "guard", "strike"]))
 		assert_true(result["ok"], str(result))
 		var last: Dictionary = result["beats"][-1]
 		assert_eq(last["actor"], PLAYER)
@@ -238,7 +265,7 @@ func run() -> void:
 
 	run_case("a_level_3_player_against_a_group_acts_third_after_every_second_action", func():
 		var cp := _start_group([[["guard", "guard"]], [["guard", "guard"]]], 3)
-		var result := CombatPrototype.resolve_round(_plan(["guard", "guard", "guard"]))
+		var result := _round(_plan(["guard", "guard", "guard"]))
 		assert_true(result["ok"], str(result))
 		assert_eq(result["beats"].map(func(b): return b["actor"]), [PLAYER, 1, 2, PLAYER, 1, 2, PLAYER], "the 3rd action lands after both enemies' 2nd")
 		assert_eq(cp["playerPlan"].size(), 3)
@@ -279,16 +306,35 @@ func run() -> void:
 		assert_eq(crit["dmg"], chip * 2)
 	)
 
-	run_case("an_action_aimed_at_an_enemy_kod_earlier_in_the_round_retargets_the_next_living_one", func():
+	run_case("an_enemy_kod_before_the_players_next_position_is_not_offered_as_a_target", func():
 		var cp := _start_group([[["guard", "guard"]], [["guard", "guard"]], [["guard", "guard"]]])
 		cp["combatants"][2]["hp"] = 1
-		var result := CombatPrototype.resolve_round([{ "move": "strike", "target": 2 }, { "move": "strike", "target": 2 }])
-		assert_true(result["ok"], str(result))
-		var hits := _hits(result["beats"])
-		assert_eq(hits.map(func(b): return b["target"]), [2, 3], "the 2nd Strike moves on to the next enemy")
+		assert_true(CombatPrototype.choose_move("strike", 2)["ok"])
 		assert_true(cp["combatants"][2]["koed"])
-		assert_eq(cp["combatants"][3]["hp"], cp["combatants"][3]["hpMax"] - hits[1]["dmg"])
-		assert_eq(cp["combatants"][1]["hp"], cp["combatants"][1]["hpMax"])
+		assert_eq(CombatPrototype.decision_position(cp), 1)
+		assert_eq(CombatPrototype.target_options(cp, PLAYER, "strike"), [1, 3], "the KO'd mugger is gone from the options")
+		assert_eq(CombatPrototype.move_block_reason(cp, "strike", 2), "Pick a target.")
+		assert_true(not CombatPrototype.choose_move("strike", 2)["ok"])
+		var result := CombatPrototype.choose_move("strike", 3)
+		assert_true(result["ok"], str(result))
+		assert_eq(_hits(result["beats"]).map(func(b): return b["target"]), [3])
+	)
+
+	run_case("an_ally_action_aimed_at_an_enemy_kod_earlier_in_the_round_retargets_the_next_living_one", func():
+		GameState.reset()
+		var cp := CombatPrototype.start({
+			"enemies": [{ "archetype": "mugger", "level": 1 }, { "archetype": "mugger", "level": 1 }],
+			"enemyPlans": [[["guard", "guard"]], [["guard", "guard"]]],
+			"allies": [{ "level": 1 }],
+			"allyPlans": [[[{ "move": "strike", "target": 2 }, { "move": "guard", "target": ALLY }]]],
+			"seed": 1,
+		})
+		cp["combatants"][2]["hp"] = 1
+		var result := _round([{ "move": "strike", "target": 2 }, { "move": "guard" }])
+		assert_true(result["ok"], str(result))
+		var by_ally: Array = _hits(result["beats"]).filter(func(b): return b["actor"] == ALLY)
+		assert_eq(by_ally.map(func(b): return b["target"]), [3], "the ally's Strike moves on to the next enemy")
+		assert_eq(cp["combatants"][3]["hp"], cp["combatants"][3]["hpMax"] - by_ally[0]["dmg"])
 	)
 
 	run_case("a_multi_enemy_fight_resolves_in_timeline_order", func():
@@ -300,28 +346,31 @@ func run() -> void:
 			"seed": 2,
 		})
 		assert_true(cp["combatants"][2]["speed"] > cp["combatants"][PLAYER]["speed"], "the level-2 bruiser is fastest")
-		var result := CombatPrototype.resolve_round(_plan(["guard", "guard"]))
+		var result := _round(_plan(["guard", "guard"]))
 		assert_eq(result["beats"].map(func(b): return b["actor"]), [2, PLAYER, 1, 3, 2, PLAYER, 1, 3], "index, then speed, then player before enemies in array order")
 	)
 
-	run_case("rewind_restores_the_pre_commit_state_with_the_plan_editable", func():
+	run_case("rewind_steps_back_one_pick_at_a_time_across_the_round_boundary", func():
 		GameState.reset()
 		var cp := CombatPrototype.start({ "seed": 7 })
-		var before := _without_snapshots(cp)
-		var plan := _plan(["guard", "strike"])
-		var first := CombatPrototype.resolve_round(plan)
-		assert_true(first["ok"])
+		var at_first := _without_snapshots(cp)
+		assert_true(CombatPrototype.choose_move("guard")["ok"])
+		var at_second := _without_snapshots(cp)
+		var strike := CombatPrototype.choose_move("strike")
+		assert_true(strike["ok"])
+		assert_eq(cp["round"], 2, "the Strike ended round 1")
 
-		var rewound := CombatPrototype.rewind()
-		assert_true(rewound["ok"])
-		cp = GameState.state["combatPrototype"]
-		var expected := before.duplicate(true)
-		expected["playerPlan"] = [{ "move": "guard", "target": PLAYER, "part": 0 }, { "move": "strike", "target": ENEMY, "part": 0 }]
-		assert_eq(_without_snapshots(cp), expected, "hp, guard, round, log, rng and both rounds of enemy plans are back; the committed plan is the draft")
+		assert_true(CombatPrototype.rewind()["ok"])
+		assert_eq(_without_snapshots(cp), at_second, "back at the 2nd pick: hp, guard, round, rng and round 1's plans as they were")
+		assert_eq(CombatPrototype.decision_position(cp), 1)
+		var replay := CombatPrototype.choose_move("strike")
+		assert_eq(replay["beats"], strike["beats"], "the same pick replays the same rolls")
 
-		assert_true(CombatPrototype.set_plan_action(1, "guard")["ok"], "the plan is editable again")
-		var replay := CombatPrototype.resolve_round(plan)
-		assert_eq(replay["beats"], first["beats"], "the same plan replays the same rolls")
+		CombatPrototype.rewind()
+		assert_true(CombatPrototype.rewind()["ok"], "a second Rewind goes one pick further back")
+		assert_eq(_without_snapshots(cp), at_first)
+		assert_eq(cp["playerPlan"], [null, null], "both picks undone")
+		assert_true(not CombatPrototype.rewind()["ok"], "nothing before the first pick")
 	)
 
 	run_case("rewind_with_nothing_committed_fails_cleanly", func():
@@ -331,7 +380,7 @@ func run() -> void:
 
 	run_case("feint_then_strike_on_a_guarded_target_lands_full", func():
 		var cp := _start([["feint", "guard"]])
-		var result := CombatPrototype.resolve_round(_plan(["feint", "strike"]))
+		var result := _round(_plan(["feint", "strike"]))
 		assert_true(result["ok"], str(result))
 		var beats: Array = result["beats"]
 		assert_eq(_kinds(beats)[0], [PLAYER, "feint"], "the Guarded mugger is opened")
@@ -344,7 +393,7 @@ func run() -> void:
 
 	run_case("feint_on_an_open_target_is_a_no_op", func():
 		var cp := _start([["strike", "guard"]])
-		var result := CombatPrototype.resolve_round(_plan(["guard", "feint"]))
+		var result := _round(_plan(["guard", "feint"]))
 		assert_eq(_kinds(result["beats"]), [[PLAYER, "guard"], [ENEMY, "chip"], [PLAYER, "fizzle"], [ENEMY, "guard"]])
 		assert_eq(result["beats"][2]["actorGuard"], CombatPrototype.GUARDED)
 		assert_eq(cp["combatants"][ENEMY]["hp"], cp["combatants"][ENEMY]["hpMax"])
@@ -352,7 +401,7 @@ func run() -> void:
 
 	run_case("stun_on_a_guarded_target_fizzles", func():
 		var cp := _start([["guard", "strike"]])
-		var result := CombatPrototype.resolve_round(_plan(["stun", "guard"]))
+		var result := _round(_plan(["stun", "guard"]))
 		assert_eq(_kinds(result["beats"]), [[PLAYER, "fizzle"], [ENEMY, "guard"], [PLAYER, "guard"], [ENEMY, "chip"]], "the mugger keeps its Strike")
 		assert_eq(result["beats"][0]["actorGuard"], CombatPrototype.OPEN, "a Stun still leaves the actor Open")
 		assert_eq(cp["combatants"][ENEMY]["actionsLost"], 0)
@@ -360,7 +409,7 @@ func run() -> void:
 
 	run_case("stun_on_an_open_target_removes_its_next_action_and_it_stays_open", func():
 		var cp := _start([["strike", "guard"]])
-		var result := CombatPrototype.resolve_round(_plan(["guard", "stun"]))
+		var result := _round(_plan(["guard", "stun"]))
 		assert_eq(_kinds(result["beats"]), [[PLAYER, "guard"], [ENEMY, "chip"], [PLAYER, "stun"], [ENEMY, "lost"]], "the mugger's Guard is dropped")
 		assert_eq(result["beats"][2]["actorGuard"], CombatPrototype.OPEN)
 		assert_eq(cp["combatants"][ENEMY]["guard"], CombatPrototype.OPEN, "the dropped Guard never restored it")
@@ -370,16 +419,16 @@ func run() -> void:
 	run_case("a_stun_after_the_targets_last_action_takes_its_first_next_round", func():
 		var cp := _start([["guard", "strike"], ["strike", "guard"]], 1, 2)
 		assert_true(cp["combatants"][ENEMY]["speed"] > cp["combatants"][PLAYER]["speed"], "the mugger acts first at each index")
-		var first := CombatPrototype.resolve_round(_plan(["guard", "stun"]))
+		var first := _round(_plan(["guard", "stun"]))
 		assert_eq(_kinds(first["beats"])[-1], [PLAYER, "stun"])
-		var result := CombatPrototype.resolve_round(_plan(["guard", "guard"]))
+		var result := _round(_plan(["guard", "guard"]))
 		assert_eq(_kinds(result["beats"]), [[ENEMY, "lost"], [PLAYER, "guard"], [ENEMY, "guard"], [PLAYER, "guard"]], "round 2's Strike is the one dropped")
 		assert_eq(cp["combatants"][PLAYER]["hp"], cp["combatants"][PLAYER]["hpMax"] - first["beats"][2]["dmg"])
 	)
 
 	run_case("lure_exposes_the_first_attacker_and_the_second_hits_an_open_player", func():
 		var cp := _start_group([[["strike", "guard"], ["guard", "guard"]], [["strike", "guard"]]])
-		var result := CombatPrototype.resolve_round(_plan(["lure", "lure"]))
+		var result := _round(_plan(["lure"]))
 		assert_true(result["ok"], str(result))
 		var beats: Array = result["beats"]
 		assert_eq(_kinds(beats), [[PLAYER, "lure"], [1, "chip"], [PLAYER, "exposed"], [2, "hit"], [1, "guard"], [2, "guard"]])
@@ -390,7 +439,7 @@ func run() -> void:
 		assert_eq(cp["combatants"][1]["guard"], CombatPrototype.GUARDED, "its own Guard resolved...")
 		assert_true(CombatPrototype.is_exposed(cp, cp["combatants"][1]), "...but it stays Exposed")
 
-		var next := CombatPrototype.resolve_round([{ "move": "strike", "target": 1 }, { "move": "guard" }])
+		var next := _round([{ "move": "strike", "target": 1 }, { "move": "guard" }])
 		var hit: Dictionary = next["beats"][0]
 		assert_eq([hit["actor"], hit["target"], hit["kind"]], [PLAYER, 1, "hit"], "Exposed through the end of next round: full damage into a Guard")
 		assert_true(not CombatPrototype.is_exposed(cp, cp["combatants"][1]), "Exposed has run out by round 3")
@@ -398,34 +447,32 @@ func run() -> void:
 
 	run_case("an_unbitten_lure_holds_the_player_guarded", func():
 		var cp := _start([["guard", "guard"]])
-		var result := CombatPrototype.resolve_round(_plan(["lure", "lure"]))
+		var result := _round(_plan(["lure"]))
 		assert_eq(_kinds(result["beats"]), [[PLAYER, "lure"], [ENEMY, "guard"], [ENEMY, "guard"]])
 		assert_eq(cp["combatants"][PLAYER]["guard"], CombatPrototype.GUARDED)
 	)
 
-	run_case("lure_needs_two_positions_in_a_row", func():
+	run_case("lure_takes_two_positions_from_one_pick", func():
 		var cp := _start([["guard", "guard"]])
-		var refused := CombatPrototype.set_plan_action(1, "lure")
-		assert_true(not refused["ok"])
+		var result := CombatPrototype.choose_move("lure")
+		assert_true(result["ok"], str(result))
+		assert_eq(cp["round"], 2, "one pick played both of round 1's positions")
+		assert_eq(cp["snapshots"].size(), 1, "one decision point")
+		assert_true(CombatPrototype.choose_move("guard")["ok"])
+		assert_eq(CombatPrototype.decision_position(cp), 1)
+		assert_eq(CombatPrototype.move_block_reason(cp, "lure"), "Lure takes 2 actions in a row.", "no room at the last position")
+		var refused := CombatPrototype.choose_move("lure")
 		assert_eq(refused["reason"], "Lure takes 2 actions in a row.")
-		assert_true(CombatPrototype.set_plan_action(0, "lure")["ok"])
-		assert_eq(cp["playerPlan"].map(func(a): return [a["move"], a["part"]]), [["lure", 0], ["lure", 1]], "Lure fills both positions")
-		assert_true(CombatPrototype.set_plan_action(1, "guard")["ok"])
-		assert_eq(cp["playerPlan"][0], null, "overwriting half a Lure clears all of it")
-		var bad := CombatPrototype.resolve_round(_plan(["guard", "lure"]))
-		assert_true(not bad["ok"])
-		assert_eq(bad["reason"], "Lure takes 2 actions in a row.")
 	)
 
 	run_case("each_action_picks_its_own_target", func():
 		var cp := _start_group([[["guard", "guard"]], [["guard", "guard"]]])
-		var result := CombatPrototype.resolve_round([{ "move": "strike", "target": 2 }, { "move": "strike", "target": 1 }])
+		var result := _round([{ "move": "strike", "target": 2 }, { "move": "strike", "target": 1 }])
 		assert_true(result["ok"], str(result))
 		var hits := _hits(result["beats"])
 		assert_eq(hits.map(func(b): return b["target"]), [2, 1])
-		var bad := CombatPrototype.resolve_round([{ "move": "strike", "target": PLAYER }, { "move": "guard" }])
-		assert_eq(bad["reason"], "Pick a target.")
-		assert_true(not CombatPrototype.set_plan_action(0, "feint", 5)["ok"], "no such enemy")
+		assert_eq(CombatPrototype.choose_move("strike", PLAYER)["reason"], "Pick a target.")
+		assert_true(not CombatPrototype.choose_move("feint", 5)["ok"], "no such enemy")
 		assert_eq(cp["round"], 2)
 	)
 
@@ -438,7 +485,7 @@ func run() -> void:
 		assert_eq(result["outcome"], "fled")
 		assert_eq(cp["outcome"], "fled")
 		assert_eq(cp["round"], 1)
-		assert_true(not CombatPrototype.resolve_round(_plan(["guard", "guard", "guard"]))["ok"], "the fight is over")
+		assert_eq(CombatPrototype.choose_move("guard")["reason"], "No fight on.", "the fight is over")
 	)
 
 	run_case("a_failed_leg_it_leaves_the_player_open_with_no_further_actions", func():
@@ -459,7 +506,7 @@ func run() -> void:
 		var cp := CombatPrototype.start({ "seed": 11 })
 		var rounds := 0
 		while cp["outcome"] == null and rounds < 60:
-			CombatPrototype.resolve_round(_plan(["strike", "strike"]))
+			_round(_plan(["strike", "strike"]))
 			rounds += 1
 		assert_true(cp["outcome"] != null, "the fight should finish")
 		assert_eq(GameState.state["player"], real_player, "real hp, inventory, Dial and XP untouched")
@@ -489,7 +536,7 @@ func run() -> void:
 		var cp := _start_squad([["guard", { "move": "strike", "target": ALLY }]])
 		var ally: Dictionary = cp["combatants"][ALLY]
 		assert_eq(ally["plan"][1]["move"], "guard", "planned Guard on the struck index: %s" % str(ally["plan"]))
-		var result := CombatPrototype.resolve_round(_plan(["guard", "guard"]))
+		var result := _round(_plan(["guard", "guard"]))
 		var on_ally: Array = _hits(result["beats"]).filter(func(b): return b["actor"] == SQUAD_ENEMY)
 		assert_eq(on_ally.size(), 1)
 		assert_eq(on_ally[0]["target"], ALLY, "the strike lands on the ally")
@@ -502,7 +549,7 @@ func run() -> void:
 		var cp := _start_squad([[{ "move": "strike", "target": PLAYER }, "guard"]])
 		var plan: Array = cp["combatants"][ALLY]["plan"]
 		assert_eq(plan.map(func(a): return [a["move"], a["target"]]), [["guard", ALLY], ["strike", SQUAD_ENEMY]])
-		var result := CombatPrototype.resolve_round(_plan(["guard", "guard"]))
+		var result := _round(_plan(["guard", "guard"]))
 		var by_ally: Array = _hits(result["beats"]).filter(func(b): return b["actor"] == ALLY)
 		assert_eq(by_ally.size(), 1)
 		assert_true(not by_ally[0]["guarded"], "the enemy's own Strike left it Open for the ally")
@@ -520,7 +567,7 @@ func run() -> void:
 		})
 		var plan: Array = cp["combatants"][ALLY]["plan"]
 		assert_eq(plan.map(func(a): return [a["move"], a["target"]]), [["feint", SQUAD_ENEMY], ["strike", SQUAD_ENEMY]])
-		var result := CombatPrototype.resolve_round(_plan(["guard", "guard"]))
+		var result := _round(_plan(["guard", "guard"]))
 		var by_ally: Array = _hits(result["beats"]).filter(func(b): return b["actor"] == ALLY)
 		assert_true(not by_ally[0]["guarded"], "the Feint opened the faster enemy after its Guard")
 	)
@@ -529,7 +576,7 @@ func run() -> void:
 		var cp := _start_squad([[{ "move": "strike", "target": ALLY }, "guard"]])
 		cp["combatants"][ALLY]["hp"] = 1
 		assert_eq(cp["combatants"][ALLY]["plan"][1]["move"], "strike", "it planned a second action")
-		var result := CombatPrototype.resolve_round(_plan(["guard", "guard"]))
+		var result := _round(_plan(["guard", "guard"]))
 		assert_true(cp["combatants"][ALLY]["koed"])
 		var ally_beats: Array = result["beats"].filter(func(b): return b["actor"] == ALLY)
 		assert_eq(ally_beats.map(func(b): return b["kind"]), ["guard"], "only the action before the KO")
@@ -549,7 +596,7 @@ func run() -> void:
 
 	run_case("time_pearl_takes_actions_from_every_enemy_ignoring_guard_and_holds_them_open", func():
 		var cp := _start_items([[["guard", "guard"]], [["guard", "guard"]]], [{ "item": "timePearl", "tier": 2 }])
-		var result := CombatPrototype.resolve_round([{ "slot": 0 }, { "move": "strike", "target": 1 }])
+		var result := _round([{ "slot": 0 }, { "move": "strike", "target": 1 }])
 		assert_true(result["ok"], str(result.get("reason", "")))
 		for e in [1, 2]:
 			var enemy_beats: Array = result["beats"].filter(func(b): return b["actor"] == e)
@@ -563,7 +610,7 @@ func run() -> void:
 
 	run_case("an_item_takes_effect_where_it_resolves_on_the_timeline", func():
 		var cp := _start_items([[[{ "move": "strike", "target": PLAYER }, "guard"]]], [{ "item": "timePearl", "tier": 1 }])
-		var result := CombatPrototype.resolve_round([{ "move": "guard" }, { "slot": 0 }])
+		var result := _round([{ "move": "guard" }, { "slot": 0 }])
 		var enemy_beats: Array = result["beats"].filter(func(b): return b["actor"] == ENEMY)
 		assert_eq(enemy_beats.map(func(b): return b["kind"]), ["chip", "frozen"], "the index-1 Pearl doesn't stop the index-0 Strike")
 		assert_eq(cp["combatants"][ENEMY]["frozenActions"], 0, "power 1 spent this round")
@@ -572,7 +619,7 @@ func run() -> void:
 	run_case("black_hole_hurts_and_slows_every_enemy_ignoring_guard", func():
 		var cp := _start_items([[["guard", "guard"]], [["guard", "guard"]]], [{ "item": "blackHole", "tier": 1 }])
 		var power := _power("blackHole", 1)
-		var result := CombatPrototype.resolve_round([{ "slot": 0 }, { "move": "guard" }])
+		var result := _round([{ "slot": 0 }, { "move": "guard" }])
 		for e in [1, 2]:
 			var enemy: Dictionary = cp["combatants"][e]
 			assert_eq(enemy["hp"], enemy["hpMax"] - power, "full power through a Guard")
@@ -583,7 +630,7 @@ func run() -> void:
 
 	run_case("blast_on_a_guarded_target_deals_full_power_and_leaves_the_user_guarded", func():
 		var cp := _start_items([[["guard", "guard"]]], [{ "item": "blast", "tier": 3 }])
-		var result := CombatPrototype.resolve_round([{ "move": "guard" }, { "slot": 0 }])
+		var result := _round([{ "move": "guard" }, { "slot": 0 }])
 		var enemy: Dictionary = cp["combatants"][ENEMY]
 		assert_eq(enemy["guard"], CombatPrototype.GUARDED)
 		assert_eq(enemy["hp"], enemy["hpMax"] - _power("blast", 3))
@@ -599,7 +646,7 @@ func run() -> void:
 		var saw_open_hit := false
 		for _r in range(8):
 			var hp_before: int = player["hp"]
-			var result := CombatPrototype.resolve_round(plan)
+			var result := _round(plan)
 			assert_true(result["ok"], str(result.get("reason", "")))
 			# Guarding first keeps the enemy's chip small, so the fight outlasts the pool.
 			plan = _plan(["guard", "strike"])
@@ -622,18 +669,35 @@ func run() -> void:
 		var cp := _start_items([[["guard", "guard"]]], [{ "item": "healingBurst", "tier": 1 }])
 		var player: Dictionary = cp["combatants"][PLAYER]
 		player["hp"] = player["hpMax"] - 3
-		var result := CombatPrototype.resolve_round([{ "slot": 0 }, { "move": "guard" }])
+		var result := _round([{ "slot": 0 }, { "move": "guard" }])
 		assert_eq(player["hp"], player["hpMax"], "capped")
 		assert_eq(result["beats"].filter(func(b): return b["kind"] == "healSelf")[0]["amount"], 3)
 
 		cp = _start_items([[[{ "move": "strike", "target": ALLY }, "guard"]]], [{ "item": "healingBurst", "tier": 1 }], [{ "level": 1 }])
 		cp["combatants"][ALLY]["hp"] = 1
-		result = CombatPrototype.resolve_round([{ "move": "guard" }, { "slot": 0, "target": ALLY }])
-		assert_true(result["ok"], str(result.get("reason", "")))
+		assert_true(CombatPrototype.choose_move("guard")["ok"])
 		assert_true(cp["combatants"][ALLY]["koed"])
-		var heal_beats: Array = result["beats"].filter(func(b): return b["actor"] == PLAYER and b["move"] == "healingBurst")
+		assert_eq(CombatPrototype.item_block_reason(cp, 0, ALLY), "Pick a target.", "a KO'd ally isn't offered")
+
+		# Allies plan at round start, so an ally's heal can still land on a
+		# patient KO'd before it resolves: allies A (1), B (2) with the heal,
+		# then a faster mugger (3) striking A first in round 2.
+		GameState.reset()
+		cp = CombatPrototype.start({
+			"enemies": [{ "archetype": "mugger", "level": 2 }],
+			"enemyPlans": [[["guard", "guard"], [{ "move": "strike", "target": 1 }, "guard"]]],
+			"allies": [{ "level": 1 }, { "level": 1, "loadout": [{ "item": "healingBurst", "tier": 1 }] }],
+			"seed": 1,
+		})
+		cp["combatants"][1]["hp"] = 1
+		_round(_plan(["guard", "guard"]))
+		var planned: Dictionary = cp["combatants"][2]["plan"][0]
+		assert_eq([planned["move"], planned["target"]], ["healingBurst", 1], "B plans to heal A")
+		result = _round(_plan(["guard", "guard"]))
+		assert_true(cp["combatants"][1]["koed"])
+		var heal_beats: Array = result["beats"].filter(func(b): return b["actor"] == 2 and b["move"] == "healingBurst")
 		assert_eq(heal_beats.map(func(b): return b["kind"]), ["fizzle"])
-		assert_eq(cp["combatants"][ALLY]["hp"], 0)
+		assert_eq(cp["combatants"][1]["hp"], 0)
 	)
 
 	run_case("an_ally_below_the_heal_line_plans_and_resolves_its_healing_burst", func():
@@ -642,10 +706,10 @@ func run() -> void:
 		var ally: Dictionary = cp["combatants"][ALLY]
 		assert_true(not ally["plan"].any(func(a): return a.has("slot")), "no heal at full HP")
 		ally["hp"] = 1
-		CombatPrototype.resolve_round(_plan(["guard", "guard"]))
+		_round(_plan(["guard", "guard"]))
 		var planned: Dictionary = ally["plan"][0]
 		assert_eq([planned["move"], planned["target"], planned["slot"]], ["healingBurst", ALLY, 0], "heals itself first thing")
-		var result := CombatPrototype.resolve_round(_plan(["guard", "guard"]))
+		var result := _round(_plan(["guard", "guard"]))
 		var heals: Array = result["beats"].filter(func(b): return b["kind"] == "healSelf" and b["actor"] == ALLY)
 		assert_eq(heals.size(), 1)
 		assert_eq(ally["hp"], mini(ally["hpMax"], 1 + _power("healingBurst", 1)))
@@ -654,7 +718,7 @@ func run() -> void:
 
 		cp = _start_items([[["guard", "guard"]]], [], [{ "level": 1, "loadout": ally_loadout }])
 		cp["combatants"][PLAYER]["hp"] = 1
-		CombatPrototype.resolve_round(_plan(["guard", "guard"]))
+		_round(_plan(["guard", "guard"]))
 		planned = cp["combatants"][ALLY]["plan"][0]
 		assert_eq([planned["move"], planned["target"]], ["healingBurst", PLAYER], "heals a teammate below the line")
 	)
@@ -663,7 +727,7 @@ func run() -> void:
 		var cp := _start_items([[["guard", "guard"]], [["guard", "guard"]]], [], [{ "level": 1, "loadout": [{ "item": "timePearl", "tier": 2 }] }])
 		var planned: Dictionary = cp["combatants"][ALLY]["plan"][0]
 		assert_eq([planned["move"], planned["slot"]], ["timePearl", 0], "visible in the ally's plan before commit")
-		var result := CombatPrototype.resolve_round(_plan(["guard", "guard"]))
+		var result := _round(_plan(["guard", "guard"]))
 		for e in [2, 3]:
 			var enemy_beats: Array = result["beats"].filter(func(b): return b["actor"] == e)
 			assert_eq(enemy_beats.map(func(b): return b["kind"]), ["frozen", "frozen"], "both enemies lose their actions")
@@ -675,10 +739,10 @@ func run() -> void:
 		var ally: Dictionary = cp["combatants"][ALLY]
 		var items_planned := func() -> Array: return ally["plan"].filter(func(a): return a.has("slot")).map(func(a): return a["move"])
 		assert_eq(items_planned.call(), ["timePearl"], "one crowd item a round")
-		CombatPrototype.resolve_round(_plan(["guard", "guard"]))
+		_round(_plan(["guard", "guard"]))
 		assert_eq(cp["combatants"][2]["actionsLost"], 1, "power 3 carries one lost action over")
 		assert_eq(items_planned.call(), [], "still paused: Black Hole waits")
-		CombatPrototype.resolve_round(_plan(["guard", "guard"]))
+		_round(_plan(["guard", "guard"]))
 		assert_eq(items_planned.call(), ["blackHole"], "unpaused: Black Hole goes")
 	)
 
@@ -692,45 +756,54 @@ func run() -> void:
 	)
 
 	run_case("each_loadout_slot_goes_once_a_fight", func():
-		_start_items([[["guard", "guard"]]], [{ "item": "blast", "tier": 1 }])
-		assert_true(not CombatPrototype.resolve_round([{ "slot": 0 }, { "slot": 0 }])["ok"], "not twice in a round")
-		assert_true(not CombatPrototype.resolve_round([{ "move": "blast" }, { "move": "guard" }])["ok"], "only from a loadout slot")
-		assert_true(CombatPrototype.resolve_round([{ "slot": 0 }, { "move": "guard" }])["ok"])
-		var again := CombatPrototype.resolve_round([{ "slot": 0 }, { "move": "guard" }])
-		assert_true(not again["ok"], "spent")
-		assert_true(not CombatPrototype.set_plan_item(0, 0)["ok"], "the draft refuses it too")
+		var cp := _start_items([[["guard", "guard"]]], [{ "item": "blast", "tier": 1 }])
+		assert_eq(CombatPrototype.choose_move("blast")["reason"], "Items come out of your loadout.")
+		assert_true(CombatPrototype.choose_item(0)["ok"])
+		assert_eq(CombatPrototype.item_block_reason(cp, 0), "That one's spent.", "not twice in a round")
+		assert_true(CombatPrototype.choose_move("guard")["ok"])
+		assert_eq(CombatPrototype.choose_item(0)["reason"], "That one's spent.", "nor next round")
 		CombatPrototype.rewind()
-		assert_true(not GameState.state["combatPrototype"]["combatants"][PLAYER]["loadout"][0]["used"], "Rewind gives it back")
+		CombatPrototype.rewind()
+		assert_true(not cp["combatants"][PLAYER]["loadout"][0]["used"], "Rewind gives it back")
 	)
 
 	run_case("an_item_fight_never_touches_the_real_inventory", func():
 		GameState.reset()
 		var real_player: Dictionary = GameState.deep_copy(GameState.state["player"])
 		var cp := CombatPrototype.start({ "seed": 5, "loadout": [{ "item": "blast", "tier": 5 }, { "item": "healingBurst", "tier": 5 }] })
-		CombatPrototype.resolve_round([{ "slot": 0 }, { "slot": 1 }])
+		_round([{ "slot": 0 }, { "slot": 1 }])
 		var rounds := 0
 		while cp["outcome"] == null and rounds < 60:
-			CombatPrototype.resolve_round(_plan(["strike", "strike"]))
+			_round(_plan(["strike", "strike"]))
 			rounds += 1
 		assert_true(cp["outcome"] != null, "the fight should finish")
 		assert_eq(GameState.state["player"], real_player, "real inventory untouched")
 	)
 
-	run_case("powder_in_the_draft_opens_an_extra_position_and_removing_it_closes_it", func():
+	run_case("powders_extra_position_pauses_for_a_pick_in_the_same_round", func():
 		var cp := _start_items([[["guard", "guard"]]], [{ "item": "enhancementPowder", "tier": 1 }])
 		assert_eq(cp["playerPlan"].size(), 2)
-		assert_true(CombatPrototype.set_plan_item(0, 0)["ok"])
-		assert_eq(cp["playerPlan"].size(), 3, "Powder opens a position at the end")
-		assert_true(not CombatPrototype.set_plan_item(2, 0)["ok"], "not into the position it opens")
-		assert_true(CombatPrototype.set_plan_action(2, "strike")["ok"])
-		CombatPrototype.clear_plan_action(0)
-		assert_eq(cp["playerPlan"], [null, null], "removing it closes the position and drops its action")
-		assert_true(not CombatPrototype.resolve_round([{ "move": "guard" }, { "move": "guard" }, { "move": "strike" }])["ok"], "no extra action without a Powder")
+		assert_true(CombatPrototype.choose_item(0)["ok"])
+		assert_true(CombatPrototype.choose_move("guard")["ok"])
+		assert_eq([cp["round"], CombatPrototype.decision_position(cp)], [1, 2], "a third pause, still round 1")
+		assert_eq(cp["playerPlan"].size(), 3)
+		assert_true(CombatPrototype.choose_move("strike")["ok"])
+		assert_eq([cp["round"], CombatPrototype.decision_position(cp)], [2, 0])
+	)
+
+	run_case("stun_on_the_player_removes_their_next_position_with_no_pause", func():
+		var cp := _start([["guard", "stun"], ["guard", "guard"]], 1, 2)
+		var result := CombatPrototype.choose_move("strike")
+		assert_true(result["ok"], str(result))
+		assert_eq(cp["round"], 2, "the player's 2nd position played without a pause")
+		var round_one: Array = cp["log"].filter(func(b): return b["round"] == 1)
+		assert_eq(_kinds(round_one), [[ENEMY, "guard"], [PLAYER, "chip"], [ENEMY, "stun"], [PLAYER, "lost"]])
+		assert_eq(cp["snapshots"].size(), 1, "one decision point in round 1")
 	)
 
 	run_case("powder_adds_an_action_this_round_resolved_after_the_powder", func():
 		var cp := _start_items([[["guard", "guard"]]], [{ "item": "enhancementPowder", "tier": 1 }])
-		var result := CombatPrototype.resolve_round([{ "move": "guard" }, { "slot": 0 }, { "move": "strike" }])
+		var result := _round([{ "move": "guard" }, { "slot": 0 }, { "move": "strike" }])
 		assert_true(result["ok"], str(result.get("reason", "")))
 		var mine: Array = result["beats"].filter(func(b): return b["actor"] == PLAYER).map(func(b): return b["kind"])
 		assert_eq(mine, ["guard", "powder", "chip"], "the extra Strike lands after the Powder")
@@ -740,20 +813,12 @@ func run() -> void:
 	run_case("strong_powder_also_adds_an_action_next_round", func():
 		assert_true(_power("enhancementPowder", 5) >= 3)
 		var cp := _start_items([[["guard", "guard"]]], [{ "item": "enhancementPowder", "tier": 5 }])
-		CombatPrototype.resolve_round([{ "slot": 0 }, { "move": "guard" }, { "move": "guard" }])
+		_round([{ "slot": 0 }, { "move": "guard" }, { "move": "guard" }])
 		assert_eq(cp["playerPlan"].size(), 3, "next round keeps the extra position")
-		var result := CombatPrototype.resolve_round(_plan(["guard", "guard", "strike"]))
+		var result := _round(_plan(["guard", "guard", "strike"]))
 		assert_true(result["ok"], str(result.get("reason", "")))
 		assert_eq(_hits(result["beats"]).filter(func(b): return b["actor"] == PLAYER).size(), 1, "the third action played")
 		assert_eq(cp["playerPlan"].size(), 2, "then it wears off")
-	)
-
-	run_case("a_powder_that_never_resolves_drops_its_extra_action", func():
-		var cp := _start_items([[["guard", "guard"]]], [{ "item": "enhancementPowder", "tier": 1 }])
-		cp["combatants"][PLAYER]["actionsLost"] = 1
-		var result := CombatPrototype.resolve_round([{ "slot": 0 }, { "move": "guard" }, { "move": "strike" }])
-		assert_true(result["ok"], str(result.get("reason", "")))
-		assert_eq(_hits(result["beats"]).size(), 0, "the extra Strike never happens")
 	)
 
 	run_case("prophets_breath_reveals_targets_damage_and_next_round_while_sight_lasts", func():
@@ -763,7 +828,7 @@ func run() -> void:
 		assert_true(not intents[0].has("target") and not intents[0].has("dmgMin"), "type only without sight")
 		assert_eq(CombatPrototype.enemy_intents(cp, ENEMY, true), [], "next round hidden without sight")
 
-		CombatPrototype.resolve_round([{ "slot": 0 }, { "move": "guard" }])
+		_round([{ "slot": 0 }, { "move": "guard" }])
 		intents = CombatPrototype.enemy_intents(cp, ENEMY)
 		var enemy: Dictionary = cp["combatants"][ENEMY]
 		assert_eq(intents[0]["target"], PLAYER)
@@ -772,13 +837,13 @@ func run() -> void:
 		var next := CombatPrototype.enemy_intents(cp, ENEMY, true)
 		assert_eq(next.map(func(i): return [i["move"], i["target"]]), enemy["nextPlan"].map(func(a): return [a["move"], int(a["target"])]), "next round's plans are present")
 
-		CombatPrototype.resolve_round(_plan(["guard", "guard"]))
+		_round(_plan(["guard", "guard"]))
 		assert_eq(CombatPrototype.enemy_intents(cp, ENEMY, true), [], "power 1: one round of sight")
 	)
 
 	run_case("be_a_lady_rolls_max_and_crits_a_third_of_the_time", func():
 		var cp := _start_items([[["guard", "guard"]]], [{ "item": "beALady", "tier": 1 }])
-		var result := CombatPrototype.resolve_round([{ "slot": 0 }, { "move": "strike", "target": ENEMY }])
+		var result := _round([{ "slot": 0 }, { "move": "strike", "target": ENEMY }])
 		var hit: Dictionary = _hits(result["beats"])[0]
 		assert_eq(hit["roll"], cp["combatants"][PLAYER]["attackMax"], "max roll")
 		assert_eq(hit["dmg"], _expected_dmg(hit))
@@ -787,7 +852,7 @@ func run() -> void:
 		for s in range(1, 301):
 			GameState.reset()
 			CombatPrototype.start({ "enemies": [{ "archetype": "mugger", "level": 1 }], "enemyPlans": [[["guard", "guard"]]], "loadout": [{ "item": "beALady", "tier": 1 }], "seed": s })
-			if _hits(CombatPrototype.resolve_round([{ "slot": 0 }, { "move": "strike" }])["beats"])[0]["crit"]:
+			if _hits(_round([{ "slot": 0 }, { "move": "strike" }])["beats"])[0]["crit"]:
 				crits += 1
 		assert_true(crits > 70 and crits < 130, "about 1 in 3 (got %d/300)" % crits)
 	)

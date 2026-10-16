@@ -1,9 +1,10 @@
 extends "res://tests/test_base.gd"
 
 # Build-only smoke coverage for scenes/screens/combat_prototype.gd across
-# setup, planning, mid-fight and finished states (off-tree Screen.new();
-# _ready(), same as tests/test_combat_screen.gd). Rules coverage lives in
-# tests/test_combat_prototype.gd.
+# setup, paused mid-round, mid-fight and finished states (off-tree
+# Screen.new(); _ready(), same as tests/test_combat_screen.gd), plus a whole
+# fight played through the screen's own pick handler. Rules coverage lives
+# in tests/test_combat_prototype.gd.
 
 
 func _render() -> CombatPrototypeScreen:
@@ -19,40 +20,46 @@ func run() -> void:
 		_render()
 	)
 
-	run_case("planning_renders_with_a_partly_filled_plan", func():
+	run_case("renders_paused_on_the_second_position_after_a_pick", func():
 		GameState.reset()
-		CombatPrototype.start({ "seed": 1 })
-		CombatPrototype.set_plan_action(0, "guard")
+		CombatPrototype.start({ "seed": 1, "loadout": [{ "item": "healingBurst", "tier": 1 }] })
+		CombatPrototype.choose_move("guard")
+		assert_eq(CombatPrototype.decision_position(GameState.state["combatPrototype"]), 1)
 		_render()
 	)
 
-	run_case("planning_renders_lure_target_pickers_and_a_refused_pick", func():
+	run_case("a_pick_with_no_room_is_refused_with_its_reason", func():
 		GameState.reset()
 		CombatPrototype.start({ "seed": 4, "enemies": [{ "archetype": "mugger", "level": 1 }, { "archetype": "mugger", "level": 1 }] })
-		CombatPrototype.set_plan_action(0, "lure")
 		var screen := _render()
-		screen._pick(1, "stun", 2)
-		assert_eq(GameState.state["combatPrototype"]["playerPlan"][0], null, "the Stun replaced the whole Lure")
-		screen._pick(1, "lure", -1)
+		screen._pick("stun", 2)
+		assert_true(GameState.state["combatPrototype"]["playerPlan"][0] != null, "the Stun resolved")
+		screen._pick("lure", -1)
 		assert_eq(screen._refusal, "Lure takes 2 actions in a row.")
 		assert_true(screen._content.get_child_count() > 0)
 	)
 
-	run_case("refresh_after_a_committed_round_rebuilds_the_same_body", func():
+	run_case("refresh_after_a_round_rebuilds_the_same_body", func():
 		GameState.reset()
 		CombatPrototype.start({ "seed": 2 })
 		var screen := _render()
 		var content_before := screen._content
-		CombatPrototype.resolve_round([{ "move": "guard" }, { "move": "strike" }])
+		CombatPrototype.choose_move("guard")
+		CombatPrototype.choose_move("strike")
 		assert_eq(screen._content, content_before, "only the body's children rebuild per refresh")
 		assert_true(screen._content.get_child_count() > 0)
 	)
 
-	run_case("finished_fight_renders_the_outcome_card", func():
+	run_case("a_whole_fight_plays_through_the_screens_pick_handler", func():
 		GameState.reset()
 		CombatPrototype.start({ "seed": 3 })
-		GameState.state["combatPrototype"]["combatants"][1]["hp"] = 1
-		CombatPrototype.resolve_round([{ "move": "strike" }, { "move": "strike" }])
-		assert_eq(GameState.state["combatPrototype"]["outcome"], "win")
-		_render()
+		var screen := _render()
+		var cp: Dictionary = GameState.state["combatPrototype"]
+		var picks := 0
+		while cp["outcome"] == null and picks < 200:
+			screen._pick("strike", -1)
+			assert_eq(screen._refusal, "")
+			picks += 1
+		assert_true(cp["outcome"] != null, "the fight finished")
+		assert_true(screen._content.get_child_count() > 0, "the outcome card renders")
 	)

@@ -1,10 +1,10 @@
 extends SceneTree
 
 # Headless balance sim for the Open/Guarded combat prototype: N seeded fights
-# per matchup over a grid, played through CombatPrototype.start() /
-# resolve_round() by two player policies (naive: always Strike; reader:
+# per matchup over a grid, played through CombatPrototype.start() and a
+# pick at each pause by two player policies (naive: always Strike; reader:
 # guards incoming strikes, strikes openings, feints turtles). Prints rounds
-# mean/p90, win %, HP left % and actions planned per matchup x policy.
+# mean/p90, win %, HP left % and actions picked per matchup x policy.
 #   godot --headless -s scripts/sim_combat_prototype.gd
 #   godot --headless -s scripts/sim_combat_prototype.gd -- n=200 seed=7 levels=1,3,5
 #     elevels=match|1,3 archetypes=mugger,turtle counts=1,2 allies=0,1

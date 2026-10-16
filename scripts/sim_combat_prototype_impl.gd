@@ -1,9 +1,10 @@
 extends RefCounted
 
 # Body of scripts/sim_combat_prototype.gd (see there for usage). Drives the
-# fight only through CombatPrototype.start() / resolve_round(), reading state
-# through its read-only helpers; enemy plans are read as the player sees them
-# (enemy_intents(): targets only under Prophet's Breath sight).
+# fight only through CombatPrototype.start() / choose_move() / choose_item(),
+# a policy deciding at each pause, reading state through its read-only
+# helpers; enemy plans are read as the player sees them (enemy_intents():
+# targets only under Prophet's Breath sight).
 
 const POLICIES := ["naive", "reader"]
 const ROUND_CAP := 60
@@ -127,13 +128,13 @@ func _run_matchup(matchup: Dictionary, policy: String, n: int, base_seed: int, m
 			"seed": base_seed * 1000003 + m * 10007 + i,
 		})
 		assert(not cp.is_empty(), "bad matchup config: %s" % matchup["label"])
-		var outcome = null
+		var outcome = cp["outcome"]
 		var planned := 0
 		while outcome == null and int(cp["round"]) <= ROUND_CAP:
-			var plan := _plan(cp, policy)
-			planned += plan.size()
-			var result := CombatPrototype.resolve_round(plan)
-			assert(result["ok"], "plan refused: %s" % result.get("reason", ""))
+			var action := _decide(cp, policy)
+			planned += 1
+			var result := CombatPrototype.choose_item(action["slot"], action["target"]) if action.has("slot") else CombatPrototype.choose_move(action["move"], action["target"])
+			assert(result["ok"], "pick refused: %s" % result.get("reason", ""))
 			outcome = result["outcome"]
 			cp = GameState.state["combatPrototype"]
 		rounds.append(int(cp["round"]))
@@ -159,22 +160,18 @@ func _run_matchup(matchup: Dictionary, policy: String, n: int, base_seed: int, m
 
 # ── Policies ─────────────────────────────────────────────────────────────
 
-# This round's plan: at most one loadout item first (same rule under both
-# policies, so loadouts compare like for like), then the policy's moves.
-func _plan(cp: Dictionary, policy: String) -> Array:
-	var plan: Array = []
-	var item := _item_action(cp)
-	if not item.is_empty():
-		plan.append(item)
-	var size := CombatPrototype.player_plan_size(cp, plan)
-	var feints: Array = []
-	while plan.size() < size:
-		var i := plan.size()
-		var action: Dictionary = { "move": CombatPrototype.MOVE_STRIKE, "target": -1 } if policy == "naive" else _reader_action(cp, plan, i, size, feints)
-		if action["move"] == CombatPrototype.MOVE_FEINT:
-			feints.append({ "index": i, "target": action["target"] })
-		plan.append(action)
-	return plan
+# The pick at the paused position: at the round's first pick, at most one
+# loadout item (same rule under both policies, so loadouts compare like for
+# like); else the policy's move.
+func _decide(cp: Dictionary, policy: String) -> Dictionary:
+	if cp["playerPlan"].all(func(a): return a == null):
+		var item := _item_action(cp)
+		if not item.is_empty():
+			return item
+	if policy == "naive":
+		return { "move": CombatPrototype.MOVE_STRIKE, "target": -1 }
+	var i := CombatPrototype.decision_position(cp)
+	return _reader_action(cp, i, CombatPrototype.actions_this_round(cp, CombatPrototype.PLAYER_INDEX))
 
 
 # A heal below the ally AI's heal threshold; else the first unspent non-heal
@@ -201,18 +198,18 @@ func _item_action(cp: Dictionary) -> Dictionary:
 	return {}
 
 
-# Per action, when a strike lands after it (this index, or the next from a
-# faster enemy): already Guarded, Feint an enemy open for the next action
-# (Feint keeps the guard); else Strike an opening only when the player wins
-# the HP race at full damage both ways; else Guard. Unthreatened: Strike the
-# weakest enemy that'll be Open; else that Feint; else Strike the weakest
-# for chip.
-func _reader_action(cp: Dictionary, plan: Array, i: int, size: int, feints: Array) -> Dictionary:
+# At the paused position i, when a strike lands after it (this index, or
+# the next from a faster enemy): already Guarded, Feint an enemy open for
+# the next action (Feint keeps the guard); else Strike an opening only when
+# the player wins the HP race at full damage both ways; else Guard.
+# Unthreatened: Strike the weakest enemy that'll be Open; else that Feint;
+# else Strike the weakest for chip.
+func _reader_action(cp: Dictionary, i: int, size: int) -> Dictionary:
 	var enemies := _enemies(cp)
-	var open: Array = enemies.filter(func(e): return _sees_open(cp, e, i, feints))
-	var feint_target := _feint_target(cp, enemies, i, size, feints)
+	var open: Array = enemies.filter(func(e): return _sees_open(cp, e, i, i, []))
+	var feint_target := _feint_target(cp, enemies, i, size)
 	if _threatened(cp, enemies, i, size):
-		if feint_target >= 0 and _guarded_before(cp, plan):
+		if feint_target >= 0 and not CombatPrototype.is_open(cp, cp["combatants"][CombatPrototype.PLAYER_INDEX]):
 			return { "move": CombatPrototype.MOVE_FEINT, "target": feint_target }
 		if not open.is_empty() and _wins_race(cp, enemies, _weakest(cp, open)):
 			return { "move": CombatPrototype.MOVE_STRIKE, "target": _weakest(cp, open) }
@@ -226,25 +223,13 @@ func _reader_action(cp: Dictionary, plan: Array, i: int, size: int, feints: Arra
 
 # A Guarded enemy that a Feint at action i leaves Open for action i+1; -1
 # for none (or no action i+1).
-func _feint_target(cp: Dictionary, enemies: Array, i: int, size: int, feints: Array) -> int:
+func _feint_target(cp: Dictionary, enemies: Array, i: int, size: int) -> int:
 	if i + 1 >= size:
 		return -1
 	for e in enemies:
-		var with_feint: Array = feints + [{ "index": i, "target": e }]
-		if not _sees_open(cp, e, i + 1, feints) and _sees_open(cp, e, i + 1, with_feint):
+		if not _sees_open(cp, e, i, i + 1, []) and _sees_open(cp, e, i, i + 1, [i]):
 			return e
 	return -1
-
-
-# Whether the player is Guarded going into its next action: its guard state
-# at round start, then each planned action's guard effect.
-func _guarded_before(cp: Dictionary, plan: Array) -> bool:
-	var guarded := not CombatPrototype.is_open(cp, cp["combatants"][CombatPrototype.PLAYER_INDEX])
-	for action in plan:
-		var effect: String = CombatPrototype.move(action["move"])["actorGuard"]
-		if effect != CombatPrototype.UNCHANGED:
-			guarded = effect == CombatPrototype.GUARDED
-	return guarded
 
 
 # Whether trading full hits with every living enemy downs `target` no later
@@ -264,9 +249,9 @@ func _mean_roll(cp: Dictionary, actor: int) -> float:
 
 
 # Whether a damaging enemy action aimed at the player (or at anyone, when
-# sight doesn't show targets) lands between the player's action i and its
-# next: a slower or tied enemy's action i, or a faster enemy's action i+1
-# (next round's first, under sight, for the last action).
+# sight doesn't show targets) lands between the player's action i (the
+# paused one) and its next: a slower or tied enemy's action i, or a faster
+# enemy's action i+1 (next round's first, under sight, for the last action).
 func _threatened(cp: Dictionary, enemies: Array, i: int, size: int) -> bool:
 	var me: int = cp["combatants"][CombatPrototype.PLAYER_INDEX]["speed"]
 	for e in enemies:
@@ -282,10 +267,12 @@ func _threatened(cp: Dictionary, enemies: Array, i: int, size: int) -> bool:
 	return false
 
 
+# Whether intent `index` (this round's next for enemy e, or next round's
+# with next_round) is a damaging action aimed at the player.
 func _strikes(cp: Dictionary, e: int, intents: Array, index: int, next_round: bool = false) -> bool:
 	if index >= intents.size():
 		return false
-	if not next_round and index < int(cp["combatants"][e]["actionsLost"]):
+	if not next_round and int(cp["combatants"][e]["actionsLost"]) > 0:
 		return false
 	var intent: Dictionary = intents[index]
 	if CombatPrototype.move(intent["move"])["effect"] not in [CombatPrototype.EFFECT_DAMAGE, CombatPrototype.EFFECT_STUN]:
@@ -293,29 +280,31 @@ func _strikes(cp: Dictionary, e: int, intents: Array, index: int, next_round: bo
 	return int(intent.get("target", CombatPrototype.PLAYER_INDEX)) == CombatPrototype.PLAYER_INDEX
 
 
-# Whether enemy e will be Open when the player takes action i: its guard
-# state now, then its own committed guard changes and the player's earlier
-# Feints in timeline order. A frozen or Exposed enemy reads Open.
-func _sees_open(cp: Dictionary, e: int, i: int, feints: Array) -> bool:
+# Whether enemy e will be Open when the player takes action i, read from
+# the fight paused at the player's action `now`: its guard state now, then
+# its own committed guard changes still to come before i (minus any it's
+# losing) and the player's Feints planned at `feints` indices, in timeline
+# order. A frozen or Exposed enemy reads Open.
+func _sees_open(cp: Dictionary, e: int, now: int, i: int, feints: Array) -> bool:
 	var enemy: Dictionary = cp["combatants"][e]
 	if CombatPrototype.is_exposed(cp, enemy):
 		return true
 	var faster: bool = enemy["speed"] > cp["combatants"][CombatPrototype.PLAYER_INDEX]["speed"]
-	var acted := i + 1 if faster else i
 	var intents := CombatPrototype.enemy_intents(cp, e)
-	acted = mini(acted, intents.size())
-	if int(enemy["frozenActions"]) > acted:
+	var resolved := mini(now + 1 if faster else now, intents.size())
+	var acted := mini(i + 1 if faster else i, intents.size())
+	if int(enemy["frozenActions"]) > acted - resolved:
 		return true
 	var lost := int(enemy["actionsLost"])
 	# Events as [index, enemy-first-at-that-index, guard state].
 	var events: Array = []
-	for j in range(acted):
+	for j in range(resolved, acted):
 		var guard: String = CombatPrototype.move(intents[j]["move"])["actorGuard"]
-		if j >= lost and guard != CombatPrototype.UNCHANGED:
+		if j - resolved >= lost and guard != CombatPrototype.UNCHANGED:
 			events.append([j, faster, guard])
 	for f in feints:
-		if f["target"] == e and f["index"] < i:
-			events.append([f["index"], not faster, CombatPrototype.OPEN])
+		if f < i:
+			events.append([f, not faster, CombatPrototype.OPEN])
 	events.sort_custom(func(a, b): return a[0] < b[0] or (a[0] == b[0] and a[1] and not b[1]))
 	var state: String = CombatPrototype.OPEN if CombatPrototype.is_open(cp, enemy) else CombatPrototype.GUARDED
 	for ev in events:

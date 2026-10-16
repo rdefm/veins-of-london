@@ -16,7 +16,7 @@ A sandboxed **Combat Prototype** in the Debug app. It replaces the existing Fast
 
 - Every combatant is either **Open** or **Guarded** (its **guard state**). A hit on an Open combatant does full damage; a hit on a Guarded one does chip damage.
 - A combatant's guard state is set by its **last action**. Guard makes you Guarded. Strike makes you Open. Some moves leave it unchanged. Guard state carries across rounds.
-- Each round, every enemy **commits its round plan up front**. The plan is shown as intent icons on a shared timeline. Allies (AI) commit theirs, also shown. The player then fills their own actions on the same timeline and commits. The round resolves action by action, and the screen plays it back.
+- Each round, every enemy **commits its round plan up front**. The plan is shown as intent icons on a shared timeline. Allies (AI) commit theirs, also shown. The round then resolves action by action in timeline order and **pauses at each of the player's actions** (per-action decisions, as in live combat): the player picks one move or item and target with the actual state in front of them, it resolves, and play runs on to their next action or the round's end. The screen plays back each step's beats.
 - **Openings** come two ways: an enemy turns Open by attacking (punish it next), or you force one with Feint, or Lure an attacker into overcommitting.
 - **Stun** is a move, but limited: it only lands on an Open target and takes one action from one target. Items (Time Pearl, Black Hole) stun harder, ignore guard and hit every enemy. A skilled fighter stays formidable 1v1, but items are what win against groups.
 - **Combat Skill level** sets actions per round (2, rising to 3 at level 3), speed, attack, HP and crit chance. The prototype setup has level selectors for the player, the enemies and the allies, so the curve can be tested.
@@ -110,10 +110,10 @@ A sandboxed **Combat Prototype** in the Debug app. It replaces the existing Fast
 - **Replaces the existing combat prototype.** The Fast/Heavy/Counter/Dodge prototype system, screen, data table, its GameData validation, its SaveManager int-type restore, and its tests are removed and replaced. The `combatPrototype` state key and the Debug-app launcher slot are reused. CODEMAP updated in the same commit.
 - **Fully sandboxed** (lab-revamp bench prototype precedent). Own state at `GameState.state["combatPrototype"]` (pure data), own snapshot stack (the existing `combatPrototype` Snapshots key, cap 2), own screen. Items come from a sandbox loadout picked at setup, not from real inventory. Never touches the player's real hp, inventory, Dial, XP or calendar. Live combat (`Combat`, REFERENCE §3.7/§3.7a) is untouched.
 - **One system module, one test seam.** The prototype system exposes two public entry points that tests, the sim and the screen all use:
-  - `start(config) -> state`: config = player level, enemy list (archetype + level), ally list (level), player loadout (2 × recipe+tier), seed. Builds the fight and pre-rolls enemy plans for round 1 and round 2 (so Prophet's Breath can reveal the next round).
-  - `resolve_round(plans) -> result`: plans = the player's ordered actions (move or item id + target). Allies' and enemies' plans are already committed in state. Resolves the round and returns the ordered beats plus the outcome (null / win / loss / fled). It then rolls the following round's enemy plans and ally plans.
+  - `start(config) -> state`: config = player level, enemy list (archetype + level), ally list (level), player loadout (2 × recipe+tier), seed. Builds the fight, pre-rolls enemy plans for round 1 and round 2 (so Prophet's Breath can reveal the next round), then resolves up to the player's first action.
+  - `choose_move(move, target)` / `choose_item(slot, target) -> result` (**per-action decisions**): the player's pick at the paused position. Allies' and enemies' plans are already committed in state. The pick resolves, then the timeline resolves on from a resumable cursor in `combatPrototype` state (pure data, like live combat's `turnCursor`) to the player's next action or the fight's end, rolling the following round's enemy and ally plans at each round boundary. Returns that step's ordered beats plus the outcome (null / win / loss / fled). A multi-action move (Lure) takes the current and next player positions from one pick; Enhancement Powder's extra position is a further pause in the same round. A player position lost to Stun/freeze, or after a Leg it, plays without a pause. Only targets living at the pause are offered.
   - Read-only helpers the screen needs (timeline ordering, guard-state preview, block reasons for an invalid plan) are pure functions over state and are covered through the two entry points' outcomes, not tested separately.
-  - Rewind restores the pre-commit snapshot of the last committed round.
+  - Rewind restores the snapshot taken at the last decision point (**rewind-to-last-pick**), with that pick undone and replayable; a second Rewind steps one more pick back (snapshot cap 2), across a round boundary restoring that round's pre-rolled plans.
 - **Vocabulary.** "Stance" is already a faction term in CONTEXT.md, so this system uses **guard state** (values `open` / `guarded`). An **action** is one entry in a combatant's round plan (a move, an item use or a Dial cast). A **round plan** is a combatant's ordered actions for one round. **Exposed** is a forced-Open status with a duration that the target's own Guard can't clear.
 - **Timeline order.** All actions in a round sort by action index (1st, 2nd, 3rd), then speed descending, then the existing tie-break (player > allies > enemies, then array order). Everyone's 1st actions resolve, then everyone's 2nd, then any 3rd.
 - **Guard-state rule.** Each move declares its effect on the actor's guard state: `guarded`, `open` or `unchanged`. Fight start: everyone Guarded. Items and Dial casts are `unchanged` (except Shield's override, below).
@@ -152,15 +152,15 @@ A sandboxed **Combat Prototype** in the Debug app. It replaces the existing Fast
 - **Screen.** The prototype screen shows:
   - **Setup panel:** level selectors, archetype/count, allies, loadout picker.
   - **Planning timeline**, reusing the turn-strip idea: one lane of interleaved positions; enemy and ally actions pre-filled as icons; the player's empty positions filled from the move/item palette; per-combatant guard-state bar previewing the round.
-  - **Commit**, then beat playback, then **Rewind**.
+  - A pick at each pause, then that step's beat playback, then **Rewind**.
   - The screen calls only the system's entry points and helpers; it never mutates state.
-- **Balance sim** is a headless script driving only `start`/`resolve_round` with the naive and reader policies over a matchup grid. It prints a summary table (rounds mean/p90, win %, HP left %, actions planned).
+- **Balance sim** is a headless script driving only `start`/`choose_move`/`choose_item`, with the naive and reader policies as a decision callback at each pause, over a matchup grid. It prints a summary table (rounds mean/p90, win %, HP left %, actions planned).
 - **Data validation** for the new table runs at boot in GameData (moves, archetypes, plan patterns and curves are well-formed; every pattern's move ids exist).
 
 ## Testing Decisions
 
-- Good tests here assert what a player would observe after `resolve_round`: HP, guard states, removed actions, outcome, beat order. They never assert private helpers or intermediate structures. The fight is seeded, so every test is deterministic.
-- Tested module: the new prototype system only, through `start` + `resolve_round` (tests script plans for player, enemies and allies by setting up the committed enemy/ally plans via a seeded config or a test-only plan override in `config`).
+- Good tests here assert what a player would observe after each pick (`choose_move`/`choose_item`): HP, guard states, removed actions, outcome, beat order. They never assert private helpers or intermediate structures. The fight is seeded, so every test is deterministic.
+- Tested module: the new prototype system only, through `start` + `choose_move`/`choose_item` (tests script plans for player, enemies and allies by setting up the committed enemy/ally plans via a seeded config or a test-only plan override in `config`).
 - Key cases:
   - Guard then Strike vs an enemy that Strikes then Guards: player takes chip, enemy takes full.
   - Strike into a Guarded target: chip.

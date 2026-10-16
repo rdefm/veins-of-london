@@ -7,15 +7,16 @@ extends RefCounted
 # (scenes/screens/combat_prototype.gd); never reads or writes the real
 # player, inventory, Dial, XP or calendar. Live combat (Combat) is separate.
 #
-# A fight is start(config), then resolve_round(plan) once per round.
-# Combatants live in one array, the player at index 0, then allies, then
-# enemies, so array order is the timeline's last tie-break (spec §Timeline
-# order). Each enemy holds this round's committed plan and next round's
-# pre-rolled one; each ally holds this round's plan, planned by the ally AI
-# from the enemies' plans; the player's draft plan is playerPlan, edited with
-# set_plan_action().
+# A fight is start(config), then one choose_move() / choose_item() per
+# player decision point (spec §Per-action decisions). Combatants live in one
+# array, the player at index 0, then allies, then enemies, so array order is
+# the timeline's last tie-break (spec §Timeline order). Each enemy holds this
+# round's committed plan and next round's pre-rolled one; each ally holds
+# this round's plan, planned by the ally AI from the enemies' plans. The
+# round resolves in timeline order from the cursor and pauses at each of the
+# player's positions; the pick there goes into playerPlan and resolves.
 # Randomness runs off the fight's own RNG state (rngState), so a Rewind
-# replays the same rolls for the same plan.
+# replays the same rolls for the same pick.
 
 const SIDE_PLAYER := "player"
 const SIDE_ALLY := "ally"
@@ -96,15 +97,26 @@ static func new_state() -> Dictionary:
 		"outcome": null,
 		# Player at PLAYER_INDEX, then enemies; see _build_combatant().
 		"combatants": [],
-		# The player's draft for this round: one entry per action, each
-		# null (unfilled) or { move, target, part }. A move costing n actions
-		# fills n positions in a row, parts 0..n-1.
+		# The player's picks this round: one entry per position, each null
+		# (not picked yet, or lost) or { move, target, part } (plus slot for
+		# an item). A move costing n actions fills n positions in a row from
+		# one pick, parts 0..n-1.
 		"playerPlan": [],
+		# Where this round's resolution has got to (see _new_cursor()).
+		"cursor": _new_cursor(),
 		"rngState": 0,
 		# Every resolved beat so far, oldest first (see _beat()).
 		"log": [],
 		"snapshots": [],
 	}
+
+
+# The round's resolution cursor: the timeline entry last resolved (index -1
+# before the round's first), the actors whose remaining actions this round
+# are gone (Leg it), and the player position paused on for a pick (-1 when
+# not paused: no fight on, or it's over).
+static func _new_cursor() -> Dictionary:
+	return { "index": -1, "actor": -1, "done": [], "pause": -1 }
 
 
 static func open() -> void:
@@ -206,8 +218,10 @@ static func display_name(combatant: Dictionary) -> String:
 # enemyPlans / allyPlans, test-only: per combatant an Array of rounds, each
 # an Array of move ids or { move, target } entries, used in place of the
 # archetype's patterns or the ally AI (round n reads entry (n-1) mod size).
-# Everyone starts Guarded. Returns the new fight state, or {} for an unknown
-# archetype, too many allies or a bad loadout.
+# Everyone starts Guarded. Round 1 then resolves up to the player's first
+# position (beats from anyone faster land in the log). Returns the new
+# fight state, or {} for an unknown archetype, too many allies or a bad
+# loadout.
 static func start(config: Dictionary = {}) -> Dictionary:
 	var archetypes: Dictionary = _data()["archetypes"]
 	var enemy_specs: Array = config.get("enemies", [{ "archetype": DEFAULT_ARCHETYPE, "level": 1 }])
@@ -268,6 +282,9 @@ static func start(config: Dictionary = {}) -> Dictionary:
 			combatants[i]["nextPlan"] = _roll_plan(cp, i, 2, rng)
 	_plan_allies(cp, rng)
 	cp["playerPlan"] = _empty_player_plan(cp)
+	var beats: Array = []
+	_advance(cp, rng, beats)
+	cp["log"].append_array(beats)
 	cp["rngState"] = rng.state
 
 	GameState.state["combatPrototype"] = cp
@@ -551,107 +568,76 @@ static func move_cost(move_id: String) -> int:
 	return int(move(move_id).get("cost", 1))
 
 
-# Fills the player's draft from `position` with `move_id`, taking as many
-# positions as the move costs; any multi-action move it overlaps is cleared
-# whole. target -1 picks the first living enemy for an offensive move.
-static func set_plan_action(position: int, move_id: String, target: int = -1) -> Dictionary:
-	return _set_plan_entry(position, { "move": move_id, "target": target })
-
-
-# Fills the player's draft at `position` with the item in loadout `slot`;
-# target -1 picks the default (first living enemy, or the player for a heal).
-static func set_plan_item(position: int, slot: int, target: int = -1) -> Dictionary:
-	return _set_plan_entry(position, { "slot": slot, "target": target })
-
-
-static func _set_plan_entry(position: int, action: Dictionary) -> Dictionary:
-	var cp := _root()
+# The player position the fight is paused on for a pick, or -1.
+static func decision_position(cp: Dictionary) -> int:
 	if not cp["active"] or cp["outcome"] != null:
-		return { "ok": false, "reason": "No fight on." }
-	var plan: Array = cp["playerPlan"]
-	if position < 0 or position >= plan.size():
-		return { "ok": false, "reason": "No such action." }
+		return -1
+	return int(cp["cursor"]["pause"])
+
+
+# Plays `move_id` at the paused position, taking as many of the player's
+# positions as the move costs (the later parts resolve when their positions
+# come up, without a pause), then resolves on to the next pause or the
+# fight's end. target -1 picks the first living enemy for an offensive move.
+# Returns { ok, beats, outcome }, or { ok: false, reason }.
+static func choose_move(move_id: String, target: int = -1) -> Dictionary:
+	return _choose({ "move": move_id, "target": target })
+
+
+# Plays the item in loadout `slot` at the paused position, as choose_move();
+# target -1 picks the default (first living enemy, or the player for a heal).
+static func choose_item(slot: int, target: int = -1) -> Dictionary:
+	return _choose({ "slot": slot, "target": target })
+
+
+# Why the player can't play `move_id` (at `target`, -1 for the default) at
+# the paused position, or "" if they can.
+static func move_block_reason(cp: Dictionary, move_id: String, target: int = -1) -> String:
+	return _pick_block_reason(cp, { "move": move_id, "target": target })
+
+
+# As move_block_reason(), for the item in loadout `slot`.
+static func item_block_reason(cp: Dictionary, slot: int, target: int = -1) -> String:
+	return _pick_block_reason(cp, { "slot": slot, "target": target })
+
+
+static func _choose(action: Dictionary) -> Dictionary:
+	var cp := _root()
+	var reason := _pick_block_reason(cp, action)
+	if reason != "":
+		return { "ok": false, "reason": reason }
+	var entry = _normalize_action(cp, action)
+	_push_snapshot(cp)
+	var position := decision_position(cp)
+	for part in range(move_cost(entry["move"])):
+		var filled: Dictionary = entry.duplicate()
+		filled["part"] = part
+		cp["playerPlan"][position + part] = filled
+	cp["cursor"]["pause"] = -1
+
+	var rng := RandomNumberGenerator.new()
+	rng.state = cp["rngState"]
+	var beats: Array = []
+	_advance(cp, rng, beats)
+	cp["log"].append_array(beats)
+	cp["rngState"] = rng.state
+	EventBus.state_changed.emit()
+	return { "ok": true, "beats": beats, "outcome": cp["outcome"] }
+
+
+# Why the raw pick `action` ({ move, target } or { slot, target }) can't be
+# played at the paused position, or "".
+static func _pick_block_reason(cp: Dictionary, action: Dictionary) -> String:
+	var position := decision_position(cp)
+	if position < 0:
+		return "No fight on."
 	var entry = _normalize_action(cp, action)
 	var reason := _action_block_reason(cp, entry)
 	if reason != "":
-		return { "ok": false, "reason": reason }
-	var move_id: String = entry["move"]
-	reason = _powder_position_reason(cp, position, entry)
-	if reason != "":
-		return { "ok": false, "reason": reason }
-	var cost := move_cost(move_id)
-	if position + cost > plan.size():
-		return { "ok": false, "reason": _span_reason(move_id) }
-	for pos in range(position, position + cost):
-		_clear_span(plan, pos)
-	# An item goes once: picking its slot here moves it from anywhere else.
-	if entry.has("slot"):
-		for pos in range(plan.size()):
-			if plan[pos] != null and int(plan[pos].get("slot", -1)) == int(entry["slot"]):
-				plan[pos] = null
-	for part in range(cost):
-		var filled: Dictionary = entry.duplicate()
-		filled["part"] = part
-		plan[position + part] = filled
-	_fit_player_plan(cp)
-	EventBus.state_changed.emit()
-	return { "ok": true }
-
-
-# Clears the draft action at `position` (all of it, for a multi-action move).
-static func clear_plan_action(position: int) -> Dictionary:
-	var cp := _root()
-	if not cp["active"] or cp["outcome"] != null:
-		return { "ok": false, "reason": "No fight on." }
-	if position < 0 or position >= cp["playerPlan"].size():
-		return { "ok": false, "reason": "No such action." }
-	_clear_span(cp["playerPlan"], position)
-	_fit_player_plan(cp)
-	EventBus.state_changed.emit()
-	return { "ok": true }
-
-
-# How many positions the player's `plan` takes this round: actions this
-# round, plus the extra position an Enhancement Powder in the plan opens at
-# the end (unless one's already running).
-static func player_plan_size(cp: Dictionary, plan: Array) -> int:
-	var size := actions_this_round(cp, PLAYER_INDEX)
-	if is_powered(cp, cp["combatants"][PLAYER_INDEX]):
-		return size
-	for action in plan:
-		if action != null and _is_powder(action["move"]):
-			return size + 1
-	return size
-
-
-static func _is_powder(move_id: String) -> bool:
-	return move(move_id).get("effect", "") == ITEM_POWDER
-
-
-# A Powder can't sit in the extra position it opens itself.
-static func _powder_position_reason(cp: Dictionary, position: int, action: Dictionary) -> String:
-	if _is_powder(action["move"]) and position >= actions_this_round(cp, PLAYER_INDEX):
-		return "Powder goes in one of your usual actions."
+		return reason
+	if position + move_cost(entry["move"]) > actions_this_round(cp, PLAYER_INDEX):
+		return _span_reason(entry["move"])
 	return ""
-
-
-# Grows or trims the draft to player_plan_size(): placing a Powder opens the
-# extra position, removing it closes the position and drops what was in it.
-static func _fit_player_plan(cp: Dictionary) -> void:
-	var plan: Array = cp["playerPlan"]
-	var size := player_plan_size(cp, plan)
-	for pos in range(size, plan.size()):
-		_clear_span(plan, pos)
-	plan.resize(size)
-
-
-static func _clear_span(plan: Array, position: int) -> void:
-	var action = plan[position]
-	if action == null:
-		return
-	var start: int = position - int(action.get("part", 0))
-	for pos in range(maxi(0, start), mini(plan.size(), start + move_cost(action["move"]))):
-		plan[pos] = null
 
 
 static func _span_reason(move_id: String) -> String:
@@ -706,35 +692,10 @@ static func target_options(cp: Dictionary, actor: int, move_id: String) -> Array
 	return []
 
 
-# Normalizes each action, then numbers the parts of multi-action moves: n
-# positions in a row holding the same move form one action, parts 0..n-1.
-# A run that's too short is left with part -1 (see _action_block_reason).
-static func _normalize_plan(cp: Dictionary, plan: Array) -> Array:
-	var result: Array = plan.map(func(action): return _normalize_action(cp, action))
-	var i := 0
-	while i < result.size():
-		var action = result[i]
-		if action == null or move(action["move"]).is_empty():
-			i += 1
-			continue
-		var cost := move_cost(action["move"])
-		var run := 1
-		while run < cost and i + run < result.size() and result[i + run] != null and result[i + run]["move"] == action["move"]:
-			run += 1
-		for part in range(run):
-			result[i + part]["part"] = part if run == cost else -1
-		i += run
-	return result
-
-
 static func _action_block_reason(cp: Dictionary, action) -> String:
-	if action == null:
-		return "Fill every action."
 	var m := move(action["move"])
 	if m.is_empty():
 		return "Unknown move."
-	if int(action.get("part", 0)) < 0:
-		return _span_reason(action["move"])
 	if m.get("item", false):
 		if not action.has("slot"):
 			return "Items come out of your loadout."
@@ -745,38 +706,20 @@ static func _action_block_reason(cp: Dictionary, action) -> String:
 	return ""
 
 
-# Why `plan` can't be committed this round, or "" if it can.
-static func plan_block_reason(cp: Dictionary, plan: Array) -> String:
-	if plan.size() != player_plan_size(cp, plan):
-		return "Fill every action."
-	var slots: Dictionary = {}
-	for pos in range(plan.size()):
-		var action = plan[pos]
-		var reason := _action_block_reason(cp, action)
-		if reason == "":
-			reason = _powder_position_reason(cp, pos, action)
-		if reason != "":
-			return reason
-		if action.has("slot"):
-			if slots.has(action["slot"]):
-				return "Each item goes once a fight."
-			slots[action["slot"]] = true
-	return ""
-
-
 # ── Read-only helpers for the screen ─────────────────────────────────────
 
 # This round's actions in resolution order: action index, then speed
 # descending, then combatant order (player first). Each entry is
-# { actor, index }; the player's entries cover every draft position, filled
-# or not.
+# { actor, index }; the player's entries cover each of its actions this
+# round, picked or not (an Enhancement Powder resolved this round adds one).
 static func timeline(cp: Dictionary) -> Array:
 	var combatants: Array = cp["combatants"]
 	var entries: Array = []
 	for i in range(combatants.size()):
 		if combatants[i]["koed"]:
 			continue
-		for a in range(_plan_of(cp, i).size()):
+		var count: int = actions_this_round(cp, i) if i == PLAYER_INDEX else _plan_of(cp, i).size()
+		for a in range(count):
 			entries.append({ "actor": i, "index": a })
 	entries.sort_custom(func(x, y): return _acts_before(cp, x["actor"], x["index"], y["actor"], y["index"]))
 	return entries
@@ -836,66 +779,65 @@ static func guard_preview(cp: Dictionary, actor: int) -> Array:
 
 # ── Resolution ───────────────────────────────────────────────────────────
 
-# Commits the player's plan (Array of { move, target }, or { slot, target }
-# for a loadout item; target may be omitted for auto-targeting) against the enemies' committed plans and
-# resolves the round in timeline() order. A KO'd combatant's remaining
-# actions are dropped, as are a Leg it's actor's later ones and any lost
-# to a Stun, Time Pearl or Black Hole; the fight stops the moment it's won, lost or fled.
-# Returns { ok, beats, outcome }; on a fight still running, next round's
-# plans move up and the round after's are rolled.
-static func resolve_round(plan: Array) -> Dictionary:
-	var cp := _root()
-	if not cp["active"] or cp["outcome"] != null:
-		return { "ok": false, "reason": "No fight on." }
-	var normalized := _normalize_plan(cp, plan)
-	var reason := plan_block_reason(cp, normalized)
-	if reason != "":
-		return { "ok": false, "reason": reason }
-
-	cp["playerPlan"] = normalized
-	_push_snapshot(cp)
-
-	var rng := RandomNumberGenerator.new()
-	rng.state = cp["rngState"]
-	var beats: Array = []
+# Resolves the timeline from the cursor, appending to `beats`, until the
+# player's next unpicked position (the cursor pauses there) or the fight
+# ends. A KO'd combatant's remaining actions are dropped, as are a Leg it's
+# actor's later ones and any lost to a Stun, Time Pearl or Black Hole; a
+# player position lost that way, or taken by an earlier pick's later part,
+# plays without a pause. At the end of a round next round's plans move up,
+# the round after's are rolled, and resolution carries on into it.
+static func _advance(cp: Dictionary, rng: RandomNumberGenerator, beats: Array) -> void:
 	var combatants: Array = cp["combatants"]
-	# Actors whose remaining actions this round are gone (Leg it).
-	var done: Dictionary = {}
-	for entry in timeline(cp):
-		if cp["outcome"] != null:
-			break
+	var cursor: Dictionary = cp["cursor"]
+	while cp["outcome"] == null:
+		cp["playerPlan"].resize(maxi(cp["playerPlan"].size(), actions_this_round(cp, PLAYER_INDEX)))
+		var entry := _next_entry(cp)
+		if entry.is_empty():
+			_end_round(cp, rng)
+			cursor = cp["cursor"]
+			continue
 		var actor: int = entry["actor"]
 		var combatant: Dictionary = combatants[actor]
-		if combatant["koed"] or done.has(actor):
+		var action = _plan_of(cp, actor)[entry["index"]]
+		if not cursor["done"].has(actor) and combatant["actionsLost"] == 0 and action == null:
+			cursor["pause"] = entry["index"]
+			return
+		cursor["index"] = entry["index"]
+		cursor["actor"] = actor
+		if cursor["done"].has(actor):
 			continue
-		# A Powder's extra position only plays once the Powder has resolved.
-		if entry["index"] >= actions_this_round(cp, actor):
-			continue
-		var action: Dictionary = _plan_of(cp, actor)[entry["index"]]
 		if combatant["actionsLost"] > 0:
 			combatant["actionsLost"] -= 1
 			var frozen: bool = combatant["frozenActions"] > 0
 			combatant["frozenActions"] = maxi(0, combatant["frozenActions"] - 1)
-			_beat(cp, beats, "frozen" if frozen else "lost", actor, -1, action["move"], {})
+			_beat(cp, beats, "frozen" if frozen else "lost", actor, -1, action["move"] if action != null else "", {})
 			continue
 		_resolve_action(cp, actor, action, rng, beats)
 		if move(action["move"])["effect"] == EFFECT_FLEE:
-			done[actor] = true
-	cp["log"].append_array(beats)
+			cursor["done"].append(actor)
+	cursor["pause"] = -1
 
-	if cp["outcome"] == null:
-		cp["round"] += 1
-		for i in range(combatants.size()):
-			combatants[i]["lure"] = LURE_NONE
-			if combatants[i]["side"] == SIDE_ENEMY:
-				combatants[i]["plan"] = _recommit_targets(cp, i, combatants[i]["nextPlan"], rng)
-				combatants[i]["nextPlan"] = [] if combatants[i]["koed"] else _roll_plan(cp, i, cp["round"] + 1, rng)
-		_plan_allies(cp, rng)
-		cp["playerPlan"] = _empty_player_plan(cp)
-	cp["rngState"] = rng.state
 
-	EventBus.state_changed.emit()
-	return { "ok": true, "beats": beats, "outcome": cp["outcome"] }
+# The first timeline entry after the cursor's, or {} once the round's done.
+static func _next_entry(cp: Dictionary) -> Dictionary:
+	var cursor: Dictionary = cp["cursor"]
+	for entry in timeline(cp):
+		if _acts_before(cp, cursor["actor"], cursor["index"], entry["actor"], entry["index"]):
+			return entry
+	return {}
+
+
+static func _end_round(cp: Dictionary, rng: RandomNumberGenerator) -> void:
+	var combatants: Array = cp["combatants"]
+	cp["round"] += 1
+	for i in range(combatants.size()):
+		combatants[i]["lure"] = LURE_NONE
+		if combatants[i]["side"] == SIDE_ENEMY:
+			combatants[i]["plan"] = _recommit_targets(cp, i, combatants[i]["nextPlan"], rng)
+			combatants[i]["nextPlan"] = [] if combatants[i]["koed"] else _roll_plan(cp, i, cp["round"] + 1, rng)
+	_plan_allies(cp, rng)
+	cp["playerPlan"] = _empty_player_plan(cp)
+	cp["cursor"] = _new_cursor()
 
 
 # Applies the move's effect, then its effect on the actor's guard state. A
@@ -1148,6 +1090,7 @@ static func _beat(cp: Dictionary, beats: Array, kind: String, actor: int, target
 
 # ── Rewind ───────────────────────────────────────────────────────────────
 
+# Saves the fight as it stands at a decision point, before the pick.
 static func _push_snapshot(cp: Dictionary) -> void:
 	var frame := {}
 	for key in cp.keys():
@@ -1156,8 +1099,8 @@ static func _push_snapshot(cp: Dictionary) -> void:
 	Snapshots.push("combatPrototype", cp["snapshots"], frame)
 
 
-# Restores the state from just before the last committed round, with that
-# round's plan back in playerPlan for editing.
+# Restores the fight to the previous decision point with that pick undone
+# (across a round boundary, that round's plans come back too).
 static func rewind() -> Dictionary:
 	var cp := _root()
 	var frame = Snapshots.pop_newest(cp["snapshots"])
