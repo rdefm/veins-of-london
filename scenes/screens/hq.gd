@@ -93,7 +93,6 @@ func _on_zone_tapped(zone_id: String) -> void:
 		"dial":
 			Nav.go_to("hq_dial")
 		"lab":
-			LabBenchNav.open()
 			Nav.go_to("hq_lab_bench")
 		"security":
 			if Home.has_pending_raid():

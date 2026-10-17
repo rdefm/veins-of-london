@@ -54,7 +54,7 @@ func run() -> void:
 		var screen := _screen()
 		screen._open_recipe("timePearl")
 		assert_true(NodeQuery.label_texts(screen).has("Best rank: —"), "no rank yet")
-		assert_true(_has_label_starting(screen, "1. %s" % LabBenchNav.apparatus_name("compression")), "a base step shows")
+		assert_true(_has_label_starting(screen, "1. %s" % Lab.apparatus_name("compression")), "a base step shows")
 		assert_true(_has_label_containing(screen, "≈ "), "a vague step shows a faded region")
 		var hint1: Dictionary = GameData.LAB["procedures"]["timePearl"]["hints"][0]
 		var hint2: Dictionary = GameData.LAB["procedures"]["timePearl"]["hints"][1]
@@ -136,7 +136,7 @@ func run() -> void:
 		assert_eq(Crafting.inventory_qty("timePearl"), int(screen._result["items"]), "the run's item(s) filed")
 		assert_true(NodeQuery.find_button(screen, "Done") != null, "the result shows on the book")
 		assert_true(_has_label_starting(screen, "Score "), "with the score")
-		assert_true(_has_label_starting(screen, "1. %s · " % LabBenchNav.apparatus_name("heat")), "a clue per performed step")
+		assert_true(_has_label_starting(screen, "1. %s · " % Lab.apparatus_name("heat")), "a clue per performed step")
 		assert_true(NodeQuery.find_button(screen, "Rewind") != null, "one Rewind button offered")
 		assert_eq(NodeQuery.find_button(screen, "Rewind last craft"), null, "its choices wait behind it")
 		NodeQuery.find_button(screen, "Done").pressed.emit()

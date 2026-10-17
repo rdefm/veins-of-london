@@ -240,7 +240,7 @@ static func _eval_faction_vein_seeded_count(params: Dictionary, progress: Dictio
 
 # recipeKeys, minEach: at least minEach successful crafts of every named
 # recipe since activation. Diffs state.player.craftedCounts (Crafting.
-# attempt_craft()'s success branch) against the baseline _mark_activated
+# file_crafted()) against the baseline _mark_activated
 # snapshot, so crafts from before this objective activated never
 # retroactively satisfy it.
 static func _eval_items_crafted_set(params: Dictionary, progress: Dictionary) -> bool:

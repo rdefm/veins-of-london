@@ -134,7 +134,7 @@ static func grant_contact_dial(contact_id: String) -> void:
 # Movement crafting/seating/attunement (R§3.5). Movements are a Dial-only
 # craftable in their own data table (data/dial.json's "movements"), not
 # GameData.RECIPES -- but follow the same contract: ingredients always spent, a
-# chance formula gates success, tier = quality_tier() at craft time.
+# chance formula gates success, tier set at craft time.
 
 
 const MOVEMENT_ARCHETYPES: Array[String] = GameData.CANONICAL_MOVEMENT_ARCHETYPES
@@ -182,8 +182,8 @@ static func attempt_craft_movement(archetype: String, ore_type: String) -> Dicti
 
 	var success: bool = Rng.chance(movement_craft_chance(archetype, skill))
 	if success:
-		# No refine/discovery step (Bench-only, R§3.5) -- tier is always the crafting
-		# skill at craft time, since Movements have no GameData.RECIPES entry to key quality_tier() off of.
+		# Tier is the crafting skill at craft time -- Movements have no
+		# GameData.RECIPES entry and no Lab rank.
 		var tier: int = skill
 		var movement := _new_movement(archetype, ore_type, tier)
 		player["movementInventory"].append(movement)
@@ -245,7 +245,7 @@ static func unseat_movement(owner_id: String = "") -> Dictionary:
 
 # Flat additive bonus from the seated Movement only (never loadedComplications),
 # applied when ore_type matches its attunement; magnitude scales with tier per
-# data/dial.json's attunementBonusByTier (R§3.5). Callers (Crafting.attempt_craft(),
+# data/dial.json's attunementBonusByTier (R§3.5). Callers (Lab.bench_bonus(),
 # Sites.attempt_seed()) add this on top of their own chance formula.
 # Cultivating.cultivate() instead multiplies its rolled gain by (1 + this
 # bonus), since that action has no chance to shift (R§3.4). Never baked in,
@@ -265,7 +265,7 @@ static func attunement_bonus(ore_type: String) -> float:
 
 
 # Shared 0.95 ceiling for single-ore-type chance actions (Sites.attempt_seed()).
-# Crafting.attempt_craft() doesn't use this directly since a recipe can span multiple ore types.
+# Lab.bench_bonus() doesn't use this directly since a recipe can span multiple ore types.
 static func apply_attunement(base_chance: float, ore_type: String) -> float:
 	return min(0.95, base_chance + attunement_bonus(ore_type))
 

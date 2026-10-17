@@ -75,6 +75,12 @@ static func known_recipes(ore_type: String = "") -> Array:
 	return result
 
 
+# The tier a recipe's items come out at outside a manual run: its best rank,
+# or 1 before the first run.
+static func item_tier(recipe_key: String) -> int:
+	return maxi(1, int(_root()["bestRanks"].get(recipe_key, 0)))
+
+
 # Adds a recipe at base (no hidden steps known). Granting a known recipe
 # changes nothing.
 static func grant_recipe(recipe_key: String) -> Dictionary:
@@ -424,6 +430,20 @@ static func active_run() -> Variant:
 
 static func gauge(apparatus: String) -> Dictionary:
 	return _data()["gauges"][apparatus]
+
+
+# Bench plate region ids (data/hq_visuals.json labBench): an ore jar is
+# "ore_<oreType>", an apparatus "apparatus_<apparatusId>".
+const ORE_REGION_PREFIX := "ore_"
+const APPARATUS_REGION_PREFIX := "apparatus_"
+
+
+# An apparatus's display name: its painted label on the bench plate, else
+# its data/approaches.json name.
+static func apparatus_name(apparatus: String) -> String:
+	var regions: Dictionary = GameData.HQ_VISUALS["labBench"]["regions"]
+	var region: Dictionary = regions.get(APPARATUS_REGION_PREFIX + apparatus, {})
+	return region.get("label", GameData.APPROACHES[apparatus]["name"])
 
 
 # Opens a run by tapping every recipe jar once (the whole base calc).

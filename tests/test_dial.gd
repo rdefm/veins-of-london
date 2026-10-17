@@ -201,7 +201,7 @@ func run() -> void:
 		assert_eq(inventory.size(), 1, "one crafted Movement lands in movementInventory")
 		assert_eq(inventory[0]["archetype"], "capacitor", "archetype matches what was crafted")
 		assert_eq(inventory[0]["oreType"], "physics", "the chosen ore type becomes the Movement's attunement")
-		assert_eq(inventory[0]["tier"], 5, "tier is set from crafting skill at craft time, exactly like Crafting.quality_tier()'s non-refined branch")
+		assert_eq(inventory[0]["tier"], 5, "tier is set from crafting skill at craft time")
 	)
 
 	run_case("attempt_craft_movement_failure_leaves_no_partial_movement", func():

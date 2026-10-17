@@ -20,7 +20,6 @@ Data file per system: see `data/*.json` below.
 
 | File | Domain |
 |---|---|
-| approaches.gd | Unlocked physical approaches |
 | archie_deals.gd | Archie's daily side-deal roll |
 | bag.gd | Bag-drawer toggle |
 | bank.gd | Cash transaction log |
@@ -28,7 +27,6 @@ Data file per system: see `data/*.json` below.
 | business_quest.gd | business_empire questline side effects (state.businessQuest): Beat 1/3/5/6/7/8 trigger texts, Beat 2 starter-offer chain, recurring offers (ore from Beat 3, Time Pearl from Beat 6; reissued a day after lapse), Beat 8 closing payload from the latest payday record, James's crafting-skill set, Owen's crafting-event trigger. Rules: REFERENCE.md "Business Empire questline" |
 | business_stats.gd | BizBrief Stats tab's daily tally (revenue, expenses split by kind staff/guard/calc, cultivator/player ore); rollover snapshot with productionLog items into `businessStats.days`, 10-day trim, zero-filled chart series |
 | business.gd | Business pot (contract settlements; Sales calc purchases as `calc` expenses), float (donate/withdraw; backs wages and calc, never split), hire first-week prepay (`paidThroughDay`), weekly payday (staff wages, then Monday guard bill from pot+float or a reserve when short, 3-way split, ledger), owed wages + float top-up, Staff tab pay labels |
-| bench.gd | Lab discovery engine (type-set × approach); per-cell item tier (1–5) + progress bar, `experiment()` roll (room `progressBonus` adds to each success), `item_tier()` |
 | bubble_layout.gd | Popup-position math for MapBubble |
 | collective.gd | Collective faction doors, Nadia settlement, Collective questline beat triggers + Act 2 scripted vein losses + Nadia defend raid, Hakim retake gate + site ruin (ruinedByFirm), T7 Firm provocation (timed Firm-targeting weight), Act 2 relation awards (T8 missions, alarm-defend daily cap), Act 2 gate + T14 spine reward (Hakim intel's weak-enemy-vein branch) + T15 closer delivery |
 | combat_prep.gd | CombatPrep: `state.combatPrep` request/cancel/commit for every combat entry (planned raids/defences cancellable, forced encounters not), replaying the existing Raiding/Home/Combat entries on Fight; lists participants + equipped units; empty-slot warning + Change loadout (`loadoutEdit` round-trip to Profile); recruit pool/toggle/reorder for planned raids and vein/HQ defences |
@@ -36,14 +34,14 @@ Data file per system: see `data/*.json` below.
 | network_handler.gd | Network handler Targets (timed `collective.networkIntel` claim_bonus/security_freeze), Sourcing (site delivered by handler text), the intel menu (relation- and gouge-priced, gated products: raid/market intel, raid warnings, boost, privacy, disinformation, reduction), and factions' daily budgeted buys of the same products |
 | bench_prototype.gd | Sandboxed Lab-revamp bench: own calc pool, recipes, ranks, hints, ledger, Rewind; score→rank, re-run bonus; freeform runs (jar taps, steps any order, scoring on Finish, crack); clues learn hints. Real Breath reveals true bands, real Lady adds score; use_effect() spends real items. Spec: .scratch/lab-revamp/spec.md |
 | combat_pacing.gd | Persisted normal/quick pacing toggle |
-| lab.gd | Live Lab: `state.lab` knowledge (`grant_*`), `known_procedure`, bands, manual run on real calc (`add_ore`, `perform_*`, `finish_run` files tier=rank via Crafting, crack/abandon), scoring, clues, re-run bonus, bad-run lines, Lady/Breath, `lab_run_completed` hook, `batch` at best rank, `rewind` of last run/batch (`lab.lastCraft`), `max_batch`. Spec: .scratch/lab-port/spec.md |
+| lab.gd | Live Lab: `state.lab` knowledge (`grant_*`), `known_procedure`, bands, manual run on real calc (`add_ore`, `perform_*`, `finish_run` files tier=rank, crack/abandon), scoring, clues, re-run bonus, bad-run lines, Lady/Breath, `lab_run_completed` hook, `batch`/`max_batch`, `rewind`, `item_tier`, plate region prefixes + `apparatus_name`. Spec: .scratch/lab-port/spec.md |
 | combat_prototype.gd | Sandboxed Open/Guarded combat prototype (Debug app): start(config), choose_move/choose_item per player pause, committed enemy plans with seeded fog (read/unread intents), 0-2 AI allies, six moves, 2-slot sandbox loadouts, read-only timeline/guard/intent/block-reason helpers, per-beat stage marks, stage backdrop, Rewind to last pick |
 | active_effects.gd | Timed out-of-combat item effects in `state.player.activeEffects`: `use()` (Bag), `expire()` (TimeSystem on clock moves), `is_active`/`lady_active`/`prophets_breath_active`, `blocks_left`. Be a Lady = player cultivate/harvest max roll; Prophet's Breath = no ambushes. Data: constants.json `activeEffects`. |
 | consumables.gd | Healing Salve (out-of-combat) + Healing Burst (in or out); in-combat use_healing_burst() resolves the parked player turn-cursor entry (R§3.7a) and heals an ally target instead of the player (R§3.7) |
 | contacts.gd | Relation, recruiting (incl. story `force_recruit`), seat-capped room assignment (`contacts_in_room`/`assign_to_room`), room→role lookup from hiring.json (`room_roles`), founder staff roles (`set_role`/`role_of`/`available_roles`), capped XP (`skill_cap`, `xp_levels`), ally combat kit (Dial grant on recruit via `Dial.grant_contact_dial`), display names, directory order |
 | contact_texts.gd | Per-contact random texts: rollover scheduling, gated selection, vein templating, reply rewards, and ticker notices; content from contact_texts.json |
 | contracts.gd | Block-end Sales auto-delivery (full, then partials by priority; goods to buyer holdings + supplier share), settlement to pot; recurring periods pay on fill, lock (`periodFilled`) until Monday renewal, expire at term end; per-contract `buyCalc` calc buys from the pot; unattended-proof taint (`playerAssisted`) and `qualified` settlements; `cancel()` (unpaid, hurts counterparty) |
-| crafting.gd | Recipe crafting; tiered inventory buckets; multi-target variant (from Lab best rank 3, `<recipe>_multi` inventory key, `craftMulti` checkbox state); `file_crafted` = the one filing entry point (inventory, Shares, counts, XP, Contracts/Objectives/Collective) |
+| crafting.gd | Recipe crafting; staff `craft_chance`, `calc_cost`; tiered inventory buckets; multi-target variant (from Lab best rank 3, `<recipe>_multi` inventory key, `craftMulti` checkbox state); `file_crafted` = the one filing entry point (inventory, Shares, counts, XP, Contracts/Objectives/Collective) |
 | cultivating.gd | Vein growth / cultivate / prune (player rolls max under Be a Lady; `player_*_text` previews); security tiers (lock/ward prices, guard tiers hired via GuardUpkeep) + raid resist; shared vein `value_order`; vein guard count + `drop_vein_guard` |
 | debug_start.gd | Maximal-unlock debug state; `apply(model)` keeps a picked `player.model` through its reset |
 | debug_tools.gd | Debug phone-app state adjusters; `fire_event()` preps any event (state-path veins/sites, addressed contacts, raid/reveal site context) then starts it |
@@ -71,7 +69,6 @@ Data file per system: see `data/*.json` below.
 | hiring.gd | LodedInnit roster + `state.hiring` status, rollover market flips; profile level/cap/wage; `hire()` (or poach: ×premium, relation cost) into a free role-room seat, first week prepaid pot→float or float top-up ask; wage refresh; `let_go()`; weekly faction poach offers on hires (`daily_poach_tick`, `match_poach`, `decline_poach`) (R§3.10 "Hiring") |
 | jobs.gd | James's jobs, trust bands |
 | key_members.gd | Faction key members (R§3.10): member/faction lookup, `contenders`, `leader_of`, `speaker_for` (= the faction leader), `send` (unlocks + intro first); standing sources, `daily_tick` succession, `aggression_scale` (leader mult × `gratitude_scale`)/`baseline_shift`, `inside_man` (warnings, leaks, back channel), `can_offer`/`offer_prize`/`accept_offer` (secret-offer prizes) |
-| lab_bench_nav.gd | Lab bench nav: selected ore; gear confirm variant (probe/craft/inert) + readiness |
 | faction_incidents.gd | FactionIncidents (R§3.1f): daily tick runs data-driven triggers (`raidedByFaction`, `warBetween`, `truceExpiring`, `turfFlip`, `succession`, `secretOffer`) with cooldowns/conditions; a hit queues its event + key-member pending message; `start_pending` plays it. Data: faction_incidents.json. |
 | grudges.gd | Grudges: `state.grudges` (per-faction score to settle after a successful raid on you), `state.grudgeEffects` (soft marks, revenge windows), `record`, `answer`/`answer_district` hooks, `raid_odds_bonus`, `daily_tick` expiry, `soft_pressure` (read by `FactionAI.threat`), district rows. Data: constants.json `factionGrudge`. |
 | warmonger.gd | Warmonger (R§3.1e): `state.warmonger` rolling violent-act log/score, `record(act)`, window roll-off, coalition `pressure` + pair drift, coordinated intel share, `joint_raid_bonus`. |
@@ -179,7 +176,7 @@ overlays.
 | map_palette.gd | MapPalette: resolves Map palette tokens (data/map_palette.json) for the current light/dark mode (`meta.mapDarkMode`), plus faction/ore colours and district zone-tint strength (`zoneTint`) with optional dark-only overrides; every Map-tab and card-family colour reads through it |
 | map_legend.gd | Persistent faction-colour key; restyles in place on a dark-mode toggle |
 | map_zoom_buttons.gd | Floating +/- zoom control; restyles in place on a dark-mode toggle |
-| modal_layer.gd | Dim background + map_card_style.gd card (follows the dark toggle), with navy/red chrome for BizBrief contract cancellation; mounts full-screen sheets for sell_menu (Trade) and guard_kit, and dispatches other content through modal_registry.gd; draws the recipe book full-bleed (no card) with recipe detail as a card above it; tap-outside dismiss |
+| modal_layer.gd | Dim background + map_card_style.gd card (follows the dark toggle), with navy/red chrome for BizBrief contract cancellation; mounts full-screen sheets for sell_menu (Trade) and guard_kit, and dispatches other content through modal_registry.gd; tap-outside dismiss |
 | notification_ticker.gd | Top board's one-message notice row: presentation-only queue, roll-up from below, marquee for overflow, 4s hold; latest stays when empty; transient (combat-log) or keyed (notification id) queued entries droppable |
 | nav_bar.gd | Bottom nav dock (Phone·Map·HQ); swaps to MapPalette dark chrome tokens while the Map tab shows with Map dark mode on |
 | ore_glyphs.gd | Five canonical ore silhouettes as hand-drawn vectors; bundled-font coverage probe for non-map symbol fallback |
@@ -205,8 +202,6 @@ overlays.
 |---|---|
 | modal_registry.gd | type id -> content script table; the only content path modal_layer.gd dispatches through |
 | seed_result_modal.gd | Seed-attempt result card |
-| craft_result_modal.gd | Single-craft result card |
-| craft_batch_result_modal.gd | Batch-craft result card, per-attempt list |
 | sale_result_modal.gd | Archie/faction sale result card; close plays a deferred quest event if one is queued, else routes to Phone home |
 | archie_deal_result_modal.gd | Archie deal-vein result card; close routes to Phone home |
 | james_job_offer_modal.gd | James job offer card; Accept/Decline hand off to Jobs |
@@ -230,12 +225,6 @@ overlays.
 | network_reference_modal.gd | Network Map legend |
 | hq_ore_readout_modal.gd | Ore-store slip with raid-risk stamp + personal-stash move controls, map_card_style.gd-skinned (always light) |
 | hq_gym_modal.gd | Combat skill card (level, XP bar, current + next-level HP/ATK/SPD via `Combat.skill_summary()`) + Train action card |
-| lab_bench_modal_helpers.gd | Tier + progress-bar block, experiment controls, batch total text + outcome headings shared by the lab-bench modals |
-| lab_bench_recipe_book_modal.gd | Recipe notebook page: five ore side tabs (live glyphs), found recipes filtered by ingredient ore, four entries per page with Prev/Next; tab+page live in modal data; an entry raises lab_bench_recipe_detail |
-| lab_bench_recipe_detail_modal.gd | One found recipe above the book: description, ingredients, chance/effect/stock, batch slider + Craft (result returns to the book via `Modal.set_return`), Experiment, Back to book |
-| lab_bench_notes_modal.gd | Per-pairing survey notes with found-recipe tier + experiment rows |
-| lab_bench_probe_result_modal.gd | Probe outcome card |
-| lab_bench_confirm_modal.gd | Gear-tap confirm: probe, craft ×N (batch slider, max = affordable) or inert warning, by cell state |
 | contract_cancel_modal.gd | Navy BizBrief contract cancel confirm (Keep / Confirm → `Contracts.cancel`) |
 | active_effects_modal.gd | Sheet listing each running timed effect with level and blocks left (from the top bar chips) |
 | player_moves_modal.gd | "Move against" sheet for one faction: vein picker plus the three `PlayerMoves` rows with cost and block reason |
@@ -270,7 +259,7 @@ overlays.
 
 | File | Consumed by |
 |---|---|
-| approaches.json | approaches.gd |
+| approaches.json | Lab apparatus list (names, symbols); lab.gd, GameData.gd |
 | barometer.json | barometer.gd (states/actions/prefs and wire article templates); ticker_app.gd (News branding, state-article headline/deck/body, per-category columnist byline + author note (`categoryBylines`), article/impact labels and category copy; Stock Market list/detail labels and empty states) |
 | bench_prototype.json | bench_prototype.gd |
 | collective_barks.json | collective.gd |
@@ -292,7 +281,7 @@ overlays.
 | factions.json | factions.gd, sites.gd, raiding.gd, debug_start.gd, faction_sim.gd (`startingHoldings`, `stockpilePlaces`, `stockpileGuards`, `cultivateSkill`, `fieldwork`, `craftSkill`, `craftTargets`, `raidKits`, `consumes`, `trading`, `industryIncome`), key_members.gd (`keyMembers`, `speaker`), diplomacy.gd (`sampleFavours`, `giftPrefs`), faction_ai.gd (`aggressionPersonality`, `weariness`) |
 | lodedinnit.json | GameData.gd (`LODEDINNIT_*`), lodedinnit_feed.gd: feed cap/likes/author weights, per-candidate post voices (trait variants), shared canned comments, hire-status templates |
 | hiring.json | contacts.gd (`roles` → `room_roles`), payroll.gd (`roles` → `role_skill_keys`): staff role registry; hiring.gd (`candidates`, merged into contact defaults by GameData.gd; `market`, `traits`): LodedInnit roster, flip/poach numbers, trait skip chance / role-XP mult |
-| home.json | home.gd, approaches.gd, contacts.gd, property_app.gd (tier `image` listing photos) |
+| home.json | home.gd, contacts.gd, property_app.gd (tier `image` listing photos) |
 | floorplans.json | GameData.gd + floorplan_view.gd (per-tier plan asset, size, slot rects) |
 | hq_visuals.json | hq_diorama.gd, hq*.gd screens |
 | map_layout.json | map_layout.gd, map_hit_test.gd |
@@ -304,7 +293,7 @@ overlays.
 | palette.json | GameData.gd (reference combat-art palette; `lodedinnit_*` brand tokens read by lodedinnit_app.gd; `phone_*` Phone-OS tokens read by contact_cards.gd) |
 | daily_brief.json | GameData.gd + daily_brief.gd (Today card tier order + labels, row cap, bill window, vein risk bands + collapse-nights threshold, offer window, demand threshold, empty state, more/less + Routine/demand toggle labels, routineParts, demandPart, storyActions button labels, doneMark + revealSeconds fade, per-row tier/kind/label/consequence/action templates; PROSE-REVIEW) |
 | phone_home.json | GameData.gd + phone_device_shell.gd + messages.gd (`typing` delay bounds; wallpaper, per-block status clock times, widget date format + fixed weather/battery copy; shell renders time/date from world.day/timeBlock) |
-| recipes.json | widely read (crafting, bench, combat, dial, jobs, rooms) |
+| recipes.json | widely read (crafting, lab, combat, dial, jobs, rooms) |
 | sites.json | sites.gd, collective.gd, objectives.gd |
 | stealth.json | raiding.gd |
 | vein_alarm.json | cultivating.gd |

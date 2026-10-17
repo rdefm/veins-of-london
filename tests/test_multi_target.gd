@@ -7,9 +7,6 @@ const Fixtures := preload("res://tests/support/fixtures.gd")
 
 
 func _set_tier(recipe_key: String, tier: int) -> void:
-	var d: Dictionary = GameData.RECIPES[recipe_key]["discovery"]
-	var key := Bench.cell_key(d["types"], d["approach"])
-	GameState.state["player"]["bench"]["cells"][key] = { "state": "hot", "misses": 0, "tier": tier, "progress": 0 }
 	GameState.state["lab"]["bestRanks"][recipe_key] = tier
 
 
@@ -47,33 +44,6 @@ func run() -> void:
 		assert_true(Crafting.is_always_multi("blackHole"))
 		_set_tier("timePearl", 5)
 		assert_true(not Crafting.multi_craft_available("timePearl"), "not a targeted item")
-	)
-
-	run_case("multi_craft_files_under_the_multi_key", func():
-		GameState.reset()
-		_set_tier("blast", 3)
-		GameState.state["player"]["orichalchum"]["physics"] = 50
-		GameState.state["player"]["craftingSkill"] = 5
-		var saved: float = GameData.RECIPES["blast"]["baseSuccess"]
-		GameData.RECIPES["blast"]["baseSuccess"] = 5.0
-		var result := Crafting.attempt_craft("blast", true)
-		GameData.RECIPES["blast"]["baseSuccess"] = saved
-		assert_true(result["success"])
-		assert_eq(_stock("blast_multi", 3), 1, "multi unit in parallel key")
-		assert_eq(Crafting.inventory_qty("blast"), 0, "single stock untouched")
-	)
-
-	run_case("multi_request_ignored_below_tier_3", func():
-		GameState.reset()
-		_set_tier("blast", 2)
-		GameState.state["player"]["orichalchum"]["physics"] = 50
-		GameState.state["player"]["craftingSkill"] = 5
-		var saved: float = GameData.RECIPES["blast"]["baseSuccess"]
-		GameData.RECIPES["blast"]["baseSuccess"] = 5.0
-		Crafting.attempt_craft("blast", true)
-		GameData.RECIPES["blast"]["baseSuccess"] = saved
-		assert_eq(_stock("blast_multi", 2), 0)
-		assert_eq(_stock("blast", 2), 1, "falls back to single")
 	)
 
 	run_case("equip_multi_then_unequip_conserves_the_multi_unit", func():

@@ -481,7 +481,7 @@ static func maybe_retarget_nadia_defend_vein(lost_vein_id: String) -> void:
 
 # Fires col_a2_nadia_defend_brief the instant col_a2_nadia_supplies completes
 # (spec §5.1's "supplies before defend, not parallel" sequencing), called
-# from Crafting.attempt_craft()'s success branch after Objectives.refresh(),
+# from Crafting.file_crafted() after Objectives.refresh(),
 # same shape as maybe_trigger_nadia_vein_done() above. colA2DefendBriefed
 # (the scene's own on_complete flag) blocks re-firing.
 static func maybe_trigger_a2_nadia_defend_brief() -> bool:
@@ -535,7 +535,7 @@ static func maybe_trigger_a2_checkpoint() -> bool:
 
 # Act 2 relation award table (spec §7.3): +4 per T8 mission, once each, on
 # completion. Objectives.refresh() never awards, so this runs at the action
-# boundaries a mission can complete at: Crafting.attempt_craft() (supplies),
+# boundaries a mission can complete at: Crafting.file_crafted() (supplies),
 # and every maybe_trigger_a2_checkpoint() call site via that function.
 const A2_MISSION_RELATION := 4
 

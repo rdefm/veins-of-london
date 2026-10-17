@@ -28,7 +28,7 @@ func new_game_state() -> Dictionary:
 		"modal": null,
 		"bagDrawerOpen": false,
 		"inventoryTab": "ore",
-		# mapNav/veinListNav/phoneNav/labBenchNav are transient nav state,
+		# mapNav/veinListNav/phoneNav are transient nav state,
 		# reset on load -- mapView below is the one exception.
 		"mapNav": { "selectedDistrict": null, "selectedSiteId": null, "selectedVeinId": null },
 		# districtId null scopes to every district (HQ's Vein Station
@@ -63,11 +63,6 @@ func new_game_state() -> Dictionary:
 		# scrollX/scrollY as ints), so camera position persists. everOpened
 		# gates MapCanvas's one-shot auto-focus, false until first map open.
 		"mapView": { "everOpened": false, "zoom": MapZoom.DEFAULT, "scrollX": 0, "scrollY": 0 },
-		# Lab bench nav (docs/hq-diorama-vision.md §5). mode (the held-open
-		# notebook) persists across re-entry, unlike selectedOre (up to 2
-		# ids, §5.4), which open() always resets so re-entry never opens on
-		# a stale pairing.
-		"labBenchNav": { "selectedOre": [] },
 		# state.objectives[<id>] = { active, complete, progress }, keyed by
 		# data/objectives.json ids; Objectives.refresh() is the only writer.
 		# progress is per-evaluator scratch data -- e.g. traded_with_faction
@@ -126,10 +121,9 @@ func new_game_state() -> Dictionary:
 		# (null = as soon as none is outstanding).
 		"businessQuest": { "starterIndex": 0, "starterReissueDay": null, "recurringReissueDay": {}, "proofLedgerSize": null },
 		# Transient UI qty-steppers, not restored by SaveManager (same
-		# convention as sellState): craftQty keys recipe key -> batch size; stashQty
-		# keys "ore_<oreType>"/"item_<recipeKey>" -> qty, shared by a row's
-		# stash/unstash buttons.
-		"craftQty": {},
+		# convention as sellState): craftMulti keys recipe key -> the Lab's
+		# multi-target checkbox; stashQty keys "ore_<oreType>"/"item_<recipeKey>"
+		# -> qty, shared by a row's stash/unstash buttons.
 		"craftMulti": {},
 		"stashQty": {},
 		"event": null,
@@ -178,11 +172,6 @@ func new_game_state() -> Dictionary:
 			# Attack bonus + turn-order speed, level-indexed (GameData.
 			# COMBAT_ATTACK_BONUS_BY_LEVEL/COMBAT_SPEED_BY_LEVEL, R§3.7a).
 			"combatSkill": 1, "combatXP": 0,
-			# Lab's pure-data state. Known approaches are NOT stored here --
-			# Approaches.get_known() resolves that live, so caching here
-			# would be a second, driftable source of truth. Cells write
-			# lazily; absent key means "untried".
-			"bench": { "surveyed": {}, "cells": {}, "notes": {} },
 		},
 
 		"world": {

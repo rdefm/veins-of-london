@@ -26,6 +26,10 @@ const _STATUS_MIN_HEIGHT := 32.0
 const _OVERLAY_MARGIN := 8.0
 # Art-space writing area of RecipeBookPage's art, left of the side tabs.
 const _BACK_PAGE_RECT := Rect2(206, 190, 626, 1180)
+const _PER_PAGE := 4
+const _ENTRY_TOP := 205.0
+const _ENTRY_STEP := 290.0
+const _ENTRY_HEIGHT := 250.0
 
 enum Page { NONE, BOOK, RECIPE, DEBUG, RUN }
 
@@ -144,7 +148,7 @@ func _pool_count(ore_type: String) -> int:
 
 func _label_ore_regions(regions: Dictionary) -> void:
 	for ore_type in GameData.ORE_TYPES.keys():
-		var region_id := LabBenchNav.ORE_REGION_PREFIX + String(ore_type)
+		var region_id := Lab.ORE_REGION_PREFIX + String(ore_type)
 		if regions.has(region_id):
 			regions[region_id]["label"] = "%s — %d" % [GameData.ORE_TYPES[ore_type]["name"], _pool_count(ore_type)]
 
@@ -154,9 +158,9 @@ func _label_ore_regions(regions: Dictionary) -> void:
 # player's orichalchum.
 func _add_ore_badges(regions: Dictionary, origin: Vector2, scale_factor: float) -> void:
 	for region_id in regions:
-		if not String(region_id).begins_with(LabBenchNav.ORE_REGION_PREFIX):
+		if not String(region_id).begins_with(Lab.ORE_REGION_PREFIX):
 			continue
-		var ore_type := String(region_id).trim_prefix(LabBenchNav.ORE_REGION_PREFIX)
+		var ore_type := String(region_id).trim_prefix(Lab.ORE_REGION_PREFIX)
 		var rect := HqDiorama.region_rect(regions[region_id])
 
 		var box := CenterContainer.new()
@@ -210,14 +214,14 @@ func _on_run_zone_tapped(zone: String) -> void:
 	if _gauge != "" or not _result.is_empty():
 		return
 	var outcome := {}
-	if zone.begins_with(LabBenchNav.ORE_REGION_PREFIX):
+	if zone.begins_with(Lab.ORE_REGION_PREFIX):
 		_notice = ""
-		outcome = BenchPrototype.add_ore(_recipe_id, zone.trim_prefix(LabBenchNav.ORE_REGION_PREFIX))
-	elif zone.begins_with(LabBenchNav.APPARATUS_REGION_PREFIX):
+		outcome = BenchPrototype.add_ore(_recipe_id, zone.trim_prefix(Lab.ORE_REGION_PREFIX))
+	elif zone.begins_with(Lab.APPARATUS_REGION_PREFIX):
 		outcome = BenchPrototype.check_apparatus()
 		if outcome["ok"]:
 			_notice = ""
-			_gauge = zone.trim_prefix(LabBenchNav.APPARATUS_REGION_PREFIX)
+			_gauge = zone.trim_prefix(Lab.APPARATUS_REGION_PREFIX)
 			_refresh()
 	if not outcome.get("ok", true):
 		_notice = outcome["reason"]
@@ -273,16 +277,16 @@ func _book_column(page: RecipeBookPage, controls: Array) -> VBoxContainer:
 
 func _build_book() -> Control:
 	var known := BenchPrototype.known_recipes()
-	var pages := LabBenchRecipeBookModal.page_count(known.size())
-	_book_page = LabBenchRecipeBookModal.clamped_page(_book_page, known.size())
+	var pages := maxi(1, ceili(known.size() / float(_PER_PAGE)))
+	_book_page = clampi(_book_page, 0, pages - 1)
 	var book := RecipeBookPage.new()
 	if known.is_empty():
 		var empty := _page_label("No recipes known.", RecipeBookPage.INK_MUTED)
 		empty.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		empty.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		book.place(empty, Rect2(240, 560, 560, 400), 40.0, 11)
-	var first := _book_page * LabBenchRecipeBookModal.PER_PAGE
-	for slot in range(mini(LabBenchRecipeBookModal.PER_PAGE, known.size() - first)):
+	var first := _book_page * _PER_PAGE
+	for slot in range(mini(_PER_PAGE, known.size() - first)):
 		_build_entry(book, known[first + slot], slot)
 
 	var counter := UI.label("Page %d/%d" % [_book_page + 1, pages])
@@ -304,7 +308,7 @@ func _turn_page(step: int) -> void:
 
 func _build_entry(book: RecipeBookPage, recipe_id: String, slot: int) -> void:
 	var recipe: Dictionary = GameData.BENCH_PROTOTYPE["recipes"][recipe_id]
-	var top: float = LabBenchRecipeBookModal.ENTRY_TOP + LabBenchRecipeBookModal.ENTRY_STEP * slot
+	var top: float = _ENTRY_TOP + _ENTRY_STEP * slot
 
 	var icon := TextureRect.new()
 	icon.texture = ItemIcons.texture(recipe_id)
@@ -335,7 +339,7 @@ func _build_entry(book: RecipeBookPage, recipe_id: String, slot: int) -> void:
 	pressed_style.set_corner_radius_all(8)
 	hit.add_theme_stylebox_override("pressed", pressed_style)
 	hit.pressed.connect(func(): _open_recipe(recipe_id))
-	book.place(hit, Rect2(206, top, 626, LabBenchRecipeBookModal.ENTRY_HEIGHT))
+	book.place(hit, Rect2(206, top, 626, _ENTRY_HEIGHT))
 
 
 func _page_label(text: String, colour: Color) -> Label:
@@ -389,10 +393,10 @@ func _build_recipe_card() -> Control:
 		reason = "A run is open."
 	var craft := MapCardStyle.action_button("Auto-craft ×%d" % _craft_qty, func(): BenchPrototype.batch(recipe_id, picked[0]), reason != "", reason)
 	var craft_button := craft.get_child(0) as Button
-	var total := UI.label(LabBenchModalHelpers.batch_total_text(cost, _craft_qty))
+	var total := UI.label(_batch_total_text(cost, _craft_qty))
 	var on_change := func(value: int) -> void:
 		picked[0] = value
-		total.text = LabBenchModalHelpers.batch_total_text(cost, value)
+		total.text = _batch_total_text(cost, value)
 		craft_button.text = "Auto-craft ×%d" % value
 	content.add_child(MapCardStyle.quantity_slider("Batch", _craft_qty, most, on_change, func(value: int): _craft_qty = value))
 	content.add_child(total)
@@ -509,7 +513,7 @@ func _add_known_step(content: VBoxContainer, index: int, step: Dictionary) -> vo
 	if step["knowledge"] == "revealed":
 		# PROSE-REVIEW: tag on a band Prophet's Breath reveals.
 		band_text += " (Breath)"
-	content.add_child(UI.label("%d. %s%s · %s" % [index + 1, LabBenchNav.apparatus_name(step["apparatus"]), ores, band_text % [roundi(region["low"]), roundi(region["high"])]]))
+	content.add_child(UI.label("%d. %s%s · %s" % [index + 1, Lab.apparatus_name(step["apparatus"]), ores, band_text % [roundi(region["low"]), roundi(region["high"])]]))
 	var band := LabGauges.BandGauge.new()
 	band.band_low = region["low"]
 	band.band_high = region["high"]
@@ -560,7 +564,7 @@ func _add_result(content: VBoxContainer) -> void:
 func _clue_text(clue: Dictionary) -> String:
 	var data: Dictionary = GameData.BENCH_PROTOTYPE
 	var words: Dictionary = data["clueText"]
-	var parts := PackedStringArray([LabBenchNav.apparatus_name(clue["apparatus"]), words[clue["clue"]]])
+	var parts := PackedStringArray([Lab.apparatus_name(clue["apparatus"]), words[clue["clue"]]])
 	if clue["direction"] != null:
 		parts[1] += " " + String(BenchPrototype.gauge(clue["apparatus"])["directionWords"][clue["direction"]])
 	if clue.get("learned") == "vague":
@@ -583,7 +587,7 @@ func _build_gauge_card(apparatus: String) -> Control:
 	var c := MapCardStyle.card(18, 0.16)
 	c["panel"].custom_minimum_size.x = _GAUGE_WIDTH
 	var content: VBoxContainer = c["content"]
-	content.add_child(UI.heading(LabBenchNav.apparatus_name(apparatus), 16))
+	content.add_child(UI.heading(Lab.apparatus_name(apparatus), 16))
 	var g := BenchPrototype.gauge(apparatus)
 	var gauge: LabGauges.StepGauge
 	match apparatus:
@@ -727,6 +731,13 @@ func _entry_text(entry: Dictionary) -> String:
 	if entry["bonus"] != null:
 		bonus_text = " · bonus: %s" % GameData.BENCH_PROTOTYPE["bonus"]["types"][entry["bonus"]]["label"]
 	return "Run %s ×%d · score %d → rank %d · %.1fs · +%d XP%s" % [recipe_name, entry["items"], entry["score"], entry["rank"], entry["durationMsec"] / 1000.0, entry["xp"], bonus_text]
+
+
+func _batch_total_text(costs: Dictionary, qty: int) -> String:
+	var parts: Array[String] = []
+	for ore_type in costs:
+		parts.append("%d %s" % [costs[ore_type] * qty, String(ore_type).capitalize()])
+	return "Total: %s" % " · ".join(parts)
 
 
 func _pool_text(pool: Dictionary) -> String:

@@ -215,7 +215,6 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["flags"]["homeUnlocked"] = true
 		GameState.state["currentScreen"] = "hq"
-		GameState.state["labBenchNav"]["selectedOre"] = ["life"]
 
 		var hq := HqScreen.new()
 		hq._ready()
@@ -223,7 +222,6 @@ func run() -> void:
 		UiSim.tap_zone(hq, "lab")
 
 		assert_eq(GameState.state["currentScreen"], "hq_lab_bench", "tapping the Lab zone must open the bench sub-view")
-		assert_eq(GameState.state["labBenchNav"]["selectedOre"], [], "LabBenchNav.open() must clear a stale ore selection, same as any fresh visit (§5.4)")
 
 		hq.free()
 	)

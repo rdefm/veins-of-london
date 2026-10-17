@@ -7,19 +7,6 @@ func _set_day(day: int) -> void:
 	GameState.state["world"]["day"] = day
 
 
-# Returns the ore the matching attempt spent.
-func _craft_until(recipe_key: String, want_success: bool) -> Dictionary:
-	for seed in range(200):
-		GameState.state["player"]["orichalchum"] = { "time": 50, "life": 50, "physics": 50, "fate": 50, "emotion": 50 }
-		var costs := Crafting.calc_cost(recipe_key, GameState.state["player"]["craftingSkill"])
-		Rng.set_seed(seed)
-		if Crafting.attempt_craft(recipe_key)["success"] == want_success:
-			return costs
-		GameState.state["shares"] = Shares.new_state()
-	assert_true(false, "no seed gave success=%s" % want_success)
-	return {}
-
-
 func run() -> void:
 	# ── pure reads ─────────────────────────────────────────────────────
 
@@ -117,17 +104,11 @@ func run() -> void:
 		assert_eq(Shares.window_totals("ore")["player"]["life"], result["amount"])
 	)
 
-	run_case("successful_craft_credits_crafting_share_by_ingredient_weight", func():
+	run_case("a_craft_credits_crafting_share_by_ingredient_weight", func():
 		GameState.reset()
-		var costs := _craft_until("failsafe", true)
+		Fixtures.craft("failsafe")
 		var totals := Shares.window_totals("craft")
-		assert_eq(totals["player"], costs, "time and life each by their ingredient weight")
-	)
-
-	run_case("failed_craft_credits_nothing", func():
-		GameState.reset()
-		_craft_until("failsafe", false)
-		assert_eq(Shares.window_totals("craft"), {})
+		assert_eq(totals["player"], Crafting.calc_cost("failsafe", 1), "time and life each by their ingredient weight")
 	)
 
 	# ── rollover + save ────────────────────────────────────────────────

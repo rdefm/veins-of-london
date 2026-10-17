@@ -12,10 +12,8 @@ scripts/diagnose_115_timing.gd
 tests/support/draw_spy.gd
 tests/test_alarm_presentation.gd
 tests/test_app_tile.gd
-tests/test_approaches.gd
 tests/test_bag_drawer.gd
 tests/test_base.gd
-tests/test_bench.gd
 tests/test_col_a1_des_report.gd
 tests/test_col_a1_nadia_meet.gd
 tests/test_col_a1_tuition.gd
@@ -50,7 +48,6 @@ tests/test_hq_floorplan.gd
 tests/test_hq_lab_bench.gd
 tests/test_hq_screen.gd
 tests/test_icons.gd
-tests/test_lab_bench_nav.gd
 tests/test_map_bubble.gd
 tests/test_map_canvas.gd
 tests/test_map_controls.gd

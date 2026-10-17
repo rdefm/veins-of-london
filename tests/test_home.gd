@@ -953,26 +953,3 @@ func run() -> void:
 		var bonus := Home.get_workshop_bonus()
 		assert_almost_eq(bonus, 0.16, 0.0001, "workshop 0.08 + library 0.08")
 	)
-
-	run_case("known_approaches_always_include_start_approaches_with_no_rooms", func():
-		GameState.reset()
-		GameState.state["home"]["rooms"] = []
-		var known := Approaches.get_known()
-		assert_true(known.has("heat"), "heat is start-known")
-		assert_true(known.has("grinding"), "grinding is start-known")
-		assert_true(known.has("compression"), "compression is start-known")
-		assert_true(known.has("distilling"), "distilling is start-known")
-	)
-
-	run_case("room_sourced_approach_unlocks_via_room_ownership", func():
-		GameData.APPROACHES["_testGated"] = { "name": "Gated", "symbol": "?", "source": { "type": "room", "id": "lab" } }
-		GameState.reset()
-		GameState.state["home"]["rooms"] = ["workshop"]
-		assert_true(not Approaches.get_known().has("_testGated"), "lab not owned -> gated approach locked")
-		assert_true(not Approaches.is_known("_testGated"), "is_known agrees with get_known")
-
-		GameState.state["home"]["rooms"] = ["workshop", "lab"]
-		assert_true(Approaches.get_known().has("_testGated"), "lab owned -> gated approach known")
-		assert_true(Approaches.is_known("_testGated"), "is_known agrees with get_known")
-		GameData.APPROACHES.erase("_testGated")
-	)

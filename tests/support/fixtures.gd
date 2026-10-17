@@ -15,6 +15,7 @@ extends RefCounted
 #   dial_with_loaded(recipe_key, tier, charge)             impact-movement dial with one complication at detent 0
 #   install_objectives(entries) -> original                swap GameData.OBJECTIVES; returns the table to restore
 #   has_notification(text) -> bool                         any notification in state with exactly this text
+#   craft(recipe_key, qty, tier)                           file crafted units through Crafting.file_crafted()
 
 
 static func site(id: String, ore_type: String, tier: String, claimed: bool = false, faction_vein: Variant = null, district: String = "shoreditch", bonuses: Array = []) -> Dictionary:
@@ -122,3 +123,9 @@ static func has_notification(text: String) -> bool:
 		if n["text"] == text:
 			return true
 	return false
+
+
+# Files qty crafted units of recipe_key at tier through Crafting.file_crafted(),
+# the path every player craft takes (inventory, craftedCounts, side effects).
+static func craft(recipe_key: String, qty: int = 1, tier: int = 1) -> void:
+	Crafting.file_crafted(recipe_key, tier, qty, false, Crafting.calc_cost(recipe_key, 1), int(GameData.RECIPES[recipe_key]["xpReward"]))

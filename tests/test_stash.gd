@@ -110,12 +110,11 @@ func run() -> void:
 		assert_true(not received[0], "no-op move should not emit state_changed")
 	)
 
-	run_case("stashed_stock_is_invisible_to_can_craft_and_can_still_be_spent_by_crafting", func():
+	run_case("stashed_calc_is_invisible_to_the_lab", func():
 		GameState.reset()
 		GameState.state["player"]["orichalchum"]["time"] = 5
-		GameState.state["player"]["craftingSkill"] = 1
 		Stash.move_ore_to_stash("time", 5)
-		assert_true(not Crafting.can_craft("timePearl"), "Crafting reads player.orichalchum, which the stash move already emptied")
+		assert_eq(Lab.calc_available("time"), 0, "the Lab reads player.orichalchum, which the stash move already emptied")
 	)
 
 	run_case("ore_move_qty_defaults_to_1_and_steps_clamp_to_1_and_max", func():

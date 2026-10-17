@@ -8,14 +8,8 @@ var _scroll: ScrollContainer
 var _card_content: VBoxContainer
 var _trade_view: PanelContainer
 var _kit_view: PanelContainer
-var _overlay_card: PanelContainer
-var _overlay_scroll: ScrollContainer
-var _overlay_content: VBoxContainer
-var _book_box: VBoxContainer
 
 const MAX_CARD_HEIGHT := 620.0
-const BOOK_TYPE := "lab_bench_recipe_book"
-const BOOK_DETAIL_TYPE := "lab_bench_recipe_detail"
 
 func _ready() -> void:
 	UI.anchor_full_rect(self)
@@ -41,28 +35,6 @@ func _ready() -> void:
 	_card_content = UI.vbox(8)
 	_card_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_scroll.add_child(_card_content)
-
-	# The recipe book bypasses the card: its art is the page.
-	_book_box = UI.vbox(6)
-	UI.anchor_full_rect(_book_box)
-	_book_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_book_box.visible = false
-	add_child(_book_box)
-
-	# Second card stacked above the book: a recipe's detail over its page.
-	_overlay_card = PanelContainer.new()
-	MapCardStyle.style_panel(_overlay_card, 18, 0.16)
-	UI.anchor_center(_overlay_card)
-	_overlay_card.visible = false
-	add_child(_overlay_card)
-
-	_overlay_scroll = UI.scroll_container()
-	_overlay_scroll.custom_minimum_size = Vector2(330, 0)
-	_overlay_card.add_child(_overlay_scroll)
-
-	_overlay_content = UI.vbox(8)
-	_overlay_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_overlay_scroll.add_child(_overlay_content)
 
 	_trade_view = preload("res://scenes/modals/sell_menu_view.gd").new()
 	UI.anchor_full_rect(_trade_view)
@@ -97,8 +69,6 @@ func _dismiss_modal() -> void:
 			SaleResultModal.close()
 		"archie_deal_result":
 			ArchieDealResultModal.close()
-		BOOK_DETAIL_TYPE:
-			LabBenchRecipeDetailModal.close()
 		_:
 			Modal.close()
 
@@ -114,14 +84,7 @@ func _refresh() -> void:
 		if sheet_type != type_id and sheet.visible:
 			sheet.call("reset_ui")
 			sheet.visible = false
-	var is_book := type_id == BOOK_TYPE or type_id == BOOK_DETAIL_TYPE
-	_overlay_card.visible = type_id == BOOK_DETAIL_TYPE
-	_book_box.visible = is_book
 	if modal == null:
-		return
-	if is_book:
-		_card.visible = false
-		_show_book(modal)
 		return
 	if sheets.has(type_id):
 		var sheet: PanelContainer = sheets[type_id]
@@ -150,33 +113,6 @@ func _refresh() -> void:
 
 	_size_card_to_content()
 	_size_card_to_content.call_deferred()
-
-
-# The book page fills the area between the bars; a tapped recipe's detail
-# stacks above it in the overlay card.
-func _show_book(modal: Dictionary) -> void:
-	for box in [_book_box, _overlay_content]:
-		for child in box.get_children():
-			box.remove_child(child)
-			child.queue_free()
-	_book_box.offset_left = 8.0
-	_book_box.offset_right = -8.0
-	_book_box.offset_top = UI.top_bar_clearance() + 8.0
-	_book_box.offset_bottom = -UI.nav_bar_clearance()
-	var data: Dictionary = modal.get("data", {})
-	MapCardStyle.style_panel(_overlay_card, 18, 0.16)
-	if modal.get("type", "") == BOOK_DETAIL_TYPE:
-		ModalRegistry.REGISTRY[BOOK_TYPE].build(_book_box, { "ore": data.get("bookOre", ""), "page": data.get("bookPage", 0) })
-		ModalRegistry.REGISTRY[BOOK_DETAIL_TYPE].build(_overlay_content, data)
-	else:
-		ModalRegistry.REGISTRY[BOOK_TYPE].build(_book_box, data)
-	_size_overlay_to_content()
-	_size_overlay_to_content.call_deferred()
-
-
-func _size_overlay_to_content() -> void:
-	if _overlay_card.visible:
-		_overlay_scroll.custom_minimum_size.y = minf(_overlay_content.get_combined_minimum_size().y, MAX_CARD_HEIGHT)
 
 
 func _size_card_to_content() -> void:

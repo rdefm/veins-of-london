@@ -29,10 +29,7 @@ func run() -> void:
 		assert_eq(s["player"]["cultivatingSkill"], 1, "player.cultivatingSkill")
 		assert_eq(s["player"]["stealthSkill"], 1, "player.stealthSkill")
 		assert_eq(s["player"]["stealthXP"], 0, "player.stealthXP")
-		assert_eq(s["player"]["bench"], { "surveyed": {}, "cells": {}, "notes": {} }, "player.bench starts empty")
-		# hq-diorama ticket 07: benchNav (BenchNav's old picker/pairing/confirm
-		# drill-down) is retired -- labBenchNav is now the Lab's only nav state.
-		assert_eq(s["labBenchNav"], { "selectedOre": [] }, "labBenchNav")
+		assert_true(not s["player"].has("bench") and not s.has("labBenchNav") and not s.has("craftQty"), "no lottery bench state")
 
 		assert_eq(s["world"]["day"], 1, "world.day")
 		assert_eq(s["world"]["timeBlock"], 0, "world.timeBlock")

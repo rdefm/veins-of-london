@@ -4,7 +4,7 @@ extends Node
 # autosaves. autosave() is called from daily_tick, exit_combat, event
 # completion, and every successful cash purchase.
 
-const SAVE_VERSION := 11
+const SAVE_VERSION := 12
 # Oldest save version _migrate_versions() can still bring forward.
 const MIN_SUPPORTED_VERSION := 3
 const SLOT_COUNT := 3
@@ -133,7 +133,6 @@ func _load_save_dict(raw: Dictionary) -> Dictionary:
 	filled["blockStart"] = null
 	_restore_int_types(filled)
 	_migrate_versions(filled)
-	_reopen_inert_occupied_bench_cells(filled)
 	_clamp_loaded_combat_selection(filled)
 	_migrate_vein_station_veins(filled)
 	_strip_unowned_cultivator_veins(filled)
@@ -367,36 +366,34 @@ func _migrate_versions(save: Dictionary) -> void:
 				_migrate_from_v7(save)
 			8:
 				_migrate_from_v8(save)
-			9:
-				_migrate_from_v9(save)
 			10:
 				_migrate_from_v10(save)
+			11:
+				_migrate_from_v11(save)
 	meta["saveVersion"] = SAVE_VERSION
 	save["meta"] = meta
+
+
+# v12: drops the lottery bench's state (player.bench, labBenchNav, craftQty)
+# and closes an open modal of a retired type.
+const RETIRED_MODAL_TYPES := ["craft_result", "craft_batch_result", "lab_bench_recipe_book", "lab_bench_recipe_detail", "lab_bench_notes", "lab_bench_probe_result", "lab_bench_confirm"]
+
+
+func _migrate_from_v11(save: Dictionary) -> void:
+	var player: Variant = save.get("player")
+	if player is Dictionary:
+		player.erase("bench")
+	save.erase("labBenchNav")
+	save.erase("craftQty")
+	var modal: Variant = save.get("modal")
+	if modal is Dictionary and RETIRED_MODAL_TYPES.has(modal.get("type")):
+		save["modal"] = null
 
 
 # v11: the `pansPrank` id becomes `panic` wherever it appears as a key or string
 # value (inventories, kits, holdings, crafted counts, bench cells, loadouts).
 func _migrate_from_v10(save: Dictionary) -> void:
 	_rename_recipe_id(save, "pansPrank", "panic")
-
-
-# An "inert" bench cell is permanent, so one probed before a recipe was authored
-# into it would hide that recipe forever. Drop any inert cell a recipe now occupies.
-func _reopen_inert_occupied_bench_cells(save: Dictionary) -> void:
-	var player: Variant = save.get("player")
-	if not (player is Dictionary) or not (player.get("bench") is Dictionary):
-		return
-	var cells: Variant = player["bench"].get("cells")
-	if not (cells is Dictionary):
-		return
-	for key in cells.keys():
-		var cell: Variant = cells[key]
-		if not (cell is Dictionary) or cell.get("state") != "inert":
-			continue
-		var parts: PackedStringArray = String(key).split("|")
-		if parts.size() == 2 and Bench.find_recipe_for_cell(Array(parts[0].split("+")), parts[1]) != "":
-			cells.erase(key)
 
 
 func _rename_recipe_id(node: Variant, old_id: String, new_id: String) -> Variant:
@@ -412,30 +409,6 @@ func _rename_recipe_id(node: Variant, old_id: String, new_id: String) -> Variant
 	elif node is String and node == old_id:
 		return new_id
 	return node
-
-
-# v10 bench cells carry `tier` + `progress`: a v9 cell's `refine` level maps to
-# tier = refine + 1 (capped at Bench.MAX_TIER), progress 0. v9 note outcomes
-# map to their experiment equivalents.
-func _migrate_from_v9(save: Dictionary) -> void:
-	var player: Variant = save.get("player")
-	if not (player is Dictionary) or not (player.get("bench") is Dictionary):
-		return
-	var bench: Dictionary = player["bench"]
-	var cells: Variant = bench.get("cells")
-	if cells is Dictionary:
-		for cell in cells.values():
-			if cell is Dictionary and cell.has("refine"):
-				cell["tier"] = clampi(int(cell["refine"]) + 1, 1, Bench.MAX_TIER)
-				cell["progress"] = 0
-				cell.erase("refine")
-	var notes: Variant = bench.get("notes")
-	if notes is Dictionary:
-		var renames := { "refined": "tier_up", "refine_failed": "no_progress" }
-		for note_list in notes.values():
-			for note in note_list:
-				if note is Dictionary and renames.has(note.get("outcome")):
-					note["outcome"] = renames[note["outcome"]]
 
 
 # v9 drops HQ kit capacity from three to two units per guard: overflow returns
@@ -1068,16 +1041,6 @@ func _restore_int_types(state: Dictionary) -> void:
 		for slot in player.get("loadout", {}).get("slots", []):
 			if slot is Dictionary:
 				_int_key(slot, "tier")
-		if player.has("bench"):
-			var bench: Dictionary = player["bench"]
-			_int_dict_values(bench.get("surveyed", {}))
-			for cell in bench.get("cells", {}).values():
-				_int_key(cell, "misses")
-				_int_key(cell, "tier")
-				_int_key(cell, "progress")
-			for note_list in bench.get("notes", {}).values():
-				for note in note_list:
-					_int_key(note, "day")
 		for vein in player.get("veins", []):
 			for key in ["growth", "rampantDays", "claimedOnDay", "slotIndex", "extraGuards", "level", "developmentStreak"]:
 				_int_key(vein, key)
@@ -1452,22 +1415,14 @@ func _restore_bench_prototype_clue_ints(clues: Array) -> void:
 		_int_key(clue, "hits")
 
 
-# state.modal.data's shape depends on modal.type (systems/crafting.gd,
-# economy.gd, jobs.gd) — unlike the fixed-schema fields
+# state.modal.data's shape depends on modal.type (systems/economy.gd,
+# jobs.gd) — unlike the fixed-schema fields
 # above, it's polymorphic, so it needs its own per-type table rather than
 # a flat key list. seed_result and james_job_offer without a job aren't
 # listed: they carry no int fields.
 func _restore_modal_int_types(modal: Dictionary) -> void:
 	var data: Dictionary = modal.get("data", {})
 	match modal.get("type"):
-		"craft_result":
-			_int_key(data, "power")
-		"craft_batch_result":
-			_int_key(data, "requested")
-			_int_key(data, "completed")
-			_int_key(data, "successes")
-			for attempt in data.get("attempts", []):
-				_int_key(attempt, "power")
 		"sale_result", "archie_deal_result":
 			_int_key(data, "earned")
 			_int_key(data, "gross")

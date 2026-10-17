@@ -140,8 +140,7 @@ func run() -> void:
 		GameState.state["player"]["veins"] = [Fixtures.player_vein_with()]
 		assert_true(Cultivating.cultivate("v1")["ok"], "a vein on no cultivator's list")
 		assert_true(Cultivating.prune("v1", GameData.VEIN_GROWTH["pruneLightDepth"])["ok"])
-		GameState.state["player"]["orichalchum"]["time"] = 100
-		Crafting.attempt_craft("timePearl")
+		Fixtures.craft("timePearl")
 		Economy.execute_faction_purchase("guild", [{ "kind": "ore", "type": "time", "qty": 1 }])
 		GameState.state["player"]["stash"]["orichalchum"]["life"] = 1
 		Stash.move_ore_to_shared("life", 1)
@@ -755,14 +754,9 @@ func _fill_and_settle(contract: Dictionary) -> Dictionary:
 	return GameState.state["sales"]["settlements"].back()
 
 
-# Crafts until one Time Pearl lands in shared stock (seeded, so deterministic).
+# Crafts one Time Pearl into shared stock.
 func _craft_one_time_pearl() -> void:
-	GameState.state["player"]["orichalchum"]["time"] = 1000
-	Rng.set_seed(1)
-	for attempt in 50:
-		if Crafting.inventory_qty("timePearl") > 0:
-			return
-		Crafting.attempt_craft("timePearl")
+	Fixtures.craft("timePearl")
 
 
 func _settled_ids() -> Array:

@@ -2,6 +2,7 @@ extends "res://tests/test_base.gd"
 
 const EventPlay := preload("res://tests/support/event_play.gd")
 const SeedSearch := preload("res://tests/support/seed_search.gd")
+const Fixtures := preload("res://tests/support/fixtures.gd")
 
 # M0-T14: seeded end-to-end playthrough — new game through the full
 # tutorial (as T13), then a full economy loop, asserting invariants at
@@ -429,13 +430,6 @@ func _prospect_and_seed_new_vein() -> String:
 	return GameState.state["player"]["veins"].filter(func(v): return v["siteId"] == site_id)[0]["id"]
 
 
-func _craft_until_success(recipe_key: String) -> void:
-	var craft_seed := SeedSearch.find_seed_for(300, func():
-		return Crafting.attempt_craft(recipe_key).get("success", false)
-	)
-	assert_true(craft_seed != -1, "should find a successful %s craft within 300 tries" % recipe_key)
-
-
 func run() -> void:
 	run_case("full_playthrough_tutorial_economy_ticks_and_save_roundtrip", func():
 		GameState.reset()
@@ -490,12 +484,8 @@ func run() -> void:
 		_assert_invariants("post-prune")
 
 		# --- Craft pearls ---
-		GameState.state["player"]["orichalchum"]["time"] += 100
-		var craft_seed := SeedSearch.find_seed_for(300, func():
-			return Crafting.attempt_craft("timePearl").get("success", false)
-		)
-		assert_true(craft_seed != -1, "should find a successful craft roll")
-		assert_true(Crafting.inventory_qty("timePearl") > 0, "a successful craft should grant at least one pearl")
+		Fixtures.craft("timePearl")
+		assert_true(Crafting.inventory_qty("timePearl") > 0, "a craft should grant at least one pearl")
 		_assert_invariants("post-craft")
 
 		# --- Sell: force both a mugged and a non-mugged branch ---
@@ -927,7 +917,7 @@ func run() -> void:
 	# from Act 1's join-outright ending and walks T1 -> T15 including T8a
 	# through the real delivery paths (pendingMessages, pins, Nadia's action
 	# bar, daily_tick), driving each Phase 1 choice down one branch, the
-	# three Nadia missions through Crafting.attempt_craft(), VeinTrade.
+	# three Nadia missions through Crafting.file_crafted(), VeinTrade.
 	# sell_to_faction(), Cultivating.add_alarm() and a won alarm-defend fight
 	# (Raiding.resolve_defend_outcome()), then confirms the §7.4 gate and the
 	# closer. Cash/ore top-ups stand in for grinding, as elsewhere in this file.
@@ -985,11 +975,11 @@ func run() -> void:
 		GameState.state["player"]["orichalchum"]["physics"] += 200
 		GameState.state["player"]["orichalchum"]["emotion"] += 200
 		for recipe_key in ["blast", "shield"]:
-			_craft_until_success(recipe_key)
+			Fixtures.craft(recipe_key)
 			assert_true(not GameState.state["objectives"]["col_a2_nadia_supplies"]["complete"], "%s alone must not complete supplies" % recipe_key)
 			assert_true(not GameState.state["objectives"]["col_a2_nadia_defend"]["active"], "defend stays shut while supplies is open")
 			assert_true(GameState.state["event"] == null, "T8a must not fire before supplies completes")
-		_craft_until_success("panic")
+		Fixtures.craft("panic")
 		assert_true(GameState.state["objectives"]["col_a2_nadia_supplies"]["complete"])
 		assert_eq(GameState.state["event"]["eventId"], "col_a2_nadia_defend_brief", "T8a autofires on the craft that completes supplies")
 		assert_true(not GameState.state["objectives"]["col_a2_nadia_defend"]["active"], "defend opens only once T8a resolves, not before")

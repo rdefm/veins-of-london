@@ -12,21 +12,6 @@ const Fixtures := preload("res://tests/support/fixtures.gd")
 # call sites directly.
 
 
-# The top crafting skill (the last effectPower index), so craft_chance()
-# (baseSuccess + (skill-1)*0.13, capped at 0.95) is high for all three
-# recipes and a short seed search reliably finds a success.
-const _HIGH_SKILL := 5
-
-
-func _craft_until_success(recipe_key: String) -> void:
-	for seed in range(200):
-		Rng.set_seed(seed)
-		var result := Crafting.attempt_craft(recipe_key)
-		if result.get("success", false):
-			return
-	assert_true(false, "should find a successful %s craft within 200 seeds" % recipe_key)
-
-
 # The Firm's pending defend raid on vein_id, or {} if none is queued.
 func _nadia_raid(vein_id: String) -> Dictionary:
 	for outcome in GameState.state["world"]["pendingDefendRaids"]:
@@ -61,20 +46,19 @@ func run() -> void:
 	run_case("col_a2_nadia_defend_stays_inactive_until_supplies_completes_then_brief_autofires", func():
 		GameState.reset()
 		Fixtures.seed_vein("v1", 20, "time")
-		GameState.state["player"]["craftingSkill"] = _HIGH_SKILL
 
 		EventPlay.play_event("col_a2_nadia_ledger")
 		assert_true(not GameState.state["objectives"]["col_a2_nadia_defend"]["active"], "still inactive right after T8")
 		assert_true(not GameState.state["flags"].get("colA2DefendBriefed", false))
 
-		_craft_until_success("blast")
+		Fixtures.craft("blast")
 		assert_true(not GameState.state["objectives"]["col_a2_nadia_supplies"]["complete"], "one of three recipes is not enough")
 		assert_true(not GameState.state["flags"].get("colA2DefendBriefed", false), "must not fire early")
 
-		_craft_until_success("shield")
+		Fixtures.craft("shield")
 		assert_true(not GameState.state["objectives"]["col_a2_nadia_supplies"]["complete"], "two of three recipes is not enough")
 
-		_craft_until_success("panic")
+		Fixtures.craft("panic")
 		assert_true(GameState.state["objectives"]["col_a2_nadia_supplies"]["complete"], "all three recipes crafted -- supplies complete")
 		assert_eq(GameState.state["event"]["eventId"], "col_a2_nadia_defend_brief", "the moment supplies completes, the brief scene autofires")
 

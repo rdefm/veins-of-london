@@ -505,18 +505,13 @@ func run() -> void:
 		GameData.OBJECTIVES = original
 	)
 
-	run_case("crafting_success_calls_objectives_refresh", func():
+	run_case("filing_a_craft_calls_objectives_refresh", func():
 		var original: Dictionary = GameData.OBJECTIVES
-		var test_objectives := { "t1": _objective("t1", "sites_discovered_matching", { "requireEachOreType": [], "minTier": "poor", "unclaimed": true }) }
-		var seed := SeedSearch.find_seed_for(200, func():
-			GameState.reset()
-			GameData.OBJECTIVES = test_objectives
-			GameState.state["flags"]["testActive"] = true
-			GameState.state["player"]["orichalchum"]["time"] = 100
-			return Crafting.attempt_craft("timePearl").get("success", false)
-		)
-		assert_true(seed != -1, "should find a successful craft within 200 tries")
-		assert_eq(GameState.state["objectives"]["t1"]["complete"], true, "a successful Crafting.attempt_craft() should trigger a refresh")
+		GameState.reset()
+		GameData.OBJECTIVES = { "t1": _objective("t1", "sites_discovered_matching", { "requireEachOreType": [], "minTier": "poor", "unclaimed": true }) }
+		GameState.state["flags"]["testActive"] = true
+		Fixtures.craft("timePearl")
+		assert_eq(GameState.state["objectives"]["t1"]["complete"], true, "Crafting.file_crafted() should trigger a refresh")
 		GameData.OBJECTIVES = original
 	)
 

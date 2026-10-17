@@ -1,6 +1,6 @@
 {
-  "heat":        { "name": "Heat",        "symbol": "△", "source": { "type": "start" } },
-  "grinding":    { "name": "Grinding",    "symbol": "◇", "source": { "type": "start" } },
-  "compression": { "name": "Compression", "symbol": "▽", "source": { "type": "start" } },
-  "distilling":  { "name": "Distilling",  "symbol": "○", "source": { "type": "start" } }
+  "heat":        { "name": "Heat",        "symbol": "△" },
+  "grinding":    { "name": "Grinding",    "symbol": "◇" },
+  "compression": { "name": "Compression", "symbol": "▽" },
+  "distilling":  { "name": "Distilling",  "symbol": "○" }
 }

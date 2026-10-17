@@ -6,8 +6,6 @@ extends RefCounted
 
 static var REGISTRY: Dictionary = {
 	"seed_result": SeedResultModal,
-	"craft_result": CraftResultModal,
-	"craft_batch_result": CraftBatchResultModal,
 	"sale_result": SaleResultModal,
 	"archie_deal_result": ArchieDealResultModal,
 	"james_job_offer": JamesJobOfferModal,
@@ -29,11 +27,6 @@ static var REGISTRY: Dictionary = {
 	"combat_block_reason": CombatBlockReasonModal,
 	"hq_ore_readout": HqOreReadoutModal,
 	"hq_gym": HqGymModal,
-	"lab_bench_recipe_book": LabBenchRecipeBookModal,
-	"lab_bench_recipe_detail": LabBenchRecipeDetailModal,
-	"lab_bench_notes":LabBenchNotesModal,
-	"lab_bench_probe_result": LabBenchProbeResultModal,
-	"lab_bench_confirm": LabBenchConfirmModal,
 	"contract_cancel": ContractCancelModal,
 	"negotiation": NegotiationModal,
 	"gift": GiftModal,

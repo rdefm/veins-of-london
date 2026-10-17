@@ -624,35 +624,6 @@ func run() -> void:
 		SaveManager.delete_slot(TEST_SLOT)
 	)
 
-	run_case("save_mutate_load_round_trips_player_bench", func():
-		GameState.reset()
-		var bench: Dictionary = GameState.state["player"]["bench"]
-		bench["surveyed"]["life+time"] = 3
-		bench["cells"]["life+time|heat"] = { "state": "found", "misses": 2, "tier": 2, "progress": 0 }
-		bench["cells"]["life+time|compression"] = { "state": "hot", "misses": 3, "tier": 1, "progress": 0 }
-		bench["notes"]["life+time"] = [{ "day": 9, "approach": "heat", "outcome": "found" }]
-		var original: Dictionary = GameState.deep_copy(GameState.state)
-
-		var save_result := SaveManager.save_to_slot(TEST_SLOT)
-		assert_true(save_result["ok"], "save_to_slot should succeed")
-
-		GameState.state["player"]["bench"] = { "surveyed": {}, "cells": {}, "notes": {} }
-		var load_result := SaveManager.load_from_slot(TEST_SLOT)
-		assert_true(load_result["ok"], "load_from_slot should succeed")
-
-		var restored: Dictionary = GameState.state["player"]["bench"]
-		assert_eq(restored["surveyed"]["life+time"], 3, "surveyed count should be restored")
-		assert_eq(typeof(restored["surveyed"]["life+time"]), TYPE_INT, "surveyed count should be restored as int, not float")
-		assert_eq(restored["cells"]["life+time|heat"]["state"], "found", "found cell state should be restored")
-		assert_eq(typeof(restored["cells"]["life+time|heat"]["misses"]), TYPE_INT, "cell misses should be restored as int, not float")
-		assert_eq(typeof(restored["cells"]["life+time|heat"]["tier"]), TYPE_INT, "cell tier should be restored as int, not float")
-		assert_eq(typeof(restored["cells"]["life+time|heat"]["progress"]), TYPE_INT, "cell progress should be restored as int, not float")
-		assert_eq(typeof(restored["notes"]["life+time"][0]["day"]), TYPE_INT, "note day should be restored as int, not float")
-		assert_eq(GameState.state, original, "the full state tree (including player.bench) should deep-equal what was saved")
-
-		SaveManager.delete_slot(TEST_SLOT)
-	)
-
 	run_case("save_mutate_load_round_trips_mapView_with_scroll_as_ints_and_zoom_as_float", func():
 		GameState.reset()
 		MapView.mark_opened()
@@ -1363,29 +1334,19 @@ func run() -> void:
 		assert_eq(GameState.state["meta"]["saveVersion"], SaveManager.SAVE_VERSION)
 	)
 
-	run_case("loading_a_v9_save_maps_refine_levels_to_tiers_with_empty_progress", func():
+	run_case("loading_a_v11_save_drops_the_lottery_bench_state", func():
 		GameState.reset()
 		var save: Dictionary = GameState.deep_copy(GameState.state)
-		save["meta"]["saveVersion"] = 9
-		save["player"]["inventory"] = { "blast": { "2": 3 } }
-		save["player"]["bench"]["cells"] = {
-			"time|physics:a": { "state": "found", "misses": 0, "refine": 0 },
-			"life|fate:b": { "state": "found", "misses": 1, "refine": 2 },
-			"emotion|fate:c": { "state": "found", "misses": 0, "refine": 9 },
-			"time|life:d": { "state": "inert", "misses": 4, "refine": 0 },
-		}
-		save["player"]["bench"]["notes"] = { "time|physics": [{ "day": 1, "approach": "a", "outcome": "refined" }, { "day": 2, "approach": "a", "outcome": "refine_failed" }] }
+		save["meta"]["saveVersion"] = 11
+		save["player"]["bench"] = { "surveyed": { "time": 1 }, "cells": {}, "notes": {} }
+		save["labBenchNav"] = { "selectedOre": ["time"] }
+		save["craftQty"] = { "timePearl": 2 }
+		save["modal"] = { "type": "lab_bench_notes", "data": {} }
 		var result := SaveManager.import_string(JSON.stringify(save))
-		assert_true(result["ok"], "a v9 save should load")
-		var bench: Dictionary = GameState.state["player"]["bench"]
-		assert_eq(bench["cells"]["time|physics:a"], { "state": "found", "misses": 0, "tier": 1, "progress": 0 })
-		assert_eq(bench["cells"]["life|fate:b"]["tier"], 3, "refine 2 -> tier 3")
-		assert_eq(bench["cells"]["emotion|fate:c"]["tier"], Bench.MAX_TIER, "capped at max tier")
-		assert_true(not bench["cells"]["life|fate:b"].has("refine"), "refine key dropped")
-		assert_eq(bench["cells"]["time|life:d"]["state"], "inert")
-		assert_eq(bench["notes"]["time|physics"][0]["outcome"], "tier_up")
-		assert_eq(bench["notes"]["time|physics"][1]["outcome"], "no_progress")
-		assert_eq(GameState.state["player"]["inventory"]["blast"]["2"], 3, "inventory buckets untouched")
+		assert_true(result["ok"], "a v11 save should load")
+		assert_true(not GameState.state["player"].has("bench"), "player.bench dropped")
+		assert_true(not GameState.state.has("labBenchNav") and not GameState.state.has("craftQty"), "bench nav and qty state dropped")
+		assert_eq(GameState.state["modal"], null, "a retired modal closes")
 		assert_eq(GameState.state["meta"]["saveVersion"], SaveManager.SAVE_VERSION)
 	)
 
@@ -1714,17 +1675,6 @@ func run() -> void:
 				DirAccess.remove_absolute(SaveManager.autosave_path(i))
 	)
 
-
-	run_case("loading_a_save_reopens_an_inert_bench_cell_a_recipe_now_occupies", func():
-		GameState.reset()
-		var legacy: Dictionary = GameState.deep_copy(GameState.state)
-		var cells: Dictionary = legacy["player"]["bench"]["cells"]
-		cells["emotion|compression"] = { "state": "inert", "misses": 0, "tier": 1, "progress": 0 }
-		cells["fate+physics|heat"] = { "state": "inert", "misses": 0, "tier": 1, "progress": 0 }
-		assert_true(SaveManager._load_save_dict(legacy)["ok"])
-		assert_eq(Bench.cell_state(["emotion"], "compression"), "untried", "Panic's cell is probeable again")
-		assert_eq(Bench.cell_state(["fate", "physics"], "heat"), "inert", "a genuinely empty cell stays inert")
-	)
 
 	run_case("a_v10_save_migrates_pansPrank_to_panic", func():
 		GameState.reset()

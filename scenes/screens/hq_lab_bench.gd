@@ -172,7 +172,7 @@ func _on_debug_toggle_pressed() -> void:
 func _label_ore_regions(regions: Dictionary, docked: bool) -> void:
 	var recipe_ores: Dictionary = Lab.base_calc(_recipe_key) if docked else {}
 	for ore_type in GameData.ORE_TYPES.keys():
-		var region_id := LabBenchNav.ORE_REGION_PREFIX + String(ore_type)
+		var region_id := Lab.ORE_REGION_PREFIX + String(ore_type)
 		if not regions.has(region_id):
 			continue
 		regions[region_id]["label"] = "%s — %d" % [GameData.ORE_TYPES[ore_type]["name"], Lab.calc_available(ore_type)]
@@ -184,9 +184,9 @@ func _label_ore_regions(regions: Dictionary, docked: bool) -> void:
 # edge, in screen space so it stays legible at any plate scale.
 func _add_ore_badges(regions: Dictionary, origin: Vector2, scale_factor: float) -> void:
 	for region_id in regions:
-		if not String(region_id).begins_with(LabBenchNav.ORE_REGION_PREFIX):
+		if not String(region_id).begins_with(Lab.ORE_REGION_PREFIX):
 			continue
-		var ore_type := String(region_id).trim_prefix(LabBenchNav.ORE_REGION_PREFIX)
+		var ore_type := String(region_id).trim_prefix(Lab.ORE_REGION_PREFIX)
 		var rect := HqDiorama.region_rect(regions[region_id])
 
 		var box := CenterContainer.new()
@@ -245,14 +245,14 @@ func _on_run_zone_tapped(zone: String) -> void:
 	if _gauge != "" or not _result.is_empty():
 		return
 	var outcome := {}
-	if zone.begins_with(LabBenchNav.ORE_REGION_PREFIX):
+	if zone.begins_with(Lab.ORE_REGION_PREFIX):
 		_notice = ""
-		outcome = Lab.add_ore(_recipe_key, zone.trim_prefix(LabBenchNav.ORE_REGION_PREFIX))
-	elif zone.begins_with(LabBenchNav.APPARATUS_REGION_PREFIX):
+		outcome = Lab.add_ore(_recipe_key, zone.trim_prefix(Lab.ORE_REGION_PREFIX))
+	elif zone.begins_with(Lab.APPARATUS_REGION_PREFIX):
 		outcome = Lab.check_apparatus()
 		if outcome["ok"]:
 			_notice = ""
-			_gauge = zone.trim_prefix(LabBenchNav.APPARATUS_REGION_PREFIX)
+			_gauge = zone.trim_prefix(Lab.APPARATUS_REGION_PREFIX)
 			_refresh()
 	if not outcome.get("ok", true):
 		_notice = outcome["reason"]
@@ -716,7 +716,7 @@ func _add_known_step(content: VBoxContainer, index: int, step: Dictionary) -> vo
 	if step["knowledge"] == "revealed":
 		# PROSE-REVIEW: tag on a band Prophet's Breath reveals.
 		band_text += " (Breath)"
-	content.add_child(UI.label("%d. %s%s · %s" % [index + 1, LabBenchNav.apparatus_name(step["apparatus"]), ores, band_text % [roundi(region["low"]), roundi(region["high"])]]))
+	content.add_child(UI.label("%d. %s%s · %s" % [index + 1, Lab.apparatus_name(step["apparatus"]), ores, band_text % [roundi(region["low"]), roundi(region["high"])]]))
 	var band := LabGauges.BandGauge.new()
 	band.band_low = region["low"]
 	band.band_high = region["high"]
@@ -773,7 +773,7 @@ func _add_result(content: VBoxContainer) -> void:
 func _clue_text(clue: Dictionary) -> String:
 	var data: Dictionary = GameData.LAB
 	var words: Dictionary = data["clueText"]
-	var parts := PackedStringArray([LabBenchNav.apparatus_name(clue["apparatus"]), words[clue["clue"]]])
+	var parts := PackedStringArray([Lab.apparatus_name(clue["apparatus"]), words[clue["clue"]]])
 	if clue["direction"] != null:
 		parts[1] += " " + String(Lab.gauge(clue["apparatus"])["directionWords"][clue["direction"]])
 	if clue.get("learned") == "vague":
@@ -790,7 +790,7 @@ func _build_gauge_card(apparatus: String) -> Control:
 	var c := MapCardStyle.card(18, 0.16)
 	c["panel"].custom_minimum_size.x = _GAUGE_WIDTH
 	var content: VBoxContainer = c["content"]
-	content.add_child(UI.heading(LabBenchNav.apparatus_name(apparatus), 16))
+	content.add_child(UI.heading(Lab.apparatus_name(apparatus), 16))
 	var g := Lab.gauge(apparatus)
 	var gauge: LabGauges.StepGauge
 	match apparatus:
