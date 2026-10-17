@@ -310,6 +310,7 @@ static func build_fight(config: Dictionary = {}) -> Dictionary:
 		var ally := _build_combatant(SIDE_ALLY, _data()["allyBase"], int(ally_specs[i].get("level", 1)))
 		if ally_specs.size() > 1:
 			ally["name"] = "%s %s" % [ally["name"], char(65 + i)]
+		ally["template"] = _data()["allyTemplates"][i]
 		ally["planOverride"] = ally_overrides[i] if i < ally_overrides.size() else null
 		ally["loadout"] = ally_loadouts[i]
 		combatants.append(ally)

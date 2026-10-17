@@ -584,6 +584,7 @@ static func build_guard_ally() -> Dictionary:
 		"attackMin": int(stats["attackMin"]),
 		"attackMax": int(stats["attackMax"]),
 		"speed": int(stats["speed"]),
+		"level": int(stats["level"]),
 		"koed": false,
 	}
 
@@ -669,18 +670,23 @@ static func is_round_engine(combat: Dictionary) -> bool:
 # and the spawned enemies (their own hp/attack/speed plus their level's
 # bonuses, R§3.7b speed rule; their archetype's plan patterns), plus the live
 # keys exit_combat() and the rest of the game read. The intro lines go to
-# the combat ticker. `config` is test-only: seed (default off the global
-# Rng stream), fog, and enemyPlans / enemyUnread as CombatPrototype.start().
-# Allies and the loadout's items don't take part yet.
-static func _start_round_combat(context: String, vein_id, enemies: Array, log_lines: Array, on_win: String, _allies: Array = [], location_key_override: Variant = null, config: Dictionary = {}) -> void:
+# the combat ticker. `allies` (the start_*'s roster, in its order: chosen
+# recruits, then guards/muscle) fill the friendly places after the player,
+# the rest waiting in allyQueue; combat.allies keeps their live dicts, which
+# _sync_round_allies() keeps level with their combatants. `config` is
+# test-only: seed (default off the global Rng stream), fog, and enemyPlans /
+# enemyUnread / allyPlans as CombatPrototype.start(). The player's loadout
+# items don't take part yet.
+static func _start_round_combat(context: String, vein_id, enemies: Array, log_lines: Array, on_win: String, allies: Array = [], location_key_override: Variant = null, config: Dictionary = {}) -> void:
 	var location_key: String = location_key_for(context, vein_id) if location_key_override == null else str(location_key_override)
 	var player: Dictionary = GameState.state["player"]
 	var combat := CombatPrototype.new_state()
 	combat.merge({
 		"engine": ENGINE_ROUNDS, "context": context, "veinId": vein_id,
-		"enemies": enemies.slice(0, SQUAD_MAX), "enemyQueue": enemies.slice(SQUAD_MAX), "allyQueue": [],
+		"enemies": enemies.slice(0, SQUAD_MAX), "enemyQueue": enemies.slice(SQUAD_MAX),
+		"allies": allies.slice(0, SQUAD_MAX - 1), "allyQueue": allies.slice(SQUAD_MAX - 1),
 		"locationKey": location_key, "selection": { "type": "enemy", "index": 0 },
-		"onWin": on_win, "allies": [], "raiderKit": {}, "guardKit": {}, "slotsUsed": [],
+		"onWin": on_win, "raiderKit": {}, "guardKit": {}, "slotsUsed": [],
 		"backdrop": { "context": context, "locationKey": location_key },
 		"fog": bool(config.get("fog", true)),
 	}, true)
@@ -690,6 +696,16 @@ static func _start_round_combat(context: String, vein_id, enemies: Array, log_li
 	combatants.append(CombatPrototype.new_combatant(CombatPrototype.SIDE_PLAYER,
 		GameData.COMBAT_PROTOTYPE["playerBase"]["name"], level, int(player["hp"]), int(player["hpMax"]),
 		attack["min"], attack["max"], int(GameData.COMBAT_SPEED_BY_LEVEL[level])))
+	var ally_plans: Array = config.get("allyPlans", [])
+	var friends: Array = combat["allies"]
+	var ally_names: Array = friends.map(func(a): return str(a["name"]))
+	for i in range(friends.size()):
+		var ally := _round_ally_combatant(friends[i])
+		# Two hired guards read "Hired Guard A", "Hired Guard B".
+		if ally_names.count(ally_names[i]) > 1:
+			ally["name"] = "%s %s" % [ally_names[i], char(65 + ally_names.slice(0, i).count(ally_names[i]))]
+		ally["planOverride"] = ally_plans[i] if i < ally_plans.size() else null
+		combatants.append(ally)
 	var plans: Array = config.get("enemyPlans", [])
 	var unread: Array = config.get("enemyUnread", [])
 	var active: Array = combat["enemies"]
@@ -718,18 +734,48 @@ static func _round_enemy_name(entry: Dictionary) -> String:
 
 
 static func _round_enemy_combatant(entry: Dictionary) -> Dictionary:
+	var attack := get_enemy_attack_range(entry)
+	var enemy := _round_combatant(CombatPrototype.SIDE_ENEMY, _round_enemy_name(entry), entry, attack["min"], attack["max"])
+	enemy["archetype"] = entry["archetype"]
+	enemy["template"] = MUGGER_TEMPLATE_KEY if entry.get("isMugging", false) else str(entry.get("variant", ""))
+	return enemy
+
+
+# An ally at its R§3.7b table 3 level (the entry's `level`), with its stage
+# sprite (its contact's; "" for a guard or muscle) and its real slots as
+# round-fight items.
+static func _round_ally_combatant(entry: Dictionary) -> Dictionary:
+	var ally := _round_combatant(CombatPrototype.SIDE_ALLY, str(entry["name"]), entry, int(entry["attackMin"]), int(entry["attackMax"]))
+	ally["template"] = str(entry.get("contactId", ""))
+	ally["loadout"] = _round_ally_loadout(entry.get("slots", []))
+	return ally
+
+
+# A combatant at the entry's level: its own hp, attack and speed plus that
+# level's HP/attack bonuses and R§3.7b's speed rule.
+static func _round_combatant(side: String, combatant_name: String, entry: Dictionary, attack_min: int, attack_max: int) -> Dictionary:
 	var level: int = clampi(int(entry.get("level", 1)), 1, CombatPrototype.level_max())
 	var hp_bonus: int = GameData.COMBAT_HP_BONUS_BY_LEVEL[level]
 	var attack_bonus: int = GameData.COMBAT_ATTACK_BONUS_BY_LEVEL[level]
 	var speed_bonus: int = GameData.COMBAT_SPEED_BY_LEVEL[level] - GameData.COMBAT_SPEED_BY_LEVEL[1]
-	var attack := get_enemy_attack_range(entry)
-	var enemy := CombatPrototype.new_combatant(CombatPrototype.SIDE_ENEMY, _round_enemy_name(entry), level,
+	return CombatPrototype.new_combatant(side, combatant_name, level,
 		int(entry["hp"]) + hp_bonus, int(entry["hpMax"]) + hp_bonus,
-		attack["min"] + attack_bonus, attack["max"] + attack_bonus,
+		attack_min + attack_bonus, attack_max + attack_bonus,
 		int(entry.get("speed", DEFAULT_TEMPLATE_SPEED)) + speed_bonus)
-	enemy["archetype"] = entry["archetype"]
-	enemy["template"] = MUGGER_TEMPLATE_KEY if entry.get("isMugging", false) else str(entry.get("variant", ""))
-	return enemy
+
+
+# A recruit's real slots { recipe, tier } as round-fight loadout entries at
+# the unit's tier power, each remembering its real slot (sourceSlot) for
+# settlement; empty slots and units the round rules have no item for are
+# left out.
+static func _round_ally_loadout(slots: Array) -> Array:
+	var loadout: Array = []
+	for i in range(slots.size()):
+		var unit = slots[i]
+		if unit is Dictionary and CombatPrototype.is_item(unit["recipe"]):
+			loadout.append({ "item": unit["recipe"], "tier": int(unit["tier"]),
+				"power": int(Crafting.effect_power(unit["recipe"], int(unit["tier"]))), "used": false, "sourceSlot": i })
+	return loadout
 
 
 # Plays `move_id` at the round fight's paused player position (target -1:
@@ -759,11 +805,32 @@ static func round_item_block_reason(index: int) -> String:
 # the player on R§3.7a's KO hp.
 static func _sync_round_outcome(combat: Dictionary) -> void:
 	GameState.state["player"]["hp"] = int(combat["combatants"][CombatPrototype.PLAYER_INDEX]["hp"])
+	_sync_round_allies(combat)
 	match combat["outcome"]:
 		"win":
 			_dispatch_on_win()
 		"loss":
 			_settle_player_ko_hp()
+
+
+# Each active ally's live dict follows its combatant (combatants after the
+# player, in allies order): hp, a KO (starting a contact's cooldown, once)
+# and the real slots its spent items came from, for exit_combat()'s
+# settlement.
+static func _sync_round_allies(combat: Dictionary) -> void:
+	var allies: Array = combat["allies"]
+	for i in range(allies.size()):
+		var ally: Dictionary = allies[i]
+		var fighter: Dictionary = combat["combatants"][CombatPrototype.PLAYER_INDEX + 1 + i]
+		ally["hp"] = int(fighter["hp"])
+		if fighter["koed"] and not ally["koed"] and ally.has("contactId"):
+			Contacts.knock_out(ally["contactId"], GameState.state["world"]["day"])
+		ally["koed"] = bool(fighter["koed"])
+		var used: Array = []
+		for entry in fighter["loadout"]:
+			if entry["used"]:
+				used.append(int(entry["sourceSlot"]))
+		ally["slotsUsed"] = used
 
 
 static func round_fight_xp(outcome) -> int:

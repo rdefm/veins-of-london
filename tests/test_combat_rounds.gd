@@ -24,6 +24,19 @@ func _start(plan: Array, seed_value: int = 1, mugger_hp: int = 28) -> Dictionary
 	return GameState.state["combat"]
 
 
+# A seeded round fight with `allies` (live ally dicts) against one mugger
+# playing `plan`, its fog off unless `fog` (then `unread` per round).
+func _start_with_allies(allies: Array, plan: Array, seed_value: int = 1, fog: bool = false, unread: Array = []) -> void:
+	var config := { "seed": seed_value, "fog": fog, "enemyPlans": [plan] }
+	if not unread.is_empty():
+		config["enemyUnread"] = [unread]
+	Combat._start_round_combat(Combat.CONTEXT_EVENT_MUGGING, null, [_mugger()], [], "", allies, null, config)
+
+
+func _recruit(contact_id: String) -> void:
+	GameState.state["contacts"][contact_id]["recruited"] = true
+
+
 func _kinds(beats: Array) -> Array:
 	return beats.map(func(b): return b["kind"])
 
@@ -236,4 +249,101 @@ func run() -> void:
 		Combat.exit_combat()
 		assert_eq(GameState.state["currentScreen"], "event", "outcome hands off to exit_combat")
 		host.free()
+	)
+
+	run_case("allies_fight_at_their_table_3_level", func():
+		GameState.reset()
+		_recruit("archie")
+		assert_eq(Contacts.build_combat_ally("archie")["level"], 2, "archie's combat-kit level")
+		GameState.state["contacts"]["archie"]["combatSkill"] = 4
+		assert_eq(Contacts.build_combat_ally("archie")["level"], 4, "own combatSkill wins")
+		GameState.state["contacts"]["archie"].erase("combatSkill")
+		assert_eq(Combat.build_guard_ally()["level"], 1, "hired guard's authored level")
+		var muscle: Dictionary = GameData.FACTION_PERKS["factions"]["firm"]["partner"][0]
+		assert_eq(int(muscle["params"]["ally"]["level"]), 2, "firm muscle's authored level")
+		var guard := Combat.build_guard_ally()
+		_start_with_allies([Contacts.build_combat_ally("archie"), guard, Combat.build_guard_ally()], [["guard", "guard"]])
+		var combat: Dictionary = GameState.state["combat"]
+		var archie: Dictionary = combat["combatants"][1]
+		assert_eq(archie["side"], CombatPrototype.SIDE_ALLY)
+		assert_eq(archie["level"], 2)
+		assert_eq(archie["hpMax"], 50, "level 2 keeps authored hp")
+		assert_eq([archie["attackMin"], archie["attackMax"]], [6, 11], "attack bonus at level 2")
+		assert_eq(archie["speed"], 9 + GameData.COMBAT_SPEED_BY_LEVEL[2] - GameData.COMBAT_SPEED_BY_LEVEL[1], "speed rule")
+		assert_eq(archie["template"], "archie", "contact sprite")
+		var hired: Dictionary = combat["combatants"][2]
+		assert_eq(hired["level"], 1)
+		assert_eq(hired["speed"], int(guard["speed"]), "level 1 keeps its own speed")
+		assert_eq(hired["template"], "", "no contact sprite")
+		assert_eq(combat["allies"].size(), 2, "two friendly places beside the player")
+		assert_eq(combat["allyQueue"].size(), 1, "the third waits")
+		assert_eq(combat["combatants"][3]["side"], CombatPrototype.SIDE_ENEMY, "queued ally isn't a combatant")
+	)
+
+	run_case("ally_plans_read_and_react_to_read_intents_only", func():
+		GameState.reset()
+		_recruit("archie")
+		# The mugger strikes archie twice; the second strike is unread.
+		var strikes := [{ "move": "strike", "target": 1 }, { "move": "strike", "target": 1 }]
+		_start_with_allies([Contacts.build_combat_ally("archie")], [strikes], 3, true, [[false, true]])
+		var combat: Dictionary = GameState.state["combat"]
+		assert_eq(CombatPrototype.decision_position(combat), 0, "paused on the player's first pick")
+		var plan: Array = combat["combatants"][1]["plan"]
+		assert_eq(plan.size(), 2, "ally plan committed before the pick")
+		assert_true(CombatPrototype.is_read(combat, 1, 0) and CombatPrototype.is_read(combat, 1, 1), "ally plans always read")
+		assert_eq(plan[0]["move"], "guard", "guards the read strike")
+		assert_eq(plan[1]["move"], "strike", "an unread strike isn't guarded against")
+		assert_eq(int(plan[1]["target"]), 2, "strikes the mugger left Open by its read strike")
+	)
+
+	run_case("ally_loadout_spends_real_stock_and_refills_at_settlement", func():
+		GameState.reset()
+		_recruit("archie")
+		Crafting.inventory_add("healingBurst", 1, 1)
+		assert_true(Loadout.equip(0, "healingBurst", 1, "archie")["ok"], "equip archie")
+		Crafting.inventory_add("healingBurst", 2, 1)
+		GameState.state["contacts"]["archie"]["combatHp"] = 10
+		_start_with_allies([Contacts.build_combat_ally("archie")], [["guard", "guard"]])
+		var combat: Dictionary = GameState.state["combat"]
+		var archie: Dictionary = combat["combatants"][1]
+		assert_eq(archie["loadout"].size(), 1, "real slot carried in")
+		assert_eq(archie["loadout"][0]["power"], int(Crafting.effect_power("healingBurst", 1)), "unit's tier power")
+		assert_eq(archie["plan"][0]["move"], "healingBurst", "heals itself below the threshold")
+		assert_true(Combat.choose_move("guard")["ok"], "player pick")
+		assert_true(archie["loadout"][0]["used"], "spent on resolution")
+		assert_eq(combat["allies"][0]["slotsUsed"], [0], "real slot marked for settlement")
+		assert_eq(combat["allies"][0]["hp"], archie["hp"], "live ally hp follows")
+		combat["outcome"] = "fled"
+		Combat.exit_combat()
+		assert_eq(Loadout.slot(0, "archie"), { "recipe": "healingBurst", "tier": 2 }, "refilled from stock")
+		assert_eq(int(GameState.state["player"]["inventory"]["healingBurst"].get("2", 0)), 0, "stock spent on refill")
+	)
+
+	run_case("prep_recruit_order_is_the_fight_ally_order", func():
+		GameState.reset()
+		_recruit("archie")
+		_recruit("james")
+		CombatPrep.request(CombatPrep.KIND_HQ_DEFEND)
+		assert_eq(CombatPrep.pending()["args"]["allyIds"], ["archie", "james"], "contact order by default")
+		assert_true(CombatPrep.move_recruit("james", -1), "reorder")
+		var ids := CombatPrep.chosen_recruits(CombatPrep.KIND_HQ_DEFEND, CombatPrep.pending()["args"])
+		_start_with_allies(Combat._gather_defend_allies([], ids), [["guard", "guard"]])
+		var combat: Dictionary = GameState.state["combat"]
+		assert_eq(combat["allies"].map(func(a): return a["contactId"]), ["james", "archie"])
+		assert_eq(combat["combatants"][1]["template"], "james", "first recruit first")
+		assert_eq(combat["combatants"][2]["template"], "archie")
+	)
+
+	run_case("an_ally_ko_starts_its_contact_cooldown", func():
+		GameState.reset()
+		_recruit("archie")
+		GameState.state["contacts"]["archie"]["combatHp"] = 1
+		var strikes := [{ "move": "strike", "target": 1 }, { "move": "strike", "target": 1 }]
+		# Archie (speed 11) and the mugger act before the player's first
+		# pick; even a chip takes his last hp.
+		_start_with_allies([Contacts.build_combat_ally("archie")], [strikes])
+		var combat: Dictionary = GameState.state["combat"]
+		assert_true(combat["combatants"][1]["koed"], "archie down")
+		assert_true(combat["allies"][0]["koed"], "live ally KO'd")
+		assert_true(not Contacts.can_join_combat("archie"), "cooldown started")
 	)

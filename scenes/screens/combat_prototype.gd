@@ -519,7 +519,6 @@ static func rewind_beats(undone: Array, restored_marks: Array) -> Array:
 # Shield pool), plus "enemyIndex"/"allyIndex": each stage index's combatant
 # index. KO'd combatants stay listed (the stage skips them) so indices hold.
 static func stage_roster(cp: Dictionary, target: int) -> Dictionary:
-	var data: Dictionary = GameData.COMBAT_PROTOTYPE
 	var combatants: Array = cp["combatants"]
 	var enemies: Array = []
 	var allies: Array = []
@@ -532,7 +531,11 @@ static func stage_roster(cp: Dictionary, target: int) -> Dictionary:
 			enemies.append({ "name": CombatPrototype.display_name(c), "koed": c["koed"], "rid": i, "variant": c["template"] })
 		elif c["side"] == CombatPrototype.SIDE_ALLY:
 			ally_index.append(i)
-			allies.append({ "name": CombatPrototype.display_name(c), "koed": c["koed"], "contactId": data["allyTemplates"][allies.size()] })
+			# A guard or muscle has no contact sprite; the stage keys it by name.
+			var ally := { "name": CombatPrototype.display_name(c), "koed": c["koed"] }
+			if str(c.get("template", "")) != "":
+				ally["contactId"] = c["template"]
+			allies.append(ally)
 	var roster := { "enemyIndex": enemy_index, "allyIndex": ally_index }
 	roster["combat"] = {
 		"context": cp["backdrop"]["context"], "locationKey": cp["backdrop"]["locationKey"],

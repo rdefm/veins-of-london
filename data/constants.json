@@ -6,12 +6,12 @@
                 "roomFreeRoles": true, "roleFlags": { "sales": "bizArchieSalesRole" },
                 "combatHpMax": 50, "combatAttackMin": 4, "combatAttackMax": 9,
                 "koCooldownDays": 2,
-                "raidAssistThreshold": 50, "combatSpeed": 9 },
+                "raidAssistThreshold": 50, "combatSpeed": 9, "combatLevel": 2 },
     "james":  { "startRelation": 0,  "unlocked": false, "recruitThreshold": 100, "recruitable": false,
                 "roomFreeRoles": true, "roleFlags": { "production": "bizJamesProductionRole" },
                 "specialities": ["time", "life"],
                 "combatHpMax": 35, "combatAttackMin": 2, "combatAttackMax": 4,
-                "koCooldownDays": 2, "combatSpeed": 6,
+                "koCooldownDays": 2, "combatSpeed": 6, "combatLevel": 1,
                 "grantDial": { "haft": "firm_baton", "level": 2,
                                "movement": { "archetype": "recharge", "oreType": "time", "tier": 1 },
                                "complications": [{ "recipe": "timePearl", "tier": 3 }, { "recipe": "healingBurst", "tier": 3 }] } },
@@ -47,7 +47,7 @@
       "blackHole": "strong", "timePearl": "strong", "rewind": "strong"
     },
     "repelCap": 0.90,
-    "guardAlly": { "name": "Hired Guard", "hpMax": 30, "attackMin": 4, "attackMax": 10, "speed": 8 }
+    "guardAlly": { "name": "Hired Guard", "hpMax": 30, "attackMin": 4, "attackMax": 10, "speed": 8, "level": 1 }
   },
   "loadout": {
     "slotCount": 2,

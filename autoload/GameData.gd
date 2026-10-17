@@ -691,6 +691,7 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_combat_visuals(t.get("combat_visuals", {}), t.get("palette", {}), errors)
 	_validate_hq_visuals(t.get("hq_visuals", {}), t.get("palette", {}), errors)
 	_validate_constants(t.get("time_blocks", []), t.get("contacts_defaults", {}), errors)
+	_validate_ally_levels(t, errors)
 	_validate_guard_upkeep(t.get("guard_upkeep", {}), errors)
 	_validate_events(t.get("events", {}), t.get("districts", {}), errors)
 	_validate_objectives(t.get("objectives", {}), t.get("factions", {}), t.get("ore_types", {}), t.get("site_tier_order", []), t.get("recipes", {}), t.get("daily_brief", {}).get("storyActions", {}), errors)
@@ -1801,6 +1802,33 @@ func _validate_constants(time_blocks: Array, contacts_defaults: Dictionary, erro
 			errors.append("constants: contacts is missing '%s'" % key)
 			continue
 		_require_keys(contacts_defaults[key], ["startRelation", "unlocked", "recruitThreshold", "recruitable"], "constants.contacts.%s" % key, errors)
+
+
+# R§3.7b table 3: every combat-capable contact's combatLevel, the hired
+# guard's and the Firm muscle's level are a Combat Skill level
+# (1..combat_prototype.levelMax).
+func _validate_ally_levels(t: Dictionary, errors: Array[String]) -> void:
+	var level_max := int(t.get("combat_prototype", {}).get("levelMax", 0))
+	var levels: Array = []
+	var contacts: Dictionary = t.get("contacts_defaults", {})
+	for contact_id in contacts:
+		if int(contacts[contact_id].get("combatHpMax", 0)) > 0:
+			levels.append(["constants.contacts.%s.combatLevel" % contact_id, contacts[contact_id].get("combatLevel")])
+	levels.append(["constants.guardKit.guardAlly.level", t.get("guard_kit", {}).get("guardAlly", {}).get("level")])
+	var perk_factions: Dictionary = t.get("faction_perks", {}).get("factions", {})
+	for faction_id in perk_factions:
+		var tiers = perk_factions[faction_id]
+		if typeof(tiers) != TYPE_DICTIONARY:
+			continue
+		for tier in tiers:
+			if typeof(tiers[tier]) != TYPE_ARRAY:
+				continue
+			for perk in tiers[tier]:
+				if typeof(perk) == TYPE_DICTIONARY and perk.get("effect") == "raidMuscle":
+					levels.append(["faction_perks.%s.params.ally.level" % perk.get("id", ""), perk.get("params", {}).get("ally", {}).get("level")])
+	for entry in levels:
+		if typeof(entry[1]) != TYPE_INT or int(entry[1]) < 1 or int(entry[1]) > level_max:
+			errors.append("%s: must be an int 1..%d" % [entry[0], level_max])
 
 
 # Every guardUpkeep number is a whole number; the wage and history window

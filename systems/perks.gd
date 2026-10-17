@@ -323,6 +323,7 @@ static func muscle_ally() -> Dictionary:
 	return {
 		"name": ally["name"], "hp": ally["hp"], "hpMax": ally["hp"],
 		"attackMin": ally["attackMin"], "attackMax": ally["attackMax"], "speed": ally["speed"],
+		"level": int(ally["level"]),
 		"slots": [], "slotsUsed": [], "koed": false,
 	}
 
