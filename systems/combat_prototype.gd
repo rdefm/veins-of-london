@@ -19,6 +19,10 @@ extends RefCounted
 # replays the same rolls for the same pick. Fog of war (spec §Fog of war)
 # marks each enemy action read or unread as its plan is rolled, off a
 # separate stream (fogRngState), so the fog never shifts the fight's rolls.
+# The rules core (build_fight(), play_pick(), rewind_pick() and every helper
+# taking `cp`) works on whichever pure-data combat dict it is passed, RNG
+# streams included; start() / choose_*() / rewind() are the sandbox's thin
+# callers on state.combatPrototype.
 
 const SIDE_PLAYER := "player"
 const SIDE_ALLY := "ally"
@@ -83,6 +87,9 @@ const DEFAULT_ARCHETYPE := "mugger"
 const DEFAULT_BACKDROP_CONTEXT := Combat.CONTEXT_MUGGING
 # Squad cap (spec user story 5: 0-2 AI allies).
 const MAX_ALLIES := 2
+
+# The sandbox fight's Snapshots stack id (its Rewind cap).
+const SNAPSHOT_STACK := "combatPrototype"
 
 # The moves the ally AI plans with (spec §Ally AI); GameData checks they exist.
 const MOVE_GUARD := "guard"
@@ -253,6 +260,17 @@ static func display_name(combatant: Dictionary) -> String:
 # fight state, or {} for an unknown archetype, too many allies, a bad
 # loadout or a backdrop context outside Combat.DEBUG_SETUP_CONTEXTS.
 static func start(config: Dictionary = {}) -> Dictionary:
+	var cp := build_fight(config)
+	if cp.is_empty():
+		return {}
+	GameState.state["combatPrototype"] = cp
+	EventBus.state_changed.emit()
+	return cp
+
+
+# The rules core of start(): builds and opens a fight from `config` as a
+# new pure-data combat dict, without storing it anywhere.
+static func build_fight(config: Dictionary = {}) -> Dictionary:
 	var backdrop: Dictionary = config.get("backdrop", {})
 	var backdrop_context: String = backdrop.get("context", DEFAULT_BACKDROP_CONTEXT)
 	if not Combat.DEBUG_SETUP_CONTEXTS.has(backdrop_context):
@@ -333,9 +351,6 @@ static func start(config: Dictionary = {}) -> Dictionary:
 	_advance(cp, rng, beats)
 	cp["log"].append_array(beats)
 	cp["rngState"] = rng.state
-
-	GameState.state["combatPrototype"] = cp
-	EventBus.state_changed.emit()
 	return cp
 
 
@@ -686,12 +701,22 @@ static func item_block_reason(cp: Dictionary, slot: int, target: int = -1) -> St
 
 
 static func _choose(action: Dictionary) -> Dictionary:
-	var cp := _root()
+	var result := play_pick(_root(), action)
+	if result["ok"]:
+		EventBus.state_changed.emit()
+	return result
+
+
+# The rules core of choose_move() / choose_item(): plays the raw pick
+# `action` ({ move, target } or { slot, target }) in the fight `cp`,
+# snapshotting it first onto `cp`'s Rewind stack (capped as Snapshots'
+# `stack_id`). Same returns as choose_move().
+static func play_pick(cp: Dictionary, action: Dictionary, stack_id: String = SNAPSHOT_STACK) -> Dictionary:
 	var reason := _pick_block_reason(cp, action)
 	if reason != "":
 		return { "ok": false, "reason": reason }
 	var entry = _normalize_action(cp, action)
-	_push_snapshot(cp)
+	_push_snapshot(cp, stack_id)
 	var position := decision_position(cp)
 	for part in range(move_cost(entry["move"])):
 		var filled: Dictionary = entry.duplicate()
@@ -705,7 +730,6 @@ static func _choose(action: Dictionary) -> Dictionary:
 	_advance(cp, rng, beats)
 	cp["log"].append_array(beats)
 	cp["rngState"] = rng.state
-	EventBus.state_changed.emit()
 	return { "ok": true, "beats": beats, "outcome": cp["outcome"] }
 
 
@@ -1273,22 +1297,28 @@ static func _beat(cp: Dictionary, beats: Array, kind: String, actor: int, target
 # ── Rewind ───────────────────────────────────────────────────────────────
 
 # Saves the fight as it stands at a decision point, before the pick.
-static func _push_snapshot(cp: Dictionary) -> void:
+static func _push_snapshot(cp: Dictionary, stack_id: String) -> void:
 	var frame := {}
 	for key in cp.keys():
 		if key != "snapshots":
 			frame[key] = cp[key]
-	Snapshots.push("combatPrototype", cp["snapshots"], frame)
+	Snapshots.push(stack_id, cp["snapshots"], frame)
 
 
 # Restores the fight to the previous decision point with that pick undone
 # (across a round boundary, that round's plans come back too).
 static func rewind() -> Dictionary:
-	var cp := _root()
+	var result := rewind_pick(_root())
+	if result["ok"]:
+		EventBus.state_changed.emit()
+	return result
+
+
+# The rules core of rewind(), on the fight `cp`.
+static func rewind_pick(cp: Dictionary) -> Dictionary:
 	var frame = Snapshots.pop_newest(cp["snapshots"])
 	if frame == null:
 		return { "ok": false, "reason": "Nothing to rewind." }
 	for key in frame.keys():
 		cp[key] = frame[key]
-	EventBus.state_changed.emit()
 	return { "ok": true }

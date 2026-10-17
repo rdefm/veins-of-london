@@ -422,6 +422,24 @@ func run() -> void:
 		assert_true(not CombatPrototype.rewind()["ok"], "nothing before the first pick")
 	)
 
+	run_case("rules_core_resolves_a_fight_held_in_a_passed_in_dict", func():
+		GameState.reset()
+		var sandbox := CombatPrototype.start({ "seed": 7 })
+		var sandbox_pick := CombatPrototype.choose_move("strike")
+		GameState.reset()
+		var untouched: Dictionary = GameState.deep_copy(GameState.state["combatPrototype"])
+		var cp := CombatPrototype.build_fight({ "seed": 7 })
+		assert_eq(GameState.state["combatPrototype"], untouched, "build_fight() stores nothing")
+		var pick := CombatPrototype.play_pick(cp, { "move": "strike", "target": -1 })
+		assert_true(pick["ok"])
+		assert_eq(pick["beats"], sandbox_pick["beats"], "same seed and pick, same rolls as the sandbox")
+		assert_eq(_without_snapshots(cp), _without_snapshots(sandbox))
+		assert_eq(GameState.state["combatPrototype"], untouched, "play_pick() leaves the sandbox alone")
+		assert_true(CombatPrototype.rewind_pick(cp)["ok"])
+		assert_eq(CombatPrototype.decision_position(cp), 0, "rewound to the first pick")
+		assert_true(not CombatPrototype.rewind_pick(cp)["ok"])
+	)
+
 	run_case("rewind_with_nothing_committed_fails_cleanly", func():
 		_start([["guard", "guard"]])
 		assert_true(not CombatPrototype.rewind()["ok"])
