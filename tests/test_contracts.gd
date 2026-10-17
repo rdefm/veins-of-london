@@ -570,7 +570,7 @@ func run() -> void:
 			"request": { "kind": "consumable", "type": "timePearl", "qty": 2 },
 		})
 		var contract: Dictionary = OffersSystem.accept_offer(created["offer"]["id"])["contract"]
-		var per_unit: int = Crafting.calc_cost("timePearl", 5)["time"]
+		var per_unit: int = Lab.base_calc("timePearl")["time"]
 		assert_eq(ContractsSystem.calc_need(contract), { "time": 2 * per_unit })
 		GameState.state["player"]["orichalchum"]["time"] = 1
 		GameState.state["business"]["pot"] = 5000
@@ -597,8 +597,8 @@ func run() -> void:
 			"request": { "kind": "consumable", "type": "timePearl", "qty": 2 },
 		})
 		var contract: Dictionary = OffersSystem.accept_offer(created["offer"]["id"])["contract"]
-		var per_unit: int = Crafting.calc_cost("timePearl", 1)["time"]
-		assert_eq(ContractsSystem.calc_need(contract), { "time": 2 * per_unit }, "life-only Owen's cheaper skill never prices a time recipe")
+		var per_unit: int = Lab.base_calc("timePearl")["time"]
+		assert_eq(ContractsSystem.calc_need(contract), { "time": 2 * per_unit }, "a time recipe is priced from a time-speciality producer")
 	)
 
 	run_case("recurring_term_expires_after_final_period_and_issues_renewal", func():

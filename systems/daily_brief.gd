@@ -376,7 +376,7 @@ static func _ore_short_rows(rows: Array[Dictionary]) -> void:
 			if not Rooms.producible_recipes(contact_id).has(recipe_key):
 				continue
 			makers += 1
-			var costs: Dictionary = Crafting.calc_cost(recipe_key, GameState.state["contacts"][contact_id].get("craftingSkill", 1))
+			var costs: Dictionary = Lab.base_calc(recipe_key)
 			var lacking: Array = costs.keys().filter(func(ingredient: String) -> bool: return ore.get(ingredient, 0) < costs[ingredient])
 			if lacking.is_empty():
 				affordable = true

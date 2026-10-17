@@ -81,6 +81,13 @@ static func item_tier(recipe_key: String) -> int:
 	return maxi(1, int(_root()["bestRanks"].get(recipe_key, 0)))
 
 
+# The tier a Lab staffer's items come out at: their own crafting level,
+# capped at data staffTierCap. The player's ranks and skill play no part
+# (spec § Staff (Rooms)).
+static func staff_item_tier(staff_skill: int) -> int:
+	return clampi(staff_skill, 1, int(_data().get("staffTierCap", 4)))
+
+
 # Adds a recipe at base (no hidden steps known). Granting a known recipe
 # changes nothing.
 static func grant_recipe(recipe_key: String) -> Dictionary:
@@ -387,11 +394,12 @@ static func _learn(recipe_key: String, clues: Array) -> void:
 
 # ── Calc ─────────────────────────────────────────────────────────────────
 
-# Calc one item of the recipe costs: its procedure's baseCalc. Crafting
-# skill doesn't reduce it.
+# Calc one item of the recipe costs, for the player and Lab staff alike: its
+# procedure's baseCalc, or the recipe's ingredients for a recipe with no
+# procedure yet. Crafting skill doesn't reduce it.
 static func base_calc(recipe_key: String) -> Dictionary:
 	var cost := {}
-	var base: Dictionary = procedure_def(recipe_key).get("baseCalc", {})
+	var base: Dictionary = procedure_def(recipe_key).get("baseCalc", GameData.RECIPES.get(recipe_key, {}).get("ingredients", {}))
 	for ore_type in base.keys():
 		cost[ore_type] = int(base[ore_type])
 	return cost

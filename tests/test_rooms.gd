@@ -17,15 +17,14 @@ func run() -> void:
 		GameState.reset()
 		_staff_lab("archie", 1)
 		GameState.state["labThresholds"]["timePearl"] = 1000  # unreachable target
-		# timePearl calcCost at skill 1 = 5. Exactly 3 attempts' worth; 3 successes
-		# (60 XP) stay under level 2's 80, so the cost holds at 5.
-		GameState.state["player"]["orichalchum"]["time"] = 17
+		var cost: int = Lab.base_calc("timePearl")["time"]
+		GameState.state["player"]["orichalchum"]["time"] = 3 * cost + 2
 		Rng.set_seed(1)
 		var output: Dictionary = Rooms.process_staff_block()
 		assert_eq(GameState.state["player"]["orichalchum"]["time"], 2, "3 attempts in one block, then 2 is short for the next")
 		var made: int = output["items"].get("timePearl", 0)
 		assert_eq(Crafting.inventory_qty("timePearl"), made, "block output matches items made")
-		assert_eq(Shares.window_totals("craft").get("player", {}).get("time", 0), made * 5, "only successful staff crafts credit crafting share, by ingredient weight")
+		assert_eq(Shares.window_totals("craft").get("player", {}).get("time", 0), made * cost, "only successful staff crafts credit crafting share, by ingredient weight")
 		Rooms.process_staff_block()
 		assert_eq(GameState.state["player"]["orichalchum"]["time"], 2, "next block idles on short ore")
 	)
@@ -36,13 +35,13 @@ func run() -> void:
 			GameState.reset()
 			_staff_lab("archie", 1)
 			GameState.state["labThresholds"]["timePearl"] = 1000
-			GameState.state["player"]["orichalchum"]["time"] = 15
+			GameState.state["player"]["orichalchum"]["time"] = 3 * int(Lab.base_calc("timePearl")["time"])
 			Rng.set_seed(candidate)
 			var output: Dictionary = Rooms.process_staff_block()
 			var made: int = output["items"].get("timePearl", 0)
 			if made < 3:
 				found = true
-				assert_eq(GameState.state["player"]["orichalchum"]["time"], 0, "all 3 attempts spent 5 ore each, failures included")
+				assert_eq(GameState.state["player"]["orichalchum"]["time"], 0, "all 3 attempts spent base calc each, failures included")
 				var xp: int = GameState.state["contacts"]["archie"]["craftingXP"]
 				assert_eq(xp, made * 20 + (3 - made) * 6, "full XP per success, a third per failure")
 				break
@@ -159,10 +158,47 @@ func run() -> void:
 		Rng.set_seed(1)
 		Rooms.process_staff_block()
 		var left: int = GameState.state["player"]["orichalchum"]["time"]
-		var cheapest: int = mini(
-			Crafting.calc_cost("timePearl", GameState.state["contacts"]["archie"]["craftingSkill"])["time"],
-			Crafting.calc_cost("timePearl", GameState.state["contacts"]["james"]["craftingSkill"])["time"])
-		assert_true(left < cheapest, "neither producer can afford another attempt")
+		assert_true(left < int(Lab.base_calc("timePearl")["time"]), "neither producer can afford another attempt")
+	)
+
+	run_case("staff_items_file_at_the_staffers_own_level_capped_by_data", func():
+		for skill in [1, 3, 4, 5, 10]:
+			GameState.reset()
+			_staff_lab("archie", skill)
+			GameState.state["labThresholds"]["timePearl"] = 1
+			GameState.state["player"]["orichalchum"]["time"] = 100
+			Rng.set_seed(1)
+			for i in 20:
+				Rooms.process_staff_block()
+			var want := mini(skill, int(GameData.LAB["staffTierCap"]))
+			assert_eq(GameState.state["player"]["inventory"]["timePearl"].keys(), [str(want)], "skill %d files at tier %d" % [skill, want])
+		assert_eq(int(GameData.LAB["staffTierCap"]), 4, "never tier 5")
+	)
+
+	run_case("staff_tier_ignores_the_players_best_rank_and_skill", func():
+		GameState.reset()
+		_staff_lab("archie", 2)
+		GameState.state["lab"]["bestRanks"]["timePearl"] = 5
+		GameState.state["player"]["craftingSkill"] = 10
+		GameState.state["labThresholds"]["timePearl"] = 1
+		GameState.state["player"]["orichalchum"]["time"] = 100
+		Rng.set_seed(1)
+		for i in 20:
+			Rooms.process_staff_block()
+		assert_eq(GameState.state["player"]["inventory"]["timePearl"].keys(), ["2"], "tier from archie's level only")
+	)
+
+	run_case("staff_attempts_cost_the_recipe_base_calc_whatever_the_skill", func():
+		for skill in [1, 5]:
+			GameState.reset()
+			_staff_lab("archie", skill)
+			GameState.state["labThresholds"]["timePearl"] = 1000
+			GameState.state["player"]["orichalchum"]["time"] = 30
+			Rng.set_seed(1)
+			Rooms.process_staff_block()
+			var totals: Dictionary = Rooms.production_day_totals(GameState.state["productionLog"][0])
+			var attempts: int = totals["made"] + totals["failed"]
+			assert_eq(attempts, 30 / int(Lab.base_calc("timePearl")["time"]), "skill %d: base calc per attempt" % skill)
 	)
 
 	run_case("an_unpaid_room_hire_does_not_act", func():
@@ -531,8 +567,9 @@ func run() -> void:
 		for tier_key in entry["made"].get("timePearl", {}):
 			made += entry["made"]["timePearl"][tier_key]
 		assert_eq(made, output["items"].get("timePearl", 0), "log's made matches block output")
-		assert_eq(made + entry["failed"].get("timePearl", 0), 10, "every 5-ore attempt of 50 ore is logged as made or failed")
-		assert_eq(Rooms.production_day_totals(log[0]), { "made": made, "failed": 10 - made })
+		var attempts: int = 50 / int(Lab.base_calc("timePearl")["time"])
+		assert_eq(made + entry["failed"].get("timePearl", 0), attempts, "every base-calc attempt of 50 ore is logged as made or failed")
+		assert_eq(Rooms.production_day_totals(log[0]), { "made": made, "failed": attempts - made })
 		Rooms.process_staff_block(2)
 		assert_eq(log[0]["blocks"].size(), 2, "a second block on the same day appends to that day")
 	)

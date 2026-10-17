@@ -332,7 +332,7 @@ static func calc_need(contract: Dictionary) -> Dictionary:
 		if line["kind"] == "ore":
 			need[line["type"]] = int(need.get(line["type"], 0)) + remaining
 			continue
-		var costs := _lowest_producer_cost(line["type"])
+		var costs := _producer_cost(line["type"])
 		for ore_type in costs:
 			need[ore_type] = int(need.get(ore_type, 0)) + remaining * int(costs[ore_type])
 	return need
@@ -363,10 +363,10 @@ static func period_shortfall(contract: Dictionary, claimed: Dictionary) -> int:
 	return short_total
 
 
-# Claims the calc for up to `wanted` units from the cheapest working producer
+# Claims the calc for up to `wanted` units a working producer would spend
 # and returns how many units that calc buys.
 static func _claim_production(recipe_key: String, wanted: int, claimed: Dictionary) -> int:
-	var costs := _lowest_producer_cost(recipe_key)
+	var costs := _producer_cost(recipe_key)
 	if costs.is_empty():
 		return 0
 	var makeable := wanted
@@ -381,21 +381,13 @@ static func _claim_production(recipe_key: String, wanted: int, claimed: Dictiona
 	return makeable
 
 
-static func _lowest_producer_cost(recipe_key: String) -> Dictionary:
-	var best: Dictionary = {}
-	var best_total := -1
+# One unit's calc (Lab.base_calc) when a working producer can make the
+# recipe; {} when none can.
+static func _producer_cost(recipe_key: String) -> Dictionary:
 	for contact_id in Contacts.contacts_in_role("production"):
-		if not Payroll.is_working(contact_id) or not Rooms.producible_recipes(contact_id).has(recipe_key):
-			continue
-		var skill: int = GameState.state["contacts"][contact_id].get("craftingSkill", 1)
-		var costs: Dictionary = Crafting.calc_cost(recipe_key, skill)
-		var total := 0
-		for ore_type in costs:
-			total += int(costs[ore_type])
-		if best_total < 0 or total < best_total:
-			best = costs
-			best_total = total
-	return best
+		if Payroll.is_working(contact_id) and Rooms.producible_recipes(contact_id).has(recipe_key):
+			return Lab.base_calc(recipe_key)
+	return {}
 
 
 # Every ore lane the player can buy from right now, cheapest first, ties to

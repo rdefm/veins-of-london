@@ -339,7 +339,7 @@ static func _cultivator_act(contact_id: String, ore_out: Dictionary) -> void:
 
 
 # Safety bound on total producer attempts in one block. Every recipe costs
-# at least 1 ore per ingredient (Crafting.calc_cost), so ore stock already
+# at least 1 ore per ingredient (Lab.base_calc), so ore stock already
 # bounds the loop; this only guards an ingredient-less recipe failing forever.
 const MAX_PRODUCER_ATTEMPTS_PER_BLOCK := 10000
 
@@ -385,7 +385,7 @@ static func _producer_act(contact_id: String, items_out: Dictionary, entry: Dict
 			continue
 		if Crafting.inventory_qty(recipe_key) >= effective_lab_target(recipe_key):
 			continue
-		var costs: Dictionary = Crafting.calc_cost(recipe_key, skill)
+		var costs: Dictionary = Lab.base_calc(recipe_key)
 		var short_types: Array = []
 		for ingredient in costs:
 			if ore.get(ingredient, 0) < costs[ingredient]:
@@ -398,7 +398,7 @@ static func _producer_act(contact_id: String, items_out: Dictionary, entry: Dict
 			ore[ingredient] = ore.get(ingredient, 0) - costs[ingredient]
 		var xp_reward: int = GameData.RECIPES[recipe_key]["xpReward"]
 		if Rng.chance(Crafting.craft_chance(recipe_key, skill)):
-			var tier := Lab.item_tier(recipe_key)
+			var tier := Lab.staff_item_tier(skill)
 			Crafting.inventory_add(recipe_key, tier)
 			Shares.record_craft(Shares.PLAYER, costs)
 			items_out[recipe_key] = items_out.get(recipe_key, 0) + 1

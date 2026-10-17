@@ -235,7 +235,7 @@ func run() -> void:
 		contacts["james"]["craftingSkill"] = 5
 		contacts["james"]["assignedRole"] = "production"
 		_accept_contract({ "kind": "consumable", "type": "timePearl", "qty": 2 })
-		var per_unit: int = Crafting.calc_cost("timePearl", 5)["time"]
+		var per_unit: int = Lab.base_calc("timePearl")["time"]
 		GameState.state["player"]["orichalchum"]["time"] = 2 * per_unit
 		assert_eq(_kind("contractAtRisk").size(), 1, "lab not covering contracts: calc alone is no cover")
 		GameState.state["labCoverContracts"]["timePearl"] = true
