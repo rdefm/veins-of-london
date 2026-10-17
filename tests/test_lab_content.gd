@@ -10,6 +10,7 @@ extends "res://tests/test_base.gd"
 const BANDS := [[40, 59], [60, 74], [75, 89], [90, 100]]
 const PROTOTYPE_RECIPES := ["timePearl", "healingSalve", "healingBurst"]
 const TIME_LIFE_RECIPES := ["rewind", "prophetsBreath", "enhancementPowder"]
+const PHYSICS_RECIPES := ["blast", "shield", "blackHole"]
 
 
 func _procedures() -> Dictionary:
@@ -53,6 +54,11 @@ func run() -> void:
 
 	run_case("time_life_recipes_have_procedures", func():
 		for recipe_key in TIME_LIFE_RECIPES:
+			assert_true(_procedures().has(recipe_key), "%s has a procedure" % recipe_key)
+	)
+
+	run_case("physics_recipes_have_procedures", func():
+		for recipe_key in PHYSICS_RECIPES:
 			assert_true(_procedures().has(recipe_key), "%s has a procedure" % recipe_key)
 	)
 

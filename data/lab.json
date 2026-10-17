@@ -148,6 +148,82 @@
           "vague": { "note": "Warm it between the grinds. Barely warm.", "offset": 8 },
           "exact": { "note": "Between the grinds, heat to 30 and no further." } }
       ]
+    },
+    "blast": {
+      "baseTolerance": 5,
+      "ideal": [
+        { "apparatus": "compression", "ore": "physics", "target": 60, "weight": 45 },
+        { "apparatus": "grinding", "target": 30, "weight": 15 },
+        { "apparatus": "heat", "target": 80, "weight": 20 },
+        { "apparatus": "compression", "target": 80, "weight": 20 }
+      ],
+      "base": [
+        { "apparatus": "compression", "target": 60, "calc": { "physics": 5 } },
+        { "apparatus": "heat", "target": 65 }
+      ],
+      "hints": [
+        { "id": "heatHarder", "label": "Heat it harder", "step": 2, "rung": "hint1",
+          "vague": { "note": "It wants a lot more heat than that.", "offset": -7 },
+          "exact": { "note": "Heat to 80. Hot as you dare." } },
+        { "id": "pressAfterHeat", "label": "Press it after the heat", "step": 3, "rung": "hint2",
+          "vague": { "note": "Press it again once it's hot. Harder than the first time.", "offset": -8 },
+          "exact": { "note": "After the heat, press to 80." } },
+        { "id": "grindBeforeHeat", "label": "Grind before the heat", "step": 1, "rung": "master",
+          "vague": { "note": "Break it up before it sees the heat. Early in the swing.", "offset": 8 },
+          "exact": { "note": "Between the first press and the heat, grind early in the swing." } }
+      ]
+    },
+    "shield": {
+      "baseTolerance": 6,
+      "ideal": [
+        { "apparatus": "heat", "ore": "physics", "target": 40, "weight": 25 },
+        { "apparatus": "distilling", "target": 55, "weight": 20 },
+        { "apparatus": "grinding", "target": 70, "weight": 20 },
+        { "apparatus": "compression", "target": 45, "weight": 20 },
+        { "apparatus": "heat", "target": 25, "weight": 15 }
+      ],
+      "base": [
+        { "apparatus": "heat", "target": 40, "calc": { "physics": 6 } },
+        { "apparatus": "distilling", "target": 55 },
+        { "apparatus": "grinding", "target": 50 }
+      ],
+      "hints": [
+        { "id": "grindLate", "label": "Grind later", "step": 2, "rung": "hint1",
+          "vague": { "note": "The grind's coming too early in the swing.", "offset": -7 },
+          "exact": { "note": "Grind late in the swing. Past the middle." } },
+        { "id": "pressLayers", "label": "Press it after the grind", "step": 3, "rung": "hint2",
+          "vague": { "note": "Press it after the grind. Middling pressure.", "offset": 6 },
+          "exact": { "note": "After the grind, press to 45." } },
+        { "id": "warmToSet", "label": "Warm it to set", "step": 4, "rung": "master",
+          "vague": { "note": "One more go on the heat at the end. Gently.", "offset": 8 },
+          "exact": { "note": "After the last press, heat to 25 and take it off." } }
+      ]
+    },
+    "blackHole": {
+      "baseTolerance": 4,
+      "ideal": [
+        { "apparatus": "compression", "ore": "physics", "target": 70, "weight": 25 },
+        { "apparatus": "distilling", "target": 30, "weight": 20 },
+        { "apparatus": "compression", "target": 88, "weight": 20 },
+        { "apparatus": "grinding", "target": 50, "weight": 20 },
+        { "apparatus": "heat", "target": 15, "weight": 15 }
+      ],
+      "base": [
+        { "apparatus": "compression", "target": 70, "calc": { "physics": 7 } },
+        { "apparatus": "distilling", "target": 30 },
+        { "apparatus": "compression", "target": 75 }
+      ],
+      "hints": [
+        { "id": "pressToEdge", "label": "Press it to the edge", "step": 2, "rung": "hint1",
+          "vague": { "note": "The second press wants more. Nearly all of it.", "offset": -6 },
+          "exact": { "note": "Second press to 88. Stop before it cracks." } },
+        { "id": "grindCore", "label": "Grind after the press", "step": 3, "rung": "hint2",
+          "vague": { "note": "Grind it once it's pressed. Mid-swing, roughly.", "offset": 7 },
+          "exact": { "note": "After the second press, grind right in the middle of the swing." } },
+        { "id": "barelyWarm", "label": "Barely warm it", "step": 4, "rung": "master",
+          "vague": { "note": "Finish on the heat, but only just.", "offset": 9 },
+          "exact": { "note": "Last of all, heat to 15. Hardly a flicker." } }
+      ]
     }
   },
   "rungs": ["hint1", "hint2", "master"],
