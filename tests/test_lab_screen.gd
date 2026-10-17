@@ -144,6 +144,34 @@ func run() -> void:
 		screen.free()
 	)
 
+	run_case("the_gauge_shows_the_band_of_the_known_step_it_is_about_to_perform", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["time"] = 10
+		Lab.grant_recipe("timePearl")
+		var screen := _screen()
+		screen._open_recipe("timePearl")
+		NodeQuery.find_button(screen, "Craft manually").pressed.emit()
+		UiSim.tap_zone(screen, "ore_time")
+		var steps := Lab.known_procedure("timePearl")
+		_assert_gauge_band(screen, "compression", Lab.step_region("timePearl", steps[0]), "an exact known step: its band, solid")
+		_assert_gauge_band(screen, "grinding", {}, "no known grind step: no band")
+
+		Lab.grant_steps("timePearl", Lab.rung_steps("timePearl", "hint1"), "vague")
+		var vague: Dictionary = Lab.step_region("timePearl", Lab.known_procedure("timePearl")[0])
+		assert_true(vague["vague"])
+		_assert_gauge_band(screen, "compression", vague, "a vague step: its faded region")
+
+		Crafting.inventory_add(ActiveEffects.PROPHETS_BREATH, 1, 1)
+		Lab.use_effect(ActiveEffects.PROPHETS_BREATH)
+		_assert_gauge_band(screen, "compression", { "low": 82.0 - Lab.band_half_width("timePearl"), "high": 82.0 +Lab.band_half_width("timePearl"), "vague": false }, "Breath: the true band")
+		_assert_gauge_band(screen, "grinding", Lab.step_region("timePearl", Lab.known_procedure("timePearl")[1]), "Breath reveals the hidden grind's band")
+
+		UiSim.tap_zone(screen, "apparatus_heat")
+		_find_gauge(screen).committed.emit(25.0)
+		_assert_gauge_band(screen, "grinding", {}, "a grind after the heat matches no known step left")
+		screen.free()
+	)
+
 	run_case("the_docked_book_ends_above_the_nav_bar_with_its_footer_outside_the_scroll", func():
 		GameState.reset()
 		GameState.state["player"]["orichalchum"]["time"] = 10
@@ -281,6 +309,13 @@ func _inside_scroll(node: Node) -> bool:
 			return true
 		parent = parent.get_parent()
 	return false
+
+
+func _assert_gauge_band(screen: HqLabBenchScreen, apparatus: String, region: Dictionary, context: String) -> void:
+	UiSim.tap_zone(screen, "apparatus_" + apparatus)
+	var gauge = _find_gauge(screen)
+	assert_eq([gauge.band_low, gauge.band_high, gauge.band_vague], [region.get("low", 0.0), region.get("high", 0.0), region.get("vague", false)], context)
+	screen._close_gauge()
 
 
 func _find_gauge(node: Node) -> Node:

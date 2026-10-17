@@ -725,9 +725,7 @@ func _add_known_step(content: VBoxContainer, index: int, step: Dictionary) -> vo
 		band_text += " (Breath)"
 	content.add_child(UI.label("%d. %s%s · %s" % [index + 1, Lab.apparatus_name(step["apparatus"]), ores, band_text % [roundi(region["low"]), roundi(region["high"])]]))
 	var band := LabGauges.BandGauge.new()
-	band.band_low = region["low"]
-	band.band_high = region["high"]
-	band.band_vague = region["vague"]
+	band.set_region(region)
 	content.add_child(band)
 	if step.has("note"):
 		var note := UI.muted_label(step["note"])
@@ -792,7 +790,9 @@ func _clue_text(clue: Dictionary) -> String:
 	return " · ".join(parts)
 
 
-# The apparatus's gauge over the plate; its commit performs the step.
+# The apparatus's gauge over the plate, showing the band of the known step
+# it is about to perform (none if the book shows none); its commit performs
+# the step.
 func _build_gauge_card(apparatus: String) -> Control:
 	var c := MapCardStyle.card(18, 0.16)
 	c["panel"].custom_minimum_size.x = _GAUGE_WIDTH
@@ -824,6 +824,9 @@ func _build_gauge_card(apparatus: String) -> Control:
 			hold.committed.connect(func(value: float): _perform(func(): return Lab.perform_step(apparatus, value)))
 			content.add_child(UI.muted_label("Hold, then release."))
 			gauge = hold
+	var pending := Lab.pending_step(apparatus)
+	if not pending.is_empty():
+		gauge.set_region(Lab.step_region(_recipe_key, pending))
 	content.add_child(gauge)
 	content.add_child(MapCardStyle.footer([MapCardStyle.text_button("Cancel", _close_gauge)]))
 	return c["panel"]

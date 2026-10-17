@@ -12,6 +12,13 @@ class StepGauge extends Control:
 	var band_high := 0.0
 	var band_vague := false
 
+	# Shows a Lab.step_region() result; {} shows no band.
+	func set_region(region: Dictionary) -> void:
+		band_low = region.get("low", 0.0)
+		band_high = region.get("high", 0.0)
+		band_vague = region.get("vague", false)
+		queue_redraw()
+
 	func _init() -> void:
 		custom_minimum_size = Vector2(0, 56)
 		mouse_filter = Control.MOUSE_FILTER_STOP
@@ -28,7 +35,9 @@ class StepGauge extends Control:
 	func _draw_track() -> Rect2:
 		var track := Rect2(Vector2(0, size.y * 0.3), Vector2(size.x, size.y * 0.4))
 		draw_rect(track, MapCardStyle.line())
-		var band_colour := Color(MapCardStyle.sage(), 0.35) if band_vague else MapCardStyle.sage()
+		if band_high <= band_low:
+			return track
+		var band_colour := Color(MapCardStyle.band(), 0.4) if band_vague else MapCardStyle.band()
 		draw_rect(Rect2(Vector2(_x(band_low), track.position.y), Vector2(_x(band_high - band_low), track.size.y)), band_colour)
 		return track
 

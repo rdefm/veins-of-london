@@ -431,6 +431,18 @@ func _register_run_cases() -> void:
 		assert_true(not ActiveEffects.lady_active() and not ActiveEffects.prophets_breath_active(), "both expire once the clock passes them")
 	)
 
+	run_case("pending_step_is_the_next_known_step_on_that_apparatus", func():
+		_bench("timePearl", { "time": 10 })
+		assert_eq(Lab.pending_step("compression"), {}, "no run: nothing pending")
+		Lab.begin_run("timePearl")
+		var steps := Lab.known_procedure("timePearl")
+		assert_eq(Lab.pending_step("compression"), steps[0], "the base press")
+		assert_eq(Lab.pending_step("grinding"), {}, "no known grind")
+		Lab.perform_step("compression", 70.0)
+		assert_eq(Lab.pending_step("compression"), {}, "the only known press is done")
+		assert_eq(Lab.pending_step("heat"), steps[1], "the heat is next")
+	)
+
 	run_case("prophets_breath_from_the_bench_reveals_true_bands", func():
 		_bench("timePearl", {})
 		Crafting.inventory_add(ActiveEffects.PROPHETS_BREATH, 1, 1)

@@ -42,6 +42,11 @@ static func sage() -> Color:
 	return MapPalette.colour("cardSage")
 
 
+# A Lab band on its gauge track: reads against both cardLine and cardPaper.
+static func band() -> Color:
+	return MapPalette.colour("cardBand")
+
+
 static func skin(fill: Color, radius: int, border: bool = true) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = fill

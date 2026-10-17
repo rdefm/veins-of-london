@@ -269,6 +269,24 @@ static func step_region(recipe_key: String, step: Dictionary) -> Dictionary:
 	return { "low": maxf(0.0, low), "high": minf(100.0, high), "vague": vague }
 
 
+# The known step the open run's next use of this apparatus performs: the
+# first known step on it after the last known step the run's performed steps
+# have matched, or {} when the book shows none.
+static func pending_step(apparatus: String) -> Dictionary:
+	var run = active_run()
+	if run == null:
+		return {}
+	var steps := known_procedure(run["recipe"])
+	var next := 0
+	for m in match_ideal(steps, run["performed"]):
+		if m >= 0:
+			next = m + 1
+	for i in range(next, steps.size()):
+		if steps[i]["apparatus"] == apparatus:
+			return steps[i]
+	return {}
+
+
 # ── Matching ─────────────────────────────────────────────────────────────
 
 # Pairs each performed step with an ideal step: in order, same apparatus,
