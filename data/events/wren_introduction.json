@@ -1,0 +1,23 @@
+{
+  "id": "wren_introduction",
+  "cards": [
+    { "type": "narration", "label": "The City — the Guild registry", "speaker": null, "text": "The door on the third floor does say STATIONERY. Behind it: a counter, a brass bell, a coat stand with no coats, and a woman writing in a ledger with a fountain pen." },
+    { "type": "speaker", "label": null, "speaker": "Wren", "text": "She finishes the line before she looks up. \"You'll be James's letter. He used the word 'adequate'. From James, that's practically a reference.\"",
+      "goto": [{ "if": { "flag": "wrenMetBeforeIntro" }, "card": 2 }, { "card": 3 }] },
+    { "type": "speaker", "label": null, "speaker": "Wren", "text": "\"We've already exchanged messages, of course. It's nice to put a face to the file.\"" },
+    { "type": "speaker", "label": null, "speaker": "Wren", "text": "She turns the ledger round to face you. \"I'm registering you as an associate. Not a member. Members need a sponsor, a vote and a dinner nobody enjoys. Associates need a signature.\"" },
+    { "type": "speaker", "label": null, "speaker": "You", "text": "\"What does an associate get?\"" },
+    { "type": "speaker", "label": null, "speaker": "Wren", "text": "\"Recipes. James sells his time and life work. Everything else, the Guild holds, and I keep the catalogue. The basic procedures are for sale to any associate. The finer notes depend on your standing.\"" },
+    { "type": "speaker", "label": null, "speaker": "Ingram", "text": "A door opens behind the counter. A tall man in a grey suit reads the ledger upside down without slowing. \"Associate. Do keep that word in pencil, Registrar.\"" },
+    { "type": "narration", "label": null, "speaker": null, "text": "Wren waits for the door to close. Then she uncaps the pen again and writes your name in ink." },
+    { "type": "speaker", "label": null, "speaker": "Wren", "text": "\"Dr Ingram runs Assay. Standing is the slow part, because the Guild trusts what it has tested. So I'll send you commissions: a recipe, a grade, a date. Deliver well and the finer notes open up. Deliver late and Assay hears about it.\"" },
+    { "type": "speaker", "label": null, "speaker": "Wren", "text": "She blots the page. \"I've spent eleven years getting an associate register past the Court. You're the fourth name in it. Please don't be the reason it closes.\"" },
+    { "type": "resolution", "label": null, "speaker": null, "text": "She files the page under A, behind three others. The first commission will come by message. On your way out you pass a door marked ASSAY. It's shut, and the light is on." }
+  ],
+  "on_complete": [
+    { "op": "set_flag", "flag": "wrenIntroductionSeen", "value": true },
+    { "op": "set_flag", "flag": "wrenRecipesUnlocked", "value": true },
+    { "op": "set_flag", "flag": "assayCommissionsUnlocked", "value": true },
+    { "op": "set_screen", "screen": "contacts" }
+  ]
+}

@@ -380,6 +380,11 @@ func new_game_state() -> Dictionary:
 			"firmShopUnlocked": false, "networkShopUnlocked": false, "conclaveShopUnlocked": false,
 			# Recipe sellers open (recipe_knowledge.json shops.<id>.unlockFlag).
 			"jamesRecipesUnlocked": false, "wrenRecipesUnlocked": false,
+			# Wren's introduction (recipe_knowledge.json shops.wren.introduction):
+			# queued guard, whether she was already unlocked at queue time, and
+			# the event's seen flag, which also opens assay commissions.
+			"wrenIntroQueued": false, "wrenMetBeforeIntro": false,
+			"wrenIntroductionSeen": false, "assayCommissionsUnlocked": false,
 			# Gates Dial.attempt_seed() (R§3.5's Gift gate). Set true only
 			# by the Collective Act 2 onboarding quest.
 			"dialGiftGranted": false,

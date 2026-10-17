@@ -173,6 +173,22 @@ static func seller_name(seller_id: String) -> String:
 	return str(_shop(seller_id).get("name", seller_id))
 
 
+# Daily-tick step: a shop's `introduction` (Wren's) is queued as its seller's
+# pending message on the first rollover after its afterFlag is set, so never
+# the same day. metFlag records whether the seller was already an unlocked
+# contact before this message introduced them.
+static func maybe_queue_introductions() -> void:
+	var flags: Dictionary = GameState.state["flags"]
+	for seller_id in _data().get("shops", {}).keys():
+		var intro: Dictionary = _shop(seller_id).get("introduction", {})
+		if intro.is_empty() or flags.get(intro["queuedFlag"], false) or not flags.get(intro["afterFlag"], false):
+			continue
+		flags[intro["queuedFlag"]] = true
+		flags[intro["metFlag"]] = bool(GameState.state["contacts"].get(seller_id, {}).get("unlocked", false))
+		KeyMembers.introduce(seller_id)
+		Messages.queue_pending(seller_id, str(intro["event"]), str(intro["text"]))
+
+
 static func seller_unlocked(seller_id: String) -> bool:
 	var flag := str(_shop(seller_id).get("unlockFlag", ""))
 	return not flag.is_empty() and bool(GameState.state["flags"].get(flag, false))

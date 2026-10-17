@@ -171,7 +171,7 @@
     "speaker": "ingram",
     "keyMembers": [
       {"id": "ingram", "contactId": "ingram", "seat": "speaker", "outlook": "hawk", "want": "guild_audit", "aggressionMult": 1.3, "relationBaseline": -10, "startStanding": 50, "name": "Ingram", "role": "The Guild · Assay Warden", "unlock": "firstMessage", "giftPrefs": ["failsafe", "panic"], "intro": "\"Dr Ingram, Assay Warden to the Guild of Applied Alchemists. Your name has come before the Court twice this month. Once would have been sufficient.\""},
-      {"id": "wren", "contactId": "wren", "name": "Wren", "role": "The Guild · Registrar", "unlock": "firstMessage", "seat": "lieutenant", "outlook": "dove", "want": "guild_charter", "aggressionMult": 0.7, "relationBaseline": 10, "startStanding": 50, "proseReview": true, "giftPrefs": ["rewind", "timePearl"], "intro": "\"Registrar Wren, for the Guild. Placeholder intro.\""}
+      {"id": "wren", "contactId": "wren", "name": "Wren", "role": "The Guild · Registrar", "unlock": "firstMessage", "seat": "lieutenant", "outlook": "dove", "want": "guild_charter", "aggressionMult": 0.7, "relationBaseline": 10, "startStanding": 50, "proseReview": true, "giftPrefs": ["rewind", "timePearl"], "intro": "\"Registrar Wren, Guild of Applied Alchemists. I keep the Guild's books, so I already have a file on you. It's thin. I'd like it to stay thin for the right reasons.\""}
     ],
     "sampleFavours": [
       {"id": "guild_time_supply", "kind": "deliver", "params": {"kind": "ore", "type": "time", "qty": 15, "days": 6}, "text": "\"The Court requires fifteen time by the sixth day. Assayed, weighed, and not in a carrier bag.\""},

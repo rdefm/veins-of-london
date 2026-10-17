@@ -32,7 +32,14 @@
       "name": "Wren",
       "unlockFlag": "wrenRecipesUnlocked",
       "gate": { "kind": "factionTier", "faction": "guild", "hint1": "friendly", "hint2": "partner", "text": "needs Guild %s" },
-      "discount": { "kind": "keyMemberStanding", "contact": "wren", "zeroAt": 50, "fullAt": 100 }
+      "discount": { "kind": "keyMemberStanding", "contact": "wren", "zeroAt": 50, "fullAt": 100 },
+      "introduction": {
+        "event": "wren_introduction",
+        "afterFlag": "jamesExperimentSeen",
+        "queuedFlag": "wrenIntroQueued",
+        "metFlag": "wrenMetBeforeIntro",
+        "text": "James has written about you, which he rarely does. Registry, third floor, the door marked Stationery. Bring a pen; ours walk."
+      }
     }
   },
   "sourceAliases": { "guild": "wren" },

@@ -1548,6 +1548,8 @@ func _validate_recipe_knowledge(rk: Dictionary, lab: Dictionary, recipes: Dictio
 		_require_keys(cfg, ["kind", "contact", "zeroAt", "fullAt"], "recipe_knowledge.shops.%s.discount" % seller_id, errors)
 		if float(cfg.get("fullAt", 0)) <= float(cfg.get("zeroAt", 0)):
 			errors.append("recipe_knowledge.shops.%s.discount: fullAt must exceed zeroAt" % seller_id)
+		if shop.has("introduction"):
+			_require_keys(shop["introduction"], ["event", "afterFlag", "queuedFlag", "metFlag", "text"], "recipe_knowledge.shops.%s.introduction" % seller_id, errors)
 	for rung in ["base", "hint1", "hint2"]:
 		if int(rk.get("priceMultipliers", {}).get(rung, 0)) <= 0:
 			errors.append("recipe_knowledge.priceMultipliers.%s: must be positive" % rung)

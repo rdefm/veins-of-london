@@ -583,6 +583,9 @@ state = {
     archieMotionPending: false, archieMotionEventSeen: false,
     archieBuyerSmsQueued: false,  # bugfixes-83: idempotency guard, ARCHIE_SMS_2's day>=2 queuing (TimeSystem)
     jamesExperimentSeen: false,
+    jamesRecipesUnlocked: false, wrenRecipesUnlocked: false,  # recipe seller shops (recipe_knowledge.json shops.<id>.unlockFlag)
+    wrenIntroQueued: false, wrenMetBeforeIntro: false,  # Wren's message guard; metFlag = Wren already unlocked at queue time
+    wrenIntroductionSeen: false, assayCommissionsUnlocked: false,  # set by wren_introduction
     jamesJobActive: false, jamesJobAccepted: false,
     homeRaidEventPending: false, homeRaidEventSeen: false, homeRaidWon: false,
     archiePartnerSeen: false, homeUnlocked: false, securityContactUnlocked: false,
@@ -939,7 +942,7 @@ The chain plays once. Later HQ raids defended from the alarm (`Home.trigger_defe
    *(The HTML's separate `JAMES_CRAFT_CARDS` array is dead/unreachable content. DO NOT PORT.)*
 4. Next day: notification → **Archie falafel chat** (ARCHIE_CRAFT_CHAT_CARDS). Complete → `archieCraftChatSeen`, `canSellConsumables`, stage "free", archie relation +5, +20 time ore, `homeRaidEventPending = true`.
 5. **Home raid chain** per §3.8. Then free play.
-6. Post-tutorial: first consumable sale → `archieMotionPending` → **Archie motion event** (ARCHIE_MOTION_CARDS; sets archieMotionEventSeen) → James pending message (kind `james_experiment`) → **James experiment event** (opening from JAMES_MOTION_CARDS, trimmed; Time Pearl Hint I vague, a `start_lesson_session` to rank 3, then the recipe talk; sets jamesExperimentSeen, `jamesRecipesUnlocked`, james relation +1). James jobs then available on the contacts screen.
+6. Post-tutorial: first consumable sale → `archieMotionPending` → **Archie motion event** (ARCHIE_MOTION_CARDS; sets archieMotionEventSeen) → James pending message (kind `james_experiment`) → **James experiment event** (opening from JAMES_MOTION_CARDS, trimmed; Time Pearl Hint I vague, a `start_lesson_session` to rank 3, then the recipe talk; sets jamesExperimentSeen, `jamesRecipesUnlocked`, james relation +1). James jobs then available on the contacts screen. Next daily tick (⑧g4, `RecipeKnowledge.maybe_queue_introductions`, from `shops.wren.introduction`) → Wren introduced + pending message (kind `wren_introduction`; sets wrenIntroQueued, wrenMetBeforeIntro = Wren already unlocked) → **Wren introduction event** (Guild associate; already-met line gated on wrenMetBeforeIntro; sets wrenIntroductionSeen, `wrenRecipesUnlocked`, assayCommissionsUnlocked).
 - Home-screen to-do list: port `getTodoItems()` logic verbatim (flag-driven checklist, show last 4).
 
 ### 3.12 Vein raiding: faction raid outcomes against a player vein (Direction B)
