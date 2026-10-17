@@ -10,6 +10,9 @@ extends RefCounted
 # every one of its steps is at least vague, exact once all are exact. The
 # rank ceiling is that of the highest rung reached without a gap.
 #
+# buy() sells a rung exact from the recipe's seller once its shop is
+# unlocked and its gate met, at a fixed price less a goodwill discount.
+#
 # grant_rung() teaches a rung. A grant naming a source that would teach
 # nothing new falls back (spec § Further Notes): the same rung on another of
 # that source's recipes, else crafting XP, a relation bump and a line.
@@ -95,6 +98,116 @@ static func _source_recipes(source_id: String) -> Array:
 		if seller_of(recipe_key) == resolved or (master != null and _resolve_source(str(master)) == resolved):
 			result.append(recipe_key)
 	return result
+
+
+# ── Buying ───────────────────────────────────────────────────────────────
+
+static func _shop(seller_id: String) -> Dictionary:
+	return _data().get("shops", {}).get(seller_id, {})
+
+
+static func rung_label(rung: String) -> String:
+	return str(_data().get("rungLabels", {}).get(rung, rung))
+
+
+static func seller_unlocked(seller_id: String) -> bool:
+	var flag := str(_shop(seller_id).get("unlockFlag", ""))
+	return not flag.is_empty() and bool(GameState.state["flags"].get(flag, false))
+
+
+# Whether the recipe's seller would sell this rung now: base once the seller
+# is unlocked; a hint rung also needs the shop's gate; master never.
+static func gate_met(recipe_key: String, rung: String) -> bool:
+	if rung == "master" or not rungs().has(rung):
+		return false
+	var seller_id := seller_of(recipe_key)
+	if not seller_unlocked(seller_id):
+		return false
+	if rung == "base":
+		return true
+	var gate: Dictionary = _shop(seller_id).get("gate", {})
+	match str(gate.get("kind", "")):
+		"contactRelation":
+			return _contact_relation(str(gate["contact"])) >= int(gate[rung])
+		"factionTier":
+			return Perks.tier_rank(Perks.player_tier(str(gate["faction"]))) >= Perks.tier_rank(str(gate[rung]))
+	return false
+
+
+static func _contact_relation(contact_id: String) -> int:
+	return int(GameState.state["contacts"].get(contact_id, {}).get("relation", 0))
+
+
+# Goodwill discount 0..maxDiscount, linear between the shop's zeroAt and
+# fullAt on its contact relation or key-member standing.
+static func discount(seller_id: String) -> float:
+	var cfg: Dictionary = _shop(seller_id).get("discount", {})
+	var value := 0
+	match str(cfg.get("kind", "")):
+		"contactRelation":
+			value = _contact_relation(str(cfg["contact"]))
+		"keyMemberStanding":
+			value = KeyMembers.standing_of(str(cfg["contact"]))
+		_:
+			return 0.0
+	var span := float(cfg["fullAt"]) - float(cfg["zeroAt"])
+	var t := clampf((value - float(cfg["zeroAt"])) / span, 0.0, 1.0) if span > 0.0 else 0.0
+	return t * float(_data().get("maxDiscount", 0.0))
+
+
+# The rung's price before discount: consumable sell price × the rung's
+# multiplier, unless the recipe overrides it. Ignores the market and gouge.
+static func list_price(recipe_key: String, rung: String) -> int:
+	var override = _data().get("priceOverrides", {}).get(recipe_key, {}).get(rung)
+	if override != null:
+		return int(override)
+	return int(GameData.CONSUMABLE_PRICES.get(recipe_key, 0)) * int(_data().get("priceMultipliers", {}).get(rung, 0))
+
+
+static func price(recipe_key: String, rung: String) -> int:
+	return roundi(list_price(recipe_key, rung) * (1.0 - discount(seller_of(recipe_key))))
+
+
+static func _refusal(key: String) -> String:
+	return str(_data()["buyRefusals"][key])
+
+
+# Why buy() would refuse now (a buyRefusals line), else "".
+static func buy_block(recipe_key: String, rung: String) -> String:
+	if Lab.procedure_def(recipe_key).is_empty():
+		return _refusal("unknownRecipe")
+	if rung == "master":
+		return _refusal("master")
+	if not rungs().has(rung):
+		return _refusal("unknownRung")
+	if not seller_unlocked(seller_of(recipe_key)):
+		return _refusal("locked")
+	if not gate_met(recipe_key, rung):
+		return _refusal("gate")
+	if rung_state(recipe_key, rung) == "exact":
+		return _refusal("exact")
+	var prev: String = rungs()[rungs().find(rung) - 1] if rung != "base" else ""
+	if not prev.is_empty() and not owns_rung(recipe_key, prev):
+		return _refusal("order") % rung_label(prev)
+	if int(GameState.state["player"]["cash"]) < price(recipe_key, rung):
+		return _refusal("cash")
+	return ""
+
+
+# Spends cash and teaches the rung exact (a vague rung upgrades in place),
+# logging the spend to the bank. { ok, reason?, price? }.
+static func buy(recipe_key: String, rung: String) -> Dictionary:
+	var block := buy_block(recipe_key, rung)
+	if not block.is_empty():
+		return { "ok": false, "reason": block }
+	var cost := price(recipe_key, rung)
+	var seller_id := seller_of(recipe_key)
+	GameState.state["player"]["cash"] = int(GameState.state["player"]["cash"]) - cost
+	_teach(recipe_key, rung, "exact")
+	var recipe_name := str(GameData.RECIPES[recipe_key].get("name", recipe_key))
+	Bank.record(-cost, str(_data()["bankLabel"]) % [recipe_name, rung_label(rung), str(_shop(seller_id).get("name", seller_id))])
+	EventBus.state_changed.emit()
+	return { "ok": true, "price": cost }
 
 
 # ── Granting ─────────────────────────────────────────────────────────────

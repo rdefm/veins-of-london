@@ -1533,7 +1533,23 @@ func _validate_procedure_hints(where: String, procedure: Dictionary, vague_sprea
 # ingredients and base calc summing to those ingredients; hints validated
 # as above, each with a data rung; debug tooling bounds (skillMax >= 1, refillCalc >= 0).
 func _validate_recipe_knowledge(rk: Dictionary, lab: Dictionary, recipes: Dictionary, errors: Array[String]) -> void:
-	_require_keys(rk, ["rungs", "rungCeilings", "sellers", "defaultSeller", "sourceAliases", "collision", "unknownPointer", "masterSources"], "recipe_knowledge", errors)
+	_require_keys(rk, ["rungs", "rungCeilings", "sellers", "defaultSeller", "sourceAliases", "collision", "unknownPointer", "masterSources", "rungLabels", "priceMultipliers", "priceOverrides", "maxDiscount", "bankLabel", "buyRefusals", "shops"], "recipe_knowledge", errors)
+	_require_keys(rk.get("buyRefusals", {}), ["unknownRecipe", "unknownRung", "master", "locked", "gate", "exact", "order", "cash"], "recipe_knowledge.buyRefusals", errors)
+	var max_discount := float(rk.get("maxDiscount", 0.0))
+	if max_discount < 0.0 or max_discount > 1.0:
+		errors.append("recipe_knowledge.maxDiscount: must be 0..1")
+	var sellers: Array = rk.get("sellers", {}).keys() + [rk.get("defaultSeller", "")]
+	for seller_id in sellers:
+		var shop: Dictionary = rk.get("shops", {}).get(seller_id, {})
+		_require_keys(shop, ["name", "unlockFlag", "gate", "discount"], "recipe_knowledge.shops.%s" % seller_id, errors)
+		_require_keys(shop.get("gate", {}), ["kind", "hint1", "hint2"], "recipe_knowledge.shops.%s.gate" % seller_id, errors)
+		var cfg: Dictionary = shop.get("discount", {})
+		_require_keys(cfg, ["kind", "contact", "zeroAt", "fullAt"], "recipe_knowledge.shops.%s.discount" % seller_id, errors)
+		if float(cfg.get("fullAt", 0)) <= float(cfg.get("zeroAt", 0)):
+			errors.append("recipe_knowledge.shops.%s.discount: fullAt must exceed zeroAt" % seller_id)
+	for rung in ["base", "hint1", "hint2"]:
+		if int(rk.get("priceMultipliers", {}).get(rung, 0)) <= 0:
+			errors.append("recipe_knowledge.priceMultipliers.%s: must be positive" % rung)
 	var expected: Array = ["base"] + lab.get("rungs", [])
 	if rk.get("rungs", []) != expected:
 		errors.append("recipe_knowledge.rungs: must be base then lab.rungs %s" % [expected])

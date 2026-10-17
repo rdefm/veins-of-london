@@ -196,3 +196,161 @@ func run() -> void:
 		entry["pointer"] = null
 		assert_eq(looked, { "source": "james", "pointer": "Ask about the Dial." }, "set entry returned")
 	)
+
+	_register_buying_cases()
+
+
+func _shop(seller_id: String) -> Dictionary:
+	return GameData.RECIPE_KNOWLEDGE["shops"][seller_id]
+
+
+func _open_shops() -> void:
+	GameState.state["flags"]["jamesRecipesUnlocked"] = true
+	GameState.state["flags"]["wrenRecipesUnlocked"] = true
+
+
+# No goodwill: James's relation and Wren's standing at their zeroAt.
+func _no_discount() -> void:
+	GameState.state["contacts"]["james"]["relation"] = int(_shop("james")["discount"]["zeroAt"])
+	GameState.state["factions"]["guild"]["standing"]["wren"] = int(_shop("wren")["discount"]["zeroAt"])
+
+
+func _guild_tier(tier: String) -> void:
+	var friendly := int(GameData.FACTION_PERKS["friendlyAtOrAbove"])
+	GameState.state["factions"]["guild"]["joined"] = false
+	GameState.state["factions"]["guild"]["relation"] = 0 if tier == "none" else friendly
+	GameState.state["factionStances"]["player"]["guild"]["stance"] = FactionAI.PARTNER if tier == "partner" else FactionAI.NEUTRAL
+
+
+func _register_buying_cases() -> void:
+	run_case("seller_of_every_recipe", func():
+		var expected := {}
+		for recipe_key in GameData.RECIPES.keys():
+			expected[recipe_key] = "james" if JAMES_RECIPES.has(recipe_key) else "wren"
+		assert_eq(expected.size(), 17, "17 recipes")
+		for recipe_key in expected.keys():
+			assert_eq(RecipeKnowledge.seller_of(recipe_key), expected[recipe_key], recipe_key)
+	)
+
+	run_case("gates_follow_unlock_relation_and_guild_tier", func():
+		_fresh()
+		_guild_tier("partner")
+		GameState.state["contacts"]["james"]["relation"] = 100
+		for rung in ["base", "hint1", "hint2", "master"]:
+			assert_true(not RecipeKnowledge.gate_met("timePearl", rung), "James locked: %s" % rung)
+			assert_true(not RecipeKnowledge.gate_met("blast", rung), "Wren locked: %s" % rung)
+		_open_shops()
+		var gate: Dictionary = _shop("james")["gate"]
+		GameState.state["contacts"]["james"]["relation"] = 0
+		assert_true(RecipeKnowledge.gate_met("timePearl", "base"), "base needs only the unlock")
+		assert_true(not RecipeKnowledge.gate_met("timePearl", "hint1"), "hint1 below threshold")
+		GameState.state["contacts"]["james"]["relation"] = int(gate["hint1"])
+		assert_true(RecipeKnowledge.gate_met("timePearl", "hint1"), "hint1 at threshold")
+		assert_true(not RecipeKnowledge.gate_met("timePearl", "hint2"), "hint2 below threshold")
+		GameState.state["contacts"]["james"]["relation"] = int(gate["hint2"])
+		assert_true(RecipeKnowledge.gate_met("timePearl", "hint2"), "hint2 at threshold")
+		assert_true(not RecipeKnowledge.gate_met("timePearl", "master"), "master never")
+		_guild_tier("none")
+		assert_true(RecipeKnowledge.gate_met("blast", "base"), "Wren base")
+		assert_true(not RecipeKnowledge.gate_met("blast", "hint1"), "Stranger: no hint1")
+		_guild_tier("friendly")
+		assert_true(RecipeKnowledge.gate_met("blast", "hint1"), "Friendly: hint1")
+		assert_true(not RecipeKnowledge.gate_met("blast", "hint2"), "Friendly: no hint2")
+		_guild_tier("partner")
+		assert_true(RecipeKnowledge.gate_met("blast", "hint2"), "Partner: hint2")
+		GameState.state["factions"]["guild"]["joined"] = true
+		assert_true(RecipeKnowledge.gate_met("blast", "hint2"), "Sworn: hint2")
+		assert_true(not RecipeKnowledge.gate_met("blast", "master"), "master never")
+		_guild_tier("friendly")
+		assert_true(not RecipeKnowledge.gate_met("blast", "hint2"), "tier drop closes hint2")
+	)
+
+	run_case("price_is_sell_times_multiplier_with_override_and_bounded_discount", func():
+		_fresh()
+		_no_discount()
+		var mult: Dictionary = GameData.RECIPE_KNOWLEDGE["priceMultipliers"]
+		var sell := int(GameData.CONSUMABLE_PRICES["timePearl"])
+		assert_eq(RecipeKnowledge.price("timePearl", "base"), sell * int(mult["base"]), "base")
+		assert_eq(RecipeKnowledge.price("timePearl", "hint1"), sell * int(mult["hint1"]), "hint1")
+		assert_eq(RecipeKnowledge.price("timePearl", "hint2"), sell * int(mult["hint2"]), "hint2")
+		var override := int(GameData.RECIPE_KNOWLEDGE["priceOverrides"]["enhancementPowder"]["base"])
+		assert_eq(RecipeKnowledge.price("enhancementPowder", "base"), override, "override wins")
+		var max_d := float(GameData.RECIPE_KNOWLEDGE["maxDiscount"])
+		assert_almost_eq(max_d, 0.2, 0.0001, "discount capped at 20%")
+		GameState.state["contacts"]["james"]["relation"] = int(_shop("james")["discount"]["fullAt"]) + 50
+		assert_almost_eq(RecipeKnowledge.discount("james"), max_d, 0.0001, "full goodwill caps")
+		assert_eq(RecipeKnowledge.price("timePearl", "base"), roundi(sell * int(mult["base"]) * (1.0 - max_d)), "discounted")
+		GameState.state["contacts"]["james"]["relation"] = -50
+		assert_almost_eq(RecipeKnowledge.discount("james"), 0.0, 0.0001, "never negative")
+		var wren: Dictionary = _shop("wren")["discount"]
+		GameState.state["factions"]["guild"]["standing"]["wren"] = (int(wren["zeroAt"]) + int(wren["fullAt"])) / 2
+		assert_almost_eq(RecipeKnowledge.discount("wren"), max_d / 2.0, 0.0001, "Wren scales with standing")
+	)
+
+	run_case("price_ignores_market_and_gouge", func():
+		_fresh()
+		_no_discount()
+		var before := RecipeKnowledge.price("timePearl", "hint1")
+		var good: Dictionary = GameState.state["market"]["goods"]["consumable"]["timePearl"]
+		good["price"] = int(good["price"]) * 3
+		GameState.state["factionEscalation"]["gouges"] = [{ "factionId": "network", "targetId": "player", "priceMult": 2.0, "untilDay": 9999 }]
+		assert_true(FactionAI.gouge_mult("player") > 1.0, "gouge active")
+		assert_eq(RecipeKnowledge.price("timePearl", "hint1"), before, "unchanged")
+	)
+
+	run_case("buy_refuses_with_distinct_reasons", func():
+		_fresh()
+		_no_discount()
+		_guild_tier("none")
+		GameState.state["player"]["cash"] = 1000000
+		var reasons := {}
+		reasons["locked"] = RecipeKnowledge.buy("timePearl", "base")
+		_open_shops()
+		reasons["gate"] = RecipeKnowledge.buy("blast", "hint1")
+		reasons["master"] = RecipeKnowledge.buy("timePearl", "master")
+		GameState.state["contacts"]["james"]["relation"] = 100
+		reasons["order"] = RecipeKnowledge.buy("timePearl", "hint2")
+		Lab.grant_recipe("timePearl")
+		reasons["exact"] = RecipeKnowledge.buy("timePearl", "base")
+		GameState.state["player"]["cash"] = RecipeKnowledge.price("timePearl", "hint1") - 1
+		reasons["cash"] = RecipeKnowledge.buy("timePearl", "hint1")
+		var seen := {}
+		for key in reasons.keys():
+			assert_true(not reasons[key]["ok"], "%s refused" % key)
+			seen[reasons[key]["reason"]] = true
+		assert_eq(seen.size(), reasons.size(), "each reason distinct")
+		assert_eq(int(GameState.state["player"]["cash"]), RecipeKnowledge.price("timePearl", "hint1") - 1, "no cash spent")
+		assert_eq(RecipeKnowledge.rung_state("timePearl", "hint1"), "unknown", "nothing taught")
+	)
+
+	run_case("buy_spends_teaches_exact_logs_and_emits", func():
+		_fresh()
+		_no_discount()
+		_open_shops()
+		GameState.state["player"]["cash"] = 100000
+		var emitted := [0]
+		EventBus.state_changed.connect(func(): emitted[0] += 1)
+		var cost := RecipeKnowledge.price("blast", "base")
+		var r := RecipeKnowledge.buy("blast", "base")
+		assert_true(r["ok"], "bought")
+		assert_eq(int(GameState.state["player"]["cash"]), 100000 - cost, "cash spent")
+		assert_true(Lab.is_known("blast"), "recipe known")
+		var entry: Dictionary = GameState.state["bankLog"].back()
+		assert_eq(int(entry["amount"]), -cost, "bank log")
+		assert_true(str(entry["label"]).contains("Blast"), "label names the recipe")
+		assert_true(emitted[0] > 0, "state_changed emitted")
+		assert_eq(RecipeKnowledge.buy("blast", "base")["ok"], false, "second base refused")
+	)
+
+	run_case("buying_a_vague_rung_upgrades_it_to_exact", func():
+		_fresh()
+		_no_discount()
+		_open_shops()
+		GameState.state["contacts"]["james"]["relation"] = 100
+		GameState.state["player"]["cash"] = 100000
+		RecipeKnowledge.grant_rung("timePearl", "hint1", "vague")
+		assert_eq(RecipeKnowledge.rung_state("timePearl", "hint1"), "vague", "held vague")
+		assert_true(RecipeKnowledge.buy("timePearl", "hint1")["ok"], "bought")
+		assert_eq(RecipeKnowledge.rung_state("timePearl", "hint1"), "exact", "now exact")
+		assert_true(RecipeKnowledge.buy("timePearl", "hint2")["ok"], "next rung in order")
+	)

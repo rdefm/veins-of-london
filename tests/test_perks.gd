@@ -27,13 +27,13 @@ func run() -> void:
 	_register_network_cases()
 	_register_conclave_cases()
 
-	run_case("data_has_three_tiers_and_fifteen_perks", func():
+	run_case("data_has_three_tiers_and_seventeen_perks", func():
 		assert_eq(GameData.validate_tables(GameData.snapshot()).size(), 0)
 		var n := 0
 		for fid in GameData.FACTIONS.keys():
 			for tier in ["friendly", "partner", "sworn"]:
 				n += GameData.FACTION_PERKS["factions"][fid][tier].size()
-		assert_eq(n, 15)
+		assert_eq(n, 17)
 	)
 
 	run_case("tier_mapping", func():
@@ -56,7 +56,7 @@ func run() -> void:
 			GameState.state["factions"][fid]["relation"] = 0
 		assert_eq(Perks.active_global().size(), 0)
 		GameState.state["factions"]["guild"]["relation"] = 30
-		assert_eq(_ids(Perks.active_global()), ["guild_craft_xp"])
+		assert_eq(_ids(Perks.active_global()), ["guild_craft_xp", "guild_recipe_hints_1"])
 		GameState.state["factions"]["guild"]["joined"] = true
 		assert_true(_ids(Perks.active_global()).has("guild_commissions"))
 		assert_true(_ids(Perks.active_global()).has("guild_craft_xp"))
@@ -123,6 +123,15 @@ func run() -> void:
 		GameState.state["factions"]["collective"]["joined"] = false
 		GameState.state["factions"]["collective"]["relation"] = 0
 		assert_eq(Perks.district_benefit_rows("collective", "soho")[0]["here"], "inactive")
+	)
+
+	run_case("guild_benefits_list_recipe_hint_rows_at_friendly_and_partner", func():
+		GameState.reset()
+		var tiers := {}
+		for row in Perks.benefit_rows("guild"):
+			if row["perk"]["effect"] == "recipeHints":
+				tiers[row["perk"]["label"]] = row["tier"]
+		assert_eq(tiers, { "Recipe hints I": "friendly", "Recipe hints II": "partner" })
 	)
 
 	run_case("panel_benefit_rows_carry_source_faction", func():

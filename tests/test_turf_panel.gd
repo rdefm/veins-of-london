@@ -72,7 +72,7 @@ func run() -> void:
 		GameState.state["turf"] = Turf.compute(GameState.state)
 		var g: Dictionary = TurfPanel.perk_groups("soho")
 		assert_eq(g["here"].size(), 0)
-		assert_eq(g["everywhere"].size() + g["locked_hidden"], 10)
+		assert_eq(g["everywhere"].size() + g["locked_hidden"], 12)
 		assert_true(g["locked_hidden"] > 0)
 	)
 

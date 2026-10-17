@@ -1,11 +1,40 @@
 {
-  "_comment": "Recipe knowledge ladder (systems/recipe_knowledge.gd, .scratch/recipe-acquisition/spec.md) -- provisional numbers, tagged for balance. rungs = the ladder in order (base, then data/lab.json's hint rungs); rungCeilings = the highest rank a recipe can reach with every rung up to and including that one owned. sellers: a recipe belongs to the first seller whose ores list holds every one of its ingredient ores, else to defaultSeller. sourceAliases maps a grant source id onto a seller id (the Guild faction draws on Wren's recipes). collision = the fallback when a sourced grant would teach nothing new and the source has no other recipe left to teach: crafting xp, relation bump with the source, and the acknowledgement line keyed by source id, else its alias, else default. masterSources.<recipeKey> = { source: npc/faction id or null, pointer: text or null }; a null pointer reads as unknownPointer. PROSE-REVIEW: collision.lines, unknownPointer.",
+  "_comment": "Recipe knowledge ladder (systems/recipe_knowledge.gd, .scratch/recipe-acquisition/spec.md) -- provisional numbers, tagged for balance. rungs = the ladder in order (base, then data/lab.json's hint rungs); rungCeilings = the highest rank a recipe can reach with every rung up to and including that one owned. sellers: a recipe belongs to the first seller whose ores list holds every one of its ingredient ores, else to defaultSeller. sourceAliases maps a grant source id onto a seller id (the Guild faction draws on Wren's recipes). collision = the fallback when a sourced grant would teach nothing new and the source has no other recipe left to teach: crafting xp, relation bump with the source, and the acknowledgement line keyed by source id, else its alias, else default. masterSources.<recipeKey> = { source: npc/faction id or null, pointer: text or null }; a null pointer reads as unknownPointer. Buying: price = consumablePrices × priceMultipliers[rung] (priceOverrides.<recipe>.<rung> replaces it), less a goodwill discount of up to maxDiscount, linear from discount.zeroAt to discount.fullAt on the shop's contact relation or key-member standing. shops.<seller> = name, unlockFlag (state.flags), gate per hint rung (contactRelation: contact relation at or above; factionTier: Perks tier at or above), discount source. bankLabel % [recipe name, rung label, shop name]. buyRefusals = the reason buy() gives per refusal (order % previous rung label). PROSE-REVIEW: collision.lines, unknownPointer, rungLabels, buyRefusals.",
   "rungs": ["base", "hint1", "hint2", "master"],
   "rungCeilings": { "base": 2, "hint1": 3, "hint2": 4, "master": 5 },
   "sellers": {
     "james": { "ores": ["time", "life"] }
   },
   "defaultSeller": "wren",
+  "rungLabels": { "base": "Recipe", "hint1": "Hint I", "hint2": "Hint II", "master": "Master technique" },
+  "priceMultipliers": { "base": 10, "hint1": 15, "hint2": 20 },
+  "priceOverrides": { "enhancementPowder": { "base": 300 } },
+  "maxDiscount": 0.20,
+  "bankLabel": "%s %s (%s)",
+  "buyRefusals": {
+    "unknownRecipe": "Unknown recipe.",
+    "unknownRung": "Unknown rung.",
+    "master": "Not for sale. Some things you have to earn.",
+    "locked": "Not selling to you yet.",
+    "gate": "Not on those terms yet.",
+    "exact": "You already know this.",
+    "order": "Needs %s first.",
+    "cash": "Not enough cash."
+  },
+  "shops": {
+    "james": {
+      "name": "James",
+      "unlockFlag": "jamesRecipesUnlocked",
+      "gate": { "kind": "contactRelation", "contact": "james", "hint1": 25, "hint2": 50 },
+      "discount": { "kind": "contactRelation", "contact": "james", "zeroAt": 0, "fullAt": 100 }
+    },
+    "wren": {
+      "name": "Wren",
+      "unlockFlag": "wrenRecipesUnlocked",
+      "gate": { "kind": "factionTier", "faction": "guild", "hint1": "friendly", "hint2": "partner" },
+      "discount": { "kind": "keyMemberStanding", "contact": "wren", "zeroAt": 50, "fullAt": 100 }
+    }
+  },
   "sourceAliases": { "guild": "wren" },
   "collision": {
     "xp": 30,
