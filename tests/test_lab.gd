@@ -400,6 +400,26 @@ func _register_run_cases() -> void:
 		assert_true(not Lab.use_effect("timePearl")["ok"], "only bench effects")
 	)
 
+	run_case("bench_effects_outlast_runs_until_the_clock_moves", func():
+		_bench("timePearl", { "time": 20 })
+		Crafting.inventory_add(ActiveEffects.LADY, 1, 1)
+		Crafting.inventory_add(ActiveEffects.PROPHETS_BREATH, 1, 1)
+		Lab.add_ore("timePearl", "time")
+		Lab.use_effect(ActiveEffects.LADY)
+		Lab.use_effect(ActiveEffects.PROPHETS_BREATH)
+		assert_eq(Lab.finish_run()["ladyBonus"], 10, "Lady used mid-run counts")
+		assert_true(ActiveEffects.lady_active() and ActiveEffects.prophets_breath_active(), "both still running after Finish")
+		Lab.add_ore("timePearl", "time")
+		Lab.abandon_run()
+		Lab.add_ore("timePearl", "time")
+		assert_eq(Lab.finish_run()["ladyBonus"], 10, "Lady still adds on a later run")
+		assert_eq(Lab.known_procedure("timePearl")[1]["knowledge"], "revealed", "Breath still reveals")
+		var lady: Dictionary = ActiveEffects.find(ActiveEffects.LADY)
+		for i in ActiveEffects.blocks_left(lady):
+			TimeSystem.advance_time_block()
+		assert_true(not ActiveEffects.lady_active() and not ActiveEffects.prophets_breath_active(), "both expire once the clock passes them")
+	)
+
 	run_case("prophets_breath_from_the_bench_reveals_true_bands", func():
 		_bench("timePearl", {})
 		Crafting.inventory_add(ActiveEffects.PROPHETS_BREATH, 1, 1)
