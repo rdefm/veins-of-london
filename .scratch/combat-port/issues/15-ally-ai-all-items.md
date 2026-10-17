@@ -24,7 +24,7 @@ Plan-time, evaluated in this order on the round-start state. Each unit is reserv
 | enhancementPowder | first action of a round with no powder running, once per fight | self |
 | beALady | first action of round 1, once per fight | self |
 | panic / pansRapture / panger / pandemonium | per 07's table-4 rows: the unstatused enemy with most read offensive actions | that enemy; multi → all unstatused |
-| failsafe / rewind | stay automatic, never planned (Table 5) | — |
+| failsafe / rewind | stay automatic, never planned (Table 5); the ally's own reactive Failsafe save is built in ticket 10, its rewind save in ticket 08 | — |
 
 ## Open decisions (human)
 
