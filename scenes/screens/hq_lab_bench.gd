@@ -1,18 +1,66 @@
 class_name HqLabBenchScreen
 extends Control
 
+# The HQ Lab zone: the Lab plate (docs/hq-diorama-vision.md §5.1) over the
+# live Lab system (.scratch/lab-port/spec.md § Screens). Jar badges show the
+# player's real calc; the recipes notebook opens the recipe book of known
+# recipes by ore tab (§5.2 look), and a recipe's page shows its procedure as
+# known, best rank, the reserved knowledge-ladder region, batch and Craft
+# manually.
+#
+# "Craft manually" docks the book in the floor band under the top-aligned
+# plate: the recipe's jars tap real calc in, apparatus pop their gauge over
+# the plate, and the book's Finish -- the only way out -- shows the result
+# and clues in place, with the Rewind choices.
+
+const _DOCK_MIN_HEIGHT := 160.0
+const _GAUGE_WIDTH := 300.0
 const _INSET := 4.0
 const _BADGE_HEIGHT := 26.0
 const _BADGE_FONT_SIZE := 14
 const _BADGE_RADIUS := 8
 const _BADGE_PADDING := 6
-const _SELECT_ORE_HINT := "Pick an ore type first."
 const _STATUS_FONT_SIZE := 15
 const _STATUS_MIN_HEIGHT := 32.0
+const _OVERLAY_MARGIN := 8.0
+
+# Book page geometry, art space (1024x1536) of RecipeBookPage's
+# recipe-book-side-tabs-blank.png.
+const ORE_ORDER := ["time", "physics", "life", "fate", "emotion"]
+const PER_PAGE := 4
+const _TAB_CENTRES_Y := [262.0, 495.0, 728.0, 960.0, 1190.0]
+const _TAB_X := 947.0
+const _TAB_HIT := Vector2(125, 200)
+const _ENTRY_TOP := 205.0
+const _ENTRY_STEP := 290.0
+const _ENTRY_HEIGHT := 250.0
+
+enum Page { NONE, BOOK, RECIPE, RUN }
+
+# View state only: which book page and ore tab are open, the picked batch
+# size, and in a docked run the open gauge's apparatus, the last refusal
+# notice and the finished run's result.
+var _page := Page.NONE
+var _book_ore := ""
+var _book_page := 0
+var _recipe_key := ""
+var _craft_qty := 1
+var _gauge := ""
+var _notice := ""
+var _result := {}
+var _debug_overlay_enabled := false
 
 var _diorama: HqDiorama
-var _press_zone: String = ""
-var _debug_overlay_enabled: bool = false
+
+
+# One live ore glyph, centred in its control.
+class _TabGlyph extends Control:
+	var ore_type := ""
+	var colour := Color.WHITE
+
+	func _draw() -> void:
+		OreGlyphs.draw(self, size * 0.5, ore_type, colour, size.x * 0.32)
+
 
 func _ready() -> void:
 	UI.anchor_full_rect(self)
@@ -20,35 +68,67 @@ func _ready() -> void:
 	resized.connect(_refresh)
 	_refresh()
 
+
 func _refresh() -> void:
-	_build()
-
-
-# §5.1: one portrait plate, width-fit and vertically centred, the bands above
-# and below filled with the plate's wall/floor colours.
-func _build() -> void:
 	for child in get_children():
+		remove_child(child)
 		child.queue_free()
 	_diorama = null
+	# An open run keeps the book docked on its recipe until Finish.
+	var run = Lab.active_run()
+	if run != null:
+		_page = Page.RUN
+		_recipe_key = run["recipe"]
+	elif _page == Page.RUN and _result.is_empty() and not Lab.is_known(_recipe_key):
+		_page = Page.NONE
+	if _page == Page.RUN:
+		_build_run()
+		return
+	if _page == Page.RECIPE and not Lab.is_known(_recipe_key):
+		_page = Page.BOOK
+	_build_plate(Rect2(Vector2.ZERO, size))
+	match _page:
+		Page.BOOK:
+			_build_overlay(_build_book())
+		Page.RECIPE:
+			_build_overlay(_build_book(), _build_recipe_card())
 
+
+func _show(page: Page) -> void:
+	_page = page
+	_refresh()
+
+
+# ── Plate ────────────────────────────────────────────────────────────────
+
+# §5.1: the Lab's portrait plate, width-fit in area, the space above it
+# filled with the plate's wall colour and the space below with its floor
+# colour. Undocked it is centred vertically with the status line, Back and
+# the debug-regions chip; docked it sits at the top of area, with none of
+# them. Returns the plate's bottom edge.
+func _build_plate(area: Rect2, docked: bool = false) -> float:
 	var plate: Dictionary = GameData.HQ_VISUALS["labBench"]
 	var plate_size := Vector2(plate["width"], plate["height"])
-	var available: Vector2 = size if size.x > 0.0 and size.y > 0.0 else plate_size
+	var available: Vector2 = area.size if area.size.x > 0.0 and area.size.y > 0.0 else plate_size
 	var scale_factor: float = available.x / plate_size.x
-	var scaled_height: float = plate_size.y * scale_factor
-	var top: float = (available.y - scaled_height) / 2.0
+	var scaled := plate_size * scale_factor
+	var origin: Vector2 = area.position + Vector2(0.0, 0.0 if docked else (available.y - scaled.y) / 2.0)
+	var full: Vector2 = size if size.x > 0.0 and size.y > 0.0 else available
+	var floor_top: float = origin.y + scaled.y
 
-	_add_band(plate.get("bandTopColor", ""), Rect2(0.0, 0.0, available.x, maxf(top, 0.0)))
-	_add_band(plate.get("bandBottomColor", ""), Rect2(0.0, top + scaled_height, available.x, maxf(available.y - top - scaled_height, 0.0)))
+	# Bands never overlap the plate: its art draws at z -1, under them.
+	_add_band(plate.get("bandTopColor", ""), Rect2(0.0, 0.0, full.x, maxf(origin.y, 0.0)))
+	_add_band(plate.get("bandBottomColor", ""), Rect2(0.0, floor_top, full.x, maxf(full.y - floor_top, 0.0)))
 
 	var frame := Control.new()
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	frame.position = Vector2(0.0, top)
+	frame.position = origin
 	frame.size = plate_size
 	frame.scale = Vector2(scale_factor, scale_factor)
 	add_child(frame)
 
-	var visible_plate := _visible_plate(plate, GameState.state["labBenchNav"])
+	var visible_plate: Dictionary = plate.duplicate(true)
+	_label_ore_regions(visible_plate["regions"], docked)
 	_diorama = HqDiorama.new()
 	_diorama.build(visible_plate)
 	_diorama.set_debug_overlay_enabled(_debug_overlay_enabled)
@@ -56,7 +136,9 @@ func _build() -> void:
 	frame.add_child(_diorama)
 
 	_add_ore_badges(visible_plate["regions"], frame.position, scale_factor)
-	_add_status_line(Rect2(0.0, top + scaled_height, available.x, maxf(available.y - top - scaled_height, _STATUS_MIN_HEIGHT)))
+	if docked:
+		return floor_top
+	_add_status_line(Rect2(0.0, floor_top, full.x, maxf(full.y - floor_top, _STATUS_MIN_HEIGHT)))
 
 	var back := UI.back_button("hq")
 	back.position = Vector2(_INSET, UI.safe_area_top_inset() + _INSET)
@@ -65,6 +147,7 @@ func _build() -> void:
 	var debug_toggle := MapCardStyle.chip_button("Debug regions" if not _debug_overlay_enabled else "Debug regions ✓", _on_debug_toggle_pressed)
 	debug_toggle.position = Vector2(back.position.x + back.custom_minimum_size.x + 8.0, back.position.y)
 	add_child(debug_toggle)
+	return floor_top
 
 
 func _add_band(palette_id: String, rect: Rect2) -> void:
@@ -76,15 +159,32 @@ func _add_band(palette_id: String, rect: Rect2) -> void:
 	add_child(band)
 
 
-# §5.4: a count badge of player.orichalchum[type] centred on each jar's
-# bottom edge, in screen space so it stays legible at any plate scale.
+func _on_debug_toggle_pressed() -> void:
+	_debug_overlay_enabled = not _debug_overlay_enabled
+	_refresh()
+
+
+# Each jar's label carries its real calc; docked, the run recipe's own jars
+# carry the selected outline cue as the only ones that tap.
+func _label_ore_regions(regions: Dictionary, docked: bool) -> void:
+	var recipe_ores: Dictionary = Lab.base_calc(_recipe_key) if docked else {}
+	for ore_type in GameData.ORE_TYPES.keys():
+		var region_id := LabBenchNav.ORE_REGION_PREFIX + String(ore_type)
+		if not regions.has(region_id):
+			continue
+		regions[region_id]["label"] = "%s — %d" % [GameData.ORE_TYPES[ore_type]["name"], Lab.calc_available(ore_type)]
+		if recipe_ores.has(ore_type):
+			regions[region_id]["selected"] = true
+
+
+# §5.4: a count badge of the player's calc centred on each jar's bottom
+# edge, in screen space so it stays legible at any plate scale.
 func _add_ore_badges(regions: Dictionary, origin: Vector2, scale_factor: float) -> void:
 	for region_id in regions:
 		if not String(region_id).begins_with(LabBenchNav.ORE_REGION_PREFIX):
 			continue
 		var ore_type := String(region_id).trim_prefix(LabBenchNav.ORE_REGION_PREFIX)
 		var rect := HqDiorama.region_rect(regions[region_id])
-		var count: int = GameState.state["player"]["orichalchum"].get(ore_type, 0)
 
 		var box := CenterContainer.new()
 		box.name = "OreBadge_%s" % ore_type
@@ -98,13 +198,15 @@ func _add_ore_badges(regions: Dictionary, origin: Vector2, scale_factor: float) 
 		style.content_margin_left = _BADGE_PADDING
 		style.content_margin_right = _BADGE_PADDING
 		panel.add_theme_stylebox_override("panel", style)
-		panel.add_child(MapCardStyle.label(str(count), _BADGE_FONT_SIZE, MapCardStyle.ink()))
+		panel.add_child(MapCardStyle.label(str(Lab.calc_available(ore_type)), _BADGE_FONT_SIZE, MapCardStyle.ink()))
 		box.add_child(panel)
 		add_child(box)
 
 
 func _add_status_line(rect: Rect2) -> void:
-	var line := MapCardStyle.label(status_line(GameState.state["labBenchNav"]["selectedOre"]), _STATUS_FONT_SIZE, MapCardStyle.paper())
+	# PROSE-REVIEW: Lab status line.
+	var text := "Open the recipe book." if not Lab.known_recipes().is_empty() else "No recipes known yet."
+	var line := MapCardStyle.label(text, _STATUS_FONT_SIZE, MapCardStyle.paper())
 	line.name = "StatusLine"
 	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -115,107 +217,588 @@ func _add_status_line(rect: Rect2) -> void:
 	add_child(line)
 
 
-func _on_debug_toggle_pressed() -> void:
-	_debug_overlay_enabled = not _debug_overlay_enabled
-	_refresh()
+func _zone_at(pos: Vector2) -> String:
+	return _diorama.zone_at(pos)
 
 
-func _visible_plate(plate: Dictionary, nav: Dictionary) -> Dictionary:
-	var visible_plate: Dictionary = plate.duplicate(true)
-	var regions: Dictionary = visible_plate["regions"]
-	_label_ore_regions(regions, nav)
-	_filter_and_label_apparatus_regions(regions, nav)
-	return visible_plate
-func _label_ore_regions(regions: Dictionary, nav: Dictionary) -> void:
-	var selected: Array = nav["selectedOre"]
-	for ore_type in GameData.ORE_TYPES.keys():
-		var region_id := LabBenchNav.ORE_REGION_PREFIX + String(ore_type)
-		if not regions.has(region_id):
-			continue
-		var region: Dictionary = regions[region_id]
-		var count: int = GameState.state["player"]["orichalchum"].get(ore_type, 0)
-		var ore_name: String = GameData.ORE_TYPES[ore_type]["name"]
-		var label := "%s — %d" % [ore_name, count]
-		if selected.has(ore_type):
-			region["selected"] = true
-			label += " · selected"
-		region["label"] = label
-
-# §5.3: a ready gear carries the same gold outline flag as a selected jar. A
-# found cell names its recipe; an unprobed one only says it's ready (§5.6).
-func _filter_and_label_apparatus_regions(regions: Dictionary, nav: Dictionary) -> void:
-	var selected: Array = nav["selectedOre"]
-	for approach_id in GameData.APPROACHES.keys():
-		var region_id := LabBenchNav.APPARATUS_REGION_PREFIX + String(approach_id)
-		if not regions.has(region_id):
-			continue
-		if not Approaches.is_known(approach_id):
-			regions.erase(region_id)
-			continue
-
-		var region: Dictionary = regions[region_id]
-		if not LabBenchNav.gear_ready(selected, approach_id):
-			continue
-		region["selected"] = true
-		var suffix := " — ready"
-		if LabBenchNav.confirm_variant(selected, approach_id) == LabBenchNav.CONFIRM_CRAFT:
-			suffix = " — %s" % GameData.RECIPES[Bench.find_recipe_for_cell(selected, approach_id)]["name"]
-		region["label"] = region.get("label", region_id) + suffix
-
-
-# The one-line selection summary in the band below the table.
-static func status_line(selected: Array) -> String:
-	if selected.is_empty():
-		return _SELECT_ORE_HINT
-	var ready: Array[String] = []
-	for approach_id in GameData.APPROACHES.keys():
-		if LabBenchNav.gear_ready(selected, approach_id):
-			ready.append(LabBenchNav.apparatus_name(approach_id))
-	if ready.is_empty():
-		return "%s · nothing ready" % LabBenchNav.pairing_label(selected)
-	return "%s · %s ready" % [LabBenchNav.pairing_label(selected), ", ".join(ready)]
 func _on_diorama_gui_input(event: InputEvent) -> void:
-	# Touch-emulated mouse events (device DEVICE_ID_EMULATION) twin every real
-	# touch; handling both would toggle an ore selection on and straight off.
+	# Touch-emulated mouse events twin every real touch; handle one of them.
 	var is_touch_event: bool = (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT \
 			and event.device != InputEvent.DEVICE_ID_EMULATION) \
 		or (event is InputEventScreenTouch)
-	if not is_touch_event:
+	if not is_touch_event or not event.pressed:
 		return
+	var zone := _zone_at(event.position)
+	if _page == Page.RUN:
+		_on_run_zone_tapped(zone)
+	elif zone == "notebookRecipes":
+		_show(Page.BOOK)
 
-	var zone_id := _zone_at(event.position)
 
-	if event.pressed:
-		_press_zone = zone_id
-		if zone_id != "":
-			_on_zone_tapped(zone_id)
+# Docked run: a jar taps its calc in, an apparatus opens its gauge; a
+# refusal shows as the book's notice. Taps wait while a gauge or the result
+# is open.
+func _on_run_zone_tapped(zone: String) -> void:
+	if _gauge != "" or not _result.is_empty():
 		return
+	var outcome := {}
+	if zone.begins_with(LabBenchNav.ORE_REGION_PREFIX):
+		_notice = ""
+		outcome = Lab.add_ore(_recipe_key, zone.trim_prefix(LabBenchNav.ORE_REGION_PREFIX))
+	elif zone.begins_with(LabBenchNav.APPARATUS_REGION_PREFIX):
+		outcome = Lab.check_apparatus()
+		if outcome["ok"]:
+			_notice = ""
+			_gauge = zone.trim_prefix(LabBenchNav.APPARATUS_REGION_PREFIX)
+			_refresh()
+	if not outcome.get("ok", true):
+		_notice = outcome["reason"]
+		_refresh()
 
-	if zone_id != "" and _press_zone != "" and zone_id != _press_zone \
-			and _press_zone.begins_with(LabBenchNav.ORE_REGION_PREFIX) \
-			and zone_id.begins_with(LabBenchNav.APPARATUS_REGION_PREFIX):
-		_on_zone_tapped(zone_id)
-	_press_zone = ""
 
-func _zone_at(pos: Vector2) -> String:
-	return _diorama.zone_at(pos)
-func _on_zone_tapped(zone_id: String) -> void:
-	match zone_id:
-		"notebookRecipes":
-			Modal.open("lab_bench_recipe_book")
-		"notebookExperiments":
-			Modal.open("lab_bench_notes")
+# ── Book overlay ─────────────────────────────────────────────────────────
+
+# A dim backdrop (tap to step back) under the book column; card, when
+# given, stacks centred above the book.
+func _build_overlay(column: Control, card: Control = null) -> void:
+	var dim := ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.5)
+	UI.anchor_full_rect(dim)
+	dim.mouse_filter = Control.MOUSE_FILTER_STOP
+	dim.gui_input.connect(_on_dim_gui_input)
+	add_child(dim)
+
+	UI.anchor_full_rect(column)
+	column.offset_left = _OVERLAY_MARGIN
+	column.offset_right = -_OVERLAY_MARGIN
+	column.offset_top = UI.safe_area_top_inset() + _OVERLAY_MARGIN
+	column.offset_bottom = -_OVERLAY_MARGIN
+	add_child(column)
+
+	if card != null:
+		var centre := CenterContainer.new()
+		UI.anchor_full_rect(centre)
+		centre.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		centre.add_child(card)
+		add_child(centre)
+
+
+func _on_dim_gui_input(event: InputEvent) -> void:
+	if (event is InputEventMouseButton or event is InputEventScreenTouch) and event.pressed \
+			and not TouchInput.is_emulated_mouse(event):
+		_show(Page.BOOK if _page == Page.RECIPE else Page.NONE)
+
+
+# The open ore tab: the picked one, else the first holding a known recipe.
+func _selected_ore() -> String:
+	if ORE_ORDER.has(_book_ore):
+		return _book_ore
+	for ore in ORE_ORDER:
+		if not Lab.known_recipes(ore).is_empty():
+			return ore
+	return ORE_ORDER[0]
+
+
+func _build_book() -> Control:
+	var ore := _selected_ore()
+	var known := Lab.known_recipes(ore)
+	var pages := maxi(1, ceili(known.size() / float(PER_PAGE)))
+	_book_page = clampi(_book_page, 0, pages - 1)
+	var book := RecipeBookPage.new()
+	_build_tabs(book, ore)
+	if known.is_empty():
+		# PROSE-REVIEW: empty ore tab.
+		var empty := _page_label("No %s recipes known." % GameData.ORE_TYPES[ore]["name"].get_slice(" ", 0), RecipeBookPage.INK_MUTED)
+		empty.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		empty.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		book.place(empty, Rect2(240, 560, 560, 400), 40.0, 11)
+	var first := _book_page * PER_PAGE
+	for slot in range(mini(PER_PAGE, known.size() - first)):
+		_build_entry(book, known[first + slot], slot)
+
+	var column := UI.vbox(6)
+	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	column.add_child(book)
+	var panel := PanelContainer.new()
+	MapCardStyle.style_panel(panel, 12, 0.0)
+	var row := UI.hbox(6)
+	panel.add_child(row)
+	var counter := UI.label("Page %d/%d" % [_book_page + 1, pages])
+	counter.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	counter.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	row.add_child(MapCardStyle.text_button("‹ Prev", func(): _turn_page(-1), _book_page <= 0))
+	row.add_child(counter)
+	row.add_child(MapCardStyle.text_button("Next ›", func(): _turn_page(1), _book_page >= pages - 1))
+	row.add_child(MapCardStyle.text_button("Close", func(): _show(Page.NONE)))
+	column.add_child(panel)
+	return column
+
+
+func _turn_page(step: int) -> void:
+	_book_page += step
+	_refresh()
+
+
+func _open_tab(ore: String) -> void:
+	_book_ore = ore
+	_book_page = 0
+	_show(Page.BOOK)
+
+
+func _build_tabs(book: RecipeBookPage, ore: String) -> void:
+	for i in range(ORE_ORDER.size()):
+		var tab_ore: String = ORE_ORDER[i]
+		var centre_y: float = _TAB_CENTRES_Y[i]
+		var selected := tab_ore == ore
+
+		var glyph := _TabGlyph.new()
+		glyph.ore_type = tab_ore
+		glyph.colour = MapPalette.ore_colour_in(tab_ore, false)
+		glyph.modulate.a = 1.0 if selected else 0.55
+		glyph.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		book.place(glyph, Rect2(_TAB_X - 55, centre_y - 55, 110, 110))
+
+		var hit := Button.new()
+		hit.flat = true
+		hit.focus_mode = Control.FOCUS_NONE
+		hit.accessibility_name = "%s tab" % GameData.ORE_TYPES[tab_ore]["name"]
+		hit.set_meta("ore", tab_ore)
+		hit.set_meta("selected", selected)
+		var outline := StyleBoxFlat.new()
+		outline.bg_color = Color(0, 0, 0, 0)
+		if selected:
+			outline.set_border_width_all(4)
+			outline.border_color = RecipeBookPage.INK
+		outline.set_corner_radius_all(6)
+		for state in ["normal", "hover", "pressed", "focus"]:
+			hit.add_theme_stylebox_override(state, outline)
+		hit.pressed.connect(func(): _open_tab(tab_ore))
+		book.place(hit, Rect2(_TAB_X - _TAB_HIT.x * 0.5 + 6, centre_y - 72, _TAB_HIT.x - 20, 144))
+
+
+func _build_entry(book: RecipeBookPage, recipe_key: String, slot: int) -> void:
+	var recipe: Dictionary = GameData.RECIPES[recipe_key]
+	var top: float = _ENTRY_TOP + _ENTRY_STEP * slot
+
+	var icon := TextureRect.new()
+	icon.texture = ItemIcons.texture(recipe_key)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	book.place(icon, Rect2(232, top + 20, 172, 168))
+
+	var name_size := RecipeBookPage.fit_font(recipe["name"], 372.0, 44.0, 26.0)
+	var name_label := _page_label(recipe["name"], RecipeBookPage.INK)
+	name_label.clip_text = true
+	book.place(name_label, Rect2(452, top + 8, 376, 56), name_size, 11)
+
+	var cost := _page_label("Cost: %s" % _calc_text(Lab.base_calc(recipe_key)), RecipeBookPage.INK_MUTED)
+	book.place(cost, Rect2(452, top + 76, 376, 40), 28.0, 10)
+
+	var stock := _page_label("Stock: %d" % Crafting.inventory_qty(recipe_key), RecipeBookPage.INK_MUTED)
+	book.place(stock, Rect2(452, top + 140, 376, 40), 28.0, 10)
+
+	var rank := _page_label("Best rank: %s" % _rank_text(recipe_key), RecipeBookPage.INK)
+	book.place(rank, Rect2(452, top + 207, 376, 36), 26.0, 10)
+
+	var hit := Button.new()
+	hit.flat = true
+	hit.focus_mode = Control.FOCUS_NONE
+	hit.accessibility_name = recipe["name"]
+	hit.set_meta("recipeKey", recipe_key)
+	var pressed_style := StyleBoxFlat.new()
+	pressed_style.bg_color = Color(RecipeBookPage.INK, 0.12)
+	pressed_style.set_corner_radius_all(8)
+	hit.add_theme_stylebox_override("pressed", pressed_style)
+	hit.pressed.connect(func(): _open_recipe(recipe_key))
+	book.place(hit, Rect2(206, top, 626, _ENTRY_HEIGHT))
+
+
+func _page_label(text: String, colour: Color) -> Label:
+	var label := Label.new()
+	label.text = text
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.add_theme_font_override("font", RecipeBookPage.font())
+	label.add_theme_color_override("font_color", colour)
+	return label
+
+
+func _rank_text(recipe_key: String) -> String:
+	var best := int(GameState.state["lab"]["bestRanks"].get(recipe_key, 0))
+	return str(best) if best > 0 else "—"
+
+
+func _open_recipe(recipe_key: String) -> void:
+	_recipe_key = recipe_key
+	_craft_qty = 1
+	_notice = ""
+	_show(Page.RECIPE)
+
+
+# ── Recipe page ──────────────────────────────────────────────────────────
+
+func _build_recipe_card() -> Control:
+	var c := MapCardStyle.card(18, 0.16)
+	c["panel"].custom_minimum_size.x = 330
+	var scroller := UI.scroll_container()
+	scroller.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroller.custom_minimum_size.y = minf(560.0, maxf(size.y - 120.0, 240.0))
+	var content := UI.vbox(6)
+	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroller.add_child(content)
+	c["content"].add_child(scroller)
+
+	var recipe_key := _recipe_key
+	var recipe: Dictionary = GameData.RECIPES[recipe_key]
+	var cost := Lab.base_calc(recipe_key)
+	content.add_child(UI.heading(recipe["name"], 18))
+	content.add_child(UI.label("Best rank: %s" % _rank_text(recipe_key)))
+	content.add_child(UI.muted_label("Cost per craft: %s" % _calc_text(cost)))
+	if _notice != "":
+		content.add_child(MapCardStyle.label(_notice, 13, MapCardStyle.action()))
+
+	content.add_child(UI.heading("Procedure", 14))
+	var steps := Lab.known_procedure(recipe_key)
+	for i in steps.size():
+		_add_known_step(content, i, steps[i])
+	# Reserved for the knowledge ladder (spec P4): empty until recipe
+	# sources fill it.
+	var ladder := VBoxContainer.new()
+	ladder.name = "LadderRegion"
+	ladder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content.add_child(ladder)
+
+	content.add_child(MapCardStyle.text_button("Craft manually", _dock))
+	_add_batch_controls(content, recipe_key, cost)
+	_add_rewind_controls(content)
+	c["content"].add_child(MapCardStyle.footer([MapCardStyle.text_button("Back to book", func(): _show(Page.BOOK))]))
+	return c["panel"]
+
+
+# Batch ×N at best rank, once performed by hand; multi-target once the best
+# rank reaches the multi variant's tier.
+func _add_batch_controls(content: VBoxContainer, recipe_key: String, cost: Dictionary) -> void:
+	var lab: Dictionary = GameState.state["lab"]
+	var most := Lab.max_batch(recipe_key)
+	_craft_qty = clampi(_craft_qty, 1, maxi(most, 1))
+	var picked := [_craft_qty]
+	var reason := ""
+	if not lab["performedOnce"].has(recipe_key):
+		reason = "Craft one by hand first."
+	elif most < 1:
+		reason = "Not enough calc."
+	var multi_cfg: Dictionary = GameData.LOADOUT["multiTarget"]
+	var multi_offered: bool = multi_cfg["craftable"].has(recipe_key) and not Crafting.is_always_multi(recipe_key)
+	var craft := MapCardStyle.action_button(_batch_label(_craft_qty), func(): _on_batch(recipe_key, picked[0]), reason != "", reason)
+	var craft_button := craft.get_child(0) as Button
+	var total := UI.label(_batch_total_text(cost, _craft_qty))
+	var on_change := func(value: int) -> void:
+		picked[0] = value
+		total.text = _batch_total_text(cost, value)
+		craft_button.text = _batch_label(value)
+	content.add_child(MapCardStyle.quantity_slider("Batch", _craft_qty, maxi(most, 1), on_change, func(value: int): _craft_qty = value))
+	content.add_child(total)
+	if multi_offered:
+		var multi := CheckBox.new()
+		multi.text = "Multi-target"
+		multi.button_pressed = Crafting.get_craft_multi(recipe_key)
+		multi.disabled = not Crafting.multi_craft_available(recipe_key)
+		multi.toggled.connect(func(on: bool): Crafting.set_craft_multi(recipe_key, on))
+		content.add_child(multi)
+		if multi.disabled:
+			# PROSE-REVIEW: multi-target gate.
+			content.add_child(UI.muted_label("Best rank %d unlocks multi-target." % int(multi_cfg["minTier"])))
+	content.add_child(craft)
+
+
+func _batch_label(qty: int) -> String:
+	return "Batch ×%d" % qty
+
+
+func _batch_total_text(cost: Dictionary, qty: int) -> String:
+	var total := {}
+	for ore_type in cost.keys():
+		total[ore_type] = int(cost[ore_type]) * qty
+	return "Total: %s" % _calc_text(total)
+
+
+func _on_batch(recipe_key: String, qty: int) -> void:
+	var outcome := Lab.batch(recipe_key, qty, Crafting.get_craft_multi(recipe_key))
+	_notice = "" if outcome["ok"] else outcome["reason"]
+	if outcome["ok"]:
+		# PROSE-REVIEW: batch toast.
+		Notify.push("Crafted %s ×%d at rank %d." % [GameData.RECIPES[recipe_key]["name"], outcome["items"], outcome["rank"]])
+	_refresh()
+
+
+# The two Rewinds (spec § Rewind): the last run or batch, or the whole time
+# block. Each needs a Rewind item or a loaded Dial Rewind charge.
+func _add_rewind_controls(content: VBoxContainer) -> void:
+	var can_pay := Rewind.can_pay()
+	var row := UI.hbox(6)
+	row.add_child(MapCardStyle.text_button("Rewind last craft", _on_rewind_craft, not Lab.can_rewind()))
+	row.add_child(MapCardStyle.text_button("Rewind time block", _on_rewind_block, not can_pay or Rewind.block_rewind_block_reason() != ""))
+	content.add_child(row)
+	if not can_pay:
+		# PROSE-REVIEW: no Rewind to spend.
+		content.add_child(UI.muted_label("No Rewind to spend."))
+
+
+func _on_rewind_craft() -> void:
+	_after_rewind(Lab.rewind())
+
+
+func _on_rewind_block() -> void:
+	_after_rewind(Rewind.rewind_to_block_start())
+
+
+func _after_rewind(outcome: Dictionary) -> void:
+	_gauge = ""
+	if outcome["ok"]:
+		_result = {}
+		_notice = ""
+		_page = Page.RECIPE
+	else:
+		_notice = outcome["reason"]
+	_refresh()
+
+
+func _dock() -> void:
+	_gauge = ""
+	_notice = ""
+	_result = {}
+	_show(Page.RUN)
+
+
+# Leaves the docked book for the recipe page; an open run keeps it docked.
+func _undock() -> void:
+	_result = {}
+	_notice = ""
+	_show(Page.RECIPE)
+
+
+# ── Docked run ───────────────────────────────────────────────────────────
+
+func _build_run() -> void:
+	var top := UI.safe_area_top_inset()
+	var plate_bottom := _build_plate(Rect2(0.0, top, size.x, maxf(size.y - top, 0.0)), true)
+	# The book takes the floor band under the plate, never less than
+	# _DOCK_MIN_HEIGHT (it then overlaps the plate's bottom edge).
+	var dock_top: float = minf(plate_bottom, size.y - _DOCK_MIN_HEIGHT)
+
+	var book := _build_docked_book()
+	UI.anchor_full_rect(book)
+	book.offset_left = _OVERLAY_MARGIN
+	book.offset_right = -_OVERLAY_MARGIN
+	book.offset_top = dock_top
+	book.offset_bottom = -_OVERLAY_MARGIN
+	add_child(book)
+
+	if _gauge != "":
+		var centre := CenterContainer.new()
+		UI.anchor_full_rect(centre)
+		centre.offset_top = top
+		centre.anchor_bottom = 0.0
+		centre.offset_bottom = dock_top
+		centre.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		centre.add_child(_build_gauge_card(_gauge))
+		add_child(centre)
+
+
+# The docked book page: the recipe's known steps (each with its band on a
+# 0-100 track) and Finish, or after Finish the run's result.
+func _build_docked_book() -> Control:
+	var c := MapCardStyle.card(14, 0.16)
+	var scroller := UI.scroll_container()
+	scroller.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var content := UI.vbox(6)
+	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroller.add_child(content)
+	c["content"].add_child(scroller)
+
+	content.add_child(UI.heading(GameData.RECIPES[_recipe_key]["name"], 18))
+	if not _result.is_empty():
+		_add_result(content)
+		c["content"].add_child(MapCardStyle.footer([MapCardStyle.text_button("Done", _undock)]))
+		return c["panel"]
+
+	var run = Lab.active_run()
+	if run == null:
+		# PROSE-REVIEW: docked book before the first jar tap.
+		content.add_child(UI.muted_label("Tap the %s jar to start." % _jar_names(Lab.base_calc(_recipe_key))))
+	else:
+		content.add_child(UI.label("In the mixture: %s · steps done: %d" % [_calc_text(run["calcSpent"]), run["performed"].size()]))
+	if _notice != "":
+		content.add_child(MapCardStyle.label(_notice, 13, MapCardStyle.action()))
+	var steps := Lab.known_procedure(_recipe_key)
+	for i in steps.size():
+		_add_known_step(content, i, steps[i])
+	_add_effect_controls(content)
+	c["content"].add_child(MapCardStyle.footer([MapCardStyle.text_button("Finish", _on_finish)]))
+	return c["panel"]
+
+
+# Use item: one button per bench effect, spending a real one from the bag;
+# a running effect shows its blocks left instead.
+func _add_effect_controls(content: VBoxContainer) -> void:
+	var row := UI.hbox()
+	for item in Lab.usable_effects():
+		var item_name: String = GameData.RECIPES[item]["name"]
+		var effect = ActiveEffects.find(item)
+		if effect != null:
+			# PROSE-REVIEW: bench active-effect status.
+			row.add_child(UI.muted_label("%s · %d left" % [item_name, ActiveEffects.blocks_left(effect)]))
+		else:
+			var qty := Crafting.inventory_qty(item)
+			row.add_child(MapCardStyle.text_button("Use %s (%d)" % [item_name, qty], func(): Lab.use_effect(item), qty <= 0))
+	content.add_child(row)
+
+
+func _jar_names(base_calc: Dictionary) -> String:
+	var names := PackedStringArray()
+	for ore_type in base_calc.keys():
+		names.append(String(GameData.ORE_TYPES[ore_type]["name"]))
+	return " or ".join(names)
+
+
+# A known step: apparatus, the calc it adds, and its band -- exact as
+# "low–high", vague as "≈ low–high" on a faded region with the hint's note
+# saying which way to go.
+func _add_known_step(content: VBoxContainer, index: int, step: Dictionary) -> void:
+	var calc: Dictionary = step.get("calc", {})
+	var ores := ""
+	for ore_type in calc.keys():
+		ores += " · %s ×%d" % [ore_type, calc[ore_type]]
+	var region := Lab.step_region(_recipe_key, step)
+	var band_text: String = "≈ %d–%d" if region["vague"] else "%d–%d"
+	if step["knowledge"] == "revealed":
+		# PROSE-REVIEW: tag on a band Prophet's Breath reveals.
+		band_text += " (Breath)"
+	content.add_child(UI.label("%d. %s%s · %s" % [index + 1, LabBenchNav.apparatus_name(step["apparatus"]), ores, band_text % [roundi(region["low"]), roundi(region["high"])]]))
+	var band := LabGauges.BandGauge.new()
+	band.band_low = region["low"]
+	band.band_high = region["high"]
+	band.band_vague = region["vague"]
+	content.add_child(band)
+	if step.has("note"):
+		var note := UI.muted_label(step["note"])
+		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		content.add_child(note)
+
+
+func _on_finish() -> void:
+	if Lab.active_run() == null:
+		_undock()
+		return
+	_result = Lab.finish_run()
+	_refresh()
+
+
+func _add_result(content: VBoxContainer) -> void:
+	if _result["outcome"] == "cracked":
+		content.add_child(UI.label("The vessel cracked. No item, and the calc is lost."))
+		content.add_child(UI.muted_label("+%d XP" % _result["xp"]))
+	else:
+		if int(_result["ladyBonus"]) > 0:
+			# PROSE-REVIEW: Be A Lady score line.
+			content.add_child(UI.label("Score %d + %d (Lady) = %d → rank %d" % [_result["rawScore"], _result["ladyBonus"], _result["score"], _result["rank"]]))
+		else:
+			content.add_child(UI.label("Score %d → rank %d" % [_result["score"], _result["rank"]]))
+		# PROSE-REVIEW: run result lines.
+		content.add_child(UI.label("Made %s ×%d at rank %d." % [GameData.RECIPES[_result["recipe"]]["name"], _result["items"], _result["rank"]]))
+		if _result["newBest"]:
+			content.add_child(MapCardStyle.label("New best rank.", 14, MapCardStyle.action()))
+		content.add_child(UI.muted_label("Best rank: %s · +%d XP" % [_rank_text(_result["recipe"]), _result["xp"]]))
+		if _result["bonus"] != null:
+			content.add_child(UI.label("Bonus: %s" % GameData.LAB["bonus"]["types"][_result["bonus"]]["label"]))
+		for i in _result["clues"].size():
+			var clue := UI.label("%d. %s" % [i + 1, _clue_text(_result["clues"][i])])
+			clue.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			content.add_child(clue)
+		if _result["steps"].is_empty():
+			content.add_child(UI.muted_label("No steps performed."))
+		if _result["flavour"] != null:
+			var flavour := UI.muted_label(_result["flavour"])
+			flavour.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			content.add_child(flavour)
+	if _notice != "":
+		content.add_child(MapCardStyle.label(_notice, 13, MapCardStyle.action()))
+	_add_rewind_controls(content)
+
+
+# A notebook clue as the result shows it: apparatus, mark, direction word
+# for a near miss, then what it taught.
+func _clue_text(clue: Dictionary) -> String:
+	var data: Dictionary = GameData.LAB
+	var words: Dictionary = data["clueText"]
+	var parts := PackedStringArray([LabBenchNav.apparatus_name(clue["apparatus"]), words[clue["clue"]]])
+	if clue["direction"] != null:
+		parts[1] += " " + String(Lab.gauge(clue["apparatus"])["directionWords"][clue["direction"]])
+	if clue.get("learned") == "vague":
+		parts.append(words["learnedVague"])
+	elif clue.get("learned") == "exact":
+		parts.append(words["learnedExact"])
+	elif clue.has("hits"):
+		parts.append(words["towardExact"] % [clue["hits"], int(data["vagueToExactHits"])])
+	return " · ".join(parts)
+
+
+# The apparatus's gauge over the plate; its commit performs the step.
+func _build_gauge_card(apparatus: String) -> Control:
+	var c := MapCardStyle.card(18, 0.16)
+	c["panel"].custom_minimum_size.x = _GAUGE_WIDTH
+	var content: VBoxContainer = c["content"]
+	content.add_child(UI.heading(LabBenchNav.apparatus_name(apparatus), 16))
+	var g := Lab.gauge(apparatus)
+	var gauge: LabGauges.StepGauge
+	match apparatus:
+		"grinding":
+			var grind := LabGauges.GrindGauge.new()
+			grind.strokes = int(g["strokes"])
+			grind.period_sec = float(g["swingPeriodSec"])
+			grind.committed.connect(func(readings: Array): _perform(func(): return Lab.perform_grind(readings)))
+			content.add_child(UI.muted_label("Tap %d strokes on the swing." % grind.strokes))
+			gauge = grind
+		"distilling":
+			var distil := LabGauges.DistilGauge.new()
+			distil.drips = int(g["drips"])
+			distil.beat_msec = float(g["beatMsec"])
+			distil.fall_msec = float(g["fallMsec"])
+			distil.lead_in_msec = float(g["leadInMsec"])
+			distil.committed.connect(func(taps: Array): _perform(func(): return Lab.perform_distil(taps)))
+			content.add_child(UI.muted_label("Tap each drip as it falls."))
+			gauge = distil
 		_:
-			if zone_id.begins_with(LabBenchNav.ORE_REGION_PREFIX):
-				LabBenchNav.select_ore(zone_id.trim_prefix(LabBenchNav.ORE_REGION_PREFIX))
-			elif zone_id.begins_with(LabBenchNav.APPARATUS_REGION_PREFIX):
-				_run_apparatus(zone_id.trim_prefix(LabBenchNav.APPARATUS_REGION_PREFIX))
+			var hold := LabGauges.HoldGauge.new()
+			hold.rise_per_sec = float(g["risePerSec"])
+			hold.crack_at = float(g.get("crackAt", -1.0))
+			hold.committed.connect(func(value: float): _perform(func(): return Lab.perform_step(apparatus, value)))
+			content.add_child(UI.muted_label("Hold, then release."))
+			gauge = hold
+	content.add_child(gauge)
+	content.add_child(MapCardStyle.footer([MapCardStyle.text_button("Cancel", _close_gauge)]))
+	return c["panel"]
 
-# §5.3: a gear tap never spends ore by itself — it opens the confirm modal,
-# which picks probe / craft / inert from the cell's history.
-func _run_apparatus(approach_id: String) -> void:
-	var selected: Array = GameState.state["labBenchNav"]["selectedOre"]
-	if selected.is_empty():
-		Notify.push(_SELECT_ORE_HINT)
-		return
-	Modal.open("lab_bench_confirm", { "types": selected.duplicate(), "approach": approach_id })
+
+func _close_gauge() -> void:
+	_gauge = ""
+	_refresh()
+
+
+# Closes the gauge before the step's state change rebuilds the screen; a
+# crack ends the run and shows its result on the book.
+func _perform(step: Callable) -> void:
+	_gauge = ""
+	var outcome: Dictionary = step.call()
+	if outcome.get("cracked", false):
+		_result = outcome
+	_refresh()
+
+
+func _calc_text(calc: Dictionary) -> String:
+	var parts := PackedStringArray()
+	for ore_type in calc.keys():
+		parts.append("%s %d" % [ore_type, calc[ore_type]])
+	return ", ".join(parts)

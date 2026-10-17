@@ -240,7 +240,7 @@ func run() -> void:
 	# hq-diorama ticket 17: "Craft Components" (recipes.json Complications,
 	# distinct from Movements) has no other affordance on this screen once
 	# the bottom tray/dock is gone.
-	run_case("hq_dial_screen_craft_components_opens_the_lab_bench_recipe_book_modal", func():
+	run_case("hq_dial_screen_craft_components_goes_to_the_lab", func():
 		GameState.reset()
 		GameState.state["player"]["dial"] = _fresh_dial()
 
@@ -248,7 +248,7 @@ func run() -> void:
 		screen._ready()
 
 		NodeQuery.find_button_by_effective_text(screen, "Craft Components").pressed.emit()
-		assert_eq(GameState.state["modal"]["type"], "lab_bench_recipe_book", "Craft Components must open the Lab Bench's recipe book modal")
+		assert_eq(GameState.state["currentScreen"], "hq_lab_bench", "Craft Components must open the Lab")
 
 		screen.free()
 	)

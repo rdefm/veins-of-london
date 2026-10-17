@@ -792,6 +792,16 @@ static func batch(recipe_key: String, count: int, multi: bool = false) -> Dictio
 	}
 
 
+# The most items the player's calc pays for in one batch.
+static func max_batch(recipe_key: String) -> int:
+	var per_item := base_calc(recipe_key)
+	var most := -1
+	for ore_type in per_item.keys():
+		var count := floori(calc_available(ore_type) / float(per_item[ore_type]))
+		most = count if most < 0 else mini(most, count)
+	return maxi(most, 0)
+
+
 # Files items through Crafting, noting them on the Rewind point.
 static func _file(recipe_key: String, tier: int, qty: int, multi: bool, costs_per_item: Dictionary, xp: int) -> void:
 	if qty <= 0:

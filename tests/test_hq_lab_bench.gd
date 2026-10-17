@@ -35,8 +35,6 @@ func run() -> void:
 		screen.free()
 	)
 
-	# ── §5.1: one portrait plate, no stops ─────────────────────────────────
-
 	run_case("hq_lab_bench_has_no_stop_arrows_or_caption", func():
 		GameState.reset()
 		var screen := HqLabBenchScreen.new()
@@ -50,28 +48,13 @@ func run() -> void:
 		screen.free()
 	)
 
-	run_case("hq_lab_bench_an_old_save_carrying_a_stop_still_loads_and_renders", func():
-		GameState.reset()
-		var save: Dictionary = GameState.state.duplicate(true)
-		save["labBenchNav"] = { "stop": "apparatus", "mode": "recipes", "selectedOre": [] }
-		var result := SaveManager._load_save_dict(save)
-		assert_true(result["ok"], "a save from before the single-screen bench must still load")
-
-		var screen := HqLabBenchScreen.new()
-		screen._ready()
-		UiSim.tap_zone(screen, "ore_life")
-		assert_eq(GameState.state["labBenchNav"]["selectedOre"], ["life"], "the bench still works on the loaded state")
-
-		screen.free()
-	)
-
 	run_case("hq_lab_bench_fits_the_plate_to_width_centred_with_filled_bands", func():
 		GameState.reset()
 		var plate: Dictionary = GameData.HQ_VISUALS["labBench"]
 		var screen := HqLabBenchScreen.new()
 		screen._ready()
 		screen.size = Vector2(390.0, 844.0)
-		screen._build()
+		screen._refresh()
 
 		var frame: Control = screen._diorama.get_parent()
 		var scale_factor: float = 390.0 / float(plate["width"])
@@ -137,31 +120,6 @@ func run() -> void:
 		screen.free()
 	)
 
-	run_case("hq_lab_bench_tapping_the_recipes_notebook_opens_the_recipe_book", func():
-		GameState.reset()
-		var screen := HqLabBenchScreen.new()
-		screen._ready()
-
-		UiSim.tap_zone(screen, "notebookRecipes")
-
-		assert_eq(GameState.state["modal"]["type"], "lab_bench_recipe_book")
-		assert_true(not GameState.state["labBenchNav"].has("mode"), "§5.2: books hold no mode")
-
-		screen.free()
-	)
-
-	run_case("hq_lab_bench_tapping_the_experiments_notebook_opens_the_notes", func():
-		GameState.reset()
-		var screen := HqLabBenchScreen.new()
-		screen._ready()
-
-		UiSim.tap_zone(screen, "notebookExperiments")
-
-		assert_eq(GameState.state["modal"]["type"], "lab_bench_notes")
-
-		screen.free()
-	)
-
 	run_case("hq_lab_bench_notebook_labels_carry_no_open_marker", func():
 		GameState.reset()
 		var screen := HqLabBenchScreen.new()
@@ -173,22 +131,6 @@ func run() -> void:
 
 		screen.free()
 	)
-
-	run_case("hq_lab_bench_tapping_a_notebook_twice_opens_its_book_both_times", func():
-		GameState.reset()
-		var screen := HqLabBenchScreen.new()
-		screen._ready()
-
-		UiSim.tap_zone(screen, "notebookRecipes")
-		Modal.close()
-		UiSim.tap_zone(screen, "notebookRecipes")
-
-		assert_eq(GameState.state["modal"]["type"], "lab_bench_recipe_book", "the second tap must not silently toggle the book shut")
-
-		screen.free()
-	)
-
-	# ── ticket 07, §5.4: ore containers ────────────────────────────────────
 
 	run_case("hq_lab_bench_ore_containers_exist_for_all_five_types", func():
 		GameState.reset()
@@ -232,130 +174,6 @@ func run() -> void:
 		screen.free()
 	)
 
-	run_case("hq_lab_bench_tapping_an_ore_container_selects_it", func():
-		GameState.reset()
-		var screen := HqLabBenchScreen.new()
-		screen._ready()
-
-		UiSim.tap_zone(screen, "ore_life")
-
-		assert_eq(GameState.state["labBenchNav"]["selectedOre"], ["life"], "§5.4: tap-to-select is the primary, always-available path")
-
-		screen.free()
-	)
-
-	run_case("hq_lab_bench_selected_ore_container_label_shows_selected", func():
-		GameState.reset()
-		var screen := HqLabBenchScreen.new()
-		screen._ready()
-
-		UiSim.tap_zone(screen, "ore_life")
-
-		assert_true(screen._diorama._plate["regions"]["ore_life"]["label"].contains("selected"), "a selected container's own label must say so")
-
-		screen.free()
-	)
-
-	run_case("hq_lab_bench_selected_ore_container_is_flagged_for_the_outline_cue", func():
-		GameState.reset()
-		var screen := HqLabBenchScreen.new()
-		screen._ready()
-
-		UiSim.tap_zone(screen, "ore_life")
-		assert_true(screen._diorama._plate["regions"]["ore_life"].get("selected", false), "a selected container must carry the diorama's outline flag")
-		assert_true(not screen._diorama._plate["regions"]["ore_time"].get("selected", false))
-
-		UiSim.tap_zone(screen, "ore_life")
-		assert_true(not screen._diorama._plate["regions"]["ore_life"].get("selected", false), "tapping again deselects")
-
-		screen.free()
-	)
-
-	run_case("hq_lab_bench_ignores_touch_emulated_mouse_twin_of_a_tap", func():
-		GameState.reset()
-		var screen := HqLabBenchScreen.new()
-		screen._ready()
-		var center: Vector2 = UiSim.zone_point(screen._diorama, "ore_life")
-
-		screen._on_diorama_gui_input(UiSim.tap_at(center))
-		var twin := InputEventMouseButton.new()
-		twin.button_index = MOUSE_BUTTON_LEFT
-		twin.pressed = true
-		twin.position = center
-		twin.device = InputEvent.DEVICE_ID_EMULATION
-		screen._on_diorama_gui_input(twin)
-
-		assert_eq(GameState.state["labBenchNav"]["selectedOre"], ["life"], "one physical tap (touch + emulated mouse) must select once, not toggle on and off")
-
-		screen.free()
-	)
-
-	run_case("hq_lab_bench_apparatus_with_no_selection_hints_to_pick_ore", func():
-		GameState.reset()
-		var screen := HqLabBenchScreen.new()
-		screen._ready()
-		var before: int = GameState.state["notifications"].size()
-
-		UiSim.tap_zone(screen, "apparatus_heat")
-
-		var notifications: Array = GameState.state["notifications"]
-		assert_eq(notifications.size(), before + 1, "a zero-selection apparatus tap must say why nothing happened")
-		assert_eq(notifications[-1]["text"], HqLabBenchScreen._SELECT_ORE_HINT)
-		assert_eq(GameState.state["modal"], null)
-
-		screen.free()
-	)
-
-	run_case("hq_lab_bench_apparatus_tap_opens_the_confirm_modal_and_spends_nothing", func():
-		GameState.reset()
-		GameState.state["player"]["orichalchum"]["life"] = 3
-		var screen := HqLabBenchScreen.new()
-		screen._ready()
-
-		UiSim.tap_zone(screen, "ore_life")
-		UiSim.tap_zone(screen, "apparatus_heat")
-
-		assert_eq(GameState.state["player"]["orichalchum"]["life"], 3, "the tap alone never spends ore")
-		assert_eq(GameState.state["modal"]["type"], "lab_bench_confirm")
-		assert_eq(GameState.state["modal"]["data"], { "types": ["life"], "approach": "heat" })
-
-		screen.free()
-	)
-
-	run_case("hq_lab_bench_blocked_probe_still_opens_the_confirm_modal", func():
-		GameState.reset()
-		GameState.state["player"]["orichalchum"]["life"] = 1
-		var screen := HqLabBenchScreen.new()
-		screen._ready()
-
-		UiSim.tap_zone(screen, "ore_life")
-		UiSim.tap_zone(screen, "apparatus_heat")
-
-		assert_eq(GameState.state["modal"]["type"], "lab_bench_confirm", "the modal carries the disabled Confirm + reason")
-		assert_eq(GameState.state["player"]["orichalchum"]["life"], 1)
-
-		screen.free()
-	)
-
-	run_case("hq_lab_bench_inert_gear_tap_opens_the_warning_and_spends_nothing", func():
-		GameState.reset()
-		GameState.state["player"]["orichalchum"]["fate"] = 5
-		GameState.state["player"]["bench"]["cells"]["fate|heat"] = { "state": "inert", "misses": 0, "tier": 1, "progress": 0 }
-		var screen := HqLabBenchScreen.new()
-		screen._ready()
-
-		UiSim.tap_zone(screen, "ore_fate")
-		UiSim.tap_zone(screen, "apparatus_heat")
-
-		assert_eq(GameState.state["modal"]["type"], "lab_bench_confirm")
-		assert_eq(LabBenchNav.confirm_variant(["fate"], "heat"), LabBenchNav.CONFIRM_INERT)
-		assert_eq(GameState.state["player"]["orichalchum"]["fate"], 5)
-
-		screen.free()
-	)
-
-	# ── ticket 07, §5.3: apparatus ──────────────────────────────────────────
-
 	run_case("hq_lab_bench_all_four_apparatus_regions_exist_on_a_fresh_save", func():
 		GameState.reset()
 		var screen := HqLabBenchScreen.new()
@@ -364,138 +182,6 @@ func run() -> void:
 		var rects: Dictionary = screen._diorama.region_rects()
 		for approach_id in ["heat", "grinding", "compression", "distilling"]:
 			assert_true(rects.has("apparatus_" + approach_id), "§5.3: %s is known from the start" % approach_id)
-
-		screen.free()
-	)
-
-	run_case("hq_lab_bench_apparatus_region_for_an_unknown_approach_is_dropped", func():
-		GameData.APPROACHES["_testGated"] = { "name": "Gated", "symbol": "?", "source": { "type": "room", "id": "lab" } }
-		GameState.reset()
-		var screen := HqLabBenchScreen.new()
-		var regions := { "apparatus__testGated": { "label": "Gated" }, "apparatus_heat": { "label": "Burner" } }
-		screen._filter_and_label_apparatus_regions(regions, { "selectedOre": [] })
-		assert_true(not regions.has("apparatus__testGated"), "no region at all for an unknown approach, not a dimmed one")
-		assert_true(regions.has("apparatus_heat"), "known approaches keep their region")
-		GameData.APPROACHES.erase("_testGated")
-		screen.free()
-	)
-
-	run_case("hq_lab_bench_apparatus_is_inert_with_no_selection", func():
-		GameState.reset()
-		GameState.state["player"]["orichalchum"]["life"] = 3
-		var screen := HqLabBenchScreen.new()
-		screen._ready()
-
-		UiSim.tap_zone(screen, "apparatus_heat")
-
-		assert_eq(GameState.state["player"]["orichalchum"]["life"], 3, "§5.3: an unarmed apparatus spends no ore")
-		assert_eq(GameState.state["modal"], null)
-
-		screen.free()
-	)
-
-	run_case("hq_lab_bench_unprobed_apparatus_never_names_the_recipe_in_its_label", func():
-		GameState.reset()
-		GameState.state["player"]["orichalchum"]["life"] = 3
-		var screen := HqLabBenchScreen.new()
-		screen._ready()
-
-		UiSim.tap_zone(screen, "ore_life")
-
-		assert_true(not screen._diorama._plate["regions"]["apparatus_heat"]["label"].contains("Healing Salve"), "naming the recipe before it's probed would spoil the discovery M3 §3 is built around")
-		assert_true(screen._diorama._plate["regions"]["apparatus_heat"]["label"].contains("ready"), "the apparatus still shows it's armed, just not with what")
-
-		screen.free()
-	)
-
-	run_case("hq_lab_bench_found_apparatus_names_its_recipe", func():
-		GameState.reset()
-		var screen := HqLabBenchScreen.new()
-		screen._ready()
-
-		UiSim.tap_zone(screen, "ore_time")
-
-		assert_true(screen._diorama._plate["regions"]["apparatus_heat"]["label"].contains("Rewind"), "§5.3: a found cell names the exact recipe waiting there")
-
-		screen.free()
-	)
-
-	run_case("hq_lab_bench_ready_gear_carries_the_outline_flag", func():
-		GameState.reset()
-		GameState.state["player"]["orichalchum"]["time"] = 0
-		var screen := HqLabBenchScreen.new()
-		screen._ready()
-
-		UiSim.tap_zone(screen, "ore_time")
-
-		var regions: Dictionary = screen._diorama._plate["regions"]
-		assert_true(regions["apparatus_heat"].get("selected", false), "found rewind: ready")
-		assert_true(not regions["apparatus_grinding"].get("selected", false), "no ore to probe with: not ready")
-
-		screen.free()
-	)
-
-	run_case("hq_lab_bench_status_line_summarises_the_selection", func():
-		GameState.reset()
-		GameState.state["player"]["orichalchum"]["time"] = 0
-		GameState.state["player"]["orichalchum"]["life"] = 0
-		var screen := HqLabBenchScreen.new()
-		screen._ready()
-		assert_eq((screen.get_node("StatusLine") as Label).text, HqLabBenchScreen._SELECT_ORE_HINT, "no selection yet")
-
-		# rewind (time|heat) and timePearl (time|compression) are tutorial-found.
-		UiSim.tap_zone(screen, "ore_time")
-		assert_eq(HqLabBenchScreen.status_line(["time"]), "Time · Burner, Press ready", "only the found gear is ready with no ore")
-		assert_eq(HqLabBenchScreen.status_line(["time", "life"]), "Time + Life · nothing ready")
-
-		screen.free()
-	)
-
-	# ── ticket 07, §5.4: drag-and-drop flourish ─────────────────────────────
-
-	run_case("hq_lab_bench_dragging_ore_onto_an_apparatus_selects_and_runs_it_same_as_two_taps", func():
-		GameState.reset()
-		GameState.state["player"]["orichalchum"]["time"] = 6
-		var screen := HqLabBenchScreen.new()
-		screen._ready()
-
-		var ore_center: Vector2 = UiSim.zone_point(screen._diorama, "ore_time")
-		var apparatus_center: Vector2 = UiSim.zone_point(screen._diorama, "apparatus_heat")
-
-		var press := InputEventScreenTouch.new()
-		press.pressed = true
-		press.position = ore_center
-		screen._on_diorama_gui_input(press)
-
-		var release := InputEventScreenTouch.new()
-		release.pressed = false
-		release.position = apparatus_center
-		screen._on_diorama_gui_input(release)
-
-		assert_eq(GameState.state["labBenchNav"]["selectedOre"], ["time"], "the drag's press half selects the origin container, same as a plain tap would")
-		assert_eq(GameState.state["modal"]["type"], "lab_bench_confirm", "the drag's release half opens the same confirm modal a tap would")
-
-		screen.free()
-	)
-
-	run_case("hq_lab_bench_a_press_and_release_in_the_same_ore_container_is_a_plain_tap_not_a_drag", func():
-		GameState.reset()
-		var screen := HqLabBenchScreen.new()
-		screen._ready()
-
-		var ore_center: Vector2 = UiSim.zone_point(screen._diorama, "ore_life")
-
-		var press := InputEventScreenTouch.new()
-		press.pressed = true
-		press.position = ore_center
-		screen._on_diorama_gui_input(press)
-
-		var release := InputEventScreenTouch.new()
-		release.pressed = false
-		release.position = ore_center
-		screen._on_diorama_gui_input(release)
-
-		assert_eq(GameState.state["labBenchNav"]["selectedOre"], ["life"], "press+release in the same region selects exactly once, not twice (toggle-replace would have deselected it on a double-fire)")
 
 		screen.free()
 	)

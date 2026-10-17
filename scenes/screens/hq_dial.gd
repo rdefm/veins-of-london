@@ -64,7 +64,7 @@ func _build_seeded_screen(player: Dictionary, dial: Dictionary) -> void:
 	chrome.add_child(UI.back_button("hq"))
 	chrome.add_child(UI.heading("Dial"))
 	_build_top_block(chrome)
-	chrome.add_child(MapCardStyle.text_button("Craft Components", func(): Modal.open("lab_bench_recipe_book")))
+	chrome.add_child(MapCardStyle.text_button("Craft Components", func(): Nav.go_to("hq_lab_bench")))
 	var device_wrap := _build_device_art(dial)
 	device_wrap.position = Vector2(device_x, device_top)
 	add_child(device_wrap)

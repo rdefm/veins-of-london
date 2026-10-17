@@ -83,7 +83,7 @@ func run() -> void:
 		assert_eq(root["pool"]["life"], 37, "a recipe jar taps its calc in")
 		UiSim.tap_zone(screen, "apparatus_heat")
 		var gauge = _find_gauge(screen)
-		assert_true(gauge is BenchPrototypeScreen.HoldGauge, "heat pops its hold gauge")
+		assert_true(gauge is LabGauges.HoldGauge, "heat pops its hold gauge")
 		gauge.committed.emit(62.0)
 		assert_eq(root["activeRun"]["performed"][0]["apparatus"], "heat", "the gauge's release performs the step")
 		assert_eq(_find_gauge(screen), null, "and closes the gauge")
@@ -111,7 +111,7 @@ func run() -> void:
 
 
 func _find_gauge(node: Node) -> Node:
-	if node is BenchPrototypeScreen.StepGauge and not node is BenchPrototypeScreen.BandGauge:
+	if node is LabGauges.StepGauge and not node is LabGauges.BandGauge:
 		return node
 	for child in node.get_children():
 		var found := _find_gauge(child)
