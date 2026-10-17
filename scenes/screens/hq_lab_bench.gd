@@ -624,16 +624,19 @@ func _undock() -> void:
 func _build_run() -> void:
 	var top := UI.safe_area_top_inset()
 	var plate_bottom := _build_plate(Rect2(0.0, top, size.x, maxf(size.y - top, 0.0)), true)
-	# The book takes the floor band under the plate, never less than
-	# _DOCK_MIN_HEIGHT (it then overlaps the plate's bottom edge).
-	var dock_top: float = minf(plate_bottom, size.y - _DOCK_MIN_HEIGHT)
+	# The book takes the floor band under the plate down to the nav bar's
+	# top, so its footer (Finish / Done) is never under the bar; never less
+	# than _DOCK_MIN_HEIGHT (it then overlaps the plate's bottom edge).
+	var dock_bottom: float = UI.nav_bar_clearance() + _OVERLAY_MARGIN
+	var dock_top: float = minf(plate_bottom, size.y - dock_bottom - _DOCK_MIN_HEIGHT)
 
 	var book := _build_docked_book()
+	book.name = "DockedBook"
 	UI.anchor_full_rect(book)
 	book.offset_left = _OVERLAY_MARGIN
 	book.offset_right = -_OVERLAY_MARGIN
 	book.offset_top = dock_top
-	book.offset_bottom = -_OVERLAY_MARGIN
+	book.offset_bottom = -dock_bottom
 	add_child(book)
 
 	if _gauge != "":

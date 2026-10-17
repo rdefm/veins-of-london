@@ -144,6 +144,24 @@ func run() -> void:
 		screen.free()
 	)
 
+	run_case("the_docked_book_ends_above_the_nav_bar_with_its_footer_outside_the_scroll", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["time"] = 10
+		Lab.grant_recipe("timePearl")
+		var screen := _screen()
+		screen.size = Vector2(390.0, 844.0)
+		screen._open_recipe("timePearl")
+		NodeQuery.find_button(screen, "Craft manually").pressed.emit()
+		var nav := Rect2(0.0, screen.size.y - UI.nav_bar_clearance(), screen.size.x, UI.nav_bar_clearance())
+		assert_true(not _docked_book_rect(screen).intersects(nav), "the docked book stops at the nav bar's top")
+		assert_true(not _inside_scroll(NodeQuery.find_button(screen, "Finish")), "Finish stays put while the steps scroll")
+		UiSim.tap_zone(screen, "ore_time")
+		NodeQuery.find_button(screen, "Finish").pressed.emit()
+		assert_true(not _docked_book_rect(screen).intersects(nav), "the result page stops at the nav bar's top too")
+		assert_true(not _inside_scroll(NodeQuery.find_button(screen, "Done")), "Done stays put while the result scrolls")
+		screen.free()
+	)
+
 	run_case("an_open_run_reopens_docked_and_a_crack_shows_the_lost_calc_result", func():
 		GameState.reset()
 		GameState.state["player"]["orichalchum"]["time"] = 10
@@ -202,6 +220,28 @@ func run() -> void:
 		assert_eq(Lab.calc_available("time"), 5, "one physical tap spends once")
 		screen.free()
 	)
+
+
+# The live docked book's rect in screen space, from its full-rect anchors
+# and offsets (off-tree, so no layout pass to read it from).
+func _docked_book_rect(screen: Control) -> Rect2:
+	for child in screen.get_children():
+		if child.name == "DockedBook" and not child.is_queued_for_deletion():
+			var book := child as Control
+			return Rect2(book.offset_left, book.offset_top,
+				screen.size.x + book.offset_right - book.offset_left,
+				screen.size.y + book.offset_bottom - book.offset_top)
+	assert_true(false, "a docked book is on screen")
+	return Rect2()
+
+
+func _inside_scroll(node: Node) -> bool:
+	var parent := node.get_parent()
+	while parent != null:
+		if parent is ScrollContainer:
+			return true
+		parent = parent.get_parent()
+	return false
 
 
 func _find_gauge(node: Node) -> Node:
