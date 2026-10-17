@@ -510,6 +510,21 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["hp"], you["hpMax"], "real hp follows")
 	)
 
+	run_case("be_a_lady_equips_and_gives_max_rolls_from_resolution", func():
+		GameState.reset()
+		Crafting.inventory_add("beALady", 4, 1)
+		assert_true(Loadout.equip(0, "beALady", 4)["ok"], "player can equip it")
+		assert_true(not Loadout.is_equippable("beALady", "archie"), "allies can't")
+		var combat := _start([["guard", "guard"]])
+		var you: Dictionary = combat["combatants"][CombatPrototype.PLAYER_INDEX]
+		assert_true(not CombatPrototype.has_lady(combat, you), "not before use")
+		assert_true(Combat.choose_item(0)["ok"])
+		assert_eq(you["ladyUntil"], 2, "power 2: this round and next")
+		assert_eq(CombatPrototype.damage_range(combat, CombatPrototype.PLAYER_INDEX), [you["attackMax"], you["attackMax"]], "max rolls")
+		assert_almost_eq(float(you["ladyCrit"]), 0.333333, 0.0001, "1/3 crit")
+		assert_eq(Loadout.slot(0), null, "real unit consumed")
+	)
+
 	run_case("multi_blast_hits_every_living_enemy", func():
 		GameState.reset()
 		GameState.state["player"]["loadout"]["slots"][0] = { "recipe": "blast", "tier": 3, "multi": true }
