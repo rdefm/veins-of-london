@@ -3,8 +3,10 @@ extends PanelContainer
 
 # Trade-only chrome. Selections remain in GameState.sellState through Economy;
 # tabs, expanded item groups and the review step are local presentation state.
-# Three modes by data: Archie (no factionId), a Collective contact (factionId +
-# contactId), or a faction's own shop (factionId, empty contactId).
+# Four modes by data: Archie (no factionId), a Collective contact (factionId +
+# contactId), a faction's own shop (factionId, empty contactId), or a recipe
+# seller (recipeSeller): buy-only knowledge via RecipeKnowledge.buy, with the
+# selected rungs held locally (spec § Trade sheet recipe-seller mode).
 
 const BG := Color("#222226")
 const SURFACE := Color("#2c2c31")
@@ -18,6 +20,7 @@ var _direction := "sell"
 var _category := "ore"
 var _review := false
 var _expanded_items: Dictionary = {}
+var _picked_rungs: Dictionary = {}
 var _scroll: ScrollContainer
 
 
@@ -32,6 +35,7 @@ func reset_ui() -> void:
 	_category = "ore"
 	_review = false
 	_expanded_items.clear()
+	_picked_rungs.clear()
 	_scroll = null
 
 
@@ -46,7 +50,7 @@ func _render(reset_scroll: bool = false) -> void:
 	add_theme_stylebox_override("panel", _style(BG, 0))
 	var layout := UI.vbox(0)
 	add_child(layout)
-	var entries := _entries()
+	var entries := _recipe_entries() if _is_recipe_seller() else _entries()
 	_build_header(layout)
 	if not _review:
 		_build_categories(layout)
@@ -62,11 +66,18 @@ func _render(reset_scroll: bool = false) -> void:
 	var body := UI.vbox(0)
 	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	body_margin.add_child(body)
-	if _review:
-		_build_review(body, entries)
+	if _is_recipe_seller():
+		if _review:
+			_build_recipe_review(body, entries)
+		else:
+			_build_recipe_list(body, entries)
+		_build_recipe_footer(layout, entries)
 	else:
-		_build_list(body, entries)
-	_build_footer(layout, entries)
+		if _review:
+			_build_review(body, entries)
+		else:
+			_build_list(body, entries)
+		_build_footer(layout, entries)
 	_scroll.scroll_vertical = previous_scroll
 	if is_inside_tree():
 		_scroll.set_deferred("scroll_vertical", previous_scroll)
@@ -83,19 +94,29 @@ func _build_header(layout: VBoxContainer) -> void:
 	headings.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top.add_child(headings)
 	var kicker := "ARCHIE / TRADE"
-	if _is_shop():
+	if _is_recipe_seller():
+		kicker = "%s / TRADE" % RecipeKnowledge.seller_name(_recipe_seller()).to_upper()
+	elif _is_shop():
 		kicker = "%s / TRADE" % String(GameData.FACTIONS[_faction_id()]["name"]).to_upper()
 	elif _is_faction():
 		var contact := Contacts.display_name(_data.get("contactId", "des"))
 		kicker = "%s · %s / TRADE" % [contact.to_upper(), String(GameData.FACTIONS[_faction_id()]["name"]).to_upper()]
 	headings.add_child(_label(kicker, 11, MUTED))
-	headings.add_child(_label("Review trade" if _review else "Buy goods" if _direction == "buy" else "Sell goods", 22, TEXT))
+	var title := "Buy goods" if _direction == "buy" else "Sell goods"
+	if _is_recipe_seller():
+		title = "Buy recipes"
+	headings.add_child(_label("Review trade" if _review else title, 22, TEXT))
 	var close := _button("×", func(): SellMenuModal.cancel(), Color.TRANSPARENT, 44)
 	close.custom_minimum_size.x = 44
 	close.accessibility_name = "Close trade"
 	top.add_child(close)
 	var note := "Direct trade. No cut or mugging." if _is_faction() else "Archie's cut changes with your relation."
+	if _is_recipe_seller():
+		# PROSE-REVIEW: recipe-seller sheet note.
+		note = "Knowledge, not goods. It goes straight to your lab."
 	content.add_child(_label(note, 12, MUTED))
+	if _is_recipe_seller():
+		return
 	if Harassment.has_sell_penalty():
 		content.add_child(_label("Some prices are marked down against you.", 12, MUTED))
 	if _is_faction() and not _review:
@@ -116,10 +137,11 @@ func _build_categories(layout: VBoxContainer) -> void:
 	layout.add_child(panel)
 	var row := UI.hbox(6)
 	panel.add_child(row)
-	for category in ["ore", "items", "veins"]:
+	var categories := ["recipes"] if _is_recipe_seller() else ["ore", "items", "veins"]
+	for category in categories:
 		if category == "veins" and not _veins_unlocked():
 			continue
-		var chosen: bool = _category == category
+		var chosen: bool = _category == category or _is_recipe_seller()
 		var fill := TEXT if chosen else Color.TRANSPARENT
 		var button := _button(category.capitalize(), _select_category.bind(category), fill, 40)
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -326,6 +348,171 @@ func _build_footer(layout: VBoxContainer, entries: Array) -> void:
 	actions.add_child(primary)
 
 
+func _build_recipe_list(body: VBoxContainer, entries: Array) -> void:
+	if entries.is_empty():
+		body.add_child(_label("Nothing available here.", 14, MUTED))
+		return
+	var current := ""
+	for entry in entries:
+		var recipe_key: String = entry["recipeKey"]
+		if recipe_key != current:
+			current = recipe_key
+			_add_recipe_header(body, recipe_key)
+		_add_recipe_row(body, entry)
+
+
+func _add_recipe_header(body: VBoxContainer, recipe_key: String) -> void:
+	var recipe: Dictionary = GameData.RECIPES[recipe_key]
+	var row := UI.hbox(8)
+	row.custom_minimum_size.y = 56
+	body.add_child(row)
+	var glyph := SymbolGlyph.new()
+	glyph.symbol = recipe.get("symbol", "")
+	glyph.draw_fallback = SymbolGlyph.generic_fallback()
+	glyph.icon = ItemIcons.texture(recipe_key)
+	glyph.color = TEXT
+	glyph.font_size = 19
+	glyph.glyph_radius = 8.0
+	glyph.custom_minimum_size = Vector2(28, 28)
+	glyph.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	glyph.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(glyph)
+	var info := UI.vbox(2)
+	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	info.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(info)
+	info.add_child(_label(str(recipe.get("name", recipe_key)), 14, TEXT))
+	var ceiling := RecipeKnowledge.rank_ceiling(recipe_key)
+	info.add_child(_label("Not known" if ceiling <= 0 else "Rank ceiling %d" % ceiling, 12, MUTED))
+
+
+func _add_recipe_row(body: VBoxContainer, entry: Dictionary) -> void:
+	var indent := MarginContainer.new()
+	indent.add_theme_constant_override("margin_left", 36)
+	body.add_child(indent)
+	var row := UI.hbox(8)
+	row.custom_minimum_size.y = 60
+	indent.add_child(row)
+	var info := UI.vbox(2)
+	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	info.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(info)
+	info.add_child(_label("%s · rank %d" % [entry["name"], int(entry["ceiling"])], 14, TEXT))
+	var meta := UI.hbox(3)
+	info.add_child(meta)
+	match entry["state"]:
+		"owned":
+			meta.add_child(_label("Owned", 12, MUTED, false))
+		"master":
+			meta.add_child(_label(entry["reason"], 12, MUTED))
+		_:
+			meta.add_child(_label("£%d" % int(entry["price"]), 12, _gold(), false))
+			if entry["vague"]:
+				meta.add_child(_label(" · vague, buy it exact", 12, MUTED, false))
+	if entry["state"] == "locked":
+		info.add_child(_label(entry["reason"], 12, MUTED))
+	if entry["state"] == "buyable":
+		var chosen: bool = entry["selected"]
+		var button := _button("✓ Added" if chosen else "+ Add", _toggle_rung.bind(entry), BUTTON_BG, 44)
+		button.accessibility_name = "%s %s" % [GameData.RECIPES[entry["recipeKey"]].get("name", ""), entry["name"]]
+		button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(button)
+	body.add_child(_divider())
+
+
+func _build_recipe_review(body: VBoxContainer, entries: Array) -> void:
+	var any_selected := false
+	for entry in entries:
+		if not entry["selected"]:
+			continue
+		any_selected = true
+		var row := UI.hbox(8)
+		row.custom_minimum_size.y = 44
+		body.add_child(row)
+		var line := "Buy %s · %s" % [GameData.RECIPES[entry["recipeKey"]].get("name", ""), entry["name"]]
+		var description := _label(line, 13, TEXT)
+		description.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(description)
+		row.add_child(_label("−£%d" % int(entry["price"]), 13, _gold(), false))
+		body.add_child(_divider())
+	if not any_selected:
+		body.add_child(_label("No recipes selected.", 14, MUTED))
+
+
+func _build_recipe_footer(layout: VBoxContainer, entries: Array) -> void:
+	var count := 0
+	var cost := 0
+	for entry in entries:
+		if entry["selected"]:
+			count += 1
+			cost += int(entry["price"])
+	var panel := _surface(SURFACE, 12)
+	layout.add_child(panel)
+	var content := UI.vbox(6)
+	panel.add_child(content)
+	var summary := UI.hbox(8)
+	content.add_child(summary)
+	var explanation := UI.vbox(1)
+	explanation.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	summary.add_child(explanation)
+	explanation.add_child(_label("YOU PAY", 11, TEXT))
+	explanation.add_child(_label("%d selected" % count, 12, MUTED))
+	summary.add_child(_label("£%d" % cost, 22, _gold(), false))
+	var actions := UI.hbox(8)
+	content.add_child(actions)
+	actions.add_child(_button("Back" if _review else "Cancel", _back_or_cancel, Color.TRANSPARENT, 44))
+	var primary := _button("Confirm trade" if _review else "Review trade →", _confirm if _review else _show_review, UI.action_colour(), 48)
+	primary.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	primary.disabled = count == 0 or cost > int(GameState.state["player"]["cash"])
+	actions.add_child(primary)
+
+
+# One row per rung of each of the seller's recipes, in ladder order. A rung
+# is buyable when buy() would take it now, short only of cash, or once the
+# rung before it is selected; picks that stop being buyable are dropped.
+func _recipe_entries() -> Array:
+	var entries: Array = []
+	var seller_id := _recipe_seller()
+	var refusals: Dictionary = GameData.RECIPE_KNOWLEDGE.get("buyRefusals", {})
+	var rungs := RecipeKnowledge.rungs()
+	for recipe_key in GameData.RECIPES.keys():
+		if RecipeKnowledge.seller_of(recipe_key) != seller_id:
+			continue
+		var prev_ready := false
+		for i in rungs.size():
+			var rung: String = rungs[i]
+			var key := "%s|%s" % [recipe_key, rung]
+			var held := RecipeKnowledge.rung_state(recipe_key, rung)
+			var block := RecipeKnowledge.buy_block(recipe_key, rung)
+			var state := "locked"
+			if rung == "master":
+				state = "master"
+			elif held == "exact":
+				state = "owned"
+			elif block.is_empty() or block == str(refusals.get("cash", "")):
+				state = "buyable"
+			elif prev_ready and i > 0 and block == str(refusals.get("order", "%s")) % RecipeKnowledge.rung_label(rungs[i - 1]):
+				state = "buyable"
+			if state != "buyable":
+				_picked_rungs.erase(key)
+			var selected: bool = _picked_rungs.has(key)
+			entries.append({
+				"recipeKey": recipe_key,
+				"rung": rung,
+				"key": key,
+				"name": RecipeKnowledge.rung_label(rung),
+				"ceiling": RecipeKnowledge.rung_ceiling(rung),
+				"state": state,
+				"vague": held == "vague",
+				"reason": block,
+				"price": 0 if rung == "master" else RecipeKnowledge.price(recipe_key, rung),
+				"selected": selected,
+			})
+			# The next rung may ride on this one once it is held or selected.
+			prev_ready = state == "owned" or held == "vague" or selected
+	return entries
+
+
 func _entries() -> Array:
 	var entries: Array = []
 	var player: Dictionary = GameState.state["player"]
@@ -447,6 +634,18 @@ func _set_qty(qty: int, entry: Dictionary) -> void:
 	Economy.set_sell_qty(entry["key"], qty, entry["max"])
 
 
+# Dropping a rung drops the later rungs of that recipe picked on its back.
+func _toggle_rung(entry: Dictionary) -> void:
+	var key: String = entry["key"]
+	if _picked_rungs.has(key):
+		var rungs := RecipeKnowledge.rungs()
+		for i in range(rungs.find(entry["rung"]), rungs.size()):
+			_picked_rungs.erase("%s|%s" % [entry["recipeKey"], rungs[i]])
+	else:
+		_picked_rungs[key] = true
+	_render()
+
+
 func _toggle_vein(entry: Dictionary) -> void:
 	if entry["direction"] == "buy":
 		Economy.toggle_buy_vein(entry["veinId"])
@@ -468,12 +667,36 @@ func _back_or_cancel() -> void:
 
 
 func _confirm() -> void:
-	if _is_shop():
+	if _is_recipe_seller():
+		_confirm_recipes()
+	elif _is_shop():
 		Economy.complete_shop_trade(_faction_id())
 	elif _is_faction():
 		Collective.complete_trade(_data.get("contactId", ""))
 	else:
 		Economy.sell_from_sell_state()
+
+
+# Buys each selected rung in ladder order; the sheet stays open on the
+# refreshed rows.
+func _confirm_recipes() -> void:
+	var picked: Array = []
+	for entry in _recipe_entries():
+		if entry["selected"]:
+			picked.append(entry)
+	_picked_rungs.clear()
+	_review = false
+	for entry in picked:
+		ContactCards.notify_failure(RecipeKnowledge.buy(entry["recipeKey"], entry["rung"]))
+	_render()
+
+
+func _is_recipe_seller() -> bool:
+	return _recipe_seller() != ""
+
+
+func _recipe_seller() -> String:
+	return _data.get("recipeSeller", "")
 
 
 func _is_faction() -> bool:

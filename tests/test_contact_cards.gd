@@ -53,6 +53,47 @@ func run() -> void:
 		assert_eq(GameState.state["modal"]["data"], { "factionId": "collective", "contactId": "nadia" })
 	)
 
+	# ── Recipe sellers' Trade door (recipe-acquisition spec) ─────────────
+
+	run_case("recipe_trade_buttons_are_locked_until_each_seller_unlocks_then_open_their_own_mode", func():
+		GameState.reset()
+		GameState.state["contacts"]["james"]["unlocked"] = true
+		for seller in ["james", "wren"]:
+			var card := ContactCards.build_james_card() if seller == "james" else ContactCards.build_key_member_card(seller)
+			var locked := NodeQuery.find_button(card, "🤝 Trade (not unlocked yet)")
+			assert_true(locked != null and locked.disabled, "%s locked before its flag" % seller)
+			card.free()
+		GameState.state["flags"]["jamesRecipesUnlocked"] = true
+		var james_card := ContactCards.build_james_card()
+		NodeQuery.find_button(james_card, "🤝 Trade").pressed.emit()
+		assert_eq(GameState.state["modal"]["data"], { "recipeSeller": "james" })
+		james_card.free()
+		var still_locked := ContactCards.build_key_member_card("wren")
+		assert_true(NodeQuery.find_button(still_locked, "🤝 Trade") == null, "James's flag doesn't open Wren")
+		still_locked.free()
+		GameState.state["flags"]["wrenRecipesUnlocked"] = true
+		var wren_card := ContactCards.build_key_member_card("wren")
+		NodeQuery.find_button(wren_card, "🤝 Trade").pressed.emit()
+		assert_eq(GameState.state["modal"]["type"], "sell_menu")
+		assert_eq(GameState.state["modal"]["data"], { "recipeSeller": "wren" })
+		wren_card.free()
+	)
+
+	run_case("key_member_cards_without_a_recipe_shop_have_no_trade_button", func():
+		GameState.reset()
+		var checked := 0
+		for faction_id in GameData.FACTIONS.keys():
+			for m in KeyMembers.members(faction_id):
+				var contact_id := str(m["id"])
+				if contact_id == "wren":
+					continue
+				checked += 1
+				var card := ContactCards.build_key_member_card(contact_id)
+				assert_true(NodeQuery.button_texts(card).all(func(t): return not t.begins_with("🤝 Trade")), contact_id)
+				card.free()
+		assert_true(checked > 0, "some non-seller key members checked")
+	)
+
 	# ── 82-contacts-des-nadia-hakim-cards: Des/Nadia/Hakim's Contacts cards ──
 
 	run_case("des_nadia_hakim_cards_show_a_relation_heading_and_card_line", func():

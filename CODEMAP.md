@@ -154,7 +154,7 @@ overlays.
 | combat_command_dock.gd | Combat's lower command region: near-white surface Panel: Dial beside 1px-ruled command rows (Complication, Attack, two item rows, Leg it), anchored to screen bottom; live rows gated by `Combat` block reasons. `configure_rows()`: generic caller-built rows ("?" on disabled ones) + footer, optional Dial; `surface_height_for_rows()` fits taller stacks |
 | combat_director.gd | Combat beat-queue playback director; holds a data-driven pause (combat_visuals pacing.turnPause) between combatants' turns; emits `playing_changed` so screens lock commands during playback; owns the pacing toggle (toggle_pacing, pacing_label) |
 | combat_stage.gd | Combat pixel stage: backdrop (location->context->palette); slots in two receding diagonal groups, depth-sorted; up to 3 reserve sprites per side + `+N`, sliding in; keypose one-shots, effects, juice layer. Slot taps emit `subject_tapped`; selected slot gets an arrow; per-slot guard marker/shield/freeze. No GameState reads; target-less effects take a caller fallback |
-| contact_cards.gd | Shared contact/faction card builders (incl. membership actions, faction Benefits tier ladder, handler card, Owen card, Targets/Sourcing, Nadia's ledger + "Go with Nadia", key-member card, pending-message actions incl. lowball Accept/Decline, peace-offer and favour responses), inline Contacts action-row layout, Phone-OS chrome repaint (text-only for card-chrome apps) |
+| contact_cards.gd | Shared contact/faction card builders (incl. membership actions, faction Benefits tier ladder, handler card, Owen card, Targets/Sourcing, Nadia's ledger + "Go with Nadia", key-member card, recipe-seller Trade door, pending-message actions (lowball, peace offer, favour)), inline Contacts action-row layout, Phone-OS chrome repaint (text-only for card-chrome apps) |
 | contract_card.gd | Draggable BizBrief Sales card |
 | line_chart.gd | `_draw` line chart (palette-id or app accent colour, optional overlaid series on a shared scale, max label, first/last day, optional counted event markers); opt-in touch/drag history-point inspection for Ticker, compact chart for BizBrief Stats |
 | price_move.gd | ▲/▼ + £ delta text and colour for a Market day move (Stock Market rows, sell lanes) |
@@ -209,7 +209,7 @@ overlays.
 | sell_menu_modal.gd | Trade modal registry adapter and Cancel action that clears sellState |
 | guard_kit_modal.gd | guard_kit modal registry adapter (data.target is a GuardKit kit target) |
 | guard_kit_view.gd | Guard kit stocking sheet on the Trade pattern: Stock/Return tabs, grouped tiers with steppers, sticky slots/capacity totals, review; confirm calls GuardKit stock/unstock per line |
-| sell_menu_view.gd | Trade-only sheet: sell/buy and category tabs, Map ore glyphs, grouped item tiers, sticky totals and review; three modes: Archie, Collective contact, faction shop (no contact); invokes existing trade systems |
+| sell_menu_view.gd | Trade-only sheet: sell/buy and category tabs, Map ore glyphs, grouped item tiers, sticky totals and review; four modes: Archie, Collective contact, faction shop (no contact), recipe seller (buy-only rungs via RecipeKnowledge.buy); invokes existing trade systems |
 | nadia_supply_modal.gd | Nadia ore-supply objective card |
 | network_targets_modal.gd | Handler Targets picker: faction veins, soft/freeze questions |
 | network_sourcing_modal.gd | Handler Sourcing order: ore type + minimum tier |

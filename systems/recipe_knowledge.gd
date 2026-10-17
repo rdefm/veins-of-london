@@ -58,8 +58,13 @@ static func rank_ceiling(recipe_key: String) -> int:
 	for rung in rungs():
 		if not owns_rung(recipe_key, rung):
 			break
-		ceiling = int(_data()["rungCeilings"][rung])
+		ceiling = rung_ceiling(rung)
 	return ceiling
+
+
+# The rank ceiling owning this rung (and every rung before it) unlocks.
+static func rung_ceiling(rung: String) -> int:
+	return int(_data().get("rungCeilings", {}).get(rung, 0))
 
 
 # ── Sources ──────────────────────────────────────────────────────────────
@@ -108,6 +113,10 @@ static func _shop(seller_id: String) -> Dictionary:
 
 static func rung_label(rung: String) -> String:
 	return str(_data().get("rungLabels", {}).get(rung, rung))
+
+
+static func seller_name(seller_id: String) -> String:
+	return str(_shop(seller_id).get("name", seller_id))
 
 
 static func seller_unlocked(seller_id: String) -> bool:
@@ -205,7 +214,7 @@ static func buy(recipe_key: String, rung: String) -> Dictionary:
 	GameState.state["player"]["cash"] = int(GameState.state["player"]["cash"]) - cost
 	_teach(recipe_key, rung, "exact")
 	var recipe_name := str(GameData.RECIPES[recipe_key].get("name", recipe_key))
-	Bank.record(-cost, str(_data()["bankLabel"]) % [recipe_name, rung_label(rung), str(_shop(seller_id).get("name", seller_id))])
+	Bank.record(-cost, str(_data()["bankLabel"]) % [recipe_name, rung_label(rung), seller_name(seller_id)])
 	EventBus.state_changed.emit()
 	return { "ok": true, "price": cost }
 

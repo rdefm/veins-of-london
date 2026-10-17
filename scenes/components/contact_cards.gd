@@ -183,6 +183,17 @@ static func build_trade_action(contact_id: String) -> Control:
 	return UI.button("🤝 Trade", func(): Modal.open("sell_menu", { "factionId": "collective", "contactId": contact_id }))
 
 
+# A recipe seller's Trade door (data/recipe_knowledge.json shops): the Trade
+# sheet's recipe mode once the seller's shop is unlocked.
+static func build_recipe_trade_action(seller_id: String) -> Control:
+	if not RecipeKnowledge.seller_unlocked(seller_id):
+		var locked := UI.button("🤝 Trade (not unlocked yet)", func(): pass)
+		locked.disabled = true
+		return locked
+
+	return UI.button("🤝 Trade", func(): Modal.open("sell_menu", { "recipeSeller": seller_id }))
+
+
 static func build_pin_shortcut_actions(contact_id: String) -> Array:
 	var actions: Array = []
 	for pin in MapPins.active_phone_shortcuts_for(contact_id):
@@ -344,6 +355,7 @@ static func build_james_card() -> Control:
 		c["content"].add_child(UI.button("Continue →", _on_pending_action_pressed.bind(entry)))
 
 	c["content"].add_child(build_messages_button("james"))
+	c["content"].add_child(build_recipe_trade_action("james"))
 
 	if flags["jamesMotionEventSeen"]:
 		var job_active: bool = flags["jamesJobActive"] and GameState.state["jamesJob"] != null
@@ -493,6 +505,8 @@ static func build_key_member_card(contact_id: String) -> Control:
 		for action in build_pending_actions(entry, _on_pending_action_pressed):
 			c["content"].add_child(action)
 	c["content"].add_child(build_messages_button(contact_id))
+	if GameData.RECIPE_KNOWLEDGE.get("shops", {}).has(contact_id):
+		c["content"].add_child(build_recipe_trade_action(contact_id))
 	return c["panel"]
 
 
