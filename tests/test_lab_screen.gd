@@ -47,7 +47,7 @@ func run() -> void:
 		screen.free()
 	)
 
-	run_case("recipe_page_shows_the_procedure_as_known_best_rank_and_an_empty_ladder", func():
+	run_case("recipe_page_shows_the_procedure_as_known_best_rank_and_the_ladder", func():
 		GameState.reset()
 		Lab.grant_recipe("timePearl")
 		Lab.grant_steps("timePearl", Lab.rung_steps("timePearl", "hint1"), "vague")
@@ -61,8 +61,16 @@ func run() -> void:
 		assert_true(NodeQuery.label_texts(screen).has(hint1["vague"]["note"]), "with its direction note")
 		assert_true(not NodeQuery.label_texts(screen).has(hint2["vague"]["note"]), "an unknown step stays hidden")
 		var ladder := screen.find_child("LadderRegion", true, false)
-		assert_true(ladder != null, "the ladder region is reserved")
-		assert_eq(ladder.get_child_count(), 0, "and empty")
+		assert_true(ladder != null, "the ladder region shows")
+		var rows := RecipeKnowledge.ladder_rows("timePearl")
+		for row in rows:
+			var rung_label := ladder.find_child("Rung_%s" % row["rung"], true, false) as Label
+			assert_true(rung_label != null and rung_label.text == row["text"], "%s rung rendered" % row["rung"])
+		RecipeKnowledge.grant_rung("timePearl", "hint2", "vague")
+		ladder = screen.find_child("LadderRegion", true, false)
+		var hint2_text: String = RecipeKnowledge.ladder_rows("timePearl")[2]["text"]
+		assert_eq((ladder.find_child("Rung_hint2", true, false) as Label).text, hint2_text, "a grant redraws the ladder")
+		assert_true(hint2_text != rows[2]["text"], "with hint2 now owned")
 		assert_true(NodeQuery.find_button(screen, "Craft manually") != null)
 		assert_true(NodeQuery.find_button(screen, "Batch ×1").disabled, "no batch before a hand run")
 		screen.free()

@@ -342,6 +342,44 @@ func _register_buying_cases() -> void:
 		assert_eq(RecipeKnowledge.buy("blast", "base")["ok"], false, "second base refused")
 	)
 
+	run_case("ladder_rows_show_state_ceiling_and_lock_reason", func():
+		_fresh()
+		_no_discount()
+		var ladder: Dictionary = GameData.RECIPE_KNOWLEDGE["ladder"]
+		Lab.grant_recipe("timePearl")
+		RecipeKnowledge.grant_rung("timePearl", "hint1", "vague")
+		var rows := RecipeKnowledge.ladder_rows("timePearl")
+		assert_eq(rows.map(func(r): return r["rung"]), RecipeKnowledge.rungs(), "one row per rung, in order")
+		assert_eq(rows[0]["state"], "exact", "base exact")
+		assert_eq(rows[0]["note"], ladder["states"]["exact"])
+		assert_eq(rows[0]["ceiling"], ladder["ceiling"] % 2, "base ceiling")
+		assert_eq(rows[1]["state"], "vague", "hint1 vague")
+		assert_eq(rows[1]["note"], ladder["states"]["vague"])
+		assert_eq(rows[2]["state"], "locked", "hint2 locked")
+		var sold := str(ladder["soldBy"]) % "James"
+		var gate := str(_shop("james")["gate"]["text"]) % int(_shop("james")["gate"]["hint2"])
+		assert_eq(rows[2]["note"], str(ladder["join"]) % [sold, gate], "source and unmet gate")
+		assert_eq(rows[3]["note"], GameData.RECIPE_KNOWLEDGE["unknownPointer"], "unassigned master reads ???")
+		assert_eq(rows[2]["text"], str(ladder["row"]) % [RecipeKnowledge.rung_label("hint2"), rows[2]["ceiling"], rows[2]["note"]], "row text")
+		GameState.state["contacts"]["james"]["relation"] = int(_shop("james")["gate"]["hint2"])
+		assert_eq(RecipeKnowledge.ladder_rows("timePearl")[2]["note"], sold, "gate reached, shop still shut: source only")
+		_open_shops()
+		assert_eq(RecipeKnowledge.ladder_rows("timePearl")[2]["note"], sold, "gate met: source only")
+	)
+
+	run_case("ladder_rows_name_a_faction_tier_gate_and_a_master_pointer", func():
+		_fresh()
+		Lab.grant_recipe("blast")
+		var ladder: Dictionary = GameData.RECIPE_KNOWLEDGE["ladder"]
+		var gate := str(_shop("wren")["gate"]["text"]) % Perks.tier_label(str(_shop("wren")["gate"]["hint1"]))
+		assert_eq(RecipeKnowledge.ladder_rows("blast")[1]["note"], str(ladder["join"]) % [str(ladder["soldBy"]) % "Wren", gate], "tier gate named")
+		var entry: Dictionary = GameData.RECIPE_KNOWLEDGE["masterSources"]["blast"]
+		entry["pointer"] = "Ask the river."
+		var note: String = RecipeKnowledge.ladder_rows("blast")[3]["note"]
+		entry["pointer"] = null
+		assert_eq(note, "Ask the river.", "assigned pointer shows")
+	)
+
 	run_case("buying_a_vague_rung_upgrades_it_to_exact", func():
 		_fresh()
 		_no_discount()

@@ -67,6 +67,45 @@ static func rung_ceiling(rung: String) -> int:
 	return int(_data().get("rungCeilings", {}).get(rung, 0))
 
 
+# The recipe book's rung ladder (spec § Recipe book): per rung { rung,
+# label, ceiling (ladder.ceiling text), state ("exact" | "vague" |
+# "locked"), note, text (ladder.row) }. note is the state's text for an
+# owned rung, the master pointer for a locked master, else where the rung
+# is sold and, while the player falls short of its gate, what gates it.
+static func ladder_rows(recipe_key: String) -> Array:
+	var ladder: Dictionary = _data()["ladder"]
+	var rows := []
+	for rung in rungs():
+		var held := rung_state(recipe_key, rung)
+		var state := "locked" if held == "unknown" else held
+		var note := str(ladder["states"].get(state, state))
+		if state == "locked":
+			note = master_source(recipe_key)["pointer"] if rung == "master" else _lock_note(recipe_key, rung)
+		var ceiling := str(ladder["ceiling"]) % rung_ceiling(rung)
+		rows.append({
+			"rung": rung,
+			"label": rung_label(rung),
+			"ceiling": ceiling,
+			"state": state,
+			"note": note,
+			"text": str(ladder["row"]) % [rung_label(rung), ceiling, note],
+		})
+	return rows
+
+
+static func _lock_note(recipe_key: String, rung: String) -> String:
+	var ladder: Dictionary = _data()["ladder"]
+	var seller_id := seller_of(recipe_key)
+	var note := str(ladder["soldBy"]) % seller_name(seller_id)
+	var gate: Dictionary = _shop(seller_id).get("gate", {})
+	if rung == "base" or not gate.has(rung) or _gate_reached(seller_id, rung):
+		return note
+	var need = gate[rung]
+	if str(gate.get("kind", "")) == "factionTier":
+		need = Perks.tier_label(str(need))
+	return str(ladder["join"]) % [note, str(gate["text"]) % need]
+
+
 # ── Sources ──────────────────────────────────────────────────────────────
 
 # The seller id whose ores cover every ingredient ore, else defaultSeller.
@@ -132,9 +171,14 @@ static func gate_met(recipe_key: String, rung: String) -> bool:
 	var seller_id := seller_of(recipe_key)
 	if not seller_unlocked(seller_id):
 		return false
-	if rung == "base":
-		return true
+	return rung == "base" or _gate_reached(seller_id, rung)
+
+
+# Whether the player meets the shop's gate for a hint rung, unlocked or not.
+static func _gate_reached(seller_id: String, rung: String) -> bool:
 	var gate: Dictionary = _shop(seller_id).get("gate", {})
+	if not gate.has(rung):
+		return false
 	match str(gate.get("kind", "")):
 		"contactRelation":
 			return _contact_relation(str(gate["contact"])) >= int(gate[rung])

@@ -466,18 +466,28 @@ func _build_recipe_card() -> Control:
 	var steps := Lab.known_procedure(recipe_key)
 	for i in steps.size():
 		_add_known_step(content, i, steps[i])
-	# Reserved for the knowledge ladder (spec P4): empty until recipe
-	# sources fill it.
-	var ladder := VBoxContainer.new()
+	var ladder := UI.vbox(2)
 	ladder.name = "LadderRegion"
 	ladder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content.add_child(ladder)
+	_add_ladder(ladder, recipe_key)
 
 	content.add_child(MapCardStyle.text_button("Craft manually", _dock))
 	_add_batch_controls(content, recipe_key, cost)
 	_add_rewind_controls(content)
 	c["content"].add_child(MapCardStyle.footer([MapCardStyle.text_button("Back to book", func(): _show(Page.BOOK))]))
 	return c["panel"]
+
+
+# The knowledge ladder (recipe-acquisition spec § Recipe book): one line
+# per rung, owned rungs bright, locked ones muted with their source.
+func _add_ladder(ladder: VBoxContainer, recipe_key: String) -> void:
+	ladder.add_child(UI.heading(str(GameData.RECIPE_KNOWLEDGE["ladder"]["heading"]), 14))
+	for row in RecipeKnowledge.ladder_rows(recipe_key):
+		var label := UI.muted_label(row["text"]) if row["state"] == "locked" else UI.label(row["text"])
+		label.name = "Rung_%s" % row["rung"]
+		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		ladder.add_child(label)
 
 
 # Batch ×N at best rank, once performed by hand; multi-target once the best
