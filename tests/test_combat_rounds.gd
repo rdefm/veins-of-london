@@ -1,5 +1,7 @@
 extends "res://tests/test_base.gd"
 
+const Fixtures := preload("res://tests/support/fixtures.gd")
+
 # Live round fights (R§3.7b): a street mugging on CombatPrototype's rules
 # core over state.combat -- opening from prep, the real player's stats and
 # hp, the six moves' guard rules, Leg it, outcomes and the XP lump through
@@ -116,6 +118,32 @@ func _strike_dmg(beat: Dictionary, factor: float) -> int:
 
 func _actor_beats(beats: Array, actor: int, kinds: Array) -> Array:
 	return beats.filter(func(b): return int(b["actor"]) == actor and kinds.has(b["kind"]))
+
+
+# The fight as a Rewind restores it: everything but the snapshot stack, the
+# per-pick loadout copy and the used slots (the Rewinds' own payments).
+func _fight_state(combat: Dictionary) -> Dictionary:
+	var state: Dictionary = combat.duplicate(true)
+	for key in ["snapshots", "loadoutSlots", "slotsUsed"]:
+		state.erase(key)
+	return state
+
+
+# Every round: two Strikes aimed at the player.
+func _strikes_at_player() -> Array:
+	return [[{ "move": "strike", "target": CombatPrototype.PLAYER_INDEX }, { "move": "strike", "target": CombatPrototype.PLAYER_INDEX }]]
+
+
+# A seeded street mugging on a 1-hp player who acts first, against a slow
+# mugger striking the player, so the player's first Guard is lethal.
+func _start_lethal(units: Array, allies: Array = [], live: Dictionary = {}) -> Dictionary:
+	GameState.state["player"]["hp"] = 1
+	for i in range(units.size()):
+		GameState.state["player"]["loadout"]["slots"][i] = units[i]
+	var ally_plans: Array = allies.map(func(_a): return [["guard", "guard"]])
+	Combat._start_round_combat(Combat.CONTEXT_EVENT_MUGGING, null, [_slow_mugger(200)], [], "", allies, null,
+		{ "seed": 1, "fog": false, "enemyPlans": [_strikes_at_player()], "allyPlans": ally_plans }, live)
+	return GameState.state["combat"]
 
 
 func _row(screen: CombatPrototypeScreen, row_name: String) -> Button:
@@ -420,7 +448,7 @@ func run() -> void:
 		var item := _row(screen, "ItemRow_0")
 		assert_true(item != null and item.disabled, "real loadout slot shown, blocked")
 		assert_true(_row(screen, "ItemRow_1") != null, "empty slot shown")
-		assert_eq(Combat.round_item_block_reason(0), Combat.REASON_ROUND_ITEM_PENDING)
+		assert_eq(Combat.round_item_block_reason(0), Combat.REASON_SLOT_REWIND)
 		assert_eq(Combat.round_item_block_reason(1), Combat.REASON_SLOT_EMPTY)
 		_row(screen, "MoveRow_strike").pressed.emit()
 		assert_eq(GameState.state["combat"]["outcome"], "win", "the pick resolves")
@@ -605,7 +633,7 @@ func run() -> void:
 		_start_armed([{ "recipe": "healingBurst", "tier": 1 }, { "recipe": "rewind", "tier": 1 }], [["guard", "guard"]])
 		assert_eq(Combat.round_item_block_reason(0, 1), "Pick a target.", "no healing the mugger")
 		assert_eq(Combat.round_item_block_reason(0), "", "self is fine")
-		assert_eq(Combat.round_item_block_reason(1), Combat.REASON_ROUND_ITEM_PENDING)
+		assert_eq(Combat.round_item_block_reason(1), Combat.REASON_SLOT_REWIND)
 	)
 
 	run_case("live_dock_item_row_plays_the_real_slot", func():
@@ -717,7 +745,9 @@ func run() -> void:
 		var combat: Dictionary = GameState.state["combat"]
 		assert_true(combat["combatants"][1]["koed"], "archie down")
 		assert_true(combat["allies"][0]["koed"], "live ally KO'd")
-		assert_true(not Contacts.can_join_combat("archie"), "cooldown started")
+		assert_true(Contacts.can_join_combat("archie"), "no cooldown while a Rewind could undo it")
+		Combat.exit_combat()
+		assert_true(not Contacts.can_join_combat("archie"), "cooldown started at the fight's end")
 	)
 
 	run_case("panic_turns_bolt_or_cower_and_read_as_panic", func():
@@ -884,4 +914,132 @@ func run() -> void:
 		var enemy_cards: Array = entries.filter(func(e): return e["actor"] == 1)
 		assert_true(not enemy_cards.is_empty() and enemy_cards.all(func(e): return e["statusBadge"] == "Anger +25%"), "every enemy card carries it")
 		assert_true(entries.filter(func(e): return e["actor"] == 0).all(func(e): return e["statusBadge"] == ""), "none on the player")
+	)
+
+	run_case("rewind_spends_a_rewind_unit_then_a_dial_cast_and_says_why_not", func():
+		GameState.reset()
+		_start_armed([{ "recipe": "rewind", "tier": 1 }, null], [["guard", "guard"]], 1, 200)
+		assert_eq(Combat.round_rewind_block_reason(), Combat.REASON_NOTHING_TO_UNDO, "no pick yet")
+		assert_true(Combat.choose_move("guard")["ok"])
+		assert_eq(Combat.round_rewind_block_reason(), "")
+		assert_true(Combat.round_rewind()["ok"], "the unit pays")
+		assert_eq(Loadout.slot(0), null, "unit spent")
+		assert_true(GameState.state["combat"]["slotsUsed"].has(0), "and settled as used")
+		assert_true(Combat.choose_move("guard")["ok"])
+		var refused := Combat.round_rewind()
+		assert_true(not refused["ok"], "neither a unit nor a Dial cast")
+		assert_eq(refused["reason"], Combat.REASON_NO_REWIND)
+		GameState.state["player"]["dial"] = Fixtures.dial_with_loaded("rewind", 1, 3)
+		assert_true(Combat.round_rewind()["ok"], "a loaded Dial rewind pays")
+		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 2, "one charge")
+	)
+
+	run_case("rewind_steps_back_two_picks_across_a_round_with_plans_fog_and_rolls_intact", func():
+		GameState.reset()
+		GameState.state["player"]["loadout"]["slots"] = [{ "recipe": "rewind", "tier": 1 }, { "recipe": "rewind", "tier": 1 }]
+		Combat._start_round_combat(Combat.CONTEXT_EVENT_MUGGING, null, [_mugger(200)], [], "", [], null, { "seed": 3 })
+		var combat: Dictionary = GameState.state["combat"]
+		assert_eq(CombatPrototype.actions_this_round(combat, CombatPrototype.PLAYER_INDEX), 2, "two picks a round")
+		var round_no: int = combat["round"]
+		var before_first := _fight_state(combat)
+		var first := Combat.choose_move("guard")
+		var before_second := _fight_state(combat)
+		Combat.choose_move("guard")
+		assert_eq(combat["round"], round_no + 1, "the second pick crossed into the next round")
+		assert_true(Combat.round_rewind()["ok"])
+		assert_eq(_fight_state(combat), before_second, "one pick back")
+		assert_true(Combat.round_rewind()["ok"])
+		assert_eq(_fight_state(combat), before_first, "two back: that round's plans, fog marks and RNG states")
+		assert_eq(GameState.state["player"]["loadout"]["slots"], [null, null], "the first Rewind's unit stays spent too")
+		assert_eq(Combat.round_rewind_block_reason(), Combat.REASON_NOTHING_TO_UNDO, "cap 2")
+		assert_eq(Combat.choose_move("guard")["beats"], first["beats"], "the same pick replays the same rolls")
+	)
+
+	run_case("rewind_returns_units_spent_since_but_not_its_own", func():
+		GameState.reset()
+		var combat := _start_armed([{ "recipe": "blast", "tier": 1 }, { "recipe": "rewind", "tier": 1 }], [["guard", "guard"]], 1, 200)
+		var mugger_hp: int = combat["combatants"][1]["hp"]
+		assert_true(Combat.choose_item(0, 1)["ok"], "blast")
+		assert_eq(Loadout.slot(0), null)
+		assert_true(Combat.round_rewind()["ok"])
+		assert_eq(Loadout.slot(0), { "recipe": "blast", "tier": 1 }, "blast back in its slot")
+		assert_eq(Loadout.slot(1), null, "the rewind stays spent")
+		assert_eq(combat["slotsUsed"], [1], "only the rewind settles as used")
+		assert_eq(combat["combatants"][1]["hp"], mugger_hp, "blast undone")
+		assert_eq(Combat.round_item_block_reason(0, 1), "", "blast playable again")
+	)
+
+	run_case("failsafe_undoes_a_lethal_pick_then_the_next_ko_loses", func():
+		GameState.reset()
+		var combat := _start_lethal([{ "recipe": "failsafe", "tier": 1 }, null])
+		var result := Combat.choose_move("guard")
+		assert_eq(result.get("saved", ""), Combat.LINE_FAILSAFE, "failsafe fires")
+		assert_eq(combat["outcome"], null)
+		assert_eq(GameState.state["player"]["hp"], 1, "back before the pick")
+		assert_eq(Loadout.slot(0), null, "failsafe spent")
+		assert_true(CombatPrototype.decision_position(combat) >= 0, "the pick is open again")
+		assert_true(not Combat.choose_move("guard").has("saved"), "nothing left to save")
+		assert_eq(combat["outcome"], "loss")
+	)
+
+	run_case("an_allys_rewind_saves_the_player_after_failsafe_while_units_last", func():
+		GameState.reset()
+		var kit := { "items": { "rewind": { "1": 1 } }, "used": {} }
+		var combat := _start_lethal([{ "recipe": "failsafe", "tier": 1 }, null], [Combat.build_guard_ally()], { "guardKit": kit })
+		assert_eq(Combat.choose_move("guard").get("saved", ""), Combat.LINE_FAILSAFE, "failsafe first")
+		assert_eq(combat["guardKit"]["used"], {}, "kit untouched")
+		var guard_name: String = combat["combatants"][1]["name"]
+		assert_eq(Combat.choose_move("guard").get("saved", ""), Combat.LINE_ALLY_REWIND % guard_name, "then the guard's rewind")
+		assert_eq(combat["guardKit"]["used"], { "rewind": { "1": 1 } }, "spent from the kit")
+		assert_eq(combat["outcome"], null)
+		assert_true(not Combat.choose_move("guard").has("saved"), "kit empty")
+		assert_eq(combat["outcome"], "loss")
+	)
+
+	run_case("a_rewind_past_an_ally_ko_undoes_its_cooldown", func():
+		GameState.reset()
+		_recruit("archie")
+		var archie := Contacts.build_combat_ally("archie")
+		archie["hp"] = 1
+		var cooldown = GameState.state["contacts"]["archie"]["koCooldownUntilDay"]
+		GameState.state["player"]["loadout"]["slots"][0] = { "recipe": "rewind", "tier": 1 }
+		Combat._start_round_combat(Combat.CONTEXT_EVENT_MUGGING, null, [_slow_mugger(200)], [], "", [archie], null,
+			{ "seed": 1, "fog": false, "enemyPlans": [[[{ "move": "strike", "target": 1 }, { "move": "strike", "target": 1 }]]], "allyPlans": [[["guard", "guard"]]] })
+		var combat: Dictionary = GameState.state["combat"]
+		Combat.choose_move("guard")
+		assert_true(combat["allies"][0]["koed"], "archie down")
+		assert_eq(GameState.state["contacts"]["archie"]["koCooldownUntilDay"], cooldown, "no cooldown mid-fight")
+		assert_true(Combat.round_rewind()["ok"])
+		assert_true(not combat["allies"][0]["koed"], "archie back up")
+		Combat.exit_combat()
+		assert_eq(GameState.state["contacts"]["archie"]["koCooldownUntilDay"], cooldown, "no cooldown for an undone KO")
+		GameState.reset()
+		_recruit("archie")
+		Combat._start_round_combat(Combat.CONTEXT_EVENT_MUGGING, null, [_slow_mugger(200)], [], "", [archie], null,
+			{ "seed": 1, "fog": false, "enemyPlans": [[[{ "move": "strike", "target": 1 }, { "move": "strike", "target": 1 }]]], "allyPlans": [[["guard", "guard"]]] })
+		Combat.choose_move("guard")
+		Combat.exit_combat()
+		assert_eq(GameState.state["contacts"]["archie"]["koCooldownUntilDay"], GameState.state["world"]["day"] + GameState.state["contacts"]["archie"]["koCooldownDays"], "a standing KO starts it at the end")
+	)
+
+	run_case("live_screen_rewind_plays_the_undone_beats_or_shows_the_refusal", func():
+		GameState.reset()
+		_start_armed([{ "recipe": "rewind", "tier": 1 }, null], [["guard", "guard"]], 1, 200)
+		var host := CombatScreen.new()
+		host._ready()
+		var screen: CombatPrototypeScreen = host._round_screen
+		screen._ready()
+		assert_true(screen._rewind_button != null and screen._rewind_button.disabled, "nothing to undo yet")
+		var played: Array = Combat.choose_move("guard")["beats"]
+		screen._refresh()
+		assert_true(not screen._rewind_button.disabled, "enabled after a pick")
+		var undone := screen.begin_rewind_playback()
+		assert_eq(undone.size(), played.size(), "the pick's beats")
+		assert_eq(undone[0]["text"], played[-1]["text"], "newest first")
+		screen._end_playback()
+		Combat.choose_move("guard")
+		assert_eq(screen.begin_rewind_playback(), [], "no unit left")
+		assert_eq(screen._refusal, Combat.REASON_NO_REWIND)
+		screen._end_playback()
+		host.free()
 	)

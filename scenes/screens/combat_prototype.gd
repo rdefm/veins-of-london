@@ -19,10 +19,11 @@ extends Control
 # prototype state into the components' shapes (stage_roster()) and only
 # ever calls CombatPrototype (and Modal, for the "?") to change it.
 # With `live` set before _ready() it is instead the live round-fight screen
-# (R§3.7b), hosted by CombatScreen: no setup, Exit or Rewind; it reads
-# state.combat, picks through Combat.choose_move(), shows the player's real
-# loadout slots with Combat's block reasons, and its outcome card hands off
-# to Combat.exit_combat().
+# (R§3.7b), hosted by CombatScreen: no setup or Exit; it reads
+# state.combat, picks through Combat.choose_move(), rewinds through
+# Combat.round_rewind() (its refusal shown as a pick's is), shows the
+# player's real loadout slots with Combat's block reasons, and its outcome
+# card hands off to Combat.exit_combat().
 
 # Setup's enemy count cap (spec §Out of Scope: no more than 3 per side).
 const MAX_ENEMIES := 3
@@ -152,8 +153,8 @@ func _build_fight_layout() -> void:
 	heading_row.offset_bottom = _HEADING_ROW_HEIGHT
 	if not live:
 		heading_row.add_child(MapCardStyle.chip_button("‹ Exit", func(): CombatPrototype.exit()))
-		_rewind_button = MapCardStyle.chip_button("Rewind", _on_rewind_pressed)
-		heading_row.add_child(_rewind_button)
+	_rewind_button = MapCardStyle.chip_button("Rewind", _on_rewind_pressed)
+	heading_row.add_child(_rewind_button)
 	heading_row.add_child(MapCardStyle.chip_button("Readouts", _toggle_readouts))
 	_pacing_button = MapCardStyle.chip_button("", _on_pacing_button_pressed)
 	heading_row.add_child(_pacing_button)
@@ -246,8 +247,7 @@ func _sync_fight(cp: Dictionary) -> void:
 	if live:
 		_round_label.text = "%s · %s" % [CombatScreen.context_label(cp["context"]), _round_label.text]
 	_refusal_label.text = _refusal
-	if _rewind_button != null:
-		_rewind_button.disabled = cp["snapshots"].is_empty() or _busy()
+	_rewind_button.disabled = cp["snapshots"].is_empty() or (live and cp["outcome"] != null) or _busy()
 	_pacing_button.text = CombatDirector.pacing_label(_director.pacing_mode)
 
 	# Mid-playback a re-sync would cut the slots' one-shot poses short, and
@@ -504,7 +504,9 @@ func begin_rewind_playback() -> Array:
 		entry["focused"] = false
 	var shown := carousel_entries(entries, resolved_count(cp, entries))
 	_strip_playback = { "entries": entries, "round": cp["round"], "after": [], "front": shown[0]["occurrenceId"] if not shown.is_empty() else "" }
-	if not CombatPrototype.rewind()["ok"]:
+	var result: Dictionary = Combat.round_rewind() if live else CombatPrototype.rewind()
+	if not result["ok"]:
+		_refusal = str(result["reason"])
 		return []
 	cp = _cp()
 	_strip_playback["after"] = strip_entries(cp)

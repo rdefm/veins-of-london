@@ -179,6 +179,15 @@ const ROUND_XP_LOSS := 3
 const ROUND_XP_FLED := 0
 # PROSE-REVIEW: a loadout row's block reason until items work in round fights.
 const REASON_ROUND_ITEM_PENDING := "Not usable in this kind of fight yet."
+# PROSE-REVIEW: a rewind unit's loadout row (it pays for the Rewind command).
+const REASON_SLOT_REWIND := "Spent by Rewind."
+const REASON_NO_REWIND := "No rewind available."
+# R§3.7b Rewind: the combat ticker's lines for a Rewind, a Failsafe and an
+# ally's rewind; LINE_ALLY_REWIND takes the ally's name.
+const LINE_REWIND := "⟲ Time unspools. The moment resets. Only you remember."
+const LINE_FAILSAFE := "⚑ Failsafe fires. Death, reversed -- administratively."
+# PROSE-REVIEW: an ally's rewind line.
+const LINE_ALLY_REWIND := "⟲ %s breaks a Rewind. You're still standing."
 
 # R§3.7a: Combat Skill's XP sources, flat regardless of hit/miss/outcome
 # (mirrors Dial.cast_complication()'s flat +10 -- the attempt is what's
@@ -727,6 +736,9 @@ static func _start_round_combat(context: String, vein_id, enemies: Array, log_li
 		"allies": allies.slice(0, SQUAD_MAX - 1), "allyQueue": allies.slice(SQUAD_MAX - 1),
 		"locationKey": location_key, "selection": { "type": "enemy", "index": 0 },
 		"onWin": on_win, "raiderKit": {}, "guardKit": {}, "slotsUsed": [],
+		# The player's real loadout slots as each pick found them, so its
+		# snapshot carries them back on a Rewind (_restore_round_snapshot()).
+		"loadoutSlots": [],
 		"backdrop": { "context": context, "locationKey": location_key },
 		"fog": bool(config.get("fog", true)),
 	}, true)
@@ -850,25 +862,135 @@ static func choose_item(index: int, target: int = -1) -> Dictionary:
 	var reason := round_item_block_reason(index, target)
 	if reason != "":
 		return { "ok": false, "reason": reason }
-	var result := CombatPrototype.play_pick(combat, { "slot": _round_entry(combat, index), "target": target }, ROUND_SNAPSHOT_STACK)
-	if result["ok"]:
-		_sync_round_outcome(combat)
-		EventBus.state_changed.emit()
-	return result
+	return _play_round_pick(combat, { "slot": _round_entry(combat, index), "target": target })
 
 
 # Plays `move_id` at the round fight's paused player position (target -1:
 # the move's default), as CombatPrototype.play_pick(). Returns
-# { ok, beats, outcome } or { ok: false, reason }.
+# { ok, beats, outcome } or { ok: false, reason }; a pick whose KO a
+# Failsafe or ally rewind undid returns no beats and "saved": its line.
 static func choose_move(move_id: String, target: int = -1) -> Dictionary:
 	var combat: Dictionary = GameState.state["combat"]
 	if not combat["active"] or not is_round_engine(combat):
 		return { "ok": false, "reason": "Combat not active." }
-	var result := CombatPrototype.play_pick(combat, { "move": move_id, "target": target }, ROUND_SNAPSHOT_STACK)
-	if result["ok"]:
-		_sync_round_outcome(combat)
-		EventBus.state_changed.emit()
+	return _play_round_pick(combat, { "move": move_id, "target": target })
+
+
+static func _play_round_pick(combat: Dictionary, action: Dictionary) -> Dictionary:
+	combat["loadoutSlots"] = GameState.state["player"]["loadout"]["slots"].duplicate(true)
+	var result := CombatPrototype.play_pick(combat, action, ROUND_SNAPSHOT_STACK)
+	if not result["ok"]:
+		return result
+	var saved := _try_round_save(combat)
+	if saved != "":
+		result = { "ok": true, "beats": [], "outcome": combat["outcome"], "saved": saved }
+	_sync_round_outcome(combat)
+	EventBus.state_changed.emit()
 	return result
+
+
+# R§3.7b Failsafe and guard-kit rewind: the player's KO in the pick just
+# played is undone by the player's loadout Failsafe, else by the first
+# ally left standing that holds a rewind (guard kit or recruit slot). Either
+# restores the last-pick snapshot and stays spent. Returns the ticker line,
+# or "" when nothing saved the player.
+static func _try_round_save(combat: Dictionary) -> String:
+	if not combat["combatants"][CombatPrototype.PLAYER_INDEX]["koed"] or combat["snapshots"].is_empty():
+		return ""
+	var failsafe := Loadout.find_slot("failsafe")
+	if failsafe >= 0:
+		_restore_round_snapshot(combat)
+		Loadout.consume(failsafe)
+		return _push_round_line(LINE_FAILSAFE)
+	var allies: Array = combat["allies"]
+	for i in range(allies.size()):
+		var fighter: Dictionary = combat["combatants"][CombatPrototype.PLAYER_INDEX + 1 + i]
+		if fighter["koed"] or not _uses_items(allies[i]) or not _guard_pool_has(_ally_item_pool(combat, allies[i]), "rewind"):
+			continue
+		_restore_round_snapshot(combat)
+		var ally: Dictionary = combat["allies"][i]
+		var pool := _ally_item_pool(combat, ally)
+		_spend_guard_item(pool, "rewind")
+		_sync_ally_slots(ally, pool)
+		return _push_round_line(LINE_ALLY_REWIND % fighter["name"])
+	return ""
+
+
+static func _push_round_line(line: String) -> String:
+	Notify.push(line, Notify.CATEGORY_INFO, { Notify.META_COMBAT_LOG: true })
+	return line
+
+
+# Restores the round fight's newest snapshot whole (R§3.7b Rewind), the
+# player's real loadout slots with it, so every unit spent since comes back
+# -- bar the units earlier Rewinds were paid with: the player's rewinds and
+# Failsafes, recruits' slot rewinds and the guard kit's rewinds, which only
+# ever leave as payment. The caller spends whatever pays for this one.
+static func _restore_round_snapshot(combat: Dictionary) -> void:
+	var slots: Array = GameState.state["player"]["loadout"]["slots"]
+	var slots_before: Array = slots.duplicate()
+	var ally_slots_before: Array = combat["allies"].map(func(a: Dictionary) -> Array: return a.get("slots", []).duplicate())
+	var kit_before: Dictionary = combat["guardKit"].duplicate(true)
+	CombatPrototype.rewind_pick(combat)
+	var kept: Array = combat["loadoutSlots"]
+	for i in range(mini(slots.size(), kept.size())):
+		slots[i] = kept[i].duplicate() if kept[i] is Dictionary else null
+	_keep_paid(slots, slots_before, combat["slotsUsed"], ["rewind", "failsafe"])
+	var allies: Array = combat["allies"]
+	for i in range(mini(allies.size(), ally_slots_before.size())):
+		if allies[i].has("slots"):
+			var used: Array = allies[i].get("slotsUsed", [])
+			allies[i]["slotsUsed"] = used
+			_keep_paid(allies[i]["slots"], ally_slots_before[i], used, ["rewind"])
+	for part in ["items", "used"]:
+		if kit_before.has(part):
+			var held: Variant = kit_before[part].get("rewind")
+			if held is Dictionary:
+				combat["guardKit"][part]["rewind"] = held
+			else:
+				combat["guardKit"][part].erase("rewind")
+
+
+# Empties each of `slots` holding a `recipes` unit that `before` (the same
+# slots before the restore) had already spent, recording it in `used`.
+static func _keep_paid(slots: Array, before: Array, used: Array, recipes: Array) -> void:
+	for i in range(mini(slots.size(), before.size())):
+		if slots[i] is Dictionary and recipes.has(slots[i]["recipe"]) and before[i] == null:
+			slots[i] = null
+			if not used.has(i):
+				used.append(i)
+
+
+# Why the round fight's Rewind command can't run now, or "".
+static func round_rewind_block_reason() -> String:
+	var combat: Dictionary = GameState.state["combat"]
+	if not combat["active"] or not is_round_engine(combat) or combat["outcome"] != null:
+		return "Combat not active."
+	if combat["snapshots"].is_empty():
+		return REASON_NOTHING_TO_UNDO
+	if Loadout.find_slot("rewind") < 0 and Dial.find_loaded_rewind_complication_index() < 0:
+		return REASON_NO_REWIND
+	return ""
+
+
+# R§3.7b Rewind: back to the last pick with it undone (a second steps one
+# more pick back), paid by a loadout rewind unit, else a loaded Dial rewind
+# cast. Returns { ok } or { ok: false, reason }.
+static func round_rewind() -> Dictionary:
+	var reason := round_rewind_block_reason()
+	if reason != "":
+		return { "ok": false, "reason": reason }
+	var combat: Dictionary = GameState.state["combat"]
+	var slot := Loadout.find_slot("rewind")
+	_restore_round_snapshot(combat)
+	if slot >= 0:
+		Loadout.consume(slot)
+	else:
+		Dial.cast_complication(Dial.find_loaded_rewind_complication_index())
+	_push_round_line(LINE_REWIND)
+	_sync_round_outcome(combat)
+	EventBus.state_changed.emit()
+	return { "ok": true }
 
 
 static func move_block_reason(move_id: String, target: int = -1) -> String:
@@ -883,6 +1005,8 @@ static func round_item_block_reason(index: int, target: int = -1) -> String:
 		return REASON_SLOT_EMPTY
 	if unit["recipe"] == "failsafe":
 		return REASON_SLOT_REACTIVE
+	if unit["recipe"] == "rewind":
+		return REASON_SLOT_REWIND
 	var entry := _round_entry(GameState.state["combat"], index)
 	if entry < 0:
 		return REASON_ROUND_ITEM_PENDING
@@ -905,21 +1029,19 @@ static func _sync_round_outcome(combat: Dictionary) -> void:
 
 
 # Each active ally's live dict follows its combatant (combatants after the
-# player, in allies order): hp, a KO (starting a contact's cooldown, once)
-# and the real slots its spent items came from, for exit_combat()'s
-# settlement.
+# player, in allies order): hp, a KO (its contact's cooldown starts in
+# exit_combat(), so a Rewind can undo it) and the real slots its spent
+# items came from, for exit_combat()'s settlement.
 static func _sync_round_allies(combat: Dictionary) -> void:
 	var allies: Array = combat["allies"]
 	for i in range(allies.size()):
 		var ally: Dictionary = allies[i]
 		var fighter: Dictionary = combat["combatants"][CombatPrototype.PLAYER_INDEX + 1 + i]
 		ally["hp"] = int(fighter["hp"])
-		if fighter["koed"] and not ally["koed"] and ally.has("contactId"):
-			Contacts.knock_out(ally["contactId"], GameState.state["world"]["day"])
 		ally["koed"] = bool(fighter["koed"])
-		var used: Array = []
+		var used: Array = ally.get("slotsUsed", [])
 		for entry in fighter["loadout"]:
-			if entry["used"]:
+			if entry["used"] and not used.has(int(entry["sourceSlot"])):
 				used.append(int(entry["sourceSlot"]))
 		ally["slotsUsed"] = used
 
@@ -2987,6 +3109,8 @@ static func use_slot(index: int) -> Dictionary:
 
 static func combat_rewind(slot: int = -1) -> Dictionary:
 	var combat: Dictionary = GameState.state["combat"]
+	if is_round_engine(combat):
+		return round_rewind()
 	if not combat["active"] or combat["snapshots"].is_empty():
 		return { "ok": false, "reason": "Nothing to rewind." }
 
@@ -3174,6 +3298,10 @@ static func exit_combat() -> Dictionary:
 
 	if is_round_engine(combat) and round_fight_xp(outcome) > 0:
 		award_xp(round_fight_xp(outcome))
+	if is_round_engine(combat):
+		for ally in combat["allies"]:
+			if ally["koed"] and ally.has("contactId"):
+				Contacts.knock_out(ally["contactId"], GameState.state["world"]["day"])
 	Loadout.refill_used(combat.get("slotsUsed", []))
 	Loadout.settle_allies(combat["allies"])
 	# Hand any allies' ending hp back to persistent contact state
