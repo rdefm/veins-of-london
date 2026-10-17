@@ -2,9 +2,10 @@
 
 **Status:** Vision + buildable spec for the HQ tab redesign. Agreed with the
 human in a grilling session, 2026-09-06. Where this document and
-`docs/ART-BIBLE.md` disagree on pixel technique, ART-BIBLE wins; where it
-and `docs/M3-CALC-DISCOVERY.md` disagree on discovery *rules*, M3 wins —
-this doc only re-shapes M3's front-end, never its mechanics.
+`docs/ART-BIBLE.md` disagree on pixel technique, ART-BIBLE wins. Lab
+mechanics live in `docs/REFERENCE.md` §3.5 (the Lab); this doc's bench
+sections describe the retired lottery bench's front-end and never override
+REFERENCE.
 
 **Prose:** contains no final player-facing copy. Strings drafted during
 implementation are `PROSE-REVIEW:` material per `CLAUDE.md`.
@@ -226,15 +227,9 @@ too. These replace the current "Working the bench…" text state.
 
 ### 5.6 Inherited constraint — do not violate
 
-`M3-CALC-DISCOVERY.md` §8.0: **the 15 type sets are never enumerated
-anywhere in the UI** — not as a matrix, not as a list, not as a completion
-tracker. The bench satisfies this better than the old picker did: the
-player physically assembles a pairing and it exists only while it is in the
-apparatus. The Experiments notebook shows *pairings already tried*, which is
-history, not an enumeration. Keep it that way.
-
-Refine (raising a known recipe's tier) is an action **on a recipe page in
-the book** — not a fifth apparatus.
+Retired with the lottery bench: the Lab (REFERENCE.md §3.5) has no type
+sets or cells to enumerate, and no Refine action — rank rises by performing
+the recipe.
 
 ## 6. The floorplan
 

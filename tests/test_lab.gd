@@ -513,7 +513,7 @@ func _register_learning_cases() -> void:
 	)
 
 	run_case("bonus_rolls_only_at_or_above_best_rank", func():
-		_bench("timePearl", { "time": 10 })
+		_bench("timePearl", { "time": 15 })
 		GameData.LAB["bonus"]["chance"] = 1.0
 		GameState.state["lab"]["bestRanks"]["timePearl"] = 5
 		Lab.add_ore("timePearl", "time")

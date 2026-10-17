@@ -8,11 +8,6 @@ extends "res://tests/test_base.gd"
 
 # Knowledge level (rungs granted so far) -> [min, max] perfect-run score.
 const BANDS := [[40, 59], [60, 74], [75, 89], [90, 100]]
-const PROTOTYPE_RECIPES := ["timePearl", "healingSalve", "healingBurst"]
-const TIME_LIFE_RECIPES := ["rewind", "prophetsBreath", "enhancementPowder"]
-const PHYSICS_RECIPES := ["blast", "shield", "blackHole"]
-const EMOTION_FATE_RECIPES := ["panic", "panger", "pandemonium", "pansRapture", "beALady"]
-const MIXED_RECIPES := ["failsafe", "rejuvenation", "wormhole"]
 
 
 func _procedures() -> Dictionary:
@@ -49,29 +44,12 @@ func _repeat(value: float, count: int) -> Array:
 
 
 func run() -> void:
-	run_case("prototype_recipes_have_procedures", func():
-		for recipe_key in PROTOTYPE_RECIPES:
+	run_case("all_17_recipes_have_procedures", func():
+		assert_eq(GameData.RECIPES.size(), 17, "17 recipes")
+		for recipe_key in GameData.RECIPES:
 			assert_true(_procedures().has(recipe_key), "%s has a procedure" % recipe_key)
-	)
-
-	run_case("time_life_recipes_have_procedures", func():
-		for recipe_key in TIME_LIFE_RECIPES:
-			assert_true(_procedures().has(recipe_key), "%s has a procedure" % recipe_key)
-	)
-
-	run_case("physics_recipes_have_procedures", func():
-		for recipe_key in PHYSICS_RECIPES:
-			assert_true(_procedures().has(recipe_key), "%s has a procedure" % recipe_key)
-	)
-
-	run_case("emotion_fate_recipes_have_procedures", func():
-		for recipe_key in EMOTION_FATE_RECIPES:
-			assert_true(_procedures().has(recipe_key), "%s has a procedure" % recipe_key)
-	)
-
-	run_case("mixed_recipes_have_procedures", func():
-		for recipe_key in MIXED_RECIPES:
-			assert_true(_procedures().has(recipe_key), "%s has a procedure" % recipe_key)
+		for recipe_key in _procedures():
+			assert_true(GameData.RECIPES.has(recipe_key), "procedure %s has a recipe" % recipe_key)
 	)
 
 	run_case("every_procedure_is_schema_valid", func():

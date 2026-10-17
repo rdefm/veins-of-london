@@ -40,7 +40,7 @@ Data file per system: see `data/*.json` below.
 | contacts.gd | Relation, recruiting (incl. story `force_recruit`), seat-capped room assignment (`contacts_in_room`/`assign_to_room`), room→role lookup from hiring.json (`room_roles`), founder staff roles (`set_role`/`role_of`/`available_roles`), capped XP (`skill_cap`, `xp_levels`), ally combat kit (Dial grant on recruit via `Dial.grant_contact_dial`), display names, directory order |
 | contact_texts.gd | Per-contact random texts: rollover scheduling, gated selection, vein templating, reply rewards, and ticker notices; content from contact_texts.json |
 | contracts.gd | Block-end Sales auto-delivery (full, then partials by priority; goods to buyer holdings + supplier share), settlement to pot; recurring periods pay on fill, lock (`periodFilled`) until Monday renewal, expire at term end; per-contract `buyCalc` calc buys from the pot; unattended-proof taint (`playerAssisted`) and `qualified` settlements; `cancel()` (unpaid, hurts counterparty) |
-| crafting.gd | Recipe crafting; staff `craft_chance`, `calc_cost`; tiered inventory buckets; multi-target variant (from Lab best rank 3, `<recipe>_multi` inventory key, `craftMulti` checkbox state); `file_crafted` = the one filing entry point (inventory, Shares, counts, XP, Contracts/Objectives/Collective) |
+| crafting.gd | Recipe crafting; staff `craft_chance`, faction `calc_cost`; tiered inventory buckets; multi-target variant (from Lab best rank 3, `<recipe>_multi` inventory key, `craftMulti` checkbox state); `file_crafted` = the one filing entry point (inventory, Shares, counts, XP, Contracts/Objectives/Collective) |
 | cultivating.gd | Vein growth / cultivate / prune (player rolls max under Be a Lady; `player_*_text` previews); security tiers (lock/ward prices, guard tiers hired via GuardUpkeep) + raid resist; shared vein `value_order`; vein guard count + `drop_vein_guard` |
 | debug_start.gd | Maximal-unlock debug state; `apply(model)` keeps a picked `player.model` through its reset |
 | debug_tools.gd | Debug phone-app state adjusters; `fire_event()` preps any event (state-path veins/sites, addressed contacts, raid/reveal site context) then starts it |
@@ -348,7 +348,7 @@ unit-tests both, incl. lossless round-trips. `storyboard.html` is the local even
 
 See CLAUDE.md's source-of-truth table for REFERENCE.md, M0-PORT.md, M1-LONDON.md,
 M1.5-NETWORK-MAP.md, CONTENT-GUIDE.md, CONTEXT.md, docs/adr/. Not in that table: `VISION.md`,
-`M3-CALC-DISCOVERY.md`/`device-plan-spec.md`/`story-restructure.md` (provisional drafts; the last maps questlines to features),
+`device-plan-spec.md`/`story-restructure.md` (provisional drafts; the last maps questlines to features),
 `hq-diorama-vision.md`/`combat-animation-vision.md`/`ART-BIBLE.md` (screen/art direction),
 `BUGS.md`, `BUGHUNT-2026-07-17.md`, `android-setup.md`, `agents/*.md` (see CLAUDE.md's Agent
 skills section). `docs/adr/0001`–`0005`: Network Map deferral, site/NPC-claim rules, app-icon

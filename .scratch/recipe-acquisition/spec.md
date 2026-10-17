@@ -299,6 +299,7 @@ Each step raises the highest rank you can reach. Everything on the ladder can al
   - insight lines;
   - locked-rung and master pointers;
   - Benefits rows.
+- Teaching a recipe or rung the player already knows must never be a silent dud (carried over from the retired M3 calc-discovery doc §12.1). Today `Lab.grant_recipe` on a known recipe silently does nothing. Any event, seller or quest that grants knowledge needs a collision branch: the M3 fallback order was a different unknown recipe from that NPC → else crafting XP and a relation bump, with a line acknowledging it. Decide the fallback when specced.
 - James's character must hold: grudging, dry, never warm. His Dial motive is hinted at, not explained.
 - REFERENCE.md needs new sections when this lands: the recipe knowledge ladder, seller derivation, the price formula, insights, assay commissions and the new state paths. Update CODEMAP for the new system, data file(s) and the renamed event.
 - Playtest questions:
