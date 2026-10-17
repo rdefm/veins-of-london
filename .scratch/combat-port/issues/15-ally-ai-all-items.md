@@ -24,15 +24,14 @@ Plan-time, evaluated in this order on the round-start state. Each unit is reserv
 | enhancementPowder | first action of a round with no powder running, once per fight | self |
 | beALady | first action of round 1 (or first round with 2+ enemies), once per fight | self |
 | panic / pansRapture / panger / pandemonium | per 07's table-4 rows: the unstatused enemy with most read offensive actions | that enemy; multi → all unstatused |
-| wormhole | see Open decisions | — |
 | failsafe / rewind | stay automatic, never planned (Table 5) | — |
 
 ## Open decisions (human)
 
-1. **Wormhole on an ally.** REFERENCE Table 4 and ticket 07 say "player only, allies refuse". Options: (a) keep it player-only, the one exception to "all items"; (b) an ally's Wormhole ends the fight `fled` for everyone, used only when the player is KO'd or below some hp fraction; (c) it pulls just that ally out (it leaves the fight, no KO cooldown).
-2. **Be a Lady on an ally.** In-fight only (max rolls + 1/3 crit for `power` rounds on the ally), with no carry-in for allies. Confirm.
-3. **Thresholds** in the draft table (Blast kill check, Shield trigger, Powder/Lady timing) need sign-off or replacement. Any new numbers go in `data/combat_prototype.json`, not code.
-4. Whether guard-kit allies (ticket 10) use the same rules as recruits, or keep Table 5's own order.
+1. **Wormhole on an ally:** DECIDED (2026-10-17): stays player-only (`allyExcluded: [wormhole]`), the one exception to "all items". Drop its row from the draft table.
+2. **Be a Lady on an ally:** DECIDED (2026-10-17): in-fight only (max rolls + 1/3 crit for `power` rounds on that ally), no carry-in for allies. Remove `beALady` from `allyExcluded`.
+3. **Trigger rules** in the draft table (when Blast, Shield, Powder and Lady fire): OPEN, awaiting sign-off or replacement. Any new numbers go in `data/combat_prototype.json`, not code.
+4. **Guard-kit allies:** DECIDED (2026-10-17): keep Table 5's guard-kit rule order (ticket 10). This ticket covers recruit loadouts only.
 
 Once decided, update REFERENCE §3.7 (Recruit loadout `allyExcluded`) and §3.7b (ally item rules) before implementation, then set `Status: ready-for-agent`.
 
