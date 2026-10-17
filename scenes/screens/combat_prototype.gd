@@ -34,7 +34,7 @@ const _STRIP_SIDE_INSET := 9.0
 # How many upcoming actions the strip's carousel holds.
 const STRIP_SIZE := 10
 # Beat kinds that play nothing past the guard overlay their marks set.
-const _OVERLAY_KINDS: Array[String] = ["guard", "lure", "exposed", "lost", "frozen"]
+const _OVERLAY_KINDS: Array[String] = ["guard", "lure", "exposed", "lost", "frozen", "cower", "enraptured", "calm", "disarm"]
 const _CAST_KINDS: Array[String] = ["powder", "sight", "lady"]
 # The screen's own closing beat after a pick's beats (_play_beats()).
 const _SETTLE_KIND := "settle"
@@ -290,8 +290,8 @@ func _sync_fight(cp: Dictionary) -> void:
 # ("nextRound"). Each is a TurnOrderStrip entry keyed by the combatant's
 # stage { type, index }, with "actor"/"index" (its position), "actionText"
 # (_position_text(), or _next_round_card() next round) and "guardBadge"
-# (_guard_badge()), and "actionUnread" for an unread enemy intent; the
-# paused position is "focused".
+# (_guard_badge()), "statusBadge" (_status_badge()), and "actionUnread"
+# for an unread enemy intent; the paused position is "focused".
 # `pick` ({ move, target }) reads as already placed at the pause -- the
 # cards as a pick's playback starts.
 static func strip_entries(cp: Dictionary, pick: Dictionary = {}) -> Array:
@@ -303,23 +303,30 @@ static func strip_entries(cp: Dictionary, pick: Dictionary = {}) -> Array:
 		entry["actionText"] = _position_text(cp, position, pick)
 		entry["actionUnread"] = _position_unread(cp, position)
 		entry["guardBadge"] = _guard_badge(cp, position)
+		entry["statusBadge"] = _status_badge(cp, position["actor"])
 		entry["focused"] = pick.is_empty() and position["actor"] == CombatPrototype.PLAYER_INDEX and position["index"] == pause
 		entries.append(entry)
 	for position in CombatPrototype.next_round_timeline(cp):
 		var entry := _strip_entry(cp, roster, position, true)
 		entry.merge(_next_round_card(cp, position))
+		entry["statusBadge"] = _status_badge(cp, position["actor"])
 		entry["focused"] = false
 		entries.append(entry)
 	return entries
 
 
-# A next-round position's card text: an enemy's move and guard under
-# Prophet's Breath sight, else unread; the player's and an ally's unpicked.
+# A next-round position's card text: an enemy's status turn, else its move
+# and guard under Prophet's Breath sight, else unread; the player's and an
+# ally's unpicked.
 static func _next_round_card(cp: Dictionary, position: Dictionary) -> Dictionary:
 	var actor: int = position["actor"]
 	var index: int = position["index"]
 	if cp["combatants"][actor]["side"] != CombatPrototype.SIDE_ENEMY:
 		return { "actionText": "—", "actionUnread": false, "guardBadge": "" }
+	var status := CombatPrototype.status_turn(cp, actor, index, true)
+	if status != "":
+		var turn: Dictionary = GameData.COMBAT_PROTOTYPE["statusTurns"][status]
+		return { "actionText": turn["name"], "actionUnread": false, "guardBadge": _guard_text(turn["actorGuard"]) }
 	if not CombatPrototype.has_sight(cp):
 		return { "actionText": UNREAD_TEXT, "actionUnread": true, "guardBadge": UNREAD_TEXT }
 	return {
@@ -395,6 +402,11 @@ static func _guard_badge(cp: Dictionary, position: Dictionary) -> String:
 	elif _position_loss(cp, position) == "frozen":
 		return "Open"
 	return _guard_text(CombatPrototype.guard_preview(cp, actor)[position["index"] + 1])
+
+
+# The actor's running statuses on its strip cards (status_badges(), joined).
+static func _status_badge(cp: Dictionary, actor: int) -> String:
+	return ", ".join(CombatPrototype.status_badges(cp["combatants"][actor]))
 
 
 # A guard state as a badge reads: "?" for one an unread intent hides.
@@ -824,6 +836,8 @@ func _build_combatant_card(cp: Dictionary, index: int) -> Control:
 			c["content"].add_child(UI.muted_label("Stunned: loses next %d action(s)" % (combatant["actionsLost"] - combatant["frozenActions"])))
 		if combatant["shield"] > 0:
 			c["content"].add_child(UI.muted_label("Shield: %d (counts as Guarded)" % combatant["shield"]))
+		for badge in CombatPrototype.status_badges(combatant):
+			c["content"].add_child(UI.muted_label(badge))
 		if CombatPrototype.is_powered(cp, combatant):
 			c["content"].add_child(UI.muted_label("Powder: +1 action through round %d" % combatant["powderUntil"]))
 		if CombatPrototype.has_lady(cp, combatant):
@@ -868,12 +882,14 @@ func _build_timeline_card(cp: Dictionary) -> Control:
 
 
 # An enemy intent: its move type, plus target and damage range under sight;
-# "?" while unread.
+# "?" while unread, and "→ ?" for a furious enemy's target.
 static func _intent_text(cp: Dictionary, intent: Dictionary) -> String:
 	if intent.get("unread", false):
 		return UNREAD_TEXT
 	var text: String = intent["name"]
-	if intent.has("target") and int(intent["target"]) >= 0 and CombatPrototype.move(intent["move"])["target"] != CombatPrototype.TARGET_SELF:
+	if intent.get("targetUnread", false):
+		text += " → %s" % UNREAD_TEXT
+	elif intent.has("target") and int(intent["target"]) >= 0 and CombatPrototype.move(intent["move"])["target"] != CombatPrototype.TARGET_SELF:
 		text += " → %s" % CombatPrototype.display_name(cp["combatants"][intent["target"]])
 	if intent.has("dmgMin"):
 		text += " (%d–%d)" % [intent["dmgMin"], intent["dmgMax"]]
@@ -1029,14 +1045,18 @@ func _patch_strip_entry(entries: Array, playing: int, beat: Dictionary) -> void:
 		entry["actionText"] = "Frozen" if beat["kind"] == "frozen" else "Lost"
 		entry["actionUnread"] = false
 	elif int(beat["actor"]) == entry["actor"]:
-		if entry.get("actionUnread", false) and beat["move"] != "":
+		if beat.has("status"):
+			entry["actionText"] = GameData.COMBAT_PROTOTYPE["statusTurns"][beat["status"]]["name"]
+			entry["actionUnread"] = false
+		elif entry.get("actionUnread", false) and beat["move"] != "":
 			entry["actionText"] = _aimed(_cp(), CombatPrototype.move(beat["move"])["name"], beat["move"], int(beat["target"]))
 			entry["actionUnread"] = false
 		if beat.has("actorGuard"):
 			entry["guardBadge"] = str(beat["actorGuard"]).capitalize()
-	if beat["kind"] == "ko":
+	if beat["kind"] in ["ko", "bolt"]:
+		var gone: int = int(beat["target"] if beat["kind"] == "ko" else beat["actor"])
 		for i in range(playing + 1, entries.size()):
-			if entries[i]["actor"] == int(beat["target"]):
+			if entries[i]["actor"] == gone:
 				entries[i]["actionText"] = "Down"
 
 
@@ -1088,7 +1108,7 @@ static func beat_cues(beat: Dictionary) -> Array:
 	match kind:
 		"hit", "chip", "stun", "feint", "fizzle":
 			cues.append_array(_move_pose_cues(beat["move"], actor))
-		"fled":
+		"fled", "wormhole", "bolt":
 			cues.append({ "call": "vanish", "who": actor })
 		"fleeFailed":
 			cues.append({ "call": "recoil", "who": actor })
@@ -1106,6 +1126,8 @@ static func beat_cues(beat: Dictionary) -> Array:
 		"shield":
 			cues.append({ "call": "throw", "who": actor })
 			cues.append({ "call": "effect", "who": actor, "effect": _ITEM_EFFECTS[kind] })
+		"panic", "rapture", "anger", "fury":
+			cues.append({ "call": "throw", "who": actor })
 		_:
 			if not _CAST_KINDS.has(kind):
 				return []
@@ -1177,8 +1199,8 @@ func _play_cue(cp: Dictionary, cue: Dictionary, rewinding: bool) -> void:
 			_stage.shake(int(cue["dmg"]), int(cp["combatants"][who]["hpMax"]), scale)
 
 
-# Each combatant's slot to its stage marks: guard marker, Shield loop and
-# Time Pearl freeze.
+# Each combatant's slot to its stage marks: guard marker, Shield loop, Time
+# Pearl freeze and status badges.
 func _apply_marks(cp: Dictionary, marks: Array) -> void:
 	var roster := stage_roster(cp, -1)
 	for i in range(mini(marks.size(), cp["combatants"].size())):
@@ -1188,6 +1210,7 @@ func _apply_marks(cp: Dictionary, marks: Array) -> void:
 		slot.set_guard_marker(marks[i]["guard"])
 		_stage.set_slot_shield(slot, marks[i]["shielded"])
 		_stage.set_slot_frozen(slot, marks[i]["frozen"])
+		slot.set_status_badges(marks[i].get("badges", []))
 
 
 func _build_outcome_card(outcome: String) -> Control:

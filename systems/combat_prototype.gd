@@ -67,7 +67,20 @@ const ITEM_HEAL := "heal"
 const ITEM_POWDER := "powder"
 const ITEM_SIGHT := "sight"
 const ITEM_LADY := "lady"
-const ITEM_EFFECTS: Array[String] = [ITEM_FREEZE, ITEM_BLACK_HOLE, ITEM_BLAST, ITEM_SHIELD, ITEM_HEAL, ITEM_POWDER, ITEM_SIGHT, ITEM_LADY]
+const ITEM_PANIC := "panic"
+const ITEM_RAPTURE := "rapture"
+const ITEM_ANGER := "anger"
+const ITEM_FURY := "fury"
+const ITEM_WORMHOLE := "wormhole"
+const ITEM_EFFECTS: Array[String] = [ITEM_FREEZE, ITEM_BLACK_HOLE, ITEM_BLAST, ITEM_SHIELD, ITEM_HEAL, ITEM_POWDER, ITEM_SIGHT, ITEM_LADY, ITEM_PANIC, ITEM_RAPTURE, ITEM_ANGER, ITEM_FURY, ITEM_WORMHOLE]
+# The Pan family (R§3.7b Table 4): an enemy holds one of their statuses at a
+# time and refuses another while it runs.
+const PAN_EFFECTS: Array[String] = [ITEM_PANIC, ITEM_RAPTURE, ITEM_ANGER, ITEM_FURY]
+const REASON_PAN_STATUSED := "Already out of it."
+# The turns Panic and Pan's Rapture play in place of an enemy's own actions
+# (the data's statusTurns).
+const STATUS_PANIC := "panic"
+const STATUS_RAPTURE := "rapture"
 # Loadout slots per combatant (spec user story 48).
 const LOADOUT_SLOTS := 2
 
@@ -234,6 +247,70 @@ static func carry_in(combatant: Dictionary, sight: bool, lady: bool) -> void:
 	if lady:
 		combatant["ladyUntil"] = WHOLE_FIGHT
 		combatant["ladyCrit"] = float(_data()["items"]["beALady"]["params"]["critChance"])
+
+
+static func has_pan_status(combatant: Dictionary) -> bool:
+	return int(combatant["panicActions"]) > 0 or int(combatant["raptureActions"]) > 0 or int(combatant["angerActions"]) > 0
+
+
+# The status turn (STATUS_PANIC or STATUS_RAPTURE) enemy `actor` plays at
+# its plan position `index` this round (with next_round, next round's), or
+# "": its pending status turns take its upcoming positions in order, after
+# the ones it's due to lose (a lost action never ticks a status, R§3.7b
+# Table 4).
+static func status_turn(cp: Dictionary, actor: int, index: int, next_round: bool = false) -> String:
+	var combatant: Dictionary = cp["combatants"][actor]
+	var status := ""
+	if int(combatant["panicActions"]) > 0:
+		status = STATUS_PANIC
+	elif int(combatant["raptureActions"]) > 0:
+		status = STATUS_RAPTURE
+	if status == "" or combatant["side"] != SIDE_ENEMY:
+		return ""
+	var turns: int = combatant["panicActions"] if status == STATUS_PANIC else combatant["raptureActions"]
+	var lost: int = combatant["actionsLost"]
+	# [round offset, index] per upcoming position, this round's then next's.
+	var upcoming: Array = []
+	for i in range(combatant["plan"].size()):
+		if not is_resolved(cp, actor, i):
+			upcoming.append([0, i])
+	for i in range(combatant["nextPlan"].size()):
+		upcoming.append([1, i])
+	return status if upcoming.slice(lost, lost + turns).has([1 if next_round else 0, index]) else ""
+
+
+# Multiplier on the damage `combatant` deals (dealing) or takes under
+# Panger/Pandemonium: its first phaseActions actions deal +angerPct% and
+# take -angerPct%, the rest the reverse, floored at 0 (R§3.7b Table 4).
+static func anger_factor(combatant: Dictionary, dealing: bool) -> float:
+	var left := int(combatant["angerActions"])
+	if left == 0:
+		return 1.0
+	var buffed: bool = left > int(_data()["anger"]["phaseActions"])
+	var sign := 1.0 if buffed == dealing else -1.0
+	return maxf(0.0, 1.0 + sign * float(combatant["angerPct"]) / 100.0)
+
+
+# The combatant's running Table 4 statuses as short badges: Panic or
+# Rapture with its turns left, Anger or Fury with the damage it deals now
+# (+/- angerPct%), Disarmed (with an ability's locked rounds).
+static func status_badges(combatant: Dictionary) -> Array:
+	var labels: Dictionary = _data()["statusBadges"]
+	var badges: Array = []
+	if combatant["koed"]:
+		return badges
+	if int(combatant["panicActions"]) > 0:
+		badges.append("%s (%d)" % [labels["panic"], combatant["panicActions"]])
+	if int(combatant["raptureActions"]) > 0:
+		badges.append("%s (%d)" % [labels["rapture"], combatant["raptureActions"]])
+	if int(combatant["angerActions"]) > 0:
+		var sign := "+" if anger_factor(combatant, true) >= 1.0 else "−"
+		badges.append("%s %s%d%%" % [labels["fury" if combatant["fury"] else "anger"], sign, combatant["angerPct"]])
+	if combatant["disarmed"]:
+		var ability = combatant["ability"]
+		var locked: int = int(ability["lockedTurns"]) if ability is Dictionary else 0
+		badges.append(labels["disarmed"] if locked == 0 else "%s (%d)" % [labels["disarmed"], locked])
+	return badges
 
 
 # The attacker's damage roll range: its attack range, or its max both ends
@@ -422,6 +499,16 @@ static func new_combatant(side: String, name: String, level: int, hp: int, hp_ma
 		"sightUntil": 0,
 		# A Blast's one-use Leg it chance for the next Leg it (0.0 for none).
 		"fleeBoost": 0.0,
+		# Pan statuses (R§3.7b Table 4), counted down on the combatant's own
+		# resolved actions: Panic and Pan's Rapture turns still to play, and
+		# Panger/Pandemonium's anger (angerPct either way; fury turns its
+		# Strikes and Stuns on its own side).
+		"panicActions": 0, "raptureActions": 0,
+		"angerActions": 0, "angerPct": 0, "fury": false,
+		# What a Blast's disarm takes: the weapon's attack bonus { min, max }
+		# (null for none) and the ability { id, lockedTurns } it locks for
+		# some rounds (null for none).
+		"weapon": null, "ability": null, "disarmed": false,
 		# Items: { item, tier, power, used } per slot, plus multi for a
 		# multi-target unit and sourceSlot for a live fight's real slot.
 		"loadout": [],
@@ -659,7 +746,7 @@ static func _ally_action(cp: Dictionary, ally: int, index: int, count: int, fein
 	var enemies := _living_opponents(cp, ally)
 	for e in enemies:
 		var plan: Array = combatants[e]["plan"]
-		if index < plan.size() and is_read(cp, e, index) and int(plan[index]["target"]) == ally and move(plan[index]["move"])["effect"] in [EFFECT_DAMAGE, EFFECT_STUN]:
+		if index < plan.size() and is_read(cp, e, index) and status_turn(cp, e, index) == "" and int(plan[index]["target"]) == ally and move(plan[index]["move"])["effect"] in [EFFECT_DAMAGE, EFFECT_STUN]:
 			return { "move": MOVE_GUARD, "target": ally, "part": 0 }
 	for e in enemies:
 		if _ally_sees_open(cp, e, ally, index, feints):
@@ -683,7 +770,7 @@ static func _ally_sees_open(cp: Dictionary, e: int, observer: int, index: int, f
 	var events: Array = []
 	var plan: Array = enemy["plan"]
 	for i in range(mini(plan.size(), index + 1)):
-		var effect: String = move(plan[i]["move"])["actorGuard"] if is_read(cp, e, i) else UNKNOWN
+		var effect := _planned_guard(cp, e, i, plan[i])
 		if effect != UNCHANGED:
 			events.append({ "actor": e, "index": i, "guard": effect })
 	for f in feints:
@@ -851,8 +938,11 @@ static func _action_block_reason(cp: Dictionary, action) -> String:
 			return "Items come out of your loadout."
 		if cp["combatants"][PLAYER_INDEX]["loadout"][action["slot"]]["used"]:
 			return "That one's spent."
-	if m["target"] in [TARGET_ENEMY, TARGET_FRIEND] and not _is_multi_slot(cp, int(action.get("slot", -1))) and not target_options(cp, PLAYER_INDEX, action["move"]).has(action["target"]):
+	var multi := _is_multi_slot(cp, int(action.get("slot", -1)))
+	if m["target"] in [TARGET_ENEMY, TARGET_FRIEND] and not multi and not target_options(cp, PLAYER_INDEX, action["move"]).has(action["target"]):
 		return "Pick a target."
+	if m["effect"] in PAN_EFFECTS and _pan_targets(cp, PLAYER_INDEX, int(action["target"]), multi).is_empty():
+		return REASON_PAN_STATUSED
 	return ""
 
 
@@ -908,7 +998,10 @@ static func _plan_of(cp: Dictionary, actor: int) -> Array:
 # { move, name }; under Prophet's Breath sight it adds target and, for a
 # damage move, dmgMin/dmgMax (the roll range before guard and crit). Without
 # sight next round reads as [] (spec user stories 12-13). An action that
-# isn't read (is_read()) is { move: "", name: "", unread: true }.
+# isn't read (is_read()) is { move: "", name: "", unread: true }; a status
+# turn (status_turn()) reads { move: its status, name, status: true }; a
+# furious enemy's Strike or Stun carries targetUnread in place of a target
+# (R§3.7b Table 4).
 static func enemy_intents(cp: Dictionary, actor: int, next_round: bool = false) -> Array:
 	var sight := has_sight(cp)
 	if next_round and not sight:
@@ -917,13 +1010,21 @@ static func enemy_intents(cp: Dictionary, actor: int, next_round: bool = false) 
 	var plan: Array = cp["combatants"][actor]["nextPlan" if next_round else "plan"]
 	for index in range(plan.size()):
 		var action: Dictionary = plan[index]
+		var status := status_turn(cp, actor, index, next_round)
+		if status != "":
+			result.append({ "move": status, "name": _data()["statusTurns"][status]["name"], "status": true })
+			continue
 		if not next_round and not is_read(cp, actor, index):
 			result.append({ "move": "", "name": "", "unread": true })
 			continue
 		var m := move(action["move"])
 		var intent := { "move": action["move"], "name": m["name"] }
+		var furious: bool = _is_furious(cp, actor) and m["effect"] in [EFFECT_DAMAGE, EFFECT_STUN]
+		if furious:
+			intent["targetUnread"] = true
 		if sight:
-			intent["target"] = int(action["target"])
+			if not furious:
+				intent["target"] = int(action["target"])
 			if m["effect"] == EFFECT_DAMAGE:
 				var roll_range := damage_range(cp, actor)
 				intent["dmgMin"] = roll_range[0]
@@ -951,10 +1052,11 @@ static func next_round_timeline(cp: Dictionary) -> Array:
 
 # Whether the player can read `actor`'s action `index` this round: always
 # for the player and allies; for an enemy, unless it rolled unread, while
-# Prophet's Breath sight lasts or once the action has resolved.
+# Prophet's Breath sight lasts, once the action has resolved, or where a
+# status turn takes it.
 static func is_read(cp: Dictionary, actor: int, index: int) -> bool:
 	var combatant: Dictionary = cp["combatants"][actor]
-	if combatant["side"] != SIDE_ENEMY or has_sight(cp):
+	if combatant["side"] != SIDE_ENEMY or has_sight(cp) or status_turn(cp, actor, index) != "":
 		return true
 	var plan: Array = combatant["plan"]
 	if index >= plan.size() or not plan[index].get("unread", false):
@@ -976,7 +1078,8 @@ static func is_resolved(cp: Dictionary, actor: int, index: int) -> bool:
 # this round (an unfilled player action leaves it unchanged). With
 # next_round, an enemy's state as this round leaves it, then after each
 # action of its pre-rolled next plan. An unread enemy action this round
-# leaves it UNKNOWN until a read action sets its guard.
+# leaves it UNKNOWN until a read action sets its guard; a status turn sets
+# its own (_planned_guard()).
 static func guard_preview(cp: Dictionary, actor: int, next_round: bool = false) -> Array:
 	var state: String = cp["combatants"][actor]["guard"]
 	var plan: Array = _plan_of(cp, actor)
@@ -987,13 +1090,23 @@ static func guard_preview(cp: Dictionary, actor: int, next_round: bool = false) 
 	for index in range(plan.size()):
 		var action = plan[index]
 		if action != null:
-			var effect: String = move(action["move"]).get("actorGuard", UNCHANGED)
-			if not next_round and not is_read(cp, actor, index):
-				effect = UNKNOWN
+			var effect := _planned_guard(cp, actor, index, action, next_round)
 			if effect != UNCHANGED:
 				state = effect
 		result.append(state)
 	return result
+
+
+# The guard effect `actor`'s planned `action` at `index` (this round, or
+# next_round's) has as the player reads it: a status turn's, UNKNOWN for an
+# unread action this round, else the move's.
+static func _planned_guard(cp: Dictionary, actor: int, index: int, action: Dictionary, next_round: bool = false) -> String:
+	var status := status_turn(cp, actor, index, next_round)
+	if status != "":
+		return _data()["statusTurns"][status]["actorGuard"]
+	if not next_round and not is_read(cp, actor, index):
+		return UNKNOWN
+	return move(action["move"]).get("actorGuard", UNCHANGED)
 
 
 # ── Resolution ───────────────────────────────────────────────────────────
@@ -1048,7 +1161,8 @@ static func _next_entry(cp: Dictionary) -> Dictionary:
 
 
 # The plans moving up were on show under sight through the round just ended
-# when the player had it, so they all commit read.
+# when the player had it, so they all commit read. A disarmed ability's
+# lock ticks down a round.
 static func _end_round(cp: Dictionary, rng: RandomNumberGenerator) -> void:
 	var combatants: Array = cp["combatants"]
 	var seen := has_sight(cp)
@@ -1057,6 +1171,9 @@ static func _end_round(cp: Dictionary, rng: RandomNumberGenerator) -> void:
 	fog_rng.state = int(cp["fogRngState"])
 	for i in range(combatants.size()):
 		combatants[i]["lure"] = LURE_NONE
+		var ability = combatants[i]["ability"]
+		if ability is Dictionary and int(ability["lockedTurns"]) > 0:
+			ability["lockedTurns"] -= 1
 		if combatants[i]["side"] == SIDE_ENEMY:
 			combatants[i]["plan"] = _recommit_targets(cp, i, combatants[i]["nextPlan"], rng)
 			if seen:
@@ -1072,8 +1189,10 @@ static func _end_round(cp: Dictionary, rng: RandomNumberGenerator) -> void:
 	cp["playerPlan"] = _empty_player_plan(cp)
 
 
-# Applies the move's effect, then its effect on the actor's guard state. A
-# Lure ends when its actor next acts on anything but its own later parts.
+# Applies the move's effect, then its effect on the actor's guard state;
+# a Panic or Pan's Rapture turn plays instead while one runs, and the
+# action ticks a running anger down. A Lure ends when its actor next acts on
+# anything but its own later parts.
 static func _resolve_action(cp: Dictionary, actor_idx: int, action: Dictionary, rng: RandomNumberGenerator, beats: Array) -> void:
 	var m := move(action["move"])
 	var move_id: String = action["move"]
@@ -1082,10 +1201,15 @@ static func _resolve_action(cp: Dictionary, actor_idx: int, action: Dictionary, 
 	var continuing_lure: bool = m["effect"] == EFFECT_LURE and int(action.get("part", 0)) > 0
 	if not continuing_lure:
 		actor["lure"] = LURE_NONE
+	if _play_status_turn(cp, actor_idx, rng, beats):
+		_stamp_marks(cp, actor_idx, first_beat, beats)
+		return
 	var apply_guard := true
 	match m["effect"]:
 		EFFECT_DAMAGE:
-			var target := _retarget(cp, actor_idx, int(action["target"]))
+			var target := _fury_target(cp, actor_idx, rng)
+			if target < 0:
+				target = _retarget(cp, actor_idx, int(action["target"]))
 			if target >= 0:
 				_strike(cp, actor_idx, target, move_id, rng, beats)
 		EFFECT_OPEN:
@@ -1093,7 +1217,9 @@ static func _resolve_action(cp: Dictionary, actor_idx: int, action: Dictionary, 
 			if target >= 0:
 				_feint(cp, actor_idx, target, move_id, beats)
 		EFFECT_STUN:
-			var target := _retarget(cp, actor_idx, int(action["target"]))
+			var target := _fury_target(cp, actor_idx, rng)
+			if target < 0:
+				target = _retarget(cp, actor_idx, int(action["target"]))
 			if target >= 0:
 				_stun(cp, actor_idx, target, move_id, m, beats)
 		EFFECT_LURE:
@@ -1118,23 +1244,88 @@ static func _resolve_action(cp: Dictionary, actor_idx: int, action: Dictionary, 
 		EFFECT_NONE:
 			_beat(cp, beats, move_id, actor_idx, -1, move_id, {})
 		_:
-			_use_item(cp, actor_idx, action, m, beats)
+			_use_item(cp, actor_idx, action, m, rng, beats)
 	if apply_guard and m["actorGuard"] != UNCHANGED and not actor["koed"]:
 		actor["guard"] = m["actorGuard"]
+	_tick_anger(cp, actor_idx, beats)
+	_stamp_marks(cp, actor_idx, first_beat, beats)
+
+
+# Each of the action's beats from `first_beat` on gets the stage marks as
+# it leaves the fight, and the actor's own its guard state.
+static func _stamp_marks(cp: Dictionary, actor_idx: int, first_beat: int, beats: Array) -> void:
 	var marks := stage_marks(cp)
 	for i in range(first_beat, beats.size()):
 		if beats[i]["actor"] == actor_idx:
-			beats[i]["actorGuard"] = actor["guard"]
+			beats[i]["actorGuard"] = cp["combatants"][actor_idx]["guard"]
 		beats[i]["marks"] = marks
+
+
+# A Panic or Pan's Rapture turn in place of the actor's own action (R§3.7b
+# Table 4), leaving it on its statusTurns guard: Panic bolts at boltChance
+# (defeated, counted as a KO), else cowers; Rapture idles. False when
+# neither runs.
+static func _play_status_turn(cp: Dictionary, actor_idx: int, rng: RandomNumberGenerator, beats: Array) -> bool:
+	var actor: Dictionary = cp["combatants"][actor_idx]
+	var status := ""
+	if int(actor["panicActions"]) > 0:
+		status = STATUS_PANIC
+		actor["panicActions"] -= 1
+	elif int(actor["raptureActions"]) > 0:
+		status = STATUS_RAPTURE
+		actor["raptureActions"] -= 1
+	else:
+		return false
+	actor["guard"] = _data()["statusTurns"][status]["actorGuard"]
+	if status == STATUS_PANIC and rng.randf() < float(_data()["items"]["panic"]["params"]["boltChance"]):
+		actor["hp"] = 0
+		actor["koed"] = true
+		actor["panicActions"] = 0
+		_beat(cp, beats, "bolt", actor_idx, -1, "", { "status": status })
+		_check_outcome(cp)
+	else:
+		_beat(cp, beats, "cower" if status == STATUS_PANIC else "enraptured", actor_idx, -1, "", { "status": status })
+	return true
+
+
+static func _is_furious(cp: Dictionary, actor: int) -> bool:
+	var combatant: Dictionary = cp["combatants"][actor]
+	return int(combatant["angerActions"]) > 0 and combatant["fury"]
+
+
+# A furious actor's Strike or Stun target: a random other living member of
+# its own side; -1 when it isn't furious or stands alone (R§3.7b Table 4).
+static func _fury_target(cp: Dictionary, actor_idx: int, rng: RandomNumberGenerator) -> int:
+	if not _is_furious(cp, actor_idx):
+		return -1
+	var others := _team(cp, actor_idx).slice(1)
+	if others.is_empty():
+		return -1
+	return others[rng.randi_range(0, others.size() - 1)]
+
+
+# One of the actor's own resolved actions under Panger/Pandemonium; the
+# last one ends it.
+static func _tick_anger(cp: Dictionary, actor_idx: int, beats: Array) -> void:
+	var actor: Dictionary = cp["combatants"][actor_idx]
+	if int(actor["angerActions"]) == 0:
+		return
+	actor["angerActions"] -= 1
+	if actor["angerActions"] == 0:
+		actor["angerPct"] = 0
+		actor["fury"] = false
+		if not actor["koed"]:
+			_beat(cp, beats, "calm", actor_idx, -1, "", {})
 
 
 # Each combatant's stage overlay as the fight stands: { guard: guard_marker()
 # ("" once KO'd), shielded (a Shield pool holds), frozen (a Time Pearl
-# freeze holds) }.
+# freeze holds), badges (status_badges()) }.
 static func stage_marks(cp: Dictionary) -> Array:
 	return cp["combatants"].map(func(c): return {
 		"guard": "" if c["koed"] else guard_marker(cp, c),
 		"shielded": int(c["shield"]) > 0, "frozen": int(c["frozenActions"]) > 0,
+		"badges": status_badges(c),
 	})
 
 
@@ -1217,7 +1408,8 @@ static func _retarget(cp: Dictionary, actor: int, target: int) -> int:
 
 # Damage rolls within the attacker's range: full on an Open (or Exposed)
 # target, round(roll × chipMultiplier) (min 1) on a Guarded one; a crit
-# doubles the final figure (spec §Damage). Under Be a Lady the roll is the
+# doubles the final figure (spec §Damage), then the attacker's anger scales
+# it (anger_factor()). Under Be a Lady the roll is the
 # attacker's max and the crit chance its ladyCrit (spec §Crit chance).
 static func _strike(cp: Dictionary, actor_idx: int, target_idx: int, move_id: String, rng: RandomNumberGenerator, beats: Array) -> void:
 	var combatants: Array = cp["combatants"]
@@ -1234,6 +1426,7 @@ static func _strike(cp: Dictionary, actor_idx: int, target_idx: int, move_id: St
 	var crit := rng.randf() < crit_chance
 	if crit:
 		dmg *= 2
+	dmg = GameState.round_epsilon(dmg * anger_factor(actor, true))
 	_deal_damage(cp, actor_idx, target_idx, dmg, "chip" if guarded else "hit", move_id, beats, {
 		"roll": roll, "crit": crit, "guarded": guarded,
 	})
@@ -1241,10 +1434,12 @@ static func _strike(cp: Dictionary, actor_idx: int, target_idx: int, move_id: St
 		_spring_lure(cp, actor_idx, target_idx, move_id, beats)
 
 
-# `dmg` drains the target's Shield pool 1:1 before its HP (spec §Damage);
-# beats `kind` with dmg, absorbed and hpAfter, then the KO if it drops.
+# `dmg`, scaled by the target's anger (anger_factor()), drains its Shield
+# pool 1:1 before its HP (spec §Damage); beats `kind` with dmg, absorbed and
+# hpAfter, then the KO if it drops.
 static func _deal_damage(cp: Dictionary, actor_idx: int, target_idx: int, dmg: int, kind: String, move_id: String, beats: Array, extra: Dictionary) -> void:
 	var target: Dictionary = cp["combatants"][target_idx]
+	dmg = GameState.round_epsilon(dmg * anger_factor(target, false))
 	var absorbed: int = mini(target["shield"], dmg)
 	target["shield"] -= absorbed
 	target["hp"] = maxi(0, target["hp"] - (dmg - absorbed))
@@ -1259,9 +1454,10 @@ static func _deal_damage(cp: Dictionary, actor_idx: int, target_idx: int, dmg: i
 
 # Applies an item's effect at `power` from the action's loadout slot, and
 # spends the slot (spec §Prototype item effects). Item damage ignores guard.
-# A multi-target unit (R§3.7b Items) Blasts every living opponent, and
-# Shields or heals the actor and every living teammate.
-static func _use_item(cp: Dictionary, actor_idx: int, action: Dictionary, m: Dictionary, beats: Array) -> void:
+# A multi-target unit (R§3.7b Items) Blasts every living opponent, Shields
+# or heals the actor and every living teammate, and puts its Pan status on
+# every living opponent not already under one.
+static func _use_item(cp: Dictionary, actor_idx: int, action: Dictionary, m: Dictionary, rng: RandomNumberGenerator, beats: Array) -> void:
 	var combatants: Array = cp["combatants"]
 	var actor: Dictionary = combatants[actor_idx]
 	var slot: Dictionary = actor["loadout"][int(action["slot"])]
@@ -1291,6 +1487,7 @@ static func _use_item(cp: Dictionary, actor_idx: int, action: Dictionary, m: Dic
 					_deal_damage(cp, actor_idx, target, power, "blast", move_id, beats, {})
 					if cp["outcome"] != null:
 						return
+					_maybe_disarm(cp, actor_idx, target, move_id, m["params"], rng, beats)
 		ITEM_SHIELD:
 			for target in (_team(cp, actor_idx) if multi else [actor_idx]):
 				combatants[target]["shield"] = maxi(combatants[target]["shield"], power)
@@ -1320,6 +1517,64 @@ static func _use_item(cp: Dictionary, actor_idx: int, action: Dictionary, m: Dic
 			actor["ladyUntil"] = maxi(actor["ladyUntil"], int(cp["round"]) + power - 1)
 			actor["ladyCrit"] = float(m["params"]["critChance"])
 			_beat(cp, beats, "lady", actor_idx, -1, move_id, {})
+		ITEM_PANIC, ITEM_RAPTURE, ITEM_ANGER, ITEM_FURY:
+			var targets := _pan_targets(cp, actor_idx, int(action["target"]), multi)
+			if targets.is_empty():
+				_beat(cp, beats, "fizzle", actor_idx, int(action["target"]), move_id, {})
+			for target in targets:
+				_apply_pan_status(combatants[target], m["effect"], power, int(slot["tier"]))
+				_beat(cp, beats, m["effect"], actor_idx, target, move_id, {})
+		ITEM_WORMHOLE:
+			# Player only: the fight ends fled, no roll, no parting shot.
+			_beat(cp, beats, "wormhole", actor_idx, -1, move_id, {})
+			if actor_idx == PLAYER_INDEX:
+				cp["outcome"] = "fled"
+
+
+# Who a Pan item from `actor_idx` lands on: every living opponent not under
+# a Pan status for a multi unit; else the aimed one (retargeted off a KO),
+# [] when that one's already under one (it refuses).
+static func _pan_targets(cp: Dictionary, actor_idx: int, aimed: int, multi: bool) -> Array:
+	var combatants: Array = cp["combatants"]
+	var free := _living_opponents(cp, actor_idx).filter(func(e): return not has_pan_status(combatants[e]))
+	if multi:
+		return free
+	var target := _retarget(cp, actor_idx, aimed)
+	return [target] if free.has(target) else []
+
+
+# Sets the Pan item `effect`'s status: Panic or Pan's Rapture for `power`
+# actions; Panger/Pandemonium's anger for two phases of phaseActions at
+# pctPerTier × `tier` percent.
+static func _apply_pan_status(combatant: Dictionary, effect: String, power: int, tier: int) -> void:
+	match effect:
+		ITEM_PANIC:
+			combatant["panicActions"] = power
+		ITEM_RAPTURE:
+			combatant["raptureActions"] = power
+		_:
+			var anger: Dictionary = _data()["anger"]
+			combatant["angerActions"] = 2 * int(anger["phaseActions"])
+			combatant["angerPct"] = int(anger["pctPerTier"]) * tier
+			combatant["fury"] = effect == ITEM_FURY
+
+
+# A Blast that leaves an enemy standing disarms it at disarmChance: its
+# weapon's attack bonus goes for the fight and its ability locks for
+# disarmLockRounds round boundaries (R§3.7b Table 4).
+static func _maybe_disarm(cp: Dictionary, actor_idx: int, target_idx: int, move_id: String, params: Dictionary, rng: RandomNumberGenerator, beats: Array) -> void:
+	var target: Dictionary = cp["combatants"][target_idx]
+	if target["koed"] or target["side"] != SIDE_ENEMY or rng.randf() >= float(params["disarmChance"]):
+		return
+	var weapon = target["weapon"]
+	if weapon is Dictionary:
+		target["attackMin"] -= int(weapon["min"])
+		target["attackMax"] -= int(weapon["max"])
+		target["weapon"] = null
+	if target["ability"] is Dictionary:
+		target["ability"]["lockedTurns"] = int(params["disarmLockRounds"])
+	target["disarmed"] = true
+	_beat(cp, beats, "disarm", actor_idx, target_idx, move_id, {})
 
 
 static func _check_outcome(cp: Dictionary) -> void:

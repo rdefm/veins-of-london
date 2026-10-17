@@ -66,6 +66,9 @@ const GUARD_MARKER_INSET := 4.0
 const GUARD_MARKER_GUARDED_COLOUR := Color(0.4, 0.85, 1.0, 0.95)
 const GUARD_MARKER_OPEN_COLOUR := Color(0.9, 0.9, 0.9, 0.75)
 const GUARD_MARKER_EXPOSED_COLOUR := Color(1.0, 0.35, 0.3, 0.95)
+# A sprite's status badges (CombatPrototype.status_badges()).
+const STATUS_BADGE_FONT_SIZE := 9
+const STATUS_BADGE_COLOUR := Color(1.0, 0.85, 0.4, 0.95)
 const DAMAGE_NUMBER_FONT_SIZE := 16
 const _PLACEHOLDER_PALETTE: Array[Color] = [
 	Color(0.55, 0.33, 0.33),
@@ -414,6 +417,15 @@ class StageSlot extends Control:
 		guard_marker = value
 		_overlay.queue_redraw()
 
+	# Short status lines (Panic, Anger, Disarmed...) under the guard marker.
+	var status_badges: Array = []
+
+	func set_status_badges(value: Array) -> void:
+		if value == status_badges:
+			return
+		status_badges = value.duplicate()
+		_overlay.queue_redraw()
+
 	func flash_shield_crack() -> void:
 		_set_shield_crack_alpha(1.0)
 		if not is_inside_tree():
@@ -541,6 +553,19 @@ class StageSlot extends Control:
 			_overlay.draw_rect(rect.grow(-2.0), Color(0.85, 0.95, 1.0, _shield_crack_alpha), false, 2.0)
 		if guard_marker != "":
 			_draw_guard_marker()
+		_draw_status_badges()
+
+	# One line per badge, stacked under the guard marker on its side.
+	func _draw_status_badges() -> void:
+		var font: Font = ThemeDB.fallback_font
+		var y: float = CombatStage.GUARD_MARKER_INSET * 2.0 + CombatStage.GUARD_MARKER_SIZE.y
+		for badge in status_badges:
+			var text: String = str(badge)
+			var width: float = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, CombatStage.STATUS_BADGE_FONT_SIZE).x
+			var x: float = CombatStage.GUARD_MARKER_INSET if side != "enemy" else size.x - width - CombatStage.GUARD_MARKER_INSET
+			y += CombatStage.STATUS_BADGE_FONT_SIZE
+			_overlay.draw_string_outline(font, Vector2(x, y), text, HORIZONTAL_ALIGNMENT_LEFT, -1, CombatStage.STATUS_BADGE_FONT_SIZE, 3, Color(0, 0, 0, 0.8))
+			_overlay.draw_string(font, Vector2(x, y), text, HORIZONTAL_ALIGNMENT_LEFT, -1, CombatStage.STATUS_BADGE_FONT_SIZE, CombatStage.STATUS_BADGE_COLOUR)
 
 	# A small shield at the slot's back top corner: filled while Guarded,
 	# hollow while Open, hollow red and slashed while Exposed.

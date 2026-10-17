@@ -45,13 +45,26 @@
   "items": {
     "timePearl": { "target": "allEnemies", "effect": "freeze", "params": {} },
     "blackHole": { "target": "allEnemies", "effect": "blackHole", "params": { "actionsBase": 1, "powerPerAction": 8 } },
-    "blast": { "target": "enemy", "effect": "blast", "params": { "fleeChance": 0.9 } },
+    "blast": { "target": "enemy", "effect": "blast", "params": { "fleeChance": 0.9, "disarmChance": 0.15, "disarmLockRounds": 2 } },
     "shield": { "target": "self", "effect": "shield", "params": {} },
     "healingBurst": { "target": "friend", "effect": "heal", "params": {} },
     "enhancementPowder": { "target": "self", "effect": "powder", "params": { "rounds": 1, "longRounds": 2, "longPowerMin": 3 } },
     "prophetsBreath": { "target": "self", "effect": "sight", "params": {} },
-    "beALady": { "target": "self", "effect": "lady", "params": { "critChance": 0.333333 } }
+    "beALady": { "target": "self", "effect": "lady", "params": { "critChance": 0.333333 } },
+    "panic": { "target": "enemy", "effect": "panic", "params": { "boltChance": 0.5 } },
+    "pansRapture": { "target": "enemy", "effect": "rapture", "params": {} },
+    "panger": { "target": "enemy", "effect": "anger", "params": {} },
+    "pandemonium": { "target": "enemy", "effect": "fury", "params": {} },
+    "wormhole": { "target": "self", "effect": "wormhole", "params": {} }
   },
+  "_angerComment": "Panger / Pandemonium (REFERENCE §3.7b Table 4): the target's first phaseActions resolved actions deal +X% and take -X%, the next phaseActions the reverse; X = pctPerTier x the unit's tier.",
+  "anger": { "phaseActions": 2, "pctPerTier": 25 },
+  "_statusTurnsComment": "The turns Panic and Pan's Rapture play in place of an enemy's own actions, as its read intent and the guard state they leave.",
+  "statusTurns": {
+    "panic": { "name": "Panic", "actorGuard": "open" },
+    "rapture": { "name": "Rapture", "actorGuard": "open" }
+  },
+  "statusBadges": { "panic": "Panic", "rapture": "Rapture", "anger": "Anger", "fury": "Fury", "disarmed": "Disarmed" },
   "archetypes": {
     "mugger": {
       "name": "the mugger", "template": "mugger", "hpBase": 30, "attackMin": 5, "attackMax": 10,
@@ -131,6 +144,16 @@
     "heal": { "self": "You crack a Healing Burst over {target}. {amount} back.", "other": "{actor} cracks a Healing Burst over {target}. {amount} back." },
     "powder": { "self": "You take a pinch of Enhancement Powder. The street slows down.", "other": "{actor} takes a pinch of Enhancement Powder." },
     "sight": { "self": "You breathe in Prophet's Breath. Their next moves arrive before they do.", "other": "{actor} breathes in Prophet's Breath." },
-    "lady": { "self": "You crack Be a Lady. Luck takes your arm.", "other": "{actor} cracks Be a Lady. Luck takes their arm." }
+    "lady": { "self": "You crack Be a Lady. Luck takes your arm.", "other": "{actor} cracks Be a Lady. Luck takes their arm." },
+    "panic": { "self": "You press the panic into {target}'s hands.", "other": "{actor} presses the panic into {target}'s hands." },
+    "rapture": { "self": "You hand {target} the rapture. They take it gladly.", "other": "{actor} hands {target} the rapture. They take it gladly." },
+    "anger": { "self": "You grind the anger into {target}.", "other": "{actor} grinds the anger into {target}." },
+    "fury": { "self": "You bring {target}'s fury to the boil.", "other": "{actor} brings {target}'s fury to the boil." },
+    "bolt": { "self": "You bolt. Gone.", "other": "{actor} bolts. Gone." },
+    "cower": { "self": "You cower, hands over your head.", "other": "{actor} cowers, hands over their head." },
+    "enraptured": { "self": "You grin at nothing.", "other": "{actor} is grinning at nothing." },
+    "calm": { "self": "You come down, spent.", "other": "{actor} comes down, spent." },
+    "wormhole": { "self": "You fold the space shut behind you. Clean exit, no parting shot.", "other": "{actor} folds the space shut and is gone." },
+    "disarm": { "self": "The shove knocks {target}'s weapon loose.", "other": "The shove knocks {target}'s weapon loose." }
   }
 }

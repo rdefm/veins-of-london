@@ -680,7 +680,7 @@ func run() -> void:
 		var result := _round([{ "slot": 0 }, { "move": "guard" }])
 		var pearl: Dictionary = result["beats"].filter(func(b): return b["kind"] == "timePearl")[0]
 		assert_eq(pearl["affected"], [1, 2])
-		assert_eq(pearl["marks"][1], { "guard": CombatPrototype.OPEN, "shielded": false, "frozen": true }, "frozen reads Open")
+		assert_eq(pearl["marks"][1], { "guard": CombatPrototype.OPEN, "shielded": false, "frozen": true, "badges": [] }, "frozen reads Open")
 		assert_true(result["beats"].all(func(b): return b.has("marks")), "every beat")
 		var last: Dictionary = result["beats"].back()
 		assert_eq(last["marks"].size(), cp["combatants"].size())

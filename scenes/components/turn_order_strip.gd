@@ -51,6 +51,7 @@ class NameplateCard extends Control:
 	var action_text: String = ""
 	var action_unread: bool = false
 	var guard_badge: String = ""
+	var status_badge: String = ""
 	var tell_image: Texture2D = null
 	var tell_rect: TextureRect = null
 	var is_pulsing: bool = false
@@ -116,8 +117,8 @@ class NameplateCard extends Control:
 # factionColour, isEnemy } plus optional "statusLines" (Array[String]),
 # "telegraphText" (String) and "tellImage" (Texture2D or null), all shown
 # on the focused card only; "actionText" (the card's action, String),
-# "actionUnread" (bool, styles it as an unread intent) and "guardBadge"
-# (String), shown on every card; and "focused" (bool), which
+# "actionUnread" (bool, styles it as an unread intent), "guardBadge"
+# (String) and "statusBadge" (String, running statuses), shown on every card; and "focused" (bool), which
 # when present decides that card's expansion in place of the selected key,
 # playback included.
 static func build_entries(combat: Dictionary, player: Dictionary) -> Array:
@@ -534,6 +535,7 @@ func _build_card(entry: Dictionary, is_focused: bool, card_size: Vector2) -> Nam
 	card.action_text = entry.get("actionText", "")
 	card.action_unread = entry.get("actionUnread", false)
 	card.guard_badge = entry.get("guardBadge", "")
+	card.status_badge = entry.get("statusBadge", "")
 
 	var frac: float = clampf(float(shown_hp) / float(maxi(1, entry["hpMax"])), 0.0, 1.0)
 	card.is_pulsing = frac < PULSE_HP_FRACTION
@@ -638,6 +640,15 @@ func _build_card_content(card: NameplateCard) -> void:
 	bar_spacer.custom_minimum_size = Vector2(0, HP_BAR_HEIGHT + 8.0)
 	bar_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(bar_spacer)
+
+	if not card.status_badge.is_empty():
+		var status_badge := Label.new()
+		status_badge.text = card.status_badge
+		status_badge.clip_text = true
+		status_badge.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		status_badge.add_theme_font_size_override("font_size", 9)
+		status_badge.add_theme_color_override("font_color", _palette_colour(SIGN_STATUS_ID))
+		box.add_child(status_badge)
 
 	if card.shows_exact_hp:
 		var hp_label := Label.new()

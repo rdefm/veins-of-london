@@ -82,6 +82,42 @@ func _start_armed(units: Array, plan: Array, seed_value: int = 1, mugger_hp: int
 	return _start(plan, seed_value, mugger_hp)
 
 
+# A mugger slower than a level-1 player, so the player acts first at each
+# action index.
+func _slow_mugger(hp: int = 28) -> Dictionary:
+	var mugger := _mugger(hp)
+	mugger["speed"] = 1
+	return mugger
+
+
+# A seeded street mugging against `enemies` (live enemy dicts) playing
+# `plans` with `units` in the player's real loadout slots; fog on when
+# `unread` (per enemy, per round) is given, else off.
+func _start_vs(enemies: Array, plans: Array, units: Array, seed_value: int = 1, unread: Array = []) -> Dictionary:
+	for i in range(units.size()):
+		GameState.state["player"]["loadout"]["slots"][i] = units[i]
+	var config := { "seed": seed_value, "fog": not unread.is_empty(), "enemyPlans": plans }
+	if not unread.is_empty():
+		config["enemyUnread"] = unread
+	Combat._start_round_combat(Combat.CONTEXT_EVENT_MUGGING, null, enemies, [], "", [], null, config)
+	return GameState.state["combat"]
+
+
+# A Strike beat's expected dmg from its roll and crit: chip on a Guarded
+# target, then `factor` (the attacker's and target's anger).
+func _strike_dmg(beat: Dictionary, factor: float) -> int:
+	var dmg: int = int(beat["roll"])
+	if beat["guarded"]:
+		dmg = maxi(1, GameState.round_epsilon(dmg * 0.25))
+	if beat["crit"]:
+		dmg *= 2
+	return GameState.round_epsilon(dmg * factor)
+
+
+func _actor_beats(beats: Array, actor: int, kinds: Array) -> Array:
+	return beats.filter(func(b): return int(b["actor"]) == actor and kinds.has(b["kind"]))
+
+
 func _row(screen: CombatPrototypeScreen, row_name: String) -> Button:
 	var found: Button = null
 	for node in screen._dock.find_children(row_name, "Button", true, false):
@@ -372,7 +408,7 @@ func run() -> void:
 
 	run_case("combat_screen_hosts_the_round_screen_and_plays_to_the_outcome", func():
 		GameState.reset()
-		GameState.state["player"]["loadout"]["slots"][0] = { "recipe": "panic", "tier": 1 }
+		GameState.state["player"]["loadout"]["slots"][0] = { "recipe": "rewind", "tier": 1 }
 		_start([["guard", "guard"]], 1, 1)
 		var host := CombatScreen.new()
 		host._ready()
@@ -566,7 +602,7 @@ func run() -> void:
 		assert_eq(Combat.round_item_block_reason(1), Combat.REASON_SLOT_EMPTY)
 		assert_true(not Combat.choose_item(1)["ok"], "empty refused")
 		GameState.reset()
-		_start_armed([{ "recipe": "healingBurst", "tier": 1 }, { "recipe": "panic", "tier": 1 }], [["guard", "guard"]])
+		_start_armed([{ "recipe": "healingBurst", "tier": 1 }, { "recipe": "rewind", "tier": 1 }], [["guard", "guard"]])
 		assert_eq(Combat.round_item_block_reason(0, 1), "Pick a target.", "no healing the mugger")
 		assert_eq(Combat.round_item_block_reason(0), "", "self is fine")
 		assert_eq(Combat.round_item_block_reason(1), Combat.REASON_ROUND_ITEM_PENDING)
@@ -682,4 +718,170 @@ func run() -> void:
 		assert_true(combat["combatants"][1]["koed"], "archie down")
 		assert_true(combat["allies"][0]["koed"], "live ally KO'd")
 		assert_true(not Contacts.can_join_combat("archie"), "cooldown started")
+	)
+
+	run_case("panic_turns_bolt_or_cower_and_read_as_panic", func():
+		var seen := { "bolt": false, "cower": false }
+		for seed_value in range(1, 100):
+			GameState.reset()
+			# Tier 1: power 2. The mugger's second action is fogged.
+			var combat := _start_vs([_slow_mugger()], [[["strike", "strike"]]], [{ "recipe": "panic", "tier": 1 }], seed_value, [[[false, true]]])
+			var result := Combat.choose_item(0, 1)
+			assert_eq(_first(result["beats"], "panic").get("target", -1), 1, "lands on the mugger")
+			var mugger: Dictionary = combat["combatants"][1]
+			if _kinds(result["beats"]).has("bolt"):
+				assert_true(mugger["koed"] and mugger["hp"] == 0, "bolting is a KO")
+				assert_eq(combat["outcome"], "win", "the last enemy gone wins it")
+				seen["bolt"] = true
+			else:
+				assert_true(_kinds(result["beats"]).has("cower"), "else it cowers")
+				assert_eq(mugger["guard"], CombatPrototype.OPEN, "cowering leaves it Open")
+				assert_eq(mugger["panicActions"], 1, "one panic turn left")
+				assert_true(CombatPrototype.is_read(combat, 1, 1), "the fogged action reads")
+				var intent: Dictionary = CombatPrototype.enemy_intents(combat, 1)[1]
+				assert_eq([intent["move"], intent["name"], intent.get("status", false)], ["panic", "Panic", true], "as a panic intent")
+				assert_eq(CombatPrototype.guard_preview(combat, 1)[2], CombatPrototype.OPEN, "previewed Open")
+				assert_eq(GameState.state["player"]["hp"], GameState.state["player"]["hpMax"], "no strike landed")
+				seen["cower"] = true
+			if seen["bolt"] and seen["cower"]:
+				break
+		assert_true(seen["bolt"] and seen["cower"], "both outcomes over the seeds")
+	)
+
+	run_case("a_removed_action_doesnt_tick_a_status", func():
+		GameState.reset()
+		var combat := _start_vs([_slow_mugger()], [[["guard", "guard"]]], [])
+		var mugger: Dictionary = combat["combatants"][1]
+		mugger["raptureActions"] = 1
+		mugger["actionsLost"] = 1
+		assert_eq(CombatPrototype.status_turn(combat, 1, 0), "", "the lost action isn't the rapture turn")
+		assert_eq(CombatPrototype.status_turn(combat, 1, 1), CombatPrototype.STATUS_RAPTURE, "the next one is")
+		Combat.choose_move("guard")
+		assert_eq(mugger["raptureActions"], 1, "still pending after the loss")
+	)
+
+	run_case("pans_rapture_idles_its_actions_open", func():
+		GameState.reset()
+		var combat := _start_vs([_slow_mugger()], [[["strike", "strike"]]], [{ "recipe": "pansRapture", "tier": 1 }])
+		var result := Combat.choose_item(0, 1)
+		var mugger: Dictionary = combat["combatants"][1]
+		assert_true(_kinds(result["beats"]).has("enraptured"), "idles")
+		assert_eq(mugger["guard"], CombatPrototype.OPEN, "idle leaves it Open")
+		assert_eq(CombatPrototype.enemy_intents(combat, 1)[1]["name"], "Rapture", "read rapture intent")
+		result = Combat.choose_move("guard")
+		assert_eq(mugger["raptureActions"], 0, "power 2 spent over two actions")
+		assert_eq(GameState.state["player"]["hp"], GameState.state["player"]["hpMax"], "no strikes all round")
+		assert_eq(CombatPrototype.enemy_intents(combat, 1)[0]["move"], "strike", "round 2 plays its own plan")
+		assert_eq(Loadout.slot(0), null, "real unit consumed")
+	)
+
+	run_case("panger_scales_dealt_and_taken_by_phase_then_ends", func():
+		GameState.reset()
+		# Tier 2: X = 50.
+		var combat := _start_vs([_slow_mugger(200)], [[["strike", "strike"]]], [{ "recipe": "panger", "tier": 2 }])
+		var result := Combat.choose_item(0, 1)
+		var mugger: Dictionary = combat["combatants"][1]
+		assert_eq([mugger["angerPct"], mugger["fury"]], [50, false], "25 x tier")
+		var swing: Dictionary = _actor_beats(result["beats"], 1, ["hit", "chip"])[0]
+		assert_eq(int(swing["dmg"]), _strike_dmg(swing, 1.5), "first phase deals +50%")
+		assert_eq(mugger["angerActions"], 3, "ticked by its own action")
+		assert_eq(CombatPrototype.status_badges(mugger), ["Anger +50%"], "badge")
+		assert_eq(CombatPrototype.stage_marks(combat)[1]["badges"], ["Anger +50%"], "on the stage")
+		result = Combat.choose_move("strike", 1)
+		var hit: Dictionary = _actor_beats(result["beats"], 0, ["hit", "chip"])[0]
+		assert_eq(int(hit["dmg"]), _strike_dmg(hit, 0.5), "and takes -50%")
+		assert_eq(mugger["angerActions"], 2)
+		assert_almost_eq(CombatPrototype.anger_factor(mugger, true), 0.5, 0.0001, "second phase deals -50%")
+		assert_almost_eq(CombatPrototype.anger_factor(mugger, false), 1.5, 0.0001, "takes +50%")
+		assert_eq(CombatPrototype.status_badges(mugger), ["Anger −50%"])
+		Combat.choose_move("guard")
+		result = Combat.choose_move("guard")
+		assert_true(_kinds(result["beats"]).has("calm"), "comes down after four actions")
+		assert_eq([mugger["angerActions"], mugger["angerPct"]], [0, 0])
+		assert_eq(CombatPrototype.anger_factor(mugger, true), 1.0)
+	)
+
+	run_case("pandemonium_turns_strikes_on_its_own_side", func():
+		GameState.reset()
+		var combat := _start_vs([_slow_mugger(200), _slow_mugger(200)], [[["strike", "strike"]], [["guard", "guard"]]], [{ "recipe": "pandemonium", "tier": 1 }])
+		var result := Combat.choose_item(0, 1)
+		assert_true(combat["combatants"][1]["fury"], "furious")
+		var swing: Dictionary = _actor_beats(result["beats"], 1, ["hit", "chip"])[0]
+		assert_eq(int(swing["target"]), 2, "swings at the other mugger")
+		assert_eq(int(swing["dmg"]), _strike_dmg(swing, 1.25), "with tier 1's +25%")
+		assert_true(CombatPrototype.enemy_intents(combat, 1)[1].get("targetUnread", false), "target reads ?")
+		assert_eq(CombatPrototype.status_badges(combat["combatants"][1]), ["Fury +25%"])
+		GameState.reset()
+		combat = _start_vs([_slow_mugger(200)], [[["strike", "strike"]]], [{ "recipe": "pandemonium", "tier": 1 }])
+		result = Combat.choose_item(0, 1)
+		assert_eq(int(_actor_beats(result["beats"], 1, ["hit", "chip"])[0]["target"]), 0, "alone, it strikes as planned")
+	)
+
+	run_case("a_pan_statused_enemy_refuses_another", func():
+		GameState.reset()
+		_start_vs([_slow_mugger(200)], [[["guard", "guard"]]], [{ "recipe": "panger", "tier": 1 }, { "recipe": "panic", "tier": 1 }])
+		assert_true(Combat.choose_item(0, 1)["ok"])
+		assert_eq(Combat.round_item_block_reason(1, 1), CombatPrototype.REASON_PAN_STATUSED, "already angry")
+		GameState.reset()
+		var combat := _start_vs([_slow_mugger(200), _slow_mugger(200)], [[["guard", "guard"]], [["guard", "guard"]]], [{ "recipe": "pansRapture", "tier": 3, "multi": true }])
+		combat["combatants"][1]["angerActions"] = 4
+		var result := Combat.choose_item(0)
+		assert_eq(result["beats"].filter(func(b): return b["kind"] == "rapture").map(func(b): return b["target"]), [2], "multi skips the statused one")
+		assert_eq(combat["combatants"][1]["raptureActions"], 0)
+	)
+
+	run_case("wormhole_ends_the_fight_fled_and_allies_refuse_it", func():
+		GameState.reset()
+		var combat := _start_armed([{ "recipe": "wormhole", "tier": 1 }], [["strike", "strike"]])
+		var hp_before: int = GameState.state["player"]["hp"]
+		var result := Combat.choose_item(0)
+		assert_true(_kinds(result["beats"]).has("wormhole"), "wormhole beat")
+		assert_eq(combat["outcome"], "fled", "fled at once, no roll")
+		assert_eq(result["beats"].size(), 1, "no parting shot")
+		assert_eq(GameState.state["player"]["hp"], hp_before)
+		assert_eq(Loadout.slot(0), null, "real unit consumed")
+		GameState.reset()
+		_recruit("archie")
+		assert_true(not Loadout.is_equippable("wormhole", "archie"), "allies can't equip it")
+		var ally := Contacts.build_combat_ally("archie")
+		ally["slots"] = [{ "recipe": "wormhole", "tier": 1 }, { "recipe": "blast", "tier": 1 }]
+		_start_with_allies([ally], [["guard", "guard"]])
+		var items: Array = GameState.state["combat"]["combatants"][1]["loadout"].map(func(e): return e["item"])
+		assert_eq(items, ["blast"], "and never carry it into a fight")
+	)
+
+	run_case("blast_disarm_strips_the_weapon_and_locks_the_ability", func():
+		var disarmed := false
+		for seed_value in range(1, 200):
+			GameState.reset()
+			var armed := _slow_mugger(200)
+			armed["weapon"] = { "min": 2, "max": 3 }
+			armed["ability"] = { "id": "shank", "lockedTurns": 0 }
+			var combat := _start_vs([armed], [[["guard", "guard"]]], [{ "recipe": "blast", "tier": 1 }], seed_value)
+			var mugger: Dictionary = combat["combatants"][1]
+			var attack := [mugger["attackMin"], mugger["attackMax"]]
+			var result := Combat.choose_item(0, 1)
+			if not _kinds(result["beats"]).has("disarm"):
+				assert_true(not mugger["disarmed"], "no disarm without the beat")
+				continue
+			assert_eq([mugger["attackMin"], mugger["attackMax"]], [attack[0] - 2, attack[1] - 3], "weapon bonus gone")
+			assert_eq(mugger["weapon"], null)
+			assert_eq(mugger["ability"]["lockedTurns"], 2, "ability locked two rounds")
+			assert_eq(CombatPrototype.status_badges(mugger), ["Disarmed (2)"], "disarm badge")
+			Combat.choose_move("guard")
+			assert_eq(mugger["ability"]["lockedTurns"], 1, "ticks at the round boundary")
+			assert_true(mugger["disarmed"], "for the fight")
+			disarmed = true
+			break
+		assert_true(disarmed, "15% lands over the seeds")
+	)
+
+	run_case("statuses_show_on_the_strip_and_readouts", func():
+		GameState.reset()
+		var combat := _start_vs([_slow_mugger(200)], [[["strike", "strike"]]], [{ "recipe": "panger", "tier": 1 }])
+		Combat.choose_item(0, 1)
+		var entries := CombatPrototypeScreen.strip_entries(combat)
+		var enemy_cards: Array = entries.filter(func(e): return e["actor"] == 1)
+		assert_true(not enemy_cards.is_empty() and enemy_cards.all(func(e): return e["statusBadge"] == "Anger +25%"), "every enemy card carries it")
+		assert_true(entries.filter(func(e): return e["actor"] == 0).all(func(e): return e["statusBadge"] == ""), "none on the player")
 	)

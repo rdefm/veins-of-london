@@ -1387,7 +1387,7 @@ func _validate_enemy_levels(levels: Dictionary, level_max: int, errors: Array[St
 # is a recipe with an effectPower curve and a known target type and effect;
 # every archetype and ally slot names a combat_visuals sprite template.
 func _validate_combat_prototype(cp: Dictionary, skill_curve: Array, recipes: Dictionary, templates: Dictionary, errors: Array[String]) -> void:
-	_require_keys(cp, ["chipMultiplier", "actionsPerRound", "critChance", "levelMax", "allyHealBelow", "allyCrowdEnemies", "fog", "playerBase", "allyBase", "allyTemplates", "moves", "items", "archetypes", "beatLines"], "combat_prototype", errors)
+	_require_keys(cp, ["chipMultiplier", "actionsPerRound", "critChance", "levelMax", "allyHealBelow", "allyCrowdEnemies", "fog", "playerBase", "allyBase", "allyTemplates", "moves", "items", "archetypes", "anger", "statusTurns", "statusBadges", "beatLines"], "combat_prototype", errors)
 	var ally_templates: Array = cp.get("allyTemplates", [])
 	if ally_templates.size() < CombatPrototype.MAX_ALLIES:
 		errors.append("combat_prototype.allyTemplates: needs one template per ally (%d)" % CombatPrototype.MAX_ALLIES)
@@ -1512,7 +1512,26 @@ func _validate_combat_prototype(cp: Dictionary, skill_curve: Array, recipes: Dic
 			if crit_chance < 0.0 or crit_chance > 1.0:
 				errors.append("%s.params.critChance: must be in [0, 1]" % path)
 
-	_require_keys(cp.get("beatLines", {}), ["guard", "hit", "chip", "crit", "ko", "feint", "stun", "fizzle", "lost", "lure", "exposed", "fled", "fleeFailed", "absorb", "frozen", "timePearl", "blackHole", "pull", "blast", "shield", "healSelf", "heal", "powder", "sight", "lady"], "combat_prototype.beatLines", errors)
+		if item.get("effect", "") == CombatPrototype.ITEM_BLAST:
+			var params: Dictionary = item.get("params", {})
+			var disarm_chance := float(params.get("disarmChance", -1.0))
+			if disarm_chance < 0.0 or disarm_chance > 1.0 or int(params.get("disarmLockRounds", -1)) < 0:
+				errors.append("%s.params: needs disarmChance in [0, 1] and disarmLockRounds >= 0" % path)
+		if item.get("effect", "") == CombatPrototype.ITEM_PANIC:
+			var bolt_chance := float(item.get("params", {}).get("boltChance", -1.0))
+			if bolt_chance < 0.0 or bolt_chance > 1.0:
+				errors.append("%s.params.boltChance: must be in [0, 1]" % path)
+
+	var anger: Dictionary = cp.get("anger", {})
+	if int(anger.get("phaseActions", 0)) < 1 or int(anger.get("pctPerTier", -1)) < 0:
+		errors.append("combat_prototype.anger: needs phaseActions >= 1 and pctPerTier >= 0")
+	for status in [CombatPrototype.STATUS_PANIC, CombatPrototype.STATUS_RAPTURE]:
+		var turn: Dictionary = cp.get("statusTurns", {}).get(status, {})
+		_require_keys(turn, ["name", "actorGuard"], "combat_prototype.statusTurns.%s" % status, errors)
+		if not CombatPrototype.GUARD_EFFECTS.has(turn.get("actorGuard", "")):
+			errors.append("combat_prototype.statusTurns.%s.actorGuard: unknown guard effect" % status)
+	_require_keys(cp.get("statusBadges", {}), ["panic", "rapture", "anger", "fury", "disarmed"], "combat_prototype.statusBadges", errors)
+	_require_keys(cp.get("beatLines", {}), ["guard", "hit", "chip", "crit", "ko", "feint", "stun", "fizzle", "lost", "lure", "exposed", "fled", "fleeFailed", "absorb", "frozen", "timePearl", "blackHole", "pull", "blast", "shield", "healSelf", "heal", "powder", "sight", "lady", "panic", "rapture", "anger", "fury", "bolt", "cower", "enraptured", "calm", "wormhole", "disarm"], "combat_prototype.beatLines", errors)
 
 
 # The fog-of-war unread-chance curve (CombatPrototype.unread_chance()).
