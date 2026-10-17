@@ -71,6 +71,8 @@ static func has_block_start() -> bool:
 static func block_rewind_block_reason() -> String:
 	if not has_block_start():
 		return "Nothing to rewind to."
+	if LessonSession.is_open():
+		return "Not during a lesson."
 	if GameState.state["event"] != null:
 		return "Not mid-event."
 	if GameState.state["combat"]["active"]:

@@ -19,6 +19,7 @@ extends RefCounted
 # Crafting, gives each step a clue that can teach hidden steps, and may roll
 # the re-run bonus. A compress past crackAt cracks the vessel; it and
 # abandon_run() lose the calc and give no item. No time block is spent.
+# During a lesson (LessonSession) runs draw on its pool instead.
 #
 # batch() crafts a hand-performed recipe ×N at its best rank. rewind()
 # undoes the last run or batch (see § Rewind below).
@@ -50,6 +51,8 @@ static func new_state() -> Dictionary:
 		# Debug app only: a crafting skill the Lab uses in place of the
 		# player's, or null to use the player's.
 		"skillOverride": null,
+		# null, or the open lesson session (LessonSession).
+		"lesson": null,
 	}
 
 
@@ -159,7 +162,9 @@ static func step_specificity(recipe_key: String, ideal_index: int) -> String:
 # knowledge is untouched. Targets are floats so a saved run round-trips
 # unchanged.
 static func known_procedure(recipe_key: String) -> Array:
-	return _book(recipe_key, ActiveEffects.prophets_breath_active())["steps"]
+	if ActiveEffects.prophets_breath_active():
+		return _book(recipe_key, true)["steps"]
+	return _book(recipe_key, false, LessonSession.talk_through_steps(recipe_key))["steps"]
 
 
 # The 1-based place an ideal step takes in the known procedure (Prophet's
@@ -169,8 +174,9 @@ static func step_position(recipe_key: String, ideal_index: int) -> int:
 
 
 # { steps (the known procedure), ideals (each step's ideal index, -1 for a
-# base step matching none) }.
-static func _book(recipe_key: String, reveal: bool) -> Dictionary:
+# base step matching none) }. talk_through: ideal indices a lesson's
+# talk-through shows at their true target, knowledge "talkThrough".
+static func _book(recipe_key: String, reveal: bool, talk_through: Array = []) -> Dictionary:
 	var procedure := procedure_def(recipe_key)
 	var ideal: Array = procedure["ideal"]
 	var base: Array = procedure["base"]
@@ -183,6 +189,9 @@ static func _book(recipe_key: String, reveal: bool) -> Dictionary:
 		for i in ideal.size():
 			if granted.get(i, {}).get("level") != "exact":
 				granted[i] = { "level": "revealed" }
+	for i in talk_through:
+		if granted.get(int(i), {}).get("level") != "exact":
+			granted[int(i)] = { "level": "talkThrough" }
 	var book := { "steps": [], "ideals": [] }
 	var next_ideal := 0
 	var base_matches := match_ideal(ideal, base)
@@ -466,17 +475,24 @@ static func jar_amount(recipe_key: String, ore_type: String) -> int:
 	return int(base_calc(recipe_key).get(ore_type, 0))
 
 
-# The calc a run can draw on: the player's unstashed orichalchum.
+# Where run calc comes from: a running lesson's pool, else the player's
+# unstashed orichalchum.
+static func _calc_store() -> Dictionary:
+	if LessonSession.is_running():
+		return LessonSession.pool()
+	return GameState.state["player"]["orichalchum"]
+
+
+# The calc a run can draw on.
 static func calc_available(ore_type: String) -> int:
-	return int(GameState.state["player"]["orichalchum"].get(ore_type, 0))
+	return int(_calc_store().get(ore_type, 0))
 
 
 # Every run calc spend goes through here. False (nothing spent) when short.
 static func _spend_calc(ore_type: String, amount: int) -> bool:
 	if calc_available(ore_type) < amount:
 		return false
-	var orichalchum: Dictionary = GameState.state["player"]["orichalchum"]
-	orichalchum[ore_type] = calc_available(ore_type) - amount
+	_calc_store()[ore_type] = calc_available(ore_type) - amount
 	_note_calc(ore_type, amount)
 	return true
 
@@ -515,6 +531,9 @@ static func begin_run(recipe_key: String) -> Dictionary:
 		return { "ok": false, "reason": "A run is already open." }
 	if not is_known(recipe_key):
 		return { "ok": false, "reason": "Recipe not known." }
+	var lesson_block := LessonSession.run_block_reason(recipe_key)
+	if not lesson_block.is_empty():
+		return { "ok": false, "reason": lesson_block }
 	var cost := base_calc(recipe_key)
 	for ore_type in cost.keys():
 		if calc_available(ore_type) < int(cost[ore_type]):
@@ -534,6 +553,9 @@ static func add_ore(recipe_key: String, ore_type: String) -> Dictionary:
 		return { "ok": false, "reason": "Another run is open." }
 	if not is_known(recipe_key):
 		return { "ok": false, "reason": "Recipe not known." }
+	var lesson_block := LessonSession.run_block_reason(recipe_key)
+	if not lesson_block.is_empty():
+		return { "ok": false, "reason": lesson_block }
 	var amount := jar_amount(recipe_key, ore_type)
 	if amount <= 0:
 		var ore_name: String = GameData.ORE_TYPES.get(ore_type, {}).get("name", ore_type)
@@ -645,6 +667,7 @@ static func _perform(apparatus: String, record: Dictionary) -> void:
 # (one type drawn at random); a score below badRun.scoreBelow sometimes
 # returns a flavour line; then the insight roll (RecipeKnowledge.roll_insight,
 # finished runs only). Best rank only rises; the recipe joins performedOnce.
+# A running lesson hears of the run (result.lesson, LessonSession.after_run).
 static func finish_run() -> Dictionary:
 	var run = active_run()
 	if run == null:
@@ -687,8 +710,14 @@ static func finish_run() -> Dictionary:
 		"refunded": refunded, "flavour": flavour, "insight": insight,
 		"durationMsec": maxi(0, Time.get_ticks_msec() - int(run["startedMsec"])),
 	}
+	_after_lesson_run(result)
 	_emit_hook(result)
 	return result
+
+
+static func _after_lesson_run(result: Dictionary) -> void:
+	if LessonSession.is_running():
+		result["lesson"] = LessonSession.after_run(result)
 
 
 # A bonus type id when a rank at or above the prior best wins the bonus
@@ -700,11 +729,11 @@ static func _roll_bonus(rank: int, prior_best: int) -> String:
 	return Rng.rand_from(bonus_def["types"].keys())
 
 
-# Gives back floor(spent × fraction) of each ore to the player's calc.
+# Gives back floor(spent × fraction) of each ore to where it came from.
 # ore type -> amount refunded (amounts of 0 left out).
 static func _refund_calc(spent: Dictionary, fraction: float) -> Dictionary:
 	var refunded := {}
-	var orichalchum: Dictionary = GameState.state["player"]["orichalchum"]
+	var orichalchum: Dictionary = _calc_store()
 	for ore_type in spent.keys():
 		var amount := floori(int(spent[ore_type]) * fraction)
 		if amount > 0:
@@ -746,6 +775,7 @@ static func _close_run(outcome: String) -> Dictionary:
 		"items": 0, "xp": xp,
 		"durationMsec": maxi(0, Time.get_ticks_msec() - int(run["startedMsec"])),
 	}
+	_after_lesson_run(result)
 	_emit_hook(result)
 	return result
 
@@ -839,7 +869,7 @@ static func use_effect(item: String) -> Dictionary:
 		return { "ok": false, "reason": "Can't use that here." }
 	var result := ActiveEffects.use(item)
 	var point = _root()["lastCraft"]
-	if result["ok"] and active_run() != null and point != null:
+	if result["ok"] and active_run() != null and point != null and not LessonSession.is_open():
 		point["used"].append({ "item": item, "tier": int(result["level"]) })
 	return result
 
@@ -855,6 +885,8 @@ static func batch(recipe_key: String, count: int, multi: bool = false) -> Dictio
 	var s := _root()
 	if s["activeRun"] != null:
 		return { "ok": false, "reason": "Finish the open run first." }
+	if LessonSession.is_open():
+		return { "ok": false, "reason": "Not during a lesson." }
 	if count < 1 or not is_known(recipe_key):
 		return { "ok": false, "reason": "Nothing to craft." }
 	if not s["performedOnce"].has(recipe_key):
@@ -891,7 +923,7 @@ static func _file(recipe_key: String, tier: int, qty: int, multi: bool, costs_pe
 	if qty <= 0:
 		return
 	var point = _root()["lastCraft"]
-	if point != null:
+	if point != null and not LessonSession.is_open():
 		point["filed"].append({ "key": Crafting.inventory_key(recipe_key, multi), "tier": tier, "qty": qty })
 	Crafting.file_crafted(recipe_key, tier, qty, multi, costs_per_item, xp)
 
@@ -903,8 +935,11 @@ static func _file(recipe_key: String, tier: int, qty: int, multi: bool, costs_pe
 # run taught (known steps, best rank, performedOnce), stay -- the player
 # remembers. Paid like the event/combat Rewind (Rewind.choose_payment()).
 
-# A run's first jar tap, or a batch, opens a new Rewind point.
+# A run's first jar tap, or a batch, opens a new Rewind point. A lesson's
+# runs leave the last one as it was: their calc and items stay out of it.
 static func _open_rewind_point() -> void:
+	if LessonSession.is_open():
+		return
 	_root()["lastCraft"] = {
 		"activeEffects": GameState.deep_copy(ActiveEffects.effects()),
 		"calcSpent": {}, "filed": [], "used": [],
@@ -913,7 +948,7 @@ static func _open_rewind_point() -> void:
 
 static func _note_calc(ore_type: String, amount: int) -> void:
 	var point = _root()["lastCraft"]
-	if point != null:
+	if point != null and not LessonSession.is_open():
 		point["calcSpent"][ore_type] = int(point["calcSpent"].get(ore_type, 0)) + amount
 
 
@@ -922,10 +957,12 @@ static func has_rewind_point() -> bool:
 
 
 static func can_rewind() -> bool:
-	return has_rewind_point() and Rewind.can_pay()
+	return has_rewind_point() and Rewind.can_pay() and not LessonSession.is_open()
 
 
 static func rewind(source: String = "") -> Dictionary:
+	if LessonSession.is_open():
+		return { "ok": false, "reason": "Not during a lesson." }
 	var point = _root()["lastCraft"]
 	if point == null:
 		return { "ok": false, "reason": "Nothing to rewind." }

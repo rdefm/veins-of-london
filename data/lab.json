@@ -485,6 +485,11 @@
       "The calc goes grey and stays grey. Somewhere, a ledger notes the loss."
     ]
   },
+  "lesson": {
+    "_comment": "Locked bench lesson (systems/lesson_session.gd), counted on failed runs: at hintExactAfterFails the lesson's hint rung is granted exact; from talkThroughAfterFails every hidden step of the goal's rungs shows its exact band.",
+    "hintExactAfterFails": 3,
+    "talkThroughAfterFails": 6
+  },
   "debug": {
     "_comment": "Debug app Lab page only. skillMax = top of the crafting-skill override slider; refillCalc = each ore type's calc after Refill calc (tops up, never lowers).",
     "skillMax": 10,

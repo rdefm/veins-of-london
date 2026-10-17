@@ -11,7 +11,9 @@ extends Control
 # "Craft manually" docks the book under the Press, over the plate's lower
 # edge, with the plate just below the top bar: the recipe's jars tap real calc in, apparatus pop their gauge over
 # the plate, and the book's Finish -- the only way out -- shows the result
-# and clues in place, with the Rewind choices.
+# and clues in place, with the Rewind choices. An open lesson
+# (LessonSession) keeps the book docked on its recipe with no Rewind, and
+# its result offers Try again until the goal is met, then Continue.
 
 const _DOCK_MIN_HEIGHT := 160.0
 const _GAUGE_WIDTH := 300.0
@@ -77,7 +79,11 @@ func _refresh() -> void:
 	_diorama = null
 	# An open run keeps the book docked on its recipe until Finish.
 	var run = Lab.active_run()
-	if run != null:
+	var lesson = LessonSession.lesson()
+	if lesson != null:
+		_page = Page.RUN
+		_recipe_key = lesson["recipe"]
+	elif run != null:
 		_page = Page.RUN
 		_recipe_key = run["recipe"]
 	elif _page == Page.RUN and _result.is_empty() and not Lab.is_known(_recipe_key):
@@ -550,6 +556,8 @@ func _on_batch(recipe_key: String, qty: int) -> void:
 # the last run or batch, or the whole time block. Each needs a Rewind item
 # or a loaded Dial Rewind charge.
 func _add_rewind_controls(content: VBoxContainer) -> void:
+	if LessonSession.is_open():
+		return
 	var can_pay := Rewind.can_pay()
 	var any := Lab.has_rewind_point() or Rewind.block_rewind_block_reason() == ""
 	content.add_child(MapCardStyle.text_button("Rewind", _open_rewind_choice, not can_pay or not any))
@@ -676,9 +684,15 @@ func _build_docked_book() -> Control:
 	c["content"].add_child(scroller)
 
 	content.add_child(UI.heading(GameData.RECIPES[_recipe_key]["name"], 18))
+	var lesson = LessonSession.lesson()
+	if lesson != null:
+		_add_lesson_status(content, lesson)
 	if not _result.is_empty():
 		_add_result(content)
-		c["content"].add_child(MapCardStyle.footer([MapCardStyle.text_button("Done", _undock)]))
+		c["content"].add_child(MapCardStyle.footer([_result_exit_button(lesson)]))
+		return c["panel"]
+	if lesson != null and lesson["met"]:
+		c["content"].add_child(MapCardStyle.footer([MapCardStyle.text_button("Continue", LessonSession.resume)]))
 		return c["panel"]
 
 	var run = Lab.active_run()
@@ -693,8 +707,31 @@ func _build_docked_book() -> Control:
 	for i in steps.size():
 		_add_known_step(content, i, steps[i])
 	_add_effect_controls(content)
-	c["content"].add_child(MapCardStyle.footer([MapCardStyle.text_button("Finish", _on_finish)]))
+	c["content"].add_child(MapCardStyle.footer([MapCardStyle.text_button("Finish", _on_finish, lesson != null and run == null)]))
 	return c["panel"]
+
+
+# A lesson's goal and failed runs, and what escalation has shown so far.
+func _add_lesson_status(content: VBoxContainer, lesson: Dictionary) -> void:
+	# PROSE-REVIEW: lesson status lines.
+	if lesson["met"]:
+		content.add_child(MapCardStyle.label("Lesson done.", 14, MapCardStyle.action()))
+		return
+	content.add_child(MapCardStyle.label("Lesson: a hand run at rank %d or better." % int(lesson["goalRank"]), 14, MapCardStyle.action()))
+	var fails := int(lesson["failedRuns"])
+	if fails > 0:
+		content.add_child(UI.muted_label("Failed runs: %d" % fails))
+	if LessonSession.talk_through():
+		content.add_child(UI.muted_label("Talk-through: every band you need is shown."))
+
+
+# Done after an ordinary run; in a lesson, Continue once met, else Try again.
+func _result_exit_button(lesson: Variant) -> Control:
+	if lesson == null:
+		return MapCardStyle.text_button("Done", _undock)
+	if lesson["met"]:
+		return MapCardStyle.text_button("Continue", LessonSession.resume)
+	return MapCardStyle.text_button("Try again", _dock)
 
 
 # Use item: one button per bench effect, spending a real one from the bag;
@@ -736,6 +773,9 @@ func _add_known_step(content: VBoxContainer, index: int, step: Dictionary) -> vo
 		if step["knowledge"] == "revealed":
 			# PROSE-REVIEW: tag on a band Prophet's Breath reveals.
 			band_text += " (Breath)"
+		elif step["knowledge"] == "talkThrough":
+			# PROSE-REVIEW: tag on a band a lesson's talk-through shows.
+			band_text += " (talk-through)"
 		content.add_child(UI.label("%d. %s%s · %s" % [index + 1, Lab.apparatus_name(step["apparatus"]), ores, band_text % [roundi(region["low"]), roundi(region["high"])]]))
 		var band := LabGauges.BandGauge.new()
 		band.set_region(region)
@@ -786,6 +826,12 @@ func _add_result(content: VBoxContainer) -> void:
 			var flavour := UI.muted_label(_result["flavour"])
 			flavour.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			content.add_child(flavour)
+	var lesson: Dictionary = _result.get("lesson", {})
+	# PROSE-REVIEW: lesson escalation lines.
+	if lesson.get("hintExact", false):
+		content.add_child(MapCardStyle.label("The hint sharpens: its band is exact now.", 14, MapCardStyle.action()))
+	if lesson.get("talkThrough", false):
+		content.add_child(MapCardStyle.label("Talk-through: the bands you still need are shown exact.", 14, MapCardStyle.action()))
 	if _notice != "":
 		content.add_child(MapCardStyle.label(_notice, 13, MapCardStyle.action()))
 	_add_rewind_controls(content)

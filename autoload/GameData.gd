@@ -1971,6 +1971,8 @@ const VALID_EFFECT_OPS: Array[String] = [
 	# grant_recipe_rung: RecipeKnowledge.grant_rung (specificity defaults to
 	# exact; an optional source enables the collision fallback).
 	"grant_recipe_rung",
+	# start_lesson_session: LessonSession.start (pauses the event at the bench).
+	"start_lesson_session",
 	# reveal_site queues the discover map event for a site id.
 	# set_hakim_intel_day stamps state.collective.hakimIntelLastDay with today.
 	"reveal_site", "set_hakim_intel_day",
@@ -2138,6 +2140,10 @@ func _validate_effect_list(effects: Array, context: String, errors: Array[String
 				errors.append("%s: grant_recipe_rung has unknown rung '%s'" % [context, effect.get("rung")])
 			if effect.has("specificity") and not LAB.get("specificities", []).has(effect["specificity"]):
 				errors.append("%s: grant_recipe_rung has unknown specificity '%s'" % [context, effect["specificity"]])
+		if effect["op"] == "start_lesson_session":
+			_require_keys(effect, ["recipe", "rank"], context, errors)
+			if effect.has("hintRung") and not RECIPE_KNOWLEDGE.get("rungs", []).has(effect["hintRung"]):
+				errors.append("%s: start_lesson_session has unknown hintRung '%s'" % [context, effect["hintRung"]])
 		if effect["op"] == "resolve_home_raid" and not ["win", "loss"].has(effect.get("outcome")):
 			errors.append("%s: resolve_home_raid outcome must be 'win' or 'loss'" % context)
 

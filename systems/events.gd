@@ -958,6 +958,11 @@ static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 			var granted: Dictionary = RecipeKnowledge.grant_rung(effect["recipe"], effect["rung"], effect.get("specificity", "exact"), effect.get("source", ""))
 			if granted.has("line"):
 				Notify.push(granted["line"])
+		# Pauses the event at the bench (LessonSession) until a run reaches rank.
+		"start_lesson_session":
+			var opened: Dictionary = LessonSession.start(effect["recipe"], int(effect["rank"]), effect.get("hintRung", ""))
+			if not opened["ok"]:
+				push_error("Events: start_lesson_session refused: %s" % opened["reason"])
 		# The site was already created at roll time (Collective.maybe_trigger_hakim_intel())
 		# -- this just queues its discover map event. Runs post on_complete, so
 		# _event_site_id() falls back to advance()'s explicitly-threaded context rather than live event state.

@@ -1363,6 +1363,11 @@ func _restore_lab_int_types(lab: Dictionary) -> void:
 	if typeof(lab.get("skillOverride")) == TYPE_FLOAT:
 		lab["skillOverride"] = int(lab["skillOverride"])
 	_int_dict_values(lab.get("bestRanks", {}))
+	var lesson = lab.get("lesson")
+	if lesson is Dictionary:
+		_int_key(lesson, "goalRank")
+		_int_key(lesson, "failedRuns")
+		_int_dict_values(lesson.get("pool", {}))
 	for entry in lab.get("known", {}).values():
 		_int_dict_values(entry.get("vagueHits", {}))
 	var point = lab.get("lastCraft")
