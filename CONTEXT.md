@@ -109,6 +109,20 @@ A single fighting entity in `combat` — the player, one `combat.allies[]` entry
 **Selection** _(signed off, ticket 05 combat-refining, 2026-09-21)_:
 `combat.selection: {type, index}` — the player's current single-target for Attack/Blast/an eligible Complication, addressable at the player, an ally or an enemy (`type`). Distinct from a turn occurrence and from scroll position in the turn-order strip: scrolling to inspect an upcoming occurrence never changes `selection`, only tapping a card or a combatant sprite does.
 
+**Guard state** _(combat port, REFERENCE §3.7b)_:
+Every [[Combatant]] is either **Open** or **Guarded**. A hit on an Open combatant does full damage; on a Guarded one, chip (×0.25). Set by the combatant's last [[Action]] (Guard → Guarded, Strike/Stun/Leg it → Open, items and Dial casts leave it unchanged) and carried across rounds; everyone starts a fight Guarded.
+_Avoid_: "stance" — that's a faction term (see [[Stance]]).
+
+**Exposed** _(combat port, REFERENCE §3.7b)_:
+A forced-Open status with a duration (Lure's catch: through the end of next round). Counts as Open, and the combatant's own Guard can't clear it.
+
+**Action** _(combat port, REFERENCE §3.7b)_:
+One entry in a combatant's [[Round plan]]: a move (Guard, Strike, Feint, Stun, Lure, Leg it), an item use or a Dial cast. Lure costs two. Actions per round come from Combat Skill level. Rewind is a command, not an action.
+_Avoid_: "turn" — the old speed-queue [[Turn occurrence]] is a different unit.
+
+**Round plan** _(combat port, REFERENCE §3.7b)_:
+A combatant's ordered [[Action]]s for one round. Enemies commit theirs at round start (shown as intents, some unread under fog); allies plan by reading them; the player picks one action at each pause as the timeline reaches it.
+
 **Known recipe**:
 A recipe in `state.lab.known` — granted by story (James grants Time Pearl) or, later, bought or earned. Knowing it gives its base procedure; only known recipes appear in the recipe book.
 _Avoid_: "found"/"discovered" recipe — lottery-bench terms.

@@ -787,6 +787,8 @@ The dock (`NavBar`, now 3 slots: Phone · Map · HQ) is hidden on `title, intro,
 - **Faction cash.** `factions[id].resources` is the faction's £ wallet and never goes below £0. A player purchase (and a business calc buy) credits it. A player sale debits it and adds the goods to holdings (items at their tier; a cart line carries its tier, otherwise lowest tier leaves first). Each sale line is scaled down to what the wallet has left; a sale it can't afford at all is refused ("They can't afford that."). Exception: Nadia's questline order (`Collective.supply_nadia`) pays in full and floors the wallet at £0.
 
 ### 3.7 Combat (M0 port — pre-intent system)
+
+> **Combat rules superseded by §3.7b** where they conflict (see its Superseded / Still in force list); kept until the combat port deletes the old engine.
 - Muggers: `count = rand(1,3)`; hp `28 × count`; atk `4 + 2(count−1)` to `10 + 3(count−1)`; name "A mugger" / "N muggers".
 - Vein-raid enemy (attacking an NPC-claimed vein): template scaled `hp = round(hpBase × (1 + (veinLevel−1)×0.3) × guards)`, atkMax `+ (veinLevel−1)`. (Reachable in M0 only via debug; keep functions.)
 - `getAttackRange()` = unarmed base (7–15) + Combat Skill attack bonus (§3.7a). Players have no weapon.
@@ -830,6 +832,8 @@ The dock (`NavBar`, now 3 slots: Phone · Map · HQ) is hidden on `title, intro,
 
 ### 3.7a Squad combat, turn order, and Combat Skill (2026-08-30 pass — extends/supersedes §3.7)
 
+> **Combat rules superseded by §3.7b** where they conflict (see its Superseded / Still in force list); kept until the combat port deletes the old engine.
+
 Supersedes the single-`enemy` framing in §3.7 wherever it conflicts: `combat.enemy` becomes `combat.enemies: Array` (active fighters, at most 3; per-entry shape per §2 above, plus `speed:int` and `koed:bool`), and `combat.focusedEnemyIndex: int` (default 0) is added. **Reinforcements:** each side has at most 3 active fighters (the player counts toward the friendly 3, so `combat.allies` holds at most 2). Overflow waits in `combat.enemyQueue` / `combat.allyQueue` (same entry shapes; friendly order = selected recruits, partner helpers, hired guards; enemy order = generated). Queued fighters do not act, take damage or appear as targets; AoE and freeze hit only fighters active when applied. A KO'd active fighter's index is immediately taken by the next same-side queue entry (in KO order), and an enemy entering mid-freeze carries `freezeExempt` until the freeze ends. **Turn substitution:** on entry, the KO'd fighter's unresolved queue entries (Motion extras included) are replaced by one entrant occurrence placed by the entrant's own speed with the usual tie-break (player > allies > enemies, then index); a fighter that had already acted this round leaves nothing to swap, so the entrant first acts next round. While a player command is mid-flight the cursor's parked player entry counts as resolved. Each enemy carries a fight-scoped `rid` so Rewind can tell which fighter holds a slot. Victory needs `enemies` all koed and `enemyQueue` empty. Raid guard counts and mugging rolls are no longer clamped to 3. Every other §3.7 mechanic — attack ranges, shield/blast/time-pearl/black-hole, ally behaviour, onWin dispatch, Rewind — carries over unchanged except where noted below.
 
 **Player KO** (after the automatic Failsafe, then guard-kit Rewind, checks fail): `combat.playerKoed = true`, player `hp` stays 0 for the fight, the player's turn slots (extras included) leave the queue, and the next `allyQueue` entry joins `allies` (first acts next round). Allies and enemies then resolve every turn automatically (enemies never target the player; no command is accepted; Healing Burst cannot revive them). Allies clearing `enemies` + `enemyQueue` is the normal win (rewards, `onWin`, raid outcome). If no friendly active or queued fighter is left standing the fight is a `loss`. After an ally-won win or a loss the player's `hp = round(hpMax * 0.1)` (`Combat.PLAYER_KO_HP_FRACTION`; the old 30% loss revive is gone). Recruited-ally KO cooldowns are unchanged.
@@ -869,12 +873,145 @@ Supersedes the single-`enemy` framing in §3.7 wherever it conflicts: `combat.en
 - **Guard allies in the queue** (guard-kit §Defend fight): a guard ally's queue entry resolves like any ally's (`_ally_turn`); a guard kit spend (§3.7 Guard kit) replaces that entry's attack. A guard kit Black Hole/Time Pearl freeze costs every living enemy a turn per point, same as the player's. A guard with `motionTurns > 0` (Enhancement Powder) gets `motionPower ≥ 3 ? 2 : 1` extra `{type:"ally", index, extra:true}` entries right after its own slot, from the round after it used the powder; at a round boundary its `motionTurns` −1 only if the ending round carried its extras (the player's tick likewise counts only player extras). Combat snapshots carry `allyMotion` (`[{motionTurns, motionPower}]`, index-aligned with `combat.allies`) and a restore writes it back; `powderUsed` is not restored (no refund).
 - **Unchanged by this pass:** ally roster shape/behaviour (§3.7's "Ally combat" bullet) beyond adding `speed`; win/loss/flee outcome dispatch (§3.7's onWin table); Rewind/snapshot mechanics (§3.9) beyond snapshotting `enemies`/`focusedEnemyIndex` in place of the old single `enemy`.
 
+### 3.7b Open/Guarded round combat (combat port — supersedes §3.7/§3.7a/§3.9 combat rules)
+
+Spec: `.scratch/combat-port/spec.md` (signed off 2026-10-17); prototype rules: `.scratch/COMPLETED/combat-revamp_COMPLETED/spec.md`. Every live fight (all `Combat.CANONICAL_CONTEXTS`) runs on these rules. **Superseded:** §3.7's player/enemy attack turn, evade, flee, Motion, frozen pool, per-item "Use X" bodies, ally action order and guard/raider kit turn rules; §3.7a's speed queue, turn substitution, `turnCursor` queue shape, `project_queue`, per-attack-turn XP and roster-generation stat scaling; §3.9's combat-rewind bullet. **Still in force:** §3.7's loadout/recruit loadout (equip, refill, settle), `combatPrep` sheet, onWin dispatch and exit routing, raider/guard kit *pool* shapes, settlement and refill, ally join rules (`can_join_combat`, `can_assist_raid`, KO cooldown, replenish); §3.7a's squad max 3, reinforcement queues, Player KO, Combat Skill XP curve/Train/Gym, HP-bonus-on-level-up, targeting by strip swipe, territorial `variant`; §3.9's event rewind.
+
+**Combatants.** Player, up to 2 active allies, up to 3 active enemies (§3.7a queues hold overflow). Each carries a Combat Skill **level** 1–5 (player: `player.combatSkill`; enemy: enemy-level table below; ally: ally-level table below), a **guard state** `open`/`guarded`, and `speed`. Everyone starts the fight Guarded.
+
+**Curves** (all indexed by level, index 0 unused; values as in the prototype data):
+
+| Curve | Values [_,1,2,3,4,5] |
+|---|---|
+| actionsPerRound | 0, 2, 2, 3, 3, 3 |
+| critChance | 0, .03, .04, .05, .06, .07 |
+| attack bonus (`combatAttackBonusByLevel`) | 0, 0, 2, 4, 7, 11 |
+| speed (`combatSpeedByLevel`) | 0, 10, 12, 14, 17, 21 |
+| HP bonus (`combatHpBonusByLevel`) | 0, 0, 0, 55, 55, 140 |
+| fog `unreadChance` | 0, .35, .28, .21, .14, .07 |
+
+`chipMultiplier` 0.25. Fog `perLevelAbove` .08, `perLevelBelow` .03, `positionMultiplier` [.35, 1.0, 1.5]. Player stats: hp per §3.7a/Gym (unchanged), attack = unarmed 7–15 + attack bonus, speed = speed curve. Enemy and ally stats: their own template/authored hp and attack + HP/attack bonus at their level, ±`ENEMY_INSTANCE_VARIANCE` 0.15 per enemy instance (§3.7a); speed per the enemy-level table's speed rule.
+
+**Archetypes** (`mugger`, `bruiser`, `turtle`, `muggerV2`, `bruiserV2`, `turtleV2`): each holds weighted plan patterns (prototype data, unchanged). Their prototype stat bases (mugger 30 / 5–10, bruiser 38 / 7–13, turtle 36 / 4–8, muggerV2 65 / 13–21, bruiserV2 44 / 9–15, turtleV2 75 / 13–20) are the Debug-setup and sim presets only; a live template keeps its own hp/attack/speed and takes only its archetype's patterns.
+
+**Round.** At round start each enemy commits a round plan: one weighted pattern, cycled to fill its `actionsPerRound` (a 3-move pattern on a 2-action enemy plays its first two), each offensive action targeting uniformly over the player + living allies. Next round's plans are pre-rolled at the same time (for sight). Allies then plan by reading the fogged enemy intents (prototype ally AI; ally item rules below). All actions resolve in timeline order: action index, then speed descending, then player > allies (array order) > enemies (array order). The engine pauses at each player action for one pick (move or loadout item or Dial cast + target); only targets living at the pause are offered. Enemies never re-plan mid-round.
+
+**Moves** (all six available from the start; `level` field reserved):
+
+| id | Cost | Actor after | Effect |
+|---|---|---|---|
+| guard | 1 | guarded | — |
+| strike | 1 | open | Damage roll vs target |
+| feint | 1 | unchanged | Guarded target → Open until its next Guard; no-op on Open |
+| stun | 1 | open | Needs an Open target, else fizzles; target loses its next 1 action |
+| lure | 2 | guarded | First enemy to attack the actor while active becomes Exposed through the end of next round; Lure then ends, actor Open |
+| legIt | 1 | open | Flee roll 0.65; success ends the fight `fled`; failure: actor Open, rest of its actions this round lost; no parting shot |
+
+Items and Dial casts cost 1 action and leave guard state unchanged (except Shield). **Exposed** counts as Open and the target's own Guard can't clear it.
+
+**Damage.** `roll = rand(attackMin, attackMax)`. Open/Exposed target → full; Guarded → `max(1, round(roll × 0.25))`. Crit (`critChance[level]`) doubles the final figure (Guarded crit = 2× chip). A shield pool absorbs 1:1 before HP (player, ally, enemy alike). Pandemonium/Panger anger factors apply after crit (below).
+
+**Removal.** Stun / Time Pearl / Black Hole drop the target's next N actions from the timeline (spilling into next round's plan). The target's guard state stays (Time Pearl's freeze forces Open). A KO'd combatant's remaining actions drop. An action aimed at a KO'd enemy retargets the next living enemy (index order); a heal at a KO'd ally fizzles.
+
+**Fog.** Each enemy action is read/unread when its plan is rolled, off `fogRngState`: unread chance = (`unreadChance[player level]` + .08 × levels the enemy is above − .03 × levels below) × `positionMultiplier[action index]` (last entry beyond), clamped [0,1]. Unread shows `?` for move, target, damage and resulting guard state until it resolves; never lies. Ally plans always read. Sight (Prophet's Breath) reads everything this round and next; a plan seen under sight stays read after sight ends.
+
+**Items** (power = recipe `effectPower` at the slot unit's tier, §3.7; multi-target units as §3.7 Loadout):
+
+| Item | Effect |
+|---|---|
+| timePearl | Every living enemy loses its next `power` actions and is Open while frozen |
+| blackHole | `power` damage to every living enemy, ignores guard; each loses `1 + floor(power/8)` actions |
+| blast | `power` damage to target, ignores guard; one-use flee boost (next Leg it rolls 0.90); 15% disarm (table 4) |
+| shield | Actor gets absorb pool `power`; Guarded while pool > 0, whatever its moves |
+| enhancementPowder | +1 action per round for `power ≥ 3 ? 2 : 1` rounds, starting this round (extra action follows the user's last planned index) |
+| prophetsBreath | Sight for `power` rounds, from resolution |
+| beALady | Max rolls + 1/3 crit for `power` rounds, from resolution |
+| healingBurst | Heal self or ally by `power`, capped at hpMax |
+| panic, pansRapture, panger, pandemonium, wormhole | Table 4 |
+| failsafe | Never picked; fires on a lethal hit (Rewind, below) |
+| rewind | Not an action; the Rewind command (below) |
+
+**Dial Complications.** A loaded Complication is a pick at a player pause: 1 action, guard state unchanged, `Dial.cast_complication()` cost/XP/magnitude per §3.5 (Time Pearl/Prophet's Breath add `level` actions/rounds, Black Hole its L3/L5 bonus). Ally Dial casts use the same rules inside the ally's plan (planned at round start, shown as ally intents).
+
+**Carry-in effects.** An out-of-combat `player.activeEffects.prophetsBreath` active at fight start gives sight from round 1 for the whole fight (the block clock doesn't move mid-fight); it still blocks ambushes (§3.1d). An active `beALady` gives max rolls + 1/3 crit for the whole fight likewise.
+
+**Rewind.** A snapshot is pushed before each player pick (Snapshots stack cap 2, holding the combat dict incl. cursor, plans, fog and RNG states). **Rewind** (a command, not an action) restores the most recent snapshot: that pick is undone and replayable; a second Rewind steps one more pick back, across a round boundary restoring that round's pre-rolled plans. Each Rewind costs one `rewind` unit from a loadout slot (preferred), else a loaded Dial `rewind` Complication with `currentCharge ≥ 1` (charge + XP only). No evade grant. **Failsafe**: when the player would hit 0 hp, a `failsafe` in a loadout slot with a snapshot available is spent and the last-pick snapshot restored (automatic, free of the Rewind cost). **Guard-kit rewind**: after Failsafe fails, a standing ally holding a `rewind` (guard kit or recruit slot) spends it and restores the same way, on every would-be KO while units last. An ally's own `failsafe` keeps it on 1 hp on its own lethal hit (one unit per save). Rewind never refunds spent units or restores enemy/guard shields.
+
+**KO and outcome.** Win = all active and queued enemies KO'd. Player KO (after Failsafe/guard rewind fail) per §3.7a Player KO: the player's actions drop, allies fight on unpaused, loss when no friendly stands; player `hp = round(hpMax × 0.1)` after. Fled = successful Leg it or Wormhole. **Reinforcements:** a KO'd active fighter's place is taken by the next same-side queue entry at the next round boundary; the entrant plans from that round (enemy: pattern + fog as usual).
+
+**XP.** One lump per fight, at `exit_combat()`: win 30 Combat XP, loss 3, fled 0. No per-action XP. Train/Gym unchanged (§3.7a).
+
+**Enemy kits** (raider kit, enemy capabilities) and **guard kits / ally slots**: table 5. **Anger/fury, Panic, Rapture, Wormhole, disarm**: table 4.
+
+#### Table 1 — Template → archetype (**DRAFT — pending sign-off**)
+
+| Enemy source | Template stats (kept) | Archetype |
+|---|---|---|
+| Mugger (`generate_mugger`) | hp 28, atk 4–10, speed 11 | mugger |
+| Harder mugger (vein in the sale; 2–4 of them) | same base, no ×1.3 (level replaces it, table 2) | muggerV2 (same patterns as mugger) |
+| Event street / Archie-deal mugging | as mugger (harder flag carried) | mugger / muggerV2 |
+| `territorialScrapper` (all `variant`s, visuals only) | 30, 3–8, speed 12 | bruiser |
+| `veinGuard` | 30, 4–10, speed 8 | turtle |
+| `orichalchumDealer` | 25, 5–12, speed 10 | mugger |
+| Faction squads (`factionSquads`) | per member template | per member template |
+| `homeRaidRaider` (tutorial + alarm defend) | 35, 6–14, speed 9 | bruiser |
+
+Each `raidGuards` entry and `homeRaidRaider` gains `"archetype"`; the mugger's lives beside `MUGGER_SPEED`'s data home.
+
+#### Table 2 — Enemy level (**DRAFT — pending sign-off**)
+
+| Context | Driver | Level |
+|---|---|---|
+| Mugging (all mugging contexts) | — | 1 |
+| Harder mugger | vein in the sale | 2 |
+| Raid / event raid / defend vein | `Cultivating.combined_magnitude(vein)` (replaces the ×(1 + 0.3(m−1)) hp and +(m−1) atkMax scaling) | m 1 → 1, 2 → 2, 3–4 → 3, 5–6 → 4, 7+ → 5 |
+| Faction ambush | none exists today (fights at magnitude 1) | 1 |
+| Home raid (tutorial) | — | 1 |
+| Home alarm defend | — | 2 |
+| Debug | picker | picker |
+
+**Speed rule:** enemy/ally speed = own authored speed + (`speedCurve[level]` − `speedCurve[1]`), so slow and fast templates keep their order and level still lifts them. **Open questions:** "faction strength" has no live combat driver — keep ambushes at 1, or add one (e.g. faction turf count)? HP bonus jumps +55 at level 3, so a magnitude-3 vein guard goes 30 → 85 hp.
+
+#### Table 3 — Ally level (**DRAFT — pending sign-off**)
+
+| Ally | Level | Source |
+|---|---|---|
+| Contact with its own `combatSkill` | that skill | contact state |
+| Archie (combat-kit fallback) | 2 | `contacts.archie.combatLevel` (new constant, §1.11) |
+| James (combat-kit fallback) | 1 | `contacts.james.combatLevel` |
+| Hired Guard (`guardKit.guardAlly`) | 1 | `guardAlly.level` |
+| Firm muscle (`firm_muscle` perk ally) | 2 | `ally.level` in the perk params |
+
+Levels ≤ 2 keep authored hp unchanged (HP bonus is 0 below level 3); Archie's/James's persistent `combatHp` stays as today.
+
+#### Table 4 — Live-only items in the action model (**DRAFT — pending sign-off**)
+
+Power unchanged (REFERENCE §1 recipe table). "Actions" below count the target's own resolved actions; removed actions don't tick a status. A target already under any Pan status refuses another (multi units skip statused enemies), as today.
+
+| Item | Target | Per action/round | Guard effect | Shown in plan |
+|---|---|---|---|---|
+| panic | 1 enemy (multi: all unstatused) | Next `power` actions each become a Panic turn: 50% bolt (defeated, counts as a KO), else cower (no effect) | Cower → Open | Affected intents replaced by a read "panic" intent at resolution |
+| pansRapture | 1 enemy (multi) | Next `power` actions are idle | Idle → Open | Read "rapture" intent |
+| panger | 1 enemy (multi) | `anger`: target's next 2 actions deal +X% / take −X%, next 2 deal −X% / take +X%; X = 25 × tier (Dial: × Impact × level mult, §3.5); damage floors at 0 | none (moves keep their own) | Status badge; intents unchanged |
+| pandemonium | 1 enemy (multi) | As panger; each Strike/Stun it resolves re-targets a random other living enemy (no other enemy → normal target) | none | Status badge; target shown `?` while furious |
+| wormhole | self (player only, `allyExcluded`) | Ends the fight `fled` at once, no roll, no parting shot | — | — |
+| failsafe | self (auto) | Rewind section above | — | — |
+| disarm (Blast 15%) | blast target | Strips `weapon` for the fight; `ability.lockedTurns = 2` ticks at round boundaries | none | Disarm badge |
+
+#### Table 5 — Kit items in committed plans and fog (**DRAFT — pending sign-off**)
+
+- **Enemy (raider kit, shared squad pool):** when an enemy's plan is rolled, each planned `strike` is checked in order against the §3.7 raider-kit rules (heal lowest below 0.4 → shield if own pool 0 → blast), evaluated on the round-start state; the first match replaces that strike with an item action, max 1 per enemy per round. The unit is reserved at commit and spent on resolution; a removed or fizzled action returns it to the pool. Heal target fixed at commit (a KO'd target → fizzle). Enemy Shield: Guarded while its pool > 0. Item actions take fog like moves (unread → `?`). Guard state: unchanged.
+- **Guard allies (guard kit) and recruit slots:** ally AI plans items with the §3.7 guard-kit rule order at plan time (heal → Prophet's Breath → shield → Black Hole/Time Pearl vs 2+ enemies → blast → powder once); guard-kit Prophet's Breath gives the **player** sight for `power` rounds (replaces the old evade grant). Same reserve-at-commit/spend-on-resolve rule. Ally item intents always read. Failsafe/rewind stay automatic, never planned.
+- **Ally Dial casts:** planned like items (above); 1 charge on resolution.
+
 ### 3.8 Home-raid event chain
 Trigger: `homeRaidEventPending` true → on next visit to HQ, launch. Flow: intro event (3 cards) → combat vs raider (hp 35, atk 6–14, context "home_raid") → debrief event (WIN or LOSS variant). Loss additionally: carried `orichalchum` halved (floor) — this used to also separately halve a `storedOre` pool, but that field was merged into `orichalchum` (§2's storedOre merge note), so there is only the one pool to lose now. Debrief completion (both variants): `homeRaidEventSeen = true`, `homeRaidWon` per outcome, `archiePartnerSeen = true`, `homeUnlocked = true`, `securityContactUnlocked = true`, archie relation +10, Archie recruited (`recruit_contact` op; load fix-up also recruits him on any save with `homeRaidEventSeen`), grant a vein (time-type, growth `seedGrowth` (20), rampantDays 0, security none, district "whitechapel", location "Whitechapel, behind the old brewery", claimedOnDay = today), notification "HQ's workbench is open now." (now that `homeUnlocked` is genuinely true), → home.
 
 The chain plays once. Later HQ raids defended from the alarm (`Home.trigger_defend()`) use their own context `"home_alarm_defend"` (same raider, no `onWin`): no intro/debrief events, flags untouched. Win → nothing lost; loss or flee → exactly the undefended-raid loss (`Home._apply_raid_loss()`, not the quest's halving); either way → phone home.
 
 ### 3.9 Snapshots & Rewind (engine foundation)
+
+> **Combat rewind bullet superseded by §3.7b "Rewind".** Event rewind unchanged.
 - `Snapshots.gd`: `push(stack_id, deep_copy_of_state_subset)`, bounded stacks.
 - **Combat rewind:** snapshot at the start of every player attack turn: `{playerHp, enemyHp, log(copy), frozenTurns, motionTurns, motionPower, evadeTurns, evadeChance}` plus the focused `enemy` (full copy) and `enemyQueue` (reinforcement scope: if a reinforcement replaced that focused enemy since, restore puts the original back and returns fighters admitted into that slot to the queue; other slots' KOs/entrants stay, `slotsUsed` is never touched); keep max 2. Using Rewind (a `rewind` unit in a loadout slot, preferred — spent with no refund, or — dial-device ticket 07 — a loaded `rewind` Complication with `currentCharge ≥ 1` as fallback, cast via `Dial.cast_complication()` for its charge/XP side effects only, ignoring its power/targets): consume; restore the OLDEST snapshot; clear stack; append log "⟲ Time unspools. The moment resets. Only you remember."; `outcome = null`; grant `evadeTurns = 2, evadeChance = 0.50`. The event-runner's own Rewind (`Events.rewind()`, card-frame snapshots, M0-T13) follows the same consumable-then-Complication fallback.
 - **Event rewind:** the event runner snapshots full `state` before applying each card's effects; Rewind pops one card-frame (M0-T13). The event screen's Item button lists the `rewind` consumable and a loaded Dial `rewind` Complication as separate entries (`systems/event_items.gd`); the player picks which one pays.
