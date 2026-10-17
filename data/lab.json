@@ -1,5 +1,5 @@
 {
-  "_comment": "Live Lab (systems/lab.gd, .scratch/lab-port/spec.md) -- provisional numbers, tagged for balance. procedures.<recipeKey>: baseCalc = calc spent per item; baseTolerance = band half-width before widening; ideal = the authored perfect procedure (apparatus = data/approaches.json id, ore = an ingredient ore that must be in the mixture for the step to match, absent for a step that works the existing mixture, target on a 0-100 gauge, weight; weights sum to 100); base = the procedure a newly granted recipe knows, its steps' calc summing to baseCalc; hints = the hidden steps, each naming the ideal step index it reveals (a base step matching that ideal step gets its target corrected, otherwise the ideal step is inserted, no calc) and one rung (hint1, hint2, master). A vague hint shows a region of the band widened by vagueSpread each side and shifted by its offset (|offset| <= vagueSpread, so the band always sits inside); an exact hint shows the true band. rankThresholds[i] is the minimum score for rank i+1. skillFactor: band_half_width = baseTolerance x (1 + skillFactor x craftingSkill). vagueToExactHits = in-band runs on a vague step that make it exact. PROSE-REVIEW: every hints label/note is new copy.",
+  "_comment": "Live Lab (systems/lab.gd, .scratch/lab-port/spec.md) -- provisional numbers, tagged for balance. procedures.<recipeKey>: baseCalc = calc spent per item; baseTolerance = band half-width before widening; ideal = the authored perfect procedure (apparatus = data/approaches.json id, ore = an ingredient ore that must be in the mixture for the step to match, absent for a step that works the existing mixture, target on a 0-100 gauge, weight; weights sum to 100); base = the procedure a newly granted recipe knows, its steps' calc summing to baseCalc; hints = the hidden steps, each naming the ideal step index it reveals (a base step matching that ideal step gets its target corrected, otherwise the ideal step is inserted, no calc) and one rung (hint1, hint2, master). A vague hint shows a region of the band widened by vagueSpread each side and shifted by its offset (|offset| <= vagueSpread, so the band always sits inside); an exact hint shows the true band. rankThresholds[i] is the minimum score for rank i+1. skillFactor, benchBonusFactors: band_half_width = baseTolerance x (1 + skillFactor x craftingSkill) x (1 + benchBonus), benchBonus = home x Home workshop bonus + perk x Guild craft-chance perk + attunement x seated Movement attunement (when its ore is an ingredient). A finished run scores sum(weight x accuracy) - extraStepPenalty per extra step + ladyScorePerLevel x Be A Lady level, clamped 0-100; a cracked or abandoned run gives xpReward / failedRunXpDivisor XP. gauges: per-apparatus gauge settings (a compress released at or past crackAt cracks the vessel; grinding strokes; distilling drips fall over fallMsec, one every beatMsec). vagueToExactHits = in-band runs on a vague step that make it exact. PROSE-REVIEW: every hints label/note is new copy.",
   "procedures": {
     "timePearl": {
       "baseCalc": { "time": 3 },
@@ -71,6 +71,16 @@
   "specificities": ["vague", "exact"],
   "rankThresholds": [0, 40, 60, 75, 90],
   "skillFactor": 0.08,
+  "benchBonusFactors": { "home": 1.0, "perk": 1.0, "attunement": 1.0 },
+  "extraStepPenalty": 5,
+  "ladyScorePerLevel": 10,
+  "failedRunXpDivisor": 3,
+  "gauges": {
+    "heat": { "risePerSec": 40 },
+    "compression": { "risePerSec": 30, "crackAt": 95 },
+    "grinding": { "strokes": 3, "swingPeriodSec": 2.0 },
+    "distilling": { "drips": 4, "beatMsec": 1400, "fallMsec": 1000, "leadInMsec": 1400 }
+  },
   "vagueSpread": 15,
   "vagueToExactHits": 3
 }

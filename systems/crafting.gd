@@ -163,6 +163,28 @@ static func can_craft(recipe_key: String) -> bool:
 	return craft_block_reason(recipe_key) == ""
 
 
+# The one entry point for filing items the player made (a Lab run or batch,
+# attempt_craft()): qty units at tier into inventory, each item's calc
+# (costs_per_item) credited to the player's craft share, craftedCounts, xp
+# crafting XP, then the Contracts, Objectives and Collective side effects.
+static func file_crafted(recipe_key: String, tier: int, qty: int, multi: bool, costs_per_item: Dictionary, xp: int) -> void:
+	if qty <= 0:
+		return
+	inventory_add(inventory_key(recipe_key, multi), tier, qty)
+	var per_share := {}
+	for ore_type in costs_per_item:
+		per_share[ore_type] = int(costs_per_item[ore_type]) * qty
+	Shares.record_craft(Shares.PLAYER, per_share)
+	var counts: Dictionary = GameState.state["player"]["craftedCounts"]
+	counts[recipe_key] = int(counts.get(recipe_key, 0)) + qty
+	award_crafting_xp(xp)
+	Contracts.note_player_supplied(recipe_key)
+	Objectives.refresh()
+	Collective.award_a2_missions()
+	Collective.maybe_trigger_a2_nadia_defend_brief()
+	EventBus.state_changed.emit()
+
+
 static func attempt_craft(recipe_key: String, multi: bool = false) -> Dictionary:
 	multi = multi and multi_craft_available(recipe_key)
 	var reason := craft_block_reason(recipe_key)
@@ -190,14 +212,7 @@ static func attempt_craft(recipe_key: String, multi: bool = false) -> Dictionary
 	if success:
 		var tier := quality_tier(recipe_key)
 		var power = effect_power(recipe_key, tier)
-		inventory_add(inventory_key(recipe_key, multi), tier)
-		Shares.record_craft(Shares.PLAYER, costs)
-		var counts: Dictionary = player["craftedCounts"]
-		counts[recipe_key] = int(counts.get(recipe_key, 0)) + 1
-		award_crafting_xp(r["xpReward"])
-		Objectives.refresh()
-		Collective.award_a2_missions()
-		Collective.maybe_trigger_a2_nadia_defend_brief()
+		file_crafted(recipe_key, tier, 1, multi, costs, r["xpReward"])
 		Modal.open("craft_result", { "success": true, "recipeKey": recipe_key, "power": power })
 		return { "ok": true, "success": true, "recipeKey": recipe_key, "power": power }
 	else:

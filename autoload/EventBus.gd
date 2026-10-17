@@ -11,6 +11,10 @@ signal day_ticked(day: int)
 signal time_advanced(source: Dictionary, destination: Dictionary)
 signal notification_pushed
 
+# Lab's manual-run hook: once per completed manual run (never batch), with
+# { recipe, score, rank, outcome: "finished" | "cracked" | "abandoned" }.
+signal lab_run_completed(result: Dictionary)
+
 # Fires once per newly-detected batch of actionable alarm situations, giving
 # a visible cue independent of whether the alarm surface can auto-open yet.
 signal alarm_arrived

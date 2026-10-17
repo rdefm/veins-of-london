@@ -9,6 +9,14 @@ extends RefCounted
 # with an authored hint and rung -- are then granted at a specificity
 # (grant_steps()): "vague" shows a fuzzy region and direction, "exact" the
 # true band. A grant only ever raises a step's specificity.
+#
+# A manual run (spec § Run rules) is freeform: add_ore() taps one of the
+# recipe's jars, spending its fixed amount of the player's real calc, and
+# the first tap opens the run. Each perform_*() works the mixture with one
+# apparatus, in any order, repeats allowed. finish_run() scores the steps,
+# turns the score into a rank and files one item at tier = rank through
+# Crafting. A compress past crackAt cracks the vessel; it and abandon_run()
+# lose the calc and give no item. No time block is spent.
 
 
 static func _data() -> Dictionary:
@@ -187,10 +195,27 @@ static func _hint_by_id(recipe_key: String, hint_id: String) -> Dictionary:
 
 # ── Bands ────────────────────────────────────────────────────────────────
 
-# band_half_width = baseTolerance × (1 + skillFactor × craftingSkill).
+# band_half_width = baseTolerance × (1 + skillFactor × craftingSkill)
+# × (1 + bench_bonus()) (spec § Run rules).
 static func band_half_width(recipe_key: String) -> float:
 	var skill := int(GameState.state["player"]["craftingSkill"])
-	return float(procedure_def(recipe_key)["baseTolerance"]) * (1.0 + float(_data().get("skillFactor", 0.0)) * skill)
+	return float(procedure_def(recipe_key)["baseTolerance"]) \
+		* (1.0 + float(_data().get("skillFactor", 0.0)) * skill) \
+		* (1.0 + bench_bonus(recipe_key))
+
+
+# The player's existing craft bonuses, each converted by its
+# benchBonusFactors entry: the Home workshop/library bonus, the Guild perk's
+# craft bonus, and the seated Movement's attunement when its ore is one of
+# the recipe's ingredients.
+static func bench_bonus(recipe_key: String) -> float:
+	var factors: Dictionary = _data().get("benchBonusFactors", {})
+	var attunement := 0.0
+	for ore_type in base_calc(recipe_key).keys():
+		attunement = maxf(attunement, Dial.attunement_bonus(ore_type))
+	return Home.get_workshop_bonus() * float(factors.get("home", 0.0)) \
+		+ Perks.craft_chance_bonus() * float(factors.get("perk", 0.0)) \
+		+ attunement * float(factors.get("attunement", 0.0))
 
 
 # What the gauge shows for a known step, clamped to the 0-100 gauge: the
@@ -237,3 +262,324 @@ static func match_ideal(ideal: Array, performed: Array) -> Array[int]:
 # base procedure step's calc.
 static func _added_ores(step: Dictionary) -> Array:
 	return step["ores"] if step.has("ores") else step.get("calc", {}).keys()
+
+
+# ── Calc ─────────────────────────────────────────────────────────────────
+
+# Calc one item of the recipe costs: its procedure's baseCalc. Crafting
+# skill doesn't reduce it.
+static func base_calc(recipe_key: String) -> Dictionary:
+	var cost := {}
+	var base: Dictionary = procedure_def(recipe_key).get("baseCalc", {})
+	for ore_type in base.keys():
+		cost[ore_type] = int(base[ore_type])
+	return cost
+
+
+# A jar tap adds this much of the ore: the recipe's base calc of it, 0 for
+# an ore the recipe doesn't use.
+static func jar_amount(recipe_key: String, ore_type: String) -> int:
+	return int(base_calc(recipe_key).get(ore_type, 0))
+
+
+# The calc a run can draw on: the player's unstashed orichalchum.
+static func calc_available(ore_type: String) -> int:
+	return int(GameState.state["player"]["orichalchum"].get(ore_type, 0))
+
+
+# Every run calc spend goes through here. False (nothing spent) when short.
+static func _spend_calc(ore_type: String, amount: int) -> bool:
+	if calc_available(ore_type) < amount:
+		return false
+	var orichalchum: Dictionary = GameState.state["player"]["orichalchum"]
+	orichalchum[ore_type] = calc_available(ore_type) - amount
+	return true
+
+
+# ── Manual run ───────────────────────────────────────────────────────────
+
+# Apparatus whose step is one hold-and-release reading (perform_step).
+const HOLD_APPARATUS: Array[String] = ["heat", "compression"]
+
+
+static func active_run() -> Variant:
+	return _root()["activeRun"]
+
+
+static func gauge(apparatus: String) -> Dictionary:
+	return _data()["gauges"][apparatus]
+
+
+# Opens a run by tapping every recipe jar once (the whole base calc).
+static func begin_run(recipe_key: String) -> Dictionary:
+	if active_run() != null:
+		return { "ok": false, "reason": "A run is already open." }
+	if not is_known(recipe_key):
+		return { "ok": false, "reason": "Recipe not known." }
+	var cost := base_calc(recipe_key)
+	for ore_type in cost.keys():
+		if calc_available(ore_type) < int(cost[ore_type]):
+			return { "ok": false, "reason": "Not enough calc." }
+	for ore_type in cost.keys():
+		add_ore(recipe_key, ore_type)
+	return { "ok": true }
+
+
+# Taps a jar: spends the ore's fixed recipe amount from real calc into the
+# mixture. Only the run recipe's own jars tap. The first tap opens the run;
+# it records { recipe, startedMsec, calcSpent, performed, added } (added =
+# ore types tapped in since the last step).
+static func add_ore(recipe_key: String, ore_type: String) -> Dictionary:
+	var run = active_run()
+	if run != null and run["recipe"] != recipe_key:
+		return { "ok": false, "reason": "Another run is open." }
+	if not is_known(recipe_key):
+		return { "ok": false, "reason": "Recipe not known." }
+	var amount := jar_amount(recipe_key, ore_type)
+	if amount <= 0:
+		var ore_name: String = GameData.ORE_TYPES.get(ore_type, {}).get("name", ore_type)
+		var recipe_name: String = GameData.RECIPES.get(recipe_key, {}).get("name", "This recipe")
+		return { "ok": false, "reason": "%s doesn't use %s." % [recipe_name, ore_name] }
+	if not _spend_calc(ore_type, amount):
+		return { "ok": false, "reason": "Not enough calc." }
+	if run == null:
+		run = {
+			"recipe": recipe_key, "startedMsec": Time.get_ticks_msec(), "calcSpent": {},
+			"performed": [], "added": [],
+		}
+		_root()["activeRun"] = run
+	run["calcSpent"][ore_type] = int(run["calcSpent"].get(ore_type, 0)) + amount
+	if not run["added"].has(ore_type):
+		run["added"].append(ore_type)
+	EventBus.state_changed.emit()
+	return { "ok": true }
+
+
+# An apparatus works the mixture only once a jar tap has opened the run.
+static func check_apparatus() -> Dictionary:
+	if active_run() == null:
+		return { "ok": false, "reason": "Add calc from a jar first." }
+	return { "ok": true }
+
+
+# Heat or compress: commits the raw needle value at release. A compress at
+# or past crackAt cracks the vessel and ends the run with no item.
+static func perform_step(apparatus: String, value: float) -> Dictionary:
+	if not HOLD_APPARATUS.has(apparatus):
+		return { "ok": false, "reason": "Not a hold apparatus." }
+	var check := check_apparatus()
+	if not check["ok"]:
+		return check
+	value = clampf(value, 0.0, 100.0)
+	_perform(apparatus, { "value": value })
+	if apparatus == "compression" and value >= float(gauge("compression")["crackAt"]):
+		var result := _close_run("cracked")
+		result["cracked"] = true
+		return result
+	EventBus.state_changed.emit()
+	return { "ok": true }
+
+
+# Grind: commits the pestle meter reading at each stroke. Strokes past the
+# gauge's count are ignored; strokes short of it read as misses.
+static func perform_grind(readings: Array) -> Dictionary:
+	var check := check_apparatus()
+	if not check["ok"]:
+		return check
+	var clamped := []
+	for i in int(gauge("grinding")["strokes"]):
+		clamped.append(clampf(float(readings[i]), 0.0, 100.0) if i < readings.size() else null)
+	_perform("grinding", { "readings": clamped })
+	EventBus.state_changed.emit()
+	return { "ok": true }
+
+
+# Distil: commits the tap times (msec since the first drip started).
+static func perform_distil(tap_msecs: Array) -> Dictionary:
+	var check := check_apparatus()
+	if not check["ok"]:
+		return check
+	_perform("distilling", distil_readings(tap_msecs))
+	EventBus.state_changed.emit()
+	return { "ok": true }
+
+
+# Drip i falls from 0 to 100 over fallMsec, starting at i × beatMsec. A tap
+# during a drip's fall reads its position; a tap between drips, after the
+# last, or a second tap on the same drip is stray. Untapped drips read null.
+static func distil_readings(tap_msecs: Array) -> Dictionary:
+	var g := gauge("distilling")
+	var beat := float(g["beatMsec"])
+	var fall := float(g["fallMsec"])
+	var readings := []
+	readings.resize(int(g["drips"]))
+	var stray := false
+	for tap in tap_msecs:
+		var t := float(tap)
+		var drip := floori(t / beat)
+		var into := t - drip * beat
+		if drip < 0 or drip >= readings.size() or into > fall or readings[drip] != null:
+			stray = true
+			continue
+		readings[drip] = 100.0 * into / fall
+	return { "readings": readings, "stray": stray }
+
+
+# Records the step ({ apparatus, ores, value } for a hold step, { apparatus,
+# ores, readings } for grind, plus stray for distil) with the ores tapped in
+# since the previous one.
+static func _perform(apparatus: String, record: Dictionary) -> void:
+	var run: Dictionary = active_run()
+	record["apparatus"] = apparatus
+	record["ores"] = run["added"]
+	run["added"] = []
+	run["performed"].append(record)
+
+
+# Finish: scores the performed steps (none scores 0) and files one item at
+# tier = rank through Crafting.file_crafted() with the recipe's xpReward.
+# Best rank only rises; the recipe joins performedOnce.
+static func finish_run() -> Dictionary:
+	var run = active_run()
+	if run == null:
+		return { "ok": false, "reason": "No run open." }
+	var s := _root()
+	var recipe_key: String = run["recipe"]
+	var scored := score_procedure(recipe_key, run["performed"])
+	var lady_bonus := lady_score_bonus()
+	var score := clampi(int(scored["score"]) + lady_bonus, 0, 100)
+	var rank := rank_for_score(score)
+	var prior_best := int(s["bestRanks"].get(recipe_key, 0))
+	s["bestRanks"][recipe_key] = maxi(prior_best, rank)
+	if not s["performedOnce"].has(recipe_key):
+		s["performedOnce"].append(recipe_key)
+	var steps := []
+	for i in run["performed"].size():
+		var performed: Dictionary = run["performed"][i].duplicate(true)
+		performed["accuracy"] = scored["accuracies"][i]
+		steps.append(performed)
+	var xp := int(GameData.RECIPES[recipe_key]["xpReward"])
+	s["activeRun"] = null
+	Crafting.file_crafted(recipe_key, rank, 1, false, run["calcSpent"], xp)
+	var result := {
+		"ok": true, "recipe": recipe_key, "outcome": "finished", "score": score,
+		"rawScore": scored["score"], "ladyBonus": lady_bonus, "rank": rank, "items": 1,
+		"xp": xp, "newBest": rank > prior_best, "steps": steps,
+		"durationMsec": maxi(0, Time.get_ticks_msec() - int(run["startedMsec"])),
+	}
+	_emit_hook(result)
+	return result
+
+
+# Gives the run up: the calc spent stays spent, no item.
+static func abandon_run() -> Dictionary:
+	if active_run() == null:
+		return { "ok": false, "reason": "No run open." }
+	return _close_run("abandoned")
+
+
+# Ends an open run with no item; the calc spent so far stays spent and the
+# recipe's xpReward / failedRunXpDivisor XP is awarded.
+static func _close_run(outcome: String) -> Dictionary:
+	var run: Dictionary = active_run()
+	var recipe_key: String = run["recipe"]
+	var xp := floori(float(GameData.RECIPES[recipe_key]["xpReward"]) / float(_data().get("failedRunXpDivisor", 3)))
+	_root()["activeRun"] = null
+	Crafting.award_crafting_xp(xp)
+	EventBus.state_changed.emit()
+	var result := {
+		"ok": true, "recipe": recipe_key, "outcome": outcome, "score": 0, "rank": 0,
+		"items": 0, "xp": xp,
+		"durationMsec": maxi(0, Time.get_ticks_msec() - int(run["startedMsec"])),
+	}
+	_emit_hook(result)
+	return result
+
+
+# The manual-run hook (spec § Run rules): once per completed manual run.
+static func _emit_hook(result: Dictionary) -> void:
+	EventBus.lab_run_completed.emit({
+		"recipe": result["recipe"], "score": result["score"],
+		"rank": result["rank"], "outcome": result["outcome"],
+	})
+
+
+# ── Scoring ──────────────────────────────────────────────────────────────
+
+# rankThresholds[i] is the minimum score for rank i+1; never below rank 1.
+static func rank_for_score(score: int) -> int:
+	var rank := 0
+	for threshold in _data().get("rankThresholds", []):
+		if score >= int(threshold):
+			rank += 1
+	return maxi(rank, 1)
+
+
+# 1.0 inside the band, falling linearly to 0 at 2× the band.
+static func step_accuracy(value: float, target: float, half_width: float) -> float:
+	var off := absf(value - target)
+	if off <= half_width:
+		return 1.0
+	return clampf(2.0 - off / half_width, 0.0, 1.0)
+
+
+# A performed step's accuracy against its ideal target: a hold step's one
+# value, or the mean over a grind/distil step's readings (a missed one
+# scores 0). A stray distil tap spoils the whole step.
+static func performed_accuracy(performed: Dictionary, target: float, half_width: float) -> float:
+	if performed.get("stray", false):
+		return 0.0
+	if not performed.has("readings"):
+		return step_accuracy(float(performed["value"]), target, half_width)
+	var readings: Array = performed["readings"]
+	if readings.is_empty():
+		return 0.0
+	var total := 0.0
+	for reading in readings:
+		if reading != null:
+			total += step_accuracy(float(reading), target, half_width)
+	return total / readings.size()
+
+
+# score = Σ weight × accuracy over the ideal steps (a missing one scores 0),
+# minus extraStepPenalty per extra step, clamped 0-100. accuracies is per
+# performed step (null for an extra).
+static func score_procedure(recipe_key: String, performed: Array) -> Dictionary:
+	var ideal: Array = procedure_def(recipe_key)["ideal"]
+	var half := band_half_width(recipe_key)
+	var matches := match_ideal(ideal, performed)
+	var total := 0.0
+	var accuracies := []
+	for i in performed.size():
+		if matches[i] < 0:
+			total -= float(_data().get("extraStepPenalty", 0))
+			accuracies.append(null)
+			continue
+		var ideal_step: Dictionary = ideal[matches[i]]
+		var accuracy := performed_accuracy(performed[i], float(ideal_step["target"]), half)
+		total += float(ideal_step["weight"]) * accuracy
+		accuracies.append(accuracy)
+	return { "score": clampi(roundi(total), 0, 100), "accuracies": accuracies }
+
+
+# ── Bench effects ────────────────────────────────────────────────────────
+
+# Score points the player's Be A Lady effect adds to a finished run: item
+# level × ladyScorePerLevel, 0 when inactive.
+static func lady_score_bonus() -> int:
+	var effect = ActiveEffects.find(ActiveEffects.LADY)
+	if effect == null:
+		return 0
+	return int(effect["level"]) * int(_data().get("ladyScorePerLevel", 0))
+
+
+# The active effects the bench's Use item control can start from the
+# player's inventory (Prophet's Breath reveals bands, Be A Lady adds score).
+static func usable_effects() -> Array:
+	return [ActiveEffects.PROPHETS_BREATH, ActiveEffects.LADY]
+
+
+static func use_effect(item: String) -> Dictionary:
+	if not usable_effects().has(item):
+		return { "ok": false, "reason": "Can't use that here." }
+	return ActiveEffects.use(item)

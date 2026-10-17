@@ -495,3 +495,34 @@ func run() -> void:
 				assert_eq(Crafting.effect_power(key, tier), expected[key][tier - 1], "%s tier %d" % [key, tier])
 		assert_eq(expected.size(), GameData.RECIPES.size(), "every recipe has a tier table asserted")
 	)
+
+	run_case("file_crafted_fires_every_side_effect_once_per_item", func():
+		GameState.reset()
+		var player: Dictionary = GameState.state["player"]
+		var flags: Dictionary = GameState.state["flags"]
+		flags["colA2LedgerStarted"] = true
+		flags["colA2DefendBriefed"] = true
+		Objectives.refresh()
+		assert_true(GameState.state["objectives"]["col_a2_nadia_supplies"]["active"], "supplies mission active")
+		var contract := { "request": { "type": "blast", "qty": 3 }, "playerAssisted": false }
+		GameState.state["sales"]["activeContracts"].append(contract)
+		var relation_before := int(GameState.state["factions"]["collective"]["relation"])
+		var xp_before := int(player["craftingXP"])
+
+		Crafting.file_crafted("blast", 3, 2, false, { "physics": 4 }, 30)
+		assert_eq(player["inventory"]["blast"], { "3": 2 }, "two items at tier 3")
+		assert_eq(player["craftedCounts"]["blast"], 2, "craftedCounts per item")
+		assert_eq(GameState.state["shares"]["days"][-1]["craft"][Shares.PLAYER], { "physics": 8 }, "each item's calc credited once")
+		assert_eq(int(player["craftingXP"]) - xp_before, 30, "XP awarded once")
+		assert_true(contract["playerAssisted"], "contract marked player-supplied")
+
+		Crafting.file_crafted("shield", 1, 1, false, { "physics": 4 }, 0)
+		Crafting.file_crafted("panic", 1, 1, true, { "emotion": 4 }, 0)
+		assert_eq(player["inventory"]["panic_multi"], { "1": 1 }, "multi files under the multi key")
+		assert_true(GameState.state["objectives"]["col_a2_nadia_supplies"]["complete"], "objectives refreshed")
+		assert_eq(GameState.state["collective"]["a2MissionsAwarded"], ["col_a2_nadia_supplies"], "Collective mission awarded")
+		assert_eq(int(GameState.state["factions"]["collective"]["relation"]) - relation_before, Collective.A2_MISSION_RELATION, "relation once")
+		Crafting.file_crafted("blast", 1, 1, false, { "physics": 4 }, 0)
+		assert_eq(int(GameState.state["factions"]["collective"]["relation"]) - relation_before, Collective.A2_MISSION_RELATION, "never twice")
+		assert_eq(player["craftedCounts"]["blast"], 3, "counts keep rising")
+	)
