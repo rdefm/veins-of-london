@@ -715,7 +715,8 @@ static func is_round_engine(combat: Dictionary) -> bool:
 # enemyUnread / allyPlans as CombatPrototype.start(). `live` is merged into
 # the fight before it opens: raiderKit / guardKit (the shared kit pools
 # exit_combat() settles) and opening modifiers (enemyFirst). The player's
-# loadout items don't take part yet.
+# real loadout slots become its round-fight items, and an active Prophet's
+# Breath or Be a Lady carries in for the whole fight (R§3.7b Carry-in).
 static func _start_round_combat(context: String, vein_id, enemies: Array, log_lines: Array, on_win: String, allies: Array = [], location_key_override: Variant = null, config: Dictionary = {}, live: Dictionary = {}) -> void:
 	var location_key: String = location_key_for(context, vein_id) if location_key_override == null else str(location_key_override)
 	var player: Dictionary = GameState.state["player"]
@@ -733,9 +734,12 @@ static func _start_round_combat(context: String, vein_id, enemies: Array, log_li
 	var level: int = clampi(int(player["combatSkill"]), 1, CombatPrototype.level_max())
 	var attack := get_attack_range()
 	var combatants: Array = combat["combatants"]
-	combatants.append(CombatPrototype.new_combatant(CombatPrototype.SIDE_PLAYER,
+	var fighter := CombatPrototype.new_combatant(CombatPrototype.SIDE_PLAYER,
 		GameData.COMBAT_PROTOTYPE["playerBase"]["name"], level, int(player["hp"]), int(player["hpMax"]),
-		attack["min"], attack["max"], int(GameData.COMBAT_SPEED_BY_LEVEL[level])))
+		attack["min"], attack["max"], int(GameData.COMBAT_SPEED_BY_LEVEL[level]))
+	fighter["loadout"] = _round_loadout(player["loadout"]["slots"])
+	CombatPrototype.carry_in(fighter, ActiveEffects.prophets_breath_active(), ActiveEffects.lady_active())
+	combatants.append(fighter)
 	var ally_plans: Array = config.get("allyPlans", [])
 	var friends: Array = combat["allies"]
 	var ally_names: Array = friends.map(func(a): return str(a["name"]))
@@ -788,7 +792,7 @@ static func _round_enemy_combatant(entry: Dictionary) -> Dictionary:
 static func _round_ally_combatant(entry: Dictionary) -> Dictionary:
 	var ally := _round_combatant(CombatPrototype.SIDE_ALLY, str(entry["name"]), entry, int(entry["attackMin"]), int(entry["attackMax"]))
 	ally["template"] = str(entry.get("contactId", ""))
-	ally["loadout"] = _round_ally_loadout(entry.get("slots", []))
+	ally["loadout"] = _round_loadout(entry.get("slots", []))
 	return ally
 
 
@@ -805,18 +809,47 @@ static func _round_combatant(side: String, combatant_name: String, entry: Dictio
 		int(entry.get("speed", DEFAULT_TEMPLATE_SPEED)) + speed_bonus)
 
 
-# A recruit's real slots { recipe, tier } as round-fight loadout entries at
-# the unit's tier power, each remembering its real slot (sourceSlot) for
-# settlement; empty slots and units the round rules have no item for are
-# left out.
-static func _round_ally_loadout(slots: Array) -> Array:
+# The player's or a recruit's real slots { recipe, tier, multi? } as
+# round-fight loadout entries at the unit's tier power (multi for a crafted
+# multi-target or always-multi unit), each remembering its real slot
+# (sourceSlot) for settlement; empty slots and units the round rules have no
+# item for are left out.
+static func _round_loadout(slots: Array) -> Array:
 	var loadout: Array = []
 	for i in range(slots.size()):
 		var unit = slots[i]
 		if unit is Dictionary and CombatPrototype.is_item(unit["recipe"]):
-			loadout.append({ "item": unit["recipe"], "tier": int(unit["tier"]),
-				"power": int(Crafting.effect_power(unit["recipe"], int(unit["tier"]))), "used": false, "sourceSlot": i })
+			var tier := clampi(int(unit["tier"]), 1, CombatPrototype.item_tier_max(unit["recipe"]))
+			loadout.append({ "item": unit["recipe"], "tier": tier,
+				"power": int(Crafting.effect_power(unit["recipe"], tier)), "used": false, "sourceSlot": i,
+				"multi": bool(unit.get("multi", false)) or Crafting.is_always_multi(unit["recipe"]) })
 	return loadout
+
+
+# The player's round-fight loadout entry for real loadout slot `index`, or
+# -1 when the slot's unit has no round-fight item.
+static func _round_entry(combat: Dictionary, index: int) -> int:
+	var loadout: Array = combat["combatants"][CombatPrototype.PLAYER_INDEX]["loadout"]
+	for i in range(loadout.size()):
+		if int(loadout[i]["sourceSlot"]) == index:
+			return i
+	return -1
+
+
+# Plays the unit in real loadout slot `index` at the round fight's paused
+# player position (target -1: the item's default), as choose_move().
+static func choose_item(index: int, target: int = -1) -> Dictionary:
+	var combat: Dictionary = GameState.state["combat"]
+	if not combat["active"] or not is_round_engine(combat):
+		return { "ok": false, "reason": "Combat not active." }
+	var reason := round_item_block_reason(index, target)
+	if reason != "":
+		return { "ok": false, "reason": reason }
+	var result := CombatPrototype.play_pick(combat, { "slot": _round_entry(combat, index), "target": target }, ROUND_SNAPSHOT_STACK)
+	if result["ok"]:
+		_sync_round_outcome(combat)
+		EventBus.state_changed.emit()
+	return result
 
 
 # Plays `move_id` at the round fight's paused player position (target -1:
@@ -837,15 +870,27 @@ static func move_block_reason(move_id: String, target: int = -1) -> String:
 	return CombatPrototype.move_block_reason(GameState.state["combat"], move_id, target)
 
 
-# Why loadout slot `index` can't be picked in a round fight.
-static func round_item_block_reason(index: int) -> String:
-	return REASON_SLOT_EMPTY if Loadout.slot(index) == null else REASON_ROUND_ITEM_PENDING
+# Why real loadout slot `index` can't be picked (at `target`, -1 for the
+# default) in a round fight, or "" if it can.
+static func round_item_block_reason(index: int, target: int = -1) -> String:
+	var unit: Variant = Loadout.slot(index)
+	if unit == null:
+		return REASON_SLOT_EMPTY
+	if unit["recipe"] == "failsafe":
+		return REASON_SLOT_REACTIVE
+	var entry := _round_entry(GameState.state["combat"], index)
+	if entry < 0:
+		return REASON_ROUND_ITEM_PENDING
+	return CombatPrototype.item_block_reason(GameState.state["combat"], entry, target)
 
 
-# The player's hp follows the fight; a win dispatches onWin, a loss leaves
-# the player on R§3.7a's KO hp.
+# The player's hp and spent loadout units follow the fight; a win dispatches
+# onWin, a loss leaves the player on R§3.7a's KO hp.
 static func _sync_round_outcome(combat: Dictionary) -> void:
 	GameState.state["player"]["hp"] = int(combat["combatants"][CombatPrototype.PLAYER_INDEX]["hp"])
+	for entry in combat["combatants"][CombatPrototype.PLAYER_INDEX]["loadout"]:
+		if entry["used"] and Loadout.slot(int(entry["sourceSlot"])) != null:
+			Loadout.consume(int(entry["sourceSlot"]))
 	_sync_round_allies(combat)
 	match combat["outcome"]:
 		"win":
@@ -2898,6 +2943,8 @@ static func use_slot(index: int) -> Dictionary:
 	var combat: Dictionary = GameState.state["combat"]
 	if not combat["active"] or combat["outcome"] != null:
 		return { "ok": false, "reason": "Combat not active." }
+	if is_round_engine(combat):
+		return choose_item(index)
 	var blocked: String = slot_block_reason(index)
 	if not blocked.is_empty():
 		return { "ok": false, "reason": blocked }

@@ -45,7 +45,7 @@
   "items": {
     "timePearl": { "target": "allEnemies", "effect": "freeze", "params": {} },
     "blackHole": { "target": "allEnemies", "effect": "blackHole", "params": { "actionsBase": 1, "powerPerAction": 8 } },
-    "blast": { "target": "enemy", "effect": "blast", "params": {} },
+    "blast": { "target": "enemy", "effect": "blast", "params": { "fleeChance": 0.9 } },
     "shield": { "target": "self", "effect": "shield", "params": {} },
     "healingBurst": { "target": "friend", "effect": "heal", "params": {} },
     "enhancementPowder": { "target": "self", "effect": "powder", "params": { "rounds": 1, "longRounds": 2, "longPowerMin": 3 } },

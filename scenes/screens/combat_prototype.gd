@@ -610,7 +610,7 @@ func _dock_rows(cp: Dictionary) -> Array:
 			"onExplain": _explain_block.bind(move_name, reason),
 		})
 	if live:
-		rows.append_array(_live_loadout_rows())
+		rows.append_array(_live_loadout_rows(cp))
 		return rows
 	var loadout: Array = cp["combatants"][CombatPrototype.PLAYER_INDEX]["loadout"]
 	for slot in range(loadout.size()):
@@ -630,20 +630,23 @@ func _dock_rows(cp: Dictionary) -> Array:
 
 # The player's real loadout slots (Loadout), each disabled with
 # Combat.round_item_block_reason().
-func _live_loadout_rows() -> Array:
+func _live_loadout_rows(cp: Dictionary) -> Array:
 	var rows: Array = []
 	for slot in range(Loadout.slot_count()):
 		var unit: Variant = Loadout.slot(slot)
-		var reason := Combat.round_item_block_reason(slot)
 		var label := "Slot %d: empty" % (slot + 1)
 		var icon := ""
+		var target := -1
 		if unit != null:
 			label = "%s — tier %d" % [GameData.RECIPES[unit["recipe"]]["name"], int(unit["tier"])]
 			icon = "recipe:" + str(unit["recipe"])
+			if CombatPrototype.is_item(unit["recipe"]):
+				target = _row_target(cp, unit["recipe"])
+		var reason := Combat.round_item_block_reason(slot, target)
 		rows.append({
 			"name": "ItemRow_%d" % slot, "iconKind": icon, "label": label,
 			"disabled": reason != "", "disabledReason": reason,
-			"callback": func(): pass,
+			"callback": _pick_live_item.bind(slot, target),
 			"onExplain": _explain_block.bind(label, reason),
 		})
 	return rows
@@ -824,12 +827,16 @@ func _build_combatant_card(cp: Dictionary, index: int) -> Control:
 		if CombatPrototype.is_powered(cp, combatant):
 			c["content"].add_child(UI.muted_label("Powder: +1 action through round %d" % combatant["powderUntil"]))
 		if CombatPrototype.has_lady(cp, combatant):
-			c["content"].add_child(UI.muted_label("Be a Lady: max rolls through round %d" % combatant["ladyUntil"]))
+			c["content"].add_child(UI.muted_label("Be a Lady: max rolls %s" % _until_text(combatant["ladyUntil"])))
 		if index == CombatPrototype.PLAYER_INDEX and CombatPrototype.has_sight(cp):
-			c["content"].add_child(UI.muted_label("Sight through round %d" % combatant["sightUntil"]))
+			c["content"].add_child(UI.muted_label("Sight %s" % _until_text(combatant["sightUntil"])))
 		for slot in combatant["loadout"]:
 			c["content"].add_child(UI.muted_label("%s T%d (power %d)%s" % [CombatPrototype.move(slot["item"])["name"], slot["tier"], slot["power"], " — used" if slot["used"] else ""]))
 	return c["panel"]
+
+
+static func _until_text(until_round: int) -> String:
+	return "all fight" if until_round >= CombatPrototype.WHOLE_FIGHT else "through round %d" % until_round
 
 
 # One row per timeline position (_position_text()), then under sight each
@@ -890,6 +897,13 @@ func _pick_item(slot: int, target: int) -> void:
 	var loadout: Array = _cp()["combatants"][CombatPrototype.PLAYER_INDEX]["loadout"]
 	var item_id: String = loadout[slot]["item"] if slot >= 0 and slot < loadout.size() else ""
 	_resolve(func(): return CombatPrototype.choose_item(slot, target), { "move": item_id, "target": target })
+
+
+# Plays real loadout slot `slot` in a live fight.
+func _pick_live_item(slot: int, target: int) -> void:
+	var unit: Variant = Loadout.slot(slot)
+	var item_id: String = unit["recipe"] if unit != null else ""
+	_resolve(func(): return Combat.choose_item(slot, target), { "move": item_id, "target": target })
 
 
 # Runs one pick (`pick` as strip_entries() reads it), then plays its beats.

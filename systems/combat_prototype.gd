@@ -89,6 +89,9 @@ const DEFAULT_BACKDROP_CONTEXT := Combat.CONTEXT_MUGGING
 # Squad cap (spec user story 5: 0-2 AI allies).
 const MAX_ALLIES := 2
 
+# A timed effect's end round that no fight reaches (carry_in()).
+const WHOLE_FIGHT := 1 << 30
+
 # The sandbox fight's Snapshots stack id (its Rewind cap).
 const SNAPSHOT_STACK := "combatPrototype"
 
@@ -221,6 +224,16 @@ static func has_lady(cp: Dictionary, combatant: Dictionary) -> bool:
 # Whether the player has Prophet's Breath sight this round.
 static func has_sight(cp: Dictionary) -> bool:
 	return int(cp["round"]) <= int(cp["combatants"][PLAYER_INDEX]["sightUntil"])
+
+
+# Gives `combatant` Prophet's Breath sight and/or Be a Lady's max rolls and
+# crit for the whole fight (R§3.7b Carry-in effects).
+static func carry_in(combatant: Dictionary, sight: bool, lady: bool) -> void:
+	if sight:
+		combatant["sightUntil"] = WHOLE_FIGHT
+	if lady:
+		combatant["ladyUntil"] = WHOLE_FIGHT
+		combatant["ladyCrit"] = float(_data()["items"]["beALady"]["params"]["critChance"])
 
 
 # The attacker's damage roll range: its attack range, or its max both ends
@@ -407,7 +420,10 @@ static func new_combatant(side: String, name: String, level: int, hp: int, hp_ma
 		"ladyUntil": 0,
 		"ladyCrit": 0.0,
 		"sightUntil": 0,
-		# Sandbox items: { item, tier, power, used } per slot.
+		# A Blast's one-use Leg it chance for the next Leg it (0.0 for none).
+		"fleeBoost": 0.0,
+		# Items: { item, tier, power, used } per slot, plus multi for a
+		# multi-target unit and sourceSlot for a live fight's real slot.
 		"loadout": [],
 		"plan": [], "nextPlan": [],
 	}
@@ -774,8 +790,9 @@ static func _span_reason(move_id: String) -> String:
 
 # A player action as { move, target } (plus slot for an item): an item
 # action named by its loadout slot takes the slot's item as its move; a
-# self-targeted one aims at the player, an all-enemies one at nobody (-1),
-# and an unset target (-1) at the first of target_options().
+# self-targeted one aims at the player, an all-enemies one or a multi-target
+# unit at nobody (-1), and an unset target (-1) at the first of
+# target_options().
 static func _normalize_action(cp: Dictionary, action) -> Variant:
 	if action == null:
 		return null
@@ -790,7 +807,7 @@ static func _normalize_action(cp: Dictionary, action) -> Variant:
 		var options := target_options(cp, PLAYER_INDEX, move_id)
 		if m["target"] == TARGET_SELF:
 			target = PLAYER_INDEX
-		elif m["target"] == TARGET_ALL_ENEMIES:
+		elif m["target"] == TARGET_ALL_ENEMIES or _is_multi_slot(cp, slot):
 			target = -1
 		elif target < 0:
 			target = options[0] if not options.is_empty() else -1
@@ -810,14 +827,19 @@ static func target_options(cp: Dictionary, actor: int, move_id: String) -> Array
 		TARGET_ENEMY:
 			return _living_opponents(cp, actor)
 		TARGET_FRIEND:
-			var combatants: Array = cp["combatants"]
-			var enemy_side: bool = combatants[actor]["side"] == SIDE_ENEMY
-			var result: Array = [actor]
-			for i in range(combatants.size()):
-				if i != actor and (combatants[i]["side"] == SIDE_ENEMY) == enemy_side and not combatants[i]["koed"]:
-					result.append(i)
-			return result
+			return _team(cp, actor)
 	return []
+
+
+# `actor` then each living teammate.
+static func _team(cp: Dictionary, actor: int) -> Array:
+	var combatants: Array = cp["combatants"]
+	var enemy_side: bool = combatants[actor]["side"] == SIDE_ENEMY
+	var result: Array = [actor]
+	for i in range(combatants.size()):
+		if i != actor and (combatants[i]["side"] == SIDE_ENEMY) == enemy_side and not combatants[i]["koed"]:
+			result.append(i)
+	return result
 
 
 static func _action_block_reason(cp: Dictionary, action) -> String:
@@ -829,9 +851,15 @@ static func _action_block_reason(cp: Dictionary, action) -> String:
 			return "Items come out of your loadout."
 		if cp["combatants"][PLAYER_INDEX]["loadout"][action["slot"]]["used"]:
 			return "That one's spent."
-	if m["target"] in [TARGET_ENEMY, TARGET_FRIEND] and not target_options(cp, PLAYER_INDEX, action["move"]).has(action["target"]):
+	if m["target"] in [TARGET_ENEMY, TARGET_FRIEND] and not _is_multi_slot(cp, int(action.get("slot", -1))) and not target_options(cp, PLAYER_INDEX, action["move"]).has(action["target"]):
 		return "Pick a target."
 	return ""
+
+
+# Whether the player's loadout `slot` (-1 for none) holds a multi-target unit.
+static func _is_multi_slot(cp: Dictionary, slot: int) -> bool:
+	var loadout: Array = cp["combatants"][PLAYER_INDEX]["loadout"]
+	return slot >= 0 and slot < loadout.size() and bool(loadout[slot].get("multi", false))
 
 
 # ── Read-only helpers for the screen ─────────────────────────────────────
@@ -1077,7 +1105,11 @@ static func _resolve_action(cp: Dictionary, actor_idx: int, action: Dictionary, 
 				# Spent: the actor stays Open for the rest of the Lure.
 				apply_guard = false
 		EFFECT_FLEE:
-			if rng.randf() < float(m["params"]["chance"]):
+			var chance := float(m["params"]["chance"])
+			if float(actor["fleeBoost"]) > 0.0:
+				chance = float(actor["fleeBoost"])
+				actor["fleeBoost"] = 0.0
+			if rng.randf() < chance:
 				_beat(cp, beats, "fled", actor_idx, -1, move_id, {})
 				if actor_idx == PLAYER_INDEX:
 					cp["outcome"] = "fled"
@@ -1227,12 +1259,15 @@ static func _deal_damage(cp: Dictionary, actor_idx: int, target_idx: int, dmg: i
 
 # Applies an item's effect at `power` from the action's loadout slot, and
 # spends the slot (spec §Prototype item effects). Item damage ignores guard.
+# A multi-target unit (R§3.7b Items) Blasts every living opponent, and
+# Shields or heals the actor and every living teammate.
 static func _use_item(cp: Dictionary, actor_idx: int, action: Dictionary, m: Dictionary, beats: Array) -> void:
 	var combatants: Array = cp["combatants"]
 	var actor: Dictionary = combatants[actor_idx]
 	var slot: Dictionary = actor["loadout"][int(action["slot"])]
 	slot["used"] = true
 	var power: int = slot["power"]
+	var multi: bool = slot.get("multi", false)
 	var move_id: String = action["move"]
 	match m["effect"]:
 		ITEM_FREEZE:
@@ -1249,21 +1284,26 @@ static func _use_item(cp: Dictionary, actor_idx: int, action: Dictionary, m: Dic
 				if cp["outcome"] != null:
 					return
 		ITEM_BLAST:
-			var target := _retarget(cp, actor_idx, int(action["target"]))
-			if target >= 0:
-				_deal_damage(cp, actor_idx, target, power, "blast", move_id, beats, {})
+			actor["fleeBoost"] = float(m["params"]["fleeChance"])
+			var targets: Array = _living_opponents(cp, actor_idx) if multi else [_retarget(cp, actor_idx, int(action["target"]))]
+			for target in targets:
+				if target >= 0 and not combatants[target]["koed"]:
+					_deal_damage(cp, actor_idx, target, power, "blast", move_id, beats, {})
+					if cp["outcome"] != null:
+						return
 		ITEM_SHIELD:
-			actor["shield"] = maxi(actor["shield"], power)
+			for target in (_team(cp, actor_idx) if multi else [actor_idx]):
+				combatants[target]["shield"] = maxi(combatants[target]["shield"], power)
 			_beat(cp, beats, "shield", actor_idx, -1, move_id, {})
 		ITEM_HEAL:
-			var target: int = int(action["target"])
-			var patient: Dictionary = combatants[target]
-			if patient["koed"]:
-				_beat(cp, beats, "fizzle", actor_idx, target, move_id, {})
-				return
-			var healed: int = mini(power, patient["hpMax"] - patient["hp"])
-			patient["hp"] += healed
-			_beat(cp, beats, "healSelf" if target == actor_idx else "heal", actor_idx, target, move_id, { "amount": healed, "hpAfter": patient["hp"] })
+			for target in (_team(cp, actor_idx) if multi else [int(action["target"])]):
+				var patient: Dictionary = combatants[target]
+				if patient["koed"]:
+					_beat(cp, beats, "fizzle", actor_idx, target, move_id, {})
+					continue
+				var healed: int = mini(power, patient["hpMax"] - patient["hp"])
+				patient["hp"] += healed
+				_beat(cp, beats, "healSelf" if target == actor_idx else "heal", actor_idx, target, move_id, { "amount": healed, "hpAfter": patient["hp"] })
 		ITEM_POWDER:
 			# +1 action from this round on: longRounds rounds at power >=
 			# longPowerMin, else rounds. A second Powder extends, never stacks.

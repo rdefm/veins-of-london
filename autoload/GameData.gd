@@ -1503,6 +1503,10 @@ func _validate_combat_prototype(cp: Dictionary, skill_curve: Array, recipes: Dic
 			var params: Dictionary = item.get("params", {})
 			if int(params.get("rounds", 0)) < 1 or int(params.get("longRounds", 0)) < 1 or int(params.get("longPowerMin", 0)) < 1:
 				errors.append("%s.params: needs rounds, longRounds and longPowerMin >= 1" % path)
+		if item.get("effect", "") == CombatPrototype.ITEM_BLAST:
+			var flee_chance := float(item.get("params", {}).get("fleeChance", -1.0))
+			if flee_chance < 0.0 or flee_chance > 1.0:
+				errors.append("%s.params.fleeChance: must be in [0, 1]" % path)
 		if item.get("effect", "") == CombatPrototype.ITEM_LADY:
 			var crit_chance := float(item.get("params", {}).get("critChance", -1.0))
 			if crit_chance < 0.0 or crit_chance > 1.0:

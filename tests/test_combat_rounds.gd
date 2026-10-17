@@ -72,6 +72,16 @@ func _first(beats: Array, kind: String) -> Dictionary:
 	return {}
 
 
+# A seeded street mugging (as _start()) with `units` ({ recipe, tier,
+# multi? } or null) in the player's real loadout slots.
+func _start_armed(units: Array, plan: Array, seed_value: int = 1, mugger_hp: int = 28) -> Dictionary:
+	for i in range(units.size()):
+		GameState.state["player"]["loadout"]["slots"][i] = units[i]
+		if units[i] != null:
+			GameState.state["player"]["loadout"]["lastRecipe"][i] = units[i]["recipe"]
+	return _start(plan, seed_value, mugger_hp)
+
+
 func _row(screen: CombatPrototypeScreen, row_name: String) -> Button:
 	var found: Button = null
 	for node in screen._dock.find_children(row_name, "Button", true, false):
@@ -362,7 +372,7 @@ func run() -> void:
 
 	run_case("combat_screen_hosts_the_round_screen_and_plays_to_the_outcome", func():
 		GameState.reset()
-		GameState.state["player"]["loadout"]["slots"][0] = { "recipe": "timePearl", "tier": 1 }
+		GameState.state["player"]["loadout"]["slots"][0] = { "recipe": "panic", "tier": 1 }
 		_start([["guard", "guard"]], 1, 1)
 		var host := CombatScreen.new()
 		host._ready()
@@ -382,6 +392,183 @@ func run() -> void:
 		assert_true(buttons.any(func(b): return b.text == "✅ They've legged it"), "outcome button")
 		Combat.exit_combat()
 		assert_eq(GameState.state["currentScreen"], "event", "outcome hands off to exit_combat")
+		host.free()
+	)
+
+	run_case("time_pearl_from_real_stock_freezes_at_tier_power_and_refills", func():
+		GameState.reset()
+		var combat := _start_armed([{ "recipe": "timePearl", "tier": 3 }], [["strike", "strike"]])
+		Crafting.inventory_add("timePearl", 2, 1)
+		var entry: Dictionary = combat["combatants"][CombatPrototype.PLAYER_INDEX]["loadout"][0]
+		assert_eq([entry["item"], entry["tier"], entry["power"], entry["sourceSlot"]], ["timePearl", 3, 3, 0], "real slot at its tier's power")
+		var result := Combat.use_slot(0)
+		assert_true(result["ok"], "use_slot plays it as a pick")
+		assert_true(_kinds(result["beats"]).has("timePearl"), "freeze beat")
+		var mugger: Dictionary = combat["combatants"][1]
+		# The mugger's second action drops; two more of its three stay lost.
+		assert_eq(_first(result["beats"], "frozen").get("actor", -1), 1, "its next action frozen")
+		assert_eq(mugger["frozenActions"], 2, "power 3 - 1 spent")
+		assert_true(CombatPrototype.is_open(combat, mugger), "Open while frozen")
+		assert_eq(CombatPrototype.decision_position(combat), 1, "one action, the next pick is the player's second")
+		assert_eq(Loadout.slot(0), null, "real unit consumed")
+		assert_eq(combat["slotsUsed"], [0], "marked for settlement")
+		combat["outcome"] = "fled"
+		Combat.exit_combat()
+		assert_eq(Loadout.slot(0), { "recipe": "timePearl", "tier": 2 }, "refilled from stock")
+	)
+
+	run_case("black_hole_pulls_through_guard_and_drops_actions", func():
+		GameState.reset()
+		var combat := _start_armed([{ "recipe": "blackHole", "tier": 2 }], [["guard", "guard"]])
+		var mugger: Dictionary = combat["combatants"][1]
+		assert_eq(mugger["guard"], CombatPrototype.GUARDED)
+		var result := Combat.choose_item(0)
+		assert_true(result["ok"])
+		assert_eq(int(_first(result["beats"], "pull")["dmg"]), 8, "tier 2 power, guard ignored")
+		assert_eq(mugger["hp"], 20)
+		# 1 + floor(8 / 8) = 2 actions lost; its second action this round is one.
+		assert_eq(_first(result["beats"], "lost").get("actor", -1), 1)
+		assert_eq(mugger["actionsLost"], 1)
+		assert_eq(combat["combatants"][CombatPrototype.PLAYER_INDEX]["guard"], CombatPrototype.GUARDED, "user's guard unchanged")
+	)
+
+	run_case("blast_hits_through_guard_and_boosts_the_next_leg_it_once", func():
+		var boosted := false
+		for seed_value in range(1, 200):
+			GameState.reset()
+			var combat := _start_armed([{ "recipe": "blast", "tier": 2 }], [["guard", "guard"]], seed_value)
+			var result := Combat.choose_item(0, 1)
+			assert_eq(int(_first(result["beats"], "blast")["dmg"]), 6, "tier 2 power on a Guarded mugger")
+			var you: Dictionary = combat["combatants"][CombatPrototype.PLAYER_INDEX]
+			assert_almost_eq(float(you["fleeBoost"]), 0.9, 0.0001, "Leg it boost armed")
+			var plain: Dictionary = combat.duplicate(true)
+			plain["combatants"][CombatPrototype.PLAYER_INDEX]["fleeBoost"] = 0.0
+			var with_boost := CombatPrototype.play_pick(combat, { "move": "legIt", "target": -1 }, Combat.ROUND_SNAPSHOT_STACK)
+			var without := CombatPrototype.play_pick(plain, { "move": "legIt", "target": -1 }, Combat.ROUND_SNAPSHOT_STACK)
+			assert_eq(float(you["fleeBoost"]), 0.0, "spent on the one Leg it")
+			if with_boost["outcome"] == "fled" and without["outcome"] == null:
+				boosted = true
+				break
+		assert_true(boosted, "the same roll fails at 0.65 and flees at 0.90")
+	)
+
+	run_case("shield_holds_guarded_whatever_the_moves", func():
+		GameState.reset()
+		var combat := _start_armed([{ "recipe": "shield", "tier": 2 }], [["guard", "guard"]])
+		assert_true(Combat.choose_item(0)["ok"])
+		var you: Dictionary = combat["combatants"][CombatPrototype.PLAYER_INDEX]
+		assert_eq(you["shield"], 4, "tier 2 pool")
+		assert_true(Combat.choose_move("strike", 1)["ok"])
+		assert_eq(you["guard"], CombatPrototype.OPEN, "the strike opens its own guard")
+		assert_true(not CombatPrototype.is_open(combat, you), "but the pool keeps it Guarded")
+	)
+
+	run_case("enhancement_powder_adds_an_action_this_round", func():
+		GameState.reset()
+		var combat := _start_armed([{ "recipe": "enhancementPowder", "tier": 5 }], [["guard", "guard"]])
+		var base := CombatPrototype.actions_per_round(combat["combatants"][CombatPrototype.PLAYER_INDEX])
+		assert_true(Combat.choose_item(0)["ok"])
+		assert_eq(CombatPrototype.actions_this_round(combat, CombatPrototype.PLAYER_INDEX), base + 1, "extra action this round")
+		assert_eq(CombatPrototype.actions_next_round(combat, CombatPrototype.PLAYER_INDEX), base + 1, "power 3 runs two rounds")
+		GameState.reset()
+		combat = _start_armed([{ "recipe": "enhancementPowder", "tier": 1 }], [["guard", "guard"]])
+		assert_true(Combat.choose_item(0)["ok"])
+		assert_eq(CombatPrototype.actions_this_round(combat, CombatPrototype.PLAYER_INDEX), base + 1)
+		assert_eq(CombatPrototype.actions_next_round(combat, CombatPrototype.PLAYER_INDEX), base, "power 1, one round")
+	)
+
+	run_case("prophets_breath_gives_sight_from_resolution", func():
+		GameState.reset()
+		GameState.state["player"]["loadout"]["slots"][0] = { "recipe": "prophetsBreath", "tier": 4 }
+		Combat._start_round_combat(Combat.CONTEXT_EVENT_MUGGING, null, [_mugger()], [], "", [], null,
+			{ "seed": 1, "fog": true, "enemyPlans": [[["guard", "guard"]]], "enemyUnread": [[[false, true]]] })
+		var combat: Dictionary = GameState.state["combat"]
+		assert_true(not CombatPrototype.is_read(combat, 1, 1), "fogged before")
+		assert_true(Combat.choose_item(0)["ok"])
+		assert_eq(combat["combatants"][CombatPrototype.PLAYER_INDEX]["sightUntil"], 3, "power 2 rounds after this one")
+		assert_true(CombatPrototype.has_sight(combat))
+		assert_true(not CombatPrototype.enemy_intents(combat, 1, true).is_empty(), "next round read")
+	)
+
+	run_case("healing_burst_heals_self_or_an_ally", func():
+		GameState.reset()
+		_recruit("archie")
+		GameState.state["contacts"]["archie"]["combatHp"] = 10
+		GameState.state["player"]["loadout"]["slots"][0] = { "recipe": "healingBurst", "tier": 2 }
+		GameState.state["player"]["loadout"]["slots"][1] = { "recipe": "healingBurst", "tier": 1 }
+		_start_with_allies([Contacts.build_combat_ally("archie")], [["guard", "guard"]])
+		var combat: Dictionary = GameState.state["combat"]
+		var archie: Dictionary = combat["combatants"][1]
+		var before: int = archie["hp"]
+		var result := Combat.choose_item(0, 1)
+		assert_eq(int(_first(result["beats"], "heal")["amount"]), 8, "tier 2 on archie")
+		assert_eq(archie["hp"], before + 8)
+		var you: Dictionary = combat["combatants"][CombatPrototype.PLAYER_INDEX]
+		you["hp"] = you["hpMax"] - 3
+		result = Combat.choose_item(1)
+		assert_eq(int(_first(result["beats"], "healSelf")["amount"]), 3, "self by default, capped at hpMax")
+		assert_eq(GameState.state["player"]["hp"], you["hpMax"], "real hp follows")
+	)
+
+	run_case("multi_blast_hits_every_living_enemy", func():
+		GameState.reset()
+		GameState.state["player"]["loadout"]["slots"][0] = { "recipe": "blast", "tier": 3, "multi": true }
+		Combat._start_round_combat(Combat.CONTEXT_EVENT_MUGGING, null, [_mugger(), _mugger()], [], "", [], null,
+			{ "seed": 1, "fog": false, "enemyPlans": [[["guard", "guard"]], [["guard", "guard"]]] })
+		var result := Combat.choose_item(0)
+		assert_true(result["ok"], "no target pick needed")
+		var hits: Array = result["beats"].filter(func(b): return b["kind"] == "blast")
+		assert_eq(hits.map(func(b): return [b["target"], b["dmg"]]), [[1, 8], [2, 8]], "full power on each")
+	)
+
+	run_case("carry_in_sight_and_lady_apply_from_round_1", func():
+		GameState.reset()
+		var expires := ActiveEffects.absolute_block() + 1
+		GameState.state["player"]["activeEffects"] = [
+			{ "item": "prophetsBreath", "level": 1, "expiresAtBlock": expires },
+			{ "item": "beALady", "level": 1, "expiresAtBlock": expires },
+		]
+		Combat._start_round_combat(Combat.CONTEXT_EVENT_MUGGING, null, [_mugger()], [], "", [], null,
+			{ "seed": 1, "fog": true, "enemyPlans": [[["guard", "guard"]]], "enemyUnread": [[[true, true]]] })
+		var combat: Dictionary = GameState.state["combat"]
+		assert_true(CombatPrototype.is_read(combat, 1, 1), "sight from round 1")
+		var you: Dictionary = combat["combatants"][CombatPrototype.PLAYER_INDEX]
+		assert_eq(CombatPrototype.damage_range(combat, CombatPrototype.PLAYER_INDEX), [you["attackMax"], you["attackMax"]], "max rolls")
+		assert_almost_eq(float(you["ladyCrit"]), 0.333333, 0.0001, "1/3 crit")
+		for i in range(4):
+			Combat.choose_move("guard")
+		assert_true(combat["round"] >= 3 and CombatPrototype.has_sight(combat) and CombatPrototype.has_lady(combat, you), "whole fight")
+		assert_true(ActiveEffects.prophets_breath_active(), "still blocks ambushes")
+		GameState.reset()
+		_start([["guard", "guard"]])
+		assert_true(not CombatPrototype.has_sight(GameState.state["combat"]), "none without an active effect")
+	)
+
+	run_case("empty_or_ineligible_slots_show_a_block_reason", func():
+		GameState.reset()
+		_start_armed([{ "recipe": "failsafe", "tier": 1 }, null], [["guard", "guard"]])
+		assert_eq(Combat.round_item_block_reason(0), Combat.REASON_SLOT_REACTIVE)
+		assert_eq(Combat.round_item_block_reason(1), Combat.REASON_SLOT_EMPTY)
+		assert_true(not Combat.choose_item(1)["ok"], "empty refused")
+		GameState.reset()
+		_start_armed([{ "recipe": "healingBurst", "tier": 1 }, { "recipe": "panic", "tier": 1 }], [["guard", "guard"]])
+		assert_eq(Combat.round_item_block_reason(0, 1), "Pick a target.", "no healing the mugger")
+		assert_eq(Combat.round_item_block_reason(0), "", "self is fine")
+		assert_eq(Combat.round_item_block_reason(1), Combat.REASON_ROUND_ITEM_PENDING)
+	)
+
+	run_case("live_dock_item_row_plays_the_real_slot", func():
+		GameState.reset()
+		_start_armed([{ "recipe": "blast", "tier": 1 }], [["guard", "guard"]], 1, 4)
+		var host := CombatScreen.new()
+		host._ready()
+		var screen: CombatPrototypeScreen = host._round_screen
+		screen._ready()
+		var item := _row(screen, "ItemRow_0")
+		assert_true(item != null and not item.disabled, "usable row")
+		item.pressed.emit()
+		assert_eq(GameState.state["combat"]["outcome"], "win", "the blast drops the 4-hp mugger")
+		assert_eq(Loadout.slot(0), null, "real unit spent")
 		host.free()
 	)
 
