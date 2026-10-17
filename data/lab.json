@@ -88,8 +88,8 @@
   "vagueSpread": 15,
   "vagueToExactHits": 3,
   "clueText": {
-    "hit": "✓", "near": "~", "none": "✗ no effect", "changed": "something changed",
-    "learnedVague": "new vague hint", "towardExact": "%d/%d toward exact", "learnedExact": "now exact"
+    "hit": "✓", "near": "~", "none": "✗ no effect", "changed": "That step made a difference. Another go and maybe you can improve it.",
+    "learnedVague": "added to your notes", "towardExact": "%d/%d toward exact", "learnedExact": "now exact"
   },
   "bonus": {
     "chance": 0.3,
