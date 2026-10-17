@@ -23,7 +23,7 @@ Docs only, no code. Per the consult-on-design-docs rule, don't mark the DRAFT ta
 
 **Status:** ready-for-human
 
-- [ ] REFERENCE §3.7b exists and states every rule and value the port needs; §3.7/§3.7a/§3.9 are marked superseded where they conflict
-- [ ] The five DRAFT tables are present and approved by the human
-- [ ] CONTEXT.md has the four new terms
-- [ ] Cap-10 ticket 03 covers the actions/crit/fog curves
+- [x] REFERENCE §3.7b exists and states every rule and value the port needs; §3.7/§3.7a/§3.9 are marked superseded where they conflict
+- [x] The five DRAFT tables are present and approved by the human
+- [x] CONTEXT.md has the four new terms
+- [x] Cap-10 ticket 03 covers the actions/crit/fog curves

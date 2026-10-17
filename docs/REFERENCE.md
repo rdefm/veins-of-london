@@ -943,7 +943,7 @@ Items and Dial casts cost 1 action and leave guard state unchanged (except Shiel
 
 **Enemy kits** (raider kit, enemy capabilities) and **guard kits / ally slots**: table 5. **Anger/fury, Panic, Rapture, Wormhole, disarm**: table 4.
 
-#### Table 1 — Template → archetype (**DRAFT — pending sign-off**)
+#### Table 1 — Template → archetype (signed off 2026-10-17)
 
 | Enemy source | Template stats (kept) | Archetype |
 |---|---|---|
@@ -958,21 +958,21 @@ Items and Dial casts cost 1 action and leave guard state unchanged (except Shiel
 
 Each `raidGuards` entry and `homeRaidRaider` gains `"archetype"`; the mugger's lives beside `MUGGER_SPEED`'s data home.
 
-#### Table 2 — Enemy level (**DRAFT — pending sign-off**)
+#### Table 2 — Enemy level (signed off 2026-10-17)
 
 | Context | Driver | Level |
 |---|---|---|
 | Mugging (all mugging contexts) | — | 1 |
 | Harder mugger | vein in the sale | 2 |
 | Raid / event raid / defend vein | `Cultivating.combined_magnitude(vein)` (replaces the ×(1 + 0.3(m−1)) hp and +(m−1) atkMax scaling) | m 1 → 1, 2 → 2, 3–4 → 3, 5–6 → 4, 7+ → 5 |
-| Faction ambush | none exists today (fights at magnitude 1) | 1 |
+| Faction ambush | ambushing faction's `Turf.tier(district, faction)` in the ambush district | none → 1, foothold → 2, control → 3 |
 | Home raid (tutorial) | — | 1 |
 | Home alarm defend | — | 2 |
 | Debug | picker | picker |
 
-**Speed rule:** enemy/ally speed = own authored speed + (`speedCurve[level]` − `speedCurve[1]`), so slow and fast templates keep their order and level still lifts them. **Open questions:** "faction strength" has no live combat driver — keep ambushes at 1, or add one (e.g. faction turf count)? HP bonus jumps +55 at level 3, so a magnitude-3 vein guard goes 30 → 85 hp.
+**Speed rule:** enemy/ally speed = own authored speed + (`speedCurve[level]` − `speedCurve[1]`), so slow and fast templates keep their order and level still lifts them. Accepted for the port: HP bonus jumps +55 at level 3 (a magnitude-3 vein guard goes 30 → 85 hp); the harder mugger trades the old ×1.3 hp for level 2's +2 attack.
 
-#### Table 3 — Ally level (**DRAFT — pending sign-off**)
+#### Table 3 — Ally level (signed off 2026-10-17)
 
 | Ally | Level | Source |
 |---|---|---|
@@ -984,7 +984,7 @@ Each `raidGuards` entry and `homeRaidRaider` gains `"archetype"`; the mugger's l
 
 Levels ≤ 2 keep authored hp unchanged (HP bonus is 0 below level 3); Archie's/James's persistent `combatHp` stays as today.
 
-#### Table 4 — Live-only items in the action model (**DRAFT — pending sign-off**)
+#### Table 4 — Live-only items in the action model (signed off 2026-10-17)
 
 Power unchanged (REFERENCE §1 recipe table). "Actions" below count the target's own resolved actions; removed actions don't tick a status. A target already under any Pan status refuses another (multi units skip statused enemies), as today.
 
@@ -998,7 +998,7 @@ Power unchanged (REFERENCE §1 recipe table). "Actions" below count the target's
 | failsafe | self (auto) | Rewind section above | — | — |
 | disarm (Blast 15%) | blast target | Strips `weapon` for the fight; `ability.lockedTurns = 2` ticks at round boundaries | none | Disarm badge |
 
-#### Table 5 — Kit items in committed plans and fog (**DRAFT — pending sign-off**)
+#### Table 5 — Kit items in committed plans and fog (signed off 2026-10-17)
 
 - **Enemy (raider kit, shared squad pool):** when an enemy's plan is rolled, each planned `strike` is checked in order against the §3.7 raider-kit rules (heal lowest below 0.4 → shield if own pool 0 → blast), evaluated on the round-start state; the first match replaces that strike with an item action, max 1 per enemy per round. The unit is reserved at commit and spent on resolution; a removed or fizzled action returns it to the pool. Heal target fixed at commit (a KO'd target → fizzle). Enemy Shield: Guarded while its pool > 0. Item actions take fog like moves (unread → `?`). Guard state: unchanged.
 - **Guard allies (guard kit) and recruit slots:** ally AI plans items with the §3.7 guard-kit rule order at plan time (heal → Prophet's Breath → shield → Black Hole/Time Pearl vs 2+ enemies → blast → powder once); guard-kit Prophet's Breath gives the **player** sight for `power` rounds (replaces the old evade grant). Same reserve-at-commit/spend-on-resolve rule. Ally item intents always read. Failsafe/rewind stay automatic, never planned.
