@@ -126,6 +126,9 @@ var COMBAT_PROTOTYPE: Dictionary = {}
 # prototype-only, not production balance.
 var BENCH_PROTOTYPE: Dictionary = {}
 
+# Live Lab procedures and knowledge tuning (systems/lab.gd).
+var LAB: Dictionary = {}
+
 # Player Combat Skill curves (R§3.7a), colocated in data/enemies.json
 # rather than a new file of their own.
 var COMBAT_XP_LEVELS: Array = []
@@ -467,6 +470,9 @@ const MANIFEST: Array[Dictionary] = [
 	{"table": "bench_prototype", "file": "res://data/bench_prototype.json", "fields": [
 		{"field": "BENCH_PROTOTYPE", "key": "", "type": TYPE_DICTIONARY},
 	]},
+	{"table": "lab", "file": "res://data/lab.json", "fields": [
+		{"field": "LAB", "key": "", "type": TYPE_DICTIONARY},
+	]},
 	{"table": "combat_visuals", "file": "res://data/combat_visuals.json", "fields": [
 		{"field": "COMBAT_VISUALS", "key": "", "type": TYPE_DICTIONARY},
 	]},
@@ -679,6 +685,7 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_enemies(t, errors)
 	_validate_combat_prototype(t.get("combat_prototype", {}), t.get("combat_speed_by_level", []), t.get("recipes", {}), t.get("combat_visuals", {}).get("templates", {}), errors)
 	_validate_bench_prototype(t.get("bench_prototype", {}), t.get("approaches", {}), errors)
+	_validate_lab(t.get("lab", {}), t.get("recipes", {}), t.get("approaches", {}), errors)
 	_validate_combat_visuals(t.get("combat_visuals", {}), t.get("palette", {}), errors)
 	_validate_hq_visuals(t.get("hq_visuals", {}), t.get("palette", {}), errors)
 	_validate_constants(t.get("time_blocks", []), t.get("contacts_defaults", {}), errors)
@@ -1531,7 +1538,7 @@ func _validate_bench_prototype(bench: Dictionary, approaches: Dictionary, errors
 			if not pool_seed.has(ore_type):
 				errors.append("bench_prototype.recipes.%s.baseCalc: ore type '%s' not in poolSeed" % [recipe_id, ore_type])
 		_validate_bench_prototype_procedure(recipe_id, recipes[recipe_id], approaches, bench.get("gauges", {}), errors)
-		_validate_bench_prototype_hints(recipe_id, recipes[recipe_id].get("procedure", {}), float(bench.get("vagueSpread", 0)), errors)
+		_validate_procedure_hints("bench_prototype.recipes.%s.procedure.hints" % recipe_id, recipes[recipe_id].get("procedure", {}), float(bench.get("vagueSpread", 0)), errors)
 	var thresholds: Array = bench.get("rankThresholds", [])
 	if thresholds.size() != 5 or (not thresholds.is_empty() and int(thresholds[0]) != 0):
 		errors.append("bench_prototype.rankThresholds: must be 5 entries starting at 0")
@@ -1589,12 +1596,11 @@ func _validate_bench_prototype_procedure(recipe_id: String, recipe: Dictionary, 
 # vague and an exact note; a vague offset past vagueSpread would push the
 # true band out of the fuzzy region; a hint on a base-matched step must
 # actually correct its target.
-func _validate_bench_prototype_hints(recipe_id: String, procedure: Dictionary, vague_spread: float, errors: Array[String]) -> void:
-	var where := "bench_prototype.recipes.%s.procedure.hints" % recipe_id
+func _validate_procedure_hints(where: String, procedure: Dictionary, vague_spread: float, errors: Array[String]) -> void:
 	var ideal: Array = procedure.get("ideal", [])
 	var base: Array = procedure.get("base", [])
 	var base_targets := {}
-	var base_matches := BenchPrototype.match_ideal(ideal, base)
+	var base_matches := Lab.match_ideal(ideal, base)
 	for i in base.size():
 		base_targets[base_matches[i]] = float(base[i].get("target", -1))
 	var ids := {}
@@ -1619,6 +1625,53 @@ func _validate_bench_prototype_hints(recipe_id: String, procedure: Dictionary, v
 				errors.append("%s.%s.%s: note must not be empty" % [where, hint_id, level])
 		if absf(float(hint.get("vague", {}).get("offset", 0))) > vague_spread:
 			errors.append("%s.%s.vague.offset: |offset| must be <= vagueSpread" % [where, hint_id])
+
+
+# Live Lab: every procedure is a real recipe's, with ideal weights summing
+# to 100, real apparatus, 0-100 targets, ideal ores within baseCalc and base
+# calc summing to baseCalc; hints as the prototype's, each with a data rung.
+func _validate_lab(lab: Dictionary, recipes: Dictionary, approaches: Dictionary, errors: Array[String]) -> void:
+	_require_keys(lab, ["procedures", "rungs", "specificities", "rankThresholds", "skillFactor", "vagueSpread", "vagueToExactHits"], "lab", errors)
+	var rungs: Array = lab.get("rungs", [])
+	var vague_spread := float(lab.get("vagueSpread", 0))
+	for recipe_key in lab.get("procedures", {}).keys():
+		var where := "lab.procedures.%s" % recipe_key
+		if not recipes.is_empty() and not recipes.has(recipe_key):
+			errors.append("%s: not a data/recipes.json recipe" % where)
+		var procedure: Dictionary = lab["procedures"][recipe_key]
+		_require_keys(procedure, ["baseCalc", "baseTolerance", "ideal", "base"], where, errors)
+		if float(procedure.get("baseTolerance", 0)) <= 0.0:
+			errors.append("%s.baseTolerance: must be > 0" % where)
+		var weight_sum := 0
+		for step in procedure.get("ideal", []):
+			weight_sum += int(step.get("weight", 0))
+		if weight_sum != 100:
+			errors.append("%s.ideal: weights sum to %d, not 100" % [where, weight_sum])
+		var base_calc := {}
+		for list_name in ["ideal", "base"]:
+			var steps: Array = procedure.get(list_name, [])
+			if steps.is_empty():
+				errors.append("%s.%s: must not be empty" % [where, list_name])
+			for step in steps:
+				if not approaches.has(step.get("apparatus", "")):
+					errors.append("%s.%s: unknown apparatus '%s'" % [where, list_name, step.get("apparatus", "")])
+				var target := float(step.get("target", -1))
+				if target < 0.0 or target > 100.0:
+					errors.append("%s.%s: target must be 0-100" % [where, list_name])
+				if list_name == "ideal" and step.has("ore") and not procedure.get("baseCalc", {}).has(step["ore"]):
+					errors.append("%s.ideal: ore '%s' not in baseCalc" % [where, step["ore"]])
+				if list_name == "base":
+					for ore_type in step.get("calc", {}).keys():
+						base_calc[ore_type] = int(base_calc.get(ore_type, 0)) + int(step["calc"][ore_type])
+		var expected := {}
+		for ore_type in procedure.get("baseCalc", {}).keys():
+			expected[ore_type] = int(procedure["baseCalc"][ore_type])
+		if base_calc != expected:
+			errors.append("%s.base: step calc %s does not sum to baseCalc %s" % [where, base_calc, expected])
+		_validate_procedure_hints("%s.hints" % where, procedure, vague_spread, errors)
+		for hint in procedure.get("hints", []):
+			if not rungs.has(hint.get("rung")):
+				errors.append("%s.hints.%s: rung must be one of %s" % [where, hint.get("id", ""), rungs])
 
 
 # Every context in Combat.CANONICAL_CONTEXTS must have a backdrop entry.
@@ -1953,6 +2006,9 @@ const VALID_EFFECT_OPS: Array[String] = [
 	# events, bypassing siteCap/ore-cost/travel. join_faction is the
 	# only Factions.join() path when the generic Join button is suppressed.
 	"scripted_seed", "join_faction",
+	# grant_recipe / grant_recipe_steps: Lab.grant_recipe / Lab.grant_steps
+	# (grant_recipe_steps names its steps by ideal index or by rung).
+	"grant_recipe", "grant_recipe_steps",
 	# reveal_site queues the discover map event for a site id.
 	# set_hakim_intel_day stamps state.collective.hakimIntelLastDay with today.
 	"reveal_site", "set_hakim_intel_day",
@@ -2108,6 +2164,12 @@ func _validate_effect_list(effects: Array, context: String, errors: Array[String
 			_require_keys(effect, ["on_success", "on_caught"], context, errors)
 			_validate_effect_list(effect.get("on_success", []), "%s.stealth_check.on_success" % context, errors)
 			_validate_effect_list(effect.get("on_caught", []), "%s.stealth_check.on_caught" % context, errors)
+		if effect["op"] == "grant_recipe":
+			_require_keys(effect, ["recipe"], context, errors)
+		if effect["op"] == "grant_recipe_steps":
+			_require_keys(effect, ["recipe", "specificity"], context, errors)
+			if effect.has("steps") == effect.has("rung"):
+				errors.append("%s: grant_recipe_steps needs exactly one of steps or rung" % context)
 		if effect["op"] == "resolve_home_raid" and not ["win", "loss"].has(effect.get("outcome")):
 			errors.append("%s: resolve_home_raid outcome must be 'win' or 'loss'" % context)
 
@@ -2130,7 +2192,7 @@ func _validate_deck_entry(deck: Dictionary, context: String, errors: Array[Strin
 const OBJECTIVE_TYPES: Array[String] = [
 	"sites_discovered_matching", "traded_with_faction", "supplied_to_contact", "vein_sold_to_faction", "vein_growth_above", "flag_true",
 	"alarm_defend_wins", "faction_vein_seeded_count", "items_crafted_set", "contracts_completed", "all_of",
-	"recurring_proof", "template_periods_completed",
+	"recurring_proof", "template_periods_completed", "recipe_known",
 ]
 const OBJECTIVE_TYPE_PARAMS: Dictionary = {
 	"sites_discovered_matching": ["requireEachOreType", "minTier", "unclaimed"],
@@ -2146,6 +2208,7 @@ const OBJECTIVE_TYPE_PARAMS: Dictionary = {
 	"all_of": ["conditions"],
 	"recurring_proof": ["minContracts", "minCrafted"],
 	"template_periods_completed": ["templateId", "minCount"],
+	"recipe_known": ["recipe"],
 }
 # all_of's live condition kinds (Objectives.condition_met()), each with its
 # required keys beside "kind" and the ToDo checklist "label".
@@ -2237,6 +2300,9 @@ func _validate_objectives(objectives: Dictionary, factions: Dictionary, ore_type
 				var seed_faction_id = params.get("factionId")
 				if not factions.is_empty() and not factions.has(seed_faction_id):
 					errors.append("objectives.%s: factionId '%s' is not a known faction" % [key, seed_faction_id])
+			"recipe_known":
+				if not recipes.is_empty() and not recipes.has(params.get("recipe")):
+					errors.append("objectives.%s: recipe '%s' is not a known recipe" % [key, params.get("recipe")])
 			"items_crafted_set":
 				var recipe_keys = params.get("recipeKeys")
 				if typeof(recipe_keys) != TYPE_ARRAY or recipe_keys.is_empty():

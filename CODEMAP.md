@@ -36,6 +36,7 @@ Data file per system: see `data/*.json` below.
 | network_handler.gd | Network handler Targets (timed `collective.networkIntel` claim_bonus/security_freeze), Sourcing (site delivered by handler text), the intel menu (relation- and gouge-priced, gated products: raid/market intel, raid warnings, boost, privacy, disinformation, reduction), and factions' daily budgeted buys of the same products |
 | bench_prototype.gd | Sandboxed Lab-revamp bench: own calc pool, recipes, ranks, hints, ledger, Rewind; score→rank, re-run bonus; freeform runs (jar taps, steps any order, scoring on Finish, crack); clues learn hints. Real Breath reveals true bands, real Lady adds score; use_effect() spends real items. Spec: .scratch/lab-revamp/spec.md |
 | combat_pacing.gd | Persisted normal/quick pacing toggle |
+| lab.gd | Live Lab: `state.lab` recipe knowledge (`grant_recipe`, `grant_steps` vague/exact never downgrading, `rung_steps`), `known_recipes(ore)`, `known_procedure` (Breath reveals), `step_region` bands, `match_ideal`. Spec: .scratch/lab-port/spec.md |
 | combat_prototype.gd | Sandboxed Open/Guarded combat prototype (Debug app): start(config), choose_move/choose_item per player pause, committed enemy plans with seeded fog (read/unread intents), 0-2 AI allies, six moves, 2-slot sandbox loadouts, read-only timeline/guard/intent/block-reason helpers, per-beat stage marks, stage backdrop, Rewind to last pick |
 | active_effects.gd | Timed out-of-combat item effects in `state.player.activeEffects`: `use()` (Bag), `expire()` (TimeSystem on clock moves), `is_active`/`lady_active`/`prophets_breath_active`, `blocks_left`. Be a Lady = player cultivate/harvest max roll; Prophet's Breath = no ambushes. Data: constants.json `activeEffects`. |
 | consumables.gd | Healing Salve (out-of-combat) + Healing Burst (in or out); in-combat use_healing_burst() resolves the parked player turn-cursor entry (R§3.7a) and heals an ally target instead of the player (R§3.7) |
@@ -272,6 +273,7 @@ overlays.
 | bench_prototype.json | bench_prototype.gd |
 | collective_barks.json | collective.gd |
 | combat_prototype.json | combat_prototype.gd |
+| lab.json | lab.gd (procedures with rung-tagged hints, rank thresholds, skillFactor, vague tuning); GameData.gd validates |
 | combat_visuals.json | combat_stage.gd (locationBackdrops, backdrops, pose sheets, stage.spriteScale, stage.reserve); GameData.gd (territorialVariant pose spec); combat_director.gd (pacing.turnPause); turn_order_strip.gd (cardFrames) |
 | contact_texts.json | contact_texts.gd (per-contact gate, interval, hold, vein source, rewards, text pool: Owen, Archie, Hakim, James, Nadia, Des; Nadia opens after her vein-sale closing beat, Des after meeting) |
 | constants.json | calendar.gd (calendar), time_system.gd, jobs.gd, GameState.gd, contacts.gd (roster, roleFlags, skillCaps), rooms.gd (specialities), business.gd (weekly wages), rooms.gd (productionLogDays), business_stats.gd (businessStatsDays), shares.gd (sharesDays, sharesWindowDays), guardUpkeep, guard_kit.gd (guardKit), loadout.gd (loadout), events.gd (eventChecks, eventLabels) |

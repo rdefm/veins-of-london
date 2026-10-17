@@ -1299,6 +1299,9 @@ func _restore_int_types(state: Dictionary) -> void:
 		else:
 			_restore_bench_prototype_int_types(bench)
 
+	if state.has("lab"):
+		_restore_lab_int_types(state["lab"])
+
 	# state.objectives[*].progress is a free-form bag (systems/objectives.gd)
 	# -- only its known numeric shapes need restoring (activatedDay,
 	# traded_with_faction's baseline snapshot, alarm_defend_wins' win
@@ -1391,6 +1394,12 @@ func _restore_turn_cursor_int_types(cursor: Dictionary) -> void:
 
 # systems/bench_prototype.gd's state, and its Rewind frames (same shape
 # minus "snapshots" and the debug settings).
+func _restore_lab_int_types(lab: Dictionary) -> void:
+	_int_dict_values(lab.get("bestRanks", {}))
+	for entry in lab.get("known", {}).values():
+		_int_dict_values(entry.get("vagueHits", {}))
+
+
 func _restore_bench_prototype_int_types(bench: Dictionary) -> void:
 	if typeof(bench.get("skillOverride")) == TYPE_FLOAT:
 		bench["skillOverride"] = int(bench["skillOverride"])

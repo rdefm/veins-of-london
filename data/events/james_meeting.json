@@ -2,7 +2,7 @@
   "id": "james_meeting",
   "on_complete": [
     { "op": "set_flag", "flag": "metJames", "value": true },
-    { "op": "set_flag", "flag": "craftingUnlocked", "value": true },
+    { "op": "grant_recipe", "recipe": "timePearl" },
     { "op": "add", "path": "contacts.james.unlocked", "value": true },
     { "op": "relation", "contact": "james", "value": 10 },
     { "op": "set_stage", "value": "archie_craft_chat" },

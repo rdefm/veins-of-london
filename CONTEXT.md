@@ -108,3 +108,11 @@ A single fighting entity in `combat` — the player, one `combat.allies[]` entry
 
 **Selection** _(signed off, ticket 05 combat-refining, 2026-09-21)_:
 `combat.selection: {type, index}` — the player's current single-target for Attack/Blast/an eligible Complication, addressable at the player, an ally or an enemy (`type`). Distinct from a turn occurrence and from scroll position in the turn-order strip: scrolling to inspect an upcoming occurrence never changes `selection`, only tapping a card or a combatant sprite does.
+
+**Known recipe**:
+A recipe in `state.lab.known` — granted by story (James grants Time Pearl) or, later, bought or earned. Knowing it gives its base procedure; only known recipes appear in the recipe book.
+_Avoid_: "found"/"discovered" recipe — lottery-bench terms.
+
+**Hidden step**:
+An ideal procedure step the base procedure lacks or gets wrong. Each carries one rung (`hint1`, `hint2`, `master`) and is known at a specificity: `vague` (fuzzy region + direction) or `exact` (true band). Specificity only rises.
+_Avoid_: "secret" (that's Dial Movement bench secrets).

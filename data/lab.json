@@ -1,0 +1,76 @@
+{
+  "_comment": "Live Lab (systems/lab.gd, .scratch/lab-port/spec.md) -- provisional numbers, tagged for balance. procedures.<recipeKey>: baseCalc = calc spent per item; baseTolerance = band half-width before widening; ideal = the authored perfect procedure (apparatus = data/approaches.json id, ore = an ingredient ore that must be in the mixture for the step to match, absent for a step that works the existing mixture, target on a 0-100 gauge, weight; weights sum to 100); base = the procedure a newly granted recipe knows, its steps' calc summing to baseCalc; hints = the hidden steps, each naming the ideal step index it reveals (a base step matching that ideal step gets its target corrected, otherwise the ideal step is inserted, no calc) and one rung (hint1, hint2, master). A vague hint shows a region of the band widened by vagueSpread each side and shifted by its offset (|offset| <= vagueSpread, so the band always sits inside); an exact hint shows the true band. rankThresholds[i] is the minimum score for rank i+1. skillFactor: band_half_width = baseTolerance x (1 + skillFactor x craftingSkill). vagueToExactHits = in-band runs on a vague step that make it exact. PROSE-REVIEW: every hints label/note is new copy.",
+  "procedures": {
+    "timePearl": {
+      "baseCalc": { "time": 3 },
+      "baseTolerance": 6,
+      "ideal": [
+        { "apparatus": "compression", "ore": "time", "target": 82, "weight": 35 },
+        { "apparatus": "grinding", "target": 50, "weight": 25 },
+        { "apparatus": "heat", "target": 25, "weight": 40 }
+      ],
+      "base": [
+        { "apparatus": "compression", "target": 70, "calc": { "time": 3 } },
+        { "apparatus": "heat", "target": 25 }
+      ],
+      "hints": [
+        { "id": "compressLonger", "label": "Compress longer", "step": 0, "rung": "hint1",
+          "vague": { "note": "Compress it a bit longer.", "offset": -8 },
+          "exact": { "note": "Compress to 82. Stop well short of the red line." } },
+        { "id": "grindBetween", "label": "Grind between", "step": 1, "rung": "hint2",
+          "vague": { "note": "Grind it once between the press and the heat.", "offset": 7 },
+          "exact": { "note": "Grind between the press and the heat, mid-swing." } }
+      ]
+    },
+    "healingSalve": {
+      "baseCalc": { "life": 3 },
+      "baseTolerance": 8,
+      "ideal": [
+        { "apparatus": "grinding", "ore": "life", "target": 50, "weight": 30 },
+        { "apparatus": "heat", "target": 62, "weight": 40 },
+        { "apparatus": "distilling", "target": 50, "weight": 30 }
+      ],
+      "base": [
+        { "apparatus": "grinding", "target": 50, "calc": { "life": 3 } },
+        { "apparatus": "heat", "target": 50 }
+      ],
+      "hints": [
+        { "id": "heatHigher", "label": "Heat higher", "step": 1, "rung": "hint1",
+          "vague": { "note": "Heat it a bit hotter.", "offset": 6 },
+          "exact": { "note": "Heat to 62, not 50." } },
+        { "id": "distilFinish", "label": "Finish with a distil", "step": 2, "rung": "hint2",
+          "vague": { "note": "Finish with a distil. Catch the drips somewhere in the middle.", "offset": -5 },
+          "exact": { "note": "Finish with a distil: four drips, each caught halfway." } }
+      ]
+    },
+    "healingBurst": {
+      "baseCalc": { "life": 2, "time": 2 },
+      "baseTolerance": 4,
+      "ideal": [
+        { "apparatus": "grinding", "ore": "life", "target": 50, "weight": 20 },
+        { "apparatus": "compression", "ore": "time", "target": 60, "weight": 20 },
+        { "apparatus": "distilling", "target": 50, "weight": 25 },
+        { "apparatus": "heat", "target": 35, "weight": 35 }
+      ],
+      "base": [
+        { "apparatus": "grinding", "target": 50, "calc": { "life": 2 } },
+        { "apparatus": "compression", "target": 60, "calc": { "time": 2 } },
+        { "apparatus": "heat", "target": 45 }
+      ],
+      "hints": [
+        { "id": "distilBetween", "label": "Distil between", "step": 2, "rung": "hint1",
+          "vague": { "note": "Distil it between the press and the heat.", "offset": -6 },
+          "exact": { "note": "Distil between the press and the heat, drips caught halfway." } },
+        { "id": "heatLower", "label": "Heat lower", "step": 3, "rung": "hint2",
+          "vague": { "note": "Heat it lower than you'd think.", "offset": 5 },
+          "exact": { "note": "Heat to 35. Lower than you'd think." } }
+      ]
+    }
+  },
+  "rungs": ["hint1", "hint2", "master"],
+  "specificities": ["vague", "exact"],
+  "rankThresholds": [0, 40, 60, 75, 90],
+  "skillFactor": 0.08,
+  "vagueSpread": 15,
+  "vagueToExactHits": 3
+}

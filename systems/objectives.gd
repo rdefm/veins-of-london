@@ -20,6 +20,7 @@ const TYPE_CONTRACTS_COMPLETED := "contracts_completed"
 const TYPE_ALL_OF := "all_of"
 const TYPE_RECURRING_PROOF := "recurring_proof"
 const TYPE_TEMPLATE_PERIODS_COMPLETED := "template_periods_completed"
+const TYPE_RECIPE_KNOWN := "recipe_known"
 
 
 # The only entry point, called explicitly at action boundaries across
@@ -99,6 +100,8 @@ static func _evaluate(def: Dictionary, progress: Dictionary) -> bool:
 			return proof["contracts"] >= int(params["minContracts"]) and proof["crafted"] >= int(params["minCrafted"])
 		TYPE_TEMPLATE_PERIODS_COMPLETED:
 			return completed_period_count(params["templateId"]) >= int(params["minCount"])
+		TYPE_RECIPE_KNOWN:
+			return Lab.is_known(params["recipe"])
 		_:
 			return false
 

@@ -940,6 +940,12 @@ static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 		# The only remaining path to Factions.join("collective") -- ContactCards.build_faction_card() suppresses the generic Join button for that faction.
 		"join_faction":
 			Factions.join(effect["faction"])
+		"grant_recipe":
+			Lab.grant_recipe(effect["recipe"])
+		# Steps by ideal index, or every hidden step of a rung.
+		"grant_recipe_steps":
+			var steps: Array = effect["steps"] if effect.has("steps") else Lab.rung_steps(effect["recipe"], effect["rung"])
+			Lab.grant_steps(effect["recipe"], steps, effect["specificity"])
 		# The site was already created at roll time (Collective.maybe_trigger_hakim_intel())
 		# -- this just queues its discover map event. Runs post on_complete, so
 		# _event_site_id() falls back to advance()'s explicitly-threaded context rather than live event state.

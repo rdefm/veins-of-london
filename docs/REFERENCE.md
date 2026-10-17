@@ -562,6 +562,12 @@ state = {
   pendingSaleCut: 0,
   labThresholds: {},          # { recipeKey: int } personal inventory target, 0..constants.json productionTargetMax (50); loaded saves clamp into range
   labCoverContracts: {},      # { recipeKey: bool } ticket 30 -- opt in to also craft toward contract need
+  lab: {                      # live Lab (systems/lab.gd, data/lab.json)
+    known: {},                # { recipeKey: { steps: { "<idealIndex>": "vague"|"exact" }, vagueHits: { "<idealIndex>": int } } }; unknown steps absent
+    bestRanks: {},            # { recipeKey: 1..5 } only ever rising
+    activeRun: null,          # the run in progress | null
+    performedOnce: [],        # recipe keys performed by hand at least once (batch needs one)
+  },
   cultivatorVeins: {},        # { contactId: [veinId] } each cultivator's own uncapped list; a vein is on at most one list (§3.10 "Staff roles")
   contactTexts: {},  # Contacts' random texts (ContactTexts), { contactId: { nextDay, played, playSeq, active } } created on first use: nextDay due day (null until the first rollover after the gate opens, then +intervalMin..Max days; +1 per rollover a pauseWhenNotWorking contact isn't working); played { textId: playSeq } for unplayed-then-LRU picks; active { id, vars } awaiting the player's reply. A save's old top-level owenTexts loads as contactTexts.owen
   veinStationTargets: {},     # { veinId: int growth target }, default 70 on assignment
@@ -569,7 +575,7 @@ state = {
   flags: {
     tutorialStage: "intro",   # intro|buyer_event|sms_archie|meet_james|archie_craft_chat|free
     metArchie: false, metJames: false, buyerEventSeen: false,
-    craftingUnlocked: false, archieCraftChatSeen: false,
+    craftingUnlocked: false, archieCraftChatSeen: false,  # craftingUnlocked: tut_crafting_unlocked's completeFlag, set once lab.known has timePearl
     canSellConsumables: false, consSoldCount: 0,
     archieMotionPending: false, archieMotionEventSeen: false,
     archieBuyerSmsQueued: false,  # bugfixes-83: idempotency guard, ARCHIE_SMS_2's day>=2 queuing (TimeSystem)
@@ -905,7 +911,7 @@ The chain plays once. Later HQ raids defended from the alarm (`Home.trigger_defe
 ### 3.11 Tutorial flow (as actually implemented — the merged flow)
 1. **Intro event** (INTRO_CARDS). Complete → `metArchie = true`, stage "buyer_event", → home.
 2. Day ≥ 2 daily tick fires the buyer notification. Contacts screen shows the buyer action → **SMS thread 2** (`sms_archie_2`, ARCHIE_SMS_2, staged message reveal) → **Buyer event** (BUYER_CARDS). Complete → cash +40, `buyerEventSeen`, stage "sms_archie".
-3. **SMS thread 1** (ARCHIE_SMS_1) → **James meeting event** (JAMES_CARDS — this event includes the crafting lesson). Complete → inventory.timePearl += 2, `metJames`, `craftingUnlocked`, james unlocked, james relation +10, stage "archie_craft_chat", `archieChatUnlockDay = day + 1`, → home. No notification and no navigation to the crafting/HQ screen here — `homeUnlocked` (the HQ screen's own gate) isn't true yet at this point in the tutorial, so the HQ nudge waits for the home-raid debrief (§3.8) instead.
+3. **SMS thread 1** (ARCHIE_SMS_1) → **James meeting event** (JAMES_CARDS — this event includes the crafting lesson). Complete → inventory.timePearl += 2, `metJames`, `grant_recipe timePearl` (lab.known; completes tut_crafting_unlocked → `craftingUnlocked`), james unlocked, james relation +10, stage "archie_craft_chat", `archieChatUnlockDay = day + 1`, → home. No notification and no navigation to the crafting/HQ screen here — `homeUnlocked` (the HQ screen's own gate) isn't true yet at this point in the tutorial, so the HQ nudge waits for the home-raid debrief (§3.8) instead.
    *(The HTML's separate `JAMES_CRAFT_CARDS` array is dead/unreachable content. DO NOT PORT.)*
 4. Next day: notification → **Archie falafel chat** (ARCHIE_CRAFT_CHAT_CARDS). Complete → `archieCraftChatSeen`, `canSellConsumables`, stage "free", archie relation +5, +20 time ore, `homeRaidEventPending = true`.
 5. **Home raid chain** per §3.8. Then free play.

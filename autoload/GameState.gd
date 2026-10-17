@@ -318,6 +318,9 @@ func new_game_state() -> Dictionary:
 		# Sandboxed Lab-revamp bench prototype (systems/bench_prototype.gd):
 		# its own calc pool, ranks, ledger and Rewind stack.
 		"benchPrototype": BenchPrototype.new_state(),
+		# The live Lab (systems/lab.gd): recipe knowledge, best ranks, the
+		# run in progress and which recipes have been performed by hand.
+		"lab": Lab.new_state(),
 
 		"jamesJob": null,
 		"pendingSaleCut": 0,

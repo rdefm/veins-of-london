@@ -41,8 +41,8 @@
     "briefAction": { "to": "thread", "contactId": "james" },
     "title": "Go back to James when he's ready. He'll teach you the basics.",
     "detail": "",
-    "type": "flag_true",
-    "params": {},
+    "type": "recipe_known",
+    "params": { "recipe": "timePearl" },
     "activateFlag": "metJames",
     "completeFlag": "craftingUnlocked",
     "questline": "tutorial"

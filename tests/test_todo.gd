@@ -59,7 +59,7 @@ func run() -> void:
 		flags["metArchie"] = true
 		flags["buyerEventSeen"] = true
 		flags["metJames"] = true
-		flags["craftingUnlocked"] = true
+		Lab.grant_recipe("timePearl")
 		flags["archieCraftChatSeen"] = true
 		flags["homeRaidEventSeen"] = true
 		# archiePartnerSeen deliberately left false here -- see the next case.
@@ -81,8 +81,9 @@ func run() -> void:
 		# completed, and it would never render checked at all.
 		GameState.reset()
 		var flags: Dictionary = GameState.state["flags"]
-		for f in ["metArchie", "buyerEventSeen", "metJames", "craftingUnlocked", "archieCraftChatSeen", "homeRaidEventSeen", "archiePartnerSeen"]:
+		for f in ["metArchie", "buyerEventSeen", "metJames", "archieCraftChatSeen", "homeRaidEventSeen", "archiePartnerSeen"]:
 			flags[f] = true
+		Lab.grant_recipe("timePearl")
 		Objectives.refresh()
 
 		var items: Array = _section(Todo.get_questline_sections(), "tutorial")["items"]
