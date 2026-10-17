@@ -5,9 +5,9 @@
   "combatSpeedByLevel": [0, 10, 12, 14, 17, 21],
   "combatHpBonusByLevel": [0, 0, 0, 55, 55, 140],
   "raidGuards": {
-    "territorialScrapper": { "name": "Territorial Scrapper", "hpBase": 30, "attackMin": 3, "attackMax": 8, "evadeChance": 0, "speed": 12 },
-    "veinGuard":            { "name": "Vein Guard",            "hpBase": 30, "attackMin": 4, "attackMax": 10, "evadeChance": 0, "speed": 8 },
-    "orichalchumDealer":    { "name": "Orichalchum Dealer",    "hpBase": 25, "attackMin": 5, "attackMax": 12, "evadeChance": 0, "speed": 10 }
+    "territorialScrapper": { "name": "Territorial Scrapper", "hpBase": 30, "attackMin": 3, "attackMax": 8, "evadeChance": 0, "speed": 12, "archetype": "bruiser" },
+    "veinGuard":            { "name": "Vein Guard",            "hpBase": 30, "attackMin": 4, "attackMax": 10, "evadeChance": 0, "speed": 8, "archetype": "turtle" },
+    "orichalchumDealer":    { "name": "Orichalchum Dealer",    "hpBase": 25, "attackMin": 5, "attackMax": 12, "evadeChance": 0, "speed": 10, "archetype": "mugger" }
   },
   "factionSquads": {
     "collective": [
@@ -37,6 +37,21 @@
     "attackMin": 6,
     "attackMax": 14,
     "evadeChance": 0,
-    "speed": 9
+    "speed": 9,
+    "archetype": "bruiser"
+  },
+  "enemyLevels": {
+    "mugging": 1,
+    "hardMugging": 2,
+    "homeRaid": 1,
+    "homeAlarmDefend": 2,
+    "veinMagnitude": [
+      { "magnitude": 1, "level": 1 },
+      { "magnitude": 2, "level": 2 },
+      { "magnitude": 3, "level": 3 },
+      { "magnitude": 5, "level": 4 },
+      { "magnitude": 7, "level": 5 }
+    ],
+    "ambushTurf": { "none": 1, "foothold": 2, "control": 3 }
   }
 }

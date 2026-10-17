@@ -161,20 +161,16 @@ const ALLY_HEAL_THRESHOLD_FRACTION := 0.4
 # here. DEFAULT_TEMPLATE_SPEED: default for a template that omits `speed`.
 const MUGGER_SPEED := 11
 const DEFAULT_TEMPLATE_SPEED := 10
-# R§3.7b tables 1-2: the mugger's archetype and enemy level, plain and harder
-# (a vein in the sale), and its stage sprite template.
+# R§3.7b table 1: the mugger's archetype, plain and harder (a vein in the
+# sale), and its stage sprite template; the home raider's sprite template.
 const MUGGER_ARCHETYPE := "mugger"
 const HARD_MUGGER_ARCHETYPE := "muggerV2"
-const MUGGER_LEVEL := 1
-const HARD_MUGGER_LEVEL := 2
 const MUGGER_TEMPLATE_KEY := "mugger"
+const HOME_RAIDER_TEMPLATE_KEY := "homeRaidRaider"
 
 # R§3.7b: state.combat["engine"] for a fight on the Open/Guarded round rules
-# (CombatPrototype's core driven on state.combat). ROUND_ENGINE_CONTEXTS are
-# the contexts that start on it; every other context still runs the
-# speed-queue engine.
+# (CombatPrototype's core driven on state.combat). Every context starts on it.
 const ENGINE_ROUNDS := "rounds"
-const ROUND_ENGINE_CONTEXTS: Array[String] = [CONTEXT_EVENT_MUGGING]
 # The round fight's Rewind stack id (Snapshots cap).
 const ROUND_SNAPSHOT_STACK := "combat"
 # R§3.7b XP: one Combat XP lump per round fight, by outcome.
@@ -220,16 +216,16 @@ static func _apply_instance_variance(base: float) -> int:
 
 
 # A trade including a vein rolls a harder mugger encounter: a wider,
-# higher-floor roster (2-4 vs. the default 1-3) at 1.3x base stats. Draft,
-# needs balance sign-off (see MUG_BASE_CHANCE_VEIN in economy.gd).
+# higher-floor roster (2-4 vs. the default 1-3) at the harder archetype and
+# level (R§3.7b tables 1-2). Draft, needs balance sign-off (see
+# MUG_BASE_CHANCE_VEIN in economy.gd).
 const HARD_MUGGER_MIN_COUNT := 2
 const HARD_MUGGER_MAX_COUNT := 4
-const HARD_MUGGER_STAT_SCALE := 1.3
 
 
 # `count` distinct entries off the single mugger archetype's base stats
 # (hp 28, atk 4-10 per R§3.7a), each with independent variance. `harder`
-# widens the roster and scales stats -- see HARD_MUGGER_* above.
+# widens the roster and lifts archetype and level -- see HARD_MUGGER_* above.
 static func generate_mugger(harder: bool = false) -> Array:
 	var min_count: int = HARD_MUGGER_MIN_COUNT if harder else 1
 	var max_count: int = HARD_MUGGER_MAX_COUNT if harder else 3
@@ -241,22 +237,44 @@ static func generate_mugger(harder: bool = false) -> Array:
 
 
 static func _spawn_mugger_instance(harder: bool = false) -> Dictionary:
-	var scale: float = HARD_MUGGER_STAT_SCALE if harder else 1.0
-	var hp: int = _apply_instance_variance(28 * scale)
+	var hp: int = _apply_instance_variance(28)
 	return {
 		"name": "A mugger",
 		"hp": hp,
 		"hpMax": hp,
-		"attackMin": _apply_instance_variance(4 * scale),
-		"attackMax": _apply_instance_variance(10 * scale),
+		"attackMin": _apply_instance_variance(4),
+		"attackMax": _apply_instance_variance(10),
 		"isMugging": true,
 		"weapon": null,
 		"ability": null,
 		"evadeChance": 0.0,
 		"speed": MUGGER_SPEED,
 		"archetype": HARD_MUGGER_ARCHETYPE if harder else MUGGER_ARCHETYPE,
-		"level": HARD_MUGGER_LEVEL if harder else MUGGER_LEVEL,
+		"level": enemy_level("hardMugging" if harder else "mugging"),
+		"template": MUGGER_TEMPLATE_KEY,
 	}
+
+
+# R§3.7b table 2: a context's fixed enemy level ("mugging", "hardMugging",
+# "homeRaid", "homeAlarmDefend").
+static func enemy_level(key: String) -> int:
+	return int(GameData.ENEMY_LEVELS[key])
+
+
+# R§3.7b table 2: a vein fight's enemy level off its combined magnitude --
+# the level of the highest veinMagnitude row the magnitude reaches.
+static func enemy_level_for_magnitude(magnitude: int) -> int:
+	var level := 1
+	for row in GameData.ENEMY_LEVELS["veinMagnitude"]:
+		if magnitude >= int(row["magnitude"]):
+			level = int(row["level"])
+	return level
+
+
+# R§3.7b table 2: a faction ambush's enemy level off the ambushing faction's
+# Turf tier in `district_id`.
+static func enemy_level_for_ambush(district_id: String, faction_id: String) -> int:
+	return int(GameData.ENEMY_LEVELS["ambushTurf"][Turf.tier(district_id, faction_id)])
 
 
 # The "N muggers stepped out" intro-line label; naming a roster is the
@@ -265,8 +283,8 @@ static func _mugger_intro_label(count: int) -> String:
 	return "A mugger" if count == 1 else "%d muggers" % count
 
 
-# Builds the {weapon, ability, evadeChance} fields shared by every
-# enemy-construction path. evadeChance defaults to 20% when a template
+# Builds the {weapon, ability, evadeChance, speed, archetype} fields shared
+# by every template-built enemy. evadeChance defaults to 20% when a template
 # omits the key (existing templates specify 0 explicitly).
 static func _enemy_capabilities_from_template(template: Dictionary) -> Dictionary:
 	var ability = null
@@ -277,14 +295,16 @@ static func _enemy_capabilities_from_template(template: Dictionary) -> Dictionar
 		"ability": ability,
 		"evadeChance": template.get("evadeChance", 0.2),
 		"speed": template.get("speed", DEFAULT_TEMPLATE_SPEED),
+		"archetype": template["archetype"],
 	}
 
 
 # Debug-only in M0 (R§3.7); M0 has no NPC-claimed-vein storage, so callers
 # supply a value tier/guards directly. value_tier is Cultivating.combined_magnitude()
-# (R§3.4: value_tier blended with a vein's earned level); guard_count
-# (at least 1, no upper cap) entries roll independently from
-# GameData.ENEMY_RAID_GUARDS unless `template_key` forces one template.
+# (R§3.4: value_tier blended with a vein's earned level), which sets every
+# entry's level (R§3.7b table 2); guard_count (at least 1, no upper cap)
+# entries roll independently from GameData.ENEMY_RAID_GUARDS unless
+# `template_key` forces one template.
 static func generate_raid_enemy(vein_id, value_tier: int, guards: int = 1, template_key: String = "") -> Array:
 	var templates: Dictionary = GameData.ENEMY_RAID_GUARDS
 	var guard_count: int = maxi(guards, 1)
@@ -294,7 +314,8 @@ static func generate_raid_enemy(vein_id, value_tier: int, guards: int = 1, templ
 		var key: String = template_key
 		if key == "" or not templates.has(key):
 			key = Rng.rand_from(templates.keys())
-		var entry := _spawn_guard_instance(templates[key], value_tier)
+		var entry := _spawn_guard_instance(templates[key], enemy_level_for_magnitude(value_tier))
+		entry["template"] = key
 		if key == SCRAPPER_TEMPLATE_KEY:
 			entry["variant"] = _roll_scrapper_variant(used_variants)
 		entries.append(entry)
@@ -319,16 +340,18 @@ static func _roll_scrapper_variant(used: Array) -> String:
 	return pick
 
 
-static func _spawn_guard_instance(template: Dictionary, value_tier: int) -> Dictionary:
-	var hp_scale: float = 1.0 + (value_tier - 1) * 0.3
-	var hp: int = _apply_instance_variance(template["hpBase"] * hp_scale)
+# The template's own stats with instance variance, at `level` (whose curves
+# the round fight adds on, R§3.7b).
+static func _spawn_guard_instance(template: Dictionary, level: int) -> Dictionary:
+	var hp: int = _apply_instance_variance(template["hpBase"])
 	var entry := {
 		"name": template["name"],
 		"hp": hp,
 		"hpMax": hp,
 		"attackMin": _apply_instance_variance(template["attackMin"]),
-		"attackMax": _apply_instance_variance(template["attackMax"] + (value_tier - 1)),
+		"attackMax": _apply_instance_variance(template["attackMax"]),
 		"isMugging": false,
+		"level": level,
 	}
 	entry.merge(_enemy_capabilities_from_template(template))
 	return entry
@@ -420,8 +443,12 @@ static func start_street_mugging() -> void:
 
 
 # Faction-ambush intro event's fight (Ambush): a weighted pick from the
-# faction's data/enemies.json factionSquads, built from raidGuards templates.
-static func start_faction_ambush(faction_id: String) -> void:
+# faction's data/enemies.json factionSquads, built from raidGuards templates,
+# at the level of the faction's Turf tier in `district_id` (the ambush's;
+# "" = the current district).
+static func start_faction_ambush(faction_id: String, district_id: String = "") -> void:
+	if district_id == "":
+		district_id = GameState.state["world"]["currentDistrict"]
 	var squads: Array = GameData.ENEMY_FACTION_SQUADS[faction_id]
 	var total := 0.0
 	for s in squads:
@@ -433,9 +460,12 @@ static func start_faction_ambush(faction_id: String) -> void:
 		if roll < 0.0:
 			squad = s
 			break
+	var level := enemy_level_for_ambush(district_id, faction_id)
 	var enemies: Array = []
 	for template_key in squad["enemies"]:
-		enemies.append_array(generate_raid_enemy(null, 1, 1, template_key))
+		var entry: Dictionary = generate_raid_enemy(null, 1, 1, template_key)[0]
+		entry["level"] = level
+		enemies.append(entry)
 	# PROSE-REVIEW: ambush intro line.
 	var log_lines := ["%s squad closes in. This was planned." % GameData.FACTIONS[faction_id]["shortName"]]
 	_start_combat(CONTEXT_FACTION_AMBUSH, null, enemies, log_lines, "")
@@ -444,14 +474,14 @@ static func start_faction_ambush(faction_id: String) -> void:
 
 # Called by combat_intro events via the start_home_raid_combat effect op.
 # `mods` are the event's opening modifiers: enemyHpMult scales the raider's
-# starting hp (hpMax unchanged); enemyFirst puts every enemy ahead of the
-# player and allies in round 1 only.
+# starting hp (hpMax unchanged); enemyFirst has every enemy act ahead of the
+# player and allies at each action slot of round 1 (CombatPrototype timeline
+# order).
 static func start_home_raid_combat(mods: Dictionary = {}) -> void:
-	_start_combat(CONTEXT_HOME_RAID, null, [_home_raider_enemy(float(mods.get("enemyHpMult", 1.0)))],
+	var opening: Dictionary = { "enemyFirst": true } if bool(mods.get("enemyFirst", false)) else {}
+	_start_combat(CONTEXT_HOME_RAID, null, [_home_raider_enemy(enemy_level("homeRaid"), float(mods.get("enemyHpMult", 1.0)))],
 		["They're in the flat. You've got your hands. This is happening."],
-		"homeRaidWon")
-	if bool(mods.get("enemyFirst", false)):
-		GameState.state["combat"]["enemyFirst"] = true
+		"homeRaidWon", [], null, {}, {}, opening)
 
 
 # Called by Home.trigger_defend(): same raider, no onWin (Home resolves it).
@@ -466,16 +496,16 @@ static func start_home_alarm_defend_combat(ally_ids: Array = []) -> void:
 			log_lines.append("%s is in the flat with you." % Contacts.display_name(contact_id))
 	_add_guard_allies(allies, Home.get_guard_count(), log_lines)
 	var guard_kit := { "items": GuardKit.hq_active_units().duplicate(true), "used": {} }
-	_start_combat(CONTEXT_HOME_ALARM_DEFEND, null, [_home_raider_enemy()], log_lines,
+	_start_combat(CONTEXT_HOME_ALARM_DEFEND, null, [_home_raider_enemy(enemy_level("homeAlarmDefend"))], log_lines,
 		"", allies, null, {}, guard_kit)
 
 
-static func _home_raider_enemy(hp_mult: float = 1.0) -> Dictionary:
+static func _home_raider_enemy(level: int, hp_mult: float = 1.0) -> Dictionary:
 	var raider: Dictionary = GameData.ENEMY_HOME_RAID_RAIDER
 	var enemy := {
 		"name": raider["name"], "hp": maxi(1, int(round(raider["hp"] * hp_mult))), "hpMax": raider["hp"],
 		"attackMin": raider["attackMin"], "attackMax": raider["attackMax"],
-		"isMugging": false,
+		"isMugging": false, "level": level, "template": HOME_RAIDER_TEMPLATE_KEY,
 	}
 	enemy.merge(_enemy_capabilities_from_template(raider))
 	return enemy
@@ -604,12 +634,19 @@ static func start_debug_combat(context: String, location_key: String, value_tier
 		location_key if not location_key.is_empty() else null)
 
 
-static func _start_combat(context: String, vein_id, enemies: Array, log_lines: Array, on_win: String, allies: Array = [], location_key_override: Variant = null, raider_kit: Dictionary = {}, guard_kit: Dictionary = {}) -> void:
+# Every start_* opens its fight here, on the round rules. `opening` holds
+# the fight's opening modifiers (enemyFirst).
+static func _start_combat(context: String, vein_id, enemies: Array, log_lines: Array, on_win: String, allies: Array = [], location_key_override: Variant = null, raider_kit: Dictionary = {}, guard_kit: Dictionary = {}, opening: Dictionary = {}) -> void:
 	if not is_canonical_context(context):
 		push_error("Combat: unrecognized context '%s' — not in CANONICAL_CONTEXTS, exit_combat() will mis-route it." % context)
-	if ROUND_ENGINE_CONTEXTS.has(context):
-		_start_round_combat(context, vein_id, enemies, log_lines, on_win, allies, location_key_override)
-		return
+	var live := { "raiderKit": raider_kit, "guardKit": guard_kit }
+	live.merge(opening)
+	_start_round_combat(context, vein_id, enemies, log_lines, on_win, allies, location_key_override, {}, live)
+
+
+# The speed-queue engine's fight setup. No live context starts here; the
+# speed-queue engine's own tests drive it.
+static func _start_speed_queue_combat(context: String, vein_id, enemies: Array, log_lines: Array, on_win: String, allies: Array = [], location_key_override: Variant = null, raider_kit: Dictionary = {}, guard_kit: Dictionary = {}) -> void:
 	# Every roster entry needs koed regardless of which start_* path built
 	# it -- one chokepoint (speed is already set at construction time).
 	# `rid` is a fight-scoped identity, so a Rewind can tell which fighter holds
@@ -675,9 +712,11 @@ static func is_round_engine(combat: Dictionary) -> bool:
 # the rest waiting in allyQueue; combat.allies keeps their live dicts, which
 # _sync_round_allies() keeps level with their combatants. `config` is
 # test-only: seed (default off the global Rng stream), fog, and enemyPlans /
-# enemyUnread / allyPlans as CombatPrototype.start(). The player's loadout
-# items don't take part yet.
-static func _start_round_combat(context: String, vein_id, enemies: Array, log_lines: Array, on_win: String, allies: Array = [], location_key_override: Variant = null, config: Dictionary = {}) -> void:
+# enemyUnread / allyPlans as CombatPrototype.start(). `live` is merged into
+# the fight before it opens: raiderKit / guardKit (the shared kit pools
+# exit_combat() settles) and opening modifiers (enemyFirst). The player's
+# loadout items don't take part yet.
+static func _start_round_combat(context: String, vein_id, enemies: Array, log_lines: Array, on_win: String, allies: Array = [], location_key_override: Variant = null, config: Dictionary = {}, live: Dictionary = {}) -> void:
 	var location_key: String = location_key_for(context, vein_id) if location_key_override == null else str(location_key_override)
 	var player: Dictionary = GameState.state["player"]
 	var combat := CombatPrototype.new_state()
@@ -690,6 +729,7 @@ static func _start_round_combat(context: String, vein_id, enemies: Array, log_li
 		"backdrop": { "context": context, "locationKey": location_key },
 		"fog": bool(config.get("fog", true)),
 	}, true)
+	combat.merge(live, true)
 	var level: int = clampi(int(player["combatSkill"]), 1, CombatPrototype.level_max())
 	var attack := get_attack_range()
 	var combatants: Array = combat["combatants"]
@@ -737,7 +777,8 @@ static func _round_enemy_combatant(entry: Dictionary) -> Dictionary:
 	var attack := get_enemy_attack_range(entry)
 	var enemy := _round_combatant(CombatPrototype.SIDE_ENEMY, _round_enemy_name(entry), entry, attack["min"], attack["max"])
 	enemy["archetype"] = entry["archetype"]
-	enemy["template"] = MUGGER_TEMPLATE_KEY if entry.get("isMugging", false) else str(entry.get("variant", ""))
+	# A scrapper's sprite is its territorial variant; any other enemy's, its template.
+	enemy["template"] = str(entry.get("variant", entry.get("template", "")))
 	return enemy
 
 

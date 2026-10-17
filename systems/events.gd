@@ -834,7 +834,7 @@ static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 		"start_street_mugging":
 			CombatPrep.request(CombatPrep.KIND_STREET_MUGGING)
 		"start_faction_ambush_combat":
-			CombatPrep.request(CombatPrep.KIND_FACTION_AMBUSH, { "factionId": _event_faction_id(effect) })
+			CombatPrep.request(CombatPrep.KIND_FACTION_AMBUSH, { "factionId": _event_faction_id(effect), "district": _event_district() })
 		"npc_claim_best_unclaimed_site":
 			Sites.npc_claim_best_unclaimed_site(GameState.state["world"]["currentDistrict"])
 		"lose_time_block":
@@ -1173,6 +1173,14 @@ static func _event_faction_id(effect: Dictionary) -> String:
 	if event_state == null:
 		return ""
 	return event_state.get("context", {}).get("faction_id", "")
+
+
+# The running event's context district (an ambush's), else the player's
+# current district.
+static func _event_district() -> String:
+	var event_state: Variant = GameState.state.get("event")
+	var district: String = "" if event_state == null else str(event_state.get("context", {}).get("district", ""))
+	return district if district != "" else str(GameState.state["world"]["currentDistrict"])
 
 
 # _stealth_check() for a stockpile raid; silent no-op for an unknown faction.

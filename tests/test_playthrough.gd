@@ -53,16 +53,24 @@ func _assert_invariants(label: String) -> void:
 func _force_win_active_combat() -> void:
 	if CombatPrep.is_pending():
 		CombatPrep.commit()
-	var attack_min: int = GameState.state["player"]["attackMin"]
-	var attack_max: int = GameState.state["player"]["attackMax"]
-	GameState.state["combat"]["enemies"][GameState.state["combat"]["selection"]["index"]]["hp"] = 1
-	GameState.state["player"]["attackMin"] = 999
-	GameState.state["player"]["attackMax"] = 999
-	Rng.set_seed(1)
-	Combat.player_attack()
+	# The player hits for 999 and strikes the first standing enemy until
+	# the round fight is won.
+	var combat: Dictionary = GameState.state["combat"]
+	var you: Dictionary = combat["combatants"][CombatPrototype.PLAYER_INDEX]
+	you["attackMin"] = 999
+	you["attackMax"] = 999
+	for _i in range(20):
+		if combat["outcome"] != null:
+			break
+		var target := -1
+		for i in range(combat["combatants"].size()):
+			var c: Dictionary = combat["combatants"][i]
+			if c["side"] == CombatPrototype.SIDE_ENEMY and not c["koed"]:
+				target = i
+				break
+		Combat.choose_move("strike", target)
+	assert_eq(combat["outcome"], "win", "forced win")
 	Combat.exit_combat()
-	GameState.state["player"]["attackMin"] = attack_min
-	GameState.state["player"]["attackMax"] = attack_max
 
 
 # Shared by every case below: new game through the fixed tutorial beats
@@ -380,15 +388,9 @@ func _answer_until_event_ends(choices: Array) -> void:
 	assert_true(GameState.state["event"] == null, "the event chain should resolve within 100 steps")
 
 
-# A defend fight can field several guards; KO all but one, then land the
-# killing blow through the real attack path so outcome flips to "win".
+# A defend fight can field several guards; every one goes down through the
+# real strike path so outcome flips to "win".
 func _force_win_every_enemy() -> void:
-	var combat: Dictionary = GameState.state["combat"]
-	var last: int = combat["enemies"].size() - 1
-	for i in range(last):
-		combat["enemies"][i]["hp"] = 0
-		combat["enemies"][i]["koed"] = true
-	combat["selection"] = { "type": "enemy", "index": last }
 	_force_win_active_combat()
 
 

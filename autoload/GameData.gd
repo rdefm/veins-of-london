@@ -117,6 +117,8 @@ var ENEMY_RAID_GUARDS: Dictionary = {}
 var ENEMY_HOME_RAID_RAIDER: Dictionary = {}
 # Hostile-faction ambush squads (R§3.1d): { factionId: [{ weight, enemies: [raidGuards keys] }] }.
 var ENEMY_FACTION_SQUADS: Dictionary = {}
+# R§3.7b table 2: enemy Combat Skill level per context/driver.
+var ENEMY_LEVELS: Dictionary = {}
 
 # Open/Guarded round-planning combat prototype's moves, archetypes and
 # curves (systems/combat_prototype.gd) -- prototype-only, not production
@@ -461,6 +463,7 @@ const MANIFEST: Array[Dictionary] = [
 		{"field": "ENEMY_RAID_GUARDS", "key": "raidGuards", "type": TYPE_DICTIONARY},
 		{"field": "ENEMY_HOME_RAID_RAIDER", "key": "homeRaidRaider", "type": TYPE_DICTIONARY},
 		{"field": "ENEMY_FACTION_SQUADS", "key": "factionSquads", "type": TYPE_DICTIONARY},
+		{"field": "ENEMY_LEVELS", "key": "enemyLevels", "type": TYPE_DICTIONARY},
 		{"field": "COMBAT_XP_LEVELS", "key": "combatXpLevels", "type": TYPE_ARRAY},
 		{"field": "COMBAT_ATTACK_BONUS_BY_LEVEL", "key": "combatAttackBonusByLevel", "type": TYPE_ARRAY},
 		{"field": "COMBAT_SPEED_BY_LEVEL", "key": "combatSpeedByLevel", "type": TYPE_ARRAY},
@@ -1312,9 +1315,13 @@ func _validate_enemies(t: Dictionary, errors: Array[String]) -> void:
 	var combat_speed_by_level: Array = t.get("combat_speed_by_level", [])
 	var combat_hp_bonus_by_level: Array = t.get("combat_hp_bonus_by_level", [])
 
+	var archetypes: Dictionary = t.get("combat_prototype", {}).get("archetypes", {})
 	for key in raid_guards.keys():
-		_require_keys(raid_guards[key], ["name", "hpBase", "attackMin", "attackMax", "speed"], "enemies.raidGuards.%s" % key, errors)
-	_require_keys(home_raid_raider, ["name", "hp", "attackMin", "attackMax", "speed"], "enemies.homeRaidRaider", errors)
+		_require_keys(raid_guards[key], ["name", "hpBase", "attackMin", "attackMax", "speed", "archetype"], "enemies.raidGuards.%s" % key, errors)
+		_validate_enemy_archetype(raid_guards[key], archetypes, "enemies.raidGuards.%s" % key, errors)
+	_require_keys(home_raid_raider, ["name", "hp", "attackMin", "attackMax", "speed", "archetype"], "enemies.homeRaidRaider", errors)
+	_validate_enemy_archetype(home_raid_raider, archetypes, "enemies.homeRaidRaider", errors)
+	_validate_enemy_levels(t.get("enemy_levels", {}), int(t.get("combat_prototype", {}).get("levelMax", 0)), errors)
 	var squads: Dictionary = t.get("enemy_faction_squads", {})
 	for faction_id in FACTIONS:
 		if not squads.has(faction_id) or squads[faction_id].is_empty():
@@ -1337,6 +1344,42 @@ func _validate_enemies(t: Dictionary, errors: Array[String]) -> void:
 		errors.append("enemies.combatSpeedByLevel: expected 6 entries (index=level, 0..5), got %d" % combat_speed_by_level.size())
 	if combat_hp_bonus_by_level.size() != 6:
 		errors.append("enemies.combatHpBonusByLevel: expected 6 entries (index=level, 0..5), got %d" % combat_hp_bonus_by_level.size())
+
+
+func _validate_enemy_archetype(template: Dictionary, archetypes: Dictionary, path: String, errors: Array[String]) -> void:
+	if template.has("archetype") and not archetypes.has(template["archetype"]):
+		errors.append("%s.archetype: unknown combat_prototype archetype '%s'" % [path, template["archetype"]])
+
+
+# R§3.7b table 2: every level is an int 1..levelMax; veinMagnitude rows run
+# from magnitude 1 in strictly ascending magnitude; ambushTurf covers every
+# Turf tier.
+func _validate_enemy_levels(levels: Dictionary, level_max: int, errors: Array[String]) -> void:
+	var checks: Array = []
+	for key in ["mugging", "hardMugging", "homeRaid", "homeAlarmDefend"]:
+		checks.append(["enemies.enemyLevels.%s" % key, levels.get(key)])
+	var rows = levels.get("veinMagnitude", [])
+	if typeof(rows) != TYPE_ARRAY or rows.is_empty():
+		errors.append("enemies.enemyLevels.veinMagnitude: must be a non-empty array")
+		rows = []
+	var last_magnitude := 0
+	for i in range(rows.size()):
+		var row = rows[i]
+		var path := "enemies.enemyLevels.veinMagnitude[%d]" % i
+		if typeof(row) != TYPE_DICTIONARY or typeof(row.get("magnitude")) != TYPE_INT:
+			errors.append("%s: needs an int magnitude and level" % path)
+			continue
+		var magnitude := int(row["magnitude"])
+		if (i == 0 and magnitude != 1) or (i > 0 and magnitude <= last_magnitude):
+			errors.append("%s.magnitude: must start at 1 and strictly ascend" % path)
+		last_magnitude = magnitude
+		checks.append(["%s.level" % path, row.get("level")])
+	var turf = levels.get("ambushTurf", {})
+	for tier in [Turf.TIER_NONE, Turf.TIER_FOOTHOLD, Turf.TIER_CONTROL]:
+		checks.append(["enemies.enemyLevels.ambushTurf.%s" % tier, turf.get(tier) if typeof(turf) == TYPE_DICTIONARY else null])
+	for entry in checks:
+		if typeof(entry[1]) != TYPE_INT or int(entry[1]) < 1 or int(entry[1]) > level_max:
+			errors.append("%s: must be an int 1..%d" % [entry[0], level_max])
 
 
 # Moves name a known guard effect, target type and effect; curves cover

@@ -956,7 +956,7 @@ Items and Dial casts cost 1 action and leave guard state unchanged (except Shiel
 | Faction squads (`factionSquads`) | per member template | per member template |
 | `homeRaidRaider` (tutorial + alarm defend) | 35, 6–14, speed 9 | bruiser |
 
-Each `raidGuards` entry and `homeRaidRaider` gains `"archetype"`; the mugger's lives beside `MUGGER_SPEED`'s data home.
+Each `raidGuards` entry and `homeRaidRaider` carries `"archetype"` (validated against `combat_prototype.archetypes`); the mugger's lives beside `MUGGER_SPEED`'s data home.
 
 #### Table 2 — Enemy level (signed off 2026-10-17)
 
@@ -969,6 +969,8 @@ Each `raidGuards` entry and `homeRaidRaider` gains `"archetype"`; the mugger's l
 | Home raid (tutorial) | — | 1 |
 | Home alarm defend | — | 2 |
 | Debug | picker | picker |
+
+Table 2 lives in `data/enemies.json` `enemyLevels` (`GameData.ENEMY_LEVELS`, validated at boot: every level 1..levelMax): `mugging`, `hardMugging`, `homeRaid`, `homeAlarmDefend`, `veinMagnitude` [{magnitude, level}] (from 1, ascending; a magnitude takes the highest row it reaches), `ambushTurf` {none, foothold, control}. The ambush district is the ambush event's `district`. Home raid `enemyFirst` (§3.8 opening mod): in round 1 only, every enemy acts ahead of every friendly at each action index (indices still alternate); `enemyHpMult` scales starting hp, hpMax unchanged.
 
 **Speed rule:** enemy/ally speed = own authored speed + (`speedCurve[level]` − `speedCurve[1]`), so slow and fast templates keep their order and level still lifts them. Accepted for the port: HP bonus jumps +55 at level 3 (a magnitude-3 vein guard goes 30 → 85 hp); the harder mugger trades the old ×1.3 hp for level 2's +2 attack.
 

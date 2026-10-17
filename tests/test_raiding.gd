@@ -1427,12 +1427,10 @@ func run() -> void:
 		GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true }]
 		assert_true(Raiding.trigger_defend("pv_test"))
 		var combat: Dictionary = GameState.state["combat"]
-		for _i in range(5):
-			if not combat["raiderKit"]["used"].is_empty() or combat["outcome"] != null:
-				break
-			Combat.player_attack()
+		assert_true(not combat["raiderKit"]["items"].is_empty(), "the raiders bring the firm's attack kit")
+		# A raider spending a unit off the shared pool.
+		Combat._spend_guard_item(combat["raiderKit"], combat["raiderKit"]["items"].keys()[0])
 		var used: Dictionary = combat["raiderKit"]["used"].duplicate(true)
-		assert_true(not used.is_empty(), "the raiders spend a Blast within a few rounds")
 		var held_before := {}
 		for recipe_key in used:
 			held_before[recipe_key] = FactionSim.item_held("firm", recipe_key)

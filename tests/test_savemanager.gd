@@ -88,7 +88,7 @@ func run() -> void:
 
 	run_case("save_mutate_load_round_trips_queued_fighters_and_cursor", func():
 		GameState.reset()
-		Combat.start_raid("v1", 1, 4, "veinGuard")
+		Combat._start_speed_queue_combat(Combat.CONTEXT_RAID, "v1", Combat.generate_raid_enemy("v1", 1, 4, "veinGuard"), [], "raidWon")
 		var combat: Dictionary = GameState.state["combat"]
 		combat["turnCursor"] = { "queue": Combat.build_turn_queue(combat), "index": 1, "round": 2 }
 		Combat.push_combat_snapshot()
@@ -1095,7 +1095,7 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["world"]["currentDistrict"] = "camden"
 		Rng.set_seed(1)
-		Combat.start_street_mugging()
+		Combat._start_speed_queue_combat(Combat.CONTEXT_EVENT_MUGGING, null, Combat.generate_mugger(), [], "")
 		var combat: Dictionary = GameState.state["combat"]
 		for enemy in combat["enemies"]:
 			enemy["hp"] = 500

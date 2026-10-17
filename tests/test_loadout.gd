@@ -10,6 +10,11 @@ func _stock(recipe_key: String, tier: int) -> int:
 	return int(GameState.state["player"]["inventory"].get(recipe_key, {}).get(str(tier), 0))
 
 
+# A sale mugging on the speed-queue engine, whose slot use these cases cover.
+func _speed_queue_mugging() -> void:
+	Combat._start_speed_queue_combat(Combat.CONTEXT_MUGGING, null, Combat.generate_mugger(), [], "muggingWon")
+
+
 func run() -> void:
 	run_case("a_fresh_game_has_two_empty_slots_with_no_remembered_recipe", func():
 		GameState.reset()
@@ -156,7 +161,7 @@ func run() -> void:
 		GameState.reset()
 		Crafting.inventory_add("blast", 3, 1)
 		Loadout.equip(0, "blast", 3)
-		Combat.start_mugging()
+		_speed_queue_mugging()
 		var result: Dictionary = Combat.use_slot(0)
 		assert_true(result["ok"])
 		assert_eq(Loadout.slot(0), null)
@@ -170,7 +175,7 @@ func run() -> void:
 		Loadout.equip(0, "blast", 1)
 		Crafting.inventory_add("blast", 2, 1)
 		Crafting.inventory_add("blast", 4, 1)
-		Combat.start_mugging()
+		_speed_queue_mugging()
 		Combat.use_slot(0)
 		Combat.exit_combat()
 		assert_eq(Loadout.slot(0), { "recipe": "blast", "tier": 4 })
@@ -184,7 +189,7 @@ func run() -> void:
 		Loadout.equip(0, "blast", 1)
 		Loadout.equip(1, "blast", 1)
 		Crafting.inventory_add("blast", 3, 1)
-		Combat.start_mugging()
+		_speed_queue_mugging()
 		GameState.state["combat"]["enemies"][0]["hp"] = 1000
 		GameState.state["combat"]["enemies"][0]["hpMax"] = 1000
 		Combat.use_slot(1)
@@ -198,12 +203,12 @@ func run() -> void:
 		GameState.reset()
 		Crafting.inventory_add("blast", 1, 1)
 		Loadout.equip(0, "blast", 1)
-		Combat.start_mugging()
+		_speed_queue_mugging()
 		Combat.use_slot(0)
 		Combat.exit_combat()
 		assert_eq(Loadout.slot(0), null)
 		Crafting.inventory_add("blast", 2, 1)
-		Combat.start_mugging()
+		_speed_queue_mugging()
 		Combat.exit_combat()
 		assert_eq(Loadout.slot(0), null, "a fight that used no slot never auto-fills")
 		assert_eq(_stock("blast", 2), 1)
@@ -224,7 +229,7 @@ func run() -> void:
 		GameState.reset()
 		Crafting.inventory_add("rewind", 1, 1)
 		Loadout.equip(0, "rewind", 1)
-		Combat.start_mugging()
+		_speed_queue_mugging()
 		Combat.push_combat_snapshot()
 		var result: Dictionary = Combat.combat_rewind(0)
 		assert_true(result["ok"])
@@ -234,7 +239,7 @@ func run() -> void:
 
 	run_case("slot_block_reason_covers_empty_reactive_and_rewind", func():
 		GameState.reset()
-		Combat.start_mugging()
+		_speed_queue_mugging()
 		assert_eq(Combat.slot_block_reason(0), Combat.REASON_SLOT_EMPTY)
 		GameState.state["player"]["loadout"]["slots"][0] = { "recipe": "failsafe", "tier": 1 }
 		GameState.state["player"]["loadout"]["slots"][1] = { "recipe": "rewind", "tier": 1 }

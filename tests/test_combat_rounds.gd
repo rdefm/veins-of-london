@@ -12,8 +12,32 @@ func _mugger(hp: int = 28) -> Dictionary:
 	return {
 		"name": "A mugger", "hp": hp, "hpMax": hp, "attackMin": 4, "attackMax": 10,
 		"isMugging": true, "weapon": null, "ability": null, "evadeChance": 0.0,
-		"speed": Combat.MUGGER_SPEED, "archetype": Combat.MUGGER_ARCHETYPE, "level": Combat.MUGGER_LEVEL,
+		"speed": Combat.MUGGER_SPEED, "archetype": Combat.MUGGER_ARCHETYPE, "level": 1,
 	}
+
+
+func _seeded() -> void:
+	GameState.reset()
+	Rng.set_seed(7)
+
+
+# The live fight is a round fight in `context` whose every active enemy is
+# at `level`, with the archetype `archetypes` names for its spawn template
+# (every template, when `archetypes` is empty, just has one).
+func _assert_enemies(context: String, archetypes: Dictionary, level: int) -> void:
+	var combat: Dictionary = GameState.state["combat"]
+	assert_true(Combat.is_round_engine(combat), "%s on the round engine" % context)
+	assert_eq(combat["context"], context)
+	var fighters: Array = combat["combatants"].filter(func(c): return c["side"] == CombatPrototype.SIDE_ENEMY)
+	assert_eq(fighters.size(), combat["enemies"].size(), "every active enemy fights")
+	for i in range(fighters.size()):
+		var entry: Dictionary = combat["enemies"][i]
+		assert_eq(fighters[i]["level"], level, "%s enemy %d level" % [context, i])
+		assert_eq(fighters[i]["archetype"], entry["archetype"])
+		if archetypes.is_empty():
+			assert_true(GameData.COMBAT_PROTOTYPE["archetypes"].has(entry["archetype"]), "a real archetype")
+		else:
+			assert_eq(entry["archetype"], archetypes[entry["template"]], "%s %s archetype" % [context, entry["template"]])
 
 
 # A seeded street mugging against one mugger playing `plan` (an Array of
@@ -89,7 +113,7 @@ func run() -> void:
 		GameState.reset()
 		var entry := Combat._spawn_mugger_instance(true)
 		assert_eq(entry["archetype"], Combat.HARD_MUGGER_ARCHETYPE)
-		assert_eq(entry["level"], Combat.HARD_MUGGER_LEVEL)
+		assert_eq(entry["level"], 2, "R§3.7b table 2: harder mugger")
 	)
 
 	run_case("guarded_player_takes_chip_then_strikes_an_open_mugger_for_full", func():
@@ -216,14 +240,124 @@ func run() -> void:
 		assert_true(text.contains("ACT 2") and text.contains("CRIT 3%"), "card text: %s" % text)
 	)
 
-	run_case("other_contexts_stay_on_the_old_engine", func():
-		GameState.reset()
+	# ── Every context on the round engine (R§3.7b tables 1-2) ──
+
+	run_case("sale_mugging_runs_mugger_level_1_or_muggerV2_level_2_with_archie", func():
+		_seeded()
+		Combat.start_mugging()
+		_assert_enemies(Combat.CONTEXT_MUGGING, { "mugger": Combat.MUGGER_ARCHETYPE }, 1)
+		assert_eq(GameState.state["combat"]["combatants"][1]["template"], "archie", "archie fights")
+		_seeded()
+		Combat.start_mugging(true)
+		_assert_enemies(Combat.CONTEXT_MUGGING, { "mugger": Combat.HARD_MUGGER_ARCHETYPE }, 2)
+	)
+
+	run_case("archie_deal_mugging_runs_mugger_level_1", func():
+		_seeded()
 		Combat.start_archie_deal_mugging()
-		assert_true(not Combat.is_round_engine(GameState.state["combat"]), "archie deal mugging")
-		assert_true(GameState.state["combat"].has("turnCursor"), "old shape")
-		GameState.reset()
+		_assert_enemies(Combat.CONTEXT_ARCHIE_DEAL_MUGGING, { "mugger": Combat.MUGGER_ARCHETYPE }, 1)
+	)
+
+	run_case("raid_level_follows_combined_magnitude", func():
+		for row in [[1, 1], [2, 2], [3, 3], [4, 3], [5, 4], [6, 4], [7, 5], [9, 5]]:
+			_seeded()
+			Combat.start_raid("v1", row[0], 1, "veinGuard")
+			_assert_enemies(Combat.CONTEXT_RAID, { "veinGuard": "turtle" }, row[1])
+		_seeded()
+		Combat.start_raid("v1", 3, 1, "veinGuard")
+		var guard: Dictionary = GameState.state["combat"]["combatants"][1]
+		var entry: Dictionary = GameState.state["combat"]["enemies"][0]
+		assert_eq(guard["hpMax"], int(entry["hpMax"]) + GameData.COMBAT_HP_BONUS_BY_LEVEL[3], "level 3 HP bonus on the unscaled template hp")
+		assert_true(int(entry["hpMax"]) <= 35, "no magnitude hp scaling left on the entry")
+		assert_eq(guard["speed"], 8 + GameData.COMBAT_SPEED_BY_LEVEL[3] - GameData.COMBAT_SPEED_BY_LEVEL[1], "speed rule")
+	)
+
+	run_case("event_raid_runs_on_the_round_engine_at_magnitude_level", func():
+		_seeded()
+		Combat.start_raid("v1", 2, 2, Combat.SCRAPPER_TEMPLATE_KEY, Combat.CONTEXT_EVENT_RAID)
+		_assert_enemies(Combat.CONTEXT_EVENT_RAID, { Combat.SCRAPPER_TEMPLATE_KEY: "bruiser" }, 2)
+		var combat: Dictionary = GameState.state["combat"]
+		for i in range(2):
+			assert_eq(combat["combatants"][1 + i]["template"], combat["enemies"][i]["variant"], "a scrapper keeps its variant sprite")
+			assert_true(str(combat["combatants"][1 + i]["name"]).begins_with("Territorial Scrapper"), "and its name")
+	)
+
+	run_case("stockpile_raid_carries_its_raider_kit_and_faction", func():
+		_seeded()
+		Combat.start_stockpile_raid("firm", 5, 2, "orichalchumDealer")
+		_assert_enemies(Combat.CONTEXT_EVENT_RAID, { "orichalchumDealer": "mugger" }, 4)
+		var combat: Dictionary = GameState.state["combat"]
+		assert_eq(combat["stockpileFactionId"], "firm")
+		assert_eq(combat["raiderKit"], FactionSim.raider_kit("firm", "defend", 2), "the defend kit rides along for settlement")
+	)
+
+	run_case("faction_ambush_level_follows_the_ambushers_turf_tier", func():
+		for row in [[Turf.TIER_NONE, 1], [Turf.TIER_FOOTHOLD, 2], [Turf.TIER_CONTROL, 3]]:
+			_seeded()
+			GameState.state["turf"]["shoreditch"] = { "controller": "", "shares": {}, "tiers": { "firm": row[0] } }
+			Combat.start_faction_ambush("firm", "shoreditch")
+			_assert_enemies(Combat.CONTEXT_FACTION_AMBUSH, { "veinGuard": "turtle", "orichalchumDealer": "mugger" }, row[1])
+			assert_eq(GameState.state["combat"]["ambushFactionId"], "firm")
+	)
+
+	run_case("defend_vein_level_follows_combined_magnitude_and_keeps_the_guard_kit", func():
+		_seeded()
+		Combat.start_defend_vein("v1", 7)
+		_assert_enemies(Combat.CONTEXT_DEFEND_VEIN, {}, 5)
+		assert_true(GameState.state["combat"].has("guardKit"), "guard pool slot kept for settlement")
+	)
+
+	run_case("home_raid_runs_the_raider_as_a_level_1_bruiser", func():
+		_seeded()
 		Combat.start_home_raid_combat()
-		assert_true(not Combat.is_round_engine(GameState.state["combat"]), "home raid")
+		_assert_enemies(Combat.CONTEXT_HOME_RAID, { Combat.HOME_RAIDER_TEMPLATE_KEY: "bruiser" }, 1)
+		assert_eq(GameState.state["combat"]["onWin"], "homeRaidWon")
+	)
+
+	run_case("home_raid_hp_multiplier_lowers_starting_hp_only", func():
+		_seeded()
+		Combat.start_home_raid_combat({ "enemyHpMult": 0.7 })
+		var raider: Dictionary = GameState.state["combat"]["combatants"][1]
+		assert_eq([raider["hp"], raider["hpMax"]], [roundi(35 * 0.7), 35])
+	)
+
+	run_case("home_raid_enemy_first_leads_every_round_1_slot", func():
+		_seeded()
+		Combat.start_home_raid_combat()
+		var combat: Dictionary = GameState.state["combat"]
+		assert_true(combat["combatants"][0]["speed"] > combat["combatants"][1]["speed"], "the player is faster than the raider")
+		assert_eq(CombatPrototype.timeline(combat)[0]["actor"], CombatPrototype.PLAYER_INDEX, "no mod: speed leads")
+		_seeded()
+		Combat.start_home_raid_combat({ "enemyFirst": true })
+		combat = GameState.state["combat"]
+		var order: Array = CombatPrototype.timeline(combat).map(func(e): return [e["index"], e["actor"]])
+		assert_eq(order.slice(0, 4), [[0, 1], [0, 0], [1, 1], [1, 0]], "raider first at each slot, slots still alternate")
+		assert_eq(CombatPrototype.next_round_timeline(combat)[0]["actor"], CombatPrototype.PLAYER_INDEX, "round 2 back to speed order")
+	)
+
+	run_case("home_alarm_defend_runs_the_raider_at_level_2", func():
+		_seeded()
+		Combat.start_home_alarm_defend_combat()
+		_assert_enemies(Combat.CONTEXT_HOME_ALARM_DEFEND, { Combat.HOME_RAIDER_TEMPLATE_KEY: "bruiser" }, 2)
+	)
+
+	run_case("debug_launcher_runs_on_the_round_engine_at_the_picked_tier", func():
+		_seeded()
+		Combat.start_debug_combat(Combat.CONTEXT_RAID, "", 5, 1, "veinGuard", [])
+		_assert_enemies(Combat.CONTEXT_RAID, { "veinGuard": "turtle" }, 4)
+	)
+
+	run_case("enemy_level_table_and_archetypes_are_validated_at_boot", func():
+		var bad: Dictionary = GameData.snapshot().duplicate(true)
+		bad["enemy_levels"]["veinMagnitude"][2]["level"] = 9
+		bad["enemy_levels"]["veinMagnitude"][3]["magnitude"] = 2
+		bad["enemy_levels"]["ambushTurf"].erase("control")
+		bad["enemy_raid_guards"]["veinGuard"]["archetype"] = "nobody"
+		bad["enemy_home_raid_raider"].erase("archetype")
+		var errors := " | ".join(GameData.validate_tables(bad))
+		for needle in ["veinMagnitude[2].level", "veinMagnitude[3].magnitude", "ambushTurf.control", "raidGuards.veinGuard.archetype", "homeRaidRaider"]:
+			assert_true(errors.contains(needle), "flags %s: %s" % [needle, errors])
+		assert_eq(GameData.validate_tables(GameData.snapshot()).filter(func(e): return e.contains("enemyLevels") or e.contains("archetype")), [], "shipped data clean")
 	)
 
 	run_case("combat_screen_hosts_the_round_screen_and_plays_to_the_outcome", func():

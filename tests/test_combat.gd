@@ -30,6 +30,17 @@ func _equipped_qty(recipe: String) -> int:
 	return n
 
 
+# A raid on vein "v1" (magnitude 1) on the speed-queue engine, whose
+# reinforcement and rewind rules these cases cover.
+func _speed_queue_raid(guards: int, template_key: String) -> void:
+	Combat._start_speed_queue_combat(Combat.CONTEXT_RAID, "v1", Combat.generate_raid_enemy("v1", 1, guards, template_key), [], "raidWon")
+
+
+# The fight's intro lines: the combat-log notifications its start pushed.
+func _intro_lines() -> Array:
+	return GameState.state["notifications"].filter(func(n): return n.get(Notify.META_COMBAT_LOG, false)).map(func(n): return n["text"])
+
+
 func _fresh_combat(context: String = Combat.CONTEXT_MUGGING) -> void:
 	GameState.reset()
 	GameState.state["combat"] = {
@@ -141,17 +152,18 @@ func run() -> void:
 
 	# ── vein-trade-assets ticket 02: harder("vein_included") mugger roster ──
 
-	run_case("generate_mugger_harder_widens_the_count_floor_and_scales_stats_up", func():
-		var hp_bounds := _variance_bounds(28.0 * Combat.HARD_MUGGER_STAT_SCALE)
-		var atk_min_bounds := _variance_bounds(4.0 * Combat.HARD_MUGGER_STAT_SCALE)
-		var atk_max_bounds := _variance_bounds(10.0 * Combat.HARD_MUGGER_STAT_SCALE)
+	# R§3.7b table 1: the harder mugger keeps the base stats; level replaces the old scaling.
+	run_case("generate_mugger_harder_widens_the_count_floor_and_keeps_base_stats", func():
+		var hp_bounds := _variance_bounds(28.0)
+		var atk_min_bounds := _variance_bounds(4.0)
+		var atk_max_bounds := _variance_bounds(10.0)
 		for seed in range(300):
 			Rng.set_seed(seed)
 			var entries := Combat.generate_mugger(true)
 			var count: int = entries.size()
 			assert_true(count >= Combat.HARD_MUGGER_MIN_COUNT and count <= Combat.HARD_MUGGER_MAX_COUNT, "harder roster count %d outside [%d,%d]" % [count, Combat.HARD_MUGGER_MIN_COUNT, Combat.HARD_MUGGER_MAX_COUNT])
 			for entry in entries:
-				assert_eq(entry["name"], "A mugger", "still the single mugger archetype, just scaled")
+				assert_eq(entry["name"], "A mugger", "still the single mugger template")
 				assert_true(entry["hp"] >= hp_bounds["min"] and entry["hp"] <= hp_bounds["max"], "harder hp %d outside variance band [%d,%d]" % [entry["hp"], hp_bounds["min"], hp_bounds["max"]])
 				assert_true(entry["attackMin"] >= atk_min_bounds["min"] and entry["attackMin"] <= atk_min_bounds["max"], "harder attackMin outside variance band")
 				assert_true(entry["attackMax"] >= atk_max_bounds["min"] and entry["attackMax"] <= atk_max_bounds["max"], "harder attackMax outside variance band")
@@ -187,7 +199,7 @@ func run() -> void:
 
 	run_case("queued_enemies_are_not_hit_by_black_hole_and_enter_unfrozen_when_a_slot_opens", func():
 		GameState.reset()
-		Combat.start_raid("v1", 1, 4, "veinGuard")
+		_speed_queue_raid(4, "veinGuard")
 		var combat: Dictionary = GameState.state["combat"]
 		var queued: Dictionary = combat["enemyQueue"][0]
 		var queued_hp: int = queued["hp"]
@@ -208,7 +220,7 @@ func run() -> void:
 
 	run_case("victory_needs_active_and_queued_enemies_defeated", func():
 		GameState.reset()
-		Combat.start_raid("v1", 1, 4, "veinGuard")
+		_speed_queue_raid(4, "veinGuard")
 		var combat: Dictionary = GameState.state["combat"]
 		for i in range(3):
 			combat["enemies"][i]["hp"] = 0
@@ -226,7 +238,7 @@ func run() -> void:
 		var allies: Array = [Combat.build_guard_ally(), Combat.build_guard_ally(), Combat.build_guard_ally(), Combat.build_guard_ally()]
 		for i in range(allies.size()):
 			allies[i]["name"] = "G%d" % i
-		Combat._start_combat(Combat.CONTEXT_RAID, "v1", Combat.generate_raid_enemy("v1", 1, 1), [], "", allies)
+		Combat._start_speed_queue_combat(Combat.CONTEXT_RAID, "v1", Combat.generate_raid_enemy("v1", 1, 1), [], "", allies)
 		var combat: Dictionary = GameState.state["combat"]
 		assert_eq(combat["allies"].size(), Combat.SQUAD_MAX - 1, "player holds one of three places")
 		assert_eq(combat["allyQueue"].size(), 2)
@@ -242,7 +254,7 @@ func run() -> void:
 
 	run_case("ko_with_unresolved_turn_gives_entrant_one_occurrence_by_its_own_speed", func():
 		GameState.reset()
-		Combat.start_raid("v1", 1, 4, "veinGuard")
+		_speed_queue_raid(4, "veinGuard")
 		var combat: Dictionary = GameState.state["combat"]
 		combat["enemyQueue"][0]["speed"] = 4
 		combat["turnCursor"] = { "queue": [
@@ -261,7 +273,7 @@ func run() -> void:
 
 	run_case("ko_after_acting_defers_entrant_to_next_round", func():
 		GameState.reset()
-		Combat.start_raid("v1", 1, 4, "veinGuard")
+		_speed_queue_raid(4, "veinGuard")
 		var combat: Dictionary = GameState.state["combat"]
 		combat["turnCursor"] = { "queue": [
 			{ "type": "enemy", "index": 0, "speed": 5 }, { "type": "enemy", "index": 1, "speed": 3 },
@@ -278,7 +290,7 @@ func run() -> void:
 	run_case("ko_during_player_command_keeps_player_extras_and_swaps_ally_extras", func():
 		GameState.reset()
 		var allies: Array = [Combat.build_guard_ally(), Combat.build_guard_ally(), Combat.build_guard_ally()]
-		Combat._start_combat(Combat.CONTEXT_RAID, "v1", Combat.generate_raid_enemy("v1", 1, 1), [], "", allies)
+		Combat._start_speed_queue_combat(Combat.CONTEXT_RAID, "v1", Combat.generate_raid_enemy("v1", 1, 1), [], "", allies)
 		var combat: Dictionary = GameState.state["combat"]
 		combat["allyQueue"][0]["speed"] = 9
 		combat["turnCursor"] = { "queue": [
@@ -299,7 +311,7 @@ func run() -> void:
 
 	run_case("rewind_across_a_substitution_restores_roster_and_cursor", func():
 		GameState.reset()
-		Combat.start_raid("v1", 1, 4, "veinGuard")
+		_speed_queue_raid(4, "veinGuard")
 		var combat: Dictionary = GameState.state["combat"]
 		combat["selection"] = { "type": "enemy", "index": 0 }
 		combat["turnCursor"] = { "queue": [{ "type": "player", "speed": 3 }, { "type": "enemy", "index": 0, "speed": 1 }], "index": 0, "round": 1 }
@@ -415,7 +427,7 @@ func run() -> void:
 
 	run_case("scrapper_variants_survive_rewind", func():
 		GameState.reset()
-		Combat.start_raid("v1", 1, 3, Combat.SCRAPPER_TEMPLATE_KEY)
+		_speed_queue_raid(3, Combat.SCRAPPER_TEMPLATE_KEY)
 		var combat: Dictionary = GameState.state["combat"]
 		var before: Array = combat["enemies"].map(func(e: Dictionary) -> String: return e["variant"])
 		Combat.push_combat_snapshot()
@@ -425,14 +437,14 @@ func run() -> void:
 		assert_eq(combat["enemies"].map(func(e: Dictionary) -> String: return e["variant"]), before, "Rewind keeps every scrapper's variant")
 	)
 
-	run_case("generate_raid_enemy_entries_fall_within_their_templates_variance_band_with_value_tier_scaling", func():
+	# R§3.7b table 2: magnitude sets the level; the template stats stay unscaled.
+	run_case("generate_raid_enemy_entries_fall_within_their_templates_variance_band_at_the_magnitudes_level", func():
 		GameState.reset()
 		var template: Dictionary = GameData.ENEMY_RAID_GUARDS["veinGuard"]
 		var value_tier := 3
-		var hp_scale: float = 1.0 + (value_tier - 1) * 0.3
-		var hp_bounds := _variance_bounds(template["hpBase"] * hp_scale)
+		var hp_bounds := _variance_bounds(template["hpBase"])
 		var atk_min_bounds := _variance_bounds(template["attackMin"])
-		var atk_max_bounds := _variance_bounds(template["attackMax"] + (value_tier - 1))
+		var atk_max_bounds := _variance_bounds(template["attackMax"])
 		for seed in range(100):
 			Rng.set_seed(seed)
 			var entries := Combat.generate_raid_enemy("v1", value_tier, 1, "veinGuard")
@@ -442,6 +454,7 @@ func run() -> void:
 			assert_true(entry["attackMin"] >= atk_min_bounds["min"] and entry["attackMin"] <= atk_min_bounds["max"], "attackMin outside variance band")
 			assert_true(entry["attackMax"] >= atk_max_bounds["min"] and entry["attackMax"] <= atk_max_bounds["max"], "attackMax outside variance band")
 			assert_eq(entry["speed"], template["speed"], "speed should carry the template's authored value unchanged, no variance applied")
+			assert_eq([entry["level"], entry["archetype"], entry["template"]], [3, "turtle", "veinGuard"])
 	)
 
 	run_case("generate_raid_enemy_same_template_entries_are_not_guaranteed_identical", func():
@@ -474,8 +487,8 @@ func run() -> void:
 		)
 		assert_true(seed != -1, "should find a seed producing a 2+ mugger roster within 300 tries")
 		var combat: Dictionary = GameState.state["combat"]
-		for enemy in combat["enemies"]:
-			assert_eq(enemy["koed"], false, "every freshly spawned entry should start un-koed")
+		for fighter in combat["combatants"]:
+			assert_eq(fighter["koed"], false, "every freshly spawned fighter should start un-koed")
 		assert_eq(combat["selection"], { "type": "enemy", "index": 0 }, "selection should default to enemy index 0")
 	)
 
@@ -1137,16 +1150,14 @@ func run() -> void:
 
 	# ── home raid opening modifiers + no-fight resolution ──────────────
 
-	run_case("home_raid_without_mods_starts_at_full_hp_in_speed_order", func():
+	# Round-1 ordering under enemyFirst: tests/test_combat_rounds.gd.
+	run_case("home_raid_without_mods_starts_at_full_hp", func():
 		GameState.reset()
 		Combat.start_home_raid_combat()
 		var combat: Dictionary = GameState.state["combat"]
 		var raider: Dictionary = combat["enemies"][0]
 		assert_eq(raider["hp"], raider["hpMax"], "no modifier: full hp")
 		assert_true(not combat.has("enemyFirst"), "no modifier: no enemyFirst key")
-		var plain: Array = Combat.build_turn_queue(combat)
-		var expect_player_first: bool = Combat._player_speed() >= int(raider.get("speed", 0))
-		assert_eq(plain[0]["type"] == "player", expect_player_first, "plain speed order")
 	)
 
 	run_case("home_raid_hp_mult_scales_starting_hp_only", func():
@@ -1156,20 +1167,6 @@ func run() -> void:
 		var full: int = GameData.ENEMY_HOME_RAID_RAIDER["hp"]
 		assert_eq(raider["hp"], int(round(full * 0.7)), "raider starts at 70% hp")
 		assert_eq(raider["hpMax"], full, "hpMax unchanged")
-	)
-
-	run_case("home_raid_enemy_first_puts_the_raider_ahead_in_round_one_only", func():
-		GameState.reset()
-		GameState.state["player"]["combatSkill"] = GameData.COMBAT_SPEED_BY_LEVEL.size() - 1  # player outpaces the raider
-		Combat.start_home_raid_combat({ "enemyFirst": true })
-		var combat: Dictionary = GameState.state["combat"]
-		assert_true(Combat.prime_decision_point(combat), "the raider's opener isn't lethal")
-		var cursor: Dictionary = combat["turnCursor"]
-		assert_eq(cursor["round"], 1)
-		assert_eq(cursor["queue"][0]["type"], "enemy", "round 1: raider acts first")
-		assert_eq(cursor["index"], 1, "raider's turn already resolved before the player's first decision")
-		var next_round: Array = Combat.build_turn_queue(combat)
-		assert_eq(next_round[0]["type"], "player", "round 2 onward: plain speed order")
 	)
 
 	run_case("home_raid_mods_survive_combat_prep_and_rewind", func():
@@ -1642,7 +1639,7 @@ func run() -> void:
 		# Exercises Combat's capability-assembly helper directly against a
 		# template dict, rather than mutating the shared GameData.ENEMY_RAID_GUARDS
 		# singleton (which would leak on an assertion failure mid-case).
-		var template := { "name": "New Guard", "hpBase": 20, "attackMin": 3, "attackMax": 8 }
+		var template := { "name": "New Guard", "hpBase": 20, "attackMin": 3, "attackMax": 8, "archetype": "turtle" }
 		var capabilities := Combat._enemy_capabilities_from_template(template)
 		assert_almost_eq(capabilities["evadeChance"], 0.2, 0.0001, "a newly-authored template that omits evadeChance should default to 20%")
 	)
@@ -2136,7 +2133,7 @@ func run() -> void:
 		assert_eq(allies[0]["contactId"], "archie")
 		assert_eq(allies[0]["hp"], allies[0]["hpMax"], "should join at full hp")
 		var found := false
-		for line in GameState.state["combat"]["log"]:
+		for line in _intro_lines():
 			if line.contains("Archie peels off"):
 				found = true
 		assert_true(found, "should log archie joining")
@@ -2554,7 +2551,7 @@ func run() -> void:
 		GameState.reset()
 		Combat.start_mugging()
 		var found := false
-		for line in GameState.state["combat"]["log"]:
+		for line in _intro_lines():
 			if line.contains("Archie"):
 				found = true
 		assert_true(found, "should log archie joining the mugging")
@@ -2642,7 +2639,7 @@ func run() -> void:
 		assert_eq(allies.size(), 1, "archie should join as the one ally")
 		assert_eq(allies[0]["contactId"], "archie")
 		var found := false
-		for line in GameState.state["combat"]["log"]:
+		for line in _intro_lines():
 			if line.contains("Archie comes in behind you"):
 				found = true
 		assert_true(found, "should log archie joining a raid")

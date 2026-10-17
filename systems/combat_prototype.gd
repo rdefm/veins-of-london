@@ -853,10 +853,17 @@ static func timeline(cp: Dictionary) -> Array:
 	return entries
 
 
-# Timeline order: action index, then speed descending, then combatant order.
-static func _acts_before(cp: Dictionary, actor_a: int, index_a: int, actor_b: int, index_b: int) -> bool:
+# Timeline order in round `round_no` (default the current one): action
+# index, then speed descending, then combatant order. A fight opened with
+# enemyFirst puts enemies ahead of friendlies at each index of round 1.
+static func _acts_before(cp: Dictionary, actor_a: int, index_a: int, actor_b: int, index_b: int, round_no: int = -1) -> bool:
 	if index_a != index_b:
 		return index_a < index_b
+	if round_no < 0:
+		round_no = int(cp["round"])
+	var enemy_a: bool = cp["combatants"][actor_a]["side"] == SIDE_ENEMY
+	if bool(cp.get("enemyFirst", false)) and round_no == 1 and enemy_a != (cp["combatants"][actor_b]["side"] == SIDE_ENEMY):
+		return enemy_a
 	var speed_a: int = cp["combatants"][actor_a]["speed"]
 	var speed_b: int = cp["combatants"][actor_b]["speed"]
 	if speed_a != speed_b:
@@ -909,7 +916,8 @@ static func next_round_timeline(cp: Dictionary) -> Array:
 		var count: int = combatants[i]["nextPlan"].size() if combatants[i]["side"] == SIDE_ENEMY else actions_next_round(cp, i)
 		for a in range(count):
 			entries.append({ "actor": i, "index": a })
-	entries.sort_custom(func(x, y): return _acts_before(cp, x["actor"], x["index"], y["actor"], y["index"]))
+	var next_round: int = int(cp["round"]) + 1
+	entries.sort_custom(func(x, y): return _acts_before(cp, x["actor"], x["index"], y["actor"], y["index"], next_round))
 	return entries
 
 

@@ -99,7 +99,7 @@ static func _dispatch(kind: String, args: Dictionary) -> Dictionary:
 		KIND_STREET_MUGGING:
 			Combat.start_street_mugging()
 		KIND_FACTION_AMBUSH:
-			Combat.start_faction_ambush(str(args["factionId"]))
+			Combat.start_faction_ambush(str(args["factionId"]), str(args.get("district", "")))
 		KIND_HOME_RAID:
 			Combat.start_home_raid_combat(args)
 		KIND_DEBUG:

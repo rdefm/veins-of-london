@@ -1951,11 +1951,10 @@ func run() -> void:
 		assert_eq(GameState.state["combat"]["context"], Combat.CONTEXT_HOME_RAID)
 
 		# Force a deterministic win.
-		GameState.state["combat"]["enemies"][GameState.state["combat"]["selection"]["index"]]["hp"] = 1
-		GameState.state["player"]["attackMin"] = 999
-		GameState.state["player"]["attackMax"] = 999
-		Rng.set_seed(1)
-		Combat.player_attack()
+		var you: Dictionary = GameState.state["combat"]["combatants"][CombatPrototype.PLAYER_INDEX]
+		you["attackMin"] = 999
+		you["attackMax"] = 999
+		Combat.choose_move("strike", 1)
 		assert_eq(GameState.state["combat"]["outcome"], "win", "sanity: forced win")
 
 		var veins_before: int = GameState.state["player"]["veins"].size()
