@@ -278,6 +278,8 @@ static func settle(contract_id: String) -> Dictionary:
 		Bank.record(payment, "Contract settlement")
 	if not contract["delivered"].is_empty():
 		_award_sales_xp(COMPLETE_XP if complete else PARTIAL_XP)
+	if complete:
+		Offers.note_assay_complete(contract)
 	# A recurring period filled before its due day pays now and locks until
 	# that Monday; one reaching its due day (filled or not) renews or, at the
 	# term's end, expires at once.
@@ -490,9 +492,11 @@ static func _shared_stock_for_line(line: Dictionary) -> int:
 	if line["kind"] == "ore":
 		return int(GameState.state["player"]["orichalchum"].get(line["type"], 0))
 	# Production's personal-target portion of a covered item's stock is a
-	# protected buffer — Sales may only draw the contract-need portion.
+	# protected buffer — Sales may only draw the contract-need portion. A
+	# line's minTier (assay commissions) counts only items at that tier or up.
 	var reserved := Rooms.production_reserved_qty(line["type"])
-	return maxi(0, Crafting.inventory_qty(line["type"]) - reserved)
+	var free := maxi(0, Crafting.inventory_qty(line["type"]) - reserved)
+	return mini(free, Crafting.inventory_qty(line["type"], int(line.get("minTier", 0))))
 
 
 # Returns the item tiers taken from stock ([{ tier, qty }]); empty for ore.
@@ -500,7 +504,7 @@ static func _remove_shared_stock_for_line(line: Dictionary, qty: int) -> Array:
 	if line["kind"] == "ore":
 		GameState.state["player"]["orichalchum"][line["type"]] -= qty
 		return []
-	return Crafting.inventory_remove(line["type"], qty)
+	return Crafting.inventory_remove(line["type"], qty, int(line.get("minTier", 0)))
 
 
 # R§3.10 "Delivery hook": the delivered goods land in the buyer faction's

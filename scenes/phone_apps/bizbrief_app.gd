@@ -1448,7 +1448,10 @@ func _request_type_name(kind: String, item_type: String) -> String:
 func _request_summary(request: Dictionary) -> String:
 	var parts: Array = []
 	for line in ContractsSystem.request_lines(request):
-		parts.append("%d %s" % [line["qty"], _request_type_name(line["kind"], line["type"])])
+		var text := "%d %s" % [line["qty"], _request_type_name(line["kind"], line["type"])]
+		if line.has("minTier"):
+			text = GameData.OFFER_ASSAY["rankSuffix"] % [text, int(line["minTier"])]
+		parts.append(text)
 	return " + ".join(parts)
 
 
@@ -1514,6 +1517,8 @@ func _build_sales() -> Control:
 		c["content"].add_child(UI.muted_label(_counterparty_text(offer)))
 		if offer.get("source", "") == "renewal":
 			c["content"].add_child(UI.muted_label("Renewal. Same order, today's price."))
+		elif offer.get("source", "") == OffersSystem.SOURCE_ASSAY:
+			c["content"].add_child(UI.muted_label(GameData.OFFER_ASSAY["offerNote"] % int(GameData.OFFER_ASSAY["relation"])))
 		c["content"].add_child(UI.heading(_request_summary(request), 15))
 		c["content"].add_child(UI.muted_label("%s · £%d per delivery" % [expiry, int(offer["quote"]["payment"])]))
 		var poach: Dictionary = offer.get("poach", {})

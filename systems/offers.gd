@@ -22,6 +22,7 @@ const MIXED_EXTRA_TYPE_BONUS := 0.20
 # contract falls due on the rollover into each Monday (R§3.10 "Weekly cadence").
 const RECURRING_WEEKDAY := 0
 const SOURCE_FAVOUR := "favour"
+const SOURCE_ASSAY := "assay"
 
 
 static func pending_offers() -> Array:
@@ -57,6 +58,7 @@ static func random_offer_chance() -> float:
 static func daily_tick() -> void:
 	expire_pending_offers()
 	_maybe_guild_commission()
+	_maybe_assay_commission()
 	if random_pending_count() >= PENDING_CAP:
 		return
 	# An unpaid Sales occupant sources nothing; an unassigned room isn't gated
@@ -100,6 +102,55 @@ static func _commission_request(params: Dictionary) -> Dictionary:
 	var request: Dictionary = Rng.rand_from(params["goods"]).duplicate()
 	request["qty"] = Rng.randi_range(int(params["qtyMin"]), int(params["qtyMax"]))
 	return request
+
+
+# Wren's assay commission (offers.json assay): once its flag is set, one
+# pending at a time, refused like a random offer when the cap is full.
+static func _maybe_assay_commission() -> void:
+	var cfg: Dictionary = GameData.OFFER_ASSAY
+	if not GameState.state["flags"].get(cfg["unlockFlag"], false):
+		return
+	for offer in pending_offers():
+		if offer.get("source", "") == SOURCE_ASSAY:
+			return
+	if not Rng.chance(float(cfg["chancePerDay"])):
+		return
+	create_assay_commission()
+
+
+# Issues one assay commission now: a known recipe at the Guild tier's rank
+# floor, paid at the quote x margin.
+static func create_assay_commission() -> Dictionary:
+	var cfg: Dictionary = GameData.OFFER_ASSAY
+	var known: Array = []
+	for recipe_key in GameData.RECIPES:
+		if Lab.is_known(recipe_key):
+			known.append(recipe_key)
+	if known.is_empty():
+		return { "ok": false, "reason": "No known recipe." }
+	var template: Dictionary = GameData.OFFER_TEMPLATES[cfg["template"]].duplicate(true)
+	template["request"] = {
+		"kind": "consumable", "type": Rng.rand_from(known),
+		"qty": Rng.randi_range(int(cfg["qtyMin"]), int(cfg["qtyMax"])),
+		"minTier": assay_rank_floor(),
+	}
+	var result := create_offer(template)
+	if result["ok"]:
+		var quote: Dictionary = result["offer"]["quote"]
+		quote["payment"] = int(round(float(quote["payment"]) * float(cfg["margin"])))
+		Notify.push(cfg["notify"], Notify.CATEGORY_INFO)
+	return result
+
+
+# The rank an assay commission demands at the player's Guild perk tier.
+static func assay_rank_floor() -> int:
+	return int(GameData.OFFER_ASSAY["rankFloors"][Perks.player_tier("guild")])
+
+
+# A completely delivered assay commission adds the Guild relation it promised.
+static func note_assay_complete(contract: Dictionary) -> void:
+	if contract.get("templateId", "") == GameData.OFFER_ASSAY["template"]:
+		Factions.adjust_player_relation("guild", int(GameData.OFFER_ASSAY["relation"]))
 
 
 static func random_templates() -> Array:
@@ -294,7 +345,7 @@ static func accept_offer(offer_id: String) -> Dictionary:
 		var due_day := accepted_day + Rng.randi_range(RANDOM_ONE_OFF_DEADLINE_MIN_DAYS, RANDOM_ONE_OFF_DEADLINE_MAX_DAYS)
 		if offer["contractType"] == "recurring":
 			due_day = Calendar.next_weekday_after(accepted_day, int(offer["weekday"]))
-		elif offer["source"] == "scripted" or offer["source"] == SOURCE_FAVOUR:
+		elif offer["source"] == "scripted" or offer["source"] == SOURCE_FAVOUR or offer["source"] == SOURCE_ASSAY:
 			due_day = accepted_day + int(offer["deadlineAfterDays"])
 		# Extra requested types were fixed at offer-creation (quote) time; their
 		# deadline bonus applies on top of whichever base above was picked.

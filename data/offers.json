@@ -4,6 +4,20 @@
   "randomChance": { "base": 0.5, "perSalesLevel": 0.07, "max": 0.75 },
   "randomQty": { "oneOff": { "min": 20, "max": 200 }, "recurring": { "min": 50, "max": 300 } },
   "counterparty": { "smallOfferThreshold": 1000, "cancelRelationHit": 3 },
+  "assay": {
+    "_comment": "Wren's assay commissions (Offers._maybe_assay_commission) -- provisional numbers, tagged for balance. Once flags[unlockFlag] is set, each day rolls chancePerDay for one pending offer from template (at most one pending at a time, inside the random-offer cap): qtyMin-qtyMax of a recipe the player knows, at rank >= rankFloors[the player's Guild perk tier], paid at the quote x margin. A complete settlement also adds relation to the Guild. PROSE-REVIEW: notify, offerNote, rankSuffix.",
+    "template": "assay_commission",
+    "unlockFlag": "assayCommissionsUnlocked",
+    "chancePerDay": 0.3,
+    "qtyMin": 2,
+    "qtyMax": 6,
+    "margin": 1.5,
+    "relation": 3,
+    "rankFloors": { "none": 2, "friendly": 3, "partner": 4, "sworn": 5 },
+    "notify": "Wren has a commission for you. Recipe, grade, date.",
+    "offerNote": "Assay commission. Deliver it all and the Guild remembers (+%d relation).",
+    "rankSuffix": "%s, rank %d+"
+  },
   "templates": {
     "random_time_ore": { "id": "random_time_ore", "source": "random", "contractType": "oneOff", "request": { "kind": "ore", "type": "time" } },
     "random_time_pearl": { "id": "random_time_pearl", "source": "random", "contractType": "oneOff", "request": { "kind": "consumable", "type": "timePearl" } },
@@ -15,6 +29,7 @@
     "biz_recurring_time_pearl": { "id": "biz_recurring_time_pearl", "source": "scripted", "counterparty": "guild", "contractType": "recurring", "request": { "kind": "consumable", "type": "timePearl", "qty": 5 } },
     "biz_recurring_time_ore": { "id": "biz_recurring_time_ore", "source": "scripted", "counterparty": "guild", "contractType": "recurring", "request": { "kind": "ore", "type": "time", "qty": 6 } },
     "guild_commission": { "id": "guild_commission", "source": "commission", "counterparty": "guild", "contractType": "oneOff", "deadlineAfterDays": 5, "request": { "kind": "ore", "type": "time", "qty": 10 } },
-    "biz_recurring_life_ore": { "id": "biz_recurring_life_ore", "source": "scripted", "counterparty": "collective", "contractType": "recurring", "request": { "kind": "ore", "type": "life", "qty": 6 } }
+    "assay_commission": { "id": "assay_commission", "source": "assay", "counterparty": "guild", "contractType": "oneOff", "deadlineAfterDays": 7, "request": { "kind": "consumable", "type": "timePearl" } },
+    "biz_recurring_life_ore":{ "id": "biz_recurring_life_ore", "source": "scripted", "counterparty": "collective", "contractType": "recurring", "request": { "kind": "ore", "type": "life", "qty": 6 } }
   }
 }

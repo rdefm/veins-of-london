@@ -263,3 +263,116 @@ func run() -> void:
 		GameState.state["factions"]["collective"]["relation"] = 30
 		assert_eq(OffersSystem.pick_counterparty("", { "kind": "consumable", "type": "beALady", "qty": 20 }, threshold), "collective", "no consumer: small rule")
 	)
+
+	_register_assay_cases()
+
+
+# Fresh state with only Time Pearl known, the Guild at no perk tier and
+# assay commissions unlocked unless `unlocked` is false.
+func _assay_setup(unlocked: bool = true) -> void:
+	GameState.reset()
+	GameState.state["lab"]["known"] = {}
+	Lab.grant_recipe("timePearl")
+	GameState.state["factions"]["guild"]["relation"] = 0
+	GameState.state["factions"]["guild"]["joined"] = false
+	GameState.state["factionStances"]["player"]["guild"]["stance"] = FactionAI.NEUTRAL
+	GameState.state["sales"]["pendingOffers"] = []
+	GameState.state["flags"][GameData.OFFER_ASSAY["unlockFlag"]] = unlocked
+
+
+func _assays() -> Array:
+	return OffersSystem.pending_offers().filter(func(o: Dictionary) -> bool: return o["source"] == OffersSystem.SOURCE_ASSAY)
+
+
+func _register_assay_cases() -> void:
+	run_case("assay_commissions_generate_only_after_the_unlock_flag", func():
+		_assay_setup(false)
+		for i in 40:
+			GameState.state["world"]["day"] += 1
+			OffersSystem.daily_tick()
+		assert_eq(_assays().size(), 0, "no commissions before wren_introduction's flag")
+		GameState.state["flags"][GameData.OFFER_ASSAY["unlockFlag"]] = true
+		var found: Array = []
+		for i in 40:
+			GameState.state["world"]["day"] += 1
+			OffersSystem.daily_tick()
+			assert_true(_assays().size() <= 1, "one pending at a time")
+			if found.is_empty():
+				found = _assays()
+		assert_eq(found.size(), 1, "generated once unlocked")
+		assert_eq(found[0]["counterparty"], "guild")
+		assert_eq(found[0]["request"]["type"], "timePearl", "only known recipes")
+		var plain: int = OffersSystem.quote_for_request(found[0]["request"], OffersSystem.sales_skill())["payment"]
+		assert_eq(found[0]["quote"]["payment"], int(round(float(plain) * float(GameData.OFFER_ASSAY["margin"]))), "quote x margin")
+	)
+
+	run_case("assay_rank_floor_follows_the_guild_tier", func():
+		var floors: Dictionary = GameData.OFFER_ASSAY["rankFloors"]
+		_assay_setup()
+		assert_eq(OffersSystem.create_assay_commission()["offer"]["request"]["minTier"], int(floors["none"]), "stranger")
+		_assay_setup()
+		GameState.state["factions"]["guild"]["relation"] = 30
+		assert_eq(OffersSystem.create_assay_commission()["offer"]["request"]["minTier"], int(floors["friendly"]))
+		_assay_setup()
+		GameState.state["factionStances"]["player"]["guild"]["stance"] = FactionAI.PARTNER
+		assert_eq(OffersSystem.create_assay_commission()["offer"]["request"]["minTier"], int(floors["partner"]))
+		_assay_setup()
+		GameState.state["factions"]["guild"]["joined"] = true
+		assert_eq(OffersSystem.create_assay_commission()["offer"]["request"]["minTier"], int(floors["sworn"]))
+		assert_true(int(floors["none"]) < int(floors["friendly"]) and int(floors["friendly"]) < int(floors["partner"]) and int(floors["partner"]) < int(floors["sworn"]), "floors rise with tier")
+	)
+
+	run_case("assay_delivery_takes_only_items_at_the_rank_floor_or_above", func():
+		_assay_setup()
+		GameState.state["contacts"]["archie"]["recruited"] = true
+		Contacts.assign_to_room("archie", "ops")
+		var offer: Dictionary = OffersSystem.create_assay_commission()["offer"]
+		offer["request"]["qty"] = 4
+		var floor_tier: int = int(offer["request"]["minTier"])
+		assert_eq(floor_tier, 2)
+		var contract: Dictionary = OffersSystem.accept_offer(offer["id"])["contract"]
+		assert_eq(contract["dueDay"], int(GameState.state["world"]["day"]) + 7, "by day D: authored deadline")
+		GameState.state["player"]["inventory"]["timePearl"] = { "1": 5, "4": 2 }
+		Contracts.process_sales_deliveries()
+		assert_eq(Contracts.delivered_qty(contract), 2, "tier-1 stock never counts")
+		assert_eq(GameState.state["player"]["inventory"]["timePearl"], { "1": 5 }, "only the tier-4 bucket drained")
+		var cash_before: int = GameState.state["player"]["cash"]
+		var relation_before: int = GameState.state["factions"]["guild"]["relation"]
+		Crafting.inventory_add("timePearl", 2, 3)
+		Contracts.process_sales_deliveries()
+		assert_eq(GameState.state["player"]["inventory"]["timePearl"], { "1": 5, "2": 1 }, "lowest qualifying tier first")
+		assert_eq(OffersSystem.active_contracts().size(), 0, "complete commission settles")
+		assert_eq(GameState.state["player"]["cash"], cash_before + int(contract["signedQuote"]["payment"]), "pays cash")
+		assert_eq(GameState.state["factions"]["guild"]["relation"], relation_before + int(GameData.OFFER_ASSAY["relation"]), "plus Guild relation")
+	)
+
+	run_case("assay_partial_settlement_pays_no_relation", func():
+		_assay_setup()
+		GameState.state["contacts"]["archie"]["recruited"] = true
+		Contacts.assign_to_room("archie", "ops")
+		var offer: Dictionary = OffersSystem.create_assay_commission()["offer"]
+		offer["request"]["qty"] = 4
+		var contract: Dictionary = OffersSystem.accept_offer(offer["id"])["contract"]
+		GameState.state["player"]["inventory"]["timePearl"] = { "3": 1 }
+		Contracts.process_sales_deliveries()
+		var relation_before: int = GameState.state["factions"]["guild"]["relation"]
+		GameState.state["world"]["day"] = int(contract["dueDay"])
+		Contracts.daily_tick()
+		assert_eq(OffersSystem.active_contracts().size(), 0)
+		assert_eq(GameState.state["factions"]["guild"]["relation"], relation_before)
+	)
+
+	run_case("assay_commissions_expire_and_respect_the_pending_cap", func():
+		_assay_setup()
+		GameState.state["world"]["day"] = 7
+		var offer: Dictionary = OffersSystem.create_assay_commission()["offer"]
+		assert_eq(offer["expiresDay"], 7 + GameData.OFFER_EXPIRY_DAYS)
+		GameState.state["world"]["day"] = offer["expiresDay"]
+		OffersSystem.expire_pending_offers()
+		assert_eq(_assays().size(), 0, "expires through the normal offer expiry")
+		for i in OffersSystem.PENDING_CAP:
+			OffersSystem.create_offer(GameData.OFFER_TEMPLATES["random_time_ore"])
+		var refused: Dictionary = OffersSystem.create_assay_commission()
+		assert_true(not refused["ok"], "refused at the pending cap")
+		assert_eq(_assays().size(), 0)
+	)

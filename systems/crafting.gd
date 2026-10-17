@@ -86,11 +86,13 @@ static func is_always_multi(recipe_key: String) -> bool:
 	return GameData.LOADOUT["multiTarget"]["always"].has(recipe_key)
 
 
-static func inventory_qty(recipe_key: String) -> int:
+# Units held at min_tier or above (every tier by default).
+static func inventory_qty(recipe_key: String, min_tier: int = 0) -> int:
 	var buckets: Dictionary = GameState.state["player"]["inventory"].get(recipe_key, {})
 	var total := 0
 	for tier_key in buckets:
-		total += int(buckets[tier_key])
+		if int(tier_key) >= min_tier:
+			total += int(buckets[tier_key])
 	return total
 
 
@@ -106,8 +108,9 @@ static func inventory_add(recipe_key: String, tier: int, qty: int = 1) -> void:
 # Removes lowest tier first -- keeps higher-quality stock for Economy's
 # price-by-tier sale; other consumers recompute effect_power() from current
 # skill regardless of tier. Assumes the caller already confirmed stock.
+# Tiers below min_tier are never touched (an assay commission's rank floor).
 # Returns what came out as [{ tier:int, qty:int }, ...], lowest tier first.
-static func inventory_remove(recipe_key: String, qty: int) -> Array:
+static func inventory_remove(recipe_key: String, qty: int, min_tier: int = 0) -> Array:
 	var inventory: Dictionary = GameState.state["player"]["inventory"]
 	var buckets: Dictionary = inventory.get(recipe_key, {})
 	var remaining := qty
@@ -117,6 +120,8 @@ static func inventory_remove(recipe_key: String, qty: int) -> Array:
 	for tier_key in tier_keys:
 		if remaining <= 0:
 			break
+		if int(tier_key) < min_tier:
+			continue
 		var have: int = buckets[tier_key]
 		var take: int = mini(have, remaining)
 		buckets[tier_key] = have - take
