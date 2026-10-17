@@ -39,8 +39,9 @@ enum Page { NONE, BOOK, RECIPE, RUN }
 
 # View state only: which book page and ore tab are open, the picked batch
 # size, and in a docked run the open gauge's apparatus, the last refusal
-# notice and the finished run's result.
+# notice and the finished run's result; whether the Rewind choice is open.
 var _page := Page.NONE
+var _rewind_open := false
 var _book_ore := ""
 var _book_page := 0
 var _recipe_key := ""
@@ -83,15 +84,17 @@ func _refresh() -> void:
 		_page = Page.NONE
 	if _page == Page.RUN:
 		_build_run()
-		return
-	if _page == Page.RECIPE and not Lab.is_known(_recipe_key):
-		_page = Page.BOOK
-	_build_plate(Rect2(Vector2.ZERO, size))
-	match _page:
-		Page.BOOK:
-			_build_overlay(_build_book())
-		Page.RECIPE:
-			_build_overlay(_build_book(), _build_recipe_card())
+	else:
+		if _page == Page.RECIPE and not Lab.is_known(_recipe_key):
+			_page = Page.BOOK
+		_build_plate(Rect2(Vector2.ZERO, size))
+		match _page:
+			Page.BOOK:
+				_build_overlay(_build_book())
+			Page.RECIPE:
+				_build_overlay(_build_book(), _build_recipe_card())
+	if _rewind_open:
+		_build_rewind_choice()
 
 
 func _show(page: Page) -> void:
@@ -533,17 +536,53 @@ func _on_batch(recipe_key: String, qty: int) -> void:
 	_refresh()
 
 
-# The two Rewinds (spec § Rewind): the last run or batch, or the whole time
-# block. Each needs a Rewind item or a loaded Dial Rewind charge.
+# One Rewind button; it opens the choice of the two Rewinds (spec § Rewind):
+# the last run or batch, or the whole time block. Each needs a Rewind item
+# or a loaded Dial Rewind charge.
 func _add_rewind_controls(content: VBoxContainer) -> void:
 	var can_pay := Rewind.can_pay()
-	var row := UI.hbox(6)
-	row.add_child(MapCardStyle.text_button("Rewind last craft", _on_rewind_craft, not Lab.can_rewind()))
-	row.add_child(MapCardStyle.text_button("Rewind time block", _on_rewind_block, not can_pay or Rewind.block_rewind_block_reason() != ""))
-	content.add_child(row)
+	var any := Lab.has_rewind_point() or Rewind.block_rewind_block_reason() == ""
+	content.add_child(MapCardStyle.text_button("Rewind", _open_rewind_choice, not can_pay or not any))
 	if not can_pay:
 		# PROSE-REVIEW: no Rewind to spend.
 		content.add_child(UI.muted_label("No Rewind to spend."))
+
+
+func _open_rewind_choice() -> void:
+	_rewind_open = true
+	_refresh()
+
+
+func _close_rewind_choice() -> void:
+	_rewind_open = false
+	_refresh()
+
+
+# The small Rewind choice card over everything, on a dim that cancels it.
+func _build_rewind_choice() -> void:
+	var dim := ColorRect.new()
+	dim.name = "RewindChoice"
+	dim.color = Color(0, 0, 0, 0.5)
+	UI.anchor_full_rect(dim)
+	dim.mouse_filter = Control.MOUSE_FILTER_STOP
+	dim.gui_input.connect(func(event: InputEvent):
+		if (event is InputEventMouseButton or event is InputEventScreenTouch) and event.pressed \
+				and not TouchInput.is_emulated_mouse(event):
+			_close_rewind_choice())
+	add_child(dim)
+
+	var c := MapCardStyle.card(18, 0.16)
+	c["panel"].custom_minimum_size.x = 260
+	var content: VBoxContainer = c["content"]
+	content.add_child(UI.heading("Rewind", 16))
+	content.add_child(MapCardStyle.text_button("Rewind last craft", _on_rewind_craft, not Lab.can_rewind()))
+	content.add_child(MapCardStyle.text_button("Rewind time block", _on_rewind_block, not Rewind.can_pay() or Rewind.block_rewind_block_reason() != ""))
+	content.add_child(MapCardStyle.footer([MapCardStyle.text_button("Cancel", _close_rewind_choice)]))
+	var centre := CenterContainer.new()
+	UI.anchor_full_rect(centre)
+	centre.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	centre.add_child(c["panel"])
+	add_child(centre)
 
 
 func _on_rewind_craft() -> void:
@@ -556,6 +595,7 @@ func _on_rewind_block() -> void:
 
 func _after_rewind(outcome: Dictionary) -> void:
 	_gauge = ""
+	_rewind_open = false
 	if outcome["ok"]:
 		_result = {}
 		_notice = ""
