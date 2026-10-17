@@ -1521,9 +1521,9 @@ func _validate_procedure_hints(where: String, procedure: Dictionary, vague_sprea
 
 
 # Live Lab: every procedure is a real recipe's, with ideal weights summing
-# to 100, real apparatus, 0-100 targets, ideal ores within baseCalc and base
-# calc summing to baseCalc; hints validated as above, each with a data rung;
-# debug tooling bounds (skillMax >= 1, refillCalc >= 0).
+# to 100, real apparatus, 0-100 targets, ideal ores among the recipe's
+# ingredients and base calc summing to those ingredients; hints validated
+# as above, each with a data rung; debug tooling bounds (skillMax >= 1, refillCalc >= 0).
 func _validate_lab(lab: Dictionary, recipes: Dictionary, approaches: Dictionary, errors: Array[String]) -> void:
 	_require_keys(lab, ["procedures", "rungs", "specificities", "rankThresholds", "skillFactor", "vagueSpread", "vagueToExactHits", "clueText", "bonus", "badRun", "debug"], "lab", errors)
 	var debug: Dictionary = lab.get("debug", {})
@@ -1546,7 +1546,7 @@ func _validate_lab(lab: Dictionary, recipes: Dictionary, approaches: Dictionary,
 		if not recipes.is_empty() and not recipes.has(recipe_key):
 			errors.append("%s: not a data/recipes.json recipe" % where)
 		var procedure: Dictionary = lab["procedures"][recipe_key]
-		_require_keys(procedure, ["baseCalc", "baseTolerance", "ideal", "base"], where, errors)
+		_require_keys(procedure, ["baseTolerance", "ideal", "base"], where, errors)
 		if float(procedure.get("baseTolerance", 0)) <= 0.0:
 			errors.append("%s.baseTolerance: must be > 0" % where)
 		var weight_sum := 0
@@ -1554,6 +1554,7 @@ func _validate_lab(lab: Dictionary, recipes: Dictionary, approaches: Dictionary,
 			weight_sum += int(step.get("weight", 0))
 		if weight_sum != 100:
 			errors.append("%s.ideal: weights sum to %d, not 100" % [where, weight_sum])
+		var ingredients: Dictionary = recipes.get(recipe_key, {}).get("ingredients", {})
 		var base_calc := {}
 		for list_name in ["ideal", "base"]:
 			var steps: Array = procedure.get(list_name, [])
@@ -1565,16 +1566,16 @@ func _validate_lab(lab: Dictionary, recipes: Dictionary, approaches: Dictionary,
 				var target := float(step.get("target", -1))
 				if target < 0.0 or target > 100.0:
 					errors.append("%s.%s: target must be 0-100" % [where, list_name])
-				if list_name == "ideal" and step.has("ore") and not procedure.get("baseCalc", {}).has(step["ore"]):
-					errors.append("%s.ideal: ore '%s' not in baseCalc" % [where, step["ore"]])
+				if list_name == "ideal" and step.has("ore") and not ingredients.has(step["ore"]):
+					errors.append("%s.ideal: ore '%s' not a recipe ingredient" % [where, step["ore"]])
 				if list_name == "base":
 					for ore_type in step.get("calc", {}).keys():
 						base_calc[ore_type] = int(base_calc.get(ore_type, 0)) + int(step["calc"][ore_type])
 		var expected := {}
-		for ore_type in procedure.get("baseCalc", {}).keys():
-			expected[ore_type] = int(procedure["baseCalc"][ore_type])
+		for ore_type in ingredients.keys():
+			expected[ore_type] = int(ingredients[ore_type])
 		if base_calc != expected:
-			errors.append("%s.base: step calc %s does not sum to baseCalc %s" % [where, base_calc, expected])
+			errors.append("%s.base: step calc %s does not sum to the recipe's ingredients %s" % [where, base_calc, expected])
 		_validate_procedure_hints("%s.hints" % where, procedure, vague_spread, errors)
 		for hint in procedure.get("hints", []):
 			if not rungs.has(hint.get("rung")):

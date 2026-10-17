@@ -1,16 +1,16 @@
 {
-  "_comment": "Live Lab (systems/lab.gd, .scratch/lab-port/spec.md) -- provisional numbers, tagged for balance. procedures.<recipeKey>: baseCalc = calc spent per item; baseTolerance = band half-width before widening; ideal = the authored perfect procedure (apparatus = data/approaches.json id, ore = an ingredient ore that must be in the mixture for the step to match, absent for a step that works the existing mixture, target on a 0-100 gauge, weight; weights sum to 100); base = the procedure a newly granted recipe knows, its steps' calc summing to baseCalc; hints = the hidden steps, each naming the ideal step index it reveals (a base step matching that ideal step gets its target corrected, otherwise the ideal step is inserted, no calc) and one rung (hint1, hint2, master). A vague hint shows a region of the band widened by vagueSpread each side and shifted by its offset (|offset| <= vagueSpread, so the band always sits inside); an exact hint shows the true band. rankThresholds[i] is the minimum score for rank i+1. skillFactor, benchBonusFactors: band_half_width = baseTolerance x (1 + skillFactor x craftingSkill) x (1 + benchBonus), benchBonus = home x Home workshop bonus + perk x Guild craft-chance perk + attunement x seated Movement attunement (when its ore is an ingredient). A finished run scores sum(weight x accuracy) - extraStepPenalty per extra step + ladyScorePerLevel x Be A Lady level, clamped 0-100; a cracked or abandoned run gives xpReward / failedRunXpDivisor XP. staffTierCap = the highest tier a Lab staffer's items come out at (tier = their crafting level, capped here). gauges: per-apparatus gauge settings (a compress released at or past crackAt cracks the vessel; grinding strokes; distilling drips fall over fallMsec, one every beatMsec). gauges.*.directionWords = the clue's ~ direction for a reading below (higher) or above (lower) the ideal target. vagueToExactHits = in-band runs on a vague step that make it exact; clueText = per-step clue marks (hit/near/none/changed) and learn suffixes (towardExact takes hits so far and vagueToExactHits). bonus: a finished run at rank >= best rank rolls chance, then picks one of types at random (extraItems added, refundFraction of the run's calc back, xpMultiplier on the run's XP). badRun: a finished run scoring below scoreBelow returns one of lines, one time in oneIn. PROSE-REVIEW: every hints label/note, directionWords, clueText and badRun.lines entry is new copy.",
+  "_comment": "Live Lab (systems/lab.gd, .scratch/lab-port/spec.md) -- provisional numbers, tagged for balance. procedures.<recipeKey> (calc spent per item = the recipe's data/recipes.json ingredients, the single source): baseTolerance = band half-width before widening; ideal = the authored perfect procedure (apparatus = data/approaches.json id, ore = an ingredient ore that must be in the mixture for the step to match, absent for a step that works the existing mixture, target on a 0-100 gauge, weight; weights sum to 100); base = the procedure a newly granted recipe knows, its steps' calc summing to the recipe's ingredients, every ingredient ore in some step; hints = the hidden steps, each naming the ideal step index it reveals (a base step matching that ideal step gets its target corrected, otherwise the ideal step is inserted, no calc) and one rung (hint1, hint2, master). A vague hint shows a region of the band widened by vagueSpread each side and shifted by its offset (|offset| <= vagueSpread, so the band always sits inside); an exact hint shows the true band. rankThresholds[i] is the minimum score for rank i+1. skillFactor, benchBonusFactors: band_half_width = baseTolerance x (1 + skillFactor x craftingSkill) x (1 + benchBonus), benchBonus = home x Home workshop bonus + perk x Guild craft-chance perk + attunement x seated Movement attunement (when its ore is an ingredient). A finished run scores sum(weight x accuracy) - extraStepPenalty per extra step + ladyScorePerLevel x Be A Lady level, clamped 0-100; a cracked or abandoned run gives xpReward / failedRunXpDivisor XP. staffTierCap = the highest tier a Lab staffer's items come out at (tier = their crafting level, capped here). gauges: per-apparatus gauge settings (a compress released at or past crackAt cracks the vessel; grinding strokes; distilling drips fall over fallMsec, one every beatMsec). gauges.*.directionWords = the clue's ~ direction for a reading below (higher) or above (lower) the ideal target. vagueToExactHits = in-band runs on a vague step that make it exact; clueText = per-step clue marks (hit/near/none/changed) and learn suffixes (towardExact takes hits so far and vagueToExactHits). bonus: a finished run at rank >= best rank rolls chance, then picks one of types at random (extraItems added, refundFraction of the run's calc back, xpMultiplier on the run's XP). badRun: a finished run scoring below scoreBelow returns one of lines, one time in oneIn. PROSE-REVIEW: every hints label/note, directionWords, clueText and badRun.lines entry is new copy.",
   "procedures": {
     "timePearl": {
-      "baseCalc": { "time": 3 },
       "baseTolerance": 6,
       "ideal": [
-        { "apparatus": "compression", "ore": "time", "target": 82, "weight": 35 },
-        { "apparatus": "grinding", "target": 50, "weight": 25 },
-        { "apparatus": "heat", "target": 25, "weight": 40 }
+        { "apparatus": "compression", "ore": "time", "target": 82, "weight": 28 },
+        { "apparatus": "grinding", "target": 50, "weight": 14 },
+        { "apparatus": "heat", "target": 25, "weight": 40 },
+        { "apparatus": "compression", "target": 30, "weight": 18 }
       ],
       "base": [
-        { "apparatus": "compression", "target": 70, "calc": { "time": 3 } },
+        { "apparatus": "compression", "target": 70, "calc": { "time": 5 } },
         { "apparatus": "heat", "target": 25 }
       ],
       "hints": [
@@ -19,42 +19,48 @@
           "exact": { "note": "Compress to 82. Stop well short of the red line." } },
         { "id": "grindBetween", "label": "Grind between", "step": 1, "rung": "hint2",
           "vague": { "note": "Grind it once between the press and the heat.", "offset": 7 },
-          "exact": { "note": "Grind between the press and the heat, mid-swing." } }
+          "exact": { "note": "Grind between the press and the heat, mid-swing." } },
+        { "id": "setPress", "label": "Set it with a press", "step": 3, "rung": "master",
+          "vague": { "note": "Give it one more press once it's off the heat. Not a hard one.", "offset": 9 },
+          "exact": { "note": "Off the heat, press to 30 and let go." } }
       ]
     },
     "healingSalve": {
-      "baseCalc": { "life": 3 },
       "baseTolerance": 8,
       "ideal": [
-        { "apparatus": "grinding", "ore": "life", "target": 50, "weight": 30 },
-        { "apparatus": "heat", "target": 62, "weight": 40 },
-        { "apparatus": "distilling", "target": 50, "weight": 30 }
+        { "apparatus": "grinding", "ore": "life", "target": 50, "weight": 45 },
+        { "apparatus": "heat", "target": 62, "weight": 20 },
+        { "apparatus": "grinding", "target": 75, "weight": 20 },
+        { "apparatus": "distilling", "target": 50, "weight": 15 }
       ],
       "base": [
-        { "apparatus": "grinding", "target": 50, "calc": { "life": 3 } },
-        { "apparatus": "heat", "target": 50 }
+        { "apparatus": "grinding", "target": 50, "calc": { "life": 5 } },
+        { "apparatus": "heat", "target": 40 }
       ],
       "hints": [
         { "id": "heatHigher", "label": "Heat higher", "step": 1, "rung": "hint1",
           "vague": { "note": "Heat it a bit hotter.", "offset": 6 },
-          "exact": { "note": "Heat to 62, not 50." } },
-        { "id": "distilFinish", "label": "Finish with a distil", "step": 2, "rung": "hint2",
+          "exact": { "note": "Heat to 62, not 40." } },
+        { "id": "distilFinish", "label": "Finish with a distil", "step": 3, "rung": "hint2",
           "vague": { "note": "Finish with a distil. Catch the drips somewhere in the middle.", "offset": -5 },
-          "exact": { "note": "Finish with a distil: four drips, each caught halfway." } }
+          "exact": { "note": "Finish with a distil: four drips, each caught halfway." } },
+        { "id": "regrind", "label": "Grind it again", "step": 2, "rung": "master",
+          "vague": { "note": "Grind it again once it's warm. Late, not early.", "offset": -10 },
+          "exact": { "note": "Off the heat, grind again, late in the swing." } }
       ]
     },
     "healingBurst": {
-      "baseCalc": { "life": 2, "time": 2 },
       "baseTolerance": 4,
       "ideal": [
         { "apparatus": "grinding", "ore": "life", "target": 50, "weight": 20 },
         { "apparatus": "compression", "ore": "time", "target": 60, "weight": 20 },
-        { "apparatus": "distilling", "target": 50, "weight": 25 },
-        { "apparatus": "heat", "target": 35, "weight": 35 }
+        { "apparatus": "distilling", "target": 50, "weight": 20 },
+        { "apparatus": "heat", "target": 35, "weight": 25 },
+        { "apparatus": "grinding", "target": 25, "weight": 15 }
       ],
       "base": [
-        { "apparatus": "grinding", "target": 50, "calc": { "life": 2 } },
-        { "apparatus": "compression", "target": 60, "calc": { "time": 2 } },
+        { "apparatus": "grinding", "target": 50, "calc": { "life": 4 } },
+        { "apparatus": "compression", "target": 60, "calc": { "time": 4 } },
         { "apparatus": "heat", "target": 45 }
       ],
       "hints": [
@@ -63,7 +69,10 @@
           "exact": { "note": "Distil between the press and the heat, drips caught halfway." } },
         { "id": "heatLower", "label": "Heat lower", "step": 3, "rung": "hint2",
           "vague": { "note": "Heat it lower than you'd think.", "offset": 5 },
-          "exact": { "note": "Heat to 35. Lower than you'd think." } }
+          "exact": { "note": "Heat to 35. Lower than you'd think." } },
+        { "id": "grindEarly", "label": "Grind it off the heat", "step": 4, "rung": "master",
+          "vague": { "note": "One last grind after the heat. Don't wait for the swing.", "offset": 8 },
+          "exact": { "note": "Off the heat, grind early in the swing." } }
       ]
     }
   },

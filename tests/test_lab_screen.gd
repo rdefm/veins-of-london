@@ -81,7 +81,7 @@ func run() -> void:
 		batch.pressed.emit()
 		assert_eq(Crafting.inventory_qty("timePearl"), 1, "one item filed")
 		assert_eq(int(GameState.state["player"]["inventory"]["timePearl"].get("2", 0)), 1, "at best rank")
-		assert_eq(Lab.calc_available("time"), 7, "base calc spent")
+		assert_eq(Lab.calc_available("time"), 5, "base calc spent")
 		screen.free()
 	)
 
@@ -123,8 +123,8 @@ func run() -> void:
 		assert_true(NodeQuery.label_texts(screen).has("%s doesn't use %s." % [_name("timePearl"), GameData.ORE_TYPES["life"]["name"]]), "off-recipe jar: notice")
 		assert_eq(Lab.active_run(), null, "an off-recipe jar starts nothing")
 		UiSim.tap_zone(screen, "ore_time")
-		assert_eq(Lab.calc_available("time"), 7, "a recipe jar spends real calc")
-		assert_true(NodeQuery.label_texts(screen.get_node("OreBadge_time")).has("7"), "the badge reads real calc")
+		assert_eq(Lab.calc_available("time"), 5, "a recipe jar spends real calc")
+		assert_true(NodeQuery.label_texts(screen.get_node("OreBadge_time")).has("5"), "the badge reads real calc")
 		UiSim.tap_zone(screen, "apparatus_heat")
 		var gauge = _find_gauge(screen)
 		assert_true(gauge is LabGauges.HoldGauge, "heat pops its hold gauge")
@@ -199,7 +199,7 @@ func run() -> void:
 		twin.position = center
 		twin.device = InputEvent.DEVICE_ID_EMULATION
 		screen._on_diorama_gui_input(twin)
-		assert_eq(Lab.calc_available("time"), 7, "one physical tap spends once")
+		assert_eq(Lab.calc_available("time"), 5, "one physical tap spends once")
 		screen.free()
 	)
 

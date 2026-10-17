@@ -105,7 +105,7 @@ func run() -> void:
 		Crafting.inventory_add(ActiveEffects.PROPHETS_BREATH, 1, 1)
 		assert_true(ActiveEffects.use(ActiveEffects.PROPHETS_BREATH)["ok"], "Breath started")
 		var procedure := Lab.known_procedure("timePearl")
-		assert_eq(procedure.size(), 3, "every ideal step shown")
+		assert_eq(procedure.size(), 4, "every ideal step shown")
 		assert_eq(procedure[1]["knowledge"], "revealed", "hidden grind revealed")
 		assert_eq(_steps("timePearl"), {}, "knowledge untouched")
 	)
@@ -183,17 +183,19 @@ func _calc(ore_type: String) -> int:
 	return int(GameState.state["player"]["orichalchum"].get(ore_type, 0))
 
 
-# timePearl ideal: compress (time) 82 w35, grind 50 w25, heat 25 w40; band ±6 at skill 0.
+# timePearl ideal: compress (time) 82 w28, grind 50 w14, heat 25 w40,
+# compress 30 w18; band ±6 at skill 0; base calc time 5.
 func _perfect_time_pearl() -> void:
 	Lab.add_ore("timePearl", "time")
 	Lab.perform_step("compression", 82.0)
 	Lab.perform_grind([50.0, 50.0, 50.0])
 	Lab.perform_step("heat", 25.0)
+	Lab.perform_step("compression", 30.0)
 
 
 func _register_run_cases() -> void:
 	run_case("only_the_run_recipes_own_jars_spend_real_calc", func():
-		_bench("timePearl", { "time": 10, "life": 10 })
+		_bench("timePearl", { "time": 12, "life": 10 })
 		Lab.grant_recipe("healingSalve")
 		assert_true(not Lab.add_ore("timePearl", "life")["ok"], "life jar refused for timePearl")
 		assert_eq(_calc("life"), 10, "no life spent")
@@ -201,13 +203,12 @@ func _register_run_cases() -> void:
 		assert_true(Lab.add_ore("timePearl", "time")["ok"], "time jar taps")
 		assert_eq(_calc("time"), 7, "per-tap amount spent from real calc")
 		Lab.add_ore("timePearl", "time")
-		assert_eq(_calc("time"), 4, "each tap spends again")
-		assert_eq(Lab.active_run()["calcSpent"], { "time": 6 }, "run tallies spend")
+		assert_eq(_calc("time"), 2, "each tap spends again")
+		assert_eq(Lab.active_run()["calcSpent"], { "time": 10 }, "run tallies spend")
 		assert_true(not Lab.add_ore("healingSalve", "life")["ok"], "another recipe's jar refused mid-run")
 		assert_eq(_calc("life"), 10, "still no life spent")
-		Lab.add_ore("timePearl", "time")
 		assert_true(not Lab.add_ore("timePearl", "time")["ok"], "short of calc refused")
-		assert_eq(_calc("time"), 1, "nothing spent when short")
+		assert_eq(_calc("time"), 2, "nothing spent when short")
 	)
 
 	run_case("unknown_recipe_cannot_run", func():
@@ -222,7 +223,7 @@ func _register_run_cases() -> void:
 			var player := _bench("timePearl", { "time": 10 })
 			player["craftingSkill"] = skill
 			assert_true(Lab.begin_run("timePearl")["ok"], "begin at skill %d" % skill)
-			assert_eq(_calc("time"), 7, "base calc 3 at skill %d" % skill)
+			assert_eq(_calc("time"), 5, "base calc 5 at skill %d" % skill)
 	)
 
 	run_case("steps_record_apparatus_reading_and_ores_in_any_order", func():
@@ -256,21 +257,21 @@ func _register_run_cases() -> void:
 		assert_eq(GameState.state["lab"]["performedOnce"], ["timePearl"], "performed once")
 		assert_eq(Lab.active_run(), null, "run closed")
 		assert_eq(int(player["craftingXP"]) - xp_before, int(GameData.RECIPES["timePearl"]["xpReward"]), "full xpReward")
-		assert_eq(_calc("time"), 7, "calc stays spent")
+		assert_eq(_calc("time"), 5, "calc stays spent")
 	)
 
 	run_case("score_weights_order_and_extra_step_penalty", func():
 		var cases := [
 			# base procedure as written: compress 70 is 12 off (2× band, 0) + heat 40.
 			[[["compression", 70.0], ["heat", 25.0]], 40, 2],
-			# compress in band: 35 + 40.
-			[[["compression", 79.0], ["heat", 25.0]], 75, 4],
+			# compress in band: 28 + 40.
+			[[["compression", 79.0], ["heat", 25.0]], 68, 3],
 			# plus an unmatched distil: -5.
-			[[["compression", 79.0], ["heat", 25.0], ["distilling", 0.0]], 70, 3],
-			# heat first eats ideal step 2, so the later compress is extra.
-			[[["heat", 25.0], ["compression", 82.0]], 35, 1],
-			# compress 9 off: accuracy 0.5 -> 17.5 rounds with the rest.
-			[[["compression", 91.0], ["grinding", 50.0], ["heat", 25.0]], 83, 4],
+			[[["compression", 79.0], ["heat", 25.0], ["distilling", 0.0]], 63, 3],
+			# heat first eats ideal step 2, so the later grind is extra.
+			[[["heat", 25.0], ["grinding", 50.0]], 35, 1],
+			# compress 9 off: accuracy 0.5 -> 14, plus grind 14 and heat 40.
+			[[["compression", 91.0], ["grinding", 50.0], ["heat", 25.0]], 68, 3],
 		]
 		for c in cases:
 			_bench("timePearl", { "time": 10 })
@@ -321,7 +322,7 @@ func _register_run_cases() -> void:
 		assert_true(result["cracked"], "95 cracks")
 		assert_eq(result["outcome"], "cracked", "outcome")
 		assert_eq(Lab.active_run(), null, "run closed")
-		assert_eq(_calc("time"), 7, "calc lost")
+		assert_eq(_calc("time"), 5, "calc lost")
 		assert_eq(Crafting.inventory_qty("timePearl"), 0, "no item")
 		assert_eq(GameState.state["lab"]["bestRanks"], {}, "no rank")
 		assert_eq(GameState.state["lab"]["performedOnce"], [], "not performed")
@@ -337,7 +338,7 @@ func _register_run_cases() -> void:
 		var result := Lab.abandon_run()
 		assert_eq([result["outcome"], result["items"]], ["abandoned", 0], "abandoned, no item")
 		assert_eq(Lab.active_run(), null, "run closed")
-		assert_eq(_calc("time"), 7, "calc lost")
+		assert_eq(_calc("time"), 5, "calc lost")
 		assert_eq(Crafting.inventory_qty("timePearl"), 0, "no item")
 		assert_eq(GameState.state["lab"]["performedOnce"], [], "not performed")
 		assert_eq(int(player["craftingXP"]) - xp_before, floori(GameData.RECIPES["timePearl"]["xpReward"] / 3.0), "a third of the XP")
@@ -463,12 +464,12 @@ func _register_learning_cases() -> void:
 
 	run_case("off_book_step_that_shifts_the_book_is_not_a_change", func():
 		# healingBurst hides distil (ideal 2); performed first it skips ideal
-		# 0-1, so the base grind then matches nothing.
+		# 0-1, so the base compress then matches nothing.
 		_bench("healingBurst", { "life": 10, "time": 10 })
 		Lab.add_ore("healingBurst", "life")
 		Lab.add_ore("healingBurst", "time")
 		Lab.perform_distil([500.0, 1900.0, 3300.0, 4700.0])
-		Lab.perform_grind([50.0, 50.0, 50.0])
+		Lab.perform_step("compression", 60.0)
 		Lab.perform_step("heat", 35.0)
 		var clues: Array = Lab.finish_run()["clues"]
 		assert_eq(_clue_marks(clues), [["hit", null], ["none", null], ["hit", null]], "distil scored, not a change")
@@ -540,7 +541,7 @@ func _register_learning_cases() -> void:
 		assert_eq(GameState.state["player"]["craftedCounts"]["timePearl"], 2, "both counted")
 		assert_eq(xp_gained[0], xp_reward, "XP unchanged")
 		assert_true(SeedSearch.find_seed_for(200, perfect_run_with_bonus.bind("calcRefund")) >= 0, "calcRefund reachable")
-		assert_eq(_calc("time"), 8, "1 of 3 calc (half, floored) back in real calc")
+		assert_eq(_calc("time"), 7, "2 of 5 calc (half, floored) back in real calc")
 		assert_eq(Crafting.inventory_qty("timePearl"), 1, "one item")
 		assert_true(SeedSearch.find_seed_for(200, perfect_run_with_bonus.bind("xp")) >= 0, "xp reachable")
 		assert_eq(xp_gained[0], roundi(xp_reward * 1.5), "XP x1.5 on the run")
@@ -600,7 +601,7 @@ func _register_batch_rewind_cases() -> void:
 		var result := Lab.batch("timePearl", 4)
 		assert_eq([result["items"], result["rank"]], [4, 3], "4 items at best rank 3")
 		assert_eq(_stock("timePearl"), { "3": 5 }, "filed at tier 3 alongside the run's")
-		assert_eq(calc_before - _calc("time"), 12, "base calc 3 x 4")
+		assert_eq(calc_before - _calc("time"), 20, "base calc 5 x 4")
 		assert_eq(int(player["craftingXP"]) - xp_before, int(GameData.RECIPES["timePearl"]["xpReward"]) * 4, "xpReward per item")
 		assert_eq(int(player["craftedCounts"]["timePearl"]) - crafted_before, 4, "filed through Crafting")
 		assert_true(not Lab.batch("timePearl", 100)["ok"], "short of calc refused")
@@ -638,7 +639,7 @@ func _register_batch_rewind_cases() -> void:
 		assert_true(not Lab.has_rewind_point(), "none before a run")
 		Lab.add_ore("timePearl", "time")
 		assert_true(Lab.has_rewind_point(), "taken at the first tap")
-		assert_eq(GameState.state["lab"]["lastCraft"]["calcSpent"], { "time": 3 }, "spend noted")
+		assert_eq(GameState.state["lab"]["lastCraft"]["calcSpent"], { "time": 5 }, "spend noted")
 	)
 
 	run_case("rewind_refused_without_an_item_or_loaded_complication", func():
@@ -648,7 +649,7 @@ func _register_batch_rewind_cases() -> void:
 		assert_true(not Lab.can_rewind(), "can't pay")
 		assert_true(not Lab.rewind()["ok"], "refused")
 		assert_eq(_stock("timePearl"), { "5": 1 }, "item kept")
-		assert_eq(_calc("time"), 7, "calc stays spent")
+		assert_eq(_calc("time"), 5, "calc stays spent")
 	)
 
 	run_case("rewind_consumes_exactly_one_item_or_charge", func():
@@ -707,7 +708,7 @@ func _register_batch_rewind_cases() -> void:
 		Lab.finish_run()
 		Lab.batch("timePearl", 3)
 		assert_true(Lab.rewind()["ok"], "batch rewound")
-		assert_eq([_calc("time"), _stock("timePearl")], [27, { "5": 1 }], "batch calc back, run's item kept")
+		assert_eq([_calc("time"), _stock("timePearl")], [25, { "5": 1 }], "batch calc back, run's item kept")
 		Lab.batch("timePearl", 2)
 		Crafting.inventory_remove("timePearl", 3)
 		assert_true(not Lab.rewind()["ok"], "items sold or used: refused")

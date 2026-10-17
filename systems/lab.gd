@@ -406,12 +406,12 @@ static func _learn(recipe_key: String, clues: Array) -> void:
 
 # ── Calc ─────────────────────────────────────────────────────────────────
 
-# Calc one item of the recipe costs, for the player and Lab staff alike: its
-# procedure's baseCalc, or the recipe's ingredients for a recipe with no
-# procedure yet. Crafting skill doesn't reduce it.
+# Calc one item of the recipe costs, for the player and Lab staff alike: the
+# recipe's data/recipes.json ingredients (its procedure's base steps spend
+# exactly this). Crafting skill doesn't reduce it.
 static func base_calc(recipe_key: String) -> Dictionary:
 	var cost := {}
-	var base: Dictionary = procedure_def(recipe_key).get("baseCalc", GameData.RECIPES.get(recipe_key, {}).get("ingredients", {}))
+	var base: Dictionary = GameData.RECIPES.get(recipe_key, {}).get("ingredients", {})
 	for ore_type in base.keys():
 		cost[ore_type] = int(base[ore_type])
 	return cost
