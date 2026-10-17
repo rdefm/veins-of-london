@@ -15,8 +15,9 @@ extends RefCounted
 # the first tap opens the run. Each perform_*() works the mixture with one
 # apparatus, in any order, repeats allowed. finish_run() scores the steps,
 # turns the score into a rank and files one item at tier = rank through
-# Crafting. A compress past crackAt cracks the vessel; it and abandon_run()
-# lose the calc and give no item. No time block is spent.
+# Crafting, gives each step a clue that can teach hidden steps, and may roll
+# the re-run bonus. A compress past crackAt cracks the vessel; it and
+# abandon_run() lose the calc and give no item. No time block is spent.
 
 
 static func _data() -> Dictionary:
@@ -264,6 +265,112 @@ static func _added_ores(step: Dictionary) -> Array:
 	return step["ores"] if step.has("ores") else step.get("calc", {}).keys()
 
 
+# ── Clues and learning ───────────────────────────────────────────────────
+
+# Ideal indices of the hidden steps the player can't see yet: unknown, and
+# no base step matches them.
+static func hidden_ideal_steps(recipe_key: String) -> Array[int]:
+	var procedure := procedure_def(recipe_key)
+	var base_matches := match_ideal(procedure["ideal"], procedure["base"])
+	var hidden: Array[int] = []
+	for hint in procedure.get("hints", []):
+		var step := int(hint["step"])
+		if step_specificity(recipe_key, step).is_empty() and not base_matches.has(step):
+			hidden.append(step)
+	return hidden
+
+
+# One clue per performed step (spec § Run rules), each { apparatus, ideal
+# (matched ideal index, -1 for none), clue, direction }:
+#   "hit"     in band
+#   "near"    right step, wrong amount; direction "higher"/"lower" moves the
+#             mean reading toward the ideal target (null when it's already
+#             in band, e.g. missed strokes or a stray distil tap)
+#   "none"    no effect: an extra step (a wrong-ore step never matches)
+#   "changed" an off-book step lands on a hidden ideal step and every
+#             on-book step still matches the ideal step it would without it
+static func notebook_clues(recipe_key: String, performed: Array) -> Array:
+	var ideal: Array = procedure_def(recipe_key)["ideal"]
+	var half := band_half_width(recipe_key)
+	var matches := match_ideal(ideal, performed)
+	var hidden := hidden_ideal_steps(recipe_key)
+	var in_place := _book_matches_kept(ideal, performed, matches, hidden)
+	var clues := []
+	for i in performed.size():
+		var m: int = matches[i]
+		var clue := { "apparatus": performed[i]["apparatus"], "ideal": m, "clue": "none", "direction": null }
+		if m >= 0:
+			var target := float(ideal[m]["target"])
+			if hidden.has(m) and in_place:
+				clue["clue"] = "changed"
+			elif performed_accuracy(performed[i], target, half) >= 1.0:
+				clue["clue"] = "hit"
+			else:
+				clue["clue"] = "near"
+				clue["direction"] = _direction(performed[i], target, half)
+		clues.append(clue)
+	return clues
+
+
+# Whether dropping the off-book steps (those matching a hidden ideal step)
+# leaves every other step's match unchanged.
+static func _book_matches_kept(ideal: Array, performed: Array, matches: Array[int], hidden: Array[int]) -> bool:
+	var book := []
+	var book_matches: Array[int] = []
+	var mixture := []
+	for i in performed.size():
+		mixture.append_array(_added_ores(performed[i]))
+		if hidden.has(matches[i]):
+			continue
+		var step: Dictionary = performed[i].duplicate()
+		step["ores"] = mixture
+		mixture = []
+		book.append(step)
+		book_matches.append(matches[i])
+	return match_ideal(ideal, book) == book_matches
+
+
+static func _direction(performed: Dictionary, target: float, half_width: float) -> Variant:
+	var values := []
+	if performed.has("value"):
+		values.append(float(performed["value"]))
+	for reading in performed.get("readings", []):
+		if reading != null:
+			values.append(float(reading))
+	if values.is_empty():
+		return null
+	var mean := 0.0
+	for v in values:
+		mean += v
+	mean /= values.size()
+	if absf(mean - target) <= half_width:
+		return null
+	return "higher" if mean < target else "lower"
+
+
+# Applies a finished run's clues through grant_steps(), the same path story
+# and debug grants take: "changed" grants the hidden step vague; a "hit" on
+# a vague step counts in vagueHits, and vagueToExactHits of them grant it
+# exact. Marks each clue with learned ("vague"/"exact") and, for a counted
+# hit, hits so far.
+static func _learn(recipe_key: String, clues: Array) -> void:
+	var entry: Dictionary = _root()["known"][recipe_key]
+	for clue in clues:
+		var i: int = clue["ideal"]
+		if clue["clue"] == "changed":
+			grant_steps(recipe_key, [i], "vague")
+			clue["learned"] = "vague"
+			continue
+		if clue["clue"] != "hit" or step_specificity(recipe_key, i) != "vague":
+			continue
+		var hits := int(entry["vagueHits"].get(str(i), 0)) + 1
+		entry["vagueHits"][str(i)] = hits
+		clue["hits"] = hits
+		if hits >= int(_data().get("vagueToExactHits", 3)):
+			grant_steps(recipe_key, [i], "exact")
+			clue["learned"] = "exact"
+
+
 # ── Calc ─────────────────────────────────────────────────────────────────
 
 # Calc one item of the recipe costs: its procedure's baseCalc. Crafting
@@ -436,9 +543,13 @@ static func _perform(apparatus: String, record: Dictionary) -> void:
 	run["performed"].append(record)
 
 
-# Finish: scores the performed steps (none scores 0) and files one item at
-# tier = rank through Crafting.file_crafted() with the recipe's xpReward.
-# Best rank only rises; the recipe joins performedOnce.
+# Finish: scores the performed steps (none scores 0), turns them into clues
+# and learns from them, then files the item(s) at tier = rank through
+# Crafting.file_crafted() with the recipe's xpReward × the bonus's
+# xpMultiplier. A rank at or above the best rank rolls the re-run bonus
+# (one type drawn at random); a score below badRun.scoreBelow sometimes
+# returns a flavour line. Best rank only rises; the recipe joins
+# performedOnce.
 static func finish_run() -> Dictionary:
 	var run = active_run()
 	if run == null:
@@ -446,10 +557,16 @@ static func finish_run() -> Dictionary:
 	var s := _root()
 	var recipe_key: String = run["recipe"]
 	var scored := score_procedure(recipe_key, run["performed"])
+	var clues := notebook_clues(recipe_key, run["performed"])
+	_learn(recipe_key, clues)
 	var lady_bonus := lady_score_bonus()
 	var score := clampi(int(scored["score"]) + lady_bonus, 0, 100)
 	var rank := rank_for_score(score)
 	var prior_best := int(s["bestRanks"].get(recipe_key, 0))
+	var bonus := _roll_bonus(rank, prior_best)
+	var type_def: Dictionary = _data()["bonus"]["types"].get(bonus, {})
+	var refunded := _refund_calc(run["calcSpent"], float(type_def.get("refundFraction", 0.0)))
+	var flavour = _bad_run_line(score)
 	s["bestRanks"][recipe_key] = maxi(prior_best, rank)
 	if not s["performedOnce"].has(recipe_key):
 		s["performedOnce"].append(recipe_key)
@@ -458,17 +575,57 @@ static func finish_run() -> Dictionary:
 		var performed: Dictionary = run["performed"][i].duplicate(true)
 		performed["accuracy"] = scored["accuracies"][i]
 		steps.append(performed)
-	var xp := int(GameData.RECIPES[recipe_key]["xpReward"])
+	var xp := roundi(int(GameData.RECIPES[recipe_key]["xpReward"]) * float(type_def.get("xpMultiplier", 1.0)))
+	var extra_items := int(type_def.get("extraItems", 0))
+	var net_calc := {}
+	for ore_type in run["calcSpent"].keys():
+		net_calc[ore_type] = int(run["calcSpent"][ore_type]) - int(refunded.get(ore_type, 0))
 	s["activeRun"] = null
-	Crafting.file_crafted(recipe_key, rank, 1, false, run["calcSpent"], xp)
+	Crafting.file_crafted(recipe_key, rank, 1, false, net_calc, xp)
+	Crafting.file_crafted(recipe_key, rank, extra_items, false, {}, 0)
 	var result := {
 		"ok": true, "recipe": recipe_key, "outcome": "finished", "score": score,
-		"rawScore": scored["score"], "ladyBonus": lady_bonus, "rank": rank, "items": 1,
-		"xp": xp, "newBest": rank > prior_best, "steps": steps,
+		"rawScore": scored["score"], "ladyBonus": lady_bonus, "rank": rank,
+		"items": 1 + extra_items, "xp": xp, "newBest": rank > prior_best, "steps": steps,
+		"clues": clues, "bonus": bonus if not bonus.is_empty() else null,
+		"refunded": refunded, "flavour": flavour,
 		"durationMsec": maxi(0, Time.get_ticks_msec() - int(run["startedMsec"])),
 	}
 	_emit_hook(result)
 	return result
+
+
+# A bonus type id when a rank at or above the prior best wins the bonus
+# chance, else "".
+static func _roll_bonus(rank: int, prior_best: int) -> String:
+	var bonus_def: Dictionary = _data()["bonus"]
+	if rank < prior_best or not Rng.chance(float(bonus_def.get("chance", 0.0))):
+		return ""
+	return Rng.rand_from(bonus_def["types"].keys())
+
+
+# Gives back floor(spent × fraction) of each ore to the player's calc.
+# ore type -> amount refunded (amounts of 0 left out).
+static func _refund_calc(spent: Dictionary, fraction: float) -> Dictionary:
+	var refunded := {}
+	var orichalchum: Dictionary = GameState.state["player"]["orichalchum"]
+	for ore_type in spent.keys():
+		var amount := floori(int(spent[ore_type]) * fraction)
+		if amount > 0:
+			orichalchum[ore_type] = calc_available(ore_type) + amount
+			refunded[ore_type] = amount
+	return refunded
+
+
+# A badRun line one time in oneIn for a score below scoreBelow, else null.
+static func _bad_run_line(score: int) -> Variant:
+	var bad_run: Dictionary = _data()["badRun"]
+	var lines: Array = bad_run.get("lines", [])
+	if score >= int(bad_run.get("scoreBelow", 0)) or lines.is_empty():
+		return null
+	if Rng.randi_range(1, int(bad_run.get("oneIn", 1))) != 1:
+		return null
+	return Rng.rand_from(lines)
 
 
 # Gives the run up: the calc spent stays spent, no item.

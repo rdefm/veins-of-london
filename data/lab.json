@@ -1,5 +1,5 @@
 {
-  "_comment": "Live Lab (systems/lab.gd, .scratch/lab-port/spec.md) -- provisional numbers, tagged for balance. procedures.<recipeKey>: baseCalc = calc spent per item; baseTolerance = band half-width before widening; ideal = the authored perfect procedure (apparatus = data/approaches.json id, ore = an ingredient ore that must be in the mixture for the step to match, absent for a step that works the existing mixture, target on a 0-100 gauge, weight; weights sum to 100); base = the procedure a newly granted recipe knows, its steps' calc summing to baseCalc; hints = the hidden steps, each naming the ideal step index it reveals (a base step matching that ideal step gets its target corrected, otherwise the ideal step is inserted, no calc) and one rung (hint1, hint2, master). A vague hint shows a region of the band widened by vagueSpread each side and shifted by its offset (|offset| <= vagueSpread, so the band always sits inside); an exact hint shows the true band. rankThresholds[i] is the minimum score for rank i+1. skillFactor, benchBonusFactors: band_half_width = baseTolerance x (1 + skillFactor x craftingSkill) x (1 + benchBonus), benchBonus = home x Home workshop bonus + perk x Guild craft-chance perk + attunement x seated Movement attunement (when its ore is an ingredient). A finished run scores sum(weight x accuracy) - extraStepPenalty per extra step + ladyScorePerLevel x Be A Lady level, clamped 0-100; a cracked or abandoned run gives xpReward / failedRunXpDivisor XP. gauges: per-apparatus gauge settings (a compress released at or past crackAt cracks the vessel; grinding strokes; distilling drips fall over fallMsec, one every beatMsec). vagueToExactHits = in-band runs on a vague step that make it exact. PROSE-REVIEW: every hints label/note is new copy.",
+  "_comment": "Live Lab (systems/lab.gd, .scratch/lab-port/spec.md) -- provisional numbers, tagged for balance. procedures.<recipeKey>: baseCalc = calc spent per item; baseTolerance = band half-width before widening; ideal = the authored perfect procedure (apparatus = data/approaches.json id, ore = an ingredient ore that must be in the mixture for the step to match, absent for a step that works the existing mixture, target on a 0-100 gauge, weight; weights sum to 100); base = the procedure a newly granted recipe knows, its steps' calc summing to baseCalc; hints = the hidden steps, each naming the ideal step index it reveals (a base step matching that ideal step gets its target corrected, otherwise the ideal step is inserted, no calc) and one rung (hint1, hint2, master). A vague hint shows a region of the band widened by vagueSpread each side and shifted by its offset (|offset| <= vagueSpread, so the band always sits inside); an exact hint shows the true band. rankThresholds[i] is the minimum score for rank i+1. skillFactor, benchBonusFactors: band_half_width = baseTolerance x (1 + skillFactor x craftingSkill) x (1 + benchBonus), benchBonus = home x Home workshop bonus + perk x Guild craft-chance perk + attunement x seated Movement attunement (when its ore is an ingredient). A finished run scores sum(weight x accuracy) - extraStepPenalty per extra step + ladyScorePerLevel x Be A Lady level, clamped 0-100; a cracked or abandoned run gives xpReward / failedRunXpDivisor XP. gauges: per-apparatus gauge settings (a compress released at or past crackAt cracks the vessel; grinding strokes; distilling drips fall over fallMsec, one every beatMsec). gauges.*.directionWords = the clue's ~ direction for a reading below (higher) or above (lower) the ideal target. vagueToExactHits = in-band runs on a vague step that make it exact; clueText = per-step clue marks (hit/near/none/changed) and learn suffixes (towardExact takes hits so far and vagueToExactHits). bonus: a finished run at rank >= best rank rolls chance, then picks one of types at random (extraItems added, refundFraction of the run's calc back, xpMultiplier on the run's XP). badRun: a finished run scoring below scoreBelow returns one of lines, one time in oneIn. PROSE-REVIEW: every hints label/note, directionWords, clueText and badRun.lines entry is new copy.",
   "procedures": {
     "timePearl": {
       "baseCalc": { "time": 3 },
@@ -76,11 +76,38 @@
   "ladyScorePerLevel": 10,
   "failedRunXpDivisor": 3,
   "gauges": {
-    "heat": { "risePerSec": 40 },
-    "compression": { "risePerSec": 30, "crackAt": 95 },
-    "grinding": { "strokes": 3, "swingPeriodSec": 2.0 },
-    "distilling": { "drips": 4, "beatMsec": 1400, "fallMsec": 1000, "leadInMsec": 1400 }
+    "heat": { "risePerSec": 40,
+      "directionWords": { "higher": "hotter", "lower": "cooler" } },
+    "compression": { "risePerSec": 30, "crackAt": 95,
+      "directionWords": { "higher": "more pressure", "lower": "less pressure" } },
+    "grinding": { "strokes": 3, "swingPeriodSec": 2.0,
+      "directionWords": { "higher": "later in the swing", "lower": "earlier in the swing" } },
+    "distilling": { "drips": 4, "beatMsec": 1400, "fallMsec": 1000, "leadInMsec": 1400,
+      "directionWords": { "higher": "catch them later", "lower": "catch them sooner" } }
   },
   "vagueSpread": 15,
-  "vagueToExactHits": 3
+  "vagueToExactHits": 3,
+  "clueText": {
+    "hit": "✓", "near": "~", "none": "✗ no effect", "changed": "something changed",
+    "learnedVague": "new vague hint", "towardExact": "%d/%d toward exact", "learnedExact": "now exact"
+  },
+  "bonus": {
+    "chance": 0.3,
+    "types": {
+      "extraItem": { "label": "+1 item", "extraItems": 1 },
+      "calcRefund": { "label": "Half calc back", "refundFraction": 0.5 },
+      "xp": { "label": "XP ×1.5", "xpMultiplier": 1.5 }
+    }
+  },
+  "badRun": {
+    "scoreBelow": 15,
+    "oneIn": 3,
+    "lines": [
+      "The mixture sets into something the colour of a bruise. You bin it, and the spoon.",
+      "The flask makes a small, polite noise and then a less polite one. The bench will need a new mat.",
+      "Whatever this was going to be, it has decided against it.",
+      "It smells of burnt hair and Tuesday. You open a window and write nothing down.",
+      "The calc goes grey and stays grey. Somewhere, a ledger notes the loss."
+    ]
+  }
 }

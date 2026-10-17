@@ -1631,7 +1631,14 @@ func _validate_procedure_hints(where: String, procedure: Dictionary, vague_sprea
 # to 100, real apparatus, 0-100 targets, ideal ores within baseCalc and base
 # calc summing to baseCalc; hints as the prototype's, each with a data rung.
 func _validate_lab(lab: Dictionary, recipes: Dictionary, approaches: Dictionary, errors: Array[String]) -> void:
-	_require_keys(lab, ["procedures", "rungs", "specificities", "rankThresholds", "skillFactor", "vagueSpread", "vagueToExactHits"], "lab", errors)
+	_require_keys(lab, ["procedures", "rungs", "specificities", "rankThresholds", "skillFactor", "vagueSpread", "vagueToExactHits", "clueText", "bonus", "badRun"], "lab", errors)
+	var gauges: Dictionary = lab.get("gauges", {})
+	for apparatus in gauges.keys():
+		var words: Dictionary = gauges[apparatus].get("directionWords", {})
+		if str(words.get("higher", "")).is_empty() or str(words.get("lower", "")).is_empty():
+			errors.append("lab.gauges.%s.directionWords: needs higher and lower" % apparatus)
+	if lab.get("bonus", {}).get("types", {}).is_empty():
+		errors.append("lab.bonus.types: must not be empty")
 	var rungs: Array = lab.get("rungs", [])
 	var vague_spread := float(lab.get("vagueSpread", 0))
 	for recipe_key in lab.get("procedures", {}).keys():

@@ -1,6 +1,9 @@
 extends "res://tests/test_base.gd"
 
 const TEST_SLOT := 87
+const SeedSearch := preload("res://tests/support/seed_search.gd")
+
+var _real_bonus_chance: float
 
 # systems/lab.gd's knowledge spine (.scratch/lab-port/spec.md § State,
 # § Knowledge API), driven through the public API and event ops.
@@ -155,12 +158,17 @@ func run() -> void:
 		SaveManager.delete_slot(TEST_SLOT)
 	)
 
+	_real_bonus_chance = GameData.LAB["bonus"]["chance"]
 	_register_run_cases()
+	_register_learning_cases()
+	GameData.LAB["bonus"]["chance"] = _real_bonus_chance
 
 
-# A fresh game knowing recipe_key, crafting skill 0, with this unstashed calc.
+# A fresh game knowing recipe_key, crafting skill 0, with this unstashed
+# calc, and no re-run bonus unless a case sets bonus.chance back.
 func _bench(recipe_key: String, calc: Dictionary) -> Dictionary:
 	_fresh()
+	GameData.LAB["bonus"]["chance"] = 0.0
 	var player: Dictionary = GameState.state["player"]
 	player["craftingSkill"] = 0
 	for ore_type in calc:
@@ -427,4 +435,130 @@ func _register_run_cases() -> void:
 		var compress: Dictionary = Lab.known_procedure("timePearl")[0]
 		assert_eq([compress["knowledge"], compress["target"]], ["revealed", 82.0], "true target shown")
 		assert_eq(Lab.step_region("timePearl", compress), { "low": 76.0, "high": 88.0, "vague": false }, "true band")
+	)
+
+
+func _clue_marks(clues: Array) -> Array:
+	return clues.map(func(c): return [c["clue"], c["direction"]])
+
+
+func _register_learning_cases() -> void:
+	run_case("each_step_gets_one_of_four_clues", func():
+		_bench("timePearl", { "time": 10 })
+		Lab.add_ore("timePearl", "time")
+		Lab.perform_step("compression", 70.0)
+		Lab.perform_grind([50.0, 50.0, 50.0])
+		Lab.perform_step("heat", 25.0)
+		Lab.perform_distil([])
+		var clues: Array = Lab.finish_run()["clues"]
+		assert_eq(_clue_marks(clues), [["near", "higher"], ["changed", null], ["hit", null], ["none", null]], "near, changed, hit, none")
+		assert_eq(clues.map(func(c): return c["ideal"]), [0, 1, 2, -1], "matched ideal steps")
+		_bench("timePearl", { "time": 10 })
+		Lab.add_ore("timePearl", "time")
+		Lab.perform_step("compression", 90.0)
+		assert_eq(_clue_marks(Lab.finish_run()["clues"]), [["near", "lower"]], "over the band reads lower")
+	)
+
+	run_case("off_book_step_that_shifts_the_book_is_not_a_change", func():
+		# healingBurst hides distil (ideal 2); performed first it skips ideal
+		# 0-1, so the base grind then matches nothing.
+		_bench("healingBurst", { "life": 10, "time": 10 })
+		Lab.add_ore("healingBurst", "life")
+		Lab.add_ore("healingBurst", "time")
+		Lab.perform_distil([500.0, 1900.0, 3300.0, 4700.0])
+		Lab.perform_grind([50.0, 50.0, 50.0])
+		Lab.perform_step("heat", 35.0)
+		var clues: Array = Lab.finish_run()["clues"]
+		assert_eq(_clue_marks(clues), [["hit", null], ["none", null], ["hit", null]], "distil scored, not a change")
+		assert_eq(Lab.step_specificity("healingBurst", 2), "", "nothing learned")
+	)
+
+	run_case("off_book_match_learns_vague_like_a_granted_step", func():
+		_bench("timePearl", {})
+		Lab.grant_steps("timePearl", [1], "vague")
+		var granted: Dictionary = GameState.deep_copy(GameState.state["lab"]["known"])
+		_bench("timePearl", { "time": 10 })
+		Lab.add_ore("timePearl", "time")
+		Lab.perform_step("compression", 70.0)
+		Lab.perform_grind([20.0, 20.0, 20.0])
+		var result := Lab.finish_run()
+		assert_eq(result["clues"][1]["learned"], "vague", "clue marks the lesson")
+		assert_eq(GameState.state["lab"]["known"], granted, "same knowledge as a vague grant")
+		assert_eq(Lab.known_procedure("timePearl")[1]["knowledge"], "vague", "book shows it vague")
+	)
+
+	run_case("three_in_band_hits_make_a_vague_step_exact", func():
+		_bench("timePearl", { "time": 20 })
+		Lab.grant_steps("timePearl", [1], "vague")
+		var entry: Dictionary = GameState.state["lab"]["known"]["timePearl"]
+		for n in [1, 2, 3]:
+			Lab.add_ore("timePearl", "time")
+			Lab.perform_step("compression", 70.0)
+			Lab.perform_grind([50.0, 50.0, 50.0])
+			var clue: Dictionary = Lab.finish_run()["clues"][1]
+			assert_eq([clue["clue"], clue["hits"]], ["hit", n], "hit %d counted" % n)
+			if n < 3:
+				assert_eq(entry["vagueHits"], { "1": n }, "vagueHits after %d" % n)
+				assert_true(not clue.has("learned"), "not yet exact")
+		assert_eq(entry["steps"], { "1": "exact" }, "now exact")
+		assert_eq(entry["vagueHits"], {}, "hits cleared")
+		Lab.add_ore("timePearl", "time")
+		Lab.perform_step("compression", 70.0)
+		Lab.perform_grind([10.0, 10.0, 10.0])
+		Lab.finish_run()
+		assert_eq(entry["steps"], { "1": "exact" }, "exact never drops")
+	)
+
+	run_case("bonus_rolls_only_at_or_above_best_rank", func():
+		_bench("timePearl", { "time": 10 })
+		GameData.LAB["bonus"]["chance"] = 1.0
+		GameState.state["lab"]["bestRanks"]["timePearl"] = 5
+		Lab.add_ore("timePearl", "time")
+		assert_eq(Lab.finish_run()["bonus"], null, "rank 1 under best 5: no roll")
+		_perfect_time_pearl()
+		assert_true(Lab.finish_run()["bonus"] != null, "rank 5 at best 5 rolls")
+		GameData.LAB["bonus"]["chance"] = 0.0
+		_perfect_time_pearl()
+		assert_eq(Lab.finish_run()["bonus"], null, "chance from data")
+	)
+
+	run_case("all_three_bonus_types_reachable_with_seeded_rng", func():
+		var xp_reward := int(GameData.RECIPES["timePearl"]["xpReward"])
+		var xp_gained := [0]
+		var perfect_run_with_bonus := func(bonus_type: String) -> bool:
+			var player := _bench("timePearl", { "time": 10 })
+			GameData.LAB["bonus"]["chance"] = _real_bonus_chance
+			var xp_before := int(player["craftingXP"])
+			_perfect_time_pearl()
+			var result := Lab.finish_run()
+			xp_gained[0] = int(player["craftingXP"]) - xp_before
+			return result["bonus"] == bonus_type
+		assert_true(SeedSearch.find_seed_for(200, perfect_run_with_bonus.bind("extraItem")) >= 0, "extraItem reachable")
+		assert_eq(GameState.state["player"]["inventory"]["timePearl"], { "5": 2 }, "two items at the run's rank")
+		assert_eq(GameState.state["player"]["craftedCounts"]["timePearl"], 2, "both counted")
+		assert_eq(xp_gained[0], xp_reward, "XP unchanged")
+		assert_true(SeedSearch.find_seed_for(200, perfect_run_with_bonus.bind("calcRefund")) >= 0, "calcRefund reachable")
+		assert_eq(_calc("time"), 8, "1 of 3 calc (half, floored) back in real calc")
+		assert_eq(Crafting.inventory_qty("timePearl"), 1, "one item")
+		assert_true(SeedSearch.find_seed_for(200, perfect_run_with_bonus.bind("xp")) >= 0, "xp reachable")
+		assert_eq(xp_gained[0], roundi(xp_reward * 1.5), "XP x1.5 on the run")
+	)
+
+	run_case("really_bad_runs_sometimes_get_a_flavour_line", func():
+		var lines: Array = GameData.LAB["badRun"]["lines"]
+		var seed := SeedSearch.find_seed_for(200, func():
+			_bench("timePearl", { "time": 10 })
+			Lab.add_ore("timePearl", "time")
+			var flavour = Lab.finish_run()["flavour"]
+			return flavour != null and lines.has(flavour))
+		assert_true(seed >= 0, "a score-0 run can draw a line")
+		var silent := SeedSearch.find_seed_for(200, func():
+			_bench("timePearl", { "time": 10 })
+			Lab.add_ore("timePearl", "time")
+			return Lab.finish_run()["flavour"] == null)
+		assert_true(silent >= 0, "but not always")
+		for i in 20:
+			_bench("timePearl", { "time": 10 })
+			_perfect_time_pearl()
+			assert_eq(Lab.finish_run()["flavour"], null, "a good run never gets one")
 	)
