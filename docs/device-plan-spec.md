@@ -22,7 +22,7 @@ Naming collision to avoid: **barrel** is also the horological term for the drum 
 
 ## Scope
 
-Replaces/absorbs the existing devices.json system (`timeDevice`/`enhancementDevice`/`rewindDevice`, one calc type + one effect each, `player.equipment.device` single slot, `devicesInProgress`/`devicesCompleted` progress-bar build). Old devices retired outright, not kept alongside. Their unlock flags (`craftingUnlocked`, `enhancementUnlocked`) and recipe links (timePearl/enhancementPowder/rewind) carry forward as the first loadable recipes.
+Replaces/absorbs the existing devices.json system (`timeDevice`/`enhancementDevice`/`rewindDevice`, one calc type + one effect each, `player.equipment.device` single slot, `devicesInProgress`/`devicesCompleted` progress-bar build). Old devices retired outright, not kept alongside. Their unlock flag (`craftingUnlocked`) and recipe links (timePearl/enhancementPowder/rewind) carry forward as the first loadable recipes.
 
 ## The gift — why Dials are rare
 

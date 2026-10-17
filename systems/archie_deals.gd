@@ -38,7 +38,7 @@ static func deal_tier(cash: int) -> int:
 
 # Called from TimeSystem's daily tick. Only once the archie_motion event has
 # introduced the mechanic (mirrors Jobs.roll_daily_offer()'s own
-# jamesMotionEventSeen gate), and only when no offer is pending and no
+# jamesExperimentSeen gate), and only when no offer is pending and no
 # accepted deal (including any mugging it triggered) is still in progress.
 static func roll_daily_offer() -> void:
 	if not GameState.state["flags"]["archieMotionEventSeen"]:

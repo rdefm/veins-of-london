@@ -251,6 +251,9 @@ func _lint_condition(where: String, c: Dictionary, refs: Dictionary) -> Array:
 		return [] if GameState.read_path(c["path"]) != null else ["%s: unknown path %s" % [where, c["path"]]]
 	if c.has("cash"):
 		return []
+	if c.has("recipeRung"):
+		var r: Dictionary = c["recipeRung"]
+		return [] if RecipeKnowledge.rungs().has(r.get("rung")) and not Lab.procedure_def(str(r.get("recipe"))).is_empty() else ["%s: unknown recipe rung %s" % [where, JSON.stringify(r)]]
 	if c.has("choice"):
 		return _lint_choice_ref(where, c["choice"])
 	return ["%s: unknown condition %s" % [where, JSON.stringify(c)]]

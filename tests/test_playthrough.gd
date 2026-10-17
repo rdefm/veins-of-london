@@ -530,7 +530,7 @@ func run() -> void:
 		for i in range(10):
 			TimeSystem.daily_tick()
 			_assert_invariants("daily tick %d" % (i + 1))
-			assert_true(not GameState.state["flags"]["jamesJobActive"], "daily tick %d: James's job offer must not roll before jamesMotionEventSeen" % (i + 1))
+			assert_true(not GameState.state["flags"]["jamesJobActive"], "daily tick %d: James's job offer must not roll before jamesExperimentSeen" % (i + 1))
 			assert_true(not GameState.state["flags"]["archieDealActive"], "daily tick %d: Archie's deal offer must not roll before archieMotionEventSeen" % (i + 1))
 
 		# --- Save/load mid-run round-trip ---

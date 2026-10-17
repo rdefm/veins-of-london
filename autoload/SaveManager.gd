@@ -824,9 +824,9 @@ func _backfill_new_world_keys(result: Dictionary, defaults: Dictionary) -> void:
 
 # A pre-Dial save's devicesInProgress/devicesCompleted/equipment.device
 # are deliberately left untouched here -- they migrate into a null
-# player.dial, not a converted one, per the PRD. craftingUnlocked/
-# enhancementUnlocked live under "flags", a separate top-level key this
-# function doesn't touch, so they survive automatically.
+# player.dial, not a converted one, per the PRD. craftingUnlocked lives
+# under "flags", a separate top-level key this function doesn't touch, so
+# it survives automatically.
 func _backfill_new_player_keys(result: Dictionary, defaults: Dictionary) -> void:
 	if not result.has("player"):
 		return

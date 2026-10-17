@@ -23,22 +23,21 @@ func run() -> void:
 			assert_true(job["qty"] >= 5 and job["qty"] <= 10, "trust >= 4 should be qty 5-10, got %d" % job["qty"])
 	)
 
-	run_case("recipe_pool_excludes_enhancementPowder_until_unlocked", func():
+	run_case("recipe_pool_excludes_enhancementPowder_until_known", func():
 		GameState.reset()
-		GameState.state["flags"]["enhancementUnlocked"] = false
 		for seed in range(50):
 			Rng.set_seed(seed)
 			var job := Jobs.generate_james_job()
-			assert_eq(job["recipeKey"], "timePearl", "only timePearl should be offered before enhancementUnlocked")
+			assert_eq(job["recipeKey"], "timePearl", "only timePearl should be offered before enhancementPowder is known")
 
-		GameState.state["flags"]["enhancementUnlocked"] = true
+		Lab.grant_recipe("enhancementPowder")
 		var seen_enhancement := false
 		for seed in range(50):
 			Rng.set_seed(seed)
 			var job := Jobs.generate_james_job()
 			if job["recipeKey"] == "enhancementPowder":
 				seen_enhancement = true
-		assert_true(seen_enhancement, "enhancementPowder should appear in the pool once unlocked")
+		assert_true(seen_enhancement, "enhancementPowder should appear in the pool once known")
 	)
 
 	run_case("pay_per_item_follows_the_london_quote_after_a_reprice", func():
@@ -76,7 +75,7 @@ func run() -> void:
 	run_case("roll_daily_offer_always_offers_flat_pay_when_cash_at_or_below_threshold", func():
 		for seed in range(10):
 			GameState.reset()
-			GameState.state["flags"]["jamesMotionEventSeen"] = true
+			GameState.state["flags"]["jamesExperimentSeen"] = true
 			GameState.state["player"]["cash"] = Jobs.FLAT_PAY_LOW_CASH_THRESHOLD
 			Rng.set_seed(seed)
 			Jobs.roll_daily_offer()
@@ -87,7 +86,7 @@ func run() -> void:
 
 	run_case("roll_daily_offer_skips_entirely_when_a_job_is_already_active", func():
 		GameState.reset()
-		GameState.state["flags"]["jamesMotionEventSeen"] = true
+		GameState.state["flags"]["jamesExperimentSeen"] = true
 		var existing := Jobs.generate_flat_pay_job()
 		GameState.state["jamesJob"] = existing
 		GameState.state["flags"]["jamesJobActive"] = true
@@ -109,7 +108,7 @@ func run() -> void:
 		var hit := false
 		for seed in range(200):
 			GameState.reset()
-			GameState.state["flags"]["jamesMotionEventSeen"] = true
+			GameState.state["flags"]["jamesExperimentSeen"] = true
 			GameState.state["player"]["cash"] = Jobs.FLAT_PAY_LOW_CASH_THRESHOLD + 1
 			Rng.set_seed(seed)
 			Jobs.roll_daily_offer()
@@ -119,15 +118,15 @@ func run() -> void:
 		assert_true(hit, "an offer should eventually roll within 200 seeds at the baseline chances")
 	)
 
-	run_case("roll_daily_offer_never_fires_before_jamesMotionEventSeen", func():
+	run_case("roll_daily_offer_never_fires_before_jamesExperimentSeen", func():
 		for seed in range(20):
 			GameState.reset()
-			GameState.state["flags"]["jamesMotionEventSeen"] = false
+			GameState.state["flags"]["jamesExperimentSeen"] = false
 			GameState.state["player"]["cash"] = 0  # would force an offer if the gate were missing
 			Rng.set_seed(seed)
 			Jobs.roll_daily_offer()
-			assert_eq(GameState.state["flags"]["jamesJobActive"], false, "no offer should roll before jamesMotionEventSeen, seed %d" % seed)
-			assert_eq(GameState.state["jamesJob"], null, "no job should be set before jamesMotionEventSeen, seed %d" % seed)
+			assert_eq(GameState.state["flags"]["jamesJobActive"], false, "no offer should roll before jamesExperimentSeen, seed %d" % seed)
+			assert_eq(GameState.state["jamesJob"], null, "no job should be set before jamesExperimentSeen, seed %d" % seed)
 	)
 
 	run_case("decline_job_clears_job_and_active_flags_with_no_relation_change", func():

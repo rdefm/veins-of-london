@@ -829,9 +829,9 @@ func _add_result(content: VBoxContainer) -> void:
 	var lesson: Dictionary = _result.get("lesson", {})
 	# PROSE-REVIEW: lesson escalation lines.
 	if lesson.get("hintExact", false):
-		content.add_child(MapCardStyle.label("The hint sharpens: its band is exact now.", 14, MapCardStyle.action()))
+		content.add_child(MapCardStyle.label(LessonSession.line("hintExact", "The hint sharpens: its band is exact now."), 14, MapCardStyle.action()))
 	if lesson.get("talkThrough", false):
-		content.add_child(MapCardStyle.label("Talk-through: the bands you still need are shown exact.", 14, MapCardStyle.action()))
+		content.add_child(MapCardStyle.label(LessonSession.line("talkThrough", "Talk-through: the bands you still need are shown exact."), 14, MapCardStyle.action()))
 	if _notice != "":
 		content.add_child(MapCardStyle.label(_notice, 13, MapCardStyle.action()))
 	_add_rewind_controls(content)

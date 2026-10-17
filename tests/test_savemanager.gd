@@ -1497,7 +1497,7 @@ func run() -> void:
 				"devicesCompleted": [{ "id": "d2", "type": "rewindDevice", "level": 2, "xp": 60, "chargesPerDay": 2, "chargesUsedToday": 0, "lastResetDay": 3 }],
 				"equipment": { "weapon": "crowbar", "device": "d2" },
 			},
-			"flags": { "craftingUnlocked": true, "enhancementUnlocked": true },
+			"flags": { "craftingUnlocked": true },
 		}
 		var filled := SaveManager.backfill_defaults(incomplete)
 
@@ -1507,13 +1507,11 @@ func run() -> void:
 		assert_eq(filled["player"]["devicesCompleted"], [{ "id": "d2", "type": "rewindDevice", "level": 2, "xp": 60, "chargesPerDay": 2, "chargesUsedToday": 0, "lastResetDay": 3 }], "pre-Dial completed devices must be left untouched, not converted")
 		assert_eq(filled["player"]["equipment"], { "weapon": "crowbar", "device": "d2" }, "pre-Dial equipment.device must be left untouched, not converted")
 		assert_eq(filled["flags"]["craftingUnlocked"], true, "craftingUnlocked must survive the dial backfill untouched")
-		assert_eq(filled["flags"]["enhancementUnlocked"], true, "enhancementUnlocked must survive the dial backfill untouched")
 	)
 
 	# dial-device ticket 01, acceptance: a save with populated
 	# devicesInProgress/devicesCompleted/equipment.device and no player.dial
-	# loads without error into a null-Dial state, craftingUnlocked/
-	# enhancementUnlocked intact. Full import_string round trip (not just
+	# loads without error into a null-Dial state, craftingUnlocked intact. Full import_string round trip (not just
 	# backfill_defaults) to exercise the real load path.
 	run_case("loading_a_pre_dial_save_migrates_into_a_null_dial_state_with_old_unlocks_intact", func():
 		GameState.reset()
@@ -1523,7 +1521,6 @@ func run() -> void:
 		legacy["player"]["devicesCompleted"] = [{ "id": "d2", "type": "rewindDevice", "level": 2, "xp": 60, "chargesPerDay": 2, "chargesUsedToday": 0, "lastResetDay": 3 }]
 		legacy["player"]["equipment"] = { "weapon": "crowbar", "device": "d2" }
 		legacy["flags"]["craftingUnlocked"] = true
-		legacy["flags"]["enhancementUnlocked"] = true
 
 		var result := SaveManager.import_string(JSON.stringify(legacy))
 		assert_true(result["ok"], "a pre-Dial save should load without error")
@@ -1534,7 +1531,6 @@ func run() -> void:
 		assert_eq(player["devicesCompleted"][0]["id"], "d2", "old completed devices should survive the migration untouched")
 		assert_eq(player["equipment"], { "weapon": "crowbar", "device": "d2" }, "old equipment.device should survive the migration untouched")
 		assert_true(GameState.state["flags"]["craftingUnlocked"], "craftingUnlocked should stay true across the migration")
-		assert_true(GameState.state["flags"]["enhancementUnlocked"], "enhancementUnlocked should stay true across the migration")
 	)
 
 	# ticket 22: "player" has existed since M0, so a pre-stash save has it

@@ -341,7 +341,7 @@ func new_game_state() -> Dictionary:
 			# Idempotency guard: archie_2 SMS queues exactly once, not on
 			# every tick until the player acts.
 			"archieBuyerSmsQueued": false,
-			"jamesMotionEventSeen": false, "enhancementUnlocked": false,
+			"jamesExperimentSeen": false,
 			"jamesJobActive": false, "jamesJobAccepted": false,
 			# Gates ArchieDeals.roll_daily_offer() true from offer-queued
 			# until declined or its accepted deal (incl. any mugging fight) resolves.

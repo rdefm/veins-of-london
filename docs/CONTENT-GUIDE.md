@@ -17,7 +17,7 @@ Extract card arrays and SMS scripts from `reference/london-orichalchum.html` by 
 | james_meeting | JAMES_CARDS |
 | archie_craft_chat | ARCHIE_CRAFT_CHAT_CARDS |
 | archie_motion | ARCHIE_MOTION_CARDS |
-| james_motion | JAMES_MOTION_CARDS |
+| james_experiment | JAMES_MOTION_CARDS (opening exchange only, trimmed; the rest is new prose) |
 | home_raid_intro | HOME_RAID_INTRO_CARDS |
 | home_raid_debrief_win | HOME_RAID_WIN_CARDS |
 | home_raid_debrief_loss | HOME_RAID_LOSS_CARDS |

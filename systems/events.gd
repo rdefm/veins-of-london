@@ -529,7 +529,8 @@ static func _mod_delta(mod: Dictionary, toggled: Array = []) -> float:
 # (R§3.9a): {item} held, {item, equipped} in a loadout slot, {item, optional}
 # toggled on (toggled = active_toggles()), {flag} truthy, {choice: {event,
 # card, option}} remembered, {path, atLeast}, {relation, atLeast},
-# {cash: {atLeast}}. Unknown shapes never hold.
+# {cash: {atLeast}}, {recipeRung: {recipe, rung}} owned (vague or exact).
+# Unknown shapes never hold.
 static func condition_met(condition: Dictionary, toggled: Array = []) -> bool:
 	if condition.has("item"):
 		if condition.get("equipped", false):
@@ -549,6 +550,9 @@ static func condition_met(condition: Dictionary, toggled: Array = []) -> bool:
 		return contact.get("relation", 0) >= condition["atLeast"]
 	if condition.has("cash"):
 		return GameState.state["player"]["cash"] >= condition["cash"]["atLeast"]
+	if condition.has("recipeRung"):
+		var r: Dictionary = condition["recipeRung"]
+		return RecipeKnowledge.owns_rung(r["recipe"], r["rung"])
 	return false
 
 
@@ -960,7 +964,7 @@ static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 				Notify.push(granted["line"])
 		# Pauses the event at the bench (LessonSession) until a run reaches rank.
 		"start_lesson_session":
-			var opened: Dictionary = LessonSession.start(effect["recipe"], int(effect["rank"]), effect.get("hintRung", ""))
+			var opened: Dictionary = LessonSession.start(effect["recipe"], int(effect["rank"]), effect.get("hintRung", ""), effect.get("lines", {}))
 			if not opened["ok"]:
 				push_error("Events: start_lesson_session refused: %s" % opened["reason"])
 		# The site was already created at roll time (Collective.maybe_trigger_hakim_intel())

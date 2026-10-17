@@ -4,7 +4,9 @@ extends RefCounted
 # A locked lesson at the live bench (.scratch/recipe-acquisition/spec.md
 # § Bench lesson session), opened by the start_lesson_session event op.
 # state.lab.lesson is null, or { recipe, goalRank, hintRung, pool (ore type
-# -> calc the lesson's runs draw on), failedRuns, met, returnScreen }.
+# -> calc the lesson's runs draw on), failedRuns, met, returnScreen, lines
+# (escalation key hintExact/talkThrough -> the line the bench shows instead
+# of its own) }.
 #
 # While a lesson is open: the bench is docked on its recipe, runs draw calc
 # from the pool instead of the player's stock (Lab.calc_available), the
@@ -37,7 +39,7 @@ static func is_running() -> bool:
 
 # Opens the lesson for a known (or here granted) recipe, teaching hintRung
 # vague, and docks the bench on it. Refused while a lesson or run is open.
-static func start(recipe_key: String, goal_rank: int, hint_rung: String = "") -> Dictionary:
+static func start(recipe_key: String, goal_rank: int, hint_rung: String = "", lines: Dictionary = {}) -> Dictionary:
 	if is_open():
 		return { "ok": false, "reason": "A lesson is already open." }
 	if Lab.active_run() != null:
@@ -51,6 +53,7 @@ static func start(recipe_key: String, goal_rank: int, hint_rung: String = "") ->
 		"recipe": recipe_key, "goalRank": goal_rank, "hintRung": hint_rung,
 		"pool": Lab.base_calc(recipe_key), "failedRuns": 0, "met": false,
 		"returnScreen": "event" if GameState.state["event"] != null else "hq",
+		"lines": lines.duplicate(),
 	}
 	Nav.go_to("hq_lab_bench")
 	return { "ok": true }
@@ -58,6 +61,13 @@ static func start(recipe_key: String, goal_rank: int, hint_rung: String = "") ->
 
 static func pool() -> Dictionary:
 	return lesson()["pool"]
+
+
+# The open lesson's own line for an escalation key, or fallback.
+static func line(key: String, fallback: String) -> String:
+	if not is_open():
+		return fallback
+	return str(lesson().get("lines", {}).get(key, fallback))
 
 
 # Why the open lesson refuses a run of this recipe, or "" when it allows it

@@ -263,14 +263,14 @@ func run() -> void:
 	run_case("james_card_surfaces_a_pending_message_as_a_generic_continue_button", func():
 		GameState.reset()
 		GameState.state["contacts"]["james"]["unlocked"] = true
-		Messages.queue_pending("james", "james_motion", "Overflow work, if you're capable of it. Come by.")
+		Messages.queue_pending("james", "james_experiment", "Overflow work, if you're capable of it. Come by.")
 
 		var button := NodeQuery.find_button(ContactCards.build_james_card(), "Continue →")
 		assert_true(button != null, "pendingMessages entries surface the same generic way on james's card")
 
 		button.pressed.emit()
 
-		assert_eq(GameState.state["event"]["eventId"], "james_motion", "pressing it resolves the pending entry and starts its event")
+		assert_eq(GameState.state["event"]["eventId"], "james_experiment", "pressing it resolves the pending entry and starts its event")
 		assert_true(Messages.pending_for("james").is_empty(), "the pending entry is resolved once acted on")
 	)
 
@@ -382,7 +382,7 @@ func run() -> void:
 	run_case("apply_phone_os_chrome_recolours_a_symbol_buttons_own_label_not_just_the_button", func():
 		GameState.reset()
 		GameState.state["contacts"]["james"]["unlocked"] = true
-		GameState.state["flags"]["jamesMotionEventSeen"] = true
+		GameState.state["flags"]["jamesExperimentSeen"] = true
 		GameState.state["flags"]["jamesJobActive"] = true
 		GameState.state["flags"]["jamesJobAccepted"] = true
 		GameState.state["jamesJob"] = { "type": "craft", "recipeKey": "timePearl", "recipeName": "Test Recipe", "symbol": "physics", "qty": 3 }

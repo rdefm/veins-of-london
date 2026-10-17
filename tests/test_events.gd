@@ -2013,16 +2013,9 @@ func run() -> void:
 		assert_true(GameState.state["flags"]["archieMotionEventSeen"], "archie_motion: seen")
 		# 83-contacts-archie-james-sms-port: the "visit James" trigger now
 		# arrives as a pendingMessages entry on James's own thread.
-		var james_motion_pending := Messages.pending_for("james")
-		assert_true(james_motion_pending.size() > 0 and james_motion_pending.back()["kind"] == "james_motion", "archie_motion: queues the james_motion pending entry")
-
-		var james_relation_before: int = GameState.state["contacts"]["james"]["relation"]
-		Events.start_event("james_motion")
-		for i in range(GameData.EVENTS["james_motion"]["cards"].size()):
-			Events.advance()
-		assert_true(GameState.state["flags"]["jamesMotionEventSeen"], "james_motion: seen")
-		assert_true(GameState.state["flags"]["enhancementUnlocked"], "james_motion: enhancementUnlocked")
-		assert_eq(GameState.state["contacts"]["james"]["relation"], james_relation_before + 1, "james_motion: james relation +1")
+		# james_experiment (with its bench lesson) plays in test_james_experiment.gd.
+		var james_pending := Messages.pending_for("james")
+		assert_true(james_pending.size() > 0 and james_pending.back()["kind"] == "james_experiment", "archie_motion: queues the james_experiment pending entry")
 	)
 
 	run_case("start_event_with_an_unknown_id_opens_nothing", func():

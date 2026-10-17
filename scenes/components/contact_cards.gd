@@ -357,7 +357,7 @@ static func build_james_card() -> Control:
 	c["content"].add_child(build_messages_button("james"))
 	c["content"].add_child(build_recipe_trade_action("james"))
 
-	if flags["jamesMotionEventSeen"]:
+	if flags["jamesExperimentSeen"]:
 		var job_active: bool = flags["jamesJobActive"] and GameState.state["jamesJob"] != null
 		if job_active:
 			var job: Dictionary = GameState.state["jamesJob"]

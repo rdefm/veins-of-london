@@ -86,7 +86,6 @@ func run() -> void:
 		_staff_lab("archie", 1)
 		GameState.state["contacts"]["archie"]["specialities"] = ["life"]
 		GameState.state["flags"]["craftingUnlocked"] = false
-		GameState.state["flags"]["enhancementUnlocked"] = false
 		GameState.state["labThresholds"]["timePearl"] = 5
 		GameState.state["labThresholds"]["enhancementPowder"] = 1
 		GameState.state["labThresholds"]["wormhole"] = 5

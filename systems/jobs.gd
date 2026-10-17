@@ -4,9 +4,9 @@ extends RefCounted
 # James jobs per R§3.10 + §1.11 trust bands. Static funcs only. James
 # offers jobs proactively (roll_daily_offer(), called from
 # time_system.gd's daily tick) -- there is no player-initiated "ask for
-# work". Gated on jamesMotionEventSeen directly in roll_daily_offer(), not
+# work". Gated on jamesExperimentSeen directly in roll_daily_offer(), not
 # just in ContactCards.build_james_card()'s UI, so the daily tick can't
-# push an offer/Notify naming James before james_motion.json has played.
+# push an offer/Notify naming James before james_experiment.json has played.
 #
 # Two job types share the jamesJob/jamesJobActive lifecycle, distinguished
 # by job["type"]:
@@ -30,7 +30,7 @@ const MISSED_DEADLINE_RELATION_PENALTY := -5
 static func generate_james_job() -> Dictionary:
 	var trust: int = GameState.state["contacts"]["james"]["relation"]
 	var recipe_pool: Array[String] = ["timePearl"]
-	if GameState.state["flags"]["enhancementUnlocked"]:
+	if Lab.is_known("enhancementPowder"):
 		recipe_pool.append("enhancementPowder")
 	var recipe_key: String = Rng.rand_from(recipe_pool)
 	var recipe: Dictionary = GameData.RECIPES[recipe_key]
@@ -71,7 +71,7 @@ static func generate_flat_pay_job() -> Dictionary:
 # per day: type-1 (flat pay) first, its chance scaling to 100% once the
 # player is nearly broke; type-2 (craft) only gets a roll if type-1 misses.
 static func roll_daily_offer() -> void:
-	if not GameState.state["flags"]["jamesMotionEventSeen"]:
+	if not GameState.state["flags"]["jamesExperimentSeen"]:
 		return
 	if GameState.state["flags"]["jamesJobActive"]:
 		return
