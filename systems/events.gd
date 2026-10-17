@@ -714,11 +714,16 @@ static func choice_id(event_id: String, card_index: int) -> Variant:
 # Shared by advance()/choose(). event.snapshots must be emptied before the deep
 # copy -- it lives inside the tree being copied, and left in place would embed
 # every prior snapshot into the new one, compounding across a long event.
+# state.blockStart (a whole-state copy, Rewind) is left out the same way;
+# rewind() keeps the live one.
 static func _snapshot_before_mutation() -> void:
 	var event_state: Dictionary = GameState.state["event"]
 	var stack: Array = event_state["snapshots"]
 	event_state["snapshots"] = []
+	var block_start: Variant = GameState.state.get("blockStart")
+	GameState.state["blockStart"] = null
 	var snap: Dictionary = GameState.deep_copy(GameState.state)
+	GameState.state["blockStart"] = block_start
 	event_state["snapshots"] = stack
 	Snapshots.push("event", stack, snap)
 
@@ -745,7 +750,9 @@ static func rewind(source: String = "") -> Dictionary:
 	var snap: Dictionary = Snapshots.pop_newest(stack)
 	var live_meta: Dictionary = GameState.state["meta"].duplicate()
 	var live_rolled: Dictionary = _rolled(event_state)
+	var block_start: Variant = GameState.state.get("blockStart")
 	GameState.state = snap
+	GameState.state["blockStart"] = block_start
 	Preferences.carry_forward(live_meta)
 	# snap's own event.snapshots is always [] (see advance()) -- carry the real,
 	# already-popped live stack forward instead of trusting that.

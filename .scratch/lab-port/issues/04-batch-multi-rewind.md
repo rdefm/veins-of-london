@@ -11,9 +11,10 @@
 
 **Status:** ready-for-agent
 
-- [ ] Batch refused unless recipe in `performedOnce`; crafts at best rank; costs base calc × N; never fails; XP = `xpReward` per item; items filed through the Crafting entry point
-- [ ] Batch never fires the manual-run hook
-- [ ] Multi variant available only at best rank ≥ 3; `craftMulti` and `_multi` key kept
-- [ ] Rewind point taken at the run's first jar tap
-- [ ] Rewind refused with no item and no loaded complication; consumes exactly one
-- [ ] Rewind restores `lab`, `player.orichalchum` and active-effect state to the snapshot
+- [x] Batch refused unless recipe in `performedOnce`; crafts at best rank; costs base calc × N; never fails; XP = `xpReward` per item; items filed through the Crafting entry point
+- [x] Batch never fires the manual-run hook
+- [x] Multi variant available only at best rank ≥ 3; `craftMulti` and `_multi` key kept
+- [x] Rewind point taken at the run's first jar tap
+- [x] Rewind refused with no item and no loaded complication; consumes exactly one
+- [x] Rewind restores calc, items filed, mid-run effect items and active-effect state; keeps XP + Lab knowledge (design revised with the human, spec § Rewind)
+- [x] Time-block Rewind (`Rewind.rewind_to_block_start`): keeps XP, Lab knowledge, loadout, Dial; never saved

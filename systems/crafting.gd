@@ -69,10 +69,11 @@ static func inventory_key(recipe_key: String, multi: bool) -> String:
 
 
 # Whether the player may pick multi-target when crafting recipe_key right now:
-# craftable list, and the bench tier has reached the minimum.
+# craftable list, and the recipe's Lab best rank has reached the minimum.
 static func multi_craft_available(recipe_key: String) -> bool:
 	var cfg: Dictionary = GameData.LOADOUT["multiTarget"]
-	return cfg["craftable"].has(recipe_key) and quality_tier(recipe_key) >= int(cfg["minTier"])
+	var best := int(GameState.state["lab"]["bestRanks"].get(recipe_key, 0))
+	return cfg["craftable"].has(recipe_key) and best >= int(cfg["minTier"])
 
 
 # The checkbox state, false whenever multi isn't available.

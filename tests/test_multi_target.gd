@@ -10,6 +10,7 @@ func _set_tier(recipe_key: String, tier: int) -> void:
 	var d: Dictionary = GameData.RECIPES[recipe_key]["discovery"]
 	var key := Bench.cell_key(d["types"], d["approach"])
 	GameState.state["player"]["bench"]["cells"][key] = { "state": "hot", "misses": 0, "tier": tier, "progress": 0 }
+	GameState.state["lab"]["bestRanks"][recipe_key] = tier
 
 
 func _stock(key: String, tier: int) -> int:

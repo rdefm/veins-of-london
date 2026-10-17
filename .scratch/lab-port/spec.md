@@ -74,6 +74,7 @@ The prototype becomes the live Lab, replacing the lottery bench entirely:
 ### Rewind
 30. As a player, I want to Rewind a run by spending a Rewind (an item or a loaded Dial complication), so that the bench follows the same Rewind rules as events and combat.
 31. As a player, I want a Rewind to restore everything to just before the run, calc included, so that a botched run can be undone.
+31a. As a player, I want the choice to Rewind just the last craft, or the whole current time block, so that undoing a craft doesn't force me to lose all my other progress.
 
 ### Rewards and side effects
 32. As a player, I want manual runs and auto-crafted items to award crafting XP (a cracked or abandoned run gives a third), so that crafting levels me up.
@@ -154,8 +155,9 @@ The prototype becomes the live Lab, replacing the lottery bench entirely:
 - The multi-target variant is available when the best rank is ≥ 3. The existing `craftMulti` checkbox and `_multi` inventory key are kept.
 
 ### Rewind
-- The bench Rewind follows the event/combat contract. It needs a Rewind point (a snapshot taken at the run's first jar tap) and either a `rewind` item or a loaded Dial Rewind complication, which it consumes.
-- It restores `lab`, `player.orichalchum` and the active-effect state to the snapshot.
+- Every Rewind costs one `rewind` item or one charge of a loaded Dial Rewind complication (the event/combat contract), and the player always keeps XP: they remember everything. Lab knowledge (known steps, best ranks, `performedOnce`) is kept too.
+- **Rewind last craft:** the Rewind point (`lab.lastCraft`) opens at a run's first jar tap or at a batch, and a new run or batch replaces it. Rewinding refunds the calc the craft spent, removes the items it filed, returns effect items used mid-run, puts active effects back to before it and closes an open run. Refused once the items it made have left the inventory.
+- **Rewind the time block:** `state.blockStart`, a copy of the whole state, is taken as each time block opens. Rewinding restores it, keeping XP and skill levels, Lab knowledge, preferences, the loadout and the Dial, and squares inventory and Movements so equipped units are neither lost nor doubled. Refused mid-event or mid-fight. `blockStart` is never saved, so a loaded game has no block point until the clock moves.
 
 ### Staff (Rooms)
 - Staff keep their speciality-based recipe eligibility and Production targets, and keep their existing crafting chance roll.

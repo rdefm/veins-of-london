@@ -24,6 +24,7 @@ static func advance_time_block() -> void:
 		world["currentDistrict"] = "shoreditch"
 		daily_tick()
 	ActiveEffects.expire()
+	Rewind.mark_block_start()
 	EventBus.time_advanced.emit(source, { "day": world["day"], "phase": world["timeBlock"] })
 	EventBus.state_changed.emit()
 
@@ -44,6 +45,7 @@ static func advance_to_block(block_name: String) -> bool:
 		world["timeBlocksDone"].append(world["timeBlock"])
 		world["timeBlock"] += 1
 	ActiveEffects.expire()
+	Rewind.mark_block_start()
 	EventBus.state_changed.emit()
 	return true
 

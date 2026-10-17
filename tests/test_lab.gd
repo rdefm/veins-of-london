@@ -2,6 +2,7 @@ extends "res://tests/test_base.gd"
 
 const TEST_SLOT := 87
 const SeedSearch := preload("res://tests/support/seed_search.gd")
+const Fixtures := preload("res://tests/support/fixtures.gd")
 
 var _real_bonus_chance: float
 
@@ -161,6 +162,7 @@ func run() -> void:
 	_real_bonus_chance = GameData.LAB["bonus"]["chance"]
 	_register_run_cases()
 	_register_learning_cases()
+	_register_batch_rewind_cases()
 	GameData.LAB["bonus"]["chance"] = _real_bonus_chance
 
 
@@ -561,4 +563,165 @@ func _register_learning_cases() -> void:
 			_bench("timePearl", { "time": 10 })
 			_perfect_time_pearl()
 			assert_eq(Lab.finish_run()["flavour"], null, "a good run never gets one")
+	)
+
+
+func _stock(key: String) -> Dictionary:
+	return GameState.state["player"]["inventory"].get(key, {})
+
+
+# A finished-able timePearl run that scores 40 raw (rank 3 with a level 2 Lady).
+func _rank_three_time_pearl() -> void:
+	Lab.add_ore("timePearl", "time")
+	Lab.perform_step("compression", 70.0)
+	Lab.perform_step("heat", 25.0)
+
+
+func _register_batch_rewind_cases() -> void:
+	run_case("batch_needs_a_hand_performed_recipe", func():
+		_bench("timePearl", { "time": 30 })
+		assert_true(not Lab.batch("timePearl", 2)["ok"], "refused before a manual run")
+		assert_eq(_calc("time"), 30, "nothing spent")
+		_perfect_time_pearl()
+		Lab.finish_run()
+		assert_true(Lab.batch("timePearl", 2)["ok"], "allowed once performed")
+	)
+
+	run_case("batch_crafts_at_best_rank_for_base_calc_and_never_fails", func():
+		var player := _bench("timePearl", { "time": 100 })
+		Crafting.inventory_add(ActiveEffects.LADY, 2, 1)
+		Lab.use_effect(ActiveEffects.LADY)
+		_rank_three_time_pearl()
+		Lab.finish_run()
+		player["activeEffects"] = []
+		var calc_before := _calc("time")
+		var xp_before := int(player["craftingXP"])
+		var crafted_before := int(player["craftedCounts"].get("timePearl", 0))
+		var result := Lab.batch("timePearl", 4)
+		assert_eq([result["items"], result["rank"]], [4, 3], "4 items at best rank 3")
+		assert_eq(_stock("timePearl"), { "3": 5 }, "filed at tier 3 alongside the run's")
+		assert_eq(calc_before - _calc("time"), 12, "base calc 3 x 4")
+		assert_eq(int(player["craftingXP"]) - xp_before, int(GameData.RECIPES["timePearl"]["xpReward"]) * 4, "xpReward per item")
+		assert_eq(int(player["craftedCounts"]["timePearl"]) - crafted_before, 4, "filed through Crafting")
+		assert_true(not Lab.batch("timePearl", 100)["ok"], "short of calc refused")
+		assert_true(not Lab.batch("timePearl", 0)["ok"], "count < 1 refused")
+	)
+
+	run_case("batch_never_fires_the_manual_run_hook", func():
+		_bench("timePearl", { "time": 30 })
+		_perfect_time_pearl()
+		Lab.finish_run()
+		var heard := []
+		var listener := func(payload: Dictionary): heard.append(payload)
+		EventBus.lab_run_completed.connect(listener)
+		Lab.batch("timePearl", 3)
+		EventBus.lab_run_completed.disconnect(listener)
+		assert_eq(heard, [], "no hook for batch")
+	)
+
+	run_case("multi_variant_gated_at_best_rank_three", func():
+		_bench("healingBurst", { "life": 100, "time": 100 })
+		GameState.state["lab"]["performedOnce"].append("healingBurst")
+		GameState.state["lab"]["bestRanks"]["healingBurst"] = 2
+		assert_true(not Crafting.multi_craft_available("healingBurst"), "rank 2: no multi")
+		Lab.batch("healingBurst", 1, true)
+		assert_eq(_stock("healingBurst"), { "2": 1 }, "multi ignored below rank 3")
+		GameState.state["lab"]["bestRanks"]["healingBurst"] = 3
+		assert_true(Crafting.multi_craft_available("healingBurst"), "rank 3: multi")
+		var result := Lab.batch("healingBurst", 2, true)
+		assert_true(result["multi"], "multi batch")
+		assert_eq(_stock(Crafting.inventory_key("healingBurst", true)), { "3": 2 }, "filed under the _multi key")
+	)
+
+	run_case("rewind_point_opens_at_the_first_jar_tap", func():
+		_bench("timePearl", { "time": 10 })
+		assert_true(not Lab.has_rewind_point(), "none before a run")
+		Lab.add_ore("timePearl", "time")
+		assert_true(Lab.has_rewind_point(), "taken at the first tap")
+		assert_eq(GameState.state["lab"]["lastCraft"]["calcSpent"], { "time": 3 }, "spend noted")
+	)
+
+	run_case("rewind_refused_without_an_item_or_loaded_complication", func():
+		_bench("timePearl", { "time": 10 })
+		_perfect_time_pearl()
+		Lab.finish_run()
+		assert_true(not Lab.can_rewind(), "can't pay")
+		assert_true(not Lab.rewind()["ok"], "refused")
+		assert_eq(_stock("timePearl"), { "5": 1 }, "item kept")
+		assert_eq(_calc("time"), 7, "calc stays spent")
+	)
+
+	run_case("rewind_consumes_exactly_one_item_or_charge", func():
+		_bench("timePearl", { "time": 10 })
+		Crafting.inventory_add("rewind", 1, 2)
+		_perfect_time_pearl()
+		Lab.finish_run()
+		assert_true(Lab.rewind()["ok"], "rewound with an item")
+		assert_eq(Crafting.inventory_qty("rewind"), 1, "one item spent")
+		assert_true(not Lab.rewind()["ok"], "point used up")
+		assert_eq(Crafting.inventory_qty("rewind"), 1, "a refused rewind spends nothing")
+		var player: Dictionary = GameState.state["player"]
+		Crafting.inventory_remove("rewind", 1)
+		player["dial"] = Fixtures.dial_with_loaded("rewind", 1, 5)
+		_perfect_time_pearl()
+		Lab.finish_run()
+		assert_true(Lab.rewind()["ok"], "rewound with a Dial charge")
+		assert_eq(int(player["dial"]["currentCharge"]), 4, "one Dial charge spent")
+	)
+
+	run_case("rewind_restores_calc_items_effects_and_keeps_xp_and_knowledge", func():
+		var player := _bench("timePearl", { "time": 10 })
+		Crafting.inventory_add("rewind", 1, 1)
+		Crafting.inventory_add(ActiveEffects.LADY, 2, 1)
+		var lab: Dictionary = GameState.state["lab"]
+		var xp_before := int(player["craftingXP"])
+		_rank_three_time_pearl()
+		Lab.use_effect(ActiveEffects.LADY)
+		Lab.finish_run()
+		var xp_after := int(player["craftingXP"])
+		var known_after: Dictionary = lab["known"].duplicate(true)
+		assert_true(Lab.rewind()["ok"], "rewound")
+		assert_eq(_calc("time"), 10, "calc back")
+		assert_eq(Crafting.inventory_qty("timePearl"), 0, "item gone")
+		assert_eq(_stock(ActiveEffects.LADY), { "2": 1 }, "Lady used mid-run comes back")
+		assert_eq(player["activeEffects"], [], "effects as before the run")
+		assert_eq(Lab.active_run(), null, "no run open")
+		assert_true(xp_after > xp_before and int(player["craftingXP"]) == xp_after, "XP kept")
+		assert_eq([lab["bestRanks"]["timePearl"], lab["performedOnce"], lab["known"]], [3, ["timePearl"], known_after], "knowledge kept")
+	)
+
+	run_case("rewind_mid_run_refunds_and_closes_it", func():
+		_bench("timePearl", { "time": 10 })
+		Crafting.inventory_add("rewind", 1, 1)
+		Lab.add_ore("timePearl", "time")
+		Lab.add_ore("timePearl", "time")
+		assert_true(Lab.rewind()["ok"], "rewound mid-run")
+		assert_eq(_calc("time"), 10, "both taps refunded")
+		assert_eq(Lab.active_run(), null, "run closed")
+	)
+
+	run_case("rewind_undoes_a_batch_and_refuses_once_its_items_are_gone", func():
+		_bench("timePearl", { "time": 30 })
+		Crafting.inventory_add("rewind", 1, 2)
+		_perfect_time_pearl()
+		Lab.finish_run()
+		Lab.batch("timePearl", 3)
+		assert_true(Lab.rewind()["ok"], "batch rewound")
+		assert_eq([_calc("time"), _stock("timePearl")], [27, { "5": 1 }], "batch calc back, run's item kept")
+		Lab.batch("timePearl", 2)
+		Crafting.inventory_remove("timePearl", 3)
+		assert_true(not Lab.rewind()["ok"], "items sold or used: refused")
+		assert_eq(Crafting.inventory_qty("rewind"), 1, "nothing spent")
+	)
+
+	run_case("lab_rewind_point_round_trips_through_save", func():
+		_bench("timePearl", { "time": 10 })
+		_perfect_time_pearl()
+		Lab.finish_run()
+		var before: Dictionary = GameState.deep_copy(GameState.state["lab"]["lastCraft"])
+		assert_true(SaveManager.save_to_slot(TEST_SLOT)["ok"], "saved")
+		GameState.reset()
+		assert_true(SaveManager.load_from_slot(TEST_SLOT)["ok"], "loaded")
+		SaveManager.delete_slot(TEST_SLOT)
+		assert_eq(GameState.state["lab"]["lastCraft"], before, "point survives with int types")
 	)

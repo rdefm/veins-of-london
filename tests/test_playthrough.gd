@@ -545,6 +545,7 @@ func run() -> void:
 
 		# --- Save/load mid-run round-trip ---
 		var pre_save: Dictionary = GameState.deep_copy(GameState.state)
+		pre_save["blockStart"] = null  # Rewind's block point is never saved.
 		var save_result := SaveManager.save_to_slot(0)
 		assert_true(save_result["ok"], "save should succeed")
 		GameState.reset()

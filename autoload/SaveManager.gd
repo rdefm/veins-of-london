@@ -49,7 +49,7 @@ func slot_summary(slot: int) -> Dictionary:
 
 func save_to_slot(slot: int) -> Dictionary:
 	DirAccess.make_dir_recursive_absolute(saves_dir)
-	return _write_json(slot_path(slot), GameState.state)
+	return _write_json(slot_path(slot), _saveable_state())
 
 
 func load_from_slot(slot: int) -> Dictionary:
@@ -67,7 +67,7 @@ func delete_slot(slot: int) -> void:
 func autosave() -> Dictionary:
 	DirAccess.make_dir_recursive_absolute(autosave_dir)
 	var index := _find_autosave_slot_to_write()
-	return _write_json(autosave_path(index), GameState.state)
+	return _write_json(autosave_path(index), _saveable_state())
 
 
 func _find_autosave_slot_to_write() -> int:
@@ -85,7 +85,7 @@ func _find_autosave_slot_to_write() -> int:
 
 
 func export_string() -> String:
-	return JSON.stringify(GameState.state)
+	return JSON.stringify(_saveable_state())
 
 
 func import_string(text: String) -> Dictionary:
@@ -93,6 +93,14 @@ func import_string(text: String) -> Dictionary:
 	if parsed == null or typeof(parsed) != TYPE_DICTIONARY:
 		return { "ok": false, "reason": "Invalid save data." }
 	return _load_save_dict(parsed)
+
+
+# GameState.state minus state.blockStart (Rewind's whole-state copy), which
+# is never saved.
+func _saveable_state() -> Dictionary:
+	var saveable: Dictionary = GameState.state.duplicate()
+	saveable["blockStart"] = null
+	return saveable
 
 
 func _write_json(path: String, data: Dictionary) -> Dictionary:
@@ -122,6 +130,7 @@ func _load_save_dict(raw: Dictionary) -> Dictionary:
 		return version_check
 
 	var filled := backfill_defaults(raw)
+	filled["blockStart"] = null
 	_restore_int_types(filled)
 	_migrate_versions(filled)
 	_reopen_inert_occupied_bench_cells(filled)
@@ -1398,6 +1407,17 @@ func _restore_lab_int_types(lab: Dictionary) -> void:
 	_int_dict_values(lab.get("bestRanks", {}))
 	for entry in lab.get("known", {}).values():
 		_int_dict_values(entry.get("vagueHits", {}))
+	var point = lab.get("lastCraft")
+	if point is Dictionary:
+		_int_dict_values(point.get("calcSpent", {}))
+		for entry in point.get("filed", []):
+			_int_key(entry, "tier")
+			_int_key(entry, "qty")
+		for entry in point.get("used", []):
+			_int_key(entry, "tier")
+		for effect in point.get("activeEffects", []):
+			_int_key(effect, "level")
+			_int_key(effect, "expiresAtBlock")
 
 
 func _restore_bench_prototype_int_types(bench: Dictionary) -> void:

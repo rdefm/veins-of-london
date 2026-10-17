@@ -321,6 +321,9 @@ func new_game_state() -> Dictionary:
 		# The live Lab (systems/lab.gd): recipe knowledge, best ranks, the
 		# run in progress and which recipes have been performed by hand.
 		"lab": Lab.new_state(),
+		# Rewind.mark_block_start()'s copy of the whole state as the current
+		# time block opened, or null. Never saved.
+		"blockStart": null,
 
 		"jamesJob": null,
 		"pendingSaleCut": 0,

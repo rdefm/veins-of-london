@@ -18,6 +18,9 @@ extends RefCounted
 # Crafting, gives each step a clue that can teach hidden steps, and may roll
 # the re-run bonus. A compress past crackAt cracks the vessel; it and
 # abandon_run() lose the calc and give no item. No time block is spent.
+#
+# batch() crafts a hand-performed recipe ×N at its best rank. rewind()
+# undoes the last run or batch (see § Rewind below).
 
 
 static func _data() -> Dictionary:
@@ -38,6 +41,11 @@ static func new_state() -> Dictionary:
 		"activeRun": null,
 		# Recipe keys performed by hand at least once (batch needs one).
 		"performedOnce": [],
+		# The Rewind point for the last run or batch, or null: { activeEffects
+		# (player.activeEffects before it), calcSpent (net ore type -> n),
+		# filed ([{ key, tier, qty }] items it filed), used ([{ item, tier }]
+		# effect items used mid-run) }.
+		"lastCraft": null,
 	}
 
 
@@ -400,6 +408,7 @@ static func _spend_calc(ore_type: String, amount: int) -> bool:
 		return false
 	var orichalchum: Dictionary = GameState.state["player"]["orichalchum"]
 	orichalchum[ore_type] = calc_available(ore_type) - amount
+	_note_calc(ore_type, amount)
 	return true
 
 
@@ -447,8 +456,11 @@ static func add_ore(recipe_key: String, ore_type: String) -> Dictionary:
 		var ore_name: String = GameData.ORE_TYPES.get(ore_type, {}).get("name", ore_type)
 		var recipe_name: String = GameData.RECIPES.get(recipe_key, {}).get("name", "This recipe")
 		return { "ok": false, "reason": "%s doesn't use %s." % [recipe_name, ore_name] }
-	if not _spend_calc(ore_type, amount):
+	if calc_available(ore_type) < amount:
 		return { "ok": false, "reason": "Not enough calc." }
+	if run == null:
+		_open_rewind_point()
+	_spend_calc(ore_type, amount)
 	if run == null:
 		run = {
 			"recipe": recipe_key, "startedMsec": Time.get_ticks_msec(), "calcSpent": {},
@@ -581,8 +593,8 @@ static func finish_run() -> Dictionary:
 	for ore_type in run["calcSpent"].keys():
 		net_calc[ore_type] = int(run["calcSpent"][ore_type]) - int(refunded.get(ore_type, 0))
 	s["activeRun"] = null
-	Crafting.file_crafted(recipe_key, rank, 1, false, net_calc, xp)
-	Crafting.file_crafted(recipe_key, rank, extra_items, false, {}, 0)
+	_file(recipe_key, rank, 1, false, net_calc, xp)
+	_file(recipe_key, rank, extra_items, false, {}, 0)
 	var result := {
 		"ok": true, "recipe": recipe_key, "outcome": "finished", "score": score,
 		"rawScore": scored["score"], "ladyBonus": lady_bonus, "rank": rank,
@@ -614,6 +626,7 @@ static func _refund_calc(spent: Dictionary, fraction: float) -> Dictionary:
 		if amount > 0:
 			orichalchum[ore_type] = calc_available(ore_type) + amount
 			refunded[ore_type] = amount
+			_note_calc(ore_type, -amount)
 	return refunded
 
 
@@ -736,7 +749,133 @@ static func usable_effects() -> Array:
 	return [ActiveEffects.PROPHETS_BREATH, ActiveEffects.LADY]
 
 
+# An item used mid-run comes back if the run is Rewound.
 static func use_effect(item: String) -> Dictionary:
 	if not usable_effects().has(item):
 		return { "ok": false, "reason": "Can't use that here." }
-	return ActiveEffects.use(item)
+	var result := ActiveEffects.use(item)
+	var point = _root()["lastCraft"]
+	if result["ok"] and active_run() != null and point != null:
+		point["used"].append({ "item": item, "tier": int(result["level"]) })
+	return result
+
+
+
+# ── Batch ────────────────────────────────────────────────────────────────
+
+# Crafts `count` of a recipe performed by hand at least once, at its best
+# rank, for base calc × count: no performance, never fails, xpReward XP per
+# item and no manual-run hook. multi files under the multi-target key when
+# Crafting.multi_craft_available() allows it.
+static func batch(recipe_key: String, count: int, multi: bool = false) -> Dictionary:
+	var s := _root()
+	if s["activeRun"] != null:
+		return { "ok": false, "reason": "Finish the open run first." }
+	if count < 1 or not is_known(recipe_key):
+		return { "ok": false, "reason": "Nothing to craft." }
+	if not s["performedOnce"].has(recipe_key):
+		return { "ok": false, "reason": "Craft it by hand first." }
+	var per_item := base_calc(recipe_key)
+	for ore_type in per_item.keys():
+		if calc_available(ore_type) < int(per_item[ore_type]) * count:
+			return { "ok": false, "reason": "Not enough calc." }
+	multi = multi and Crafting.multi_craft_available(recipe_key)
+	var rank := int(s["bestRanks"].get(recipe_key, 1))
+	var xp := int(GameData.RECIPES[recipe_key]["xpReward"]) * count
+	_open_rewind_point()
+	for ore_type in per_item.keys():
+		_spend_calc(ore_type, int(per_item[ore_type]) * count)
+	_file(recipe_key, rank, count, multi, per_item, xp)
+	return {
+		"ok": true, "recipe": recipe_key, "items": count, "rank": rank,
+		"multi": multi, "xp": xp,
+	}
+
+
+# Files items through Crafting, noting them on the Rewind point.
+static func _file(recipe_key: String, tier: int, qty: int, multi: bool, costs_per_item: Dictionary, xp: int) -> void:
+	if qty <= 0:
+		return
+	var point = _root()["lastCraft"]
+	if point != null:
+		point["filed"].append({ "key": Crafting.inventory_key(recipe_key, multi), "tier": tier, "qty": qty })
+	Crafting.file_crafted(recipe_key, tier, qty, multi, costs_per_item, xp)
+
+
+# ── Rewind ───────────────────────────────────────────────────────────────
+# The bench Rewind (spec § Rewind) undoes the last run or batch: the calc it
+# spent comes back, the items it filed and the open run go, items used
+# mid-run return and active effects go back to before it. XP, and what the
+# run taught (known steps, best rank, performedOnce), stay -- the player
+# remembers. Paid like the event/combat Rewind (Rewind.choose_payment()).
+
+# A run's first jar tap, or a batch, opens a new Rewind point.
+static func _open_rewind_point() -> void:
+	_root()["lastCraft"] = {
+		"activeEffects": GameState.deep_copy(ActiveEffects.effects()),
+		"calcSpent": {}, "filed": [], "used": [],
+	}
+
+
+static func _note_calc(ore_type: String, amount: int) -> void:
+	var point = _root()["lastCraft"]
+	if point != null:
+		point["calcSpent"][ore_type] = int(point["calcSpent"].get(ore_type, 0)) + amount
+
+
+static func has_rewind_point() -> bool:
+	return _root()["lastCraft"] != null
+
+
+static func can_rewind() -> bool:
+	return has_rewind_point() and Rewind.can_pay()
+
+
+static func rewind(source: String = "") -> Dictionary:
+	var point = _root()["lastCraft"]
+	if point == null:
+		return { "ok": false, "reason": "Nothing to rewind." }
+	var payment := Rewind.choose_payment(source)
+	if not payment["ok"]:
+		return payment
+	if not _filed_in_stock(point["filed"]):
+		return { "ok": false, "reason": "What it made is gone." }
+	# Rewinds the craft made can't pay for undoing it.
+	if payment["consumable"] and Crafting.inventory_qty("rewind") <= _filed_qty(point["filed"], "rewind"):
+		if source != "" or int(payment["dialIndex"]) < 0:
+			return { "ok": false, "reason": "No Rewind in stock." }
+		payment["consumable"] = false
+	var player: Dictionary = GameState.state["player"]
+	for filed in point["filed"]:
+		Crafting.inventory_remove_from_tier(filed["key"], int(filed["tier"]), int(filed["qty"]))
+	for ore_type in point["calcSpent"].keys():
+		player["orichalchum"][ore_type] = calc_available(ore_type) + int(point["calcSpent"][ore_type])
+	for used in point["used"]:
+		Crafting.inventory_add(used["item"], int(used["tier"]), 1)
+	player["activeEffects"] = GameState.deep_copy(point["activeEffects"])
+	_root()["activeRun"] = null
+	_root()["lastCraft"] = null
+	Rewind.pay(payment)
+	EventBus.state_changed.emit()
+	return { "ok": true }
+
+
+static func _filed_qty(filed_list: Array, key: String) -> int:
+	var qty := 0
+	for filed in filed_list:
+		if filed["key"] == key:
+			qty += int(filed["qty"])
+	return qty
+
+
+static func _filed_in_stock(filed_list: Array) -> bool:
+	var needed := {}
+	for filed in filed_list:
+		var unit := "%s|%d" % [filed["key"], int(filed["tier"])]
+		needed[unit] = int(needed.get(unit, 0)) + int(filed["qty"])
+	var inventory: Dictionary = GameState.state["player"]["inventory"]
+	for unit in needed.keys():
+		var parts: PackedStringArray = unit.split("|")
+		if int(inventory.get(parts[0], {}).get(parts[1], 0)) < int(needed[unit]):
+			return false
+	return true
