@@ -38,9 +38,12 @@ static func _refresh_one(id: String, def: Dictionary) -> void:
 	var runtime: Dictionary = objectives.get(id, { "active": false, "complete": false, "progress": {} })
 
 	var was_active: bool = runtime["active"]
-	# activateFlag == null means "active from the start" -- no gating flag.
+	# activateFlag == null means no gating flag; an optional activateIf
+	# condition must also hold.
 	var activate_flag: Variant = def["activateFlag"]
 	var now_active: bool = true if activate_flag == null else GameState.state["flags"].get(activate_flag, false)
+	if now_active and def.has("activateIf"):
+		now_active = condition_met(def["activateIf"])
 	runtime["active"] = now_active
 	if now_active and not was_active:
 		_mark_activated(def, runtime["progress"])
@@ -293,6 +296,8 @@ static func condition_met(condition: Dictionary) -> bool:
 			return _contact_skill_level(condition) >= int(condition["minLevel"])
 		"home_room":
 			return GameState.state["home"]["rooms"].has(condition["roomId"])
+		"recipe_known":
+			return Lab.is_known(condition["recipe"])
 	return false
 
 

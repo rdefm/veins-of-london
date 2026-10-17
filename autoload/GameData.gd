@@ -2210,11 +2210,13 @@ const OBJECTIVE_TYPE_PARAMS: Dictionary = {
 	"template_periods_completed": ["templateId", "minCount"],
 	"recipe_known": ["recipe"],
 }
-# all_of's live condition kinds (Objectives.condition_met()), each with its
-# required keys beside "kind" and the ToDo checklist "label".
+# Live condition kinds (Objectives.condition_met()) for all_of and
+# activateIf, each with its required keys beside "kind"; all_of entries
+# also need the ToDo checklist "label".
 const OBJECTIVE_CONDITION_KEYS: Dictionary = {
 	"contact_skill": ["contactId", "skill", "minLevel"],
 	"home_room": ["roomId"],
+	"recipe_known": ["recipe"],
 }
 
 
@@ -2232,6 +2234,17 @@ func _validate_objectives(objectives: Dictionary, factions: Dictionary, ore_type
 			errors.append("objectives.%s: activateFlag must be a string or null" % key)
 		if entry.has("completeFlag") and typeof(entry["completeFlag"]) != TYPE_STRING:
 			errors.append("objectives.%s: completeFlag must be a string" % key)
+		# Optional activateIf: one live condition (Objectives.condition_met())
+		# the objective also needs before it activates.
+		if entry.has("activateIf"):
+			var activate_if: Variant = entry["activateIf"]
+			var if_kind = activate_if.get("kind") if typeof(activate_if) == TYPE_DICTIONARY else null
+			if not OBJECTIVE_CONDITION_KEYS.has(if_kind):
+				errors.append("objectives.%s: activateIf has unknown condition kind '%s'" % [key, if_kind])
+			else:
+				for cond_key in OBJECTIVE_CONDITION_KEYS[if_kind]:
+					if not activate_if.has(cond_key):
+						errors.append("objectives.%s: activateIf '%s' missing '%s'" % [key, if_kind, cond_key])
 		if entry.has("questline") and (typeof(entry["questline"]) != TYPE_STRING or entry["questline"].is_empty()):
 			errors.append("objectives.%s: questline must be a non-empty string" % key)
 		# Optional day-gated title override for systems/todo.gd's

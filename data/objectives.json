@@ -54,7 +54,8 @@
     "detail": "",
     "type": "flag_true",
     "params": {},
-    "activateFlag": "craftingUnlocked",
+    "activateFlag": null,
+    "activateIf": { "kind": "recipe_known", "recipe": "timePearl" },
     "completeFlag": "archieCraftChatSeen",
     "questline": "tutorial"
   },
