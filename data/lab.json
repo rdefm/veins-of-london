@@ -110,5 +110,10 @@
       "It smells of burnt hair and Tuesday. You open a window and write nothing down.",
       "The calc goes grey and stays grey. Somewhere, a ledger notes the loss."
     ]
+  },
+  "debug": {
+    "_comment": "Debug app Lab page only. skillMax = top of the crafting-skill override slider; refillCalc = each ore type's calc after Refill calc (tops up, never lowers).",
+    "skillMax": 10,
+    "refillCalc": 40
   }
 }

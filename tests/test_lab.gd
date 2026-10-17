@@ -725,3 +725,68 @@ func _register_batch_rewind_cases() -> void:
 		SaveManager.delete_slot(TEST_SLOT)
 		assert_eq(GameState.state["lab"]["lastCraft"], before, "point survives with int types")
 	)
+
+	run_case("skill_override_replaces_player_skill_only_while_set", func():
+		_bench("timePearl", {})
+		assert_eq(GameState.state["lab"]["skillOverride"], null, "unset on a new game")
+		assert_almost_eq(Lab.band_half_width("timePearl"), 6.0, 0.0001, "player's skill 0")
+		Lab.set_skill_override(5)
+		assert_eq(Lab.effective_skill(), 5, "override used")
+		assert_almost_eq(Lab.band_half_width("timePearl"), 6.0 * 1.4, 0.0001, "override widens the band")
+		Lab.set_skill_override(999)
+		assert_eq(Lab.effective_skill(), int(GameData.LAB["debug"]["skillMax"]), "clamped to skillMax")
+		Lab.clear_skill_override()
+		GameState.state["player"]["craftingSkill"] = 2
+		assert_eq(Lab.effective_skill(), 2, "unset: player's skill")
+		GameState.state["lab"].erase("skillOverride")
+		assert_eq(Lab.effective_skill(), 2, "key absent (older save): player's skill")
+	)
+
+	run_case("revoke_recipe_forgets_it_and_its_steps", func():
+		_bench("timePearl", { "time": 10 })
+		Lab.grant_recipe("timePearl")
+		Lab.grant_steps("timePearl", [0], "exact")
+		Lab.add_ore("timePearl", "time")
+		assert_true(not Lab.revoke_recipe("timePearl")["ok"], "refused mid-run")
+		Lab.abandon_run()
+		assert_true(Lab.revoke_recipe("timePearl")["ok"], "revoked")
+		assert_true(not Lab.is_known("timePearl"), "unknown")
+		Lab.grant_recipe("timePearl")
+		assert_eq(_steps("timePearl"), {}, "re-grant starts at base")
+	)
+
+	run_case("set_best_rank_sets_lowers_clamps_and_clears", func():
+		_fresh()
+		var best: Dictionary = GameState.state["lab"]["bestRanks"]
+		Lab.set_best_rank("timePearl", 4)
+		assert_eq(best["timePearl"], 4, "set")
+		Lab.set_best_rank("timePearl", 2)
+		assert_eq(best["timePearl"], 2, "lowered")
+		Lab.set_best_rank("timePearl", 99)
+		assert_eq(best["timePearl"], 5, "clamped to top rank")
+		Lab.set_best_rank("timePearl", 0)
+		assert_true(not best.has("timePearl"), "0 clears")
+		assert_true(not Lab.set_best_rank("nope", 3)["ok"], "unknown recipe refused")
+	)
+
+	run_case("refill_calc_tops_up_every_ore_type", func():
+		_fresh()
+		var target := int(GameData.LAB["debug"]["refillCalc"])
+		GameState.state["player"]["orichalchum"]["time"] = target + 7
+		Lab.refill_calc()
+		for ore_type in GameData.ORE_TYPES.keys():
+			var expected := target + 7 if ore_type == "time" else target
+			assert_eq(_calc(ore_type), expected, "%s topped up, never lowered" % ore_type)
+	)
+
+	run_case("skill_override_round_trips_through_save_as_int", func():
+		_fresh()
+		Lab.set_skill_override(4)
+		assert_true(SaveManager.save_to_slot(TEST_SLOT)["ok"], "saved")
+		GameState.reset()
+		assert_true(SaveManager.load_from_slot(TEST_SLOT)["ok"], "loaded")
+		SaveManager.delete_slot(TEST_SLOT)
+		assert_eq(typeof(GameState.state["lab"]["skillOverride"]), TYPE_INT, "int after load")
+		assert_eq(Lab.effective_skill(), 4, "override kept")
+	)
+

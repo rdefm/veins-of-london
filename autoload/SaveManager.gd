@@ -1263,13 +1263,7 @@ func _restore_int_types(state: Dictionary) -> void:
 	if state.has("combatPrototype"):
 		state["combatPrototype"] = CombatPrototype.new_state()
 
-	# A bench prototype saved in an older shape restarts fresh (sandbox only).
-	if state.has("benchPrototype"):
-		var bench: Dictionary = state["benchPrototype"]
-		if bench.has("slices") or bench.has("plans") or not bench.has("known"):
-			state["benchPrototype"] = BenchPrototype.new_state()
-		else:
-			_restore_bench_prototype_int_types(bench)
+	state.erase("benchPrototype")
 
 	if state.has("lab"):
 		_restore_lab_int_types(state["lab"])
@@ -1364,9 +1358,10 @@ func _restore_turn_cursor_int_types(cursor: Dictionary) -> void:
 
 
 
-# systems/bench_prototype.gd's state, and its Rewind frames (same shape
-# minus "snapshots" and the debug settings).
+# systems/lab.gd's state and its Rewind point.
 func _restore_lab_int_types(lab: Dictionary) -> void:
+	if typeof(lab.get("skillOverride")) == TYPE_FLOAT:
+		lab["skillOverride"] = int(lab["skillOverride"])
 	_int_dict_values(lab.get("bestRanks", {}))
 	for entry in lab.get("known", {}).values():
 		_int_dict_values(entry.get("vagueHits", {}))
@@ -1381,38 +1376,6 @@ func _restore_lab_int_types(lab: Dictionary) -> void:
 		for effect in point.get("activeEffects", []):
 			_int_key(effect, "level")
 			_int_key(effect, "expiresAtBlock")
-
-
-func _restore_bench_prototype_int_types(bench: Dictionary) -> void:
-	if typeof(bench.get("skillOverride")) == TYPE_FLOAT:
-		bench["skillOverride"] = int(bench["skillOverride"])
-	_restore_bench_prototype_frame_ints(bench)
-	for frame in bench.get("snapshots", []):
-		_restore_bench_prototype_frame_ints(frame)
-
-
-func _restore_bench_prototype_frame_ints(s: Dictionary) -> void:
-	_int_dict_values(s.get("pool", {}))
-	_int_dict_values(s.get("bestRanks", {}))
-	_int_key(s, "xpTotal")
-	for entry in s.get("ledger", []):
-		for key in ["items", "rank", "score", "durationMsec", "xp"]:
-			_int_key(entry, key)
-		_restore_bench_prototype_clue_ints(entry.get("clues", []))
-	var run = s.get("activeRun")
-	if run is Dictionary:
-		_int_key(run, "startedMsec")
-		_int_dict_values(run.get("calcSpent", {}))
-	for hits in s.get("vagueHits", {}).values():
-		_int_dict_values(hits)
-	for clues in s.get("notebook", {}).values():
-		_restore_bench_prototype_clue_ints(clues)
-
-
-func _restore_bench_prototype_clue_ints(clues: Array) -> void:
-	for clue in clues:
-		_int_key(clue, "ideal")
-		_int_key(clue, "hits")
 
 
 # state.modal.data's shape depends on modal.type (systems/economy.gd,

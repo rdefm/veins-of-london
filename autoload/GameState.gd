@@ -304,9 +304,6 @@ func new_game_state() -> Dictionary:
 		# separate from "combat" above. Resets on load -- a fight mid-flight
 		# at save time isn't resurrected.
 		"combatPrototype": CombatPrototype.new_state(),
-		# Sandboxed Lab-revamp bench prototype (systems/bench_prototype.gd):
-		# its own calc pool, ranks, ledger and Rewind stack.
-		"benchPrototype": BenchPrototype.new_state(),
 		# The live Lab (systems/lab.gd): recipe knowledge, best ranks, the
 		# run in progress and which recipes have been performed by hand.
 		"lab": Lab.new_state(),

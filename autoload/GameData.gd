@@ -122,10 +122,6 @@ var ENEMY_FACTION_SQUADS: Dictionary = {}
 # balance. Own table so a validation/balance pass over the real roster skips it.
 var COMBAT_PROTOTYPE: Dictionary = {}
 
-# Sandboxed Lab-revamp bench prototype (systems/bench_prototype.gd) --
-# prototype-only, not production balance.
-var BENCH_PROTOTYPE: Dictionary = {}
-
 # Live Lab procedures and knowledge tuning (systems/lab.gd).
 var LAB: Dictionary = {}
 
@@ -467,9 +463,6 @@ const MANIFEST: Array[Dictionary] = [
 	{"table": "combat_prototype", "file": "res://data/combat_prototype.json", "fields": [
 		{"field": "COMBAT_PROTOTYPE", "key": "", "type": TYPE_DICTIONARY},
 	]},
-	{"table": "bench_prototype", "file": "res://data/bench_prototype.json", "fields": [
-		{"field": "BENCH_PROTOTYPE", "key": "", "type": TYPE_DICTIONARY},
-	]},
 	{"table": "lab", "file": "res://data/lab.json", "fields": [
 		{"field": "LAB", "key": "", "type": TYPE_DICTIONARY},
 	]},
@@ -684,7 +677,6 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_barometer(t.get("barometer_states", {}), t.get("barometer_actions", []), t.get("faction_prefs", {}), t.get("factions", {}), t.get("recipes", {}), errors)
 	_validate_enemies(t, errors)
 	_validate_combat_prototype(t.get("combat_prototype", {}), t.get("combat_speed_by_level", []), t.get("recipes", {}), t.get("combat_visuals", {}).get("templates", {}), errors)
-	_validate_bench_prototype(t.get("bench_prototype", {}), t.get("approaches", {}), errors)
 	_validate_lab(t.get("lab", {}), t.get("recipes", {}), t.get("approaches", {}), errors)
 	_validate_combat_visuals(t.get("combat_visuals", {}), t.get("palette", {}), errors)
 	_validate_hq_visuals(t.get("hq_visuals", {}), t.get("palette", {}), errors)
@@ -1493,89 +1485,6 @@ func _validate_combat_prototype_stats(entry: Dictionary, path: String, errors: A
 		errors.append("%s: attackMin must not exceed attackMax" % path)
 
 
-# Every roster id needs a recipes entry with a non-empty baseCalc whose ore
-# types the pool seeds; thresholds ascend from 0; the bonus default names a
-# real type; badRun has lines to pick from.
-func _validate_bench_prototype(bench: Dictionary, approaches: Dictionary, errors: Array[String]) -> void:
-	_require_keys(bench, ["roster", "knownAtStart", "recipes", "poolSeed", "rankThresholds", "skillFactor", "skillMax", "extraStepPenalty", "vagueSpread", "vagueToExactHits", "clueText", "gauges", "baseXp", "hintLevels", "bonus", "badRun"], "bench_prototype", errors)
-	var gauges: Dictionary = bench.get("gauges", {})
-	for apparatus in gauges.keys():
-		var words: Dictionary = gauges[apparatus].get("directionWords", {})
-		if str(words.get("higher", "")).is_empty() or str(words.get("lower", "")).is_empty():
-			errors.append("bench_prototype.gauges.%s.directionWords: needs higher and lower" % apparatus)
-	var recipes: Dictionary = bench.get("recipes", {})
-	var pool_seed: Dictionary = bench.get("poolSeed", {})
-	var roster: Array = bench.get("roster", [])
-	if roster.is_empty():
-		errors.append("bench_prototype.roster: must not be empty")
-	for recipe_id in bench.get("knownAtStart", []):
-		if not roster.has(recipe_id):
-			errors.append("bench_prototype.knownAtStart: '%s' not in roster" % recipe_id)
-	for recipe_id in roster:
-		if not recipes.has(recipe_id):
-			errors.append("bench_prototype.recipes: missing entry for roster id '%s'" % recipe_id)
-			continue
-		var base_calc: Dictionary = recipes[recipe_id].get("baseCalc", {})
-		if base_calc.is_empty():
-			errors.append("bench_prototype.recipes.%s.baseCalc: must not be empty" % recipe_id)
-		for ore_type in base_calc.keys():
-			if not pool_seed.has(ore_type):
-				errors.append("bench_prototype.recipes.%s.baseCalc: ore type '%s' not in poolSeed" % [recipe_id, ore_type])
-		_validate_bench_prototype_procedure(recipe_id, recipes[recipe_id], approaches, bench.get("gauges", {}), errors)
-		_validate_procedure_hints("bench_prototype.recipes.%s.procedure.hints" % recipe_id, recipes[recipe_id].get("procedure", {}), float(bench.get("vagueSpread", 0)), errors)
-	var thresholds: Array = bench.get("rankThresholds", [])
-	if thresholds.size() != 5 or (not thresholds.is_empty() and int(thresholds[0]) != 0):
-		errors.append("bench_prototype.rankThresholds: must be 5 entries starting at 0")
-	for i in range(1, thresholds.size()):
-		if int(thresholds[i]) <= int(thresholds[i - 1]):
-			errors.append("bench_prototype.rankThresholds: must ascend")
-	var bonus: Dictionary = bench.get("bonus", {})
-	var bonus_types: Dictionary = bonus.get("types", {})
-	if not bonus_types.has(bonus.get("defaultType", "")):
-		errors.append("bench_prototype.bonus.defaultType: must name a bonus.types entry")
-	if bench.get("badRun", {}).get("lines", []).is_empty():
-		errors.append("bench_prototype.badRun.lines: must not be empty")
-
-
-# Slice A procedure: ideal weights sum to 100; every step names a real
-# apparatus with a gauges entry and a 0-100 target; an ideal step's ore is
-# a baseCalc ore; the base steps' calc sums to baseCalc.
-func _validate_bench_prototype_procedure(recipe_id: String, recipe: Dictionary, approaches: Dictionary, gauges: Dictionary, errors: Array[String]) -> void:
-	var where := "bench_prototype.recipes.%s.procedure" % recipe_id
-	var procedure: Dictionary = recipe.get("procedure", {})
-	_require_keys(procedure, ["baseTolerance", "ideal", "base"], where, errors)
-	if float(procedure.get("baseTolerance", 0)) <= 0.0:
-		errors.append("%s.baseTolerance: must be > 0" % where)
-	var weight_sum := 0
-	for step in procedure.get("ideal", []):
-		weight_sum += int(step.get("weight", 0))
-	if weight_sum != 100:
-		errors.append("%s.ideal: weights sum to %d, not 100" % [where, weight_sum])
-	var base_calc := {}
-	for list_name in ["ideal", "base"]:
-		var steps: Array = procedure.get(list_name, [])
-		if steps.is_empty():
-			errors.append("%s.%s: must not be empty" % [where, list_name])
-		for step in steps:
-			if not approaches.has(step.get("apparatus", "")):
-				errors.append("%s.%s: unknown apparatus '%s'" % [where, list_name, step.get("apparatus", "")])
-			elif not gauges.has(step["apparatus"]):
-				errors.append("%s.%s: no gauges entry for apparatus '%s'" % [where, list_name, step["apparatus"]])
-			var target := float(step.get("target", -1))
-			if target < 0.0 or target > 100.0:
-				errors.append("%s.%s: target must be 0-100" % [where, list_name])
-			if list_name == "ideal" and step.has("ore") and not recipe.get("baseCalc", {}).has(step["ore"]):
-				errors.append("%s.ideal: ore '%s' not in baseCalc" % [where, step["ore"]])
-			if list_name == "base":
-				for ore_type in step.get("calc", {}).keys():
-					base_calc[ore_type] = int(base_calc.get(ore_type, 0)) + int(step["calc"][ore_type])
-	var expected := {}
-	for ore_type in recipe.get("baseCalc", {}).keys():
-		expected[ore_type] = int(recipe["baseCalc"][ore_type])
-	if base_calc != expected:
-		errors.append("%s.base: step calc %s does not sum to baseCalc %s" % [where, base_calc, expected])
-
-
 # Each hint names the ideal step it reveals (one hint per step) and has a
 # vague and an exact note; a vague offset past vagueSpread would push the
 # true band out of the fuzzy region; a hint on a base-matched step must
@@ -1613,9 +1522,16 @@ func _validate_procedure_hints(where: String, procedure: Dictionary, vague_sprea
 
 # Live Lab: every procedure is a real recipe's, with ideal weights summing
 # to 100, real apparatus, 0-100 targets, ideal ores within baseCalc and base
-# calc summing to baseCalc; hints as the prototype's, each with a data rung.
+# calc summing to baseCalc; hints validated as above, each with a data rung;
+# debug tooling bounds (skillMax >= 1, refillCalc >= 0).
 func _validate_lab(lab: Dictionary, recipes: Dictionary, approaches: Dictionary, errors: Array[String]) -> void:
-	_require_keys(lab, ["procedures", "rungs", "specificities", "rankThresholds", "skillFactor", "vagueSpread", "vagueToExactHits", "clueText", "bonus", "badRun"], "lab", errors)
+	_require_keys(lab, ["procedures", "rungs", "specificities", "rankThresholds", "skillFactor", "vagueSpread", "vagueToExactHits", "clueText", "bonus", "badRun", "debug"], "lab", errors)
+	var debug: Dictionary = lab.get("debug", {})
+	_require_keys(debug, ["skillMax", "refillCalc"], "lab.debug", errors)
+	if int(debug.get("skillMax", 0)) < 1:
+		errors.append("lab.debug.skillMax: must be at least 1")
+	if int(debug.get("refillCalc", -1)) < 0:
+		errors.append("lab.debug.refillCalc: must be at least 0")
 	var gauges: Dictionary = lab.get("gauges", {})
 	for apparatus in gauges.keys():
 		var words: Dictionary = gauges[apparatus].get("directionWords", {})

@@ -46,6 +46,9 @@ static func new_state() -> Dictionary:
 		# filed ([{ key, tier, qty }] items it filed), used ([{ item, tier }]
 		# effect items used mid-run) }.
 		"lastCraft": null,
+		# Debug app only: a crafting skill the Lab uses in place of the
+		# player's, or null to use the player's.
+		"skillOverride": null,
 	}
 
 
@@ -215,12 +218,21 @@ static func _hint_by_id(recipe_key: String, hint_id: String) -> Dictionary:
 	return {}
 
 
+# The crafting skill the Lab plays at: the Debug skill override when set,
+# else the player's craftingSkill.
+static func effective_skill() -> int:
+	var override = _root().get("skillOverride")
+	if override != null:
+		return int(override)
+	return int(GameState.state["player"]["craftingSkill"])
+
+
 # ── Bands ────────────────────────────────────────────────────────────────
 
-# band_half_width = baseTolerance × (1 + skillFactor × craftingSkill)
+# band_half_width = baseTolerance × (1 + skillFactor × effective_skill())
 # × (1 + bench_bonus()) (spec § Run rules).
 static func band_half_width(recipe_key: String) -> float:
-	var skill := int(GameState.state["player"]["craftingSkill"])
+	var skill := effective_skill()
 	return float(procedure_def(recipe_key)["baseTolerance"]) \
 		* (1.0 + float(_data().get("skillFactor", 0.0)) * skill) \
 		* (1.0 + bench_bonus(recipe_key))
@@ -917,3 +929,48 @@ static func _filed_in_stock(filed_list: Array) -> bool:
 		if int(inventory.get(parts[0], {}).get(parts[1], 0)) < int(needed[unit]):
 			return false
 	return true
+
+
+# ── Debug (Debug app Lab page) ───────────────────────────────────────────
+
+static func set_skill_override(skill: int) -> void:
+	_root()["skillOverride"] = clampi(skill, 0, int(_data()["debug"]["skillMax"]))
+	EventBus.state_changed.emit()
+
+
+static func clear_skill_override() -> void:
+	_root()["skillOverride"] = null
+	EventBus.state_changed.emit()
+
+
+# Forgets a recipe and every hidden step granted for it. Its best rank and
+# performedOnce entry stand. Refused while its run is open.
+static func revoke_recipe(recipe_key: String) -> Dictionary:
+	var run = active_run()
+	if run != null and run["recipe"] == recipe_key:
+		return { "ok": false, "reason": "Run open." }
+	if _root()["known"].erase(recipe_key):
+		EventBus.state_changed.emit()
+	return { "ok": true }
+
+
+# Sets a recipe's best rank outright, lower included; 0 clears it.
+static func set_best_rank(recipe_key: String, rank: int) -> Dictionary:
+	if procedure_def(recipe_key).is_empty():
+		return { "ok": false, "reason": "Unknown recipe." }
+	var best: Dictionary = _root()["bestRanks"]
+	if rank <= 0:
+		best.erase(recipe_key)
+	else:
+		best[recipe_key] = mini(rank, int(_data()["rankThresholds"].size()))
+	EventBus.state_changed.emit()
+	return { "ok": true }
+
+
+# Tops every ore type's calc up to debug.refillCalc; more is left alone.
+static func refill_calc() -> void:
+	var target := int(_data()["debug"]["refillCalc"])
+	var orichalchum: Dictionary = GameState.state["player"]["orichalchum"]
+	for ore_type in GameData.ORE_TYPES.keys():
+		orichalchum[ore_type] = maxi(calc_available(ore_type), target)
+	EventBus.state_changed.emit()

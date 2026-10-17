@@ -342,3 +342,39 @@ func run() -> void:
 
 		phone.free()
 	)
+
+	run_case("lab_page_grants_a_recipe_and_an_exact_step_via_lab", func():
+		GameState.reset()
+		GameState.state["flags"]["debugStartUsed"] = true
+		GameState.state["phoneNav"]["app"] = "debug"
+
+		var phone := PhoneScreen.new()
+		phone._ready()
+
+		var open_buttons := _find_buttons_by_text(phone, "Open")
+		var lab_open: Button = null
+		for b in open_buttons:
+			for sibling in b.get_parent().get_children():
+				if sibling is Label and (sibling as Label).text == "Lab":
+					lab_open = b
+		assert_true(lab_open != null, "Lab card has an Open button")
+		lab_open.pressed.emit()
+		assert_eq(_find_buttons_by_text(phone, "Refill calc").size(), 1, "Lab page shows Refill calc")
+
+		var known: CheckBox = null
+		for n in phone.find_children("", "CheckBox", true, false):
+			var heading := (n as CheckBox).get_parent().get_child(0) as Label
+			if heading != null and heading.text == GameData.RECIPES["timePearl"]["name"]:
+				known = n as CheckBox
+		assert_true(known != null, "timePearl has a Known toggle")
+		known.button_pressed = true
+		assert_true(Lab.is_known("timePearl"), "toggle granted the recipe")
+
+		var exact := _find_buttons_by_text(phone, "Exact")
+		assert_true(not exact.is_empty(), "known recipe shows step grant buttons")
+		exact[0].pressed.emit()
+		assert_true(not Lab.step_specificity("timePearl", int(Lab.procedure_def("timePearl")["hints"][0]["step"])).is_empty(), "first hint step granted")
+
+		phone.free()
+	)
+
