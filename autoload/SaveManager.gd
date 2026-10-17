@@ -100,7 +100,29 @@ func import_string(text: String) -> Dictionary:
 func _saveable_state() -> Dictionary:
 	var saveable: Dictionary = GameState.state.duplicate()
 	saveable["blockStart"] = null
+	if Combat.is_round_engine(saveable["combat"]):
+		var combat: Dictionary = GameState.deep_copy(saveable["combat"])
+		_encode_rng_states(combat)
+		saveable["combat"] = combat
 	return saveable
+
+
+# A round fight's RNG states (CombatPrototype rngState/fogRngState, in its
+# Rewind frames too) are full 64-bit ints, past what a JSON number holds
+# exactly; they save as decimal strings, read back by _restore_round_combat_types().
+const _RNG_STATE_KEYS: Array[String] = ["rngState", "fogRngState"]
+
+
+func _encode_rng_states(node: Variant) -> void:
+	if node is Dictionary:
+		for key in node.keys():
+			if _RNG_STATE_KEYS.has(key) and node[key] is int:
+				node[key] = str(node[key])
+			else:
+				_encode_rng_states(node[key])
+	elif node is Array:
+		for item in node:
+			_encode_rng_states(item)
 
 
 func _write_json(path: String, data: Dictionary) -> Dictionary:
@@ -647,9 +669,10 @@ func _backfill_new_flag_keys(result: Dictionary, defaults: Dictionary) -> void:
 
 
 # A save made mid-fight before a combat key existed (e.g. locationKey) gets
-# the fresh default, which for locationKey means "no location plate".
+# the fresh default, which for locationKey means "no location plate". A
+# round fight's dict has its own shape and takes none.
 func _backfill_new_combat_keys(result: Dictionary, defaults: Dictionary) -> void:
-	if not result.has("combat"):
+	if not result.has("combat") or Combat.is_round_engine(result["combat"]):
 		return
 	var combat: Dictionary = result["combat"]
 	var default_combat: Dictionary = defaults["combat"]
@@ -1303,6 +1326,9 @@ func _restore_int_types(state: Dictionary) -> void:
 
 
 func _restore_combat_int_types(combat: Dictionary) -> void:
+	if Combat.is_round_engine(combat):
+		_restore_round_combat_types(combat)
+		return
 	for key in ["frozenTurns", "motionTurns", "motionPower", "evadeTurns"]:
 		_int_key(combat, key)
 	# evadeChance is a float (0.0–1.0) — intentionally not touched here.
@@ -1337,6 +1363,32 @@ func _restore_combat_int_types(combat: Dictionary) -> void:
 			used[i] = int(used[i])
 	if combat.has("turnCursor"):
 		_restore_turn_cursor_int_types(combat["turnCursor"])
+
+
+# A round fight (Combat.ENGINE_ROUNDS) holds no floats but _ROUND_FLOAT_KEYS,
+# so every other whole-number float in it reads back as int; RNG state
+# strings (_encode_rng_states()) back to ints.
+const _ROUND_FLOAT_KEYS: Array[String] = ["ladyCrit", "evadeChance"]
+
+
+func _restore_round_combat_types(node: Variant) -> void:
+	if node is Dictionary:
+		for key in node.keys():
+			var value: Variant = node[key]
+			if _RNG_STATE_KEYS.has(key) and value is String:
+				node[key] = value.to_int()
+			elif _ROUND_FLOAT_KEYS.has(key) and value is float:
+				continue
+			elif value is float and value == floorf(value):
+				node[key] = int(value)
+			else:
+				_restore_round_combat_types(value)
+	elif node is Array:
+		for i in node.size():
+			if node[i] is float and node[i] == floorf(node[i]):
+				node[i] = int(node[i])
+			else:
+				_restore_round_combat_types(node[i])
 
 
 # R§3.7a fighter dict (active or queued enemy): stat ints plus the fight-scoped rid.

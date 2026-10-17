@@ -18,6 +18,11 @@ extends Control
 # round's timeline with enemy intents, and the beat log. The screen adapts
 # prototype state into the components' shapes (stage_roster()) and only
 # ever calls CombatPrototype (and Modal, for the "?") to change it.
+# With `live` set before _ready() it is instead the live round-fight screen
+# (R§3.7b), hosted by CombatScreen: no setup, Exit or Rewind; it reads
+# state.combat, picks through Combat.choose_move(), shows the player's real
+# loadout slots with Combat's block reasons, and its outcome card hands off
+# to Combat.exit_combat().
 
 # Setup's enemy count cap (spec §Out of Scope: no more than 3 per side).
 const MAX_ENEMIES := 3
@@ -41,6 +46,9 @@ const _ITEM_EFFECTS := {
 # A damage cue's number and shake scale: lighter on a chip, heavier on a crit.
 const _CHIP_SCALE := 0.7
 const _CRIT_SCALE := 1.5
+
+# The live round-fight screen over state.combat, not the sandbox.
+var live := false
 
 # View state only: the setup picks, kept across rebuilds.
 var _player_level: int = 1
@@ -100,10 +108,19 @@ func _ready() -> void:
 	_refresh()
 
 
+func _cp() -> Dictionary:
+	return GameState.state["combat" if live else "combatPrototype"]
+
+
 func _refresh() -> void:
-	var cp: Dictionary = GameState.state["combatPrototype"]
-	_setup_scroll.visible = not cp["active"]
+	var cp: Dictionary = _cp()
+	_setup_scroll.visible = not cp["active"] and not live
 	_fight_body.visible = cp["active"]
+	if live:
+		# Torn down by Combat.exit_combat(): the next screen replaces this one.
+		if cp["active"]:
+			_sync_fight(cp)
+		return
 	for child in _content.get_children():
 		child.queue_free()
 	if not cp["active"]:
@@ -133,9 +150,10 @@ func _build_fight_layout() -> void:
 	heading_row.offset_left = 16.0
 	heading_row.offset_right = -16.0
 	heading_row.offset_bottom = _HEADING_ROW_HEIGHT
-	heading_row.add_child(MapCardStyle.chip_button("‹ Exit", func(): CombatPrototype.exit()))
-	_rewind_button = MapCardStyle.chip_button("Rewind", _on_rewind_pressed)
-	heading_row.add_child(_rewind_button)
+	if not live:
+		heading_row.add_child(MapCardStyle.chip_button("‹ Exit", func(): CombatPrototype.exit()))
+		_rewind_button = MapCardStyle.chip_button("Rewind", _on_rewind_pressed)
+		heading_row.add_child(_rewind_button)
 	heading_row.add_child(MapCardStyle.chip_button("Readouts", _toggle_readouts))
 	_pacing_button = MapCardStyle.chip_button("", _on_pacing_button_pressed)
 	heading_row.add_child(_pacing_button)
@@ -225,8 +243,11 @@ func _sync_fight(cp: Dictionary) -> void:
 	if not _is_target_valid(cp, _target):
 		_target = _default_target(cp)
 	_round_label.text = "Round %d" % cp["round"]
+	if live:
+		_round_label.text = "%s · %s" % [CombatScreen.context_label(cp["context"]), _round_label.text]
 	_refusal_label.text = _refusal
-	_rewind_button.disabled = cp["snapshots"].is_empty() or _busy()
+	if _rewind_button != null:
+		_rewind_button.disabled = cp["snapshots"].is_empty() or _busy()
 	_pacing_button.text = CombatDirector.pacing_label(_director.pacing_mode)
 
 	# Mid-playback a re-sync would cut the slots' one-shot poses short, and
@@ -463,7 +484,7 @@ func _on_rewind_pressed() -> void:
 # step back through it; the undone beats as rewind_beats() orders them, []
 # when there's nothing to undo.
 func begin_rewind_playback() -> Array:
-	var cp: Dictionary = GameState.state["combatPrototype"]
+	var cp: Dictionary = _cp()
 	var log_before: Array = cp["log"]
 	_held_marks = CombatPrototype.stage_marks(cp)
 	var entries := strip_entries(cp)
@@ -473,7 +494,7 @@ func begin_rewind_playback() -> Array:
 	_strip_playback = { "entries": entries, "round": cp["round"], "after": [], "front": shown[0]["occurrenceId"] if not shown.is_empty() else "" }
 	if not CombatPrototype.rewind()["ok"]:
 		return []
-	cp = GameState.state["combatPrototype"]
+	cp = _cp()
 	_strip_playback["after"] = strip_entries(cp)
 	for entry in _strip_playback["after"]:
 		entry["focused"] = false
@@ -508,7 +529,7 @@ static func stage_roster(cp: Dictionary, target: int) -> Dictionary:
 		var c: Dictionary = combatants[i]
 		if c["side"] == CombatPrototype.SIDE_ENEMY:
 			enemy_index.append(i)
-			enemies.append({ "name": CombatPrototype.display_name(c), "koed": c["koed"], "rid": i, "variant": data["archetypes"][c["archetype"]]["template"] })
+			enemies.append({ "name": CombatPrototype.display_name(c), "koed": c["koed"], "rid": i, "variant": c["template"] })
 		elif c["side"] == CombatPrototype.SIDE_ALLY:
 			ally_index.append(i)
 			allies.append({ "name": CombatPrototype.display_name(c), "koed": c["koed"], "contactId": data["allyTemplates"][allies.size()] })
@@ -585,6 +606,9 @@ func _dock_rows(cp: Dictionary) -> Array:
 			"callback": _pick.bind(move_id, target),
 			"onExplain": _explain_block.bind(move_name, reason),
 		})
+	if live:
+		rows.append_array(_live_loadout_rows())
+		return rows
 	var loadout: Array = cp["combatants"][CombatPrototype.PLAYER_INDEX]["loadout"]
 	for slot in range(loadout.size()):
 		var item_id: String = loadout[slot]["item"]
@@ -597,6 +621,27 @@ func _dock_rows(cp: Dictionary) -> Array:
 			"disabled": reason != "", "disabledReason": reason,
 			"callback": _pick_item.bind(slot, target),
 			"onExplain": _explain_block.bind(item_name, reason),
+		})
+	return rows
+
+
+# The player's real loadout slots (Loadout), each disabled with
+# Combat.round_item_block_reason().
+func _live_loadout_rows() -> Array:
+	var rows: Array = []
+	for slot in range(Loadout.slot_count()):
+		var unit: Variant = Loadout.slot(slot)
+		var reason := Combat.round_item_block_reason(slot)
+		var label := "Slot %d: empty" % (slot + 1)
+		var icon := ""
+		if unit != null:
+			label = "%s — tier %d" % [GameData.RECIPES[unit["recipe"]]["name"], int(unit["tier"])]
+			icon = "recipe:" + str(unit["recipe"])
+		rows.append({
+			"name": "ItemRow_%d" % slot, "iconKind": icon, "label": label,
+			"disabled": reason != "", "disabledReason": reason,
+			"callback": func(): pass,
+			"onExplain": _explain_block.bind(label, reason),
 		})
 	return rows
 
@@ -620,7 +665,7 @@ func _on_stage_subject_tapped(target: Dictionary) -> void:
 		return
 	if _busy():
 		return
-	var cp: Dictionary = GameState.state["combatPrototype"]
+	var cp: Dictionary = _cp()
 	var index := _combatant_index(stage_roster(cp, _target), target)
 	if _is_target_valid(cp, index):
 		_target = index
@@ -834,11 +879,12 @@ static func _aimed(cp: Dictionary, label: String, move_id: String, target: int) 
 
 
 func _pick(move_id: String, target: int) -> void:
-	_resolve(func(): return CombatPrototype.choose_move(move_id, target), { "move": move_id, "target": target })
+	var choose := func(): return Combat.choose_move(move_id, target) if live else CombatPrototype.choose_move(move_id, target)
+	_resolve(choose, { "move": move_id, "target": target })
 
 
 func _pick_item(slot: int, target: int) -> void:
-	var loadout: Array = GameState.state["combatPrototype"]["combatants"][CombatPrototype.PLAYER_INDEX]["loadout"]
+	var loadout: Array = _cp()["combatants"][CombatPrototype.PLAYER_INDEX]["loadout"]
 	var item_id: String = loadout[slot]["item"] if slot >= 0 and slot < loadout.size() else ""
 	_resolve(func(): return CombatPrototype.choose_item(slot, target), { "move": item_id, "target": target })
 
@@ -851,7 +897,7 @@ func _resolve(choose: Callable, pick: Dictionary) -> void:
 	if _busy():
 		return
 	_refusal = ""
-	var cp: Dictionary = GameState.state["combatPrototype"]
+	var cp: Dictionary = _cp()
 	var roster := stage_roster(cp, _target)
 	_frozen_roster = { "enemies": roster["combat"]["enemies"], "allies": roster["combat"]["allies"] }
 	_held_marks = CombatPrototype.stage_marks(cp)
@@ -872,7 +918,7 @@ func _resolve(choose: Callable, pick: Dictionary) -> void:
 # the pick's round `round_no` stood), each damaged combatant's cards showing
 # its hp before its first hit and a ghost to drain from there.
 func begin_strip_playback(before: Array, round_no: int, beats: Array) -> void:
-	var cp: Dictionary = GameState.state["combatPrototype"]
+	var cp: Dictionary = _cp()
 	var first_id := "" if beats.is_empty() else "%d:%d:%d" % [beats[0]["round"], beats[0]["turnActor"], beats[0]["turnIndex"]]
 	var shown := carousel_entries(before, maxi(0, before.find_custom(func(e): return e["occurrenceId"] == first_id)))
 	_strip_playback = { "entries": before, "round": round_no, "after": strip_entries(cp), "front": shown[0]["occurrenceId"] if not shown.is_empty() else "" }
@@ -938,7 +984,7 @@ func _advance_strip(beat: Dictionary, patch: bool = true) -> void:
 # After a pick's last beat: the carousel turns past every resolved
 # position, landing on the cards the next decision shows.
 func _settle_strip() -> void:
-	var cp: Dictionary = GameState.state["combatPrototype"]
+	var cp: Dictionary = _cp()
 	if _strip_playback.is_empty() or cp["outcome"] != null:
 		return
 	var list_key := "entries" if int(cp["round"]) == int(_strip_playback["round"]) else "after"
@@ -967,7 +1013,7 @@ func _patch_strip_entry(entries: Array, playing: int, beat: Dictionary) -> void:
 		entry["actionUnread"] = false
 	elif int(beat["actor"]) == entry["actor"]:
 		if entry.get("actionUnread", false) and beat["move"] != "":
-			entry["actionText"] = _aimed(GameState.state["combatPrototype"], CombatPrototype.move(beat["move"])["name"], beat["move"], int(beat["target"]))
+			entry["actionText"] = _aimed(_cp(), CombatPrototype.move(beat["move"])["name"], beat["move"], int(beat["target"]))
 			entry["actionUnread"] = false
 		if beat.has("actorGuard"):
 			entry["guardBadge"] = str(beat["actorGuard"]).capitalize()
@@ -985,7 +1031,7 @@ func _on_beat_played(beat: Dictionary) -> void:
 		return
 	Notify.push(beat["text"], Notify.CATEGORY_INFO, { Notify.META_COMBAT_LOG: true })
 	_advance_strip(beat)
-	var cp: Dictionary = GameState.state["combatPrototype"]
+	var cp: Dictionary = _cp()
 	if beat.has("marks"):
 		_apply_marks(cp, beat["marks"])
 	if CombatDirector.beat_is_damaging(beat) and beat.has("hpAfter"):
@@ -1000,7 +1046,7 @@ func _on_beat_played(beat: Dictionary) -> void:
 # hp return to how they stood before it, and its cues play undone.
 func _on_rewind_beat_played(beat: Dictionary) -> void:
 	_advance_strip(beat, false)
-	var cp: Dictionary = GameState.state["combatPrototype"]
+	var cp: Dictionary = _cp()
 	_apply_marks(cp, beat["marksBefore"])
 	if CombatDirector.beat_is_damaging(beat) and beat.has("hpAfter"):
 		var key := TurnOrderStrip.card_key_string(_stage_target(stage_roster(cp, -1), int(beat["target"])))
@@ -1128,6 +1174,8 @@ func _apply_marks(cp: Dictionary, marks: Array) -> void:
 
 
 func _build_outcome_card(outcome: String) -> Control:
+	if live:
+		return CombatScreen.outcome_button(outcome, _cp()["context"])
 	var c := MapCardStyle.card()
 	var lines := { "win": "You win.", "loss": "You lose.", "fled": "You got away." }
 	c["content"].add_child(UI.label(lines.get(outcome, outcome)))

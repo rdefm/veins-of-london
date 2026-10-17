@@ -19,10 +19,11 @@ extends RefCounted
 # replays the same rolls for the same pick. Fog of war (spec §Fog of war)
 # marks each enemy action read or unread as its plan is rolled, off a
 # separate stream (fogRngState), so the fog never shifts the fight's rolls.
-# The rules core (build_fight(), play_pick(), rewind_pick() and every helper
-# taking `cp`) works on whichever pure-data combat dict it is passed, RNG
-# streams included; start() / choose_*() / rewind() are the sandbox's thin
-# callers on state.combatPrototype.
+# The rules core (new_combatant(), open_fight(), build_fight(), play_pick(),
+# rewind_pick() and every helper taking `cp`) works on whichever pure-data
+# combat dict it is passed, RNG streams included; start() / choose_*() /
+# rewind() are the sandbox's thin callers on state.combatPrototype, and live
+# Combat drives the same core on state.combat (§3.7b).
 
 const SIDE_PLAYER := "player"
 const SIDE_ALLY := "ally"
@@ -297,14 +298,7 @@ static func build_fight(config: Dictionary = {}) -> Dictionary:
 		ally_loadouts.append(ally_loadout)
 
 	var seed_value := int(config.get("seed", Rng.fresh_seed()))
-	var rng := RandomNumberGenerator.new()
-	rng.seed = seed_value
-	var fog_rng := RandomNumberGenerator.new()
-	fog_rng.seed = seed_value ^ FOG_SEED_SALT
-
 	var cp := new_state()
-	cp["active"] = true
-	cp["round"] = 1
 	cp["fog"] = bool(config.get("fog", true))
 	cp["backdrop"] = { "context": backdrop_context, "locationKey": location_key }
 	var combatants: Array = cp["combatants"]
@@ -329,6 +323,7 @@ static func build_fight(config: Dictionary = {}) -> Dictionary:
 		var spec: Dictionary = enemy_specs[i]
 		var enemy := _build_combatant(SIDE_ENEMY, archetypes[spec["archetype"]], int(spec.get("level", 1)))
 		enemy["archetype"] = spec["archetype"]
+		enemy["template"] = archetypes[spec["archetype"]]["template"]
 		# Two of a kind get lettered: "the mugger A", "the mugger B".
 		if archetype_counts[spec["archetype"]] > 1:
 			var nth: int = archetype_seen.get(spec["archetype"], 0)
@@ -337,7 +332,24 @@ static func build_fight(config: Dictionary = {}) -> Dictionary:
 		enemy["planOverride"] = overrides[i] if i < overrides.size() else null
 		enemy["unreadOverride"] = unread_overrides[i] if i < unread_overrides.size() else null
 		combatants.append(enemy)
+	open_fight(cp, seed_value)
+	return cp
 
+
+# The rules core of a fight's opening, on `cp` with its combatants already
+# in place (player at PLAYER_INDEX, then allies, then enemies, each from
+# new_combatant(); an enemy also carries its archetype): seeds both RNG
+# streams off `seed_value`, rolls round 1's and round 2's enemy plans and
+# fog, plans the allies, and resolves round 1 up to the player's first
+# position.
+static func open_fight(cp: Dictionary, seed_value: int) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_value
+	var fog_rng := RandomNumberGenerator.new()
+	fog_rng.seed = seed_value ^ FOG_SEED_SALT
+	cp["active"] = true
+	cp["round"] = 1
+	var combatants: Array = cp["combatants"]
 	for i in range(combatants.size()):
 		if combatants[i]["side"] == SIDE_ENEMY:
 			combatants[i]["plan"] = _roll_plan(cp, i, 1, rng)
@@ -351,7 +363,6 @@ static func build_fight(config: Dictionary = {}) -> Dictionary:
 	_advance(cp, rng, beats)
 	cp["log"].append_array(beats)
 	cp["rngState"] = rng.state
-	return cp
 
 
 # HP and attack are the base plus the Combat Skill curves; speed is the
@@ -360,12 +371,20 @@ static func _build_combatant(side: String, base: Dictionary, level: int) -> Dict
 	var lv := clampi(level, 1, level_max())
 	var hp: int = int(base["hpBase"]) + int(GameData.COMBAT_HP_BONUS_BY_LEVEL[lv])
 	var attack_bonus: int = int(GameData.COMBAT_ATTACK_BONUS_BY_LEVEL[lv])
+	return new_combatant(side, base["name"], lv, hp, hp,
+		int(base["attackMin"]) + attack_bonus, int(base["attackMax"]) + attack_bonus,
+		int(GameData.COMBAT_SPEED_BY_LEVEL[lv]))
+
+
+# A combatant at Combat Skill `level` (clamped to 1..levelMax) with these
+# final stats, Guarded, no statuses, no loadout and no plans yet.
+static func new_combatant(side: String, name: String, level: int, hp: int, hp_max: int, attack_min: int, attack_max: int, speed: int) -> Dictionary:
 	return {
-		"side": side, "name": base["name"], "level": lv,
-		"hp": hp, "hpMax": hp,
-		"attackMin": int(base["attackMin"]) + attack_bonus,
-		"attackMax": int(base["attackMax"]) + attack_bonus,
-		"speed": int(GameData.COMBAT_SPEED_BY_LEVEL[lv]),
+		"side": side, "name": name, "level": clampi(level, 1, level_max()),
+		"hp": hp, "hpMax": hp_max,
+		"attackMin": attack_min,
+		"attackMax": attack_max,
+		"speed": speed,
 		"guard": GUARDED, "koed": false,
 		# Counts as Open through the end of this round number, whatever its
 		# own guard state (Exposed, spec §Vocabulary).

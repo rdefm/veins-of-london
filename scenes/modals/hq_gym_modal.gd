@@ -30,7 +30,7 @@ static func _skill_card(s: Dictionary) -> Control:
 
 
 static func stats_text(stats: Dictionary) -> String:
-	return "HP %d · ATK %d–%d · SPD %d" % [stats["hpMax"], stats["attackMin"], stats["attackMax"], stats["speed"]]
+	return "HP %d · ATK %d–%d · SPD %d · ACT %d · CRIT %d%%" % [stats["hpMax"], stats["attackMin"], stats["attackMax"], stats["speed"], stats["actionsPerRound"], roundi(stats["critChance"] * 100.0)]
 
 
 static func _train_button() -> Control:

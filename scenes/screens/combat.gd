@@ -12,7 +12,8 @@ extends Control
 # bottom edge. It also keeps turn flow (the turn-order strip), director
 # bridging (translating the beat queue into calls on the stage/dock's own
 # small interfaces) and band sync (deciding when a sync happens; the stage
-# owns how it renders).
+# owns how it renders). A round fight (Combat.is_round_engine()) is hosted
+# whole by a live CombatPrototypeScreen instead.
 
 # Fixed pixel band for the heading/context label + pacing toggle, matched
 # against CombatCommandDock.COMMAND_DOCK_SURFACE_HEIGHT below to keep the
@@ -26,6 +27,8 @@ const _STRIP_SIDE_INSET := 9.0
 
 var _heading: Label
 var _pacing_button: Button
+# Set instead of everything below while a round fight is on.
+var _round_screen: CombatPrototypeScreen
 var _strip_holder: Control
 var _footer_holder: VBoxContainer
 var _detail_band: Control
@@ -60,6 +63,12 @@ const _THROW_BEAT_KINDS: Array[String] = [
 
 func _ready() -> void:
 	UI.anchor_full_rect(self)
+	# A round fight (R§3.7b) plays on the round-fight screen instead.
+	if Combat.is_round_engine(GameState.state["combat"]):
+		_round_screen = CombatPrototypeScreen.new()
+		_round_screen.live = true
+		add_child(_round_screen)
+		return
 
 	# Only the top bar is cleared here, not the nav bar -- Main.gd's
 	# NAV_HIDDEN_SCREENS hides it entirely on "combat", so the command
@@ -160,7 +169,7 @@ func _sync() -> void:
 	var combat: Dictionary = GameState.state["combat"]
 	var player: Dictionary = GameState.state["player"]
 
-	_heading.text = _context_label(combat["context"])
+	_heading.text = context_label(combat["context"])
 	_pacing_button.text = _pacing_button_label()
 
 	var queue: Array = Combat.project_queue(combat)
@@ -183,7 +192,7 @@ func _on_pacing_button_pressed() -> void:
 	_director.toggle_pacing()
 	_pacing_button.text = _pacing_button_label()
 
-func _context_label(context: String) -> String:
+static func context_label(context: String) -> String:
 	if context == Combat.CONTEXT_HOME_RAID or context == Combat.CONTEXT_HOME_ALARM_DEFEND:
 		return "Home Raid"
 	if context == "raid":
@@ -197,7 +206,7 @@ func _sync_footer(combat: Dictionary, player: Dictionary) -> void:
 	for child in _footer_holder.get_children():
 		child.queue_free()
 	if combat["outcome"] != null and not _director.is_playing():
-		_footer_holder.add_child(_build_outcome_button(combat["outcome"], combat["context"]))
+		_footer_holder.add_child(outcome_button(combat["outcome"], combat["context"]))
 		_command_dock.hide_deck()
 	else:
 		_command_dock.configure(player, _on_attack_pressed, _on_run_pressed, _on_dial_triggered, _director.is_playing() or combat.get("playerKoed", false), _on_item_pressed)
@@ -344,7 +353,7 @@ func _on_director_playing_changed(playing: bool) -> void:
 	EventBus.combat_playback_changed.emit(playing)
 
 func _exit_tree() -> void:
-	if _director.is_playing():
+	if _director != null and _director.is_playing():
 		EventBus.combat_playback_changed.emit(false)
 
 func _play_beats(beats: Array, log_before: int) -> void:
@@ -532,7 +541,7 @@ func _play_juice(beat: Dictionary) -> void:
 	if beat.has("hpAfter"):
 		_drain_ghost(TurnOrderStrip.card_key_string(target), int(beat["hpAfter"]))
 
-func _build_outcome_button(outcome: String, context: String) -> Control:
+static func outcome_button(outcome: String, context: String) -> Control:
 	var label: String
 	if outcome == "win":
 		if Combat.NON_LETHAL_MUGGING_CONTEXTS.has(context):
@@ -546,6 +555,4 @@ func _build_outcome_button(outcome: String, context: String) -> Control:
 	else:
 		label = "💀 Come round"
 
-	return MapCardStyle.chip_button(label, _on_continue_pressed)
-func _on_continue_pressed() -> void:
-	Combat.exit_combat()
+	return MapCardStyle.chip_button(label, func(): Combat.exit_combat())

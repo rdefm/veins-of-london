@@ -1390,7 +1390,7 @@ func run() -> void:
 		}
 		var screen := CombatScreen.new()
 		for context in expected:
-			var outcome := screen._build_outcome_button("win", context)
+			var outcome := CombatScreen.outcome_button("win", context)
 			var buttons := outcome.find_children("*", "Button", true, false)
 			if outcome is Button:
 				buttons.append(outcome)

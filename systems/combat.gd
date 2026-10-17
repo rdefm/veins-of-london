@@ -161,6 +161,28 @@ const ALLY_HEAL_THRESHOLD_FRACTION := 0.4
 # here. DEFAULT_TEMPLATE_SPEED: default for a template that omits `speed`.
 const MUGGER_SPEED := 11
 const DEFAULT_TEMPLATE_SPEED := 10
+# R§3.7b tables 1-2: the mugger's archetype and enemy level, plain and harder
+# (a vein in the sale), and its stage sprite template.
+const MUGGER_ARCHETYPE := "mugger"
+const HARD_MUGGER_ARCHETYPE := "muggerV2"
+const MUGGER_LEVEL := 1
+const HARD_MUGGER_LEVEL := 2
+const MUGGER_TEMPLATE_KEY := "mugger"
+
+# R§3.7b: state.combat["engine"] for a fight on the Open/Guarded round rules
+# (CombatPrototype's core driven on state.combat). ROUND_ENGINE_CONTEXTS are
+# the contexts that start on it; every other context still runs the
+# speed-queue engine.
+const ENGINE_ROUNDS := "rounds"
+const ROUND_ENGINE_CONTEXTS: Array[String] = [CONTEXT_EVENT_MUGGING]
+# The round fight's Rewind stack id (Snapshots cap).
+const ROUND_SNAPSHOT_STACK := "combat"
+# R§3.7b XP: one Combat XP lump per round fight, by outcome.
+const ROUND_XP_WIN := 30
+const ROUND_XP_LOSS := 3
+const ROUND_XP_FLED := 0
+# PROSE-REVIEW: a loadout row's block reason until items work in round fights.
+const REASON_ROUND_ITEM_PENDING := "Not usable in this kind of fight yet."
 
 # R§3.7a: Combat Skill's XP sources, flat regardless of hit/miss/outcome
 # (mirrors Dial.cast_complication()'s flat +10 -- the attempt is what's
@@ -232,6 +254,8 @@ static func _spawn_mugger_instance(harder: bool = false) -> Dictionary:
 		"ability": null,
 		"evadeChance": 0.0,
 		"speed": MUGGER_SPEED,
+		"archetype": HARD_MUGGER_ARCHETYPE if harder else MUGGER_ARCHETYPE,
+		"level": HARD_MUGGER_LEVEL if harder else MUGGER_LEVEL,
 	}
 
 
@@ -582,6 +606,9 @@ static func start_debug_combat(context: String, location_key: String, value_tier
 static func _start_combat(context: String, vein_id, enemies: Array, log_lines: Array, on_win: String, allies: Array = [], location_key_override: Variant = null, raider_kit: Dictionary = {}, guard_kit: Dictionary = {}) -> void:
 	if not is_canonical_context(context):
 		push_error("Combat: unrecognized context '%s' — not in CANONICAL_CONTEXTS, exit_combat() will mis-route it." % context)
+	if ROUND_ENGINE_CONTEXTS.has(context):
+		_start_round_combat(context, vein_id, enemies, log_lines, on_win, allies, location_key_override)
+		return
 	# Every roster entry needs koed regardless of which start_* path built
 	# it -- one chokepoint (speed is already set at construction time).
 	# `rid` is a fight-scoped identity, so a Rewind can tell which fighter holds
@@ -617,6 +644,10 @@ static func _start_combat(context: String, vein_id, enemies: Array, log_lines: A
 		# advance_to_next_decision() call populates queue/round from empty.
 		"turnCursor": { "queue": [], "index": 0, "round": 0 },
 	}
+	_enter_combat_screen()
+
+
+static func _enter_combat_screen() -> void:
 	GameState.state["currentScreen"] = "combat"
 	EventBus.screen_changed.emit("combat")
 	EventBus.state_changed.emit()
@@ -625,6 +656,123 @@ static func _start_combat(context: String, vein_id, enemies: Array, log_lines: A
 	# since Raiding.maybe_trigger_defend() can fire this synchronously
 	# mid-Sites.prospect()/Travel.travel_to() while a Map animation plays.
 	MapEvents.abandon_playback()
+
+
+# ── Round fights (R§3.7b) ────────────────────────────────────────────────
+
+static func is_round_engine(combat: Dictionary) -> bool:
+	return combat.get("engine", "") == ENGINE_ROUNDS
+
+
+# Opens a round fight on state.combat: a CombatPrototype fight dict holding
+# the real player (hp, hpMax, attack range, Combat Skill level and its speed)
+# and the spawned enemies (their own hp/attack/speed plus their level's
+# bonuses, R§3.7b speed rule; their archetype's plan patterns), plus the live
+# keys exit_combat() and the rest of the game read. The intro lines go to
+# the combat ticker. `config` is test-only: seed (default off the global
+# Rng stream), fog, and enemyPlans / enemyUnread as CombatPrototype.start().
+# Allies and the loadout's items don't take part yet.
+static func _start_round_combat(context: String, vein_id, enemies: Array, log_lines: Array, on_win: String, _allies: Array = [], location_key_override: Variant = null, config: Dictionary = {}) -> void:
+	var location_key: String = location_key_for(context, vein_id) if location_key_override == null else str(location_key_override)
+	var player: Dictionary = GameState.state["player"]
+	var combat := CombatPrototype.new_state()
+	combat.merge({
+		"engine": ENGINE_ROUNDS, "context": context, "veinId": vein_id,
+		"enemies": enemies.slice(0, SQUAD_MAX), "enemyQueue": enemies.slice(SQUAD_MAX), "allyQueue": [],
+		"locationKey": location_key, "selection": { "type": "enemy", "index": 0 },
+		"onWin": on_win, "allies": [], "raiderKit": {}, "guardKit": {}, "slotsUsed": [],
+		"backdrop": { "context": context, "locationKey": location_key },
+		"fog": bool(config.get("fog", true)),
+	}, true)
+	var level: int = clampi(int(player["combatSkill"]), 1, CombatPrototype.level_max())
+	var attack := get_attack_range()
+	var combatants: Array = combat["combatants"]
+	combatants.append(CombatPrototype.new_combatant(CombatPrototype.SIDE_PLAYER,
+		GameData.COMBAT_PROTOTYPE["playerBase"]["name"], level, int(player["hp"]), int(player["hpMax"]),
+		attack["min"], attack["max"], int(GameData.COMBAT_SPEED_BY_LEVEL[level])))
+	var plans: Array = config.get("enemyPlans", [])
+	var unread: Array = config.get("enemyUnread", [])
+	var active: Array = combat["enemies"]
+	var names: Array = active.map(func(e): return _round_enemy_name(e))
+	for i in range(active.size()):
+		var enemy := _round_enemy_combatant(active[i])
+		if names.count(names[i]) > 1:
+			enemy["name"] = "%s %s" % [names[i], char(65 + names.slice(0, i).count(names[i]))]
+		enemy["planOverride"] = plans[i] if i < plans.size() else null
+		enemy["unreadOverride"] = unread[i] if i < unread.size() else null
+		combatants.append(enemy)
+	CombatPrototype.open_fight(combat, int(config.get("seed", Rng.randi_range(0, 0x7FFFFFFF))))
+	GameState.state["combat"] = combat
+	for line in log_lines:
+		Notify.push(line, Notify.CATEGORY_INFO, { Notify.META_COMBAT_LOG: true })
+	_sync_round_outcome(combat)
+	_enter_combat_screen()
+
+
+# A mugger reads as its archetype ("the mugger"); any other template keeps
+# its own name.
+static func _round_enemy_name(entry: Dictionary) -> String:
+	if entry.get("isMugging", false):
+		return GameData.COMBAT_PROTOTYPE["archetypes"][entry["archetype"]]["name"]
+	return str(entry["name"])
+
+
+static func _round_enemy_combatant(entry: Dictionary) -> Dictionary:
+	var level: int = clampi(int(entry.get("level", 1)), 1, CombatPrototype.level_max())
+	var hp_bonus: int = GameData.COMBAT_HP_BONUS_BY_LEVEL[level]
+	var attack_bonus: int = GameData.COMBAT_ATTACK_BONUS_BY_LEVEL[level]
+	var speed_bonus: int = GameData.COMBAT_SPEED_BY_LEVEL[level] - GameData.COMBAT_SPEED_BY_LEVEL[1]
+	var attack := get_enemy_attack_range(entry)
+	var enemy := CombatPrototype.new_combatant(CombatPrototype.SIDE_ENEMY, _round_enemy_name(entry), level,
+		int(entry["hp"]) + hp_bonus, int(entry["hpMax"]) + hp_bonus,
+		attack["min"] + attack_bonus, attack["max"] + attack_bonus,
+		int(entry.get("speed", DEFAULT_TEMPLATE_SPEED)) + speed_bonus)
+	enemy["archetype"] = entry["archetype"]
+	enemy["template"] = MUGGER_TEMPLATE_KEY if entry.get("isMugging", false) else str(entry.get("variant", ""))
+	return enemy
+
+
+# Plays `move_id` at the round fight's paused player position (target -1:
+# the move's default), as CombatPrototype.play_pick(). Returns
+# { ok, beats, outcome } or { ok: false, reason }.
+static func choose_move(move_id: String, target: int = -1) -> Dictionary:
+	var combat: Dictionary = GameState.state["combat"]
+	if not combat["active"] or not is_round_engine(combat):
+		return { "ok": false, "reason": "Combat not active." }
+	var result := CombatPrototype.play_pick(combat, { "move": move_id, "target": target }, ROUND_SNAPSHOT_STACK)
+	if result["ok"]:
+		_sync_round_outcome(combat)
+		EventBus.state_changed.emit()
+	return result
+
+
+static func move_block_reason(move_id: String, target: int = -1) -> String:
+	return CombatPrototype.move_block_reason(GameState.state["combat"], move_id, target)
+
+
+# Why loadout slot `index` can't be picked in a round fight.
+static func round_item_block_reason(index: int) -> String:
+	return REASON_SLOT_EMPTY if Loadout.slot(index) == null else REASON_ROUND_ITEM_PENDING
+
+
+# The player's hp follows the fight; a win dispatches onWin, a loss leaves
+# the player on R§3.7a's KO hp.
+static func _sync_round_outcome(combat: Dictionary) -> void:
+	GameState.state["player"]["hp"] = int(combat["combatants"][CombatPrototype.PLAYER_INDEX]["hp"])
+	match combat["outcome"]:
+		"win":
+			_dispatch_on_win()
+		"loss":
+			_settle_player_ko_hp()
+
+
+static func round_fight_xp(outcome) -> int:
+	match outcome:
+		"win":
+			return ROUND_XP_WIN
+		"loss":
+			return ROUND_XP_LOSS
+	return ROUND_XP_FLED
 
 
 # R§2 combat.locationKey derivation: home contexts -> HOME_LOCATION_KEY;
@@ -1071,7 +1219,8 @@ static func award_xp(amount: int) -> void:
 
 # R§3.7a read-only summary for the HQ gym modal. XP values are cumulative
 # (COMBAT_XP_LEVELS thresholds); xpFloor/xpNext bound the current level's
-# band. "stats" is the player's effective hpMax/attack range/speed now;
+# band. "stats" is the player's effective hpMax/attack range/speed now, plus
+# R§3.7b actionsPerRound and critChance at that level;
 # "nextStats" is the same after one more level (equal to "stats" at max).
 static func skill_summary() -> Dictionary:
 	var player: Dictionary = GameState.state["player"]
@@ -1083,11 +1232,15 @@ static func skill_summary() -> Dictionary:
 	var hp: Array = GameData.COMBAT_HP_BONUS_BY_LEVEL
 	var atk: Array = GameData.COMBAT_ATTACK_BONUS_BY_LEVEL
 	var attack := get_attack_range()
+	var actions: Array = GameData.COMBAT_PROTOTYPE["actionsPerRound"]
+	var crit: Array = GameData.COMBAT_PROTOTYPE["critChance"]
 	var stats := {
 		"hpMax": player["hpMax"],
 		"attackMin": attack["min"],
 		"attackMax": attack["max"],
 		"speed": GameData.COMBAT_SPEED_BY_LEVEL[level],
+		"actionsPerRound": int(actions[level]),
+		"critChance": float(crit[level]),
 	}
 	var atk_gain: int = atk[next] - atk[level]
 	var next_stats := {
@@ -1095,6 +1248,8 @@ static func skill_summary() -> Dictionary:
 		"attackMin": stats["attackMin"] + atk_gain,
 		"attackMax": stats["attackMax"] + atk_gain,
 		"speed": GameData.COMBAT_SPEED_BY_LEVEL[next],
+		"actionsPerRound": int(actions[next]),
+		"critChance": float(crit[next]),
 	}
 	return {
 		"level": level,
@@ -2400,7 +2555,7 @@ static func _all_enemies_koed(enemies: Array) -> bool:
 # fall back to the next living enemy; never fires for type "player".
 static func clamp_selection(combat: Dictionary) -> void:
 	var selection: Dictionary = combat["selection"]
-	if selection["type"] == "player":
+	if selection["type"] == "player" or is_round_engine(combat):
 		return
 	var roster: Array = combat["allies"] if selection["type"] == "ally" else combat["enemies"]
 	var idx: int = selection["index"]
@@ -2857,6 +3012,8 @@ static func exit_combat() -> Dictionary:
 	var stockpile_faction_id: String = combat.get("stockpileFactionId", "")
 	var ambush_faction_id: String = combat.get("ambushFactionId", "")
 
+	if is_round_engine(combat) and round_fight_xp(outcome) > 0:
+		award_xp(round_fight_xp(outcome))
 	Loadout.refill_used(combat.get("slotsUsed", []))
 	Loadout.settle_allies(combat["allies"])
 	# Hand any allies' ending hp back to persistent contact state
