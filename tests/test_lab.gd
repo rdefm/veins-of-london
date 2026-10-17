@@ -5,6 +5,7 @@ const SeedSearch := preload("res://tests/support/seed_search.gd")
 const Fixtures := preload("res://tests/support/fixtures.gd")
 
 var _real_bonus_chance: float
+var _real_insight: Dictionary
 
 # systems/lab.gd's knowledge spine (.scratch/lab-port/spec.md § State,
 # § Knowledge API), driven through the public API and event ops.
@@ -160,23 +161,32 @@ func run() -> void:
 	)
 
 	_real_bonus_chance = GameData.LAB["bonus"]["chance"]
+	_real_insight = GameData.RECIPE_KNOWLEDGE["insight"].duplicate()
 	_register_run_cases()
 	_register_learning_cases()
+	_register_insight_cases()
 	_register_batch_rewind_cases()
 	GameData.LAB["bonus"]["chance"] = _real_bonus_chance
+	_set_insight_chance(_real_insight["base"], _real_insight["perSkill"])
 
 
 # A fresh game knowing recipe_key, crafting skill 0, with this unstashed
-# calc, and no re-run bonus unless a case sets bonus.chance back.
+# calc, and no re-run bonus or insight unless a case sets their chance back.
 func _bench(recipe_key: String, calc: Dictionary) -> Dictionary:
 	_fresh()
 	GameData.LAB["bonus"]["chance"] = 0.0
+	_set_insight_chance(0.0, 0.0)
 	var player: Dictionary = GameState.state["player"]
 	player["craftingSkill"] = 0
 	for ore_type in calc:
 		player["orichalchum"][ore_type] = calc[ore_type]
 	Lab.grant_recipe(recipe_key)
 	return player
+
+
+func _set_insight_chance(base: float, per_skill: float) -> void:
+	GameData.RECIPE_KNOWLEDGE["insight"]["base"] = base
+	GameData.RECIPE_KNOWLEDGE["insight"]["perSkill"] = per_skill
 
 
 func _calc(ore_type: String) -> int:
@@ -588,6 +598,66 @@ func _rank_three_time_pearl() -> void:
 	Lab.add_ore("timePearl", "time")
 	Lab.perform_step("compression", 70.0)
 	Lab.perform_step("heat", 25.0)
+
+
+# Insights (recipe-acquisition spec § Insight roll): rolled on a finished
+# manual run only, learned through the same clue path as an unknown step.
+func _register_insight_cases() -> void:
+	run_case("finished_run_rolls_insight_into_the_result", func():
+		_bench("timePearl", { "time": 10 })
+		_set_insight_chance(1.0, 0.0)
+		Lab.add_ore("timePearl", "time")
+		Lab.perform_step("compression", 70.0)
+		var result := Lab.finish_run()
+		assert_eq([result["insight"]["rung"], result["insight"]["step"]], ["hint2", 1], "insight in the result")
+		assert_eq(Lab.step_specificity("timePearl", 1), "insight", "and in knowledge")
+		_set_insight_chance(0.0, 0.0)
+		Lab.add_ore("timePearl", "time")
+		assert_eq(Lab.finish_run()["insight"], null, "a miss reads null")
+	)
+
+	run_case("cracked_abandoned_and_batch_never_roll", func():
+		_bench("timePearl", { "time": 40 })
+		_perfect_time_pearl()
+		Lab.finish_run()
+		var before: Dictionary = GameState.deep_copy(GameState.state["lab"]["known"])
+		_set_insight_chance(1.0, 0.0)
+		Lab.add_ore("timePearl", "time")
+		assert_true(Lab.perform_step("compression", 99.0).get("cracked", false), "cracked")
+		Lab.add_ore("timePearl", "time")
+		Lab.abandon_run()
+		assert_true(Lab.batch("timePearl", 2)["ok"], "batch ran")
+		assert_eq(GameState.state["lab"]["known"], before, "no insight")
+	)
+
+	run_case("insight_learns_vague_then_exact_through_the_clue_path", func():
+		_bench("timePearl", { "time": 30 })
+		Lab.grant_steps("timePearl", [1], "insight")
+		Lab.add_ore("timePearl", "time")
+		Lab.perform_step("compression", 70.0)
+		Lab.perform_grind([20.0, 20.0, 20.0])
+		var first: Dictionary = Lab.finish_run()["clues"][1]
+		assert_eq([first["clue"], first["learned"]], ["changed", "vague"], "performing it makes it vague")
+		assert_eq(Lab.known_procedure("timePearl")[1]["knowledge"], "vague", "book shows it vague")
+		for n in [1, 2, 3]:
+			Lab.add_ore("timePearl", "time")
+			Lab.perform_step("compression", 70.0)
+			Lab.perform_grind([50.0, 50.0, 50.0])
+			var clue: Dictionary = Lab.finish_run()["clues"][1]
+			assert_eq([clue["clue"], clue["hits"]], ["hit", n], "hit %d counted" % n)
+		assert_eq(Lab.step_specificity("timePearl", 1), "exact", "exact after 3 hits")
+	)
+
+	run_case("pending_insight_step_shows_no_band", func():
+		_bench("timePearl", { "time": 10 })
+		Lab.grant_steps("timePearl", [1], "insight")
+		Lab.add_ore("timePearl", "time")
+		Lab.perform_step("compression", 70.0)
+		var pending := Lab.pending_step("grinding")
+		assert_eq(pending["knowledge"], "insight", "the insight step is next")
+		assert_eq(Lab.step_region("timePearl", pending), {}, "gauge shows no band")
+		Lab.abandon_run()
+	)
 
 
 func _register_batch_rewind_cases() -> void:

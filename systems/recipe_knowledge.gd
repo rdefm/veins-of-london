@@ -8,7 +8,8 @@ extends RefCounted
 # Each recipe has a ladder of rungs: base (the recipe itself) then the hint
 # rungs data/lab.json tags its hidden steps with. A hint rung is owned once
 # every one of its steps is at least vague, exact once all are exact. The
-# rank ceiling is that of the highest rung reached without a gap.
+# rank ceiling is that of the highest rung reached without a gap. An
+# insight step counts as unknown.
 #
 # buy() sells a rung exact from the recipe's seller once its shop is
 # unlocked and its gate met, at a fixed price less a goodwill discount.
@@ -16,6 +17,8 @@ extends RefCounted
 # grant_rung() teaches a rung. A grant naming a source that would teach
 # nothing new falls back (spec § Further Notes): the same rung on another of
 # that source's recipes, else crafting XP, a relation bump and a line.
+#
+# roll_insight() may reveal one hidden step after a finished manual run.
 
 
 static func _data() -> Dictionary:
@@ -40,7 +43,7 @@ static func rung_state(recipe_key: String, rung: String) -> String:
 	var all_exact := true
 	for i in steps:
 		var level := Lab.step_specificity(recipe_key, int(i))
-		if level.is_empty():
+		if level.is_empty() or level == "insight":
 			return "unknown"
 		if level != "exact":
 			all_exact = false
@@ -71,7 +74,8 @@ static func rung_ceiling(rung: String) -> int:
 # label, ceiling (ladder.ceiling text), state ("exact" | "vague" |
 # "locked"), note, text (ladder.row) }. note is the state's text for an
 # owned rung, the master pointer for a locked master, else where the rung
-# is sold and, while the player falls short of its gate, what gates it.
+# is sold and, while the player falls short of its gate, what gates it; a
+# locked rung's insight steps follow (ladder.insight).
 static func ladder_rows(recipe_key: String) -> Array:
 	var ladder: Dictionary = _data()["ladder"]
 	var rows := []
@@ -81,6 +85,9 @@ static func ladder_rows(recipe_key: String) -> Array:
 		var note := str(ladder["states"].get(state, state))
 		if state == "locked":
 			note = master_source(recipe_key)["pointer"] if rung == "master" else _lock_note(recipe_key, rung)
+			var insights := _insight_text(recipe_key, rung)
+			if not insights.is_empty():
+				note = str(ladder["join"]) % [note, str(ladder["insight"]) % insights]
 		var ceiling := str(ladder["ceiling"]) % rung_ceiling(rung)
 		rows.append({
 			"rung": rung,
@@ -104,6 +111,14 @@ static func _lock_note(recipe_key: String, rung: String) -> String:
 	if str(gate.get("kind", "")) == "factionTier":
 		need = Perks.tier_label(str(need))
 	return str(ladder["join"]) % [note, str(gate["text"]) % need]
+
+
+static func _insight_text(recipe_key: String, rung: String) -> String:
+	var parts := PackedStringArray()
+	for i in Lab.rung_steps(recipe_key, rung):
+		if Lab.step_specificity(recipe_key, int(i)) == "insight":
+			parts.append(insight_step_text(recipe_key, int(i)))
+	return ", ".join(parts)
 
 
 # ── Sources ──────────────────────────────────────────────────────────────
@@ -319,3 +334,55 @@ static func _console(source_id: String, recipe_key: String, rung: String) -> Dic
 	var line: String = lines.get(source_id, lines.get(_resolve_source(source_id), lines["default"]))
 	EventBus.state_changed.emit()
 	return { "ok": true, "path": "consolation", "recipe": recipe_key, "rung": rung, "line": line }
+
+
+# ── Insights ─────────────────────────────────────────────────────────────
+
+static func insight_chance() -> float:
+	var cfg: Dictionary = _data()["insight"]
+	return float(cfg["base"]) + float(cfg["perSkill"]) * Lab.effective_skill()
+
+
+# Unknown hidden inserted steps of a rung (a base-matched correction never
+# qualifies: its place already shows).
+static func _insight_candidates(recipe_key: String, rung: String) -> Array:
+	var hidden := Lab.hidden_ideal_steps(recipe_key)
+	var result := []
+	for i in Lab.rung_steps(recipe_key, rung):
+		if hidden.has(int(i)) and Lab.step_specificity(recipe_key, int(i)).is_empty():
+			result.append(int(i))
+	return result
+
+
+# The rung an insight points into: the lowest unowned rung with a candidate
+# step, else "".
+static func insight_rung(recipe_key: String) -> String:
+	if not Lab.is_known(recipe_key):
+		return ""
+	for rung in rungs():
+		if rung != "base" and not owns_rung(recipe_key, rung) and not _insight_candidates(recipe_key, rung).is_empty():
+			return rung
+	return ""
+
+
+# "<apparatus> at step <n>" (insight.step) for a shown step.
+static func insight_step_text(recipe_key: String, ideal_index: int) -> String:
+	var apparatus: String = Lab.procedure_def(recipe_key)["ideal"][ideal_index]["apparatus"]
+	return str(_data()["insight"]["step"]) % [Lab.apparatus_name(apparatus), Lab.step_position(recipe_key, ideal_index)]
+
+
+# Rolls insight_chance() on the seeded Rng when insight_rung() has a target;
+# a hit grants one candidate step of it (drawn at random) at insight. null,
+# or { rung, step (ideal index), position (1-based book place), apparatus,
+# text (insight.result) }.
+static func roll_insight(recipe_key: String) -> Variant:
+	var rung := insight_rung(recipe_key)
+	if rung.is_empty() or not Rng.chance(insight_chance()):
+		return null
+	var step: int = Rng.rand_from(_insight_candidates(recipe_key, rung))
+	Lab.grant_steps(recipe_key, [step], "insight")
+	return {
+		"rung": rung, "step": step, "position": Lab.step_position(recipe_key, step),
+		"apparatus": Lab.procedure_def(recipe_key)["ideal"][step]["apparatus"],
+		"text": str(_data()["insight"]["result"]) % insight_step_text(recipe_key, step),
+	}

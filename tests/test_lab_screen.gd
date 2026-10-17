@@ -115,6 +115,30 @@ func run() -> void:
 		screen.free()
 	)
 
+	run_case("an_insight_shows_in_the_result_and_on_the_recipe_page_without_a_band", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["time"] = 10
+		Lab.grant_recipe("timePearl")
+		var cfg: Dictionary = GameData.RECIPE_KNOWLEDGE["insight"]
+		var real_base: float = cfg["base"]
+		cfg["base"] = 1.0
+		var screen := _screen()
+		screen._open_recipe("timePearl")
+		NodeQuery.find_button(screen, "Craft manually").pressed.emit()
+		UiSim.tap_zone(screen, "ore_time")
+		NodeQuery.find_button(screen, "Finish").pressed.emit()
+		cfg["base"] = real_base
+		var line := screen.find_child("InsightLine", true, false) as Label
+		assert_true(line != null, "the result has an insight line")
+		assert_eq(line.text, screen._result["insight"]["text"], "reading the roll's text")
+		NodeQuery.find_button(screen, "Done").pressed.emit()
+		assert_true(NodeQuery.label_texts(screen).has("2. %s · ?" % Lab.apparatus_name("grinding")), "the book shows the step, no band")
+		assert_true(NodeQuery.label_texts(screen).has(GameData.LAB["insightNote"]), "with the insight note")
+		var hint2 := screen.find_child("Rung_hint2", true, false) as Label
+		assert_true(hint2.text.contains("insight: "), "the ladder names the insight")
+		screen.free()
+	)
+
 	run_case("craft_manually_docks_the_book_and_finish_shows_the_result", func():
 		GameState.reset()
 		GameState.state["player"]["orichalchum"]["time"] = 10

@@ -722,21 +722,24 @@ func _jar_names(base_calc: Dictionary) -> String:
 
 # A known step: apparatus, the calc it adds, and its band -- exact as
 # "low–high", vague as "≈ low–high" on a faded region with the hint's note
-# saying which way to go.
+# saying which way to go; an insight as "?" with no band, just its note.
 func _add_known_step(content: VBoxContainer, index: int, step: Dictionary) -> void:
 	var calc: Dictionary = step.get("calc", {})
 	var ores := ""
 	for ore_type in calc.keys():
 		ores += " · %s ×%d" % [ore_type, calc[ore_type]]
 	var region := Lab.step_region(_recipe_key, step)
-	var band_text: String = "≈ %d–%d" if region["vague"] else "%d–%d"
-	if step["knowledge"] == "revealed":
-		# PROSE-REVIEW: tag on a band Prophet's Breath reveals.
-		band_text += " (Breath)"
-	content.add_child(UI.label("%d. %s%s · %s" % [index + 1, Lab.apparatus_name(step["apparatus"]), ores, band_text % [roundi(region["low"]), roundi(region["high"])]]))
-	var band := LabGauges.BandGauge.new()
-	band.set_region(region)
-	content.add_child(band)
+	if region.is_empty():
+		content.add_child(UI.label("%d. %s%s · ?" % [index + 1, Lab.apparatus_name(step["apparatus"]), ores]))
+	else:
+		var band_text: String = "≈ %d–%d" if region["vague"] else "%d–%d"
+		if step["knowledge"] == "revealed":
+			# PROSE-REVIEW: tag on a band Prophet's Breath reveals.
+			band_text += " (Breath)"
+		content.add_child(UI.label("%d. %s%s · %s" % [index + 1, Lab.apparatus_name(step["apparatus"]), ores, band_text % [roundi(region["low"]), roundi(region["high"])]]))
+		var band := LabGauges.BandGauge.new()
+		band.set_region(region)
+		content.add_child(band)
 	if step.has("note"):
 		var note := UI.muted_label(step["note"])
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -774,6 +777,11 @@ func _add_result(content: VBoxContainer) -> void:
 			content.add_child(clue)
 		if _result["steps"].is_empty():
 			content.add_child(UI.muted_label("No steps performed."))
+		if _result.get("insight") != null:
+			var insight := MapCardStyle.label(_result["insight"]["text"], 14, MapCardStyle.action())
+			insight.name = "InsightLine"
+			insight.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			content.add_child(insight)
 		if _result["flavour"] != null:
 			var flavour := UI.muted_label(_result["flavour"])
 			flavour.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

@@ -7,8 +7,9 @@ extends RefCounted
 # A recipe is known once granted (grant_recipe(): its base procedure). Its
 # hidden steps -- ideal steps the base procedure lacks or gets wrong, each
 # with an authored hint and rung -- are then granted at a specificity
-# (grant_steps()): "vague" shows a fuzzy region and direction, "exact" the
-# true band. A grant only ever raises a step's specificity.
+# (grant_steps()): "insight" shows only its apparatus and place, "vague" a
+# fuzzy region and direction, "exact" the true band. A grant only ever
+# raises a step's specificity.
 #
 # A manual run (spec § Run rules) is freeform: add_ore() taps one of the
 # recipe's jars, spending its fixed amount of the player's real calc, and
@@ -149,13 +150,27 @@ static func step_specificity(recipe_key: String, ideal_index: int) -> String:
 # The steps the player knows: the base procedure, where each granted hint
 # either corrects the target of the base step matching its ideal step or
 # inserts that ideal step (no calc) in ideal order. An unknown ideal step is
-# simply absent. Each step carries knowledge "base", "vague" or "exact"; a
-# hinted one also its hintId and note. While the player's Prophet's Breath
-# effect runs, every ideal step not known exact shows its true target as
-# knowledge "revealed" (unknown steps inserted, vague ones sharpened, no
-# note); knowledge is untouched. Targets are floats so a saved run
-# round-trips unchanged.
+# simply absent. Each step carries knowledge "base", "insight", "vague" or
+# "exact"; a hinted one also its hintId and note. An inserted insight step
+# has no target (its place and apparatus only); an insight on a base step
+# leaves it as the base step. While the player's Prophet's Breath effect
+# runs, every ideal step not known exact shows its true target as knowledge
+# "revealed" (unknown steps inserted, vague ones sharpened, no note);
+# knowledge is untouched. Targets are floats so a saved run round-trips
+# unchanged.
 static func known_procedure(recipe_key: String) -> Array:
+	return _book(recipe_key, ActiveEffects.prophets_breath_active())["steps"]
+
+
+# The 1-based place an ideal step takes in the known procedure (Prophet's
+# Breath aside), or 0 when the book doesn't show it.
+static func step_position(recipe_key: String, ideal_index: int) -> int:
+	return _book(recipe_key, false)["ideals"].find(ideal_index) + 1
+
+
+# { steps (the known procedure), ideals (each step's ideal index, -1 for a
+# base step matching none) }.
+static func _book(recipe_key: String, reveal: bool) -> Dictionary:
 	var procedure := procedure_def(recipe_key)
 	var ideal: Array = procedure["ideal"]
 	var base: Array = procedure["base"]
@@ -164,37 +179,45 @@ static func known_procedure(recipe_key: String) -> Array:
 		var level := step_specificity(recipe_key, int(hint["step"]))
 		if not level.is_empty():
 			granted[int(hint["step"])] = { "hint": hint, "level": level }
-	if ActiveEffects.prophets_breath_active():
+	if reveal:
 		for i in ideal.size():
 			if granted.get(i, {}).get("level") != "exact":
 				granted[i] = { "level": "revealed" }
-	var steps := []
+	var book := { "steps": [], "ideals": [] }
 	var next_ideal := 0
 	var base_matches := match_ideal(ideal, base)
 	for i in base.size():
 		var m: int = base_matches[i]
 		if m >= 0:
-			_insert_hinted(steps, ideal, granted, next_ideal, m)
+			_insert_hinted(book, ideal, granted, next_ideal, m)
 			next_ideal = m + 1
 		var step: Dictionary = base[i].duplicate(true)
 		step["target"] = float(step["target"])
 		step["knowledge"] = "base"
 		if granted.has(m):
 			_apply_hint(step, ideal[m], granted[m])
-		steps.append(step)
-	_insert_hinted(steps, ideal, granted, next_ideal, ideal.size())
-	return steps
+		book["steps"].append(step)
+		book["ideals"].append(m)
+	_insert_hinted(book, ideal, granted, next_ideal, ideal.size())
+	return book
 
 
-static func _insert_hinted(steps: Array, ideal: Array, granted: Dictionary, from: int, to: int) -> void:
+static func _insert_hinted(book: Dictionary, ideal: Array, granted: Dictionary, from: int, to: int) -> void:
 	for i in range(from, to):
 		if granted.has(i):
 			var step := { "apparatus": ideal[i]["apparatus"] }
 			_apply_hint(step, ideal[i], granted[i])
-			steps.append(step)
+			book["steps"].append(step)
+			book["ideals"].append(i)
 
 
 static func _apply_hint(step: Dictionary, ideal_step: Dictionary, grant: Dictionary) -> void:
+	if grant["level"] == "insight":
+		if not step.has("target"):
+			step["knowledge"] = "insight"
+			step["hintId"] = grant["hint"]["id"]
+			step["note"] = str(_data()["insightNote"])
+		return
 	step["target"] = float(ideal_step["target"])
 	step["knowledge"] = grant["level"]
 	step.erase("note")
@@ -255,8 +278,10 @@ static func bench_bonus(recipe_key: String) -> float:
 # What the gauge shows for a known step, clamped to the 0-100 gauge: the
 # band around its target, or for a vague step a fuzzy region vagueSpread
 # wider each side and shifted by the hint's offset (|offset| <= vagueSpread,
-# so the true band always sits inside it).
+# so the true band always sits inside it). An insight step shows no band: {}.
 static func step_region(recipe_key: String, step: Dictionary) -> Dictionary:
+	if step.get("knowledge") == "insight":
+		return {}
 	var half := band_half_width(recipe_key)
 	var low := float(step["target"]) - half
 	var high := float(step["target"]) + half
@@ -318,15 +343,15 @@ static func _added_ores(step: Dictionary) -> Array:
 
 # ── Clues and learning ───────────────────────────────────────────────────
 
-# Ideal indices of the hidden steps the player can't see yet: unknown, and
-# no base step matches them.
+# Ideal indices of the hidden steps the player can't see the target of yet:
+# unknown or insight, and no base step matches them.
 static func hidden_ideal_steps(recipe_key: String) -> Array[int]:
 	var procedure := procedure_def(recipe_key)
 	var base_matches := match_ideal(procedure["ideal"], procedure["base"])
 	var hidden: Array[int] = []
 	for hint in procedure.get("hints", []):
 		var step := int(hint["step"])
-		if step_specificity(recipe_key, step).is_empty() and not base_matches.has(step):
+		if step_specificity(recipe_key, step) in ["", "insight"] and not base_matches.has(step):
 			hidden.append(step)
 	return hidden
 
@@ -618,8 +643,8 @@ static func _perform(apparatus: String, record: Dictionary) -> void:
 # Crafting.file_crafted() with the recipe's xpReward × the bonus's
 # xpMultiplier. A rank at or above the best rank rolls the re-run bonus
 # (one type drawn at random); a score below badRun.scoreBelow sometimes
-# returns a flavour line. Best rank only rises; the recipe joins
-# performedOnce.
+# returns a flavour line; then the insight roll (RecipeKnowledge.roll_insight,
+# finished runs only). Best rank only rises; the recipe joins performedOnce.
 static func finish_run() -> Dictionary:
 	var run = active_run()
 	if run == null:
@@ -637,6 +662,7 @@ static func finish_run() -> Dictionary:
 	var type_def: Dictionary = _data()["bonus"]["types"].get(bonus, {})
 	var refunded := _refund_calc(run["calcSpent"], float(type_def.get("refundFraction", 0.0)))
 	var flavour = _bad_run_line(score)
+	var insight = RecipeKnowledge.roll_insight(recipe_key)
 	s["bestRanks"][recipe_key] = maxi(prior_best, rank)
 	if not s["performedOnce"].has(recipe_key):
 		s["performedOnce"].append(recipe_key)
@@ -658,7 +684,7 @@ static func finish_run() -> Dictionary:
 		"rawScore": scored["score"], "ladyBonus": lady_bonus, "rank": rank,
 		"items": 1 + extra_items, "xp": xp, "newBest": rank > prior_best, "steps": steps,
 		"clues": clues, "bonus": bonus if not bonus.is_empty() else null,
-		"refunded": refunded, "flavour": flavour,
+		"refunded": refunded, "flavour": flavour, "insight": insight,
 		"durationMsec": maxi(0, Time.get_ticks_msec() - int(run["startedMsec"])),
 	}
 	_emit_hook(result)

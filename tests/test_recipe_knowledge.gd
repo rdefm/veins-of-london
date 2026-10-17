@@ -198,6 +198,7 @@ func run() -> void:
 	)
 
 	_register_buying_cases()
+	_register_insight_cases()
 
 
 func _shop(seller_id: String) -> Dictionary:
@@ -391,4 +392,104 @@ func _register_buying_cases() -> void:
 		assert_true(RecipeKnowledge.buy("timePearl", "hint1")["ok"], "bought")
 		assert_eq(RecipeKnowledge.rung_state("timePearl", "hint1"), "exact", "now exact")
 		assert_true(RecipeKnowledge.buy("timePearl", "hint2")["ok"], "next rung in order")
+	)
+
+
+# Sets the insight odds for a case; returns the real config to restore.
+func _insight_odds(base: float, per_skill: float) -> Dictionary:
+	var cfg: Dictionary = GameData.RECIPE_KNOWLEDGE["insight"]
+	var real := cfg.duplicate()
+	cfg["base"] = base
+	cfg["perSkill"] = per_skill
+	return real
+
+
+func _restore_insight(real: Dictionary) -> void:
+	GameData.RECIPE_KNOWLEDGE["insight"].merge(real, true)
+
+
+func _register_insight_cases() -> void:
+	run_case("insight_chance_scales_with_crafting_skill", func():
+		_fresh()
+		var cfg: Dictionary = GameData.RECIPE_KNOWLEDGE["insight"]
+		assert_eq([cfg["base"], cfg["perSkill"]], [0.02, 0.01], "data defaults")
+		GameState.state["player"]["craftingSkill"] = 0
+		assert_almost_eq(RecipeKnowledge.insight_chance(), 0.02, 0.0001, "skill 0")
+		GameState.state["player"]["craftingSkill"] = 5
+		assert_almost_eq(RecipeKnowledge.insight_chance(), 0.07, 0.0001, "skill 5")
+	)
+
+	run_case("insight_roll_is_seeded", func():
+		var real := _insight_odds(0.2, 0.1)
+		var outcomes := {}
+		for seed_value in range(1, 41):
+			_fresh()
+			GameState.state["player"]["craftingSkill"] = 3
+			Lab.grant_recipe("timePearl")
+			Rng.set_seed(seed_value)
+			var expect_hit := Rng.randf() < 0.5
+			Rng.set_seed(seed_value)
+			var hit := RecipeKnowledge.roll_insight("timePearl") != null
+			assert_eq(hit, expect_hit, "seed %d decides the roll" % seed_value)
+			outcomes[hit] = true
+		assert_eq(outcomes.size(), 2, "both hits and misses over the seeds")
+		_restore_insight(real)
+	)
+
+	run_case("insight_targets_lowest_unowned_rung_skipping_corrections", func():
+		var real := _insight_odds(1.0, 0.0)
+		_fresh()
+		Lab.grant_recipe("healingBurst")
+		assert_eq(RecipeKnowledge.insight_rung("healingBurst"), "hint1", "hint1 inserts a step")
+		_fresh()
+		Lab.grant_recipe("timePearl")
+		assert_eq(Lab.rung_steps("timePearl", "hint1"), [0], "timePearl hint1 corrects base step 0")
+		assert_eq(RecipeKnowledge.insight_rung("timePearl"), "hint2", "correction rung skipped")
+		var hit: Dictionary = RecipeKnowledge.roll_insight("timePearl")
+		assert_eq([hit["rung"], hit["step"]], ["hint2", 1], "hint2's grind")
+		assert_eq(Lab.step_specificity("timePearl", 1), "insight", "held as insight")
+		assert_eq(RecipeKnowledge.rung_state("timePearl", "hint2"), "unknown", "insight doesn't own the rung")
+		assert_eq(RecipeKnowledge.rank_ceiling("timePearl"), 2, "ceiling unchanged")
+		assert_eq(RecipeKnowledge.insight_rung("timePearl"), "master", "hint2 has nothing left to reveal")
+		RecipeKnowledge.grant_rung("timePearl", "master", "vague")
+		assert_eq(RecipeKnowledge.insight_rung("timePearl"), "", "nothing left to reveal")
+		assert_eq(RecipeKnowledge.roll_insight("timePearl"), null, "no target, no insight")
+		_fresh()
+		Lab.grant_recipe("pandemonium")
+		for rung in ["hint1", "hint2", "master"]:
+			RecipeKnowledge.grant_rung("pandemonium", rung, "vague")
+		assert_eq(RecipeKnowledge.roll_insight("pandemonium"), null, "every rung owned")
+		assert_eq(RecipeKnowledge.roll_insight("blast"), null, "unknown recipe")
+		_restore_insight(real)
+	)
+
+	run_case("insight_reveals_apparatus_and_place_without_band", func():
+		var real := _insight_odds(1.0, 0.0)
+		_fresh()
+		Lab.grant_recipe("timePearl")
+		var hit: Dictionary = RecipeKnowledge.roll_insight("timePearl")
+		var grind := Lab.apparatus_name("grinding")
+		assert_eq(hit["position"], 2, "between the press and the heat")
+		assert_eq(hit["apparatus"], "grinding", "apparatus")
+		assert_eq(hit["text"], "Insight: %s at step 2. Not how much, though." % grind, "result line")
+		var book := Lab.known_procedure("timePearl")
+		assert_eq(book.map(func(step): return [step["apparatus"], step["knowledge"]]),
+			[["compression", "base"], ["grinding", "insight"], ["heat", "base"]], "inserted in place")
+		assert_true(not book[1].has("target"), "no target")
+		assert_eq(book[1]["note"], GameData.LAB["insightNote"], "insight note")
+		assert_eq(Lab.step_region("timePearl", book[1]), {}, "no band")
+		var row: Dictionary = RecipeKnowledge.ladder_rows("timePearl")[2]
+		assert_eq(row["state"], "locked", "hint2 still locked")
+		assert_true(row["note"].ends_with("insight: %s at step 2" % grind), "ladder shows the insight: %s" % row["note"])
+		_restore_insight(real)
+	)
+
+	run_case("buying_or_granting_over_an_insight_upgrades_it", func():
+		_fresh()
+		Lab.grant_recipe("timePearl")
+		Lab.grant_steps("timePearl", [1], "insight")
+		assert_true(Lab.grant_steps("timePearl", [1], "insight")["granted"].is_empty(), "insight again is a no-op")
+		assert_eq(RecipeKnowledge.grant_rung("timePearl", "hint2", "vague")["path"], "granted", "vague raises it")
+		assert_eq(Lab.step_specificity("timePearl", 1), "vague", "now vague")
+		assert_true(Lab.grant_steps("timePearl", [1], "insight")["granted"].is_empty(), "never lowered to insight")
 	)

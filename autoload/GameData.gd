@@ -1533,7 +1533,8 @@ func _validate_procedure_hints(where: String, procedure: Dictionary, vague_sprea
 # ingredients and base calc summing to those ingredients; hints validated
 # as above, each with a data rung; debug tooling bounds (skillMax >= 1, refillCalc >= 0).
 func _validate_recipe_knowledge(rk: Dictionary, lab: Dictionary, recipes: Dictionary, errors: Array[String]) -> void:
-	_require_keys(rk, ["rungs", "rungCeilings", "sellers", "defaultSeller", "sourceAliases", "collision", "unknownPointer", "masterSources", "rungLabels", "priceMultipliers", "priceOverrides", "maxDiscount", "bankLabel", "buyRefusals", "shops"], "recipe_knowledge", errors)
+	_require_keys(rk, ["rungs", "rungCeilings", "sellers", "defaultSeller", "sourceAliases", "collision", "unknownPointer", "masterSources", "rungLabels", "priceMultipliers", "priceOverrides", "maxDiscount", "bankLabel", "buyRefusals", "shops", "insight"], "recipe_knowledge", errors)
+	_require_keys(rk.get("insight", {}), ["base", "perSkill", "step", "result"], "recipe_knowledge.insight", errors)
 	_require_keys(rk.get("buyRefusals", {}), ["unknownRecipe", "unknownRung", "master", "locked", "gate", "exact", "order", "cash"], "recipe_knowledge.buyRefusals", errors)
 	var max_discount := float(rk.get("maxDiscount", 0.0))
 	if max_discount < 0.0 or max_discount > 1.0:
@@ -1575,7 +1576,7 @@ func _validate_recipe_knowledge(rk: Dictionary, lab: Dictionary, recipes: Dictio
 
 
 func _validate_lab(lab: Dictionary, recipes: Dictionary, approaches: Dictionary, errors: Array[String]) -> void:
-	_require_keys(lab, ["procedures", "rungs", "specificities", "rankThresholds", "skillFactor", "vagueSpread", "vagueToExactHits", "clueText", "bonus", "badRun", "debug"], "lab", errors)
+	_require_keys(lab, ["procedures", "rungs", "specificities", "rankThresholds", "skillFactor", "vagueSpread", "vagueToExactHits", "insightNote", "clueText", "bonus", "badRun", "debug"], "lab", errors)
 	var debug: Dictionary = lab.get("debug", {})
 	_require_keys(debug, ["skillMax", "refillCalc"], "lab.debug", errors)
 	if int(debug.get("skillMax", 0)) < 1:
