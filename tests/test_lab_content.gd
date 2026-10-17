@@ -9,6 +9,7 @@ extends "res://tests/test_base.gd"
 # Knowledge level (rungs granted so far) -> [min, max] perfect-run score.
 const BANDS := [[40, 59], [60, 74], [75, 89], [90, 100]]
 const PROTOTYPE_RECIPES := ["timePearl", "healingSalve", "healingBurst"]
+const TIME_LIFE_RECIPES := ["rewind", "prophetsBreath", "enhancementPowder"]
 
 
 func _procedures() -> Dictionary:
@@ -47,6 +48,11 @@ func _repeat(value: float, count: int) -> Array:
 func run() -> void:
 	run_case("prototype_recipes_have_procedures", func():
 		for recipe_key in PROTOTYPE_RECIPES:
+			assert_true(_procedures().has(recipe_key), "%s has a procedure" % recipe_key)
+	)
+
+	run_case("time_life_recipes_have_procedures", func():
+		for recipe_key in TIME_LIFE_RECIPES:
 			assert_true(_procedures().has(recipe_key), "%s has a procedure" % recipe_key)
 	)
 
