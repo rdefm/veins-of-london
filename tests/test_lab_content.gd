@@ -11,6 +11,7 @@ const BANDS := [[40, 59], [60, 74], [75, 89], [90, 100]]
 const PROTOTYPE_RECIPES := ["timePearl", "healingSalve", "healingBurst"]
 const TIME_LIFE_RECIPES := ["rewind", "prophetsBreath", "enhancementPowder"]
 const PHYSICS_RECIPES := ["blast", "shield", "blackHole"]
+const EMOTION_FATE_RECIPES := ["panic", "panger", "pandemonium", "pansRapture", "beALady"]
 
 
 func _procedures() -> Dictionary:
@@ -59,6 +60,11 @@ func run() -> void:
 
 	run_case("physics_recipes_have_procedures", func():
 		for recipe_key in PHYSICS_RECIPES:
+			assert_true(_procedures().has(recipe_key), "%s has a procedure" % recipe_key)
+	)
+
+	run_case("emotion_fate_recipes_have_procedures", func():
+		for recipe_key in EMOTION_FATE_RECIPES:
 			assert_true(_procedures().has(recipe_key), "%s has a procedure" % recipe_key)
 	)
 

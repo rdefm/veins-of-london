@@ -224,6 +224,140 @@
           "vague": { "note": "Finish on the heat, but only just.", "offset": 9 },
           "exact": { "note": "Last of all, heat to 15. Hardly a flicker." } }
       ]
+    },
+    "panic": {
+      "baseTolerance": 5,
+      "ideal": [
+        { "apparatus": "grinding", "ore": "emotion", "target": 20, "weight": 30 },
+        { "apparatus": "distilling", "target": 25, "weight": 15 },
+        { "apparatus": "heat", "target": 85, "weight": 25 },
+        { "apparatus": "grinding", "target": 15, "weight": 15 },
+        { "apparatus": "compression", "target": 35, "weight": 15 }
+      ],
+      "base": [
+        { "apparatus": "grinding", "target": 20, "calc": { "emotion": 6 } },
+        { "apparatus": "distilling", "target": 25 },
+        { "apparatus": "heat", "target": 60 }
+      ],
+      "hints": [
+        { "id": "heatFast", "label": "Heat it hard", "step": 2, "rung": "hint1",
+          "vague": { "note": "It wants to be hotter than is comfortable.", "offset": -8 },
+          "exact": { "note": "Heat to 85. Don't hang about." } },
+        { "id": "grindAgainEarly", "label": "Grind it again, quick", "step": 3, "rung": "hint2",
+          "vague": { "note": "Grind it again after the heat. Before you're ready.", "offset": 9 },
+          "exact": { "note": "After the heat, grind right at the start of the swing." } },
+        { "id": "pressToSettle", "label": "Press it to settle", "step": 4, "rung": "master",
+          "vague": { "note": "Finish with a press. Light, like a hand on a shoulder.", "offset": -7 },
+          "exact": { "note": "Last of all, press to 35 and let go." } }
+      ]
+    },
+    "panger": {
+      "baseTolerance": 4,
+      "ideal": [
+        { "apparatus": "compression", "ore": "emotion", "target": 75, "weight": 30 },
+        { "apparatus": "heat", "target": 70, "weight": 15 },
+        { "apparatus": "grinding", "target": 80, "weight": 20 },
+        { "apparatus": "compression", "target": 90, "weight": 20 },
+        { "apparatus": "heat", "target": 40, "weight": 15 }
+      ],
+      "base": [
+        { "apparatus": "compression", "target": 75, "calc": { "emotion": 6 } },
+        { "apparatus": "heat", "target": 70 },
+        { "apparatus": "grinding", "target": 50 }
+      ],
+      "hints": [
+        { "id": "grindLater", "label": "Grind it late", "step": 2, "rung": "hint1",
+          "vague": { "note": "Let the grind wait. It's coming in too soon.", "offset": 8 },
+          "exact": { "note": "Grind late in the swing. Nearly at the end." } },
+        { "id": "pressToBreaking", "label": "Press it to breaking", "step": 3, "rung": "hint2",
+          "vague": { "note": "After the grind, press it until it nearly gives.", "offset": 6 },
+          "exact": { "note": "After the grind, press to 90. One breath short of the crack." } },
+        { "id": "simmerDown", "label": "Let it simmer down", "step": 4, "rung": "master",
+          "vague": { "note": "Back on the heat at the end, but lower. Let it stew.", "offset": -9 },
+          "exact": { "note": "Last of all, heat to 40." } }
+      ]
+    },
+    "pandemonium": {
+      "baseTolerance": 4,
+      "ideal": [
+        { "apparatus": "distilling", "ore": "emotion", "target": 70, "weight": 30 },
+        { "apparatus": "compression", "target": 40, "weight": 15 },
+        { "apparatus": "heat", "target": 55, "weight": 20 },
+        { "apparatus": "grinding", "target": 35, "weight": 15 },
+        { "apparatus": "distilling", "target": 80, "weight": 10 },
+        { "apparatus": "compression", "target": 20, "weight": 10 }
+      ],
+      "base": [
+        { "apparatus": "distilling", "target": 70, "calc": { "emotion": 6 } },
+        { "apparatus": "compression", "target": 40 },
+        { "apparatus": "heat", "target": 20 }
+      ],
+      "hints": [
+        { "id": "heatMiddling", "label": "More heat", "step": 2, "rung": "hint1",
+          "vague": { "note": "Hotter. Not a lot hotter. Somewhere in the middle.", "offset": 7 },
+          "exact": { "note": "Heat to 55." } },
+        { "id": "grindAfterHeat", "label": "Grind after the heat", "step": 3, "rung": "hint2",
+          "vague": { "note": "Grind it once it's warm. A touch early.", "offset": -8 },
+          "exact": { "note": "After the heat, grind a little before the middle of the swing." } },
+        { "id": "distilAgain", "label": "Distil it again", "step": 4, "rung": "master",
+          "vague": { "note": "Back through the still. Catch them late this time.", "offset": -6 },
+          "exact": { "note": "After the grind, distil again, drips caught late." } },
+        { "id": "pressLast", "label": "One last press", "step": 5, "rung": "master",
+          "vague": { "note": "Press it at the very end. Barely.", "offset": 9 },
+          "exact": { "note": "Last of all, press to 20." } }
+      ]
+    },
+    "pansRapture": {
+      "baseTolerance": 6,
+      "ideal": [
+        { "apparatus": "heat", "ore": "emotion", "target": 30, "weight": 30 },
+        { "apparatus": "distilling", "target": 60, "weight": 20 },
+        { "apparatus": "heat", "target": 50, "weight": 15 },
+        { "apparatus": "grinding", "target": 65, "weight": 20 },
+        { "apparatus": "distilling", "target": 40, "weight": 15 }
+      ],
+      "base": [
+        { "apparatus": "heat", "target": 30, "calc": { "emotion": 6 } },
+        { "apparatus": "distilling", "target": 60 },
+        { "apparatus": "grinding", "target": 30 }
+      ],
+      "hints": [
+        { "id": "grindUnhurried", "label": "Take the grind slower", "step": 3, "rung": "hint1",
+          "vague": { "note": "You're rushing the grind. Let the swing come to you.", "offset": -9 },
+          "exact": { "note": "Grind a little past the middle of the swing." } },
+        { "id": "warmAgain", "label": "Warm it again", "step": 2, "rung": "hint2",
+          "vague": { "note": "Warm it once more before the grind. A bit warmer than the first time.", "offset": 7 },
+          "exact": { "note": "Between the distil and the grind, heat to 50." } },
+        { "id": "distilSoon", "label": "Finish with a distil", "step": 4, "rung": "master",
+          "vague": { "note": "Through the still to finish. Don't make the drips wait.", "offset": 8 },
+          "exact": { "note": "Last of all, distil, drips caught a little early." } }
+      ]
+    },
+    "beALady": {
+      "baseTolerance": 5,
+      "ideal": [
+        { "apparatus": "grinding", "ore": "fate", "target": 50, "weight": 35 },
+        { "apparatus": "distilling", "target": 75, "weight": 20 },
+        { "apparatus": "heat", "target": 45, "weight": 15 },
+        { "apparatus": "compression", "target": 60, "weight": 15 },
+        { "apparatus": "distilling", "target": 33, "weight": 15 }
+      ],
+      "base": [
+        { "apparatus": "grinding", "target": 50, "calc": { "fate": 6 } },
+        { "apparatus": "distilling", "target": 40 },
+        { "apparatus": "heat", "target": 45 }
+      ],
+      "hints": [
+        { "id": "distilPatient", "label": "Wait on the drips", "step": 1, "rung": "hint1",
+          "vague": { "note": "Give the drips longer. You're snatching at them.", "offset": -7 },
+          "exact": { "note": "Distil with the drips caught late." } },
+        { "id": "pressForLuck", "label": "Press it after the heat", "step": 3, "rung": "hint2",
+          "vague": { "note": "Press it once it's off the heat. A bit more than half.", "offset": 8 },
+          "exact": { "note": "After the heat, press to 60." } },
+        { "id": "distilEarly", "label": "Distil it again, early", "step": 4, "rung": "master",
+          "vague": { "note": "One more trip through the still. Catch them before they settle.", "offset": 9 },
+          "exact": { "note": "Last of all, distil again, drips caught early." } }
+      ]
     }
   },
   "rungs": ["hint1", "hint2", "master"],
