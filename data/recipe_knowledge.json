@@ -1,0 +1,39 @@
+{
+  "_comment": "Recipe knowledge ladder (systems/recipe_knowledge.gd, .scratch/recipe-acquisition/spec.md) -- provisional numbers, tagged for balance. rungs = the ladder in order (base, then data/lab.json's hint rungs); rungCeilings = the highest rank a recipe can reach with every rung up to and including that one owned. sellers: a recipe belongs to the first seller whose ores list holds every one of its ingredient ores, else to defaultSeller. sourceAliases maps a grant source id onto a seller id (the Guild faction draws on Wren's recipes). collision = the fallback when a sourced grant would teach nothing new and the source has no other recipe left to teach: crafting xp, relation bump with the source, and the acknowledgement line keyed by source id, else its alias, else default. masterSources.<recipeKey> = { source: npc/faction id or null, pointer: text or null }; a null pointer reads as unknownPointer. PROSE-REVIEW: collision.lines, unknownPointer.",
+  "rungs": ["base", "hint1", "hint2", "master"],
+  "rungCeilings": { "base": 2, "hint1": 3, "hint2": 4, "master": 5 },
+  "sellers": {
+    "james": { "ores": ["time", "life"] }
+  },
+  "defaultSeller": "wren",
+  "sourceAliases": { "guild": "wren" },
+  "collision": {
+    "xp": 30,
+    "relation": 3,
+    "lines": {
+      "default": "Nothing you didn't already know. You practise it anyway, and it shows.",
+      "james": "\"You know this one.\" James watches you work it through regardless. \"Then do it properly.\"",
+      "wren": "Wren checks her ledger. \"Already on your file. I'll note the diligence instead.\""
+    }
+  },
+  "unknownPointer": "???",
+  "masterSources": {
+    "timePearl": { "source": null, "pointer": null },
+    "enhancementPowder": { "source": null, "pointer": null },
+    "rewind": { "source": null, "pointer": null },
+    "healingSalve": { "source": null, "pointer": null },
+    "blast": { "source": null, "pointer": null },
+    "shield": { "source": null, "pointer": null },
+    "blackHole": { "source": null, "pointer": null },
+    "prophetsBreath": { "source": null, "pointer": null },
+    "beALady": { "source": null, "pointer": null },
+    "panic": { "source": null, "pointer": null },
+    "panger": { "source": null, "pointer": null },
+    "pandemonium": { "source": null, "pointer": null },
+    "pansRapture": { "source": null, "pointer": null },
+    "healingBurst": { "source": null, "pointer": null },
+    "failsafe": { "source": null, "pointer": null },
+    "rejuvenation": { "source": null, "pointer": null },
+    "wormhole": { "source": null, "pointer": null }
+  }
+}

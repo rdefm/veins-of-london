@@ -125,6 +125,10 @@ var COMBAT_PROTOTYPE: Dictionary = {}
 # Live Lab procedures and knowledge tuning (systems/lab.gd).
 var LAB: Dictionary = {}
 
+# Recipe knowledge ladder: rung ceilings, sellers, collision fallback,
+# master sources (systems/recipe_knowledge.gd).
+var RECIPE_KNOWLEDGE: Dictionary = {}
+
 # Player Combat Skill curves (R§3.7a), colocated in data/enemies.json
 # rather than a new file of their own.
 var COMBAT_XP_LEVELS: Array = []
@@ -466,6 +470,9 @@ const MANIFEST: Array[Dictionary] = [
 	{"table": "lab", "file": "res://data/lab.json", "fields": [
 		{"field": "LAB", "key": "", "type": TYPE_DICTIONARY},
 	]},
+	{"table": "recipe_knowledge", "file": "res://data/recipe_knowledge.json", "fields": [
+		{"field": "RECIPE_KNOWLEDGE", "key": "", "type": TYPE_DICTIONARY},
+	]},
 	{"table": "combat_visuals", "file": "res://data/combat_visuals.json", "fields": [
 		{"field": "COMBAT_VISUALS", "key": "", "type": TYPE_DICTIONARY},
 	]},
@@ -678,6 +685,7 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_enemies(t, errors)
 	_validate_combat_prototype(t.get("combat_prototype", {}), t.get("combat_speed_by_level", []), t.get("recipes", {}), t.get("combat_visuals", {}).get("templates", {}), errors)
 	_validate_lab(t.get("lab", {}), t.get("recipes", {}), t.get("approaches", {}), errors)
+	_validate_recipe_knowledge(t.get("recipe_knowledge", {}), t.get("lab", {}), t.get("recipes", {}), errors)
 	_validate_combat_visuals(t.get("combat_visuals", {}), t.get("palette", {}), errors)
 	_validate_hq_visuals(t.get("hq_visuals", {}), t.get("palette", {}), errors)
 	_validate_constants(t.get("time_blocks", []), t.get("contacts_defaults", {}), errors)
@@ -1524,6 +1532,32 @@ func _validate_procedure_hints(where: String, procedure: Dictionary, vague_sprea
 # to 100, real apparatus, 0-100 targets, ideal ores among the recipe's
 # ingredients and base calc summing to those ingredients; hints validated
 # as above, each with a data rung; debug tooling bounds (skillMax >= 1, refillCalc >= 0).
+func _validate_recipe_knowledge(rk: Dictionary, lab: Dictionary, recipes: Dictionary, errors: Array[String]) -> void:
+	_require_keys(rk, ["rungs", "rungCeilings", "sellers", "defaultSeller", "sourceAliases", "collision", "unknownPointer", "masterSources"], "recipe_knowledge", errors)
+	var expected: Array = ["base"] + lab.get("rungs", [])
+	if rk.get("rungs", []) != expected:
+		errors.append("recipe_knowledge.rungs: must be base then lab.rungs %s" % [expected])
+	var last := 0
+	for rung in rk.get("rungs", []):
+		var ceiling := int(rk.get("rungCeilings", {}).get(rung, 0))
+		if ceiling <= last:
+			errors.append("recipe_knowledge.rungCeilings.%s: must be set and rise along the ladder" % rung)
+		last = ceiling
+	var collision: Dictionary = rk.get("collision", {})
+	_require_keys(collision, ["xp", "relation", "lines"], "recipe_knowledge.collision", errors)
+	if str(collision.get("lines", {}).get("default", "")).is_empty():
+		errors.append("recipe_knowledge.collision.lines.default: must not be empty")
+	var masters: Dictionary = rk.get("masterSources", {})
+	for recipe_key in recipes.keys():
+		if not masters.has(recipe_key):
+			errors.append("recipe_knowledge.masterSources: missing %s" % recipe_key)
+			continue
+		_require_keys(masters[recipe_key], ["source", "pointer"], "recipe_knowledge.masterSources.%s" % recipe_key, errors)
+	for recipe_key in masters.keys():
+		if not recipes.has(recipe_key):
+			errors.append("recipe_knowledge.masterSources.%s: unknown recipe" % recipe_key)
+
+
 func _validate_lab(lab: Dictionary, recipes: Dictionary, approaches: Dictionary, errors: Array[String]) -> void:
 	_require_keys(lab, ["procedures", "rungs", "specificities", "rankThresholds", "skillFactor", "vagueSpread", "vagueToExactHits", "clueText", "bonus", "badRun", "debug"], "lab", errors)
 	var debug: Dictionary = lab.get("debug", {})
@@ -1917,6 +1951,9 @@ const VALID_EFFECT_OPS: Array[String] = [
 	# grant_recipe / grant_recipe_steps: Lab.grant_recipe / Lab.grant_steps
 	# (grant_recipe_steps names its steps by ideal index or by rung).
 	"grant_recipe", "grant_recipe_steps",
+	# grant_recipe_rung: RecipeKnowledge.grant_rung (specificity defaults to
+	# exact; an optional source enables the collision fallback).
+	"grant_recipe_rung",
 	# reveal_site queues the discover map event for a site id.
 	# set_hakim_intel_day stamps state.collective.hakimIntelLastDay with today.
 	"reveal_site", "set_hakim_intel_day",
@@ -2078,6 +2115,12 @@ func _validate_effect_list(effects: Array, context: String, errors: Array[String
 			_require_keys(effect, ["recipe", "specificity"], context, errors)
 			if effect.has("steps") == effect.has("rung"):
 				errors.append("%s: grant_recipe_steps needs exactly one of steps or rung" % context)
+		if effect["op"] == "grant_recipe_rung":
+			_require_keys(effect, ["recipe", "rung"], context, errors)
+			if not RECIPE_KNOWLEDGE.get("rungs", []).has(effect.get("rung")):
+				errors.append("%s: grant_recipe_rung has unknown rung '%s'" % [context, effect.get("rung")])
+			if effect.has("specificity") and not LAB.get("specificities", []).has(effect["specificity"]):
+				errors.append("%s: grant_recipe_rung has unknown specificity '%s'" % [context, effect["specificity"]])
 		if effect["op"] == "resolve_home_raid" and not ["win", "loss"].has(effect.get("outcome")):
 			errors.append("%s: resolve_home_raid outcome must be 'win' or 'loss'" % context)
 

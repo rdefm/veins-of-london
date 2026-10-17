@@ -953,6 +953,11 @@ static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 		"grant_recipe_steps":
 			var steps: Array = effect["steps"] if effect.has("steps") else Lab.rung_steps(effect["recipe"], effect["rung"])
 			Lab.grant_steps(effect["recipe"], steps, effect["specificity"])
+		# A consolation (collision fallback) result carries a line to show.
+		"grant_recipe_rung":
+			var granted: Dictionary = RecipeKnowledge.grant_rung(effect["recipe"], effect["rung"], effect.get("specificity", "exact"), effect.get("source", ""))
+			if granted.has("line"):
+				Notify.push(granted["line"])
 		# The site was already created at roll time (Collective.maybe_trigger_hakim_intel())
 		# -- this just queues its discover map event. Runs post on_complete, so
 		# _event_site_id() falls back to advance()'s explicitly-threaded context rather than live event state.
