@@ -8,8 +8,8 @@ extends Control
 # known, best rank, the reserved knowledge-ladder region, batch and Craft
 # manually.
 #
-# "Craft manually" docks the book in the floor band under the top-aligned
-# plate: the recipe's jars tap real calc in, apparatus pop their gauge over
+# "Craft manually" docks the book under the Press, over the plate's lower
+# edge, with the plate just below the top bar: the recipe's jars tap real calc in, apparatus pop their gauge over
 # the plate, and the book's Finish -- the only way out -- shows the result
 # and clues in place, with the Rewind choices.
 
@@ -622,13 +622,17 @@ func _undock() -> void:
 # ── Docked run ───────────────────────────────────────────────────────────
 
 func _build_run() -> void:
-	var top := UI.safe_area_top_inset()
+	var top := UI.top_bar_clearance()
 	var plate_bottom := _build_plate(Rect2(0.0, top, size.x, maxf(size.y - top, 0.0)), true)
-	# The book takes the floor band under the plate down to the nav bar's
-	# top, so its footer (Finish / Done) is never under the bar; never less
-	# than _DOCK_MIN_HEIGHT (it then overlaps the plate's bottom edge).
+	# §5.1 docked: the book runs from the Press region's bottom edge down to
+	# the nav bar's top, so its footer (Finish / Done) is never under the
+	# bar; never less than _DOCK_MIN_HEIGHT (it then rises over the press).
+	var plate: Dictionary = GameData.HQ_VISUALS["labBench"]
+	var scale_factor: float = (plate_bottom - top) / float(plate["height"])
+	var press: Dictionary = plate["regions"]["apparatus_compression"]
+	var press_bottom: float = top + (float(press["y"]) + float(press["height"])) * scale_factor
 	var dock_bottom: float = UI.nav_bar_clearance() + _OVERLAY_MARGIN
-	var dock_top: float = minf(plate_bottom, size.y - dock_bottom - _DOCK_MIN_HEIGHT)
+	var dock_top: float = minf(press_bottom, size.y - dock_bottom - _DOCK_MIN_HEIGHT)
 
 	var book := _build_docked_book()
 	book.name = "DockedBook"

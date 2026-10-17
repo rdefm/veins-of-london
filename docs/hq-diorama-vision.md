@@ -148,6 +148,14 @@ matching the art's wall and floor. No stops, no arrows, no panning — nothing
 scrolls, so nothing fights the ore-dragging (§5.4). The back button sits
 top-left.
 
+**Docked (a manual run).** While crafting, the plate's top sits just below
+the top bar, fully visible, and the docked recipe book's top sits at the
+Press region's bottom edge, so jars, still, burner, mortar, notebooks and
+press all stay in view and the book covers only the plate below the press.
+The book ends above the nav dock; on a screen too short for its minimum
+height it keeps that height and rises over the press. An apparatus gauge
+centres in the visible plate between the top bar and the book.
+
 Layout, top to bottom: **ore jars → apparatus → notebooks** (the vise sits
 bottom-right beside the books). Every object is baked into the art; its hit
 region is traced on it, with a polygon wherever a rect would overlap a

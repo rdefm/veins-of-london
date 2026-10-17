@@ -162,6 +162,45 @@ func run() -> void:
 		screen.free()
 	)
 
+	run_case("the_docked_plate_sits_below_the_top_bar_and_the_book_starts_at_the_press_bottom", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["time"] = 10
+		Lab.grant_recipe("timePearl")
+		Lab.add_ore("timePearl", "time")
+		var screen := _screen()
+		screen.size = Vector2(390.0, 844.0)
+		screen._refresh()
+		var top := UI.top_bar_clearance()
+		assert_eq(screen._diorama.get_parent().position.y, top, "the plate's top is the top bar's bottom")
+		var plate: Dictionary = GameData.HQ_VISUALS["labBench"]
+		var press: Dictionary = plate["regions"]["apparatus_compression"]
+		var scale_factor: float = screen.size.x / float(plate["width"])
+		var press_bottom: float = top + (float(press["y"]) + float(press["height"])) * scale_factor
+		assert_almost_eq(_docked_book_rect(screen).position.y, press_bottom, 0.01, "the book starts at the Press's bottom edge")
+		UiSim.tap_zone(screen, "apparatus_compression")
+		var centre := _find_gauge(screen) as Node
+		while centre.get_parent() != screen:
+			centre = centre.get_parent()
+		assert_true(centre is CenterContainer, "the gauge is centred")
+		assert_eq((centre as Control).offset_top, top, "below the top bar")
+		assert_almost_eq((centre as Control).offset_bottom, press_bottom, 0.01, "above the book")
+		screen.free()
+	)
+
+	run_case("on_a_short_screen_the_docked_book_keeps_its_minimum_height_over_the_press", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["time"] = 10
+		Lab.grant_recipe("timePearl")
+		Lab.add_ore("timePearl", "time")
+		var screen := _screen()
+		screen.size = Vector2(390.0, 640.0)
+		screen._refresh()
+		var book := _docked_book_rect(screen)
+		assert_almost_eq(book.size.y, HqLabBenchScreen._DOCK_MIN_HEIGHT, 0.01, "the dock keeps its minimum height")
+		assert_almost_eq(book.end.y, screen.size.y - UI.nav_bar_clearance() - HqLabBenchScreen._OVERLAY_MARGIN, 0.01, "still ending above the nav bar")
+		screen.free()
+	)
+
 	run_case("an_open_run_reopens_docked_and_a_crack_shows_the_lost_calc_result", func():
 		GameState.reset()
 		GameState.state["player"]["orichalchum"]["time"] = 10
