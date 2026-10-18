@@ -120,6 +120,12 @@ const DEFAULT_ARCHETYPE := "mugger"
 const DEFAULT_BACKDROP_CONTEXT := Combat.CONTEXT_MUGGING
 # Squad cap (spec user story 5: 0-2 AI allies).
 const MAX_ALLIES := 2
+# Active fighters per side, the player counting on theirs (R§3.7a
+# Reinforcements).
+const SQUAD_SIZE := MAX_ALLIES + 1
+const QUEUE_KEYS := { SIDE_ALLY: "allyQueue", SIDE_ENEMY: "enemyQueue" }
+# The live roster an entrant's queue entry joins, where the fight keeps one.
+const ROSTER_KEYS := { SIDE_ALLY: "allies", SIDE_ENEMY: "enemies" }
 
 # A timed effect's end round that no fight reaches (carry_in()).
 const WHOLE_FIGHT := 1 << 30
@@ -168,6 +174,12 @@ static func new_state() -> Dictionary:
 		# The stage backdrop: a Combat.DEBUG_SETUP_CONTEXTS context and a
 		# locationKey (the combat_visuals locationBackdrops plate; "" for none).
 		"backdrop": { "context": DEFAULT_BACKDROP_CONTEXT, "locationKey": "" },
+		# Reinforcements waiting per side (R§3.7b): entries each carrying its
+		# prebuilt combatant under "fighter" (_admit_reserves()).
+		"enemyQueue": [], "allyQueue": [],
+		# Set once the player's KO stands and the fight plays on without them
+		# (continue_after_ko()).
+		"playerKoed": false,
 	}
 
 
@@ -1041,8 +1053,11 @@ static func cast_block_reason(cp: Dictionary, index: int, target: int = -1) -> S
 
 
 static func _choose(action: Dictionary) -> Dictionary:
-	var result := play_pick(_root(), action)
+	var cp := _root()
+	var result := play_pick(cp, action)
 	if result["ok"]:
+		result["beats"].append_array(continue_after_ko(cp))
+		result["outcome"] = cp["outcome"]
 		EventBus.state_changed.emit()
 	return result
 
@@ -1050,7 +1065,9 @@ static func _choose(action: Dictionary) -> Dictionary:
 # The rules core of choose_move() / choose_item(): plays the raw pick
 # `action` ({ move, target } or { slot, target }) in the fight `cp`,
 # snapshotting it first onto `cp`'s Rewind stack (capped as Snapshots'
-# `stack_id`). Same returns as choose_move().
+# `stack_id`). Same returns as choose_move(), bar a player KO the fight
+# survives: resolution stops there for the caller's saves, then
+# continue_after_ko().
 static func play_pick(cp: Dictionary, action: Dictionary, stack_id: String = SNAPSHOT_STACK) -> Dictionary:
 	var reason := _pick_block_reason(cp, action)
 	if reason != "":
@@ -1215,7 +1232,33 @@ static func _acts_before(cp: Dictionary, actor_a: int, index_a: int, actor_b: in
 	var speed_b: int = cp["combatants"][actor_b]["speed"]
 	if speed_a != speed_b:
 		return speed_a > speed_b
+	# Player, then allies, then enemies: a reinforcement sits after the
+	# enemies in combatant order but ties on its side's rank.
+	var rank_a := _side_rank(cp, actor_a)
+	var rank_b := _side_rank(cp, actor_b)
+	if rank_a != rank_b:
+		return rank_a < rank_b
 	return actor_a < actor_b
+
+
+static func _side_rank(cp: Dictionary, actor: int) -> int:
+	match cp["combatants"][actor]["side"]:
+		SIDE_PLAYER:
+			return 0
+		SIDE_ALLY:
+			return 1
+	return 2
+
+
+# The combatant indices on `side`, in combatant order: the i-th ally is the
+# fight's allies[i] (entrants join both at the end).
+static func side_indices(cp: Dictionary, side: String) -> Array:
+	var result: Array = []
+	var combatants: Array = cp["combatants"]
+	for i in range(combatants.size()):
+		if combatants[i]["side"] == side:
+			result.append(i)
+	return result
 
 
 static func _plan_of(cp: Dictionary, actor: int) -> Array:
@@ -1346,15 +1389,19 @@ static func _planned_guard(cp: Dictionary, actor: int, index: int, action: Dicti
 # actor's later ones and any lost to a Stun, Time Pearl or Black Hole; a
 # player position lost that way, or taken by an earlier pick's later part,
 # plays without a pause. At the end of a round next round's plans move up,
-# the round after's are rolled, and resolution carries on into it.
+# the round after's are rolled, and resolution carries on into it. A player
+# KO the fight survives (friendlies still standing) stops resolution there
+# until continue_after_ko(), so a Failsafe can undo it first.
 static func _advance(cp: Dictionary, rng: RandomNumberGenerator, beats: Array) -> void:
 	var combatants: Array = cp["combatants"]
 	var cursor: Dictionary = cp["cursor"]
 	while cp["outcome"] == null:
+		if combatants[PLAYER_INDEX]["koed"] and not cp.get("playerKoed", false):
+			break
 		cp["playerPlan"].resize(maxi(cp["playerPlan"].size(), actions_this_round(cp, PLAYER_INDEX)))
 		var entry := _next_entry(cp)
 		if entry.is_empty():
-			_end_round(cp, rng)
+			_end_round(cp, rng, beats)
 			cursor = cp["cursor"]
 			continue
 		var actor: int = entry["actor"]
@@ -1392,13 +1439,18 @@ static func _next_entry(cp: Dictionary) -> Dictionary:
 # The plans moving up were on show under sight through the round just ended
 # when the player had it, so they all commit read. A disarmed ability's
 # lock ticks down a round. Kit units the round left reserved go back to
-# their pools before the new plans commit theirs.
-static func _end_round(cp: Dictionary, rng: RandomNumberGenerator) -> void:
+# their pools before the new plans commit theirs. Reinforcements join first
+# (_admit_reserves()), an entering enemy rolling this round's plan fresh.
+static func _end_round(cp: Dictionary, rng: RandomNumberGenerator, beats: Array) -> void:
 	var combatants: Array = cp["combatants"]
 	var seen := has_sight(cp)
 	cp["round"] += 1
 	var fog_rng := RandomNumberGenerator.new()
 	fog_rng.state = int(cp["fogRngState"])
+	# The new round's cursor first: the ally AI's is_read() sees nothing of
+	# it resolved, and entry beats name no timeline position.
+	cp["cursor"] = _new_cursor()
+	var entrants := _admit_reserves(cp, rng, fog_rng, beats)
 	_release_kits(cp)
 	var patients: Array = []
 	for i in range(combatants.size()):
@@ -1408,7 +1460,7 @@ static func _end_round(cp: Dictionary, rng: RandomNumberGenerator) -> void:
 			ability["lockedTurns"] -= 1
 		if combatants[i]["side"] == SIDE_ENEMY:
 			combatants[i]["plan"] = _recommit_targets(cp, i, combatants[i]["nextPlan"], rng)
-			if seen:
+			if seen and not entrants.has(i):
 				for action in combatants[i]["plan"]:
 					action["unread"] = false
 			if not combatants[i]["koed"]:
@@ -1416,11 +1468,62 @@ static func _end_round(cp: Dictionary, rng: RandomNumberGenerator) -> void:
 			combatants[i]["nextPlan"] = [] if combatants[i]["koed"] else _roll_plan(cp, i, cp["round"] + 1, rng)
 			_roll_fog(cp, i, combatants[i]["nextPlan"], cp["round"] + 1, fog_rng)
 	cp["fogRngState"] = fog_rng.state
-	# The new round's cursor before the ally AI reads, so is_read() sees
-	# nothing of it resolved.
-	cp["cursor"] = _new_cursor()
 	_plan_allies(cp, rng)
 	cp["playerPlan"] = _empty_player_plan(cp)
+
+
+# R§3.7b Reinforcements: while a side has fewer than SQUAD_SIZE standing,
+# the next entry of its queue joins: its prebuilt "fighter" becomes a new
+# combatant at the end of the order, the entry itself joins the fight's
+# live roster (ROSTER_KEYS) where it keeps one. An enemy entrant's plan for
+# the round now starting rolls here (as its nextPlan, which the round end
+# moves up); an ally's comes from _plan_allies(). Returns the entrants'
+# combatant indices.
+static func _admit_reserves(cp: Dictionary, rng: RandomNumberGenerator, fog_rng: RandomNumberGenerator, beats: Array) -> Array:
+	var combatants: Array = cp["combatants"]
+	var entrants: Array = []
+	for side in [SIDE_ALLY, SIDE_ENEMY]:
+		var queue: Array = cp.get(QUEUE_KEYS[side], [])
+		while not queue.is_empty() and _standing(cp, side) < SQUAD_SIZE:
+			var entry: Dictionary = queue.pop_front()
+			var fighter: Dictionary = entry["fighter"]
+			entry.erase("fighter")
+			combatants.append(fighter)
+			var index := combatants.size() - 1
+			if cp.has(ROSTER_KEYS[side]):
+				cp[ROSTER_KEYS[side]].append(entry)
+			if side == SIDE_ENEMY:
+				fighter["nextPlan"] = _roll_plan(cp, index, cp["round"], rng)
+				_roll_fog(cp, index, fighter["nextPlan"], cp["round"], fog_rng)
+			_beat(cp, beats, "enter", index, -1, "", {})
+			entrants.append(index)
+	return entrants
+
+
+# Standing fighters on `side`, the player counting with the allies.
+static func _standing(cp: Dictionary, side: String) -> int:
+	var count := 0
+	for c in cp["combatants"]:
+		if not c["koed"] and (c["side"] == SIDE_ENEMY) == (side == SIDE_ENEMY):
+			count += 1
+	return count
+
+
+# R§3.7a Player KO: once no Failsafe or ally rewind has undone the player's
+# KO, the fight plays on without them -- their actions gone from the
+# timeline, never paused for -- to its end. Returns the beats that resolved
+# ([] when the player isn't newly down or the KO already ended the fight).
+static func continue_after_ko(cp: Dictionary) -> Array:
+	var beats: Array = []
+	if not cp["combatants"][PLAYER_INDEX]["koed"] or cp.get("playerKoed", false) or cp["outcome"] != null:
+		return beats
+	cp["playerKoed"] = true
+	var rng := RandomNumberGenerator.new()
+	rng.state = cp["rngState"]
+	_advance(cp, rng, beats)
+	cp["log"].append_array(beats)
+	cp["rngState"] = rng.state
+	return beats
 
 
 # Applies the move's effect, then its effect on the actor's guard state;
@@ -1843,15 +1946,15 @@ static func _maybe_disarm(cp: Dictionary, actor_idx: int, target_idx: int, move_
 	_beat(cp, beats, "disarm", actor_idx, target_idx, move_id, {})
 
 
+# Loss once the player is down with no friendly standing or queued; win once
+# every enemy is down with none queued (R§3.7b KO and outcome).
 static func _check_outcome(cp: Dictionary) -> void:
 	var combatants: Array = cp["combatants"]
-	if combatants[PLAYER_INDEX]["koed"]:
+	if combatants[PLAYER_INDEX]["koed"] and _standing(cp, SIDE_ALLY) == 0 and cp.get(QUEUE_KEYS[SIDE_ALLY], []).is_empty():
 		cp["outcome"] = "loss"
 		return
-	for c in combatants:
-		if c["side"] == SIDE_ENEMY and not c["koed"]:
-			return
-	cp["outcome"] = "win"
+	if _standing(cp, SIDE_ENEMY) == 0 and cp.get(QUEUE_KEYS[SIDE_ENEMY], []).is_empty():
+		cp["outcome"] = "win"
 
 
 # One beat: { round, kind, actor, target, move, text, turnActor, turnIndex }

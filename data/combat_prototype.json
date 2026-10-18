@@ -153,6 +153,7 @@
     "anger": { "self": "You grind the anger into {target}.", "other": "{actor} grinds the anger into {target}." },
     "fury": { "self": "You bring {target}'s fury to the boil.", "other": "{actor} brings {target}'s fury to the boil." },
     "bolt": { "self": "You bolt. Gone.", "other": "{actor} bolts. Gone." },
+    "enter": { "self": "You step in.", "other": "{actor} steps in." },
     "cower": { "self": "You cower, hands over your head.", "other": "{actor} cowers, hands over their head." },
     "enraptured": { "self": "You grin at nothing.", "other": "{actor} is grinning at nothing." },
     "calm": { "self": "You come down, spent.", "other": "{actor} comes down, spent." },

@@ -757,7 +757,7 @@ static func _start_round_combat(context: String, vein_id, enemies: Array, log_li
 	CombatPrototype.carry_in(fighter, ActiveEffects.prophets_breath_active(), ActiveEffects.lady_active())
 	combatants.append(fighter)
 	var ally_plans: Array = config.get("allyPlans", [])
-	var friends: Array = combat["allies"]
+	var friends: Array = combat["allies"] + combat["allyQueue"]
 	var ally_names: Array = friends.map(func(a): return str(a["name"]))
 	for i in range(friends.size()):
 		var ally := _round_ally_combatant(friends[i])
@@ -765,18 +765,21 @@ static func _start_round_combat(context: String, vein_id, enemies: Array, log_li
 		if ally_names.count(ally_names[i]) > 1:
 			ally["name"] = "%s %s" % [ally_names[i], char(65 + ally_names.slice(0, i).count(ally_names[i]))]
 		ally["planOverride"] = ally_plans[i] if i < ally_plans.size() else null
-		combatants.append(ally)
+		_seat_round_fighter(combatants, friends[i], ally, i < combat["allies"].size())
 	var plans: Array = config.get("enemyPlans", [])
 	var unread: Array = config.get("enemyUnread", [])
-	var active: Array = combat["enemies"]
-	var names: Array = active.map(func(e): return _round_enemy_name(e))
-	for i in range(active.size()):
-		var enemy := _round_enemy_combatant(active[i])
+	var foes: Array = combat["enemies"] + combat["enemyQueue"]
+	var names: Array = foes.map(func(e): return _round_enemy_name(e))
+	for i in range(foes.size()):
+		# Fight-scoped, so the stage tells an entrant from the fighter it replaces.
+		foes[i]["rid"] = i
+		var enemy := _round_enemy_combatant(foes[i])
+		enemy["rid"] = i
 		if names.count(names[i]) > 1:
 			enemy["name"] = "%s %s" % [names[i], char(65 + names.slice(0, i).count(names[i]))]
 		enemy["planOverride"] = plans[i] if i < plans.size() else null
 		enemy["unreadOverride"] = unread[i] if i < unread.size() else null
-		combatants.append(enemy)
+		_seat_round_fighter(combatants, foes[i], enemy, i < combat["enemies"].size())
 	CombatPrototype.open_fight(combat, int(config.get("seed", Rng.randi_range(0, 0x7FFFFFFF))))
 	GameState.state["combat"] = combat
 	_settle_round_dials(combat)
@@ -784,6 +787,16 @@ static func _start_round_combat(context: String, vein_id, enemies: Array, log_li
 		Notify.push(line, Notify.CATEGORY_INFO, { Notify.META_COMBAT_LOG: true })
 	_sync_round_outcome(combat)
 	_enter_combat_screen()
+
+
+# An active fighter joins the combatants; a queued one waits in its queue
+# entry for CombatPrototype's round-boundary admission (R§3.7b
+# Reinforcements).
+static func _seat_round_fighter(combatants: Array, entry: Dictionary, fighter: Dictionary, active: bool) -> void:
+	if active:
+		combatants.append(fighter)
+	else:
+		entry["fighter"] = fighter
 
 
 # A mugger reads as its archetype ("the mugger"); any other template keeps
@@ -1003,6 +1016,10 @@ static func _play_round_pick(combat: Dictionary, action: Dictionary) -> Dictiona
 	var saved := _try_round_save(combat)
 	if saved != "":
 		result = { "ok": true, "beats": [], "outcome": combat["outcome"], "saved": saved }
+	else:
+		result["beats"].append_array(CombatPrototype.continue_after_ko(combat))
+		result["outcome"] = combat["outcome"]
+		_settle_round_dials(combat)
 	_sync_round_outcome(combat)
 	EventBus.state_changed.emit()
 	return result
@@ -1023,7 +1040,7 @@ static func _try_round_save(combat: Dictionary) -> String:
 		return _push_round_line(LINE_FAILSAFE)
 	var allies: Array = combat["allies"]
 	for i in range(allies.size()):
-		var fighter: Dictionary = combat["combatants"][CombatPrototype.PLAYER_INDEX + 1 + i]
+		var fighter := _round_ally_fighter(combat, i)
 		if fighter["koed"] or not _uses_items(allies[i]) or not _guard_pool_has(_ally_item_pool(combat, allies[i]), "rewind"):
 			continue
 		_restore_round_snapshot(combat)
@@ -1146,7 +1163,8 @@ static func round_item_block_reason(index: int, target: int = -1) -> String:
 
 
 # The player's hp, spent loadout units and dial views follow the fight; a win dispatches
-# onWin, a loss leaves the player on R§3.7a's KO hp.
+# onWin; a loss, or a win the allies finished after the player's KO, leaves
+# the player on R§3.7a's KO hp.
 static func _sync_round_outcome(combat: Dictionary) -> void:
 	GameState.state["player"]["hp"] = int(combat["combatants"][CombatPrototype.PLAYER_INDEX]["hp"])
 	for entry in combat["combatants"][CombatPrototype.PLAYER_INDEX]["loadout"]:
@@ -1156,20 +1174,27 @@ static func _sync_round_outcome(combat: Dictionary) -> void:
 	_sync_round_allies(combat)
 	match combat["outcome"]:
 		"win":
+			if combat.get("playerKoed", false):
+				_settle_player_ko_hp()
 			_dispatch_on_win()
 		"loss":
 			_settle_player_ko_hp()
 
 
-# Each active ally's live dict follows its combatant (combatants after the
-# player, in allies order): hp, a KO (its contact's cooldown starts in
-# exit_combat(), so a Rewind can undo it) and the real slots its spent
-# items came from, for exit_combat()'s settlement.
+# combat.allies[i]'s combatant: the fight's i-th ally combatant.
+static func _round_ally_fighter(combat: Dictionary, i: int) -> Dictionary:
+	return combat["combatants"][CombatPrototype.side_indices(combat, CombatPrototype.SIDE_ALLY)[i]]
+
+
+# Each ally's live dict follows its combatant (_round_ally_fighter()): hp,
+# a KO (its contact's cooldown starts in exit_combat(), so a Rewind can undo
+# it) and the real slots its spent items came from, for exit_combat()'s
+# settlement.
 static func _sync_round_allies(combat: Dictionary) -> void:
 	var allies: Array = combat["allies"]
 	for i in range(allies.size()):
 		var ally: Dictionary = allies[i]
-		var fighter: Dictionary = combat["combatants"][CombatPrototype.PLAYER_INDEX + 1 + i]
+		var fighter := _round_ally_fighter(combat, i)
 		ally["hp"] = int(fighter["hp"])
 		ally["koed"] = bool(fighter["koed"])
 		var used: Array = ally.get("slotsUsed", [])

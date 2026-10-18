@@ -143,6 +143,21 @@ func _strikes_at_player() -> Array:
 	return [[{ "move": "strike", "target": CombatPrototype.PLAYER_INDEX }, { "move": "strike", "target": CombatPrototype.PLAYER_INDEX }]]
 
 
+# A seeded street mugging against `count` guarding muggers, any past the
+# third waiting in enemyQueue.
+func _start_reinforced(count: int) -> Dictionary:
+	var muggers: Array = range(count).map(func(_i): return _mugger())
+	Combat._start_round_combat(Combat.CONTEXT_EVENT_MUGGING, null, muggers, [], "", [], null,
+		{ "seed": 1, "fog": false, "enemyPlans": muggers.map(func(_m): return [["guard", "guard"]]) })
+	return GameState.state["combat"]
+
+
+# Guards out the player's picks until round `round_no` ends.
+func _finish_round(combat: Dictionary, round_no: int) -> void:
+	while combat["round"] == round_no and combat["outcome"] == null:
+		assert_true(Combat.choose_move("guard")["ok"])
+
+
 # A seeded street mugging on a 1-hp player who acts first, against a slow
 # mugger striking the player, so the player's first Guard is lethal.
 func _start_lethal(units: Array, allies: Array = [], live: Dictionary = {}) -> Dictionary:
@@ -1359,4 +1374,98 @@ func run() -> void:
 		assert_eq(combat["guardKit"]["used"], {}, "the save is undone")
 		assert_eq(combat["guardKit"]["items"], { "failsafe": { "1": 1 } }, "and its unit back")
 		assert_eq(combat["combatants"][1]["hp"], 1)
+	)
+
+	run_case("a_reinforcement_enters_at_the_round_boundary_with_a_committed_plan", func():
+		GameState.reset()
+		var combat := _start_reinforced(4)
+		assert_eq([combat["enemies"].size(), combat["enemyQueue"].size()], [3, 1], "three fight, one waits")
+		assert_eq(CombatPrototype.side_indices(combat, CombatPrototype.SIDE_ENEMY).size(), 3)
+		var first: int = CombatPrototype.side_indices(combat, CombatPrototype.SIDE_ENEMY)[0]
+		combat["combatants"][first]["hp"] = 1
+		var round_no: int = combat["round"]
+		assert_true(Combat.choose_move("strike", first)["ok"])
+		assert_true(combat["combatants"][first]["koed"])
+		if combat["round"] == round_no:
+			assert_eq(combat["enemyQueue"].size(), 1, "still waiting mid-round")
+		_finish_round(combat, round_no)
+		assert_eq(combat["enemyQueue"], [], "the queue's spent")
+		assert_eq(combat["enemies"].size(), 4, "the entrant joins the live roster")
+		var entrant: int = combat["combatants"].size() - 1
+		var fighter: Dictionary = combat["combatants"][entrant]
+		assert_eq(fighter["side"], CombatPrototype.SIDE_ENEMY)
+		assert_eq(fighter["rid"], 3, "the fourth generated enemy")
+		assert_true(not combat["enemies"][3].has("fighter"), "the live entry sheds its prebuilt combatant")
+		assert_eq(fighter["plan"].size(), CombatPrototype.actions_per_round(fighter), "a plan committed for its first round")
+		assert_true(not fighter["nextPlan"].is_empty(), "and the round after's rolled")
+		var entered: Array = combat["log"].filter(func(b): return b["kind"] == "enter")
+		assert_eq(entered.map(func(b): return [b["actor"], b["round"]]), [[entrant, round_no + 1]], "one entry beat, at the boundary")
+		assert_eq(CombatPrototypeScreen.stage_roster(combat, -1)["combat"]["enemyQueue"], [], "no reserve left on the stage")
+	)
+
+	run_case("a_rewind_across_an_entry_puts_the_entrant_back_in_the_queue", func():
+		GameState.reset()
+		GameState.state["player"]["loadout"]["slots"][0] = { "recipe": "rewind", "tier": 1 }
+		var combat := _start_reinforced(4)
+		var reserve: Array = CombatPrototypeScreen.stage_roster(combat, -1)["combat"]["enemyQueue"]
+		assert_eq(reserve.map(func(e): return e["rid"]), [3], "the reserve shows on the stage by rid")
+		var first: int = CombatPrototype.side_indices(combat, CombatPrototype.SIDE_ENEMY)[0]
+		combat["combatants"][first]["hp"] = 1
+		var round_no: int = combat["round"]
+		Combat.choose_move("strike", first)
+		_finish_round(combat, round_no)
+		var count: int = combat["combatants"].size()
+		assert_true(Combat.round_rewind()["ok"])
+		assert_eq(combat["round"], round_no, "back before the boundary")
+		assert_eq(combat["combatants"].size(), count - 1, "the entrant's gone")
+		assert_eq(combat["enemies"].size(), 3)
+		assert_eq(combat["enemyQueue"].size(), 1, "waiting again")
+		assert_true(combat["enemyQueue"][0].has("fighter"), "with its combatant")
+	)
+
+	run_case("a_player_ko_with_an_ally_standing_plays_on_to_the_end", func():
+		GameState.reset()
+		GameState.state["player"]["hp"] = 1
+		Combat._start_round_combat(Combat.CONTEXT_EVENT_MUGGING, null, [_slow_mugger(12)], [], "", [Combat.build_guard_ally()], null,
+			{ "seed": 1, "fog": false, "enemyPlans": [_strikes_at_player()], "allyPlans": [[["strike", "strike"]]] })
+		var combat: Dictionary = GameState.state["combat"]
+		var result := Combat.choose_move("guard")
+		assert_true(combat["playerKoed"], "the player's down")
+		assert_true(not result.has("saved"))
+		var player_ko: int = result["beats"].find_custom(func(b): return b["kind"] == "ko" and int(b["target"]) == CombatPrototype.PLAYER_INDEX)
+		assert_true(player_ko >= 0, "the player's KO plays")
+		assert_true(result["beats"].slice(player_ko + 1).any(func(b): return int(b["actor"]) == 1), "the guard fights on after it")
+		assert_true(not result["beats"].slice(player_ko + 1).any(func(b): return int(b["actor"]) == CombatPrototype.PLAYER_INDEX), "the player's actions are gone")
+		assert_eq(combat["outcome"], "win", "the guard finishes it")
+		assert_true(combat["combatants"][2]["koed"], "the mugger's down")
+		assert_eq(GameState.state["player"]["hp"], maxi(1, GameState.round_epsilon(GameState.state["player"]["hpMax"] * Combat.PLAYER_KO_HP_FRACTION)), "KO hp after an ally-won win")
+	)
+
+	run_case("a_player_ko_frees_a_place_for_the_queued_ally", func():
+		GameState.reset()
+		GameState.state["player"]["hp"] = 1
+		var guards: Array = range(3).map(func(_i): return Combat.build_guard_ally())
+		var guarding: Array = guards.map(func(_g): return [["guard", "guard"]])
+		Combat._start_round_combat(Combat.CONTEXT_EVENT_MUGGING, null, [_slow_mugger(200)], [], "", guards, null,
+			{ "seed": 1, "fog": false, "enemyPlans": [_strikes_at_player()], "allyPlans": guarding })
+		var combat: Dictionary = GameState.state["combat"]
+		assert_eq(combat["allyQueue"].size(), 1)
+		var result := Combat.choose_move("guard")
+		assert_true(combat["playerKoed"])
+		assert_eq(combat["allyQueue"], [], "the third guard came in")
+		assert_eq(combat["allies"].size(), 3)
+		var entered: Array = result["beats"].filter(func(b): return b["kind"] == "enter")
+		assert_eq(entered.size(), 1)
+		assert_eq(combat["combatants"][int(entered[0]["actor"])]["name"], "%s C" % Combat.build_guard_ally()["name"], "lettered with the rest")
+		assert_eq(combat["outcome"], "loss", "guards who only guard go down in the end")
+		assert_true(combat["allies"].all(func(a): return a["koed"]), "every friendly down before the loss")
+	)
+
+	run_case("a_player_ko_with_no_friendly_left_is_a_loss", func():
+		GameState.reset()
+		var combat := _start_lethal([null, null])
+		var result := Combat.choose_move("guard")
+		assert_eq(combat["outcome"], "loss")
+		assert_true(not combat["playerKoed"], "nothing played on")
+		assert_eq(result["beats"].back()["kind"], "ko", "the fight ends on the KO")
 	)

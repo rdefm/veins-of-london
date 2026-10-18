@@ -36,7 +36,7 @@ const _STRIP_SIDE_INSET := 9.0
 # How many upcoming actions the strip's carousel holds.
 const STRIP_SIZE := 10
 # Beat kinds that play nothing past the guard overlay their marks set.
-const _OVERLAY_KINDS: Array[String] = ["guard", "lure", "exposed", "lost", "frozen", "cower", "enraptured", "calm", "disarm"]
+const _OVERLAY_KINDS: Array[String] = ["guard", "lure", "exposed", "lost", "frozen", "cower", "enraptured", "calm", "disarm", "enter"]
 const _CAST_KINDS: Array[String] = ["powder", "sight", "sightGiven", "lady", "failsafe"]
 # The screen's own closing beat after a pick's beats (_play_beats()).
 const _SETTLE_KIND := "settle"
@@ -536,9 +536,9 @@ static func rewind_beats(undone: Array, restored_marks: Array) -> Array:
 
 # The prototype fight in the shapes CombatStage.sync() reads: "combat" (a
 # fight's backdrop context and locationKey, enemies and allies each with a
-# sprite template, no queues, the selection from `target`) and "player" (the save's player model, the
-# Shield pool), plus "enemyIndex"/"allyIndex": each stage index's combatant
-# index. KO'd combatants stay listed (the stage skips them) so indices hold.
+# sprite template, the reinforcement queues, the selection from `target`)
+# and "player" (the save's player model, the Shield pool, the KO), plus
+# "enemyIndex"/"allyIndex": each stage index's combatant index. KO'd combatants stay listed (the stage skips them) so indices hold.
 static func stage_roster(cp: Dictionary, target: int) -> Dictionary:
 	var combatants: Array = cp["combatants"]
 	var enemies: Array = []
@@ -549,25 +549,38 @@ static func stage_roster(cp: Dictionary, target: int) -> Dictionary:
 		var c: Dictionary = combatants[i]
 		if c["side"] == CombatPrototype.SIDE_ENEMY:
 			enemy_index.append(i)
-			enemies.append({ "name": CombatPrototype.display_name(c), "koed": c["koed"], "rid": i, "variant": c["template"] })
+			enemies.append(_stage_enemy(c, i))
 		elif c["side"] == CombatPrototype.SIDE_ALLY:
 			ally_index.append(i)
-			# A guard or muscle has no contact sprite; the stage keys it by name.
-			var ally := { "name": CombatPrototype.display_name(c), "koed": c["koed"] }
-			if str(c.get("template", "")) != "":
-				ally["contactId"] = c["template"]
-			allies.append(ally)
+			allies.append(_stage_ally(c))
 	var roster := { "enemyIndex": enemy_index, "allyIndex": ally_index }
 	roster["combat"] = {
 		"context": cp["backdrop"]["context"], "locationKey": cp["backdrop"]["locationKey"],
-		"enemies": enemies, "allies": allies, "enemyQueue": [], "allyQueue": [],
+		"enemies": enemies, "allies": allies,
+		"enemyQueue": cp.get("enemyQueue", []).map(func(e): return _stage_enemy(e["fighter"], -1)),
+		"allyQueue": cp.get("allyQueue", []).map(func(a): return _stage_ally(a["fighter"])),
 		"selection": _stage_target(roster, target), "frozenTurns": 0,
 	}
 	roster["player"] = {
 		"model": GameState.state["player"].get("model", ""),
 		"shieldPool": combatants[CombatPrototype.PLAYER_INDEX]["shield"],
+		"koed": combatants[CombatPrototype.PLAYER_INDEX]["koed"],
 	}
 	return roster
+
+
+# Enemy combatant `c` (at combatant index `index`) as the stage reads it,
+# keyed by its fight-scoped rid where it has one.
+static func _stage_enemy(c: Dictionary, index: int) -> Dictionary:
+	return { "name": CombatPrototype.display_name(c), "koed": c["koed"], "rid": c.get("rid", index), "variant": c["template"] }
+
+
+# A guard or muscle has no contact sprite; the stage keys it by name.
+static func _stage_ally(c: Dictionary) -> Dictionary:
+	var ally := { "name": CombatPrototype.display_name(c), "koed": c["koed"] }
+	if str(c.get("template", "")) != "":
+		ally["contactId"] = c["template"]
+	return ally
 
 
 # Combatant index -> the stage's { type, index } ({ type: "" } for none).
@@ -950,7 +963,11 @@ func _resolve(choose: Callable, pick: Dictionary) -> void:
 	_refusal = ""
 	var cp: Dictionary = _cp()
 	var roster := stage_roster(cp, _target)
-	_frozen_roster = { "enemies": roster["combat"]["enemies"], "allies": roster["combat"]["allies"] }
+	_frozen_roster = {
+		"enemies": roster["combat"]["enemies"], "allies": roster["combat"]["allies"],
+		"enemyQueue": roster["combat"]["enemyQueue"], "allyQueue": roster["combat"]["allyQueue"],
+		"playerKoed": roster["player"]["koed"],
+	}
 	_held_marks = CombatPrototype.stage_marks(cp)
 	var round_no: int = cp["round"]
 	var before: Array = [] if CombatPrototype.move(pick["move"]).is_empty() else strip_entries(cp, pick)

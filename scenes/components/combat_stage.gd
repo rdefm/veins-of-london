@@ -673,7 +673,8 @@ func sync(combat: Dictionary, player: Dictionary, frozen_roster: Dictionary) -> 
 	var enemy_queue: Array = frozen_roster.get("enemyQueue", combat.get("enemyQueue", []))
 	var ally_queue: Array = frozen_roster.get("allyQueue", combat.get("allyQueue", []))
 	var selection: Dictionary = combat["selection"]
-	var player_entries := _player_display_entries(player, allies, selection)
+	var player_koed: bool = frozen_roster.get("playerKoed", player.get("koed", false))
+	var player_entries := _player_display_entries(player, allies, selection, player_koed)
 	_sync_band(_player_slots, player_entries, "player")
 
 	var enemy_entries := _enemy_display_entries(enemies, selection)
@@ -973,8 +974,12 @@ static func enemy_template_key(enemy: Dictionary) -> String:
 	if GameData.ENEMY_HOME_RAID_RAIDER.get("name", "") == name:
 		return "homeRaidRaider"
 	return ""
-func _player_display_entries(player: Dictionary, allies: Array, selection: Dictionary) -> Array:
-	var display: Array = [{ "name": "You", "isFocused": selection["type"] == "player", "index": -1, "templateKey": player.get("model", ""), "fighterId": "player" }]
+# A KO'd player leaves the band like a KO'd ally, freeing the place a
+# reinforcement takes.
+func _player_display_entries(player: Dictionary, allies: Array, selection: Dictionary, player_koed: bool = false) -> Array:
+	var display: Array = []
+	if not player_koed:
+		display.append({ "name": "You", "isFocused": selection["type"] == "player", "index": -1, "templateKey": player.get("model", ""), "fighterId": "player" })
 	var is_ally_selected: bool = selection["type"] == "ally"
 	for i in range(allies.size()):
 		if not allies[i]["koed"]:
