@@ -18,6 +18,11 @@ func _give_lady(level: int, qty: int = 1) -> void:
 
 
 func run() -> void:
+	run_case("every_usable_effect_has_description", func():
+		for item in ActiveEffects.usable_items():
+			assert_true(ActiveEffects.effect_text(item) != "", "%s has effectText" % item)
+	)
+
 	run_case("duration_table_by_level", func():
 		GameState.reset()
 		var expected := { 1: 1, 2: 1, 3: 2, 4: 2, 5: 3 }

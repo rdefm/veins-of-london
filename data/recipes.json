@@ -86,7 +86,8 @@
       "effectPower": [0, 1, 1, 1, 2, 2],
       "xpReward": 30,
       "eventUsable": true,
-      "description": "Two lungfuls buys you a few seconds of foresight. Enough to flinch correctly."
+      "description": "Two lungfuls buys you a few seconds of foresight. Enough to flinch correctly.",
+      "effectText": "Ambushes stop finding you."
     },
     "beALady": {
       "name": "Be a Lady",
@@ -97,7 +98,8 @@
       "effectPower": [0, 1, 1, 1, 2, 2],
       "xpReward": 25,
       "eventUsable": true,
-      "description": "For one action, the numbers stop arguing with you. Fate calc, temporarily very agreeable."
+      "description": "For one action, the numbers stop arguing with you. Fate calc, temporarily very agreeable.",
+      "effectText": "Your own cultivating and harvesting take the best result."
     },
     "panic": {
       "name": "Panic",

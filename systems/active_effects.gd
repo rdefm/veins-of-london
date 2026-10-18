@@ -42,6 +42,11 @@ static func is_active(item: String) -> bool:
 	return find(item) != null
 
 
+# One-line "what it does" for an effect item, from recipes.json effectText.
+static func effect_text(item: String) -> String:
+	return str(GameData.RECIPES.get(item, {}).get("effectText", ""))
+
+
 static func blocks_left(effect: Dictionary) -> int:
 	return maxi(0, int(effect["expiresAtBlock"]) - absolute_block())
 

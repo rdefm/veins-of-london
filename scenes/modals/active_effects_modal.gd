@@ -6,7 +6,7 @@ extends RefCounted
 
 
 static func build(container: VBoxContainer, _data: Dictionary) -> void:
-	# PROSE-REVIEW: active-effects sheet heading, rows and empty line.
+	# PROSE-REVIEW: active-effects sheet heading, rows, effect lines and empty line.
 	container.add_child(UI.heading("Under the influence"))
 	var shown := 0
 	for effect in ActiveEffects.effects():
