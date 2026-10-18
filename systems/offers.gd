@@ -115,21 +115,16 @@ static func _maybe_assay_commission() -> void:
 	create_assay_commission()
 
 
-# Issues one assay commission now: a known recipe at the Guild tier's rank
-# floor, paid at the quote x margin.
+# Issues one assay commission now: a recipe item picked by the variety ramp, at
+# the player's best rank for it or one above, paid at the quote x margin.
 static func create_assay_commission() -> Dictionary:
 	var cfg: Dictionary = GameData.OFFER_ASSAY
-	var known: Array = []
-	for recipe_key in GameData.RECIPES:
-		if Lab.is_known(recipe_key):
-			known.append(recipe_key)
-	if known.is_empty():
-		return { "ok": false, "reason": "No known recipe." }
+	var recipe_key := _pick_weighted(variety_weights(int(GameState.state["world"]["day"])), "consumable:").trim_prefix("consumable:")
 	var template: Dictionary = GameData.OFFER_TEMPLATES[cfg["template"]].duplicate(true)
 	template["request"] = {
-		"kind": "consumable", "type": Rng.rand_from(known),
+		"kind": "consumable", "type": recipe_key,
 		"qty": Rng.randi_range(int(cfg["qtyMin"]), int(cfg["qtyMax"])),
-		"minTier": assay_rank_floor(),
+		"minTier": assay_rank(recipe_key),
 	}
 	var result := create_offer(template)
 	if result["ok"]:
@@ -139,9 +134,13 @@ static func create_assay_commission() -> Dictionary:
 	return result
 
 
-# The rank an assay commission demands at the player's Guild perk tier.
-static func assay_rank_floor() -> int:
-	return int(GameData.OFFER_ASSAY["rankFloors"][Perks.player_tier("guild")])
+# The rank an assay commission demands: the player's best rank for the item
+# (1 if none), 50/50 plus one even when locked, capped at assay.maxRank.
+static func assay_rank(recipe_key: String) -> int:
+	var rank := Lab.item_tier(recipe_key)
+	if Rng.chance(0.5):
+		rank += 1
+	return mini(rank, int(GameData.OFFER_ASSAY["maxRank"]))
 
 
 # A completely delivered assay commission adds the Guild relation it promised.
@@ -161,8 +160,14 @@ static func random_templates() -> Array:
 # R§3.10 "Offer sourcing": a random one-off for an item picked by the day's
 # variety weights (every ore type and recipe item).
 static func random_variety_template() -> Dictionary:
-	var weights := variety_weights(int(GameState.state["world"]["day"]))
-	var keys: Array = weights.keys()
+	var picked := _pick_weighted(variety_weights(int(GameState.state["world"]["day"])), "")
+	var parts := picked.split(":")
+	return { "id": "random_%s_%s" % [parts[0], parts[1]], "source": "random", "contractType": "oneOff", "request": { "kind": parts[0], "type": parts[1] } }
+
+
+# A weighted pick among the `weights` keys starting with `prefix`.
+static func _pick_weighted(weights: Dictionary, prefix: String) -> String:
+	var keys: Array = weights.keys().filter(func(k: String) -> bool: return k.begins_with(prefix))
 	var total := 0.0
 	for key in keys:
 		total += float(weights[key])
@@ -173,8 +178,7 @@ static func random_variety_template() -> Dictionary:
 		if roll < 0.0:
 			picked = key
 			break
-	var parts := picked.split(":")
-	return { "id": "random_%s_%s" % [parts[0], parts[1]], "source": "random", "contractType": "oneOff", "request": { "kind": parts[0], "type": parts[1] } }
+	return picked
 
 
 # "kind:type" -> weight for every requestable item on `day`.

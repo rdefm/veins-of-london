@@ -317,6 +317,14 @@ func _assays() -> Array:
 	return OffersSystem.pending_offers().filter(func(o: Dictionary) -> bool: return o["source"] == OffersSystem.SOURCE_ASSAY)
 
 
+# A fresh assay commission pinned to Time Pearl at rank 2+.
+func _assay_pearl_offer() -> Dictionary:
+	var offer: Dictionary = OffersSystem.create_assay_commission()["offer"]
+	offer["request"]["type"] = "timePearl"
+	offer["request"]["minTier"] = 2
+	return offer
+
+
 func _register_assay_cases() -> void:
 	run_case("assay_commissions_generate_only_after_the_unlock_flag", func():
 		_assay_setup(false)
@@ -334,35 +342,44 @@ func _register_assay_cases() -> void:
 				found = _assays()
 		assert_eq(found.size(), 1, "generated once unlocked")
 		assert_eq(found[0]["counterparty"], "guild")
-		assert_eq(found[0]["request"]["type"], "timePearl", "only known recipes")
+		assert_true(GameData.RECIPES.has(found[0]["request"]["type"]), "a recipe item")
 		var plain: int = OffersSystem.quote_for_request(found[0]["request"], OffersSystem.sales_skill())["payment"]
 		assert_eq(found[0]["quote"]["payment"], int(round(float(plain) * float(GameData.OFFER_ASSAY["margin"]))), "quote x margin")
 	)
 
-	run_case("assay_rank_floor_follows_the_guild_tier", func():
-		var floors: Dictionary = GameData.OFFER_ASSAY["rankFloors"]
+	run_case("assay_rank_is_best_rank_or_one_above_capped", func():
+		var max_rank: int = int(GameData.OFFER_ASSAY["maxRank"])
+		var seen := {}
 		_assay_setup()
-		assert_eq(OffersSystem.create_assay_commission()["offer"]["request"]["minTier"], int(floors["none"]), "stranger")
-		_assay_setup()
-		GameState.state["factions"]["guild"]["relation"] = 30
-		assert_eq(OffersSystem.create_assay_commission()["offer"]["request"]["minTier"], int(floors["friendly"]))
-		_assay_setup()
-		GameState.state["factionStances"]["player"]["guild"]["stance"] = FactionAI.PARTNER
-		assert_eq(OffersSystem.create_assay_commission()["offer"]["request"]["minTier"], int(floors["partner"]))
-		_assay_setup()
-		GameState.state["factions"]["guild"]["joined"] = true
-		assert_eq(OffersSystem.create_assay_commission()["offer"]["request"]["minTier"], int(floors["sworn"]))
-		assert_true(int(floors["none"]) < int(floors["friendly"]) and int(floors["friendly"]) < int(floors["partner"]) and int(floors["partner"]) < int(floors["sworn"]), "floors rise with tier")
+		for key in GameData.RECIPES:
+			GameState.state["lab"]["bestRanks"][key] = 3
+		for i in 60:
+			seen[OffersSystem.create_assay_commission()["offer"]["request"]["minTier"]] = true
+			GameState.state["sales"]["pendingOffers"] = []
+		assert_eq(seen.keys().size(), 2, "two outcomes")
+		assert_true(seen.has(3) and seen.has(4), "best or best+1, +1 even when locked")
+		seen = {}
+		for key in GameData.RECIPES:
+			GameState.state["lab"]["bestRanks"][key] = max_rank
+		for i in 60:
+			seen[OffersSystem.create_assay_commission()["offer"]["request"]["minTier"]] = true
+			GameState.state["sales"]["pendingOffers"] = []
+		assert_eq(seen.keys(), [max_rank], "capped at max rank")
+		seen = {}
+		GameState.state["lab"]["bestRanks"] = {}
+		for i in 60:
+			seen[OffersSystem.create_assay_commission()["offer"]["request"]["minTier"]] = true
+			GameState.state["sales"]["pendingOffers"] = []
+		assert_true(seen.has(1) and seen.has(2) and seen.size() == 2, "no rank: 1 or 2")
 	)
 
 	run_case("assay_delivery_takes_only_items_at_the_rank_floor_or_above", func():
 		_assay_setup()
 		GameState.state["contacts"]["archie"]["recruited"] = true
 		Contacts.assign_to_room("archie", "ops")
-		var offer: Dictionary = OffersSystem.create_assay_commission()["offer"]
+		var offer: Dictionary = _assay_pearl_offer()
 		offer["request"]["qty"] = 4
-		var floor_tier: int = int(offer["request"]["minTier"])
-		assert_eq(floor_tier, 2)
+		offer["request"]["minTier"] = 2
 		var contract: Dictionary = OffersSystem.accept_offer(offer["id"])["contract"]
 		assert_eq(contract["dueDay"], int(GameState.state["world"]["day"]) + 7, "by day D: authored deadline")
 		GameState.state["player"]["inventory"]["timePearl"] = { "1": 5, "4": 2 }
@@ -383,7 +400,7 @@ func _register_assay_cases() -> void:
 		_assay_setup()
 		GameState.state["contacts"]["archie"]["recruited"] = true
 		Contacts.assign_to_room("archie", "ops")
-		var offer: Dictionary = OffersSystem.create_assay_commission()["offer"]
+		var offer: Dictionary = _assay_pearl_offer()
 		offer["request"]["qty"] = 4
 		var contract: Dictionary = OffersSystem.accept_offer(offer["id"])["contract"]
 		GameState.state["player"]["inventory"]["timePearl"] = { "3": 1 }
@@ -398,7 +415,7 @@ func _register_assay_cases() -> void:
 	run_case("assay_commissions_expire_and_respect_the_pending_cap", func():
 		_assay_setup()
 		GameState.state["world"]["day"] = 7
-		var offer: Dictionary = OffersSystem.create_assay_commission()["offer"]
+		var offer: Dictionary = _assay_pearl_offer()
 		assert_eq(offer["expiresDay"], 7 + GameData.OFFER_EXPIRY_DAYS)
 		GameState.state["world"]["day"] = offer["expiresDay"]
 		OffersSystem.expire_pending_offers()

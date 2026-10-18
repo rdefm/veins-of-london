@@ -11,7 +11,7 @@
   },
   "counterparty": { "smallOfferThreshold": 1000, "cancelRelationHit": 3 },
   "assay": {
-    "_comment": "Wren's assay commissions (Offers._maybe_assay_commission) -- provisional numbers, tagged for balance. Once flags[unlockFlag] is set, each day rolls chancePerDay for one pending offer from template (at most one pending at a time, inside the random-offer cap): qtyMin-qtyMax of a recipe the player knows, at rank >= rankFloors[the player's Guild perk tier], paid at the quote x margin. A complete settlement also adds relation to the Guild. PROSE-REVIEW: notify, offerNote, rankSuffix.",
+    "_comment": "Wren's assay commissions (Offers._maybe_assay_commission) -- provisional numbers, tagged for balance. Once flags[unlockFlag] is set, each day rolls chancePerDay for one pending offer from template (at most one pending at a time, inside the random-offer cap): qtyMin-qtyMax of a recipe item picked by the variety ramp, at rank >= the player's best rank for it (50/50 +1, capped at maxRank), paid at the quote x margin. A complete settlement also adds relation to the Guild. PROSE-REVIEW: notify, offerNote, rankSuffix.",
     "template": "assay_commission",
     "unlockFlag": "assayCommissionsUnlocked",
     "chancePerDay": 0.3,
@@ -19,7 +19,7 @@
     "qtyMax": 6,
     "margin": 1.5,
     "relation": 3,
-    "rankFloors": { "none": 2, "friendly": 3, "partner": 4, "sworn": 5 },
+    "maxRank": 5,
     "notify": "Wren has a commission for you. Recipe, grade, date.",
     "offerNote": "Assay commission. Deliver it all and the Guild remembers (+%d relation).",
     "rankSuffix": "%s, rank %d+"
