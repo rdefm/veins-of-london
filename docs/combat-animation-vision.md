@@ -79,13 +79,14 @@ grammar, not a replacement of it.
 ### 2.1 Backdrops
 
 The isometric diorama grammar **is** adopted for static **encounter
-backdrops** — one plate per combat context. `systems/combat.gd` already
-enumerates exactly six (`CONTEXT_RAID`, `CONTEXT_MUGGING`,
-`CONTEXT_EVENT_MUGGING`, `CONTEXT_HOME_RAID`, `CONTEXT_EVENT_RAID`,
-`CONTEXT_DEFEND_VEIN`), and `is_canonical_context()` guarantees the set is
-closed.
+backdrops** — one plate per combat context. `systems/combat.gd` enumerates
+them in `Combat.CANONICAL_CONTEXTS` (nine: `CONTEXT_RAID`, `CONTEXT_MUGGING`,
+`CONTEXT_EVENT_MUGGING`, `CONTEXT_FACTION_AMBUSH`, `CONTEXT_HOME_RAID`,
+`CONTEXT_HOME_ALARM_DEFEND`, `CONTEXT_EVENT_RAID`, `CONTEXT_DEFEND_VEIN`,
+`CONTEXT_ARCHIE_DEAL_MUGGING`), and `is_canonical_context()` guarantees the
+set is closed.
 
-Six static plates is the cheapest atmosphere-per-asset in the project. A rainy
+A handful of static plates is the cheapest atmosphere-per-asset in the project. A rainy
 Shoreditch street corner or a Tube carriage interior does more for perceived
 production value than any amount of character animation, and costs one
 generation each.
@@ -97,7 +98,7 @@ eventual asset count is plates-per-location×time rather than one static plate
 per context as scoped above; needs its own scoping pass before backdrop
 production starts. The daylight-mundane mood locked in §1 is confirmed for
 one location/time combination (`CONTEXT_MUGGING`), not asserted as universal
-across all six contexts.
+across all contexts.
 
 **Signed off (ticket 10 combat-refining, 2026-09-23).**
 Resolves the flag above: backdrop selection is a three-tier lookup,
@@ -109,7 +110,7 @@ most-specific first, keyed by the new `combat.locationKey`
    by location only: the game has no time-of-day state yet, so a
    `(locationKey, timeOfDay)` split is deferred until one exists.
 2. **Context plate** — falls back to today's one-plate-per-`CONTEXT_*` set
-   (the six enumerated above) when no location-specific plate has been
+   (the contexts enumerated above) when no location-specific plate has been
    authored yet.
 3. **Palette fallback colour** — a flat fill from `docs/ui-vision.md`'s mood
    palette (no new art) when neither exists, so an un-authored district never
@@ -585,7 +586,7 @@ on the back of this work. The seam is deliberate and it is the subject of
 1. `docs/ART-BIBLE.md` + master palette — **before any asset generation**
 2. Beat queue director + persistent combatant nodes — no art; cards still, to
    prove the plumbing separately from the aesthetics
-3. Stage frame, backdrop plates (6), render/import settings (§7)
+3. Stage frame, backdrop plates (one per context, §2.1), render/import settings (§7)
 4. Seven idle sheets
 5. Attack / hit / KO keyposes, transform motion, juice layer (§4.1)
 6. Effect sheets per consumable (§5)
@@ -636,7 +637,7 @@ asset must also land these:
 
 | Line | Current text | Problem |
 |---|---|---|
-| `docs/VISION.md:103` | "One illustration + icon set = **the entire exploration art budget**." | Directly contradicted. The art budget now includes a sprite roster, six backdrop plates and an effect library. |
+| `docs/VISION.md:103` | "One illustration + icon set = **the entire exploration art budget**." | Directly contradicted. The art budget now includes a sprite roster, one backdrop plate per combat context and an effect library. |
 | `docs/VISION.md:103` | "one stylised hand-drawn map — an occult A-Z, ink on paper" | Survives *only* as the Map tab's own direction, and is itself under review (§13). Must be scoped to the Map tab rather than stated as the game's art direction. |
 | `docs/VISION.md:12` | "a stylish, text-forward, menu-driven interface layered over a hand-drawn map of London" | "text-forward, menu-driven" still holds. "hand-drawn" does not. |
 
@@ -691,7 +692,7 @@ from the UI work this document specifies.
 - Dial's physical design corrected (§2.5) from the original description.
 
 **Flagged, not decided:**
-- Backdrop tone/lighting across the other five contexts depends on in-game
+- Backdrop tone/lighting across the other contexts depends on in-game
   location and time-of-day, not a fixed per-context rule — may mean §2.1's
   "one plate per context" framing needs revisiting (§2.1).
 - A full-screen composite sanity check (stage + turn-order strip + command
