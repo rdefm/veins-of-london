@@ -95,19 +95,22 @@ static func turn_pause_for(mode: String) -> float:
 	return float(pauses.get(mode, 0.0))
 
 
-# True when beat i is the last of its turn occurrence and another beat
-# follows -- the director holds turn_pause there so each combatant's turn
-# reads on its own. Round-boundary beats (null occurrence) count as their
-# own turn. Direction-agnostic, so Rewind's reversed queue pauses the same.
+# True when beat i is the last of its turn and another round beat follows
+# -- the director holds turn_pause there so each combatant's turn reads on
+# its own. A round beat's turn is its (round, turnActor, turnIndex); a
+# round's no-turn beats (turnActor -1, e.g. reinforcement entry) count as
+# their own turn. A beat with no turn fields (the screen's settle beat)
+# never pauses. Direction-agnostic, so Rewind's reversed queue pauses the same.
 static func is_turn_boundary(beats: Array, i: int) -> bool:
 	if i < 0 or i + 1 >= beats.size():
 		return false
-	return _occurrence_id(beats[i]) != _occurrence_id(beats[i + 1])
+	if not beats[i].has("turnActor") or not beats[i + 1].has("turnActor"):
+		return false
+	return _turn_key(beats[i]) != _turn_key(beats[i + 1])
 
 
-static func _occurrence_id(beat: Dictionary) -> String:
-	var occurrence: Variant = beat.get("occurrence")
-	return "" if occurrence == null else str(occurrence.get("occurrenceId", ""))
+static func _turn_key(beat: Dictionary) -> Array:
+	return [int(beat.get("round", 0)), int(beat["turnActor"]), int(beat.get("turnIndex", -1))]
 
 
 static func beat_is_damaging(beat: Dictionary) -> bool:
