@@ -779,7 +779,7 @@ static func _start_round_combat(context: String, vein_id, enemies: Array, log_li
 		combatants.append(enemy)
 	CombatPrototype.open_fight(combat, int(config.get("seed", Rng.randi_range(0, 0x7FFFFFFF))))
 	GameState.state["combat"] = combat
-	_spend_round_dial_casts(combat)
+	_settle_round_dials(combat)
 	for line in log_lines:
 		Notify.push(line, Notify.CATEGORY_INFO, { Notify.META_COMBAT_LOG: true })
 	_sync_round_outcome(combat)
@@ -885,18 +885,24 @@ static func _round_dial(owner_id: String) -> Variant:
 				cast["angerPct"] = GameState.round_epsilon(float(GameData.COMBAT_PROTOTYPE["anger"]["pctPerTier"]) * cast["tier"] * float(amp["magnitudeMult"]))
 		cast["power"] = power
 		casts.append(cast)
-	return { "owner": owner_id, "charge": dial["currentCharge"], "casts": casts, "spent": [] }
+	return { "owner": owner_id, "charge": dial["currentCharge"], "regenCounter": int(dial.get("combatRegenTurnCounter", 0)),
+		"casts": casts, "spent": [], "actions": 0 }
 
 
-# Settles the Dial casts the pick just resolved: each charges its real Dial
-# and earns its XP through Dial.cast_complication().
-static func _spend_round_dial_casts(combat: Dictionary) -> void:
+# Settles what the pick just resolved on each real Dial: every cast charges
+# it and earns its XP through Dial.cast_complication(), then each of the
+# owner's resolved actions is one combat turn of tier-5 Recharge regen
+# (Dial.combat_turn_tick(), R§3.5).
+static func _settle_round_dials(combat: Dictionary) -> void:
 	for fighter in combat["combatants"]:
 		var view: Variant = fighter.get("dial")
 		if view is Dictionary:
 			for index in view["spent"]:
 				Dial.cast_complication(int(index), view["owner"])
+			for _n in int(view.get("actions", 0)):
+				Dial.combat_turn_tick(view["owner"])
 			view["spent"] = []
+			view["actions"] = 0
 
 
 # Each fighter's dial view follows its real Dial (charge, and cast power
@@ -986,7 +992,7 @@ static func _play_round_pick(combat: Dictionary, action: Dictionary) -> Dictiona
 	var result := CombatPrototype.play_pick(combat, action, ROUND_SNAPSHOT_STACK)
 	if not result["ok"]:
 		return result
-	_spend_round_dial_casts(combat)
+	_settle_round_dials(combat)
 	var saved := _try_round_save(combat)
 	if saved != "":
 		result = { "ok": true, "beats": [], "outcome": combat["outcome"], "saved": saved }
@@ -1028,8 +1034,9 @@ static func _push_round_line(line: String) -> String:
 
 
 # Restores the round fight's newest snapshot whole (R§3.7b Rewind), the
-# player's real loadout slots and every real Dial's charge with it, so every
-# unit and cast spent since comes back (cast XP stays earned) -- bar the
+# player's real loadout slots and every real Dial's charge (and Recharge
+# regen count) with it, so every unit and cast spent since comes back (cast
+# XP stays earned) -- bar the
 # units earlier Rewinds were paid with: the player's rewinds, Dial rewind
 # casts and Failsafes, recruits' slot rewinds and the guard kit's rewinds,
 # which only ever leave as payment. The caller spends whatever pays for
@@ -1046,7 +1053,9 @@ static func _restore_round_snapshot(combat: Dictionary) -> void:
 	for fighter in combat["combatants"]:
 		var view: Variant = fighter.get("dial")
 		if view is Dictionary:
-			Dial.dial_of(view["owner"])["currentCharge"] = view["charge"] - (rewinds_since if view["owner"] == "" else 0)
+			var dial: Dictionary = Dial.dial_of(view["owner"])
+			dial["currentCharge"] = view["charge"] - (rewinds_since if view["owner"] == "" else 0)
+			dial["combatRegenTurnCounter"] = int(view.get("regenCounter", 0))
 	var kept: Array = combat["loadoutSlots"]
 	for i in range(mini(slots.size(), kept.size())):
 		slots[i] = kept[i].duplicate() if kept[i] is Dictionary else null

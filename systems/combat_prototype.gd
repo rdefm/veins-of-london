@@ -514,11 +514,13 @@ static func new_combatant(side: String, name: String, level: int, hp: int, hp_ma
 		# multi-target unit and sourceSlot for a live fight's real slot.
 		"loadout": [],
 		# A live fight's Dial (R§3.7b Dial Complications), null for none:
-		# { owner, charge, casts, spent }. casts are loadout-shaped
-		# { item, tier, power, multi, sourceIndex } per castable loaded
-		# Complication (plus lost for a Black Hole's actions taken, angerPct
-		# for Panger/Pandemonium); a resolved cast takes 1 charge and logs
-		# its sourceIndex on spent for the live layer to settle.
+		# { owner, charge, regenCounter, casts, spent, actions }. casts are
+		# loadout-shaped { item, tier, power, multi, sourceIndex } per
+		# castable loaded Complication (plus lost for a Black Hole's actions
+		# taken, angerPct for Panger/Pandemonium); a resolved cast takes 1
+		# charge and logs its sourceIndex on spent, and every resolved
+		# action of the owner counts on actions, for the live layer to
+		# settle (casts, and in-combat Recharge regen).
 		"dial": null,
 		"plan": [], "nextPlan": [],
 	}
@@ -1234,6 +1236,8 @@ static func _resolve_action(cp: Dictionary, actor_idx: int, action: Dictionary, 
 	var move_id: String = action["move"]
 	var actor: Dictionary = cp["combatants"][actor_idx]
 	var first_beat := beats.size()
+	if actor.get("dial") is Dictionary:
+		actor["dial"]["actions"] = int(actor["dial"].get("actions", 0)) + 1
 	var continuing_lure: bool = m["effect"] == EFFECT_LURE and int(action.get("part", 0)) > 0
 	if not continuing_lure:
 		actor["lure"] = LURE_NONE

@@ -1170,6 +1170,33 @@ func run() -> void:
 		assert_eq(Combat.round_rewind_block_reason(), Combat.REASON_NOTHING_TO_UNDO)
 	)
 
+	run_case("tier_5_recharge_regens_a_charge_every_third_action_and_rewind_takes_it_back", func():
+		GameState.reset()
+		_recruit("james")
+		Dial.grant_contact_dial("james")
+		var recharge := { "archetype": "recharge", "oreType": "time", "tier": 5 }
+		var james_dial: Dictionary = Dial.dial_of("james")
+		james_dial["movement"] = recharge.duplicate()
+		james_dial["currentCharge"] = 0
+		var dial := Fixtures.dial_with_loaded("blast", 1, 1)
+		dial["movement"] = recharge.duplicate()
+		GameState.state["player"]["dial"] = dial
+		GameState.state["player"]["loadout"]["slots"][0] = { "recipe": "rewind", "tier": 1 }
+		Combat._start_round_combat(Combat.CONTEXT_EVENT_MUGGING, null, [_slow_mugger(200)], [], "", [_slow_james()], null,
+			{ "seed": 1, "fog": false, "enemyPlans": [[["guard", "guard"]]], "allyPlans": [[["guard", "guard"]]] })
+		Combat.choose_move("guard")
+		Combat.choose_move("guard")
+		assert_eq(float(dial["currentCharge"]), 1.0, "two actions: nothing yet")
+		assert_eq(dial["combatRegenTurnCounter"], 2)
+		Combat.choose_move("guard")
+		assert_eq(float(dial["currentCharge"]), 2.0, "the third action regens one")
+		assert_eq(float(james_dial["currentCharge"]), 1.0, "the ally's third action too")
+		assert_true(Combat.round_rewind()["ok"])
+		assert_eq(float(dial["currentCharge"]), 1.0, "rewind takes the regen back")
+		assert_eq(dial["combatRegenTurnCounter"], 2, "and the count")
+		assert_eq(float(james_dial["currentCharge"]), 0.0)
+	)
+
 	run_case("live_screen_shows_the_dial_and_its_trigger_casts_a_pick", func():
 		GameState.reset()
 		GameState.state["player"]["dial"] = Fixtures.dial_with_loaded("blast", 1, 3)
