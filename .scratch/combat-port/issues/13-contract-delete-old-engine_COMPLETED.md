@@ -16,7 +16,7 @@ Whatever data the live engine still reads from the prototype table moves to its 
 
 **Status:** ready-for-agent
 
-- [ ] No reference to the old engine or the prototype remains (grep clean)
-- [ ] REFERENCE superseded combat text removed or pointed to §3.7b
-- [ ] Full suite and `scripts/check_all.sh` clean
-- [ ] CODEMAP current
+- [x] No reference to the old engine or the prototype remains (grep clean)
+- [x] REFERENCE superseded combat text removed or pointed to §3.7b
+- [x] Full suite and `scripts/check_all.sh` clean
+- [x] CODEMAP current
