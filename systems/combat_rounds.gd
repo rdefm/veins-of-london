@@ -25,8 +25,6 @@ const GUARDED := "guarded"
 const OPEN := "open"
 const UNCHANGED := "unchanged"
 const GUARD_EFFECTS: Array[String] = [GUARDED, OPEN, UNCHANGED]
-# guard_marker()'s third state, for a combatant Exposed by a sprung Lure.
-const EXPOSED := "exposed"
 # guard_preview()'s state for an enemy after an unread action.
 const UNKNOWN := "unknown"
 # Salts the fight seed into the fog stream's seed.
@@ -45,9 +43,8 @@ const EFFECT_NONE := "none"
 const EFFECT_DAMAGE := "damage"
 const EFFECT_OPEN := "open"
 const EFFECT_STUN := "stun"
-const EFFECT_LURE := "lure"
 const EFFECT_FLEE := "flee"
-const EFFECTS: Array[String] = [EFFECT_NONE, EFFECT_DAMAGE, EFFECT_OPEN, EFFECT_STUN, EFFECT_LURE, EFFECT_FLEE]
+const EFFECTS: Array[String] = [EFFECT_NONE, EFFECT_DAMAGE, EFFECT_OPEN, EFFECT_STUN, EFFECT_FLEE]
 
 # Item effects (R§3.7b Items), keyed from the data's items
 # table; each reads its power from the recipe's effectPower at the slot's tier.
@@ -97,12 +94,6 @@ const FAILSAFE := "failsafe"
 # Guarded target).
 const CONDITION_TARGET_OPEN := "targetOpen"
 const CONDITIONS: Array[String] = [CONDITION_TARGET_OPEN]
-
-# A combatant's "lure" field: none, waiting for a bite, or caught one and
-# spent (the rest of its positions hold the actor Open).
-const LURE_NONE := ""
-const LURE_ACTIVE := "active"
-const LURE_SPRUNG := "sprung"
 
 const PLAYER_INDEX := 0
 # Squad cap: 0-2 active allies (R§3.7b Combatants).
@@ -372,9 +363,8 @@ static func new_combatant(side: String, name: String, level: int, hp: int, hp_ma
 		"attackMax": attack_max,
 		"speed": speed,
 		"guard": GUARDED, "koed": false,
-		# Counts as Open through the end of this round number, whatever its
-		# own guard state (Exposed, R§3.7b Moves).
-		"exposedUntil": 0,
+		# A Feint landed on it: its next Guard action fails (R§3.7b Moves).
+		"guardFailed": false,
 		# Upcoming actions to drop from the timeline (Stun, Time Pearl, Black
 		# Hole).
 		"actionsLost": 0,
@@ -382,9 +372,6 @@ static func new_combatant(side: String, name: String, level: int, hp: int, hp_ma
 		"frozenActions": 0,
 		# Absorb pool; while above 0 it counts as Guarded (Shield).
 		"shield": 0,
-		"lure": LURE_NONE,
-		# The running Lure's params.exposedRounds.
-		"lureExposedRounds": 0,
 		# Timed item effects, each running through the end of this round
 		# number: Enhancement Powder's +1 action, Be a Lady's max rolls (at
 		# ladyCrit crit chance, cutting targets' evade by ladyTier steps) and
@@ -939,12 +926,10 @@ static func _ally_action(cp: Dictionary, ally: int, index: int, count: int, fein
 
 # Whether enemy `e` will be Open when `observer` takes its action `index`,
 # replaying the enemy's committed guard changes and `feints` on it in
-# timeline order up to that moment. Exposed counts as Open; an unread
-# action leaves its guard Unknown, which doesn't.
+# timeline order up to that moment. An unread action leaves its
+# guard Unknown, which doesn't open it; a Guard the Feint fails leaves it Open.
 static func _ally_sees_open(cp: Dictionary, e: int, observer: int, index: int, feints: Array) -> bool:
 	var enemy: Dictionary = cp["combatants"][e]
-	if is_exposed(cp, enemy):
-		return true
 	var events: Array = []
 	var plan: Array = enemy["plan"]
 	for i in range(mini(plan.size(), index + 1)):
@@ -953,11 +938,17 @@ static func _ally_sees_open(cp: Dictionary, e: int, observer: int, index: int, f
 			events.append({ "actor": e, "index": i, "guard": effect })
 	for f in feints:
 		if f["target"] == e:
-			events.append({ "actor": f["actor"], "index": f["index"], "guard": OPEN })
+			events.append({ "actor": f["actor"], "index": f["index"], "guard": OPEN, "feint": true })
 	events = events.filter(func(ev): return _acts_before(cp, ev["actor"], ev["index"], observer, index))
 	events.sort_custom(func(x, y): return _acts_before(cp, x["actor"], x["index"], y["actor"], y["index"]))
 	var state: String = enemy["guard"]
+	var failing: bool = enemy["guardFailed"]
 	for ev in events:
+		if ev.get("feint", false):
+			failing = true
+		elif ev["guard"] == GUARDED and failing:
+			failing = false
+			continue
 		state = ev["guard"]
 	return state == OPEN
 
@@ -1389,7 +1380,6 @@ static func _end_round(cp: Dictionary, rng: RandomNumberGenerator, beats: Array)
 	_release_kits(cp)
 	var patients: Array = []
 	for i in range(combatants.size()):
-		combatants[i]["lure"] = LURE_NONE
 		var ability = combatants[i]["ability"]
 		if ability is Dictionary and int(ability["lockedTurns"]) > 0:
 			ability["lockedTurns"] -= 1
@@ -1469,8 +1459,8 @@ static func continue_after_ko(cp: Dictionary) -> Array:
 
 # Applies the move's effect (fury_move()'s), then its effect on the actor's guard state;
 # a Panic or Pan's Rapture turn plays instead while one runs, and the
-# action ticks a running anger down. A Lure ends when its actor next acts on
-# anything but its own later parts.
+# action ticks a running anger down. A failed Guard (Feint) leaves the actor
+# Open and spends the failure.
 static func _resolve_action(cp: Dictionary, actor_idx: int, action: Dictionary, rng: RandomNumberGenerator, beats: Array) -> void:
 	var move_id: String = fury_move(cp, actor_idx, action["move"])
 	var m := move(move_id)
@@ -1478,13 +1468,9 @@ static func _resolve_action(cp: Dictionary, actor_idx: int, action: Dictionary, 
 	var first_beat := beats.size()
 	if actor.get("dial") is Dictionary:
 		actor["dial"]["actions"] = int(actor["dial"].get("actions", 0)) + 1
-	var continuing_lure: bool = m["effect"] == EFFECT_LURE and int(action.get("part", 0)) > 0
-	if not continuing_lure:
-		actor["lure"] = LURE_NONE
 	if _play_status_turn(cp, actor_idx, rng, beats):
 		_stamp_marks(cp, actor_idx, first_beat, beats)
 		return
-	var apply_guard := true
 	match m["effect"]:
 		EFFECT_DAMAGE:
 			var target := _fury_target(cp, actor_idx, rng)
@@ -1502,14 +1488,6 @@ static func _resolve_action(cp: Dictionary, actor_idx: int, action: Dictionary, 
 				target = _retarget(cp, actor_idx, int(action["target"]))
 			if target >= 0:
 				_stun(cp, actor_idx, target, move_id, m, beats)
-		EFFECT_LURE:
-			if not continuing_lure:
-				actor["lure"] = LURE_ACTIVE
-				actor["lureExposedRounds"] = int(m["params"]["exposedRounds"])
-				_beat(cp, beats, "lure", actor_idx, -1, move_id, {})
-			elif actor["lure"] == LURE_SPRUNG:
-				# Spent: the actor stays Open for the rest of the Lure.
-				apply_guard = false
 		EFFECT_FLEE:
 			var chance := float(m["params"]["chance"])
 			if float(actor["fleeBoost"]) > 0.0:
@@ -1525,8 +1503,11 @@ static func _resolve_action(cp: Dictionary, actor_idx: int, action: Dictionary, 
 			_beat(cp, beats, move_id, actor_idx, -1, move_id, {})
 		_:
 			_use_item(cp, actor_idx, action, m, rng, beats)
-	if apply_guard and m["actorGuard"] != UNCHANGED and not actor["koed"]:
-		actor["guard"] = m["actorGuard"]
+	if m["actorGuard"] != UNCHANGED and not actor["koed"]:
+		if m["actorGuard"] == GUARDED and actor["guardFailed"]:
+			actor["guardFailed"] = false
+		else:
+			actor["guard"] = m["actorGuard"]
 	_tick_anger(cp, actor_idx, beats)
 	_stamp_marks(cp, actor_idx, first_beat, beats)
 
@@ -1618,46 +1599,37 @@ static func stage_marks(cp: Dictionary) -> Array:
 	})
 
 
-# "open", "guarded" or "exposed", in is_open()'s order: a freeze reads Open,
-# a Shield pool Guarded, then Exposed while it lasts, then the guard state.
-static func guard_marker(cp: Dictionary, combatant: Dictionary) -> String:
+# "open" or "guarded", in is_open()'s order: a freeze reads Open, a Shield
+# pool Guarded, then the guard state.
+static func guard_marker(_cp: Dictionary, combatant: Dictionary) -> String:
 	if combatant["frozenActions"] > 0:
 		return OPEN
 	if combatant["shield"] > 0:
 		return GUARDED
-	if is_exposed(cp, combatant):
-		return EXPOSED
 	return combatant["guard"]
 
 
 # Open for damage and conditions: frozen by a Time Pearl; else Guarded while
-# a Shield pool lasts; else its own guard state is Open, or it's Exposed
-# this round.
-static func is_open(cp: Dictionary, combatant: Dictionary) -> bool:
+# a Shield pool lasts; else its own guard state is Open.
+static func is_open(_cp: Dictionary, combatant: Dictionary) -> bool:
 	if combatant["frozenActions"] > 0:
 		return true
 	if combatant["shield"] > 0:
 		return false
-	return combatant["guard"] == OPEN or is_exposed(cp, combatant)
+	return combatant["guard"] == OPEN
 
 
-static func is_exposed(cp: Dictionary, combatant: Dictionary) -> bool:
-	return int(cp["round"]) <= int(combatant["exposedUntil"])
-
-
-# Guarded target → Open until its next Guard; no-op on one already Open.
+# Target goes Open and its next Guard action fails (it stays Open through
+# it); on one already Open only the Guard failure is set.
 static func _feint(cp: Dictionary, actor_idx: int, target_idx: int, move_id: String, beats: Array) -> void:
 	var target: Dictionary = cp["combatants"][target_idx]
-	if is_open(cp, target):
-		_beat(cp, beats, "fizzle", actor_idx, target_idx, move_id, {})
-		return
 	target["guard"] = OPEN
+	target["guardFailed"] = true
 	_beat(cp, beats, "feint", actor_idx, target_idx, move_id, {})
 
 
 # Open target → loses its next params.actions actions (its guard state
-# stays as it was); a Guarded target shrugs it off (R§3.7b
-# Removal). Either way it's an attack, so it can spring a Lure.
+# stays as it was); a Guarded target shrugs it off (R§3.7b Removal).
 static func _stun(cp: Dictionary, actor_idx: int, target_idx: int, move_id: String, m: Dictionary, beats: Array) -> void:
 	var target: Dictionary = cp["combatants"][target_idx]
 	if m["condition"] == CONDITION_TARGET_OPEN and not is_open(cp, target):
@@ -1665,20 +1637,6 @@ static func _stun(cp: Dictionary, actor_idx: int, target_idx: int, move_id: Stri
 	else:
 		target["actionsLost"] += int(m["params"]["actions"])
 		_beat(cp, beats, "stun", actor_idx, target_idx, move_id, {})
-	_spring_lure(cp, actor_idx, target_idx, move_id, beats)
-
-
-# The first attack on an actively Luring target leaves the attacker Exposed
-# (through the end of round + exposedRounds) and the lurer Open.
-static func _spring_lure(cp: Dictionary, attacker_idx: int, target_idx: int, move_id: String, beats: Array) -> void:
-	var combatants: Array = cp["combatants"]
-	var target: Dictionary = combatants[target_idx]
-	if target["lure"] != LURE_ACTIVE or target["koed"]:
-		return
-	target["lure"] = LURE_SPRUNG
-	target["guard"] = OPEN
-	combatants[attacker_idx]["exposedUntil"] = int(cp["round"]) + int(target["lureExposedRounds"])
-	_beat(cp, beats, "exposed", target_idx, attacker_idx, move_id, {})
 
 
 # An action aimed at a KO'd opponent moves to the next living one in index
@@ -1695,7 +1653,7 @@ static func _retarget(cp: Dictionary, actor: int, target: int) -> int:
 	return opponents[0]
 
 
-# Damage rolls within the attacker's range: full on an Open (or Exposed)
+# Damage rolls within the attacker's range: full on an Open
 # target, round(roll × chipMultiplier) (min 1) on a Guarded one; a crit
 # doubles the final figure (R§3.7b Damage), then the attacker's anger scales
 # it (anger_factor()). Under Be a Lady the roll is the
@@ -1708,7 +1666,6 @@ static func _strike(cp: Dictionary, actor_idx: int, target_idx: int, move_id: St
 	var evade := evade_chance(cp, actor, target)
 	if evade > 0.0 and rng.randf() < evade:
 		_beat(cp, beats, "evade", actor_idx, target_idx, move_id, {})
-		_spring_lure(cp, actor_idx, target_idx, move_id, beats)
 		return
 	var lady := has_lady(cp, actor)
 	var roll_range := damage_range(cp, actor_idx)
@@ -1725,16 +1682,13 @@ static func _strike(cp: Dictionary, actor_idx: int, target_idx: int, move_id: St
 	_deal_damage(cp, actor_idx, target_idx, dmg, "chip" if guarded else "hit", move_id, beats, {
 		"roll": roll, "crit": crit, "guarded": guarded,
 	})
-	if not target["koed"]:
-		_spring_lure(cp, actor_idx, target_idx, move_id, beats)
 
 
 # The chance `target` evades a Strike from `actor`: its evadeChance, less
 # Be a Lady's evadeCutPerTier per ladyTier on the attacker, floored at 0;
-# none while it's Exposed or has actions to lose (stunned, frozen)
-# (R§3.7b Evade).
+# none while it has actions to lose (stunned, frozen) (R§3.7b Evade).
 static func evade_chance(cp: Dictionary, actor: Dictionary, target: Dictionary) -> float:
-	if is_exposed(cp, target) or int(target["actionsLost"]) > 0:
+	if int(target["actionsLost"]) > 0:
 		return 0.0
 	var chance := float(target.get("evadeChance", 0.0))
 	if has_lady(cp, actor):

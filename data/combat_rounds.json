@@ -32,10 +32,6 @@
       "id": "stun", "name": "Stun", "cost": 1, "actorGuard": "open",
       "target": "enemy", "effect": "stun", "params": { "actions": 1 }, "condition": "targetOpen", "level": 1
     },
-    "lure": {
-      "id": "lure", "name": "Lure", "cost": 2, "actorGuard": "guarded",
-      "target": "self", "effect": "lure", "params": { "exposedRounds": 1 }, "condition": null, "level": 1
-    },
     "legIt": {
       "id": "legIt", "name": "Leg it", "cost": 1, "actorGuard": "open",
       "target": "self", "effect": "flee", "params": { "chance": 0.65 }, "condition": null, "level": 1
@@ -129,8 +125,6 @@
     "evade": { "self": "You swing at {target} and hit air.", "other": "{actor} swings at {target} and hits air." },
     "fizzle": { "self": "You try it on. Nothing doing.", "other": "{actor} tries it on. Nothing doing." },
     "lost": { "self": "You're still seeing stars.", "other": "{actor} is still seeing stars." },
-    "lure": { "self": "You leave a gap and wait.", "other": "{actor} leaves a gap and waits." },
-    "exposed": { "self": "{target} bites. Wide open now.", "other": "{actor}'s bait gets a bite." },
     "fled": { "self": "You leg it. Nobody follows.", "other": "{actor} legs it." },
     "fleeFailed": { "self": "You try to leg it. They cut you off.", "other": "{actor} tries to leg it and gets cut off." },
     "absorb": " The shield takes {absorbed} of it.",

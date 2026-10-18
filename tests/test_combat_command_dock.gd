@@ -68,7 +68,7 @@ func run() -> void:
 		GameState.reset()
 		var explained: Array = []
 		var rows: Array = [
-			{ "label": "Lure", "disabled": true, "disabledReason": "No room", "callback": Callable(), "onExplain": func(): explained.append("lure") },
+			{ "label": "Stun", "disabled": true, "disabledReason": "No room", "callback": Callable(), "onExplain": func(): explained.append("stun") },
 			{ "label": "Guard", "disabled": false, "callback": Callable(), "onExplain": func(): explained.append("guard") },
 		]
 		var dock := CombatCommandDock.new()
@@ -76,7 +76,7 @@ func run() -> void:
 		assert_eq(_button_named(_button_named(dock, "RowButton_1"), "ExplainButton"), null, "an enabled row has no ?")
 		var help := _button_named(_button_named(dock, "RowButton_0"), "ExplainButton")
 		help.pressed.emit()
-		assert_eq(explained, ["lure"])
+		assert_eq(explained, ["stun"])
 		dock.free()
 
 		var locked := CombatCommandDock.new()

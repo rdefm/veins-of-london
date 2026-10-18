@@ -338,12 +338,10 @@ func _strikes(cp: Dictionary, e: int, intents: Array, index: int, next_round: bo
 # the fight paused at the player's action `now`: its guard state now, then
 # its own committed guard changes still to come before i (minus any it's
 # losing) and the player's Feints planned at `feints` indices, in timeline
-# order. A frozen or Exposed enemy reads Open; an unread intent leaves its
+# order. A frozen enemy reads Open; a Guard a Feint fails leaves it Open; an unread intent leaves its
 # guard unknown, which doesn't.
 func _sees_open(cp: Dictionary, e: int, now: int, i: int, feints: Array) -> bool:
 	var enemy: Dictionary = cp["combatants"][e]
-	if CombatRounds.is_exposed(cp, enemy):
-		return true
 	var faster: bool = enemy["speed"] > cp["combatants"][CombatRounds.PLAYER_INDEX]["speed"]
 	var intents := CombatRounds.enemy_intents(cp, e)
 	var resolved := mini(now + 1 if faster else now, intents.size())
@@ -351,18 +349,24 @@ func _sees_open(cp: Dictionary, e: int, now: int, i: int, feints: Array) -> bool
 	if int(enemy["frozenActions"]) > acted - resolved:
 		return true
 	var lost := int(enemy["actionsLost"])
-	# Events as [index, enemy-first-at-that-index, guard state].
+	# Events as [index, enemy-first-at-that-index, guard state, is a Feint].
 	var events: Array = []
 	for j in range(resolved, acted):
 		var guard: String = CombatRounds.UNKNOWN if intents[j].get("unread", false) else CombatRounds.move(intents[j]["move"])["actorGuard"]
 		if j - resolved >= lost and guard != CombatRounds.UNCHANGED:
-			events.append([j, faster, guard])
+			events.append([j, faster, guard, false])
 	for f in feints:
 		if f < i:
-			events.append([f, not faster, CombatRounds.OPEN])
+			events.append([f, not faster, CombatRounds.OPEN, true])
 	events.sort_custom(func(a, b): return a[0] < b[0] or (a[0] == b[0] and a[1] and not b[1]))
 	var state: String = CombatRounds.OPEN if CombatRounds.is_open(cp, enemy) else CombatRounds.GUARDED
+	var failing: bool = enemy["guardFailed"]
 	for ev in events:
+		if ev[3]:
+			failing = true
+		elif ev[2] == CombatRounds.GUARDED and failing:
+			failing = false
+			continue
 		state = ev[2]
 	return state == CombatRounds.OPEN
 

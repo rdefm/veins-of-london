@@ -109,11 +109,8 @@ The combatant the player's next pick aims at — the player, an ally or an enemy
 Every [[Combatant]] is either **Open** or **Guarded**. A hit on an Open combatant does full damage; on a Guarded one, chip (×0.25). Set by the combatant's last [[Action]] (Guard → Guarded, Strike/Stun/Leg it → Open, items and Dial casts leave it unchanged) and carried across rounds; everyone starts a fight Guarded.
 _Avoid_: "stance" — that's a faction term (see [[Stance]]).
 
-**Exposed** _(combat port, REFERENCE §3.7b)_:
-A forced-Open status with a duration (Lure's catch: through the end of next round). Counts as Open, and the combatant's own Guard can't clear it.
-
 **Action** _(combat port, REFERENCE §3.7b)_:
-One entry in a combatant's [[Round plan]]: a move (Guard, Strike, Feint, Stun, Lure, Leg it), an item use or a Dial cast. Lure costs two. Actions per round come from Combat Skill level. Rewind is a command, not an action.
+One entry in a combatant's [[Round plan]]: a move (Guard, Strike, Feint, Stun, Leg it), an item use or a Dial cast. Actions per round come from Combat Skill level. Rewind is a command, not an action.
 _Avoid_: "turn" — a round holds several actions per combatant.
 
 **Round plan** _(combat port, REFERENCE §3.7b)_:

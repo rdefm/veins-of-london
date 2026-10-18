@@ -839,22 +839,21 @@ Spec: `.scratch/combat-port/spec.md` (signed off 2026-10-17). Every fight (all `
 
 **Round.** At round start each enemy commits a round plan: one weighted pattern, cycled to fill its `actionsPerRound` (a 3-move pattern on a 2-action enemy plays its first two), each offensive action targeting uniformly over the player + living allies. Next round's plans are pre-rolled at the same time (for sight). Allies then plan by reading the fogged enemy intents (ally AI; ally item rules below). All actions resolve in timeline order: action index, then speed descending, then player > allies (array order) > enemies (array order). The engine pauses at each player action for one pick (move or loadout item or Dial cast + target); only targets living at the pause are offered. Enemies never re-plan mid-round.
 
-**Moves** (all six available from the start; `level` field reserved):
+**Moves** (all five available from the start; `level` field reserved):
 
 | id | Cost | Actor after | Effect |
 |---|---|---|---|
 | guard | 1 | guarded | — |
 | strike | 1 | open | Damage roll vs target |
-| feint | 1 | unchanged | Guarded target → Open until its next Guard; no-op on Open |
+| feint | 1 | unchanged | Target → Open, and its next Guard action fails (it stays Open through it; the failure is spent, later Guards work normally). On an already-Open target only the Guard failure is set |
 | stun | 1 | open | Needs an Open target, else fizzles; target loses its next 1 action |
-| lure | 2 | guarded | First enemy to attack the actor while active becomes Exposed through the end of next round; Lure then ends, actor Open |
 | legIt | 1 | open | Flee roll 0.65; success ends the fight `fled`; failure: actor Open, rest of its actions this round lost; no parting shot |
 
-Items and Dial casts cost 1 action and leave guard state unchanged (except Shield). **Exposed** counts as Open and the target's own Guard can't clear it.
+Items and Dial casts cost 1 action and leave guard state unchanged (except Shield).
 
-**Damage.** `roll = rand(attackMin, attackMax)`. Open/Exposed target → full; Guarded → `max(1, round(roll × 0.25))`. Crit (`critChance[level]`) doubles the final figure (Guarded crit = 2× chip). A shield pool absorbs 1:1 before HP (player, ally, enemy alike). Pandemonium/Panger anger factors apply after crit (below).
+**Damage.** `roll = rand(attackMin, attackMax)`. Open target → full; Guarded → `max(1, round(roll × 0.25))`. Crit (`critChance[level]`) doubles the final figure (Guarded crit = 2× chip). A shield pool absorbs 1:1 before HP (player, ally, enemy alike). Pandemonium/Panger anger factors apply after crit (below).
 
-**Evade.** Before a Strike rolls, the target evades it with chance `evadeChance` (enemies only, §1.10; player and allies 0): an `evade` beat, no damage, no crit; a Lure on the target still springs. No evade while the target is Exposed or has actions to lose (stunned, Time Pearl/Black Hole). An attacker under Be a Lady cuts it by `evadeCutPerTier` (0.05) × its Be a Lady tier, floored at 0. Stun, Feint and items never miss.
+**Evade.** Before a Strike rolls, the target evades it with chance `evadeChance` (enemies only, §1.10; player and allies 0): an `evade` beat, no damage, no crit. No evade while the target has actions to lose (stunned, Time Pearl/Black Hole). An attacker under Be a Lady cuts it by `evadeCutPerTier` (0.05) × its Be a Lady tier, floored at 0. Stun, Feint and items never miss.
 
 **Removal.** Stun / Time Pearl / Black Hole drop the target's next N actions from the timeline (spilling into next round's plan). The target's guard state stays (Time Pearl's freeze forces Open). A KO'd combatant's remaining actions drop. An action aimed at a KO'd enemy retargets the next living enemy (index order); a heal at a KO'd ally fizzles.
 

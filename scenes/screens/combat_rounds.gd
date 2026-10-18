@@ -28,7 +28,7 @@ const _STRIP_SIDE_INSET := 9.0
 # How many upcoming actions the strip's carousel holds.
 const STRIP_SIZE := 10
 # Beat kinds that play nothing past the guard overlay their marks set.
-const _OVERLAY_KINDS: Array[String] = ["guard", "lure", "exposed", "lost", "frozen", "cower", "enraptured", "calm", "disarm", "enter"]
+const _OVERLAY_KINDS: Array[String] = ["guard", "lost", "frozen", "cower", "enraptured", "calm", "disarm", "enter"]
 const _CAST_KINDS: Array[String] = ["powder", "sight", "sightGiven", "lady", "failsafe"]
 # The screen's own closing beat after a pick's beats (_play_beats()).
 const _SETTLE_KIND := "settle"
@@ -345,8 +345,8 @@ static func _position_loss(cp: Dictionary, position: Dictionary) -> String:
 
 
 # A position's guard badge: the actor's guard state after that action --
-# resolved, as its beats left it; ahead, from guard_preview() (Exposed over
-# either while it lasts; a freeze reads Open).
+# resolved, as its beats left it; ahead, from guard_preview() (a freeze reads
+# Open).
 static func _guard_badge(cp: Dictionary, position: Dictionary) -> String:
 	var actor: int = position["actor"]
 	var combatant: Dictionary = cp["combatants"][actor]
@@ -354,8 +354,6 @@ static func _guard_badge(cp: Dictionary, position: Dictionary) -> String:
 		for beat in _position_beats(cp, position):
 			if beat["actor"] == actor and beat.has("actorGuard"):
 				return str(beat["actorGuard"]).capitalize()
-	elif CombatRounds.is_exposed(cp, combatant):
-		return "Exposed"
 	elif _position_loss(cp, position) == "frozen":
 		return "Open"
 	return _guard_text(CombatRounds.guard_preview(cp, actor)[position["index"] + 1])
@@ -660,8 +658,8 @@ func _build_combatant_card(cp: Dictionary, index: int) -> Control:
 	if not combatant["koed"]:
 		var preview: Array = CombatRounds.guard_preview(cp, index).map(func(state): return _guard_text(state))
 		c["content"].add_child(UI.muted_label("Guard: %s" % " → ".join(preview)))
-		if CombatRounds.is_exposed(cp, combatant):
-			c["content"].add_child(UI.muted_label("Exposed through round %d" % combatant["exposedUntil"]))
+		if combatant["guardFailed"]:
+			c["content"].add_child(UI.muted_label("Next Guard fails"))
 		if combatant["frozenActions"] > 0:
 			c["content"].add_child(UI.muted_label("Frozen (Open): next %d action(s)" % combatant["frozenActions"]))
 		if combatant["actionsLost"] > combatant["frozenActions"]:

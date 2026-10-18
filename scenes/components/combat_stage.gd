@@ -59,12 +59,10 @@ const CAST_RISE_PX := 6.0
 # StageSlot.guard_marker values (the round fight's guard overlay).
 const GUARD_MARKER_GUARDED := "guarded"
 const GUARD_MARKER_OPEN := "open"
-const GUARD_MARKER_EXPOSED := "exposed"
 const GUARD_MARKER_SIZE := Vector2(12.0, 14.0)
 const GUARD_MARKER_INSET := 4.0
 const GUARD_MARKER_GUARDED_COLOUR := Color(0.4, 0.85, 1.0, 0.95)
 const GUARD_MARKER_OPEN_COLOUR := Color(0.9, 0.9, 0.9, 0.75)
-const GUARD_MARKER_EXPOSED_COLOUR := Color(1.0, 0.35, 0.3, 0.95)
 # A sprite's status badges (CombatRounds.status_badges()).
 const STATUS_BADGE_FONT_SIZE := 9
 const STATUS_BADGE_COLOUR := Color(1.0, 0.85, 0.4, 0.95)
@@ -553,7 +551,7 @@ class StageSlot extends Control:
 			_overlay.draw_string(font, Vector2(x, y), text, HORIZONTAL_ALIGNMENT_LEFT, -1, CombatStage.STATUS_BADGE_FONT_SIZE, CombatStage.STATUS_BADGE_COLOUR)
 
 	# A small shield at the slot's back top corner: filled while Guarded,
-	# hollow while Open, hollow red and slashed while Exposed.
+	# hollow while Open.
 	func _draw_guard_marker() -> void:
 		var w: float = CombatStage.GUARD_MARKER_SIZE.x
 		var h: float = CombatStage.GUARD_MARKER_SIZE.y
@@ -568,9 +566,6 @@ class StageSlot extends Control:
 			CombatStage.GUARD_MARKER_GUARDED:
 				_overlay.draw_colored_polygon(points, CombatStage.GUARD_MARKER_GUARDED_COLOUR)
 				_overlay.draw_polyline(outline, Color(0, 0, 0, 0.6), 1.0)
-			CombatStage.GUARD_MARKER_EXPOSED:
-				_overlay.draw_polyline(outline, CombatStage.GUARD_MARKER_EXPOSED_COLOUR, 2.0)
-				_overlay.draw_line(o + Vector2(w, 0.0), o + Vector2(0.0, h), CombatStage.GUARD_MARKER_EXPOSED_COLOUR, 2.0)
 			_:
 				_overlay.draw_polyline(outline, CombatStage.GUARD_MARKER_OPEN_COLOUR, 2.0)
 

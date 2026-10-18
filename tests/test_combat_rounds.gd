@@ -258,7 +258,51 @@ func run() -> void:
 		var feint: Dictionary = _first(result["beats"], "feint")
 		assert_true(not feint.is_empty(), "feint beat")
 		assert_eq(feint["marks"][1]["guard"], CombatRounds.OPEN, "the mugger stands Open after the Feint")
-		assert_eq(combat["combatants"][1]["guard"], CombatRounds.GUARDED, "its next Guard closes it again")
+		assert_eq(combat["combatants"][1]["guard"], CombatRounds.OPEN, "its next Guard failed, consumed")
+		assert_true(not combat["combatants"][1]["guardFailed"], "failure spent")
+	)
+
+	run_case("feint_on_an_open_mugger_still_fails_its_next_guard", func():
+		GameState.reset()
+		var combat := _start([["strike", "guard"]])
+		Combat.choose_move("feint", 1)
+		assert_eq(combat["combatants"][1]["guard"], CombatRounds.OPEN, "its planned Guard after the Feint failed")
+		assert_true(not combat["combatants"][1]["guardFailed"], "consumed")
+	)
+
+	run_case("strike_after_feint_vs_a_guarding_enemy_lands_full", func():
+		GameState.reset()
+		var combat := _start([["guard", "guard"]])
+		Combat.choose_move("feint", 1)
+		var result := Combat.choose_move("strike", 1)
+		assert_true(not _first(result["beats"], "hit").is_empty(), "full damage, not a chip")
+		assert_true(_first(result["beats"], "chip").is_empty(), "no chip")
+	)
+
+	run_case("guard_works_normally_after_the_failed_one", func():
+		GameState.reset()
+		var combat := _start([["guard", "guard"]])
+		Combat.choose_move("feint", 1)
+		Combat.choose_move("guard")
+		assert_eq(combat["combatants"][1]["guard"], CombatRounds.GUARDED, "second Guard closes it")
+	)
+
+	run_case("an_in_flight_save_with_lure_fields_loads_cleanly", func():
+		GameState.reset()
+		var combat := _start([["guard", "guard"]])
+		for c in combat["combatants"]:
+			c["lure"] = "active"
+			c["lureExposedRounds"] = 1
+			c["exposedUntil"] = 2
+			c.erase("guardFailed")
+		var back = JSON.parse_string(JSON.stringify(GameState.state))
+		assert_true(back != null, "round-trips")
+		SaveManager._restore_combat_int_types(back["combat"])
+		for c in back["combat"]["combatants"]:
+			assert_true(not c.has("lure") and not c.has("exposedUntil") and c["guardFailed"] == false, "old fields stripped, new defaulted")
+		GameState.state = back
+		var result := Combat.choose_move("guard")
+		assert_true(result["ok"], "the fight plays on: %s" % str(result.get("reason", "")))
 	)
 
 	run_case("stun_on_an_open_mugger_drops_its_next_action", func():
@@ -268,16 +312,6 @@ func run() -> void:
 		assert_true(_kinds(result["beats"]).has("stun"), "stun lands on the Open mugger")
 		var lost: Dictionary = _first(result["beats"], "lost")
 		assert_eq(lost.get("actor", -1), 1, "the mugger loses its Guard")
-	)
-
-	run_case("lure_exposes_the_first_mugger_to_attack", func():
-		GameState.reset()
-		var combat := _start([["guard", "strike"]])
-		var result := Combat.choose_move("lure")
-		assert_true(result["ok"], "lure plays across both actions")
-		var sprung: Dictionary = _first(result["beats"], "exposed")
-		assert_eq([sprung.get("actor", -1), sprung.get("target", -1)], [CombatRounds.PLAYER_INDEX, 1], "the mugger's strike springs it")
-		assert_eq(combat["combatants"][1]["exposedUntil"], 2, "Exposed through next round")
 	)
 
 	run_case("leg_it_success_flees_and_failure_loses_the_round", func():
@@ -526,7 +560,7 @@ func run() -> void:
 		var screen: CombatRoundsScreen = host._round_screen
 		assert_true(screen != null, "round screen hosted")
 		screen._ready()
-		for move_id in ["guard", "strike", "feint", "stun", "lure", "legIt"]:
+		for move_id in ["guard", "strike", "feint", "stun", "legIt"]:
 			assert_true(_row(screen, "MoveRow_%s" % move_id) != null, "%s row" % move_id)
 		var item := _row(screen, "ItemRow_0")
 		assert_true(item != null and item.disabled, "real loadout slot shown, blocked")
@@ -685,7 +719,7 @@ func run() -> void:
 		assert_eq(enemy["hp"], enemy["hpMax"], "untouched")
 	)
 
-	run_case("evade_chance_is_zero_on_an_exposed_or_stunned_target", func():
+	run_case("evade_chance_is_zero_on_a_stunned_target", func():
 		GameState.reset()
 		var mugger := _mugger()
 		mugger["evadeChance"] = 0.5
@@ -695,9 +729,6 @@ func run() -> void:
 		assert_almost_eq(CombatRounds.evade_chance(combat, you, enemy), 0.5, 0.0001, "as authored")
 		enemy["actionsLost"] = 1
 		assert_eq(CombatRounds.evade_chance(combat, you, enemy), 0.0, "stunned or frozen")
-		enemy["actionsLost"] = 0
-		enemy["exposedUntil"] = combat["round"]
-		assert_eq(CombatRounds.evade_chance(combat, you, enemy), 0.0, "exposed")
 	)
 
 	run_case("be_a_lady_cuts_evade_5_points_per_tier", func():

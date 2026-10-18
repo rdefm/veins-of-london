@@ -1316,6 +1316,11 @@ func _restore_int_types(state: Dictionary) -> void:
 
 func _restore_combat_int_types(combat: Dictionary) -> void:
 	_restore_round_combat_types(combat)
+	for combatant in combat.get("combatants", []):
+		for key in ["lure", "lureExposedRounds", "exposedUntil"]:
+			combatant.erase(key)
+		if not combatant.has("guardFailed"):
+			combatant["guardFailed"] = false
 
 
 # A round fight holds no floats but _ROUND_FLOAT_KEYS,
