@@ -49,7 +49,7 @@
     "healingBurst": { "target": "friend", "effect": "heal", "params": {} },
     "enhancementPowder": { "target": "self", "effect": "powder", "params": { "rounds": 1, "longRounds": 2, "longPowerMin": 3 } },
     "prophetsBreath": { "target": "self", "effect": "sight", "params": {} },
-    "beALady": { "target": "self", "effect": "lady", "params": { "critChance": 0.333333, "evadeCutPerTier": 0.1 } },
+    "beALady": { "target": "self", "effect": "lady", "params": { "critChance": 0.333333, "evadeCutPerTier": 0.05 } },
     "panic": { "target": "enemy", "effect": "panic", "params": { "boltChance": 0.5 } },
     "pansRapture": { "target": "enemy", "effect": "rapture", "params": {} },
     "panger": { "target": "enemy", "effect": "anger", "params": {} },

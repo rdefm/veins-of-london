@@ -607,27 +607,27 @@ func run() -> void:
 
 	# ── calc-effect-wiring-01: enemy combat capabilities ─────────────────
 
-	run_case("existing_raid_guard_templates_default_to_zero_evade_chance", func():
+	run_case("existing_raid_guard_templates_default_to_20_percent_evade_chance", func():
 		GameState.reset()
 		for key in GameData.ENEMY_RAID_GUARDS.keys():
 			var enemy: Dictionary = Combat.generate_raid_enemy("v1", 1, 1, key)[0]
-			assert_eq(enemy["evadeChance"], 0.0, "%s should default to 0%% evade (existing template, preserves current combat math)" % key)
+			assert_almost_eq(enemy["evadeChance"], 0.2, 0.0001, "%s should default to 20%% evade" % key)
 			assert_eq(enemy["weapon"], null, "%s should have no weapon by default" % key)
 			assert_eq(enemy["ability"], null, "%s should have no ability by default" % key)
 	)
 
-	run_case("home_raid_raider_template_defaults_to_zero_evade_chance", func():
+	run_case("home_raid_raider_template_defaults_to_20_percent_evade_chance", func():
 		GameState.reset()
 		Combat.start_home_raid_combat()
-		assert_eq(GameState.state["combat"]["enemies"][0]["evadeChance"], 0.0, "homeRaidRaider should default to 0% evade")
+		assert_almost_eq(GameState.state["combat"]["enemies"][0]["evadeChance"], 0.2, 0.0001, "homeRaidRaider should default to 20% evade")
 	)
 
-	run_case("procedural_mugger_defaults_to_zero_evade_chance", func():
+	run_case("procedural_mugger_defaults_to_20_percent_evade_chance", func():
 		for seed in range(10):
 			Rng.set_seed(seed)
 			var entries := Combat.generate_mugger()
 			for enemy in entries:
-				assert_eq(enemy["evadeChance"], 0.0, "procedurally generated muggers should default to 0% evade")
+				assert_almost_eq(enemy["evadeChance"], 0.2, 0.0001, "procedurally generated muggers should default to 20% evade")
 				assert_eq(enemy["weapon"], null, "muggers should have no weapon by default")
 				assert_eq(enemy["ability"], null, "muggers should have no ability by default")
 	)

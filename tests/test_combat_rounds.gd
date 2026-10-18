@@ -700,7 +700,7 @@ func run() -> void:
 		assert_eq(CombatRounds.evade_chance(combat, you, enemy), 0.0, "exposed")
 	)
 
-	run_case("be_a_lady_cuts_evade_10_points_per_tier", func():
+	run_case("be_a_lady_cuts_evade_5_points_per_tier", func():
 		GameState.reset()
 		var mugger := _mugger()
 		mugger["evadeChance"] = 0.5
@@ -709,7 +709,10 @@ func run() -> void:
 		var enemy: Dictionary = combat["combatants"][1]
 		you["ladyUntil"] = combat["round"]
 		you["ladyTier"] = 2
-		assert_almost_eq(CombatRounds.evade_chance(combat, you, enemy), 0.3, 0.0001, "tier 2: -20 points")
+		assert_almost_eq(CombatRounds.evade_chance(combat, you, enemy), 0.4, 0.0001, "tier 2: -10 points")
+		enemy["evadeChance"] = 0.2
+		you["ladyTier"] = 1
+		assert_almost_eq(CombatRounds.evade_chance(combat, you, enemy), 0.15, 0.0001, "tier 1: 20% to 15%")
 		you["ladyTier"] = 5
 		assert_eq(CombatRounds.evade_chance(combat, you, enemy), 0.0, "floored at 0")
 	)

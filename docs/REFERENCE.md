@@ -364,7 +364,7 @@ Vein-raid guard templates: Territorial Scrapper {hpBase:30, atk 3–8} · Vein G
 Home-raid raider (fixed): hp 35, atk 6–14, name "The raider".
 Muggers: generated, see §3.7.
 
-**Enemy capability surface** (calc-effect-wiring-01): every template may optionally carry `weapon: {min, max}` (an attack-bonus range added to attackMin/attackMax) and `ability: <string id>` (wrapped at construction into `{id, lockedTurns}` — `lockedTurns > 0` means the ability is locked out). Every template also carries `evadeChance` (0.0–1.0), the chance a Strike at it misses outright (§3.7b Evade) — `Combat._enemy_capabilities_from_template()` is the single place these are assembled from a raw template dict. All templates above set `evadeChance: 0` explicitly. **Default for any newly-authored template that omits `evadeChance`: 20%.** `Combat.disarm_enemy(enemy, turns)` strips `weapon` outright and sets `ability.lockedTurns = turns`; the lock ticks down once per player-attack turn (§3.7).
+**Enemy capability surface** (calc-effect-wiring-01): every template may optionally carry `weapon: {min, max}` (an attack-bonus range added to attackMin/attackMax) and `ability: <string id>` (wrapped at construction into `{id, lockedTurns}` — `lockedTurns > 0` means the ability is locked out). Every template also carries `evadeChance` (0.0–1.0), the chance a Strike at it misses outright (§3.7b Evade) — `Combat._enemy_capabilities_from_template()` is the single place these are assembled from a raw template dict. **Default for any template that omits `evadeChance` (all above), and the procedural mugger: 20%.** `Combat.disarm_enemy(enemy, turns)` strips `weapon` outright and sets `ability.lockedTurns = turns`; the lock ticks down once per player-attack turn (§3.7).
 
 **Squad combat additions (§3.7a):** every template also carries a flat, authored `speed` (turn-order value, same units as the player's `GameData.COMBAT_SPEED_BY_LEVEL`, draft/needs balance sign-off). `data/enemies.json` also holds the Combat Skill curves as top-level tables — `combatXpLevels`, `combatAttackBonusByLevel`, `combatSpeedByLevel`, `combatHpBonusByLevel` — loaded into `GameData.COMBAT_XP_LEVELS`/`COMBAT_ATTACK_BONUS_BY_LEVEL`/`COMBAT_SPEED_BY_LEVEL`/`COMBAT_HP_BONUS_BY_LEVEL`, the same "curve lives in the nearest relevant data file" precedent `dial.json` already sets for Dial's own tables. See §3.7a for how these are used.
 
@@ -854,7 +854,7 @@ Items and Dial casts cost 1 action and leave guard state unchanged (except Shiel
 
 **Damage.** `roll = rand(attackMin, attackMax)`. Open/Exposed target → full; Guarded → `max(1, round(roll × 0.25))`. Crit (`critChance[level]`) doubles the final figure (Guarded crit = 2× chip). A shield pool absorbs 1:1 before HP (player, ally, enemy alike). Pandemonium/Panger anger factors apply after crit (below).
 
-**Evade.** Before a Strike rolls, the target evades it with chance `evadeChance` (enemies only, §1.10; player and allies 0): an `evade` beat, no damage, no crit; a Lure on the target still springs. No evade while the target is Exposed or has actions to lose (stunned, Time Pearl/Black Hole). An attacker under Be a Lady cuts it by `evadeCutPerTier` (0.10) × its Be a Lady tier, floored at 0. Stun, Feint and items never miss.
+**Evade.** Before a Strike rolls, the target evades it with chance `evadeChance` (enemies only, §1.10; player and allies 0): an `evade` beat, no damage, no crit; a Lure on the target still springs. No evade while the target is Exposed or has actions to lose (stunned, Time Pearl/Black Hole). An attacker under Be a Lady cuts it by `evadeCutPerTier` (0.05) × its Be a Lady tier, floored at 0. Stun, Feint and items never miss.
 
 **Removal.** Stun / Time Pearl / Black Hole drop the target's next N actions from the timeline (spilling into next round's plan). The target's guard state stays (Time Pearl's freeze forces Open). A KO'd combatant's remaining actions drop. An action aimed at a KO'd enemy retargets the next living enemy (index order); a heal at a KO'd ally fizzles.
 
@@ -870,7 +870,7 @@ Items and Dial casts cost 1 action and leave guard state unchanged (except Shiel
 | shield | Actor gets absorb pool `power`; Guarded while pool > 0, whatever its moves |
 | enhancementPowder | +1 action per round for `power ≥ 3 ? 2 : 1` rounds, starting this round (extra action follows the user's last planned index) |
 | prophetsBreath | Sight for `power` rounds, from resolution |
-| beALady | Max rolls + 1/3 crit + evade cut (−0.10 × unit tier, Evade above) for `power` rounds, from resolution |
+| beALady | Max rolls + 1/3 crit + evade cut (−0.05 × unit tier, Evade above) for `power` rounds, from resolution |
 | healingBurst | Heal self or ally by `power`, capped at hpMax |
 | panic, pansRapture, panger, pandemonium, wormhole | Table 4 |
 | failsafe | Never picked; fires on a lethal hit (Rewind, below) |

@@ -60,6 +60,8 @@ const REASON_NOTHING_TO_UNDO := "Nothing to undo yet."
 # here. DEFAULT_TEMPLATE_SPEED: default for a template that omits `speed`.
 const MUGGER_SPEED := 11
 const DEFAULT_TEMPLATE_SPEED := 10
+# R§1.10: a Strike's miss chance on any enemy that doesn't author its own.
+const DEFAULT_EVADE_CHANCE := 0.2
 # R§3.7b table 1: the mugger's archetype, plain and harder (a vein in the
 # sale), and its stage sprite template; the home raider's sprite template.
 const MUGGER_ARCHETYPE := "mugger"
@@ -149,7 +151,7 @@ static func _spawn_mugger_instance(harder: bool = false) -> Dictionary:
 		"isMugging": true,
 		"weapon": null,
 		"ability": null,
-		"evadeChance": 0.0,
+		"evadeChance": DEFAULT_EVADE_CHANCE,
 		"speed": MUGGER_SPEED,
 		"archetype": HARD_MUGGER_ARCHETYPE if harder else MUGGER_ARCHETYPE,
 		"level": enemy_level("hardMugging" if harder else "mugging"),
@@ -186,8 +188,8 @@ static func _mugger_intro_label(count: int) -> String:
 
 
 # Builds the {weapon, ability, evadeChance, speed, archetype} fields shared
-# by every template-built enemy. evadeChance (R§1.10) defaults to 20% when a
-# template omits the key.
+# by every template-built enemy. evadeChance (R§1.10) defaults to
+# DEFAULT_EVADE_CHANCE when a template omits the key.
 static func _enemy_capabilities_from_template(template: Dictionary) -> Dictionary:
 	var ability = null
 	if template.has("ability"):
@@ -195,7 +197,7 @@ static func _enemy_capabilities_from_template(template: Dictionary) -> Dictionar
 	return {
 		"weapon": template.get("weapon"),
 		"ability": ability,
-		"evadeChance": template.get("evadeChance", 0.2),
+		"evadeChance": template.get("evadeChance", DEFAULT_EVADE_CHANCE),
 		"speed": template.get("speed", DEFAULT_TEMPLATE_SPEED),
 		"archetype": template["archetype"],
 	}
