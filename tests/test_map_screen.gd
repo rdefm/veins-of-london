@@ -881,3 +881,15 @@ func run() -> void:
 		screen.free()
 	)
 
+	# A drag starting anywhere on the district panel must bubble to its scroller.
+	run_case("district_panel_lets_drags_reach_its_scroller", func():
+		GameState.reset()
+		var screen := MapScreen.new()
+		screen._ready()
+		screen._build_district_panel("whitechapel")
+
+		for node in screen._content.find_children("", "Control", true, false):
+			assert_true((node as Control).mouse_filter != Control.MOUSE_FILTER_STOP, "%s (%s) must not swallow a scroll drag" % [node.name, node.get_class()])
+
+		screen.free()
+	)

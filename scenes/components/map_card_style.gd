@@ -179,6 +179,7 @@ static func pill(text: String, kind: String) -> PanelContainer:
 	style.content_margin_top = 2
 	style.content_margin_bottom = 2
 	var panel := PanelContainer.new()
+	panel.mouse_filter = Control.MOUSE_FILTER_PASS
 	panel.add_theme_stylebox_override("panel", style)
 	panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	panel.size_flags_horizontal = Control.SIZE_SHRINK_END

@@ -250,6 +250,7 @@ func _build_district_panel(district_id: String) -> void:
 	var district: Dictionary = GameData.DISTRICTS[district_id]
 
 	var panel := PanelContainer.new()
+	panel.mouse_filter = Control.MOUSE_FILTER_PASS  # drags must reach the scroller
 	panel.add_theme_stylebox_override("panel", MapCardStyle.card_panel(18, 0.12))
 	_content.add_child(panel)
 	var body := UI.vbox(10)
@@ -316,6 +317,7 @@ func _turf_share_bar(contenders: Array) -> HBoxContainer:
 			seg_style.corner_radius_top_right = 4
 			seg_style.corner_radius_bottom_right = 4
 		var seg := Panel.new()
+		seg.mouse_filter = Control.MOUSE_FILTER_PASS
 		seg.add_theme_stylebox_override("panel", seg_style)
 		seg.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		seg.size_flags_stretch_ratio = float(row["share_pct"])
@@ -371,6 +373,7 @@ func _faction_perk_card(card: Dictionary) -> PanelContainer:
 	style.content_margin_top = 10
 	style.content_margin_bottom = 10
 	var panel := PanelContainer.new()
+	panel.mouse_filter = Control.MOUSE_FILTER_PASS
 	panel.add_theme_stylebox_override("panel", style)
 	if card["presence"] == Turf.TIER_NONE:
 		panel.modulate.a = 0.82
@@ -391,6 +394,7 @@ func _add_everywhere_row(rows: VBoxContainer, perk_row: Dictionary) -> void:
 		var rule := ColorRect.new()
 		rule.color = MapCardStyle.line()
 		rule.custom_minimum_size = Vector2(0, 1)
+		rule.mouse_filter = Control.MOUSE_FILTER_PASS
 		rows.add_child(rule)
 	var line := _perk_line(perk_row, true)
 	var pad := MarginContainer.new()
