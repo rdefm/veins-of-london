@@ -134,7 +134,7 @@ static func participants(prep: Dictionary) -> Array:
 		rows.append({ "name": Perks.muscle_ally()["name"], "role": "ally", "units": [], "note": "" })
 	if kind == KIND_DEBUG:
 		for ally in args.get("allies", []):
-			rows.append({ "name": str(GameData.COMBAT_PROTOTYPE["allyBase"]["name"]), "role": "ally", "units": ally.get("slots", []), "note": "L%d" % int(ally.get("level", 1)) })
+			rows.append({ "name": str(GameData.COMBAT_ROUNDS["allyBase"]["name"]), "role": "ally", "units": ally.get("slots", []), "note": "L%d" % int(ally.get("level", 1)) })
 	var guards := _ally_guard_count(kind, args)
 	if guards > 0:
 		rows.append({ "name": "Guards" if guards > 1 else "Guard", "role": "ally", "units": [], "note": "×%d" % guards })

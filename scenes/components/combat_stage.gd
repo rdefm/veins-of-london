@@ -2,22 +2,21 @@ class_name CombatStage
 extends Panel
 
 # Emitted on a tap landing on a StageSlot -- the screen decides what a tap
-# means (fast-forward during playback vs. Combat.set_selection() otherwise,
-# scenes/screens/combat.gd's _on_stage_subject_tapped()); this component
+# means (fast-forward during playback vs. targeting otherwise,
+# scenes/screens/combat_rounds.gd's _on_stage_subject_tapped()); this component
 # never calls into systems itself.
 signal subject_tapped(target: Dictionary)
 
 # The pixel stage -- backdrop, subject slots, keypose/attack/hit/ko
 # one-shots, effect sheets and the art-independent juice layer (flash/
-# shake/damage numbers). scenes/screens/combat.gd is the orchestrator: it
-# decides *when* to call sync()/resolve_target_slot()/shake()/play_effect()
-# as part of turn flow and director bridging; this owns the node tree and
+# shake/damage numbers). scenes/screens/combat_rounds.gd is the orchestrator:
+# it decides *when* to call sync()/resolve_target_slot()/shake()/play_effect()
+# as part of beat playback; this owns the node tree and
 # how those calls actually render.
 # docs/combat-animation-vision.md is authoritative for what's drawn here.
 #
 # Same off-tree-testable shape as DialWidget/TurnOrderStrip: no _ready()
-# override (never fires in the CombatScreen.new()+_ready() harness tests/
-# test_combat_screen.gd's own top comment documents), skeleton + animation
+# override (never fires in an off-tree .new()+_ready() harness), skeleton + animation
 # loading happen lazily on first sync() instead.
 
 const STAGE_WIDTH := 390.0
@@ -57,7 +56,7 @@ const FALL_SINK_PX := 10.0
 const FALL_ROTATION_DEG := 20.0
 const FALL_ALPHA := 0.35
 const SELF_PATCH_RISE_PX := 6.0
-# StageSlot.guard_marker values (the prototype's guard overlay).
+# StageSlot.guard_marker values (the round fight's guard overlay).
 const GUARD_MARKER_GUARDED := "guarded"
 const GUARD_MARKER_OPEN := "open"
 const GUARD_MARKER_EXPOSED := "exposed"
@@ -66,7 +65,7 @@ const GUARD_MARKER_INSET := 4.0
 const GUARD_MARKER_GUARDED_COLOUR := Color(0.4, 0.85, 1.0, 0.95)
 const GUARD_MARKER_OPEN_COLOUR := Color(0.9, 0.9, 0.9, 0.75)
 const GUARD_MARKER_EXPOSED_COLOUR := Color(1.0, 0.35, 0.3, 0.95)
-# A sprite's status badges (CombatPrototype.status_badges()).
+# A sprite's status badges (CombatRounds.status_badges()).
 const STATUS_BADGE_FONT_SIZE := 9
 const STATUS_BADGE_COLOUR := Color(1.0, 0.85, 0.4, 0.95)
 const DAMAGE_NUMBER_FONT_SIZE := 16
@@ -685,20 +684,14 @@ func sync(combat: Dictionary, player: Dictionary, frozen_roster: Dictionary) -> 
 	_start_entries()
 	_sync_reserves("player", ally_queue.map(func(a): return _ally_fighter_id(a)), ally_queue, "contactId")
 	_sync_reserves("enemy", enemy_queue.map(func(e): return _enemy_fighter_id(e, -1)), enemy_queue, "")
-	var frozen: bool = combat["frozenTurns"] > 0
-	for slot in _enemy_slots.values():
-		slot.set_time_scale(0.1 if frozen else 1.0)
-		slot.set_frozen_visual(frozen)
-
 	var player_slot: StageSlot = _player_slots.get(-1)
 	if player_slot != null:
 		var shield_entry: Dictionary = _effect_frames_by_key.get("shield", {})
 		player_slot.set_shield_loop(shield_entry.get("frames", _empty_idle_frames), shield_entry.get("fps", 0.0), player["shieldPool"] > 0)
 
 
-# Per-slot forms of what sync() sets from the live combat state (the player's
-# Shield loop, every enemy's Time Pearl freeze), for callers that track them
-# per combatant.
+# A slot's Shield loop and Time Pearl freeze, for callers that track them
+# per combatant (sync() itself sets only the player's Shield loop).
 func set_slot_shield(slot: StageSlot, active: bool) -> void:
 	var shield_entry: Dictionary = _effect_frames_by_key.get("shield", {})
 	slot.set_shield_loop(shield_entry.get("frames", _empty_idle_frames), shield_entry.get("fps", 0.0), active)

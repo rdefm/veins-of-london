@@ -17,7 +17,6 @@ func _assert_quote_lines_are_ints(quote: Dictionary, label: String) -> void:
 		assert_eq(typeof(line["unitValue"]), TYPE_INT, "%s quote.lines[].unitValue should be restored as int, not float" % label)
 		assert_eq(typeof(line["liveValue"]), TYPE_INT, "%s quote.lines[].liveValue should be restored as int, not float" % label)
 
-
 func run() -> void:
 	calendar_start_weekday = 0  # fixtures count days from a Monday day 1
 	run_case("ticker_recency_backfills_and_round_trips", func():
@@ -83,32 +82,6 @@ func run() -> void:
 
 		assert_eq(GameState.state["combat"]["enemies"].map(func(e: Dictionary) -> String: return e["variant"]), variants, "each scrapper's variant is restored")
 
-		SaveManager.delete_slot(TEST_SLOT)
-	)
-
-	run_case("save_mutate_load_round_trips_queued_fighters_and_cursor", func():
-		GameState.reset()
-		Combat._start_speed_queue_combat(Combat.CONTEXT_RAID, "v1", Combat.generate_raid_enemy("v1", 1, 4, "veinGuard"), [], "raidWon")
-		var combat: Dictionary = GameState.state["combat"]
-		combat["turnCursor"] = { "queue": Combat.build_turn_queue(combat), "index": 1, "round": 2 }
-		Combat.push_combat_snapshot()
-		var queued_before: Array = combat["enemyQueue"].duplicate(true)
-		var cursor_before: String = JSON.stringify(combat["turnCursor"], "", true)
-
-		assert_true(SaveManager.save_to_slot(TEST_SLOT)["ok"], "save_to_slot should succeed")
-		combat["enemyQueue"] = []
-		combat["turnCursor"] = { "queue": [], "index": 0, "round": 0 }
-		assert_true(SaveManager.load_from_slot(TEST_SLOT)["ok"], "load_from_slot should succeed")
-
-		var loaded: Dictionary = GameState.state["combat"]
-		assert_eq(loaded["enemyQueue"].size(), queued_before.size())
-		for i in range(queued_before.size()):
-			for key in ["hp", "hpMax", "attackMin", "attackMax", "speed", "rid"]:
-				assert_eq(typeof(loaded["enemyQueue"][i][key]), TYPE_INT, "queued %s is an int" % key)
-				assert_eq(loaded["enemyQueue"][i][key], queued_before[i][key])
-		assert_eq(JSON.stringify(loaded["turnCursor"], "", true), cursor_before, "cursor round-trips exactly")
-		assert_eq(loaded["snapshots"][0]["enemyQueue"].size(), queued_before.size(), "snapshot queue round-trips")
-		assert_eq(typeof(loaded["snapshots"][0]["enemy"]["hp"]), TYPE_INT)
 		SaveManager.delete_slot(TEST_SLOT)
 	)
 
@@ -445,7 +418,6 @@ func run() -> void:
 		assert_eq(typeof(home["arrearsWeeks"]), TYPE_INT)
 		assert_true(not home.has("arrearsDays"), "the day clock is dropped")
 	)
-
 
 	run_case("save_mutate_load_round_trips_messages_with_day_int_intact", func():
 		GameState.reset()
@@ -1078,65 +1050,16 @@ func run() -> void:
 		SaveManager.delete_slot(TEST_SLOT)
 	)
 
-	run_case("loading_a_save_without_combat_locationKey_backfills_it_empty", func():
+	run_case("loading_an_active_combat_without_round_combatants_loads_idle_and_routes_home", func():
 		GameState.reset()
 		var legacy: Dictionary = GameState.deep_copy(GameState.state)
 		legacy["combat"]["active"] = true
 		legacy["combat"].erase("locationKey")
+		legacy["currentScreen"] = "combat"
 
 		var filled := SaveManager.backfill_defaults(legacy)
-		assert_eq(filled["combat"]["locationKey"], "", "a save from before locationKey existed should backfill it empty (context-plate path)")
-		assert_true(filled["combat"]["active"], "backfilling must not touch existing combat keys")
-	)
-
-	# ── combat-refining 12: mid-fight cursor/selection persistence ────────
-
-	run_case("save_load_mid_fight_round_trips_cursor_selection_and_locationKey", func():
-		GameState.reset()
-		GameState.state["world"]["currentDistrict"] = "camden"
-		Rng.set_seed(1)
-		Combat._start_speed_queue_combat(Combat.CONTEXT_EVENT_MUGGING, null, Combat.generate_mugger(), [], "")
-		var combat: Dictionary = GameState.state["combat"]
-		for enemy in combat["enemies"]:
-			enemy["hp"] = 500
-			enemy["hpMax"] = 500
-		Combat.player_attack()
-		Combat.set_selection("player", 0)
-		var original: Dictionary = GameState.deep_copy(GameState.state)
-		assert_true(SaveManager.save_to_slot(TEST_SLOT)["ok"], "save_to_slot should succeed")
-
-		GameState.state["combat"]["turnCursor"] = { "queue": [], "index": 0, "round": 0 }
-		GameState.state["combat"]["selection"] = { "type": "enemy", "index": 0 }
-		assert_true(SaveManager.load_from_slot(TEST_SLOT)["ok"], "load_from_slot should succeed")
-
-		var loaded: Dictionary = GameState.state["combat"]
-		assert_eq(loaded["turnCursor"], original["combat"]["turnCursor"], "the turn cursor is restored")
-		assert_eq(typeof(loaded["turnCursor"]["index"]), TYPE_INT, "cursor index comes back an int")
-		assert_eq(loaded["selection"], { "type": "player", "index": 0 }, "selection is restored")
-		assert_eq(loaded["locationKey"], "camden", "locationKey is restored")
-		assert_eq(Combat.project_queue(loaded), Combat.project_queue(original["combat"]), "the projection is the same after load")
-		Combat.set_selection("enemy", 0)
-		assert_true(Combat.player_attack()["ok"], "the fight resumes from the loaded decision point")
-		SaveManager.delete_slot(TEST_SLOT)
-	)
-
-	run_case("a_mid_fight_save_without_selection_or_cursor_loads_safe_defaults", func():
-		GameState.reset()
-		var legacy: Dictionary = GameState.deep_copy(GameState.state)
-		legacy["combat"]["active"] = true
-		legacy["combat"]["enemies"] = [Fixtures.enemy("Down", 0, 20, true), Fixtures.enemy("Up")]
-		legacy["combat"].erase("selection")
-		legacy["combat"].erase("turnCursor")
-		legacy["combat"].erase("locationKey")
-
-		assert_true(SaveManager.import_string(JSON.stringify(legacy))["ok"], "the legacy save loads")
-
-		var combat: Dictionary = GameState.state["combat"]
-		assert_eq(combat["selection"], { "type": "enemy", "index": 1 }, "the backfilled selection clamps off the KO'd enemy")
-		assert_eq(combat["turnCursor"], { "queue": [], "index": 0, "round": 0 }, "cursor backfills fresh")
-		assert_eq(combat["locationKey"], "", "locationKey backfills empty")
-		var projected: Array = Combat.project_queue(combat)
-		assert_eq(projected.map(func(o): return o["type"]), ["player", "enemy"], "a valid projection of the living combatants")
+		assert_eq(filled["combat"], Combat.idle_state(), "the fight loads as the idle dict")
+		assert_eq(filled["currentScreen"], "phone", "routed off the combat screen")
 	)
 
 	run_case("an_old_save_without_key_member_contacts_backfills_them_and_round_trips", func():
@@ -1670,7 +1593,6 @@ func run() -> void:
 			if FileAccess.file_exists(SaveManager.autosave_path(i)):
 				DirAccess.remove_absolute(SaveManager.autosave_path(i))
 	)
-
 
 	run_case("a_v10_save_migrates_pansPrank_to_panic", func():
 		GameState.reset()

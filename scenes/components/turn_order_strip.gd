@@ -103,154 +103,18 @@ class NameplateCard extends Control:
 				draw_rect(Rect2(Vector2(8.0 + (size.x - 16.0) * frac, bar_y), Vector2((size.x - 16.0) * (ghost_frac - frac), TurnOrderStrip.HP_BAR_HEIGHT)), TurnOrderStrip._palette_colour(TurnOrderStrip.SIGN_GHOST_ID), true)
 
 
-# One card per turn *occurrence* (CONTEXT.md's Turn occurrence), not one
-# per unique combatant. Reads Combat.project_queue()'s bounded horizon
-# (R§3.7a) -- a repeated occurrence (a Motion-inserted extra turn, or the
-# same combatant's next-round turn) gets its own card, no deduplication.
-# "key" (combatant identity, used for selection/ghosting) and
-# "occurrenceId" (this specific card's identity) are deliberately separate
-# fields -- several entries can share a key.
-#
-# The builders below are live-combat adapters, outside the rendering path:
-# configure()/advance_to() render whatever entries they're handed. An entry
-# is { key, occurrenceId, name, level, hp, hpMax, factionName,
-# factionColour, isEnemy } plus optional "statusLines" (Array[String]),
-# "telegraphText" (String) and "tellImage" (Texture2D or null), all shown
-# on the focused card only; "actionText" (the card's action, String),
-# "actionUnread" (bool, styles it as an unread intent), "guardBadge"
-# (String) and "statusBadge" (String, running statuses), shown on every card; and "focused" (bool), which
-# when present decides that card's expansion in place of the selected key,
-# playback included.
-static func build_entries(combat: Dictionary, player: Dictionary) -> Array:
-	return build_entries_for(Combat.project_queue(combat), combat, player)
-
-
-# Same card data as build_entries(), for an arbitrary occurrence list --
-# playback lays out intermediate queues (playback_occurrences()) that no
-# single live projection produces.
-static func build_entries_for(occurrences: Array, combat: Dictionary, player: Dictionary) -> Array:
-	var entries := _base_entries_for(occurrences, combat, player)
-	for entry: Dictionary in entries:
-		var statuses: Array[String] = _status_lines_for(entry["key"], combat, player)
-		entry["statusLines"] = statuses
-		if entry["isEnemy"]:
-			var enemy: Dictionary = combat["enemies"][entry["key"]["index"]]
-			entry["telegraphText"] = _telegraph_text_for(enemy)
-			entry["tellImage"] = _tell_image_for(enemy)
-	return entries
-
-
-static func _base_entries_for(occurrences: Array, combat: Dictionary, player: Dictionary) -> Array:
-	var faction_display: Dictionary = _enemy_faction_display(combat)
-	var entries: Array = []
-	for occurrence in occurrences:
-		var type: String = occurrence["type"]
-
-		if type == "player":
-			entries.append({
-				"key": { "type": "player" }, "occurrenceId": occurrence["occurrenceId"],
-				"name": "You", "level": player["combatSkill"],
-				"hp": player["hp"], "hpMax": player["hpMax"],
-				"factionName": "", "factionColour": NEUTRAL_COLOUR, "isEnemy": false,
-			})
-		elif type == "ally":
-			var ally: Dictionary = combat["allies"][occurrence["index"]]
-			entries.append({
-				"key": { "type": "ally", "index": occurrence["index"] }, "occurrenceId": occurrence["occurrenceId"],
-				"name": ally["name"], "level": null,
-				"hp": ally["hp"], "hpMax": ally["hpMax"],
-				"factionName": "", "factionColour": NEUTRAL_COLOUR, "isEnemy": false,
-			})
-		else:
-			var enemy: Dictionary = combat["enemies"][occurrence["index"]]
-			entries.append({
-				"key": { "type": "enemy", "index": occurrence["index"] }, "occurrenceId": occurrence["occurrenceId"],
-				"name": enemy["name"], "level": null,
-				"hp": enemy["hp"], "hpMax": enemy["hpMax"],
-				"factionName": faction_display["name"], "factionColour": faction_display["colour"], "isEnemy": true,
-			})
-	return entries
-
-
-# "round:index" occurrenceId -> a lexicographically comparable pair.
-static func occurrence_rank(occurrence_id: String) -> Vector2i:
-	var parts: PackedStringArray = occurrence_id.split(":")
-	return Vector2i(int(parts[0]), int(parts[1]))
-
-
-# §2.4 Reflow: the occurrences the strip shows once playback has reached
-# `threshold_id` -- every occurrence after it (and the threshold itself
-# when `inclusive`, as reversed Rewind playback re-reveals the card its
-# beat belongs to), cut to Combat.project_queue()'s horizon (R§3.7a): the
-# first shown occurrence's round plus one more. Each round is
-# read from one source, never merged by id -- two sources' "r:i" ids can
-# name different combatants once a KO reshapes a rebuilt round:
-# - `target`: the live state's whole committed round (project_queue(...,
-#   true)) plus its projected next round; its committed round wins.
-# - `earlier`: the projection shown before the action (or before Rewind).
-# - `beats`: each beat's own `occurrence` tag, the last resort.
-static func playback_occurrences(threshold_id: String, inclusive: bool, target: Array, earlier: Array, beats: Array) -> Array:
-	var threshold: Vector2i = occurrence_rank(threshold_id)
-	var committed_round: int = occurrence_rank(target[0]["occurrenceId"]).x if not target.is_empty() else -1
-	var from_beats: Array = _beat_occurrences(beats)
-	var shown: Array = []
-	for round_num in [threshold.x, threshold.x + 1, threshold.x + 2]:
-		var source: Array = _occurrences_in_round(target, round_num) if round_num == committed_round else []
-		for candidate in [earlier, target, from_beats]:
-			if not source.is_empty():
-				break
-			source = _occurrences_in_round(candidate, round_num)
-		for occurrence in source:
-			var rank: Vector2i = occurrence_rank(occurrence["occurrenceId"])
-			if rank > threshold or (inclusive and rank == threshold):
-				shown.append(occurrence)
-	if shown.is_empty():
-		return shown
-	var last_round: int = occurrence_rank(shown[0]["occurrenceId"]).x + 1
-	return shown.filter(func(o): return occurrence_rank(o["occurrenceId"]).x <= last_round)
-
-
-static func _occurrences_in_round(occurrences: Array, round_num: int) -> Array:
-	return occurrences.filter(func(o): return occurrence_rank(o["occurrenceId"]).x == round_num)
-
-
-static func _beat_occurrences(beats: Array) -> Array:
-	var by_id: Dictionary = {}
-	for beat in beats:
-		var occurrence: Variant = beat.get("occurrence")
-		if occurrence != null:
-			by_id[occurrence["occurrenceId"]] = occurrence
-	var occurrences: Array = by_id.values()
-	occurrences.sort_custom(func(a, b): return occurrence_rank(a["occurrenceId"]) < occurrence_rank(b["occurrenceId"]))
-	return occurrences
-
-
-static func _enemy_faction_display(combat: Dictionary) -> Dictionary:
-	var context: String = combat["context"]
-	var vein_id: Variant = combat.get("veinId")
-	if (context == Combat.CONTEXT_RAID or context == Combat.CONTEXT_EVENT_RAID) and vein_id != null:
-		var vein: Variant = Sites.find_faction_vein(vein_id)
-		if vein != null:
-			var faction: Dictionary = GameData.FACTIONS[vein["factionId"]]
-			return { "name": faction["shortName"], "colour": Color(faction["colour"]) }
-	return { "name": "UNKNOWN", "colour": UNKNOWN_COLOUR }
-
-
-static func _status_lines_for(key: Dictionary, combat: Dictionary, player: Dictionary) -> Array[String]:
-	var lines: Array[String] = []
-	if key["type"] == "player":
-		if player["shieldPool"] > 0:
-			lines.append("Shielded (%d)" % player["shieldPool"])
-		if combat["motionTurns"] > 0:
-			lines.append("Motion (%d)" % combat["motionTurns"])
-	elif key["type"] == "enemy":
-		if combat["frozenTurns"] > 0:
-			lines.append("Frozen (%d)" % combat["frozenTurns"])
-		var enemy: Dictionary = combat["enemies"][key["index"]]
-		var ability = enemy.get("ability")
-		if ability != null and ability.get("lockedTurns", 0) > 0:
-			lines.append("Ability locked (%d)" % ability["lockedTurns"])
-	return lines
+# One card per action occurrence the caller hands configure()/advance_to()
+# (scenes/screens/combat_rounds.gd's strip_entries()); several entries can
+# share a combatant. An entry is { key, occurrenceId, name, level, hp,
+# hpMax, factionName, factionColour, isEnemy } -- "key" (combatant identity,
+# used for selection/ghosting) and "occurrenceId" (this specific card's
+# identity) are deliberately separate fields -- plus optional "statusLines"
+# (Array[String]), "telegraphText" (String) and "tellImage" (Texture2D or
+# null), all shown on the focused card only; "actionText" (the card's
+# action, String), "actionUnread" (bool, styles it as an unread intent),
+# "guardBadge" (String) and "statusBadge" (String, running statuses), shown
+# on every card; and "focused" (bool), which when present decides that
+# card's expansion in place of the selected key, playback included.
 
 
 # selected_pos indexes into `entries` only to seed which *combatant*
@@ -562,24 +426,6 @@ func _build_card(entry: Dictionary, is_focused: bool, card_size: Vector2) -> Nam
 	return card
 
 
-static func _telegraph_text_for(enemy: Dictionary) -> String:
-	var ability: Variant = enemy.get("ability")
-	if ability != null and not Combat.is_ability_locked(enemy):
-		return "Intent: %s" % String(ability["id"]).capitalize()
-	return "Intent: Attacking"
-
-
-static func _tell_image_for(enemy: Dictionary) -> Texture2D:
-	var key: String = CombatStage.enemy_template_key(enemy)
-	if key.is_empty():
-		return null
-	var entry: Dictionary = GameData.COMBAT_VISUALS.get("templates", {}).get(key, {}).get("tell", {})
-	var image_path: String = entry.get("image", "")
-	if image_path.is_empty() or not ResourceLoader.exists(image_path):
-		return null
-	return load(image_path)
-
-
 # Fans out to every occurrence card of this combatant -- a damaged
 # combatant's ghost bar drains identically on each of its cards.
 func set_initial_ghost(key_string: String, hp: int) -> void:
@@ -726,8 +572,7 @@ func handle_tap(x: float) -> void:
 
 
 # Moves only the strip's own scroll offset, clamped to the content's
-# actual overflow -- never touches selection, GameState, or the turn
-# queue (R§3.7a's read-only projection contract carries into the UI).
+# actual overflow -- never touches selection or GameState.
 func handle_drag(delta_x: float) -> void:
 	if _entries.is_empty() or _row == null:
 		return

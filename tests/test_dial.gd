@@ -10,7 +10,6 @@ const SeedSearch := preload("res://tests/support/seed_search.gd")
 
 const HAFT_ID := "collective_brolly"
 
-
 static func _fund_seed_cost(multiplier: int = 1) -> void:
 	var orichalchum: Dictionary = GameState.state["player"]["orichalchum"]
 	for ore_type in GameData.DIAL_SEED_COST:
@@ -21,7 +20,6 @@ static func _fund_seed_cost(multiplier: int = 1) -> void:
 
 static func _dial_no_movement() -> Dictionary:
 	return { "level": 1, "xp": 0, "currentCharge": 0, "maxCharge": 0, "rechargeRate": 0, "combatRegenTurnCounter": 0, "lastRegenDay": 1, "capacityMax": 0, "movement": null, "loadedComplications": [], "haftId": HAFT_ID }
-
 
 func run() -> void:
 	run_case("attempt_seed_refuses_with_no_gift_flag", func():
@@ -882,40 +880,6 @@ func run() -> void:
 		var result := Dial.cast_complication(0)
 		assert_eq(result["power"], GameState.round_epsilon(float(Crafting.effect_power("blast", 4)) * 1.25), "Capacitor's bonus is charge economy, not effect magnitude -- only the level multiplier applies")
 		assert_eq(result["targets"], 1, "Capacitor never extends the target count")
-	)
-
-	# ── ticket 05: direct-throw regression (untouched by this whole PRD) ──
-
-	run_case("direct_throw_of_an_unloaded_consumable_still_destroys_the_unit_and_applies_no_amplification", func():
-		GameState.reset()
-		GameState.state["player"]["craftingSkill"] = 3
-		Crafting.inventory_add("blast", 3, 1)
-		Loadout.equip(0, "blast", 3)
-		GameState.state["combat"] = {
-			"active": true, "context": Combat.CONTEXT_MUGGING, "veinId": null,
-			"enemies": [{ "name": "Test Enemy", "hp": 100, "hpMax": 100, "attackMin": 5, "attackMax": 5, "isMugging": true, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false }],
-			"selection": { "type": "enemy", "index": 0 },
-			"log": [], "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
-			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "muggingWon", "snapshots": [], "beatsSinceSnapshot": [],
-			"allies": [],
-			"turnCursor": { "queue": [], "index": 0, "round": 0 },
-		}
-		# A high-tier Impact Movement seated on the player's Dial must have
-		# zero effect on this path -- amplification is exclusive to
-		# Dial.cast_complication() (User story 23).
-		var dial := _dial_no_movement()
-		dial["capacityMax"] = 10
-		GameState.state["player"]["dial"] = dial
-		GameState.state["player"]["movementInventory"] = [{ "archetype": "impact", "oreType": "physics", "tier": 5 }]
-		Dial.seat_movement(0)
-
-		var used := Combat.use_blast()
-		assert_true(used["ok"], "sanity: blast resolved: %s" % [used])
-
-		var expected_power: int = Crafting.effect_power("blast", 3)
-		var enemy: Dictionary = GameState.state["combat"]["enemies"][0]
-		assert_eq(enemy["hp"], 100 - expected_power, "direct-thrown Blast must deal exactly its unamplified effect_power, ignoring the seated Impact Movement entirely")
-		assert_eq(Loadout.slot(0), null, "throwing directly still destroys the unit, exactly as before this PRD")
 	)
 
 	# ── ticket 05: tier-5 Recharge Movement's in-combat regen ────────────

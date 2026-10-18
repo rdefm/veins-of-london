@@ -1,11 +1,9 @@
 class_name Consumables
 extends RefCounted
 
-# The two healing effects that aren't gated to an active fight. healingSalve
-# is strictly out-of-combat (a 2-day heal-over-time timer TimeSystem.
-# daily_tick() ticks down); healingBurst works in or out of combat, so it
-# lives here rather than in Combat, writing to the combat log when a fight
-# is active or pushing a Notify otherwise.
+# The two out-of-combat healing uses: healingSalve (a 2-day heal-over-time
+# timer TimeSystem.daily_tick() ticks down) and healingBurst (an instant
+# heal).
 
 
 # Refreshes rather than stacks: using a second salve while one is already
@@ -24,72 +22,17 @@ static func use_healing_salve() -> Dictionary:
 	return { "ok": true }
 
 
-# `target` is a combat.selection-shaped `{type, index}`; an ally target
-# (in combat only) heals that ally instead of the player, R§3.7's
-# ally-targetable table. Any other target heals the player.
-static func use_healing_burst(target: Dictionary = {}, slot: int = -1) -> Dictionary:
+# Out of combat (a fight's items play through its loadout, R§3.7b): heals
+# the player off shared inventory.
+static func use_healing_burst() -> Dictionary:
 	var player: Dictionary = GameState.state["player"]
-	var combat: Dictionary = GameState.state["combat"]
-	# In a fight the unit comes from a loadout slot; otherwise shared inventory.
-	var slot_index: int = -1
-	if combat["active"]:
-		slot_index = Loadout.find_slot("healingBurst", slot)
-		if slot_index < 0:
-			return { "ok": false, "reason": "No healing burst." }
-	elif Crafting.inventory_qty("healingBurst") <= 0:
+	if Crafting.inventory_qty("healingBurst") <= 0:
 		return { "ok": false, "reason": "No healing burst." }
-
-	# A KO'd player is out of the fight: no command, and no Burst brings them back.
-	if combat["active"] and combat.get("playerKoed", false):
-		return { "ok": false, "reason": "You're out of the fight." }
-
-	var ally_index: int = -1
-	if target.get("type", "") == "ally":
-		ally_index = int(target.get("index", -1))
-		if not combat["active"] or ally_index < 0 or ally_index >= combat["allies"].size() or combat["allies"][ally_index]["koed"]:
-			return { "ok": false, "reason": "Invalid target." }
-	var beats: Array = []
-	# In-combat, this resolves the cursor's parked player-type entry same as
-	# every other combat command (R§3.7a) -- a snapshot per use, engine runs
-	# forward afterward. Out of combat there's no cursor to prime/conclude.
-	if combat["active"]:
-		if not Combat.prime_decision_point(combat, beats):
-			EventBus.state_changed.emit()
-			return { "ok": true, "beats": beats }
-		Combat.push_combat_snapshot()
-
-	var multi: bool = slot_index >= 0 and Loadout.slot_is_multi(slot_index)
-	var power = Loadout.consume(slot_index) if slot_index >= 0 else Crafting.use_one("healingBurst")
-	var line: String
-	var beat_extra := { "effectKey": "healingBurst" }
-	if multi:
-		# Every standing ally plus the player, each at full power.
-		for ally in combat["allies"]:
-			if not ally["koed"]:
-				Combat.heal_ally(ally, int(power))
-		ally_index = -1
-	if ally_index >= 0:
-		var ally: Dictionary = combat["allies"][ally_index]
-		var ally_healed: int = Combat.heal_ally(ally, int(power))
-		# PROSE-REVIEW: ally-targeted healing-burst result line.
-		line = "You get a healing burst into %s — +%d HP. %d/%d HP." % [ally["name"], ally_healed, ally["hp"], ally["hpMax"]]
-		beat_extra["targetType"] = "ally"
-		beat_extra["targetIndex"] = ally_index
-	else:
-		var old_hp: int = player["hp"]
-		player["hp"] = mini(player["hp"] + power, player["hpMax"])
-		var healed: int = player["hp"] - old_hp
-		# PROSE-REVIEW: new healing-burst result line, drafted against CONTENT-GUIDE.md's tone bible.
-		line = "You down a healing burst — +%d HP. %d/%d HP." % [healed, player["hp"], player["hpMax"]]
-
-	if combat["active"]:
-		# Routed through Combat.append_beat() (not a plain combat["log"].append())
-		# so this in-combat use produces a beat the director can play through,
-		# same as every other in-combat consumable.
-		Combat.append_beat(combat, beats, line, Combat.BEAT_USE_HEALING_BURST, beat_extra)
-		Combat.conclude_decision_point(combat, beats)
-	else:
-		Notify.push(line, Notify.CATEGORY_SUCCESS)
-
+	var power = Crafting.use_one("healingBurst")
+	var old_hp: int = player["hp"]
+	player["hp"] = mini(player["hp"] + power, player["hpMax"])
+	var healed: int = player["hp"] - old_hp
+	# PROSE-REVIEW: new healing-burst result line, drafted against CONTENT-GUIDE.md's tone bible.
+	Notify.push("You down a healing burst — +%d HP. %d/%d HP." % [healed, player["hp"], player["hpMax"]], Notify.CATEGORY_SUCCESS)
 	EventBus.state_changed.emit()
-	return { "ok": true, "beats": beats }
+	return { "ok": true }

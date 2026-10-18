@@ -100,14 +100,14 @@ func import_string(text: String) -> Dictionary:
 func _saveable_state() -> Dictionary:
 	var saveable: Dictionary = GameState.state.duplicate()
 	saveable["blockStart"] = null
-	if Combat.is_round_engine(saveable["combat"]):
+	if saveable["combat"]["active"]:
 		var combat: Dictionary = GameState.deep_copy(saveable["combat"])
 		_encode_rng_states(combat)
 		saveable["combat"] = combat
 	return saveable
 
 
-# A round fight's RNG states (CombatPrototype rngState/fogRngState, in its
+# A round fight's RNG states (CombatRounds rngState/fogRngState, in its
 # Rewind frames too) are full 64-bit ints, past what a JSON number holds
 # exactly; they save as decimal strings, read back by _restore_round_combat_types().
 const _RNG_STATE_KEYS: Array[String] = ["rngState", "fogRngState"]
@@ -155,7 +155,6 @@ func _load_save_dict(raw: Dictionary) -> Dictionary:
 	filled["blockStart"] = null
 	_restore_int_types(filled)
 	_migrate_versions(filled)
-	_clamp_loaded_combat_selection(filled)
 	_migrate_vein_station_veins(filled)
 	_strip_unowned_cultivator_veins(filled)
 	_fix_up_founders(filled)
@@ -668,25 +667,18 @@ func _backfill_new_flag_keys(result: Dictionary, defaults: Dictionary) -> void:
 			flags[key] = defaults["flags"][key]
 
 
-# A save made mid-fight before a combat key existed (e.g. locationKey) gets
-# the fresh default, which for locationKey means "no location plate". A
-# round fight's dict has its own shape and takes none.
+# A round fight (R§3.7b) loads as saved. Anything else loads as a fresh
+# idle dict: no fight on, or a fight with no round combatants, which is
+# dropped and its screen routed home.
 func _backfill_new_combat_keys(result: Dictionary, defaults: Dictionary) -> void:
-	if not result.has("combat") or Combat.is_round_engine(result["combat"]):
+	if not result.has("combat"):
 		return
 	var combat: Dictionary = result["combat"]
-	var default_combat: Dictionary = defaults["combat"]
-	for key in default_combat.keys():
-		if not combat.has(key):
-			combat[key] = default_combat[key].duplicate(true) if default_combat[key] is Array or default_combat[key] is Dictionary else default_combat[key]
-
-
-# A mid-fight save whose selection was backfilled (or otherwise points at
-# a koed/missing combatant) gets the same KO-clamp a live KO would.
-func _clamp_loaded_combat_selection(state: Dictionary) -> void:
-	var combat: Dictionary = state.get("combat", {})
-	if combat.get("active", false):
-		Combat.clamp_selection(combat)
+	if combat.get("active", false) and combat.has("combatants"):
+		return
+	if combat.get("active", false) and result.get("currentScreen", "") == "combat":
+		result["currentScreen"] = "phone"
+	result["combat"] = defaults["combat"].duplicate(true)
 
 
 func _backfill_new_sales_keys(result: Dictionary, defaults: Dictionary) -> void:
@@ -1282,11 +1274,8 @@ func _restore_int_types(state: Dictionary) -> void:
 	if state.has("combat"):
 		_restore_combat_int_types(state["combat"])
 
-	# The combat prototype sandbox never survives a load.
-	if state.has("combatPrototype"):
-		state["combatPrototype"] = CombatPrototype.new_state()
-
 	state.erase("benchPrototype")
+	state.erase("combatPrototype")
 
 	if state.has("lab"):
 		_restore_lab_int_types(state["lab"])
@@ -1326,46 +1315,10 @@ func _restore_int_types(state: Dictionary) -> void:
 
 
 func _restore_combat_int_types(combat: Dictionary) -> void:
-	if Combat.is_round_engine(combat):
-		_restore_round_combat_types(combat)
-		return
-	for key in ["frozenTurns", "motionTurns", "motionPower", "evadeTurns"]:
-		_int_key(combat, key)
-	# evadeChance is a float (0.0–1.0) — intentionally not touched here.
-	if combat.has("selection"):
-		_int_key(combat["selection"], "index")
-	for enemy in combat.get("enemies", []) + combat.get("enemyQueue", []):
-		_restore_fighter_int_types(enemy)
-	# combat.snapshots entries (systems/combat.gd's push_combat_snapshot)
-	# are a small hand-picked dict, not a full-state copy — different
-	# shape from event snapshots, restored explicitly here.
-	for snap in combat.get("snapshots", []):
-		for key in ["playerHp", "enemyHp", "enemyIndex", "frozenTurns", "motionTurns", "motionPower", "evadeTurns"]:
-			_int_key(snap, key)
-		if snap.has("selection"):
-			_int_key(snap["selection"], "index")
-		if snap.has("turnCursor"):
-			_restore_turn_cursor_int_types(snap["turnCursor"])
-		if snap.has("enemy"):
-			_restore_fighter_int_types(snap["enemy"])
-		for queued in snap.get("enemyQueue", []):
-			_restore_fighter_int_types(queued)
-	# allies[] entries (Contacts.build_combat_ally), speed included; queued
-	# allies are the same shape.
-	for ally in combat.get("allies", []) + combat.get("allyQueue", []):
-		for key in ["hp", "hpMax", "attackMin", "attackMax", "speed"]:
-			_int_key(ally, key)
-		for slot in ally.get("slots", []):
-			if slot is Dictionary:
-				_int_key(slot, "tier")
-		var used: Array = ally.get("slotsUsed", [])
-		for i in used.size():
-			used[i] = int(used[i])
-	if combat.has("turnCursor"):
-		_restore_turn_cursor_int_types(combat["turnCursor"])
+	_restore_round_combat_types(combat)
 
 
-# A round fight (Combat.ENGINE_ROUNDS) holds no floats but _ROUND_FLOAT_KEYS,
+# A round fight holds no floats but _ROUND_FLOAT_KEYS,
 # so every other whole-number float in it reads back as int; RNG state
 # strings (_encode_rng_states()) back to ints.
 const _ROUND_FLOAT_KEYS: Array[String] = ["ladyCrit", "evadeChance", "fleeBoost"]
@@ -1389,25 +1342,6 @@ func _restore_round_combat_types(node: Variant) -> void:
 				node[i] = int(node[i])
 			else:
 				_restore_round_combat_types(node[i])
-
-
-# R§3.7a fighter dict (active or queued enemy): stat ints plus the fight-scoped rid.
-func _restore_fighter_int_types(fighter: Dictionary) -> void:
-	for key in ["hp", "hpMax", "attackMin", "attackMax", "speed", "rid", "shieldPool"]:
-		_int_key(fighter, key)
-
-
-# R§3.7a resumable-progression cursor: index/round are ints, and each
-# queued entry (systems/combat.gd's build_turn_queue() shape) carries its
-# own int speed plus an int index for an ally/enemy entry (absent on a
-# player-type entry).
-func _restore_turn_cursor_int_types(cursor: Dictionary) -> void:
-	for key in ["index", "round"]:
-		_int_key(cursor, key)
-	for entry in cursor.get("queue", []):
-		_int_key(entry, "speed")
-		_int_key(entry, "index")
-
 
 
 # systems/lab.gd's state and its Rewind point.

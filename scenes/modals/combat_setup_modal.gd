@@ -46,7 +46,7 @@ static func build(container: VBoxContainer, _data: Dictionary) -> void:
 	container.add_child(enemy_level_select)
 
 	var templates: Array = Combat.debug_enemy_templates()
-	var archetypes: Array = GameData.COMBAT_PROTOTYPE["archetypes"].keys()
+	var archetypes: Array = GameData.COMBAT_ROUNDS["archetypes"].keys()
 	var enemy_rows: Array = []
 	for i in range(Combat.SQUAD_MAX):
 		var row := UI.hbox(6)
@@ -74,7 +74,7 @@ static func build(container: VBoxContainer, _data: Dictionary) -> void:
 		container.add_child(UI.muted_label("No recruited contact is fit for a fight right now."))
 
 	var ally_counts: Array = []
-	for n in range(CombatPrototype.MAX_ALLIES + 1):
+	for n in range(CombatRounds.MAX_ALLIES + 1):
 		ally_counts.append("%d debug all%s" % [n, "y" if n == 1 else "ies"])
 	var ally_count_select := UI.option_button(ally_counts)
 	container.add_child(ally_count_select)
@@ -83,7 +83,7 @@ static func build(container: VBoxContainer, _data: Dictionary) -> void:
 	container.add_child(ally_level_select)
 	var ally_boxes: Array = []
 	var ally_slots: Array = []
-	for i in range(CombatPrototype.MAX_ALLIES):
+	for i in range(CombatRounds.MAX_ALLIES):
 		var box := UI.vbox(4)
 		box.add_child(UI.muted_label("Debug ally %s loadout" % char(65 + i)))
 		var slots: Array = []
@@ -138,14 +138,14 @@ static func location_options() -> Array:
 
 static func _levels() -> Array:
 	var levels: Array = []
-	for level in range(1, CombatPrototype.level_max() + 1):
+	for level in range(1, CombatRounds.level_max() + 1):
 		levels.append(str(level))
 	return levels
 
 
 # Round-fight items a slot can carry (an ally's less loadout.allyExcluded).
 static func _item_ids(ally: bool) -> Array:
-	return CombatPrototype.item_ids().filter(func(id): return Loadout.is_equippable(id) and not (ally and GameData.LOADOUT["allyExcluded"].has(id)))
+	return CombatRounds.item_ids().filter(func(id): return Loadout.is_equippable(id) and not (ally and GameData.LOADOUT["allyExcluded"].has(id)))
 
 
 # Item and tier pickers for one slot: { row, item, tier, ids }; the tier
@@ -154,7 +154,7 @@ static func _slot_row(slot: int, none_text: String, item_ids: Array) -> Dictiona
 	var row := UI.hbox(6)
 	var names: Array = ["Slot %d: %s" % [slot + 1, none_text]]
 	for id in item_ids:
-		names.append("Slot %d: %s" % [slot + 1, CombatPrototype.move(id)["name"]])
+		names.append("Slot %d: %s" % [slot + 1, CombatRounds.move(id)["name"]])
 	var item_select := UI.option_button(names)
 	var tier_select := UI.option_button([])
 	tier_select.visible = false
@@ -162,7 +162,7 @@ static func _slot_row(slot: int, none_text: String, item_ids: Array) -> Dictiona
 		tier_select.clear()
 		tier_select.visible = index > 0
 		if index > 0:
-			for tier in range(1, CombatPrototype.item_tier_max(item_ids[index - 1]) + 1):
+			for tier in range(1, CombatRounds.item_tier_max(item_ids[index - 1]) + 1):
 				tier_select.add_item("Tier %d" % tier)
 	)
 	row.add_child(item_select)

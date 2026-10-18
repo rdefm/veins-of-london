@@ -159,7 +159,7 @@ func run() -> void:
 					option.item_selected.emit(i)
 		pick.call(_find_option_with_item(layer, "Own (1)"), "4")
 		var slot_select := _find_option_with_item(layer, "Slot 1: keep")
-		pick.call(slot_select, "Slot 1: %s" % CombatPrototype.move("blast")["name"])
+		pick.call(slot_select, "Slot 1: %s" % CombatRounds.move("blast")["name"])
 		pick.call(slot_select.get_parent().get_child(1), "Tier 2")
 		pick.call(_find_option_with_item(layer, CombatSetupModal.RANDOM), Combat.MUGGER_TEMPLATE_KEY)
 		pick.call(_find_option_with_item(layer, "turtleV2"), "turtleV2")
@@ -168,7 +168,7 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["loadout"]["slots"][0], { "recipe": "blast", "tier": 2 }, "slot pick lands in the real slot")
 		CombatPrep.commit()
 		var combat: Dictionary = GameState.state["combat"]
-		assert_eq(combat["combatants"][CombatPrototype.PLAYER_INDEX]["level"], 4)
+		assert_eq(combat["combatants"][CombatRounds.PLAYER_INDEX]["level"], 4)
 		assert_eq(combat["enemies"][0]["archetype"], "turtleV2")
 		assert_true(combat["enemies"][0]["isMugging"], "mugger template")
 		assert_eq(combat["allies"].size(), 1, "one debug ally")

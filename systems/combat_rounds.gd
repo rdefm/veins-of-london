@@ -1,29 +1,21 @@
-class_name CombatPrototype
+class_name CombatRounds
 extends RefCounted
 
-# Sandboxed Open/Guarded round-planning combat prototype
-# (.scratch/combat-revamp/spec.md). Own state at
-# GameState.state["combatPrototype"], own Rewind stack, own screen
-# (scenes/screens/combat_prototype.gd); never reads or writes the real
-# player, inventory, Dial, XP or calendar. Live combat (Combat) is separate.
+# The Open/Guarded round rules (R§3.7b), on whichever pure-data combat dict
+# it is passed, RNG streams included; live Combat drives it on state.combat.
 #
-# A fight is start(config), then one choose_move() / choose_item() per
-# player decision point (spec §Per-action decisions). Combatants live in one
-# array, the player at index 0, then allies, then enemies, so array order is
-# the timeline's last tie-break (spec §Timeline order). Each enemy holds this
+# A fight is open_fight() on a dict holding its combatants (new_combatant()),
+# then one play_pick() per player decision point (R§3.7b Round). Combatants
+# live in one array, the player at index 0, then allies, then enemies, so
+# array order is the timeline's last tie-break. Each enemy holds this
 # round's committed plan and next round's pre-rolled one; each ally holds
 # this round's plan, planned by the ally AI from the enemies' plans. The
 # round resolves in timeline order from the cursor and pauses at each of the
 # player's positions; the pick there goes into playerPlan and resolves.
 # Randomness runs off the fight's own RNG state (rngState), so a Rewind
-# replays the same rolls for the same pick. Fog of war (spec §Fog of war)
-# marks each enemy action read or unread as its plan is rolled, off a
-# separate stream (fogRngState), so the fog never shifts the fight's rolls.
-# The rules core (new_combatant(), open_fight(), build_fight(), play_pick(),
-# rewind_pick() and every helper taking `cp`) works on whichever pure-data
-# combat dict it is passed, RNG streams included; start() / choose_*() /
-# rewind() are the sandbox's thin callers on state.combatPrototype, and live
-# Combat drives the same core on state.combat (§3.7b).
+# (rewind_pick()) replays the same rolls for the same pick. Fog of war marks
+# each enemy action read or unread as its plan is rolled, off a separate
+# stream (fogRngState), so the fog never shifts the fight's rolls.
 
 const SIDE_PLAYER := "player"
 const SIDE_ALLY := "ally"
@@ -57,7 +49,7 @@ const EFFECT_LURE := "lure"
 const EFFECT_FLEE := "flee"
 const EFFECTS: Array[String] = [EFFECT_NONE, EFFECT_DAMAGE, EFFECT_OPEN, EFFECT_STUN, EFFECT_LURE, EFFECT_FLEE]
 
-# Item effects (spec §Prototype item effects), keyed from the data's items
+# Item effects (R§3.7b Items), keyed from the data's items
 # table; each reads its power from the recipe's effectPower at the slot's tier.
 const ITEM_FREEZE := "freeze"
 const ITEM_BLACK_HOLE := "blackHole"
@@ -82,8 +74,6 @@ const REASON_NO_CHARGE := "Not enough charge."
 # (the data's statusTurns).
 const STATUS_PANIC := "panic"
 const STATUS_RAPTURE := "rapture"
-# Loadout slots per combatant (spec user story 48).
-const LOADOUT_SLOTS := 2
 
 # The shared kit pools a live fight keeps on its combat dict, each
 # { items, used, reserved } by recipe then tier (R§3.7b Table 5): a
@@ -115,10 +105,7 @@ const LURE_ACTIVE := "active"
 const LURE_SPRUNG := "sprung"
 
 const PLAYER_INDEX := 0
-const DEFAULT_ARCHETYPE := "mugger"
-# The stage backdrop context when setup picks none.
-const DEFAULT_BACKDROP_CONTEXT := Combat.CONTEXT_MUGGING
-# Squad cap (spec user story 5: 0-2 AI allies).
+# Squad cap: 0-2 active allies (R§3.7b Combatants).
 const MAX_ALLIES := 2
 # Active fighters per side, the player counting on theirs (R§3.7a
 # Reinforcements).
@@ -130,10 +117,8 @@ const ROSTER_KEYS := { SIDE_ALLY: "allies", SIDE_ENEMY: "enemies" }
 # A timed effect's end round that no fight reaches (carry_in()).
 const WHOLE_FIGHT := 1 << 30
 
-# The sandbox fight's Snapshots stack id (its Rewind cap).
-const SNAPSHOT_STACK := "combatPrototype"
 
-# The moves the ally AI plans with (spec §Ally AI); GameData checks they exist.
+# The moves the ally AI plans with (R§3.7b Round); GameData checks they exist.
 const MOVE_GUARD := "guard"
 const MOVE_STRIKE := "strike"
 const MOVE_FEINT := "feint"
@@ -141,11 +126,7 @@ const ALLY_AI_MOVES: Array[String] = [MOVE_GUARD, MOVE_STRIKE, MOVE_FEINT]
 
 
 static func _data() -> Dictionary:
-	return GameData.COMBAT_PROTOTYPE
-
-
-static func _root() -> Dictionary:
-	return GameState.state["combatPrototype"]
+	return GameData.COMBAT_ROUNDS
 
 
 static func new_state() -> Dictionary:
@@ -154,7 +135,7 @@ static func new_state() -> Dictionary:
 		"round": 0,
 		# null while the fight runs, then "win", "loss" or "fled".
 		"outcome": null,
-		# Player at PLAYER_INDEX, then enemies; see _build_combatant().
+		# Player at PLAYER_INDEX, then allies, then enemies (new_combatant()).
 		"combatants": [],
 		# The player's picks this round: one entry per position, each null
 		# (not picked yet, or lost) or { move, target, part } (plus slot for
@@ -171,9 +152,9 @@ static func new_state() -> Dictionary:
 		# Every resolved beat so far, oldest first (see _beat()).
 		"log": [],
 		"snapshots": [],
-		# The stage backdrop: a Combat.DEBUG_SETUP_CONTEXTS context and a
-		# locationKey (the combat_visuals locationBackdrops plate; "" for none).
-		"backdrop": { "context": DEFAULT_BACKDROP_CONTEXT, "locationKey": "" },
+		# The stage backdrop: the fight's context and a locationKey (the
+		# combat_visuals locationBackdrops plate; "" for none).
+		"backdrop": { "context": "", "locationKey": "" },
 		# Reinforcements waiting per side (R§3.7b): entries each carrying its
 		# prebuilt combatant under "fighter" (_admit_reserves()).
 		"enemyQueue": [], "allyQueue": [],
@@ -191,25 +172,11 @@ static func _new_cursor() -> Dictionary:
 	return { "index": -1, "actor": -1, "done": [], "pause": -1 }
 
 
-static func open() -> void:
-	Nav.go_to("combat_prototype")
-
-
-static func exit() -> void:
-	Nav.go_to("phone")
-
-
-# Drops the current fight so the screen shows setup again.
-static func close_fight() -> void:
-	GameState.state["combatPrototype"] = new_state()
-	EventBus.state_changed.emit()
-
-
 static func level_max() -> int:
 	return int(_data()["levelMax"])
 
 
-# A move's row, or for a prototype item's recipe id a move-shaped row built
+# A move's row, or for a round item's recipe id a move-shaped row built
 # from the items table: one action, guard state unchanged, named after the
 # recipe. {} for neither.
 static func move(move_id: String) -> Dictionary:
@@ -229,7 +196,7 @@ static func is_item(move_id: String) -> bool:
 	return _data()["items"].has(move_id)
 
 
-# The prototype items, by recipe id, for the setup picker.
+# The round items, by recipe id.
 static func item_ids() -> Array:
 	return _data()["items"].keys()
 
@@ -362,103 +329,7 @@ static func display_name(combatant: Dictionary) -> String:
 
 # ── Setup ────────────────────────────────────────────────────────────────
 
-# config: playerLevel (1..levelMax, default 1); enemies, an Array of
-# { archetype, level } (default one level-1 mugger); allies, an Array of
-# { level, loadout } (0..MAX_ALLIES, default none); loadout, the player's
-# sandbox items, an Array of up to LOADOUT_SLOTS { item, tier } (item a
-# prototype item's recipe id; default none), an ally's loadout likewise;
-# backdrop, { context, locationKey } (context one of
-# Combat.DEBUG_SETUP_CONTEXTS, default DEFAULT_BACKDROP_CONTEXT;
-# locationKey "" or absent derives it as Combat.location_key_for() does for
-# a fight at no vein); seed (default fresh); fog (default true; false
-# leaves every enemy action read);
-# enemyPlans / allyPlans, test-only: per combatant an Array of rounds, each
-# an Array of move ids or { move, target } entries, used in place of the
-# archetype's patterns or the ally AI (round n reads entry (n-1) mod size);
-# enemyUnread, test-only: per enemy an Array of rounds likewise, each an
-# Array of bools, used in place of the fog roll (missing entries read).
-# Everyone starts Guarded. Round 1 then resolves up to the player's first
-# position (beats from anyone faster land in the log). Returns the new
-# fight state, or {} for an unknown archetype, too many allies, a bad
-# loadout or a backdrop context outside Combat.DEBUG_SETUP_CONTEXTS.
-static func start(config: Dictionary = {}) -> Dictionary:
-	var cp := build_fight(config)
-	if cp.is_empty():
-		return {}
-	GameState.state["combatPrototype"] = cp
-	EventBus.state_changed.emit()
-	return cp
-
-
-# The rules core of start(): builds and opens a fight from `config` as a
-# new pure-data combat dict, without storing it anywhere.
-static func build_fight(config: Dictionary = {}) -> Dictionary:
-	var backdrop: Dictionary = config.get("backdrop", {})
-	var backdrop_context: String = backdrop.get("context", DEFAULT_BACKDROP_CONTEXT)
-	if not Combat.DEBUG_SETUP_CONTEXTS.has(backdrop_context):
-		return {}
-	var location_key: String = backdrop.get("locationKey", "")
-	if location_key.is_empty():
-		location_key = Combat.location_key_for(backdrop_context, null)
-	var archetypes: Dictionary = _data()["archetypes"]
-	var enemy_specs: Array = config.get("enemies", [{ "archetype": DEFAULT_ARCHETYPE, "level": 1 }])
-	for spec in enemy_specs:
-		if not archetypes.has(spec.get("archetype", "")):
-			return {}
-	var ally_specs: Array = config.get("allies", [])
-	if ally_specs.size() > MAX_ALLIES:
-		return {}
-	var loadout = _build_loadout(config.get("loadout", []))
-	if loadout == null:
-		return {}
-	var ally_loadouts: Array = []
-	for spec in ally_specs:
-		var ally_loadout = _build_loadout(spec.get("loadout", []))
-		if ally_loadout == null:
-			return {}
-		ally_loadouts.append(ally_loadout)
-
-	var seed_value := int(config.get("seed", Rng.fresh_seed()))
-	var cp := new_state()
-	cp["fog"] = bool(config.get("fog", true))
-	cp["backdrop"] = { "context": backdrop_context, "locationKey": location_key }
-	var combatants: Array = cp["combatants"]
-	var player := _build_combatant(SIDE_PLAYER, _data()["playerBase"], int(config.get("playerLevel", 1)))
-	player["loadout"] = loadout
-	combatants.append(player)
-	var ally_overrides: Array = config.get("allyPlans", [])
-	for i in range(ally_specs.size()):
-		var ally := _build_combatant(SIDE_ALLY, _data()["allyBase"], int(ally_specs[i].get("level", 1)))
-		if ally_specs.size() > 1:
-			ally["name"] = "%s %s" % [ally["name"], char(65 + i)]
-		ally["template"] = _data()["allyTemplates"][i]
-		ally["planOverride"] = ally_overrides[i] if i < ally_overrides.size() else null
-		ally["loadout"] = ally_loadouts[i]
-		combatants.append(ally)
-	var overrides: Array = config.get("enemyPlans", [])
-	var unread_overrides: Array = config.get("enemyUnread", [])
-	var archetype_counts: Dictionary = {}
-	for spec in enemy_specs:
-		archetype_counts[spec["archetype"]] = archetype_counts.get(spec["archetype"], 0) + 1
-	var archetype_seen: Dictionary = {}
-	for i in range(enemy_specs.size()):
-		var spec: Dictionary = enemy_specs[i]
-		var enemy := _build_combatant(SIDE_ENEMY, archetypes[spec["archetype"]], int(spec.get("level", 1)))
-		enemy["archetype"] = spec["archetype"]
-		enemy["template"] = archetypes[spec["archetype"]]["template"]
-		# Two of a kind get lettered: "the mugger A", "the mugger B".
-		if archetype_counts[spec["archetype"]] > 1:
-			var nth: int = archetype_seen.get(spec["archetype"], 0)
-			archetype_seen[spec["archetype"]] = nth + 1
-			enemy["name"] = "%s %s" % [enemy["name"], char(65 + nth)]
-		enemy["planOverride"] = overrides[i] if i < overrides.size() else null
-		enemy["unreadOverride"] = unread_overrides[i] if i < unread_overrides.size() else null
-		combatants.append(enemy)
-	open_fight(cp, seed_value)
-	return cp
-
-
-# The rules core of a fight's opening, on `cp` with its combatants already
+# A fight's opening, on `cp` with its combatants already
 # in place (player at PLAYER_INDEX, then allies, then enemies, each from
 # new_combatant(); an enemy also carries its archetype): seeds both RNG
 # streams off `seed_value`, rolls round 1's and round 2's enemy plans and
@@ -489,17 +360,6 @@ static func open_fight(cp: Dictionary, seed_value: int) -> void:
 	cp["rngState"] = rng.state
 
 
-# HP and attack are the base plus the Combat Skill curves; speed is the
-# Combat Skill speed curve (spec §Actions per round).
-static func _build_combatant(side: String, base: Dictionary, level: int) -> Dictionary:
-	var lv := clampi(level, 1, level_max())
-	var hp: int = int(base["hpBase"]) + int(GameData.COMBAT_HP_BONUS_BY_LEVEL[lv])
-	var attack_bonus: int = int(GameData.COMBAT_ATTACK_BONUS_BY_LEVEL[lv])
-	return new_combatant(side, base["name"], lv, hp, hp,
-		int(base["attackMin"]) + attack_bonus, int(base["attackMax"]) + attack_bonus,
-		int(GameData.COMBAT_SPEED_BY_LEVEL[lv]))
-
-
 # A combatant at Combat Skill `level` (clamped to 1..levelMax) with these
 # final stats, Guarded, no statuses, no loadout and no plans yet.
 static func new_combatant(side: String, name: String, level: int, hp: int, hp_max: int, attack_min: int, attack_max: int, speed: int) -> Dictionary:
@@ -511,7 +371,7 @@ static func new_combatant(side: String, name: String, level: int, hp: int, hp_ma
 		"speed": speed,
 		"guard": GUARDED, "koed": false,
 		# Counts as Open through the end of this round number, whatever its
-		# own guard state (Exposed, spec §Vocabulary).
+		# own guard state (Exposed, R§3.7b Moves).
 		"exposedUntil": 0,
 		# Upcoming actions to drop from the timeline (Stun, Time Pearl, Black
 		# Hole).
@@ -561,22 +421,6 @@ static func new_combatant(side: String, name: String, level: int, hp: int, hp_ma
 		"dial": null,
 		"plan": [], "nextPlan": [],
 	}
-
-
-# Slots from config entries { item, tier }, power read from the recipe's
-# effectPower at that tier; null for too many slots, an unknown item or an
-# out-of-range tier.
-static func _build_loadout(entries: Array) -> Variant:
-	if entries.size() > LOADOUT_SLOTS:
-		return null
-	var slots: Array = []
-	for entry in entries:
-		var item_id: String = str(entry.get("item", ""))
-		var tier: int = int(entry.get("tier", 1))
-		if not is_item(item_id) or tier < 1 or tier > item_tier_max(item_id):
-			return null
-		slots.append({ "item": item_id, "tier": tier, "power": int(GameData.RECIPES[item_id]["effectPower"][tier]), "used": false })
-	return slots
 
 
 static func _empty_player_plan(cp: Dictionary) -> Array:
@@ -860,7 +704,7 @@ static func _ally_failsafe(cp: Dictionary, idx: int, beats: Array) -> bool:
 # ── Ally AI ──────────────────────────────────────────────────────────────
 
 # Plans every living ally's round from the enemies' committed plans as the
-# player reads them (spec §Ally AI, §Fog of war: an unread action is
+# player reads them (R§3.7b Round, Fog: an unread action is
 # unknown, never a Strike to guard), per action: Guard where an enemy
 # strikes it; else Strike an enemy who'll be Open when it acts; else, with an action to follow, Feint a
 # Guarded enemy the Feint leaves Open for that next action's Strike; else
@@ -1020,21 +864,6 @@ static func decision_position(cp: Dictionary) -> int:
 	return int(cp["cursor"]["pause"])
 
 
-# Plays `move_id` at the paused position, taking as many of the player's
-# positions as the move costs (the later parts resolve when their positions
-# come up, without a pause), then resolves on to the next pause or the
-# fight's end. target -1 picks the first living enemy for an offensive move.
-# Returns { ok, beats, outcome }, or { ok: false, reason }.
-static func choose_move(move_id: String, target: int = -1) -> Dictionary:
-	return _choose({ "move": move_id, "target": target })
-
-
-# Plays the item in loadout `slot` at the paused position, as choose_move();
-# target -1 picks the default (first living enemy, or the player for a heal).
-static func choose_item(slot: int, target: int = -1) -> Dictionary:
-	return _choose({ "slot": slot, "target": target })
-
-
 # Why the player can't play `move_id` (at `target`, -1 for the default) at
 # the paused position, or "" if they can.
 static func move_block_reason(cp: Dictionary, move_id: String, target: int = -1) -> String:
@@ -1052,23 +881,16 @@ static func cast_block_reason(cp: Dictionary, index: int, target: int = -1) -> S
 	return _pick_block_reason(cp, { "dial": index, "target": target })
 
 
-static func _choose(action: Dictionary) -> Dictionary:
-	var cp := _root()
-	var result := play_pick(cp, action)
-	if result["ok"]:
-		result["beats"].append_array(continue_after_ko(cp))
-		result["outcome"] = cp["outcome"]
-		EventBus.state_changed.emit()
-	return result
-
-
-# The rules core of choose_move() / choose_item(): plays the raw pick
-# `action` ({ move, target } or { slot, target }) in the fight `cp`,
-# snapshotting it first onto `cp`'s Rewind stack (capped as Snapshots'
-# `stack_id`). Same returns as choose_move(), bar a player KO the fight
-# survives: resolution stops there for the caller's saves, then
+# Plays the raw pick `action` ({ move, target }, { slot, target } or
+# { dial, target }) at the paused position of the fight `cp`, snapshotting it
+# first onto `cp`'s Rewind stack (capped as Snapshots' `stack_id`). A move
+# costing n actions takes n of the player's positions in a row (the later
+# parts resolve when their positions come up, without a pause), then the
+# fight resolves on to the next pause or its end; target -1 takes the move's
+# default. Returns { ok, beats }, or { ok: false, reason }. A player KO the
+# fight survives stops resolution there for the caller's saves, then
 # continue_after_ko().
-static func play_pick(cp: Dictionary, action: Dictionary, stack_id: String = SNAPSHOT_STACK) -> Dictionary:
+static func play_pick(cp: Dictionary, action: Dictionary, stack_id: String) -> Dictionary:
 	var reason := _pick_block_reason(cp, action)
 	if reason != "":
 		return { "ok": false, "reason": reason }
@@ -1712,8 +1534,8 @@ static func _feint(cp: Dictionary, actor_idx: int, target_idx: int, move_id: Str
 
 
 # Open target → loses its next params.actions actions (its guard state
-# stays as it was); a Guarded target shrugs it off (spec §Stun and freeze
-# removal). Either way it's an attack, so it can spring a Lure.
+# stays as it was); a Guarded target shrugs it off (R§3.7b
+# Removal). Either way it's an attack, so it can spring a Lure.
 static func _stun(cp: Dictionary, actor_idx: int, target_idx: int, move_id: String, m: Dictionary, beats: Array) -> void:
 	var target: Dictionary = cp["combatants"][target_idx]
 	if m["condition"] == CONDITION_TARGET_OPEN and not is_open(cp, target):
@@ -1753,9 +1575,9 @@ static func _retarget(cp: Dictionary, actor: int, target: int) -> int:
 
 # Damage rolls within the attacker's range: full on an Open (or Exposed)
 # target, round(roll × chipMultiplier) (min 1) on a Guarded one; a crit
-# doubles the final figure (spec §Damage), then the attacker's anger scales
+# doubles the final figure (R§3.7b Damage), then the attacker's anger scales
 # it (anger_factor()). Under Be a Lady the roll is the
-# attacker's max and the crit chance its ladyCrit (spec §Crit chance).
+# attacker's max and the crit chance its ladyCrit (R§3.7b Damage).
 static func _strike(cp: Dictionary, actor_idx: int, target_idx: int, move_id: String, rng: RandomNumberGenerator, beats: Array) -> void:
 	var combatants: Array = cp["combatants"]
 	var actor: Dictionary = combatants[actor_idx]
@@ -1780,7 +1602,7 @@ static func _strike(cp: Dictionary, actor_idx: int, target_idx: int, move_id: St
 
 
 # `dmg`, scaled by the target's anger (anger_factor()), drains its Shield
-# pool 1:1 before its HP (spec §Damage); beats `kind` with dmg, absorbed and
+# pool 1:1 before its HP (R§3.7b Damage); beats `kind` with dmg, absorbed and
 # hpAfter, then the KO if it drops (an ally's own failsafe can hold it on
 # 1 hp instead, _ally_failsafe()).
 static func _deal_damage(cp: Dictionary, actor_idx: int, target_idx: int, dmg: int, kind: String, move_id: String, beats: Array, extra: Dictionary) -> void:
@@ -1799,7 +1621,7 @@ static func _deal_damage(cp: Dictionary, actor_idx: int, target_idx: int, dmg: i
 
 
 # Applies an item's effect at `power` from the action's loadout slot, and
-# spends the slot (spec §Prototype item effects); a Dial cast takes 1 of
+# spends the slot (R§3.7b Items); a Dial cast takes 1 of
 # its Dial's charge instead (R§3.7b Dial Complications), and a kit action
 # spends its reserved unit, or hands it back when the heal or Shield it
 # aims finds its target KO'd (R§3.7b Table 5). Item damage ignores
@@ -2003,16 +1825,8 @@ static func _push_snapshot(cp: Dictionary, stack_id: String) -> void:
 	Snapshots.push(stack_id, cp["snapshots"], frame)
 
 
-# Restores the fight to the previous decision point with that pick undone
-# (across a round boundary, that round's plans come back too).
-static func rewind() -> Dictionary:
-	var result := rewind_pick(_root())
-	if result["ok"]:
-		EventBus.state_changed.emit()
-	return result
-
-
-# The rules core of rewind(), on the fight `cp`.
+# Restores the fight `cp` to the previous decision point with that pick
+# undone (across a round boundary, that round's plans come back too).
 static func rewind_pick(cp: Dictionary) -> Dictionary:
 	var frame = Snapshots.pop_newest(cp["snapshots"])
 	if frame == null:

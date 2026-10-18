@@ -2,7 +2,6 @@ extends "res://tests/test_base.gd"
 
 # calc-effect-wiring-02: Consumables.use_healing_salve()/use_healing_burst().
 
-
 func run() -> void:
 	run_case("use_healing_salve_sets_days_left_and_daily_amount_from_effect_power", func():
 		GameState.reset()
@@ -57,21 +56,6 @@ func run() -> void:
 		assert_true(not result["ok"], "should fail with no burst")
 	)
 
-	run_case("use_healing_burst_logs_to_combat_when_a_fight_is_active", func():
-		GameState.reset()
-		GameState.state["player"]["loadout"]["slots"][0] = { "recipe": "healingBurst", "tier": 1 }
-		GameState.state["player"]["hp"] = 50
-		GameState.state["player"]["hpMax"] = 100
-		GameState.state["combat"]["active"] = true
-		Consumables.use_healing_burst()
-		var found := false
-		for line in GameState.state["combat"]["log"]:
-			if line.contains("healing burst"):
-				found = true
-		assert_true(found, "an active fight should get the result line in the combat log")
-		assert_eq(GameState.state["notifications"].size(), 0, "no separate notification while in combat")
-	)
-
 	run_case("use_healing_burst_notifies_when_no_fight_is_active", func():
 		GameState.reset()
 		GameState.state["player"]["inventory"]["healingBurst"] = { "1": 1 }
@@ -87,19 +71,6 @@ func run() -> void:
 	)
 
 	# ── combat-presentation ticket 11: beats for the director/effect layer ──
-
-	run_case("use_healing_burst_returns_a_beat_with_effectKey_when_a_fight_is_active", func():
-		GameState.reset()
-		GameState.state["player"]["loadout"]["slots"][0] = { "recipe": "healingBurst", "tier": 1 }
-		GameState.state["player"]["hp"] = 50
-		GameState.state["player"]["hpMax"] = 100
-		GameState.state["combat"]["active"] = true
-		var result := Consumables.use_healing_burst()
-		var beats: Array = result["beats"]
-		assert_eq(beats.size(), 1, "an active fight should produce one beat")
-		assert_eq(beats[0]["kind"], Combat.BEAT_USE_HEALING_BURST)
-		assert_eq(beats[0]["effectKey"], "healingBurst")
-	)
 
 	run_case("use_healing_burst_returns_no_beats_outside_combat", func():
 		GameState.reset()

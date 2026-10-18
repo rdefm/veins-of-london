@@ -24,16 +24,3 @@ signal alarm_arrived
 # vein levelled during it (its growth reset before the gain landed).
 signal vein_cultivated(vein_id: String, growth_from: int, growth_to: int, levelled_up: bool)
 
-# Carries a completed action's `beats` Array for CombatScreen to play back.
-# Needed because the bag-item consumable path (global BagDrawer overlay) has
-# no other channel back to whichever CombatScreen instance is on screen.
-signal combat_beats_played(beats: Array)
-
-# combat_rewind()'s reversed beats, per docs/combat-animation-vision.md §5.
-# Kept separate from combat_beats_played since reverse playback needs
-# different director plumbing on the screen side.
-signal combat_rewind_played(beats: Array)
-
-# CombatScreen's beat playback starting/ending, so the global BagDrawer can
-# lock its combat item uses while it isn't the player's turn.
-signal combat_playback_changed(playing: bool)

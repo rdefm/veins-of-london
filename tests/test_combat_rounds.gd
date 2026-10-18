@@ -2,12 +2,12 @@ extends "res://tests/test_base.gd"
 
 const Fixtures := preload("res://tests/support/fixtures.gd")
 
-# Live round fights (R§3.7b): a street mugging on CombatPrototype's rules
+# Live round fights (R§3.7b): a street mugging on CombatRounds's rules
 # core over state.combat -- opening from prep, the real player's stats and
 # hp, the six moves' guard rules, Leg it, outcomes and the XP lump through
 # exit_combat(), save/load mid-fight, the Gym card's curves and the combat
 # screen hosting the round-fight screen. Rules detail lives in
-# tests/test_combat_prototype.gd.
+# tests/test_combat_rounds.gd.
 
 
 func _mugger(hp: int = 28) -> Dictionary:
@@ -28,16 +28,16 @@ func _seeded() -> void:
 # (every template, when `archetypes` is empty, just has one).
 func _assert_enemies(context: String, archetypes: Dictionary, level: int) -> void:
 	var combat: Dictionary = GameState.state["combat"]
-	assert_true(Combat.is_round_engine(combat), "%s on the round engine" % context)
+	assert_true(combat["active"] and combat.has("combatants"), "%s on the round rules" % context)
 	assert_eq(combat["context"], context)
-	var fighters: Array = combat["combatants"].filter(func(c): return c["side"] == CombatPrototype.SIDE_ENEMY)
+	var fighters: Array = combat["combatants"].filter(func(c): return c["side"] == CombatRounds.SIDE_ENEMY)
 	assert_eq(fighters.size(), combat["enemies"].size(), "every active enemy fights")
 	for i in range(fighters.size()):
 		var entry: Dictionary = combat["enemies"][i]
 		assert_eq(fighters[i]["level"], level, "%s enemy %d level" % [context, i])
 		assert_eq(fighters[i]["archetype"], entry["archetype"])
 		if archetypes.is_empty():
-			assert_true(GameData.COMBAT_PROTOTYPE["archetypes"].has(entry["archetype"]), "a real archetype")
+			assert_true(GameData.COMBAT_ROUNDS["archetypes"].has(entry["archetype"]), "a real archetype")
 		else:
 			assert_eq(entry["archetype"], archetypes[entry["template"]], "%s %s archetype" % [context, entry["template"]])
 
@@ -140,7 +140,7 @@ func _fight_state(combat: Dictionary) -> Dictionary:
 
 # Every round: two Strikes aimed at the player.
 func _strikes_at_player() -> Array:
-	return [[{ "move": "strike", "target": CombatPrototype.PLAYER_INDEX }, { "move": "strike", "target": CombatPrototype.PLAYER_INDEX }]]
+	return [[{ "move": "strike", "target": CombatRounds.PLAYER_INDEX }, { "move": "strike", "target": CombatRounds.PLAYER_INDEX }]]
 
 
 # A seeded street mugging against `count` guarding muggers, any past the
@@ -170,7 +170,7 @@ func _start_lethal(units: Array, allies: Array = [], live: Dictionary = {}) -> D
 	return GameState.state["combat"]
 
 
-func _row(screen: CombatPrototypeScreen, row_name: String) -> Button:
+func _row(screen: CombatRoundsScreen, row_name: String) -> Button:
 	var found: Button = null
 	for node in screen._dock.find_children(row_name, "Button", true, false):
 		if not node.is_queued_for_deletion():
@@ -188,10 +188,10 @@ func run() -> void:
 		CombatPrep.request(CombatPrep.KIND_STREET_MUGGING)
 		assert_true(CombatPrep.commit()["ok"], "prep commits")
 		var combat: Dictionary = GameState.state["combat"]
-		assert_true(Combat.is_round_engine(combat), "round engine")
+		assert_true(combat.has("combatants"), "a round fight")
 		assert_eq(combat["context"], Combat.CONTEXT_EVENT_MUGGING)
 		assert_eq(GameState.state["currentScreen"], "combat")
-		var you: Dictionary = combat["combatants"][CombatPrototype.PLAYER_INDEX]
+		var you: Dictionary = combat["combatants"][CombatRounds.PLAYER_INDEX]
 		assert_eq(you["level"], 3, "player level from combatSkill")
 		assert_eq(you["hpMax"], 120, "real hpMax")
 		var attack := Combat.get_attack_range()
@@ -203,8 +203,8 @@ func run() -> void:
 		assert_eq(enemy["speed"], Combat.MUGGER_SPEED, "level 1 keeps its own speed")
 		assert_eq(enemy["template"], Combat.MUGGER_TEMPLATE_KEY)
 		# Fog off the player's level: (.21 - .03 x 2 levels below) x 1.0.
-		assert_almost_eq(CombatPrototype.unread_chance(combat, 1, 1), 0.15, 0.0001, "fog from player level")
-		assert_true(CombatPrototype.decision_position(combat) >= 0 or combat["outcome"] != null, "paused for a pick")
+		assert_almost_eq(CombatRounds.unread_chance(combat, 1, 1), 0.15, 0.0001, "fog from player level")
+		assert_true(CombatRounds.decision_position(combat) >= 0 or combat["outcome"] != null, "paused for a pick")
 	)
 
 	run_case("harder_mugger_spawns_as_muggerV2_level_2", func():
@@ -218,14 +218,14 @@ func run() -> void:
 		GameState.reset()
 		var combat := _start([["strike", "strike"]])
 		var opening: Dictionary = _first(combat["log"], "chip")
-		assert_eq(opening.get("target", -1), CombatPrototype.PLAYER_INDEX, "the mugger's opening strike chips the Guarded player")
-		var you: Dictionary = combat["combatants"][CombatPrototype.PLAYER_INDEX]
+		assert_eq(opening.get("target", -1), CombatRounds.PLAYER_INDEX, "the mugger's opening strike chips the Guarded player")
+		var you: Dictionary = combat["combatants"][CombatRounds.PLAYER_INDEX]
 		assert_eq(you["hp"], you["hpMax"] - int(opening["dmg"]), "real hp spent")
 		assert_eq(GameState.state["player"]["hp"], you["hp"], "player hp follows the fight")
 		var result := Combat.choose_move("strike", 1)
 		assert_true(result["ok"], "strike plays")
 		var hit: Dictionary = _first(result["beats"], "hit")
-		assert_eq(hit.get("actor", -1), CombatPrototype.PLAYER_INDEX, "full hit on the mugger left Open by its strike")
+		assert_eq(hit.get("actor", -1), CombatRounds.PLAYER_INDEX, "full hit on the mugger left Open by its strike")
 		assert_eq(int(hit["dmg"]), int(hit["roll"]) * (2 if hit["crit"] else 1), "full damage")
 		var counter: Array = result["beats"].filter(func(b): return b["actor"] == 1 and b["kind"] == "hit")
 		assert_eq(counter.size(), 1, "the mugger's second strike lands full on the now-Open player")
@@ -234,12 +234,12 @@ func run() -> void:
 	run_case("feint_opens_a_guarded_mugger", func():
 		GameState.reset()
 		var combat := _start([["guard", "guard"]])
-		assert_eq(combat["combatants"][1]["guard"], CombatPrototype.GUARDED)
+		assert_eq(combat["combatants"][1]["guard"], CombatRounds.GUARDED)
 		var result := Combat.choose_move("feint", 1)
 		var feint: Dictionary = _first(result["beats"], "feint")
 		assert_true(not feint.is_empty(), "feint beat")
-		assert_eq(feint["marks"][1]["guard"], CombatPrototype.OPEN, "the mugger stands Open after the Feint")
-		assert_eq(combat["combatants"][1]["guard"], CombatPrototype.GUARDED, "its next Guard closes it again")
+		assert_eq(feint["marks"][1]["guard"], CombatRounds.OPEN, "the mugger stands Open after the Feint")
+		assert_eq(combat["combatants"][1]["guard"], CombatRounds.GUARDED, "its next Guard closes it again")
 	)
 
 	run_case("stun_on_an_open_mugger_drops_its_next_action", func():
@@ -257,7 +257,7 @@ func run() -> void:
 		var result := Combat.choose_move("lure")
 		assert_true(result["ok"], "lure plays across both actions")
 		var sprung: Dictionary = _first(result["beats"], "exposed")
-		assert_eq([sprung.get("actor", -1), sprung.get("target", -1)], [CombatPrototype.PLAYER_INDEX, 1], "the mugger's strike springs it")
+		assert_eq([sprung.get("actor", -1), sprung.get("target", -1)], [CombatRounds.PLAYER_INDEX, 1], "the mugger's strike springs it")
 		assert_eq(combat["combatants"][1]["exposedUntil"], 2, "Exposed through next round")
 	)
 
@@ -279,8 +279,8 @@ func run() -> void:
 			elif result["outcome"] == null and not failed:
 				failed = true
 				assert_true(_kinds(result["beats"]).has("fleeFailed"), "fail beat")
-				assert_eq(combat["combatants"][CombatPrototype.PLAYER_INDEX]["guard"], CombatPrototype.OPEN, "left Open")
-				assert_eq([combat["round"], CombatPrototype.decision_position(combat)], [2, 0], "the rest of the round's actions are lost")
+				assert_eq(combat["combatants"][CombatRounds.PLAYER_INDEX]["guard"], CombatRounds.OPEN, "left Open")
+				assert_eq([combat["round"], CombatRounds.decision_position(combat)], [2, 0], "the rest of the round's actions are lost")
 		assert_true(fled and failed, "seeds cover both Leg it results")
 	)
 
@@ -290,11 +290,11 @@ func run() -> void:
 		var xp: int = GameState.state["player"]["combatXP"]
 		var result := Combat.choose_move("strike", 1)
 		assert_eq(result["outcome"], "win")
-		var hp: int = combat["combatants"][CombatPrototype.PLAYER_INDEX]["hp"]
+		var hp: int = combat["combatants"][CombatRounds.PLAYER_INDEX]["hp"]
 		assert_eq(Combat.exit_combat()["nextScreen"], "event")
 		assert_eq(GameState.state["player"]["combatXP"], xp + Combat.ROUND_XP_WIN, "win +30")
 		assert_eq(GameState.state["player"]["hp"], hp, "hp carried out of the fight")
-		assert_true(not Combat.is_round_engine(GameState.state["combat"]), "torn down to the old shape")
+		assert_eq(GameState.state["combat"], Combat.idle_state(), "torn down to the idle dict")
 	)
 
 	run_case("loss_settles_ko_hp_and_pays_3_xp", func():
@@ -314,15 +314,15 @@ func run() -> void:
 		Combat._start_round_combat(Combat.CONTEXT_EVENT_MUGGING, null, [_mugger(), _mugger()], [], "", [], null, { "seed": 7 })
 		var combat: Dictionary = GameState.state["combat"]
 		var rng_state: int = combat["rngState"]
-		var pause := CombatPrototype.decision_position(combat)
+		var pause := CombatRounds.decision_position(combat)
 		var text := SaveManager.export_string()
 		var first := Combat.choose_move("strike", 1)
 		var hps: Array = GameState.state["combat"]["combatants"].map(func(c): return c["hp"])
 		assert_true(SaveManager.import_string(text)["ok"], "save loads")
 		combat = GameState.state["combat"]
-		assert_true(Combat.is_round_engine(combat), "still a round fight")
+		assert_true(combat["active"] and combat.has("combatants"), "still a round fight")
 		assert_eq(combat["rngState"], rng_state, "RNG state survives exactly")
-		assert_eq(CombatPrototype.decision_position(combat), pause, "same pause")
+		assert_eq(CombatRounds.decision_position(combat), pause, "same pause")
 		var second := Combat.choose_move("strike", 1)
 		assert_eq(second["beats"].map(func(b): return b["text"]), first["beats"].map(func(b): return b["text"]), "the pick replays identically")
 		assert_eq(combat["combatants"].map(func(c): return c["hp"]), hps, "same hp after")
@@ -333,7 +333,7 @@ func run() -> void:
 		var s := Combat.skill_summary()
 		assert_eq(s["stats"]["actionsPerRound"], 2)
 		assert_almost_eq(s["stats"]["critChance"], 0.03, 0.0001)
-		assert_eq(s["nextStats"]["actionsPerRound"], GameData.COMBAT_PROTOTYPE["actionsPerRound"][2])
+		assert_eq(s["nextStats"]["actionsPerRound"], GameData.COMBAT_ROUNDS["actionsPerRound"][2])
 		var text := HqGymModal.stats_text(s["stats"])
 		assert_true(text.contains("ACT 2") and text.contains("CRIT 3%"), "card text: %s" % text)
 	)
@@ -426,13 +426,13 @@ func run() -> void:
 		Combat.start_home_raid_combat()
 		var combat: Dictionary = GameState.state["combat"]
 		assert_true(combat["combatants"][0]["speed"] > combat["combatants"][1]["speed"], "the player is faster than the raider")
-		assert_eq(CombatPrototype.timeline(combat)[0]["actor"], CombatPrototype.PLAYER_INDEX, "no mod: speed leads")
+		assert_eq(CombatRounds.timeline(combat)[0]["actor"], CombatRounds.PLAYER_INDEX, "no mod: speed leads")
 		_seeded()
 		Combat.start_home_raid_combat({ "enemyFirst": true })
 		combat = GameState.state["combat"]
-		var order: Array = CombatPrototype.timeline(combat).map(func(e): return [e["index"], e["actor"]])
+		var order: Array = CombatRounds.timeline(combat).map(func(e): return [e["index"], e["actor"]])
 		assert_eq(order.slice(0, 4), [[0, 1], [0, 0], [1, 1], [1, 0]], "raider first at each slot, slots still alternate")
-		assert_eq(CombatPrototype.next_round_timeline(combat)[0]["actor"], CombatPrototype.PLAYER_INDEX, "round 2 back to speed order")
+		assert_eq(CombatRounds.next_round_timeline(combat)[0]["actor"], CombatRounds.PLAYER_INDEX, "round 2 back to speed order")
 	)
 
 	run_case("home_alarm_defend_runs_the_raider_at_level_2", func():
@@ -460,10 +460,10 @@ func run() -> void:
 		var combat: Dictionary = GameState.state["combat"]
 		assert_eq(combat["locationKey"], "camden")
 		assert_true(not combat["fog"])
-		var fighters: Array = combat["combatants"].filter(func(c): return c["side"] == CombatPrototype.SIDE_ENEMY)
+		var fighters: Array = combat["combatants"].filter(func(c): return c["side"] == CombatRounds.SIDE_ENEMY)
 		assert_eq(fighters.map(func(c): return c["archetype"]), ["turtleV2", "bruiser"], "override, then the template's own")
 		assert_eq(fighters.map(func(c): return c["level"]), [2, 2])
-		var me: Dictionary = combat["combatants"][CombatPrototype.PLAYER_INDEX]
+		var me: Dictionary = combat["combatants"][CombatRounds.PLAYER_INDEX]
 		assert_eq(me["level"], 3, "fight at the picked level")
 		assert_eq(me["speed"], int(GameData.COMBAT_SPEED_BY_LEVEL[3]))
 		assert_eq(me["attackMin"], int(player["attackMin"]) + int(GameData.COMBAT_ATTACK_BONUS_BY_LEVEL[3]))
@@ -477,10 +477,10 @@ func run() -> void:
 			"context": Combat.CONTEXT_RAID, "enemies": [{ "template": "veinGuard", "level": 1 }],
 			"allies": [{ "level": 4, "slots": [{ "recipe": "blast", "tier": 2 }] }, { "level": 2, "slots": [] }],
 		})
-		var allies: Array = GameState.state["combat"]["combatants"].filter(func(c): return c["side"] == CombatPrototype.SIDE_ALLY)
+		var allies: Array = GameState.state["combat"]["combatants"].filter(func(c): return c["side"] == CombatRounds.SIDE_ALLY)
 		assert_eq(allies.map(func(c): return c["level"]), [4, 2])
 		assert_eq(allies[0]["loadout"].map(func(e): return [e["item"], e["tier"]]), [["blast", 2]])
-		assert_eq(allies[0]["hpMax"], int(GameData.COMBAT_PROTOTYPE["allyBase"]["hpBase"]) + int(GameData.COMBAT_HP_BONUS_BY_LEVEL[4]))
+		assert_eq(allies[0]["hpMax"], int(GameData.COMBAT_ROUNDS["allyBase"]["hpBase"]) + int(GameData.COMBAT_HP_BONUS_BY_LEVEL[4]))
 		Combat.exit_combat()
 		assert_true(not GameState.state["combat"]["active"], "debug allies settle without a contact")
 	)
@@ -504,8 +504,8 @@ func run() -> void:
 		_start([["guard", "guard"]], 1, 1)
 		var host := CombatScreen.new()
 		host._ready()
-		var screen: CombatPrototypeScreen = host._round_screen
-		assert_true(screen != null and screen.live, "round screen hosted")
+		var screen: CombatRoundsScreen = host._round_screen
+		assert_true(screen != null, "round screen hosted")
 		screen._ready()
 		for move_id in ["guard", "strike", "feint", "stun", "lure", "legIt"]:
 			assert_true(_row(screen, "MoveRow_%s" % move_id) != null, "%s row" % move_id)
@@ -527,17 +527,17 @@ func run() -> void:
 		GameState.reset()
 		var combat := _start_armed([{ "recipe": "timePearl", "tier": 3 }], [["strike", "strike"]])
 		Crafting.inventory_add("timePearl", 2, 1)
-		var entry: Dictionary = combat["combatants"][CombatPrototype.PLAYER_INDEX]["loadout"][0]
+		var entry: Dictionary = combat["combatants"][CombatRounds.PLAYER_INDEX]["loadout"][0]
 		assert_eq([entry["item"], entry["tier"], entry["power"], entry["sourceSlot"]], ["timePearl", 3, 3, 0], "real slot at its tier's power")
-		var result := Combat.use_slot(0)
-		assert_true(result["ok"], "use_slot plays it as a pick")
+		var result := Combat.choose_item(0)
+		assert_true(result["ok"], "choose_item plays it as a pick")
 		assert_true(_kinds(result["beats"]).has("timePearl"), "freeze beat")
 		var mugger: Dictionary = combat["combatants"][1]
 		# The mugger's second action drops; two more of its three stay lost.
 		assert_eq(_first(result["beats"], "frozen").get("actor", -1), 1, "its next action frozen")
 		assert_eq(mugger["frozenActions"], 2, "power 3 - 1 spent")
-		assert_true(CombatPrototype.is_open(combat, mugger), "Open while frozen")
-		assert_eq(CombatPrototype.decision_position(combat), 1, "one action, the next pick is the player's second")
+		assert_true(CombatRounds.is_open(combat, mugger), "Open while frozen")
+		assert_eq(CombatRounds.decision_position(combat), 1, "one action, the next pick is the player's second")
 		assert_eq(Loadout.slot(0), null, "real unit consumed")
 		assert_eq(combat["slotsUsed"], [0], "marked for settlement")
 		combat["outcome"] = "fled"
@@ -549,7 +549,7 @@ func run() -> void:
 		GameState.reset()
 		var combat := _start_armed([{ "recipe": "blackHole", "tier": 2 }], [["guard", "guard"]])
 		var mugger: Dictionary = combat["combatants"][1]
-		assert_eq(mugger["guard"], CombatPrototype.GUARDED)
+		assert_eq(mugger["guard"], CombatRounds.GUARDED)
 		var result := Combat.choose_item(0)
 		assert_true(result["ok"])
 		assert_eq(int(_first(result["beats"], "pull")["dmg"]), 8, "tier 2 power, guard ignored")
@@ -557,7 +557,7 @@ func run() -> void:
 		# 1 + floor(8 / 8) = 2 actions lost; its second action this round is one.
 		assert_eq(_first(result["beats"], "lost").get("actor", -1), 1)
 		assert_eq(mugger["actionsLost"], 1)
-		assert_eq(combat["combatants"][CombatPrototype.PLAYER_INDEX]["guard"], CombatPrototype.GUARDED, "user's guard unchanged")
+		assert_eq(combat["combatants"][CombatRounds.PLAYER_INDEX]["guard"], CombatRounds.GUARDED, "user's guard unchanged")
 	)
 
 	run_case("blast_hits_through_guard_and_boosts_the_next_leg_it_once", func():
@@ -567,12 +567,12 @@ func run() -> void:
 			var combat := _start_armed([{ "recipe": "blast", "tier": 2 }], [["guard", "guard"]], seed_value)
 			var result := Combat.choose_item(0, 1)
 			assert_eq(int(_first(result["beats"], "blast")["dmg"]), 6, "tier 2 power on a Guarded mugger")
-			var you: Dictionary = combat["combatants"][CombatPrototype.PLAYER_INDEX]
+			var you: Dictionary = combat["combatants"][CombatRounds.PLAYER_INDEX]
 			assert_almost_eq(float(you["fleeBoost"]), 0.9, 0.0001, "Leg it boost armed")
 			var plain: Dictionary = combat.duplicate(true)
-			plain["combatants"][CombatPrototype.PLAYER_INDEX]["fleeBoost"] = 0.0
-			var with_boost := CombatPrototype.play_pick(combat, { "move": "legIt", "target": -1 }, Combat.ROUND_SNAPSHOT_STACK)
-			var without := CombatPrototype.play_pick(plain, { "move": "legIt", "target": -1 }, Combat.ROUND_SNAPSHOT_STACK)
+			plain["combatants"][CombatRounds.PLAYER_INDEX]["fleeBoost"] = 0.0
+			var with_boost := CombatRounds.play_pick(combat, { "move": "legIt", "target": -1 }, Combat.ROUND_SNAPSHOT_STACK)
+			var without := CombatRounds.play_pick(plain, { "move": "legIt", "target": -1 }, Combat.ROUND_SNAPSHOT_STACK)
 			assert_eq(float(you["fleeBoost"]), 0.0, "spent on the one Leg it")
 			if with_boost["outcome"] == "fled" and without["outcome"] == null:
 				boosted = true
@@ -584,25 +584,25 @@ func run() -> void:
 		GameState.reset()
 		var combat := _start_armed([{ "recipe": "shield", "tier": 2 }], [["guard", "guard"]])
 		assert_true(Combat.choose_item(0)["ok"])
-		var you: Dictionary = combat["combatants"][CombatPrototype.PLAYER_INDEX]
+		var you: Dictionary = combat["combatants"][CombatRounds.PLAYER_INDEX]
 		assert_eq(you["shield"], 4, "tier 2 pool")
 		assert_true(Combat.choose_move("strike", 1)["ok"])
-		assert_eq(you["guard"], CombatPrototype.OPEN, "the strike opens its own guard")
-		assert_true(not CombatPrototype.is_open(combat, you), "but the pool keeps it Guarded")
+		assert_eq(you["guard"], CombatRounds.OPEN, "the strike opens its own guard")
+		assert_true(not CombatRounds.is_open(combat, you), "but the pool keeps it Guarded")
 	)
 
 	run_case("enhancement_powder_adds_an_action_this_round", func():
 		GameState.reset()
 		var combat := _start_armed([{ "recipe": "enhancementPowder", "tier": 5 }], [["guard", "guard"]])
-		var base := CombatPrototype.actions_per_round(combat["combatants"][CombatPrototype.PLAYER_INDEX])
+		var base := CombatRounds.actions_per_round(combat["combatants"][CombatRounds.PLAYER_INDEX])
 		assert_true(Combat.choose_item(0)["ok"])
-		assert_eq(CombatPrototype.actions_this_round(combat, CombatPrototype.PLAYER_INDEX), base + 1, "extra action this round")
-		assert_eq(CombatPrototype.actions_next_round(combat, CombatPrototype.PLAYER_INDEX), base + 1, "power 3 runs two rounds")
+		assert_eq(CombatRounds.actions_this_round(combat, CombatRounds.PLAYER_INDEX), base + 1, "extra action this round")
+		assert_eq(CombatRounds.actions_next_round(combat, CombatRounds.PLAYER_INDEX), base + 1, "power 3 runs two rounds")
 		GameState.reset()
 		combat = _start_armed([{ "recipe": "enhancementPowder", "tier": 1 }], [["guard", "guard"]])
 		assert_true(Combat.choose_item(0)["ok"])
-		assert_eq(CombatPrototype.actions_this_round(combat, CombatPrototype.PLAYER_INDEX), base + 1)
-		assert_eq(CombatPrototype.actions_next_round(combat, CombatPrototype.PLAYER_INDEX), base, "power 1, one round")
+		assert_eq(CombatRounds.actions_this_round(combat, CombatRounds.PLAYER_INDEX), base + 1)
+		assert_eq(CombatRounds.actions_next_round(combat, CombatRounds.PLAYER_INDEX), base, "power 1, one round")
 	)
 
 	run_case("prophets_breath_gives_sight_from_resolution", func():
@@ -611,11 +611,11 @@ func run() -> void:
 		Combat._start_round_combat(Combat.CONTEXT_EVENT_MUGGING, null, [_mugger()], [], "", [], null,
 			{ "seed": 1, "fog": true, "enemyPlans": [[["guard", "guard"]]], "enemyUnread": [[[false, true]]] })
 		var combat: Dictionary = GameState.state["combat"]
-		assert_true(not CombatPrototype.is_read(combat, 1, 1), "fogged before")
+		assert_true(not CombatRounds.is_read(combat, 1, 1), "fogged before")
 		assert_true(Combat.choose_item(0)["ok"])
-		assert_eq(combat["combatants"][CombatPrototype.PLAYER_INDEX]["sightUntil"], 3, "power 2 rounds after this one")
-		assert_true(CombatPrototype.has_sight(combat))
-		assert_true(not CombatPrototype.enemy_intents(combat, 1, true).is_empty(), "next round read")
+		assert_eq(combat["combatants"][CombatRounds.PLAYER_INDEX]["sightUntil"], 3, "power 2 rounds after this one")
+		assert_true(CombatRounds.has_sight(combat))
+		assert_true(not CombatRounds.enemy_intents(combat, 1, true).is_empty(), "next round read")
 	)
 
 	run_case("healing_burst_heals_self_or_an_ally", func():
@@ -631,7 +631,7 @@ func run() -> void:
 		var result := Combat.choose_item(0, 1)
 		assert_eq(int(_first(result["beats"], "heal")["amount"]), 8, "tier 2 on archie")
 		assert_eq(archie["hp"], before + 8)
-		var you: Dictionary = combat["combatants"][CombatPrototype.PLAYER_INDEX]
+		var you: Dictionary = combat["combatants"][CombatRounds.PLAYER_INDEX]
 		you["hp"] = you["hpMax"] - 3
 		result = Combat.choose_item(1)
 		assert_eq(int(_first(result["beats"], "healSelf")["amount"]), 3, "self by default, capped at hpMax")
@@ -644,11 +644,11 @@ func run() -> void:
 		assert_true(Loadout.equip(0, "beALady", 4)["ok"], "player can equip it")
 		assert_true(not Loadout.is_equippable("beALady", "archie"), "allies can't")
 		var combat := _start([["guard", "guard"]])
-		var you: Dictionary = combat["combatants"][CombatPrototype.PLAYER_INDEX]
-		assert_true(not CombatPrototype.has_lady(combat, you), "not before use")
+		var you: Dictionary = combat["combatants"][CombatRounds.PLAYER_INDEX]
+		assert_true(not CombatRounds.has_lady(combat, you), "not before use")
 		assert_true(Combat.choose_item(0)["ok"])
 		assert_eq(you["ladyUntil"], 2, "power 2: this round and next")
-		assert_eq(CombatPrototype.damage_range(combat, CombatPrototype.PLAYER_INDEX), [you["attackMax"], you["attackMax"]], "max rolls")
+		assert_eq(CombatRounds.damage_range(combat, CombatRounds.PLAYER_INDEX), [you["attackMax"], you["attackMax"]], "max rolls")
 		assert_almost_eq(float(you["ladyCrit"]), 0.333333, 0.0001, "1/3 crit")
 		assert_eq(Loadout.slot(0), null, "real unit consumed")
 	)
@@ -674,17 +674,17 @@ func run() -> void:
 		Combat._start_round_combat(Combat.CONTEXT_EVENT_MUGGING, null, [_mugger()], [], "", [], null,
 			{ "seed": 1, "fog": true, "enemyPlans": [[["guard", "guard"]]], "enemyUnread": [[[true, true]]] })
 		var combat: Dictionary = GameState.state["combat"]
-		assert_true(CombatPrototype.is_read(combat, 1, 1), "sight from round 1")
-		var you: Dictionary = combat["combatants"][CombatPrototype.PLAYER_INDEX]
-		assert_eq(CombatPrototype.damage_range(combat, CombatPrototype.PLAYER_INDEX), [you["attackMax"], you["attackMax"]], "max rolls")
+		assert_true(CombatRounds.is_read(combat, 1, 1), "sight from round 1")
+		var you: Dictionary = combat["combatants"][CombatRounds.PLAYER_INDEX]
+		assert_eq(CombatRounds.damage_range(combat, CombatRounds.PLAYER_INDEX), [you["attackMax"], you["attackMax"]], "max rolls")
 		assert_almost_eq(float(you["ladyCrit"]), 0.333333, 0.0001, "1/3 crit")
 		for i in range(4):
 			Combat.choose_move("guard")
-		assert_true(combat["round"] >= 3 and CombatPrototype.has_sight(combat) and CombatPrototype.has_lady(combat, you), "whole fight")
+		assert_true(combat["round"] >= 3 and CombatRounds.has_sight(combat) and CombatRounds.has_lady(combat, you), "whole fight")
 		assert_true(ActiveEffects.prophets_breath_active(), "still blocks ambushes")
 		GameState.reset()
 		_start([["guard", "guard"]])
-		assert_true(not CombatPrototype.has_sight(GameState.state["combat"]), "none without an active effect")
+		assert_true(not CombatRounds.has_sight(GameState.state["combat"]), "none without an active effect")
 	)
 
 	run_case("empty_or_ineligible_slots_show_a_block_reason", func():
@@ -705,7 +705,7 @@ func run() -> void:
 		_start_armed([{ "recipe": "blast", "tier": 1 }], [["guard", "guard"]], 1, 4)
 		var host := CombatScreen.new()
 		host._ready()
-		var screen: CombatPrototypeScreen = host._round_screen
+		var screen: CombatRoundsScreen = host._round_screen
 		screen._ready()
 		var item := _row(screen, "ItemRow_0")
 		assert_true(item != null and not item.disabled, "usable row")
@@ -729,7 +729,7 @@ func run() -> void:
 		_start_with_allies([Contacts.build_combat_ally("archie"), guard, Combat.build_guard_ally()], [["guard", "guard"]])
 		var combat: Dictionary = GameState.state["combat"]
 		var archie: Dictionary = combat["combatants"][1]
-		assert_eq(archie["side"], CombatPrototype.SIDE_ALLY)
+		assert_eq(archie["side"], CombatRounds.SIDE_ALLY)
 		assert_eq(archie["level"], 2)
 		assert_eq(archie["hpMax"], 50, "level 2 keeps authored hp")
 		assert_eq([archie["attackMin"], archie["attackMax"]], [6, 11], "attack bonus at level 2")
@@ -741,7 +741,7 @@ func run() -> void:
 		assert_eq(hired["template"], "", "no contact sprite")
 		assert_eq(combat["allies"].size(), 2, "two friendly places beside the player")
 		assert_eq(combat["allyQueue"].size(), 1, "the third waits")
-		assert_eq(combat["combatants"][3]["side"], CombatPrototype.SIDE_ENEMY, "queued ally isn't a combatant")
+		assert_eq(combat["combatants"][3]["side"], CombatRounds.SIDE_ENEMY, "queued ally isn't a combatant")
 	)
 
 	run_case("ally_plans_read_and_react_to_read_intents_only", func():
@@ -751,10 +751,10 @@ func run() -> void:
 		var strikes := [{ "move": "strike", "target": 1 }, { "move": "strike", "target": 1 }]
 		_start_with_allies([Contacts.build_combat_ally("archie")], [strikes], 3, true, [[false, true]])
 		var combat: Dictionary = GameState.state["combat"]
-		assert_eq(CombatPrototype.decision_position(combat), 0, "paused on the player's first pick")
+		assert_eq(CombatRounds.decision_position(combat), 0, "paused on the player's first pick")
 		var plan: Array = combat["combatants"][1]["plan"]
 		assert_eq(plan.size(), 2, "ally plan committed before the pick")
-		assert_true(CombatPrototype.is_read(combat, 1, 0) and CombatPrototype.is_read(combat, 1, 1), "ally plans always read")
+		assert_true(CombatRounds.is_read(combat, 1, 0) and CombatRounds.is_read(combat, 1, 1), "ally plans always read")
 		assert_eq(plan[0]["move"], "guard", "guards the read strike")
 		assert_eq(plan[1]["move"], "strike", "an unread strike isn't guarded against")
 		assert_eq(int(plan[1]["target"]), 2, "strikes the mugger left Open by its read strike")
@@ -829,12 +829,12 @@ func run() -> void:
 				seen["bolt"] = true
 			else:
 				assert_true(_kinds(result["beats"]).has("cower"), "else it cowers")
-				assert_eq(mugger["guard"], CombatPrototype.OPEN, "cowering leaves it Open")
+				assert_eq(mugger["guard"], CombatRounds.OPEN, "cowering leaves it Open")
 				assert_eq(mugger["panicActions"], 1, "one panic turn left")
-				assert_true(CombatPrototype.is_read(combat, 1, 1), "the fogged action reads")
-				var intent: Dictionary = CombatPrototype.enemy_intents(combat, 1)[1]
+				assert_true(CombatRounds.is_read(combat, 1, 1), "the fogged action reads")
+				var intent: Dictionary = CombatRounds.enemy_intents(combat, 1)[1]
 				assert_eq([intent["move"], intent["name"], intent.get("status", false)], ["panic", "Panic", true], "as a panic intent")
-				assert_eq(CombatPrototype.guard_preview(combat, 1)[2], CombatPrototype.OPEN, "previewed Open")
+				assert_eq(CombatRounds.guard_preview(combat, 1)[2], CombatRounds.OPEN, "previewed Open")
 				assert_eq(GameState.state["player"]["hp"], GameState.state["player"]["hpMax"], "no strike landed")
 				seen["cower"] = true
 			if seen["bolt"] and seen["cower"]:
@@ -848,8 +848,8 @@ func run() -> void:
 		var mugger: Dictionary = combat["combatants"][1]
 		mugger["raptureActions"] = 1
 		mugger["actionsLost"] = 1
-		assert_eq(CombatPrototype.status_turn(combat, 1, 0), "", "the lost action isn't the rapture turn")
-		assert_eq(CombatPrototype.status_turn(combat, 1, 1), CombatPrototype.STATUS_RAPTURE, "the next one is")
+		assert_eq(CombatRounds.status_turn(combat, 1, 0), "", "the lost action isn't the rapture turn")
+		assert_eq(CombatRounds.status_turn(combat, 1, 1), CombatRounds.STATUS_RAPTURE, "the next one is")
 		Combat.choose_move("guard")
 		assert_eq(mugger["raptureActions"], 1, "still pending after the loss")
 	)
@@ -860,12 +860,12 @@ func run() -> void:
 		var result := Combat.choose_item(0, 1)
 		var mugger: Dictionary = combat["combatants"][1]
 		assert_true(_kinds(result["beats"]).has("enraptured"), "idles")
-		assert_eq(mugger["guard"], CombatPrototype.OPEN, "idle leaves it Open")
-		assert_eq(CombatPrototype.enemy_intents(combat, 1)[1]["name"], "Rapture", "read rapture intent")
+		assert_eq(mugger["guard"], CombatRounds.OPEN, "idle leaves it Open")
+		assert_eq(CombatRounds.enemy_intents(combat, 1)[1]["name"], "Rapture", "read rapture intent")
 		result = Combat.choose_move("guard")
 		assert_eq(mugger["raptureActions"], 0, "power 2 spent over two actions")
 		assert_eq(GameState.state["player"]["hp"], GameState.state["player"]["hpMax"], "no strikes all round")
-		assert_eq(CombatPrototype.enemy_intents(combat, 1)[0]["move"], "strike", "round 2 plays its own plan")
+		assert_eq(CombatRounds.enemy_intents(combat, 1)[0]["move"], "strike", "round 2 plays its own plan")
 		assert_eq(Loadout.slot(0), null, "real unit consumed")
 	)
 
@@ -879,20 +879,20 @@ func run() -> void:
 		var swing: Dictionary = _actor_beats(result["beats"], 1, ["hit", "chip"])[0]
 		assert_eq(int(swing["dmg"]), _strike_dmg(swing, 1.5), "first phase deals +50%")
 		assert_eq(mugger["angerActions"], 3, "ticked by its own action")
-		assert_eq(CombatPrototype.status_badges(mugger), ["Anger +50%"], "badge")
-		assert_eq(CombatPrototype.stage_marks(combat)[1]["badges"], ["Anger +50%"], "on the stage")
+		assert_eq(CombatRounds.status_badges(mugger), ["Anger +50%"], "badge")
+		assert_eq(CombatRounds.stage_marks(combat)[1]["badges"], ["Anger +50%"], "on the stage")
 		result = Combat.choose_move("strike", 1)
 		var hit: Dictionary = _actor_beats(result["beats"], 0, ["hit", "chip"])[0]
 		assert_eq(int(hit["dmg"]), _strike_dmg(hit, 0.5), "and takes -50%")
 		assert_eq(mugger["angerActions"], 2)
-		assert_almost_eq(CombatPrototype.anger_factor(mugger, true), 0.5, 0.0001, "second phase deals -50%")
-		assert_almost_eq(CombatPrototype.anger_factor(mugger, false), 1.5, 0.0001, "takes +50%")
-		assert_eq(CombatPrototype.status_badges(mugger), ["Anger −50%"])
+		assert_almost_eq(CombatRounds.anger_factor(mugger, true), 0.5, 0.0001, "second phase deals -50%")
+		assert_almost_eq(CombatRounds.anger_factor(mugger, false), 1.5, 0.0001, "takes +50%")
+		assert_eq(CombatRounds.status_badges(mugger), ["Anger −50%"])
 		Combat.choose_move("guard")
 		result = Combat.choose_move("guard")
 		assert_true(_kinds(result["beats"]).has("calm"), "comes down after four actions")
 		assert_eq([mugger["angerActions"], mugger["angerPct"]], [0, 0])
-		assert_eq(CombatPrototype.anger_factor(mugger, true), 1.0)
+		assert_eq(CombatRounds.anger_factor(mugger, true), 1.0)
 	)
 
 	run_case("pandemonium_turns_strikes_on_its_own_side", func():
@@ -903,8 +903,8 @@ func run() -> void:
 		var swing: Dictionary = _actor_beats(result["beats"], 1, ["hit", "chip"])[0]
 		assert_eq(int(swing["target"]), 2, "swings at the other mugger")
 		assert_eq(int(swing["dmg"]), _strike_dmg(swing, 1.25), "with tier 1's +25%")
-		assert_true(CombatPrototype.enemy_intents(combat, 1)[1].get("targetUnread", false), "target reads ?")
-		assert_eq(CombatPrototype.status_badges(combat["combatants"][1]), ["Fury +25%"])
+		assert_true(CombatRounds.enemy_intents(combat, 1)[1].get("targetUnread", false), "target reads ?")
+		assert_eq(CombatRounds.status_badges(combat["combatants"][1]), ["Fury +25%"])
 		GameState.reset()
 		combat = _start_vs([_slow_mugger(200)], [[["strike", "strike"]]], [{ "recipe": "pandemonium", "tier": 1 }])
 		result = Combat.choose_item(0, 1)
@@ -915,7 +915,7 @@ func run() -> void:
 		GameState.reset()
 		_start_vs([_slow_mugger(200)], [[["guard", "guard"]]], [{ "recipe": "panger", "tier": 1 }, { "recipe": "panic", "tier": 1 }])
 		assert_true(Combat.choose_item(0, 1)["ok"])
-		assert_eq(Combat.round_item_block_reason(1, 1), CombatPrototype.REASON_PAN_STATUSED, "already angry")
+		assert_eq(Combat.round_item_block_reason(1, 1), CombatRounds.REASON_PAN_STATUSED, "already angry")
 		GameState.reset()
 		var combat := _start_vs([_slow_mugger(200), _slow_mugger(200)], [[["guard", "guard"]], [["guard", "guard"]]], [{ "recipe": "pansRapture", "tier": 3, "multi": true }])
 		combat["combatants"][1]["angerActions"] = 4
@@ -961,7 +961,7 @@ func run() -> void:
 			assert_eq([mugger["attackMin"], mugger["attackMax"]], [attack[0] - 2, attack[1] - 3], "weapon bonus gone")
 			assert_eq(mugger["weapon"], null)
 			assert_eq(mugger["ability"]["lockedTurns"], 2, "ability locked two rounds")
-			assert_eq(CombatPrototype.status_badges(mugger), ["Disarmed (2)"], "disarm badge")
+			assert_eq(CombatRounds.status_badges(mugger), ["Disarmed (2)"], "disarm badge")
 			Combat.choose_move("guard")
 			assert_eq(mugger["ability"]["lockedTurns"], 1, "ticks at the round boundary")
 			assert_true(mugger["disarmed"], "for the fight")
@@ -974,7 +974,7 @@ func run() -> void:
 		GameState.reset()
 		var combat := _start_vs([_slow_mugger(200)], [[["strike", "strike"]]], [{ "recipe": "panger", "tier": 1 }])
 		Combat.choose_item(0, 1)
-		var entries := CombatPrototypeScreen.strip_entries(combat)
+		var entries := CombatRoundsScreen.strip_entries(combat)
 		var enemy_cards: Array = entries.filter(func(e): return e["actor"] == 1)
 		assert_true(not enemy_cards.is_empty() and enemy_cards.all(func(e): return e["statusBadge"] == "Anger +25%"), "every enemy card carries it")
 		assert_true(entries.filter(func(e): return e["actor"] == 0).all(func(e): return e["statusBadge"] == ""), "none on the player")
@@ -1003,7 +1003,7 @@ func run() -> void:
 		GameState.state["player"]["loadout"]["slots"] = [{ "recipe": "rewind", "tier": 1 }, { "recipe": "rewind", "tier": 1 }]
 		Combat._start_round_combat(Combat.CONTEXT_EVENT_MUGGING, null, [_mugger(200)], [], "", [], null, { "seed": 3 })
 		var combat: Dictionary = GameState.state["combat"]
-		assert_eq(CombatPrototype.actions_this_round(combat, CombatPrototype.PLAYER_INDEX), 2, "two picks a round")
+		assert_eq(CombatRounds.actions_this_round(combat, CombatRounds.PLAYER_INDEX), 2, "two picks a round")
 		var round_no: int = combat["round"]
 		var before_first := _fight_state(combat)
 		var first := Combat.choose_move("guard")
@@ -1041,7 +1041,7 @@ func run() -> void:
 		assert_eq(combat["outcome"], null)
 		assert_eq(GameState.state["player"]["hp"], 1, "back before the pick")
 		assert_eq(Loadout.slot(0), null, "failsafe spent")
-		assert_true(CombatPrototype.decision_position(combat) >= 0, "the pick is open again")
+		assert_true(CombatRounds.decision_position(combat) >= 0, "the pick is open again")
 		assert_true(not Combat.choose_move("guard").has("saved"), "nothing left to save")
 		assert_eq(combat["outcome"], "loss")
 	)
@@ -1091,7 +1091,7 @@ func run() -> void:
 		_start_armed([{ "recipe": "rewind", "tier": 1 }, null], [["guard", "guard"]], 1, 200)
 		var host := CombatScreen.new()
 		host._ready()
-		var screen: CombatPrototypeScreen = host._round_screen
+		var screen: CombatRoundsScreen = host._round_screen
 		screen._ready()
 		assert_true(screen._rewind_button != null and screen._rewind_button.disabled, "nothing to undo yet")
 		var played: Array = Combat.choose_move("guard")["beats"]
@@ -1119,7 +1119,7 @@ func run() -> void:
 		var result := Combat.cast_round_complication(0, 1)
 		assert_true(result["ok"], "cast at the second pause")
 		assert_eq(result["beats"][0]["kind"], "blast", "the cast resolves first")
-		assert_eq(result["beats"][0]["actor"], CombatPrototype.PLAYER_INDEX)
+		assert_eq(result["beats"][0]["actor"], CombatRounds.PLAYER_INDEX)
 		assert_eq(combat["combatants"][1]["hp"], mugger_hp - power, "item damage at the cast's power")
 		assert_eq(combat["combatants"][0]["guard"], guard, "guard state unchanged")
 		assert_eq(combat["round"], 2, "one action: the round's second pick")
@@ -1136,7 +1136,7 @@ func run() -> void:
 		var second_hp: int = combat["combatants"][2]["hp"]
 		assert_true(Combat.cast_round_complication(0, 2)["ok"])
 		assert_eq(combat["playerPlan"][0]["dial"], 0, "the cast holds the player's first action")
-		assert_eq(CombatPrototypeScreen._position_text(combat, { "actor": 0, "index": 0 }), "Blast → %s" % CombatPrototype.display_name(combat["combatants"][2]))
+		assert_eq(CombatRoundsScreen._position_text(combat, { "actor": 0, "index": 0 }), "Blast → %s" % CombatRounds.display_name(combat["combatants"][2]))
 		assert_true(combat["combatants"][2]["hp"] < second_hp, "the selected enemy")
 		assert_eq(combat["combatants"][1]["hp"], first_hp, "not the other")
 	)
@@ -1148,11 +1148,10 @@ func run() -> void:
 		_start_vs([_slow_mugger(200)], [[["guard", "guard"]]], [])
 		var refused := Combat.cast_round_complication(0, 1)
 		assert_true(not refused["ok"])
-		assert_eq(refused["reason"], CombatPrototype.REASON_NO_CHARGE)
+		assert_eq(refused["reason"], CombatRounds.REASON_NO_CHARGE)
 		assert_eq(Combat.round_cast_block_reason(1), "Use Rewind for a rewind unit.")
-		assert_eq(Combat.cast_complication(0)["reason"], CombatPrototype.REASON_NO_CHARGE, "the Dial widget's call routes to the round engine")
 		assert_eq(GameState.state["player"]["dial"]["xp"], 0, "no XP")
-		assert_eq(CombatPrototype.decision_position(GameState.state["combat"]), 0, "the pick still open")
+		assert_eq(CombatRounds.decision_position(GameState.state["combat"]), 0, "the pick still open")
 	)
 
 	run_case("an_allys_dial_cast_shows_in_its_plan_before_the_pick_and_spends_on_resolution", func():
@@ -1166,9 +1165,9 @@ func run() -> void:
 		var combat: Dictionary = GameState.state["combat"]
 		var planned: Dictionary = combat["combatants"][1]["plan"][0]
 		assert_eq(planned["move"], "healingBurst", "heals the hurt player")
-		assert_eq(planned["target"], CombatPrototype.PLAYER_INDEX)
+		assert_eq(planned["target"], CombatRounds.PLAYER_INDEX)
 		assert_true(planned.has("dial"), "from its Dial")
-		assert_eq(CombatPrototypeScreen._position_text(combat, { "actor": 1, "index": 0 }), "Healing Burst T3 (Dial) → %s" % CombatPrototype.display_name(combat["combatants"][0]))
+		assert_eq(CombatRoundsScreen._position_text(combat, { "actor": 1, "index": 0 }), "Healing Burst T3 (Dial) → %s" % CombatRounds.display_name(combat["combatants"][0]))
 		assert_eq(float(james_dial["currentCharge"]), charge, "nothing spent at plan time")
 		Combat.choose_move("guard")
 		assert_true(GameState.state["player"]["hp"] > 5, "healed")
@@ -1258,7 +1257,7 @@ func run() -> void:
 		_start_vs([_slow_mugger(200)], [[["guard", "guard"]]], [])
 		var host := CombatScreen.new()
 		host._ready()
-		var screen: CombatPrototypeScreen = host._round_screen
+		var screen: CombatRoundsScreen = host._round_screen
 		screen._ready()
 		var live_nodes: Array = screen._dock.find_children("*", "", true, false).filter(func(n): return not n.is_queued_for_deletion())
 		var widgets: Array = live_nodes.filter(func(n): return n is DialWidget)
@@ -1266,7 +1265,7 @@ func run() -> void:
 		assert_eq(live_nodes.filter(func(n): return n.name == "ComplicationRow").size(), 1, "its readout heads the rows")
 		widgets[0].handle_trigger()
 		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 2, "cast through the round engine")
-		assert_eq(CombatPrototype.decision_position(GameState.state["combat"]), 1, "it took the first action")
+		assert_eq(CombatRounds.decision_position(GameState.state["combat"]), 1, "it took the first action")
 		host.free()
 	)
 
@@ -1281,7 +1280,7 @@ func run() -> void:
 		var combat: Dictionary = GameState.state["combat"]
 		var plan: Array = combat["combatants"][1]["plan"]
 		assert_eq(plan[0]["move"], "blast", "the first Strike becomes the kit item")
-		assert_eq(plan[0]["target"], CombatPrototype.PLAYER_INDEX, "at the Strike's target")
+		assert_eq(plan[0]["target"], CombatRounds.PLAYER_INDEX, "at the Strike's target")
 		assert_eq(plan[1]["move"], "strike", "one item per enemy per round")
 		assert_eq(combat["raiderKit"]["items"], {}, "reserved at commit")
 		assert_eq(combat["raiderKit"]["used"], {}, "not spent yet")
@@ -1317,9 +1316,9 @@ func run() -> void:
 			{ "seed": 1, "fog": true, "enemyPlans": [_strikes_at_player()], "enemyUnread": [[[true, false]]] }, { "raiderKit": kit })
 		var combat: Dictionary = GameState.state["combat"]
 		assert_eq(combat["combatants"][1]["plan"][0]["move"], "blast")
-		assert_true(CombatPrototype.enemy_intents(combat, 1)[0].get("unread", false), "the item hides behind ?")
+		assert_true(CombatRounds.enemy_intents(combat, 1)[0].get("unread", false), "the item hides behind ?")
 		Combat.choose_move("guard")
-		assert_eq(CombatPrototype.enemy_intents(combat, 1)[0]["move"], "blast", "read once it resolves")
+		assert_eq(CombatRounds.enemy_intents(combat, 1)[0]["move"], "blast", "read once it resolves")
 	)
 
 	run_case("a_kit_unit_whose_action_never_resolves_goes_back_to_the_pool", func():
@@ -1343,12 +1342,12 @@ func run() -> void:
 			"guardKit": { "blast": { "2": 1 } } })
 		Combat.start_defend_vein("gv", 2)
 		var combat: Dictionary = GameState.state["combat"]
-		var guard: int = CombatPrototype.PLAYER_INDEX + 1
+		var guard: int = CombatRounds.PLAYER_INDEX + 1
 		assert_true(combat["combatants"][guard]["name"].begins_with(GameData.GUARD_KIT["guardAlly"]["name"]), "the guard joins")
 		var blasts: Array = combat["combatants"][guard]["plan"].filter(func(a): return a["move"] == "blast")
 		assert_eq(blasts.size(), 1, "it plans the Blast")
-		assert_true(blasts[0].get("kit", "") == CombatPrototype.KIT_GUARD, "from the guard kit")
-		for _i in range(CombatPrototype.actions_this_round(combat, CombatPrototype.PLAYER_INDEX)):
+		assert_true(blasts[0].get("kit", "") == CombatRounds.KIT_GUARD, "from the guard kit")
+		for _i in range(CombatRounds.actions_this_round(combat, CombatRounds.PLAYER_INDEX)):
 			if combat["outcome"] == null and combat["round"] == 1:
 				Combat.choose_move("guard")
 		assert_eq(combat["guardKit"]["used"], { "blast": { "2": 1 } }, "spent on resolution")
@@ -1418,8 +1417,8 @@ func run() -> void:
 		GameState.reset()
 		var combat := _start_reinforced(4)
 		assert_eq([combat["enemies"].size(), combat["enemyQueue"].size()], [3, 1], "three fight, one waits")
-		assert_eq(CombatPrototype.side_indices(combat, CombatPrototype.SIDE_ENEMY).size(), 3)
-		var first: int = CombatPrototype.side_indices(combat, CombatPrototype.SIDE_ENEMY)[0]
+		assert_eq(CombatRounds.side_indices(combat, CombatRounds.SIDE_ENEMY).size(), 3)
+		var first: int = CombatRounds.side_indices(combat, CombatRounds.SIDE_ENEMY)[0]
 		combat["combatants"][first]["hp"] = 1
 		var round_no: int = combat["round"]
 		assert_true(Combat.choose_move("strike", first)["ok"])
@@ -1431,20 +1430,20 @@ func run() -> void:
 		assert_eq(combat["enemies"].size(), 4, "the entrant joins the live roster")
 		var entrant: int = combat["combatants"].size() - 1
 		var fighter: Dictionary = combat["combatants"][entrant]
-		assert_eq(fighter["side"], CombatPrototype.SIDE_ENEMY)
+		assert_eq(fighter["side"], CombatRounds.SIDE_ENEMY)
 		assert_eq(fighter["rid"], 3, "the fourth generated enemy")
 		assert_true(not combat["enemies"][3].has("fighter"), "the live entry sheds its prebuilt combatant")
-		assert_eq(fighter["plan"].size(), CombatPrototype.actions_per_round(fighter), "a plan committed for its first round")
+		assert_eq(fighter["plan"].size(), CombatRounds.actions_per_round(fighter), "a plan committed for its first round")
 		assert_true(not fighter["nextPlan"].is_empty(), "and the round after's rolled")
 		var entered: Array = combat["log"].filter(func(b): return b["kind"] == "enter")
 		assert_eq(entered.map(func(b): return [b["actor"], b["round"]]), [[entrant, round_no + 1]], "one entry beat, at the boundary")
-		assert_eq(CombatPrototypeScreen.stage_roster(combat, -1)["combat"]["enemyQueue"], [], "no reserve left on the stage")
+		assert_eq(CombatRoundsScreen.stage_roster(combat, -1)["combat"]["enemyQueue"], [], "no reserve left on the stage")
 	)
 
 	run_case("an_empty_enemy_field_ends_the_round_at_once_for_the_reserves", func():
 		GameState.reset()
 		var combat := _start_reinforced(4)
-		var foes: Array = CombatPrototype.side_indices(combat, CombatPrototype.SIDE_ENEMY)
+		var foes: Array = CombatRounds.side_indices(combat, CombatRounds.SIDE_ENEMY)
 		for i in [foes[0], foes[1]]:
 			combat["combatants"][i]["hp"] = 0
 			combat["combatants"][i]["koed"] = true
@@ -1454,16 +1453,16 @@ func run() -> void:
 		assert_eq(combat["round"], round_no + 1, "no picks against an empty field")
 		assert_eq(combat["enemyQueue"], [], "the reserve's in")
 		assert_eq(combat["outcome"], null)
-		assert_eq(CombatPrototype.decision_position(combat), 0, "paused on the new round's first pick")
+		assert_eq(CombatRounds.decision_position(combat), 0, "paused on the new round's first pick")
 	)
 
 	run_case("a_rewind_across_an_entry_puts_the_entrant_back_in_the_queue", func():
 		GameState.reset()
 		GameState.state["player"]["loadout"]["slots"][0] = { "recipe": "rewind", "tier": 1 }
 		var combat := _start_reinforced(4)
-		var reserve: Array = CombatPrototypeScreen.stage_roster(combat, -1)["combat"]["enemyQueue"]
+		var reserve: Array = CombatRoundsScreen.stage_roster(combat, -1)["combat"]["enemyQueue"]
 		assert_eq(reserve.map(func(e): return e["rid"]), [3], "the reserve shows on the stage by rid")
-		var first: int = CombatPrototype.side_indices(combat, CombatPrototype.SIDE_ENEMY)[0]
+		var first: int = CombatRounds.side_indices(combat, CombatRounds.SIDE_ENEMY)[0]
 		combat["combatants"][first]["hp"] = 1
 		var round_no: int = combat["round"]
 		Combat.choose_move("strike", first)
@@ -1486,10 +1485,10 @@ func run() -> void:
 		var result := Combat.choose_move("guard")
 		assert_true(combat["playerKoed"], "the player's down")
 		assert_true(not result.has("saved"))
-		var player_ko: int = result["beats"].find_custom(func(b): return b["kind"] == "ko" and int(b["target"]) == CombatPrototype.PLAYER_INDEX)
+		var player_ko: int = result["beats"].find_custom(func(b): return b["kind"] == "ko" and int(b["target"]) == CombatRounds.PLAYER_INDEX)
 		assert_true(player_ko >= 0, "the player's KO plays")
 		assert_true(result["beats"].slice(player_ko + 1).any(func(b): return int(b["actor"]) == 1), "the guard fights on after it")
-		assert_true(not result["beats"].slice(player_ko + 1).any(func(b): return int(b["actor"]) == CombatPrototype.PLAYER_INDEX), "the player's actions are gone")
+		assert_true(not result["beats"].slice(player_ko + 1).any(func(b): return int(b["actor"]) == CombatRounds.PLAYER_INDEX), "the player's actions are gone")
 		assert_eq(combat["outcome"], "win", "the guard finishes it")
 		assert_true(combat["combatants"][2]["koed"], "the mugger's down")
 		assert_eq(GameState.state["player"]["hp"], maxi(1, GameState.round_epsilon(GameState.state["player"]["hpMax"] * Combat.PLAYER_KO_HP_FRACTION)), "KO hp after an ally-won win")

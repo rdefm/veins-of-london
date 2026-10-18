@@ -5,15 +5,13 @@ extends "res://tests/test_base.gd"
 
 const TEST_SLOT := 94
 
-
 func _stock(recipe_key: String, tier: int) -> int:
 	return int(GameState.state["player"]["inventory"].get(recipe_key, {}).get(str(tier), 0))
 
 
-# A sale mugging on the speed-queue engine, whose slot use these cases cover.
-func _speed_queue_mugging() -> void:
-	Combat._start_speed_queue_combat(Combat.CONTEXT_MUGGING, null, Combat.generate_mugger(), [], "muggingWon")
-
+# A street mugging (no allies) to spend loadout slots in.
+func _mugging() -> void:
+	Combat.start_street_mugging()
 
 func run() -> void:
 	run_case("a_fresh_game_has_two_empty_slots_with_no_remembered_recipe", func():
@@ -161,9 +159,8 @@ func run() -> void:
 		GameState.reset()
 		Crafting.inventory_add("blast", 3, 1)
 		Loadout.equip(0, "blast", 3)
-		_speed_queue_mugging()
-		var result: Dictionary = Combat.use_slot(0)
-		assert_true(result["ok"])
+		_mugging()
+		assert_eq(Loadout.consume(0), Crafting.effect_power("blast", 3), "the unit's power")
 		assert_eq(Loadout.slot(0), null)
 		assert_eq(Crafting.inventory_qty("blast"), 0, "the spent unit is not refunded")
 		assert_eq(GameState.state["combat"]["slotsUsed"], [0])
@@ -175,8 +172,8 @@ func run() -> void:
 		Loadout.equip(0, "blast", 1)
 		Crafting.inventory_add("blast", 2, 1)
 		Crafting.inventory_add("blast", 4, 1)
-		_speed_queue_mugging()
-		Combat.use_slot(0)
+		_mugging()
+		Loadout.consume(0)
 		Combat.exit_combat()
 		assert_eq(Loadout.slot(0), { "recipe": "blast", "tier": 4 })
 		assert_eq(_stock("blast", 4), 0)
@@ -189,11 +186,9 @@ func run() -> void:
 		Loadout.equip(0, "blast", 1)
 		Loadout.equip(1, "blast", 1)
 		Crafting.inventory_add("blast", 3, 1)
-		_speed_queue_mugging()
-		GameState.state["combat"]["enemies"][0]["hp"] = 1000
-		GameState.state["combat"]["enemies"][0]["hpMax"] = 1000
-		Combat.use_slot(1)
-		Combat.use_slot(0)
+		_mugging()
+		Loadout.consume(1)
+		Loadout.consume(0)
 		Combat.exit_combat()
 		assert_eq(Loadout.slot(0), { "recipe": "blast", "tier": 3 }, "slot 1 takes the only unit")
 		assert_eq(Loadout.slot(1), null, "slot 2 stays empty")
@@ -203,12 +198,12 @@ func run() -> void:
 		GameState.reset()
 		Crafting.inventory_add("blast", 1, 1)
 		Loadout.equip(0, "blast", 1)
-		_speed_queue_mugging()
-		Combat.use_slot(0)
+		_mugging()
+		Loadout.consume(0)
 		Combat.exit_combat()
 		assert_eq(Loadout.slot(0), null)
 		Crafting.inventory_add("blast", 2, 1)
-		_speed_queue_mugging()
+		_mugging()
 		Combat.exit_combat()
 		assert_eq(Loadout.slot(0), null, "a fight that used no slot never auto-fills")
 		assert_eq(_stock("blast", 2), 1)
@@ -223,31 +218,6 @@ func run() -> void:
 			GameState.state["combat"]["outcome"] = outcome
 			Combat.exit_combat()
 			assert_eq(Loadout.slot(0), { "recipe": "blast", "tier": 2 }, "kept after %s" % outcome)
-	)
-
-	run_case("a_rewind_slot_is_spent_not_refunded", func():
-		GameState.reset()
-		Crafting.inventory_add("rewind", 1, 1)
-		Loadout.equip(0, "rewind", 1)
-		_speed_queue_mugging()
-		Combat.push_combat_snapshot()
-		var result: Dictionary = Combat.combat_rewind(0)
-		assert_true(result["ok"])
-		assert_eq(Loadout.slot(0), null)
-		assert_eq(Crafting.inventory_qty("rewind"), 0)
-	)
-
-	run_case("slot_block_reason_covers_empty_reactive_and_rewind", func():
-		GameState.reset()
-		_speed_queue_mugging()
-		assert_eq(Combat.slot_block_reason(0), Combat.REASON_SLOT_EMPTY)
-		GameState.state["player"]["loadout"]["slots"][0] = { "recipe": "failsafe", "tier": 1 }
-		GameState.state["player"]["loadout"]["slots"][1] = { "recipe": "rewind", "tier": 1 }
-		assert_eq(Combat.slot_block_reason(0), Combat.REASON_SLOT_REACTIVE)
-		GameState.state["combat"]["snapshots"] = []
-		assert_eq(Combat.slot_block_reason(1), Combat.REASON_NOTHING_TO_UNDO)
-		Combat.push_combat_snapshot()
-		assert_eq(Combat.slot_block_reason(1), "")
 	)
 
 	run_case("combat_recruits_have_two_slots_and_noncombat_contacts_none", func():

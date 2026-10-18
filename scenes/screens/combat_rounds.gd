@@ -1,33 +1,25 @@
-class_name CombatPrototypeScreen
+class_name CombatRoundsScreen
 extends Control
 
-# Debug-app-only sandbox screen for systems/combat_prototype.gd. Setup card
-# (player, enemy and ally Combat Skill levels, 1-3 enemies by archetype, 0-2
-# allies, a 2-slot sandbox item loadout by recipe and tier for the player
-# and each ally, a backdrop context and location), then the fight in the
-# live combat layout: a CombatStage with each combatant's sprite (tap one
-# to target it), a CombatCommandDock in generic-rows mode (each move, then
-# each loadout item; a row is disabled with the system's block reason,
-# which its "?" opens in the combat_block_reason modal), a TurnOrderStrip over the stage showing the
-# next STRIP_SIZE actions as a carousel (strip_entries(), carousel_entries()), and a CombatDirector playing each
-# pick's beats (beat_cues()) on the stage and strip with the dock locked,
-# each beat's line to the top-bar ticker, a guard marker on every sprite,
-# at live combat's pacing toggle; Rewind plays the undone beats back in
-# reverse. A Readouts window
-# holds the text views: combatants with guard preview and statuses, the
-# round's timeline with enemy intents, and the beat log. The screen adapts
-# prototype state into the components' shapes (stage_roster()) and only
-# ever calls CombatPrototype (and Modal, for the "?") to change it.
-# With `live` set before _ready() it is instead the live round-fight screen
-# (R§3.7b), hosted by CombatScreen: no setup or Exit; it reads
-# state.combat, picks through Combat.choose_move(), casts from the player's
-# Dial through Combat.cast_round_complication(), rewinds through
-# Combat.round_rewind() (its refusal shown as a pick's is), shows the
-# player's real loadout slots with Combat's block reasons, and its outcome
-# card hands off to Combat.exit_combat().
+# The round-fight screen (R§3.7b) over state.combat, hosted by CombatScreen:
+# a CombatStage with each combatant's sprite (tap one to target it), a
+# CombatCommandDock in generic-rows mode (each move, then each of the
+# player's real loadout slots; a row is disabled with Combat's block
+# reason, which its "?" opens in the combat_block_reason modal), a
+# TurnOrderStrip over the stage showing the next STRIP_SIZE actions as a
+# carousel (strip_entries(), carousel_entries()), and a CombatDirector
+# playing each pick's beats (beat_cues()) on the stage and strip with the
+# dock locked, each beat's line to the top-bar ticker, a guard marker on
+# every sprite, at the pacing toggle; Rewind plays the undone beats back in
+# reverse. A Readouts window holds the text views: combatants with guard
+# preview and statuses, the round's timeline with enemy intents, and the
+# beat log. Picks go through Combat.choose_move() / choose_item(), Dial
+# casts through Combat.cast_round_complication(), Rewind through
+# Combat.round_rewind() (its refusal shown as a pick's is), and the outcome
+# button hands off to Combat.exit_combat(). The screen adapts the fight
+# into the components' shapes (stage_roster()) and never changes state
+# itself.
 
-# Setup's enemy count cap (spec §Out of Scope: no more than 3 per side).
-const MAX_ENEMIES := 3
 # An unread enemy intent, and the guard state it hides (spec §Fog of war).
 const UNREAD_TEXT := "?"
 const _HEADING_ROW_HEIGHT := 40.0
@@ -49,22 +41,6 @@ const _ITEM_EFFECTS := {
 const _CHIP_SCALE := 0.7
 const _CRIT_SCALE := 1.5
 
-# The live round-fight screen over state.combat, not the sandbox.
-var live := false
-
-# View state only: the setup picks, kept across rebuilds.
-var _player_level: int = 1
-var _enemy_level: int = 1
-var _enemy_archetypes: Array = [CombatPrototype.DEFAULT_ARCHETYPE]
-var _ally_count: int = 0
-var _ally_level: int = 1
-# One { item, tier } per loadout slot; item "" leaves the slot empty.
-var _loadout: Array = _empty_loadout()
-# One such loadout per possible ally, by ally order.
-var _ally_loadouts: Array = range(CombatPrototype.MAX_ALLIES).map(func(_i): return _empty_loadout())
-# The backdrop's fight context, and its location ("" for CombatSetupModal's Auto).
-var _backdrop_context: String = CombatPrototype.DEFAULT_BACKDROP_CONTEXT
-var _backdrop_location: String = ""
 # View state only: why the last palette pick was refused, until the next pick.
 var _refusal: String = ""
 # View state only: the combatant index the rows aim at where it's a valid
@@ -79,13 +55,10 @@ var _frozen_roster: Dictionary = {}
 # the pick ("entries", patched as beats play), that round ("round"), and the
 # cards after it ("after") for beats past a round's end. {} otherwise.
 var _strip_playback: Dictionary = {}
-# The stage marks (CombatPrototype.stage_marks()) the overlay holds while a
+# The stage marks (CombatRounds.stage_marks()) the overlay holds while a
 # playback runs, as the fight stood before it; [] otherwise.
 var _held_marks: Array = []
 
-# Setup: a scrolling body. Fight: the stage/dock layout below.
-var _content: VBoxContainer
-var _setup_scroll: Control
 var _fight_body: Control
 var _round_label: Label
 var _refusal_label: Label
@@ -103,39 +76,24 @@ var _director: CombatDirector
 
 func _ready() -> void:
 	UI.anchor_full_rect(self)
-	_content = UI.screen_body(self)
-	_setup_scroll = _content.get_parent().get_parent()
 	_build_fight_layout()
 	EventBus.state_changed.connect(_refresh)
 	_refresh()
 
 
 func _cp() -> Dictionary:
-	return GameState.state["combat" if live else "combatPrototype"]
+	return GameState.state["combat"]
 
 
 func _refresh() -> void:
 	var cp: Dictionary = _cp()
-	_setup_scroll.visible = not cp["active"] and not live
 	_fight_body.visible = cp["active"]
-	if live:
-		# Torn down by Combat.exit_combat(): the next screen replaces this one.
-		if cp["active"]:
-			_sync_fight(cp)
-		return
-	for child in _content.get_children():
-		child.queue_free()
-	if not cp["active"]:
-		_target = -1
-		_readouts_open = false
-		_content.add_child(MapCardStyle.text_button("‹ Exit", func(): CombatPrototype.exit()))
-		_content.add_child(UI.heading("Combat Prototype"))
-		_content.add_child(_build_setup_card())
-		return
-	_sync_fight(cp)
+	# Torn down by Combat.exit_combat(): the next screen replaces this one.
+	if cp["active"]:
+		_sync_fight(cp)
 
 
-# Heading row (Exit, Rewind, Readouts, round), the upper region (stage, the
+# Heading row (Rewind, Readouts, pacing, round), the upper region (stage, the
 # outcome footer and the Readouts window over it) and the command dock.
 func _build_fight_layout() -> void:
 	_fight_body = Control.new()
@@ -152,8 +110,6 @@ func _build_fight_layout() -> void:
 	heading_row.offset_left = 16.0
 	heading_row.offset_right = -16.0
 	heading_row.offset_bottom = _HEADING_ROW_HEIGHT
-	if not live:
-		heading_row.add_child(MapCardStyle.chip_button("‹ Exit", func(): CombatPrototype.exit()))
 	_rewind_button = MapCardStyle.chip_button("Rewind", _on_rewind_pressed)
 	heading_row.add_child(_rewind_button)
 	heading_row.add_child(MapCardStyle.chip_button("Readouts", _toggle_readouts))
@@ -244,11 +200,9 @@ func _busy() -> bool:
 func _sync_fight(cp: Dictionary) -> void:
 	if not _is_target_valid(cp, _target):
 		_target = _default_target(cp)
-	_round_label.text = "Round %d" % cp["round"]
-	if live:
-		_round_label.text = "%s · %s" % [CombatScreen.context_label(cp["context"]), _round_label.text]
+	_round_label.text = "%s · Round %d" % [CombatScreen.context_label(cp["context"]), cp["round"]]
 	_refusal_label.text = _refusal
-	_rewind_button.disabled = cp["snapshots"].is_empty() or (live and cp["outcome"] != null) or _busy()
+	_rewind_button.disabled = cp["snapshots"].is_empty() or cp["outcome"] != null or _busy()
 	_pacing_button.text = CombatDirector.pacing_label(_director.pacing_mode)
 
 	# Mid-playback a re-sync would cut the slots' one-shot poses short, and
@@ -256,7 +210,7 @@ func _sync_fight(cp: Dictionary) -> void:
 	if not _director.is_playing():
 		var roster := stage_roster(cp, _target)
 		_stage.sync(roster["combat"], roster["player"], _frozen_roster)
-		_apply_marks(cp, _held_marks if not _held_marks.is_empty() else CombatPrototype.stage_marks(cp))
+		_apply_marks(cp, _held_marks if not _held_marks.is_empty() else CombatRounds.stage_marks(cp))
 	_strip.visible = cp["outcome"] == null or _busy()
 	if _strip_playback.is_empty():
 		var all_entries := strip_entries(cp)
@@ -267,7 +221,7 @@ func _sync_fight(cp: Dictionary) -> void:
 	for child in _footer_holder.get_children():
 		child.queue_free()
 	var rows := _dock_rows(cp)
-	var dial: Variant = GameState.state["player"]["dial"] if live else null
+	var dial: Variant = GameState.state["player"]["dial"]
 	# The Dial's Complication readout heads the rows.
 	var dock_height := CombatCommandDock.surface_height_for_rows(rows.size() + (1 if dial != null else 0))
 	_dock.offset_top = -dock_height
@@ -276,7 +230,7 @@ func _sync_fight(cp: Dictionary) -> void:
 		_footer_holder.add_child(_build_outcome_card(cp["outcome"]))
 		_dock.hide_deck()
 	else:
-		_dock.configure_rows(rows, {}, dial, Callable(), _busy(), _pick_cast)
+		_dock.configure_rows(rows, {}, dial, _busy(), _pick_cast)
 
 	_readouts_panel.visible = _readouts_open
 	for child in _readouts_content.get_children():
@@ -299,17 +253,17 @@ func _sync_fight(cp: Dictionary) -> void:
 # cards as a pick's playback starts.
 static func strip_entries(cp: Dictionary, pick: Dictionary = {}) -> Array:
 	var roster := stage_roster(cp, -1)
-	var pause := CombatPrototype.decision_position(cp)
+	var pause := CombatRounds.decision_position(cp)
 	var entries: Array = []
-	for position in CombatPrototype.timeline(cp):
+	for position in CombatRounds.timeline(cp):
 		var entry := _strip_entry(cp, roster, position, false)
 		entry["actionText"] = _position_text(cp, position, pick)
 		entry["actionUnread"] = _position_unread(cp, position)
 		entry["guardBadge"] = _guard_badge(cp, position)
 		entry["statusBadge"] = _status_badge(cp, position["actor"])
-		entry["focused"] = pick.is_empty() and position["actor"] == CombatPrototype.PLAYER_INDEX and position["index"] == pause
+		entry["focused"] = pick.is_empty() and position["actor"] == CombatRounds.PLAYER_INDEX and position["index"] == pause
 		entries.append(entry)
-	for position in CombatPrototype.next_round_timeline(cp):
+	for position in CombatRounds.next_round_timeline(cp):
 		var entry := _strip_entry(cp, roster, position, true)
 		entry.merge(_next_round_card(cp, position))
 		entry["statusBadge"] = _status_badge(cp, position["actor"])
@@ -324,17 +278,17 @@ static func strip_entries(cp: Dictionary, pick: Dictionary = {}) -> Array:
 static func _next_round_card(cp: Dictionary, position: Dictionary) -> Dictionary:
 	var actor: int = position["actor"]
 	var index: int = position["index"]
-	if cp["combatants"][actor]["side"] != CombatPrototype.SIDE_ENEMY:
+	if cp["combatants"][actor]["side"] != CombatRounds.SIDE_ENEMY:
 		return { "actionText": "—", "actionUnread": false, "guardBadge": "" }
-	var status := CombatPrototype.status_turn(cp, actor, index, true)
+	var status := CombatRounds.status_turn(cp, actor, index, true)
 	if status != "":
-		var turn: Dictionary = GameData.COMBAT_PROTOTYPE["statusTurns"][status]
+		var turn: Dictionary = GameData.COMBAT_ROUNDS["statusTurns"][status]
 		return { "actionText": turn["name"], "actionUnread": false, "guardBadge": _guard_text(turn["actorGuard"]) }
-	if not CombatPrototype.has_sight(cp):
+	if not CombatRounds.has_sight(cp):
 		return { "actionText": UNREAD_TEXT, "actionUnread": true, "guardBadge": UNREAD_TEXT }
 	return {
-		"actionText": _intent_text(cp, CombatPrototype.enemy_intents(cp, actor, true)[index]), "actionUnread": false,
-		"guardBadge": _guard_text(CombatPrototype.guard_preview(cp, actor, true)[index + 1]),
+		"actionText": _intent_text(cp, CombatRounds.enemy_intents(cp, actor, true)[index]), "actionUnread": false,
+		"guardBadge": _guard_text(CombatRounds.guard_preview(cp, actor, true)[index + 1]),
 	}
 
 
@@ -348,7 +302,7 @@ static func carousel_entries(entries: Array, front: int) -> Array:
 # How many of `entries`' this-round positions have resolved -- always a
 # leading run, timeline order being resolution order.
 static func resolved_count(cp: Dictionary, entries: Array) -> int:
-	return entries.filter(func(e): return not e["nextRound"] and CombatPrototype.is_resolved(cp, e["actor"], e["index"])).size()
+	return entries.filter(func(e): return not e["nextRound"] and CombatRounds.is_resolved(cp, e["actor"], e["index"])).size()
 
 
 static func _strip_entry(cp: Dictionary, roster: Dictionary, position: Dictionary, next_round: bool) -> Dictionary:
@@ -357,8 +311,8 @@ static func _strip_entry(cp: Dictionary, roster: Dictionary, position: Dictionar
 	return {
 		"key": _stage_target(roster, actor), "occurrenceId": "%d:%d:%d" % [int(cp["round"]) + (1 if next_round else 0), actor, position["index"]],
 		"actor": actor, "index": position["index"], "nextRound": next_round,
-		"name": CombatPrototype.display_name(c), "level": null, "hp": c["hp"], "hpMax": c["hpMax"],
-		"factionName": "", "factionColour": TurnOrderStrip.NEUTRAL_COLOUR, "isEnemy": c["side"] == CombatPrototype.SIDE_ENEMY,
+		"name": CombatRounds.display_name(c), "level": null, "hp": c["hp"], "hpMax": c["hpMax"],
+		"factionName": "", "factionColour": TurnOrderStrip.NEUTRAL_COLOUR, "isEnemy": c["side"] == CombatRounds.SIDE_ENEMY,
 	}
 
 
@@ -371,7 +325,7 @@ static func _position_beats(cp: Dictionary, position: Dictionary) -> Array:
 # (resolved: from its beats; ahead: from the actor's pending losses), else "".
 static func _position_loss(cp: Dictionary, position: Dictionary) -> String:
 	var actor: int = position["actor"]
-	if CombatPrototype.is_resolved(cp, actor, position["index"]):
+	if CombatRounds.is_resolved(cp, actor, position["index"]):
 		for beat in _position_beats(cp, position):
 			if beat["kind"] in ["lost", "frozen"]:
 				return beat["kind"]
@@ -381,7 +335,7 @@ static func _position_loss(cp: Dictionary, position: Dictionary) -> String:
 	var combatant: Dictionary = cp["combatants"][actor]
 	var ahead := 0
 	for other in range(position["index"]):
-		if not CombatPrototype.is_resolved(cp, actor, other):
+		if not CombatRounds.is_resolved(cp, actor, other):
 			ahead += 1
 	if ahead < int(combatant["frozenActions"]):
 		return "frozen"
@@ -396,31 +350,31 @@ static func _position_loss(cp: Dictionary, position: Dictionary) -> String:
 static func _guard_badge(cp: Dictionary, position: Dictionary) -> String:
 	var actor: int = position["actor"]
 	var combatant: Dictionary = cp["combatants"][actor]
-	if CombatPrototype.is_resolved(cp, actor, position["index"]):
+	if CombatRounds.is_resolved(cp, actor, position["index"]):
 		for beat in _position_beats(cp, position):
 			if beat["actor"] == actor and beat.has("actorGuard"):
 				return str(beat["actorGuard"]).capitalize()
-	elif CombatPrototype.is_exposed(cp, combatant):
+	elif CombatRounds.is_exposed(cp, combatant):
 		return "Exposed"
 	elif _position_loss(cp, position) == "frozen":
 		return "Open"
-	return _guard_text(CombatPrototype.guard_preview(cp, actor)[position["index"] + 1])
+	return _guard_text(CombatRounds.guard_preview(cp, actor)[position["index"] + 1])
 
 
 # The actor's running statuses on its strip cards (status_badges(), joined).
 static func _status_badge(cp: Dictionary, actor: int) -> String:
-	return ", ".join(CombatPrototype.status_badges(cp["combatants"][actor]))
+	return ", ".join(CombatRounds.status_badges(cp["combatants"][actor]))
 
 
 # A guard state as a badge reads: "?" for one an unread intent hides.
 static func _guard_text(state: String) -> String:
-	return UNREAD_TEXT if state == CombatPrototype.UNKNOWN else state.capitalize()
+	return UNREAD_TEXT if state == CombatRounds.UNKNOWN else state.capitalize()
 
 
 # Whether a timeline position shows an enemy intent the player can't read
 # (a lost one reads as lost instead).
 static func _position_unread(cp: Dictionary, position: Dictionary) -> bool:
-	return not CombatPrototype.is_read(cp, position["actor"], position["index"]) and _position_loss(cp, position) == ""
+	return not CombatRounds.is_read(cp, position["actor"], position["index"]) and _position_loss(cp, position) == ""
 
 
 # What a timeline position holds: an enemy's intent (target and damage
@@ -435,21 +389,21 @@ static func _position_text(cp: Dictionary, position: Dictionary, pick: Dictionar
 	var combatants: Array = cp["combatants"]
 	var actor: int = position["actor"]
 	var index: int = position["index"]
-	if actor == CombatPrototype.PLAYER_INDEX:
-		var pause := CombatPrototype.decision_position(cp)
+	if actor == CombatRounds.PLAYER_INDEX:
+		var pause := CombatRounds.decision_position(cp)
 		var picked = cp["playerPlan"][index] if index < cp["playerPlan"].size() else null
-		if not pick.is_empty() and pause >= 0 and index >= pause and index < pause + CombatPrototype.move_cost(pick["move"]):
+		if not pick.is_empty() and pause >= 0 and index >= pause and index < pause + CombatRounds.move_cost(pick["move"]):
 			picked = { "move": pick["move"], "target": _pick_target(cp, pick), "part": index - pause }
 		elif index == pause:
 			return "Your pick"
 		if picked == null:
 			return "—"
 		if int(picked.get("part", 0)) > 0:
-			return "(%s, cont.)" % CombatPrototype.move(picked["move"])["name"]
-		return _aimed(cp, CombatPrototype.move(picked["move"])["name"], picked["move"], int(picked["target"]))
-	if combatants[actor]["side"] == CombatPrototype.SIDE_ALLY:
+			return "(%s, cont.)" % CombatRounds.move(picked["move"])["name"]
+		return _aimed(cp, CombatRounds.move(picked["move"])["name"], picked["move"], int(picked["target"]))
+	if combatants[actor]["side"] == CombatRounds.SIDE_ALLY:
 		var planned: Dictionary = combatants[actor]["plan"][index]
-		var label: String = CombatPrototype.move(planned["move"])["name"]
+		var label: String = CombatRounds.move(planned["move"])["name"]
 		if planned.has("slot"):
 			label = "%s T%d" % [label, combatants[actor]["loadout"][planned["slot"]]["tier"]]
 		elif planned.has("kit"):
@@ -457,7 +411,7 @@ static func _position_text(cp: Dictionary, position: Dictionary, pick: Dictionar
 		elif planned.has("dial"):
 			label = "%s T%d (Dial)" % [label, combatants[actor]["dial"]["casts"][planned["dial"]]["tier"]]
 		return _aimed(cp, label, planned["move"], int(planned["target"]))
-	return _intent_text(cp, CombatPrototype.enemy_intents(cp, actor)[index])
+	return _intent_text(cp, CombatRounds.enemy_intents(cp, actor)[index])
 
 
 # A pick's target as it will resolve: -1 on an aimed move takes the first
@@ -465,7 +419,7 @@ static func _position_text(cp: Dictionary, position: Dictionary, pick: Dictionar
 static func _pick_target(cp: Dictionary, pick: Dictionary) -> int:
 	var target: int = int(pick["target"])
 	if target < 0:
-		var options := CombatPrototype.target_options(cp, CombatPrototype.PLAYER_INDEX, pick["move"])
+		var options := CombatRounds.target_options(cp, CombatRounds.PLAYER_INDEX, pick["move"])
 		return options[0] if not options.is_empty() else -1
 	return target
 
@@ -505,13 +459,13 @@ func _on_rewind_pressed() -> void:
 func begin_rewind_playback() -> Array:
 	var cp: Dictionary = _cp()
 	var log_before: Array = cp["log"]
-	_held_marks = CombatPrototype.stage_marks(cp)
+	_held_marks = CombatRounds.stage_marks(cp)
 	var entries := strip_entries(cp)
 	for entry in entries:
 		entry["focused"] = false
 	var shown := carousel_entries(entries, resolved_count(cp, entries))
 	_strip_playback = { "entries": entries, "round": cp["round"], "after": [], "front": shown[0]["occurrenceId"] if not shown.is_empty() else "" }
-	var result: Dictionary = Combat.round_rewind() if live else CombatPrototype.rewind()
+	var result: Dictionary = Combat.round_rewind()
 	if not result["ok"]:
 		_refusal = str(result["reason"])
 		return []
@@ -519,7 +473,7 @@ func begin_rewind_playback() -> Array:
 	_strip_playback["after"] = strip_entries(cp)
 	for entry in _strip_playback["after"]:
 		entry["focused"] = false
-	return rewind_beats(log_before.slice(cp["log"].size()), CombatPrototype.stage_marks(cp))
+	return rewind_beats(log_before.slice(cp["log"].size()), CombatRounds.stage_marks(cp))
 
 
 # `undone` (the undone pick's beats, oldest first) newest first, each a copy
@@ -534,7 +488,7 @@ static func rewind_beats(undone: Array, restored_marks: Array) -> Array:
 	return beats
 
 
-# The prototype fight in the shapes CombatStage.sync() reads: "combat" (a
+# The fight in the shapes CombatStage.sync() reads: "combat" (a
 # fight's backdrop context and locationKey, enemies and allies each with a
 # sprite template, the reinforcement queues, the selection from `target`)
 # and "player" (the save's player model, the Shield pool, the KO), plus
@@ -547,10 +501,10 @@ static func stage_roster(cp: Dictionary, target: int) -> Dictionary:
 	var ally_index: Array = []
 	for i in range(combatants.size()):
 		var c: Dictionary = combatants[i]
-		if c["side"] == CombatPrototype.SIDE_ENEMY:
+		if c["side"] == CombatRounds.SIDE_ENEMY:
 			enemy_index.append(i)
 			enemies.append(_stage_enemy(c, i))
-		elif c["side"] == CombatPrototype.SIDE_ALLY:
+		elif c["side"] == CombatRounds.SIDE_ALLY:
 			ally_index.append(i)
 			allies.append(_stage_ally(c))
 	var roster := { "enemyIndex": enemy_index, "allyIndex": ally_index }
@@ -559,12 +513,12 @@ static func stage_roster(cp: Dictionary, target: int) -> Dictionary:
 		"enemies": enemies, "allies": allies,
 		"enemyQueue": cp.get("enemyQueue", []).map(func(e): return _stage_enemy(e["fighter"], -1)),
 		"allyQueue": cp.get("allyQueue", []).map(func(a): return _stage_ally(a["fighter"])),
-		"selection": _stage_target(roster, target), "frozenTurns": 0,
+		"selection": _stage_target(roster, target),
 	}
 	roster["player"] = {
 		"model": GameState.state["player"].get("model", ""),
-		"shieldPool": combatants[CombatPrototype.PLAYER_INDEX]["shield"],
-		"koed": combatants[CombatPrototype.PLAYER_INDEX]["koed"],
+		"shieldPool": combatants[CombatRounds.PLAYER_INDEX]["shield"],
+		"koed": combatants[CombatRounds.PLAYER_INDEX]["koed"],
 	}
 	return roster
 
@@ -572,12 +526,12 @@ static func stage_roster(cp: Dictionary, target: int) -> Dictionary:
 # Enemy combatant `c` (at combatant index `index`) as the stage reads it,
 # keyed by its fight-scoped rid where it has one.
 static func _stage_enemy(c: Dictionary, index: int) -> Dictionary:
-	return { "name": CombatPrototype.display_name(c), "koed": c["koed"], "rid": c.get("rid", index), "variant": c["template"] }
+	return { "name": CombatRounds.display_name(c), "koed": c["koed"], "rid": c.get("rid", index), "variant": c["template"] }
 
 
 # A guard or muscle has no contact sprite; the stage keys it by name.
 static func _stage_ally(c: Dictionary) -> Dictionary:
-	var ally := { "name": CombatPrototype.display_name(c), "koed": c["koed"] }
+	var ally := { "name": CombatRounds.display_name(c), "koed": c["koed"] }
 	if str(c.get("template", "")) != "":
 		ally["contactId"] = c["template"]
 	return ally
@@ -585,7 +539,7 @@ static func _stage_ally(c: Dictionary) -> Dictionary:
 
 # Combatant index -> the stage's { type, index } ({ type: "" } for none).
 static func _stage_target(roster: Dictionary, index: int) -> Dictionary:
-	if index == CombatPrototype.PLAYER_INDEX:
+	if index == CombatRounds.PLAYER_INDEX:
 		return { "type": "player", "index": -1 }
 	if roster["allyIndex"].has(index):
 		return { "type": "ally", "index": roster["allyIndex"].find(index) }
@@ -598,7 +552,7 @@ static func _stage_target(roster: Dictionary, index: int) -> Dictionary:
 static func _combatant_index(roster: Dictionary, target: Dictionary) -> int:
 	match target.get("type", ""):
 		"player":
-			return CombatPrototype.PLAYER_INDEX
+			return CombatRounds.PLAYER_INDEX
 		"ally":
 			var i: int = target["index"]
 			return roster["allyIndex"][i] if i >= 0 and i < roster["allyIndex"].size() else -1
@@ -614,15 +568,15 @@ static func _is_target_valid(cp: Dictionary, index: int) -> bool:
 
 # The first living enemy, else the player.
 static func _default_target(cp: Dictionary) -> int:
-	var options := CombatPrototype.target_options(cp, CombatPrototype.PLAYER_INDEX, CombatPrototype.MOVE_STRIKE)
-	return options[0] if not options.is_empty() else CombatPrototype.PLAYER_INDEX
+	var options := CombatRounds.target_options(cp, CombatRounds.PLAYER_INDEX, CombatRounds.MOVE_STRIKE)
+	return options[0] if not options.is_empty() else CombatRounds.PLAYER_INDEX
 
 
 # The target a row for `move_id` aims at: the tapped one when it's one of
 # the move's options, else -1 (the system's default).
 func _row_target(cp: Dictionary, move_id: String) -> int:
-	var aims: bool = CombatPrototype.move(move_id)["target"] in [CombatPrototype.TARGET_ENEMY, CombatPrototype.TARGET_FRIEND]
-	if aims and CombatPrototype.target_options(cp, CombatPrototype.PLAYER_INDEX, move_id).has(_target):
+	var aims: bool = CombatRounds.move(move_id)["target"] in [CombatRounds.TARGET_ENEMY, CombatRounds.TARGET_FRIEND]
+	if aims and CombatRounds.target_options(cp, CombatRounds.PLAYER_INDEX, move_id).has(_target):
 		return _target
 	return -1
 
@@ -631,11 +585,11 @@ func _row_target(cp: Dictionary, move_id: String) -> int:
 # disabled with the system's block reason.
 func _dock_rows(cp: Dictionary) -> Array:
 	var rows: Array = []
-	var icons := { CombatPrototype.MOVE_STRIKE: "attack", "legIt": "run" }
-	for move_id in GameData.COMBAT_PROTOTYPE["moves"].keys():
+	var icons := { CombatRounds.MOVE_STRIKE: "attack", "legIt": "run" }
+	for move_id in GameData.COMBAT_ROUNDS["moves"].keys():
 		var target := _row_target(cp, move_id)
-		var reason := CombatPrototype.move_block_reason(cp, move_id, target)
-		var move_name: String = CombatPrototype.move(move_id)["name"]
+		var reason := CombatRounds.move_block_reason(cp, move_id, target)
+		var move_name: String = CombatRounds.move(move_id)["name"]
 		rows.append({
 			"name": "MoveRow_%s" % move_id, "iconKind": icons.get(move_id, ""),
 			"label": move_name,
@@ -643,28 +597,13 @@ func _dock_rows(cp: Dictionary) -> Array:
 			"callback": _pick.bind(move_id, target),
 			"onExplain": _explain_block.bind(move_name, reason),
 		})
-	if live:
-		rows.append_array(_live_loadout_rows(cp))
-		return rows
-	var loadout: Array = cp["combatants"][CombatPrototype.PLAYER_INDEX]["loadout"]
-	for slot in range(loadout.size()):
-		var item_id: String = loadout[slot]["item"]
-		var target := _row_target(cp, item_id)
-		var reason := CombatPrototype.item_block_reason(cp, slot, target)
-		var item_name: String = CombatPrototype.move(item_id)["name"]
-		rows.append({
-			"name": "ItemRow_%d" % slot, "iconKind": "recipe:" + item_id,
-			"label": "%s — tier %d" % [item_name, loadout[slot]["tier"]],
-			"disabled": reason != "", "disabledReason": reason,
-			"callback": _pick_item.bind(slot, target),
-			"onExplain": _explain_block.bind(item_name, reason),
-		})
+	rows.append_array(_loadout_rows(cp))
 	return rows
 
 
 # The player's real loadout slots (Loadout), each disabled with
 # Combat.round_item_block_reason().
-func _live_loadout_rows(cp: Dictionary) -> Array:
+func _loadout_rows(cp: Dictionary) -> Array:
 	var rows: Array = []
 	for slot in range(Loadout.slot_count()):
 		var unit: Variant = Loadout.slot(slot)
@@ -674,13 +613,13 @@ func _live_loadout_rows(cp: Dictionary) -> Array:
 		if unit != null:
 			label = "%s — tier %d" % [GameData.RECIPES[unit["recipe"]]["name"], int(unit["tier"])]
 			icon = "recipe:" + str(unit["recipe"])
-			if CombatPrototype.is_item(unit["recipe"]):
+			if CombatRounds.is_item(unit["recipe"]):
 				target = _row_target(cp, unit["recipe"])
 		var reason := Combat.round_item_block_reason(slot, target)
 		rows.append({
 			"name": "ItemRow_%d" % slot, "iconKind": icon, "label": label,
 			"disabled": reason != "", "disabledReason": reason,
-			"callback": _pick_live_item.bind(slot, target),
+			"callback": _pick_item.bind(slot, target),
 			"onExplain": _explain_block.bind(label, reason),
 		})
 	return rows
@@ -712,145 +651,16 @@ func _on_stage_subject_tapped(target: Dictionary) -> void:
 		_refresh()
 
 
-func _build_setup_card() -> Control:
-	var c := MapCardStyle.card()
-	c["content"].add_child(UI.heading("Setup", 14))
-	c["content"].add_child(_level_select("Your Combat Skill: %d", _player_level, func(level: int): _player_level = level))
-	c["content"].add_child(_level_select("Enemy level: %d", _enemy_level, func(level: int): _enemy_level = level))
-
-	var counts: Array = []
-	for n in range(1, MAX_ENEMIES + 1):
-		counts.append("%d enem%s" % [n, "y" if n == 1 else "ies"])
-	var count_select := UI.option_button(counts)
-	count_select.selected = _enemy_archetypes.size() - 1
-	count_select.item_selected.connect(_set_enemy_count)
-	c["content"].add_child(count_select)
-
-	var archetype_ids: Array = GameData.COMBAT_PROTOTYPE["archetypes"].keys()
-	var archetype_names: Array = archetype_ids.map(func(id): return str(GameData.COMBAT_PROTOTYPE["archetypes"][id]["name"]).capitalize())
-	for i in range(_enemy_archetypes.size()):
-		var select := UI.option_button(archetype_names)
-		select.selected = maxi(0, archetype_ids.find(_enemy_archetypes[i]))
-		select.item_selected.connect(func(index: int): _enemy_archetypes[i] = archetype_ids[index])
-		c["content"].add_child(select)
-
-	var ally_counts: Array = []
-	for n in range(CombatPrototype.MAX_ALLIES + 1):
-		ally_counts.append("%d all%s" % [n, "y" if n == 1 else "ies"])
-	var ally_select := UI.option_button(ally_counts)
-	ally_select.selected = _ally_count
-	ally_select.item_selected.connect(func(index: int):
-		_ally_count = index
-		_refresh()
-	)
-	c["content"].add_child(ally_select)
-	c["content"].add_child(_level_select("Ally level: %d", _ally_level, func(level: int): _ally_level = level))
-
-	c["content"].add_child(UI.muted_label("Your loadout"))
-	for slot in range(_loadout.size()):
-		c["content"].add_child(_build_loadout_slot(_loadout, slot))
-	for i in range(_ally_count):
-		c["content"].add_child(UI.muted_label("Ally %s loadout" % char(65 + i) if _ally_count > 1 else "Ally loadout"))
-		for slot in range(_ally_loadouts[i].size()):
-			c["content"].add_child(_build_loadout_slot(_ally_loadouts[i], slot))
-
-	c["content"].add_child(UI.muted_label("Backdrop"))
-	var contexts: Array = Array(Combat.DEBUG_SETUP_CONTEXTS)
-	var context_select := UI.option_button(contexts)
-	context_select.name = "BackdropContext"
-	context_select.selected = maxi(0, contexts.find(_backdrop_context))
-	context_select.item_selected.connect(func(index: int): _backdrop_context = contexts[index])
-	c["content"].add_child(context_select)
-	var locations: Array = CombatSetupModal.location_options()
-	var location_select := UI.option_button(locations)
-	location_select.name = "BackdropLocation"
-	location_select.selected = maxi(0, locations.find(_backdrop_location))
-	location_select.item_selected.connect(func(index: int):
-		_backdrop_location = "" if index == 0 else str(locations[index])
-	)
-	c["content"].add_child(location_select)
-
-	c["content"].add_child(MapCardStyle.text_button("Start", func():
-		var allies: Array = []
-		for i in range(_ally_count):
-			allies.append({ "level": _ally_level, "loadout": _picked_slots(_ally_loadouts[i]) })
-		CombatPrototype.start({
-			"playerLevel": _player_level,
-			"enemies": _enemy_archetypes.map(func(id): return { "archetype": id, "level": _enemy_level }),
-			"allies": allies,
-			"loadout": _picked_slots(_loadout),
-			"backdrop": { "context": _backdrop_context, "locationKey": _backdrop_location },
-		})
-	))
-	return c["panel"]
-
-
-static func _empty_loadout() -> Array:
-	return [{ "item": "", "tier": 1 }, { "item": "", "tier": 1 }]
-
-
-static func _picked_slots(loadout: Array) -> Array:
-	return loadout.filter(func(s): return s["item"] != "")
-
-
-# Item and tier pickers for one slot of a sandbox `loadout` (the player's or
-# an ally's); the tier list follows the picked item's effectPower curve.
-func _build_loadout_slot(loadout: Array, slot: int) -> Control:
-	var row := UI.hbox()
-	var item_ids: Array = CombatPrototype.item_ids()
-	var names: Array = ["Slot %d: empty" % (slot + 1)]
-	for id in item_ids:
-		names.append("Slot %d: %s" % [slot + 1, CombatPrototype.move(id)["name"]])
-	var item_select := UI.option_button(names)
-	item_select.selected = item_ids.find(loadout[slot]["item"]) + 1
-	item_select.item_selected.connect(func(index: int):
-		loadout[slot]["item"] = "" if index == 0 else item_ids[index - 1]
-		loadout[slot]["tier"] = 1
-		_refresh()
-	)
-	row.add_child(item_select)
-	var item_id: String = loadout[slot]["item"]
-	if item_id != "":
-		var tiers: Array = []
-		for tier in range(1, CombatPrototype.item_tier_max(item_id) + 1):
-			tiers.append("Tier %d" % tier)
-		var tier_select := UI.option_button(tiers)
-		tier_select.selected = int(loadout[slot]["tier"]) - 1
-		tier_select.item_selected.connect(func(index: int): loadout[slot]["tier"] = index + 1)
-		row.add_child(tier_select)
-	return row
-
-
-func _level_select(text: String, current: int, on_pick: Callable) -> OptionButton:
-	var levels: Array = []
-	for level in range(1, CombatPrototype.level_max() + 1):
-		levels.append(text % level)
-	var select := UI.option_button(levels)
-	select.selected = current - 1
-	select.item_selected.connect(func(index: int): on_pick.call(index + 1))
-	return select
-
-
-# Grows (repeating the last pick) or trims the enemy list, then rebuilds so
-# the per-enemy archetype pickers match.
-func _set_enemy_count(index: int) -> void:
-	var count := index + 1
-	while _enemy_archetypes.size() < count:
-		_enemy_archetypes.append(_enemy_archetypes[-1])
-	_enemy_archetypes.resize(count)
-	_refresh()
-
-
 func _build_combatant_card(cp: Dictionary, index: int) -> Control:
 	var combatant: Dictionary = cp["combatants"][index]
 	var c := MapCardStyle.card()
 	var status: String = " (down)" if combatant["koed"] else ""
-	c["content"].add_child(UI.label("%s — level %d — %d/%d HP%s" % [CombatPrototype.display_name(combatant), combatant["level"], combatant["hp"], combatant["hpMax"], status]))
+	c["content"].add_child(UI.label("%s — level %d — %d/%d HP%s" % [CombatRounds.display_name(combatant), combatant["level"], combatant["hp"], combatant["hpMax"], status]))
 	c["content"].add_child(UI.bar(combatant["hp"], combatant["hpMax"]))
 	if not combatant["koed"]:
-		var preview: Array = CombatPrototype.guard_preview(cp, index).map(func(state): return _guard_text(state))
+		var preview: Array = CombatRounds.guard_preview(cp, index).map(func(state): return _guard_text(state))
 		c["content"].add_child(UI.muted_label("Guard: %s" % " → ".join(preview)))
-		if CombatPrototype.is_exposed(cp, combatant):
+		if CombatRounds.is_exposed(cp, combatant):
 			c["content"].add_child(UI.muted_label("Exposed through round %d" % combatant["exposedUntil"]))
 		if combatant["frozenActions"] > 0:
 			c["content"].add_child(UI.muted_label("Frozen (Open): next %d action(s)" % combatant["frozenActions"]))
@@ -858,13 +668,13 @@ func _build_combatant_card(cp: Dictionary, index: int) -> Control:
 			c["content"].add_child(UI.muted_label("Stunned: loses next %d action(s)" % (combatant["actionsLost"] - combatant["frozenActions"])))
 		if combatant["shield"] > 0:
 			c["content"].add_child(UI.muted_label("Shield: %d (counts as Guarded)" % combatant["shield"]))
-		for badge in CombatPrototype.status_badges(combatant):
+		for badge in CombatRounds.status_badges(combatant):
 			c["content"].add_child(UI.muted_label(badge))
-		if CombatPrototype.is_powered(cp, combatant):
+		if CombatRounds.is_powered(cp, combatant):
 			c["content"].add_child(UI.muted_label("Powder: +1 action through round %d" % combatant["powderUntil"]))
-		if CombatPrototype.has_lady(cp, combatant):
+		if CombatRounds.has_lady(cp, combatant):
 			c["content"].add_child(UI.muted_label("Be a Lady: max rolls %s" % _until_text(combatant["ladyUntil"])))
-		if index == CombatPrototype.PLAYER_INDEX and CombatPrototype.has_sight(cp):
+		if index == CombatRounds.PLAYER_INDEX and CombatRounds.has_sight(cp):
 			c["content"].add_child(UI.muted_label("Sight %s" % _until_text(combatant["sightUntil"])))
 		for slot in combatant["loadout"]:
 			c["content"].add_child(UI.muted_label("%s T%d (power %d)%s" % [GameData.RECIPES[slot["item"]]["name"], slot["tier"], slot["power"], " — used" if slot["used"] else ""]))
@@ -872,7 +682,7 @@ func _build_combatant_card(cp: Dictionary, index: int) -> Control:
 
 
 static func _until_text(until_round: int) -> String:
-	return "all fight" if until_round >= CombatPrototype.WHOLE_FIGHT else "through round %d" % until_round
+	return "all fight" if until_round >= CombatRounds.WHOLE_FIGHT else "through round %d" % until_round
 
 
 # One row per timeline position (_position_text()), then under sight each
@@ -881,25 +691,25 @@ func _build_timeline_card(cp: Dictionary) -> Control:
 	var c := MapCardStyle.card()
 	c["content"].add_child(UI.heading("This round", 14))
 	var combatants: Array = cp["combatants"]
-	for entry in CombatPrototype.timeline(cp):
+	for entry in CombatRounds.timeline(cp):
 		var actor: int = entry["actor"]
 		var row := UI.hbox()
-		row.add_child(UI.label("%d · %s" % [entry["index"] + 1, CombatPrototype.display_name(combatants[actor])]))
-		if actor == CombatPrototype.PLAYER_INDEX and entry["index"] >= CombatPrototype.actions_per_round(combatants[actor]):
+		row.add_child(UI.label("%d · %s" % [entry["index"] + 1, CombatRounds.display_name(combatants[actor])]))
+		if actor == CombatRounds.PLAYER_INDEX and entry["index"] >= CombatRounds.actions_per_round(combatants[actor]):
 			row.add_child(UI.muted_label("(Powder)"))
-		elif combatants[actor]["side"] == CombatPrototype.SIDE_ALLY:
+		elif combatants[actor]["side"] == CombatRounds.SIDE_ALLY:
 			row.add_child(UI.muted_label("(ally)"))
 		row.add_child(UI.label(_position_text(cp, entry)))
 		if _position_unread(cp, entry):
 			row.add_child(UI.muted_label("(unread)"))
 		c["content"].add_child(row)
-	if CombatPrototype.has_sight(cp):
+	if CombatRounds.has_sight(cp):
 		c["content"].add_child(UI.heading("Next round (Prophet's Breath)", 14))
 		for i in range(combatants.size()):
-			if combatants[i]["side"] != CombatPrototype.SIDE_ENEMY or combatants[i]["koed"]:
+			if combatants[i]["side"] != CombatRounds.SIDE_ENEMY or combatants[i]["koed"]:
 				continue
-			var intents: Array = CombatPrototype.enemy_intents(cp, i, true).map(func(intent): return _intent_text(cp, intent))
-			c["content"].add_child(UI.label("%s: %s" % [CombatPrototype.display_name(combatants[i]), ", ".join(intents)]))
+			var intents: Array = CombatRounds.enemy_intents(cp, i, true).map(func(intent): return _intent_text(cp, intent))
+			c["content"].add_child(UI.label("%s: %s" % [CombatRounds.display_name(combatants[i]), ", ".join(intents)]))
 	return c["panel"]
 
 
@@ -911,8 +721,8 @@ static func _intent_text(cp: Dictionary, intent: Dictionary) -> String:
 	var text: String = intent["name"]
 	if intent.get("targetUnread", false):
 		text += " → %s" % UNREAD_TEXT
-	elif intent.has("target") and int(intent["target"]) >= 0 and CombatPrototype.move(intent["move"])["target"] != CombatPrototype.TARGET_SELF:
-		text += " → %s" % CombatPrototype.display_name(cp["combatants"][intent["target"]])
+	elif intent.has("target") and int(intent["target"]) >= 0 and CombatRounds.move(intent["move"])["target"] != CombatRounds.TARGET_SELF:
+		text += " → %s" % CombatRounds.display_name(cp["combatants"][intent["target"]])
 	if intent.has("dmgMin"):
 		text += " (%d–%d)" % [intent["dmgMin"], intent["dmgMax"]]
 	return text
@@ -920,36 +730,29 @@ static func _intent_text(cp: Dictionary, intent: Dictionary) -> String:
 
 # `label`, plus " → target" when `move_id` aims at a chosen combatant.
 static func _aimed(cp: Dictionary, label: String, move_id: String, target: int) -> String:
-	var aims: bool = CombatPrototype.move(move_id)["target"] in [CombatPrototype.TARGET_ENEMY, CombatPrototype.TARGET_FRIEND]
+	var aims: bool = CombatRounds.move(move_id)["target"] in [CombatRounds.TARGET_ENEMY, CombatRounds.TARGET_FRIEND]
 	if not aims or target < 0:
 		return label
-	return "%s → %s" % [label, CombatPrototype.display_name(cp["combatants"][target])]
+	return "%s → %s" % [label, CombatRounds.display_name(cp["combatants"][target])]
 
 
 func _pick(move_id: String, target: int) -> void:
-	var choose := func(): return Combat.choose_move(move_id, target) if live else CombatPrototype.choose_move(move_id, target)
-	_resolve(choose, { "move": move_id, "target": target })
+	_resolve(func(): return Combat.choose_move(move_id, target), { "move": move_id, "target": target })
 
 
+# Plays real loadout slot `slot`.
 func _pick_item(slot: int, target: int) -> void:
-	var loadout: Array = _cp()["combatants"][CombatPrototype.PLAYER_INDEX]["loadout"]
-	var item_id: String = loadout[slot]["item"] if slot >= 0 and slot < loadout.size() else ""
-	_resolve(func(): return CombatPrototype.choose_item(slot, target), { "move": item_id, "target": target })
-
-
-# Plays real loadout slot `slot` in a live fight.
-func _pick_live_item(slot: int, target: int) -> void:
 	var unit: Variant = Loadout.slot(slot)
 	var item_id: String = unit["recipe"] if unit != null else ""
 	_resolve(func(): return Combat.choose_item(slot, target), { "move": item_id, "target": target })
 
 
-# Casts the player's loaded Complication `index` in a live fight, at the
+# Casts the player's loaded Complication `index`, at the
 # selected combatant where it aims at one.
 func _pick_cast(index: int) -> void:
 	var loaded: Array = GameState.state["player"]["dial"]["loadedComplications"]
 	var item_id: String = loaded[index]["recipeKey"] if index < loaded.size() else ""
-	var target := _row_target(_cp(), item_id) if CombatPrototype.is_item(item_id) else -1
+	var target := _row_target(_cp(), item_id) if CombatRounds.is_item(item_id) else -1
 	_resolve(func(): return Combat.cast_round_complication(index, target), { "move": item_id, "target": target })
 
 
@@ -968,9 +771,9 @@ func _resolve(choose: Callable, pick: Dictionary) -> void:
 		"enemyQueue": roster["combat"]["enemyQueue"], "allyQueue": roster["combat"]["allyQueue"],
 		"playerKoed": roster["player"]["koed"],
 	}
-	_held_marks = CombatPrototype.stage_marks(cp)
+	_held_marks = CombatRounds.stage_marks(cp)
 	var round_no: int = cp["round"]
-	var before: Array = [] if CombatPrototype.move(pick["move"]).is_empty() else strip_entries(cp, pick)
+	var before: Array = [] if CombatRounds.move(pick["move"]).is_empty() else strip_entries(cp, pick)
 	var result: Dictionary = choose.call()
 	if not result["ok"]:
 		_refusal = str(result["reason"])
@@ -1081,10 +884,10 @@ func _patch_strip_entry(entries: Array, playing: int, beat: Dictionary) -> void:
 		entry["actionUnread"] = false
 	elif int(beat["actor"]) == entry["actor"]:
 		if beat.has("status"):
-			entry["actionText"] = GameData.COMBAT_PROTOTYPE["statusTurns"][beat["status"]]["name"]
+			entry["actionText"] = GameData.COMBAT_ROUNDS["statusTurns"][beat["status"]]["name"]
 			entry["actionUnread"] = false
 		elif entry.get("actionUnread", false) and beat["move"] != "":
-			entry["actionText"] = _aimed(_cp(), CombatPrototype.move(beat["move"])["name"], beat["move"], int(beat["target"]))
+			entry["actionText"] = _aimed(_cp(), CombatRounds.move(beat["move"])["name"], beat["move"], int(beat["target"]))
 			entry["actionUnread"] = false
 		if beat.has("actorGuard"):
 			entry["guardBadge"] = str(beat["actorGuard"]).capitalize()
@@ -1095,8 +898,8 @@ func _patch_strip_entry(entries: Array, playing: int, beat: Dictionary) -> void:
 				entries[i]["actionText"] = "Down"
 
 
-# A beat as it plays: its line to the top-bar ticker (as live combat's log
-# lines go), the strip, the guard overlay to the beat's marks, then its cues.
+# A beat as it plays: its line to the top-bar ticker (as a combat log line),
+# the strip, the guard overlay to the beat's marks, then its cues.
 func _on_beat_played(beat: Dictionary) -> void:
 	if beat["kind"] == _SETTLE_KIND:
 		_settle_strip()
@@ -1181,11 +984,11 @@ static func beat_cues(beat: Dictionary) -> Array:
 # swings with an afterimage, an item (a fizzled Healing Burst) is thrown.
 static func _move_pose_cues(move_id: String, actor: int) -> Array:
 	match move_id:
-		CombatPrototype.MOVE_STRIKE, "stun":
+		CombatRounds.MOVE_STRIKE, "stun":
 			return [{ "call": "attack", "who": actor }]
 		"feint":
 			return [{ "call": "attack", "who": actor }, { "call": "afterimage", "who": actor }]
-	if CombatPrototype.item_ids().has(move_id):
+	if CombatRounds.item_ids().has(move_id):
 		return [{ "call": "throw", "who": actor }]
 	return []
 
@@ -1249,13 +1052,7 @@ func _apply_marks(cp: Dictionary, marks: Array) -> void:
 
 
 func _build_outcome_card(outcome: String) -> Control:
-	if live:
-		return CombatScreen.outcome_button(outcome, _cp()["context"])
-	var c := MapCardStyle.card()
-	var lines := { "win": "You win.", "loss": "You lose.", "fled": "You got away." }
-	c["content"].add_child(UI.label(lines.get(outcome, outcome)))
-	c["content"].add_child(MapCardStyle.text_button("New fight", func(): CombatPrototype.close_fight()))
-	return c["panel"]
+	return CombatScreen.outcome_button(outcome, _cp()["context"])
 
 
 # Every beat so far, grouped by round, newest round first.

@@ -70,7 +70,7 @@ static func haft_name(dial: Dictionary) -> String:
 	return GameData.DIAL_HAFTS.get(dial["haftId"], {}).get("name", dial["haftId"])
 
 
-# Used by combat.gd's combat_rewind() and events.gd's rewind() as a fallback when
+# Used by combat.gd's round_rewind() and events.gd's rewind() as a fallback when
 # no rewind consumable is available (R§3.9). Returns -1 if none loaded with charge.
 static func find_loaded_rewind_complication_index() -> int:
 	var dial: Variant = GameState.state["player"]["dial"]
@@ -577,7 +577,7 @@ static func cast_turn_bonus(recipe_key: String, level: int) -> int:
 
 # Tier-5 Recharge Movement's in-combat regen (R§3.5) -- the only archetype that
 # regenerates charge mid-combat rather than only via daily_regen()/winding.
-# Called once per player turn from combat.gd's player_attack(). No-op unless a tier-5+ Recharge Movement is seated.
+# Called once per resolved combat action from combat.gd's _settle_round_dials(). No-op unless a tier-5+ Recharge Movement is seated.
 static func combat_turn_tick(owner_id: String = "") -> void:
 	var dial_v: Variant = dial_of(owner_id)
 	if dial_v == null:

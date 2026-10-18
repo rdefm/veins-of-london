@@ -315,7 +315,7 @@ With attention drawn away, anyone carrying valuables may be of interest to the c
 "nadia": ["\"Counted. Correct. Go on then.\"", "\"Fair price. Don't let anyone tell you otherwise.\"", "\"That's one less phone call I have to make.\"", "\"Noted. Next.\"", "\"You're getting the hang of this.\"", "\"Good. Now go and do something useful.\""]
 },
 "COMBAT_ATTACK_BONUS_BY_LEVEL": [0, 0, 2, 4, 7, 11],
-"COMBAT_PROTOTYPE": {
+"COMBAT_ROUNDS": {
 "moves": {
 }
 },

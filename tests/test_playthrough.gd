@@ -56,7 +56,7 @@ func _force_win_active_combat() -> void:
 	# The player hits for 999 and strikes the first standing enemy until
 	# the round fight is won.
 	var combat: Dictionary = GameState.state["combat"]
-	var you: Dictionary = combat["combatants"][CombatPrototype.PLAYER_INDEX]
+	var you: Dictionary = combat["combatants"][CombatRounds.PLAYER_INDEX]
 	you["attackMin"] = 999
 	you["attackMax"] = 999
 	for _i in range(20):
@@ -65,7 +65,7 @@ func _force_win_active_combat() -> void:
 		var target := -1
 		for i in range(combat["combatants"].size()):
 			var c: Dictionary = combat["combatants"][i]
-			if c["side"] == CombatPrototype.SIDE_ENEMY and not c["koed"]:
+			if c["side"] == CombatRounds.SIDE_ENEMY and not c["koed"]:
 				target = i
 				break
 		Combat.choose_move("strike", target)

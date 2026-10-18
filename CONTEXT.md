@@ -99,15 +99,11 @@ A named person in a faction the player can message and gift to: Lusk for the Fir
 **The Network**:
 In-fiction name for the game's map screen (a Beck-style transit diagram). Never call it "the tube map," "the Underground," or "London Underground" in player-facing text — see `plans/M1-LONDON.md` D4.1 for the legal rationale.
 
-**Turn occurrence** _(draft, ticket 01 combat-refining, 2026-09-19)_:
-One entry in a combat round's turn queue (`combat.turnCursor.queue`, `Combat.build_turn_queue()`) — not a synonym for [[Combatant]]. The same combatant produces more than one occurrence in a round with a Motion-inserted extra turn, and a fresh occurrence every round it survives into. The turn-order strip (`docs/combat-animation-vision.md` §2.4) renders one card per occurrence, not one per combatant — a combatant with two live occurrences this round shows two cards.
-_Avoid_: "turn" alone when a distinction from "combatant" matters — "turn" is ambiguous between the occurrence and the atomic action it resolves into.
-
 **Combatant** _(draft, ticket 01 combat-refining, 2026-09-19)_:
-A single fighting entity in `combat` — the player, one `combat.allies[]` entry, or one `combat.enemies[]` entry. Has one persistent identity for the fight's duration (HP, KO state) even though it may own several [[Turn occurrence]]s across a round or the fight.
+A single fighting entity in a fight — the player, an ally or an enemy (one `combat.combatants[]` entry, REFERENCE §3.7b). Has one persistent identity for the fight's duration (HP, KO state) even though it owns several [[Action]]s a round; the turn-order strip (`docs/combat-animation-vision.md` §2.4) renders one card per action, not one per combatant.
 
-**Selection** _(signed off, ticket 05 combat-refining, 2026-09-21)_:
-`combat.selection: {type, index}` — the player's current single-target for Attack/Blast/an eligible Complication, addressable at the player, an ally or an enemy (`type`). Distinct from a turn occurrence and from scroll position in the turn-order strip: scrolling to inspect an upcoming occurrence never changes `selection`, only tapping a card or a combatant sprite does.
+**Selection** _(combat port, REFERENCE §3.7a Targeting)_:
+The combatant the player's next pick aims at — the player, an ally or an enemy — set by tapping a strip card or a combatant sprite. Screen view state, not part of `state.combat`. Distinct from scroll position in the turn-order strip: scrolling to inspect an upcoming action never changes it.
 
 **Guard state** _(combat port, REFERENCE §3.7b)_:
 Every [[Combatant]] is either **Open** or **Guarded**. A hit on an Open combatant does full damage; on a Guarded one, chip (×0.25). Set by the combatant's last [[Action]] (Guard → Guarded, Strike/Stun/Leg it → Open, items and Dial casts leave it unchanged) and carried across rounds; everyone starts a fight Guarded.
@@ -118,7 +114,7 @@ A forced-Open status with a duration (Lure's catch: through the end of next roun
 
 **Action** _(combat port, REFERENCE §3.7b)_:
 One entry in a combatant's [[Round plan]]: a move (Guard, Strike, Feint, Stun, Lure, Leg it), an item use or a Dial cast. Lure costs two. Actions per round come from Combat Skill level. Rewind is a command, not an action.
-_Avoid_: "turn" — the old speed-queue [[Turn occurrence]] is a different unit.
+_Avoid_: "turn" — a round holds several actions per combatant.
 
 **Round plan** _(combat port, REFERENCE §3.7b)_:
 A combatant's ordered [[Action]]s for one round. Enemies commit theirs at round start (shown as intents, some unread under fog); allies plan by reading them; the player picks one action at each pause as the timeline reaches it.

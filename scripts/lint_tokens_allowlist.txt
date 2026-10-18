@@ -6,8 +6,6 @@
 # Do not add a new entry for freshly written code -- fix the comment/row
 # instead (CLAUDE.md workflow step 8).
 scripts/check_runner.gd
-scripts/debug_combat_dial_screenshot.gd
-scripts/debug_combat_fan_screenshot.gd
 scripts/diagnose_115_timing.gd
 tests/support/draw_spy.gd
 tests/test_alarm_presentation.gd
@@ -20,7 +18,6 @@ tests/test_col_a1_tuition.gd
 tests/test_collective.gd
 tests/test_combat.gd
 tests/test_combat_director.gd
-tests/test_combat_screen.gd
 tests/test_consumables.gd
 tests/test_contracts.gd
 tests/test_crafting.gd

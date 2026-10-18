@@ -2,9 +2,9 @@ extends "res://tests/test_base.gd"
 
 const Fixtures := preload("res://tests/support/fixtures.gd")
 
-# CombatCommandDock's generic mode (configure_rows()): caller-built rows in
-# the live dock's chrome, driven without live combat state. The live deck
-# itself is covered through CombatScreen in tests/test_combat_screen.gd.
+# CombatCommandDock's configure_rows(): caller-built rows in the dock's
+# chrome, driven without combat state. The round-fight screen's own rows
+# are covered in tests/test_combat_rounds.gd.
 
 
 static func _buttons(root: Node) -> Array[Button]:
@@ -55,7 +55,7 @@ func run() -> void:
 		GameState.reset()
 		var dock := CombatCommandDock.new()
 		var dial := Fixtures.dial(["blast"])
-		dock.configure_rows([{ "iconKind": "run", "label": "Leg it", "disabled": false, "callback": Callable() }], {}, dial, Callable(), true)
+		dock.configure_rows([{ "iconKind": "run", "label": "Leg it", "disabled": false, "callback": Callable() }], {}, dial, true)
 
 		assert_eq(_dial_count(dock), 1, "a passed Dial is drawn")
 		var row := _button_named(dock, "RowButton_0")
@@ -80,7 +80,7 @@ func run() -> void:
 		dock.free()
 
 		var locked := CombatCommandDock.new()
-		locked.configure_rows(rows, {}, null, Callable(), true)
+		locked.configure_rows(rows, {}, null, true)
 		assert_eq(_button_named(locked, "ExplainButton"), null, "no ? while locked")
 		locked.free()
 	)

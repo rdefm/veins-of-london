@@ -122,15 +122,6 @@ static func equippable_stock(contact_id: String = "") -> Array:
 	return stock
 
 
-# Whether the unit in slot `index` hits every target: crafted multi, or an
-# always-multi item (Black Hole).
-static func slot_is_multi(index: int) -> bool:
-	var unit: Variant = slot(index)
-	if unit == null:
-		return false
-	return bool(unit.get("multi", false)) or Crafting.is_always_multi(unit["recipe"])
-
-
 # lastMulti[i] remembers whether slot i's last unit was multi-target, so
 # settlement refills the same variant. Created lazily; absent reads false.
 static func _set_last_multi(loadout: Dictionary, index: int, multi: bool) -> void:

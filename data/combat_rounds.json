@@ -1,5 +1,5 @@
 {
-  "_comment": "Sandboxed Open/Guarded round-planning combat prototype (.scratch/combat-revamp/spec.md) -- prototype-only draft values, not production balance, not cross-referenced by REFERENCE.md. Curves are indexed by Combat Skill level 0..5 (index 0 unused). PROSE-REVIEW: every name, intent label and beat line here is new copy.",
+  "_comment": "The Open/Guarded round rules (systems/combat_rounds.gd, REFERENCE.md §3.7b). Curves are indexed by Combat Skill level 0..5 (index 0 unused). allyBase and the archetype stat bases are the Debug-setup and sim presets. PROSE-REVIEW: every name, intent label and beat line here is new copy.",
   "chipMultiplier": 0.25,
   "actionsPerRound": [0, 2, 2, 3, 3, 3],
   "critChance": [0, 0.03, 0.04, 0.05, 0.06, 0.07],
@@ -13,8 +13,7 @@
     "perLevelBelow": 0.03,
     "positionMultiplier": [0.35, 1.0, 1.5]
   },
-  "playerBase": { "name": "you", "hpBase": 40, "attackMin": 7, "attackMax": 15 },
-  "allyTemplates": ["archie", "james"],
+  "playerBase": { "name": "you" },
   "allyBase": { "name": "your mate", "hpBase": 40, "attackMin": 7, "attackMax": 15 },
   "moves": {
     "guard": {

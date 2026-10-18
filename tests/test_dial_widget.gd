@@ -3,18 +3,15 @@ extends "res://tests/test_base.gd"
 const Fixtures := preload("res://tests/support/fixtures.gd")
 
 # combat-presentation ticket 03, docs/combat-animation-vision.md §2.5: the
-# Dial widget's own selection/trigger logic, tested independently of
-# CombatScreen's wiring (tests/test_combat_screen.gd covers that half: deck
-# placement, showing the widget once a Dial is seeded, and selection
-# persisting across a refresh). Same "test the logic, not the gesture
-# plumbing" split TurnOrderStrip's own tests use -- handle_select/
+# Dial widget's own selection/trigger logic, tested independently of the
+# round-fight screen's wiring (tests/test_combat_rounds.gd). Same "test the
+# logic, not the gesture plumbing" split TurnOrderStrip's own tests use -- handle_select/
 # handle_trigger are public exactly so these cases don't have to simulate
 # InputEvents.
 #
 # combat-presentation ticket 18 (human direction, 2026-09-09): handle_rotate()
 # (relative, wrapping cycle) is replaced by handle_select(index) (direct,
 # tap-one-of-4-screws selection) -- see dial_widget.gd's own top comment.
-
 
 func run() -> void:
 	# ui-chrome-pass ticket 03: the confirmed-by-screenshot bug this ticket
@@ -66,7 +63,7 @@ func run() -> void:
 		widget.handle_select(2)
 
 		assert_eq(received, [2])
-		assert_eq(widget.current_index(), 0, "handle_select() only reports through the callback -- like TurnOrderStrip.handle_tap(), it never mutates its own selection; the caller (CombatScreen) owns persisting it via a fresh configure()")
+		assert_eq(widget.current_index(), 0, "handle_select() only reports through the callback -- like TurnOrderStrip.handle_tap(), it never mutates its own selection; the caller (CombatCommandDock) owns persisting it via a fresh configure()")
 	)
 
 	run_case("handle_select_reports_regardless_of_which_screw_it_is_relative_to_the_current_one", func():
@@ -100,116 +97,14 @@ func run() -> void:
 		assert_eq(received.size(), 0)
 	)
 
-	run_case("handle_trigger_casts_the_selected_complication_via_Combat_cast_complication", func():
-		GameState.reset()
-		GameState.state["player"]["dial"] = Fixtures.dial(["blast", "shield"], 3, 5)
-		GameState.state["combat"] = {
-			"active": true, "context": Combat.CONTEXT_RAID, "veinId": null,
-			"enemies": [{ "name": "Enemy", "hp": 20, "hpMax": 20, "attackMin": 1, "attackMax": 1, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false }],
-			"selection": { "type": "enemy", "index": 0 }, "log": [], "outcome": null, "frozenTurns": 0,
-			"motionTurns": 0, "motionPower": 0, "evadeTurns": 0, "evadeChance": 0.0,
-			"onWin": "", "snapshots": [], "beatsSinceSnapshot": [], "turnCursor": { "queue": [], "index": 0, "round": 0 }, "allies": [],
-		}
-		var widget := DialWidget.new()
-		widget.configure(GameState.state["player"]["dial"], 1, Callable())  # index 1 -> shield
-
-		widget.handle_trigger()
-
-		assert_true(GameState.state["player"]["shieldPool"] > 0, "triggering the selected (shield) Complication should apply its effect")
-		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 2, "a successful cast should spend one charge")
-	)
-
-	run_case("handle_trigger_is_refused_without_enough_charge_same_as_the_old_bag_drawer_button", func():
-		GameState.reset()
-		GameState.state["player"]["dial"] = Fixtures.dial(["blast"], 0, 5)
-		GameState.state["combat"] = {
-			"active": true, "context": Combat.CONTEXT_RAID, "veinId": null,
-			"enemies": [{ "name": "Enemy", "hp": 20, "hpMax": 20, "attackMin": 1, "attackMax": 1, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false }],
-			"selection": { "type": "enemy", "index": 0 }, "log": [], "outcome": null, "frozenTurns": 0,
-			"motionTurns": 0, "motionPower": 0, "evadeTurns": 0, "evadeChance": 0.0,
-			"onWin": "", "snapshots": [], "beatsSinceSnapshot": [], "turnCursor": { "queue": [], "index": 0, "round": 0 }, "allies": [],
-		}
-		var widget := DialWidget.new()
-		widget.configure(GameState.state["player"]["dial"], 0, Callable())
-		var enemy_hp_before: int = GameState.state["combat"]["enemies"][0]["hp"]
-
-		widget.handle_trigger()
-
-		assert_eq(GameState.state["combat"]["enemies"][0]["hp"], enemy_hp_before, "zero charge should refuse the cast -- no effect applied")
-	)
-
-	# combat-presentation ticket 05: handle_trigger()'s new on_triggered report.
-
-	run_case("handle_trigger_reports_the_cast_result_through_on_triggered", func():
-		GameState.reset()
-		GameState.state["player"]["dial"] = Fixtures.dial(["blast"], 3, 5)
-		GameState.state["combat"] = {
-			"active": true, "context": Combat.CONTEXT_RAID, "veinId": null,
-			"enemies": [{ "name": "Enemy", "hp": 20, "hpMax": 20, "attackMin": 1, "attackMax": 1, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false }],
-			"selection": { "type": "enemy", "index": 0 }, "log": [], "outcome": null, "frozenTurns": 0,
-			"motionTurns": 0, "motionPower": 0, "evadeTurns": 0, "evadeChance": 0.0,
-			"onWin": "", "snapshots": [], "beatsSinceSnapshot": [], "turnCursor": { "queue": [], "index": 0, "round": 0 }, "allies": [],
-		}
-		var received: Array = []
-		var widget := DialWidget.new()
-		widget.configure(GameState.state["player"]["dial"], 0, Callable(), func(result): received.append(result))
-
-		widget.handle_trigger()
-
-		assert_eq(received.size(), 1, "a successful trigger should report exactly once")
-		assert_true(received[0]["ok"])
-		assert_true(received[0]["beats"].size() > 0, "the reported result should carry Blast's own damaging beat")
-	)
-
-	run_case("handle_trigger_reports_even_a_refused_cast_through_on_triggered", func():
-		GameState.reset()
-		GameState.state["player"]["dial"] = Fixtures.dial(["blast"], 0, 5)
-		GameState.state["combat"] = {
-			"active": true, "context": Combat.CONTEXT_RAID, "veinId": null,
-			"enemies": [{ "name": "Enemy", "hp": 20, "hpMax": 20, "attackMin": 1, "attackMax": 1, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false }],
-			"selection": { "type": "enemy", "index": 0 }, "log": [], "outcome": null, "frozenTurns": 0,
-			"motionTurns": 0, "motionPower": 0, "evadeTurns": 0, "evadeChance": 0.0,
-			"onWin": "", "snapshots": [], "beatsSinceSnapshot": [], "turnCursor": { "queue": [], "index": 0, "round": 0 }, "allies": [],
-		}
-		var received: Array = []
-		var widget := DialWidget.new()
-		widget.configure(GameState.state["player"]["dial"], 0, Callable(), func(result): received.append(result))
-
-		widget.handle_trigger()
-
-		assert_eq(received.size(), 1, "a refused cast should still be reported, just with ok == false")
-		assert_true(not received[0]["ok"])
-	)
-
-	run_case("handle_trigger_with_no_on_triggered_callback_still_casts_normally", func():
-		GameState.reset()
-		GameState.state["player"]["dial"] = Fixtures.dial(["blast"], 3, 5)
-		GameState.state["combat"] = {
-			"active": true, "context": Combat.CONTEXT_RAID, "veinId": null,
-			"enemies": [{ "name": "Enemy", "hp": 20, "hpMax": 20, "attackMin": 1, "attackMax": 1, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false }],
-			"selection": { "type": "enemy", "index": 0 }, "log": [], "outcome": null, "frozenTurns": 0,
-			"motionTurns": 0, "motionPower": 0, "evadeTurns": 0, "evadeChance": 0.0,
-			"onWin": "", "snapshots": [], "beatsSinceSnapshot": [], "turnCursor": { "queue": [], "index": 0, "round": 0 }, "allies": [],
-		}
-		var widget := DialWidget.new()
-		# 3-arg configure() -- every pre-ticket-05 call site, unchanged.
-		widget.configure(GameState.state["player"]["dial"], 0, Callable())
-
-		widget.handle_trigger()
-
-		assert_true(GameState.state["combat"]["enemies"][0]["hp"] < 20, "the cast itself must still happen with no on_triggered wired at all")
-	)
-
-	run_case("handle_trigger_hands_the_selected_index_to_on_cast_in_place_of_casting", func():
+	run_case("handle_trigger_hands_the_selected_index_to_on_cast", func():
 		GameState.reset()
 		GameState.state["player"]["dial"] = Fixtures.dial(["blast", "shield"], 3, 5)
 		var cast: Array = []
-		var triggered: Array = []
 		var widget := DialWidget.new()
-		widget.configure(GameState.state["player"]["dial"], 1, Callable(), func(r): triggered.append(r), func(i): cast.append(i))
+		widget.configure(GameState.state["player"]["dial"], 1, Callable(), func(i): cast.append(i))
 		widget.handle_trigger()
 		assert_eq(cast, [1], "the selected index")
-		assert_eq(triggered, [], "on_cast owns the result")
 		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 3, "the widget spends nothing itself")
 		widget.free()
 	)

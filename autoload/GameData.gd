@@ -120,10 +120,9 @@ var ENEMY_FACTION_SQUADS: Dictionary = {}
 # R§3.7b table 2: enemy Combat Skill level per context/driver.
 var ENEMY_LEVELS: Dictionary = {}
 
-# Open/Guarded round-planning combat prototype's moves, archetypes and
-# curves (systems/combat_prototype.gd) -- prototype-only, not production
-# balance. Own table so a validation/balance pass over the real roster skips it.
-var COMBAT_PROTOTYPE: Dictionary = {}
+# The Open/Guarded round rules' moves, items, archetypes, curves and beat
+# lines (systems/combat_rounds.gd, R§3.7b).
+var COMBAT_ROUNDS: Dictionary = {}
 
 # Live Lab procedures and knowledge tuning (systems/lab.gd).
 var LAB: Dictionary = {}
@@ -469,8 +468,8 @@ const MANIFEST: Array[Dictionary] = [
 		{"field": "COMBAT_SPEED_BY_LEVEL", "key": "combatSpeedByLevel", "type": TYPE_ARRAY},
 		{"field": "COMBAT_HP_BONUS_BY_LEVEL", "key": "combatHpBonusByLevel", "type": TYPE_ARRAY},
 	]},
-	{"table": "combat_prototype", "file": "res://data/combat_prototype.json", "fields": [
-		{"field": "COMBAT_PROTOTYPE", "key": "", "type": TYPE_DICTIONARY},
+	{"table": "combat_rounds", "file": "res://data/combat_rounds.json", "fields": [
+		{"field": "COMBAT_ROUNDS", "key": "", "type": TYPE_DICTIONARY},
 	]},
 	{"table": "lab", "file": "res://data/lab.json", "fields": [
 		{"field": "LAB", "key": "", "type": TYPE_DICTIONARY},
@@ -688,7 +687,7 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_sites(t, errors)
 	_validate_barometer(t.get("barometer_states", {}), t.get("barometer_actions", []), t.get("faction_prefs", {}), t.get("factions", {}), t.get("recipes", {}), errors)
 	_validate_enemies(t, errors)
-	_validate_combat_prototype(t.get("combat_prototype", {}), t.get("combat_speed_by_level", []), t.get("recipes", {}), t.get("combat_visuals", {}).get("templates", {}), errors)
+	_validate_combat_rounds(t.get("combat_rounds", {}), t.get("combat_speed_by_level", []), t.get("recipes", {}), t.get("combat_visuals", {}).get("templates", {}), errors)
 	_validate_lab(t.get("lab", {}), t.get("recipes", {}), t.get("approaches", {}), errors)
 	_validate_recipe_knowledge(t.get("recipe_knowledge", {}), t.get("lab", {}), t.get("recipes", {}), errors)
 	_validate_combat_visuals(t.get("combat_visuals", {}), t.get("palette", {}), errors)
@@ -1315,13 +1314,13 @@ func _validate_enemies(t: Dictionary, errors: Array[String]) -> void:
 	var combat_speed_by_level: Array = t.get("combat_speed_by_level", [])
 	var combat_hp_bonus_by_level: Array = t.get("combat_hp_bonus_by_level", [])
 
-	var archetypes: Dictionary = t.get("combat_prototype", {}).get("archetypes", {})
+	var archetypes: Dictionary = t.get("combat_rounds", {}).get("archetypes", {})
 	for key in raid_guards.keys():
 		_require_keys(raid_guards[key], ["name", "hpBase", "attackMin", "attackMax", "speed", "archetype"], "enemies.raidGuards.%s" % key, errors)
 		_validate_enemy_archetype(raid_guards[key], archetypes, "enemies.raidGuards.%s" % key, errors)
 	_require_keys(home_raid_raider, ["name", "hp", "attackMin", "attackMax", "speed", "archetype"], "enemies.homeRaidRaider", errors)
 	_validate_enemy_archetype(home_raid_raider, archetypes, "enemies.homeRaidRaider", errors)
-	_validate_enemy_levels(t.get("enemy_levels", {}), int(t.get("combat_prototype", {}).get("levelMax", 0)), errors)
+	_validate_enemy_levels(t.get("enemy_levels", {}), int(t.get("combat_rounds", {}).get("levelMax", 0)), errors)
 	var squads: Dictionary = t.get("enemy_faction_squads", {})
 	for faction_id in FACTIONS:
 		if not squads.has(faction_id) or squads[faction_id].is_empty():
@@ -1348,7 +1347,7 @@ func _validate_enemies(t: Dictionary, errors: Array[String]) -> void:
 
 func _validate_enemy_archetype(template: Dictionary, archetypes: Dictionary, path: String, errors: Array[String]) -> void:
 	if template.has("archetype") and not archetypes.has(template["archetype"]):
-		errors.append("%s.archetype: unknown combat_prototype archetype '%s'" % [path, template["archetype"]])
+		errors.append("%s.archetype: unknown combat_rounds archetype '%s'" % [path, template["archetype"]])
 
 
 # R§3.7b table 2: every level is an int 1..levelMax; veinMagnitude rows run
@@ -1385,89 +1384,83 @@ func _validate_enemy_levels(levels: Dictionary, level_max: int, errors: Array[St
 # Moves name a known guard effect, target type and effect; curves cover
 # levels 0..levelMax; every archetype pattern names real moves; every item
 # is a recipe with an effectPower curve and a known target type and effect;
-# every archetype and ally slot names a combat_visuals sprite template.
-func _validate_combat_prototype(cp: Dictionary, skill_curve: Array, recipes: Dictionary, templates: Dictionary, errors: Array[String]) -> void:
-	_require_keys(cp, ["chipMultiplier", "actionsPerRound", "critChance", "levelMax", "allyHealBelow", "allyCrowdEnemies", "fog", "playerBase", "allyBase", "allyTemplates", "moves", "items", "archetypes", "anger", "statusTurns", "statusBadges", "beatLines"], "combat_prototype", errors)
-	var ally_templates: Array = cp.get("allyTemplates", [])
-	if ally_templates.size() < CombatPrototype.MAX_ALLIES:
-		errors.append("combat_prototype.allyTemplates: needs one template per ally (%d)" % CombatPrototype.MAX_ALLIES)
-	for template in ally_templates:
-		if not templates.has(template):
-			errors.append("combat_prototype.allyTemplates: unknown template '%s'" % template)
+# every archetype names a combat_visuals sprite template.
+func _validate_combat_rounds(cp: Dictionary, skill_curve: Array, recipes: Dictionary, templates: Dictionary, errors: Array[String]) -> void:
+	_require_keys(cp, ["chipMultiplier", "actionsPerRound", "critChance", "levelMax", "allyHealBelow", "allyCrowdEnemies", "fog", "playerBase", "allyBase", "moves", "items", "archetypes", "anger", "statusTurns", "statusBadges", "beatLines"], "combat_rounds", errors)
 	var heal_below := float(cp.get("allyHealBelow", 0.0))
 	if heal_below <= 0.0 or heal_below > 1.0:
-		errors.append("combat_prototype.allyHealBelow: must be in (0, 1]")
+		errors.append("combat_rounds.allyHealBelow: must be in (0, 1]")
 	if int(cp.get("allyCrowdEnemies", 0)) < 1:
-		errors.append("combat_prototype.allyCrowdEnemies: must be at least 1")
+		errors.append("combat_rounds.allyCrowdEnemies: must be at least 1")
 	var level_max := int(cp.get("levelMax", 0))
 	if level_max < 1 or level_max >= skill_curve.size():
-		errors.append("combat_prototype.levelMax: must be 1..%d (the Combat Skill curves' top level)" % (skill_curve.size() - 1))
+		errors.append("combat_rounds.levelMax: must be 1..%d (the Combat Skill curves' top level)" % (skill_curve.size() - 1))
 	var chip := float(cp.get("chipMultiplier", 0.0))
 	if chip <= 0.0 or chip > 1.0:
-		errors.append("combat_prototype.chipMultiplier: must be in (0, 1]")
+		errors.append("combat_rounds.chipMultiplier: must be in (0, 1]")
 	var actions: Array = cp.get("actionsPerRound", [])
 	var crit: Array = cp.get("critChance", [])
 	if actions.size() != level_max + 1:
-		errors.append("combat_prototype.actionsPerRound: expected %d entries (index=level 0..%d)" % [level_max + 1, level_max])
+		errors.append("combat_rounds.actionsPerRound: expected %d entries (index=level 0..%d)" % [level_max + 1, level_max])
 	if crit.size() != level_max + 1:
-		errors.append("combat_prototype.critChance: expected %d entries (index=level 0..%d)" % [level_max + 1, level_max])
+		errors.append("combat_rounds.critChance: expected %d entries (index=level 0..%d)" % [level_max + 1, level_max])
 	for level in range(1, mini(actions.size(), level_max + 1)):
 		if int(actions[level]) < 1:
-			errors.append("combat_prototype.actionsPerRound[%d]: must be at least 1" % level)
+			errors.append("combat_rounds.actionsPerRound[%d]: must be at least 1" % level)
 	for level in range(crit.size()):
 		if float(crit[level]) < 0.0 or float(crit[level]) > 1.0:
-			errors.append("combat_prototype.critChance[%d]: must be in [0, 1]" % level)
-	_validate_combat_prototype_fog(cp.get("fog", {}), level_max, errors)
-	_validate_combat_prototype_stats(cp.get("playerBase", {}), "combat_prototype.playerBase", errors)
-	_validate_combat_prototype_stats(cp.get("allyBase", {}), "combat_prototype.allyBase", errors)
+			errors.append("combat_rounds.critChance[%d]: must be in [0, 1]" % level)
+	_validate_combat_rounds_fog(cp.get("fog", {}), level_max, errors)
+	_require_keys(cp.get("playerBase", {}), ["name"], "combat_rounds.playerBase", errors)
+	_validate_combat_rounds_stats(cp.get("allyBase", {}), "combat_rounds.allyBase", errors)
 
 	var moves: Dictionary = cp.get("moves", {})
 	if moves.is_empty():
-		errors.append("combat_prototype.moves: must not be empty")
-	for move_id in CombatPrototype.ALLY_AI_MOVES:
+		errors.append("combat_rounds.moves: must not be empty")
+	for move_id in CombatRounds.ALLY_AI_MOVES:
 		if not moves.has(move_id):
-			errors.append("combat_prototype.moves: missing '%s' (the ally AI plans with it)" % move_id)
+			errors.append("combat_rounds.moves: missing '%s' (the ally AI plans with it)" % move_id)
 	for move_id in moves.keys():
 		var move: Dictionary = moves[move_id]
-		var path := "combat_prototype.moves.%s" % move_id
+		var path := "combat_rounds.moves.%s" % move_id
 		_require_keys(move, ["id", "name", "cost", "actorGuard", "target", "effect", "params", "condition", "level"], path, errors)
 		if str(move.get("id", "")) != move_id:
 			errors.append("%s.id: must match its key" % path)
 		if int(move.get("cost", 0)) < 1:
 			errors.append("%s.cost: must be at least 1" % path)
-		if not CombatPrototype.GUARD_EFFECTS.has(move.get("actorGuard", "")):
+		if not CombatRounds.GUARD_EFFECTS.has(move.get("actorGuard", "")):
 			errors.append("%s.actorGuard: unknown guard effect '%s'" % [path, move.get("actorGuard", "")])
-		if not CombatPrototype.TARGET_TYPES.has(move.get("target", "")):
+		if not CombatRounds.TARGET_TYPES.has(move.get("target", "")):
 			errors.append("%s.target: unknown target type '%s'" % [path, move.get("target", "")])
 		var effect: String = str(move.get("effect", ""))
-		if not CombatPrototype.EFFECTS.has(effect):
+		if not CombatRounds.EFFECTS.has(effect):
 			errors.append("%s.effect: unknown effect '%s'" % [path, effect])
 		var condition = move.get("condition")
-		if condition != null and not CombatPrototype.CONDITIONS.has(condition):
+		if condition != null and not CombatRounds.CONDITIONS.has(condition):
 			errors.append("%s.condition: unknown condition '%s'" % [path, condition])
 		if typeof(move.get("params")) != TYPE_DICTIONARY:
 			errors.append("%s.params: must be a Dictionary" % path)
 			continue
 		var params: Dictionary = move["params"]
 		match effect:
-			CombatPrototype.EFFECT_STUN:
+			CombatRounds.EFFECT_STUN:
 				if int(params.get("actions", 0)) < 1:
 					errors.append("%s.params.actions: must be at least 1" % path)
-			CombatPrototype.EFFECT_LURE:
+			CombatRounds.EFFECT_LURE:
 				if int(params.get("exposedRounds", -1)) < 0:
 					errors.append("%s.params.exposedRounds: must be at least 0" % path)
-			CombatPrototype.EFFECT_FLEE:
+			CombatRounds.EFFECT_FLEE:
 				var chance := float(params.get("chance", -1.0))
 				if chance < 0.0 or chance > 1.0:
 					errors.append("%s.params.chance: must be in [0, 1]" % path)
 
 	var archetypes: Dictionary = cp.get("archetypes", {})
 	if archetypes.is_empty():
-		errors.append("combat_prototype.archetypes: must not be empty")
+		errors.append("combat_rounds.archetypes: must not be empty")
 	for archetype_id in archetypes.keys():
 		var archetype: Dictionary = archetypes[archetype_id]
-		var path := "combat_prototype.archetypes.%s" % archetype_id
-		_validate_combat_prototype_stats(archetype, path, errors)
+		var path := "combat_rounds.archetypes.%s" % archetype_id
+		_validate_combat_rounds_stats(archetype, path, errors)
 		if not templates.has(archetype.get("template", "")):
 			errors.append("%s.template: unknown template '%s'" % [path, archetype.get("template", "")])
 		var patterns: Array = archetype.get("patterns", [])
@@ -1487,74 +1480,74 @@ func _validate_combat_prototype(cp: Dictionary, skill_curve: Array, recipes: Dic
 	var items: Dictionary = cp.get("items", {})
 	for item_id in items.keys():
 		var item: Dictionary = items[item_id]
-		var path := "combat_prototype.items.%s" % item_id
+		var path := "combat_rounds.items.%s" % item_id
 		_require_keys(item, ["target", "effect", "params"], path, errors)
 		if not recipes.has(item_id) or recipes[item_id].get("effectPower", []).size() < 2:
 			errors.append("%s: needs a recipe with an effectPower curve" % path)
-		if not CombatPrototype.ITEM_TARGET_TYPES.has(item.get("target", "")):
+		if not CombatRounds.ITEM_TARGET_TYPES.has(item.get("target", "")):
 			errors.append("%s.target: unknown target type '%s'" % [path, item.get("target", "")])
-		if not CombatPrototype.ITEM_EFFECTS.has(item.get("effect", "")):
+		if not CombatRounds.ITEM_EFFECTS.has(item.get("effect", "")):
 			errors.append("%s.effect: unknown effect '%s'" % [path, item.get("effect", "")])
-		if item.get("effect", "") == CombatPrototype.ITEM_BLACK_HOLE:
+		if item.get("effect", "") == CombatRounds.ITEM_BLACK_HOLE:
 			var params: Dictionary = item.get("params", {})
 			if int(params.get("actionsBase", -1)) < 0 or int(params.get("powerPerAction", 0)) < 1:
 				errors.append("%s.params: needs actionsBase >= 0 and powerPerAction >= 1" % path)
-		if item.get("effect", "") == CombatPrototype.ITEM_POWDER:
+		if item.get("effect", "") == CombatRounds.ITEM_POWDER:
 			var params: Dictionary = item.get("params", {})
 			if int(params.get("rounds", 0)) < 1 or int(params.get("longRounds", 0)) < 1 or int(params.get("longPowerMin", 0)) < 1:
 				errors.append("%s.params: needs rounds, longRounds and longPowerMin >= 1" % path)
-		if item.get("effect", "") == CombatPrototype.ITEM_BLAST:
+		if item.get("effect", "") == CombatRounds.ITEM_BLAST:
 			var flee_chance := float(item.get("params", {}).get("fleeChance", -1.0))
 			if flee_chance < 0.0 or flee_chance > 1.0:
 				errors.append("%s.params.fleeChance: must be in [0, 1]" % path)
-		if item.get("effect", "") == CombatPrototype.ITEM_LADY:
+		if item.get("effect", "") == CombatRounds.ITEM_LADY:
 			var crit_chance := float(item.get("params", {}).get("critChance", -1.0))
 			if crit_chance < 0.0 or crit_chance > 1.0:
 				errors.append("%s.params.critChance: must be in [0, 1]" % path)
 
-		if item.get("effect", "") == CombatPrototype.ITEM_BLAST:
+		if item.get("effect", "") == CombatRounds.ITEM_BLAST:
 			var params: Dictionary = item.get("params", {})
 			var disarm_chance := float(params.get("disarmChance", -1.0))
 			if disarm_chance < 0.0 or disarm_chance > 1.0 or int(params.get("disarmLockRounds", -1)) < 0:
 				errors.append("%s.params: needs disarmChance in [0, 1] and disarmLockRounds >= 0" % path)
-		if item.get("effect", "") == CombatPrototype.ITEM_PANIC:
+		if item.get("effect", "") == CombatRounds.ITEM_PANIC:
 			var bolt_chance := float(item.get("params", {}).get("boltChance", -1.0))
 			if bolt_chance < 0.0 or bolt_chance > 1.0:
 				errors.append("%s.params.boltChance: must be in [0, 1]" % path)
 
 	var anger: Dictionary = cp.get("anger", {})
 	if int(anger.get("phaseActions", 0)) < 1 or int(anger.get("pctPerTier", -1)) < 0:
-		errors.append("combat_prototype.anger: needs phaseActions >= 1 and pctPerTier >= 0")
-	for status in [CombatPrototype.STATUS_PANIC, CombatPrototype.STATUS_RAPTURE]:
+		errors.append("combat_rounds.anger: needs phaseActions >= 1 and pctPerTier >= 0")
+	for status in [CombatRounds.STATUS_PANIC, CombatRounds.STATUS_RAPTURE]:
 		var turn: Dictionary = cp.get("statusTurns", {}).get(status, {})
-		_require_keys(turn, ["name", "actorGuard"], "combat_prototype.statusTurns.%s" % status, errors)
-		if not CombatPrototype.GUARD_EFFECTS.has(turn.get("actorGuard", "")):
-			errors.append("combat_prototype.statusTurns.%s.actorGuard: unknown guard effect" % status)
-	_require_keys(cp.get("statusBadges", {}), ["panic", "rapture", "anger", "fury", "disarmed"], "combat_prototype.statusBadges", errors)
-	_require_keys(cp.get("beatLines", {}), ["guard", "hit", "chip", "crit", "ko", "feint", "stun", "fizzle", "lost", "lure", "exposed", "fled", "fleeFailed", "absorb", "frozen", "timePearl", "blackHole", "pull", "blast", "shield", "healSelf", "heal", "powder", "sight", "lady", "panic", "rapture", "anger", "fury", "bolt", "cower", "enraptured", "calm", "wormhole", "disarm", "shieldOther", "sightGiven", "failsafe"], "combat_prototype.beatLines", errors)
+		_require_keys(turn, ["name", "actorGuard"], "combat_rounds.statusTurns.%s" % status, errors)
+		if not CombatRounds.GUARD_EFFECTS.has(turn.get("actorGuard", "")):
+			errors.append("combat_rounds.statusTurns.%s.actorGuard: unknown guard effect" % status)
+	_require_keys(cp.get("statusBadges", {}), ["panic", "rapture", "anger", "fury", "disarmed"], "combat_rounds.statusBadges", errors)
+	_require_keys(cp.get("beatLines", {}), ["guard", "hit", "chip", "crit", "ko", "feint", "stun", "fizzle", "lost", "lure", "exposed", "fled", "fleeFailed", "absorb", "frozen", "timePearl", "blackHole", "pull", "blast", "shield", "healSelf", "heal", "powder", "sight", "lady", "panic", "rapture", "anger", "fury", "bolt", "cower", "enraptured", "calm", "wormhole", "disarm", "shieldOther", "sightGiven", "failsafe"], "combat_rounds.beatLines", errors)
 
 
-# The fog-of-war unread-chance curve (CombatPrototype.unread_chance()).
-func _validate_combat_prototype_fog(fog: Dictionary, level_max: int, errors: Array[String]) -> void:
-	_require_keys(fog, ["unreadChance", "perLevelAbove", "perLevelBelow", "positionMultiplier"], "combat_prototype.fog", errors)
+# The fog-of-war unread-chance curve (CombatRounds.unread_chance()).
+func _validate_combat_rounds_fog(fog: Dictionary, level_max: int, errors: Array[String]) -> void:
+	_require_keys(fog, ["unreadChance", "perLevelAbove", "perLevelBelow", "positionMultiplier"], "combat_rounds.fog", errors)
 	var curve: Array = fog.get("unreadChance", [])
 	if curve.size() != level_max + 1:
-		errors.append("combat_prototype.fog.unreadChance: expected %d entries (index=level 0..%d)" % [level_max + 1, level_max])
+		errors.append("combat_rounds.fog.unreadChance: expected %d entries (index=level 0..%d)" % [level_max + 1, level_max])
 	for level in range(curve.size()):
 		if float(curve[level]) < 0.0 or float(curve[level]) > 1.0:
-			errors.append("combat_prototype.fog.unreadChance[%d]: must be in [0, 1]" % level)
+			errors.append("combat_rounds.fog.unreadChance[%d]: must be in [0, 1]" % level)
 	for key in ["perLevelAbove", "perLevelBelow"]:
 		if float(fog.get(key, -1.0)) < 0.0:
-			errors.append("combat_prototype.fog.%s: must be at least 0" % key)
+			errors.append("combat_rounds.fog.%s: must be at least 0" % key)
 	var multipliers: Array = fog.get("positionMultiplier", [])
 	if multipliers.is_empty():
-		errors.append("combat_prototype.fog.positionMultiplier: must not be empty")
+		errors.append("combat_rounds.fog.positionMultiplier: must not be empty")
 	for i in range(multipliers.size()):
 		if float(multipliers[i]) < 0.0:
-			errors.append("combat_prototype.fog.positionMultiplier[%d]: must be at least 0" % i)
+			errors.append("combat_rounds.fog.positionMultiplier[%d]: must be at least 0" % i)
 
 
-func _validate_combat_prototype_stats(entry: Dictionary, path: String, errors: Array[String]) -> void:
+func _validate_combat_rounds_stats(entry: Dictionary, path: String, errors: Array[String]) -> void:
 	_require_keys(entry, ["name", "hpBase", "attackMin", "attackMax"], path, errors)
 	if int(entry.get("hpBase", 0)) < 1:
 		errors.append("%s.hpBase: must be at least 1" % path)
@@ -1872,9 +1865,9 @@ func _validate_constants(time_blocks: Array, contacts_defaults: Dictionary, erro
 
 # R§3.7b table 3: every combat-capable contact's combatLevel, the hired
 # guard's and the Firm muscle's level are a Combat Skill level
-# (1..combat_prototype.levelMax).
+# (1..combat_rounds.levelMax).
 func _validate_ally_levels(t: Dictionary, errors: Array[String]) -> void:
-	var level_max := int(t.get("combat_prototype", {}).get("levelMax", 0))
+	var level_max := int(t.get("combat_rounds", {}).get("levelMax", 0))
 	var levels: Array = []
 	var contacts: Dictionary = t.get("contacts_defaults", {})
 	for contact_id in contacts:

@@ -58,7 +58,6 @@ func run() -> void:
 
 		assert_eq(s["combat"]["active"], false, "combat.active")
 		assert_eq(s["combat"]["context"], "raid", "combat.context")
-		assert_almost_eq(s["combat"]["evadeChance"], 0.0, 0.0001, "combat.evadeChance")
 
 		assert_eq(s["jamesJob"], null, "jamesJob")
 		assert_eq(s["pendingSaleCut"], 0, "pendingSaleCut")

@@ -196,12 +196,9 @@ func _sync_ticker() -> void:
 	_initialized = true
 
 
-# A live fight, or a Combat Prototype one on screen (its fight outlives an
-# Exit): either routes the ticker as combat.
+# A live fight routes the ticker as combat.
 static func in_combat() -> bool:
-	if GameState.state["combat"]["active"]:
-		return true
-	return GameState.state.get("currentScreen", "") == "combat_prototype" and GameState.state.get("combatPrototype", {}).get("active", false)
+	return GameState.state["combat"]["active"]
 
 
 func _first_unseen_index(notifications: Array) -> int:

@@ -449,9 +449,9 @@ func run() -> void:
 		assert_true(found, "bands that stop short of growth 100 should fail validation")
 	)
 
-	# ── data/combat_prototype.json ──
+	# ── data/combat_rounds.json ──
 
-	var combat_prototype_corruptions := {
+	var combat_rounds_corruptions := {
 		"pattern_unknown_move": [func(cp): cp["archetypes"]["mugger"]["patterns"][0]["moves"] = ["stomp"], "stomp"],
 		"move_unknown_guard_effect": [func(cp): cp["moves"]["guard"]["actorGuard"] = "sideways", "sideways"],
 		"move_unknown_effect": [func(cp): cp["moves"]["strike"]["effect"] = "tickle", "tickle"],
@@ -461,12 +461,12 @@ func run() -> void:
 		"no_moves": [func(cp): cp.erase("moves"), "'moves'"],
 		"archetype_without_patterns": [func(cp): cp["archetypes"]["mugger"]["patterns"] = [], "mugger.patterns"],
 	}
-	for case_id in combat_prototype_corruptions:
-		var corrupt: Callable = combat_prototype_corruptions[case_id][0]
-		var needle: String = combat_prototype_corruptions[case_id][1]
-		run_case("corrupt_fixture_combat_prototype_%s_fails" % case_id, func():
+	for case_id in combat_rounds_corruptions:
+		var corrupt: Callable = combat_rounds_corruptions[case_id][0]
+		var needle: String = combat_rounds_corruptions[case_id][1]
+		run_case("corrupt_fixture_combat_rounds_%s_fails" % case_id, func():
 			var corrupted: Dictionary = GameData.snapshot().duplicate(true)
-			corrupt.call(corrupted["combat_prototype"])
+			corrupt.call(corrupted["combat_rounds"])
 			var errors := GameData.validate_tables(corrupted)
 			var found := false
 			for e in errors:

@@ -259,12 +259,10 @@ strip above:
   combatant's stage sprite (both select the same underlying combatant), not
   a swipe gesture. Scrolling the strip (to inspect an upcoming occurrence)
   never changes selection by itself — only a tap does.
-- **Occurrence cards replace deduplicated roster cards.** Each card is one
-  turn *occurrence* (`CONTEXT.md`'s [[Turn occurrence]]), not one per unique
-  combatant — the same combatant shows a separate card for each occurrence
-  it owns this round (a Motion-inserted extra turn) and again for its next
-  round's occurrence, per the bounded queue-projection policy
-  (`docs/REFERENCE.md` §3.7a). As a combatant's occurrence resolves, its
+- **Action cards replace deduplicated roster cards.** Each card is one
+  [[Action]] (`CONTEXT.md`), not one per unique combatant — the same
+  combatant shows a separate card for each action it owns this round and
+  its next round's (`docs/REFERENCE.md` §3.7b). As a combatant's occurrence resolves, its
   card leaves at the left; upcoming occurrences enter at the right, scrolled
   back to the front when playback starts. Tapping any repeated occurrence of
   the same combatant applies the same selection.

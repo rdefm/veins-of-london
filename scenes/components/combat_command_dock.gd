@@ -3,20 +3,16 @@ extends Panel
 
 # The lower command region: one continuous near-white surface (this Panel)
 # spanning the full screen width, holding an inner row (_row) with the Dial
-# + flat command rows (Complication readout, Attack, two item rows, Leg it),
+# + flat command rows (Complication readout, then the caller-built rows),
 # docs/combat-animation-vision.md §2.5. A fixed Control anchored to the true
-# bottom of the screen, outside scenes/screens/combat.gd's stage/detail-band
-# flow entirely, so sharing that space with the upper region never caps the
-# Dial's own size. combat.gd owns turn flow/director bridging: Attack and
-# Leg-it forward through the callables passed to configure(), since both
-# need to play a beat queue, which is the screen's job, not this dock's.
-# configure_rows() is the generic mode: caller-built rows (and optional
-# Dial/footer) in the same chrome, with no live-combat reads.
+# bottom of the screen, outside the stage's flow entirely, so sharing that
+# space with the upper region never caps the Dial's own size. The caller
+# (scenes/screens/combat_rounds.gd) builds every row and owns what each
+# does; configure_rows() lays them out.
 #
 # Same off-tree-testable shape as DialWidget/TurnOrderStrip: no _ready()
 # override, anchors/theme set in _init() (always runs on .new(), unlike
-# _ready() which never fires in the CombatScreen.new()+_ready() harness
-# tests/test_combat_screen.gd's own top comment documents).
+# _ready() which never fires in an off-tree .new()+_ready() harness).
 
 const COMMAND_DOCK_LEFT_MARGIN := 0.0
 const COMMAND_DOCK_RIGHT_MARGIN := 4.0
@@ -26,23 +22,16 @@ const COMMAND_DOCK_HEIGHT := DialWidget.WIDGET_SIZE.y
 # so it reads as a region of the screen, not a shrink-wrapped card.
 const COMMAND_DOCK_SURFACE_TOP_PADDING := 12.0
 const COMMAND_DOCK_SURFACE_HEIGHT := COMMAND_DOCK_HEIGHT + COMMAND_DOCK_BOTTOM_MARGIN + COMMAND_DOCK_SURFACE_TOP_PADDING
-# Diameter of a disabled generic row's "?" (see _build_explain_button()).
+# Diameter of a disabled row's "?" (see _build_explain_button()).
 const EXPLAIN_BUTTON_SIZE := 28.0
 
 var _row: HBoxContainer
 var _dial_selected_index: int = 0
-var _player: Dictionary = {}
-var _on_attack_callback: Callable = Callable()
-var _on_run_callback: Callable = Callable()
-var _on_dial_triggered_callback: Callable = Callable()
-# Generic mode's Dial cast (DialWidget's on_cast), invalid for the widget's own.
+# The Dial cast (DialWidget's on_cast).
 var _on_dial_cast_callback: Callable = Callable()
-var _on_item_callback: Callable = Callable()
-# Generic mode (configure_rows()): caller-built rows replace the live deck.
-var _generic := false
-var _generic_dial: Variant = null
-var _generic_rows: Array = []
-var _generic_footer: Dictionary = {}
+var _dial: Variant = null
+var _rows: Array = []
+var _footer: Dictionary = {}
 # True while a round's beats play out: every command is dimmed and inert.
 var _locked := false
 
@@ -78,35 +67,23 @@ func _init() -> void:
 	add_child(_row)
 
 
-func configure(player: Dictionary, on_attack: Callable, on_run: Callable, on_dial_triggered: Callable, locked: bool = false, on_item: Callable = Callable()) -> void:
-	_locked = locked
-	_on_item_callback = on_item
-	_on_attack_callback = on_attack
-	_on_run_callback = on_run
-	_on_dial_triggered_callback = on_dial_triggered
-	_generic = false
-	_rebuild(player)
-
-
-# Generic mode, for callers other than live combat: each row is
+# Each row is# Generic mode, for callers other than live combat: each row is
 # { iconKind, label, disabled, disabledReason, callback, onExplain }
 # (iconKind as _build_row_icon() reads it; disabledReason becomes the row's
 # tooltip; a disabled row with an onExplain callable gets a "?" calling it),
 # `footer` is one more such row below them ({} for none), and the Dial
 # (with its Complication readout heading the rows) is drawn only when `dial`
 # isn't null; `on_dial_cast` (index) casts in place of the widget's own.
-func configure_rows(rows: Array, footer: Dictionary = {}, dial: Variant = null, on_dial_triggered: Callable = Callable(), locked: bool = false, on_dial_cast: Callable = Callable()) -> void:
+func configure_rows(rows: Array, footer: Dictionary = {}, dial: Variant = null, locked: bool = false, on_dial_cast: Callable = Callable()) -> void:
 	_locked = locked
-	_on_dial_triggered_callback = on_dial_triggered
 	_on_dial_cast_callback = on_dial_cast
-	_generic = true
-	_generic_rows = rows
-	_generic_footer = footer
-	_generic_dial = dial
-	_rebuild({ "dial": dial })
+	_rows = rows
+	_footer = footer
+	_dial = dial
+	_rebuild()
 
 
-# Surface height that fits `count` generic rows (and their 1px rules) with
+# Surface height that fits `count` rows (and their 1px rules) with
 # no Dial: never less than the Dial-sized default.
 static func surface_height_for_rows(count: int) -> float:
 	var rows_height: float = count * UI.COMMAND_ROW_HEIGHT + maxi(0, count - 1)
@@ -118,41 +95,24 @@ func hide_deck() -> void:
 		child.queue_free()
 
 
-func _rebuild(player: Dictionary) -> void:
-	_player = player
+func _rebuild() -> void:
 	for child in _row.get_children():
 		child.queue_free()
-
-	var dial: Variant = _generic_dial if _generic else player["dial"]
-	if dial != null:
-		_row.add_child(_build_dial_widget(dial))
-	if _generic:
-		_row.add_child(_build_row_column(_build_complication_detail(dial) if dial != null else null, _generic_rows, _generic_footer))
-	else:
-		_row.add_child(_build_action_deck(player))
+	if _dial != null:
+		_row.add_child(_build_dial_widget(_dial))
+	_row.add_child(_build_row_column(_build_complication_detail(_dial) if _dial != null else null, _rows, _footer))
 
 
 func _build_dial_widget(dial: Dictionary) -> Control:
 	var widget := DialWidget.new()
-	widget.configure(dial, _dial_selected_index, _on_dial_selection_changed, _on_dial_triggered, _on_dial_cast_callback if _generic else Callable())
+	widget.configure(dial, _dial_selected_index, _on_dial_selection_changed, _on_dial_cast_callback)
 	if _locked:
 		widget.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		widget.modulate = UI.ACTION_DISABLED_MODULATE
 	return widget
 func _on_dial_selection_changed(new_index: int) -> void:
 	_dial_selected_index = new_index
-	_rebuild(_player)
-func _on_dial_triggered(result: Dictionary) -> void:
-	if _on_dial_triggered_callback.is_valid():
-		_on_dial_triggered_callback.call(result)
-
-
-func _on_attack_pressed() -> void:
-	if _on_attack_callback.is_valid():
-		_on_attack_callback.call()
-func _on_run_pressed() -> void:
-	if _on_run_callback.is_valid():
-		_on_run_callback.call()
+	_rebuild()
 
 
 func _build_complication_detail(dial: Variant) -> Control:
@@ -189,30 +149,8 @@ func _build_complication_detail(dial: Variant) -> Control:
 	row.add_child(_build_row_content(glyph, text, accent))
 	return row
 # Flat command rows (docs/combat-animation-vision.md §2.5, combat-refining
-# amendment): Complication readout, Attack, item rows, Leg it -- equal height,
-# 1px rules between, no per-row panel or primary-action emphasis.
-func _build_action_deck(player: Dictionary) -> Control:
-	var rows: Array = [
-		{ "name": "ActionButton_attack", "iconKind": "attack", "label": "Attack", "disabled": not Combat.selection_block_reason("attack").is_empty(), "callback": _on_attack_pressed },
-	]
-	for index in Loadout.slot_count():
-		rows.append(_live_item_row(index))
-	rows.append({ "name": "ActionButton_run", "iconKind": "run", "label": "Leg it", "disabled": false, "callback": _on_run_pressed })
-	return _build_row_column(_build_complication_detail(player["dial"]), rows, {})
-# One loadout slot, always shown: icon + name + tier, or a disabled "Empty"
-# row; also disabled when Combat.slot_block_reason() refuses it.
-func _live_item_row(index: int) -> Dictionary:
-	var unit: Variant = Loadout.slot(index)
-	var reason: String = Combat.slot_block_reason(index)
-	var recipe_key: String = ""
-	var text := "Empty"
-	if unit != null:
-		recipe_key = unit["recipe"]
-		text = "%s — tier %d" % [GameData.RECIPES[recipe_key]["name"], int(unit["tier"])]
-	return { "name": "ItemButton_%d" % index, "iconKind": "recipe:" + recipe_key, "label": text, "disabled": not reason.is_empty(), "callback": _on_item_pressed.bind(index) }
-func _on_item_pressed(index: int) -> void:
-	if _on_item_callback.is_valid():
-		_on_item_callback.call(index)
+# amendment): the header (Complication readout), then each row -- equal
+# height, 1px rules between, no per-row panel or primary-action emphasis.
 func _build_row_column(header: Control, rows: Array, footer: Dictionary) -> Control:
 	var col := UI.vbox(0)
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL

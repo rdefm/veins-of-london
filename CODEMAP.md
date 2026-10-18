@@ -11,7 +11,7 @@ file owns today, no history.
 | GameData.gd | Loads/validates every `data/*.json` table at boot; scans `assets/combat/territorial<N>/` folders into `TERRITORIAL_VARIANTS` and builds their sprite sets in `combat_templates()` |
 | GameState.gd | Pure state tree (Dicts/Arrays/primitives); screens read only |
 | Rng.gd | Seeded RNG for every probabilistic system; `stable_unit()` keyed hash rolls + `fresh_seed()` off the global stream |
-| SaveManager.gd | Save/load/autosave/export-import; backfills missing keys (pre-tenure homes load owned, bedsit rented), restores JSON ints (round-fight RNG states saved as strings), KO-clamps a loaded fight's selection, founder fix-ups (room→role, Archie recruited past home raid), strips unowned veins from cultivator lists |
+| SaveManager.gd | Save/load/autosave/export-import; backfills missing keys (pre-tenure homes load owned, bedsit rented), restores JSON ints (round-fight RNG states saved as strings), loads a non-round combat dict as idle, founder fix-ups (room→role, Archie recruited past home raid), strips unowned veins from cultivator lists |
 | Snapshots.gd | Bounded snapshot-stack helper backing rewind |
 
 ## systems/*.gd — static-func systems
@@ -30,15 +30,15 @@ Data file per system: see `data/*.json` below.
 | bubble_layout.gd | Popup-position math for MapBubble |
 | collective.gd | Collective faction doors, Nadia settlement, Collective questline beat triggers + Act 2 scripted vein losses + Nadia defend raid, Hakim retake gate + site ruin (ruinedByFirm), T7 Firm provocation (timed Firm-targeting weight), Act 2 relation awards (T8 missions, alarm-defend daily cap), Act 2 gate + T14 spine reward (Hakim intel's weak-enemy-vein branch) + T15 closer delivery |
 | combat_prep.gd | CombatPrep: `state.combatPrep` request/cancel/commit for every combat entry (planned raids/defences cancellable, forced encounters not), replaying the existing Raiding/Home/Combat entries on Fight; lists participants + equipped units; empty-slot warning + Change loadout (`loadoutEdit` round-trip to Profile); recruit pool/toggle/reorder for planned raids and vein/HQ defences |
-| combat.gd | Combat engine. Every context opens a round fight (`engine:"rounds"`) on CombatPrototype core (R§3.7b): real player (slots, carry-in sight/Lady), enemies at archetype + table-2 level, table-3 allies, `choose_move()`, Dial casts, `round_rewind()`, Failsafe/ally-rewind saves (charges returned), XP. Old engine for tests; stamps locationKey; home raid mods; `resolve_home_raid()` |
+| combat.gd | Combat: every context opens a round fight on state.combat over CombatRounds (R§3.7b): real player (slots, carry-in sight/Lady), enemies at archetype + table-2 level, table-3 allies, `choose_move()`/`choose_item()`, Dial casts, `round_rewind()`, Failsafe/ally-rewind saves, XP lump; `idle_state()`; stamps locationKey; home raid mods; exit routing, `resolve_home_raid()`; Train |
 | network_handler.gd | Network handler Targets (timed `collective.networkIntel` claim_bonus/security_freeze), Sourcing (site delivered by handler text), the intel menu (relation- and gouge-priced, gated products: raid/market intel, raid warnings, boost, privacy, disinformation, reduction), and factions' daily budgeted buys of the same products |
 | combat_pacing.gd | Persisted normal/quick pacing toggle |
 | lab.gd | `state.lab` knowledge (`grant_*`), `known_procedure`, bands, `pending_step`, manual run on real calc (`add_ore`, `perform_*`, `finish_run`, crack/abandon), scoring, clues, re-run bonus, Lady/Breath, `lab_run_completed` hook, `batch`, `rewind`, `item_tier`/`staff_item_tier`, `base_calc`, Debug tools (skill override, revoke, best rank, refill calc). Spec: .scratch/lab-port/spec.md |
 | lesson_session.gd | Locked bench lesson (`state.lab.lesson`, `start_lesson_session` op): pool calc for runs, failed-run refill + escalation (hint exact, talk-through; optional per-lesson `lines`), `resume()` back to the paused event. Lab, Nav, Rewind and the bench gate on it. Spec: .scratch/recipe-acquisition/spec.md |
 | recipe_knowledge.gd | Recipe knowledge ladder over Lab: rung states (base/hint1/hint2/master), `rank_ceiling`, `seller_of`, buying (`gate_met`, `price`, `buy`), `master_source`, `ladder_rows`, `grant_rung` (+ op) with collision fallback, `roll_insight`, `maybe_queue_introductions` (daily tick: Wren's next-day message). Spec: .scratch/recipe-acquisition/spec.md |
-| combat_prototype.gd | Open/Guarded rules core on any passed-in combat dict, driven by live Combat and the Debug sandbox (state.combatPrototype). Seeded plans + fog, AI allies, six moves, loadouts, Dial casts, kit items as intents + ally Failsafe (Table 5), Table 4 statuses, round-boundary reinforcements, player-KO play-on, timeline/guard/intent/block-reason helpers |
+| combat_rounds.gd | CombatRounds: Open/Guarded rules core on any passed-in combat dict (R§3.7b), driven by Combat. Seeded plans + fog, AI allies, six moves, loadouts, Dial casts, kit items as intents + ally Failsafe (Table 5), Table 4 statuses, round-boundary reinforcements, player-KO play-on, Rewind frames, timeline/guard/intent/block-reason helpers |
 | active_effects.gd | Timed out-of-combat item effects in `state.player.activeEffects`: `use()` (Bag), `expire()` (TimeSystem on clock moves), `is_active`/`lady_active`/`prophets_breath_active`, `blocks_left`. Be a Lady = player cultivate/harvest max roll; Prophet's Breath = no ambushes. Data: constants.json `activeEffects`. |
-| consumables.gd | Healing Salve (out-of-combat) + Healing Burst (in or out); in-combat use_healing_burst() resolves the parked player turn-cursor entry (R§3.7a) and heals an ally target instead of the player (R§3.7) |
+| consumables.gd | Out-of-combat Healing Salve (2-day heal-over-time) and Healing Burst (instant heal) from shared inventory |
 | contacts.gd | Relation, recruiting (incl. story `force_recruit`), seat-capped room assignment (`contacts_in_room`/`assign_to_room`), room→role lookup from hiring.json (`room_roles`), founder staff roles (`set_role`/`role_of`/`available_roles`), capped XP (`skill_cap`, `xp_levels`), ally combat kit (Dial grant on recruit via `Dial.grant_contact_dial`), display names, directory order |
 | contact_texts.gd | Per-contact random texts: rollover scheduling, gated selection, vein templating, reply rewards, and ticker notices; content from contact_texts.json |
 | contracts.gd | Block-end Sales auto-delivery (full, then partials by priority; goods to buyer holdings + supplier share), settlement to pot; recurring periods pay on fill, lock (`periodFilled`) until Monday renewal, expire at term end; per-contract `buyCalc` calc buys from the pot; unattended-proof taint (`playerAssisted`) and `qualified` settlements; `cancel()` (unpaid, hurts counterparty) |
@@ -127,8 +127,8 @@ overlays.
 | File | Renders |
 |---|---|
 | combat_prep.gd | Preparation sheet (screen `combat_prep`) on the Trade sheet chrome: empty-slot warning + Change loadout, recruit picker (tick + ▲▼ order), participants with equipped units, opposition, Cancel (planned only) / Fight footer |
-| combat.gd | Combat screen: orchestrator over CombatStage/CombatCommandDock -- owns turn flow, director bridging, band sync; a round fight is hosted whole by a live CombatPrototypeScreen. Keeps one persistent strip and steps its queue beat by beat during (and Rewind) playback. `_select_target()` is the sole tap->`Combat.set_selection()` route; a stage tap during playback fast-forwards |
-| combat_prototype.gd | Round-fight screen: Debug sandbox (setup incl. backdrop) or, with `live`, live round fights on state.combat via Combat (real loadout rows, Dial casts, exit outcome); Rewind plays undone beats in reverse. CombatStage (tap to target, guard overlay), strip carousel, CommandDock rows with block reasons, CombatDirector beats, pacing, Readouts |
+| combat.gd | CombatScreen (screen `combat`): hosts CombatRoundsScreen; static `context_label()` and `outcome_button()` (hands off to `Combat.exit_combat()`) |
+| combat_rounds.gd | CombatRoundsScreen: the round fight on state.combat via Combat (move + real loadout rows, Dial casts, Rewind playing undone beats in reverse, outcome). CombatStage (tap to target, guard overlay), strip carousel, CommandDock rows with block reasons, CombatDirector beats, pacing, Readouts |
 | contacts.gd | Contacts app inside PhoneDeviceShell; directory of unlocked contacts by display name (`Contacts.directory_ids`) with inline flag-gated actions; generic key-member card |
 | event.gd | Event-card screen (VN and non-VN layouts); Item button + popup over EventItems; choices row, or stack full-width when they don't fit; check options show tries + odds/hint, info sheet, optional-item toggles; gated options hidden or greyed with reason; outcome marker on resolution; Leave-only fallback when state.event's id has no definition |
 | factions.gd | Factions tab |
@@ -152,7 +152,7 @@ overlays.
 | alarm_presentation.gd | Detects raid alarms; Phone pulse + vibration |
 | app_tile.gd | Normalised icon+label+numeric-count-badge+lock tile for phone launchers |
 | bag_drawer.gd | Global bottom-sheet bag drawer; read-only stock/consumable listing (also during combat; no use buttons, no loadout change); out-of-combat heal + timed-effect Use buttons in management mode |
-| combat_command_dock.gd | Combat's lower command region: Dial beside 1px-ruled command rows (Complication, Attack, two item rows, Leg it), anchored to screen bottom; live rows gated by `Combat` block reasons. `configure_rows()`: generic caller-built rows ("?" on disabled ones) + footer, optional Dial (readout, caller's cast callback); `surface_height_for_rows()` fits taller stacks |
+| combat_command_dock.gd | Combat's lower command region: Dial beside 1px-ruled command rows (Complication readout, then caller-built rows, "?" on disabled ones) + footer, anchored to screen bottom via `configure_rows()`; optional Dial with the caller's cast callback; `surface_height_for_rows()` fits taller stacks |
 | combat_director.gd | Combat beat-queue playback director; holds a data-driven pause (combat_visuals pacing.turnPause) between combatants' turns; emits `playing_changed` so screens lock commands during playback; owns the pacing toggle (toggle_pacing, pacing_label) |
 | combat_stage.gd | Combat pixel stage: backdrop (location->context->palette); slots in two receding diagonal groups, depth-sorted; up to 3 reserves per side + `+N`, sliding in; keypose one-shots, effects, juice layer. Slot taps emit `subject_tapped`; selected slot gets an arrow; per-slot guard marker/shield/freeze/status badges. No GameState reads; target-less effects take a caller fallback |
 | contact_cards.gd | Shared contact/faction card builders (incl. membership actions, faction Benefits tier ladder, handler card, Owen card, Targets/Sourcing, Nadia's ledger + "Go with Nadia", key-member card, recipe-seller Trade door, pending-message actions (lowball, peace offer, favour)), inline Contacts action-row layout, Phone-OS chrome repaint (text-only for card-chrome apps) |
@@ -187,11 +187,11 @@ overlays.
 | symbol_glyph.gd | Label-or-vector fallback for a symbol; draws an optional `icon` texture instead when set |
 | item_icons.gd | `ItemIcons`: recipe key -> pixel-art icon texture (from recipes.json `icon`) and symbol-row part dict; shared by Bag, Dial, trade, events, combat |
 | time_transition.gd | Transient time queue, input guard, dimmed circular park/sky/sun/moon presentation |
-| top_bar.gd | Top departure board: casing + status lines + NotificationTicker + active-effect icon chips (tap → `active_effects` sheet); feeds new notifications (combat hold, combat lines dropped when fight ends, raid-alarm line, reset on load/Rewind); tap opens Notifications app (short-pay menu if latest line is the pending guard shortfall) except in combat (live or prototype) |
+| top_bar.gd | Top departure board: casing + status lines + NotificationTicker + active-effect icon chips (tap → `active_effects` sheet); feeds new notifications (combat hold, combat lines dropped when fight ends, raid-alarm line, reset on load/Rewind); tap opens Notifications app (short-pay menu if latest line is the pending guard shortfall) except in combat |
 | touch_input.gd | `TouchInput.is_emulated_mouse(event)`: true for the mouse twin Godot emits for every touch; touch+mouse handlers skip it so one tap acts once |
 | touch_scroll_container.gd | ScrollContainer, touch drag-scroll; opt-in `momentum` fling on release (`UI.screen_body(root, true)`) |
 | tap_button.gd | Button behind UI.button/symbol_button/icon_button and card taps; shows pressed style while held, fires pressed only on a still release (TAP_SLOP), lets drags bubble to the scroller |
-| turn_order_strip.gd | Combat turn-order strip: one card per handed entry (turn occurrence). Tap selects; drag scrolls; selected/`focused` card expands. Damage-tier sign frames (cardFrames), optional actionText/guardBadge/statusBadge lines, HP ghost drain, playback reflow via `playback_occurrences()` + `advance_to()`; anchored, end cards ghost off. Static `build_entries*()` adapt live combat |
+| turn_order_strip.gd | Combat turn-order strip: one card per caller-built entry (an action). Tap selects; drag scrolls; selected/`focused` card expands. Damage-tier sign frames (cardFrames), optional actionText/guardBadge/statusBadge lines, HP ghost drain, `advance_to()` carousel steps; anchored, end cards ghost off |
 | ui.gd | Shared Control builders, time-cost labels, lot price text ("£75/10"), ui_action_red accent + bordered-panel/action-button StyleBoxFlat helpers |
 | vein_bubble.gd | Compact player-vein tap bubble: pin-anchored card, Lv segments, condition needle with 50/90+ scale, outline development/raid cues, round Harvest (light/hard chooser)/Cultivate actions, cultivator picker + hold-target stepper (via Rooms) while anyone holds Cultivation; tapping the info area opens vein_detail_panel.gd instead of running an action |
 | vein_detail_panel.gd | Floating map_card_style.gd-skinned vein detail (mapNav.selectedVeinId): compact level/location, condition, drift/development/raid/security cues, three icon action tiles, security/guard kit row/alarm/Defend; reuses VeinBubble's level/condition builders |
@@ -221,7 +221,7 @@ overlays.
 | movement_swap_modal.gd | Seat a Movement from movementInventory into the Dial |
 | dial_load_complication_modal.gd | Load a crafted complication into the Dial |
 | combat_setup_modal.gd | Debug combat setup: fight type, location override (`location_options()`), fight-only player level, player slot picks (written to real slots via `Loadout.debug_grant()`), enemy count/level + per-enemy template/archetype, contact toggles, 0–2 debug allies (level + slots); requests `CombatPrep.KIND_DEBUG` → `Combat.start_debug_combat()` |
-| combat_block_reason_modal.gd | Why a combat command row is disabled: the action name and its block reason, opened from the row's "?" (combat_prototype.gd) |
+| combat_block_reason_modal.gd | Why a combat command row is disabled: the action name and its block reason, opened from the row's "?" (combat_rounds.gd) |
 | network_reference_modal.gd | Network Map legend |
 | hq_ore_readout_modal.gd | Ore-store slip with raid-risk stamp + personal-stash move controls, map_card_style.gd-skinned (always light) |
 | hq_gym_modal.gd | Combat skill card (level, XP bar, current + next-level HP/ATK/SPD/actions/crit via `Combat.skill_summary()`) + Train action card |
@@ -262,7 +262,7 @@ overlays.
 | approaches.json | Lab apparatus list (names, symbols); lab.gd, GameData.gd |
 | barometer.json | barometer.gd (states/actions/prefs and wire article templates); ticker_app.gd (News branding, state-article headline/deck/body, per-category columnist byline + author note (`categoryBylines`), article/impact labels and category copy; Stock Market list/detail labels and empty states) |
 | collective_barks.json | collective.gd |
-| combat_prototype.json | combat_prototype.gd |
+| combat_rounds.json | combat_rounds.gd; combat.gd (playerBase/allyBase names, archetypes, anger); combat_setup_modal.gd (archetypes) |
 | lab.json | lab.gd (procedures with rung-tagged hints, base steps spending the recipe's ingredients; rank thresholds, skillFactor + benchBonusFactors, scoring/XP tuning, gauges + direction words, vague tuning, specificities + insightNote, clue text, bonus, bad-run lines, staffTierCap, lesson escalation thresholds, debug skillMax/refillCalc); GameData.gd validates |
 | recipe_knowledge.json | recipe_knowledge.gd (rung order + rank ceilings, seller ores, shops (unlock flags, gates + lock text, discount, Wren's introduction message), recipe-book ladder strings, prices, source aliases, collision XP/relation/lines, per-recipe master sources, insight odds + lines); GameData.gd validates |
 | combat_visuals.json | combat_stage.gd (locationBackdrops, backdrops, pose sheets, stage.spriteScale, stage.reserve); GameData.gd (territorialVariant pose spec); combat_director.gd (pacing.turnPause); turn_order_strip.gd (cardFrames) |
@@ -329,12 +329,10 @@ infrastructure, excluded from discovery.
 
 `check_all.sh` syntax-checks .gd files, then runs `lint_tokens.sh` (row-cap + comment-vocab ban).
 `run_tests.sh` runs the headless suite. `setup_godot.sh`/`setup_godot_ai.sh` set up the headless
-binary and the godot-ai MCP server; `soak.sh` repeats the playthrough test. The two
-`debug_combat_*_screenshot.gd` files are windowed dev screenshot harnesses;
+binary and the godot-ai MCP server; `soak.sh` repeats the playthrough test.
 `diagnose_115_timing.gd` is a hang-timing probe; `verify_map_camera_persistence.gd` is a
 live-tree check. `sim_combat_balance.gd` (+ `_impl.gd`) is the seeded live-`Combat` balance sim
-(fights via `Combat.start_debug_combat()`, naive vs reader policy over a matchup grid, fog on and off). `sim_combat_prototype.gd` (+ `_impl.gd`) is the seeded
-CombatPrototype balance sim (naive vs reader policy over a matchup grid, fog on and off; not in run_tests.sh).
+(fights via `Combat.start_debug_combat()`, naive vs reader policy over a matchup grid, fog on and off; not in run_tests.sh).
 
 ## tools/*.py, *.html, *.js — asset/content pipeline tooling
 

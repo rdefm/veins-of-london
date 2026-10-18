@@ -4,7 +4,7 @@ extends RefCounted
 # opens on a fresh GameState through Combat.start_debug_combat() and is
 # driven only through Combat.choose_move() / choose_item(), a policy
 # deciding at each pause, reading the live fight (state.combat) through
-# CombatPrototype's read-only helpers; enemy plans are read as the player
+# CombatRounds's read-only helpers; enemy plans are read as the player
 # sees them (enemy_intents(): targets only under Prophet's Breath sight,
 # unread intents unknown).
 
@@ -78,17 +78,17 @@ func _run_table(opts: Dictionary, matchups: Array, fog: bool) -> Dictionary:
 
 
 # What-if override for this run only: a dotted path to an existing number
-# in GameData.COMBAT_PROTOTYPE (e.g. archetypes.mugger.hpBase=45,
+# in GameData.COMBAT_ROUNDS (e.g. archetypes.mugger.hpBase=45,
 # chipMultiplier=0.3), set to `value` as that number's type. False (with
 # the reason printed) for a path that isn't one.
 func _override(path: String, value: String) -> bool:
 	var keys := path.split(".")
-	var node = GameData.COMBAT_PROTOTYPE
+	var node = GameData.COMBAT_ROUNDS
 	for k in keys.slice(0, -1):
 		node = node.get(k) if node is Dictionary else null
 	var last: String = keys[-1]
 	if not (node is Dictionary and node.has(last) and typeof(node[last]) in [TYPE_INT, TYPE_FLOAT]):
-		print("Unknown option or not a number in combat_prototype.json: %s" % path)
+		print("Unknown option or not a number in combat_rounds.json: %s" % path)
 		return false
 	node[last] = float(value) if typeof(node[last]) == TYPE_FLOAT else int(value)
 	return true
@@ -106,7 +106,7 @@ func _grid(opts: Dictionary) -> Array:
 	for spec in str(opts["enemies"]).split(","):
 		var bits := spec.split(":")
 		var archetype := bits[1] if bits.size() > 1 else ""
-		if not Combat.debug_enemy_templates().has(bits[0]) or (archetype != "" and not GameData.COMBAT_PROTOTYPE["archetypes"].has(archetype)):
+		if not Combat.debug_enemy_templates().has(bits[0]) or (archetype != "" and not GameData.COMBAT_ROUNDS["archetypes"].has(archetype)):
 			print("Unknown enemy: %s (template[:archetype])" % spec)
 			return []
 		enemy_specs.append({ "template": bits[0], "archetype": archetype, "label": spec })
@@ -193,7 +193,7 @@ func _run_matchup(matchup: Dictionary, policy: String, n: int, base_seed: int, m
 			timeouts += 1
 		elif outcome == "win":
 			wins += 1
-			var player: Dictionary = cp["combatants"][CombatPrototype.PLAYER_INDEX]
+			var player: Dictionary = cp["combatants"][CombatRounds.PLAYER_INDEX]
 			hp_left += 100.0 * player["hp"] / player["hpMax"]
 	rounds.sort()
 	var total := 0
@@ -219,9 +219,9 @@ func _decide(cp: Dictionary, policy: String) -> Dictionary:
 		if not item.is_empty():
 			return item
 	if policy == "naive":
-		return { "move": CombatPrototype.MOVE_STRIKE, "target": -1 }
-	var i := CombatPrototype.decision_position(cp)
-	return _reader_action(cp, i, CombatPrototype.actions_this_round(cp, CombatPrototype.PLAYER_INDEX))
+		return { "move": CombatRounds.MOVE_STRIKE, "target": -1 }
+	var i := CombatRounds.decision_position(cp)
+	return _reader_action(cp, i, CombatRounds.actions_this_round(cp, CombatRounds.PLAYER_INDEX))
 
 
 # A heal below the ally AI's heal threshold; else the first unspent non-heal
@@ -229,19 +229,19 @@ func _decide(cp: Dictionary, policy: String) -> Dictionary:
 # actions. "slot" is the item's real loadout slot; an item Combat refuses at
 # that target is passed over. {} for none.
 func _item_action(cp: Dictionary) -> Dictionary:
-	var player: Dictionary = cp["combatants"][CombatPrototype.PLAYER_INDEX]
-	var low: bool = float(player["hp"]) / player["hpMax"] < float(GameData.COMBAT_PROTOTYPE["allyHealBelow"])
+	var player: Dictionary = cp["combatants"][CombatRounds.PLAYER_INDEX]
+	var low: bool = float(player["hp"]) / player["hpMax"] < float(GameData.COMBAT_ROUNDS["allyHealBelow"])
 	var paused: bool = _enemies(cp).any(func(e): return cp["combatants"][e]["actionsLost"] > 0)
 	for entry in player["loadout"]:
 		if entry["used"]:
 			continue
 		var item_id: String = entry["item"]
-		var effect: String = CombatPrototype.move(item_id)["effect"]
+		var effect: String = CombatRounds.move(item_id)["effect"]
 		var action := {}
-		if effect == CombatPrototype.ITEM_HEAL:
+		if effect == CombatRounds.ITEM_HEAL:
 			if low:
-				action = { "slot": int(entry["sourceSlot"]), "target": CombatPrototype.PLAYER_INDEX }
-		elif effect in [CombatPrototype.ITEM_FREEZE, CombatPrototype.ITEM_BLACK_HOLE]:
+				action = { "slot": int(entry["sourceSlot"]), "target": CombatRounds.PLAYER_INDEX }
+		elif effect in [CombatRounds.ITEM_FREEZE, CombatRounds.ITEM_BLACK_HOLE]:
 			if not paused:
 				action = { "slot": int(entry["sourceSlot"]), "target": -1 }
 		else:
@@ -262,16 +262,16 @@ func _reader_action(cp: Dictionary, i: int, size: int) -> Dictionary:
 	var open: Array = enemies.filter(func(e): return _sees_open(cp, e, i, i, []))
 	var feint_target := _feint_target(cp, enemies, i, size)
 	if _threatened(cp, enemies, i, size):
-		if feint_target >= 0 and not CombatPrototype.is_open(cp, cp["combatants"][CombatPrototype.PLAYER_INDEX]):
-			return { "move": CombatPrototype.MOVE_FEINT, "target": feint_target }
+		if feint_target >= 0 and not CombatRounds.is_open(cp, cp["combatants"][CombatRounds.PLAYER_INDEX]):
+			return { "move": CombatRounds.MOVE_FEINT, "target": feint_target }
 		if not open.is_empty() and _wins_race(cp, enemies, _weakest(cp, open)):
-			return { "move": CombatPrototype.MOVE_STRIKE, "target": _weakest(cp, open) }
-		return { "move": CombatPrototype.MOVE_GUARD, "target": CombatPrototype.PLAYER_INDEX }
+			return { "move": CombatRounds.MOVE_STRIKE, "target": _weakest(cp, open) }
+		return { "move": CombatRounds.MOVE_GUARD, "target": CombatRounds.PLAYER_INDEX }
 	if not open.is_empty():
-		return { "move": CombatPrototype.MOVE_STRIKE, "target": _weakest(cp, open) }
+		return { "move": CombatRounds.MOVE_STRIKE, "target": _weakest(cp, open) }
 	if feint_target >= 0:
-		return { "move": CombatPrototype.MOVE_FEINT, "target": feint_target }
-	return { "move": CombatPrototype.MOVE_STRIKE, "target": _weakest(cp, enemies) }
+		return { "move": CombatRounds.MOVE_FEINT, "target": feint_target }
+	return { "move": CombatRounds.MOVE_STRIKE, "target": _weakest(cp, enemies) }
 
 
 # A Guarded enemy that a Feint at action i leaves Open for action i+1; -1
@@ -291,13 +291,13 @@ func _wins_race(cp: Dictionary, enemies: Array, target: int) -> bool:
 	var incoming := 0.0
 	for e in enemies:
 		incoming += _mean_roll(cp, e)
-	var hits_to_kill := ceilf(float(cp["combatants"][target]["hp"]) / _mean_roll(cp, CombatPrototype.PLAYER_INDEX))
-	var hits_to_die := ceilf(float(cp["combatants"][CombatPrototype.PLAYER_INDEX]["hp"]) / incoming)
+	var hits_to_kill := ceilf(float(cp["combatants"][target]["hp"]) / _mean_roll(cp, CombatRounds.PLAYER_INDEX))
+	var hits_to_die := ceilf(float(cp["combatants"][CombatRounds.PLAYER_INDEX]["hp"]) / incoming)
 	return hits_to_kill <= hits_to_die
 
 
 func _mean_roll(cp: Dictionary, actor: int) -> float:
-	var roll_range := CombatPrototype.damage_range(cp, actor)
+	var roll_range := CombatRounds.damage_range(cp, actor)
 	return (roll_range[0] + roll_range[1]) / 2.0
 
 
@@ -306,16 +306,16 @@ func _mean_roll(cp: Dictionary, actor: int) -> float:
 # paused one) and its next: a slower or tied enemy's action i, or a faster
 # enemy's action i+1 (next round's first, under sight, for the last action).
 func _threatened(cp: Dictionary, enemies: Array, i: int, size: int) -> bool:
-	var me: int = cp["combatants"][CombatPrototype.PLAYER_INDEX]["speed"]
+	var me: int = cp["combatants"][CombatRounds.PLAYER_INDEX]["speed"]
 	for e in enemies:
 		var faster: bool = cp["combatants"][e]["speed"] > me
-		var intents := CombatPrototype.enemy_intents(cp, e)
+		var intents := CombatRounds.enemy_intents(cp, e)
 		if not faster and _strikes(cp, e, intents, i):
 			return true
 		if faster:
 			if i + 1 < size and _strikes(cp, e, intents, i + 1):
 				return true
-			if i + 1 >= size and _strikes(cp, e, CombatPrototype.enemy_intents(cp, e, true), 0, true):
+			if i + 1 >= size and _strikes(cp, e, CombatRounds.enemy_intents(cp, e, true), 0, true):
 				return true
 	return false
 
@@ -329,9 +329,9 @@ func _strikes(cp: Dictionary, e: int, intents: Array, index: int, next_round: bo
 	if not next_round and int(cp["combatants"][e]["actionsLost"]) > 0:
 		return false
 	var intent: Dictionary = intents[index]
-	if CombatPrototype.move(intent["move"])["effect"] not in [CombatPrototype.EFFECT_DAMAGE, CombatPrototype.EFFECT_STUN]:
+	if CombatRounds.move(intent["move"])["effect"] not in [CombatRounds.EFFECT_DAMAGE, CombatRounds.EFFECT_STUN]:
 		return false
-	return int(intent.get("target", CombatPrototype.PLAYER_INDEX)) == CombatPrototype.PLAYER_INDEX
+	return int(intent.get("target", CombatRounds.PLAYER_INDEX)) == CombatRounds.PLAYER_INDEX
 
 
 # Whether enemy e will be Open when the player takes action i, read from
@@ -342,10 +342,10 @@ func _strikes(cp: Dictionary, e: int, intents: Array, index: int, next_round: bo
 # guard unknown, which doesn't.
 func _sees_open(cp: Dictionary, e: int, now: int, i: int, feints: Array) -> bool:
 	var enemy: Dictionary = cp["combatants"][e]
-	if CombatPrototype.is_exposed(cp, enemy):
+	if CombatRounds.is_exposed(cp, enemy):
 		return true
-	var faster: bool = enemy["speed"] > cp["combatants"][CombatPrototype.PLAYER_INDEX]["speed"]
-	var intents := CombatPrototype.enemy_intents(cp, e)
+	var faster: bool = enemy["speed"] > cp["combatants"][CombatRounds.PLAYER_INDEX]["speed"]
+	var intents := CombatRounds.enemy_intents(cp, e)
 	var resolved := mini(now + 1 if faster else now, intents.size())
 	var acted := mini(i + 1 if faster else i, intents.size())
 	if int(enemy["frozenActions"]) > acted - resolved:
@@ -354,24 +354,24 @@ func _sees_open(cp: Dictionary, e: int, now: int, i: int, feints: Array) -> bool
 	# Events as [index, enemy-first-at-that-index, guard state].
 	var events: Array = []
 	for j in range(resolved, acted):
-		var guard: String = CombatPrototype.UNKNOWN if intents[j].get("unread", false) else CombatPrototype.move(intents[j]["move"])["actorGuard"]
-		if j - resolved >= lost and guard != CombatPrototype.UNCHANGED:
+		var guard: String = CombatRounds.UNKNOWN if intents[j].get("unread", false) else CombatRounds.move(intents[j]["move"])["actorGuard"]
+		if j - resolved >= lost and guard != CombatRounds.UNCHANGED:
 			events.append([j, faster, guard])
 	for f in feints:
 		if f < i:
-			events.append([f, not faster, CombatPrototype.OPEN])
+			events.append([f, not faster, CombatRounds.OPEN])
 	events.sort_custom(func(a, b): return a[0] < b[0] or (a[0] == b[0] and a[1] and not b[1]))
-	var state: String = CombatPrototype.OPEN if CombatPrototype.is_open(cp, enemy) else CombatPrototype.GUARDED
+	var state: String = CombatRounds.OPEN if CombatRounds.is_open(cp, enemy) else CombatRounds.GUARDED
 	for ev in events:
 		state = ev[2]
-	return state == CombatPrototype.OPEN
+	return state == CombatRounds.OPEN
 
 
 func _enemies(cp: Dictionary) -> Array:
 	var result: Array = []
 	var combatants: Array = cp["combatants"]
 	for i in range(combatants.size()):
-		if combatants[i]["side"] == CombatPrototype.SIDE_ENEMY and not combatants[i]["koed"]:
+		if combatants[i]["side"] == CombatRounds.SIDE_ENEMY and not combatants[i]["koed"]:
 			result.append(i)
 	return result
 

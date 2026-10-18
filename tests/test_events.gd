@@ -1951,7 +1951,7 @@ func run() -> void:
 		assert_eq(GameState.state["combat"]["context"], Combat.CONTEXT_HOME_RAID)
 
 		# Force a deterministic win.
-		var you: Dictionary = GameState.state["combat"]["combatants"][CombatPrototype.PLAYER_INDEX]
+		var you: Dictionary = GameState.state["combat"]["combatants"][CombatRounds.PLAYER_INDEX]
 		you["attackMin"] = 999
 		you["attackMax"] = 999
 		Combat.choose_move("strike", 1)

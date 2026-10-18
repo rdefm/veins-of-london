@@ -28,7 +28,6 @@ func build(content: VBoxContainer) -> void:
 	content.add_child(_build_add_calc_card())
 	content.add_child(_build_spawn_site_card())
 	content.add_child(_build_combat_card())
-	content.add_child(_build_combat_prototype_card())
 	content.add_child(_build_lab_card())
 	content.add_child(_build_safe_area_card())
 	content.add_child(_build_relation_card())
@@ -115,14 +114,6 @@ func _build_combat_card() -> Control:
 	var c := UI.card()
 	c["content"].add_child(UI.heading("Combat", 14))
 	c["content"].add_child(UI.button("Open", func(): Modal.open("combat_setup")))
-	return c["panel"]
-
-
-func _build_combat_prototype_card() -> Control:
-	var c := UI.card()
-	c["content"].add_child(UI.heading("Combat Prototype", 14))
-	c["content"].add_child(UI.muted_label("Sandboxed Open/Guarded round planning — not production combat."))
-	c["content"].add_child(UI.button("Open", func(): CombatPrototype.open()))
 	return c["panel"]
 
 

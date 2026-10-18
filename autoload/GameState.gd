@@ -274,36 +274,14 @@ func new_game_state() -> Dictionary:
 
 		"contacts": _new_contacts_state(),
 
-		"combat": {
-			"active": false, "context": "raid", "veinId": null, "enemies": [],
-			# R§2: backdrop location key, set by Combat._start_combat().
-			"locationKey": "",
-			"selection": { "type": "enemy", "index": 0 }, "log": [],
-			"outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
-			"evadeTurns": 0, "evadeChance": 0.0, "onWin": null, "snapshots": [], "beatsSinceSnapshot": [],
-			# Loadout slot indices spent this fight; Combat.exit_combat() refills them.
-			"slotsUsed": [],
-			# Allies fighting alongside the player this combat (see
-			# Contacts.build_combat_ally) — empty outside vein-defense fights.
-			"allies": [],
-			# A defended raid's shared raider item pool (FactionSim.raider_kit()); {} otherwise.
-			"raiderKit": {},
-			# The defended vein's shared guard kit pool (guard-kit §Defend fight); {} otherwise.
-			"guardKit": {},
-			# R§3.7a resumable-progression cursor; reset fresh by
-			# Combat._start_combat()/exit_combat(), never carried between fights.
-			"turnCursor": { "queue": [], "index": 0, "round": 0 },
-		},
+		# No fight on; a fight replaces it with its round-fight dict (R§3.7b).
+		"combat": Combat.idle_state(),
 		# Pending pre-fight preparation (CombatPrep): null or { kind, args, forced, returnScreen }.
 		"combatPrep": null,
 		# Outside state.combat itself since exit_combat() resets that dict
 		# to fresh defaults on every fight's end.
 		"combatPacingMode": CombatPacing.DEFAULT_MODE,
 
-		# Sandboxed combat prototype (systems/combat_prototype.gd), fully
-		# separate from "combat" above. Resets on load -- a fight mid-flight
-		# at save time isn't resurrected.
-		"combatPrototype": CombatPrototype.new_state(),
 		# The live Lab (systems/lab.gd): recipe knowledge, best ranks, the
 		# run in progress and which recipes have been performed by hand.
 		"lab": Lab.new_state(),
@@ -561,9 +539,9 @@ func _new_contacts_state() -> Dictionary:
 			"combatHp": defaults.get("combatHpMax", 0),
 			"combatAttackMin": defaults.get("combatAttackMin", 0),
 			"combatAttackMax": defaults.get("combatAttackMax", 0),
-			# Fixed authored turn-order value (not trainable, unlike the
-			# player's Combat Skill-driven speed) -- copied into
-			# combat.allies, which Combat.build_turn_queue() sorts on.
+			# Fixed authored speed (not trainable, unlike the player's
+			# Combat Skill-driven speed) -- copied into combat.allies, the
+			# round fight's timeline tie-break (R§3.7b Round).
 			"combatSpeed": defaults.get("combatSpeed", 0),
 			"koCooldownDays": defaults.get("koCooldownDays", 0),
 			"koCooldownUntilDay": null,

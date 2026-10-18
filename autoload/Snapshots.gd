@@ -10,7 +10,6 @@ extends Node
 const MAX_SIZES := {
 	"combat": 2,
 	"event": 8,
-	"combatPrototype": 2,  # systems/combat_prototype.gd; same cap as "combat".
 }
 
 
