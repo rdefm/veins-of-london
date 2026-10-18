@@ -1400,7 +1400,7 @@ static func _advance(cp: Dictionary, rng: RandomNumberGenerator, beats: Array) -
 			break
 		cp["playerPlan"].resize(maxi(cp["playerPlan"].size(), actions_this_round(cp, PLAYER_INDEX)))
 		var entry := _next_entry(cp)
-		if entry.is_empty():
+		if entry.is_empty() or _awaiting_enemy_reserves(cp):
 			_end_round(cp, rng, beats)
 			cursor = cp["cursor"]
 			continue
@@ -1498,6 +1498,12 @@ static func _admit_reserves(cp: Dictionary, rng: RandomNumberGenerator, fog_rng:
 			_beat(cp, beats, "enter", index, -1, "", {})
 			entrants.append(index)
 	return entrants
+
+
+# No enemy left standing with reinforcements waiting: the round ends at
+# once so they come in (R§3.7b KO and outcome).
+static func _awaiting_enemy_reserves(cp: Dictionary) -> bool:
+	return _standing(cp, SIDE_ENEMY) == 0 and not cp.get(QUEUE_KEYS[SIDE_ENEMY], []).is_empty()
 
 
 # Standing fighters on `side`, the player counting with the allies.

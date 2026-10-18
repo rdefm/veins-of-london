@@ -1403,6 +1403,22 @@ func run() -> void:
 		assert_eq(CombatPrototypeScreen.stage_roster(combat, -1)["combat"]["enemyQueue"], [], "no reserve left on the stage")
 	)
 
+	run_case("an_empty_enemy_field_ends_the_round_at_once_for_the_reserves", func():
+		GameState.reset()
+		var combat := _start_reinforced(4)
+		var foes: Array = CombatPrototype.side_indices(combat, CombatPrototype.SIDE_ENEMY)
+		for i in [foes[0], foes[1]]:
+			combat["combatants"][i]["hp"] = 0
+			combat["combatants"][i]["koed"] = true
+		combat["combatants"][foes[2]]["hp"] = 1
+		var round_no: int = combat["round"]
+		assert_true(Combat.choose_move("strike", foes[2])["ok"])
+		assert_eq(combat["round"], round_no + 1, "no picks against an empty field")
+		assert_eq(combat["enemyQueue"], [], "the reserve's in")
+		assert_eq(combat["outcome"], null)
+		assert_eq(CombatPrototype.decision_position(combat), 0, "paused on the new round's first pick")
+	)
+
 	run_case("a_rewind_across_an_entry_puts_the_entrant_back_in_the_queue", func():
 		GameState.reset()
 		GameState.state["player"]["loadout"]["slots"][0] = { "recipe": "rewind", "tier": 1 }
