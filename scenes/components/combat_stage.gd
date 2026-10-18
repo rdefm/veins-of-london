@@ -55,7 +55,7 @@ const RECOIL_PX := 8.0
 const FALL_SINK_PX := 10.0
 const FALL_ROTATION_DEG := 20.0
 const FALL_ALPHA := 0.35
-const SELF_PATCH_RISE_PX := 6.0
+const CAST_RISE_PX := 6.0
 # StageSlot.guard_marker values (the round fight's guard overlay).
 const GUARD_MARKER_GUARDED := "guarded"
 const GUARD_MARKER_OPEN := "open"
@@ -97,8 +97,6 @@ class StageSlot extends Control:
 	var _attack_keyposes: Array[Texture2D] = []
 	var _attack_fps: float = 12.0
 	var _attack_variants: Array = []
-	var _self_patch_keyposes: Array[Texture2D] = []
-	var _self_patch_fps: float = 10.0
 	var _cast_keyposes: Array[Texture2D] = []
 	var _cast_fps: float = 10.0
 	var _throw_keyposes: Array[Texture2D] = []
@@ -277,9 +275,6 @@ class StageSlot extends Control:
 		_ko_keyposes = frames
 		_ko_fps = fps
 
-	func set_self_patch_animation(frames: Array[Texture2D], fps: float) -> void:
-		_self_patch_keyposes = frames
-		_self_patch_fps = fps
 	func set_cast_animation(frames: Array[Texture2D], fps: float) -> void:
 		_cast_keyposes = frames
 		_cast_fps = fps
@@ -329,22 +324,13 @@ class StageSlot extends Control:
 			PoseStep.new(pose2, Vector2(0.0, CombatStage.FALL_SINK_PX), CombatStage.FALL_ROTATION_DEG, CombatStage.FALL_ALPHA),
 		]
 		_start_one_shot(steps, _ko_fps, true)
-	func play_self_patch() -> void:
-		if _self_patch_keyposes.is_empty():
-			return
-		var pose: Texture2D = _self_patch_keyposes[0]
-		var steps: Array[PoseStep] = [
-			PoseStep.new(pose, Vector2(0.0, -CombatStage.SELF_PATCH_RISE_PX)),
-			PoseStep.new(pose, Vector2.ZERO),
-		]
-		_start_one_shot(steps, _self_patch_fps, false)
-	# Dial cast: hold the cast pose with a slight rise, like the self-patch.
+	# Dial cast: hold the cast pose with a slight rise.
 	func play_cast() -> void:
 		if _cast_keyposes.is_empty():
 			return
 		var pose: Texture2D = _cast_keyposes[0]
 		var steps: Array[PoseStep] = [
-			PoseStep.new(pose, Vector2(0.0, -CombatStage.SELF_PATCH_RISE_PX)),
+			PoseStep.new(pose, Vector2(0.0, -CombatStage.CAST_RISE_PX)),
 			PoseStep.new(pose, Vector2.ZERO),
 		]
 		_start_one_shot(steps, _cast_fps, false)
@@ -632,7 +618,6 @@ var _empty_idle_frames: Array[Texture2D] = []
 var _attack_keyposes_by_template: Dictionary = {}
 var _hit_keyposes_by_template: Dictionary = {}
 var _ko_keyposes_by_template: Dictionary = {}
-var _self_patch_keyposes_by_template: Dictionary = {}
 var _cast_keyposes_by_template: Dictionary = {}
 var _throw_keyposes_by_template: Dictionary = {}
 var _effect_frames_by_key: Dictionary = {}
@@ -851,14 +836,12 @@ func _load_template_action_animations() -> void:
 	_attack_keyposes_by_template = {}
 	_hit_keyposes_by_template = {}
 	_ko_keyposes_by_template = {}
-	_self_patch_keyposes_by_template = {}
 	_cast_keyposes_by_template = {}
 	_throw_keyposes_by_template = {}
 	for key in _templates.keys():
 		_attack_keyposes_by_template[key] = _load_action_keyposes(key, "attack", ATTACK_KEYPOSE_COUNT)
 		_hit_keyposes_by_template[key] = _load_action_keyposes(key, "hit", HIT_KEYPOSE_COUNT)
 		_ko_keyposes_by_template[key] = _load_action_keyposes(key, "ko", KO_KEYPOSE_COUNT)
-		_self_patch_keyposes_by_template[key] = _load_action_keyposes(key, "selfPatch", HIT_KEYPOSE_COUNT)
 		_cast_keyposes_by_template[key] = _load_action_keyposes(key, "cast", HIT_KEYPOSE_COUNT)
 		_throw_keyposes_by_template[key] = _load_action_keyposes(key, "throw", THROW_KEYPOSE_COUNT)
 # An entry with "variants" ([entry, ...]) holds alternative poses for the
@@ -1038,7 +1021,6 @@ func _sync_band(pool: Dictionary, display_entries: Array, side: String) -> void:
 			[_attack_keyposes_by_template, _default_attack_keyposes, _default_attack_fps, slot.set_attack_animation],
 			[_hit_keyposes_by_template, _default_hit_keyposes, _default_hit_fps, slot.set_hit_animation],
 			[_ko_keyposes_by_template, _default_ko_keyposes, _default_ko_fps, slot.set_ko_animation],
-			[_self_patch_keyposes_by_template, _empty_idle_frames, 0.0, slot.set_self_patch_animation],
 			[_cast_keyposes_by_template, _empty_idle_frames, 0.0, slot.set_cast_animation],
 			[_throw_keyposes_by_template, _empty_idle_frames, 0.0, slot.set_throw_animation],
 		]:

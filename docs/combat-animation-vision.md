@@ -388,7 +388,7 @@ layout pass.
 | Subject | Source | Sheets |
 |---|---|---|
 | Player | `state.player` | idle, attack, hit, KO, item-use |
-| Archie | `data/constants.json` → `contacts.archie` | idle, attack, hit, KO, self-patch (ally item rules heal the lowest friendly below `allyHealBelow`, REFERENCE §3.7b) |
+| Archie | `data/constants.json` → `contacts.archie` | idle, attack, hit, KO |
 | Territorial Scrapper | `data/enemies.json` | idle, attack, hit, KO |
 | Vein Guard | `data/enemies.json` | idle, attack, hit, KO |
 | Orichalchum Dealer | `data/enemies.json` | idle, attack, hit, KO |
