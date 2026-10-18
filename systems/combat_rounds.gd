@@ -237,13 +237,15 @@ static func has_sight(cp: Dictionary) -> bool:
 	return int(cp["round"]) <= int(cp["combatants"][PLAYER_INDEX]["sightUntil"])
 
 
-# Gives `combatant` Prophet's Breath sight and/or Be a Lady's max rolls and
-# crit for the whole fight (R§3.7b Carry-in effects).
-static func carry_in(combatant: Dictionary, sight: bool, lady: bool) -> void:
+# Gives `combatant` Prophet's Breath sight and/or Be a Lady's max rolls,
+# crit and evade cut (at `lady_tier`; 0 for no Be a Lady) for the whole
+# fight (R§3.7b Carry-in effects).
+static func carry_in(combatant: Dictionary, sight: bool, lady_tier: int) -> void:
 	if sight:
 		combatant["sightUntil"] = WHOLE_FIGHT
-	if lady:
+	if lady_tier > 0:
 		combatant["ladyUntil"] = WHOLE_FIGHT
+		combatant["ladyTier"] = lady_tier
 		combatant["ladyCrit"] = float(_data()["items"]["beALady"]["params"]["critChance"])
 
 
@@ -385,10 +387,14 @@ static func new_combatant(side: String, name: String, level: int, hp: int, hp_ma
 		"lureExposedRounds": 0,
 		# Timed item effects, each running through the end of this round
 		# number: Enhancement Powder's +1 action, Be a Lady's max rolls (at
-		# ladyCrit crit chance) and Prophet's Breath sight.
+		# ladyCrit crit chance, cutting targets' evade by ladyTier steps) and
+		# Prophet's Breath sight.
 		"powderUntil": 0,
 		"ladyUntil": 0,
 		"ladyCrit": 0.0,
+		"ladyTier": 0,
+		# Chance (0.0-1.0) a Strike at it misses outright (evade_chance()).
+		"evadeChance": 0.0,
 		"sightUntil": 0,
 		# A Blast's one-use Leg it chance for the next Leg it (0.0 for none).
 		"fleeBoost": 0.0,
@@ -1693,11 +1699,17 @@ static func _retarget(cp: Dictionary, actor: int, target: int) -> int:
 # target, round(roll × chipMultiplier) (min 1) on a Guarded one; a crit
 # doubles the final figure (R§3.7b Damage), then the attacker's anger scales
 # it (anger_factor()). Under Be a Lady the roll is the
-# attacker's max and the crit chance its ladyCrit (R§3.7b Damage).
+# attacker's max and the crit chance its ladyCrit (R§3.7b Damage). An
+# evade (evade_chance()) misses outright, before any roll.
 static func _strike(cp: Dictionary, actor_idx: int, target_idx: int, move_id: String, rng: RandomNumberGenerator, beats: Array) -> void:
 	var combatants: Array = cp["combatants"]
 	var actor: Dictionary = combatants[actor_idx]
 	var target: Dictionary = combatants[target_idx]
+	var evade := evade_chance(cp, actor, target)
+	if evade > 0.0 and rng.randf() < evade:
+		_beat(cp, beats, "evade", actor_idx, target_idx, move_id, {})
+		_spring_lure(cp, actor_idx, target_idx, move_id, beats)
+		return
 	var lady := has_lady(cp, actor)
 	var roll_range := damage_range(cp, actor_idx)
 	var roll := rng.randi_range(roll_range[0], roll_range[1])
@@ -1715,6 +1727,19 @@ static func _strike(cp: Dictionary, actor_idx: int, target_idx: int, move_id: St
 	})
 	if not target["koed"]:
 		_spring_lure(cp, actor_idx, target_idx, move_id, beats)
+
+
+# The chance `target` evades a Strike from `actor`: its evadeChance, less
+# Be a Lady's evadeCutPerTier per ladyTier on the attacker, floored at 0;
+# none while it's Exposed or has actions to lose (stunned, frozen)
+# (R§3.7b Evade).
+static func evade_chance(cp: Dictionary, actor: Dictionary, target: Dictionary) -> float:
+	if is_exposed(cp, target) or int(target["actionsLost"]) > 0:
+		return 0.0
+	var chance := float(target.get("evadeChance", 0.0))
+	if has_lady(cp, actor):
+		chance -= float(_data()["items"]["beALady"]["params"]["evadeCutPerTier"]) * int(actor.get("ladyTier", 0))
+	return maxf(0.0, chance)
 
 
 # `dmg`, scaled by the target's anger (anger_factor()), drains its Shield
@@ -1831,6 +1856,8 @@ static func _use_item(cp: Dictionary, actor_idx: int, action: Dictionary, m: Dic
 			seer["sightUntil"] = maxi(seer["sightUntil"], int(cp["round"]) + power)
 			_beat(cp, beats, "sight" if actor_idx == PLAYER_INDEX else "sightGiven", actor_idx, -1, move_id, {})
 		ITEM_LADY:
+			var running_tier: int = int(actor.get("ladyTier", 0)) if has_lady(cp, actor) else 0
+			actor["ladyTier"] = maxi(running_tier, int(slot["tier"]))
 			actor["ladyUntil"] = maxi(actor["ladyUntil"], int(cp["round"]) + power - 1)
 			actor["ladyCrit"] = float(m["params"]["critChance"])
 			_beat(cp, beats, "lady", actor_idx, -1, move_id, {})

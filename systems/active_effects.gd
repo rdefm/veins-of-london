@@ -50,6 +50,12 @@ static func lady_active() -> bool:
 	return is_active(LADY)
 
 
+# The running Be a Lady's level (its unit's tier), 0 when none runs.
+static func lady_level() -> int:
+	var effect = find(LADY)
+	return int(effect["level"]) if effect != null else 0
+
+
 static func prophets_breath_active() -> bool:
 	return is_active(PROPHETS_BREATH)
 

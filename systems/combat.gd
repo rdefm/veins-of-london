@@ -186,8 +186,8 @@ static func _mugger_intro_label(count: int) -> String:
 
 
 # Builds the {weapon, ability, evadeChance, speed, archetype} fields shared
-# by every template-built enemy. evadeChance defaults to 20% when a template
-# omits the key (existing templates specify 0 explicitly).
+# by every template-built enemy. evadeChance (R§1.10) defaults to 20% when a
+# template omits the key.
 static func _enemy_capabilities_from_template(template: Dictionary) -> Dictionary:
 	var ability = null
 	if template.has("ability"):
@@ -655,7 +655,7 @@ static func _start_round_combat(context: String, vein_id, enemies: Array, log_li
 		attack["min"], attack["max"], int(GameData.COMBAT_SPEED_BY_LEVEL[level]))
 	fighter["loadout"] = _round_loadout(player["loadout"]["slots"])
 	fighter["dial"] = _round_dial("")
-	CombatRounds.carry_in(fighter, ActiveEffects.prophets_breath_active(), ActiveEffects.lady_active())
+	CombatRounds.carry_in(fighter, ActiveEffects.prophets_breath_active(), ActiveEffects.lady_level())
 	combatants.append(fighter)
 	var ally_plans: Array = config.get("allyPlans", [])
 	var friends: Array = combat["allies"] + combat["allyQueue"]
@@ -719,6 +719,7 @@ static func _round_enemy_combatant(entry: Dictionary) -> Dictionary:
 	enemy["weapon"] = weapon.duplicate() if weapon is Dictionary else null
 	var ability = entry.get("ability")
 	enemy["ability"] = ability.duplicate() if ability is Dictionary else null
+	enemy["evadeChance"] = float(entry.get("evadeChance", 0.0))
 	# A scrapper's sprite is its territorial variant; any other enemy's, its template.
 	enemy["template"] = str(entry.get("variant", entry.get("template", "")))
 	return enemy

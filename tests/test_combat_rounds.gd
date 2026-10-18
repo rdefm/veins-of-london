@@ -669,7 +669,49 @@ func run() -> void:
 		assert_eq(you["ladyUntil"], 2, "power 2: this round and next")
 		assert_eq(CombatRounds.damage_range(combat, CombatRounds.PLAYER_INDEX), [you["attackMax"], you["attackMax"]], "max rolls")
 		assert_almost_eq(float(you["ladyCrit"]), 0.333333, 0.0001, "1/3 crit")
+		assert_eq(you["ladyTier"], 4, "the unit's tier")
 		assert_eq(Loadout.slot(0), null, "real unit consumed")
+	)
+
+	run_case("enemy_evade_misses_a_strike_outright", func():
+		GameState.reset()
+		var mugger := _mugger()
+		mugger["evadeChance"] = 1.0
+		var combat := _start_vs([mugger], [[["guard", "guard"]]], [])
+		var enemy: Dictionary = combat["combatants"][1]
+		assert_eq(enemy["evadeChance"], 1.0, "carried from the enemy entry")
+		var result := Combat.choose_move("strike", 1)
+		assert_eq(_actor_beats(result["beats"], CombatRounds.PLAYER_INDEX, ["evade", "hit", "chip"]).map(func(b): return b["kind"]), ["evade"], "missed, no damage beat")
+		assert_eq(enemy["hp"], enemy["hpMax"], "untouched")
+	)
+
+	run_case("evade_chance_is_zero_on_an_exposed_or_stunned_target", func():
+		GameState.reset()
+		var mugger := _mugger()
+		mugger["evadeChance"] = 0.5
+		var combat := _start_vs([mugger], [[["guard", "guard"]]], [])
+		var you: Dictionary = combat["combatants"][CombatRounds.PLAYER_INDEX]
+		var enemy: Dictionary = combat["combatants"][1]
+		assert_almost_eq(CombatRounds.evade_chance(combat, you, enemy), 0.5, 0.0001, "as authored")
+		enemy["actionsLost"] = 1
+		assert_eq(CombatRounds.evade_chance(combat, you, enemy), 0.0, "stunned or frozen")
+		enemy["actionsLost"] = 0
+		enemy["exposedUntil"] = combat["round"]
+		assert_eq(CombatRounds.evade_chance(combat, you, enemy), 0.0, "exposed")
+	)
+
+	run_case("be_a_lady_cuts_evade_10_points_per_tier", func():
+		GameState.reset()
+		var mugger := _mugger()
+		mugger["evadeChance"] = 0.5
+		var combat := _start_vs([mugger], [[["guard", "guard"]]], [])
+		var you: Dictionary = combat["combatants"][CombatRounds.PLAYER_INDEX]
+		var enemy: Dictionary = combat["combatants"][1]
+		you["ladyUntil"] = combat["round"]
+		you["ladyTier"] = 2
+		assert_almost_eq(CombatRounds.evade_chance(combat, you, enemy), 0.3, 0.0001, "tier 2: -20 points")
+		you["ladyTier"] = 5
+		assert_eq(CombatRounds.evade_chance(combat, you, enemy), 0.0, "floored at 0")
 	)
 
 	run_case("multi_blast_hits_every_living_enemy", func():
@@ -697,6 +739,7 @@ func run() -> void:
 		var you: Dictionary = combat["combatants"][CombatRounds.PLAYER_INDEX]
 		assert_eq(CombatRounds.damage_range(combat, CombatRounds.PLAYER_INDEX), [you["attackMax"], you["attackMax"]], "max rolls")
 		assert_almost_eq(float(you["ladyCrit"]), 0.333333, 0.0001, "1/3 crit")
+		assert_eq(you["ladyTier"], 1, "the effect's level")
 		for i in range(4):
 			Combat.choose_move("guard")
 		assert_true(combat["round"] >= 3 and CombatRounds.has_sight(combat) and CombatRounds.has_lady(combat, you), "whole fight")
