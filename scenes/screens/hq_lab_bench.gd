@@ -899,6 +899,8 @@ func _build_gauge_card(apparatus: String) -> Control:
 	gauge.pulse_msec = float(feedback["pulseMsec"])
 	gauge.pulse_min_alpha = float(feedback["pulseMinAlpha"])
 	gauge.pulse_max_alpha = float(feedback["pulseMaxAlpha"])
+	if gauge is LabGauges.DistilGauge:
+		gauge.flash_msec = float(feedback["tapFlashMsec"])
 	var pending := Lab.pending_step(apparatus)
 	if not pending.is_empty():
 		gauge.set_region(Lab.step_region(_recipe_key, pending))

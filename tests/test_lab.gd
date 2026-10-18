@@ -245,7 +245,7 @@ func _register_run_cases() -> void:
 		Lab.add_ore("healingBurst", "time")
 		Lab.add_ore("healingBurst", "life")
 		Lab.perform_grind([40.0, 60.0])
-		Lab.perform_distil([500.0, 1500.0, 1450.0])
+		Lab.perform_distil([900.0, 2580.0, 2530.0])
 		var performed: Array = Lab.active_run()["performed"]
 		assert_eq(performed[0], { "apparatus": "heat", "value": 30.0, "ores": ["life"] }, "first step carries the opening tap")
 		assert_eq(performed[1], { "apparatus": "heat", "value": 100.0, "ores": [] }, "repeat allowed, value clamped")
@@ -490,7 +490,7 @@ func _register_learning_cases() -> void:
 		_bench("healingBurst", { "life": 10, "time": 10 })
 		Lab.add_ore("healingBurst", "life")
 		Lab.add_ore("healingBurst", "time")
-		Lab.perform_distil([500.0, 1900.0, 3300.0, 4700.0])
+		Lab.perform_distil([900.0, 3300.0, 5700.0, 8100.0])
 		Lab.perform_step("compression", 60.0)
 		Lab.perform_step("heat", 35.0)
 		var clues: Array = Lab.finish_run()["clues"]

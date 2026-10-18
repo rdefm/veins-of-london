@@ -16,6 +16,8 @@ class StepGauge extends Control:
 	var pulse_msec := 1200.0
 	var pulse_min_alpha := 0.35
 	var pulse_max_alpha := 0.8
+	# False hides the input-zone outline (distil: only while a drip can be caught).
+	var zone_active := true
 	var _pulse := 1.0:
 		set(value):
 			_pulse = value
@@ -29,7 +31,7 @@ class StepGauge extends Control:
 		tween.tween_property(self, "_pulse", 1.0, pulse_msec / 2000.0)
 
 	func _draw_input_zone() -> void:
-		if input_colour.a <= 0.0:
+		if input_colour.a <= 0.0 or not zone_active:
 			return
 		var alpha := lerpf(pulse_min_alpha, pulse_max_alpha, _pulse)
 		var rect := Rect2(Vector2.ZERO, size)
@@ -174,26 +176,69 @@ class GrindGauge extends StepGauge:
 # Distil: after lead_in_msec, drip i falls across the track from 0 to 100
 # over fall_msec, starting at i × beat_msec. Taps are reported as msec since
 # drip 0 started (negative in the lead-in); the last drip's fall commits.
+# Each tap and each untapped drip also reports tap_result(kind, reading) with
+# kind "caught" / "stray" / "missed" (reading is the drip position, else -1).
 class DistilGauge extends StepGauge:
 	signal committed(taps: Array)
+	signal tap_result(kind: String, reading: float)
 
 	var drips := 0
 	var beat_msec := 1.0
 	var fall_msec := 1.0
 	var lead_in_msec := 0.0
+	var flash_msec := 350.0
 	var _elapsed_msec := 0.0
 	var _taps := []
+	var _caught := {}
+	var _missed := {}
+	var _flash_kind := ""
+	var _flash_text := ""
+	var _flash_x := 0.0
+	var _flash_at := -1.0e9
 
 	func _clock() -> float:
 		return _elapsed_msec - lead_in_msec
 
 	func _gui_input(event: InputEvent) -> void:
 		if _pressed(event) > 0:
-			_taps.append(_clock())
-			queue_redraw()
+			_tap()
+			accept_event()
+
+	func _tap() -> void:
+		var t := _clock()
+		_taps.append(t)
+		var drip := floori(t / beat_msec)
+		var into := t - drip * beat_msec
+		if drip < 0 or drip >= drips or into > fall_msec or _caught.has(drip):
+			_show_flash("stray", "Stray!", 50.0, -1.0)
+		else:
+			var reading := 100.0 * into / fall_msec
+			_caught[drip] = reading
+			_show_flash("caught", "Caught %d" % roundi(reading), reading, reading)
+		queue_redraw()
+
+	func _show_flash(kind: String, text: String, at_x: float, reading: float) -> void:
+		_flash_kind = kind
+		_flash_text = text
+		_flash_x = at_x
+		_flash_at = _elapsed_msec
+		tap_result.emit(kind, reading)
+
+	func _falling_drip() -> int:
+		var t := _clock()
+		var drip := floori(t / beat_msec)
+		if t >= 0.0 and drip < drips and t - drip * beat_msec <= fall_msec:
+			return drip
+		return -1
 
 	func _process(delta: float) -> void:
 		_elapsed_msec += delta * 1000.0
+		for i in drips:
+			if not _caught.has(i) and not _missed.has(i) and _clock() > i * beat_msec + fall_msec:
+				_missed[i] = true
+				_show_flash("missed", "Missed", 100.0, -1.0)
+		var falling := _falling_drip()
+		zone_active = falling >= 0 and not _caught.has(falling)
 		queue_redraw()
 		if _clock() > (drips - 1) * beat_msec + fall_msec:
 			set_process(false)
@@ -204,9 +249,34 @@ class DistilGauge extends StepGauge:
 		var track := _draw_track()
 		var t := _clock()
 		var drip := floori(t / beat_msec)
-		var into := t - drip * beat_msec
-		if t >= 0.0 and drip < drips and into <= fall_msec:
-			draw_circle(Vector2(_x(100.0 * into / fall_msec), track.get_center().y), track.size.y * 0.4, MapCardStyle.ink())
+		var falling := _falling_drip()
+		var cy := track.get_center().y
+		if falling >= 0:
+			var x := _x(100.0 * (t - drip * beat_msec) / fall_msec)
+			draw_line(Vector2(0, cy), Vector2(x, cy), Color(MapCardStyle.ink(), 0.3), 3.0)
+			draw_circle(Vector2(x, cy), track.size.y * 0.5, MapCardStyle.ink())
+		var font := get_theme_default_font()
 		for i in drips:
-			draw_circle(Vector2(8.0 + i * 14.0, track.end.y + 10.0), 4.0, MapCardStyle.dim() if i < drip else MapCardStyle.line())
-		draw_string(get_theme_default_font(), Vector2(size.x - 60.0, track.end.y + 16.0), "taps %d" % _taps.size(), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, MapCardStyle.muted())
+			var c := Vector2(8.0 + i * 14.0, track.end.y + 10.0)
+			if _caught.has(i):
+				draw_circle(c, 4.0, MapCardStyle.gold())
+			elif _missed.has(i):
+				draw_line(c + Vector2(-3, -3), c + Vector2(3, 3), MapCardStyle.dim(), 2.0)
+				draw_line(c + Vector2(3, -3), c + Vector2(-3, 3), MapCardStyle.dim(), 2.0)
+			else:
+				draw_circle(c, 4.0, MapCardStyle.line())
+			if i == falling or (falling < 0 and i == clampi(drip + 1, 0, drips - 1) and t < (drips - 1) * beat_msec):
+				draw_arc(c, 6.5, 0.0, TAU, 20, MapCardStyle.ink(), 1.5)
+		var status := "Ready…" if t < 0.0 else "Drip %d/%d" % [clampi(drip + 1, 1, drips), drips]
+		draw_string(font, Vector2(drips * 14.0 + 12.0, track.end.y + 16.0), status, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, MapCardStyle.muted())
+		draw_string(font, Vector2(size.x - 60.0, track.end.y + 16.0), "taps %d" % _taps.size(), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, MapCardStyle.muted())
+		var age := _elapsed_msec - _flash_at
+		if age >= 0.0 and age < flash_msec:
+			var fade := 1.0 - age / flash_msec
+			var colour: Color = MapCardStyle.gold() if _flash_kind == "caught" else Color(0.85, 0.2, 0.2)
+			if _flash_kind == "stray":
+				draw_rect(track, Color(colour, 0.35 * fade))
+			elif _flash_kind == "caught":
+				draw_arc(Vector2(_x(_flash_x), cy), track.size.y * (0.5 + 0.5 * (1.0 - fade)), 0.0, TAU, 24, Color(colour, fade), 3.0)
+			var tx := clampf(_x(_flash_x) - 30.0, 0.0, maxf(size.x - 70.0, 0.0))
+			draw_string(font, Vector2(tx, track.position.y - 4.0), _flash_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(colour, fade))

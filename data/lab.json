@@ -457,11 +457,11 @@
       "directionWords": { "higher": "more pressure", "lower": "less pressure" } },
     "grinding": { "strokes": 3, "swingPeriodSec": 2.0,
       "directionWords": { "higher": "later in the swing", "lower": "earlier in the swing" } },
-    "distilling": { "drips": 4, "beatMsec": 1400, "fallMsec": 1000, "leadInMsec": 1400,
+    "distilling": { "drips": 4, "beatMsec": 2400, "fallMsec": 1800, "leadInMsec": 2000,
       "directionWords": { "higher": "catch them later", "lower": "catch them sooner" } }
   },
   "feedback": { "tickMsec": 700, "failHoldMsec": 900, "benchGuardMsec": 500,
-    "pulseMsec": 1200, "pulseMinAlpha": 0.35, "pulseMaxAlpha": 0.8 },
+    "tapFlashMsec": 350, "pulseMsec": 1200, "pulseMinAlpha": 0.35, "pulseMaxAlpha": 0.8 },
   "vagueSpread": 15,
   "vagueToExactHits": 3,
   "clueText": {
