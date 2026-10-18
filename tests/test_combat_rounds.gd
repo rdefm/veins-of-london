@@ -170,6 +170,25 @@ func _start_lethal(units: Array, allies: Array = [], live: Dictionary = {}) -> D
 	return GameState.state["combat"]
 
 
+# A seeded street mugging, fog off unless `unread` (per enemy, per round),
+# with recruit Archie at level 1 carrying `units` ({ recipe, tier, multi? })
+# against `enemies` playing `plans`. Archie at `speed` 99 acts first at each
+# index, so his first action has resolved by the player's first pick.
+func _start_ally_armed(units: Array, enemies: Array, plans: Array, unread: Array = [], speed: int = 99, hp: int = -1) -> Dictionary:
+	_recruit("archie")
+	var archie := Contacts.build_combat_ally("archie")
+	archie["slots"] = units
+	archie["level"] = 1
+	archie["speed"] = speed
+	if hp > 0:
+		archie["hp"] = hp
+	var config := { "seed": 1, "fog": not unread.is_empty(), "enemyPlans": plans }
+	if not unread.is_empty():
+		config["enemyUnread"] = unread
+	Combat._start_round_combat(Combat.CONTEXT_EVENT_MUGGING, null, enemies, [], "", [archie], null, config)
+	return GameState.state["combat"]
+
+
 func _row(screen: CombatRoundsScreen, row_name: String) -> Button:
 	var found: Button = null
 	for node in screen._dock.find_children(row_name, "Button", true, false):
@@ -642,7 +661,7 @@ func run() -> void:
 		GameState.reset()
 		Crafting.inventory_add("beALady", 4, 1)
 		assert_true(Loadout.equip(0, "beALady", 4)["ok"], "player can equip it")
-		assert_true(not Loadout.is_equippable("beALady", "archie"), "allies can't")
+		assert_true(Loadout.is_equippable("beALady", "archie"), "allies can too")
 		var combat := _start([["guard", "guard"]])
 		var you: Dictionary = combat["combatants"][CombatRounds.PLAYER_INDEX]
 		assert_true(not CombatRounds.has_lady(combat, you), "not before use")
@@ -781,6 +800,143 @@ func run() -> void:
 		Combat.exit_combat()
 		assert_eq(Loadout.slot(0, "archie"), { "recipe": "healingBurst", "tier": 2 }, "refilled from stock")
 		assert_eq(int(GameState.state["player"]["inventory"]["healingBurst"].get("2", 0)), 0, "stock spent on refill")
+	)
+
+	run_case("recruits_can_equip_every_item_but_wormhole", func():
+		GameState.reset()
+		for recipe in GameData.LOADOUT["items"]:
+			assert_eq(Loadout.is_equippable(recipe, "archie"), recipe != "wormhole", recipe)
+	)
+
+	run_case("ally_breathes_prophets_breath_for_the_player_while_an_enemy_action_is_unread", func():
+		GameState.reset()
+		var combat := _start_ally_armed([{ "recipe": "prophetsBreath", "tier": 4 }], [_slow_mugger()], [[["guard", "guard"]]], [[[false, true]]])
+		var archie: Dictionary = combat["combatants"][1]
+		assert_eq(archie["plan"][0]["move"], "prophetsBreath")
+		assert_eq(int(archie["plan"][0]["target"]), CombatRounds.PLAYER_INDEX)
+		assert_true(CombatRounds.is_read(combat, 1, 0), "ally item intents read")
+		assert_true(archie["loadout"][0]["used"], "spent on resolution")
+		assert_eq(combat["combatants"][0]["sightUntil"], 1 + int(archie["loadout"][0]["power"]), "sight for power rounds")
+		GameState.reset()
+		combat = _start_ally_armed([{ "recipe": "prophetsBreath", "tier": 4 }], [_slow_mugger()], [[["guard", "guard"]]])
+		assert_true(not combat["combatants"][1]["plan"].any(func(a): return a["move"] == "prophetsBreath"), "held with everything read")
+	)
+
+	run_case("ally_shields_itself_from_a_read_strike", func():
+		GameState.reset()
+		var plan := [["guard", { "move": "strike", "target": 1 }]]
+		var combat := _start_ally_armed([{ "recipe": "shield", "tier": 3 }], [_slow_mugger()], [plan])
+		var archie: Dictionary = combat["combatants"][1]
+		assert_eq(archie["plan"][0]["move"], "shield")
+		assert_eq(int(archie["plan"][0]["target"]), 1, "self")
+		assert_eq(archie["shield"], int(archie["loadout"][0]["power"]), "tier power")
+		GameState.reset()
+		combat = _start_ally_armed([{ "recipe": "shield", "tier": 3 }], [_slow_mugger()], [[["guard", { "move": "strike", "target": 0 }]]])
+		assert_true(not combat["combatants"][1]["plan"].any(func(a): return a["move"] == "shield"), "held when nobody strikes it")
+		GameState.reset()
+		combat = _start_ally_armed([{ "recipe": "shield", "tier": 3, "multi": true }], [_slow_mugger()], [[["guard", { "move": "strike", "target": 0 }]]])
+		archie = combat["combatants"][1]
+		assert_eq(archie["plan"][0]["move"], "shield", "multi: for any struck friendly")
+		assert_eq(combat["combatants"][0]["shield"], int(archie["loadout"][0]["power"]), "the team's shielded")
+	)
+
+	run_case("ally_cracks_a_time_pearl_or_black_hole_on_a_crowd", func():
+		for recipe in ["timePearl", "blackHole"]:
+			GameState.reset()
+			var combat := _start_ally_armed([{ "recipe": recipe, "tier": 3 }], [_slow_mugger(), _slow_mugger()], [[["guard", "guard"]], [["guard", "guard"]]])
+			var archie: Dictionary = combat["combatants"][1]
+			var power := int(archie["loadout"][0]["power"])
+			assert_eq(archie["plan"][0]["move"], recipe)
+			if recipe == "timePearl":
+				assert_eq(combat["combatants"][2]["actionsLost"], power, "loses power actions")
+			else:
+				var pulls := _actor_beats(combat["log"], 1, ["pull"])
+				assert_eq(pulls.size(), 2, "both pulled")
+				assert_eq(int(pulls[0]["dmg"]), power, "tier power")
+	)
+
+	run_case("ally_blasts_the_biggest_enemy_it_can_drop_else_the_weakest", func():
+		GameState.reset()
+		var guards := [["guard", "guard"]]
+		var power := int(Crafting.effect_power("blast", 3))
+		var combat := _start_ally_armed([{ "recipe": "blast", "tier": 3 }], [_slow_mugger(power + 20), _slow_mugger(power), _slow_mugger(1)], [guards, guards, guards])
+		assert_eq(int(combat["combatants"][1]["plan"][0]["target"]), 3, "the biggest it drops")
+		assert_eq(int(_first(combat["log"], "blast")["dmg"]), power, "tier power")
+		assert_true(combat["combatants"][3]["koed"])
+		GameState.reset()
+		combat = _start_ally_armed([{ "recipe": "blast", "tier": 3 }], [_slow_mugger(power + 20), _slow_mugger(power + 10)], [guards, guards])
+		assert_eq(int(combat["combatants"][1]["plan"][0]["target"]), 3, "none droppable: the lowest hp")
+	)
+
+	run_case("ally_powders_up_once_per_fight_and_gets_the_action", func():
+		GameState.reset()
+		var units := [{ "recipe": "enhancementPowder", "tier": 1 }, { "recipe": "enhancementPowder", "tier": 1 }]
+		var combat := _start_ally_armed(units, [_slow_mugger(200)], [[["guard", "guard"]]])
+		var archie: Dictionary = combat["combatants"][1]
+		var base := CombatRounds.actions_per_round(archie)
+		assert_eq(archie["plan"][0]["move"], "enhancementPowder")
+		assert_eq(archie["powderUntil"], 1, "power 1: this round")
+		assert_eq(archie["plan"].size(), base + 1, "the extra action joins its plan")
+		_finish_round(combat, 1)
+		assert_eq(archie["plan"].size(), base, "round 2 unpowered")
+		assert_true(not archie["plan"].any(func(a): return a["move"] == "enhancementPowder"), "once per fight")
+		assert_true(not archie["loadout"][1]["used"])
+		GameState.reset()
+		combat = _start_ally_armed([{ "recipe": "enhancementPowder", "tier": 5 }], [_slow_mugger(200)], [[["guard", "guard"]]])
+		_finish_round(combat, 1)
+		assert_eq(combat["combatants"][1]["plan"].size(), base + 1, "a long Powder's next round plans the extra action")
+	)
+
+	run_case("ally_puts_on_be_a_lady_on_round_ones_first_action", func():
+		GameState.reset()
+		var combat := _start_ally_armed([{ "recipe": "beALady", "tier": 4 }], [_slow_mugger(200)], [[["guard", "guard"]]])
+		var archie: Dictionary = combat["combatants"][1]
+		assert_eq(archie["plan"][0]["move"], "beALady")
+		assert_eq(archie["ladyUntil"], int(archie["loadout"][0]["power"]), "power rounds from round 1")
+		assert_eq(archie["ladyCrit"], float(GameData.COMBAT_ROUNDS["items"]["beALady"]["params"]["critChance"]))
+		assert_true(CombatRounds.has_lady(combat, archie))
+	)
+
+	run_case("ally_pans_the_enemy_with_the_most_read_offence", func():
+		var fields := { "panic": "panicActions", "pansRapture": "raptureActions", "panger": "angerActions", "pandemonium": "angerActions" }
+		var striker := [[{ "move": "strike", "target": 0 }, { "move": "strike", "target": 0 }]]
+		var guards := [["guard", "guard"]]
+		for recipe in fields:
+			GameState.reset()
+			var combat := _start_ally_armed([{ "recipe": recipe, "tier": 2 }], [_slow_mugger(), _slow_mugger()], [guards, striker])
+			var archie: Dictionary = combat["combatants"][1]
+			assert_eq(archie["plan"][0]["move"], recipe)
+			assert_eq(int(archie["plan"][0]["target"]), 3, "%s: the striker" % recipe)
+			var mugger: Dictionary = combat["combatants"][3]
+			if recipe in ["panic", "pansRapture"]:
+				assert_eq(mugger[fields[recipe]], int(archie["loadout"][0]["power"]), "%s: power turns" % recipe)
+			else:
+				assert_eq(mugger["angerPct"], int(GameData.COMBAT_ROUNDS["anger"]["pctPerTier"]) * 2, "%s: tier percent" % recipe)
+			assert_eq(mugger["fury"], recipe == "pandemonium")
+		GameState.reset()
+		var combat := _start_ally_armed([{ "recipe": "panic", "tier": 2 }], [_slow_mugger()], [guards])
+		assert_true(not combat["combatants"][1]["plan"].any(func(a): return a["move"] == "panic"), "held with no read offence")
+	)
+
+	run_case("an_allys_fizzled_or_removed_item_keeps_its_unit", func():
+		GameState.reset()
+		GameState.state["player"]["loadout"]["slots"][0] = { "recipe": "panic", "tier": 2 }
+		var striker := [[{ "move": "strike", "target": 0 }, { "move": "strike", "target": 0 }]]
+		var combat := _start_ally_armed([{ "recipe": "panic", "tier": 2 }], [_slow_mugger()], [striker], [], 1)
+		var archie: Dictionary = combat["combatants"][1]
+		assert_eq(archie["plan"][0]["move"], "panic")
+		assert_true(Combat.choose_item(0)["ok"], "the player panics the mugger first")
+		assert_true(_actor_beats(combat["log"], 1, ["fizzle"]).size() == 1, "archie's fizzles")
+		assert_true(not archie["loadout"][0]["used"], "unit kept")
+		GameState.reset()
+		var fast := _mugger(200)
+		fast["speed"] = 50
+		combat = _start_ally_armed([{ "recipe": "blast", "tier": 3 }], [fast], [[[{ "move": "strike", "target": 1 }, "guard"]]], [], 1, 1)
+		archie = combat["combatants"][1]
+		assert_eq(archie["plan"][0]["move"], "blast")
+		Combat.choose_move("guard")
+		assert_true(archie["koed"], "dropped before it acts")
+		assert_true(not archie["loadout"][0]["used"], "a removed action keeps its unit")
 	)
 
 	run_case("prep_recruit_order_is_the_fight_ally_order", func():

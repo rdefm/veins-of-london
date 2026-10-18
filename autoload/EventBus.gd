@@ -23,4 +23,3 @@ signal alarm_arrived
 # tween. growth_from is the growth before the action; levelled_up means the
 # vein levelled during it (its growth reset before the gain landed).
 signal vein_cultivated(vein_id: String, growth_from: int, growth_to: int, levelled_up: bool)
-

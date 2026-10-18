@@ -407,9 +407,9 @@ static func new_combatant(side: String, name: String, level: int, hp: int, hp_ma
 		# recruit's failsafe sits here too, never planned (_ally_failsafe()).
 		"loadout": [],
 		# The shared kit pool it plans items from (KIT_POOLS; "" for none),
-		# and whether a kit Enhancement Powder has resolved for it (once per
-		# fight).
-		"kit": "", "kitPowderUsed": false,
+		# and whether an ally's Enhancement Powder (kit, slot or Dial cast)
+		# has resolved for it (once per fight).
+		"kit": "", "powderUsed": false,
 		# A live fight's Dial (R§3.7b Dial Complications), null for none:
 		# { owner, charge, regenCounter, casts, spent, actions }. casts are
 		# loadout-shaped { item, tier, power, multi, sourceIndex } per
@@ -676,7 +676,7 @@ static func _kit_ally_action(cp: Dictionary, ally: int, plan: Array, planned: Di
 			if int(combatants[e]["hp"]) < int(combatants[weakest]["hp"]):
 				weakest = e
 		return _kit_action(cp, ally, KIT_BLAST, weakest)
-	if _kit_has(pool, KIT_POWDER) and not combatants[ally].get("kitPowderUsed", false) and not plan.any(func(a): return a["move"] == KIT_POWDER):
+	if _kit_has(pool, KIT_POWDER) and not combatants[ally].get("powderUsed", false) and not plan.any(func(a): return a["move"] == KIT_POWDER):
 		return _kit_action(cp, ally, KIT_POWDER, ally)
 	return {}
 
@@ -709,22 +709,20 @@ static func _ally_failsafe(cp: Dictionary, idx: int, beats: Array) -> bool:
 # strikes it; else Strike an enemy who'll be Open when it acts; else, with an action to follow, Feint a
 # Guarded enemy the Feint leaves Open for that next action's Strike; else
 # Guard. Before those, a guard ally's kit item takes the action when
-# _kit_ally_action() has one, else an unspent loadout item: a heal on
-# the worst-off of itself and its teammates below allyHealBelow of hpMax,
-# else Time Pearl or Black Hole while allyCrowdEnemies or more enemies stand
-# and none is still losing actions to an earlier Pearl, Black Hole or Stun.
-# Allies plan in array order, each reading the earlier ones' Feints, leaving
-# alone a patient an earlier one heals, and holding its Pearl or Black Hole
-# when an earlier one (or its own earlier action) has one out this round. An
-# ally with a test override plays that instead.
+# _kit_ally_action() has one, else an unspent loadout slot or Dial cast by
+# _ally_item_action()'s rules. Allies plan in array order, each reading the
+# earlier ones' Feints and leaving alone what an earlier one (or its own
+# earlier action) already covers this round: a patient, a Shield, a Pan
+# target, a Time Pearl or Black Hole, Prophet's Breath. An ally with a test
+# override plays that instead.
 static func _plan_allies(cp: Dictionary, rng: RandomNumberGenerator) -> void:
 	var combatants: Array = cp["combatants"]
 	# { actor, index, target } per Feint planned so far this round.
 	var feints: Array = []
-	# Item uses planned so far this round: combatant index per heal and per
-	# Shield, whether a Time Pearl or Black Hole is out, and whether a
-	# Prophet's Breath is.
-	var planned := { "patients": [], "shielded": [], "crowd": false, "sight": false }
+	# Item uses planned so far this round: combatant index per heal, per
+	# Shield and per Pan status, whether a Time Pearl or Black Hole is out,
+	# and whether a Prophet's Breath is.
+	var planned := { "patients": [], "shielded": [], "panned": [], "crowd": false, "sight": false }
 	for i in range(combatants.size()):
 		var ally: Dictionary = combatants[i]
 		if ally["side"] != SIDE_ALLY:
@@ -735,7 +733,7 @@ static func _plan_allies(cp: Dictionary, rng: RandomNumberGenerator) -> void:
 			ally["plan"] = _override_plan(cp, i, cp["round"], rng)
 		else:
 			var plan: Array = []
-			var count := actions_per_round(ally)
+			var count := actions_this_round(cp, i)
 			for a in range(count):
 				var action := _kit_ally_action(cp, i, plan, planned)
 				if action.is_empty():
@@ -745,52 +743,153 @@ static func _plan_allies(cp: Dictionary, rng: RandomNumberGenerator) -> void:
 				if action["move"] == MOVE_FEINT:
 					feints.append({ "actor": i, "index": a, "target": action["target"] })
 				var effect: String = move(action["move"]).get("effect", "")
+				# A multi unit (target -1) covers its whole side.
+				var aimed: Array = [action["target"]] if int(action["target"]) >= 0 else []
 				if effect == ITEM_HEAL:
-					planned["patients"].append(action["target"])
+					planned["patients"].append_array(aimed if not aimed.is_empty() else _team(cp, i))
 				elif effect == ITEM_SHIELD:
-					planned["shielded"].append(action["target"])
+					planned["shielded"].append_array(aimed if not aimed.is_empty() else _team(cp, i))
 				elif effect == ITEM_SIGHT:
 					planned["sight"] = true
 				elif effect in [ITEM_FREEZE, ITEM_BLACK_HOLE]:
 					planned["crowd"] = true
+				elif effect in PAN_EFFECTS:
+					planned["panned"].append_array(aimed if not aimed.is_empty() else _living_opponents(cp, i))
 				plan.append(action)
 			ally["plan"] = plan
 
 
 # The ally's next item action given the `plan` so far, or {} when no rule
-# fires; `planned` as in _plan_allies(). Its Dial's casts come first (while
-# the plan holds fewer casts than it has charge), then each unspent item slot
-# once (a failsafe slot is never planned).
+# fires; `planned` as in _plan_allies(). Its units are its Dial's casts
+# (while the plan holds fewer casts than it has charge), then each unspent
+# item slot once (a failsafe slot is never planned). On the round-start
+# state, the first rule with a unit for it fires (R§3.7b Table 5, Recruit
+# slots): a heal as _ally_heal_patient() (multi: the team); Prophet's Breath
+# while the player has no sight and an enemy action is unread; a Shield on
+# itself while a read enemy Strike aims at it and its pool is 0 (multi: at
+# any such friendly; the team); Time Pearl or Black Hole while
+# allyCrowdEnemies or more enemies stand and none is losing actions; a Blast
+# at the biggest enemy it can drop (hp at most its power), else the
+# lowest-hp one (multi: all); Enhancement Powder on its round's first action
+# with no Powder running, once per fight; Be a Lady on round 1's first
+# action; a Pan item at _ally_pan_target() (multi: every unstatused enemy).
 static func _ally_item_action(cp: Dictionary, ally: int, plan: Array, planned: Dictionary) -> Dictionary:
-	var combatant: Dictionary = cp["combatants"][ally]
+	var combatants: Array = cp["combatants"]
+	var combatant: Dictionary = combatants[ally]
 	var units: Array = []
 	var dial = combatant.get("dial")
 	if dial is Dictionary and plan.filter(func(a): return a.has("dial")).size() < floori(float(dial["charge"])):
 		for d in range(dial["casts"].size()):
-			units.append({ "move": dial["casts"][d]["item"], "dial": d })
+			units.append({ "move": dial["casts"][d]["item"], "dial": d, "multi": bool(dial["casts"][d].get("multi", false)) })
 	var loadout: Array = combatant["loadout"]
 	for slot in range(loadout.size()):
 		if not loadout[slot]["used"] and is_item(loadout[slot]["item"]) and not plan.any(func(a): return int(a.get("slot", -1)) == slot):
-			units.append({ "move": loadout[slot]["item"], "slot": slot })
-	for unit in units:
-		if move(unit["move"])["effect"] == ITEM_HEAL:
-			var patient := _ally_heal_patient(cp, ally, unit["move"], planned["patients"])
-			if patient >= 0:
-				return _unit_action(unit, patient)
+			units.append({ "move": loadout[slot]["item"], "slot": slot, "multi": bool(loadout[slot].get("multi", false)) })
+	if units.is_empty():
+		return {}
 	var opponents := _living_opponents(cp, ally)
-	var combatants: Array = cp["combatants"]
+	for unit in _units_with(units, [ITEM_HEAL]):
+		var patient := _ally_heal_patient(cp, ally, unit["move"], planned["patients"])
+		if patient >= 0:
+			return _unit_action(unit, -1 if unit["multi"] else patient)
+	if not has_sight(cp) and not planned["sight"] and opponents.any(func(e): return range(combatants[e]["plan"].size()).any(func(i): return not is_read(cp, e, i))):
+		for unit in _units_with(units, [ITEM_SIGHT]):
+			return _unit_action(unit, PLAYER_INDEX)
+	var struck := _read_strike_targets(cp, ally)
+	for unit in _units_with(units, [ITEM_SHIELD]):
+		var exposed: Array = _team(cp, ally) if unit["multi"] else [ally]
+		if exposed.any(func(f): return struck.has(f) and int(combatants[f]["shield"]) == 0 and not planned["shielded"].has(f)):
+			return _unit_action(unit, -1 if unit["multi"] else ally)
 	var paused: bool = opponents.any(func(e): return combatants[e]["actionsLost"] > 0)
 	if not planned["crowd"] and not paused and opponents.size() >= int(_data()["allyCrowdEnemies"]):
-		for unit in units:
-			if move(unit["move"])["effect"] in [ITEM_FREEZE, ITEM_BLACK_HOLE]:
-				return _unit_action(unit, -1)
+		for unit in _units_with(units, [ITEM_FREEZE, ITEM_BLACK_HOLE]):
+			return _unit_action(unit, -1)
+	if not opponents.is_empty():
+		for unit in _units_with(units, [ITEM_BLAST]):
+			return _unit_action(unit, -1 if unit["multi"] else _ally_blast_target(cp, ally, _unit_power(combatant, unit)))
+	if plan.is_empty() and not is_powered(cp, combatant) and not combatant.get("powderUsed", false):
+		for unit in _units_with(units, [ITEM_POWDER]):
+			return _unit_action(unit, ally)
+	if plan.is_empty() and int(cp["round"]) == 1:
+		for unit in _units_with(units, [ITEM_LADY]):
+			return _unit_action(unit, ally)
+	var panned := _ally_pan_target(cp, ally, planned["panned"])
+	if panned >= 0:
+		for unit in _units_with(units, PAN_EFFECTS):
+			return _unit_action(unit, -1 if unit["multi"] else panned)
 	return {}
+
+
+# The `units` whose item has one of `effects`, in order.
+static func _units_with(units: Array, effects: Array) -> Array:
+	return units.filter(func(u): return effects.has(move(u["move"])["effect"]))
+
+
+static func _unit_power(combatant: Dictionary, unit: Dictionary) -> int:
+	if unit.has("dial"):
+		return int(combatant["dial"]["casts"][int(unit["dial"])]["power"])
+	return int(combatant["loadout"][int(unit["slot"])]["power"])
 
 
 static func _unit_action(unit: Dictionary, target: int) -> Dictionary:
 	var action: Dictionary = unit.duplicate()
+	action.erase("multi")
 	action.merge({ "target": target, "part": 0 })
 	return action
+
+
+# The friendlies of `ally` a read enemy Strike (damage, not a status turn,
+# its target read) aims at this round.
+static func _read_strike_targets(cp: Dictionary, ally: int) -> Array:
+	var combatants: Array = cp["combatants"]
+	var result: Array = []
+	for e in _living_opponents(cp, ally):
+		if _is_furious(cp, e):
+			continue
+		var plan: Array = combatants[e]["plan"]
+		for i in range(plan.size()):
+			if is_read(cp, e, i) and status_turn(cp, e, i) == "" and move(plan[i]["move"])["effect"] == EFFECT_DAMAGE:
+				result.append(int(plan[i]["target"]))
+	return result
+
+
+# The living enemy with the most hp at or below `power` (a Blast drops it),
+# else the lowest-hp one; ties to the first in combatant order.
+static func _ally_blast_target(cp: Dictionary, ally: int, power: int) -> int:
+	var combatants: Array = cp["combatants"]
+	var opponents := _living_opponents(cp, ally)
+	var droppable: Array = opponents.filter(func(e): return int(combatants[e]["hp"]) <= power)
+	var best: int = -1
+	for e in droppable:
+		if best < 0 or int(combatants[e]["hp"]) > int(combatants[best]["hp"]):
+			best = e
+	if best >= 0:
+		return best
+	for e in opponents:
+		if best < 0 or int(combatants[e]["hp"]) < int(combatants[best]["hp"]):
+			best = e
+	return best
+
+
+# The enemy under no Pan status, and not in `panned`, with the most read
+# offensive (damage or Stun) actions this round, at least one; ties to the
+# first in combatant order; -1 for none.
+static func _ally_pan_target(cp: Dictionary, ally: int, panned: Array) -> int:
+	var combatants: Array = cp["combatants"]
+	var best := -1
+	var best_count := 0
+	for e in _living_opponents(cp, ally):
+		if has_pan_status(combatants[e]) or panned.has(e):
+			continue
+		var plan: Array = combatants[e]["plan"]
+		var count := 0
+		for i in range(plan.size()):
+			if is_read(cp, e, i) and status_turn(cp, e, i) == "" and move(plan[i]["move"])["effect"] in [EFFECT_DAMAGE, EFFECT_STUN]:
+				count += 1
+		if count > best_count:
+			best = e
+			best_count = count
+	return best
 
 
 # The lowest-HP-fraction of the ally and its living teammates under
@@ -1623,8 +1722,8 @@ static func _deal_damage(cp: Dictionary, actor_idx: int, target_idx: int, dmg: i
 # Applies an item's effect at `power` from the action's loadout slot, and
 # spends the slot (R§3.7b Items); a Dial cast takes 1 of
 # its Dial's charge instead (R§3.7b Dial Complications), and a kit action
-# spends its reserved unit, or hands it back when the heal or Shield it
-# aims finds its target KO'd (R§3.7b Table 5). Item damage ignores
+# spends its reserved unit. A kit or ally item that fizzles whole
+# (_item_fizzles()) spends nothing: the unit stays (R§3.7b Table 5). Item damage ignores
 # guard. A multi-target unit (R§3.7b Items) Blasts every living opponent,
 # Shields or heals the actor and every living teammate, and puts its Pan
 # status on every living opponent not already under one.
@@ -1634,21 +1733,21 @@ static func _use_item(cp: Dictionary, actor_idx: int, action: Dictionary, m: Dic
 	var slot: Dictionary
 	if action.has("kit"):
 		slot = { "power": int(action["power"]), "multi": false }
-		var aimed := int(action["target"])
-		var pool: Dictionary = cp[action["kit"]]
-		var tier_key := str(int(action["tier"]))
-		if m["effect"] in [ITEM_HEAL, ITEM_SHIELD] and aimed >= 0 and combatants[aimed]["koed"]:
-			_kit_move(pool, action["move"], tier_key, "reserved", "items")
-			_beat(cp, beats, "fizzle", actor_idx, aimed, action["move"], {})
-			return
-		_kit_move(pool, action["move"], tier_key, "reserved", "used")
 	elif action.has("dial"):
-		var dial: Dictionary = actor["dial"]
-		slot = dial["casts"][int(action["dial"])]
-		dial["charge"] -= 1
-		dial["spent"].append(int(slot["sourceIndex"]))
+		slot = actor["dial"]["casts"][int(action["dial"])]
 	else:
 		slot = actor["loadout"][int(action["slot"])]
+	if (action.has("kit") or actor["side"] == SIDE_ALLY) and _item_fizzles(cp, actor_idx, action, m, bool(slot.get("multi", false))):
+		if action.has("kit"):
+			_kit_move(cp[action["kit"]], action["move"], str(int(action["tier"])), "reserved", "items")
+		_beat(cp, beats, "fizzle", actor_idx, int(action["target"]), action["move"], {})
+		return
+	if action.has("kit"):
+		_kit_move(cp[action["kit"]], action["move"], str(int(action["tier"])), "reserved", "used")
+	elif action.has("dial"):
+		actor["dial"]["charge"] -= 1
+		actor["dial"]["spent"].append(int(slot["sourceIndex"]))
+	else:
 		slot["used"] = true
 	var power: int = slot["power"]
 	var multi: bool = slot.get("multi", false)
@@ -1699,8 +1798,13 @@ static func _use_item(cp: Dictionary, actor_idx: int, action: Dictionary, m: Dic
 			var params: Dictionary = m["params"]
 			var rounds: int = int(params["longRounds"]) if power >= int(params["longPowerMin"]) else int(params["rounds"])
 			actor["powderUntil"] = maxi(actor["powderUntil"], int(cp["round"]) + rounds - 1)
-			if action.has("kit"):
-				actor["kitPowderUsed"] = true
+			actor["powderUsed"] = true
+			# An ally's round is planned up front: the action Powder adds this
+			# round gets an ally-AI move of its own.
+			if actor["side"] == SIDE_ALLY:
+				var plan: Array = actor["plan"]
+				if plan.size() < actions_this_round(cp, actor_idx):
+					plan.append(_ally_action(cp, actor_idx, plan.size(), plan.size() + 1, []))
 			_beat(cp, beats, "powder", actor_idx, -1, move_id, {})
 		ITEM_SIGHT:
 			# Sight covers the `power` rounds after this one (planning them
@@ -1725,6 +1829,17 @@ static func _use_item(cp: Dictionary, actor_idx: int, action: Dictionary, m: Dic
 			_beat(cp, beats, "wormhole", actor_idx, -1, move_id, {})
 			if actor_idx == PLAYER_INDEX:
 				cp["outcome"] = "fled"
+
+
+# Whether the item `action` lands on nobody: a single-target heal or Shield
+# aimed at a KO'd friendly, or a Pan item with no one to take its status.
+static func _item_fizzles(cp: Dictionary, actor_idx: int, action: Dictionary, m: Dictionary, multi: bool) -> bool:
+	var aimed := int(action["target"])
+	if m["effect"] in [ITEM_HEAL, ITEM_SHIELD]:
+		return not multi and aimed >= 0 and cp["combatants"][aimed]["koed"]
+	if m["effect"] in PAN_EFFECTS:
+		return _pan_targets(cp, actor_idx, aimed, multi).is_empty()
+	return false
 
 
 # Who a Pan item from `actor_idx` lands on: every living opponent not under
