@@ -45,19 +45,13 @@ class NameplateCard extends Control:
 	var is_focused: bool = false
 	var is_enemy: bool = false
 	var shows_exact_hp: bool = false
-	var status_lines: Array[String] = []
-	var shows_telegraph_slot: bool = false
-	var telegraph_text: String = ""
 	var action_text: String = ""
 	var action_unread: bool = false
 	var guard_badge: String = ""
 	var status_badge: String = ""
-	var tell_image: Texture2D = null
-	var tell_rect: TextureRect = null
 	var is_pulsing: bool = false
 	var damage_tier: int = 0  # 0 clean, 1 cracked, 2 ruined -- §2.4's decal tiers
 
-	var telegraph_label: Label = null
 	var name_label: Label = null
 	var faction_label: Label = null
 
@@ -82,11 +76,6 @@ class NameplateCard extends Control:
 			tween.set_loops()
 			tween.tween_property(self, "modulate:a", 0.5, 0.45)
 			tween.tween_property(self, "modulate:a", 1.0, 0.45)
-		if tell_rect != null and is_inside_tree():
-			var tell_tween := create_tween()
-			tell_tween.set_loops()
-			tell_tween.tween_property(tell_rect, "modulate:a", 0.4, 0.5)
-			tell_tween.tween_property(tell_rect, "modulate:a", 1.0, 0.5)
 
 	func _draw() -> void:
 		var rect := Rect2(Vector2.ZERO, size)
@@ -108,10 +97,8 @@ class NameplateCard extends Control:
 # share a combatant. An entry is { key, occurrenceId, name, level, hp,
 # hpMax, factionName, factionColour, isEnemy } -- "key" (combatant identity,
 # used for selection/ghosting) and "occurrenceId" (this specific card's
-# identity) are deliberately separate fields -- plus optional "statusLines"
-# (Array[String]), "telegraphText" (String) and "tellImage" (Texture2D or
-# null), all shown on the focused card only; "actionText" (the card's
-# action, String), "actionUnread" (bool, styles it as an unread intent),
+# identity) are deliberately separate fields -- plus optional "actionText"
+# (the card's action, String), "actionUnread" (bool, styles it as an unread intent),
 # "guardBadge" (String) and "statusBadge" (String, running statuses), shown
 # on every card; and "focused" (bool), which when present decides that
 # card's expansion in place of the selected key, playback included.
@@ -352,7 +339,7 @@ func _rebuild(available_width: float) -> void:
 		var entry: Dictionary = _entries[i]
 		var is_selected: bool = _is_expanded(entry)
 		var w: float = base_width + (EXPANDED_WIDTH_BONUS_PX if is_selected else 0.0)
-		var h: float = _expanded_height_for(entry) if is_selected else CARD_HEIGHT
+		var h: float = EXPANDED_CARD_HEIGHT if is_selected else CARD_HEIGHT
 		_card_rects.append(Rect2(Vector2(x, 0.0), Vector2(w, h)))
 		x += w + CARD_SEPARATION
 	var total_width: float = maxf(0.0, x - CARD_SEPARATION)
@@ -369,14 +356,6 @@ func _rebuild(available_width: float) -> void:
 		_row.add_child(card)
 
 	add_child(_row)
-
-
-func _expanded_height_for(entry: Dictionary) -> float:
-	if not entry.get("statusLines", []).is_empty():
-		return MAX_EXPANDED_CARD_HEIGHT
-	if entry["isEnemy"] and String(entry.get("telegraphText", "")).length() > 20:
-		return MAX_EXPANDED_CARD_HEIGHT
-	return EXPANDED_CARD_HEIGHT
 
 
 func _build_card(entry: Dictionary, is_focused: bool, card_size: Vector2) -> NameplateCard:
@@ -409,13 +388,6 @@ func _build_card(entry: Dictionary, is_focused: bool, card_size: Vector2) -> Nam
 		card.damage_tier = 1
 	else:
 		card.damage_tier = 0
-
-	if is_focused:
-		card.status_lines.assign(entry.get("statusLines", []))
-		card.shows_telegraph_slot = entry["isEnemy"] and entry.has("telegraphText")
-		if card.shows_telegraph_slot:
-			card.telegraph_text = entry.get("telegraphText", "")
-			card.tell_image = entry.get("tellImage")
 
 	_build_card_content(card)
 	if not _cards_by_key.has(key_string):
@@ -515,36 +487,6 @@ func _build_card_content(card: NameplateCard) -> void:
 		action.add_theme_font_size_override("font_size", UNREAD_FONT_SIZE if card.action_unread else 9)
 		action.add_theme_color_override("font_color", _palette_colour(SIGN_STATUS_ID if card.action_unread else SIGN_INTENT_ID))
 		box.add_child(action)
-
-	for line in card.status_lines:
-		var status_label := Label.new()
-		status_label.text = line
-		status_label.clip_text = true
-		status_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-		status_label.add_theme_font_size_override("font_size", 9)
-		status_label.add_theme_color_override("font_color", _palette_colour(SIGN_STATUS_ID))
-		box.add_child(status_label)
-
-	if card.shows_telegraph_slot:
-		if card.tell_image != null:
-			var tell := TextureRect.new()
-			tell.texture = card.tell_image
-			tell.custom_minimum_size = Vector2(20.0, 20.0)
-			tell.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-			tell.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			box.add_child(tell)
-			card.tell_rect = tell
-		else:
-			var telegraph := Label.new()
-			telegraph.text = card.telegraph_text
-			telegraph.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			telegraph.max_lines_visible = 2
-			telegraph.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-			telegraph.custom_minimum_size.y = 22.0
-			telegraph.add_theme_font_size_override("font_size", 10)
-			telegraph.add_theme_color_override("font_color", _palette_colour(SIGN_INTENT_ID))
-			box.add_child(telegraph)
-			card.telegraph_label = telegraph
 
 	var faction_label := Label.new()
 	faction_label.text = card.faction_name

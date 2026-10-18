@@ -27,7 +27,7 @@ func run() -> void:
 		var entries: Array = [
 			{ "key": { "type": "enemy", "index": 0 }, "occurrenceId": "1:0", "name": "Proto Guard", "level": null,
 				"hp": 9, "hpMax": 30, "factionName": "", "factionColour": TurnOrderStrip.NEUTRAL_COLOUR, "isEnemy": true,
-				"statusLines": ["Dazed (1)"], "telegraphText": "Intent: Lunge", "tellImage": null },
+				"actionText": "Lunge → You", "statusBadge": "Dazed" },
 			{ "key": { "type": "player" }, "occurrenceId": "1:1", "name": "You", "level": 3,
 				"hp": 20, "hpMax": 20, "factionName": "", "factionColour": TurnOrderStrip.NEUTRAL_COLOUR, "isEnemy": false },
 		]
@@ -37,17 +37,13 @@ func run() -> void:
 		var guard := _card_named(strip, "Proto Guard")
 		assert_true(guard.is_focused)
 		assert_eq(guard.hp, 9)
-		assert_eq(guard.status_lines, ["Dazed (1)"] as Array[String], "status lines come straight from the entry")
-		assert_eq(guard.telegraph_text, "Intent: Lunge", "intent text comes straight from the entry")
-		assert_true(guard.telegraph_label != null)
+		assert_eq(guard.action_text, "Lunge → You", "action text comes straight from the entry")
+		assert_eq(guard.status_badge, "Dazed", "status badge comes straight from the entry")
 		var you := _card_named(strip, "You")
 		assert_true(not you.is_focused)
-		assert_eq(you.status_lines.size(), 0, "an entry without statusLines renders none")
+		assert_eq(you.status_badge, "", "an entry without statusBadge renders none")
 		strip.free()
 	)
-
-	# ── combat-presentation ticket 10, docs/combat-animation-vision.md §4: ──
-	# ── the ability-tell pose replacing the telegraph slot's text/glyph ────
 
 	run_case("street_sign_colours_are_palette_backed_and_faction_colour_is_content_only", func():
 		GameState.reset()
@@ -82,27 +78,20 @@ func run() -> void:
 				assert_eq(frame.get_texture_margin(side), expected[tier][1], "tier %d nine-slice margin keeps corners unscaled" % tier)
 	)
 
-	run_case("expanded_card_bounds_long_name_three_statuses_and_long_intent", func():
+	run_case("expanded_card_bounds_a_long_name", func():
 		GameState.reset()
 		var strip := TurnOrderStrip.new()
 		var card := TurnOrderStrip.NameplateCard.new()
-		card.size = Vector2(TurnOrderStrip.MAX_CARD_WIDTH + TurnOrderStrip.EXPANDED_WIDTH_BONUS_PX, TurnOrderStrip.MAX_EXPANDED_CARD_HEIGHT)
+		card.size = Vector2(TurnOrderStrip.MAX_CARD_WIDTH + TurnOrderStrip.EXPANDED_WIDTH_BONUS_PX, TurnOrderStrip.EXPANDED_CARD_HEIGHT)
 		card.custom_minimum_size = card.size
 		card.combatant_name = "TwentyFourCharacterNameXX"
 		card.hp = 10
 		card.hp_max = 20
 		card.shows_exact_hp = true
-		card.status_lines = ["Frozen (12)", "Ability locked (12)", "Third status line"]
-		card.shows_telegraph_slot = true
-		card.telegraph_text = "Intent: A deliberately long canonical ability name that must remain inside the card"
 		card.faction_name = "UNKNOWN"
 		strip._build_card_content(card)
 
 		assert_eq(card.name_label.text_overrun_behavior, TextServer.OVERRUN_TRIM_ELLIPSIS)
-		assert_eq(card.telegraph_label.autowrap_mode, TextServer.AUTOWRAP_WORD_SMART)
-		assert_eq(card.telegraph_label.max_lines_visible, 2)
-		assert_eq(card.telegraph_label.text_overrun_behavior, TextServer.OVERRUN_TRIM_ELLIPSIS)
-		assert_true(card.telegraph_label.custom_minimum_size.y <= TurnOrderStrip.MAX_EXPANDED_CARD_HEIGHT)
 		assert_true(card.name_label != null and card.faction_label != null, "protected name and faction content remain present at every damage tier")
 	)
 

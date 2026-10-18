@@ -217,10 +217,10 @@ they're on).
   - *Collapsed* (every card except the currently-focused one): name, a
     small level badge, faction-colour border, and an HP bar — length only,
     no number. Fast to scan across up to 6 simultaneous combatants.
-  - *Focused* (the centred/selected card): adds the exact HP number, status
-    effects (frozen, shielded, motion-turns), and for enemies, the
-    telegraphed intent/ability (§4.2) — this is where that work now lives,
-    rather than a separate enemy-only UI element.
+  - *Focused* (the centred/selected card): adds the exact HP number. Every
+    card, collapsed or focused, carries its action (an enemy's read intent,
+    or "?" while unread), guard badge and running-status badge — enemy
+    intent (§4.2) lives here rather than in a separate enemy-only UI element.
 - **Reflow:** when turn order changes mid-fight (a frozen combatant's slot
   moves, a Motion-boosted extra turn inserts, etc.), the strip animates the
   reorder rather than snapping — same tween-director technique §8 already
@@ -388,10 +388,10 @@ layout pass.
 |---|---|---|
 | Player | `state.player` | idle, attack, hit, KO, item-use |
 | Archie | `data/constants.json` → `contacts.archie` | idle, attack, hit, KO, self-patch (`_allies_act` heals below 40% HP) |
-| Territorial Scrapper | `data/enemies.json` | idle, attack, hit, KO, tell |
-| Vein Guard | `data/enemies.json` | idle, attack, hit, KO, tell |
-| Orichalchum Dealer | `data/enemies.json` | idle, attack, hit, KO, tell |
-| The Raider | `data/enemies.json` | idle, attack, hit, KO, tell |
+| Territorial Scrapper | `data/enemies.json` | idle, attack, hit, KO |
+| Vein Guard | `data/enemies.json` | idle, attack, hit, KO |
+| Orichalchum Dealer | `data/enemies.json` | idle, attack, hit, KO |
+| The Raider | `data/enemies.json` | idle, attack, hit, KO |
 | Mugger | `generate_mugger()` | idle, attack, hit, KO — one sprite, mirrored/offset for the 2× and 3× cases |
 
 **Superseded by §2.2/§2.3 (2026-08-29):** "do not draw multi-enemy groups" no
@@ -426,9 +426,8 @@ forced by the tool — it is the technique the reference games already use.
 | Attack | 3 keyposes (wind-up / strike / recover) | **transform** lunge and return between poses |
 | Hit | 1 pose | transform recoil + white flash (shader, not art) |
 | KO | 2 poses | transform fall + fade |
-| Ability tell | 1 pose, held | pulse |
 
-≈9–10 frames per subject × 7 subjects ≈ **70 frames for the entire roster.**
+≈8–9 frames per subject × 7 subjects ≈ **60 frames for the entire roster.**
 
 Budget saved on characters is spent on **effect sheets**, which is where the
 spectacle actually lives and which generate far more reliably — they sit on
@@ -446,12 +445,11 @@ Style-independent, and the highest feel-per-line in the whole plan:
 
 ### 4.2 Enemy telegraph
 
-The state layer already carries `ability`, `evadeChance` and
-`lockedTurns` per enemy (`_enemy_capabilities_from_template`,
-`systems/combat.gd:67`). Surfacing the wind-up pose before the enemy acts is
-the single biggest **design** gain available here — Slay the Spire's intent
-icon, in sprite form. It converts a fight from a dice roll into a decision,
-and it is what finally makes `prophetsBreath` legible.
+Enemy intent is surfaced as text on the turn-order strip (§2.4): each enemy
+card shows its planned action once its intent is read, or "?" until then.
+Slay the Spire's intent icon, in card form — it converts a fight from a dice
+roll into a decision. There is no wind-up ("tell") pose; a sprite-form
+telegraph would be new work, not an existing art slot.
 
 ## 5. Effect vocabulary
 
