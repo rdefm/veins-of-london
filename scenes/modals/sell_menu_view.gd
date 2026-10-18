@@ -216,9 +216,9 @@ func _build_item_groups(body: VBoxContainer, entries: Array) -> void:
 			var badge := _surface(UI.action_colour(), 5)
 			badge.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 			badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			badge.add_child(_label("%d selected" % picked, 11, TEXT))
+			badge.add_child(_label("%d selected" % picked, 11, TEXT, false))
 			inner.add_child(badge)
-		inner.add_child(_label("⌃" if expanded else "⌄", 18, MUTED))
+		inner.add_child(_label("⌃" if expanded else "⌄", 18, MUTED, false))
 		if expanded:
 			var indent := MarginContainer.new()
 			indent.add_theme_constant_override("margin_left", 28)
@@ -258,7 +258,7 @@ func _add_row(parent: VBoxContainer, entry: Dictionary, tier_row: bool = false) 
 	if tier_row:
 		name = "Untiered" if int(entry["tier"]) <= 0 else "Tier %d" % int(entry["tier"])
 	info.add_child(_label(name, 14, TEXT))
-	var meta := UI.hbox(3)
+	var meta := _meta_flow()
 	info.add_child(meta)
 	meta.add_child(_label(UI.price_text(entry["kind"], int(entry["price"])), 12, _gold(), false))
 	if entry["kind"] != "vein":
@@ -281,7 +281,7 @@ func _add_row(parent: VBoxContainer, entry: Dictionary, tier_row: bool = false) 
 		button.disabled = not chosen and int(entry["max"]) <= 0
 		row.add_child(button)
 	elif int(entry["max"]) <= 0:
-		row.add_child(_label("Sold out" if int(entry["stock"]) <= 0 else "Unavailable", 12, MUTED))
+		row.add_child(_label("Sold out" if int(entry["stock"]) <= 0 else "Unavailable", 12, MUTED, false))
 	else:
 		var slider := MapCardStyle.quantity_slider("", int(entry["qty"]), int(entry["max"]), func(_value: int): pass, _set_qty.bind(entry), 0)
 		slider.custom_minimum_size.x = 150
@@ -398,13 +398,13 @@ func _add_recipe_row(body: VBoxContainer, entry: Dictionary) -> void:
 	info.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(info)
 	info.add_child(_label("%s · rank %d" % [entry["name"], int(entry["ceiling"])], 14, TEXT))
-	var meta := UI.hbox(3)
+	var meta := _meta_flow()
 	info.add_child(meta)
 	match entry["state"]:
 		"owned":
 			meta.add_child(_label("Owned", 12, MUTED, false))
 		"master":
-			meta.add_child(_label(entry["reason"], 12, MUTED))
+			info.add_child(_label(entry["reason"], 12, MUTED))
 		_:
 			meta.add_child(_label("£%d" % int(entry["price"]), 12, _gold(), false))
 			if entry["vague"]:
@@ -735,6 +735,14 @@ func _label(value: String, font_size: int, colour: Color, wrap: bool = true) -> 
 	label.add_theme_color_override("font_color", colour)
 	label.add_theme_font_size_override("font_size", font_size)
 	return label
+
+
+# Flow so a long price/stock line wraps below instead of widening the row.
+func _meta_flow() -> HFlowContainer:
+	var flow := HFlowContainer.new()
+	flow.add_theme_constant_override("h_separation", 3)
+	flow.add_theme_constant_override("v_separation", 0)
+	return flow
 
 
 func _button(value: String, callback: Callable, fill: Color, height: float) -> Button:

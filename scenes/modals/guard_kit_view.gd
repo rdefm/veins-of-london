@@ -158,9 +158,9 @@ func _build_list(body: VBoxContainer, entries: Array) -> void:
 			var badge := _surface(UI.action_colour(), 5)
 			badge.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 			badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			badge.add_child(_label("%d selected" % picked, 11, TEXT))
+			badge.add_child(_label("%d selected" % picked, 11, TEXT, false))
 			inner.add_child(badge)
-		inner.add_child(_label("⌃" if expanded else "⌄", 18, MUTED))
+		inner.add_child(_label("⌃" if expanded else "⌄", 18, MUTED, false))
 		if expanded:
 			var indent := MarginContainer.new()
 			indent.add_theme_constant_override("margin_left", 28)
