@@ -1,80 +1,384 @@
 extends RefCounted
 
-# Body of scripts/sim_combat_balance.gd (see there for usage).
+# Body of scripts/sim_combat_balance.gd (see there for usage). Each fight
+# opens on a fresh GameState through Combat.start_debug_combat() and is
+# driven only through Combat.choose_move() / choose_item(), a policy
+# deciding at each pause, reading the live fight (state.combat) through
+# CombatPrototype's read-only helpers; enemy plans are read as the player
+# sees them (enemy_intents(): targets only under Prophet's Breath sight,
+# unread intents unknown).
 
-const MATCHUPS := [
-	# [label, combatSkill, raid template ("" = random per guard), value_tier,
-	# guards]. A "mugging" label runs a street mugging (natural 1-3 roll)
-	# instead. The "matched" ladder is one raid per Combat Skill level with
-	# guard count/tier rising alongside it.
-	["L1 vs Scrapper t1", 1, "territorialScrapper", 1, 1],
-	["L1 vs Vein Guard t1", 1, "veinGuard", 1, 1],
-	["L1 vs Dealer t1", 1, "orichalchumDealer", 1, 1],
-	["L1 vs street mugging", 1, "", 1, 1],
-	["L2 matched: 1 guard t2", 2, "", 2, 1],
-	["L3 matched: 2 guards t2", 3, "", 2, 2],
-	["L4 matched: 2 guards t3", 4, "", 3, 2],
-	["L5 matched: 3 guards t4", 5, "", 4, 3],
-	["L3 vs 1 guard t3", 3, "", 3, 1],
-	["L5 vs street mugging", 5, "", 1, 1],
-]
+const POLICIES := ["naive", "reader"]
+const ROUND_CAP := 60
+const FOG_MODES := { "both": [true, false], "on": [true], "off": [false] }
+const DEFAULTS := {
+	"n": "100", "seed": "1", "levels": "1,3,5", "elevels": "match",
+	"enemies": "mugger,territorialScrapper,veinGuard", "counts": "1,2", "allies": "0",
+	"loadouts": "none,blast+shield,prophetsBreath+beALady", "fog": "both",
+}
 
 
-func run(opts: Dictionary) -> void:
-	Rng.set_seed(12345)
-	# shp/smin/smax: what-if overrides on the Scrapper template, run only.
-	var scrapper: Dictionary = GameData.ENEMY_RAID_GUARDS["territorialScrapper"]
-	for pair in [["shp", "hpBase"], ["smin", "attackMin"], ["smax", "attackMax"]]:
-		if opts.has(pair[0]):
-			scrapper[pair[1]] = opts[pair[0]]
-	if opts.has("hpc"):
-		GameData.COMBAT_HP_BONUS_BY_LEVEL = opts["hpc"]
-	for m in MATCHUPS:
-		_run(m, opts)
+func run(raw: Dictionary) -> void:
+	var opts := DEFAULTS.duplicate()
+	opts.merge(raw, true)
+	for key in raw.keys():
+		if not DEFAULTS.has(key) and not _override(key, raw[key]):
+			return
+	if not FOG_MODES.has(opts["fog"]):
+		print("Unknown fog mode: %s (both, on or off)" % opts["fog"])
+		return
+	var matchups := _grid(opts)
+	if matchups.is_empty():
+		return
+	var overall := {}
+	for fog in FOG_MODES[opts["fog"]]:
+		overall[fog] = _run_table(opts, matchups, fog)
+		print("")
+	if overall.size() == 2:
+		for policy in POLICIES:
+			print("%-7s fog cost: overall win %5.1f%% with fog vs %5.1f%% without (%+.1f pts)" % [
+				policy, overall[true][policy], overall[false][policy], overall[true][policy] - overall[false][policy]])
+	GameState.reset()
 
 
-func _run(m: Array, opts: Dictionary) -> void:
-	var n: int = opts["n"]
+# One table over the grid with the fight's fog on or off; returns each
+# policy's overall win %.
+func _run_table(opts: Dictionary, matchups: Array, fog: bool) -> Dictionary:
+	var n := int(opts["n"])
+	var base_seed := int(opts["seed"])
+	print("Combat balance sim (live engine): fog %s, n=%d seed=%d, %d matchups x %d policies" % ["on" if fog else "off", n, base_seed, matchups.size(), POLICIES.size()])
+	print("%-4s %-30s %-3s %-30s %-7s %6s %4s %6s %8s %7s" % ["plv", "enemies", "al", "loadout", "policy", "rounds", "p90", "win%", "HP%win", "actions"])
+	var totals := {}
+	for policy in POLICIES:
+		totals[policy] = { "wins": 0, "fights": 0, "better": 0 }
+	for m in range(matchups.size()):
+		var matchup: Dictionary = matchups[m]
+		var win_pcts := {}
+		for policy in POLICIES:
+			var stats := _run_matchup(matchup, policy, n, base_seed, m, fog)
+			win_pcts[policy] = stats["winPct"]
+			totals[policy]["wins"] += stats["wins"]
+			totals[policy]["fights"] += n
+			print("%-4d %-30s %-3d %-30s %-7s %6.1f %4d %5.1f%% %7.1f%% %7.1f%s" % [
+				matchup["playerLevel"], matchup["label"], matchup["allies"], matchup["loadoutLabel"], policy,
+				stats["roundsMean"], stats["roundsP90"], stats["winPct"], stats["hpLeftPct"], stats["actionsMean"],
+				"  (%d timed out)" % stats["timeouts"] if stats["timeouts"] > 0 else ""])
+		if win_pcts["reader"] > win_pcts["naive"]:
+			totals["reader"]["better"] += 1
+		elif win_pcts["naive"] > win_pcts["reader"]:
+			totals["naive"]["better"] += 1
+	print("")
+	var overall := {}
+	for policy in POLICIES:
+		var t: Dictionary = totals[policy]
+		overall[policy] = 100.0 * t["wins"] / maxi(1, t["fights"])
+		print("%-7s overall win %5.1f%%, higher win %% in %d of %d matchups" % [
+			policy, overall[policy], t["better"], matchups.size()])
+	return overall
+
+
+# What-if override for this run only: a dotted path to an existing number
+# in GameData.COMBAT_PROTOTYPE (e.g. archetypes.mugger.hpBase=45,
+# chipMultiplier=0.3), set to `value` as that number's type. False (with
+# the reason printed) for a path that isn't one.
+func _override(path: String, value: String) -> bool:
+	var keys := path.split(".")
+	var node = GameData.COMBAT_PROTOTYPE
+	for k in keys.slice(0, -1):
+		node = node.get(k) if node is Dictionary else null
+	var last: String = keys[-1]
+	if not (node is Dictionary and node.has(last) and typeof(node[last]) in [TYPE_INT, TYPE_FLOAT]):
+		print("Unknown option or not a number in combat_prototype.json: %s" % path)
+		return false
+	node[last] = float(value) if typeof(node[last]) == TYPE_FLOAT else int(value)
+	return true
+
+
+# One matchup per player level x enemy level x enemy x count x allies x
+# loadout. elevels=match pits each player level against its own level.
+# [] (with the reason printed) for an unknown template or archetype.
+func _grid(opts: Dictionary) -> Array:
+	var levels := _ints(opts["levels"])
+	var loadouts: Array = []
+	for spec in str(opts["loadouts"]).split(","):
+		loadouts.append({ "label": spec, "units": _loadout(spec) })
+	var enemy_specs: Array = []
+	for spec in str(opts["enemies"]).split(","):
+		var bits := spec.split(":")
+		var archetype := bits[1] if bits.size() > 1 else ""
+		if not Combat.debug_enemy_templates().has(bits[0]) or (archetype != "" and not GameData.COMBAT_PROTOTYPE["archetypes"].has(archetype)):
+			print("Unknown enemy: %s (template[:archetype])" % spec)
+			return []
+		enemy_specs.append({ "template": bits[0], "archetype": archetype, "label": spec })
+	var matchups: Array = []
+	for plv in levels:
+		var elevels: Array = [plv] if opts["elevels"] == "match" else _ints(opts["elevels"])
+		for elv in elevels:
+			for enemy in enemy_specs:
+				for count in _ints(opts["counts"]):
+					for allies in _ints(opts["allies"]):
+						for loadout in loadouts:
+							var enemies: Array = []
+							for _i in range(count):
+								enemies.append({ "template": enemy["template"], "archetype": enemy["archetype"], "level": elv })
+							matchups.append({
+								"playerLevel": plv, "enemies": enemies, "allies": allies,
+								"label": "%dx %s L%d" % [count, enemy["label"], elv],
+								"loadout": loadout["units"], "loadoutLabel": loadout["label"],
+							})
+	return matchups
+
+
+func _ints(csv: String) -> Array:
+	return Array(csv.split(",")).map(func(v: String) -> int: return int(v))
+
+
+# "none" or items joined by "+", each "item" (tier 1) or "item:tier", as
+# real { recipe, tier } loadout units.
+func _loadout(spec: String) -> Array:
+	if spec == "none":
+		return []
+	var units: Array = []
+	for part in spec.split("+"):
+		var bits := part.split(":")
+		units.append({ "recipe": bits[0], "tier": int(bits[1]) if bits.size() > 1 else 1 })
+	return units
+
+
+# A fresh player at Combat Skill `level`, as levelling would leave them
+# (the HP curve applied, full HP), carrying `units` in its first slots.
+func _fresh_player(level: int, units: Array) -> void:
+	GameState.reset()
+	var player: Dictionary = GameState.state["player"]
+	player["combatSkill"] = level
+	player["combatXP"] = GameData.COMBAT_XP_LEVELS[level]
+	player["hpMax"] += GameData.COMBAT_HP_BONUS_BY_LEVEL[level] - GameData.COMBAT_HP_BONUS_BY_LEVEL[1]
+	player["hp"] = player["hpMax"]
+	Loadout.debug_grant(units)
+
+
+# Fight i of matchup m uses the same seed under every policy and fog mode,
+# so they all meet the same rosters and opening plans.
+func _run_matchup(matchup: Dictionary, policy: String, n: int, base_seed: int, m: int, fog: bool) -> Dictionary:
+	var rounds: Array = []
 	var wins := 0
-	var end_pcts: Array = []
-	for _i in range(n):
-		GameState.reset()
-		var player: Dictionary = GameState.state["player"]
-		if opts.has("hp"):
-			player["hpMax"] = opts["hp"]
-			player["hp"] = opts["hp"]
-		if opts.has("min"):
-			player["attackMin"] = opts["min"]
-		if opts.has("max"):
-			player["attackMax"] = opts["max"]
-		player["combatSkill"] = m[1]
-		# A fresh player is level 1; apply the HP curve as levelling would.
-		var hp_bonus: int = GameData.COMBAT_HP_BONUS_BY_LEVEL[m[1]] - GameData.COMBAT_HP_BONUS_BY_LEVEL[1]
-		player["hpMax"] += hp_bonus
-		player["hp"] = player["hpMax"]
-		player["combatXP"] = GameData.COMBAT_XP_LEVELS[m[1]]
-		var template: String = m[2]
-		var guards: int = m[4]
-		if m[0].contains("mugging"):
-			# Natural 1-3 mugger roll.
-			Combat.start_street_mugging()
-		else:
-			Combat.start_raid("", m[3], guards, template)
-		var combat: Dictionary = GameState.state["combat"]
-		var guard := 0
-		while combat["outcome"] == null and guard < 200:
-			Combat.player_attack()
-			guard += 1
-		if combat["outcome"] == "win":
+	var timeouts := 0
+	var hp_left := 0.0
+	var actions := 0
+	for i in range(n):
+		var fight_seed: int = base_seed * 1000003 + m * 10007 + i
+		_fresh_player(matchup["playerLevel"], matchup["loadout"])
+		Rng.set_seed(fight_seed)
+		var allies: Array = []
+		for _a in range(matchup["allies"]):
+			allies.append({ "level": matchup["playerLevel"], "slots": [] })
+		Combat.start_debug_combat({
+			"context": Combat.CONTEXT_RAID, "enemies": matchup["enemies"], "allies": allies,
+			"fog": fog, "seed": fight_seed,
+		})
+		var cp: Dictionary = GameState.state["combat"]
+		assert(cp.get("active", false), "bad matchup config: %s" % matchup["label"])
+		var outcome = cp["outcome"]
+		var planned := 0
+		while outcome == null and int(cp["round"]) <= ROUND_CAP:
+			var action := _decide(cp, policy)
+			planned += 1
+			var result := Combat.choose_item(action["slot"], action["target"]) if action.has("slot") else Combat.choose_move(action["move"], action["target"])
+			assert(result["ok"], "pick refused: %s" % result.get("reason", ""))
+			outcome = result["outcome"]
+			cp = GameState.state["combat"]
+		rounds.append(int(cp["round"]))
+		actions += planned
+		if outcome == null:
+			timeouts += 1
+		elif outcome == "win":
 			wins += 1
-			end_pcts.append(100.0 * player["hp"] / player["hpMax"])
-	end_pcts.sort()
-	var mean := 0.0
-	for p in end_pcts:
-		mean += p
-	mean = mean / end_pcts.size() if not end_pcts.is_empty() else 0.0
-	var median: float = end_pcts[end_pcts.size() / 2] if not end_pcts.is_empty() else 0.0
-	var under40 := end_pcts.filter(func(p: float) -> bool: return p < 40.0).size()
-	print("%-24s win %5.1f%%  endHP%% mean %5.1f  median %5.1f  wins<40%% %5.1f%%" % [
-		m[0], 100.0 * wins / n, mean, median,
-		100.0 * under40 / end_pcts.size() if not end_pcts.is_empty() else 0.0])
+			var player: Dictionary = cp["combatants"][CombatPrototype.PLAYER_INDEX]
+			hp_left += 100.0 * player["hp"] / player["hpMax"]
+	rounds.sort()
+	var total := 0
+	for r in rounds:
+		total += r
+	return {
+		"roundsMean": float(total) / n,
+		"roundsP90": rounds[mini(n - 1, int(ceil(0.9 * n)) - 1)],
+		"wins": wins, "winPct": 100.0 * wins / n,
+		"hpLeftPct": hp_left / wins if wins > 0 else 0.0,
+		"actionsMean": float(actions) / n, "timeouts": timeouts,
+	}
+
+
+# ── Policies ─────────────────────────────────────────────────────────────
+
+# The pick at the paused position: at the round's first pick, at most one
+# loadout item (same rule under both policies, so loadouts compare like for
+# like); else the policy's move.
+func _decide(cp: Dictionary, policy: String) -> Dictionary:
+	if cp["playerPlan"].all(func(a): return a == null):
+		var item := _item_action(cp)
+		if not item.is_empty():
+			return item
+	if policy == "naive":
+		return { "move": CombatPrototype.MOVE_STRIKE, "target": -1 }
+	var i := CombatPrototype.decision_position(cp)
+	return _reader_action(cp, i, CombatPrototype.actions_this_round(cp, CombatPrototype.PLAYER_INDEX))
+
+
+# A heal below the ally AI's heal threshold; else the first unspent non-heal
+# item, holding a Time Pearl or Black Hole while any enemy is still losing
+# actions. "slot" is the item's real loadout slot; an item Combat refuses at
+# that target is passed over. {} for none.
+func _item_action(cp: Dictionary) -> Dictionary:
+	var player: Dictionary = cp["combatants"][CombatPrototype.PLAYER_INDEX]
+	var low: bool = float(player["hp"]) / player["hpMax"] < float(GameData.COMBAT_PROTOTYPE["allyHealBelow"])
+	var paused: bool = _enemies(cp).any(func(e): return cp["combatants"][e]["actionsLost"] > 0)
+	for entry in player["loadout"]:
+		if entry["used"]:
+			continue
+		var item_id: String = entry["item"]
+		var effect: String = CombatPrototype.move(item_id)["effect"]
+		var action := {}
+		if effect == CombatPrototype.ITEM_HEAL:
+			if low:
+				action = { "slot": int(entry["sourceSlot"]), "target": CombatPrototype.PLAYER_INDEX }
+		elif effect in [CombatPrototype.ITEM_FREEZE, CombatPrototype.ITEM_BLACK_HOLE]:
+			if not paused:
+				action = { "slot": int(entry["sourceSlot"]), "target": -1 }
+		else:
+			action = { "slot": int(entry["sourceSlot"]), "target": _weakest(cp, _enemies(cp)) }
+		if not action.is_empty() and Combat.round_item_block_reason(action["slot"], action["target"]) == "":
+			return action
+	return {}
+
+
+# At the paused position i, when a strike lands after it (this index, or
+# the next from a faster enemy): already Guarded, Feint an enemy open for
+# the next action (Feint keeps the guard); else Strike an opening only when
+# the player wins the HP race at full damage both ways; else Guard.
+# Unthreatened: Strike the weakest enemy that'll be Open; else that Feint;
+# else Strike the weakest for chip.
+func _reader_action(cp: Dictionary, i: int, size: int) -> Dictionary:
+	var enemies := _enemies(cp)
+	var open: Array = enemies.filter(func(e): return _sees_open(cp, e, i, i, []))
+	var feint_target := _feint_target(cp, enemies, i, size)
+	if _threatened(cp, enemies, i, size):
+		if feint_target >= 0 and not CombatPrototype.is_open(cp, cp["combatants"][CombatPrototype.PLAYER_INDEX]):
+			return { "move": CombatPrototype.MOVE_FEINT, "target": feint_target }
+		if not open.is_empty() and _wins_race(cp, enemies, _weakest(cp, open)):
+			return { "move": CombatPrototype.MOVE_STRIKE, "target": _weakest(cp, open) }
+		return { "move": CombatPrototype.MOVE_GUARD, "target": CombatPrototype.PLAYER_INDEX }
+	if not open.is_empty():
+		return { "move": CombatPrototype.MOVE_STRIKE, "target": _weakest(cp, open) }
+	if feint_target >= 0:
+		return { "move": CombatPrototype.MOVE_FEINT, "target": feint_target }
+	return { "move": CombatPrototype.MOVE_STRIKE, "target": _weakest(cp, enemies) }
+
+
+# A Guarded enemy that a Feint at action i leaves Open for action i+1; -1
+# for none (or no action i+1).
+func _feint_target(cp: Dictionary, enemies: Array, i: int, size: int) -> int:
+	if i + 1 >= size:
+		return -1
+	for e in enemies:
+		if not _sees_open(cp, e, i, i + 1, []) and _sees_open(cp, e, i, i + 1, [i]):
+			return e
+	return -1
+
+
+# Whether trading full hits with every living enemy downs `target` no later
+# than the player goes down, at mean rolls.
+func _wins_race(cp: Dictionary, enemies: Array, target: int) -> bool:
+	var incoming := 0.0
+	for e in enemies:
+		incoming += _mean_roll(cp, e)
+	var hits_to_kill := ceilf(float(cp["combatants"][target]["hp"]) / _mean_roll(cp, CombatPrototype.PLAYER_INDEX))
+	var hits_to_die := ceilf(float(cp["combatants"][CombatPrototype.PLAYER_INDEX]["hp"]) / incoming)
+	return hits_to_kill <= hits_to_die
+
+
+func _mean_roll(cp: Dictionary, actor: int) -> float:
+	var roll_range := CombatPrototype.damage_range(cp, actor)
+	return (roll_range[0] + roll_range[1]) / 2.0
+
+
+# Whether a damaging enemy action aimed at the player (or at anyone, when
+# sight doesn't show targets) lands between the player's action i (the
+# paused one) and its next: a slower or tied enemy's action i, or a faster
+# enemy's action i+1 (next round's first, under sight, for the last action).
+func _threatened(cp: Dictionary, enemies: Array, i: int, size: int) -> bool:
+	var me: int = cp["combatants"][CombatPrototype.PLAYER_INDEX]["speed"]
+	for e in enemies:
+		var faster: bool = cp["combatants"][e]["speed"] > me
+		var intents := CombatPrototype.enemy_intents(cp, e)
+		if not faster and _strikes(cp, e, intents, i):
+			return true
+		if faster:
+			if i + 1 < size and _strikes(cp, e, intents, i + 1):
+				return true
+			if i + 1 >= size and _strikes(cp, e, CombatPrototype.enemy_intents(cp, e, true), 0, true):
+				return true
+	return false
+
+
+# Whether intent `index` (this round's next for enemy e, or next round's
+# with next_round) is a damaging action aimed at the player; an unread one
+# isn't known to be.
+func _strikes(cp: Dictionary, e: int, intents: Array, index: int, next_round: bool = false) -> bool:
+	if index >= intents.size() or intents[index].get("unread", false):
+		return false
+	if not next_round and int(cp["combatants"][e]["actionsLost"]) > 0:
+		return false
+	var intent: Dictionary = intents[index]
+	if CombatPrototype.move(intent["move"])["effect"] not in [CombatPrototype.EFFECT_DAMAGE, CombatPrototype.EFFECT_STUN]:
+		return false
+	return int(intent.get("target", CombatPrototype.PLAYER_INDEX)) == CombatPrototype.PLAYER_INDEX
+
+
+# Whether enemy e will be Open when the player takes action i, read from
+# the fight paused at the player's action `now`: its guard state now, then
+# its own committed guard changes still to come before i (minus any it's
+# losing) and the player's Feints planned at `feints` indices, in timeline
+# order. A frozen or Exposed enemy reads Open; an unread intent leaves its
+# guard unknown, which doesn't.
+func _sees_open(cp: Dictionary, e: int, now: int, i: int, feints: Array) -> bool:
+	var enemy: Dictionary = cp["combatants"][e]
+	if CombatPrototype.is_exposed(cp, enemy):
+		return true
+	var faster: bool = enemy["speed"] > cp["combatants"][CombatPrototype.PLAYER_INDEX]["speed"]
+	var intents := CombatPrototype.enemy_intents(cp, e)
+	var resolved := mini(now + 1 if faster else now, intents.size())
+	var acted := mini(i + 1 if faster else i, intents.size())
+	if int(enemy["frozenActions"]) > acted - resolved:
+		return true
+	var lost := int(enemy["actionsLost"])
+	# Events as [index, enemy-first-at-that-index, guard state].
+	var events: Array = []
+	for j in range(resolved, acted):
+		var guard: String = CombatPrototype.UNKNOWN if intents[j].get("unread", false) else CombatPrototype.move(intents[j]["move"])["actorGuard"]
+		if j - resolved >= lost and guard != CombatPrototype.UNCHANGED:
+			events.append([j, faster, guard])
+	for f in feints:
+		if f < i:
+			events.append([f, not faster, CombatPrototype.OPEN])
+	events.sort_custom(func(a, b): return a[0] < b[0] or (a[0] == b[0] and a[1] and not b[1]))
+	var state: String = CombatPrototype.OPEN if CombatPrototype.is_open(cp, enemy) else CombatPrototype.GUARDED
+	for ev in events:
+		state = ev[2]
+	return state == CombatPrototype.OPEN
+
+
+func _enemies(cp: Dictionary) -> Array:
+	var result: Array = []
+	var combatants: Array = cp["combatants"]
+	for i in range(combatants.size()):
+		if combatants[i]["side"] == CombatPrototype.SIDE_ENEMY and not combatants[i]["koed"]:
+			result.append(i)
+	return result
+
+
+func _weakest(cp: Dictionary, candidates: Array) -> int:
+	var best: int = candidates[0]
+	for e in candidates:
+		if cp["combatants"][e]["hp"] < cp["combatants"][best]["hp"]:
+			best = e
+	return best

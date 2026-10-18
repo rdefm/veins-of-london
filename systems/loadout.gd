@@ -92,6 +92,18 @@ static func unequip(index: int, contact_id: String = "") -> Dictionary:
 	return { "ok": true }
 
 
+# Debug setup only: `units[i]` ({ recipe, tier }, or null to keep slot i)
+# lands in the player's slot i from nowhere, replacing what was there.
+static func debug_grant(units: Array) -> void:
+	var loadout: Dictionary = _loadout("")
+	for i in range(mini(units.size(), slot_count())):
+		var unit: Variant = units[i]
+		if unit is Dictionary:
+			loadout["slots"][i] = { "recipe": str(unit["recipe"]), "tier": int(unit["tier"]) }
+			loadout["lastRecipe"][i] = str(unit["recipe"])
+	EventBus.state_changed.emit()
+
+
 # Equippable shared-inventory stock as [{ recipe, tier, qty, multi }, ...]:
 # allowlist order, single-target then multi-target, then ascending tier.
 static func equippable_stock(contact_id: String = "") -> Array:

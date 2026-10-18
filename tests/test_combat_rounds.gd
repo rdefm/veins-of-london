@@ -441,10 +441,48 @@ func run() -> void:
 		_assert_enemies(Combat.CONTEXT_HOME_ALARM_DEFEND, { Combat.HOME_RAIDER_TEMPLATE_KEY: "bruiser" }, 2)
 	)
 
-	run_case("debug_launcher_runs_on_the_round_engine_at_the_picked_tier", func():
+	run_case("debug_launcher_runs_on_the_round_engine_at_the_picked_level", func():
 		_seeded()
-		Combat.start_debug_combat(Combat.CONTEXT_RAID, "", 5, 1, "veinGuard", [])
+		Combat.start_debug_combat({ "context": Combat.CONTEXT_RAID, "enemies": [{ "template": "veinGuard", "level": 4 }] })
 		_assert_enemies(Combat.CONTEXT_RAID, { "veinGuard": "turtle" }, 4)
+	)
+
+	run_case("debug_launcher_takes_template_archetype_level_and_fight_only_player_level", func():
+		_seeded()
+		var player: Dictionary = GameState.state["player"]
+		Combat.start_debug_combat({
+			"context": Combat.CONTEXT_DEFEND_VEIN, "locationKey": "camden", "playerLevel": 3, "fog": false,
+			"enemies": [
+				{ "template": Combat.MUGGER_TEMPLATE_KEY, "archetype": "turtleV2", "level": 2 },
+				{ "template": Combat.HOME_RAIDER_TEMPLATE_KEY, "archetype": "", "level": 2 },
+			],
+		})
+		var combat: Dictionary = GameState.state["combat"]
+		assert_eq(combat["locationKey"], "camden")
+		assert_true(not combat["fog"])
+		var fighters: Array = combat["combatants"].filter(func(c): return c["side"] == CombatPrototype.SIDE_ENEMY)
+		assert_eq(fighters.map(func(c): return c["archetype"]), ["turtleV2", "bruiser"], "override, then the template's own")
+		assert_eq(fighters.map(func(c): return c["level"]), [2, 2])
+		var me: Dictionary = combat["combatants"][CombatPrototype.PLAYER_INDEX]
+		assert_eq(me["level"], 3, "fight at the picked level")
+		assert_eq(me["speed"], int(GameData.COMBAT_SPEED_BY_LEVEL[3]))
+		assert_eq(me["attackMin"], int(player["attackMin"]) + int(GameData.COMBAT_ATTACK_BONUS_BY_LEVEL[3]))
+		assert_eq(me["hpMax"], int(player["hpMax"]), "real HP")
+		assert_eq(player["combatSkill"], 1, "real Combat Skill untouched")
+	)
+
+	run_case("debug_launcher_seats_debug_allies_at_their_level_with_their_slots", func():
+		_seeded()
+		Combat.start_debug_combat({
+			"context": Combat.CONTEXT_RAID, "enemies": [{ "template": "veinGuard", "level": 1 }],
+			"allies": [{ "level": 4, "slots": [{ "recipe": "blast", "tier": 2 }] }, { "level": 2, "slots": [] }],
+		})
+		var allies: Array = GameState.state["combat"]["combatants"].filter(func(c): return c["side"] == CombatPrototype.SIDE_ALLY)
+		assert_eq(allies.map(func(c): return c["level"]), [4, 2])
+		assert_eq(allies[0]["loadout"].map(func(e): return [e["item"], e["tier"]]), [["blast", 2]])
+		assert_eq(allies[0]["hpMax"], int(GameData.COMBAT_PROTOTYPE["allyBase"]["hpBase"]) + int(GameData.COMBAT_HP_BONUS_BY_LEVEL[4]))
+		Combat.exit_combat()
+		assert_true(not GameState.state["combat"]["active"], "debug allies settle without a contact")
 	)
 
 	run_case("enemy_level_table_and_archetypes_are_validated_at_boot", func():

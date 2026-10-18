@@ -628,19 +628,78 @@ static func build_guard_ally() -> Dictionary:
 	}
 
 
-# Debug-only (combat_setup_modal.gd): raid-guard roster under any
-# DEBUG_SETUP_CONTEXTS context, with an optional locationKey override so every
-# backdrop tier can be previewed. location_key == "" derives it as normal.
-static func start_debug_combat(context: String, location_key: String, value_tier: int, guards: int, template_key: String, ally_ids: Array) -> void:
+# Debug-only (combat_setup_modal.gd, scripts/sim_combat_balance.gd): a live
+# fight under any DEBUG_SETUP_CONTEXTS context from `setup`:
+#   context; locationKey ("" derives it as normal, else overrides it so every
+#   backdrop tier can be previewed); playerLevel (fight-only Combat Skill
+#   level, 0 = the player's own); enemies, an Array of { template (a
+#   debug_enemy_templates() key, "" a random raid guard), archetype ("" the
+#   template's own), level }; allyIds, recruited contacts brought in; allies,
+#   an Array of { level, slots } debug allies (allyBase stats, slots as real
+#   { recipe, tier } units); seed / fog as _start_round_combat()'s config.
+static func start_debug_combat(setup: Dictionary) -> void:
+	var context := str(setup.get("context", CONTEXT_RAID))
 	if not DEBUG_SETUP_CONTEXTS.has(context):
 		push_error("Combat.start_debug_combat: context '%s' is not in DEBUG_SETUP_CONTEXTS" % context)
 		return
-	var enemies := generate_raid_enemy("debug_combat_setup", value_tier, guards, template_key)
+	var enemies: Array = []
+	var used_variants: Array = []
+	for spec in setup.get("enemies", [{}]):
+		enemies.append(_debug_enemy(spec, used_variants))
 	var log_lines := ["%s steps out to meet you." % _guard_group_name(enemies)]
-	var allies := _gather_raid_allies(ally_ids, log_lines)
+	var allies := _gather_raid_allies(setup.get("allyIds", []), log_lines)
+	for spec in setup.get("allies", []):
+		allies.append(_debug_ally(spec))
 	var on_win := "raidWon" if context == CONTEXT_RAID else ""
-	_start_combat(context, "debug_combat_setup", enemies, log_lines, on_win, allies,
-		location_key if not location_key.is_empty() else null)
+	var location_key := str(setup.get("locationKey", ""))
+	var config := { "playerLevel": int(setup.get("playerLevel", 0)) }
+	for key in ["seed", "fog"]:
+		if setup.has(key):
+			config[key] = setup[key]
+	_start_round_combat(context, "debug_combat_setup", enemies, log_lines, on_win, allies,
+		location_key if not location_key.is_empty() else null, config)
+
+
+# The debug setup's enemy templates: every raid guard, the mugger and the
+# home raider.
+static func debug_enemy_templates() -> Array:
+	var keys: Array = GameData.ENEMY_RAID_GUARDS.keys()
+	keys.append_array([MUGGER_TEMPLATE_KEY, HOME_RAIDER_TEMPLATE_KEY])
+	return keys
+
+
+static func _debug_enemy(spec: Dictionary, used_variants: Array) -> Dictionary:
+	var key := str(spec.get("template", ""))
+	if not debug_enemy_templates().has(key):
+		key = Rng.rand_from(GameData.ENEMY_RAID_GUARDS.keys())
+	var level := clampi(int(spec.get("level", 1)), 1, CombatPrototype.level_max())
+	var entry: Dictionary
+	match key:
+		MUGGER_TEMPLATE_KEY:
+			entry = _spawn_mugger_instance()
+			entry["level"] = level
+		HOME_RAIDER_TEMPLATE_KEY:
+			entry = _home_raider_enemy(level)
+		_:
+			entry = _spawn_guard_instance(GameData.ENEMY_RAID_GUARDS[key], level)
+			entry["template"] = key
+			if key == SCRAPPER_TEMPLATE_KEY:
+				entry["variant"] = _roll_scrapper_variant(used_variants)
+	var archetype := str(spec.get("archetype", ""))
+	if GameData.COMBAT_PROTOTYPE["archetypes"].has(archetype):
+		entry["archetype"] = archetype
+	return entry
+
+
+# A debug ally: allyBase's hp and attack at `level`, carrying `slots`.
+static func _debug_ally(spec: Dictionary) -> Dictionary:
+	var base: Dictionary = GameData.COMBAT_PROTOTYPE["allyBase"]
+	return {
+		"name": str(base["name"]), "hp": int(base["hpBase"]), "hpMax": int(base["hpBase"]),
+		"attackMin": int(base["attackMin"]), "attackMax": int(base["attackMax"]),
+		"level": int(spec.get("level", 1)), "slots": spec.get("slots", []).duplicate(true),
+		"slotsUsed": [], "koed": false,
+	}
 
 
 # Every start_* opens its fight here, on the round rules. `opening` holds
@@ -720,8 +779,10 @@ static func is_round_engine(combat: Dictionary) -> bool:
 # recruits, then guards/muscle) fill the friendly places after the player,
 # the rest waiting in allyQueue; combat.allies keeps their live dicts, which
 # _sync_round_allies() keeps level with their combatants. `config` is
-# test-only: seed (default off the global Rng stream), fog, and enemyPlans /
-# enemyUnread / allyPlans as CombatPrototype.start(). `live` is merged into
+# debug/test-only: seed (default off the global Rng stream), fog,
+# playerLevel (the fight's Combat Skill level and its attack bonus and
+# speed; 0 or absent = the player's own), and enemyPlans / enemyUnread /
+# allyPlans as CombatPrototype.start(). `live` is merged into
 # the fight before it opens: raiderKit / guardKit (the shared kit pools
 # exit_combat() settles) and opening modifiers (enemyFirst). The player's
 # real loadout slots become its round-fight items, and an active Prophet's
@@ -746,8 +807,12 @@ static func _start_round_combat(context: String, vein_id, enemies: Array, log_li
 		"fog": bool(config.get("fog", true)),
 	}, true)
 	combat.merge(live, true)
-	var level: int = clampi(int(player["combatSkill"]), 1, CombatPrototype.level_max())
+	var skill: int = int(player["combatSkill"])
+	var level_override := int(config.get("playerLevel", 0))
+	var level: int = clampi(level_override if level_override > 0 else skill, 1, CombatPrototype.level_max())
 	var attack := get_attack_range()
+	var level_shift: int = GameData.COMBAT_ATTACK_BONUS_BY_LEVEL[level] - GameData.COMBAT_ATTACK_BONUS_BY_LEVEL[skill]
+	attack = { "min": attack["min"] + level_shift, "max": attack["max"] + level_shift }
 	var combatants: Array = combat["combatants"]
 	var fighter := CombatPrototype.new_combatant(CombatPrototype.SIDE_PLAYER,
 		GameData.COMBAT_PROTOTYPE["playerBase"]["name"], level, int(player["hp"]), int(player["hpMax"]),

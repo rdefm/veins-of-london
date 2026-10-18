@@ -147,6 +147,34 @@ func run() -> void:
 		layer.free()
 	)
 
+	run_case("combat_setup_modal_level_loadout_enemy_and_ally_pickers_drive_the_fight", func():
+		GameState.reset()
+		Modal.open("combat_setup")
+		var layer := ModalLayer.new()
+		layer._ready()
+		var pick := func(option: OptionButton, text: String) -> void:
+			for i in range(option.item_count):
+				if option.get_item_text(i) == text:
+					option.select(i)
+					option.item_selected.emit(i)
+		pick.call(_find_option_with_item(layer, "Own (1)"), "4")
+		var slot_select := _find_option_with_item(layer, "Slot 1: keep")
+		pick.call(slot_select, "Slot 1: %s" % CombatPrototype.move("blast")["name"])
+		pick.call(slot_select.get_parent().get_child(1), "Tier 2")
+		pick.call(_find_option_with_item(layer, CombatSetupModal.RANDOM), Combat.MUGGER_TEMPLATE_KEY)
+		pick.call(_find_option_with_item(layer, "turtleV2"), "turtleV2")
+		pick.call(_find_option_with_item(layer, "1 debug ally"), "1 debug ally")
+		_find_cost_button(layer, "Fight").pressed.emit()
+		assert_eq(GameState.state["player"]["loadout"]["slots"][0], { "recipe": "blast", "tier": 2 }, "slot pick lands in the real slot")
+		CombatPrep.commit()
+		var combat: Dictionary = GameState.state["combat"]
+		assert_eq(combat["combatants"][CombatPrototype.PLAYER_INDEX]["level"], 4)
+		assert_eq(combat["enemies"][0]["archetype"], "turtleV2")
+		assert_true(combat["enemies"][0]["isMugging"], "mugger template")
+		assert_eq(combat["allies"].size(), 1, "one debug ally")
+		layer.free()
+	)
+
 	run_case("evening_train_label_predicts_one_automatic_rollover", func():
 		GameState.reset()
 		GameState.state["player"]["cash"] = 500

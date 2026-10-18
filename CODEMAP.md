@@ -108,7 +108,7 @@ Data file per system: see `data/*.json` below.
 | shares.gd | Shares: 14-day daily buckets per producer (player, factions, independents) of ore harvested, ore spent on successful crafts, contract deliveries and faction London buys; Independents slice crediting (⑥.5e); pure ore/crafting share, overview, delivery and supplier-share reads (split + intake) (R§3.14) |
 | rewind.gd | Rewind payment (`rewind` item, else loaded Dial complication) + time-block Rewind: `state.blockStart` whole-state copy as each block opens; restore keeps XP, Lab knowledge, loadout, Dial. Never saved |
 | sites.gd | Sites & prospecting |
-| loadout.gd | Two personal consumable slots for the player (`player.loadout`) and combat recruits (`contacts[id].loadout`): equip/unequip (refused in combat; allies refuse Wormhole), consume, settlement refill (player, then recruits in roster order), equippable stock; multi-target units (`multi` flag, refilled as the same variant) |
+| loadout.gd | Two personal consumable slots for the player (`player.loadout`) and combat recruits (`contacts[id].loadout`): equip/unequip (refused in combat; allies refuse Wormhole), consume, settlement refill (player, then recruits in roster order), equippable stock; multi-target units (`multi` flag, refilled as the same variant); `debug_grant()` for the debug setup |
 | stash.gd | Personal stash vs. shared pools |
 | station_bubble.gd | Site/vein-stop tap-bubble decision |
 | calendar.gd | Pure `world.day` → calendar date (`MON 3 JAN`, `Y2`+ suffix) per R§3.1 "Calendar"; day 1's weekday from `calendar.startWeekday`; every player-facing date string uses `Calendar.format_day`; `widget_date` for the phone widget/Today card; weekday/Monday helpers for the weekly cadence |
@@ -220,7 +220,7 @@ overlays.
 | movement_craft_modal.gd | Pick a calc type to attempt a Movement craft; pushes success/fail notices |
 | movement_swap_modal.gd | Seat a Movement from movementInventory into the Dial |
 | dial_load_complication_modal.gd | Load a crafted complication into the Dial |
-| combat_setup_modal.gd | Debug combat setup: fight type (`Combat.DEBUG_SETUP_CONTEXTS`), location override for backdrop preview (`location_options()`, shared with the prototype setup), enemy template/count/tier + ally toggles; calls `Combat.start_debug_combat()` |
+| combat_setup_modal.gd | Debug combat setup: fight type, location override (`location_options()`), fight-only player level, player slot picks (written to real slots via `Loadout.debug_grant()`), enemy count/level + per-enemy template/archetype, contact toggles, 0–2 debug allies (level + slots); requests `CombatPrep.KIND_DEBUG` → `Combat.start_debug_combat()` |
 | combat_block_reason_modal.gd | Why a combat command row is disabled: the action name and its block reason, opened from the row's "?" (combat_prototype.gd) |
 | network_reference_modal.gd | Network Map legend |
 | hq_ore_readout_modal.gd | Ore-store slip with raid-risk stamp + personal-stash move controls, map_card_style.gd-skinned (always light) |
@@ -332,8 +332,8 @@ infrastructure, excluded from discovery.
 binary and the godot-ai MCP server; `soak.sh` repeats the playthrough test. The two
 `debug_combat_*_screenshot.gd` files are windowed dev screenshot harnesses;
 `diagnose_115_timing.gd` is a hang-timing probe; `verify_map_camera_persistence.gd` is a
-live-tree check. `sim_combat_balance.gd` (+ `_impl.gd`) is the headless itemless-combat win-rate
-sim behind R§3.7a's balance numbers. `sim_combat_prototype.gd` (+ `_impl.gd`) is the seeded
+live-tree check. `sim_combat_balance.gd` (+ `_impl.gd`) is the seeded live-`Combat` balance sim
+(fights via `Combat.start_debug_combat()`, naive vs reader policy over a matchup grid, fog on and off). `sim_combat_prototype.gd` (+ `_impl.gd`) is the seeded
 CombatPrototype balance sim (naive vs reader policy over a matchup grid, fog on and off; not in run_tests.sh).
 
 ## tools/*.py, *.html, *.js — asset/content pipeline tooling

@@ -131,7 +131,7 @@ Goals:
           "type": "resolution",
           "label": null,
           "speaker": null,
-          "text": "The river takes the lower steps back. The path remains open."
+          "text": "The river takes the lower steps back. The resume your walk down the footpath"
         }
       ]
     }

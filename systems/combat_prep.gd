@@ -103,8 +103,7 @@ static func _dispatch(kind: String, args: Dictionary) -> Dictionary:
 		KIND_HOME_RAID:
 			Combat.start_home_raid_combat(args)
 		KIND_DEBUG:
-			Combat.start_debug_combat(str(args["context"]), str(args["locationKey"]), int(args["valueTier"]),
-				int(args["guards"]), str(args["templateKey"]), args.get("allyIds", []))
+			Combat.start_debug_combat(args)
 		_:
 			return { "ok": false, "reason": "Unknown encounter." }
 	return { "ok": true }
@@ -133,6 +132,9 @@ static func participants(prep: Dictionary) -> Array:
 		rows.append({ "name": Contacts.display_name(contact_id), "role": "ally", "units": _contact_units(contact_id), "note": "" })
 	if bool(args.get("muscle", false)) and Perks.muscle_available():
 		rows.append({ "name": Perks.muscle_ally()["name"], "role": "ally", "units": [], "note": "" })
+	if kind == KIND_DEBUG:
+		for ally in args.get("allies", []):
+			rows.append({ "name": str(GameData.COMBAT_PROTOTYPE["allyBase"]["name"]), "role": "ally", "units": ally.get("slots", []), "note": "L%d" % int(ally.get("level", 1)) })
 	var guards := _ally_guard_count(kind, args)
 	if guards > 0:
 		rows.append({ "name": "Guards" if guards > 1 else "Guard", "role": "ally", "units": [], "note": "×%d" % guards })

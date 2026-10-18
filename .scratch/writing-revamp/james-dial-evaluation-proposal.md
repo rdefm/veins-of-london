@@ -254,14 +254,14 @@ Every route proves the same capacity and reaches the same request. The test cann
           "type": "speaker",
           "label": null,
           "speaker": "James",
-          "text": "\"No. You find it; I pay for it when you bring it. The bench is mine as well. Come back when you have the full amount.\"",
+          "text": "\"No. You find it; I pay for it when you bring it. Come back when you have the full amount.\"",
           "key": "c15"
         },
         {
           "type": "resolution",
           "label": null,
           "speaker": null,
-          "text": "James counts out the promised pay and puts the Dial back in its drawer. The repair can wait for the calc. The figure is already on your phone by the time you reach the street.",
+          "text": "James puts the Dial back in its drawer. The repair can wait for the calc. James has already messaged you by the time you reach the street, repeating how much calc you need. It's the most conversation you've ever seen James initiate of his own accord.",
           "key": "c16"
         }
       ]

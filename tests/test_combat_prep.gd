@@ -158,16 +158,18 @@ func run() -> void:
 	run_case("debug_fight_prepares_and_cancels_free", func():
 		GameState.reset()
 		CombatPrep.request(CombatPrep.KIND_DEBUG, {
-			"context": Combat.CONTEXT_RAID, "locationKey": "", "valueTier": 1,
-			"guards": 1, "templateKey": "", "allyIds": [],
+			"context": Combat.CONTEXT_RAID, "locationKey": "", "enemies": [{ "template": "", "level": 1 }],
+			"allyIds": [], "allies": [{ "level": 2, "slots": [] }],
 		})
 		assert_true(not GameState.state["combatPrep"]["forced"])
+		var roles: Array = CombatPrep.participants(CombatPrep.pending()).map(func(r): return [r["role"], r["note"]])
+		assert_eq(roles, [["you", ""], ["ally", "L2"], ["foe", ""]], "debug ally listed")
 		assert_true(CombatPrep.cancel())
 		assert_true(not GameState.state["combat"]["active"])
 
 		CombatPrep.request(CombatPrep.KIND_DEBUG, {
-			"context": Combat.CONTEXT_RAID, "locationKey": "", "valueTier": 1,
-			"guards": 1, "templateKey": "", "allyIds": [],
+			"context": Combat.CONTEXT_RAID, "locationKey": "", "enemies": [{ "template": "", "level": 1 }],
+			"allyIds": [], "allies": [{ "level": 2, "slots": [] }],
 		})
 		assert_true(CombatPrep.commit()["ok"])
 		assert_true(GameState.state["combat"]["active"])
