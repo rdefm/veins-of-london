@@ -11,11 +11,11 @@ extends "res://tests/test_base.gd"
 
 
 func _dmg_beat(dmg: int) -> Dictionary:
-	return { "kind": "player_attack", "logLine": "x", "targetType": "enemy", "targetIndex": 0, "dmg": dmg }
+	return { "kind": "hit", "text": "x", "actor": 0, "target": 1, "move": "strike", "dmg": dmg }
 
 
 func _non_dmg_beat() -> Dictionary:
-	return { "kind": "motion_announce", "logLine": "x" }
+	return { "kind": "guard", "text": "x", "actor": 0, "target": -1 }
 
 
 func run() -> void:
@@ -104,4 +104,4 @@ func _round_beats() -> Array:
 
 
 func _turn_beat(round_no: int, turn_actor: int, turn_index: int) -> Dictionary:
-	return { "kind": "player_attack", "text": "x", "round": round_no, "turnActor": turn_actor, "turnIndex": turn_index }
+	return { "kind": "hit", "text": "x", "round": round_no, "turnActor": turn_actor, "turnIndex": turn_index }

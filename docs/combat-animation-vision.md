@@ -163,9 +163,10 @@ marked only by the arrow, not a second independent selection cue.
 ### 2.3 Scope change flagged — squad combat + turn-based resolution
 
 **Resolved 2026-08-30 — see `docs/REFERENCE.md` §3.7a.** Both mechanic
-changes below are now specified: squad state (`combat.enemies` array,
-`focusedEnemyIndex`), turn-order queue (speed-sorted, no separate initiative
-roll), and the new `combatSkill` player stat (attack bonus + turn speed,
+changes below are now specified: squad state (`combat.enemies` array;
+targeting is screen view state, §3.7a Targeting), turn order (the §3.7b
+round timeline — action index, then speed, no separate initiative roll),
+and the new `combatSkill` player stat (attack bonus + turn speed,
 trained via combat + a new HQ Train action). `docs/VISION.md`'s M5 line is
 amended accordingly (§12). The two items below are kept as a record of what
 was flagged; §3.7a is now canonical for both.
@@ -183,16 +184,17 @@ line) — both need dedicated `REFERENCE.md` work, and both push
    before implementation — this document only fixes what the *UI* looks like
    once it exists.
 2. **Turn-based resolution**, replacing the current simultaneous-resolution
-   combat loop. Today `player_attack()` (`systems/combat.gd:298`) resolves
-   the whole round synchronously — player, then `_allies_act()`, then the
-   enemy — in one call, with no concept of individual turn order. A turn
-   queue (who's next, how initiative is decided, how frozen/motion-turn
-   status effects reorder the queue, how multi-enemy AI decides who acts
-   when) is now a hard prerequisite, not just the beat-queue-for-animation
-   work §8 already calls out. **Not designed in this session** — the UI only
-   commits to reserving space for a turn-order indicator (§2.4) and to that
-   indicator reflowing (animated, reusing the §8 tween-director pattern)
-   when the queue changes.
+   combat loop. The combat loop of the time resolved the whole round
+   synchronously — player, then allies, then the enemy — in one call, with
+   no concept of individual turn order. A turn order (who's next, how
+   initiative is decided, how frozen/extra-action status effects reorder
+   it, how multi-enemy AI decides who acts when) was a hard prerequisite,
+   not just the beat-queue-for-animation work §8 calls out. **Not designed
+   in this session** — the UI only commits to reserving space for a
+   turn-order indicator (§2.4) and to that indicator reflowing (animated,
+   reusing the §8 tween-director pattern) when the order changes. As it
+   stands, `CombatRounds` resolves each round along the §3.7b timeline,
+   pausing at each player action for one pick.
 
 Neither of these is optional once §2.2/§2.4 ship — they're prerequisites, the
 same way §8's beat queue already is for the original single-enemy plan.
@@ -267,9 +269,9 @@ strip above:
   back to the front when playback starts. Tapping any repeated occurrence of
   the same combatant applies the same selection.
 
-Both amendments' mechanical side (turn cursor, `combat.selection` schema) is
-now signed off in `docs/REFERENCE.md` §2/§3.7a (ticket 03 for the cursor,
-ticket 05 for `combat.selection`); this document's presentation side was
+Both amendments' mechanical side is now signed off in `docs/REFERENCE.md`
+§3.7a/§3.7b (the round's turn cursor; targeting as screen view state, §3.7a
+Targeting); this document's presentation side was
 already approved for the visual-refresh tickets regardless, per
 `.scratch/combat-refining/issues/01-canonical-contract-amendments.md`.
 
@@ -279,8 +281,7 @@ already approved for the visual-refresh tickets regardless, per
 deck holds three regions:
 
 - **Action deck — 3 cards, not 4.** Attack / Item / Run, matching the
-  existing `_build_action_bar()` action set exactly (`scenes/screens/
-  combat.gd:90`). These are a visual re-skin of the current three buttons as
+  combat screen's action set of the time exactly. These are a visual re-skin of the current three buttons as
   cards, not a new inventory/hand mechanic — no energy-cost numbers, no
   fixed draw of items. "Item" still opens the existing Bag drawer.
 - **The Dial — not a card.** A distinct rotating handle widget (the
@@ -327,8 +328,7 @@ deck holds three regions:
 **Superseded (combat-presentation ticket 18, human direction, 2026-09-09).**
 The layout and interaction above are replaced:
 
-- **Layout.** The stage window shrinks (was 390×360, now 390×220 — see
-  `scenes/screens/combat.gd`'s own `STAGE_HEIGHT` comment) to free room below
+- **Layout.** The stage window shrinks (was 390×360, now 390×220) to free room below
   it for a furniture row: the Dial widget docks **left** (not right, and no
   longer spans the log), a Complication detail rectangle plus the 3 action
   blocks (Attack/Item/Run, back to a horizontal row — ticket 13's vertical
@@ -387,7 +387,7 @@ layout pass.
 | Subject | Source | Sheets |
 |---|---|---|
 | Player | `state.player` | idle, attack, hit, KO, item-use |
-| Archie | `data/constants.json` → `contacts.archie` | idle, attack, hit, KO, self-patch (`_allies_act` heals below 40% HP) |
+| Archie | `data/constants.json` → `contacts.archie` | idle, attack, hit, KO, self-patch (ally item rules heal the lowest friendly below `allyHealBelow`, REFERENCE §3.7b) |
 | Territorial Scrapper | `data/enemies.json` | idle, attack, hit, KO |
 | Vein Guard | `data/enemies.json` | idle, attack, hit, KO |
 | Orichalchum Dealer | `data/enemies.json` | idle, attack, hit, KO |
@@ -528,28 +528,22 @@ Native, at the 390×844 logical viewport:
 Nothing above is reachable without this, and it is more load-bearing with
 sprites than it was with cards, because sprites must survive across turns.
 
-Two blockers in the current code:
+How the round fight does it, respecting the one-way data flow:
 
-- **`player_attack()` (`systems/combat.gd:298`) resolves the whole round
-  synchronously** — player attacks (1–3 of them under motion), then
-  `_allies_act()`, then the enemy attack, appending every log line and
-  emitting one `state_changed` at the end. There is no per-beat timeline to
-  animate against.
-- **`CombatScreen._refresh()` (`scenes/screens/combat.gd:14`) `queue_free()`s
-  every child on each `state_changed`.** No sprite, tween or animation player
-  can live through that.
-
-The fix, respecting the one-way data flow:
-
-1. Systems return an ordered `beats` array alongside the log lines —
-   `{kind: "player_attack", dmg: 7, target: "enemy"}`,
-   `{kind: "enemy_evade"}`, `{kind: "ally_heal", amount: 12}`. Pure data, so
+1. `CombatRounds` resolves the player's picks along the §3.7b timeline into
+   an ordered `beats` array. Each beat (`CombatRounds._beat()`) is
+   `{round, kind, actor, target, move, text, turnActor, turnIndex}` plus
+   kind-specific fields (`dmg`, `crit`, `absorbed`, `amount`, `affected`) —
+   e.g. `{kind: "hit", actor: 0, target: 3, move: "strike", dmg: 7}`,
+   `{kind: "evade", …}`, `{kind: "heal", amount: 12, …}`. Pure data, so
    `GameState.state` stays a pure tree and Rewind keeps working. **No
    `SpriteFrames`, Node or Callable ever enters state** — ids only; the screen
    resolves them through `data/combat_visuals.json`.
-2. The screen holds **persistent** combatant nodes and stops rebuilding them.
-3. A director plays the beat queue with a duration knob, tap-to-fast-forward
-   and skip.
+2. `CombatRoundsScreen` holds **persistent** combatant nodes on its
+   `CombatStage` and never rebuilds them per beat; `beat_cues()` maps each
+   beat kind to stage cues (attack swing, throw, cast, effect, damage, KO).
+3. `CombatDirector` plays the beat queue with a duration knob,
+   tap-to-fast-forward and skip.
 
 `scenes/components/map_canvas.gd` is already exactly this pattern — tween-driven
 one-shot visual classes, `pacing_mode`, `custom_step()` fast-forward, a
@@ -674,12 +668,13 @@ from the UI work this document specifies.
    shared UI sans for vector chrome, one bundled bitmap pixel font for
    in-scene labels only. Exact typefaces still TBD (cost not yet done).
 5. ~~**Turn-order/initiative mechanic**~~ — **resolved 2026-08-30**, see
-   `REFERENCE.md` §3.7a: a new `combatSkill` player stat drives speed (and
-   attack bonus), allies/enemies carry an authored flat speed, queue is
-   speed-sorted each round with a fixed tie-break.
+   `REFERENCE.md` §3.7a/§3.7b: a new `combatSkill` player stat drives speed
+   (and attack bonus), allies/enemies carry an authored flat speed, actions
+   resolve in timeline order (action index, then speed, then a fixed
+   tie-break).
 6. ~~**Squad-combat mechanic itself**~~ — **resolved 2026-08-30**, see
-   `REFERENCE.md` §3.7a: `combat.enemies` array + `focusedEnemyIndex`
-   targeting, per-enemy independent AI targeting, AoE hits all non-koed
+   `REFERENCE.md` §3.7a: `combat.enemies` array + tap targeting held as
+   screen view state (§3.7a Targeting), per-enemy independent AI targeting, AoE hits all non-koed
    enemies undiluted, roster spawning with per-instance stat variance.
 7. **2nd/3rd combat-eligible ally content** — the ally fan is built for 3
    (§2.2) but only Archie exists today; which milestone adds the next
