@@ -58,8 +58,8 @@ class StepGauge extends Control:
 	func _x(value: float) -> float:
 		return size.x * value / 100.0
 
-	func _draw_track() -> Rect2:
-		var track := Rect2(Vector2(0, size.y * 0.3), Vector2(size.x, size.y * 0.4))
+	func _draw_track(top := -1.0, height := -1.0) -> Rect2:
+		var track := Rect2(Vector2(0, size.y * 0.3 if top < 0.0 else top), Vector2(size.x, size.y * 0.4 if height < 0.0 else height))
 		draw_rect(track, MapCardStyle.line())
 		if band_high <= band_low:
 			return track
@@ -67,8 +67,8 @@ class StepGauge extends Control:
 		draw_rect(Rect2(Vector2(_x(band_low), track.position.y), Vector2(_x(band_high - band_low), track.size.y)), band_colour)
 		return track
 
-	func _draw_needle(value: float) -> void:
-		draw_line(Vector2(_x(value), 0), Vector2(_x(value), size.y), MapCardStyle.ink(), 3.0)
+	func _draw_needle(value: float, bottom := -1.0) -> void:
+		draw_line(Vector2(_x(value), 0), Vector2(_x(value), size.y if bottom < 0.0 else bottom), MapCardStyle.ink(), 3.0)
 
 
 # The step-end mark drawn over an apparatus: a tick, or a cross on a fail.
@@ -136,6 +136,94 @@ class HoldGauge extends StepGauge:
 		if crack_at >= 0.0:
 			draw_line(Vector2(_x(crack_at), track.position.y), Vector2(_x(crack_at), track.end.y), MapCardStyle.action(), 3.0)
 		_draw_needle(_value)
+
+
+# Compression: drag a finger round the crank; each clockwise degree moves the
+# needle gain_per_rev / 360, so needle speed follows rotation speed. Anticlockwise
+# turns, drags near the hub, steps under deadzone_deg and steps that don't bend
+# clockwise by min_bend_deg (a straight drag) do nothing. Release commits the raw needle value;
+# reaching crack_at commits at once.
+class CrankGauge extends StepGauge:
+	signal committed(value: float)
+
+	const TRACK_HEIGHT := 28.0
+
+	var gain_per_rev := 40.0
+	var deadzone_deg := 2.0
+	var min_radius_frac := 0.3
+	var min_bend_deg := 0.5
+	var crack_at := -1.0
+	var _value := 0.0
+	var _turning := false
+	var _last := Vector2.ZERO
+	var _last_step := Vector2.ZERO
+	var _knob_angle := 0.0
+
+	func _init() -> void:
+		super()
+		custom_minimum_size = Vector2(0, 190)
+
+	func _centre() -> Vector2:
+		return Vector2(size.x * 0.5, TRACK_HEIGHT + 8.0 + (size.y - TRACK_HEIGHT - 8.0) * 0.5)
+
+	func _crank_radius() -> float:
+		return minf(size.x * 0.5, (size.y - TRACK_HEIGHT - 8.0) * 0.5) - 6.0
+
+	func _gui_input(event: InputEvent) -> void:
+		var press := _pressed(event)
+		if press > 0:
+			_turning = true
+			_value = 0.0
+			_last = event.position
+			_last_step = Vector2.ZERO
+			queue_redraw()
+		elif press < 0 and _turning:
+			_release()
+		elif _turning and event is InputEventMouseMotion:
+			accept_event()
+			_drag_to(event.position)
+
+	func _release() -> void:
+		_turning = false
+		committed.emit(_value)
+
+	# One pointer step: the clockwise angle swept about the hub, if it counts.
+	func _drag_to(point: Vector2) -> void:
+		if not _turning:
+			return
+		var hub := _centre()
+		var from := _last - hub
+		var to := point - hub
+		var step := point - _last
+		var bend := 0.0 if _last_step == Vector2.ZERO or step == Vector2.ZERO else angle_difference(_last_step.angle(), step.angle())
+		_last = point
+		if step != Vector2.ZERO:
+			_last_step = step
+		if from.length() < _crank_radius() * min_radius_frac or to.length() < _crank_radius() * min_radius_frac:
+			return
+		var swept := angle_difference(from.angle(), to.angle())
+		if swept <= deg_to_rad(deadzone_deg) or bend <= deg_to_rad(min_bend_deg):
+			return
+		_knob_angle += swept
+		_value = minf(100.0, _value + rad_to_deg(swept) / 360.0 * gain_per_rev)
+		queue_redraw()
+		if crack_at >= 0.0 and _value >= crack_at:
+			_release()
+
+	func _draw() -> void:
+		_draw_input_zone()
+		var track := _draw_track(0.0, TRACK_HEIGHT)
+		if crack_at >= 0.0:
+			draw_line(Vector2(_x(crack_at), track.position.y), Vector2(_x(crack_at), track.end.y), MapCardStyle.action(), 3.0)
+		_draw_needle(_value, TRACK_HEIGHT)
+		var hub := _centre()
+		var radius := _crank_radius()
+		draw_arc(hub, radius, 0.0, TAU, 48, MapCardStyle.line(), 4.0, true)
+		var knob := hub + Vector2(sin(_knob_angle), -cos(_knob_angle)) * radius
+		draw_line(hub, knob, MapCardStyle.ink(), 5.0, true)
+		draw_circle(hub, 7.0, MapCardStyle.ink())
+		draw_circle(knob, 14.0, MapCardStyle.gold())
+		draw_arc(knob, 14.0, 0.0, TAU, 24, MapCardStyle.ink(), 2.0, true)
 
 
 # Grind: the pestle needle swings 0-100-0 every period_sec; each tap reads

@@ -885,6 +885,16 @@ func _build_gauge_card(apparatus: String) -> Control:
 			distil.committed.connect(func(taps: Array): _perform(func(): return Lab.perform_distil(taps)))
 			content.add_child(UI.muted_label("Tap each drip as it falls."))
 			gauge = distil
+		"compression":
+			var crank := LabGauges.CrankGauge.new()
+			crank.gain_per_rev = float(g["crankGainPerRev"])
+			crank.deadzone_deg = float(g["crankDeadzoneDeg"])
+			crank.min_radius_frac = float(g["crankMinRadiusFrac"])
+			crank.min_bend_deg = float(g["crankMinBendDeg"])
+			crank.crack_at = float(g.get("crackAt", -1.0))
+			crank.committed.connect(func(value: float): _perform(func(): return Lab.perform_step(apparatus, value)))
+			content.add_child(UI.muted_label("Turn the crank clockwise, then let go."))
+			gauge = crank
 		_:
 			var hold := LabGauges.HoldGauge.new()
 			hold.rise_per_sec = float(g["risePerSec"])

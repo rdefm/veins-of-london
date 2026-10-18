@@ -453,7 +453,7 @@
   "gauges": {
     "heat": { "risePerSec": 40,
       "directionWords": { "higher": "hotter", "lower": "cooler" } },
-    "compression": { "risePerSec": 30, "crackAt": 95,
+    "compression": { "crackAt": 95, "crankGainPerRev": 40, "crankDeadzoneDeg": 2, "crankMinRadiusFrac": 0.3, "crankMinBendDeg": 0.5,
       "directionWords": { "higher": "more pressure", "lower": "less pressure" } },
     "grinding": { "strokes": 3, "swingPeriodSec": 2.0,
       "directionWords": { "higher": "later in the swing", "lower": "earlier in the swing" } },
