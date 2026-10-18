@@ -199,3 +199,17 @@ func run() -> void:
 
 		assert_true(GameState.state["combat"]["enemies"][0]["hp"] < 20, "the cast itself must still happen with no on_triggered wired at all")
 	)
+
+	run_case("handle_trigger_hands_the_selected_index_to_on_cast_in_place_of_casting", func():
+		GameState.reset()
+		GameState.state["player"]["dial"] = Fixtures.dial(["blast", "shield"], 3, 5)
+		var cast: Array = []
+		var triggered: Array = []
+		var widget := DialWidget.new()
+		widget.configure(GameState.state["player"]["dial"], 1, Callable(), func(r): triggered.append(r), func(i): cast.append(i))
+		widget.handle_trigger()
+		assert_eq(cast, [1], "the selected index")
+		assert_eq(triggered, [], "on_cast owns the result")
+		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 3, "the widget spends nothing itself")
+		widget.free()
+	)

@@ -499,8 +499,7 @@ static func cast_complication(index: int, owner_id: String = "") -> Dictionary:
 
 	var entry: Dictionary = loaded[index]
 	var recipe_key: String = entry["recipeKey"]
-	var base_power = Crafting.effect_power(recipe_key, entry["tier"])
-	var amplified := _amplify_cast(base_power, dial["movement"], int(dial["level"]), recipe_key)
+	var amplified := cast_magnitude(dial, entry)
 
 	dial["currentCharge"] -= 1
 
@@ -515,6 +514,13 @@ static func cast_complication(index: int, owner_id: String = "") -> Dictionary:
 
 	EventBus.state_changed.emit()
 	return { "ok": true, "recipeKey": recipe_key, "power": amplified["power"], "targets": amplified["targets"], "turnPower": amplified["turnPower"], "turnBonus": amplified["turnBonus"], "tier": int(entry["tier"]), "magnitudeMult": amplified["magnitudeMult"], "multi": bool(entry.get("multi", false)) }
+
+
+# What casting `dial`'s loaded `entry` would amount to now, spending nothing:
+# _amplify_cast()'s { power, targets, turnPower, turnBonus, magnitudeMult }.
+static func cast_magnitude(dial: Dictionary, entry: Dictionary) -> Dictionary:
+	var base_power = Crafting.effect_power(entry["recipeKey"], entry["tier"])
+	return _amplify_cast(base_power, dial["movement"], int(dial["level"]), entry["recipeKey"])
 
 
 # Pure function of (base_power, movement), split out of cast_complication() for isolated testing.

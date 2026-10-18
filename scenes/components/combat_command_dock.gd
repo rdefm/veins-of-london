@@ -35,6 +35,8 @@ var _player: Dictionary = {}
 var _on_attack_callback: Callable = Callable()
 var _on_run_callback: Callable = Callable()
 var _on_dial_triggered_callback: Callable = Callable()
+# Generic mode's Dial cast (DialWidget's on_cast), invalid for the widget's own.
+var _on_dial_cast_callback: Callable = Callable()
 var _on_item_callback: Callable = Callable()
 # Generic mode (configure_rows()): caller-built rows replace the live deck.
 var _generic := false
@@ -91,10 +93,12 @@ func configure(player: Dictionary, on_attack: Callable, on_run: Callable, on_dia
 # (iconKind as _build_row_icon() reads it; disabledReason becomes the row's
 # tooltip; a disabled row with an onExplain callable gets a "?" calling it),
 # `footer` is one more such row below them ({} for none), and the Dial
-# is drawn only when `dial` isn't null.
-func configure_rows(rows: Array, footer: Dictionary = {}, dial: Variant = null, on_dial_triggered: Callable = Callable(), locked: bool = false) -> void:
+# (with its Complication readout heading the rows) is drawn only when `dial`
+# isn't null; `on_dial_cast` (index) casts in place of the widget's own.
+func configure_rows(rows: Array, footer: Dictionary = {}, dial: Variant = null, on_dial_triggered: Callable = Callable(), locked: bool = false, on_dial_cast: Callable = Callable()) -> void:
 	_locked = locked
 	_on_dial_triggered_callback = on_dial_triggered
+	_on_dial_cast_callback = on_dial_cast
 	_generic = true
 	_generic_rows = rows
 	_generic_footer = footer
@@ -123,14 +127,14 @@ func _rebuild(player: Dictionary) -> void:
 	if dial != null:
 		_row.add_child(_build_dial_widget(dial))
 	if _generic:
-		_row.add_child(_build_row_column(null, _generic_rows, _generic_footer))
+		_row.add_child(_build_row_column(_build_complication_detail(dial) if dial != null else null, _generic_rows, _generic_footer))
 	else:
 		_row.add_child(_build_action_deck(player))
 
 
 func _build_dial_widget(dial: Dictionary) -> Control:
 	var widget := DialWidget.new()
-	widget.configure(dial, _dial_selected_index, _on_dial_selection_changed, _on_dial_triggered)
+	widget.configure(dial, _dial_selected_index, _on_dial_selection_changed, _on_dial_triggered, _on_dial_cast_callback if _generic else Callable())
 	if _locked:
 		widget.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		widget.modulate = UI.ACTION_DISABLED_MODULATE

@@ -739,6 +739,9 @@ static func _start_round_combat(context: String, vein_id, enemies: Array, log_li
 		# The player's real loadout slots as each pick found them, so its
 		# snapshot carries them back on a Rewind (_restore_round_snapshot()).
 		"loadoutSlots": [],
+		# Dial rewind casts that paid for a Rewind, so a restore never hands
+		# their charge back (_restore_round_snapshot()).
+		"dialRewindsPaid": 0,
 		"backdrop": { "context": context, "locationKey": location_key },
 		"fog": bool(config.get("fog", true)),
 	}, true)
@@ -750,6 +753,7 @@ static func _start_round_combat(context: String, vein_id, enemies: Array, log_li
 		GameData.COMBAT_PROTOTYPE["playerBase"]["name"], level, int(player["hp"]), int(player["hpMax"]),
 		attack["min"], attack["max"], int(GameData.COMBAT_SPEED_BY_LEVEL[level]))
 	fighter["loadout"] = _round_loadout(player["loadout"]["slots"])
+	fighter["dial"] = _round_dial("")
 	CombatPrototype.carry_in(fighter, ActiveEffects.prophets_breath_active(), ActiveEffects.lady_active())
 	combatants.append(fighter)
 	var ally_plans: Array = config.get("allyPlans", [])
@@ -775,6 +779,7 @@ static func _start_round_combat(context: String, vein_id, enemies: Array, log_li
 		combatants.append(enemy)
 	CombatPrototype.open_fight(combat, int(config.get("seed", Rng.randi_range(0, 0x7FFFFFFF))))
 	GameState.state["combat"] = combat
+	_spend_round_dial_casts(combat)
 	for line in log_lines:
 		Notify.push(line, Notify.CATEGORY_INFO, { Notify.META_COMBAT_LOG: true })
 	_sync_round_outcome(combat)
@@ -810,6 +815,8 @@ static func _round_ally_combatant(entry: Dictionary) -> Dictionary:
 	var ally := _round_combatant(CombatPrototype.SIDE_ALLY, str(entry["name"]), entry, int(entry["attackMin"]), int(entry["attackMax"]))
 	ally["template"] = str(entry.get("contactId", ""))
 	ally["loadout"] = _round_loadout(entry.get("slots", []), GameData.LOADOUT["allyExcluded"])
+	if str(entry.get("contactId", "")) != "":
+		ally["dial"] = _round_dial(str(entry["contactId"]))
 	return ally
 
 
@@ -843,6 +850,63 @@ static func _round_loadout(slots: Array, excluded: Array = []) -> Array:
 	return loadout
 
 
+# `owner_id`'s Dial ("" for the player's) as a round-fight dial view
+# (CombatPrototype.new_combatant()), or null for none: its charge, and a
+# cast per loaded Complication with a round-fight item at what casting it
+# would amount to now (R§3.7b Dial Complications, §3.5 Dial-level cast
+# scaling): Time Pearl / Prophet's Breath power × targets + the level's
+# turns, Panic / Pan's Rapture power + them, Black Hole its freeze as lost,
+# Panger / Pandemonium angerPct scaled by the cast's magnitude, Enhancement
+# Powder its power, the rest power × targets.
+static func _round_dial(owner_id: String) -> Variant:
+	var dial: Variant = Dial.dial_of(owner_id)
+	if dial == null:
+		return null
+	var casts: Array = []
+	var loaded: Array = dial["loadedComplications"]
+	for i in range(loaded.size()):
+		var key: String = loaded[i]["recipeKey"]
+		if not COMBAT_COMPLICATION_RECIPES.has(key) or not CombatPrototype.is_item(key):
+			continue
+		var amp := Dial.cast_magnitude(dial, loaded[i])
+		var power: int = int(amp["power"]) * int(amp["targets"])
+		var cast := { "item": key, "tier": int(loaded[i]["tier"]), "multi": bool(loaded[i].get("multi", false)), "sourceIndex": i }
+		match key:
+			"timePearl", "prophetsBreath":
+				power += int(amp["turnBonus"])
+			"panic", "pansRapture":
+				power = int(amp["power"]) + int(amp["turnBonus"])
+			"enhancementPowder":
+				power = int(amp["power"])
+			"blackHole":
+				var params: Dictionary = CombatPrototype.move(key)["params"]
+				cast["lost"] = (int(params["actionsBase"]) + floori(int(amp["turnPower"]) / float(params["powerPerAction"]))) * int(amp["targets"]) + int(amp["turnBonus"])
+			"panger", "pandemonium":
+				cast["angerPct"] = GameState.round_epsilon(float(GameData.COMBAT_PROTOTYPE["anger"]["pctPerTier"]) * cast["tier"] * float(amp["magnitudeMult"]))
+		cast["power"] = power
+		casts.append(cast)
+	return { "owner": owner_id, "charge": dial["currentCharge"], "casts": casts, "spent": [] }
+
+
+# Settles the Dial casts the pick just resolved: each charges its real Dial
+# and earns its XP through Dial.cast_complication().
+static func _spend_round_dial_casts(combat: Dictionary) -> void:
+	for fighter in combat["combatants"]:
+		var view: Variant = fighter.get("dial")
+		if view is Dictionary:
+			for index in view["spent"]:
+				Dial.cast_complication(int(index), view["owner"])
+			view["spent"] = []
+
+
+# Each fighter's dial view follows its real Dial (charge, and cast power
+# after a level-up).
+static func _refresh_round_dials(combat: Dictionary) -> void:
+	for fighter in combat["combatants"]:
+		if fighter.get("dial") is Dictionary:
+			fighter["dial"] = _round_dial(fighter["dial"]["owner"])
+
+
 # The player's round-fight loadout entry for real loadout slot `index`, or
 # -1 when the slot's unit has no round-fight item.
 static func _round_entry(combat: Dictionary, index: int) -> int:
@@ -865,6 +929,47 @@ static func choose_item(index: int, target: int = -1) -> Dictionary:
 	return _play_round_pick(combat, { "slot": _round_entry(combat, index), "target": target })
 
 
+# Casts the player's loaded Complication `index` (player.dial
+# .loadedComplications) at the round fight's paused player position (target
+# -1: the item's default), as choose_move(): 1 action, guard state unchanged
+# (R§3.7b Dial Complications); its charge and XP land as it resolves.
+static func cast_round_complication(index: int, target: int = -1) -> Dictionary:
+	var combat: Dictionary = GameState.state["combat"]
+	if not combat["active"] or not is_round_engine(combat):
+		return { "ok": false, "reason": "Combat not active." }
+	var reason := round_cast_block_reason(index, target)
+	if reason != "":
+		return { "ok": false, "reason": reason }
+	return _play_round_pick(combat, { "dial": _round_cast(combat, index), "target": target })
+
+
+# Why the player's loaded Complication `index` can't be cast (at `target`,
+# -1 for the default) in a round fight, or "" if it can.
+static func round_cast_block_reason(index: int, target: int = -1) -> String:
+	var dial: Variant = GameState.state["player"]["dial"]
+	if dial == null:
+		return "No Dial."
+	var loaded: Array = dial["loadedComplications"]
+	if index < 0 or index >= loaded.size():
+		return "No such Complication."
+	if loaded[index]["recipeKey"] == "rewind":
+		return "Use Rewind for a rewind unit."
+	var cast := _round_cast(GameState.state["combat"], index)
+	if cast < 0:
+		return "No combat effect for that unit."
+	return CombatPrototype.cast_block_reason(GameState.state["combat"], cast, target)
+
+
+# The player's dial-view cast for loaded Complication `index`, or -1 when it
+# has none.
+static func _round_cast(combat: Dictionary, index: int) -> int:
+	var view: Variant = combat["combatants"][CombatPrototype.PLAYER_INDEX].get("dial")
+	if not (view is Dictionary):
+		return -1
+	var casts: Array = view["casts"]
+	return casts.find_custom(func(c): return int(c["sourceIndex"]) == index)
+
+
 # Plays `move_id` at the round fight's paused player position (target -1:
 # the move's default), as CombatPrototype.play_pick(). Returns
 # { ok, beats, outcome } or { ok: false, reason }; a pick whose KO a
@@ -881,6 +986,7 @@ static func _play_round_pick(combat: Dictionary, action: Dictionary) -> Dictiona
 	var result := CombatPrototype.play_pick(combat, action, ROUND_SNAPSHOT_STACK)
 	if not result["ok"]:
 		return result
+	_spend_round_dial_casts(combat)
 	var saved := _try_round_save(combat)
 	if saved != "":
 		result = { "ok": true, "beats": [], "outcome": combat["outcome"], "saved": saved }
@@ -922,16 +1028,25 @@ static func _push_round_line(line: String) -> String:
 
 
 # Restores the round fight's newest snapshot whole (R§3.7b Rewind), the
-# player's real loadout slots with it, so every unit spent since comes back
-# -- bar the units earlier Rewinds were paid with: the player's rewinds and
-# Failsafes, recruits' slot rewinds and the guard kit's rewinds, which only
-# ever leave as payment. The caller spends whatever pays for this one.
+# player's real loadout slots and every real Dial's charge with it, so every
+# unit and cast spent since comes back (cast XP stays earned) -- bar the
+# units earlier Rewinds were paid with: the player's rewinds, Dial rewind
+# casts and Failsafes, recruits' slot rewinds and the guard kit's rewinds,
+# which only ever leave as payment. The caller spends whatever pays for
+# this one.
 static func _restore_round_snapshot(combat: Dictionary) -> void:
 	var slots: Array = GameState.state["player"]["loadout"]["slots"]
 	var slots_before: Array = slots.duplicate()
 	var ally_slots_before: Array = combat["allies"].map(func(a: Dictionary) -> Array: return a.get("slots", []).duplicate())
 	var kit_before: Dictionary = combat["guardKit"].duplicate(true)
+	var dial_rewinds: int = int(combat.get("dialRewindsPaid", 0))
 	CombatPrototype.rewind_pick(combat)
+	var rewinds_since: int = dial_rewinds - int(combat.get("dialRewindsPaid", 0))
+	combat["dialRewindsPaid"] = dial_rewinds
+	for fighter in combat["combatants"]:
+		var view: Variant = fighter.get("dial")
+		if view is Dictionary:
+			Dial.dial_of(view["owner"])["currentCharge"] = view["charge"] - (rewinds_since if view["owner"] == "" else 0)
 	var kept: Array = combat["loadoutSlots"]
 	for i in range(mini(slots.size(), kept.size())):
 		slots[i] = kept[i].duplicate() if kept[i] is Dictionary else null
@@ -987,6 +1102,7 @@ static func round_rewind() -> Dictionary:
 		Loadout.consume(slot)
 	else:
 		Dial.cast_complication(Dial.find_loaded_rewind_complication_index())
+		combat["dialRewindsPaid"] = int(combat.get("dialRewindsPaid", 0)) + 1
 	_push_round_line(LINE_REWIND)
 	_sync_round_outcome(combat)
 	EventBus.state_changed.emit()
@@ -1013,13 +1129,14 @@ static func round_item_block_reason(index: int, target: int = -1) -> String:
 	return CombatPrototype.item_block_reason(GameState.state["combat"], entry, target)
 
 
-# The player's hp and spent loadout units follow the fight; a win dispatches
+# The player's hp, spent loadout units and dial views follow the fight; a win dispatches
 # onWin, a loss leaves the player on R§3.7a's KO hp.
 static func _sync_round_outcome(combat: Dictionary) -> void:
 	GameState.state["player"]["hp"] = int(combat["combatants"][CombatPrototype.PLAYER_INDEX]["hp"])
 	for entry in combat["combatants"][CombatPrototype.PLAYER_INDEX]["loadout"]:
 		if entry["used"] and Loadout.slot(int(entry["sourceSlot"])) != null:
 			Loadout.consume(int(entry["sourceSlot"]))
+	_refresh_round_dials(combat)
 	_sync_round_allies(combat)
 	match combat["outcome"]:
 		"win":
@@ -2916,6 +3033,8 @@ static func use_wormhole(slot: int = -1) -> Dictionary:
 # Dial.cast_complication() spends a charge -- a blocked cast never costs one.
 static func cast_complication(index: int) -> Dictionary:
 	var combat: Dictionary = GameState.state["combat"]
+	if is_round_engine(combat):
+		return cast_round_complication(index)
 	if not combat["active"] or combat["outcome"] != null:
 		return { "ok": false, "reason": "Combat not active." }
 

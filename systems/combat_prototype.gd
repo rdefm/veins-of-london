@@ -77,6 +77,7 @@ const ITEM_EFFECTS: Array[String] = [ITEM_FREEZE, ITEM_BLACK_HOLE, ITEM_BLAST, I
 # time and refuses another while it runs.
 const PAN_EFFECTS: Array[String] = [ITEM_PANIC, ITEM_RAPTURE, ITEM_ANGER, ITEM_FURY]
 const REASON_PAN_STATUSED := "Already out of it."
+const REASON_NO_CHARGE := "Not enough charge."
 # The turns Panic and Pan's Rapture play in place of an enemy's own actions
 # (the data's statusTurns).
 const STATUS_PANIC := "panic"
@@ -512,6 +513,13 @@ static func new_combatant(side: String, name: String, level: int, hp: int, hp_ma
 		# Items: { item, tier, power, used } per slot, plus multi for a
 		# multi-target unit and sourceSlot for a live fight's real slot.
 		"loadout": [],
+		# A live fight's Dial (R§3.7b Dial Complications), null for none:
+		# { owner, charge, casts, spent }. casts are loadout-shaped
+		# { item, tier, power, multi, sourceIndex } per castable loaded
+		# Complication (plus lost for a Black Hole's actions taken, angerPct
+		# for Panger/Pandemonium); a resolved cast takes 1 charge and logs
+		# its sourceIndex on spent for the live layer to settle.
+		"dial": null,
 		"plan": [], "nextPlan": [],
 	}
 
@@ -701,29 +709,39 @@ static func _plan_allies(cp: Dictionary, rng: RandomNumberGenerator) -> void:
 			ally["plan"] = plan
 
 
-# The ally's next item action given the `plan` so far (each slot once), or
-# {} when no rule fires; `planned` as in _plan_allies().
+# The ally's next item action given the `plan` so far, or {} when no rule
+# fires; `planned` as in _plan_allies(). Its Dial's casts come first (while
+# the plan holds fewer casts than it has charge), then each unspent slot once.
 static func _ally_item_action(cp: Dictionary, ally: int, plan: Array, planned: Dictionary) -> Dictionary:
-	var loadout: Array = cp["combatants"][ally]["loadout"]
-	var free: Array = []
+	var combatant: Dictionary = cp["combatants"][ally]
+	var units: Array = []
+	var dial = combatant.get("dial")
+	if dial is Dictionary and plan.filter(func(a): return a.has("dial")).size() < floori(float(dial["charge"])):
+		for d in range(dial["casts"].size()):
+			units.append({ "move": dial["casts"][d]["item"], "dial": d })
+	var loadout: Array = combatant["loadout"]
 	for slot in range(loadout.size()):
 		if not loadout[slot]["used"] and not plan.any(func(a): return int(a.get("slot", -1)) == slot):
-			free.append(slot)
-	for slot in free:
-		var item_id: String = loadout[slot]["item"]
-		if move(item_id)["effect"] == ITEM_HEAL:
-			var patient := _ally_heal_patient(cp, ally, item_id, planned["patients"])
+			units.append({ "move": loadout[slot]["item"], "slot": slot })
+	for unit in units:
+		if move(unit["move"])["effect"] == ITEM_HEAL:
+			var patient := _ally_heal_patient(cp, ally, unit["move"], planned["patients"])
 			if patient >= 0:
-				return { "move": item_id, "target": patient, "part": 0, "slot": slot }
+				return _unit_action(unit, patient)
 	var opponents := _living_opponents(cp, ally)
 	var combatants: Array = cp["combatants"]
 	var paused: bool = opponents.any(func(e): return combatants[e]["actionsLost"] > 0)
 	if not planned["crowd"] and not paused and opponents.size() >= int(_data()["allyCrowdEnemies"]):
-		for slot in free:
-			var item_id: String = loadout[slot]["item"]
-			if move(item_id)["effect"] in [ITEM_FREEZE, ITEM_BLACK_HOLE]:
-				return { "move": item_id, "target": -1, "part": 0, "slot": slot }
+		for unit in units:
+			if move(unit["move"])["effect"] in [ITEM_FREEZE, ITEM_BLACK_HOLE]:
+				return _unit_action(unit, -1)
 	return {}
+
+
+static func _unit_action(unit: Dictionary, target: int) -> Dictionary:
+	var action: Dictionary = unit.duplicate()
+	action.merge({ "target": target, "part": 0 })
+	return action
 
 
 # The lowest-HP-fraction of the ally and its living teammates under
@@ -823,6 +841,12 @@ static func item_block_reason(cp: Dictionary, slot: int, target: int = -1) -> St
 	return _pick_block_reason(cp, { "slot": slot, "target": target })
 
 
+# As move_block_reason(), for the player's Dial cast `index` (into its
+# dial.casts).
+static func cast_block_reason(cp: Dictionary, index: int, target: int = -1) -> String:
+	return _pick_block_reason(cp, { "dial": index, "target": target })
+
+
 static func _choose(action: Dictionary) -> Dictionary:
 	var result := play_pick(_root(), action)
 	if result["ok"]:
@@ -875,32 +899,32 @@ static func _span_reason(move_id: String) -> String:
 	return "%s takes %d actions in a row." % [move(move_id)["name"], move_cost(move_id)]
 
 
-# A player action as { move, target } (plus slot for an item): an item
-# action named by its loadout slot takes the slot's item as its move; a
-# self-targeted one aims at the player, an all-enemies one or a multi-target
-# unit at nobody (-1), and an unset target (-1) at the first of
-# target_options().
+# A player action as { move, target } (plus slot for an item, dial for a
+# Dial cast): an item action named by its loadout slot or Dial cast takes
+# that unit's item as its move; a self-targeted one aims at the player, an
+# all-enemies one or a multi-target unit at nobody (-1), and an unset target
+# (-1) at the first of target_options().
 static func _normalize_action(cp: Dictionary, action) -> Variant:
 	if action == null:
 		return null
 	var move_id: String = str(action.get("move", ""))
 	var target: int = int(action.get("target", -1))
-	var slot: int = int(action.get("slot", -1))
-	if action.has("slot"):
-		var loadout: Array = cp["combatants"][PLAYER_INDEX]["loadout"]
-		move_id = loadout[slot]["item"] if slot >= 0 and slot < loadout.size() else ""
+	var unit := _player_unit(cp, action)
+	if action.has("slot") or action.has("dial"):
+		move_id = unit.get("item", "")
 	var m := move(move_id)
 	if not m.is_empty():
 		var options := target_options(cp, PLAYER_INDEX, move_id)
 		if m["target"] == TARGET_SELF:
 			target = PLAYER_INDEX
-		elif m["target"] == TARGET_ALL_ENEMIES or _is_multi_slot(cp, slot):
+		elif m["target"] == TARGET_ALL_ENEMIES or bool(unit.get("multi", false)):
 			target = -1
 		elif target < 0:
 			target = options[0] if not options.is_empty() else -1
 	var result := { "move": move_id, "target": target }
-	if action.has("slot"):
-		result["slot"] = slot
+	for key in ["slot", "dial"]:
+		if action.has(key):
+			result[key] = int(action[key])
 	return result
 
 
@@ -934,11 +958,14 @@ static func _action_block_reason(cp: Dictionary, action) -> String:
 	if m.is_empty():
 		return "Unknown move."
 	if m.get("item", false):
-		if not action.has("slot"):
+		if action.has("dial"):
+			if float(cp["combatants"][PLAYER_INDEX]["dial"]["charge"]) < 1.0:
+				return REASON_NO_CHARGE
+		elif not action.has("slot"):
 			return "Items come out of your loadout."
-		if cp["combatants"][PLAYER_INDEX]["loadout"][action["slot"]]["used"]:
+		elif cp["combatants"][PLAYER_INDEX]["loadout"][action["slot"]]["used"]:
 			return "That one's spent."
-	var multi := _is_multi_slot(cp, int(action.get("slot", -1)))
+	var multi := bool(_player_unit(cp, action).get("multi", false))
 	if m["target"] in [TARGET_ENEMY, TARGET_FRIEND] and not multi and not target_options(cp, PLAYER_INDEX, action["move"]).has(action["target"]):
 		return "Pick a target."
 	if m["effect"] in PAN_EFFECTS and _pan_targets(cp, PLAYER_INDEX, int(action["target"]), multi).is_empty():
@@ -946,10 +973,19 @@ static func _action_block_reason(cp: Dictionary, action) -> String:
 	return ""
 
 
-# Whether the player's loadout `slot` (-1 for none) holds a multi-target unit.
-static func _is_multi_slot(cp: Dictionary, slot: int) -> bool:
-	var loadout: Array = cp["combatants"][PLAYER_INDEX]["loadout"]
-	return slot >= 0 and slot < loadout.size() and bool(loadout[slot].get("multi", false))
+# The player's unit a raw action names: its loadout slot's entry, or its
+# Dial cast; {} for neither or an index out of range.
+static func _player_unit(cp: Dictionary, action: Dictionary) -> Dictionary:
+	var player: Dictionary = cp["combatants"][PLAYER_INDEX]
+	var units: Array = []
+	var index := -1
+	if action.has("slot"):
+		units = player["loadout"]
+		index = int(action["slot"])
+	elif action.has("dial") and player.get("dial") is Dictionary:
+		units = player["dial"]["casts"]
+		index = int(action["dial"])
+	return units[index] if index >= 0 and index < units.size() else {}
 
 
 # ── Read-only helpers for the screen ─────────────────────────────────────
@@ -1453,15 +1489,23 @@ static func _deal_damage(cp: Dictionary, actor_idx: int, target_idx: int, dmg: i
 
 
 # Applies an item's effect at `power` from the action's loadout slot, and
-# spends the slot (spec §Prototype item effects). Item damage ignores guard.
-# A multi-target unit (R§3.7b Items) Blasts every living opponent, Shields
-# or heals the actor and every living teammate, and puts its Pan status on
-# every living opponent not already under one.
+# spends the slot (spec §Prototype item effects); a Dial cast takes 1 of
+# its Dial's charge instead (R§3.7b Dial Complications). Item damage ignores
+# guard. A multi-target unit (R§3.7b Items) Blasts every living opponent,
+# Shields or heals the actor and every living teammate, and puts its Pan
+# status on every living opponent not already under one.
 static func _use_item(cp: Dictionary, actor_idx: int, action: Dictionary, m: Dictionary, rng: RandomNumberGenerator, beats: Array) -> void:
 	var combatants: Array = cp["combatants"]
 	var actor: Dictionary = combatants[actor_idx]
-	var slot: Dictionary = actor["loadout"][int(action["slot"])]
-	slot["used"] = true
+	var slot: Dictionary
+	if action.has("dial"):
+		var dial: Dictionary = actor["dial"]
+		slot = dial["casts"][int(action["dial"])]
+		dial["charge"] -= 1
+		dial["spent"].append(int(slot["sourceIndex"]))
+	else:
+		slot = actor["loadout"][int(action["slot"])]
+		slot["used"] = true
 	var power: int = slot["power"]
 	var multi: bool = slot.get("multi", false)
 	var move_id: String = action["move"]
@@ -1473,7 +1517,7 @@ static func _use_item(cp: Dictionary, actor_idx: int, action: Dictionary, m: Dic
 				combatants[e]["frozenActions"] = combatants[e]["actionsLost"]
 		ITEM_BLACK_HOLE:
 			_beat(cp, beats, "blackHole", actor_idx, -1, move_id, { "affected": _living_opponents(cp, actor_idx) })
-			var lost: int = int(m["params"]["actionsBase"]) + floori(power / float(m["params"]["powerPerAction"]))
+			var lost: int = int(slot.get("lost", int(m["params"]["actionsBase"]) + floori(power / float(m["params"]["powerPerAction"]))))
 			for e in _living_opponents(cp, actor_idx):
 				_deal_damage(cp, actor_idx, e, power, "pull", move_id, beats, {})
 				combatants[e]["actionsLost"] += lost
@@ -1522,7 +1566,7 @@ static func _use_item(cp: Dictionary, actor_idx: int, action: Dictionary, m: Dic
 			if targets.is_empty():
 				_beat(cp, beats, "fizzle", actor_idx, int(action["target"]), move_id, {})
 			for target in targets:
-				_apply_pan_status(combatants[target], m["effect"], power, int(slot["tier"]))
+				_apply_pan_status(combatants[target], m["effect"], slot)
 				_beat(cp, beats, m["effect"], actor_idx, target, move_id, {})
 		ITEM_WORMHOLE:
 			# Player only: the fight ends fled, no roll, no parting shot.
@@ -1543,19 +1587,20 @@ static func _pan_targets(cp: Dictionary, actor_idx: int, aimed: int, multi: bool
 	return [target] if free.has(target) else []
 
 
-# Sets the Pan item `effect`'s status: Panic or Pan's Rapture for `power`
-# actions; Panger/Pandemonium's anger for two phases of phaseActions at
-# pctPerTier × `tier` percent.
-static func _apply_pan_status(combatant: Dictionary, effect: String, power: int, tier: int) -> void:
+# Sets the Pan item `effect`'s status from `unit` (a loadout slot or Dial
+# cast): Panic or Pan's Rapture for its power in actions; Panger/
+# Pandemonium's anger for two phases of phaseActions at pctPerTier × its
+# tier percent (a Dial cast's own angerPct).
+static func _apply_pan_status(combatant: Dictionary, effect: String, unit: Dictionary) -> void:
 	match effect:
 		ITEM_PANIC:
-			combatant["panicActions"] = power
+			combatant["panicActions"] = int(unit["power"])
 		ITEM_RAPTURE:
-			combatant["raptureActions"] = power
+			combatant["raptureActions"] = int(unit["power"])
 		_:
 			var anger: Dictionary = _data()["anger"]
 			combatant["angerActions"] = 2 * int(anger["phaseActions"])
-			combatant["angerPct"] = int(anger["pctPerTier"]) * tier
+			combatant["angerPct"] = int(unit.get("angerPct", int(anger["pctPerTier"]) * int(unit["tier"])))
 			combatant["fury"] = effect == ITEM_FURY
 
 

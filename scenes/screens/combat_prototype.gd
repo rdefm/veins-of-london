@@ -20,7 +20,8 @@ extends Control
 # ever calls CombatPrototype (and Modal, for the "?") to change it.
 # With `live` set before _ready() it is instead the live round-fight screen
 # (R§3.7b), hosted by CombatScreen: no setup or Exit; it reads
-# state.combat, picks through Combat.choose_move(), rewinds through
+# state.combat, picks through Combat.choose_move(), casts from the player's
+# Dial through Combat.cast_round_complication(), rewinds through
 # Combat.round_rewind() (its refusal shown as a pick's is), shows the
 # player's real loadout slots with Combat's block reasons, and its outcome
 # card hands off to Combat.exit_combat().
@@ -266,14 +267,16 @@ func _sync_fight(cp: Dictionary) -> void:
 	for child in _footer_holder.get_children():
 		child.queue_free()
 	var rows := _dock_rows(cp)
-	var dock_height := CombatCommandDock.surface_height_for_rows(rows.size())
+	var dial: Variant = GameState.state["player"]["dial"] if live else null
+	# The Dial's Complication readout heads the rows.
+	var dock_height := CombatCommandDock.surface_height_for_rows(rows.size() + (1 if dial != null else 0))
 	_dock.offset_top = -dock_height
 	_upper_region.offset_bottom = -dock_height
 	if cp["outcome"] != null and not _busy():
 		_footer_holder.add_child(_build_outcome_card(cp["outcome"]))
 		_dock.hide_deck()
 	else:
-		_dock.configure_rows(rows, {}, null, Callable(), _busy())
+		_dock.configure_rows(rows, {}, dial, Callable(), _busy(), _pick_cast)
 
 	_readouts_panel.visible = _readouts_open
 	for child in _readouts_content.get_children():
@@ -449,6 +452,8 @@ static func _position_text(cp: Dictionary, position: Dictionary, pick: Dictionar
 		var label: String = CombatPrototype.move(planned["move"])["name"]
 		if planned.has("slot"):
 			label = "%s T%d" % [label, combatants[actor]["loadout"][planned["slot"]]["tier"]]
+		elif planned.has("dial"):
+			label = "%s T%d (Dial)" % [label, combatants[actor]["dial"]["casts"][planned["dial"]]["tier"]]
 		return _aimed(cp, label, planned["move"], int(planned["target"]))
 	return _intent_text(cp, CombatPrototype.enemy_intents(cp, actor)[index])
 
@@ -922,6 +927,15 @@ func _pick_live_item(slot: int, target: int) -> void:
 	var unit: Variant = Loadout.slot(slot)
 	var item_id: String = unit["recipe"] if unit != null else ""
 	_resolve(func(): return Combat.choose_item(slot, target), { "move": item_id, "target": target })
+
+
+# Casts the player's loaded Complication `index` in a live fight, at the
+# selected combatant where it aims at one.
+func _pick_cast(index: int) -> void:
+	var loaded: Array = GameState.state["player"]["dial"]["loadedComplications"]
+	var item_id: String = loaded[index]["recipeKey"] if index < loaded.size() else ""
+	var target := _row_target(_cp(), item_id) if CombatPrototype.is_item(item_id) else -1
+	_resolve(func(): return Combat.cast_round_complication(index, target), { "move": item_id, "target": target })
 
 
 # Runs one pick (`pick` as strip_entries() reads it), then plays its beats.

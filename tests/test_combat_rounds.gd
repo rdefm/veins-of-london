@@ -63,6 +63,15 @@ func _recruit(contact_id: String) -> void:
 	GameState.state["contacts"][contact_id]["recruited"] = true
 
 
+# James (recruited, his Dial granted beforehand) as a level-1 ally slower
+# than the player, so his actions resolve after each of the player's picks.
+func _slow_james() -> Dictionary:
+	var james := Contacts.build_combat_ally("james")
+	james["level"] = 1
+	james["speed"] = 1
+	return james
+
+
 func _kinds(beats: Array) -> Array:
 	return beats.map(func(b): return b["kind"])
 
@@ -1041,5 +1050,140 @@ func run() -> void:
 		assert_eq(screen.begin_rewind_playback(), [], "no unit left")
 		assert_eq(screen._refusal, Combat.REASON_NO_REWIND)
 		screen._end_playback()
+		host.free()
+	)
+
+	run_case("a_dial_cast_takes_one_action_keeps_guard_state_and_pays_charge_and_xp", func():
+		GameState.reset()
+		GameState.state["player"]["dial"] = Fixtures.dial_with_loaded("blast", 1, 3)
+		var combat := _start_vs([_slow_mugger(200)], [[["guard", "guard"]]], [])
+		assert_true(Combat.choose_move("strike")["ok"])
+		var guard: String = combat["combatants"][0]["guard"]
+		var mugger_hp: int = combat["combatants"][1]["hp"]
+		var power: int = combat["combatants"][0]["dial"]["casts"][0]["power"]
+		var result := Combat.cast_round_complication(0, 1)
+		assert_true(result["ok"], "cast at the second pause")
+		assert_eq(result["beats"][0]["kind"], "blast", "the cast resolves first")
+		assert_eq(result["beats"][0]["actor"], CombatPrototype.PLAYER_INDEX)
+		assert_eq(combat["combatants"][1]["hp"], mugger_hp - power, "item damage at the cast's power")
+		assert_eq(combat["combatants"][0]["guard"], guard, "guard state unchanged")
+		assert_eq(combat["round"], 2, "one action: the round's second pick")
+		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 2, "one charge")
+		assert_eq(GameState.state["player"]["dial"]["xp"], 10, "cast XP")
+		assert_eq(combat["combatants"][0]["dial"]["charge"], 2, "the view follows")
+	)
+
+	run_case("a_dial_cast_sits_on_the_timeline_and_hits_the_selected_enemy", func():
+		GameState.reset()
+		GameState.state["player"]["dial"] = Fixtures.dial_with_loaded("blast", 1, 3)
+		var combat := _start_vs([_slow_mugger(200), _slow_mugger(200)], [[["guard", "guard"]], [["guard", "guard"]]], [])
+		var first_hp: int = combat["combatants"][1]["hp"]
+		var second_hp: int = combat["combatants"][2]["hp"]
+		assert_true(Combat.cast_round_complication(0, 2)["ok"])
+		assert_eq(combat["playerPlan"][0]["dial"], 0, "the cast holds the player's first action")
+		assert_eq(CombatPrototypeScreen._position_text(combat, { "actor": 0, "index": 0 }), "Blast → %s" % CombatPrototype.display_name(combat["combatants"][2]))
+		assert_true(combat["combatants"][2]["hp"] < second_hp, "the selected enemy")
+		assert_eq(combat["combatants"][1]["hp"], first_hp, "not the other")
+	)
+
+	run_case("a_dial_cast_is_refused_without_charge_or_for_a_rewind_unit_and_costs_nothing", func():
+		GameState.reset()
+		GameState.state["player"]["dial"] = Fixtures.dial_with_loaded("blast", 1, 0)
+		GameState.state["player"]["dial"]["loadedComplications"].append({ "recipeKey": "rewind", "tier": 1, "detent": 1 })
+		_start_vs([_slow_mugger(200)], [[["guard", "guard"]]], [])
+		var refused := Combat.cast_round_complication(0, 1)
+		assert_true(not refused["ok"])
+		assert_eq(refused["reason"], CombatPrototype.REASON_NO_CHARGE)
+		assert_eq(Combat.round_cast_block_reason(1), "Use Rewind for a rewind unit.")
+		assert_eq(Combat.cast_complication(0)["reason"], CombatPrototype.REASON_NO_CHARGE, "the Dial widget's call routes to the round engine")
+		assert_eq(GameState.state["player"]["dial"]["xp"], 0, "no XP")
+		assert_eq(CombatPrototype.decision_position(GameState.state["combat"]), 0, "the pick still open")
+	)
+
+	run_case("an_allys_dial_cast_shows_in_its_plan_before_the_pick_and_spends_on_resolution", func():
+		GameState.reset()
+		_recruit("james")
+		Dial.grant_contact_dial("james")
+		var james_dial: Dictionary = Dial.dial_of("james")
+		var charge: float = float(james_dial["currentCharge"])
+		GameState.state["player"]["hp"] = 5
+		_start_with_allies([_slow_james()], [["guard", "guard"]])
+		var combat: Dictionary = GameState.state["combat"]
+		var planned: Dictionary = combat["combatants"][1]["plan"][0]
+		assert_eq(planned["move"], "healingBurst", "heals the hurt player")
+		assert_eq(planned["target"], CombatPrototype.PLAYER_INDEX)
+		assert_true(planned.has("dial"), "from its Dial")
+		assert_eq(CombatPrototypeScreen._position_text(combat, { "actor": 1, "index": 0 }), "Healing Burst T3 (Dial) → %s" % CombatPrototype.display_name(combat["combatants"][0]))
+		assert_eq(float(james_dial["currentCharge"]), charge, "nothing spent at plan time")
+		Combat.choose_move("guard")
+		assert_true(GameState.state["player"]["hp"] > 5, "healed")
+		assert_eq(float(james_dial["currentCharge"]), charge - 1.0, "one charge on resolution")
+		assert_eq(int(james_dial["xp"]), 10, "cast XP")
+	)
+
+	run_case("rewind_returns_the_charge_of_every_player_and_ally_cast_since", func():
+		GameState.reset()
+		_recruit("james")
+		Dial.grant_contact_dial("james")
+		var james_dial: Dictionary = Dial.dial_of("james")
+		var james_charge: float = float(james_dial["currentCharge"])
+		GameState.state["player"]["dial"] = Fixtures.dial_with_loaded("blast", 1, 3)
+		GameState.state["player"]["loadout"]["slots"][0] = { "recipe": "rewind", "tier": 1 }
+		GameState.state["player"]["hp"] = 5
+		_start_with_allies([_slow_james()], [["guard", "guard"]])
+		assert_true(Combat.cast_round_complication(0, 2)["ok"])
+		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 2, "player cast")
+		assert_eq(float(james_dial["currentCharge"]), james_charge - 1.0, "ally cast")
+		assert_true(Combat.round_rewind()["ok"])
+		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 3, "player charge back")
+		assert_eq(float(james_dial["currentCharge"]), james_charge, "ally charge back")
+		assert_eq(GameState.state["player"]["dial"]["xp"], 10, "XP stays earned")
+		assert_eq(GameState.state["combat"]["combatants"][0]["dial"]["charge"], 3, "the view follows")
+	)
+
+	run_case("failsafe_and_an_allys_rewind_return_the_charge_of_casts_since", func():
+		GameState.reset()
+		GameState.state["player"]["dial"] = Fixtures.dial_with_loaded("blast", 1, 3)
+		_start_lethal([{ "recipe": "failsafe", "tier": 1 }, null])
+		assert_eq(Combat.cast_round_complication(0, 1).get("saved", ""), Combat.LINE_FAILSAFE, "a lethal cast pick")
+		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 3, "failsafe returns it")
+		GameState.reset()
+		GameState.state["player"]["dial"] = Fixtures.dial_with_loaded("blast", 1, 3)
+		var kit := { "items": { "rewind": { "1": 1 } }, "used": {} }
+		var combat := _start_lethal([], [Combat.build_guard_ally()], { "guardKit": kit })
+		assert_eq(Combat.cast_round_complication(0, 2).get("saved", ""), Combat.LINE_ALLY_REWIND % combat["combatants"][1]["name"])
+		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 3, "the guard's rewind returns it")
+	)
+
+	run_case("a_dial_rewind_that_paid_stays_spent_through_a_second_rewind", func():
+		GameState.reset()
+		GameState.state["player"]["dial"] = Fixtures.dial_with_loaded("rewind", 1, 5)
+		GameState.state["player"]["dial"]["loadedComplications"].append({ "recipeKey": "blast", "tier": 1, "detent": 1 })
+		_start_vs([_slow_mugger(200)], [[["guard", "guard"]]], [])
+		assert_true(Combat.choose_move("guard")["ok"])
+		assert_true(Combat.cast_round_complication(1, 1)["ok"])
+		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 4, "blast cast")
+		assert_true(Combat.round_rewind()["ok"])
+		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 4, "blast back, rewind paid")
+		assert_true(Combat.round_rewind()["ok"])
+		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 3, "the older snapshot keeps the first payment spent")
+		assert_eq(Combat.round_rewind_block_reason(), Combat.REASON_NOTHING_TO_UNDO)
+	)
+
+	run_case("live_screen_shows_the_dial_and_its_trigger_casts_a_pick", func():
+		GameState.reset()
+		GameState.state["player"]["dial"] = Fixtures.dial_with_loaded("blast", 1, 3)
+		_start_vs([_slow_mugger(200)], [[["guard", "guard"]]], [])
+		var host := CombatScreen.new()
+		host._ready()
+		var screen: CombatPrototypeScreen = host._round_screen
+		screen._ready()
+		var live_nodes: Array = screen._dock.find_children("*", "", true, false).filter(func(n): return not n.is_queued_for_deletion())
+		var widgets: Array = live_nodes.filter(func(n): return n is DialWidget)
+		assert_eq(widgets.size(), 1, "the Dial in the dock")
+		assert_eq(live_nodes.filter(func(n): return n.name == "ComplicationRow").size(), 1, "its readout heads the rows")
+		widgets[0].handle_trigger()
+		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 2, "cast through the round engine")
+		assert_eq(CombatPrototype.decision_position(GameState.state["combat"]), 1, "it took the first action")
 		host.free()
 	)

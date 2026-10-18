@@ -43,14 +43,17 @@ var _dial: Dictionary = {}
 var _selected_index: int = 0
 var _on_selection_changed: Callable = Callable()
 var _on_triggered: Callable = Callable()
+# Called with the selected index in place of Combat.cast_complication() when valid.
+var _on_cast: Callable = Callable()
 
 
-func configure(dial: Dictionary, selected_index: int, on_selection_changed: Callable, on_triggered: Callable = Callable()) -> void:
+func configure(dial: Dictionary, selected_index: int, on_selection_changed: Callable, on_triggered: Callable = Callable(), on_cast: Callable = Callable()) -> void:
 	_dial = dial
 	var loaded: Array = dial.get("loadedComplications", [])
 	_selected_index = clampi(selected_index, 0, maxi(0, loaded.size() - 1))
 	_on_selection_changed = on_selection_changed
 	_on_triggered = on_triggered
+	_on_cast = on_cast
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	custom_minimum_size = WIDGET_SIZE
 	size_flags_vertical = Control.SIZE_SHRINK_END
@@ -76,6 +79,9 @@ func handle_select(index: int) -> void:
 
 
 func handle_trigger() -> void:
+	if _on_cast.is_valid():
+		_on_cast.call(_selected_index)
+		return
 	var result: Dictionary = Combat.cast_complication(_selected_index)
 	if _on_triggered.is_valid():
 		_on_triggered.call(result)
