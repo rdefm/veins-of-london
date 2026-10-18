@@ -1201,6 +1201,11 @@ func _build_production() -> Control:
 		c["content"].add_child(UI.muted_label("Requires the Improved Lab."))
 	else:
 		var recipe_keys := Rooms.production_recipes()
+		if not recipe_keys.is_empty():
+			var all_on := Rooms.lab_covers_all_contracts()
+			var cover_all := UI.button("Stop covering contracts: all" if all_on else "Cover contract needs: all", func(): Rooms.toggle_all_lab_cover_contracts())
+			cover_all.name = "CoverAllToggle"
+			c["content"].add_child(cover_all)
 		for recipe_key in recipe_keys:
 			c["content"].add_child(_build_production_recipe_row(recipe_key))
 		if recipe_keys.is_empty():
@@ -1513,16 +1518,18 @@ func _build_sales() -> Control:
 		_offer_anchors[offer["id"]] = c["panel"]
 		var request: Dictionary = offer["request"]
 		var expiry: String = "expires %s" % Calendar.format_day(int(offer["expiresDay"]))
-		c["content"].add_child(_build_contract_tags(offer))
-		c["content"].add_child(UI.muted_label(_counterparty_text(offer)))
+		var head := UI.hbox(6)
+		head.add_child(_build_contract_tags(offer))
+		head.add_child(UI.expand_fill(UI.muted_label(_counterparty_text(offer))))
+		c["content"].add_child(head)
 		if offer.get("source", "") == "renewal":
 			c["content"].add_child(UI.muted_label("Renewal. Same order, today's price."))
 		elif offer.get("source", "") == OffersSystem.SOURCE_ASSAY:
 			c["content"].add_child(UI.muted_label(GameData.OFFER_ASSAY["offerNote"] % int(GameData.OFFER_ASSAY["relation"])))
-		c["content"].add_child(UI.heading(_request_summary(request), 15))
+		c["content"].add_child(UI.heading(_request_summary(request), 13))
 		c["content"].add_child(UI.muted_label("%s · £%d per delivery" % [expiry, int(offer["quote"]["payment"])]))
 		var poach: Dictionary = offer.get("poach", {})
-		var offer_row := UI.hbox()
+		var offer_row := head
 		if poach.is_empty():
 			offer_row.add_child(UI.button("Accept", func(): OffersSystem.accept_offer(offer["id"])))
 		else:
@@ -1530,7 +1537,6 @@ func _build_sales() -> Control:
 			c["content"].add_child(UI.muted_label("Undercut by %s: £%d. Match it or the buyer walks." % [rival, int(poach["payment"])]))
 			offer_row.add_child(UI.button("Match £%d" % int(poach["payment"]), func(): OffersSystem.match_poach(offer["id"])))
 		offer_row.add_child(UI.button("Decline", func(): OffersSystem.decline_offer(offer["id"])))
-		c["content"].add_child(offer_row)
 		section.add_child(c["panel"])
 	if not contracts.is_empty():
 		section.add_child(UI.heading("Accepted · %d" % contracts.size(), 14))
@@ -1541,14 +1547,13 @@ func _build_sales() -> Control:
 		card.name = "ContractCard_%s" % String(contract["id"]).validate_node_name()
 		_contract_anchors[contract["id"]] = card
 		card.configure(contract["id"], index)
-		var box := UI.vbox(6)
+		var box := UI.vbox(3)
 		card.add_child(box)
 		var lead := UI.hbox(6)
-		lead.add_child(UI.expand_fill(UI.heading("≡ %02d · %s" % [index + 1, contract["id"]], 15)))
-		lead.add_child(UI.muted_label("ACTIVE"))
+		lead.add_child(UI.expand_fill(UI.heading("≡ %02d · %s" % [index + 1, _request_summary(contract["request"])], 13)))
+		lead.add_child(UI.button("Details →" if _sales_details_id != contract["id"] else "Details ▾", func(): _toggle_sales_details(contract["id"])))
 		box.add_child(lead)
-		box.add_child(UI.muted_label(_request_summary(contract["request"])))
-		box.add_child(UI.muted_label("%s · due %s" % [_contract_progress_summary(contract), Calendar.format_day(int(contract["dueDay"]))]))
+		box.add_child(UI.muted_label("%s · due %s · ACTIVE" % [_contract_progress_summary(contract), Calendar.format_day(int(contract["dueDay"]))]))
 		var total := 0
 		var delivered := 0
 		for line in ContractsSystem.request_lines(contract["request"]):
@@ -1556,7 +1561,7 @@ func _build_sales() -> Control:
 			delivered += ContractsSystem.delivered_qty(contract, line["type"])
 		var progress := ProgressBar.new()
 		progress.name = "ContractProgress"
-		progress.custom_minimum_size.y = 5
+		progress.custom_minimum_size.y = 4
 		progress.max_value = maxi(total, 1)
 		progress.value = delivered
 		progress.show_percentage = false
@@ -1569,12 +1574,10 @@ func _build_sales() -> Control:
 		progress.add_theme_stylebox_override("background", track)
 		progress.add_theme_stylebox_override("fill", fill)
 		box.add_child(progress)
-		var actions := UI.hbox(6)
-		var buying: bool = contract.get("buyCalc", false)
-		actions.add_child(UI.expand_fill(UI.button("Buy missing calc: on" if buying else "Buy missing calc: off", func(): ContractsSystem.set_buy_calc(contract["id"], not buying))))
-		actions.add_child(UI.button("Details →" if _sales_details_id != contract["id"] else "Details ▾", func(): _toggle_sales_details(contract["id"])))
-		box.add_child(actions)
 		if _sales_details_id == contract["id"]:
+			var buying: bool = contract.get("buyCalc", false)
+			box.add_child(UI.muted_label(str(contract["id"])))
+			box.add_child(UI.button("Buy missing calc: on" if buying else "Buy missing calc: off", func(): ContractsSystem.set_buy_calc(contract["id"], not buying)))
 			box.add_child(_build_contract_tags(contract))
 			box.add_child(UI.muted_label(_counterparty_text(contract)))
 			box.add_child(UI.label("£%d per delivery" % int(contract["signedQuote"]["payment"])))

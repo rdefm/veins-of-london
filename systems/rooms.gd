@@ -64,6 +64,26 @@ static func lab_covers_contracts(recipe_key: String) -> bool:
 	return GameState.state["labCoverContracts"].get(recipe_key, false)
 
 
+# True when every producible recipe is covering contracts (vacuously false
+# with none).
+static func lab_covers_all_contracts() -> bool:
+	var recipe_keys := production_recipes()
+	if recipe_keys.is_empty():
+		return false
+	for recipe_key in recipe_keys:
+		if not lab_covers_contracts(recipe_key):
+			return false
+	return true
+
+
+# All-on turns every item off; mixed or all-off turns every item on.
+static func toggle_all_lab_cover_contracts() -> void:
+	var enable := not lab_covers_all_contracts()
+	for recipe_key in production_recipes():
+		GameState.state["labCoverContracts"][recipe_key] = enable
+	EventBus.state_changed.emit()
+
+
 # Production targets are settable with an Improved Lab, or once any founder
 # may take the Production role (founders need no room).
 static func production_settings_open() -> bool:

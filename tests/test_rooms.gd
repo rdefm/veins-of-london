@@ -220,6 +220,24 @@ func run() -> void:
 		assert_eq(Rooms.effective_lab_target("timePearl"), 15, "toggle on -- additive (5 personal + 10 contract need)")
 	)
 
+	run_case("toggle_all_cover_contracts_flips_every_listed_item", func():
+		GameState.reset()
+		GameState.state["contacts"]["owen"]["recruited"] = true
+		GameState.state["flags"]["bizOwenProductionRole"] = true
+		var keys: Array = Rooms.production_recipes()
+		assert_true(not Rooms.lab_covers_all_contracts(), "all off")
+		Rooms.set_lab_cover_contracts(keys[0], true)
+		Rooms.toggle_all_lab_cover_contracts()
+		for key in keys:
+			assert_true(Rooms.lab_covers_contracts(key), "mixed -> all on")
+		assert_true(Rooms.lab_covers_all_contracts(), "all on")
+		Rooms.toggle_all_lab_cover_contracts()
+		for key in keys:
+			assert_true(not Rooms.lab_covers_contracts(key), "all on -> all off")
+		Rooms.toggle_all_lab_cover_contracts()
+		assert_true(Rooms.lab_covers_all_contracts(), "all off -> all on")
+	)
+
 	run_case("production_reserved_qty_protects_only_the_personal_target_while_covering", func():
 		GameState.reset()
 		GameState.state["labThresholds"]["timePearl"] = 5
