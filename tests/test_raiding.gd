@@ -1413,7 +1413,7 @@ func run() -> void:
 		GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true }]
 		assert_true(Raiding.trigger_defend("pv_test"))
 		var kit: Dictionary = GameState.state["combat"]["raiderKit"]
-		assert_eq(kit["items"], { "blast": { "3": 1 }, "healingBurst": { "1": 1 } }, "blast capped at the 1 held, at its tier; healingBurst's kit of 1 is covered")
+		assert_eq(Fixtures.kit_units(kit), { "blast": { "3": 1 }, "healingBurst": { "1": 1 } }, "blast capped at the 1 held, at its tier; healingBurst's kit of 1 is covered")
 	)
 
 	run_case("a_defended_raid_takes_only_the_units_its_raiders_used_from_stock_at_once", func():

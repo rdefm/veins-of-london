@@ -37,7 +37,7 @@
     "consumes": {
       "healingSalve": 3
     },
-    "raidKits": { "attack": { "healingSalve": 1 }, "defend": { "healingSalve": 1 } },
+    "raidKits": { "attack": { "healingBurst": 1 }, "defend": { "healingBurst": 1 } },
     "speaker": "nadia",
     "keyMembers": [
       {"id": "nadia", "contactId": "nadia", "seat": "speaker", "outlook": "hawk", "want": "collective", "aggressionMult": 1.3, "relationBaseline": -10, "startStanding": 50, "name": "Nadia", "role": "The Collective · Hackney", "unlock": "quest", "giftPrefs": ["timePearl", "enhancementPowder"], "intro": ""},

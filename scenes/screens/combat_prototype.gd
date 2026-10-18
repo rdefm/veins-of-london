@@ -37,13 +37,13 @@ const _STRIP_SIDE_INSET := 9.0
 const STRIP_SIZE := 10
 # Beat kinds that play nothing past the guard overlay their marks set.
 const _OVERLAY_KINDS: Array[String] = ["guard", "lure", "exposed", "lost", "frozen", "cower", "enraptured", "calm", "disarm"]
-const _CAST_KINDS: Array[String] = ["powder", "sight", "lady"]
+const _CAST_KINDS: Array[String] = ["powder", "sight", "sightGiven", "lady", "failsafe"]
 # The screen's own closing beat after a pick's beats (_play_beats()).
 const _SETTLE_KIND := "settle"
 # Item beat kinds -> the data/combat_visuals.json effect sheet they play.
 const _ITEM_EFFECTS := {
 	"timePearl": "timePearl", "blackHole": "blackHole", "blast": "blast", "shield": "shield",
-	"heal": "healingBurst", "healSelf": "healingBurst",
+	"shieldOther": "shield", "heal": "healingBurst", "healSelf": "healingBurst",
 }
 # A damage cue's number and shake scale: lighter on a chip, heavier on a crit.
 const _CHIP_SCALE := 0.7
@@ -452,6 +452,8 @@ static func _position_text(cp: Dictionary, position: Dictionary, pick: Dictionar
 		var label: String = CombatPrototype.move(planned["move"])["name"]
 		if planned.has("slot"):
 			label = "%s T%d" % [label, combatants[actor]["loadout"][planned["slot"]]["tier"]]
+		elif planned.has("kit"):
+			label = "%s T%d" % [label, planned["tier"]]
 		elif planned.has("dial"):
 			label = "%s T%d (Dial)" % [label, combatants[actor]["dial"]["casts"][planned["dial"]]["tier"]]
 		return _aimed(cp, label, planned["move"], int(planned["target"]))
@@ -852,7 +854,7 @@ func _build_combatant_card(cp: Dictionary, index: int) -> Control:
 		if index == CombatPrototype.PLAYER_INDEX and CombatPrototype.has_sight(cp):
 			c["content"].add_child(UI.muted_label("Sight %s" % _until_text(combatant["sightUntil"])))
 		for slot in combatant["loadout"]:
-			c["content"].add_child(UI.muted_label("%s T%d (power %d)%s" % [CombatPrototype.move(slot["item"])["name"], slot["tier"], slot["power"], " — used" if slot["used"] else ""]))
+			c["content"].add_child(UI.muted_label("%s T%d (power %d)%s" % [GameData.RECIPES[slot["item"]]["name"], slot["tier"], slot["power"], " — used" if slot["used"] else ""]))
 	return c["panel"]
 
 
@@ -1136,7 +1138,7 @@ static func beat_cues(beat: Dictionary) -> Array:
 			cues.append({ "call": "throw", "who": actor })
 			for affected in beat.get("affected", []):
 				cues.append({ "call": "effect", "who": int(affected), "effect": _ITEM_EFFECTS[kind] })
-		"blast", "heal", "healSelf":
+		"blast", "heal", "healSelf", "shieldOther":
 			cues.append({ "call": "throw", "who": actor })
 			cues.append({ "call": "effect", "who": target, "effect": _ITEM_EFFECTS[kind] })
 		"shield":

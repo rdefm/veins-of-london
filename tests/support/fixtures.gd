@@ -16,6 +16,7 @@ extends RefCounted
 #   install_objectives(entries) -> original                swap GameData.OBJECTIVES; returns the table to restore
 #   has_notification(text) -> bool                         any notification in state with exactly this text
 #   craft(recipe_key, qty, tier)                           file crafted units through Crafting.file_crafted()
+#   kit_units(pool) -> units                               a fight's kit pool's items + reserved + used, by recipe then tier
 
 
 static func site(id: String, ore_type: String, tier: String, claimed: bool = false, faction_vein: Variant = null, district: String = "shoreditch", bonuses: Array = []) -> Dictionary:
@@ -129,3 +130,17 @@ static func has_notification(text: String) -> bool:
 # the path every player craft takes (inventory, craftedCounts, side effects).
 static func craft(recipe_key: String, qty: int = 1, tier: int = 1) -> void:
 	Crafting.file_crafted(recipe_key, tier, qty, false, Crafting.calc_cost(recipe_key, 1), int(GameData.RECIPES[recipe_key]["xpReward"]))
+
+
+# Every unit a fight's kit pool holds, wherever it is: items, reserved
+# (committed to a planned action) and used, merged by recipe then tier.
+static func kit_units(pool: Dictionary) -> Dictionary:
+	var units := {}
+	for part in ["items", "reserved", "used"]:
+		var buckets: Dictionary = pool.get(part, {})
+		for recipe_key in buckets:
+			if not units.has(recipe_key):
+				units[recipe_key] = {}
+			for tier_key in buckets[recipe_key]:
+				units[recipe_key][tier_key] = int(units[recipe_key].get(tier_key, 0)) + int(buckets[recipe_key][tier_key])
+	return units

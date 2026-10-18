@@ -2233,8 +2233,7 @@ func run() -> void:
 			"guardKit": { "blast": { "2": 1 }, "shield": { "1": 5 } } })
 		Combat.start_defend_vein("gv", 2)
 		var pool: Dictionary = GameState.state["combat"]["guardKit"]
-		assert_eq(pool["items"], { "blast": { "2": 1 }, "shield": { "1": 1 } }, "only the 2 active units (1 guard x 2 slots)")
-		assert_eq(pool["used"], {})
+		assert_eq(Fixtures.kit_units(pool), { "blast": { "2": 1 }, "shield": { "1": 1 } }, "only the 2 active units (1 guard x 2 slots)")
 	)
 
 	run_case("guard_heals_the_most_hurt_friendly_with_the_highest_tier_first", func():
@@ -2339,7 +2338,11 @@ func run() -> void:
 			GameState.state["player"]["veins"].append({ "id": "gv", "district": "battersea", "security": Cultivating.GUARDED_TIER_ID, "extraGuards": 0,
 				"guardKit": { "blast": { "2": 2 }, "shield": { "1": 1 } } })
 			Combat.start_defend_vein("gv", 2)
-			Combat._spend_guard_item(GameState.state["combat"]["guardKit"], "blast")
+			var pool: Dictionary = GameState.state["combat"]["guardKit"]
+			pool["items"] = { "blast": { "2": 2 }, "shield": { "1": 1 } }
+			pool["reserved"] = {}
+			pool["used"] = {}
+			Combat._spend_guard_item(pool, "blast")
 			GameState.state["combat"]["outcome"] = outcome
 			Combat.exit_combat()
 			assert_eq(Cultivating.find_vein("gv")["guardKit"], { "blast": { "2": 1 }, "shield": { "1": 1 } }, "%s: one Blast gone" % outcome)
@@ -2357,8 +2360,7 @@ func run() -> void:
 		assert_eq(combat["allyQueue"].size(), 2, "the other two guards wait")
 		for ally in combat["allies"] + combat["allyQueue"]:
 			assert_true(ally.get("guardAlly", false))
-		assert_eq(combat["guardKit"]["items"], { "blast": { "2": 8 } }, "only the 8 active units (4 guards x 2 slots)")
-		assert_eq(combat["guardKit"]["used"], {})
+		assert_eq(Fixtures.kit_units(combat["guardKit"]), { "blast": { "2": 8 } }, "only the 8 active units (4 guards x 2 slots)")
 	)
 
 	run_case("home_alarm_defend_with_no_guards_has_no_allies", func():
@@ -2374,7 +2376,11 @@ func run() -> void:
 			GameState.state["home"]["guardCount"] = 1
 			GameState.state["home"]["guardKit"] = { "blast": { "2": 2 }, "shield": { "1": 1 } }
 			Combat.start_home_alarm_defend_combat()
-			Combat._spend_guard_item(GameState.state["combat"]["guardKit"], "blast")
+			var pool: Dictionary = GameState.state["combat"]["guardKit"]
+			pool["items"] = { "blast": { "2": 2 }, "shield": { "1": 1 } }
+			pool["reserved"] = {}
+			pool["used"] = {}
+			Combat._spend_guard_item(pool, "blast")
 			GameState.state["combat"]["allies"][0]["hp"] = 0
 			GameState.state["combat"]["allies"][0]["koed"] = true
 			GameState.state["combat"]["outcome"] = outcome

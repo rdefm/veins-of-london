@@ -284,7 +284,7 @@ Most factions tend anything at/under neutral and harvest back to just above it, 
 
 | id | attack kit | defend kit |
 |---|---|---|
-| collective | healingSalve 1 | healingSalve 1 |
+| collective | healingBurst 1 | healingBurst 1 |
 | firm | blast 2, healingBurst 1 | shield 2, healingBurst 1 |
 | guild | — | — |
 | network | panic 1 | — |

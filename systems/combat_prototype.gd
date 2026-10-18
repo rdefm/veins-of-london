@@ -85,6 +85,24 @@ const STATUS_RAPTURE := "rapture"
 # Loadout slots per combatant (spec user story 48).
 const LOADOUT_SLOTS := 2
 
+# The shared kit pools a live fight keeps on its combat dict, each
+# { items, used, reserved } by recipe then tier (R§3.7b Table 5): a
+# raider kit for the enemies, a guard kit for guard allies. A combatant's
+# "kit" names the pool it plans from ("" for none).
+const KIT_RAIDER := "raiderKit"
+const KIT_GUARD := "guardKit"
+const KIT_POOLS: Array[String] = [KIT_RAIDER, KIT_GUARD]
+const KIT_HEAL := "healingBurst"
+const KIT_SIGHT := "prophetsBreath"
+const KIT_SHIELD := "shield"
+const KIT_BLAST := "blast"
+const KIT_POWDER := "enhancementPowder"
+# The guard kit's crowd items, in rule order.
+const KIT_CROWD: Array[String] = ["blackHole", "timePearl"]
+# The ally's own reactive save (R§3.7b Rewind): never planned, so no round
+# item, but a kit or recruit slot can hold it.
+const FAILSAFE := "failsafe"
+
 # Move conditions: null (always) or CONDITION_TARGET_OPEN (fizzles on a
 # Guarded target).
 const CONDITION_TARGET_OPEN := "targetOpen"
@@ -442,10 +460,12 @@ static func open_fight(cp: Dictionary, seed_value: int) -> void:
 	cp["active"] = true
 	cp["round"] = 1
 	var combatants: Array = cp["combatants"]
+	var patients: Array = []
 	for i in range(combatants.size()):
 		if combatants[i]["side"] == SIDE_ENEMY:
 			combatants[i]["plan"] = _roll_plan(cp, i, 1, rng)
 			_roll_fog(cp, i, combatants[i]["plan"], 1, fog_rng)
+			_commit_kit_item(cp, i, patients)
 			combatants[i]["nextPlan"] = _roll_plan(cp, i, 2, rng)
 			_roll_fog(cp, i, combatants[i]["nextPlan"], 2, fog_rng)
 	cp["fogRngState"] = fog_rng.state
@@ -511,8 +531,13 @@ static func new_combatant(side: String, name: String, level: int, hp: int, hp_ma
 		# some rounds (null for none).
 		"weapon": null, "ability": null, "disarmed": false,
 		# Items: { item, tier, power, used } per slot, plus multi for a
-		# multi-target unit and sourceSlot for a live fight's real slot.
+		# multi-target unit and sourceSlot for a live fight's real slot. A
+		# recruit's failsafe sits here too, never planned (_ally_failsafe()).
 		"loadout": [],
+		# The shared kit pool it plans items from (KIT_POOLS; "" for none),
+		# and whether a kit Enhancement Powder has resolved for it (once per
+		# fight).
+		"kit": "", "kitPowderUsed": false,
 		# A live fight's Dial (R§3.7b Dial Complications), null for none:
 		# { owner, charge, regenCounter, casts, spent, actions }. casts are
 		# loadout-shaped { item, tier, power, multi, sourceIndex } per
@@ -663,6 +688,163 @@ static func _living_opponents(cp: Dictionary, actor: int) -> Array:
 	return result
 
 
+# ── Kits (R§3.7b Table 5) ────────────────────────────────────────────────
+#
+# A kit unit is reserved when the action holding it commits, spent when
+# that action resolves, and back in the pool when it fizzles or never
+# resolves (_release_kits() at each round's end). A kit action is
+# { move, target, part, kit, tier, power }.
+
+# The kit pool `actor` plans from ({} for none).
+static func _kit_pool(cp: Dictionary, actor: int) -> Dictionary:
+	var pool = cp.get(cp["combatants"][actor].get("kit", ""), {})
+	return pool if pool is Dictionary else {}
+
+
+static func _kit_has(pool: Dictionary, recipe_key: String) -> bool:
+	return GuardKit.unit_count({ recipe_key: pool.get("items", {}).get(recipe_key, {}) }) > 0
+
+
+# Moves one `recipe_key` unit at `tier_key` from pool[from] to pool[to]
+# (each by recipe then tier), erasing emptied tiers and recipes.
+static func _kit_move(pool: Dictionary, recipe_key: String, tier_key: String, from: String, to: String) -> void:
+	var source: Dictionary = pool[from][recipe_key]
+	var left := int(source[tier_key]) - 1
+	if left > 0:
+		source[tier_key] = left
+	else:
+		source.erase(tier_key)
+		if source.is_empty():
+			pool[from].erase(recipe_key)
+	if not (pool.get(to) is Dictionary):
+		pool[to] = {}
+	if not (pool[to].get(recipe_key) is Dictionary):
+		pool[to][recipe_key] = {}
+	pool[to][recipe_key][tier_key] = int(pool[to][recipe_key].get(tier_key, 0)) + 1
+
+
+# `actor`'s kit action for `recipe_key` at `target`, reserving the pool's
+# highest-tier unit; power is the recipe's effectPower at that tier.
+static func _kit_action(cp: Dictionary, actor: int, recipe_key: String, target: int) -> Dictionary:
+	var pool := _kit_pool(cp, actor)
+	var tier_key := GuardKit.highest_tier_key(pool["items"][recipe_key])
+	_kit_move(pool, recipe_key, tier_key, "items", "reserved")
+	var powers: Array = GameData.RECIPES[recipe_key]["effectPower"]
+	return { "move": recipe_key, "target": target, "part": 0, "kit": cp["combatants"][actor]["kit"],
+		"tier": int(tier_key), "power": int(powers[clampi(int(tier_key), 1, powers.size() - 1)]) }
+
+
+# Hands every unit still reserved back to its pool's items.
+static func _release_kits(cp: Dictionary) -> void:
+	for kit in KIT_POOLS:
+		var pool = cp.get(kit)
+		if not (pool is Dictionary) or not (pool.get("reserved") is Dictionary):
+			continue
+		var reserved: Dictionary = pool["reserved"]
+		for recipe_key in reserved.keys():
+			for tier_key in reserved[recipe_key].keys():
+				for _n in range(int(reserved[recipe_key][tier_key])):
+					_kit_move(pool, recipe_key, tier_key, "reserved", "items")
+
+
+# Enemy `actor`'s just-committed plan with its first Strike swapped for a
+# raider-kit item when a rule fires on the round-start state, in order: a
+# heal on the worst-off teammate under allyHealBelow of hpMax not already in
+# `patients` (enemies commit in array order; the patient joins it); a Shield
+# on itself while its own pool is 0; a Blast at the Strike's target. At most
+# one per enemy per round; the item keeps the Strike's fog.
+static func _commit_kit_item(cp: Dictionary, actor: int, patients: Array) -> void:
+	var pool := _kit_pool(cp, actor)
+	if pool.get("items", {}).is_empty():
+		return
+	var plan: Array = cp["combatants"][actor]["plan"]
+	for i in range(plan.size()):
+		if plan[i]["move"] != MOVE_STRIKE:
+			continue
+		var action := {}
+		if _kit_has(pool, KIT_HEAL):
+			var patient := _ally_heal_patient(cp, actor, KIT_HEAL, patients)
+			if patient >= 0:
+				patients.append(patient)
+				action = _kit_action(cp, actor, KIT_HEAL, patient)
+		if action.is_empty() and _kit_has(pool, KIT_SHIELD) and int(cp["combatants"][actor]["shield"]) == 0:
+			action = _kit_action(cp, actor, KIT_SHIELD, actor)
+		if action.is_empty() and _kit_has(pool, KIT_BLAST):
+			action = _kit_action(cp, actor, KIT_BLAST, int(plan[i]["target"]))
+		if not action.is_empty():
+			action["unread"] = bool(plan[i].get("unread", false))
+			plan[i] = action
+		return
+
+
+# Guard ally `ally`'s next guard-kit action given its `plan` so far, or {}
+# when no rule fires; `planned` as in _plan_allies(). In order: a heal as
+# _ally_heal_patient(); Prophet's Breath, giving the player sight, while the
+# player stands under allyHealBelow of hpMax with no sight running or
+# planned; a Shield on the worst-off of itself and its teammates with no
+# Shield up or planned; Black Hole, else Time Pearl, on the same crowd rule
+# as _ally_item_action(); a Blast at the lowest-hp enemy; Enhancement Powder
+# on itself, once per fight.
+static func _kit_ally_action(cp: Dictionary, ally: int, plan: Array, planned: Dictionary) -> Dictionary:
+	var pool := _kit_pool(cp, ally)
+	if pool.get("items", {}).is_empty():
+		return {}
+	var combatants: Array = cp["combatants"]
+	if _kit_has(pool, KIT_HEAL):
+		var patient := _ally_heal_patient(cp, ally, KIT_HEAL, planned["patients"])
+		if patient >= 0:
+			return _kit_action(cp, ally, KIT_HEAL, patient)
+	var player: Dictionary = combatants[PLAYER_INDEX]
+	var hurt: bool = float(player["hp"]) < float(player["hpMax"]) * float(_data()["allyHealBelow"])
+	if _kit_has(pool, KIT_SIGHT) and hurt and not player["koed"] and not has_sight(cp) and not planned["sight"]:
+		return _kit_action(cp, ally, KIT_SIGHT, PLAYER_INDEX)
+	if _kit_has(pool, KIT_SHIELD):
+		var shielded := -1
+		var best := INF
+		for i in _team(cp, ally):
+			var fraction: float = float(combatants[i]["hp"]) / float(combatants[i]["hpMax"])
+			if int(combatants[i]["shield"]) == 0 and not planned["shielded"].has(i) and fraction < best:
+				shielded = i
+				best = fraction
+		if shielded >= 0:
+			return _kit_action(cp, ally, KIT_SHIELD, shielded)
+	var opponents := _living_opponents(cp, ally)
+	var paused: bool = opponents.any(func(e): return combatants[e]["actionsLost"] > 0)
+	if not planned["crowd"] and not paused and opponents.size() >= int(_data()["allyCrowdEnemies"]):
+		for recipe_key in KIT_CROWD:
+			if _kit_has(pool, recipe_key):
+				return _kit_action(cp, ally, recipe_key, -1)
+	if _kit_has(pool, KIT_BLAST) and not opponents.is_empty():
+		var weakest: int = opponents[0]
+		for e in opponents:
+			if int(combatants[e]["hp"]) < int(combatants[weakest]["hp"]):
+				weakest = e
+		return _kit_action(cp, ally, KIT_BLAST, weakest)
+	if _kit_has(pool, KIT_POWDER) and not combatants[ally].get("kitPowderUsed", false) and not plan.any(func(a): return a["move"] == KIT_POWDER):
+		return _kit_action(cp, ally, KIT_POWDER, ally)
+	return {}
+
+
+# An ally's own failsafe on its lethal hit (R§3.7b Rewind): a guard's from
+# its kit, a recruit's from an unspent loadout slot; one unit puts it back
+# on 1 hp. Whether one fired.
+static func _ally_failsafe(cp: Dictionary, idx: int, beats: Array) -> bool:
+	var ally: Dictionary = cp["combatants"][idx]
+	if ally["side"] != SIDE_ALLY:
+		return false
+	var pool := _kit_pool(cp, idx)
+	if _kit_has(pool, FAILSAFE):
+		_kit_move(pool, FAILSAFE, GuardKit.highest_tier_key(pool["items"][FAILSAFE]), "items", "used")
+	else:
+		var slots: Array = ally["loadout"].filter(func(s): return s["item"] == FAILSAFE and not s["used"])
+		if slots.is_empty():
+			return false
+		slots[0]["used"] = true
+	ally["hp"] = 1
+	_beat(cp, beats, "failsafe", idx, -1, FAILSAFE, { "hpAfter": 1 })
+	return true
+
+
 # ── Ally AI ──────────────────────────────────────────────────────────────
 
 # Plans every living ally's round from the enemies' committed plans as the
@@ -670,7 +852,8 @@ static func _living_opponents(cp: Dictionary, actor: int) -> Array:
 # unknown, never a Strike to guard), per action: Guard where an enemy
 # strikes it; else Strike an enemy who'll be Open when it acts; else, with an action to follow, Feint a
 # Guarded enemy the Feint leaves Open for that next action's Strike; else
-# Guard. Before those, an unspent loadout item takes the action: a heal on
+# Guard. Before those, a guard ally's kit item takes the action when
+# _kit_ally_action() has one, else an unspent loadout item: a heal on
 # the worst-off of itself and its teammates below allyHealBelow of hpMax,
 # else Time Pearl or Black Hole while allyCrowdEnemies or more enemies stand
 # and none is still losing actions to an earlier Pearl, Black Hole or Stun.
@@ -682,9 +865,10 @@ static func _plan_allies(cp: Dictionary, rng: RandomNumberGenerator) -> void:
 	var combatants: Array = cp["combatants"]
 	# { actor, index, target } per Feint planned so far this round.
 	var feints: Array = []
-	# Item uses planned so far this round: combatant index per heal, and
-	# whether a Time Pearl or Black Hole is out.
-	var planned := { "patients": [], "crowd": false }
+	# Item uses planned so far this round: combatant index per heal and per
+	# Shield, whether a Time Pearl or Black Hole is out, and whether a
+	# Prophet's Breath is.
+	var planned := { "patients": [], "shielded": [], "crowd": false, "sight": false }
 	for i in range(combatants.size()):
 		var ally: Dictionary = combatants[i]
 		if ally["side"] != SIDE_ALLY:
@@ -697,7 +881,9 @@ static func _plan_allies(cp: Dictionary, rng: RandomNumberGenerator) -> void:
 			var plan: Array = []
 			var count := actions_per_round(ally)
 			for a in range(count):
-				var action := _ally_item_action(cp, i, plan, planned)
+				var action := _kit_ally_action(cp, i, plan, planned)
+				if action.is_empty():
+					action = _ally_item_action(cp, i, plan, planned)
 				if action.is_empty():
 					action = _ally_action(cp, i, a, count, feints)
 				if action["move"] == MOVE_FEINT:
@@ -705,6 +891,10 @@ static func _plan_allies(cp: Dictionary, rng: RandomNumberGenerator) -> void:
 				var effect: String = move(action["move"]).get("effect", "")
 				if effect == ITEM_HEAL:
 					planned["patients"].append(action["target"])
+				elif effect == ITEM_SHIELD:
+					planned["shielded"].append(action["target"])
+				elif effect == ITEM_SIGHT:
+					planned["sight"] = true
 				elif effect in [ITEM_FREEZE, ITEM_BLACK_HOLE]:
 					planned["crowd"] = true
 				plan.append(action)
@@ -713,7 +903,8 @@ static func _plan_allies(cp: Dictionary, rng: RandomNumberGenerator) -> void:
 
 # The ally's next item action given the `plan` so far, or {} when no rule
 # fires; `planned` as in _plan_allies(). Its Dial's casts come first (while
-# the plan holds fewer casts than it has charge), then each unspent slot once.
+# the plan holds fewer casts than it has charge), then each unspent item slot
+# once (a failsafe slot is never planned).
 static func _ally_item_action(cp: Dictionary, ally: int, plan: Array, planned: Dictionary) -> Dictionary:
 	var combatant: Dictionary = cp["combatants"][ally]
 	var units: Array = []
@@ -723,7 +914,7 @@ static func _ally_item_action(cp: Dictionary, ally: int, plan: Array, planned: D
 			units.append({ "move": dial["casts"][d]["item"], "dial": d })
 	var loadout: Array = combatant["loadout"]
 	for slot in range(loadout.size()):
-		if not loadout[slot]["used"] and not plan.any(func(a): return int(a.get("slot", -1)) == slot):
+		if not loadout[slot]["used"] and is_item(loadout[slot]["item"]) and not plan.any(func(a): return int(a.get("slot", -1)) == slot):
 			units.append({ "move": loadout[slot]["item"], "slot": slot })
 	for unit in units:
 		if move(unit["move"])["effect"] == ITEM_HEAL:
@@ -1200,13 +1391,16 @@ static func _next_entry(cp: Dictionary) -> Dictionary:
 
 # The plans moving up were on show under sight through the round just ended
 # when the player had it, so they all commit read. A disarmed ability's
-# lock ticks down a round.
+# lock ticks down a round. Kit units the round left reserved go back to
+# their pools before the new plans commit theirs.
 static func _end_round(cp: Dictionary, rng: RandomNumberGenerator) -> void:
 	var combatants: Array = cp["combatants"]
 	var seen := has_sight(cp)
 	cp["round"] += 1
 	var fog_rng := RandomNumberGenerator.new()
 	fog_rng.state = int(cp["fogRngState"])
+	_release_kits(cp)
+	var patients: Array = []
 	for i in range(combatants.size()):
 		combatants[i]["lure"] = LURE_NONE
 		var ability = combatants[i]["ability"]
@@ -1217,6 +1411,8 @@ static func _end_round(cp: Dictionary, rng: RandomNumberGenerator) -> void:
 			if seen:
 				for action in combatants[i]["plan"]:
 					action["unread"] = false
+			if not combatants[i]["koed"]:
+				_commit_kit_item(cp, i, patients)
 			combatants[i]["nextPlan"] = [] if combatants[i]["koed"] else _roll_plan(cp, i, cp["round"] + 1, rng)
 			_roll_fog(cp, i, combatants[i]["nextPlan"], cp["round"] + 1, fog_rng)
 	cp["fogRngState"] = fog_rng.state
@@ -1476,7 +1672,8 @@ static func _strike(cp: Dictionary, actor_idx: int, target_idx: int, move_id: St
 
 # `dmg`, scaled by the target's anger (anger_factor()), drains its Shield
 # pool 1:1 before its HP (spec §Damage); beats `kind` with dmg, absorbed and
-# hpAfter, then the KO if it drops.
+# hpAfter, then the KO if it drops (an ally's own failsafe can hold it on
+# 1 hp instead, _ally_failsafe()).
 static func _deal_damage(cp: Dictionary, actor_idx: int, target_idx: int, dmg: int, kind: String, move_id: String, beats: Array, extra: Dictionary) -> void:
 	var target: Dictionary = cp["combatants"][target_idx]
 	dmg = GameState.round_epsilon(dmg * anger_factor(target, false))
@@ -1486,7 +1683,7 @@ static func _deal_damage(cp: Dictionary, actor_idx: int, target_idx: int, dmg: i
 	var fields := { "dmg": dmg, "absorbed": absorbed, "hpAfter": target["hp"] }
 	fields.merge(extra)
 	_beat(cp, beats, kind, actor_idx, target_idx, move_id, fields)
-	if target["hp"] == 0:
+	if target["hp"] == 0 and not _ally_failsafe(cp, target_idx, beats):
 		target["koed"] = true
 		_beat(cp, beats, "ko", actor_idx, target_idx, move_id, {})
 		_check_outcome(cp)
@@ -1494,7 +1691,9 @@ static func _deal_damage(cp: Dictionary, actor_idx: int, target_idx: int, dmg: i
 
 # Applies an item's effect at `power` from the action's loadout slot, and
 # spends the slot (spec §Prototype item effects); a Dial cast takes 1 of
-# its Dial's charge instead (R§3.7b Dial Complications). Item damage ignores
+# its Dial's charge instead (R§3.7b Dial Complications), and a kit action
+# spends its reserved unit, or hands it back when the heal or Shield it
+# aims finds its target KO'd (R§3.7b Table 5). Item damage ignores
 # guard. A multi-target unit (R§3.7b Items) Blasts every living opponent,
 # Shields or heals the actor and every living teammate, and puts its Pan
 # status on every living opponent not already under one.
@@ -1502,7 +1701,17 @@ static func _use_item(cp: Dictionary, actor_idx: int, action: Dictionary, m: Dic
 	var combatants: Array = cp["combatants"]
 	var actor: Dictionary = combatants[actor_idx]
 	var slot: Dictionary
-	if action.has("dial"):
+	if action.has("kit"):
+		slot = { "power": int(action["power"]), "multi": false }
+		var aimed := int(action["target"])
+		var pool: Dictionary = cp[action["kit"]]
+		var tier_key := str(int(action["tier"]))
+		if m["effect"] in [ITEM_HEAL, ITEM_SHIELD] and aimed >= 0 and combatants[aimed]["koed"]:
+			_kit_move(pool, action["move"], tier_key, "reserved", "items")
+			_beat(cp, beats, "fizzle", actor_idx, aimed, action["move"], {})
+			return
+		_kit_move(pool, action["move"], tier_key, "reserved", "used")
+	elif action.has("dial"):
 		var dial: Dictionary = actor["dial"]
 		slot = dial["casts"][int(action["dial"])]
 		dial["charge"] -= 1
@@ -1537,9 +1746,13 @@ static func _use_item(cp: Dictionary, actor_idx: int, action: Dictionary, m: Dic
 						return
 					_maybe_disarm(cp, actor_idx, target, move_id, m["params"], rng, beats)
 		ITEM_SHIELD:
-			for target in (_team(cp, actor_idx) if multi else [actor_idx]):
+			var shielded := int(action["target"]) if action.has("kit") else actor_idx
+			for target in (_team(cp, actor_idx) if multi else [shielded]):
 				combatants[target]["shield"] = maxi(combatants[target]["shield"], power)
-			_beat(cp, beats, "shield", actor_idx, -1, move_id, {})
+			if shielded == actor_idx:
+				_beat(cp, beats, "shield", actor_idx, -1, move_id, {})
+			else:
+				_beat(cp, beats, "shieldOther", actor_idx, shielded, move_id, {})
 		ITEM_HEAL:
 			for target in (_team(cp, actor_idx) if multi else [int(action["target"])]):
 				var patient: Dictionary = combatants[target]
@@ -1555,12 +1768,16 @@ static func _use_item(cp: Dictionary, actor_idx: int, action: Dictionary, m: Dic
 			var params: Dictionary = m["params"]
 			var rounds: int = int(params["longRounds"]) if power >= int(params["longPowerMin"]) else int(params["rounds"])
 			actor["powderUntil"] = maxi(actor["powderUntil"], int(cp["round"]) + rounds - 1)
+			if action.has("kit"):
+				actor["kitPowderUsed"] = true
 			_beat(cp, beats, "powder", actor_idx, -1, move_id, {})
 		ITEM_SIGHT:
 			# Sight covers the `power` rounds after this one (planning them
-			# reads their targets/damage and the round after's plans).
-			actor["sightUntil"] = maxi(actor["sightUntil"], int(cp["round"]) + power)
-			_beat(cp, beats, "sight", actor_idx, -1, move_id, {})
+			# reads their targets/damage and the round after's plans); it's
+			# always the player's, whoever breathes it in.
+			var seer: Dictionary = combatants[PLAYER_INDEX]
+			seer["sightUntil"] = maxi(seer["sightUntil"], int(cp["round"]) + power)
+			_beat(cp, beats, "sight" if actor_idx == PLAYER_INDEX else "sightGiven", actor_idx, -1, move_id, {})
 		ITEM_LADY:
 			actor["ladyUntil"] = maxi(actor["ladyUntil"], int(cp["round"]) + power - 1)
 			actor["ladyCrit"] = float(m["params"]["critChance"])

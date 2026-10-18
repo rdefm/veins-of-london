@@ -371,7 +371,9 @@ func run() -> void:
 		_assert_enemies(Combat.CONTEXT_EVENT_RAID, { "orichalchumDealer": "mugger" }, 4)
 		var combat: Dictionary = GameState.state["combat"]
 		assert_eq(combat["stockpileFactionId"], "firm")
-		assert_eq(combat["raiderKit"], FactionSim.raider_kit("firm", "defend", 2), "the defend kit rides along for settlement")
+		var kit: Dictionary = combat["raiderKit"]
+		var units: int = GuardKit.unit_count(kit["items"]) + GuardKit.unit_count(kit.get("reserved", {})) + GuardKit.unit_count(kit["used"])
+		assert_eq(units, GuardKit.unit_count(FactionSim.raider_kit("firm", "defend", 2)["items"]), "the defend kit rides along for settlement")
 	)
 
 	run_case("faction_ambush_level_follows_the_ambushers_turf_tier", func():
@@ -1213,4 +1215,148 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 2, "cast through the round engine")
 		assert_eq(CombatPrototype.decision_position(GameState.state["combat"]), 1, "it took the first action")
 		host.free()
+	)
+
+	# ── Kits as planned intents (R§3.7b Table 5) ──────────────────────────
+
+	run_case("a_raider_kit_blast_takes_the_first_strike_and_spends_on_resolution", func():
+		GameState.reset()
+		var hp: int = GameState.state["player"]["hp"]
+		var kit := { "items": { "blast": { "2": 1 } }, "used": {} }
+		Combat._start_round_combat(Combat.CONTEXT_EVENT_MUGGING, null, [_slow_mugger(200)], [], "", [], null,
+			{ "seed": 1, "fog": false, "enemyPlans": [_strikes_at_player()] }, { "raiderKit": kit })
+		var combat: Dictionary = GameState.state["combat"]
+		var plan: Array = combat["combatants"][1]["plan"]
+		assert_eq(plan[0]["move"], "blast", "the first Strike becomes the kit item")
+		assert_eq(plan[0]["target"], CombatPrototype.PLAYER_INDEX, "at the Strike's target")
+		assert_eq(plan[1]["move"], "strike", "one item per enemy per round")
+		assert_eq(combat["raiderKit"]["items"], {}, "reserved at commit")
+		assert_eq(combat["raiderKit"]["used"], {}, "not spent yet")
+		var beats: Array = Combat.choose_move("guard")["beats"]
+		var blast := _first(beats, "blast")
+		var power := int(GameData.RECIPES["blast"]["effectPower"][2])
+		assert_eq(int(blast["actor"]), 1, "the mugger lets it off")
+		assert_eq(int(blast["dmg"]), power, "at its tier's power, guard or no guard")
+		assert_eq(GameState.state["player"]["hp"], hp - power)
+		assert_eq(combat["raiderKit"]["used"], { "blast": { "2": 1 } }, "spent on resolution")
+		assert_eq(combat["raiderKit"]["reserved"], {})
+	)
+
+	run_case("raider_kit_rule_order_heals_a_hurt_teammate_then_shields_itself", func():
+		GameState.reset()
+		var hurt := _slow_mugger(200)
+		hurt["hp"] = 40
+		var kit := { "items": { "healingBurst": { "1": 1 }, "shield": { "1": 1 } }, "used": {} }
+		Combat._start_round_combat(Combat.CONTEXT_EVENT_MUGGING, null, [_slow_mugger(200), hurt], [], "", [], null,
+			{ "seed": 1, "fog": false, "enemyPlans": [_strikes_at_player(), _strikes_at_player()] }, { "raiderKit": kit })
+		var combat: Dictionary = GameState.state["combat"]
+		var first: Dictionary = combat["combatants"][1]["plan"][0]
+		assert_eq(first["move"], "healingBurst", "the first enemy heals")
+		assert_eq(first["target"], 2, "its hurt teammate")
+		assert_eq(combat["combatants"][2]["plan"][0]["move"], "shield", "the second, no patient left, shields itself")
+		assert_eq(combat["combatants"][2]["plan"][0]["target"], 2)
+	)
+
+	run_case("unread_kit_intents_show_unread_until_they_resolve", func():
+		GameState.reset()
+		var kit := { "items": { "blast": { "1": 1 } }, "used": {} }
+		Combat._start_round_combat(Combat.CONTEXT_EVENT_MUGGING, null, [_slow_mugger(200)], [], "", [], null,
+			{ "seed": 1, "fog": true, "enemyPlans": [_strikes_at_player()], "enemyUnread": [[[true, false]]] }, { "raiderKit": kit })
+		var combat: Dictionary = GameState.state["combat"]
+		assert_eq(combat["combatants"][1]["plan"][0]["move"], "blast")
+		assert_true(CombatPrototype.enemy_intents(combat, 1)[0].get("unread", false), "the item hides behind ?")
+		Combat.choose_move("guard")
+		assert_eq(CombatPrototype.enemy_intents(combat, 1)[0]["move"], "blast", "read once it resolves")
+	)
+
+	run_case("a_kit_unit_whose_action_never_resolves_goes_back_to_the_pool", func():
+		GameState.reset()
+		var kit := { "items": { "blast": { "1": 1 } }, "used": {} }
+		Combat._start_round_combat(Combat.CONTEXT_EVENT_MUGGING, null, [_slow_mugger(1), _slow_mugger(200)], [], "", [], null,
+			{ "seed": 1, "fog": false, "enemyPlans": [_strikes_at_player(), [["guard", "guard"], _strikes_at_player()[0]]] }, { "raiderKit": kit })
+		var combat: Dictionary = GameState.state["combat"]
+		assert_eq(combat["combatants"][1]["plan"][0]["move"], "blast", "the frail mugger holds the Blast")
+		Combat.choose_move("strike", 1)
+		assert_true(combat["combatants"][1]["koed"], "and goes down before using it")
+		Combat.choose_move("guard")
+		assert_eq(combat["round"], 2)
+		assert_eq(combat["raiderKit"]["used"], {}, "never spent")
+		assert_eq(combat["combatants"][2]["plan"][0]["move"], "blast", "back in the pool for round 2's commit")
+	)
+
+	run_case("a_guard_plans_its_kit_items_and_the_vein_kit_settles_as_before", func():
+		_seeded()
+		GameState.state["player"]["veins"].append({ "id": "gv", "district": "battersea", "security": Cultivating.GUARDED_TIER_ID, "extraGuards": 0,
+			"guardKit": { "blast": { "2": 1 } } })
+		Combat.start_defend_vein("gv", 2)
+		var combat: Dictionary = GameState.state["combat"]
+		var guard: int = CombatPrototype.PLAYER_INDEX + 1
+		assert_true(combat["combatants"][guard]["name"].begins_with(GameData.GUARD_KIT["guardAlly"]["name"]), "the guard joins")
+		var blasts: Array = combat["combatants"][guard]["plan"].filter(func(a): return a["move"] == "blast")
+		assert_eq(blasts.size(), 1, "it plans the Blast")
+		assert_true(blasts[0].get("kit", "") == CombatPrototype.KIT_GUARD, "from the guard kit")
+		for _i in range(CombatPrototype.actions_this_round(combat, CombatPrototype.PLAYER_INDEX)):
+			if combat["outcome"] == null and combat["round"] == 1:
+				Combat.choose_move("guard")
+		assert_eq(combat["guardKit"]["used"], { "blast": { "2": 1 } }, "spent on resolution")
+		combat["outcome"] = "loss"
+		Combat.exit_combat()
+		assert_eq(Cultivating.find_vein("gv")["guardKit"], {}, "off the vein's kit at exit")
+	)
+
+	run_case("a_guards_own_failsafe_holds_it_on_1_hp_once_per_unit", func():
+		GameState.reset()
+		var guard := Combat.build_guard_ally()
+		guard["hp"] = 1
+		var kit := { "items": { "failsafe": { "1": 1 } }, "used": {} }
+		var at_guard := [[{ "move": "strike", "target": 1 }, { "move": "strike", "target": 1 }]]
+		Combat._start_round_combat(Combat.CONTEXT_EVENT_MUGGING, null, [_slow_mugger(200)], [], "", [guard], null,
+			{ "seed": 1, "fog": false, "enemyPlans": [at_guard], "allyPlans": [[["guard", "guard"]]] }, { "guardKit": kit })
+		var combat: Dictionary = GameState.state["combat"]
+		assert_eq(combat["combatants"][1]["plan"].filter(func(a): return a["move"] == "failsafe").size(), 0, "never planned")
+		var beats: Array = Combat.choose_move("guard")["beats"]
+		assert_true(not _first(beats, "failsafe").is_empty(), "it fires on the lethal hit")
+		assert_eq(combat["combatants"][1]["hp"], 1, "back on 1 hp")
+		assert_true(not combat["combatants"][1]["koed"], "still standing")
+		assert_eq(combat["guardKit"]["used"], { "failsafe": { "1": 1 } }, "one unit spent")
+		Combat.choose_move("guard")
+		assert_true(combat["combatants"][1]["koed"], "none left: KO'd")
+	)
+
+	run_case("a_recruits_failsafe_slot_saves_it_and_settles_as_used", func():
+		GameState.reset()
+		_recruit("archie")
+		var archie := Contacts.build_combat_ally("archie")
+		archie["hp"] = 1
+		archie["level"] = 1
+		archie["slots"] = [{ "recipe": "failsafe", "tier": 1 }, null]
+		var at_archie := [[{ "move": "strike", "target": 1 }, { "move": "strike", "target": 1 }]]
+		Combat._start_round_combat(Combat.CONTEXT_EVENT_MUGGING, null, [_slow_mugger(200)], [], "", [archie], null,
+			{ "seed": 1, "fog": false, "enemyPlans": [at_archie], "allyPlans": [[["guard", "guard"]]] })
+		var combat: Dictionary = GameState.state["combat"]
+		var beats: Array = Combat.choose_move("guard")["beats"]
+		assert_true(not _first(beats, "failsafe").is_empty(), "the slot's failsafe fires")
+		assert_eq(combat["combatants"][1]["hp"], 1)
+		assert_true(not combat["allies"][0]["koed"])
+		assert_eq(combat["allies"][0]["slotsUsed"], [0], "the slot settles as used")
+		Combat.choose_move("guard")
+		assert_true(combat["allies"][0]["koed"], "none left: KO'd")
+	)
+
+	run_case("a_rewind_to_before_an_allys_failsafe_returns_the_unit", func():
+		GameState.reset()
+		GameState.state["player"]["loadout"]["slots"][0] = { "recipe": "rewind", "tier": 1 }
+		var guard := Combat.build_guard_ally()
+		guard["hp"] = 1
+		var kit := { "items": { "failsafe": { "1": 1 } }, "used": {} }
+		var at_guard := [[{ "move": "strike", "target": 1 }, { "move": "strike", "target": 1 }]]
+		Combat._start_round_combat(Combat.CONTEXT_EVENT_MUGGING, null, [_slow_mugger(200)], [], "", [guard], null,
+			{ "seed": 1, "fog": false, "enemyPlans": [at_guard], "allyPlans": [[["guard", "guard"]]] }, { "guardKit": kit })
+		var combat: Dictionary = GameState.state["combat"]
+		Combat.choose_move("guard")
+		assert_eq(combat["guardKit"]["used"], { "failsafe": { "1": 1 } })
+		assert_true(Combat.round_rewind()["ok"])
+		assert_eq(combat["guardKit"]["used"], {}, "the save is undone")
+		assert_eq(combat["guardKit"]["items"], { "failsafe": { "1": 1 } }, "and its unit back")
+		assert_eq(combat["combatants"][1]["hp"], 1)
 	)

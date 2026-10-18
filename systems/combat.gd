@@ -798,6 +798,8 @@ static func _round_enemy_combatant(entry: Dictionary) -> Dictionary:
 	var attack := get_enemy_attack_range(entry)
 	var enemy := _round_combatant(CombatPrototype.SIDE_ENEMY, _round_enemy_name(entry), entry, attack["min"], attack["max"])
 	enemy["archetype"] = entry["archetype"]
+	# Every enemy plans from the squad's shared raider kit (R§3.7b Table 5).
+	enemy["kit"] = CombatPrototype.KIT_RAIDER
 	# What a Blast's disarm can take (R§3.7b Table 4).
 	var weapon = entry.get("weapon")
 	enemy["weapon"] = weapon.duplicate() if weapon is Dictionary else null
@@ -810,11 +812,15 @@ static func _round_enemy_combatant(entry: Dictionary) -> Dictionary:
 
 # An ally at its R§3.7b table 3 level (the entry's `level`), with its stage
 # sprite (its contact's; "" for a guard or muscle) and its real slots as
-# round-fight items, less any it refuses (loadout.allyExcluded).
+# round-fight items (plus any failsafe, its own reactive save), less any it
+# refuses (loadout.allyExcluded). A guard ally plans from the shared guard
+# kit (R§3.7b Table 5).
 static func _round_ally_combatant(entry: Dictionary) -> Dictionary:
 	var ally := _round_combatant(CombatPrototype.SIDE_ALLY, str(entry["name"]), entry, int(entry["attackMin"]), int(entry["attackMax"]))
 	ally["template"] = str(entry.get("contactId", ""))
-	ally["loadout"] = _round_loadout(entry.get("slots", []), GameData.LOADOUT["allyExcluded"])
+	ally["loadout"] = _round_loadout(entry.get("slots", []), GameData.LOADOUT["allyExcluded"], [CombatPrototype.FAILSAFE])
+	if entry.get("guardAlly", false):
+		ally["kit"] = CombatPrototype.KIT_GUARD
 	if str(entry.get("contactId", "")) != "":
 		ally["dial"] = _round_dial(str(entry["contactId"]))
 	return ally
@@ -837,12 +843,13 @@ static func _round_combatant(side: String, combatant_name: String, entry: Dictio
 # round-fight loadout entries at the unit's tier power (multi for a crafted
 # multi-target or always-multi unit), each remembering its real slot
 # (sourceSlot) for settlement; empty slots, units the round rules have no
-# item for and `excluded` recipes are left out.
-static func _round_loadout(slots: Array, excluded: Array = []) -> Array:
+# item for (bar `reactive` recipes, kept though never picked) and `excluded`
+# recipes are left out.
+static func _round_loadout(slots: Array, excluded: Array = [], reactive: Array = []) -> Array:
 	var loadout: Array = []
 	for i in range(slots.size()):
 		var unit = slots[i]
-		if unit is Dictionary and CombatPrototype.is_item(unit["recipe"]) and not excluded.has(unit["recipe"]):
+		if unit is Dictionary and (CombatPrototype.is_item(unit["recipe"]) or reactive.has(unit["recipe"])) and not excluded.has(unit["recipe"]):
 			var tier := clampi(int(unit["tier"]), 1, CombatPrototype.item_tier_max(unit["recipe"]))
 			loadout.append({ "item": unit["recipe"], "tier": tier,
 				"power": int(Crafting.effect_power(unit["recipe"], tier)), "used": false, "sourceSlot": i,
