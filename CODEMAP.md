@@ -94,7 +94,7 @@ Data file per system: see `data/*.json` below.
 | nav.gd | Screen navigation; an open lesson holds it at the bench |
 | notify.gd | Notifications append/evict; per-contact dismiss via contactId meta |
 | objectives.gd | Objective/questline evaluator; all_of live-condition, template_periods_completed (Beat 6) and recurring_proof (Beat 7) objectives + their ToDo checklist rows |
-| offers.gd | Sales offers: quoting (price fixed at issue), counterparty faction pick (authored / identity-weighted / Collective-Firm fit), acceptance (quote → contract `signedQuote`, recurring term), renewal offers, random-only pending cap, Sworn-Guild commission offers, Wren assay commissions (rank floor by Guild tier, Guild relation on full delivery), poach match/lapse, 2-day expiry |
+| offers.gd | Sales offers: quoting (price fixed at issue), counterparty pick (authored / identity-weighted / Collective-Firm fit), acceptance (quote → contract `signedQuote`), renewal offers, random-only pending cap, day-ramped item-variety pick (`variety_weights`/`ramp_weight`), Sworn-Guild commission offers, Wren assay commissions, poach match/lapse, 2-day expiry |
 | payroll.gd | `role_skill_keys()` (room → skill field, from the role registry); `is_working()` gate for staff actions (false while the business owes them a wage) |
 | phone_apps.gd | Phone main-grid roster/order/labels (LodedInnit absent until James joins) + badge-config projection |
 | phone_nav.gd | Phone app/index/thread/faction-dossier drill-down nav; BizBrief short-pay and Guard Costs sub-view deep links |
@@ -289,7 +289,7 @@ overlays.
 | market.json | market.gd (constants, sim start, priceLot, ore conversion rate, annotation cap/thresholds, delivery-log cap, Independents shares + buy cover, per-good normalStock/civilianDemand); shares.gd (via Market.independents_share) |
 | map_palette.json | GameData.gd (validated) + map_palette.gd (Map tab light/dark colour tokens, zone-tint strength, faction/ore/zoneTint dark overrides) + map_controls.gd (`darkModeLabel`) |
 | objectives.json | objectives.gd, todo.gd, daily_brief.gd (optional briefAction / earlyBriefAction + note: Story-row destination), collective.gd, business_quest.gd |
-| offers.json | offers.gd (synthetic catalogue, scripted counterparties, offer expiry days, recurring term weeks, random-offer daily chance curve + qty bands, small-offer threshold, cancel relation hit, `assay` commission tuning + prose), business_quest.gd (biz_starter_* chain + Archie nudge text, biz_recurring_* from Beat 3/6) |
+| offers.json | offers.gd (synthetic catalogue, scripted counterparties, offer expiry days, recurring term weeks, random-offer daily chance curve + qty bands + `variety` ramp, small-offer threshold, cancel relation hit, `assay` commission tuning + prose), business_quest.gd (biz_starter_* chain + Archie nudge text, biz_recurring_* from Beat 3/6) |
 | ore_types.json | widely read (economy, cultivating, sites, factions) |
 | palette.json | GameData.gd (reference combat-art palette; `lodedinnit_*` brand tokens read by lodedinnit_app.gd; `phone_*` Phone-OS tokens read by contact_cards.gd) |
 | daily_brief.json | GameData.gd + daily_brief.gd (Today card tier order + labels, row cap, bill window, vein risk bands + collapse-nights threshold, offer window, demand threshold, empty state, more/less + Routine/demand toggle labels, routineParts, demandPart, storyActions button labels, doneMark + revealSeconds fade, per-row tier/kind/label/consequence/action templates; PROSE-REVIEW) |

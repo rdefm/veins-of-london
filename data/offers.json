@@ -3,6 +3,12 @@
   "termWeeks": 4,
   "randomChance": { "base": 0.5, "perSalesLevel": 0.07, "max": 0.75 },
   "randomQty": { "oneOff": { "min": 20, "max": 200 }, "recurring": { "min": 50, "max": 300 } },
+  "variety": {
+    "_comment": "Random-offer item pool ramp (Offers.ramp_progress / ramp_weight). Every ore type and every recipe item can be requested. Progress = (day - startDay) / (endDay - startDay), clamped 0-1; a candidate's weight = lerp(startWeights[class], 1, progress), so from endDay on the pick is uniform. Classes: pearl (timePearl), knownRecipe (other items the player knows), unknownRecipe, ore. Provisional numbers, tagged for balance.",
+    "startDay": 1,
+    "endDay": 30,
+    "startWeights": { "pearl": 8, "knownRecipe": 3, "unknownRecipe": 0.3, "ore": 1 }
+  },
   "counterparty": { "smallOfferThreshold": 1000, "cancelRelationHit": 3 },
   "assay": {
     "_comment": "Wren's assay commissions (Offers._maybe_assay_commission) -- provisional numbers, tagged for balance. Once flags[unlockFlag] is set, each day rolls chancePerDay for one pending offer from template (at most one pending at a time, inside the random-offer cap): qtyMin-qtyMax of a recipe the player knows, at rank >= rankFloors[the player's Guild perk tier], paid at the quote x margin. A complete settlement also adds relation to the Guild. PROSE-REVIEW: notify, offerNote, rankSuffix.",

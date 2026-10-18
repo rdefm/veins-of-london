@@ -68,10 +68,7 @@ static func daily_tick() -> void:
 			return
 	if not Rng.chance(random_offer_chance()):
 		return
-	var templates := random_templates()
-	if templates.is_empty():
-		return
-	create_offer(Rng.rand_from(templates))
+	create_offer(random_variety_template())
 
 
 # Sworn Guild: a high-margin commission may land in the pending list, one at a
@@ -159,6 +156,54 @@ static func random_templates() -> Array:
 		if template.get("source", "") == "random":
 			templates.append(template)
 	return templates
+
+
+# R§3.10 "Offer sourcing": a random one-off for an item picked by the day's
+# variety weights (every ore type and recipe item).
+static func random_variety_template() -> Dictionary:
+	var weights := variety_weights(int(GameState.state["world"]["day"]))
+	var keys: Array = weights.keys()
+	var total := 0.0
+	for key in keys:
+		total += float(weights[key])
+	var roll := Rng.randf() * total
+	var picked: String = keys[keys.size() - 1]
+	for key in keys:
+		roll -= float(weights[key])
+		if roll < 0.0:
+			picked = key
+			break
+	var parts := picked.split(":")
+	return { "id": "random_%s_%s" % [parts[0], parts[1]], "source": "random", "contractType": "oneOff", "request": { "kind": parts[0], "type": parts[1] } }
+
+
+# "kind:type" -> weight for every requestable item on `day`.
+static func variety_weights(day: int) -> Dictionary:
+	var starts: Dictionary = GameData.OFFER_VARIETY["startWeights"]
+	var weights := {}
+	for ore_type in GameData.ORE_TYPES:
+		weights["ore:%s" % ore_type] = ramp_weight(float(starts["ore"]), day)
+	for recipe_key in GameData.RECIPES:
+		var cls := "unknownRecipe"
+		if recipe_key == "timePearl":
+			cls = "pearl"
+		elif Lab.is_known(recipe_key):
+			cls = "knownRecipe"
+		weights["consumable:%s" % recipe_key] = ramp_weight(float(starts[cls]), day)
+	return weights
+
+
+# 0 at variety.startDay, 1 at variety.endDay and after; shared ramp for
+# anything that drifts from a starting bias to a uniform pick.
+static func ramp_progress(day: int) -> float:
+	var start := float(GameData.OFFER_VARIETY["startDay"])
+	var end := float(GameData.OFFER_VARIETY["endDay"])
+	return clampf((float(day) - start) / (end - start), 0.0, 1.0)
+
+
+# A weight easing linearly from `start_weight` to 1 (uniform) over the ramp.
+static func ramp_weight(start_weight: float, day: int) -> float:
+	return lerpf(start_weight, 1.0, ramp_progress(day))
 
 
 static func create_scripted_offer(template_id: String) -> Dictionary:

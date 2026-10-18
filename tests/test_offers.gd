@@ -5,6 +5,39 @@ const OffersSystem := preload("res://systems/offers.gd")
 
 func run() -> void:
 	calendar_start_weekday = 0  # fixtures count days from a Monday day 1
+	run_case("variety_ramp_is_linear_covers_all_items_and_goes_uniform_by_day_30", func():
+		GameState.reset()
+		var cfg: Dictionary = GameData.OFFER_VARIETY
+		assert_eq(OffersSystem.ramp_progress(int(cfg["startDay"])), 0.0)
+		assert_eq(OffersSystem.ramp_progress(int(cfg["endDay"])), 1.0)
+		assert_eq(OffersSystem.ramp_progress(int(cfg["endDay"]) + 20), 1.0)
+		var mid: int = (int(cfg["startDay"]) + int(cfg["endDay"])) / 2
+		assert_true(absf(OffersSystem.ramp_progress(mid) - 0.5) < 0.02, "linear midpoint")
+		var late := OffersSystem.variety_weights(30)
+		assert_eq(late.size(), GameData.ORE_TYPES.size() + GameData.RECIPES.size(), "every ore and recipe item")
+		for key in late:
+			assert_eq(late[key], 1.0, "uniform at day 30: %s" % key)
+		var early := OffersSystem.variety_weights(1)
+		assert_true(early["consumable:timePearl"] > early["consumable:wormhole"] * 10.0, "pearls over-represented early")
+		assert_true(early["consumable:timePearl"] > early["ore:life"])
+		Rng.set_seed(7)
+		var counts := {}
+		for i in range(4000):
+			var t: Dictionary = OffersSystem.random_variety_template()
+			var k: String = "%s:%s" % [t["request"]["kind"], t["request"]["type"]]
+			counts[k] = int(counts.get(k, 0)) + 1
+		assert_true(int(counts["consumable:timePearl"]) > 1200, "day 1 favours time pearl")
+		GameState.state["world"]["day"] = 30
+		counts = {}
+		for i in range(4000):
+			var t2: Dictionary = OffersSystem.random_variety_template()
+			var k2: String = "%s:%s" % [t2["request"]["kind"], t2["request"]["type"]]
+			counts[k2] = int(counts.get(k2, 0)) + 1
+		assert_eq(counts.size(), late.size(), "every item appears")
+		for k3 in counts:
+			assert_true(int(counts[k3]) > 90 and int(counts[k3]) < 300, "uniform: %s %d" % [k3, counts[k3]])
+	)
+
 	run_case("scripted_offer_snapshots_quote_and_acceptance_creates_contract", func():
 		GameState.reset()
 		GameState.state["world"]["day"] = 10
