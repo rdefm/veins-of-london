@@ -138,7 +138,7 @@ overlays.
 | hq_door.gd | Security zone (lock/cameras/door/alarm/guard/ward); guard tile shows hire advance and weekly guard cost (links to Guard Costs); HQ kit row opens the HQ stocking sheet; Guard kits row opens hq_guard_kit |
 | hq_guard_kit.gd | Guard Kit list: HQ kit row on top (`build_hq_row`, shared with hq_door), then one row per player vein with guards or a non-empty kit (name, n/cap, summary, idle); a row opens that kit's stocking sheet |
 | hq_floorplan.gd | Noticeboard: tiers with a plan show FloorplanView (tap slot → choose/replace use); others show the room-tile grid. Contact assignment, Let go for hires, seats used/total and seat upgrade for staffed rooms |
-| hq_lab_bench.gd | Live Lab screen: plate with real-calc jar badges; notebook opens recipe book (known recipes by ore tab) and recipe page (known procedure, best rank, rung ladder from `RecipeKnowledge.ladder_rows`, batch/multi, Rewind). Craft manually docks the book: jars tap calc, apparatus pop LabGauges with the pending step's band (`Lab.pending_step`), Finish shows result, clues, insight |
+| hq_lab_bench.gd | Live Lab screen: plate with real-calc jar badges; notebook opens recipe book (known recipes by ore tab) and recipe page (known procedure, best rank, rung ladder from `RecipeKnowledge.ladder_rows`, batch/multi, Rewind). Craft manually docks the book: jars tap calc, apparatus pop LabGauges with the pending step's band (`Lab.pending_step`), step end plays a tick/cross over the apparatus and guards bench taps, Finish shows result, clues, insight |
 | map.gd | Map tab: full-bleed diagram (top board to nav dock) with floating menu button, legend and zoom pill in Map chrome tokens; district panel (turf, Perks here per faction, Everywhere, active/locked) + sheet |
 | phone.gd | Phone tab controller: mounts PhoneDeviceShell, owns four-column home grid + home-only Phone/Messages/Settings dock, live badge-count projections + tile routing, dispatches apps through phone_app_registry.gd |
 | placeholder.gd | Stand-in for a not-yet-built screen |
@@ -180,7 +180,7 @@ overlays.
 | notification_ticker.gd | Top board's one-message notice row: presentation-only queue, roll-up from below, marquee for overflow, 4s hold; latest stays when empty; transient (combat-log) or keyed (notification id) queued entries droppable |
 | nav_bar.gd | Bottom nav dock (Phone·Map·HQ); swaps to MapPalette dark chrome tokens while the Map tab shows with Map dark mode on |
 | ore_glyphs.gd | Five canonical ore silhouettes as hand-drawn vectors; bundled-font coverage probe for non-map symbol fallback |
-| lab_gauges.gd | Lab apparatus gauges (hold/grind/distil, `committed` signal with raw input) and the book's read-only band track; all draw a step_region() band via `set_region` (cardBand token) |
+| lab_gauges.gd | Lab apparatus gauges (hold/grind/distil, `committed` signal with raw input) and the book's read-only band track; all draw a step_region() band via `set_region` (cardBand token); pulsing lead-ore input outline; TickMark |
 | recipe_book_page.gd | Aspect-fit recipe-book page art (assets/hq/recipe-book-side-tabs-blank.png) placing children by 1024x1536 art-space rects; owns the book-only Pixelify Sans font loader |
 | phone_device_shell.gd | Persistent rounded simulated-phone frame: clipped display, approved London wallpaper, game-clock status time + widget date (live on state_changed), fixed weather/battery chrome, dark opened-app surface + shared/custom content mounts |
 | phone_home_dock.gd | Home-only translucent three-destination Phone/Messages/Settings dock |

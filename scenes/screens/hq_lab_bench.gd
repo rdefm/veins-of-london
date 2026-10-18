@@ -17,6 +17,7 @@ extends Control
 
 const _DOCK_MIN_HEIGHT := 160.0
 const _GAUGE_WIDTH := 300.0
+const _TICK_SIZE := 96.0
 const _INSET := 4.0
 const _BADGE_HEIGHT := 26.0
 const _BADGE_FONT_SIZE := 14
@@ -52,6 +53,7 @@ var _gauge := ""
 var _notice := ""
 var _result := {}
 var _debug_overlay_enabled := false
+var _bench_guard_until_msec := 0
 
 var _diorama: HqDiorama
 
@@ -236,6 +238,8 @@ func _on_diorama_gui_input(event: InputEvent) -> void:
 			and event.device != InputEvent.DEVICE_ID_EMULATION) \
 		or (event is InputEventScreenTouch)
 	if not is_touch_event or not event.pressed:
+		return
+	if Time.get_ticks_msec() < _bench_guard_until_msec:
 		return
 	var zone := _zone_at(event.position)
 	if _page == Page.RUN:
@@ -888,6 +892,13 @@ func _build_gauge_card(apparatus: String) -> Control:
 			hold.committed.connect(func(value: float): _perform(func(): return Lab.perform_step(apparatus, value)))
 			content.add_child(UI.muted_label("Hold, then release."))
 			gauge = hold
+	var feedback := Lab.feedback()
+	var lead_ore := Lab.lead_ore(_recipe_key)
+	if lead_ore != "":
+		gauge.input_colour = MapPalette.ore_colour_in(lead_ore, true)
+	gauge.pulse_msec = float(feedback["pulseMsec"])
+	gauge.pulse_min_alpha = float(feedback["pulseMinAlpha"])
+	gauge.pulse_max_alpha = float(feedback["pulseMaxAlpha"])
 	var pending := Lab.pending_step(apparatus)
 	if not pending.is_empty():
 		gauge.set_region(Lab.step_region(_recipe_key, pending))
@@ -904,11 +915,43 @@ func _close_gauge() -> void:
 # Closes the gauge before the step's state change rebuilds the screen; a
 # crack ends the run and shows its result on the book.
 func _perform(step: Callable) -> void:
+	var apparatus := _gauge
 	_gauge = ""
 	var outcome: Dictionary = step.call()
-	if outcome.get("cracked", false):
+	var cracked: bool = outcome.get("cracked", false)
+	if cracked:
 		_result = outcome
 	_refresh()
+	_show_tick(apparatus, not cracked)
+
+
+# A tick (a cross on a crack) pops over the apparatus, then fades; bench taps
+# are ignored for the guard window so the finishing tap can't open the
+# apparatus beneath.
+func _show_tick(apparatus: String, success: bool) -> void:
+	var feedback := Lab.feedback()
+	var hold_msec := float(feedback["tickMsec"] if success else feedback["failHoldMsec"])
+	_bench_guard_until_msec = Time.get_ticks_msec() + int(feedback["benchGuardMsec"])
+	var regions: Dictionary = GameData.HQ_VISUALS["labBench"]["regions"]
+	var region: Dictionary = regions.get(Lab.APPARATUS_REGION_PREFIX + apparatus, {})
+	if region.is_empty() or _diorama == null:
+		return
+	var centre: Vector2 = _diorama.get_global_transform() * HqDiorama.region_rect(region).get_center()
+	var mark := LabGauges.TickMark.new()
+	mark.success = success
+	mark.colour = MapCardStyle.sage() if success else MapCardStyle.action()
+	mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mark.size = Vector2.ONE * _TICK_SIZE
+	mark.pivot_offset = mark.size * 0.5
+	mark.position = get_global_transform().affine_inverse() * centre - mark.size * 0.5
+	mark.scale = Vector2.ZERO
+	add_child(mark)
+	var pop := hold_msec * 0.35 / 1000.0
+	var tween := mark.create_tween()
+	tween.tween_property(mark, "scale", Vector2.ONE, pop).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_interval(hold_msec * 0.45 / 1000.0)
+	tween.tween_property(mark, "modulate:a", 0.0, hold_msec * 0.2 / 1000.0)
+	tween.tween_callback(mark.queue_free)
 
 
 func _calc_text(calc: Dictionary) -> String:

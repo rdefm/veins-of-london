@@ -511,6 +511,17 @@ static func gauge(apparatus: String) -> Dictionary:
 	return _data()["gauges"][apparatus]
 
 
+# Step-end feedback timings and the input-zone pulse (data/lab.json feedback).
+static func feedback() -> Dictionary:
+	return _data()["feedback"]
+
+
+# The ore type of a recipe's first calc, which tints the gauge's input zone.
+static func lead_ore(recipe_key: String) -> String:
+	var keys := base_calc(recipe_key).keys()
+	return str(keys[0]) if not keys.is_empty() else ""
+
+
 # Bench plate region ids (data/hq_visuals.json labBench): an ore jar is
 # "ore_<oreType>", an apparatus "apparatus_<apparatusId>".
 const ORE_REGION_PREFIX := "ore_"

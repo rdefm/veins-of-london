@@ -13,7 +13,7 @@
 
 **Status:** ready-for-agent
 
-- [ ] Numbers proposed and approved (recorded here)
-- [ ] Every apparatus shows its input zone
-- [ ] Tick/cross plays on step end
-- [ ] Bench taps within the guard window don't open an apparatus
+- [x] Numbers approved: tick 700ms, fail hold 900ms, bench guard 500ms, pulse 1200ms alpha 0.35-0.8, lead-ore colour, gauge card only (data/lab.json feedback)
+- [x] Every apparatus shows its input zone
+- [x] Tick/cross plays on step end
+- [x] Bench taps within the guard window don't open an apparatus

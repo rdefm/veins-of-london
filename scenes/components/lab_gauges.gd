@@ -11,6 +11,30 @@ class StepGauge extends Control:
 	var band_low := 0.0
 	var band_high := 0.0
 	var band_vague := false
+	# Set before entering the tree to pulse an outline round the input zone.
+	var input_colour := Color(0, 0, 0, 0)
+	var pulse_msec := 1200.0
+	var pulse_min_alpha := 0.35
+	var pulse_max_alpha := 0.8
+	var _pulse := 1.0:
+		set(value):
+			_pulse = value
+			queue_redraw()
+
+	func _enter_tree() -> void:
+		if input_colour.a <= 0.0:
+			return
+		var tween := create_tween().set_loops()
+		tween.tween_property(self, "_pulse", 0.0, pulse_msec / 2000.0)
+		tween.tween_property(self, "_pulse", 1.0, pulse_msec / 2000.0)
+
+	func _draw_input_zone() -> void:
+		if input_colour.a <= 0.0:
+			return
+		var alpha := lerpf(pulse_min_alpha, pulse_max_alpha, _pulse)
+		var rect := Rect2(Vector2.ZERO, size)
+		draw_rect(rect, Color(input_colour, alpha * 0.15))
+		draw_rect(rect.grow(-1.5), Color(input_colour, alpha), false, 3.0)
 
 	# Shows a Lab.step_region() result; {} shows no band.
 	func set_region(region: Dictionary) -> void:
@@ -43,6 +67,22 @@ class StepGauge extends Control:
 
 	func _draw_needle(value: float) -> void:
 		draw_line(Vector2(_x(value), 0), Vector2(_x(value), size.y), MapCardStyle.ink(), 3.0)
+
+
+# The step-end mark drawn over an apparatus: a tick, or a cross on a fail.
+class TickMark extends Control:
+	var success := true
+	var colour := Color.WHITE
+
+	func _draw() -> void:
+		var r := size.x * 0.5
+		var c := size * 0.5
+		var points := PackedVector2Array([c + Vector2(-r * 0.55, 0), c + Vector2(-r * 0.15, r * 0.45), c + Vector2(r * 0.6, -r * 0.5)])
+		if success:
+			draw_polyline(points, colour, 8.0, true)
+		else:
+			draw_line(c + Vector2(-r * 0.5, -r * 0.5), c + Vector2(r * 0.5, r * 0.5), colour, 8.0, true)
+			draw_line(c + Vector2(r * 0.5, -r * 0.5), c + Vector2(-r * 0.5, r * 0.5), colour, 8.0, true)
 
 
 # The book's read-only track for a known step's band.
@@ -89,6 +129,7 @@ class HoldGauge extends StepGauge:
 			_release()
 
 	func _draw() -> void:
+		_draw_input_zone()
 		var track := _draw_track()
 		if crack_at >= 0.0:
 			draw_line(Vector2(_x(crack_at), track.position.y), Vector2(_x(crack_at), track.end.y), MapCardStyle.action(), 3.0)
@@ -123,6 +164,7 @@ class GrindGauge extends StepGauge:
 		queue_redraw()
 
 	func _draw() -> void:
+		_draw_input_zone()
 		var track := _draw_track()
 		for reading in _readings:
 			draw_circle(Vector2(_x(reading), track.end.y + 8.0), 4.0, MapCardStyle.gold())
@@ -158,6 +200,7 @@ class DistilGauge extends StepGauge:
 			committed.emit(_taps)
 
 	func _draw() -> void:
+		_draw_input_zone()
 		var track := _draw_track()
 		var t := _clock()
 		var drip := floori(t / beat_msec)

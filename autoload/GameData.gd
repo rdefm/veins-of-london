@@ -1640,7 +1640,7 @@ func _validate_recipe_knowledge(rk: Dictionary, lab: Dictionary, recipes: Dictio
 
 
 func _validate_lab(lab: Dictionary, recipes: Dictionary, approaches: Dictionary, errors: Array[String]) -> void:
-	_require_keys(lab, ["procedures", "rungs", "specificities", "rankThresholds", "skillFactor", "vagueSpread", "vagueToExactHits", "insightNote", "clueText", "bonus", "badRun", "debug"], "lab", errors)
+	_require_keys(lab, ["procedures", "rungs", "specificities", "rankThresholds", "skillFactor", "vagueSpread", "vagueToExactHits", "feedback", "insightNote", "clueText", "bonus", "badRun", "debug"], "lab", errors)
 	var debug: Dictionary = lab.get("debug", {})
 	_require_keys(debug, ["skillMax", "refillCalc"], "lab.debug", errors)
 	if int(debug.get("skillMax", 0)) < 1:
