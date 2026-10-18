@@ -915,7 +915,28 @@ func run() -> void:
 			assert_eq(mugger["fury"], recipe == "pandemonium")
 		GameState.reset()
 		var combat := _start_ally_armed([{ "recipe": "panic", "tier": 2 }], [_slow_mugger()], [guards])
-		assert_true(not combat["combatants"][1]["plan"].any(func(a): return a["move"] == "panic"), "held with no read offence")
+		assert_eq(int(combat["combatants"][1]["plan"][0]["target"]), 2, "panic: a guarding enemy still bolts")
+		for held in ["panger", "pandemonium"]:
+			GameState.reset()
+			combat = _start_ally_armed([{ "recipe": held, "tier": 2 }], [_slow_mugger()], [guards])
+			assert_true(not combat["combatants"][1]["plan"].any(func(a): return a["move"] == held), "%s held on a lone guarding enemy" % held)
+	)
+
+	run_case("a_furious_enemy_turns_every_action_on_its_own_side", func():
+		GameState.reset()
+		var guards := [["guard", "guard"]]
+		var combat := _start_vs([_slow_mugger(200), _slow_mugger(200)], [guards, guards], [{ "recipe": "pandemonium", "tier": 2 }])
+		assert_true(Combat.choose_item(0, 1)["ok"])
+		var intent: Dictionary = CombatRounds.enemy_intents(combat, 1)[1]
+		assert_eq(intent["move"], "strike", "a planned Guard reads as a Strike")
+		assert_true(intent.get("targetUnread", false))
+		var hits := _actor_beats(combat["log"], 1, ["hit", "chip"])
+		assert_eq(hits.size(), 1, "its Guard struck instead")
+		assert_eq(int(hits[0]["target"]), 2, "at its teammate")
+		GameState.reset()
+		combat = _start_vs([_slow_mugger(200)], [guards], [{ "recipe": "pandemonium", "tier": 2 }])
+		assert_true(Combat.choose_item(0, 1)["ok"])
+		assert_eq(CombatRounds.enemy_intents(combat, 1)[1]["move"], "guard", "alone, it acts as planned")
 	)
 
 	run_case("an_allys_fizzled_or_removed_item_keeps_its_unit", func():

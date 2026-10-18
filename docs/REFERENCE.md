@@ -938,7 +938,7 @@ Power unchanged (REFERENCE §1 recipe table). "Actions" below count the target's
 | panic | 1 enemy (multi: all unstatused) | Next `power` actions each become a Panic turn: 50% bolt (defeated, counts as a KO), else cower (no effect) | Cower → Open | Affected intents replaced by a read "panic" intent at resolution |
 | pansRapture | 1 enemy (multi) | Next `power` actions are idle | Idle → Open | Read "rapture" intent |
 | panger | 1 enemy (multi) | `anger`: target's next 2 actions deal +X% / take −X%, next 2 deal −X% / take +X%; X = 25 × tier (Dial: × Impact × level mult, §3.5); damage floors at 0 | none (moves keep their own) | Status badge; intents unchanged |
-| pandemonium | 1 enemy (multi) | As panger; each Strike/Stun it resolves re-targets a random other living enemy (no other enemy → normal target) | none | Status badge; target shown `?` while furious |
+| pandemonium | 1 enemy (multi) | As panger; while furious every action it resolves is a Strike (a planned Stun stays a Stun) at a random other living enemy (no other enemy → acts as planned) | as the Strike/Stun | Status badge; non-attack intents read as Strike, target shown `?` while furious |
 | wormhole | self (player only, `allyExcluded`) | Ends the fight `fled` at once, no roll, no parting shot | — | — |
 | failsafe | self (auto) | Rewind section above | — | — |
 | disarm (Blast 15%) | blast target | Strips `weapon` for the fight; `ability.lockedTurns = 2` ticks at round boundaries | none | Disarm badge |
@@ -958,7 +958,7 @@ Power unchanged (REFERENCE §1 recipe table). "Actions" below count the target's
   | blast | a living enemy has hp ≤ `power`, else the lowest-hp enemy | that enemy; multi → all |
   | enhancementPowder | first action of a round with no Powder running; once per fight | self |
   | beALady | first action of round 1; once per fight | self (max rolls + 1/3 crit for `power` rounds; no carry-in for allies) |
-  | panic / pansRapture / panger / pandemonium | the unstatused enemy with the most read offensive actions (Table 4 rows) | that enemy; multi → all unstatused |
+  | panic / pansRapture / panger / pandemonium | the unstatused enemy with the most read offensive actions, else the first unstatused enemy; panger only at an enemy with 1+ read offensive action; pandemonium only while 2+ enemies stand (Table 4 rows) | that enemy; multi → all unstatused |
   | failsafe / rewind | never planned (automatic, Rewind section) | — |
 - **Ally Dial casts:** planned like items (above); 1 charge on resolution.
 

@@ -772,7 +772,9 @@ static func _plan_allies(cp: Dictionary, rng: RandomNumberGenerator) -> void:
 # at the biggest enemy it can drop (hp at most its power), else the
 # lowest-hp one (multi: all); Enhancement Powder on its round's first action
 # with no Powder running, once per fight; Be a Lady on round 1's first
-# action; a Pan item at _ally_pan_target() (multi: every unstatused enemy).
+# action; a Pan item at _ally_pan_target() (multi: every unstatused enemy),
+# Panger only at an enemy on offence, Pandemonium only with 2+ enemies
+# standing.
 static func _ally_item_action(cp: Dictionary, ally: int, plan: Array, planned: Dictionary) -> Dictionary:
 	var combatants: Array = cp["combatants"]
 	var combatant: Dictionary = combatants[ally]
@@ -813,9 +815,12 @@ static func _ally_item_action(cp: Dictionary, ally: int, plan: Array, planned: D
 	if plan.is_empty() and int(cp["round"]) == 1:
 		for unit in _units_with(units, [ITEM_LADY]):
 			return _unit_action(unit, ally)
-	var panned := _ally_pan_target(cp, ally, planned["panned"])
-	if panned >= 0:
-		for unit in _units_with(units, PAN_EFFECTS):
+	for unit in _units_with(units, PAN_EFFECTS):
+		var effect: String = move(unit["move"])["effect"]
+		if effect == ITEM_FURY and opponents.size() < 2:
+			continue
+		var panned := _ally_pan_target(cp, ally, planned["panned"], effect == ITEM_ANGER)
+		if panned >= 0:
 			return _unit_action(unit, -1 if unit["multi"] else panned)
 	return {}
 
@@ -872,12 +877,13 @@ static func _ally_blast_target(cp: Dictionary, ally: int, power: int) -> int:
 
 
 # The enemy under no Pan status, and not in `panned`, with the most read
-# offensive (damage or Stun) actions this round, at least one; ties to the
-# first in combatant order; -1 for none.
-static func _ally_pan_target(cp: Dictionary, ally: int, panned: Array) -> int:
+# offensive (damage or Stun) actions this round, ties to the first in
+# combatant order; with none on offence the first such enemy, or -1 when
+# `need_offence`. -1 for none.
+static func _ally_pan_target(cp: Dictionary, ally: int, panned: Array, need_offence: bool) -> int:
 	var combatants: Array = cp["combatants"]
 	var best := -1
-	var best_count := 0
+	var best_count := 0 if need_offence else -1
 	for e in _living_opponents(cp, ally):
 		if has_pan_status(combatants[e]) or panned.has(e):
 			continue
@@ -1193,8 +1199,8 @@ static func _plan_of(cp: Dictionary, actor: int) -> Array:
 # sight next round reads as [] (spec user stories 12-13). An action that
 # isn't read (is_read()) is { move: "", name: "", unread: true }; a status
 # turn (status_turn()) reads { move: its status, name, status: true }; a
-# furious enemy's Strike or Stun carries targetUnread in place of a target
-# (R§3.7b Table 4).
+# furious enemy's actions read as fury_move()'s, its Strike or Stun carrying
+# targetUnread in place of a target (R§3.7b Table 4).
 static func enemy_intents(cp: Dictionary, actor: int, next_round: bool = false) -> Array:
 	var sight := has_sight(cp)
 	if next_round and not sight:
@@ -1210,8 +1216,9 @@ static func enemy_intents(cp: Dictionary, actor: int, next_round: bool = false) 
 		if not next_round and not is_read(cp, actor, index):
 			result.append({ "move": "", "name": "", "unread": true })
 			continue
-		var m := move(action["move"])
-		var intent := { "move": action["move"], "name": m["name"] }
+		var move_id := fury_move(cp, actor, action["move"])
+		var m := move(move_id)
+		var intent := { "move": move_id, "name": m["name"] }
 		var furious: bool = _is_furious(cp, actor) and m["effect"] in [EFFECT_DAMAGE, EFFECT_STUN]
 		if furious:
 			intent["targetUnread"] = true
@@ -1299,7 +1306,7 @@ static func _planned_guard(cp: Dictionary, actor: int, index: int, action: Dicti
 		return _data()["statusTurns"][status]["actorGuard"]
 	if not next_round and not is_read(cp, actor, index):
 		return UNKNOWN
-	return move(action["move"]).get("actorGuard", UNCHANGED)
+	return move(fury_move(cp, actor, action["move"])).get("actorGuard", UNCHANGED)
 
 
 # ── Resolution ───────────────────────────────────────────────────────────
@@ -1342,8 +1349,9 @@ static func _advance(cp: Dictionary, rng: RandomNumberGenerator, beats: Array) -
 			_beat(cp, beats, "frozen" if frozen else "lost", actor, -1, action["move"] if action != null else "", {})
 			beats[-1]["marks"] = stage_marks(cp)
 			continue
+		var fleeing: bool = move(fury_move(cp, actor, action["move"]))["effect"] == EFFECT_FLEE
 		_resolve_action(cp, actor, action, rng, beats)
-		if move(action["move"])["effect"] == EFFECT_FLEE:
+		if fleeing:
 			cursor["done"].append(actor)
 	cursor["pause"] = -1
 
@@ -1453,13 +1461,13 @@ static func continue_after_ko(cp: Dictionary) -> Array:
 	return beats
 
 
-# Applies the move's effect, then its effect on the actor's guard state;
+# Applies the move's effect (fury_move()'s), then its effect on the actor's guard state;
 # a Panic or Pan's Rapture turn plays instead while one runs, and the
 # action ticks a running anger down. A Lure ends when its actor next acts on
 # anything but its own later parts.
 static func _resolve_action(cp: Dictionary, actor_idx: int, action: Dictionary, rng: RandomNumberGenerator, beats: Array) -> void:
-	var m := move(action["move"])
-	var move_id: String = action["move"]
+	var move_id: String = fury_move(cp, actor_idx, action["move"])
+	var m := move(move_id)
 	var actor: Dictionary = cp["combatants"][actor_idx]
 	var first_beat := beats.size()
 	if actor.get("dial") is Dictionary:
@@ -1557,6 +1565,15 @@ static func _play_status_turn(cp: Dictionary, actor_idx: int, rng: RandomNumberG
 static func _is_furious(cp: Dictionary, actor: int) -> bool:
 	var combatant: Dictionary = cp["combatants"][actor]
 	return int(combatant["angerActions"]) > 0 and combatant["fury"]
+
+
+# The move `actor` plays for its planned `move_id`: a furious actor with a
+# teammate standing turns anything but a Strike or Stun into a Strike (at
+# _fury_target()); else `move_id` (R§3.7b Table 4).
+static func fury_move(cp: Dictionary, actor: int, move_id: String) -> String:
+	if not _is_furious(cp, actor) or _team(cp, actor).size() < 2:
+		return move_id
+	return move_id if move(move_id).get("effect", "") in [EFFECT_DAMAGE, EFFECT_STUN] else MOVE_STRIKE
 
 
 # A furious actor's Strike or Stun target: a random other living member of
