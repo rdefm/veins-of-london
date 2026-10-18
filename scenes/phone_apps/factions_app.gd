@@ -31,7 +31,11 @@ const SHARE_BAR_META := "share_bar_producer"
 const SHARE_ORE_META := "share_ore"
 
 var _tally := "ore"
-var selected_faction := ""
+var selected_faction: String:
+	get:
+		return str(GameState.state["phoneNav"].get("selectedFaction", "") if GameState.state["phoneNav"].get("selectedFaction", "") != null else "")
+	set(value):
+		GameState.state["phoneNav"]["selectedFaction"] = null if value == "" else value
 var politics_open := false
 var shares_open := false
 var _share_ore: String = GameData.CANONICAL_ORE_TYPES[0]
@@ -57,14 +61,9 @@ func build(content: VBoxContainer) -> void:
 func _build_directory(content: VBoxContainer) -> void:
 	content.add_child(_back_link("‹ Back", func(): PhoneNav.go_home()))
 	content.add_child(_masthead())
-	content.add_child(_page_head())
-	var list := UI.vbox(0)
-	list.add_child(_divider())
-	for faction_id in GameData.FACTIONS.keys():
-		list.add_child(_build_row(faction_id))
-	content.add_child(list)
 	content.add_child(_section_heading("LONDON"))
 	var routes := UI.vbox(0)
+	routes.add_child(_route_row("standing", "Your standing", "Five factions. One London.", func(): Modal.open("register_standing"), false))
 	routes.add_child(_route_row("politics", "London politics", "How the factions stand with each other", func(): _open_politics(true), false))
 	routes.add_child(_route_row("shares", "Market shares", "Ore and crafting across London", func(): _open_shares(true), true))
 	content.add_child(routes)
@@ -299,14 +298,6 @@ class RegisterMark extends Control:
 			draw_circle(node, 2.5, brand)
 
 
-func _page_head() -> Control:
-	var box := UI.vbox(4)
-	box.add_child(_text("YOUR POSITION", 11, _oxide()))
-	box.add_child(_text("Your standing", 23, _ink()))
-	box.add_child(_text("Five factions. One London.", 12, _muted()))
-	return box
-
-
 func _section_heading(text: String) -> Control:
 	var margin := MarginContainer.new()
 	margin.add_theme_constant_override("margin_top", 10)
@@ -348,14 +339,14 @@ static func _chevron(size: int) -> Label:
 # One flat whole-row button: faction dot and short name, stored stance, signed
 # relation on the top line; live alert, centred meter and chevron below. Stance
 # is the stored read, never derived from the relation number.
-func _build_row(faction_id: String) -> Control:
+static func build_row(faction_id: String, on_press: Callable) -> Control:
 	var relation := int(GameState.state["factions"][faction_id]["relation"])
 	var row := Button.new()
 	row.set_meta(ROW_META, faction_id)
 	_apply_flat(row, false, true, 2, 12)
 	row.custom_minimum_size = Vector2(0, 76)
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.pressed.connect(func(): _select(faction_id))
+	row.pressed.connect(on_press)
 
 	var box := UI.vbox(7)
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -402,7 +393,7 @@ class FactionDot extends Control:
 
 
 # Live war, truce or pending-request note; "" when none applies.
-func _alert_text(faction_id: String) -> String:
+static func _alert_text(faction_id: String) -> String:
 	var war_truce := _war_truce_text(faction_id)
 	if war_truce != "":
 		return war_truce
@@ -753,7 +744,7 @@ func _build_dossier_top(faction_id: String) -> Control:
 
 
 # Live war or truce note; "" when neither applies.
-func _war_truce_text(faction_id: String) -> String:
+static func _war_truce_text(faction_id: String) -> String:
 	if FactionAI.at_war(Shares.PLAYER, faction_id):
 		return "At war"
 	var truce := FactionAI.find_truce(Shares.PLAYER, faction_id)

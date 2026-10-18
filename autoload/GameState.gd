@@ -58,7 +58,7 @@ func new_game_state() -> Dictionary:
 		# selectedAxis drills into a Ticker axis. revealFromIndex is that
 		# function's staged-reveal handoff; null = unopened. bizbriefView is
 		# BizBrief's open sub-view (PhoneNav.open_short_pay()), null = tabs.
-		"phoneNav": { "app": "home", "selectedAxis": null, "selectedContactId": null, "confirmingNewGame": false, "revealFromIndex": null, "bizbriefView": null },
+		"phoneNav": { "app": "home", "selectedAxis": null, "selectedContactId": null, "selectedFaction": null, "confirmingNewGame": false, "revealFromIndex": null, "bizbriefView": null },
 		# The one exception above: survives save/load (SaveManager restores
 		# scrollX/scrollY as ints), so camera position persists. everOpened
 		# gates MapCanvas's one-shot auto-focus, false until first map open.

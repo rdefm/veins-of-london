@@ -16,6 +16,7 @@ static func open_app(app_id: String) -> void:
 	GameState.state["phoneNav"]["app"] = app_id
 	GameState.state["phoneNav"]["selectedAxis"] = null
 	GameState.state["phoneNav"]["selectedContactId"] = null
+	GameState.state["phoneNav"]["selectedFaction"] = null
 	GameState.state["phoneNav"]["confirmingNewGame"] = false
 	GameState.state["phoneNav"]["bizbriefView"] = null
 	EventBus.state_changed.emit()
@@ -25,6 +26,7 @@ static func go_home() -> void:
 	GameState.state["phoneNav"]["app"] = "home"
 	GameState.state["phoneNav"]["selectedAxis"] = null
 	GameState.state["phoneNav"]["selectedContactId"] = null
+	GameState.state["phoneNav"]["selectedFaction"] = null
 	GameState.state["phoneNav"]["confirmingNewGame"] = false
 	GameState.state["phoneNav"]["bizbriefView"] = null
 	EventBus.state_changed.emit()
@@ -42,6 +44,13 @@ static func route_home() -> void:
 static func select_axis(section: String) -> void:
 	GameState.state["phoneNav"]["app"] = "ticker"
 	GameState.state["phoneNav"]["selectedAxis"] = section
+	EventBus.state_changed.emit()
+
+
+# Opens one faction's Register dossier ("" = back to the directory).
+static func select_faction(faction_id: String) -> void:
+	GameState.state["phoneNav"]["app"] = "factions"
+	GameState.state["phoneNav"]["selectedFaction"] = null if faction_id == "" else faction_id
 	EventBus.state_changed.emit()
 
 

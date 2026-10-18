@@ -97,7 +97,7 @@ Data file per system: see `data/*.json` below.
 | offers.gd | Sales offers: quoting (price fixed at issue), counterparty faction pick (authored / identity-weighted / Collective-Firm fit), acceptance (quote → contract `signedQuote`, recurring term), renewal offers, random-only pending cap, Sworn-Guild commission offers, Wren assay commissions (rank floor by Guild tier, Guild relation on full delivery), poach match/lapse, 2-day expiry |
 | payroll.gd | `role_skill_keys()` (room → skill field, from the role registry); `is_working()` gate for staff actions (false while the business owes them a wage) |
 | phone_apps.gd | Phone main-grid roster/order/labels (LodedInnit absent until James joins) + badge-config projection |
-| phone_nav.gd | Phone app/index/thread drill-down nav; BizBrief short-pay and Guard Costs sub-view deep links |
+| phone_nav.gd | Phone app/index/thread/faction-dossier drill-down nav; BizBrief short-pay and Guard Costs sub-view deep links |
 | player_model.gd | `set_model()`: validates a key against `GameData.TERRITORIAL_VARIANTS` and writes `player.model` |
 | preferences.gd | Saved presentation prefs in `meta` (reduced motion, vibration, Map dark mode) + carry_forward() so event Rewind never flips them |
 | progression.gd | Shared "award XP" ladder loop |
@@ -226,6 +226,7 @@ overlays.
 | hq_ore_readout_modal.gd | Ore-store slip with raid-risk stamp + personal-stash move controls, map_card_style.gd-skinned (always light) |
 | hq_gym_modal.gd | Combat skill card (level, XP bar, current + next-level HP/ATK/SPD/actions/crit via `Combat.skill_summary()`) + Train action card |
 | contract_cancel_modal.gd | Navy BizBrief contract cancel confirm (Keep / Confirm → `Contracts.cancel`) |
+| register_standing_modal.gd | Register "Your standing" sheet: the five faction rows; a row closes it and opens that dossier (`PhoneNav.select_faction`) |
 | active_effects_modal.gd | Sheet listing each running timed effect with level and blocks left (from the top bar chips) |
 | player_moves_modal.gd | "Move against" sheet for one faction: vein picker plus the three `PlayerMoves` rows with cost and block reason |
 | gift_modal.gd | Gift sheet for one faction: key members with relation, likes and cooldown; pick a member, give a cash option or one held consumable via `Diplomacy`; a landed gift opens the member's thread |
@@ -241,7 +242,7 @@ overlays.
 | bizbrief_app.gd | BizBrief shell/tabs. Brief: tiered Today rows + routes (wage/poach → person, or Brief cards if Staff locked), Yesterday → Morning report page, Business money page, Market position page (moves, war, shares). Manage index → Sales/Production/Procurement pages. Gated Staff roster → person detail. Pot-gated completed-day Stats. Hosts Short Pay, Guard Costs |
 | messages_app.gd | Conversation inbox (fixed-height rows: bold name, one-line `…` preview, unread pill, per-contact Clear) + single-thread texting view: sent replies right/blue, incoming left/grey, each new incoming preceded by a tap-skippable three-dot typing bubble (`Messages.typing_seconds`); thread set in Inter; action bar incl. Owen's reply choices |
 | todo_app.gd | ToDo app: collapsible questline sections from Todo, all_of checks as indented sub-rows; session-only expand/collapse overrides in a static var |
-| factions_app.gd | The Register (app id `factions`): five-row directory (masthead, dot, stance, relation, meter, alert) opening a dossier page (actions, identity, footprint, Benefits ladder, Intel, Activity); home routes to Market shares (Ore/Crafting, ore choice, bars) and London politics (stance-tinted upper-triangle grid, legend, bordered pair strip). Palette `register_*`. |
+| factions_app.gd | The Register (app id `factions`): masthead and routes (Your standing modal, Market shares, London politics); `build_row` = standing row opening a dossier (actions, identity, footprint, Benefits, Intel, Activity). Shares: Ore/Crafting, ore choice, bars. Politics: stance-tinted pair grid, legend, pair strip. Palette `register_*`. |
 | ticker_app.gd | Ticker News: state stories by recency, newest-first wires, full state and wire articles, live impact, same-axis Influence sheet. Stock Market: filters, Ore/Items lists, demand modifiers, price detail and chart, annotations and demand drivers |
 | profile_app.gd | Stats, skills, equipment, and a two-slot Loadout card (equip/unequip) for the player and each recruited combat contact, plus the shared Dial loadout card; during prep Change loadout shows only participants' Loadout + Dial cards |
 | dialer_app.gd | Phone recent-calls placeholder; no telephony state/actions |
