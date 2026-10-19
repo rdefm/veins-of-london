@@ -1856,20 +1856,26 @@ func run() -> void:
 		assert_eq(combat["combatants"][1]["moveOwner"], null, "the mugger has no record")
 	)
 
-	run_case("an_evaded_strike_is_a_fizzle_and_leg_it_has_no_level", func():
+	run_case("an_evaded_strike_and_a_failed_leg_it_are_fizzles", func():
 		GameState.reset()
 		var slippery := _mugger(200)
 		slippery["evadeChance"] = 1.0
 		Combat._start_round_combat(Combat.CONTEXT_EVENT_MUGGING, null, [slippery], [], "", [], null,
 			{ "seed": 1, "fog": false, "enemyPlans": [[["guard", "guard"]]] })
-		var combat: Dictionary = GameState.state["combat"]
 		var strike := Combat.choose_move("strike")
 		assert_true(strike["beats"].any(func(b): return b["kind"] == "evade"), "the Strike hits air")
 		assert_eq(GameState.state["player"]["moveLevels"]["strike"]["xp"], 4, "an evaded Strike")
-		assert_true(not GameState.state["player"]["moveLevels"].has("legIt"), "no Leg it record")
-		assert_true(not combat["combatants"][CombatRounds.PLAYER_INDEX]["moveLevels"].has("legIt"), "no Leg it fight level")
-		assert_true(not combat["combatants"][1]["moveLevels"].has("legIt"), "none rolled either")
-		assert_eq(MoveLevels.move_ids(), ["strike", "guard", "feint", "stun"])
+		var seen := {}
+		for seed_value in range(1, 40):
+			GameState.reset()
+			_start([["guard", "guard"]], seed_value, 200)
+			var kinds: Array = Combat.choose_move("legIt")["beats"].map(func(b): return b["kind"])
+			var kind: String = "fleeFailed" if kinds.has("fleeFailed") else "fled"
+			if seen.has(kind):
+				continue
+			seen[kind] = true
+			assert_eq(GameState.state["player"]["moveLevels"]["legIt"]["xp"], 4 if kind == "fleeFailed" else 10, "Leg it %s" % kind)
+		assert_eq(seen.size(), 2, "both a failed and a clean Leg it seen")
 	)
 
 	run_case("move_level_ups_at_the_thresholds_cap_at_5_with_one_notification_and_line", func():

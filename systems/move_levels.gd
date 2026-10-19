@@ -1,8 +1,7 @@
 class_name MoveLevels
 extends RefCounted
 
-# Per-move levels 1..levelMax beside Combat Skill (R§3.7b Move levels), for
-# every move but Leg it: the
+# Per-move levels 1..levelMax beside Combat Skill (R§3.7b Move levels): the
 # player's and each contact's persistent { level, xp } per move (owner ""
 # is the player, else a contact id), the XP ladder they climb, and the fixed
 # levels a fighter with none rolls for a fight. Numbers in
@@ -13,7 +12,7 @@ static func _data() -> Dictionary:
 	return GameData.COMBAT_ROUNDS
 
 
-# The levelled moves (moveXp.moves); Leg it has no level.
+# The levelled moves (moveXp.moves).
 static func move_ids() -> Array:
 	return _data()["moveXp"]["moves"]
 

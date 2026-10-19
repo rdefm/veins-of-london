@@ -7,8 +7,8 @@
   "allyHealBelow": 0.4,
   "allyCrowdEnemies": 2,
   "allyChipStrikeChance": 0.30,
-  "_moveXpComment": "Move levels (REFERENCE §3.7b Move levels): the player's and each contact's per-move XP for the levelled `moves` (Leg it has none). resolved / fizzled: XP per use (fizzled: a Stun on a Guarded target, an evaded Strike); levels[n] is the cumulative XP that reaches level n (index 0 unused), up to levelMax.",
-  "moveXp": { "moves": ["strike", "guard", "feint", "stun"], "resolved": 10, "fizzled": 4, "levels": [0, 0, 30, 90, 200, 400] },
+  "_moveXpComment": "Move levels (REFERENCE §3.7b Move levels): the player's and each contact's per-move XP for the levelled `moves`. resolved / fizzled: XP per use (fizzled: a Stun on a Guarded target, an evaded Strike, a failed Leg it); levels[n] is the cumulative XP that reaches level n (index 0 unused), up to levelMax.",
+  "moveXp": { "moves": ["strike", "guard", "feint", "stun", "legIt"], "resolved": 10, "fizzled": 4, "levels": [0, 0, 30, 90, 200, 400] },
   "_moveLevelRollComment": "A fighter with no persistent move levels (enemies, hired guards, Firm muscle) rolls each move's level once per fight: its Combat Skill level less `below`, at these weights, minimum 1.",
   "moveLevelRoll": [
     { "below": 0, "weight": 50 },

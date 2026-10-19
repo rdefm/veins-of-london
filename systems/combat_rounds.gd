@@ -32,8 +32,8 @@ const FOG_SEED_SALT := 0x5F0C0F06
 # The move-level rolls' own RNG off the fight seed (_roll_move_levels()).
 const MOVE_LEVEL_SEED_SALT := 0x30E1E7E1
 # An action whose first beat is one of these fizzled, for move XP: a Stun
-# on a Guarded target, an evaded Strike.
-const FIZZLE_KINDS: Array[String] = ["fizzle", "evade"]
+# on a Guarded target, an evaded Strike, a failed Leg it.
+const FIZZLE_KINDS: Array[String] = ["fizzle", "evade", "fleeFailed"]
 
 const TARGET_SELF := "self"
 const TARGET_ENEMY := "enemy"
@@ -1568,7 +1568,7 @@ static func _resolve_action(cp: Dictionary, actor_idx: int, action: Dictionary, 
 # A move use's XP (MoveLevels.xp_for_use()) to the actor's persistent
 # record, outside the fight dict so a Rewind keeps it; a level-up lifts its
 # fight level too and beats "levelUp" (R§3.7b Move levels). Nothing for a
-# fighter with no owner, or for an unlevelled move (Leg it).
+# fighter with no owner, or for a move not in moveXp.moves.
 static func _gain_move_xp(cp: Dictionary, actor_idx: int, move_id: String, fizzled: bool, beats: Array) -> void:
 	var actor: Dictionary = cp["combatants"][actor_idx]
 	var owner = actor.get("moveOwner")
