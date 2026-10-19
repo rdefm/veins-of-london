@@ -28,6 +28,23 @@ static func add_calc(ore_type: String, amount: int) -> void:
 	EventBus.state_changed.emit()
 
 
+## Teaches recipe_key exact through rung and every rung below it, so
+## RecipeKnowledge.rank_ceiling() reaches that rung's ceiling.
+static func learn_recipe(recipe_key: String, rung: String) -> void:
+	for r in RecipeKnowledge.rungs():
+		RecipeKnowledge.grant_rung(recipe_key, r, "exact")
+		if r == rung:
+			break
+
+
+## Every recipe with a lab procedure, learned through the top rung.
+static func learn_all_recipes() -> void:
+	var top: String = RecipeKnowledge.rungs().back()
+	for recipe_key in GameData.RECIPES.keys():
+		if not Lab.procedure_def(recipe_key).is_empty():
+			learn_recipe(recipe_key, top)
+
+
 # Every loaded event id (data/events/*.json), sorted for the picker.
 static func event_ids() -> Array:
 	var ids: Array = GameData.EVENTS.keys()

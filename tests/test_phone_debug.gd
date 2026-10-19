@@ -126,7 +126,7 @@ func run() -> void:
 		fields[1].text = "40"
 
 		var options := _find_option_buttons(phone)
-		assert_eq(options.size(), 6, "add-calc ore, spawn-site district/ore/terroir, the relation target selector, then the event picker")
+		assert_eq(options.size(), 8, "add-calc ore, spawn-site district/ore/terroir, the relation target selector, the event picker, then learn-recipes recipe/rung")
 		options[0].selected = 1
 		var chosen_ore := options[0].get_item_text(1)
 
@@ -166,7 +166,7 @@ func run() -> void:
 		phone._ready()
 
 		var options := _find_option_buttons(phone)
-		assert_eq(options.size(), 6, "add-calc ore, spawn-site district/ore/terroir, the relation target selector, then the event picker")
+		assert_eq(options.size(), 8, "add-calc ore, spawn-site district/ore/terroir, the relation target selector, the event picker, then learn-recipes recipe/rung")
 
 		var district_ids: Array = GameData.DISTRICTS.keys()
 		var target_index: int = district_ids.find(district_id)

@@ -32,6 +32,7 @@ func build(content: VBoxContainer) -> void:
 	content.add_child(_build_safe_area_card())
 	content.add_child(_build_relation_card())
 	content.add_child(_build_trigger_event_card())
+	content.add_child(_build_learn_recipes_card())
 
 
 func _build_trigger_event_card() -> Control:
@@ -122,6 +123,27 @@ func _build_lab_card() -> Control:
 	c["content"].add_child(UI.heading("Lab", 14))
 	c["content"].add_child(UI.muted_label("Skill override, recipes, hints, best ranks, calc."))
 	c["content"].add_child(UI.button("Open", func(): _open_page(LAB_PAGE)))
+	return c["panel"]
+
+
+func _build_learn_recipes_card() -> Control:
+	var c := UI.card()
+	c["content"].add_child(UI.heading("Learn recipes", 14))
+	c["content"].add_child(UI.button("Learn all at max", func(): DebugTools.learn_all_recipes()))
+
+	var keys: Array = GameData.RECIPES.keys().filter(func(k): return not Lab.procedure_def(k).is_empty())
+	var names: Array = keys.map(func(k): return String(GameData.RECIPES[k].get("name", k)))
+	var recipe_select := UI.option_button(names)
+	c["content"].add_child(recipe_select)
+
+	var rungs: Array = RecipeKnowledge.rungs()
+	var levels: Array = rungs.map(func(r): return "%s (rank %d)" % [RecipeKnowledge.rung_label(r), RecipeKnowledge.rung_ceiling(r)])
+	var level_select := UI.option_button(levels)
+	c["content"].add_child(level_select)
+
+	c["content"].add_child(UI.button("Learn", func():
+		DebugTools.learn_recipe(keys[recipe_select.selected], rungs[level_select.selected])
+	))
 	return c["panel"]
 
 

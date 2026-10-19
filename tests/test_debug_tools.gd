@@ -124,6 +124,28 @@ func run() -> void:
 		assert_eq(GameState.state["contacts"]["handler"]["unlocked"], true, "unlocked because the event pushes the handler a message")
 	)
 
+	run_case("learn_all_recipes_grants_every_recipe_at_the_top_rung", func():
+		GameState.reset()
+		DebugTools.learn_all_recipes()
+		var top_ceiling := RecipeKnowledge.rung_ceiling(RecipeKnowledge.rungs().back())
+		var count := 0
+		for recipe_key in GameData.RECIPES.keys():
+			if Lab.procedure_def(recipe_key).is_empty():
+				continue
+			count += 1
+			assert_eq(RecipeKnowledge.rank_ceiling(recipe_key), top_ceiling, "%s at max" % recipe_key)
+		assert_eq(count > 0, true, "sanity: some recipes have procedures")
+	)
+
+	run_case("learn_recipe_grants_exactly_that_rung", func():
+		GameState.reset()
+		var keys: Array = GameData.RECIPES.keys().filter(func(k): return not Lab.procedure_def(k).is_empty())
+		DebugTools.learn_recipe(keys[0], "hint1")
+		assert_eq(RecipeKnowledge.rank_ceiling(keys[0]), RecipeKnowledge.rung_ceiling("hint1"), "ceiling is hint1's")
+		assert_eq(RecipeKnowledge.owns_rung(keys[0], "hint2"), false, "next rung not owned")
+		assert_eq(Lab.is_known(keys[1]), false, "other recipes untouched")
+	)
+
 
 # Runtime errors (not warnings) logged while a case runs.
 class ErrorCatcher extends Logger:
