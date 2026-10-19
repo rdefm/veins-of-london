@@ -7,6 +7,14 @@
   "allyHealBelow": 0.4,
   "allyCrowdEnemies": 2,
   "allyChipStrikeChance": 0.30,
+  "_moveXpComment": "Move levels (REFERENCE §3.7b Move levels): the player's and each contact's per-move XP. resolved / fizzled: XP per use; levels[n] is the cumulative XP that reaches level n (index 0 unused), up to levelMax.",
+  "moveXp": { "resolved": 10, "fizzled": 4, "levels": [0, 0, 30, 90, 200, 400] },
+  "_moveLevelRollComment": "A fighter with no persistent move levels (enemies, hired guards, Firm muscle) rolls each move's level once per fight: its Combat Skill level less `below`, at these weights, minimum 1.",
+  "moveLevelRoll": [
+    { "below": 0, "weight": 50 },
+    { "below": 1, "weight": 30 },
+    { "below": 2, "weight": 20 }
+  ],
   "fog": {
     "_comment": "Unread chance per enemy action = (unreadChance[player Combat Skill] + perLevelAbove x levels the enemy is above the player - perLevelBelow x levels below) x positionMultiplier[action index] (last entry for later indices), clamped to [0, 1]. Draft values for tuning.",
     "unreadChance": [0, 0.35, 0.28, 0.21, 0.14, 0.07],
@@ -174,6 +182,7 @@
     "enraptured": { "self": "You grin at nothing.", "other": "{actor} is grinning at nothing." },
     "calm": { "self": "You come down, spent.", "other": "{actor} comes down, spent." },
     "wormhole": { "self": "You fold the space shut behind you. Clean exit, no parting shot.", "other": "{actor} folds the space shut and is gone." },
-    "disarm": { "self": "The shove knocks {target}'s weapon loose.", "other": "The shove knocks {target}'s weapon loose." }
+    "disarm": { "self": "The shove knocks {target}'s weapon loose.", "other": "The shove knocks {target}'s weapon loose." },
+    "levelUp": { "self": "Your {moveName} is coming on. Level {level}.", "other": "{actor}'s {moveName} is coming on. Level {level}." }
   }
 }

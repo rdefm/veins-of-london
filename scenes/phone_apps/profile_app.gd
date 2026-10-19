@@ -59,6 +59,8 @@ func _build_skills_card() -> Control:
 	_add_skill_row(c["content"], "Cultivating", player["cultivatingSkill"], player["cultivatingXP"], GameData.CULTIVATING_XP_LEVELS)
 	_add_skill_row(c["content"], "Stealth", player["stealthSkill"], player["stealthXP"], GameData.STEALTH_XP_LEVELS)
 	_add_skill_row(c["content"], "Combat", player["combatSkill"], player["combatXP"], GameData.COMBAT_XP_LEVELS)
+	for row in MoveLevels.summary(""):
+		_add_skill_row(c["content"], row["name"], row["level"], row["xp"], MoveLevels.xp_levels())
 	return c["panel"]
 
 
@@ -84,6 +86,8 @@ func _build_equipment_card() -> Control:
 func _build_loadout_card(contact_id: String = "") -> Control:
 	var c := UI.card()
 	c["content"].add_child(UI.heading("Loadout" if contact_id == "" else "%s — Loadout" % Contacts.display_name(contact_id), 14))
+	if contact_id != "":
+		c["content"].add_child(UI.muted_label(move_levels_text(contact_id)))
 	var stock := Loadout.equippable_stock(contact_id)
 	for index in Loadout.slot_count():
 		var unit: Variant = Loadout.slot(index, contact_id)
@@ -95,6 +99,11 @@ func _build_loadout_card(contact_id: String = "") -> Control:
 			c["content"].add_child(UI.label("Slot %d: %s T%d%s" % [index + 1, GameData.RECIPES[unit["recipe"]]["name"], int(unit["tier"]), " multi" if unit.get("multi", false) else ""]))
 			c["content"].add_child(UI.button("Unequip slot %d" % (index + 1), _on_unequip.bind(index, contact_id)))
 	return c["panel"]
+
+
+# A recruit's move levels on one line: "Strike Lv1 · Guard Lv2 · ...".
+static func move_levels_text(contact_id: String) -> String:
+	return " · ".join(MoveLevels.summary(contact_id).map(func(r): return "%s Lv%d" % [r["name"], r["level"]]))
 
 
 func _on_equip(index: int, recipe_key: String, tier: int, contact_id: String, multi: bool) -> void:

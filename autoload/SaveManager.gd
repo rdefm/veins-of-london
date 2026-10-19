@@ -889,6 +889,12 @@ func _backfill_new_home_keys(result: Dictionary, defaults: Dictionary) -> void:
 # schema, immediately after backfill so every top-level key is guaranteed
 # present. Genuinely-float fields (combat.evadeChance, mapView.zoom) are
 # deliberately left untouched.
+func _restore_move_level_ints(holder: Dictionary) -> void:
+	for entry in holder.get("moveLevels", {}).values():
+		_int_key(entry, "level")
+		_int_key(entry, "xp")
+
+
 func _restore_dial_ints(dial: Dictionary) -> void:
 	for key in ["level", "xp", "currentCharge", "maxCharge", "capacityMax", "lastRegenDay"]:
 		_int_key(dial, key)
@@ -1056,6 +1062,7 @@ func _restore_int_types(state: Dictionary) -> void:
 		var player: Dictionary = state["player"]
 		for key in ["cash", "hp", "hpMax", "attackMin", "attackMax", "craftingSkill", "craftingXP", "cultivatingSkill", "cultivatingXP", "stealthSkill", "stealthXP", "combatSkill", "combatXP", "shieldPool", "healingSalveDaysLeft", "healingSalveDailyAmount"]:
 			_int_key(player, key)
+		_restore_move_level_ints(player)
 		_int_dict_values(player.get("orichalchum", {}))
 		_int_dict_values(player.get("craftedCounts", {}))
 		_migrate_inventory(player.get("inventory", {}))
@@ -1265,6 +1272,7 @@ func _restore_int_types(state: Dictionary) -> void:
 					"combatHpMax", "combatHp", "combatAttackMin", "combatAttackMax", "combatSpeed", "koCooldownDays", "koCooldownUntilDay",
 					"tradeProgress"]:
 				_int_key(contact, key)
+			_restore_move_level_ints(contact)
 			if contact.get("dial") != null:
 				_restore_dial_ints(contact["dial"])
 

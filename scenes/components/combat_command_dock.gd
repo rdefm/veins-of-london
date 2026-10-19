@@ -27,6 +27,7 @@ const COMMAND_DOCK_SURFACE_HEIGHT := COMMAND_DOCK_HEIGHT + COMMAND_DOCK_BOTTOM_M
 const EXPLAIN_BUTTON_SIZE := 28.0
 const BLOCK_COLOUR := Color("#d8453b")
 const TOOLTIP_WIDTH := 260.0
+const LEVEL_BADGE_FONT_SIZE := 14
 const GRID_FONT_SIZE := 24
 const GRID_ICON_SIZE := 48.0
 const PAGE_SLIDE_SECONDS := 0.22
@@ -90,7 +91,8 @@ func _init() -> void:
 
 # Each of `moves` and `items` is a row { name, iconKind, label, disabled,
 # disabledReason, callback, onExplain } (iconKind as _build_row_icon() reads
-# it; disabledReason becomes the row's tooltip; a row with a `tooltip` line
+# it; disabledReason becomes the row's tooltip; a `badge` string shows as a
+# small level badge after the label; a row with a `tooltip` line
 # gets a "?" popover; a disabled row with an onExplain callable also gets a
 # red "!" calling it); `leg_it` is one such row, drawn
 # as the grid's fourth button. The Dial page exists only when `dial` isn't
@@ -371,6 +373,9 @@ func _build_command_row(row: Dictionary, default_name: String, locked: bool) -> 
 	var content := _build_row_content(_build_row_icon(row.get("iconKind", ""), accent), row.get("label", ""), accent)
 	content.offset_left = UI.COMMAND_ROW_MARGIN_H
 	content.offset_right = -UI.COMMAND_ROW_MARGIN_H
+	var badge: String = row.get("badge", "")
+	if badge != "":
+		content.add_child(_build_level_badge(badge, accent))
 	var tooltip: String = row.get("tooltip", "")
 	if tooltip != "" and not locked:
 		var tip_button := _build_round_button("TooltipButton", "?", accent)
@@ -383,6 +388,20 @@ func _build_command_row(row: Dictionary, default_name: String, locked: bool) -> 
 		content.add_child(block_button)
 	button.add_child(content)
 	return button
+
+
+# A move row's level badge ("L2"): small text in the row's accent, taps
+# passing through to the row.
+func _build_level_badge(text: String, colour: Color) -> Label:
+	var badge := UI.label(text)
+	badge.name = "LevelBadge"
+	badge.custom_minimum_size.x = 0.0
+	badge.autowrap_mode = TextServer.AUTOWRAP_OFF
+	badge.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	badge.add_theme_font_size_override("font_size", LEVEL_BADGE_FONT_SIZE)
+	badge.add_theme_color_override("font_color", colour)
+	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return badge
 
 
 # A small round button; it takes its own taps, so it works though the row

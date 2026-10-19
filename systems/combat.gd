@@ -663,6 +663,8 @@ static func _start_round_combat(context: String, vein_id, enemies: Array, log_li
 		attack["min"], attack["max"], int(GameData.COMBAT_SPEED_BY_LEVEL[level]))
 	fighter["loadout"] = _round_loadout(player["loadout"]["slots"])
 	fighter["dial"] = _round_dial("")
+	fighter["moveOwner"] = ""
+	fighter["moveLevels"] = MoveLevels.levels_of("")
 	CombatRounds.carry_in(fighter, ActiveEffects.prophets_breath_active(), ActiveEffects.lady_level())
 	combatants.append(fighter)
 	var ally_plans: Array = config.get("allyPlans", [])
@@ -742,8 +744,13 @@ static func _round_ally_combatant(entry: Dictionary) -> Dictionary:
 	ally["loadout"] = _round_loadout(entry.get("slots", []), GameData.LOADOUT["allyExcluded"], [CombatRounds.FAILSAFE])
 	if entry.get("guardAlly", false):
 		ally["kit"] = CombatRounds.KIT_GUARD
-	if str(entry.get("contactId", "")) != "":
-		ally["dial"] = _round_dial(str(entry["contactId"]))
+	var contact_id := str(entry.get("contactId", ""))
+	if contact_id != "":
+		ally["dial"] = _round_dial(contact_id)
+		# A recruit's move levels and XP are its own; anyone else's roll per fight.
+		if GameState.state["contacts"].has(contact_id):
+			ally["moveOwner"] = contact_id
+			ally["moveLevels"] = MoveLevels.levels_of(contact_id)
 	return ally
 
 

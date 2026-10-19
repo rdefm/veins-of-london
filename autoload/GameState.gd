@@ -172,6 +172,8 @@ func new_game_state() -> Dictionary:
 			# Attack bonus + turn-order speed, level-indexed (GameData.
 			# COMBAT_ATTACK_BONUS_BY_LEVEL/COMBAT_SPEED_BY_LEVEL, R§3.7a).
 			"combatSkill": 1, "combatXP": 0,
+			# Per-move { level, xp } (MoveLevels, R§3.7b Move levels).
+			"moveLevels": MoveLevels.new_state(),
 		},
 
 		"world": {
@@ -545,6 +547,8 @@ func _new_contacts_state() -> Dictionary:
 			"combatSpeed": defaults.get("combatSpeed", 0),
 			"koCooldownDays": defaults.get("koCooldownDays", 0),
 			"koCooldownUntilDay": null,
+			# Per-move { level, xp }, same shape as player.moveLevels.
+			"moveLevels": MoveLevels.new_state(),
 			# The contact's own Dial (same shape as player.dial); null until recruited with a grantDial.
 			"dial": null,
 			# Same £-denominated accrual as state.factions[id].tradeProgress,

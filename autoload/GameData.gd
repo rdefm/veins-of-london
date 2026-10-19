@@ -1388,7 +1388,7 @@ func _validate_enemy_levels(levels: Dictionary, level_max: int, errors: Array[St
 # is a recipe with an effectPower curve and a known target type and effect;
 # every archetype names a combat_visuals sprite template.
 func _validate_combat_rounds(cp: Dictionary, skill_curve: Array, recipes: Dictionary, templates: Dictionary, errors: Array[String]) -> void:
-	_require_keys(cp, ["chipMultiplier", "actionsPerRound", "critChance", "levelMax", "allyHealBelow", "allyCrowdEnemies", "allyChipStrikeChance", "fog", "playerBase", "allyBase", "moves", "items", "archetypes", "anger", "statusTurns", "statusBadges", "beatLines", "tooltips"], "combat_rounds", errors)
+	_require_keys(cp, ["chipMultiplier", "actionsPerRound", "critChance", "levelMax", "allyHealBelow", "allyCrowdEnemies", "allyChipStrikeChance", "moveXp", "moveLevelRoll", "fog","playerBase", "allyBase", "moves", "items", "archetypes", "anger", "statusTurns", "statusBadges", "beatLines", "tooltips"], "combat_rounds", errors)
 	for tip_id in cp.get("tooltips", {}).keys():
 		if str(cp["tooltips"][tip_id]).strip_edges() == "":
 			errors.append("combat_rounds.tooltips.%s: must not be empty" % tip_id)
@@ -1419,6 +1419,7 @@ func _validate_combat_rounds(cp: Dictionary, skill_curve: Array, recipes: Dictio
 		if float(crit[level]) < 0.0 or float(crit[level]) > 1.0:
 			errors.append("combat_rounds.critChance[%d]: must be in [0, 1]" % level)
 	_validate_combat_rounds_fog(cp.get("fog", {}), level_max, errors)
+	_validate_combat_rounds_move_levels(cp, level_max, errors)
 	_require_keys(cp.get("playerBase", {}), ["name"], "combat_rounds.playerBase", errors)
 	_validate_combat_rounds_stats(cp.get("allyBase", {}), "combat_rounds.allyBase", errors)
 
@@ -1533,6 +1534,35 @@ func _validate_combat_rounds(cp: Dictionary, skill_curve: Array, recipes: Dictio
 
 
 # The fog-of-war unread-chance curve (CombatRounds.unread_chance()).
+# moveXp: positive resolved/fizzled XP and a levels ladder (index = level
+# 0..levelMax) rising from 0 at level 1; moveLevelRoll: rows of a non-negative
+# `below` and a positive weight.
+func _validate_combat_rounds_move_levels(cp: Dictionary, level_max: int, errors: Array[String]) -> void:
+	var xp: Dictionary = cp.get("moveXp", {})
+	_require_keys(xp, ["resolved", "fizzled", "levels"], "combat_rounds.moveXp", errors)
+	for key in ["resolved", "fizzled"]:
+		if int(xp.get(key, 0)) < 1:
+			errors.append("combat_rounds.moveXp.%s: must be at least 1" % key)
+	var levels: Array = xp.get("levels", [])
+	if levels.size() != level_max + 1:
+		errors.append("combat_rounds.moveXp.levels: expected %d entries (index=level 0..%d)" % [level_max + 1, level_max])
+	elif level_max >= 1 and int(levels[1]) != 0:
+		errors.append("combat_rounds.moveXp.levels[1]: must be 0")
+	for level in range(2, levels.size()):
+		if int(levels[level]) <= int(levels[level - 1]):
+			errors.append("combat_rounds.moveXp.levels[%d]: must rise above the level before" % level)
+	var rows: Array = cp.get("moveLevelRoll", [])
+	if rows.is_empty():
+		errors.append("combat_rounds.moveLevelRoll: must not be empty")
+	for i in range(rows.size()):
+		var path := "combat_rounds.moveLevelRoll[%d]" % i
+		_require_keys(rows[i], ["below", "weight"], path, errors)
+		if int(rows[i].get("below", -1)) < 0:
+			errors.append("%s.below: must be at least 0" % path)
+		if int(rows[i].get("weight", 0)) < 1:
+			errors.append("%s.weight: must be at least 1" % path)
+
+
 func _validate_combat_rounds_fog(fog: Dictionary, level_max: int, errors: Array[String]) -> void:
 	_require_keys(fog, ["unreadChance", "perLevelAbove", "perLevelBelow", "positionMultiplier"], "combat_rounds.fog", errors)
 	var curve: Array = fog.get("unreadChance", [])

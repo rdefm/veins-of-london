@@ -611,9 +611,10 @@ func _move_row(cp: Dictionary, move_id: String) -> Dictionary:
 	var target := _row_target(cp, move_id)
 	var reason := CombatRounds.move_block_reason(cp, move_id, target)
 	var move_name: String = CombatRounds.move(move_id)["name"]
+	var level := int(cp["combatants"][CombatRounds.PLAYER_INDEX].get("moveLevels", {}).get(move_id, 1))
 	return {
 		"name": "MoveRow_%s" % move_id, "iconKind": icons.get(move_id, ""),
-		"label": move_name,
+		"label": move_name, "badge": "L%d" % level,
 		"disabled": reason != "", "disabledReason": reason,
 		"callback": _pick.bind(move_id, target),
 		"tooltip": GameData.COMBAT_ROUNDS["tooltips"].get(move_id, ""),

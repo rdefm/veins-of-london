@@ -19,6 +19,22 @@ func _assert_quote_lines_are_ints(quote: Dictionary, label: String) -> void:
 
 func run() -> void:
 	calendar_start_weekday = 0  # fixtures count days from a Monday day 1
+	run_case("move_levels_backfill_to_l1_and_round_trip_as_ints", func():
+		GameState.reset()
+		var old_save: Dictionary = GameState.deep_copy(GameState.state)
+		old_save["player"].erase("moveLevels")
+		old_save["contacts"]["archie"].erase("moveLevels")
+		var filled: Dictionary = SaveManager.backfill_defaults(old_save)
+		assert_eq(filled["player"]["moveLevels"], MoveLevels.new_state(), "the player's moves at L1 / 0 XP")
+		assert_eq(filled["contacts"]["archie"]["moveLevels"], MoveLevels.new_state(), "a contact's too")
+		GameState.state["player"]["moveLevels"]["strike"] = { "level": 2, "xp": 35 }
+		assert_true(SaveManager.save_to_slot(TEST_SLOT)["ok"])
+		GameState.reset()
+		assert_true(SaveManager.load_from_slot(TEST_SLOT)["ok"])
+		var strike: Dictionary = GameState.state["player"]["moveLevels"]["strike"]
+		assert_eq(strike, { "level": 2, "xp": 35 })
+		assert_eq(typeof(strike["xp"]), TYPE_INT, "xp restored as int")
+	)
 	run_case("ticker_recency_backfills_and_round_trips", func():
 		GameState.reset()
 		var old_save: Dictionary = GameState.deep_copy(GameState.state)

@@ -6,6 +6,7 @@ static func build(container: VBoxContainer, _data: Dictionary) -> void:
 	var has_gym: bool = GameState.state["home"]["rooms"].has("homeGym")
 	container.add_child(UI.heading("Gym", 14))
 	container.add_child(_skill_card(Combat.skill_summary()))
+	container.add_child(_moves_card(MoveLevels.summary("")))
 	if not has_gym:
 		container.add_child(UI.muted_label("Build a Home Gym to get more out of each workout."))
 	container.add_child(_train_button())
@@ -26,6 +27,19 @@ static func _skill_card(s: Dictionary) -> Control:
 	box.add_child(UI.label(stats_text(s["stats"])))
 	if not s["isMax"]:
 		box.add_child(UI.muted_label("Next level: " + stats_text(s["nextStats"])))
+	return c["panel"]
+
+
+# R§3.7b Move levels: each move's level and XP toward the next, grown in fights.
+static func _moves_card(rows: Array) -> Control:
+	var c := MapCardStyle.card(12, 0.0)
+	var box: VBoxContainer = c["content"]
+	box.add_child(UI.label("Moves"))
+	for row in rows:
+		if row["isMax"]:
+			box.add_child(UI.muted_label("%s: Lv%d (max)" % [row["name"], row["level"]]))
+		else:
+			box.add_child(UI.muted_label("%s: Lv%d · %d / %d XP" % [row["name"], row["level"], row["xp"], row["xpNext"]]))
 	return c["panel"]
 
 

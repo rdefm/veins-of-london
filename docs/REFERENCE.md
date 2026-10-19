@@ -465,6 +465,7 @@ state = {
     craftingSkill: 1, craftingXP: 0,
     cultivatingSkill: 1, cultivatingXP: 0,
     combatSkill: 1, combatXP: 0,   # §3.7a: attack bonus + turn-order speed, both level-indexed
+    moveLevels: { strike:{level:1, xp:0}, guard:{…}, feint:{…}, stun:{…}, legIt:{…} },   # §3.7b Move levels; every contact carries the same key
     # day-rhythm-business-and-combat ticket 22, business-spec.md "Inventory":
     # the personal stash -- a second ore/crafted-item pool no business
     # system (contracts, Sales, Production, Procurement) can touch, since
@@ -885,7 +886,9 @@ Items and Dial casts cost 1 action and leave guard state unchanged (except Shiel
 
 **KO and outcome.** Win = all active and queued enemies KO'd. Player KO (after Failsafe/guard rewind fail) per §3.7a Player KO: the player's actions drop, allies fight on unpaused, loss when no friendly stands; player `hp = round(hpMax × 0.1)` after. Fled = successful Leg it or Wormhole. **Reinforcements:** a KO'd active fighter's place is taken by the next same-side queue entry at the next round boundary (a round with no enemy left standing and enemies queued ends at once, its remaining actions dropped); the entrant plans from that round (enemy: pattern + fog as usual).
 
-**XP.** One lump per fight, at `exit_combat()`: win 30 Combat XP, loss 3, fled 0. No per-action XP. Train/Gym unchanged (§3.7a).
+**XP.** One lump per fight, at `exit_combat()`: win 30 Combat XP, loss 3, fled 0. No per-action Combat XP (move XP below). Train/Gym unchanged (§3.7a).
+
+**Move levels.** Every combatant has a level 1–5 per move (strike, guard, feint, stun, legIt; combatant `moveLevels`), beside Combat Skill. No stat effects yet. **Player and contacts** keep a persistent record, `player.moveLevels` / `contacts[id].moveLevels` = `{ moveId: { level, xp } }` (`MoveLevels`, `systems/move_levels.gd`; old saves backfill L1 / 0 XP); a recruit fights on its own (combatant `moveOwner` = `""` player or the contact id). Each of its own resolved move actions gives `moveXp.resolved` 10 XP, a fizzled one (first beat `fizzle`: Stun on a Guarded target) `moveXp.fizzled` 4; items, Dial casts, lost/frozen actions and Panic/Rapture turns give none. Cumulative thresholds `moveXp.levels` = [_, 0, 30, 90, 200, 400], cap `levelMax`. XP lands on the persistent record as the action resolves, outside the fight dict, so Rewind never undoes it (owned fighters' fight levels re-read the record after a restore). A level-up beats `levelUp` (transcript line) and posts one Notification with the same line. **Everyone else** (enemies, Hired Guard, Firm muscle, debug allies) rolls fixed levels at `open_fight()`, active and queued alike, off the fight seed (`MOVE_LEVEL_SEED_SALT` stream): per move its Combat Skill level at weight 50, one below 30, two below 20 (`moveLevelRoll`), min 1. Shown on Profile (skills card; a recruit's on its loadout card), the Gym, and as an `L#` badge on each Fight-list row.
 
 **Enemy kits** (raider kit, enemy capabilities) and **guard kits / ally slots**: table 5. **Anger/fury, Panic, Rapture, Wormhole, disarm**: table 4.
 

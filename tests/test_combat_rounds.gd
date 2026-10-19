@@ -1308,7 +1308,9 @@ func run() -> void:
 		assert_eq(_fight_state(combat), before_first, "two back: that round's plans, fog marks and RNG states")
 		assert_eq(GameState.state["player"]["loadout"]["slots"], [null, null], "the first Rewind's unit stays spent too")
 		assert_eq(Combat.round_rewind_block_reason(), Combat.REASON_NOTHING_TO_UNDO, "cap 2")
-		assert_eq(Combat.choose_move("guard")["beats"], first["beats"], "the same pick replays the same rolls")
+		# Move XP stays earned through the Rewinds, so this third Guard reaches L2.
+		var replay: Array = Combat.choose_move("guard")["beats"].filter(func(b): return b["kind"] != "levelUp")
+		assert_eq(replay, first["beats"], "the same pick replays the same rolls")
 	)
 
 	run_case("rewind_returns_units_spent_since_but_not_its_own", func():
@@ -1839,4 +1841,120 @@ func run() -> void:
 		assert_eq(combat["outcome"], "loss")
 		assert_true(not combat["playerKoed"], "nothing played on")
 		assert_eq(result["beats"].back()["kind"], "ko", "the fight ends on the KO")
+	)
+
+	run_case("move_xp_resolved_use_10_fizzled_use_4", func():
+		GameState.reset()
+		var combat := _start([["guard", "guard"]], 1, 200)
+		var record: Dictionary = GameState.state["player"]["moveLevels"]
+		Combat.choose_move("strike")
+		assert_eq(record["strike"]["xp"], 10, "a resolved Strike")
+		var stun := Combat.choose_move("stun")
+		assert_true(stun["beats"].any(func(b): return b["kind"] == "fizzle" and b["actor"] == CombatRounds.PLAYER_INDEX), "Stun on a Guarded mugger fizzles")
+		assert_eq(record["stun"]["xp"], 4, "a fizzled Stun")
+		assert_eq(record["guard"]["xp"], 0, "untouched moves")
+		assert_eq(combat["combatants"][1]["moveOwner"], null, "the mugger has no record")
+	)
+
+	run_case("move_level_ups_at_the_thresholds_cap_at_5_with_one_notification_and_line", func():
+		GameState.reset()
+		var combat := _start([["guard", "guard"]], 1, 400)
+		var strike: Dictionary = GameState.state["player"]["moveLevels"]["strike"]
+		strike["xp"] = 20
+		var notes_before: int = GameState.state["notifications"].size()
+		var result := Combat.choose_move("strike")
+		var ups: Array = result["beats"].filter(func(b): return b["kind"] == "levelUp")
+		assert_eq(ups.size(), 1, "30 XP reaches L2")
+		assert_eq(strike["level"], 2)
+		assert_eq(combat["combatants"][CombatRounds.PLAYER_INDEX]["moveLevels"]["strike"], 2, "the fight level follows")
+		assert_eq(ups[0]["text"], "Your Strike is coming on. Level 2.")
+		assert_eq(combat["transcript"].count(ups[0]["text"]), 1, "one transcript line")
+		assert_eq(GameState.state["notifications"].size(), notes_before + 1, "one Notification")
+		assert_eq(GameState.state["notifications"].back()["text"], ups[0]["text"])
+		for pair in [[2, 89, 3], [3, 199, 4], [4, 399, 5]]:
+			strike["level"] = pair[0]
+			strike["xp"] = pair[1]
+			Combat.choose_move("strike")
+			assert_eq(strike["level"], pair[2], "L%d at its threshold" % pair[2])
+		Combat.choose_move("strike")
+		assert_eq(strike["level"], 5, "capped at 5")
+		assert_eq(strike["xp"], 419, "XP still counts past the cap")
+		assert_eq(MoveLevels.level_for_xp(29), 1)
+		assert_eq(MoveLevels.level_for_xp(30), 2)
+		assert_eq(MoveLevels.level_for_xp(90), 3)
+		assert_eq(MoveLevels.level_for_xp(200), 4)
+		assert_eq(MoveLevels.level_for_xp(400), 5)
+		assert_eq(MoveLevels.level_for_xp(9999), 5)
+	)
+
+	run_case("rewind_keeps_move_xp_and_levels", func():
+		GameState.reset()
+		GameState.state["player"]["loadout"]["slots"] = [{ "recipe": "rewind", "tier": 1 }, { "recipe": "rewind", "tier": 1 }]
+		Combat._start_round_combat(Combat.CONTEXT_EVENT_MUGGING, null, [_mugger(200)], [], "", [], null,
+			{ "seed": 3, "fog": false, "enemyPlans": [[["guard", "guard"]]] })
+		var combat: Dictionary = GameState.state["combat"]
+		var strike: Dictionary = GameState.state["player"]["moveLevels"]["strike"]
+		strike["xp"] = 20
+		Combat.choose_move("strike")
+		assert_eq(strike["level"], 2)
+		assert_true(Combat.round_rewind()["ok"])
+		assert_eq(strike["xp"], 30, "the XP stays earned")
+		assert_eq(strike["level"], 2, "so does the level")
+		assert_eq(combat["combatants"][CombatRounds.PLAYER_INDEX]["moveLevels"]["strike"], 2, "the fight level comes back from the record")
+		Combat.choose_move("strike")
+		assert_eq(strike["xp"], 40, "replaying the pick earns again")
+	)
+
+	run_case("recruits_earn_move_xp_template_allies_do_not", func():
+		GameState.reset()
+		Combat._start_round_combat(Combat.CONTEXT_EVENT_MUGGING, null, [_mugger(400)], [], "",
+			[Contacts.build_combat_ally("archie"), Combat.build_guard_ally()], null,
+			{ "seed": 1, "fog": false, "enemyPlans": [[["guard", "guard"]]], "allyPlans": [[["guard", "guard"]], [["guard", "guard"]]] })
+		var combat: Dictionary = GameState.state["combat"]
+		for i in range(2):
+			Combat.choose_move("guard")
+		var archie: int = combat["combatants"].find_custom(func(c): return c.get("moveOwner") == "archie")
+		assert_true(archie > 0, "archie fights on his own record")
+		var guards: int = combat["log"].filter(func(b): return b["actor"] == archie and b["kind"] == "guard").size()
+		assert_true(guards > 0, "archie guarded")
+		assert_eq(GameState.state["contacts"]["archie"]["moveLevels"]["guard"]["xp"], guards * 10, "10 per resolved Guard")
+		var hired: Dictionary = combat["combatants"].filter(func(c): return c["side"] == CombatRounds.SIDE_ALLY and c.get("moveOwner") == null)[0]
+		assert_eq(hired["moveLevels"].size(), MoveLevels.move_ids().size(), "the hired guard rolled its levels")
+	)
+
+	run_case("rolled_move_levels_follow_the_weights_seeded", func():
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 42
+		var counts := { 3: 0, 2: 0, 1: 0 }
+		var trials := 2000
+		for i in range(trials):
+			for level in MoveLevels.roll(3, rng).values():
+				counts[level] += 1
+		var total := float(trials * MoveLevels.move_ids().size())
+		assert_true(absf(counts[3] / total - 0.5) < 0.02, "own level ~50%% (%d)" % counts[3])
+		assert_true(absf(counts[2] / total - 0.3) < 0.02, "one below ~30%% (%d)" % counts[2])
+		assert_true(absf(counts[1] / total - 0.2) < 0.02, "two below ~20%% (%d)" % counts[1])
+		for i in range(50):
+			assert_true(MoveLevels.roll(1, rng).values().all(func(l): return l == 1), "minimum 1")
+		GameState.reset()
+		Combat.start_debug_combat({ "context": Combat.CONTEXT_RAID, "enemies": [{ "template": "veinGuard", "level": 4 }], "seed": 9 })
+		var first: Dictionary = GameState.state["combat"]["combatants"][1]["moveLevels"].duplicate()
+		assert_true(first.values().all(func(l): return l >= 2 and l <= 4), "within two below level 4")
+		GameState.reset()
+		Combat.start_debug_combat({ "context": Combat.CONTEXT_RAID, "enemies": [{ "template": "veinGuard", "level": 4 }], "seed": 9 })
+		assert_eq(GameState.state["combat"]["combatants"][1]["moveLevels"], first, "seeded off the fight")
+		assert_eq(GameState.state["combat"]["combatants"][0]["moveLevels"], MoveLevels.levels_of(""), "the player's are its own")
+	)
+
+	run_case("fight_list_rows_carry_a_level_badge", func():
+		var dock := CombatCommandDock.new()
+		dock.configure([{ "name": "MoveRow_strike", "label": "Strike", "badge": "L3" }], [], { "name": "LegIt", "label": "Leg it" })
+		var badge: Label = dock.find_child("LevelBadge", true, false)
+		assert_true(badge != null, "badge drawn")
+		assert_eq(badge.text, "L3")
+		dock.free()
+		GameState.reset()
+		GameState.state["contacts"]["archie"]["moveLevels"]["feint"]["level"] = 3
+		assert_true(ProfileApp.move_levels_text("archie").contains("Feint Lv3"), "a recruit's levels on Profile")
+		assert_eq(MoveLevels.summary("")[0]["xpNext"], 30, "L1 shows the L2 threshold")
 	)

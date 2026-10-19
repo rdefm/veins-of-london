@@ -29,6 +29,8 @@ const GUARD_EFFECTS: Array[String] = [GUARDED, OPEN, UNCHANGED]
 const UNKNOWN := "unknown"
 # Salts the fight seed into the fog stream's seed.
 const FOG_SEED_SALT := 0x5F0C0F06
+# The move-level rolls' own RNG off the fight seed (_roll_move_levels()).
+const MOVE_LEVEL_SEED_SALT := 0x30E1E7E1
 
 const TARGET_SELF := "self"
 const TARGET_ENEMY := "enemy"
@@ -338,6 +340,7 @@ static func open_fight(cp: Dictionary, seed_value: int) -> void:
 	fog_rng.seed = seed_value ^ FOG_SEED_SALT
 	cp["active"] = true
 	cp["round"] = 1
+	_roll_move_levels(cp, seed_value)
 	var combatants: Array = cp["combatants"]
 	var patients: Array = []
 	for i in range(combatants.size()):
@@ -356,12 +359,38 @@ static func open_fight(cp: Dictionary, seed_value: int) -> void:
 	cp["rngState"] = rng.state
 
 
-# Appends `beats` to the fight's log and their lines to its transcript.
+# Every fighter without move levels yet, active or queued, in order: the
+# player all level 1 unless it has an owner's; anyone else with no owner
+# rolls MoveLevels.roll() at its Combat Skill level, off the fight seed.
+static func _roll_move_levels(cp: Dictionary, seed_value: int) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_value ^ MOVE_LEVEL_SEED_SALT
+	var fighters: Array = cp["combatants"].duplicate()
+	for side in [SIDE_ALLY, SIDE_ENEMY]:
+		for entry in cp.get(QUEUE_KEYS[side], []):
+			if entry.has("fighter"):
+				fighters.append(entry["fighter"])
+	for fighter in fighters:
+		if not fighter.get("moveLevels", {}).is_empty():
+			continue
+		if fighter["side"] == SIDE_PLAYER:
+			var levels := {}
+			for move_id in MoveLevels.move_ids():
+				levels[move_id] = 1
+			fighter["moveLevels"] = levels
+		else:
+			fighter["moveLevels"] = MoveLevels.roll(int(fighter["level"]), rng)
+
+
+# Appends `beats` to the fight's log and their lines to its transcript; each
+# move level-up among them also posts its line as a Notification.
 static func _record(cp: Dictionary, beats: Array) -> void:
 	cp["log"].append_array(beats)
 	var transcript: Array = cp["transcript"]
 	for beat in beats:
 		transcript.append(beat["text"])
+		if beat["kind"] == "levelUp":
+			Notify.push(beat["text"], Notify.CATEGORY_SUCCESS)
 
 
 # A combatant at Combat Skill `level` (clamped to 1..levelMax) with these
@@ -423,6 +452,10 @@ static func new_combatant(side: String, name: String, level: int, hp: int, hp_ma
 		# action of the owner counts on actions, for the live layer to
 		# settle (casts, and in-combat Recharge regen).
 		"dial": null,
+		# Its level per move { moveId: level } (R§3.7b Move levels), and whose
+		# persistent record its move XP goes to: "" the player, a contact id,
+		# or null for none (open_fight() then rolls its levels).
+		"moveLevels": {}, "moveOwner": null,
 		"plan": [], "nextPlan": [],
 	}
 
@@ -1518,6 +1551,8 @@ static func _resolve_action(cp: Dictionary, actor_idx: int, action: Dictionary, 
 			_beat(cp, beats, move_id, actor_idx, -1, move_id, {})
 		_:
 			_use_item(cp, actor_idx, action, m, rng, beats)
+	if beats.size() > first_beat and not m.get("item", false):
+		_gain_move_xp(cp, actor_idx, move_id, beats[first_beat]["kind"] == "fizzle", beats)
 	if m["actorGuard"] != UNCHANGED and not actor["koed"]:
 		if m["actorGuard"] == GUARDED and actor["guardFailed"]:
 			actor["guardFailed"] = false
@@ -1525,6 +1560,22 @@ static func _resolve_action(cp: Dictionary, actor_idx: int, action: Dictionary, 
 			actor["guard"] = m["actorGuard"]
 	_tick_anger(cp, actor_idx, beats)
 	_stamp_marks(cp, actor_idx, first_beat, beats)
+
+
+# A move use's XP (MoveLevels.xp_for_use()) to the actor's persistent
+# record, outside the fight dict so a Rewind keeps it; a level-up lifts its
+# fight level too and beats "levelUp" (R§3.7b Move levels). Nothing for a
+# fighter with no owner.
+static func _gain_move_xp(cp: Dictionary, actor_idx: int, move_id: String, fizzled: bool, beats: Array) -> void:
+	var actor: Dictionary = cp["combatants"][actor_idx]
+	var owner = actor.get("moveOwner")
+	if not (owner is String):
+		return
+	var level := MoveLevels.award(owner, move_id, MoveLevels.xp_for_use(fizzled))
+	if level == 0:
+		return
+	actor["moveLevels"][move_id] = level
+	_beat(cp, beats, "levelUp", actor_idx, -1, move_id, { "moveName": move(move_id)["name"], "level": level })
 
 
 # Each of the action's beats from `first_beat` on gets the stage marks as
@@ -1928,6 +1979,8 @@ static func _beat(cp: Dictionary, beats: Array, kind: String, actor: int, target
 		"target": combatants[target]["name"] if target >= 0 else "",
 		"dmg": extra.get("dmg", 0),
 		"amount": extra.get("amount", 0),
+		"moveName": extra.get("moveName", ""),
+		"level": extra.get("level", 0),
 	})
 	if extra.get("crit", false):
 		text += lines["crit"]
@@ -1954,11 +2007,17 @@ static func _push_snapshot(cp: Dictionary, stack_id: String) -> void:
 
 
 # Restores the fight `cp` to the previous decision point with that pick
-# undone (across a round boundary, that round's plans come back too).
+# undone (across a round boundary, that round's plans come back too). Move
+# XP stays earned, so each owned fighter's move levels come back from its
+# record, not the snapshot.
 static func rewind_pick(cp: Dictionary) -> Dictionary:
 	var frame = Snapshots.pop_newest(cp["snapshots"])
 	if frame == null:
 		return { "ok": false, "reason": "Nothing to rewind." }
 	for key in frame.keys():
 		cp[key] = frame[key]
+	for fighter in cp["combatants"]:
+		var owner = fighter.get("moveOwner")
+		if owner is String:
+			fighter["moveLevels"] = MoveLevels.levels_of(owner)
 	return { "ok": true }

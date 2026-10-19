@@ -114,15 +114,17 @@ func run() -> void:
 		var phone := PhoneScreen.new()
 		phone._ready()
 
-		# HP bar + 4 skill bars -- a fresh player is level 1 with 0 XP, so
-		# each skill bar's range is [levels[1], levels[2]] = [0, 80] at 0 XP.
+		# HP bar + 4 skill bars + one per move -- a fresh player is level 1
+		# with 0 XP, so each skill bar's range is [levels[1], levels[2]] =
+		# [0, 80] at 0 XP, each move bar's [0, 30].
 		var bars := phone.find_children("", "ProgressBar", true, false)
-		assert_eq(bars.size(), 5, "HP bar plus one bar per skill")
+		var moves: int = MoveLevels.move_ids().size()
+		assert_eq(bars.size(), 5 + moves, "HP bar plus one bar per skill and per move")
 
-		var skill_bars: Array = bars.slice(1)
-		for b in skill_bars:
-			assert_eq((b as ProgressBar).value, 0.0, "a fresh Lv1/0XP skill sits at the bottom of its bar")
-			assert_eq((b as ProgressBar).max_value, 80.0, "levels[2] - levels[1] = 80 - 0 for crafting/cultivating/stealth/combat")
+		for i in range(1, bars.size()):
+			var b: ProgressBar = bars[i]
+			assert_eq(b.value, 0.0, "a fresh Lv1/0XP skill or move sits at the bottom of its bar")
+			assert_eq(b.max_value, 80.0 if i <= 4 else 30.0, "levels[2] - levels[1]: 80 for crafting/cultivating/stealth/combat, 30 for a move")
 
 		phone.free()
 	)
