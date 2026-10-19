@@ -2,7 +2,7 @@ class_name CombatBlockReasonModal
 extends RefCounted
 
 # Why a combat command row is disabled: data { action, reason }, opened from
-# that row's "?" (CombatCommandDock generic rows).
+# that row's red "!" (CombatCommandDock generic rows).
 
 
 static func build(container: VBoxContainer, data: Dictionary) -> void:

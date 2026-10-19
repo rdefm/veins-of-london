@@ -131,6 +131,33 @@ func run() -> void:
 		locked.free()
 	)
 
+	run_case("a_row_with_a_tooltip_gets_a_question_mark_and_a_disabled_one_also_a_red_bang", func():
+		GameState.reset()
+		var rows: Array = [
+			{ "label": "Stun", "disabled": true, "disabledReason": "No room", "tooltip": "Stuns.", "onExplain": func(): pass },
+			{ "label": "Guard", "disabled": false, "tooltip": "Braces." },
+			{ "label": "Feint", "disabled": false },
+		]
+		var dock := CombatCommandDock.new()
+		dock.configure(rows, [], _leg_it())
+		var fight := _page(dock, "fight")
+		var stun := _button_named(fight, "RowButton_0")
+		assert_eq(_button_named(stun, "TooltipButton").text, "?")
+		assert_eq(_button_named(stun, "ExplainButton").text, "!")
+		var guard := _button_named(fight, "RowButton_1")
+		assert_true(_button_named(guard, "TooltipButton") != null, "enabled row has ?")
+		assert_eq(_button_named(guard, "ExplainButton"), null, "enabled row has no !")
+		assert_eq(_button_named(_button_named(fight, "RowButton_2"), "TooltipButton"), null, "no tooltip, no ?")
+		dock.free()
+	)
+
+	run_case("every_move_and_item_has_a_tooltip_line", func():
+		var cp: Dictionary = GameData.COMBAT_ROUNDS
+		for id in cp["moves"].keys() + cp["items"].keys() + ["rewind"]:
+			if id != "legIt":
+				assert_true(str(cp["tooltips"].get(id, "")) != "", "tooltip for %s" % id)
+	)
+
 	run_case("hide_deck_hides_every_page_and_resets_to_the_grid", func():
 		GameState.reset()
 		var dock := CombatCommandDock.new()

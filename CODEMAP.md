@@ -152,7 +152,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | alarm_presentation.gd | Detects raid alarms; Phone pulse + vibration |
 | app_tile.gd | Normalised icon+label+numeric-count-badge+lock tile for phone launchers |
 | bag_drawer.gd | Global bottom-sheet bag drawer; read-only stock/consumable listing (also during combat; no use buttons, no loadout change); out-of-combat heal + timed-effect Use buttons in management mode |
-| combat_command_dock.gd | Combat's lower command region anchored to screen bottom: a 2×2 grid (Fight, Item, Dial, Leg it) whose first three slide to pages of 1px-ruled caller rows ("?" on disabled ones) + Back, the Dial page holding the Dial and its Complication readout; `configure()`, `show_view()`, `surface_height_for_rows()` |
+| combat_command_dock.gd | Combat's lower command region anchored to screen bottom: a 2×2 grid (Fight, Item, Dial, Leg it) whose first three slide to pages of 1px-ruled caller rows ("?" tooltip popover, red "!" block reason on disabled ones) + Back, the Dial page holding the Dial and its Complication readout; `configure()`, `show_view()`, `surface_height_for_rows()` |
 | combat_director.gd | Combat beat-queue playback director; holds a data-driven pause (combat_visuals pacing.turnPause) between combatants' turns; emits `playing_changed` so screens lock commands during playback; reads the persisted pacing mode (set in the Settings app) |
 | combat_transcript.gd | Fight play-by-play between stage and dock, event-card text styling: one line per state.combat.transcript entry, view pinned to the newest; append/remove-by-text for beat playback and Rewind |
 | combat_stage.gd | Combat pixel stage: backdrop (location->context->palette); slots in two receding diagonal groups, depth-sorted; up to 3 reserves per side + `+N`, sliding in; keypose one-shots, effects, juice layer. Slot taps emit `subject_tapped`; selected slot gets an arrow; per-slot guard marker/shield/freeze/status badges. No GameState reads; target-less effects take a caller fallback |
@@ -222,7 +222,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | movement_swap_modal.gd | Seat a Movement from movementInventory into the Dial |
 | dial_load_complication_modal.gd | Load a crafted complication into the Dial |
 | combat_setup_modal.gd | Debug combat setup: fight type, location override (`location_options()`), fight-only player level, player slot picks (written to real slots via `Loadout.debug_grant()`), enemy count/level + per-enemy template/archetype, contact toggles, 0–2 debug allies (level + slots); requests `CombatPrep.KIND_DEBUG` → `Combat.start_debug_combat()` |
-| combat_block_reason_modal.gd | Why a combat command row is disabled: the action name and its block reason, opened from the row's "?" (combat_rounds.gd) |
+| combat_block_reason_modal.gd | Why a combat command row is disabled: the action name and its block reason, opened from the row's red "!" (combat_rounds.gd) |
 | network_reference_modal.gd | Network Map legend |
 | hq_ore_readout_modal.gd | Ore-store slip with raid-risk stamp + personal-stash move controls, map_card_style.gd-skinned (always light) |
 | hq_gym_modal.gd | Combat skill card (level, XP bar, current + next-level HP/ATK/SPD/actions/crit via `Combat.skill_summary()`) + Train action card |
@@ -264,7 +264,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | approaches.json | Lab apparatus list (names, symbols); lab.gd, GameData.gd |
 | barometer.json | barometer.gd (states/actions/prefs and wire article templates); ticker_app.gd (News branding, state-article headline/deck/body, per-category columnist byline + author note (`categoryBylines`), article/impact labels and category copy; Stock Market list/detail labels and empty states) |
 | collective_barks.json | collective.gd |
-| combat_rounds.json | combat_rounds.gd; combat.gd (playerBase/allyBase names, archetypes, anger); combat_setup_modal.gd (archetypes) |
+| combat_rounds.json | combat_rounds.gd; combat.gd (tooltips for the Fight/Item "?" popovers; playerBase/allyBase names, archetypes, anger); combat_setup_modal.gd (archetypes) |
 | lab.json | lab.gd (procedures with rung-tagged hints, base steps spending the recipe's ingredients; rank thresholds, skillFactor + benchBonusFactors, scoring/XP tuning, gauges + direction words, vague tuning, specificities + insightNote, clue text, bonus, bad-run lines, staffTierCap, lesson escalation thresholds, debug skillMax/refillCalc); GameData.gd validates |
 | recipe_knowledge.json | recipe_knowledge.gd (rung order + rank ceilings, seller ores, shops (unlock flags, gates + lock text, discount, Wren's introduction message), recipe-book ladder strings, prices, source aliases, collision XP/relation/lines, per-recipe master sources, insight odds + lines); GameData.gd validates |
 | combat_visuals.json | combat_stage.gd (locationBackdrops, backdrops, pose sheets, stage.spriteScale, stage.reserve); GameData.gd (territorialVariant pose spec); combat_director.gd (pacing.turnPause); turn_order_strip.gd (cardFrames) |

@@ -616,6 +616,7 @@ func _move_row(cp: Dictionary, move_id: String) -> Dictionary:
 		"label": move_name,
 		"disabled": reason != "", "disabledReason": reason,
 		"callback": _pick.bind(move_id, target),
+		"tooltip": GameData.COMBAT_ROUNDS["tooltips"].get(move_id, ""),
 		"onExplain": _explain_block.bind(move_name, reason),
 	}
 
@@ -639,6 +640,7 @@ func _loadout_rows(cp: Dictionary) -> Array:
 		var reason := Combat.round_rewind_block_reason(Combat.REWIND_PAY_LOADOUT) if is_rewind else Combat.round_item_block_reason(slot, target)
 		rows.append({
 			"name": "ItemRow_%d" % slot, "iconKind": icon, "label": label,
+			"tooltip": GameData.COMBAT_ROUNDS["tooltips"].get(unit["recipe"], "") if unit != null else "",
 			"disabled": reason != "", "disabledReason": reason,
 			"callback": _on_rewind_pressed.bind(Combat.REWIND_PAY_LOADOUT) if is_rewind else _pick_item.bind(slot, target),
 			"onExplain": _explain_block.bind(label, reason),
@@ -646,7 +648,7 @@ func _loadout_rows(cp: Dictionary) -> Array:
 	return rows
 
 
-# A disabled row's "?": the block reason in a modal.
+# A disabled row's red "!": the block reason in a modal.
 func _explain_block(action: String, reason: String) -> void:
 	Modal.open("combat_block_reason", { "action": action, "reason": reason })
 

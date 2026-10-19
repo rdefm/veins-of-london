@@ -1388,7 +1388,10 @@ func _validate_enemy_levels(levels: Dictionary, level_max: int, errors: Array[St
 # is a recipe with an effectPower curve and a known target type and effect;
 # every archetype names a combat_visuals sprite template.
 func _validate_combat_rounds(cp: Dictionary, skill_curve: Array, recipes: Dictionary, templates: Dictionary, errors: Array[String]) -> void:
-	_require_keys(cp, ["chipMultiplier", "actionsPerRound", "critChance", "levelMax", "allyHealBelow", "allyCrowdEnemies", "allyChipStrikeChance", "fog", "playerBase", "allyBase", "moves", "items", "archetypes", "anger", "statusTurns", "statusBadges", "beatLines"], "combat_rounds", errors)
+	_require_keys(cp, ["chipMultiplier", "actionsPerRound", "critChance", "levelMax", "allyHealBelow", "allyCrowdEnemies", "allyChipStrikeChance", "fog", "playerBase", "allyBase", "moves", "items", "archetypes", "anger", "statusTurns", "statusBadges", "beatLines", "tooltips"], "combat_rounds", errors)
+	for tip_id in cp.get("tooltips", {}).keys():
+		if str(cp["tooltips"][tip_id]).strip_edges() == "":
+			errors.append("combat_rounds.tooltips.%s: must not be empty" % tip_id)
 	var heal_below := float(cp.get("allyHealBelow", 0.0))
 	if heal_below <= 0.0 or heal_below > 1.0:
 		errors.append("combat_rounds.allyHealBelow: must be in (0, 1]")

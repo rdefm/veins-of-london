@@ -23,8 +23,10 @@ const COMMAND_DOCK_HEIGHT := DialWidget.WIDGET_SIZE.y
 # as a region of the screen, not a shrink-wrapped card.
 const COMMAND_DOCK_SURFACE_TOP_PADDING := 12.0
 const COMMAND_DOCK_SURFACE_HEIGHT := COMMAND_DOCK_HEIGHT + COMMAND_DOCK_BOTTOM_MARGIN + COMMAND_DOCK_SURFACE_TOP_PADDING
-# Diameter of a disabled row's "?" (see _build_explain_button()).
+# Diameter of a row's "?" / "!" (see _build_round_button()).
 const EXPLAIN_BUTTON_SIZE := 28.0
+const BLOCK_COLOUR := Color("#d8453b")
+const TOOLTIP_WIDTH := 260.0
 const GRID_FONT_SIZE := 24
 const GRID_ICON_SIZE := 48.0
 const PAGE_SLIDE_SECONDS := 0.22
@@ -88,8 +90,9 @@ func _init() -> void:
 
 # Each of `moves` and `items` is a row { name, iconKind, label, disabled,
 # disabledReason, callback, onExplain } (iconKind as _build_row_icon() reads
-# it; disabledReason becomes the row's tooltip; a disabled row with an
-# onExplain callable gets a "?" calling it); `leg_it` is one such row, drawn
+# it; disabledReason becomes the row's tooltip; a row with a `tooltip` line
+# gets a "?" popover; a disabled row with an onExplain callable also gets a
+# red "!" calling it); `leg_it` is one such row, drawn
 # as the grid's fourth button. The Dial page exists only when `dial` isn't
 # null; `on_dial_cast` (index) casts in place of the widget's own.
 func configure(moves: Array, items: Array, leg_it: Dictionary, dial: Variant = null, locked: bool = false, on_dial_cast: Callable = Callable()) -> void:
@@ -252,7 +255,8 @@ func _build_grid_button(row: Dictionary, locked: bool) -> Button:
 	content.add_child(caption)
 	var explain: Callable = row.get("onExplain", Callable())
 	if row.get("disabled", false) and not locked and explain.is_valid():
-		var help := _build_explain_button(explain)
+		var help := _build_round_button("ExplainButton", "!", BLOCK_COLOUR)
+		help.pressed.connect(explain)
 		help.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		content.add_child(help)
 	button.add_child(content)
@@ -367,36 +371,54 @@ func _build_command_row(row: Dictionary, default_name: String, locked: bool) -> 
 	var content := _build_row_content(_build_row_icon(row.get("iconKind", ""), accent), row.get("label", ""), accent)
 	content.offset_left = UI.COMMAND_ROW_MARGIN_H
 	content.offset_right = -UI.COMMAND_ROW_MARGIN_H
+	var tooltip: String = row.get("tooltip", "")
+	if tooltip != "" and not locked:
+		var tip_button := _build_round_button("TooltipButton", "?", accent)
+		tip_button.pressed.connect(_show_tooltip.bind(tip_button, tooltip))
+		content.add_child(tip_button)
 	var explain: Callable = row.get("onExplain", Callable())
 	if row.get("disabled", false) and not locked and explain.is_valid():
-		content.add_child(_build_explain_button(explain))
+		var block_button := _build_round_button("ExplainButton", "!", BLOCK_COLOUR)
+		block_button.pressed.connect(explain)
+		content.add_child(block_button)
 	button.add_child(content)
 	return button
 
 
-
-# The small round "?" on a disabled row; it takes its own taps, so it works
-# though the row Button around it is disabled.
-func _build_explain_button(explain: Callable) -> Button:
-	var help := Button.new()
-	help.name = "ExplainButton"
-	help.text = "?"
-	help.focus_mode = Control.FOCUS_NONE
-	help.mouse_filter = Control.MOUSE_FILTER_STOP
-	help.custom_minimum_size = Vector2(EXPLAIN_BUTTON_SIZE, EXPLAIN_BUTTON_SIZE)
-	help.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	help.add_theme_font_size_override("font_size", 14)
+# A small round button; it takes its own taps, so it works though the row
+# Button around it is disabled.
+func _build_round_button(button_name: String, glyph: String, colour: Color) -> Button:
+	var round_button := Button.new()
+	round_button.name = button_name
+	round_button.text = glyph
+	round_button.focus_mode = Control.FOCUS_NONE
+	round_button.mouse_filter = Control.MOUSE_FILTER_STOP
+	round_button.custom_minimum_size = Vector2(EXPLAIN_BUTTON_SIZE, EXPLAIN_BUTTON_SIZE)
+	round_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	round_button.add_theme_font_size_override("font_size", 14)
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0, 0, 0, 0)
 	style.set_border_width_all(1)
-	style.border_color = UI.ACTION_DISABLED_COLOUR
+	style.border_color = colour
 	style.set_corner_radius_all(int(EXPLAIN_BUTTON_SIZE / 2.0))
 	for state in ["normal", "hover", "pressed", "focus"]:
-		help.add_theme_stylebox_override(state, style)
-	for colour in ["font_color", "font_hover_color", "font_pressed_color"]:
-		help.add_theme_color_override(colour, UI.ACTION_DISABLED_COLOUR)
-	help.pressed.connect(explain)
-	return help
+		round_button.add_theme_stylebox_override(state, style)
+	for font_colour in ["font_color", "font_hover_color", "font_pressed_color"]:
+		round_button.add_theme_color_override(font_colour, colour)
+	return round_button
+
+
+# A "?" popover: one line under its button; a tap anywhere else dismisses it.
+func _show_tooltip(anchor: Control, text: String) -> void:
+	var popup := PopupPanel.new()
+	popup.name = "TooltipPopup"
+	var caption := UI.label(text)
+	caption.custom_minimum_size.x = TOOLTIP_WIDTH
+	popup.add_child(caption)
+	popup.popup_hide.connect(popup.queue_free)
+	add_child(popup)
+	var below := anchor.get_screen_position() + Vector2(0.0, anchor.size.y + 4.0)
+	popup.popup(Rect2i(Vector2i(below), Vector2i.ZERO))
 func _build_row_content(icon: Control, label_text: String, accent: Color) -> HBoxContainer:
 	var row := UI.hbox(10)
 	UI.anchor_full_rect(row)
