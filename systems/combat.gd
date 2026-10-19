@@ -80,7 +80,7 @@ const REASON_ROUND_ITEM_PENDING := "Not usable in this kind of fight yet."
 # PROSE-REVIEW: a rewind unit's loadout row (it pays for the Rewind command).
 const REASON_SLOT_REWIND := "Spent by Rewind."
 const REASON_NO_REWIND := "No rewind available."
-# R§3.7b Rewind: the combat ticker's lines for a Rewind, a Failsafe and an
+# R§3.7b Rewind: the fight transcript's lines for a Rewind, a Failsafe and an
 # ally's rewind; LINE_ALLY_REWIND takes the ally's name.
 const LINE_REWIND := "⟲ Time unspools. The moment resets. Only you remember."
 const LINE_FAILSAFE := "⚑ Failsafe fires. Death, reversed -- administratively."
@@ -643,6 +643,7 @@ static func _start_round_combat(context: String, vein_id, enemies: Array, log_li
 		"dialRewindsPaid": 0,
 		"backdrop": { "context": context, "locationKey": location_key },
 		"fog": bool(config.get("fog", true)),
+		"transcript": log_lines.duplicate(),
 	}, true)
 	combat.merge(live, true)
 	var skill: int = int(player["combatSkill"])
@@ -686,8 +687,6 @@ static func _start_round_combat(context: String, vein_id, enemies: Array, log_li
 	CombatRounds.open_fight(combat, int(config.get("seed", Rng.randi_range(0, 0x7FFFFFFF))))
 	GameState.state["combat"] = combat
 	_settle_round_dials(combat)
-	for line in log_lines:
-		Notify.push(line, Notify.CATEGORY_INFO, { Notify.META_COMBAT_LOG: true })
 	_sync_round_outcome(combat)
 	_enter_combat_screen()
 
@@ -932,7 +931,7 @@ static func _play_round_pick(combat: Dictionary, action: Dictionary) -> Dictiona
 # R§3.7b Failsafe and guard-kit rewind: the player's KO in the pick just
 # played is undone by the player's loadout Failsafe, else by the first
 # ally left standing that holds a rewind (guard kit or recruit slot). Either
-# restores the last-pick snapshot and stays spent. Returns the ticker line,
+# restores the last-pick snapshot and stays spent. Returns the transcript line,
 # or "" when nothing saved the player.
 static func _try_round_save(combat: Dictionary) -> String:
 	if not combat["combatants"][CombatRounds.PLAYER_INDEX]["koed"] or combat["snapshots"].is_empty():
@@ -941,7 +940,7 @@ static func _try_round_save(combat: Dictionary) -> String:
 	if failsafe >= 0:
 		_restore_round_snapshot(combat)
 		Loadout.consume(failsafe)
-		return _push_round_line(LINE_FAILSAFE)
+		return _push_round_line(combat, LINE_FAILSAFE)
 	var allies: Array = combat["allies"]
 	for i in range(allies.size()):
 		var fighter := _round_ally_fighter(combat, i)
@@ -952,12 +951,13 @@ static func _try_round_save(combat: Dictionary) -> String:
 		var pool := _ally_item_pool(combat, ally)
 		_spend_guard_item(pool, "rewind")
 		_sync_ally_slots(ally, pool)
-		return _push_round_line(LINE_ALLY_REWIND % fighter["name"])
+		return _push_round_line(combat, LINE_ALLY_REWIND % fighter["name"])
 	return ""
 
 
-static func _push_round_line(line: String) -> String:
-	Notify.push(line, Notify.CATEGORY_INFO, { Notify.META_COMBAT_LOG: true })
+# Appends `line` to the fight's transcript.
+static func _push_round_line(combat: Dictionary, line: String) -> String:
+	combat["transcript"].append(line)
 	return line
 
 
@@ -1040,7 +1040,7 @@ static func round_rewind() -> Dictionary:
 	else:
 		Dial.cast_complication(Dial.find_loaded_rewind_complication_index())
 		combat["dialRewindsPaid"] = int(combat.get("dialRewindsPaid", 0)) + 1
-	_push_round_line(LINE_REWIND)
+	_push_round_line(combat, LINE_REWIND)
 	_sync_round_outcome(combat)
 	EventBus.state_changed.emit()
 	return { "ok": true }
@@ -1303,7 +1303,7 @@ static func _raid_won() -> void:
 static func idle_state() -> Dictionary:
 	return {
 		"active": false, "context": CONTEXT_RAID, "veinId": null, "enemies": [],
-		"locationKey": "", "log": [], "outcome": null, "onWin": null, "snapshots": [],
+		"locationKey": "", "log": [], "transcript": [], "outcome": null, "onWin": null, "snapshots": [],
 		# Loadout slot indices spent this fight; exit_combat() refills them.
 		"slotsUsed": [],
 		# Allies fighting alongside the player this fight.

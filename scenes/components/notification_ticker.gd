@@ -6,9 +6,8 @@ extends Control
 # GameState.state). Each new message rolls up from below; text wider than the
 # row marquee-scrolls until its end is shown; then it holds HOLD_SECONDS
 # before the next queued message rolls up. With the queue empty the latest
-# message stays, re-running its marquee if it overflows. A message enqueued as
-# transient (a combat-log line) leaves the board on drop_transient(). Taps are the
-# owning TopBar's concern; this node ignores the mouse.
+# message stays, re-running its marquee if it overflows. Taps are the owning
+# TopBar's concern; this node ignores the mouse.
 
 const DOT_SIZE := 2.0
 const ROLL_SECONDS := 0.35
@@ -22,9 +21,7 @@ var phase: Phase = Phase.IDLE
 var current_text: String = ""
 var _previous_text: String = ""
 var _queue: Array[String] = []
-var _queue_transient: Array[bool] = []  # parallel to _queue
 var _queue_keys: Array[String] = []  # parallel to _queue; the source notification id, or ""
-var _current_transient := false
 var _phase_elapsed: float = 0.0
 var _scroll_offset: float = 0.0
 
@@ -46,17 +43,15 @@ func queued() -> Array[String]:
 
 # Puts `text` straight on the board with no animation and clears the queue --
 # for boot and for a wholesale state swap (load/Rewind).
-func show_immediately(text: String, transient: bool = false) -> void:
+func show_immediately(text: String) -> void:
 	_queue.clear()
-	_queue_transient.clear()
 	_queue_keys.clear()
-	_show_now(text.to_upper(), transient)
+	_show_now(text.to_upper())
 
 
 # `key` tags the message for drop_keys() (TopBar passes the notification id).
-func enqueue(text: String, transient: bool = false, key: String = "") -> void:
+func enqueue(text: String, key: String = "") -> void:
 	_queue.append(text.to_upper())
-	_queue_transient.append(transient)
 	_queue_keys.append(key)
 	if phase == Phase.IDLE:
 		_roll_in_next()
@@ -67,35 +62,13 @@ func enqueue(text: String, transient: bool = false, key: String = "") -> void:
 func drop_keys(keys: Dictionary) -> void:
 	for i in range(_queue.size() - 1, -1, -1):
 		if keys.has(_queue_keys[i]):
-			_remove_queued(i)
+			_queue.remove_at(i)
+			_queue_keys.remove_at(i)
 
 
-# Removes every transient message. If one is on the board, the next queued
-# message replaces it with no animation, or `fallback` when the queue is empty.
-func drop_transient(fallback: String) -> void:
-	for i in range(_queue.size() - 1, -1, -1):
-		if _queue_transient[i]:
-			_remove_queued(i)
-	if not _current_transient:
-		return
-	if _queue.is_empty():
-		_show_now(fallback.to_upper(), false)
-	else:
-		_queue_transient.pop_front()
-		_queue_keys.pop_front()
-		_show_now(_queue.pop_front(), false)
-
-
-func _remove_queued(i: int) -> void:
-	_queue.remove_at(i)
-	_queue_transient.remove_at(i)
-	_queue_keys.remove_at(i)
-
-
-func _show_now(text: String, transient: bool) -> void:
+func _show_now(text: String) -> void:
 	_previous_text = ""
 	current_text = text
-	_current_transient = transient
 	if current_text.is_empty():
 		_start_phase(Phase.IDLE)
 	else:
@@ -161,7 +134,6 @@ func _finish_phase() -> void:
 func _roll_in_next() -> void:
 	_previous_text = current_text
 	current_text = _queue.pop_front()
-	_current_transient = _queue_transient.pop_front()
 	_queue_keys.pop_front()
 	_start_phase(Phase.ROLLING)
 

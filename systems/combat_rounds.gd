@@ -142,6 +142,9 @@ static func new_state() -> Dictionary:
 		"fogRngState": 0,
 		# Every resolved beat so far, oldest first (see _beat()).
 		"log": [],
+		# The fight's play-by-play, oldest first: the opening lines, each
+		# beat's text as it's logged, and the Rewind/Failsafe lines.
+		"transcript": [],
 		"snapshots": [],
 		# The stage backdrop: the fight's context and a locationKey (the
 		# combat_visuals locationBackdrops plate; "" for none).
@@ -349,8 +352,16 @@ static func open_fight(cp: Dictionary, seed_value: int) -> void:
 	cp["playerPlan"] = _empty_player_plan(cp)
 	var beats: Array = []
 	_advance(cp, rng, beats)
-	cp["log"].append_array(beats)
+	_record(cp, beats)
 	cp["rngState"] = rng.state
+
+
+# Appends `beats` to the fight's log and their lines to its transcript.
+static func _record(cp: Dictionary, beats: Array) -> void:
+	cp["log"].append_array(beats)
+	var transcript: Array = cp["transcript"]
+	for beat in beats:
+		transcript.append(beat["text"])
 
 
 # A combatant at Combat Skill `level` (clamped to 1..levelMax) with these
@@ -1013,7 +1024,7 @@ static func play_pick(cp: Dictionary, action: Dictionary, stack_id: String) -> D
 	rng.state = cp["rngState"]
 	var beats: Array = []
 	_advance(cp, rng, beats)
-	cp["log"].append_array(beats)
+	_record(cp, beats)
 	cp["rngState"] = rng.state
 	return { "ok": true, "beats": beats, "outcome": cp["outcome"] }
 
@@ -1456,7 +1467,7 @@ static func continue_after_ko(cp: Dictionary) -> Array:
 	var rng := RandomNumberGenerator.new()
 	rng.state = cp["rngState"]
 	_advance(cp, rng, beats)
-	cp["log"].append_array(beats)
+	_record(cp, beats)
 	cp["rngState"] = rng.state
 	return beats
 

@@ -26,6 +26,13 @@ func run() -> void:
 			assert_eq(MainScript.resolve_screen_id(valid_id), valid_id, "%s is already a valid screen id" % valid_id)
 	)
 
+	run_case("the_top_board_hides_on_the_combat_screen_only_among_in_game_screens", func():
+		assert_true(MainScript.TOP_BAR_HIDDEN_SCREENS.has("combat"), "the fight frees the board's space")
+		for screen_id in MainScript.SCREEN_SCRIPTS.keys():
+			if screen_id not in ["title", "intro", "combat"]:
+				assert_true(not MainScript.TOP_BAR_HIDDEN_SCREENS.has(screen_id), "%s keeps the board, so it returns as the fight's exit lands there" % screen_id)
+	)
+
 	run_case("hq_subviews_keep_the_bottom_navigation_dock", func():
 		for screen_id in ["hq_floorplan", "hq_door", "hq_guard_kit", "hq_lab_bench", "hq_dial"]:
 			assert_true(not MainScript.NAV_HIDDEN_SCREENS.has(screen_id), "%s must retain the Phone, Map, and HQ dock so the player can leave it" % screen_id)

@@ -557,6 +557,7 @@ func backfill_defaults(save: Dictionary) -> Dictionary:
 	_backfill_new_home_keys(result, defaults)
 	_backfill_new_sales_keys(result, defaults)
 	_backfill_new_combat_keys(result, defaults)
+	_drop_combat_log_notifications(result)
 	_backfill_new_flag_keys(result, defaults)
 	_backfill_new_business_keys(result, defaults)
 	_backfill_new_barometer_keys(result, defaults)
@@ -667,18 +668,29 @@ func _backfill_new_flag_keys(result: Dictionary, defaults: Dictionary) -> void:
 			flags[key] = defaults["flags"][key]
 
 
-# A round fight (R§3.7b) loads as saved. Anything else loads as a fresh
-# idle dict: no fight on, or a fight with no round combatants, which is
-# dropped and its screen routed home.
+# A round fight (R§3.7b) loads as saved, a transcript seeded from its beat
+# log where it has none. Anything else loads as a fresh idle dict: no fight
+# on, or a fight with no round combatants, which is dropped and its screen
+# routed home.
 func _backfill_new_combat_keys(result: Dictionary, defaults: Dictionary) -> void:
 	if not result.has("combat"):
 		return
 	var combat: Dictionary = result["combat"]
 	if combat.get("active", false) and combat.has("combatants"):
+		if not combat.has("transcript"):
+			combat["transcript"] = combat.get("log", []).map(func(beat: Dictionary) -> String: return str(beat.get("text", "")))
 		return
 	if combat.get("active", false) and result.get("currentScreen", "") == "combat":
 		result["currentScreen"] = "phone"
 	result["combat"] = defaults["combat"].duplicate(true)
+
+
+# Fight lines live in combat.transcript; a save's combat-log notifications
+# (flagged "combatLog") are dropped.
+func _drop_combat_log_notifications(result: Dictionary) -> void:
+	var notifications: Variant = result.get("notifications")
+	if notifications is Array:
+		result["notifications"] = notifications.filter(func(n) -> bool: return not (n is Dictionary and n.get("combatLog", false)))
 
 
 func _backfill_new_sales_keys(result: Dictionary, defaults: Dictionary) -> void:

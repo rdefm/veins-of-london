@@ -7,7 +7,8 @@ const RaidAlarmsSystem := preload("res://systems/raid_alarms.gd")
 # whose face carries the two status lines (DotMatrixBoard) and a one-message
 # NotificationTicker below them. Which notifications reach the ticker, and
 # when, is decided here; the ticker's queue is presentation-only. Tapping the
-# board opens the Phone's Notifications app, except during combat.
+# board opens the Phone's Notifications app. Main hides the board on the
+# combat screen.
 
 const BAR_HEIGHT := 80.0
 const STATUS_DOT_SIZE := 2.0
@@ -27,8 +28,7 @@ var _base_reserved_right := 0.0
 var _initialized := false
 var _last_notification_id: String = ""
 var _last_alarm_count := 0
-var _held: Array[Dictionary] = []  # { text, key } non-combat messages raised mid-fight, released when it ends
-var _was_combat_active := false
+var _held: Array[Dictionary] = []  # { text, key } messages raised mid-fight, released when it ends
 
 
 func _ready() -> void:
@@ -160,43 +160,36 @@ static func _effect_chip(item: String) -> Control:
 	return rect
 
 
-# Feeds the ticker every notification pushed since the last sync. During
-# combat only combat-log lines go straight through (ui-vision.md §5); the
-# rest are held until the fight ends. Combat-log lines exist on the board
-# only while their fight runs: they are dropped when it ends and never shown
-# outside one. A notifications list missing the last one seen (boot, load,
-# Rewind, new game) resets the board to the latest eligible notification
-# with no animation.
+# Feeds the ticker every notification pushed since the last sync; those
+# raised during combat are held until the fight ends (ui-vision.md §5). A
+# notifications list missing the last one seen (boot, load, Rewind, new game)
+# resets the board to the latest notification with no animation.
 func _sync_ticker() -> void:
 	var combat_active := in_combat()
 	var notifications: Array = GameState.state["notifications"]
 	var start := _first_unseen_index(notifications)
 	if start < 0:
 		_held.clear()
-		_ticker.show_immediately(_latest_eligible_text(notifications, combat_active), combat_active)
+		_ticker.show_immediately("" if notifications.is_empty() else notifications.back()["text"])
 	else:
 		for i in range(start, notifications.size()):
-			var notification: Dictionary = notifications[i]
-			_route(notification["text"], notification.get(Notify.META_COMBAT_LOG, false), combat_active, str(notification["id"]))
+			_route(notifications[i]["text"], combat_active, str(notifications[i]["id"]))
 	_last_notification_id = str(notifications.back()["id"]) if not notifications.is_empty() else ""
 
 	var alarm_count := RaidAlarmsSystem.count()
 	if _initialized and alarm_count > _last_alarm_count:
-		_route("RAID ALARM%s ×%d — PHONE" % ["S" if alarm_count != 1 else "", alarm_count], false, combat_active)
+		_route("RAID ALARM%s ×%d — PHONE" % ["S" if alarm_count != 1 else "", alarm_count], combat_active)
 	_last_alarm_count = alarm_count
 
 	_drop_seen(notifications)
 	if not combat_active and not _held.is_empty():
 		for held in _held:
-			_ticker.enqueue(held["text"], false, held["key"])
+			_ticker.enqueue(held["text"], held["key"])
 		_held.clear()
-	if _was_combat_active and not combat_active:
-		_ticker.drop_transient(_latest_eligible_text(notifications, false))
-	_was_combat_active = combat_active
 	_initialized = true
 
 
-# A live fight routes the ticker as combat.
+# A live fight holds the ticker.
 static func in_combat() -> bool:
 	return GameState.state["combat"]["active"]
 
@@ -212,14 +205,11 @@ func _first_unseen_index(notifications: Array) -> int:
 	return -1
 
 
-func _route(text: String, is_combat_log: bool, combat_active: bool, key: String = "") -> void:
-	if is_combat_log:
-		if combat_active:
-			_ticker.enqueue(text, true, key)
-	elif combat_active:
+func _route(text: String, combat_active: bool, key: String = "") -> void:
+	if combat_active:
 		_held.append({ "text": text, "key": key })
 	else:
-		_ticker.enqueue(text, false, key)
+		_ticker.enqueue(text, key)
 
 
 # A notification marked seen (e.g. a Messages per-contact clear) drops its
@@ -237,14 +227,6 @@ func _drop_seen(notifications: Array) -> void:
 			_held.remove_at(i)
 
 
-# In combat, the latest combat-log line; outside it, the latest other one.
-static func _latest_eligible_text(notifications: Array, combat_active: bool) -> String:
-	for i in range(notifications.size() - 1, -1, -1):
-		if notifications[i].get(Notify.META_COMBAT_LOG, false) == combat_active:
-			return notifications[i]["text"]
-	return ""
-
-
 func _gui_input(event: InputEvent) -> void:
 	if (event is InputEventMouseButton or event is InputEventScreenTouch) and event.pressed \
 			and not TouchInput.is_emulated_mouse(event):
@@ -258,12 +240,9 @@ static func open_notifications_log() -> bool:
 	if in_combat():
 		return false
 	var notifications: Array = GameState.state["notifications"]
-	for i in range(notifications.size() - 1, -1, -1):
-		if not notifications[i].get(Notify.META_COMBAT_LOG, false):
-			if GuardUpkeep.is_pending_shortfall_notification(notifications[i]):
-				PhoneNav.open_short_pay()
-				return true
-			break
+	if not notifications.is_empty() and GuardUpkeep.is_pending_shortfall_notification(notifications.back()):
+		PhoneNav.open_short_pay()
+		return true
 	Nav.go_to("phone")
 	PhoneNav.open_app("notifications")
 	return true

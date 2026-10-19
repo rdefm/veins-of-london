@@ -130,10 +130,11 @@ func _actor_beats(beats: Array, actor: int, kinds: Array) -> Array:
 
 
 # The fight as a Rewind restores it: everything but the snapshot stack, the
-# per-pick loadout copy and the used slots (the Rewinds' own payments).
+# per-pick loadout copy, the used slots (the Rewinds' own payments) and the
+# transcript (which gains each Rewind's line).
 func _fight_state(combat: Dictionary) -> Dictionary:
 	var state: Dictionary = combat.duplicate(true)
-	for key in ["snapshots", "loadoutSlots", "slotsUsed"]:
+	for key in ["snapshots", "loadoutSlots", "slotsUsed", "transcript"]:
 		state.erase(key)
 	return state
 

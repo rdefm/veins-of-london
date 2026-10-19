@@ -9,10 +9,11 @@ extends Control
 # TurnOrderStrip over the stage showing the next STRIP_SIZE actions as a
 # carousel (strip_entries(), carousel_entries()), and a CombatDirector
 # playing each pick's beats (beat_cues()) on the stage and strip with the
-# dock locked, each beat's line to the top-bar ticker, a guard marker on
-# every sprite, at the Settings app's pacing; Rewind plays the undone beats back in
-# reverse. A Readouts window holds the text views: combatants with guard
-# preview and statuses, the round's timeline with enemy intents, and the
+# dock locked, a guard marker on every sprite, at the Settings app's pacing;
+# Rewind plays the undone beats back in reverse. A CombatTranscript between
+# stage and dock shows state.combat.transcript, each beat's line landing as
+# it plays and leaving as it's rewound. A Readouts window holds the text
+# views: combatants with guard preview and statuses, the round's timeline with enemy intents, and the
 # beat log. Picks go through Combat.choose_move() / choose_item(), Dial
 # casts through Combat.cast_round_complication(), Rewind through
 # Combat.round_rewind() (its refusal shown as a pick's is), and the outcome
@@ -25,6 +26,7 @@ const UNREAD_TEXT := "?"
 const _HEADING_ROW_HEIGHT := 40.0
 const _STRIP_TOP_INSET := 6.0
 const _STRIP_SIDE_INSET := 9.0
+const _TRANSCRIPT_SIDE_INSET := 8.0
 # How many upcoming actions the strip's carousel holds.
 const STRIP_SIZE := 10
 # Beat kinds that play nothing past the guard overlay their marks set.
@@ -58,6 +60,9 @@ var _strip_playback: Dictionary = {}
 # The stage marks (CombatRounds.stage_marks()) the overlay holds while a
 # playback runs, as the fight stood before it; [] otherwise.
 var _held_marks: Array = []
+# Set for the length of one playback: the transcript holds the lines it
+# showed before it, gaining or losing one per beat, rather than re-syncing.
+var _transcript_held := false
 
 var _fight_body: Control
 var _round_label: Label
@@ -70,6 +75,7 @@ var _footer_holder: VBoxContainer
 var _readouts_panel: Control
 var _readouts_content: VBoxContainer
 var _dock: CombatCommandDock
+var _transcript: CombatTranscript
 var _director: CombatDirector
 
 
@@ -93,11 +99,13 @@ func _refresh() -> void:
 
 
 # Heading row (Rewind, Readouts, round), the upper region (stage, the
-# outcome footer and the Readouts window over it) and the command dock.
+# outcome footer and the Readouts window over it), the transcript and the
+# command dock. Main hides the top board in combat, so the body starts
+# under the safe area.
 func _build_fight_layout() -> void:
 	_fight_body = Control.new()
 	UI.anchor_full_rect(_fight_body)
-	_fight_body.offset_top = UI.top_bar_clearance()
+	_fight_body.offset_top = UI.safe_area_top_inset()
 	add_child(_fight_body)
 
 	_director = CombatDirector.new()
@@ -124,7 +132,6 @@ func _build_fight_layout() -> void:
 	_upper_region.anchor_right = 1.0
 	_upper_region.anchor_bottom = 1.0
 	_upper_region.offset_top = _HEADING_ROW_HEIGHT
-	_upper_region.offset_bottom = -CombatCommandDock.COMMAND_DOCK_SURFACE_HEIGHT
 	_upper_region.mouse_filter = Control.MOUSE_FILTER_PASS
 	_fight_body.add_child(_upper_region)
 
@@ -178,8 +185,23 @@ func _build_fight_layout() -> void:
 	margin.add_child(_readouts_content)
 	_upper_region.add_child(_readouts_panel)
 
+	_transcript = CombatTranscript.new()
+	_transcript.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	_transcript.offset_left = _TRANSCRIPT_SIDE_INSET
+	_transcript.offset_right = -_TRANSCRIPT_SIDE_INSET
+	_fight_body.add_child(_transcript)
+	_place_transcript(CombatCommandDock.COMMAND_DOCK_SURFACE_HEIGHT)
+
 	_dock = CombatCommandDock.new()
 	_fight_body.add_child(_dock)
+
+
+# The transcript sits right on the dock's top edge, the stage region ending
+# on its own.
+func _place_transcript(dock_height: float) -> void:
+	_transcript.offset_bottom = -dock_height
+	_transcript.offset_top = -dock_height - CombatTranscript.HEIGHT
+	_upper_region.offset_bottom = _transcript.offset_top
 
 
 # Off-tree the region never gets a size, so the stage keeps its fallback.
@@ -221,7 +243,9 @@ func _sync_fight(cp: Dictionary) -> void:
 	# The Dial's Complication readout heads the rows.
 	var dock_height := CombatCommandDock.surface_height_for_rows(rows.size() + (1 if dial != null else 0))
 	_dock.offset_top = -dock_height
-	_upper_region.offset_bottom = -dock_height
+	_place_transcript(dock_height)
+	if not _transcript_held:
+		_transcript.set_lines(cp["transcript"])
 	if cp["outcome"] != null and not _busy():
 		_footer_holder.add_child(_build_outcome_card(cp["outcome"]))
 		_dock.hide_deck()
@@ -449,6 +473,7 @@ func begin_rewind_playback() -> Array:
 	var cp: Dictionary = _cp()
 	var log_before: Array = cp["log"]
 	_held_marks = CombatRounds.stage_marks(cp)
+	_transcript_held = true
 	var entries := strip_entries(cp)
 	for entry in entries:
 		entry["focused"] = false
@@ -761,6 +786,7 @@ func _resolve(choose: Callable, pick: Dictionary) -> void:
 		"playerKoed": roster["player"]["koed"],
 	}
 	_held_marks = CombatRounds.stage_marks(cp)
+	_transcript_held = true
 	var round_no: int = cp["round"]
 	var before: Array = [] if CombatRounds.move(pick["move"]).is_empty() else strip_entries(cp, pick)
 	var result: Dictionary = choose.call()
@@ -768,6 +794,7 @@ func _resolve(choose: Callable, pick: Dictionary) -> void:
 		_refusal = str(result["reason"])
 		_frozen_roster = {}
 		_held_marks = []
+		_transcript_held = false
 		_refresh()
 		return
 	begin_strip_playback(before, round_no, result["beats"])
@@ -811,6 +838,7 @@ func _end_playback() -> void:
 	_frozen_roster = {}
 	_strip_playback = {}
 	_held_marks = []
+	_transcript_held = false
 	_strip.clear_ghosts()
 	_refresh()
 
@@ -887,13 +915,13 @@ func _patch_strip_entry(entries: Array, playing: int, beat: Dictionary) -> void:
 				entries[i]["actionText"] = "Down"
 
 
-# A beat as it plays: its line to the top-bar ticker (as a combat log line),
-# the strip, the guard overlay to the beat's marks, then its cues.
+# A beat as it plays: its line to the transcript, the strip, the guard
+# overlay to the beat's marks, then its cues.
 func _on_beat_played(beat: Dictionary) -> void:
 	if beat["kind"] == _SETTLE_KIND:
 		_settle_strip()
 		return
-	Notify.push(beat["text"], Notify.CATEGORY_INFO, { Notify.META_COMBAT_LOG: true })
+	_transcript.append_line(beat["text"])
 	_advance_strip(beat)
 	var cp: Dictionary = _cp()
 	if beat.has("marks"):
@@ -906,9 +934,11 @@ func _on_beat_played(beat: Dictionary) -> void:
 		_play_cue(cp, cue, false)
 
 
-# A rewound beat: the strip's focus steps back, the overlay and the strip's
-# hp return to how they stood before it, and its cues play undone.
+# A rewound beat: its transcript line goes, the strip's focus steps back, the
+# overlay and the strip's hp return to how they stood before it, and its cues
+# play undone.
 func _on_rewind_beat_played(beat: Dictionary) -> void:
+	_transcript.remove_last(beat["text"])
 	_advance_strip(beat, false)
 	var cp: Dictionary = _cp()
 	_apply_marks(cp, beat["marksBefore"])

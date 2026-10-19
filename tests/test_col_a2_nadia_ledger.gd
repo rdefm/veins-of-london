@@ -20,9 +20,9 @@ func _nadia_raid(vein_id: String) -> Dictionary:
 	return {}
 
 
-# The intro lines the latest fight start pushed, from notification `from` on.
-func _intro_lines(from: int) -> Array:
-	return GameState.state["notifications"].slice(from).filter(func(n): return n.get(Notify.META_COMBAT_LOG, false)).map(func(n): return n["text"])
+# The latest fight's transcript, its intro lines first.
+func _intro_lines() -> Array:
+	return GameState.state["combat"]["transcript"]
 
 
 func run() -> void:
@@ -219,15 +219,13 @@ func run() -> void:
 		GameState.state["player"]["veins"] = [vein]
 		GameState.state["collective"]["nadiaDefendVeinId"] = "v1"
 
-		var from: int = GameState.state["notifications"].size()
 		Combat.start_defend_vein("v1", 10)
-		var log: Array = _intro_lines(from)
+		var log: Array = _intro_lines()
 		assert_true(log[0].begins_with("Nadia,"), "the reminder is prepended ahead of the fight's own opening line")
 		assert_true(GameState.state["flags"]["colA2DefendReminderShown"])
 
-		from = GameState.state["notifications"].size()
 		Combat.start_defend_vein("v1", 10)
-		var log2: Array = _intro_lines(from)
+		var log2: Array = _intro_lines()
 		assert_true(not log2[0].begins_with("Nadia,"), "must not repeat once already shown")
 	)
 
@@ -237,8 +235,7 @@ func run() -> void:
 		GameState.state["player"]["veins"] = [vein]
 		GameState.state["collective"]["nadiaDefendVeinId"] = "v1"
 
-		var from: int = GameState.state["notifications"].size()
 		Combat.start_defend_vein("v_other", 10)
-		var log: Array = _intro_lines(from)
+		var log: Array = _intro_lines()
 		assert_true(not log[0].begins_with("Nadia,"))
 	)

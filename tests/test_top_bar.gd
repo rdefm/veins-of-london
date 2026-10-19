@@ -297,18 +297,17 @@ func run() -> void:
 		bar.free()
 	)
 
-	run_case("non_combat_notifications_hold_during_combat_and_release_in_order_after", func():
+	run_case("notifications_hold_during_combat_and_release_in_order_after", func():
 		GameState.reset()
 		var bar := TopBar.new()
 		bar._ready()
 		GameState.state["combat"]["active"] = true
 
 		Notify.push("Held 1.")
-		Notify.push("Scrapper hits you for 4.", Notify.CATEGORY_INFO, { Notify.META_COMBAT_LOG: true })
 		Notify.push("Held 2.")
 
-		assert_eq(bar._ticker.current_text, "SCRAPPER HITS YOU FOR 4.", "combat-log lines go straight through")
-		assert_eq(bar._ticker.queued(), [] as Array[String], "everything else holds")
+		assert_eq(bar._ticker.current_text, "", "nothing reaches the board mid-fight")
+		assert_eq(bar._ticker.queued(), [] as Array[String], "everything holds")
 
 		GameState.state["combat"]["active"] = false
 		EventBus.state_changed.emit()
@@ -319,88 +318,31 @@ func run() -> void:
 		bar.free()
 	)
 
-	run_case("combat_log_lines_leave_the_board_when_the_fight_ends", func():
-		GameState.reset()
-		var bar := TopBar.new()
-		bar._ready()
-		bar._ticker.size = Vector2(2000, NotificationTicker.row_height())
-		Notify.push("Before the fight.")
-		bar._ticker.advance(60.0)
-		GameState.state["combat"]["active"] = true
-		Notify.push("You attack - 3 damage.", Notify.CATEGORY_INFO, { Notify.META_COMBAT_LOG: true })
-		Notify.push("Enemy: 2/29 HP.", Notify.CATEGORY_INFO, { Notify.META_COMBAT_LOG: true })
-		assert_eq(bar._ticker.current_text, "YOU ATTACK - 3 DAMAGE.")
-		assert_eq(bar._ticker.queued(), ["ENEMY: 2/29 HP."] as Array[String])
-
-		GameState.state["combat"]["active"] = false
-		EventBus.state_changed.emit()
-
-		assert_eq(bar._ticker.current_text, "BEFORE THE FIGHT.", "the board falls back to the latest non-combat notification")
-		assert_eq(bar._ticker.queued(), [] as Array[String], "queued combat lines are dropped")
-		bar._ticker.advance(60.0)
-		assert_eq(bar._ticker.current_text, "BEFORE THE FIGHT.")
-
-		bar.free()
-	)
-
-	run_case("held_messages_replace_the_combat_line_when_the_fight_ends", func():
-		GameState.reset()
-		var bar := TopBar.new()
-		bar._ready()
-		GameState.state["combat"]["active"] = true
-		Notify.push("You attack - 3 damage.", Notify.CATEGORY_INFO, { Notify.META_COMBAT_LOG: true })
-		Notify.push("Held 1.")
-		Notify.push("Held 2.")
-
-		GameState.state["combat"]["active"] = false
-		EventBus.state_changed.emit()
-
-		assert_eq(bar._ticker.current_text, "HELD 1.")
-		assert_eq(bar._ticker.queued(), ["HELD 2."] as Array[String])
-
-		bar.free()
-	)
-
-	run_case("a_load_outside_combat_never_shows_a_saved_combat_log_line", func():
+	run_case("a_load_drops_a_saved_combat_log_notification", func():
 		GameState.reset()
 		Notify.push("Before the fight.")
-		Notify.push("You attack - 3 damage.", Notify.CATEGORY_INFO, { Notify.META_COMBAT_LOG: true })
+		Notify.push("You attack - 3 damage.", Notify.CATEGORY_INFO, { "combatLog": true })
 		var saved := SaveManager.export_string()
 		var bar := TopBar.new()
 		bar._ready()
 
-		assert_eq(bar._ticker.current_text, "BEFORE THE FIGHT.", "boot skips it")
 		SaveManager.import_string(saved)
-		assert_eq(bar._ticker.current_text, "BEFORE THE FIGHT.", "load skips it")
+
+		assert_eq(bar._ticker.current_text, "BEFORE THE FIGHT.")
+		assert_eq(GameState.state["notifications"].map(func(n): return n["text"]), ["Before the fight."])
 
 		bar.free()
 	)
 
-	run_case("a_combat_log_line_pushed_outside_combat_never_reaches_the_board", func():
+	run_case("a_fight_never_pushes_a_notification", func():
 		GameState.reset()
-		var bar := TopBar.new()
-		bar._ready()
+		var before: int = GameState.state["notifications"].size()
 
-		Notify.push("You attack - 3 damage.", Notify.CATEGORY_INFO, { Notify.META_COMBAT_LOG: true })
+		Combat.start_raid("no_such_vein", 1)
+		assert_true(Combat.choose_move(CombatRounds.MOVE_STRIKE)["ok"])
 
-		assert_eq(bar._ticker.current_text, "")
-		assert_eq(bar._ticker.queued(), [] as Array[String])
-
-		bar.free()
-	)
-
-	run_case("booting_mid_combat_shows_only_the_latest_combat_log_line", func():
-		GameState.reset()
-		GameState.state["combat"]["active"] = true
-		Notify.push("Beat one.", Notify.CATEGORY_INFO, { Notify.META_COMBAT_LOG: true })
-		Notify.push("An unrelated notification.")
-
-		var bar := TopBar.new()
-		bar._ready()
-
-		assert_eq(bar._ticker.current_text, "BEAT ONE.")
-
-		bar.free()
+		assert_eq(GameState.state["notifications"].size(), before, "fight lines go to the transcript")
+		assert_true(GameState.state["combat"]["transcript"].size() > 1, "the intro and the pick's beats are in it")
 	)
 
 	run_case("tapping_the_board_opens_the_phones_notifications_app", func():

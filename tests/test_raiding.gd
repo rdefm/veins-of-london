@@ -1762,7 +1762,9 @@ func run() -> void:
 
 		var combat: Dictionary = GameState.state["combat"]
 		assert_eq([combat["context"], combat["enemies"].size(), combat["stockpileFactionId"]], [Combat.CONTEXT_EVENT_RAID, 2, "firm"])
-		assert_eq(combat["raiderKit"]["reserved"], { "shield": { "2": 2 } }, "the defend kit, highest tier first, reserved for the round's plans")
+		assert_eq(combat["raiderKit"]["items"]["shield"].keys(), ["2"], "the defend kit, highest tier first")
+		for recipe_key in combat["raiderKit"]["reserved"]:
+			assert_eq([recipe_key, combat["raiderKit"]["reserved"][recipe_key].keys()], ["shield", ["2"]], "the round's plans reserve from that kit")
 		assert_eq(combat["locationKey"], GameState.state["factions"]["firm"]["stockpile"]["district"])
 	)
 

@@ -24,7 +24,7 @@ const RETIRED_SCREEN_IDS := {
 	"guild_marketplace": "map", "firm_shop": "map", "network_shop": "map", "conclave_shop": "map",
 }
 const NAV_HIDDEN_SCREENS := ["title", "intro", "event", "combat", "combat_prep"]
-const TOP_BAR_HIDDEN_SCREENS := ["title", "intro"]
+const TOP_BAR_HIDDEN_SCREENS := ["title", "intro", "combat"]
 
 var screen_container: Control
 var nav_bar: Control

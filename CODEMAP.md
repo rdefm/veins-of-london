@@ -36,7 +36,7 @@ Data file per system: see `data/*.json` below.
 | lab.gd | `state.lab` knowledge (`grant_*`), `known_procedure`, bands, `pending_step`, manual run on real calc (`add_ore`, `perform_*`, `finish_run`, crack/abandon), scoring, clues, re-run bonus, Lady/Breath, `lab_run_completed` hook, `batch`, `rewind`, `item_tier`/`staff_item_tier`, `base_calc`, Debug tools (skill override, revoke, best rank, refill calc). Spec: .scratch/lab-port/spec.md |
 | lesson_session.gd | Locked bench lesson (`state.lab.lesson`, `start_lesson_session` op): pool calc for runs, failed-run refill + escalation (hint exact, talk-through; optional per-lesson `lines`), `resume()` back to the paused event. Lab, Nav, Rewind and the bench gate on it. Spec: .scratch/recipe-acquisition/spec.md |
 | recipe_knowledge.gd | Recipe knowledge ladder over Lab: rung states (base/hint1/hint2/master), `rank_ceiling`, `seller_of`, buying (`gate_met`, `price`, `buy`), `master_source`, `ladder_rows`, `grant_rung` (+ op) with collision fallback, `roll_insight`, `maybe_queue_introductions` (daily tick: Wren's next-day message). Spec: .scratch/recipe-acquisition/spec.md |
-| combat_rounds.gd | CombatRounds: Open/Guarded rules core on any passed-in combat dict (R§3.7b), driven by Combat. Seeded plans + fog, AI allies, six moves, loadouts, Dial casts, kit items as intents + ally Failsafe (Table 5), Table 4 statuses, round-boundary reinforcements, player-KO play-on, Rewind frames, timeline/guard/intent/block-reason helpers |
+| combat_rounds.gd | CombatRounds: Open/Guarded rules core on any passed-in combat dict (R§3.7b), driven by Combat. Seeded plans + fog, AI allies, six moves, loadouts, Dial casts, kit items as intents + ally Failsafe (Table 5), Table 4 statuses, round-boundary reinforcements, player-KO play-on, Rewind frames, beat log + transcript lines, timeline/guard/intent/block-reason helpers |
 | active_effects.gd | Timed out-of-combat item effects in `state.player.activeEffects`: `use()` (Bag), `expire()` (TimeSystem on clock moves), `is_active`/`lady_active`/`prophets_breath_active`, `blocks_left`. Be a Lady = player cultivate/harvest max roll; Prophet's Breath = no ambushes. Data: constants.json `activeEffects`. |
 | consumables.gd | Out-of-combat Healing Salve (2-day heal-over-time) and Healing Burst (instant heal) from shared inventory |
 | contacts.gd | Relation, recruiting (incl. story `force_recruit`), seat-capped room assignment (`contacts_in_room`/`assign_to_room`), room→role lookup from hiring.json (`room_roles`), founder staff roles (`set_role`/`role_of`/`available_roles`), capped XP (`skill_cap`, `xp_levels`), ally combat kit (Dial grant on recruit via `Dial.grant_contact_dial`), display names, directory order |
@@ -122,13 +122,13 @@ Data file per system: see `data/*.json` below.
 ## scenes/screens/*.gd — UI screens
 
 `scenes/Main.gd` (scene root) boots autoloads/first screen, mounts the time-transition + alarm
-overlays.
+overlays; hides the top board on title/intro/combat and the nav dock per screen.
 
 | File | Renders |
 |---|---|
 | combat_prep.gd | Preparation sheet (screen `combat_prep`) on the Trade sheet chrome: empty-slot warning + Change loadout, recruit picker (tick + ▲▼ order), participants with equipped units, opposition, Cancel (planned only) / Fight footer |
 | combat.gd | CombatScreen (screen `combat`): hosts CombatRoundsScreen; static `context_label()` and `outcome_button()` (hands off to `Combat.exit_combat()`) |
-| combat_rounds.gd | CombatRoundsScreen: the round fight on state.combat via Combat (move + real loadout rows, Dial casts, Rewind playing undone beats in reverse, outcome). CombatStage (tap to target, guard overlay), strip carousel, CommandDock rows with block reasons, CombatDirector beats, pacing, Readouts |
+| combat_rounds.gd | CombatRoundsScreen: the round fight on state.combat via Combat (move + real loadout rows, Dial casts, Rewind playing undone beats in reverse, outcome). CombatStage (tap to target, guard overlay), strip carousel, CombatTranscript fed in step with beats, CommandDock rows with block reasons, CombatDirector beats, Readouts |
 | contacts.gd | Contacts app inside PhoneDeviceShell; directory of unlocked contacts by display name (`Contacts.directory_ids`) with inline flag-gated actions; generic key-member card |
 | event.gd | Event-card screen (VN and non-VN layouts); Item button + popup over EventItems; choices row, or stack full-width when they don't fit; check options show tries + odds/hint, info sheet, optional-item toggles; gated options hidden or greyed with reason; outcome marker on resolution; Leave-only fallback when state.event's id has no definition |
 | factions.gd | Factions tab |
@@ -154,6 +154,7 @@ overlays.
 | bag_drawer.gd | Global bottom-sheet bag drawer; read-only stock/consumable listing (also during combat; no use buttons, no loadout change); out-of-combat heal + timed-effect Use buttons in management mode |
 | combat_command_dock.gd | Combat's lower command region: Dial beside 1px-ruled command rows (Complication readout, then caller-built rows, "?" on disabled ones) + footer, anchored to screen bottom via `configure_rows()`; optional Dial with the caller's cast callback; `surface_height_for_rows()` fits taller stacks |
 | combat_director.gd | Combat beat-queue playback director; holds a data-driven pause (combat_visuals pacing.turnPause) between combatants' turns; emits `playing_changed` so screens lock commands during playback; reads the persisted pacing mode (set in the Settings app) |
+| combat_transcript.gd | Fight play-by-play between stage and dock, event-card text styling: one line per state.combat.transcript entry, view pinned to the newest; append/remove-by-text for beat playback and Rewind |
 | combat_stage.gd | Combat pixel stage: backdrop (location->context->palette); slots in two receding diagonal groups, depth-sorted; up to 3 reserves per side + `+N`, sliding in; keypose one-shots, effects, juice layer. Slot taps emit `subject_tapped`; selected slot gets an arrow; per-slot guard marker/shield/freeze/status badges. No GameState reads; target-less effects take a caller fallback |
 | contact_cards.gd | Shared contact/faction card builders (incl. membership actions, faction Benefits tier ladder, handler card, Owen card, Targets/Sourcing, Nadia's ledger + "Go with Nadia", key-member card, recipe-seller Trade door, pending-message actions (lowball, peace offer, favour)), inline Contacts action-row layout, Phone-OS chrome repaint (text-only for card-chrome apps) |
 | contract_card.gd | Draggable BizBrief Sales card |
@@ -177,7 +178,7 @@ overlays.
 | map_legend.gd | Persistent faction-colour key; restyles in place on a dark-mode toggle |
 | map_zoom_buttons.gd | Floating +/- zoom control; restyles in place on a dark-mode toggle |
 | modal_layer.gd | Dim background + map_card_style.gd card (follows the dark toggle), with navy/red chrome for BizBrief contract cancellation; mounts full-screen sheets for sell_menu (Trade) and guard_kit, and dispatches other content through modal_registry.gd; tap-outside dismiss |
-| notification_ticker.gd | Top board's one-message notice row: presentation-only queue, roll-up from below, marquee for overflow, 4s hold; latest stays when empty; transient (combat-log) or keyed (notification id) queued entries droppable |
+| notification_ticker.gd | Top board's one-message notice row: presentation-only queue, roll-up from below, marquee for overflow, 4s hold; latest stays when empty; keyed (notification id) queued entries droppable |
 | nav_bar.gd | Bottom nav dock (Phone·Map·HQ); swaps to MapPalette dark chrome tokens while the Map tab shows with Map dark mode on |
 | ore_glyphs.gd | Five canonical ore silhouettes as hand-drawn vectors; bundled-font coverage probe for non-map symbol fallback |
 | lab_gauges.gd | Lab apparatus gauges (hold/crank/grind/distil; crank = clockwise circular drag, data-tuned, `committed` signal with raw input) and the book's read-only band track; all draw a step_region() band via `set_region` (cardBand token); pulsing lead-ore input outline; TickMark |
@@ -187,7 +188,7 @@ overlays.
 | symbol_glyph.gd | Label-or-vector fallback for a symbol; draws an optional `icon` texture instead when set |
 | item_icons.gd | `ItemIcons`: recipe key -> pixel-art icon texture (from recipes.json `icon`) and symbol-row part dict; shared by Bag, Dial, trade, events, combat |
 | time_transition.gd | Transient time queue, input guard, dimmed circular park/sky/sun/moon presentation |
-| top_bar.gd | Top departure board: casing + status lines + NotificationTicker + active-effect icon chips (tap → `active_effects` sheet); feeds new notifications (combat hold, combat lines dropped when fight ends, raid-alarm line, reset on load/Rewind); tap opens Notifications app (short-pay menu if latest line is the pending guard shortfall) except in combat |
+| top_bar.gd | Top departure board: casing + status lines + NotificationTicker + active-effect icon chips (tap → `active_effects` sheet); feeds new notifications (held through combat, raid-alarm line, reset on load/Rewind); tap opens Notifications app (short-pay menu if latest line is the pending guard shortfall) except in combat. Hidden on the combat screen |
 | touch_input.gd | `TouchInput.is_emulated_mouse(event)`: true for the mouse twin Godot emits for every touch; touch+mouse handlers skip it so one tap acts once |
 | touch_scroll_container.gd | ScrollContainer, touch drag-scroll; opt-in `momentum` fling on release (`UI.screen_body(root, true)`) |
 | tap_button.gd | Button behind UI.button/symbol_button/icon_button and card taps; shows pressed style while held, fires pressed only on a still release (TAP_SLOP), lets drags bubble to the scroller |

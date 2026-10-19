@@ -167,7 +167,9 @@ log are one material, confirmed dot-matrix (resolved 2026-09-10):**
   can assume status/notifications are already handled and use its own top
   area for tube-diagram concerns like filters/search) and every HQ
   full-bleed sub-view (Lab bench, Dial, Floorplan, Door). It only hides on
-  `title`/`intro` (no player state exists yet to show). This is a
+  `title`/`intro` (no player state exists yet to show) and, **amended
+  2026-10-19**, on `combat`, to free the space for the fight (it returns
+  with whatever screen the fight's exit lands on). This is a
   deliberate override of `hq-diorama-vision.md` §3.3's "top bar... auto-hide
   while you are inside one" rule for those four screens — amended there in
   the same pass as this document, see that section's own note. The
@@ -187,6 +189,14 @@ log are one material, confirmed dot-matrix (resolved 2026-09-10):**
   stays a separate component, unaffected by this — it's a full-screen
   recap, not a live ticker feed, and doesn't fit the board's one-row
   notice format. See `.scratch/field-kit-chrome/issues/03-combat-log-dot-matrix-reskin.md`.
+  **Superseded 2026-10-19:** with the board hidden in combat, fight lines
+  never reach the board or Notifications. The combat screen reads, top to
+  bottom: stage and sprites; a smallish **transcript** (one line per
+  resolved action with its result, newest always visible, older lines
+  scrolling up, lines landing in step with beat playback and leaving on
+  Rewind), styled as an event card's text rather than dot-matrix; then the
+  command area. Non-combat notifications raised mid-fight still hold until
+  it ends.
 - **Rendering technique:** a custom `_draw()`-based dot-matrix grid — a
   small hardcoded bitmap-font table (5×7-style cells, just the character
   set actually needed) drawn as amber dots on black, per character. This
@@ -221,7 +231,7 @@ log are one material, confirmed dot-matrix (resolved 2026-09-10):**
 | Component | Reference / chrome |
 |---|---|
 | Notifications + top status bar | Merged into one electronic dot-matrix departure/platform board — **confirmed**, unconditionally persistent (see above) |
-| Combat departure-board log | Mid-fight ticker merges into the top board (amended 2026-09-11, see §5 above); post-combat outcome log stays its own dot-matrix-family component |
+| Combat transcript | Mid-fight play-by-play between stage and command area, event-card text styling; the top board hides in combat (amended 2026-10-19, see §5 above) |
 | Nav dock (Phone/Map/HQ) | TfL's own site — the "Live arrivals / Maps / Nearby" tile row: flat white tile strip, thin dividers, icon-over-label. Shared UI sans (not TfL's Johnston face, per §7's one-typeface rule), `ui_action_red` in place of TfL's brand blue (already reserved for Family 3, §6). With Map dark mode on, the dock takes the Map palette's dark chrome tokens (`chromePaper`/`chromeBorder`, `cardAction` accent) while the Map tab shows |
 | Combat action cards | Generic Family-4 chrome, no bespoke object — exact button styling (corners, border weight, fill) deferred to implementation |
 | HQ floorplan | Estate-agent particulars (already the in-fiction frame per `hq-diorama-vision.md` §6) |

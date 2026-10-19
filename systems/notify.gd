@@ -16,11 +16,6 @@ const CATEGORY_WARNING := "warning"
 const CATEGORY_DANGER := "danger"
 const VALID_CATEGORIES: Array[String] = [CATEGORY_INFO, CATEGORY_SUCCESS, CATEGORY_WARNING, CATEGORY_DANGER]
 
-# Flag CombatScreen stamps on a mid-fight combat-log line; top_bar.gd's
-# combat-suppression check (ui-vision.md §5) reads it for the
-# hold-while-combat-active rule.
-const META_COMBAT_LOG := "combatLog"
-
 # Contact id stamped on an incoming-text notification, so a per-contact
 # clear can find that contact's queued lines.
 const META_CONTACT_ID := "contactId"

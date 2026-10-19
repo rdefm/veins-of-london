@@ -1954,7 +1954,11 @@ func run() -> void:
 		var you: Dictionary = GameState.state["combat"]["combatants"][CombatRounds.PLAYER_INDEX]
 		you["attackMin"] = 999
 		you["attackMax"] = 999
-		Combat.choose_move("strike", 1)
+		# Strikes until it lands, whatever the rolled enemy plans guard or dodge.
+		for i in range(10):
+			if GameState.state["combat"]["outcome"] != null:
+				break
+			Combat.choose_move("strike", 1)
 		assert_eq(GameState.state["combat"]["outcome"], "win", "sanity: forced win")
 
 		var veins_before: int = GameState.state["player"]["veins"].size()

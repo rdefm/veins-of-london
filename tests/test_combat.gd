@@ -13,9 +13,9 @@ static func _variance_bounds(base: float) -> Dictionary:
 	}
 
 
-# The fight's intro lines: the combat-log notifications its start pushed.
+# The fight's transcript, its intro lines first.
 func _intro_lines() -> Array:
-	return GameState.state["notifications"].filter(func(n): return n.get(Notify.META_COMBAT_LOG, false)).map(func(n): return n["text"])
+	return GameState.state["combat"]["transcript"]
 
 func run() -> void:
 	# ── squad-combat ticket 04: distinct-instance roster generation ─────
