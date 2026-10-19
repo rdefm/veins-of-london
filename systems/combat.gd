@@ -80,6 +80,11 @@ const REASON_ROUND_ITEM_PENDING := "Not usable in this kind of fight yet."
 # PROSE-REVIEW: a rewind unit's loadout row (it pays for the Rewind command).
 const REASON_SLOT_REWIND := "Spent by Rewind."
 const REASON_NO_REWIND := "No rewind available."
+# How round_rewind() is paid: a loadout rewind unit, a Dial rewind cast, or
+# whichever there is (the unit first).
+const REWIND_PAY_ANY := ""
+const REWIND_PAY_LOADOUT := "loadout"
+const REWIND_PAY_DIAL := "dial"
 # R§3.7b Rewind: the fight transcript's lines for a Rewind, a Failsafe and an
 # ally's rewind; LINE_ALLY_REWIND takes the ally's name.
 const LINE_REWIND := "⟲ Time unspools. The moment resets. Only you remember."
@@ -1013,27 +1018,31 @@ static func _keep_paid(slots: Array, before: Array, used: Array, recipes: Array)
 				used.append(i)
 
 
-# Why the round fight's Rewind command can't run now, or "".
-static func round_rewind_block_reason() -> String:
+# Why the round fight's Rewind command can't run now, or "". `pay` is how it
+# will be paid (REWIND_PAY_*).
+static func round_rewind_block_reason(pay: String = REWIND_PAY_ANY) -> String:
 	var combat: Dictionary = GameState.state["combat"]
 	if not combat["active"] or combat["outcome"] != null:
 		return "Combat not active."
 	if combat["snapshots"].is_empty():
 		return REASON_NOTHING_TO_UNDO
-	if Loadout.find_slot("rewind") < 0 and Dial.find_loaded_rewind_complication_index() < 0:
+	var has_unit := pay != REWIND_PAY_DIAL and Loadout.find_slot("rewind") >= 0
+	var has_cast := pay != REWIND_PAY_LOADOUT and Dial.find_loaded_rewind_complication_index() >= 0
+	if not has_unit and not has_cast:
 		return REASON_NO_REWIND
 	return ""
 
 
 # R§3.7b Rewind: back to the last pick with it undone (a second steps one
-# more pick back), paid by a loadout rewind unit, else a loaded Dial rewind
-# cast. Returns { ok } or { ok: false, reason }.
-static func round_rewind() -> Dictionary:
-	var reason := round_rewind_block_reason()
+# more pick back). Paid per `pay`: REWIND_PAY_LOADOUT a loadout rewind unit,
+# REWIND_PAY_DIAL one charge of a loaded Dial rewind cast, REWIND_PAY_ANY
+# the unit if there is one, else the Dial. Returns { ok } or { ok: false, reason }.
+static func round_rewind(pay: String = REWIND_PAY_ANY) -> Dictionary:
+	var reason := round_rewind_block_reason(pay)
 	if reason != "":
 		return { "ok": false, "reason": reason }
 	var combat: Dictionary = GameState.state["combat"]
-	var slot := Loadout.find_slot("rewind")
+	var slot := Loadout.find_slot("rewind") if pay != REWIND_PAY_DIAL else -1
 	_restore_round_snapshot(combat)
 	if slot >= 0:
 		Loadout.consume(slot)

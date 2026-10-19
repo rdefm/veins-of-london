@@ -459,12 +459,13 @@ func _toggle_readouts() -> void:
 # Undoes the last pick, then plays its beats back in reverse on the stage
 # and strip (the overlay and strip held as they stood until then; each
 # undone action's card slides back in at the strip's front as the end card
-# leaves) before the restored pick shows.
-func _on_rewind_pressed() -> void:
+# leaves) before the restored pick shows. `pay` as Combat.round_rewind()
+# takes it.
+func _on_rewind_pressed(pay: String = Combat.REWIND_PAY_ANY) -> void:
 	if _busy():
 		return
 	_refusal = ""
-	var beats := begin_rewind_playback()
+	var beats := begin_rewind_playback(pay)
 	if not beats.is_empty() and is_inside_tree():
 		await _director.play(beats, _on_rewind_beat_played)
 	_end_playback()
@@ -473,7 +474,7 @@ func _on_rewind_pressed() -> void:
 # Undoes the last pick with the overlay and strip held, arming the strip to
 # step back through it; the undone beats as rewind_beats() orders them, []
 # when there's nothing to undo.
-func begin_rewind_playback() -> Array:
+func begin_rewind_playback(pay: String = Combat.REWIND_PAY_ANY) -> Array:
 	var cp: Dictionary = _cp()
 	var log_before: Array = cp["log"]
 	_held_marks = CombatRounds.stage_marks(cp)
@@ -483,7 +484,7 @@ func begin_rewind_playback() -> Array:
 		entry["focused"] = false
 	var shown := carousel_entries(entries, resolved_count(cp, entries))
 	_strip_playback = { "entries": entries, "round": cp["round"], "after": [], "front": shown[0]["occurrenceId"] if not shown.is_empty() else "" }
-	var result: Dictionary = Combat.round_rewind()
+	var result: Dictionary = Combat.round_rewind(pay)
 	if not result["ok"]:
 		_refusal = str(result["reason"])
 		return []
@@ -639,11 +640,11 @@ func _loadout_rows(cp: Dictionary) -> Array:
 			if CombatRounds.is_item(unit["recipe"]):
 				target = _row_target(cp, unit["recipe"])
 		var is_rewind: bool = unit != null and unit["recipe"] == "rewind"
-		var reason := Combat.round_rewind_block_reason() if is_rewind else Combat.round_item_block_reason(slot, target)
+		var reason := Combat.round_rewind_block_reason(Combat.REWIND_PAY_LOADOUT) if is_rewind else Combat.round_item_block_reason(slot, target)
 		rows.append({
 			"name": "ItemRow_%d" % slot, "iconKind": icon, "label": label,
 			"disabled": reason != "", "disabledReason": reason,
-			"callback": _on_rewind_pressed if is_rewind else _pick_item.bind(slot, target),
+			"callback": _on_rewind_pressed.bind(Combat.REWIND_PAY_LOADOUT) if is_rewind else _pick_item.bind(slot, target),
 			"onExplain": _explain_block.bind(label, reason),
 		})
 	return rows
@@ -777,7 +778,7 @@ func _pick_cast(index: int) -> void:
 	var loaded: Array = GameState.state["player"]["dial"]["loadedComplications"]
 	var item_id: String = loaded[index]["recipeKey"] if index < loaded.size() else ""
 	if item_id == "rewind":
-		_on_rewind_pressed()
+		_on_rewind_pressed(Combat.REWIND_PAY_DIAL)
 		return
 	var target := _row_target(_cp(), item_id) if CombatRounds.is_item(item_id) else -1
 	_resolve(func(): return Combat.cast_round_complication(index, target), { "move": item_id, "target": target })

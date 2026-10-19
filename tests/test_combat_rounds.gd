@@ -1274,6 +1274,22 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 2, "one charge")
 	)
 
+	run_case("rewind_pays_the_way_it_is_told_to", func():
+		GameState.reset()
+		_start_armed([{ "recipe": "rewind", "tier": 1 }, null], [["guard", "guard"]], 1, 200)
+		GameState.state["player"]["dial"] = Fixtures.dial_with_loaded("rewind", 1, 3)
+		assert_true(Combat.choose_move("guard")["ok"])
+		assert_true(Combat.round_rewind(Combat.REWIND_PAY_DIAL)["ok"], "the Dial pays")
+		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 2, "one charge")
+		assert_true(Loadout.slot(0) != null, "though a unit is equipped")
+		assert_true(Combat.choose_move("guard")["ok"])
+		assert_true(Combat.round_rewind(Combat.REWIND_PAY_LOADOUT)["ok"], "the unit pays")
+		assert_eq(Loadout.slot(0), null)
+		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 2, "the Dial untouched")
+		assert_true(Combat.choose_move("guard")["ok"])
+		assert_eq(Combat.round_rewind_block_reason(Combat.REWIND_PAY_LOADOUT), Combat.REASON_NO_REWIND, "no unit left")
+	)
+
 	run_case("rewind_steps_back_two_picks_across_a_round_with_plans_fog_and_rolls_intact", func():
 		GameState.reset()
 		GameState.state["player"]["loadout"]["slots"] = [{ "recipe": "rewind", "tier": 1 }, { "recipe": "rewind", "tier": 1 }]
@@ -1563,10 +1579,12 @@ func run() -> void:
 		assert_eq(CombatRounds.decision_position(GameState.state["combat"]), 0, "the pick undone")
 
 		GameState.state["player"]["dial"] = Fixtures.dial_with_loaded("rewind", 1, 3)
+		GameState.state["player"]["loadout"]["slots"][1] = { "recipe": "rewind", "tier": 1 }
 		_row(screen, "MoveRow_guard").pressed.emit()
 		var widgets: Array = screen._dock.find_children("*", "", true, false).filter(func(n): return n is DialWidget and not n.is_queued_for_deletion())
 		widgets[0].handle_trigger()
 		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 2, "the Dial paid for the Rewind")
+		assert_true(Loadout.slot(1) != null, "the equipped rewind unit untouched")
 		assert_eq(CombatRounds.decision_position(GameState.state["combat"]), 0, "the pick undone")
 		host.free()
 	)
