@@ -1385,10 +1385,8 @@ func run() -> void:
 		host._ready()
 		var screen: CombatRoundsScreen = host._round_screen
 		screen._ready()
-		assert_true(screen._rewind_button != null and screen._rewind_button.disabled, "nothing to undo yet")
 		var played: Array = Combat.choose_move("guard")["beats"]
 		screen._refresh()
-		assert_true(not screen._rewind_button.disabled, "enabled after a pick")
 		var undone := screen.begin_rewind_playback()
 		assert_eq(undone.size(), played.size(), "the pick's beats")
 		assert_eq(undone[0]["text"], played[-1]["text"], "newest first")

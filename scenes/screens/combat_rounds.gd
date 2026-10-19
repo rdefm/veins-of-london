@@ -70,7 +70,6 @@ var _transcript_held := false
 var _fight_body: Control
 var _round_label: Label
 var _refusal_label: Label
-var _rewind_button: Button
 var _upper_region: Control
 var _stage: CombatStage
 var _strip: TurnOrderStrip
@@ -101,7 +100,7 @@ func _refresh() -> void:
 		_sync_fight(cp)
 
 
-# Heading row (Rewind, Readouts, round), the upper region (stage, the
+# Heading row (Readouts, round), the upper region (stage, the
 # outcome footer and the Readouts window over it), the transcript and the
 # command dock. Main hides the top board in combat, so the body starts
 # under the safe area.
@@ -120,8 +119,6 @@ func _build_fight_layout() -> void:
 	heading_row.offset_left = 16.0
 	heading_row.offset_right = -16.0
 	heading_row.offset_bottom = _HEADING_ROW_HEIGHT
-	_rewind_button = MapCardStyle.chip_button("Rewind", _on_rewind_pressed)
-	heading_row.add_child(_rewind_button)
 	heading_row.add_child(MapCardStyle.chip_button("Readouts", _toggle_readouts))
 	_round_label = UI.muted_label("")
 	heading_row.add_child(_round_label)
@@ -224,7 +221,6 @@ func _sync_fight(cp: Dictionary) -> void:
 		_target = _default_target(cp)
 	_round_label.text = "%s · Round %d" % [CombatScreen.context_label(cp["context"]), cp["round"]]
 	_refusal_label.text = _refusal
-	_rewind_button.disabled = cp["snapshots"].is_empty() or cp["outcome"] != null or _busy()
 
 	# Mid-playback a re-sync would cut the slots' one-shot poses short, and
 	# the strip shows the round as far as the beats have played.
