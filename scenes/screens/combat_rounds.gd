@@ -3,9 +3,10 @@ extends Control
 
 # The round-fight screen (R§3.7b) over state.combat, hosted by CombatScreen:
 # a CombatStage with each combatant's sprite (tap one to target it), a
-# CombatCommandDock in generic-rows mode (each move, then each of the
-# player's real loadout slots; a row is disabled with Combat's block
-# reason, which its "?" opens in the combat_block_reason modal), a
+# CombatCommandDock (its grid's Leg it, the Fight page's other moves, the
+# Item page's real loadout slots -- a rewind slot runs Rewind -- and the
+# Dial page; a row is disabled with Combat's block reason, which its "?"
+# opens in the combat_block_reason modal), a
 # TurnOrderStrip over the stage showing the next STRIP_SIZE actions as a
 # carousel (strip_entries(), carousel_entries()), and a CombatDirector
 # playing each pick's beats (beat_cues()) on the stage and strip with the
@@ -34,6 +35,8 @@ const _OVERLAY_KINDS: Array[String] = ["guard", "lost", "frozen", "cower", "enra
 const _CAST_KINDS: Array[String] = ["powder", "sight", "sightGiven", "lady", "failsafe"]
 # The screen's own closing beat after a pick's beats (_play_beats()).
 const _SETTLE_KIND := "settle"
+# The move the dock's grid holds as its own button, not on the Fight page.
+const _LEG_IT := "legIt"
 # Item beat kinds -> the data/combat_visuals.json effect sheet they play.
 const _ITEM_EFFECTS := {
 	"timePearl": "timePearl", "blackHole": "blackHole", "blast": "blast", "shield": "shield",
@@ -238,10 +241,11 @@ func _sync_fight(cp: Dictionary) -> void:
 
 	for child in _footer_holder.get_children():
 		child.queue_free()
-	var rows := _dock_rows(cp)
+	var moves := _move_rows(cp)
+	var items := _loadout_rows(cp)
 	var dial: Variant = GameState.state["player"]["dial"]
-	# The Dial's Complication readout heads the rows.
-	var dock_height := CombatCommandDock.surface_height_for_rows(rows.size() + (1 if dial != null else 0))
+	# The tallest page's rows, plus its Back.
+	var dock_height := CombatCommandDock.surface_height_for_rows(maxi(moves.size(), items.size()) + 1)
 	_dock.offset_top = -dock_height
 	_place_transcript(dock_height)
 	if not _transcript_held:
@@ -250,7 +254,7 @@ func _sync_fight(cp: Dictionary) -> void:
 		_footer_holder.add_child(_build_outcome_card(cp["outcome"]))
 		_dock.hide_deck()
 	else:
-		_dock.configure_rows(rows, {}, dial, _busy(), _pick_cast)
+		_dock.configure(moves, items, _move_row(cp, _LEG_IT), dial, _busy(), _pick_cast)
 
 	_readouts_panel.visible = _readouts_open
 	for child in _readouts_content.get_children():
@@ -595,28 +599,33 @@ func _row_target(cp: Dictionary, move_id: String) -> int:
 	return -1
 
 
-# Each move in data order, then each player loadout slot (name + tier),
-# disabled with the system's block reason.
-func _dock_rows(cp: Dictionary) -> Array:
+# The Fight page: each move but Leg it (the grid's own button), in data order.
+func _move_rows(cp: Dictionary) -> Array:
 	var rows: Array = []
-	var icons := { CombatRounds.MOVE_STRIKE: "attack", "legIt": "run" }
 	for move_id in GameData.COMBAT_ROUNDS["moves"].keys():
-		var target := _row_target(cp, move_id)
-		var reason := CombatRounds.move_block_reason(cp, move_id, target)
-		var move_name: String = CombatRounds.move(move_id)["name"]
-		rows.append({
-			"name": "MoveRow_%s" % move_id, "iconKind": icons.get(move_id, ""),
-			"label": move_name,
-			"disabled": reason != "", "disabledReason": reason,
-			"callback": _pick.bind(move_id, target),
-			"onExplain": _explain_block.bind(move_name, reason),
-		})
-	rows.append_array(_loadout_rows(cp))
+		if move_id != _LEG_IT:
+			rows.append(_move_row(cp, move_id))
 	return rows
 
 
-# The player's real loadout slots (Loadout), each disabled with
-# Combat.round_item_block_reason().
+# A move's command row, disabled with the system's block reason.
+func _move_row(cp: Dictionary, move_id: String) -> Dictionary:
+	var icons := { CombatRounds.MOVE_STRIKE: "attack", _LEG_IT: "run" }
+	var target := _row_target(cp, move_id)
+	var reason := CombatRounds.move_block_reason(cp, move_id, target)
+	var move_name: String = CombatRounds.move(move_id)["name"]
+	return {
+		"name": "MoveRow_%s" % move_id, "iconKind": icons.get(move_id, ""),
+		"label": move_name,
+		"disabled": reason != "", "disabledReason": reason,
+		"callback": _pick.bind(move_id, target),
+		"onExplain": _explain_block.bind(move_name, reason),
+	}
+
+
+# The Item page: the player's real loadout slots (Loadout), each disabled
+# with Combat.round_item_block_reason(); a rewind slot runs the Rewind
+# command instead, disabled with Combat.round_rewind_block_reason().
 func _loadout_rows(cp: Dictionary) -> Array:
 	var rows: Array = []
 	for slot in range(Loadout.slot_count()):
@@ -629,11 +638,12 @@ func _loadout_rows(cp: Dictionary) -> Array:
 			icon = "recipe:" + str(unit["recipe"])
 			if CombatRounds.is_item(unit["recipe"]):
 				target = _row_target(cp, unit["recipe"])
-		var reason := Combat.round_item_block_reason(slot, target)
+		var is_rewind: bool = unit != null and unit["recipe"] == "rewind"
+		var reason := Combat.round_rewind_block_reason() if is_rewind else Combat.round_item_block_reason(slot, target)
 		rows.append({
 			"name": "ItemRow_%d" % slot, "iconKind": icon, "label": label,
 			"disabled": reason != "", "disabledReason": reason,
-			"callback": _pick_item.bind(slot, target),
+			"callback": _on_rewind_pressed if is_rewind else _pick_item.bind(slot, target),
 			"onExplain": _explain_block.bind(label, reason),
 		})
 	return rows
@@ -761,11 +771,14 @@ func _pick_item(slot: int, target: int) -> void:
 	_resolve(func(): return Combat.choose_item(slot, target), { "move": item_id, "target": target })
 
 
-# Casts the player's loaded Complication `index`, at the
-# selected combatant where it aims at one.
+# Casts the player's loaded Complication `index`, at the selected combatant
+# where it aims at one; a rewind Complication runs the Rewind command.
 func _pick_cast(index: int) -> void:
 	var loaded: Array = GameState.state["player"]["dial"]["loadedComplications"]
 	var item_id: String = loaded[index]["recipeKey"] if index < loaded.size() else ""
+	if item_id == "rewind":
+		_on_rewind_pressed()
+		return
 	var target := _row_target(_cp(), item_id) if CombatRounds.is_item(item_id) else -1
 	_resolve(func(): return Combat.cast_round_complication(index, target), { "move": item_id, "target": target })
 

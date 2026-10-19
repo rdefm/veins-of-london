@@ -2,13 +2,14 @@ class_name CombatCommandDock
 extends Panel
 
 # The lower command region: one continuous near-white surface (this Panel)
-# spanning the full screen width, holding an inner row (_row) with the Dial
-# + flat command rows (Complication readout, then the caller-built rows),
-# docs/combat-animation-vision.md §2.5. A fixed Control anchored to the true
-# bottom of the screen, outside the stage's flow entirely, so sharing that
-# space with the upper region never caps the Dial's own size. The caller
+# spanning the full screen width, anchored to the true bottom of the screen
+# outside the stage's flow. By default it shows a 2×2 grid of big buttons
+# (Fight, Item, Dial, Leg it); Fight and Item slide the grid off left onto
+# their 1px-ruled rows (the moves, the loadout slots), Dial slides it off
+# right as the Dial page (the Dial beside its Complication readout) rises
+# from the bottom, and each page's Back brings the grid back. The caller
 # (scenes/screens/combat_rounds.gd) builds every row and owns what each
-# does; configure_rows() lays them out.
+# does; configure() lays them out. Which page shows is view state only.
 #
 # Same off-tree-testable shape as DialWidget/TurnOrderStrip: no _ready()
 # override, anchors/theme set in _init() (always runs on .new(), unlike
@@ -18,21 +19,36 @@ const COMMAND_DOCK_LEFT_MARGIN := 0.0
 const COMMAND_DOCK_RIGHT_MARGIN := 4.0
 const COMMAND_DOCK_BOTTOM_MARGIN := 6.0
 const COMMAND_DOCK_HEIGHT := DialWidget.WIDGET_SIZE.y
-# Breathing room above the Dial/action row within the near-white surface,
-# so it reads as a region of the screen, not a shrink-wrapped card.
+# Breathing room above the pages within the near-white surface, so it reads
+# as a region of the screen, not a shrink-wrapped card.
 const COMMAND_DOCK_SURFACE_TOP_PADDING := 12.0
 const COMMAND_DOCK_SURFACE_HEIGHT := COMMAND_DOCK_HEIGHT + COMMAND_DOCK_BOTTOM_MARGIN + COMMAND_DOCK_SURFACE_TOP_PADDING
 # Diameter of a disabled row's "?" (see _build_explain_button()).
 const EXPLAIN_BUTTON_SIZE := 28.0
+const GRID_FONT_SIZE := 24
+const GRID_ICON_SIZE := 48.0
+const PAGE_SLIDE_SECONDS := 0.22
+# PROSE-REVIEW: the Dial grid button's reason when the player carries none.
+const REASON_NO_DIAL := "No Dial."
 
-var _row: HBoxContainer
+const VIEW_GRID := "grid"
+const VIEW_FIGHT := "fight"
+const VIEW_ITEM := "item"
+const VIEW_DIAL := "dial"
+
+var _pages_root: Control
+var _pages: Dictionary = {}
+var _view: String = VIEW_GRID
+var _tween: Tween = null
 var _dial_selected_index: int = 0
 # The Dial cast (DialWidget's on_cast).
 var _on_dial_cast_callback: Callable = Callable()
 var _dial: Variant = null
-var _rows: Array = []
-var _footer: Dictionary = {}
-# True while a round's beats play out: every command is dimmed and inert.
+var _moves: Array = []
+var _items: Array = []
+var _leg_it: Dictionary = {}
+# True while a round's beats play out: every command is dimmed and inert
+# (moving between pages still works).
 var _locked := false
 
 
@@ -51,56 +67,196 @@ func _init() -> void:
 	surface_style.bg_color = UI.ACTION_CARD_FILL
 	add_theme_stylebox_override("panel", surface_style)
 
-	_row = HBoxContainer.new()
-	_row.anchor_left = 0.0
-	_row.anchor_right = 1.0
-	_row.anchor_top = 1.0
-	_row.anchor_bottom = 1.0
-	_row.offset_left = COMMAND_DOCK_LEFT_MARGIN
-	_row.offset_right = -COMMAND_DOCK_RIGHT_MARGIN
-	_row.offset_bottom = -COMMAND_DOCK_BOTTOM_MARGIN
-	_row.offset_top = -(COMMAND_DOCK_BOTTOM_MARGIN + COMMAND_DOCK_HEIGHT)
-	_row.add_theme_constant_override("separation", 8)
-	# Rows taller than the Dial grow up from the bottom edge, never off it;
-	# a caller with more rows makes the surface taller (offset_top) to match.
-	_row.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	add_child(_row)
+	_pages_root = Control.new()
+	UI.anchor_full_rect(_pages_root)
+	_pages_root.offset_left = COMMAND_DOCK_LEFT_MARGIN
+	_pages_root.offset_right = -COMMAND_DOCK_RIGHT_MARGIN
+	_pages_root.offset_top = COMMAND_DOCK_SURFACE_TOP_PADDING
+	_pages_root.offset_bottom = -COMMAND_DOCK_BOTTOM_MARGIN
+	_pages_root.clip_contents = true
+	_pages_root.mouse_filter = Control.MOUSE_FILTER_PASS
+	add_child(_pages_root)
+	for view in [VIEW_GRID, VIEW_FIGHT, VIEW_ITEM, VIEW_DIAL]:
+		var page := Control.new()
+		page.name = "Page_%s" % view
+		UI.anchor_full_rect(page)
+		page.mouse_filter = Control.MOUSE_FILTER_PASS
+		_pages_root.add_child(page)
+		_pages[view] = page
+	_place_pages()
 
 
-# Each row is# Generic mode, for callers other than live combat: each row is
-# { iconKind, label, disabled, disabledReason, callback, onExplain }
-# (iconKind as _build_row_icon() reads it; disabledReason becomes the row's
-# tooltip; a disabled row with an onExplain callable gets a "?" calling it),
-# `footer` is one more such row below them ({} for none), and the Dial
-# (with its Complication readout heading the rows) is drawn only when `dial`
-# isn't null; `on_dial_cast` (index) casts in place of the widget's own.
-func configure_rows(rows: Array, footer: Dictionary = {}, dial: Variant = null, locked: bool = false, on_dial_cast: Callable = Callable()) -> void:
+# Each of `moves` and `items` is a row { name, iconKind, label, disabled,
+# disabledReason, callback, onExplain } (iconKind as _build_row_icon() reads
+# it; disabledReason becomes the row's tooltip; a disabled row with an
+# onExplain callable gets a "?" calling it); `leg_it` is one such row, drawn
+# as the grid's fourth button. The Dial page exists only when `dial` isn't
+# null; `on_dial_cast` (index) casts in place of the widget's own.
+func configure(moves: Array, items: Array, leg_it: Dictionary, dial: Variant = null, locked: bool = false, on_dial_cast: Callable = Callable()) -> void:
 	_locked = locked
 	_on_dial_cast_callback = on_dial_cast
-	_rows = rows
-	_footer = footer
+	_moves = moves
+	_items = items
+	_leg_it = leg_it
 	_dial = dial
+	if _dial == null and _view == VIEW_DIAL:
+		_view = VIEW_GRID
+	_pages_root.visible = true
 	_rebuild()
+	if _tween == null:
+		_place_pages()
 
 
-# Surface height that fits `count` rows (and their 1px rules) with
-# no Dial: never less than the Dial-sized default.
+# Surface height that fits `count` rows (and their 1px rules) on one page:
+# never less than the Dial-sized default.
 static func surface_height_for_rows(count: int) -> float:
 	var rows_height: float = count * UI.COMMAND_ROW_HEIGHT + maxi(0, count - 1)
 	return maxf(COMMAND_DOCK_SURFACE_HEIGHT, rows_height + COMMAND_DOCK_BOTTOM_MARGIN + COMMAND_DOCK_SURFACE_TOP_PADDING)
 
 
+# Hides every page (the fight's over) and returns to the grid for next time.
 func hide_deck() -> void:
-	for child in _row.get_children():
-		child.queue_free()
+	_kill_tween()
+	_view = VIEW_GRID
+	_pages_root.visible = false
+	_place_pages()
+
+
+func current_view() -> String:
+	return _view
+
+
+# Moves to page `view` (VIEW_*), sliding when on screen.
+func show_view(view: String) -> void:
+	if view == _view or (view == VIEW_DIAL and _dial == null):
+		return
+	var from := _view
+	_view = view
+	if not is_inside_tree():
+		_place_pages()
+		return
+	_kill_tween()
+	var sub := view if view != VIEW_GRID else from
+	var grid: Control = _pages[VIEW_GRID]
+	var page: Control = _pages[sub]
+	grid.visible = true
+	page.visible = true
+	var grid_away := _away_position(VIEW_GRID, sub)
+	var page_away := _away_position(sub, sub)
+	var opening := view != VIEW_GRID
+	grid.position = Vector2.ZERO if opening else grid_away
+	page.position = page_away if opening else Vector2.ZERO
+	_tween = create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	_tween.tween_property(grid, "position", grid_away if opening else Vector2.ZERO, PAGE_SLIDE_SECONDS)
+	_tween.tween_property(page, "position", Vector2.ZERO if opening else page_away, PAGE_SLIDE_SECONDS)
+	_tween.chain().tween_callback(func():
+		_tween = null
+		_place_pages())
+
+
+func _kill_tween() -> void:
+	if _tween != null:
+		_tween.kill()
+		_tween = null
+
+
+# Where page `view` waits off screen while `sub` is the page in play: the
+# grid off left for Fight/Item and off right for the Dial; Fight/Item off
+# right, the Dial below.
+func _away_position(view: String, sub: String) -> Vector2:
+	var area := _pages_root.size
+	if view == VIEW_GRID:
+		return Vector2(area.x if sub == VIEW_DIAL else -area.x, 0.0)
+	if view == VIEW_DIAL:
+		return Vector2(0.0, area.y)
+	return Vector2(area.x, 0.0)
+
+
+# Settles every page with no animation: the current one shown in place,
+# the rest hidden where they wait.
+func _place_pages() -> void:
+	for view in _pages:
+		var page: Control = _pages[view]
+		page.visible = view == _view
+		page.position = Vector2.ZERO if view == _view else _away_position(view, view if view != VIEW_GRID else _view)
 
 
 func _rebuild() -> void:
-	for child in _row.get_children():
-		child.queue_free()
+	for page in _pages.values():
+		for child in page.get_children():
+			child.queue_free()
+	_pages[VIEW_GRID].add_child(_build_grid())
+	_pages[VIEW_FIGHT].add_child(_build_row_column(null, _moves))
+	_pages[VIEW_ITEM].add_child(_build_row_column(null, _items))
 	if _dial != null:
-		_row.add_child(_build_dial_widget(_dial))
-	_row.add_child(_build_row_column(_build_complication_detail(_dial) if _dial != null else null, _rows, _footer))
+		var dial_row := UI.hbox(8)
+		UI.anchor_full_rect(dial_row)
+		dial_row.add_child(_build_dial_widget(_dial))
+		dial_row.add_child(_build_row_column(_build_complication_detail(_dial), []))
+		_pages[VIEW_DIAL].add_child(dial_row)
+
+
+# Fight, Item, Dial, Leg it: the first three open their pages, Leg it acts.
+func _build_grid() -> Control:
+	var grid := GridContainer.new()
+	grid.columns = 2
+	UI.anchor_full_rect(grid)
+	grid.add_theme_constant_override("h_separation", 0)
+	grid.add_theme_constant_override("v_separation", 0)
+	grid.add_child(_build_grid_button({ "name": "GridFight", "iconKind": "attack", "label": "Fight", "callback": show_view.bind(VIEW_FIGHT) }, false))
+	grid.add_child(_build_grid_button({ "name": "GridItem", "iconKind": "", "label": "Item", "callback": show_view.bind(VIEW_ITEM) }, false))
+	grid.add_child(_build_grid_button({
+		"name": "GridDial", "iconKind": "", "label": "Dial", "callback": show_view.bind(VIEW_DIAL),
+		"disabled": _dial == null, "disabledReason": REASON_NO_DIAL,
+	}, false))
+	grid.add_child(_build_grid_button(_leg_it, _locked))
+	return grid
+
+
+func _build_grid_button(row: Dictionary, locked: bool) -> Button:
+	var disabled: bool = locked or row.get("disabled", false)
+	var accent: Color = UI.ACTION_DISABLED_COLOUR if disabled else UI.action_colour()
+	var button := Button.new()
+	button.name = row.get("name", "GridButton")
+	button.disabled = disabled
+	button.tooltip_text = row.get("disabledReason", "") if disabled else ""
+	button.focus_mode = Control.FOCUS_ALL
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	UI.style_command_row(button, accent)
+	for state in ["normal", "hover", "pressed", "hover_pressed", "disabled"]:
+		var style: StyleBoxFlat = button.get_theme_stylebox(state).duplicate()
+		style.set_border_width_all(1)
+		style.border_color = UI.COMMAND_ROW_RULE_COLOUR
+		button.add_theme_stylebox_override(state, style)
+	var callback: Callable = row.get("callback", Callable())
+	if callback.is_valid():
+		button.pressed.connect(callback)
+
+	var content := UI.vbox(6)
+	UI.anchor_full_rect(content)
+	content.alignment = BoxContainer.ALIGNMENT_CENTER
+	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var icon_kind: String = row.get("iconKind", "")
+	if icon_kind != "":
+		var icon := _build_row_icon(icon_kind, accent)
+		icon.custom_minimum_size = Vector2(GRID_ICON_SIZE, GRID_ICON_SIZE)
+		icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		content.add_child(icon)
+	var caption := UI.label(row.get("label", ""))
+	caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	caption.add_theme_font_size_override("font_size", GRID_FONT_SIZE)
+	caption.add_theme_color_override("font_color", accent)
+	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content.add_child(caption)
+	var explain: Callable = row.get("onExplain", Callable())
+	if row.get("disabled", false) and not locked and explain.is_valid():
+		var help := _build_explain_button(explain)
+		help.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		content.add_child(help)
+	button.add_child(content)
+	return button
 
 
 func _build_dial_widget(dial: Dictionary) -> Control:
@@ -149,19 +305,18 @@ func _build_complication_detail(dial: Variant) -> Control:
 	row.add_child(_build_row_content(glyph, text, accent))
 	return row
 # Flat command rows (docs/combat-animation-vision.md §2.5, combat-refining
-# amendment): the header (Complication readout), then each row -- equal
-# height, 1px rules between, no per-row panel or primary-action emphasis.
-func _build_row_column(header: Control, rows: Array, footer: Dictionary) -> Control:
+# amendment): the header (Complication readout) if any, then each row, then
+# Back -- equal height, 1px rules between, no per-row panel or emphasis.
+func _build_row_column(header: Control, rows: Array) -> Control:
 	var col := UI.vbox(0)
-	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	col.size_flags_vertical = Control.SIZE_SHRINK_END
+	UI.anchor_full_rect(col)
+	col.alignment = BoxContainer.ALIGNMENT_END
 	var controls: Array[Control] = []
 	if header != null:
 		controls.append(header)
 	for i in rows.size():
-		controls.append(_build_command_row(rows[i], "RowButton_%d" % i))
-	if not footer.is_empty():
-		controls.append(_build_command_row(footer, "FooterButton"))
+		controls.append(_build_command_row(rows[i], "RowButton_%d" % i, _locked))
+	controls.append(_build_command_row({ "name": "BackButton", "label": "Back", "callback": show_view.bind(VIEW_GRID) }, "BackButton", false))
 	for i in controls.size():
 		if i > 0:
 			col.add_child(UI.command_row_rule())
@@ -193,8 +348,8 @@ static func _action_icon_draw_fn(icon_kind: String) -> Callable:
 
 # The whole row is the Button (full-width hit area); icon + caption sit
 # inside it with mouse ignored so taps land on the Button itself.
-func _build_command_row(row: Dictionary, default_name: String) -> Control:
-	var disabled: bool = _locked or row.get("disabled", false)
+func _build_command_row(row: Dictionary, default_name: String, locked: bool) -> Control:
+	var disabled: bool = locked or row.get("disabled", false)
 	var accent: Color = UI.ACTION_DISABLED_COLOUR if disabled else UI.action_colour()
 
 	var button := Button.new()
@@ -213,7 +368,7 @@ func _build_command_row(row: Dictionary, default_name: String) -> Control:
 	content.offset_left = UI.COMMAND_ROW_MARGIN_H
 	content.offset_right = -UI.COMMAND_ROW_MARGIN_H
 	var explain: Callable = row.get("onExplain", Callable())
-	if row.get("disabled", false) and not _locked and explain.is_valid():
+	if row.get("disabled", false) and not locked and explain.is_valid():
 		content.add_child(_build_explain_button(explain))
 	button.add_child(content)
 	return button

@@ -1545,6 +1545,32 @@ func run() -> void:
 		host.free()
 	)
 
+	run_case("live_dock_rewind_runs_from_its_loadout_slot_and_from_a_dial_rewind_complication", func():
+		GameState.reset()
+		_start_armed([{ "recipe": "rewind", "tier": 1 }, null], [["guard", "guard"]], 1, 200)
+		var host := CombatScreen.new()
+		host._ready()
+		var screen: CombatRoundsScreen = host._round_screen
+		screen._ready()
+		var slot := _row(screen, "ItemRow_0")
+		assert_true(slot.disabled, "nothing to undo yet")
+		assert_eq(slot.tooltip_text, Combat.REASON_NOTHING_TO_UNDO, "the Rewind command's reason")
+		_row(screen, "MoveRow_guard").pressed.emit()
+		slot = _row(screen, "ItemRow_0")
+		assert_true(not slot.disabled, "a pick to undo")
+		slot.pressed.emit()
+		assert_eq(Loadout.slot(0), null, "the slot paid for the Rewind")
+		assert_eq(CombatRounds.decision_position(GameState.state["combat"]), 0, "the pick undone")
+
+		GameState.state["player"]["dial"] = Fixtures.dial_with_loaded("rewind", 1, 3)
+		_row(screen, "MoveRow_guard").pressed.emit()
+		var widgets: Array = screen._dock.find_children("*", "", true, false).filter(func(n): return n is DialWidget and not n.is_queued_for_deletion())
+		widgets[0].handle_trigger()
+		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 2, "the Dial paid for the Rewind")
+		assert_eq(CombatRounds.decision_position(GameState.state["combat"]), 0, "the pick undone")
+		host.free()
+	)
+
 	# ── Kits as planned intents (R§3.7b Table 5) ──────────────────────────
 
 	run_case("a_raider_kit_blast_takes_the_first_strike_and_spends_on_resolution", func():
