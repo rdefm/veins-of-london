@@ -21,3 +21,8 @@ func build(content: VBoxContainer) -> void:
 	vibrate.button_pressed = GameState.state["meta"].get("vibrationEnabled", true)
 	vibrate.toggled.connect(Preferences.set_vibration_enabled)
 	content.add_child(vibrate)
+	var quick := CheckButton.new()
+	quick.text = "Quick combat pacing"
+	quick.button_pressed = CombatPacing.pacing_mode() == "quick"
+	quick.toggled.connect(func(on: bool): CombatPacing.set_pacing_mode("quick" if on else "normal"))
+	content.add_child(quick)

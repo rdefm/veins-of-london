@@ -153,7 +153,7 @@ overlays.
 | app_tile.gd | Normalised icon+label+numeric-count-badge+lock tile for phone launchers |
 | bag_drawer.gd | Global bottom-sheet bag drawer; read-only stock/consumable listing (also during combat; no use buttons, no loadout change); out-of-combat heal + timed-effect Use buttons in management mode |
 | combat_command_dock.gd | Combat's lower command region: Dial beside 1px-ruled command rows (Complication readout, then caller-built rows, "?" on disabled ones) + footer, anchored to screen bottom via `configure_rows()`; optional Dial with the caller's cast callback; `surface_height_for_rows()` fits taller stacks |
-| combat_director.gd | Combat beat-queue playback director; holds a data-driven pause (combat_visuals pacing.turnPause) between combatants' turns; emits `playing_changed` so screens lock commands during playback; owns the pacing toggle (toggle_pacing, pacing_label) |
+| combat_director.gd | Combat beat-queue playback director; holds a data-driven pause (combat_visuals pacing.turnPause) between combatants' turns; emits `playing_changed` so screens lock commands during playback; reads the persisted pacing mode (set in the Settings app) |
 | combat_stage.gd | Combat pixel stage: backdrop (location->context->palette); slots in two receding diagonal groups, depth-sorted; up to 3 reserves per side + `+N`, sliding in; keypose one-shots, effects, juice layer. Slot taps emit `subject_tapped`; selected slot gets an arrow; per-slot guard marker/shield/freeze/status badges. No GameState reads; target-less effects take a caller fallback |
 | contact_cards.gd | Shared contact/faction card builders (incl. membership actions, faction Benefits tier ladder, handler card, Owen card, Targets/Sourcing, Nadia's ledger + "Go with Nadia", key-member card, recipe-seller Trade door, pending-message actions (lowball, peace offer, favour)), inline Contacts action-row layout, Phone-OS chrome repaint (text-only for card-chrome apps) |
 | contract_card.gd | Draggable BizBrief Sales card |
@@ -246,7 +246,7 @@ overlays.
 | ticker_app.gd | Ticker News: state stories by recency, newest-first wires, full state and wire articles, live impact, same-axis Influence sheet. Stock Market: filters, Ore/Items lists, demand modifiers, price detail and chart, annotations and demand drivers |
 | profile_app.gd | Stats, skills, equipment, and a two-slot Loadout card (equip/unequip) for the player and each recruited combat contact, plus the shared Dial loadout card; during prep Change loadout shows only participants' Loadout + Dial cards |
 | dialer_app.gd | Phone recent-calls placeholder; no telephony state/actions |
-| settings_app.gd | Reduced-motion and alarm-vibration preference controls |
+| settings_app.gd | Reduced-motion, alarm-vibration and quick-combat-pacing preference controls |
 | saveload_app.gd | Save slots, export/import (with copy-to-clipboard), New Game confirm |
 | notifications_app.gd | Notification log with pending Defend / guard short-pay buttons |
 | short_pay_view.gd | BizBrief short-pay sub-view: per-place guard keep steppers, live cost/reserve/cash needed, Confirm |

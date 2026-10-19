@@ -10,7 +10,7 @@ extends Control
 # carousel (strip_entries(), carousel_entries()), and a CombatDirector
 # playing each pick's beats (beat_cues()) on the stage and strip with the
 # dock locked, each beat's line to the top-bar ticker, a guard marker on
-# every sprite, at the pacing toggle; Rewind plays the undone beats back in
+# every sprite, at the Settings app's pacing; Rewind plays the undone beats back in
 # reverse. A Readouts window holds the text views: combatants with guard
 # preview and statuses, the round's timeline with enemy intents, and the
 # beat log. Picks go through Combat.choose_move() / choose_item(), Dial
@@ -63,7 +63,6 @@ var _fight_body: Control
 var _round_label: Label
 var _refusal_label: Label
 var _rewind_button: Button
-var _pacing_button: Button
 var _upper_region: Control
 var _stage: CombatStage
 var _strip: TurnOrderStrip
@@ -93,7 +92,7 @@ func _refresh() -> void:
 		_sync_fight(cp)
 
 
-# Heading row (Rewind, Readouts, pacing, round), the upper region (stage, the
+# Heading row (Rewind, Readouts, round), the upper region (stage, the
 # outcome footer and the Readouts window over it) and the command dock.
 func _build_fight_layout() -> void:
 	_fight_body = Control.new()
@@ -113,8 +112,6 @@ func _build_fight_layout() -> void:
 	_rewind_button = MapCardStyle.chip_button("Rewind", _on_rewind_pressed)
 	heading_row.add_child(_rewind_button)
 	heading_row.add_child(MapCardStyle.chip_button("Readouts", _toggle_readouts))
-	_pacing_button = MapCardStyle.chip_button("", _on_pacing_button_pressed)
-	heading_row.add_child(_pacing_button)
 	_round_label = UI.muted_label("")
 	heading_row.add_child(_round_label)
 	_refusal_label = UI.muted_label("")
@@ -203,7 +200,6 @@ func _sync_fight(cp: Dictionary) -> void:
 	_round_label.text = "%s · Round %d" % [CombatScreen.context_label(cp["context"]), cp["round"]]
 	_refusal_label.text = _refusal
 	_rewind_button.disabled = cp["snapshots"].is_empty() or cp["outcome"] != null or _busy()
-	_pacing_button.text = CombatDirector.pacing_label(_director.pacing_mode)
 
 	# Mid-playback a re-sync would cut the slots' one-shot poses short, and
 	# the strip shows the round as far as the beats have played.
@@ -430,11 +426,6 @@ func _on_strip_selection_changed(key: Dictionary) -> void:
 func _toggle_readouts() -> void:
 	_readouts_open = not _readouts_open
 	_refresh()
-
-
-func _on_pacing_button_pressed() -> void:
-	_director.toggle_pacing()
-	_pacing_button.text = CombatDirector.pacing_label(_director.pacing_mode)
 
 
 # Undoes the last pick, then plays its beats back in reverse on the stage

@@ -72,16 +72,6 @@ func set_pacing(mode: String) -> void:
 	_apply_pacing(mode)
 
 
-# Flips the persisted pacing mode (the screens' pacing toggle).
-func toggle_pacing() -> void:
-	set_pacing("normal" if pacing_mode == "quick" else "quick")
-
-
-# The pacing toggle's label for `mode`.
-static func pacing_label(mode: String) -> String:
-	return "⏱ Quick" if mode == "quick" else "⏱ Normal"
-
-
 func _apply_pacing(mode: String) -> void:
 	pacing_mode = mode
 	beat_duration = QUICK_DURATION if mode == "quick" else NORMAL_DURATION
