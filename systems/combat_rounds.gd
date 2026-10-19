@@ -313,12 +313,39 @@ static func status_badges(combatant: Dictionary) -> Array:
 
 
 # The attacker's damage roll range: its attack range, or its max both ends
-# under Be a Lady.
+# under Be a Lady, plus its Strike level's damageBonus.
 static func damage_range(cp: Dictionary, actor: int) -> Array:
 	var combatant: Dictionary = cp["combatants"][actor]
+	var bonus := int(level_effects(MOVE_STRIKE)["damageBonus"][move_level(combatant, MOVE_STRIKE)])
 	if has_lady(cp, combatant):
-		return [combatant["attackMax"], combatant["attackMax"]]
-	return [combatant["attackMin"], combatant["attackMax"]]
+		return [combatant["attackMax"] + bonus, combatant["attackMax"] + bonus]
+	return [combatant["attackMin"] + bonus, combatant["attackMax"] + bonus]
+
+
+# `combatant`'s level in `move_id` (1 with no record).
+static func move_level(combatant: Dictionary, move_id: String) -> int:
+	return int(combatant.get("moveLevels", {}).get(move_id, 1))
+
+
+# A move's row of the data's moveLevelEffects (R§3.7b Move levels).
+static func level_effects(move_id: String) -> Dictionary:
+	return _data()["moveLevelEffects"][move_id]
+
+
+# Chip multiplier on a Guarded `target` hit by `attacker`'s Strike: the
+# attacker's Strike chip (chipMultiplier, or its L5 chip) scaled by the
+# defender's Guard level relative to the base.
+static func chip_multiplier(attacker: Dictionary, target: Dictionary) -> float:
+	var strike := level_effects(MOVE_STRIKE)
+	var base := float(_data()["chipMultiplier"])
+	var chip := float(strike["chipMultiplier"]) if move_level(attacker, MOVE_STRIKE) >= int(strike["chipLevel"]) else base
+	var guard_chip := float(level_effects(MOVE_GUARD)["chipMultiplier"][move_level(target, MOVE_GUARD)])
+	return chip * guard_chip / base
+
+
+# The Leg it flee chance at the actor's Leg it level.
+static func flee_chance(actor: Dictionary) -> float:
+	return float(level_effects("legIt")["chance"][move_level(actor, "legIt")])
 
 
 static func display_name(combatant: Dictionary) -> String:
@@ -459,6 +486,9 @@ static func new_combatant(side: String, name: String, level: int, hp: int, hp_ma
 		# persistent record its move XP goes to: "" the player, a contact id,
 		# or null for none (open_fight() then rolls its levels).
 		"moveLevels": {}, "moveOwner": null,
+		# Guard L5's once-a-round full absorb has been used this round, and
+		# the actions a Stun L5 keeps it Open for.
+		"firstHitSpent": false, "openActions": 0,
 		"plan": [], "nextPlan": [],
 	}
 
@@ -1392,16 +1422,23 @@ static func _advance(cp: Dictionary, rng: RandomNumberGenerator, beats: Array) -
 			continue
 		if combatant["actionsLost"] > 0:
 			combatant["actionsLost"] -= 1
+			_tick_open(combatant)
 			var frozen: bool = combatant["frozenActions"] > 0
 			combatant["frozenActions"] = maxi(0, combatant["frozenActions"] - 1)
 			_beat(cp, beats, "frozen" if frozen else "lost", actor, -1, action["move"] if action != null else "", {})
 			beats[-1]["marks"] = stage_marks(cp)
 			continue
 		var fleeing: bool = move(fury_move(cp, actor, action["move"]))["effect"] == EFFECT_FLEE
-		_resolve_action(cp, actor, action, rng, beats)
-		if fleeing:
+		var flee_failed := _resolve_action(cp, actor, action, rng, beats)
+		if fleeing and not (flee_failed and move_level(combatant, fury_move(cp, actor, action["move"])) >= int(level_effects("legIt")["keepActionsLevel"])):
 			cursor["done"].append(actor)
 	cursor["pause"] = -1
+
+
+# One of the combatant's action slots (acted or lost) passes a Stun L5 hold.
+static func _tick_open(combatant: Dictionary) -> void:
+	if int(combatant.get("openActions", 0)) > 0:
+		combatant["openActions"] -= 1
 
 
 # The first timeline entry after the cursor's, or {} once the round's done.
@@ -1431,6 +1468,7 @@ static func _end_round(cp: Dictionary, rng: RandomNumberGenerator, beats: Array)
 	_release_kits(cp)
 	var patients: Array = []
 	for i in range(combatants.size()):
+		combatants[i]["firstHitSpent"] = false
 		var ability = combatants[i]["ability"]
 		if ability is Dictionary and int(ability["lockedTurns"]) > 0:
 			ability["lockedTurns"] -= 1
@@ -1511,17 +1549,18 @@ static func continue_after_ko(cp: Dictionary) -> Array:
 # Applies the move's effect (fury_move()'s), then its effect on the actor's guard state;
 # a Panic or Pan's Rapture turn plays instead while one runs, and the
 # action ticks a running anger down. A failed Guard (Feint) leaves the actor
-# Open and spends the failure.
-static func _resolve_action(cp: Dictionary, actor_idx: int, action: Dictionary, rng: RandomNumberGenerator, beats: Array) -> void:
+# Open and spends the failure. True when a Leg it failed.
+static func _resolve_action(cp: Dictionary, actor_idx: int, action: Dictionary, rng: RandomNumberGenerator, beats: Array) -> bool:
 	var move_id: String = fury_move(cp, actor_idx, action["move"])
 	var m := move(move_id)
 	var actor: Dictionary = cp["combatants"][actor_idx]
 	var first_beat := beats.size()
+	var flee_failed := false
 	if actor.get("dial") is Dictionary:
 		actor["dial"]["actions"] = int(actor["dial"].get("actions", 0)) + 1
 	if _play_status_turn(cp, actor_idx, rng, beats):
 		_stamp_marks(cp, actor_idx, first_beat, beats)
-		return
+		return false
 	match m["effect"]:
 		EFFECT_DAMAGE:
 			var target := _fury_target(cp, actor_idx, rng)
@@ -1538,9 +1577,9 @@ static func _resolve_action(cp: Dictionary, actor_idx: int, action: Dictionary, 
 			if target < 0:
 				target = _retarget(cp, actor_idx, int(action["target"]))
 			if target >= 0:
-				_stun(cp, actor_idx, target, move_id, m, beats)
+				_stun(cp, actor_idx, target, move_id, m, rng, beats)
 		EFFECT_FLEE:
-			var chance := float(m["params"]["chance"])
+			var chance := flee_chance(actor)
 			if float(actor["fleeBoost"]) > 0.0:
 				chance = float(actor["fleeBoost"])
 				actor["fleeBoost"] = 0.0
@@ -1550,6 +1589,7 @@ static func _resolve_action(cp: Dictionary, actor_idx: int, action: Dictionary, 
 					cp["outcome"] = "fled"
 			else:
 				_beat(cp, beats, "fleeFailed", actor_idx, -1, move_id, {})
+				flee_failed = true
 		EFFECT_NONE:
 			_beat(cp, beats, move_id, actor_idx, -1, move_id, {})
 		_:
@@ -1561,8 +1601,12 @@ static func _resolve_action(cp: Dictionary, actor_idx: int, action: Dictionary, 
 			actor["guardFailed"] = false
 		else:
 			actor["guard"] = m["actorGuard"]
+	if flee_failed and not actor["koed"] and move_level(actor, move_id) >= int(level_effects(move_id)["guardedOnFailLevel"]):
+		actor["guard"] = GUARDED
 	_tick_anger(cp, actor_idx, beats)
+	_tick_open(actor)
 	_stamp_marks(cp, actor_idx, first_beat, beats)
+	return flee_failed
 
 
 # A move use's XP (MoveLevels.xp_for_use()) to the actor's persistent
@@ -1668,20 +1712,21 @@ static func stage_marks(cp: Dictionary) -> Array:
 	})
 
 
-# "open" or "guarded", in is_open()'s order: a freeze reads Open, a Shield
+# "open" or "guarded", in is_open()'s order: a freeze or Stun hold reads Open, a Shield
 # pool Guarded, then the guard state.
 static func guard_marker(_cp: Dictionary, combatant: Dictionary) -> String:
-	if combatant["frozenActions"] > 0:
+	if combatant["frozenActions"] > 0 or int(combatant.get("openActions", 0)) > 0:
 		return OPEN
 	if combatant["shield"] > 0:
 		return GUARDED
 	return combatant["guard"]
 
 
-# Open for damage and conditions: frozen by a Time Pearl; else Guarded while
+# Open for damage and conditions: frozen by a Time Pearl or held Open by a
+# Stun L5 (openActions); else Guarded while
 # a Shield pool lasts; else its own guard state is Open.
 static func is_open(_cp: Dictionary, combatant: Dictionary) -> bool:
-	if combatant["frozenActions"] > 0:
+	if combatant["frozenActions"] > 0 or int(combatant.get("openActions", 0)) > 0:
 		return true
 	if combatant["shield"] > 0:
 		return false
@@ -1698,14 +1743,23 @@ static func _feint(cp: Dictionary, actor_idx: int, target_idx: int, move_id: Str
 
 
 # Open target → loses its next params.actions actions (its guard state
-# stays as it was); a Guarded target shrugs it off (R§3.7b Removal).
-static func _stun(cp: Dictionary, actor_idx: int, target_idx: int, move_id: String, m: Dictionary, beats: Array) -> void:
+# stays as it was); a Guarded target shrugs it off, unless Stun L3's
+# guardedChance gets through; Stun L5 also holds the target Open for
+# openActions of its action slots (R§3.7b Removal, Move levels).
+static func _stun(cp: Dictionary, actor_idx: int, target_idx: int, move_id: String, m: Dictionary, rng: RandomNumberGenerator, beats: Array) -> void:
 	var target: Dictionary = cp["combatants"][target_idx]
+	var fx := level_effects(move_id)
+	var level := move_level(cp["combatants"][actor_idx], move_id)
+	var through := false
 	if m["condition"] == CONDITION_TARGET_OPEN and not is_open(cp, target):
-		_beat(cp, beats, "fizzle", actor_idx, target_idx, move_id, {})
-	else:
-		target["actionsLost"] += int(m["params"]["actions"])
-		_beat(cp, beats, "stun", actor_idx, target_idx, move_id, {})
+		through = level >= int(fx["guardedLevel"]) and rng.randf() < float(fx["guardedChance"])
+		if not through:
+			_beat(cp, beats, "fizzle", actor_idx, target_idx, move_id, {})
+			return
+	target["actionsLost"] += int(m["params"]["actions"])
+	if level >= int(fx["openLevel"]):
+		target["openActions"] = maxi(int(target.get("openActions", 0)), int(fx["openActions"]))
+	_beat(cp, beats, "stunThrough" if through else "stun", actor_idx, target_idx, move_id, {})
 
 
 # An action aimed at a KO'd opponent moves to the next living one in index
@@ -1738,19 +1792,37 @@ static func _strike(cp: Dictionary, actor_idx: int, target_idx: int, move_id: St
 		return
 	var lady := has_lady(cp, actor)
 	var roll_range := damage_range(cp, actor_idx)
+	var fx := level_effects(MOVE_STRIKE)
+	var strike_level := move_level(actor, MOVE_STRIKE)
 	var roll := rng.randi_range(roll_range[0], roll_range[1])
 	var guarded: bool = not is_open(cp, target)
 	var dmg := roll
 	if guarded:
-		dmg = maxi(1, GameState.round_epsilon(roll * float(_data()["chipMultiplier"])))
+		dmg = maxi(1, GameState.round_epsilon(roll * chip_multiplier(actor, target)))
 	var crit_chance: float = float(actor["ladyCrit"]) if lady else float(_data()["critChance"][actor["level"]])
+	if strike_level >= int(fx["critLevel"]):
+		crit_chance += float(fx["critBonus"])
 	var crit := rng.randf() < crit_chance
+	if guarded and _guard_blocks(target, rng):
+		_beat(cp, beats, "block", actor_idx, target_idx, move_id, { "dmg": 0, "hpAfter": target["hp"] })
+		return
 	if crit:
 		dmg *= 2
 	dmg = GameState.round_epsilon(dmg * anger_factor(actor, true))
 	_deal_damage(cp, actor_idx, target_idx, dmg, "chip" if guarded else "hit", move_id, beats, {
 		"roll": roll, "crit": crit, "guarded": guarded,
 	})
+
+
+# Whether a Guarded `target`'s Guard level fully blocks this hit: Guard L5's
+# first hit each round (spent), else Guard L3's blockChance.
+static func _guard_blocks(target: Dictionary, rng: RandomNumberGenerator) -> bool:
+	var fx := level_effects(MOVE_GUARD)
+	var level := move_level(target, MOVE_GUARD)
+	if level >= int(fx["firstHitLevel"]) and not target.get("firstHitSpent", false):
+		target["firstHitSpent"] = true
+		return true
+	return level >= int(fx["blockLevel"]) and rng.randf() < float(fx["blockChance"])
 
 
 # The chance `target` evades a Strike from `actor`: its evadeChance, less

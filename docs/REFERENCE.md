@@ -842,7 +842,7 @@ Spec: `.scratch/combat-port/spec.md` (signed off 2026-10-17). Every fight (all `
 
 **Round.** At round start each enemy commits a round plan: one weighted pattern, cycled to fill its `actionsPerRound` (a 3-move pattern on a 2-action enemy plays its first two), each offensive action targeting uniformly over the player + living allies. Next round's plans are pre-rolled at the same time (for sight). Allies then plan by reading the fogged enemy intents (ally AI; ally item rules below). **Ally AI**, per action: Guard where a read enemy Strike/Stun targets it; else Strike an enemy who'll be Open; else, with an action to follow, Feint a Guarded enemy the Feint leaves Open for that Strike; else with chance `allyChipStrikeChance` (0.30) chip-Strike a Guarded enemy; else Guard. All actions resolve in timeline order: action index, then speed descending, then player > allies (array order) > enemies (array order). The engine pauses at each player action for one pick (move or loadout item or Dial cast + target); only targets living at the pause are offered. Enemies never re-plan mid-round.
 
-**Moves** (all five available from the start; `level` field reserved):
+**Moves** (all five available from the start):
 
 | id | Cost | Actor after | Effect |
 |---|---|---|---|
@@ -850,11 +850,11 @@ Spec: `.scratch/combat-port/spec.md` (signed off 2026-10-17). Every fight (all `
 | strike | 1 | open | Damage roll vs target |
 | feint | 1 | unchanged | Target → Open, and its next Guard action fails (it stays Open through it; the failure is spent, later Guards work normally). On an already-Open target only the Guard failure is set |
 | stun | 1 | open | Needs an Open target, else fizzles; target loses its next 1 action |
-| legIt | 1 | open | Flee roll 0.65; success ends the fight `fled`; failure: actor Open, rest of its actions this round lost; no parting shot |
+| legIt | 1 | open | Flee roll `moveLevelEffects.legIt.chance[level]` (0.65 at L1); success ends the fight `fled`; failure: actor Open, rest of its actions this round lost; no parting shot (Move levels changes both) |
 
 Items and Dial casts cost 1 action and leave guard state unchanged (except Shield).
 
-**Damage.** `roll = rand(attackMin, attackMax)`. Open target → full; Guarded → `max(1, round(roll × 0.25))`. Crit (`critChance[level]`) doubles the final figure (Guarded crit = 2× chip). A shield pool absorbs 1:1 before HP (player, ally, enemy alike). Pandemonium/Panger anger factors apply after crit (below).
+**Damage.** `roll = rand(attackMin, attackMax)`. Open target → full; Guarded → `max(1, round(roll × chip))` (`chip` 0.25 base; Move levels changes it). Crit (`critChance[level]`) doubles the final figure (Guarded crit = 2× chip). A shield pool absorbs 1:1 before HP (player, ally, enemy alike). Pandemonium/Panger anger factors apply after crit (below).
 
 **Evade.** Before a Strike rolls, the target evades it with chance `evadeChance` (enemies only, §1.10; player and allies 0): an `evade` beat, no damage, no crit. No evade while the target has actions to lose (stunned, Time Pearl/Black Hole). An attacker under Be a Lady cuts it by `evadeCutPerTier` (0.05) × its Be a Lady tier, floored at 0. Stun, Feint and items never miss.
 
@@ -889,6 +889,17 @@ Items and Dial casts cost 1 action and leave guard state unchanged (except Shiel
 **XP.** One lump per fight, at `exit_combat()`: win 30 Combat XP, loss 3, fled 0. No per-action Combat XP (move XP below). Train/Gym unchanged (§3.7a).
 
 **Move levels.** Every combatant has a level 1–5 per move (`moveXp.moves`: strike, guard, feint, stun, legIt; combatant `moveLevels`), beside Combat Skill. No stat effects yet. **Player and contacts** keep a persistent record, `player.moveLevels` / `contacts[id].moveLevels` = `{ moveId: { level, xp } }` (`MoveLevels`, `systems/move_levels.gd`; old saves backfill L1 / 0 XP); a recruit fights on its own (combatant `moveOwner` = `""` player or the contact id). Each of its own resolved move actions gives `moveXp.resolved` 10 XP, a fizzled one (first beat `fizzle`, `evade` or `fleeFailed`: a Stun on a Guarded target, an evaded Strike, a failed Leg it) `moveXp.fizzled` 4; items, Dial casts, lost/frozen actions and Panic/Rapture turns give none. Cumulative thresholds `moveXp.levels` = [_, 0, 30, 90, 200, 400], cap `levelMax`. XP lands on the persistent record as the action resolves, outside the fight dict, so Rewind never undoes it (owned fighters' fight levels re-read the record after a restore). A level-up beats `levelUp` (transcript line) and posts one Notification with the same line. **Everyone else** (enemies, Hired Guard, Firm muscle, debug allies) rolls fixed levels at `open_fight()`, active and queued alike, off the fight seed (`MOVE_LEVEL_SEED_SALT` stream): per move its Combat Skill level at weight 50, one below 30, two below 20 (`moveLevelRoll`), min 1. Shown on Profile (skills card; a recruit's on its loadout card), the Gym, and as an `L#` badge on each Fight-list row.
+
+**Move-level effects** (`moveLevelEffects`; every combatant, read at the acting move's level — Strike/Stun/Leg it the actor's, Guard the defender's; unlocks are cumulative):
+
+| Move | Per level L1..L5 | L3 | L5 |
+|---|---|---|---|
+| Strike | roll +0/+2/+4/+8/+12 (added before chip, so it also scales chip; shows in intent dmgMin/dmgMax) | +0.06 crit chance (also under Be a Lady) | chip vs Guarded 0.25 → 0.55 |
+| Guard | chip taken ×0.25/.20/.17/.14/.10 | a hit on a Guarded defender has 0.30 to do 0 (`block` beat) | the first hit each round on a Guarded defender does 0 (`block` beat; resets at round end) |
+| Stun | — | 0.80 to work on a Guarded target (`stunThrough` beat; else `fizzle`) | a landed Stun also holds the target Open for its next 2 action slots (lost slots count) |
+| Leg it | flee chance .65/.70/.75/.80/.85 (a Blast's one-use boost still replaces it) | a failed flee keeps the rest of the actor's actions | a failed flee leaves the actor Guarded, not Open |
+
+**Chip combination rule:** the chip multiplier is the attacker's Strike chip (0.25, or 0.55 at Strike L5) × the defender's Guard chip ÷ 0.25, so Guard's level scales whichever base applies: Strike L5 vs Guard L5 = 0.55 × 0.10 / 0.25 = 0.22. "Guarded" includes a Shield pool. On a Guarded defender the order is evade → roll → crit roll → block check (first-hit absorb, then the 0.30 roll at Guard L3+). Blast, Black Hole and every item hit bypass Guard level entirely (no chip, no block).
 
 **Enemy kits** (raider kit, enemy capabilities) and **guard kits / ally slots**: table 5. **Anger/fury, Panic, Rapture, Wormhole, disarm**: table 4.
 

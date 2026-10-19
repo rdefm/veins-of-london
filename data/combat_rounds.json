@@ -15,6 +15,13 @@
     { "below": 1, "weight": 30 },
     { "below": 2, "weight": 20 }
   ],
+  "_moveLevelEffectsComment": "Move-level effects (REFERENCE §3.7b Move levels), read at the acting move's level (Strike, Stun, Leg it: the actor's; Guard: the defender's). Per-level arrays are indexed by level 0..levelMax (index 0 unused). *Level fields are the level an unlock starts at; unlocks are cumulative. Strike: damageBonus is added to the roll before chip; critBonus to the crit chance; chipMultiplier replaces the base chip when the attacker is at chipLevel. Guard: chipMultiplier[level] replaces the base chip; at blockLevel a hit has blockChance to do 0; at firstHitLevel the first hit each round does 0. Stun: guardedChance to work on a Guarded target from guardedLevel; from openLevel a landed Stun leaves the target Open for openActions of its actions. Leg it: chance[level]; from keepActionsLevel a failed flee keeps the rest of the actor's actions; from guardedOnFailLevel it leaves the actor Guarded.",
+  "moveLevelEffects": {
+    "strike": { "damageBonus": [0, 0, 2, 4, 8, 12], "critBonus": 0.06, "critLevel": 3, "chipMultiplier": 0.55, "chipLevel": 5 },
+    "guard": { "chipMultiplier": [0, 0.25, 0.20, 0.17, 0.14, 0.10], "blockChance": 0.30, "blockLevel": 3, "firstHitLevel": 5 },
+    "stun": { "guardedChance": 0.80, "guardedLevel": 3, "openLevel": 5, "openActions": 2 },
+    "legIt": { "chance": [0, 0.65, 0.70, 0.75, 0.80, 0.85], "keepActionsLevel": 3, "guardedOnFailLevel": 5 }
+  },
   "fog": {
     "_comment": "Unread chance per enemy action = (unreadChance[player Combat Skill] + perLevelAbove x levels the enemy is above the player - perLevelBelow x levels below) x positionMultiplier[action index] (last entry for later indices), clamped to [0, 1]. Draft values for tuning.",
     "unreadChance": [0, 0.35, 0.28, 0.21, 0.14, 0.07],
@@ -43,7 +50,7 @@
     },
     "legIt": {
       "id": "legIt", "name": "Leg it", "cost": 1, "actorGuard": "open",
-      "target": "self", "effect": "flee", "params": { "chance": 0.65 }, "condition": null, "level": 1
+      "target": "self", "effect": "flee", "params": {}, "condition": null, "level": 1
     }
   },
   "items": {
@@ -152,6 +159,8 @@
     "ko": { "self": "You go down.", "other": "{target} goes down." },
     "feint": { "self": "You sell {target} a dummy. The guard goes with it.", "other": "{actor} sells {target} a dummy. The guard goes with it." },
     "stun": { "self": "You catch {target} open. Bell rung.", "other": "{actor} catches {target} open. Bell rung." },
+    "stunThrough": { "self": "You ring {target}'s bell straight through the guard.", "other": "{actor} rings {target}'s bell straight through the guard." },
+    "block": { "self": "You swing at {target}. The guard takes all of it.", "other": "{actor} swings at {target}. The guard takes all of it." },
     "evade": { "self": "You swing at {target} and hit air.", "other": "{actor} swings at {target} and hits air." },
     "fizzle": { "self": "You try it on. Nothing doing.", "other": "{actor} tries it on. Nothing doing." },
     "lost": { "self": "You're still seeing stars.", "other": "{actor} is still seeing stars." },

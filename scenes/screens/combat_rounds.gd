@@ -976,7 +976,7 @@ static func beat_cues(beat: Dictionary) -> Array:
 	if _OVERLAY_KINDS.has(kind):
 		return [{ "call": "overlay", "who": actor }]
 	match kind:
-		"hit", "chip", "stun", "feint", "fizzle", "evade":
+		"hit", "chip", "stun", "stunThrough", "block", "feint", "fizzle", "evade":
 			cues.append_array(_move_pose_cues(beat["move"], actor))
 		"fled", "wormhole", "bolt":
 			cues.append({ "call": "vanish", "who": actor })

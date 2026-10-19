@@ -1388,7 +1388,7 @@ func _validate_enemy_levels(levels: Dictionary, level_max: int, errors: Array[St
 # is a recipe with an effectPower curve and a known target type and effect;
 # every archetype names a combat_visuals sprite template.
 func _validate_combat_rounds(cp: Dictionary, skill_curve: Array, recipes: Dictionary, templates: Dictionary, errors: Array[String]) -> void:
-	_require_keys(cp, ["chipMultiplier", "actionsPerRound", "critChance", "levelMax", "allyHealBelow", "allyCrowdEnemies", "allyChipStrikeChance", "moveXp", "moveLevelRoll", "fog","playerBase", "allyBase", "moves", "items", "archetypes", "anger", "statusTurns", "statusBadges", "beatLines", "tooltips"], "combat_rounds", errors)
+	_require_keys(cp, ["chipMultiplier", "actionsPerRound", "critChance", "levelMax", "allyHealBelow", "allyCrowdEnemies", "allyChipStrikeChance", "moveXp", "moveLevelRoll", "moveLevelEffects", "fog","playerBase", "allyBase", "moves", "items", "archetypes", "anger", "statusTurns", "statusBadges", "beatLines", "tooltips"], "combat_rounds", errors)
 	for tip_id in cp.get("tooltips", {}).keys():
 		if str(cp["tooltips"][tip_id]).strip_edges() == "":
 			errors.append("combat_rounds.tooltips.%s: must not be empty" % tip_id)
@@ -1420,6 +1420,7 @@ func _validate_combat_rounds(cp: Dictionary, skill_curve: Array, recipes: Dictio
 			errors.append("combat_rounds.critChance[%d]: must be in [0, 1]" % level)
 	_validate_combat_rounds_fog(cp.get("fog", {}), level_max, errors)
 	_validate_combat_rounds_move_levels(cp, level_max, errors)
+	_validate_combat_rounds_level_effects(cp.get("moveLevelEffects", {}), level_max, errors)
 	_require_keys(cp.get("playerBase", {}), ["name"], "combat_rounds.playerBase", errors)
 	_validate_combat_rounds_stats(cp.get("allyBase", {}), "combat_rounds.allyBase", errors)
 
@@ -1455,10 +1456,6 @@ func _validate_combat_rounds(cp: Dictionary, skill_curve: Array, recipes: Dictio
 			CombatRounds.EFFECT_STUN:
 				if int(params.get("actions", 0)) < 1:
 					errors.append("%s.params.actions: must be at least 1" % path)
-			CombatRounds.EFFECT_FLEE:
-				var chance := float(params.get("chance", -1.0))
-				if chance < 0.0 or chance > 1.0:
-					errors.append("%s.params.chance: must be in [0, 1]" % path)
 
 	var archetypes: Dictionary = cp.get("archetypes", {})
 	if archetypes.is_empty():
@@ -1530,7 +1527,7 @@ func _validate_combat_rounds(cp: Dictionary, skill_curve: Array, recipes: Dictio
 		if not CombatRounds.GUARD_EFFECTS.has(turn.get("actorGuard", "")):
 			errors.append("combat_rounds.statusTurns.%s.actorGuard: unknown guard effect" % status)
 	_require_keys(cp.get("statusBadges", {}), ["panic", "rapture", "anger", "fury", "disarmed"], "combat_rounds.statusBadges", errors)
-	_require_keys(cp.get("beatLines", {}), ["guard", "hit", "chip", "crit", "ko", "feint", "stun", "fizzle", "lost", "fled", "fleeFailed", "absorb", "frozen", "timePearl", "blackHole", "pull", "blast", "shield", "healSelf", "heal", "powder", "sight", "lady", "panic", "rapture", "anger", "fury", "bolt", "cower", "enraptured", "calm", "wormhole", "disarm", "shieldOther", "sightGiven", "failsafe"], "combat_rounds.beatLines", errors)
+	_require_keys(cp.get("beatLines", {}), ["guard", "hit", "chip", "crit", "ko", "feint", "stun", "stunThrough", "block", "fizzle", "lost", "fled", "fleeFailed", "absorb", "frozen", "timePearl", "blackHole", "pull", "blast", "shield", "healSelf", "heal", "powder", "sight", "lady", "panic", "rapture", "anger", "fury", "bolt", "cower", "enraptured", "calm", "wormhole", "disarm", "shieldOther", "sightGiven", "failsafe"], "combat_rounds.beatLines", errors)
 
 
 # The fog-of-war unread-chance curve (CombatRounds.unread_chance()).
@@ -1569,6 +1566,36 @@ func _validate_combat_rounds_move_levels(cp: Dictionary, level_max: int, errors:
 			errors.append("%s.below: must be at least 0" % path)
 		if int(rows[i].get("weight", 0)) < 1:
 			errors.append("%s.weight: must be at least 1" % path)
+
+
+# moveLevelEffects: each levelled move's per-level arrays (index = level 0..levelMax) in
+# range, and its unlock levels within 1..levelMax.
+func _validate_combat_rounds_level_effects(fx: Dictionary, level_max: int, errors: Array[String]) -> void:
+	var spec := {
+		"strike": ["damageBonus", "critBonus", "critLevel", "chipMultiplier", "chipLevel"],
+		"guard": ["chipMultiplier", "blockChance", "blockLevel", "firstHitLevel"],
+		"stun": ["guardedChance", "guardedLevel", "openLevel", "openActions"],
+		"legIt": ["chance", "keepActionsLevel", "guardedOnFailLevel"],
+	}
+	for move_id in spec:
+		var row: Dictionary = fx.get(move_id, {})
+		var path := "combat_rounds.moveLevelEffects.%s" % move_id
+		_require_keys(row, spec[move_id], path, errors)
+		for key in row:
+			var value = row[key]
+			if value is Array:
+				if value.size() != level_max + 1:
+					errors.append("%s.%s: expected %d entries (index=level 0..%d)" % [path, key, level_max + 1, level_max])
+				for i in range(1, value.size()):
+					if float(value[i]) < 0.0 or (key != "damageBonus" and float(value[i]) > 1.0):
+						errors.append("%s.%s[%d]: out of range" % [path, key, i])
+			elif key.ends_with("Level") and (int(value) < 1 or int(value) > level_max):
+				errors.append("%s.%s: must be 1..%d" % [path, key, level_max])
+			elif key.ends_with("Chance") or key.ends_with("Bonus") or key == "chipMultiplier":
+				if float(value) < 0.0 or float(value) > 1.0:
+					errors.append("%s.%s: must be in [0, 1]" % [path, key])
+	if int(fx.get("stun", {}).get("openActions", 0)) < 1:
+		errors.append("combat_rounds.moveLevelEffects.stun.openActions: must be at least 1")
 
 
 func _validate_combat_rounds_fog(fog: Dictionary, level_max: int, errors: Array[String]) -> void:

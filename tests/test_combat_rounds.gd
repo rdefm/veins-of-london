@@ -338,6 +338,154 @@ func run() -> void:
 		assert_true(fled and failed, "seeds cover both Leg it results")
 	)
 
+	run_case("strike_level_damage_bonus_and_crit_unlock", func():
+		GameState.reset()
+		var combat := _start([["guard", "guard"]])
+		var you: Dictionary = combat["combatants"][CombatRounds.PLAYER_INDEX]
+		for pair in [[1, 0], [2, 2], [3, 4], [4, 8], [5, 12]]:
+			you["moveLevels"]["strike"] = pair[0]
+			assert_eq(CombatRounds.damage_range(combat, CombatRounds.PLAYER_INDEX), [you["attackMin"] + pair[1], you["attackMax"] + pair[1]], "L%d bonus" % pair[0])
+		var crits := {}
+		for level in [1, 3, 5]:
+			you["moveLevels"]["strike"] = level
+			var hits := 0
+			for seed_value in range(400):
+				var rng := RandomNumberGenerator.new()
+				rng.seed = seed_value
+				var beats: Array = []
+				combat["combatants"][1]["hp"] = 1000
+				combat["combatants"][1]["guard"] = CombatRounds.OPEN
+				CombatRounds._strike(combat, CombatRounds.PLAYER_INDEX, 1, "strike", rng, beats)
+				if beats[0].get("crit", false):
+					hits += 1
+			crits[level] = hits
+		assert_true(crits[3] > crits[1] + 8 and crits[5] > crits[1] + 8, "L3+ adds ~6%% crit (%s)" % str(crits))
+	)
+
+	run_case("chip_multiplier_combines_strike_l5_with_guard_level", func():
+		GameState.reset()
+		var combat := _start([["guard", "guard"]])
+		var you: Dictionary = combat["combatants"][CombatRounds.PLAYER_INDEX]
+		var mugger: Dictionary = combat["combatants"][1]
+		for pair in [[1, 0.25], [2, 0.20], [3, 0.17], [4, 0.14], [5, 0.10]]:
+			mugger["moveLevels"]["guard"] = pair[0]
+			you["moveLevels"]["strike"] = 1
+			assert_almost_eq(CombatRounds.chip_multiplier(you, mugger), pair[1], 0.0001, "Guard L%d chip" % pair[0])
+		you["moveLevels"]["strike"] = 4
+		mugger["moveLevels"]["guard"] = 1
+		assert_almost_eq(CombatRounds.chip_multiplier(you, mugger), 0.25, 0.0001, "Strike L4 keeps base chip")
+		you["moveLevels"]["strike"] = 5
+		assert_almost_eq(CombatRounds.chip_multiplier(you, mugger), 0.55, 0.0001, "Strike L5 vs Guard L1")
+		mugger["moveLevels"]["guard"] = 5
+		assert_almost_eq(CombatRounds.chip_multiplier(you, mugger), 0.22, 0.0001, "Strike L5 x Guard L5 = 0.55 x 0.10/0.25")
+	)
+
+	run_case("guard_levels_block_hits_and_blast_ignores_them", func():
+		GameState.reset()
+		var combat := _start([["guard", "guard"]])
+		var you: Dictionary = combat["combatants"][CombatRounds.PLAYER_INDEX]
+		var mugger: Dictionary = combat["combatants"][1]
+		you["guard"] = CombatRounds.GUARDED
+		you["hp"] = 1000
+		var blocks := {}
+		for level in [1, 3]:
+			mugger["moveLevels"]["guard"] = 1
+			you["moveLevels"]["guard"] = level
+			var blocked := 0
+			for seed_value in range(300):
+				var rng := RandomNumberGenerator.new()
+				rng.seed = seed_value
+				var beats: Array = []
+				CombatRounds._strike(combat, 1, CombatRounds.PLAYER_INDEX, "strike", rng, beats)
+				if beats[0]["kind"] == "block":
+					blocked += 1
+			blocks[level] = blocked
+		assert_eq(blocks[1], 0, "L1 never fully blocks")
+		assert_true(blocks[3] > 60 and blocks[3] < 120, "L3 blocks about 30%% (%d)" % blocks[3])
+		you["moveLevels"]["guard"] = 5
+		you["firstHitSpent"] = false
+		var rng2 := RandomNumberGenerator.new()
+		rng2.seed = 3
+		var first: Array = []
+		CombatRounds._strike(combat, 1, CombatRounds.PLAYER_INDEX, "strike", rng2, first)
+		assert_eq(first[0]["kind"], "block", "L5 first hit does 0")
+		assert_eq(first[0]["dmg"], 0, "no damage")
+		assert_true(you["firstHitSpent"], "spent")
+		var before: int = you["hp"]
+		CombatRounds._deal_damage(combat, 1, CombatRounds.PLAYER_INDEX, 9, "blast", "blast", [], {})
+		assert_eq(you["hp"], before - 9, "item damage ignores Guard level")
+	)
+
+	run_case("stun_levels_reach_guarded_targets_and_hold_open", func():
+		GameState.reset()
+		var combat := _start([["guard", "guard"]])
+		var you: Dictionary = combat["combatants"][CombatRounds.PLAYER_INDEX]
+		var mugger: Dictionary = combat["combatants"][1]
+		var stun := CombatRounds.move("stun")
+		var results := {}
+		for level in [1, 3, 5]:
+			you["moveLevels"]["stun"] = level
+			var through := 0
+			for seed_value in range(200):
+				var rng := RandomNumberGenerator.new()
+				rng.seed = seed_value
+				mugger["guard"] = CombatRounds.GUARDED
+				mugger["actionsLost"] = 0
+				mugger["openActions"] = 0
+				var beats: Array = []
+				CombatRounds._stun(combat, CombatRounds.PLAYER_INDEX, 1, "stun", stun, rng, beats)
+				if beats[0]["kind"] == "stunThrough":
+					through += 1
+					assert_eq(mugger["actionsLost"], 1, "it loses its action")
+					assert_eq(mugger["openActions"], 2 if level == 5 else 0, "L5 holds it Open for 2 actions")
+			results[level] = through
+		assert_eq(results[1], 0, "L1 fizzles on a guard")
+		assert_true(results[3] > 135 and results[3] < 185, "L3 works ~80%% (%d)" % results[3])
+		you["moveLevels"]["stun"] = 5
+		mugger["guard"] = CombatRounds.OPEN
+		mugger["actionsLost"] = 0
+		mugger["openActions"] = 0
+		CombatRounds._stun(combat, CombatRounds.PLAYER_INDEX, 1, "stun", stun, RandomNumberGenerator.new(), [])
+		mugger["guard"] = CombatRounds.GUARDED
+		assert_true(CombatRounds.is_open(combat, mugger), "held Open while guarded")
+		CombatRounds._tick_open(mugger)
+		CombatRounds._tick_open(mugger)
+		assert_true(not CombatRounds.is_open(combat, mugger), "hold over after 2 actions")
+	)
+
+	run_case("leg_it_levels_set_chance_and_failure_consequences", func():
+		GameState.reset()
+		var combat := _start([["guard", "guard"]])
+		var you: Dictionary = combat["combatants"][CombatRounds.PLAYER_INDEX]
+		for pair in [[1, 0.65], [2, 0.70], [3, 0.75], [4, 0.80], [5, 0.85]]:
+			you["moveLevels"]["legIt"] = pair[0]
+			assert_almost_eq(CombatRounds.flee_chance(you), pair[1], 0.0001, "L%d chance" % pair[0])
+		for level in [1, 3, 5]:
+			var checked := false
+			for seed_value in range(1, 80):
+				if checked:
+					break
+				GameState.reset()
+				var c := _start([["guard", "guard"]], seed_value)
+				c["combatants"][CombatRounds.PLAYER_INDEX]["moveLevels"]["legIt"] = level
+				var result := Combat.choose_move("legIt")
+				if result["outcome"] != null:
+					continue
+				checked = true
+				var pos := [c["round"], CombatRounds.decision_position(c)]
+				var guard: String = c["combatants"][CombatRounds.PLAYER_INDEX]["guard"]
+				if level == 1:
+					assert_eq(pos, [2, 0], "L1 loses the rest of the round")
+					assert_eq(guard, CombatRounds.OPEN, "L1 left Open")
+				elif level == 3:
+					assert_eq(pos, [1, 1], "L3 keeps its next action")
+					assert_eq(guard, CombatRounds.OPEN, "L3 left Open")
+				else:
+					assert_eq(pos, [1, 1], "L5 keeps its next action")
+					assert_eq(guard, CombatRounds.GUARDED, "L5 left Guarded")
+			assert_true(checked, "a failed flee at L%d" % level)
+	)
+
 	run_case("win_pays_30_xp_and_resumes_the_event", func():
 		GameState.reset()
 		var combat := _start([["guard", "guard"]], 1, 1)
