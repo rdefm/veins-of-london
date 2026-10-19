@@ -614,7 +614,7 @@ func _move_row(cp: Dictionary, move_id: String) -> Dictionary:
 	var level := int(cp["combatants"][CombatRounds.PLAYER_INDEX].get("moveLevels", {}).get(move_id, 1))
 	return {
 		"name": "MoveRow_%s" % move_id, "iconKind": icons.get(move_id, ""),
-		"label": move_name, "badge": "L%d" % level,
+		"label": move_name, "badge": "L%d" % level if MoveLevels.move_ids().has(move_id) else "",
 		"disabled": reason != "", "disabledReason": reason,
 		"callback": _pick.bind(move_id, target),
 		"tooltip": GameData.COMBAT_ROUNDS["tooltips"].get(move_id, ""),

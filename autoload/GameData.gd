@@ -1534,12 +1534,20 @@ func _validate_combat_rounds(cp: Dictionary, skill_curve: Array, recipes: Dictio
 
 
 # The fog-of-war unread-chance curve (CombatRounds.unread_chance()).
-# moveXp: positive resolved/fizzled XP and a levels ladder (index = level
+# moveXp: known, distinct levelled moves, positive resolved/fizzled XP and a levels ladder (index = level
 # 0..levelMax) rising from 0 at level 1; moveLevelRoll: rows of a non-negative
 # `below` and a positive weight.
 func _validate_combat_rounds_move_levels(cp: Dictionary, level_max: int, errors: Array[String]) -> void:
 	var xp: Dictionary = cp.get("moveXp", {})
-	_require_keys(xp, ["resolved", "fizzled", "levels"], "combat_rounds.moveXp", errors)
+	_require_keys(xp, ["moves", "resolved", "fizzled", "levels"], "combat_rounds.moveXp", errors)
+	var levelled: Array = xp.get("moves", [])
+	if levelled.is_empty():
+		errors.append("combat_rounds.moveXp.moves: must not be empty")
+	for move_id in levelled:
+		if not cp.get("moves", {}).has(move_id):
+			errors.append("combat_rounds.moveXp.moves: unknown move '%s'" % move_id)
+		elif levelled.count(move_id) > 1:
+			errors.append("combat_rounds.moveXp.moves: '%s' listed twice" % move_id)
 	for key in ["resolved", "fizzled"]:
 		if int(xp.get(key, 0)) < 1:
 			errors.append("combat_rounds.moveXp.%s: must be at least 1" % key)
