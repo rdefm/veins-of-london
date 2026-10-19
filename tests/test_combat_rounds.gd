@@ -416,6 +416,106 @@ func run() -> void:
 		assert_eq(you["hp"], before - 9, "item damage ignores Guard level")
 	)
 
+	run_case("feint_level_adds_damage_to_the_opening_until_the_target_sets_guard", func():
+		GameState.reset()
+		var combat := _start([["guard", "guard"]])
+		var you: Dictionary = combat["combatants"][CombatRounds.PLAYER_INDEX]
+		var mugger: Dictionary = combat["combatants"][1]
+		you["moveLevels"]["feint"] = 4
+		mugger["guard"] = CombatRounds.GUARDED
+		CombatRounds._feint(combat, CombatRounds.PLAYER_INDEX, 1, "feint", [])
+		assert_eq(mugger["feintPct"], 30, "L4 Feint: +30%%")
+		you["attackMin"] = 10
+		you["attackMax"] = 10
+		var landed := 0
+		for seed_value in range(40):
+			var rng := RandomNumberGenerator.new()
+			rng.seed = seed_value
+			var beats: Array = []
+			CombatRounds._strike(combat, CombatRounds.PLAYER_INDEX, 1, "strike", rng, beats)
+			var hit: Dictionary = _first(beats, "hit")
+			if hit.is_empty() or hit["crit"]:
+				continue
+			landed += 1
+			assert_eq(hit["dmg"], 13, "10 +30%%")
+			mugger["hp"] = 1000
+		assert_true(landed > 0, "some non-crit hits landed")
+		mugger["feintPct"] = 0
+		var rng2 := RandomNumberGenerator.new()
+		rng2.seed = 1
+		var plain: Array = []
+		CombatRounds._strike(combat, CombatRounds.PLAYER_INDEX, 1, "strike", rng2, plain)
+		assert_true(_first(plain, "hit").is_empty() or _first(plain, "hit")["dmg"] % 10 == 0, "no bonus once the opening ends")
+	)
+
+	run_case("feint_autoguard_chips_one_hit_at_the_stated_chance_only_after_a_feint", func():
+		GameState.reset()
+		var combat := _start([["guard", "guard"]])
+		var you: Dictionary = combat["combatants"][CombatRounds.PLAYER_INDEX]
+		you["hp"] = 100000
+		you["guard"] = CombatRounds.OPEN
+		var counts := {}
+		for level in [2, 3, 4, 5]:
+			you["moveLevels"]["feint"] = level
+			you["lastMove"] = "feint"
+			var fired := 0
+			for seed_value in range(300):
+				var rng := RandomNumberGenerator.new()
+				rng.seed = seed_value
+				var beats: Array = []
+				CombatRounds._strike(combat, 1, CombatRounds.PLAYER_INDEX, "strike", rng, beats, true)
+				if not _first(beats, "autoguard").is_empty():
+					fired += 1
+					assert_true(not _first(beats, "chip").is_empty() or not _first(beats, "block").is_empty(), "autoguarded hit chips")
+			counts[level] = fired
+		assert_eq(counts[2], 0, "no autoguard below L3")
+		assert_true(counts[3] > 70 and counts[3] < 130, "L3 about 33%% (%d)" % counts[3])
+		assert_true(counts[4] > 120 and counts[4] < 180, "L4 about 50%% (%d)" % counts[4])
+		assert_true(counts[5] > 170 and counts[5] < 230, "L5 about 66%% (%d)" % counts[5])
+		you["lastMove"] = "strike"
+		you["moveLevels"]["feint"] = 5
+		for seed_value in range(50):
+			var rng := RandomNumberGenerator.new()
+			rng.seed = seed_value
+			var beats: Array = []
+			CombatRounds._strike(combat, 1, CombatRounds.PLAYER_INDEX, "strike", rng, beats, true)
+			assert_true(_first(beats, "autoguard").is_empty(), "no autoguard when the last action wasn't a Feint")
+	)
+
+	run_case("feint_l5_retaliates_free_without_chaining", func():
+		GameState.reset()
+		var combat := _start([["guard", "guard"]])
+		var you: Dictionary = combat["combatants"][CombatRounds.PLAYER_INDEX]
+		var mugger: Dictionary = combat["combatants"][1]
+		you["hp"] = 100000
+		mugger["hp"] = 100000
+		mugger["moveLevels"]["feint"] = 5
+		mugger["lastMove"] = "feint"
+		you["moveLevels"]["feint"] = 5
+		you["lastMove"] = "feint"
+		var retaliated := 0
+		for seed_value in range(300):
+			var rng := RandomNumberGenerator.new()
+			rng.seed = seed_value
+			var beats: Array = []
+			CombatRounds._strike(combat, 1, CombatRounds.PLAYER_INDEX, "strike", rng, beats)
+			var n := beats.filter(func(b): return b["kind"] == "retaliate").size()
+			assert_true(n <= 1, "never chains")
+			if n == 1:
+				retaliated += 1
+				var at: int = beats.find_custom(func(b): return b["kind"] == "retaliate")
+				assert_eq(beats[at]["actor"], CombatRounds.PLAYER_INDEX, "the defender retaliates")
+				assert_eq(beats[at]["target"], 1, "at the attacker")
+		assert_true(retaliated > 70 and retaliated < 130, "about 33%% (%d)" % retaliated)
+		you["moveLevels"]["feint"] = 4
+		for seed_value in range(50):
+			var rng := RandomNumberGenerator.new()
+			rng.seed = seed_value
+			var beats: Array = []
+			CombatRounds._strike(combat, 1, CombatRounds.PLAYER_INDEX, "strike", rng, beats)
+			assert_true(_first(beats, "retaliate").is_empty(), "L4 doesn't retaliate")
+	)
+
 	run_case("stun_levels_reach_guarded_targets_and_hold_open", func():
 		GameState.reset()
 		var combat := _start([["guard", "guard"]])

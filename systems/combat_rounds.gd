@@ -489,6 +489,9 @@ static func new_combatant(side: String, name: String, level: int, hp: int, hp_ma
 		# Guard L5's once-a-round full absorb has been used this round, and
 		# the actions a Stun L5 keeps it Open for.
 		"firstHitSpent": false, "openActions": 0,
+		# The extra % damage a Feint's opening adds to hits on it, and the move
+		# its last resolved action used (Feint passives).
+		"feintPct": 0, "lastMove": "",
 		"plan": [], "nextPlan": [],
 	}
 
@@ -1559,6 +1562,7 @@ static func _resolve_action(cp: Dictionary, actor_idx: int, action: Dictionary, 
 	if actor.get("dial") is Dictionary:
 		actor["dial"]["actions"] = int(actor["dial"].get("actions", 0)) + 1
 	if _play_status_turn(cp, actor_idx, rng, beats):
+		actor["lastMove"] = ""
 		_stamp_marks(cp, actor_idx, first_beat, beats)
 		return false
 	match m["effect"]:
@@ -1596,7 +1600,9 @@ static func _resolve_action(cp: Dictionary, actor_idx: int, action: Dictionary, 
 			_use_item(cp, actor_idx, action, m, rng, beats)
 	if beats.size() > first_beat and not m.get("item", false):
 		_gain_move_xp(cp, actor_idx, move_id, FIZZLE_KINDS.has(beats[first_beat]["kind"]), beats)
+	actor["lastMove"] = move_id
 	if m["actorGuard"] != UNCHANGED and not actor["koed"]:
+		actor["feintPct"] = 0
 		if m["actorGuard"] == GUARDED and actor["guardFailed"]:
 			actor["guardFailed"] = false
 		else:
@@ -1739,6 +1745,8 @@ static func _feint(cp: Dictionary, actor_idx: int, target_idx: int, move_id: Str
 	var target: Dictionary = cp["combatants"][target_idx]
 	target["guard"] = OPEN
 	target["guardFailed"] = true
+	var bonuses: Array = level_effects(move_id)["damageBonusPct"]
+	target["feintPct"] = int(bonuses[move_level(cp["combatants"][actor_idx], move_id)])
 	_beat(cp, beats, "feint", actor_idx, target_idx, move_id, {})
 
 
@@ -1782,7 +1790,7 @@ static func _retarget(cp: Dictionary, actor: int, target: int) -> int:
 # it (anger_factor()). Under Be a Lady the roll is the
 # attacker's max and the crit chance its ladyCrit (R§3.7b Damage). An
 # evade (evade_chance()) misses outright, before any roll.
-static func _strike(cp: Dictionary, actor_idx: int, target_idx: int, move_id: String, rng: RandomNumberGenerator, beats: Array) -> void:
+static func _strike(cp: Dictionary, actor_idx: int, target_idx: int, move_id: String, rng: RandomNumberGenerator, beats: Array, free := false) -> void:
 	var combatants: Array = cp["combatants"]
 	var actor: Dictionary = combatants[actor_idx]
 	var target: Dictionary = combatants[target_idx]
@@ -1796,7 +1804,12 @@ static func _strike(cp: Dictionary, actor_idx: int, target_idx: int, move_id: St
 	var strike_level := move_level(actor, MOVE_STRIKE)
 	var roll := rng.randi_range(roll_range[0], roll_range[1])
 	var guarded: bool = not is_open(cp, target)
+	if not guarded and _autoguards(target, rng):
+		guarded = true
+		_beat(cp, beats, "autoguard", target_idx, actor_idx, "feint", {})
 	var dmg := roll
+	if not guarded and int(target["feintPct"]) > 0:
+		dmg = GameState.round_epsilon(roll * (100 + int(target["feintPct"])) / 100.0)
 	if guarded:
 		dmg = maxi(1, GameState.round_epsilon(roll * chip_multiplier(actor, target)))
 	var crit_chance: float = float(actor["ladyCrit"]) if lady else float(_data()["critChance"][actor["level"]])
@@ -1805,6 +1818,7 @@ static func _strike(cp: Dictionary, actor_idx: int, target_idx: int, move_id: St
 	var crit := rng.randf() < crit_chance
 	if guarded and _guard_blocks(target, rng):
 		_beat(cp, beats, "block", actor_idx, target_idx, move_id, { "dmg": 0, "hpAfter": target["hp"] })
+		_retaliate(cp, actor_idx, target_idx, rng, beats, free)
 		return
 	if crit:
 		dmg *= 2
@@ -1812,6 +1826,34 @@ static func _strike(cp: Dictionary, actor_idx: int, target_idx: int, move_id: St
 	_deal_damage(cp, actor_idx, target_idx, dmg, "chip" if guarded else "hit", move_id, beats, {
 		"roll": roll, "crit": crit, "guarded": guarded,
 	})
+	_retaliate(cp, actor_idx, target_idx, rng, beats, free)
+
+
+# Whether an Open `target` whose last resolved action was a Feint treats this
+# hit as Guarded: its Feint level's autoguardChance (Feint passives).
+static func _autoguards(target: Dictionary, rng: RandomNumberGenerator) -> bool:
+	if target["lastMove"] != MOVE_FEINT:
+		return false
+	var chance := float(level_effects(MOVE_FEINT)["autoguardChance"][move_level(target, MOVE_FEINT)])
+	return chance > 0.0 and rng.randf() < chance
+
+
+# Feint L5 retaliation: after a Strike lands on a standing `target` whose last
+# resolved action was a Feint, retaliateChance to Strike the attacker back
+# free (no action spent). A free Strike never retaliates; it counts as a
+# Strike use for the retaliator's move XP.
+static func _retaliate(cp: Dictionary, attacker_idx: int, target_idx: int, rng: RandomNumberGenerator, beats: Array, free: bool) -> void:
+	var target: Dictionary = cp["combatants"][target_idx]
+	var fx := level_effects(MOVE_FEINT)
+	if free or target["koed"] or target["lastMove"] != MOVE_FEINT or move_level(target, MOVE_FEINT) < int(fx["retaliateLevel"]):
+		return
+	if rng.randf() >= float(fx["retaliateChance"]):
+		return
+	_beat(cp, beats, "retaliate", target_idx, attacker_idx, MOVE_STRIKE, {})
+	var first := beats.size()
+	_strike(cp, target_idx, attacker_idx, MOVE_STRIKE, rng, beats, true)
+	if beats.size() > first:
+		_gain_move_xp(cp, target_idx, MOVE_STRIKE, FIZZLE_KINDS.has(beats[first]["kind"]), beats)
 
 
 # Whether a Guarded `target`'s Guard level fully blocks this hit: Guard L5's

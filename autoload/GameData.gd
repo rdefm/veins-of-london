@@ -1527,7 +1527,7 @@ func _validate_combat_rounds(cp: Dictionary, skill_curve: Array, recipes: Dictio
 		if not CombatRounds.GUARD_EFFECTS.has(turn.get("actorGuard", "")):
 			errors.append("combat_rounds.statusTurns.%s.actorGuard: unknown guard effect" % status)
 	_require_keys(cp.get("statusBadges", {}), ["panic", "rapture", "anger", "fury", "disarmed"], "combat_rounds.statusBadges", errors)
-	_require_keys(cp.get("beatLines", {}), ["guard", "hit", "chip", "crit", "ko", "feint", "stun", "stunThrough", "block", "fizzle", "lost", "fled", "fleeFailed", "absorb", "frozen", "timePearl", "blackHole", "pull", "blast", "shield", "healSelf", "heal", "powder", "sight", "lady", "panic", "rapture", "anger", "fury", "bolt", "cower", "enraptured", "calm", "wormhole", "disarm", "shieldOther", "sightGiven", "failsafe"], "combat_rounds.beatLines", errors)
+	_require_keys(cp.get("beatLines", {}), ["guard", "hit", "chip", "crit", "ko", "feint", "stun", "stunThrough", "block", "fizzle", "lost", "fled", "fleeFailed", "absorb", "frozen", "timePearl", "blackHole", "pull", "blast", "shield", "healSelf", "heal", "powder", "sight", "lady", "panic", "rapture", "anger", "fury", "bolt", "cower", "enraptured", "calm", "wormhole", "disarm", "shieldOther", "sightGiven", "failsafe", "autoguard", "retaliate"], "combat_rounds.beatLines", errors)
 
 
 # The fog-of-war unread-chance curve (CombatRounds.unread_chance()).

@@ -982,6 +982,10 @@ static func beat_cues(beat: Dictionary) -> Array:
 			cues.append({ "call": "vanish", "who": actor })
 		"fleeFailed":
 			cues.append({ "call": "recoil", "who": actor })
+		"autoguard":
+			cues.append({ "call": "afterimage", "who": actor })
+		"retaliate":
+			pass
 		"ko":
 			cues.append({ "call": "ko", "who": target })
 		"pull":
