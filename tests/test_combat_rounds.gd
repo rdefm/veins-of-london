@@ -856,6 +856,27 @@ func run() -> void:
 		assert_eq(int(plan[1]["target"]), 2, "strikes the mugger left Open by its read strike")
 	)
 
+	run_case("ally_vs_a_lone_guarding_enemy_feints_then_strikes_and_chips", func():
+		GameState.reset()
+		var combat := _start_ally_armed([], [_slow_mugger(100000)], [[["guard", "guard"]]])
+		var plans: Array = []
+		for r in range(1, 41):
+			plans.append(combat["combatants"][1]["plan"].map(func(a): return a["move"]))
+			_finish_round(combat, r)
+		var moves: Array = []
+		for p in plans:
+			moves.append_array(p)
+		assert_true(moves.has("strike") and moves.has("feint"), "strikes and feints, not only guards")
+		assert_true(plans.any(func(p): return p.size() >= 2 and p[0] == "feint" and p[1] == "strike"), "a Feint followed by the Strike that lands on it")
+		assert_true(GameData.COMBAT_ROUNDS["allyChipStrikeChance"] is float, "chip chance is data")
+	)
+
+	run_case("turtle_patterns_never_all_guard", func():
+		for id in ["turtle", "turtleV2"]:
+			for pattern in GameData.COMBAT_ROUNDS["archetypes"][id]["patterns"]:
+				assert_true(pattern["moves"].has("strike"), "%s pattern %s strikes" % [id, pattern["moves"]])
+	)
+
 	run_case("ally_loadout_spends_real_stock_and_refills_at_settlement", func():
 		GameState.reset()
 		_recruit("archie")

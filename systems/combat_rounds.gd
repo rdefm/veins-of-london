@@ -700,8 +700,9 @@ static func _ally_failsafe(cp: Dictionary, idx: int, beats: Array) -> bool:
 # player reads them (R§3.7b Round, Fog: an unread action is
 # unknown, never a Strike to guard), per action: Guard where an enemy
 # strikes it; else Strike an enemy who'll be Open when it acts; else, with an action to follow, Feint a
-# Guarded enemy the Feint leaves Open for that next action's Strike; else
-# Guard. Before those, a guard ally's kit item takes the action when
+# Guarded enemy the Feint leaves Open for that next action's Strike; else,
+# with chance allyChipStrikeChance, chip-Strike a Guarded enemy; else Guard.
+# Before those, a guard ally's kit item takes the action when
 # _kit_ally_action() has one, else an unspent loadout slot or Dial cast by
 # _ally_item_action()'s rules. Allies plan in array order, each reading the
 # earlier ones' Feints and leaving alone what an earlier one (or its own
@@ -732,7 +733,7 @@ static func _plan_allies(cp: Dictionary, rng: RandomNumberGenerator) -> void:
 				if action.is_empty():
 					action = _ally_item_action(cp, i, plan, planned)
 				if action.is_empty():
-					action = _ally_action(cp, i, a, count, feints)
+					action = _ally_action(cp, i, a, count, feints, rng)
 				if action["move"] == MOVE_FEINT:
 					feints.append({ "actor": i, "index": a, "target": action["target"] })
 				var effect: String = move(action["move"]).get("effect", "")
@@ -906,7 +907,7 @@ static func _ally_heal_patient(cp: Dictionary, ally: int, item_id: String, patie
 	return best
 
 
-static func _ally_action(cp: Dictionary, ally: int, index: int, count: int, feints: Array) -> Dictionary:
+static func _ally_action(cp: Dictionary, ally: int, index: int, count: int, feints: Array, rng: RandomNumberGenerator) -> Dictionary:
 	var combatants: Array = cp["combatants"]
 	var enemies := _living_opponents(cp, ally)
 	for e in enemies:
@@ -921,6 +922,9 @@ static func _ally_action(cp: Dictionary, ally: int, index: int, count: int, fein
 			var with_feint: Array = feints + [{ "actor": ally, "index": index, "target": e }]
 			if not _ally_sees_open(cp, e, ally, index + 1, feints) and _ally_sees_open(cp, e, ally, index + 1, with_feint):
 				return { "move": MOVE_FEINT, "target": e, "part": 0 }
+	var guarded: Array = enemies.filter(func(e): return not _ally_sees_open(cp, e, ally, index, feints))
+	if not guarded.is_empty() and rng.randf() < float(_data()["allyChipStrikeChance"]):
+		return { "move": MOVE_STRIKE, "target": guarded[0], "part": 0 }
 	return { "move": MOVE_GUARD, "target": ally, "part": 0 }
 
 
@@ -1800,7 +1804,7 @@ static func _use_item(cp: Dictionary, actor_idx: int, action: Dictionary, m: Dic
 			if actor["side"] == SIDE_ALLY:
 				var plan: Array = actor["plan"]
 				if plan.size() < actions_this_round(cp, actor_idx):
-					plan.append(_ally_action(cp, actor_idx, plan.size(), plan.size() + 1, []))
+					plan.append(_ally_action(cp, actor_idx, plan.size(), plan.size() + 1, [], rng))
 			_beat(cp, beats, "powder", actor_idx, -1, move_id, {})
 		ITEM_SIGHT:
 			# Sight covers the `power` rounds after this one (planning them

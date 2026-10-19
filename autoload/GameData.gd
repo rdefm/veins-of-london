@@ -1388,12 +1388,15 @@ func _validate_enemy_levels(levels: Dictionary, level_max: int, errors: Array[St
 # is a recipe with an effectPower curve and a known target type and effect;
 # every archetype names a combat_visuals sprite template.
 func _validate_combat_rounds(cp: Dictionary, skill_curve: Array, recipes: Dictionary, templates: Dictionary, errors: Array[String]) -> void:
-	_require_keys(cp, ["chipMultiplier", "actionsPerRound", "critChance", "levelMax", "allyHealBelow", "allyCrowdEnemies", "fog", "playerBase", "allyBase", "moves", "items", "archetypes", "anger", "statusTurns", "statusBadges", "beatLines"], "combat_rounds", errors)
+	_require_keys(cp, ["chipMultiplier", "actionsPerRound", "critChance", "levelMax", "allyHealBelow", "allyCrowdEnemies", "allyChipStrikeChance", "fog", "playerBase", "allyBase", "moves", "items", "archetypes", "anger", "statusTurns", "statusBadges", "beatLines"], "combat_rounds", errors)
 	var heal_below := float(cp.get("allyHealBelow", 0.0))
 	if heal_below <= 0.0 or heal_below > 1.0:
 		errors.append("combat_rounds.allyHealBelow: must be in (0, 1]")
 	if int(cp.get("allyCrowdEnemies", 0)) < 1:
 		errors.append("combat_rounds.allyCrowdEnemies: must be at least 1")
+	var chip_chance := float(cp.get("allyChipStrikeChance", -1.0))
+	if chip_chance < 0.0 or chip_chance > 1.0:
+		errors.append("combat_rounds.allyChipStrikeChance: must be in [0, 1]")
 	var level_max := int(cp.get("levelMax", 0))
 	if level_max < 1 or level_max >= skill_curve.size():
 		errors.append("combat_rounds.levelMax: must be 1..%d (the Combat Skill curves' top level)" % (skill_curve.size() - 1))

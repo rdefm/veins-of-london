@@ -6,6 +6,7 @@
   "levelMax": 5,
   "allyHealBelow": 0.4,
   "allyCrowdEnemies": 2,
+  "allyChipStrikeChance": 0.30,
   "fog": {
     "_comment": "Unread chance per enemy action = (unreadChance[player Combat Skill] + perLevelAbove x levels the enemy is above the player - perLevelBelow x levels below) x positionMultiplier[action index] (last entry for later indices), clamped to [0, 1]. Draft values for tuning.",
     "unreadChance": [0, 0.35, 0.28, 0.21, 0.14, 0.07],
@@ -82,9 +83,9 @@
     "turtle": {
       "name": "the turtle", "template": "veinGuard", "hpBase": 36, "attackMin": 4, "attackMax": 8,
       "patterns": [
-        { "weight": 5, "moves": ["guard", "guard", "guard"] },
-        { "weight": 3, "moves": ["guard", "strike", "guard"] },
-        { "weight": 2, "moves": ["guard", "guard", "strike"] }
+        { "weight": 5, "moves": ["guard", "strike", "guard"] },
+        { "weight": 3, "moves": ["guard", "guard", "strike"] },
+        { "weight": 2, "moves": ["strike", "guard", "guard"] }
       ]
     },
     "muggerV2": {
@@ -108,9 +109,9 @@
     "turtleV2": {
       "name": "the hard turtle", "template": "veinGuard", "hpBase": 75, "attackMin": 13, "attackMax": 20,
       "patterns": [
-        { "weight": 5, "moves": ["guard", "guard", "guard"] },
-        { "weight": 3, "moves": ["guard", "strike", "guard"] },
-        { "weight": 2, "moves": ["guard", "guard", "strike"] }
+        { "weight": 5, "moves": ["guard", "strike", "guard"] },
+        { "weight": 3, "moves": ["guard", "guard", "strike"] },
+        { "weight": 2, "moves": ["strike", "guard", "guard"] }
       ]
     }
   },
