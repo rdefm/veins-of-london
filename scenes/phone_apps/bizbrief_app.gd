@@ -1495,6 +1495,14 @@ func _counterparty_text(entry: Dictionary) -> String:
 	return "Buyer: %s" % faction.get("shortName", "unknown")
 
 
+# A label that wraps and may shrink below its text width, so a long name
+# can't widen the card past the phone width.
+func _shrinkable(label: Label) -> Label:
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.custom_minimum_size.x = 0.0
+	return label
+
+
 func _build_sales() -> Control:
 	var offers: Array = OffersSystem.pending_offers()
 	var contracts: Array = ContractsSystem.active_contracts()
@@ -1526,10 +1534,10 @@ func _build_sales() -> Control:
 			c["content"].add_child(UI.muted_label("Renewal. Same order, today's price."))
 		elif offer.get("source", "") == OffersSystem.SOURCE_ASSAY:
 			c["content"].add_child(UI.muted_label(GameData.OFFER_ASSAY["offerNote"] % int(GameData.OFFER_ASSAY["relation"])))
-		c["content"].add_child(UI.heading(_request_summary(request), 13))
+		c["content"].add_child(_shrinkable(UI.heading(_request_summary(request), 13)))
 		c["content"].add_child(UI.muted_label("%s · £%d per delivery" % [expiry, int(offer["quote"]["payment"])]))
 		var poach: Dictionary = offer.get("poach", {})
-		var offer_row := head
+		var offer_row := UI.hbox(6)
 		if poach.is_empty():
 			offer_row.add_child(UI.button("Accept", func(): OffersSystem.accept_offer(offer["id"])))
 		else:
@@ -1537,6 +1545,7 @@ func _build_sales() -> Control:
 			c["content"].add_child(UI.muted_label("Undercut by %s: £%d. Match it or the buyer walks." % [rival, int(poach["payment"])]))
 			offer_row.add_child(UI.button("Match £%d" % int(poach["payment"]), func(): OffersSystem.match_poach(offer["id"])))
 		offer_row.add_child(UI.button("Decline", func(): OffersSystem.decline_offer(offer["id"])))
+		c["content"].add_child(offer_row)
 		section.add_child(c["panel"])
 	if not contracts.is_empty():
 		section.add_child(UI.heading("Accepted · %d" % contracts.size(), 14))
@@ -1550,7 +1559,7 @@ func _build_sales() -> Control:
 		var box := UI.vbox(3)
 		card.add_child(box)
 		var lead := UI.hbox(6)
-		lead.add_child(UI.expand_fill(UI.heading("≡ %02d · %s" % [index + 1, _request_summary(contract["request"])], 13)))
+		lead.add_child(UI.expand_fill(_shrinkable(UI.heading("≡ %02d · %s" % [index + 1, _request_summary(contract["request"])], 13))))
 		lead.add_child(UI.button("Details →" if _sales_details_id != contract["id"] else "Details ▾", func(): _toggle_sales_details(contract["id"])))
 		box.add_child(lead)
 		box.add_child(UI.muted_label("%s · due %s · ACTIVE" % [_contract_progress_summary(contract), Calendar.format_day(int(contract["dueDay"]))]))
