@@ -327,6 +327,8 @@ func new_game_state() -> Dictionary:
 			# until declined or its accepted deal (incl. any mugging fight) resolves.
 			"archieDealActive": false,
 			"homeRaidEventPending": false, "homeRaidEventSeen": false, "homeRaidWon": false,
+			# Home tier id the deposit goal saves towards ("" = no goal), set by set_flag.
+			"depositGoalTier": "",
 			# Business Act 1 founder role unlocks (constants.json contacts.<id>.roleFlags).
 			"bizArchieSalesRole": false, "bizJamesProductionRole": false,
 			"bizOwenCultivationRole": false, "bizOwenProductionRole": false,

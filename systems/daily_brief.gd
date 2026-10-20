@@ -23,6 +23,7 @@ static func items() -> Array[Dictionary]:
 	_contract_at_risk_rows(rows)
 	_vein_at_risk_rows(rows)
 	_story_rows(rows)
+	_deposit_goal_rows(rows)
 	_offer_expiring_rows(rows)
 	_demand_spike_rows(rows)
 	_favour_rows(rows)
@@ -267,6 +268,14 @@ static func _story_rows(rows: Array[Dictionary]) -> void:
 	var row := _row("story", "story:%s" % item["id"], { "text": Todo.item_text(item), "note": note }, action, 0)
 	row["actionLabel"] = GameData.DAILY_BRIEF["storyActions"][action["to"]]["actionLabel"]
 	rows.append(row)
+
+
+# The Home.deposit_goal() savings row: cash against the target home's deposit.
+static func _deposit_goal_rows(rows: Array[Dictionary]) -> void:
+	var goal := Home.deposit_goal()
+	if goal.is_empty():
+		return
+	rows.append(_row("depositGoal", "depositGoal", { "text": Home.deposit_goal_text(goal), "name": goal["name"] }, { "to": "property" }, 1))
 
 
 # Pending Sales offers lapsing within offerWindowDays (an offer is gone on

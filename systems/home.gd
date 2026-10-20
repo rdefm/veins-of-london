@@ -294,6 +294,26 @@ static func deposit_for(tier_id: String) -> int:
 	return int(GameData.HOME_BILLS["depositWeeks"]) * weekly_bill_for(tier_id, TENURE_RENTED)
 
 
+# The savings goal set by the depositGoalTier flag: { tier, name, deposit,
+# cash }; {} when unset, unknown, or the home is already that tier or better.
+static func deposit_goal() -> Dictionary:
+	var tier_id: String = GameState.state["flags"].get("depositGoalTier", "")
+	var order: Array = GameData.HOME_TIER_ORDER
+	var target: int = order.find(tier_id)
+	if target == -1 or order.find(GameState.state["home"]["tier"]) >= target:
+		return {}
+	return {
+		"tier": tier_id,
+		"name": GameData.HOME_TIERS[tier_id]["name"],
+		"deposit": deposit_for(tier_id),
+		"cash": int(GameState.state["player"]["cash"]),
+	}
+
+
+static func deposit_goal_text(goal: Dictionary) -> String:
+	return "Deposit: £%d / £%d" % [goal["cash"], goal["deposit"]]
+
+
 static func current_deposit() -> int:
 	return int(GameState.state["home"].get("deposit", 0))
 

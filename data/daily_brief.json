@@ -37,6 +37,12 @@
       "consequence": "{note}",
       "actionLabel": "Open ToDo"
     },
+    "depositGoal": {
+      "tier": "story", "kind": "depositGoal",
+      "label": "{text}",
+      "consequence": "Saving for {name}.",
+      "actionLabel": "Open Property"
+    },
     "alarmHome": {
       "tier": "urgent", "kind": "alarm",
       "label": "Raid alarm · HQ",

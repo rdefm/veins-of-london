@@ -991,3 +991,35 @@ func run() -> void:
 		var bonus := Home.get_workshop_bonus()
 		assert_almost_eq(bonus, 0.16, 0.0001, "workshop 0.08 + library 0.08")
 	)
+
+	run_case("deposit_goal_unset_is_empty", func():
+		GameState.reset()
+		assert_true(Home.deposit_goal().is_empty())
+		assert_true(DailyBrief.items().filter(func(r): return r["kind"] == "depositGoal").is_empty())
+	)
+
+	run_case("deposit_goal_reads_cash_against_the_tier_deposit", func():
+		GameState.reset()
+		Events.apply_effects([{ "op": "set_flag", "flag": "depositGoalTier", "value": "studio" }])
+		GameState.state["player"]["cash"] = 40
+		var goal := Home.deposit_goal()
+		assert_eq(goal["deposit"], Home.deposit_for("studio"), "amount comes from the deposit rule")
+		assert_eq(goal["cash"], 40)
+		assert_eq(Home.deposit_goal_text(goal), "Deposit: £40 / £%d" % Home.deposit_for("studio"))
+		var rows := DailyBrief.items().filter(func(r): return r["kind"] == "depositGoal")
+		assert_eq(rows.size(), 1)
+		assert_eq(rows[0]["label"], Home.deposit_goal_text(goal))
+		GameState.state["player"]["cash"] = 55
+		assert_eq(Home.deposit_goal()["cash"], 55, "tracks cash as it changes")
+	)
+
+	run_case("deposit_goal_completes_at_the_target_tier_or_better", func():
+		GameState.reset()
+		GameState.state["flags"]["depositGoalTier"] = "studio"
+		GameState.state["home"]["tier"] = "studio"
+		assert_true(Home.deposit_goal().is_empty(), "target tier reached")
+		GameState.state["home"]["tier"] = "townhouse"
+		assert_true(Home.deposit_goal().is_empty(), "better tier")
+		assert_true(DailyBrief.items().filter(func(r): return r["kind"] == "depositGoal").is_empty())
+	)
+
