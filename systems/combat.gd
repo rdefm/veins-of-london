@@ -787,6 +787,7 @@ static func _start_round_combat(context: String, vein_id, enemies: Array, log_li
 	GameState.state["combat"] = combat
 	_settle_round_dials(combat)
 	_sync_round_outcome(combat)
+	TimingLog.begin(TimingLog.KIND_FIGHT, context)
 	_enter_combat_screen()
 
 
@@ -1518,6 +1519,7 @@ static func exit_combat() -> Dictionary:
 		return { "nextScreen": null }
 	var outcome = combat["outcome"]
 	var context: String = combat["context"]
+	TimingLog.end(TimingLog.KIND_FIGHT, context)
 	var raider_items_used: Dictionary = combat.get("raiderKit", {}).get("used", {})
 	var stockpile_faction_id: String = combat.get("stockpileFactionId", "")
 	var ambush_faction_id: String = combat.get("ambushFactionId", "")

@@ -31,6 +31,7 @@ static func start_event(event_id: String, context: Dictionary = {}) -> void:
 		push_error("Events.start_event: unknown event id '%s'" % event_id)
 		return
 	_apply_timing(GameData.EVENTS[event_id].get("at", {}))
+	TimingLog.begin(TimingLog.KIND_EVENT, event_id)
 	GameState.state["event"] = { "eventId": event_id, "cardIndex": 0, "snapshots": [], "choiceResults": {}, "jumps": {}, "rolled": {}, "toggles": {}, "context": context }
 	Nav.go_to("event")
 
@@ -52,6 +53,7 @@ static func has_live_definition() -> bool:
 # The unresolvable event screen's exit: drops state.event without running any
 # effects and returns to the phone.
 static func abandon() -> void:
+	TimingLog.end(TimingLog.KIND_EVENT)
 	GameState.state["event"] = null
 	Nav.go_to("phone")
 
@@ -242,6 +244,7 @@ static func _continue() -> void:
 		# finds a live EventScreen still rendering a tappable Continue. An on_complete op
 		# needing the event's context (e.g. reveal_site) is handed it explicitly instead.
 		var context: Dictionary = event_state.get("context", {})
+		TimingLog.end(TimingLog.KIND_EVENT, str(event_state["eventId"]))
 		GameState.state["event"] = null
 		apply_effects(on_complete, context)
 		# The one path all three Act-1 closer prerequisite flags flow through; a

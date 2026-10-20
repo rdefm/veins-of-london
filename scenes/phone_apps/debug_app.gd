@@ -33,6 +33,30 @@ func build(content: VBoxContainer) -> void:
 	content.add_child(_build_relation_card())
 	content.add_child(_build_trigger_event_card())
 	content.add_child(_build_learn_recipes_card())
+	content.add_child(_build_timing_log_card())
+
+
+func _build_timing_log_card() -> Control:
+	var c := UI.card()
+	c["content"].add_child(UI.heading("Timing log", 14))
+	if TimingLog.entries.is_empty():
+		c["content"].add_child(UI.muted_label("No events or fights timed yet."))
+	for entry in TimingLog.entries:
+		var line := UI.label(TimingLog.summary_line(entry))
+		line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		c["content"].add_child(line)
+	c["content"].add_child(UI.label("Total: %.1fs" % TimingLog.total_seconds()))
+	var status := UI.muted_label("")
+	c["content"].add_child(status)
+	c["content"].add_child(UI.button("Export CSV", func():
+		var path := TimingLog.export_csv()
+		status.text = "Wrote %s" % ProjectSettings.globalize_path(path) if path != "" else "Export failed"
+	))
+	c["content"].add_child(UI.button("Clear", func():
+		TimingLog.clear()
+		refresh()
+	))
+	return c["panel"]
 
 
 func _build_trigger_event_card() -> Control:
