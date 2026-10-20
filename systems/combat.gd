@@ -22,11 +22,13 @@ const CONTEXT_DEFEND_VEIN: String = "defend_vein"
 # Archie's own deal going wrong; resolves via ArchieDeals.resolve_mugging(),
 # and a loss (not just a win) needs its own exit_combat() handling.
 const CONTEXT_ARCHIE_DEAL_MUGGING: String = "archie_deal_mugging"
+# An event's scripted fight (start_scripted_fight()); exits back to its event.
+const CONTEXT_SCRIPTED: String = "scripted"
 
 const CANONICAL_CONTEXTS: Array[String] = [
 	CONTEXT_RAID, CONTEXT_MUGGING, CONTEXT_EVENT_MUGGING, CONTEXT_FACTION_AMBUSH,
 	CONTEXT_HOME_RAID, CONTEXT_EVENT_RAID, CONTEXT_DEFEND_VEIN,
-	CONTEXT_ARCHIE_DEAL_MUGGING, CONTEXT_HOME_ALARM_DEFEND,
+	CONTEXT_ARCHIE_DEAL_MUGGING, CONTEXT_HOME_ALARM_DEFEND, CONTEXT_SCRIPTED,
 ]
 
 # Contexts that are a mugging or ambush in flavour (no vein at stake) rather than a
@@ -378,6 +380,51 @@ static func start_home_raid_combat(mods: Dictionary = {}) -> void:
 	_start_combat(CONTEXT_HOME_RAID, null, [_home_raider_enemy(enemy_level("homeRaid"), float(mods.get("enemyHpMult", 1.0)))],
 		["They're in the flat. You've got your hands. This is happening."],
 		"homeRaidWon", [], null, {}, {}, opening)
+
+
+# An event's scripted fight (R§3.7b Scripted fights), straight in with no
+# prep screen and no way out. `script`: enemies / allies (fighter entries as
+# _round_combatant() reads them, with `plans` -- one array of moves per
+# round, cycled -- plus `sprite`, `slots` and pinned `moveLevels`), intro
+# lines, enemyFirst, forcedHits ({ actor, target, crit?, ko? } by combatant
+# index), lockBelowHp and prompt, post ({ allyPlans: { "<combatant index>":
+# moves }, playerPlan: moves }), resumeCard, plus optional seed,
+# playerLevel and locationKey.
+static func start_scripted_fight(script: Dictionary) -> void:
+	var enemies: Array = []
+	var enemy_plans: Array = []
+	for spec in script["enemies"]:
+		var entry: Dictionary = spec.duplicate(true)
+		enemy_plans.append(entry.get("plans"))
+		entry.erase("plans")
+		entry["isMugging"] = false
+		entry["archetype"] = str(entry.get("archetype", MUGGER_ARCHETYPE))
+		entry["hp"] = int(entry.get("hp", entry["hpMax"]))
+		enemies.append(entry)
+	var allies: Array = []
+	var ally_plans: Array = []
+	for spec in script.get("allies", []):
+		var entry: Dictionary = spec.duplicate(true)
+		ally_plans.append(entry.get("plans"))
+		entry.erase("plans")
+		entry["hp"] = int(entry.get("hp", entry["hpMax"]))
+		entry.merge({ "slots": [], "slotsUsed": [], "koed": false })
+		allies.append(entry)
+	var config := { "fog": false, "enemyPlans": enemy_plans, "allyPlans": ally_plans, "playerLevel": int(script.get("playerLevel", 0)) }
+	if script.has("seed"):
+		config["seed"] = int(script["seed"])
+	var live := {
+		"script": {
+			"phase": CombatRounds.SCRIPT_PRE,
+			"lockBelowHp": int(script["lockBelowHp"]), "prompt": str(script["prompt"]),
+			"forcedHits": script.get("forcedHits", []).duplicate(true),
+			"post": script["post"].duplicate(true), "resumeCard": int(script["resumeCard"]),
+		},
+		"enemyFirst": bool(script.get("enemyFirst", false)),
+	}
+	var location_key: String = str(script.get("locationKey", ""))
+	_start_round_combat(CONTEXT_SCRIPTED, null, enemies, script.get("intro", []), "", allies,
+		location_key if not location_key.is_empty() else null, config, live)
 
 
 # Called by Home.trigger_defend(): same raider, no onWin (Home resolves it).
@@ -740,7 +787,7 @@ static func _round_enemy_combatant(entry: Dictionary) -> Dictionary:
 # kit (R§3.7b Table 5).
 static func _round_ally_combatant(entry: Dictionary) -> Dictionary:
 	var ally := _round_combatant(CombatRounds.SIDE_ALLY, str(entry["name"]), entry, int(entry["attackMin"]), int(entry["attackMax"]))
-	ally["template"] = str(entry.get("contactId", ""))
+	ally["template"] = str(entry.get("sprite", entry.get("contactId", "")))
 	ally["loadout"] = _round_loadout(entry.get("slots", []), GameData.LOADOUT["allyExcluded"], [CombatRounds.FAILSAFE])
 	if entry.get("guardAlly", false):
 		ally["kit"] = CombatRounds.KIT_GUARD
@@ -761,10 +808,15 @@ static func _round_combatant(side: String, combatant_name: String, entry: Dictio
 	var hp_bonus: int = GameData.COMBAT_HP_BONUS_BY_LEVEL[level]
 	var attack_bonus: int = GameData.COMBAT_ATTACK_BONUS_BY_LEVEL[level]
 	var speed_bonus: int = GameData.COMBAT_SPEED_BY_LEVEL[level] - GameData.COMBAT_SPEED_BY_LEVEL[1]
-	return CombatRounds.new_combatant(side, combatant_name, level,
+	var fighter := CombatRounds.new_combatant(side, combatant_name, level,
 		int(entry["hp"]) + hp_bonus, int(entry["hpMax"]) + hp_bonus,
 		attack_min + attack_bonus, attack_max + attack_bonus,
 		int(entry.get("speed", DEFAULT_TEMPLATE_SPEED)) + speed_bonus)
+	# A scripted fight pins its fighters' move levels.
+	if entry.has("moveLevels"):
+		for move_id in entry["moveLevels"].keys():
+			fighter["moveLevels"][move_id] = int(entry["moveLevels"][move_id])
+	return fighter
 
 
 # The player's or a recruit's real slots { recipe, tier, multi? } as
@@ -1053,7 +1105,7 @@ static func round_rewind_block_reason(pay: String = REWIND_PAY_ANY) -> String:
 	var combat: Dictionary = GameState.state["combat"]
 	if not combat["active"] or combat["outcome"] != null:
 		return "Combat not active."
-	if not CombatRounds.can_rewind_rounds(combat):
+	if not CombatRounds.can_rewind_rounds(combat) and not CombatRounds.script_locked(combat):
 		return REASON_NOTHING_TO_UNDO
 	var has_unit := pay != REWIND_PAY_DIAL and Loadout.find_slot("rewind") >= 0
 	var has_cast := pay != REWIND_PAY_LOADOUT and Dial.find_loaded_rewind_complication_index() >= 0
@@ -1400,6 +1452,7 @@ static func exit_combat() -> Dictionary:
 	var raider_items_used: Dictionary = combat.get("raiderKit", {}).get("used", {})
 	var stockpile_faction_id: String = combat.get("stockpileFactionId", "")
 	var ambush_faction_id: String = combat.get("ambushFactionId", "")
+	var script_resume: int = int(combat["script"]["resumeCard"]) if combat.get("script") is Dictionary else -1
 
 	if round_fight_xp(outcome) > 0:
 		award_xp(round_fight_xp(outcome))
@@ -1436,6 +1489,8 @@ static func exit_combat() -> Dictionary:
 		return _exit_archie_deal_mugging(outcome)
 	if context == CONTEXT_EVENT_MUGGING:
 		return _exit_event_mugging()
+	if context == CONTEXT_SCRIPTED:
+		return _exit_scripted(script_resume)
 	if context == CONTEXT_FACTION_AMBUSH:
 		Ambush.resolve(ambush_faction_id, outcome == "win")
 		return _exit_event_mugging()
@@ -1477,6 +1532,14 @@ static func _exit_event_mugging() -> Dictionary:
 	GameState.state["currentScreen"] = "event"
 	EventBus.screen_changed.emit("event")
 	return { "nextScreen": "event" }
+
+
+# A scripted fight picks its event up again at the script's resume card.
+static func _exit_scripted(resume_card: int) -> Dictionary:
+	var event_state: Variant = GameState.state.get("event")
+	if event_state is Dictionary:
+		event_state["cardIndex"] = resume_card
+	return _exit_event_mugging()
 
 
 # Every "route home" destination below is the phone app grid. Hand-rolled

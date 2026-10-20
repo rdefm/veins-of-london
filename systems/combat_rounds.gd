@@ -113,6 +113,10 @@ const ROSTER_KEYS := { SIDE_ALLY: "allies", SIDE_ENEMY: "enemies" }
 # A timed effect's end round that no fight reaches (carry_in()).
 const WHOLE_FIGHT := 1 << 30
 
+# A scripted fight's phases (R§3.7b Scripted fights).
+const SCRIPT_PRE := "pre"
+const SCRIPT_POST := "post"
+
 
 # The moves the ally AI plans with (R§3.7b Round); GameData checks they exist.
 const MOVE_GUARD := "guard"
@@ -163,6 +167,9 @@ static func new_state() -> Dictionary:
 		# Set once the player's KO stands and the fight plays on without them
 		# (continue_after_ko()).
 		"playerKoed": false,
+		# A scripted fight's data block (SCRIPT_PRE, then SCRIPT_POST after its
+		# Rewind; see script_locked()), null for an ordinary fight.
+		"script": null,
 	}
 
 
@@ -1109,6 +1116,8 @@ static func _pick_block_reason(cp: Dictionary, action: Dictionary) -> String:
 	var position := decision_position(cp)
 	if position < 0:
 		return "No fight on."
+	if script_locked(cp):
+		return str(cp["script"]["prompt"])
 	var entry = _normalize_action(cp, action)
 	var reason := _action_block_reason(cp, entry)
 	if reason != "":
@@ -1116,6 +1125,66 @@ static func _pick_block_reason(cp: Dictionary, action: Dictionary) -> String:
 	if position + move_cost(entry["move"]) > actions_this_round(cp, PLAYER_INDEX):
 		return _span_reason(entry["move"])
 	return ""
+
+
+# ── Scripted fights (R§3.7b Scripted fights) ─────────────────────────────
+
+# Whether the fight is a scripted one still before its Rewind.
+static func _script_pre(cp: Dictionary) -> bool:
+	return cp.get("script") is Dictionary and cp["script"]["phase"] == SCRIPT_PRE
+
+
+# Whether the player has fallen below the script's lock HP: every move and
+# item is blocked and only the Rewind is open.
+static func script_locked(cp: Dictionary) -> bool:
+	return _script_pre(cp) and cp["outcome"] == null and int(cp["combatants"][PLAYER_INDEX]["hp"]) < int(cp["script"]["lockBelowHp"])
+
+
+# The script's prompt line while locked, else "".
+static func script_prompt(cp: Dictionary) -> String:
+	return str(cp["script"]["prompt"]) if script_locked(cp) else ""
+
+
+# The unspent forced hit `actor_idx` lands on `target_idx` before the
+# Rewind ({ crit, ko }), marked spent; {} for none.
+static func _take_forced_hit(cp: Dictionary, actor_idx: int, target_idx: int) -> Dictionary:
+	if not _script_pre(cp):
+		return {}
+	for hit in cp["script"]["forcedHits"]:
+		if not hit.get("spent", false) and int(hit["actor"]) == actor_idx and int(hit["target"]) == target_idx:
+			hit["spent"] = true
+			return hit
+	return {}
+
+
+# A scripted plan for `actor` from `entries`, each a move id or { move,
+# target?, slot? }; a missing target is the actor for a self move, else -1.
+static func _script_plan(cp: Dictionary, actor: int, entries: Array) -> Array:
+	var plan: Array = []
+	for entry in entries:
+		var step: Dictionary = entry.duplicate() if entry is Dictionary else { "move": entry }
+		var target_kind: String = move(step["move"]).get("target", "")
+		step["target"] = int(step.get("target", actor if target_kind == TARGET_SELF else -1))
+		step["part"] = 0
+		if step.has("slot"):
+			step["slot"] = int(step["slot"])
+		plan.append(step)
+	return plan
+
+
+# The script's post-Rewind beats, set on the restored opening: the allies'
+# round-1 plans, the player's picks played for them with a Leg it that can't
+# fail, and no sucker punch ahead of the room.
+static func _begin_script_post(cp: Dictionary) -> void:
+	var script: Dictionary = cp["script"]
+	script["phase"] = SCRIPT_POST
+	cp["enemyFirst"] = false
+	var post: Dictionary = script["post"]
+	for key in post.get("allyPlans", {}).keys():
+		var actor := int(key)
+		cp["combatants"][actor]["plan"] = _script_plan(cp, actor, post["allyPlans"][key])
+	cp["playerPlan"] = _script_plan(cp, PLAYER_INDEX, post["playerPlan"])
+	cp["combatants"][PLAYER_INDEX]["fleeBoost"] = 1.0
 
 
 static func _span_reason(move_id: String) -> String:
@@ -1592,7 +1661,8 @@ static func _resolve_action(cp: Dictionary, actor_idx: int, action: Dictionary, 
 			if float(actor["fleeBoost"]) > 0.0:
 				chance = float(actor["fleeBoost"])
 				actor["fleeBoost"] = 0.0
-			if rng.randf() < chance:
+			# Before its Rewind a scripted fight's Leg it never gets away.
+			if rng.randf() < chance and not (actor_idx == PLAYER_INDEX and _script_pre(cp)):
 				_beat(cp, beats, "fled", actor_idx, -1, move_id, {})
 				if actor_idx == PLAYER_INDEX:
 					cp["outcome"] = "fled"
@@ -1799,7 +1869,8 @@ static func _strike(cp: Dictionary, actor_idx: int, target_idx: int, move_id: St
 	var combatants: Array = cp["combatants"]
 	var actor: Dictionary = combatants[actor_idx]
 	var target: Dictionary = combatants[target_idx]
-	var evade := evade_chance(cp, actor, target)
+	var forced := _take_forced_hit(cp, actor_idx, target_idx)
+	var evade := 0.0 if not forced.is_empty() else evade_chance(cp, actor, target)
 	if evade > 0.0 and rng.randf() < evade:
 		_beat(cp, beats, "evade", actor_idx, target_idx, move_id, {})
 		return
@@ -1821,7 +1892,13 @@ static func _strike(cp: Dictionary, actor_idx: int, target_idx: int, move_id: St
 	if strike_level >= int(fx["critLevel"]):
 		crit_chance += float(fx["critBonus"])
 	var crit := rng.randf() < crit_chance
-	if guarded and _guard_blocks(target, rng):
+	if not forced.is_empty():
+		crit = bool(forced.get("crit", true))
+		guarded = false
+		dmg = roll
+		if bool(forced.get("ko", false)):
+			dmg = int(target["hp"]) + int(target["shield"])
+	elif guarded and _guard_blocks(target, rng):
 		_beat(cp, beats, "block", actor_idx, target_idx, move_id, { "dmg": 0, "hpAfter": target["hp"] })
 		_retaliate(cp, actor_idx, target_idx, rng, beats, free)
 		return
@@ -1894,6 +1971,10 @@ static func _deal_damage(cp: Dictionary, actor_idx: int, target_idx: int, dmg: i
 	var absorbed: int = mini(target["shield"], dmg)
 	target["shield"] -= absorbed
 	target["hp"] = maxi(0, target["hp"] - (dmg - absorbed))
+	# Before its Rewind a scripted fight can't be won or lost: only the
+	# script's allies fall.
+	if _script_pre(cp) and target["hp"] == 0 and target["side"] != SIDE_ALLY:
+		target["hp"] = 1
 	var fields := { "dmg": dmg, "absorbed": absorbed, "hpAfter": target["hp"] }
 	fields.merge(extra)
 	_beat(cp, beats, kind, actor_idx, target_idx, move_id, fields)
@@ -2199,10 +2280,13 @@ static func rewind_rounds(cp: Dictionary, depth: int, to_start: bool) -> Diction
 		for i in range(frames.size()):
 			if int(frames[i]["round"]) <= int(cp["round"]) - depth:
 				index = i
+	var scripted_start := to_start and _script_pre(cp)
 	var frame: Dictionary = GameState.deep_copy(frames[index])
 	_apply_frame(cp, frame)
 	cp["snapshots"] = []
 	cp["roundFrames"] = frames.slice(0, index + 1)
+	if scripted_start:
+		_begin_script_post(cp)
 	var replayed: bool = cp.has("atOpen")
 	if replayed:
 		cp.erase("atOpen")

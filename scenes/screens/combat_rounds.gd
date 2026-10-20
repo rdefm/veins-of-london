@@ -220,7 +220,7 @@ func _sync_fight(cp: Dictionary) -> void:
 	if not _is_target_valid(cp, _target):
 		_target = _default_target(cp)
 	_round_label.text = "%s · Round %d" % [CombatScreen.context_label(cp["context"]), cp["round"]]
-	_refusal_label.text = _refusal
+	_refusal_label.text = _refusal if _refusal != "" else CombatRounds.script_prompt(cp)
 
 	# Mid-playback a re-sync would cut the slots' one-shot poses short, and
 	# the strip shows the round as far as the beats have played.
