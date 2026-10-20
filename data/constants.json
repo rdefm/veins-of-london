@@ -674,6 +674,8 @@
     "infoGlyph": "ⓘ",
     "baseLabel": "Base odds",
     "rewoundLabel": "Second go, best of two",
+    "ladyLabel": "Be A Lady",
+    "ladyBonusPerLevel": 0.05,
     "noModifiers": "Nothing tipping it either way.",
     "itemToggleFormat": "Use %s · %+d%%",
     "itemToggleNoneHeld": "%s · none on you",

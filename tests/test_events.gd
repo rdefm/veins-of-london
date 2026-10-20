@@ -632,6 +632,22 @@ func run() -> void:
 		assert_eq(odds["show"], "odds", "show defaults to odds")
 	)
 
+	run_case("lady_adds_labelled_mod_to_every_check_within_clamp", func():
+		GameState.reset()
+		var check := { "base": 0.4, "min": 0.0, "max": 0.6 }
+		var per_level: float = GameData.EVENT_CHECKS["ladyBonusPerLevel"]
+		var plain := Events.odds_for(check)
+		assert_almost_eq(plain["probability"], 0.4, 0.0001, "no Lady, unchanged")
+		assert_eq(plain["mods"], [], "no Lady mod listed")
+		GameState.state["player"]["activeEffects"] = [{ "item": ActiveEffects.LADY, "level": 2, "expiresAtBlock": 99999 }]
+		var odds := Events.odds_for(check)
+		assert_almost_eq(odds["probability"], 0.4 + 2 * per_level, 0.0001, "base + 2 levels")
+		assert_eq(odds["mods"][0]["label"], GameData.EVENT_CHECKS["ladyLabel"])
+		assert_almost_eq(odds["mods"][0]["delta"], 2 * per_level, 0.0001)
+		assert_almost_eq(Events.odds_for({ "base": 0.58, "min": 0.0, "max": 0.6 })["probability"], 0.6, 0.0001, "clamped to max")
+		assert_eq(Events.odds_for({ "base": 0.5, "min": 0.0, "max": 1.0 })["hint"], Events.hint_word(0.5 + 2 * per_level), "hint follows boost")
+	)
+
 	run_case("flag_mod_applies_only_when_the_flag_is_set", func():
 		GameState.reset()
 		var check := { "base": 0.4, "mods": [{ "flag": "testFlag", "add": 0.15, "label": "F" }], "min": 0.0, "max": 1.0 }

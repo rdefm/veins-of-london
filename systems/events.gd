@@ -501,6 +501,11 @@ static func odds_for(check: Dictionary, toggled: Array = []) -> Dictionary:
 		if delta != 0.0:
 			probability += delta
 			applied.append({ "label": mod.get("label", ""), "delta": delta })
+	if ActiveEffects.lady_active():
+		var lady_delta: float = float(GameData.EVENT_CHECKS["ladyBonusPerLevel"]) * ActiveEffects.lady_level()
+		if lady_delta != 0.0:
+			probability += lady_delta
+			applied.append({ "label": GameData.EVENT_CHECKS["ladyLabel"], "delta": lady_delta })
 	var lo: float = float(check.get("min", GameData.EVENT_CHECKS["defaultMin"]))
 	var hi: float = float(check.get("max", GameData.EVENT_CHECKS["defaultMax"]))
 	probability = clampf(probability, lo, hi)
