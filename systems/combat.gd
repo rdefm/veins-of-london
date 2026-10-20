@@ -24,8 +24,11 @@ const CONTEXT_DEFEND_VEIN: String = "defend_vein"
 const CONTEXT_ARCHIE_DEAL_MUGGING: String = "archie_deal_mugging"
 # An event's scripted fight (start_scripted_fight()); exits back to its event.
 const CONTEXT_SCRIPTED: String = "scripted"
+# A practice fight at the calc gym (Sparring.spar()).
+const CONTEXT_SPAR: String = "spar"
 
 const CANONICAL_CONTEXTS: Array[String] = [
+	CONTEXT_SPAR,
 	CONTEXT_RAID, CONTEXT_MUGGING, CONTEXT_EVENT_MUGGING, CONTEXT_FACTION_AMBUSH,
 	CONTEXT_HOME_RAID, CONTEXT_EVENT_RAID, CONTEXT_DEFEND_VEIN,
 	CONTEXT_ARCHIE_DEAL_MUGGING, CONTEXT_HOME_ALARM_DEFEND, CONTEXT_SCRIPTED,
@@ -87,6 +90,10 @@ const REASON_NO_REWIND := "No rewind available."
 const REWIND_PAY_ANY := ""
 const REWIND_PAY_LOADOUT := "loadout"
 const REWIND_PAY_DIAL := "dial"
+# A spar's house-rules Rewind: free and unlimited.
+const REWIND_PAY_FREE := "free"
+# PROSE-REVIEW: the house Rewind outside a spar.
+const REASON_NO_HOUSE_RULES := "House rules only apply at the gym."
 # R§3.7b Rewind: the fight transcript's lines for a Rewind, a Failsafe and an
 # ally's rewind; LINE_ALLY_REWIND takes the ally's name.
 const LINE_REWIND := "⟲ Time unspools. The moment resets. Only you remember."
@@ -424,6 +431,13 @@ static func start_demo_fight(script: Dictionary) -> void:
 	var location_key: String = str(script.get("locationKey", ""))
 	_start_round_combat(CONTEXT_SCRIPTED, null, roster["enemies"], script.get("intro", []), "", roster["allies"],
 		location_key if not location_key.is_empty() else null, roster["config"], live)
+
+
+# A gym spar against the one fighter entry `foe` (Sparring.spar()); `spar` is
+# its data block (combat.spar).
+static func start_spar_fight(foe: Dictionary, spar: Dictionary) -> void:
+	_start_round_combat(CONTEXT_SPAR, null, [foe], [Sparring.line("intro"), Sparring.line("houseRules")], "", [],
+		null, { "fog": false }, { "spar": spar })
 
 
 # `script`'s enemies and allies as fighter entries, and the round-combat
@@ -1150,8 +1164,12 @@ static func round_rewind_block_reason(pay: String = REWIND_PAY_ANY) -> String:
 		return "Combat not active."
 	if CombatRounds.is_demo(combat):
 		return CombatRounds.DEMO_REASON
+	if pay == REWIND_PAY_FREE and not CombatRounds.is_spar(combat):
+		return REASON_NO_HOUSE_RULES
 	if not CombatRounds.can_rewind_rounds(combat) and not CombatRounds.script_locked(combat):
 		return REASON_NOTHING_TO_UNDO
+	if pay == REWIND_PAY_FREE:
+		return ""
 	var has_unit := pay != REWIND_PAY_DIAL and Loadout.find_slot("rewind") >= 0
 	var has_cast := pay != REWIND_PAY_LOADOUT and Dial.find_loaded_rewind_complication_index() >= 0
 	if not has_unit and not has_cast:
@@ -1200,6 +1218,12 @@ static func round_rewind(pay: String = REWIND_PAY_ANY) -> Dictionary:
 	if reason != "":
 		return { "ok": false, "reason": reason }
 	var combat: Dictionary = GameState.state["combat"]
+	if pay == REWIND_PAY_FREE:
+		_restore_round_snapshot(combat, int(combat["spar"]["rewindRounds"]), false)
+		_push_round_line(combat, LINE_REWIND)
+		_sync_round_outcome(combat)
+		EventBus.state_changed.emit()
+		return { "ok": true }
 	var slot := Loadout.find_slot("rewind") if pay != REWIND_PAY_DIAL else -1
 	var tier := rewind_pay_tier(pay)
 	_restore_round_snapshot(combat, rewind_depth(tier), rewind_goes_to_start(tier))
@@ -1502,6 +1526,13 @@ static func exit_combat() -> Dictionary:
 		script_resume = int(combat["script"]["resumeCard"])
 	elif CombatRounds.is_demo(combat):
 		script_resume = int(combat["demo"]["resumeCard"])
+
+	if CombatRounds.is_spar(combat):
+		Sparring.settle(combat["spar"], outcome)
+		GameState.state["combat"] = idle_state()
+		SaveManager.autosave()
+		EventBus.state_changed.emit()
+		return _exit_default(outcome, context)
 
 	if round_fight_xp(outcome) > 0:
 		award_xp(round_fight_xp(outcome))

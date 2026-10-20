@@ -1057,6 +1057,7 @@ func _restore_int_types(state: Dictionary) -> void:
 	if state.has("flags"):
 		_int_key(state["flags"], "consSoldCount")
 		_int_key(state["flags"], "oddities")
+		_int_key(state["flags"], "sparSessions")
 
 	if state.has("player"):
 		var player: Dictionary = state["player"]

@@ -637,6 +637,15 @@ func _move_row(cp: Dictionary, move_id: String) -> Dictionary:
 # command instead, disabled with Combat.round_rewind_block_reason().
 func _loadout_rows(cp: Dictionary) -> Array:
 	var rows: Array = []
+	if CombatRounds.is_spar(cp):
+		var house_reason := Combat.round_rewind_block_reason(Combat.REWIND_PAY_FREE)
+		rows.append({
+			"name": "ItemRow_house_rewind", "iconKind": "recipe:rewind", "label": "Rewind — house rules (free)",
+			"tooltip": Sparring.line("houseRules"),
+			"disabled": house_reason != "", "disabledReason": house_reason,
+			"callback": _on_rewind_pressed.bind(Combat.REWIND_PAY_FREE),
+			"onExplain": _explain_block.bind("Rewind", house_reason),
+		})
 	for slot in range(Loadout.slot_count()):
 		var unit: Variant = Loadout.slot(slot)
 		var label := "Slot %d: empty" % (slot + 1)

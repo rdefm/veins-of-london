@@ -175,6 +175,9 @@ static func new_state() -> Dictionary:
 		"script": null,
 		# A demo fight's data block (R§3.7b Demo fights), null for any other.
 		"demo": null,
+		# A gym spar's data block (Sparring.spar()): what to restore when it ends
+		# and how far its free Rewind goes; null for any other fight.
+		"spar": null,
 		# Coach marks (R§3.7b Coach marks): { lessons: { "<round>": line }, allowed:
 		# { "<round>": [move or item ids] } } or null for none.
 		"coach": null,
@@ -1171,6 +1174,10 @@ static func coach_hint(id: String) -> String:
 
 static func is_demo(cp: Dictionary) -> bool:
 	return cp.get("demo") is Dictionary
+
+
+static func is_spar(cp: Dictionary) -> bool:
+	return cp.get("spar") is Dictionary
 
 
 # Plays a demo fight's next round (the player sits out, so nothing pauses for

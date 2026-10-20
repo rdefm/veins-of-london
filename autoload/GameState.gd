@@ -341,6 +341,8 @@ func new_game_state() -> Dictionary:
 			"bizOwenCraftQueued": false,
 			# Set by Beat 3; shows BizBrief's Staff tab.
 			"bizStaffTabOpen": false,
+			# Calc gym: Spar unlocked, and sessions taken (Sparring).
+			"gymUnlocked": false, "sparSessions": 0,
 			"archiePartnerSeen": false, "homeUnlocked": false, "securityContactUnlocked": false,
 			# M1-LONDON D5 — district event one-shot flags/counters.
 			"greenwichTipOff": false, "luckyOmen": false, "conclaveNoticed": false, "oddities": 0,

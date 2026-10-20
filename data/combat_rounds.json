@@ -31,6 +31,23 @@
     "positionMultiplier": [0.35, 1.0, 1.5]
   },
   "playerBase": { "name": "you" },
+  "_sparComment": "The calc gym's Spar (systems/sparring.gd, REFERENCE.md §3.7b Spar). unlockFlag opens the gym pin in `district`. freeSessions are used whenever, then each costs `fee` (£, placeholder). xpBase for any result, xpWinBonus on top for a win. rewindRounds is how far the house-rules Rewind goes back. Partners: levelDelta from the player's Combat Skill (clamped to 1..levelMax); stats are the template's before the level bonuses. PROSE-REVIEW: partner names and every line here are new copy.",
+  "spar": {
+    "unlockFlag": "gymUnlocked", "district": "whitechapel",
+    "freeSessions": 3, "fee": 15, "xpBase": 12, "xpWinBonus": 18, "rewindRounds": 1,
+    "partners": [
+      { "id": "easy", "name": "Gym newcomer", "label": "Easy", "levelDelta": -1, "hpMax": 24, "attackMin": 3, "attackMax": 8, "speed": 10 },
+      { "id": "even", "name": "Regular", "label": "Even", "levelDelta": 0, "hpMax": 28, "attackMin": 4, "attackMax": 10, "speed": 11 },
+      { "id": "hard", "name": "Old hand", "label": "Hard", "levelDelta": 1, "hpMax": 34, "attackMin": 5, "attackMax": 12, "speed": 12 }
+    ],
+    "lines": {
+      "intro": "The arch rattles when a train goes over. Mats down, gloves on. House rules apply.",
+      "houseRules": "House rules: Rewind is free and there's no limit.",
+      "noTime": "No time blocks left today.",
+      "locked": "The gym isn't open to you yet.",
+      "cantPay": "Not enough for the session fee."
+    }
+  },
   "allyBase": { "name": "your mate", "hpBase": 40, "attackMin": 7, "attackMax": 15 },
   "moves": {
     "guard": {

@@ -27,6 +27,7 @@ static var REGISTRY: Dictionary = {
 	"combat_block_reason": CombatBlockReasonModal,
 	"hq_ore_readout": HqOreReadoutModal,
 	"hq_gym": HqGymModal,
+	"gym_spar": GymSparModal,
 	"contract_cancel": ContractCancelModal,
 	"negotiation": NegotiationModal,
 	"gift": GiftModal,
