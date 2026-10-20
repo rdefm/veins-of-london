@@ -4,7 +4,7 @@ extends "res://tests/test_base.gd"
 func run() -> void:
 	run_case("raid_chance_floors_at_0_002", func():
 		GameState.reset()
-		# bedsit raidBaseChance is 0.08, but stack heavy reduction to push
+		# bedsit raidBaseChance is 0.15, but stack heavy reduction to push
 		# the raw formula well below the floor.
 		GameState.state["home"]["security"] = ["lock", "cameras", "reinforcedDoor", "alarm", "guard", "ward"]
 		var chance := Home.get_home_raid_chance()
@@ -16,23 +16,29 @@ func run() -> void:
 		# M1-LONDON-T06: home.storedOre was merged into player.orichalchum —
 		# carried ore is what a raid is risking now, there's no separate pool.
 		GameState.state["player"]["orichalchum"] = { "time": 50 }
-		# bedsit base 0.08, no security, +50*0.001 = 0.05 -> 0.13
+		# bedsit base 0.15, no security, +50*0.001 = 0.05 -> 0.20
 		var chance := Home.get_home_raid_chance()
-		assert_almost_eq(chance, 0.13, 0.0001, "0.08 base + 50*0.001 carried ore")
+		assert_almost_eq(chance, 0.20, 0.0001, "0.15 base + 50*0.001 carried ore")
+	)
+
+	run_case("bedsit_raid_base_chance_exceeds_studio_and_flat", func():
+		var tiers: Dictionary = GameData.HOME_TIERS
+		assert_true(tiers["bedsit"]["raidBaseChance"] > tiers["studio"]["raidBaseChance"], "bedsit > studio")
+		assert_true(tiers["studio"]["raidBaseChance"] > tiers["flat"]["raidBaseChance"], "studio > flat")
 	)
 
 	run_case("get_raid_chance_for_tier_previews_a_tier_the_player_has_not_moved_into_yet", func():
 		GameState.reset()
 		# 03-property-app-phone-tab: Harrow's next-tier preview reuses this
 		# formula against a hypothetical tier_id -- still at bedsit, but
-		# previewing flat (raidBaseChance 0.06 vs bedsit's 0.08), with
+		# previewing flat (raidBaseChance 0.06 vs bedsit's 0.15), with
 		# installed security/carried ore (both tier-independent) still
 		# applying to the preview exactly as they would after the move.
 		GameState.state["home"]["security"] = ["lock"]  # raidReduction 0.02
 		GameState.state["player"]["orichalchum"] = { "time": 50 }  # +0.05
 		var current := Home.get_raid_chance_for_tier("bedsit")
 		var preview := Home.get_raid_chance_for_tier("flat")
-		assert_almost_eq(current, 0.08 - 0.02 + 0.05, 0.0001, "bedsit base with lock and carried ore")
+		assert_almost_eq(current, 0.15 - 0.02 + 0.05, 0.0001, "bedsit base with lock and carried ore")
 		assert_almost_eq(preview, 0.06 - 0.02 + 0.05, 0.0001, "flat's own base, same security/ore applied")
 		assert_almost_eq(Home.get_home_raid_chance(), current, 0.0001, "get_home_raid_chance still reads the actual current tier")
 	)
@@ -52,7 +58,7 @@ func run() -> void:
 		GameState.state["world"]["day"] = 10
 		GameState.state["home"]["lastRaidDay"] = 0
 		GameState.state["home"]["tier"] = "bedsit"
-		# raidBaseChance for bedsit alone is 0.08, but force certainty via a
+		# raidBaseChance for bedsit alone is 0.15, but force certainty via a
 		# huge stored-ore-derived chance is not possible with empty ore, so
 		# instead push chance toward 1 by relying on high base + fx isn't
 		# available here; test the "no ore" branch directly by forcing the
@@ -65,7 +71,7 @@ func run() -> void:
 			if GameState.state["home"]["lastRaidDay"] == 10:
 				hit = true
 				break
-		assert_true(hit, "a raid should eventually hit across 200 seeds at bedsit's 0.08 base chance")
+		assert_true(hit, "a raid should eventually hit across 200 seeds at bedsit's 0.15 base chance")
 		assert_eq(GameState.state["player"]["orichalchum"], {}, "no carried ore to lose")
 	)
 
@@ -721,7 +727,7 @@ func run() -> void:
 		GameState.reset()
 		# Well clear of get_home_raid_chance()'s max(0.002, ...) floor, so
 		# each guard's subtraction is actually visible in the diff below --
-		# bedsit's own 0.08 base isn't enough headroom for 3 guards' combined
+		# bedsit's own 0.15 base isn't enough headroom for 3 guards' combined
 		# 0.15 reduction on its own.
 		GameState.state["player"]["orichalchum"] = { "time": 1000 }
 		var per_guard: float = GameData.HOME_SECURITY["guard"]["raidReduction"]

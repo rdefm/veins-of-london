@@ -4,7 +4,7 @@
   "tiers": {
     "bedsit": {
       "id": "bedsit", "name": "Bedsit", "tier": 1, "image": "res://assets/hq/bedsit_external.png",
-      "buyPrice": 0, "rentOnly": true, "dailyCost": 50, "raidBaseChance": 0.08,
+      "buyPrice": 0, "rentOnly": true, "dailyCost": 50, "raidBaseChance": 0.15,
       "maxRooms": 0,
       "description": "A single room in Whitechapel. The boiler makes a sound like someone clearing their throat. No storage to speak of.",
       "particulars": "An incredibly cosy, fully integrated living space in vibrant Whitechapel, where bed, kitchen and bathroom enjoy an unusually close working relationship. Characterful boiler with a voice of its own. Viewing essential, as the photographer could not fit the room in."
