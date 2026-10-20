@@ -2095,7 +2095,7 @@ const VALID_EFFECT_OPS: Array[String] = [
 	"stealth_check", "start_raid_combat", "claim_raid_vein", "loot_raid_vein",
 	"stockpile_stealth_check", "start_stockpile_raid_combat", "loot_stockpile", "start_faction_ambush_combat",
 	# start_scripted_fight opens an event's scripted fight (Combat.start_scripted_fight()).
-	"start_scripted_fight",
+	"start_scripted_fight", "start_demo_fight",
 	# unlock_contact flips contacts.<id>.unlocked; push_message appends
 	# a plain unread text (no follow-up action); queue_pending_message
 	# is push_message's follow-up-action cousin (Messages.queue_pending()).
@@ -2332,6 +2332,10 @@ func _validate_effect_list(effects: Array, context: String, errors: Array[String
 			if effect.get("script") is Dictionary:
 				_require_keys(effect["script"], ["enemies", "lockBelowHp", "prompt", "post", "resumeCard"], "%s.script" % context, errors)
 				_validate_coach(effect["script"].get("coach"), "%s.script.coach" % context, errors)
+		if effect["op"] == "start_demo_fight":
+			_require_keys(effect, ["script"], context, errors)
+			if effect.get("script") is Dictionary:
+				_require_keys(effect["script"], ["enemies", "allies", "rounds", "resumeCard"], "%s.script" % context, errors)
 		if effect["op"] == "resolve_home_raid" and not ["win", "loss"].has(effect.get("outcome")):
 			errors.append("%s: resolve_home_raid outcome must be 'win' or 'loss'" % context)
 

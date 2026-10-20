@@ -117,6 +117,9 @@ const WHOLE_FIGHT := 1 << 30
 const SCRIPT_PRE := "pre"
 const SCRIPT_POST := "post"
 
+# What a demo fight's blocked picks and Rewind say.
+const DEMO_REASON := "Just watch."
+
 
 # The moves the ally AI plans with (R§3.7b Round); GameData checks they exist.
 const MOVE_GUARD := "guard"
@@ -170,6 +173,8 @@ static func new_state() -> Dictionary:
 		# A scripted fight's data block (SCRIPT_PRE, then SCRIPT_POST after its
 		# Rewind; see script_locked()), null for an ordinary fight.
 		"script": null,
+		# A demo fight's data block (R§3.7b Demo fights), null for any other.
+		"demo": null,
 		# Coach marks (R§3.7b Coach marks): { lessons: { "<round>": line }, allowed:
 		# { "<round>": [move or item ids] } } or null for none.
 		"coach": null,
@@ -1116,6 +1121,8 @@ static func play_pick(cp: Dictionary, action: Dictionary, stack_id: String) -> D
 # Why the raw pick `action` ({ move, target } or { slot, target }) can't be
 # played at the paused position, or "".
 static func _pick_block_reason(cp: Dictionary, action: Dictionary) -> String:
+	if is_demo(cp):
+		return DEMO_REASON
 	var position := decision_position(cp)
 	if position < 0:
 		return "No fight on."
@@ -1158,6 +1165,42 @@ static func coach_active(cp: Dictionary) -> bool:
 # The default hint line for a move or item id, "" for none.
 static func coach_hint(id: String) -> String:
 	return str(GameData.COMBAT_ROUNDS["coach"]["hints"].get(id, ""))
+
+
+# ── Demo fights (R§3.7b Demo fights) ─────────────────────────────────────
+
+static func is_demo(cp: Dictionary) -> bool:
+	return cp.get("demo") is Dictionary
+
+
+# Plays a demo fight's next round (the player sits out, so nothing pauses for
+# a pick) and returns its beats; the fight ends `fled` once its last round
+# has played.
+static func demo_step(cp: Dictionary) -> Array:
+	var beats: Array = []
+	if not is_demo(cp) or cp["outcome"] != null:
+		return beats
+	cp["demo"]["upTo"] = int(cp["round"])
+	var rng := RandomNumberGenerator.new()
+	rng.state = cp["rngState"]
+	_advance(cp, rng, beats)
+	_record(cp, beats)
+	cp["rngState"] = rng.state
+	if cp["outcome"] == null and int(cp["round"]) > int(cp["demo"]["rounds"]):
+		cp["outcome"] = "fled"
+	return beats
+
+
+# Whether the demo's unspent forced `kind` proc ("autoguard" or "retaliate")
+# for combatant `idx` fires now, marking it spent.
+static func _take_demo_proc(cp: Dictionary, kind: String, idx: int) -> bool:
+	if not is_demo(cp):
+		return false
+	for proc in cp["demo"]["procs"]:
+		if not proc.get("spent", false) and proc["kind"] == kind and int(proc["target"]) == idx:
+			proc["spent"] = true
+			return true
+	return false
 
 
 # ── Scripted fights (R§3.7b Scripted fights) ─────────────────────────────
@@ -1513,6 +1556,9 @@ static func _advance(cp: Dictionary, rng: RandomNumberGenerator, beats: Array) -
 	var cursor: Dictionary = cp["cursor"]
 	while cp["outcome"] == null:
 		if combatants[PLAYER_INDEX]["koed"] and not cp.get("playerKoed", false):
+			break
+		# A demo fight plays a round at a time (demo_step()).
+		if is_demo(cp) and int(cp["round"]) > int(cp["demo"]["upTo"]):
 			break
 		cp["playerPlan"].resize(maxi(cp["playerPlan"].size(), actions_this_round(cp, PLAYER_INDEX)))
 		var entry := _next_entry(cp)
@@ -1913,7 +1959,7 @@ static func _strike(cp: Dictionary, actor_idx: int, target_idx: int, move_id: St
 	var strike_level := move_level(actor, MOVE_STRIKE)
 	var roll := rng.randi_range(roll_range[0], roll_range[1])
 	var guarded: bool = not is_open(cp, target)
-	if not guarded and _autoguards(target, rng):
+	if not guarded and _autoguards(cp, target_idx, rng):
 		guarded = true
 		_beat(cp, beats, "autoguard", target_idx, actor_idx, "feint", {})
 	var dmg := roll
@@ -1946,9 +1992,12 @@ static func _strike(cp: Dictionary, actor_idx: int, target_idx: int, move_id: St
 
 # Whether an Open `target` whose last resolved action was a Feint treats this
 # hit as Guarded: its Feint level's autoguardChance (Feint passives).
-static func _autoguards(target: Dictionary, rng: RandomNumberGenerator) -> bool:
+static func _autoguards(cp: Dictionary, target_idx: int, rng: RandomNumberGenerator) -> bool:
+	var target: Dictionary = cp["combatants"][target_idx]
 	if target["lastMove"] != MOVE_FEINT:
 		return false
+	if _take_demo_proc(cp, "autoguard", target_idx):
+		return true
 	var chance := float(level_effects(MOVE_FEINT)["autoguardChance"][move_level(target, MOVE_FEINT)])
 	return chance > 0.0 and rng.randf() < chance
 
@@ -1962,7 +2011,7 @@ static func _retaliate(cp: Dictionary, attacker_idx: int, target_idx: int, rng: 
 	var fx := level_effects(MOVE_FEINT)
 	if free or target["koed"] or target["lastMove"] != MOVE_FEINT or move_level(target, MOVE_FEINT) < int(fx["retaliateLevel"]):
 		return
-	if rng.randf() >= float(fx["retaliateChance"]):
+	if not _take_demo_proc(cp, "retaliate", target_idx) and rng.randf() >= float(fx["retaliateChance"]):
 		return
 	_beat(cp, beats, "retaliate", target_idx, attacker_idx, MOVE_STRIKE, {})
 	var first := beats.size()
@@ -2005,8 +2054,8 @@ static func _deal_damage(cp: Dictionary, actor_idx: int, target_idx: int, dmg: i
 	target["shield"] -= absorbed
 	target["hp"] = maxi(0, target["hp"] - (dmg - absorbed))
 	# Before its Rewind a scripted fight can't be won or lost: only the
-	# script's allies fall.
-	if _script_pre(cp) and target["hp"] == 0 and target["side"] != SIDE_ALLY:
+	# script's allies fall. A demo fight drops no one.
+	if target["hp"] == 0 and (is_demo(cp) or (_script_pre(cp) and target["side"] != SIDE_ALLY)):
 		target["hp"] = 1
 	var fields := { "dmg": dmg, "absorbed": absorbed, "hpAfter": target["hp"] }
 	fields.merge(extra)

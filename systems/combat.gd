@@ -392,6 +392,43 @@ static func start_home_raid_combat(mods: Dictionary = {}) -> void:
 # playerLevel, locationKey and coach ({ lessons, allowed } by round, R§3.7b
 # Coach marks).
 static func start_scripted_fight(script: Dictionary) -> void:
+	var roster := _scripted_roster(script)
+	var live := {
+		"script": {
+			"phase": CombatRounds.SCRIPT_PRE,
+			"lockBelowHp": int(script["lockBelowHp"]), "prompt": str(script["prompt"]),
+			"forcedHits": script.get("forcedHits", []).duplicate(true),
+			"post": script["post"].duplicate(true), "resumeCard": int(script["resumeCard"]),
+		},
+		"enemyFirst": bool(script.get("enemyFirst", false)),
+		"coach": script["coach"].duplicate(true) if script.has("coach") else null,
+	}
+	var location_key: String = str(script.get("locationKey", ""))
+	_start_round_combat(CONTEXT_SCRIPTED, null, roster["enemies"], script.get("intro", []), "", roster["allies"],
+		location_key if not location_key.is_empty() else null, roster["config"], live)
+
+
+# An event's demo fight (R§3.7b Demo fights): the same fighter entries as a
+# scripted fight, but the player sits it out and `rounds` rounds play
+# themselves (demo_step()), then the event resumes at `resumeCard`. `procs`
+# ({ kind: "autoguard" | "retaliate", target }, by combatant index) each
+# fire once whatever the dice say; `label` heads the screen.
+static func start_demo_fight(script: Dictionary) -> void:
+	var roster := _scripted_roster(script)
+	var live := {
+		"demo": {
+			"rounds": int(script["rounds"]), "upTo": 0, "resumeCard": int(script["resumeCard"]),
+			"procs": script.get("procs", []).duplicate(true), "label": str(script.get("label", "Sparring")),
+		},
+	}
+	var location_key: String = str(script.get("locationKey", ""))
+	_start_round_combat(CONTEXT_SCRIPTED, null, roster["enemies"], script.get("intro", []), "", roster["allies"],
+		location_key if not location_key.is_empty() else null, roster["config"], live)
+
+
+# `script`'s enemies and allies as fighter entries, and the round-combat
+# config carrying their plans, for _start_round_combat().
+static func _scripted_roster(script: Dictionary) -> Dictionary:
 	var enemies: Array = []
 	var enemy_plans: Array = []
 	for spec in script["enemies"]:
@@ -414,19 +451,7 @@ static func start_scripted_fight(script: Dictionary) -> void:
 	var config := { "fog": false, "enemyPlans": enemy_plans, "allyPlans": ally_plans, "playerLevel": int(script.get("playerLevel", 0)) }
 	if script.has("seed"):
 		config["seed"] = int(script["seed"])
-	var live := {
-		"script": {
-			"phase": CombatRounds.SCRIPT_PRE,
-			"lockBelowHp": int(script["lockBelowHp"]), "prompt": str(script["prompt"]),
-			"forcedHits": script.get("forcedHits", []).duplicate(true),
-			"post": script["post"].duplicate(true), "resumeCard": int(script["resumeCard"]),
-		},
-		"enemyFirst": bool(script.get("enemyFirst", false)),
-		"coach": script["coach"].duplicate(true) if script.has("coach") else null,
-	}
-	var location_key: String = str(script.get("locationKey", ""))
-	_start_round_combat(CONTEXT_SCRIPTED, null, enemies, script.get("intro", []), "", allies,
-		location_key if not location_key.is_empty() else null, config, live)
+	return { "enemies": enemies, "allies": allies, "config": config }
 
 
 # Called by Home.trigger_defend(): same raider, no onWin (Home resolves it).
@@ -715,6 +740,10 @@ static func _start_round_combat(context: String, vein_id, enemies: Array, log_li
 	fighter["moveOwner"] = ""
 	fighter["moveLevels"] = MoveLevels.levels_of("")
 	CombatRounds.carry_in(fighter, ActiveEffects.prophets_breath_active(), ActiveEffects.lady_level())
+	# A demo fight's player is a spectator, down from the start.
+	if combat["demo"] is Dictionary:
+		fighter["koed"] = true
+		combat["playerKoed"] = true
 	combatants.append(fighter)
 	var ally_plans: Array = config.get("allyPlans", [])
 	var friends: Array = combat["allies"] + combat["allyQueue"]
@@ -965,6 +994,18 @@ static func _round_cast(combat: Dictionary, index: int) -> int:
 	return casts.find_custom(func(c): return int(c["sourceIndex"]) == index)
 
 
+# Plays a demo fight's next round, as CombatRounds.demo_step(). Returns
+# { ok, beats, outcome } or { ok: false, reason } when no demo is on.
+static func demo_step() -> Dictionary:
+	var combat: Dictionary = GameState.state["combat"]
+	if not combat["active"] or not CombatRounds.is_demo(combat):
+		return { "ok": false, "reason": "No demo on." }
+	var beats := CombatRounds.demo_step(combat)
+	_sync_round_outcome(combat)
+	EventBus.state_changed.emit()
+	return { "ok": true, "beats": beats, "outcome": combat["outcome"] }
+
+
 # Plays `move_id` at the round fight's paused player position (target -1:
 # the move's default), as CombatRounds.play_pick(). Returns
 # { ok, beats, outcome } or { ok: false, reason }; a pick whose KO a
@@ -1107,6 +1148,8 @@ static func round_rewind_block_reason(pay: String = REWIND_PAY_ANY) -> String:
 	var combat: Dictionary = GameState.state["combat"]
 	if not combat["active"] or combat["outcome"] != null:
 		return "Combat not active."
+	if CombatRounds.is_demo(combat):
+		return CombatRounds.DEMO_REASON
 	if not CombatRounds.can_rewind_rounds(combat) and not CombatRounds.script_locked(combat):
 		return REASON_NOTHING_TO_UNDO
 	var has_unit := pay != REWIND_PAY_DIAL and Loadout.find_slot("rewind") >= 0
@@ -1454,7 +1497,11 @@ static func exit_combat() -> Dictionary:
 	var raider_items_used: Dictionary = combat.get("raiderKit", {}).get("used", {})
 	var stockpile_faction_id: String = combat.get("stockpileFactionId", "")
 	var ambush_faction_id: String = combat.get("ambushFactionId", "")
-	var script_resume: int = int(combat["script"]["resumeCard"]) if combat.get("script") is Dictionary else -1
+	var script_resume := -1
+	if combat.get("script") is Dictionary:
+		script_resume = int(combat["script"]["resumeCard"])
+	elif CombatRounds.is_demo(combat):
+		script_resume = int(combat["demo"]["resumeCard"])
 
 	if round_fight_xp(outcome) > 0:
 		award_xp(round_fight_xp(outcome))

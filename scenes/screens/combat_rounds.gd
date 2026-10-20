@@ -35,6 +35,8 @@ const _OVERLAY_KINDS: Array[String] = ["guard", "lost", "frozen", "cower", "enra
 const _CAST_KINDS: Array[String] = ["powder", "sight", "sightGiven", "lady", "failsafe"]
 # The screen's own closing beat after a pick's beats (_play_beats()).
 const _SETTLE_KIND := "settle"
+# Seconds a demo fight rests between rounds.
+const _DEMO_ROUND_PAUSE := 0.8
 # The move the dock's grid holds as its own button, not on the Fight page.
 const _LEG_IT := "legIt"
 # Item beat kinds -> the data/combat_visuals.json effect sheet they play.
@@ -66,6 +68,8 @@ var _held_marks: Array = []
 # Set for the length of one playback: the transcript holds the lines it
 # showed before it, gaining or losing one per beat, rather than re-syncing.
 var _transcript_held := false
+# Set while a demo fight waits to play its next round.
+var _demo_pending := false
 
 var _fight_body: Control
 var _round_label: Label
@@ -219,7 +223,8 @@ func _busy() -> bool:
 func _sync_fight(cp: Dictionary) -> void:
 	if not _is_target_valid(cp, _target):
 		_target = _default_target(cp)
-	_round_label.text = "%s · Round %d" % [CombatScreen.context_label(cp["context"]), cp["round"]]
+	var heading: String = str(cp["demo"]["label"]) if CombatRounds.is_demo(cp) else CombatScreen.context_label(cp["context"])
+	_round_label.text = "%s · Round %d" % [heading, mini(int(cp["round"]), int(cp["demo"]["rounds"])) if CombatRounds.is_demo(cp) else cp["round"]]
 	var prompt := CombatRounds.script_prompt(cp)
 	_refusal_label.text = _refusal if _refusal != "" else (prompt if prompt != "" else CombatRounds.coach_lesson(cp))
 
@@ -250,6 +255,10 @@ func _sync_fight(cp: Dictionary) -> void:
 	if cp["outcome"] != null and not _busy():
 		_footer_holder.add_child(_build_outcome_card(cp["outcome"]))
 		_dock.hide_deck()
+	elif CombatRounds.is_demo(cp):
+		_dock.hide_deck()
+		if not _busy():
+			_play_demo_round.call_deferred()
 	else:
 		_dock.configure(moves, items, _move_row(cp, _LEG_IT), dial, _busy(), _pick_cast)
 
@@ -1103,7 +1112,21 @@ func _apply_marks(cp: Dictionary, marks: Array) -> void:
 
 
 func _build_outcome_card(outcome: String) -> Control:
-	return CombatScreen.outcome_button(outcome, _cp()["context"])
+	return CombatScreen.outcome_button(outcome, _cp()["context"], CombatRounds.is_demo(_cp()))
+
+
+# A demo fight plays itself: after a beat's pause, the next round's beats
+# play through the usual stage and transcript until the outcome card shows.
+func _play_demo_round() -> void:
+	if _demo_pending or not is_inside_tree():
+		return
+	_demo_pending = true
+	await get_tree().create_timer(_DEMO_ROUND_PAUSE).timeout
+	_demo_pending = false
+	var cp: Dictionary = _cp()
+	if not cp["active"] or cp["outcome"] != null or _busy():
+		return
+	await _resolve(Combat.demo_step, { "move": "" })
 
 
 # Every beat so far, grouped by round, newest round first.
