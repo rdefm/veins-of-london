@@ -23,6 +23,21 @@ func run() -> void:
 			assert_true(ActiveEffects.effect_text(item) != "", "%s has effectText" % item)
 	)
 
+	run_case("sheet_shows_effect_text_for_every_item", func():
+		for item in ActiveEffects.usable_items():
+			GameState.reset()
+			Crafting.inventory_add(item, 1, 1)
+			assert_true(ActiveEffects.use(item)["ok"], "%s starts" % item)
+			var box := VBoxContainer.new()
+			ActiveEffectsModal.build(box, {})
+			var found := false
+			for l in box.find_children("", "Label", true, false):
+				if (l as Label).text == ActiveEffects.effect_text(item):
+					found = true
+			assert_true(found, "%s sheet line" % item)
+			box.free()
+	)
+
 	run_case("duration_table_by_level", func():
 		GameState.reset()
 		var expected := { 1: 1, 2: 1, 3: 2, 4: 2, 5: 3 }

@@ -16,6 +16,11 @@ static func build(container: VBoxContainer, _data: Dictionary) -> void:
 		var item: String = effect["item"]
 		var recipe: Dictionary = GameData.RECIPES.get(item, {})
 		container.add_child(UI.symbol_row([ItemIcons.part(item), "%s · level %d · %d block%s left" % [recipe.get("name", item), int(effect["level"]), left, "" if left == 1 else "s"]]))
+		var text: String = ActiveEffects.effect_text(item)
+		if text != "":
+			var line := UI.muted_label(text)
+			line.add_theme_font_size_override("font_size", 12)
+			container.add_child(line)
 		shown += 1
 	if shown == 0:
 		container.add_child(UI.muted_label("Nothing in your system."))
