@@ -1123,6 +1123,7 @@ func _restore_int_types(state: Dictionary) -> void:
 		_int_key(home, "guardCount")
 		_int_key(home, "arrears")
 		_int_key(home, "arrearsWeeks")
+		_int_key(home, "deposit")
 		_int_dict_values(home.get("roomSeats", {}))
 		for buckets in home.get("guardKit", {}).values():
 			_int_dict_values(buckets)

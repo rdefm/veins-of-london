@@ -194,7 +194,7 @@ func _build_listing_card(caption: String, tier_id: String) -> Control:
 	body.add_child(_text(caption, 11, brand_green(), _bold_font()))
 	_add_title(body, tier_id)
 	body.add_child(_price_row(Home.weekly_bill_for(tier_id, Home.TENURE_RENTED), "/ week rent"))
-	var facts: Array[String] = []
+	var facts: Array[String] = ["Deposit £%d" % Home.deposit_for(tier_id)]
 	if Home.can_buy_tier(tier_id):
 		facts.append("Buy £%d" % Home.buy_price(tier_id))
 		if Home.sale_credit() > 0:
@@ -444,7 +444,9 @@ func _offer_box(tier_id: String) -> Control:
 
 	var rent: int = Home.weekly_bill_for(tier_id, Home.TENURE_RENTED)
 	var credit: int = Home.sale_credit()
-	_add_brand_purchase_button(offer, "Rent for £%d/week" % rent, 0, _close_then.bind(Home.rent_to.bind(tier_id)))
+	var deposit: int = Home.deposit_for(tier_id)
+	_add_brand_purchase_button(offer, "Rent for £%d/week" % rent, maxi(0, Home.net_rent_cost(tier_id)), _close_then.bind(Home.rent_to.bind(tier_id)))
+	offer.add_child(_text("Deposit £%d, returned when you move out." % deposit, 12, MUTED))
 	if credit > 0:
 		offer.add_child(_text("Renting sells your %s: you receive £%d." % [_current_home_name(), credit], 12, MUTED))
 	if Home.can_buy_tier(tier_id):

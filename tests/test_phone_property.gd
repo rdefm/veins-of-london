@@ -185,7 +185,7 @@ func run() -> void:
 
 	run_case("property_buy_is_disabled_without_cash_and_rent_calls_rent_up", func():
 		GameState.reset()
-		GameState.state["player"]["cash"] = 100
+		GameState.state["player"]["cash"] = 1700
 		GameState.state["phoneNav"]["app"] = "property"
 
 		var phone := PhoneScreen.new()
@@ -193,9 +193,9 @@ func run() -> void:
 		_open_listing(phone, "studio")
 		var buy_button := NodeQuery.find_button(phone, "Buy for £80000")
 		assert_true(buy_button.disabled, "buy disabled without enough cash")
-		assert_true(NodeQuery.label_texts(phone).has("Not enough cash. You have £100."), "particulars show the shortfall against cash")
+		assert_true(NodeQuery.label_texts(phone).has("Not enough cash. You have £1700."), "particulars show the shortfall against cash")
 		var rent_button := NodeQuery.find_button(phone, "Rent for £420/week")
-		assert_true(not rent_button.disabled, "renting needs no cash up front")
+		assert_true(not rent_button.disabled, "renting needs only the deposit")
 		rent_button.pressed.emit()
 		assert_eq(GameState.state["home"]["tier"], "studio")
 		assert_eq(GameState.state["home"]["tenure"], "rented")
@@ -249,6 +249,7 @@ func run() -> void:
 		phone.free()
 
 		GameState.state["home"]["tier"] = "flat"
+		GameState.state["player"]["cash"] = 2000
 		GameState.state["home"]["security"] = ["lock", "cameras"]
 		phone = PhoneScreen.new()
 		phone._ready()
@@ -425,7 +426,7 @@ func run() -> void:
 
 	run_case("property_far_tier_particulars_rent_and_buy_jump_straight_there", func():
 		GameState.reset()
-		GameState.state["player"]["cash"] = 1000
+		GameState.state["player"]["cash"] = 16800
 		GameState.state["phoneNav"]["app"] = "property"
 		var phone := PhoneScreen.new()
 		phone._ready()
@@ -435,7 +436,7 @@ func run() -> void:
 		assert_true(texts.has("MOVE UP"))
 		var buy_button := NodeQuery.find_button(phone, "Buy for £2000000")
 		assert_true(buy_button != null and buy_button.disabled, "unaffordable buy is shown, disabled")
-		assert_true(texts.has("Not enough cash. You have £1000."))
+		assert_true(texts.has("Not enough cash. You have £16800."))
 		NodeQuery.find_button(phone, "Rent for £4200/week").pressed.emit()
 		assert_eq(GameState.state["home"]["tier"], "compound", "renting jumps five tiers in one move")
 		assert_eq(GameState.state["home"]["tenure"], "rented")
@@ -449,7 +450,7 @@ func run() -> void:
 		NodeQuery.find_button(phone, "Buy for £200000").pressed.emit()
 		assert_eq(GameState.state["home"]["tier"], "flat", "buying jumps three tiers down")
 		assert_eq(GameState.state["home"]["tenure"], "owned")
-		assert_eq(GameState.state["player"]["cash"], 0)
+		assert_eq(GameState.state["player"]["cash"], 16800, "the compound deposit comes back")
 		phone.free()
 	)
 

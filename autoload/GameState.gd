@@ -222,7 +222,7 @@ func new_game_state() -> Dictionary:
 		# guardKit is the HQ guards' kit, shaped like vein.guardKit.
 		# tenure is "rented"/"owned" (ADR 0006); arrears is unpaid bill £, arrearsWeeks the consecutive Monday bills that left arrears.
 		# roomSeats is each room's staff seat count (hiring-spec §5).
-		"home": { "tier": "bedsit", "tenure": "rented", "arrears": 0, "arrearsWeeks": 0, "security": [], "rooms": [], "roomSeats": _new_room_seats(), "lastRaidDay": 0, "pendingRaid": false, "pendingRaidNotificationId": null, "guardCount": 0, "guardKit": {} },
+		"home": { "tier": "bedsit", "tenure": "rented", "arrears": 0, "arrearsWeeks": 0, "deposit": 0, "security": [], "rooms": [], "roomSeats": _new_room_seats(), "lastRaidDay": 0, "pendingRaid": false, "pendingRaidNotificationId": null, "guardCount": 0, "guardKit": {} },
 
 		"factions": _new_factions_state(),
 

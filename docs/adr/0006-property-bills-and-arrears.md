@@ -34,7 +34,7 @@ From the studio upward each tier can be rented or bought.
 | mansion | 1500 | 4,000,000 | 200 |
 
 - Utilities are hardcoded per tier as `ownedDailyCost` in `data/home.json`.
-- The buy price replaces `upgradeCost`. Renting has no up-front cost.
+- The buy price replaces `upgradeCost`. Renting costs a refundable deposit (see "Move deposit").
 - **Buy-out:** a player renting the current tier may buy it at the full buy
   price. The tier doesn't change and rooms are kept.
 - **Any tier change clears all installed rooms without refund.** This covers
@@ -193,6 +193,18 @@ Worked example, rented flat, cash 0 every Monday: MON 1 → arrears 560,
 weeks 1; MON 8 → interest 28, arrears 1148, weeks 2 → rented studio, debt
 kept, weeks 0. Owned flat: 406, then 20 + 406 = 832 → rented studio, debt
 cleared.
+
+## Follow-up decision (2026-10-20): move deposit
+
+Rent is `dailyCost` per day, billed weekly (×7) per "Weekly ordering"; the
+"Daily ordering" and "Today's bill" text above is superseded in cadence only.
+
+- **Rented moves cost a deposit** of `bills.depositWeeks` (4) × the tier's
+  unscaled weekly rent, held in `home.deposit`. Renting is no longer free.
+- **Returned in full** on the next move out of the tenancy (rent, buy, buy-out
+  or forced downgrade). A forced downgrade pays no new deposit.
+- **Affordability** nets the sale credit and the held deposit, both credited
+  first; short of that, the move is refused. Buying is unchanged.
 
 ## Follow-up decision (2026-10-04): rooms move with HQ
 

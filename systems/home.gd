@@ -288,6 +288,33 @@ static func net_buy_cost(tier_id: String) -> int:
 	return buy_price(tier_id) - sale_credit()
 
 
+# Deposit a rented move to tier_id holds: bills.depositWeeks of its unscaled
+# weekly rent (ADR 0006 "Move deposit").
+static func deposit_for(tier_id: String) -> int:
+	return int(GameData.HOME_BILLS["depositWeeks"]) * weekly_bill_for(tier_id, TENURE_RENTED)
+
+
+static func current_deposit() -> int:
+	return int(GameState.state["home"].get("deposit", 0))
+
+
+# Cash a rent move to tier_id takes up front: the new deposit less the sale
+# credit and the held deposit, both credited first; negative when paid out.
+static func net_rent_cost(tier_id: String) -> int:
+	return deposit_for(tier_id) - sale_credit() - current_deposit()
+
+
+# Returns the held deposit to cash, bank-logged; 0 when none is held.
+static func _refund_deposit() -> int:
+	var home: Dictionary = GameState.state["home"]
+	var held: int = current_deposit()
+	home["deposit"] = 0
+	if held > 0:
+		GameState.state["player"]["cash"] += held
+		Bank.record(held, "Deposit returned")
+	return held
+
+
 # Shared tier move (ADR 0006 "Rooms move with HQ"): rooms carry over per
 # room_carryover — dropped rooms lose their effects and staff, kept rooms
 # above their tier's seat cap shed seats and the staff in them — and the
@@ -309,6 +336,8 @@ static func change_tier(new_tier_id: String, tenure: String) -> Dictionary:
 	if refund > 0:
 		GameState.state["player"]["cash"] += refund
 		Bank.record(refund, "HQ room refund")
+
+	_refund_deposit()
 
 	var security_lost: Array = security_lost_moving_to(new_tier_id)
 	for security_id in security_lost:
@@ -450,15 +479,21 @@ static func buy_up() -> Dictionary:
 	return buy_to(next_tier_id)
 
 
-# Rents any other tier on the ladder, up or down, with no up-front cost; an
-# owned home is sold first.
+# Rents any other tier on the ladder, up or down, for a deposit; an owned home
+# is sold and a held deposit returned first.
 static func rent_to(tier_id: String) -> Dictionary:
 	var refusal: Dictionary = _move_refusal(tier_id)
 	if not refusal.is_empty():
 		return refusal
+	var deposit: int = deposit_for(tier_id)
+	if GameState.state["player"]["cash"] < net_rent_cost(tier_id):
+		return { "ok": false, "reason": "Not enough cash for the £%d deposit." % deposit }
 	var moving_down: bool = _tier_below_min(tier_id, GameState.state["home"]["tier"])
 	var sold_name: String = _sell_current_home()
 	var moved: Dictionary = change_tier(tier_id, TENURE_RENTED)
+	GameState.state["player"]["cash"] -= deposit
+	GameState.state["home"]["deposit"] = deposit
+	Bank.record(-deposit, "Deposit: %s" % GameData.HOME_TIERS[tier_id]["name"])
 	var tier_name: String = GameData.HOME_TIERS[tier_id]["name"]
 	var text: String = ("Moved down to a rented %s." if moving_down else "Signed the lease on the %s.") % tier_name
 	if sold_name != "":
@@ -502,6 +537,7 @@ static func buy_out() -> Dictionary:
 	player["cash"] -= price
 	Bank.record(-price, "HQ buy-out: %s" % GameData.HOME_TIERS[tier_id]["name"])
 	home["tenure"] = TENURE_OWNED
+	_refund_deposit()
 	Notify.push("Bought out the %s. No more rent." % GameData.HOME_TIERS[tier_id]["name"], Notify.CATEGORY_SUCCESS)
 	EventBus.state_changed.emit()
 	SaveManager.autosave()  # R§6: autosave on purchase

@@ -406,16 +406,54 @@ func run() -> void:
 		assert_eq(Home.get_next_tier_id("mansion"), "", "no tier above the top one")
 	)
 
-	run_case("rent_up_is_free_and_sets_rented", func():
+	run_case("rent_up_charges_deposit_and_sets_rented", func():
 		GameState.reset()
-		GameState.state["player"]["cash"] = 0
-		assert_true(Home.rent_up()["ok"], "renting has no up-front cost")
+		GameState.state["player"]["cash"] = 1680
+		assert_eq(Home.deposit_for("studio"), 1680, "4 weeks x 60/day x 7")
+		assert_true(Home.rent_up()["ok"])
 		assert_eq(GameState.state["home"]["tier"], "studio")
 		assert_eq(GameState.state["home"]["tenure"], "rented")
 		assert_eq(GameState.state["player"]["cash"], 0)
-		assert_eq(GameState.state["bankLog"].size(), 0, "no purchase to log")
+		assert_eq(GameState.state["home"]["deposit"], 1680)
+		assert_eq(GameState.state["bankLog"][0]["amount"], -1680)
 		GameState.state["home"]["tier"] = "mansion"
 		assert_true(not Home.rent_up()["ok"], "nothing above the top tier")
+	)
+
+	run_case("rent_refused_below_deposit_and_refunded_on_next_move", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 1679
+		var refused: Dictionary = Home.rent_to("studio")
+		assert_true(not refused["ok"], "short of the deposit")
+		assert_true("deposit" in refused["reason"], "reason names the deposit")
+		assert_eq(GameState.state["home"]["tier"], "bedsit")
+		assert_eq(GameState.state["player"]["cash"], 1679)
+
+		GameState.state["player"]["cash"] = 1680
+		assert_true(Home.rent_to("studio")["ok"])
+		assert_eq(GameState.state["player"]["cash"], 0)
+		assert_true(not Home.rent_to("flat")["ok"], "flat deposit 2240 beats the 1680 held")
+		GameState.state["player"]["cash"] = 560
+		assert_true(Home.rent_to("flat")["ok"], "held deposit counts toward the next")
+		assert_eq(GameState.state["home"]["deposit"], 2240)
+		assert_eq(GameState.state["player"]["cash"], 0, "1680 returned, 2240 charged")
+
+		GameState.state["player"]["cash"] = 1000000
+		assert_true(Home.buy_to("townhouse")["ok"])
+		assert_eq(GameState.state["home"]["deposit"], 0, "buying returns the deposit")
+		assert_eq(GameState.state["player"]["cash"], 1000000 + 2240 - 500000)
+	)
+
+	run_case("deposit_survives_a_save_round_trip", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 5000
+		assert_true(Home.rent_to("studio")["ok"])
+		assert_true(SaveManager.save_to_slot(9)["ok"])
+		GameState.state["home"]["deposit"] = 0
+		assert_true(SaveManager.load_from_slot(9)["ok"])
+		assert_eq(GameState.state["home"]["deposit"], 1680)
+		assert_true(typeof(GameState.state["home"]["deposit"]) == TYPE_INT)
+		SaveManager.delete_slot(9)
 	)
 
 	run_case("buy_up_enforces_cash_logs_and_sets_owned", func():
@@ -440,6 +478,7 @@ func run() -> void:
 		GameState.state["home"]["rooms"] = []
 		assert_true(not Home.rent_to("bedsit")["ok"], "can't move to where you live")
 		assert_true(not Home.rent_to("castle")["ok"], "unknown tier refused")
+		GameState.state["player"]["cash"] = 8400
 		assert_true(Home.rent_to("safehouse")["ok"], "rent skips tiers")
 		assert_eq(GameState.state["home"]["tier"], "safehouse")
 		assert_eq(GameState.state["home"]["tenure"], "rented")
@@ -451,7 +490,7 @@ func run() -> void:
 		assert_true(Home.buy_to("studio")["ok"], "buy skips tiers downward")
 		assert_eq(GameState.state["home"]["tier"], "studio")
 		assert_eq(GameState.state["home"]["tenure"], "owned")
-		assert_eq(GameState.state["player"]["cash"], 20000)
+		assert_eq(GameState.state["player"]["cash"], 28400, "80000 bought less the 8400 deposit back")
 	)
 
 	run_case("buy_out_owns_the_rented_tier_and_keeps_rooms_and_staff", func():
@@ -550,14 +589,12 @@ func run() -> void:
 		GameState.state["player"]["cash"] = 5
 		assert_true(Home.rent_to("mansion")["ok"])
 		assert_eq(GameState.state["home"]["tenure"], "rented")
-		assert_eq(GameState.state["player"]["cash"], 200005)
-		assert_eq(GameState.state["bankLog"].size(), 1)
+		assert_eq(GameState.state["player"]["cash"], 200005 - 42000, "sale credit less the mansion deposit")
 		assert_eq(GameState.state["bankLog"][0]["amount"], 200000)
 		assert_eq(Home.sale_credit(), 0, "a rented home has no value")
 
-		assert_true(Home.rent_to("bedsit")["ok"], "rented to rented moves no cash")
-		assert_eq(GameState.state["player"]["cash"], 200005)
-		assert_eq(GameState.state["bankLog"].size(), 1)
+		assert_true(Home.rent_to("bedsit")["ok"], "rented to rented moves only deposits")
+		assert_eq(GameState.state["player"]["cash"], 200005 - 42000 + 42000 - 1400)
 	)
 
 	run_case("trade_in_rented_to_buy_pays_full_price", func():
@@ -903,6 +940,7 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["home"]["tier"] = "flat"
 		GameState.state["home"]["rooms"] = ["workshop"]
+		GameState.state["player"]["cash"] = 1680
 		assert_true(Home.rent_to("studio")["ok"])
 		assert_eq(GameState.state["notifications"][-1]["text"], "Moved down to a rented Studio. Left behind: Workshop. £400 back at half price.")
 	)
