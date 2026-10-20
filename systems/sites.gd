@@ -144,6 +144,10 @@ static func roll_tier_from_weights(weights: Dictionary) -> String:
 	return GameData.SITE_TIER_ORDER[-1]
 
 
+static func better_tier(a: String, b: String) -> String:
+	return a if GameData.SITE_TIER_ORDER.find(a) >= GameData.SITE_TIER_ORDER.find(b) else b
+
+
 static func roll_tier(district_id: String) -> String:
 	var district: Dictionary = GameData.DISTRICTS[district_id]
 	var skill: int = GameState.state["player"]["cultivatingSkill"]
@@ -317,6 +321,9 @@ static func _reroll_worst_unclaimed(district_id: String, forced_ore: String = ""
 # Rng stream is unchanged, then the ore is overridden and the tier raised to fair.
 static func _create_site(district_id: String, at_cap: bool = false, forced_ore: String = "") -> Dictionary:
 	var tier := roll_tier_at_cap() if at_cap else roll_tier(district_id)
+	if ActiveEffects.lady_active():
+		var second := roll_tier_at_cap() if at_cap else roll_tier(district_id)
+		tier = better_tier(tier, second)
 	if forced_ore != "":
 		var min_tier: String = GameData.OBJECTIVES["col_a1_des_sites"]["params"]["minTier"]
 		if GameData.SITE_TIER_ORDER.find(tier) < GameData.SITE_TIER_ORDER.find(min_tier):
@@ -379,7 +386,8 @@ static func spawn_unclaimed_site(district_id: String, tier: String, ore_type: St
 
 static func seed_success_chance(skill: int, tier: String) -> float:
 	var tier_mod: float = GameData.SITE_SEED_TIER_MOD.get(tier, 0.0)
-	return clampf(Cultivating.get_cult_chance(skill) + tier_mod, 0.05, 0.95)
+	var lady_bonus: float = GameData.SITE_LADY_SEED_BONUS_PER_LEVEL * ActiveEffects.lady_level()
+	return clampf(Cultivating.get_cult_chance(skill) + tier_mod + lady_bonus, 0.05, 0.95)
 
 
 # Requires an unclaimed, non-barren site and SEED_ORE_COST ore of ITS oreType (R§3.4).

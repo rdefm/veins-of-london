@@ -217,7 +217,34 @@ func run() -> void:
 		assert_almost_eq(Sites.seed_success_chance(5, "saturated"), 0.95, 0.0001, "clamped at 0.95")
 	)
 
+	run_case("seed_success_chance_adds_lady_bonus_per_level", func():
+		GameState.reset()
+		GameState.state["player"]["activeEffects"] = [{ "item": ActiveEffects.LADY, "level": 2, "expiresAtBlock": 99999 }]
+		assert_almost_eq(Sites.seed_success_chance(1, "fair"), 0.30 + 2 * GameData.SITE_LADY_SEED_BONUS_PER_LEVEL, 0.0001, "fair + 2 levels of Lady")
+		assert_almost_eq(Sites.seed_success_chance(5, "saturated"), 0.95, 0.0001, "Lady still clamped at 0.95")
+		GameState.state["player"]["activeEffects"] = []
+		assert_almost_eq(Sites.seed_success_chance(1, "fair"), 0.30, 0.0001, "no bonus without Lady")
+	)
+
 	# ── prospect() ──────────────────────────────────────────────────
+
+	run_case("prospect_under_lady_keeps_the_better_of_two_tier_rolls", func():
+		var improved := 0
+		for seed_value in range(1, 41):
+			GameState.reset()
+			Rng.set_seed(seed_value)
+			Sites.prospect("shoreditch")
+			var plain: int = GameData.SITE_TIER_ORDER.find(GameState.state["world"]["sites"][0]["tier"])
+			GameState.reset()
+			GameState.state["player"]["activeEffects"] = [{ "item": ActiveEffects.LADY, "level": 1, "expiresAtBlock": 99999 }]
+			Rng.set_seed(seed_value)
+			Sites.prospect("shoreditch")
+			var lady: int = GameData.SITE_TIER_ORDER.find(GameState.state["world"]["sites"][0]["tier"])
+			assert_true(lady >= plain, "seed %d: Lady tier never worse" % seed_value)
+			if lady > plain:
+				improved += 1
+		assert_true(improved > 0, "Lady improves at least one of 40 seeded prospects")
+	)
 
 	run_case("prospect_creates_a_new_site_below_siteCap", func():
 		GameState.reset()

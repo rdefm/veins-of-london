@@ -108,6 +108,7 @@ var SITE_PROSPECT_XP: Dictionary = {}
 var SITE_SEED_TIER_MOD: Dictionary = {}
 var SITE_DISCOVERY_BONUS_POOL: Array = []
 var SITE_NATURAL_VEIN_CHANCE: float = 0.0
+var SITE_LADY_SEED_BONUS_PER_LEVEL: float = 0.0
 
 var BAROMETER_STATES: Dictionary = {}
 var BAROMETER_NEWS: Dictionary = {}
@@ -453,6 +454,7 @@ const MANIFEST: Array[Dictionary] = [
 		{"field": "SITE_SEED_TIER_MOD", "key": "seedTierMod", "type": TYPE_DICTIONARY},
 		{"field": "SITE_DISCOVERY_BONUS_POOL", "key": "discoveryBonusPool", "type": TYPE_ARRAY},
 		{"field": "SITE_NATURAL_VEIN_CHANCE", "key": "naturalVeinChance", "type": TYPE_FLOAT},
+		{"field": "SITE_LADY_SEED_BONUS_PER_LEVEL", "key": "ladySeedBonusPerLevel", "type": TYPE_FLOAT},
 	]},
 	{"table": "barometer", "file": "res://data/barometer.json", "fields": [
 		{"field": "BAROMETER_STATES", "key": "states", "type": TYPE_DICTIONARY},

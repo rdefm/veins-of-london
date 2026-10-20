@@ -456,7 +456,7 @@ func _build_district_actions(district_id: String) -> Control:
 	elif not GameState.state["flags"]["cultivationTutorialSeen"]:
 		row.add_child(UI.expand_fill(_dim_label("Prospecting — see Archie first")))
 	else:
-		var prospect_button := UI.button(UI.format_block_cost_label("Prospect", 1, Travel.can_afford(district_id, 1)), func(): Sites.prospect(district_id))
+		var prospect_button := UI.button(UI.format_block_cost_label("Prospect", 1, Travel.can_afford(district_id, 1)) + (" " + ActiveEffects.LADY_TAG if ActiveEffects.lady_active() else ""), func(): Sites.prospect(district_id))
 		prospect_button.disabled = not Travel.can_afford(district_id, 1)
 		row.add_child(MapCardStyle.style_button(prospect_button))
 
@@ -604,6 +604,8 @@ func _build_seed_row(site: Dictionary) -> Control:
 	var label_text := UI.format_block_cost_label(UI.format_cost_label(cost, player["orichalchum"]), 1, player["orichalchum"].get(ore_type, 0) >= GameData.SEED_ORE_COST and Travel.can_afford(district, 1))
 
 	var have: int = player["orichalchum"].get(ore_type, 0)
+	if ActiveEffects.lady_active():
+		label_text += " " + ActiveEffects.LADY_TAG
 	var b := UI.button(label_text, func(): Sites.attempt_seed(site_id))
 	b.disabled = have < GameData.SEED_ORE_COST or not Travel.can_afford(district, 1)
 	return MapCardStyle.style_button(b)
