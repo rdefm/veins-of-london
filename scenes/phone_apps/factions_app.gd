@@ -36,6 +36,7 @@ var selected_faction: String:
 		return str(GameState.state["phoneNav"].get("selectedFaction", "") if GameState.state["phoneNav"].get("selectedFaction", "") != null else "")
 	set(value):
 		GameState.state["phoneNav"]["selectedFaction"] = null if value == "" else value
+var standing_open := false
 var politics_open := false
 var shares_open := false
 var _share_ore: String = GameData.CANONICAL_ORE_TYPES[0]
@@ -48,7 +49,9 @@ var _activity_open := false
 func build(content: VBoxContainer) -> void:
 	if selected_faction != "" and not GameData.FACTIONS.has(selected_faction):
 		selected_faction = ""
-	if selected_faction == "" and shares_open:
+	if selected_faction == "" and standing_open:
+		_build_standing_page(content)
+	elif selected_faction == "" and shares_open:
 		_build_shares_page(content)
 	elif selected_faction == "" and politics_open:
 		_build_politics_page(content)
@@ -63,10 +66,33 @@ func _build_directory(content: VBoxContainer) -> void:
 	content.add_child(_masthead())
 	content.add_child(_section_heading("LONDON"))
 	var routes := UI.vbox(0)
-	routes.add_child(_route_row("standing", "Your standing", "Five factions. One London.", func(): Modal.open("register_standing"), false))
+	routes.add_child(_route_row("standing", "Your standing", "Five factions. One London.", func(): _open_standing(true), false))
 	routes.add_child(_route_row("politics", "London politics", "How the factions stand with each other", func(): _open_politics(true), false))
 	routes.add_child(_route_row("shares", "Market shares", "Ore and crafting across London", func(): _open_shares(true), true))
 	content.add_child(routes)
+
+
+func _open_standing(open: bool) -> void:
+	standing_open = open
+	_show_page()
+
+
+# Your standing page: the five faction rows; a row opens that faction's dossier,
+# whose Back returns here.
+func _build_standing_page(content: VBoxContainer) -> void:
+	content.add_child(_back_link("‹ The Register", func(): _open_standing(false)))
+	content.add_child(_masthead())
+	var box := UI.vbox(14)
+	var head := UI.vbox(4)
+	head.add_child(_text("LONDON", 11, _oxide()))
+	head.add_child(_text("Your standing", 23, _ink()))
+	head.add_child(_text("Five factions. One London.", 12, _muted()))
+	box.add_child(head)
+	var rows := UI.vbox(0)
+	for faction_id in GameData.FACTIONS.keys():
+		rows.add_child(build_row(faction_id, func(): _select(faction_id)))
+	box.add_child(rows)
+	content.add_child(box)
 
 
 func _open_politics(open: bool) -> void:

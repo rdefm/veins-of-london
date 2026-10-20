@@ -11,17 +11,18 @@ static func _open_factions() -> PhoneScreen:
 
 
 static func _open_dossier(faction_id: String) -> PhoneScreen:
-	var phone := _open_factions()
-	_row_button(_standing_sheet(), faction_id).pressed.emit()
+	var phone := _open_standing()
+	_row_button(phone, faction_id).pressed.emit()
 	phone._refresh()
 	return phone
 
 
-# The Register's standing modal content, built into a loose column.
-static func _standing_sheet() -> VBoxContainer:
-	var sheet := VBoxContainer.new()
-	RegisterStandingModal.build(sheet, {})
-	return sheet
+# The Register opened on its Your standing view.
+static func _open_standing() -> PhoneScreen:
+	GameState.state["phoneNav"]["selectedFaction"] = null
+	var phone := _open_factions()
+	_route_button(phone, "standing").pressed.emit()
+	return phone
 
 
 static func _row_button(root: Node, faction_id: String) -> Button:
@@ -296,12 +297,7 @@ func run() -> void:
 	run_case("directory_has_five_rows_in_canonical_order_and_no_cards", func():
 		GameState.reset()
 		var phone := _open_factions()
-		var ids := []
-		for candidate in _standing_sheet().find_children("", "Button", true, false):
-			if candidate.has_meta(FactionsApp.ROW_META):
-				ids.append(candidate.get_meta(FactionsApp.ROW_META))
-		assert_eq(ids, GameData.FACTIONS.keys(), "five rows, canonical order")
-		assert_true(_row_button(phone, "guild") == null, "rows live in the modal, not the home")
+		assert_true(_row_button(phone, "guild") == null, "rows live in the standing view, not the home")
 		var texts := NodeQuery.label_texts(phone)
 		assert_true(texts.has("THE REGISTER") and texts.has("LONDON POWER INDEX"), "masthead")
 		assert_true(texts.has("Your standing"), "standing route")
@@ -312,9 +308,18 @@ func run() -> void:
 				routes.append(candidate.get_meta(FactionsApp.ROUTE_META))
 		assert_eq(routes, ["standing", "politics", "shares"], "London routes in order")
 		assert_eq(phone.device_shell.app_surface.color, GameData.PALETTE["register_graphite"], "Register canvas")
-		var dots := _standing_sheet().find_children("", "Control", true, false).filter(func(n): return n is FactionsApp.FactionDot)
-		assert_eq(dots.size(), 5, "one faction dot per row")
 		assert_true(not texts.has("Gift →"), "no card actions on the directory")
+		_route_button(phone, "standing").pressed.emit()
+		var ids := []
+		for candidate in phone.find_children("", "Button", true, false):
+			if candidate.has_meta(FactionsApp.ROW_META):
+				ids.append(candidate.get_meta(FactionsApp.ROW_META))
+		assert_eq(ids, GameData.FACTIONS.keys(), "five rows, canonical order")
+		var dots := phone.find_children("", "Control", true, false).filter(func(n): return n is FactionsApp.FactionDot)
+		assert_eq(dots.size(), 5, "one faction dot per row")
+		assert_true(_route_button(phone, "standing") == null, "home routes hidden")
+		_button_with_text(phone, "‹ The Register").pressed.emit()
+		assert_true(_route_button(phone, "standing") != null, "back to Register home")
 		phone.free()
 	)
 
@@ -331,8 +336,8 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["factions"]["guild"]["relation"] = 80
 		GameState.state["factionStances"]["player"]["guild"]["stance"] = FactionAI.NEUTRAL
-		var phone := _open_factions()
-		var texts := NodeQuery.label_texts(_row_button(_standing_sheet(), "guild"))
+		var phone := _open_standing()
+		var texts := NodeQuery.label_texts(_row_button(phone, "guild"))
 		assert_true(texts.has("+80"), "signed relation")
 		assert_true(texts.has(FactionAI.stance_name(FactionAI.NEUTRAL)), "stored stance read, not inferred from 80")
 		assert_true(not texts.has(FactionAI.stance_name(FactionAI.PARTNER)), "no Partner label")
@@ -342,8 +347,8 @@ func run() -> void:
 	run_case("row_alert_shows_war", func():
 		GameState.reset()
 		GameState.state["factionWar"]["wars"].append({ "parties": ["player", "firm"], "startDay": 1, "weariness": { "player": 0.0, "firm": 0.0 } })
-		var phone := _open_factions()
-		assert_true(NodeQuery.label_texts(_standing_sheet()).has("At war"), "war alert")
+		var phone := _open_standing()
+		assert_true(NodeQuery.label_texts(phone).has("At war"), "war alert")
 		phone.free()
 	)
 
@@ -375,7 +380,9 @@ func run() -> void:
 		phone._refresh()
 		assert_eq(phone.find_children("", "Button", true, false).filter(func(b): return b.text == "Gift →").size(), 1, "refresh keeps one Gift button")
 		_button_with_text(phone, "‹ The Register").pressed.emit()
-		assert_eq(app.selected_faction, "", "back to directory")
+		assert_eq(app.selected_faction, "", "back from dossier")
+		assert_true(_row_button(phone, "guild") != null, "back lands on Your standing")
+		_button_with_text(phone, "‹ The Register").pressed.emit()
 		assert_true(_route_button(phone, "standing") != null, "directory back")
 		_button_with_text(phone, "‹ Back").pressed.emit()
 		assert_eq(GameState.state["phoneNav"]["app"], "home", "app back returns to grid")
