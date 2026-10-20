@@ -2332,7 +2332,13 @@ func _validate_effect_list(effects: Array, context: String, errors: Array[String
 		if effect["op"] == "start_scripted_fight":
 			_require_keys(effect, ["script"], context, errors)
 			if effect.get("script") is Dictionary:
-				_require_keys(effect["script"], ["enemies", "lockBelowHp", "prompt", "post", "resumeCard"], "%s.script" % context, errors)
+				_require_keys(effect["script"], ["enemies", "resumeCard"], "%s.script" % context, errors)
+				# The Rewind lock is optional, but comes whole: lock, prompt and post.
+				var lock_keys := ["lockBelowHp", "prompt", "post"]
+				if lock_keys.any(func(k): return effect["script"].has(k)):
+					_require_keys(effect["script"], lock_keys, "%s.script" % context, errors)
+				if effect["script"].has("practice") and typeof(effect["script"]["practice"]) != TYPE_BOOL:
+					errors.append("%s.script: practice must be true or false" % context)
 				_validate_coach(effect["script"].get("coach"), "%s.script.coach" % context, errors)
 		if effect["op"] == "start_demo_fight":
 			_require_keys(effect, ["script"], context, errors)

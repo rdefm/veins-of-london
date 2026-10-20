@@ -397,19 +397,29 @@ static func start_home_raid_combat(mods: Dictionary = {}) -> void:
 # index), lockBelowHp and prompt, post ({ allyPlans: { "<combatant index>":
 # moves }, playerPlan: moves }), resumeCard, plus optional seed,
 # playerLevel, locationKey and coach ({ lessons, allowed } by round, R§3.7b
-# Coach marks).
+# Coach marks). With no lockBelowHp the fight plays as a normal one on its
+# fixed plans (SCRIPT_OPEN) and resumes the event on any outcome; `practice`
+# runs it under spar rules (Sparring.spar_block()).
 static func start_scripted_fight(script: Dictionary) -> void:
 	var roster := _scripted_roster(script)
-	var live := {
-		"script": {
+	var block := {
+		"phase": CombatRounds.SCRIPT_OPEN,
+		"forcedHits": script.get("forcedHits", []).duplicate(true),
+		"resumeCard": int(script["resumeCard"]),
+	}
+	if script.has("lockBelowHp"):
+		block.merge({
 			"phase": CombatRounds.SCRIPT_PRE,
 			"lockBelowHp": int(script["lockBelowHp"]), "prompt": str(script["prompt"]),
-			"forcedHits": script.get("forcedHits", []).duplicate(true),
-			"post": script["post"].duplicate(true), "resumeCard": int(script["resumeCard"]),
-		},
+			"post": script["post"].duplicate(true),
+		}, true)
+	var live := {
+		"script": block,
 		"enemyFirst": bool(script.get("enemyFirst", false)),
 		"coach": script["coach"].duplicate(true) if script.has("coach") else null,
 	}
+	if bool(script.get("practice", false)):
+		live["spar"] = Sparring.spar_block(GameState.state["player"]["loadout"]["slots"].duplicate(true))
 	var location_key: String = str(script.get("locationKey", ""))
 	_start_round_combat(CONTEXT_SCRIPTED, null, roster["enemies"], script.get("intro", []), "", roster["allies"],
 		location_key if not location_key.is_empty() else null, roster["config"], live)
@@ -1534,6 +1544,8 @@ static func exit_combat() -> Dictionary:
 		GameState.state["combat"] = idle_state()
 		SaveManager.autosave()
 		EventBus.state_changed.emit()
+		if context == CONTEXT_SCRIPTED:
+			return _exit_scripted(script_resume)
 		return _exit_default(outcome, context)
 
 	if round_fight_xp(outcome) > 0:

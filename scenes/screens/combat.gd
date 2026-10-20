@@ -28,11 +28,11 @@ static func context_label(context: String) -> String:
 	return "Mugging"
 
 
-static func outcome_button(outcome: String, context: String, demo: bool = false) -> Control:
+static func outcome_button(outcome: String, context: String, demo: bool = false, spar: bool = false) -> Control:
 	var label: String
 	if demo:
 		label = "▶ Carry on"
-	elif context == Combat.CONTEXT_SPAR:
+	elif spar or context == Combat.CONTEXT_SPAR:
 		label = "▶ Back to the mats"
 	elif outcome == "win":
 		if Combat.NON_LETHAL_MUGGING_CONTEXTS.has(context):

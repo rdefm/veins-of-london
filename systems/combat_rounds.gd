@@ -116,6 +116,8 @@ const WHOLE_FIGHT := 1 << 30
 # A scripted fight's phases (R§3.7b Scripted fights).
 const SCRIPT_PRE := "pre"
 const SCRIPT_POST := "post"
+# A script with no Rewind lock: a normal fight on fixed plans throughout.
+const SCRIPT_OPEN := "open"
 
 # What a demo fight's blocked picks and Rewind say.
 const DEMO_REASON := "Just watch."
@@ -171,12 +173,14 @@ static func new_state() -> Dictionary:
 		# (continue_after_ko()).
 		"playerKoed": false,
 		# A scripted fight's data block (SCRIPT_PRE, then SCRIPT_POST after its
-		# Rewind; see script_locked()), null for an ordinary fight.
+		# Rewind; see script_locked(); SCRIPT_OPEN throughout with no lock),
+		# null for an ordinary fight.
 		"script": null,
 		# A demo fight's data block (R§3.7b Demo fights), null for any other.
 		"demo": null,
-		# A gym spar's data block (Sparring.spar()): what to restore when it ends
-		# and how far its free Rewind goes; null for any other fight.
+		# A gym spar's or practice scripted fight's data block
+		# (Sparring.spar_block()): what to restore when it ends and how far its
+		# free Rewind goes; null for any other fight.
 		"spar": null,
 		# Coach marks (R§3.7b Coach marks): { lessons: { "<round>": line }, allowed:
 		# { "<round>": [move or item ids] } } or null for none.

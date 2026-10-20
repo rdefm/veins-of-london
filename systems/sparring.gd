@@ -106,13 +106,21 @@ static func spar(partner_id: String, rack: Dictionary = {}) -> Dictionary:
 		"speed": int(entry["speed"]), "level": level,
 		"archetype": Combat.MUGGER_ARCHETYPE, "isMugging": false, "weapon": null, "ability": null,
 	}
-	Combat.start_spar_fight(foe, {
+	Combat.start_spar_fight(foe, spar_block(slots_before, rack_slots))
+	return { "ok": true }
+
+
+# A fight's spar data block (combat.spar) under spar rules: the player's hp,
+# Dial and loadout `slots_before` to restore at its end, and how far the free
+# Rewind goes. A practice scripted fight takes one with the current slots.
+static func spar_block(slots_before: Array, rack_slots: Array = []) -> Dictionary:
+	var player: Dictionary = GameState.state["player"]
+	return {
 		"hpBefore": int(player["hp"]), "hpMaxBefore": int(player["hpMax"]),
 		"slotsBefore": slots_before, "rackSlots": rack_slots,
 		"dialBefore": player["dial"].duplicate(true) if player["dial"] is Dictionary else null,
 		"rewindRounds": int(config()["rewindRounds"]),
-	})
-	return { "ok": true }
+	}
 
 
 # The Combat XP a spar ending in `outcome` earns.

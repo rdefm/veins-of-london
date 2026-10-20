@@ -1121,7 +1121,7 @@ func _apply_marks(cp: Dictionary, marks: Array) -> void:
 
 
 func _build_outcome_card(outcome: String) -> Control:
-	return CombatScreen.outcome_button(outcome, _cp()["context"], CombatRounds.is_demo(_cp()))
+	return CombatScreen.outcome_button(outcome, _cp()["context"], CombatRounds.is_demo(_cp()), CombatRounds.is_spar(_cp()))
 
 
 # A demo fight plays itself: after a beat's pause, the next round's beats
