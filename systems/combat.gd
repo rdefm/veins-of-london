@@ -1529,6 +1529,8 @@ static func exit_combat() -> Dictionary:
 
 	if CombatRounds.is_spar(combat):
 		Sparring.settle(combat["spar"], outcome)
+		var own_used: Array = combat.get("slotsUsed", []).filter(func(i): return not combat["spar"]["rackSlots"].has(int(i)))
+		Loadout.refill_used(own_used)
 		GameState.state["combat"] = idle_state()
 		SaveManager.autosave()
 		EventBus.state_changed.emit()

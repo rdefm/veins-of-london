@@ -2,7 +2,7 @@ class_name GymSparModal
 extends RefCounted
 
 # The calc gym (map pin once flags.gymUnlocked): pick a sparring partner, see
-# the session cost. Starting one is Sparring.spar().
+# the session cost. Starting one opens the prep sheet; Fight runs Sparring.spar().
 
 
 static func build(container: VBoxContainer, _data: Dictionary) -> void:
@@ -37,5 +37,6 @@ static func _partner_card(entry: Dictionary, skill: int) -> Control:
 
 
 static func _start(partner_id: String) -> void:
-	if Sparring.spar(partner_id)["ok"]:
+	if Sparring.block_reason(partner_id) == "":
 		Modal.close()
+		CombatPrep.request(CombatPrep.KIND_SPAR, { "partnerId": partner_id, "rack": {} })

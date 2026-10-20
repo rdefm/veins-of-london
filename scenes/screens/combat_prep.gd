@@ -47,6 +47,8 @@ func _render() -> void:
 	var warned := CombatPrep.loadout_warning_names(prep)
 	if not warned.is_empty():
 		body.add_child(_loadout_warning(warned))
+	if str(prep["kind"]) == CombatPrep.KIND_SPAR:
+		body.add_child(_rack_panel(prep))
 	var options := CombatPrep.recruit_options(prep)
 	if not options.is_empty():
 		body.add_child(_recruit_panel(prep, options))
@@ -76,6 +78,29 @@ func _loadout_warning(names: Array) -> Control:
 	# PROSE-REVIEW: empty-slot warning.
 	box.add_child(_label("Empty slots, and kit in the bag: %s." % ", ".join(names), 12, MUTED))
 	box.add_child(_button("Change loadout", CombatPrep.change_loadout, Color.TRANSPARENT, 44))
+	return panel
+
+
+# Spar practice rack: per slot, tap to cycle your own unit -> each rack item
+# (T1, free, gone after the fight) -> your own unit again.
+func _rack_panel(prep: Dictionary) -> Control:
+	var panel := _surface(SURFACE, 12)
+	var box := UI.vbox(6)
+	panel.add_child(box)
+	# PROSE-REVIEW: practice rack heading, hint and slot labels.
+	box.add_child(_label("PRACTICE RACK", 11, MUTED))
+	box.add_child(_label("Tap a slot to swap in rack kit. Free, tier 1, gone after the fight. Your own kit stays in the bag.", 12, MUTED))
+	var rack := Sparring.clean_rack(prep["args"].get("rack", {}))
+	for i in range(Loadout.slot_count()):
+		var own: Variant = Loadout.slot(i)
+		var text := "Slot %d: " % (i + 1)
+		if rack.has(i):
+			text += "%s (practice)" % GameData.RECIPES[rack[i]]["name"]
+		elif own is Dictionary:
+			text += "%s · tier %d (yours)" % [GameData.RECIPES[own["recipe"]]["name"], int(own["tier"])]
+		else:
+			text += "empty"
+		box.add_child(_button(text, CombatPrep.cycle_rack_slot.bind(i), UI.action_colour() if rack.has(i) else Color.TRANSPARENT, 44))
 	return panel
 
 
@@ -145,7 +170,8 @@ func _unit_line(unit: Dictionary) -> Control:
 		line.add_child(rect)
 	var tier := int(unit["tier"])
 	var tier_text := "untiered" if tier <= 0 else "tier %d" % tier
-	var text := _label("%s · %s" % [GameData.RECIPES[recipe_key]["name"], tier_text], 13, TEXT)
+	var practice := " · practice" if unit.get("rack", false) else ""
+	var text := _label("%s · %s%s" % [GameData.RECIPES[recipe_key]["name"], tier_text, practice], 13, TEXT)
 	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	line.add_child(text)
 	return line

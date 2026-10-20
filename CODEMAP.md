@@ -89,7 +89,7 @@ Data file per system: see `data/*.json` below.
 | map_zoom.gd | Zoom-level math for the diagram |
 | messages.gd | Messages data layer + conversation-index projections, total unread count, per-contact clear (read + contact notifications seen) |
 | move_levels.gd | MoveLevels (R§3.7b Move levels): player/contact persistent per-move `{ level, xp }` (`moveLevels`), XP ladder + award, the weighted per-fight roll for fighters with no record, display summary rows (Profile, Gym) |
-| sparring.gd | Sparring (R§3.7b Spar): calc-gym practice fight. Flag gate (`gymUnlocked`), 3 free sessions (`flags.sparSessions`) then a £ fee, 1 time block, easy/even/hard partners scaled off Combat Skill; `settle()` awards base + win-bonus XP and restores hp, loadout units and Dial |
+| sparring.gd | Sparring (R§3.7b Spar): calc-gym practice fight. Flag gate (`gymUnlocked`), 3 free sessions (`flags.sparSessions`) then a £ fee, 1 time block, easy/even/hard partners scaled off Combat Skill; practice rack (`rack_items()`, T1 free units in slots for the fight only); `settle()` awards XP, restores hp, Dial and rack slots |
 | modal.gd | Modal open/close state; holds an event deferred behind a modal flow (`followEvent`) and starts it on close; `returnTo` reopens a parked modal on close |
 | morning_accounts.gd | Rollover capture (incl. arrears exceptions and countdown, payday statement, wage shortfalls, Monday guard wages, guard shortfall/walk-offs), per-block staff output accumulation, BizBrief auto-open, arrears/payday/wage-prompt/guard-wage labels |
 | daily_brief.gd | Pure BizBrief Today projection: `items()` (tiered rows + action), `card()` (Routine and 2+ demand spikes each fold to one summary row; capped, "+N more"), `badge_count()`, `summary()`, `mark_acted()` (only writer: today's ticks); sources: alarms, guard/bill/arrears/wage/contract shortfall, poach, low veins, Story, offers, demand, favours, development, idle staff, ore-short |
@@ -128,7 +128,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 
 | File | Renders |
 |---|---|
-| combat_prep.gd | Preparation sheet (screen `combat_prep`) on the Trade sheet chrome: empty-slot warning + Change loadout, recruit picker (tick + ▲▼ order), participants with equipped units, opposition, Cancel (planned only) / Fight footer |
+| combat_prep.gd | Preparation sheet (screen `combat_prep`) on the Trade sheet chrome: empty-slot warning + Change loadout, recruit picker (tick + ▲▼ order), spar practice-rack slot cycler, participants with equipped units, opposition, Cancel (planned only) / Fight footer |
 | combat.gd | CombatScreen (screen `combat`): hosts CombatRoundsScreen; static `context_label()` and `outcome_button()` (hands off to `Combat.exit_combat()`) |
 | combat_rounds.gd | CombatRoundsScreen: the round fight on state.combat via Combat (move + real loadout rows, Dial casts, Rewind playing undone beats in reverse, outcome). CombatStage (tap to target, guard overlay), strip carousel, CombatTranscript fed in step with beats, CommandDock grid/pages with block reasons (rewind slot / Dial rewind run Rewind), CombatDirector beats, Readouts |
 | contacts.gd | Contacts app inside PhoneDeviceShell; directory of unlocked contacts by display name (`Contacts.directory_ids`) with inline flag-gated actions; generic key-member card |
@@ -228,7 +228,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | network_reference_modal.gd | Network Map legend |
 | hq_ore_readout_modal.gd | Ore-store slip with raid-risk stamp + personal-stash move controls, map_card_style.gd-skinned (always light) |
 | hq_gym_modal.gd | Combat skill card (level, XP bar, current + next-level HP/ATK/SPD/actions/crit via `Combat.skill_summary()`) + Train action card |
-| gym_spar_modal.gd | Calc gym map-pin modal: free-session/fee line, three partner cards with level and Spar button (`Sparring.spar()`); refusal reason shown under a disabled button |
+| gym_spar_modal.gd | Calc gym map-pin modal: free-session/fee line, three partner cards with level and Spar button (opens the spar prep sheet); refusal reason shown under a disabled button |
 | contract_cancel_modal.gd | Navy BizBrief contract cancel confirm (Keep / Confirm → `Contracts.cancel`) |
 | active_effects_modal.gd | Sheet listing each running timed effect with level and blocks left (from the top bar chips) |
 | player_moves_modal.gd | "Move against" sheet for one faction: vein picker plus the three `PlayerMoves` rows with cost and block reason |

@@ -3,8 +3,11 @@ extends RefCounted
 
 # The calc gym's Spar (R§3.7b Spar): a practice round fight against an
 # easy / even / hard partner scaled to the player's Combat Skill, fought with
-# a free, unlimited Rewind. Nothing carries out of it but Combat XP: hp,
-# loadout units and the Dial come back as they stood. The data is
+# a free, unlimited Rewind. hp and the Dial come back as they stood; the
+# player's own loadout units spend as in any fight (and refill from the bag).
+# The practice rack offers every allowlisted item at T1, free: a rack unit
+# sits in a loadout slot for the fight only, the player's own unit in that
+# slot comes back afterwards, and nothing touches the inventory. The data is
 # GameData.COMBAT_ROUNDS["spar"].
 #
 # state.flags.sparSessions counts sessions taken; the first `freeSessions`
@@ -36,6 +39,22 @@ static func next_fee() -> int:
 	return 0 if free_sessions_left() > 0 else int(config()["fee"])
 
 
+# Recipe keys on the practice rack: every loadout-allowlisted item, at T1.
+static func rack_items() -> Array:
+	return GameData.LOADOUT["items"].filter(func(k): return Loadout.is_equippable(k))
+
+
+# `rack` ({ "<slot>": recipeKey }) cut to valid slots and rack recipes, as
+# { int slot: recipeKey }.
+static func clean_rack(rack: Dictionary) -> Dictionary:
+	var out := {}
+	for key in rack:
+		var index := int(key)
+		if index >= 0 and index < Loadout.slot_count() and rack_items().has(str(rack[key])):
+			out[index] = str(rack[key])
+	return out
+
+
 static func partner(partner_id: String) -> Dictionary:
 	for entry in config()["partners"]:
 		if entry["id"] == partner_id:
@@ -65,7 +84,7 @@ static func block_reason(partner_id: String) -> String:
 
 # Spends a time block (and the fee once the free sessions are gone) and opens
 # the fight. Returns { ok } or { ok: false, reason }.
-static func spar(partner_id: String) -> Dictionary:
+static func spar(partner_id: String, rack: Dictionary = {}) -> Dictionary:
 	var reason := block_reason(partner_id)
 	if reason != "":
 		return { "ok": false, "reason": reason }
@@ -75,6 +94,12 @@ static func spar(partner_id: String) -> Dictionary:
 	player["cash"] -= fee
 	GameState.state["flags"]["sparSessions"] = sessions_taken() + 1
 	TimeSystem.advance_time_block()
+	var slots_before: Array = player["loadout"]["slots"].duplicate(true)
+	var rack_slots: Array = []
+	var cleaned := clean_rack(rack)
+	for index in cleaned:
+		player["loadout"]["slots"][index] = { "recipe": cleaned[index], "tier": 1, "rack": true }
+		rack_slots.append(index)
 	var level := partner_level(entry, int(player["combatSkill"]))
 	var foe := {
 		"name": str(entry["name"]), "hp": int(entry["hpMax"]), "hpMax": int(entry["hpMax"]),
@@ -84,7 +109,7 @@ static func spar(partner_id: String) -> Dictionary:
 	}
 	Combat.start_spar_fight(foe, {
 		"hpBefore": int(player["hp"]), "hpMaxBefore": int(player["hpMax"]),
-		"slotsBefore": player["loadout"]["slots"].duplicate(true),
+		"slotsBefore": slots_before, "rackSlots": rack_slots,
 		"dialBefore": player["dial"].duplicate(true) if player["dial"] is Dictionary else null,
 		"rewindRounds": int(config()["rewindRounds"]),
 	})
@@ -99,13 +124,15 @@ static func xp_for(outcome) -> int:
 	return xp
 
 
-# Ends a spar (from Combat.exit_combat()): the XP, then hp, loadout units and
-# the Dial back as they were before it. A level-up's hp gain is kept.
+# Ends a spar (from Combat.exit_combat()): the XP, then hp and the Dial back
+# as they were before it (a level-up's hp gain is kept), and each rack slot
+# back to the player's own unit. Own units spent in the fight stay spent.
 static func settle(spar_block: Dictionary, outcome) -> void:
 	var player: Dictionary = GameState.state["player"]
 	Combat.award_xp(xp_for(outcome))
 	var hp_gain: int = int(player["hpMax"]) - int(spar_block["hpMaxBefore"])
 	player["hp"] = mini(int(spar_block["hpBefore"]) + hp_gain, int(player["hpMax"]))
-	player["loadout"]["slots"] = spar_block["slotsBefore"].duplicate(true)
+	for index in spar_block["rackSlots"]:
+		player["loadout"]["slots"][int(index)] = spar_block["slotsBefore"][int(index)]
 	if spar_block["dialBefore"] is Dictionary:
 		player["dial"] = spar_block["dialBefore"].duplicate(true)

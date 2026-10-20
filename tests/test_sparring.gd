@@ -2,7 +2,7 @@ extends "res://tests/test_base.gd"
 
 # The calc gym's Spar (Sparring): flag-gated, one time block, free sessions
 # then a £ fee, scaled partners, a free house-rules Rewind, Combat XP split
-# by result, and hp / loadout units restored afterwards.
+# by result, hp restored afterwards, and the practice rack's free T1 units.
 
 
 func _fresh() -> void:
@@ -90,16 +90,71 @@ func run() -> void:
 		assert_true(not GameState.state["combat"]["active"])
 	)
 
-	run_case("hp_and_loadout_units_come_back_as_they_were", func():
+	run_case("hp_comes_back_and_own_spent_units_stay_spent", func():
 		_fresh()
 		var player: Dictionary = GameState.state["player"]
 		player["hp"] = 17
 		player["loadout"]["slots"][0] = { "recipe": "timePearl", "tier": 1 }
 		Sparring.spar("hard")
 		player["hp"] = 1
-		player["loadout"]["slots"][0] = null
+		Loadout.consume(0)
 		GameState.state["combat"]["outcome"] = "loss"
 		Combat.exit_combat()
 		assert_eq(player["hp"], 17, "hp restored")
-		assert_eq(Loadout.slot(0)["recipe"], "timePearl", "unit restored")
+		assert_eq(Loadout.slot(0), null, "own unit spent, none in the bag to refill")
+	)
+
+	run_case("rack_only_spar_leaves_inventory_and_slots_as_they_were", func():
+		_fresh()
+		var player: Dictionary = GameState.state["player"]
+		Crafting.inventory_add("blast", 2, 1)
+		player["loadout"]["slots"][0] = { "recipe": "timePearl", "tier": 2 }
+		var inv_before: Dictionary = player["inventory"].duplicate(true)
+		var slots_before: Array = player["loadout"]["slots"].duplicate(true)
+		assert_true(Sparring.spar("even", { 0: "shield", 1: "rewind" })["ok"])
+		assert_eq(Loadout.slot(0), { "recipe": "shield", "tier": 1, "rack": true }, "rack unit in play")
+		Loadout.consume(0)
+		Loadout.consume(1)
+		GameState.state["combat"]["outcome"] = "win"
+		Combat.exit_combat()
+		assert_eq(player["inventory"], inv_before, "inventory untouched")
+		assert_eq(player["loadout"]["slots"], slots_before, "slots untouched")
+	)
+
+	run_case("rack_slots_ignore_junk_and_own_slots_spend_normally", func():
+		_fresh()
+		var player: Dictionary = GameState.state["player"]
+		player["loadout"]["slots"][1] = { "recipe": "timePearl", "tier": 1 }
+		Crafting.inventory_add("timePearl", 3, 1)
+		assert_true(Sparring.spar("even", { 0: "notAnItem", 7: "shield", 1: "wormhole" })["ok"])
+		assert_eq(Loadout.slot(0), null, "unknown rack item ignored")
+		Combat.exit_combat()
+		_fresh()
+		player = GameState.state["player"]
+		player["loadout"]["slots"][1] = { "recipe": "timePearl", "tier": 1 }
+		player["loadout"]["lastRecipe"][1] = "timePearl"
+		Crafting.inventory_add("timePearl", 3, 1)
+		Sparring.spar("even", { 0: "shield" })
+		Loadout.consume(0)
+		Loadout.consume(1)
+		GameState.state["combat"]["outcome"] = "win"
+		Combat.exit_combat()
+		assert_eq(Loadout.slot(0), null, "rack slot back to its empty own slot")
+		assert_eq(Loadout.slot(1)["tier"], 3, "own spent unit refilled from the bag as normal")
+	)
+
+	run_case("spar_prep_cycles_rack_items_and_fight_uses_them", func():
+		_fresh()
+		CombatPrep.request(CombatPrep.KIND_SPAR, { "partnerId": "even", "rack": {} })
+		assert_true(CombatPrep.cycle_rack_slot(0))
+		var rack_items := Sparring.rack_items()
+		var rows := CombatPrep.participants(CombatPrep.pending())
+		assert_eq(rows[0]["units"], [{ "recipe": rack_items[0], "tier": 1, "rack": true }], "listed as practice")
+		for i in range(rack_items.size()):
+			CombatPrep.cycle_rack_slot(0)
+		assert_eq(CombatPrep.pending()["args"]["rack"].size(), 0, "cycles back to own")
+		CombatPrep.cycle_rack_slot(0)
+		assert_true(CombatPrep.commit()["ok"])
+		assert_eq(Loadout.slot(0)["recipe"], rack_items[0])
+		assert_true(Loadout.slot(0)["rack"])
 	)

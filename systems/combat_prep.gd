@@ -19,6 +19,7 @@ const KIND_ARCHIE_DEAL_MUGGING := "archie_deal_mugging"
 const KIND_STREET_MUGGING := "street_mugging"
 const KIND_FACTION_AMBUSH := "faction_ambush"
 const KIND_HOME_RAID := "home_raid"
+const KIND_SPAR := "spar"
 
 const FORCED_KINDS: Array[String] = [KIND_MUGGING, KIND_ARCHIE_DEAL_MUGGING, KIND_STREET_MUGGING, KIND_FACTION_AMBUSH, KIND_HOME_RAID]
 
@@ -104,6 +105,8 @@ static func _dispatch(kind: String, args: Dictionary) -> Dictionary:
 			Combat.start_home_raid_combat(args)
 		KIND_DEBUG:
 			Combat.start_debug_combat(args)
+		KIND_SPAR:
+			return Sparring.spar(str(args["partnerId"]), args.get("rack", {}))
 		_:
 			return { "ok": false, "reason": "Unknown encounter." }
 	return { "ok": true }
@@ -127,7 +130,7 @@ static func _leave(return_screen: String) -> void:
 static func participants(prep: Dictionary) -> Array:
 	var kind := str(prep.get("kind", ""))
 	var args: Dictionary = prep.get("args", {})
-	var rows: Array = [{ "name": "You", "role": "you", "units": Loadout.equipped_units().duplicate(true), "note": "" }]
+	var rows: Array = [{ "name": "You", "role": "you", "units": _player_units(prep), "note": "" }]
 	for contact_id in _ally_contact_ids(kind, args):
 		rows.append({ "name": Contacts.display_name(contact_id), "role": "ally", "units": _contact_units(contact_id), "note": "" })
 	if bool(args.get("muscle", false)) and Perks.muscle_available():
@@ -140,6 +143,39 @@ static func participants(prep: Dictionary) -> Array:
 		rows.append({ "name": "Guards" if guards > 1 else "Guard", "role": "ally", "units": [], "note": "×%d" % guards })
 	rows.append({ "name": foe_label(prep), "role": "foe", "units": [], "note": "" })
 	return rows
+
+
+# The player's units for the sheet: their slots, rack picks in place of own
+# units (marked `rack`) for a spar.
+static func _player_units(prep: Dictionary) -> Array:
+	if str(prep.get("kind", "")) != KIND_SPAR:
+		return Loadout.equipped_units().duplicate(true)
+	var rack := Sparring.clean_rack(prep["args"].get("rack", {}))
+	var units: Array = []
+	for i in range(Loadout.slot_count()):
+		if rack.has(i):
+			units.append({ "recipe": rack[i], "tier": 1, "rack": true })
+		elif Loadout.slot(i) is Dictionary:
+			units.append(Loadout.slot(i).duplicate(true))
+	return units
+
+
+# Spar prep: moves slot `index` to the next practice-rack item, and past the
+# last back to the player's own unit.
+static func cycle_rack_slot(index: int) -> bool:
+	var prep := pending()
+	if prep.is_empty() or str(prep["kind"]) != KIND_SPAR or index < 0 or index >= Loadout.slot_count():
+		return false
+	var rack: Dictionary = Sparring.clean_rack(prep["args"].get("rack", {}))
+	var items := Sparring.rack_items()
+	var next := 0 if not rack.has(index) else items.find(rack[index]) + 1
+	if next >= items.size():
+		rack.erase(index)
+	else:
+		rack[index] = items[next]
+	prep["args"]["rack"] = rack
+	EventBus.state_changed.emit()
+	return true
 
 
 static func _ally_contact_ids(kind: String, args: Dictionary) -> Array:
@@ -327,6 +363,8 @@ static func foe_label(prep: Dictionary) -> String:
 			return "%s squad" % GameData.FACTIONS[str(args["factionId"])]["shortName"]
 		KIND_DEBUG:
 			return "Raid guards"
+		KIND_SPAR:
+			return str(Sparring.partner(str(args.get("partnerId", ""))).get("name", "Sparring partner"))
 	return "Muggers"
 
 
@@ -338,4 +376,6 @@ static func title(prep: Dictionary) -> String:
 			return "Defend"
 		KIND_DEBUG:
 			return "Debug fight"
+		KIND_SPAR:
+			return "Spar"
 	return "Trouble"
