@@ -1029,3 +1029,41 @@ func run() -> void:
 		assert_true(DailyBrief.items().filter(func(r): return r["kind"] == "depositGoal").is_empty())
 	)
 
+	run_case("monday_bill_paid_in_full_sets_rent_paid", func():
+		GameState.reset()
+		GameState.state["world"]["day"] = Home.next_bill_day()
+		GameState.state["player"]["cash"] = Home.weekly_bill_due()
+		TimeSystem._apply_living_costs()
+		assert_eq(GameState.state["player"]["cash"], 0)
+		assert_true(GameState.state["flags"]["rentPaid"])
+	)
+
+	run_case("monday_bill_short_leaves_rent_paid_unset", func():
+		GameState.reset()
+		GameState.state["world"]["day"] = Home.next_bill_day()
+		GameState.state["player"]["cash"] = Home.weekly_bill_due() - 1
+		TimeSystem._apply_living_costs()
+		assert_eq(GameState.state["home"]["arrears"], 1)
+		assert_true(not GameState.state["flags"]["rentPaid"])
+	)
+
+	run_case("rent_goal_row_hidden_while_flag_off", func():
+		GameState.reset()
+		assert_true(Home.rent_goal().is_empty())
+		assert_true(DailyBrief.items().filter(func(r): return r["kind"] == "rentGoal").is_empty())
+	)
+
+	run_case("rent_goal_row_reads_cash_against_the_next_bill", func():
+		GameState.reset()
+		Events.apply_effects([{ "op": "set_flag", "flag": "rentGoal", "value": true }])
+		GameState.state["player"]["cash"] = 40
+		var goal := Home.rent_goal()
+		assert_eq(goal["bill"], Home.weekly_bill_due())
+		assert_eq(Home.rent_goal_text(goal), "Rent: £40 / £%d" % Home.weekly_bill_due())
+		var rows := DailyBrief.items().filter(func(r): return r["kind"] == "rentGoal")
+		assert_eq(rows.size(), 1)
+		assert_eq(rows[0]["label"], Home.rent_goal_text(goal))
+		Events.apply_effects([{ "op": "set_flag", "flag": "rentGoal", "value": false }])
+		assert_true(DailyBrief.items().filter(func(r): return r["kind"] == "rentGoal").is_empty(), "cleared flag hides the row")
+	)
+

@@ -314,6 +314,23 @@ static func deposit_goal_text(goal: Dictionary) -> String:
 	return "Deposit: £%d / £%d" % [goal["cash"], goal["deposit"]]
 
 
+# The rent goal gated by the rentGoal flag: { cash, bill, day } against the
+# next weekly bill (weekly_bill_due() on next_bill_day()); {} when the flag is off.
+static func rent_goal() -> Dictionary:
+	if not GameState.state["flags"].get("rentGoal", false):
+		return {}
+	return {
+		"cash": int(GameState.state["player"]["cash"]),
+		"bill": weekly_bill_due(),
+		"day": next_bill_day(),
+	}
+
+
+# The ToDo line, from the BizBrief rentGoal row's label (data/daily_brief.json).
+static func rent_goal_text(goal: Dictionary) -> String:
+	return String(GameData.DAILY_BRIEF["rows"]["rentGoal"]["label"]).format({ "cash": goal["cash"], "bill": goal["bill"] })
+
+
 static func current_deposit() -> int:
 	return int(GameState.state["home"].get("deposit", 0))
 

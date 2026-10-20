@@ -24,6 +24,7 @@ static func items() -> Array[Dictionary]:
 	_vein_at_risk_rows(rows)
 	_story_rows(rows)
 	_deposit_goal_rows(rows)
+	_rent_goal_rows(rows)
 	_offer_expiring_rows(rows)
 	_demand_spike_rows(rows)
 	_favour_rows(rows)
@@ -276,6 +277,15 @@ static func _deposit_goal_rows(rows: Array[Dictionary]) -> void:
 	if goal.is_empty():
 		return
 	rows.append(_row("depositGoal", "depositGoal", { "text": Home.deposit_goal_text(goal), "name": goal["name"] }, { "to": "property" }, 1))
+
+
+# The Home.rent_goal() row: cash against the next weekly bill.
+static func _rent_goal_rows(rows: Array[Dictionary]) -> void:
+	var goal := Home.rent_goal()
+	if goal.is_empty():
+		return
+	var values := { "cash": goal["cash"], "bill": goal["bill"], "weekday": GameData.EVENT_LABELS["weekdayNames"][Calendar.weekday_index(goal["day"])] }
+	rows.append(_row("rentGoal", "rentGoal", values, { "to": "bank" }, 1))
 
 
 # Pending Sales offers lapsing within offerWindowDays (an offer is gone on

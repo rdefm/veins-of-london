@@ -43,6 +43,12 @@
       "consequence": "Saving for {name}.",
       "actionLabel": "Open Property"
     },
+    "rentGoal": {
+      "tier": "story", "kind": "rentGoal",
+      "label": "Rent: £{cash} / £{bill}",
+      "consequence": "Due {weekday}.",
+      "actionLabel": "Open Bank"
+    },
     "alarmHome": {
       "tier": "urgent", "kind": "alarm",
       "label": "Raid alarm · HQ",

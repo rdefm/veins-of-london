@@ -203,8 +203,8 @@ static func daily_tick() -> void:
 
 # Home bill per ADR 0006 "Weekly ordering": on the rollover into a Monday
 # only -- interest on carried arrears, pay arrears, pay the week's bill
-# (Home.weekly_bill_due()), shortfall into arrears,
-# advance the week clock, then the forced downgrade check. Cash never goes
+# (Home.weekly_bill_due()), shortfall into arrears (none sets the rentPaid
+# flag), advance the week clock, then the forced downgrade check. Cash never goes
 # negative. Returns what happened for the morning account: { interest,
 # shortfall, arrears, downgrade } (downgrade is {} unless one fired); on any
 # other rollover nothing is charged and only the carried arrears come back.
@@ -236,6 +236,8 @@ static func _apply_living_costs() -> Dictionary:
 		Bank.record(-bill_paid, "Weekly living costs")
 	var shortfall: int = bill - bill_paid
 	home["arrears"] += shortfall
+	if shortfall == 0:
+		GameState.state["flags"]["rentPaid"] = true
 
 	if home["arrears"] == 0:
 		home["arrearsWeeks"] = 0

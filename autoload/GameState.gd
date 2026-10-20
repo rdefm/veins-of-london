@@ -329,6 +329,9 @@ func new_game_state() -> Dictionary:
 			"homeRaidEventPending": false, "homeRaidEventSeen": false, "homeRaidWon": false,
 			# Home tier id the deposit goal saves towards ("" = no goal), set by set_flag.
 			"depositGoalTier": "",
+			# rentGoal gates the Home.rent_goal() row; rentPaid is set when a
+			# Monday home bill is paid in full.
+			"rentGoal": false, "rentPaid": false,
 			# Business Act 1 founder role unlocks (constants.json contacts.<id>.roleFlags).
 			"bizArchieSalesRole": false, "bizJamesProductionRole": false,
 			"bizOwenCultivationRole": false, "bizOwenProductionRole": false,
