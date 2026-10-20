@@ -90,7 +90,7 @@ func run() -> void:
 		assert_true(not GameState.state["combat"]["active"])
 	)
 
-	run_case("hp_comes_back_and_own_spent_units_stay_spent", func():
+	run_case("end_rewind_restores_hp_and_own_spent_units", func():
 		_fresh()
 		var player: Dictionary = GameState.state["player"]
 		player["hp"] = 17
@@ -101,7 +101,7 @@ func run() -> void:
 		GameState.state["combat"]["outcome"] = "loss"
 		Combat.exit_combat()
 		assert_eq(player["hp"], 17, "hp restored")
-		assert_eq(Loadout.slot(0), null, "own unit spent, none in the bag to refill")
+		assert_eq(Loadout.slot(0), { "recipe": "timePearl", "tier": 1 }, "own unit back")
 	)
 
 	run_case("rack_only_spar_leaves_inventory_and_slots_as_they_were", func():
@@ -121,7 +121,7 @@ func run() -> void:
 		assert_eq(player["loadout"]["slots"], slots_before, "slots untouched")
 	)
 
-	run_case("rack_slots_ignore_junk_and_own_slots_spend_normally", func():
+	run_case("rack_slots_ignore_junk_and_own_slots_wind_back", func():
 		_fresh()
 		var player: Dictionary = GameState.state["player"]
 		player["loadout"]["slots"][1] = { "recipe": "timePearl", "tier": 1 }
@@ -140,7 +140,8 @@ func run() -> void:
 		GameState.state["combat"]["outcome"] = "win"
 		Combat.exit_combat()
 		assert_eq(Loadout.slot(0), null, "rack slot back to its empty own slot")
-		assert_eq(Loadout.slot(1)["tier"], 3, "own spent unit refilled from the bag as normal")
+		assert_eq(Loadout.slot(1), { "recipe": "timePearl", "tier": 1 }, "own spent unit wound back")
+		assert_eq(player["inventory"].get("timePearl", {}).get("3", 0), 1, "bag untouched")
 	)
 
 	run_case("spar_prep_cycles_rack_items_and_fight_uses_them", func():

@@ -3,11 +3,10 @@ extends RefCounted
 
 # The calc gym's Spar (R§3.7b Spar): a practice round fight against an
 # easy / even / hard partner scaled to the player's Combat Skill, fought with
-# a free, unlimited Rewind. hp and the Dial come back as they stood; the
-# player's own loadout units spend as in any fight (and refill from the bag).
-# The practice rack offers every allowlisted item at T1, free: a rack unit
-# sits in a loadout slot for the fight only, the player's own unit in that
-# slot comes back afterwards, and nothing touches the inventory. The data is
+# a free, unlimited Rewind. When it ends the gym's end rewind winds hp, the
+# Dial and every loadout slot back to the start; only Combat XP stays. The
+# practice rack offers every allowlisted item at T1, free: a rack unit sits in
+# a loadout slot for the fight only, and nothing touches the inventory. The data is
 # GameData.COMBAT_ROUNDS["spar"].
 #
 # state.flags.sparSessions counts sessions taken; the first `freeSessions`
@@ -125,14 +124,14 @@ static func xp_for(outcome) -> int:
 
 
 # Ends a spar (from Combat.exit_combat()): the XP, then hp and the Dial back
-# as they were before it (a level-up's hp gain is kept), and each rack slot
-# back to the player's own unit. Own units spent in the fight stay spent.
+# as they were before it (a level-up's hp gain is kept) and every loadout slot
+# back to the player's own unit: the end rewind.
 static func settle(spar_block: Dictionary, outcome) -> void:
 	var player: Dictionary = GameState.state["player"]
 	Combat.award_xp(xp_for(outcome))
 	var hp_gain: int = int(player["hpMax"]) - int(spar_block["hpMaxBefore"])
 	player["hp"] = mini(int(spar_block["hpBefore"]) + hp_gain, int(player["hpMax"]))
-	for index in spar_block["rackSlots"]:
-		player["loadout"]["slots"][int(index)] = spar_block["slotsBefore"][int(index)]
+	player["loadout"]["slots"] = spar_block["slotsBefore"].duplicate(true)
+	Notify.push(line("endRewind"), Notify.CATEGORY_SUCCESS)
 	if spar_block["dialBefore"] is Dictionary:
 		player["dial"] = spar_block["dialBefore"].duplicate(true)
