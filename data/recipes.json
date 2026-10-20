@@ -28,7 +28,7 @@
       "icon": "res://assets/combat/icons/rewind.png",
       "ingredients": { "time": 6 },
       "baseSuccess": 0.40,
-      "effectPower": [0, 2, 2, 2, 2, 2],
+      "effectPower": [0, 1, 2, 3, 4, 5],
       "xpReward": 35,
       "eventUsable": true,
       "description": "Shaped like an hourglass. Briefly unspools time — only you remember what happened. Difficult and expensive to produce."

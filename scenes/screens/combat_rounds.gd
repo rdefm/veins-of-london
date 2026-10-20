@@ -634,6 +634,8 @@ func _loadout_rows(cp: Dictionary) -> Array:
 		var target := -1
 		if unit != null:
 			label = "%s — tier %d" % [GameData.RECIPES[unit["recipe"]]["name"], int(unit["tier"])]
+			if unit["recipe"] == "rewind":
+				label += " (%s)" % Combat.rewind_depth_text(int(unit["tier"]))
 			icon = "recipe:" + str(unit["recipe"])
 			if CombatRounds.is_item(unit["recipe"]):
 				target = _row_target(cp, unit["recipe"])

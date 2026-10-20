@@ -94,7 +94,7 @@ func run() -> void:
 		var expected := {
 			"timePearl": [1, 2, 3, 4, 5],
 			"enhancementPowder": [1, 1, 2, 2, 3],
-			"rewind": [2, 2, 2, 2, 2],
+			"rewind": [1, 2, 3, 4, 5],
 			"healingSalve": [2, 3, 4, 5, 6],
 			"blast": [4, 6, 8, 10, 12],
 			"shield": [3, 4, 5, 6, 8],

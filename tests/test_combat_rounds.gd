@@ -132,9 +132,20 @@ func _actor_beats(beats: Array, actor: int, kinds: Array) -> Array:
 # The fight as a Rewind restores it: everything but the snapshot stack, the
 # per-pick loadout copy, the used slots (the Rewinds' own payments) and the
 # transcript (which gains each Rewind's line).
+# _fight_state() without the move levels, hp and beat log, which a Rewind
+# keeps earned (move XP) or replays with them.
+func _fight_plan_state(combat: Dictionary) -> Dictionary:
+	var state := _fight_state(combat)
+	state.erase("log")
+	for fighter in state["combatants"]:
+		fighter.erase("moveLevels")
+		fighter.erase("hp")
+	return state
+
+
 func _fight_state(combat: Dictionary) -> Dictionary:
 	var state: Dictionary = combat.duplicate(true)
-	for key in ["snapshots", "loadoutSlots", "slotsUsed", "transcript"]:
+	for key in ["snapshots", "roundFrames", "loadoutSlots", "slotsUsed", "transcript"]:
 		state.erase(key)
 	return state
 
@@ -1551,12 +1562,10 @@ func run() -> void:
 		Combat.choose_move("guard")
 		assert_eq(combat["round"], round_no + 1, "the second pick crossed into the next round")
 		assert_true(Combat.round_rewind()["ok"])
-		assert_eq(_fight_state(combat), before_second, "one pick back")
-		assert_true(Combat.round_rewind()["ok"])
-		assert_eq(_fight_state(combat), before_first, "two back: that round's plans, fog marks and RNG states")
-		assert_eq(GameState.state["player"]["loadout"]["slots"], [null, null], "the first Rewind's unit stays spent too")
-		assert_eq(Combat.round_rewind_block_reason(), Combat.REASON_NOTHING_TO_UNDO, "cap 2")
-		# Move XP stays earned through the Rewinds, so this third Guard reaches L2.
+		assert_eq(_fight_state(combat), before_first, "a tier 1 unit: back a round, to that round's plans, fog marks and RNG states")
+		assert_eq(GameState.state["player"]["loadout"]["slots"], [null, { "recipe": "rewind", "tier": 1 }], "only the paying unit is spent")
+		assert_eq(Combat.round_rewind_block_reason(), Combat.REASON_NOTHING_TO_UNDO, "the fight's start is as far as it goes")
+		# Move XP stays earned through the Rewind, so this second Guard reaches L2.
 		var replay: Array = Combat.choose_move("guard")["beats"].filter(func(b): return b["kind"] != "levelUp")
 		assert_eq(replay, first["beats"], "the same pick replays the same rolls")
 	)
@@ -1573,6 +1582,59 @@ func run() -> void:
 		assert_eq(combat["slotsUsed"], [1], "only the rewind settles as used")
 		assert_eq(combat["combatants"][1]["hp"], mugger_hp, "blast undone")
 		assert_eq(Combat.round_item_block_reason(0, 1), "", "blast playable again")
+	)
+
+	run_case("rewind_depth_follows_the_unit_tier", func():
+		for tier in range(1, 5):
+			GameState.reset()
+			var combat := _start_vs([_slow_mugger(200)], [[["guard", "guard"]]], [{ "recipe": "rewind", "tier": tier }])
+			var at_round := { combat["round"]: _fight_plan_state(combat) }
+			while combat["round"] < 6:
+				var round_no: int = combat["round"]
+				while combat["round"] == round_no:
+					assert_true(Combat.choose_move("guard")["ok"])
+				at_round[combat["round"]] = _fight_plan_state(combat)
+			assert_true(Combat.round_rewind()["ok"], "tier %d" % tier)
+			assert_eq(combat["round"], 6 - tier, "tier %d: back %d rounds" % [tier, tier])
+			assert_eq(_fight_plan_state(combat), at_round[6 - tier], "tier %d: that round's first decision point" % tier)
+			assert_eq(Loadout.slot(0), null, "the unit is spent")
+	)
+
+	run_case("a_tier_5_rewind_goes_to_the_start_and_undoes_a_round_1_enemy_action", func():
+		GameState.reset()
+		var enemy_first := _mugger(200)
+		enemy_first["speed"] = 99
+		var plan := [[{ "move": "strike", "target": CombatRounds.PLAYER_INDEX }, { "move": "strike", "target": CombatRounds.PLAYER_INDEX }]]
+		var combat := _start_vs([enemy_first], [plan], [{ "recipe": "rewind", "tier": 5 }])
+		var first_pause := _fight_plan_state(combat)
+		var opening: Dictionary = combat["roundFrames"][0]
+		assert_true(combat["combatants"][CombatRounds.PLAYER_INDEX]["hp"] < opening["combatants"][CombatRounds.PLAYER_INDEX]["hp"], "the enemy's strike landed before the first pick")
+		for i in range(6):
+			assert_true(Combat.choose_move("guard")["ok"])
+		assert_true(combat["round"] >= 3, "a few rounds in")
+		assert_true(Combat.round_rewind()["ok"])
+		assert_eq(combat["round"], 1, "the fight's start")
+		assert_eq(_fight_plan_state(combat), first_pause, "round 1 resolved on to the first pick again, the same rolls")
+		assert_true(combat["snapshots"].is_empty(), "no pick left to step back")
+		assert_true(combat["combatants"][CombatRounds.PLAYER_INDEX]["hp"] < opening["combatants"][CombatRounds.PLAYER_INDEX]["hp"], "and the strike lands again on the replay")
+	)
+
+	run_case("rewind_depth_clamps_to_the_oldest_frame", func():
+		GameState.reset()
+		var combat := _start_vs([_slow_mugger(200)], [[["guard", "guard"]]], [{ "recipe": "rewind", "tier": 4 }])
+		while combat["round"] < 3:
+			assert_true(Combat.choose_move("guard")["ok"])
+		assert_true(Combat.round_rewind()["ok"])
+		assert_eq(combat["round"], 1, "tier 4 from round 3 stops at round 1")
+	)
+
+	run_case("round_frames_keep_the_opening_and_the_newest_five", func():
+		GameState.reset()
+		var combat := _start_vs([_slow_mugger(500)], [[["guard", "guard"]]], [])
+		while combat["round"] < 12:
+			assert_true(Combat.choose_move("guard")["ok"])
+		var rounds: Array = combat["roundFrames"].map(func(f): return int(f["round"]))
+		assert_eq(rounds, [1, 8, 9, 10, 11, 12])
 	)
 
 	run_case("failsafe_undoes_a_lethal_pick_then_the_next_ko_loses", func():
@@ -1759,9 +1821,9 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 4, "blast cast")
 		assert_true(Combat.round_rewind()["ok"])
 		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 4, "blast back, rewind paid")
+		assert_true(Combat.choose_move("guard")["ok"])
 		assert_true(Combat.round_rewind()["ok"])
-		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 3, "the older snapshot keeps the first payment spent")
-		assert_eq(Combat.round_rewind_block_reason(), Combat.REASON_NOTHING_TO_UNDO)
+		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 3, "the second payment stays spent too")
 	)
 
 	run_case("tier_5_recharge_regens_a_charge_every_third_action_and_rewind_takes_it_back", func():
@@ -1787,7 +1849,7 @@ func run() -> void:
 		assert_eq(float(james_dial["currentCharge"]), 1.0, "the ally's third action too")
 		assert_true(Combat.round_rewind()["ok"])
 		assert_eq(float(dial["currentCharge"]), 1.0, "rewind takes the regen back")
-		assert_eq(dial["combatRegenTurnCounter"], 2, "and the count")
+		assert_eq(dial["combatRegenTurnCounter"], 0, "and the count, from the round's start")
 		assert_eq(float(james_dial["currentCharge"]), 0.0)
 	)
 
@@ -1811,7 +1873,7 @@ func run() -> void:
 
 	run_case("live_dock_rewind_runs_from_its_loadout_slot_and_from_a_dial_rewind_complication", func():
 		GameState.reset()
-		_start_armed([{ "recipe": "rewind", "tier": 1 }, null], [["guard", "guard"]], 1, 200)
+		_start_armed([{ "recipe": "rewind", "tier": 1 }, { "recipe": "rewind", "tier": 1 }], [["guard", "guard"]], 1, 200)
 		var host := CombatScreen.new()
 		host._ready()
 		var screen: CombatRoundsScreen = host._round_screen
@@ -1827,7 +1889,6 @@ func run() -> void:
 		assert_eq(CombatRounds.decision_position(GameState.state["combat"]), 0, "the pick undone")
 
 		GameState.state["player"]["dial"] = Fixtures.dial_with_loaded("rewind", 1, 3)
-		GameState.state["player"]["loadout"]["slots"][1] = { "recipe": "rewind", "tier": 1 }
 		_row(screen, "MoveRow_guard").pressed.emit()
 		var widgets: Array = screen._dock.find_children("*", "", true, false).filter(func(n): return n is DialWidget and not n.is_queued_for_deletion())
 		widgets[0].handle_trigger()

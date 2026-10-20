@@ -642,7 +642,7 @@ static func _start_round_combat(context: String, vein_id, enemies: Array, log_li
 		"onWin": on_win, "raiderKit": {}, "guardKit": {}, "slotsUsed": [],
 		# The player's real loadout slots as each pick found them, so its
 		# snapshot carries them back on a Rewind (_restore_round_snapshot()).
-		"loadoutSlots": [],
+		"loadoutSlots": player["loadout"]["slots"].duplicate(true),
 		# Dial rewind casts that paid for a Rewind, so a restore never hands
 		# their charge back (_restore_round_snapshot()).
 		"dialRewindsPaid": 0,
@@ -935,9 +935,22 @@ static func _play_round_pick(combat: Dictionary, action: Dictionary) -> Dictiona
 		result["beats"].append_array(CombatRounds.continue_after_ko(combat))
 		result["outcome"] = combat["outcome"]
 		_settle_round_dials(combat)
+		_keep_round_frame(combat)
 	_sync_round_outcome(combat)
 	EventBus.state_changed.emit()
 	return result
+
+
+# Frames the fight at its paused position when it has moved into a round no
+# frame holds yet (CombatRounds.push_round_frame()), for a tiered Rewind.
+static func _keep_round_frame(combat: Dictionary) -> void:
+	if combat["outcome"] != null:
+		return
+	var frames: Array = combat.get("roundFrames", [])
+	if not frames.is_empty() and int(frames[-1]["round"]) >= int(combat["round"]):
+		return
+	combat["loadoutSlots"] = GameState.state["player"]["loadout"]["slots"].duplicate(true)
+	CombatRounds.push_round_frame(combat)
 
 
 # R§3.7b Failsafe and guard-kit rewind: the player's KO in the pick just
@@ -973,7 +986,9 @@ static func _push_round_line(combat: Dictionary, line: String) -> String:
 	return line
 
 
-# Restores the round fight's newest snapshot whole (R§3.7b Rewind), the
+# Restores the round fight's newest snapshot whole (R§3.7b Rewind; with a
+# `depth` of rounds, the round-start frame that far back, `to_start` the
+# opening frame, see CombatRounds.rewind_rounds()), the
 # player's real loadout slots and every real Dial's charge (and Recharge
 # regen count) with it, so every unit and cast spent since comes back (cast
 # XP stays earned) -- bar the
@@ -981,13 +996,18 @@ static func _push_round_line(combat: Dictionary, line: String) -> String:
 # casts and Failsafes, recruits' slot rewinds and the guard kit's rewinds,
 # which only ever leave as payment. The caller spends whatever pays for
 # this one.
-static func _restore_round_snapshot(combat: Dictionary) -> void:
+static func _restore_round_snapshot(combat: Dictionary, depth: int = 0, to_start: bool = false) -> void:
 	var slots: Array = GameState.state["player"]["loadout"]["slots"]
 	var slots_before: Array = slots.duplicate()
 	var ally_slots_before: Array = combat["allies"].map(func(a: Dictionary) -> Array: return a.get("slots", []).duplicate())
 	var kit_before: Dictionary = combat["guardKit"].duplicate(true)
 	var dial_rewinds: int = int(combat.get("dialRewindsPaid", 0))
-	CombatRounds.rewind_pick(combat)
+	var replayed := false
+	if depth > 0:
+		replayed = bool(CombatRounds.rewind_rounds(combat, depth, to_start).get("replayed", false))
+	else:
+		CombatRounds.rewind_pick(combat)
+		CombatRounds.prune_round_frames(combat)
 	var rewinds_since: int = dial_rewinds - int(combat.get("dialRewindsPaid", 0))
 	combat["dialRewindsPaid"] = dial_rewinds
 	for fighter in combat["combatants"]:
@@ -1013,6 +1033,8 @@ static func _restore_round_snapshot(combat: Dictionary) -> void:
 				combat["guardKit"][part]["rewind"] = held
 			else:
 				combat["guardKit"][part].erase("rewind")
+	if replayed:
+		_settle_round_dials(combat)
 
 
 # Empties each of `slots` holding a `recipes` unit that `before` (the same
@@ -1031,7 +1053,7 @@ static func round_rewind_block_reason(pay: String = REWIND_PAY_ANY) -> String:
 	var combat: Dictionary = GameState.state["combat"]
 	if not combat["active"] or combat["outcome"] != null:
 		return "Combat not active."
-	if combat["snapshots"].is_empty():
+	if not CombatRounds.can_rewind_rounds(combat):
 		return REASON_NOTHING_TO_UNDO
 	var has_unit := pay != REWIND_PAY_DIAL and Loadout.find_slot("rewind") >= 0
 	var has_cast := pay != REWIND_PAY_LOADOUT and Dial.find_loaded_rewind_complication_index() >= 0
@@ -1040,8 +1062,40 @@ static func round_rewind_block_reason(pay: String = REWIND_PAY_ANY) -> String:
 	return ""
 
 
-# R§3.7b Rewind: back to the last pick with it undone (a second steps one
-# more pick back). Paid per `pay`: REWIND_PAY_LOADOUT a loadout rewind unit,
+# Rounds a rewind unit of `tier` takes the fight back (the recipe's
+# effectPower), and whether that is the fight's start (the top tier).
+static func rewind_depth(tier: int) -> int:
+	return int(Crafting.effect_power("rewind", tier))
+
+
+static func rewind_goes_to_start(tier: int) -> bool:
+	return rewind_depth(tier) >= GameData.RECIPES["rewind"]["effectPower"].size() - 1
+
+
+# PROSE-REVIEW: how far a rewind unit of `tier` takes the fight, as the
+# Rewind control shows it.
+static func rewind_depth_text(tier: int) -> String:
+	if rewind_goes_to_start(tier):
+		return "to the start"
+	var depth := rewind_depth(tier)
+	return "back %d round%s" % [depth, "" if depth == 1 else "s"]
+
+
+# The tier of the unit `pay` would spend, from the loadout rewind unit when
+# there is one (and `pay` allows it), else the loaded Dial rewind
+# Complication; 0 when neither.
+static func rewind_pay_tier(pay: String = REWIND_PAY_ANY) -> int:
+	var slot := Loadout.find_slot("rewind") if pay != REWIND_PAY_DIAL else -1
+	if slot >= 0:
+		return int(Loadout.slot(slot)["tier"])
+	var cast := Dial.find_loaded_rewind_complication_index() if pay != REWIND_PAY_LOADOUT else -1
+	if cast >= 0:
+		return int(GameState.state["player"]["dial"]["loadedComplications"][cast]["tier"])
+	return 0
+
+
+# R§3.7b Rewind: back by the paying unit's tier depth in rounds (the top
+# tier to the fight's start). Paid per `pay`: REWIND_PAY_LOADOUT a loadout rewind unit,
 # REWIND_PAY_DIAL one charge of a loaded Dial rewind cast, REWIND_PAY_ANY
 # the unit if there is one, else the Dial. Returns { ok } or { ok: false, reason }.
 static func round_rewind(pay: String = REWIND_PAY_ANY) -> Dictionary:
@@ -1050,7 +1104,8 @@ static func round_rewind(pay: String = REWIND_PAY_ANY) -> Dictionary:
 		return { "ok": false, "reason": reason }
 	var combat: Dictionary = GameState.state["combat"]
 	var slot := Loadout.find_slot("rewind") if pay != REWIND_PAY_DIAL else -1
-	_restore_round_snapshot(combat)
+	var tier := rewind_pay_tier(pay)
+	_restore_round_snapshot(combat, rewind_depth(tier), rewind_goes_to_start(tier))
 	if slot >= 0:
 		Loadout.consume(slot)
 	else:

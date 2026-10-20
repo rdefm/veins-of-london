@@ -151,6 +151,9 @@ static func new_state() -> Dictionary:
 		# beat's text as it's logged, and the Rewind/Failsafe lines.
 		"transcript": [],
 		"snapshots": [],
+		# Round-start frames for a tiered Rewind (push_round_frame()): the
+		# opening frame, then one per round's first decision point.
+		"roundFrames": [],
 		# The stage backdrop: the fight's context and a locationKey (the
 		# combat_visuals locationBackdrops plate; "" for none).
 		"backdrop": { "context": "", "locationKey": "" },
@@ -383,6 +386,8 @@ static func open_fight(cp: Dictionary, seed_value: int) -> void:
 	cp["fogRngState"] = fog_rng.state
 	_plan_allies(cp, rng)
 	cp["playerPlan"] = _empty_player_plan(cp)
+	push_round_frame(cp, rng.state)
+	cp["roundFrames"][0]["atOpen"] = true
 	var beats: Array = []
 	_advance(cp, rng, beats)
 	_record(cp, beats)
@@ -2118,7 +2123,7 @@ static func _beat(cp: Dictionary, beats: Array, kind: String, actor: int, target
 static func _push_snapshot(cp: Dictionary, stack_id: String) -> void:
 	var frame := {}
 	for key in cp.keys():
-		if key != "snapshots":
+		if key != "snapshots" and key != "roundFrames":
 			frame[key] = cp[key]
 	Snapshots.push(stack_id, cp["snapshots"], frame)
 
@@ -2131,10 +2136,80 @@ static func rewind_pick(cp: Dictionary) -> Dictionary:
 	var frame = Snapshots.pop_newest(cp["snapshots"])
 	if frame == null:
 		return { "ok": false, "reason": "Nothing to rewind." }
+	_apply_frame(cp, frame)
+	return { "ok": true }
+
+
+# Puts a saved frame's keys back on `cp`; each owned fighter's move levels
+# come back from its record.
+static func _apply_frame(cp: Dictionary, frame: Dictionary) -> void:
 	for key in frame.keys():
 		cp[key] = frame[key]
 	for fighter in cp["combatants"]:
 		var owner = fighter.get("moveOwner")
 		if owner is String:
 			fighter["moveLevels"] = MoveLevels.levels_of(owner)
-	return { "ok": true }
+
+
+# Saves the fight as it stands at a round's first decision point (or, from
+# open_fight(), before its first action) onto `cp`'s round frames: the
+# opening frame is kept for good, then the newest top-tier-Rewind-depth many.
+# `rng_state` overrides the frame's rngState when the fight's stream is
+# running ahead of cp["rngState"].
+static func push_round_frame(cp: Dictionary, rng_state: Variant = null) -> void:
+	var frame := {}
+	for key in cp.keys():
+		if key != "snapshots" and key != "roundFrames":
+			frame[key] = cp[key]
+	if rng_state != null:
+		frame["rngState"] = rng_state
+	var frames: Array = cp.get("roundFrames", [])
+	cp["roundFrames"] = frames
+	frames.append(GameState.deep_copy(frame))
+	var kept: int = GameData.RECIPES["rewind"]["effectPower"].size() - 1
+	while frames.size() > 1 + kept:
+		frames.remove_at(1)
+
+
+# Whether a round frame older than the fight's current round start exists, or
+# a pick has been made since: something a rewind can undo.
+static func can_rewind_rounds(cp: Dictionary) -> bool:
+	return not cp["snapshots"].is_empty() or cp.get("roundFrames", []).size() > 1
+
+
+# Drops the round frames of rounds the fight has been put back before.
+static func prune_round_frames(cp: Dictionary) -> void:
+	var frames: Array = cp.get("roundFrames", [])
+	while frames.size() > 1 and int(frames[-1]["round"]) > int(cp["round"]):
+		frames.pop_back()
+
+
+# Restores the fight `cp` `depth` rounds back: to the round-start frame of
+# round `cp.round - depth`, or the oldest kept frame if that's older, or the
+# opening frame outright when `to_start`. The per-pick snapshots go (they
+# lie ahead of the restored position); a restore to the opening frame
+# resolves round 1 on to the player's first position again. Returns { ok,
+# replayed }.
+static func rewind_rounds(cp: Dictionary, depth: int, to_start: bool) -> Dictionary:
+	var frames: Array = cp.get("roundFrames", [])
+	if frames.is_empty():
+		return { "ok": false, "reason": "Nothing to rewind." }
+	var index := 0
+	if not to_start:
+		for i in range(frames.size()):
+			if int(frames[i]["round"]) <= int(cp["round"]) - depth:
+				index = i
+	var frame: Dictionary = GameState.deep_copy(frames[index])
+	_apply_frame(cp, frame)
+	cp["snapshots"] = []
+	cp["roundFrames"] = frames.slice(0, index + 1)
+	var replayed: bool = cp.has("atOpen")
+	if replayed:
+		cp.erase("atOpen")
+		var rng := RandomNumberGenerator.new()
+		rng.state = cp["rngState"]
+		var beats: Array = []
+		_advance(cp, rng, beats)
+		_record(cp, beats)
+		cp["rngState"] = rng.state
+	return { "ok": true, "replayed": replayed }
