@@ -69,6 +69,21 @@
     "pandemonium": { "target": "enemy", "effect": "fury", "params": {} },
     "wormhole": { "target": "self", "effect": "wormhole", "params": {} }
   },
+  "_coachComment": "Coach marks, shown only when a fight's data carries a `coach` block. hints: one line per move or loadout recipe id; notNow: the block reason for an action the round doesn't allow.",
+  "coach": {
+    "notNow": "Not this round.",
+    "hints": {
+      "strike": "Hit them. Leaves you open.",
+      "guard": "Brace against a Strike.",
+      "feint": "Beats a Guard.",
+      "stun": "Punish an open enemy.",
+      "legIt": "Run. Might not work.",
+      "timePearl": "Freezes the room.",
+      "healingBurst": "Patch someone up.",
+      "shield": "Calc between you and the next hit.",
+      "rewind": "Go back and do it again."
+    }
+  },
   "_tooltipsComment": "One pithy line per Fight/Item row, shown in the row's \"?\" popover. Keyed by move id or loadout recipe id (rewind included).",
   "tooltips": {
     "strike": "Hit one enemy. Leaves you open.",

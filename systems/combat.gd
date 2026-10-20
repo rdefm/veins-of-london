@@ -389,7 +389,8 @@ static func start_home_raid_combat(mods: Dictionary = {}) -> void:
 # lines, enemyFirst, forcedHits ({ actor, target, crit?, ko? } by combatant
 # index), lockBelowHp and prompt, post ({ allyPlans: { "<combatant index>":
 # moves }, playerPlan: moves }), resumeCard, plus optional seed,
-# playerLevel and locationKey.
+# playerLevel, locationKey and coach ({ lessons, allowed } by round, R§3.7b
+# Coach marks).
 static func start_scripted_fight(script: Dictionary) -> void:
 	var enemies: Array = []
 	var enemy_plans: Array = []
@@ -421,6 +422,7 @@ static func start_scripted_fight(script: Dictionary) -> void:
 			"post": script["post"].duplicate(true), "resumeCard": int(script["resumeCard"]),
 		},
 		"enemyFirst": bool(script.get("enemyFirst", false)),
+		"coach": script["coach"].duplicate(true) if script.has("coach") else null,
 	}
 	var location_key: String = str(script.get("locationKey", ""))
 	_start_round_combat(CONTEXT_SCRIPTED, null, enemies, script.get("intro", []), "", allies,

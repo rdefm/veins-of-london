@@ -220,7 +220,8 @@ func _sync_fight(cp: Dictionary) -> void:
 	if not _is_target_valid(cp, _target):
 		_target = _default_target(cp)
 	_round_label.text = "%s · Round %d" % [CombatScreen.context_label(cp["context"]), cp["round"]]
-	_refusal_label.text = _refusal if _refusal != "" else CombatRounds.script_prompt(cp)
+	var prompt := CombatRounds.script_prompt(cp)
+	_refusal_label.text = _refusal if _refusal != "" else (prompt if prompt != "" else CombatRounds.coach_lesson(cp))
 
 	# Mid-playback a re-sync would cut the slots' one-shot poses short, and
 	# the strip shows the round as far as the beats have played.
@@ -614,10 +615,10 @@ func _move_row(cp: Dictionary, move_id: String) -> Dictionary:
 	var level := int(cp["combatants"][CombatRounds.PLAYER_INDEX].get("moveLevels", {}).get(move_id, 1))
 	return {
 		"name": "MoveRow_%s" % move_id, "iconKind": icons.get(move_id, ""),
-		"label": move_name, "badge": "L%d" % level if MoveLevels.move_ids().has(move_id) else "",
+		"label": _coach_label(cp, move_id, move_name), "badge": "L%d" % level if MoveLevels.move_ids().has(move_id) else "",
 		"disabled": reason != "", "disabledReason": reason,
 		"callback": _pick.bind(move_id, target),
-		"tooltip": GameData.COMBAT_ROUNDS["tooltips"].get(move_id, ""),
+		"tooltip": _coach_tooltip(cp, move_id, GameData.COMBAT_ROUNDS["tooltips"].get(move_id, "")),
 		"onExplain": _explain_block.bind(move_name, reason),
 	}
 
@@ -641,14 +642,26 @@ func _loadout_rows(cp: Dictionary) -> Array:
 				target = _row_target(cp, unit["recipe"])
 		var is_rewind: bool = unit != null and unit["recipe"] == "rewind"
 		var reason := Combat.round_rewind_block_reason(Combat.REWIND_PAY_LOADOUT) if is_rewind else Combat.round_item_block_reason(slot, target)
+		var recipe_id: String = unit["recipe"] if unit != null else ""
 		rows.append({
-			"name": "ItemRow_%d" % slot, "iconKind": icon, "label": label,
-			"tooltip": GameData.COMBAT_ROUNDS["tooltips"].get(unit["recipe"], "") if unit != null else "",
+			"name": "ItemRow_%d" % slot, "iconKind": icon, "label": _coach_label(cp, recipe_id, label),
+			"tooltip": _coach_tooltip(cp, recipe_id, GameData.COMBAT_ROUNDS["tooltips"].get(recipe_id, "")) if unit != null else "",
 			"disabled": reason != "", "disabledReason": reason,
 			"callback": _on_rewind_pressed.bind(Combat.REWIND_PAY_LOADOUT) if is_rewind else _pick_item.bind(slot, target),
 			"onExplain": _explain_block.bind(label, reason),
 		})
 	return rows
+
+
+# A coach-marked fight's allowed row gets a "▸" lead-in.
+static func _coach_label(cp: Dictionary, id: String, label: String) -> String:
+	return "▸ " + label if CombatRounds.coach_allowed(cp).has(id) else label
+
+
+# A coach-marked fight shows the default hint line in the row's popover.
+static func _coach_tooltip(cp: Dictionary, id: String, default_tip: String) -> String:
+	var hint := CombatRounds.coach_hint(id) if CombatRounds.coach_active(cp) else ""
+	return hint if hint != "" else default_tip
 
 
 # A disabled row's red "!": the block reason in a modal.

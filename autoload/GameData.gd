@@ -1388,7 +1388,10 @@ func _validate_enemy_levels(levels: Dictionary, level_max: int, errors: Array[St
 # is a recipe with an effectPower curve and a known target type and effect;
 # every archetype names a combat_visuals sprite template.
 func _validate_combat_rounds(cp: Dictionary, skill_curve: Array, recipes: Dictionary, templates: Dictionary, errors: Array[String]) -> void:
-	_require_keys(cp, ["chipMultiplier", "actionsPerRound", "critChance", "levelMax", "allyHealBelow", "allyCrowdEnemies", "allyChipStrikeChance", "moveXp", "moveLevelRoll", "moveLevelEffects", "fog","playerBase", "allyBase", "moves", "items", "archetypes", "anger", "statusTurns", "statusBadges", "beatLines", "tooltips"], "combat_rounds", errors)
+	_require_keys(cp, ["chipMultiplier", "actionsPerRound", "critChance", "levelMax", "allyHealBelow", "allyCrowdEnemies", "allyChipStrikeChance", "moveXp", "moveLevelRoll", "moveLevelEffects", "fog","playerBase", "allyBase", "moves", "items", "archetypes", "anger", "statusTurns", "statusBadges", "beatLines", "tooltips", "coach"], "combat_rounds", errors)
+	for hint_id in cp.get("coach", {}).get("hints", {}).keys():
+		if not cp["moves"].has(hint_id) and not cp["items"].has(hint_id) and hint_id != "rewind":
+			errors.append("combat_rounds.coach.hints.%s: not a move or item" % hint_id)
 	for tip_id in cp.get("tooltips", {}).keys():
 		if str(cp["tooltips"][tip_id]).strip_edges() == "":
 			errors.append("combat_rounds.tooltips.%s: must not be empty" % tip_id)
@@ -2273,6 +2276,23 @@ func _validate_choice_card(card: Dictionary, context: String, errors: Array[Stri
 # Shared by on_complete lists and choice-card effects lists. Recurses into
 # "chance" ops' on_success/on_fail sub-lists (M1-LONDON D5) so a bad op
 # buried inside a chance branch doesn't sail through unnoticed.
+# A fight's optional coach block: lessons by round (non-empty lines) and
+# allowed move / item ids by round.
+func _validate_coach(coach: Variant, context: String, errors: Array[String]) -> void:
+	if coach == null:
+		return
+	if not coach is Dictionary:
+		errors.append("%s: must be an object" % context)
+		return
+	for round_key in coach.get("lessons", {}).keys():
+		if str(coach["lessons"][round_key]).strip_edges() == "":
+			errors.append("%s.lessons.%s: must not be empty" % [context, round_key])
+	for round_key in coach.get("allowed", {}).keys():
+		for id in coach["allowed"][round_key]:
+			if not COMBAT_ROUNDS["moves"].has(id) and not COMBAT_ROUNDS["items"].has(id):
+				errors.append("%s.allowed.%s: unknown id '%s'" % [context, round_key, id])
+
+
 func _validate_effect_list(effects: Array, context: String, errors: Array[String]) -> void:
 	for effect in effects:
 		_require_keys(effect, ["op"], context, errors)
@@ -2311,6 +2331,7 @@ func _validate_effect_list(effects: Array, context: String, errors: Array[String
 			_require_keys(effect, ["script"], context, errors)
 			if effect.get("script") is Dictionary:
 				_require_keys(effect["script"], ["enemies", "lockBelowHp", "prompt", "post", "resumeCard"], "%s.script" % context, errors)
+				_validate_coach(effect["script"].get("coach"), "%s.script.coach" % context, errors)
 		if effect["op"] == "resolve_home_raid" and not ["win", "loss"].has(effect.get("outcome")):
 			errors.append("%s: resolve_home_raid outcome must be 'win' or 'loss'" % context)
 

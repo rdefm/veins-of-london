@@ -170,6 +170,9 @@ static func new_state() -> Dictionary:
 		# A scripted fight's data block (SCRIPT_PRE, then SCRIPT_POST after its
 		# Rewind; see script_locked()), null for an ordinary fight.
 		"script": null,
+		# Coach marks (R§3.7b Coach marks): { lessons: { "<round>": line }, allowed:
+		# { "<round>": [move or item ids] } } or null for none.
+		"coach": null,
 	}
 
 
@@ -1119,12 +1122,42 @@ static func _pick_block_reason(cp: Dictionary, action: Dictionary) -> String:
 	if script_locked(cp):
 		return str(cp["script"]["prompt"])
 	var entry = _normalize_action(cp, action)
+	var allowed := coach_allowed(cp)
+	if not allowed.is_empty() and not allowed.has(entry["move"]):
+		return str(GameData.COMBAT_ROUNDS["coach"]["notNow"])
 	var reason := _action_block_reason(cp, entry)
 	if reason != "":
 		return reason
 	if position + move_cost(entry["move"]) > actions_this_round(cp, PLAYER_INDEX):
 		return _span_reason(entry["move"])
 	return ""
+
+
+# ── Coach marks (R§3.7b Coach marks) ─────────────────────────────────────
+
+# The move / item ids this round allows; [] when the fight has no coach or
+# sets no limit for the round.
+static func coach_allowed(cp: Dictionary) -> Array:
+	if not cp.get("coach") is Dictionary or cp["outcome"] != null:
+		return []
+	return cp["coach"].get("allowed", {}).get(str(cp["round"]), [])
+
+
+# This round's lesson line, "" for none.
+static func coach_lesson(cp: Dictionary) -> String:
+	if not cp.get("coach") is Dictionary or cp["outcome"] != null:
+		return ""
+	return str(cp["coach"].get("lessons", {}).get(str(cp["round"]), ""))
+
+
+# Whether the fight shows coach marks at all.
+static func coach_active(cp: Dictionary) -> bool:
+	return cp.get("coach") is Dictionary and cp["outcome"] == null
+
+
+# The default hint line for a move or item id, "" for none.
+static func coach_hint(id: String) -> String:
+	return str(GameData.COMBAT_ROUNDS["coach"]["hints"].get(id, ""))
 
 
 # ── Scripted fights (R§3.7b Scripted fights) ─────────────────────────────
