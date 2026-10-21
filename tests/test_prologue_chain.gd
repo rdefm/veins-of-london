@@ -12,6 +12,12 @@ func _play(event_id: String) -> void:
 			break
 		if Events.is_awaiting_choice():
 			Events.choose(0)
+			if LessonSession.is_open():
+				Lab.add_ore("timePearl", "time")
+				Lab.perform_step("compression", 70.0)
+				Lab.perform_step("heat", 25.0)
+				Lab.finish_run()
+				LessonSession.resume()
 		Events.advance()
 
 

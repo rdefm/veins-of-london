@@ -190,19 +190,23 @@
       "type": "choice",
       "label": "Crafting: Time Pearl",
       "speaker": null,
-      "text": "A measure of time calc, a glass sphere, steady pressure from both palms. James hovers at your shoulder and says \"further apart\" until your thumbs are right.",
+      "text": "James sets a glass sphere in front of you and a measure of his own calc beside it. \"My calc, so you can stop counting it. Press, then heat. Don't leave until it seals.\"",
       "choices": [
         {
           "id": "seal",
-          "label": "Seal it",
+          "label": "Take the press",
           "effects": [
             {
-              "op": "add_item",
-              "item": "timePearl",
-              "qty": 2
+              "op": "start_lesson_session",
+              "recipe": "timePearl",
+              "rank": 2,
+              "lines": {
+                "hintExact": "James: \"Press to seventy on the gauge. Then heat, twenty-five. Nothing clever.\"",
+                "talkThrough": "James: \"Stop. Watch my hands. Every number, once. I'm not doing this twice.\""
+              }
             }
           ],
-          "result_text": "Both spheres seal with a small click. Two pearls, faintly heavier than they should be. James looks at them for slightly longer than necessary. \"Adequate,\" he says, and logs it."
+          "result_text": "The sphere seals around the calc with a small click. A pearl, faintly heavier than it should be. James looks at it for slightly longer than necessary. \"Adequate,\" he says, and logs it."
         }
       ]
     },

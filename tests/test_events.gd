@@ -1920,7 +1920,7 @@ func run() -> void:
 		assert_eq(Messages.pending_for("archie")[0]["kind"], "james_meeting", "buyer: pending entry starts james_meeting")
 
 		# 3. James meeting (SMS thread 1 has no state effects of its own)
-		# First option at every choice: tell James about the jar (+5), craft patiently (1-2 pearls).
+		# First option at every choice: tell James about the jar (+5), bench lesson (1 pearl).
 		var james_relation_before_meeting: int = GameState.state["contacts"]["james"]["relation"]
 		Events.start_event("james_meeting")
 		for step in range(100):
@@ -1928,9 +1928,15 @@ func run() -> void:
 				break
 			if Events.is_awaiting_choice():
 				Events.choose(0)
+				if LessonSession.is_open():
+					Lab.add_ore("timePearl", "time")
+					Lab.perform_step("compression", 70.0)
+					Lab.perform_step("heat", 25.0)
+					Lab.finish_run()
+					LessonSession.resume()
 			Events.advance()
 		var pearls: int = Crafting.inventory_qty("timePearl")
-		assert_eq(pearls, 2, "james_meeting: first craft is guaranteed, 2 timePearl")
+		assert_eq(pearls, 1, "james_meeting: the guided first craft yields a timePearl")
 		assert_true(GameState.state["flags"]["metJames"], "james_meeting: metJames")
 		assert_true(Lab.is_known("timePearl"), "james_meeting: grants timePearl")
 		assert_true(GameState.state["flags"]["craftingUnlocked"], "james_meeting: knowing timePearl completes the crafting checkpoint")

@@ -82,7 +82,15 @@ func _force_win_active_combat() -> void:
 func _play_through_tutorial_and_unlock_prospecting() -> void:
 	for event_id in ["cold_open", "pub", "buyer", "james_meeting", "gym", "archie_sells_pearls"]:
 		Events.start_event(event_id)
-		for i in range(GameData.EVENTS[event_id]["cards"].size()):
+		for i in range(GameData.EVENTS[event_id]["cards"].size() + 2):
+			if Events.is_awaiting_choice():
+				Events.choose(0)
+				if LessonSession.is_open():
+					Lab.add_ore("timePearl", "time")
+					Lab.perform_step("compression", 70.0)
+					Lab.perform_step("heat", 25.0)
+					Lab.finish_run()
+					LessonSession.resume()
 			Events.advance()
 		_assert_invariants("post-%s" % event_id)
 		if event_id == "pub":
