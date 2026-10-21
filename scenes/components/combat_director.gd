@@ -31,7 +31,9 @@ func is_playing() -> bool:
 	return _playing
 
 
-func play(beats: Array, on_beat: Callable) -> void:
+# `speed` divides every beat's hold (rewind_speed() for a Rewind's reverse
+# playback).
+func play(beats: Array, on_beat: Callable, speed: float = 1.0) -> void:
 	if beats.is_empty():
 		return
 	_playing = true
@@ -45,10 +47,10 @@ func play(beats: Array, on_beat: Callable) -> void:
 			var tween := create_tween()
 			_active_tween = tween
 			if beat_is_damaging(beat):
-				tween.tween_interval(HIT_STOP_DURATION)
-			tween.tween_interval(beat_duration)
+				tween.tween_interval(HIT_STOP_DURATION / speed)
+			tween.tween_interval(beat_duration / speed)
 			if is_turn_boundary(beats, i):
-				tween.tween_interval(turn_pause)
+				tween.tween_interval(turn_pause / speed)
 			await tween.finished
 	_active_tween = null
 	_playing = false
@@ -83,6 +85,12 @@ func _apply_pacing(mode: String) -> void:
 static func turn_pause_for(mode: String) -> float:
 	var pauses: Dictionary = GameData.COMBAT_VISUALS.get("pacing", {}).get("turnPause", {})
 	return float(pauses.get(mode, 0.0))
+
+
+# How many times faster than forward pacing a Rewind plays its undone beats
+# back, from data/combat_visuals.json pacing.rewindSpeed.
+static func rewind_speed() -> float:
+	return maxf(1.0, float(GameData.COMBAT_VISUALS.get("pacing", {}).get("rewindSpeed", 1.0)))
 
 
 # True when beat i is the last of its turn and another round beat follows

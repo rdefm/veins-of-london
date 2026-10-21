@@ -68,6 +68,10 @@ var _held_marks: Array = []
 # Set for the length of one playback: the transcript holds the lines it
 # showed before it, gaining or losing one per beat, rather than re-syncing.
 var _transcript_held := false
+# The beats a Rewind's restored opening replayed (a scripted fight's
+# post-Rewind plan) with the fight as it stood before them ("restored"),
+# played forward once the reverse playback ends; {} otherwise.
+var _rewind_replay: Dictionary = {}
 # Set while a demo fight waits to play its next round.
 var _demo_pending := false
 
@@ -468,21 +472,30 @@ func _toggle_readouts() -> void:
 # Undoes the last pick, then plays its beats back in reverse on the stage
 # and strip (the overlay and strip held as they stood until then; each
 # undone action's card slides back in at the strip's front as the end card
-# leaves) before the restored pick shows. `pay` as Combat.round_rewind()
-# takes it.
+# leaves) before the restored pick shows, quicker than forward pacing; a
+# restored opening's replay then plays forward. `pay` as
+# Combat.round_rewind() takes it.
 func _on_rewind_pressed(pay: String = Combat.REWIND_PAY_ANY) -> void:
 	if _busy():
 		return
 	_refusal = ""
 	var beats := begin_rewind_playback(pay)
 	if not beats.is_empty() and is_inside_tree():
-		await _director.play(beats, _on_rewind_beat_played)
-	_end_playback()
+		_hold_fallen(beats)
+		await _director.play(beats, _on_rewind_beat_played, CombatDirector.rewind_speed())
+	var replay := _rewind_replay
+	_rewind_replay = {}
+	if replay.is_empty():
+		_end_playback()
+	else:
+		await _play_from(replay["restored"], replay["beats"])
 
 
 # Undoes the last pick with the overlay and strip held, arming the strip to
 # step back through it; the undone beats as rewind_beats() orders them, []
-# when there's nothing to undo.
+# when there's nothing to undo. A Rewind that restores the opening and
+# replays it steps back to the fight before the replay, its stage held there,
+# and leaves the replay in _rewind_replay.
 func begin_rewind_playback(pay: String = Combat.REWIND_PAY_ANY) -> Array:
 	var cp: Dictionary = _cp()
 	var log_before: Array = cp["log"]
@@ -498,10 +511,34 @@ func begin_rewind_playback(pay: String = Combat.REWIND_PAY_ANY) -> Array:
 		_refusal = str(result["reason"])
 		return []
 	cp = _cp()
-	_strip_playback["after"] = strip_entries(cp)
+	var log_kept: int = int(result["logKept"])
+	var restored: Dictionary = result.get("restored", cp)
+	var replay: Array = cp["log"].slice(log_kept)
+	_rewind_replay = {}
+	if replay.size() <= log_before.size() - log_kept and replay == log_before.slice(log_kept, log_kept + replay.size()):
+		# The replay repeats the undone beats it starts with: those stand.
+		log_kept += replay.size()
+		restored = cp
+	elif not replay.is_empty():
+		_rewind_replay = { "restored": restored, "beats": replay }
+		_frozen_roster = _roster_view(restored)
+		_refresh()
+	_strip_playback["after"] = strip_entries(restored)
 	for entry in _strip_playback["after"]:
 		entry["focused"] = false
-	return rewind_beats(log_before.slice(cp["log"].size()), CombatRounds.stage_marks(cp))
+	return rewind_beats(log_before.slice(log_kept), CombatRounds.stage_marks(restored))
+
+
+# Lays each combatant a rewound KO in `beats` stands back up from in its
+# fallen pose until that beat plays.
+func _hold_fallen(beats: Array) -> void:
+	var roster := stage_roster(_cp(), -1)
+	for beat in beats:
+		if beat["kind"] != "ko":
+			continue
+		var slot := _stage.resolve_target_slot(_stage_target(roster, int(beat["target"])))
+		if slot != null:
+			slot.hold_fallen()
 
 
 # `undone` (the undone pick's beats, oldest first) newest first, each a copy
@@ -846,14 +883,19 @@ func _resolve(choose: Callable, pick: Dictionary) -> void:
 # Holds the stage roster, overlay marks and transcript as `fight` (a fight
 # dict) shows them, for a playback to step from.
 func _hold_view(fight: Dictionary) -> void:
+	_frozen_roster = _roster_view(fight)
+	_held_marks = CombatRounds.stage_marks(fight)
+	_transcript_held = true
+
+
+# The stage roster `fight` (a fight dict) shows, as _frozen_roster holds it.
+func _roster_view(fight: Dictionary) -> Dictionary:
 	var roster := stage_roster(fight, _target)
-	_frozen_roster = {
+	return {
 		"enemies": roster["combat"]["enemies"], "allies": roster["combat"]["allies"],
 		"enemyQueue": roster["combat"]["enemyQueue"], "allyQueue": roster["combat"]["allyQueue"],
 		"playerKoed": roster["player"]["koed"],
 	}
-	_held_marks = CombatRounds.stage_marks(fight)
-	_transcript_held = true
 
 
 # A fight that opens with beats ahead of the player's first pick
@@ -866,10 +908,15 @@ func _play_opening() -> void:
 	var beats := CombatRounds.opening_beats(cp)
 	if beats.is_empty():
 		return
-	var before: Dictionary = cp["roundFrames"][0]
+	await _play_from(cp["roundFrames"][0], beats)
+
+
+# Plays `beats` as a pick's, from `before` (the fight as it stood before
+# them).
+func _play_from(before: Dictionary, beats: Array) -> void:
 	_hold_view(before)
 	_transcript.set_lines(before["transcript"])
-	begin_strip_playback(strip_entries(before), 1, beats)
+	begin_strip_playback(strip_entries(before), int(before["round"]), beats)
 	_refresh()
 	await _play_beats(beats)
 
@@ -1121,7 +1168,7 @@ func _play_cue(cp: Dictionary, cue: Dictionary, rewinding: bool) -> void:
 			slot.flash_shield_crack()
 		"ko":
 			if rewinding:
-				slot.clear_pose()
+				slot.play_get_up()
 			else:
 				slot.play_ko()
 		"damage":

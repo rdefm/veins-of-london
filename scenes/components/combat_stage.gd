@@ -313,15 +313,30 @@ class StageSlot extends Control:
 		]
 		_start_one_shot(steps, _hit_fps, false)
 	func play_ko() -> void:
-		if _ko_keyposes.is_empty():
+		_start_one_shot(_ko_fall_steps(), _ko_fps, true)
+	# A KO played backwards: up from the fall, back to idle.
+	func play_get_up() -> void:
+		var steps := _ko_fall_steps()
+		steps.reverse()
+		_start_one_shot(steps, _ko_fps, false)
+	# Holds the KO's fallen pose at once, for a Rewind to get up from.
+	func hold_fallen() -> void:
+		var steps := _ko_fall_steps()
+		if steps.is_empty():
 			return
+		var held: Array[PoseStep] = [steps[-1], steps[-1]]
+		_start_one_shot(held, _ko_fps, true)
+	# The KO's keyposes: standing, then fallen (sunk, tipped, faded); [] with
+	# no KO sheet.
+	func _ko_fall_steps() -> Array[PoseStep]:
+		if _ko_keyposes.is_empty():
+			return []
 		var pose1: Texture2D = _ko_keyposes[0]
 		var pose2: Texture2D = _ko_keyposes[mini(1, _ko_keyposes.size() - 1)]
-		var steps: Array[PoseStep] = [
+		return [
 			PoseStep.new(pose1, Vector2.ZERO),
 			PoseStep.new(pose2, Vector2(0.0, CombatStage.FALL_SINK_PX), CombatStage.FALL_ROTATION_DEG, CombatStage.FALL_ALPHA),
 		]
-		_start_one_shot(steps, _ko_fps, true)
 	# Dial cast: hold the cast pose with a slight rise.
 	func play_cast() -> void:
 		if _cast_keyposes.is_empty():
@@ -375,9 +390,6 @@ class StageSlot extends Control:
 		_sprite_rect.scale = Vector2.ONE
 		_sprite_rect.modulate.a = 1.0
 		_sprite_rect.visible = not _idle_frames.is_empty()
-	# Drops a held pose (a KO's fall) back to idle.
-	func clear_pose() -> void:
-		_end_one_shot()
 	func play_wormhole_vanish() -> void:
 		if not is_inside_tree():
 			return

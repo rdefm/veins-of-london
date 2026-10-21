@@ -2372,7 +2372,9 @@ static func prune_round_frames(cp: Dictionary) -> void:
 # opening frame outright when `to_start`. The per-pick snapshots go (they
 # lie ahead of the restored position); a restore to the opening frame
 # resolves round 1 on to the player's first position again. Returns { ok,
-# replayed }.
+# replayed, logKept: the log entries the restored frame holds, any past them
+# that replay's, restored: with replayed, a copy of the fight as it stood
+# before the replay }.
 static func rewind_rounds(cp: Dictionary, depth: int, to_start: bool) -> Dictionary:
 	var frames: Array = cp.get("roundFrames", [])
 	if frames.is_empty():
@@ -2389,13 +2391,18 @@ static func rewind_rounds(cp: Dictionary, depth: int, to_start: bool) -> Diction
 	cp["roundFrames"] = frames.slice(0, index + 1)
 	if scripted_start:
 		_begin_script_post(cp)
-	var replayed: bool = cp.has("atOpen")
-	if replayed:
+	var result := { "ok": true, "replayed": cp.has("atOpen"), "logKept": cp["log"].size() }
+	if result["replayed"]:
 		cp.erase("atOpen")
+		var restored := {}
+		for key in cp.keys():
+			if key != "snapshots" and key != "roundFrames":
+				restored[key] = cp[key]
+		result["restored"] = GameState.deep_copy(restored)
 		var rng := RandomNumberGenerator.new()
 		rng.state = cp["rngState"]
 		var beats: Array = []
 		_advance(cp, rng, beats)
 		_record(cp, beats)
 		cp["rngState"] = rng.state
-	return { "ok": true, "replayed": replayed }
+	return result

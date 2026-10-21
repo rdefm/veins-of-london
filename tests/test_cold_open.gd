@@ -50,6 +50,35 @@ func run() -> void:
 		assert_eq(CombatRounds.opening_beats(combat), [], "a pick ends the opening")
 	)
 
+	run_case("cold_open_rewind_plays_back_through_archies_ko_then_the_post_plan", func():
+		_reach_fight()
+		var combat: Dictionary = GameState.state["combat"]
+		for step in range(8):
+			if CombatRounds.script_locked(combat):
+				break
+			Combat.choose_move("strike", 2)
+		var host := CombatScreen.new()
+		host._ready()
+		var screen: CombatRoundsScreen = host._round_screen
+		screen._ready()
+		var log_before: Array = combat["log"].duplicate()
+		var undone := screen.begin_rewind_playback()
+		assert_eq(undone.size(), log_before.size(), "every beat back to the opening")
+		assert_eq(undone[0]["text"], log_before[-1]["text"], "newest first")
+		var ko: int = undone.find_custom(func(b): return b["kind"] == "ko" and int(b["target"]) == 1)
+		assert_true(ko >= 0, "Archie's KO plays back")
+		assert_true(not screen._rewind_replay.is_empty() and not screen._rewind_replay["beats"].is_empty(), "the post-Rewind plan is left to play forward")
+		assert_true(not screen._rewind_replay["restored"]["combatants"][1]["koed"], "it plays from Archie standing")
+		screen._end_playback()
+		host.free()
+	)
+
+	run_case("rewind_playback_is_quicker_than_forward_pacing", func():
+		var speed: float = GameData.COMBAT_VISUALS["pacing"]["rewindSpeed"]
+		assert_eq(CombatDirector.rewind_speed(), speed, "from data")
+		assert_true(speed > 1.0, "faster than forward")
+	)
+
 	run_case("cold_open_plays_fight_lock_rewind_and_hands_off_to_the_pub", func():
 		_reach_fight()
 		var combat: Dictionary = GameState.state["combat"]
