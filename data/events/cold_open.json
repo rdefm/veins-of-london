@@ -148,7 +148,7 @@
                 "enemies": [
                   {
                     "name": "Nick",
-                    "hpMax": 500,
+                    "hpMax": 120,
                     "attackMin": 9,
                     "attackMax": 11,
                     "level": 1,
