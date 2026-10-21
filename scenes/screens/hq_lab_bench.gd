@@ -337,12 +337,15 @@ func _build_book() -> Control:
 	MapCardStyle.style_panel(panel, 12, 0.0)
 	var row := UI.hbox(6)
 	panel.add_child(row)
-	var counter := UI.label("Page %d/%d" % [_book_page + 1, pages])
+	# A page button shows only when there's a page in its direction.
+	var counter := UI.label("Page %d/%d" % [_book_page + 1, pages] if pages > 1 else "")
 	counter.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	counter.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	row.add_child(MapCardStyle.text_button("‹ Prev", func(): _turn_page(-1), _book_page <= 0))
+	if _book_page > 0:
+		row.add_child(MapCardStyle.text_button("‹ Prev", func(): _turn_page(-1)))
 	row.add_child(counter)
-	row.add_child(MapCardStyle.text_button("Next ›", func(): _turn_page(1), _book_page >= pages - 1))
+	if _book_page < pages - 1:
+		row.add_child(MapCardStyle.text_button("Next ›", func(): _turn_page(1)))
 	row.add_child(MapCardStyle.text_button("Close", func(): _show(Page.NONE)))
 	column.add_child(panel)
 	return column

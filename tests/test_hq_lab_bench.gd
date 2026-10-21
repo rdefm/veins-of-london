@@ -174,6 +174,63 @@ func run() -> void:
 		screen.free()
 	)
 
+	run_case("hq_lab_bench_recipe_book_pages_through_an_ore_tab", func():
+		GameState.reset()
+		for recipe_key in GameData.RECIPES.keys():
+			Lab.grant_recipe(recipe_key)
+		var ore := ""
+		for candidate in HqLabBenchScreen.ORE_ORDER:
+			if Lab.known_recipes(candidate).size() > HqLabBenchScreen.PER_PAGE:
+				ore = candidate
+				break
+		assert_true(ore != "", "some ore tab needs more recipes than fit on one page")
+		var known := Lab.known_recipes(ore)
+		var screen := HqLabBenchScreen.new()
+		screen._ready()
+		screen._open_tab(ore)
+
+		assert_true(NodeQuery.find_button(screen, "Next ›") != null, "an overfull tab offers a next page")
+		assert_true(NodeQuery.find_button(screen, "‹ Prev") == null, "page 1 has no previous page")
+		var beyond: String = GameData.RECIPES[known[HqLabBenchScreen.PER_PAGE]]["name"]
+		assert_true(not NodeQuery.label_texts(screen).has(beyond), "page 1 holds only PER_PAGE recipes")
+
+		NodeQuery.find_button(screen, "Next ›").pressed.emit()
+		assert_true(NodeQuery.label_texts(screen).has(beyond), "the next page reveals recipes beyond page 1")
+		assert_true(NodeQuery.find_button(screen, "‹ Prev") != null, "a later page offers the previous page")
+
+		screen._open_tab(ore)
+		assert_eq(screen._book_page, 0, "switching ore tab resets to page 1")
+
+		screen.free()
+	)
+
+	run_case("hq_lab_bench_recipe_book_fitting_one_page_has_no_page_buttons", func():
+		GameState.reset()
+		var screen := HqLabBenchScreen.new()
+		screen._ready()
+		UiSim.tap_zone(screen, "notebookRecipes")
+
+		assert_true(NodeQuery.find_button(screen, "Next ›") == null, "no next page")
+		assert_true(NodeQuery.find_button(screen, "‹ Prev") == null, "no previous page")
+
+		screen.free()
+	)
+
+	run_case("hq_lab_bench_recipe_book_close_restores_the_bench_view", func():
+		GameState.reset()
+		var screen := HqLabBenchScreen.new()
+		screen._ready()
+		UiSim.tap_zone(screen, "notebookRecipes")
+		assert_eq(screen._page, HqLabBenchScreen.Page.BOOK)
+
+		NodeQuery.find_button(screen, "Close").pressed.emit()
+		assert_eq(screen._page, HqLabBenchScreen.Page.NONE, "Close returns to the default bench view")
+		assert_true(NodeQuery.find_button(screen, "Close") == null, "the book is gone")
+		assert_true(NodeQuery.find_button(screen, "‹ Back") != null, "the bench's own Back is showing again")
+
+		screen.free()
+	)
+
 	run_case("hq_lab_bench_all_four_apparatus_regions_exist_on_a_fresh_save", func():
 		GameState.reset()
 		var screen := HqLabBenchScreen.new()
