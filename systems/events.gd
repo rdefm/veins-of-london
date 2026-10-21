@@ -997,14 +997,11 @@ static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 
 # Adds when both the existing and incoming values are numeric (e.g. player.cash),
 # otherwise assigns outright (e.g. contacts.james.unlocked).
-# world.archieChatUnlockDay starts null, so "add" there means "today + value".
 static func _apply_add(path: String, value: Variant) -> void:
 	var current: Variant = GameState.read_path(path)
 	var new_value: Variant
 	if _is_number(current) and _is_number(value):
 		new_value = current + value
-	elif current == null and path == "world.archieChatUnlockDay":
-		new_value = GameState.state["world"]["day"] + value
 	else:
 		new_value = value
 	_set_path(path, new_value)

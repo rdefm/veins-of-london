@@ -115,7 +115,7 @@ Data file per system: see `data/*.json` below.
 | stash.gd | Personal stash vs. shared pools |
 | station_bubble.gd | Site/vein-stop tap-bubble decision |
 | calendar.gd | Pure `world.day` → calendar date (`MON 3 JAN`, `Y2`+ suffix) per R§3.1 "Calendar"; day 1's weekday from `calendar.startWeekday`; every player-facing date string uses `Calendar.format_day`; `widget_date` for the phone widget/Today card; weekday/Monday helpers for the weekly cadence |
-| time_system.gd | Time blocks (each runs the staff block step + LodedInnit post), forward-only `advance_to_block()` for event `at` timing (R§3.9b), `blocks_left()`, rest, daily tick (Monday-only tenure-aware weekly home bill (full pay sets `rentPaid`), weekly arrears clock + interest, forced one-tier downgrade per ADR 0006) |
+| time_system.gd | Time blocks (each runs the staff block step + LodedInnit post), forward-only `advance_to_block()` for event `at` timing (R§3.9b), `blocks_left()`, rest, daily tick (Monday-only tenure-aware weekly home bill (full pay sets `rentPaid`), weekly arrears clock + interest, forced one-tier downgrade per ADR 0006), Prologue day triggers (buyer text, ending) |
 | todo.gd | ToDo-app sections per questline (Tutorial, Collective, Business Empire) with active/done/placeholder status + default expansion, "n of N" detail for count objectives, all_of checklist sub-items, `current_objective()` (first undone item, shared with the Story row); Collective section carries the ledger read from state.world.sites |
 | travel.gd | District travel (free) |
 | vein_list.gd | Vein-portfolio list decision layer |
@@ -311,6 +311,8 @@ Auto-discovered by `GameData.gd` into `EVENTS` — every `*.json` file under the
 loaded, keyed by filename; no id-list const to keep in sync. Each is the cards/on_complete schema
 `systems/events.gd` runs — directly triggered story beats vs. weighted district-deck entries
 (`systems/district_deck.gd`, a `deck` sub-object).
+
+The Prologue chain is `cold_open` → `pub` → `buyer` → `james_meeting` → `gym` → `archie_sells_pearls` → `home_raid_intro` + debriefs → `archie_cultivation` → `prologue_ending`, linked by `start_event` / queued Archie texts; its ToDo objectives are `pro_*` in `data/objectives.json`. `gym`, `archie_sells_pearls` and `prologue_ending` are one-card placeholders.
 
 `data/events/_to_be_coded/col_hakim_intel_*.json` holds five unregistered Hakim intel
 prose variants generated with the quest editor builder. Implementation briefs are in

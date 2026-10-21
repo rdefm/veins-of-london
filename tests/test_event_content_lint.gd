@@ -10,7 +10,7 @@ extends "res://tests/test_base.gd"
 # The opening chain (spec "opening-choices"); its content tickets rewrite
 # these events and shrink KNOWN_OPENING as they go.
 const OPENING_EVENTS := [
-	"intro", "buyer", "james_meeting", "archie_craft_chat", "archie_cultivation",
+	"cold_open", "pub", "buyer", "james_meeting", "gym", "archie_sells_pearls", "archie_cultivation", "prologue_ending",
 	"home_raid_intro", "home_raid_debrief_win", "home_raid_debrief_loss",
 ]
 

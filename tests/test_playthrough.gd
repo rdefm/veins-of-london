@@ -80,17 +80,17 @@ func _force_win_active_combat() -> void:
 # driving it card-by-card here is the same idiom every other tutorial event
 # in this file already uses.
 func _play_through_tutorial_and_unlock_prospecting() -> void:
-	for event_id in ["intro", "buyer", "james_meeting", "archie_craft_chat"]:
+	for event_id in ["cold_open", "pub", "buyer", "james_meeting", "gym", "archie_sells_pearls"]:
 		Events.start_event(event_id)
 		for i in range(GameData.EVENTS[event_id]["cards"].size()):
 			Events.advance()
 		_assert_invariants("post-%s" % event_id)
-		if event_id == "intro":
-			TimeSystem.do_rest()  # the intro runs in the Evening; real play rests to the next morning
+		if event_id == "pub":
+			TimeSystem.do_rest()  # the cold open runs in the Evening; real play rests to the next morning
 		# 83-contacts-archie-james-sms-port: buyer.json/james_meeting.json's
 		# on_complete each queue the next beat as a real pendingMessages
 		# entry for archie (ARCHIE_SMS_1's Continue, then the
-		# archie_craft_chat trigger) -- real play resolves it via the card's
+		# gym trigger) -- real play resolves it via the card's
 		# own Continue tap before the next event starts; mirror that here so
 		# it doesn't sit unresolved and shadow archie_cultivation's own S1
 		# entry below.
@@ -106,7 +106,7 @@ func _play_through_tutorial_and_unlock_prospecting() -> void:
 	for i in range(GameData.EVENTS["home_raid_debrief_win"]["cards"].size()):
 		Events.advance()
 	_assert_invariants("post-home-raid")
-	assert_eq(GameState.state["flags"]["tutorialStage"], "free", "tutorial should be complete")
+	assert_true(GameState.state["flags"]["homeRaidEventSeen"], "the raid debrief should have played")
 	assert_true(GameState.state["flags"]["archiePartnerSeen"], "home-raid debrief should have set archiePartnerSeen")
 
 	Events.start_event("archie_cultivation")
@@ -114,6 +114,11 @@ func _play_through_tutorial_and_unlock_prospecting() -> void:
 		Events.advance()
 	assert_true(GameState.state["flags"]["cultivationTutorialSeen"], "archie_cultivation should unlock prospecting (D7 gating)")
 	_assert_invariants("post-archie-cultivation")
+
+	Events.start_event("prologue_ending")
+	for i in range(GameData.EVENTS["prologue_ending"]["cards"].size()):
+		Events.advance()
+	_assert_invariants("post-prologue-ending")
 
 
 # Drives whatever event is currently active (e.g. one fired by
@@ -158,9 +163,9 @@ func _play_collective_act1_through_all_three_threads() -> void:
 	GameState.reset()
 	_play_through_tutorial_and_unlock_prospecting()
 
-	# ── S1: col_a1_intro, delivered via archie_cultivation's own pendingMessages entry ──
+	# ── S1: col_a1_intro, delivered via prologue_ending's own pendingMessages entry ──
 	var s1_pending: Array = Messages.pending_for("archie")
-	assert_eq(s1_pending.size(), 1, "archie_cultivation should have queued exactly one pending entry")
+	assert_eq(s1_pending.size(), 1, "prologue_ending should have queued exactly one pending entry")
 	assert_eq(s1_pending[0]["kind"], "col_a1_intro")
 	Messages.resolve_pending(s1_pending[0]["id"])
 	Events.start_event("col_a1_intro")

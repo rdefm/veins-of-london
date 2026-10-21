@@ -11,7 +11,7 @@ extends RefCounted
 # clause meaningless.
 
 const QUESTLINE_FLAG_PREFIX := "colA"
-const COLLECTIVE_INTRO_SOURCE_EVENT := "archie_cultivation"
+const COLLECTIVE_INTRO_SOURCE_EVENT := "prologue_ending"
 const COLLECTIVE_INTRO_EVENT := "col_a1_intro"
 
 
@@ -118,6 +118,7 @@ static func apply(model: String = "") -> void:
 	flags["consSoldCount"] = 5
 	flags["homeRaidEventSeen"] = false  # see the comment at the top of this file
 	flags["homeRaidEventPending"] = true
+	flags["rentGoal"] = false  # the Prologue's rent goal row is off after the ending
 	_queue_collective_intro()
 
 	var home: Dictionary = state["home"]
@@ -147,7 +148,7 @@ static func apply(model: String = "") -> void:
 
 
 # The flag loop marks the cultivating tutorial seen, so archie_cultivation
-# never plays and never queues col_a1_intro's Archie text. Replays just that
+# never plays and the ending never queues col_a1_intro's Archie text. Replays just that
 # queue_pending_message op from the event's own data so the collective
 # questline's first beat arrives the normal way.
 static func _queue_collective_intro() -> void:

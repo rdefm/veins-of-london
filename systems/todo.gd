@@ -18,7 +18,7 @@ const MAX_ITEMS_PER_SECTION := 4
 # listed as a placeholder showing that text until its first objective
 # activates; one without is omitted until then.
 const QUESTLINES := {
-	"tutorial": { "label": "Tutorial", "doneFlag": "cultivationTutorialSeen" },
+	"tutorial": { "label": "Tutorial", "doneFlag": "prologueDone" },
 	"collective": { "label": "Collective", "doneFlag": "colA1Complete" },
 	"business_empire": { "label": "Business Empire", "doneFlag": "bizA1Complete", "emptyText": "Nothing on the books yet." },
 }

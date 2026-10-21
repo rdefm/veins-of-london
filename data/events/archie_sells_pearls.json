@@ -1,0 +1,14 @@
+{
+  "id": "archie_sells_pearls",
+  "on_complete": [
+    { "op": "set_flag", "flag": "archieSoldPearls", "value": true },
+    { "op": "set_flag", "flag": "canSellConsumables", "value": true },
+    { "op": "relation", "contact": "archie", "value": 5 },
+    { "op": "add_ore", "type": "time", "qty": 20 },
+    { "op": "set_flag", "flag": "homeRaidEventPending", "value": true },
+    { "op": "set_screen", "screen": "phone" }
+  ],
+  "cards": [
+    { "type": "narration", "label": null, "speaker": null, "text": "Archie sells your pearls and keeps a couple back for you. \"Just in case.\"" }
+  ]
+}

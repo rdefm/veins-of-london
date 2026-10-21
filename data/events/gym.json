@@ -1,0 +1,11 @@
+{
+  "id": "gym",
+  "on_complete": [
+    { "op": "set_flag", "flag": "gymUnlocked", "value": true },
+    { "op": "queue_pending_message", "contact": "archie", "kind": "archie_sells_pearls", "text": "Pearls are sorted. Come by when you're free." },
+    { "op": "set_screen", "screen": "phone" }
+  ],
+  "cards": [
+    { "type": "narration", "label": "Reverse", "speaker": null, "text": "Archie walks you into a gym under a railway arch. \"Just in case,\" he says. The gym is open to you now." }
+  ]
+}

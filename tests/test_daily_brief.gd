@@ -277,7 +277,7 @@ func run() -> void:
 		assert_eq(DailyBrief.badge_count(), 0, "routine rows don't badge")
 		GameState.state["home"]["pendingRaid"] = true
 		assert_eq(DailyBrief.badge_count(), 1)
-		GameState.state["objectives"]["tut_meet_archie"]["active"] = true
+		GameState.state["objectives"]["pro_pub"]["active"] = true
 		assert_eq(DailyBrief.badge_count(), 2, "the Story row badges too")
 	)
 
@@ -300,18 +300,20 @@ func run() -> void:
 		assert_eq(rows.size(), 1)
 		var item := Todo.current_objective()
 		assert_eq(rows[0]["label"], Todo.item_text(item))
-		assert_eq(rows[0]["label"], "Get back to Archie. He's sorting the new buyer.")
-		assert_eq([rows[0]["tier"], rows[0]["key"]], ["story", "story:tut_meet_archie"])
+		assert_eq(rows[0]["label"], "Get out of Mile End in one piece.")
+		assert_eq([rows[0]["tier"], rows[0]["key"]], ["story", "story:pro_cold_open"])
 		assert_eq(DailyBrief.summary()["counts"]["story"], 1)
 	)
 
 	run_case("story_row_action_comes_from_the_objective_data_with_todo_fallback", func():
 		GameState.reset()
+		_quiet_story()
+		GameState.state["objectives"]["pro_gym"]["active"] = true
 		var row: Dictionary = _kind("story")[0]
 		assert_eq([row["action"], row["actionLabel"]], [{ "to": "thread", "contactId": "archie" }, "Read message"])
 		# An objective with no briefAction falls back to ToDo.
 		_quiet_story()
-		GameState.state["objectives"]["tut_home_raid"]["active"] = true
+		GameState.state["objectives"]["pro_flat_raid"]["active"] = true
 		row = _kind("story")[0]
 		assert_eq([row["action"], row["actionLabel"]], [{ "to": "todo" }, "Open ToDo"])
 		_quiet_story()
@@ -322,7 +324,7 @@ func run() -> void:
 	run_case("waiting_tutorial_objective_points_at_rest_until_the_text_arrives", func():
 		GameState.reset()
 		_quiet_story()
-		GameState.state["objectives"]["tut_buyer_event"]["active"] = true
+		GameState.state["objectives"]["pro_first_sale"]["active"] = true
 		GameState.state["world"]["day"] = 1
 		var row: Dictionary = _kind("story")[0]
 		assert_eq([row["action"], row["actionLabel"]], [{ "to": "rest" }, "Go to HQ"])
@@ -342,8 +344,8 @@ func run() -> void:
 		assert_true(Todo.current_objective().is_empty())
 		assert_eq(_kind("story").size(), 0)
 		# A finished objective is not pressing either.
-		GameState.state["objectives"]["tut_meet_archie"]["active"] = true
-		GameState.state["objectives"]["tut_meet_archie"]["complete"] = true
+		GameState.state["objectives"]["pro_pub"]["active"] = true
+		GameState.state["objectives"]["pro_pub"]["complete"] = true
 		assert_true(Todo.current_objective().is_empty())
 		assert_eq(_kind("story").size(), 0)
 	)

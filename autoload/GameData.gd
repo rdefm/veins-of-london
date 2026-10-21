@@ -2168,6 +2168,8 @@ const VALID_EFFECT_OPS: Array[String] = [
 	# vein() (site id from effect/context, "effect" claim_bonus|security_freeze)
 	# and NetworkHandler.reveal_site() ("oreType", "minTier").
 	"network_reveal_vulnerable_vein", "network_reveal_site",
+	# post_story: Ticker story article + timed ore demand rise (market.json storyRises).
+	"post_story",
 ]
 
 

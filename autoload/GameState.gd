@@ -180,7 +180,6 @@ func new_game_state() -> Dictionary:
 			"day": 1, "timeBlock": 0, "timeBlocksDone": [],
 			# Per-game seed for event checks' deterministic rolls (Events.check_roll()).
 			"rollSeed": Rng.fresh_seed(),
-			"archieChatUnlockDay": null,
 			"currentDistrict": "shoreditch",
 			"sites": [],
 			"recentEvents": [],  # D5: [{id, day}] — district-deck no-repeat-within-5-days tracking
@@ -315,7 +314,10 @@ func new_game_state() -> Dictionary:
 		"flags": {
 			"tutorialStage": "intro",
 			"metArchie": false, "metJames": false, "buyerEventSeen": false,
-			"craftingUnlocked": false, "archieCraftChatSeen": false,
+			"craftingUnlocked": false,
+			# Prologue chain (data/objectives.json pro_*): the cold open's end, Archie's
+			# pearl sale, and the guard so the ending is queued once rent is paid.
+			"coldOpenSeen": false, "archieSoldPearls": false, "prologueEndingQueued": false, "prologueDone": false,
 			"canSellConsumables": false, "consSoldCount": 0,
 			"archieMotionPending": false, "archieMotionEventSeen": false,
 			# Idempotency guard: archie_2 SMS queues exactly once, not on

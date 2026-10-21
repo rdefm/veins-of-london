@@ -43,7 +43,7 @@ func run() -> void:
 		assert_eq(flags["homeRaidEventPending"], true, "homeRaidEventPending true")
 		assert_eq(flags["homeRaidEventSeen"], false, "homeRaidEventSeen must stay false or the pending flag can never trigger anything")
 		for key in flags.keys():
-			if key in ["tutorialStage", "consSoldCount", "homeRaidEventSeen"]:
+			if key in ["tutorialStage", "consSoldCount", "homeRaidEventSeen", "rentGoal"]:
 				continue
 			if String(key).begins_with("colA"):
 				assert_true(flags[key] == false, "questline flag '%s' should stay not-started under debug start" % key)

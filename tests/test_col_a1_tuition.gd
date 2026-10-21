@@ -29,16 +29,16 @@ func _play_chain_from(event_id: String) -> Array:
 
 
 func run() -> void:
-	# ── S1 delivery: archie_cultivation queues the real pendingMessages road ──
+	# ── S1 delivery: prologue_ending queues the real pendingMessages road ──
 
-	run_case("archie_cultivation_queues_a_pending_message_for_archie_carrying_col_a1_intro", func():
+	run_case("prologue_ending_queues_a_pending_message_for_archie_carrying_col_a1_intro", func():
 		GameState.reset()
 		GameState.state["flags"]["archiePartnerSeen"] = true
 
-		EventPlay.play_event("archie_cultivation")
+		EventPlay.play_event("prologue_ending")
 
 		var pending := Messages.pending_for("archie")
-		assert_eq(pending.size(), 1, "archie_cultivation should queue exactly one pending entry for archie")
+		assert_eq(pending.size(), 1, "prologue_ending should queue exactly one pending entry for archie")
 		assert_eq(pending[0]["kind"], "col_a1_intro", "the pending entry's kind is the event it should start")
 		assert_true(Messages.has_any_unread(), "queuing appends an unread text -- the Messages tile should badge (spec §5.3)")
 
@@ -49,7 +49,7 @@ func run() -> void:
 	run_case("archie_card_surfaces_the_pending_S1_button_and_pressing_it_resolves_and_starts_col_a1_intro", func():
 		GameState.reset()
 		GameState.state["flags"]["archiePartnerSeen"] = true
-		EventPlay.play_event("archie_cultivation")
+		EventPlay.play_event("prologue_ending")
 
 		var card := ContactCards.build_archie_card()
 		# 83-contacts-archie-james-sms-port: Archie's card now surfaces every
@@ -65,7 +65,7 @@ func run() -> void:
 		assert_eq(Messages.pending_for("archie").size(), 0, "the pending entry should be resolved once its action is taken")
 	)
 
-	run_case("archie_card_shows_no_pending_button_before_archie_cultivation_fires", func():
+	run_case("archie_card_shows_no_pending_button_before_prologue_ending_fires", func():
 		GameState.reset()
 		var card := ContactCards.build_archie_card()
 		assert_true(NodeQuery.find_button(card, "Continue →") == null, "no pending entry yet -- no button")

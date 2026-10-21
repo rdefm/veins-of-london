@@ -963,6 +963,9 @@ func _restore_int_types(state: Dictionary) -> void:
 		for by_type in market.get(side, {}).values():
 			for by_source in by_type.values():
 				_int_dict_values(by_source)
+	for rise in market.get("storyRises", []):
+		_int_key(rise, "startDay")
+		_int_key(rise, "endDay")
 	for note in market.get("annotations", []):
 		_int_key(note, "day")
 		_int_key(note, "value")
@@ -1096,7 +1099,6 @@ func _restore_int_types(state: Dictionary) -> void:
 		var world: Dictionary = state["world"]
 		_int_key(world, "day")
 		_int_key(world, "timeBlock")
-		_int_key(world, "archieChatUnlockDay")
 		_int_key(world, "rollSeed")
 		_int_array_values(world.get("timeBlocksDone", []))
 		for site in world.get("sites", []):
@@ -1290,6 +1292,8 @@ func _restore_int_types(state: Dictionary) -> void:
 				_int_key(entry, "pull")
 		for entry in barometer.get("headlines", []):
 			_int_key(entry, "day")
+			if entry.get("details") is Dictionary:
+				_int_key(entry["details"], "endDay")
 		for entry in barometer.get("pushes", []):
 			_int_key(entry, "strength")
 

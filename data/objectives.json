@@ -1,82 +1,101 @@
 {
-  "tut_meet_archie": {
-    "id": "tut_meet_archie",
-    "briefAction": { "to": "thread", "contactId": "archie" },
-    "title": "Get back to Archie. He's sorting the new buyer.",
+  "pro_cold_open": {
+    "id": "pro_cold_open",
+    "title": "Get out of Mile End in one piece.",
     "detail": "",
     "type": "flag_true",
     "params": {},
     "activateFlag": null,
+    "completeFlag": "coldOpenSeen",
+    "questline": "tutorial"
+  },
+  "pro_pub": {
+    "id": "pro_pub",
+    "title": "Ask Archie what that stuff was.",
+    "detail": "",
+    "type": "flag_true",
+    "params": {},
+    "activateFlag": "coldOpenSeen",
     "completeFlag": "metArchie",
     "questline": "tutorial"
   },
-  "tut_buyer_event": {
-    "id": "tut_buyer_event",
+  "pro_first_sale": {
+    "id": "pro_first_sale",
     "briefAction": { "to": "thread", "contactId": "archie" },
     "earlyBriefAction": { "to": "rest" },
     "earlyBriefNote": "Rest at HQ to wait for Archie's text.",
-    "title": "Back up Archie on the sale tonight. Check Contacts.",
-    "detail": "",
     "earlyTitle": "Wait for Archie's text — he's lining up the buyer.",
     "earlyTitleBeforeDay": 2,
+    "title": "Back up Archie on the sale tonight. Check Contacts.",
+    "detail": "",
     "type": "flag_true",
     "params": {},
     "activateFlag": "metArchie",
     "completeFlag": "buyerEventSeen",
     "questline": "tutorial"
   },
-  "tut_meet_james": {
-    "id": "tut_meet_james",
-    "briefAction": { "to": "thread", "contactId": "james" },
-    "title": "Archie mentioned a contact called James. SMS him to set it up.",
-    "detail": "",
-    "type": "flag_true",
-    "params": {},
-    "activateFlag": "buyerEventSeen",
-    "completeFlag": "metJames",
-    "questline": "tutorial"
-  },
-  "tut_crafting_unlocked": {
-    "id": "tut_crafting_unlocked",
-    "briefAction": { "to": "thread", "contactId": "james" },
-    "title": "Go back to James when he's ready. He'll teach you the basics.",
+  "pro_first_craft": {
+    "id": "pro_first_craft",
+    "briefAction": { "to": "thread", "contactId": "archie" },
+    "title": "Meet James. He'll teach you to craft.",
     "detail": "",
     "type": "recipe_known",
     "params": { "recipe": "timePearl" },
-    "activateFlag": "metJames",
+    "activateFlag": "buyerEventSeen",
     "completeFlag": "craftingUnlocked",
     "questline": "tutorial"
   },
-  "tut_archie_craft_chat": {
-    "id": "tut_archie_craft_chat",
+  "pro_gym": {
+    "id": "pro_gym",
     "briefAction": { "to": "thread", "contactId": "archie" },
-    "title": "Catch up with Archie about what James taught you.",
+    "title": "Archie wants to show you a gym.",
     "detail": "",
     "type": "flag_true",
     "params": {},
-    "activateFlag": null,
-    "activateIf": { "kind": "recipe_known", "recipe": "timePearl" },
-    "completeFlag": "archieCraftChatSeen",
+    "activateFlag": "craftingUnlocked",
+    "completeFlag": "gymUnlocked",
     "questline": "tutorial"
   },
-  "tut_home_raid": {
-    "id": "tut_home_raid",
-    "title": "You have calc now. The flat isn't as secure as you thought.",
+  "pro_pearls_sold": {
+    "id": "pro_pearls_sold",
+    "briefAction": { "to": "thread", "contactId": "archie" },
+    "title": "Let Archie sell your pearls.",
     "detail": "",
     "type": "flag_true",
     "params": {},
-    "activateFlag": "archieCraftChatSeen",
+    "activateFlag": "gymUnlocked",
+    "completeFlag": "archieSoldPearls",
+    "questline": "tutorial"
+  },
+  "pro_flat_raid": {
+    "id": "pro_flat_raid",
+    "title": "Something is wrong at the flat. Go home.",
+    "detail": "",
+    "type": "flag_true",
+    "params": {},
+    "activateFlag": "archieSoldPearls",
     "completeFlag": "homeRaidEventSeen",
     "questline": "tutorial"
   },
-  "tut_archie_partner": {
-    "id": "tut_archie_partner",
-    "title": "Archie's time vein is yours. You cultivate and harvest it — Archie sells what you make.",
+  "pro_first_vein": {
+    "id": "pro_first_vein",
+    "briefAction": { "to": "map" },
+    "title": "Work the vein Archie gave you.",
     "detail": "",
     "type": "flag_true",
     "params": {},
-    "activateFlag": "archiePartnerSeen",
-    "completeFlag": "archiePartnerSeen",
+    "activateFlag": "homeRaidEventSeen",
+    "completeFlag": "cultivationTutorialSeen",
+    "questline": "tutorial"
+  },
+  "pro_pay_rent": {
+    "id": "pro_pay_rent",
+    "title": "Pay Monday's rent in full.",
+    "detail": "",
+    "type": "flag_true",
+    "params": {},
+    "activateFlag": "cultivationTutorialSeen",
+    "completeFlag": "rentPaid",
     "questline": "tutorial"
   },
   "col_a1_des_sites": {

@@ -402,7 +402,7 @@ func run() -> void:
 	# 83-contacts-archie-james-sms-port: the day>=2 "Archie texted" beat is
 	# now the real queued SMS content itself (Messages.has_any_unread()),
 	# not a separate Notify banner -- same as every other queue_pending_
-	# message caller (archie_cultivation.json's col_a1_intro, ...).
+	# message caller (prologue_ending.json's col_a1_intro, ...).
 	run_case("buyer_event_tutorial_trigger_fires_on_day_2", func():
 		GameState.reset()
 		GameState.state["flags"]["tutorialStage"] = "buyer_event"

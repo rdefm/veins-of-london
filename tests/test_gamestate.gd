@@ -34,7 +34,6 @@ func run() -> void:
 		assert_eq(s["world"]["day"], 1, "world.day")
 		assert_eq(s["world"]["timeBlock"], 0, "world.timeBlock")
 		assert_eq(s["world"]["timeBlocksDone"], [], "world.timeBlocksDone")
-		assert_eq(s["world"]["archieChatUnlockDay"], null, "world.archieChatUnlockDay")
 		assert_eq(s["world"]["currentDistrict"], "shoreditch", "world.currentDistrict")
 
 		assert_eq(s["home"]["tier"], "bedsit", "home.tier")

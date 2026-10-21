@@ -135,15 +135,15 @@ func run() -> void:
 
 	run_case("james_meeting_grants_time_pearl_and_completes_the_objective", func():
 		_fresh()
-		GameState.state["flags"]["metJames"] = true
+		GameState.state["flags"]["buyerEventSeen"] = true
 		Objectives.refresh()
-		assert_true(not GameState.state["objectives"]["tut_crafting_unlocked"]["complete"], "not complete before the grant")
-		assert_true(not GameState.state["objectives"]["tut_archie_craft_chat"]["active"], "Archie follow-up waits for the recipe")
+		assert_true(not GameState.state["objectives"]["pro_first_craft"]["complete"], "not complete before the grant")
+		assert_true(not GameState.state["objectives"]["pro_gym"]["active"], "the gym objective waits for the recipe")
 		Events.apply_effects(GameData.EVENTS["james_meeting"]["on_complete"].filter(func(e): return e["op"] == "grant_recipe"))
 		assert_true(Lab.is_known("timePearl"), "timePearl known")
 		assert_eq(Lab.known_recipes(), ["timePearl"], "only timePearl")
-		assert_true(GameState.state["objectives"]["tut_crafting_unlocked"]["complete"], "knowing timePearl completes the checkpoint")
-		assert_true(GameState.state["objectives"]["tut_archie_craft_chat"]["active"], "knowing timePearl opens the Archie follow-up")
+		assert_true(GameState.state["objectives"]["pro_first_craft"]["complete"], "knowing timePearl completes the checkpoint")
+		assert_true(GameState.state["objectives"]["pro_gym"]["active"], "knowing timePearl opens the gym objective")
 	)
 
 	run_case("lab_state_round_trips_through_save", func():

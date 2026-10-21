@@ -382,7 +382,7 @@ func run() -> void:
 
 	run_case("exit_combat_event_raid_win_resumes_the_still_active_event", func():
 		GameState.reset()
-		Events.start_event("intro")
+		Events.start_event("cold_open")
 		GameState.state["combat"]["context"] = Combat.CONTEXT_EVENT_RAID
 		GameState.state["combat"]["outcome"] = "win"
 		Combat.exit_combat()
@@ -392,7 +392,7 @@ func run() -> void:
 
 	run_case("exit_combat_event_raid_loss_ends_the_event_and_goes_home", func():
 		GameState.reset()
-		Events.start_event("intro")
+		Events.start_event("cold_open")
 		GameState.state["combat"]["active"] = true
 		GameState.state["combat"]["context"] = Combat.CONTEXT_EVENT_RAID
 		GameState.state["combat"]["outcome"] = "loss"
