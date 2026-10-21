@@ -1930,7 +1930,7 @@ func run() -> void:
 				Events.choose(0)
 			Events.advance()
 		var pearls: int = Crafting.inventory_qty("timePearl")
-		assert_true(pearls >= 1 and pearls <= 2, "james_meeting: patient craft yields 1-2 timePearl")
+		assert_eq(pearls, 2, "james_meeting: first craft is guaranteed, 2 timePearl")
 		assert_true(GameState.state["flags"]["metJames"], "james_meeting: metJames")
 		assert_true(Lab.is_known("timePearl"), "james_meeting: grants timePearl")
 		assert_true(GameState.state["flags"]["craftingUnlocked"], "james_meeting: knowing timePearl completes the crafting checkpoint")
