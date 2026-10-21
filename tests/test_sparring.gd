@@ -11,6 +11,14 @@ func _fresh() -> void:
 	GameState.state["player"]["cash"] = 500
 
 
+func _buttons_with(root: Node, text: String) -> Array:
+	var found: Array = []
+	for node in root.find_children("*", "Button", true, false):
+		if not node.is_queued_for_deletion() and (node as Button).text.contains(text):
+			found.append(node)
+	return found
+
+
 func run() -> void:
 	run_case("locked_until_the_flag_and_refused_without_time_or_cash", func():
 		GameState.reset()
@@ -144,18 +152,39 @@ func run() -> void:
 		assert_eq(player["inventory"].get("timePearl", {}).get("3", 0), 1, "bag untouched")
 	)
 
-	run_case("spar_prep_cycles_rack_items_and_fight_uses_them", func():
+	run_case("spar_prep_sets_rack_items_and_fight_uses_them", func():
 		_fresh()
 		CombatPrep.request(CombatPrep.KIND_SPAR, { "partnerId": "even", "rack": {} })
-		assert_true(CombatPrep.cycle_rack_slot(0))
 		var rack_items := Sparring.rack_items()
+		assert_true(CombatPrep.set_rack_slot(0, rack_items[0]))
 		var rows := CombatPrep.participants(CombatPrep.pending())
 		assert_eq(rows[0]["units"], [{ "recipe": rack_items[0], "tier": 1, "rack": true }], "listed as practice")
-		for i in range(rack_items.size()):
-			CombatPrep.cycle_rack_slot(0)
-		assert_eq(CombatPrep.pending()["args"]["rack"].size(), 0, "cycles back to own")
-		CombatPrep.cycle_rack_slot(0)
+		assert_true(not CombatPrep.set_rack_slot(0, "notAnItem"), "non-rack item refused")
+		assert_true(CombatPrep.set_rack_slot(0, ""))
+		assert_eq(CombatPrep.pending()["args"]["rack"].size(), 0, "cleared back to own")
+		CombatPrep.set_rack_slot(0, rack_items[0])
 		assert_true(CombatPrep.commit()["ok"])
 		assert_eq(Loadout.slot(0)["recipe"], rack_items[0])
 		assert_true(Loadout.slot(0)["rack"])
+	)
+
+	run_case("prep_screen_rack_picker_opens_and_sets_the_slot", func():
+		_fresh()
+		CombatPrep.request(CombatPrep.KIND_SPAR, { "partnerId": "even", "rack": {} })
+		var rack_items := Sparring.rack_items()
+		var pick_name := str(GameData.RECIPES[rack_items[1]]["name"])
+		var screen := CombatPrepScreen.new()
+		screen._ready()
+		assert_eq(_buttons_with(screen, pick_name).size(), 0, "picker starts closed")
+		_buttons_with(screen, "Slot 1:")[0].pressed.emit()
+		var rows := _buttons_with(screen, pick_name)
+		assert_eq(rows.size(), 1, "picker lists rack items")
+		assert_eq(_buttons_with(screen, "Empty").filter(func(b): return b.text == "✓ Empty").size(), 1, "picker offers empty, marked current")
+		rows[0].pressed.emit()
+		assert_eq(CombatPrep.pending()["args"]["rack"], { 0: rack_items[1] }, "pick sets the slot")
+		assert_eq(screen._picking_slot, -1, "pick closes the picker")
+		screen._render()
+		_buttons_with(screen, "Slot 1:")[0].pressed.emit()
+		assert_eq(_buttons_with(screen, "✓ " + pick_name).size(), 1, "current pick marked")
+		screen.free()
 	)

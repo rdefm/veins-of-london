@@ -12,6 +12,8 @@ const TEXT := Color("#ededee")
 const MUTED := Color("#a6a7ab")
 const BUTTON_BG := Color("#3b3b40")
 
+var _picking_slot := -1
+
 
 func _ready() -> void:
 	UI.anchor_full_rect(self)
@@ -81,8 +83,9 @@ func _loadout_warning(names: Array) -> Control:
 	return panel
 
 
-# Spar practice rack: per slot, tap to cycle your own unit -> each rack item
-# (T1, free, gone after the fight) -> your own unit again.
+# Spar practice rack: tap a slot to open its picker -- your own unit (or
+# empty) plus each rack item (T1, free, gone after the fight). `_picking_slot`
+# is the open picker's slot, -1 when closed.
 func _rack_panel(prep: Dictionary) -> Control:
 	var panel := _surface(SURFACE, 12)
 	var box := UI.vbox(6)
@@ -92,16 +95,65 @@ func _rack_panel(prep: Dictionary) -> Control:
 	box.add_child(_label("Tap a slot to swap in rack kit. Free, tier 1, gone after the fight. Your own kit stays in the bag.", 12, MUTED))
 	var rack := Sparring.clean_rack(prep["args"].get("rack", {}))
 	for i in range(Loadout.slot_count()):
-		var own: Variant = Loadout.slot(i)
+		var current := str(rack.get(i, ""))
 		var text := "Slot %d: " % (i + 1)
-		if rack.has(i):
-			text += "%s (practice)" % GameData.RECIPES[rack[i]]["name"]
-		elif own is Dictionary:
-			text += "%s · tier %d (yours)" % [GameData.RECIPES[own["recipe"]]["name"], int(own["tier"])]
-		else:
-			text += "empty"
-		box.add_child(_button(text, CombatPrep.cycle_rack_slot.bind(i), UI.action_colour() if rack.has(i) else Color.TRANSPARENT, 44))
+		text += "%s (practice)" % GameData.RECIPES[current]["name"] if current != "" else _own_slot_text(i)
+		var slot_button := _button(text, _toggle_picker.bind(i), UI.action_colour() if current != "" else Color.TRANSPARENT, 44)
+		if current != "":
+			_set_icon(slot_button, current)
+		box.add_child(slot_button)
+		if _picking_slot == i:
+			box.add_child(_rack_picker(i, current))
 	return panel
+
+
+# Picker list for slot `index`: the own-unit option, then every rack item.
+# The current pick is ticked and filled.
+func _rack_picker(index: int, current: String) -> Control:
+	var panel := _surface(BG, 6)
+	var list := UI.vbox(4)
+	panel.add_child(list)
+	list.add_child(_picker_row(index, "", _own_slot_text(index), current))
+	for recipe_key in Sparring.rack_items():
+		var row := _picker_row(index, recipe_key, str(GameData.RECIPES[recipe_key]["name"]), current)
+		_set_icon(row, recipe_key)
+		list.add_child(row)
+	return panel
+
+
+func _picker_row(index: int, recipe_key: String, text: String, current: String) -> Button:
+	var picked := recipe_key == current
+	var row := _button(("✓ " if picked else "") + text, _pick_rack.bind(index, recipe_key), UI.action_colour() if picked else Color.TRANSPARENT, 44)
+	row.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	return row
+
+
+# PROSE-REVIEW: own-unit / empty option label.
+func _own_slot_text(index: int) -> String:
+	var own: Variant = Loadout.slot(index)
+	if own is Dictionary:
+		return "%s · tier %d (yours)" % [GameData.RECIPES[own["recipe"]]["name"], int(own["tier"])]
+	return "Empty"
+
+
+func _set_icon(button: Button, recipe_key: String) -> void:
+	var icon := ItemIcons.texture(recipe_key)
+	if icon == null:
+		return
+	button.icon = icon
+	button.expand_icon = true
+	button.add_theme_constant_override("icon_max_width", 28)
+	button.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+
+
+func _toggle_picker(index: int) -> void:
+	_picking_slot = -1 if _picking_slot == index else index
+	_render()
+
+
+func _pick_rack(index: int, recipe_key: String) -> void:
+	_picking_slot = -1
+	CombatPrep.set_rack_slot(index, recipe_key)
 
 
 # Recruit picker: tick to bring, ▲▼ to reorder. Order is fight order; anyone

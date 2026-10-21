@@ -160,19 +160,19 @@ static func _player_units(prep: Dictionary) -> Array:
 	return units
 
 
-# Spar prep: moves slot `index` to the next practice-rack item, and past the
-# last back to the player's own unit.
-static func cycle_rack_slot(index: int) -> bool:
+# Spar prep: puts practice-rack item `recipe_key` in slot `index`; "" clears
+# the pick, back to the player's own unit.
+static func set_rack_slot(index: int, recipe_key: String) -> bool:
 	var prep := pending()
 	if prep.is_empty() or str(prep["kind"]) != KIND_SPAR or index < 0 or index >= Loadout.slot_count():
 		return false
+	if recipe_key != "" and not Sparring.rack_items().has(recipe_key):
+		return false
 	var rack: Dictionary = Sparring.clean_rack(prep["args"].get("rack", {}))
-	var items := Sparring.rack_items()
-	var next := 0 if not rack.has(index) else items.find(rack[index]) + 1
-	if next >= items.size():
+	if recipe_key == "":
 		rack.erase(index)
 	else:
-		rack[index] = items[next]
+		rack[index] = recipe_key
 	prep["args"]["rack"] = rack
 	EventBus.state_changed.emit()
 	return true
