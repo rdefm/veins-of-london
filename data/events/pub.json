@@ -36,7 +36,7 @@
     { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"It's stock, innit. Someone finds it, someone makes it useful, someone pays through the nose for it. People like us stand in the middle and take a cut.\" He nods at the chips. \"Eat. You're no use to me keeling over.\"" },
     { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Normally nobody gets a knife out. Still got tonight's calc, ain't I. I'll find a proper buyer. Somewhere with lights. And witnesses. You come along, you get a cut. You've seen how it goes wrong, so no hard feelings if it's a no.\"", "image": "res://assets/events/intro/intro_main_13.png" },
     { "type": "speaker", "label": null, "speaker": "You", "text": "You look at the door, at the chips, then think about your bank balance. \"I'll come.\"" },
-    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Lovely. I'll text you.\" He's out the door before you can thank him, for the chips or the knife." },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Lovely. I'll text you.\" He's out the door before you can thank him, for the chips or the hourglass." },
     { "type": "narration", "label": null, "speaker": null, "text": "Rent's still due Monday. But somewhere on Mile End Road, in a Tesco bag, is the calc that might pay it.", "image": "res://assets/events/intro/intro_main_16.png" }
   ]
 }
