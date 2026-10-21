@@ -416,6 +416,15 @@ static func open_fight(cp: Dictionary, seed_value: int) -> void:
 	cp["rngState"] = rng.state
 
 
+# The beats open_fight() resolved ahead of the player's first position, while
+# no pick has played yet; [] once one has, or in a demo fight. The fight as
+# it stood before them is cp.roundFrames[0].
+static func opening_beats(cp: Dictionary) -> Array:
+	if is_demo(cp) or int(cp["round"]) != 1 or not cp["snapshots"].is_empty() or cp.get("roundFrames", []).size() != 1:
+		return []
+	return cp["log"].duplicate()
+
+
 # Every fighter without move levels yet, active or queued, in order: the
 # player all level 1 unless it has an owner's; anyone else with no owner
 # rolls MoveLevels.roll() at its Combat Skill level, off the fight seed.

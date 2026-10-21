@@ -90,6 +90,7 @@ func _ready() -> void:
 	_build_fight_layout()
 	EventBus.state_changed.connect(_refresh)
 	_refresh()
+	_play_opening()
 
 
 func _cp() -> Dictionary:
@@ -225,8 +226,10 @@ func _sync_fight(cp: Dictionary) -> void:
 		_target = _default_target(cp)
 	var heading: String = str(cp["demo"]["label"]) if CombatRounds.is_demo(cp) else CombatScreen.context_label(cp["context"])
 	_round_label.text = "%s · Round %d" % [heading, mini(int(cp["round"]), int(cp["demo"]["rounds"])) if CombatRounds.is_demo(cp) else cp["round"]]
+	# The round's lesson waits for the beats ahead of it to finish playing.
 	var prompt := CombatRounds.script_prompt(cp)
-	_refusal_label.text = _refusal if _refusal != "" else (prompt if prompt != "" else CombatRounds.coach_lesson(cp))
+	var lesson := "" if _busy() else CombatRounds.coach_lesson(cp)
+	_refusal_label.text = _refusal if _refusal != "" else (prompt if prompt != "" else lesson)
 
 	# Mid-playback a re-sync would cut the slots' one-shot poses short, and
 	# the strip shows the round as far as the beats have played.
@@ -825,14 +828,7 @@ func _resolve(choose: Callable, pick: Dictionary) -> void:
 		return
 	_refusal = ""
 	var cp: Dictionary = _cp()
-	var roster := stage_roster(cp, _target)
-	_frozen_roster = {
-		"enemies": roster["combat"]["enemies"], "allies": roster["combat"]["allies"],
-		"enemyQueue": roster["combat"]["enemyQueue"], "allyQueue": roster["combat"]["allyQueue"],
-		"playerKoed": roster["player"]["koed"],
-	}
-	_held_marks = CombatRounds.stage_marks(cp)
-	_transcript_held = true
+	_hold_view(cp)
 	var round_no: int = cp["round"]
 	var before: Array = [] if CombatRounds.move(pick["move"]).is_empty() else strip_entries(cp, pick)
 	var result: Dictionary = choose.call()
@@ -845,6 +841,37 @@ func _resolve(choose: Callable, pick: Dictionary) -> void:
 		return
 	begin_strip_playback(before, round_no, result["beats"])
 	await _play_beats(result["beats"])
+
+
+# Holds the stage roster, overlay marks and transcript as `fight` (a fight
+# dict) shows them, for a playback to step from.
+func _hold_view(fight: Dictionary) -> void:
+	var roster := stage_roster(fight, _target)
+	_frozen_roster = {
+		"enemies": roster["combat"]["enemies"], "allies": roster["combat"]["allies"],
+		"enemyQueue": roster["combat"]["enemyQueue"], "allyQueue": roster["combat"]["allyQueue"],
+		"playerKoed": roster["player"]["koed"],
+	}
+	_held_marks = CombatRounds.stage_marks(fight)
+	_transcript_held = true
+
+
+# A fight that opens with beats ahead of the player's first pick
+# (CombatRounds.opening_beats()) plays them as a pick's, from the fight as it
+# stood before them.
+func _play_opening() -> void:
+	var cp: Dictionary = _cp()
+	if not cp["active"] or _busy():
+		return
+	var beats := CombatRounds.opening_beats(cp)
+	if beats.is_empty():
+		return
+	var before: Dictionary = cp["roundFrames"][0]
+	_hold_view(before)
+	_transcript.set_lines(before["transcript"])
+	begin_strip_playback(strip_entries(before), 1, beats)
+	_refresh()
+	await _play_beats(beats)
 
 
 # Arms the strip to step through `beats` from `before` (strip_entries() as

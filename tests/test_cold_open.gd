@@ -34,6 +34,22 @@ func run() -> void:
 		assert_eq(Crafting.inventory_qty("rewind"), 0, "moved out of inventory")
 	)
 
+	run_case("cold_open_opens_on_archie_standing_and_plays_his_ko", func():
+		_reach_fight()
+		var combat: Dictionary = GameState.state["combat"]
+		var before: Dictionary = combat["roundFrames"][0]
+		assert_true(not before["combatants"][1]["koed"], "Archie stands as the fight opens")
+		var beats := CombatRounds.opening_beats(combat)
+		var ko: int = beats.find_custom(func(b): return b["kind"] == "ko" and int(b["target"]) == 1)
+		assert_true(ko >= 0, "the KO on Archie is an opening beat")
+		var hit: int = beats.find_custom(func(b): return int(b["actor"]) == 2 and int(b["target"]) == 1 and CombatDirector.beat_is_damaging(b))
+		assert_true(hit >= 0 and hit < ko, "Nick's hit lands before the KO")
+		assert_true(str(beats[ko]["text"]) != "", "the KO has a transcript line")
+		assert_true(combat["combatants"][1]["koed"], "Archie is down after it")
+		Combat.choose_move("guard")
+		assert_eq(CombatRounds.opening_beats(combat), [], "a pick ends the opening")
+	)
+
 	run_case("cold_open_plays_fight_lock_rewind_and_hands_off_to_the_pub", func():
 		_reach_fight()
 		var combat: Dictionary = GameState.state["combat"]
