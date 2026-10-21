@@ -21,12 +21,12 @@ func card_chrome() -> bool:
 func build(content: VBoxContainer) -> void:
 	content.add_child(back_button())
 	content.add_child(UI.heading("ToDo"))
-	var goal := Home.deposit_goal()
-	if not goal.is_empty():
-		content.add_child(UI.label("%s — %s" % [Home.deposit_goal_text(goal), goal["name"]]))
 	var rent := Home.rent_goal()
 	if not rent.is_empty():
 		content.add_child(UI.label(Home.rent_goal_text(rent)))
+	var goal := Home.deposit_goal()
+	if not goal.is_empty():
+		content.add_child(UI.label("%s — %s" % [Home.deposit_goal_text(goal), goal["name"]]))
 	for section in Todo.get_questline_sections():
 		content.add_child(_build_section(section))
 

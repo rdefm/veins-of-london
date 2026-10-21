@@ -2014,6 +2014,8 @@ func run() -> void:
 		assert_true(GameState.state["flags"]["archiePartnerSeen"], "debrief: archiePartnerSeen")
 		assert_true(GameState.state["flags"]["homeUnlocked"], "debrief: homeUnlocked")
 		assert_true(GameState.state["flags"]["securityContactUnlocked"], "debrief: securityContactUnlocked")
+		assert_eq(GameState.state["flags"]["depositGoalTier"], "studio", "debrief: sets the deposit goal")
+		assert_true(not Home.deposit_goal().is_empty(), "debrief: deposit goal row live")
 		assert_eq(GameState.state["player"]["veins"].size(), veins_before + 1, "debrief: grants a vein")
 		var granted: Dictionary = GameState.state["player"]["veins"][veins_before]
 		assert_eq(granted["oreType"], "time", "granted vein: time-type")
