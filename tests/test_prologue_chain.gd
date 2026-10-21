@@ -95,6 +95,8 @@ func run() -> void:
 		# 7. Flat raid, won.
 		_play("home_raid_debrief_win")
 		assert_true(GameState.state["flags"]["homeRaidEventSeen"], "raid done")
+		assert_eq(GameState.state["flags"]["depositGoalTier"], "studio", "the raid debrief sets the deposit goal")
+		assert_eq(GameState.state["player"]["veins"].size(), 1, "the raid debrief hands over the first vein")
 		_check_beat("pro_first_vein", "after the flat raid")
 
 		# 8. First vein.
@@ -112,6 +114,8 @@ func run() -> void:
 		assert_true(GameState.state["flags"]["prologueDone"], "prologue done")
 		assert_eq(GameState.state["flags"]["tutorialStage"], "free", "tutorial stage released")
 		assert_true(_has_pending("col_a1_intro"), "the ending hands off to Des")
+		var headlines: Array = GameState.state["barometer"].get("headlines", [])
+		assert_true(headlines.any(func(entry): return entry.get("source", "") == "prologueSqueeze"), "the ending posts the Ticker article")
 		var story_rises: Array = GameState.state["market"].get("storyRises", [])
 		assert_eq(story_rises.size(), 1, "the ending starts the emotion demand rise")
 		assert_eq(story_rises[0]["ore"], "emotion", "the rise is on emotion calc")
