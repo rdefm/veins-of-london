@@ -62,6 +62,16 @@ func run() -> void:
 		assert_true(overlay.active)
 		overlay.free()
 	)
+	run_case("train_plays_at_once_with_the_gym_modal_still_open", func():
+		var overlay := _overlay()
+		Modal.open("hq_gym")
+		assert_true(Combat.train()["ok"])
+		UiSim.advance(overlay, 0.8)
+		assert_true(overlay.active, "Gym menu does not hold the block animation")
+		assert_eq(GameState.state["modal"]["type"], "hq_gym", "modal stays open")
+		Modal.close()
+		overlay.free()
+	)
 	run_case("rollover_and_rest_each_capture_one_transition_and_one_daily_tick", func():
 		for phase in range(3):
 			for rest in [false, true]:

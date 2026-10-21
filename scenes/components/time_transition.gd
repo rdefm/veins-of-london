@@ -50,10 +50,13 @@ func _sync_session() -> void:
 	safe_elapsed = 0.0
 
 
-static func outcome_finished() -> bool:
+# open_modals: modal types that don't hold playback (the action's own menu,
+# whose outcome is already on screen when the block is spent).
+static func outcome_finished(open_modals: Array = []) -> bool:
 	var state: Dictionary = GameState.state
+	var modal = state.get("modal")
 	return state.get("event") == null and not state["combat"].get("active", false) \
-		and state.get("modal") == null and not state.get("bagDrawerOpen", false) \
+		and (modal == null or modal["type"] in open_modals) and not state.get("bagDrawerOpen", false) \
 		and state.get("currentScreen") not in ["event", "combat", "combat_prep", "title", "intro"]
 
 
@@ -74,7 +77,7 @@ func _process(delta: float) -> void:
 			return
 	if pending.is_empty():
 		return
-	if not outcome_finished():
+	if not outcome_finished(GameData.DAILY_CYCLE["playsOverModals"]):
 		safe_elapsed = 0.0
 		return
 	safe_elapsed += step

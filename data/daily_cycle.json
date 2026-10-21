@@ -33,6 +33,7 @@
   "bodyOutline": "#524962",
   "durationSeconds": 1.75,
   "outcomeHoldSeconds": 0.75,
+  "playsOverModals": ["hq_gym"],
   "dimColor": "#08111db0",
   "textColor": "#f4efdf",
   "destinationLabel": "%s \u2014 %s",
