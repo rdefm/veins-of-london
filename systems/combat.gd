@@ -396,7 +396,7 @@ static func start_home_raid_combat(mods: Dictionary = {}) -> void:
 # lines, enemyFirst, forcedHits ({ actor, target, crit?, ko? } by combatant
 # index), lockBelowHp and prompt, post ({ allyPlans: { "<combatant index>":
 # moves }, playerPlan: moves }), resumeCard, plus optional seed,
-# playerLevel, locationKey and coach ({ lessons, allowed } by round, R§3.7b
+# playerLevel, locationKey and coach ({ lessons, allowed, notes } by round, R§3.7b
 # Coach marks). With no lockBelowHp the fight plays as a normal one on its
 # fixed plans (SCRIPT_OPEN) and resumes the event on any outcome; `practice`
 # runs it under spar rules (Sparring.spar_block()).

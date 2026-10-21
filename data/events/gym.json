@@ -79,9 +79,26 @@
                 ],
                 "coach": {
                   "lessons": {
-                    "1": "Read his intent. He's swinging, so Guard.",
-                    "2": "He's covering up. Feint opens him, then Strike.",
-                    "3": "He's swung and he's open. Stun him, then Strike."
+                    "1": "His intent says Strike, twice. Pick Guard: while you're Guarded, a punch only chips you.",
+                    "2": "He's covering up, so a Strike would only chip him. Feint to knock his guard open, then Strike for the full hit.",
+                    "3": "He swings first, and swinging leaves him Open. Stun him while he's Open to take his next action, then Strike."
+                  },
+                  "notes": {
+                    "1": {
+                      "other.chip": "Your guard took most of that. Guarded, you only lose a chip.",
+                      "self.guard": "Still Guarded for whatever he throws next."
+                    },
+                    "2": {
+                      "other.guard": "He's Guarded. Hit him now and you'd only chip him.",
+                      "self.feint": "He bit. He's Open, and his next Guard won't hold.",
+                      "self.hit": "Open, so it landed in full."
+                    },
+                    "3": {
+                      "other.hit": "You were Open after your last Strike, so that one landed in full.",
+                      "self.stun": "Stunned. He loses his next action.",
+                      "other.lost": "That was his Guard gone. He's still Open.",
+                      "self.hit": "Full damage. Nothing between him and it."
+                    }
                   },
                   "allowed": {
                     "1": [ "guard" ],

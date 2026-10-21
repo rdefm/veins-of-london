@@ -123,19 +123,23 @@ func _build_fight_layout() -> void:
 	_director.playing_changed.connect(func(_playing: bool): _refresh())
 	add_child(_director)
 
+	# The heading row, then the refusal / prompt / coach line wrapped on its
+	# own row under it (hidden when empty); the upper region starts below both.
+	var header := UI.vbox(0)
+	header.anchor_right = 1.0
+	header.offset_left = 16.0
+	header.offset_right = -16.0
 	var heading_row := UI.hbox(8)
-	heading_row.anchor_right = 1.0
-	heading_row.offset_left = 16.0
-	heading_row.offset_right = -16.0
-	heading_row.offset_bottom = _HEADING_ROW_HEIGHT
+	heading_row.custom_minimum_size.y = _HEADING_ROW_HEIGHT
 	heading_row.add_child(MapCardStyle.chip_button("Readouts", _toggle_readouts))
 	_round_label = UI.muted_label("")
 	heading_row.add_child(_round_label)
+	header.add_child(heading_row)
 	_refusal_label = UI.muted_label("")
 	_refusal_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_refusal_label.clip_text = true
-	heading_row.add_child(_refusal_label)
-	_fight_body.add_child(heading_row)
+	_refusal_label.visible = false
+	header.add_child(_refusal_label)
+	_fight_body.add_child(header)
 
 	_upper_region = Control.new()
 	_upper_region.anchor_right = 1.0
@@ -143,6 +147,7 @@ func _build_fight_layout() -> void:
 	_upper_region.offset_top = _HEADING_ROW_HEIGHT
 	_upper_region.mouse_filter = Control.MOUSE_FILTER_PASS
 	_fight_body.add_child(_upper_region)
+	header.resized.connect(func(): _upper_region.offset_top = maxf(_HEADING_ROW_HEIGHT, header.size.y))
 
 	_stage = CombatStage.new()
 	_stage.size = Vector2(CombatStage.STAGE_WIDTH, CombatStage.STAGE_HEIGHT)
@@ -234,6 +239,7 @@ func _sync_fight(cp: Dictionary) -> void:
 	var prompt := CombatRounds.script_prompt(cp)
 	var lesson := "" if _busy() else CombatRounds.coach_lesson(cp)
 	_refusal_label.text = _refusal if _refusal != "" else (prompt if prompt != "" else lesson)
+	_refusal_label.visible = _refusal_label.text != ""
 
 	# Mid-playback a re-sync would cut the slots' one-shot poses short, and
 	# the strip shows the round as far as the beats have played.
@@ -1042,6 +1048,8 @@ func _on_beat_played(beat: Dictionary) -> void:
 		_settle_strip()
 		return
 	_transcript.append_line(beat["text"])
+	if beat.has("coachNote"):
+		_transcript.append_line(beat["coachNote"])
 	_advance_strip(beat)
 	var cp: Dictionary = _cp()
 	if beat.has("marks"):
@@ -1058,6 +1066,8 @@ func _on_beat_played(beat: Dictionary) -> void:
 # overlay and the strip's hp return to how they stood before it, and its cues
 # play undone.
 func _on_rewind_beat_played(beat: Dictionary) -> void:
+	if beat.has("coachNote"):
+		_transcript.remove_last(beat["coachNote"])
 	_transcript.remove_last(beat["text"])
 	_advance_strip(beat, false)
 	var cp: Dictionary = _cp()

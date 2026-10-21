@@ -183,7 +183,8 @@ static func new_state() -> Dictionary:
 		# free Rewind goes; null for any other fight.
 		"spar": null,
 		# Coach marks (R§3.7b Coach marks): { lessons: { "<round>": line }, allowed:
-		# { "<round>": [move or item ids] } } or null for none.
+		# { "<round>": [move or item ids] }, notes: { "<round>": { "<variant>.<kind>":
+		# line } } } or null for none.
 		"coach": null,
 	}
 
@@ -448,13 +449,16 @@ static func _roll_move_levels(cp: Dictionary, seed_value: int) -> void:
 			fighter["moveLevels"] = MoveLevels.roll(int(fighter["level"]), rng)
 
 
-# Appends `beats` to the fight's log and their lines to its transcript; each
-# move level-up among them also posts its line as a Notification.
+# Appends `beats` to the fight's log and their lines (each followed by its
+# coach note, if any) to its transcript; each move level-up among them also
+# posts its line as a Notification.
 static func _record(cp: Dictionary, beats: Array) -> void:
 	cp["log"].append_array(beats)
 	var transcript: Array = cp["transcript"]
 	for beat in beats:
 		transcript.append(beat["text"])
+		if beat.has("coachNote"):
+			transcript.append(beat["coachNote"])
 		if beat["kind"] == "levelUp":
 			Notify.push(beat["text"], Notify.CATEGORY_SUCCESS)
 
@@ -2297,7 +2301,25 @@ static func _beat(cp: Dictionary, beats: Array, kind: String, actor: int, target
 		"turnActor": int(cp["cursor"]["actor"]), "turnIndex": int(cp["cursor"]["index"]),
 	}
 	beat.merge(extra)
+	var note := _coach_note(cp, beats, "%s.%s" % [variant, kind])
+	if note != "":
+		beat["coachNote"] = note
 	beats.append(beat)
+
+
+# The coach's line explaining a beat this round: coach.notes["<round>"]
+# ["<variant>.<kind>"] (variant as beatLines: "self" when the player is the
+# subject), at most once per round; "" for none.
+static func _coach_note(cp: Dictionary, beats: Array, key: String) -> String:
+	if not coach_active(cp):
+		return ""
+	var note := str(cp["coach"].get("notes", {}).get(str(cp["round"]), {}).get(key, ""))
+	if note == "":
+		return ""
+	for beat in cp["log"] + beats:
+		if int(beat["round"]) == int(cp["round"]) and beat.get("coachNote", "") == note:
+			return ""
+	return note
 
 
 # ── Rewind ───────────────────────────────────────────────────────────────

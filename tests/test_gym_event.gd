@@ -39,6 +39,25 @@ func run() -> void:
 		assert_true(stunned.size() > 0, "the Stun lands on his open guard")
 	)
 
+	run_case("guided_spar_lessons_name_the_move_and_beats_get_coach_notes", func():
+		var combat := _guided_win()
+		var notes: Dictionary = combat["coach"]["notes"]
+		var picks := { 1: [["guard", -1], ["guard", -1]], 2: [["feint", 1], ["strike", 1]], 3: [["stun", 1], ["strike", 1]] }
+		for round_no in [1, 2, 3]:
+			assert_eq(int(combat["round"]), round_no)
+			var lesson := CombatRounds.coach_lesson(combat).to_lower()
+			for id in CombatRounds.coach_allowed(combat):
+				assert_true(lesson.contains(str(id)), "R%d lesson names %s" % [round_no, id])
+			for pick in picks[round_no]:
+				var result: Dictionary = Combat.choose_move(pick[0], pick[1]) if pick[1] >= 0 else Combat.choose_move(pick[0])
+				assert_true(result["ok"], "R%d %s" % [round_no, pick[0]])
+			var noted: Array = combat["log"].filter(func(b): return int(b["round"]) == round_no and b.has("coachNote"))
+			assert_eq(noted.size(), notes[str(round_no)].size(), "R%d: each note shows once" % round_no)
+			for beat in noted:
+				var at: int = combat["transcript"].find(beat["text"])
+				assert_true(at >= 0 and combat["transcript"].find(beat["coachNote"], at) == at + 1, "note follows its beat line")
+	)
+
 	run_case("guided_spar_win_resumes_the_event_and_keeps_free_sessions", func():
 		var combat := _guided_win()
 		var sessions := Sparring.sessions_taken()

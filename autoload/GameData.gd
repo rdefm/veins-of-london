@@ -2280,8 +2280,9 @@ func _validate_choice_card(card: Dictionary, context: String, errors: Array[Stri
 # Shared by on_complete lists and choice-card effects lists. Recurses into
 # "chance" ops' on_success/on_fail sub-lists (M1-LONDON D5) so a bad op
 # buried inside a chance branch doesn't sail through unnoticed.
-# A fight's optional coach block: lessons by round (non-empty lines) and
-# allowed move / item ids by round.
+# A fight's optional coach block: lessons by round (non-empty lines),
+# allowed move / item ids by round, and beat notes by round keyed
+# "<self|other>.<beatLines kind>" (non-empty lines).
 func _validate_coach(coach: Variant, context: String, errors: Array[String]) -> void:
 	if coach == null:
 		return
@@ -2295,6 +2296,13 @@ func _validate_coach(coach: Variant, context: String, errors: Array[String]) -> 
 		for id in coach["allowed"][round_key]:
 			if not COMBAT_ROUNDS["moves"].has(id) and not COMBAT_ROUNDS["items"].has(id):
 				errors.append("%s.allowed.%s: unknown id '%s'" % [context, round_key, id])
+	for round_key in coach.get("notes", {}).keys():
+		for key in coach["notes"][round_key].keys():
+			var parts: PackedStringArray = str(key).split(".")
+			if parts.size() != 2 or not parts[0] in ["self", "other"] or not COMBAT_ROUNDS["beatLines"].has(parts[1]):
+				errors.append("%s.notes.%s: unknown key '%s'" % [context, round_key, key])
+			elif str(coach["notes"][round_key][key]).strip_edges() == "":
+				errors.append("%s.notes.%s.%s: must not be empty" % [context, round_key, key])
 
 
 func _validate_effect_list(effects: Array, context: String, errors: Array[String]) -> void:
