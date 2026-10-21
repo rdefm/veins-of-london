@@ -1970,9 +1970,12 @@ func run() -> void:
 		# 5. Archie sells your pearls
 		var ore_before: int = GameState.state["player"]["orichalchum"].get("time", 0)
 		var archie_relation_before: int = GameState.state["contacts"]["archie"]["relation"]
+		var sale_cash_before: int = GameState.state["player"]["cash"]
 		Events.start_event("archie_sells_pearls")
 		for i in range(GameData.EVENTS["archie_sells_pearls"]["cards"].size()):
 			Events.advance()
+		assert_eq(GameState.state["player"]["cash"], sale_cash_before + 120, "archie_sells_pearls: cash up")
+		assert_true(Loadout.find_slot("timePearl") >= 0, "archie_sells_pearls: kept pearls in loadout")
 		assert_true(GameState.state["flags"]["archieSoldPearls"], "archie_sells_pearls: seen")
 		assert_true(GameState.state["flags"]["canSellConsumables"], "archie_sells_pearls: canSellConsumables")
 		assert_eq(GameState.state["contacts"]["archie"]["relation"], archie_relation_before + 5, "archie_sells_pearls: archie relation +5")

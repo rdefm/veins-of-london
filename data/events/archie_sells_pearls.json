@@ -1,6 +1,9 @@
 {
   "id": "archie_sells_pearls",
   "on_complete": [
+    { "op": "add_item", "item": "timePearl", "qty": -1 },
+    { "op": "add", "path": "player.cash", "value": 120 },
+    { "op": "add_item", "item": "timePearl", "qty": 2, "equip": true },
     { "op": "set_flag", "flag": "archieSoldPearls", "value": true },
     { "op": "set_flag", "flag": "canSellConsumables", "value": true },
     { "op": "relation", "contact": "archie", "value": 5 },
@@ -9,6 +12,8 @@
     { "op": "set_screen", "screen": "phone" }
   ],
   "cards": [
-    { "type": "narration", "label": null, "speaker": null, "text": "Archie sells your pearls and keeps a couple back for you. \"Just in case.\"" }
+    { "type": "narration", "label": "Stratford — a car park", "speaker": null, "text": "The buyer takes the pearl, turns it over once, and pays. Nobody mentions a knife. A woman walks past with a bag of shopping and doesn't look up." },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"That's it. That's the whole deal.\" He counts the cash into your hand. \"Most of them are that boring. Remember it when they aren't.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "He presses two more pearls into your palm. \"Just in case. They go in your loadout, that's what you carry into a fight. Anything you want kept off the market goes in the stash.\"" }
   ]
 }
