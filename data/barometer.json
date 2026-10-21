@@ -38,6 +38,7 @@
     "wiresDetail": "From recent events",
     "emptyWires": "No reports on the wires yet.",
     "wireArticles": {
+      "prologueSqueeze": { "deck": "{ore} calc is suddenly harder to find.", "body": "Buyers across London have started asking after {ore} calc, and the asking has not stopped. The demand was recorded on {day} and is expected to hold until {endDay}. TBC: placeholder copy for the playtest pass." },
       "stancePartner": { "deck": "{first} and {second} make their new partnership public.", "body": "{first} and {second} have moved into a partnership, recorded on {day}. Both names now appear on the same side of the ledger. Neither faction has said how long the arrangement will last." },
       "stanceHostile": { "deck": "Relations between {first} and {second} turn hostile.", "body": "{first} and {second} are no longer on speaking terms. The change was recorded on {day}; it raises the temperature between them, but records no raid in itself. Both sides still have people and stock to protect." },
       "veinTaken": { "deck": "A {ore} vein in {district} changes owner after a faction raid.", "body": "{attacker} has taken a {ore} vein in {district} from {defender}. The transfer was recorded on {day}. {defender} has lost the claim, and {attacker} now holds it. The ore under the street remains where it was." },

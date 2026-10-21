@@ -387,6 +387,31 @@ func run() -> void:
 		assert_eq(Market.day_move("ore", "time"), 6)
 	)
 
+	run_case("post_story_posts_headline_raises_emotion_demand_then_lapses", func():
+		GameState.reset()
+		var day: int = GameState.state["world"]["day"]
+		Market.daily_reprice()
+		var control_stock: int = GameState.state["market"]["goods"]["ore"]["emotion"]["stock"]
+
+		GameState.reset()
+		Events.apply_effects([{ "op": "post_story", "story": "prologueSqueeze" }])
+		var headline: Dictionary = Barometer.headlines()[0]
+		assert_eq(headline["source"], "prologueSqueeze", "article posted")
+		assert_eq(headline["day"], day, "posted today")
+		assert_true(Barometer.wire_article(headline)["body"].contains("Emotion") or Barometer.wire_article(headline)["body"].contains("emotion"), "article renders the ore")
+		var rise: Dictionary = GameState.state["market"]["storyRises"][0]
+		assert_eq(rise["endDay"], day + 7, "lasts 7 days")
+		assert_eq(Market.story_rise_fraction("emotion"), 0.2, "emotion rise active")
+		assert_eq(Market.story_rise_fraction("time"), 0.0, "other ores untouched")
+		Market.daily_reprice()
+		assert_true(GameState.state["market"]["goods"]["ore"]["emotion"]["stock"] < control_stock, "extra demand drains emotion stock")
+
+		GameState.state["world"]["day"] = day + 7
+		assert_eq(Market.story_rise_fraction("emotion"), 0.0, "rise lapses at endDay")
+		Market.daily_reprice()
+		assert_eq(GameState.state["market"]["storyRises"].size(), 0, "expired rise pruned")
+	)
+
 
 func _notes_of(kind: String, good_type: String, note_kind: String) -> Array:
 	return Market.annotations_for(kind, good_type).filter(func(n): return n["kind"] == note_kind)

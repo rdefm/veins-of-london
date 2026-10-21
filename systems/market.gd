@@ -353,6 +353,7 @@ static func daily_reprice() -> void:
 				baseline *= Barometer.get_item_demand_mult(good_type)
 			else:
 				baseline += derived_ore_demand(good_type)
+				baseline += civilian_demand(kind, good_type) * story_rise_fraction(good_type)
 			var demand: float = baseline + _tally("demand", kind, good_type)
 			var flowed: float = maxf(0.0, float(good["stock"]) + supply - demand)
 			var stock: int = GameState.round_epsilon(flowed + (_normal_stock(kind, good_type) - flowed) * reversion)
@@ -367,10 +368,43 @@ static func daily_reprice() -> void:
 			while history.size() > history_days:
 				history.pop_front()
 			_annotate_day(kind, good_type, ticker_shifts, price, int(good["price"]))
+	_prune_story_rises()
 	_log_sales()
 	market["supply"] = { "ore": {}, "consumable": {} }
 	market["demand"] = { "ore": {}, "consumable": {} }
 	market.erase("moves")
+
+
+# Timed event-driven demand rises (data/market.json storyRises), kept as
+# day-stamped entries in state.market.storyRises: [{ story, ore, fraction,
+# startDay, endDay }], active while startDay <= day < endDay.
+static func add_story_rise(story_id: String) -> void:
+	var rise: Dictionary = _config()["storyRises"][story_id]
+	var day: int = GameState.state["world"]["day"]
+	var market := _market()
+	if not market.has("storyRises"):
+		market["storyRises"] = []
+	var rises: Array = market["storyRises"]
+	rises.append({ "story": story_id, "ore": rise["ore"], "fraction": float(rise["fraction"]), "startDay": day, "endDay": day + int(rise["days"]) })
+	EventBus.state_changed.emit()
+
+
+# Summed civilian-demand fraction added to an ore today by active story rises.
+static func story_rise_fraction(ore_type: String) -> float:
+	var day: int = GameState.state["world"]["day"]
+	var total := 0.0
+	for rise in _market().get("storyRises", []):
+		if rise["ore"] == ore_type and int(rise["startDay"]) <= day and day < int(rise["endDay"]):
+			total += float(rise["fraction"])
+	return total
+
+
+static func _prune_story_rises() -> void:
+	var day: int = GameState.state["world"]["day"]
+	var rises: Array = _market().get("storyRises", [])
+	for i in range(rises.size() - 1, -1, -1):
+		if day >= int(rises[i]["endDay"]):
+			rises.remove_at(i)
 
 
 # Ticker states that changed since the last reprice, [{ section, state }];

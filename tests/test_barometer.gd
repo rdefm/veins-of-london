@@ -252,7 +252,7 @@ func run() -> void:
 	run_case("every_wire_source_formats_live_details_and_day", func():
 		GameState.reset()
 		var shared := { "first": "collective", "second": "firm", "attacker": "collective", "defender": "firm", "ore": "time", "district": "shoreditch", "endDay": 18 }
-		var sources := ["stancePartner", "stanceHostile", "veinTaken", "flood", "stockpileRaid", "warDeclared", "truceSigned", "position"]
+		var sources := ["stancePartner", "stanceHostile", "veinTaken", "flood", "stockpileRaid", "warDeclared", "truceSigned", "position", "prologueSqueeze"]
 		assert_eq(GameData.BAROMETER_NEWS["wireArticles"].size(), sources.size(), "every wire variant has a template")
 		for source in sources:
 			var article := Barometer.wire_article({ "day": 4, "text": "Report", "source": source, "details": shared })

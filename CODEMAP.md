@@ -79,7 +79,7 @@ Data file per system: see `data/*.json` below.
 | harassment.gd | Harassment: `state.harassment` (queued events, persistent `active` effects), harass-rung `candidate`, `tick` (expiry, escalation), pending prompt per event, event-op helpers (add/clear/fine/spend_block/raise_intel), security repair, `vein_gate`, `sell_mult` price penalty, `is_shop_barred`, panel rows. Data: faction_harassment.json. |
 | turf.gd | Turf (R§3.1 "Turf"): per-district contender vein counts/shares, controller (top >= second + controlMargin), foothold tier, contested; `recompute()` rewrites `state.turf` once per daily tick (⑤d3), queuing flip headline + map event. `danger_mod`/`price_mod`/`raid_odds_adj`: effective district modifiers. `ambush_chance`: ambush odds (R§3.1d). |
 | map_events.gd | Map event queue + playback |
-| market.gd | London market (R§3.13): per-good stock/price/history, quotes, price lots (ore per 10: line_total, affordable_qty), supply/demand + faction move recording (`MOVE_SIDES`), civilian demand + Independents slice, daily reprice (⑥.6), bounded annotations, 7-day sales history, contract-delivery log, Stock Market reads (series, ore demand drivers, demand modifiers) |
+| market.gd | London market (R§3.13): per-good stock/price/history, quotes, price lots (ore per 10: line_total, affordable_qty), supply/demand + faction move recording (`MOVE_SIDES`), civilian demand + Independents slice, daily reprice (⑥.6), story demand rises (`post_story`), bounded annotations, 7-day sales history, delivery log, Stock Market reads (series, ore drivers, demand modifiers) |
 | map_hit_test.gd | Tap-hit geometry, Network diagram |
 | map_layout.gd | Resolves stops vs. live sites/veins |
 | map_nav.gd | Map drill-down nav (list → panel → site sheet or vein detail panel, mutually exclusive) |
@@ -290,7 +290,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | floorplans.json | GameData.gd + floorplan_view.gd (per-tier plan asset, size, slot rects) |
 | hq_visuals.json | hq_diorama.gd, hq*.gd screens |
 | map_layout.json | map_layout.gd, map_hit_test.gd |
-| market.json | market.gd (constants, sim start, priceLot, ore conversion rate, annotation cap/thresholds, delivery-log cap, Independents shares + buy cover, per-good normalStock/civilianDemand); shares.gd (via Market.independents_share) |
+| market.json | market.gd (constants, sim start, priceLot, ore conversion rate, annotation cap/thresholds, delivery-log cap, Independents shares + buy cover, per-good normalStock/civilianDemand, storyRises); shares.gd (via Market.independents_share) |
 | map_palette.json | GameData.gd (validated) + map_palette.gd (Map tab light/dark colour tokens, zone-tint strength, faction/ore/zoneTint dark overrides) + map_controls.gd (`darkModeLabel`) |
 | objectives.json | objectives.gd, todo.gd, daily_brief.gd (optional briefAction / earlyBriefAction + note: Story-row destination), collective.gd, business_quest.gd |
 | offers.json | offers.gd (synthetic catalogue, scripted counterparties, offer expiry days, recurring term weeks, random-offer daily chance curve + qty bands + `variety` ramp, small-offer threshold, cancel relation hit, `assay` commission tuning + prose), business_quest.gd (biz_starter_* chain + Archie nudge text, biz_recurring_* from Beat 3/6) |

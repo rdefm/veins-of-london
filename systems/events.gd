@@ -899,6 +899,13 @@ static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 		"push_message":
 			# Optional "from" lets an authored SMS thread replay its own outgoing "player" lines verbatim; defaults to "them" when omitted.
 			Messages.append(effect["contact"], effect.get("from", "them"), effect["text"])
+		# Ticker story article + timed ore demand rise, both keyed by a market.json storyRises id.
+		"post_story":
+			var story_id: String = effect["story"]
+			var rise: Dictionary = GameData.MARKET["storyRises"][story_id]
+			var end_day: int = int(GameState.state["world"]["day"]) + int(rise["days"])
+			Market.add_story_rise(story_id)
+			Barometer.push_headline(str(GameData.BAROMETER_NEWS["wireArticles"][story_id]["deck"]).format({ "ore": GameData.ORE_TYPES[rise["ore"]]["name"] }), story_id, { "ore": rise["ore"], "endDay": end_day })
 		# push_message's follow-up-action cousin: queues unread text plus a pendingMessages
 		# entry an action bar can surface, for a "tap to start an event" beat.
 		"queue_pending_message":
