@@ -41,8 +41,8 @@
       { "id": "hard", "name": "Old hand", "label": "Hard", "levelDelta": 1, "hpMax": 34, "attackMin": 5, "attackMax": 12, "speed": 12 }
     ],
     "lines": {
-      "intro": "The arch rattles when a train goes over. Mats down, gloves on. House rules apply.",
-      "houseRules": "House rules: Rewind is free and there's no limit. When it's over, the gym rewinds you to the start: no bruises, nothing spent.",
+      "intro": "Flip Reverse. The arch rattles when a train goes over. Mats down, gloves on. Arnie's house rules apply.",
+      "houseRules": "Arnie's house rules: Rewind is free and there's no limit. When it's over, the gym rewinds you to the start: no bruises, nothing spent.",
       "endRewind": "The gym winds you back to the morning. Not a bruise on you, kit all present. The XP stays.",
       "noTime": "No time blocks left today.",
       "locked": "The gym isn't open to you yet.",

@@ -1949,8 +1949,21 @@ func run() -> void:
 
 		# 4. Gym
 		Events.start_event("gym")
-		for i in range(GameData.EVENTS["gym"]["cards"].size()):
-			Events.advance()
+		for i in range(30):
+			if GameState.state["combat"]["active"]:
+				var gym_fight: Dictionary = GameState.state["combat"]
+				if CombatRounds.is_demo(gym_fight):
+					Combat.demo_step()
+					Combat.demo_step()
+				else:
+					gym_fight["coach"] = null
+					gym_fight["combatants"][1]["hp"] = 1
+					Combat.choose_move("strike", 1)
+				Combat.exit_combat()
+			elif Events.is_awaiting_choice():
+				Events.choose(0)
+			elif GameState.state["event"] != null:
+				Events.advance()
 		assert_true(GameState.state["flags"]["gymUnlocked"], "gym: gymUnlocked")
 		assert_eq(Messages.pending_for("archie").back()["kind"], "archie_sells_pearls", "gym: queues archie_sells_pearls")
 

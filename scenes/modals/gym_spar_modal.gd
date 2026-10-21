@@ -1,12 +1,12 @@
 class_name GymSparModal
 extends RefCounted
 
-# The calc gym (map pin once flags.gymUnlocked): pick a sparring partner, see
+# Flip Reverse, the calc gym (map pin once flags.gymUnlocked): pick a sparring partner, see
 # the session cost. Starting one opens the prep sheet; Fight runs Sparring.spar().
 
 
 static func build(container: VBoxContainer, _data: Dictionary) -> void:
-	container.add_child(UI.heading("Calc gym", 14))
+	container.add_child(UI.heading("Flip Reverse", 14))
 	container.add_child(UI.muted_label(Sparring.line("houseRules")))
 	container.add_child(UI.muted_label(_sessions_text()))
 	var skill: int = GameState.state["player"]["combatSkill"]

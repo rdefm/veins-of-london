@@ -229,7 +229,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | network_reference_modal.gd | Network Map legend |
 | hq_ore_readout_modal.gd | Ore-store slip with raid-risk stamp + personal-stash move controls, map_card_style.gd-skinned (always light) |
 | hq_gym_modal.gd | Combat skill card (level, XP bar, current + next-level HP/ATK/SPD/actions/crit via `Combat.skill_summary()`) + Train action card |
-| gym_spar_modal.gd | Calc gym map-pin modal: free-session/fee line, three partner cards with level and Spar button (opens the spar prep sheet); refusal reason shown under a disabled button |
+| gym_spar_modal.gd | Flip Reverse (calc gym) map-pin modal: free-session/fee line, three partner cards with level and Spar button (opens the spar prep sheet); refusal reason shown under a disabled button |
 | contract_cancel_modal.gd | Navy BizBrief contract cancel confirm (Keep / Confirm → `Contracts.cancel`) |
 | active_effects_modal.gd | Sheet listing each running timed effect with level and blocks left (from the top bar chips) |
 | player_moves_modal.gd | "Move against" sheet for one faction: vein picker plus the three `PlayerMoves` rows with cost and block reason |

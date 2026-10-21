@@ -6,6 +6,190 @@
     { "op": "set_screen", "screen": "phone" }
   ],
   "cards": [
-    { "type": "narration", "label": "Reverse", "speaker": null, "text": "Archie walks you into a gym under a railway arch. \"Just in case,\" he says. The gym is open to you now." }
+    {
+      "type": "narration",
+      "label": "Whitechapel — under a railway arch",
+      "speaker": null,
+      "text": "A train goes over and the whole arch hums. The sign above the roller door says REVERSE, with a clean pale patch in front of it where another word used to be."
+    },
+    {
+      "type": "speaker",
+      "label": null,
+      "speaker": "Archie",
+      "text": "\"Gym. Mate of mine runs it.\" He ducks under the shutter. \"Last night you stood there looking like a pain to fight. Time to be one. Don't ask about the sign.\""
+    },
+    {
+      "type": "narration",
+      "label": null,
+      "speaker": null,
+      "text": "Arnie is taping his knuckles: wide as the door, soft round the middle, forearms like fence posts. \"Dad bod,\" he says, before you've said anything. \"Don't let it fool you.\""
+    },
+    {
+      "type": "speaker",
+      "label": null,
+      "speaker": "Arnie",
+      "text": "\"Flip Reverse, it's called. After the Blazing Squad song. Flip fell off in a storm.\" He's grinning. \"I once had a punch-up with two of the band outside a chippy. Best night of my life. Lost, mind.\""
+    },
+    {
+      "type": "speaker",
+      "label": null,
+      "speaker": "Arnie",
+      "text": "\"House rules. There's a Rewind on the shelf, free, as many as you like. Go wrong, break it, go again. Walk out and I wind you back to the morning anyway. And leg it whenever you want. Nobody's marking you.\""
+    },
+    {
+      "type": "choice",
+      "label": null,
+      "speaker": null,
+      "text": "Arnie tosses you a pair of gloves. They're your size. Nobody asked him for your size.",
+      "choices": [
+        {
+          "id": "glovesOn",
+          "label": "Gloves on",
+          "effects": [
+            {
+              "op": "start_scripted_fight",
+              "script": {
+                "seed": 7,
+                "practice": true,
+                "intro": [
+                  "Mats down. Arnie rolls his shoulders."
+                ],
+                "enemies": [
+                  {
+                    "name": "Arnie",
+                    "hpMax": 60,
+                    "attackMin": 3,
+                    "attackMax": 4,
+                    "level": 1,
+                    "speed": 99,
+                    "template": "mugger",
+                    "moveLevels": {
+                      "strike": 1,
+                      "guard": 1,
+                      "feint": 1,
+                      "stun": 1,
+                      "legIt": 1
+                    },
+                    "plans": [
+                      [ "strike", "strike" ],
+                      [ "guard", "guard" ],
+                      [ "strike", "guard" ]
+                    ]
+                  }
+                ],
+                "coach": {
+                  "lessons": {
+                    "1": "Read his intent. He's swinging, so Guard.",
+                    "2": "He's covering up. Feint opens him, then Strike.",
+                    "3": "He's swung and he's open. Stun him, then Strike."
+                  },
+                  "allowed": {
+                    "1": [ "guard" ],
+                    "2": [ "feint", "strike" ],
+                    "3": [ "stun", "strike" ]
+                  }
+                },
+                "resumeCard": 6
+              }
+            }
+          ],
+          "result_text": ""
+        }
+      ]
+    },
+    {
+      "type": "speaker",
+      "label": null,
+      "speaker": "Arnie",
+      "text": "He unwraps one hand and nods at you. \"That's the whole job. Read what they're about to do, then do something about it. Now watch.\""
+    },
+    {
+      "type": "choice",
+      "label": null,
+      "speaker": null,
+      "text": "Arnie waves Archie onto the mats. Archie takes his jacket off and folds it.",
+      "choices": [
+        {
+          "id": "watch",
+          "label": "Watch",
+          "effects": [
+            {
+              "op": "start_demo_fight",
+              "script": {
+                "seed": 11,
+                "rounds": 2,
+                "label": "Sparring",
+                "intro": [
+                  "Arnie squares up to Archie."
+                ],
+                "enemies": [
+                  {
+                    "name": "Arnie",
+                    "hpMax": 200,
+                    "attackMin": 6,
+                    "attackMax": 6,
+                    "level": 5,
+                    "speed": 99,
+                    "template": "mugger",
+                    "moveLevels": {
+                      "strike": 1,
+                      "guard": 1,
+                      "feint": 5,
+                      "stun": 1,
+                      "legIt": 1
+                    },
+                    "plans": [
+                      [
+                        { "move": "strike", "target": 1 },
+                        { "move": "feint", "target": 1 }
+                      ]
+                    ]
+                  }
+                ],
+                "allies": [
+                  {
+                    "name": "Archie",
+                    "hpMax": 200,
+                    "attackMin": 4,
+                    "attackMax": 4,
+                    "level": 1,
+                    "speed": 10,
+                    "sprite": "archie",
+                    "moveLevels": {
+                      "strike": 1,
+                      "guard": 1,
+                      "feint": 1,
+                      "stun": 1,
+                      "legIt": 1
+                    },
+                    "plans": [
+                      [ "guard", { "move": "strike", "target": 2 } ]
+                    ]
+                  }
+                ],
+                "procs": [
+                  { "kind": "autoguard", "target": 2 },
+                  { "kind": "retaliate", "target": 2 }
+                ],
+                "resumeCard": 8
+              }
+            }
+          ],
+          "result_text": ""
+        }
+      ]
+    },
+    {
+      "type": "speaker",
+      "label": null,
+      "speaker": "Arnie",
+      "text": "\"Level five Feint. I open him up, cover myself, and hit back when he swings. Same move you've got, just more practice. Every move levels up the more you use it. Come in whenever. First three sessions are on me.\""
+    },
+    {
+      "type": "speaker",
+      "label": null,
+      "speaker": "Archie",
+      "text": "He pulls his jacket back on, checking his phone. \"Told you. I've got your pearls to shift. I'll text you.\" He's through the shutter before you can thank him."
+    }
   ]
 }

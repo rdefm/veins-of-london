@@ -10,6 +10,9 @@ func _play(event_id: String) -> void:
 	for step in range(200):
 		if GameState.state["event"] == null:
 			break
+		if GameState.state["combat"]["active"]:
+			_finish_practice_fight()
+			continue
 		if Events.is_awaiting_choice():
 			Events.choose(0)
 			if LessonSession.is_open():
@@ -19,6 +22,18 @@ func _play(event_id: String) -> void:
 				Lab.finish_run()
 				LessonSession.resume()
 		Events.advance()
+
+
+func _finish_practice_fight() -> void:
+	var combat: Dictionary = GameState.state["combat"]
+	if CombatRounds.is_demo(combat):
+		for i in range(int(combat["demo"]["rounds"])):
+			Combat.demo_step()
+	else:
+		combat["coach"] = null
+		combat["combatants"][1]["hp"] = 1
+		Combat.choose_move("strike", 1)
+	Combat.exit_combat()
 
 
 func _current_id() -> String:
