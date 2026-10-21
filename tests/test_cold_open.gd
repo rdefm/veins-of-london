@@ -73,6 +73,28 @@ func run() -> void:
 		host.free()
 	)
 
+	run_case("cold_open_post_rewind_pearl_freezes_nick_through_the_escape", func():
+		_reach_fight()
+		var combat: Dictionary = GameState.state["combat"]
+		for step in range(8):
+			if CombatRounds.script_locked(combat):
+				break
+			Combat.choose_move("strike", 2)
+		var replay: Array = combat["log"].slice(int(Combat.round_rewind()["logKept"]))
+		var pearl: int = replay.find_custom(func(b): return b["kind"] == "timePearl")
+		assert_true(pearl >= 0, "the pearl plays after the Rewind")
+		assert_eq(int(replay[pearl]["actor"]), 1, "Archie plays it")
+		assert_eq(replay[pearl]["affected"], [2], "it lands on Nick")
+		assert_true(combat["combatants"][1]["loadout"][0]["used"], "from Archie's slot 0")
+		assert_true(str(replay[pearl]["text"]) != "", "the pearl has a transcript line")
+		var cues: Array = CombatRoundsScreen.beat_cues(replay[pearl])
+		assert_true(cues.any(func(c): return c["call"] == "throw" and int(c["who"]) == 1), "Archie throws it on stage")
+		for i in range(pearl, replay.size()):
+			assert_true(replay[i]["marks"][2]["frozen"], "Nick frozen at beat %d (%s)" % [i, replay[i]["kind"]])
+		assert_eq(combat["outcome"], "fled", "the fight resolves into the escape")
+		assert_true(int(combat["combatants"][2]["frozenActions"]) > 0, "still frozen at the end")
+	)
+
 	run_case("rewind_playback_is_quicker_than_forward_pacing", func():
 		var speed: float = GameData.COMBAT_VISUALS["pacing"]["rewindSpeed"]
 		assert_eq(CombatDirector.rewind_speed(), speed, "from data")

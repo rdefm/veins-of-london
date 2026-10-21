@@ -197,7 +197,7 @@
                     "slots": [
                       {
                         "recipe": "timePearl",
-                        "tier": 1
+                        "tier": 2
                       }
                     ],
                     "moveLevels": {
