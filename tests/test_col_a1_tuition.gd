@@ -43,7 +43,7 @@ func run() -> void:
 		assert_true(Messages.has_any_unread(), "queuing appends an unread text -- the Messages tile should badge (spec §5.3)")
 
 		var thread: Array = GameState.state["messages"]["archie"]
-		assert_eq(thread[thread.size() - 1]["text"], "Come by the lock-up. Got someone you need to meet. Don't make a thing of it.")
+		assert_eq(thread[thread.size() - 1]["text"], "Des can see you tomorrow. Lock-up, same time. Don't make a thing of it.")
 	)
 
 	run_case("archie_card_surfaces_the_pending_S1_button_and_pressing_it_resolves_and_starts_col_a1_intro", func():

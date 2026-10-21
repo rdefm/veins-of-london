@@ -349,3 +349,9 @@ static func _apply_tutorial_day_triggers() -> void:
 		flags["prologueEndingQueued"] = true
 		# PROSE-REVIEW: placeholder text from Archie that opens the Prologue ending.
 		Messages.queue_pending("archie", "prologue_ending", "Rent's paid? Come and see me. Got something to show you.")
+
+	# The tick after the ending: the arcs the Prologue skipped arrive as one-line nudges.
+	if flags["prologueNudgePending"]:
+		flags["prologueNudgePending"] = false
+		# PROSE-REVIEW: Archie's day-after nudge; Harrow's and the deposit.
+		Messages.append("archie", "them", "Deposit's the number now. Harrow's will show you what it buys. Don't sign anything.")

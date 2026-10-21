@@ -20,6 +20,7 @@
     { "op": "tutorial_cultivate" },
     { "op": "relation", "contact": "archie", "value": 2 },
     { "op": "set_flag", "flag": "cultivationTutorialSeen", "value": true },
+    { "op": "push_message", "contact": "archie", "text": "Monday's the rent. Notes has the sum, Reynard's has what you've got, BizBrief has the day. Check all three before you go to bed." },
     { "op": "set_screen", "screen": "map" }
   ]
 }

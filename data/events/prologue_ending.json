@@ -3,12 +3,18 @@
   "on_complete": [
     { "op": "set_flag", "flag": "rentGoal", "value": false },
     { "op": "set_flag", "flag": "prologueDone", "value": true },
+    { "op": "set_flag", "flag": "prologueNudgePending", "value": true },
     { "op": "post_story", "story": "prologueSqueeze" },
     { "op": "set_stage", "value": "free" },
-    { "op": "queue_pending_message", "contact": "archie", "kind": "col_a1_intro", "text": "Come by the lock-up. Got someone you need to meet. Don't make a thing of it." },
+    { "op": "queue_pending_message", "contact": "archie", "kind": "col_a1_intro", "text": "Des can see you tomorrow. Lock-up, same time. Don't make a thing of it." },
     { "op": "set_screen", "screen": "phone" }
   ],
   "cards": [
-    { "type": "narration", "label": null, "speaker": null, "text": "The rent is paid. Next Monday is already on the calendar." }
+    { "type": "narration", "label": "Shoreditch — the lock-up", "speaker": null, "text": "Archie has the shutter half down and a laptop open on an upturned crate. He looks up when you come in and does not say well done." },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Rent's paid. Good. Next Monday's already in the calendar, same sum, so don't get comfortable.\"" },
+    { "type": "narration", "label": null, "speaker": null, "text": "He turns the laptop round. The Ticker, a column of grey headlines, with one of them smeared by a thumbprint." },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Emotion calc. Four buyers rang me this morning, all after the same stock, none of them wanting to say why.\" He shuts the lid. \"Buyers are twitchy.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Keep an eye on the Ticker. It'll tell you what's moving in the calc world before anyone texts you about it. Usually.\"" },
+    { "type": "resolution", "label": null, "speaker": null, "text": "He's already looking at his phone. \"I'll text you about someone. Don't make a thing of it.\"" }
   ]
 }

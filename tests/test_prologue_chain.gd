@@ -112,6 +112,13 @@ func run() -> void:
 		assert_true(GameState.state["flags"]["prologueDone"], "prologue done")
 		assert_eq(GameState.state["flags"]["tutorialStage"], "free", "tutorial stage released")
 		assert_true(_has_pending("col_a1_intro"), "the ending hands off to Des")
+		var story_rises: Array = GameState.state["market"].get("storyRises", [])
+		assert_eq(story_rises.size(), 1, "the ending starts the emotion demand rise")
+		assert_eq(story_rises[0]["ore"], "emotion", "the rise is on emotion calc")
+		assert_true(GameState.state["flags"]["prologueNudgePending"], "the other-arc nudge waits for the next day")
+		TimeSystem.daily_tick()
+		assert_true(not GameState.state["flags"]["prologueNudgePending"], "the nudge fires on the next tick")
+		assert_true(Messages.latest_preview("archie").begins_with("Deposit"), "Archie nudges toward Harrow's and the deposit")
 		assert_eq(_current_id(), "", "no Prologue objective left pending")
 	)
 

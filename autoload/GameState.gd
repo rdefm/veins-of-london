@@ -317,7 +317,7 @@ func new_game_state() -> Dictionary:
 			"craftingUnlocked": false,
 			# Prologue chain (data/objectives.json pro_*): the cold open's end, Archie's
 			# pearl sale, and the guard so the ending is queued once rent is paid.
-			"coldOpenSeen": false, "archieSoldPearls": false, "prologueEndingQueued": false, "prologueDone": false,
+			"coldOpenSeen": false, "archieSoldPearls": false, "prologueEndingQueued": false, "prologueDone": false, "prologueNudgePending": false,
 			"canSellConsumables": false, "consSoldCount": 0,
 			"archieMotionPending": false, "archieMotionEventSeen": false,
 			# Idempotency guard: archie_2 SMS queues exactly once, not on
