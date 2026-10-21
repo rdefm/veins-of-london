@@ -440,7 +440,7 @@ state = {
     attackMin: 7, attackMax: 15,
     orichalchum: {},          # { oreType: int }
     veins: [],                # vein dicts, §2.1
-    inventory: { timePearl: {}, enhancementPowder: {}, rewind: {} },  # bugfixes-64: { recipeKey: { "<tier>": count } } — tier-bucketed, not a flat count. Tier keys are stringified ints; tiers run 1..5 — tier 0 is retired (v4): `inventory_add`/`add_item` floor any lower tier at 1, and purchases/grants/migrated bare counts file under tier "1". Crafting.inventory_qty/_add/_remove/_remove_from_tier are the only sanctioned readers/writers — see §3.5.
+    inventory: { timePearl: {}, enhancementPowder: {}, rewind: {} },  # bugfixes-64: { recipeKey: { "<tier>": count } } — tier-bucketed, not a flat count. Tier keys are stringified ints; tiers run 1..5 — tier 0 is retired (v4): `inventory_add`/`add_item` floor any lower tier at 1 (event op `add_item { item, qty, tier?, equip? }`: `tier` defaults 1; `equip: true` then moves one unit into the first empty player loadout slot), and purchases/grants/migrated bare counts file under tier "1". Crafting.inventory_qty/_add/_remove/_remove_from_tier are the only sanctioned readers/writers — see §3.5.
     shieldPool: 0,             # calc-effect-wiring-02: Shield's absorption pool, §3.7
     healingSalveDaysLeft: 0, healingSalveDailyAmount: 0,  # calc-effect-wiring-02: Healing Salve HoT, §3.1/§3.7
     activeEffects: [],  # [{ item, level, expiresAtBlock }] timed out-of-combat item effects (§3.7 "Active effects"); expiresAtBlock = absolute block (day × 3 + timeBlock), held while now < it; old saves backfill []

@@ -804,8 +804,15 @@ static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 			var ore: Dictionary = GameState.state["player"]["orichalchum"]
 			ore[effect["type"]] = ore.get(effect["type"], 0) + effect["qty"]
 		"add_item":
-			# Event-granted items file under tier 1.
-			Crafting.inventory_add(effect["item"], 1, effect["qty"])
+			# Event-granted items file under tier 1 unless the effect names a `tier`;
+			# `equip` then moves one unit into the first empty player loadout slot.
+			var tier := int(effect.get("tier", 1))
+			Crafting.inventory_add(effect["item"], tier, effect["qty"])
+			if effect.get("equip", false):
+				var slots: Array = GameState.state["player"]["loadout"]["slots"]
+				var free := slots.find(null)
+				if free >= 0:
+					Loadout.equip(free, effect["item"], maxi(tier, 1))
 		"relation":
 			Contacts.award_relation(effect["contact"], effect["value"])
 		"grant_vein_with_site":
