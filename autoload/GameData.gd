@@ -2353,6 +2353,11 @@ func _validate_effect_list(effects: Array, context: String, errors: Array[String
 				if effect["script"].has("practice") and typeof(effect["script"]["practice"]) != TYPE_BOOL:
 					errors.append("%s.script: practice must be true or false" % context)
 				_validate_coach(effect["script"].get("coach"), "%s.script.coach" % context, errors)
+		if effect["op"] == "start_home_raid_combat" and effect.has("pearlLock"):
+			if effect["pearlLock"] is Dictionary:
+				_require_keys(effect["pearlLock"], ["item", "enemyBelowHp", "prompt"], "%s.pearlLock" % context, errors)
+			else:
+				errors.append("%s: pearlLock must be an object" % context)
 		if effect["op"] == "start_demo_fight":
 			_require_keys(effect, ["script"], context, errors)
 			if effect.get("script") is Dictionary:

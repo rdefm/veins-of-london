@@ -126,6 +126,47 @@ func run() -> void:
 		assert_eq(_current_id(), "", "no Prologue objective left pending")
 	)
 
+	run_case("home_raid_cant_be_won_without_the_pearl", func():
+		GameState.reset()
+		Events.apply_effects([{ "op": "add_item", "item": "timePearl", "qty": 2, "equip": true }])
+		Events.start_event("home_raid_intro")
+		for i in range(GameData.EVENTS["home_raid_intro"]["cards"].size()):
+			Events.advance()
+		assert_true(CombatPrep.commit()["ok"], "the raid starts")
+		var combat: Dictionary = GameState.state["combat"]
+		var lock: Dictionary = combat["pearlLock"]
+		var you: Dictionary = combat["combatants"][CombatRounds.PLAYER_INDEX]
+		you["hp"] = 999
+		you["hpMax"] = 999
+
+		var refusal := {}
+		for i in range(60):
+			var result := Combat.choose_move("strike", 1)
+			if not result["ok"]:
+				refusal = result
+				break
+		assert_eq(combat["outcome"], null, "strikes alone never win")
+		assert_true(CombatRounds.pearl_locked(combat), "the fight locks on the pearl")
+		assert_eq(refusal.get("reason", ""), lock["prompt"], "a strike is refused with the pearl prompt")
+		assert_eq(CombatRounds.lock_prompt(combat), lock["prompt"], "the prompt line tells you to use the pearl")
+		assert_true(int(combat["combatants"][1]["hp"]) >= 1, "the raider is still up")
+
+		assert_true(Combat.choose_item(Loadout.find_slot("timePearl"))["ok"], "the pearl plays at the lock")
+		assert_true(not CombatRounds.pearl_locked(combat), "the lock lifts once the pearl is thrown")
+		for i in range(30):
+			if combat["outcome"] != null:
+				break
+			Combat.choose_move("strike", 1)
+		assert_eq(combat["outcome"], "win", "the pearl leads to a win")
+	)
+
+	run_case("later_home_raids_have_no_pearl_lock", func():
+		GameState.reset()
+		Events.apply_effects([{ "op": "add_item", "item": "timePearl", "qty": 2, "equip": true }])
+		Combat.start_home_alarm_defend_combat()
+		assert_eq(GameState.state["combat"]["pearlLock"], null, "an alarm defence keeps normal rules")
+	)
+
 	run_case("ending_waits_for_the_goal_the_vein_lesson_and_rent", func():
 		GameState.reset()
 		var flags: Dictionary = GameState.state["flags"]

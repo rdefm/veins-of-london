@@ -834,7 +834,7 @@ static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 		# Optional opening modifiers ride the prep's args to Combat.start_home_raid_combat().
 		"start_home_raid_combat":
 			var mods := {}
-			for key in ["enemyHpMult", "enemyFirst"]:
+			for key in ["enemyHpMult", "enemyFirst", "pearlLock"]:
 				if effect.has(key):
 					mods[key] = effect[key]
 			CombatPrep.request(CombatPrep.KIND_HOME_RAID, mods)

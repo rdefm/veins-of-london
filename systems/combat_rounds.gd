@@ -176,6 +176,9 @@ static func new_state() -> Dictionary:
 		# Rewind; see script_locked(); SCRIPT_OPEN throughout with no lock),
 		# null for an ordinary fight.
 		"script": null,
+		# A pearl lock ({ item, enemyBelowHp, prompt }, R§3.7b Pearl lock),
+		# null for none.
+		"pearlLock": null,
 		# A demo fight's data block (R§3.7b Demo fights), null for any other.
 		"demo": null,
 		# A gym spar's or practice scripted fight's data block
@@ -1149,6 +1152,8 @@ static func _pick_block_reason(cp: Dictionary, action: Dictionary) -> String:
 	if script_locked(cp):
 		return str(cp["script"]["prompt"])
 	var entry = _normalize_action(cp, action)
+	if pearl_locked(cp) and not (entry.has("slot") and entry["move"] == cp["pearlLock"]["item"]):
+		return str(cp["pearlLock"]["prompt"])
 	var allowed := coach_allowed(cp)
 	if not allowed.is_empty() and not allowed.has(entry["move"]):
 		return str(GameData.COMBAT_ROUNDS["coach"]["notNow"])
@@ -1225,6 +1230,35 @@ static func _take_demo_proc(cp: Dictionary, kind: String, idx: int) -> bool:
 			proc["spent"] = true
 			return true
 	return false
+
+
+# ── Pearl lock (R§3.7b Pearl lock) ───────────────────────────────────────
+
+# Whether the fight's pearl lock still waits on its item: the player holds
+# an unspent unit of it in a loadout slot and has played none.
+static func _pearl_pending(cp: Dictionary) -> bool:
+	var lock: Variant = cp.get("pearlLock")
+	if not lock is Dictionary or cp["outcome"] != null:
+		return false
+	var units: Array = cp["combatants"][PLAYER_INDEX]["loadout"].filter(func(s): return s["item"] == lock["item"])
+	return units.any(func(s): return not s["used"]) and not units.any(func(s): return s["used"])
+
+
+# Whether a still-pending pearl lock has engaged: a standing enemy is below
+# its enemyBelowHp, so the lock's item is the only playable command.
+static func pearl_locked(cp: Dictionary) -> bool:
+	if not _pearl_pending(cp):
+		return false
+	var below := int(cp["pearlLock"]["enemyBelowHp"])
+	return cp["combatants"].any(func(c): return c["side"] == SIDE_ENEMY and not c["koed"] and int(c["hp"]) < below)
+
+
+# The line a lock shows in place of the round's lesson (a scripted fight's
+# prompt, or the pearl lock's), "" while unlocked.
+static func lock_prompt(cp: Dictionary) -> String:
+	if pearl_locked(cp):
+		return str(cp["pearlLock"]["prompt"])
+	return script_prompt(cp)
 
 
 # ── Scripted fights (R§3.7b Scripted fights) ─────────────────────────────
@@ -2079,7 +2113,8 @@ static func _deal_damage(cp: Dictionary, actor_idx: int, target_idx: int, dmg: i
 	target["hp"] = maxi(0, target["hp"] - (dmg - absorbed))
 	# Before its Rewind a scripted fight can't be won or lost: only the
 	# script's allies fall. A demo fight drops no one.
-	if target["hp"] == 0 and (is_demo(cp) or (_script_pre(cp) and target["side"] != SIDE_ALLY)):
+	# Nor can a pearl-locked one be won before its pearl.
+	if target["hp"] == 0 and (is_demo(cp) or (_script_pre(cp) and target["side"] != SIDE_ALLY) or (target["side"] == SIDE_ENEMY and _pearl_pending(cp))):
 		target["hp"] = 1
 	var fields := { "dmg": dmg, "absorbed": absorbed, "hpAfter": target["hp"] }
 	fields.merge(extra)

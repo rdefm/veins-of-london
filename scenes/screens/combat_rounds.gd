@@ -245,7 +245,7 @@ func _sync_fight(cp: Dictionary) -> void:
 	var heading: String = str(cp["demo"]["label"]) if CombatRounds.is_demo(cp) else CombatScreen.context_label(cp["context"])
 	_round_label.text = "%s · Round %d" % [heading, mini(int(cp["round"]), int(cp["demo"]["rounds"])) if CombatRounds.is_demo(cp) else cp["round"]]
 	# The round's lesson waits for the beats ahead of it to finish playing.
-	var prompt := CombatRounds.script_prompt(cp)
+	var prompt := CombatRounds.lock_prompt(cp)
 	var lesson := "" if _busy() else CombatRounds.coach_lesson(cp)
 	_refusal_label.text = _refusal if _refusal != "" else (prompt if prompt != "" else lesson)
 	_refusal_label.visible = _refusal_label.text != ""

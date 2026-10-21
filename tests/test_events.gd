@@ -1996,6 +1996,8 @@ func run() -> void:
 		var you: Dictionary = GameState.state["combat"]["combatants"][CombatRounds.PLAYER_INDEX]
 		you["attackMin"] = 999
 		you["attackMax"] = 999
+		# The prologue raid needs its pearl thrown before it can be won.
+		assert_true(Combat.choose_item(Loadout.find_slot("timePearl"))["ok"], "home_raid_intro: pearl thrown")
 		# Strikes until it lands, whatever the rolled enemy plans guard or dodge.
 		for i in range(10):
 			if GameState.state["combat"]["outcome"] != null:

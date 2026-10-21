@@ -59,6 +59,9 @@ func _force_win_active_combat() -> void:
 	var you: Dictionary = combat["combatants"][CombatRounds.PLAYER_INDEX]
 	you["attackMin"] = 999
 	you["attackMax"] = 999
+	# A pearl-locked fight needs its pearl thrown before it can be won.
+	if combat.get("pearlLock") is Dictionary and Loadout.find_slot(combat["pearlLock"]["item"]) >= 0:
+		Combat.choose_item(Loadout.find_slot(combat["pearlLock"]["item"]))
 	for _i in range(20):
 		if combat["outcome"] != null:
 			break
