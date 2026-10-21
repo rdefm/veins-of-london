@@ -9,9 +9,11 @@ extends Control
 # manually.
 #
 # "Craft manually" docks the book under the Press, over the plate's lower
-# edge, with the plate just below the top bar: the recipe's jars tap real calc in, apparatus pop their gauge over
-# the plate, and the book's Finish -- the only way out -- shows the result
-# and clues in place, with the Rewind choices. An open lesson
+# edge, with the plate lifted so its jars sit just below the top bar: the
+# recipe's jars tap real calc in, apparatus pop their gauge over the plate,
+# the book's notebook strip shows one known step at a time, and its Finish
+# -- the only way out -- shows the result and clues in place, with the
+# Rewind choices. An open lesson
 # (LessonSession) keeps the book docked on its recipe with no Rewind, and
 # its result offers Try again until the goal is met, then Continue.
 
@@ -38,11 +40,19 @@ const _ENTRY_TOP := 205.0
 const _ENTRY_STEP := 290.0
 const _ENTRY_HEIGHT := 250.0
 
+# Docked step strip geometry, art space of the blank page's top strip.
+const _STEP_STRIP := Rect2(0, 0, 1024, 480)
+const _STEP_HEADER := Rect2(200, 146, 730, 54)
+const _STEP_BOX := Rect2(205, 222, 210, 210)
+const _STEP_TEXT := Rect2(445, 210, 485, 180)
+const _STEP_BAND := Rect2(445, 396, 485, 56)
+
 enum Page { NONE, BOOK, RECIPE, RUN }
 
 # View state only: which book page and ore tab are open, the picked batch
 # size, and in a docked run the open gauge's apparatus, the last refusal
-# notice and the finished run's result; whether the Rewind choice is open.
+# notice, the browsed step (-1 follows the run's next step) and the finished
+# run's result; whether the Rewind choice is open.
 var _page := Page.NONE
 var _rewind_open := false
 var _book_ore := ""
@@ -51,6 +61,7 @@ var _recipe_key := ""
 var _craft_qty := 1
 var _gauge := ""
 var _notice := ""
+var _step_view := -1
 var _result := {}
 var _debug_overlay_enabled := false
 var _bench_guard_until_msec := 0
@@ -115,15 +126,18 @@ func _show(page: Page) -> void:
 # §5.1: the Lab's portrait plate, width-fit in area, the space above it
 # filled with the plate's wall colour and the space below with its floor
 # colour. Undocked it is centred vertically with the status line, Back and
-# the debug-regions chip; docked it sits at the top of area, with none of
-# them. Returns the plate's bottom edge.
+# the debug-regions chip; docked it lifts so its jars' top edge sits _INSET
+# below area's top, with none of them. Returns the plate's bottom edge.
 func _build_plate(area: Rect2, docked: bool = false) -> float:
 	var plate: Dictionary = GameData.HQ_VISUALS["labBench"]
 	var plate_size := Vector2(plate["width"], plate["height"])
 	var available: Vector2 = area.size if area.size.x > 0.0 and area.size.y > 0.0 else plate_size
 	var scale_factor: float = available.x / plate_size.x
 	var scaled := plate_size * scale_factor
-	var origin: Vector2 = area.position + Vector2(0.0, 0.0 if docked else (available.y - scaled.y) / 2.0)
+	var offset_y: float = (available.y - scaled.y) / 2.0
+	if docked:
+		offset_y = -maxf(_jar_top(plate["regions"]) * scale_factor - _INSET, 0.0)
+	var origin: Vector2 = area.position + Vector2(0.0, offset_y)
 	var full: Vector2 = size if size.x > 0.0 and size.y > 0.0 else available
 	var floor_top: float = origin.y + scaled.y
 
@@ -159,6 +173,15 @@ func _build_plate(area: Rect2, docked: bool = false) -> float:
 	debug_toggle.position = Vector2(back.position.x + back.custom_minimum_size.x + 8.0, back.position.y)
 	add_child(debug_toggle)
 	return floor_top
+
+
+# The highest jar's top edge, art space.
+func _jar_top(regions: Dictionary) -> float:
+	var top := INF
+	for region_id in regions:
+		if String(region_id).begins_with(Lab.ORE_REGION_PREFIX):
+			top = minf(top, float(regions[region_id]["y"]))
+	return top if top < INF else 0.0
 
 
 func _add_band(palette_id: String, rect: Rect2) -> void:
@@ -632,6 +655,7 @@ func _after_rewind(outcome: Dictionary) -> void:
 
 func _dock() -> void:
 	_gauge = ""
+	_step_view = -1
 	_notice = ""
 	_result = {}
 	_show(Page.RUN)
@@ -648,14 +672,13 @@ func _undock() -> void:
 
 func _build_run() -> void:
 	var top := UI.top_bar_clearance()
-	var plate_bottom := _build_plate(Rect2(0.0, top, size.x, maxf(size.y - top, 0.0)), true)
+	_build_plate(Rect2(0.0, top, size.x, maxf(size.y - top, 0.0)), true)
 	# §5.1 docked: the book runs from the Press region's bottom edge down to
 	# the nav bar's top, so its footer (Finish / Done) is never under the
 	# bar; never less than _DOCK_MIN_HEIGHT (it then rises over the press).
-	var plate: Dictionary = GameData.HQ_VISUALS["labBench"]
-	var scale_factor: float = (plate_bottom - top) / float(plate["height"])
-	var press: Dictionary = plate["regions"]["apparatus_compression"]
-	var press_bottom: float = top + (float(press["y"]) + float(press["height"])) * scale_factor
+	var frame := _diorama.get_parent() as Control
+	var press: Dictionary = GameData.HQ_VISUALS["labBench"]["regions"]["apparatus_compression"]
+	var press_bottom: float = frame.position.y + (float(press["y"]) + float(press["height"])) * frame.scale.y
 	var dock_bottom: float = UI.nav_bar_clearance() + _OVERLAY_MARGIN
 	var dock_top: float = minf(press_bottom, size.y - dock_bottom - _DOCK_MIN_HEIGHT)
 
@@ -679,8 +702,8 @@ func _build_run() -> void:
 		add_child(centre)
 
 
-# The docked book page: the recipe's known steps (each with its band on a
-# 0-100 track) and Finish, or after Finish the run's result.
+# The docked book page: the run's status over the notebook strip of known
+# steps, with Finish, or after Finish the run's result.
 func _build_docked_book() -> Control:
 	var c := MapCardStyle.card(14, 0.16)
 	var scroller := UI.scroll_container()
@@ -710,12 +733,99 @@ func _build_docked_book() -> Control:
 		content.add_child(UI.label("In the mixture: %s · steps done: %d" % [_calc_text(run["calcSpent"]), run["performed"].size()]))
 	if _notice != "":
 		content.add_child(MapCardStyle.label(_notice, 13, MapCardStyle.action()))
-	var steps := Lab.known_procedure(_recipe_key)
-	for i in steps.size():
-		_add_known_step(content, i, steps[i])
 	_add_effect_controls(content)
-	c["content"].add_child(MapCardStyle.footer([MapCardStyle.text_button("Finish", _on_finish, lesson != null and run == null)]))
+	var steps := Lab.known_procedure(_recipe_key)
+	var shown := _shown_step(steps.size())
+	c["content"].add_child(_build_step_strip(steps, shown))
+	# A step arrow shows only when there's a step in its direction.
+	var footer := MapCardStyle.footer([])
+	footer.alignment = BoxContainer.ALIGNMENT_BEGIN
+	if shown > 0:
+		footer.add_child(MapCardStyle.text_button("‹ Prev", func(): _browse_step(shown - 1)))
+	if shown < steps.size() - 1:
+		footer.add_child(MapCardStyle.text_button("Next ›", func(): _browse_step(shown + 1)))
+	var spacer := Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	footer.add_child(spacer)
+	footer.add_child(MapCardStyle.text_button("Finish", _on_finish, lesson != null and run == null))
+	c["content"].add_child(footer)
 	return c["panel"]
+
+
+# The known step the strip shows: the browsed one, else the run's next step
+# (the last once every known step is done).
+func _shown_step(count: int) -> int:
+	if count == 0:
+		return 0
+	if _step_view >= 0:
+		return clampi(_step_view, 0, count - 1)
+	return mini(Lab.next_step_index(), count - 1)
+
+
+func _browse_step(index: int) -> void:
+	_step_view = index
+	_refresh()
+
+
+# The top strip of the blank recipe page with one known step in the book's
+# hand: its number boxed, its line and band; the run's next step is marked.
+func _build_step_strip(steps: Array, shown: int) -> Control:
+	var strip := RecipeBookPage.new()
+	strip.name = "StepStrip"
+	strip.crop_blank(_STEP_STRIP)
+	strip.size_flags_stretch_ratio = 2.0
+	if steps.is_empty():
+		# PROSE-REVIEW: docked notebook with no known steps.
+		var empty := _page_label("No steps known.", RecipeBookPage.INK_MUTED)
+		empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		strip.place(empty, _STEP_TEXT, 40.0, 11)
+		return strip
+	var next := Lab.next_step_index()
+	var active := shown == next
+	var step: Dictionary = steps[shown]
+
+	# PROSE-REVIEW: docked step header.
+	var header_text := "Step %d of %d" % [shown + 1, steps.size()]
+	if active:
+		header_text += " · next"
+	elif shown < next:
+		header_text += " · done"
+	var header := _page_label(header_text, MapCardStyle.action() if active else RecipeBookPage.INK_MUTED)
+	header.name = "StepHeader"
+	header.set_meta("active", active)
+	strip.place(header, _STEP_HEADER, 36.0, 10)
+
+	if active:
+		var marker := Panel.new()
+		marker.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var outline := StyleBoxFlat.new()
+		outline.bg_color = Color(MapCardStyle.action(), 0.12)
+		outline.set_border_width_all(3)
+		outline.border_color = MapCardStyle.action()
+		outline.set_corner_radius_all(6)
+		marker.add_theme_stylebox_override("panel", outline)
+		strip.place(marker, _STEP_BOX.grow(-6.0))
+	var number := _page_label(str(shown + 1), RecipeBookPage.INK if active else RecipeBookPage.INK_MUTED)
+	number.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	number.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	strip.place(number, _STEP_BOX, 120.0, 16)
+
+	var text := _step_text(step)
+	if step.has("note"):
+		text += "\n" + String(step["note"])
+	var line := _page_label(text, RecipeBookPage.INK)
+	line.name = "StepText"
+	line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	line.clip_text = true
+	strip.place(line, _STEP_TEXT, 34.0, 10)
+
+	var region := Lab.step_region(_recipe_key, step)
+	if not region.is_empty():
+		var band := LabGauges.BandGauge.new()
+		band.custom_minimum_size = Vector2.ZERO
+		band.set_region(region)
+		strip.place(band, _STEP_BAND)
+	return strip
 
 
 # A lesson's goal and failed runs, and what escalation has shown so far.
@@ -764,26 +874,12 @@ func _jar_names(base_calc: Dictionary) -> String:
 	return " or ".join(names)
 
 
-# A known step: apparatus, the calc it adds, and its band -- exact as
-# "low–high", vague as "≈ low–high" on a faded region with the hint's note
-# saying which way to go; an insight as "?" with no band, just its note.
+# A known step: its line (see _step_text), its band on a 0-100 track (faded
+# when vague), and the hint's note saying which way to go.
 func _add_known_step(content: VBoxContainer, index: int, step: Dictionary) -> void:
-	var calc: Dictionary = step.get("calc", {})
-	var ores := ""
-	for ore_type in calc.keys():
-		ores += " · %s ×%d" % [ore_type, calc[ore_type]]
+	content.add_child(UI.label("%d. %s" % [index + 1, _step_text(step)]))
 	var region := Lab.step_region(_recipe_key, step)
-	if region.is_empty():
-		content.add_child(UI.label("%d. %s%s · ?" % [index + 1, Lab.apparatus_name(step["apparatus"]), ores]))
-	else:
-		var band_text: String = "≈ %d–%d" if region["vague"] else "%d–%d"
-		if step["knowledge"] == "revealed":
-			# PROSE-REVIEW: tag on a band Prophet's Breath reveals.
-			band_text += " (Breath)"
-		elif step["knowledge"] == "talkThrough":
-			# PROSE-REVIEW: tag on a band a lesson's talk-through shows.
-			band_text += " (talk-through)"
-		content.add_child(UI.label("%d. %s%s · %s" % [index + 1, Lab.apparatus_name(step["apparatus"]), ores, band_text % [roundi(region["low"]), roundi(region["high"])]]))
+	if not region.is_empty():
 		var band := LabGauges.BandGauge.new()
 		band.set_region(region)
 		content.add_child(band)
@@ -791,6 +887,26 @@ func _add_known_step(content: VBoxContainer, index: int, step: Dictionary) -> vo
 		var note := UI.muted_label(step["note"])
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		content.add_child(note)
+
+
+# A known step's line: apparatus, the calc it adds, and its band -- exact as
+# "low–high", vague as "≈ low–high"; an insight as "?" with no band.
+func _step_text(step: Dictionary) -> String:
+	var calc: Dictionary = step.get("calc", {})
+	var ores := ""
+	for ore_type in calc.keys():
+		ores += " · %s ×%d" % [ore_type, calc[ore_type]]
+	var region := Lab.step_region(_recipe_key, step)
+	if region.is_empty():
+		return "%s%s · ?" % [Lab.apparatus_name(step["apparatus"]), ores]
+	var band_text: String = "≈ %d–%d" if region["vague"] else "%d–%d"
+	if step["knowledge"] == "revealed":
+		# PROSE-REVIEW: tag on a band Prophet's Breath reveals.
+		band_text += " (Breath)"
+	elif step["knowledge"] == "talkThrough":
+		# PROSE-REVIEW: tag on a band a lesson's talk-through shows.
+		band_text += " (talk-through)"
+	return "%s%s · %s" % [Lab.apparatus_name(step["apparatus"]), ores, band_text % [roundi(region["low"]), roundi(region["high"])]]
 
 
 func _on_finish() -> void:
@@ -932,6 +1048,7 @@ func _close_gauge() -> void:
 func _perform(step: Callable) -> void:
 	var apparatus := _gauge
 	_gauge = ""
+	_step_view = -1
 	var outcome: Dictionary = step.call()
 	var cracked: bool = outcome.get("cracked", false)
 	if cracked:

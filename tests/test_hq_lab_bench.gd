@@ -231,6 +231,41 @@ func run() -> void:
 		screen.free()
 	)
 
+	run_case("hq_lab_bench_docked_step_arrows_browse_without_moving_the_pending_step", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["time"] = 10
+		Lab.grant_recipe("timePearl")
+		Lab.add_ore("timePearl", "time")
+		var steps := Lab.known_procedure("timePearl")
+		assert_true(steps.size() >= 2, "timePearl's book shows at least two steps")
+		var pending := Lab.pending_step("compression")
+		var screen := HqLabBenchScreen.new()
+		screen._ready()
+
+		var header := screen.find_child("StepHeader", true, false) as Label
+		assert_true(header.text.begins_with("Step 1 of %d" % steps.size()), "the strip opens on the next step")
+		assert_true(header.get_meta("active"), "the next step is marked active")
+		assert_eq((screen.find_child("StepStrip", true, false) as RecipeBookPage).art_size, HqLabBenchScreen._STEP_STRIP.size, "the strip is the blank page's top")
+		assert_eq((screen.find_child("StepText", true, false) as Label).get_theme_font("font"), RecipeBookPage.font(), "in the book's font")
+		assert_true(NodeQuery.find_button(screen, "‹ Prev") == null, "no arrow before the first step")
+
+		NodeQuery.find_button(screen, "Next ›").pressed.emit()
+		header = screen.find_child("StepHeader", true, false) as Label
+		assert_true(header.text.begins_with("Step 2 of %d" % steps.size()), "Next shows the following step")
+		assert_true(not header.get_meta("active"), "a browsed step is not marked active")
+		assert_true((screen.find_child("StepText", true, false) as Label).text.begins_with(Lab.apparatus_name(steps[1]["apparatus"])), "with that step's line")
+		assert_eq(Lab.pending_step("compression"), pending, "browsing never changes the pending step")
+		assert_eq(Lab.next_step_index(), 0, "nor the run's next step")
+		if steps.size() == 2:
+			assert_true(NodeQuery.find_button(screen, "Next ›") == null, "no arrow past the last step")
+
+		NodeQuery.find_button(screen, "‹ Prev").pressed.emit()
+		header = screen.find_child("StepHeader", true, false) as Label
+		assert_true(header.get_meta("active"), "back on the next step, marked active again")
+
+		screen.free()
+	)
+
 	run_case("hq_lab_bench_all_four_apparatus_regions_exist_on_a_fresh_save", func():
 		GameState.reset()
 		var screen := HqLabBenchScreen.new()

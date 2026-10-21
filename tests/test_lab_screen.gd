@@ -231,11 +231,16 @@ func run() -> void:
 		screen.size = Vector2(390.0, 844.0)
 		screen._refresh()
 		var top := UI.top_bar_clearance()
-		assert_eq(screen._diorama.get_parent().position.y, top, "the plate's top is the top bar's bottom")
 		var plate: Dictionary = GameData.HQ_VISUALS["labBench"]
-		var press: Dictionary = plate["regions"]["apparatus_compression"]
 		var scale_factor: float = screen.size.x / float(plate["width"])
-		var press_bottom: float = top + (float(press["y"]) + float(press["height"])) * scale_factor
+		var plate_top: float = screen._diorama.get_parent().position.y
+		assert_true(plate_top < top, "the plate lifts under the top bar")
+		var jar_top := INF
+		for ore_type in GameData.ORE_TYPES.keys():
+			jar_top = minf(jar_top, float(plate["regions"]["ore_" + ore_type]["y"]))
+		assert_almost_eq(plate_top + jar_top * scale_factor, top + HqLabBenchScreen._INSET, 0.01, "the top jars sit just below the top bar, fully on screen")
+		var press: Dictionary = plate["regions"]["apparatus_compression"]
+		var press_bottom: float = plate_top + (float(press["y"]) + float(press["height"])) * scale_factor
 		assert_almost_eq(_docked_book_rect(screen).position.y, press_bottom, 0.01, "the book starts at the Press's bottom edge")
 		UiSim.tap_zone(screen, "apparatus_compression")
 		var centre := _find_gauge(screen) as Node

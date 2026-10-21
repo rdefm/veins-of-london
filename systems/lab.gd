@@ -311,14 +311,23 @@ static func pending_step(apparatus: String) -> Dictionary:
 	if run == null:
 		return {}
 	var steps := known_procedure(run["recipe"])
-	var next := 0
-	for m in match_ideal(steps, run["performed"]):
-		if m >= 0:
-			next = m + 1
-	for i in range(next, steps.size()):
+	for i in range(next_step_index(), steps.size()):
 		if steps[i]["apparatus"] == apparatus:
 			return steps[i]
 	return {}
+
+
+# Index in the known procedure just past the last known step the open run's
+# performed steps have matched (0 before any match, or with no run).
+static func next_step_index() -> int:
+	var run = active_run()
+	if run == null:
+		return 0
+	var next := 0
+	for m in match_ideal(known_procedure(run["recipe"]), run["performed"]):
+		if m >= 0:
+			next = m + 1
+	return next
 
 
 # ── Matching ─────────────────────────────────────────────────────────────
