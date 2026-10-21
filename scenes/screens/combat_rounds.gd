@@ -78,6 +78,10 @@ var _demo_pending := false
 var _fight_body: Control
 var _round_label: Label
 var _refusal_label: Label
+# A demo fight's hp line for both fighters, under the heading row.
+var _hp_label: Label
+# Combatant index -> hp as playback has shown it so far; empty between picks.
+var _shown_hp: Dictionary = {}
 var _upper_region: Control
 var _stage: CombatStage
 var _strip: TurnOrderStrip
@@ -135,6 +139,11 @@ func _build_fight_layout() -> void:
 	_round_label = UI.muted_label("")
 	heading_row.add_child(_round_label)
 	header.add_child(heading_row)
+	_hp_label = UI.muted_label("")
+	_hp_label.name = "DemoHp"
+	_hp_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_hp_label.visible = false
+	header.add_child(_hp_label)
 	_refusal_label = UI.muted_label("")
 	_refusal_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_refusal_label.visible = false
@@ -240,6 +249,7 @@ func _sync_fight(cp: Dictionary) -> void:
 	var lesson := "" if _busy() else CombatRounds.coach_lesson(cp)
 	_refusal_label.text = _refusal if _refusal != "" else (prompt if prompt != "" else lesson)
 	_refusal_label.visible = _refusal_label.text != ""
+	_sync_hp_label(cp)
 
 	# Mid-playback a re-sync would cut the slots' one-shot poses short, and
 	# the strip shows the round as far as the beats have played.
@@ -950,6 +960,8 @@ func begin_strip_playback(before: Array, round_no: int, beats: Array) -> void:
 			var start_hp: int = int(beat["hpAfter"]) + int(beat["dmg"]) - int(beat.get("absorbed", 0))
 			_strip.set_shown_hp(key, start_hp)
 			_strip.set_initial_ghost(key, start_hp)
+			_shown_hp[int(beat["target"])] = start_hp
+	_sync_hp_label(cp)
 
 
 # Off-tree there's no tween to wait on, so the beats land at once. A last
@@ -963,6 +975,7 @@ func _play_beats(beats: Array) -> void:
 func _end_playback() -> void:
 	_frozen_roster = {}
 	_strip_playback = {}
+	_shown_hp = {}
 	_held_marks = []
 	_transcript_held = false
 	_strip.clear_ghosts()
@@ -1058,6 +1071,8 @@ func _on_beat_played(beat: Dictionary) -> void:
 		var key := TurnOrderStrip.card_key_string(_stage_target(stage_roster(cp, -1), int(beat["target"])))
 		_strip.set_shown_hp(key, int(beat["hpAfter"]))
 		_strip.drain_ghost_to(key, int(beat["hpAfter"]), _director.beat_duration)
+		_shown_hp[int(beat["target"])] = int(beat["hpAfter"])
+		_sync_hp_label(cp)
 	for cue in beat_cues(beat):
 		_play_cue(cp, cue, false)
 
@@ -1075,6 +1090,8 @@ func _on_rewind_beat_played(beat: Dictionary) -> void:
 	if CombatDirector.beat_is_damaging(beat) and beat.has("hpAfter"):
 		var key := TurnOrderStrip.card_key_string(_stage_target(stage_roster(cp, -1), int(beat["target"])))
 		_strip.set_shown_hp(key, int(beat["hpAfter"]) + int(beat["dmg"]) - int(beat.get("absorbed", 0)))
+		_shown_hp[int(beat["target"])] = int(beat["hpAfter"]) + int(beat["dmg"]) - int(beat.get("absorbed", 0))
+		_sync_hp_label(cp)
 	for cue in beat_cues(beat):
 		_play_cue(cp, cue, true)
 
@@ -1206,6 +1223,23 @@ func _apply_marks(cp: Dictionary, marks: Array) -> void:
 
 func _build_outcome_card(outcome: String) -> Control:
 	return CombatScreen.outcome_button(outcome, _cp()["context"], CombatRounds.is_demo(_cp()), CombatRounds.is_spar(_cp()))
+
+
+# The fighters' hp in a demo fight (the player sits out): "<name> <hp>/<max>
+# HP" each, `shown` (combatant index -> hp) standing in for state mid-playback.
+static func hp_readout(cp: Dictionary, shown: Dictionary = {}) -> String:
+	var parts := PackedStringArray()
+	for i in range(cp["combatants"].size()):
+		var c: Dictionary = cp["combatants"][i]
+		if c["side"] != CombatRounds.SIDE_PLAYER:
+			parts.append("%s %d/%d HP" % [CombatRounds.display_name(c), int(shown.get(i, c["hp"])), int(c["hpMax"])])
+	return " · ".join(parts)
+
+
+func _sync_hp_label(cp: Dictionary) -> void:
+	_hp_label.visible = CombatRounds.is_demo(cp)
+	if _hp_label.visible:
+		_hp_label.text = hp_readout(cp, _shown_hp)
 
 
 # A demo fight plays itself: after a beat's pause, the next round's beats

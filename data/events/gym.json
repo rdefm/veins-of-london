@@ -118,13 +118,13 @@
       "type": "speaker",
       "label": null,
       "speaker": "Arnie",
-      "text": "He unwraps one hand and nods at you. \"That's the whole job. Read what they're about to do, then do something about it. Now watch.\""
+      "text": "He unwraps one hand and nods at you. \"That's the whole job. Read what they're about to do, then do something about it. And the more you practise a move, the better you get at it. Eventually you'll be able to do much more with it too.\""
     },
     {
       "type": "choice",
       "label": null,
       "speaker": null,
-      "text": "Arnie waves Archie onto the mats. Archie takes his jacket off and folds it.",
+      "text": "Arnie waves Archie onto the mats. Archie takes his jacket off and folds it. \"Watch this,\" Arnie says. \"I'll talk you through it.\"",
       "choices": [
         {
           "id": "watch",
@@ -188,6 +188,34 @@
                   { "kind": "autoguard", "target": 2 },
                   { "kind": "retaliate", "target": 2 }
                 ],
+                "coach": {
+                  "notes": {
+                    "1": {
+                      "other.chip": [
+                        "\"He starts behind his guard, so my first one only chips him.\"",
+                        "\"That's all a punch gets through a guard. A chip.\""
+                      ],
+                      "other.guard": "\"He's covered up again. Fine. That's what the Feint's for.\"",
+                      "other.feint": "\"At level one, that's all a Feint does: his guard drops. At five, everything I land while it's down hits harder.\"",
+                      "other.autoguard": "\"I've just Feinted, so I'm Open. At five my guard comes up by itself anyway. At level one I'd have eaten that.\"",
+                      "other.retaliate": "\"And at five I sometimes get one back for free. Doesn't cost me a turn.\"",
+                      "other.hit": [
+                        "\"Straight in. He's still Open from the Feint.\"",
+                        "\"That's the Feint's extra on top. Keep him Open, keep hitting.\""
+                      ]
+                    },
+                    "2": {
+                      "other.hit": [
+                        "\"He never got his guard back, so that lands in full.\"",
+                        "\"No free one back that time. It only comes off now and then. So I just hit him.\""
+                      ],
+                      "other.guard": "\"Guard's back up. That's him reset.\"",
+                      "other.feint": "\"So I Feint again, and it's gone.\"",
+                      "other.autoguard": "\"Same again. My guard's up before he's thought about it.\"",
+                      "other.chip": "\"One point. He'd do better saving his breath.\""
+                    }
+                  }
+                },
                 "resumeCard": 8
               }
             }
@@ -200,7 +228,7 @@
       "type": "speaker",
       "label": null,
       "speaker": "Arnie",
-      "text": "\"Level five Feint. I open him up, cover myself, and hit back when he swings. Same move you've got, just more practice. Every move levels up the more you use it. First three sessions are on me. After that it's fifteen quid, and the rent on this place isn't cheap.\""
+      "text": "He throws Archie a towel. \"Same Feint you've got. Just more hours on it. First three sessions are on me. After that it's fifteen quid, and the rent on this place isn't cheap.\""
     },
     {
       "type": "speaker",

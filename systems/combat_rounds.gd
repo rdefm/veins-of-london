@@ -184,7 +184,7 @@ static func new_state() -> Dictionary:
 		"spar": null,
 		# Coach marks (R§3.7b Coach marks): { lessons: { "<round>": line }, allowed:
 		# { "<round>": [move or item ids] }, notes: { "<round>": { "<variant>.<kind>":
-		# line } } } or null for none.
+		# line or [lines] } } } or null for none.
 		"coach": null,
 	}
 
@@ -2309,17 +2309,18 @@ static func _beat(cp: Dictionary, beats: Array, kind: String, actor: int, target
 
 # The coach's line explaining a beat this round: coach.notes["<round>"]
 # ["<variant>.<kind>"] (variant as beatLines: "self" when the player is the
-# subject), at most once per round; "" for none.
+# subject), a line or a list of lines for the key's successive beats that
+# round, each shown once; "" for none.
 static func _coach_note(cp: Dictionary, beats: Array, key: String) -> String:
 	if not coach_active(cp):
 		return ""
-	var note := str(cp["coach"].get("notes", {}).get(str(cp["round"]), {}).get(key, ""))
-	if note == "":
-		return ""
+	var entry: Variant = cp["coach"].get("notes", {}).get(str(cp["round"]), {}).get(key, "")
+	var lines: Array = entry if entry is Array else [entry]
+	var shown := 0
 	for beat in cp["log"] + beats:
-		if int(beat["round"]) == int(cp["round"]) and beat.get("coachNote", "") == note:
-			return ""
-	return note
+		if int(beat["round"]) == int(cp["round"]) and lines.has(beat.get("coachNote", null)):
+			shown += 1
+	return str(lines[shown]) if shown < lines.size() else ""
 
 
 # ── Rewind ───────────────────────────────────────────────────────────────

@@ -2282,7 +2282,7 @@ func _validate_choice_card(card: Dictionary, context: String, errors: Array[Stri
 # buried inside a chance branch doesn't sail through unnoticed.
 # A fight's optional coach block: lessons by round (non-empty lines),
 # allowed move / item ids by round, and beat notes by round keyed
-# "<self|other>.<beatLines kind>" (non-empty lines).
+# "<self|other>.<beatLines kind>" (a non-empty line or list of them).
 func _validate_coach(coach: Variant, context: String, errors: Array[String]) -> void:
 	if coach == null:
 		return
@@ -2301,7 +2301,10 @@ func _validate_coach(coach: Variant, context: String, errors: Array[String]) -> 
 			var parts: PackedStringArray = str(key).split(".")
 			if parts.size() != 2 or not parts[0] in ["self", "other"] or not COMBAT_ROUNDS["beatLines"].has(parts[1]):
 				errors.append("%s.notes.%s: unknown key '%s'" % [context, round_key, key])
-			elif str(coach["notes"][round_key][key]).strip_edges() == "":
+				continue
+			var note: Variant = coach["notes"][round_key][key]
+			var lines: Array = note if note is Array else [note]
+			if lines.is_empty() or lines.any(func(line): return str(line).strip_edges() == ""):
 				errors.append("%s.notes.%s.%s: must not be empty" % [context, round_key, key])
 
 
@@ -2354,6 +2357,7 @@ func _validate_effect_list(effects: Array, context: String, errors: Array[String
 			_require_keys(effect, ["script"], context, errors)
 			if effect.get("script") is Dictionary:
 				_require_keys(effect["script"], ["enemies", "allies", "rounds", "resumeCard"], "%s.script" % context, errors)
+				_validate_coach(effect["script"].get("coach"), "%s.script.coach" % context, errors)
 		if effect["op"] == "resolve_home_raid" and not ["win", "loss"].has(effect.get("outcome")):
 			errors.append("%s: resolve_home_raid outcome must be 'win' or 'loss'" % context)
 

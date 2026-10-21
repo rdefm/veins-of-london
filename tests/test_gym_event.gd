@@ -22,6 +22,20 @@ func _guided_win() -> Dictionary:
 	return combat
 
 
+# The guided spar won and exited, then the watch-only demo opened.
+func _demo() -> Dictionary:
+	var combat := _guided_win()
+	combat["coach"] = null
+	combat["combatants"][1]["hp"] = 1
+	Combat.choose_move("strike", 1)
+	Combat.exit_combat()
+	_advance_to_choice()
+	Events.choose(0)
+	combat = GameState.state["combat"]
+	assert_true(CombatRounds.is_demo(combat), "demo opens")
+	return combat
+
+
 func run() -> void:
 	run_case("guided_spar_lessons_are_achievable_with_the_allowed_moves", func():
 		var combat := _guided_win()
@@ -71,15 +85,7 @@ func run() -> void:
 	)
 
 	run_case("demo_then_exit_sets_gym_unlocked", func():
-		var combat := _guided_win()
-		combat["coach"] = null
-		combat["combatants"][1]["hp"] = 1
-		Combat.choose_move("strike", 1)
-		Combat.exit_combat()
-		_advance_to_choice()
-		Events.choose(0)
-		combat = GameState.state["combat"]
-		assert_true(CombatRounds.is_demo(combat), "demo opens")
+		_demo()
 		for i in range(2):
 			Combat.demo_step()
 		Combat.exit_combat()
@@ -89,6 +95,30 @@ func run() -> void:
 			Events.advance()
 		assert_true(GameState.state["flags"]["gymUnlocked"])
 		assert_eq(Sparring.free_sessions_left(), 3, "free sessions intact")
+	)
+
+	run_case("demo_beats_carry_arnie_voiceover_and_hp_shows_for_both", func():
+		var combat := _demo()
+		var host := CombatScreen.new()
+		host._ready()
+		var screen: CombatRoundsScreen = host._round_screen
+		screen._ready()
+		var hp_label: Label = screen.find_child("DemoHp", true, false)
+		for i in range(2):
+			Combat.demo_step()
+			screen._refresh()
+			for idx in [1, 2]:
+				var c: Dictionary = combat["combatants"][idx]
+				assert_true(hp_label.visible and hp_label.text.contains("%s %d/%d HP" % [c["name"], c["hp"], c["hpMax"]]), "%s hp shown: %s" % [c["name"], hp_label.text])
+		var at := 0
+		for beat in combat["log"]:
+			assert_true(beat.has("coachNote"), "R%d %s has a voiceover" % [beat["round"], beat["kind"]])
+			at = combat["transcript"].find(beat["text"], at)
+			assert_true(at >= 0 and combat["transcript"][at + 1] == beat.get("coachNote"), "voiceover follows its beat line")
+		var kinds: Array = combat["log"].map(func(b): return b["kind"])
+		for kind in ["feint", "autoguard", "retaliate"]:
+			assert_true(kinds.has(kind), "demo shows %s" % kind)
+		host.free()
 	)
 
 	run_case("prose_has_no_firm_hints", func():

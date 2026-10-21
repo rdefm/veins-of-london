@@ -191,7 +191,7 @@
     "chip": { "self": "You hit {target} square on the guard. {dmg} gets through.", "other": "{actor} hits {target} square on the guard. {dmg} gets through." },
     "crit": " Right on the button.",
     "ko": { "self": "You go down.", "other": "{target} goes down." },
-    "feint": { "self": "You sell {target} a dummy. The guard goes with it.", "other": "{actor} sells {target} a dummy. The guard goes with it." },
+    "feint": { "self": "You feint at {target} and pull the guard open.", "other": "{actor} feints at {target} and pulls the guard open." },
     "stun": { "self": "You catch {target} open. Bell rung.", "other": "{actor} catches {target} open. Bell rung." },
     "stunThrough": { "self": "You ring {target}'s bell straight through the guard.", "other": "{actor} rings {target}'s bell straight through the guard." },
     "block": { "self": "You swing at {target}. The guard takes all of it.", "other": "{actor} swings at {target}. The guard takes all of it." },
@@ -226,8 +226,8 @@
     "calm": { "self": "You come down, spent.", "other": "{actor} comes down, spent." },
     "wormhole": { "self": "You fold the space shut behind you. Clean exit, no parting shot.", "other": "{actor} folds the space shut and is gone." },
     "disarm": { "self": "The shove knocks {target}'s weapon loose.", "other": "The shove knocks {target}'s weapon loose." },
-    "autoguard": { "self": "Your guard comes up on its own as {target} swings.", "other": "{actor}'s guard comes up on its own as {target} swings." },
-    "retaliate": { "self": "You hit {target} back before they've finished.", "other": "{actor} hits {target} back before they've finished." },
+    "autoguard": { "self": "You Feinted last, so your guard comes up on its own as {target} swings.", "other": "{actor} Feinted last, so their guard comes up on its own as {target} swings." },
+    "retaliate": { "self": "You counter {target} with a free Strike.", "other": "{actor} counters {target} with a free Strike." },
     "levelUp": { "self": "Your {moveName} is coming on. Level {level}.", "other": "{actor}'s {moveName} is coming on. Level {level}." }
   }
 }

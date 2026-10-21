@@ -429,7 +429,8 @@ static func start_scripted_fight(script: Dictionary) -> void:
 # scripted fight, but the player sits it out and `rounds` rounds play
 # themselves (demo_step()), then the event resumes at `resumeCard`. `procs`
 # ({ kind: "autoguard" | "retaliate", target }, by combatant index) each
-# fire once whatever the dice say; `label` heads the screen.
+# fire once whatever the dice say; `label` heads the screen; `coach` as a
+# scripted fight's, its notes voicing over the beats.
 static func start_demo_fight(script: Dictionary) -> void:
 	var roster := _scripted_roster(script)
 	var live := {
@@ -437,6 +438,7 @@ static func start_demo_fight(script: Dictionary) -> void:
 			"rounds": int(script["rounds"]), "upTo": 0, "resumeCard": int(script["resumeCard"]),
 			"procs": script.get("procs", []).duplicate(true), "label": str(script.get("label", "Sparring")),
 		},
+		"coach": script["coach"].duplicate(true) if script.has("coach") else null,
 	}
 	var location_key: String = str(script.get("locationKey", ""))
 	_start_round_combat(CONTEXT_SCRIPTED, null, roster["enemies"], script.get("intro", []), "", roster["allies"],

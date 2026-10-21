@@ -229,7 +229,11 @@ class StageSlot extends Control:
 		_sprite_rect.texture = frames[0] if not frames.is_empty() else null
 		if frames.size() >= 2 and fps > 0.0:
 			_idle_timer.wait_time = 1.0 / (fps * _time_scale)
-			_idle_timer.start()
+			# Off-tree, the timer starts once it enters the tree.
+			if _idle_timer.is_inside_tree():
+				_idle_timer.start()
+			else:
+				_idle_timer.autostart = true
 		else:
 			_idle_timer.stop()
 		queue_redraw()
