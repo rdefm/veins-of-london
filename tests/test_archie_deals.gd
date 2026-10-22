@@ -27,8 +27,8 @@ func run() -> void:
 		assert_eq(ArchieDeals.deal_tier(4999), 0, "just under the first step is still tier 0")
 		assert_eq(ArchieDeals.deal_tier(5000), 1)
 		assert_eq(ArchieDeals.deal_tier(24999), 4)
-		assert_eq(ArchieDeals.deal_tier(30000), ArchieDeals.TIER_MAX, "tier caps at TIER_MAX rather than growing unbounded")
-		assert_eq(ArchieDeals.deal_tier(999999), ArchieDeals.TIER_MAX, "far past the cap still reads as TIER_MAX, never higher")
+		assert_eq(ArchieDeals.deal_tier(30000), int(GameData.ARCHIE_DEALS["tierMax"]), "tier caps at TIER_MAX rather than growing unbounded")
+		assert_eq(ArchieDeals.deal_tier(999999), int(GameData.ARCHIE_DEALS["tierMax"]), "far past the cap still reads as TIER_MAX, never higher")
 	)
 
 	run_case("roll_deal_quantity_stays_within_the_tier_scaled_5_to_25_range", func():
@@ -36,12 +36,12 @@ func run() -> void:
 		for seed in range(100):
 			Rng.set_seed(seed)
 			var deal := ArchieDeals.roll_deal(0)  # tier 0 -> scale 1
-			assert_true(deal["qty"] >= 5 and deal["qty"] <= 25, "tier 0 qty should be 5-25, got %d" % deal["qty"])
+			assert_true(deal["qty"] >= 20 and deal["qty"] <= 100, "tier 0 qty should be 20-100, got %d" % deal["qty"])
 
 		for seed in range(100):
 			Rng.set_seed(seed)
 			var deal := ArchieDeals.roll_deal(15000)  # tier 3 -> scale 8
-			assert_true(deal["qty"] >= 40 and deal["qty"] <= 200, "tier 3 qty should be 40-200 (5*8 to 25*8), got %d" % deal["qty"])
+			assert_true(deal["qty"] >= 160 and deal["qty"] <= 800, "tier 3 qty should be 160-800 (20*8 to 100*8), got %d" % deal["qty"])
 	)
 
 	run_case("roll_deal_picks_one_of_the_five_canonical_ore_types", func():

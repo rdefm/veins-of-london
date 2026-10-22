@@ -197,6 +197,7 @@ var JAMES_JOB_TRUST_BANDS: Array = []
 # raid() (HQ's guardCount) and Raiding._guards_repel_defend_raid() (a
 # vein's extraGuards) -- one data source so retuning skips both .gd files.
 var GUARD_REPEL_CHANCE_PER_GUARD: float = 0.0
+var ARCHIE_DEALS: Dictionary = {}
 var GUARD_REPEL_CHANCE_CAP: float = 0.0
 
 # Guard wages and the faction guard-hire caps (R§1.6):
@@ -497,6 +498,7 @@ const MANIFEST: Array[Dictionary] = [
 		{"field": "ARCHIE_ORE_GOAL", "key": "archieOreGoal", "type": TYPE_INT},
 		{"field": "CONTACTS_DEFAULTS", "key": "contacts", "type": TYPE_DICTIONARY},
 		{"field": "JAMES_JOB_TRUST_BANDS", "key": "jamesJobTrustBands", "type": TYPE_ARRAY},
+		{"field": "ARCHIE_DEALS", "key": "archieDeals", "type": TYPE_DICTIONARY},
 		{"field": "GUARD_REPEL_CHANCE_PER_GUARD", "key": "guardRepel.chancePerGuard", "type": TYPE_FLOAT},
 		{"field": "GUARD_REPEL_CHANCE_CAP", "key": "guardRepel.cap", "type": TYPE_FLOAT},
 		{"field": "GUARD_UPKEEP", "key": "guardUpkeep", "type": TYPE_DICTIONARY},

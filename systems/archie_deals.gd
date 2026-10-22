@@ -8,19 +8,8 @@ extends RefCounted
 # beats use. Mechanics documented in
 # .scratch/0-bugfixes/issues/95-archie-tag-along-deal-offers.md.
 
-# Chance curve, needs balance sign-off (shipped as proposed, not yet
-# human-confirmed): 100% at cash 0, falling linearly to a 10% floor at
-# cash >= £5000.
-const CHANCE_CASH_CEILING := 5000.0
-const CHANCE_FLOOR := 0.10
-
-# Deal size, needs balance sign-off: tier = floor(cash/5000), quantity range
-# 5*2^tier to 25*2^tier. TIER_MAX is a proposed sanity cap (tier 6 -> cash
-# >= £30,000 -> 320-1600 units/deal) rather than shipping uncapped.
-const TIER_CASH_STEP := 5000
-const TIER_MAX := 6
-const QTY_BASE_MIN := 5
-const QTY_BASE_MAX := 25
+# Deal constants (chance curve, tier step/cap, base quantity range, cut share)
+# live in data/constants.json "archieDeals"; REFERENCE.md §3.6 documents them.
 
 const DEAL_RELATION_GAIN := 2  # same as Economy.ARCHIE_SALE_RELATION_GAIN
 const DECLINE_RELATION_LOSS := -2
@@ -29,11 +18,11 @@ const PENDING_KIND := "archie_deal"
 
 
 static func roll_chance(cash: int) -> float:
-	return lerpf(1.0, CHANCE_FLOOR, clampf(float(cash) / CHANCE_CASH_CEILING, 0.0, 1.0))
+	return lerpf(1.0, float(GameData.ARCHIE_DEALS["chanceFloor"]), clampf(float(cash) / float(GameData.ARCHIE_DEALS["chanceCashCeiling"]), 0.0, 1.0))
 
 
 static func deal_tier(cash: int) -> int:
-	return mini(int(floor(float(cash) / float(TIER_CASH_STEP))), TIER_MAX)
+	return mini(int(floor(float(cash) / float(GameData.ARCHIE_DEALS["tierCashStep"]))), int(GameData.ARCHIE_DEALS["tierMax"]))
 
 
 # Called from TimeSystem's daily tick. Only once the archie_motion event has
@@ -85,13 +74,13 @@ static func decline_deal(pending_id: String) -> void:
 static func roll_deal(cash: int) -> Dictionary:
 	var tier: int = deal_tier(cash)
 	var scale: int = 1 << tier
-	var qty: int = Rng.randi_range(QTY_BASE_MIN * scale, QTY_BASE_MAX * scale)
+	var qty: int = Rng.randi_range(int(GameData.ARCHIE_DEALS["qtyBaseMin"]) * scale, int(GameData.ARCHIE_DEALS["qtyBaseMax"]) * scale)
 	var ore_type: String = Rng.rand_from(GameData.ORE_TYPES.keys())
 
 	var price_mod: float = Turf.price_mod(GameState.state["world"]["currentDistrict"])
 	var gross: int = Market.line_total("ore", Economy.get_archie_ore_price(ore_type, price_mod), qty)
 
-	return { "oreType": ore_type, "qty": qty, "gross": gross, "playerCut": int(floor(gross * 0.5)) }
+	return { "oreType": ore_type, "qty": qty, "gross": gross, "playerCut": int(floor(gross * float(GameData.ARCHIE_DEALS["playerCutShare"]))) }
 
 
 # Rolls the deal (see roll_deal() above), then rolls the standard
