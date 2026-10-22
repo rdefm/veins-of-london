@@ -13,9 +13,7 @@ extends Control
 # dock locked, a guard marker on every sprite, at the Settings app's pacing;
 # Rewind plays the undone beats back in reverse. A CombatTranscript between
 # stage and dock shows state.combat.transcript, each beat's line landing as
-# it plays and leaving as it's rewound. A Readouts window holds the text
-# views: combatants with guard preview and statuses, the round's timeline with enemy intents, and the
-# beat log. Picks go through Combat.choose_move() / choose_item(), Dial
+# it plays and leaving as it's rewound. Picks go through Combat.choose_move() / choose_item(), Dial
 # casts through Combat.cast_round_complication(), Rewind through
 # Combat.round_rewind() (its refusal shown as a pick's is), and the outcome
 # button hands off to Combat.exit_combat(). The screen adapts the fight
@@ -51,10 +49,8 @@ const _CRIT_SCALE := 1.5
 # View state only: why the last palette pick was refused, until the next pick.
 var _refusal: String = ""
 # View state only: the combatant index the rows aim at where it's a valid
-# target (else each row takes the system's default), and whether the
-# Readouts window is open.
+# target (else each row takes the system's default).
 var _target: int = -1
-var _readouts_open := false
 # The stage roster as it stood before the pick being played back, so the
 # fallen stay on stage until their KO plays; {} when nothing's playing.
 var _frozen_roster: Dictionary = {}
@@ -86,8 +82,6 @@ var _upper_region: Control
 var _stage: CombatStage
 var _strip: TurnOrderStrip
 var _footer_holder: VBoxContainer
-var _readouts_panel: Control
-var _readouts_content: VBoxContainer
 var _dock: CombatCommandDock
 var _transcript: CombatTranscript
 var _director: CombatDirector
@@ -113,8 +107,8 @@ func _refresh() -> void:
 		_sync_fight(cp)
 
 
-# Heading row (Readouts, round), the upper region (stage, the
-# outcome footer and the Readouts window over it), the transcript and the
+# Heading row (round), the upper region (stage, the
+# outcome footer over it), the transcript and the
 # command dock. Main hides the top board in combat, so the body starts
 # under the safe area.
 func _build_fight_layout() -> void:
@@ -135,8 +129,8 @@ func _build_fight_layout() -> void:
 	header.offset_right = -16.0
 	var heading_row := UI.hbox(8)
 	heading_row.custom_minimum_size.y = _HEADING_ROW_HEIGHT
-	heading_row.add_child(MapCardStyle.chip_button("Readouts", _toggle_readouts))
 	_round_label = UI.muted_label("")
+	_round_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	heading_row.add_child(_round_label)
 	header.add_child(heading_row)
 	_hp_label = UI.muted_label("")
@@ -193,22 +187,6 @@ func _build_fight_layout() -> void:
 	_footer_holder = UI.vbox(8)
 	_footer_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	post_stage.add_child(_footer_holder)
-
-	_readouts_panel = PanelContainer.new()
-	UI.anchor_full_rect(_readouts_panel)
-	var readouts_style := StyleBoxFlat.new()
-	readouts_style.bg_color = UI.ACTION_CARD_FILL
-	_readouts_panel.add_theme_stylebox_override("panel", readouts_style)
-	var readouts_scroll := UI.scroll_container()
-	_readouts_panel.add_child(readouts_scroll)
-	var margin := MarginContainer.new()
-	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	for side in ["left", "right", "top", "bottom"]:
-		margin.add_theme_constant_override("margin_" + side, 12)
-	readouts_scroll.add_child(margin)
-	_readouts_content = UI.vbox(12)
-	margin.add_child(_readouts_content)
-	_upper_region.add_child(_readouts_panel)
 
 	_transcript = CombatTranscript.new()
 	_transcript.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
@@ -286,15 +264,6 @@ func _sync_fight(cp: Dictionary) -> void:
 			_play_demo_round.call_deferred()
 	else:
 		_dock.configure(moves, items, _move_row(cp, _LEG_IT), dial, _busy(), _pick_cast)
-
-	_readouts_panel.visible = _readouts_open
-	for child in _readouts_content.get_children():
-		child.queue_free()
-	for i in range(cp["combatants"].size()):
-		_readouts_content.add_child(_build_combatant_card(cp, i))
-	if cp["outcome"] == null:
-		_readouts_content.add_child(_build_timeline_card(cp))
-	_readouts_content.add_child(_build_log_card(cp["log"]))
 
 
 # Every action the system knows of, in resolution order: one card per
@@ -519,11 +488,6 @@ func _hide_fighter_peek() -> void:
 # A strip tap targets that combatant, as a sprite tap does.
 func _on_strip_selection_changed(key: Dictionary) -> void:
 	_on_stage_subject_tapped(key)
-
-
-func _toggle_readouts() -> void:
-	_readouts_open = not _readouts_open
-	_refresh()
 
 
 # Undoes the last pick, then plays its beats back in reverse on the stage
