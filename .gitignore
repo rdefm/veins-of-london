@@ -46,3 +46,6 @@ __pycache__/
 # event-storyboard skill: generated drafts and QA sheets stay local
 .scratch/event-art/*/drafts/
 .scratch/event-art/*/qa/
+
+# Windows safe-save temp files
+*.TMP
