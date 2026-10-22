@@ -463,7 +463,8 @@ static func _record(cp: Dictionary, beats: Array) -> void:
 		if beat.has("coachNote"):
 			transcript.append(beat["coachNote"])
 		if beat["kind"] == "levelUp":
-			Notify.push(beat["text"], Notify.CATEGORY_SUCCESS)
+			var notice := MoveLevels.level_up_notice(str(beat["moveOwner"]), beat["move"], int(beat["level"]))
+			Notify.push(notice["text"], Notify.CATEGORY_SUCCESS, { "detail": notice["detail"], Notify.META_MOVE_OWNER: beat["moveOwner"], Notify.META_MOVE_ID: beat["move"] })
 
 
 # A combatant at Combat Skill `level` (clamped to 1..levelMax) with these
@@ -1875,7 +1876,7 @@ static func _gain_move_xp(cp: Dictionary, actor_idx: int, move_id: String, fizzl
 	if level == 0:
 		return
 	actor["moveLevels"][move_id] = level
-	_beat(cp, beats, "levelUp", actor_idx, -1, move_id, { "moveName": move(move_id)["name"], "level": level })
+	_beat(cp, beats, "levelUp", actor_idx, -1, move_id, { "moveName": move(move_id)["name"], "level": level, "moveOwner": owner })
 
 
 # Each of the action's beats from `first_beat` on gets the stage marks as

@@ -13,6 +13,7 @@ func build(content: VBoxContainer) -> void:
 	if CombatPrep.is_editing_loadout():
 		_build_prep_focus(content)
 		return
+	_take_move_book_target()
 	content.add_child(back_button())
 	content.add_child(UI.heading("Profile"))
 
@@ -79,6 +80,16 @@ func _build_moves_card() -> Control:
 		c["content"].add_child(MoveBook.owner_tabs(owners, _book_owner, _on_book_owner))
 	c["content"].add_child(_move_rows(_book_owner))
 	return c["panel"]
+
+
+# Opens the Move Book on the owner and move a level-up notice linked to.
+func _take_move_book_target() -> void:
+	var target: Variant = PhoneNav.take_move_book_target()
+	if target == null:
+		return
+	_book_owner = target["owner"]
+	_open_owner = target["owner"]
+	_open_move = target["move"]
 
 
 func _move_rows(owner: String) -> Control:

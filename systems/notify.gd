@@ -24,6 +24,11 @@ const META_CONTACT_ID := "contactId"
 # short-pay menu on it while that shortfall is pending.
 const META_GUARD_SHORTFALL := "guardShortfall"
 
+# Fields on a move level-up notice: the Notifications app offers a Move Book
+# link to that owner ("" = the player) and move.
+const META_MOVE_OWNER := "moveOwner"
+const META_MOVE_ID := "moveId"
+
 
 # `meta`: optional extra pure-data fields merged onto the entry, e.g.
 # `{"veinId": ...}` so phone.gd can render a Defend button on that entry.

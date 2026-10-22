@@ -2209,7 +2209,11 @@ func run() -> void:
 		assert_eq(ups[0]["text"], "Your Strike is coming on. Level 2.")
 		assert_eq(combat["transcript"].count(ups[0]["text"]), 1, "one transcript line")
 		assert_eq(GameState.state["notifications"].size(), notes_before + 1, "one Notification")
-		assert_eq(GameState.state["notifications"].back()["text"], ups[0]["text"])
+		var note: Dictionary = GameState.state["notifications"].back()
+		assert_eq(note["text"], "Strike reached Lv2")
+		assert_eq(note["detail"], "Damage +0 → +2.")
+		assert_eq(note[Notify.META_MOVE_ID], "strike")
+		assert_eq(note[Notify.META_MOVE_OWNER], "")
 		for pair in [[2, 89, 3], [3, 199, 4], [4, 399, 5]]:
 			strike["level"] = pair[0]
 			strike["xp"] = pair[1]
@@ -2224,6 +2228,23 @@ func run() -> void:
 		assert_eq(MoveLevels.level_for_xp(200), 4)
 		assert_eq(MoveLevels.level_for_xp(400), 5)
 		assert_eq(MoveLevels.level_for_xp(9999), 5)
+	)
+
+	run_case("move_level_up_notice_names_the_gain_at_each_level", func():
+		GameState.reset()
+		assert_eq(MoveLevels.level_up_notice("", "strike", 2), { "text": "Strike reached Lv2", "detail": "Damage +0 → +2." })
+		assert_eq(MoveLevels.level_up_notice("", "strike", 3), { "text": "Strike reached Lv3", "detail": "Unlocked: +6% crit chance." })
+		assert_eq(MoveLevels.level_up_notice("", "strike", 4), { "text": "Strike reached Lv4", "detail": "Damage +4 → +8." })
+		assert_eq(MoveLevels.level_up_notice("", "strike", 5), { "text": "Strike reached Lv5", "detail": "Unlocked: Strikes cut through Guard." })
+		assert_eq(MoveLevels.level_up_notice("", "guard", 3)["detail"], "Unlocked: 30% chance to block a hit outright.")
+		assert_eq(MoveLevels.level_up_notice("", "feint", 4)["detail"], "Damage to an opened target +20% → +30%. Greater chance to auto-guard.")
+		var recruit: String = Loadout.recruit_ids()[0] if not Loadout.recruit_ids().is_empty() else ""
+		if recruit != "":
+			assert_eq(MoveLevels.level_up_notice(recruit, "strike", 2)["text"], "%s's Strike reached Lv2" % Contacts.display_name(recruit))
+		PhoneNav.open_move_book("", "guard")
+		assert_eq(PhoneNav.take_move_book_target(), { "owner": "", "move": "guard" })
+		assert_eq(PhoneNav.take_move_book_target(), null, "consumed once")
+		assert_eq(GameState.state["phoneNav"]["app"], "profile")
 	)
 
 	run_case("rewind_keeps_move_xp_and_levels", func():

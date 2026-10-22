@@ -89,7 +89,7 @@ Data file per system: see `data/*.json` below.
 | map_view.gd | Persists Network camera |
 | map_zoom.gd | Zoom-level math for the diagram |
 | messages.gd | Messages data layer + conversation-index projections, total unread count, per-contact clear (read + contact notifications seen) |
-| move_levels.gd | MoveLevels (R§3.7b Move levels): player/contact persistent per-move `{ level, xp }` (`moveLevels`), XP ladder + award, the weighted per-fight roll for fighters with no record, display summary rows (Gym) and `book()` Move Book rows (track values, unlock states, XP line; Profile), `peek()` (fight long-press card) |
+| move_levels.gd | MoveLevels (R§3.7b Move levels): player/contact persistent per-move `{ level, xp }` (`moveLevels`), XP ladder + award, the weighted per-fight roll for fighters with no record, display summary rows (Gym) and `book()` Move Book rows (track values, unlock states, XP line; Profile), `peek()` (fight long-press card), `level_up_notice()` (level-up Notification text) |
 | sparring.gd | Sparring (R§3.7b Spar): calc-gym practice fight. Flag gate (`gymUnlocked`), 3 free sessions (`flags.sparSessions`) then a £ fee, 1 time block, easy/even/hard partners scaled off Combat Skill; practice rack (`rack_items()`, T1 free units in slots for the fight only); `spar_block()` (also practice fights); `settle()` awards XP, end-rewinds hp, Dial and all loadout slots |
 | modal.gd | Modal open/close state; `set_data` updates the open modal's data and re-renders; holds an event deferred behind a modal flow (`followEvent`) and starts it on close; `returnTo` reopens a parked modal on close |
 | morning_accounts.gd | Rollover capture (incl. arrears exceptions and countdown, payday statement, wage shortfalls, Monday guard wages, guard shortfall/walk-offs), per-block staff output accumulation, BizBrief auto-open, arrears/payday/wage-prompt/guard-wage labels |
@@ -100,7 +100,7 @@ Data file per system: see `data/*.json` below.
 | offers.gd | Sales offers: quoting (price fixed at issue), counterparty pick (authored / identity-weighted / Collective-Firm fit), acceptance (quote → contract `signedQuote`), renewal offers, random-only pending cap, day-ramped item-variety pick (`variety_weights`/`ramp_weight`), Sworn-Guild commission offers, Wren assay commissions, poach match/lapse, 2-day expiry |
 | payroll.gd | `role_skill_keys()` (room → skill field, from the role registry); `is_working()` gate for staff actions (false while the business owes them a wage) |
 | phone_apps.gd | Phone main-grid roster/order/labels (LodedInnit absent until James joins) + badge-config projection |
-| phone_nav.gd | Phone app/index/thread/faction-dossier drill-down nav; BizBrief short-pay and Guard Costs sub-view deep links |
+| phone_nav.gd | Phone app/index/thread/faction-dossier drill-down nav; BizBrief short-pay and Guard Costs sub-view deep links; Profile Move Book deep link (`open_move_book`) |
 | player_model.gd | `set_model()`: validates a key against `GameData.TERRITORIAL_VARIANTS` and writes `player.model` |
 | preferences.gd | Saved presentation prefs in `meta` (reduced motion, vibration, Map dark mode) + carry_forward() so event Rewind never flips them |
 | progression.gd | Shared "award XP" ladder loop |
@@ -254,7 +254,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | dialer_app.gd | Phone recent-calls placeholder; no telephony state/actions |
 | settings_app.gd | Reduced-motion, alarm-vibration and quick-combat-pacing preference controls |
 | saveload_app.gd | Save slots, export/import (with copy-to-clipboard), New Game confirm |
-| notifications_app.gd | Notification log with pending Defend / guard short-pay buttons |
+| notifications_app.gd | Notification log with pending Defend / guard short-pay buttons, Move Book link on move level-ups |
 | short_pay_view.gd | BizBrief short-pay sub-view: per-place guard keep steppers, live cost/reserve/cash needed, Confirm |
 | guard_costs_view.gd | BizBrief Guard Costs sub-view (pot or not): next Monday bill + pending shortfall header, per-place guard payment chart over the history window, multi-select HQ/vein filter |
 | bank_app.gd | Reynard's: oxblood-gradient balance panel (branded header, calc_gold figure) + day-grouped hairline transaction ledger, newest first |

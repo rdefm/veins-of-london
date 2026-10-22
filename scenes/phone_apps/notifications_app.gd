@@ -21,7 +21,11 @@ func build(content: VBoxContainer) -> void:
 func _build_notification_row(notification: Dictionary) -> Control:
 	var c := UI.card()
 	c["content"].add_child(UI.label(notification["text"]))
+	if notification.has("detail"):
+		c["content"].add_child(UI.muted_label(notification["detail"]))
 	c["content"].add_child(UI.muted_label(Calendar.format_day(int(notification["day"]))))
+	if notification.has(Notify.META_MOVE_ID):
+		c["content"].add_child(UI.button("Open Move Book", func(): PhoneNav.open_move_book(notification[Notify.META_MOVE_OWNER], notification[Notify.META_MOVE_ID])))
 
 	var vein_id: Variant = notification.get("veinId")
 	if vein_id != null and Raiding.is_defend_notification_pending(notification["id"]):

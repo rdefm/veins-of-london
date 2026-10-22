@@ -31,8 +31,10 @@
     "xpLine": "{xp} / {next} XP to Lv{level} · +{resolved} per use, +{fizzled} if it fizzles", "xpLineMax": "{xp} XP · max level",
     "fighterPeek": { "title": "{name} · Combat Lv{level}", "row": "{move}: {level}", "levelKnown": "Lv{level}", "levelUnknown": "?" },
     "peek": { "title": "{name} · Lv{level}", "next": "Next, Lv{level}: {gain} ({xp} XP)", "nextDone": "Max level." },
+    "notice": { "reached": "{move} reached Lv{level}", "reachedOwner": "{owner}'s {move} reached Lv{level}", "unlocked": "Unlocked: {what}.", "change": "{stat} {from} → {to}." },
     "moves": {
       "strike": {
+        "noticeStat": "Damage",
         "stat": "Damage bonus", "track": { "key": "damageBonus", "scale": 1, "format": "+{v}" },
         "unlocks": [
           { "levelKey": "critLevel", "what": "+{critBonus%}% crit chance", "how": "Added to your crit chance on every Strike." },
@@ -40,6 +42,7 @@
         ]
       },
       "guard": {
+        "noticeStat": "Chip damage taken",
         "stat": "Chip damage taken", "track": { "key": "chipMultiplier", "scale": 100, "format": "{v}%" },
         "unlocks": [
           { "levelKey": "blockLevel", "what": "{blockChance%}% chance to block a hit outright", "how": "A hit on you while Guarded does 0." },
@@ -47,6 +50,7 @@
         ]
       },
       "feint": {
+        "noticeStat": "Damage to an opened target", "noticeExtra": { "4": "Greater chance to auto-guard" },
         "stat": "Extra damage to opened target", "track": { "key": "damageBonusPct", "scale": 1, "format": "+{v}%" },
         "wordRow": { "stat": "Auto-guard after a Feint", "words": ["—", "—", "Chance", "Greater", "Highest"] },
         "unlocks": [
@@ -55,6 +59,7 @@
         ]
       },
       "stun": {
+        "noticeStat": "Stun chance on a Guarded target",
         "stat": "Chance to stun a Guarded target", "track": { "key": "guardedChance", "scale": 100, "format": "{v}%", "zero": "—" },
         "unlocks": [
           { "levelKey": "multiActionLevel", "what": "Stuns last {multiActions} actions", "how": "A landed Stun takes the target's next {multiActions} actions instead of {baseActions}." },
@@ -62,6 +67,7 @@
         ]
       },
       "legIt": {
+        "noticeStat": "Escape chance",
         "stat": "Escape chance", "track": { "key": "chance", "scale": 100, "format": "{v}%" },
         "unlocks": [
           { "levelKey": "keepActionsLevel", "what": "A failed escape keeps your actions", "how": "You don't lose the rest of the round's actions when you don't get away." },

@@ -177,6 +177,32 @@ static func peek(move_id: String) -> Dictionary:
 	return {}
 
 
+# The Notification for `owner`'s `move_id` reaching `level`: { text, detail }.
+# detail is the unlock when one lands at that level, else the stat change
+# (plus the move's noticeExtra line, if any). Strings from moveBook.notice.
+static func level_up_notice(owner: String, move_id: String, level: int) -> Dictionary:
+	var text: Dictionary = _data()["moveBook"]["notice"]
+	var spec: Dictionary = _data()["moveBook"]["moves"][move_id]
+	var move_name := str(_data()["moves"][move_id]["name"])
+	var title := _fill(str(text["reached"]), move_id, { "move": move_name, "level": level })
+	if owner != "":
+		title = _fill(str(text["reachedOwner"]), move_id, { "owner": Contacts.display_name(owner), "move": move_name, "level": level })
+	for row in book(owner):
+		if row["id"] != move_id:
+			continue
+		var detail := ""
+		for u in row["unlocks"]:
+			if int(u["level"]) == level:
+				detail = _fill(str(text["unlocked"]), move_id, { "what": u["what"] })
+		if detail == "":
+			detail = _fill(str(text["change"]), move_id, { "stat": spec["noticeStat"], "from": row["stops"][level - 2]["text"], "to": row["stops"][level - 1]["text"] })
+			var extra: String = str(spec.get("noticeExtra", {}).get(str(level), ""))
+			if extra != "":
+				detail += " " + extra + "."
+		return { "text": title, "detail": detail }
+	return { "text": title, "detail": "" }
+
+
 # `text` with {token} / {token%} filled from the move's moveLevelEffects
 # numbers (% scales x100), the base chip / Stun actions, then `extra`.
 static func _fill(text: String, move_id: String, extra: Dictionary = {}) -> String:

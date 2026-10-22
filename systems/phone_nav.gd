@@ -98,6 +98,22 @@ static func open_guard_costs() -> void:
 	EventBus.state_changed.emit()
 
 
+# Profile's Move Book on `owner` ("" = the player) with `move_id` expanded.
+static func open_move_book(owner: String, move_id: String) -> void:
+	Nav.go_to("phone")
+	open_app("profile")
+	GameState.state["phoneNav"]["moveBookTarget"] = { "owner": owner, "move": move_id }
+	EventBus.state_changed.emit()
+
+
+# The pending { owner, move } target (null if none), cleared as it is read; no
+# state_changed, since it is called while the Profile app is mid-build.
+static func take_move_book_target() -> Variant:
+	var target: Variant = GameState.state["phoneNav"].get("moveBookTarget")
+	GameState.state["phoneNav"]["moveBookTarget"] = null
+	return target
+
+
 static func close_bizbrief_view() -> void:
 	GameState.state["phoneNav"]["bizbriefView"] = null
 	EventBus.state_changed.emit()
