@@ -850,7 +850,7 @@ Spec: `.scratch/combat-port/spec.md` (signed off 2026-10-17). Every fight (all `
 | guard | 1 | guarded | — |
 | strike | 1 | open | Damage roll vs target |
 | feint | 1 | unchanged | Target → Open, and its next Guard action fails (it stays Open through it; the failure is spent, later Guards work normally). On an already-Open target only the Guard failure is set |
-| stun | 1 | open | Needs an Open target, else fizzles; target loses its next 1 action |
+| stun | 1 | open | Needs an Open target, else fizzles; target loses its next 1 action (2 from Stun L3) |
 | legIt | 1 | open | Flee roll `moveLevelEffects.legIt.chance[level]` (0.65 at L1); success ends the fight `fled`; failure: actor Open, rest of its actions this round lost; no parting shot (Move levels changes both) |
 
 Items and Dial casts cost 1 action and leave guard state unchanged (except Shield).
@@ -907,7 +907,7 @@ Items and Dial casts cost 1 action and leave guard state unchanged (except Shiel
 |---|---|---|---|
 | Strike | roll +0/+2/+4/+8/+12 (added before chip, so it also scales chip; shows in intent dmgMin/dmgMax) | +0.06 crit chance (also under Be a Lady) | chip vs Guarded 0.25 → 0.55 |
 | Guard | chip taken ×0.25/.20/.17/.14/.10 | a hit on a Guarded defender has 0.30 to do 0 (`block` beat) | the first hit each round on a Guarded defender does 0 (`block` beat; resets at round end) |
-| Stun | — | 0.80 to work on a Guarded target (`stunThrough` beat; else `fizzle`) | a landed Stun also holds the target Open for its next 2 action slots (lost slots count) |
+| Stun | chance to work on a Guarded target (stunner's level) 0/.10/.20/.30/.40 (`stunThrough` beat; else `fizzle`) | a landed Stun (open or through a guard) takes the target's next 2 actions instead of 1 | a landed Stun also holds the target Open for its next 2 action slots (lost slots count) |
 | Feint | feinted target takes +0/+10/+20/+30/+40% damage (feinter's level) on Open hits, until it next sets its guard (any Guard/Strike/Stun/Leg it action) | **Autoguard** (only while the Feint user's last resolved action was a Feint): chance .33 (L3) / .50 (L4) / .66 (L5) that one incoming Strike on it is treated as Guarded (chip; `autoguard` beat; no Feint bonus) | **Retaliate:** .33 after a Strike lands (or is blocked) on it, a free Strike back (`retaliate` beat; no action spent; counts as a Strike use for move XP; can follow an autoguard; a free Strike never retaliates) |
 | Leg it | flee chance .65/.70/.75/.80/.85 (a Blast's one-use boost still replaces it) | a failed flee keeps the rest of the actor's actions | a failed flee leaves the actor Guarded, not Open |
 

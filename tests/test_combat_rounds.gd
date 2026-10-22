@@ -534,10 +534,10 @@ func run() -> void:
 		var mugger: Dictionary = combat["combatants"][1]
 		var stun := CombatRounds.move("stun")
 		var results := {}
-		for level in [1, 3, 5]:
+		for level in [1, 2, 5]:
 			you["moveLevels"]["stun"] = level
 			var through := 0
-			for seed_value in range(200):
+			for seed_value in range(400):
 				var rng := RandomNumberGenerator.new()
 				rng.seed = seed_value
 				mugger["guard"] = CombatRounds.GUARDED
@@ -547,16 +547,24 @@ func run() -> void:
 				CombatRounds._stun(combat, CombatRounds.PLAYER_INDEX, 1, "stun", stun, rng, beats)
 				if beats[0]["kind"] == "stunThrough":
 					through += 1
-					assert_eq(mugger["actionsLost"], 1, "it loses its action")
+					assert_eq(mugger["actionsLost"], 2 if level >= 3 else 1, "it loses its actions")
 					assert_eq(mugger["openActions"], 2 if level == 5 else 0, "L5 holds it Open for 2 actions")
 			results[level] = through
 		assert_eq(results[1], 0, "L1 fizzles on a guard")
-		assert_true(results[3] > 135 and results[3] < 185, "L3 works ~80%% (%d)" % results[3])
+		assert_true(results[2] > 20 and results[2] < 60, "L2 works ~10%% (%d)" % results[2])
+		assert_true(results[5] > 130 and results[5] < 190, "L5 works ~40%% (%d)" % results[5])
+		for level in [1, 2, 3, 4]:
+			you["moveLevels"]["stun"] = level
+			mugger["guard"] = CombatRounds.OPEN
+			mugger["actionsLost"] = 0
+			CombatRounds._stun(combat, CombatRounds.PLAYER_INDEX, 1, "stun", stun, RandomNumberGenerator.new(), [])
+			assert_eq(mugger["actionsLost"], 2 if level >= 3 else 1, "open target L%d" % level)
 		you["moveLevels"]["stun"] = 5
 		mugger["guard"] = CombatRounds.OPEN
 		mugger["actionsLost"] = 0
 		mugger["openActions"] = 0
 		CombatRounds._stun(combat, CombatRounds.PLAYER_INDEX, 1, "stun", stun, RandomNumberGenerator.new(), [])
+		assert_eq(mugger["actionsLost"], 2, "L5 still takes 2 actions")
 		mugger["guard"] = CombatRounds.GUARDED
 		assert_true(CombatRounds.is_open(combat, mugger), "held Open while guarded")
 		CombatRounds._tick_open(mugger)

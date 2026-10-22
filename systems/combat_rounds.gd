@@ -1962,21 +1962,25 @@ static func _feint(cp: Dictionary, actor_idx: int, target_idx: int, move_id: Str
 	_beat(cp, beats, "feint", actor_idx, target_idx, move_id, {})
 
 
-# Open target → loses its next params.actions actions (its guard state
-# stays as it was); a Guarded target shrugs it off, unless Stun L3's
-# guardedChance gets through; Stun L5 also holds the target Open for
-# openActions of its action slots (R§3.7b Removal, Move levels).
+# Open target → loses its next params.actions actions (multiActions from
+# multiActionLevel; its guard state stays as it was); a Guarded target
+# shrugs it off, unless the stunner's per-level guardedChance gets through;
+# Stun L5 also holds the target Open for openActions of its action slots
+# (R§3.7b Removal, Move levels).
 static func _stun(cp: Dictionary, actor_idx: int, target_idx: int, move_id: String, m: Dictionary, rng: RandomNumberGenerator, beats: Array) -> void:
 	var target: Dictionary = cp["combatants"][target_idx]
 	var fx := level_effects(move_id)
 	var level := move_level(cp["combatants"][actor_idx], move_id)
 	var through := false
 	if m["condition"] == CONDITION_TARGET_OPEN and not is_open(cp, target):
-		through = level >= int(fx["guardedLevel"]) and rng.randf() < float(fx["guardedChance"])
+		through = rng.randf() < float(fx["guardedChance"][level])
 		if not through:
 			_beat(cp, beats, "fizzle", actor_idx, target_idx, move_id, {})
 			return
-	target["actionsLost"] += int(m["params"]["actions"])
+	var lost := int(m["params"]["actions"])
+	if level >= int(fx["multiActionLevel"]):
+		lost = maxi(lost, int(fx["multiActions"]))
+	target["actionsLost"] += lost
 	if level >= int(fx["openLevel"]):
 		target["openActions"] = maxi(int(target.get("openActions", 0)), int(fx["openActions"]))
 	_beat(cp, beats, "stunThrough" if through else "stun", actor_idx, target_idx, move_id, {})

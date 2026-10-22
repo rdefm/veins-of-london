@@ -1581,7 +1581,7 @@ func _validate_combat_rounds_level_effects(fx: Dictionary, level_max: int, error
 	var spec := {
 		"strike": ["damageBonus", "critBonus", "critLevel", "chipMultiplier", "chipLevel"],
 		"guard": ["chipMultiplier", "blockChance", "blockLevel", "firstHitLevel"],
-		"stun": ["guardedChance", "guardedLevel", "openLevel", "openActions"],
+		"stun": ["guardedChance", "multiActionLevel", "multiActions", "openLevel", "openActions"],
 		"legIt": ["chance", "keepActionsLevel", "guardedOnFailLevel"],
 	}
 	for move_id in spec:
@@ -1601,8 +1601,9 @@ func _validate_combat_rounds_level_effects(fx: Dictionary, level_max: int, error
 			elif key.ends_with("Chance") or key.ends_with("Bonus") or key == "chipMultiplier":
 				if float(value) < 0.0 or float(value) > 1.0:
 					errors.append("%s.%s: must be in [0, 1]" % [path, key])
-	if int(fx.get("stun", {}).get("openActions", 0)) < 1:
-		errors.append("combat_rounds.moveLevelEffects.stun.openActions: must be at least 1")
+	for key in ["openActions", "multiActions"]:
+		if int(fx.get("stun", {}).get(key, 0)) < 1:
+			errors.append("combat_rounds.moveLevelEffects.stun.%s: must be at least 1" % key)
 
 
 func _validate_combat_rounds_fog(fog: Dictionary, level_max: int, errors: Array[String]) -> void:
