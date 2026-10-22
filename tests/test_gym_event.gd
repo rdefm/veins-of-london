@@ -121,6 +121,26 @@ func run() -> void:
 		host.free()
 	)
 
+	run_case("coach_lesson_keeps_its_rows_hidden_while_a_pick_plays", func():
+		_guided_win()
+		var host := CombatScreen.new()
+		host._ready()
+		var screen: CombatRoundsScreen = host._round_screen
+		screen._ready()
+		var label := screen._refusal_label
+		var lesson := label.text
+		assert_true(label.visible and lesson != "" and label.modulate.a == 1.0, "lesson shown at the pick")
+		screen._frozen_roster = { "held": true }
+		assert_true(Combat.choose_move("guard")["ok"])
+		screen._refresh()
+		assert_true(label.visible and label.text == lesson, "lesson keeps its rows while busy")
+		assert_eq(label.modulate.a, 0.0, "lesson hidden while busy")
+		screen._frozen_roster = {}
+		screen._refresh()
+		assert_eq(label.modulate.a, 1.0, "next lesson shown once the beats finish")
+		host.free()
+	)
+
 	run_case("prose_has_no_firm_hints", func():
 		var text := JSON.stringify(GameData.EVENTS["gym"]).to_lower()
 		for banned in ["nick", "reginald", "firm"]:

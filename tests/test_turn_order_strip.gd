@@ -112,6 +112,23 @@ func run() -> void:
 		assert_true(not TurnOrderStrip.card_is_expanded(key, { "type": "player", "index": -1 }, false))
 	)
 
+	await run_case("laid_out_selected_card_keeps_the_expanded_height_not_the_reserved_band", func():
+		GameState.reset()
+		var entries: Array = [
+			{ "key": { "type": "player" }, "occurrenceId": "1:0", "name": "You", "level": 3, "hp": 20, "hpMax": 20,
+				"factionName": "", "factionColour": TurnOrderStrip.NEUTRAL_COLOUR, "isEnemy": false, "actionText": "Your pick", "focused": true },
+			{ "key": { "type": "enemy", "index": 0 }, "occurrenceId": "1:1", "name": "Arnie", "level": null, "hp": 30, "hpMax": 30,
+				"factionName": "", "factionColour": TurnOrderStrip.NEUTRAL_COLOUR, "isEnemy": true, "actionText": "Guard", "focused": false },
+		]
+		var strip := TurnOrderStrip.new()
+		(Engine.get_main_loop() as SceneTree).root.add_child(strip)
+		strip.configure(entries, 0, 300.0, Callable())
+		await (Engine.get_main_loop() as SceneTree).process_frame
+		assert_eq(_card_named(strip, "You").size.y, TurnOrderStrip.EXPANDED_CARD_HEIGHT, "selected card")
+		assert_eq(_card_named(strip, "Arnie").size.y, TurnOrderStrip.CARD_HEIGHT, "other card")
+		strip.free()
+	)
+
 	run_case("departed_ids_finds_the_cards_a_turn_dropped_off_either_end", func():
 		assert_eq(TurnOrderStrip.departed_ids(["a", "b", "c"], ["b", "c", "d"]), ["a"], "forward: the front card left, the next joined")
 		assert_eq(TurnOrderStrip.departed_ids(["b", "c", "d"], ["a", "b", "c"]), ["d"], "backward: the end card left")

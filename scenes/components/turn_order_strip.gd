@@ -350,9 +350,10 @@ func _rebuild(available_width: float) -> void:
 
 	for i in range(_entries.size()):
 		var entry: Dictionary = _entries[i]
-		var is_selected: bool = _is_expanded(entry)
-		var card := _build_card(entry, is_selected, _card_rects[i].size)
-		card.size_flags_vertical = Control.SIZE_FILL if is_selected else Control.SIZE_SHRINK_BEGIN
+		var card := _build_card(entry, _is_expanded(entry), _card_rects[i].size)
+		# Every card keeps its own rect's height; the row is as tall as the
+		# reserved band, so a filling card would stretch into all of it.
+		card.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 		_row.add_child(card)
 
 	add_child(_row)

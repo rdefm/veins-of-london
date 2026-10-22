@@ -224,10 +224,14 @@ func _sync_fight(cp: Dictionary) -> void:
 		_target = _default_target(cp)
 	var heading: String = str(cp["demo"]["label"]) if CombatRounds.is_demo(cp) else CombatScreen.context_label(cp["context"])
 	_round_label.text = "%s · Round %d" % [heading, mini(int(cp["round"]), int(cp["demo"]["rounds"])) if CombatRounds.is_demo(cp) else cp["round"]]
-	# The round's lesson waits for the beats ahead of it to finish playing.
+	# The round's lesson waits for the beats ahead of it to finish playing;
+	# meanwhile the line it replaces keeps its rows, hidden, so the stage
+	# region (and its sprites' scale) holds still through the playback.
 	var prompt := CombatRounds.lock_prompt(cp)
-	var lesson := "" if _busy() else CombatRounds.coach_lesson(cp)
-	_refusal_label.text = _refusal if _refusal != "" else (prompt if prompt != "" else lesson)
+	var held := _busy() and _refusal == "" and prompt == ""
+	if not held:
+		_refusal_label.text = _refusal if _refusal != "" else (prompt if prompt != "" else CombatRounds.coach_lesson(cp))
+	_refusal_label.modulate.a = 0.0 if held else 1.0
 	_refusal_label.visible = _refusal_label.text != ""
 	_sync_hp_label(cp)
 
