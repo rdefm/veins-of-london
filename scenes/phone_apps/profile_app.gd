@@ -1,6 +1,9 @@
 class_name ProfileApp
 extends PhoneApp
 
+var _book_owner := ""
+var _open_owner := ""
+var _open_move := ""
 
 func card_chrome() -> bool:
 	return true
@@ -15,6 +18,7 @@ func build(content: VBoxContainer) -> void:
 
 	content.add_child(_build_stats_card())
 	content.add_child(_build_skills_card())
+	content.add_child(_build_moves_card())
 	content.add_child(_build_equipment_card())
 	content.add_child(_build_loadout_card())
 	var dial_card: Variant = DialLoadoutMenu.build()
@@ -59,9 +63,40 @@ func _build_skills_card() -> Control:
 	_add_skill_row(c["content"], "Cultivating", player["cultivatingSkill"], player["cultivatingXP"], GameData.CULTIVATING_XP_LEVELS)
 	_add_skill_row(c["content"], "Stealth", player["stealthSkill"], player["stealthXP"], GameData.STEALTH_XP_LEVELS)
 	_add_skill_row(c["content"], "Combat", player["combatSkill"], player["combatXP"], GameData.COMBAT_XP_LEVELS)
-	for row in MoveLevels.summary(""):
-		_add_skill_row(c["content"], row["name"], row["level"], row["xp"], MoveLevels.xp_levels())
 	return c["panel"]
+
+
+# The Move Book: owner tabs (You + each recruit), then one row per move.
+func _build_moves_card() -> Control:
+	var c := UI.card()
+	c["content"].add_child(UI.heading("Moves", 14))
+	var owners: Array = [{ "id": "", "label": "You" }]
+	for contact_id in Loadout.recruit_ids():
+		owners.append({ "id": contact_id, "label": Contacts.display_name(contact_id) })
+	if not owners.any(func(o): return o["id"] == _book_owner):
+		_book_owner = ""
+	if owners.size() > 1:
+		c["content"].add_child(MoveBook.owner_tabs(owners, _book_owner, _on_book_owner))
+	c["content"].add_child(_move_rows(_book_owner))
+	return c["panel"]
+
+
+func _move_rows(owner: String) -> Control:
+	return MoveBook.rows(owner, _open_move if _open_owner == owner else "", _on_book_toggle.bind(owner))
+
+
+func _on_book_owner(owner: String) -> void:
+	_book_owner = owner
+	refresh()
+
+
+func _on_book_toggle(move_id: String, owner: String) -> void:
+	if _open_owner == owner and _open_move == move_id:
+		_open_move = ""
+	else:
+		_open_owner = owner
+		_open_move = move_id
+	refresh()
 
 
 func _add_skill_row(content: Node, label: String, level: int, xp: int, levels: Array) -> void:
@@ -87,7 +122,7 @@ func _build_loadout_card(contact_id: String = "") -> Control:
 	var c := UI.card()
 	c["content"].add_child(UI.heading("Loadout" if contact_id == "" else "%s — Loadout" % Contacts.display_name(contact_id), 14))
 	if contact_id != "":
-		c["content"].add_child(UI.muted_label(move_levels_text(contact_id)))
+		c["content"].add_child(_move_rows(contact_id))
 	var stock := Loadout.equippable_stock(contact_id)
 	for index in Loadout.slot_count():
 		var unit: Variant = Loadout.slot(index, contact_id)
@@ -99,11 +134,6 @@ func _build_loadout_card(contact_id: String = "") -> Control:
 			c["content"].add_child(UI.label("Slot %d: %s T%d%s" % [index + 1, GameData.RECIPES[unit["recipe"]]["name"], int(unit["tier"]), " multi" if unit.get("multi", false) else ""]))
 			c["content"].add_child(UI.button("Unequip slot %d" % (index + 1), _on_unequip.bind(index, contact_id)))
 	return c["panel"]
-
-
-# A recruit's move levels on one line: "Strike Lv1 · Guard Lv2 · ...".
-static func move_levels_text(contact_id: String) -> String:
-	return " · ".join(MoveLevels.summary(contact_id).map(func(r): return "%s Lv%d" % [r["name"], r["level"]]))
 
 
 func _on_equip(index: int, recipe_key: String, tier: int, contact_id: String, multi: bool) -> void:

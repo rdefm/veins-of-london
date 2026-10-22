@@ -2294,6 +2294,51 @@ func run() -> void:
 		dock.free()
 		GameState.reset()
 		GameState.state["contacts"]["archie"]["moveLevels"]["feint"]["level"] = 3
-		assert_true(ProfileApp.move_levels_text("archie").contains("Feint Lv3"), "a recruit's levels on Profile")
+		assert_eq(MoveLevels.book("archie")[2]["badge"], "LV3", "a recruit's levels on Profile")
 		assert_eq(MoveLevels.summary("")[0]["xpNext"], 30, "L1 shows the L2 threshold")
+	)
+
+	run_case("move_book_rows_at_lv1_lv3_lv5", func():
+		GameState.reset()
+		var strike: Dictionary = MoveLevels.book("")[0]
+		assert_eq(strike["badge"], "LV1")
+		assert_eq(strike["stops"].map(func(s): return s["text"]), ["+0", "+2", "+4", "+8", "+12"], "Strike track from damageBonus")
+		assert_eq(strike["stops"].map(func(s): return s["milestone"]), [false, false, true, false, true], "unlock levels are the diamonds")
+		assert_eq(strike["unlocks"].map(func(u): return u["state"]), ["next", "locked"])
+		assert_eq(strike["unlocks"][0]["tag"], "Lv3 · next · 90 XP to go")
+		assert_eq(strike["teaser"], "Next unlock, Lv3: +6% crit chance · 90 XP")
+		assert_eq(strike["xpLine"], "0 / 30 XP to Lv2 · +10 per use, +4 if it fizzles")
+		assert_eq(strike["railFill"], 0.0)
+		var stun: Dictionary = MoveLevels.book("")[3]
+		assert_eq(stun["stops"].map(func(s): return s["text"]), ["—", "10%", "20%", "30%", "40%"], "Stun Guard-through chances")
+		assert_eq(MoveLevels.book("")[2]["wordRow"]["words"], ["—", "—", "Chance", "Greater", "Highest"], "Feint auto-guard in words")
+		assert_true(MoveLevels.book("")[0]["wordRow"].is_empty(), "only Feint has a word row")
+
+		var rec := MoveLevels.record("")
+		rec["strike"] = { "level": 3, "xp": 140 }
+		strike = MoveLevels.book("")[0]
+		assert_eq(strike["unlocks"].map(func(u): return u["state"]), ["earned", "next"])
+		assert_eq(strike["unlocks"][1]["tag"], "Lv5 · next · 260 XP to go")
+		assert_eq(strike["unlocks"][1]["how"], "Chip damage on a Guarded target rises from 25% to 55% of the hit.")
+		assert_eq(strike["xpLine"], "140 / 200 XP to Lv4 · +10 per use, +4 if it fizzles")
+		assert_true(is_equal_approx(strike["railFill"], (2.0 + 50.0 / 110.0) / 4.0), "rail part-fills the next gap by XP")
+		assert_true(strike["stops"][2]["current"] and strike["stops"][3]["next"])
+		assert_eq(MoveLevels.book("")[3]["unlocks"][0]["how"], "A landed Stun takes the target's next 2 actions instead of 1.")
+
+		rec["strike"] = { "level": 5, "xp": 410 }
+		strike = MoveLevels.book("")[0]
+		assert_eq(strike["badge"], "MAX")
+		assert_eq(strike["teaser"], "All unlocks earned.")
+		assert_eq(strike["unlocks"].map(func(u): return u["state"]), ["earned", "earned"])
+		assert_eq(strike["xpLine"], "410 XP · max level")
+		assert_eq(strike["railFill"], 1.0)
+		GameState.state["contacts"]["archie"]["moveLevels"]["feint"] = { "level": 4, "xp": 100 }
+		assert_eq(MoveLevels.book("archie")[2]["level"], 4, "per-owner")
+	)
+
+	run_case("move_book_builds_rows", func():
+		GameState.reset()
+		var rows: Control = MoveBook.rows("", "strike", func(_id): pass)
+		assert_eq(rows.get_child_count(), 5, "one panel per move")
+		rows.free()
 	)

@@ -91,6 +91,82 @@ static func roll(level: int, rng: RandomNumberGenerator) -> Dictionary:
 	return levels
 
 
+# The Move Book's rows for the owner (Profile): per move { id, name, level, xp,
+# isMax, badge, teaser, stat, stops, railFill, wordRow, unlocks, xpLine }.
+# stops[i] = { level, milestone, text, reached, current, next } (text: the
+# move's per-level stat); wordRow is {} or { stat, words }; unlocks[i] =
+# { level, state: earned|next|locked, tag, what, how }. Strings from
+# data/combat_rounds.json moveBook, numbers from moveLevelEffects / moveXp.
+static func book(owner: String) -> Array:
+	var rec := record(owner)
+	var xp_ladder := xp_levels()
+	var level_max := CombatRounds.level_max()
+	var text: Dictionary = _data()["moveBook"]
+	var rows: Array = []
+	for move_id in move_ids():
+		var entry: Dictionary = rec.get(move_id, { "level": 1, "xp": 0 })
+		var level := int(entry["level"])
+		var xp := int(entry["xp"])
+		var is_max := level >= level_max
+		var fx: Dictionary = _data()["moveLevelEffects"][move_id]
+		var spec: Dictionary = text["moves"][move_id]
+		var unlocks: Array = []
+		for u in spec["unlocks"]:
+			var unlock_level := int(u["level"]) if u.has("level") else int(fx[u["levelKey"]])
+			unlocks.append({ "level": unlock_level, "what": _fill(str(u["what"]), move_id), "how": _fill(str(u["how"]), move_id) })
+		var next_level := 0
+		for u in unlocks:
+			if next_level == 0 and int(u["level"]) > level:
+				next_level = int(u["level"])
+			var state := "earned" if int(u["level"]) <= level else ("next" if int(u["level"]) == next_level else "locked")
+			u["state"] = state
+			u["tag"] = _fill(str(text["tag" + state.capitalize()]), move_id, { "level": u["level"], "xp": maxi(0, int(xp_ladder[int(u["level"])]) - xp) })
+		var teaser: String = str(text["teaserDone"])
+		for u in unlocks:
+			if u["state"] == "next":
+				teaser = _fill(str(text["teaser"]), move_id, { "level": u["level"], "unlock": u["what"], "xp": maxi(0, int(xp_ladder[int(u["level"])]) - xp) })
+		var track: Dictionary = spec["track"]
+		var milestones: Array = unlocks.map(func(u): return int(u["level"]))
+		var stops: Array = []
+		for n in range(1, level_max + 1):
+			var value: float = float(fx[track["key"]][n]) * float(track["scale"])
+			stops.append({
+				"level": n, "milestone": n in milestones,
+				"text": str(track["zero"]) if value <= 0.0 and track.has("zero") else str(track["format"]).replace("{v}", str(roundi(value))),
+				"reached": n <= level, "current": n == level, "next": n == level + 1,
+			})
+		var rail := 1.0
+		if not is_max:
+			rail = (float(level - 1) + float(xp - int(xp_ladder[level])) / float(int(xp_ladder[level + 1]) - int(xp_ladder[level]))) / float(level_max - 1)
+		var xp_line := ""
+		if is_max:
+			xp_line = _fill(str(text["xpLineMax"]), move_id, { "xp": xp })
+		else:
+			xp_line = _fill(str(text["xpLine"]), move_id, { "xp": xp, "next": xp_ladder[level + 1], "level": level + 1, "resolved": _data()["moveXp"]["resolved"], "fizzled": _data()["moveXp"]["fizzled"] })
+		rows.append({
+			"id": move_id, "name": str(_data()["moves"][move_id]["name"]), "level": level, "xp": xp, "isMax": is_max,
+			"badge": str(text["badgeMax"]) if is_max else _fill(str(text["badge"]), move_id, { "level": level }),
+			"teaser": teaser, "stat": str(spec["stat"]), "stops": stops, "railFill": rail,
+			"wordRow": spec.get("wordRow", {}), "unlocks": unlocks, "xpLine": xp_line,
+		})
+	return rows
+
+
+# `text` with {token} / {token%} filled from the move's moveLevelEffects
+# numbers (% scales x100), the base chip / Stun actions, then `extra`.
+static func _fill(text: String, move_id: String, extra: Dictionary = {}) -> String:
+	var fx: Dictionary = _data()["moveLevelEffects"][move_id]
+	for key in fx:
+		if fx[key] is Array:
+			continue
+		text = text.replace("{%s%%}" % key, str(roundi(float(fx[key]) * 100.0))).replace("{%s}" % key, str(roundi(float(fx[key]))))
+	text = text.replace("{baseChip%}", str(roundi(float(_data()["chipMultiplier"]) * 100.0)))
+	text = text.replace("{baseActions}", str(int(_data()["moves"]["stun"]["params"]["actions"])))
+	for key in extra:
+		text = text.replace("{%s}" % key, str(extra[key]))
+	return text
+
+
 # Each move's display row for the owner: { name, level, xp, xpFloor, xpNext,
 # isMax }.
 static func summary(owner: String) -> Array:

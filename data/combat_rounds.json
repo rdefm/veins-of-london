@@ -23,6 +23,51 @@
     "feint": { "damageBonusPct": [0, 0, 10, 20, 30, 40], "autoguardChance": [0, 0, 0, 0.33, 0.50, 0.66], "retaliateChance": 0.33, "retaliateLevel": 5 },
     "legIt": { "chance": [0, 0.65, 0.70, 0.75, 0.80, 0.85], "keepActionsLevel": 3, "guardedOnFailLevel": 5 }
   },
+  "_moveBookComment": "The Move Book's display strings (systems/move_levels.gd book(), Profile app). Per move: `stat` labels the level track, whose per-level values read moveLevelEffects[move][track.key] (index = level) x track.scale into track.format ({v}); track.zero replaces a 0. `unlocks` are the two milestone cards, at `level` or the moveLevelEffects `levelKey`; `what` is the plain effect, `how` the rule. {name} fills a moveLevelEffects number for that move, {name%} the same x100, {baseChip%} the base chipMultiplier x100, {baseActions} the Stun move's params.actions. `wordRow` (Feint) is a second track row of words, one per level, instead of percentages. PROSE-REVIEW: every string here is new copy.",
+  "moveBook": {
+    "badge": "LV{level}", "badgeMax": "MAX",
+    "teaser": "Next unlock, Lv{level}: {unlock} · {xp} XP", "teaserDone": "All unlocks earned.",
+    "tagEarned": "Lv{level} · earned", "tagNext": "Lv{level} · next · {xp} XP to go", "tagLocked": "Lv{level} · locked",
+    "xpLine": "{xp} / {next} XP to Lv{level} · +{resolved} per use, +{fizzled} if it fizzles", "xpLineMax": "{xp} XP · max level",
+    "moves": {
+      "strike": {
+        "stat": "Damage bonus", "track": { "key": "damageBonus", "scale": 1, "format": "+{v}" },
+        "unlocks": [
+          { "levelKey": "critLevel", "what": "+{critBonus%}% crit chance", "how": "Added to your crit chance on every Strike." },
+          { "levelKey": "chipLevel", "what": "Strikes cut through Guard", "how": "Chip damage on a Guarded target rises from {baseChip%}% to {chipMultiplier%}% of the hit." }
+        ]
+      },
+      "guard": {
+        "stat": "Chip damage taken", "track": { "key": "chipMultiplier", "scale": 100, "format": "{v}%" },
+        "unlocks": [
+          { "levelKey": "blockLevel", "what": "{blockChance%}% chance to block a hit outright", "how": "A hit on you while Guarded does 0." },
+          { "levelKey": "firstHitLevel", "what": "First hit each round does nothing", "how": "While Guarded, the first hit you take each round does 0." }
+        ]
+      },
+      "feint": {
+        "stat": "Extra damage to opened target", "track": { "key": "damageBonusPct", "scale": 1, "format": "+{v}%" },
+        "wordRow": { "stat": "Auto-guard after a Feint", "words": ["—", "—", "Chance", "Greater", "Highest"] },
+        "unlocks": [
+          { "level": 3, "what": "Chance to auto-guard against an attack after you Feint", "how": "Greater chance at Lv4, highest at Lv5. An auto-guarded hit only chips." },
+          { "levelKey": "retaliateLevel", "what": "Retaliate after a Feint", "how": "If your last move was a Feint, {retaliateChance%}% chance to Strike back free when you're hit." }
+        ]
+      },
+      "stun": {
+        "stat": "Chance to stun a Guarded target", "track": { "key": "guardedChance", "scale": 100, "format": "{v}%", "zero": "—" },
+        "unlocks": [
+          { "levelKey": "multiActionLevel", "what": "Stuns last {multiActions} actions", "how": "A landed Stun takes the target's next {multiActions} actions instead of {baseActions}." },
+          { "levelKey": "openLevel", "what": "Stunned target stays Open", "how": "After your Stun lands, the target is Open for its next {openActions} actions." }
+        ]
+      },
+      "legIt": {
+        "stat": "Escape chance", "track": { "key": "chance", "scale": 100, "format": "{v}%" },
+        "unlocks": [
+          { "levelKey": "keepActionsLevel", "what": "A failed escape keeps your actions", "how": "You don't lose the rest of the round's actions when you don't get away." },
+          { "levelKey": "guardedOnFailLevel", "what": "A failed escape leaves you Guarded", "how": "Instead of Open, so the punish hit only chips." }
+        ]
+      }
+    }
+  },
   "fog": {
     "_comment": "Unread chance per enemy action = (unreadChance[player Combat Skill] + perLevelAbove x levels the enemy is above the player - perLevelBelow x levels below) x positionMultiplier[action index] (last entry for later indices), clamped to [0, 1]. Draft values for tuning.",
     "unreadChance": [0, 0.35, 0.28, 0.21, 0.14, 0.07],

@@ -1392,7 +1392,7 @@ func _validate_enemy_levels(levels: Dictionary, level_max: int, errors: Array[St
 # is a recipe with an effectPower curve and a known target type and effect;
 # every archetype names a combat_visuals sprite template.
 func _validate_combat_rounds(cp: Dictionary, skill_curve: Array, recipes: Dictionary, templates: Dictionary, errors: Array[String]) -> void:
-	_require_keys(cp, ["chipMultiplier", "actionsPerRound", "critChance", "levelMax", "allyHealBelow", "allyCrowdEnemies", "allyChipStrikeChance", "moveXp", "moveLevelRoll", "moveLevelEffects", "fog","playerBase", "allyBase", "moves", "items", "archetypes", "anger", "statusTurns", "statusBadges", "beatLines", "tooltips", "coach"], "combat_rounds", errors)
+	_require_keys(cp, ["chipMultiplier", "actionsPerRound", "critChance", "levelMax", "allyHealBelow", "allyCrowdEnemies", "allyChipStrikeChance", "moveXp", "moveLevelRoll", "moveLevelEffects", "moveBook", "fog","playerBase", "allyBase", "moves", "items", "archetypes", "anger", "statusTurns", "statusBadges", "beatLines", "tooltips", "coach"], "combat_rounds", errors)
 	for hint_id in cp.get("coach", {}).get("hints", {}).keys():
 		if not cp["moves"].has(hint_id) and not cp["items"].has(hint_id) and hint_id != "rewind":
 			errors.append("combat_rounds.coach.hints.%s: not a move or item" % hint_id)
@@ -1428,6 +1428,7 @@ func _validate_combat_rounds(cp: Dictionary, skill_curve: Array, recipes: Dictio
 	_validate_combat_rounds_fog(cp.get("fog", {}), level_max, errors)
 	_validate_combat_rounds_move_levels(cp, level_max, errors)
 	_validate_combat_rounds_level_effects(cp.get("moveLevelEffects", {}), level_max, errors)
+	_validate_combat_rounds_move_book(cp.get("moveBook", {}), cp.get("moveLevelEffects", {}), cp.get("moveXp", {}), level_max, errors)
 	_require_keys(cp.get("playerBase", {}), ["name"], "combat_rounds.playerBase", errors)
 	_validate_combat_rounds_stats(cp.get("allyBase", {}), "combat_rounds.allyBase", errors)
 
@@ -1604,6 +1605,34 @@ func _validate_combat_rounds_level_effects(fx: Dictionary, level_max: int, error
 	for key in ["openActions", "multiActions"]:
 		if int(fx.get("stun", {}).get(key, 0)) < 1:
 			errors.append("combat_rounds.moveLevelEffects.stun.%s: must be at least 1" % key)
+
+
+# moveBook: the display strings; every levelled move has a stat label, a track reading a
+# moveLevelEffects per-level array, and two unlock cards ascending within 1..levelMax.
+func _validate_combat_rounds_move_book(book: Dictionary, fx: Dictionary, move_xp: Dictionary, level_max: int, errors: Array[String]) -> void:
+	_require_keys(book, ["badge", "badgeMax", "teaser", "teaserDone", "tagEarned", "tagNext", "tagLocked", "xpLine", "xpLineMax", "moves"], "combat_rounds.moveBook", errors)
+	for move_id in move_xp.get("moves", []):
+		var path := "combat_rounds.moveBook.moves.%s" % move_id
+		var spec: Dictionary = book.get("moves", {}).get(move_id, {})
+		_require_keys(spec, ["stat", "track", "unlocks"], path, errors)
+		var track: Dictionary = spec.get("track", {})
+		_require_keys(track, ["key", "scale", "format"], path + ".track", errors)
+		var series: Variant = fx.get(move_id, {}).get(track.get("key", ""), null)
+		if not series is Array or series.size() != level_max + 1:
+			errors.append("%s.track.key: must name a moveLevelEffects.%s per-level array" % [path, move_id])
+		var unlocks: Array = spec.get("unlocks", [])
+		if unlocks.size() != 2:
+			errors.append("%s.unlocks: expected 2 cards" % path)
+		var last := 0
+		for u in unlocks:
+			_require_keys(u, ["what", "how"], path + ".unlocks", errors)
+			var level := int(u["level"]) if u.has("level") else int(fx.get(move_id, {}).get(u.get("levelKey", ""), 0))
+			if level < 2 or level > level_max or level <= last:
+				errors.append("%s.unlocks: levels must ascend within 2..%d" % [path, level_max])
+			last = level
+		var words: Array = spec.get("wordRow", {}).get("words", [])
+		if spec.has("wordRow") and words.size() != level_max:
+			errors.append("%s.wordRow.words: expected %d entries" % [path, level_max])
 
 
 func _validate_combat_rounds_fog(fog: Dictionary, level_max: int, errors: Array[String]) -> void:

@@ -89,7 +89,7 @@ Data file per system: see `data/*.json` below.
 | map_view.gd | Persists Network camera |
 | map_zoom.gd | Zoom-level math for the diagram |
 | messages.gd | Messages data layer + conversation-index projections, total unread count, per-contact clear (read + contact notifications seen) |
-| move_levels.gd | MoveLevels (R§3.7b Move levels): player/contact persistent per-move `{ level, xp }` (`moveLevels`), XP ladder + award, the weighted per-fight roll for fighters with no record, display summary rows (Profile, Gym) |
+| move_levels.gd | MoveLevels (R§3.7b Move levels): player/contact persistent per-move `{ level, xp }` (`moveLevels`), XP ladder + award, the weighted per-fight roll for fighters with no record, display summary rows (Gym) and `book()` Move Book rows (track values, unlock states, XP line; Profile) |
 | sparring.gd | Sparring (R§3.7b Spar): calc-gym practice fight. Flag gate (`gymUnlocked`), 3 free sessions (`flags.sparSessions`) then a £ fee, 1 time block, easy/even/hard partners scaled off Combat Skill; practice rack (`rack_items()`, T1 free units in slots for the fight only); `spar_block()` (also practice fights); `settle()` awards XP, end-rewinds hp, Dial and all loadout slots |
 | modal.gd | Modal open/close state; holds an event deferred behind a modal flow (`followEvent`) and starts it on close; `returnTo` reopens a parked modal on close |
 | morning_accounts.gd | Rollover capture (incl. arrears exceptions and countdown, payday statement, wage shortfalls, Monday guard wages, guard shortfall/walk-offs), per-block staff output accumulation, BizBrief auto-open, arrears/payday/wage-prompt/guard-wage labels |
@@ -171,6 +171,8 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | haptics.gd | Adapter over `Input.vibrate_handheld()` |
 | hq_diorama.gd | Generic plate/region artwork renderer; outlines regions flagged `selected`; owns the region hit rule (`zone_at`/`regions_at`: traced polygon else rect), the debug hit-shape overlay, and caption placement (polygon-centred for traced regions) |
 | icons.gd | 15 drawn icon glyphs (incl. left/right arrows) |
+| move_book.gd | MoveBook: Profile's per-owner Move Book from `MoveLevels.book()` — owner tabs, collapsible move rows (badge, mini track, teaser), open detail (level track, Feint word row, Lv3/Lv5 unlock cards, XP line) |
+| move_track.gd | MoveTrack: draws a move's five-stop track (diamond milestones, reached/next states, rail fill), mini or full |
 | map_bubble.gd | Popup listing tappable map options; paper-card frame and round action-icon states come from map_card_style.gd |
 | map_card_style.gd | Shared vein-popover card family: card tokens (via map_palette.gd), card/inset/action-circle styleboxes, card()/style_panel(), section_label(), text/symbol_text/chip buttons, option rows, round_button()/stepper()/quantity_slider(), footer(), pill(), check-button + symbol tinting. The one button/card look for every menu; card_theme.gd makes it the theme default |
 | card_theme.gd | CardTheme.apply(theme): writes the map-card look (quiet accent Button, sage OptionButton/LineEdit chips, card PanelContainer/Panel/PopupMenu, ink Label, check/bar/slider) into a Theme from current MapPalette tokens; Main re-applies to main_theme.tres on dark-toggle flip |
@@ -248,7 +250,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | todo_app.gd | ToDo app: collapsible questline sections from Todo, all_of checks as indented sub-rows; session-only expand/collapse overrides in a static var; deposit-goal and rent-goal lines on top |
 | factions_app.gd | The Register (app id `factions`): masthead and routes (Your standing, Market shares, London politics); Your standing = in-app view of `build_row` rows, each opening a dossier (actions, identity, footprint, Benefits, Intel, Activity). Shares: Ore/Crafting, ore choice, bars. Politics: stance-tinted pair grid, legend, pair strip. Palette `register_*`. |
 | ticker_app.gd | Ticker News: state stories by recency, newest-first wires, full state and wire articles, live impact, same-axis Influence sheet. Stock Market: filters, Ore/Items lists, demand modifiers, price detail and chart, annotations and demand drivers |
-| profile_app.gd | Stats, skills, equipment, and a two-slot Loadout card (equip/unequip) for the player and each recruited combat contact, plus the shared Dial loadout card; during prep Change loadout shows only participants' Loadout + Dial cards |
+| profile_app.gd | Stats, skills, the Move Book card (You + recruit tabs), equipment, and a two-slot Loadout card (with the recruit's Move Book rows) (equip/unequip) for the player and each recruited combat contact, plus the shared Dial loadout card; during prep Change loadout shows only participants' Loadout + Dial cards |
 | dialer_app.gd | Phone recent-calls placeholder; no telephony state/actions |
 | settings_app.gd | Reduced-motion, alarm-vibration and quick-combat-pacing preference controls |
 | saveload_app.gd | Save slots, export/import (with copy-to-clipboard), New Game confirm |
@@ -267,7 +269,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | approaches.json | Lab apparatus list (names, symbols); lab.gd, GameData.gd |
 | barometer.json | barometer.gd (states/actions/prefs and wire article templates); ticker_app.gd (News branding, state-article headline/deck/body, per-category columnist byline + author note (`categoryBylines`), article/impact labels and category copy; Stock Market list/detail labels and empty states) |
 | collective_barks.json | collective.gd |
-| combat_rounds.json | combat_rounds.gd; move_levels.gd (moveXp, moveLevelRoll); combat_rounds.gd (moveLevelEffects); combat.gd (tooltips + coach hints/notNow for the Fight/Item "?" popovers; playerBase/allyBase names, archetypes, anger); combat_setup_modal.gd (archetypes) |
+| combat_rounds.json | combat_rounds.gd; move_levels.gd (moveXp, moveLevelRoll, moveBook display strings); combat_rounds.gd (moveLevelEffects); combat.gd (tooltips + coach hints/notNow for the Fight/Item "?" popovers; playerBase/allyBase names, archetypes, anger); combat_setup_modal.gd (archetypes) |
 | lab.json | lab.gd (procedures with rung-tagged hints, base steps spending the recipe's ingredients; rank thresholds, skillFactor + benchBonusFactors, scoring/XP tuning, gauges + direction words, vague tuning, specificities + insightNote, clue text, bonus, bad-run lines, staffTierCap, lesson escalation thresholds, debug skillMax/refillCalc); GameData.gd validates |
 | recipe_knowledge.json | recipe_knowledge.gd (rung order + rank ceilings, seller ores, shops (unlock flags, gates + lock text, discount, Wren's introduction message), recipe-book ladder strings, prices, source aliases, collision XP/relation/lines, per-recipe master sources, insight odds + lines); GameData.gd validates |
 | combat_visuals.json | combat_stage.gd (locationBackdrops, backdrops, pose sheets, stage.spriteScale, stage.reserve); GameData.gd (territorialVariant pose spec); combat_director.gd (pacing.turnPause, pacing.rewindSpeed); turn_order_strip.gd (cardFrames) |
