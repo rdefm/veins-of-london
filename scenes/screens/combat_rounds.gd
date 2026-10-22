@@ -163,6 +163,8 @@ func _build_fight_layout() -> void:
 	_stage.set_top_clearance(_STRIP_TOP_INSET + TurnOrderStrip.MAX_EXPANDED_CARD_HEIGHT)
 	_stage.gui_input.connect(_on_stage_gui_input)
 	_stage.subject_tapped.connect(_on_stage_subject_tapped)
+	_stage.subject_held.connect(_on_stage_subject_held)
+	_stage.subject_released.connect(_hide_fighter_peek)
 	_upper_region.add_child(_stage)
 	_upper_region.resized.connect(_fit_stage_to_region)
 
@@ -473,6 +475,45 @@ static func _pick_target(cp: Dictionary, pick: Dictionary) -> int:
 		var options := CombatRounds.target_options(cp, CombatRounds.PLAYER_INDEX, pick["move"])
 		return options[0] if not options.is_empty() else -1
 	return target
+
+
+# A held sprite shows that fighter's move levels (CombatRounds.fighter_peek()),
+# a read-only panel over the stage; the release hides it.
+func _on_stage_subject_held(target: Dictionary) -> void:
+	if _director.is_playing() or _busy():
+		return
+	var cp: Dictionary = _cp()
+	var index := _combatant_index(stage_roster(cp, _target), target)
+	if index < 0 or index >= cp["combatants"].size():
+		return
+	var peek := CombatRounds.fighter_peek(cp, index)
+	_hide_fighter_peek()
+	var panel := PanelContainer.new()
+	panel.name = "FighterPeek"
+	panel.top_level = true
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var box := UI.vbox(4)
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var title := UI.label(peek["title"])
+	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(title)
+	for row in peek["rows"]:
+		var line := UI.muted_label(str(row))
+		line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		box.add_child(line)
+	panel.add_child(box)
+	add_child(panel)
+	panel.reset_size()
+	var slot := _stage.resolve_target_slot(target)
+	var anchor := slot.get_global_rect() if slot != null else _stage.get_global_rect()
+	panel.global_position = Vector2(clampf(anchor.get_center().x - panel.size.x * 0.5, 0.0, maxf(0.0, size.x - panel.size.x)), maxf(0.0, anchor.position.y - panel.size.y - 4.0))
+
+
+func _hide_fighter_peek() -> void:
+	var panel := get_node_or_null("FighterPeek")
+	if panel != null:
+		panel.name = "FighterPeekClosing"
+		panel.queue_free()
 
 
 # A strip tap targets that combatant, as a sprite tap does.

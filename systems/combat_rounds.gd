@@ -529,6 +529,8 @@ static func new_combatant(side: String, name: String, level: int, hp: int, hp_ma
 		# persistent record its move XP goes to: "" the player, a contact id,
 		# or null for none (open_fight() then rolls its levels).
 		"moveLevels": {}, "moveOwner": null,
+		# The levelled moves it has used this fight { moveId: true }.
+		"usedMoves": {},
 		# Guard L5's once-a-round full absorb has been used this round, and
 		# the actions a Stun L5 keeps it Open for.
 		"firstHitSpent": false, "openActions": 0,
@@ -1522,6 +1524,36 @@ static func enemy_intents(cp: Dictionary, actor: int, next_round: bool = false) 
 	return result
 
 
+# What the player can see of `actor`'s move levels, per levelled move
+# { id, name, level } with level 0 for unknown. An enemy's level shows once it
+# has used the move this fight or has a read action of it planned this round
+# (enemy_intents()); everyone else's always shows (R§3.7b Move levels).
+static func move_levels_seen(cp: Dictionary, actor: int) -> Array:
+	var combatant: Dictionary = cp["combatants"][actor]
+	var known: Dictionary = combatant.get("usedMoves", {}).duplicate()
+	if combatant["side"] == SIDE_ENEMY:
+		for intent in enemy_intents(cp, actor):
+			if intent.get("move", "") != "" and not intent.has("status"):
+				known[intent["move"]] = true
+	var rows: Array = []
+	for move_id in MoveLevels.move_ids():
+		var seen: bool = combatant["side"] != SIDE_ENEMY or known.has(move_id)
+		rows.append({ "id": move_id, "name": str(move(move_id)["name"]), "level": move_level(combatant, move_id) if seen else 0 })
+	return rows
+
+
+# The long-press panel for combatant `actor`: { title, rows } from
+# move_levels_seen(), rows the "Move: Lv3" / "Move: ?" lines (moveBook.fighterPeek).
+static func fighter_peek(cp: Dictionary, actor: int) -> Dictionary:
+	var text: Dictionary = _data()["moveBook"]["fighterPeek"]
+	var combatant: Dictionary = cp["combatants"][actor]
+	var rows: Array = []
+	for row in move_levels_seen(cp, actor):
+		var level_text: String = str(text["levelUnknown"]) if int(row["level"]) == 0 else str(text["levelKnown"]).replace("{level}", str(row["level"]))
+		rows.append(str(text["row"]).replace("{move}", row["name"]).replace("{level}", level_text))
+	return { "title": str(text["title"]).replace("{name}", display_name(combatant)).replace("{level}", str(combatant["level"])), "rows": rows }
+
+
 # Next round's actions in timeline order, as timeline() entries: each
 # enemy's pre-rolled next plan, and the player's and each ally's
 # actions_next_round(). Known with or without sight; sight only reads them.
@@ -1776,6 +1808,9 @@ static func _resolve_action(cp: Dictionary, actor_idx: int, action: Dictionary, 
 		actor["lastMove"] = ""
 		_stamp_marks(cp, actor_idx, first_beat, beats)
 		return false
+	if MoveLevels.move_ids().has(move_id):
+		actor["usedMoves"] = actor.get("usedMoves", {})
+		actor["usedMoves"][move_id] = true
 	match m["effect"]:
 		EFFECT_DAMAGE:
 			var target := _fury_target(cp, actor_idx, rng)

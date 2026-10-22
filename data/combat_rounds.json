@@ -29,6 +29,7 @@
     "teaser": "Next unlock, Lv{level}: {unlock} · {xp} XP", "teaserDone": "All unlocks earned.",
     "tagEarned": "Lv{level} · earned", "tagNext": "Lv{level} · next · {xp} XP to go", "tagLocked": "Lv{level} · locked",
     "xpLine": "{xp} / {next} XP to Lv{level} · +{resolved} per use, +{fizzled} if it fizzles", "xpLineMax": "{xp} XP · max level",
+    "fighterPeek": { "title": "{name} · Combat Lv{level}", "row": "{move}: {level}", "levelKnown": "Lv{level}", "levelUnknown": "?" },
     "peek": { "title": "{name} · Lv{level}", "next": "Next, Lv{level}: {gain} ({xp} XP)", "nextDone": "Max level." },
     "moves": {
       "strike": {

@@ -6,6 +6,11 @@ extends Panel
 # scenes/screens/combat_rounds.gd's _on_stage_subject_tapped()); this component
 # never calls into systems itself.
 signal subject_tapped(target: Dictionary)
+# A press held PEEK_HOLD_SECONDS on a sprite, and its release.
+signal subject_held(target: Dictionary)
+signal subject_released
+
+const PEEK_HOLD_SECONDS := 0.4
 
 # The pixel stage -- backdrop, subject slots, keypose/attack/hit/ko
 # one-shots, effect sheets and the art-independent juice layer (flash/
@@ -698,14 +703,26 @@ func set_slot_frozen(slot: StageSlot, frozen: bool) -> void:
 	slot.set_frozen_visual(frozen)
 
 
+var _hold_serial := 0
+
+
 func _on_slot_gui_input(event: InputEvent, side: String, key: int) -> void:
 	if TouchInput.is_emulated_mouse(event):
 		return
 	var pressed: bool = (event is InputEventScreenTouch and event.pressed) or (event is InputEventMouseButton and event.pressed)
 	if not pressed:
+		if event is InputEventScreenTouch or event is InputEventMouseButton:
+			_hold_serial += 1
+			subject_released.emit()
 		return
 	var target_type: String = "enemy" if side == "enemy" else ("player" if key == -1 else "ally")
-	subject_tapped.emit({ "type": target_type, "index": key })
+	var target := { "type": target_type, "index": key }
+	subject_tapped.emit(target)
+	_hold_serial += 1
+	var serial := _hold_serial
+	await get_tree().create_timer(PEEK_HOLD_SECONDS).timeout
+	if serial == _hold_serial:
+		subject_held.emit(target)
 
 
 func resolve_target_slot(target: Dictionary) -> StageSlot:

@@ -2298,6 +2298,44 @@ func run() -> void:
 		assert_eq(MoveLevels.summary("")[0]["xpNext"], 30, "L1 shows the L2 threshold")
 	)
 
+	run_case("enemy_move_levels_hide_until_read_or_used", func():
+		GameState.reset()
+		var combat := _start_vs([_slow_mugger(200)], [[["strike", "guard"]]], [], 1, [[[true, false]]])
+		var enemy: Dictionary = combat["combatants"][1]
+		enemy["moveLevels"] = { "strike": 3, "guard": 2, "feint": 4, "stun": 1, "legIt": 5 }
+		enemy["usedMoves"] = {}
+		enemy["plan"] = [
+			{ "move": "strike", "target": CombatRounds.PLAYER_INDEX, "unread": true },
+			{ "move": "guard", "target": -1, "unread": false },
+		]
+		var seen := func() -> Dictionary:
+			var levels := {}
+			for row in CombatRounds.move_levels_seen(combat, 1):
+				levels[row["id"]] = row["level"]
+			return levels
+		assert_eq(seen.call(), { "strike": 0, "guard": 2, "feint": 0, "stun": 0, "legIt": 0 }, "unread Strike is ?, read Guard shows")
+		enemy["usedMoves"]["strike"] = true
+		enemy["plan"] = [{ "move": "guard", "target": -1, "unread": true }]
+		assert_eq(seen.call()["strike"], 3, "a used move stays known after replanning")
+		assert_eq(seen.call()["guard"], 0, "unread plan hides Guard again")
+		assert_eq(CombatRounds.fighter_peek(combat, 1)["rows"][0], "Strike: Lv3")
+		assert_eq(CombatRounds.fighter_peek(combat, 1)["rows"][1], "Guard: ?")
+		var ally_rows: Array = CombatRounds.move_levels_seen(combat, CombatRounds.PLAYER_INDEX)
+		assert_true(ally_rows.all(func(r): return int(r["level"]) > 0), "friendlies always show")
+	)
+
+	run_case("enemy_used_moves_roll_back_with_the_fight", func():
+		GameState.reset()
+		GameState.state["player"]["loadout"]["slots"] = [{ "recipe": "rewind", "tier": 1 }, null]
+		var combat := _start_vs([_slow_mugger(200)], [[["strike", "strike"]]], [{ "recipe": "rewind", "tier": 1 }])
+		var enemy: Dictionary = combat["combatants"][1]
+		assert_eq(enemy["usedMoves"], {}, "nothing used yet")
+		_finish_round(combat, combat["round"])
+		assert_true(combat["combatants"][1]["usedMoves"].has("strike"), "the enemy's Strike resolved")
+		assert_true(Combat.round_rewind()["ok"])
+		assert_eq(combat["combatants"][1]["usedMoves"], {}, "Rewind past the first use hides it again")
+	)
+
 	run_case("move_peek_matches_move_book", func():
 		GameState.reset()
 		var peek: Dictionary = MoveLevels.peek("strike")
