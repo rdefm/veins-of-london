@@ -457,7 +457,7 @@ func run() -> void:
 		_play_through_tutorial_and_unlock_prospecting()
 
 		# --- Prospect + seed a vein via Sites.attempt_seed(), cultivate to Lv2, harvest ---
-		GameState.state["player"]["orichalchum"]["time"] += 100
+		GameState.state["player"]["orichalchum"]["time"] += GameData.SEED_ORE_COST
 		var district_id: String = GameState.state["world"]["currentDistrict"]
 		var found_site: Array = []
 		var prospect_seed := SeedSearch.find_seed_for(500, func():
