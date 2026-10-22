@@ -1129,6 +1129,7 @@ static func play_pick(cp: Dictionary, action: Dictionary, stack_id: String) -> D
 	var entry = _normalize_action(cp, action)
 	_push_snapshot(cp, stack_id)
 	var position := decision_position(cp)
+	_counter_pick(cp, position, entry["move"])
 	for part in range(move_cost(entry["move"])):
 		var filled: Dictionary = entry.duplicate()
 		filled["part"] = part
@@ -1304,6 +1305,63 @@ static func lock_prompt(cp: Dictionary) -> String:
 	if pearl_locked(cp):
 		return str(cp["pearlLock"]["prompt"])
 	return script_prompt(cp)
+
+
+# Whether the fight's pearl lock item has been played: a loadout unit of it
+# is spent.
+static func _pearl_played(cp: Dictionary) -> bool:
+	var lock: Variant = cp.get("pearlLock")
+	return lock is Dictionary and cp["combatants"][PLAYER_INDEX]["loadout"].any(func(s): return s["item"] == lock["item"] and s["used"])
+
+
+# Whether the fight's pearl lock has its enemies counter the player's picks:
+# until its item is played.
+static func _counters(cp: Dictionary) -> bool:
+	var lock: Variant = cp.get("pearlLock")
+	return lock is Dictionary and bool(lock.get("raiderCounters", false)) and not _pearl_played(cp)
+
+
+# Whether every player hit crits: the pearl lock asks for it and its item
+# has been played.
+static func _pearl_crits(cp: Dictionary) -> bool:
+	var lock: Variant = cp.get("pearlLock")
+	return lock is Dictionary and bool(lock.get("pearlCrits", false)) and _pearl_played(cp)
+
+
+# Whether a countering enemy answers the player's `move_id` pick: a Guard,
+# or a Strike, Feint or Stun.
+static func _countered(move_id: String) -> bool:
+	return not is_item(move_id) and (move_id == MOVE_GUARD or move(move_id)["effect"] in [EFFECT_DAMAGE, EFFECT_OPEN, EFFECT_STUN])
+
+
+# In a countering fight, each standing enemy rewrites its unresolved
+# action at `index` to answer the player's pick there: Guard against a
+# Strike, Feint or Stun; against a Guard, a Feint, or a Strike straight
+# after its own Feint. Item and Leg it picks leave its plan as rolled.
+# The rewritten action then resolves ahead of the pick (_acts_before()).
+static func _counter_pick(cp: Dictionary, index: int, move_id: String) -> void:
+	if not _counters(cp) or not _countered(move_id):
+		return
+	var attack := move_id != MOVE_GUARD
+	for e in side_indices(cp, SIDE_ENEMY):
+		var enemy: Dictionary = cp["combatants"][e]
+		var plan: Array = enemy["plan"]
+		if enemy["koed"] or index >= plan.size() or is_item(plan[index]["move"]) or is_resolved(cp, e, index):
+			continue
+		var reply := MOVE_GUARD
+		if not attack:
+			reply = MOVE_STRIKE if enemy["lastMove"] == MOVE_FEINT else MOVE_FEINT
+		plan[index] = { "move": reply, "target": e if reply == MOVE_GUARD else PLAYER_INDEX, "part": 0, "unread": plan[index].get("unread", false) }
+
+
+# Whether `index` of round `round_no` puts a countering fight's enemies
+# just ahead of the player: the player has picked a countered move there
+# this round.
+static func _counter_ahead(cp: Dictionary, index: int, round_no: int) -> bool:
+	if not _counters(cp) or round_no != int(cp["round"]):
+		return false
+	var plan: Array = cp["playerPlan"]
+	return index < plan.size() and plan[index] != null and _countered(plan[index]["move"])
 
 
 # ── Scripted fights (R§3.7b Scripted fights) ─────────────────────────────
@@ -1487,8 +1545,15 @@ static func _acts_before(cp: Dictionary, actor_a: int, index_a: int, actor_b: in
 	if round_no < 0:
 		round_no = int(cp["round"])
 	var enemy_a: bool = cp["combatants"][actor_a]["side"] == SIDE_ENEMY
-	if bool(cp.get("enemyFirst", false)) and round_no == 1 and enemy_a != (cp["combatants"][actor_b]["side"] == SIDE_ENEMY):
+	var enemy_b: bool = cp["combatants"][actor_b]["side"] == SIDE_ENEMY
+	if bool(cp.get("enemyFirst", false)) and round_no == 1 and enemy_a != enemy_b:
 		return enemy_a
+	# A countering fight's enemies slot in just ahead of the player at an
+	# action the player has picked (_counter_pick()).
+	if enemy_a != enemy_b and _counter_ahead(cp, index_a, round_no):
+		if enemy_a:
+			return actor_b == PLAYER_INDEX or _acts_before(cp, PLAYER_INDEX, index_a, actor_b, index_b, round_no)
+		return actor_a != PLAYER_INDEX and _acts_before(cp, actor_a, index_a, PLAYER_INDEX, index_b, round_no)
 	var speed_a: int = cp["combatants"][actor_a]["speed"]
 	var speed_b: int = cp["combatants"][actor_b]["speed"]
 	if speed_a != speed_b:
@@ -1617,10 +1682,15 @@ static func next_round_timeline(cp: Dictionary) -> Array:
 # Whether the player can read `actor`'s action `index` this round: always
 # for the player and allies; for an enemy, unless it rolled unread, while
 # Prophet's Breath sight lasts, once the action has resolved, or where a
-# status turn takes it.
+# status turn takes it; a countering fight's enemies only once resolved.
 static func is_read(cp: Dictionary, actor: int, index: int) -> bool:
 	var combatant: Dictionary = cp["combatants"][actor]
-	if combatant["side"] != SIDE_ENEMY or has_sight(cp) or status_turn(cp, actor, index) != "":
+	if combatant["side"] != SIDE_ENEMY or status_turn(cp, actor, index) != "":
+		return true
+	# A countering enemy's plan answers picks not yet made.
+	if _counters(cp):
+		return is_resolved(cp, actor, index)
+	if has_sight(cp):
 		return true
 	var plan: Array = combatant["plan"]
 	if index >= plan.size() or not plan[index].get("unread", false):
@@ -2111,6 +2181,8 @@ static func _strike(cp: Dictionary, actor_idx: int, target_idx: int, move_id: St
 	if strike_level >= int(fx["critLevel"]):
 		crit_chance += float(fx["critBonus"])
 	var crit := rng.randf() < crit_chance
+	if actor_idx == PLAYER_INDEX and _pearl_crits(cp):
+		crit = true
 	if not forced.is_empty():
 		crit = bool(forced.get("crit", true))
 		guarded = false

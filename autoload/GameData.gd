@@ -2388,6 +2388,9 @@ func _validate_effect_list(effects: Array, context: String, errors: Array[String
 		if effect["op"] == "start_home_raid_combat" and effect.has("pearlLock"):
 			if effect["pearlLock"] is Dictionary:
 				_require_keys(effect["pearlLock"], ["item", "enemyBelowHp", "prompt"], "%s.pearlLock" % context, errors)
+				for flag in ["raiderCounters", "pearlCrits"]:
+					if effect["pearlLock"].has(flag) and typeof(effect["pearlLock"][flag]) != TYPE_BOOL:
+						errors.append("%s.pearlLock: %s must be true or false" % [context, flag])
 			else:
 				errors.append("%s: pearlLock must be an object" % context)
 		if effect["op"] == "start_demo_fight":

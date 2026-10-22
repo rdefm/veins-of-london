@@ -153,11 +153,45 @@ func run() -> void:
 
 		assert_true(Combat.choose_item(Loadout.find_slot("timePearl"))["ok"], "the pearl plays at the lock")
 		assert_true(not CombatRounds.pearl_locked(combat), "the lock lifts once the pearl is thrown")
-		for i in range(30):
-			if combat["outcome"] != null:
-				break
+		var after_pearl: int = combat["log"].size()
+		var strikes := 0
+		while combat["outcome"] == null and strikes < 4:
 			Combat.choose_move("strike", 1)
-		assert_eq(combat["outcome"], "win", "the pearl leads to a win")
+			strikes += 1
+		assert_eq(combat["outcome"], "win", "the pearl, then a few strikes, wins")
+		var hits: Array = combat["log"].slice(after_pearl).filter(func(b): return b["actor"] == CombatRounds.PLAYER_INDEX and b["kind"] in ["hit", "chip"])
+		assert_true(not hits.is_empty() and hits.all(func(b): return b["crit"]), "every hit after the pearl crits")
+	)
+
+	run_case("home_raid_raider_counters_every_pick", func():
+		GameState.reset()
+		Events.apply_effects([{ "op": "add_item", "item": "timePearl", "qty": 2, "equip": true }])
+		Events.start_event("home_raid_intro")
+		for i in range(GameData.EVENTS["home_raid_intro"]["cards"].size()):
+			Events.advance()
+		assert_true(CombatPrep.commit()["ok"], "the raid starts")
+		var combat: Dictionary = GameState.state["combat"]
+		combat["combatants"][CombatRounds.PLAYER_INDEX]["hp"] = 999
+		combat["combatants"][CombatRounds.PLAYER_INDEX]["hpMax"] = 999
+		var raider: int = CombatRounds.side_indices(combat, CombatRounds.SIDE_ENEMY)[0]
+		var picks := [["strike", "guard"], ["stun", "guard"], ["guard", "feint"], ["guard", "strike"], ["feint", "guard"], ["guard", "feint"]]
+		for pick in picks:
+			var from: int = combat["log"].size()
+			assert_true(Combat.choose_move(pick[0], raider if pick[0] != "guard" else -1)["ok"], "%s plays" % pick[0])
+			var beats: Array = combat["log"].slice(from)
+			var raider_beats := beats.filter(func(b): return b["actor"] == raider)
+			assert_eq(raider_beats[0]["move"], pick[1], "%s is answered with %s" % [pick[0], pick[1]])
+			assert_true(beats.find(raider_beats[0]) < beats.find(beats.filter(func(b): return b["actor"] == CombatRounds.PLAYER_INDEX)[0]), "the answer lands ahead of the %s" % pick[0])
+		assert_eq(CombatRounds.enemy_intents(combat, raider).filter(func(i): return not i.get("unread", false)).size(), 0, "the raider's plan stays unread")
+
+		var cycle := ["strike", "feint", "guard", "stun", "guard", "strike"]
+		for i in range(80):
+			var move_id: String = cycle[i % cycle.size()]
+			if not Combat.choose_move(move_id, raider if move_id != "guard" else -1)["ok"]:
+				break
+		assert_eq(combat["outcome"], null, "no plan without the pearl wins")
+		assert_true(CombatRounds.pearl_locked(combat), "the lock still steers to the pearl")
+		assert_eq(int(combat["combatants"][raider]["hpMax"]), int(GameData.ENEMY_HOME_RAID_RAIDER["hp"]), "raider stats unchanged")
 	)
 
 	run_case("later_home_raids_have_no_pearl_lock", func():
