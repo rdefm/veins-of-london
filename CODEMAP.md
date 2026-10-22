@@ -91,7 +91,7 @@ Data file per system: see `data/*.json` below.
 | messages.gd | Messages data layer + conversation-index projections, total unread count, per-contact clear (read + contact notifications seen) |
 | move_levels.gd | MoveLevels (R§3.7b Move levels): player/contact persistent per-move `{ level, xp }` (`moveLevels`), XP ladder + award, the weighted per-fight roll for fighters with no record, display summary rows (Gym) and `book()` Move Book rows (track values, unlock states, XP line; Profile) |
 | sparring.gd | Sparring (R§3.7b Spar): calc-gym practice fight. Flag gate (`gymUnlocked`), 3 free sessions (`flags.sparSessions`) then a £ fee, 1 time block, easy/even/hard partners scaled off Combat Skill; practice rack (`rack_items()`, T1 free units in slots for the fight only); `spar_block()` (also practice fights); `settle()` awards XP, end-rewinds hp, Dial and all loadout slots |
-| modal.gd | Modal open/close state; holds an event deferred behind a modal flow (`followEvent`) and starts it on close; `returnTo` reopens a parked modal on close |
+| modal.gd | Modal open/close state; `set_data` updates the open modal's data and re-renders; holds an event deferred behind a modal flow (`followEvent`) and starts it on close; `returnTo` reopens a parked modal on close |
 | morning_accounts.gd | Rollover capture (incl. arrears exceptions and countdown, payday statement, wage shortfalls, Monday guard wages, guard shortfall/walk-offs), per-block staff output accumulation, BizBrief auto-open, arrears/payday/wage-prompt/guard-wage labels |
 | daily_brief.gd | Pure BizBrief Today projection: `items()` (tiered rows + action), `card()` (Routine and 2+ demand spikes fold to summary rows; capped), `badge_count()`, `summary()`, `mark_acted()` (writes today's ticks); sources: alarms, guard/bill/arrears/wage/contract shortfall, poach, low veins, Story, deposit/rent goals, offers, demand, favours, development, idle staff, ore-short |
 | nav.gd | Screen navigation; an open lesson holds it at the bench |
@@ -231,7 +231,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | network_reference_modal.gd | Network Map legend |
 | hq_ore_readout_modal.gd | Ore-store slip with raid-risk stamp + personal-stash move controls, map_card_style.gd-skinned (always light) |
 | hq_gym_modal.gd | Combat skill card (level, XP bar, current + next-level HP/ATK/SPD/actions/crit via `Combat.skill_summary()`) + Train action card |
-| gym_spar_modal.gd | Flip Reverse (calc gym) map-pin modal: free-session/fee line, three partner cards with level and Spar button (opens the spar prep sheet); refusal reason shown under a disabled button |
+| gym_spar_modal.gd | Flip Reverse (calc gym) map-pin modal: free-session/fee line, the player's `MoveBook` rows (open move in modal `data.openMove`), three partner cards with level and Spar button (opens the spar prep sheet); refusal reason shown under a disabled button |
 | contract_cancel_modal.gd | Navy BizBrief contract cancel confirm (Keep / Confirm → `Contracts.cancel`) |
 | active_effects_modal.gd | Sheet listing each running timed effect with level and blocks left (from the top bar chips) |
 | player_moves_modal.gd | "Move against" sheet for one faction: vein picker plus the three `PlayerMoves` rows with cost and block reason |

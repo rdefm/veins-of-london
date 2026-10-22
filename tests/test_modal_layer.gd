@@ -1174,6 +1174,24 @@ func run() -> void:
 		layer.free()
 	)
 
+	run_case("hq_gym_modal_has_no_moves_card_and_spar_modal_shows_move_rows_that_open_on_tap", func():
+		GameState.reset()
+		Modal.open("hq_gym")
+		var layer := ModalLayer.new()
+		layer._ready()
+		assert_true(not NodeQuery.label_texts(layer).has("Moves"), "HQ gym has no Moves card")
+		layer.free()
+
+		Modal.open("gym_spar")
+		layer = ModalLayer.new()
+		layer._ready()
+		var first: String = MoveLevels.book("")[0]["id"]
+		assert_eq(str(GameState.state["modal"]["data"].get("openMove", "")), "", "no move open at first")
+		Modal.set_data("openMove", first)
+		assert_eq(GameState.state["modal"]["data"]["openMove"], first, "set_data stores the open move")
+		layer.free()
+	)
+
 	run_case("hq_gym_modal_offers_a_train_button_and_a_build_hint_without_a_built_home_gym", func():
 		GameState.reset()
 		Modal.open("hq_gym")

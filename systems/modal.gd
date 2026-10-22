@@ -33,6 +33,12 @@ static func close() -> void:
 	EventBus.state_changed.emit()
 
 
+# Sets one key of the open modal's data and re-renders it. Caller checks a modal is open.
+static func set_data(key: String, value: Variant) -> void:
+	GameState.state["modal"]["data"][key] = value
+	EventBus.state_changed.emit()
+
+
 # Parks a return target on the open modal; Modal.close() reopens it. Caller checks a modal is open.
 static func set_return(type: String, data: Dictionary = {}) -> void:
 	GameState.state["modal"]["data"]["returnTo"] = { "type": type, "data": data }
