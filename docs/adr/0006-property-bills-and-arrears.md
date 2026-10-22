@@ -23,7 +23,7 @@ implemented.
 **Tenure.** `home.tenure` is `"rented"` or `"owned"`. The bedsit is rent-only.
 From the studio upward each tier can be rented or bought.
 
-| Tier | Rent/day (= `dailyCost`) | Buy price | Owned utilities/day |
+| Tier | Rent/day (= `dailyCost`; billed ×7 weekly) | Buy price | Owned utilities/day (billed ×7 weekly) |
 |---|---|---|---|
 | bedsit | 50 | — (rent only) | — |
 | studio | 60 | 80,000 | 35 |
@@ -35,6 +35,7 @@ From the studio upward each tier can be rented or bought.
 
 - Utilities are hardcoded per tier as `ownedDailyCost` in `data/home.json`.
 - The buy price replaces `upgradeCost`. Renting costs a refundable deposit (see "Move deposit").
+- **Cadence note (2026-10-22 doc check):** the "Daily" wording below (Today's bill, Daily ordering, day counts in the examples) predates the weekly bill. The model now in force is Monday-only, `arrearsWeeks`, thresholds 1/2 weeks; see "Weekly ordering" and "Move deposit". Rooms are no longer wiped on a move; see "rooms move with HQ". `dailyCost`/`ownedDailyCost` remain the per-day data fields.
 - **Buy-out:** a player renting the current tier may buy it at the full buy
   price. The tier doesn't change and rooms are kept.
 - **Any tier change clears all installed rooms without refund.** This covers
