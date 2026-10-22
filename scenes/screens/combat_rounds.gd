@@ -33,8 +33,7 @@ const _OVERLAY_KINDS: Array[String] = ["guard", "lost", "frozen", "cower", "enra
 const _CAST_KINDS: Array[String] = ["powder", "sight", "sightGiven", "lady", "failsafe"]
 # The screen's own closing beat after a pick's beats (_play_beats()).
 const _SETTLE_KIND := "settle"
-# Seconds a demo fight rests between rounds.
-const _DEMO_ROUND_PAUSE := 0.8
+const _VOICEOVER_INSET := 16.0
 # The move the dock's grid holds as its own button, not on the Fight page.
 const _LEG_IT := "legIt"
 # Item beat kinds -> the data/combat_visuals.json effect sheet they play.
@@ -68,8 +67,6 @@ var _transcript_held := false
 # post-Rewind plan) with the fight as it stood before them ("restored"),
 # played forward once the reverse playback ends; {} otherwise.
 var _rewind_replay: Dictionary = {}
-# Set while a demo fight waits to play its next round.
-var _demo_pending := false
 
 var _fight_body: Control
 var _round_label: Label
@@ -83,6 +80,11 @@ var _stage: CombatStage
 var _strip: TurnOrderStrip
 var _footer_holder: VBoxContainer
 var _dock: CombatCommandDock
+# A demo fight's stand-in for the dock's pages: Arnie's voiceover line and
+# its Continue.
+var _voiceover: VBoxContainer
+var _voiceover_label: Label
+var _continue_button: Button
 var _transcript: CombatTranscript
 var _director: CombatDirector
 
@@ -198,6 +200,23 @@ func _build_fight_layout() -> void:
 	_dock = CombatCommandDock.new()
 	_fight_body.add_child(_dock)
 
+	_voiceover = UI.vbox(12)
+	_voiceover.name = "DemoVoiceover"
+	_voiceover.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	_voiceover.offset_left = _VOICEOVER_INSET
+	_voiceover.offset_right = -_VOICEOVER_INSET
+	_voiceover.offset_bottom = -_VOICEOVER_INSET
+	_voiceover.visible = false
+	_voiceover_label = UI.label("")
+	_voiceover_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_voiceover_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_voiceover.add_child(_voiceover_label)
+	# PROSE-REVIEW: demo voiceover box button.
+	_continue_button = UI.button("Continue", _on_demo_continue)
+	_continue_button.name = "DemoContinue"
+	_voiceover.add_child(_continue_button)
+	_fight_body.add_child(_voiceover)
+
 
 # The transcript sits right on the dock's top edge, the stage region ending
 # on its own.
@@ -259,13 +278,16 @@ func _sync_fight(cp: Dictionary) -> void:
 	_place_transcript(dock_height)
 	if not _transcript_held:
 		_transcript.set_lines(cp["transcript"])
+	_voiceover.visible = false
 	if cp["outcome"] != null and not _busy():
 		_footer_holder.add_child(_build_outcome_card(cp["outcome"]))
 		_dock.hide_deck()
 	elif CombatRounds.is_demo(cp):
 		_dock.hide_deck()
-		if not _busy():
-			_play_demo_round.call_deferred()
+		_voiceover.offset_top = -dock_height
+		_voiceover.visible = true
+		_voiceover_label.text = CombatRounds.demo_voiceover(cp)
+		_continue_button.disabled = _director.is_playing()
 	else:
 		_dock.configure(moves, items, _move_row(cp, _LEG_IT), dial, _busy(), _pick_cast)
 
@@ -1252,18 +1274,32 @@ func _sync_hp_label(cp: Dictionary) -> void:
 		_hp_label.text = hp_readout(cp, _shown_hp)
 
 
-# A demo fight plays itself: after a beat's pause, the next round's beats
-# play through the usual stage and transcript until the outcome card shows.
-func _play_demo_round() -> void:
-	if _demo_pending or not is_inside_tree():
+# A demo fight's Continue: Combat.demo_continue() shows its next beat, which
+# plays through the usual stage and transcript. The view holds from a
+# round's first beat to its last, the state having resolved it whole.
+func _on_demo_continue() -> void:
+	if _director.is_playing():
 		return
-	_demo_pending = true
-	await get_tree().create_timer(_DEMO_ROUND_PAUSE).timeout
-	_demo_pending = false
 	var cp: Dictionary = _cp()
-	if not cp["active"] or cp["outcome"] != null or _busy():
+	var fresh := CombatRounds.demo_queue(cp).is_empty()
+	var round_no: int = cp["round"]
+	var before: Array = []
+	if fresh:
+		_hold_view(cp)
+		before = strip_entries(cp)
+	var result: Dictionary = Combat.demo_continue()
+	if not result["ok"] or result["beats"].is_empty():
+		_end_playback()
 		return
-	await _resolve(Combat.demo_step, { "move": "" })
+	if fresh:
+		begin_strip_playback(before, round_no, result["beats"] + CombatRounds.demo_queue(cp))
+	var round_done := CombatRounds.demo_queue(cp).is_empty()
+	if is_inside_tree():
+		await _director.play(result["beats"] + ([{ "kind": _SETTLE_KIND }] if round_done else []), _on_beat_played)
+	if round_done:
+		_end_playback()
+	else:
+		_refresh()
 
 
 # Every beat so far, grouped by round, newest round first.

@@ -430,8 +430,8 @@ static func start_scripted_fight(script: Dictionary) -> void:
 
 
 # An event's demo fight (R§3.7b Demo fights): the same fighter entries as a
-# scripted fight, but the player sits it out and `rounds` rounds play
-# themselves (demo_step()), then the event resumes at `resumeCard`. `procs`
+# scripted fight, but the player sits it out and `rounds` rounds play a beat
+# per demo_continue(), then the event resumes at `resumeCard`. `procs`
 # ({ kind: "autoguard" | "retaliate", target }, by combatant index) each
 # fire once whatever the dice say; `label` heads the screen; `coach` as a
 # scripted fight's, its notes voicing over the beats.
@@ -439,7 +439,7 @@ static func start_demo_fight(script: Dictionary) -> void:
 	var roster := _scripted_roster(script)
 	var live := {
 		"demo": {
-			"rounds": int(script["rounds"]), "upTo": 0, "resumeCard": int(script["resumeCard"]),
+			"rounds": int(script["rounds"]), "upTo": 0, "queue": [], "resumeCard": int(script["resumeCard"]),
 			"procs": script.get("procs", []).duplicate(true), "label": str(script.get("label", "Sparring")),
 		},
 		"coach": script["coach"].duplicate(true) if script.has("coach") else null,
@@ -1025,13 +1025,24 @@ static func _round_cast(combat: Dictionary, index: int) -> int:
 	return casts.find_custom(func(c): return int(c["sourceIndex"]) == index)
 
 
-# Plays a demo fight's next round, as CombatRounds.demo_step(). Returns
-# { ok, beats, outcome } or { ok: false, reason } when no demo is on.
+# Shows a demo fight's next beat, as CombatRounds.demo_continue() (the
+# voiceover box's Continue). Returns { ok, beats, outcome } or
+# { ok: false, reason } when no demo is on.
+static func demo_continue() -> Dictionary:
+	return _demo_play(CombatRounds.demo_continue)
+
+
+# Shows the rest of a demo fight's round, as CombatRounds.demo_step().
+# Returns as demo_continue().
 static func demo_step() -> Dictionary:
+	return _demo_play(CombatRounds.demo_step)
+
+
+static func _demo_play(play: Callable) -> Dictionary:
 	var combat: Dictionary = GameState.state["combat"]
 	if not combat["active"] or not CombatRounds.is_demo(combat):
 		return { "ok": false, "reason": "No demo on." }
-	var beats := CombatRounds.demo_step(combat)
+	var beats: Array = play.call(combat)
 	_sync_round_outcome(combat)
 	EventBus.state_changed.emit()
 	return { "ok": true, "beats": beats, "outcome": combat["outcome"] }

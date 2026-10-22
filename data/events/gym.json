@@ -31,100 +31,10 @@
       "text": "\"Flip Reverse, it's called. After the Blazing Squad song. Flip fell off in a storm.\" He's grinning. \"I once had a punch-up with two of the band outside a chippy. Best night of my life. Lost, mind.\""
     },
     {
-      "type": "speaker",
-      "label": null,
-      "speaker": "Arnie",
-      "text": "\"House rules. There's a Rewind on the shelf, free, as many as you like. Go wrong, break it, go again. Walk out and I wind you back to the morning anyway. Leg it whenever you want. Nobody's marking you.\""
-    },
-    {
       "type": "choice",
       "label": null,
       "speaker": null,
-      "text": "Arnie tosses you a pair of gloves. They're your size. Nobody asked him for your size.",
-      "choices": [
-        {
-          "id": "glovesOn",
-          "label": "Gloves on",
-          "effects": [
-            {
-              "op": "start_scripted_fight",
-              "script": {
-                "seed": 7,
-                "practice": true,
-                "intro": [
-                  "Mats down. Arnie rolls his shoulders."
-                ],
-                "enemies": [
-                  {
-                    "name": "Arnie",
-                    "hpMax": 60,
-                    "attackMin": 3,
-                    "attackMax": 4,
-                    "level": 1,
-                    "speed": 99,
-                    "template": "mugger",
-                    "moveLevels": {
-                      "strike": 1,
-                      "guard": 1,
-                      "feint": 1,
-                      "stun": 1,
-                      "legIt": 1
-                    },
-                    "plans": [
-                      [ "strike", "strike" ],
-                      [ "guard", "guard" ],
-                      [ "strike", "guard" ]
-                    ]
-                  }
-                ],
-                "coach": {
-                  "lessons": {
-                    "1": "His intent says Strike, twice. Pick Guard: while you're Guarded, a punch only chips you.",
-                    "2": "He's covering up, so a Strike would only chip him. Feint to knock his guard open, then Strike for the full hit.",
-                    "3": "He swings first, and swinging leaves him Open. Stun him while he's Open to take his next action, then Strike."
-                  },
-                  "notes": {
-                    "1": {
-                      "other.chip": "Your guard took most of that. Guarded, you only lose a chip.",
-                      "self.guard": "Still Guarded for whatever he throws next."
-                    },
-                    "2": {
-                      "other.guard": "He's Guarded. Hit him now and you'd only chip him.",
-                      "self.feint": "He bit. He's Open, and his next Guard won't hold.",
-                      "self.hit": "Open, so it landed in full."
-                    },
-                    "3": {
-                      "other.hit": "You were Open after your last Strike, so that one landed in full.",
-                      "self.stun": "Stunned. He loses his next action.",
-                      "other.lost": "That was his Guard gone. He's still Open.",
-                      "self.hit": "Full damage. Nothing between him and it."
-                    }
-                  },
-                  "allowed": {
-                    "1": [ "guard" ],
-                    "2": [ "feint", "strike" ],
-                    "3": [ "stun", "strike" ]
-                  }
-                },
-                "resumeCard": 6
-              }
-            }
-          ],
-          "result_text": ""
-        }
-      ]
-    },
-    {
-      "type": "speaker",
-      "label": null,
-      "speaker": "Arnie",
-      "text": "He unwraps one hand and nods at you. \"That's the whole job. Read what they're about to do, then do something about it. And the more you practise a move, the better you get at it. Eventually you'll be able to do much more with it too.\""
-    },
-    {
-      "type": "choice",
-      "label": null,
-      "speaker": null,
-      "text": "Arnie waves Archie onto the mats. Archie takes his jacket off and folds it. \"Watch this,\" Arnie says. \"I'll talk you through it.\"",
+      "text": "Arnie waves Archie onto the mats. Archie takes his jacket off and folds it. \"Watch this first,\" Arnie says. \"I'll talk you through it.\"",
       "choices": [
         {
           "id": "watch",
@@ -216,6 +126,96 @@
                     }
                   }
                 },
+                "resumeCard": 5
+              }
+            }
+          ],
+          "result_text": ""
+        }
+      ]
+    },
+    {
+      "type": "speaker",
+      "label": null,
+      "speaker": "Arnie",
+      "text": "He throws Archie a towel. \"Same Feint you've got. Just more hours on it. Your go.\""
+    },
+    {
+      "type": "speaker",
+      "label": null,
+      "speaker": "Arnie",
+      "text": "\"House rules. There's a Rewind on the shelf, free, as many as you like. Go wrong, break it, go again. Walk out and I wind you back to the morning anyway. Leg it whenever you want. Nobody's marking you.\""
+    },
+    {
+      "type": "choice",
+      "label": null,
+      "speaker": null,
+      "text": "Arnie tosses you a pair of gloves. They're your size. Nobody asked him for your size.",
+      "choices": [
+        {
+          "id": "glovesOn",
+          "label": "Gloves on",
+          "effects": [
+            {
+              "op": "start_scripted_fight",
+              "script": {
+                "seed": 7,
+                "practice": true,
+                "intro": [
+                  "Mats down. Arnie rolls his shoulders."
+                ],
+                "enemies": [
+                  {
+                    "name": "Arnie",
+                    "hpMax": 60,
+                    "attackMin": 3,
+                    "attackMax": 4,
+                    "level": 1,
+                    "speed": 99,
+                    "template": "mugger",
+                    "moveLevels": {
+                      "strike": 1,
+                      "guard": 1,
+                      "feint": 1,
+                      "stun": 1,
+                      "legIt": 1
+                    },
+                    "plans": [
+                      [ "strike", "strike" ],
+                      [ "guard", "guard" ],
+                      [ "strike", "guard" ]
+                    ]
+                  }
+                ],
+                "coach": {
+                  "lessons": {
+                    "1": "His intent says Strike, twice. Pick Guard: while you're Guarded, a punch only chips you.",
+                    "2": "He's covering up, so a Strike would only chip him. Feint to knock his guard open, then Strike for the full hit.",
+                    "3": "He swings first, and swinging leaves him Open. Stun him while he's Open to take his next action, then Strike."
+                  },
+                  "notes": {
+                    "1": {
+                      "other.chip": "Your guard took most of that. Guarded, you only lose a chip.",
+                      "self.guard": "Still Guarded for whatever he throws next."
+                    },
+                    "2": {
+                      "other.guard": "He's Guarded. Hit him now and you'd only chip him.",
+                      "self.feint": "He bit. He's Open, and his next Guard won't hold.",
+                      "self.hit": "Open, so it landed in full."
+                    },
+                    "3": {
+                      "other.hit": "You were Open after your last Strike, so that one landed in full.",
+                      "self.stun": "Stunned. He loses his next action.",
+                      "other.lost": "That was his Guard gone. He's still Open.",
+                      "self.hit": "Full damage. Nothing between him and it."
+                    }
+                  },
+                  "allowed": {
+                    "1": [ "guard" ],
+                    "2": [ "feint", "strike" ],
+                    "3": [ "stun", "strike" ]
+                  }
+                },
                 "resumeCard": 8
               }
             }
@@ -228,7 +228,13 @@
       "type": "speaker",
       "label": null,
       "speaker": "Arnie",
-      "text": "He throws Archie a towel. \"Same Feint you've got. Just more hours on it. First three sessions are on me. After that it's fifteen quid, and the rent on this place isn't cheap.\""
+      "text": "He unwraps one hand and nods at you. \"That's the whole job. Read what they're about to do, then do something about it. And the more you practise a move, the better you get at it. Eventually you'll be able to do much more with it too.\""
+    },
+    {
+      "type": "speaker",
+      "label": null,
+      "speaker": "Arnie",
+      "text": "\"First three sessions are on me. After that it's fifteen quid, and the rent on this place isn't cheap.\""
     },
     {
       "type": "speaker",

@@ -1205,22 +1205,64 @@ static func is_spar(cp: Dictionary) -> bool:
 	return cp.get("spar") is Dictionary
 
 
-# Plays a demo fight's next round (the player sits out, so nothing pauses for
-# a pick) and returns its beats; the fight ends `fled` once its last round
-# has played.
+# Shows a demo fight's next beat (the player sits out, so nothing pauses for
+# a pick) and returns it as [beat]; a round resolves whole into the demo's
+# `queue` and its beats go to the log and transcript one per call. The
+# fight ends `fled` once its last round's last beat has shown.
+static func demo_continue(cp: Dictionary) -> Array:
+	_demo_fill(cp)
+	if not is_demo(cp) or cp["demo"]["queue"].is_empty():
+		return []
+	var beats: Array = [cp["demo"]["queue"].pop_front()]
+	_record(cp, beats)
+	_demo_finish(cp)
+	return beats
+
+
+# Shows the rest of a demo fight's round at once (the next whole round when
+# none is part-shown) and returns its beats.
 static func demo_step(cp: Dictionary) -> Array:
-	var beats: Array = []
-	if not is_demo(cp) or cp["outcome"] != null:
-		return beats
+	_demo_fill(cp)
+	if not is_demo(cp):
+		return []
+	var beats: Array = cp["demo"]["queue"]
+	cp["demo"]["queue"] = []
+	_record(cp, beats)
+	_demo_finish(cp)
+	return beats
+
+
+# A demo's beats resolved but not yet shown.
+static func demo_queue(cp: Dictionary) -> Array:
+	return cp["demo"]["queue"] if is_demo(cp) else []
+
+
+# What Arnie's voiceover box shows: the last shown beat's coach note, else
+# the transcript's last line (the intro before the first beat).
+static func demo_voiceover(cp: Dictionary) -> String:
+	if not cp["log"].is_empty() and cp["log"][-1].has("coachNote"):
+		return str(cp["log"][-1]["coachNote"])
+	return str(cp["transcript"][-1]) if not cp["transcript"].is_empty() else ""
+
+
+# Resolves the demo's next round into its queue when nothing is waiting.
+static func _demo_fill(cp: Dictionary) -> void:
+	if not is_demo(cp) or cp["outcome"] != null or not cp["demo"]["queue"].is_empty():
+		return
+	if int(cp["round"]) > int(cp["demo"]["rounds"]):
+		return
 	cp["demo"]["upTo"] = int(cp["round"])
 	var rng := RandomNumberGenerator.new()
 	rng.state = cp["rngState"]
+	var beats: Array = []
 	_advance(cp, rng, beats)
-	_record(cp, beats)
 	cp["rngState"] = rng.state
-	if cp["outcome"] == null and int(cp["round"]) > int(cp["demo"]["rounds"]):
+	cp["demo"]["queue"] = beats
+
+
+static func _demo_finish(cp: Dictionary) -> void:
+	if cp["outcome"] == null and cp["demo"]["queue"].is_empty() and int(cp["round"]) > int(cp["demo"]["rounds"]):
 		cp["outcome"] = "fled"
-	return beats
 
 
 # Whether the demo's unspent forced `kind` proc ("autoguard" or "retaliate")
@@ -1648,7 +1690,7 @@ static func _advance(cp: Dictionary, rng: RandomNumberGenerator, beats: Array) -
 	while cp["outcome"] == null:
 		if combatants[PLAYER_INDEX]["koed"] and not cp.get("playerKoed", false):
 			break
-		# A demo fight plays a round at a time (demo_step()).
+		# A demo fight resolves a round at a time (_demo_fill()).
 		if is_demo(cp) and int(cp["round"]) > int(cp["demo"]["upTo"]):
 			break
 		cp["playerPlan"].resize(maxi(cp["playerPlan"].size(), actions_this_round(cp, PLAYER_INDEX)))

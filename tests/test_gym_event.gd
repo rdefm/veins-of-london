@@ -1,8 +1,8 @@
 extends "res://tests/test_base.gd"
 
-# The Prologue gym beat (Flip Reverse): intro cards, a guided practice spar
-# (R1 Guard, R2 Feint -> Strike, R3 Stun), a watch-only demo, then gymUnlocked
-# with the three free sessions intact.
+# The Prologue gym beat (Flip Reverse): intro cards, a watch-only demo played
+# a beat per Continue, a guided practice spar (R1 Guard, R2 Feint -> Strike,
+# R3 Stun), then gymUnlocked with the three free sessions intact.
 
 
 func _advance_to_choice() -> void:
@@ -12,27 +12,28 @@ func _advance_to_choice() -> void:
 		Events.advance()
 
 
-func _guided_win() -> Dictionary:
+# The intro cards read, then the watch-only demo opened.
+func _demo() -> Dictionary:
 	GameState.reset()
 	Events.start_event("gym")
 	_advance_to_choice()
 	Events.choose(0)
 	var combat: Dictionary = GameState.state["combat"]
-	assert_true(combat["active"] and CombatRounds.is_spar(combat), "practice spar opens")
+	assert_true(combat["active"] and CombatRounds.is_demo(combat), "demo opens first")
 	return combat
 
 
-# The guided spar won and exited, then the watch-only demo opened.
-func _demo() -> Dictionary:
-	var combat := _guided_win()
-	combat["coach"] = null
-	combat["combatants"][1]["hp"] = 1
-	Combat.choose_move("strike", 1)
+# The demo watched and exited, then the practice spar opened.
+func _guided_win() -> Dictionary:
+	var demo := _demo()
+	for i in range(int(demo["demo"]["rounds"])):
+		Combat.demo_step()
+	assert_eq(demo["outcome"], "fled", "demo over")
 	Combat.exit_combat()
 	_advance_to_choice()
 	Events.choose(0)
-	combat = GameState.state["combat"]
-	assert_true(CombatRounds.is_demo(combat), "demo opens")
+	var combat: Dictionary = GameState.state["combat"]
+	assert_true(combat["active"] and CombatRounds.is_spar(combat), "practice spar follows the demo")
 	return combat
 
 
@@ -80,14 +81,24 @@ func run() -> void:
 		assert_true(Combat.choose_move("strike", 1)["ok"])
 		assert_eq(combat["outcome"], "win")
 		Combat.exit_combat()
-		assert_eq(GameState.state["event"]["cardIndex"], 6, "resumes after the spar")
+		assert_eq(GameState.state["event"]["cardIndex"], 8, "resumes after the spar")
 		assert_eq(Sparring.sessions_taken(), sessions, "no session used")
 	)
 
-	run_case("demo_then_exit_sets_gym_unlocked", func():
+	run_case("demo_resumes_before_the_practice_fight", func():
 		_demo()
 		for i in range(2):
 			Combat.demo_step()
+		Combat.exit_combat()
+		assert_eq(GameState.state["event"]["cardIndex"], 5, "resumes after the demo")
+		assert_true(not GameState.state["combat"]["active"], "demo closed")
+	)
+
+	run_case("demo_then_practice_then_exit_sets_gym_unlocked", func():
+		var combat := _guided_win()
+		combat["coach"] = null
+		combat["combatants"][1]["hp"] = 1
+		Combat.choose_move("strike", 1)
 		Combat.exit_combat()
 		for step in range(10):
 			if GameState.state["event"] == null:
@@ -104,12 +115,14 @@ func run() -> void:
 		var screen: CombatRoundsScreen = host._round_screen
 		screen._ready()
 		var hp_label: Label = screen.find_child("DemoHp", true, false)
-		for i in range(2):
+		var box: Control = screen.find_child("DemoVoiceover", true, false)
+		for i in range(int(combat["demo"]["rounds"])):
 			Combat.demo_step()
 			screen._refresh()
 			for idx in [1, 2]:
 				var c: Dictionary = combat["combatants"][idx]
 				assert_true(hp_label.visible and hp_label.text.contains("%s %d/%d HP" % [c["name"], c["hp"], c["hpMax"]]), "%s hp shown: %s" % [c["name"], hp_label.text])
+		assert_true(not box.visible, "voiceover box gives way to the outcome")
 		var at := 0
 		for beat in combat["log"]:
 			assert_true(beat.has("coachNote"), "R%d %s has a voiceover" % [beat["round"], beat["kind"]])
@@ -118,6 +131,38 @@ func run() -> void:
 		var kinds: Array = combat["log"].map(func(b): return b["kind"])
 		for kind in ["feint", "autoguard", "retaliate"]:
 			assert_true(kinds.has(kind), "demo shows %s" % kind)
+		host.free()
+	)
+
+	run_case("demo_advances_one_beat_per_continue_and_never_by_itself", func():
+		var combat := _demo()
+		var host := CombatScreen.new()
+		host._ready()
+		var screen: CombatRoundsScreen = host._round_screen
+		screen._ready()
+		var box: Control = screen.find_child("DemoVoiceover", true, false)
+		var button: Button = screen.find_child("DemoContinue", true, false)
+		assert_true(box.visible and button.visible and not button.disabled, "voiceover box and Continue stand in for the dock")
+		assert_eq(screen._voiceover_label.text, "Arnie squares up to Archie.", "the intro before the first beat")
+		for i in range(3):
+			screen._refresh()
+		assert_eq(combat["log"].size(), 0, "nothing plays without Continue")
+		var taps := 0
+		while combat["outcome"] == null and taps < 40:
+			var shown: int = combat["log"].size()
+			var lines: int = combat["transcript"].size()
+			screen._on_demo_continue()
+			taps += 1
+			assert_eq(combat["log"].size(), shown + 1, "one beat per Continue")
+			assert_eq(combat["transcript"].size(), lines + 2, "its line and voiceover only")
+			if combat["outcome"] == null:
+				assert_true(box.visible, "box stays up mid-demo")
+				assert_eq(screen._voiceover_label.text, combat["log"][-1]["coachNote"], "box shows the beat's voiceover")
+				screen._refresh()
+				assert_eq(combat["log"].size(), shown + 1, "no auto-advance")
+		assert_eq(combat["outcome"], "fled", "demo ends after its last beat")
+		assert_true(int(combat["round"]) > int(combat["demo"]["rounds"]) and combat["demo"]["queue"].is_empty())
+		assert_true(not box.visible, "outcome replaces the box")
 		host.free()
 	)
 
