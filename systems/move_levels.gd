@@ -152,6 +152,31 @@ static func book(owner: String) -> Array:
 	return rows
 
 
+# The fight's long-press peek for the player's `move_id`: { title, effects,
+# next } from book(""); effects are the current stat value then each earned
+# unlock, next is the following level's gain and XP (or the done line).
+static func peek(move_id: String) -> Dictionary:
+	var text: Dictionary = _data()["moveBook"]["peek"]
+	for row in book(""):
+		if row["id"] != move_id:
+			continue
+		var level := int(row["level"])
+		var effects: Array = [str(row["stops"][level - 1]["text"]) + " " + str(row["stat"]).to_lower()]
+		for u in row["unlocks"]:
+			if u["state"] == "earned":
+				effects.append(u["what"])
+		var next := str(text["nextDone"])
+		if not row["isMax"]:
+			var gain: Array = [str(row["stops"][level]["text"]) + " " + str(row["stat"]).to_lower()]
+			for u in row["unlocks"]:
+				if int(u["level"]) == level + 1:
+					gain.append(u["what"])
+			var xp_ladder := xp_levels()
+			next = _fill(str(text["next"]), move_id, { "level": level + 1, "gain": " · ".join(gain), "xp": maxi(0, int(xp_ladder[level + 1]) - int(row["xp"])) })
+		return { "title": _fill(str(text["title"]), move_id, { "name": row["name"], "level": level }), "effects": effects, "next": next }
+	return {}
+
+
 # `text` with {token} / {token%} filled from the move's moveLevelEffects
 # numbers (% scales x100), the base chip / Stun actions, then `extra`.
 static func _fill(text: String, move_id: String, extra: Dictionary = {}) -> String:

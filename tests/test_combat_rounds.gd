@@ -2298,6 +2298,21 @@ func run() -> void:
 		assert_eq(MoveLevels.summary("")[0]["xpNext"], 30, "L1 shows the L2 threshold")
 	)
 
+	run_case("move_peek_matches_move_book", func():
+		GameState.reset()
+		var peek: Dictionary = MoveLevels.peek("strike")
+		assert_eq(peek["title"], "Strike · Lv1")
+		assert_eq(peek["effects"], ["+0 damage bonus"], "current stat, no unlocks yet")
+		assert_eq(peek["next"], "Next, Lv2: +2 damage bonus (30 XP)")
+		MoveLevels.record("")["strike"] = { "level": 3, "xp": 140 }
+		peek = MoveLevels.peek("strike")
+		assert_eq(peek["effects"][0], "+4 damage bonus")
+		assert_eq(peek["effects"][1], MoveLevels.book("")[0]["unlocks"][0]["what"], "earned unlock text is the book's")
+		assert_true(MoveLevels.peek("legIt").has("title"), "Leg it peeks too")
+		MoveLevels.record("")["strike"] = { "level": 5, "xp": 9999 }
+		assert_eq(MoveLevels.peek("strike")["next"], "Max level.")
+	)
+
 	run_case("move_book_rows_at_lv1_lv3_lv5", func():
 		GameState.reset()
 		var strike: Dictionary = MoveLevels.book("")[0]

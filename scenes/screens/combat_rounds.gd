@@ -685,6 +685,7 @@ func _move_row(cp: Dictionary, move_id: String) -> Dictionary:
 		"callback": _pick.bind(move_id, target),
 		"tooltip": _coach_tooltip(cp, move_id, GameData.COMBAT_ROUNDS["tooltips"].get(move_id, "")),
 		"onExplain": _explain_block.bind(move_name, reason),
+		"peek": MoveLevels.peek(move_id) if MoveLevels.move_ids().has(move_id) else {},
 	}
 
 

@@ -27,6 +27,7 @@ const COMMAND_DOCK_SURFACE_HEIGHT := COMMAND_DOCK_HEIGHT + COMMAND_DOCK_BOTTOM_M
 const EXPLAIN_BUTTON_SIZE := 28.0
 const BLOCK_COLOUR := Color("#d8453b")
 const TOOLTIP_WIDTH := 260.0
+const PEEK_HOLD_SECONDS := 0.4
 const LEVEL_BADGE_FONT_SIZE := 14
 const GRID_FONT_SIZE := 24
 const GRID_ICON_SIZE := 48.0
@@ -234,9 +235,7 @@ func _build_grid_button(row: Dictionary, locked: bool) -> Button:
 		style.set_border_width_all(1)
 		style.border_color = UI.COMMAND_ROW_RULE_COLOUR
 		button.add_theme_stylebox_override(state, style)
-	var callback: Callable = row.get("callback", Callable())
-	if callback.is_valid():
-		button.pressed.connect(callback)
+	_connect_press(button, row)
 
 	var content := UI.vbox(6)
 	UI.anchor_full_rect(content)
@@ -366,9 +365,7 @@ func _build_command_row(row: Dictionary, default_name: String, locked: bool) -> 
 	button.custom_minimum_size.y = UI.COMMAND_ROW_HEIGHT
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	UI.style_command_row(button, accent)
-	var callback: Callable = row.get("callback", Callable())
-	if callback.is_valid():
-		button.pressed.connect(callback)
+	_connect_press(button, row)
 
 	var content := _build_row_content(_build_row_icon(row.get("iconKind", ""), accent), row.get("label", ""), accent)
 	content.offset_left = UI.COMMAND_ROW_MARGIN_H
@@ -388,6 +385,66 @@ func _build_command_row(row: Dictionary, default_name: String, locked: bool) -> 
 		content.add_child(block_button)
 	button.add_child(content)
 	return button
+
+
+# Connects the row's callback; a row with a `peek` { title, effects, next }
+# also shows it on a long press, and the release that ends a peek isn't a tap.
+func _connect_press(button: Button, row: Dictionary) -> void:
+	var callback: Callable = row.get("callback", Callable())
+	var peek: Dictionary = row.get("peek", {})
+	if not peek.is_empty():
+		button.gui_input.connect(_on_peek_input.bind(button, peek))
+		button.mouse_exited.connect(_hide_peek)
+	if callback.is_valid():
+		button.pressed.connect(func() -> void:
+			if button.get_meta("peeked", false):
+				button.set_meta("peeked", false)
+			else:
+				callback.call())
+
+
+func _on_peek_input(event: InputEvent, button: Button, peek: Dictionary) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed:
+			button.set_meta("peeked", false)
+			await get_tree().create_timer(PEEK_HOLD_SECONDS).timeout
+			if is_instance_valid(button) and button.is_hovered() and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+				button.set_meta("peeked", true)
+				_show_peek(button, peek)
+		else:
+			_hide_peek()
+
+
+# The read-only peek, a panel above `anchor`; it takes no input.
+func _show_peek(anchor: Control, peek: Dictionary) -> void:
+	_hide_peek()
+	var panel := PanelContainer.new()
+	panel.name = "MovePeek"
+	panel.top_level = true
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var box := UI.vbox(4)
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var title := UI.label(peek["title"])
+	title.custom_minimum_size.x = TOOLTIP_WIDTH
+	box.add_child(title)
+	for effect in peek["effects"]:
+		box.add_child(UI.label(str(effect)))
+	box.add_child(UI.muted_label(peek["next"]))
+	for child in box.get_children():
+		child.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		child.custom_minimum_size.x = TOOLTIP_WIDTH
+	panel.add_child(box)
+	add_child(panel)
+	panel.reset_size()
+	var top := anchor.get_global_rect().position
+	panel.global_position = Vector2(top.x, maxf(0.0, top.y - panel.size.y - 4.0))
+
+
+func _hide_peek() -> void:
+	var panel := get_node_or_null("MovePeek")
+	if panel != null:
+		panel.name = "MovePeekClosing"
+		panel.queue_free()
 
 
 # A move row's level badge ("L2"): small text in the row's accent, taps
