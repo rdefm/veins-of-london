@@ -176,7 +176,7 @@ static func refresh_wage(contact_id: String) -> void:
 
 static func has_free_seat(candidate_id: String) -> bool:
 	var room_id: String = role(candidate_id)["room"]
-	return Home.has_room(room_id) and Contacts.room_seats_used(room_id) < Home.room_seats(room_id)
+	return Contacts.room_seats_used(room_id) < Home.staff_capacity(room_id)
 
 
 # "" when hire() can go ahead (perhaps after a float top-up), else why not.
@@ -188,10 +188,13 @@ static func hire_block_reason(candidate_id: String) -> String:
 	if not Business.is_pot_active():
 		return "The business pot isn't running yet."
 	var room_id: String = role(candidate_id)["room"]
-	if not Home.has_room(room_id):
-		return "Build the %s first." % GameData.HOME_ROOMS[room_id]["name"]
+	var room_name: String = GameData.HOME_ROOMS[room_id]["name"]
 	if not has_free_seat(candidate_id):
-		return "No free seat in the %s." % GameData.HOME_ROOMS[room_id]["name"]
+		if not Home.has_room(room_id):
+			if Home.free_staff_seats(room_id) > 0:
+				return "Only %d without the %s. Build it for more." % [Home.free_staff_seats(room_id), room_name]
+			return "Build the %s first." % room_name
+		return "No free seat in the %s." % room_name
 	return ""
 
 

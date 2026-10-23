@@ -5,7 +5,7 @@ func run() -> void:
 	run_case("hiring_roles_registry_loads_per_spec", func():
 		var roles: Dictionary = GameData.HIRING_ROLES
 		assert_eq(roles.keys().size(), 4)
-		assert_eq(roles["cultivation"], {"label": "Cultivator", "room": "veinStation", "skill": "cultivating", "enabled": true})
+		assert_eq(roles["cultivation"], {"label": "Cultivator", "room": "veinStation", "freeSeats": 1, "skill": "cultivating", "enabled": true})
 		assert_eq(roles["production"], {"label": "Crafter", "room": "lab", "skill": "crafting", "enabled": true})
 		assert_eq(roles["sales"], {"label": "Sales", "room": "ops", "skill": "sales", "enabled": false})
 		assert_eq(roles["security"], {"label": "Security", "room": null, "skill": null, "enabled": false})

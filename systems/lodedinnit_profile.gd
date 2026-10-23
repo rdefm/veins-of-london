@@ -21,10 +21,12 @@ static func experience(candidate_id: String) -> Dictionary:
 static func seat_text(candidate_id: String) -> String:
 	var room_id: String = Hiring.role(candidate_id)["room"]
 	var room_name: String = GameData.HOME_ROOMS[room_id]["name"]
-	if not Home.has_room(room_id):
-		return "%s not built" % room_name
-	var total := Home.room_seats(room_id)
+	var total := Home.staff_capacity(room_id)
 	var free := total - Contacts.room_seats_used(room_id)
+	if not Home.has_room(room_id):
+		if total == 0:
+			return "%s not built" % room_name
+		return "%s not built · %d of %d seats free" % [room_name, maxi(free, 0), total]
 	return "%s · %d of %d seats free" % [room_name, maxi(free, 0), total]
 
 

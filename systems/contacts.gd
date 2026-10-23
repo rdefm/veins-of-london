@@ -168,7 +168,7 @@ static func assign_to_room(contact_id: String, room_id: String) -> Dictionary:
 	var c: Dictionary = contacts[contact_id]
 	if c["assignedRoom"] == room_id:
 		return { "ok": true }
-	if not is_founder(contact_id) and room_seats_used(room_id) >= Home.room_seats(room_id):
+	if not is_founder(contact_id) and room_seats_used(room_id) >= Home.free_staff_seats(room_id) + Home.room_seats(room_id):
 		return { "ok": false, "reason": "No free seat." }
 	c["assignedRoom"] = room_id
 	c["assignedRole"] = null

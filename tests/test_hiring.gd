@@ -71,6 +71,25 @@ func run() -> void:
 		assert_true(not GameState.state["contacts"]["dot"]["recruited"])
 	)
 
+	run_case("one_cultivator_is_hired_without_the_station_and_the_allowance_stacks", func():
+		_setup()
+		GameState.state["business"]["float"] = 5000
+		GameState.state["home"]["rooms"].erase("veinStation")
+		assert_true(Hiring.hire("marcia")["ok"], "station-free allowance")
+		var result := Hiring.hire("tomasz")
+		assert_true(not result["ok"], "second needs the station")
+		assert_eq(result["reason"], "Only 1 without the Vein Cultivation Station. Build it for more.")
+		GameState.state["player"]["veins"] = [Fixtures.player_vein_with({ "id": "vs1" })]
+		assert_true(Rooms.assign_vein("marcia", "vs1")["ok"], "works veins without the station")
+		GameState.state["home"]["rooms"].append("veinStation")
+		assert_true(Hiring.hire("tomasz")["ok"], "1 + 1 seats with a base station")
+		assert_true(not Hiring.hire("bernie")["ok"], "cap is allowance + station seats")
+		GameState.state["home"]["rooms"].erase("veinStation")
+		Home._remove_room_effects("veinStation")
+		assert_eq(Hiring.hires_for_room("veinStation").size(), 2)
+		assert_eq(Contacts.room_seats_used("veinStation"), 1, "only the allowance stays seated")
+	)
+
 	run_case("hire_prepays_the_first_week_from_pot_then_float", func():
 		_setup()
 		GameState.state["business"]["pot"] = 100

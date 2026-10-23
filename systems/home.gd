@@ -768,13 +768,33 @@ static func _remove_room_effects(room_id: String) -> void:
 	if room_data["bonus"] == "body":
 		player["hpMax"] -= int(room_data["bonusValue"])
 		player["hp"] = mini(player["hp"], player["hpMax"])
-	Contacts.assign_to_room("none", room_id)
+	_unseat_over_cap(room_id, free_staff_seats(room_id))
+	for contact_id in Contacts.contacts_in_room(room_id):
+		if Contacts.is_founder(contact_id):
+			Contacts.unassign_from_room(contact_id)
 	GameState.state["home"]["roomSeats"][room_id] = 1
 
 
 # Staff seats room_id holds (hiring-spec §5).
 static func room_seats(room_id: String) -> int:
 	return int(GameState.state["home"]["roomSeats"].get(room_id, 1))
+
+
+# Station-free staff seats a room's roles allow without it being built
+# (hiring.json roles[*].freeSeats).
+static func free_staff_seats(room_id: String) -> int:
+	var total := 0
+	for role_id in GameData.HIRING_ROLES:
+		var role: Dictionary = GameData.HIRING_ROLES[role_id]
+		if role.get("room") == room_id:
+			total += int(role.get("freeSeats", 0))
+	return total
+
+
+# Non-founder staff room_id can hold: the station-free allowance plus, once
+# built, its seats.
+static func staff_capacity(room_id: String) -> int:
+	return free_staff_seats(room_id) + (room_seats(room_id) if has_room(room_id) else 0)
 
 
 # The room's next seatUpgrades entry ({ seats, cost, minTier }), or {} at max.
