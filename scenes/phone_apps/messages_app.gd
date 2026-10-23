@@ -235,7 +235,8 @@ func _set_thread_font(node: Node) -> void:
 		_set_thread_font(child)
 
 
-func _alive(box: VBoxContainer) -> bool:
+# Untyped: `box` may already be freed, and a typed param rejects freed instances.
+func _alive(box: Variant) -> bool:
 	return is_instance_valid(shell) and is_instance_valid(box) and box.is_inside_tree()
 
 
