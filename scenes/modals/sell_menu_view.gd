@@ -746,7 +746,7 @@ func _meta_flow() -> HFlowContainer:
 
 
 func _button(value: String, callback: Callable, fill: Color, height: float) -> Button:
-	var button := Button.new()
+	var button := TapButton.new()
 	button.text = value
 	button.custom_minimum_size.y = height
 	button.clip_text = true
@@ -765,6 +765,7 @@ func _button(value: String, callback: Callable, fill: Color, height: float) -> B
 
 func _surface(fill: Color, margin: int) -> PanelContainer:
 	var panel := PanelContainer.new()
+	panel.mouse_filter = Control.MOUSE_FILTER_PASS  # drags must reach the scroller
 	panel.add_theme_stylebox_override("panel", _style(fill, margin))
 	return panel
 

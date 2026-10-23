@@ -57,6 +57,18 @@ func run() -> void:
 		_buy_base("wren", "blast")
 	)
 
+	run_case("trade_sheet_buttons_and_panels_let_drags_reach_the_scroller", func():
+		GameState.reset()
+		var view := _open("james")
+		var buttons := view.find_children("", "Button", true, false)
+		assert_true(buttons.size() > 0, "sheet has buttons")
+		for b in buttons:
+			assert_true(b is TapButton, "%s must be a TapButton so a drag on it scrolls" % (b as Button).text)
+		for p in view.find_children("", "PanelContainer", true, false):
+			assert_true((p as PanelContainer).mouse_filter != Control.MOUSE_FILTER_STOP, "panel must not swallow a drag")
+		view.free()
+	)
+
 	run_case("rows_list_only_the_sellers_recipes_and_master_is_never_selectable", func():
 		GameState.reset()
 		GameState.state["contacts"]["james"]["relation"] = 100
