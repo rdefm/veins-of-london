@@ -188,3 +188,20 @@ func run() -> void:
 		assert_eq(_buttons_with(screen, "✓ " + pick_name).size(), 1, "current pick marked")
 		screen.free()
 	)
+
+	run_case("prep_screen_rack_picker_rows_let_drags_reach_the_scroller", func():
+		_fresh()
+		CombatPrep.request(CombatPrep.KIND_SPAR, { "partnerId": "even", "rack": {} })
+		var pick_name := str(GameData.RECIPES[Sparring.rack_items()[1]]["name"])
+		var screen := CombatPrepScreen.new()
+		screen._ready()
+		_buttons_with(screen, "Slot 1:")[0].pressed.emit()
+		var row: Button = _buttons_with(screen, pick_name)[0]
+		assert_true(row is TapButton, "rows are TapButtons: tap fires on release, drag bubbles to the scroller")
+		var node: Node = row.get_parent()
+		while node != screen:
+			if node is PanelContainer:
+				assert_eq(node.mouse_filter, Control.MOUSE_FILTER_PASS, "panel above the rows must not swallow a drag")
+			node = node.get_parent()
+		screen.free()
+	)
