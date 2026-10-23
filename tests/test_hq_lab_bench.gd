@@ -259,7 +259,13 @@ func run() -> void:
 		var header := screen.find_child("StepHeader", true, false) as Label
 		assert_true(header.text.begins_with("Step 1 of %d" % steps.size()), "the strip opens on the next step")
 		assert_true(header.get_meta("active"), "the next step is marked active")
-		assert_eq((screen.find_child("StepStrip", true, false) as RecipeBookPage).art_size, HqLabBenchScreen._STEP_STRIP.size, "the strip is the blank page's top")
+		assert_eq((screen.find_child("StepStrip", true, false) as RecipeBookPage).art_size, HqLabBenchScreen._STEP_STRIP.size, "the strip is the notebook's two-entry crop")
+		var page_texture := ((screen.find_child("StepStrip", true, false) as RecipeBookPage).get_child(0) as TextureRect).texture as AtlasTexture
+		assert_eq(page_texture.atlas.resource_path, RecipeBookPage.PAGE_TEXTURE, "drawn from the side-tabs art")
+		var dock := screen.find_child("DockedBook", true, false) as Control
+		assert_true(dock.find_children("*", "PanelContainer", true, false).size() == 1, "only the page-button row is a panel: no menu around the notebook")
+		for child in screen.get_children():
+			assert_true(not (child is ColorRect and child.color.a == 0.5 and child.mouse_filter == Control.MOUSE_FILTER_STOP), "no modal backdrop")
 		assert_eq((screen.find_child("StepText", true, false) as Label).get_theme_font("font"), RecipeBookPage.font(), "in the book's font")
 		assert_true(NodeQuery.find_button(screen, "‹ Prev") == null, "no arrow before the first step")
 

@@ -241,14 +241,16 @@ func run() -> void:
 		assert_almost_eq(plate_top + jar_top * scale_factor, top + HqLabBenchScreen._INSET, 0.01, "the top jars sit just below the top bar, fully on screen")
 		var press: Dictionary = plate["regions"]["apparatus_compression"]
 		var press_bottom: float = plate_top + (float(press["y"]) + float(press["height"])) * scale_factor
-		assert_almost_eq(_docked_book_rect(screen).position.y, press_bottom, 0.01, "the book starts at the Press's bottom edge")
+		var book_top := _docked_book_rect(screen).position.y
+		assert_true(book_top <= press_bottom + 0.01, "the notebook rises over the Press, never below its bottom edge")
+		assert_true(book_top >= screen._jar_bottom(screen._diorama.get_parent(), plate["regions"]) - 0.01, "and never over the jars")
 		UiSim.tap_zone(screen, "apparatus_compression")
 		var centre := _find_gauge(screen) as Node
 		while centre.get_parent() != screen:
 			centre = centre.get_parent()
 		assert_true(centre is CenterContainer, "the gauge is centred")
 		assert_eq((centre as Control).offset_top, top, "below the top bar")
-		assert_almost_eq((centre as Control).offset_bottom, press_bottom, 0.01, "above the book")
+		assert_almost_eq((centre as Control).offset_bottom, book_top, 0.01, "above the book")
 		screen.free()
 	)
 
@@ -261,7 +263,7 @@ func run() -> void:
 		screen.size = Vector2(390.0, 640.0)
 		screen._refresh()
 		var book := _docked_book_rect(screen)
-		assert_almost_eq(book.size.y, HqLabBenchScreen._DOCK_MIN_HEIGHT, 0.01, "the dock keeps its minimum height")
+		assert_true(book.size.y >= HqLabBenchScreen._DOCK_MIN_HEIGHT, "the dock keeps at least its minimum height")
 		assert_almost_eq(book.end.y, screen.size.y - UI.nav_bar_clearance() - HqLabBenchScreen._OVERLAY_MARGIN, 0.01, "still ending above the nav bar")
 		screen.free()
 	)

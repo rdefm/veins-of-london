@@ -40,12 +40,16 @@ const _ENTRY_TOP := 205.0
 const _ENTRY_STEP := 290.0
 const _ENTRY_HEIGHT := 250.0
 
-# Docked step strip geometry, art space of the blank page's top strip.
-const _STEP_STRIP := Rect2(0, 0, 1024, 480)
-const _STEP_HEADER := Rect2(200, 146, 730, 54)
-const _STEP_BOX := Rect2(205, 222, 210, 210)
-const _STEP_TEXT := Rect2(445, 210, 485, 180)
-const _STEP_BAND := Rect2(445, 396, 485, 56)
+# Docked notebook geometry: a strip of the side-tabs art holding two entry
+# slots; rects are in the strip's own pixel space (art y minus 90). Slot one
+# is the browsed step, slot two the run's status.
+const _STEP_STRIP := Rect2(0, 90, 1024, 670)
+const _STEP_HEADER := Rect2(200, 38, 640, 44)
+const _STEP_BOX := Rect2(210, 115, 215, 210)
+const _STEP_TEXT := Rect2(450, 150, 380, 130)
+const _STEP_BAND := Rect2(450, 290, 380, 50)
+const _STATUS_AREA := Rect2(215, 420, 615, 215)
+const _NOTEBOOK_BUTTON_ROW := 52.0
 
 enum Page { NONE, BOOK, RECIPE, RUN }
 
@@ -182,6 +186,15 @@ func _jar_top(regions: Dictionary) -> float:
 		if String(region_id).begins_with(Lab.ORE_REGION_PREFIX):
 			top = minf(top, float(regions[region_id]["y"]))
 	return top if top < INF else 0.0
+
+
+# Screen-space bottom edge of the lowest ore jar in the width-fit plate frame.
+func _jar_bottom(frame: Control, regions: Dictionary) -> float:
+	var bottom := 0.0
+	for region_id in regions:
+		if String(region_id).begins_with(Lab.ORE_REGION_PREFIX):
+			bottom = maxf(bottom, float(regions[region_id]["y"]) + float(regions[region_id]["height"]))
+	return frame.position.y + bottom * frame.scale.y
 
 
 func _add_band(palette_id: String, rect: Rect2) -> void:
@@ -681,6 +694,12 @@ func _build_run() -> void:
 	var press_bottom: float = frame.position.y + (float(press["y"]) + float(press["height"])) * frame.scale.y
 	var dock_bottom: float = UI.nav_bar_clearance() + _OVERLAY_MARGIN
 	var dock_top: float = minf(press_bottom, size.y - dock_bottom - _DOCK_MIN_HEIGHT)
+	var lesson = LessonSession.lesson()
+	var in_run: bool = _result.is_empty() and not (lesson != null and lesson["met"])
+	if in_run:
+		# The bare notebook rises over the press for size, never over the jars.
+		var wanted: float = (size.x - 2.0 * _OVERLAY_MARGIN) * _STEP_STRIP.size.y / _STEP_STRIP.size.x + _NOTEBOOK_BUTTON_ROW
+		dock_top = maxf(minf(dock_top, size.y - dock_bottom - wanted), _jar_bottom(frame, GameData.HQ_VISUALS["labBench"]["regions"]))
 
 	var book := _build_docked_book()
 	book.name = "DockedBook"
@@ -705,6 +724,9 @@ func _build_run() -> void:
 # The docked book page: the run's status over the notebook strip of known
 # steps, with Finish, or after Finish the run's result.
 func _build_docked_book() -> Control:
+	var lesson = LessonSession.lesson()
+	if _result.is_empty() and not (lesson != null and lesson["met"]):
+		return _build_notebook(lesson)
 	var c := MapCardStyle.card(14, 0.16)
 	var scroller := UI.scroll_container()
 	scroller.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -714,42 +736,66 @@ func _build_docked_book() -> Control:
 	c["content"].add_child(scroller)
 
 	content.add_child(UI.heading(GameData.RECIPES[_recipe_key]["name"], 18))
-	var lesson = LessonSession.lesson()
 	if lesson != null:
 		_add_lesson_status(content, lesson)
 	if not _result.is_empty():
 		_add_result(content)
 		c["content"].add_child(MapCardStyle.footer([_result_exit_button(lesson)]))
 		return c["panel"]
-	if lesson != null and lesson["met"]:
-		c["content"].add_child(MapCardStyle.footer([MapCardStyle.text_button("Continue", LessonSession.resume)]))
-		return c["panel"]
+	c["content"].add_child(MapCardStyle.footer([MapCardStyle.text_button("Continue", LessonSession.resume)]))
+	return c["panel"]
 
+
+# The mid-run notebook on its own: the side-tabs art with the browsed step and
+# the run's status written on it, over a slim row of page buttons.
+func _build_notebook(lesson: Variant) -> Control:
 	var run = Lab.active_run()
-	if run == null:
-		# PROSE-REVIEW: docked book before the first jar tap.
-		content.add_child(UI.muted_label("Tap the %s jar to start." % _jar_names(Lab.base_calc(_recipe_key))))
-	else:
-		content.add_child(UI.label("In the mixture: %s · steps done: %d" % [_calc_text(run["calcSpent"]), run["performed"].size()]))
-	if _notice != "":
-		content.add_child(MapCardStyle.label(_notice, 13, MapCardStyle.action()))
-	_add_effect_controls(content)
 	var steps := Lab.known_procedure(_recipe_key)
 	var shown := _shown_step(steps.size())
-	c["content"].add_child(_build_step_strip(steps, shown))
+
+	var status := UI.vbox(2)
+	status.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	status.add_child(_ink_label(GameData.RECIPES[_recipe_key]["name"], RecipeBookPage.INK))
+	if lesson != null:
+		_add_lesson_status(status, lesson)
+	if run == null:
+		# PROSE-REVIEW: docked book before the first jar tap.
+		status.add_child(_ink_label("Tap the %s jar to start." % _jar_names(Lab.base_calc(_recipe_key)), RecipeBookPage.INK_MUTED))
+	else:
+		status.add_child(_ink_label("In the mixture: %s · steps done: %d" % [_calc_text(run["calcSpent"]), run["performed"].size()], RecipeBookPage.INK))
+	if _notice != "":
+		status.add_child(_ink_label(_notice, MapCardStyle.action()))
+	_add_effect_controls(status)
+
+	var strip := _build_step_strip(steps, shown)
+	strip.place(status, _STATUS_AREA)
+	status.clip_contents = true
+
+	var column := UI.vbox(6)
+	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	column.add_child(strip)
+	var panel := PanelContainer.new()
+	MapCardStyle.style_panel(panel, 12, 0.0)
+	var row := UI.hbox(6)
+	panel.add_child(row)
 	# A step arrow shows only when there's a step in its direction.
-	var footer := MapCardStyle.footer([])
-	footer.alignment = BoxContainer.ALIGNMENT_BEGIN
 	if shown > 0:
-		footer.add_child(MapCardStyle.text_button("‹ Prev", func(): _browse_step(shown - 1)))
+		row.add_child(MapCardStyle.text_button("‹ Prev", func(): _browse_step(shown - 1)))
 	if shown < steps.size() - 1:
-		footer.add_child(MapCardStyle.text_button("Next ›", func(): _browse_step(shown + 1)))
+		row.add_child(MapCardStyle.text_button("Next ›", func(): _browse_step(shown + 1)))
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	footer.add_child(spacer)
-	footer.add_child(MapCardStyle.text_button("Finish", _on_finish, lesson != null and run == null))
-	c["content"].add_child(footer)
-	return c["panel"]
+	row.add_child(spacer)
+	row.add_child(MapCardStyle.text_button("Finish", _on_finish, lesson != null and run == null))
+	column.add_child(panel)
+	return column
+
+
+func _ink_label(text: String, colour: Color) -> Label:
+	var label := _page_label(text, colour)
+	label.add_theme_font_size_override("font_size", 14)
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	return label
 
 
 # The known step the strip shows: the browsed one, else the run's next step
@@ -767,13 +813,11 @@ func _browse_step(index: int) -> void:
 	_refresh()
 
 
-# The top strip of the blank recipe page with one known step in the book's
-# hand: its number boxed, its line and band; the run's next step is marked.
+# The notebook strip (side-tabs art) with one known step in the book's hand: its number boxed, its line and band; the run's next step is marked.
 func _build_step_strip(steps: Array, shown: int) -> Control:
 	var strip := RecipeBookPage.new()
 	strip.name = "StepStrip"
-	strip.crop_blank(_STEP_STRIP)
-	strip.size_flags_stretch_ratio = 2.0
+	strip.crop(_STEP_STRIP)
 	if steps.is_empty():
 		# PROSE-REVIEW: docked notebook with no known steps.
 		var empty := _page_label("No steps known.", RecipeBookPage.INK_MUTED)

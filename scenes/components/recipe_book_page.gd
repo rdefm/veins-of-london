@@ -3,11 +3,10 @@ extends Control
 
 # The ring-bound recipe page (docs/hq-diorama-vision.md §5.2): the blank side-tab
 # art drawn aspect-fit, with child controls placed by rects in the art's own
-# 1024x1536 pixel space so they follow the page at any size. crop_blank()
-# swaps in a strip of the blank lined page instead.
+# 1024x1536 pixel space so they follow the page at any size. crop() shows
+# just a strip of the same art.
 
 const PAGE_TEXTURE := "res://assets/hq/recipe-book-side-tabs-blank.png"
-const BLANK_TEXTURE := "res://assets/hq/recipe-book-page-blank.png"
 const FONT_PATH := "res://assets/fonts/PixelifySans.ttf"
 const ART_SIZE := Vector2(1024, 1536)
 const INK := Color("#4a3320")
@@ -42,11 +41,11 @@ func _init() -> void:
 	resized.connect(_layout)
 
 
-# Shows only `region` of the blank page art; placed rects are then in that
+# Shows only `region` of the side-tabs art; placed rects are then in that
 # region's own pixel space.
-func crop_blank(region: Rect2) -> void:
+func crop(region: Rect2) -> void:
 	var atlas := AtlasTexture.new()
-	atlas.atlas = load(BLANK_TEXTURE)
+	atlas.atlas = load(PAGE_TEXTURE)
 	atlas.region = region
 	_page.texture = atlas
 	art_size = region.size

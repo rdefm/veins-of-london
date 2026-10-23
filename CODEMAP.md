@@ -187,7 +187,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | nav_bar.gd | Bottom nav dock (Phone·Map·HQ); swaps to MapPalette dark chrome tokens while the Map tab shows with Map dark mode on |
 | ore_glyphs.gd | Five canonical ore silhouettes as hand-drawn vectors; bundled-font coverage probe for non-map symbol fallback |
 | lab_gauges.gd | Lab apparatus gauges (hold/crank/grind/distil; crank = clockwise circular drag, data-tuned, `committed` signal with raw input) and the book's read-only band track; all draw a step_region() band via `set_region` (cardBand token); pulsing lead-ore input outline; TickMark |
-| recipe_book_page.gd | Aspect-fit recipe-book page art (assets/hq/recipe-book-side-tabs-blank.png) placing children by 1024x1536 art-space rects (crop_blank shows a strip of the blank lined page instead); owns the book-only Pixelify Sans font loader |
+| recipe_book_page.gd | Aspect-fit recipe-book page art (assets/hq/recipe-book-side-tabs-blank.png) placing children by 1024x1536 art-space rects (crop shows just a strip of the art); owns the book-only Pixelify Sans font loader |
 | phone_device_shell.gd | Persistent rounded simulated-phone frame: clipped display, approved London wallpaper, game-clock status time + widget date (live on state_changed), fixed weather/battery chrome, dark opened-app surface + shared/custom content mounts |
 | phone_home_dock.gd | Home-only translucent three-destination Phone/Messages/Settings dock |
 | symbol_glyph.gd | Label-or-vector fallback for a symbol; draws an optional `icon` texture instead when set |
