@@ -770,7 +770,7 @@ func run() -> void:
 		phone.free()
 	)
 
-	run_case("procurement_shows_a_founder_cultivator_without_the_station_room", func():
+	run_case("procurement_shows_a_room_free_cultivator_without_the_station_room", func():
 		GameState.reset()
 		GameState.state["player"]["veins"] = [_brief_vein()]
 		GameState.state["contacts"]["owen"]["recruited"] = true

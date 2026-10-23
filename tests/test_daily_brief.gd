@@ -485,7 +485,7 @@ func run() -> void:
 		_quiet_story()
 		var james: Dictionary = GameState.state["contacts"]["james"]
 		james["recruited"] = true
-		assert_eq(_kind("idleStaff"), [], "a founder with no role open to them isn't idle")
+		assert_eq(_kind("idleStaff"), [], "a room-free contact with no role open to them isn't idle")
 		GameState.state["flags"]["bizJamesProductionRole"] = true
 		var rows := _kind("idleStaff")
 		assert_eq(rows.size(), 1)

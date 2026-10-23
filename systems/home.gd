@@ -454,11 +454,11 @@ static func _bought_seat_upgrades(room_id: String) -> Array:
 	return bought
 
 
-# Unseats non-founder staff in room_id beyond `seats`, last listed first.
+# Unseats seated staff in room_id beyond `seats`, last listed first.
 static func _unseat_over_cap(room_id: String, seats: int) -> void:
 	var staff: Array = []
 	for contact_id in Contacts.contacts_in_room(room_id):
-		if not Contacts.is_founder(contact_id):
+		if not Contacts.holds_room_free_role(contact_id):
 			staff.append(contact_id)
 	while staff.size() > seats:
 		Contacts.unassign_from_room(staff.pop_back())
@@ -770,7 +770,7 @@ static func _remove_room_effects(room_id: String) -> void:
 		player["hp"] = mini(player["hp"], player["hpMax"])
 	_unseat_over_cap(room_id, free_staff_seats(room_id))
 	for contact_id in Contacts.contacts_in_room(room_id):
-		if Contacts.is_founder(contact_id):
+		if Contacts.holds_room_free_role(contact_id):
 			Contacts.unassign_from_room(contact_id)
 	GameState.state["home"]["roomSeats"][room_id] = 1
 
@@ -791,7 +791,7 @@ static func free_staff_seats(room_id: String) -> int:
 	return total
 
 
-# Non-founder staff room_id can hold: the station-free allowance plus, once
+# Seated staff room_id can hold: the station-free allowance plus, once
 # built, its seats.
 static func staff_capacity(room_id: String) -> int:
 	return free_staff_seats(room_id) + (room_seats(room_id) if has_room(room_id) else 0)

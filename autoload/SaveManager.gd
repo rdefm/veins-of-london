@@ -157,7 +157,7 @@ func _load_save_dict(raw: Dictionary) -> Dictionary:
 	_migrate_versions(filled)
 	_migrate_vein_station_veins(filled)
 	_strip_unowned_cultivator_veins(filled)
-	_fix_up_founders(filled)
+	_fix_up_room_free_roles(filled)
 	_migrate_nadia_supply_order(filled)
 	_migrate_faction_holdings(filled)
 	_migrate_key_member_standing(filled)
@@ -727,7 +727,7 @@ func _rename_quote_to_signed(contract: Dictionary) -> void:
 # R§3.10 "Staff roles": the single shared veinStationVeins list moves onto
 # the Station occupant's cultivatorVeins list, or Owen's if he is the only
 # cultivator; with neither, the assignments are dropped (targets are kept).
-# Runs before _fix_up_founders, which may clear a founder's Station room.
+# Runs before _fix_up_room_free_roles, which may clear a room-free contact's Station room.
 func _migrate_vein_station_veins(state: Dictionary) -> void:
 	if not state.has("veinStationVeins"):
 		return
@@ -771,8 +771,8 @@ func _strip_unowned_cultivator_veins(state: Dictionary) -> void:
 
 # R§3.10 "Staff roles": recruitable follows constants.json (Archie/James
 # recruit only by story), the home-raid debrief recruits Archie, and a
-# founder saved in a role-room holds that role room-free instead.
-func _fix_up_founders(state: Dictionary) -> void:
+# room-free contact saved in a role-room holds that role room-free instead.
+func _fix_up_room_free_roles(state: Dictionary) -> void:
 	if not state.has("contacts"):
 		return
 	var contacts: Dictionary = state["contacts"]
@@ -782,7 +782,7 @@ func _fix_up_founders(state: Dictionary) -> void:
 			c["recruitable"] = GameData.CONTACTS_DEFAULTS[contact_id].get("recruitable", true)
 		var room: Variant = c.get("assignedRoom")
 		var room_roles := Contacts.room_roles()
-		if Contacts.is_founder(contact_id) and room != null and room_roles.has(room):
+		if Contacts.holds_room_free_role(contact_id) and room != null and room_roles.has(room):
 			c["assignedRole"] = room_roles[room]
 			c["assignedRoom"] = null
 	if state.get("flags", {}).get("homeRaidEventSeen", false) and contacts.has("archie"):

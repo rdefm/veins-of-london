@@ -81,5 +81,5 @@ func run() -> void:
 		GameState.state["player"]["cash"] = 0
 		assert_true(ContractsSystem.has_staffed_sales(), "Archie's Sales role staffs Sales wage-free")
 		GameState.state["contacts"]["archie"]["salesSkill"] = 3
-		assert_eq(OffersSystem.sales_skill(), 3, "a founder Sales role drives sourcing skill")
+		assert_eq(OffersSystem.sales_skill(), 3, "a room-free Sales role drives sourcing skill")
 	)

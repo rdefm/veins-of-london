@@ -66,7 +66,7 @@ static func is_period_filled(contract: Dictionary) -> bool:
 	return contract.get("periodFilled", false)
 
 
-# Any contact holding the Sales role. A founder draws no room wage; an
+# Any contact holding the Sales role. A room-free draws no room wage; an
 # Operations Room hire counts only while this week's wage is paid.
 static func has_staffed_sales() -> bool:
 	for contact_id in Contacts.contacts_in_role("sales"):

@@ -75,7 +75,11 @@ func run() -> void:
 		_setup()
 		GameState.state["business"]["float"] = 5000
 		GameState.state["home"]["rooms"].erase("veinStation")
-		assert_true(Hiring.hire("marcia")["ok"], "station-free allowance")
+		GameState.state["contacts"]["owen"]["recruited"] = true
+		GameState.state["flags"]["bizOwenCultivationRole"] = true
+		Contacts.set_role("owen", "cultivation")
+		assert_true(Hiring.hire("marcia")["ok"], "station-free allowance, on top of Owen")
+		assert_eq(Contacts.role_of("owen"), "cultivation")
 		var result := Hiring.hire("tomasz")
 		assert_true(not result["ok"], "second needs the station")
 		assert_eq(result["reason"], "Only 1 without the Vein Cultivation Station. Build it for more.")

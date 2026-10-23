@@ -1167,7 +1167,7 @@ func _build_staff_card(contact_id: String) -> Control:
 			line += " · cap %d" % Contacts.skill_cap(contact_id, skill)
 		skill_row.add_child(UI.muted_label(line))
 		c["content"].add_child(skill_row)
-	if Contacts.is_founder(contact_id):
+	if Contacts.holds_room_free_role(contact_id):
 		c["content"].add_child(_build_role_picker(contact_id, role))
 	if owed > 0:
 		var top_up := Business.top_up_needed(contact_id)
@@ -1175,7 +1175,7 @@ func _build_staff_card(contact_id: String) -> Control:
 	return c["panel"]
 
 
-# The founder's open room-free roles, plus clearing a held role.
+# A room-free contact's open room-free roles, plus clearing a held role.
 func _build_role_picker(contact_id: String, current: Variant) -> Control:
 	var row := UI.hflow()
 	for role in Contacts.available_roles(contact_id):

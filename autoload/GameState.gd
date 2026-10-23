@@ -336,7 +336,7 @@ func new_game_state() -> Dictionary:
 			# rentGoal gates the Home.rent_goal() row; rentPaid is set when a
 			# Monday home bill is paid in full.
 			"rentGoal": false, "rentPaid": false,
-			# Business Act 1 founder role unlocks (constants.json contacts.<id>.roleFlags).
+			# Business Act 1 room-free role unlocks (constants.json contacts.<id>.roleFlags).
 			"bizArchieSalesRole": false, "bizJamesProductionRole": false,
 			"bizOwenCultivationRole": false, "bizOwenProductionRole": false,
 			# business_empire questline (systems/business_quest.gd).
@@ -542,7 +542,7 @@ func _new_contacts_state() -> Dictionary:
 			# gated by the Operations Room via assignedRoom.
 			"salesSkill": 1, "salesXP": 0,
 			"assignedRoom": null,
-			# Founder-only room-free staff role (null|"sales"|"cultivation"|
+			# Room-free-only staff role (null|"sales"|"cultivation"|
 			# "production"), exclusive with assignedRoom -- R§3.10.
 			"assignedRole": null,
 			# Ore types this contact crafts with in Production -- a recipe

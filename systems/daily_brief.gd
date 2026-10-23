@@ -359,7 +359,7 @@ static func _development_rows(rows: Array[Dictionary]) -> void:
 
 
 # Recruited, working staff with nothing to do: no role while one is open to
-# them (a founder with no unlocked role isn't idle), or a cultivator with an
+# them (a room-free contact with no unlocked role isn't idle), or a cultivator with an
 # empty vein list. Unpaid staff are already the wage rows.
 static func _idle_staff_rows(rows: Array[Dictionary]) -> void:
 	var contacts: Dictionary = GameState.state["contacts"]
@@ -368,7 +368,7 @@ static func _idle_staff_rows(rows: Array[Dictionary]) -> void:
 			continue
 		var role: Variant = Contacts.role_of(contact_id)
 		var template_id := ""
-		if role == null and (not Contacts.is_founder(contact_id) or not Contacts.available_roles(contact_id).is_empty()):
+		if role == null and (not Contacts.holds_room_free_role(contact_id) or not Contacts.available_roles(contact_id).is_empty()):
 			template_id = "idleStaffNoRole"
 		elif role == "cultivation" and Rooms.cultivator_veins(contact_id).is_empty():
 			template_id = "idleStaffNoVeins"

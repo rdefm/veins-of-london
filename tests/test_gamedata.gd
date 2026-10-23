@@ -762,7 +762,7 @@ func run() -> void:
 		# collective1-07, spec §9.3/§9.5
 		for key in ["archie", "james", "owen"]:
 			assert_true(not GameData.CONTACTS_DEFAULTS[key]["recruitable"], "%s recruits by story only" % key)
-			assert_true(GameData.CONTACTS_DEFAULTS[key]["roomFreeRoles"], "%s is a founder" % key)
+			assert_true(GameData.CONTACTS_DEFAULTS[key]["roomFreeRoles"], "%s has room-free roles" % key)
 		for key in ["des", "nadia", "hakim"]:
 			assert_true(not GameData.CONTACTS_DEFAULTS[key]["recruitable"], "%s is never recruitable" % key)
 			assert_eq(GameData.CONTACTS_DEFAULTS[key]["startRelation"], 0, "%s starts at relation 0" % key)

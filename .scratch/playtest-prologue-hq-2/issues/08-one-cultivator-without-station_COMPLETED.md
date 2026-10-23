@@ -1,6 +1,6 @@
 # 08 — One hired cultivator allowed without a Cultivation Station
 
-**What to build:** Right now the player can't hire a cultivator until they've built the Vein Cultivation Station. Change it so, without the station, the player can hire one cultivator on top of Owen. Owen is a founder and doesn't take a seat. Hiring any more cultivators needs the station. Its seats stack on top of the station-free cultivator, so the cap is the allowance plus the station's seats. The hire-block text explains the new limit. The number of station-free cultivators is data, not code.
+**What to build:** Right now the player can't hire a cultivator until they've built the Vein Cultivation Station. Change it so, without the station, the player can hire one cultivator on top of Owen. Owen holds a room-free role and doesn't take a seat. Hiring any more cultivators needs the station. Its seats stack on top of the station-free cultivator, so the cap is the allowance plus the station's seats. The hire-block text explains the new limit. The number of station-free cultivators is data, not code.
 
 **Blocked by:** None — can start immediately.
 

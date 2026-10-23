@@ -103,13 +103,13 @@ func run() -> void:
 		assert_eq(Contacts.contacts_in_room("lab"), ["hakim"], "unassign frees only that seat")
 	)
 
-	run_case("founders_hold_no_seat", func():
+	run_case("room_free_contacts_hold_no_seat", func():
 		GameState.reset()
 		GameState.state["contacts"]["archie"]["recruited"] = true
 		GameState.state["contacts"]["des"]["recruited"] = true
 		Contacts.assign_to_room("archie", "lab")
 		assert_eq(Contacts.room_seats_used("lab"), 0)
-		assert_true(Contacts.assign_to_room("des", "lab")["ok"], "a founder in the room leaves its seat free")
+		assert_true(Contacts.assign_to_room("des", "lab")["ok"], "a room-free contact in the room leaves its seat free")
 	)
 
 	# 21-contact-roles-sales-skill, business-spec.md: "a Sales, Production or
@@ -355,7 +355,7 @@ func run() -> void:
 		assert_eq(GameState.state["contacts"]["archie"]["craftingSkill"], GameData.CRAFTING_XP_LEVELS.size() - 1, "uncapped contacts still reach the ladder max")
 	)
 
-	run_case("founder_roles_open_only_via_their_role_flags", func():
+	run_case("room_free_roles_open_only_via_their_role_flags", func():
 		GameState.reset()
 		Contacts.force_recruit("archie")
 		assert_eq(Contacts.available_roles("archie"), [])
@@ -384,10 +384,10 @@ func run() -> void:
 		assert_eq(Contacts.role_of("archie"), "production")
 	)
 
-	run_case("non_founders_hold_a_role_only_by_staffing_its_room", func():
+	run_case("seated_contacts_hold_a_role_only_by_staffing_its_room", func():
 		GameState.reset()
 		GameState.state["contacts"]["des"]["recruited"] = true
-		assert_true(not Contacts.is_founder("des"))
+		assert_true(not Contacts.holds_room_free_role("des"))
 		assert_true(not Contacts.set_role("des", "sales")["ok"])
 		Contacts.assign_to_room("des", "ops")
 		assert_eq(Contacts.contacts_in_role("sales"), ["des"])

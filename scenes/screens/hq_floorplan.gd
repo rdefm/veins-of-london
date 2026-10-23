@@ -188,8 +188,8 @@ func _build_room_contact_row(room_id: String) -> Control:
 	var row := UI.hflow(4)
 	for contact_id in contacts.keys():
 		var c: Dictionary = contacts[contact_id]
-		# Founders take room-free roles instead (R§3.10 "Staff roles").
-		if not c["recruited"] or c["assignedRoom"] == room_id or Contacts.is_founder(contact_id):
+		# Room-free contacts take room-free roles instead (R§3.10 "Staff roles").
+		if not c["recruited"] or c["assignedRoom"] == room_id or Contacts.holds_room_free_role(contact_id):
 			continue
 		var captured_id: String = contact_id
 		row.add_child(MapCardStyle.text_button("Assign %s" % Contacts.display_name(contact_id), func(): Contacts.assign_to_room(captured_id, room_id), full))

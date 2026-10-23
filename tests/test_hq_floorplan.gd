@@ -155,14 +155,14 @@ func run() -> void:
 		screen.free()
 	)
 
-	run_case("hq_floorplan_room_assignment_row_omits_founders", func():
+	run_case("hq_floorplan_room_assignment_row_omits_room_free_contacts", func():
 		GameState.reset()
 		GameState.state["home"]["rooms"].append("lab")
 		Contacts.force_recruit("archie")
 
 		var screen := HqFloorplanScreen.new()
 		screen._ready()
-		assert_eq(NodeQuery.find_button(screen, "Assign Archie"), null, "founders take room-free roles, not rooms")
+		assert_eq(NodeQuery.find_button(screen, "Assign Archie"), null, "room-free contacts take room-free roles, not rooms")
 		screen.free()
 	)
 

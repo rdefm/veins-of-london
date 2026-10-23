@@ -59,12 +59,12 @@ static func force_recruit(contact_id: String) -> void:
 	EventBus.state_changed.emit()
 
 
-# Founders (constants.json roomFreeRoles) may hold a staff role without a room.
-static func is_founder(contact_id: String) -> bool:
+# Room-free contacts (constants.json roomFreeRoles) may hold a staff role without a room.
+static func holds_room_free_role(contact_id: String) -> bool:
 	return bool(GameData.CONTACTS_DEFAULTS.get(contact_id, {}).get("roomFreeRoles", false))
 
 
-# The contact's staff role: their founder assignedRole, else the role of the
+# The contact's staff role: their room-free assignedRole, else the role of the
 # room they staff, else null.
 static func role_of(contact_id: String) -> Variant:
 	var c: Dictionary = GameState.state["contacts"].get(contact_id, {})
@@ -94,12 +94,12 @@ static func sales_contact() -> Variant:
 	return null if holders.is_empty() else holders[0]
 
 
-# Room-free roles a founder may currently take, each unlocked by the flag
-# its constants.json roleFlags entry names. Non-founders reach a role only
+# Room-free roles a room-free contact may currently take, each unlocked by the flag
+# its constants.json roleFlags entry names. Other contacts reach a role only
 # by staffing its room, so this is always empty for them.
 static func available_roles(contact_id: String) -> Array:
 	var result: Array = []
-	if not is_founder(contact_id):
+	if not holds_room_free_role(contact_id):
 		return result
 	var role_flags: Dictionary = GameData.CONTACTS_DEFAULTS[contact_id].get("roleFlags", {})
 	var flags: Dictionary = GameState.state["flags"]
@@ -113,13 +113,13 @@ static func is_role_available(contact_id: String, role: String) -> bool:
 	return available_roles(contact_id).has(role)
 
 
-# Sets a founder's room-free role (null clears it). Exclusive with
+# Sets a room-free contact's room-free role (null clears it). Exclusive with
 # assignedRoom: setting a role vacates any room they held.
 static func set_role(contact_id: String, role: Variant) -> Dictionary:
 	var contacts: Dictionary = GameState.state["contacts"]
 	if not contacts.has(contact_id) or not contacts[contact_id]["recruited"]:
 		return { "ok": false, "reason": "Not working with you." }
-	if not is_founder(contact_id):
+	if not holds_room_free_role(contact_id):
 		return { "ok": false, "reason": "Assign them to a room instead." }
 	if role != null and not is_role_available(contact_id, role):
 		return { "ok": false, "reason": "That role isn't open to them yet." }
@@ -142,12 +142,12 @@ static func contacts_in_room(room_id: String) -> Array:
 	return result
 
 
-# Seats in use in room_id: its occupants, less founders (who hold no
+# Seats in use in room_id: its occupants, less room-free contacts (who hold no
 # seat, hiring-spec §5).
 static func room_seats_used(room_id: String) -> int:
 	var used := 0
 	for contact_id in contacts_in_room(room_id):
-		if not is_founder(contact_id):
+		if not holds_room_free_role(contact_id):
 			used += 1
 	return used
 
@@ -168,7 +168,7 @@ static func assign_to_room(contact_id: String, room_id: String) -> Dictionary:
 	var c: Dictionary = contacts[contact_id]
 	if c["assignedRoom"] == room_id:
 		return { "ok": true }
-	if not is_founder(contact_id) and room_seats_used(room_id) >= Home.free_staff_seats(room_id) + Home.room_seats(room_id):
+	if not holds_room_free_role(contact_id) and room_seats_used(room_id) >= Home.free_staff_seats(room_id) + Home.room_seats(room_id):
 		return { "ok": false, "reason": "No free seat." }
 	c["assignedRoom"] = room_id
 	c["assignedRole"] = null

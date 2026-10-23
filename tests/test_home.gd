@@ -927,7 +927,7 @@ func run() -> void:
 		GameState.state["home"]["roomSeats"]["lab"] = 3
 		var staff: Array = []
 		for contact_id in GameState.state["contacts"].keys():
-			if staff.size() < 3 and not Contacts.is_founder(contact_id):
+			if staff.size() < 3 and not Contacts.holds_room_free_role(contact_id):
 				GameState.state["contacts"][contact_id]["recruited"] = true
 				assert_true(Contacts.assign_to_room(contact_id, "lab")["ok"])
 				staff.append(contact_id)

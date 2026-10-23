@@ -84,8 +84,8 @@ static func toggle_all_lab_cover_contracts() -> void:
 	EventBus.state_changed.emit()
 
 
-# Production targets are settable with an Improved Lab, or once any founder
-# may take the Production role (founders need no room).
+# Production targets are settable with an Improved Lab, or once any room-free contact
+# may take the Production role (they need no room).
 static func production_settings_open() -> bool:
 	if GameState.state["home"]["rooms"].has("lab"):
 		return true
@@ -204,7 +204,7 @@ static func cultivator_veins(contact_id: String) -> Array:
 
 
 # Current Cultivation-role holders as [{ "id", "veinCount" }], in contact
-# order -- a founder swapped to another role is left out.
+# order -- a room-free contact swapped to another role is left out.
 static func cultivators() -> Array:
 	var result: Array = []
 	for contact_id in Contacts.contacts_in_role("cultivation"):
