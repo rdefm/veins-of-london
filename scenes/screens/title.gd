@@ -94,7 +94,7 @@ func _on_debug_start_pressed() -> void:
 func _start_new_game(model: String) -> void:
 	GameState.reset()
 	PlayerModel.set_model(model)
-	Factions.seed_day_one_veins()
+	Factions.seed_new_game_veins()
 	Events.start_event("cold_open")
 
 func _start_debug(model: String) -> void:

@@ -520,7 +520,7 @@ const DAY_ONE_ROSTER: Dictionary = {
 }
 
 
-# Called once by New Game, always right after GameState.reset() -- never folded into
+# Called by DebugStart and (via seed_new_game_veins) New Game, always right after GameState.reset() -- never folded into
 # reset() itself, since tests expect reset() to produce a bare state with empty sites.
 static func seed_day_one_veins() -> void:
 	var share: float = GameData.VEIN_GROWTH["dayOneFactionMaxLevelShare"]
@@ -537,16 +537,44 @@ static func seed_day_one_veins() -> void:
 	EventBus.state_changed.emit()
 
 
-# Site/security roll exactly as a normal NPC claim, with the roster's ore type,
-# growth, tier bump and level. No MapEvents queueing or Notify/XP -- these veins
-# exist from game start, nothing to animate.
+# New Game entry point: the faction rosters plus the unowned-district veins.
+# DebugStart calls seed_day_one_veins() alone.
+static func seed_new_game_veins() -> void:
+	seed_day_one_veins()
+	_seed_unowned_districts(GameData.VEIN_GROWTH["dayOneFactionMaxLevelShare"])
+	EventBus.state_changed.emit()
+
+
+# Districts with no factionPresence start with a split of faction veins (constants.json
+# turf.unownedSeeding: district -> faction -> count). Ore type is rolled from the
+# district's oreBias, so the roster has no fixed ore list. Counts stay within
+# controlMargin - 1 of each other, leaving the district uncontrolled.
+static func _seed_unowned_districts(max_level_share: float) -> void:
+	var seeding: Dictionary = GameData.TURF["unownedSeeding"]
+	for district_id in seeding:
+		var total := 0
+		for count in seeding[district_id].values():
+			total += int(count)
+		var at_cap: int = roundi(total * max_level_share)
+		var placed := 0
+		for faction_id in seeding[district_id]:
+			for i in int(seeding[district_id][faction_id]):
+				_seed_day_one_vein(faction_id, district_id, "", placed < at_cap)
+				placed += 1
+
+
+# Site/security roll exactly as a normal NPC claim, with the roster's ore type
+# (rolled from the district's oreBias when empty), growth, tier bump and level.
+# No MapEvents queueing or Notify/XP -- these veins exist from game start,
+# nothing to animate.
 static func _seed_day_one_vein(faction_id: String, district_id: String, ore_type: String, at_cap: bool) -> void:
 	var vg: Dictionary = GameData.VEIN_GROWTH
 	var order: Array = GameData.SITE_TIER_ORDER
 	var rolled := Sites.roll_tier(district_id)
 	var tier: String = order[mini(order.find(rolled) + int(vg["dayOneFactionTierBump"]), order.size() - 1)]
 	var site := Sites.roll_new_site(district_id, tier)
-	site["oreType"] = ore_type
+	if ore_type != "":
+		site["oreType"] = ore_type
 
 	var vein := create_faction_vein(faction_id, site, int(vg["dayOneFactionGrowth"]))
 	var cap: int = Cultivating.level_cap(vein)

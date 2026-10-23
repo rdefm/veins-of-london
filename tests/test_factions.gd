@@ -1071,6 +1071,33 @@ func _run_cases() -> void:
 			assert_true(Sites.sites_in_district(district_id).size() <= site_cap, "%s: starting veins alone must never exceed the bumped siteCap" % district_id)
 	)
 
+	run_case("seed_day_one_veins_splits_unowned_districts_between_two_factions_with_no_controller", func():
+		var expected := {
+			"soho": {"conclave": 2, "firm": 1},
+			"hampstead": {"network": 2, "collective": 2},
+			"nottinghill": {"conclave": 2, "network": 1},
+		}
+		GameState.reset()
+		Rng.set_seed(5)
+		Factions.seed_new_game_veins()
+		var turf := Turf.compute(GameState.state)
+		for district_id in expected:
+			var by_faction := {}
+			var district: Dictionary = GameData.DISTRICTS[district_id]
+			var sites := Sites.sites_in_district(district_id)
+			assert_true(sites.size() >= 3 and sites.size() <= 4, "%s: 3-4 starting veins" % district_id)
+			assert_true(sites.size() <= int(district["siteCap"]), "%s: within siteCap" % district_id)
+			for site in sites:
+				var vein: Variant = site["factionVein"]
+				assert_true(vein != null, "%s: every site is faction-held" % district_id)
+				by_faction[vein["factionId"]] = int(by_faction.get(vein["factionId"], 0)) + 1
+				assert_true(float(district["oreBias"].get(vein["oreType"], 0.0)) > 0.0 or district["oreBias"].size() < GameData.ORE_TYPES.size(), "%s: ore type rolled from district" % district_id)
+			assert_eq(by_faction, expected[district_id], "%s: faction split" % district_id)
+			assert_eq(turf[district_id]["controller"], "", "%s: nobody controls" % district_id)
+			for faction_id in expected[district_id]:
+				assert_eq(turf[district_id]["tiers"].get(faction_id), Turf.TIER_FOOTHOLD, "%s: %s holds a foothold" % [district_id, faction_id])
+	)
+
 	# ── economic identity data (R§1.8) ──────────────────────────────────
 
 	run_case("every_faction_carries_identity_fields_referencing_real_keys", func():

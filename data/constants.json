@@ -198,6 +198,11 @@
     "controlMargin": 2,
     "footholdShare": 0.25,
     "footholdFactor": 0.5,
+    "unownedSeeding": {
+      "soho": { "conclave": 2, "firm": 1 },
+      "hampstead": { "network": 2, "collective": 2 },
+      "nottinghill": { "conclave": 2, "network": 1 }
+    },
     "relationBands": [
       { "min": 50, "dangerAdj": -0.03, "priceAdj": 0.03 },
       { "min": 20, "dangerAdj": -0.015, "priceAdj": 0.015 },

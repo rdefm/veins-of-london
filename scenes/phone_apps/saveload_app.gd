@@ -112,5 +112,5 @@ func _build_new_game_card() -> Control:
 
 func _on_confirm_new_game_pressed() -> void:
 	GameState.reset()
-	Factions.seed_day_one_veins()
+	Factions.seed_new_game_veins()
 	Nav.go_to("intro")
