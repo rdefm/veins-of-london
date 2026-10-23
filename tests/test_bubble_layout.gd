@@ -50,3 +50,19 @@ func run() -> void:
 		var pos := BubbleLayout.popup_position(Vector2(100, 100), Vector2(40, 40), Vector2(390, 844), Vector2(-20, 5))
 		assert_eq(pos, Vector2(80, 105), "callers can override the default down-right offset")
 	)
+
+	run_case("a_tall_popup_near_the_top_clamps_below_the_top_inset", func():
+		var bounds := Vector2(390, 844)
+		var popup_size := Vector2(268, 500)
+		var inset := 120.0
+		var pos := BubbleLayout.popup_position(Vector2(195, 150), popup_size, bounds, Vector2(-134, -512), inset)
+		assert_almost_eq(pos.y, inset + BubbleLayout.EDGE_MARGIN, 0.01, "top edge sits EDGE_MARGIN below the inset, not under the chrome")
+		assert_true(pos.y + popup_size.y <= bounds.y, "still inside the bottom bound")
+	)
+
+	run_case("top_inset_does_not_shift_the_bottom_clamp", func():
+		var bounds := Vector2(390, 844)
+		var popup_size := Vector2(120, 300)
+		var pos := BubbleLayout.popup_position(Vector2(100, 820), popup_size, bounds, BubbleLayout.DEFAULT_OFFSET, 120.0)
+		assert_almost_eq(pos.y, bounds.y - popup_size.y - BubbleLayout.EDGE_MARGIN, 0.01, "bottom margin unchanged by the top inset")
+	)

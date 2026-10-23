@@ -147,7 +147,11 @@ func _on_district_tapped(district_id: String, canvas_anchor: Vector2) -> void:
 	_bubble_mode = BUBBLE_MODE_DISTRICT
 	_bubble_district_id = district_id
 	var anchor: Vector2 = _map_canvas.global_position + canvas_anchor - _bubble.global_position
+	_bubble.top_inset = _bubble_top_inset(_bubble)
 	_bubble.open(anchor, _build_district_bubble_options(district_id), Vector2.ZERO, true)
+# Part of `bubble`'s rect covered by the top bar, in its own coordinates.
+func _bubble_top_inset(bubble: Control) -> float:
+	return maxf(0.0, UI.top_bar_clearance() - bubble.global_position.y)
 func _build_district_bubble_options(district_id: String) -> Array:
 	var result: Array = []
 	for opt in DistrictBubble.district_options(district_id):
@@ -188,6 +192,7 @@ func _on_station_tapped(stop: Dictionary, canvas_anchor: Vector2) -> void:
 		_bubble.close()
 		_bubble_stop = stop
 		var vein_anchor: Vector2 = _map_canvas.global_position + canvas_anchor - _vein_bubble.global_position
+		_vein_bubble.top_inset = _bubble_top_inset(_vein_bubble)
 		_vein_bubble.open(vein_anchor, stop)
 		return
 
@@ -195,6 +200,7 @@ func _on_station_tapped(stop: Dictionary, canvas_anchor: Vector2) -> void:
 	_bubble_mode = BUBBLE_MODE_STATION
 	_bubble_stop = stop
 	var anchor: Vector2 = _map_canvas.global_position + canvas_anchor - _bubble.global_position
+	_bubble.top_inset = _bubble_top_inset(_bubble)
 	_bubble.open(anchor, _build_station_bubble_options(stop))
 func _on_vein_bubble_action_selected(option_id: String) -> void:
 	var result := StationBubble.apply_option(option_id, _bubble_stop)

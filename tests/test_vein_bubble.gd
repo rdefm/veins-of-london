@@ -453,6 +453,19 @@ func run() -> void:
 		bubble.free()
 	)
 
+	run_case("bubble_near_top_never_sits_under_the_top_inset", func():
+		GameState.reset()
+		var bubble := VeinBubble.new()
+		bubble._ready()
+		bubble.top_inset = 280.0
+		var stop := _vein_stop(Fixtures.player_vein_with({ "growth": 95 }))
+		# Pin just below the bar: room above the pin in raw coords, but not below the inset.
+		bubble.open(Vector2(195, 300), stop, Vector2(390, 1600))
+		assert_true(bubble._panel.position.y >= 280.0 + BubbleLayout.EDGE_MARGIN - 0.01, "card top clears the top bar")
+		assert_true(bubble._panel.position.y > 300, "card flips below the pin")
+		bubble.free()
+	)
+
 	await run_case("settled_layout_keeps_actions_circular_and_info_separate", func():
 		GameState.reset()
 		GameState.state["flags"]["cultivationTutorialSeen"] = true

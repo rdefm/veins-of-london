@@ -13,6 +13,9 @@ var _dim: ColorRect
 var _panel: PanelContainer
 var _content: VBoxContainer
 
+# Height of the chrome (top bar) overlaying this bubble's top edge; the panel
+# never sits under it. Set by the host screen before open().
+var top_inset: float = 0.0
 var _anchor: Vector2 = Vector2.ZERO
 var _bounds_size: Vector2 = Vector2.ZERO
 var _options: Array = []
@@ -202,4 +205,4 @@ func _reposition() -> void:
 
 func _apply_position() -> void:
 	_panel.size = _panel.get_combined_minimum_size()
-	_panel.position = BubbleLayout.popup_position(_anchor, _panel.size, _bounds_size)
+	_panel.position = BubbleLayout.popup_position(_anchor, _panel.size, _bounds_size, BubbleLayout.DEFAULT_OFFSET, top_inset)
