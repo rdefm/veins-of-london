@@ -162,7 +162,7 @@ func run() -> void:
 
 		var screen := HqFloorplanScreen.new()
 		screen._ready()
-		assert_eq(NodeQuery.find_button(screen, "Assign Archie"), null, "room-free contacts take room-free roles, not rooms")
+		assert_eq(NodeQuery.find_button(screen, "Assign Archie"), null, "founders take room-free roles, not rooms")
 		screen.free()
 	)
 

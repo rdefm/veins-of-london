@@ -892,9 +892,9 @@ func run() -> void:
 
 		assert_true(SaveManager._load_save_dict(legacy)["ok"])
 		var archie: Dictionary = GameState.state["contacts"]["archie"]
-		assert_eq(archie["assignedRole"], "sales", "a room-free contact's room becomes the matching role")
+		assert_eq(archie["assignedRole"], "sales", "a founder's room becomes the matching role")
 		assert_eq(archie["assignedRoom"], null, "the room assignment is cleared")
-		assert_true(ContractsSystem.has_staffed_sales(), "Archie's room-free role staffs Sales")
+		assert_true(ContractsSystem.has_staffed_sales(), "Archie's founder role staffs Sales")
 	)
 
 	run_case("loading_an_old_save_past_the_home_raid_recruits_archie_and_drops_relation_recruitment", func():
@@ -933,7 +933,7 @@ func run() -> void:
 		legacy["contacts"]["archie"]["assignedRoom"] = "veinStation"
 
 		assert_true(SaveManager._load_save_dict(legacy)["ok"])
-		assert_eq(GameState.state["cultivatorVeins"], { "archie": ["v1", "v2"] }, "occupant takes the list, even though room-free fix-up clears the room")
+		assert_eq(GameState.state["cultivatorVeins"], { "archie": ["v1", "v2"] }, "occupant takes the list, even though founder fix-up clears the room")
 		assert_eq(GameState.state["veinStationTargets"], { "v1": 60, "v2": 80 }, "targets stay keyed by vein id")
 		assert_true(not GameState.state.has("veinStationVeins"), "old key removed")
 	)

@@ -11,7 +11,7 @@ file owns today, no history.
 | GameData.gd | Loads/validates every `data/*.json` table at boot; scans `assets/combat/territorial<N>/` folders into `TERRITORIAL_VARIANTS` and builds their sprite sets in `combat_templates()` |
 | GameState.gd | Pure state tree (Dicts/Arrays/primitives); screens read only |
 | Rng.gd | Seeded RNG for every probabilistic system; `stable_unit()` keyed hash rolls + `fresh_seed()` off the global stream |
-| SaveManager.gd | Save/load/autosave/export-import; backfills missing keys (pre-tenure homes load owned, bedsit rented), restores JSON ints (round-fight RNG states saved as strings), loads a non-round combat dict as idle, room-free fix-ups (room→role, Archie recruited past home raid), strips unowned veins from cultivator lists |
+| SaveManager.gd | Save/load/autosave/export-import; backfills missing keys (pre-tenure homes load owned, bedsit rented), restores JSON ints (round-fight RNG states saved as strings), loads a non-round combat dict as idle, founder fix-ups (room→role, Archie recruited past home raid), strips unowned veins from cultivator lists |
 | Snapshots.gd | Bounded snapshot-stack helper backing rewind |
 
 ## systems/*.gd — static-func systems
