@@ -50,17 +50,19 @@ That is the gift, and James clocked it in the tutorial. The Collective Act 2 Dia
 - The existing seeding roll (§Creation) is unchanged — crafting and cultivating skill still determine whether the attempt succeeds. The gift decides whether you may attempt it at all.
 - The player has the gift. This is a fact about the player character, established narratively, not a stat they raise.
 
-### Open question — the supply problem (needs sign-off)
+### The supply problem (decided)
 
 If the player can make Dials, why can they only ever have one, and why don't they manufacture and sell them?
 
-Proposed answer, **not yet decided**: a Dial is seeded *to a person*, who must be present at the seeding, and binds to them. A gifted maker therefore supplies the trade one bespoke Dial at a time, at enormous cost, which is exactly why gifted makers are controlled rather than rich. The player could in principle seed Dials for other people — deliberately out of scope for 1.0, and a strong late-game/post-1.0 hook, and a reason every faction wants the player specifically.
-
-This preserves "exactly one device per player, ever" (§Ownership) with fiction rather than fiat. Flagged as a design decision the human should confirm before it goes near REFERENCE.md.
+- **A Dial is tuned to one person only.** It grows with its owner over their life; that growth is what makes an old Dial potent.
+- **A second Dial is possible in fiction but pointless.** Growth would be split across them, so each grows more slowly and neither becomes as potent as one would have. Nobody who understands Dials makes two for themselves.
+- **Mechanically, the player has a hard cap of one Dial** (§Ownership). The fiction explains the cap; it does not loosen it.
+- **Refinement lives in Movements**, not in extra Dials. The player adjusts and refines their Dial by crafting and swapping Movements (§Movements).
+- A gifted maker therefore supplies the trade one bespoke Dial at a time, at enormous cost, which is why gifted makers are controlled rather than rich. Seeding Dials for other people is out of scope for 1.0: a late-game/post-1.0 hook, and a reason every faction wants the player specifically.
 
 ## Ownership
 
-- Exactly one Dial per player, ever. No second Dial craftable once one is seeded successfully. (See the supply-problem question above for the fiction that justifies this.)
+- Exactly one Dial per player, ever. No second Dial craftable once one is seeded successfully. (See §The supply problem for the fiction that justifies this.)
 - One Movement slot for the Dial's lifetime, v1. A second Movement slot is an acknowledged late-game stretch goal (not in scope now) — earned, not default.
 - Hafts are not owned in the singular. A Dial comes off one haft and goes onto another freely (§Hafts).
 
@@ -212,7 +214,7 @@ The four archetypes map onto real watch movement types closely enough to drive n
 ## Open items
 
 **Design decisions needing sign-off (not numbers):**
-- The supply problem — does a Dial bind to a person present at its seeding? (§The gift). Blocks any faction/quest writing that touches Dial provenance.
+- Must the owner be present when a Dial is seeded for them? (§The supply problem). Only matters for seeding Dials for others, post-1.0.
 - Collar wrap-around vs. hard stops (§The Collar). Confirm on device.
 - Haptic fidelity spike (§The Collar) — may force a fallback design.
 

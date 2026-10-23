@@ -1139,6 +1139,24 @@ func run() -> void:
 		assert_true(GameData.COMBAT_ROUNDS["allyChipStrikeChance"] is float, "chip chance is data")
 	)
 
+	run_case("ally_strikes_every_action_while_enemies_are_frozen", func():
+		GameState.reset()
+		_recruit("archie")
+		_start_with_allies([Contacts.build_combat_ally("archie")], [[{ "move": "strike", "target": 1 }, "guard"]])
+		var combat: Dictionary = GameState.state["combat"]
+		var mugger: Dictionary = combat["combatants"][2]
+		mugger["hp"] = 1000
+		mugger["hpMax"] = 1000
+		# Frozen through the rest of round 1 and all of round 2.
+		mugger["actionsLost"] = 5
+		mugger["frozenActions"] = 5
+		_finish_round(combat, 1)
+		var plan: Array = combat["combatants"][1]["plan"]
+		assert_true(plan.size() >= 2, "archie has a full round")
+		for action in plan:
+			assert_eq([action["move"], int(action["target"])], ["strike", 2], "strikes the frozen mugger, no guard or feint")
+	)
+
 	run_case("turtle_patterns_never_all_guard", func():
 		for id in ["turtle", "turtleV2"]:
 			for pattern in GameData.COMBAT_ROUNDS["archetypes"][id]["patterns"]:

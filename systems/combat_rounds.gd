@@ -964,7 +964,7 @@ static func _unit_action(unit: Dictionary, target: int) -> Dictionary:
 
 
 # The friendlies of `ally` a read enemy Strike (damage, not a status turn,
-# its target read) aims at this round.
+# not lost, its target read) aims at this round.
 static func _read_strike_targets(cp: Dictionary, ally: int) -> Array:
 	var combatants: Array = cp["combatants"]
 	var result: Array = []
@@ -973,7 +973,7 @@ static func _read_strike_targets(cp: Dictionary, ally: int) -> Array:
 			continue
 		var plan: Array = combatants[e]["plan"]
 		for i in range(plan.size()):
-			if is_read(cp, e, i) and status_turn(cp, e, i) == "" and move(plan[i]["move"])["effect"] == EFFECT_DAMAGE:
+			if not _action_lost(cp, e, i) and is_read(cp, e, i) and status_turn(cp, e, i) == "" and move(plan[i]["move"])["effect"] == EFFECT_DAMAGE:
 				result.append(int(plan[i]["target"]))
 	return result
 
@@ -1038,7 +1038,7 @@ static func _ally_action(cp: Dictionary, ally: int, index: int, count: int, fein
 	var enemies := _living_opponents(cp, ally)
 	for e in enemies:
 		var plan: Array = combatants[e]["plan"]
-		if index < plan.size() and is_read(cp, e, index) and status_turn(cp, e, index) == "" and int(plan[index]["target"]) == ally and move(plan[index]["move"])["effect"] in [EFFECT_DAMAGE, EFFECT_STUN]:
+		if index < plan.size() and not _action_lost(cp, e, index) and is_read(cp, e, index) and status_turn(cp, e, index) == "" and int(plan[index]["target"]) == ally and move(plan[index]["move"])["effect"] in [EFFECT_DAMAGE, EFFECT_STUN]:
 			return { "move": MOVE_GUARD, "target": ally, "part": 0 }
 	for e in enemies:
 		if _ally_sees_open(cp, e, ally, index, feints):
@@ -1058,11 +1058,18 @@ static func _ally_action(cp: Dictionary, ally: int, index: int, count: int, fein
 # replaying the enemy's committed guard changes and `feints` on it in
 # timeline order up to that moment. An unread action leaves its
 # guard Unknown, which doesn't open it; a Guard the Feint fails leaves it Open.
+# A Time Pearl holds it Open until its frozen positions pass, and an action it
+# loses changes no guard.
 static func _ally_sees_open(cp: Dictionary, e: int, observer: int, index: int, feints: Array) -> bool:
 	var enemy: Dictionary = cp["combatants"][e]
 	var events: Array = []
 	var plan: Array = enemy["plan"]
+	var passed: int = range(plan.size()).filter(func(i): return not is_resolved(cp, e, i) and _acts_before(cp, e, i, observer, index)).size()
+	if passed < int(enemy["frozenActions"]):
+		return true
 	for i in range(mini(plan.size(), index + 1)):
+		if _action_lost(cp, e, i):
+			continue
 		var effect := _planned_guard(cp, e, i, plan[i])
 		if effect != UNCHANGED:
 			events.append({ "actor": e, "index": i, "guard": effect })
@@ -1081,6 +1088,15 @@ static func _ally_sees_open(cp: Dictionary, e: int, observer: int, index: int, f
 			continue
 		state = ev["guard"]
 	return state == OPEN
+
+
+# Whether `actor`'s planned action `index` this round is one it loses to a
+# Stun, Time Pearl or Black Hole: its unresolved positions lose in order.
+static func _action_lost(cp: Dictionary, actor: int, index: int) -> bool:
+	if is_resolved(cp, actor, index):
+		return false
+	var ahead: int = range(index).filter(func(i): return not is_resolved(cp, actor, i)).size()
+	return ahead < int(cp["combatants"][actor]["actionsLost"])
 
 
 # ── Planning ─────────────────────────────────────────────────────────────
