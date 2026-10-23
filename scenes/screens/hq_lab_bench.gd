@@ -308,7 +308,7 @@ func _build_overlay(column: Control, card: Control = null) -> void:
 	column.offset_left = _OVERLAY_MARGIN
 	column.offset_right = -_OVERLAY_MARGIN
 	column.offset_top = UI.safe_area_top_inset() + _OVERLAY_MARGIN
-	column.offset_bottom = -_OVERLAY_MARGIN
+	column.offset_bottom = -(UI.nav_bar_clearance() + _OVERLAY_MARGIN)
 	add_child(column)
 
 	if card != null:

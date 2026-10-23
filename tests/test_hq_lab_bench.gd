@@ -216,6 +216,20 @@ func run() -> void:
 		screen.free()
 	)
 
+	run_case("hq_lab_bench_recipe_book_page_row_clears_the_nav_bar", func():
+		GameState.reset()
+		var screen := HqLabBenchScreen.new()
+		screen._ready()
+		UiSim.tap_zone(screen, "notebookRecipes")
+
+		var node: Node = NodeQuery.find_button(screen, "Close")
+		while node.get_parent() != screen:
+			node = node.get_parent()
+		assert_true((node as Control).offset_bottom <= -UI.nav_bar_clearance(), "the book's button row sits above the nav bar")
+
+		screen.free()
+	)
+
 	run_case("hq_lab_bench_recipe_book_close_restores_the_bench_view", func():
 		GameState.reset()
 		var screen := HqLabBenchScreen.new()
