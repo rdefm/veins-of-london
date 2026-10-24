@@ -7,13 +7,37 @@
   ],
   "cards": [
     {
-      "type": "choice", "label": "Fifteen minutes later — a Wetherspoons", "speaker": null, "text": "Archie buys two pints and chips, puts the chips on your side of the table, and sits facing the door. His eyes are streaming. You have about four questions. He looks good for one.", "image": "res://assets/events/intro/intro_main_11.png",
-      "advance": "anytime",
+      "type": "choice", "label": "Fifteen minutes later — a Wetherspoons", "speaker": null, "text": "Archie buys two pints and chips, puts the chips on your side of the table, and sits facing the door. His eyes are streaming. You have about four questions. He looks good for one.", "image": "res://assets/events/intro/intro_main_11.png", "advance": "anytime",
       "choices": [
-        { "id": "whatIsIt", "label": "\"What was that stuff?\"", "effects": [], "result_text": null, "goto": 1 },
-        { "id": "howMuch", "label": "\"How much is it worth?\"", "effects": [], "result_text": null, "goto": 2 },
-        { "id": "whereFrom", "label": "\"Where does it come from?\"", "effects": [{ "op": "set_flag", "flag": "introAskedSource", "value": true }], "result_text": null, "goto": 3 },
-        { "id": "eatChips", "label": "Eat a chip", "exit": true, "effects": [], "result_text": null, "goto": 4 }
+        {
+          "id": "whatIsIt",
+          "label": "\"What was that stuff?\"",
+          "effects": [],
+          "result_text": null,
+          "goto": 1
+        },
+        {
+          "id": "howMuch",
+          "label": "\"How much is it worth?\"",
+          "effects": [],
+          "result_text": null,
+          "goto": 2
+        },
+        {
+          "id": "whereFrom",
+          "label": "\"Where does it come from?\"",
+          "effects": [{ "op": "set_flag", "flag": "introAskedSource", "value": true }],
+          "result_text": null,
+          "goto": 3
+        },
+        {
+          "id": "eatChips",
+          "label": "Eat a chip",
+          "exit": true,
+          "effects": [],
+          "result_text": null,
+          "goto": 4
+        }
       ]
     },
     { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Calc. Orichalchum, if you're being posh about it. That one was time-type. Slows everything round it for a few seconds.\" He dabs his eyes with a napkin. \"Last one I had, and all. Allergic to the stuff, before you ask. Don't.\"", "goto": 0 },

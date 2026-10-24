@@ -441,6 +441,8 @@ func _prospect_and_seed_new_vein() -> String:
 	if GameState.state["event"] != null:
 		_drive_active_event_to_completion()  # prospect can draw a district event (D5)
 	var site_id: String = found[0]
+	var site_ore: String = Sites.find_site(site_id)["oreType"]  # random per site
+	GameState.state["player"]["orichalchum"][site_ore] = GameState.state["player"]["orichalchum"].get(site_ore, 0) + 300
 	var seed_roll := SeedSearch.find_seed_for(500, func():
 		return Sites.attempt_seed(site_id).get("success", false)
 	)
@@ -475,6 +477,7 @@ func run() -> void:
 		_drive_active_event_to_completion()  # D5: prospect can draw a district event
 		_assert_invariants("post-prospect")
 
+		GameState.state["player"]["orichalchum"][found_site[0]["oreType"]] += GameData.SEED_ORE_COST  # the prospected site's ore type is random
 		var seed_seed := SeedSearch.find_seed_for(300, func():
 			return Sites.attempt_seed(site_id).get("success", false)
 		)

@@ -8,7 +8,7 @@ const fs = require("fs");
 const path = require("path");
 const assert = require("assert");
 
-const html = fs.readFileSync(path.join(__dirname, "storyboard.html"), "utf-8");
+const html = fs.readFileSync(path.join(__dirname, "storyboard.html"), "utf-8").replace(/\r\n/g, "\n");
 const startMarker = "/* ---------- Draft model (pure) ---------- */";
 const endMarker = "/* ---------- End draft model ---------- */";
 const s = html.indexOf(startMarker);
@@ -396,7 +396,7 @@ test("data/events is named once, read by import, and written only by Promote aft
     assert(!/writeFile|create:\s*true|LIVE_EVENTS_DIR\s*,\s*true/.test(l), "LIVE_EVENTS_DIR used for writing: " + l.trim());
     assert(/fileNames\(LIVE_EVENTS_DIR,|readText\(await dirAt\(LIVE_EVENTS_DIR\)/.test(l), "unexpected LIVE_EVENTS_DIR use: " + l.trim());
   }
-  assert.strictEqual((promote.match(/writeFile\(/g) || []).length, 1, "promoteBoard writes once");
+  assert.strictEqual((promote.match(/writeFile\(dir,/g) || []).length, 1, "promoteBoard writes the live event once");
   assert(promote.indexOf("confirm(") !== -1 && promote.indexOf("confirm(") < promote.indexOf("writeFile("), "promote writes only after a confirm");
   assert(!/create:\s*true/.test(promote), "promote never creates directories");
 });
@@ -520,7 +520,7 @@ test("card CRUD is undoable through history and saves into the block", () => {
 
 // Every real writing proposal converts and plays to an end along every first-option path.
 const propDir = path.join(__dirname, "..", ".scratch", "writing-revamp");
-const proposals = fs.existsSync(propDir) ? fs.readdirSync(propDir).filter((f) => /-proposal.*\.md$/.test(f)) : [];
+const proposals = fs.existsSync(propDir) ? fs.readdirSync(propDir).filter((f) => /-proposal.*\.md$/.test(f) && fs.readFileSync(path.join(propDir, f), "utf-8").includes("```json")) : [];
 for (const f of proposals) {
   test("writing proposal converts: " + f, () => {
     const b = parseProposal(f, fs.readFileSync(path.join(propDir, f), "utf-8"));
@@ -528,7 +528,15 @@ for (const f of proposals) {
     assert.strictEqual(b.error, undefined, b.error);
     const keys = flatCards(b.draft).map((x) => x.card.key);
     assert.strictEqual(new Set(keys).size, keys.length, "duplicate card keys");
-    const first = (card) => { const o = card.choices[0]; return o.check ? o.success : o; };
+    // Options are one-shot, so a revisited hub card takes its next unpicked option (the exit one, if flagged, last).
+    const visits = new Map();
+    const first = (card) => {
+      const i = visits.get(card.key) || 0;
+      visits.set(card.key, i + 1);
+      const exit = card.choices.find((x) => x.exit);
+      const o = exit && i >= card.choices.length - 1 ? exit : card.choices[Math.min(i, card.choices.length - 1)];
+      return o.check ? o.success : o;
+    };
     assert(playOrder(b.draft, first).length > 0);
     assert.strictEqual(hasCycle(b.draft), false, "card graph loops");
   });

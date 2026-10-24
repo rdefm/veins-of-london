@@ -172,10 +172,20 @@ static func _play_out(branch: int) -> bool:
 			return true
 		if Events.is_awaiting_choice():
 			var exit_index := Events.hub_exit_index()
-			Events.choose(exit_index if exit_index >= 0 else mini(branch, Events.current_card()["choices"].size() - 1))
+			Events.choose(exit_index if exit_index >= 0 else _pickable_index(mini(branch, Events.current_card()["choices"].size() - 1)))
 		else:
 			Events.advance()
 	return false
+
+
+# `wanted` if the card shows it, else the first option that shows (requires-gated cards hide the rest).
+static func _pickable_index(wanted: int) -> int:
+	if Events.option_gate(wanted)["display"] == "show":
+		return wanted
+	for i in range(Events.current_card()["choices"].size()):
+		if Events.option_gate(i)["display"] == "show":
+			return i
+	return wanted
 
 
 static func _site_holding_faction_vein(vein_id: Variant) -> String:
