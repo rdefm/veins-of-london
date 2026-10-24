@@ -177,29 +177,6 @@ static func _convention_image_path(event_id: String, card_number: int) -> Varian
 	return null
 
 
-# Decides VN mode once for the whole event from the static definition (not
-# revealed_cards(), which grows and would flip the layout mid-event). True iff
-# current_image_path() could ever return non-null across the full run: a
-# top-level "image" key on any card, or a non-null "image" on any choice
-# option, regardless of which is picked.
-static func is_vn_mode() -> bool:
-	var cards: Array = _event_def()["cards"]
-	var event_id: String = GameState.state["event"]["eventId"]
-	for i in range(cards.size()):
-		var card: Dictionary = cards[i]
-		if card.has("image"):
-			if card["image"] != null:
-				return true
-		elif _convention_image_path(event_id, i + 1) != null:
-			return true
-		if card["type"] == "choice":
-			for choice in card["choices"]:
-				for source in [choice, choice.get("success", {}), choice.get("fail", {})]:
-					if source.get("image") != null:
-						return true
-	return false
-
-
 # True when Continue on the current card finishes the event: the final card,
 # or one marked `end: true` whose resolution (if any) has no goto of its own.
 static func is_last_card() -> bool:

@@ -27,122 +27,260 @@ New event proposed for `data/events/james_dial_offer.json`. This follows the (no
 {
   "id": "james_dial_offer",
   "on_complete": [
-    { "op": "set_flag", "flag": "dialGiftGranted", "value": true },
-    { "op": "set_flag", "flag": "jamesDialOfferSeen", "value": true },
-    { "op": "set_screen", "screen": "phone" }
-  ],
-  "cards": [
     {
-      "type": "narration",
-      "label": "Bermondsey — James's unit",
-      "speaker": null,
-      "text": "James's text said \"Eight. Not ten past.\" It is nine minutes past. The shutter is up a foot. You take that as an invitation. James, from the look of him, takes it as lateness."
+      "op": "set_flag",
+      "flag": "dialGiftGranted",
+      "value": true
     },
     {
-      "type": "narration",
-      "label": null,
-      "speaker": null,
-      "text": "The Dial is back on the umbrella handle. Under the collar, your Movement ticks, steady. James hasn't put the umbrella down since you came in."
+      "op": "set_flag",
+      "flag": "jamesDialOfferSeen",
+      "value": true
     },
     {
-      "type": "narration",
-      "label": null,
-      "speaker": null,
-      "text": "Without a word he sweeps a jar off the shelf. Two clicks of the collar; he presses the catch. The jar stops a hand's width above the concrete and hangs there, perfectly still."
-    },
-    {
-      "type": "speaker",
-      "label": null,
-      "speaker": "James",
-      "text": "He takes the jar out of the air and puts it back. \"Forty years it's been with me. It knows how I stand, how I grip, how long I hesitate.\" He checks the label. \"That one was empty, before you ask.\""
-    },
-    {
-      "type": "speaker",
-      "label": null,
-      "speaker": "You",
-      "text": "\"Could I make one?\""
-    },
-    {
-      "type": "speaker",
-      "label": null,
-      "speaker": "James",
-      "text": "\"You could. That is the problem.\" He pushes his glasses up by the bent arm. \"Plato's Atlanteans built temples from this metal. The Guild sells it by the gram with instructions. Ask what you're going to ask.\""
-    },
-    {
-      "type": "choice",
-      "label": null,
-      "speaker": null,
-      "text": "James sits on the stool with the umbrella across his knees, and waits.",
-      "choices": [
-        { "id": "askWhy", "label": "Ask why he's helping", "effects": [], "result_text": null, "goto": 7 },
-        { "id": "askWhoKnows", "label": "Ask who else knows", "effects": [], "result_text": null, "goto": 8 },
-        { "id": "askTeacher", "label": "Ask who taught him", "effects": [], "result_text": null, "goto": 9 },
-        { "id": "askCost", "label": "Ask what it costs", "effects": [], "result_text": null, "goto": 10 }
-      ]
-    },
-    {
-      "type": "speaker",
-      "label": null,
-      "speaker": "James",
-      "text": "\"I am past sixty, and Movements wear. You are the only person I know of who can make me another, and a careless one is no use to me.\" He says it flatly. It sounds rehearsed.",
-      "goto": 6
-    },
-    {
-      "type": "speaker",
-      "label": null,
-      "speaker": "James",
-      "text": "\"Me. Keep it that way.\" He doesn't smile. \"People who can make these get found. Then someone offers them a bench, a salary and a door that locks from the outside. The ones who say no aren't asked twice.\"",
-      "goto": 6
-    },
-    {
-      "type": "speaker",
-      "label": null,
-      "speaker": "James",
-      "text": "\"Someone the calc moved for.\" He turns the collar one click, then back. \"In forty years I've met two. You're the second.\" He doesn't say where the first one is now.",
-      "goto": 6
-    },
-    {
-      "type": "speaker",
-      "label": null,
-      "speaker": "James",
-      "text": "\"Calc of all five types. Forty of each, eighty of life. It has to live with you, so it takes life.\" He tears a page from his ledger, which you have never seen him do. The figures are already written on it."
-    },
-    {
-      "type": "speaker",
-      "label": null,
-      "speaker": "You",
-      "text": "\"Why not make two? Keep a spare.\""
-    },
-    {
-      "type": "speaker",
-      "label": null,
-      "speaker": "James",
-      "text": "\"Because it grows with you. Two would grow at half the pace, and neither would be worth carrying. Want it to do something else? Change the Movement.\" A pause. \"Start soon. You're not getting any younger, which I gather comes as a shock at your age.\""
-    },
-    {
-      "type": "choice",
-      "label": null,
-      "speaker": null,
-      "text": "James looks at you over his glasses, as though checking you for wear.",
-      "choices": [
-        { "id": "thankHim", "label": "Thank him", "effects": [], "result_text": "\"Don't.\" He is already looking at the shelf." },
-        { "id": "startThisWeek", "label": "Say you'll start this week", "effects": [], "result_text": "\"Start when you can afford it. Not before. I'm not lending you calc.\"" },
-        { "id": "pocketPage", "label": "Fold the page away", "effects": [], "result_text": "You fold the page into your wallet. James watches it go, and seems content with where it's kept." }
-      ]
-    },
-    {
-      "type": "speaker",
-      "label": null,
-      "speaker": "James",
-      "text": "\"Your own bench, not mine. Fit it to something at least forearm-length that you can carry without explaining. I chose an umbrella. This is London.\" A pause. \"Bring it here when it's made. I'll tell you what you did wrong.\""
-    },
-    {
-      "type": "resolution",
-      "label": null,
-      "speaker": null,
-      "text": "The shutter comes down while you're still saying goodbye. On the street you unfold the page. Under the figures he has added one line: Tell no one. Not even Archie."
+      "op": "set_screen",
+      "screen": "phone"
     }
-  ]
+  ],
+  "start": "main",
+  "branches": {
+    "main": {
+      "title": "Start",
+      "cards": [
+        {
+          "type": "narration",
+          "label": "Bermondsey — James's unit",
+          "speaker": null,
+          "text": "James's text said \"Eight. Not ten past.\" Due to bus delays, it is nine minutes past. The door opens as soon as you press the buzzer; James must have been waiting. He doesn't look impressed.",
+          "key": "c1"
+        },
+        {
+          "type": "narration",
+          "label": null,
+          "speaker": null,
+          "text": "The Dial is back on the umbrella handle. Under the collar, your Movement ticks, steady. James hasn't put the umbrella down since you came in.",
+          "key": "c2"
+        },
+        {
+          "type": "narration",
+          "label": null,
+          "speaker": null,
+          "text": "Without a word he sweeps a jar off the shelf. Two clicks of the collar; he presses the catch. The jar stops a hand's width above the concrete and hangs there, perfectly still.",
+          "key": "c3"
+        },
+        {
+          "type": "speaker",
+          "label": null,
+          "speaker": "James",
+          "text": "He takes the jar out of the air and puts it back. \"Forty years it's been with me. It knows how I stand, how I grip, how long I hesitate.\" He looks down a the umbrella handle, a mixture of relief, joy, and contentedness on his face.",
+          "key": "c4"
+        },
+        {
+          "type": "speaker",
+          "label": null,
+          "speaker": "You",
+          "text": "\"Could I make one?\"",
+          "key": "c5"
+        },
+        {
+          "type": "speaker",
+          "label": null,
+          "speaker": "James",
+          "text": "\"You could. That is the problem.\" He pushes his glasses up by the bent arm. \"I'm sure you have more questions. Ask away.\"",
+          "key": "c6"
+        }
+      ],
+      "then": {
+        "branch": "b7"
+      }
+    },
+    "b7": {
+      "title": "From card 7",
+      "cards": [
+        {
+          "type": "choice",
+          "label": null,
+          "speaker": null,
+          "text": "James sits on the stool with the umbrella across his knees, and waits.",
+          "choices": [
+            {
+              "id": "askWhy",
+              "label": "Ask why he's helping",
+              "effects": [],
+              "result_text": null,
+              "goto": {
+                "branch": "b8"
+              }
+            },
+            {
+              "id": "askWhoKnows",
+              "label": "Ask who else knows",
+              "effects": [],
+              "result_text": null,
+              "goto": {
+                "branch": "b9"
+              }
+            },
+            {
+              "id": "askTeacher",
+              "label": "Ask who taught him",
+              "effects": [],
+              "result_text": null,
+              "goto": {
+                "branch": "b10"
+              }
+            },
+            {
+              "id": "askCost",
+              "label": "Ask what it costs",
+              "effects": [],
+              "result_text": null,
+              "goto": {
+                "branch": "b11"
+              }
+            }
+          ],
+          "key": "c7"
+        }
+      ],
+      "then": {
+        "branch": "b8"
+      }
+    },
+    "b8": {
+      "title": "From card 8",
+      "cards": [
+        {
+          "type": "speaker",
+          "label": null,
+          "speaker": "James",
+          "text": "\"I am past sixty, and Movements wear. You are the only person I know of who can make me another, and a careless one is no use to me.\" He says it flatly. It sounds rehearsed.",
+          "goto": {
+            "branch": "b7"
+          },
+          "key": "c8"
+        }
+      ],
+      "then": {
+        "branch": "b9"
+      }
+    },
+    "b9": {
+      "title": "From card 9",
+      "cards": [
+        {
+          "type": "speaker",
+          "label": null,
+          "speaker": "James",
+          "text": "\"Me. Keep it that way.\" He doesn't smile. \"People who can make these get found. Then someone offers them a bench, a salary and a door that locks from the outside. The ones who say no aren't asked twice.\"",
+          "goto": {
+            "branch": "b7"
+          },
+          "key": "c9"
+        }
+      ],
+      "then": {
+        "branch": "b10"
+      }
+    },
+    "b10": {
+      "title": "From card 10",
+      "cards": [
+        {
+          "type": "speaker",
+          "label": null,
+          "speaker": "James",
+          "text": "\"Someone the calc moved for.\" He turns the collar one click, then back. \"In forty years I've met two. You're the second.\" He doesn't say where the first one is now.",
+          "goto": {
+            "branch": "b7"
+          },
+          "key": "c10"
+        }
+      ],
+      "then": {
+        "branch": "b11"
+      }
+    },
+    "b11": {
+      "title": "From card 11",
+      "cards": [
+        {
+          "type": "speaker",
+          "label": null,
+          "speaker": "James",
+          "text": "\"Calc of all five types. 100 of each, 200 of life. Dial's essentially become living things, so it takes life.\" He tears a page from his ledger, which you have never seen him do. The figures are already written on it.",
+          "key": "c11"
+        },
+        {
+          "type": "speaker",
+          "label": null,
+          "speaker": "You",
+          "text": "\"Why not make two? Keep a spare.\"",
+          "key": "c12"
+        },
+        {
+          "key": "c17",
+          "type": "speaker",
+          "text": "\"Because it grows with you. Two would grow at half the pace, and neither would be worth carrying.\" A pause. \"Start soon. You're not getting any younger, which I gather comes as a shock at your age.\"",
+          "speaker": "James"
+        },
+        {
+          "type": "speaker",
+          "label": null,
+          "speaker": "James",
+          "text": "\"You can always adjust the Movement later, and any Complications you load into it. But the Dial itself is the key, and it grows alongside you over time\"",
+          "key": "c13"
+        },
+        {
+          "type": "choice",
+          "label": null,
+          "speaker": null,
+          "text": "James looks at you over his glasses, as though checking you for wear.",
+          "choices": [
+            {
+              "id": "thankHim",
+              "label": "Thank him",
+              "effects": [],
+              "result_text": "\"Don't.\" He is already looking at the shelf."
+            },
+            {
+              "id": "startThisWeek",
+              "label": "Say you'll start this week",
+              "effects": [],
+              "result_text": "\"Start when you can afford it. Not before. I'm not lending you calc.\""
+            },
+            {
+              "id": "pocketPage",
+              "label": "Fold the page away",
+              "effects": [],
+              "result_text": "You fold the page into your wallet. James watches it go, and seems content with where it's kept."
+            }
+          ],
+          "key": "c14"
+        },
+        {
+          "type": "speaker",
+          "label": null,
+          "speaker": "James",
+          "text": "\"Craft it t own bench, not mine. Fit it to something at least forearm-length that you can carry without explaining. I chose an umbrella. This is London, after all.\" A pause. \"Bring it here when it's made. I'll tell you what you did wrong.\"",
+          "key": "c15"
+        },
+        {
+          "type": "resolution",
+          "label": null,
+          "speaker": null,
+          "text": "The door closes while you're still saying goodbye. On the street you unfold the page. Under the figures he has added one line: Tell no one. Not even Archie.",
+          "key": "c16"
+        }
+      ]
+    }
+  },
+  "_layout": {
+    "b:b8": [
+      12,
+      14
+    ]
+  }
 }
 ```
 

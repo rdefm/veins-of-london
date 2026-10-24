@@ -743,17 +743,7 @@ schema — added by this pass to support inline illustration on some events
   illustration content sitting inside a vector-chrome document, same
   split ART-BIBLE §1/`combat-animation-vision.md` §9 already draws
   everywhere else in the game.
-- **Size/framing:** a **fixed-height thumbnail**, not the full 390×360
-  backdrop-plate proportions (which would eat ~40% of the 844px viewport,
-  same footprint as a combat backdrop) — indicative 160–180px tall, exact
-  value deferred to implementation. Full content width, inset within the
-  same 16px side margins the entry cards below it use, with a thin ink
-  border — reads as an illustration inserted into a document, not a scene
-  bleeding off-screen the way a combat backdrop does.
-- **Placement:** a fixed, non-scrolling region between the persistent
-  top status/notification board (§5) and the scrollable entry stack.
-  Collapses to zero height when no revealed entry has specified an image
-  yet — an event authored with no art looks exactly as it does today.
+- **Layout:** one layout for every event. The image fills the area above a fixed-height text box (`VN_TEXT_FRAME_HEIGHT`) that shows only the current card, with Item, choices and the Continue arrow docked inside the box. A card with no image shows a blank, ink-bordered image panel tagged `<eventId> · card N` (muted, centred) so writing can be playtested in the final format before art exists; a card with art shows the art and no tag.
 - **Asset path convention:**
   `res://assets/events/<event_id>/<event_id>_card<n>.<extension>`, where
   `<n>` is the one-based card index and `<extension>` is lowercase `png`,

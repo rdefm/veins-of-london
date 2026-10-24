@@ -15,14 +15,8 @@ func _fresh_screen() -> EventScreen:
 	return screen
 
 
-# Five card types threaded through one flowing scenario: narration ->
-# speaker -> tension -> craft -> choice. Deliberately imageless -- neither
-# choice option carries an "image" key -- so this fixture always stays
-# non-VN (event-images ticket 02: Events.is_vn_mode() also counts an image
-# on a "choice" card's own "choices" entries, not just a top-level card
-# key, so an event that wants to stay non-VN for these per-card-type
-# rendering checks can't have one anywhere, including there). VN-mode's
-# own image-bearing scenarios live in _install_vn_event() below.
+# Imageless fixtures: these play in the one layout with a blank image panel.
+# Image-bearing scenarios live in _install_vn_event() below.
 func _install_check_event(show: String) -> Dictionary:
 	var original_events: Dictionary = GameData.EVENTS
 	GameData.EVENTS = GameData.EVENTS.duplicate()
@@ -91,12 +85,9 @@ func _install_speakerless_choice_event() -> Dictionary:
 	return original_events
 
 
-# event-images ticket 02: a VN-mode event -- one card carries an "image"
-# (deep in the array, per is_vn_mode()'s own test coverage in
-# tests/test_events.gd), a tension card and a craft card to prove the
-# single overlay box still picks up _style_card()'s per-type accent, and a
-# choice whose picked option's image rides the synthetic resolution card
-# through same as the non-VN path already exercises.
+# An event with art: one card carries an "image", a tension and a craft card
+# prove the text box picks up _style_card()'s per-type accent, and a choice
+# whose picked option's image rides the synthetic resolution card.
 func _install_vn_event() -> Dictionary:
 	var original_events: Dictionary = GameData.EVENTS
 	GameData.EVENTS = GameData.EVENTS.duplicate()
@@ -128,7 +119,7 @@ func _button_with_text(root: Node, text: String) -> Button:
 
 
 func _controls_of(screen: EventScreen) -> BoxContainer:
-	return screen._vn_controls_row if screen._vn_mode else screen._action_bar
+	return screen._vn_controls_row
 
 
 func run() -> void:
@@ -163,9 +154,7 @@ func run() -> void:
 		Events.start_event("test_screen_event")
 
 		var screen := _fresh_screen()
-		var cards := screen._cards_box.get_children()
-		assert_eq(cards.size(), 1, "only the narration card is revealed at the start")
-		assert_true(not cards[0].has_theme_stylebox_override("panel"), "narration should not get a per-card style override")
+		assert_true(not screen._vn_card_panel.has_theme_stylebox_override("panel"), "narration should not get a per-card style override")
 
 		GameData.EVENTS = original_events
 	)
@@ -177,9 +166,7 @@ func run() -> void:
 		Events.advance()  # -> speaker card
 
 		var screen := _fresh_screen()
-		var cards := screen._cards_box.get_children()
-		assert_eq(cards.size(), 2)
-		var labels := cards[1].find_children("", "Label", true, false)
+		var labels := screen._vn_card_panel.find_children("", "Label", true, false)
 		var texts: Array = labels.map(func(l): return l.text)
 		assert_true(texts.has("Archie"), "speaker name should render as a heading")
 		assert_true(texts.has("A speaker card."), "body text should still render")
@@ -195,8 +182,7 @@ func run() -> void:
 		Events.advance()  # -> tension
 
 		var screen := _fresh_screen()
-		var cards := screen._cards_box.get_children()
-		var style: StyleBoxFlat = cards[2].get_theme_stylebox("panel")
+		var style: StyleBoxFlat = screen._vn_card_panel.get_theme_stylebox("panel")
 		assert_eq(style.border_color, MapPalette.light("danger"), "tension border should reuse the shared danger colour, not a private duplicate")
 		assert_eq(style.bg_color, Color(0.980392, 0.972549, 0.952941, 1), "tension keeps its plain cream fill -- only the border carries the accent")
 
@@ -212,8 +198,7 @@ func run() -> void:
 		Events.advance()  # -> craft
 
 		var screen := _fresh_screen()
-		var cards := screen._cards_box.get_children()
-		var style: StyleBoxFlat = cards[3].get_theme_stylebox("panel")
+		var style: StyleBoxFlat = screen._vn_card_panel.get_theme_stylebox("panel")
 		assert_eq(style.border_color, GameData.PALETTE["calc_gold"], "craft border should be the named calc_gold palette entry")
 		assert_eq(style.bg_color, GameData.PALETTE["calc_gold_light"], "craft fill should be the named calc_gold_light palette entry")
 
@@ -230,9 +215,7 @@ func run() -> void:
 		Events.advance()  # -> choice (awaiting pick)
 
 		var screen := _fresh_screen()
-		var cards := screen._cards_box.get_children()
-		assert_eq(cards.size(), 5)
-		var labels := cards[4].find_children("", "Label", true, false)
+		var labels := screen._vn_card_panel.find_children("", "Label", true, false)
 		var texts: Array = labels.map(func(l): return l.text)
 		assert_true(texts.has("Nadia"), "bug fix: a choice card's speaker field should render, same as a speaker card")
 		assert_true(texts.has("Pick one."), "choice prompt body should still render")
@@ -246,8 +229,7 @@ func run() -> void:
 		Events.start_event("test_speakerless_choice_event")
 
 		var screen := _fresh_screen()
-		var cards := screen._cards_box.get_children()
-		var labels := cards[0].find_children("", "Label", true, false)
+		var labels := screen._vn_card_panel.find_children("", "Label", true, false)
 		var texts: Array = labels.map(func(l): return l.text)
 		assert_true(texts.has("No speaker here."), "prompt body should render")
 		assert_eq(texts.size(), 1, "no heading should be fabricated when speaker is null")
@@ -266,10 +248,8 @@ func run() -> void:
 		Events.choose(0)  # "First option"
 
 		var screen := _fresh_screen()
-		var cards := screen._cards_box.get_children()
-		assert_eq(cards.size(), 6, "choice card + its synthetic resolution card revealed")
-		assert_true(not cards[5].has_theme_stylebox_override("panel"), "resolution reads as a plain continuation, identical to narration")
-		var labels := cards[5].find_children("", "Label", true, false)
+		assert_true(not screen._vn_card_panel.has_theme_stylebox_override("panel"), "resolution reads as a plain continuation, identical to narration")
+		var labels := screen._vn_card_panel.find_children("", "Label", true, false)
 		var texts: Array = labels.map(func(l): return l.text)
 		assert_true(texts.has("You picked the first option."), "resolution card carries the picked choice's result_text")
 
@@ -285,7 +265,7 @@ func run() -> void:
 		Events.start_event("test_screen_check_event")
 
 		var screen := _fresh_screen()
-		var controls := screen._action_bar.get_children()
+		var controls := screen._vn_controls_row.get_children()
 		assert_eq(controls.size(), 2)
 		var buttons: Array = controls[0].find_children("", "Button", true, false)
 		assert_eq(buttons.size(), 2, "check option: choice button + info control")
@@ -304,7 +284,7 @@ func run() -> void:
 		var original_events := _install_check_event("hint")
 		Events.start_event("test_screen_check_event")
 		var screen := _fresh_screen()
-		var buttons: Array = screen._action_bar.get_children()[0].find_children("", "Button", true, false)
+		var buttons: Array = screen._vn_controls_row.get_children()[0].find_children("", "Button", true, false)
 		assert_eq(buttons[0].text, "Push · Even")
 		GameData.EVENTS = original_events
 	)
@@ -314,7 +294,7 @@ func run() -> void:
 		var original_events := _install_check_event("hidden")
 		Events.start_event("test_screen_check_event")
 		var screen := _fresh_screen()
-		var first: Control = screen._action_bar.get_children()[0]
+		var first: Control = screen._vn_controls_row.get_children()[0]
 		assert_true(first is Button, "a lone button, no info control")
 		assert_eq((first as Button).text, "Push")
 		GameData.EVENTS = original_events
@@ -333,7 +313,7 @@ func run() -> void:
 
 		Crafting.inventory_add("prophetsBreath", 1, 1)
 		var screen := _fresh_screen()
-		var option: Control = screen._action_bar.get_children()[0]
+		var option: Control = screen._vn_controls_row.get_children()[0]
 		var toggle: Button = _button_with_text(option, "Use Prophet's Breath · +25%")
 		assert_true(toggle != null, "toggle sits inside the option's own stack")
 		assert_true(toggle.toggle_mode and not toggle.button_pressed and not toggle.disabled)
@@ -356,7 +336,7 @@ func run() -> void:
 		Events.start_event("test_screen_check_event")
 
 		var screen := _fresh_screen()
-		assert_eq(screen._action_bar.get_children().size(), 3, "Push, Leave and the disabled option; the hidden one isn't rendered")
+		assert_eq(screen._vn_controls_row.get_children().size(), 3, "Push, Leave and the disabled option; the hidden one isn't rendered")
 		assert_eq(_button_with_text(screen, "Secret door"), null)
 		var bribe: Button = _button_with_text(screen, "Bribe the doorman")
 		assert_true(bribe != null and bribe.disabled, "disabled option renders greyed")
@@ -379,8 +359,7 @@ func run() -> void:
 		Events.start_event("test_screen_check_event")
 		Events.choose(0)
 		var screen := _fresh_screen()
-		var cards := screen._cards_box.get_children()
-		var texts: Array = cards.back().find_children("", "Label", true, false).map(func(l): return l.text)
+		var texts: Array = screen._vn_card_panel.find_children("", "Label", true, false).map(func(l): return l.text)
 		assert_eq(texts, [GameData.EVENT_CHECKS["outcomeMarkers"]["success"], "Came off."])
 		GameData.EVENTS = original_events
 	)
@@ -402,8 +381,7 @@ func run() -> void:
 		check["min"] = 1.0
 		Events.start_event("test_screen_check_event")
 		Events.choose(0)
-		var cards := _fresh_screen()._cards_box.get_children()
-		var texts: Array = cards.back().find_children("", "Label", true, false).map(func(l): return l.text)
+		var texts: Array = _fresh_screen()._vn_card_panel.find_children("", "Label", true, false).map(func(l): return l.text)
 		assert_eq(texts[0], GameData.EVENT_CHECKS["attemptsMarkerFormat"] % [3, 3])
 		GameData.EVENTS = original_events
 	)
@@ -414,9 +392,9 @@ func run() -> void:
 		Events.start_event("test_screen_event")
 
 		var screen := _fresh_screen()
-		var buttons := screen._action_bar.get_children()
+		var buttons := screen._vn_controls_row.find_children("", "Button", true, false)
 		assert_eq(buttons.size(), 1)
-		assert_eq(buttons[0].text, "Continue →")
+		assert_eq(buttons[0].text, "→")
 		var accent: Color = GameData.PALETTE["ui_action_red"]
 		assert_eq(buttons[0].get_theme_color("font_color"), accent, "Continue should read in ui_action_red")
 		var style: StyleBoxFlat = buttons[0].get_theme_stylebox("normal")
@@ -435,7 +413,7 @@ func run() -> void:
 		Events.start_event("test_screen_event")
 
 		var screen := _fresh_screen()
-		var buttons := screen._action_bar.get_children()
+		var buttons := screen._vn_controls_row.find_children("", "Button", true, false)
 		var style: StyleBoxFlat = buttons[0].get_theme_stylebox("normal")
 		assert_true(style.bg_color.a > 0.0, "resting fill should not be fully transparent")
 		assert_true(style.border_width_left > 0, "resting style should carry a visible border")
@@ -454,7 +432,7 @@ func run() -> void:
 		Events.advance()  # -> choice, awaiting pick
 
 		var screen := _fresh_screen()
-		var buttons := screen._action_bar.get_children()
+		var buttons := screen._vn_controls_row.find_children("", "Button", true, false)
 		assert_eq(buttons.size(), 2, "one button per choice, no Continue while awaiting a pick")
 		var accent: Color = GameData.PALETTE["ui_action_red"]
 		for b in buttons:
@@ -471,70 +449,53 @@ func run() -> void:
 		Events.advance()  # pushes a snapshot, makes Rewind available
 
 		var screen := _fresh_screen()
-		var item_button := _button_with_text(screen._action_bar, "Item")
+		var item_button := _button_with_text(screen._vn_controls_row, "Item")
 		assert_true(item_button != null, "Item should be offered once a snapshot exists and a rewind charge is in hand")
-		assert_true(_button_with_text(screen._action_bar, "⟲ Rewind") == null, "no standalone Rewind button remains")
+		assert_true(_button_with_text(screen._vn_controls_row, "⟲ Rewind") == null, "no standalone Rewind button remains")
 		var accent: Color = GameData.PALETTE["ui_action_red"]
 		assert_eq(item_button.get_theme_color("font_color"), accent, "Item is an ordinary action button -- ui_action_red, no bespoke colour")
 
 		GameData.EVENTS = original_events
 	)
 
-	# event-images ticket 02: with VN mode landed, is_vn_mode() intercepts
-	# any event that will ever show an image -- top-level card key or a
-	# choice's own nested "choices" entry -- into the full-portrait path
-	# below, decided before card 0 even renders. That makes the small slot
-	# (_image_frame/_image_texture) unreachable in practice for any event
-	# with real image content: an event that could ever set a non-null
-	# current_image_path() was already classified VN from the start, so
-	# _refresh_image_slot()'s "showing" branch never fires for a live
-	# non-VN event. The dedicated show/sticky/clear coverage that used to
-	# live here (ui-vision.md §11 / event-images ticket 01) tested exactly
-	# that now-unreachable branch and has been removed; this one case is
-	# what's left to check -- the slot stays correctly inert for a genuine
-	# (imageless) non-VN event.
-	run_case("image_slot_stays_hidden_for_a_genuinely_non_vn_event_since_it_can_never_receive_an_image", func():
+	# ── one layout for every event ──────────────────────────────────────
+
+	run_case("an_event_with_no_art_plays_in_the_image_and_text_box_layout", func():
 		GameState.reset()
 		var original_events := _install_full_card_event()
 		Events.start_event("test_screen_event")
-		Events.advance()
-		Events.advance()
-		Events.advance()  # -> craft
 
 		var screen := _fresh_screen()
-		assert_true(not screen._image_frame.visible, "an imageless event's small slot should stay hidden")
-		assert_eq(screen._image_frame.offset_bottom, screen._image_frame.offset_top, "hidden slot should collapse to zero height")
-		assert_eq(screen._scroll.offset_top, screen._image_frame.offset_top, "the scroll region should reclaim the collapsed slot's space")
+		assert_true(is_instance_valid(screen._vn_frame), "the one layout is always built")
+		assert_true(screen._vn_texture.texture == null, "no art to show")
+		assert_true(screen._vn_card_panel.get_parent() == screen._vn_card_box, "text box under the image")
 
 		GameData.EVENTS = original_events
 	)
 
-	# event-images ticket 02: VN-mode full-portrait layout ─────────────────
-
-	run_case("a_non_vn_event_still_builds_the_small_slot_and_scrolling_stack_path_unchanged", func():
+	run_case("an_imageless_card_shows_a_blank_panel_tagged_with_event_id_and_card_number", func():
 		GameState.reset()
-		var original_events := _install_full_card_event()  # deliberately imageless -- see its own comment
+		var original_events := _install_full_card_event()
 		Events.start_event("test_screen_event")
+		Events.advance()  # -> card 2
 
 		var screen := _fresh_screen()
-		assert_true(not screen._vn_mode, "an event with no image anywhere, top-level or nested in a choice, should stay non-VN")
-		assert_true(is_instance_valid(screen._image_frame), "non-VN path should still build the small image slot")
-		assert_true(is_instance_valid(screen._cards_box), "non-VN path should still build the scrolling card stack")
-		assert_true(screen._vn_frame == null, "non-VN path should not build the VN frame at all")
+		assert_true(screen._vn_blank_tag.visible)
+		assert_eq(screen._vn_blank_tag.text, "test_screen_event · card 2")
 
 		GameData.EVENTS = original_events
 	)
 
-	run_case("an_event_with_an_image_on_any_card_switches_the_screen_into_vn_mode", func():
+	run_case("a_card_with_art_shows_the_art_and_no_tag", func():
 		GameState.reset()
 		var original_events := _install_vn_event()
 		Events.start_event("test_vn_event")
+		Events.advance()
+		Events.advance()  # -> card 3, carries an image
 
 		var screen := _fresh_screen()
-		assert_true(screen._vn_mode, "test_vn_event's third card carries a top-level image key")
-		assert_true(is_instance_valid(screen._vn_frame), "VN path should build the full-portrait frame")
-		assert_true(screen._image_frame == null, "VN path should not build the old small image slot")
-		assert_true(screen._cards_box == null, "VN path should not build the scrolling card stack")
+		assert_true(screen._vn_texture.texture != null)
+		assert_true(not screen._vn_blank_tag.visible)
 
 		GameData.EVENTS = original_events
 	)
@@ -650,19 +611,6 @@ func run() -> void:
 		GameData.EVENTS = original_events
 	)
 
-	# event-images ticket 03: VN-mode events fold Continue/Rewind/choice into
-	# the text box itself -- there is no separate action bar to hold them.
-	run_case("vn_mode_builds_no_separate_action_bar_at_all", func():
-		GameState.reset()
-		var original_events := _install_vn_event()
-		Events.start_event("test_vn_event")
-
-		var screen := _fresh_screen()
-		assert_true(screen._action_bar == null, "VN mode should never build the old bottom action bar")
-
-		GameData.EVENTS = original_events
-	)
-
 	run_case("vn_mode_continue_renders_as_a_right_aligned_arrow_glyph_inside_the_box", func():
 		GameState.reset()
 		var original_events := _install_vn_event()
@@ -687,7 +635,6 @@ func run() -> void:
 		Events.advance()  # -> choice, awaiting pick
 
 		var screen := _fresh_screen()
-		assert_true(screen._action_bar == null, "choice buttons must not fall back to the old action bar")
 		var buttons := screen._vn_card_panel.find_children("", "Button", true, false)
 		assert_eq(buttons.size(), 2, "one button per choice, no Continue arrow while awaiting a pick")
 		var texts: Array = buttons.map(func(b): return b.text)
@@ -707,7 +654,6 @@ func run() -> void:
 		Events.advance()  # pushes a snapshot, makes Rewind available
 
 		var screen := _fresh_screen()
-		assert_true(screen._action_bar == null, "Item must not fall back to the old action bar")
 		var item_button := _button_with_text(screen._vn_card_panel, "Item")
 		assert_true(item_button != null, "Item should be attached to the box once a snapshot exists and a rewind charge is in hand")
 		assert_true(_button_with_text(screen._vn_card_panel, "⟲ Rewind") == null, "no standalone Rewind button remains")
@@ -730,29 +676,6 @@ func run() -> void:
 		GameData.EVENTS = original_events
 	)
 
-	# The acceptance checklist explicitly calls out that folding controls into
-	# the VN box must leave the non-VN action bar and its buttons untouched --
-	# this pins that down directly against a non-VN event (the pre-existing
-	# continue/rewind/choice-recolour cases above already exercise the same
-	# bar, but for VN-mode's own screens, so this pairs with them).
-	run_case("non_vn_events_action_bar_and_its_buttons_are_completely_unaffected", func():
-		GameState.reset()
-		GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
-		var original_events := _install_full_card_event()
-		Events.start_event("test_screen_event")
-		Events.advance()  # pushes a snapshot, makes Rewind available
-
-		var screen := _fresh_screen()
-		assert_true(not screen._vn_mode)
-		assert_true(is_instance_valid(screen._action_bar), "a non-VN event still gets the separate bottom action bar")
-		var buttons := screen._action_bar.get_children()
-		var texts: Array = buttons.map(func(b): return b.text)
-		assert_true(texts.has("Item"), "Item renders on the action bar, not folded into any card")
-		assert_true(texts.has("Continue →"), "Continue still reads as the full \"Continue →\" label on the action bar, not the VN arrow glyph")
-
-		GameData.EVENTS = original_events
-	)
-
 	# ── Item button + choice row/stack ──────────────────────────────────
 
 	run_case("item_button_hidden_on_the_first_card_even_with_stock", func():
@@ -762,7 +685,7 @@ func run() -> void:
 		Events.start_event("test_screen_event")
 
 		var screen := _fresh_screen()
-		assert_true(_button_with_text(screen._action_bar, "Item") == null, "nothing to rewind to yet")
+		assert_true(_button_with_text(screen._vn_controls_row, "Item") == null, "nothing to rewind to yet")
 
 		GameData.EVENTS = original_events
 	)
@@ -774,7 +697,7 @@ func run() -> void:
 		Events.advance()
 
 		var screen := _fresh_screen()
-		assert_true(_button_with_text(screen._action_bar, "Item") == null)
+		assert_true(_button_with_text(screen._vn_controls_row, "Item") == null)
 		var vn_original := _install_vn_event()
 		Events.start_event("test_vn_event")
 		Events.advance()
@@ -792,7 +715,7 @@ func run() -> void:
 		Events.advance()  # -> card 1
 
 		var screen := _fresh_screen()
-		_button_with_text(screen._action_bar, "Item").pressed.emit()
+		_button_with_text(screen._vn_controls_row, "Item").pressed.emit()
 		assert_true(is_instance_valid(screen._item_menu), "tapping Item opens the popup")
 		var entry := _button_with_text(screen._item_menu, "Rewind ×2")
 		assert_true(entry != null, "consumable entry shows its inventory qty")
@@ -842,8 +765,8 @@ func run() -> void:
 			Events.advance()  # -> choice
 
 		var screen := _fresh_screen()
-		assert_true(not screen._action_bar.vertical, "Item + two short choices fit at phone width")
-		assert_eq(screen._action_bar.get_children().size(), 3)
+		assert_true(not screen._vn_controls_row.vertical, "Item + two short choices fit at phone width")
+		assert_eq(screen._vn_controls_row.get_children().size(), 3)
 
 		GameData.EVENTS = original_events
 	)

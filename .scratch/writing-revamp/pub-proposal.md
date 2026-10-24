@@ -1,0 +1,152 @@
+# pub — imported from data/events/pub.json
+
+```json
+{
+  "id": "pub",
+  "on_complete": [
+    {
+      "op": "set_flag",
+      "flag": "metArchie",
+      "value": true
+    },
+    {
+      "op": "set_stage",
+      "value": "buyer_event"
+    },
+    {
+      "op": "set_screen",
+      "screen": "phone"
+    }
+  ],
+  "start": "main",
+  "branches": {
+    "main": {
+      "title": "Start",
+      "cards": [
+        {
+          "type": "choice",
+          "label": "Fifteen minutes later — a Wetherspoons",
+          "speaker": null,
+          "text": "Archie buys two pints and chips, puts the chips on your side of the table, and sits facing the door. His eyes are streaming. You have about four questions. He looks good for one.",
+          "image": "res://assets/events/intro/intro_main_11.png",
+          "choices": [
+            {
+              "id": "whatIsIt",
+              "label": "\"What was that stuff?\"",
+              "effects": [],
+              "result_text": "\"Calc. Orichalchum, if you're being posh about it. That one was time-type. Slows everything round it for a few seconds.\" He dabs his eyes with a napkin. \"Last one I had, and all. Allergic to the stuff, before you ask. Don't.\""
+            },
+            {
+              "id": "howMuch",
+              "label": "\"How much is it worth?\"",
+              "effects": [],
+              "result_text": "\"The calc? Depends who's buying. Bit of time-type like that, seventy-odd quid a chip.\" He dabs his eyes with a napkin. \"Ten chips, you're looking at seven hundred and fifty. Which is why that lot brought a knife.\""
+            },
+            {
+              "id": "whereFrom",
+              "label": "\"Where does it come from?\"",
+              "effects": [
+                {
+                  "op": "set_flag",
+                  "flag": "introAskedSource",
+                  "value": true
+                }
+              ],
+              "result_text": "\"Calc grows. Don't laugh.\" He dabs his eyes with a napkin. \"There's a crack in a wall in Whitechapel that grows the stuff, if you're patient. Vein, they call it. Most of them, someone's already sitting on.\""
+            }
+          ],
+          "key": "c1"
+        },
+        {
+          "type": "speaker",
+          "label": null,
+          "speaker": "Archie",
+          "text": "\"It's stock, innit. Someone finds it, someone makes it useful, someone pays through the nose for it. People like us stand in the middle and take a cut.\" He nods at the chips. \"Eat. You're no use to me keeling over.\"",
+          "key": "c2"
+        },
+        {
+          "type": "speaker",
+          "label": null,
+          "speaker": "Archie",
+          "text": "\"Normally nobody gets a knife out. Still got tonight's calc, ain't I. I'll find a proper buyer. Somewhere with lights. And witnesses. You come along, you get a cut. You've seen how it goes wrong, so no hard feelings if it's a no.\"",
+          "image": "res://assets/events/intro/intro_main_13.png",
+          "key": "c3"
+        },
+        {
+          "type": "speaker",
+          "label": null,
+          "speaker": "You",
+          "text": "You look at the door, at the chips, then think about your bank balance. \"I'll come.\"",
+          "key": "c4"
+        },
+        {
+          "type": "speaker",
+          "label": null,
+          "speaker": "Archie",
+          "text": "\"Lovely. I'll text you.\" He's out the door before you can thank him, for the chips or the hourglass.",
+          "key": "c5"
+        },
+        {
+          "type": "narration",
+          "label": null,
+          "speaker": null,
+          "text": "Rent's still due Monday. But somewhere on Mile End Road, in a Tesco bag, is the calc that might pay it.",
+          "image": "res://assets/events/intro/intro_main_16.png",
+          "key": "c6"
+        }
+      ]
+    }
+  },
+  "_keyOrder": {
+    "top": [
+      "id",
+      "on_complete",
+      "cards"
+    ],
+    "cards": {
+      "c1": [
+        "type",
+        "label",
+        "speaker",
+        "text",
+        "image",
+        "choices"
+      ],
+      "c2": [
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c3": [
+        "type",
+        "label",
+        "speaker",
+        "text",
+        "image"
+      ],
+      "c4": [
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c5": [
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c6": [
+        "type",
+        "label",
+        "speaker",
+        "text",
+        "image"
+      ]
+    }
+  },
+  "_liveSource": "pub.json",
+  "_liveHash": "80194836"
+}
+```

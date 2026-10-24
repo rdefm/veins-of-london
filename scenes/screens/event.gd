@@ -1,11 +1,9 @@
 class_name EventScreen
 extends Control
 
-const IMAGE_SLOT_HEIGHT := 170.0
 const VN_TEXT_FRAME_HEIGHT := 236.0
 const VN_BOTTOM_MARGIN := 16.0
 const ACTION_SEPARATION := 8
-const ACTION_BAR_HEIGHT := 48.0
 # Horizontal gutters around a control row: the 16px screen margin each side,
 # plus (VN only) the text card's own 16px content margin each side.
 const SCREEN_GUTTER_H := 32.0
@@ -15,15 +13,10 @@ const _CALC_GOLD_FALLBACK := Color("#d4af52")
 const _CALC_GOLD_LIGHT_FALLBACK := Color("#f2dfa0")
 const _INK_COLOR := Color(0.101961, 0.101961, 0.101961, 1)
 
-var _scroll: ScrollContainer
-var _cards_box: VBoxContainer
-var _action_bar: BoxContainer
-var _image_frame: PanelContainer
-var _image_texture: TextureRect
-var _vn_mode: bool = false
 var _vn_frame: Control
 var _vn_image_frame: Control
 var _vn_texture: TextureRect
+var _vn_blank_tag: Label
 var _vn_card_box: VBoxContainer
 var _vn_text_frame: VBoxContainer
 var _vn_card_panel: PanelContainer
@@ -38,34 +31,8 @@ func _ready() -> void:
 		_build_unresolvable_exit()
 		return
 
-	_vn_mode = Events.is_vn_mode()
-
-	if _vn_mode:
-		_vn_frame = _build_vn_frame()
-		add_child(_vn_frame)
-	else:
-		_image_frame = _build_image_frame()
-		add_child(_image_frame)
-
-		_scroll = UI.scroll_container()
-		_scroll.offset_bottom = -64
-		add_child(_scroll)
-
-		var margin := MarginContainer.new()
-		margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		margin.add_theme_constant_override("margin_left", 16)
-		margin.add_theme_constant_override("margin_right", 16)
-		margin.add_theme_constant_override("margin_top", 16)
-		margin.add_theme_constant_override("margin_bottom", 16)
-		_scroll.add_child(margin)
-
-		_cards_box = UI.vbox(10)
-		margin.add_child(_cards_box)
-		_action_bar = _controls_box()
-		_action_bar.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-		_action_bar.offset_left = 16
-		_action_bar.offset_right = -16
-		add_child(_action_bar)
+	_vn_frame = _build_vn_frame()
+	add_child(_vn_frame)
 
 	EventBus.state_changed.connect(_refresh)
 	_refresh()
@@ -93,34 +60,8 @@ func _refresh() -> void:
 
 	_close_item_menu()
 
-	if _vn_mode:
-		_refresh_vn_frame()
-		_refresh_vn_card()
-		return
-
-	for child in _action_bar.get_children():
-		child.queue_free()
-
-	for child in _cards_box.get_children():
-		child.queue_free()
-	for card in Events.revealed_cards():
-		_cards_box.add_child(_build_card(card)["panel"])
-	_refresh_image_slot()
-
-	var controls: Array = _fill_controls(_action_bar, _screen_width() - SCREEN_GUTTER_H, "Continue →")
-	var bar_height: float = maxf(ACTION_BAR_HEIGHT, _stack_height(controls) if _action_bar.vertical else 0.0)
-	var bottom_inset := UI.safe_area_bottom_inset()
-	_action_bar.offset_bottom = -8 - bottom_inset
-	_action_bar.offset_top = -8 - bottom_inset - bar_height
-	_scroll.offset_bottom = -bar_height - 16
-
-	_scroll_to_bottom()
-
-func _build_card(card: Dictionary) -> Dictionary:
-	var c := UI.card()
-	_style_card(c["panel"], card["type"])
-	_populate_card_text(c["content"], card)
-	return c
+	_refresh_vn_frame()
+	_refresh_vn_card()
 
 func _populate_card_text(content: VBoxContainer, card: Dictionary) -> void:
 
@@ -430,48 +371,7 @@ func _style_action_button(b: Button) -> void:
 
 func _action_button_style(accent: Color, fill_alpha: float, border_alpha: float) -> StyleBoxFlat:
 	return UI.action_button_style(accent, fill_alpha, border_alpha, 16.0, 10.0)
-func _build_image_frame() -> PanelContainer:
-	var frame := PanelContainer.new()
-	frame.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	frame.offset_left = 16
-	frame.offset_right = -16
-	frame.offset_top = UI.top_bar_clearance()
-	frame.offset_bottom = UI.top_bar_clearance()  # zero height until an image is shown
-	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	frame.clip_contents = true
-	frame.visible = false
 
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0, 0, 0, 0)
-	style.border_width_left = 1
-	style.border_width_top = 1
-	style.border_width_right = 1
-	style.border_width_bottom = 1
-	style.border_color = _INK_COLOR
-	frame.add_theme_stylebox_override("panel", style)
-
-	_image_texture = TextureRect.new()
-	_image_texture.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_image_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_image_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	frame.add_child(_image_texture)
-
-	return frame
-
-func _refresh_image_slot() -> void:
-	var image_path: Variant = Events.current_image_path()
-	var showing: bool = image_path != null and typeof(image_path) == TYPE_STRING and ResourceLoader.exists(image_path)
-
-	if showing:
-		_image_texture.texture = load(image_path)
-	else:
-		_image_texture.texture = null
-
-	_image_frame.visible = showing
-	var top: float = UI.top_bar_clearance()
-	_image_frame.offset_top = top
-	_image_frame.offset_bottom = top + IMAGE_SLOT_HEIGHT if showing else top
-	_scroll.offset_top = top + (IMAGE_SLOT_HEIGHT if showing else 0.0)
 func _build_vn_frame() -> Control:
 	var frame := Control.new()
 	UI.anchor_full_rect(frame)
@@ -486,12 +386,29 @@ func _build_vn_frame() -> Control:
 	_vn_image_frame.clip_contents = true
 	frame.add_child(_vn_image_frame)
 
+	var blank_panel := Panel.new()
+	UI.anchor_full_rect(blank_panel)
+	blank_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var blank_style := StyleBoxFlat.new()
+	blank_style.bg_color = Color(0, 0, 0, 0)
+	blank_style.set_border_width_all(1)
+	blank_style.border_color = _INK_COLOR
+	blank_panel.add_theme_stylebox_override("panel", blank_style)
+	_vn_image_frame.add_child(blank_panel)
+
 	_vn_texture = TextureRect.new()
 	UI.anchor_full_rect(_vn_texture)
 	_vn_texture.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_vn_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_vn_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	_vn_image_frame.add_child(_vn_texture)
+
+	_vn_blank_tag = UI.muted_label("")
+	_vn_blank_tag.set_anchors_preset(Control.PRESET_CENTER)
+	_vn_blank_tag.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_vn_blank_tag.grow_vertical = Control.GROW_DIRECTION_BOTH
+	_vn_blank_tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_vn_image_frame.add_child(_vn_blank_tag)
 
 	_vn_card_box = UI.vbox(0)
 	_vn_card_box.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
@@ -516,6 +433,8 @@ func _refresh_vn_card() -> void:
 	var image_path: Variant = Events.current_image_path()
 	var showing: bool = image_path != null and typeof(image_path) == TYPE_STRING and ResourceLoader.exists(image_path)
 	_vn_texture.texture = load(image_path) if showing else null
+	_vn_blank_tag.visible = not showing
+	_vn_blank_tag.text = "%s · card %d" % [GameState.state["event"]["eventId"], int(GameState.state["event"]["cardIndex"]) + 1]
 
 	var card: Dictionary = Events.revealed_cards().back()
 	var built := UI.card()
@@ -548,12 +467,3 @@ func _refresh_vn_card() -> void:
 		extra = maxf(0.0, _stack_height(controls) - row_height)
 	_vn_card_box.offset_top = -VN_TEXT_FRAME_HEIGHT - VN_BOTTOM_MARGIN - extra
 	_vn_image_frame.offset_bottom = _vn_card_box.offset_top
-
-func _scroll_to_bottom() -> void:
-	if not is_inside_tree():
-		return
-	await get_tree().process_frame
-	if not is_instance_valid(_scroll):
-		return
-	var vscroll := _scroll.get_v_scroll_bar()
-	_scroll.scroll_vertical = int(vscroll.max_value)
