@@ -255,6 +255,8 @@ palette and accent rules in §6, and the typography in §7.
   exception (§11):** a "craft" event card may also carry `calc_gold` panel
   styling, since crafting is inherently a calc-spend action — scoped to
   that one card type only, not a general loosening of this rule.
+- **Cream is the standard event-card text panel** (§11): dark body text on
+  cream, inside a dark rounded frame that also holds the image.
 - **Harrow's is exempt from this section's gold and red rules** — its
   brand green/gold chrome is specified in §10 "Harrow's exception".
 - **Ordinary buttons/actions across Families 2–4 use a new accent:
@@ -704,7 +706,7 @@ schema supports: narration, speaker, tension, resolution, craft, choice):
 
 | Type | Treatment |
 |---|---|
-| narration | Plain `UI.card()`, cream fill, no accent. Unchanged. |
+| narration | Plain `UI.card()`, cream fill, no accent. Cream is the standard event text panel (dark body text), inside a dark rounded outer frame shared with the image, at one fixed height; prose scrolls inside it. |
 | speaker | Plain card + bold heading (`UI.heading()`) for the speaker name above the body text. Mechanism unchanged from today. |
 | tension | Plain cream fill kept; the border/left-stripe recolours to the *shared* `MapStyle.DANGER_COLOUR` constant (not a private duplicate — `event.gd`'s current `DANGER_COLOR` is numerically identical to it already, so this is a wiring fix, not a redesign) — matches the danger idiom already used in `map.gd`/`vein_list.gd` (tinted warning text/rings), rather than inventing a bespoke event-only danger treatment. The tinted-cream fill is dropped; only the border carries the accent. |
 | craft | Amber panel **kept**, per the documented §6 exception above — border `calc_gold`, fill `calc_gold_light` (`data/palette.json`), replacing the old private `AMBER_COLOR`/`AMBER_BG` constants with the named, shared palette entries. |

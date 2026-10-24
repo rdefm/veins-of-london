@@ -148,13 +148,15 @@ func run() -> void:
 		assert_true(not text.contains("const AMBER_BG"), "the private AMBER_BG constant should be gone")
 	)
 
-	run_case("narration_card_keeps_the_plain_theme_panel_with_no_override", func():
+	run_case("narration_card_gets_the_standard_cream_panel_with_no_accent", func():
 		GameState.reset()
 		var original_events := _install_full_card_event()
 		Events.start_event("test_screen_event")
 
 		var screen := _fresh_screen()
-		assert_true(not screen._vn_card_panel.has_theme_stylebox_override("panel"), "narration should not get a per-card style override")
+		var style := screen._vn_card_panel.get_theme_stylebox("panel") as StyleBoxFlat
+		assert_eq(style.bg_color, EventScreen._CREAM_COLOR, "narration uses the cream standard panel")
+		assert_eq(style.border_width_left, 0, "narration carries no accent stripe")
 
 		GameData.EVENTS = original_events
 	)
@@ -248,7 +250,9 @@ func run() -> void:
 		Events.choose(0)  # "First option"
 
 		var screen := _fresh_screen()
-		assert_true(not screen._vn_card_panel.has_theme_stylebox_override("panel"), "resolution reads as a plain continuation, identical to narration")
+		var style := screen._vn_card_panel.get_theme_stylebox("panel") as StyleBoxFlat
+		assert_eq(style.bg_color, EventScreen._CREAM_COLOR, "resolution reads as a plain continuation, identical to narration")
+		assert_eq(style.border_width_left, 0)
 		var labels := screen._vn_card_panel.find_children("", "Label", true, false)
 		var texts: Array = labels.map(func(l): return l.text)
 		assert_true(texts.has("You picked the first option."), "resolution card carries the picked choice's result_text")
@@ -509,13 +513,14 @@ func run() -> void:
 		Events.start_event("test_vn_event")
 
 		var screen := _fresh_screen()
-		assert_eq(screen._vn_frame.offset_left, 0.0, "the portrait frame is full-bleed -- no side margins")
-		assert_eq(screen._vn_frame.offset_right, 0.0)
+		assert_eq(screen._vn_frame.offset_left, 16.0, "the dark outer frame keeps the 16px screen gutter")
+		assert_eq(screen._vn_frame.offset_right, -16.0)
 		assert_eq(screen._vn_frame.offset_top, UI.top_bar_clearance())
 		assert_eq(screen._vn_frame.offset_bottom, -8.0 - UI.safe_area_bottom_inset(), "the usable frame clears the bottom safe area")
 		assert_eq(screen._vn_text_frame.offset_top, -EventScreen.VN_TEXT_FRAME_HEIGHT - EventScreen.VN_BOTTOM_MARGIN)
 		assert_eq(screen._vn_text_frame.offset_bottom, -EventScreen.VN_BOTTOM_MARGIN)
-		assert_eq(screen._vn_image_frame.offset_bottom, screen._vn_text_frame.offset_top, "image must end exactly where the opaque text panel starts")
+		assert_eq(screen._vn_image_frame.offset_bottom, screen._vn_text_frame.offset_top - EventScreen.VN_BOTTOM_MARGIN, "image ends one frame-gap above the text panel")
+		assert_eq(screen._vn_image_frame.offset_top, EventScreen.VN_BOTTOM_MARGIN, "image sits inside the frame padding")
 		assert_eq(EventScreen.VN_TEXT_FRAME_HEIGHT, 236.0, "screenshot-approved baseline text-panel height")
 		assert_eq(screen._vn_texture.stretch_mode, TextureRect.STRETCH_KEEP_ASPECT_COVERED)
 
@@ -790,7 +795,7 @@ func run() -> void:
 				assert_eq(b.size_flags_horizontal, Control.SIZE_EXPAND_FILL, "each stacked choice fills the width")
 		)
 
-	run_case("vn_mode_long_choices_stack_and_grow_the_panel_upward", func():
+	run_case("vn_mode_long_choices_stack_without_resizing_the_panel", func():
 		GameState.reset()
 		var original_events := _install_vn_event()
 		var choice_card: Dictionary = GameData.EVENTS["test_vn_event"]["cards"][3]
@@ -805,8 +810,8 @@ func run() -> void:
 
 		var screen := _fresh_screen()
 		assert_true(screen._vn_controls_row.vertical)
-		assert_true(screen._vn_text_frame.offset_top < -EventScreen.VN_TEXT_FRAME_HEIGHT - EventScreen.VN_BOTTOM_MARGIN, "panel grows to fit the stack")
-		assert_eq(screen._vn_image_frame.offset_bottom, screen._vn_text_frame.offset_top, "image still ends where the panel starts")
+		assert_eq(screen._vn_text_frame.offset_bottom - screen._vn_text_frame.offset_top, EventScreen.VN_TEXT_FRAME_HEIGHT, "stacked choices don't resize the text box")
+		assert_eq(screen._vn_image_frame.offset_bottom, screen._vn_text_frame.offset_top - EventScreen.VN_BOTTOM_MARGIN, "image height unchanged by the stack")
 
 		GameData.EVENTS = original_events
 	)

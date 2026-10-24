@@ -2,16 +2,19 @@ class_name EventScreen
 extends Control
 
 const VN_TEXT_FRAME_HEIGHT := 236.0
-const VN_BOTTOM_MARGIN := 16.0
+const VN_BOTTOM_MARGIN := 8.0  # outer frame padding, also the image/text gap
 const ACTION_SEPARATION := 8
-# Horizontal gutters around a control row: the 16px screen margin each side,
-# plus (VN only) the text card's own 16px content margin each side.
-const SCREEN_GUTTER_H := 32.0
+# Horizontal gutters around a control row: the 16px screen margin each side
+# plus the outer frame's padding each side, then the text card's own 16px
+# content margin each side.
+const SCREEN_GUTTER_H := 32.0 + 2.0 * VN_BOTTOM_MARGIN
 const VN_CARD_PADDING_H := 32.0
 
 const _CALC_GOLD_FALLBACK := Color("#d4af52")
 const _CALC_GOLD_LIGHT_FALLBACK := Color("#f2dfa0")
 const _INK_COLOR := Color(0.101961, 0.101961, 0.101961, 1)
+const _FRAME_COLOR := Color(0.07, 0.07, 0.08, 1)
+const _CREAM_COLOR := Color(0.956863, 0.949020, 0.929412, 1)
 
 var _vn_frame: Control
 var _vn_image_frame: Control
@@ -132,12 +135,6 @@ static func fits_in_row(widths: Array, separation: float, available_width: float
 	for w in widths:
 		total += w
 	return total <= available_width
-
-func _stack_height(controls: Array) -> float:
-	var total: float = ACTION_SEPARATION * maxf(controls.size() - 1, 0)
-	for c in controls:
-		total += (c as Control).get_combined_minimum_size().y
-	return total
 
 func _screen_width() -> float:
 	if is_inside_tree():
@@ -329,9 +326,6 @@ func _build_continue_button(text: String) -> Button:
 	return b
 
 func _style_card(panel: PanelContainer, card_type: String) -> void:
-	if card_type != "tension" and card_type != "craft":
-		return
-
 	var box := StyleBoxFlat.new()
 	box.corner_radius_top_left = 10
 	box.corner_radius_top_right = 10
@@ -341,16 +335,23 @@ func _style_card(panel: PanelContainer, card_type: String) -> void:
 	box.content_margin_top = 16.0
 	box.content_margin_right = 16.0
 	box.content_margin_bottom = 16.0
-	box.border_width_left = 4
 
 	if card_type == "tension":
+		box.border_width_left = 4
 		box.bg_color = Color(0.980392, 0.972549, 0.952941, 1)
 		box.border_color = MapPalette.colour("danger")
-	else:  # craft
+	elif card_type == "craft":
+		box.border_width_left = 4
 		box.bg_color = _calc_gold_light()
 		box.border_color = _calc_gold()
+	else:
+		box.bg_color = _CREAM_COLOR
 
 	panel.add_theme_stylebox_override("panel", box)
+	# Dark body text on the light panel; inherited by every Label inside it.
+	var ink := Theme.new()
+	ink.set_color("font_color", "Label", _INK_COLOR)
+	panel.theme = ink
 
 func _calc_gold() -> Color:
 	return GameData.PALETTE.get("calc_gold", _CALC_GOLD_FALLBACK)
@@ -378,10 +379,22 @@ func _build_vn_frame() -> Control:
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	frame.clip_contents = true
 
+	var outer := Panel.new()
+	UI.anchor_full_rect(outer)
+	outer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var outer_style := StyleBoxFlat.new()
+	outer_style.bg_color = _FRAME_COLOR
+	outer_style.set_corner_radius_all(14)
+	outer.add_theme_stylebox_override("panel", outer_style)
+	frame.add_child(outer)
+
 	_vn_image_frame = Control.new()
 	_vn_image_frame.set_anchors_preset(Control.PRESET_TOP_WIDE)
 	_vn_image_frame.anchor_bottom = 1.0
-	_vn_image_frame.offset_bottom = -VN_TEXT_FRAME_HEIGHT - VN_BOTTOM_MARGIN
+	_vn_image_frame.offset_left = VN_BOTTOM_MARGIN
+	_vn_image_frame.offset_right = -VN_BOTTOM_MARGIN
+	_vn_image_frame.offset_top = VN_BOTTOM_MARGIN
+	_vn_image_frame.offset_bottom = -VN_TEXT_FRAME_HEIGHT - 2.0 * VN_BOTTOM_MARGIN
 	_vn_image_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_vn_image_frame.clip_contents = true
 	frame.add_child(_vn_image_frame)
@@ -412,8 +425,8 @@ func _build_vn_frame() -> Control:
 
 	_vn_card_box = UI.vbox(0)
 	_vn_card_box.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	_vn_card_box.offset_left = 16.0
-	_vn_card_box.offset_right = -16.0
+	_vn_card_box.offset_left = VN_BOTTOM_MARGIN
+	_vn_card_box.offset_right = -VN_BOTTOM_MARGIN
 	_vn_card_box.offset_top = -VN_TEXT_FRAME_HEIGHT - VN_BOTTOM_MARGIN
 	_vn_card_box.offset_bottom = -VN_BOTTOM_MARGIN
 	_vn_card_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -424,6 +437,8 @@ func _build_vn_frame() -> Control:
 func _refresh_vn_frame() -> void:
 	var top: float = UI.top_bar_clearance()
 	var bottom_inset: float = UI.safe_area_bottom_inset()
+	_vn_frame.offset_left = 16.0
+	_vn_frame.offset_right = -16.0
 	_vn_frame.offset_top = top
 	_vn_frame.offset_bottom = -8.0 - bottom_inset
 func _refresh_vn_card() -> void:
@@ -456,14 +471,3 @@ func _refresh_vn_card() -> void:
 	var controls: Array = _fill_controls(_vn_controls_row, _screen_width() - SCREEN_GUTTER_H - VN_CARD_PADDING_H, "→")
 	built["content"].add_child(_vn_controls_row)
 	_vn_card_box.add_child(_vn_card_panel)
-
-	# A stacked choice column grows the text panel upward by the extra rows,
-	# so the prose viewport keeps its usual height.
-	var extra: float = 0.0
-	if _vn_controls_row.vertical:
-		var row_height: float = 0.0
-		for c in controls:
-			row_height = maxf(row_height, (c as Control).get_combined_minimum_size().y)
-		extra = maxf(0.0, _stack_height(controls) - row_height)
-	_vn_card_box.offset_top = -VN_TEXT_FRAME_HEIGHT - VN_BOTTOM_MARGIN - extra
-	_vn_image_frame.offset_bottom = _vn_card_box.offset_top
