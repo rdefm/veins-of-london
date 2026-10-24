@@ -4,6 +4,8 @@ extends Control
 const VN_TEXT_FRAME_HEIGHT := 236.0
 const VN_BOTTOM_MARGIN := 8.0  # outer frame padding, also the image/text gap
 const ACTION_SEPARATION := 8
+const CONTEXT_BUTTON_SIZE := 44.0
+const CONTEXT_MODAL_MAX_WIDTH := 340.0
 
 const _CALC_GOLD_FALLBACK := Color("#d4af52")
 const _CALC_GOLD_LIGHT_FALLBACK := Color("#f2dfa0")
@@ -21,6 +23,8 @@ var _vn_card_panel: PanelContainer
 var _vn_text_scroll: ScrollContainer
 var _vn_controls_row: BoxContainer
 var _item_menu: Control
+var _context_modal: Control
+var _context_choice := -1  # option index whose ? modal is open, -1 when closed
 
 func _ready() -> void:
 	UI.anchor_full_rect(self)
@@ -60,6 +64,7 @@ func _refresh() -> void:
 
 	_refresh_vn_frame()
 	_refresh_vn_card()
+	_restore_context_modal()
 
 func _populate_card_text(content: VBoxContainer, card: Dictionary) -> void:
 
@@ -97,7 +102,7 @@ func _fill_options(box: VBoxContainer) -> void:
 			"show":
 				box.add_child(_build_choice_button(choices[i]["label"], i))
 			"disable":
-				box.add_child(_build_disabled_option(choices[i]["label"], gate["reason"]))
+				box.add_child(_build_disabled_option(choices[i]["label"], i))
 
 # Fills the footer `box`: the Item icon on the left when anything is usable,
 # → on the right except on the option step. Returns the controls added; empty
@@ -175,60 +180,52 @@ func _close_item_menu() -> void:
 		_item_menu.queue_free()
 	_item_menu = null
 
-# A plain option is one button. A check option shown as "odds"/"hint" is a
-# row of the button (label suffixed with its odds or hint word) and an info
-# control opening the modifiers sheet; "hidden" shows neither.
+# A plain option is one button; a check option is a row of the button and a
+# circled ? opening its context modal.
 func _build_choice_button(label: String, choice_index: int) -> Control:
 	var choice: Dictionary = Events.current_card()["choices"][choice_index]
 	for effect in choice.get("effects", []):
 		if effect.get("op", "") == "lose_time_block":
 			label = UI.format_block_cost_label(label)
 			break
-	var odds: Dictionary = Events.check_odds(choice_index)
-	var shown: bool = not odds.is_empty() and odds["show"] != "hidden"
-	if shown:
-		label = odds_label(label, odds)
 	var b := UI.button(label, func(): Events.choose(choice_index))
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_style_action_button(b)
-	var option: Control = b
-	if shown:
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 4)
-		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_child(b)
-		var info := UI.button(GameData.EVENT_CHECKS["infoGlyph"], func(): pass)
-		info.clip_text = false
-		info.pressed.connect(func(): _toggle_odds_sheet(info, odds))
-		_style_action_button(info)
-		row.add_child(info)
-		option = row
-	var toggles: Array = Events.item_toggles(choice_index)
-	if toggles.is_empty():
-		return option
-	# Optional item toggles sit under the option they apply to.
-	var stack := UI.vbox(4)
-	stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	stack.add_child(option)
-	for toggle in toggles:
-		stack.add_child(_build_item_toggle(choice_index, toggle))
-	return stack
+	if Events.check_odds(choice_index).is_empty():
+		return b
+	return _option_row(b, choice_index)
 
-# A gated option shown "disable": a greyed button that commits nothing, with
-# its reason as a wrapped muted line under it.
-func _build_disabled_option(label: String, reason: String) -> Control:
+# A gated option shown "disable": a greyed button that commits nothing, with a
+# ? whose modal gives the reason.
+func _build_disabled_option(label: String, choice_index: int) -> Control:
 	var b := UI.button(label, func(): pass)
 	b.disabled = true
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_style_action_button(b)
 	b.add_theme_color_override("font_disabled_color", Color(UI.action_colour(), 0.45))
-	if reason == "":
-		return b
-	var stack := UI.vbox(2)
-	stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	stack.add_child(b)
-	stack.add_child(UI.muted_label(reason))
-	return stack
+	return _option_row(b, choice_index)
+
+# The option button with the circled ? at its right end.
+func _option_row(b: Button, choice_index: int) -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(b)
+	row.add_child(_build_context_button(choice_index))
+	return row
+
+func _build_context_button(choice_index: int) -> Button:
+	var q := UI.button(GameData.EVENT_CHECKS["contextGlyph"], func(): _open_context_modal(choice_index))
+	q.name = "ContextButton"
+	q.clip_text = false
+	q.custom_minimum_size = Vector2(CONTEXT_BUTTON_SIZE, CONTEXT_BUTTON_SIZE)
+	q.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_style_action_button(q)
+	for state in ["normal", "hover", "pressed", "disabled"]:
+		var style := q.get_theme_stylebox(state) as StyleBoxFlat
+		style.set_corner_radius_all(int(CONTEXT_BUTTON_SIZE / 2.0))
+		style.set_content_margin_all(0.0)
+	return q
 
 func _build_item_toggle(choice_index: int, toggle: Dictionary) -> Button:
 	var item: String = toggle["item"]
@@ -238,7 +235,7 @@ func _build_item_toggle(choice_index: int, toggle: Dictionary) -> Button:
 	t.disabled = not toggle["held"]
 	t.icon = ItemIcons.texture(item)
 	t.expand_icon = true
-	t.size_flags_horizontal = Control.SIZE_SHRINK_END
+	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_style_action_button(t)
 	t.add_theme_stylebox_override("hover_pressed", _action_button_style(UI.action_colour(), 0.30, 1.0))
 	return t
@@ -255,51 +252,84 @@ static func outcome_marker(card: Dictionary) -> String:
 		return GameData.EVENT_CHECKS["attemptsMarkerFormat"] % [card["successes"], card["attempts"]]
 	return GameData.EVENT_CHECKS["outcomeMarkers"][card["outcome"]]
 
-# "Label · 60%", or "Label · 2 tries · 55%" (per-attempt odds) for a
-# multi-attempt check; hint mode swaps the percentage for the hint word.
-static func odds_label(label: String, odds: Dictionary) -> String:
+# A check's modal lines: "60% chance", tries when more than one, the base,
+# then one signed line per applied modifier.
+static func check_context_lines(odds: Dictionary) -> Array:
+	var lines: Array = [GameData.EVENT_CHECKS["chanceFormat"] % roundi(odds["probability"] * 100.0)]
 	if int(odds.get("attempts", 1)) > 1:
-		label = GameData.EVENT_CHECKS["attemptsFormat"] % [label, odds["attempts"]]
-	if odds["show"] == "hint":
-		return GameData.EVENT_CHECKS["hintFormat"] % [label, odds["hint"]]
-	return GameData.EVENT_CHECKS["oddsFormat"] % [label, roundi(odds["probability"] * 100.0)]
-
-# One line per applied modifier with its signed delta; "odds" also leads
-# with the base.
-static func odds_sheet_lines(odds: Dictionary) -> Array:
-	var lines: Array = []
-	if odds["show"] == "odds":
-		lines.append("%s %d%%" % [GameData.EVENT_CHECKS["baseLabel"], roundi(odds["base"] * 100.0)])
+		lines.append(GameData.EVENT_CHECKS["attemptsFormat"] % odds["attempts"])
+	lines.append("%s %d%%" % [GameData.EVENT_CHECKS["baseLabel"], roundi(odds["base"] * 100.0)])
 	for mod in odds["mods"]:
 		lines.append("%+d%% %s" % [roundi(mod["delta"] * 100.0), mod["label"]])
 	if odds["mods"].is_empty():
 		lines.append(GameData.EVENT_CHECKS["noModifiers"])
 	return lines
 
-# Shares the Item menu's overlay slot, so only one popup is open at a time.
-func _toggle_odds_sheet(anchor: Button, odds: Dictionary) -> void:
-	if is_instance_valid(_item_menu):
-		_close_item_menu()
-		return
-	_item_menu = Control.new()
-	UI.anchor_full_rect(_item_menu)
-	_item_menu.mouse_filter = Control.MOUSE_FILTER_STOP
-	_item_menu.gui_input.connect(func(ev: InputEvent):
-		if ev is InputEventMouseButton and ev.pressed:
-			_close_item_menu()
-	)
-	var panel := UI.card()
-	for line in odds_sheet_lines(odds):
-		panel["content"].add_child(UI.label(line))
-	_item_menu.add_child(panel["panel"])
-	add_child(_item_menu)
+func _open_context_modal(choice_index: int) -> void:
+	_context_choice = choice_index
+	_restore_context_modal()
 
-	var sheet: Control = panel["panel"]
-	var sheet_size: Vector2 = sheet.get_combined_minimum_size()
-	var anchor_pos: Vector2 = anchor.global_position - global_position
-	var x: float = clampf(anchor_pos.x + anchor.size.x - sheet_size.x, 16.0, maxf(16.0, _screen_width() - 16.0 - sheet_size.x))
-	var y: float = maxf(UI.top_bar_clearance(), anchor_pos.y - sheet_size.y - 8.0)
-	sheet.position = Vector2(x, y)
+func _close_context_modal() -> void:
+	if is_instance_valid(_context_modal):
+		_context_modal.queue_free()
+	_context_modal = null
+	_context_choice = -1
+
+# Rebuilds the open ? modal after a refresh (a toggle changes the odds it
+# shows); closes it if its option is off screen.
+func _restore_context_modal() -> void:
+	if is_instance_valid(_context_modal):
+		_context_modal.queue_free()
+	_context_modal = null
+	if _context_choice < 0:
+		return
+	if not Events.is_choosing() or _context_choice >= Events.current_card()["choices"].size():
+		_context_choice = -1
+		return
+	var choice: Dictionary = Events.current_card()["choices"][_context_choice]
+	var gate: Dictionary = Events.option_gate(_context_choice)
+	var odds: Dictionary = Events.check_odds(_context_choice)
+	var locked: bool = gate["display"] == "disable"
+	if gate["display"] == "hide" or (odds.is_empty() and not locked):
+		_context_choice = -1
+		return
+
+	_context_modal = Control.new()
+	_context_modal.name = "ContextModal"
+	UI.anchor_full_rect(_context_modal)
+	_context_modal.mouse_filter = Control.MOUSE_FILTER_STOP
+	_context_modal.gui_input.connect(func(ev: InputEvent):
+		if ev is InputEventMouseButton and ev.pressed:
+			_close_context_modal()
+	)
+	var dim := ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.6)
+	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	UI.anchor_full_rect(dim)
+	_context_modal.add_child(dim)
+	var centre := CenterContainer.new()
+	centre.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	UI.anchor_full_rect(centre)
+	_context_modal.add_child(centre)
+
+	var panel := UI.card()
+	var sheet: PanelContainer = panel["panel"]
+	sheet.mouse_filter = Control.MOUSE_FILTER_STOP
+	sheet.custom_minimum_size.x = minf(_screen_width() - 48.0, CONTEXT_MODAL_MAX_WIDTH)
+	var content: VBoxContainer = panel["content"]
+	content.add_child(UI.heading(choice["label"], 16))
+	if locked:
+		content.add_child(UI.label(gate["reason"]))
+	elif not odds.is_empty():
+		for line in check_context_lines(odds):
+			content.add_child(UI.label(line))
+		for toggle in Events.item_toggles(_context_choice):
+			content.add_child(_build_item_toggle(_context_choice, toggle))
+	var close := UI.button("Close", _close_context_modal)
+	_style_action_button(close)
+	content.add_child(close)
+	centre.add_child(sheet)
+	add_child(_context_modal)
 
 func _build_continue_button(text: String) -> Button:
 	var b := UI.button(text, func(): Events.advance())

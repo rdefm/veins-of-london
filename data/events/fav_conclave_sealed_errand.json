@@ -12,8 +12,7 @@
           "check": {
             "base": 0.6,
             "mods": [{ "cash": { "atLeast": 500 }, "add": 0.1, "label": "A tip for the cashier" }],
-            "min": 0.15,
-            "show": "odds"
+            "min": 0.15
           },
           "success": {
             "result_text": "The cashier takes it without looking up. You are three streets away before anyone looks at you.",

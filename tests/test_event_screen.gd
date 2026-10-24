@@ -17,7 +17,7 @@ func _fresh_screen() -> EventScreen:
 
 # Imageless fixtures: these play in the one layout with a blank image panel.
 # Image-bearing scenarios live in _install_vn_event() below.
-func _install_check_event(show: String) -> Dictionary:
+func _install_check_event() -> Dictionary:
 	var original_events: Dictionary = GameData.EVENTS
 	GameData.EVENTS = GameData.EVENTS.duplicate()
 	GameData.EVENTS["test_screen_check_event"] = {
@@ -28,7 +28,7 @@ func _install_check_event(show: String) -> Dictionary:
 				"choices": [
 					{
 						"label": "Push",
-						"check": { "base": 0.4, "mods": [{ "flag": "screenFlag", "add": 0.2, "label": "Flagged" }], "min": 0.0, "max": 1.0, "show": show },
+						"check": { "base": 0.4, "mods": [{ "flag": "screenFlag", "add": 0.2, "label": "Flagged" }], "min": 0.0, "max": 1.0 },
 						"success": { "result_text": "Came off.", "effects": [] },
 						"fail": { "result_text": "Didn't.", "effects": [] },
 					},
@@ -269,10 +269,10 @@ func run() -> void:
 
 	# ── check options (opening-choices spec "Presentation") ─────────────
 
-	run_case("a_check_option_shows_its_odds_and_an_info_control", func():
+	run_case("a_check_option_has_a_context_button_and_a_plain_one_does_not", func():
 		GameState.reset()
 		GameState.state["flags"]["screenFlag"] = true
-		var original_events := _install_check_event("odds")
+		var original_events := _install_check_event()
 		Events.start_event("test_screen_check_event")
 		Events.advance()  # -> option step
 
@@ -280,71 +280,85 @@ func run() -> void:
 		var controls := _options_of(screen).get_children()
 		assert_eq(controls.size(), 2)
 		var buttons: Array = controls[0].find_children("", "Button", true, false)
-		assert_eq(buttons.size(), 2, "check option: choice button + info control")
-		assert_eq(buttons[0].text, "Push · 60%", "label carries the odds from Events.check_odds()")
-		assert_eq((controls[1] as Button).text, "Leave", "plain option unchanged")
-
-		buttons[1].pressed.emit()
-		var lines: Array = screen._item_menu.find_children("", "Label", true, false).map(func(l): return l.text)
-		assert_eq(lines, ["Base odds 40%", "+20% Flagged"], "info sheet lists base and signed modifiers")
+		assert_eq(buttons.size(), 2, "check option: choice button + ?")
+		assert_eq(buttons[0].text, "Push", "label carries no odds")
+		assert_eq(buttons[1].text, "?")
+		assert_true(buttons[1].custom_minimum_size.x >= 44.0 and buttons[1].custom_minimum_size.y >= 44.0, "? hit target")
+		assert_true(controls[1] is Button and (controls[1] as Button).text == "Leave", "plain option is a lone button")
 
 		GameData.EVENTS = original_events
 	)
 
-	run_case("a_hint_check_shows_the_hint_word", func():
+	run_case("tapping_the_question_mark_opens_the_modal_without_picking", func():
 		GameState.reset()
-		var original_events := _install_check_event("hint")
+		GameState.state["flags"]["screenFlag"] = true
+		var original_events := _install_check_event()
 		Events.start_event("test_screen_check_event")
 		Events.advance()
+
 		var screen := _fresh_screen()
-		var buttons: Array = _options_of(screen).get_children()[0].find_children("", "Button", true, false)
-		assert_eq(buttons[0].text, "Push · Even")
+		var q: Button = _options_of(screen).get_children()[0].find_children("", "Button", true, false)[1]
+		q.pressed.emit()
+		assert_true(Events.is_awaiting_choice(), "? commits nothing")
+		assert_true(is_instance_valid(screen._context_modal), "modal open")
+		var lines: Array = screen._context_modal.find_children("", "Label", true, false).map(func(l): return l.text)
+		assert_eq(lines, ["Push", "60% chance", "Base odds 40%", "+20% Flagged"], "title, always a percentage, base, signed mods")
+
+		screen._close_context_modal()
+		assert_true(screen._context_modal == null)
+		var button: Button = _options_of(screen).get_children()[0].find_children("", "Button", true, false)[0]
+		button.pressed.emit()
+		assert_true(not Events.is_awaiting_choice(),"tapping the button still picks it")
 		GameData.EVENTS = original_events
 	)
 
-	run_case("a_hidden_check_shows_neither_odds_nor_info", func():
+	run_case("a_multi_attempt_check_lists_its_tries_in_the_modal", func():
 		GameState.reset()
-		var original_events := _install_check_event("hidden")
+		var original_events := _install_check_event()
+		GameData.EVENTS["test_screen_check_event"]["cards"][0]["choices"][0]["check"]["attempts"] = 3
 		Events.start_event("test_screen_check_event")
 		Events.advance()
-		var screen := _fresh_screen()
-		var first: Control = _options_of(screen).get_children()[0]
-		assert_true(first is Button, "a lone button, no info control")
-		assert_eq((first as Button).text, "Push")
+		var lines := EventScreen.check_context_lines(Events.check_odds(0))
+		assert_true(lines.has("3 tries"))
 		GameData.EVENTS = original_events
 	)
 
-	run_case("an_optional_item_toggle_renders_under_its_option", func():
+	run_case("an_optional_item_toggle_renders_in_the_context_modal", func():
 		GameState.reset()
-		var original_events := _install_check_event("odds")
+		var original_events := _install_check_event()
 		GameData.EVENTS["test_screen_check_event"]["cards"][0]["choices"][0]["check"]["mods"] = [
 			{ "item": "prophetsBreath", "optional": true, "consume": true, "add": 0.25, "label": "Breath" },
 		]
 		Events.start_event("test_screen_check_event")
 		Events.advance()
 
-		var none_held: Button = _button_with_text(_fresh_screen(), "Prophet's Breath · none on you")
+		var no_stock := _fresh_screen()
+		assert_true(_button_with_text(no_stock, "Prophet's Breath · none on you") == null, "toggles live in the modal, not beside the option")
+		no_stock._open_context_modal(0)
+		var none_held: Button = _button_with_text(no_stock._context_modal, "Prophet's Breath · none on you")
 		assert_true(none_held != null and none_held.disabled, "unavailable toggle shown disabled")
 
 		Crafting.inventory_add("prophetsBreath", 1, 1)
 		var screen := _fresh_screen()
-		var option: Control = _options_of(screen).get_children()[0]
-		var toggle: Button = _button_with_text(option, "Use Prophet's Breath · +25%")
-		assert_true(toggle != null, "toggle sits inside the option's own stack")
+		assert_true(_button_with_text(screen, "Use Prophet's Breath · +25%") == null, "not in the option stack")
+		screen._open_context_modal(0)
+		var toggle: Button = _button_with_text(screen._context_modal, "Use Prophet's Breath · +25%")
+		assert_true(toggle != null, "toggle sits in the modal")
 		assert_true(toggle.toggle_mode and not toggle.button_pressed and not toggle.disabled)
 		toggle.pressed.emit()
 		assert_eq(Events.active_toggles(0), ["prophetsBreath"], "tap goes through Events.toggle_item()")
 
-		screen = _fresh_screen()
-		assert_true(_button_with_text(screen, "Push · 65%") != null, "odds read the toggle")
-		assert_true(_button_with_text(screen, "Use Prophet's Breath · +25%").button_pressed, "renders on")
+		assert_true(is_instance_valid(screen._context_modal), "modal survives the refresh")
+		var lines: Array = screen._context_modal.find_children("", "Label", true, false).map(func(l): return l.text)
+		assert_true(lines.has("65% chance"), "odds read the toggle")
+		assert_true(_button_with_text(screen._context_modal, "Use Prophet's Breath · +25%").button_pressed, "renders on")
 		GameData.EVENTS = original_events
 	)
 
 	run_case("a_disabled_option_greys_out_with_its_reason_and_a_hidden_one_is_absent", func():
 		GameState.reset()
 		GameState.state["player"]["cash"] = 0
-		var original_events := _install_check_event("odds")
+		var original_events := _install_check_event()
 		var choices: Array = GameData.EVENTS["test_screen_check_event"]["cards"][0]["choices"]
 		choices.append({ "label": "Bribe the doorman", "requires": { "cash": { "atLeast": 50 }, "display": "disable", "reason": "Needs £50 — the doorman doesn't do favours" }, "effects": [], "result_text": "Paid." })
 		choices.append({ "label": "Secret door", "requires": { "flag": "secretFlag", "display": "hide" }, "effects": [], "result_text": "Secret." })
@@ -356,12 +370,17 @@ func run() -> void:
 		assert_eq(_button_with_text(screen, "Secret door"), null)
 		var bribe: Button = _button_with_text(screen, "Bribe the doorman")
 		assert_true(bribe != null and bribe.disabled, "disabled option renders greyed")
-		var reason: Label = bribe.get_parent().find_children("", "Label", true, false).filter(func(l): return l.get_parent() == bribe.get_parent())[0]
-		assert_eq(reason.text, "Needs £50 — the doorman doesn't do favours")
-		assert_true(reason.autowrap_mode != TextServer.AUTOWRAP_OFF, "reason wraps")
-		assert_true(reason.get_combined_minimum_size().x <= 390.0 - 32.0, "reason fits phone width inside the gutters")
 		bribe.pressed.emit()
 		assert_true(Events.is_awaiting_choice(), "pressing a disabled option commits nothing")
+
+		var q: Button = bribe.get_parent().find_children("", "Button", true, false)[1]
+		assert_eq(q.text, "?", "a locked option carries a ?")
+		q.pressed.emit()
+		var lines: Array = screen._context_modal.find_children("", "Label", true, false)
+		var reason: Label = lines.filter(func(l): return l.text == "Needs £50 — the doorman doesn't do favours")[0]
+		assert_true(reason.autowrap_mode != TextServer.AUTOWRAP_OFF, "reason wraps")
+		assert_true(reason.get_combined_minimum_size().x <= 390.0 - 48.0, "reason fits phone width inside the modal")
+		screen._close_context_modal()
 
 		GameState.state["flags"]["secretFlag"] = true
 		assert_true(_button_with_text(_fresh_screen(), "Secret door") != null, "a met gate renders the option")
@@ -370,7 +389,7 @@ func run() -> void:
 
 	run_case("a_check_resolution_card_carries_a_subtle_outcome_marker", func():
 		GameState.reset()
-		var original_events := _install_check_event("odds")
+		var original_events := _install_check_event()
 		GameData.EVENTS["test_screen_check_event"]["cards"][0]["choices"][0]["check"]["min"] = 1.0
 		Events.start_event("test_screen_check_event")
 		Events.choose(0)
@@ -382,17 +401,17 @@ func run() -> void:
 
 	run_case("a_multi_attempt_check_shows_tries_and_per_attempt_odds", func():
 		GameState.reset()
-		var original_events := _install_check_event("odds")
+		var original_events := _install_check_event()
 		GameData.EVENTS["test_screen_check_event"]["cards"][0]["choices"][0]["check"]["attempts"] = 2
 		Events.start_event("test_screen_check_event")
 		Events.advance()
-		assert_true(_button_with_text(_fresh_screen(), "Push · 2 tries · 40%") != null)
+		assert_true(_button_with_text(_fresh_screen(), "Push") != null, "button carries no tries or odds")
 		GameData.EVENTS = original_events
 	)
 
 	run_case("a_multi_attempt_resolution_marker_counts_successes", func():
 		GameState.reset()
-		var original_events := _install_check_event("odds")
+		var original_events := _install_check_event()
 		var check: Dictionary = GameData.EVENTS["test_screen_check_event"]["cards"][0]["choices"][0]["check"]
 		check["attempts"] = 3
 		check["min"] = 1.0

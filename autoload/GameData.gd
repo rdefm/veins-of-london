@@ -184,7 +184,7 @@ var DAY_CLOCK: Dictionary = {}
 var ACTIVE_EFFECTS: Dictionary = {}
 # Calendar display constants (R§3.1 "Calendar"), read by systems/calendar.gd.
 var CALENDAR: Dictionary = {}
-# Event choice checks: default clamp, hint-word thresholds, UI strings (Events.check_odds()).
+# Event choice checks: default clamp, UI strings (Events.check_odds()).
 var EVENT_CHECKS: Dictionary = {}
 # Event card label tokens' words (R§3.9c, Events._with_label_tokens()).
 var EVENT_LABELS: Dictionary = {}

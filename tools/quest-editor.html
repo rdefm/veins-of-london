@@ -225,7 +225,6 @@
 // read-only and pass through untouched.
 
 const AT_BLOCKS = ["morning", "afternoon", "evening", "night"];
-const SHOW_MODES = ["odds", "hint", "hidden"];
 const OPTION_KEY_ORDER = ["label", "id", "requires", "effects", "result_text", "goto", "check", "success", "fail", "bySuccesses"];
 const CONDITION_KINDS = [
   { kind: "flag", label: "Flag set", modOnly: false },
@@ -612,7 +611,7 @@ function checkRows(opt, changed, restructure) {
   return rows;
 }
 
-// The check's odds (base, min, max, show, attempts) and its modifiers.
+// The check's odds (base, min, max, attempts) and its modifiers.
 function checkOddsBlock(opt, changed, restructure) {
   const check = opt.check;
   const odds = mechEl("div", "mech-sub");
@@ -621,11 +620,6 @@ function checkOddsBlock(opt, changed, restructure) {
   row.appendChild(mechCell("Base chance", mechNumber(check, "base", changed, false)));
   row.appendChild(mechCell("Min", mechNumber(check, "min", changed, true, "default")));
   row.appendChild(mechCell("Max", mechNumber(check, "max", changed, true, "default")));
-  row.appendChild(mechCell("Show", mechSelect(SHOW_MODES.map((m) => [m, m === "odds" ? "odds (default)" : m]), check.show || "odds", (v) => {
-    if (v === "odds") delete check.show;
-    else check.show = v;
-    changed();
-  })));
   row.appendChild(mechCell("Attempts", mechNumber(check, "attempts", changed, true, "1")));
   odds.appendChild(row);
 

@@ -670,14 +670,8 @@
   "eventChecks": {
     "defaultMin": 0.05,
     "defaultMax": 0.95,
-    "hints": [
-      { "atLeast": 0.65, "word": "Likely" },
-      { "atLeast": 0.35, "word": "Even" },
-      { "atLeast": 0.0, "word": "Risky" }
-    ],
-    "oddsFormat": "%s · %d%%",
-    "hintFormat": "%s · %s",
-    "infoGlyph": "ⓘ",
+    "contextGlyph": "?",
+    "chanceFormat": "%d%% chance",
     "baseLabel": "Base odds",
     "rewoundLabel": "Second go, best of two",
     "ladyLabel": "Be A Lady",
@@ -686,7 +680,7 @@
     "itemToggleFormat": "Use %s · %+d%%",
     "itemToggleNoneHeld": "%s · none on you",
     "outcomeMarkers": { "success": "✓ Came off", "fail": "✗ Didn't come off" },
-    "attemptsFormat": "%s · %d tries",
+    "attemptsFormat": "%d tries",
     "attemptsMarkerFormat": "%d of %d came off"
   },
   "calendar": {

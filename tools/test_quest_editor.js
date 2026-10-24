@@ -330,7 +330,6 @@ const ALL_FIELDS_EVENT = {
             ],
             min: 0.1,
             max: 0.9,
-            show: "hint",
             attempts: 2,
             perSuccess: [{ op: "add", path: "player.cash", value: 10 }],
           },
@@ -414,7 +413,6 @@ test("desktop: authoring every new field onto a legacy event saves exactly the m
   optionToCheck(opt);
   opt.check.min = 0.2;
   opt.check.max = 0.8;
-  opt.check.show = "hidden";
   opt.check.attempts = 3;
   for (const kind of ["flag", "choice", "path", "relation", "cash", "item", "itemEquipped", "itemOptional"]) {
     const mod = {};

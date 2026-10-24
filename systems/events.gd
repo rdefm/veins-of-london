@@ -446,7 +446,7 @@ static func _remember_choice(event_id: String, card_index: int, option_id: Strin
 # ── checks (opening-choices spec "Event engine": Odds, Deterministic rolls) ──
 
 # Odds for the current choice card's option: {} when it has no check, else
-# {probability, base, mods:[{label, delta}], show, hint, attempts}. The event
+# {probability, base, mods:[{label, delta}], attempts}. The event
 # screen reads only this; it never computes odds itself. probability is per
 # attempt. A check already rolled before a Rewind rolls twice and keeps the
 # best, so its probability is 1 - (1 - p)^2, listed as one extra modifier.
@@ -461,7 +461,6 @@ static func check_odds(choice_index: int) -> Dictionary:
 		var advantaged: float = 1.0 - (1.0 - p) * (1.0 - p)
 		odds["mods"].append({ "label": GameData.EVENT_CHECKS["rewoundLabel"], "delta": advantaged - p })
 		odds["probability"] = advantaged
-		odds["hint"] = hint_word(advantaged)
 	return odds
 
 
@@ -506,16 +505,7 @@ static func odds_for(check: Dictionary, toggled: Array = []) -> Dictionary:
 	var lo: float = float(check.get("min", GameData.EVENT_CHECKS["defaultMin"]))
 	var hi: float = float(check.get("max", GameData.EVENT_CHECKS["defaultMax"]))
 	probability = clampf(probability, lo, hi)
-	return { "probability": probability, "base": base, "mods": applied, "show": check.get("show", "odds"), "hint": hint_word(probability) }
-
-
-# The data-driven hint word (constants.json eventChecks.hints, highest
-# threshold first) for a probability.
-static func hint_word(probability: float) -> String:
-	for band in GameData.EVENT_CHECKS["hints"]:
-		if probability + 0.000001 >= float(band["atLeast"]):
-			return band["word"]
-	return GameData.EVENT_CHECKS["hints"].back()["word"]
+	return { "probability": probability, "base": base, "mods": applied }
 
 
 # A modifier's signed delta: a {path, perPoint} mod scales with the value;

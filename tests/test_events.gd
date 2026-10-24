@@ -49,7 +49,7 @@ static func _check_choice_card(p: float) -> Dictionary:
 		"choices": [
 			{
 				"id": "push", "label": "Push for more",
-				"check": { "base": p, "mods": [], "min": 0.0, "max": 1.0, "show": "odds" },
+				"check": { "base": p, "mods": [], "min": 0.0, "max": 1.0 },
 				"success": { "result_text": "It worked.", "effects": [{ "op": "add", "path": "player.cash", "value": 30 }], "goto": null },
 				"fail": { "result_text": "It didn't.", "effects": [{ "op": "set_flag", "flag": "checkFailed", "value": true }], "goto": null },
 			},
@@ -644,7 +644,7 @@ func run() -> void:
 		assert_eq(odds["mods"].size(), 1, "only matching mods are listed")
 		assert_eq(odds["mods"][0]["label"], "Flag")
 		assert_almost_eq(odds["mods"][0]["delta"], 0.3, 0.0001)
-		assert_eq(odds["show"], "odds", "show defaults to odds")
+		assert_true(not (odds.has("show") or odds.has("hint")), "no hint-word display mode")
 	)
 
 	run_case("lady_adds_labelled_mod_to_every_check_within_clamp", func():
@@ -660,7 +660,7 @@ func run() -> void:
 		assert_eq(odds["mods"][0]["label"], GameData.EVENT_CHECKS["ladyLabel"])
 		assert_almost_eq(odds["mods"][0]["delta"], 2 * per_level, 0.0001)
 		assert_almost_eq(Events.odds_for({ "base": 0.58, "min": 0.0, "max": 0.6 })["probability"], 0.6, 0.0001, "clamped to max")
-		assert_eq(Events.odds_for({ "base": 0.5, "min": 0.0, "max": 1.0 })["hint"], Events.hint_word(0.5 + 2 * per_level), "hint follows boost")
+		assert_almost_eq(Events.odds_for({ "base": 0.5, "min": 0.0, "max": 1.0 })["probability"], 0.5 + 2 * per_level, 0.0001, "boosted")
 	)
 
 	run_case("flag_mod_applies_only_when_the_flag_is_set", func():
@@ -710,14 +710,6 @@ func run() -> void:
 		GameState.state["player"]["cash"] = 50
 		assert_almost_eq(Events.odds_for(check)["probability"], 0.35, 0.0001, "at threshold, signed delta")
 		assert_almost_eq(Events.odds_for(check)["mods"][0]["delta"], -0.05, 0.0001)
-	)
-
-	run_case("hint_words_follow_the_data_thresholds", func():
-		assert_eq(Events.hint_word(0.65), "Likely")
-		assert_eq(Events.hint_word(0.64), "Even")
-		assert_eq(Events.hint_word(0.35), "Even")
-		assert_eq(Events.hint_word(0.34), "Risky")
-		assert_eq(Events.hint_word(0.05), "Risky")
 	)
 
 	run_case("a_sure_check_resolves_success_text_effects_and_memory", func():
