@@ -29,7 +29,7 @@ const {
   addComment, updateComment, deleteComment, filterComments, commentCount, anchorText, anchorType, proseComments,
   cardImageName, freeImageName, freeResultImageName, setCardImage, eventImageDir, SHOT_FIELDS, serialiseBoard, setShotField, shotFieldText,
   LIVE_EVENTS_DIR, proposalFileName, importBoard, blankBoard, duplicateBoard, boardCardLabel, promoteDraft, serialiseEvent,
-  promoteForWrite, promoteSummary, shotBoardFor, boardCut, shotOnPath,
+  promoteForWrite, promoteSummary, shotBoardFor, boardCut, shotOnPath, workingCopyFor,
 } = new Function(
   html.slice(ss, se) + html.slice(s, e) +
     "\nreturn { parseProposal, parseDraft, serialiseDraft, ensureKeys, legacyToDraft, nextPos, playOrder, flatCards, thenText," +
@@ -42,7 +42,7 @@ const {
     " addComment, updateComment, deleteComment, filterComments, commentCount, anchorText, anchorType, proseComments," +
     " cardImageName, freeImageName, freeResultImageName, setCardImage, eventImageDir, SHOT_FIELDS, serialiseBoard, setShotField, shotFieldText," +
     " LIVE_EVENTS_DIR, proposalFileName, importBoard, blankBoard, duplicateBoard, boardCardLabel, promoteDraft, serialiseEvent," +
-    " promoteForWrite, promoteSummary, shotBoardFor, boardCut, shotOnPath };"
+    " promoteForWrite, promoteSummary, shotBoardFor, boardCut, shotOnPath, workingCopyFor };"
 )();
 
 let passed = 0;
@@ -541,6 +541,31 @@ for (const f of liveFiles) {
 test("importBoard: bad JSON or no cards array throws", () => {
   assert.throws(() => importBoard("x.json", "{ nope", []), /x\.json doesn't parse/);
   assert.throws(() => importBoard("x.json", "{}", []), /no cards array/);
+});
+
+test("import records its live source; it survives re-parse and a splice-save, and Duplicate drops it", () => {
+  const text = JSON.stringify({ id: "intro", cards: [{ type: "narration", text: "Hi." }] });
+  const made = importBoard("intro.json", text, []);
+  const b = parseProposal(made.file, made.md);
+  assert.strictEqual(b.draft._liveSource, "intro.json");
+  const saved = spliceDraft(made.md, b.draft);
+  assert.strictEqual(parseProposal(made.file, saved).draft._liveSource, "intro.json");
+  const copy = parseProposal("c.md", duplicateBoard(made.file, made.md, "intro_two", true, [], []).md);
+  assert.strictEqual(copy.draft._liveSource, undefined);
+  assert.strictEqual(promoteDraft(b.draft).event._liveSource, undefined);
+});
+
+test("workingCopyFor: second import finds the first; legacy and unrelated proposals don't match", () => {
+  const text = JSON.stringify({ id: "intro", cards: [{ type: "narration", text: "Hi." }] });
+  const first = importBoard("intro.json", text, []);
+  const files = [{ name: first.file, md: first.md }];
+  assert.strictEqual(workingCopyFor("intro.json", files), first.file);
+  assert.strictEqual(workingCopyFor("other.json", files), null);
+  const legacyMd = "# old — imported from data/events/intro.json\n\n```json\n" + JSON.stringify(legacy) + "\n```\n";
+  const blank = blankBoard("fresh", [], []);
+  assert.strictEqual(workingCopyFor("intro.json", [{ name: "l.md", md: legacyMd }, { name: blank.file, md: blank.md }, { name: "n.md", md: "# no block" }]), null);
+  const lp = parseProposal("l.md", legacyMd);
+  assert.strictEqual(lp.draft._liveSource, undefined);
 });
 
 test("blankBoard: one main branch, one blank card, saved as a proposal", () => {

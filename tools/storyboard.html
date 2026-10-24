@@ -2006,7 +2006,16 @@ function checkOddsBlock(opt, changed, restructure) {
     try { ev = JSON.parse(text); } catch (e) { throw new Error(`${file} doesn't parse: ${e.message}`); }
     if (!ev || !Array.isArray(ev.cards)) throw new Error(`${file} has no cards array`);
     const draft = legacyToDraft("id" in ev ? ev : { id: file.replace(/\.json$/, ""), ...ev });
+    draft._liveSource = file;
     return { file: proposalFileName(draft.id, taken), md: proposalMd(`${draft.id} — imported from data/events/${file}`, draft) };
+  }
+  // The proposal file already editing live event `file` (its draft's `_liveSource`), or null. files: [{name, md}].
+  function workingCopyFor(file, files) {
+    for (const f of files) {
+      const b = parseProposal(f.name, f.md);
+      if (b && b.draft && b.draft._liveSource === file) return f.name;
+    }
+    return null;
   }
   // A blank event: one `main` branch holding one blank narration card.
   function blankBoard(id, taken, liveIds) {
@@ -2023,6 +2032,7 @@ function checkOddsBlock(opt, changed, restructure) {
     checkNewId(id, liveIds, src.draft.id);
     const draft = src.draft;
     draft.id = id;
+    delete draft._liveSource;
     const heading = `${id} — copy of ${srcFile}`;
     if (!keepComments) { delete draft._comments; return { file: proposalFileName(id, taken), md: proposalMd(heading, draft) }; }
     const md = spliceDraft(srcMd, draft);
@@ -2129,7 +2139,7 @@ function checkOddsBlock(opt, changed, restructure) {
     let event = {};
     for (const [k, v] of Object.entries(draft)) {
       if (k === "branches") event.cards = cards;
-      else if (k !== "start" && k !== "_comments" && k !== "_layout" && k !== "_keyOrder") event[k] = deepClone(v);
+      else if (k !== "start" && k !== "_comments" && k !== "_layout" && k !== "_keyOrder" && k !== "_liveSource") event[k] = deepClone(v);
     }
     event = inKeyOrder(event, (draft._keyOrder || {}).top);
     return { event, dropped: flatCards(draft).map((f) => f.card.key).filter((k) => !reach.has(k)) };
@@ -2374,7 +2384,7 @@ function checkOddsBlock(opt, changed, restructure) {
 
   function renderPicker() {
     const sel = $("board-select");
-    const opt = (b) => el("option", { value: b.eventId, text: b.kind === "proposal" ? b.file : b.eventId });
+    const opt = (b) => el("option", { value: b.eventId, text: b.kind !== "proposal" ? b.eventId : b.file + (b.draft && b.draft._liveSource ? ` — editing live: ${b.draft.id}` : "") });
     const groups = [["Storyboards", boards.filter((b) => b.kind !== "proposal")], ["Proposals", boards.filter((b) => b.kind === "proposal")]]
       .filter(([, list]) => list.length).map(([label, list]) => el("optgroup", { label }, ...list.map(opt)));
     sel.replaceChildren(...groups);
@@ -3453,6 +3463,18 @@ function checkOddsBlock(opt, changed, restructure) {
       if (nbMode === "import") {
         const text = await readText(await dirAt(LIVE_EVENTS_DIR), src);
         if (text == null) throw new Error(`couldn't read ${src}`);
+        const files = [];
+        for (const name of taken) if (name.endsWith(".md")) { const md = await readText(dir, name); if (md != null) files.push({ name, md }); }
+        const existing = workingCopyFor(src, files);
+        if (existing) {
+          if (!leaveBoard()) return;
+          $("newboard").close();
+          await loadAll();
+          selectBoard(PROPOSAL_PREFIX + existing);
+          showTab("storyboard");
+          renderEditBar(`${src} already has a working copy; opened ${existing}`);
+          return;
+        }
         made = importBoard(src, text, taken);
       } else if (nbMode === "blank") made = blankBoard(id, taken, liveIds);
       else {
