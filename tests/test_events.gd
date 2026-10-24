@@ -1852,13 +1852,13 @@ func run() -> void:
 	run_case("full_tutorial_playthrough_lands_every_r311_change", func():
 		GameState.reset()
 
-		# 1. Cold open chains into the pub (first option at every choice)
+		# 1. Cold open chains into the pub (first option at every choice; a hub's exit when it has one)
 		Events.start_event("cold_open")
 		for step in range(100):
 			if GameState.state["event"] == null:
 				break
 			if Events.is_awaiting_choice():
-				Events.choose(0)
+				Events.choose(maxi(Events.hub_exit_index(), 0))
 			Events.advance()
 		assert_true(GameState.state["flags"]["rentGoal"], "cold_open: rent goal row on")
 		assert_true(GameState.state["flags"]["metArchie"], "pub: metArchie")

@@ -171,7 +171,8 @@ static func _play_out(branch: int) -> bool:
 		if GameState.state["event"] == null or GameState.state["currentScreen"] != "event":
 			return true
 		if Events.is_awaiting_choice():
-			Events.choose(mini(branch, Events.current_card()["choices"].size() - 1))
+			var exit_index := Events.hub_exit_index()
+			Events.choose(exit_index if exit_index >= 0 else mini(branch, Events.current_card()["choices"].size() - 1))
 		else:
 			Events.advance()
 	return false

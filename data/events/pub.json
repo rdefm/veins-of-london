@@ -8,27 +8,17 @@
   "cards": [
     {
       "type": "choice", "label": "Fifteen minutes later — a Wetherspoons", "speaker": null, "text": "Archie buys two pints and chips, puts the chips on your side of the table, and sits facing the door. His eyes are streaming. You have about four questions. He looks good for one.", "image": "res://assets/events/intro/intro_main_11.png",
+      "advance": "anytime",
       "choices": [
-        {
-          "id": "whatIsIt",
-          "label": "\"What was that stuff?\"",
-          "effects": [],
-          "result_text": "\"Calc. Orichalchum, if you're being posh about it. That one was time-type. Slows everything round it for a few seconds.\" He dabs his eyes with a napkin. \"Last one I had, and all. Allergic to the stuff, before you ask. Don't.\""
-        },
-        {
-          "id": "howMuch",
-          "label": "\"How much is it worth?\"",
-          "effects": [],
-          "result_text": "\"The calc? Depends who's buying. Bit of time-type like that, seventy-odd quid a chip.\" He dabs his eyes with a napkin. \"Ten chips, you're looking at seven hundred and fifty. Which is why that lot brought a knife.\""
-        },
-        {
-          "id": "whereFrom",
-          "label": "\"Where does it come from?\"",
-          "effects": [{ "op": "set_flag", "flag": "introAskedSource", "value": true }],
-          "result_text": "\"Calc grows. Don't laugh.\" He dabs his eyes with a napkin. \"There's a crack in a wall in Whitechapel that grows the stuff, if you're patient. Vein, they call it. Most of them, someone's already sitting on.\""
-        }
+        { "id": "whatIsIt", "label": "\"What was that stuff?\"", "effects": [], "result_text": null, "goto": 1 },
+        { "id": "howMuch", "label": "\"How much is it worth?\"", "effects": [], "result_text": null, "goto": 2 },
+        { "id": "whereFrom", "label": "\"Where does it come from?\"", "effects": [{ "op": "set_flag", "flag": "introAskedSource", "value": true }], "result_text": null, "goto": 3 },
+        { "id": "eatChips", "label": "Eat a chip", "exit": true, "effects": [], "result_text": null, "goto": 4 }
       ]
     },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Calc. Orichalchum, if you're being posh about it. That one was time-type. Slows everything round it for a few seconds.\" He dabs his eyes with a napkin. \"Last one I had, and all. Allergic to the stuff, before you ask. Don't.\"", "goto": 0 },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"The calc? Depends who's buying. Bit of time-type like that, seventy-odd quid a chip.\" He dabs his eyes with a napkin. \"Ten chips, you're looking at seven hundred and fifty. Which is why that lot brought a knife.\"", "goto": 0 },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Calc grows. Don't laugh.\" He dabs his eyes with a napkin. \"There's a crack in a wall in Whitechapel that grows the stuff, if you're patient. Vein, they call it. Most of them, someone's already sitting on.\"", "goto": 0 },
     { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"It's stock, innit. Someone finds it, someone makes it useful, someone pays through the nose for it. People like us stand in the middle and take a cut.\" He nods at the chips. \"Eat. You're no use to me keeling over.\"" },
     { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Normally nobody gets a knife out. Still got tonight's calc, ain't I. I'll find a proper buyer. Somewhere with lights. And witnesses. You come along, you get a cut. You've seen how it goes wrong, so no hard feelings if it's a no.\"", "image": "res://assets/events/intro/intro_main_13.png" },
     { "type": "speaker", "label": null, "speaker": "You", "text": "You look at the door, at the chips, then think about your bank balance. \"I'll come.\"" },

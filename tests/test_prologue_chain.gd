@@ -14,7 +14,7 @@ func _play(event_id: String) -> void:
 			_finish_practice_fight()
 			continue
 		if Events.is_awaiting_choice():
-			Events.choose(0)
+			Events.choose(maxi(Events.hub_exit_index(), 0))
 			if LessonSession.is_open():
 				Lab.add_ore("timePearl", "time")
 				Lab.perform_step("compression", 70.0)
@@ -57,6 +57,24 @@ func _check_beat(objective_id: String, label: String) -> void:
 
 
 func run() -> void:
+	run_case("pub_questions_hub_answers_in_any_order_and_exits_to_the_buyer_stage", func():
+		GameState.reset()
+		Events.start_event("pub")
+		assert_true(Events.is_awaiting_choice(), "pub opens on the question hub")
+		assert_true(Events.hub_exit_available(), "advance anytime: the exit is open before any question")
+		Events.choose(2)
+		Events.advance()
+		assert_true(GameState.state["flags"]["introAskedSource"], "asking where it comes from sets introAskedSource")
+		assert_true(Events.is_awaiting_choice(), "the answer returns to the hub")
+		Events.choose(Events.hub_exit_index())
+		for step in range(20):
+			if GameState.state["event"] == null:
+				break
+			Events.advance()
+		assert_true(GameState.state["flags"]["metArchie"], "pub completes")
+		assert_eq(GameState.state["flags"]["tutorialStage"], "buyer_event", "stage moves to buyer_event")
+	)
+
 	run_case("new_game_plays_all_nine_beats_in_order", func():
 		GameState.reset()
 		_check_beat("pro_cold_open", "new game")
