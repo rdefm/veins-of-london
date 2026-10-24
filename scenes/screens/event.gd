@@ -96,11 +96,17 @@ func _footer_box() -> BoxContainer:
 # option hidden or greyed with its reason), stacked in `box`.
 func _fill_options(box: VBoxContainer) -> void:
 	var choices: Array = Events.current_card()["choices"]
+	var exit_index := Events.hub_exit_index()
 	for i in range(choices.size()):
+		if i == exit_index:
+			continue  # the hub's exit is the footer →
 		var gate: Dictionary = Events.option_gate(i)
 		match gate["display"]:
 			"show":
-				box.add_child(_build_choice_button(choices[i]["label"], i))
+				if gate["asked"]:
+					box.add_child(_build_asked_option(choices[i]["label"], i))
+				else:
+					box.add_child(_build_choice_button(choices[i]["label"], i))
 			"disable":
 				box.add_child(_build_disabled_option(choices[i]["label"], i))
 
@@ -116,6 +122,15 @@ func _fill_footer(box: BoxContainer) -> Array:
 		spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		controls.append(spacer)
 		controls.append(_build_continue_button("→"))
+	elif Events.hub_exit_available():
+		var spacer := Control.new()
+		spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		controls.append(spacer)
+		var exit_index := Events.hub_exit_index()
+		var b := UI.button("→", func(): Events.choose(exit_index))
+		b.name = "HubExitButton"
+		_style_action_button(b)
+		controls.append(b)
 	for c in controls:
 		box.add_child(c)
 	return controls
@@ -194,6 +209,14 @@ func _build_choice_button(label: String, choice_index: int) -> Control:
 	if Events.check_odds(choice_index).is_empty():
 		return b
 	return _option_row(b, choice_index)
+
+# A reselectable hub question already asked: greyed and ticked, still pressable.
+func _build_asked_option(label: String, choice_index: int) -> Control:
+	var b := UI.button("✓ " + label, func(): Events.choose(choice_index))
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_style_action_button(b)
+	b.modulate = Color(1, 1, 1, 0.55)
+	return b
 
 # A gated option shown "disable": a greyed button that commits nothing, with a
 # ? whose modal gives the reason.

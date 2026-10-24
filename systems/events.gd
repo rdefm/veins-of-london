@@ -358,10 +358,14 @@ static func choose(choice_index: int) -> void:
 		return
 	if option_gate(choice_index)["display"] != "show":
 		return  # a hidden or disabled option can't be committed
+	if choice_index == hub_exit_index() and not hub_exit_available():
+		return  # the hub's advance rule isn't met yet
 
 	_snapshot_before_mutation()
 
 	var event_state: Dictionary = GameState.state["event"]
+	# Re-asking a reselectable hub question replays its answer without re-firing its effects.
+	var re_asked: bool = hub_exit_index() >= 0 and choice_index != hub_exit_index() and _picked_here().has(choice_index)
 	event_state.erase("choosing")  # a hub re-entered later starts at its prompt again
 	var card: Dictionary = current_card()
 	var choice: Dictionary = card["choices"][choice_index]
@@ -415,7 +419,8 @@ static func choose(choice_index: int) -> void:
 		for i in range(successes):
 			effects = effects + choice["check"].get("perSuccess", [])
 		effects = effects + source.get("effects", [])
-	apply_effects(effects)
+	if not re_asked:
+		apply_effects(effects)
 	# A blank result_text shows no resolution card: play moves straight on (R§3.9a Goto),
 	# unless the effects ended this event or started another.
 	if is_silent_text(resolution["text"]) and is_same(GameState.state["event"], event_state):
@@ -557,24 +562,78 @@ static func condition_met(condition: Dictionary, toggled: Array = []) -> bool:
 static func option_gate(choice_index: int) -> Dictionary:
 	var choice: Dictionary = current_card()["choices"][choice_index]
 	if _spent_one_shot(choice_index):
-		return { "display": "hide", "reason": "" }
+		return { "display": "hide", "reason": "", "asked": true }
+	var asked := _picked_here().has(choice_index)
 	var requires: Variant = choice.get("requires")
 	if not requires is Dictionary or condition_met(requires):
-		return { "display": "show", "reason": "" }
+		return { "display": "show", "reason": "", "asked": asked }
 	var display: String = requires.get("display", "hide")
-	return { "display": display if display == "disable" else "hide", "reason": String(requires.get("reason", "")) }
+	return { "display": display if display == "disable" else "hide", "reason": String(requires.get("reason", "")), "asked": asked }
+
+
+# ── conversation hubs (R§3.9a "Hub advance") ──
+
+# Index of the current choice card's option flagged `exit: true` (the hub's
+# footer →), or -1 for a card without one.
+static func hub_exit_index() -> int:
+	var choices: Array = current_card().get("choices", [])
+	for i in range(choices.size()):
+		if choices[i].get("exit", false) == true:
+			return i
+	return -1
+
+
+# True when the hub's exit may be taken now: it exists and shows, and the card's
+# `advance` rule is met -- "anytime" (default), "all" (every askable question
+# asked) or an integer N (N questions asked). A rule that can never be met
+# (N above the askable questions, or an unknown rule) logs an error and opens
+# the exit, so the hub always completes.
+static func hub_exit_available() -> bool:
+	var exit_index := hub_exit_index()
+	if exit_index < 0 or option_gate(exit_index)["display"] != "show":
+		return false
+	var rule: Variant = current_card().get("advance", "anytime")
+	if rule is String and rule == "anytime":
+		return true
+	var asked := 0
+	var askable := 0
+	for i in range(current_card()["choices"].size()):
+		if i == exit_index:
+			continue
+		if _picked_here().has(i):
+			asked += 1
+			askable += 1
+		elif option_gate(i)["display"] != "hide":
+			askable += 1
+	if rule is String and rule == "all":
+		return asked >= askable
+	if typeof(rule) == TYPE_INT or typeof(rule) == TYPE_FLOAT:
+		if int(rule) <= askable:
+			return asked >= int(rule)
+	push_error("Events: hub card %d of '%s' can never meet advance rule %s; showing the exit" % [int(GameState.state["event"]["cardIndex"]), GameState.state["event"]["eventId"], str(rule)])
+	return true
+
+
+static func _picked_here() -> Array:
+	var event_state: Dictionary = GameState.state["event"]
+	return event_state.get("picked", {}).get(str(event_state["cardIndex"]), [])
 
 
 # True when option `choice_index` of the current card was already picked on an
-# earlier visit to this hub and is one-shot (no `reselectable: true`). Never
-# true for the hub's last remaining forward exit (a non-back-edge option): that
-# one stays visible so the event can finish (push_error).
+# earlier visit to this hub and is one-shot (no `reselectable: true`). The
+# exit option is never spent. On a hub without an exit option, never true for
+# the last remaining forward exit (a non-back-edge option): that one stays
+# visible so the event can finish (push_error).
 static func _spent_one_shot(choice_index: int) -> bool:
 	var event_state: Dictionary = GameState.state["event"]
-	var picked: Array = event_state.get("picked", {}).get(str(event_state["cardIndex"]), [])
+	var picked: Array = _picked_here()
 	var choices: Array = current_card()["choices"]
 	if not picked.has(choice_index) or choices[choice_index].get("reselectable", false) == true:
 		return false
+	if choices[choice_index].get("exit", false) == true:
+		return false
+	if hub_exit_index() >= 0:
+		return true
 	if not _is_back_edge(choices[choice_index]):
 		for i in range(choices.size()):
 			if i != choice_index and not _is_back_edge(choices[i]) and (not picked.has(i) or choices[i].get("reselectable", false) == true):

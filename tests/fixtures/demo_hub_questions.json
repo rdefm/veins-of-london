@@ -5,14 +5,18 @@
     { "type": "narration", "label": "Demo — Hub", "speaker": null, "text": "The man at the counter has the look of someone who has answered these questions before and will answer them again." },
     {
       "type": "choice", "label": null, "speaker": null, "text": "He waits. The kettle does not.",
+      "advance": "all",
       "choices": [
         { "label": "Ask about the lease", "effects": [], "result_text": null, "goto": 2 },
         { "label": "Ask about the neighbours", "effects": [], "result_text": null, "goto": 3 },
-        { "label": "No more questions", "effects": [], "result_text": null, "goto": 4 }
+        { "label": "Ask about the roof", "reselectable": true, "effects": [], "result_text": null, "goto": 5 },
+        { "label": "Take the keys", "exit": true, "effects": [], "result_text": null, "goto": 6 }
       ]
     },
     { "type": "speaker", "label": null, "speaker": "Landlord", "text": "\"Twelve months. Break clause if the roof does.\"", "goto": 1 },
-    { "type": "speaker", "label": null, "speaker": "Landlord", "text": "\"Quiet. Mostly. Number nine plays the cello at three in the morning.\"", "goto": 1 },
+    { "type": "speaker", "label": null, "speaker": "Landlord", "text": "\"Quiet. Mostly.\"" },
+    { "type": "speaker", "label": null, "speaker": "Landlord", "text": "\"Number nine plays the cello at three in the morning.\"", "goto": 1 },
+    { "type": "speaker", "label": null, "speaker": "Landlord", "text": "\"Holds. Don't look at it.\"", "goto": 1 },
     { "type": "narration", "label": null, "speaker": null, "text": "You take the keys. They are warmer than they should be." }
   ]
 }

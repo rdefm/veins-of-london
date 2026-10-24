@@ -387,6 +387,40 @@ func run() -> void:
 		GameData.EVENTS = original_events
 	)
 
+	run_case("a_hub_exit_option_is_the_footer_arrow_once_its_rule_is_met", func():
+		GameState.reset()
+		var original_events: Dictionary = GameData.EVENTS
+		var f := FileAccess.open("res://tests/fixtures/demo_hub_questions.json", FileAccess.READ)
+		GameData.EVENTS = original_events.duplicate()
+		GameData.EVENTS["demo_hub_questions"] = JSON.parse_string(f.get_as_text())
+		f.close()
+		Events.start_event("demo_hub_questions")
+		Events.advance()
+		Events.advance()  # past the hub prompt to the option step
+
+		var screen := _fresh_screen()
+		assert_eq(_button_with_text(screen, "Take the keys"), null, "the exit isn't a button row")
+		assert_eq(_options_of(screen).get_children().size(), 3, "three questions")
+		assert_eq(screen.find_children("HubExitButton", "Button", true, false).size(), 0, "→ hidden until all asked")
+
+		Events.choose(0)
+		Events.advance()
+		Events.choose(1)
+		Events.advance()
+		Events.advance()
+		Events.choose(2)
+		Events.advance()
+		Events.advance()
+		screen = _fresh_screen()
+		var ticked: Button = _button_with_text(screen, "✓ Ask about the roof")
+		assert_true(ticked != null and not ticked.disabled, "reselectable question is ticked and pressable")
+		var exit_buttons := screen.find_children("HubExitButton", "Button", true, false)
+		assert_eq(exit_buttons.size(), 1, "→ shown once all asked")
+		exit_buttons[0].pressed.emit()
+		assert_true(not Events.is_awaiting_choice(), "→ takes the exit option")
+		GameData.EVENTS = original_events
+	)
+
 	run_case("a_check_resolution_card_carries_a_subtle_outcome_marker", func():
 		GameState.reset()
 		var original_events := _install_check_event()

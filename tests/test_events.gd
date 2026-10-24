@@ -100,6 +100,15 @@ func _install_attempts_check_event(p: float, attempts: int) -> Dictionary:
 # reason) and jumps to card 3; option 1 needs secretFlag (hidden); option 2
 # is plain; option 3 is a sure check whose success jumps to card 3. Card 2
 # is the branch a goto skips.
+func _install_demo_hub() -> Dictionary:
+	var original_events: Dictionary = GameData.EVENTS
+	var f := FileAccess.open("res://tests/fixtures/demo_hub_questions.json", FileAccess.READ)
+	GameData.EVENTS = original_events.duplicate()
+	GameData.EVENTS["demo_hub_questions"] = JSON.parse_string(f.get_as_text())
+	f.close()
+	return original_events
+
+
 func _install_gated_event() -> Dictionary:
 	var original_events: Dictionary = GameData.EVENTS
 	GameData.EVENTS = GameData.EVENTS.duplicate()
@@ -1110,9 +1119,10 @@ func run() -> void:
 		Events.start_event("test_gated_event")
 		Events.advance()
 		var snapshots_before: int = GameState.state["event"]["snapshots"].size()
-		assert_eq(Events.option_gate(0), { "display": "disable", "reason": "Needs £50" })
+		assert_eq(Events.option_gate(0)["display"], "disable")
+		assert_eq(Events.option_gate(0)["reason"], "Needs £50")
 		assert_eq(Events.option_gate(1)["display"], "hide", "display defaults to hide")
-		assert_eq(Events.option_gate(2), { "display": "show", "reason": "" }, "no requires: shows")
+		assert_eq(Events.option_gate(2)["display"], "show", "no requires: shows")
 		Events.choose(0)
 		Events.choose(1)
 		assert_true(Events.is_awaiting_choice(), "neither gated option commits")
@@ -1276,26 +1286,76 @@ func run() -> void:
 		GameData.EVENTS = original_events
 	)
 
-	run_case("the_demo_hub_event_asks_both_questions_then_advances", func():
+	run_case("the_demo_hub_event_asks_all_questions_then_the_exit_opens", func():
 		GameState.reset()
-		var f := FileAccess.open("res://tests/fixtures/demo_hub_questions.json", FileAccess.READ)
-		var original_events := GameData.EVENTS
-		GameData.EVENTS = original_events.duplicate()
-		GameData.EVENTS["demo_hub_questions"] = JSON.parse_string(f.get_as_text())
-		f.close()
+		var original_events := _install_demo_hub()
 		Events.start_event("demo_hub_questions")
 		Events.advance()
 		assert_true(Events.is_awaiting_choice(), "at the hub")
-		Events.choose(0)  # lease
-		Events.advance()  # answer -> back to the hub
-		assert_true(Events.is_awaiting_choice(), "hub again")
-		assert_eq(Events.option_gate(0)["display"], "hide", "asked question hidden")
-		Events.choose(1)  # neighbours
+		assert_eq(Events.hub_exit_index(), 3, "exit option found")
+		assert_true(not Events.hub_exit_available(), "advance 'all': exit hidden at first")
+		Events.choose(3)
+		assert_true(Events.is_awaiting_choice(), "a locked exit can't be committed")
+		Events.choose(0)  # lease: one-card branch
 		Events.advance()
-		assert_true(Events.is_awaiting_choice(), "hub a third time")
-		Events.choose(2)  # No more questions: null result_text goes straight to the closing card
+		assert_true(Events.is_awaiting_choice(), "hub again")
+		assert_eq(Events.option_gate(0)["display"], "hide", "asked one-shot removed")
+		Events.choose(1)  # neighbours: two-card branch
+		Events.advance()
+		Events.advance()
+		assert_true(Events.is_awaiting_choice(), "two-card branch returns to the hub")
+		assert_true(not Events.hub_exit_available(), "the reselectable roof question is still unasked")
+		Events.choose(2)  # roof
+		Events.advance()
+		assert_true(Events.hub_exit_available(), "all asked: exit open")
+		assert_eq(Events.option_gate(2)["display"], "show", "reselectable stays")
+		assert_true(Events.option_gate(2)["asked"], "reselectable marked asked")
+		Events.choose(3)
 		assert_true(not Events.is_awaiting_choice(), "past the hub")
 		assert_true(_texts(Events.revealed_cards()).has("You take the keys. They are warmer than they should be."), "closing card reached")
+		GameData.EVENTS = original_events
+	)
+
+	run_case("a_hub_advance_rule_of_n_opens_the_exit_after_n_questions", func():
+		GameState.reset()
+		var original_events := _install_demo_hub()
+		GameData.EVENTS["demo_hub_questions"]["cards"][1]["advance"] = 1
+		Events.start_event("demo_hub_questions")
+		Events.advance()
+		assert_true(not Events.hub_exit_available(), "none asked")
+		Events.choose(0)
+		Events.advance()
+		assert_true(Events.hub_exit_available(), "one asked meets N=1")
+		GameData.EVENTS["demo_hub_questions"]["cards"][1]["advance"] = "anytime"
+		assert_true(Events.hub_exit_available(), "anytime")
+		GameData.EVENTS = original_events
+	)
+
+	run_case("an_unmeetable_hub_advance_rule_still_shows_the_exit", func():
+		GameState.reset()
+		var original_events := _install_demo_hub()
+		GameData.EVENTS["demo_hub_questions"]["cards"][1]["advance"] = 9
+		Events.start_event("demo_hub_questions")
+		Events.advance()
+		assert_true(Events.hub_exit_available(), "exit opens despite N=9 > 3 questions")
+		GameData.EVENTS = original_events
+	)
+
+	run_case("a_reasked_hub_question_does_not_refire_its_effects", func():
+		GameState.reset()
+		var original_events := _install_demo_hub()
+		var roof: Dictionary = GameData.EVENTS["demo_hub_questions"]["cards"][1]["choices"][2]
+		roof["effects"] = [{ "op": "add", "path": "player.cash", "value": 5 }]
+		var before: int = GameState.state["player"]["cash"]
+		Events.start_event("demo_hub_questions")
+		Events.advance()
+		Events.choose(2)
+		Events.advance()
+		assert_eq(GameState.state["player"]["cash"], before + 5, "first ask fires")
+		Events.choose(2)
+		Events.advance()
+		assert_eq(GameState.state["player"]["cash"], before + 5, "second ask doesn't re-fire")
+		assert_true(GameState.state["event"]["picked"]["1"].has(2), "asked set is plain state data")
 		GameData.EVENTS = original_events
 	)
 
