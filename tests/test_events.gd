@@ -483,6 +483,24 @@ func run() -> void:
 		assert_eq(GameState.state["player"], snapshot, "nothing to cultivate, nothing crashes or mutates")
 	)
 
+	run_case("continue_on_a_choice_prompt_enters_the_option_step_without_resolving", func():
+		GameState.reset()
+		var original_events := _install_choice_event()
+
+		Events.start_event("test_choice_event")
+		assert_true(not Events.is_choosing(), "a narration card isn't choosing")
+		Events.advance()
+		assert_true(not Events.is_choosing(), "a choice card starts at its prompt")
+		var snapshots_before: int = GameState.state["event"]["snapshots"].size()
+		Events.advance()
+		assert_true(Events.is_choosing() and Events.is_awaiting_choice(), "Continue swaps to the options")
+		assert_eq(GameState.state["event"]["snapshots"].size(), snapshots_before, "the swap takes no snapshot")
+		Events.choose(0)
+		assert_true(not Events.is_choosing(), "a pick ends the option step")
+
+		GameData.EVENTS = original_events
+	)
+
 	run_case("is_awaiting_choice_true_only_on_an_unresolved_choice_card", func():
 		GameState.reset()
 		var original_events := _install_choice_event()

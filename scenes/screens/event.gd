@@ -4,11 +4,6 @@ extends Control
 const VN_TEXT_FRAME_HEIGHT := 236.0
 const VN_BOTTOM_MARGIN := 8.0  # outer frame padding, also the image/text gap
 const ACTION_SEPARATION := 8
-# Horizontal gutters around a control row: the 16px screen margin each side
-# plus the outer frame's padding each side, then the text card's own 16px
-# content margin each side.
-const SCREEN_GUTTER_H := 32.0 + 2.0 * VN_BOTTOM_MARGIN
-const VN_CARD_PADDING_H := 32.0
 
 const _CALC_GOLD_FALLBACK := Color("#d4af52")
 const _CALC_GOLD_LIGHT_FALLBACK := Color("#f2dfa0")
@@ -87,54 +82,38 @@ func _populate_card_text(content: VBoxContainer, card: Dictionary) -> void:
 		_:
 			content.add_child(UI.label(card["text"]))
 
-func _controls_box() -> BoxContainer:
-	var box := BoxContainer.new()
+func _footer_box() -> BoxContainer:
+	var box := HBoxContainer.new()
 	box.add_theme_constant_override("separation", ACTION_SEPARATION)
 	return box
 
-# Fills `box` with the Item button (when anything is usable) and either the
-# choices or Continue. Choices stay in one row with Item when they all fit
-# `available_width`; otherwise the box turns vertical, one full-width choice
-# per line. Returns the controls added, in order.
-func _fill_controls(box: BoxContainer, available_width: float, continue_text: String) -> Array:
-	var controls: Array = []
-	var item_button: Button = _build_item_button() if EventItems.has_usable() else null
-	if item_button != null:
-		controls.append(item_button)
+# The option step of a choice card: one full-width button per option (a gated
+# option hidden or greyed with its reason), stacked in `box`.
+func _fill_options(box: VBoxContainer) -> void:
+	var choices: Array = Events.current_card()["choices"]
+	for i in range(choices.size()):
+		var gate: Dictionary = Events.option_gate(i)
+		match gate["display"]:
+			"show":
+				box.add_child(_build_choice_button(choices[i]["label"], i))
+			"disable":
+				box.add_child(_build_disabled_option(choices[i]["label"], gate["reason"]))
 
-	box.vertical = false
-	if Events.is_awaiting_choice():
-		var choices: Array = Events.current_card()["choices"]
-		for i in range(choices.size()):
-			var gate: Dictionary = Events.option_gate(i)
-			match gate["display"]:
-				"show":
-					controls.append(_build_choice_button(choices[i]["label"], i))
-				"disable":
-					controls.append(_build_disabled_option(choices[i]["label"], gate["reason"]))
-		var widths: Array = controls.map(func(c: Control) -> float: return c.get_combined_minimum_size().x)
-		box.vertical = not fits_in_row(widths, ACTION_SEPARATION, available_width)
-		if box.vertical and item_button != null:
-			item_button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	elif continue_text == "→":
+# Fills the footer `box`: the Item icon on the left when anything is usable,
+# → on the right except on the option step. Returns the controls added; empty
+# means the footer collapses.
+func _fill_footer(box: BoxContainer) -> Array:
+	var controls: Array = []
+	if EventItems.has_usable():
+		controls.append(_build_item_button())
+	if not Events.is_choosing():
 		var spacer := Control.new()
 		spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		controls.append(spacer)
-		controls.append(_build_continue_button(continue_text))
-	else:
-		var continue_button := _build_continue_button(continue_text)
-		continue_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		controls.append(continue_button)
-
+		controls.append(_build_continue_button("→"))
 	for c in controls:
 		box.add_child(c)
 	return controls
-
-static func fits_in_row(widths: Array, separation: float, available_width: float) -> bool:
-	var total: float = separation * maxf(widths.size() - 1, 0)
-	for w in widths:
-		total += w
-	return total <= available_width
 
 func _screen_width() -> float:
 	if is_inside_tree():
@@ -142,7 +121,9 @@ func _screen_width() -> float:
 	return float(ProjectSettings.get_setting("display/window/size/viewport_width", 390))
 
 func _build_item_button() -> Button:
-	var b := UI.button("Item", func(): pass)
+	var b := UI.icon_button(Icons.draw_bag, func(): pass)
+	b.name = "ItemButton"
+	b.tooltip_text = "Item"
 	b.pressed.connect(func(): _toggle_item_menu(b))
 	_style_action_button(b)
 	return b
@@ -461,13 +442,19 @@ func _refresh_vn_card() -> void:
 	_vn_text_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_vn_text_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_vn_text_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-	var prose := UI.vbox(8)
-	prose.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_populate_card_text(prose, card)
-	_vn_text_scroll.add_child(prose)
+	var body := UI.vbox(8)
+	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if Events.is_choosing():
+		_fill_options(body)
+	else:
+		_populate_card_text(body, card)
+	_vn_text_scroll.add_child(body)
 	built["content"].add_child(_vn_text_scroll)
 
-	_vn_controls_row = _controls_box()
-	var controls: Array = _fill_controls(_vn_controls_row, _screen_width() - SCREEN_GUTTER_H - VN_CARD_PADDING_H, "→")
-	built["content"].add_child(_vn_controls_row)
+	_vn_controls_row = _footer_box()
+	if _fill_footer(_vn_controls_row).is_empty():
+		_vn_controls_row.free()  # the footer collapses; the buttons take the full height
+		_vn_controls_row = null
+	else:
+		built["content"].add_child(_vn_controls_row)
 	_vn_card_box.add_child(_vn_card_panel)

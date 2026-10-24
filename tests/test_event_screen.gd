@@ -118,8 +118,15 @@ func _button_with_text(root: Node, text: String) -> Button:
 	return null
 
 
-func _controls_of(screen: EventScreen) -> BoxContainer:
-	return screen._vn_controls_row
+func _item_button(root: Node) -> Button:
+	for b in root.find_children("ItemButton", "Button", true, false):
+		return b
+	return null
+
+
+# The stacked option buttons the card shows on a choice card's option step.
+func _options_of(screen: EventScreen) -> VBoxContainer:
+	return screen._vn_text_scroll.get_child(0)
 
 
 func run() -> void:
@@ -267,9 +274,10 @@ func run() -> void:
 		GameState.state["flags"]["screenFlag"] = true
 		var original_events := _install_check_event("odds")
 		Events.start_event("test_screen_check_event")
+		Events.advance()  # -> option step
 
 		var screen := _fresh_screen()
-		var controls := screen._vn_controls_row.get_children()
+		var controls := _options_of(screen).get_children()
 		assert_eq(controls.size(), 2)
 		var buttons: Array = controls[0].find_children("", "Button", true, false)
 		assert_eq(buttons.size(), 2, "check option: choice button + info control")
@@ -287,8 +295,9 @@ func run() -> void:
 		GameState.reset()
 		var original_events := _install_check_event("hint")
 		Events.start_event("test_screen_check_event")
+		Events.advance()
 		var screen := _fresh_screen()
-		var buttons: Array = screen._vn_controls_row.get_children()[0].find_children("", "Button", true, false)
+		var buttons: Array = _options_of(screen).get_children()[0].find_children("", "Button", true, false)
 		assert_eq(buttons[0].text, "Push · Even")
 		GameData.EVENTS = original_events
 	)
@@ -297,8 +306,9 @@ func run() -> void:
 		GameState.reset()
 		var original_events := _install_check_event("hidden")
 		Events.start_event("test_screen_check_event")
+		Events.advance()
 		var screen := _fresh_screen()
-		var first: Control = screen._vn_controls_row.get_children()[0]
+		var first: Control = _options_of(screen).get_children()[0]
 		assert_true(first is Button, "a lone button, no info control")
 		assert_eq((first as Button).text, "Push")
 		GameData.EVENTS = original_events
@@ -311,13 +321,14 @@ func run() -> void:
 			{ "item": "prophetsBreath", "optional": true, "consume": true, "add": 0.25, "label": "Breath" },
 		]
 		Events.start_event("test_screen_check_event")
+		Events.advance()
 
 		var none_held: Button = _button_with_text(_fresh_screen(), "Prophet's Breath · none on you")
 		assert_true(none_held != null and none_held.disabled, "unavailable toggle shown disabled")
 
 		Crafting.inventory_add("prophetsBreath", 1, 1)
 		var screen := _fresh_screen()
-		var option: Control = screen._vn_controls_row.get_children()[0]
+		var option: Control = _options_of(screen).get_children()[0]
 		var toggle: Button = _button_with_text(option, "Use Prophet's Breath · +25%")
 		assert_true(toggle != null, "toggle sits inside the option's own stack")
 		assert_true(toggle.toggle_mode and not toggle.button_pressed and not toggle.disabled)
@@ -338,9 +349,10 @@ func run() -> void:
 		choices.append({ "label": "Bribe the doorman", "requires": { "cash": { "atLeast": 50 }, "display": "disable", "reason": "Needs £50 — the doorman doesn't do favours" }, "effects": [], "result_text": "Paid." })
 		choices.append({ "label": "Secret door", "requires": { "flag": "secretFlag", "display": "hide" }, "effects": [], "result_text": "Secret." })
 		Events.start_event("test_screen_check_event")
+		Events.advance()
 
 		var screen := _fresh_screen()
-		assert_eq(screen._vn_controls_row.get_children().size(), 3, "Push, Leave and the disabled option; the hidden one isn't rendered")
+		assert_eq(_options_of(screen).get_children().size(), 3, "Push, Leave and the disabled option; the hidden one isn't rendered")
 		assert_eq(_button_with_text(screen, "Secret door"), null)
 		var bribe: Button = _button_with_text(screen, "Bribe the doorman")
 		assert_true(bribe != null and bribe.disabled, "disabled option renders greyed")
@@ -373,6 +385,7 @@ func run() -> void:
 		var original_events := _install_check_event("odds")
 		GameData.EVENTS["test_screen_check_event"]["cards"][0]["choices"][0]["check"]["attempts"] = 2
 		Events.start_event("test_screen_check_event")
+		Events.advance()
 		assert_true(_button_with_text(_fresh_screen(), "Push · 2 tries · 40%") != null)
 		GameData.EVENTS = original_events
 	)
@@ -434,10 +447,11 @@ func run() -> void:
 		Events.advance()
 		Events.advance()
 		Events.advance()  # -> choice, awaiting pick
+		Events.advance()  # -> option step
 
 		var screen := _fresh_screen()
-		var buttons := screen._vn_controls_row.find_children("", "Button", true, false)
-		assert_eq(buttons.size(), 2, "one button per choice, no Continue while awaiting a pick")
+		var buttons := _options_of(screen).find_children("", "Button", true, false)
+		assert_eq(buttons.size(), 2, "one button per choice")
 		var accent: Color = GameData.PALETTE["ui_action_red"]
 		for b in buttons:
 			assert_eq(b.get_theme_color("font_color"), accent, "each choice button should read in ui_action_red")
@@ -453,7 +467,7 @@ func run() -> void:
 		Events.advance()  # pushes a snapshot, makes Rewind available
 
 		var screen := _fresh_screen()
-		var item_button := _button_with_text(screen._vn_controls_row, "Item")
+		var item_button := _item_button(screen._vn_controls_row)
 		assert_true(item_button != null, "Item should be offered once a snapshot exists and a rewind charge is in hand")
 		assert_true(_button_with_text(screen._vn_controls_row, "⟲ Rewind") == null, "no standalone Rewind button remains")
 		var accent: Color = GameData.PALETTE["ui_action_red"]
@@ -638,10 +652,11 @@ func run() -> void:
 		Events.advance()  # -> tension
 		Events.advance()  # -> craft
 		Events.advance()  # -> choice, awaiting pick
+		Events.advance()  # -> option step
 
 		var screen := _fresh_screen()
 		var buttons := screen._vn_card_panel.find_children("", "Button", true, false)
-		assert_eq(buttons.size(), 2, "one button per choice, no Continue arrow while awaiting a pick")
+		assert_eq(buttons.size(), 2, "one button per choice, no Continue arrow on the option step")
 		var texts: Array = buttons.map(func(b): return b.text)
 		assert_true(texts.has("With image") and texts.has("No image"), "both choice labels should render")
 		var accent: Color = GameData.PALETTE["ui_action_red"]
@@ -659,7 +674,7 @@ func run() -> void:
 		Events.advance()  # pushes a snapshot, makes Rewind available
 
 		var screen := _fresh_screen()
-		var item_button := _button_with_text(screen._vn_card_panel, "Item")
+		var item_button := _item_button(screen._vn_card_panel)
 		assert_true(item_button != null, "Item should be attached to the box once a snapshot exists and a rewind charge is in hand")
 		assert_true(_button_with_text(screen._vn_card_panel, "⟲ Rewind") == null, "no standalone Rewind button remains")
 		var accent: Color = GameData.PALETTE["ui_action_red"]
@@ -690,7 +705,7 @@ func run() -> void:
 		Events.start_event("test_screen_event")
 
 		var screen := _fresh_screen()
-		assert_true(_button_with_text(screen._vn_controls_row, "Item") == null, "nothing to rewind to yet")
+		assert_true(_item_button(screen._vn_controls_row) == null, "nothing to rewind to yet")
 
 		GameData.EVENTS = original_events
 	)
@@ -702,12 +717,12 @@ func run() -> void:
 		Events.advance()
 
 		var screen := _fresh_screen()
-		assert_true(_button_with_text(screen._vn_controls_row, "Item") == null)
+		assert_true(_item_button(screen._vn_controls_row) == null)
 		var vn_original := _install_vn_event()
 		Events.start_event("test_vn_event")
 		Events.advance()
 		var vn_screen := _fresh_screen()
-		assert_true(_button_with_text(vn_screen._vn_card_panel, "Item") == null, "VN layout hides it too")
+		assert_true(_item_button(vn_screen._vn_card_panel) == null, "VN layout hides it too")
 
 		GameData.EVENTS = original_events
 	)
@@ -720,7 +735,7 @@ func run() -> void:
 		Events.advance()  # -> card 1
 
 		var screen := _fresh_screen()
-		_button_with_text(screen._vn_controls_row, "Item").pressed.emit()
+		_item_button(screen._vn_controls_row).pressed.emit()
 		assert_true(is_instance_valid(screen._item_menu), "tapping Item opens the popup")
 		var entry := _button_with_text(screen._item_menu, "Rewind ×2")
 		assert_true(entry != null, "consumable entry shows its inventory qty")
@@ -744,7 +759,7 @@ func run() -> void:
 		Events.advance()  # -> card 1
 
 		var screen := _fresh_screen()
-		_button_with_text(screen._vn_card_panel, "Item").pressed.emit()
+		_item_button(screen._vn_card_panel).pressed.emit()
 		var entry := _button_with_text(screen._item_menu, "Rewind (Dial) · 2 charges")
 		assert_true(entry != null, "Dial entry shows its remaining charges")
 		assert_true(_button_with_text(screen._item_menu, "Rewind ×0") == null, "no consumable entry without stock")
@@ -755,13 +770,7 @@ func run() -> void:
 		GameData.EVENTS = original_events
 	)
 
-	run_case("fits_in_row_sums_widths_and_separators", func():
-		assert_true(EventScreen.fits_in_row([100.0, 100.0], 8, 208.0))
-		assert_true(not EventScreen.fits_in_row([100.0, 100.0], 8, 207.0))
-		assert_true(EventScreen.fits_in_row([], 8, 0.0))
-	)
-
-	run_case("two_short_choices_plus_item_stay_in_one_row", func():
+	run_case("a_choice_card_plays_prompt_then_buttons_only", func():
 		GameState.reset()
 		GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
 		var original_events := _install_full_card_event()
@@ -769,9 +778,54 @@ func run() -> void:
 		for i in range(4):
 			Events.advance()  # -> choice
 
+		var prompt := _fresh_screen()
+		assert_true(not Events.is_choosing())
+		assert_true(_button_with_text(prompt._vn_card_panel, "First option") == null, "no option buttons on the prompt step")
+		assert_true(_button_with_text(prompt._vn_controls_row, "→") != null, "→ continues to the options")
+		assert_true(_item_button(prompt._vn_controls_row) != null, "Item icon in the footer")
+		var prompt_texts: Array = prompt._vn_card_panel.find_children("", "Label", true, false).map(func(l): return l.text)
+		assert_true(prompt_texts.has("Pick one."))
+
+		Events.advance()
+		assert_true(Events.is_choosing())
+		assert_true(Events.is_awaiting_choice(), "→ never resolves the card")
+		var options := _fresh_screen()
+		assert_eq(options._vn_card_panel.find_children("", "Label", true, false).size(), 0, "no event text on the option step")
+		assert_true(_button_with_text(options._vn_card_panel, "→") == null, "no → on the option step")
+		assert_true(_item_button(options._vn_controls_row) != null, "Item icon stays on the option step")
+		assert_eq(_options_of(options).get_children().size(), 2)
+
+		GameData.EVENTS = original_events
+	)
+
+	run_case("the_footer_collapses_when_neither_item_nor_arrow_shows", func():
+		GameState.reset()
+		var original_events := _install_full_card_event()
+		Events.start_event("test_screen_event")
+		for i in range(5):
+			Events.advance()  # -> option step, no usable item
+
 		var screen := _fresh_screen()
-		assert_true(not screen._vn_controls_row.vertical, "Item + two short choices fit at phone width")
-		assert_eq(screen._vn_controls_row.get_children().size(), 3)
+		assert_true(screen._vn_controls_row == null, "no footer row")
+		assert_eq(_options_of(screen).get_children().size(), 2)
+
+		GameData.EVENTS = original_events
+	)
+
+	run_case("the_option_step_survives_rewind_and_a_save_copy", func():
+		GameState.reset()
+		GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
+		var original_events := _install_full_card_event()
+		Events.start_event("test_screen_event")
+		for i in range(5):
+			Events.advance()  # -> option step
+		var copy: Dictionary = GameState.deep_copy(GameState.state)
+		assert_true(copy["event"]["choosing"], "step is plain data in the state tree")
+
+		Events.choose(0)
+		assert_true(not Events.is_choosing(), "a resolved card isn't choosing")
+		Events.rewind("consumable")
+		assert_true(Events.is_choosing(), "rewinding a pick returns to the option step")
 
 		GameData.EVENTS = original_events
 	)
@@ -784,10 +838,10 @@ func run() -> void:
 			for i in range(3):
 				Events.advance()  # -> choice
 			assert_true(Events.is_awaiting_choice(), "sanity: on the choice card")
+			Events.advance()  # -> option step
 
 			var screen := _fresh_screen()
-			var box := _controls_of(screen)
-			assert_true(box.vertical, "3 choices + Item don't fit one row -- they stack")
+			var box := _options_of(screen)
 			var labels: Array = Events.current_card()["choices"].map(func(c): return c["label"])
 			for label in labels:
 				var b := _button_with_text(box, label)
@@ -805,11 +859,11 @@ func run() -> void:
 			{ "label": "And a long third option too", "effects": [], "result_text": "Three." },
 		]
 		Events.start_event("test_vn_event")
-		for i in range(3):
-			Events.advance()  # -> choice
+		for i in range(4):
+			Events.advance()  # -> choice, then the option step
 
 		var screen := _fresh_screen()
-		assert_true(screen._vn_controls_row.vertical)
+		assert_eq(_options_of(screen).get_children().size(), 3)
 		assert_eq(screen._vn_text_frame.offset_bottom - screen._vn_text_frame.offset_top, EventScreen.VN_TEXT_FRAME_HEIGHT, "stacked choices don't resize the text box")
 		assert_eq(screen._vn_image_frame.offset_bottom, screen._vn_text_frame.offset_top - EventScreen.VN_BOTTOM_MARGIN, "image height unchanged by the stack")
 

@@ -9,7 +9,9 @@ extends RefCounted
 # index, or a conditional list [{if, card}, ..., {card}]) or `end: true`
 # (R§3.9a "Goto"); an option/outcome goto takes precedence over both.
 # Events: {id, cards, on_complete:[effect]}. state.event holds runtime
-# progress: {eventId, cardIndex, snapshots, choiceResults, jumps, rolled, toggles}.
+# progress: {eventId, cardIndex, snapshots, choiceResults, jumps, rolled, toggles,
+# choosing?}. `choosing` is true once Continue was tapped on an unresolved choice
+# card's prompt, so the screen shows its option buttons instead of its text.
 #
 # Any card (including a choice's own "choices" entries) may carry an optional
 # "image" key -- an asset path, or explicit null to clear the event screen's
@@ -21,6 +23,9 @@ const Preferences := preload("res://systems/preferences.gd")
 
 # start_raid_combat's "guards" value meaning "one per guard on the raided vein".
 const RAID_GUARDS_FROM_VEIN := "vein"
+
+# The fixed text box fits this many option buttons; the content lint enforces it.
+const MAX_OPTIONS := 4
 
 
 # context: a raid's target site_id is only known at Raid-button-press time, so
@@ -86,6 +91,12 @@ static func is_awaiting_choice() -> bool:
 	if card["type"] != "choice":
 		return false
 	return not event_state["choiceResults"].has(str(event_state["cardIndex"]))
+
+
+# True on an unresolved choice card once its prompt has been continued past:
+# the screen shows the option buttons only.
+static func is_choosing() -> bool:
+	return is_awaiting_choice() and GameState.state["event"].get("choosing", false)
 
 
 # All cards revealed so far (_visited_indices()). A resolved "choice"
@@ -205,7 +216,12 @@ static func has_rewind_point() -> bool:
 # Continue: snapshots full state, then either reveals the next card or (on the last card) runs on_complete and clears state.event.
 static func advance() -> void:
 	if is_awaiting_choice():
-		return  # a "choice" card must be resolved via choose() before Continue works
+		# Continue on the prompt step swaps to the option buttons; the pick itself
+		# goes through choose(). No snapshot: nothing but the step changes.
+		if not is_choosing():
+			GameState.state["event"]["choosing"] = true
+			EventBus.state_changed.emit()
+		return
 
 	_snapshot_before_mutation()
 	_continue()
@@ -346,6 +362,7 @@ static func choose(choice_index: int) -> void:
 	_snapshot_before_mutation()
 
 	var event_state: Dictionary = GameState.state["event"]
+	event_state.erase("choosing")  # a hub re-entered later starts at its prompt again
 	var card: Dictionary = current_card()
 	var choice: Dictionary = card["choices"][choice_index]
 

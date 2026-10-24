@@ -5,7 +5,8 @@ extends "res://tests/test_base.gd"
 # event's `at`; every `goto` targets a later card in the same event; a card's
 # conditional goto list is well formed; `end` is `true` and never sits beside
 # a card goto; every check mod, `requires` and goto `if` names a known flag, item, contact, state path or
-# remembered choice; no option carries both a fixed result_text and a check.
+# remembered choice; no option carries both a fixed result_text and a check;
+# a choice card has at most Events.MAX_OPTIONS options.
 
 # The opening chain (spec "opening-choices"); its content tickets rewrite
 # these events and shrink KNOWN_OPENING as they go.
@@ -27,7 +28,9 @@ const KNOWN_OTHER := [
 	"vein_raid: card 0 label 'Night work' says 'night' but the event has no at",
 ]
 
-const LABEL_TOKENS := ["weekday", "date", "block", "today"]
+const MAX_OPTIONS := Events.MAX_OPTIONS
+
+const LABEL_TOKENS :=["weekday", "date", "block", "today"]
 
 # Label word -> the `at.block` values it agrees with.
 const BLOCK_WORDS := {
@@ -87,11 +90,16 @@ func run() -> void:
 			{ "type": "text", "label": null, "text": "", "goto": [{ "card": 6 }, { "if": { "flag": "noRouteFlag" }, "card": 3 }, "x", { "if": "nope", "card": 6 }] },
 			{ "type": "text", "label": null, "text": "", "goto": [{ "if": { "flag": "noRouteFlag" } }] },
 			{ "type": "text", "label": null, "text": "" },
+			{ "type": "choice", "label": null, "text": "", "choices": [
+				{ "label": "1", "result_text": "x", "effects": [] }, { "label": "2", "result_text": "x", "effects": [] },
+				{ "label": "3", "result_text": "x", "effects": [] }, { "label": "4", "result_text": "x", "effects": [] },
+				{ "label": "5", "result_text": "x", "effects": [] },
+			] },
 		] }
 		GameData.EVENTS["lint_probe"] = def
 		var found := _lint_event("lint_probe", def, _known_refs())
 		GameData.EVENTS.erase("lint_probe")
-		for fragment in ["unknown token {bogus}", "'tonight' contradicts at.block morning", "hard-codes a day", "goto 0", "result_text and a check", "unknown flag noSuchFlag", "unknown item noSuchItem", "unknown contact nobody", "unknown path player.nope", "unknown option zzz", "goto 9", "card 3 end must be true", "card 3 has both end and goto", "entry 0 has no if but is not last", "entry 1 if: unknown flag noRouteFlag", "entry 1 goto 3", "entry 2 is not an object", "entry 3 if is not a condition", "card 5 goto entry 0 goto <null>"]:
+		for fragment in ["unknown token {bogus}", "'tonight' contradicts at.block morning", "hard-codes a day", "goto 0", "result_text and a check", "unknown flag noSuchFlag", "unknown item noSuchItem", "unknown contact nobody", "unknown path player.nope", "unknown option zzz", "goto 9", "card 3 end must be true", "card 3 has both end and goto", "entry 0 has no if but is not last", "entry 1 if: unknown flag noRouteFlag", "entry 1 goto 3", "entry 2 is not an object", "entry 3 if is not a condition", "card 5 goto entry 0 goto <null>", "card 7 has 5 options (max 4)"]:
 			assert_true(found.any(func(v): return String(v).contains(fragment)), "expected a violation containing '%s' in %s" % [fragment, found])
 	)
 
@@ -149,7 +157,10 @@ func _lint_event(id: String, def: Dictionary, refs: Dictionary) -> Array:
 		if card.get("label") is String:
 			out.append_array(_lint_label(id, i, card["label"], at_block))
 		out.append_array(_lint_card_route(id, i, card, cards, refs))
-		for j in (card.get("choices", []) as Array).size():
+		var option_count: int = (card.get("choices", []) as Array).size()
+		if option_count > MAX_OPTIONS:
+			out.append("%s: card %d has %d options (max %d)" % [id, i, option_count, MAX_OPTIONS])
+		for j in option_count:
 			out.append_array(_lint_option(id, i, j, card["choices"][j], cards, refs))
 	return out
 
