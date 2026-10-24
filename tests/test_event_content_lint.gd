@@ -19,7 +19,6 @@ const OPENING_EVENTS := [
 # allowlist: any violation missing from here fails, and so does an entry
 # the lint does not find.
 const KNOWN_OPENING := [
-	"buyer: card 0 label 'The next morning' says 'morning' but the event has no at",
 ]
 
 # Violations in non-opening events left for their owner to fix.

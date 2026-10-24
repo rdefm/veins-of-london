@@ -16,7 +16,7 @@
         {
           "id": "stand",
           "label": "\"I'll stand there.\"",
-          "effects": [],
+          "effects": [{ "op": "set_flag", "flag": "introBrave", "value": true }],
           "result_text": "You bump the fist. \"Lovely,\" says Archie, and goes back to whistling."
         },
         {
@@ -37,7 +37,7 @@
       ]
     },
     {
-      "type": "choice", "label": null, "speaker": "Archie", "text": "He pulls something from his coat and presses it into your hand: a small glass hourglass, warm. \"One of James's. If it goes bad, break it.\" He doesn't say what it does. He's already watching the road.",
+      "type": "choice", "label": null, "speaker": "Archie", "text": "He pulls something from his pocket and presses it into your hand: a small glass hourglass, warm. \"Keep this to hand. If it goes bad, break it.\" He doesn't say what it does. He's already watching the road.",
       "choices": [
         {
           "id": "takeRewind",
@@ -49,7 +49,7 @@
     },
     { "type": "narration", "label": null, "speaker": null, "text": "The buyers arrive in a grey Vauxhall. Three of them, one more than Archie mentioned. He stops whistling.", "image": "res://assets/events/intro/intro_card6.png" },
     { "type": "tension", "label": "It goes wrong", "speaker": null, "text": "The third man gets out last, in no hurry. The other two straighten up. They call him Nick. He holds out a hand for the Tesco bag, looks in, and hands it back. \"Light.\" Nobody has said a number. One of the others opens a Stanley knife.", "image": "res://assets/events/intro/intro_card7.png" },
-    { "type": "speaker", "label": null, "speaker": "Nick", "text": "He looks you over and takes his time about it. \"New one. Lovely. Stay there, new one. You can watch.\" He's smiling before the sentence is finished." },
+    { "type": "speaker", "label": null, "speaker": "Nick", "text": "He looks you over and takes his time about it. \"New one. Lovely. Stay there, newbie. You can watch.\" He's smiling before the sentence is finished." },
     {
       "type": "choice", "label": null, "speaker": null, "text": "Nick cracks his knuckles, one at a time. Archie edges half a step in front of you.", "image": "res://assets/events/intro/intro_card8.png",
       "choices": [
@@ -63,8 +63,8 @@
         }
       ]
     },
-    { "type": "narration", "label": null, "speaker": null, "text": "The alley, a second earlier. You shout. Archie's forearms are up when Nick's fist arrives, and the punch goes nowhere useful. Something small breaks on the tarmac. Nick slows, mid-sneer. All three do, like a video buffering.", "image": "res://assets/events/intro/intro_card9.png" },
-    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Coming, or what?\"" },
+    { "type": "narration", "label": null, "speaker": null, "text": "Your eyes dart left and right, confused. Adrenaline and fear pump through your body. Your attackers are in a bubble, slowed like a video buffering. Nick is still mid-sneer.", "image": "res://assets/events/intro/intro_card9.png" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "Archie walks calmly but briskly around them. \"Coming, or what?\"" },
     { "type": "narration", "label": "Four streets later", "speaker": null, "text": "A closed launderette. Archie leans on the shutter, eyes streaming, the Tesco bag still hooked on his finger. \"Pub,\" he says." }
   ]
 }

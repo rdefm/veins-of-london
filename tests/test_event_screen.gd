@@ -580,10 +580,10 @@ func run() -> void:
 		Events.start_event("test_vn_event")
 
 		var screen := _fresh_screen()
-		assert_eq(screen._vn_frame.offset_left, 16.0, "the dark outer frame keeps the 16px screen gutter")
-		assert_eq(screen._vn_frame.offset_right, -16.0)
+		assert_eq(screen._vn_frame.offset_left, 0.0, "the dark outer frame runs edge to edge")
+		assert_eq(screen._vn_frame.offset_right, 0.0)
 		assert_eq(screen._vn_frame.offset_top, UI.top_bar_clearance())
-		assert_eq(screen._vn_frame.offset_bottom, -8.0 - UI.safe_area_bottom_inset(), "the usable frame clears the bottom safe area")
+		assert_eq(screen._vn_frame.offset_bottom, -UI.safe_area_bottom_inset(), "the usable frame clears the bottom safe area")
 		assert_eq(screen._vn_text_frame.offset_top, -EventScreen.VN_TEXT_FRAME_HEIGHT - EventScreen.VN_BOTTOM_MARGIN)
 		assert_eq(screen._vn_text_frame.offset_bottom, -EventScreen.VN_BOTTOM_MARGIN)
 		assert_eq(screen._vn_image_frame.offset_bottom, screen._vn_text_frame.offset_top - EventScreen.VN_BOTTOM_MARGIN, "image ends one frame-gap above the text panel")

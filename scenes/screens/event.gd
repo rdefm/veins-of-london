@@ -418,7 +418,6 @@ func _build_vn_frame() -> Control:
 	outer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var outer_style := StyleBoxFlat.new()
 	outer_style.bg_color = _FRAME_COLOR
-	outer_style.set_corner_radius_all(14)
 	outer.add_theme_stylebox_override("panel", outer_style)
 	frame.add_child(outer)
 
@@ -471,10 +470,10 @@ func _build_vn_frame() -> Control:
 func _refresh_vn_frame() -> void:
 	var top: float = UI.top_bar_clearance()
 	var bottom_inset: float = UI.safe_area_bottom_inset()
-	_vn_frame.offset_left = 16.0
-	_vn_frame.offset_right = -16.0
+	_vn_frame.offset_left = 0.0
+	_vn_frame.offset_right = 0.0
 	_vn_frame.offset_top = top
-	_vn_frame.offset_bottom = -8.0 - bottom_inset
+	_vn_frame.offset_bottom = -bottom_inset
 func _refresh_vn_card() -> void:
 	for child in _vn_card_box.get_children():
 		child.queue_free()

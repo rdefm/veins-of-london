@@ -1,26 +1,144 @@
 {
   "id": "buyer",
-  "cards": [
-    { "type": "narration", "label": "The next morning", "speaker": null, "text": "Archie texts an address in Shoreditch and the word \"tonight\". You arrive to find him outside a craft beer bar, looking mildly disgusted by its existence." },
-    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Right. Same calc as the other night — I kept hold of the bag. Buyer's inside. Name's Marcus, finance, collects emotion-type for what he calls 'recreational use'. Don't ask. Just be normal. Or close to it.\"" },
-    { "type": "speaker", "label": null, "speaker": "You", "text": "\"This is the same stuff. From when they tried to rob us.\"" },
-    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Correct. Which is why having two of us is better than one. You're essentially a deterrent. Like a scarecrow. No offence.\"" },
-    { "type": "speaker", "label": null, "speaker": "You", "text": "\"Some offence.\"" },
-    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Noted.\"" },
-    { "type": "narration", "label": null, "speaker": null, "text": "Marcus is exactly what you expected: fleece, Patagonia, very clean trainers. He examines the calc with the careful enthusiasm of someone who has recently read about it online. He pays promptly, which is nice." },
-    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"See? Smooth as you like. Most of them are like Marcus. Professional, prompt, no Stanley knife. That's the market we're targeting.\"" },
-    { "type": "resolution", "label": "Walking back — Shoreditch High Street", "speaker": null, "text": "Archie splits the cash on the pavement outside a Pret. The city moves around you, completely indifferent to any of this. Your share is in the bank before you reach the corner. You open the app and look at the rent line. It's moved. Not far enough." },
-    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"So. I've got a contact who knows a lot more about this than I do. Bloke called James — craftsman, Bermondsey. Takes raw calc and makes things out of it. Your hourglass, for one. I've been meaning to introduce you.\"" },
-    { "type": "speaker", "label": null, "speaker": "You", "text": "\"Sure.\"" },
-    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"I'll set it up. Give me a bell tomorrow.\"" }
-  ],
+  "at": { "block": "evening", "advance": true },
   "on_complete": [
-    { "op": "add", "path": "player.cash", "value": 40 },
     { "op": "set_flag", "flag": "buyerEventSeen", "value": true },
     { "op": "set_stage", "value": "sms_archie" },
-    { "op": "push_message", "contact": "archie", "from": "player", "text": "You mentioned a bloke called James. When can we sort that?" },
-    { "op": "push_message", "contact": "archie", "text": "Already arranged. Tomorrow — SE1 4YA, storage unit behind the Costcutter. Midday." },
+    { "op": "push_message", "contact": "archie", "text": "James says yes. SE1 4YA, storage unit beside the halal supermarket. He's always in." },
     { "op": "queue_pending_message", "contact": "archie", "kind": "james_meeting", "text": "Fair warning: James is the best craftsman I know and also the worst person I know. Don't take it personally. He's like that with everyone." },
     { "op": "set_screen", "screen": "phone" }
+  ],
+  "cards": [
+    { "type": "narration", "label": "{today} — Shoreditch", "speaker": null, "text": "Archie is outside a café full of people in a rush. Archie is looking at the place the way you'd look at a parking fine. One hand stays on his inside pocket." },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Buyer's inside. Marcus. Finance. Wants some emotion-type, for his mood, apparently. Don't ask. Just be normal.\"" },
+    { "type": "speaker", "label": null, "speaker": "You", "text": "\"That's the calc they pulled a knife over.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Correct. Which is why there's two of us. You're a deterrent. Like a scarecrow.\" He considers you. \"No offence.\"" },
+    { "label": null, "type": "speaker", "text": "\"Some offence>\"", "speaker": "You" },
+    { "label": null, "type": "speaker", "text": "\"Fair enough,\" he says with a half smile.", "speaker": "Archie" },
+    {
+      "type": "choice", "label": null, "speaker": "Marcus", "text": "Fleece, Patagonia, very clean trainers. Marcus examines the calc with the careful enthusiasm of someone who has recently read about it online. He puts it down. \"Eighty.\"", "image": "res://assets/events/buyer/buyer_card7.jpg",
+      "choices": [
+        {
+          "id": "takeIt",
+          "label": "Take the £80",
+          "effects": [],
+          "result_text": "You nod. Marcus counts out four twenties and slides them across. Archie pockets them before Marcus can change his mind."
+        },
+        {
+          "id": "pushMore",
+          "label": "Push for more",
+          "check": {
+            "base": 0.4,
+            "mods": [
+              { "flag": "introAskedQuestions", "add": 0.15, "label": "You asked who buys this stuff" },
+              { "flag": "introBrave", "add": 0.1, "label": "You stood in front of a knife" }
+            ],
+            "show": "odds"
+          },
+          "success": {
+            "result_text": "\"It's emotion-type. Nobody's selling it this side of the river.\" Marcus looks at the chip, then at Archie, who says nothing at all. \"A hundred and twenty.\" He pays it.",
+            "effects": [],
+            "goto": 8
+          },
+          "fail": {
+            "result_text": "Marcus's face closes. \"Sixty. Or I've got a guy in Hackney.\" Archie takes the sixty, and gives you a look that costs more.",
+            "effects": [{ "op": "relation", "contact": "archie", "value": -3 }],
+            "goto": 9
+          }
+        },
+        {
+          "id": "archieTalks",
+          "label": "Let Archie talk",
+          "effects": [{ "op": "relation", "contact": "archie", "value": 3 }],
+          "result_text": "Archie talks. Provenance, rarity, a duke you're fairly sure he's made up. Marcus pays eighty and looks pleased to."
+        }
+      ]
+    },
+    {
+      "type": "choice", "label": "Walking back — Shoreditch High Street", "speaker": null, "text": "Archie splits the eighty on the pavement outside a Pret. The city walks round you both.", "image": "res://assets/events/buyer/buyer_card9.jpg",
+      "choices": [
+        {
+          "id": "split",
+          "label": "Pocket £40",
+          "requires": { "choice": { "event": "cold_open", "card": 3, "option": "stand" } },
+          "effects": [{ "op": "add", "path": "player.cash", "value": 40 }],
+          "result_text": "Two twenties. Rent's still due Monday, but it's closer.",
+          "goto": 10
+        },
+        {
+          "id": "splitAsked",
+          "label": "Pocket £40",
+          "requires": { "choice": { "event": "cold_open", "card": 3, "option": "askBuyers" } },
+          "effects": [{ "op": "add", "path": "player.cash", "value": 40 }],
+          "result_text": "Two twenties. Rent's still due Monday, but it's closer.",
+          "goto": 10
+        },
+        {
+          "id": "splitHalf",
+          "label": "Pocket £48",
+          "requires": { "choice": { "event": "cold_open", "card": 3, "option": "wantHalf" } },
+          "effects": [{ "op": "add", "path": "player.cash", "value": 48 }],
+          "result_text": "He counts out forty-eight, slowly, so you can watch him do it. \"Sixty-forty. Your way. As agreed.\"",
+          "goto": 10
+        }
+      ]
+    },
+    {
+      "type": "choice", "label": "Walking back — Shoreditch High Street", "speaker": null, "text": "Archie splits the hundred and twenty on the pavement outside a Pret. The city walks round you both.", "image": "res://assets/events/buyer/buyer_card9.jpg",
+      "choices": [
+        {
+          "id": "split",
+          "label": "Pocket £60",
+          "requires": { "choice": { "event": "cold_open", "card": 3, "option": "stand" } },
+          "effects": [{ "op": "add", "path": "player.cash", "value": 60 }],
+          "result_text": "Three twenties. Rent's still due Monday, but it's closer.",
+          "goto": 10
+        },
+        {
+          "id": "splitAsked",
+          "label": "Pocket £60",
+          "requires": { "choice": { "event": "cold_open", "card": 3, "option": "askBuyers" } },
+          "effects": [{ "op": "add", "path": "player.cash", "value": 60 }],
+          "result_text": "Three twenties. Rent's still due Monday, but it's closer.",
+          "goto": 10
+        },
+        {
+          "id": "splitHalf",
+          "label": "Pocket £72",
+          "requires": { "choice": { "event": "cold_open", "card": 3, "option": "wantHalf" } },
+          "effects": [{ "op": "add", "path": "player.cash", "value": 72 }],
+          "result_text": "He counts out seventy-two, slowly, so you can watch him do it. \"Sixty-forty. Your way. As agreed.\"",
+          "goto": 10
+        }
+      ]
+    },
+    {
+      "type": "choice", "label": "Walking back — Shoreditch High Street", "speaker": null, "text": "Archie splits the cash on the pavement outside a Pret. The city walks round you both.", "image": "res://assets/events/buyer/buyer_card9.jpg",
+      "choices": [
+        {
+          "id": "split",
+          "label": "Pocket £30",
+          "requires": { "choice": { "event": "cold_open", "card": 3, "option": "stand" } },
+          "effects": [{ "op": "add", "path": "player.cash", "value": 30 }],
+          "result_text": "A twenty and a ten. Rent's still due Monday."
+        },
+        {
+          "id": "splitAsked",
+          "label": "Pocket £30",
+          "requires": { "choice": { "event": "cold_open", "card": 3, "option": "askBuyers" } },
+          "effects": [{ "op": "add", "path": "player.cash", "value": 30 }],
+          "result_text": "A twenty and a ten. Rent's still due Monday."
+        },
+        {
+          "id": "splitHalf",
+          "label": "Pocket £36",
+          "requires": { "choice": { "event": "cold_open", "card": 3, "option": "wantHalf" } },
+          "effects": [{ "op": "add", "path": "player.cash", "value": 36 }],
+          "result_text": "He counts out thirty-six, slowly, so you can watch him do it. \"Sixty-forty. Your way. Of sixty.\""
+        }
+      ]
+    },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"See? Professional, prompt, no Stanley knife. Most of them are like Marcus. That's the market we're after.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Next thing. Bloke called James, Bermondsey. Takes raw calc and makes it do things, like that thing I threw in the alley. I'll set it up.\" He's texting before you've answered." }
   ]
 }

@@ -1868,7 +1868,11 @@ func run() -> void:
 		# 2. Buyer event
 		var cash_before: int = GameState.state["player"]["cash"]
 		Events.start_event("buyer")
-		for i in range(GameData.EVENTS["buyer"]["cards"].size()):
+		for step in range(100):
+			if GameState.state["event"] == null:
+				break
+			if Events.is_awaiting_choice():
+				Events.choose(0)
 			Events.advance()
 		assert_eq(GameState.state["player"]["cash"], cash_before + 40, "buyer: cash +40")
 		assert_true(GameState.state["flags"]["buyerEventSeen"], "buyer: buyerEventSeen")
@@ -1877,7 +1881,7 @@ func run() -> void:
 		# in the generic message thread, ending in a pendingMessages entry
 		# that starts james_meeting on Continue.
 		var archie_thread_after_buyer: Array = GameState.state["messages"]["archie"]
-		assert_eq(archie_thread_after_buyer.size(), 3, "buyer: all 3 ARCHIE_SMS_1 lines pushed (2 push_message + the pending entry's own text)")
+		assert_eq(archie_thread_after_buyer.size(), 2, "buyer: ARCHIE_SMS_1 lines pushed (1 push_message + the pending entry's own text)")
 		assert_eq(Messages.pending_for("archie").size(), 1, "buyer: one pending entry queued")
 		assert_eq(Messages.pending_for("archie")[0]["kind"], "james_meeting", "buyer: pending entry starts james_meeting")
 

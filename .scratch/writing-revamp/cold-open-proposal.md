@@ -60,7 +60,13 @@
             {
               "id": "stand",
               "label": "\"I'll stand there.\"",
-              "effects": [],
+              "effects": [
+                {
+                  "op": "set_flag",
+                  "flag": "introBrave",
+                  "value": true
+                }
+              ],
               "result_text": "You bump the fist. \"Lovely,\" says Archie, and goes back to whistling."
             },
             {
@@ -411,6 +417,6 @@
     }
   },
   "_liveSource": "cold_open.json",
-  "_liveHash": "c5254757"
+  "_liveHash": "de4ea172"
 }
 ```

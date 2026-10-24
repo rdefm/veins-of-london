@@ -61,9 +61,9 @@
         }
       ]
     },
-    { "type": "resolution", "label": "Two hours later", "speaker": null, "text": "James wipes the bench down, caps the jar and puts it back on its shelf. Then he slides a battered crafting kit across to you.", "image": "res://assets/events/james_meeting/james_meeting_b21_1.png" },
+    { "type": "resolution", "label": "Two hours later", "speaker": null, "text": "James wipes the bench down, caps the jar and puts it back on its shelf. Then he places a battered crafting kit on the table.", "image": "res://assets/events/james_meeting/james_meeting_b21_1.png" },
     {
-      "type": "choice", "label": null, "speaker": "James", "text": "\"The kit is payment. Whatever's on your side of the bench is yours.\" A pause. \"Keep practising and you may yet make more than a living out of this.\"",
+      "type": "choice", "label": null, "speaker": "James", "text": "\"The kit is payment, along with a sample of the pearls you made today.\" A pause. \"Keep practising and you may yet make more than a living out of this.\"",
       "choices": [
         {
           "id": "leaveTold",

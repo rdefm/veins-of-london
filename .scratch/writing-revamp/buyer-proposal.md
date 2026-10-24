@@ -67,14 +67,14 @@ The cash is granted on the split card only. `on_complete` no longer adds £40.
           "type": "narration",
           "label": "{today} — Shoreditch",
           "speaker": null,
-          "text": "Archie is outside a cocktail bar, looking at it the way you'd look at a parking fine. One hand stays on his inside pocket.",
+          "text": "Archie is outside a café full of people in a rush. Archie is looking at the place the way you'd look at a parking fine. One hand stays on his inside pocket.",
           "key": "c1"
         },
         {
           "type": "speaker",
           "label": null,
           "speaker": "Archie",
-          "text": "\"Buyer's inside. Marcus. Finance. Wants one chip of emotion-type, for his mood, apparently. Don't ask. Just be normal.\"",
+          "text": "\"Buyer's inside. Marcus. Finance. Wants some emotion-type, for his mood, apparently. Don't ask. Just be normal.\"",
           "key": "c2"
         },
         {
@@ -92,10 +92,24 @@ The cash is granted on the split card only. `on_complete` no longer adds £40.
           "key": "c4"
         },
         {
+          "key": "c11",
+          "label": null,
+          "type": "speaker",
+          "text": "\"Some offence>\"",
+          "speaker": "You"
+        },
+        {
+          "key": "c12",
+          "label": null,
+          "type": "speaker",
+          "text": "\"Fair enough,\" he says with a half smile.",
+          "speaker": "Archie"
+        },
+        {
           "type": "choice",
           "label": null,
           "speaker": "Marcus",
-          "text": "Fleece, Patagonia, very clean trainers. Marcus turns the chip over with the careful enthusiasm of someone who has recently read about it online. He puts it down. \"Eighty.\"",
+          "text": "Fleece, Patagonia, very clean trainers. Marcus examines the calc with the careful enthusiasm of someone who has recently read about it online. He puts it down. \"Eighty.\"",
           "image": "res://assets/events/buyer/buyer_card7.jpg",
           "choices": [
             {
@@ -171,7 +185,7 @@ The cash is granted on the split card only. `on_complete` no longer adds £40.
               "label": "Pocket £40",
               "requires": {
                 "choice": {
-                  "event": "intro",
+                  "event": "cold_open",
                   "card": 3,
                   "option": "stand"
                 }
@@ -193,7 +207,7 @@ The cash is granted on the split card only. `on_complete` no longer adds £40.
               "label": "Pocket £40",
               "requires": {
                 "choice": {
-                  "event": "intro",
+                  "event": "cold_open",
                   "card": 3,
                   "option": "askBuyers"
                 }
@@ -215,7 +229,7 @@ The cash is granted on the split card only. `on_complete` no longer adds £40.
               "label": "Pocket £48",
               "requires": {
                 "choice": {
-                  "event": "intro",
+                  "event": "cold_open",
                   "card": 3,
                   "option": "wantHalf"
                 }
@@ -255,7 +269,7 @@ The cash is granted on the split card only. `on_complete` no longer adds £40.
               "label": "Pocket £60",
               "requires": {
                 "choice": {
-                  "event": "intro",
+                  "event": "cold_open",
                   "card": 3,
                   "option": "stand"
                 }
@@ -277,7 +291,7 @@ The cash is granted on the split card only. `on_complete` no longer adds £40.
               "label": "Pocket £60",
               "requires": {
                 "choice": {
-                  "event": "intro",
+                  "event": "cold_open",
                   "card": 3,
                   "option": "askBuyers"
                 }
@@ -299,7 +313,7 @@ The cash is granted on the split card only. `on_complete` no longer adds £40.
               "label": "Pocket £72",
               "requires": {
                 "choice": {
-                  "event": "intro",
+                  "event": "cold_open",
                   "card": 3,
                   "option": "wantHalf"
                 }
@@ -339,7 +353,7 @@ The cash is granted on the split card only. `on_complete` no longer adds £40.
               "label": "Pocket £30",
               "requires": {
                 "choice": {
-                  "event": "intro",
+                  "event": "cold_open",
                   "card": 3,
                   "option": "stand"
                 }
@@ -358,7 +372,7 @@ The cash is granted on the split card only. `on_complete` no longer adds £40.
               "label": "Pocket £30",
               "requires": {
                 "choice": {
-                  "event": "intro",
+                  "event": "cold_open",
                   "card": 3,
                   "option": "askBuyers"
                 }
@@ -377,7 +391,7 @@ The cash is granted on the split card only. `on_complete` no longer adds £40.
               "label": "Pocket £36",
               "requires": {
                 "choice": {
-                  "event": "intro",
+                  "event": "cold_open",
                   "card": 3,
                   "option": "wantHalf"
                 }

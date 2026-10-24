@@ -1,0 +1,153 @@
+# archie_cultivation — imported from data/events/archie_cultivation.json
+
+```json
+{
+  "id": "archie_cultivation",
+  "pin": {
+    "district": "whitechapel",
+    "showWhenFlagsTrue": [
+      "archiePartnerSeen"
+    ],
+    "showWhenFlagsFalse": [
+      "cultivationTutorialSeen"
+    ],
+    "contact": "archie",
+    "phoneLabel": "Go and see Archie about the vein"
+  },
+  "on_complete": [
+    {
+      "op": "tutorial_cultivate"
+    },
+    {
+      "op": "relation",
+      "contact": "archie",
+      "value": 2
+    },
+    {
+      "op": "set_flag",
+      "flag": "cultivationTutorialSeen",
+      "value": true
+    },
+    {
+      "op": "push_message",
+      "contact": "archie",
+      "text": "Monday's the rent. Notes has the sum, Reynard's has what you've got, BizBrief has the day. Check all three before you go to bed."
+    },
+    {
+      "op": "set_screen",
+      "screen": "map"
+    }
+  ],
+  "start": "main",
+  "branches": {
+    "main": {
+      "title": "Start",
+      "cards": [
+        {
+          "type": "narration",
+          "label": "Whitechapel - behind the old brewery",
+          "speaker": null,
+          "text": "Last night's burglar is still on your mind. Archie's waiting at the brick wall with his hands in his pockets, eyes streaming, doing an impression of a man who isn't standing next to a time vein. A hairline crack in the brickwork hums at a frequency you'd ignore if you didn't know what you were listening for.",
+          "key": "c1"
+        },
+        {
+          "type": "speaker",
+          "label": null,
+          "speaker": "Archie",
+          "text": "\"Don't.\" He wipes his face on his sleeve. \"Right. It's yours now, so you should know how it works, not just what the app tells you. Rent's due Monday and a deposit won't save itself, so this has to earn.\"",
+          "key": "c2"
+        },
+        {
+          "type": "speaker",
+          "label": null,
+          "speaker": "Archie",
+          "text": "\"Cultivate and it grows. Harvest and it gives you calc. A light harvest takes a bit and leaves the rest growing. Hard takes more and sets it right back.\"",
+          "key": "c3"
+        },
+        {
+          "type": "speaker",
+          "label": null,
+          "speaker": "Archie",
+          "text": "\"Run a vein all the way down and leave it, and it collapses. The site stays, ready to seed again. It's the vein you lose. So don't get greedy on something you can't afford to lose.\"",
+          "key": "c4"
+        },
+        {
+          "type": "speaker",
+          "label": null,
+          "speaker": "Archie",
+          "text": "\"Go on, put a session in. I'll stand over here, so you don't feel like you're talking to brick.\"",
+          "key": "c5"
+        },
+        {
+          "type": "resolution",
+          "label": null,
+          "speaker": null,
+          "text": "You work the vein the way he showed you. It takes, first go. Beginner's luck, or Archie standing close enough to make failure socially awkward. The glow brightens. Somewhere under Whitechapel, something that used to belong to someone else settles into belonging to you.",
+          "key": "c6"
+        },
+        {
+          "type": "speaker",
+          "label": null,
+          "speaker": "Archie",
+          "text": "\"There. Not complicated. Come back tomorrow and do it again. And don't tell anyone where it is.\"",
+          "key": "c7"
+        }
+      ]
+    }
+  },
+  "_keyOrder": {
+    "top": [
+      "id",
+      "pin",
+      "cards",
+      "on_complete"
+    ],
+    "cards": {
+      "c1": [
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c2": [
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c3": [
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c4": [
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c5": [
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c6": [
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c7": [
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ]
+    }
+  },
+  "_liveSource": "archie_cultivation.json",
+  "_liveHash": "ddc50c26"
+}
+```
