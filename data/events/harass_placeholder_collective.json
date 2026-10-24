@@ -1,49 +1,24 @@
 {
   "id": "harass_placeholder_collective",
   "cards": [
+    { "type": "narration", "label": null, "speaker": null, "text": "PROSE-REVIEW placeholder: a noise complaint, lodged by a neighbour you have never met." },
     {
-      "type": "narration",
-      "label": null,
-      "speaker": null,
-      "text": "PROSE-REVIEW placeholder: a noise complaint, lodged by a neighbour you have never met."
-    },
-    {
-      "type": "choice",
-      "label": null,
-      "speaker": null,
-      "text": "PROSE-REVIEW placeholder: the council would like quiet.",
+      "type": "choice", "label": null, "speaker": null, "text": "PROSE-REVIEW placeholder: the council would like quiet.",
       "choices": [
         {
           "label": "Keep it quiet",
           "effects": [
-            {
-              "op": "harassment_add",
-              "kind": "workBan",
-              "params": {
-                "block": "morning",
-                "days": 7
-              }
-            }
+            { "op": "harassment_add", "kind": "workBan", "params": { "block": "morning", "days": 7 } }
           ],
           "result_text": "PROSE-REVIEW placeholder: no work at the vein in the mornings for a week."
         },
         {
           "label": "Pay it off (£100)",
-          "effects": [
-            {
-              "op": "fine",
-              "amount": 100
-            }
-          ],
+          "effects": [{ "op": "fine", "amount": 100 }],
           "result_text": "PROSE-REVIEW placeholder: the complaint is withdrawn."
         }
       ]
     }
   ],
-  "on_complete": [
-    {
-      "op": "set_screen",
-      "screen": "map"
-    }
-  ]
+  "on_complete": [{ "op": "set_screen", "screen": "map" }]
 }

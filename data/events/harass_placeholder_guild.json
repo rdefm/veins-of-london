@@ -1,59 +1,25 @@
 {
   "id": "harass_placeholder_guild",
   "cards": [
+    { "type": "narration", "label": null, "speaker": null, "text": "PROSE-REVIEW placeholder: a Guild inspector has decertified a batch of your goods." },
     {
-      "type": "narration",
-      "label": null,
-      "speaker": null,
-      "text": "PROSE-REVIEW placeholder: a Guild inspector has decertified a batch of your goods."
-    },
-    {
-      "type": "choice",
-      "label": null,
-      "speaker": null,
-      "text": "PROSE-REVIEW placeholder: the stamp can be bought back, or you can sell at a loss.",
+      "type": "choice", "label": null, "speaker": null, "text": "PROSE-REVIEW placeholder: the stamp can be bought back, or you can sell at a loss.",
       "choices": [
         {
           "label": "Pay the re-inspection fee (£100)",
-          "effects": [
-            {
-              "op": "add",
-              "path": "player.cash",
-              "value": -100
-            }
-          ],
+          "effects": [{ "op": "add", "path": "player.cash", "value": -100 }],
           "result_text": "PROSE-REVIEW placeholder: the batch is recertified."
         },
         {
           "label": "Leave it",
           "effects": [
-            {
-              "op": "harassment_add",
-              "kind": "sellPenalty",
-              "params": {
-                "class": "item",
-                "mult": 0.8,
-                "days": 7
-              }
-            },
-            {
-              "op": "harassment_add",
-              "kind": "shopBar",
-              "params": {
-                "factionId": "guild",
-                "days": 7
-              }
-            }
+            { "op": "harassment_add", "kind": "sellPenalty", "params": { "class": "item", "mult": 0.8, "days": 7 } },
+            { "op": "harassment_add", "kind": "shopBar", "params": { "factionId": "guild", "days": 7 } }
           ],
           "result_text": "PROSE-REVIEW placeholder: your goods sell for less and the Guild shop is shut to you for a week."
         }
       ]
     }
   ],
-  "on_complete": [
-    {
-      "op": "set_screen",
-      "screen": "map"
-    }
-  ]
+  "on_complete": [{ "op": "set_screen", "screen": "map" }]
 }

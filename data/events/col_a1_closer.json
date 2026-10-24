@@ -39,9 +39,7 @@
         },
         {
           "label": "Not yet",
-          "effects": [
-            { "op": "set_flag", "flag": "colA1DeferredJoin", "value": true }
-          ],
+          "effects": [{ "op": "set_flag", "flag": "colA1DeferredJoin", "value": true }],
           "result_text": "\"Fair enough.\" He isn't offended. \"Offer doesn't expire. There's nothing to expire.\""
         }
       ]

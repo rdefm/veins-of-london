@@ -1,17 +1,9 @@
 {
   "id": "inc_war_courting",
   "cards": [
+    { "type": "narration", "label": null, "speaker": null, "text": "PROSE-REVIEW placeholder: Two messages arrive within the hour, from opposite sides of the same war." },
     {
-      "type": "narration",
-      "label": null,
-      "speaker": null,
-      "text": "PROSE-REVIEW placeholder: Two messages arrive within the hour, from opposite sides of the same war."
-    },
-    {
-      "type": "choice",
-      "label": null,
-      "speaker": null,
-      "text": "PROSE-REVIEW placeholder: Each wants you on their side of it.",
+      "type": "choice", "label": null, "speaker": null, "text": "PROSE-REVIEW placeholder: Each wants you on their side of it.",
       "choices": [
         {
           "label": "Hear them both out",
@@ -25,17 +17,7 @@
         }
       ]
     },
-    {
-      "type": "resolution",
-      "label": null,
-      "speaker": null,
-      "text": "PROSE-REVIEW placeholder: London carries on."
-    }
+    { "type": "resolution", "label": null, "speaker": null, "text": "PROSE-REVIEW placeholder: London carries on." }
   ],
-  "on_complete": [
-    {
-      "op": "set_screen",
-      "screen": "phone"
-    }
-  ]
+  "on_complete": [{ "op": "set_screen", "screen": "phone" }]
 }

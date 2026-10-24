@@ -1,30 +1,30 @@
 {
   "id": "home_raid_debrief_loss",
   "cards": [
-    {"type": "tension", "label": "Later", "speaker": null, "text": "You come round on the floor. Your ore is gone. The window is open. The rest of the place looks ransacked, though in hindsight it isn't too dissimilar to how it was before; you should probably tidy up a bit more often."},
-    {"type": "narration", "label": null, "speaker": null, "text": "Archie arrives at seven in the morning. He takes one look at you and puts the coffees down without saying anything for a moment."},
-    {"type": "speaker", "label": null, "speaker": "Archie", "text": "\"Right. How much did they get?\""},
-    {"type": "speaker", "label": null, "speaker": "You", "text": "\"Most of it.\""},
-    {"type": "speaker", "label": null, "speaker": "Archie", "text": "\"Yeah.\" He sits down. \"You alright, though? Properly?\""},
-    {"type": "speaker", "label": null, "speaker": "You", "text": "\"I'm fine.\""},
-    {"type": "speaker", "label": null, "speaker": "Archie", "text": "\"Good. You fought back, and that counts. I've worked with people who'd have handed it over.\" He pauses. \"Some of them were me, early on.\""},
-    {"type": "speaker", "label": null, "speaker": "Archie", "text": "\"But this place is a liability. One lock, a window that doesn't close. It's a service entrance.\""},
-    {"type": "speaker", "label": null, "speaker": "Archie", "text": "\"You need to move. Somewhere with a proper door. That means a deposit, and a deposit means cash. Rent first, obviously. Then the deposit.\""},
-    {"type": "speaker", "label": null, "speaker": "Archie", "text": "\"I'll line you up some help. Des. Best prospector I know, and he's got a use for you. Don't mention the twenty quid.\""},
-    {"type": "speaker", "label": null, "speaker": "Archie", "text": "\"Partners, while I'm here. Security bloke, reasonable price, no paperwork. And the vein I promised: time, Whitechapel. Yours. It needs work before it pays.\""},
-    {"type": "resolution", "label": null, "speaker": null, "text": "He stays until you've eaten something, which you didn't ask for and didn't expect. Then he leaves. You check your phone. There's a pin location. The vein."}
+    { "type": "tension", "label": "Later", "speaker": null, "text": "You come round on the floor. Your ore is gone. The window is open. The rest of the place looks ransacked, though in hindsight it isn't too dissimilar to how it was before; you should probably tidy up a bit more often." },
+    { "type": "narration", "label": null, "speaker": null, "text": "Archie arrives at seven in the morning. He takes one look at you and puts the coffees down without saying anything for a moment." },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Right. How much did they get?\"" },
+    { "type": "speaker", "label": null, "speaker": "You", "text": "\"Most of it.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Yeah.\" He sits down. \"You alright, though? Properly?\"" },
+    { "type": "speaker", "label": null, "speaker": "You", "text": "\"I'm fine.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Good. You fought back, and that counts. I've worked with people who'd have handed it over.\" He pauses. \"Some of them were me, early on.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"But this place is a liability. One lock, a window that doesn't close. It's a service entrance.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"You need to move. Somewhere with a proper door. That means a deposit, and a deposit means cash. Rent first, obviously. Then the deposit.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"I'll line you up some help. Des. Best prospector I know, and he's got a use for you. Don't mention the twenty quid.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Partners, while I'm here. Security bloke, reasonable price, no paperwork. And the vein I promised: time, Whitechapel. Yours. It needs work before it pays.\"" },
+    { "type": "resolution", "label": null, "speaker": null, "text": "He stays until you've eaten something, which you didn't ask for and didn't expect. Then he leaves. You check your phone. There's a pin location. The vein." }
   ],
   "on_complete": [
-    {"op": "set_flag", "flag": "depositGoalTier", "value": "studio"},
-    {"op": "set_flag", "flag": "homeRaidEventSeen", "value": true},
-    {"op": "set_flag", "flag": "homeRaidWon", "value": false},
-    {"op": "set_flag", "flag": "archiePartnerSeen", "value": true},
-    {"op": "set_flag", "flag": "homeUnlocked", "value": true},
-    {"op": "set_flag", "flag": "securityContactUnlocked", "value": true},
-    {"op": "relation", "contact": "archie", "value": 10},
-    {"op": "recruit_contact", "contact": "archie"},
-    {"op": "grant_vein_with_site", "vein": {"oreType": "time", "growth": 20, "rampantDays": 0, "security": "none", "alarmUpgrades": [], "location": "Whitechapel, behind the old brewery", "district": "whitechapel", "hospitability": {"tier": "fair", "bonuses": []}}},
-    {"op": "notify", "text": "HQ's workbench is open now."},
-    {"op": "set_screen", "screen": "phone"}
+    { "op": "set_flag", "flag": "depositGoalTier", "value": "studio" },
+    { "op": "set_flag", "flag": "homeRaidEventSeen", "value": true },
+    { "op": "set_flag", "flag": "homeRaidWon", "value": false },
+    { "op": "set_flag", "flag": "archiePartnerSeen", "value": true },
+    { "op": "set_flag", "flag": "homeUnlocked", "value": true },
+    { "op": "set_flag", "flag": "securityContactUnlocked", "value": true },
+    { "op": "relation", "contact": "archie", "value": 10 },
+    { "op": "recruit_contact", "contact": "archie" },
+    { "op": "grant_vein_with_site", "vein": { "oreType": "time", "growth": 20, "rampantDays": 0, "security": "none", "alarmUpgrades": [], "location": "Whitechapel, behind the old brewery", "district": "whitechapel", "hospitability": { "tier": "fair", "bonuses": [] } } },
+    { "op": "notify", "text": "HQ's workbench is open now." },
+    { "op": "set_screen", "screen": "phone" }
   ]
 }

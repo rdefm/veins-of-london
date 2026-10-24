@@ -1,50 +1,24 @@
 {
   "id": "harass_placeholder",
   "cards": [
+    { "type": "narration", "label": null, "speaker": null, "text": "PROSE-REVIEW placeholder: the lock on your vein has been tampered with. The cameras point at the wall." },
     {
-      "type": "narration",
-      "label": null,
-      "speaker": null,
-      "text": "PROSE-REVIEW placeholder: the lock on your vein has been tampered with. The cameras point at the wall."
-    },
-    {
-      "type": "choice",
-      "label": null,
-      "speaker": null,
-      "text": "PROSE-REVIEW placeholder: it will stay that way until someone pays.",
+      "type": "choice", "label": null, "speaker": null, "text": "PROSE-REVIEW placeholder: it will stay that way until someone pays.",
       "choices": [
         {
           "label": "Pay to put it right (£100)",
-          "effects": [
-            {
-              "op": "add",
-              "path": "player.cash",
-              "value": -100
-            }
-          ],
+          "effects": [{ "op": "add", "path": "player.cash", "value": -100 }],
           "result_text": "PROSE-REVIEW placeholder: you pay. The lock is a lock again."
         },
         {
           "label": "Leave it",
           "effects": [
-            {
-              "op": "harassment_add",
-              "kind": "securityDegrade",
-              "params": {
-                "tiers": 1,
-                "cost": 100
-              }
-            }
+            { "op": "harassment_add", "kind": "securityDegrade", "params": { "tiers": 1, "cost": 100 } }
           ],
           "result_text": "PROSE-REVIEW placeholder: you leave it. The vein is easier to get into now."
         }
       ]
     }
   ],
-  "on_complete": [
-    {
-      "op": "set_screen",
-      "screen": "map"
-    }
-  ]
+  "on_complete": [{ "op": "set_screen", "screen": "map" }]
 }

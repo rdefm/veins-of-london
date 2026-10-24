@@ -2,8 +2,7 @@
   "id": "wren_introduction",
   "cards": [
     { "type": "narration", "label": "The City — the Guild registry", "speaker": null, "text": "The door on the third floor does say STATIONERY. Behind it: a counter, a brass bell, a coat stand with no coats, and a woman writing in a ledger with a fountain pen." },
-    { "type": "speaker", "label": null, "speaker": "Wren", "text": "She finishes the line before she looks up. \"You'll be James's letter. He used the word 'adequate'. From James, that's practically a reference.\"",
-      "goto": [{ "if": { "flag": "wrenMetBeforeIntro" }, "card": 2 }, { "card": 3 }] },
+    { "type": "speaker", "label": null, "speaker": "Wren", "text": "She finishes the line before she looks up. \"You'll be James's letter. He used the word 'adequate'. From James, that's practically a reference.\"", "goto": [{ "if": { "flag": "wrenMetBeforeIntro" }, "card": 2 }, { "card": 3 }] },
     { "type": "speaker", "label": null, "speaker": "Wren", "text": "\"We've already exchanged messages, of course. It's nice to put a face to the file.\"" },
     { "type": "speaker", "label": null, "speaker": "Wren", "text": "She turns the ledger round to face you. \"I'm registering you as an associate. Not a member. Members need a sponsor, a vote and a dinner nobody enjoys. Associates need a signature.\"" },
     { "type": "speaker", "label": null, "speaker": "You", "text": "\"What does an associate get?\"" },

@@ -1,52 +1,22 @@
 {
   "id": "harass_placeholder_conclave",
   "cards": [
+    { "type": "narration", "label": null, "speaker": null, "text": "PROSE-REVIEW placeholder: an injunction, served by hand, concerning one of your veins." },
     {
-      "type": "narration",
-      "label": null,
-      "speaker": null,
-      "text": "PROSE-REVIEW placeholder: an injunction, served by hand, concerning one of your veins."
-    },
-    {
-      "type": "choice",
-      "label": null,
-      "speaker": null,
-      "text": "PROSE-REVIEW placeholder: a hearing has been scheduled.",
+      "type": "choice", "label": null, "speaker": null, "text": "PROSE-REVIEW placeholder: a hearing has been scheduled.",
       "choices": [
         {
           "label": "Attend the hearing",
-          "effects": [
-            {
-              "op": "spend_block",
-              "count": 1
-            },
-            {
-              "op": "fine",
-              "amount": 100
-            }
-          ],
+          "effects": [{ "op": "spend_block", "count": 1 }, { "op": "fine", "amount": 100 }],
           "result_text": "PROSE-REVIEW placeholder: a morning of paperwork and a fine. The injunction is lifted."
         },
         {
           "label": "Ignore it",
-          "effects": [
-            {
-              "op": "harassment_add",
-              "kind": "freeze",
-              "params": {
-                "days": 7
-              }
-            }
-          ],
+          "effects": [{ "op": "harassment_add", "kind": "freeze", "params": { "days": 7 } }],
           "result_text": "PROSE-REVIEW placeholder: the vein is frozen for a week."
         }
       ]
     }
   ],
-  "on_complete": [
-    {
-      "op": "set_screen",
-      "screen": "map"
-    }
-  ]
+  "on_complete": [{ "op": "set_screen", "screen": "map" }]
 }

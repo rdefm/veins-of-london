@@ -8,28 +8,14 @@
         {
           "label": "Go slow",
           "effects": [
-            {
-              "op": "stockpile_stealth_check", "consumable_bonus": 0.05,
-              "on_success": [{ "op": "notify", "text": "No alarms. You're in clean." }],
-              "on_caught": [
-                { "op": "notify", "text": "The one on the door wasn't asleep. You've been seen." },
-                { "op": "start_stockpile_raid_combat" }
-              ]
-            }
+            { "op": "stockpile_stealth_check", "consumable_bonus": 0.05, "on_success": [{ "op": "notify", "text": "No alarms. You're in clean." }], "on_caught": [{ "op": "notify", "text": "The one on the door wasn't asleep. You've been seen." }, { "op": "start_stockpile_raid_combat" }] }
           ],
           "result_text": "You take it slow — weight off every floorboard, timing the dark between passes."
         },
         {
           "label": "Go fast",
           "effects": [
-            {
-              "op": "stockpile_stealth_check", "consumable_bonus": -0.05,
-              "on_success": [{ "op": "notify", "text": "No alarms. You're in clean." }],
-              "on_caught": [
-                { "op": "notify", "text": "The one on the door wasn't asleep. You've been seen." },
-                { "op": "start_stockpile_raid_combat" }
-              ]
-            }
+            { "op": "stockpile_stealth_check", "consumable_bonus": -0.05, "on_success": [{ "op": "notify", "text": "No alarms. You're in clean." }], "on_caught": [{ "op": "notify", "text": "The one on the door wasn't asleep. You've been seen." }, { "op": "start_stockpile_raid_combat" }] }
           ],
           "result_text": "You go in fast. Hesitation is what gets people caught, or so you tell yourself."
         }

@@ -1107,7 +1107,17 @@ function checkOddsBlock(opt, changed, restructure) {
       } else if (end < cards.length) br.then = { branch: nameAt(end) };
       branches[nameAt(s)] = br;
     });
-    return ensureKeys({ ...rest, start: "main", branches });
+    const draft = ensureKeys({ ...rest, start: "main", branches });
+    draft._keyOrder = { top: Object.keys(ev), cards: Object.fromEntries(copy.map((c, i) => [c.key, Object.keys(cards[i])])) };
+    return draft;
+  }
+  // obj's keys reordered to follow `order`; keys it doesn't name keep their current order after the named ones.
+  function inKeyOrder(obj, order) {
+    if (!order) return obj;
+    const out = {};
+    for (const k of order) if (k in obj) out[k] = obj[k];
+    for (const k of Object.keys(obj)) if (!(k in out)) out[k] = obj[k];
+    return out;
   }
   // {branch, card?} → {branch, idx}; throws on an unknown branch or card key.
   function resolveTarget(draft, t) {
@@ -1995,7 +2005,7 @@ function checkOddsBlock(opt, changed, restructure) {
     let ev;
     try { ev = JSON.parse(text); } catch (e) { throw new Error(`${file} doesn't parse: ${e.message}`); }
     if (!ev || !Array.isArray(ev.cards)) throw new Error(`${file} has no cards array`);
-    const draft = legacyToDraft({ id: file.replace(/\.json$/, ""), ...ev });
+    const draft = legacyToDraft("id" in ev ? ev : { id: file.replace(/\.json$/, ""), ...ev });
     return { file: proposalFileName(draft.id, taken), md: proposalMd(`${draft.id} — imported from data/events/${file}`, draft) };
   }
   // A blank event: one `main` branch holding one blank narration card.
@@ -2088,8 +2098,8 @@ function checkOddsBlock(opt, changed, restructure) {
       }));
       if (!exits) throw new Error(`${p.branch} · ${hub}: hub has no forward exit (every option loops back or is hidden after use)`);
     }
-    const index = new Map(order.map((k, i) => [k, i]));
-    const cards = order.map((k, i) => {
+    const index = new Map(order.map((k, i) => [k, i])), cardOrder = (draft._keyOrder || {}).cards || {};
+    const cards =order.map((k, i) => {
       const p = reach.get(k), src = branchCards(draft, p.branch)[p.idx], at = `${p.branch} · ${k}`;
       const flat = (t) => {
         const n = index.get(keyAt(resolveTarget(draft, t)));
@@ -2101,7 +2111,7 @@ function checkOddsBlock(opt, changed, restructure) {
         delete o.checkNote;
         optionOutcomes(o).forEach((x) => { if (x.goto) x.goto = flat(x.goto); });
       });
-      if (!cardExits(src).onward) return card;
+      if (!cardExits(src).onward) return inKeyOrder(card, cardOrder[k]);
       const c = continuation(p), last = i === order.length - 1;
       if (c.to) { const n = flat({ branch: c.to.branch, card: keyAt(c.to) }); if (n !== i + 1) card.goto = n; }
       else if (c.end) { if (!last) card.end = true; }
@@ -2114,13 +2124,14 @@ function checkOddsBlock(opt, changed, restructure) {
         if (list.length === 1 && list[0].if == null) card.goto = list[0].card;
         else if (list.length) card.goto = list;
       }
-      return card;
+      return inKeyOrder(card, cardOrder[k]);
     });
-    const event = {};
+    let event = {};
     for (const [k, v] of Object.entries(draft)) {
       if (k === "branches") event.cards = cards;
-      else if (k !== "start" && k !== "_comments" && k !== "_layout") event[k] = deepClone(v);
+      else if (k !== "start" && k !== "_comments" && k !== "_layout" && k !== "_keyOrder") event[k] = deepClone(v);
     }
+    event = inKeyOrder(event, (draft._keyOrder || {}).top);
     return { event, dropped: flatCards(draft).map((f) => f.card.key).filter((k) => !reach.has(k)) };
   }
   // Live-event JSON text in the data/events/ house style: each top-level key on its own line, each element of a
@@ -2128,15 +2139,25 @@ function checkOddsBlock(opt, changed, restructure) {
   // nested value whose one-line form runs past 100 columns.
   function serialiseEvent(ev) {
     const inline = (v) => (v === null || typeof v !== "object" ? JSON.stringify(v)
-      : Array.isArray(v) ? (v.length ? `[ ${v.map(inline).join(", ")} ]` : "[]")
+      : Array.isArray(v) ? (v.length ? `[${v.map(inline).join(", ")}]` : "[]")
       : Object.keys(v).length ? `{ ${Object.entries(v).map(([k, x]) => `${JSON.stringify(k)}: ${inline(x)}`).join(", ")} }` : "{}");
     const hasChoices = (v) => !!v && typeof v === "object" && ((!Array.isArray(v) && "choices" in v) || Object.values(v).some(hasChoices));
-    const fmt = (v, pad, item) => {
+    // Entries as output lines: in a choice card the scalar keys before `choices` share one line; otherwise one each.
+    const groupScalars = (ents, inner, card) => {
+      const lines = [];
+      ents.forEach((e, i) => {
+        const scalar = e[1] === null || typeof e[1] !== "object";
+        if (card && scalar && i > 0 && lines.at(-1).every((x) => x[1] === null || typeof x[1] !== "object") && !ents.slice(0, i).some((x) => x[0] === "choices")) lines.at(-1).push(e);
+        else lines.push([e]);
+      });
+      return lines;
+    };
+    const fmt = (v, pad, item, expand) => {
       const one = inline(v);
-      if (v === null || typeof v !== "object" || (pad && !hasChoices(v) && (item || pad.length + one.length <= 100))) return one;
+      if (v === null || typeof v !== "object" || (pad && !expand && !hasChoices(v) && (item || pad.length + one.length <= 100))) return one;
       const inner = pad + "  ", arr = Array.isArray(v);
-      const parts = arr ? v.map((x) => inner + fmt(x, inner, pad === "  "))
-        : Object.entries(v).map(([k, x]) => `${inner}${JSON.stringify(k)}: ${fmt(x, inner, false)}`);
+      const parts = arr ? v.map((x) => inner + fmt(x, inner, true, expand))
+        : groupScalars(Object.entries(v), inner, pad === "    " && "choices" in v).map((ents) => inner + ents.map(([k, x]) => `${JSON.stringify(k)}: ${fmt(x, inner, false, k === "choices")}`).join(", "));
       return (arr ? "[" : "{") + "\n" + parts.join(",\n") + "\n" + pad + (arr ? "]" : "}");
     };
     return fmt(ev, "", false) + "\n";

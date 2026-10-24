@@ -1,17 +1,9 @@
 {
   "id": "inc_truce_expiring",
   "cards": [
+    { "type": "narration", "label": null, "speaker": null, "text": "PROSE-REVIEW placeholder: The truce has a few days left and nobody has mentioned it." },
     {
-      "type": "narration",
-      "label": null,
-      "speaker": null,
-      "text": "PROSE-REVIEW placeholder: The truce has a few days left and nobody has mentioned it."
-    },
-    {
-      "type": "choice",
-      "label": null,
-      "speaker": null,
-      "text": "PROSE-REVIEW placeholder: Someone has to bring it up.",
+      "type": "choice", "label": null, "speaker": null, "text": "PROSE-REVIEW placeholder: Someone has to bring it up.",
       "choices": [
         {
           "label": "Raise it first",
@@ -25,17 +17,7 @@
         }
       ]
     },
-    {
-      "type": "resolution",
-      "label": null,
-      "speaker": null,
-      "text": "PROSE-REVIEW placeholder: London carries on."
-    }
+    { "type": "resolution", "label": null, "speaker": null, "text": "PROSE-REVIEW placeholder: London carries on." }
   ],
-  "on_complete": [
-    {
-      "op": "set_screen",
-      "screen": "phone"
-    }
-  ]
+  "on_complete": [{ "op": "set_screen", "screen": "phone" }]
 }

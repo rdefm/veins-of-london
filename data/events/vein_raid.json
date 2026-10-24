@@ -8,36 +8,14 @@
         {
           "label": "Go slow",
           "effects": [
-            {
-              "op": "stealth_check", "consumable_bonus": 0.05,
-              "on_success": [
-                { "op": "set_flag", "flag": "raidCaught", "value": false },
-                { "op": "notify", "text": "No alarms. You're in clean." }
-              ],
-              "on_caught": [
-                { "op": "set_flag", "flag": "raidCaught", "value": true },
-                { "op": "notify", "text": "Something moves that shouldn't. You've been seen." },
-                { "op": "start_raid_combat", "guards": "vein", "template": "veinGuard" }
-              ]
-            }
+            { "op": "stealth_check", "consumable_bonus": 0.05, "on_success": [{ "op": "set_flag", "flag": "raidCaught", "value": false }, { "op": "notify", "text": "No alarms. You're in clean." }], "on_caught": [{ "op": "set_flag", "flag": "raidCaught", "value": true }, { "op": "notify", "text": "Something moves that shouldn't. You've been seen." }, { "op": "start_raid_combat", "guards": "vein", "template": "veinGuard" }] }
           ],
           "result_text": "You take it slow — weight off every floorboard, timing the dark between passes."
         },
         {
           "label": "Go fast",
           "effects": [
-            {
-              "op": "stealth_check", "consumable_bonus": -0.05,
-              "on_success": [
-                { "op": "set_flag", "flag": "raidCaught", "value": false },
-                { "op": "notify", "text": "No alarms. You're in clean." }
-              ],
-              "on_caught": [
-                { "op": "set_flag", "flag": "raidCaught", "value": true },
-                { "op": "notify", "text": "Something moves that shouldn't. You've been seen." },
-                { "op": "start_raid_combat", "guards": "vein", "template": "veinGuard" }
-              ]
-            }
+            { "op": "stealth_check", "consumable_bonus": -0.05, "on_success": [{ "op": "set_flag", "flag": "raidCaught", "value": false }, { "op": "notify", "text": "No alarms. You're in clean." }], "on_caught": [{ "op": "set_flag", "flag": "raidCaught", "value": true }, { "op": "notify", "text": "Something moves that shouldn't. You've been seen." }, { "op": "start_raid_combat", "guards": "vein", "template": "veinGuard" }] }
           ],
           "result_text": "You go in fast. Hesitation is what gets people caught, or so you tell yourself."
         }

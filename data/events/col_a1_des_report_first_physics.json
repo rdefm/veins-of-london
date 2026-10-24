@@ -6,7 +6,5 @@
     { "type": "speaker", "label": null, "speaker": "Des", "text": "\"Still want a fate patch off you an' all. City, for preference — nobody round here's got the ground for it. No rush.\"" },
     { "type": "resolution", "label": null, "speaker": null, "text": "By the end of the week, one patch you found has a vein in it and it isn't yours. You seem fine with this." }
   ],
-  "on_complete": [
-    { "op": "set_screen", "screen": "phone" }
-  ]
+  "on_complete": [{ "op": "set_screen", "screen": "phone" }]
 }

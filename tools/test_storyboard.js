@@ -278,6 +278,35 @@ test("parseProposal: md wrapper, branch draft and legacy", () => {
   assert.match(parseProposal("e.md", md("{}")).error, /neither branches nor a cards array/);
 });
 
+const importedDraft = (file, text) => parseProposal("p.md", importBoard(file, text, []).md).draft;
+
+// Working-tree checkouts may be CRLF (autocrlf); the repo text is LF.
+const readLive = (dir, f) => fs.readFileSync(path.join(dir, f), "utf8").replace(/\r\n/g, "\n");
+
+test("import → promote reproduces every live event byte-for-byte", () => {
+  const dir = path.join(__dirname, "..", "data", "events");
+  const bad = [];
+  for (const f of fs.readdirSync(dir).filter((x) => x.endsWith(".json"))) {
+    const text = readLive(dir, f);
+    let out;
+    try { out = serialiseEvent(promoteDraft(importedDraft(f, text)).event); } catch (e) { bad.push(`${f}: ${e.message}`); continue; }
+    if (out !== text) bad.push(f);
+  }
+  assert.deepStrictEqual(bad, []);
+});
+
+test("editing one card's text then promoting changes only that card's line", () => {
+  const dir = path.join(__dirname, "..", "data", "events");
+  const f = fs.readdirSync(dir).filter((x) => x.endsWith(".json")).find((x) => /"text"/.test(fs.readFileSync(path.join(dir, x), "utf8")));
+  const text = readLive(dir, f);
+  const draft = importedDraft(f, text);
+  const card = flatCards(draft).find((x) => typeof x.card.text === "string").card;
+  card.text += " EDITED";
+  const a = text.split("\n"), b = serialiseEvent(promoteDraft(draft).event).split("\n");
+  assert.strictEqual(a.length, b.length);
+  assert.strictEqual(a.filter((l, i) => l !== b[i]).length, 1);
+});
+
 // Prose outside the JSON block must survive a save byte-for-byte.
 function assertSpliceKeepsProse(md, out) {
   const a = jsonBlockRange(md), b = jsonBlockRange(out);
@@ -1533,7 +1562,7 @@ test("serialiseEvent: house style, parses back unchanged", () => {
   assert.ok(text.includes('\n  "at": { "block": "evening" },\n'));
   assert.ok(text.includes('\n    { "type": "narration", "label": null, "speaker": null, "text": "Plain card on one line." },\n'));
   assert.ok(text.includes('\n      "choices": [\n'), "a choice card expands");
-  assert.ok(text.includes('\n  "on_complete": [ { "op": "set_flag", "flag": "f", "value": true } ]\n'), "a short top-level array stays on one line");
+  assert.ok(text.includes('\n  "on_complete": [{ "op": "set_flag", "flag": "f", "value": true }]\n'), "a short top-level array stays on one line");
 });
 
 const promoteMini = () => ({ id: "promo_x", start: "main", branches: {

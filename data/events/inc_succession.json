@@ -1,17 +1,9 @@
 {
   "id": "inc_succession",
   "cards": [
+    { "type": "narration", "label": null, "speaker": null, "text": "PROSE-REVIEW placeholder: The faction has a new voice. The old one has stepped aside." },
     {
-      "type": "narration",
-      "label": null,
-      "speaker": null,
-      "text": "PROSE-REVIEW placeholder: The faction has a new voice. The old one has stepped aside."
-    },
-    {
-      "type": "choice",
-      "label": null,
-      "speaker": null,
-      "text": "PROSE-REVIEW placeholder: Someone should say something to the new one.",
+      "type": "choice", "label": null, "speaker": null, "text": "PROSE-REVIEW placeholder: Someone should say something to the new one.",
       "choices": [
         {
           "label": "Congratulate them",
@@ -25,17 +17,7 @@
         }
       ]
     },
-    {
-      "type": "resolution",
-      "label": null,
-      "speaker": null,
-      "text": "PROSE-REVIEW placeholder: London adjusts."
-    }
+    { "type": "resolution", "label": null, "speaker": null, "text": "PROSE-REVIEW placeholder: London adjusts." }
   ],
-  "on_complete": [
-    {
-      "op": "set_screen",
-      "screen": "phone"
-    }
-  ]
+  "on_complete": [{ "op": "set_screen", "screen": "phone" }]
 }

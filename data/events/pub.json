@@ -7,11 +7,7 @@
   ],
   "cards": [
     {
-      "type": "choice",
-      "label": "Fifteen minutes later — a Wetherspoons",
-      "speaker": null,
-      "text": "Archie buys two pints and chips, puts the chips on your side of the table, and sits facing the door. His eyes are streaming. You have about four questions. He looks good for one.",
-      "image": "res://assets/events/intro/intro_main_11.png",
+      "type": "choice", "label": "Fifteen minutes later — a Wetherspoons", "speaker": null, "text": "Archie buys two pints and chips, puts the chips on your side of the table, and sits facing the door. His eyes are streaming. You have about four questions. He looks good for one.", "image": "res://assets/events/intro/intro_main_11.png",
       "choices": [
         {
           "id": "whatIsIt",
@@ -28,7 +24,7 @@
         {
           "id": "whereFrom",
           "label": "\"Where does it come from?\"",
-          "effects": [ { "op": "set_flag", "flag": "introAskedSource", "value": true } ],
+          "effects": [{ "op": "set_flag", "flag": "introAskedSource", "value": true }],
           "result_text": "\"Calc grows. Don't laugh.\" He dabs his eyes with a napkin. \"There's a crack in a wall in Whitechapel that grows the stuff, if you're patient. Vein, they call it. Most of them, someone's already sitting on.\""
         }
       ]

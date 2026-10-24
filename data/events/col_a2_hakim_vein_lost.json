@@ -8,7 +8,5 @@
     { "type": "speaker", "label": null, "speaker": "Hakim", "text": "\"It was only ever a third of the rent. We'll manage.\" He says it the way people say things they've already said to someone else at home." },
     { "type": "resolution", "label": null, "speaker": null, "text": "Everything that was meant to hold did. The yard went anyway." }
   ],
-  "on_complete": [
-    { "op": "set_screen", "screen": "phone" }
-  ]
+  "on_complete": [{ "op": "set_screen", "screen": "phone" }]
 }

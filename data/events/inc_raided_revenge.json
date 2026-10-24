@@ -1,17 +1,9 @@
 {
   "id": "inc_raided_revenge",
   "cards": [
+    { "type": "narration", "label": null, "speaker": null, "text": "PROSE-REVIEW placeholder: A message arrives with an offer folded into it." },
     {
-      "type": "narration",
-      "label": null,
-      "speaker": null,
-      "text": "PROSE-REVIEW placeholder: A message arrives with an offer folded into it."
-    },
-    {
-      "type": "choice",
-      "label": null,
-      "speaker": null,
-      "text": "PROSE-REVIEW placeholder: They want you to hit back, and they will point you at the door.",
+      "type": "choice", "label": null, "speaker": null, "text": "PROSE-REVIEW placeholder: They want you to hit back, and they will point you at the door.",
       "choices": [
         {
           "label": "Take the offer",
@@ -25,17 +17,7 @@
         }
       ]
     },
-    {
-      "type": "resolution",
-      "label": null,
-      "speaker": null,
-      "text": "PROSE-REVIEW placeholder: London carries on."
-    }
+    { "type": "resolution", "label": null, "speaker": null, "text": "PROSE-REVIEW placeholder: London carries on." }
   ],
-  "on_complete": [
-    {
-      "op": "set_screen",
-      "screen": "phone"
-    }
-  ]
+  "on_complete": [{ "op": "set_screen", "screen": "phone" }]
 }

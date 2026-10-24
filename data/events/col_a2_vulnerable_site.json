@@ -22,9 +22,7 @@
         },
         {
           "label": "Stay soft and fast",
-          "effects": [
-            { "op": "log_method", "key": "a2VulnerableSite", "value": "soft" }
-          ],
+          "effects": [{ "op": "log_method", "key": "a2VulnerableSite", "value": "soft" }],
           "result_text": "You leave it as it is. Nobody's ever taken it before, and sometimes a lookout just draws more attention."
         }
       ]

@@ -9,7 +9,12 @@
         {
           "id": "walkIn",
           "label": "Walk in and hand it over",
-          "check": { "base": 0.6, "mods": [{ "cash": { "atLeast": 500 }, "add": 0.1, "label": "A tip for the cashier" }], "min": 0.15, "show": "odds" },
+          "check": {
+            "base": 0.6,
+            "mods": [{ "cash": { "atLeast": 500 }, "add": 0.1, "label": "A tip for the cashier" }],
+            "min": 0.15,
+            "show": "odds"
+          },
           "success": {
             "result_text": "The cashier takes it without looking up. You are three streets away before anyone looks at you.",
             "effects": [{ "op": "favour_kept", "relation": 8, "memberRelation": 3 }],
@@ -25,7 +30,9 @@
           "id": "sellItOut",
           "label": "Take it to the Firm's man, unopened, and ask what it's worth",
           "result_text": "Lusk's man holds it up to the light and smiles. \"Tell them we said thank you.\" The Conclave will hear about this by lunch.",
-          "effects": [{ "op": "favour_failed", "relation": -8, "memberRelation": -4, "rival": "firm", "rivalRelation": 5 }],
+          "effects": [
+            { "op": "favour_failed", "relation": -8, "memberRelation": -4, "rival": "firm", "rivalRelation": 5 }
+          ],
           "goto": 3
         }
       ]
