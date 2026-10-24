@@ -35,7 +35,7 @@ const loaded = new Function(
   sharedSource +
     parserSource +
     "\nreturn { parseJSONWithPositions, nodeGet, nodeToPlain, applyEdits, formatJSON, objectEdits, collectModelEdits," +
-    " optionToCheck, optionToPlain, setConditionKind, conditionKind, deepClone };"
+    " optionToCheck, optionToPlain, setConditionKind, conditionKind, deepClone, advanceRule, setAdvanceRule, setOptionExit };"
 )();
 const {
   parseJSONWithPositions,
@@ -50,6 +50,9 @@ const {
   setConditionKind,
   conditionKind,
   deepClone,
+  advanceRule,
+  setAdvanceRule,
+  setOptionExit,
 } = loaded;
 
 // Same extraction trick for the ticket-02 "New quest builder" section. Its
@@ -552,6 +555,68 @@ test("mobile: every legacy event's cards survive a draft round-trip", () => {
 test("mobile: a fresh choice still saves as {label, effects: [], result_text}", () => {
   const draft = { id: "x", cards: [{ type: "choice", label: "", speaker: "", text: "", choices: [mobile.defaultChoice()] }], notesText: "" };
   assert.deepStrictEqual(mobile.buildBundle(draft).cards[0].choices, [{ label: null, effects: [], result_text: null }]);
+});
+
+const HUB_EVENT = {
+  id: "hub_fixture",
+  cards: [
+    {
+      type: "choice",
+      label: null,
+      speaker: null,
+      text: "He waits.",
+      choices: [
+        { label: "Ask", effects: [], result_text: null, goto: 1 },
+        { label: "Take the keys", effects: [], result_text: null, goto: 2 },
+      ],
+    },
+    { type: "narration", label: null, speaker: null, text: "Answer.", goto: 0 },
+    { type: "narration", label: null, speaker: null, text: "Keys." },
+  ],
+};
+
+test("advanceRule / setAdvanceRule / setOptionExit read and write the hub fields", () => {
+  const card = {};
+  assert.deepStrictEqual(advanceRule(card), { kind: "anytime", n: 0 });
+  setAdvanceRule(card, "all");
+  assert.deepStrictEqual([card.advance, advanceRule(card).kind], ["all", "all"]);
+  setAdvanceRule(card, "after", 3);
+  assert.deepStrictEqual([card.advance, advanceRule(card).n], [3, 3]);
+  setAdvanceRule(card, "after", 0);
+  assert.strictEqual(card.advance, 1);
+  setAdvanceRule(card, "anytime");
+  assert.strictEqual("advance" in card, false);
+  const opt = {};
+  setOptionExit(opt, true);
+  assert.strictEqual(opt.exit, true);
+  setOptionExit(opt, false);
+  assert.strictEqual("exit" in opt, false);
+});
+
+test("desktop: authoring exit and advance touches only those keys, placed in house order", () => {
+  const raw = JSON.stringify(HUB_EVENT, null, 2) + "\n";
+  const root = parseJSONWithPositions(raw), model = nodeToPlain(root);
+  setAdvanceRule(model.cards[0], "after", 1);
+  setOptionExit(model.cards[0].choices[1], true);
+  const out = saveModel(raw, model);
+  const back = JSON.parse(out);
+  assert.strictEqual(back.cards[0].advance, 1);
+  assert.deepStrictEqual(Object.keys(back.cards[0]), ["type", "label", "speaker", "text", "advance", "choices"]);
+  assert.deepStrictEqual(Object.keys(back.cards[0].choices[1]), ["label", "exit", "effects", "result_text", "goto"]);
+  assert.deepStrictEqual(back.cards[0].choices[0], HUB_EVENT.cards[0].choices[0]);
+  setAdvanceRule(model.cards[0], "anytime");
+  setOptionExit(model.cards[0].choices[1], false);
+  assert.strictEqual(saveModel(raw, model), raw);
+});
+
+test("mobile: exit and advance round-trip through a draft", () => {
+  const quest = deepClone(HUB_EVENT);
+  quest.cards[0].advance = "all";
+  quest.cards[0].choices[1].exit = true;
+  const bundle = mobile.buildBundle(mobile.draftFromParsed(deepClone(quest)));
+  assert.strictEqual(bundle.cards[0].advance, "all");
+  assert.strictEqual(bundle.cards[0].choices[1].exit, true);
+  assert.deepStrictEqual(bundle.cards, quest.cards);
 });
 
 console.log(passed + " test(s) passed");

@@ -24,7 +24,7 @@ const {
   cardPos, insertCard, deleteCard, moveCard, danglingLinks, hasCycle, buildGraph, elkGraph, placeLayout, setNodePositions, clearLayout, applyPositions,
   findCycle, addBranch, renameBranch, deleteBranch, inboundLinks, setCardGoto, setThen,
   COND_KINDS, condKind, blankCond, condGet, condSet,
-  outcomeSlots, setReselectable, addOption, deleteOption, moveOption, setOptionField, setOutcomeText, setOutcomeGoto, setOutcomeImage, routeToNewBranch,
+  outcomeSlots, setReselectable, setOptionExitFlag, setCardAdvance, hubExit, advanceRule, addOption, deleteOption, moveOption, setOptionField, setOutcomeText, setOutcomeGoto, setOutcomeImage, routeToNewBranch,
   setCheckNote, setCheckOn, setOptionMechanics, setEffects, addBySuccess, deleteBySuccess, setConditionKind,
   addComment, updateComment, deleteComment, filterComments, commentCount, anchorText, anchorType, proseComments,
   cardImageName, freeImageName, freeResultImageName, setCardImage, eventImageDir, SHOT_FIELDS, serialiseBoard, setShotField, shotFieldText,
@@ -38,7 +38,7 @@ const {
     " cardPos, insertCard, deleteCard, moveCard, danglingLinks, hasCycle, buildGraph, elkGraph, placeLayout, setNodePositions, clearLayout, applyPositions," +
     " findCycle, addBranch, renameBranch, deleteBranch, inboundLinks, setCardGoto, setThen," +
     " COND_KINDS, condKind, blankCond, condGet, condSet," +
-    " outcomeSlots, setReselectable, addOption, deleteOption, moveOption, setOptionField, setOutcomeText, setOutcomeGoto, setOutcomeImage, routeToNewBranch," +
+    " outcomeSlots, setReselectable, setOptionExitFlag, setCardAdvance, hubExit, advanceRule, addOption, deleteOption, moveOption, setOptionField, setOutcomeText, setOutcomeGoto, setOutcomeImage, routeToNewBranch," +
     " setCheckNote, setCheckOn, setOptionMechanics, setEffects, addBySuccess, deleteBySuccess, setConditionKind," +
     " addComment, updateComment, deleteComment, filterComments, commentCount, anchorText, anchorType, proseComments," +
     " cardImageName, freeImageName, freeResultImageName, setCardImage, eventImageDir, SHOT_FIELDS, serialiseBoard, setShotField, shotFieldText," +
@@ -149,7 +149,7 @@ const hubDraft = () => ({ start: "main", branches: {
   main: { cards: [{ key: "h", type: "choice", text: "hub", choices: [
     { id: "a", label: "A", goto: { branch: "ans", card: "a1" } },
     { id: "b", label: "B", goto: { branch: "ans", card: "b1" } },
-    { id: "x", label: "Leave", goto: { branch: "out" } }] }] },
+    { id: "x", label: "Leave", exit: true, goto: { branch: "out" } }] }] },
   ans: { cards: [{ key: "a1", text: "a", goto: { branch: "main", card: "h" } },
     { key: "b1", text: "b" }, { key: "b2", text: "b2", goto: { branch: "main", card: "h" } }] },
   out: { cards: [{ key: "o", text: "bye" }] } } });
@@ -187,12 +187,48 @@ test("promote lays out a hub loop as a flat event with backward gotos", () => {
   for (const t of ["a", "b2"]) assert.strictEqual(cards[idx(t)].goto, hub, t + " returns to the hub");
 });
 
-test("promote refuses a hub with no forward exit, naming the card", () => {
+test("promote refuses a hub with no exit option, naming the card", () => {
   const d = hubDraft();
   d.branches.main.cards[0].choices.pop();
-  assert.throws(() => promoteDraft(d), /main · h: hub has no forward exit/);
+  assert.throws(() => promoteDraft(d), /main · h: hub has no exit option/);
   d.branches.main.cards[0].choices.push({ id: "x", label: "Again", reselectable: true, goto: { branch: "ans", card: "a1" } });
+  assert.throws(() => promoteDraft(d), /main · h: hub has no exit option/);
+});
+
+test("promote refuses a hub whose exit option loops back", () => {
+  const d = hubDraft();
+  d.branches.main.cards[0].choices[2].goto = { branch: "ans", card: "a1" };
   assert.throws(() => promoteDraft(d), /main · h: hub has no forward exit/);
+});
+
+test("setOptionExitFlag and setCardAdvance write exit / advance and promote carries them", () => {
+  const d = hubDraft(), card = d.branches.main.cards[0];
+  setCardAdvance(d, "h", "all");
+  assert.strictEqual(card.advance, "all");
+  setCardAdvance(d, "h", "after", 2);
+  assert.strictEqual(card.advance, 2);
+  const hub = promoteDraft(d).event.cards.find((c) => c.text === "hub");
+  assert.strictEqual(hub.advance, 2);
+  assert.deepStrictEqual(hub.choices.map((o) => o.exit === true), [false, false, true]);
+  setCardAdvance(d, "h", "anytime");
+  assert.strictEqual("advance" in card, false);
+  setOptionExitFlag(d, "h", 2, false);
+  assert.strictEqual("exit" in card.choices[2], false);
+  assert(!serialiseDraft(d).includes('"exit"'));
+});
+
+test("hubExit gates the exit by the advance rule over the asked options", () => {
+  const card = hubDraft().branches.main.cards[0];
+  assert.deepStrictEqual(hubExit(card, new Set()), { index: 2, locked: false, need: 0 });
+  card.advance = "all";
+  assert.deepStrictEqual(hubExit(card, new Set([0])), { index: 2, locked: true, need: 1 });
+  assert.strictEqual(hubExit(card, new Set([0, 1])).locked, false);
+  card.advance = 1;
+  assert.strictEqual(hubExit(card, new Set()).locked, true);
+  assert.strictEqual(hubExit(card, new Set([1])).locked, false);
+  card.advance = 5;
+  assert.strictEqual(hubExit(card, new Set()).locked, false, "an unmeetable rule leaves the exit open");
+  assert.deepStrictEqual(advanceRule({ advance: "later" }), { kind: "anytime", n: 0 });
 });
 
 test("flat loop event -> draft -> flat is lossless", () => {

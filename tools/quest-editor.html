@@ -225,7 +225,7 @@
 // read-only and pass through untouched.
 
 const AT_BLOCKS = ["morning", "afternoon", "evening", "night"];
-const OPTION_KEY_ORDER = ["label", "id", "requires", "effects", "result_text", "goto", "check", "success", "fail", "bySuccesses"];
+const OPTION_KEY_ORDER = ["label", "id", "reselectable", "exit", "requires", "effects", "result_text", "goto", "check", "success", "fail", "bySuccesses"];
 const CONDITION_KINDS = [
   { kind: "flag", label: "Flag set", modOnly: false },
   { kind: "choice", label: "Earlier choice", modOnly: false },
@@ -474,6 +474,7 @@ function optionMechanicsRows(opt, changed, restructure) {
     restructure();
   })));
   rows.push(head);
+  rows.push(exitRow(opt, changed));
   rows.push(requiresBlock(opt, changed, restructure));
   if (Array.isArray(opt.effects) && (!check || opt.effects.length)) {
     rows.push(mechReadonly(check ? "Effects before the roll (read-only)" : "Effects (read-only)", opt.effects));
@@ -485,6 +486,61 @@ function optionMechanicsRows(opt, changed, restructure) {
     rows.push(gotoRow(opt, changed));
   }
   return rows;
+}
+
+// A hub card's advance rule (card.advance): absent = anytime, "all" = every question asked, N = N questions asked.
+const ADVANCE_KINDS = [["anytime", "Anytime"], ["all", "After every question is asked"], ["after", "After N questions are asked"]];
+
+function advanceRule(card) {
+  const a = card && card.advance;
+  if (a === "all") return { kind: "all", n: 0 };
+  if (Number.isInteger(a) && a > 0) return { kind: "after", n: a };
+  return { kind: "anytime", n: 0 };
+}
+
+function setAdvanceRule(card, kind, n) {
+  if (kind === "all") card.advance = "all";
+  else if (kind === "after") card.advance = Number.isInteger(n) && n > 0 ? n : 1;
+  else delete card.advance;
+}
+
+// The option that is the hub's exit (the footer →) carries exit: true.
+function setOptionExit(opt, on) {
+  if (on) opt.exit = true;
+  else delete opt.exit;
+}
+
+function exitRow(opt, changed) {
+  return mechCheckbox("Advance option (the hub's exit, shown as →)", opt.exit === true, (on) => { setOptionExit(opt, on); changed(); });
+}
+
+function hubAdvanceRows(card, changed, restructure) {
+  const rule = advanceRule(card);
+  const row = mechEl("div", "mech-row");
+  row.appendChild(mechCell("Hub advance (→ shows)", mechSelect(ADVANCE_KINDS, rule.kind, (v) => {
+    setAdvanceRule(card, v, rule.n);
+    restructure();
+  })));
+  if (rule.kind === "after") {
+    const n = document.createElement("input");
+    n.type = "number";
+    n.min = "1";
+    n.step = "1";
+    n.value = String(rule.n);
+    n.addEventListener("input", () => {
+      const v = Number(n.value);
+      if (Number.isInteger(v) && v > 0) { card.advance = v; changed(); }
+    });
+    row.appendChild(mechCell("Questions asked", n));
+  }
+  return [row];
+}
+
+function renderHubAdvance(card, changed) {
+  const box = mechEl("div", "mech");
+  const redraw = () => box.replaceChildren(...hubAdvanceRows(card, changed, () => { changed(); redraw(); }));
+  redraw();
+  return box;
 }
 
 function gotoRow(obj, changed) {
@@ -611,7 +667,7 @@ function checkRows(opt, changed, restructure) {
   return rows;
 }
 
-// The check's odds (base, min, max, attempts) and its modifiers.
+// The check's odds (base, min, max, show, attempts) and its modifiers.
 function checkOddsBlock(opt, changed, restructure) {
   const check = opt.check;
   const odds = mechEl("div", "mech-sub");
@@ -800,6 +856,7 @@ function applyEdits(rawText, edits) {
 }
 
 const ROOT_KEY_ORDER = ["id", "at", "cards"];
+const CARD_KEY_ORDER = ["type", "label", "speaker", "text", "advance", "choices"];
 
 function jsonDepth(v) {
   if (v === null || typeof v !== "object") return 0;
@@ -886,6 +943,12 @@ function collectModelEdits(rawText, root, original, model) {
   const cardsNode = nodeGet(root, "cards");
   if (!cardsNode || cardsNode.kind !== "array") return edits;
   cardsNode.items.forEach((cardNode, i) => {
+    if (cardNode.kind === "object" && original.cards[i].advance !== model.cards[i].advance) {
+      const nextCard = Object.assign({}, original.cards[i]);
+      if (model.cards[i].advance === undefined) delete nextCard.advance;
+      else nextCard.advance = model.cards[i].advance;
+      edits.push(...objectEdits(rawText, cardNode, nextCard, CARD_KEY_ORDER));
+    }
     const choicesNode = nodeGet(cardNode, "choices");
     if (!choicesNode || choicesNode.kind !== "array") return;
     choicesNode.items.forEach((optNode, j) => {
@@ -1123,6 +1186,7 @@ function renderCard(cardNode, idx) {
 
   const choicesNode = nodeGet(cardNode, "choices");
   if (choicesNode && choicesNode.kind === "array") {
+    block.appendChild(renderHubAdvance(q.model.cards[idx], updateUnsavedFlag));
     const wrap = document.createElement("div");
     wrap.className = "choices-wrap";
     const modelChoices = q.model.cards[idx].choices;

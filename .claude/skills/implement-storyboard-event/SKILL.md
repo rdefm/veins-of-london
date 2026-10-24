@@ -21,7 +21,7 @@ Action each comment by editing the draft inside the proposal's JSON block (Edit 
 
 - Prose changes follow `docs/CONTENT-GUIDE.md` §3 tone bible — one dry line per threat, nothing winking at the camera. New or changed lines are draft prose: list the file under `PROSE-REVIEW:` in the report.
 - Mechanics (checks, effects, flags, paths, conditions) follow `docs/REFERENCE.md` §3.9a Event choice checks and the condition vocabulary there. Every number comes from the spec or the comment — never invent one.
-- Routing stays in draft form: `goto: {branch, card?}` on outcomes or cards, branch `then`. Keep card `key`s; give a new card a key no other card uses. No loops except a hub: a `goto` back to an earlier `choice` card (options are one-shot unless `reselectable: true`); the hub needs an option that leaves the loop.
+- Routing stays in draft form: `goto: {branch, card?}` on outcomes or cards, branch `then`. Keep card `key`s; give a new card a key no other card uses. No loops except a hub: a `goto` back to an earlier `choice` card (options are one-shot unless `reselectable: true`); the hub needs an option that leaves the loop. Flag that option `exit: true` (the footer →; promote refuses a hub with none) and set the hub card's `advance` (`"anytime"` default, `"all"`, or N) for when → shows; both pass through promote unchanged.
 - A comment that asks for a design decision the specs don't make, or that you can't action as written: leave it open and ask the user. Don't promote with it open.
 
 Then resolve what you actioned (writes the status back into the JSON block):

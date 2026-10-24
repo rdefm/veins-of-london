@@ -384,6 +384,7 @@ section { display: grid; gap: 12px; min-width: 0 }
             <div class="editor-head"><span class="eyebrow">Player options</span>
               <button type="button" class="tb" id="ce-add-option" title="Add a player option to this card">+ Option</button></div>
             <div id="ce-options" class="opt-ed"></div>
+            <div class="route" id="ce-advance" hidden></div>
             <span class="eyebrow">After this card, go to</span>
             <div class="route" id="ce-goto"></div>
             <div id="ce-comments" class="cmts"></div>
@@ -477,7 +478,7 @@ section { display: grid; gap: 12px; min-width: 0 }
 // read-only and pass through untouched.
 
 const AT_BLOCKS = ["morning", "afternoon", "evening", "night"];
-const OPTION_KEY_ORDER = ["label", "id", "reselectable", "requires", "effects", "result_text", "goto", "check", "success", "fail", "bySuccesses"];
+const OPTION_KEY_ORDER = ["label", "id", "reselectable", "exit", "requires", "effects", "result_text", "goto", "check", "success", "fail", "bySuccesses"];
 const CONDITION_KINDS = [
   { kind: "flag", label: "Flag set", modOnly: false },
   { kind: "choice", label: "Earlier choice", modOnly: false },
@@ -726,6 +727,7 @@ function optionMechanicsRows(opt, changed, restructure) {
     restructure();
   })));
   rows.push(head);
+  rows.push(exitRow(opt, changed));
   rows.push(requiresBlock(opt, changed, restructure));
   if (Array.isArray(opt.effects) && (!check || opt.effects.length)) {
     rows.push(mechReadonly(check ? "Effects before the roll (read-only)" : "Effects (read-only)", opt.effects));
@@ -737,6 +739,61 @@ function optionMechanicsRows(opt, changed, restructure) {
     rows.push(gotoRow(opt, changed));
   }
   return rows;
+}
+
+// A hub card's advance rule (card.advance): absent = anytime, "all" = every question asked, N = N questions asked.
+const ADVANCE_KINDS = [["anytime", "Anytime"], ["all", "After every question is asked"], ["after", "After N questions are asked"]];
+
+function advanceRule(card) {
+  const a = card && card.advance;
+  if (a === "all") return { kind: "all", n: 0 };
+  if (Number.isInteger(a) && a > 0) return { kind: "after", n: a };
+  return { kind: "anytime", n: 0 };
+}
+
+function setAdvanceRule(card, kind, n) {
+  if (kind === "all") card.advance = "all";
+  else if (kind === "after") card.advance = Number.isInteger(n) && n > 0 ? n : 1;
+  else delete card.advance;
+}
+
+// The option that is the hub's exit (the footer →) carries exit: true.
+function setOptionExit(opt, on) {
+  if (on) opt.exit = true;
+  else delete opt.exit;
+}
+
+function exitRow(opt, changed) {
+  return mechCheckbox("Advance option (the hub's exit, shown as →)", opt.exit === true, (on) => { setOptionExit(opt, on); changed(); });
+}
+
+function hubAdvanceRows(card, changed, restructure) {
+  const rule = advanceRule(card);
+  const row = mechEl("div", "mech-row");
+  row.appendChild(mechCell("Hub advance (→ shows)", mechSelect(ADVANCE_KINDS, rule.kind, (v) => {
+    setAdvanceRule(card, v, rule.n);
+    restructure();
+  })));
+  if (rule.kind === "after") {
+    const n = document.createElement("input");
+    n.type = "number";
+    n.min = "1";
+    n.step = "1";
+    n.value = String(rule.n);
+    n.addEventListener("input", () => {
+      const v = Number(n.value);
+      if (Number.isInteger(v) && v > 0) { card.advance = v; changed(); }
+    });
+    row.appendChild(mechCell("Questions asked", n));
+  }
+  return [row];
+}
+
+function renderHubAdvance(card, changed) {
+  const box = mechEl("div", "mech");
+  const redraw = () => box.replaceChildren(...hubAdvanceRows(card, changed, () => { changed(); redraw(); }));
+  redraw();
+  return box;
 }
 
 function gotoRow(obj, changed) {
@@ -912,6 +969,8 @@ function checkOddsBlock(opt, changed, restructure) {
   let root = null, boards = [], feedback = {}, plateFiles = new Map(), currentId = null, cardIdx = 0;
   // Proposal play-through: cards visited before this one (for Prev), and the picked option/outcome on a choice card.
   let trail = [], trailImg = [], pick = null, outcomeKey = null;
+  // Option indexes asked so far per hub card key on the played path; they gate the hub's → under its advance rule.
+  let asked = new Map();
   // Proposal preview images: "shots" = the linked storyboard's shots, "event" = the draft's own image keys.
   let imgMode = (() => { try { return localStorage.getItem("vein-sb-imgmode") || "shots"; } catch { return "shots"; } })();
   // Boards (a proposal or its shot board) in the order their undo steps were taken, so Undo on a proposal
@@ -1468,6 +1527,27 @@ function checkOddsBlock(opt, changed, restructure) {
   function setReselectable(draft, key, i, on) {
     const { o } = optionAt(draft, key, i);
     if (on) o.reselectable = true; else delete o.reselectable;
+  }
+  // Flags option i as the hub's exit (the footer →), or clears the flag.
+  function setOptionExitFlag(draft, key, i, on) {
+    setOptionExit(optionAt(draft, key, i).o, on);
+  }
+  // Sets a choice card's hub advance rule: "anytime" (clears it), "all", or "after" n questions.
+  function setCardAdvance(draft, key, kind, n) {
+    const card = cardByKey(draft, key);
+    if (!card) throw new Error(`no card ${key}`);
+    setAdvanceRule(card, kind, n);
+  }
+  // A hub's exit under its advance rule once `asked` (a Set of option indexes) have been picked:
+  // {index, locked, need}. index = the exit option (-1 if none); need = questions still to ask. A rule that can
+  // never be met (N above the question count) leaves the exit open, as the game does.
+  function hubExit(card, asked) {
+    const opts = card.choices || [], index = opts.findIndex((o) => o.exit === true);
+    const questions = opts.map((o, i) => i).filter((i) => i !== index);
+    const rule = advanceRule(card);
+    const goal = rule.kind === "all" ? questions.length : rule.kind === "after" && rule.n <= questions.length ? rule.n : 0;
+    const need = Math.max(0, goal - questions.filter((i) => asked.has(i)).length);
+    return { index, locked: need > 0, need };
   }
   // Sets the result_text of option i's outcome `slot` (outcomeSlots), creating success / fail if unset.
   function setOutcomeText(draft, key, i, slot, text) {
@@ -2122,6 +2202,7 @@ function checkOddsBlock(opt, changed, restructure) {
     // which the hub can't be reached again; otherwise every option loops or is spent and play is stuck.
     for (const hub of new Set([...back].map((e) => e.split(">")[1]))) {
       const p = reach.get(hub), card = branchCards(draft, p.branch)[p.idx];
+      if (!(card.choices || []).some((o) => o.exit === true)) throw new Error(`${p.branch} · ${hub}: hub has no exit option (flag one option as the advance option)`);
       const exits = (card.choices || []).some((o) => optionOutcomes(o).some((x) => {
         const to = x.goto ? { to: resolveTarget(draft, x.goto) } : continuation(p);
         if (to.end) return true;
@@ -2473,6 +2554,13 @@ function checkOddsBlock(opt, changed, restructure) {
     catch (e) { setNote(`Routing: ${e.message}`); return b.cards.length; }
     return to ? b.cards.findIndex((x) => x.branch === to.branch && x.idx === to.idx) : b.cards.length;
   }
+  const askedAt = (key) => asked.get(key) || new Set();
+  // Leaving a hub card on a question (not its exit) counts that question as asked.
+  function noteAsked(b) {
+    const c = b.cards[cardIdx];
+    if (!c || !c.choices || pick == null || c.choices[pick].exit === true) return;
+    asked.set(c.key, new Set([...askedAt(c.key), pick]));
+  }
   const goTo = (i) => { cardIdx = i; pick = null; outcomeKey = null; renderFrame(); };
   let frameTok = 0;
 
@@ -2517,9 +2605,13 @@ function checkOddsBlock(opt, changed, restructure) {
     $("tp-text").textContent = c.text;
     if (c.choices) {
       opts.hidden = false;
+      const hub = hubExit(c, askedAt(c.key));
       opts.append(...c.choices.map((x, i) => {
-        const bt = el("button", { type: "button", "aria-pressed": String(pick === i) },
-          el("span", { text: (x.label || "(no label)") + (x.id ? `  [${x.id}]` : "") }), el("span", { class: "mech", text: optionMech(x) }));
+        const isExit = i === hub.index, locked = isExit && hub.locked;
+        const bt = el("button", { type: "button", "aria-pressed": String(pick === i), disabled: locked,
+          title: locked ? `→ unlocks after ${hub.need} more question${hub.need === 1 ? "" : "s"}` : "" },
+          el("span", { text: (isExit ? "→ " : askedAt(c.key).has(i) ? "✓ " : "") + (x.label || "(no label)") + (x.id ? `  [${x.id}]` : "") }),
+          el("span", { class: "mech", text: optionMech(x) }));
         bt.addEventListener("click", () => { pick = pick === i ? null : i; outcomeKey = null; renderFrame(); });
         return bt;
       }));
@@ -2688,7 +2780,7 @@ function checkOddsBlock(opt, changed, restructure) {
     const id = node.getAttribute("data-node"), rest = id.slice(2);
     const i = id.startsWith("c:") ? b.cards.findIndex((c) => c.key === rest)
       : /^[bg]:/.test(id) ? b.cards.findIndex((c) => c.branch === rest) : -1;
-    if (i >= 0) { trail = []; trailImg = []; goTo(i); }
+    if (i >= 0) { trail = []; trailImg = []; asked.clear(); goTo(i); }
   }
   {
     const box = $("graph");
@@ -2778,6 +2870,7 @@ function checkOddsBlock(opt, changed, restructure) {
       (t) => editDraft((d) => setCardGoto(d, c.key, t), true)));
     renderImageRow(c);
     renderOptionsEditor(b, c);
+    renderAdvanceRow(c);
     keepFocus($("ce-comments"), ...commentSection(b, { card: c.key }, comments(b.draft).filter((x) => x.anchor && x.anchor.card === c.key)));
     renderBranchEditor(b, c.branch);
   }
@@ -2972,6 +3065,11 @@ function checkOddsBlock(opt, changed, restructure) {
       reBox.addEventListener("change", () => edit((d) => setReselectable(d, c.key, i, reBox.checked)));
       rows.push(el("label", { class: "route", title: "Stays offered after it's picked (hub loops); off = one-shot" },
         reBox, el("span", { class: "kw", text: "Reselectable" })));
+      const exitBox = el("input", { type: "checkbox", "data-focus": `opt:${i}:exit` });
+      exitBox.checked = o.exit === true;
+      exitBox.addEventListener("change", () => edit((d) => setOptionExitFlag(d, c.key, i, exitBox.checked)));
+      rows.push(el("label", { class: "route", title: "The hub's exit: shown as the footer →, not a button; when it shows follows the card's Hub advance rule" },
+        exitBox, el("span", { class: "kw", text: "Advance option (→)" })));
       const onBox = el("input", { type: "checkbox", "data-focus": `opt:${i}:check` });
       onBox.checked = !!o.check;
       onBox.addEventListener("change", () => {
@@ -3014,6 +3112,25 @@ function checkOddsBlock(opt, changed, restructure) {
       }
       return el("div", { class: "opt" }, ...rows);
     }));
+  }
+  // A choice card's hub advance rule: when the exit option's → shows (anytime / all asked / after N).
+  function renderAdvanceRow(c) {
+    const row = $("ce-advance");
+    row.hidden = !c.choices;
+    if (!c.choices) { row.replaceChildren(); return; }
+    const rule = advanceRule(c);
+    const sel = el("select", { "aria-label": "Hub advance rule", "data-focus": "advance:kind" },
+      ...ADVANCE_KINDS.map(([v, label]) => el("option", { value: v, text: label })));
+    sel.value = rule.kind;
+    sel.addEventListener("change", () => editDraft((d) => setCardAdvance(d, c.key, sel.value, rule.n), true));
+    const kids = [el("span", { class: "kw", text: "Hub advance" }), sel];
+    if (rule.kind === "after") {
+      const n = el("input", { type: "number", min: "1", step: "1", "aria-label": "Questions asked", "data-focus": "advance:n" });
+      n.value = String(rule.n);
+      n.addEventListener("change", () => editDraft((d) => setCardAdvance(d, c.key, "after", Number(n.value)), true));
+      kids.push(n);
+    }
+    keepFocus(row, ...kids);
   }
   // Option i's outcome slot s's result image: its file, "card's image" (no key) or cleared (null), with Pick / CARD'S /
   // CLEAR buttons.
@@ -3230,7 +3347,7 @@ function checkOddsBlock(opt, changed, restructure) {
     const i = key ? b.cards.findIndex((x) => x.key === key) : -1;
     if (i < 0) return;
     showTab("storyboard");
-    trail = []; trailImg = []; goTo(i);
+    trail = []; trailImg = []; asked.clear(); goTo(i);
     const box = a.card ? $("card-editor") : $("branch-editor");
     const hit = box.querySelector(`[data-cmt="${c.id}"]`) || box;
     hit.scrollIntoView({ block: "center" });
@@ -3325,7 +3442,7 @@ function checkOddsBlock(opt, changed, restructure) {
     renderGraph(b);
     if (sel) {
       const i = b.cards.findIndex((x) => x.key === sel);
-      if (i >= 0) { cardIdx = i; trail = []; trailImg = []; pick = null; outcomeKey = null; }
+      if (i >= 0) { cardIdx = i; trail = []; trailImg = []; asked.clear(); pick = null; outcomeKey = null; }
     }
     renderCuts(b); renderFrame(); renderComments(b); renderEditBar();
   }
@@ -3599,7 +3716,7 @@ function checkOddsBlock(opt, changed, restructure) {
             return el("span", { class: "opt" }, "▸ ", el("b", { text: x.label }), mech ? " · " + mech : "");
           }),
           c.goto ? el("span", { class: "opt", text: "→ " + targetText(c.goto) }) : null));
-      row.addEventListener("click", () => { trail = []; trailImg = []; goTo(i); });
+      row.addEventListener("click", () => { trail = []; trailImg = []; asked.clear(); goTo(i); });
       return [head, row, tail].filter(Boolean);
     }));
   }
@@ -3865,7 +3982,7 @@ function checkOddsBlock(opt, changed, restructure) {
   const typing = () => { const a = document.activeElement; return !!a && (a.tagName === "TEXTAREA" || a.isContentEditable || (a.tagName === "INPUT" && a.type === "text")); };
   function renderAll() { renderPicker(); if (!typing()) renderBoard(); }
   function selectBoard(id, keepCard) {
-    if (!keepCard) { cardIdx = 0; trail = []; trailImg = []; pick = null; outcomeKey = null; }
+    if (!keepCard) { cardIdx = 0; trail = []; trailImg = []; asked.clear(); pick = null; outcomeKey = null; }
     if (id !== currentId) $("dirty").textContent = "";
     currentId = id; if (id) remember(id);
     renderPicker(); renderBoard();
@@ -3992,7 +4109,7 @@ function checkOddsBlock(opt, changed, restructure) {
   $("next").addEventListener("click", () => {
     const b = board(); if (!b) return;
     // Proposals follow the picked outcome's goto, so skipped branch cards stay skipped (as in the game).
-    if (b.kind === "proposal") { const n = nextIndex(b); if (n < b.cards.length) { trail.push(cardIdx); trailImg.push(pickedImage(b)); goTo(n); } return; }
+    if (b.kind === "proposal") { const n = nextIndex(b); if (n < b.cards.length) { noteAsked(b); trail.push(cardIdx); trailImg.push(pickedImage(b)); goTo(n); } return; }
     if (cardIdx < b.cards.length - 1) { cardIdx++; renderFrame(); }
   });
   $("open").addEventListener("click", openFolder);
