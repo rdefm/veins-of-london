@@ -30,6 +30,7 @@ const {
   cardImageName, freeImageName, freeResultImageName, setCardImage, eventImageDir, SHOT_FIELDS, serialiseBoard, setShotField, shotFieldText,
   LIVE_EVENTS_DIR, proposalFileName, importBoard, blankBoard, duplicateBoard, boardCardLabel, promoteDraft, serialiseEvent,
   promoteForWrite, promoteSummary, shotBoardFor, boardCut, shotOnPath, workingCopyFor, liveHash, liveDrifted,
+  liveEventOptions, openOrImport,
 } = new Function(
   html.slice(ss, se) + html.slice(s, e) +
     "\nreturn { parseProposal, parseDraft, serialiseDraft, ensureKeys, legacyToDraft, nextPos, playOrder, flatCards, thenText," +
@@ -42,7 +43,8 @@ const {
     " addComment, updateComment, deleteComment, filterComments, commentCount, anchorText, anchorType, proseComments," +
     " cardImageName, freeImageName, freeResultImageName, setCardImage, eventImageDir, SHOT_FIELDS, serialiseBoard, setShotField, shotFieldText," +
     " LIVE_EVENTS_DIR, proposalFileName, importBoard, blankBoard, duplicateBoard, boardCardLabel, promoteDraft, serialiseEvent," +
-    " promoteForWrite, promoteSummary, shotBoardFor, boardCut, shotOnPath, workingCopyFor, liveHash, liveDrifted };"
+    " promoteForWrite, promoteSummary, shotBoardFor, boardCut, shotOnPath, workingCopyFor, liveHash, liveDrifted," +
+    " liveEventOptions, openOrImport };"
 )();
 
 let passed = 0;
@@ -572,6 +574,24 @@ test("live drift: import fingerprints the live text; match, drift, post-promote 
   assert.strictEqual(liveDrifted(draft, changed), false);
   const dup = parseProposal("c.md", duplicateBoard("p.md", importBoard("intro.json", text, []).md, "intro_two", true, [], []).md);
   assert.strictEqual(dup.draft._liveHash, undefined);
+});
+
+test("liveEventOptions: un-imported import on pick, working copies show editing live, non-json skipped", () => {
+  const made = importBoard("intro.json", JSON.stringify({ id: "intro", cards: [{ type: "narration", text: "Hi." }] }), []);
+  const copy = parseProposal(made.file, made.md);
+  copy.eventId = "proposal:" + made.file;
+  const opts = liveEventOptions(["intro.json", "buyer.json", "README.md"], [copy, parseProposal("x.md", "# no block")].filter(Boolean));
+  assert.deepStrictEqual(opts.map((o) => [o.value, o.copy]), [[copy.eventId, true], ["live:buyer.json", false]]);
+  assert.ok(opts[0].label.includes("editing live"));
+});
+
+test("openOrImport: imports on first open, reuses the working copy after", () => {
+  const text = JSON.stringify({ id: "intro", cards: [{ type: "narration", text: "Hi." }] });
+  const first = openOrImport("intro.json", text, [], []);
+  assert.ok(first.made && !first.existing);
+  const again = openOrImport("intro.json", text, [{ name: first.made.file, md: first.made.md }], [first.made.file]);
+  assert.strictEqual(again.existing, first.made.file);
+  assert.strictEqual(again.made, undefined);
 });
 
 test("workingCopyFor: second import finds the first; legacy and unrelated proposals don't match", () => {

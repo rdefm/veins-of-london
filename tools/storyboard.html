@@ -2029,6 +2029,21 @@ function checkOddsBlock(opt, changed, restructure) {
     }
     return null;
   }
+  const LIVE_PREFIX = "live:";
+  // Picker entries for the "Live events" group: every live file, as its working copy's board id when one exists
+  // (labelled editing live) or as LIVE_PREFIX + file to import on selection. Non-.json names are skipped.
+  function liveEventOptions(liveFiles, proposals) {
+    return liveFiles.filter((f) => f.endsWith(".json")).map((f) => {
+      const copy = proposals.find((b) => b.draft && b.draft._liveSource === f);
+      return copy ? { value: copy.eventId, label: `${f} — editing live`, copy: true } : { value: LIVE_PREFIX + f, label: f, copy: false };
+    });
+  }
+  // Opening live event `file`: its existing working copy ({ existing: proposal file }) or a fresh import ({ made }).
+  // files: [{name, md}] of the proposals folder; taken: its file names.
+  function openOrImport(file, text, files, taken) {
+    const existing = workingCopyFor(file, files);
+    return existing ? { existing } : { made: importBoard(file, text, taken) };
+  }
   // A blank event: one `main` branch holding one blank narration card.
   function blankBoard(id, taken, liveIds) {
     checkNewId(id, liveIds);
@@ -2297,8 +2312,10 @@ function checkOddsBlock(opt, changed, restructure) {
     } catch { return null; }
   }
 
+  let liveFiles = [];
   async function loadAll() {
     const found = [];
+    liveFiles = root ? await fileNames(LIVE_EVENTS_DIR, /\.json$/) : [];
     feedback = {};
     repoImages = null;
     // A shot board with unsaved edits stays as it is in memory; one unchanged on disk keeps its undo history.
@@ -2397,11 +2414,15 @@ function checkOddsBlock(opt, changed, restructure) {
 
   function renderPicker() {
     const sel = $("board-select");
-    const opt = (b) => el("option", { value: b.eventId, text: b.kind !== "proposal" ? b.eventId : b.file + (b.draft && b.draft._liveSource ? ` — editing live: ${b.draft.id}` : "") });
-    const groups = [["Storyboards", boards.filter((b) => b.kind !== "proposal")], ["Proposals", boards.filter((b) => b.kind === "proposal")]]
-      .filter(([, list]) => list.length).map(([label, list]) => el("optgroup", { label }, ...list.map(opt)));
+    const opt = (b) => el("option", { value: b.eventId, text: b.kind !== "proposal" ? b.eventId : b.file });
+    const live = liveEventOptions(liveFiles, boards.filter((b) => b.kind === "proposal"));
+    const copies = new Set(live.filter((o) => o.copy).map((o) => o.value));
+    const groups = [["Storyboards", boards.filter((b) => b.kind !== "proposal").map(opt)],
+      ["Proposals", boards.filter((b) => b.kind === "proposal" && !copies.has(b.eventId)).map(opt)],
+      ["Live events", live.map((o) => el("option", { value: o.value, text: o.label }))]]
+      .filter(([, list]) => list.length).map(([label, list]) => el("optgroup", { label }, ...list));
     sel.replaceChildren(...groups);
-    sel.disabled = boards.length === 0;
+    sel.disabled = boards.length === 0 && live.length === 0;
     if (currentId) sel.value = currentId;
   }
 
@@ -3500,17 +3521,17 @@ function checkOddsBlock(opt, changed, restructure) {
         if (text == null) throw new Error(`couldn't read ${src}`);
         const files = [];
         for (const name of taken) if (name.endsWith(".md")) { const md = await readText(dir, name); if (md != null) files.push({ name, md }); }
-        const existing = workingCopyFor(src, files);
-        if (existing) {
+        const r = openOrImport(src, text, files, taken);
+        if (r.existing) {
           if (!leaveBoard()) return;
           $("newboard").close();
           await loadAll();
-          selectBoard(PROPOSAL_PREFIX + existing);
+          selectBoard(PROPOSAL_PREFIX + r.existing);
           showTab("storyboard");
-          renderEditBar(`${src} already has a working copy; opened ${existing}`);
+          renderEditBar(`${src} already has a working copy; opened ${r.existing}`);
           return;
         }
-        made = importBoard(src, text, taken);
+        made = r.made;
       } else if (nbMode === "blank") made = blankBoard(id, taken, liveIds);
       else {
         const md = await readText(dir, src);
@@ -3856,9 +3877,36 @@ function checkOddsBlock(opt, changed, restructure) {
     renderPicker(); renderBoard();
   }
 
+  // Picker choice of an un-imported live event: import it (never over an existing file) and open the copy.
+  async function openLiveEvent(file) {
+    try {
+      const dir = await dirAt(PROPOSALS_DIR, true);
+      const taken = await fileNames(PROPOSALS_DIR, /./);
+      const text = await readText(await dirAt(LIVE_EVENTS_DIR), file);
+      if (text == null) throw new Error(`couldn't read ${file}`);
+      const files = [];
+      for (const name of taken) if (name.endsWith(".md")) { const md = await readText(dir, name); if (md != null) files.push({ name, md }); }
+      const r = openOrImport(file, text, files, taken);
+      const name = r.existing || r.made.file;
+      if (r.made) {
+        if (!writableProposal(PROPOSALS_DIR)) throw new Error("refusing to write outside .scratch/writing-revamp/");
+        if (await readText(dir, name) != null) throw new Error(`${name} already exists`);
+        await writeFile(dir, name, r.made.md);
+      }
+      await loadAll();
+      selectBoard(PROPOSAL_PREFIX + name);
+      showTab("storyboard");
+      renderEditBar(r.made ? `Imported ${file} as ${name}` : `Opened ${name}`);
+    } catch (e) {
+      renderPicker();
+      renderEditBar("Couldn't open live event: " + (e && e.message));
+    }
+  }
   $("board-select").addEventListener("change", (e) => {
+    const v = e.target.value;
     if (!leaveBoard()) { e.target.value = currentId; return; }
-    selectBoard(e.target.value);
+    if (v.startsWith(LIVE_PREFIX)) openLiveEvent(v.slice(LIVE_PREFIX.length));
+    else selectBoard(v);
   });
   // Text fields: one undo step per focus. Empty speaker / label drop the key rather than store "".
   for (const f of CE_FIELDS) {
