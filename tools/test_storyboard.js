@@ -29,7 +29,7 @@ const {
   addComment, updateComment, deleteComment, filterComments, commentCount, anchorText, anchorType, proseComments,
   cardImageName, freeImageName, freeResultImageName, setCardImage, eventImageDir, SHOT_FIELDS, serialiseBoard, setShotField, shotFieldText,
   LIVE_EVENTS_DIR, proposalFileName, importBoard, blankBoard, duplicateBoard, boardCardLabel, promoteDraft, serialiseEvent,
-  promoteForWrite, promoteSummary, shotBoardFor, boardCut, shotOnPath, workingCopyFor,
+  promoteForWrite, promoteSummary, shotBoardFor, boardCut, shotOnPath, workingCopyFor, liveHash, liveDrifted,
 } = new Function(
   html.slice(ss, se) + html.slice(s, e) +
     "\nreturn { parseProposal, parseDraft, serialiseDraft, ensureKeys, legacyToDraft, nextPos, playOrder, flatCards, thenText," +
@@ -42,7 +42,7 @@ const {
     " addComment, updateComment, deleteComment, filterComments, commentCount, anchorText, anchorType, proseComments," +
     " cardImageName, freeImageName, freeResultImageName, setCardImage, eventImageDir, SHOT_FIELDS, serialiseBoard, setShotField, shotFieldText," +
     " LIVE_EVENTS_DIR, proposalFileName, importBoard, blankBoard, duplicateBoard, boardCardLabel, promoteDraft, serialiseEvent," +
-    " promoteForWrite, promoteSummary, shotBoardFor, boardCut, shotOnPath, workingCopyFor };"
+    " promoteForWrite, promoteSummary, shotBoardFor, boardCut, shotOnPath, workingCopyFor, liveHash, liveDrifted };"
 )();
 
 let passed = 0;
@@ -553,6 +553,25 @@ test("import records its live source; it survives re-parse and a splice-save, an
   const copy = parseProposal("c.md", duplicateBoard(made.file, made.md, "intro_two", true, [], []).md);
   assert.strictEqual(copy.draft._liveSource, undefined);
   assert.strictEqual(promoteDraft(b.draft).event._liveSource, undefined);
+});
+
+test("live drift: import fingerprints the live text; match, drift, post-promote and missing fingerprint", () => {
+  const text = JSON.stringify({ id: "intro", cards: [{ type: "narration", text: "Hi." }] });
+  const draft = parseProposal("p.md", importBoard("intro.json", text, []).md).draft;
+  assert.strictEqual(draft._liveHash, liveHash(text));
+  assert.strictEqual(liveDrifted(draft, text), false);
+  const changed = text.replace("Hi.", "Hello.");
+  assert.strictEqual(liveDrifted(draft, changed), true);
+  assert.strictEqual(liveDrifted(draft, null), false);
+  assert.strictEqual(promoteDraft(draft).event._liveHash, undefined);
+  const out = promoteForWrite(draft);
+  draft._liveHash = liveHash(out.text);
+  assert.strictEqual(liveDrifted(draft, out.text), false);
+  assert.strictEqual(liveDrifted(draft, changed), true);
+  delete draft._liveHash;
+  assert.strictEqual(liveDrifted(draft, changed), false);
+  const dup = parseProposal("c.md", duplicateBoard("p.md", importBoard("intro.json", text, []).md, "intro_two", true, [], []).md);
+  assert.strictEqual(dup.draft._liveHash, undefined);
 });
 
 test("workingCopyFor: second import finds the first; legacy and unrelated proposals don't match", () => {

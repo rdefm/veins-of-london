@@ -324,6 +324,7 @@ section { display: grid; gap: 12px; min-width: 0 }
           <button type="button" class="tb" id="undo" title="Undo the last edit (Ctrl+Z outside a text box)">Undo</button>
           <button type="button" class="tb" id="promote" hidden title="Write the saved proposal as the live event data/events/&lt;id&gt;.json">Promote</button>
           <span class="dirty" id="dirty" role="status"></span>
+          <span class="dirty on" id="drift" role="status" hidden>Live file changed since import</span>
         </div>
         <p class="logline" id="logline"></p>
       </section>
@@ -2000,6 +2001,16 @@ function checkOddsBlock(opt, changed, restructure) {
     return name;
   }
   const proposalMd = (heading, draft) => `# ${heading}\n\n\`\`\`json\n${serialiseDraft(draft)}\n\`\`\`\n`;
+  // Fingerprint of a live file's text (FNV-1a, 8 hex digits); a working copy keeps it as `_liveHash`.
+  function liveHash(text) {
+    let h = 0x811c9dc5;
+    for (let i = 0; i < text.length; i++) { h ^= text.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+    return h.toString(16).padStart(8, "0");
+  }
+  // True when the draft holds a fingerprint and the live file's text (null = no file) no longer matches it.
+  function liveDrifted(draft, liveText) {
+    return !!draft && !!draft._liveHash && liveText != null && liveHash(liveText) !== draft._liveHash;
+  }
   // A live flat event (data/events/<file> text) as named branches.
   function importBoard(file, text, taken) {
     let ev;
@@ -2007,6 +2018,7 @@ function checkOddsBlock(opt, changed, restructure) {
     if (!ev || !Array.isArray(ev.cards)) throw new Error(`${file} has no cards array`);
     const draft = legacyToDraft("id" in ev ? ev : { id: file.replace(/\.json$/, ""), ...ev });
     draft._liveSource = file;
+    draft._liveHash = liveHash(text);
     return { file: proposalFileName(draft.id, taken), md: proposalMd(`${draft.id} — imported from data/events/${file}`, draft) };
   }
   // The proposal file already editing live event `file` (its draft's `_liveSource`), or null. files: [{name, md}].
@@ -2033,6 +2045,7 @@ function checkOddsBlock(opt, changed, restructure) {
     const draft = src.draft;
     draft.id = id;
     delete draft._liveSource;
+    delete draft._liveHash;
     const heading = `${id} — copy of ${srcFile}`;
     if (!keepComments) { delete draft._comments; return { file: proposalFileName(id, taken), md: proposalMd(heading, draft) }; }
     const md = spliceDraft(srcMd, draft);
@@ -2139,7 +2152,7 @@ function checkOddsBlock(opt, changed, restructure) {
     let event = {};
     for (const [k, v] of Object.entries(draft)) {
       if (k === "branches") event.cards = cards;
-      else if (k !== "start" && k !== "_comments" && k !== "_layout" && k !== "_keyOrder" && k !== "_liveSource") event[k] = deepClone(v);
+      else if (k !== "start" && k !== "_comments" && k !== "_layout" && k !== "_keyOrder" && k !== "_liveSource" && k !== "_liveHash") event[k] = deepClone(v);
     }
     event = inKeyOrder(event, (draft._keyOrder || {}).top);
     return { event, dropped: flatCards(draft).map((f) => f.card.key).filter((k) => !reach.has(k)) };
@@ -3254,6 +3267,15 @@ function checkOddsBlock(opt, changed, restructure) {
       throw new Error(`every branch would loop back into ${name}: add a new branch first`);
     }, true);
   }
+  // Reads the working copy's live file once per board and flags `b.drift` when it no longer matches the import fingerprint.
+  async function checkDrift(b) {
+    b.driftChecked = true;
+    if (!b.draft || !b.draft._liveHash || !b.draft._liveSource) return;
+    try {
+      b.drift = liveDrifted(b.draft, await readText(await dirAt(LIVE_EVENTS_DIR), b.draft._liveSource));
+      if (board() === b) $("drift").hidden = !b.drift;
+    } catch { b.drift = false; }
+  }
   // msg replaces the status line; otherwise it shows the dirty state (a "Saved …" note stays until the next edit).
   function renderEditBar(msg) {
     const b = board(), proposal = !!b && b.kind === "proposal", on = !!b && (!proposal || !!b.draft);
@@ -3267,6 +3289,8 @@ function checkOddsBlock(opt, changed, restructure) {
     $("undo").disabled = !undoTarget();
     $("promote").hidden = !proposal;
     $("promote").disabled = isDirty(b);
+    if (proposal && b.driftChecked !== true) checkDrift(b);
+    $("drift").hidden = !(proposal && b.drift);
     const d = $("dirty");
     d.classList.toggle("on", dirty);
     if (msg) d.textContent = msg;
@@ -3399,10 +3423,21 @@ function checkOddsBlock(opt, changed, restructure) {
       const dir = await dirAt(LIVE_EVENTS_DIR), target = [...LIVE_EVENTS_DIR, out.file].join("/");
       const old = await readText(dir, out.file);
       if (old === out.text) { renderEditBar(`${target} already matches this proposal; nothing to write.`); return; }
-      if (!confirm(`Promote ${b.file} to ${target}?\n\n${promoteSummary(old, out).join("\n")}\n\nTests still run via Claude.`)) {
+      const drift = liveDrifted(parsed.draft, old);
+      const warn = drift ? `WARNING: ${target} changed since this working copy was imported. Promoting overwrites those newer live edits.\n\n` : "";
+      if (!confirm(`${warn}Promote ${b.file} to ${target}?\n\n${promoteSummary(old, out).join("\n")}\n\nTests still run via Claude.`)) {
         renderEditBar("Promote cancelled."); return;
       }
       await writeFile(dir, out.file, out.text);
+      if (parsed.draft._liveHash && parsed.draft._liveSource === out.file) {
+        b.draft._liveHash = liveHash(out.text);
+        const pdir = await dirAt(PROPOSALS_DIR), synced = spliceDraft(md, b.draft);
+        await writeFile(pdir, b.file, synced);
+        const r2 = jsonBlockRange(synced);
+        b.diskBlock = synced.slice(r2.start, r2.end);
+        b.saved = serialiseDraft(b.draft);
+      }
+      b.drift = false;
       renderEditBar(`${old == null ? "Wrote" : "Overwrote"} ${target} (${out.event.cards.length} cards). Ask Claude to run the tests.`);
     } catch (e) { renderEditBar("Can't promote: " + (e && e.message)); }
   }

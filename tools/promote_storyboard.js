@@ -5,7 +5,8 @@
 //   node tools/promote_storyboard.js comments <proposal.md>          open "for Claude" comments, one per line
 //   node tools/promote_storyboard.js resolve <proposal.md> <id>...   mark those comments resolved (saved in place)
 //   node tools/promote_storyboard.js promote <proposal.md> [--out <file>] [--stdout]
-//       writes data/events/<id>.json (or --out); refuses while open "for Claude" comments remain.
+//       writes data/events/<id>.json (or --out); refuses while open "for Claude" comments remain, and when the
+//       live file changed since the working copy was imported (unless --force).
 
 const fs = require("fs");
 const path = require("path");
@@ -22,7 +23,7 @@ function loadModel() {
   return new Function(
     section("/* ---------- Choice mechanics (shared) ---------- */", "/* ---------- End choice mechanics ---------- */") +
       section("/* ---------- Draft model (pure) ---------- */", "/* ---------- End draft model ---------- */") +
-      "\nreturn { parseProposal, spliceDraft, filterComments, updateComment, anchorText, promoteForWrite };"
+      "\nreturn { parseProposal, spliceDraft, filterComments, updateComment, anchorText, promoteForWrite, liveHash, liveDrifted };"
   )();
 }
 
@@ -60,7 +61,13 @@ function main(argv) {
     const oi = rest.indexOf("--out");
     const out = oi >= 0 ? rest[oi + 1] : path.join(ROOT, "data", "events", name);
     const existed = fs.existsSync(out);
+    if (existed && !rest.includes("--force") && m.liveDrifted(draft, fs.readFileSync(out, "utf-8")))
+      throw new Error(`${path.relative(ROOT, out)} changed since this working copy was imported; promoting would overwrite newer live edits. Re-run with --force to overwrite.`);
     fs.writeFileSync(out, text);
+    if (draft._liveHash && oi < 0) {
+      draft._liveHash = m.liveHash(text);
+      fs.writeFileSync(file, m.spliceDraft(md, draft));
+    }
     console.log(`${existed ? "overwrote" : "wrote"} ${path.relative(ROOT, out)} (${event.cards.length} cards)`);
     return;
   }

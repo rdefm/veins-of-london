@@ -91,9 +91,14 @@ Every route proves the same capacity and reaches the same request. The test cann
           "speaker": "James"
         },
         {
+          "key": "c19",
+          "type": "narration",
+          "text": "They also recharge automatically, and provide stronger orichalchum effects than items alone can."
+        },
+        {
           "key": "c18",
           "type": "narration",
-          "text": "They also recharge, providing stronger and, to a point, renewable orichalchum effects. Unfortunately, this one is broken, and crafting expertise alone can't fix it."
+          "text": "Each Dial requires a Movement to work. Unfortunately, this Movement is broken, and crafting expertise alone can't fix it."
         },
         {
           "type": "choice",
@@ -240,7 +245,7 @@ Every route proves the same capacity and reaches the same request. The test cann
           "type": "speaker",
           "label": null,
           "speaker": "James",
-          "text": "\"A time-attuned Recharge Movement. At your present skill, one attempt takes {attemptCost} units of time calc. Bring {calcQty}. I am allowing for a failure, not expecting one.\"",
+          "text": "\"I would greatly appreciate it if you could mend this broken Time Movement. At your present skill, one attempt takes {attemptCost} units of time calc. Bring {calcQty}. I am allowing for a failure, not expecting one.\"",
           "key": "c13"
         },
         {
@@ -261,12 +266,22 @@ Every route proves the same capacity and reaches the same request. The test cann
           "type": "resolution",
           "label": null,
           "speaker": null,
-          "text": "James puts the Dial back in its drawer. The repair can wait for the calc. James has already messaged you by the time you reach the street, repeating how much calc you need. It's the most conversation you've ever seen James initiate of his own accord.",
+          "text": "James puts the Movement back in the draw. The repair can wait for the calc. James has already messaged you by the time you reach the street, repeating how much calc you need. It's the most conversation you've ever seen James that wasn't berating someone.",
           "key": "c16"
         }
       ]
     }
-  }
+  },
+  "_comments": [
+    {
+      "id": "m1",
+      "kind": "note",
+      "text": "Good opportunity for the observation prototype",
+      "anchor": {
+        "card": "c4"
+      }
+    }
+  ]
 }
 ```
 
