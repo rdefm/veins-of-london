@@ -18,7 +18,7 @@ PROLOGUE "Rent Day" (linear, ~30 min)
 
 
 - Prologue: Prologue | Review & refine
-- Arc A: Collective Arc 1 | Review & refine
+- Arc A: Collective Arc 1 | Review & refine (plan detailed in this doc)
 - Arc B: Dial | Some events drafted
 - Arc C: BizEmpire Act 1 | Review & refine 
 - Arc D: BizEmpire Act 2 | Review & refine
@@ -53,7 +53,10 @@ Home raid, end of prologue
 7) archie_cultivation.json
 Need to adjust so Archie doesn't show the player how to cultivate or harvest, just shows them the vein. Maybe move this into Arc A, after Des lessons, so it makes sense that the player can cultivate/harvest their vein.
 
-## Arc A
+
+
+
+## Arc A - Collect
 Aim: Teach player about prospecting, cultivating, harvesting, seeding veins.
 
 1) col_a1_intro.json
@@ -106,3 +109,26 @@ Nadia offers to buy a time vein.
 
 9c) col_a1_nadia_done.json
 Nadia buys the vein.
+
+10) col_a1_closer.json
+End of Act 1, player gets a life vein.
+
+
+
+## Arc B - Craft
+Aim: Teach th player more about crafting, Dials, and player gets their own Dial.
+
+
+
+
+
+## Arc C - Sell
+Aim: Guide player in basics of selling and running a business
+
+
+## Arc D - The Exchange
+Aim: teach the player about the marketplace and the Ticker
+
+
+## Arc E - The Register
+Aim: teach the player about faction relations (how to influence, and what it influences), conflict, negotiation, turf.
