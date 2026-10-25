@@ -822,6 +822,7 @@ static func rewind(source: String = "") -> Dictionary:
 	var snap: Dictionary = Snapshots.pop_newest(stack)
 	var live_meta: Dictionary = GameState.state["meta"].duplicate()
 	var live_rolled: Dictionary = _rolled(event_state)
+	var live_observations: Variant = event_state.get("observations")
 	var block_start: Variant = GameState.state.get("blockStart")
 	GameState.state = snap
 	GameState.state["blockStart"] = block_start
@@ -832,6 +833,10 @@ static func rewind(source: String = "") -> Dictionary:
 	# Roll counts survive the Rewind, so a check rolled before it re-rolls
 	# with advantage (check_odds()).
 	GameState.state["event"]["rolled"] = live_rolled
+	# Reads survive the Rewind; each read observation is re-armed for one more roll.
+	if live_observations != null:
+		GameState.state["event"]["observations"] = live_observations
+	var rearmed := Observation.rearm_read()
 
 	if has_consumable:
 		Crafting.inventory_remove("rewind", 1)
@@ -840,7 +845,7 @@ static func rewind(source: String = "") -> Dictionary:
 
 	Notify.push("⟲ Time unspools. The moment resets. Only you remember.")
 	EventBus.state_changed.emit()
-	return { "ok": true }
+	return { "ok": true, "rearmed": rearmed }
 
 
 # ── effect ops ──────────────────────────────────────────────────────────

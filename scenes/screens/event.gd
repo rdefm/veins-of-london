@@ -254,6 +254,14 @@ static func observation_sheet_title() -> String:
 static func tier_pips(level: int, tiers: int) -> String:
 	return "●".repeat(level) + "○".repeat(tiers - level)
 
+static func roll_line_text(row: Dictionary) -> String:
+	var pips := tier_pips(row["level"], row["tiers"])
+	if not row["rerolled"]:
+		return "Rolled %d · needed %d+   %s" % [row["roll"], row["needed"], pips]
+	if row["improved"]:
+		return "Rolled %d · improved · needed %d+   %s" % [row["last"], row["needed"], pips]
+	return "Rolled %d · kept %d   %s" % [row["last"], row["roll"], pips]
+
 func _build_observation_row(row: Dictionary) -> Control:
 	var ore: String = row["ore"]
 	var box := UI.hbox(8)
@@ -268,7 +276,7 @@ func _build_observation_row(row: Dictionary) -> Control:
 	var col := UI.vbox(2)
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	box.add_child(col)
-	var roll_line := UI.muted_label("Rolled %d · needed %d+   %s" % [row["roll"], row["needed"], tier_pips(row["level"], row["tiers"])])
+	var roll_line := UI.muted_label(roll_line_text(row))
 	roll_line.name = "RollLine"
 	col.add_child(roll_line)
 	var text := UI.label(row["text"]) if row["hit"] else UI.muted_label(row["text"])

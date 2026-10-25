@@ -138,6 +138,61 @@ func run() -> void:
 		_cleanup()
 	)
 
+	run_case("rewind_keeps_reads_and_rearms_exactly_one_extra_roll", func():
+		GameState.reset()
+		GameState.state["player"]["inventory"]["rewind"] = { "1": 3 }
+		_install({ "o": { "blocks": { "time": { "tiers": [_tier("a", ALWAYS)], "miss": "m" } } },
+			"u": { "blocks": { "time": { "tiers": [_tier("a", ALWAYS)], "miss": "m" } } } },
+			[_card(), _card({ "observe": "o" }), _card({ "observe": "u" }), _card()])
+		Events.advance()
+		Observation.read()
+		var xp: int = GameState.state["player"]["senseXP"]
+		Events.advance()
+		assert_true(Observation.is_unread(), "u unread")
+		var result := Events.rewind()
+		assert_eq(result["rearmed"], ["o"], "only the read observation re-arms")
+		assert_true(Observation.rows("o").size() == 1, "read survives the Rewind")
+		assert_true(not Observation.is_unread(), "o still read")
+		assert_true(Observation.is_armed(), "o armed")
+		var obs: Dictionary = GameState.state["event"]["observations"]
+		assert_true(not obs.has("u"), "unread observation untouched")
+		Observation.read()
+		assert_eq(obs["o"]["rollCount"], 2, "one extra roll")
+		assert_true(not Observation.is_armed(), "armed cleared by the re-roll")
+		assert_true(GameState.state["player"]["senseXP"] > xp, "XP on the re-roll")
+		Observation.read()
+		assert_eq(obs["o"]["rollCount"], 2, "no further roll without another Rewind")
+		_cleanup()
+	)
+
+	run_case("reroll_keeps_best_tier_and_reports_improvement", func():
+		GameState.reset()
+		_install({ "o": { "blocks": { "time": { "tiers": [
+			_tier("a", NEVER, 0.1, [{ "op": "add", "path": "player.cash", "value": 1 }]),
+			_tier("b", ALWAYS, 0.5, [{ "op": "add", "path": "player.cash", "value": 10 }]),
+		], "miss": "m" } } } }, [_card({ "observe": "o" })])
+		Observation.read()
+		var cash: int = GameState.state["player"]["cash"]
+		var stored: Dictionary = GameState.state["event"]["observations"]["o"]
+		stored["armed"] = true
+		stored["results"]["time"]["level"] = 2
+		stored["results"]["time"]["roll"] = 73
+		var worse: Dictionary = Observation.read()[0]
+		assert_eq(worse["level"], 2, "worse re-roll never downgrades")
+		assert_eq(worse["roll"], 73, "kept roll")
+		assert_true(worse["rerolled"] and not worse["improved"], "not improved")
+		assert_eq(EventScreen.roll_line_text(worse).begins_with("Rolled %d · kept 73" % worse["last"]), true, "kept display")
+		assert_eq(GameState.state["player"]["cash"], cash, "no effects for tiers already reached")
+		stored = GameState.state["event"]["observations"]["o"]
+		stored["armed"] = true
+		stored["results"]["time"]["level"] = 0
+		var better: Dictionary = Observation.read()[0]
+		assert_eq(better["level"], 1, "better re-roll replaces")
+		assert_true(better["improved"], "improved")
+		assert_eq(GameState.state["player"]["cash"], cash + 10, "newly reached tier's effects run")
+		_cleanup()
+	)
+
 	run_case("observed_condition_gates_requires_mods_and_goto", func():
 		GameState.reset()
 		var cond := { "observed": { "id": "o", "ore": "time", "atLeast": 1 } }
