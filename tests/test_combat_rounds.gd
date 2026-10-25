@@ -881,6 +881,21 @@ func run() -> void:
 		assert_eq(combat["combatants"][CombatRounds.PLAYER_INDEX]["guard"], CombatRounds.GUARDED, "user's guard unchanged")
 	)
 
+	run_case("black_hole_stuns_every_enemy_and_freezes_none", func():
+		GameState.reset()
+		var combat := _start_vs([_slow_mugger(40), _slow_mugger(40)], [[["guard", "guard"]], [["guard", "guard"]]], [{ "recipe": "blackHole", "tier": 2 }])
+		var result := Combat.choose_item(0)
+		assert_true(result["ok"])
+		for e in [1, 2]:
+			var enemy: Dictionary = combat["combatants"][e]
+			assert_true(int(enemy["actionsLost"]) > 0, "enemy %d has lost actions" % e)
+			assert_eq(int(enemy["frozenActions"]), 0, "enemy %d not frozen" % e)
+			assert_eq(CombatRounds.guard_marker(combat, enemy), CombatRounds.GUARDED, "not held Open")
+			assert_true(not CombatRounds.is_open(combat, enemy), "reads Guarded like a stunned enemy")
+		assert_true(_first(result["beats"], "frozen").is_empty(), "no frozen beat")
+		assert_true(not _first(result["beats"], "lost").is_empty(), "lost beat")
+	)
+
 	run_case("blast_hits_through_guard_and_boosts_the_next_leg_it_once", func():
 		var boosted := false
 		for seed_value in range(1, 200):
