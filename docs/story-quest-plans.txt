@@ -99,7 +99,7 @@ Introduces Hakim and his quest. Good as is.
 Endes Hakim's initial quest. Good as is.
 
 8a1) col_a1_des_report_first_fate.json
-Adjust to note include The City
+Fine as is.
 
 8a2) col_a1_des_report_first_fate.json
 Fine as is

@@ -10,6 +10,11 @@ extends SceneTree
 
 
 func _initialize() -> void:
+	var version := Engine.get_version_info()
+	if int(version.major) != 4 or int(version.minor) != 7:
+		print("export_lint_refs: needs Godot 4.7 (running %s); JSON layout differs across versions" % version.string)
+		quit(1)
+		return
 	var game_data: Node = root.get_node("GameData")
 	if not game_data.loaded:
 		game_data.load_all()

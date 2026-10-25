@@ -486,6 +486,21 @@
 			},
 			"observations": {}
 		},
+		"james_dial_repair": {
+			"choiceCards": {
+				"c12": [
+					"sayNothing",
+					"mentionLaugh",
+					"askHowFeels"
+				],
+				"c8": [
+					"goSlower",
+					"askWhatWrong",
+					"askJamesHold"
+				]
+			},
+			"observations": {}
+		},
 		"james_experiment": {
 			"choiceCards": {
 				"c13": [
@@ -604,14 +619,35 @@
 			"choiceCards": {
 				"c2": [
 					"",
+					"",
 					""
 				],
 				"c3": [
 					"",
+					"",
+					"",
+					""
+				],
+				"c4": [
+					"",
+					"",
+					"",
+					""
+				],
+				"c5": [
+					"",
 					""
 				]
 			},
-			"observations": {}
+			"observations": {
+				"raid": {
+					"emotion": 2,
+					"fate": 2,
+					"life": 2,
+					"physics": 2,
+					"time": 2
+				}
+			}
 		},
 		"whitechapel_grief": {
 			"choiceCards": {},
@@ -712,6 +748,7 @@
 		"introAskedSource",
 		"introBrave",
 		"introWantsHalf",
+		"jamesDialRestored",
 		"jamesExperimentSeen",
 		"jamesJobAccepted",
 		"jamesJobActive",

@@ -26,21 +26,21 @@
           "type": "speaker",
           "label": null,
           "speaker": "Des",
-          "text": "\"Fate. In the City, no less.\" He's pleased in a way that takes a second to read as pleased. \"That's one. Somebody'll have something by the weekend.\""
+          "text": "\"Fate. Lovely.\" He's pleased in a way that takes a second to read as pleased. \"That's one. We'll seed it soon and give it to someone in need.\""
         },
         {
           "key": "c3",
           "type": "speaker",
           "label": null,
           "speaker": "Des",
-          "text": "\"Still want physics off you an' all. No rush — just don't go thinking that's the job done.\""
+          "text": "\"Still want physics off you an' all. No rush,  just don't go thinking that's the job done.\""
         },
         {
           "key": "c4",
           "type": "resolution",
           "label": null,
           "speaker": null,
-          "text": "By the end of the week, one patch you found has a vein in it and it isn't yours. You seem fine with this."
+          "text": "By the end of the day, one patch you found has a vein in it. It may not be yours, but you helped make it happen."
         }
       ]
     }
@@ -83,6 +83,6 @@
     }
   },
   "_liveSource": "col_a1_des_report_first_fate.json",
-  "_liveHash": "5219f928"
+  "_liveHash": "e614b730"
 }
 ```
