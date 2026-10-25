@@ -305,6 +305,21 @@ func run() -> void:
 		_cleanup()
 	)
 
+	run_case("check_with_raidFactors_adds_the_raid_factor_mods_to_its_odds", func():
+		GameState.reset()
+		var vein := { "id": "fv_t", "factionId": "guild", "oreType": "physics", "growth": 50, "security": "warded", "alarmUpgrades": [], "location": "x", "claimedOnDay": 0, "district": "shoreditch", "siteId": "s1", "hospitability": { "tier": "fair", "bonuses": [] }, "rampantDays": 0 }
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
+		var check := { "base": 0.5, "raidFactors": true, "mods": [] }
+		var plain := Events.odds_for({ "base": 0.5, "mods": [] })
+		assert_eq(plain["mods"].size(), 0)
+		GameData.EVENTS["obs_test"] = { "id": "obs_test", "cards": [_card({})], "on_complete": [] }
+		Events.start_event("obs_test", { "site_id": "s1" })
+		var odds := Events.odds_for(check)
+		assert_true(odds["mods"].size() > 0, "raid factors listed as labelled mods")
+		assert_true(odds["probability"] < 0.5, "security and value pull the odds down")
+		_cleanup()
+	)
+
 	run_case("non_raid_observation_has_no_raid_factor_mods", func():
 		GameState.reset()
 		_install({ "o": { "blocks": { "time": { "tiers": [_tier("a", ALWAYS)], "miss": "m" } } } }, [_card({ "observe": "o" })])

@@ -290,8 +290,24 @@ New event proposed for `data/events/james_dial_offer.json`. This follows the (no
   },
   "_layout": {
     "b:b8": [
-      12,
-      14
+      556,
+      155
+    ],
+    "b:b9": [
+      855,
+      149
+    ],
+    "b:b10": [
+      1147,
+      150
+    ],
+    "b:b11": [
+      1369,
+      53
+    ],
+    "end": [
+      1660,
+      79
     ]
   }
 }

@@ -1802,13 +1802,15 @@ func run() -> void:
 	)
 
 	run_case("vein_raid_event_uses_the_vein_guards_form", func():
-		var caught_ops: Array = []
-		for choice in GameData.EVENTS["vein_raid"]["cards"][1]["choices"]:
-			for op in choice["effects"][0]["on_caught"]:
-				if op["op"] == "start_raid_combat":
-					caught_ops.append(op)
-		assert_eq(caught_ops.size(), 2)
-		assert_true(caught_ops.all(func(op): return op["guards"] == Events.RAID_GUARDS_FROM_VEIN), "vein_raid sizes its squad to the vein's guards")
+		var fights: Array = []
+		for card in GameData.EVENTS["vein_raid"]["cards"]:
+			for choice in card.get("choices", []):
+				for outcome in [choice, choice.get("fail", {}), choice.get("success", {})]:
+					for op in outcome.get("effects", []):
+						if op["op"] == "start_raid_combat":
+							fights.append(op)
+		assert_true(fights.size() >= 7, "loud, just-go-in fail, and each route's fail / incapacitate success")
+		assert_true(fights.all(func(op): return op["guards"] == Events.RAID_GUARDS_FROM_VEIN), "vein_raid sizes its squad to the vein's guards")
 	)
 
 	run_case("claim_raid_vein_op_transfers_ownership", func():

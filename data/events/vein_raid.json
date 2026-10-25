@@ -1,41 +1,1027 @@
 {
   "id": "vein_raid",
+  "repeatable": true,
+  "observations": {
+    "raid": {
+      "mods": [],
+      "blocks": {
+        "physics": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "The back window's latch is rotten through."
+            },
+            {
+              "base": 0.55,
+              "text": "There's a window that might give."
+            }
+          ],
+          "miss": "Brick, shutters, nothing that moves."
+        },
+        "life": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "One guard is flagging, eyes half shut."
+            },
+            {
+              "base": 0.55,
+              "text": "A guard shifts his weight like a tired man."
+            }
+          ],
+          "miss": "You can't tell who's awake."
+        },
+        "emotion": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "The nearest guard is jumpy. Easy to rattle."
+            },
+            {
+              "base": 0.55,
+              "text": "One guard keeps glancing at the door."
+            }
+          ],
+          "miss": "Faces give you nothing."
+        },
+        "time": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "The patrol has a gap. You count it twice."
+            },
+            {
+              "base": 0.55,
+              "text": "The rounds run roughly on the quarter hour."
+            }
+          ],
+          "miss": "You lose the rhythm."
+        },
+        "fate": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "You catch the moment one guard will turn away."
+            },
+            {
+              "base": 0.55,
+              "text": "Something is about to go wrong for someone here."
+            }
+          ],
+          "miss": "Nothing lines up."
+        }
+      }
+    }
+  },
   "cards": [
-    { "key": "c1", "type": "tension", "label": "Night work", "speaker": null, "text": "Whoever's sitting on this vein hasn't put a name to it, but the ground still belongs to someone. You case the approach twice. No obvious watchers. That's not the same as no watchers." },
     {
-      "key": "c2", "type": "choice", "label": null, "speaker": null, "text": "One way in. You commit or you don't.",
+      "key": "c1",
+      "type": "tension",
+      "label": "Night work",
+      "speaker": null,
+      "observe": "raid",
+      "text": "Whoever's sitting on this vein hasn't put a name to it, but the ground still belongs to someone. You case the approach twice. No obvious watchers. That's not the same as no watchers."
+    },
+    {
+      "key": "c2",
+      "type": "choice",
+      "label": null,
+      "speaker": null,
+      "text": "One way in. You commit or you don't.",
       "choices": [
         {
-          "label": "Go slow",
-          "effects": [
-            { "op": "stealth_check", "consumable_bonus": 0.05, "on_success": [{ "op": "set_flag", "flag": "raidCaught", "value": false }, { "op": "notify", "text": "No alarms. You're in clean." }], "on_caught": [{ "op": "set_flag", "flag": "raidCaught", "value": true }, { "op": "notify", "text": "Something moves that shouldn't. You've been seen." }, { "op": "start_raid_combat", "guards": "vein", "template": "veinGuard" }] }
-          ],
-          "result_text": "You take it slow — weight off every floorboard, timing the dark between passes."
+          "label": "Just go in",
+          "check": {
+            "base": 0.15,
+            "raidFactors": true,
+            "mods": []
+          },
+          "success": {
+            "result_text": "You walk in like you belong. Tonight, nobody argues.",
+            "effects": [
+              {
+                "op": "set_flag",
+                "flag": "raidCaught",
+                "value": false
+              }
+            ],
+            "goto": 4
+          },
+          "fail": {
+            "result_text": "You walk in. Someone argues.",
+            "effects": [
+              {
+                "op": "set_flag",
+                "flag": "raidCaught",
+                "value": true
+              },
+              {
+                "op": "notify",
+                "text": "Something moves that shouldn't. You've been seen."
+              },
+              {
+                "op": "start_raid_combat",
+                "guards": "vein",
+                "template": "veinGuard",
+                "situational": [
+                  {
+                    "if": {
+                      "observed": {
+                        "id": "raid",
+                        "ore": "physics",
+                        "atLeast": 1
+                      }
+                    },
+                    "fleeBoost": 0.25
+                  },
+                  {
+                    "if": {
+                      "observed": {
+                        "id": "raid",
+                        "ore": "life",
+                        "atLeast": 1
+                      }
+                    },
+                    "oneAtATime": true
+                  },
+                  {
+                    "if": {
+                      "observed": {
+                        "id": "raid",
+                        "ore": "time",
+                        "atLeast": 1
+                      }
+                    },
+                    "sight": 2
+                  },
+                  {
+                    "if": {
+                      "observed": {
+                        "id": "raid",
+                        "ore": "fate",
+                        "atLeast": 1
+                      }
+                    },
+                    "firstStrike": true
+                  }
+                ]
+              }
+            ],
+            "goto": 4
+          }
         },
         {
-          "label": "Go fast",
+          "label": "Go in loud",
           "effects": [
-            { "op": "stealth_check", "consumable_bonus": -0.05, "on_success": [{ "op": "set_flag", "flag": "raidCaught", "value": false }, { "op": "notify", "text": "No alarms. You're in clean." }], "on_caught": [{ "op": "set_flag", "flag": "raidCaught", "value": true }, { "op": "notify", "text": "Something moves that shouldn't. You've been seen." }, { "op": "start_raid_combat", "guards": "vein", "template": "veinGuard" }] }
+            {
+              "op": "set_flag",
+              "flag": "raidCaught",
+              "value": true
+            },
+            {
+              "op": "start_raid_combat",
+              "guards": "vein",
+              "template": "veinGuard",
+              "situational": [
+                {
+                  "if": {
+                    "observed": {
+                      "id": "raid",
+                      "ore": "physics",
+                      "atLeast": 1
+                    }
+                  },
+                  "fleeBoost": 0.25
+                },
+                {
+                  "if": {
+                    "observed": {
+                      "id": "raid",
+                      "ore": "life",
+                      "atLeast": 1
+                    }
+                  },
+                  "oneAtATime": true
+                },
+                {
+                  "if": {
+                    "observed": {
+                      "id": "raid",
+                      "ore": "time",
+                      "atLeast": 1
+                    }
+                  },
+                  "sight": 2
+                },
+                {
+                  "if": {
+                    "observed": {
+                      "id": "raid",
+                      "ore": "fate",
+                      "atLeast": 1
+                    }
+                  },
+                  "firstStrike": true
+                }
+              ]
+            }
           ],
-          "result_text": "You go in fast. Hesitation is what gets people caught, or so you tell yourself."
+          "result_text": "No point creeping. You go in hard.",
+          "goto": 4
+        },
+        {
+          "label": "Weigh the quiet ways in",
+          "reselectable": true,
+          "effects": [],
+          "result_text": null,
+          "goto": 2
         }
       ]
     },
     {
-      "key": "c3", "type": "choice", "label": null, "speaker": null, "text": "The vein's yours to deal with, however you got here.",
+      "key": "c3",
+      "type": "choice",
+      "label": null,
+      "speaker": null,
+      "text": "What you read, and what it buys you.",
+      "choices": [
+        {
+          "label": "Take the window",
+          "requires": {
+            "observed": {
+              "id": "raid",
+              "ore": "physics",
+              "atLeast": 1
+            }
+          },
+          "check": {
+            "base": 0.6,
+            "mods": [
+              {
+                "observed": {
+                  "id": "raid",
+                  "ore": "physics",
+                  "atLeast": 2
+                },
+                "add": 0.15,
+                "label": "A sharp read"
+              }
+            ]
+          },
+          "success": {
+            "result_text": "The latch gives. You're in without a sound.",
+            "effects": [
+              {
+                "op": "set_flag",
+                "flag": "raidCaught",
+                "value": false
+              }
+            ],
+            "goto": 4
+          },
+          "fail": {
+            "result_text": "The window sticks, then shrieks.",
+            "effects": [
+              {
+                "op": "set_flag",
+                "flag": "raidCaught",
+                "value": true
+              },
+              {
+                "op": "notify",
+                "text": "Something moves that shouldn't. You've been seen."
+              },
+              {
+                "op": "start_raid_combat",
+                "guards": "vein",
+                "template": "veinGuard",
+                "situational": [
+                  {
+                    "if": {
+                      "observed": {
+                        "id": "raid",
+                        "ore": "physics",
+                        "atLeast": 1
+                      }
+                    },
+                    "fleeBoost": 0.25
+                  },
+                  {
+                    "if": {
+                      "observed": {
+                        "id": "raid",
+                        "ore": "life",
+                        "atLeast": 1
+                      }
+                    },
+                    "oneAtATime": true
+                  },
+                  {
+                    "if": {
+                      "observed": {
+                        "id": "raid",
+                        "ore": "time",
+                        "atLeast": 1
+                      }
+                    },
+                    "sight": 2
+                  },
+                  {
+                    "if": {
+                      "observed": {
+                        "id": "raid",
+                        "ore": "fate",
+                        "atLeast": 1
+                      }
+                    },
+                    "firstStrike": true
+                  }
+                ]
+              }
+            ],
+            "goto": 4
+          }
+        },
+        {
+          "label": "Wait out the tired guard",
+          "requires": {
+            "observed": {
+              "id": "raid",
+              "ore": "life",
+              "atLeast": 1
+            }
+          },
+          "check": {
+            "base": 0.6,
+            "mods": [
+              {
+                "observed": {
+                  "id": "raid",
+                  "ore": "life",
+                  "atLeast": 2
+                },
+                "add": 0.15,
+                "label": "A sharp read"
+              }
+            ]
+          },
+          "success": {
+            "result_text": "He nods off. You lay him down gently and step over.",
+            "effects": [
+              {
+                "op": "set_flag",
+                "flag": "raidCaught",
+                "value": false
+              },
+              {
+                "op": "reduce_raid_guards",
+                "count": 1
+              },
+              {
+                "op": "start_raid_combat",
+                "guards": "vein",
+                "template": "veinGuard",
+                "situational": [
+                  {
+                    "if": {
+                      "observed": {
+                        "id": "raid",
+                        "ore": "physics",
+                        "atLeast": 1
+                      }
+                    },
+                    "fleeBoost": 0.25
+                  },
+                  {
+                    "if": {
+                      "observed": {
+                        "id": "raid",
+                        "ore": "life",
+                        "atLeast": 1
+                      }
+                    },
+                    "oneAtATime": true
+                  },
+                  {
+                    "if": {
+                      "observed": {
+                        "id": "raid",
+                        "ore": "time",
+                        "atLeast": 1
+                      }
+                    },
+                    "sight": 2
+                  },
+                  {
+                    "if": {
+                      "observed": {
+                        "id": "raid",
+                        "ore": "fate",
+                        "atLeast": 1
+                      }
+                    },
+                    "firstStrike": true
+                  }
+                ]
+              }
+            ],
+            "goto": 4
+          },
+          "fail": {
+            "result_text": "He wakes at the wrong moment.",
+            "effects": [
+              {
+                "op": "set_flag",
+                "flag": "raidCaught",
+                "value": true
+              },
+              {
+                "op": "notify",
+                "text": "Something moves that shouldn't. You've been seen."
+              },
+              {
+                "op": "start_raid_combat",
+                "guards": "vein",
+                "template": "veinGuard",
+                "situational": [
+                  {
+                    "if": {
+                      "observed": {
+                        "id": "raid",
+                        "ore": "physics",
+                        "atLeast": 1
+                      }
+                    },
+                    "fleeBoost": 0.25
+                  },
+                  {
+                    "if": {
+                      "observed": {
+                        "id": "raid",
+                        "ore": "life",
+                        "atLeast": 1
+                      }
+                    },
+                    "oneAtATime": true
+                  },
+                  {
+                    "if": {
+                      "observed": {
+                        "id": "raid",
+                        "ore": "time",
+                        "atLeast": 1
+                      }
+                    },
+                    "sight": 2
+                  },
+                  {
+                    "if": {
+                      "observed": {
+                        "id": "raid",
+                        "ore": "fate",
+                        "atLeast": 1
+                      }
+                    },
+                    "firstStrike": true
+                  }
+                ]
+              }
+            ],
+            "goto": 4
+          }
+        },
+        {
+          "label": "Rattle a guard",
+          "requires": {
+            "observed": {
+              "id": "raid",
+              "ore": "emotion",
+              "atLeast": 1
+            }
+          },
+          "check": {
+            "base": 0.6,
+            "mods": [
+              {
+                "observed": {
+                  "id": "raid",
+                  "ore": "emotion",
+                  "atLeast": 2
+                },
+                "add": 0.15,
+                "label": "A sharp read"
+              }
+            ]
+          },
+          "success": {
+            "result_text": "A word in the right ear. He wanders off to check something.",
+            "effects": [
+              {
+                "op": "set_flag",
+                "flag": "raidCaught",
+                "value": false
+              },
+              {
+                "op": "reduce_raid_guards",
+                "count": 1
+              },
+              {
+                "op": "start_raid_combat",
+                "guards": "vein",
+                "template": "veinGuard",
+                "situational": [
+                  {
+                    "if": {
+                      "observed": {
+                        "id": "raid",
+                        "ore": "physics",
+                        "atLeast": 1
+                      }
+                    },
+                    "fleeBoost": 0.25
+                  },
+                  {
+                    "if": {
+                      "observed": {
+                        "id": "raid",
+                        "ore": "life",
+                        "atLeast": 1
+                      }
+                    },
+                    "oneAtATime": true
+                  },
+                  {
+                    "if": {
+                      "observed": {
+                        "id": "raid",
+                        "ore": "time",
+                        "atLeast": 1
+                      }
+                    },
+                    "sight": 2
+                  },
+                  {
+                    "if": {
+                      "observed": {
+                        "id": "raid",
+                        "ore": "fate",
+                        "atLeast": 1
+                      }
+                    },
+                    "firstStrike": true
+                  }
+                ]
+              }
+            ],
+            "goto": 4
+          },
+          "fail": {
+            "result_text": "He doesn't scare.",
+            "effects": [
+              {
+                "op": "set_flag",
+                "flag": "raidCaught",
+                "value": true
+              },
+              {
+                "op": "notify",
+                "text": "Something moves that shouldn't. You've been seen."
+              },
+              {
+                "op": "start_raid_combat",
+                "guards": "vein",
+                "template": "veinGuard",
+                "situational": [
+                  {
+                    "if": {
+                      "observed": {
+                        "id": "raid",
+                        "ore": "physics",
+                        "atLeast": 1
+                      }
+                    },
+                    "fleeBoost": 0.25
+                  },
+                  {
+                    "if": {
+                      "observed": {
+                        "id": "raid",
+                        "ore": "life",
+                        "atLeast": 1
+                      }
+                    },
+                    "oneAtATime": true
+                  },
+                  {
+                    "if": {
+                      "observed": {
+                        "id": "raid",
+                        "ore": "time",
+                        "atLeast": 1
+                      }
+                    },
+                    "sight": 2
+                  },
+                  {
+                    "if": {
+                      "observed": {
+                        "id": "raid",
+                        "ore": "fate",
+                        "atLeast": 1
+                      }
+                    },
+                    "firstStrike": true
+                  }
+                ]
+              }
+            ],
+            "goto": 4
+          }
+        },
+        {
+          "label": "Look further",
+          "reselectable": true,
+          "effects": [],
+          "result_text": null,
+          "goto": 3
+        }
+      ]
+    },
+    {
+      "key": "c4",
+      "type": "choice",
+      "label": null,
+      "speaker": null,
+      "text": "More ways in, if you saw them.",
+      "choices": [
+        {
+          "label": "Slip the patrol gap",
+          "requires": {
+            "observed": {
+              "id": "raid",
+              "ore": "time",
+              "atLeast": 1
+            }
+          },
+          "check": {
+            "base": 0.6,
+            "mods": [
+              {
+                "observed": {
+                  "id": "raid",
+                  "ore": "time",
+                  "atLeast": 2
+                },
+                "add": 0.15,
+                "label": "A sharp read"
+              }
+            ]
+          },
+          "success": {
+            "result_text": "You slide through the gap with seconds to spare.",
+            "effects": [
+              {
+                "op": "set_flag",
+                "flag": "raidCaught",
+                "value": false
+              }
+            ],
+            "goto": 4
+          },
+          "fail": {
+            "result_text": "The gap closes early.",
+            "effects": [
+              {
+                "op": "set_flag",
+                "flag": "raidCaught",
+                "value": true
+              },
+              {
+                "op": "notify",
+                "text": "Something moves that shouldn't. You've been seen."
+              },
+              {
+                "op": "start_raid_combat",
+                "guards": "vein",
+                "template": "veinGuard",
+                "situational": [
+                  {
+                    "if": {
+                      "observed": {
+                        "id": "raid",
+                        "ore": "physics",
+                        "atLeast": 1
+                      }
+                    },
+                    "fleeBoost": 0.25
+                  },
+                  {
+                    "if": {
+                      "observed": {
+                        "id": "raid",
+                        "ore": "life",
+                        "atLeast": 1
+                      }
+                    },
+                    "oneAtATime": true
+                  },
+                  {
+                    "if": {
+                      "observed": {
+                        "id": "raid",
+                        "ore": "time",
+                        "atLeast": 1
+                      }
+                    },
+                    "sight": 2
+                  },
+                  {
+                    "if": {
+                      "observed": {
+                        "id": "raid",
+                        "ore": "fate",
+                        "atLeast": 1
+                      }
+                    },
+                    "firstStrike": true
+                  }
+                ]
+              }
+            ],
+            "goto": 4
+          }
+        },
+        {
+          "label": "Move as he turns",
+          "requires": {
+            "observed": {
+              "id": "raid",
+              "ore": "fate",
+              "atLeast": 1
+            }
+          },
+          "check": {
+            "base": 0.6,
+            "mods": [
+              {
+                "observed": {
+                  "id": "raid",
+                  "ore": "fate",
+                  "atLeast": 2
+                },
+                "add": 0.15,
+                "label": "A sharp read"
+              }
+            ]
+          },
+          "success": {
+            "result_text": "He turns. You go. It's that easy.",
+            "effects": [
+              {
+                "op": "set_flag",
+                "flag": "raidCaught",
+                "value": false
+              }
+            ],
+            "goto": 4
+          },
+          "fail": {
+            "result_text": "He doesn't turn.",
+            "effects": [
+              {
+                "op": "set_flag",
+                "flag": "raidCaught",
+                "value": true
+              },
+              {
+                "op": "notify",
+                "text": "Something moves that shouldn't. You've been seen."
+              },
+              {
+                "op": "start_raid_combat",
+                "guards": "vein",
+                "template": "veinGuard",
+                "situational": [
+                  {
+                    "if": {
+                      "observed": {
+                        "id": "raid",
+                        "ore": "physics",
+                        "atLeast": 1
+                      }
+                    },
+                    "fleeBoost": 0.25
+                  },
+                  {
+                    "if": {
+                      "observed": {
+                        "id": "raid",
+                        "ore": "life",
+                        "atLeast": 1
+                      }
+                    },
+                    "oneAtATime": true
+                  },
+                  {
+                    "if": {
+                      "observed": {
+                        "id": "raid",
+                        "ore": "time",
+                        "atLeast": 1
+                      }
+                    },
+                    "sight": 2
+                  },
+                  {
+                    "if": {
+                      "observed": {
+                        "id": "raid",
+                        "ore": "fate",
+                        "atLeast": 1
+                      }
+                    },
+                    "firstStrike": true
+                  }
+                ]
+              }
+            ],
+            "goto": 4
+          }
+        },
+        {
+          "label": "Just go in",
+          "check": {
+            "base": 0.15,
+            "raidFactors": true,
+            "mods": []
+          },
+          "success": {
+            "result_text": "You walk in like you belong. Tonight, nobody argues.",
+            "effects": [
+              {
+                "op": "set_flag",
+                "flag": "raidCaught",
+                "value": false
+              }
+            ],
+            "goto": 4
+          },
+          "fail": {
+            "result_text": "You walk in. Someone argues.",
+            "effects": [
+              {
+                "op": "set_flag",
+                "flag": "raidCaught",
+                "value": true
+              },
+              {
+                "op": "notify",
+                "text": "Something moves that shouldn't. You've been seen."
+              },
+              {
+                "op": "start_raid_combat",
+                "guards": "vein",
+                "template": "veinGuard",
+                "situational": [
+                  {
+                    "if": {
+                      "observed": {
+                        "id": "raid",
+                        "ore": "physics",
+                        "atLeast": 1
+                      }
+                    },
+                    "fleeBoost": 0.25
+                  },
+                  {
+                    "if": {
+                      "observed": {
+                        "id": "raid",
+                        "ore": "life",
+                        "atLeast": 1
+                      }
+                    },
+                    "oneAtATime": true
+                  },
+                  {
+                    "if": {
+                      "observed": {
+                        "id": "raid",
+                        "ore": "time",
+                        "atLeast": 1
+                      }
+                    },
+                    "sight": 2
+                  },
+                  {
+                    "if": {
+                      "observed": {
+                        "id": "raid",
+                        "ore": "fate",
+                        "atLeast": 1
+                      }
+                    },
+                    "firstStrike": true
+                  }
+                ]
+              }
+            ],
+            "goto": 4
+          }
+        },
+        {
+          "label": "Go in loud",
+          "effects": [
+            {
+              "op": "set_flag",
+              "flag": "raidCaught",
+              "value": true
+            },
+            {
+              "op": "start_raid_combat",
+              "guards": "vein",
+              "template": "veinGuard",
+              "situational": [
+                {
+                  "if": {
+                    "observed": {
+                      "id": "raid",
+                      "ore": "physics",
+                      "atLeast": 1
+                    }
+                  },
+                  "fleeBoost": 0.25
+                },
+                {
+                  "if": {
+                    "observed": {
+                      "id": "raid",
+                      "ore": "life",
+                      "atLeast": 1
+                    }
+                  },
+                  "oneAtATime": true
+                },
+                {
+                  "if": {
+                    "observed": {
+                      "id": "raid",
+                      "ore": "time",
+                      "atLeast": 1
+                    }
+                  },
+                  "sight": 2
+                },
+                {
+                  "if": {
+                    "observed": {
+                      "id": "raid",
+                      "ore": "fate",
+                      "atLeast": 1
+                    }
+                  },
+                  "firstStrike": true
+                }
+              ]
+            }
+          ],
+          "result_text": "No point creeping. You go in hard.",
+          "goto": 4
+        }
+      ]
+    },
+    {
+      "key": "c5",
+      "type": "choice",
+      "label": null,
+      "speaker": null,
+      "text": "The vein's yours to deal with, however you got here.",
       "choices": [
         {
           "label": "Claim it",
-          "effects": [{ "op": "claim_raid_vein" }],
+          "effects": [
+            {
+              "op": "claim_raid_vein"
+            }
+          ],
           "result_text": "You take it outright. Word gets round fast — it always does — and the relationship with whoever ran this patch takes the hit that comes with being seen to do it."
         },
         {
           "label": "Loot and leave",
-          "effects": [{ "op": "loot_raid_vein" }],
+          "effects": [
+            {
+              "op": "loot_raid_vein"
+            }
+          ],
           "result_text": "You take what you can carry and leave the rest where it stands. Someone else's problem, still."
         }
       ]
     }
   ],
-  "on_complete": [{ "op": "set_screen", "screen": "map" }]
+  "on_complete": [
+    {
+      "op": "set_screen",
+      "screen": "map"
+    }
+  ]
 }

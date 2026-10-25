@@ -503,6 +503,10 @@ static func odds_for(check: Dictionary, toggled: Array = []) -> Dictionary:
 		if delta != 0.0:
 			probability += delta
 			applied.append({ "label": mod.get("label", ""), "delta": delta })
+	if check.get("raidFactors", false):
+		for factor in Observation.raid_mods():
+			probability += float(factor["delta"])
+			applied.append(factor)
 	if ActiveEffects.lady_active():
 		var lady_delta: float = float(GameData.EVENT_CHECKS["ladyBonusPerLevel"]) * ActiveEffects.lady_level()
 		if lady_delta != 0.0:

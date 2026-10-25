@@ -173,13 +173,13 @@ static func _mods(def: Dictionary, ore: String) -> Array:
 		var bonus: Dictionary = GameData.RECIPES[key].get("observeBonus", {})
 		if not bonus.is_empty() and Crafting.inventory_qty(key) > 0:
 			_add_mod(out, GameData.RECIPES[key].get("name", key), float(bonus.get(ore, 0.0)) + float(bonus.get("all", 0.0)))
-	out.append_array(_raid_mods())
+	out.append_array(raid_mods())
 	return out
 
 
 # Raid-factor mods when the live event is a vein raid (context site_id with a
 # faction vein); stockpile raids and ordinary events get none.
-static func _raid_mods() -> Array:
+static func raid_mods() -> Array:
 	var site_id: String = Events._live_event_context().get("site_id", "")
 	if site_id == "":
 		return []
