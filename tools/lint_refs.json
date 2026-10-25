@@ -2694,9 +2694,5 @@
 		"hint2",
 		"master"
 	],
-	"violations": {
-		"vein_raid": [
-			"vein_raid: card 0 label 'Night work' says 'night' but the event has no at"
-		]
-	}
+	"violations": {}
 }

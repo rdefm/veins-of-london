@@ -26,7 +26,6 @@ const KNOWN_OPENING := [
 # Violations in non-opening events left for their owner to fix.
 const KNOWN_OTHER := [
 	# A raid launches from the Raid button in any block.
-	"vein_raid: card 0 label 'Night work' says 'night' but the event has no at",
 ]
 
 

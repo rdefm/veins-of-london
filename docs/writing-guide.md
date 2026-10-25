@@ -54,6 +54,7 @@ The blend: Benedict Jacka's London, Douglas Adams' dryness, Terry Pratchett's wi
 - **Pop-culture references:** at most one per scene, in dialogue only, British, and something that character would say. Never in narration.
 - **Narrator:** second person, present tense, dry, observational. Notices practical, admin-type details (a Tesco bag, a grey Vauxhall, which way someone sits). No exclamation marks. Never tells the player how to feel. At most one simile per scene, and it must be concrete ("like a video buffering"), not ornate.
 - **Magic is stock.** Nobody in-world is as amazed as they should be. Calc is sourced, processed, sold and marked up. Say "calc"; "orichalchum" only when explaining, or when someone is being posh.
+- **Observations: not all physics.** Every observation (`observations.<id>.blocks`) needs at least one non-physics block (life, emotion, time or fate), so a read is never just "the building". Each block: best-tier text, weaker-tier text, a `miss` line that is still a sentence about the scene, and at most one dry line per block.
 
 ## 4. Characters as people
 

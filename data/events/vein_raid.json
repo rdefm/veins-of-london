@@ -9,66 +9,66 @@
           "tiers": [
             {
               "base": 0.25,
-              "text": "The back window's latch is rotten through."
+              "text": "The back window's latch is rotten through. Someone has painted over it twice rather than replace it."
             },
             {
               "base": 0.55,
-              "text": "There's a window that might give."
+              "text": "There's a back window that might give, if nobody leans on it."
             }
           ],
-          "miss": "Brick, shutters, nothing that moves."
+          "miss": "Brick, shutters, a bolted gate. Nothing that moves."
         },
         "life": {
           "tiers": [
             {
               "base": 0.25,
-              "text": "One guard is flagging, eyes half shut."
+              "text": "One guard is flagging, eyes half shut. His flask is empty and he keeps checking it anyway."
             },
             {
               "base": 0.55,
-              "text": "A guard shifts his weight like a tired man."
+              "text": "One guard keeps shifting his weight, the way a man does at the end of a double."
             }
           ],
-          "miss": "You can't tell who's awake."
+          "miss": "Four coats and a lot of breath. You can't tell who's awake."
         },
         "emotion": {
           "tiers": [
             {
               "base": 0.25,
-              "text": "The nearest guard is jumpy. Easy to rattle."
+              "text": "The nearest guard is jumpy. He flinches at his own radio. Easy to rattle."
             },
             {
               "base": 0.55,
-              "text": "One guard keeps glancing at the door."
+              "text": "One guard keeps glancing at the door, then at his phone, then at the door."
             }
           ],
-          "miss": "Faces give you nothing."
+          "miss": "Flat faces, arms folded. They've done this before."
         },
         "time": {
           "tiers": [
             {
               "base": 0.25,
-              "text": "The patrol has a gap. You count it twice."
+              "text": "The patrol has a gap. You count it twice. Forty seconds, every round, like a bus timetable."
             },
             {
               "base": 0.55,
-              "text": "The rounds run roughly on the quarter hour."
+              "text": "The rounds run roughly on the quarter hour. Roughly."
             }
           ],
-          "miss": "You lose the rhythm."
+          "miss": "You lose the rhythm somewhere around the second lap."
         },
         "fate": {
           "tiers": [
             {
               "base": 0.25,
-              "text": "You catch the moment one guard will turn away."
+              "text": "You catch the moment one guard will turn away. A second before he does it."
             },
             {
               "base": 0.55,
-              "text": "Something is about to go wrong for someone here."
+              "text": "Something is about to go wrong for someone here. Not necessarily you."
             }
           ],
-          "miss": "Nothing lines up."
+          "miss": "Nothing lines up. It's just a yard at night."
         }
       }
     }
@@ -77,10 +77,10 @@
     {
       "key": "c1",
       "type": "tension",
-      "label": "Night work",
+      "label": "{today} — The approach",
       "speaker": null,
       "observe": "raid",
-      "text": "Whoever's sitting on this vein hasn't put a name to it, but the ground still belongs to someone. You case the approach twice. No obvious watchers. That's not the same as no watchers."
+      "text": "Nobody has put a sign on this vein, but the ground still belongs to someone. You case the approach twice. No obvious watchers. That's not the same as no watchers."
     },
     {
       "key": "c2",
