@@ -12,8 +12,8 @@
     { "op": "set_screen", "screen": "phone" }
   ],
   "cards": [
-    { "type": "narration", "label": "Stratford — a car park", "speaker": null, "text": "The buyer turns the pearl over once, checks something on his phone, and pays. A woman walks past with a Lidl bag and doesn't look up." },
-    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"That's it. That's the whole deal.\" He counts £120 into your hand. \"Most of them are that boring. Don't get used to it.\"" },
-    { "type": "speaker", "label": null, "speaker": "Archie", "text": "He holds two more pearls out at arm's length, eyes streaming. \"Just in case. Loadout's what you carry into a fight. Anything you want kept off the market goes in the stash.\"" }
+    { "key": "c1", "type": "narration", "label": "Stratford — a car park", "speaker": null, "text": "The buyer turns the pearl over once, checks something on his phone, and pays. A woman walks past with a Lidl bag and doesn't look up." },
+    { "key": "c2", "type": "speaker", "label": null, "speaker": "Archie", "text": "\"That's it. That's the whole deal.\" He counts £120 into your hand. \"Most of them are that boring. Don't get used to it.\"" },
+    { "key": "c3", "type": "speaker", "label": null, "speaker": "Archie", "text": "He holds two more pearls out at arm's length, eyes streaming. \"Just in case. Loadout's what you carry into a fight. Anything you want kept off the market goes in the stash.\"" }
   ]
 }

@@ -1,8 +1,8 @@
 {
   "id": "col_hakim_intel",
   "cards": [
-    { "type": "speaker", "label": null, "speaker": "Hakim", "text": "\"Bloke came in for a Lucozade and wouldn't shut up about the yard behind the launderette. Might be nothing. Thought you'd want it before somebody else does.\"" },
-    { "type": "resolution", "label": null, "speaker": null, "text": "It is on your map now. He will not mention it again and will be embarrassed if you thank him twice." }
+    { "key": "c1", "type": "speaker", "label": null, "speaker": "Hakim", "text": "\"Bloke came in for a Lucozade and wouldn't shut up about the yard behind the launderette. Might be nothing. Thought you'd want it before somebody else does.\"" },
+    { "key": "c2", "type": "resolution", "label": null, "speaker": null, "text": "It is on your map now. He will not mention it again and will be embarrassed if you thank him twice." }
   ],
   "on_complete": [
     { "op": "reveal_site" },

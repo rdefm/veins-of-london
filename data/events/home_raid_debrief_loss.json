@@ -1,18 +1,18 @@
 {
   "id": "home_raid_debrief_loss",
   "cards": [
-    { "type": "tension", "label": "Later", "speaker": null, "text": "You come round on the floor. Your ore is gone. The window is open. The rest of the place looks ransacked, though in hindsight it isn't too dissimilar to how it was before; you should probably tidy up a bit more often." },
-    { "type": "narration", "label": null, "speaker": null, "text": "Archie arrives at seven in the morning. He takes one look at you and puts the coffees down without saying anything for a moment." },
-    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Right. How much did they get?\"" },
-    { "type": "speaker", "label": null, "speaker": "You", "text": "\"Most of it.\"" },
-    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Yeah.\" He sits down. \"You alright, though? Properly?\"" },
-    { "type": "speaker", "label": null, "speaker": "You", "text": "\"I'm fine.\"" },
-    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Good. You fought back, and that counts. I've worked with people who'd have handed it over.\" He pauses. \"Some of them were me, early on.\"" },
-    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"But this place is a liability. One lock, a window that doesn't close. It's a service entrance.\"" },
-    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"You need to move. Somewhere with a proper door. That means a deposit, and a deposit means cash. Rent first, obviously. Then the deposit.\"" },
-    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"I'll line you up some help. Des. Best prospector I know, and he's got a use for you. Don't mention the twenty quid.\"" },
-    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Partners, while I'm here. Security bloke, reasonable price, no paperwork. And the vein I promised: time, Whitechapel. Yours. It needs work before it pays.\"" },
-    { "type": "resolution", "label": null, "speaker": null, "text": "He stays until you've eaten something, which you didn't ask for and didn't expect. Then he leaves. You check your phone. There's a pin location. The vein." }
+    { "key": "c1", "type": "tension", "label": "Later", "speaker": null, "text": "You come round on the floor. Your ore is gone. The window is open. The rest of the place looks ransacked, though in hindsight it isn't too dissimilar to how it was before; you should probably tidy up a bit more often." },
+    { "key": "c2", "type": "narration", "label": null, "speaker": null, "text": "Archie arrives at seven in the morning. He takes one look at you and puts the coffees down without saying anything for a moment." },
+    { "key": "c3", "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Right. How much did they get?\"" },
+    { "key": "c4", "type": "speaker", "label": null, "speaker": "You", "text": "\"Most of it.\"" },
+    { "key": "c5", "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Yeah.\" He sits down. \"You alright, though? Properly?\"" },
+    { "key": "c6", "type": "speaker", "label": null, "speaker": "You", "text": "\"I'm fine.\"" },
+    { "key": "c7", "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Good. You fought back, and that counts. I've worked with people who'd have handed it over.\" He pauses. \"Some of them were me, early on.\"" },
+    { "key": "c8", "type": "speaker", "label": null, "speaker": "Archie", "text": "\"But this place is a liability. One lock, a window that doesn't close. It's a service entrance.\"" },
+    { "key": "c9", "type": "speaker", "label": null, "speaker": "Archie", "text": "\"You need to move. Somewhere with a proper door. That means a deposit, and a deposit means cash. Rent first, obviously. Then the deposit.\"" },
+    { "key": "c10", "type": "speaker", "label": null, "speaker": "Archie", "text": "\"I'll line you up some help. Des. Best prospector I know, and he's got a use for you. Don't mention the twenty quid.\"" },
+    { "key": "c11", "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Partners, while I'm here. Security bloke, reasonable price, no paperwork. And the vein I promised: time, Whitechapel. Yours. It needs work before it pays.\"" },
+    { "key": "c12", "type": "resolution", "label": null, "speaker": null, "text": "He stays until you've eaten something, which you didn't ask for and didn't expect. Then he leaves. You check your phone. There's a pin location. The vein." }
   ],
   "on_complete": [
     { "op": "set_flag", "flag": "depositGoalTier", "value": "studio" },

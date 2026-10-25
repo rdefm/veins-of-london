@@ -1,10 +1,10 @@
 {
   "id": "camden_shakedown",
   "cards": [
-    { "type": "narration", "label": "Camden", "speaker": null, "text": "Two lads corner you near the lock, doing their best impression of menace between a falafel stall and a man selling knock-off headphones. It's not entirely unconvincing." },
-    { "type": "speaker", "label": null, "speaker": "One of Them", "text": "\"Toll for using this bit of pavement. Fifty quid, and we all have a nice afternoon.\"" },
+    { "key": "c1", "type": "narration", "label": "Camden", "speaker": null, "text": "Two lads corner you near the lock, doing their best impression of menace between a falafel stall and a man selling knock-off headphones. It's not entirely unconvincing." },
+    { "key": "c2", "type": "speaker", "label": null, "speaker": "One of Them", "text": "\"Toll for using this bit of pavement. Fifty quid, and we all have a nice afternoon.\"" },
     {
-      "type": "choice", "label": null, "speaker": null, "text": "The third one just stands there, which is somehow worse.",
+      "key": "c3", "type": "choice", "label": null, "speaker": null, "text": "The third one just stands there, which is somehow worse.",
       "choices": [
         {
           "label": "Pay £50",
@@ -20,7 +20,7 @@
         }
       ]
     },
-    { "type": "resolution", "label": null, "speaker": null, "text": "Camden closes back over you like nothing happened. Somewhere, a man is still selling headphones that don't work." }
+    { "key": "c4", "type": "resolution", "label": null, "speaker": null, "text": "Camden closes back over you like nothing happened. Somewhere, a man is still selling headphones that don't work." }
   ],
   "on_complete": [{ "op": "set_screen", "screen": "map" }],
   "deck": { "district": "camden", "weight": 1, "excludeIfFlag": null, "barometerState": null }

@@ -1,9 +1,9 @@
 {
   "id": "harass_placeholder_network",
   "cards": [
-    { "type": "narration", "label": null, "speaker": null, "text": "PROSE-REVIEW placeholder: the Network has been talking about you, to everyone." },
+    { "key": "c1", "type": "narration", "label": null, "speaker": null, "text": "PROSE-REVIEW placeholder: the Network has been talking about you, to everyone." },
     {
-      "type": "choice", "label": null, "speaker": null, "text": "PROSE-REVIEW placeholder: a retraction can be arranged.",
+      "key": "c2", "type": "choice", "label": null, "speaker": null, "text": "PROSE-REVIEW placeholder: a retraction can be arranged.",
       "choices": [
         {
           "label": "Pay for a retraction (£100)",

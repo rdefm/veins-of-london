@@ -7,11 +7,11 @@
     { "op": "start_event", "event": "pub" }
   ],
   "cards": [
-    { "type": "narration", "label": "{today} — Whitechapel", "speaker": null, "text": "Rent's due Monday. You have £40, and this morning's interviewer has promised to keep your details on file. Archie, an old mate, said he might have work. So: Tuesday night, behind a chicken shop on Mile End Road.", "image": "res://assets/events/intro/intro_card1.png" },
-    { "type": "speaker", "label": null, "speaker": "Archie", "text": "He's whistling, a Tesco bag hooked on one finger. \"Two blokes, cash, in and out before the chicken shop shuts. You just stand there looking like you'd be a pain to fight. If I say leg it, you leg it. Don't wait for me.\"" },
-    { "type": "speaker", "label": null, "speaker": "You", "text": "\"I don't look like I'd be a pain to fight.\"" },
+    { "key": "c1", "type": "narration", "label": "{today} — Whitechapel", "speaker": null, "text": "Rent's due Monday. You have £40, and this morning's interviewer has promised to keep your details on file. Archie, an old mate, said he might have work. So: Tuesday night, behind a chicken shop on Mile End Road.", "image": "res://assets/events/intro/intro_card1.png" },
+    { "key": "c2", "type": "speaker", "label": null, "speaker": "Archie", "text": "He's whistling, a Tesco bag hooked on one finger. \"Two blokes, cash, in and out before the chicken shop shuts. You just stand there looking like you'd be a pain to fight. If I say leg it, you leg it. Don't wait for me.\"" },
+    { "key": "c3", "type": "speaker", "label": null, "speaker": "You", "text": "\"I don't look like I'd be a pain to fight.\"" },
     {
-      "type": "choice", "label": null, "speaker": "Archie", "text": "\"Pretend you're Vinnie Jones in his prime, then.\" He looks you up and down. \"Bit more of a Mr Bean vibe, but you make do with what you've got.\" He holds out a fist. \"You in?\"", "image": "res://assets/events/intro/intro_card5.png",
+      "key": "c4", "type": "choice", "label": null, "speaker": "Archie", "text": "\"Pretend you're Vinnie Jones in his prime, then.\" He looks you up and down. \"Bit more of a Mr Bean vibe, but you make do with what you've got.\" He holds out a fist. \"You in?\"", "image": "res://assets/events/intro/intro_card5.png",
       "choices": [
         {
           "id": "stand",
@@ -37,7 +37,7 @@
       ]
     },
     {
-      "type": "choice", "label": null, "speaker": "Archie", "text": "He pulls something from his pocket and presses it into your hand: a small glass hourglass, warm. \"Keep this to hand. If it goes bad, break it.\" He doesn't say what it does. He's already watching the road.",
+      "key": "c5", "type": "choice", "label": null, "speaker": "Archie", "text": "He pulls something from his pocket and presses it into your hand: a small glass hourglass, warm. \"Keep this to hand. If it goes bad, break it.\" He doesn't say what it does. He's already watching the road.",
       "choices": [
         {
           "id": "takeRewind",
@@ -47,11 +47,11 @@
         }
       ]
     },
-    { "type": "narration", "label": null, "speaker": null, "text": "The buyers arrive in a grey Vauxhall. Three of them, one more than Archie mentioned. He stops whistling.", "image": "res://assets/events/intro/intro_card6.png" },
-    { "type": "tension", "label": "It goes wrong", "speaker": null, "text": "The third man gets out last, in no hurry. The other two straighten up. They call him Nick. He holds out a hand for the Tesco bag, looks in, and hands it back. \"Light.\" Nobody has said a number. One of the others opens a Stanley knife.", "image": "res://assets/events/intro/intro_card7.png" },
-    { "type": "speaker", "label": null, "speaker": "Nick", "text": "He looks you over and takes his time about it. \"New one. Lovely. Stay there, newbie. You can watch.\" He's smiling before the sentence is finished." },
+    { "key": "c6", "type": "narration", "label": null, "speaker": null, "text": "The buyers arrive in a grey Vauxhall. Three of them, one more than Archie mentioned. He stops whistling.", "image": "res://assets/events/intro/intro_card6.png" },
+    { "key": "c7", "type": "tension", "label": "It goes wrong", "speaker": null, "text": "The third man gets out last, in no hurry. The other two straighten up. They call him Nick. He holds out a hand for the Tesco bag, looks in, and hands it back. \"Light.\" Nobody has said a number. One of the others opens a Stanley knife.", "image": "res://assets/events/intro/intro_card7.png" },
+    { "key": "c8", "type": "speaker", "label": null, "speaker": "Nick", "text": "He looks you over and takes his time about it. \"New one. Lovely. Stay there, newbie. You can watch.\" He's smiling before the sentence is finished." },
     {
-      "type": "choice", "label": null, "speaker": null, "text": "Nick cracks his knuckles, one at a time. Archie edges half a step in front of you.", "image": "res://assets/events/intro/intro_card8.png",
+      "key": "c9", "type": "choice", "label": null, "speaker": null, "text": "Nick cracks his knuckles, one at a time. Archie edges half a step in front of you.", "image": "res://assets/events/intro/intro_card8.png",
       "choices": [
         {
           "id": "brace",
@@ -63,8 +63,8 @@
         }
       ]
     },
-    { "type": "narration", "label": null, "speaker": null, "text": "Your eyes dart left and right, confused. Adrenaline and fear pump through your body. Your attackers are in a bubble, slowed like a video buffering. Nick is still mid-sneer.", "image": "res://assets/events/intro/intro_card9.png" },
-    { "type": "speaker", "label": null, "speaker": "Archie", "text": "Archie walks calmly but briskly around them. \"Coming, or what?\"" },
-    { "type": "narration", "label": "Four streets later", "speaker": null, "text": "A closed launderette. Archie leans on the shutter, eyes streaming, the Tesco bag still hooked on his finger. \"Pub,\" he says." }
+    { "key": "c10", "type": "narration", "label": null, "speaker": null, "text": "Your eyes dart left and right, confused. Adrenaline and fear pump through your body. Your attackers are in a bubble, slowed like a video buffering. Nick is still mid-sneer.", "image": "res://assets/events/intro/intro_card9.png" },
+    { "key": "c11", "type": "speaker", "label": null, "speaker": "Archie", "text": "Archie walks calmly but briskly around them. \"Coming, or what?\"" },
+    { "key": "c12", "type": "narration", "label": "Four streets later", "speaker": null, "text": "A closed launderette. Archie leans on the shutter, eyes streaming, the Tesco bag still hooked on his finger. \"Pub,\" he says." }
   ]
 }

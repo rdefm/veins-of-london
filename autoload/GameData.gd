@@ -2247,8 +2247,13 @@ func _validate_events(events: Dictionary, districts: Dictionary, errors: Array[S
 			continue
 		if entry.get("id") != key:
 			errors.append("events.%s: id field '%s' does not match filename" % [key, entry.get("id")])
+		var card_keys := {}
 		for card in entry.get("cards", []):
-			_require_keys(card, ["type", "label", "speaker", "text"], "events.%s.cards" % key, errors)
+			_require_keys(card, ["type", "label", "speaker", "text", "key"], "events.%s.cards" % key, errors)
+			if card.has("key"):
+				if card_keys.has(card["key"]):
+					errors.append("events.%s: duplicate card key '%s'" % [key, card["key"]])
+				card_keys[card["key"]] = true
 			if card.has("type") and not VALID_CARD_TYPES.has(card["type"]):
 				errors.append("events.%s: unknown card type '%s'" % [key, card["type"]])
 			if card.get("type") == "choice":

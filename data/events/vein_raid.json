@@ -1,9 +1,9 @@
 {
   "id": "vein_raid",
   "cards": [
-    { "type": "tension", "label": "Night work", "speaker": null, "text": "Whoever's sitting on this vein hasn't put a name to it, but the ground still belongs to someone. You case the approach twice. No obvious watchers. That's not the same as no watchers." },
+    { "key": "c1", "type": "tension", "label": "Night work", "speaker": null, "text": "Whoever's sitting on this vein hasn't put a name to it, but the ground still belongs to someone. You case the approach twice. No obvious watchers. That's not the same as no watchers." },
     {
-      "type": "choice", "label": null, "speaker": null, "text": "One way in. You commit or you don't.",
+      "key": "c2", "type": "choice", "label": null, "speaker": null, "text": "One way in. You commit or you don't.",
       "choices": [
         {
           "label": "Go slow",
@@ -22,7 +22,7 @@
       ]
     },
     {
-      "type": "choice", "label": null, "speaker": null, "text": "The vein's yours to deal with, however you got here.",
+      "key": "c3", "type": "choice", "label": null, "speaker": null, "text": "The vein's yours to deal with, however you got here.",
       "choices": [
         {
           "label": "Claim it",

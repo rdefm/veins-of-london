@@ -1,10 +1,10 @@
 {
   "id": "col_a2_hakim_retake",
   "cards": [
-    { "type": "narration", "label": "Whitechapel Road", "speaker": null, "text": "The padlock on the yard gate is still the Firm's. Hakim watches it from the shop doorway, the way you'd watch the weather." },
-    { "type": "speaker", "label": null, "speaker": "Hakim", "text": "\"Nadia says you've been asking about it.\" He wipes his hands on his apron, though they're clean. \"I don't want anyone getting hurt over a yard. Sorry. I know that's not much help.\"" },
+    { "key": "c1", "type": "narration", "label": "Whitechapel Road", "speaker": null, "text": "The padlock on the yard gate is still the Firm's. Hakim watches it from the shop doorway, the way you'd watch the weather." },
+    { "key": "c2", "type": "speaker", "label": null, "speaker": "Hakim", "text": "\"Nadia says you've been asking about it.\" He wipes his hands on his apron, though they're clean. \"I don't want anyone getting hurt over a yard. Sorry. I know that's not much help.\"" },
     {
-      "type": "choice", "label": null, "speaker": null, "text": "Two ways through that gate.",
+      "key": "c3", "type": "choice", "label": null, "speaker": null, "text": "Two ways through that gate.",
       "choices": [
         {
           "label": "Take it back",
@@ -24,10 +24,10 @@
         }
       ]
     },
-    { "type": "narration", "label": null, "speaker": null, "text": "Hakim opens the gate himself. It takes him two goes with the key." },
-    { "type": "narration", "label": null, "speaker": null, "text": "The yard is as it was. The bins, the broken pallet, the drain in the corner. He crouches and puts his palm flat on the concrete, the way his uncle used to, and keeps it there a while." },
-    { "type": "speaker", "label": null, "speaker": "Hakim", "text": "\"Well.\" He stands, and his knees crack. \"It's ours. Thank you. Really.\"" },
-    { "type": "resolution", "label": null, "speaker": null, "text": "He locks the gate behind you both, with his own padlock this time." }
+    { "key": "c4", "type": "narration", "label": null, "speaker": null, "text": "Hakim opens the gate himself. It takes him two goes with the key." },
+    { "key": "c5", "type": "narration", "label": null, "speaker": null, "text": "The yard is as it was. The bins, the broken pallet, the drain in the corner. He crouches and puts his palm flat on the concrete, the way his uncle used to, and keeps it there a while." },
+    { "key": "c6", "type": "speaker", "label": null, "speaker": "Hakim", "text": "\"Well.\" He stands, and his knees crack. \"It's ours. Thank you. Really.\"" },
+    { "key": "c7", "type": "resolution", "label": null, "speaker": null, "text": "He locks the gate behind you both, with his own padlock this time." }
   ],
   "on_complete": [
     { "op": "faction_relation", "faction": "collective", "value": 15 },

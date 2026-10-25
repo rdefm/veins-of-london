@@ -1,10 +1,10 @@
 {
   "id": "busker_greenwich",
   "cards": [
-    { "type": "narration", "label": "Greenwich Market", "speaker": null, "text": "By the market, a busker inflates himself explaining the finer points of the zero meridian to a strictly disinterested crowd. He clocks you before you clock him." },
-    { "type": "speaker", "label": null, "speaker": "Busker", "text": "\"You look like someone who deals in the good stuff. I know things - like where some small timers may have stashed some calc. Worth twenty quid to a man who knows how to spend it.\"" },
+    { "key": "c1", "type": "narration", "label": "Greenwich Market", "speaker": null, "text": "By the market, a busker inflates himself explaining the finer points of the zero meridian to a strictly disinterested crowd. He clocks you before you clock him." },
+    { "key": "c2", "type": "speaker", "label": null, "speaker": "Busker", "text": "\"You look like someone who deals in the good stuff. I know things - like where some small timers may have stashed some calc. Worth twenty quid to a man who knows how to spend it.\"" },
     {
-      "type": "choice", "label": null, "speaker": null, "text": "He's either got something, or he's very good at pretending.",
+      "key": "c3", "type": "choice", "label": null, "speaker": null, "text": "He's either got something, or he's very good at pretending.",
       "choices": [
         {
           "label": "Give him £20",
@@ -22,7 +22,7 @@
         }
       ]
     },
-    { "type": "resolution", "label": null, "speaker": null, "text": "Whether or not he was lying, Greenwich feels marginally more interesting than it did five minutes ago." }
+    { "key": "c4", "type": "resolution", "label": null, "speaker": null, "text": "Whether or not he was lying, Greenwich feels marginally more interesting than it did five minutes ago." }
   ],
   "on_complete": [{ "op": "set_screen", "screen": "map" }],
   "deck": { "district": "greenwich", "weight": 1, "excludeIfFlag": null, "barometerState": null }

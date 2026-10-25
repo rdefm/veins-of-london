@@ -1,11 +1,11 @@
 {
   "id": "col_a1_firm_intimidation",
   "cards": [
-    { "type": "narration", "label": null, "speaker": null, "text": "Three of them, waiting by your exit, in no particular hurry. The one in front has the patient look of somebody doing an errand." },
-    { "type": "speaker", "label": null, "speaker": "Firm Man", "text": "\"You've been busy. Fate, physics — bit ambitious for someone who was doing a rent-a-vein in Whitechapel a month ago.\"" },
-    { "type": "speaker", "label": null, "speaker": "Firm Man", "text": "\"Nobody's asking you to stop. Just letting you know it's been noticed. There's a difference, and the difference is entirely up to you.\"" },
+    { "key": "c1", "type": "narration", "label": null, "speaker": null, "text": "Three of them, waiting by your exit, in no particular hurry. The one in front has the patient look of somebody doing an errand." },
+    { "key": "c2", "type": "speaker", "label": null, "speaker": "Firm Man", "text": "\"You've been busy. Fate, physics — bit ambitious for someone who was doing a rent-a-vein in Whitechapel a month ago.\"" },
+    { "key": "c3", "type": "speaker", "label": null, "speaker": "Firm Man", "text": "\"Nobody's asking you to stop. Just letting you know it's been noticed. There's a difference, and the difference is entirely up to you.\"" },
     {
-      "type": "choice", "label": null, "speaker": null, "text": "He hasn't threatened you. He's been very careful not to.",
+      "key": "c4", "type": "choice", "label": null, "speaker": null, "text": "He hasn't threatened you. He's been very careful not to.",
       "choices": [
         {
           "label": "Back off",
@@ -27,7 +27,7 @@
         }
       ]
     },
-    { "type": "resolution", "label": null, "speaker": null, "text": "The patches are still yours to give away. That was never what this was about." }
+    { "key": "c5", "type": "resolution", "label": null, "speaker": null, "text": "The patches are still yours to give away. That was never what this was about." }
   ],
   "on_complete": [
     { "op": "set_flag", "flag": "colA1IntimidationSeen", "value": true },

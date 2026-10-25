@@ -1,10 +1,10 @@
 {
   "id": "city_suit",
   "cards": [
-    { "type": "narration", "label": "The City", "speaker": null, "text": "A man in a suit that costs more than your flat buys you a coffee you didn't order, in a café you'd never choose. He introduces himself as \"a friend of a friend\", which in the City means nobody vouches for him." },
-    { "type": "speaker", "label": null, "speaker": "The Suit", "text": "\"I collect fate-type. Recreationally, you understand. Two hundred up front, I match it eightfold if the numbers land. If they don't — well. Markets.\"" },
+    { "key": "c1", "type": "narration", "label": "The City", "speaker": null, "text": "A man in a suit that costs more than your flat buys you a coffee you didn't order, in a café you'd never choose. He introduces himself as \"a friend of a friend\", which in the City means nobody vouches for him." },
+    { "key": "c2", "type": "speaker", "label": null, "speaker": "The Suit", "text": "\"I collect fate-type. Recreationally, you understand. Two hundred up front, I match it eightfold if the numbers land. If they don't — well. Markets.\"" },
     {
-      "type": "choice", "label": null, "speaker": null, "text": "He's already got his card reader out.",
+      "key": "c3", "type": "choice", "label": null, "speaker": null, "text": "He's already got his card reader out.",
       "choices": [
         {
           "label": "Trade (£200)",
@@ -21,7 +21,7 @@
         }
       ]
     },
-    { "type": "resolution", "label": null, "speaker": null, "text": "He's gone by the time you check your phone. Some men are only ever passing through." }
+    { "key": "c4", "type": "resolution", "label": null, "speaker": null, "text": "He's gone by the time you check your phone. Some men are only ever passing through." }
   ],
   "on_complete": [{ "op": "set_screen", "screen": "map" }],
   "deck": { "district": "city", "weight": 1, "excludeIfFlag": null, "barometerState": null }

@@ -2,10 +2,10 @@
   "id": "faction_ambush",
   "fillFromContext": true,
   "cards": [
-    { "type": "narration", "label": "Ambush", "speaker": null, "text": "A few {faction} faces have been waiting for you. They don't pretend otherwise." },
-    { "type": "speaker", "label": null, "speaker": "Their Leader", "text": "\"Nothing personal. Well. Some of it's personal.\"" },
+    { "key": "c1", "type": "narration", "label": "Ambush", "speaker": null, "text": "A few {faction} faces have been waiting for you. They don't pretend otherwise." },
+    { "key": "c2", "type": "speaker", "label": null, "speaker": "Their Leader", "text": "\"Nothing personal. Well. Some of it's personal.\"" },
     {
-      "type": "choice", "label": null, "speaker": null, "text": "There's only one way out of this, and it has elbows in it.",
+      "key": "c3", "type": "choice", "label": null, "speaker": null, "text": "There's only one way out of this, and it has elbows in it.",
       "choices": [
         {
           "label": "Fight",
@@ -14,7 +14,7 @@
         }
       ]
     },
-    { "type": "resolution", "label": null, "speaker": null, "text": "It's over, one way or another. The street goes back to pretending nothing happened." }
+    { "key": "c4", "type": "resolution", "label": null, "speaker": null, "text": "It's over, one way or another. The street goes back to pretending nothing happened." }
   ],
   "on_complete": [{ "op": "set_screen", "screen": "map" }]
 }

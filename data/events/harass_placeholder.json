@@ -1,9 +1,9 @@
 {
   "id": "harass_placeholder",
   "cards": [
-    { "type": "narration", "label": null, "speaker": null, "text": "PROSE-REVIEW placeholder: the lock on your vein has been tampered with. The cameras point at the wall." },
+    { "key": "c1", "type": "narration", "label": null, "speaker": null, "text": "PROSE-REVIEW placeholder: the lock on your vein has been tampered with. The cameras point at the wall." },
     {
-      "type": "choice", "label": null, "speaker": null, "text": "PROSE-REVIEW placeholder: it will stay that way until someone pays.",
+      "key": "c2", "type": "choice", "label": null, "speaker": null, "text": "PROSE-REVIEW placeholder: it will stay that way until someone pays.",
       "choices": [
         {
           "label": "Pay to put it right (£100)",

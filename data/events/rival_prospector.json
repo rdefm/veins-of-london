@@ -1,10 +1,10 @@
 {
   "id": "rival_prospector",
   "cards": [
-    { "type": "narration", "label": null, "speaker": null, "text": "Someone else has clearly had the same idea about this patch of ground, and unlike you, they've brought company." },
-    { "type": "speaker", "label": null, "speaker": "Rival", "text": "\"Friendly notice. We're taking an interest in the good plot round here. A hundred quid says our interest fades. Your call.\"" },
+    { "key": "c1", "type": "narration", "label": null, "speaker": null, "text": "Someone else has clearly had the same idea about this patch of ground, and unlike you, they've brought company." },
+    { "key": "c2", "type": "speaker", "label": null, "speaker": "Rival", "text": "\"Friendly notice. We're taking an interest in the good plot round here. A hundred quid says our interest fades. Your call.\"" },
     {
-      "type": "choice", "label": null, "speaker": null, "text": "He says \"friendly\" the way people say it right before it stops being true.",
+      "key": "c3", "type": "choice", "label": null, "speaker": null, "text": "He says \"friendly\" the way people say it right before it stops being true.",
       "choices": [
         {
           "label": "Pay them off (£100)",
@@ -18,7 +18,7 @@
         }
       ]
     },
-    { "type": "resolution", "label": null, "speaker": null, "text": "London rewards neither generosity nor spite. It just carries on." }
+    { "key": "c4", "type": "resolution", "label": null, "speaker": null, "text": "London rewards neither generosity nor spite. It just carries on." }
   ],
   "on_complete": [{ "op": "set_screen", "screen": "map" }],
   "deck": {

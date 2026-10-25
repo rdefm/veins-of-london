@@ -1,9 +1,9 @@
 {
   "id": "harass_placeholder_conclave",
   "cards": [
-    { "type": "narration", "label": null, "speaker": null, "text": "PROSE-REVIEW placeholder: an injunction, served by hand, concerning one of your veins." },
+    { "key": "c1", "type": "narration", "label": null, "speaker": null, "text": "PROSE-REVIEW placeholder: an injunction, served by hand, concerning one of your veins." },
     {
-      "type": "choice", "label": null, "speaker": null, "text": "PROSE-REVIEW placeholder: a hearing has been scheduled.",
+      "key": "c2", "type": "choice", "label": null, "speaker": null, "text": "PROSE-REVIEW placeholder: a hearing has been scheduled.",
       "choices": [
         {
           "label": "Attend the hearing",

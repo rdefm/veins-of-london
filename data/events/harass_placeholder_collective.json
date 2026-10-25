@@ -1,9 +1,9 @@
 {
   "id": "harass_placeholder_collective",
   "cards": [
-    { "type": "narration", "label": null, "speaker": null, "text": "PROSE-REVIEW placeholder: a noise complaint, lodged by a neighbour you have never met." },
+    { "key": "c1", "type": "narration", "label": null, "speaker": null, "text": "PROSE-REVIEW placeholder: a noise complaint, lodged by a neighbour you have never met." },
     {
-      "type": "choice", "label": null, "speaker": null, "text": "PROSE-REVIEW placeholder: the council would like quiet.",
+      "key": "c2", "type": "choice", "label": null, "speaker": null, "text": "PROSE-REVIEW placeholder: the council would like quiet.",
       "choices": [
         {
           "label": "Keep it quiet",

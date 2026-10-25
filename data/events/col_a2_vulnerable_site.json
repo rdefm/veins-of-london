@@ -6,10 +6,10 @@
     "showWhenFlagsFalse": ["colA2VulnerableSiteDone"]
   },
   "cards": [
-    { "type": "narration", "label": "Whitechapel", "speaker": null, "text": "A railway arch nobody's bothered to lock properly in three years. It's held ore the whole time and nothing's ever gone wrong with it - yet." },
-    { "type": "speaker", "label": null, "speaker": "Nadia", "text": "\"That one's ours and it's soft as anything. It was fine while nobody's looking twice at us. We're past that now.\"" },
+    { "key": "c1", "type": "narration", "label": "Whitechapel", "speaker": null, "text": "A railway arch nobody's bothered to lock properly in three years. It's held ore the whole time and nothing's ever gone wrong with it - yet." },
+    { "key": "c2", "type": "speaker", "label": null, "speaker": "Nadia", "text": "\"That one's ours and it's soft as anything. It was fine while nobody's looking twice at us. We're past that now.\"" },
     {
-      "type": "choice", "label": null, "speaker": null, "text": "Two ways to leave it.",
+      "key": "c3", "type": "choice", "label": null, "speaker": null, "text": "Two ways to leave it.",
       "choices": [
         {
           "label": "Fund a lookout (£150)",
@@ -27,7 +27,7 @@
         }
       ]
     },
-    { "type": "resolution", "label": null, "speaker": null, "text": "Either way, the vein keeps doing what it's always done, for now. Whether that keeps being true is a separate question." }
+    { "key": "c4", "type": "resolution", "label": null, "speaker": null, "text": "Either way, the vein keeps doing what it's always done, for now. Whether that keeps being true is a separate question." }
   ],
   "on_complete": [
     { "op": "set_flag", "flag": "colA2VulnerableSiteDone", "value": true },

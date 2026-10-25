@@ -2146,7 +2146,7 @@ function checkOddsBlock(opt, changed, restructure) {
   // topological order of the card graph (start card first; each card followed by its own continuation when that
   // is free, else the earliest ready card in display order), so every jump is forward. {branch, card?} links
   // become card indexes; a card whose continuation isn't the next flat card gets a card `goto`, a conditional
-  // `goto` (from a conditional `then`) or `end: true`. Card keys, checkNotes, branch titles, comments and saved
+  // `goto` (from a conditional `then`) or `end: true`. checkNotes, branch titles, comments and saved
   // node positions are stripped. Returns {event, dropped}: dropped = keys of cards no path reaches, which are left
   // out.
   function promoteDraft(draft) {
@@ -2212,14 +2212,14 @@ function checkOddsBlock(opt, changed, restructure) {
       if (!exits) throw new Error(`${p.branch} · ${hub}: hub has no forward exit (every option loops back or is hidden after use)`);
     }
     const index = new Map(order.map((k, i) => [k, i])), cardOrder = (draft._keyOrder || {}).cards || {};
-    const cards =order.map((k, i) => {
+    const cards = order.map((k, i) => {
       const p = reach.get(k), src = branchCards(draft, p.branch)[p.idx], at = `${p.branch} · ${k}`;
       const flat = (t) => {
         const n = index.get(keyAt(resolveTarget(draft, t)));
         if (!(n > i) && !back.has(`${k}>${keyAt(resolveTarget(draft, t))}`)) throw new Error(`${at}: link to ${targetText(t)} isn't forward`);
         return n;
       };
-      const { key, goto, end, ...card } = deepClone(src);
+      const { goto, end, ...rest } = deepClone(src), card = { key: src.key, ...rest };
       (card.choices || []).forEach((o) => {
         delete o.checkNote;
         optionOutcomes(o).forEach((x) => { if (x.goto) x.goto = flat(x.goto); });

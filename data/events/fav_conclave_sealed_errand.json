@@ -1,10 +1,10 @@
 {
   "id": "fav_conclave_sealed_errand",
   "cards": [
-    { "type": "narration", "label": null, "speaker": null, "text": "The envelope is heavy for paper and cream-coloured. The address is a Firm-owned betting shop in Soho. Nobody there will be pleased to see it." },
-    { "type": "speaker", "label": null, "speaker": "Fairweather", "text": "\"Hand it over the counter. Say nothing. If they open it in front of you, that's their business.\"" },
+    { "key": "c1", "type": "narration", "label": null, "speaker": null, "text": "The envelope is heavy for paper and cream-coloured. The address is a Firm-owned betting shop in Soho. Nobody there will be pleased to see it." },
+    { "key": "c2", "type": "speaker", "label": null, "speaker": "Fairweather", "text": "\"Hand it over the counter. Say nothing. If they open it in front of you, that's their business.\"" },
     {
-      "type": "choice", "label": null, "speaker": null, "text": "The counter is a long way from the door.",
+      "key": "c3", "type": "choice", "label": null, "speaker": null, "text": "The counter is a long way from the door.",
       "choices": [
         {
           "id": "walkIn",
@@ -36,7 +36,7 @@
         }
       ]
     },
-    { "type": "resolution", "label": null, "speaker": null, "text": "Soho carries on, as it does." }
+    { "key": "c4", "type": "resolution", "label": null, "speaker": null, "text": "Soho carries on, as it does." }
   ],
   "on_complete": [{ "op": "set_screen", "screen": "phone" }]
 }

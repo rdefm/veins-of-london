@@ -1,9 +1,9 @@
 {
   "id": "stockpile_raid",
   "cards": [
-    { "type": "tension", "label": "Their stores", "speaker": null, "text": "It took money to learn where they keep it. The door looks like every other door on the street, which is the point. Someone is paid to sit behind it." },
+    { "key": "c1", "type": "tension", "label": "Their stores", "speaker": null, "text": "It took money to learn where they keep it. The door looks like every other door on the street, which is the point. Someone is paid to sit behind it." },
     {
-      "type": "choice", "label": null, "speaker": null, "text": "In and out before anyone counts.",
+      "key": "c2", "type": "choice", "label": null, "speaker": null, "text": "In and out before anyone counts.",
       "choices": [
         {
           "label": "Go slow",
@@ -22,7 +22,7 @@
       ]
     },
     {
-      "type": "choice", "label": null, "speaker": null, "text": "Crates, jars, a ledger nobody will be reading tonight. More than one trip's worth.",
+      "key": "c3", "type": "choice", "label": null, "speaker": null, "text": "Crates, jars, a ledger nobody will be reading tonight. More than one trip's worth.",
       "choices": [
         {
           "label": "Take what you can carry",

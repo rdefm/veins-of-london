@@ -23,7 +23,7 @@ function loadModel() {
   return new Function(
     section("/* ---------- Choice mechanics (shared) ---------- */", "/* ---------- End choice mechanics ---------- */") +
       section("/* ---------- Draft model (pure) ---------- */", "/* ---------- End draft model ---------- */") +
-      "\nreturn { parseProposal, spliceDraft, filterComments, updateComment, anchorText, promoteForWrite, liveHash, liveDrifted };"
+      "\nreturn { parseProposal, spliceDraft, filterComments, updateComment, anchorText, promoteForWrite, promoteDraft, serialiseEvent, liveHash, liveDrifted };"
   )();
 }
 
@@ -73,6 +73,8 @@ function main(argv) {
   }
   throw new Error(`unknown command ${cmd}`);
 }
+
+module.exports = { loadModel };
 
 if (require.main === module) {
   try { main(process.argv.slice(2)); } catch (e) { console.error(e.message); process.exitCode = 1; }

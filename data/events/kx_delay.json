@@ -1,9 +1,9 @@
 {
   "id": "kx_delay",
   "cards": [
-    { "type": "narration", "label": "King's Cross", "speaker": null, "text": "The departures board changes its mind for the fourth time. Somewhere behind the barriers, a Tannoy voice apologises for something it clearly isn't sorry about." },
+    { "key": "c1", "type": "narration", "label": "King's Cross", "speaker": null, "text": "The departures board changes its mind for the fourth time. Somewhere behind the barriers, a Tannoy voice apologises for something it clearly isn't sorry about." },
     {
-      "type": "choice", "label": null, "speaker": null, "text": "Everyone's on the King's Cross deal. You are, for once, one of the delayed rather than the delighted.",
+      "key": "c2", "type": "choice", "label": null, "speaker": null, "text": "Everyone's on the King's Cross deal. You are, for once, one of the delayed rather than the delighted.",
       "choices": [
         {
           "label": "Wait it out",
@@ -17,7 +17,7 @@
         }
       ]
     },
-    { "type": "resolution", "label": null, "speaker": null, "text": "Either way, you get where you're going. King's Cross remains, structurally, on its way somewhere else." }
+    { "key": "c3", "type": "resolution", "label": null, "speaker": null, "text": "Either way, you get where you're going. King's Cross remains, structurally, on its way somewhere else." }
   ],
   "on_complete": [{ "op": "set_screen", "screen": "map" }],
   "deck": { "district": "kingscross", "weight": 1, "excludeIfFlag": null, "barometerState": null }

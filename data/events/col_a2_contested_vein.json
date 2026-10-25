@@ -6,10 +6,10 @@
     "showWhenFlagsFalse": ["colA2ContestedVeinDone"]
   },
   "cards": [
-    { "type": "narration", "label": "Camden", "speaker": null, "text": "A lock-up off the market that used to be Collective ground. Somebody's changed the padlock. Nobody saw it happen, or nobody's saying." },
-    { "type": "speaker", "label": null, "speaker": "Nadia", "text": "\"That one's the Firm's now. Since sometime after Hakim. Nobody rang to tell us - we just noticed the takings stopped.\"" },
+    { "key": "c1", "type": "narration", "label": "Camden", "speaker": null, "text": "A lock-up off the market that used to be Collective ground. Somebody's changed the padlock. Nobody saw it happen, or nobody's saying." },
+    { "key": "c2", "type": "speaker", "label": null, "speaker": "Nadia", "text": "\"That one's the Firm's now. Since sometime after Hakim. Nobody rang to tell us - we just noticed the takings stopped.\"" },
     {
-      "type": "choice", "label": null, "speaker": null, "text": "Two ways to have it back.",
+      "key": "c3", "type": "choice", "label": null, "speaker": null, "text": "Two ways to have it back.",
       "choices": [
         {
           "label": "Take it back",
@@ -29,7 +29,7 @@
         }
       ]
     },
-    { "type": "resolution", "label": null, "speaker": null, "text": "Either way, the lock-up is yours again. Whether it feels like it is a separate question, for later." }
+    { "key": "c4", "type": "resolution", "label": null, "speaker": null, "text": "Either way, the lock-up is yours again. Whether it feels like it is a separate question, for later." }
   ],
   "on_complete": [
     { "op": "set_flag", "flag": "colA2ContestedVeinDone", "value": true },

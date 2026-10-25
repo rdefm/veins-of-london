@@ -1,10 +1,10 @@
 {
   "id": "col_a1_archie_pry",
   "cards": [
-    { "type": "narration", "label": null, "speaker": null, "text": "You mention Des. Archie's face does the thing it does, which is nothing at all, quite deliberately." },
-    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"He's good at ground. Best I know. Leave it there.\"" },
+    { "key": "c1", "type": "narration", "label": null, "speaker": null, "text": "You mention Des. Archie's face does the thing it does, which is nothing at all, quite deliberately." },
+    { "key": "c2", "type": "speaker", "label": null, "speaker": "Archie", "text": "\"He's good at ground. Best I know. Leave it there.\"" },
     {
-      "type": "choice", "label": null, "speaker": null, "text": "He very obviously wants to leave it there.",
+      "key": "c3", "type": "choice", "label": null, "speaker": null, "text": "He very obviously wants to leave it there.",
       "choices": [
         {
           "label": "Leave it",

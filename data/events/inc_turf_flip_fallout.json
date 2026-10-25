@@ -1,9 +1,9 @@
 {
   "id": "inc_turf_flip_fallout",
   "cards": [
-    { "type": "narration", "label": null, "speaker": null, "text": "PROSE-REVIEW placeholder: The streets changed hands overnight and the signs have not caught up." },
+    { "key": "c1", "type": "narration", "label": null, "speaker": null, "text": "PROSE-REVIEW placeholder: The streets changed hands overnight and the signs have not caught up." },
     {
-      "type": "choice", "label": null, "speaker": null, "text": "PROSE-REVIEW placeholder: Someone expects you to have an opinion.",
+      "key": "c2", "type": "choice", "label": null, "speaker": null, "text": "PROSE-REVIEW placeholder: Someone expects you to have an opinion.",
       "choices": [
         {
           "label": "Show your face",
@@ -17,7 +17,7 @@
         }
       ]
     },
-    { "type": "resolution", "label": null, "speaker": null, "text": "PROSE-REVIEW placeholder: London carries on." }
+    { "key": "c3", "type": "resolution", "label": null, "speaker": null, "text": "PROSE-REVIEW placeholder: London carries on." }
   ],
   "on_complete": [{ "op": "set_screen", "screen": "phone" }]
 }

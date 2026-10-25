@@ -1,14 +1,14 @@
 {
   "id": "col_a1_closer",
   "cards": [
-    { "type": "narration", "label": null, "speaker": null, "text": "All three of them are in the yard, which has never happened before and is not, apparently, an occasion. Nadia is sitting on an upturned crate. Des has his bag." },
-    { "type": "speaker", "label": null, "speaker": "Hakim", "text": "\"So there's a spot behind the flats on the other side of the estate. Been looking at it for about a year, wondering.\"" },
-    { "type": "speaker", "label": null, "speaker": "Hakim", "text": "\"It's life. Which is wrong for round here — round here is emotion, everyone knows that. But it's life, and it's good ground, and I don't know what to do with good ground.\"" },
-    { "type": "speaker", "label": null, "speaker": "Hakim", "text": "\"You're the one who's good at putting things in. So.\"" },
-    { "type": "narration", "label": null, "speaker": null, "text": "Des has already got the jar out of his bag. He does not make a speech about it. He does not appear to have considered any other course of action." },
-    { "type": "speaker", "label": null, "speaker": "Des", "text": "\"Forty units, life. Had it about a month waiting for somewhere to put it.\"" },
+    { "key": "c1", "type": "narration", "label": null, "speaker": null, "text": "All three of them are in the yard, which has never happened before and is not, apparently, an occasion. Nadia is sitting on an upturned crate. Des has his bag." },
+    { "key": "c2", "type": "speaker", "label": null, "speaker": "Hakim", "text": "\"So there's a spot behind the flats on the other side of the estate. Been looking at it for about a year, wondering.\"" },
+    { "key": "c3", "type": "speaker", "label": null, "speaker": "Hakim", "text": "\"It's life. Which is wrong for round here — round here is emotion, everyone knows that. But it's life, and it's good ground, and I don't know what to do with good ground.\"" },
+    { "key": "c4", "type": "speaker", "label": null, "speaker": "Hakim", "text": "\"You're the one who's good at putting things in. So.\"" },
+    { "key": "c5", "type": "narration", "label": null, "speaker": null, "text": "Des has already got the jar out of his bag. He does not make a speech about it. He does not appear to have considered any other course of action." },
+    { "key": "c6", "type": "speaker", "label": null, "speaker": "Des", "text": "\"Forty units, life. Had it about a month waiting for somewhere to put it.\"" },
     {
-      "type": "choice", "label": null, "speaker": null, "text": "You start to say something about paying him back.",
+      "key": "c7", "type": "choice", "label": null, "speaker": null, "text": "You start to say something about paying him back.",
       "choices": [
         {
           "label": "Thank him",
@@ -22,12 +22,12 @@
         }
       ]
     },
-    { "type": "narration", "label": null, "speaker": null, "text": "It takes first time. The three of them watch you do it and then go straight back to talking about somebody's boiler." },
-    { "type": "narration", "label": null, "speaker": null, "text": "Later, walking back, you ask Des how you'd actually join. Whether there's someone to ask." },
-    { "type": "speaker", "label": null, "speaker": "Des", "text": "\"There's no list. Nobody keeps one.\" He seems mildly amused you'd think there was. \"You've been doing this with us for a month. You're either one of us or you're not, and that's not really my call.\"" },
-    { "type": "speaker", "label": null, "speaker": "Nadia", "text": "\"He means yes.\"" },
+    { "key": "c8", "type": "narration", "label": null, "speaker": null, "text": "It takes first time. The three of them watch you do it and then go straight back to talking about somebody's boiler." },
+    { "key": "c9", "type": "narration", "label": null, "speaker": null, "text": "Later, walking back, you ask Des how you'd actually join. Whether there's someone to ask." },
+    { "key": "c10", "type": "speaker", "label": null, "speaker": "Des", "text": "\"There's no list. Nobody keeps one.\" He seems mildly amused you'd think there was. \"You've been doing this with us for a month. You're either one of us or you're not, and that's not really my call.\"" },
+    { "key": "c11", "type": "speaker", "label": null, "speaker": "Nadia", "text": "\"He means yes.\"" },
     {
-      "type": "choice", "label": null, "speaker": null, "text": "Behind you, Whitechapel does what it does.",
+      "key": "c12", "type": "choice", "label": null, "speaker": null, "text": "Behind you, Whitechapel does what it does.",
       "choices": [
         {
           "label": "I'm in",
@@ -44,7 +44,7 @@
         }
       ]
     },
-    { "type": "resolution", "label": null, "speaker": null, "text": "You have a life vein in Whitechapel that a newsagent found and a prospector paid for, and no document anywhere records that any of this happened." }
+    { "key": "c13", "type": "resolution", "label": null, "speaker": null, "text": "You have a life vein in Whitechapel that a newsagent found and a prospector paid for, and no document anywhere records that any of this happened." }
   ],
   "on_complete": [
     { "op": "scripted_seed", "district": "whitechapel", "tier": "rich", "oreType": "life" },

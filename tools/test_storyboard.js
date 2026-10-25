@@ -231,6 +231,12 @@ test("hubExit gates the exit by the advance rule over the asked options", () => 
   assert.deepStrictEqual(advanceRule({ advance: "later" }), { kind: "anytime", n: 0 });
 });
 
+test("promote keeps each card's key, first in the card", () => {
+  const { event } = promoteDraft(hubDraft());
+  assert.ok(event.cards.every((c) => typeof c.key === "string" && Object.keys(c)[0] === "key"));
+  assert.strictEqual(new Set(event.cards.map((c) => c.key)).size, event.cards.length);
+});
+
 test("flat loop event -> draft -> flat is lossless", () => {
   const flat = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "tests", "fixtures", "demo_hub_questions.json"), "utf-8"));
   assert.deepStrictEqual(promoteDraft(legacyToDraft(JSON.parse(JSON.stringify(flat)))).event, flat);
@@ -329,6 +335,16 @@ test("import → promote reproduces every live event byte-for-byte", () => {
     let out;
     try { out = serialiseEvent(promoteDraft(importedDraft(f, text)).event); } catch (e) { bad.push(`${f}: ${e.message}`); continue; }
     if (out !== text) bad.push(f);
+  }
+  assert.deepStrictEqual(bad, []);
+});
+
+test("every live event's cards carry unique keys", () => {
+  const dir = path.join(__dirname, "..", "data", "events");
+  const bad = [];
+  for (const f of fs.readdirSync(dir).filter((x) => x.endsWith(".json"))) {
+    const keys = JSON.parse(readLive(dir, f)).cards.map((c) => c.key);
+    if (keys.some((k) => !k) || new Set(keys).size !== keys.length) bad.push(f);
   }
   assert.deepStrictEqual(bad, []);
 });
@@ -1571,14 +1587,14 @@ test("promote: forward-only, index mapping, unreachable cards dropped", () => {
   for (const [from, to] of flatJumps(event)) assert.ok(to > from, `goto ${from} → ${to} isn't forward`);
 });
 
-test("promote: strips keys, checkNotes, branch titles, start and comments; keeps event fields in place", () => {
+test("promote: keeps keys; strips checkNotes, branch titles, start and comments; keeps event fields in place", () => {
   const { draft } = parseDraft(draftText);
   addComment(draft, { card: "c2" }, "claude", "tighten this");
   const { event } = promoteDraft(draft);
   assert.deepStrictEqual(Object.keys(event), ["id", "at", "cards"]);
   assert.deepStrictEqual(event.at, { block: "evening" });
   const text = JSON.stringify(event);
-  for (const k of ["key", "checkNote", "title", "_comments", "start", "branches", "branch"]) assert.ok(!text.includes(`"${k}"`), `${k} left in`);
+  for (const k of ["checkNote", "title", "_comments", "start", "branches", "branch"]) assert.ok(!text.includes(`"${k}"`), `${k} left in`);
   assert.ok(draft.branches.main.cards[0].key, "the draft itself is untouched");
 });
 
@@ -1611,7 +1627,7 @@ test("promote: card goto and single then become index gotos only when not the ne
   } };
   const { event, dropped } = promoteDraft(draft);
   assert.deepStrictEqual(dropped, ["b"]);
-  assert.deepStrictEqual(event.cards, [{ type: "narration", text: "a" }, { type: "narration", text: "f" }]);
+  assert.deepStrictEqual(event.cards, [{ key: "a", type: "narration", text: "a" }, { key: "f", type: "narration", text: "f" }]);
   assertSameRouting(draft);
 });
 

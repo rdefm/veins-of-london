@@ -6,11 +6,11 @@
     "showWhenFlagsFalse": ["colA2HostileMemberDone"]
   },
   "cards": [
-    { "type": "narration", "label": "Shoreditch", "speaker": null, "text": "A back room over a print shop. Des has the kettle on, which usually means the news is bad and he'd like to be holding something." },
-    { "type": "speaker", "label": null, "speaker": "Des", "text": "\"One of ours has been paying the Firm. Small amounts, regular. So the Firm leaves their patch alone. They're not selling us out - they're frightened, and they've got a vein and two kids.\"" },
-    { "type": "speaker", "label": null, "speaker": "Nadia", "text": "\"Everyone knows. That's the problem. Everyone's watching to see what we do about it.\"" },
+    { "key": "c1", "type": "narration", "label": "Shoreditch", "speaker": null, "text": "A back room over a print shop. Des has the kettle on, which usually means the news is bad and he'd like to be holding something." },
+    { "key": "c2", "type": "speaker", "label": null, "speaker": "Des", "text": "\"One of ours has been paying the Firm. Small amounts, regular. So the Firm leaves their patch alone. They're not selling us out - they're frightened, and they've got a vein and two kids.\"" },
+    { "key": "c3", "type": "speaker", "label": null, "speaker": "Nadia", "text": "\"Everyone knows. That's the problem. Everyone's watching to see what we do about it.\"" },
     {
-      "type": "choice", "label": null, "speaker": null, "text": "What the Collective does about it.",
+      "key": "c4", "type": "choice", "label": null, "speaker": null, "text": "What the Collective does about it.",
       "choices": [
         {
           "label": "Let it go",
@@ -40,7 +40,7 @@
         }
       ]
     },
-    { "type": "resolution", "label": null, "speaker": null, "text": "Des washes the mugs up himself. He doesn't say whether he'd have done it differently." }
+    { "key": "c5", "type": "resolution", "label": null, "speaker": null, "text": "Des washes the mugs up himself. He doesn't say whether he'd have done it differently." }
   ],
   "on_complete": [
     { "op": "set_flag", "flag": "colA2HostileMemberDone", "value": true },
