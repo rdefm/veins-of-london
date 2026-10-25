@@ -294,6 +294,7 @@ static func _reenter_hub(event_state: Dictionary, hub: int) -> void:
 			if int(String(entry).split("|")[0]) >= hub:
 				table.erase(entry)
 	event_state["cardIndex"] = hub
+	event_state["choosing"] = true  # the prompt was already read; land on the options
 
 
 # A card's own `goto` as a plain target: an index as-is, or a conditional
@@ -367,7 +368,7 @@ static func choose(choice_index: int) -> void:
 	var event_state: Dictionary = GameState.state["event"]
 	# Re-asking a reselectable hub question replays its answer without re-firing its effects.
 	var re_asked: bool = hub_exit_index() >= 0 and choice_index != hub_exit_index() and _picked_here().has(choice_index)
-	event_state.erase("choosing")  # a hub re-entered later starts at its prompt again
+	event_state.erase("choosing")
 	var card: Dictionary = current_card()
 	var choice: Dictionary = card["choices"][choice_index]
 

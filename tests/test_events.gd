@@ -1354,6 +1354,22 @@ func run() -> void:
 		GameData.EVENTS = original_events
 	)
 
+	run_case("pub_finished_conversation_returns_to_the_choice_options_and_exit_still_works", func():
+		GameState.reset()
+		Events.start_event("pub")
+		Events.advance()  # prompt -> options
+		Events.choose(0)
+		Events.advance()  # answer card -> back to hub
+		assert_eq(GameState.state["event"]["cardIndex"], 0, "back on the choice card")
+		assert_true(Events.is_choosing(), "lands on the options, not the intro prompt")
+		assert_true(Events.is_awaiting_choice(), "hub selectable again")
+		assert_true(Events.hub_exit_available(), "the way out is still offered")
+		Events.choose(Events.hub_exit_index())
+		Events.advance()
+		assert_true(GameState.state["event"]["cardIndex"] > 0, "exit moves on past the hub")
+		GameState.reset()
+	)
+
 	run_case("the_demo_hub_event_asks_all_questions_then_the_exit_opens", func():
 		GameState.reset()
 		var original_events := _install_demo_hub()
