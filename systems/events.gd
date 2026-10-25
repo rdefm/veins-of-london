@@ -665,17 +665,31 @@ static func _option_key(option: Variant) -> String:
 	return str(int(option))
 
 
+# What distinguishes one run of an event from another for stable rolls
+# (R§3.9a "Roll"): world.day, plus ":<site_id>" when the live event's context
+# names a site. Pure state, so a save reload yields the same key.
+static func run_key() -> String:
+	var key := str(int(GameState.state["world"]["day"]))
+	var site_id: String = _live_event_context().get("site_id", "")
+	if site_id != "":
+		key += ":" + site_id
+	return key
+
+
 # The check's roll in [0,1) for the current card's option: a stable hash of
-# world.rollSeed, event id, card index, option index, prior_rolls() and the
-# toggled optional items (sorted, appended only when any), plus "|a<n>" for
-# attempt n > 0 of a multi-attempt check, so each re-roll after a Rewind is
-# fresh, changed preparation can change it, and a save reload replays the
-# same roll. A re-roll draws a second value per attempt and keeps the lower
-# (best of two). Never draws from the global Rng stream.
+# world.rollSeed, event id, card index, option index, prior_rolls(), run_key()
+# (only for an event with `repeatable: true`) and the toggled optional items
+# (sorted, appended only when any), plus "|a<n>" for attempt n > 0 of a
+# multi-attempt check, so each re-roll after a Rewind is fresh, changed
+# preparation can change it, and a save reload replays the same roll. A
+# re-roll draws a second value per attempt and keeps the lower (best of two).
+# Never draws from the global Rng stream.
 static func check_roll(choice_index: int, attempt_index: int = 0) -> float:
 	var event_state: Dictionary = GameState.state["event"]
 	var prior: int = prior_rolls(choice_index)
 	var key := "%d|%s|%d|%d|%d" % [int(GameState.state["world"]["rollSeed"]), event_state["eventId"], int(event_state["cardIndex"]), choice_index, prior]
+	if _event_def().get("repeatable", false):
+		key += "|" + run_key()
 	var toggled := active_toggles(choice_index)
 	if not toggled.is_empty():
 		key += "|" + ",".join(PackedStringArray(toggled))

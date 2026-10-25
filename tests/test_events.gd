@@ -818,6 +818,38 @@ func run() -> void:
 		assert_eq(outcomes[0], outcomes[1], "a reload can't fish for a new roll")
 	)
 
+	run_case("run_key_is_the_day_plus_the_context_site", func():
+		GameState.reset()
+		GameState.state["world"]["day"] = 4
+		var original_events := _install_check_event(0.5)
+		Events.start_event("test_check_event")
+		assert_eq(Events.run_key(), "4")
+		Events.start_event("test_check_event", { "site_id": "s1" })
+		assert_eq(Events.run_key(), "4:s1")
+		GameData.EVENTS = original_events
+	)
+
+	run_case("a_repeatable_events_check_varies_by_run_key_and_replays_within_one", func():
+		# Rolls for one fixed seed across (day, site) runs; a repeat run replays.
+		var roll_for := func(day: int, context: Dictionary, repeatable: bool) -> float:
+			GameState.reset()
+			GameState.state["world"]["rollSeed"] = 99
+			GameState.state["world"]["day"] = day
+			var original_events := _install_check_event(0.5)
+			GameData.EVENTS["test_check_event"]["repeatable"] = repeatable
+			Events.start_event("test_check_event", context)
+			Events.advance()
+			var roll: float = Events.check_roll(0)
+			GameData.EVENTS = original_events
+			return roll
+		var base: float = roll_for.call(3, { "site_id": "s1" }, true)
+		assert_eq(roll_for.call(3, { "site_id": "s1" }, true), base, "same run key replays (reload)")
+		assert_true(roll_for.call(4, { "site_id": "s1" }, true) != base, "another day rolls fresh")
+		assert_true(roll_for.call(3, { "site_id": "s2" }, true) != base, "another site rolls fresh")
+		var one_shot: float = roll_for.call(3, {}, false)
+		assert_eq(roll_for.call(9, { "site_id": "s2" }, false), one_shot, "a non-repeatable event ignores the run key")
+	)
+
 	run_case("a_check_never_touches_the_global_rng_stream", func():
 		# The global stream after the same flow with the plain option: the
 		# check must leave it exactly where a plain choice does.

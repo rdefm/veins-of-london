@@ -2247,6 +2247,8 @@ func _validate_events(events: Dictionary, districts: Dictionary, errors: Array[S
 			_validate_event_pin(entry["pin"], districts, "events.%s.pin" % key, errors)
 		if entry.has("at"):
 			_validate_event_at(entry["at"], "events.%s.at" % key, errors)
+		if entry.has("repeatable") and typeof(entry["repeatable"]) != TYPE_BOOL:
+			errors.append("events.%s: repeatable must be a bool" % key)
 
 
 # R§3.9b "Event timing": at = {block, advance}.
