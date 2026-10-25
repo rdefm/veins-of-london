@@ -1,0 +1,272 @@
+# col_a1_closer — imported from data/events/col_a1_closer.json
+
+```json
+{
+  "id": "col_a1_closer",
+  "on_complete": [
+    {
+      "op": "scripted_seed",
+      "district": "whitechapel",
+      "tier": "rich",
+      "oreType": "life"
+    },
+    {
+      "op": "set_flag",
+      "flag": "colA1Stage",
+      "value": "complete"
+    },
+    {
+      "op": "set_flag",
+      "flag": "colA1Complete",
+      "value": true
+    },
+    {
+      "op": "set_screen",
+      "screen": "phone"
+    }
+  ],
+  "start": "main",
+  "branches": {
+    "main": {
+      "title": "Start",
+      "cards": [
+        {
+          "key": "c1",
+          "type": "narration",
+          "label": null,
+          "speaker": null,
+          "text": "All three of them are in the yard, which has never happened before and is not, apparently, an occasion. Nadia is sitting on an upturned crate. Des has his bag."
+        },
+        {
+          "key": "c2",
+          "type": "speaker",
+          "label": null,
+          "speaker": "Hakim",
+          "text": "\"So there's a spot behind the flats on the other side of the estate. Been looking at it for about a year, wondering.\""
+        },
+        {
+          "key": "c3",
+          "type": "speaker",
+          "label": null,
+          "speaker": "Hakim",
+          "text": "\"It's life. Which is wrong for round here — round here is emotion, everyone knows that. But it's life, and it's good ground, and I don't know what to do with good ground.\""
+        },
+        {
+          "key": "c4",
+          "type": "speaker",
+          "label": null,
+          "speaker": "Hakim",
+          "text": "\"You're the one who's good at putting things in. So.\""
+        },
+        {
+          "key": "c5",
+          "type": "narration",
+          "label": null,
+          "speaker": null,
+          "text": "Des has already got the jar out of his bag. He does not make a speech about it. He does not appear to have considered any other course of action."
+        },
+        {
+          "key": "c6",
+          "type": "speaker",
+          "label": null,
+          "speaker": "Des",
+          "text": "\"Forty units, life. Had it about a month waiting for somewhere to put it.\""
+        },
+        {
+          "key": "c7",
+          "type": "choice",
+          "label": null,
+          "speaker": null,
+          "text": "You start to say something about paying him back.",
+          "choices": [
+            {
+              "label": "Thank him",
+              "effects": [],
+              "result_text": "\"You're all right,\" he says, and means it, and the subject is closed."
+            },
+            {
+              "label": "Insist on paying",
+              "effects": [],
+              "result_text": "\"You can pay me back by doing this for somebody else in about a year.\" He hands you the jar. \"That's not me being nice, that's just how the accounting works round here.\""
+            }
+          ]
+        },
+        {
+          "key": "c8",
+          "type": "narration",
+          "label": null,
+          "speaker": null,
+          "text": "It takes first time. The three of them watch you do it and then go straight back to talking about somebody's boiler."
+        },
+        {
+          "key": "c9",
+          "type": "narration",
+          "label": null,
+          "speaker": null,
+          "text": "Later, walking back, you ask Des how you'd actually join. Whether there's someone to ask."
+        },
+        {
+          "key": "c10",
+          "type": "speaker",
+          "label": null,
+          "speaker": "Des",
+          "text": "\"There's no list. Nobody keeps one.\" He seems mildly amused you'd think there was. \"You've been doing this with us for a month. You're either one of us or you're not, and that's not really my call.\""
+        },
+        {
+          "key": "c11",
+          "type": "speaker",
+          "label": null,
+          "speaker": "Nadia",
+          "text": "\"He means yes.\""
+        },
+        {
+          "key": "c12",
+          "type": "choice",
+          "label": null,
+          "speaker": null,
+          "text": "Behind you, Whitechapel does what it does.",
+          "choices": [
+            {
+              "label": "I'm in",
+              "effects": [
+                {
+                  "op": "join_faction",
+                  "faction": "collective"
+                },
+                {
+                  "op": "set_flag",
+                  "flag": "colA1Joined",
+                  "value": true
+                }
+              ],
+              "result_text": "\"Right,\" says Des, and that's the ceremony."
+            },
+            {
+              "label": "Not yet",
+              "effects": [
+                {
+                  "op": "set_flag",
+                  "flag": "colA1DeferredJoin",
+                  "value": true
+                }
+              ],
+              "result_text": "\"Fair enough.\" He isn't offended. \"Offer doesn't expire. There's nothing to expire.\""
+            }
+          ]
+        },
+        {
+          "key": "c13",
+          "type": "resolution",
+          "label": null,
+          "speaker": null,
+          "text": "You have a life vein in Whitechapel that a newsagent found and a prospector paid for, and no document anywhere records that any of this happened."
+        }
+      ]
+    }
+  },
+  "_keyOrder": {
+    "top": [
+      "id",
+      "cards",
+      "on_complete"
+    ],
+    "cards": {
+      "c1": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c2": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c3": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c4": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c5": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c6": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c7": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text",
+        "choices"
+      ],
+      "c8": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c9": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c10": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c11": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c12": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text",
+        "choices"
+      ],
+      "c13": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ]
+    }
+  },
+  "_liveSource": "col_a1_closer.json",
+  "_liveHash": "daedf37a"
+}
+```

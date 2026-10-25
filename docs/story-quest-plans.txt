@@ -1,7 +1,7 @@
 # Story restructure - Quests and Event Planning
 
 
-#Overview
+# Overview
 
 PROLOGUE "Rent Day" (linear, ~30 min)
         │
@@ -54,8 +54,55 @@ Home raid, end of prologue
 Need to adjust so Archie doesn't show the player how to cultivate or harvest, just shows them the vein. Maybe move this into Arc A, after Des lessons, so it makes sense that the player can cultivate/harvest their vein.
 
 ## Arc A
-Aim: Teach player about cultivating, harvesting, seeing veins.
+Aim: Teach player about prospecting, cultivating, harvesting, seeding veins.
 
 1) col_a1_intro.json
-Introduces Des, his motivation for teaching player, and hnt at friction and history between Des and Archie.
+Introduces Des, his motivation for teaching player, and hint at friction and history between Des and Archie.
 Current version needs to be rewritten to focus on learning cultivating, harvesting, seeding.
+
+2) col_a1_prospecting.json
+Needs some tweaking, but basics are there. Need to rewire so before end of event, it jumps to the map view and highlights the prospecting buttons for player to actually use (proper tutorial).
+Perhaps reword to focus on Prospecting as being observant, going with your gut. Event text can show the player feeling a 'pull' when near a site, reminding them of James calc moving. 
+
+3) col_a1_seeding.json
+Teaches seeding. Some small adjustments to text. Adjust to show the actual seeding UI, player seeds, Collective vein appears.
+
+4) col_a1_cultivating.json DOESN'T EXIST YET
+Des continues lesson, saying once you've seeded you can cultivate. He puts his hand on the vein and closes eyes, says he likes to feel calm and in the moment, and it usually does the trick. He doesn't know why it works, just that it does.
+Go to actual Map UI, guide player to tap cultivate. See it grow.
+Des explains that is vein is too low, it will eventually die off (site remains, can be reseeded). If you grow it really strong, it eventually gets bigger (limited by the terroir of the vein site).
+
+5) col_a1_harvest.json DOESN't EXIST YET
+Des lesson continues, he takes player to another vein, goes to map tab with Des voiceover, shows how to harvest. He explains that ore can be sold (player options to ask who to, what they do with it, are some ores more valuable than others).
+Player may ask Des "does the calc do anything? Like, move?", Des replies "Nah, nothing that dramatic. Only does something interesting when one of the fancy crafters works their magic on it".
+
+6) col_a1_hub.json
+End of tutorial section, Des explains the 3 things he needs, which all encourage player to practice what they've learned.
+
+7a) col_a1_hakim_meet.json
+Introduces Hakim and his quest. Good as is.
+
+7b) col_a1_hakim_done.json
+Endes Hakim's initial quest. Good as is.
+
+8a1) col_a1_des_report_first_fate.json
+Adjust to note include The City
+
+8a2) col_a1_des_report_first_fate.json
+Fine as is
+
+8a3) col-a1-firm-intimidation.json
+Adjust to have Nick be the one intimidating.
+
+8b) col_a1_des_report.json
+Handing in final site to Des.
+Move card 3 to be penultimate card. Reword card 6 ending.
+
+9a) col_a1_nadia_meet.json
+Refine prose.
+
+9b) col_a1_nadia_vein.json
+Nadia offers to buy a time vein.
+
+9c) col_a1_nadia_done.json
+Nadia buys the vein.
