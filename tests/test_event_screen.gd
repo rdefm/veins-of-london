@@ -888,8 +888,10 @@ func run() -> void:
 			GameState.reset()
 			GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
 			Events.start_event(event_id)
-			for i in range(3):
+			var guard := 0
+			while not Events.is_awaiting_choice() and guard < 10:
 				Events.advance()  # -> choice
+				guard += 1
 			assert_true(Events.is_awaiting_choice(), "sanity: on the choice card")
 			Events.advance()  # -> option step
 

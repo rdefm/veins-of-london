@@ -57,7 +57,7 @@ Need to adjust so Archie doesn't show the player how to cultivate or harvest, ju
 
 
 
-## Arc A - Collect
+## Arc A - Collect (col_a1_xyz)
 Aim: Teach player about prospecting, cultivating, harvesting, seeding veins.
 STATUS: implemented, tweaks required (especially events 1-6).
 
@@ -105,11 +105,10 @@ Fine as is.
 Fine as is
 
 8a3) col-a1-firm-intimidation.json
-Adjust to have Nick be the one intimidating.
+Fine as is.
 
 8b) col_a1_des_report.json
-Handing in final site to Des.
-Move card 3 to be penultimate card. Reword card 6 ending.
+Fine as is. Handing in final site to Des.
 
 9a) col_a1_nadia_meet.json
 Refine prose.
@@ -125,7 +124,7 @@ End of Act 1, player gets a life vein.
 
 
 
-## Arc B - Craft
+## Arc B - Craft (james_xyz)
 Aim: Teach the player more about crafting, Dials, and player gets their own Dial.
 STATUS: partially implemented, final event to be written up.
 
@@ -137,7 +136,7 @@ James introduces Dials, and asks player to source calc to then fix it.
 
 3) james-dial-repair-proposal.md
 Player fixes James's movement. Hints at followup.
-Need t omake it tutorial style, where it goes to the same view the player will use when crafting a Movement and guides them through each step.
+Need to make it tutorial style, where it goes to the same view the player will use when crafting a Movement and guides them through each step.
 
 4) james-dial-offer-proposal.md
 James gives info on how to craft player's own Dial.
@@ -152,7 +151,7 @@ At end of event, player has a Dial and a movement.
 
 
 
-## Arc C - Sell
+## Arc C - Sell (biz_a1_xyz)
 Aim: Guide player in basics of selling and running a business
 STATUS: implemented, needs refining.
 

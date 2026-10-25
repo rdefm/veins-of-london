@@ -27,18 +27,23 @@
           "text": "Three of them, waiting by your exit, in no particular hurry. The one in front has the patient look of somebody doing an errand."
         },
         {
+          "key": "c6",
+          "type": "narration",
+          "text": "As you get closer your recognise him - Nick, the one who sucker-punched Archie during that first sale. Feels like a lifetime ago."
+        },
+        {
           "key": "c2",
           "type": "speaker",
           "label": null,
           "speaker": "Firm Man",
-          "text": "\"You've been busy. Fate, physics — bit ambitious for someone who was doing a rent-a-vein in Whitechapel a month ago.\""
+          "text": "\"Newbie... you've been busy.\" Nick has a smile that doesn't reach his eyes. \"Fate, physics - bit ambitious for someone who was doing a doing a bad impression of a scarecrow behind a chicken shop just the other week.\""
         },
         {
           "key": "c3",
           "type": "speaker",
           "label": null,
           "speaker": "Firm Man",
-          "text": "\"Nobody's asking you to stop. Just letting you know it's been noticed. There's a difference, and the difference is entirely up to you.\""
+          "text": "\"Nobody's asking you to stop. Just letting you know it's been noticed.\""
         },
         {
           "key": "c4",
@@ -56,7 +61,7 @@
                   "value": "backed_off"
                 }
               ],
-              "result_text": "You take the long way round. Nothing happens, which is the point — somebody wanted a face and now has one."
+              "result_text": "You take the long way round. Nothing happens, which is the point -  somebody wanted you to know they've got an eye on you, and now you know."
             },
             {
               "label": "Hold your ground",
@@ -90,7 +95,7 @@
           "type": "resolution",
           "label": null,
           "speaker": null,
-          "text": "The patches are still yours to give away. That was never what this was about."
+          "text": "The patches are still yours to give away. It might be best to tell Des quickly, before this site is snatched up by someone else."
         }
       ]
     }
@@ -141,6 +146,6 @@
     }
   },
   "_liveSource": "col_a1_firm_intimidation.json",
-  "_liveHash": "80091215"
+  "_liveHash": "906caa11"
 }
 ```

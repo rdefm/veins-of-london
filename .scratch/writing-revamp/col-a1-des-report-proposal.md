@@ -34,13 +34,6 @@
           "text": "\"That's the pair, then.\" He's pleased in a way that takes a second to read as pleased. \"Two people who'll have something by the weekend.\""
         },
         {
-          "key": "c3",
-          "type": "speaker",
-          "label": null,
-          "speaker": "Des",
-          "text": "\"Archie all right? We go back — years, that. Had a bit of business once, sorted it out ages ago.\" He says it with the mild warmth of a man recalling a settled account, and moves on before you can ask which business."
-        },
-        {
           "key": "c4",
           "type": "narration",
           "label": null,
@@ -52,14 +45,20 @@
           "type": "speaker",
           "label": null,
           "speaker": "Des",
-          "text": "\"Nobody's ever raided a vein they didn't know about.\" He says it as a small joke about paperwork. \"That's the whole trick. That's it. That's the entire clever bit.\""
+          "text": "\"Nobody's ever raided a vein they didn't know about.\" He says it with a sly smile. \"That's how the Collective keeps safe; nothing written down, and no boss at the top who knows everything.\""
+        },
+        {
+          "key": "c7",
+          "type": "speaker",
+          "text": "\"By the way, Archie doing all right? We go back years. Had a bit of business once, sorted it out ages ago.\" He says it with the mild warmth of a man recalling a settled account, and moves on before you can ask which business.",
+          "speaker": "Des"
         },
         {
           "key": "c6",
           "type": "resolution",
           "label": null,
           "speaker": null,
-          "text": "By the end of the week, both patches you found have veins in them and neither of them is yours. You are, apparently, fine with this, which is itself new information."
+          "text": "By the end of the week, both patches you found have veins in them and neither of them is yours."
         }
       ]
     }
@@ -116,6 +115,6 @@
     }
   },
   "_liveSource": "col_a1_des_report.json",
-  "_liveHash": "ea3e121a"
+  "_liveHash": "e72ab043"
 }
 ```
