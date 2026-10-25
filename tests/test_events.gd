@@ -238,7 +238,7 @@ func run() -> void:
 		GameData.EVENTS = GameData.EVENTS.duplicate()
 		GameData.EVENTS["test_navigates_fine"] = {
 			"id": "test_navigates_fine",
-			"cards": [{ "type": "narration", "label": null, "speaker": null, "text": "Card 1" }],
+			"cards": [{ "key": "c1", "type": "narration", "label": null, "speaker": null, "text": "Card 1" }],
 			"on_complete": [{ "op": "set_flag", "flag": "someFlag", "value": true }, { "op": "set_screen", "screen": "map" }],
 		}
 
@@ -254,7 +254,7 @@ func run() -> void:
 		GameData.EVENTS = GameData.EVENTS.duplicate()
 		GameData.EVENTS["test_combat_navigates_itself"] = {
 			"id": "test_combat_navigates_itself",
-			"cards": [{ "type": "narration", "label": null, "speaker": null, "text": "Card 1" }],
+			"cards": [{ "key": "c1", "type": "narration", "label": null, "speaker": null, "text": "Card 1" }],
 			"on_complete": [{ "op": "start_home_raid_combat" }],
 		}
 
@@ -270,7 +270,7 @@ func run() -> void:
 		GameData.EVENTS = GameData.EVENTS.duplicate()
 		GameData.EVENTS["test_chains_on"] = {
 			"id": "test_chains_on",
-			"cards": [{ "type": "narration", "label": null, "speaker": null, "text": "Card 1" }],
+			"cards": [{ "key": "c1", "type": "narration", "label": null, "speaker": null, "text": "Card 1" }],
 			"on_complete": [{ "op": "start_event", "event": "cold_open" }],
 		}
 
