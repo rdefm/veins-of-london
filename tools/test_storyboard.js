@@ -30,7 +30,7 @@ const {
   cardImageName, freeImageName, freeResultImageName, setCardImage, eventImageDir, SHOT_FIELDS, serialiseBoard, setShotField, shotFieldText,
   LIVE_EVENTS_DIR, proposalFileName, importBoard, blankBoard, duplicateBoard, boardCardLabel, promoteDraft, serialiseEvent,
   promoteForWrite, promoteSummary, shotBoardFor, boardCut, shotOnPath, workingCopyFor, liveHash, liveDrifted,
-  liveEventOptions, openOrImport, lintEvent, lintDraft,
+  liveEventOptions, openOrImport, lintEvent, lintDraft, inboundRefs, inboundWarnings,
 } = new Function(
   html.slice(ss, se) + html.slice(s, e) +
     "\nreturn { parseProposal, parseDraft, serialiseDraft, ensureKeys, legacyToDraft, nextPos, playOrder, flatCards, thenText," +
@@ -44,7 +44,7 @@ const {
     " cardImageName, freeImageName, freeResultImageName, setCardImage, eventImageDir, SHOT_FIELDS, serialiseBoard, setShotField, shotFieldText," +
     " LIVE_EVENTS_DIR, proposalFileName, importBoard, blankBoard, duplicateBoard, boardCardLabel, promoteDraft, serialiseEvent," +
     " promoteForWrite, promoteSummary, shotBoardFor, boardCut, shotOnPath, workingCopyFor, liveHash, liveDrifted," +
-    " liveEventOptions, openOrImport, lintEvent, lintDraft };"
+    " liveEventOptions, openOrImport, lintEvent, lintDraft, inboundRefs, inboundWarnings };"
 )();
 
 let passed = 0;
@@ -1720,6 +1720,27 @@ test("promoteSummary: new file, no change, overwrite with changed cards and fiel
   assert.deepStrictEqual(lines.slice(0, 3), ["Overwrites the live event · cards 3 → 2", "Changed cards: #2, #3", "Changed fields: at"]);
   assert.strictEqual(promoteSummary(JSON.stringify(JSON.parse(out.text)), out)[1], "Same content; formatting or key order only");
   assert.strictEqual(promoteSummary("not json", out)[0], "Overwrites a live file that isn't a readable event");
+});
+
+test("inbound refs: listed, and a dropped card key or option warns naming the referring event", () => {
+  const ref = (card, option) => ({ cards: [{ key: "x", requires: { choice: { event: "cold_open", card, option } } }] });
+  const texts = {
+    "buyer.json": JSON.stringify(ref("c4", "stand")),
+    "gone_card.json": JSON.stringify(ref("c9", "stand")),
+    "other.json": JSON.stringify({ cards: [{ requires: { choice: { event: "elsewhere", card: "c4", option: "stand" } } }] }),
+    "cold_open.json": JSON.stringify(ref("c4", "stand")),
+    "bad.json": "not json",
+  };
+  const refs = inboundRefs("cold_open", texts);
+  assert.deepStrictEqual(refs.map((r) => r.from), ["buyer", "gone_card"], "self, other targets and unreadable files skipped");
+  const keeps = { cards: [{ key: "c4", choices: [{ id: "stand" }] }] };
+  assert.deepStrictEqual(inboundWarnings(refs, keeps), [
+    "Other events read this one's choices (2):", "buyer → c4 / stand", "WARNING gone_card → c9 / stand — card c9 is gone",
+  ]);
+  const dropsOption = { cards: [{ key: "c4", choices: [{ id: "walk" }] }, { key: "c9", choices: [{ id: "stand" }] }] };
+  const lines = inboundWarnings(refs, dropsOption);
+  assert(lines.includes("WARNING buyer → c4 / stand — option stand is gone from card c4"));
+  assert.deepStrictEqual(inboundWarnings([], keeps), []);
 });
 
 test("Promote button output is byte-identical to promote_storyboard.js for the same proposal", () => {

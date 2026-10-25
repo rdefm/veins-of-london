@@ -2309,6 +2309,40 @@ function checkOddsBlock(opt, changed, restructure) {
     if (out.dropped.length) lines.push(`Left out (no path reaches them): ${out.dropped.join(", ")}`);
     return lines;
   }
+  // Choice conditions in other live events that name eventId: [{ from, card, option }]. texts = { "<id>.json": text };
+  // the event's own file and unreadable files are skipped.
+  function inboundRefs(eventId, texts) {
+    const found = [];
+    const walk = (v, from) => {
+      if (!v || typeof v !== "object") return;
+      if (!Array.isArray(v) && v.choice && typeof v.choice === "object" && v.choice.event === eventId)
+        found.push({ from, card: String(v.choice.card), option: String(v.choice.option) });
+      for (const x of Object.values(v)) walk(x, from);
+    };
+    for (const [file, text] of Object.entries(texts).sort()) {
+      const from = file.replace(/\.json$/, "");
+      if (from === eventId) continue;
+      let def = null;
+      try { def = JSON.parse(text); } catch { continue; }
+      walk(def, from);
+    }
+    return found;
+  }
+  // Promote confirm lines: every inbound ref (event → card key / option), flagging those the promoted event drops.
+  function inboundWarnings(refs, event) {
+    const info = lintEventInfo(event), lines = [];
+    const groups = new Map();
+    for (const r of refs) {
+      const opts = info.choiceCards[r.card];
+      const bad = opts === undefined ? `card ${r.card} is gone` : opts.includes(r.option) ? null : `option ${r.option} is gone from card ${r.card}`;
+      const key = `${r.from} → ${r.card} / ${r.option}`;
+      if (!groups.has(key)) groups.set(key, bad);
+    }
+    if (!groups.size) return lines;
+    lines.push(`Other events read this one's choices (${groups.size}):`);
+    for (const [k, bad] of groups) lines.push(`${bad ? "WARNING " : ""}${k}${bad ? ` — ${bad}` : ""}`);
+    return lines;
+  }
   // The shot board (board.json) storyboarding a proposal: the one whose `source` names the proposal file, else one
   // whose eventId is the file's stem, else one without a `source` whose eventId is the draft's id.
   function shotBoardFor(file, draftId, shotBoards) {
@@ -3754,7 +3788,11 @@ function checkOddsBlock(opt, changed, restructure) {
       const drift = liveDrifted(parsed.draft, old);
       const lintFound = lintDraft(parsed.draft, await loadLintRefs()) || [];
       const lintWarn = lintFound.length ? `Content lint (${lintFound.length}; Promote still proceeds):\n${lintFound.map((v) => "• " + v).join("\n")}\n\n` : "";
-      const warn = (drift ? `WARNING: ${target} changed since this working copy was imported. Promoting overwrites those newer live edits.\n\n` : "") + lintWarn;
+      const texts = {};
+      for (const n of await fileNames(LIVE_EVENTS_DIR, /\.json$/)) if (n !== out.file) texts[n] = await readText(dir, n);
+      const inLines = inboundWarnings(inboundRefs(out.event.id, texts), out.event);
+      const inWarn = inLines.length ? inLines.join("\n") + "\n\n" : "";
+      const warn = (drift ?`WARNING: ${target} changed since this working copy was imported. Promoting overwrites those newer live edits.\n\n` : "") + inWarn + lintWarn;
       if (!confirm(`${warn}Promote ${b.file} to ${target}?\n\n${promoteSummary(old, out).join("\n")}\n\nTests still run via Claude.`)) {
         renderEditBar("Promote cancelled."); return;
       }
