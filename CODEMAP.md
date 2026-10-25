@@ -157,7 +157,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | alarm_presentation.gd | Detects raid alarms; Phone pulse + vibration |
 | app_tile.gd | Normalised icon+label+numeric-count-badge+lock tile for phone launchers |
 | bag_drawer.gd | Global bottom-sheet bag drawer; read-only stock/consumable listing (also during combat; no use buttons, no loadout change); out-of-combat heal + timed-effect Use buttons in management mode |
-| combat_command_dock.gd | Combat's lower command region anchored to screen bottom: a 2×2 grid (Fight, Item, Dial, Leg it) whose first three slide to pages of 1px-ruled caller rows ("?" tooltip, red "!" block reason; long-press shows a move's `peek` card) + Back, the Dial page holding the Dial and its Complication readout; `configure()`, `show_view()`, `surface_height_for_rows()` |
+| combat_command_dock.gd | Combat's lower command region anchored to screen bottom: a compact right-hand menu (Fight, Dial, Item, Leg it; open one marked) picks the left panel of 1px-ruled caller rows ("?" tooltip, red "!" block reason; long-press shows a move's `peek` card) or the Dial + Complication readout; Leg it acts at once. `configure()`, `show_view()`, `surface_height_for_rows()` |
 | combat_director.gd | Combat beat-queue playback director; holds a data-driven pause (combat_visuals pacing.turnPause) between combatants' turns and plays a Rewind back pacing.rewindSpeed times faster; emits `playing_changed` so screens lock commands during playback; reads the persisted pacing mode (set in the Settings app) |
 | combat_transcript.gd | Fight play-by-play between stage and dock, event-card text styling: heading + demo hp above, one line per state.combat.transcript entry pinned to the newest, refusal/prompt/coach note below; append/remove-by-text for beat playback and Rewind |
 | combat_stage.gd | Combat pixel stage: backdrop (location->context->palette); slots in two receding diagonal groups, depth-sorted; up to 3 reserves per side + `+N`, sliding in; keypose one-shots, effects, juice layer. Slot taps emit `subject_tapped`/`subject_held`; selection arrow; per-slot guard marker/shield/freeze/status badges. No GameState reads; target-less effects take a caller fallback |
@@ -172,7 +172,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | dot_matrix_font.gd | Bitmap font for dot_matrix_board.gd |
 | haptics.gd | Adapter over `Input.vibrate_handheld()` |
 | hq_diorama.gd | Generic plate/region artwork renderer; outlines regions flagged `selected`; owns the region hit rule (`zone_at`/`regions_at`: traced polygon else rect), the debug hit-shape overlay, and caption placement (polygon-centred for traced regions) |
-| icons.gd | 15 drawn icon glyphs (incl. left/right arrows) |
+| icons.gd | 16 drawn icon glyphs (incl. left/right arrows) |
 | move_book.gd | MoveBook: Profile's per-owner Move Book from `MoveLevels.book()` — owner tabs, collapsible move rows (badge, mini track, teaser), open detail (level track, Feint word row, Lv3/Lv5 unlock cards, XP line) |
 | move_track.gd | MoveTrack: draws a move's five-stop track (diamond milestones, reached/next states, rail fill), mini or full |
 | map_bubble.gd | Popup listing tappable map options; paper-card frame and round action-icon states come from map_card_style.gd |

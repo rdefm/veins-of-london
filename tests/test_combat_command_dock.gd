@@ -2,8 +2,8 @@ extends "res://tests/test_base.gd"
 
 const Fixtures := preload("res://tests/support/fixtures.gd")
 
-# CombatCommandDock's configure(): the 2×2 grid and the caller-built rows on
-# its Fight/Item/Dial pages, driven without combat state. The round-fight
+# CombatCommandDock's configure(): the right-hand menu and the caller-built rows on
+# its Fight/Item/Dial panels, driven without combat state. The round-fight
 # screen's own rows are covered in tests/test_combat_rounds.gd.
 
 
@@ -35,20 +35,22 @@ static func _leg_it(callback: Callable = Callable()) -> Dictionary:
 
 
 func run() -> void:
-	run_case("the_default_view_is_only_the_grid_of_fight_item_dial_leg_it", func():
+	run_case("the_default_view_is_fight_with_a_menu_of_fight_dial_item_leg_it", func():
 		GameState.reset()
 		var dock := CombatCommandDock.new()
 		dock.configure([{ "label": "Strike", "callback": Callable() }], [], _leg_it(), Fixtures.dial(["blast"]))
-		assert_eq(dock.current_view(), CombatCommandDock.VIEW_GRID)
-		var grid_names: Array = _buttons(_page(dock, "grid")).map(func(b): return String(b.name))
-		assert_eq(grid_names, ["GridFight", "GridItem", "GridDial", "LegIt"], "four buttons, 2×2")
-		for view in ["fight", "item", "dial"]:
+		assert_eq(dock.current_view(), CombatCommandDock.VIEW_FIGHT)
+		var menu_names: Array = _buttons(dock.find_child("Menu", true, false)).map(func(b): return String(b.name))
+		assert_eq(menu_names, ["MenuFight", "MenuDial", "MenuItem", "LegIt"], "four entries, one column")
+		for view in ["item", "dial"]:
 			assert_true(not _page(dock, view).visible, "%s page hidden" % view)
-		assert_true(_page(dock, "grid").visible)
+		assert_true(_page(dock, "fight").visible)
+		assert_true(_button_named(dock, "MenuFight").get_meta("selected"), "Fight shows selected")
+		assert_true(not _button_named(dock, "MenuItem").get_meta("selected"))
 		dock.free()
 	)
 
-	run_case("fight_item_dial_open_their_pages_and_back_returns_to_the_grid", func():
+	run_case("menu_entries_swap_the_panel_and_move_the_selected_marker", func():
 		GameState.reset()
 		var pressed: Array = []
 		var dock := CombatCommandDock.new()
@@ -57,56 +59,52 @@ func run() -> void:
 			[{ "iconKind": "recipe:blast", "label": "Blast", "disabled": true, "disabledReason": "No target", "callback": func(): pressed.append("blast") }],
 			_leg_it(func(): pressed.append("legIt")), Fixtures.dial(["blast"]))
 
-		_button_named(dock, "GridFight").pressed.emit()
-		assert_eq(dock.current_view(), CombatCommandDock.VIEW_FIGHT)
-		assert_true(_page(dock, "fight").visible and not _page(dock, "grid").visible, "off-tree the page swaps at once")
 		var fight_names: Array = _buttons(_page(dock, "fight")).map(func(b): return String(b.name))
-		assert_eq(fight_names, ["RowButton_0", "BackButton"], "the moves, then Back")
+		assert_eq(fight_names, ["RowButton_0"], "the moves only, no Back")
 		_button_named(_page(dock, "fight"), "RowButton_0").pressed.emit()
-		_button_named(_page(dock, "fight"), "BackButton").pressed.emit()
-		assert_eq(dock.current_view(), CombatCommandDock.VIEW_GRID)
 
-		_button_named(dock, "GridItem").pressed.emit()
+		_button_named(dock, "MenuItem").pressed.emit()
 		assert_eq(dock.current_view(), CombatCommandDock.VIEW_ITEM)
+		assert_true(_page(dock, "item").visible and not _page(dock, "fight").visible, "off-tree the panel swaps at once")
+		assert_true(_button_named(dock, "MenuItem").get_meta("selected"), "marker moved")
+		assert_true(not _button_named(dock, "MenuFight").get_meta("selected"))
 		var blast := _button_named(_page(dock, "item"), "RowButton_0")
 		assert_true(blast.disabled)
 		assert_eq(blast.tooltip_text, "No target", "the disabled reason rides on the row")
-		_button_named(_page(dock, "item"), "BackButton").pressed.emit()
 
-		_button_named(dock, "GridDial").pressed.emit()
+		_button_named(dock, "MenuDial").pressed.emit()
 		assert_eq(dock.current_view(), CombatCommandDock.VIEW_DIAL)
 		assert_eq(_dial_count(_page(dock, "dial")), 1, "the Dial on its page")
 		assert_true(_page(dock, "dial").find_child("ComplicationRow", true, false) != null, "with its readout")
-		_button_named(_page(dock, "dial"), "BackButton").pressed.emit()
-		assert_eq(dock.current_view(), CombatCommandDock.VIEW_GRID)
 
 		_button_named(dock, "LegIt").pressed.emit()
+		assert_eq(dock.current_view(), CombatCommandDock.VIEW_DIAL, "Leg it opens no panel")
 		assert_eq(pressed, ["strike", "legIt"], "each row forwards to its own callback")
 		dock.free()
 	)
 
-	run_case("no_dial_disables_the_dial_button_with_its_reason", func():
+	run_case("no_dial_disables_the_dial_entry_with_its_reason", func():
 		GameState.reset()
 		var dock := CombatCommandDock.new()
 		dock.configure([], [], _leg_it())
-		var dial_button := _button_named(dock, "GridDial")
+		var dial_button := _button_named(dock, "MenuDial")
 		assert_true(dial_button.disabled)
 		assert_eq(dial_button.tooltip_text, CombatCommandDock.REASON_NO_DIAL)
 		dock.show_view(CombatCommandDock.VIEW_DIAL)
-		assert_eq(dock.current_view(), CombatCommandDock.VIEW_GRID, "no Dial page to open")
+		assert_eq(dock.current_view(), CombatCommandDock.VIEW_FIGHT, "no Dial page to open")
 		assert_eq(_dial_count(dock), 0)
 		dock.free()
 	)
 
-	run_case("locked_dims_every_command_but_pages_still_open_and_close", func():
+	run_case("locked_dims_every_command_but_the_menu_still_switches_panels", func():
 		GameState.reset()
 		var dock := CombatCommandDock.new()
 		dock.configure([{ "label": "Strike", "callback": Callable() }], [], _leg_it(), Fixtures.dial(["blast"]), true)
 		assert_true(_button_named(dock, "LegIt").disabled, "Leg it locked")
-		assert_true(not _button_named(dock, "GridFight").disabled, "Fight still opens")
-		_button_named(dock, "GridFight").pressed.emit()
+		assert_true(not _button_named(dock, "MenuItem").disabled, "Item still opens")
+		_button_named(dock, "MenuItem").pressed.emit()
+		assert_eq(dock.current_view(), CombatCommandDock.VIEW_ITEM)
 		assert_true(_button_named(_page(dock, "fight"), "RowButton_0").disabled, "moves locked")
-		assert_true(not _button_named(_page(dock, "fight"), "BackButton").disabled, "Back still works")
 		dock.free()
 	)
 
@@ -158,13 +156,13 @@ func run() -> void:
 				assert_true(str(cp["tooltips"].get(id, "")) != "", "tooltip for %s" % id)
 	)
 
-	run_case("hide_deck_hides_every_page_and_resets_to_the_grid", func():
+	run_case("hide_deck_hides_every_page_and_resets_to_fight", func():
 		GameState.reset()
 		var dock := CombatCommandDock.new()
 		dock.configure([], [], _leg_it())
-		dock.show_view(CombatCommandDock.VIEW_FIGHT)
+		dock.show_view(CombatCommandDock.VIEW_ITEM)
 		dock.hide_deck()
-		assert_eq(dock.current_view(), CombatCommandDock.VIEW_GRID)
-		assert_true(not _page(dock, "grid").get_parent().visible, "nothing showing")
+		assert_eq(dock.current_view(), CombatCommandDock.VIEW_FIGHT)
+		assert_true(not dock.find_child("Menu", true, false).get_parent().visible, "nothing showing")
 		dock.free()
 	)

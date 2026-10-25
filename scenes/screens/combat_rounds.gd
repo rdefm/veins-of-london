@@ -3,7 +3,7 @@ extends Control
 
 # The round-fight screen (R§3.7b) over state.combat, hosted by CombatScreen:
 # a CombatStage with each combatant's sprite (tap one to target it), a
-# CombatCommandDock (its grid's Leg it, the Fight page's other moves, the
+# CombatCommandDock (its menu's Leg it, the Fight page's other moves, the
 # Item page's real loadout slots -- a rewind slot runs Rewind -- and the
 # Dial page; a row is disabled with Combat's block reason, which its "?"
 # opens in the combat_block_reason modal), a
@@ -33,7 +33,7 @@ const _CAST_KINDS: Array[String] = ["powder", "sight", "sightGiven", "lady", "fa
 # The screen's own closing beat after a pick's beats (_play_beats()).
 const _SETTLE_KIND := "settle"
 const _VOICEOVER_INSET := 16.0
-# The move the dock's grid holds as its own button, not on the Fight page.
+# The move the dock's menu holds as its own entry, not on the Fight page.
 const _LEG_IT := "legIt"
 # Item beat kinds -> the data/combat_visuals.json effect sheet they play.
 const _ITEM_EFFECTS := {
@@ -250,8 +250,8 @@ func _sync_fight(cp: Dictionary) -> void:
 	var moves := _move_rows(cp)
 	var items := _loadout_rows(cp)
 	var dial: Variant = GameState.state["player"]["dial"]
-	# The tallest page's rows, plus its Back.
-	var dock_height := CombatCommandDock.surface_height_for_rows(maxi(moves.size(), items.size()) + 1)
+	# The tallest page's rows.
+	var dock_height := CombatCommandDock.surface_height_for_rows(maxi(moves.size(), items.size()))
 	_dock.offset_top = -dock_height
 	_place_transcript(dock_height)
 	if not _transcript_held:
@@ -671,7 +671,7 @@ func _row_target(cp: Dictionary, move_id: String) -> int:
 	return -1
 
 
-# The Fight page: each move but Leg it (the grid's own button), in data order.
+# The Fight page: each move but Leg it (the menu's own entry), in data order.
 func _move_rows(cp: Dictionary) -> Array:
 	var rows: Array = []
 	for move_id in GameData.COMBAT_ROUNDS["moves"].keys():

@@ -3,13 +3,13 @@ extends Panel
 
 # The lower command region: one continuous near-white surface (this Panel)
 # spanning the full screen width, anchored to the true bottom of the screen
-# outside the stage's flow. By default it shows a 2×2 grid of big buttons
-# (Fight, Item, Dial, Leg it); Fight and Item slide the grid off left onto
-# their 1px-ruled rows (the moves, the loadout slots), Dial slides it off
-# right as the Dial page (the Dial beside its Complication readout) rises
-# from the bottom, and each page's Back brings the grid back. The caller
-# (scenes/screens/combat_rounds.gd) builds every row and owns what each
-# does; configure() lays them out. Which page shows is view state only.
+# outside the stage's flow. A compact menu down the right (Fight, Dial, Item,
+# Leg it, each icon + text) picks which page fills the wider left: the moves,
+# the Dial beside its Complication readout, or the loadout slots as 1px-ruled
+# rows. Fight is open by default and the open entry shows selected; Leg it acts
+# at once and opens nothing. The caller (scenes/screens/combat_rounds.gd)
+# builds every row and owns what each does; configure() lays them out. Which
+# page shows is view state only.
 #
 # Same off-tree-testable shape as DialWidget/TurnOrderStrip: no _ready()
 # override, anchors/theme set in _init() (always runs on .new(), unlike
@@ -29,21 +29,23 @@ const BLOCK_COLOUR := Color("#d8453b")
 const TOOLTIP_WIDTH := 260.0
 const PEEK_HOLD_SECONDS := 0.4
 const LEVEL_BADGE_FONT_SIZE := 14
-const GRID_FONT_SIZE := 24
-const GRID_ICON_SIZE := 48.0
-const PAGE_SLIDE_SECONDS := 0.22
-# PROSE-REVIEW: the Dial grid button's reason when the player carries none.
+const MENU_FONT_SIZE := 18
+const MENU_ICON_SIZE := 28.0
+const MENU_WIDTH := 124.0
+const MENU_GAP := 6.0
+const MENU_ENTRY_COUNT := 4
+# PROSE-REVIEW: the Dial menu entry's reason when the player carries none.
 const REASON_NO_DIAL := "No Dial."
 
-const VIEW_GRID := "grid"
 const VIEW_FIGHT := "fight"
 const VIEW_ITEM := "item"
 const VIEW_DIAL := "dial"
 
 var _pages_root: Control
+var _panel_area: Control
+var _menu: Control
 var _pages: Dictionary = {}
-var _view: String = VIEW_GRID
-var _tween: Tween = null
+var _view: String = VIEW_FIGHT
 var _dial_selected_index: int = 0
 # The Dial cast (DialWidget's on_cast).
 var _on_dial_cast_callback: Callable = Callable()
@@ -80,12 +82,24 @@ func _init() -> void:
 	_pages_root.clip_contents = true
 	_pages_root.mouse_filter = Control.MOUSE_FILTER_PASS
 	add_child(_pages_root)
-	for view in [VIEW_GRID, VIEW_FIGHT, VIEW_ITEM, VIEW_DIAL]:
+	_panel_area = Control.new()
+	_panel_area.name = "PanelArea"
+	UI.anchor_full_rect(_panel_area)
+	_panel_area.offset_right = -(MENU_WIDTH + MENU_GAP)
+	_panel_area.mouse_filter = Control.MOUSE_FILTER_PASS
+	_pages_root.add_child(_panel_area)
+	_menu = Control.new()
+	_menu.name = "Menu"
+	UI.anchor_full_rect(_menu)
+	_menu.offset_left = -MENU_WIDTH
+	_menu.mouse_filter = Control.MOUSE_FILTER_PASS
+	_pages_root.add_child(_menu)
+	for view in [VIEW_FIGHT, VIEW_ITEM, VIEW_DIAL]:
 		var page := Control.new()
 		page.name = "Page_%s" % view
 		UI.anchor_full_rect(page)
 		page.mouse_filter = Control.MOUSE_FILTER_PASS
-		_pages_root.add_child(page)
+		_panel_area.add_child(page)
 		_pages[view] = page
 	_place_pages()
 
@@ -95,9 +109,9 @@ func _init() -> void:
 # it; disabledReason becomes the row's tooltip; a `badge` string shows as a
 # small level badge after the label; a row with a `tooltip` line
 # gets a "?" popover; a disabled row with an onExplain callable also gets a
-# red "!" calling it); `leg_it` is one such row, drawn
-# as the grid's fourth button. The Dial page exists only when `dial` isn't
-# null; `on_dial_cast` (index) casts in place of the widget's own.
+# red "!" calling it); `leg_it` is one such row, drawn as the menu's last
+# entry. The Dial page exists only when `dial` isn't null; `on_dial_cast`
+# (index) casts in place of the widget's own.
 func configure(moves: Array, items: Array, leg_it: Dictionary, dial: Variant = null, locked: bool = false, on_dial_cast: Callable = Callable()) -> void:
 	_locked = locked
 	_on_dial_cast_callback = on_dial_cast
@@ -106,24 +120,22 @@ func configure(moves: Array, items: Array, leg_it: Dictionary, dial: Variant = n
 	_leg_it = leg_it
 	_dial = dial
 	if _dial == null and _view == VIEW_DIAL:
-		_view = VIEW_GRID
+		_view = VIEW_FIGHT
 	_pages_root.visible = true
 	_rebuild()
-	if _tween == null:
-		_place_pages()
+	_place_pages()
 
 
-# Surface height that fits `count` rows (and their 1px rules) on one page:
-# never less than the Dial-sized default.
+# Surface height that fits `count` rows (and their 1px rules) on one page, and
+# the four-entry menu: never less than the Dial-sized default.
 static func surface_height_for_rows(count: int) -> float:
-	var rows_height: float = count * UI.COMMAND_ROW_HEIGHT + maxi(0, count - 1)
+	var rows_height: float = maxi(count, MENU_ENTRY_COUNT) * UI.COMMAND_ROW_HEIGHT + maxi(0, maxi(count, MENU_ENTRY_COUNT) - 1)
 	return maxf(COMMAND_DOCK_SURFACE_HEIGHT, rows_height + COMMAND_DOCK_BOTTOM_MARGIN + COMMAND_DOCK_SURFACE_TOP_PADDING)
 
 
-# Hides every page (the fight's over) and returns to the grid for next time.
+# Hides every page (the fight's over) and returns to Fight for next time.
 func hide_deck() -> void:
-	_kill_tween()
-	_view = VIEW_GRID
+	_view = VIEW_FIGHT
 	_pages_root.visible = false
 	_place_pages()
 
@@ -132,66 +144,27 @@ func current_view() -> String:
 	return _view
 
 
-# Moves to page `view` (VIEW_*), sliding when on screen.
+# Swaps the left panel to page `view` (VIEW_*) at once and moves the selected
+# marker; the Dial page needs a Dial.
 func show_view(view: String) -> void:
 	if view == _view or (view == VIEW_DIAL and _dial == null):
 		return
-	var from := _view
 	_view = view
-	if not is_inside_tree():
-		_place_pages()
-		return
-	_kill_tween()
-	var sub := view if view != VIEW_GRID else from
-	var grid: Control = _pages[VIEW_GRID]
-	var page: Control = _pages[sub]
-	grid.visible = true
-	page.visible = true
-	var grid_away := _away_position(VIEW_GRID, sub)
-	var page_away := _away_position(sub, sub)
-	var opening := view != VIEW_GRID
-	grid.position = Vector2.ZERO if opening else grid_away
-	page.position = page_away if opening else Vector2.ZERO
-	_tween = create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	_tween.tween_property(grid, "position", grid_away if opening else Vector2.ZERO, PAGE_SLIDE_SECONDS)
-	_tween.tween_property(page, "position", Vector2.ZERO if opening else page_away, PAGE_SLIDE_SECONDS)
-	_tween.chain().tween_callback(func():
-		_tween = null
-		_place_pages())
+	_place_pages()
+	_rebuild_menu()
 
 
-func _kill_tween() -> void:
-	if _tween != null:
-		_tween.kill()
-		_tween = null
-
-
-# Where page `view` waits off screen while `sub` is the page in play: the
-# grid off left for Fight/Item and off right for the Dial; Fight/Item off
-# right, the Dial below.
-func _away_position(view: String, sub: String) -> Vector2:
-	var area := _pages_root.size
-	if view == VIEW_GRID:
-		return Vector2(area.x if sub == VIEW_DIAL else -area.x, 0.0)
-	if view == VIEW_DIAL:
-		return Vector2(0.0, area.y)
-	return Vector2(area.x, 0.0)
-
-
-# Settles every page with no animation: the current one shown in place,
-# the rest hidden where they wait.
+# Shows the current page and hides the rest.
 func _place_pages() -> void:
 	for view in _pages:
 		var page: Control = _pages[view]
 		page.visible = view == _view
-		page.position = Vector2.ZERO if view == _view else _away_position(view, view if view != VIEW_GRID else _view)
 
 
 func _rebuild() -> void:
 	for page in _pages.values():
 		for child in page.get_children():
 			child.queue_free()
-	_pages[VIEW_GRID].add_child(_build_grid())
 	_pages[VIEW_FIGHT].add_child(_build_row_column(null, _moves))
 	_pages[VIEW_ITEM].add_child(_build_row_column(null, _items))
 	if _dial != null:
@@ -200,30 +173,36 @@ func _rebuild() -> void:
 		dial_row.add_child(_build_dial_widget(_dial))
 		dial_row.add_child(_build_row_column(_build_complication_detail(_dial), []))
 		_pages[VIEW_DIAL].add_child(dial_row)
+	_rebuild_menu()
 
 
-# Fight, Item, Dial, Leg it: the first three open their pages, Leg it acts.
-func _build_grid() -> Control:
-	var grid := GridContainer.new()
-	grid.columns = 2
-	UI.anchor_full_rect(grid)
-	grid.add_theme_constant_override("h_separation", 0)
-	grid.add_theme_constant_override("v_separation", 0)
-	grid.add_child(_build_grid_button({ "name": "GridFight", "iconKind": "attack", "label": "Fight", "callback": show_view.bind(VIEW_FIGHT) }, false))
-	grid.add_child(_build_grid_button({ "name": "GridItem", "iconKind": "", "label": "Item", "callback": show_view.bind(VIEW_ITEM) }, false))
-	grid.add_child(_build_grid_button({
-		"name": "GridDial", "iconKind": "", "label": "Dial", "callback": show_view.bind(VIEW_DIAL),
+func _rebuild_menu() -> void:
+	for child in _menu.get_children():
+		_menu.remove_child(child)
+		child.queue_free()
+	_menu.add_child(_build_menu())
+
+
+# Fight, Dial, Item, Leg it: the first three open their pages, Leg it acts.
+func _build_menu() -> Control:
+	var col := UI.vbox(0)
+	UI.anchor_full_rect(col)
+	col.add_child(_build_menu_button({ "name": "MenuFight", "iconKind": "attack", "label": "Fight", "callback": show_view.bind(VIEW_FIGHT) }, false, _view == VIEW_FIGHT))
+	col.add_child(_build_menu_button({
+		"name": "MenuDial", "iconKind": "dial", "label": "Dial", "callback": show_view.bind(VIEW_DIAL),
 		"disabled": _dial == null, "disabledReason": REASON_NO_DIAL,
-	}, false))
-	grid.add_child(_build_grid_button(_leg_it, _locked))
-	return grid
+	}, false, _view == VIEW_DIAL))
+	col.add_child(_build_menu_button({ "name": "MenuItem", "iconKind": "bag", "label": "Item", "callback": show_view.bind(VIEW_ITEM) }, false, _view == VIEW_ITEM))
+	col.add_child(_build_menu_button(_leg_it, _locked, false))
+	return col
 
 
-func _build_grid_button(row: Dictionary, locked: bool) -> Button:
+# `selected` draws the entry in the pressed fill so the open page reads.
+func _build_menu_button(row: Dictionary, locked: bool, selected: bool) -> Button:
 	var disabled: bool = locked or row.get("disabled", false)
 	var accent: Color = UI.ACTION_DISABLED_COLOUR if disabled else UI.action_colour()
 	var button := Button.new()
-	button.name = row.get("name", "GridButton")
+	button.name = row.get("name", "MenuButton")
 	button.disabled = disabled
 	button.tooltip_text = row.get("disabledReason", "") if disabled else ""
 	button.focus_mode = Control.FOCUS_ALL
@@ -234,32 +213,19 @@ func _build_grid_button(row: Dictionary, locked: bool) -> Button:
 		var style: StyleBoxFlat = button.get_theme_stylebox(state).duplicate()
 		style.set_border_width_all(1)
 		style.border_color = UI.COMMAND_ROW_RULE_COLOUR
+		if selected:
+			style.bg_color = Color(accent, UI.COMMAND_ROW_PRESSED_ALPHA)
 		button.add_theme_stylebox_override(state, style)
+	button.set_meta("selected", selected)
 	_connect_press(button, row)
 
-	var content := UI.vbox(6)
-	UI.anchor_full_rect(content)
-	content.alignment = BoxContainer.ALIGNMENT_CENTER
-	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var icon_kind: String = row.get("iconKind", "")
-	if icon_kind != "":
-		var icon := _build_row_icon(icon_kind, accent)
-		icon.custom_minimum_size = Vector2(GRID_ICON_SIZE, GRID_ICON_SIZE)
-		icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		content.add_child(icon)
-	var caption := UI.label(row.get("label", ""))
-	caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	caption.add_theme_font_size_override("font_size", GRID_FONT_SIZE)
-	caption.add_theme_color_override("font_color", accent)
-	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	content.add_child(caption)
-	var explain: Callable = row.get("onExplain", Callable())
-	if row.get("disabled", false) and not locked and explain.is_valid():
-		var help := _build_round_button("ExplainButton", "!", BLOCK_COLOUR)
-		help.pressed.connect(explain)
-		help.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		content.add_child(help)
+	var content := _build_row_content(_build_row_icon(row.get("iconKind", ""), accent), row.get("label", ""), accent)
+	content.offset_left = UI.COMMAND_ROW_MARGIN_H
+	content.offset_right = -UI.COMMAND_ROW_MARGIN_H
+	content.add_theme_constant_override("separation", 6)
+	var icon: Control = content.get_child(0)
+	icon.custom_minimum_size = Vector2(MENU_ICON_SIZE, MENU_ICON_SIZE)
+	(content.get_child(1) as Label).add_theme_font_size_override("font_size", MENU_FONT_SIZE)
 	button.add_child(content)
 	return button
 
@@ -310,8 +276,8 @@ func _build_complication_detail(dial: Variant) -> Control:
 	row.add_child(_build_row_content(glyph, text, accent))
 	return row
 # Flat command rows (docs/combat-animation-vision.md §2.5, combat-refining
-# amendment): the header (Complication readout) if any, then each row, then
-# Back -- equal height, 1px rules between, no per-row panel or emphasis.
+# amendment): the header (Complication readout) if any, then each row --
+# equal height, 1px rules between, no per-row panel or emphasis.
 func _build_row_column(header: Control, rows: Array) -> Control:
 	var col := UI.vbox(0)
 	UI.anchor_full_rect(col)
@@ -321,7 +287,6 @@ func _build_row_column(header: Control, rows: Array) -> Control:
 		controls.append(header)
 	for i in rows.size():
 		controls.append(_build_command_row(rows[i], "RowButton_%d" % i, _locked))
-	controls.append(_build_command_row({ "name": "BackButton", "label": "Back", "callback": show_view.bind(VIEW_GRID) }, "BackButton", false))
 	for i in controls.size():
 		if i > 0:
 			col.add_child(UI.command_row_rule())
@@ -348,6 +313,10 @@ static func _action_icon_draw_fn(icon_kind: String) -> Callable:
 			return Icons.draw_attack
 		"run":
 			return Icons.draw_run
+		"dial":
+			return Icons.draw_dial
+		"bag":
+			return Icons.draw_bag
 		_:
 			return Callable()
 

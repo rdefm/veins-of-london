@@ -148,6 +148,13 @@ static func draw_cultivate(target: CanvasItem, center: Vector2, colour: Color, s
 	target.draw_line(tip, tip + Vector2(s * 0.9, s * 0.5), colour, 1.6 * scale)
 
 
+static func draw_dial(target: CanvasItem, center: Vector2, colour: Color, scale: float = 1.0) -> void:
+	var s := 6.0 * scale
+	target.draw_arc(center, s * 1.4, 0.0, TAU, 20, colour, 1.6 * scale, true)
+	target.draw_line(center, center + Vector2(0, -s * 1.0), colour, 1.6 * scale)
+	target.draw_line(center, center + Vector2(s * 0.7, s * 0.4), colour, 1.6 * scale)
+
+
 static func draw_run(target: CanvasItem, center: Vector2, colour: Color, scale: float = 1.0) -> void:
 	var s := 6.0 * scale
 	var head := center + Vector2(s * 0.3, -s * 1.6)
