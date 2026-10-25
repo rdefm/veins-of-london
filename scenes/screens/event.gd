@@ -23,6 +23,7 @@ var _vn_card_panel: PanelContainer
 var _vn_text_scroll: ScrollContainer
 var _vn_controls_row: BoxContainer
 var _item_menu: Control
+var _obs_sheet: Control
 var _context_modal: Control
 var _context_choice := -1  # option index whose ? modal is open, -1 when closed
 
@@ -110,13 +111,13 @@ func _fill_options(box: VBoxContainer) -> void:
 			"disable":
 				box.add_child(_build_disabled_option(choices[i]["label"], i))
 
-# Fills the footer `box`: the Item icon on the left when anything is usable,
+# Fills the footer `box`: the Action icon on the left when anything is usable,
 # → on the right except on the option step. Returns the controls added; empty
 # means the footer collapses.
 func _fill_footer(box: BoxContainer) -> Array:
 	var controls: Array = []
-	if EventItems.has_usable():
-		controls.append(_build_item_button())
+	if has_action():
+		controls.append(_build_action_button())
 	if not Events.is_choosing():
 		var spacer := Control.new()
 		spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -140,10 +141,14 @@ func _screen_width() -> float:
 		return get_viewport_rect().size.x
 	return float(ProjectSettings.get_setting("display/window/size/viewport_width", 390))
 
-func _build_item_button() -> Button:
+# True when the Action popup has anything to list: an observation in effect or a usable item.
+static func has_action() -> bool:
+	return Observation.in_effect() != "" or EventItems.has_usable()
+
+func _build_action_button() -> Button:
 	var b := UI.icon_button(Icons.draw_bag, func(): pass)
-	b.name = "ItemButton"
-	b.tooltip_text = "Item"
+	b.name = "ActionButton"
+	b.tooltip_text = "Action"
 	b.pressed.connect(func(): _toggle_item_menu(b))
 	_style_action_button(b)
 	return b
@@ -163,6 +168,11 @@ func _toggle_item_menu(anchor: Button) -> void:
 	var panel := PanelContainer.new()
 	var list := UI.vbox(6)
 	panel.add_child(list)
+	if Observation.in_effect() != "":
+		var observe := UI.button("Observe", _on_observe_picked)
+		observe.name = "ObserveEntry"
+		_style_action_button(observe)
+		list.add_child(observe)
 	for entry in EventItems.usable_entries():
 		var id: String = entry["id"]
 		var b := UI.button(item_entry_label(entry), func(): _on_item_picked(id))
@@ -189,6 +199,83 @@ static func item_entry_label(entry: Dictionary) -> String:
 func _on_item_picked(id: String) -> void:
 	_close_item_menu()
 	EventItems.use(id)
+
+func _on_observe_picked() -> void:
+	_close_item_menu()
+	_open_observation_sheet(Observation.read())
+
+func _close_observation_sheet() -> void:
+	if is_instance_valid(_obs_sheet):
+		_obs_sheet.queue_free()
+	_obs_sheet = null
+
+# Bottom sheet: scene title, then one row per listed ore from Observation rows.
+func _open_observation_sheet(rows: Array) -> void:
+	_close_observation_sheet()
+	_obs_sheet = Control.new()
+	_obs_sheet.name = "ObservationSheet"
+	UI.anchor_full_rect(_obs_sheet)
+	_obs_sheet.mouse_filter = Control.MOUSE_FILTER_STOP
+	_obs_sheet.gui_input.connect(func(ev: InputEvent):
+		if ev is InputEventMouseButton and ev.pressed:
+			_close_observation_sheet()
+	)
+	var dim := ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.6)
+	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	UI.anchor_full_rect(dim)
+	_obs_sheet.add_child(dim)
+
+	var panel := UI.card()
+	var sheet: PanelContainer = panel["panel"]
+	sheet.mouse_filter = Control.MOUSE_FILTER_STOP
+	sheet.anchor_left = 0.0
+	sheet.anchor_right = 1.0
+	sheet.anchor_top = 1.0
+	sheet.anchor_bottom = 1.0
+	sheet.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	sheet.offset_left = 8.0
+	sheet.offset_right = -8.0
+	sheet.offset_bottom = -(8.0 + UI.safe_area_bottom_inset())
+	var content: VBoxContainer = panel["content"]
+	content.add_child(UI.heading(observation_sheet_title(), 16))
+	for row in rows:
+		content.add_child(_build_observation_row(row))
+	var close := UI.button("Close", _close_observation_sheet)
+	_style_action_button(close)
+	content.add_child(close)
+	_obs_sheet.add_child(sheet)
+	add_child(_obs_sheet)
+
+static func observation_sheet_title() -> String:
+	var label: Variant = Events.current_card().get("label")
+	return String(label) if label != null else "Observe"
+
+static func tier_pips(level: int, tiers: int) -> String:
+	return "●".repeat(level) + "○".repeat(tiers - level)
+
+func _build_observation_row(row: Dictionary) -> Control:
+	var ore: String = row["ore"]
+	var box := UI.hbox(8)
+	box.name = "ObsRow_%s" % ore
+	var glyph := SymbolGlyph.new()
+	glyph.symbol = GameData.ORE_TYPES[ore]["symbol"]
+	glyph.draw_fallback = SymbolGlyph.ore_fallback(ore)
+	glyph.custom_minimum_size = Vector2(UI.SYMBOL_GLYPH_SIZE, UI.SYMBOL_GLYPH_SIZE)
+	glyph.glyph_radius = UI.SYMBOL_GLYPH_SIZE * 0.34
+	glyph.color = MapPalette.ore_colour(ore)
+	box.add_child(glyph)
+	var col := UI.vbox(2)
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	box.add_child(col)
+	var roll_line := UI.muted_label("Rolled %d · needed %d+   %s" % [row["roll"], row["needed"], tier_pips(row["level"], row["tiers"])])
+	roll_line.name = "RollLine"
+	col.add_child(roll_line)
+	var text := UI.label(row["text"]) if row["hit"] else UI.muted_label(row["text"])
+	text.name = "RowText"
+	text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	col.add_child(text)
+	return box
 
 func _close_item_menu() -> void:
 	if is_instance_valid(_item_menu):

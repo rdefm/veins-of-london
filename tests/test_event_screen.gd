@@ -119,7 +119,7 @@ func _button_with_text(root: Node, text: String) -> Button:
 
 
 func _item_button(root: Node) -> Button:
-	for b in root.find_children("ItemButton", "Button", true, false):
+	for b in root.find_children("ActionButton", "Button", true, false):
 		return b
 	return null
 
@@ -935,5 +935,51 @@ func run() -> void:
 
 		assert_eq(GameState.state["event"], null, "leaving drops the dead event")
 		assert_eq(GameState.state["currentScreen"], "phone", "leaving returns to the phone")
+		screen.free()
+	)
+
+	run_case("action_button_and_observation_sheet", func():
+		GameState.reset()
+		var original_events: Dictionary = GameData.EVENTS
+		GameData.EVENTS = GameData.EVENTS.duplicate()
+		GameData.EVENTS["test_screen_obs"] = {
+			"id": "test_screen_obs",
+			"cards": [
+				{ "type": "narration", "label": "The yard", "speaker": null, "text": "One.", "observe": "o" },
+				{ "type": "narration", "label": null, "speaker": null, "text": "Two.", "observe": null },
+			],
+			"observations": { "o": { "blocks": {
+				"time": { "tiers": [{ "base": 1.0, "min": 1.0, "max": 1.0, "text": "Time hit." }], "miss": "m" },
+				"physics": { "tiers": [{ "base": 0.0, "min": 0.0, "max": 0.0, "text": "x" }], "miss": "Physics miss." },
+			} } },
+			"on_complete": [],
+		}
+		Events.start_event("test_screen_obs")
+		var screen := _fresh_screen()
+		var btn := _item_button(screen._vn_controls_row)
+		assert_true(btn != null, "Action button shows with an observation only")
+		btn.pressed.emit()
+		assert_true(is_instance_valid(screen._item_menu), "popup opens with Observe only")
+		var observe := _button_with_text(screen._item_menu, "Observe")
+		assert_true(observe != null, "Observe listed")
+		observe.pressed.emit()
+		var sheet: Control = screen._obs_sheet
+		assert_true(is_instance_valid(sheet), "sheet opens")
+		var kids := sheet.find_children("ObsRow_*", "", true, false)
+		assert_eq(kids.size(), 2, "only listed ores")
+		assert_eq(kids[0].name, "ObsRow_physics", "fixed ore order")
+		assert_eq(kids[1].name, "ObsRow_time")
+		assert_true("●" in kids[1].find_child("RollLine", true, false).text, "pip filled on hit")
+		assert_true("○" in kids[0].find_child("RollLine", true, false).text, "pip empty on miss")
+		assert_eq(kids[0].find_child("RowText", true, false).text, "Physics miss.", "miss text")
+		var before := JSON.stringify(GameState.state["event"]["observations"])
+		screen._close_observation_sheet()
+		screen._on_observe_picked()
+		assert_eq(JSON.stringify(GameState.state["event"]["observations"]), before, "reopen does not reroll")
+		assert_eq(EventScreen.tier_pips(2, 3), "●●○", "pips")
+		Events.advance()
+		assert_true(not EventScreen.has_action(), "no action once observation cleared")
+		GameData.EVENTS = original_events
+		GameState.state["event"] = null
 		screen.free()
 	)
