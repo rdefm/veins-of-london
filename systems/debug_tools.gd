@@ -7,7 +7,7 @@ extends RefCounted
 # (gated in PhoneApps.apps()), so nothing here re-checks that flag.
 
 # Effect ops that read a raid's target site_id from start_event()'s context.
-const RAID_CONTEXT_OPS: PackedStringArray = ["stealth_check", "start_raid_combat", "claim_raid_vein", "loot_raid_vein"]
+const RAID_CONTEXT_OPS: PackedStringArray = ["stealth_check", "start_raid_combat", "reduce_raid_guards", "claim_raid_vein", "loot_raid_vein"]
 # Ops that address a contact by effect["contact"]; fire_event() unlocks it so the effect lands somewhere visible.
 const CONTACT_OPS: PackedStringArray = ["relation", "push_message", "queue_pending_message"]
 # Where a fabricated site goes when an event needs one and the world has none to offer.

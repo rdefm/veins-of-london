@@ -1,6 +1,6 @@
 extends "res://tests/test_base.gd"
 
-# Observation engine (R§3.9d): synthetic events installed into GameData.EVENTS.
+const Fixtures := preload("res://tests/support/fixtures.gd")
 
 const ALWAYS := { "min": 1.0, "max": 1.0 }
 const NEVER := { "min": 0.0, "max": 0.0 }
@@ -268,5 +268,61 @@ func run() -> void:
 		Events.advance()
 		assert_eq(GameState.state["observationMemory"]["obs_test"]["o"]["time"], 2, "a worse later run never lowers it")
 		assert_eq(JSON.parse_string(JSON.stringify(GameState.state["observationMemory"])) != null, true, "pure data")
+		_cleanup()
+	)
+
+	# ── raid factors (vein raids only) ──────────────────────────────────
+
+	run_case("raid_observation_carries_labelled_raid_factor_mods_and_disinformation_lowers_them", func():
+		GameState.reset()
+		var vein := { "id": "fv_t", "factionId": "guild", "oreType": "physics", "growth": 50, "security": "warded", "alarmUpgrades": [], "location": "x", "claimedOnDay": 0, "district": "shoreditch", "siteId": "s1", "hospitability": { "tier": "fair", "bonuses": [] }, "rampantDays": 0 }
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
+		GameState.state["intel"][Shares.PLAYER]["guild"] = int(GameData.INTEL["max"])
+		GameData.EVENTS["obs_test"] = { "id": "obs_test", "cards": [_card({ "observe": "o" })], "on_complete": [],
+			"observations": { "o": { "blocks": { "time": { "tiers": [_tier("a", ALWAYS)], "miss": "m" } } } } }
+		Events.start_event("obs_test", { "site_id": "s1" })
+		var labels: Dictionary = GameData.OBSERVATION["raidLabels"]
+		var mods: Array = _rows_by_ore(Observation.read())["time"]["mods"]
+		var by_label := {}
+		for mod in mods:
+			by_label[mod["label"]] = float(mod["delta"])
+		assert_true(by_label.has(labels["security"]) and by_label[labels["security"]] < 0.0, "security mod negative")
+		assert_true(by_label.has(labels["value"]) and by_label[labels["value"]] < 0.0, "value mod negative")
+		assert_true(by_label.has(labels["intel"]) and by_label[labels["intel"]] > 0.0, "intel mod positive")
+		var with_intel := Observation.mods_total(mods)
+		_cleanup()
+
+		Intel.set_disinformation(Shares.PLAYER, "guild", Intel.DISINFO_OVERESTIMATE, 5)
+		GameData.EVENTS["obs_test"] = { "id": "obs_test", "cards": [_card({ "observe": "o" })], "on_complete": [],
+			"observations": { "o": { "blocks": { "time": { "tiers": [_tier("a", ALWAYS)], "miss": "m" } } } } }
+		Events.start_event("obs_test", { "site_id": "s1" })
+		var misled: Array = _rows_by_ore(Observation.read())["time"]["mods"]
+		assert_true(Observation.mods_total(misled) < with_intel, "disinformation lowers the total")
+		var found := false
+		for mod in misled:
+			found = found or mod["label"] == labels["disinformation"]
+		assert_true(found, "disinformation labelled")
+		_cleanup()
+	)
+
+	run_case("non_raid_observation_has_no_raid_factor_mods", func():
+		GameState.reset()
+		_install({ "o": { "blocks": { "time": { "tiers": [_tier("a", ALWAYS)], "miss": "m" } } } }, [_card({ "observe": "o" })])
+		assert_eq(Observation.read()[0]["mods"].size(), 0, "no mods outside a raid")
+		_cleanup()
+	)
+
+	run_case("reduce_raid_guards_lowers_count_and_zero_skips_the_fight", func():
+		GameState.reset()
+		var vein := { "id": "fv_t", "factionId": "guild", "oreType": "physics", "growth": 50, "security": "none", "alarmUpgrades": [], "location": "x", "claimedOnDay": 0, "district": "shoreditch", "siteId": "s1", "hospitability": { "tier": "fair", "bonuses": [] }, "rampantDays": 0 }
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
+		GameData.EVENTS["obs_test"] = { "id": "obs_test", "cards": [_card()], "on_complete": [] }
+		Events.start_event("obs_test", { "site_id": "s1" })
+		Events.apply_effects([{ "op": "reduce_raid_guards" }, { "op": "start_raid_combat", "guards": 3, "template": "veinGuard" }])
+		var total: int = GameState.state["combat"]["enemies"].size() + GameState.state["combat"]["enemyQueue"].size()
+		assert_eq(total, 2, "3 guards less 1")
+		GameState.state["combat"] = null
+		Events.apply_effects([{ "op": "reduce_raid_guards", "count": 2 }, { "op": "start_raid_combat", "guards": 3, "template": "veinGuard" }])
+		assert_eq(GameState.state["combat"], null, "zero guards left starts no fight")
 		_cleanup()
 	)

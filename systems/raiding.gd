@@ -35,6 +35,33 @@ static func stealth_success_chance(stealth_skill: int, vein: Dictionary, consuma
 	return clampf(chance, 0.0, 1.0)
 
 
+# Raid-factor mods for a vein raid's observation reads, as [{label, delta}]
+# (zero deltas dropped): security, value, intel on the owning faction (negative
+# under disinformation), Network tip, grudge, hired muscle.
+static func raid_factor_mods(vein: Dictionary) -> Array:
+	var labels: Dictionary = GameData.OBSERVATION["raidLabels"]
+	var site_id: String = vein.get("siteId", "")
+	var out: Array = []
+	var resist_tilt: float = -(float(Cultivating.vein_raid_resist(vein)) / STEALTH_RAID_RESIST_DIVISOR) * STEALTH_RAID_RESIST_WEIGHT
+	var value: float = GameData.ORE_TYPES[vein["oreType"]]["basePrice"] * Cultivating.combined_magnitude(vein)
+	var value_tilt: float = -(value / STEALTH_VALUE_DIVISOR) * STEALTH_VALUE_WEIGHT
+	_add_factor(out, labels["security"], resist_tilt)
+	_add_factor(out, labels["value"], value_tilt)
+	if vein.has("factionId"):
+		var faction_id: String = vein["factionId"]
+		var misled: bool = Intel.disinformation(Shares.PLAYER, faction_id) != ""
+		_add_factor(out, labels["disinformation"] if misled else labels["intel"], Intel.raid_odds_shift(Shares.PLAYER, faction_id))
+	_add_factor(out, labels["tip"], NetworkHandler.claim_bonus(site_id))
+	_add_factor(out, labels["grudge"], Grudges.raid_odds_bonus(site_id))
+	_add_factor(out, labels["muscle"], Perks.muscle_odds_bonus())
+	return out
+
+
+static func _add_factor(out: Array, label: String, delta: float) -> void:
+	if delta != 0.0:
+		out.append({ "label": label, "delta": delta })
+
+
 # Full XP reward on success, ~1/3 on a caught attempt -- getting caught
 # still teaches you something, just less.
 const STEALTH_XP_SUCCESS := 20

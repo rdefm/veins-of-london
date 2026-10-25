@@ -2141,7 +2141,7 @@ const VALID_EFFECT_OPS: Array[String] = [
 	# stashing the new vein's id at a named state path. tutorial_cultivate
 	# forces one free successful cultivate.
 	"grant_vein_with_site", "tutorial_cultivate",
-	"stealth_check", "start_raid_combat", "claim_raid_vein", "loot_raid_vein",
+	"stealth_check", "start_raid_combat", "reduce_raid_guards", "claim_raid_vein", "loot_raid_vein",
 	"stockpile_stealth_check", "start_stockpile_raid_combat", "loot_stockpile", "start_faction_ambush_combat",
 	# start_scripted_fight opens an event's scripted fight (Combat.start_scripted_fight()).
 	"start_scripted_fight", "start_demo_fight",

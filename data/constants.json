@@ -674,6 +674,15 @@
     "attunementLabel": "Attunement",
     "breathLabel": "Prophet's Breath",
     "breathBonus": 0.1,
+    "raidLabels": {
+      "security": "Security",
+      "value": "Value",
+      "intel": "Intel",
+      "disinformation": "Disinformation",
+      "tip": "Network tip",
+      "grudge": "Grudge",
+      "muscle": "Hired muscle"
+    },
     "xpPerBlock": 2,
     "xpPerTier": 3
   },

@@ -934,6 +934,8 @@ static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 			_stealth_check(effect)
 		"start_raid_combat":
 			_start_raid_combat(effect)
+		"reduce_raid_guards":
+			_reduce_raid_guards(effect)
 		"claim_raid_vein":
 			Raiding.claim_vein(_event_site_id(effect))
 		"loot_raid_vein":
@@ -1309,7 +1311,21 @@ static func _start_raid_combat(effect: Dictionary) -> void:
 	var vein: Dictionary = site["factionVein"]
 	var guards_spec: Variant = effect.get("guards", 1)
 	var guards: int = Cultivating.vein_guard_count(vein) if guards_spec is String and guards_spec == RAID_GUARDS_FROM_VEIN else int(guards_spec)
+	guards -= int(_live_event_context().get("guardsDown", 0))
+	if guards <= 0:
+		return
 	Combat.start_raid(vein["id"], Cultivating.combined_magnitude(vein), guards, effect.get("template", ""), Combat.CONTEXT_EVENT_RAID, _event_ally_ids(effect), effect.get("situational", []))
+
+
+# Takes `count` (default 1) guards out of the live raid event's later
+# start_raid_combat; at zero guards left that op starts no fight.
+static func _reduce_raid_guards(effect: Dictionary) -> void:
+	var event_state: Variant = GameState.state.get("event")
+	if event_state == null:
+		return
+	var context: Dictionary = event_state.get("context", {})
+	context["guardsDown"] = int(context.get("guardsDown", 0)) + int(effect.get("count", 1))
+	event_state["context"] = context
 
 
 # Seeds `faction_id` a faction vein on each site recorded in `objective_id`'s
