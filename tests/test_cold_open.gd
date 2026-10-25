@@ -1,5 +1,7 @@
 extends "res://tests/test_base.gd"
 
+const EventPlay := preload("res://tests/support/event_play.gd")
+
 # The Prologue cold open (R§3.7b Scripted fights): the event grants a T5 Rewind,
 # the scripted fight locks to it, and the Rewind flees back to the resume cards.
 # Also covers add_item's optional `tier` / `equip`.
@@ -12,7 +14,7 @@ func _reach_fight() -> void:
 		if GameState.state["combat"]["active"]:
 			return
 		if Events.is_awaiting_choice():
-			Events.choose(0)
+			EventPlay.choose_id(str(Events.current_card()["choices"][0]["id"]))  # the lead option of each choice card
 		else:
 			Events.advance()
 

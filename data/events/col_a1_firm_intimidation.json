@@ -8,16 +8,19 @@
       "key": "c4", "type": "choice", "label": null, "speaker": null, "text": "He hasn't threatened you. He's been very careful not to.",
       "choices": [
         {
+          "id": "back_off",
           "label": "Back off",
           "effects": [{ "op": "log_method", "key": "firmFirstContact", "value": "backed_off" }],
           "result_text": "You take the long way round. Nothing happens, which is the point — somebody wanted a face and now has one."
         },
         {
+          "id": "hold",
           "label": "Hold your ground",
           "effects": [{ "op": "log_method", "key": "firmFirstContact", "value": "held" }],
           "result_text": "You don't move and you don't say anything. He waits, decides it isn't worth the afternoon, and they go. He is slightly less pleasant on the way past."
         },
         {
+          "id": "fight",
           "label": "Tell them where to go",
           "effects": [
             { "op": "log_method", "key": "firmFirstContact", "value": "fought" },

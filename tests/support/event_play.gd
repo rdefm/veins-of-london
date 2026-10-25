@@ -9,6 +9,38 @@ extends RefCounted
 #   play_event_with_choices(id, cs)  play to the end, answering each choice card from cs in order
 
 
+#   choose_id(option_id)             pick the current choice card's option by its `id`
+#   current_key() -> String          the current card's `key`
+#   key_index(event_id, key) -> int  position of the card with that `key` (-1 if none)
+#   card_by_key(event_id, key)       that card's dict ({} if none)
+
+
+static func choose_id(option_id: String) -> void:
+	var choices: Array = Events.current_card().get("choices", [])
+	for i in range(choices.size()):
+		if str(choices[i].get("id", "")) == option_id:
+			Events.choose(i)
+			return
+	push_error("choose_id: no option '%s' on card '%s'" % [option_id, current_key()])
+
+
+static func current_key() -> String:
+	return str(Events.current_card().get("key", ""))
+
+
+static func key_index(event_id: String, key: String) -> int:
+	var cards: Array = GameData.EVENTS[event_id]["cards"]
+	for i in range(cards.size()):
+		if str(cards[i].get("key", "")) == key:
+			return i
+	return -1
+
+
+static func card_by_key(event_id: String, key: String) -> Dictionary:
+	var i := key_index(event_id, key)
+	return GameData.EVENTS[event_id]["cards"][i] if i >= 0 else {}
+
+
 static func play_event(event_id: String, context: Dictionary = {}) -> void:
 	Events.start_event(event_id, context)
 	for i in range(GameData.EVENTS[event_id]["cards"].size()):

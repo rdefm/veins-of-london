@@ -1,7 +1,7 @@
 extends "res://tests/test_base.gd"
 
 const EVENT_ID := "wren_introduction"
-const MET_CARD := 2
+const MET_CARD := "c3"
 
 # Wren's introduction (.scratch/recipe-acquisition/spec.md § Wren
 # introduction): queued as her pending message on the rollover after
@@ -15,12 +15,12 @@ func _fresh() -> void:
 	GameState.state["flags"]["jamesExperimentSeen"] = true
 
 
-# Plays the event to its end; returns the card indexes shown.
+# Plays the event to its end; returns the card keys shown.
 func _play() -> Array:
 	Events.start_event(EVENT_ID)
 	var seen := []
 	while GameState.state["event"] != null:
-		seen.append(int(GameState.state["event"]["cardIndex"]))
+		seen.append(str(Events.current_card().get("key", "")))
 		Events.advance()
 	return seen
 

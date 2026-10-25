@@ -222,7 +222,7 @@ func _play_collective_act1_through_all_three_threads() -> void:
 	Events.start_event("col_a1_archie_pry")
 	Events.advance()  # narration -> Archie
 	Events.advance()  # Archie -> choice
-	Events.choose(1)  # Push -> hands off immediately into col_a1_archie_pry_debt
+	EventPlay.choose_id("push")  # hands off immediately into col_a1_archie_pry_debt
 	while GameState.state["event"] != null:
 		Events.advance()
 	assert_true(GameState.state["flags"]["colA1AskedAboutDebt"])
@@ -400,7 +400,7 @@ func _answer_until_event_ends(choices: Array) -> void:
 	while GameState.state["event"] != null and guard < 100:
 		guard += 1
 		if Events.is_awaiting_choice():
-			Events.choose(choices[choice_i])
+			EventPlay.choose_id(str(choices[choice_i]))
 			choice_i += 1
 		else:
 			Events.advance()
@@ -861,7 +861,7 @@ func run() -> void:
 			Events.start_event("camden_shakedown")
 			Events.advance()  # narration
 			Events.advance()  # speaker
-			Events.choose(1)  # Refuse -> chance(0.4) of start_street_mugging
+			EventPlay.choose_id("refuse")  # -> chance(0.4) of start_street_mugging
 			return CombatPrep.is_pending()
 		)
 		assert_true(combat_seed != -1, "should find a seed where refusing camden_shakedown starts combat within 300 tries")

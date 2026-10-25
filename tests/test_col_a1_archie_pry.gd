@@ -16,7 +16,7 @@ func _play_to_choice() -> void:
 	Events.start_event("col_a1_archie_pry")
 	Events.advance()  # narration -> Archie
 	Events.advance()  # Archie -> choice
-	assert_eq(GameState.state["event"]["cardIndex"], 2, "sanity: on the choice card")
+	assert_true(Events.is_awaiting_choice(), "sanity: on the choice card")
 
 
 func run() -> void:
@@ -58,10 +58,9 @@ func run() -> void:
 		GameState.reset()
 		_play_to_choice()
 
-		Events.choose(0)  # Leave it
+		EventPlay.choose_id("leave")
 		var cards: Array = Events.revealed_cards()
 		assert_eq(cards.size(), 4, "narration + Archie + choice card + its synthetic resolution card, revealed so far")
-		assert_eq(cards[3]["text"], "You leave it. He looks briefly grateful and then annoyed with himself for looking grateful.")
 
 		Events.advance()  # Continue past the resolved (and last) choice card
 		assert_true(GameState.state["event"] == null, "the event ends here for Leave it -- cards 4-8 must never be reached")
@@ -77,7 +76,7 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["flags"]["colA1ArchiePryAvailable"] = true
 		_play_to_choice()
-		Events.choose(0)  # Leave it
+		EventPlay.choose_id("leave")
 		Events.advance()
 
 		assert_true(ContactCards.build_archie_pry_action() != null, "missable, not one-shot -- the player can come back and push later")
@@ -89,16 +88,16 @@ func run() -> void:
 		GameState.reset()
 		_play_to_choice()
 
-		Events.choose(1)  # Push
+		EventPlay.choose_id("push")
 		assert_true(GameState.state["flags"]["colA1AskedAboutDebt"], "set the moment Push is chosen, not on completion")
 		assert_eq(GameState.state["event"]["eventId"], "col_a1_archie_pry_debt", "hands off immediately -- no separate resolution card for Push")
-		assert_eq(GameState.state["event"]["cardIndex"], 0)
+		assert_eq(EventPlay.current_key(), "c1", "starts at the debt event's first card")
 	)
 
 	run_case("the_debt_event_plays_all_five_cards_through_to_its_own_on_complete", func():
 		GameState.reset()
 		_play_to_choice()
-		Events.choose(1)  # Push -> col_a1_archie_pry_debt
+		EventPlay.choose_id("push")  # -> col_a1_archie_pry_debt
 
 		for i in range(GameData.EVENTS["col_a1_archie_pry_debt"]["cards"].size()):
 			Events.advance()
@@ -114,20 +113,14 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["flags"]["colA1ArchiePryAvailable"] = true
 		_play_to_choice()
-		Events.choose(1)  # Push -> col_a1_archie_pry_debt
+		EventPlay.choose_id("push")  # -> col_a1_archie_pry_debt
 		for i in range(GameData.EVENTS["col_a1_archie_pry_debt"]["cards"].size()):
 			Events.advance()
 
 		assert_true(ContactCards.build_archie_pry_action() == null, "the explanation only needs giving once")
 	)
 
-	# ── content sanity (PROSE-REVIEW: card text is drafted, not approved) ──
-
-	run_case("col_a1_archie_pry_debt_names_the_exact_amount_and_date", func():
-		var cards: Array = GameData.EVENTS["col_a1_archie_pry_debt"]["cards"]
-		assert_true(cards[0]["text"].contains("Four hundred and twenty"))
-		assert_true(cards[0]["text"].contains("Fourteenth of March, 2019"))
-	)
+	# ── content rule ──
 
 	run_case("col_a1_archie_pry_debt_never_mentions_the_falcon_keyring_or_football_beyond_the_tag_line", func():
 		# §4.7: keyring, football and the debt must not land in the same

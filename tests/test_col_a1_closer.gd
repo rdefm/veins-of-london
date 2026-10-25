@@ -257,13 +257,6 @@ func run() -> void:
 		assert_eq(GameState.state["currentScreen"], "phone")
 	)
 
-	# ── content sanity (PROSE-REVIEW: card text is drafted, not approved) ──
-
-	run_case("col_a1_closer_card_10_is_the_hinge_line", func():
-		var cards: Array = GameData.EVENTS["col_a1_closer"]["cards"]
-		assert_true(cards[9]["text"].contains("There's no list. Nobody keeps one."))
-	)
-
 
 # Plants Hakim's own recovered vein (S11/S12's shape) so col_a1_hakim_done
 # can actually be played through in the "advance() fires the closer

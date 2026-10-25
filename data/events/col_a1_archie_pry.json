@@ -7,11 +7,13 @@
       "key": "c3", "type": "choice", "label": null, "speaker": null, "text": "He very obviously wants to leave it there.",
       "choices": [
         {
+          "id": "leave",
           "label": "Leave it",
           "effects": [],
           "result_text": "You leave it. He looks briefly grateful and then annoyed with himself for looking grateful."
         },
         {
+          "id": "push",
           "label": "Push",
           "effects": [
             { "op": "set_flag", "flag": "colA1AskedAboutDebt", "value": true },

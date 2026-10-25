@@ -152,7 +152,7 @@ func run() -> void:
 	run_case("col_a1_firm_intimidation_back_off_logs_backed_off_starts_no_combat", func():
 		GameState.reset()
 		var choice_index := EventPlay.play_to_choice("col_a1_firm_intimidation")
-		Events.choose(0)  # Back off
+		EventPlay.choose_id("back_off")
 		assert_eq(GameState.state["methodLog"]["firmFirstContact"], "backed_off")
 		assert_true(not GameState.state["combat"]["active"])
 		EventPlay.finish_after_choice("col_a1_firm_intimidation", choice_index)
@@ -165,7 +165,7 @@ func run() -> void:
 	run_case("col_a1_firm_intimidation_hold_your_ground_logs_held_starts_no_combat", func():
 		GameState.reset()
 		var choice_index := EventPlay.play_to_choice("col_a1_firm_intimidation")
-		Events.choose(1)  # Hold your ground
+		EventPlay.choose_id("hold")
 		assert_eq(GameState.state["methodLog"]["firmFirstContact"], "held")
 		assert_true(not GameState.state["combat"]["active"])
 		EventPlay.finish_after_choice("col_a1_firm_intimidation", choice_index)
@@ -175,7 +175,7 @@ func run() -> void:
 	run_case("col_a1_firm_intimidation_tell_them_where_to_go_logs_fought_and_starts_combat", func():
 		GameState.reset()
 		var choice_index := EventPlay.play_to_choice("col_a1_firm_intimidation")
-		Events.choose(2)  # Tell them where to go
+		EventPlay.choose_id("fight")
 		assert_eq(GameState.state["methodLog"]["firmFirstContact"], "fought")
 		assert_true(CombatPrep.commit()["ok"])
 		assert_true(GameState.state["combat"]["active"], "should launch the street mugging")
@@ -183,16 +183,16 @@ func run() -> void:
 	)
 
 	run_case("all_three_branches_leave_relation_and_sites_untouched", func():
-		for choice_index_to_pick in [0, 1, 2]:
+		for choice_index_to_pick in ["back_off", "hold", "fight"]:
 			GameState.reset()
 			var relation_before: int = GameState.state["factions"]["collective"]["relation"]
 			var sites_before: Array = GameState.state["world"]["sites"].duplicate(true)
 
 			var choice_index := EventPlay.play_to_choice("col_a1_firm_intimidation")
-			Events.choose(choice_index_to_pick)
+			EventPlay.choose_id(choice_index_to_pick)
 
-			assert_eq(GameState.state["factions"]["collective"]["relation"], relation_before, "choice %d must not move relation" % choice_index_to_pick)
-			assert_eq(GameState.state["world"]["sites"], sites_before, "choice %d must leave both patches with the player" % choice_index_to_pick)
+			assert_eq(GameState.state["factions"]["collective"]["relation"], relation_before, "choice %s must not move relation" % choice_index_to_pick)
+			assert_eq(GameState.state["world"]["sites"], sites_before, "choice %s must leave both patches with the player" % choice_index_to_pick)
 	)
 
 	run_case("methodLog_starts_empty_and_only_S6_writes_to_it", func():
@@ -206,14 +206,8 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
 
-		Events.start_event("col_a1_firm_intimidation")
-		var cards: Array = GameData.EVENTS["col_a1_firm_intimidation"]["cards"]
-		for i in range(cards.size()):
-			if cards[i]["type"] == "choice":
-				break
-			Events.advance()
-
-		Events.choose(0)  # Back off
+		EventPlay.play_to_choice("col_a1_firm_intimidation")
+		EventPlay.choose_id("back_off")
 		assert_eq(GameState.state["methodLog"]["firmFirstContact"], "backed_off")
 
 		var result := Events.rewind()

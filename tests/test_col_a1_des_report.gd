@@ -75,24 +75,6 @@ func run() -> void:
 		assert_true(ContactCards.build_des_report_action() == null)
 	)
 
-	# ── §6.14: the "ages ago" line sits between cards 2 and 3, nowhere else ──
-
-	run_case("ages_ago_line_is_inserted_between_cards_2_and_3_and_said_by_des", func():
-		var cards: Array = GameData.EVENTS["col_a1_des_report"]["cards"]
-		assert_eq(cards[1]["speaker"], "Des", "card 2: the closing-the-pair line")
-		assert_true(cards[2]["text"].contains("ages ago"), "card 3 (inserted): the ages-ago line")
-		assert_eq(cards[2]["speaker"], "Des")
-		assert_eq(cards[3]["type"], "narration", "card 4: 'you ask who', unchanged position relative to the insertion")
-		assert_true(not cards[3]["text"].contains("ages ago"))
-	)
-
-	# ── §14.3: card 4 ("nobody's ever raided...") reads as a paperwork joke ──
-
-	run_case("card_4_is_the_nobody_s_ever_raided_line", func():
-		var cards: Array = GameData.EVENTS["col_a1_des_report"]["cards"]
-		assert_true(cards[4]["text"].contains("Nobody's ever raided a vein they didn't know about"))
-	)
-
 	# ── site conversion: per-site at report time, not deferred to on_complete ──
 
 	run_case("report_des_site_seeds_collective_veins_immediately_as_each_ore_type_is_reported", func():

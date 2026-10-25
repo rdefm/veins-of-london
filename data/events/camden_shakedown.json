@@ -12,7 +12,7 @@
           "result_text": "You pay. They seem almost disappointed not to have to do anything. You walk on with your dignity roughly 90% intact."
         },
         {
-          "label": "Refuse",
+          "id": "refuse", "label": "Refuse",
           "effects": [
             { "op": "chance", "p": 0.4, "on_success": [{ "op": "start_street_mugging" }], "on_fail": [] }
           ],

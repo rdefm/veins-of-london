@@ -1,5 +1,7 @@
 extends "res://tests/test_base.gd"
 
+const EventPlay := preload("res://tests/support/event_play.gd")
+
 # The Prologue gym beat (Flip Reverse): intro cards, a watch-only demo played
 # a beat per Continue, a guided practice spar (R1 Guard, R2 Feint -> Strike,
 # R3 Stun), then gymUnlocked with the three free sessions intact.
@@ -17,7 +19,7 @@ func _demo() -> Dictionary:
 	GameState.reset()
 	Events.start_event("gym")
 	_advance_to_choice()
-	Events.choose(0)
+	EventPlay.choose_id("watch")
 	var combat: Dictionary = GameState.state["combat"]
 	assert_true(combat["active"] and CombatRounds.is_demo(combat), "demo opens first")
 	return combat
@@ -31,7 +33,7 @@ func _guided_win() -> Dictionary:
 	assert_eq(demo["outcome"], "fled", "demo over")
 	Combat.exit_combat()
 	_advance_to_choice()
-	Events.choose(0)
+	EventPlay.choose_id("glovesOn")
 	var combat: Dictionary = GameState.state["combat"]
 	assert_true(combat["active"] and CombatRounds.is_spar(combat), "practice spar follows the demo")
 	return combat
@@ -81,7 +83,7 @@ func run() -> void:
 		assert_true(Combat.choose_move("strike", 1)["ok"])
 		assert_eq(combat["outcome"], "win")
 		Combat.exit_combat()
-		assert_eq(GameState.state["event"]["cardIndex"], 8, "resumes after the spar")
+		assert_eq(EventPlay.current_key(), "c9", "resumes after the spar")
 		assert_eq(Sparring.sessions_taken(), sessions, "no session used")
 	)
 
@@ -90,7 +92,7 @@ func run() -> void:
 		for i in range(2):
 			Combat.demo_step()
 		Combat.exit_combat()
-		assert_eq(GameState.state["event"]["cardIndex"], 5, "resumes after the demo")
+		assert_eq(EventPlay.current_key(), "c6", "resumes after the demo")
 		assert_true(not GameState.state["combat"]["active"], "demo closed")
 	)
 
@@ -143,7 +145,8 @@ func run() -> void:
 		var box: Control = screen.find_child("DemoVoiceover", true, false)
 		var button: Button = screen.find_child("DemoContinue", true, false)
 		assert_true(box.visible and button.visible and not button.disabled, "voiceover box and Continue stand in for the dock")
-		assert_eq(screen._voiceover_label.text, "Arnie squares up to Archie.", "the intro before the first beat")
+		var intro: Array = EventPlay.card_by_key("gym", "c5")["choices"][0]["effects"][0]["script"]["intro"]
+		assert_eq(screen._voiceover_label.text, intro[0], "the intro before the first beat")
 		for i in range(3):
 			screen._refresh()
 		assert_eq(combat["log"].size(), 0, "nothing plays without Continue")

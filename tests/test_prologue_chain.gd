@@ -1,5 +1,7 @@
 extends "res://tests/test_base.gd"
 
+const EventPlay := preload("res://tests/support/event_play.gd")
+
 # The Prologue chain (docs/story-restructure.md "Prologue"): a new game plays
 # its nine beats in order, one undone ToDo objective at a time, and the rent
 # goal row stays on from the cold open until the ending.
@@ -62,7 +64,7 @@ func run() -> void:
 		Events.start_event("pub")
 		assert_true(Events.is_awaiting_choice(), "pub opens on the question hub")
 		assert_true(Events.hub_exit_available(), "advance anytime: the exit is open before any question")
-		Events.choose(2)
+		EventPlay.choose_id("whereFrom")
 		Events.advance()
 		assert_true(GameState.state["flags"]["introAskedSource"], "asking where it comes from sets introAskedSource")
 		assert_true(Events.is_awaiting_choice(), "the answer returns to the hub")
