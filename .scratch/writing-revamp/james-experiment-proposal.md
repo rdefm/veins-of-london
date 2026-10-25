@@ -34,7 +34,8 @@
           "label": "Bermondsey — the storage unit",
           "speaker": null,
           "text": "James opens the door in what you're coming to recognise as his default expression: mild disappointment that the world continues to contain other people.",
-          "key": "c1"
+          "key": "c1",
+          "image": null
         },
         {
           "type": "speaker",
@@ -48,7 +49,8 @@
           "label": null,
           "speaker": "You",
           "text": "\"If you've got more orders than you can handle, I could take the overflow. The basic stuff that takes your time without needing your skill.\"",
-          "key": "c3"
+          "key": "c3",
+          "image": "res://assets/events/james_experiment/james_experiment_main_3.png"
         },
         {
           "type": "narration",
@@ -89,8 +91,14 @@
           "type": "speaker",
           "label": null,
           "speaker": "James",
-          "text": "\"Hm. Then there's a problem. I've seen your pearls. Archie sells them. They're mediocre.\" He lets that sit. \"The same recipe can be made better. The trade calls it rank. You make rank two: the procedure, followed. Rank three needs something the procedure leaves out.\"",
+          "text": "\"Hm. Then there's a problem. I've seen your pearls. Archie sells them. They're mediocre.\" He lets that sit. ",
           "key": "c9"
+        },
+        {
+          "key": "c19",
+          "type": "speaker",
+          "text": "\"The same recipe can be made better. The trade calls it rank. You've made Time Pearls at rank two. Rank three needs something your current recipe is missing.\"",
+          "speaker": "James"
         }
       ],
       "then": [
@@ -115,7 +123,7 @@
           "type": "speaker",
           "label": null,
           "speaker": "James",
-          "text": "\"One thing, then, and you can work out what it means. You let go of the press too early.\"",
+          "text": "\"I can sell you a higher tier recipe, but let's see if you can experiment to figure it out yourself. I'll give you a hint; you let go of the press too early.\"",
           "goto": {
             "branch": "b13"
           },
@@ -155,7 +163,7 @@
           "type": "choice",
           "label": null,
           "speaker": "James",
-          "text": "He clears a space on the bench and sets down a jar of his own calc. \"Rank three. My calc, so you can stop counting it. You don't leave until it's done.\"",
+          "text": "He clears a space on the bench and sets down a jar of his own calc. \"It's my calc, so you can stop counting it. Keep trying until you achieve rank 3.\"",
           "choices": [
             {
               "id": "bench",
@@ -175,14 +183,16 @@
               "result_text": "The pearl comes off the heat with a different weight to it. James takes it from you before you can look at it properly."
             }
           ],
-          "key": "c13"
+          "key": "c13",
+          "image": "res://assets/events/james_experiment/james_experiment_b13_1.png"
         },
         {
           "type": "speaker",
           "label": null,
           "speaker": "James",
           "text": "He turns it under the lamp. \"Rank three.\" A pause, long enough to count as approval. \"Adequate.\"",
-          "key": "c14"
+          "key": "c14",
+          "image": null
         },
         {
           "type": "speaker",
@@ -196,21 +206,29 @@
           "label": null,
           "speaker": "James",
           "text": "\"Archie says a great deal. I work time and life calc. Those recipes I'll sell you, at a price that reflects the indignity of teaching. The rest belong to the Guild. I'll write to someone there. They answer letters at their own pace.\"",
-          "key": "c16"
+          "key": "c16",
+          "image": "res://assets/events/james_experiment/james_experiment_b13_4.png"
         },
         {
           "type": "speaker",
           "label": null,
           "speaker": "James",
-          "text": "\"Practise. Get good enough and I may have a use for you beyond pearls.\" His thumb finds the brass case at his wrist, the way some people check a watch they don't need. He doesn't explain. \"I'll send you overflow. Don't expect it to be glamorous. And don't be late.\"",
+          "text": "\"Practise. Get good enough and I may have a use for you beyond pearls.\" His thumb finds the brass case at his wrist, the way some people check a watch they don't need. He doesn't explain. ",
           "key": "c17"
+        },
+        {
+          "key": "c20",
+          "type": "speaker",
+          "text": "\"I'll send you overflow work occasionally. Don't expect it to be glamorous. And don't be late.\"",
+          "speaker": "James"
         },
         {
           "type": "resolution",
           "label": null,
           "speaker": null,
           "text": "You leave with one decent pearl and the firm sense that James considers this arrangement a concession rather than a collaboration. You suspect that won't change.",
-          "key": "c18"
+          "key": "c18",
+          "image": "res://assets/events/james_experiment/james_experiment_b13_7.png"
         }
       ]
     }

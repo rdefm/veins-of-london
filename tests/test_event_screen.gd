@@ -987,3 +987,41 @@ func run() -> void:
 		GameState.state["event"] = null
 		screen.free()
 	)
+
+	run_case("observe_pulse_and_reveal_flags", func():
+		GameState.reset()
+		var original_events: Dictionary = GameData.EVENTS
+		GameData.EVENTS = GameData.EVENTS.duplicate()
+		GameData.EVENTS["test_screen_pulse"] = {
+			"id": "test_screen_pulse",
+			"cards": [
+				{ "type": "narration", "label": "The yard", "speaker": null, "text": "One.", "observe": "o" },
+				{ "type": "narration", "label": null, "speaker": null, "text": "Two." },
+			],
+			"observations": { "o": { "blocks": {
+				"time": { "tiers": [{ "base": 1.0, "min": 1.0, "max": 1.0, "text": "Time hit." }], "miss": "m" },
+			} } },
+			"on_complete": [],
+		}
+		Events.start_event("test_screen_pulse")
+		var screen := _fresh_screen()
+		var btn := _item_button(screen._vn_controls_row)
+		assert_true(btn.has_meta("pulsing"), "unread observation pulses the Action button")
+		assert_true(btn.find_child("ObserveBadge", true, false) == null, "motion on: no static badge")
+		GameState.state["meta"]["reducedMotion"] = true
+		var reduced_screen := _fresh_screen()
+		var reduced_btn := _item_button(reduced_screen._vn_controls_row)
+		assert_true(reduced_btn.find_child("ObserveBadge", true, false) != null, "reduced motion: static badge")
+		reduced_screen.free()
+		GameState.state["meta"]["reducedMotion"] = false
+		Events.advance()
+		screen._on_observe_picked()
+		assert_true(not EventScreen.observe_pulsing(), "read observation stops pulsing")
+		assert_true(not screen._obs_revealing, "reveal flag clear once ended or skipped")
+		Crafting.inventory_add("rewind", 1, 1)
+		assert_true(Events.rewind()["ok"], "rewind available")
+		assert_true(EventScreen.observe_pulsing(), "Rewind re-arm pulses again")
+		GameData.EVENTS = original_events
+		GameState.state["event"] = null
+		screen.free()
+	)

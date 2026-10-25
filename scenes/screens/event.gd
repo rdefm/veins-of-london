@@ -6,6 +6,10 @@ const VN_BOTTOM_MARGIN := 8.0  # outer frame padding, also the image/text gap
 const ACTION_SEPARATION := 8
 const CONTEXT_BUTTON_SIZE := 44.0
 const CONTEXT_MODAL_MAX_WIDTH := 340.0
+const PULSE_SECONDS := 0.7
+const REVEAL_SPIN_SECONDS := 0.5
+const REVEAL_FADE_SECONDS := 0.25
+const REVEAL_FADE_QUICK := 0.1
 
 const _CALC_GOLD_FALLBACK := Color("#d4af52")
 const _CALC_GOLD_LIGHT_FALLBACK := Color("#f2dfa0")
@@ -24,6 +28,10 @@ var _vn_text_scroll: ScrollContainer
 var _vn_controls_row: BoxContainer
 var _item_menu: Control
 var _obs_sheet: Control
+var _obs_revealing := false  # true while the sheet's row reveal plays
+var _obs_tween: Tween
+var _reveal_steps: Array = []  # rows still to reveal: {roll_line, text, final}
+var _revealed_rolls := {}  # "obsId|ore|roll" keys already animated this screen
 var _context_modal: Control
 var _context_choice := -1  # option index whose ? modal is open, -1 when closed
 
@@ -151,7 +159,36 @@ func _build_action_button() -> Button:
 	b.tooltip_text = "Action"
 	b.pressed.connect(func(): _toggle_item_menu(b))
 	_style_action_button(b)
+	if observe_pulsing():
+		_apply_pulse(b)
 	return b
+
+# True while the observation in effect is unread or re-armed by Rewind.
+static func observe_pulsing() -> bool:
+	return Observation.is_unread() or Observation.is_armed()
+
+static func _reduced_motion() -> bool:
+	return bool(GameState.state["meta"].get("reducedMotion", false))
+
+# Marks `ctrl` as pulsing: a looping glow/scale tween, or a static badge under
+# reduced motion (ui-vision.md motion).
+func _apply_pulse(ctrl: Control) -> void:
+	ctrl.set_meta("pulsing", true)
+	if _reduced_motion():
+		var badge := Label.new()
+		badge.name = "ObserveBadge"
+		badge.text = "●"
+		badge.add_theme_color_override("font_color", UI.action_colour())
+		badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		badge.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+		ctrl.add_child(badge)
+		return
+	ctrl.resized.connect(func(): ctrl.pivot_offset = ctrl.size / 2.0)
+	var tween := (Engine.get_main_loop() as SceneTree).create_tween().bind_node(ctrl).set_loops()
+	tween.tween_property(ctrl, "modulate", Color(1.5, 1.5, 1.5, 1.0), PULSE_SECONDS)
+	tween.parallel().tween_property(ctrl, "scale", Vector2(1.08, 1.08), PULSE_SECONDS)
+	tween.tween_property(ctrl, "modulate", Color(1, 1, 1, 1), PULSE_SECONDS)
+	tween.parallel().tween_property(ctrl, "scale", Vector2.ONE, PULSE_SECONDS)
 
 func _toggle_item_menu(anchor: Button) -> void:
 	if is_instance_valid(_item_menu):
@@ -172,6 +209,8 @@ func _toggle_item_menu(anchor: Button) -> void:
 		var observe := UI.button("Observe", _on_observe_picked)
 		observe.name = "ObserveEntry"
 		_style_action_button(observe)
+		if observe_pulsing():
+			_apply_pulse(observe)
 		list.add_child(observe)
 	for entry in EventItems.usable_entries():
 		var id: String = entry["id"]
@@ -205,6 +244,7 @@ func _on_observe_picked() -> void:
 	_open_observation_sheet(Observation.read())
 
 func _close_observation_sheet() -> void:
+	_stop_reveal()
 	if is_instance_valid(_obs_sheet):
 		_obs_sheet.queue_free()
 	_obs_sheet = null
@@ -218,7 +258,10 @@ func _open_observation_sheet(rows: Array) -> void:
 	_obs_sheet.mouse_filter = Control.MOUSE_FILTER_STOP
 	_obs_sheet.gui_input.connect(func(ev: InputEvent):
 		if ev is InputEventMouseButton and ev.pressed:
-			_close_observation_sheet()
+			if _obs_revealing:
+				_skip_reveal()
+			else:
+				_close_observation_sheet()
 	)
 	var dim := ColorRect.new()
 	dim.color = Color(0, 0, 0, 0.6)
@@ -239,13 +282,63 @@ func _open_observation_sheet(rows: Array) -> void:
 	sheet.offset_bottom = -(8.0 + UI.safe_area_bottom_inset())
 	var content: VBoxContainer = panel["content"]
 	content.add_child(UI.heading(observation_sheet_title(), 16))
+	_reveal_steps.clear()
+	var obs_id := Observation.in_effect()
 	for row in rows:
-		content.add_child(_build_observation_row(row))
+		content.add_child(_build_observation_row(row, _row_is_new(obs_id, row)))
 	var close := UI.button("Close", _close_observation_sheet)
 	_style_action_button(close)
 	content.add_child(close)
 	_obs_sheet.add_child(sheet)
 	add_child(_obs_sheet)
+	_play_reveal()
+
+# A row animates the first time its roll is shown; a re-roll animates only the
+# improved rows. Reopening a seen row is instant.
+func _row_is_new(obs_id: String, row: Dictionary) -> bool:
+	var key := "%s|%s|%d" % [obs_id, row["ore"], row["last"]]
+	var seen: bool = _revealed_rolls.has(key)
+	_revealed_rolls[key] = true
+	return not seen and (not row["rerolled"] or row["improved"])
+
+# Sequenced reveal: d100 spin, roll line, pips, then the text fades in. Reduced
+# motion skips the spin and fades quickly.
+func _play_reveal() -> void:
+	if _reveal_steps.is_empty():
+		return
+	if not is_inside_tree():
+		_skip_reveal()
+		return
+	_obs_revealing = true
+	var reduced := _reduced_motion()
+	_obs_tween = create_tween()
+	for step in _reveal_steps:
+		var roll_line: Button = step["roll_line"]
+		var text: Control = step["text"]
+		if not reduced:
+			_obs_tween.tween_method(func(_t: float): roll_line.text = "Rolled %d" % randi_range(1, 100), 0.0, 1.0, REVEAL_SPIN_SECONDS)
+		_obs_tween.tween_callback(func(): roll_line.text = step["final"])
+		_obs_tween.tween_property(text, "modulate:a", 1.0, REVEAL_FADE_QUICK if reduced else REVEAL_FADE_SECONDS)
+	_obs_tween.finished.connect(_finish_reveal)
+
+func _finish_reveal() -> void:
+	_obs_revealing = false
+	_obs_tween = null
+
+# Tap during the reveal: jump every pending row to its end state.
+func _skip_reveal() -> void:
+	_stop_reveal()
+	for step in _reveal_steps:
+		if is_instance_valid(step["roll_line"]):
+			step["roll_line"].text = step["final"]
+		if is_instance_valid(step["text"]):
+			step["text"].modulate.a = 1.0
+
+func _stop_reveal() -> void:
+	if _obs_tween != null and _obs_tween.is_valid():
+		_obs_tween.kill()
+	_obs_tween = null
+	_obs_revealing = false
 
 static func observation_sheet_title() -> String:
 	var label: Variant = Events.current_card().get("label")
@@ -269,7 +362,7 @@ static func mods_breakdown_text(row: Dictionary) -> String:
 	return "
 ".join(row["mods"].map(func(m: Dictionary) -> String: return "%s  %+d%%" % [m["label"], roundi(float(m["delta"]) * 100.0)]))
 
-func _build_observation_row(row: Dictionary) -> Control:
+func _build_observation_row(row: Dictionary, animate: bool = false) -> Control:
 	var ore: String = row["ore"]
 	var box := UI.hbox(8)
 	box.name = "ObsRow_%s" % ore
@@ -298,6 +391,10 @@ func _build_observation_row(row: Dictionary) -> Control:
 	text.name = "RowText"
 	text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	col.add_child(text)
+	if animate:
+		_reveal_steps.append({"roll_line": roll_line, "text": text, "final": roll_line.text})
+		roll_line.text = "Rolled --"
+		text.modulate.a = 0.0
 	return box
 
 func _close_item_menu() -> void:
