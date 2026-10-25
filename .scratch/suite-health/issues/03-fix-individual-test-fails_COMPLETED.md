@@ -10,5 +10,7 @@ Cases: `every_event_fires_and_plays_through_from_debug_start_without_errors` (de
 
 **Status:** ready-for-agent
 
-- [ ] Each case passes, or has a written reason it was cascade-only and now passes
-- [ ] Full suite + `scripts/check_all.sh` green
+- [x] Each case passes, or has a written reason it was cascade-only and now passes
+- [x] Full suite + `scripts/check_all.sh` green
+
+**Resolution:** all 7 were cascade-only (poisoned run). After 02: suite 4160 passed, 0 failed; check_all clean. No code change.
