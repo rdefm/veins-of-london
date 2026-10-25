@@ -1919,6 +1919,48 @@ func run() -> void:
 		assert_eq(combat["enemies"].size() + combat["enemyQueue"].size(), maxi(guards - 1, 1), "one guard fewer (the life read queues all but one)")
 	)
 
+	run_case("stockpile_raid_stash_has_no_stealth_check_and_offers_take_everything", func():
+		GameState.reset()
+		_stock_firm()
+		_set_player_intel("firm", Intel.level_at(Intel.STASH))
+		var ops: Array = []
+		for card in GameData.EVENTS[Raiding.STOCKPILE_RAID_STASH_EVENT_ID]["cards"]:
+			for choice in card.get("choices", []):
+				for branch in [choice, choice.get("success", {}), choice.get("fail", {})]:
+					for effect in branch.get("effects", []):
+						ops.append(effect["op"])
+		assert_true(not ops.has("stockpile_stealth_check") and not ops.has("stealth_check"), "no stealth roll left")
+
+		var restore := _force_raid_checks(1.0, Raiding.STOCKPILE_RAID_STASH_EVENT_ID)
+		Raiding.begin_stockpile_raid("firm")
+		assert_eq(GameState.state["event"]["eventId"], Raiding.STOCKPILE_RAID_STASH_EVENT_ID)
+		Events.advance()
+		Events.choose(_option_index("Just go in"))
+		restore.call()
+		assert_true(not GameState.state["combat"]["active"], "success: clean entry, no fight")
+		Events.advance()
+		var labels: Array = []
+		for choice in Events.current_card()["choices"]:
+			labels.append(choice["label"])
+		assert_true(labels.has("Take everything"), "stash loot card offers take-everything")
+	)
+
+	run_case("stockpile_raid_stash_caught_carries_the_read_into_the_fight", func():
+		GameState.reset()
+		_stock_firm()
+		_set_player_intel("firm", Intel.level_at(Intel.STASH))
+		FactionSim.set_stockpile_guards("firm", 2)
+		var restore := _force_raid_checks(0.0, Raiding.STOCKPILE_RAID_STASH_EVENT_ID)
+		Raiding.begin_stockpile_raid("firm")
+		_seed_read("fate", 1)
+		Events.advance()
+		Events.choose(_option_index("Just go in"))
+		restore.call()
+		var combat: Dictionary = GameState.state["combat"]
+		assert_true(combat["active"], "caught: the guards fight")
+		assert_eq(combat["situational"], { "firstStrike": true })
+	)
+
 	run_case("stockpile_raid_factor_mods_reflect_guard_security", func():
 		GameState.reset()
 		FactionSim.set_stockpile_guards("firm", 0)
