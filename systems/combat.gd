@@ -552,12 +552,12 @@ static func start_raid(vein_id: String, value_tier: int, guards: int = 1, templa
 # as combat.raiderKit, in the stockpile's district. Runs as an event_raid, so
 # a win resumes the event; combat.stockpileFactionId routes the settlement to
 # Raiding.resolve_stockpile_fight().
-static func start_stockpile_raid(faction_id: String, value_tier: int, guards: int, template_key: String = "", ally_ids: Array = []) -> void:
+static func start_stockpile_raid(faction_id: String, value_tier: int, guards: int, template_key: String = "", ally_ids: Array = [], situational: Array = []) -> void:
 	var enemies := generate_raid_enemy(null, value_tier, guards, template_key)
 	var log_lines := ["%s steps out to meet you." % _guard_group_name(enemies)]
 	var allies := _gather_raid_allies(ally_ids, log_lines)
 	_add_hired_muscle(allies, log_lines)
-	_start_combat(CONTEXT_EVENT_RAID, null, enemies, log_lines, "raidWon", allies, Raiding.stockpile_district(faction_id), FactionSim.raider_kit(faction_id, "defend", enemies.size()))
+	_start_combat(CONTEXT_EVENT_RAID, null, enemies, log_lines, "raidWon", allies, Raiding.stockpile_district(faction_id), FactionSim.raider_kit(faction_id, "defend", enemies.size()), {}, { "situational": situational_active(situational) })
 	GameState.state["combat"]["stockpileFactionId"] = faction_id
 
 

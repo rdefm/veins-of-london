@@ -173,6 +173,7 @@ section { display: grid; gap: 12px; min-width: 0 }
 .editbar .lint summary { cursor: pointer; font-weight: 600 }
 .editbar .lint ul { margin: 4px 0 0; padding-left: 18px; color: var(--muted) }
 .editor { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px; gap: 8px }
+.head-l { display: flex; gap: 8px; align-items: baseline }
 .editor-head { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; justify-content: space-between }
 .ce-tools { display: flex; flex-wrap: wrap; gap: 6px }
 .ce-tools button:disabled { opacity: .45; cursor: default }
@@ -189,6 +190,7 @@ section { display: grid; gap: 12px; min-width: 0 }
 .cond button { padding: 3px 8px }
 .cond button:disabled { opacity: .45; cursor: default }
 .opt-ed { display: grid; gap: 10px }
+.opt-ed[hidden] { display: none }
 .opt { display: grid; gap: 6px; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px }
 .opt .route input[type="text"] { flex: 1 1 8em; min-width: 0 }
 .opt .route button { padding: 3px 8px }
@@ -385,7 +387,13 @@ section { display: grid; gap: 12px; min-width: 0 }
             <textarea id="ce-text" rows="5"></textarea>
             <span class="eyebrow">Image</span>
             <div class="route" id="ce-image"></div>
-            <div class="editor-head"><span class="eyebrow">Player options</span>
+            <div class="editor-head"><span class="head-l"><span class="eyebrow">Observation</span>
+              <button type="button" class="tb" id="ce-obs-toggle" aria-expanded="true" title="Collapse or expand the observation editor">▾ Collapse</button></span>
+              <button type="button" class="tb" id="ce-new-obs" title="Define a new observation and set it on this card">+ Observation</button></div>
+            <div class="route" id="ce-observe"></div>
+            <div id="ce-obs-body" class="opt-ed"></div>
+            <div class="editor-head"><span class="head-l"><span class="eyebrow">Player options</span>
+              <button type="button" class="tb" id="ce-opts-toggle" aria-expanded="true" title="Collapse or expand the player options">▾ Collapse</button></span>
               <button type="button" class="tb" id="ce-add-option" title="Add a player option to this card">+ Option</button></div>
             <div id="ce-options" class="opt-ed"></div>
             <div class="route" id="ce-advance" hidden></div>
@@ -2007,6 +2015,116 @@ function checkOddsBlock(opt, changed, restructure) {
     if (image === undefined) delete card.image; else card.image = image;
   }
 
+  // Observations (R§3.9d): the draft's `observations` table and a card's `observe` (absent = inherit the latest
+  // earlier card's, null = clear). Inheritance follows the promoted flat card order, as the engine reads it.
+  const OBS_ORES = ["physics", "life", "emotion", "time", "fate"];
+  const OBS_ID_RE = /^[a-z][a-z0-9_]*$/;
+  const obsIds = (draft) => Object.keys(draft.observations || {});
+  const obsOf = (draft, id) => {
+    const o = (draft.observations || {})[id];
+    if (!o) throw new Error(`no observation ${id}`);
+    return o;
+  };
+  const blockOf = (draft, id, ore) => {
+    const b = (obsOf(draft, id).blocks || {})[ore];
+    if (!b) throw new Error(`observation ${id} has no ${ore} block`);
+    return b;
+  };
+  // The observation id in effect at a card ("" = none) and the card key that set it (null = never set).
+  function effectiveObservation(draft, key) {
+    let order;
+    try { order = promoteDraft(draft).event.cards.map((c) => c.key); }
+    catch { order = []; }
+    if (!order.includes(key)) order = flatCards(draft).map((f) => f.card.key);
+    let id = "", from = null;
+    for (const k of order) {
+      const card = cardByKey(draft, k);
+      if (card && "observe" in card) { id = card.observe == null ? "" : String(card.observe); from = k; }
+      if (k === key) break;
+    }
+    return { id, from };
+  }
+  // value: undefined = inherit (drop the key), null = clear, else an observation id.
+  function setCardObserve(draft, key, value) {
+    const card = cardByKey(draft, key);
+    if (!card) throw new Error(`no card ${key}`);
+    if (value === undefined) delete card.observe;
+    else if (value === null) card.observe = null;
+    else { obsOf(draft, value); card.observe = value; }
+  }
+  function addObservation(draft, id) {
+    if (!OBS_ID_RE.test(id || "")) throw new Error("observation id: lower-case letters, digits and _, starting with a letter");
+    if (obsIds(draft).includes(id)) throw new Error(`observation ${id} already exists`);
+    draft.observations = { ...(draft.observations || {}), [id]: { blocks: { physics: { tiers: [{ base: 0.25, text: "" }, { base: 0.55, text: "" }], miss: "" } } } };
+  }
+  // Walks every object under v, calling fn on each.
+  function walkObjects(v, fn) {
+    if (!v || typeof v !== "object") return;
+    if (!Array.isArray(v)) fn(v);
+    for (const x of Object.values(v)) walkObjects(x, fn);
+  }
+  function renameObservation(draft, from, to) {
+    obsOf(draft, from);
+    if (from === to) return;
+    if (!OBS_ID_RE.test(to || "")) throw new Error("observation id: lower-case letters, digits and _, starting with a letter");
+    if (obsIds(draft).includes(to)) throw new Error(`observation ${to} already exists`);
+    draft.observations = Object.fromEntries(Object.entries(draft.observations).map(([k, v]) => [k === from ? to : k, v]));
+    for (const { card } of flatCards(draft)) {
+      if (card.observe === from) card.observe = to;
+      walkObjects(card, (o) => { if (o.observed && o.observed.id === from && (o.observed.event == null || o.observed.event === draft.id)) o.observed.id = to; });
+    }
+  }
+  // Cards that set this observation, and cards/conditions that read it with `observed`.
+  function observationUses(draft, id) {
+    const sets = flatCards(draft).filter((f) => f.card.observe === id).map((f) => f.card.key);
+    let reads = 0;
+    for (const { card } of flatCards(draft)) walkObjects(card, (o) => { if (o.observed && o.observed.id === id && o.observed.event == null) reads++; });
+    return { sets, reads };
+  }
+  function deleteObservation(draft, id) {
+    obsOf(draft, id);
+    const { sets } = observationUses(draft, id);
+    for (const k of sets) delete cardByKey(draft, k).observe;
+    delete draft.observations[id];
+    if (!Object.keys(draft.observations).length) delete draft.observations;
+  }
+  function addObservationBlock(draft, id, ore) {
+    const o = obsOf(draft, id);
+    if (!OBS_ORES.includes(ore)) throw new Error(`unknown ore ${ore}`);
+    o.blocks = o.blocks || {};
+    if (o.blocks[ore]) throw new Error(`${ore} block already exists`);
+    o.blocks[ore] = { tiers: [{ base: 0.25, text: "" }, { base: 0.55, text: "" }], miss: "" };
+    o.blocks = Object.fromEntries(OBS_ORES.filter((x) => o.blocks[x]).map((x) => [x, o.blocks[x]]));
+  }
+  function deleteObservationBlock(draft, id, ore) {
+    const o = obsOf(draft, id);
+    blockOf(draft, id, ore);
+    if (Object.keys(o.blocks).length === 1) throw new Error("an observation needs at least one block");
+    delete o.blocks[ore];
+  }
+  function setObservationMiss(draft, id, ore, text) { blockOf(draft, id, ore).miss = text; }
+  function addObservationTier(draft, id, ore) {
+    const tiers = blockOf(draft, id, ore).tiers;
+    const last = tiers.length ? Number(tiers[tiers.length - 1].base) : 0;
+    tiers.push({ base: Math.min(1, Math.round((last + 0.3) * 100) / 100), text: "" });
+  }
+  function deleteObservationTier(draft, id, ore, k) {
+    const tiers = blockOf(draft, id, ore).tiers;
+    if (tiers.length === 1) throw new Error("a block needs at least one tier");
+    if (!tiers[k]) throw new Error(`no tier ${k}`);
+    tiers.splice(k, 1);
+  }
+  // field: "text" | "base" (a chance 0..1; the check level the roll must beat).
+  function setObservationTier(draft, id, ore, k, field, value) {
+    const t = blockOf(draft, id, ore).tiers[k];
+    if (!t) throw new Error(`no tier ${k}`);
+    if (field === "text") { t.text = value; return; }
+    if (field !== "base") throw new Error(`unknown tier field ${field}`);
+    const n = Number(value);
+    if (value === "" || !Number.isFinite(n) || n < 0 || n > 1) throw new Error("tier base: a chance between 0 and 1");
+    t.base = n;
+  }
+
   // Shot board (board.json) editing. Format: .claude/skills/event-storyboard/reference/board-schema.md.
   // Editable shot fields in file order; kind: line | text | lines (one per line) | list (comma-separated) |
   // plate | method. legacy fields are shown only on shots that already carry them. id and drafts aren't editable.
@@ -3080,10 +3198,88 @@ function checkOddsBlock(opt, changed, restructure) {
     keepFocus($("ce-goto"), targetPicker(b.draft, c.goto, "next card / branch's then", "goto",
       (t) => editDraft((d) => setCardGoto(d, c.key, t), true)));
     renderImageRow(c);
+    renderObservation(b, c);
+    showCollapsed("ce-opts-toggle", "ce-options", optsCollapsed);
     renderOptionsEditor(b, c);
     renderAdvanceRow(c);
     keepFocus($("ce-comments"), ...commentSection(b, { card: c.key }, comments(b.draft).filter((x) => x.anchor && x.anchor.card === c.key)));
     renderBranchEditor(b, c.branch);
+  }
+
+  // ---- observation editor ----------------------------------------------------
+  // The card's `observe` picker (inherit / none / an id) and, below it, the observation in effect at this card:
+  // its id, and per ore its tiers (base = the check level the roll must beat, best tier first) and miss text.
+  const OBS_INHERIT = "\u0000inherit", OBS_NONE = "\u0000none";
+  // Collapsed state: the whole editor (remembered per browser) and individual ore blocks (this session).
+  let obsCollapsed = false, optsCollapsed = false;
+  try { obsCollapsed = localStorage.getItem("vein-sb-obs-collapsed") === "1"; optsCollapsed = localStorage.getItem("vein-sb-opts-collapsed") === "1"; } catch {}
+  // Applies a section's collapsed state to its toggle button and body.
+  function showCollapsed(toggle, body, collapsed) {
+    $(toggle).textContent = collapsed ? "▸ Expand" : "▾ Collapse";
+    $(toggle).setAttribute("aria-expanded", String(!collapsed));
+    $(body).hidden = collapsed;
+  }
+  const oreClosed = new Set();
+  function renderObservation(b, c) {
+    const d = b.draft, edit = (fn) => editDraft(fn, true);
+    const card = cardByKey(d, c.key), eff = effectiveObservation(d, c.key), ids = obsIds(d);
+    const own = "observe" in card ? (card.observe == null ? OBS_NONE : card.observe) : OBS_INHERIT;
+    // What this card would get if it inherited.
+    const inheritWhat = own === OBS_INHERIT ? eff : (() => {
+      const copy = JSON.parse(serialiseDraft(d)); delete cardByKey(copy, c.key).observe;
+      return effectiveObservation(copy, c.key);
+    })();
+    const sel = el("select", { "aria-label": "Observation on this card", "data-focus": "obs:pick" });
+    sel.append(optionEl(OBS_INHERIT, `inherit (${inheritWhat.id ? `${inheritWhat.id} from ${inheritWhat.from}` : "none"})`),
+      optionEl(OBS_NONE, "none (clear from here)"), ...ids.map((x) => optionEl(x, `start: ${x}`)));
+    sel.value = own;
+    showCollapsed("ce-obs-toggle", "ce-obs-body", obsCollapsed);
+    sel.addEventListener("change", () => edit((dd) => setCardObserve(dd, c.key, sel.value === OBS_INHERIT ? undefined : sel.value === OBS_NONE ? null : sel.value)));
+    keepFocus($("ce-observe"), el("span", { class: "kw", text: "observe" }), sel,
+      el("span", { class: "mono muted", text: eff.id ? `in effect: ${eff.id}` : "no observation here" }));
+    if (!eff.id || !(d.observations || {})[eff.id]) { $("ce-obs-body").replaceChildren(); return; }
+    const id = eff.id, obs = d.observations[id], uses = observationUses(d, id);
+    const field = (tag, value, label, fid, onCommit) => {
+      const f = el(tag, tag === "input" ? { type: "text", autocomplete: "off", "aria-label": label, placeholder: label, "data-focus": fid }
+        : { rows: 2, "aria-label": label, placeholder: label, "data-focus": fid });
+      f.value = value ?? "";
+      f.addEventListener("change", () => onCommit(f.value));
+      return f;
+    };
+    const head = el("div", { class: "route" }, el("span", { class: "kw", text: "id" }),
+      field("input", id, "Observation id", "obs:id", (v) => edit((dd) => renameObservation(dd, id, v.trim()))),
+      el("span", { class: "mono muted", text: `set on ${uses.sets.join(", ") || "no card"} · read by ${uses.reads} condition${uses.reads === 1 ? "" : "s"}` }),
+      iconBtn("✕", "Delete this observation (cards that set it go back to inheriting)", false, () => {
+        if (uses.reads && !confirm(`${uses.reads} condition(s) read ${id} with \`observed\`; they'll fail lint.\n\nDelete anyway?`)) return;
+        edit((dd) => deleteObservation(dd, id));
+      }));
+    const blocks = OBS_ORES.filter((o) => (obs.blocks || {})[o]).map((ore) => {
+      const blk = obs.blocks[ore], tiers = blk.tiers || [];
+      const rows = tiers.map((t, k) => {
+        const need = Number.isFinite(Number(t.base)) ? Math.round(100 - Number(t.base) * 100) : "?";
+        const base = el("input", { type: "number", min: "0", max: "1", step: "0.05", "aria-label": `${ore} tier ${k + 1} chance`, "data-focus": `obs:${ore}:${k}:base`, title: "Chance 0–1 (before mods). Higher = easier; tiers must ascend, best first." });
+        base.value = t.base ?? "";
+        base.addEventListener("change", () => edit((dd) => setObservationTier(dd, id, ore, k, "base", base.value)));
+        return el("div", { class: "route" }, el("span", { class: "kw", text: `T${k + 1}` }), base,
+          el("span", { class: "mono muted", text: `roll ≥ ${need}` }),
+          field("textarea", t.text, `${ore} tier ${k + 1} text`, `obs:${ore}:${k}:text`, (v) => edit((dd) => setObservationTier(dd, id, ore, k, "text", v))),
+          iconBtn("✕", "Remove this tier", tiers.length === 1, () => edit((dd) => deleteObservationTier(dd, id, ore, k))));
+      });
+      const det = el("details", { class: "opt" });
+      det.open = !oreClosed.has(ore);
+      det.addEventListener("toggle", () => { if (det.open) oreClosed.delete(ore); else oreClosed.add(ore); });
+      det.append(el("summary", { class: "mono", text: `${ore} · ${tiers.length} tier${tiers.length === 1 ? "" : "s"}` }),
+        el("div", { class: "route" },
+          iconBtn("+ Tier", "Add a lower tier (easier chance)", false, () => edit((dd) => addObservationTier(dd, id, ore))),
+          iconBtn("✕ Ore", "Remove this ore's block", Object.keys(obs.blocks).length === 1, () => edit((dd) => deleteObservationBlock(dd, id, ore)))),
+        ...rows,
+        el("div", { class: "route" }, el("span", { class: "kw", text: "miss" }),
+          field("textarea", blk.miss, `${ore} miss text`, `obs:${ore}:miss`, (v) => edit((dd) => setObservationMiss(dd, id, ore, v)))));
+      return det;
+    });
+    const missing = OBS_ORES.filter((o) => !(obs.blocks || {})[o]);
+    const addOre = missing.length ? el("div", { class: "route" }, ...missing.map((ore) => iconBtn("+ " + ore, `Add a ${ore} block`, false, () => edit((dd) => addObservationBlock(dd, id, ore))))) : null;
+    keepFocus($("ce-obs-body"), head, ...blocks, ...(addOre ? [addOre] : []));
   }
 
   // ---- card image picker ----------------------------------------------------
@@ -4276,6 +4472,21 @@ function checkOddsBlock(opt, changed, restructure) {
   $("ce-up").addEventListener("click", () => cardOp((d, key) => { moveCard(d, key, -1); return key; }));
   $("ce-down").addEventListener("click", () => cardOp((d, key) => { moveCard(d, key, 1); return key; }));
   $("ce-delete").addEventListener("click", deleteSelected);
+  $("ce-obs-toggle").addEventListener("click", () => {
+    obsCollapsed = !obsCollapsed;
+    try { localStorage.setItem("vein-sb-obs-collapsed", obsCollapsed ? "1" : "0"); } catch {}
+    const b = board(), c = b && b.cards[cardIdx];
+    if (c) renderObservation(b, c);
+  });
+  $("ce-opts-toggle").addEventListener("click", () => {
+    optsCollapsed = !optsCollapsed;
+    try { localStorage.setItem("vein-sb-opts-collapsed", optsCollapsed ? "1" : "0"); } catch {}
+    showCollapsed("ce-opts-toggle", "ce-options", optsCollapsed);
+  });
+  $("ce-new-obs").addEventListener("click", () => {
+    const id = (prompt("New observation id (lower_case):") || "").trim();
+    if (id) cardOp((d, key) => { addObservation(d, id); setCardObserve(d, key, id); });
+  });
   $("ce-add-option").addEventListener("click", () => cardOp((d, key) => { pick = addOption(d, key); outcomeKey = null; }));
   const selectedBranch = () => { const b = board(), c = b && b.cards[cardIdx]; return c ? c.branch : null; };
   $("be-new").addEventListener("click", () => {

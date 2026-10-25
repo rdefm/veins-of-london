@@ -1319,7 +1319,11 @@ static func _start_stockpile_raid_combat(effect: Dictionary) -> void:
 	if not GameState.state["factions"].has(faction_id):
 		return
 	var cfg: Dictionary = GameData.STOCKPILE_RAID
-	Combat.start_stockpile_raid(faction_id, int(cfg["valueTier"]), FactionSim.stockpile_guards(faction_id), effect.get("template", cfg["guardTemplate"]), _event_ally_ids(effect))
+	var guards_down: int = int(_live_event_context().get("guardsDown", 0))
+	var guards: int = FactionSim.stockpile_guards(faction_id) - guards_down
+	if guards_down > 0 and guards <= 0:
+		return
+	Combat.start_stockpile_raid(faction_id, int(cfg["valueTier"]), maxi(guards, 1), effect.get("template", cfg["guardTemplate"]), _event_ally_ids(effect), effect.get("situational", []))
 
 
 # Branches into Combat.start_raid() with context "event_raid" (see combat.gd's

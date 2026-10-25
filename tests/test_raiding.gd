@@ -19,9 +19,9 @@ static func _faction_vein_of_growth(growth: int, ore_type: String, security: Str
 
 # Forces every vein_raid check's odds to `p` (base = min = max) and returns a
 # Callable restoring the authored values.
-static func _force_raid_checks(p: float) -> Callable:
+static func _force_raid_checks(p: float, event_id: String = "vein_raid") -> Callable:
 	var saved: Array = []
-	for card in GameData.EVENTS["vein_raid"]["cards"]:
+	for card in GameData.EVENTS[event_id]["cards"]:
 		for choice in card.get("choices", []):
 			if choice.has("check"):
 				saved.append([choice["check"], choice["check"].duplicate(true)])
@@ -1845,6 +1845,86 @@ func run() -> void:
 		Raiding.begin_stockpile_raid("firm")
 		Events.apply_effects([{ "op": "loot_stockpile" }])
 		assert_eq(FactionSim.ore_held("firm", "time"), 25)
+	)
+
+	run_case("stockpile_raid_event_has_no_stealth_check_and_offers_the_observation_routes", func():
+		GameState.reset()
+		_stock_firm()
+		_set_player_intel("firm", Intel.level_at(Intel.STOCKPILE_LOCATION))
+		var ops: Array = []
+		for card in GameData.EVENTS[Raiding.STOCKPILE_RAID_EVENT_ID]["cards"]:
+			for choice in card.get("choices", []):
+				for branch in [choice, choice.get("success", {}), choice.get("fail", {})]:
+					for effect in branch.get("effects", []):
+						ops.append(effect["op"])
+		assert_true(not ops.has("stockpile_stealth_check") and not ops.has("stealth_check"), "no stealth roll left")
+
+		Raiding.begin_stockpile_raid("firm")
+		Events.advance()
+		var labels: Array = []
+		for i in Events.current_card()["choices"].size():
+			if Events.option_gate(i)["display"] == "show":
+				labels.append(Events.current_card()["choices"][i]["label"])
+		assert_true(labels.has("Just go in") and labels.has("Go in loud"), "always-on options show with nothing read")
+	)
+
+	run_case("stockpile_raid_just_go_in_success_skips_the_fight_and_reaches_the_loot", func():
+		GameState.reset()
+		_stock_firm()
+		_set_player_intel("firm", Intel.level_at(Intel.STOCKPILE_LOCATION))
+		FactionSim.set_stockpile_guards("firm", 2)
+		var restore := _force_raid_checks(1.0, Raiding.STOCKPILE_RAID_EVENT_ID)
+		Raiding.begin_stockpile_raid("firm")
+		Events.advance()
+		Events.choose(_option_index("Just go in"))
+		restore.call()
+
+		assert_true(not GameState.state["combat"]["active"], "clean entry, no fight")
+		Events.advance()
+		assert_eq(Events.current_card()["choices"][0]["label"], "Take what you can carry")
+	)
+
+	run_case("stockpile_raid_caught_carries_the_read_situational_mods_into_the_fight", func():
+		GameState.reset()
+		_stock_firm()
+		_set_player_intel("firm", Intel.level_at(Intel.STOCKPILE_LOCATION))
+		FactionSim.set_stockpile_guards("firm", 2)
+		var restore := _force_raid_checks(0.0, Raiding.STOCKPILE_RAID_EVENT_ID)
+		Raiding.begin_stockpile_raid("firm")
+		_seed_read("fate", 1)
+		Events.advance()
+		Events.choose(_option_index("Just go in"))
+		restore.call()
+
+		var combat: Dictionary = GameState.state["combat"]
+		assert_true(combat["active"], "caught: the guards fight")
+		assert_eq([combat["enemies"].size(), combat["situational"]], [2, { "firstStrike": true }])
+	)
+
+	run_case("stockpile_raid_wait_out_the_sleepy_guard_takes_one_guard_out_of_the_fight", func():
+		GameState.reset()
+		_stock_firm()
+		_set_player_intel("firm", Intel.level_at(Intel.STOCKPILE_LOCATION))
+		FactionSim.set_stockpile_guards("firm", 3)
+		var guards := FactionSim.stockpile_guards("firm")
+		var restore := _force_raid_checks(1.0, Raiding.STOCKPILE_RAID_EVENT_ID)
+		Raiding.begin_stockpile_raid("firm")
+		_seed_read("life", 2)
+		Events.advance()
+		Events.choose(_option_index("Weigh the quiet ways in"))
+		Events.choose(_option_index("Wait out the sleepy guard"))
+		restore.call()
+
+		var combat: Dictionary = GameState.state["combat"]
+		assert_eq(combat["enemies"].size() + combat["enemyQueue"].size(), maxi(guards - 1, 1), "one guard fewer (the life read queues all but one)")
+	)
+
+	run_case("stockpile_raid_factor_mods_reflect_guard_security", func():
+		GameState.reset()
+		FactionSim.set_stockpile_guards("firm", 0)
+		var unguarded: float = Observation.mods_total(Raiding.stockpile_factor_mods("firm"))
+		FactionSim.set_stockpile_guards("firm", 3)
+		assert_true(Observation.mods_total(Raiding.stockpile_factor_mods("firm")) < unguarded, "guards sour the odds")
 	)
 
 	# ── Stockpile guard upkeep ──────────────────────────────────────────

@@ -31,6 +31,7 @@ const {
   LIVE_EVENTS_DIR, proposalFileName, importBoard, blankBoard, duplicateBoard, boardCardLabel, promoteDraft, serialiseEvent,
   promoteForWrite, promoteSummary, shotBoardFor, boardCut, shotOnPath, workingCopyFor, liveHash, liveDrifted,
   liveEventOptions, openOrImport, lintEvent, lintDraft, inboundRefs, inboundWarnings,
+  OBS_ORES, obsIds, effectiveObservation, setCardObserve, addObservation, renameObservation, observationUses, deleteObservation, addObservationBlock, deleteObservationBlock, setObservationMiss, addObservationTier, deleteObservationTier, setObservationTier,
 } = new Function(
   html.slice(ss, se) + html.slice(s, e) +
     "\nreturn { parseProposal, parseDraft, serialiseDraft, ensureKeys, legacyToDraft, nextPos, playOrder, flatCards, thenText," +
@@ -44,7 +45,7 @@ const {
     " cardImageName, freeImageName, freeResultImageName, setCardImage, eventImageDir, SHOT_FIELDS, serialiseBoard, setShotField, shotFieldText," +
     " LIVE_EVENTS_DIR, proposalFileName, importBoard, blankBoard, duplicateBoard, boardCardLabel, promoteDraft, serialiseEvent," +
     " promoteForWrite, promoteSummary, shotBoardFor, boardCut, shotOnPath, workingCopyFor, liveHash, liveDrifted," +
-    " liveEventOptions, openOrImport, lintEvent, lintDraft, inboundRefs, inboundWarnings };"
+    " liveEventOptions, openOrImport, lintEvent, lintDraft, inboundRefs, inboundWarnings, OBS_ORES, obsIds, effectiveObservation, setCardObserve, addObservation, renameObservation, observationUses, deleteObservation, addObservationBlock, deleteObservationBlock, setObservationMiss, addObservationTier, deleteObservationTier, setObservationTier };"
 )();
 
 let passed = 0;
@@ -1831,6 +1832,67 @@ test("lintDraft lints the promoted draft, and is null without refs or when the d
   const found = lintDraft(draft, lintRefs);
   assert(Array.isArray(found));
   assert(found.some((v) => v.includes("jamesWatching")), "branch then-condition flag is linted: " + JSON.stringify(found));
+});
+
+test("observations: set on a card, inherited by later cards, re-set later, cleared", () => {
+  const { draft } = parseDraft(draftText);
+  addObservation(draft, "alley");
+  setCardObserve(draft, "c1", "alley");
+  assert.deepStrictEqual(effectiveObservation(draft, "c1"), { id: "alley", from: "c1" });
+  assert.deepStrictEqual(effectiveObservation(draft, "c2"), { id: "alley", from: "c1" });
+  addObservation(draft, "yard");
+  setCardObserve(draft, "c3", "yard");
+  assert.strictEqual(effectiveObservation(draft, "c3").id, "yard");
+  assert.strictEqual(effectiveObservation(draft, "c2").id, "alley");
+  setCardObserve(draft, "c3", null);
+  assert.strictEqual(draft.branches.main.cards[2].observe, null);
+  assert.strictEqual(effectiveObservation(draft, "c3").id, "");
+  setCardObserve(draft, "c3", undefined);
+  assert(!("observe" in draft.branches.main.cards[2]));
+  assert.throws(() => setCardObserve(draft, "c1", "nope"), /no observation nope/);
+  assert.throws(() => addObservation(draft, "alley"), /already exists/);
+  assert.throws(() => addObservation(draft, "Bad Id"), /lower-case/);
+});
+
+test("observations: blocks, tiers, miss, base validation; draft lints and promotes", () => {
+  const { draft } = parseDraft(draftText);
+  addObservation(draft, "alley");
+  setCardObserve(draft, "c1", "alley");
+  addObservationBlock(draft, "alley", "fate");
+  addObservationBlock(draft, "alley", "life");
+  assert.deepStrictEqual(Object.keys(draft.observations.alley.blocks), ["physics", "life", "fate"]);
+  setObservationTier(draft, "alley", "physics", 0, "text", "A loose slate.");
+  setObservationTier(draft, "alley", "physics", 0, "base", "0.2");
+  setObservationMiss(draft, "alley", "physics", "Brick.");
+  addObservationTier(draft, "alley", "physics");
+  assert.strictEqual(draft.observations.alley.blocks.physics.tiers.length, 3);
+  assert(draft.observations.alley.blocks.physics.tiers[2].base > draft.observations.alley.blocks.physics.tiers[1].base);
+  assert.throws(() => setObservationTier(draft, "alley", "physics", 0, "base", "1.5"), /between 0 and 1/);
+  assert.throws(() => setObservationTier(draft, "alley", "physics", 0, "base", ""), /between 0 and 1/);
+  deleteObservationTier(draft, "alley", "physics", 2);
+  deleteObservationBlock(draft, "alley", "life");
+  assert.throws(() => deleteObservationTier(draft, "alley", "fate", 0) || deleteObservationTier(draft, "alley", "fate", 0), /at least one tier/);
+  const out = promoteDraft(draft).event;
+  assert(out.observations.alley.blocks.physics.miss === "Brick.");
+  assert.strictEqual(out.cards.find((c) => c.key === "c1").observe, "alley");
+  const found = lintDraft(draft, lintRefs);
+  assert(!found.some((v) => v.includes("observation alley physics")), JSON.stringify(found));
+  assert(found.some((v) => v.includes("observation alley fate: missing miss text")), "empty miss is linted: " + JSON.stringify(found));
+});
+
+test("observations: rename updates card refs and observed conditions; delete drops card refs", () => {
+  const { draft } = parseDraft(draftText);
+  addObservation(draft, "alley");
+  setCardObserve(draft, "c1", "alley");
+  draft.branches.main.cards[1].choices[0].requires = { observed: { id: "alley", ore: "physics", atLeast: 1 } };
+  assert.deepStrictEqual(observationUses(draft, "alley"), { sets: ["c1"], reads: 1 });
+  renameObservation(draft, "alley", "yard");
+  assert.strictEqual(draft.branches.main.cards[0].observe, "yard");
+  assert.strictEqual(draft.branches.main.cards[1].choices[0].requires.observed.id, "yard");
+  assert.deepStrictEqual(obsIds(draft), ["yard"]);
+  deleteObservation(draft, "yard");
+  assert(!("observe" in draft.branches.main.cards[0]));
+  assert(!("observations" in draft));
 });
 
 console.log(`${passed} passed${process.exitCode ? ", some FAILED" : ""}`);

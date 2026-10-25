@@ -594,13 +594,34 @@
 			"choiceCards": {
 				"c2": [
 					"",
+					"",
 					""
 				],
 				"c3": [
+					"",
+					"",
+					"",
+					""
+				],
+				"c4": [
+					"",
+					"",
+					"",
+					""
+				],
+				"c5": [
 					""
 				]
 			},
-			"observations": {}
+			"observations": {
+				"raid": {
+					"emotion": 2,
+					"fate": 2,
+					"life": 2,
+					"physics": 2,
+					"time": 2
+				}
+			}
 		},
 		"stockpile_raid_stash": {
 			"choiceCards": {

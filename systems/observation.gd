@@ -178,9 +178,14 @@ static func _mods(def: Dictionary, ore: String) -> Array:
 
 
 # Raid-factor mods when the live event is a vein raid (context site_id with a
-# faction vein); stockpile raids and ordinary events get none.
+# faction vein) or a stockpile raid (context faction_id); ordinary events get none.
 static func raid_mods() -> Array:
-	var site_id: String = Events._live_event_context().get("site_id", "")
+	var context: Dictionary = Events._live_event_context()
+	var event_state: Variant = GameState.state.get("event")
+	if event_state != null and event_state["eventId"] in [Raiding.STOCKPILE_RAID_EVENT_ID, Raiding.STOCKPILE_RAID_STASH_EVENT_ID]:
+		var faction_id: String = context.get("faction_id", "")
+		return Raiding.stockpile_factor_mods(faction_id) if GameState.state["factions"].has(faction_id) else []
+	var site_id: String = context.get("site_id", "")
 	if site_id == "":
 		return []
 	var site: Variant = Sites.find_site(site_id)

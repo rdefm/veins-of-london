@@ -57,6 +57,20 @@ static func raid_factor_mods(vein: Dictionary) -> Array:
 	return out
 
 
+# Raid-factor mods for a stockpile raid's reads, as [{label, delta}]: the
+# guards' security, intel on the owning faction (negative under disinformation),
+# hired muscle.
+static func stockpile_factor_mods(faction_id: String) -> Array:
+	var labels: Dictionary = GameData.OBSERVATION["raidLabels"]
+	var out: Array = []
+	var resist_tilt: float = -(float(stockpile_raid_resist(faction_id)) / STEALTH_RAID_RESIST_DIVISOR) * STEALTH_RAID_RESIST_WEIGHT
+	var misled: bool = Intel.disinformation(Shares.PLAYER, faction_id) != ""
+	_add_factor(out, labels["security"], resist_tilt)
+	_add_factor(out, labels["disinformation"] if misled else labels["intel"], Intel.raid_odds_shift(Shares.PLAYER, faction_id))
+	_add_factor(out, labels["muscle"], Perks.muscle_odds_bonus())
+	return out
+
+
 static func _add_factor(out: Array, label: String, delta: float) -> void:
 	if delta != 0.0:
 		out.append({ "label": label, "delta": delta })
