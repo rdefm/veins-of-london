@@ -9,6 +9,34 @@ Argument: a proposal file (`.scratch/writing-revamp/<name>-proposal<N>.md`) or a
 
 The proposal's first ```json block is a **branch draft** (`.scratch/storyboard-editor/spec.md` § Draft format). All conversion goes through `tools/promote_storyboard.js`, which runs the storyboard tool's own draft model — never hand-convert branches to indexes.
 
+## 0. Pick a lane
+
+```
+node tools/promote_storyboard.js comments <proposal.md>
+```
+
+- **Fast lane** — zero open comments (typically: the user already promoted from the tool). Skip to § Fast lane below.
+- **Full lane** — one or more open comments: § 1 onward, except the full suite defers to commit / end of session (§ 3).
+
+Say which lane in the report.
+
+## Fast lane
+
+No ticket, no commit, no full suite, no doc reads unless a failure needs one. The live file is already written; don't re-promote unless the proposal changed.
+
+```
+node tools/test_storyboard.js
+godot --headless -s tests/test_runner.gd -- test_event_content_lint.gd
+grep -l "<event_id>" tests/test_*.gd
+godot --headless -s tests/test_runner.gd -- <each file from the grep, space-separated, minus test_event_content_lint.gd if listed>
+```
+
+Select test files by grepping `tests/` for the event id (the `id` in the JSON block / `data/events/<id>.json` name); run only those. If the grep finds none, run just the first two commands.
+
+A failure outside the event's own tests (storyboard JS, lint on a different event, an unrelated test file) is reported to the user with the failing name and message, not fixed in-session. Failures in the event's own lint results or its own test files are fixed in the proposal (see § 3) and re-promoted.
+
+Report: lane, files run, pass/fail counts, out-of-scope failures. Then stop.
+
 ## 1. Open comments
 
 ```
@@ -54,8 +82,9 @@ The storyboard tool's **Promote** button writes the same file (same code, byte-i
 ```
 node tools/test_storyboard.js
 godot --headless -s tests/test_runner.gd -- test_event_content_lint.gd
-scripts/run_tests.sh > <scratchpad>/tests.log 2>&1; grep -E "FAIL|ERROR" <scratchpad>/tests.log
 ```
+
+Full lane: the full suite (`scripts/run_tests.sh > <scratchpad>/tests.log 2>&1; grep -E "FAIL|ERROR" <scratchpad>/tests.log`) runs at commit / end of session, not after each promote. Under /implement that is the final step before committing.
 
 Content lint failures (unknown flags/tokens, block words vs `at`, bad gotos) get fixed **in the proposal**, then promote again — the live file is always a promote output, never hand-edited. A lint "known list" entry is only for something the user confirms is intended.
 

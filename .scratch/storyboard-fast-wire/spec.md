@@ -1,6 +1,6 @@
 # Storyboard fast wire
 
-**Status:** needs-triage (proposed — awaiting user approval)
+**Status:** ready-for-agent (approved 2026-10-25; tickets in `issues/`)
 
 ## Problem
 
@@ -22,7 +22,9 @@ User edits in the tool, presses Promote, and the event is live. Claude involveme
 - Fast lane may skip the full suite; full suite runs at commit / end of session.
 - Card refs move to stable card keys. **No save migration** — old saves' index-keyed choice memory may be dropped.
 - Content tests are loosened: assert on card key, flags set, or which ending was reached — never exact text.
-- `tools/quest-editor.html` (desktop) is retired.
+- `tools/quest-editor.html` (desktop) is retired; `quest-editor-mobile.html` stays for now.
+- Tool lint warns on Promote, never blocks.
+- Fast lane doesn't commit.
 
 ## Design (proposed)
 
@@ -56,4 +58,4 @@ Promote's confirm lists inbound refs: other events' `choice` conditions pointing
 
 ## Tickets
 
-01 fast-lane skill · 02 stable card keys · 03 loosen content tests · 04 lint in the tool · 05 inbound-ref warning on promote · 06 retire quest-editor.html
+01 fast-lane skill · 02 live cards carry stable keys · 03 choice refs by card key (← 02) · 04 content tests stop pinning prose (← 02) · 05 lint in the tool (← 03) · 06 inbound-ref warning on promote (← 05) · 07 retire desktop quest editor

@@ -262,6 +262,13 @@ static func roll_line_text(row: Dictionary) -> String:
 		return "Rolled %d · improved · needed %d+   %s" % [row["last"], row["needed"], pips]
 	return "Rolled %d · kept %d   %s" % [row["last"], row["roll"], pips]
 
+# The mods that lowered the number needed, one per line ("Sense  +3%").
+static func mods_breakdown_text(row: Dictionary) -> String:
+	if row["mods"].is_empty():
+		return GameData.EVENT_CHECKS["noModifiers"]
+	return "
+".join(row["mods"].map(func(m: Dictionary) -> String: return "%s  %+d%%" % [m["label"], roundi(float(m["delta"]) * 100.0)]))
+
 func _build_observation_row(row: Dictionary) -> Control:
 	var ore: String = row["ore"]
 	var box := UI.hbox(8)
@@ -276,9 +283,17 @@ func _build_observation_row(row: Dictionary) -> Control:
 	var col := UI.vbox(2)
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	box.add_child(col)
-	var roll_line := UI.muted_label(roll_line_text(row))
+	var breakdown := UI.muted_label(mods_breakdown_text(row))
+	breakdown.name = "ModBreakdown"
+	breakdown.visible = false
+	breakdown.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var roll_line := UI.button(roll_line_text(row), func(): breakdown.visible = not breakdown.visible)
 	roll_line.name = "RollLine"
+	roll_line.flat = true
+	roll_line.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	roll_line.clip_text = false
 	col.add_child(roll_line)
+	col.add_child(breakdown)
 	var text := UI.label(row["text"]) if row["hit"] else UI.muted_label(row["text"])
 	text.name = "RowText"
 	text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

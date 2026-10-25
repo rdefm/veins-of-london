@@ -671,6 +671,9 @@
     "oreOrder": ["physics", "life", "emotion", "time", "fate"],
     "sensePerLevel": 0.03,
     "senseLabel": "Sense",
+    "attunementLabel": "Attunement",
+    "breathLabel": "Prophet's Breath",
+    "breathBonus": 0.1,
     "xpPerBlock": 2,
     "xpPerTier": 3
   },

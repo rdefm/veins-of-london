@@ -116,18 +116,37 @@ static func _stored(id: String) -> Dictionary:
 	return event_state.get("observations", {}).get(id, {})
 
 
-# Σmods for an observation's ores: Sense plus the observation's own mods, as
-# [{label, delta}] (zero deltas dropped).
-static func _mods(def: Dictionary) -> Array:
+# Σmods for one ore of an observation, as [{label, delta}] (zero deltas dropped):
+# Sense, the observation's own mods, then the kit (seated Movement attunement,
+# Be A Lady, Prophet's Breath, held items' `observeBonus`).
+static func _mods(def: Dictionary, ore: String) -> Array:
 	var out: Array = []
 	var sense: float = float(GameData.OBSERVATION["sensePerLevel"]) * (int(GameState.state["player"]["senseSkill"]) - 1)
-	if sense != 0.0:
-		out.append({ "label": GameData.OBSERVATION["senseLabel"], "delta": sense })
+	_add_mod(out, GameData.OBSERVATION["senseLabel"], sense)
 	for mod in def.get("mods", []):
-		var delta: float = Events._mod_delta(mod)
-		if delta != 0.0:
-			out.append({ "label": mod.get("label", ""), "delta": delta })
+		_add_mod(out, mod.get("label", ""), Events._mod_delta(mod))
+	_add_mod(out, GameData.OBSERVATION["attunementLabel"], Dial.attunement_bonus(ore))
+	_add_mod(out, GameData.EVENT_CHECKS["ladyLabel"], float(GameData.EVENT_CHECKS["ladyBonusPerLevel"]) * ActiveEffects.lady_level())
+	if ore == "time" and ActiveEffects.prophets_breath_active():
+		_add_mod(out, GameData.OBSERVATION["breathLabel"], float(GameData.OBSERVATION["breathBonus"]))
+	for key in GameData.RECIPES:
+		var bonus: Dictionary = GameData.RECIPES[key].get("observeBonus", {})
+		if not bonus.is_empty() and Crafting.inventory_qty(key) > 0:
+			_add_mod(out, GameData.RECIPES[key].get("name", key), float(bonus.get(ore, 0.0)) + float(bonus.get("all", 0.0)))
 	return out
+
+
+static func _add_mod(out: Array, label: String, delta: float) -> void:
+	if delta != 0.0:
+		out.append({ "label": label, "delta": delta })
+
+
+# Sum of a mods list's deltas.
+static func mods_total(mods: Array) -> float:
+	var total := 0.0
+	for mod in mods:
+		total += float(mod["delta"])
+	return total
 
 
 static func _roll_value(id: String, ore: String, roll_count: int) -> float:
@@ -143,10 +162,6 @@ static func _roll_all(id: String) -> void:
 	var previous: Dictionary = event_state["observations"].get(id, {})
 	var kept: Dictionary = previous.get("results", {})
 	var roll_count := int(previous.get("rollCount", 0))
-	var mods := _mods(def)
-	var total := 0.0
-	for mod in mods:
-		total += float(mod["delta"])
 	var results: Dictionary = {}
 	var xp := 0
 	var tier_effects: Array = []
@@ -154,6 +169,8 @@ static func _roll_all(id: String) -> void:
 		if not def["blocks"].has(ore):
 			continue
 		var tiers: Array = def["blocks"][ore]["tiers"]
+		var mods := _mods(def, ore)
+		var total := mods_total(mods)
 		var roll := _roll_value(id, ore, roll_count)
 		var level := 0
 		var needed_p := 0.0

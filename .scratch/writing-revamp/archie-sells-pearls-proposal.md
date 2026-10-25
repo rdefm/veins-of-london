@@ -1,0 +1,112 @@
+# archie_sells_pearls — imported from data/events/archie_sells_pearls.json
+
+```json
+{
+  "id": "archie_sells_pearls",
+  "on_complete": [
+    {
+      "op": "add_item",
+      "item": "timePearl",
+      "qty": -1
+    },
+    {
+      "op": "add",
+      "path": "player.cash",
+      "value": 120
+    },
+    {
+      "op": "add_item",
+      "item": "timePearl",
+      "qty": 2,
+      "equip": true
+    },
+    {
+      "op": "set_flag",
+      "flag": "archieSoldPearls",
+      "value": true
+    },
+    {
+      "op": "set_flag",
+      "flag": "canSellConsumables",
+      "value": true
+    },
+    {
+      "op": "relation",
+      "contact": "archie",
+      "value": 5
+    },
+    {
+      "op": "add_ore",
+      "type": "time",
+      "qty": 20
+    },
+    {
+      "op": "set_flag",
+      "flag": "homeRaidEventPending",
+      "value": true
+    },
+    {
+      "op": "set_screen",
+      "screen": "phone"
+    }
+  ],
+  "start": "main",
+  "branches": {
+    "main": {
+      "title": "Start",
+      "cards": [
+        {
+          "type": "narration",
+          "label": "Stratford — a car park",
+          "speaker": null,
+          "text": "The buyer turns the pearl over once, checks something on his phone, and pays. A woman walks past with a Lidl bag and doesn't look up.",
+          "key": "c1"
+        },
+        {
+          "type": "speaker",
+          "label": null,
+          "speaker": "Archie",
+          "text": "\"That's it. That's the whole deal.\" He counts £120 into your hand. \"Most of them are that boring. Don't get used to it.\"",
+          "key": "c2"
+        },
+        {
+          "type": "speaker",
+          "label": null,
+          "speaker": "Archie",
+          "text": "He holds two more pearls out at arm's length, eyes streaming. \"Just in case. Loadout's what you carry into a fight. Anything you want kept off the market goes in the stash.\"",
+          "key": "c3"
+        }
+      ]
+    }
+  },
+  "_keyOrder": {
+    "top": [
+      "id",
+      "on_complete",
+      "cards"
+    ],
+    "cards": {
+      "c1": [
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c2": [
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c3": [
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ]
+    }
+  },
+  "_liveSource": "archie_sells_pearls.json",
+  "_liveHash": "24e2da8a"
+}
+```

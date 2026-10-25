@@ -1,0 +1,393 @@
+# gym — imported from data/events/gym.json
+
+```json
+{
+  "id": "gym",
+  "on_complete": [
+    {
+      "op": "set_flag",
+      "flag": "gymUnlocked",
+      "value": true
+    },
+    {
+      "op": "queue_pending_message",
+      "contact": "archie",
+      "kind": "archie_sells_pearls",
+      "text": "Pearls are sorted. Come by when you're free."
+    },
+    {
+      "op": "set_screen",
+      "screen": "phone"
+    }
+  ],
+  "start": "main",
+  "branches": {
+    "main": {
+      "title": "Start",
+      "cards": [
+        {
+          "type": "narration",
+          "label": "Whitechapel — under a railway arch",
+          "speaker": null,
+          "text": "A train goes over and the whole arch hums. The sign above the roller door says REVERSE, with a clean pale patch in front of it where another word used to be.",
+          "key": "c1"
+        },
+        {
+          "type": "speaker",
+          "label": null,
+          "speaker": "Archie",
+          "text": "\"Gym. Mate of mine runs it.\" He ducks under the shutter. \"Last night you stood there looking like a pain to fight. Time to be one. Don't ask about the sign.\"",
+          "key": "c2"
+        },
+        {
+          "type": "narration",
+          "label": null,
+          "speaker": null,
+          "text": "Arnie is taping his knuckles: wide as the door, soft round the middle, forearms that don't match. \"Dad bod,\" he says, before you've said anything. \"Don't let it fool you.\"",
+          "key": "c3"
+        },
+        {
+          "type": "speaker",
+          "label": null,
+          "speaker": "Arnie",
+          "text": "\"Flip Reverse, it's called. After the Blazing Squad song. Flip fell off in a storm.\" He's grinning. \"I once had a punch-up with two of the band outside a chippy. Best night of my life. Lost, mind.\"",
+          "key": "c4"
+        },
+        {
+          "type": "choice",
+          "label": null,
+          "speaker": null,
+          "text": "Arnie waves Archie onto the mats. Archie takes his jacket off and folds it. \"Watch this first,\" Arnie says. \"I'll talk you through it.\"",
+          "choices": [
+            {
+              "id": "watch",
+              "label": "Watch",
+              "effects": [
+                {
+                  "op": "start_demo_fight",
+                  "script": {
+                    "seed": 11,
+                    "rounds": 2,
+                    "label": "Sparring",
+                    "intro": [
+                      "Arnie squares up to Archie."
+                    ],
+                    "enemies": [
+                      {
+                        "name": "Arnie",
+                        "hpMax": 200,
+                        "attackMin": 6,
+                        "attackMax": 6,
+                        "level": 5,
+                        "speed": 99,
+                        "template": "mugger",
+                        "moveLevels": {
+                          "strike": 1,
+                          "guard": 1,
+                          "feint": 5,
+                          "stun": 1,
+                          "legIt": 1
+                        },
+                        "plans": [
+                          [
+                            {
+                              "move": "strike",
+                              "target": 1
+                            },
+                            {
+                              "move": "feint",
+                              "target": 1
+                            }
+                          ]
+                        ]
+                      }
+                    ],
+                    "allies": [
+                      {
+                        "name": "Archie",
+                        "hpMax": 200,
+                        "attackMin": 4,
+                        "attackMax": 4,
+                        "level": 1,
+                        "speed": 10,
+                        "sprite": "archie",
+                        "moveLevels": {
+                          "strike": 1,
+                          "guard": 1,
+                          "feint": 1,
+                          "stun": 1,
+                          "legIt": 1
+                        },
+                        "plans": [
+                          [
+                            "guard",
+                            {
+                              "move": "strike",
+                              "target": 2
+                            }
+                          ]
+                        ]
+                      }
+                    ],
+                    "procs": [
+                      {
+                        "kind": "autoguard",
+                        "target": 2
+                      },
+                      {
+                        "kind": "retaliate",
+                        "target": 2
+                      }
+                    ],
+                    "coach": {
+                      "notes": {
+                        "1": {
+                          "other.chip": [
+                            "\"He starts behind his guard, so my first one only chips him.\"",
+                            "\"That's all a punch gets through a guard. A chip.\""
+                          ],
+                          "other.guard": "\"He's covered up again. Fine. That's what the Feint's for.\"",
+                          "other.feint": "\"At level one, that's all a Feint does: his guard drops. At five, everything I land while it's down hits harder.\"",
+                          "other.autoguard": "\"I've just Feinted, so I'm Open. At five my guard comes up by itself anyway. At level one I'd have eaten that.\"",
+                          "other.retaliate": "\"And at five I sometimes get one back for free. Doesn't cost me a turn.\"",
+                          "other.hit": [
+                            "\"Straight in. He's still Open from the Feint.\"",
+                            "\"That's the Feint's extra on top. Keep him Open, keep hitting.\""
+                          ]
+                        },
+                        "2": {
+                          "other.hit": [
+                            "\"He never got his guard back, so that lands in full.\"",
+                            "\"No free one back that time. It only comes off now and then. So I just hit him.\""
+                          ],
+                          "other.guard": "\"Guard's back up. That's him reset.\"",
+                          "other.feint": "\"So I Feint again, and it's gone.\"",
+                          "other.autoguard": "\"Same again. My guard's up before he's thought about it.\"",
+                          "other.chip": "\"One point. He'd do better saving his breath.\""
+                        }
+                      }
+                    },
+                    "resumeCard": 5
+                  }
+                }
+              ],
+              "result_text": ""
+            }
+          ],
+          "key": "c5"
+        },
+        {
+          "type": "speaker",
+          "label": null,
+          "speaker": "Arnie",
+          "text": "He throws Archie a towel. \"Same Feint you've got. Just more hours on it. Your go.\"",
+          "key": "c6"
+        },
+        {
+          "type": "speaker",
+          "label": null,
+          "speaker": "Arnie",
+          "text": "\"House rules. There's a Rewind on the shelf, free, as many as you like. Go wrong, break it, go again. Walk out and I wind you back to the morning anyway. Leg it whenever you want. Nobody's marking you.\"",
+          "key": "c7"
+        },
+        {
+          "type": "choice",
+          "label": null,
+          "speaker": null,
+          "text": "Arnie tosses you a pair of gloves. They're your size. Nobody asked him for your size.",
+          "choices": [
+            {
+              "id": "glovesOn",
+              "label": "Gloves on",
+              "effects": [
+                {
+                  "op": "start_scripted_fight",
+                  "script": {
+                    "seed": 7,
+                    "practice": true,
+                    "intro": [
+                      "Mats down. Arnie rolls his shoulders."
+                    ],
+                    "enemies": [
+                      {
+                        "name": "Arnie",
+                        "hpMax": 60,
+                        "attackMin": 3,
+                        "attackMax": 4,
+                        "level": 1,
+                        "speed": 99,
+                        "template": "mugger",
+                        "moveLevels": {
+                          "strike": 1,
+                          "guard": 1,
+                          "feint": 1,
+                          "stun": 1,
+                          "legIt": 1
+                        },
+                        "plans": [
+                          [
+                            "strike",
+                            "strike"
+                          ],
+                          [
+                            "guard",
+                            "guard"
+                          ],
+                          [
+                            "strike",
+                            "guard"
+                          ]
+                        ]
+                      }
+                    ],
+                    "coach": {
+                      "lessons": {
+                        "1": "His intent says Strike, twice. Pick Guard: while you're Guarded, a punch only chips you.",
+                        "2": "He's covering up, so a Strike would only chip him. Feint to knock his guard open, then Strike for the full hit.",
+                        "3": "He swings first, and swinging leaves him Open. Stun him while he's Open to take his next action, then Strike."
+                      },
+                      "notes": {
+                        "1": {
+                          "other.chip": "Your guard took most of that. Guarded, you only lose a chip.",
+                          "self.guard": "Still Guarded for whatever he throws next."
+                        },
+                        "2": {
+                          "other.guard": "He's Guarded. Hit him now and you'd only chip him.",
+                          "self.feint": "He bit. He's Open, and his next Guard won't hold.",
+                          "self.hit": "Open, so it landed in full."
+                        },
+                        "3": {
+                          "other.hit": "You were Open after your last Strike, so that one landed in full.",
+                          "self.stun": "Stunned. He loses his next action.",
+                          "other.lost": "That was his Guard gone. He's still Open.",
+                          "self.hit": "Full damage. Nothing between him and it."
+                        }
+                      },
+                      "allowed": {
+                        "1": [
+                          "guard"
+                        ],
+                        "2": [
+                          "feint",
+                          "strike"
+                        ],
+                        "3": [
+                          "stun",
+                          "strike"
+                        ]
+                      }
+                    },
+                    "resumeCard": 8
+                  }
+                }
+              ],
+              "result_text": ""
+            }
+          ],
+          "key": "c8"
+        },
+        {
+          "type": "speaker",
+          "label": null,
+          "speaker": "Arnie",
+          "text": "He unwraps one hand and nods at you. \"That's the whole job. Read what they're about to do, then do something about it. And the more you practise a move, the better you get at it. Eventually you'll be able to do much more with it too.\"",
+          "key": "c9"
+        },
+        {
+          "type": "speaker",
+          "label": null,
+          "speaker": "Arnie",
+          "text": "\"First three sessions are on me. After that it's fifteen quid, and the rent on this place isn't cheap.\"",
+          "key": "c10"
+        },
+        {
+          "type": "speaker",
+          "label": null,
+          "speaker": "Archie",
+          "text": "He pulls his jacket back on, checking his phone. \"Told you. I've got your pearls to shift. I'll text you.\" He's through the shutter before you can thank him.",
+          "key": "c11"
+        }
+      ]
+    }
+  },
+  "_keyOrder": {
+    "top": [
+      "id",
+      "on_complete",
+      "cards"
+    ],
+    "cards": {
+      "c1": [
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c2": [
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c3": [
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c4": [
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c5": [
+        "type",
+        "label",
+        "speaker",
+        "text",
+        "choices"
+      ],
+      "c6": [
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c7": [
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c8": [
+        "type",
+        "label",
+        "speaker",
+        "text",
+        "choices"
+      ],
+      "c9": [
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c10": [
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c11": [
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ]
+    }
+  },
+  "_liveSource": "gym.json",
+  "_liveHash": "6e8b61f6"
+}
+```
