@@ -123,6 +123,25 @@ static func observed(cond: Dictionary) -> bool:
 	return int(result.get("level", 0)) >= int(cond.get("atLeast", 1))
 
 
+# Ores whose read currently unlocks (`requires`) or boosts (check `mods`) a choice,
+# in first-seen order: each `observed` condition on the choice that holds now.
+static func option_ores(choice: Dictionary) -> Array:
+	var out: Array = []
+	var conditions: Array = []
+	var requires: Variant = choice.get("requires")
+	if requires is Dictionary:
+		conditions.append(requires)
+	for mod in choice.get("check", {}).get("mods", []):
+		conditions.append(mod)
+	for cond in conditions:
+		if not cond.has("observed") or not Events.condition_met(cond):
+			continue
+		var ore := String(cond["observed"].get("ore", ""))
+		if ore != "" and not out.has(ore):
+			out.append(ore)
+	return out
+
+
 static func _def(id: String) -> Dictionary:
 	if not Events.has_live_definition():
 		return {}

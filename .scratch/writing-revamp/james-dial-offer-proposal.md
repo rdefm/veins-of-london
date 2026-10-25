@@ -58,7 +58,7 @@ New event proposed for `data/events/james_dial_offer.json`. This follows the (no
           "type": "narration",
           "label": null,
           "speaker": null,
-          "text": "The Dial is back on the umbrella handle. Under the collar, your Movement ticks, steady. James hasn't put the umbrella down since you came in.",
+          "text": "The Dial is back on the umbrella handle. Under the collar, the Movement ticks, steady. James hasn't put the umbrella down since you came in.",
           "key": "c2"
         },
         {
@@ -190,7 +190,7 @@ New event proposed for `data/events/james_dial_offer.json`. This follows the (no
           "type": "speaker",
           "label": null,
           "speaker": "James",
-          "text": "\"Someone the calc moved for.\" He turns the collar one click, then back. \"In forty years I've met two. You're the second.\" He doesn't say where the first one is now.",
+          "text": "\"Someone the calc moved for.\" He turns the collar one click, then back. \"In forty years I've met two such people. You're the second.\" He doesn't say who the first one was.",
           "goto": {
             "branch": "b7"
           },
@@ -208,7 +208,7 @@ New event proposed for `data/events/james_dial_offer.json`. This follows the (no
           "type": "speaker",
           "label": null,
           "speaker": "James",
-          "text": "\"Calc of all five types. 100 of each, 200 of life. Dial's essentially become living things, so it takes life.\" He tears a page from his ledger, which you have never seen him do. The figures are already written on it.",
+          "text": "\"Calc of all five types. 100 of each, 200 of life. Dial's essentially become living things, so it takes more life.\" He tears a page from his ledger, which you have never seen him do. The figures are already written on it.",
           "key": "c11"
         },
         {
@@ -262,15 +262,28 @@ New event proposed for `data/events/james_dial_offer.json`. This follows the (no
           "type": "speaker",
           "label": null,
           "speaker": "James",
-          "text": "\"Craft it t own bench, not mine. Fit it to something at least forearm-length that you can carry without explaining. I chose an umbrella. This is London, after all.\" A pause. \"Bring it here when it's made. I'll tell you what you did wrong.\"",
+          "text": "\"I'll craft the housing for you; they don't require the Gift, but they do take years of practice to make. Consider it my gift to you.\" ",
           "key": "c15"
+        },
+        {
+          "key": "c18",
+          "type": "speaker",
+          "text": "\"Collect the calc and bring it here. I'll guide you through creating the Dial itself, and help you fit it to something at least forearm-length that you can carry without explaining.\"",
+          "speaker": "James"
+        },
+        {
+          "key": "c19",
+          "type": "speaker",
+          "text": "\"I chose an umbrella. This is London, after all.\" ",
+          "speaker": "James"
         },
         {
           "type": "resolution",
           "label": null,
           "speaker": null,
           "text": "The door closes while you're still saying goodbye. On the street you unfold the page. Under the figures he has added one line: Tell no one. Not even Archie.",
-          "key": "c16"
+          "key": "c16",
+          "image": "res://assets/events/james_dial_offer/james_dial_offer_b11_8.png"
         }
       ]
     }

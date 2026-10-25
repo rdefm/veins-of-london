@@ -124,10 +124,30 @@ End of Act 1, player gets a life vein.
 
 
 ## Arc B - Craft
-Aim: Teach th player more about crafting, Dials, and player gets their own Dial.
+Aim: Teach the player more about crafting, Dials, and player gets their own Dial.
 
+1) james_experiment.json
+James teaches recipes, item ranks, experimenting. Agrees to send overflow work.
 
+2) james-dial-evaluation-proposal.md 
+NEED TO TURN INTO JSON
+James introduces Dials, and asks player to source calc to then fix it.
 
+3) james-dial-repair-proposal.md
+NEED TO TURN INTO JSON
+Player fixes James's movement. Hints at followup.
+Need t omake it tutorial style, where it goes to the same view the player will use when crafting a Movement and guides them through each step.
+
+4) james-dial-offer-proposal.md
+NEED TO TURN INTO JSON
+James gives info on how to craft player's own Dial.
+
+5) james-player-dial-creation 
+NEED TO MAKE
+Player has returned with calc. James guides them through making it (event text, not something the player actively crafts). Player has a Dial, James helps house it in an umbrella.
+James says they'll need a Movement for it to work. Gives them the recipe, and the housing for a Recharge Movement. Player crafts it there, guided tutorial.
+James explains how it works (house an item, when the Dial has a charge you can use it to case the effect without consuming the item). Explains how dials level up, and different Movements that exist.
+James says he'll dig out his old research on different Movement types, and will tell the player when he has something new for them.
 
 
 ## Arc C - Sell

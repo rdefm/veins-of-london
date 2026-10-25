@@ -32,6 +32,8 @@ var _obs_revealing := false  # true while the sheet's row reveal plays
 var _obs_tween: Tween
 var _reveal_steps: Array = []  # rows still to reveal: {roll_line, text, final}
 var _revealed_rolls := {}  # "obsId|ore|roll" keys already animated this screen
+var _fade_options: Array = []  # option indices a read just unlocked; held invisible until the sheet closes
+var _fade_nodes: Array = []  # the controls built for _fade_options on the current card
 var _context_modal: Control
 var _context_choice := -1  # option index whose ? modal is open, -1 when closed
 
@@ -106,18 +108,63 @@ func _footer_box() -> BoxContainer:
 func _fill_options(box: VBoxContainer) -> void:
 	var choices: Array = Events.current_card()["choices"]
 	var exit_index := Events.hub_exit_index()
+	_fade_nodes.clear()
 	for i in range(choices.size()):
 		if i == exit_index:
 			continue  # the hub's exit is the footer →
 		var gate: Dictionary = Events.option_gate(i)
+		var node: Control = null
 		match gate["display"]:
 			"show":
 				if gate["asked"]:
-					box.add_child(_build_asked_option(choices[i]["label"], i))
+					node = _build_asked_option(choices[i]["label"], i)
 				else:
-					box.add_child(_build_choice_button(choices[i]["label"], i))
+					node = _build_choice_button(choices[i]["label"], i)
 			"disable":
-				box.add_child(_build_disabled_option(choices[i]["label"], i))
+				node = _build_disabled_option(choices[i]["label"], i)
+		if node == null:
+			continue
+		if _fade_options.has(i):
+			node.modulate.a = 0.0
+			_fade_nodes.append(node)
+		box.add_child(node)
+
+# Indices of the current choice card's options that show right now.
+static func shown_options() -> Array:
+	var out: Array = []
+	if not Events.is_choosing():
+		return out
+	for i in range(Events.current_card()["choices"].size()):
+		if Events.option_gate(i)["display"] == "show":
+			out.append(i)
+	return out
+
+# Fades in the options a read unlocked, once the sheet is gone.
+func _reveal_unlocked_options() -> void:
+	var nodes := _fade_nodes.filter(func(n: Control) -> bool: return is_instance_valid(n))
+	_fade_options.clear()
+	_fade_nodes.clear()
+	for n: Control in nodes:
+		if _reduced_motion():
+			n.modulate.a = 1.0
+			continue
+		create_tween().bind_node(n).tween_property(n, "modulate:a", 1.0, REVEAL_FADE_SECONDS)
+
+# The ore glyph(s) of the reads behind an option, overlaid at the button's left.
+func _add_read_glyphs(b: Button, choice: Dictionary) -> void:
+	var x := 8.0
+	for ore: String in Observation.option_ores(choice):
+		var glyph := SymbolGlyph.new()
+		glyph.name = "ReadGlyph_%s" % ore
+		glyph.symbol = GameData.ORE_TYPES[ore]["symbol"]
+		glyph.draw_fallback = SymbolGlyph.ore_fallback(ore)
+		glyph.custom_minimum_size = Vector2(UI.SYMBOL_GLYPH_SIZE, UI.SYMBOL_GLYPH_SIZE)
+		glyph.glyph_radius = UI.SYMBOL_GLYPH_SIZE * 0.34
+		glyph.color = MapPalette.ore_colour(ore)
+		glyph.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		b.add_child(glyph)
+		glyph.set_anchors_and_offsets_preset(Control.PRESET_CENTER_LEFT, Control.PRESET_MODE_KEEP_SIZE, int(x))
+		x += UI.SYMBOL_GLYPH_SIZE + 4.0
 
 # Fills the footer `box`: the Action icon on the left when anything is usable,
 # → on the right except on the option step. Returns the controls added; empty
@@ -241,9 +288,18 @@ func _on_item_picked(id: String) -> void:
 
 func _on_observe_picked() -> void:
 	_close_item_menu()
-	_open_observation_sheet(Observation.read())
+	var before := shown_options()
+	var rows := Observation.read()
+	_fade_options = shown_options().filter(func(i: int) -> bool: return not before.has(i))
+	if not _fade_options.is_empty():
+		_refresh()
+	_open_observation_sheet(rows)
 
 func _close_observation_sheet() -> void:
+	_dismiss_observation_sheet()
+	_reveal_unlocked_options()
+
+func _dismiss_observation_sheet() -> void:
 	_stop_reveal()
 	if is_instance_valid(_obs_sheet):
 		_obs_sheet.queue_free()
@@ -251,7 +307,7 @@ func _close_observation_sheet() -> void:
 
 # Bottom sheet: scene title, then one row per listed ore from Observation rows.
 func _open_observation_sheet(rows: Array) -> void:
-	_close_observation_sheet()
+	_dismiss_observation_sheet()
 	_obs_sheet = Control.new()
 	_obs_sheet.name = "ObservationSheet"
 	UI.anchor_full_rect(_obs_sheet)
@@ -413,6 +469,7 @@ func _build_choice_button(label: String, choice_index: int) -> Control:
 	var b := UI.button(label, func(): Events.choose(choice_index))
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_style_action_button(b)
+	_add_read_glyphs(b, choice)
 	if Events.check_odds(choice_index).is_empty():
 		return b
 	return _option_row(b, choice_index)

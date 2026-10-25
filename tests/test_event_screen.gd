@@ -988,6 +988,48 @@ func run() -> void:
 		screen.free()
 	)
 
+	run_case("read_unlocks_fade_in_with_ore_glyph", func():
+		GameState.reset()
+		var original_events: Dictionary = GameData.EVENTS
+		GameData.EVENTS = GameData.EVENTS.duplicate()
+		GameData.EVENTS["test_screen_unlock"] = {
+			"id": "test_screen_unlock",
+			"cards": [
+				{ "type": "choice", "label": "The yard", "speaker": null, "text": "Pick.", "observe": "o", "choices": [
+					{ "label": "Plain", "goto": 1 },
+					{ "label": "Window", "goto": 1, "requires": { "observed": { "id": "o", "ore": "time", "atLeast": 1 } } },
+					{ "label": "Sneak", "goto": 1, "check": { "base": 0.3, "mods": [{ "observed": { "id": "o", "ore": "physics", "atLeast": 1 }, "add": 0.2, "label": "Spotted the gap" }] } },
+				] },
+				{ "type": "narration", "label": null, "speaker": null, "text": "Two." },
+			],
+			"observations": { "o": { "blocks": {
+				"time": { "tiers": [{ "base": 1.0, "min": 1.0, "max": 1.0, "text": "Time hit." }], "miss": "m" },
+				"physics": { "tiers": [{ "base": 1.0, "min": 1.0, "max": 1.0, "text": "Phys hit." }], "miss": "m" },
+			} } },
+			"on_complete": [],
+		}
+		Events.start_event("test_screen_unlock")
+		GameState.state["event"]["choosing"] = true
+		var screen := _fresh_screen()
+		assert_true(screen.find_child("ReadGlyph_physics", true, false) == null, "no glyph before the read")
+		assert_eq(EventScreen.shown_options(), [0, 2], "gated option hidden before the read")
+		screen._on_observe_picked()
+		assert_eq(EventScreen.shown_options(), [0, 1, 2], "read unlocks the gated option")
+		assert_eq(screen._fade_nodes.size(), 1, "one option held for the fade")
+		assert_eq(screen._fade_nodes[0].modulate.a, 0.0, "unlocked option invisible while the sheet is open")
+		assert_true(screen.find_child("ReadGlyph_time", true, false) != null, "unlocked option carries the ore glyph")
+		assert_true(screen.find_child("ReadGlyph_physics", true, false) != null, "boosted option carries the ore glyph")
+		var odds := Events.check_odds(2)
+		assert_true(odds["mods"].any(func(m: Dictionary) -> bool: return m["label"] == "Spotted the gap"), "boost listed with author label")
+		GameState.state["meta"]["reducedMotion"] = true
+		screen._close_observation_sheet()
+		assert_eq(screen._fade_options.size(), 0, "fade list cleared on close")
+		GameState.state["meta"]["reducedMotion"] = false
+		GameData.EVENTS = original_events
+		GameState.state["event"] = null
+		screen.free()
+	)
+
 	run_case("observe_pulse_and_reveal_flags", func():
 		GameState.reset()
 		var original_events: Dictionary = GameData.EVENTS
