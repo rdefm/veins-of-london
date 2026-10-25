@@ -86,6 +86,8 @@ func _play_through_tutorial_and_unlock_prospecting() -> void:
 	for event_id in ["cold_open", "pub", "buyer", "james_meeting", "gym", "archie_sells_pearls"]:
 		Events.start_event(event_id)
 		for i in range(GameData.EVENTS[event_id]["cards"].size() + 2):
+			if GameState.state["event"] == null:
+				break
 			if Events.is_awaiting_choice():
 				Events.choose(0)
 				if LessonSession.is_open():
@@ -94,7 +96,8 @@ func _play_through_tutorial_and_unlock_prospecting() -> void:
 					Lab.perform_step("heat", 25.0)
 					Lab.finish_run()
 					LessonSession.resume()
-			Events.advance()
+			if GameState.state["event"] != null:
+				Events.advance()
 		_assert_invariants("post-%s" % event_id)
 		if event_id == "pub":
 			TimeSystem.do_rest()  # the cold open runs in the Evening; real play rests to the next morning

@@ -1975,9 +1975,11 @@ func run() -> void:
 					gym_fight["combatants"][1]["hp"] = 1
 					Combat.choose_move("strike", 1)
 				Combat.exit_combat()
+			elif GameState.state["event"] == null:
+				break
 			elif Events.is_awaiting_choice():
 				Events.choose(0)
-			elif GameState.state["event"] != null:
+			else:
 				Events.advance()
 		assert_true(GameState.state["flags"]["gymUnlocked"], "gym: gymUnlocked")
 		assert_eq(Messages.pending_for("archie").back()["kind"], "archie_sells_pearls", "gym: queues archie_sells_pearls")

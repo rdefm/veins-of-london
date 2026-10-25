@@ -12,3 +12,6 @@
 - [ ] `test_district_events.gd` and `test_demo_fight.gd` run to completion
 - [ ] Full-run log back to a normal size (tens of thousands of lines at most)
 - [ ] Regression test or runner assertion covers the cause
+
+## Done (2026-10-25)
+Cascade not reproducible (see 01: disk-full suspect). Fixed the real first-error noise: gym loop in `tests/test_events.gd` now breaks on null event before `is_awaiting_choice`; tutorial loop in `tests/test_playthrough.gd` guards null event. test_events 27→0 script errors, test_playthrough 241→0 (remaining 5 = godot_ai addon parse noise). Loop guards are the regression cover.
