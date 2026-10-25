@@ -429,7 +429,24 @@ func run() -> void:
 		Events.choose(0)
 		var screen := _fresh_screen()
 		var texts: Array = screen._vn_card_panel.find_children("", "Label", true, false).map(func(l): return l.text)
-		assert_eq(texts, [GameData.EVENT_CHECKS["outcomeMarkers"]["success"], "Came off."])
+		var res: Dictionary = GameState.state["event"]["choiceResults"]["0"]
+		assert_eq(res["needed"], 1, "p=1 needs 1+")
+		var marker: String = GameData.EVENT_CHECKS["outcomeMarkers"]["success"] + GameData.EVENT_CHECKS["rollMarkerFormat"] % [res["roll"], 1]
+		assert_eq(texts, [marker, "Came off."])
+		GameData.EVENTS = original_events
+	)
+
+	run_case("a_failed_check_shows_roll_below_needed", func():
+		GameState.reset()
+		var original_events := _install_check_event()
+		GameData.EVENTS["test_screen_check_event"]["cards"][0]["choices"][0]["check"]["base"] = 0.5
+		GameData.EVENTS["test_screen_check_event"]["cards"][0]["choices"][0]["check"]["min"] = 0.5
+		GameData.EVENTS["test_screen_check_event"]["cards"][0]["choices"][0]["check"]["max"] = 0.5
+		Events.start_event("test_screen_check_event")
+		Events.choose(0)
+		var res: Dictionary = GameState.state["event"]["choiceResults"]["0"]
+		assert_eq(res["needed"], 51)
+		assert_eq(res["outcome"] == "success", int(res["roll"]) >= 51, "d100 high-is-good matches engine")
 		GameData.EVENTS = original_events
 	)
 

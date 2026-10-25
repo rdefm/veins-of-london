@@ -123,7 +123,7 @@ static func revealed_cards() -> Array:
 			var resolution_card: Dictionary = { "type": "resolution", "label": null, "speaker": null, "text": resolution["text"] }
 			if resolution.has("image"):
 				resolution_card["image"] = resolution["image"]
-			for key in ["outcome", "successes", "attempts"]:
+			for key in ["outcome", "successes", "attempts", "roll", "needed"]:
 				if resolution.has(key):
 					resolution_card[key] = resolution[key]
 			result.append(resolution_card)
@@ -377,12 +377,18 @@ static func choose(choice_index: int) -> void:
 	var source: Dictionary = choice
 	var attempts := 1
 	var successes := 0
+	var shown_roll := 0
+	var shown_needed := 0
 	if choice.has("check"):
 		var toggled := active_toggles(choice_index)
 		var p: float = odds_for(choice["check"], toggled)["probability"]
 		attempts = check_attempts(choice)
 		for attempt in range(attempts):
-			if check_roll(choice_index, attempt) < p:
+			var raw: float = check_roll(choice_index, attempt)
+			if attempt == 0:
+				shown_roll = clampi(ceili(snappedf(100.0 - raw * 100.0, 0.000001)), 1, 100)
+				shown_needed = floori(snappedf(100.0 - p * 100.0, 0.000001)) + 1
+			if raw < p:
 				successes += 1
 		outcome = "success" if successes > 0 else "fail"
 		source = choice.get("bySuccesses", {}).get(str(successes), choice[outcome])
@@ -401,6 +407,9 @@ static func choose(choice_index: int) -> void:
 		resolution["image"] = choice["image"]
 	if outcome != "":
 		resolution["outcome"] = outcome
+	if attempts == 1 and outcome != "":
+		resolution["roll"] = shown_roll
+		resolution["needed"] = shown_needed
 	if attempts > 1:
 		resolution["successes"] = successes
 		resolution["attempts"] = attempts

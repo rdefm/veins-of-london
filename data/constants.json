@@ -700,7 +700,8 @@
     "itemToggleNoneHeld": "%s · none on you",
     "outcomeMarkers": { "success": "✓ Came off", "fail": "✗ Didn't come off" },
     "attemptsFormat": "%d tries",
-    "attemptsMarkerFormat": "%d of %d came off"
+    "attemptsMarkerFormat": "%d of %d came off",
+    "rollMarkerFormat": " · Rolled %d · needed %d+"
   },
   "calendar": {
     "startMonth": 3,

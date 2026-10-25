@@ -537,7 +537,10 @@ static func item_toggle_label(toggle: Dictionary) -> String:
 static func outcome_marker(card: Dictionary) -> String:
 	if card.has("attempts"):
 		return GameData.EVENT_CHECKS["attemptsMarkerFormat"] % [card["successes"], card["attempts"]]
-	return GameData.EVENT_CHECKS["outcomeMarkers"][card["outcome"]]
+	var marker: String = GameData.EVENT_CHECKS["outcomeMarkers"][card["outcome"]]
+	if card.has("roll"):
+		marker += GameData.EVENT_CHECKS["rollMarkerFormat"] % [card["roll"], card["needed"]]
+	return marker
 
 # A check's modal lines: "60% chance", tries when more than one, the base,
 # then one signed line per applied modifier.
