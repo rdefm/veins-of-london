@@ -24,7 +24,7 @@
           "type": "narration",
           "label": null,
           "speaker": null,
-          "text": "Des has a jar in his bag. In the jar is about forty units of somebody's physics calc, and he is holding it the way other people hold a thermos."
+          "text": "Des has a jar in his bag full somebody's physics calc, and he is holding it the way other people hold a thermos."
         },
         {
           "key": "c2",
@@ -38,14 +38,14 @@
           "type": "speaker",
           "label": null,
           "speaker": "Des",
-          "text": "\"Forty units of the right type. Has to match what the ground wants — you can't put fate in a life patch and hope. Takes a bit of time to do right, and it doesn't always take. The more you do it, the better you get at it.\""
+          "text": "\"150 ore of the right type. Takes a bit of time to seed it right, and it doesn't always take. The more you do it, the better you get at it. It has to match what the ground wants - you can't put fate in a life patch.\""
         },
         {
           "key": "c4",
           "type": "speaker",
           "label": null,
           "speaker": "Des",
-          "text": "\"When it takes, you've got a vein and the patch is yours. When it doesn't, you've lost the calc and the afternoon, and you have another go when you can afford one.\""
+          "text": "\"When it takes, you've got a vein and the patch is yours. When it doesn't, you've lost the calc and a few hours. You can always have another go later, if you've got the calc.\""
         },
         {
           "key": "c5",
@@ -59,7 +59,7 @@
           "type": "speaker",
           "label": null,
           "speaker": "Des",
-          "text": "\"Which is why nobody round here seeds alone if they don't have to. If I've got forty spare and you've found ground - best not to let it go to waste\""
+          "text": "\"It's not easy, not for most people, which is why we all help each other out. If I've got some spare calc and you've found ground - best not to let it go to waste\""
         },
         {
           "key": "c7",
@@ -80,7 +80,7 @@
           "type": "resolution",
           "label": null,
           "speaker": null,
-          "text": "You know how to seed a patch. You do not yet have forty units of anything spare, which is a different problem and, Des would say, a smaller one."
+          "text": "You know how to seed a patch. With enough ore and a good site, you can seed another vein for yourself. "
         }
       ]
     }
