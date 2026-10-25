@@ -198,7 +198,7 @@ section { display: grid; gap: 12px; min-width: 0 }
 .opt .route > textarea, .opt .route > input[type="text"] { flex: 1 1 12em; min-width: 0 }
 .opt textarea.fx { min-height: 0; font: 12px/1.4 var(--mono) }
 .opt textarea[aria-invalid="true"] { border-color: var(--warn) }
-/* Shared Choice mechanics widgets (quest-editor's section), restyled for this page. */
+/* Shared Choice mechanics widgets (quest-editor-mobile's section), restyled for this page. */
 .mech-ed { display: grid; gap: 6px }
 .mech-ed .mech-row { display: flex; flex-wrap: wrap; gap: 0 10px; align-items: flex-end }
 .mech-ed .mech-cell { flex: 0 1 140px; min-width: 100px }
@@ -475,7 +475,7 @@ section { display: grid; gap: 12px; min-width: 0 }
 
 /* ---------- Choice mechanics (shared) ---------- */
 
-// Byte-identical in tools/quest-editor.html, tools/quest-editor-mobile.html
+// Byte-identical in tools/quest-editor-mobile.html
 // and tools/storyboard.html (tools/test_quest_editor.js enforces it): the
 // option and event mechanics the editors author, per docs/REFERENCE.md §3.9a (option id, check,
 // success/fail, requires, goto) and §3.9b (event `at`). Effects stay
@@ -953,7 +953,7 @@ function checkOddsBlock(opt, changed, restructure) {
 <script>
 // Local storyboard review: reads boards from .scratch/event-art/<id>/board.json, writes verdicts to that
 // folder's feedback.json, and saves uploaded images straight into assets/reference-plates/.
-// Needs the File System Access API (desktop Chrome or Edge), like tools/quest-editor.html.
+// Needs the File System Access API (desktop Chrome or Edge).
 (() => {
   const $ = (id) => document.getElementById(id);
   const el = (tag, attrs = {}, ...kids) => {

@@ -12,7 +12,7 @@ You'll get either:
 
 It has the shape `{format: "vein-quest-draft/v1", id, at?, cards, notes}`. `cards` is already in the
 real event-JSON shape (`type`, `label`, `speaker`, `text`, `choices` with `effects: []` and
-`result_text`) — see `tools/quest-editor.html`'s builder for the same schema. Options may also
+`result_text`) — see `tools/quest-editor-mobile.html`'s `buildBundle` for the same schema. Options may also
 carry REFERENCE §3.9a mechanics (`id`, `requires`, `goto`, or `check` + `success`/`fail`), and
 the bundle may carry an event-level `at` (§3.9b); copy those verbatim too.
 
@@ -22,11 +22,11 @@ the bundle may carry an event-level `at` (§3.9b); copy those verbatim too.
    `data/events/<id>.json` doesn't already exist.
 2. **Write `data/events/<id>.json`** from `id` + `at` (if present) + `cards` verbatim (they're already normalized —
    empty prose fields are `null`). Add `on_complete` — the bundle doesn't include one; use
-   `[{ "op": "set_screen", "screen": "map" }]` as the same inert default
-   `quest-editor.html`'s builder writes, unless the notes or surrounding context say otherwise.
+   `[{ "op": "set_screen", "screen": "map" }]` as an inert default,
+   unless the notes or surrounding context say otherwise.
    No `deck` key yet — that's registration, not drafting (see step 4).
-3. **If `notes` is non-empty**, write it verbatim to `data/events/drafts/<id>.notes.md` — same
-   sidecar convention as the desktop tool. This is the author's plain-language description of
+3. **If `notes` is non-empty**, write it verbatim to `data/events/drafts/<id>.notes.md` — the
+   sidecar convention for author-intent notes. This is the author's plain-language description of
    what `effects`/ops/flags should do; it's your brief for filling those in, never copied
    mechanically into the JSON.
 4. **The file is inert until registered.** Per `docs/agents/domain.md` / `CLAUDE.md`, work the

@@ -59,6 +59,14 @@ Need to adjust so Archie doesn't show the player how to cultivate or harvest, ju
 ## Arc A - Collect
 Aim: Teach player about prospecting, cultivating, harvesting, seeding veins.
 
+Events 1-6 (linear, ~5 min)
+        │
+        ├──► Hakim (Events 7a-7b)  Cultivate                 ┐
+        ├──► Des   (Events 8a-8b)  Prospect                  ├ parallel, any order
+        └──► Nadia (Events 9a-9c)  Harvest & Seed            ┘
+                        │  
+               Closer (Event 10)
+
 1) col_a1_intro.json
 Introduces Des, his motivation for teaching player, and hint at friction and history between Des and Archie.
 Current version needs to be rewritten to focus on learning cultivating, harvesting, seeding.
@@ -70,7 +78,7 @@ Perhaps reword to focus on Prospecting as being observant, going with your gut. 
 3) col_a1_seeding.json
 Teaches seeding. Some small adjustments to text. Adjust to show the actual seeding UI, player seeds, Collective vein appears.
 
-4) col_a1_cultivating.json DOESN'T EXIST YET
+4) col_a1_cultivating.json 
 Des continues lesson, saying once you've seeded you can cultivate. He puts his hand on the vein and closes eyes, says he likes to feel calm and in the moment, and it usually does the trick. He doesn't know why it works, just that it does.
 Go to actual Map UI, guide player to tap cultivate. See it grow.
 Des explains that is vein is too low, it will eventually die off (site remains, can be reseeded). If you grow it really strong, it eventually gets bigger (limited by the terroir of the vein site).
