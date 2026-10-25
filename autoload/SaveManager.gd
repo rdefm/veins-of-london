@@ -1064,7 +1064,7 @@ func _restore_int_types(state: Dictionary) -> void:
 
 	if state.has("player"):
 		var player: Dictionary = state["player"]
-		for key in ["cash", "hp", "hpMax", "attackMin", "attackMax", "craftingSkill", "craftingXP", "cultivatingSkill", "cultivatingXP", "stealthSkill", "stealthXP", "combatSkill", "combatXP", "shieldPool", "healingSalveDaysLeft", "healingSalveDailyAmount"]:
+		for key in ["cash", "hp", "hpMax", "attackMin", "attackMax", "craftingSkill", "craftingXP", "cultivatingSkill", "cultivatingXP", "stealthSkill", "stealthXP", "senseSkill", "senseXP", "combatSkill", "combatXP", "shieldPool", "healingSalveDaysLeft", "healingSalveDailyAmount"]:
 			_int_key(player, key)
 		_restore_move_level_ints(player)
 		_int_dict_values(player.get("orichalchum", {}))

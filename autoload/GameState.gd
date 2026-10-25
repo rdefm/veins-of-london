@@ -171,6 +171,7 @@ func new_game_state() -> Dictionary:
 			"craftingSkill": 1, "craftingXP": 0,
 			"cultivatingSkill": 1, "cultivatingXP": 0,
 			"stealthSkill": 1, "stealthXP": 0,
+			"senseSkill": 1, "senseXP": 0,
 			# Attack bonus + turn-order speed, level-indexed (GameData.
 			# COMBAT_ATTACK_BONUS_BY_LEVEL/COMBAT_SPEED_BY_LEVEL, R§3.7a).
 			"combatSkill": 1, "combatXP": 0,

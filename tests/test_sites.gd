@@ -259,6 +259,7 @@ func run() -> void:
 		assert_eq(site["factionVein"], null, "new site starts unclaimed by any faction")
 		assert_true(GameData.SITE_TIER_WEIGHTS.has(site["tier"]), "tier should be one of the canonical tiers")
 		assert_eq(GameState.state["player"]["cultivatingXP"], GameData.SITE_PROSPECT_XP[site["tier"]], "prospect XP matches the rolled tier")
+		assert_eq(GameState.state["player"]["senseXP"], GameData.SITE_PROSPECT_SENSE_XP, "prospect awards Sense XP")
 	)
 
 	run_case("prospect_in_a_different_district_costs_the_same_1_block_no_travel_surcharge", func():

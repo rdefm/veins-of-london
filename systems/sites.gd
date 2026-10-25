@@ -334,6 +334,7 @@ static func _create_site(district_id: String, at_cap: bool = false, forced_ore: 
 	GameState.state["world"]["sites"].append(site)
 	MapEvents.queue_discover(district_id, site["id"])
 	Cultivating.award_xp(GameData.SITE_PROSPECT_XP[tier])
+	Sense.award_xp(GameData.SITE_PROSPECT_SENSE_XP)
 	return site
 
 

@@ -4,6 +4,9 @@ A mobile-first, menu-driven London urban-fantasy economy game (Godot 4.4 port). 
 
 ## Language
 
+**Sense**:
+Player skill (`player.senseSkill`/`senseXP`, curve `data/sense.json` `senseXpLevels`, 11 entries, levels 6-10 placeholder). Perception; levelled by prospecting (`sites.json` `prospectSenseXp`) and, later, observation.
+
 **Tenure**:
 Whether the player rents or owns their current home tier (`state.home.tenure`, `"rented"`/`"owned"`). Rented pays the tier's rent (`dailyCost`) each rollover; owned pays utilities. The bedsit is rent-only. See ADR 0006.
 _Avoid_: "lease", "mortgage" — neither exists.

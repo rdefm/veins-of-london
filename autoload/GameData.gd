@@ -105,6 +105,7 @@ var SITE_TIER_ORDER: Array = []
 var SITE_TIER_WEIGHTS: Dictionary = {}
 var SITE_AT_CAP_TIER_WEIGHTS: Dictionary = {}
 var SITE_PROSPECT_XP: Dictionary = {}
+var SITE_PROSPECT_SENSE_XP: int = 0
 var SITE_SEED_TIER_MOD: Dictionary = {}
 var SITE_DISCOVERY_BONUS_POOL: Array = []
 var SITE_NATURAL_VEIN_CHANCE: float = 0.0
@@ -135,6 +136,7 @@ var RECIPE_KNOWLEDGE: Dictionary = {}
 
 # Player Combat Skill curves (R§3.7a), colocated in data/enemies.json
 # rather than a new file of their own.
+var SENSE_XP_LEVELS: Array = []
 var COMBAT_XP_LEVELS: Array = []
 var COMBAT_ATTACK_BONUS_BY_LEVEL: Array = []
 var COMBAT_SPEED_BY_LEVEL: Array = []
@@ -406,6 +408,9 @@ const MANIFEST: Array[Dictionary] = [
 	{"table": "stealth", "file": "res://data/stealth.json", "fields": [
 		{"field": "STEALTH_XP_LEVELS", "key": "stealthXpLevels", "type": TYPE_ARRAY},
 	]},
+	{"table": "sense", "file": "res://data/sense.json", "fields": [
+		{"field": "SENSE_XP_LEVELS", "key": "senseXpLevels", "type": TYPE_ARRAY},
+	]},
 	{"table": "home", "file": "res://data/home.json", "fields": [
 		{"field": "HOME_TIER_ORDER", "key": "tierOrder", "type": TYPE_ARRAY},
 		{"field": "HOME_TIERS", "key": "tiers", "type": TYPE_DICTIONARY},
@@ -452,6 +457,7 @@ const MANIFEST: Array[Dictionary] = [
 		{"field": "SITE_TIER_WEIGHTS", "key": "tierWeights", "type": TYPE_DICTIONARY},
 		{"field": "SITE_AT_CAP_TIER_WEIGHTS", "key": "atCapTierWeights", "type": TYPE_DICTIONARY},
 		{"field": "SITE_PROSPECT_XP", "key": "prospectXp", "type": TYPE_DICTIONARY},
+		{"field": "SITE_PROSPECT_SENSE_XP", "key": "prospectSenseXp", "type": TYPE_INT},
 		{"field": "SITE_SEED_TIER_MOD", "key": "seedTierMod", "type": TYPE_DICTIONARY},
 		{"field": "SITE_DISCOVERY_BONUS_POOL", "key": "discoveryBonusPool", "type": TYPE_ARRAY},
 		{"field": "SITE_NATURAL_VEIN_CHANCE", "key": "naturalVeinChance", "type": TYPE_FLOAT},
@@ -679,6 +685,7 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_vein_security(t.get("vein_security", {}), errors)
 	_validate_vein_alarm(t.get("vein_alarm", {}), errors)
 	_validate_stealth(t.get("stealth_xp_levels", []), errors)
+	_validate_sense(t.get("sense_xp_levels", []), errors)
 	_validate_home(t.get("home_tier_order", []), t.get("home_tiers", {}), t.get("home_security", {}), t.get("home_rooms", {}), errors)
 	_validate_home_bills(t.get("home_bills", {}), t.get("home_tiers", {}), errors)
 	_validate_approaches(t.get("approaches", {}), errors)
@@ -1013,6 +1020,11 @@ func _validate_vein_alarm(alarm: Dictionary, errors: Array[String]) -> void:
 func _validate_stealth(xp_levels: Array, errors: Array[String]) -> void:
 	if xp_levels.size() != 6:
 		errors.append("stealthXpLevels: expected 6 entries (index=level, 0..5), got %d" % xp_levels.size())
+
+
+func _validate_sense(xp_levels: Array, errors: Array[String]) -> void:
+	if xp_levels.size() != 11:
+		errors.append("senseXpLevels: expected 11 entries (index=level, 0..10), got %d" % xp_levels.size())
 
 
 func _validate_home(tier_order: Array, tiers: Dictionary, security: Dictionary, rooms: Dictionary, errors: Array[String]) -> void:

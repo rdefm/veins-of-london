@@ -464,6 +464,7 @@ state = {
     movementInventory: [],
     craftingSkill: 1, craftingXP: 0,
     cultivatingSkill: 1, cultivatingXP: 0,
+    senseSkill: 1, senseXP: 0,   # data/sense.json senseXpLevels (11 entries, levels 6-10 TBD); prospecting awards sites.json prospectSenseXp
     combatSkill: 1, combatXP: 0,   # §3.7a: attack bonus + turn-order speed, both level-indexed
     moveLevels: { strike:{level:1, xp:0}, guard:{…}, feint:{…}, stun:{…}, legIt:{…} },   # §3.7b Move levels; every contact carries the same key
     # day-rhythm-business-and-combat ticket 22, business-spec.md "Inventory":

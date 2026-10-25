@@ -110,7 +110,8 @@ Data file per system: see `data/*.json` below.
 | rooms.gd | Per-block staff step (one action per cultivator, then producers take turns crafting until targets met or ore short), which recipes each crafter's `specialities` allow and the Production list, writes/trims `productionLog`, Production targets/priority and when they are settable, per-cultivator vein lists (`cultivatorVeins`) and per-vein targets; cultivator speciality yield bonus |
 | shares.gd | Shares: 14-day daily buckets per producer (player, factions, independents) of ore harvested, ore spent on successful crafts, contract deliveries and faction London buys; Independents slice crediting (⑥.5e); pure ore/crafting share, overview, delivery and supplier-share reads (split + intake) (R§3.14) |
 | rewind.gd | Rewind payment (`rewind` item, else loaded Dial complication) + time-block Rewind: `state.blockStart` whole-state copy as each block opens; restore keeps XP, Lab knowledge, loadout, Dial. Never saved |
-| sites.gd | Sites & prospecting |
+| sense.gd | Sense skill XP award (level-up notify) via `Progression.award_xp` |
+| sites.gd | Sites & prospecting; each prospect awards Cultivating and Sense XP |
 | loadout.gd | Two personal consumable slots for the player (`player.loadout`) and combat recruits (`contacts[id].loadout`): equip/unequip (refused in combat; allies refuse Wormhole), consume, settlement refill (player, then recruits in roster order), equippable stock; multi-target units (`multi` flag, refilled as the same variant); `debug_grant()` for the debug setup |
 | stash.gd | Personal stash vs. shared pools |
 | station_bubble.gd | Site/vein-stop tap-bubble decision |
@@ -302,6 +303,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | phone_home.json | GameData.gd + phone_device_shell.gd + messages.gd (`typing` delay bounds; wallpaper, per-block status clock times, widget date format + fixed weather/battery copy; shell renders time/date from world.day/timeBlock) |
 | recipes.json | widely read (crafting, lab, combat, dial, jobs, rooms) |
 | sites.json | sites.gd, collective.gd, objectives.gd |
+| sense.json | sense.gd |
 | stealth.json | raiding.gd |
 | vein_alarm.json | cultivating.gd |
 | vein_growth.json | widely read (cultivating, events, sites, vein_trade, faction_sim) |
