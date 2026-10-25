@@ -188,6 +188,8 @@ var ACTIVE_EFFECTS: Dictionary = {}
 var CALENDAR: Dictionary = {}
 # Event choice checks: default clamp, UI strings (Events.check_odds()).
 var EVENT_CHECKS: Dictionary = {}
+# Observation rolls: ore order, Sense mod, XP awards (systems/observation.gd; placeholders).
+var OBSERVATION: Dictionary = {}
 # Event card label tokens' words (R§3.9c, Events._with_label_tokens()).
 var EVENT_LABELS: Dictionary = {}
 var DAILY_CYCLE: Dictionary = {}
@@ -500,6 +502,7 @@ const MANIFEST: Array[Dictionary] = [
 		{"field": "ACTIVE_EFFECTS", "key": "activeEffects", "type": TYPE_DICTIONARY},
 		{"field": "CALENDAR", "key": "calendar", "type": TYPE_DICTIONARY},
 		{"field": "EVENT_CHECKS", "key": "eventChecks", "type": TYPE_DICTIONARY},
+		{"field": "OBSERVATION", "key": "observation", "type": TYPE_DICTIONARY},
 		{"field": "EVENT_LABELS", "key": "eventLabels", "type": TYPE_DICTIONARY},
 		{"field": "ARCHIE_ORE_GOAL", "key": "archieOreGoal", "type": TYPE_INT},
 		{"field": "CONTACTS_DEFAULTS", "key": "contacts", "type": TYPE_DICTIONARY},

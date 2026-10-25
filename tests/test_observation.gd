@@ -1,0 +1,172 @@
+extends "res://tests/test_base.gd"
+
+# Observation engine (R§3.9d): synthetic events installed into GameData.EVENTS.
+
+const ALWAYS := { "min": 1.0, "max": 1.0 }
+const NEVER := { "min": 0.0, "max": 0.0 }
+
+
+func _tier(text: String, rule: Dictionary, base: float = 0.5, effects: Array = []) -> Dictionary:
+	var tier := { "base": base, "text": text, "effects": effects }
+	tier.merge(rule)
+	return tier
+
+
+func _install(observations: Dictionary, cards: Array) -> void:
+	GameData.EVENTS["obs_test"] = { "id": "obs_test", "cards": cards, "observations": observations, "on_complete": [] }
+	Events.start_event("obs_test")
+
+
+func _card(extra: Dictionary = {}) -> Dictionary:
+	var card := { "type": "text", "label": null, "speaker": null, "text": "t" }
+	card.merge(extra)
+	return card
+
+
+func _rows_by_ore(rows: Array) -> Dictionary:
+	var out := {}
+	for row in rows:
+		out[row["ore"]] = row
+	return out
+
+
+func _cleanup() -> void:
+	GameData.EVENTS.erase("obs_test")
+	GameState.state["event"] = null
+
+
+func run() -> void:
+	run_case("observation_in_effect_inherits_and_null_clears", func():
+		GameState.reset()
+		_install({ "o": { "blocks": { "time": { "tiers": [_tier("a", ALWAYS)], "miss": "m" } } } },
+			[_card({ "observe": "o" }), _card(), _card({ "observe": null }), _card()])
+		assert_eq(Observation.in_effect(), "o", "card 0 names it")
+		assert_true(Observation.is_unread(), "unread before the read")
+		Events.advance()
+		assert_eq(Observation.in_effect(), "o", "card 1 inherits")
+		Events.advance()
+		assert_eq(Observation.in_effect(), "", "null clears")
+		assert_true(not Observation.is_unread(), "nothing to read once cleared")
+		Events.advance()
+		assert_eq(Observation.in_effect(), "", "stays cleared")
+		assert_eq(Observation.read(), [], "read with nothing in effect is empty")
+		_cleanup()
+	)
+
+	run_case("observation_rolls_each_ore_with_nested_tiers_and_miss_text", func():
+		GameState.reset()
+		_install({ "o": { "blocks": {
+			"physics": { "tiers": [_tier("sharp", NEVER), _tier("rough", ALWAYS)], "miss": "pm" },
+			"life": { "tiers": [_tier("sharp", ALWAYS), _tier("rough", ALWAYS)], "miss": "lm" },
+			"time": { "tiers": [_tier("only", NEVER)], "miss": "nothing there" },
+		} } }, [_card({ "observe": "o" })])
+		var rows := Observation.read()
+		assert_eq(rows.size(), 3, "one row per listed ore")
+		assert_eq(rows.map(func(r): return r["ore"]), ["physics", "life", "time"], "fixed ore order")
+		var by := _rows_by_ore(rows)
+		assert_eq([by["physics"]["level"], by["physics"]["text"], by["physics"]["hit"], by["physics"]["tiers"]], [1, "rough", true, 2], "worse tier lands alone")
+		assert_eq([by["life"]["level"], by["life"]["text"]], [2, "sharp"], "best tier wins when both land")
+		assert_eq([by["time"]["level"], by["time"]["text"], by["time"]["hit"]], [0, "nothing there", false], "miss returns miss text")
+		assert_true(by["life"]["roll"] >= 1 and by["life"]["roll"] <= 100, "shown roll is d100")
+		assert_true(not Observation.is_unread(), "read clears unread")
+		_cleanup()
+	)
+
+	run_case("observation_sums_sense_and_own_mods_and_clamps_per_tier", func():
+		GameState.reset()
+		GameState.state["flags"]["keen"] = true
+		GameState.state["player"]["senseSkill"] = 5
+		_install({ "o": {
+			"mods": [{ "flag": "keen", "add": 0.2, "label": "Keen eye" }],
+			"blocks": { "life": { "tiers": [{ "base": 0.1, "text": "a", "max": 0.5 }, { "base": 0.3, "text": "b" }], "miss": "m" } },
+		} }, [_card({ "observe": "o" })])
+		var row: Dictionary = Observation.read()[0]
+		var sense: float = float(GameData.OBSERVATION["sensePerLevel"]) * 4
+		assert_eq(row["mods"].size(), 2, "Sense and the own mod are listed")
+		assert_almost_eq(float(row["mods"][0]["delta"]) + float(row["mods"][1]["delta"]), sense + 0.2, 0.0001, "mods sum")
+		var p_worse := 0.3 + sense + 0.2
+		var p_best := minf(0.1 + sense + 0.2, 0.5)
+		var expected_p := p_best if row["level"] == 2 else p_worse
+		assert_eq(row["needed"], floori(snappedf(100.0 - expected_p * 100.0, 0.000001)) + 1, "needed shows the landed or easiest tier")
+		_cleanup()
+	)
+
+	run_case("observation_replays_per_run_key_and_varies_by_day", func():
+		GameState.reset()
+		var obs := { "o": { "blocks": {} } }
+		for ore in ["physics", "life", "emotion", "time", "fate"]:
+			obs["o"]["blocks"][ore] = { "tiers": [_tier("a", {}, 0.5)], "miss": "m" }
+		GameState.state["world"]["day"] = 3
+		_install(obs, [_card({ "observe": "o" })])
+		var first: Array = Observation.read().map(func(r): return r["roll"])
+		GameState.state["event"] = null
+		Events.start_event("obs_test")
+		var again: Array = Observation.read().map(func(r): return r["roll"])
+		assert_eq(again, first, "same run key replays")
+		GameState.state["event"] = null
+		GameState.state["world"]["day"] = 4
+		Events.start_event("obs_test")
+		var other: Array = Observation.read().map(func(r): return r["roll"])
+		assert_true(other != first, "another day rolls fresh")
+		_cleanup()
+	)
+
+	run_case("observation_reads_once_and_awards_sense_xp_for_blocks_and_tiers", func():
+		GameState.reset()
+		_install({ "o": { "blocks": {
+			"life": { "tiers": [_tier("a", ALWAYS), _tier("b", ALWAYS)], "miss": "m" },
+			"time": { "tiers": [_tier("a", NEVER)], "miss": "m" },
+		} } }, [_card({ "observe": "o" })])
+		var first := Observation.read()
+		var expected: int = 2 * int(GameData.OBSERVATION["xpPerBlock"]) + 2 * int(GameData.OBSERVATION["xpPerTier"])
+		assert_eq(GameState.state["player"]["senseXP"], expected, "XP per block rolled plus per tier landed")
+		var second := Observation.read()
+		assert_eq(second, first, "second read returns stored results")
+		assert_eq(GameState.state["player"]["senseXP"], expected, "no XP on a re-read")
+		_cleanup()
+	)
+
+	run_case("observation_tier_effects_run_once_for_reached_tiers", func():
+		GameState.reset()
+		_install({ "o": { "blocks": { "time": { "tiers": [
+			_tier("a", NEVER, 0.1, [{ "op": "set_flag", "flag": "sharpSeen", "value": true }]),
+			_tier("b", ALWAYS, 0.5, [{ "op": "set_flag", "flag": "roughSeen", "value": true }]),
+		], "miss": "m" } } } }, [_card({ "observe": "o" })])
+		Observation.read()
+		assert_eq(GameState.state["flags"].get("roughSeen", false), true, "reached tier's effects ran")
+		assert_eq(GameState.state["flags"].get("sharpSeen", false), false, "unreached tier's effects did not")
+		_cleanup()
+	)
+
+	run_case("observed_condition_gates_requires_mods_and_goto", func():
+		GameState.reset()
+		var cond := { "observed": { "id": "o", "ore": "time", "atLeast": 1 } }
+		var cond_deep := { "observed": { "id": "o", "ore": "time", "atLeast": 2 } }
+		_install({ "o": { "blocks": { "time": { "tiers": [_tier("a", NEVER, 0.1), _tier("b", ALWAYS)], "miss": "m" } } } },
+			[_card({ "observe": "o", "goto": [{ "if": cond, "card": 2 }, { "card": 1 }] }), _card({ "text": "no" }), _card({ "text": "yes" })])
+		assert_true(not Events.condition_met(cond), "false before the read")
+		Observation.read()
+		assert_true(Events.condition_met(cond), "true at the landed level")
+		assert_true(not Events.condition_met(cond_deep), "false above the landed level")
+		assert_true(not Events.condition_met({ "observed": { "event": "other", "id": "o", "ore": "time", "atLeast": 1 } }), "cross-event form is not yet held")
+		var boost: Dictionary = cond.duplicate()
+		boost["observed"] = cond["observed"]
+		boost["add"] = 0.25
+		boost["label"] = "Saw it"
+		assert_almost_eq(Events.odds_for({ "base": 0.4, "mods": [boost] })["probability"], 0.65, 0.0001, "a mod boosts on observed")
+		Events.advance()
+		assert_eq(GameState.state["event"]["cardIndex"], 2, "conditional goto follows observed")
+		_cleanup()
+	)
+
+	run_case("observation_state_is_pure_data", func():
+		GameState.reset()
+		_install({ "o": { "blocks": { "life": { "tiers": [_tier("a", ALWAYS)], "miss": "m" } } } },
+			[_card({ "observe": "o" }), _card()])
+		Observation.read()
+		var stored: Variant = GameState.state["event"]["observations"]
+		assert_eq(JSON.parse_string(JSON.stringify(stored)) != null, true, "round-trips as JSON")
+		Events.advance()
+		assert_eq(Observation.rows("o").size(), 1, "rows still readable after a snapshot and advance")
+		_cleanup()
+	)

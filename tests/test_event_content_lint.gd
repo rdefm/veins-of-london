@@ -102,6 +102,28 @@ func run() -> void:
 			assert_true(found.any(func(v): return String(v).contains(fragment)), "expected a violation containing '%s' in %s" % [fragment, found])
 	)
 
+	run_case("lint_flags_malformed_observations", func():
+		GameState.reset()
+		var def := { "id": "obs_probe", "observations": {
+			"bad": { "blocks": {
+				"void": { "tiers": [{ "base": 0.5, "text": "a" }], "miss": "m" },
+				"life": { "tiers": [{ "base": 0.6, "text": "a" }, { "base": 0.3, "text": "b" }] },
+				"time": { "tiers": [{ "base": 0.3, "text": "a" }], "miss": "m" },
+			} },
+		}, "cards": [
+			{ "type": "text", "label": null, "text": "", "observe": "nope" },
+			{ "type": "choice", "label": null, "text": "", "observe": "bad", "choices": [
+				{ "label": "x", "result_text": "x", "requires": { "observed": { "id": "bad", "ore": "time", "atLeast": 2 } } },
+				{ "label": "y", "result_text": "y", "requires": { "observed": { "id": "ghost", "ore": "time", "atLeast": 1 } } },
+				{ "label": "z", "result_text": "z", "requires": { "observed": { "id": "bad", "ore": "time", "atLeast": 1 } } },
+			] },
+		] }
+		var found := _lint_event("obs_probe", def, _known_refs())
+		for fragment in ["observation bad void: unknown ore", "bad life: missing miss text", "bad life: tiers not best-first", "card 0 observe 'nope' is not defined", "atLeast 2 outside 1..1", "bad observed ref"]:
+			assert_true(found.any(func(v): return String(v).contains(fragment)), "expected a violation containing '%s' in %s" % [fragment, found])
+		assert_eq(found.size(), 6, "valid refs add no violations: %s" % [found])
+	)
+
 	run_case("event_content_lint", func():
 		GameState.reset()
 		var refs := _known_refs()
@@ -151,8 +173,12 @@ func _lint_event(id: String, def: Dictionary, refs: Dictionary) -> Array:
 	var out: Array = []
 	var cards: Array = def.get("cards", [])
 	var at_block: Variant = (def["at"] as Dictionary).get("block") if def.get("at") is Dictionary else null
+	refs["event"] = def
+	out.append_array(_lint_observations(id, def, refs))
 	for i in cards.size():
 		var card: Dictionary = cards[i]
+		if card.has("observe") and card["observe"] != null and not def.get("observations", {}).has(card["observe"]):
+			out.append("%s: card %d observe '%s' is not defined" % [id, i, str(card["observe"])])
 		if card.get("label") is String:
 			out.append_array(_lint_label(id, i, card["label"], at_block))
 		out.append_array(_lint_card_route(id, i, card, cards, refs))
@@ -266,7 +292,56 @@ func _lint_condition(where: String, c: Dictionary, refs: Dictionary) -> Array:
 		return [] if RecipeKnowledge.rungs().has(r.get("rung")) and not Lab.procedure_def(str(r.get("recipe"))).is_empty() else ["%s: unknown recipe rung %s" % [where, JSON.stringify(r)]]
 	if c.has("choice"):
 		return _lint_choice_ref(where, c["choice"])
+	if c.has("observed"):
+		return _lint_observed_ref(where, c["observed"], refs.get("event", {}))
 	return ["%s: unknown condition %s" % [where, JSON.stringify(c)]]
+
+
+# An event's `observations` (R§3.9d): known ores, tiers best-first (base
+# ascending), a miss text, mods that are known conditions.
+func _lint_observations(id: String, def: Dictionary, refs: Dictionary) -> Array:
+	var out: Array = []
+	var ores: Array = GameData.OBSERVATION["oreOrder"]
+	for obs_id in def.get("observations", {}):
+		var obs: Dictionary = def["observations"][obs_id]
+		var where := "%s: observation %s" % [id, obs_id]
+		for mod in obs.get("mods", []):
+			if not (mod.has("path") and mod.has("perPoint")):
+				out.append_array(_lint_condition(where + " mod", mod, refs))
+		var blocks: Dictionary = obs.get("blocks", {})
+		if blocks.is_empty():
+			out.append("%s has no blocks" % where)
+		for ore in blocks:
+			var block_where := "%s %s" % [where, ore]
+			var block: Dictionary = blocks[ore]
+			if not ores.has(ore):
+				out.append("%s: unknown ore" % block_where)
+			if not block.get("miss") is String or String(block["miss"]) == "":
+				out.append("%s: missing miss text" % block_where)
+			var tiers: Array = block.get("tiers", [])
+			if tiers.is_empty():
+				out.append("%s: no tiers" % block_where)
+			for k in tiers.size():
+				if not tiers[k].has("base") or not tiers[k].has("text"):
+					out.append("%s: tier %d needs base and text" % [block_where, k])
+				elif k > 0 and tiers[k - 1].has("base") and float(tiers[k]["base"]) <= float(tiers[k - 1]["base"]):
+					out.append("%s: tiers not best-first (base must ascend)" % block_where)
+	return out
+
+
+# {observed: {event?, id, ore, atLeast}}: a known ore, an observation defined in
+# the named (or current) event, atLeast within that block's tier count.
+func _lint_observed_ref(where: String, ref: Dictionary, current: Dictionary) -> Array:
+	var def: Dictionary = current
+	if ref.has("event"):
+		def = GameData.EVENTS.get(ref["event"], {})
+	var block: Dictionary = def.get("observations", {}).get(ref.get("id", ""), {}).get("blocks", {}).get(ref.get("ore", ""), {})
+	if block.is_empty():
+		return ["%s: bad observed ref %s" % [where, JSON.stringify(ref)]]
+	var at_least := int(ref.get("atLeast", 0))
+	if at_least < 1 or at_least > (block.get("tiers", []) as Array).size():
+		return ["%s: observed atLeast %s outside 1..%d" % [where, str(ref.get("atLeast")), (block.get("tiers", []) as Array).size()]]
+	return []
 
 
 func _lint_choice_ref(where: String, ref: Dictionary) -> Array:

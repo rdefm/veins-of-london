@@ -526,7 +526,8 @@ static func _mod_delta(mod: Dictionary, toggled: Array = []) -> float:
 # (R§3.9a): {item} held, {item, equipped} in a loadout slot, {item, optional}
 # toggled on (toggled = active_toggles()), {flag} truthy, {choice: {event,
 # card, option}} remembered, {path, atLeast}, {relation, atLeast},
-# {cash: {atLeast}}, {recipeRung: {recipe, rung}} owned (vague or exact).
+# {cash: {atLeast}}, {recipeRung: {recipe, rung}} owned (vague or exact),
+# {observed: {id, ore, atLeast}} read this run (R§3.9d).
 # Unknown shapes never hold.
 static func condition_met(condition: Dictionary, toggled: Array = []) -> bool:
 	if condition.has("item"):
@@ -550,6 +551,8 @@ static func condition_met(condition: Dictionary, toggled: Array = []) -> bool:
 	if condition.has("recipeRung"):
 		var r: Dictionary = condition["recipeRung"]
 		return RecipeKnowledge.owns_rung(r["recipe"], r["rung"])
+	if condition.has("observed"):
+		return Observation.observed(condition["observed"])
 	return false
 
 

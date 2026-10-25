@@ -4,6 +4,15 @@ A mobile-first, menu-driven London urban-fantasy economy game (Godot 4.4 port). 
 
 ## Language
 
+**Observation**:
+A scene's readable content, defined per event (`observations`) and named by a card's `observe`. One **read** rolls once per listed ore and shows a block of insight each. Spec in REFERENCE §3.9d.
+
+**Read**:
+The act of performing an observation (`Observation.read()`): first read rolls, later reads return the stored results. Free; never triggers detection.
+
+**Tier** (observation):
+One nested depth of an ore's block (best first, each with its own base chance and text). A read lands the best tier whose roll succeeds, else the block's miss text.
+
 **Sense**:
 Player skill (`player.senseSkill`/`senseXP`, curve `data/sense.json` `senseXpLevels`, 11 entries, levels 6-10 placeholder). Perception; levelled by prospecting (`sites.json` `prospectSenseXp`) and, later, observation.
 

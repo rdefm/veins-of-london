@@ -667,6 +667,13 @@
     }
   },
   "business": { "weeklyWages": { "owen": 250 }, "jamesJoinCraftingSkill": 5, "owenCraftMinCultivating": 2 },
+  "observation": {
+    "oreOrder": ["physics", "life", "emotion", "time", "fate"],
+    "sensePerLevel": 0.03,
+    "senseLabel": "Sense",
+    "xpPerBlock": 2,
+    "xpPerTier": 3
+  },
   "eventChecks": {
     "defaultMin": 0.05,
     "defaultMax": 0.95,
