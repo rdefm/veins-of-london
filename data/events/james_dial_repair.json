@@ -2,8 +2,7 @@
   "id": "james_dial_repair",
   "fillFromContext": true,
   "on_complete": [
-    { "op": "spend_quoted_calc", "quote": "jamesDialRepair" },
-    { "op": "add", "path": "player.cash", "value": "{calcPay}" },
+    { "op": "sell_ore_at_market", "type": "time", "qtyContextKey": "calcQty", "label": "James — Dial repair calc" },
     { "op": "recruit_contact", "contact": "james" },
     { "op": "set_flag", "flag": "jamesDialRestored", "value": true },
     { "op": "lose_time_block" },
@@ -14,7 +13,7 @@
     { "type": "speaker", "label": null, "speaker": "James", "text": "\"Correct.\" He counts £{calcPay} into an envelope and slides it across. \"For the calc. We'll discuss the labour when there is some.\"", "key": "c2" },
     { "type": "narration", "label": null, "speaker": null, "text": "The Dial lies on a cloth beside the tin. The broken Movement is gone. Its seat has been cleaned until it shines, recently and with care.", "key": "c3" },
     { "type": "speaker", "label": null, "speaker": "James", "text": "\"Recharge Movement, time-attuned. It can't hold much of a charge, but recharges quickly. When it works, that is.\"\n", "key": "c4" },
-    { "key": "c14", "type": "narration", "text": "\"You look, you can touch, but be very, very careful. I'll tell you if you're about to do something stupid, and not before.\" He folds his arms and sits on the stool." },
+    { "key": "c14", "type": "narration", "label": null, "speaker": null, "text": "\"You look, you can touch, but be very, very careful. I'll tell you if you're about to do something stupid, and not before.\" He folds his arms and sits on the stool." },
     { "type": "narration", "label": null, "speaker": null, "text": "You work the calc the way you would a pearl, only slower. A spring takes shape under your fingers. You seat it in the Dial and give the collar a turn.", "key": "c5" },
     { "type": "tension", "label": "It goes wrong", "speaker": null, "text": "Nothing. Then a dry crack. The spring loses its shape and the calc in it goes grey and dead, like cigarette ash. The Dial stays cold. That was {attemptCost} calc.", "key": "c6" },
     { "type": "speaker", "label": null, "speaker": "James", "text": "He lifts the dead Movement out with tweezers and studies it. \"Too fast at the end. You were thinking about the result.\" He sets it aside. \"Try again.\"", "key": "c7" },

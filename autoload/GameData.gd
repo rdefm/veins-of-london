@@ -2133,7 +2133,7 @@ func _validate_contact_text_reward(reward: Dictionary, recipes: Dictionary, fact
 const VALID_CARD_TYPES: Array[String] = ["narration", "speaker", "tension", "resolution", "craft", "choice"]
 const VALID_EVENT_BLOCKS: Array[String] = ["morning", "afternoon", "evening", "night"]
 const VALID_EFFECT_OPS: Array[String] = [
-	"set_flag", "add", "add_ore", "add_item", "relation",
+	"set_flag", "add", "add_ore", "add_item", "relation", "sell_ore_at_market",
 	"set_screen", "notify", "set_stage", "start_home_raid_combat",
 	"chance", "start_street_mugging", "npc_claim_best_unclaimed_site", "lose_time_block",
 	# grant_vein_with_site pairs a granted vein with a matching claimed site

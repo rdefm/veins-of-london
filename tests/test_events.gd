@@ -207,6 +207,25 @@ func run() -> void:
 		assert_true(not GameData.EVENTS.is_empty(), "no event files were loaded from data/events/")
 	)
 
+	run_case("sell_ore_at_market_pays_todays_quote_and_removes_ore", func():
+		GameState.reset()
+		var ore: Dictionary = GameState.state["player"]["orichalchum"]
+		ore["time"] = 5
+		var cash_before: int = GameState.state["player"]["cash"]
+		var unit: int = Market.quote("ore", "time")
+		Events.apply_effects([{ "op": "sell_ore_at_market", "type": "time", "qtyContextKey": "calcQty" }], { "calcQty": 3 })
+		assert_eq(ore["time"], 2, "3 calc removed")
+		assert_eq(GameState.state["player"]["cash"], cash_before + Market.line_total("ore", unit, 3), "paid quote x qty")
+	)
+
+	run_case("sell_ore_at_market_caps_at_held_ore", func():
+		GameState.reset()
+		var ore: Dictionary = GameState.state["player"]["orichalchum"]
+		ore["time"] = 1
+		Events.apply_effects([{ "op": "sell_ore_at_market", "type": "time", "qty": 4 }])
+		assert_eq(ore["time"], 0, "only the held calc goes")
+	)
+
 	# Bugfixes ticket (col_a1_intro Continue softlock): screens only swap on
 	# EventBus.screen_changed, fired by Nav.go_to() -- Events.advance() never
 	# calls that on its own, so on_complete is the only place left to

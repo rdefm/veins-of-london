@@ -55,14 +55,14 @@
           "type": "speaker",
           "label": null,
           "speaker": "James",
-          "text": "\"Three orders, in full. I am told people have started saying you are not completely hopeless. I have not corrected them.\""
+          "text": "\"You've completed some orders. I have heard people saying you are not completely hopeless. I have not corrected them.\""
         },
         {
           "key": "c3",
           "type": "speaker",
           "label": null,
           "speaker": "James",
-          "text": "\"This is Owen. He cultivates. Carefully, every day, and without complaint, which already puts him ahead of most people I have trained.\""
+          "text": "\"This is Owen. He cultivates. Carefully, every day, and without complaint, which already puts him ahead of most people in this business.\""
         },
         {
           "key": "c4",
@@ -76,7 +76,7 @@
           "type": "speaker",
           "label": null,
           "speaker": "James",
-          "text": "\"He is young, and has much to learn. But he is hardworking and has potential. Over time he will be a very good pair of hands, which you need more.\""
+          "text": "\"He is young, and has much to learn.\""
         },
         {
           "key": "c6",
@@ -84,6 +84,12 @@
           "label": null,
           "speaker": null,
           "text": "Owen nods, as if he has heard this before and decided it was fair."
+        },
+        {
+          "key": "c14",
+          "type": "speaker",
+          "text": "\"But he is hardworking and has potential. Over time he will be a very safe pair of hands, which is a rarity you will come to cherish.\"",
+          "speaker": "James"
         },
         {
           "key": "c7",
@@ -125,14 +131,20 @@
           "type": "speaker",
           "label": null,
           "speaker": "Archie",
-          "text": "\"Right, so. From today orders pay into the pot, not your pocket. Owen's wages come out of it every week, and whatever's left splits three ways. Put him on your veins in BizBrief - there's a Staff tab now. And there's a weekly ore order on there. Take one, it pays his wages.\""
+          "text": "\"Right, so. From today orders pay into the business pot, not your pocket. Owen's wages come out of it every week, and whatever's left splits three ways.\""
+        },
+        {
+          "key": "c15",
+          "type": "speaker",
+          "text": "\"Put him on your veins in BizBrief - there's a Staff tab now. And there's a weekly ore order on there. Take one, Owen harvests the ore, and it pays his wages.\"",
+          "speaker": "Archie"
         },
         {
           "key": "c13",
           "type": "resolution",
           "label": null,
           "speaker": null,
-          "text": "Owen has already asked which veins are his. James turns the hourglass over and does not look up, which from James is a welcome."
+          "text": "James returns to his ledger and doesn't look up. Owen has already asked which veins are his. Despite his streaming eyes, you can see Archie's excited that the businesses is growing."
         }
       ]
     }

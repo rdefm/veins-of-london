@@ -873,6 +873,8 @@ static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 		"add_ore":
 			var ore: Dictionary = GameState.state["player"]["orichalchum"]
 			ore[effect["type"]] = ore.get(effect["type"], 0) + effect["qty"]
+		"sell_ore_at_market":
+			_sell_ore_at_market(effect, context)
 		"add_item":
 			# Event-granted items file under tier 1 unless the effect names a `tier`;
 			# `equip` then moves one unit into the first empty player loadout slot.
@@ -1203,6 +1205,24 @@ static func _buy_faction_vein(effect: Dictionary) -> void:
 	if site == null or site["factionVein"] == null:
 		return
 	VeinTrade.buy_from_faction(site["factionVein"]["id"], effect["faction"])
+
+
+# sell_ore_at_market's helper: removes qty (effect["qty"], else the event
+# context's effect["qtyContextKey"]) of effect["type"] ore from the player
+# (capped at what they hold) and pays Market.quote() x that qty -- a
+# counterparty-free sale: no faction wallet, cut, mugging or relation.
+static func _sell_ore_at_market(effect: Dictionary, context: Dictionary) -> void:
+	var ore_type: String = effect["type"]
+	var wanted: int = int(effect["qty"]) if effect.has("qty") else int(context.get(effect.get("qtyContextKey", ""), 0))
+	var ore: Dictionary = GameState.state["player"]["orichalchum"]
+	var qty: int = mini(wanted, int(ore.get(ore_type, 0)))
+	if qty <= 0:
+		return
+	var earned: int = Market.line_total("ore", Market.quote("ore", ore_type), qty)
+	ore[ore_type] -= qty
+	Market.record_supply("ore", ore_type, qty, "player")
+	GameState.state["player"]["cash"] += earned
+	Bank.record(earned, effect.get("label", "Ore sale"))
 
 
 # claim_faction_vein/buy_faction_vein's site: siteIdStatePath directly, or the

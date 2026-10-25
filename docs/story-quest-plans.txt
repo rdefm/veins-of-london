@@ -28,6 +28,7 @@ PROLOGUE "Rent Day" (linear, ~30 min)
 
 ## Prologue
 Aim: Introduce basic game mechanics, give player motivation / hook to keep playing.
+STATUS: implemented, refine then add art.
 
 1) cold_open.json
 Intro, fight. Leads immediately into:
@@ -58,6 +59,7 @@ Need to adjust so Archie doesn't show the player how to cultivate or harvest, ju
 
 ## Arc A - Collect
 Aim: Teach player about prospecting, cultivating, harvesting, seeding veins.
+STATUS: implemented, tweaks required (especially events 1-6).
 
 Events 1-6 (linear, ~5 min)
         │
@@ -125,37 +127,61 @@ End of Act 1, player gets a life vein.
 
 ## Arc B - Craft
 Aim: Teach the player more about crafting, Dials, and player gets their own Dial.
+STATUS: partially implemented, final event to be written up.
 
 1) james_experiment.json
 James teaches recipes, item ranks, experimenting. Agrees to send overflow work.
 
 2) james-dial-evaluation-proposal.md 
-NEED TO TURN INTO JSON
 James introduces Dials, and asks player to source calc to then fix it.
 
 3) james-dial-repair-proposal.md
-NEED TO TURN INTO JSON
 Player fixes James's movement. Hints at followup.
 Need t omake it tutorial style, where it goes to the same view the player will use when crafting a Movement and guides them through each step.
 
 4) james-dial-offer-proposal.md
-NEED TO TURN INTO JSON
 James gives info on how to craft player's own Dial.
 
 5) james-player-dial-creation 
 NEED TO MAKE
 Player has returned with calc. James guides them through making it (event text, not something the player actively crafts). Player has a Dial, James helps house it in an umbrella.
 James says they'll need a Movement for it to work. Gives them the recipe, and the housing for a Recharge Movement. Player crafts it there, guided tutorial.
-James explains how it works (house an item, when the Dial has a charge you can use it to case the effect without consuming the item). Explains how dials level up, and different Movements that exist.
+James explains how it works (house an item inside the Dial, when the Dial has at least 1 charge you can use it to case the effect without consuming the item). Explains how dials level up, and says different Movement types exist.
 James says he'll dig out his old research on different Movement types, and will tell the player when he has something new for them.
+At end of event, player has a Dial and a movement.
+
 
 
 ## Arc C - Sell
 Aim: Guide player in basics of selling and running a business
+STATUS: implemented, needs refining.
+
+1) biz-a1-proposition.json
+Archie proposes the business, James gives his conditions.
+Ready, just images need changing
+
+2) biz-a1-owen.json
+James introduces Owen as cultivator.
+
+3) biz-a1-production.json
+James starts craftingfor the business.
+
+4) biz_a1_closing.json
+Arc C over.
+
+5) (OPTIONAL) biz_owen_craft.json
+Owen is available for crafting.
+NEED TO ADJUST MECHANIS SO OWEN CAN LEARN ANY TYPE OF RECIPE FROM THE PLAYER, BUT IS CAPPED AT LEVEL 2. PROVIDES A REASON FOR OWEN TO BE PUT ON PRODUCTION, OTHERWISE JAMES CAN DO ALL TIME AND LIFE CRAFTING.
+
+
 
 
 ## Arc D - The Exchange
 Aim: teach the player about the marketplace and the Ticker
+
+
+
+
 
 
 ## Arc E - The Register

@@ -1,0 +1,135 @@
+# biz_owen_craft — imported from data/events/biz_owen_craft.json
+
+```json
+{
+  "id": "biz_owen_craft",
+  "on_complete": [
+    {
+      "op": "set_flag",
+      "flag": "bizOwenProductionRole",
+      "value": true
+    },
+    {
+      "op": "set_screen",
+      "screen": "phone"
+    }
+  ],
+  "start": "main",
+  "branches": {
+    "main": {
+      "title": "Start",
+      "cards": [
+        {
+          "key": "c1",
+          "type": "narration",
+          "label": "Bermondsey - James's unit",
+          "speaker": null,
+          "text": "Owen is at the second bench, the one James never lets anyone use. There is a half-made pearl in front of him and a very small pile of failed ones beside it."
+        },
+        {
+          "key": "c2",
+          "type": "speaker",
+          "label": null,
+          "speaker": "James",
+          "text": "\"He asked. I said no. He asked again a week later with better questions, so I said yes.\""
+        },
+        {
+          "key": "c3",
+          "type": "speaker",
+          "label": null,
+          "speaker": "Owen",
+          "text": "\"I've been watching him do it every day anyway. Seemed a waste not to try.\""
+        },
+        {
+          "key": "c4",
+          "type": "speaker",
+          "label": null,
+          "speaker": "James",
+          "text": "\"He will never be quick, and he will never be me. He will be steady, which on a slow order is worth almost as much as talent.\""
+        },
+        {
+          "key": "c5",
+          "type": "speaker",
+          "label": null,
+          "speaker": "James",
+          "text": "\"Put him in Production when you need hands at the bench. Put him back on the veins when you need them tended. He cannot do both, and nobody else is watching those veins while he is here.\""
+        },
+        {
+          "key": "c6",
+          "type": "speaker",
+          "label": null,
+          "speaker": "Owen",
+          "text": "\"Just tell me where you want me. I don't mind which.\""
+        },
+        {
+          "key": "c7",
+          "type": "resolution",
+          "label": null,
+          "speaker": null,
+          "text": "The pearl in front of him holds together. James looks at it for a long moment, then moves it to the good tray without a word."
+        }
+      ]
+    }
+  },
+  "_keyOrder": {
+    "top": [
+      "id",
+      "cards",
+      "on_complete"
+    ],
+    "cards": {
+      "c1": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c2": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c3": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c4": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c5": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c6": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c7": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ]
+    }
+  },
+  "_liveSource": "biz_owen_craft.json",
+  "_liveHash": "724b19d0"
+}
+```
