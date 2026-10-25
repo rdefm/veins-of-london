@@ -42,6 +42,16 @@ const NON_LETHAL_MUGGING_CONTEXTS: Array[String] = [CONTEXT_MUGGING, CONTEXT_EVE
 # scenes/screens/combat.gd's win-line/label logic.
 const HOME_CONTEXTS: Array[String] = [CONTEXT_HOME_RAID, CONTEXT_HOME_ALARM_DEFEND]
 
+# Situational mods an event fight op may carry (situational_active()); each
+# line is posted to the fight's transcript when the mod is active.
+# PROSE-REVIEW: situational mod lines.
+const SITUATIONAL_MODS := {
+	"fleeBoost": { "line": "You know a way out." },
+	"oneAtATime": { "line": "They come at you one at a time." },
+	"firstStrike": { "line": "You've got the first move." },
+	"sight": { "line": "You can see what they're about to do." },
+}
+
 # R§2 combat.locationKey for the two home contexts -- home isn't a district.
 const HOME_LOCATION_KEY := "home"
 
@@ -420,6 +430,7 @@ static func start_scripted_fight(script: Dictionary) -> void:
 	var live := {
 		"script": block,
 		"enemyFirst": bool(script.get("enemyFirst", false)),
+		"situational": situational_active(script.get("situational", [])),
 		"coach": script["coach"].duplicate(true) if script.has("coach") else null,
 	}
 	if bool(script.get("practice", false)):
@@ -427,6 +438,20 @@ static func start_scripted_fight(script: Dictionary) -> void:
 	var location_key: String = str(script.get("locationKey", ""))
 	_start_round_combat(CONTEXT_SCRIPTED, null, roster["enemies"], script.get("intro", []), "", roster["allies"],
 		location_key if not location_key.is_empty() else null, roster["config"], live)
+
+
+# The mods of `situational` ([{ if: <condition>, <mod>... }], R§3.7b
+# Situational mods) whose `if` holds right now, merged into one { mod: value }
+# (a later entry wins). Evaluated once, at fight start.
+static func situational_active(situational: Array) -> Dictionary:
+	var active := {}
+	for entry in situational:
+		if not Events.condition_met(entry.get("if", {})):
+			continue
+		for key in SITUATIONAL_MODS:
+			if entry.has(key):
+				active[key] = entry[key]
+	return active
 
 
 # An event's demo fight (R§3.7b Demo fights): the same fighter entries as a
@@ -514,12 +539,12 @@ static func _home_raider_enemy(level: int, hp_mult: float = 1.0) -> Dictionary:
 # Debug-only in M0 (see generate_raid_enemy). Also called by events.gd's
 # "start_raid_combat" op with context "event_raid", so exit_combat() below
 # resumes the still-active event on a win instead of routing home.
-static func start_raid(vein_id: String, value_tier: int, guards: int = 1, template_key: String = "", context: String = CONTEXT_RAID, ally_ids: Array = []) -> void:
+static func start_raid(vein_id: String, value_tier: int, guards: int = 1, template_key: String = "", context: String = CONTEXT_RAID, ally_ids: Array = [], situational: Array = []) -> void:
 	var enemies := generate_raid_enemy(vein_id, value_tier, guards, template_key)
 	var log_lines := ["%s steps out to meet you." % _guard_group_name(enemies)]
 	var allies := _gather_raid_allies(ally_ids, log_lines)
 	_add_hired_muscle(allies, log_lines)
-	_start_combat(context, vein_id, enemies, log_lines, "raidWon", allies)
+	_start_combat(context, vein_id, enemies, log_lines, "raidWon", allies, null, {}, {}, { "situational": situational_active(situational) })
 
 
 # A caught stockpile raid (events.gd "start_stockpile_raid_combat"): one
@@ -738,9 +763,11 @@ static func _start_round_combat(context: String, vein_id, enemies: Array, log_li
 	var location_key: String = location_key_for(context, vein_id) if location_key_override == null else str(location_key_override)
 	var player: Dictionary = GameState.state["player"]
 	var combat := CombatRounds.new_state()
+	var mods: Dictionary = live.get("situational", {})
+	var enemy_cap: int = 1 if bool(mods.get("oneAtATime", false)) else SQUAD_MAX
 	combat.merge({
 		"context": context, "veinId": vein_id,
-		"enemies": enemies.slice(0, SQUAD_MAX), "enemyQueue": enemies.slice(SQUAD_MAX),
+		"enemies": enemies.slice(0, enemy_cap), "enemyQueue": enemies.slice(enemy_cap),
 		"allies": allies.slice(0, SQUAD_MAX - 1), "allyQueue": allies.slice(SQUAD_MAX - 1),
 		"locationKey": location_key,
 		"onWin": on_win, "raiderKit": {}, "guardKit": {}, "slotsUsed": [],
@@ -755,6 +782,11 @@ static func _start_round_combat(context: String, vein_id, enemies: Array, log_li
 		"transcript": log_lines.duplicate(),
 	}, true)
 	combat.merge(live, true)
+	if mods.has("firstStrike"):
+		combat["enemyFirst"] = not bool(mods["firstStrike"])
+	for mod_key in SITUATIONAL_MODS:
+		if mods.has(mod_key):
+			combat["transcript"].append(str(SITUATIONAL_MODS[mod_key]["line"]))
 	var skill: int = int(player["combatSkill"])
 	var level_override := int(config.get("playerLevel", 0))
 	var level: int = clampi(level_override if level_override > 0 else skill, 1, CombatRounds.level_max())
@@ -770,6 +802,10 @@ static func _start_round_combat(context: String, vein_id, enemies: Array, log_li
 	fighter["moveOwner"] = ""
 	fighter["moveLevels"] = MoveLevels.levels_of("")
 	CombatRounds.carry_in(fighter, ActiveEffects.prophets_breath_active(), ActiveEffects.lady_level())
+	if mods.has("sight"):
+		fighter["sightUntil"] = maxi(int(fighter["sightUntil"]), int(mods["sight"]))
+	if mods.has("fleeBoost"):
+		fighter["fleeBoost"] = float(mods["fleeBoost"])
 	# A demo fight's player is a spectator, down from the start.
 	if combat["demo"] is Dictionary:
 		fighter["koed"] = true

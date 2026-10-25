@@ -122,6 +122,7 @@ static func lint_event(id: String, def: Dictionary, refs: Dictionary) -> Array:
 	var at_block: Variant = (def["at"] as Dictionary).get("block") if def.get("at") is Dictionary else null
 	refs["event"] = def
 	out.append_array(_lint_observations(id, def, refs))
+	out.append_array(_lint_situational(id, def, refs))
 	for i in cards.size():
 		var card: Dictionary = cards[i]
 		if card.has("observe") and card["observe"] != null and not def.get("observations", {}).has(card["observe"]):
@@ -242,6 +243,53 @@ static func _lint_condition(where: String, c: Dictionary, refs: Dictionary) -> A
 	if c.has("observed"):
 		return _lint_observed_ref(where, c["observed"], refs.get("event", {}))
 	return ["%s: unknown condition %s" % [where, JSON.stringify(c)]]
+
+
+# Every `situational` list on a start_scripted_fight / start_raid_combat op
+# (op-level, or inside a scripted fight's script): entries are {if: known
+# condition, plus at least one known mod}, mod values well typed (R§3.7b).
+static func _lint_situational(id: String, value: Variant, refs: Dictionary) -> Array:
+	var out: Array = []
+	if value is Array:
+		for v in value:
+			out.append_array(_lint_situational(id, v, refs))
+	elif value is Dictionary:
+		for key in value:
+			if key == "situational":
+				out.append_array(_lint_situational_list(id, value[key], refs))
+			else:
+				out.append_array(_lint_situational(id, value[key], refs))
+	return out
+
+
+static func _lint_situational_list(id: String, list: Variant, refs: Dictionary) -> Array:
+	var out: Array = []
+	var where := "%s: situational" % id
+	if not list is Array:
+		return ["%s is not a list" % where]
+	for k in (list as Array).size():
+		var entry: Variant = list[k]
+		var at := "%s entry %d" % [where, k]
+		if not entry is Dictionary or not entry.get("if") is Dictionary:
+			out.append("%s needs an if condition" % at)
+			continue
+		out.append_array(_lint_condition(at + " if", entry["if"], refs))
+		var mod_count := 0
+		for key in entry:
+			if key == "if":
+				continue
+			mod_count += 1
+			if not Combat.SITUATIONAL_MODS.has(key):
+				out.append("%s: unknown mod %s" % [at, key])
+			elif key == "fleeBoost" and not (typeof(entry[key]) in [TYPE_INT, TYPE_FLOAT] and float(entry[key]) > 0.0 and float(entry[key]) <= 1.0):
+				out.append("%s: fleeBoost must be a chance in (0, 1]" % at)
+			elif key == "sight" and not (typeof(entry[key]) in [TYPE_INT, TYPE_FLOAT] and int(entry[key]) >= 1):
+				out.append("%s: sight must be rounds >= 1" % at)
+			elif key in ["oneAtATime", "firstStrike"] and not entry[key] is bool:
+				out.append("%s: %s must be a bool" % [at, key])
+		if mod_count == 0:
+			out.append("%s has no mod" % at)
+	return out
 
 
 # An event's `observations` (R§3.9d): known ores, tiers best-first (base

@@ -91,6 +91,53 @@ func run() -> void:
 		assert_eq(combat["allyQueue"], [])
 	)
 
+	# ── situational mods ───────────────────────────────────────────────────
+
+	run_case("situational_mods_apply_only_when_their_if_holds", func():
+		GameState.reset()
+		GameState.state["flags"]["sitFlag"] = true
+		var list := [
+			{ "if": { "flag": "sitFlag" }, "sight": 2, "fleeBoost": 0.9 },
+			{ "if": { "flag": "noSuchSitFlag" }, "oneAtATime": true },
+		]
+		assert_eq(Combat.situational_active(list), { "sight": 2, "fleeBoost": 0.9 })
+		Combat.start_raid("v1", 1, 3, "veinGuard", Combat.CONTEXT_EVENT_RAID, [], list)
+		var combat: Dictionary = GameState.state["combat"]
+		assert_eq(combat["situational"], { "sight": 2, "fleeBoost": 0.9 })
+		assert_eq(combat["enemies"].size(), 3, "oneAtATime's if fails: full squad")
+		var player: Dictionary = combat["combatants"][0]
+		assert_eq(int(player["sightUntil"]), 2)
+		assert_almost_eq(float(player["fleeBoost"]), 0.9, 0.0001)
+		assert_true(CombatRounds.has_sight(combat), "round 1 has sight")
+		assert_true(combat["transcript"].has(Combat.SITUATIONAL_MODS["sight"]["line"]), "active mod shown at fight start")
+	)
+
+	run_case("situational_one_at_a_time_queues_all_but_one_enemy", func():
+		GameState.reset()
+		Combat.start_raid("v1", 1, 3, "veinGuard", Combat.CONTEXT_EVENT_RAID, [], [{ "if": { "cash": { "atLeast": 0 } }, "oneAtATime": true }])
+		var combat: Dictionary = GameState.state["combat"]
+		assert_eq(combat["enemies"].size(), 1)
+		assert_eq(combat["enemyQueue"].size(), 2)
+	)
+
+	run_case("situational_first_strike_overrides_enemy_first", func():
+		GameState.reset()
+		GameState.state["flags"]["sitFlag"] = true
+		Combat.start_scripted_fight({
+			"enemies": [{ "name": "thug", "hp": 5, "hpMax": 5, "attackMin": 1, "attackMax": 2, "level": 1, "plans": [["strike"]] }],
+			"resumeCard": 0, "enemyFirst": true,
+			"situational": [{ "if": { "flag": "sitFlag" }, "firstStrike": true }],
+		})
+		assert_true(not GameState.state["combat"]["enemyFirst"])
+		GameState.reset()
+		Combat.start_scripted_fight({
+			"enemies": [{ "name": "thug", "hp": 5, "hpMax": 5, "attackMin": 1, "attackMax": 2, "level": 1, "plans": [["strike"]] }],
+			"resumeCard": 0, "enemyFirst": true,
+			"situational": [{ "if": { "flag": "sitFlag" }, "firstStrike": true }],
+		})
+		assert_true(GameState.state["combat"]["enemyFirst"], "if fails: enemyFirst stands")
+	)
+
 	run_case("generate_raid_enemy_forced_template_key_applies_to_every_slot", func():
 		GameState.reset()
 		for seed in range(20):

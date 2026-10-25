@@ -172,6 +172,8 @@ static func new_state() -> Dictionary:
 		# Set once the player's KO stands and the fight plays on without them
 		# (continue_after_ko()).
 		"playerKoed": false,
+		# The event fight's active situational mods (Combat.situational_active()).
+		"situational": {},
 		# A scripted fight's data block (SCRIPT_PRE, then SCRIPT_POST after its
 		# Rewind; see script_locked(); SCRIPT_OPEN throughout with no lock),
 		# null for an ordinary fight.

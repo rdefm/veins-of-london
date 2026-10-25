@@ -915,7 +915,10 @@ static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 		"start_street_mugging":
 			CombatPrep.request(CombatPrep.KIND_STREET_MUGGING)
 		"start_scripted_fight":
-			Combat.start_scripted_fight(effect["script"])
+			var script: Dictionary = effect["script"].duplicate()
+			if effect.has("situational"):
+				script["situational"] = effect["situational"]
+			Combat.start_scripted_fight(script)
 		"start_demo_fight":
 			Combat.start_demo_fight(effect["script"])
 		"start_faction_ambush_combat":
@@ -1306,7 +1309,7 @@ static func _start_raid_combat(effect: Dictionary) -> void:
 	var vein: Dictionary = site["factionVein"]
 	var guards_spec: Variant = effect.get("guards", 1)
 	var guards: int = Cultivating.vein_guard_count(vein) if guards_spec is String and guards_spec == RAID_GUARDS_FROM_VEIN else int(guards_spec)
-	Combat.start_raid(vein["id"], Cultivating.combined_magnitude(vein), guards, effect.get("template", ""), Combat.CONTEXT_EVENT_RAID, _event_ally_ids(effect))
+	Combat.start_raid(vein["id"], Cultivating.combined_magnitude(vein), guards, effect.get("template", ""), Combat.CONTEXT_EVENT_RAID, _event_ally_ids(effect), effect.get("situational", []))
 
 
 # Seeds `faction_id` a faction vein on each site recorded in `objective_id`'s

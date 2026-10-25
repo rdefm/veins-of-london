@@ -119,6 +119,21 @@ func run() -> void:
 		assert_true(on_disk == EventContentLint.export_text(), "%s is stale; run: godot --headless -s scripts/export_lint_refs.gd" % EventContentLint.REFS_PATH)
 	)
 
+	run_case("lint_situational_entries", func():
+		GameState.reset()
+		var refs := EventContentLint.known_refs()
+		var def := { "cards": [{ "effects": [{ "op": "start_raid_combat", "situational": [
+			{ "if": { "flag": "noSuchFlag" }, "sight": 1 },
+			{ "if": { "cash": { "atLeast": 1 } }, "bogus": true },
+			{ "if": { "cash": { "atLeast": 1 } }, "fleeBoost": 2 },
+			{ "if": { "cash": { "atLeast": 1 } } },
+			{ "sight": 1 },
+			{ "if": { "cash": { "atLeast": 1 } }, "oneAtATime": true, "firstStrike": false, "sight": 3, "fleeBoost": 0.5 },
+		] }] }] }
+		var out := EventContentLint.lint_event("t", def, refs)
+		assert_eq(out.size(), 5, str(out))
+	)
+
 	run_case("event_content_lint", func():
 		GameState.reset()
 		var refs := EventContentLint.known_refs()
