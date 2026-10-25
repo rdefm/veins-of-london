@@ -46,10 +46,10 @@ const HOME_CONTEXTS: Array[String] = [CONTEXT_HOME_RAID, CONTEXT_HOME_ALARM_DEFE
 # line is posted to the fight's transcript when the mod is active.
 # PROSE-REVIEW: situational mod lines.
 const SITUATIONAL_MODS := {
-	"fleeBoost": { "line": "You know a way out." },
-	"oneAtATime": { "line": "They come at you one at a time." },
-	"firstStrike": { "line": "You've got the first move." },
-	"sight": { "line": "You can see what they're about to do." },
+	"fleeBoost": { "line": "You know where the back window is, if this goes wrong." },
+	"oneAtATime": { "line": "The tired ones hang back. They come at you one at a time." },
+	"firstStrike": { "line": "The door was already open. You get the first move." },
+	"sight": { "line": "You know their rounds. You see each swing coming." },
 }
 
 # R§2 combat.locationKey for the two home contexts -- home isn't a district.

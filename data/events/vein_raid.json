@@ -97,7 +97,7 @@
             "mods": []
           },
           "success": {
-            "result_text": "You walk in like you belong. Tonight, nobody argues.",
+            "result_text": "You walk in like you belong. Tonight, nobody asks for a pass.",
             "effects": [
               {
                 "op": "set_flag",
@@ -108,7 +108,7 @@
             "goto": 4
           },
           "fail": {
-            "result_text": "You walk in. Someone argues.",
+            "result_text": "You walk in. Someone asks for a pass.",
             "effects": [
               {
                 "op": "set_flag",
@@ -226,7 +226,7 @@
               ]
             }
           ],
-          "result_text": "No point creeping. You go in hard.",
+          "result_text": "No point creeping. You hit the gate with your shoulder and go in hard.",
           "goto": 4
         },
         {
@@ -269,7 +269,7 @@
             ]
           },
           "success": {
-            "result_text": "The latch gives. You're in without a sound.",
+            "result_text": "The latch gives, with a little flake of paint. You're in without a sound.",
             "effects": [
               {
                 "op": "set_flag",
@@ -280,7 +280,7 @@
             "goto": 4
           },
           "fail": {
-            "result_text": "The window sticks, then shrieks.",
+            "result_text": "The window sticks. Then it shrieks.",
             "effects": [
               {
                 "op": "set_flag",
@@ -366,7 +366,7 @@
             ]
           },
           "success": {
-            "result_text": "He nods off. You lay him down gently and step over.",
+            "result_text": "He sits on a crate to rest his eyes. You step past before he finishes the thought.",
             "effects": [
               {
                 "op": "set_flag",
@@ -428,7 +428,7 @@
             "goto": 4
           },
           "fail": {
-            "result_text": "He wakes at the wrong moment.",
+            "result_text": "He checks the flask once more and looks up.",
             "effects": [
               {
                 "op": "set_flag",
@@ -514,7 +514,7 @@
             ]
           },
           "success": {
-            "result_text": "A word in the right ear. He wanders off to check something.",
+            "result_text": "You mention his radio is picking something up. He goes to check.",
             "effects": [
               {
                 "op": "set_flag",
@@ -576,7 +576,7 @@
             "goto": 4
           },
           "fail": {
-            "result_text": "He doesn't scare.",
+            "result_text": "He doesn't scare. He does look at you.",
             "effects": [
               {
                 "op": "set_flag",
@@ -678,7 +678,7 @@
             ]
           },
           "success": {
-            "result_text": "You slide through the gap with seconds to spare.",
+            "result_text": "Forty seconds, as advertised. You use thirty-five.",
             "effects": [
               {
                 "op": "set_flag",
@@ -689,7 +689,7 @@
             "goto": 4
           },
           "fail": {
-            "result_text": "The gap closes early.",
+            "result_text": "The round comes early. So much for the timetable.",
             "effects": [
               {
                 "op": "set_flag",
@@ -775,7 +775,7 @@
             ]
           },
           "success": {
-            "result_text": "He turns. You go. It's that easy.",
+            "result_text": "He turns to check his phone. You go.",
             "effects": [
               {
                 "op": "set_flag",
@@ -786,7 +786,7 @@
             "goto": 4
           },
           "fail": {
-            "result_text": "He doesn't turn.",
+            "result_text": "He doesn't turn. He's looking right at you.",
             "effects": [
               {
                 "op": "set_flag",
@@ -856,7 +856,7 @@
             "mods": []
           },
           "success": {
-            "result_text": "You walk in like you belong. Tonight, nobody argues.",
+            "result_text": "You walk in like you belong. Tonight, nobody asks for a pass.",
             "effects": [
               {
                 "op": "set_flag",
@@ -867,7 +867,7 @@
             "goto": 4
           },
           "fail": {
-            "result_text": "You walk in. Someone argues.",
+            "result_text": "You walk in. Someone asks for a pass.",
             "effects": [
               {
                 "op": "set_flag",
@@ -985,7 +985,7 @@
               ]
             }
           ],
-          "result_text": "No point creeping. You go in hard.",
+          "result_text": "No point creeping. You hit the gate with your shoulder and go in hard.",
           "goto": 4
         }
       ]
