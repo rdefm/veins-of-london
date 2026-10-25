@@ -15,7 +15,7 @@ func _install_choice_event() -> Dictionary:
 		"cards": [
 			{ "type": "narration", "label": null, "speaker": null, "text": "Setup" },
 			{
-				"type": "choice", "label": null, "speaker": null, "text": "Pick one",
+				"type": "choice", "key": "pick", "label": null, "speaker": null, "text": "Pick one",
 				"choices": [
 					{ "label": "Give £20", "effects": [{ "op": "add", "path": "player.cash", "value": -20 }], "result_text": "You handed over the cash." },
 					{ "label": "Walk away", "effects": [], "result_text": "You walked away." },
@@ -45,7 +45,7 @@ func _install_timed_event(block: String, advance: bool) -> Dictionary:
 # clamp [0, 1]) and whose second is a plain option.
 static func _check_choice_card(p: float) -> Dictionary:
 	return {
-		"type": "choice", "label": null, "speaker": null, "text": "Push your luck?",
+		"type": "choice", "key": "push", "label": null, "speaker": null, "text": "Push your luck?",
 		"choices": [
 			{
 				"id": "push", "label": "Push for more",
@@ -117,7 +117,7 @@ func _install_gated_event() -> Dictionary:
 		"cards": [
 			{ "type": "narration", "label": null, "speaker": null, "text": "Setup" },
 			{
-				"type": "choice", "label": null, "speaker": null, "text": "Pick one",
+				"type": "choice", "key": "pick", "label": null, "speaker": null, "text": "Pick one",
 				"choices": [
 					{ "id": "pay", "label": "Pay", "requires": { "cash": { "atLeast": 50 }, "display": "disable", "reason": "Needs £50" }, "effects": [{ "op": "add", "path": "player.cash", "value": -50 }], "result_text": "Paid.", "goto": 3 },
 					{ "id": "secret", "label": "Secret", "requires": { "flag": "secretFlag" }, "effects": [], "result_text": "Secret." },
@@ -577,7 +577,7 @@ func run() -> void:
 
 	# ── choice memory (opening-choices spec "Choice memory") ────────────
 
-	run_case("choose_records_the_option_id_under_event_id_and_card_index", func():
+	run_case("choose_records_the_option_id_under_event_id_and_card_key", func():
 		GameState.reset()
 		var original_events := _install_choice_event()
 		GameData.EVENTS["test_choice_event"] = GameData.EVENTS["test_choice_event"].duplicate(true)
@@ -585,10 +585,10 @@ func run() -> void:
 
 		Events.start_event("test_choice_event")
 		Events.advance()
-		assert_eq(Events.choice_id("test_choice_event", 1), null, "nothing recorded before the pick")
+		assert_eq(Events.choice_id("test_choice_event", "pick"), null, "nothing recorded before the pick")
 		Events.choose(0)
-		assert_eq(Events.choice_id("test_choice_event", 1), "pay")
-		assert_eq(GameState.state["flags"]["choices"]["test_choice_event"]["1"], { "id": "pay" })
+		assert_eq(Events.choice_id("test_choice_event", "pick"), "pay")
+		assert_eq(GameState.state["flags"]["choices"]["test_choice_event"]["pick"], { "id": "pay" })
 
 		GameData.EVENTS = original_events
 	)
@@ -600,11 +600,28 @@ func run() -> void:
 		Events.start_event("test_choice_event")
 		Events.advance()
 		Events.choose(1)
-		assert_eq(Events.choice_id("test_choice_event", 1), "1", "falls back to the option's index")
-		assert_eq(Events.choice_record("test_choice_event", 1), { "id": "1" })
-		assert_eq(Events.choice_record("test_choice_event", 0), {}, "unpicked card reads empty")
-		assert_eq(Events.choice_record("no_such_event", 1), {}, "unknown event reads empty")
+		assert_eq(Events.choice_id("test_choice_event", "pick"), "1", "falls back to the option's index")
+		assert_eq(Events.choice_record("test_choice_event", "pick"), { "id": "1" })
+		assert_eq(Events.choice_record("test_choice_event", "nothere"), {}, "unpicked card reads empty")
+		assert_eq(Events.choice_record("no_such_event", "pick"), {}, "unknown event reads empty")
 
+		GameData.EVENTS = original_events
+	)
+
+	run_case("buyer_refs_survive_a_card_inserted_before_cold_open_choice", func():
+		GameState.reset()
+		var original_events: Dictionary = GameData.EVENTS
+		GameData.EVENTS = GameData.EVENTS.duplicate()
+		var cold: Dictionary = GameData.EVENTS["cold_open"].duplicate(true)
+		cold["cards"].insert(1, { "key": "inserted", "type": "narration", "label": null, "speaker": null, "text": "New." })
+		GameData.EVENTS["cold_open"] = cold
+		GameState.state["flags"]["choices"]["cold_open"] = { "c4": { "id": "askBuyers" } }
+		var met := 0
+		for option in GameData.EVENTS["buyer"]["cards"][_card_index("buyer", "c6")]["choices"]:
+			if Events.condition_met(option["requires"]):
+				met += 1
+				assert_eq(option["id"], "splitAsked", "askBuyers pick opens its own option")
+		assert_eq(met, 1, "exactly one option gated open after the insert")
 		GameData.EVENTS = original_events
 	)
 
@@ -616,9 +633,9 @@ func run() -> void:
 		Events.start_event("test_choice_event")
 		Events.advance()
 		Events.choose(0)
-		assert_eq(Events.choice_id("test_choice_event", 1), "0")
+		assert_eq(Events.choice_id("test_choice_event", "pick"), "0")
 		assert_true(Events.rewind()["ok"])
-		assert_eq(Events.choice_id("test_choice_event", 1), null, "rewind past the pick drops its record")
+		assert_eq(Events.choice_id("test_choice_event", "pick"), null, "rewind past the pick drops its record")
 
 		GameData.EVENTS = original_events
 	)
@@ -680,15 +697,15 @@ func run() -> void:
 		assert_almost_eq(Events.odds_for(check)["probability"], 0.55, 0.0001, "set")
 	)
 
-	run_case("choice_mod_reads_choice_memory_by_id_or_index", func():
+	run_case("choice_mod_reads_choice_memory_by_card_key", func():
 		GameState.reset()
-		var by_id := { "base": 0.4, "mods": [{ "choice": { "event": "intro", "card": 6, "option": "brave" }, "add": 0.1, "label": "C" }], "min": 0.0, "max": 1.0 }
-		var by_index := { "base": 0.4, "mods": [{ "choice": { "event": "intro", "card": 6, "option": 1 }, "add": 0.1, "label": "C" }], "min": 0.0, "max": 1.0 }
+		var by_id := { "base": 0.4, "mods": [{ "choice": { "event": "intro", "card": "brave_card", "option": "brave" }, "add": 0.1, "label": "C" }], "min": 0.0, "max": 1.0 }
+		var by_index := { "base": 0.4, "mods": [{ "choice": { "event": "intro", "card": "brave_card", "option": 1 }, "add": 0.1, "label": "C" }], "min": 0.0, "max": 1.0 }
 		assert_almost_eq(Events.odds_for(by_id)["probability"], 0.4, 0.0001, "no memory")
-		GameState.state["flags"]["choices"]["intro"] = { "6": { "id": "brave" } }
+		GameState.state["flags"]["choices"]["intro"] = { "brave_card": { "id": "brave" } }
 		assert_almost_eq(Events.odds_for(by_id)["probability"], 0.5, 0.0001, "matching id")
 		assert_almost_eq(Events.odds_for(by_index)["probability"], 0.4, 0.0001, "other option")
-		GameState.state["flags"]["choices"]["intro"] = { "6": { "id": "1" } }
+		GameState.state["flags"]["choices"]["intro"] = { "brave_card": { "id": "1" } }
 		assert_almost_eq(Events.odds_for(by_index)["probability"], 0.5, 0.0001, "matching index")
 	)
 
@@ -728,7 +745,7 @@ func run() -> void:
 		Events.start_event("test_check_event")
 		Events.advance()
 		Events.choose(0)
-		assert_eq(Events.choice_record("test_check_event", 1), { "id": "push", "outcome": "success" })
+		assert_eq(Events.choice_record("test_check_event", "push"), { "id": "push", "outcome": "success" })
 		var resolution: Dictionary = Events.revealed_cards().back()
 		assert_eq(resolution["text"], "It worked.")
 		assert_eq(resolution["outcome"], "success")
@@ -744,7 +761,7 @@ func run() -> void:
 		Events.start_event("test_check_event")
 		Events.advance()
 		Events.choose(0)
-		assert_eq(Events.choice_record("test_check_event", 1), { "id": "push", "outcome": "fail" })
+		assert_eq(Events.choice_record("test_check_event", "push"), { "id": "push", "outcome": "fail" })
 		assert_eq(Events.revealed_cards().back()["text"], "It didn't.")
 		assert_eq(Events.revealed_cards().back()["outcome"], "fail")
 		assert_eq(GameState.state["player"]["cash"], cash_before, "success effects not applied")
@@ -799,7 +816,7 @@ func run() -> void:
 			Events.choose(0)
 			Events.rewind()
 			Events.choose(0)
-			if Events.choice_record("test_check_event", 1)["outcome"] == "success":
+			if Events.choice_record("test_check_event", "push")["outcome"] == "success":
 				successes += 1
 			GameData.EVENTS = original_events
 		assert_true(successes > 130 and successes < 170, "best-of-two near 75%% (got %d/200)" % successes)
@@ -876,7 +893,7 @@ func run() -> void:
 			Events.start_event("test_check_event")
 			Events.advance()
 			Events.choose(0)
-			var first: Variant = Events.choice_record("test_check_event", 1)["outcome"]
+			var first: Variant = Events.choice_record("test_check_event", "push")["outcome"]
 			assert_true(Events.rewind()["ok"])
 			Events.choose(0)
 			assert_eq(Rng.randf(), expected_first, "global stream untouched (seed %d)" % roll_seed)
@@ -997,7 +1014,7 @@ func run() -> void:
 		assert_eq(Events.check_odds(0)["attempts"], 2)
 		Events.choose(0)
 		assert_eq(Crafting.inventory_qty("timePearl"), 2, "one pearl per success")
-		assert_eq(Events.choice_record("test_check_event", 1), { "id": "push", "outcome": "success", "successes": 2 })
+		assert_eq(Events.choice_record("test_check_event", "push"), { "id": "push", "outcome": "success", "successes": 2 })
 		var resolution: Dictionary = Events.revealed_cards().back()
 		assert_eq(resolution["text"], "Two took.", "text keyed by success count")
 		assert_eq([resolution["successes"], resolution["attempts"]], [2, 2])
@@ -1012,7 +1029,7 @@ func run() -> void:
 		Events.advance()
 		Events.choose(0)
 		assert_eq(Crafting.inventory_qty("timePearl"), 0)
-		assert_eq(Events.choice_record("test_check_event", 1), { "id": "push", "outcome": "fail", "successes": 0 })
+		assert_eq(Events.choice_record("test_check_event", "push"), { "id": "push", "outcome": "fail", "successes": 0 })
 		assert_eq(Events.revealed_cards().back()["text"], "None took.")
 		assert_true(GameState.state["flags"].get("noneTook", false))
 		assert_true(not GameState.state["flags"].get("checkFailed", false), "fail fallback not used")
@@ -1047,7 +1064,7 @@ func run() -> void:
 			assert_true(rolls[1] != rolls[0] and rolls[2] != rolls[1], "attempts roll independently")
 			Events.choose(0)
 			var expected: int = rolls.filter(func(r: float) -> bool: return r < 0.5).size()
-			assert_eq(Events.choice_record("test_check_event", 1)["successes"], expected, "one success per roll under p")
+			assert_eq(Events.choice_record("test_check_event", "push")["successes"], expected, "one success per roll under p")
 			counts.append(expected)
 			GameData.EVENTS = original_events
 		assert_eq(counts[0], counts[1], "same seed, same rolls")
@@ -1068,7 +1085,7 @@ func run() -> void:
 			assert_eq(Crafting.inventory_qty("timePearl"), 0, "rewind returns the pearls")
 			assert_true(Events.check_roll(0, 1) != first[1], "attempt re-rolls fresh")
 			Events.choose(0)
-			successes += int(Events.choice_record("test_check_event", 1)["successes"])
+			successes += int(Events.choice_record("test_check_event", "push")["successes"])
 			GameData.EVENTS = original_events
 		assert_true(successes > 260 and successes < 340, "best-of-two per attempt near 75%% (got %d/400)" % successes)
 	)
@@ -1093,7 +1110,7 @@ func run() -> void:
 			if Events.check_roll(0, a) < 0.55:
 				expected += 1
 		Events.choose(0)
-		assert_eq(Events.choice_record("test_check_event", 1)["successes"], expected, "every attempt rolls against the lifted odds")
+		assert_eq(Events.choice_record("test_check_event", "push")["successes"], expected, "every attempt rolls against the lifted odds")
 		GameData.EVENTS = original_events
 	)
 
@@ -1115,7 +1132,7 @@ func run() -> void:
 		GameState.reset()
 		var conditions: Array = [
 			{ "flag": "condFlag" },
-			{ "choice": { "event": "condEvent", "card": 2, "option": "brave" } },
+			{ "choice": { "event": "condEvent", "card": "bravery", "option": "brave" } },
 			{ "path": "player.craftingSkill", "atLeast": 3 },
 			{ "relation": "archie", "atLeast": 15 },
 			{ "cash": { "atLeast": 50 } },
@@ -1130,7 +1147,7 @@ func run() -> void:
 			mod["add"] = 0.1
 			assert_almost_eq(Events.odds_for({ "base": 0.4, "mods": [mod], "min": 0.0, "max": 1.0 })["probability"], 0.4, 0.0001, "mod off: %s" % str(cond))
 		GameState.state["flags"]["condFlag"] = true
-		GameState.state["flags"]["choices"]["condEvent"] = { "2": { "id": "brave" } }
+		GameState.state["flags"]["choices"]["condEvent"] = { "bravery": { "id": "brave" } }
 		GameState.state["player"]["craftingSkill"] = 3
 		GameState.state["contacts"]["archie"]["relation"] = 15
 		GameState.state["player"]["cash"] = 50
@@ -1159,7 +1176,7 @@ func run() -> void:
 		Events.choose(1)
 		assert_true(Events.is_awaiting_choice(), "neither gated option commits")
 		assert_eq(GameState.state["player"]["cash"], 20, "no effects ran")
-		assert_eq(Events.choice_record("test_gated_event", 1), {}, "nothing remembered")
+		assert_eq(Events.choice_record("test_gated_event", "pick"), {}, "nothing remembered")
 		assert_eq(GameState.state["event"]["snapshots"].size(), snapshots_before, "no snapshot taken")
 		GameState.state["player"]["cash"] = 60
 		GameState.state["flags"]["secretFlag"] = true
@@ -2125,3 +2142,11 @@ func run() -> void:
 		assert_eq(GameState.state["world"]["timeBlock"], 2, "intro runs in Evening")
 		assert_eq(Calendar.format_day(1).substr(0, 3), "TUE")
 	)
+
+
+func _card_index(event_id: String, card_key: String) -> int:
+	var cards: Array = GameData.EVENTS[event_id]["cards"]
+	for i in range(cards.size()):
+		if cards[i].get("key") == card_key:
+			return i
+	return -1

@@ -284,7 +284,7 @@ function conditionKind(c) {
 function conditionTemplate(kind, isMod) {
   switch (kind) {
     case "flag": return { flag: "" };
-    case "choice": return { choice: { event: "", card: 0, option: "" } };
+    case "choice": return { choice: { event: "", card: "", option: "" } };
     case "path": return isMod ? { path: "", perPoint: 0 } : { path: "", atLeast: 0 };
     case "relation": return { relation: "", atLeast: 0 };
     case "cash": return { cash: { atLeast: 0 } };
@@ -583,7 +583,7 @@ function conditionCells(c, isMod, changed) {
   if (kind === "choice" && c.choice && typeof c.choice === "object") {
     const ch = c.choice;
     cells.push(mechCell("Event id", mechText(ch, "event", changed, "")));
-    cells.push(mechCell("Card idx", mechNumber(ch, "card", changed, false)));
+    cells.push(mechCell("Card key", mechText(ch, "card", changed, "", false, "card key, e.g. c4")));
     const opt = mechText(ch, "option", changed, "", false, "option id or index");
     // A bare number is an option index; anything else is an option id.
     opt.addEventListener("input", () => {

@@ -120,7 +120,7 @@ static func apply(model: String = "") -> void:
 	flags["homeRaidEventPending"] = true
 	flags["rentGoal"] = false  # the Prologue's rent goal row is off after the ending
 	# buyer's last cards gate every option on cold_open's card-3 pick.
-	flags["choices"]["cold_open"] = { "3": { "id": "stand" } }
+	flags["choices"]["cold_open"] = { "c4": { "id": "stand" } }
 	_queue_collective_intro()
 
 	var home: Dictionary = state["home"]

@@ -2269,6 +2269,47 @@ func _validate_events(events: Dictionary, districts: Dictionary, errors: Array[S
 			_validate_event_at(entry["at"], "events.%s.at" % key, errors)
 		if entry.has("repeatable") and typeof(entry["repeatable"]) != TYPE_BOOL:
 			errors.append("events.%s: repeatable must be a bool" % key)
+	_validate_choice_refs(events, errors)
+
+
+# A `choice` condition (option `requires` or check mod) names its card by key.
+func _validate_choice_refs(events: Dictionary, errors: Array[String]) -> void:
+	for key in events.keys():
+		var entry = events[key]
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		for card in entry.get("cards", []):
+			if typeof(card) != TYPE_DICTIONARY or card.get("type") != "choice":
+				continue
+			for option in card.get("choices", []):
+				if typeof(option) != TYPE_DICTIONARY:
+					continue
+				var conditions: Array = []
+				var requires: Variant = option.get("requires")
+				if typeof(requires) == TYPE_DICTIONARY:
+					conditions.append(requires)
+				elif typeof(requires) == TYPE_ARRAY:
+					conditions.append_array(requires)
+				var check: Variant = option.get("check")
+				if typeof(check) == TYPE_DICTIONARY:
+					conditions.append_array(check.get("mods", []))
+				for condition in conditions:
+					if typeof(condition) == TYPE_DICTIONARY and condition.has("choice") and typeof(condition["choice"]) == TYPE_DICTIONARY:
+						_validate_choice_ref(condition["choice"], events, "events.%s.cards[%s]" % [key, card.get("key", "?")], errors)
+
+
+func _validate_choice_ref(ref: Dictionary, events: Dictionary, context: String, errors: Array[String]) -> void:
+	if typeof(ref.get("card")) != TYPE_STRING:
+		errors.append("%s: choice condition 'card' must be a card key string, got %s" % [context, str(ref.get("card"))])
+		return
+	var target: Variant = events.get(ref.get("event", ""))
+	if typeof(target) != TYPE_DICTIONARY:
+		errors.append("%s: choice condition names unknown event '%s'" % [context, str(ref.get("event"))])
+		return
+	for card in target.get("cards", []):
+		if typeof(card) == TYPE_DICTIONARY and card.get("key") == ref["card"] and card.get("type") == "choice":
+			return
+	errors.append("%s: choice condition card key '%s' is not a choice card of '%s'" % [context, ref["card"], ref["event"]])
 
 
 # R§3.9b "Event timing": at = {block, advance}.

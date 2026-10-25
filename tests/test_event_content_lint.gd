@@ -75,13 +75,14 @@ func run() -> void:
 		var def := { "id": "lint_probe", "at": { "block": "morning", "advance": true }, "cards": [
 			{ "type": "text", "label": "Tonight — {weekday} {bogus}", "text": "" },
 			{ "type": "text", "label": "Two days later", "text": "" },
-			{ "type": "choice", "label": null, "text": "", "choices": [
+			{ "type": "choice", "key": "pick", "label": null, "text": "", "choices": [
 				{ "label": "a", "result_text": "x", "effects": [], "goto": 0 },
 				{ "label": "b", "result_text": "x", "check": { "base": 0.5, "mods": [] }, "success": { "result_text": "s", "effects": [] }, "fail": { "result_text": "f", "effects": [] } },
 				{ "label": "c", "requires": { "flag": "noSuchFlag" }, "check": { "base": 0.5, "mods": [
 					{ "item": "noSuchItem", "add": 0.1, "label": "" },
 					{ "relation": "nobody", "atLeast": 1, "add": 0.1, "label": "" },
 					{ "path": "player.nope", "perPoint": 0.1, "label": "" },
+					{ "choice": { "event": "lint_probe", "card": "pick", "option": "zzz" }, "add": 0.1, "label": "" },
 					{ "choice": { "event": "lint_probe", "card": 2, "option": "zzz" }, "add": 0.1, "label": "" },
 				] }, "success": { "result_text": "s", "effects": [], "goto": 9 }, "fail": { "result_text": "f", "effects": [] } },
 			] },
@@ -98,7 +99,7 @@ func run() -> void:
 		GameData.EVENTS["lint_probe"] = def
 		var found := _lint_event("lint_probe", def, _known_refs())
 		GameData.EVENTS.erase("lint_probe")
-		for fragment in ["unknown token {bogus}", "'tonight' contradicts at.block morning", "hard-codes a day", "goto 0", "result_text and a check", "unknown flag noSuchFlag", "unknown item noSuchItem", "unknown contact nobody", "unknown path player.nope", "unknown option zzz", "goto 9", "card 3 end must be true", "card 3 has both end and goto", "entry 0 has no if but is not last", "entry 1 if: unknown flag noRouteFlag", "entry 1 goto 3", "entry 2 is not an object", "entry 3 if is not a condition", "card 5 goto entry 0 goto <null>", "card 7 has 5 options (max 4)"]:
+		for fragment in ["unknown token {bogus}", "'tonight' contradicts at.block morning", "hard-codes a day", "goto 0", "result_text and a check", "unknown flag noSuchFlag", "unknown item noSuchItem", "unknown contact nobody", "unknown path player.nope", "unknown option zzz", "card must be a card key string", "goto 9", "card 3 end must be true", "card 3 has both end and goto", "entry 0 has no if but is not last", "entry 1 if: unknown flag noRouteFlag", "entry 1 goto 3", "entry 2 is not an object", "entry 3 if is not a condition", "card 5 goto entry 0 goto <null>", "card 7 has 5 options (max 4)"]:
 			assert_true(found.any(func(v): return String(v).contains(fragment)), "expected a violation containing '%s' in %s" % [fragment, found])
 	)
 
@@ -348,11 +349,15 @@ func _lint_choice_ref(where: String, ref: Dictionary) -> Array:
 	var event: Dictionary = GameData.EVENTS.get(ref.get("event", ""), {})
 	if event.is_empty():
 		return ["%s: unknown event %s" % [where, ref.get("event")]]
-	var cards: Array = event["cards"]
-	var card_index := int(ref.get("card", -1))
-	if card_index < 0 or card_index >= cards.size() or not cards[card_index].has("choices"):
-		return ["%s: %s card %s is not a choice card" % [where, ref["event"], str(ref.get("card"))]]
-	var options: Array = cards[card_index]["choices"]
+	if typeof(ref.get("card")) != TYPE_STRING:
+		return ["%s: card must be a card key string, got %s" % [where, str(ref.get("card"))]]
+	var target: Dictionary = {}
+	for card in event["cards"]:
+		if card.get("key") == ref["card"] and card.has("choices"):
+			target = card
+	if target.is_empty():
+		return ["%s: %s card %s is not a choice card" % [where, ref["event"], str(ref["card"])]]
+	var options: Array = target["choices"]
 	var option: Variant = ref.get("option")
 	if option is String:
 		for o in options:
@@ -360,4 +365,4 @@ func _lint_choice_ref(where: String, ref: Dictionary) -> Array:
 				return []
 	elif int(option) >= 0 and int(option) < options.size():
 		return []
-	return ["%s: unknown option %s at %s card %d" % [where, str(option), ref["event"], card_index]]
+	return ["%s: unknown option %s at %s card %s" % [where, str(option), ref["event"], str(ref["card"])]]

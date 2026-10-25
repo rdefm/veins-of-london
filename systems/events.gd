@@ -238,6 +238,7 @@ static func _continue() -> void:
 		# needing the event's context (e.g. reveal_site) is handed it explicitly instead.
 		var context: Dictionary = event_state.get("context", {})
 		TimingLog.end(TimingLog.KIND_EVENT, str(event_state["eventId"]))
+		Observation.record_memory()
 		GameState.state["event"] = null
 		apply_effects(on_complete, context)
 		# The one path all three Act-1 closer prerequisite flags flow through; a
@@ -413,7 +414,7 @@ static func choose(choice_index: int) -> void:
 	if not picked.has(choice_index):
 		picked.append(choice_index)
 	event_state["picked"][str(event_state["cardIndex"])] = picked
-	_remember_choice(event_state["eventId"], event_state["cardIndex"], str(choice.get("id", choice_index)), outcome, successes if attempts > 1 else -1)
+	_remember_choice(event_state["eventId"], str(card.get("key", event_state["cardIndex"])), str(choice.get("id", choice_index)), outcome, successes if attempts > 1 else -1)
 	var effects: Array = choice.get("effects", [])
 	if outcome != "":
 		for i in range(successes):
@@ -432,11 +433,11 @@ static func is_silent_text(text: Variant) -> bool:
 	return text == null or String(text).strip_edges() == ""
 
 
-# Choice memory: flags.choices[eventId][str(cardIndex)] = {id, outcome?,
+# Choice memory: flags.choices[eventId][cardKey] = {id, outcome?,
 # successes?} (outcome "success"/"fail" for a check option; successes for a
 # multi-attempt check). Lives in the state tree, so Rewind's snapshot restore
 # drops a rewound pick for free.
-static func _remember_choice(event_id: String, card_index: int, option_id: String, outcome: String = "", successes: int = -1) -> void:
+static func _remember_choice(event_id: String, card_key: String, option_id: String, outcome: String = "", successes: int = -1) -> void:
 	var memory: Dictionary = GameState.state["flags"]["choices"]
 	if not memory.has(event_id):
 		memory[event_id] = {}
@@ -445,7 +446,7 @@ static func _remember_choice(event_id: String, card_index: int, option_id: Strin
 		record["outcome"] = outcome
 	if successes >= 0:
 		record["successes"] = successes
-	memory[event_id][str(card_index)] = record
+	memory[event_id][card_key] = record
 
 
 # ── checks (opening-choices spec "Event engine": Odds, Deterministic rolls) ──
@@ -525,7 +526,7 @@ static func _mod_delta(mod: Dictionary, toggled: Array = []) -> float:
 # The condition vocabulary shared by check mods and option `requires`
 # (R§3.9a): {item} held, {item, equipped} in a loadout slot, {item, optional}
 # toggled on (toggled = active_toggles()), {flag} truthy, {choice: {event,
-# card, option}} remembered, {path, atLeast}, {relation, atLeast},
+# card (key), option}} remembered, {path, atLeast}, {relation, atLeast},
 # {cash: {atLeast}}, {recipeRung: {recipe, rung}} owned (vague or exact),
 # {observed: {id, ore, atLeast}} read this run (R§3.9d).
 # Unknown shapes never hold.
@@ -540,7 +541,7 @@ static func condition_met(condition: Dictionary, toggled: Array = []) -> bool:
 		return true if GameState.state["flags"].get(condition["flag"], false) else false
 	if condition.has("choice"):
 		var c: Dictionary = condition["choice"]
-		return choice_id(c["event"], int(c["card"])) == _option_key(c["option"])
+		return choice_id(c["event"], str(c["card"])) == _option_key(c["option"])
 	if condition.has("path"):
 		return float(GameState.read_path(condition["path"], 0)) >= float(condition["atLeast"])
 	if condition.has("relation"):
@@ -773,14 +774,14 @@ static func _optional_mods(choice_index: int) -> Array:
 
 
 # The committed choice at an event's card, or {} if none was made.
-static func choice_record(event_id: String, card_index: int) -> Dictionary:
+static func choice_record(event_id: String, card_key: String) -> Dictionary:
 	var memory: Dictionary = GameState.state["flags"]["choices"]
-	return memory.get(event_id, {}).get(str(card_index), {}).duplicate()
+	return memory.get(event_id, {}).get(card_key, {}).duplicate()
 
 
 # The committed option's id (its "id" field, else its index as a string), or null.
-static func choice_id(event_id: String, card_index: int) -> Variant:
-	return choice_record(event_id, card_index).get("id")
+static func choice_id(event_id: String, card_key: String) -> Variant:
+	return choice_record(event_id, card_key).get("id")
 
 
 # Shared by advance()/choose(). event.snapshots must be emptied before the deep

@@ -1,9 +1,33 @@
 # Story restructure - Quests and Event Planning
 
 
+#Overview
+
+PROLOGUE "Rent Day" (linear, ~30 min)
+        │
+        ├──► ARC A  Collect   (veins)         ┐
+        ├──► ARC B  Craft     (making)        ├ parallel, any order
+        └──► ARC C  Sell      (business)      ┘
+                     │  unlock: TBD (see Open questions)
+        ┌────────────┴────────────┐
+   ARC D  The Exchange       ARC E  The Register
+   (market, Ticker)          (factions, turf, conflict)
+                     │
+              ACT 3  Endgame (pick a side / corner a market) — later
+
+
+
+- Prologue: Prologue | Review & refine
+- Arc A: Collective Arc 1 | Review & refine
+- Arc B: Dial | Some events drafted
+- Arc C: BizEmpire Act 1 | Review & refine 
+- Arc D: BizEmpire Act 2 | Review & refine
+- Arc E: Collective Acts 2 & 3 | Act neds refining, Act need writing
+
 
 
 ## Prologue
+Aim: Introduce basic game mechanics, give player motivation / hook to keep playing.
 
 1) cold_open.json
 Intro, fight. Leads immediately into:
@@ -25,3 +49,13 @@ Another sale, reiterating it's not dangerous. Gives player 2 time pearls.
 
 6) home_raid_intro.json, leading to either home_raid_debrief_win.json or home_raid_debrief_loss.json
 Home raid, end of prologue
+
+7) archie_cultivation.json
+Need to adjust so Archie doesn't show the player how to cultivate or harvest, just shows them the vein. Maybe move this into Arc A, after Des lessons, so it makes sense that the player can cultivate/harvest their vein.
+
+## Arc A
+Aim: Teach player about cultivating, harvesting, seeing veins.
+
+1) col_a1_intro.json
+Introduces Des, his motivation for teaching player, and hnt at friction and history between Des and Archie.
+Current version needs to be rewritten to focus on learning cultivating, harvesting, seeding.

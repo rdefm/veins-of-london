@@ -93,10 +93,31 @@ static func rows(id: String) -> Array:
 	return out
 
 
-# The `observed` condition (current run): the stored tier level for the ore is at
-# least atLeast. The cross-event `event` form reads persistent memory, not yet held.
+# Folds the live event's reads into state.observationMemory, keeping the best
+# level per ore across runs. Called as the event completes.
+static func record_memory() -> void:
+	var event_state: Variant = GameState.state["event"]
+	if event_state == null or event_state.get("observations", {}).is_empty():
+		return
+	var memory: Dictionary = GameState.state.get("observationMemory", {})
+	var by_obs: Dictionary = memory.get(event_state["eventId"], {})
+	for id in event_state["observations"]:
+		var by_ore: Dictionary = by_obs.get(id, {})
+		for ore in event_state["observations"][id].get("results", {}):
+			var level := int(event_state["observations"][id]["results"][ore]["level"])
+			by_ore[ore] = maxi(level, int(by_ore.get(ore, 0)))
+		by_obs[id] = by_ore
+	memory[event_state["eventId"]] = by_obs
+	GameState.state["observationMemory"] = memory
+
+
+# The `observed` condition: the stored tier level for the ore is at least atLeast.
+# With `event` it reads persistent memory from completed runs; without, this run.
 static func observed(cond: Dictionary) -> bool:
-	if cond.has("event") or GameState.state["event"] == null:
+	if cond.has("event"):
+		var level := int(GameState.state.get("observationMemory", {}).get(cond["event"], {}).get(cond.get("id", ""), {}).get(cond.get("ore", ""), 0))
+		return level >= int(cond.get("atLeast", 1))
+	if GameState.state["event"] == null:
 		return false
 	var result: Dictionary = _stored(String(cond.get("id", ""))).get("results", {}).get(cond.get("ore", ""), {})
 	return int(result.get("level", 0)) >= int(cond.get("atLeast", 1))

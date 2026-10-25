@@ -248,6 +248,9 @@ func new_game_state() -> Dictionary:
 		"intel": Intel.new_state(),
 		# Privacy, raid-warning and disinformation timers (Intel.new_timers()).
 		"intelTimers": Intel.new_timers(),
+		# Best observation tier per ore from completed events
+		# ({ eventId: { obsId: { ore: level } } }, R§3.9d "Memory").
+		"observationMemory": {},
 		# Accepted favours and last-issued day per faction (Diplomacy.new_state()).
 		"favours": Diplomacy.new_state(),
 		# Last gift day and recent-gift count per key member contact id
@@ -393,7 +396,7 @@ func new_game_state() -> Dictionary:
 			# is set once the §7.4 gate is met and opens Hakim's weak-vein
 			# intel; colA2Complete is col_a2_closer's on_complete.
 			"colA2SpineReward": false, "colA2Complete": false,
-			# Choice memory: eventId -> str(cardIndex) -> {id}. Read via
+			# Choice memory: eventId -> cardKey -> {id}. Read via
 			# Events.choice_record()/choice_id().
 			"choices": {},
 		},

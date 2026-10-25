@@ -60,7 +60,7 @@
         {
           "id": "split",
           "label": "Pocket £40",
-          "requires": { "choice": { "event": "cold_open", "card": 3, "option": "stand" } },
+          "requires": { "choice": { "event": "cold_open", "card": "c4", "option": "stand" } },
           "effects": [{ "op": "add", "path": "player.cash", "value": 40 }],
           "result_text": "Two twenties. Rent's still due Monday, but it's closer.",
           "goto": 10
@@ -68,7 +68,7 @@
         {
           "id": "splitAsked",
           "label": "Pocket £40",
-          "requires": { "choice": { "event": "cold_open", "card": 3, "option": "askBuyers" } },
+          "requires": { "choice": { "event": "cold_open", "card": "c4", "option": "askBuyers" } },
           "effects": [{ "op": "add", "path": "player.cash", "value": 40 }],
           "result_text": "Two twenties. Rent's still due Monday, but it's closer.",
           "goto": 10
@@ -76,7 +76,7 @@
         {
           "id": "splitHalf",
           "label": "Pocket £48",
-          "requires": { "choice": { "event": "cold_open", "card": 3, "option": "wantHalf" } },
+          "requires": { "choice": { "event": "cold_open", "card": "c4", "option": "wantHalf" } },
           "effects": [{ "op": "add", "path": "player.cash", "value": 48 }],
           "result_text": "He counts out forty-eight, slowly, so you can watch him do it. \"Sixty-forty. Your way. As agreed.\"",
           "goto": 10
@@ -89,7 +89,7 @@
         {
           "id": "split",
           "label": "Pocket £60",
-          "requires": { "choice": { "event": "cold_open", "card": 3, "option": "stand" } },
+          "requires": { "choice": { "event": "cold_open", "card": "c4", "option": "stand" } },
           "effects": [{ "op": "add", "path": "player.cash", "value": 60 }],
           "result_text": "Three twenties. Rent's still due Monday, but it's closer.",
           "goto": 10
@@ -97,7 +97,7 @@
         {
           "id": "splitAsked",
           "label": "Pocket £60",
-          "requires": { "choice": { "event": "cold_open", "card": 3, "option": "askBuyers" } },
+          "requires": { "choice": { "event": "cold_open", "card": "c4", "option": "askBuyers" } },
           "effects": [{ "op": "add", "path": "player.cash", "value": 60 }],
           "result_text": "Three twenties. Rent's still due Monday, but it's closer.",
           "goto": 10
@@ -105,7 +105,7 @@
         {
           "id": "splitHalf",
           "label": "Pocket £72",
-          "requires": { "choice": { "event": "cold_open", "card": 3, "option": "wantHalf" } },
+          "requires": { "choice": { "event": "cold_open", "card": "c4", "option": "wantHalf" } },
           "effects": [{ "op": "add", "path": "player.cash", "value": 72 }],
           "result_text": "He counts out seventy-two, slowly, so you can watch him do it. \"Sixty-forty. Your way. As agreed.\"",
           "goto": 10
@@ -118,21 +118,21 @@
         {
           "id": "split",
           "label": "Pocket £30",
-          "requires": { "choice": { "event": "cold_open", "card": 3, "option": "stand" } },
+          "requires": { "choice": { "event": "cold_open", "card": "c4", "option": "stand" } },
           "effects": [{ "op": "add", "path": "player.cash", "value": 30 }],
           "result_text": "A twenty and a ten. Rent's still due Monday."
         },
         {
           "id": "splitAsked",
           "label": "Pocket £30",
-          "requires": { "choice": { "event": "cold_open", "card": 3, "option": "askBuyers" } },
+          "requires": { "choice": { "event": "cold_open", "card": "c4", "option": "askBuyers" } },
           "effects": [{ "op": "add", "path": "player.cash", "value": 30 }],
           "result_text": "A twenty and a ten. Rent's still due Monday."
         },
         {
           "id": "splitHalf",
           "label": "Pocket £36",
-          "requires": { "choice": { "event": "cold_open", "card": 3, "option": "wantHalf" } },
+          "requires": { "choice": { "event": "cold_open", "card": "c4", "option": "wantHalf" } },
           "effects": [{ "op": "add", "path": "player.cash", "value": 36 }],
           "result_text": "He counts out thirty-six, slowly, so you can watch him do it. \"Sixty-forty. Your way. Of sixty.\""
         }

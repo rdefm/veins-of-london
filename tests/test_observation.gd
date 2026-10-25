@@ -248,3 +248,25 @@ func run() -> void:
 		GameData.RECIPES.erase("obs_charm")
 		_cleanup()
 	)
+
+	run_case("memory_written_on_completion_keeps_best_and_gates_event_condition", func():
+		GameState.reset()
+		_install({ "o": { "blocks": { "time": { "tiers": [_tier("hi", NEVER), _tier("lo", ALWAYS)], "miss": "m" } } } },
+			[_card({ "observe": "o" }), _card()])
+		var cond := { "event": "obs_test", "id": "o", "ore": "time", "atLeast": 1 }
+		assert_true(not Observation.observed(cond), "no memory before completion")
+		Observation.read()
+		Events.advance()
+		Events.advance()
+		assert_eq(GameState.state["observationMemory"]["obs_test"]["o"]["time"], 1, "best level stored")
+		assert_true(Observation.observed(cond), "event form reads memory outside the event")
+		assert_true(not Observation.observed({ "event": "obs_test", "id": "o", "ore": "time", "atLeast": 2 }), "atLeast above stored fails")
+		GameState.state["observationMemory"]["obs_test"]["o"]["time"] = 2
+		Events.start_event("obs_test")
+		Observation.read()
+		Events.advance()
+		Events.advance()
+		assert_eq(GameState.state["observationMemory"]["obs_test"]["o"]["time"], 2, "a worse later run never lowers it")
+		assert_eq(JSON.parse_string(JSON.stringify(GameState.state["observationMemory"])) != null, true, "pure data")
+		_cleanup()
+	)
