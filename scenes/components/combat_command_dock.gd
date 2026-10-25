@@ -46,6 +46,7 @@ var _panel_area: Control
 var _menu: Control
 var _pages: Dictionary = {}
 var _view: String = VIEW_FIGHT
+var _slide_tween: Tween
 var _dial_selected_index: int = 0
 # The Dial cast (DialWidget's on_cast).
 var _on_dial_cast_callback: Callable = Callable()
@@ -149,16 +150,54 @@ func current_view() -> String:
 func show_view(view: String) -> void:
 	if view == _view or (view == VIEW_DIAL and _dial == null):
 		return
+	var outgoing := _view
 	_view = view
-	_place_pages()
 	_rebuild_menu()
+	if not is_inside_tree():
+		_place_pages()
+		return
+	_slide_pages(outgoing, view)
 
 
-# Shows the current page and hides the rest.
-func _place_pages() -> void:
+# Fight slides from/to the left, Item from/to the top, Dial from/to the bottom
+# (pacing.menuPanel in data/combat_visuals.json sets the durations). A new
+# switch first settles any slide in flight, so only the last-tapped page shows.
+func _slide_pages(outgoing: String, incoming: String) -> void:
+	if _slide_tween != null:
+		_slide_tween.kill()
+	_place_pages(outgoing)
+	var timing: Dictionary = GameData.COMBAT_VISUALS.get("pacing", {}).get("menuPanel", {})
+	var in_page: Control = _pages[incoming]
+	var out_page: Control = _pages[outgoing]
+	in_page.position = _offscreen_position(incoming)
+	in_page.visible = true
+	out_page.process_mode = Node.PROCESS_MODE_DISABLED
+	_slide_tween = create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC)
+	_slide_tween.tween_property(in_page, "position", Vector2.ZERO, float(timing.get("enterSeconds", 0.0))).set_ease(Tween.EASE_OUT)
+	_slide_tween.tween_property(out_page, "position", _offscreen_position(outgoing), float(timing.get("exitSeconds", 0.0))).set_ease(Tween.EASE_IN)
+	_slide_tween.chain().tween_callback(_place_pages)
+
+
+func _offscreen_position(view: String) -> Vector2:
+	var size_now := _panel_area.size
+	match view:
+		VIEW_FIGHT:
+			return Vector2(-size_now.x, 0.0)
+		VIEW_ITEM:
+			return Vector2(0.0, -size_now.y)
+	return Vector2(0.0, size_now.y)
+
+
+# Shows `only` (default the current page), hides the rest at rest position and
+# live to input; ends any slide.
+func _place_pages(only: String = "") -> void:
+	var shown := only if only != "" else _view
 	for view in _pages:
 		var page: Control = _pages[view]
-		page.visible = view == _view
+		page.process_mode = Node.PROCESS_MODE_INHERIT
+		page.position = Vector2.ZERO
+		page.visible = view == shown
+	_slide_tween = null
 
 
 func _rebuild() -> void:
