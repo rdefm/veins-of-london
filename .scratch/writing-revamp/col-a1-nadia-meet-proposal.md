@@ -1,0 +1,148 @@
+# col_a1_nadia_meet — imported from data/events/col_a1_nadia_meet.json
+
+```json
+{
+  "id": "col_a1_nadia_meet",
+  "on_complete": [
+    {
+      "op": "set_flag",
+      "flag": "colA1NadiaMet",
+      "value": true
+    },
+    {
+      "op": "set_screen",
+      "screen": "phone"
+    }
+  ],
+  "start": "main",
+  "branches": {
+    "main": {
+      "title": "Start",
+      "cards": [
+        {
+          "key": "c1",
+          "type": "narration",
+          "label": "Hackney - the back of a shop that sells phone cases",
+          "speaker": null,
+          "text": "Nadia Beckford is about seventy and is moving a crate that you would need help with. She does not accept help."
+        },
+        {
+          "key": "c2",
+          "type": "speaker",
+          "label": null,
+          "speaker": "Nadia",
+          "text": "\"Des sent you. He's told you I'm short.\" She doesn't look up. \"He's right. I'm short.\""
+        },
+        {
+          "key": "c3",
+          "type": "speaker",
+          "label": null,
+          "speaker": "Nadia",
+          "text": "\"Standing order. Time calc, every fortnight, same bloke, same amount, been running four years. It pays for a lot of things that need paying for.\""
+        },
+        {
+          "key": "c4",
+          "type": "speaker",
+          "label": null,
+          "speaker": "Nadia",
+          "text": "\"This end of town's full of it and everyone round here has a bit and nobody has twenty units at once. So I spend three days on the phone every fortnight like it's 1974.\""
+        },
+        {
+          "key": "c5",
+          "type": "choice",
+          "label": null,
+          "speaker": null,
+          "text": "She finally looks up.",
+          "choices": [
+            {
+              "label": "I can get you twenty",
+              "effects": [],
+              "result_text": "\"Course you can.\" She goes back to the crate. \"Bring it when you've got it. Bring it in bits, I don't care.\""
+            },
+            {
+              "label": "What's in it for me?",
+              "effects": [],
+              "result_text": "\"Market rate, same as anyone.\" A pause. \"You were expecting me to be offended. I'm not. Ask people what things cost, it saves everybody a fortnight.\""
+            }
+          ]
+        },
+        {
+          "key": "c6",
+          "type": "speaker",
+          "label": null,
+          "speaker": "Nadia",
+          "text": "\"And before you ask - no, I don't know who's holding what in the collective. Nobody does. If I knew who had what I'd have had this done Tuesday.\""
+        },
+        {
+          "key": "c7",
+          "type": "resolution",
+          "label": null,
+          "speaker": null,
+          "text": "Twenty units of time calc, no deadline, no paperwork, and a woman who has been doing this since before you were born treating it as entirely routine."
+        }
+      ]
+    }
+  },
+  "_keyOrder": {
+    "top": [
+      "id",
+      "cards",
+      "on_complete"
+    ],
+    "cards": {
+      "c1": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c2": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c3": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c4": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c5": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text",
+        "choices"
+      ],
+      "c6": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c7": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ]
+    }
+  },
+  "_liveSource": "col_a1_nadia_meet.json",
+  "_liveHash": "dead94e6"
+}
+```

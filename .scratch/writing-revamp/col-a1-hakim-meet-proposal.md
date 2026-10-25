@@ -1,0 +1,191 @@
+# col_a1_hakim_meet — imported from data/events/col_a1_hakim_meet.json
+
+```json
+{
+  "id": "col_a1_hakim_meet",
+  "pin": {
+    "district": "whitechapel",
+    "showWhenFlagsTrue": [
+      "colA1HubReached"
+    ],
+    "showWhenFlagsFalse": [
+      "colA1HakimMet"
+    ],
+    "contact": "hakim",
+    "phoneLabel": "Go and meet Hakim"
+  },
+  "on_complete": [
+    {
+      "op": "grant_contact_vein",
+      "vein": {
+        "oreType": "emotion",
+        "growth": 18,
+        "rampantDays": 0,
+        "security": "none",
+        "alarmUpgrades": [],
+        "location": "Whitechapel Road, the yard behind the newsagent's",
+        "district": "whitechapel",
+        "hospitability": {
+          "tier": "fair",
+          "bonuses": []
+        }
+      },
+      "statePath": "collective.hakimVeinId"
+    },
+    {
+      "op": "set_flag",
+      "flag": "colA1HakimMet",
+      "value": true
+    },
+    {
+      "op": "set_screen",
+      "screen": "map"
+    }
+  ],
+  "start": "main",
+  "branches": {
+    "main": {
+      "title": "Start",
+      "cards": [
+        {
+          "key": "c1",
+          "type": "narration",
+          "label": "Whitechapel Road",
+          "speaker": null,
+          "text": "The shop sells newspapers, phone credit, and a dozen kinds of crisps, among other things. There is a child's homework on the counter, half done, with a biro resting in the fold."
+        },
+        {
+          "key": "c2",
+          "type": "speaker",
+          "label": null,
+          "speaker": "Hakim",
+          "text": "\"You're Des's. He said. Sorry - that came out like you're a dog.\""
+        },
+        {
+          "key": "c3",
+          "type": "speaker",
+          "label": null,
+          "speaker": "Hakim",
+          "text": "\"There's a vein in the yard. Came with the shop. My uncle had it and he was good with it and I'm not, and it's been going backwards for about two years.\""
+        },
+        {
+          "key": "c4",
+          "type": "narration",
+          "label": null,
+          "speaker": null,
+          "text": "The yard is eleven feet of concrete, three bins and a vein that has clearly not been touched in a long time. It reads as sparse and dropping."
+        },
+        {
+          "key": "c5",
+          "type": "speaker",
+          "label": null,
+          "speaker": "Hakim",
+          "text": "\"It does about a third of what it used to. Which is about a third of the rent, so.\" He stops there, having got closer to complaining than he intended."
+        },
+        {
+          "key": "c6",
+          "type": "speaker",
+          "label": null,
+          "speaker": "Hakim",
+          "text": "\"Des says you're good at the growing part. I can't pay you properly. I can pay you something.\""
+        },
+        {
+          "key": "c7",
+          "type": "choice",
+          "label": null,
+          "speaker": null,
+          "text": "Behind him, through the doorway, somebody's homework is still half done.",
+          "choices": [
+            {
+              "label": "I'll do it",
+              "effects": [],
+              "result_text": "\"Right. Good. Thank you.\" He busies himself with the till so neither of you has to be looking at the other."
+            },
+            {
+              "label": "You don't have to pay me",
+              "effects": [],
+              "result_text": "\"I do, though.\" He says it flatly, and it is the only time he has been immovable about anything. \"I'll pay you something. I'm not having it be a favour.\""
+            }
+          ]
+        },
+        {
+          "key": "c8",
+          "type": "resolution",
+          "label": null,
+          "speaker": null,
+          "text": "You have taken on somebody's yard. It is not, in any measurable sense, a good use of your afternoons."
+        }
+      ]
+    }
+  },
+  "_keyOrder": {
+    "top": [
+      "id",
+      "pin",
+      "cards",
+      "on_complete"
+    ],
+    "cards": {
+      "c1": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c2": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c3": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c4": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c5": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c6": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c7": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text",
+        "choices"
+      ],
+      "c8": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ]
+    }
+  },
+  "_liveSource": "col_a1_hakim_meet.json",
+  "_liveHash": "5a8d1ffb"
+}
+```
