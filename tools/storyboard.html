@@ -169,6 +169,9 @@ section { display: grid; gap: 12px; min-width: 0 }
 .editbar button:disabled { opacity: .45; cursor: default }
 .editbar .dirty { font: 12px var(--mono); color: var(--muted) }
 .editbar .dirty.on { color: var(--warn); font-weight: 600 }
+.editbar .lint { flex-basis: 100%; font: 12px var(--mono); color: var(--warn) }
+.editbar .lint summary { cursor: pointer; font-weight: 600 }
+.editbar .lint ul { margin: 4px 0 0; padding-left: 18px; color: var(--muted) }
 .editor { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px; gap: 8px }
 .editor-head { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; justify-content: space-between }
 .ce-tools { display: flex; flex-wrap: wrap; gap: 6px }
@@ -325,6 +328,7 @@ section { display: grid; gap: 12px; min-width: 0 }
           <button type="button" class="tb" id="promote" hidden title="Write the saved proposal as the live event data/events/&lt;id&gt;.json">Promote</button>
           <span class="dirty" id="dirty" role="status"></span>
           <span class="dirty on" id="drift" role="status" hidden>Live file changed since import</span>
+          <details class="lint" id="lint" hidden><summary id="lint-sum"></summary><ul id="lint-list"></ul></details>
         </div>
         <p class="logline" id="logline"></p>
       </section>
@@ -2330,6 +2334,179 @@ function checkOddsBlock(opt, changed, restructure) {
     }
     return null;
   }
+  // Content lint (mirror of tests/event_content_lint.gd, R§3.9c): the same rules and violation strings over a flat
+  // event. refs = tools/lint_refs.json (scripts/export_lint_refs.gd); a test holds this to the GDScript answers on every
+  // shipped event. The open draft is linted as its promoted flat event; lintDraft returns null when refs are missing.
+  const LINT_LABEL_TOKENS = ["weekday", "date", "block", "today"];
+  const LINT_BLOCK_WORDS = {
+    morning: ["morning"], afternoon: ["afternoon"], evening: ["evening", "night"], tonight: ["evening", "night"], night: ["evening", "night"],
+  };
+  const LINT_DAY_PATTERNS = [
+    "\\btomorrow\\b", "\\byesterday\\b", "\\bdays? later\\b", "\\bweeks? later\\b", "\\bnext day\\b",
+    "\\b(mon|tues|wednes|thurs|fri|satur|sun)day\\b",
+  ];
+  // GDScript str()/JSON.stringify spellings, so messages match the GDScript lint's: data numbers are floats there.
+  function gdStr(v) {
+    if (v === null || v === undefined) return "<null>";
+    if (typeof v === "number") return Number.isInteger(v) ? v + ".0" : String(v);
+    if (typeof v === "object") return gdJson(v);
+    return String(v);
+  }
+  function gdJson(v) {
+    if (v === null || v === undefined) return "null";
+    if (typeof v === "number") return Number.isInteger(v) ? v + ".0" : String(v);
+    if (Array.isArray(v)) return "[" + v.map(gdJson).join(",") + "]";
+    if (typeof v === "object") return "{" + Object.keys(v).map((k) => JSON.stringify(k) + ":" + gdJson(v[k])).join(",") + "}";
+    return JSON.stringify(v);
+  }
+  const lintHas = (o, k) => !!o && typeof o === "object" && Object.prototype.hasOwnProperty.call(o, k);
+  const lintIsObj = (v) => !!v && typeof v === "object" && !Array.isArray(v);
+  function lintSetFlags(value, into) {
+    if (Array.isArray(value)) value.forEach((v) => lintSetFlags(v, into));
+    else if (lintIsObj(value)) {
+      if (value.op === "set_flag") into.add(value.flag);
+      Object.values(value).forEach((v) => lintSetFlags(v, into));
+    }
+  }
+  // The event's own choice cards and observation tier counts, in the shape lint_refs.json holds for shipped events.
+  function lintEventInfo(def) {
+    const choiceCards = {}, observations = {};
+    for (const c of def.cards || []) if (lintHas(c, "choices") && typeof c.key === "string") choiceCards[c.key] = c.choices.map((o) => String(o.id === undefined ? "" : o.id));
+    for (const [oid, ob] of Object.entries(def.observations || {})) {
+      observations[oid] = {};
+      for (const [ore, blk] of Object.entries(ob.blocks || {})) observations[oid][ore] = (blk.tiers || []).length;
+    }
+    return { choiceCards, observations };
+  }
+  function lintEvent(id, def, refs) {
+    const ctx = { refs, def, flags: new Set(refs.flags), info: lintEventInfo(def) };
+    lintSetFlags(def, ctx.flags);
+    const out = [];
+    const cards = def.cards || [];
+    const atBlock = lintIsObj(def.at) && def.at.block !== undefined ? def.at.block : null;
+    out.push(...lintObservations(id, def, ctx));
+    cards.forEach((card, i) => {
+      if (lintHas(card, "observe") && card.observe != null && !lintHas(def.observations || {}, card.observe)) out.push(`${id}: card ${i} observe '${gdStr(card.observe)}' is not defined`);
+      if (typeof card.label === "string") out.push(...lintLabel(id, i, card.label, atBlock));
+      out.push(...lintCardRoute(id, i, card, cards, ctx));
+      const choices = Array.isArray(card.choices) ? card.choices : [];
+      if (choices.length > refs.maxOptions) out.push(`${id}: card ${i} has ${choices.length} options (max ${refs.maxOptions})`);
+      choices.forEach((o, j) => out.push(...lintOption(id, i, j, o, cards, ctx)));
+    });
+    return out;
+  }
+  function lintLabel(id, i, label, atBlock) {
+    const out = [], where = `${id}: card ${i} label '${label}'`;
+    for (const m of label.matchAll(/\{([^}]*)\}/g)) if (!LINT_LABEL_TOKENS.includes(m[1])) out.push(`${where} has unknown token {${m[1]}}`);
+    const words = label.replace(/\{([^}]*)\}/g, "").toLowerCase();
+    if (LINT_DAY_PATTERNS.some((p) => new RegExp(p).test(words))) out.push(`${where} hard-codes a day; use {weekday}/{date}`);
+    for (const word of Object.keys(LINT_BLOCK_WORDS)) {
+      if (!new RegExp(`\\b${word}\\b`).test(words)) continue;
+      if (atBlock == null) out.push(`${where} says '${word}' but the event has no at`);
+      else if (!LINT_BLOCK_WORDS[word].includes(atBlock)) out.push(`${where}: '${word}' contradicts at.block ${atBlock}`);
+    }
+    return out;
+  }
+  function lintOption(id, i, j, option, cards, ctx) {
+    const out = [], where = `${id}: card ${i} option ${j}`;
+    if (lintHas(option, "check") && lintHas(option, "result_text")) out.push(`${where} has both result_text and a check`);
+    const gotos = [option.goto];
+    for (const k of ["success", "fail"]) if (lintIsObj(option[k])) gotos.push(option[k].goto);
+    if (lintIsObj(option.bySuccesses)) for (const o of Object.values(option.bySuccesses)) gotos.push(o.goto);
+    for (const g of gotos) out.push(...lintGoto(where, g, i, cards));
+    if (lintIsObj(option.requires)) out.push(...lintCondition(where + " requires", option.requires, ctx));
+    if (lintIsObj(option.check)) for (const mod of option.check.mods || []) out.push(...lintCondition(where + " mod", mod, ctx));
+    return out;
+  }
+  function lintCardRoute(id, i, card, cards, ctx) {
+    const out = [], where = `${id}: card ${i}`;
+    if (lintHas(card, "end") && card.end !== true) out.push(`${where} end must be true, not ${gdStr(card.end)}`);
+    if (lintHas(card, "end") && lintHas(card, "goto")) out.push(`${where} has both end and goto`);
+    const goto = card.goto;
+    if (!Array.isArray(goto)) return out.concat(lintGoto(where, goto, i, cards));
+    goto.forEach((entry, k) => {
+      if (!lintIsObj(entry)) { out.push(`${where} goto entry ${k} is not an object`); return; }
+      out.push(...lintGoto(`${where} goto entry ${k}`, entry.card, i, cards, true));
+      if (lintHas(entry, "if")) {
+        if (lintIsObj(entry.if)) out.push(...lintCondition(`${where} goto entry ${k} if`, entry.if, ctx));
+        else out.push(`${where} goto entry ${k} if is not a condition`);
+      } else if (k < goto.length - 1) out.push(`${where} goto entry ${k} has no if but is not last`);
+    });
+    return out;
+  }
+  function lintGoto(where, goto, i, cards, required = false) {
+    if ((goto === null || goto === undefined) && !required) return [];
+    const bad = [`${where} goto ${gdStr(goto)} is not a later card`];
+    if (typeof goto !== "number" || Math.trunc(goto) < 0 || Math.trunc(goto) >= cards.length) return bad;
+    if (Math.trunc(goto) <= i && cards[Math.trunc(goto)].type !== "choice") return bad;
+    return [];
+  }
+  function lintCondition(where, c, ctx) {
+    const refs = ctx.refs;
+    if (lintHas(c, "item")) return refs.items.includes(c.item) ? [] : [`${where}: unknown item ${gdStr(c.item)}`];
+    if (lintHas(c, "flag")) return ctx.flags.has(c.flag) ? [] : [`${where}: unknown flag ${gdStr(c.flag)}`];
+    if (lintHas(c, "relation")) return refs.contacts.includes(c.relation) ? [] : [`${where}: unknown contact ${gdStr(c.relation)}`];
+    if (lintHas(c, "path")) return refs.paths.includes(c.path) ? [] : [`${where}: unknown path ${gdStr(c.path)}`];
+    if (lintHas(c, "cash")) return [];
+    if (lintHas(c, "recipeRung")) {
+      const r = c.recipeRung;
+      return refs.rungs.includes(r.rung) && refs.procedures.includes(String(r.recipe === undefined ? "" : r.recipe)) ? [] : [`${where}: unknown recipe rung ${gdJson(r)}`];
+    }
+    if (lintHas(c, "choice")) return lintChoiceRef(where, c.choice, ctx);
+    if (lintHas(c, "observed")) return lintObservedRef(where, c.observed, ctx);
+    return [`${where}: unknown condition ${gdJson(c)}`];
+  }
+  function lintEventInfoFor(eventId, ctx) {
+    return eventId === ctx.def.id ? ctx.info : (ctx.refs.events || {})[eventId];
+  }
+  function lintObservations(id, def, ctx) {
+    const out = [], ores = ctx.refs.ores;
+    for (const [oid, obs] of Object.entries(def.observations || {})) {
+      const where = `${id}: observation ${oid}`;
+      for (const mod of obs.mods || []) if (!(lintHas(mod, "path") && lintHas(mod, "perPoint"))) out.push(...lintCondition(where + " mod", mod, ctx));
+      const blocks = obs.blocks || {};
+      if (!Object.keys(blocks).length) out.push(`${where} has no blocks`);
+      for (const [ore, block] of Object.entries(blocks)) {
+        const bw = `${where} ${ore}`;
+        if (!ores.includes(ore)) out.push(`${bw}: unknown ore`);
+        if (typeof block.miss !== "string" || block.miss === "") out.push(`${bw}: missing miss text`);
+        const tiers = block.tiers || [];
+        if (!tiers.length) out.push(`${bw}: no tiers`);
+        tiers.forEach((t, k) => {
+          if (!lintHas(t, "base") || !lintHas(t, "text")) out.push(`${bw}: tier ${k} needs base and text`);
+          else if (k > 0 && lintHas(tiers[k - 1], "base") && Number(t.base) <= Number(tiers[k - 1].base)) out.push(`${bw}: tiers not best-first (base must ascend)`);
+        });
+      }
+    }
+    return out;
+  }
+  function lintObservedRef(where, ref, ctx) {
+    const info = lintHas(ref, "event") ? lintEventInfoFor(ref.event, ctx) : ctx.info;
+    const tiers = ((info || {}).observations || {})[ref.id === undefined ? "" : ref.id];
+    const count = tiers ? tiers[ref.ore === undefined ? "" : ref.ore] : undefined;
+    if (count === undefined) return [`${where}: bad observed ref ${gdJson(ref)}`];
+    const atLeast = Math.trunc(Number(ref.atLeast === undefined ? 0 : ref.atLeast));
+    if (atLeast < 1 || atLeast > count) return [`${where}: observed atLeast ${gdStr(ref.atLeast)} outside 1..${count}`];
+    return [];
+  }
+  function lintChoiceRef(where, ref, ctx) {
+    const info = lintEventInfoFor(ref.event, ctx);
+    if (!info) return [`${where}: unknown event ${gdStr(ref.event)}`];
+    if (typeof ref.card !== "string") return [`${where}: card must be a card key string, got ${gdStr(ref.card)}`];
+    const ids = info.choiceCards[ref.card];
+    if (!ids) return [`${where}: ${ref.event} card ${ref.card} is not a choice card`];
+    const option = ref.option;
+    if (typeof option === "string") { if (ids.includes(option)) return []; }
+    else if (Math.trunc(Number(option ?? 0)) >= 0 && Math.trunc(Number(option ?? 0)) < ids.length) return [];
+    return [`${where}: unknown option ${gdStr(option)} at ${ref.event} card ${ref.card}`];
+  }
+  // Violations of the open draft as it would promote; null when refs are missing or the draft can't promote yet.
+  function lintDraft(draft, refs) {
+    if (!refs) return null;
+    let event;
+    try { event = promoteDraft(draft).event; } catch { return null; }
+    return lintEvent(event.id || "draft", event, refs);
+  }
   /* ---------- End draft model ---------- */
 
   // Image per card, as the event screen resolves it: an explicit "image" key (null clears), else (legacy flat
@@ -3408,6 +3585,24 @@ function checkOddsBlock(opt, changed, restructure) {
       if (board() === b) $("drift").hidden = !b.drift;
     } catch { b.drift = false; }
   }
+  // Content lint (tools/lint_refs.json, written by scripts/export_lint_refs.gd): problems the open draft would ship.
+  // Informational only; nothing here blocks Save or Promote.
+  let lintRefs;
+  async function loadLintRefs() {
+    if (lintRefs !== undefined) return lintRefs;
+    try { lintRefs = JSON.parse(await readText(await dirAt(["tools"]), "lint_refs.json")); } catch { lintRefs = null; }
+    return lintRefs;
+  }
+  function renderLint(b) {
+    const el = $("lint");
+    if (!b || !b.draft) { el.hidden = true; return; }
+    if (lintRefs === undefined) { loadLintRefs().then(() => { if (board() === b) renderLint(b); }); el.hidden = true; return; }
+    const found = lintDraft(b.draft, lintRefs);
+    el.hidden = !found || !found.length;
+    if (el.hidden) return;
+    $("lint-sum").textContent = `⚠ ${found.length} content lint issue${found.length > 1 ? "s" : ""}`;
+    $("lint-list").replaceChildren(...found.map((v) => { const li = document.createElement("li"); li.textContent = v; return li; }));
+  }
   // msg replaces the status line; otherwise it shows the dirty state (a "Saved …" note stays until the next edit).
   function renderEditBar(msg) {
     const b = board(), proposal = !!b && b.kind === "proposal", on = !!b && (!proposal || !!b.draft);
@@ -3423,6 +3618,7 @@ function checkOddsBlock(opt, changed, restructure) {
     $("promote").disabled = isDirty(b);
     if (proposal && b.driftChecked !== true) checkDrift(b);
     $("drift").hidden = !(proposal && b.drift);
+    renderLint(proposal ? b : null);
     const d = $("dirty");
     d.classList.toggle("on", dirty);
     if (msg) d.textContent = msg;
@@ -3556,7 +3752,9 @@ function checkOddsBlock(opt, changed, restructure) {
       const old = await readText(dir, out.file);
       if (old === out.text) { renderEditBar(`${target} already matches this proposal; nothing to write.`); return; }
       const drift = liveDrifted(parsed.draft, old);
-      const warn = drift ? `WARNING: ${target} changed since this working copy was imported. Promoting overwrites those newer live edits.\n\n` : "";
+      const lintFound = lintDraft(parsed.draft, await loadLintRefs()) || [];
+      const lintWarn = lintFound.length ? `Content lint (${lintFound.length}; Promote still proceeds):\n${lintFound.map((v) => "• " + v).join("\n")}\n\n` : "";
+      const warn = (drift ? `WARNING: ${target} changed since this working copy was imported. Promoting overwrites those newer live edits.\n\n` : "") + lintWarn;
       if (!confirm(`${warn}Promote ${b.file} to ${target}?\n\n${promoteSummary(old, out).join("\n")}\n\nTests still run via Claude.`)) {
         renderEditBar("Promote cancelled."); return;
       }

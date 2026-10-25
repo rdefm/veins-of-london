@@ -30,7 +30,7 @@ const {
   cardImageName, freeImageName, freeResultImageName, setCardImage, eventImageDir, SHOT_FIELDS, serialiseBoard, setShotField, shotFieldText,
   LIVE_EVENTS_DIR, proposalFileName, importBoard, blankBoard, duplicateBoard, boardCardLabel, promoteDraft, serialiseEvent,
   promoteForWrite, promoteSummary, shotBoardFor, boardCut, shotOnPath, workingCopyFor, liveHash, liveDrifted,
-  liveEventOptions, openOrImport,
+  liveEventOptions, openOrImport, lintEvent, lintDraft,
 } = new Function(
   html.slice(ss, se) + html.slice(s, e) +
     "\nreturn { parseProposal, parseDraft, serialiseDraft, ensureKeys, legacyToDraft, nextPos, playOrder, flatCards, thenText," +
@@ -44,7 +44,7 @@ const {
     " cardImageName, freeImageName, freeResultImageName, setCardImage, eventImageDir, SHOT_FIELDS, serialiseBoard, setShotField, shotFieldText," +
     " LIVE_EVENTS_DIR, proposalFileName, importBoard, blankBoard, duplicateBoard, boardCardLabel, promoteDraft, serialiseEvent," +
     " promoteForWrite, promoteSummary, shotBoardFor, boardCut, shotOnPath, workingCopyFor, liveHash, liveDrifted," +
-    " liveEventOptions, openOrImport };"
+    " liveEventOptions, openOrImport, lintEvent, lintDraft };"
 )();
 
 let passed = 0;
@@ -1767,6 +1767,49 @@ test("shotOnPath holds along the played path, so each branch shows its own shot"
   assert.strictEqual(shotOnPath(cards, [0, 1, 4]), "S1", "vague path skips both pearl cards");
   assert.strictEqual(shotOnPath(cards, [0, 2, 5]), "S2", "a card the board doesn't list holds");
   assert.strictEqual(shotOnPath(cards, [0, 6]), null);
+});
+
+// Content lint: tools/lint_refs.json is written by scripts/export_lint_refs.gd (the GDScript lint is the authority);
+// tests/test_event_content_lint.gd fails when that file is stale, so matching it here is matching GDScript.
+const lintRefs = JSON.parse(fs.readFileSync(path.join(__dirname, "lint_refs.json"), "utf-8"));
+
+test("JS content lint gives the GDScript lint's violations on every shipped event", () => {
+  const dir = path.join(__dirname, "..", "data", "events");
+  const files = fs.readdirSync(dir).filter((f) => f.endsWith(".json"));
+  assert(files.length > 0);
+  for (const f of files) {
+    const def = JSON.parse(fs.readFileSync(path.join(dir, f), "utf-8"));
+    assert.deepStrictEqual(lintEvent(def.id, def, lintRefs), lintRefs.violations[def.id] || [], f);
+  }
+});
+
+test("JS content lint flags each rule family the way the GDScript probe does", () => {
+  const def = { id: "probe", at: { block: "morning" }, cards: [
+    { type: "text", label: "Tonight {bogus}", text: "" },
+    { type: "choice", key: "pick", label: null, text: "", choices: [
+      { id: "a", label: "a", result_text: "x", goto: 0 },
+      { id: "b", label: "b", requires: { flag: "noSuchFlag" }, check: { base: 0.5, mods: [
+        { item: "noSuchItem", add: 0.1 }, { relation: "nobody", atLeast: 1, add: 0.1 }, { path: "player.nope", perPoint: 0.1 },
+        { choice: { event: "probe", card: "pick", option: "zzz" }, add: 0.1 }, { choice: { event: "probe", card: 2, option: "a" }, add: 0.1 },
+      ] }, success: { result_text: "s", goto: 9 }, fail: { result_text: "f" } },
+    ] },
+    { type: "text", label: null, text: "", end: 1, goto: 4 },
+  ] };
+  const found = lintEvent("probe", def, lintRefs);
+  for (const frag of ["unknown token {bogus}", "'tonight' contradicts at.block morning", "unknown flag noSuchFlag", "unknown item noSuchItem",
+    "unknown contact nobody", "unknown path player.nope", "unknown option zzz", "card must be a card key string", "goto 9", "card 2 end must be true", "card 2 has both end and goto"])
+    assert(found.some((v) => v.includes(frag)), `expected '${frag}' in ${JSON.stringify(found)}`);
+  const own = JSON.parse(JSON.stringify(def));
+  own.cards[0].effects = [{ op: "set_flag", flag: "noSuchFlag" }];
+  assert(!lintEvent("probe", own, lintRefs).some((v) => v.includes("unknown flag noSuchFlag")), "a flag the event itself sets is known");
+});
+
+test("lintDraft lints the promoted draft, and is null without refs or when the draft can't promote", () => {
+  const { draft } = parseDraft(draftText);
+  assert.strictEqual(lintDraft(draft, null), null);
+  const found = lintDraft(draft, lintRefs);
+  assert(Array.isArray(found));
+  assert(found.some((v) => v.includes("jamesWatching")), "branch then-condition flag is linted: " + JSON.stringify(found));
 });
 
 console.log(`${passed} passed${process.exitCode ? ", some FAILED" : ""}`);

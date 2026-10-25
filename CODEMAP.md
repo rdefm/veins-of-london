@@ -334,12 +334,13 @@ prose variants generated with the quest editor builder. Implementation briefs ar
 ## tests/*.gd
 
 Mirrors systems/ and screens/ 1:1: `tests/test_<name>.gd`. `tests/support/` holds shared helpers,
-run via `scripts/run_tests.sh`. `test_runner.gd`/`test_base.gd` (entry + base class) are
+run via `scripts/run_tests.sh`; `support/event_content_lint.gd` is the event content lint (rules + refs export) behind `test_event_content_lint.gd`. `test_runner.gd`/`test_base.gd` (entry + base class) are
 infrastructure, excluded from discovery.
 
 ## scripts/*.sh and scripts/*.gd — tooling
 
 `check_all.sh` syntax-checks .gd files, then runs `lint_tokens.sh` (row-cap + comment-vocab ban).
+`export_lint_refs.gd` writes `tools/lint_refs.json` (lint reference lists + GDScript lint violations per event) for the storyboard tool; regenerate: `godot --headless -s scripts/export_lint_refs.gd`.
 `run_tests.sh` runs the headless suite. `setup_godot.sh`/`setup_godot_ai.sh` set up the headless
 binary and the godot-ai MCP server; `soak.sh` repeats the playthrough test.
 `diagnose_115_timing.gd` is a hang-timing probe; `verify_map_camera_persistence.gd` is a
@@ -353,6 +354,7 @@ the palette swatch; `pack_daily_cycle.py` preserves the retired cycle-atlas pipe
 `quest-editor.html`/`quest-editor-mobile.html`
 are the desktop/mobile quest content editors (`data/events/*.json`), sharing a byte-identical "Choice mechanics" section (option id/check/requires/goto/exit flag, hub advance rule, event `at`; also in `storyboard.html`); `test_quest_editor.js`
 unit-tests both, incl. lossless round-trips. `storyboard.html` is the local event-art storyboard review tool (boards in `.scratch/event-art/`, uploads into `assets/reference-plates/`; tabs Storyboard = elkjs flowchart (branch or card nodes, pan/zoom, click selects, drag moves nodes, saved as draft `_layout`) + preview + cut list, Shots = plate/shot review + shot field editing (Save/Undo to `board.json`), Comments = draft `_comments` (for-Claude/note on board/branch/card/option; filters, jump, graph badges) + proposal logline/Open points); it also previews writing proposals (`.scratch/writing-revamp/*.md` JSON blocks: named-branch drafts, or flat events converted to branches), with a card editor (text/speaker/label/type; insert, delete with dangling-link warning, loop-safe reorder; card goto picker; player options with per-outcome text + route, incl. new branch in place; per option a check-intent note shown on graph card nodes, check on/off, shared mechanics widgets, effect lists, per-success-count outcomes; image picker over board shots / event folder / reference plates / any repo image, copying to `assets/events/<id>/<id>_<branch>_<n>.png` as the card's `image`, or HOLD/CLEAR), a branch editor (new/rename/delete, `then` end/go-to/conditional over `condition_met` kinds; links that create a non-hub cycle refused; a back-edge to a choice card is a hub loop), Undo and a manual Save that splices only the JSON block, following outcome/card goto and branch `then`; New board imports a live event, starts a blank one or duplicates a proposal into a new proposal file. Its marked "Draft model (pure)" section is unit-tested by `test_storyboard.js`.
+`storyboard.html` also lints the open draft (promoted form) with a JS mirror of the GDScript content lint, against `lint_refs.json`: edit-bar issue list, and a non-blocking warning in the Promote confirm; `test_storyboard.js` holds it to the GDScript violations on every shipped event.
 `promote_storyboard.js` (node CLI over `storyboard.html`'s draft model) lists/resolves a proposal's open for-Claude comments and promotes its branch draft to a flat `data/events/<id>.json` (`promoteForWrite`); driven by the `.claude/skills/implement-storyboard-event` skill. `storyboard.html`'s Promote button runs the same `promoteForWrite` on the saved proposal and writes `data/events/<id>.json` after a confirm with a change summary.
 `plate_compositor/`: `compose.py` composites sprite or cut-out actors onto a blank reference plate (grid/palette lock, perspective scale, shadow, light tint, occluders) from `plates/*.json` + `shots/*.json`; `extract.py` cuts an AI-posed character off an AI-on-plate image (`poses/*.json`). See its README.
 `hq_region_mapper.tscn` (+ `_logic.gd`, Godot) traces per-tier HQ zone hit polygons on `assets/hq/<tier>_room.png` and saves them into `data/hq_visuals.json` "rooms".

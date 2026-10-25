@@ -1,5 +1,7 @@
 extends "res://tests/test_base.gd"
 
+const EventContentLint := preload("res://tests/support/event_content_lint.gd")
+
 # Card label tokens (R§3.9c) and the event content lint: a data test over
 # every event definition. Rules: card-label time words agree with the
 # event's `at`; every `goto` targets a later card in the same event; a card's
@@ -27,24 +29,6 @@ const KNOWN_OTHER := [
 	"vein_raid: card 0 label 'Night work' says 'night' but the event has no at",
 ]
 
-const MAX_OPTIONS := Events.MAX_OPTIONS
-
-const LABEL_TOKENS :=["weekday", "date", "block", "today"]
-
-# Label word -> the `at.block` values it agrees with.
-const BLOCK_WORDS := {
-	"morning": ["morning"],
-	"afternoon": ["afternoon"],
-	"evening": ["evening", "night"],
-	"tonight": ["evening", "night"],
-	"night": ["evening", "night"],
-}
-
-# Hard-coded day claims: drift as soon as the calendar moves; use a token.
-const DAY_PATTERNS := [
-	"\\btomorrow\\b", "\\byesterday\\b", "\\bdays? later\\b", "\\bweeks? later\\b", "\\bnext day\\b",
-	"\\b(mon|tues|wednes|thurs|fri|satur|sun)day\\b",
-]
 
 
 func run() -> void:
@@ -97,7 +81,7 @@ func run() -> void:
 			] },
 		] }
 		GameData.EVENTS["lint_probe"] = def
-		var found := _lint_event("lint_probe", def, _known_refs())
+		var found := EventContentLint.lint_event("lint_probe", def, EventContentLint.known_refs())
 		GameData.EVENTS.erase("lint_probe")
 		for fragment in ["unknown token {bogus}", "'tonight' contradicts at.block morning", "hard-codes a day", "goto 0", "result_text and a check", "unknown flag noSuchFlag", "unknown item noSuchItem", "unknown contact nobody", "unknown path player.nope", "unknown option zzz", "card must be a card key string", "goto 9", "card 3 end must be true", "card 3 has both end and goto", "entry 0 has no if but is not last", "entry 1 if: unknown flag noRouteFlag", "entry 1 goto 3", "entry 2 is not an object", "entry 3 if is not a condition", "card 5 goto entry 0 goto <null>", "card 7 has 5 options (max 4)"]:
 			assert_true(found.any(func(v): return String(v).contains(fragment)), "expected a violation containing '%s' in %s" % [fragment, found])
@@ -119,20 +103,30 @@ func run() -> void:
 				{ "label": "z", "result_text": "z", "requires": { "observed": { "id": "bad", "ore": "time", "atLeast": 1 } } },
 			] },
 		] }
-		var found := _lint_event("obs_probe", def, _known_refs())
+		var found := EventContentLint.lint_event("obs_probe", def, EventContentLint.known_refs())
 		for fragment in ["observation bad void: unknown ore", "bad life: missing miss text", "bad life: tiers not best-first", "card 0 observe 'nope' is not defined", "atLeast 2 outside 1..1", "bad observed ref"]:
 			assert_true(found.any(func(v): return String(v).contains(fragment)), "expected a violation containing '%s' in %s" % [fragment, found])
 		assert_eq(found.size(), 6, "valid refs add no violations: %s" % [found])
 	)
 
+	run_case("lint_refs_file_is_fresh", func():
+		GameState.reset()
+		var file := FileAccess.open(EventContentLint.REFS_PATH, FileAccess.READ)
+		assert_true(file != null, "%s missing; run: godot --headless -s scripts/export_lint_refs.gd" % EventContentLint.REFS_PATH)
+		if file == null:
+			return
+		var on_disk := file.get_as_text().replace("\r\n", "\n")
+		assert_true(on_disk == EventContentLint.export_text(), "%s is stale; run: godot --headless -s scripts/export_lint_refs.gd" % EventContentLint.REFS_PATH)
+	)
+
 	run_case("event_content_lint", func():
 		GameState.reset()
-		var refs := _known_refs()
+		var refs := EventContentLint.known_refs()
 		var found: Array = []
 		var ids: Array = GameData.EVENTS.keys()
 		ids.sort()
 		for id in ids:
-			found.append_array(_lint_event(id, GameData.EVENTS[id], refs))
+			found.append_array(EventContentLint.lint_event(id, GameData.EVENTS[id], refs))
 		var known: Array = KNOWN_OPENING + KNOWN_OTHER
 		for v in found:
 			assert_true(known.has(v), "new content lint violation: %s" % v)
@@ -145,224 +139,3 @@ func run() -> void:
 	)
 
 
-# Every flag, item, contact and state path a mod or `requires` may name.
-func _known_refs() -> Dictionary:
-	var flags: Dictionary = {}
-	for flag in GameState.state["flags"]:
-		flags[flag] = true
-	for id in GameData.EVENTS:
-		_collect_set_flags(GameData.EVENTS[id], flags)
-	return {
-		"flags": flags,
-		"items": GameData.RECIPES,
-		"contacts": GameState.state["contacts"],
-	}
-
-
-func _collect_set_flags(value: Variant, into: Dictionary) -> void:
-	if value is Dictionary:
-		if value.get("op") == "set_flag":
-			into[value["flag"]] = true
-		for v in value.values():
-			_collect_set_flags(v, into)
-	elif value is Array:
-		for v in value:
-			_collect_set_flags(v, into)
-
-
-func _lint_event(id: String, def: Dictionary, refs: Dictionary) -> Array:
-	var out: Array = []
-	var cards: Array = def.get("cards", [])
-	var at_block: Variant = (def["at"] as Dictionary).get("block") if def.get("at") is Dictionary else null
-	refs["event"] = def
-	out.append_array(_lint_observations(id, def, refs))
-	for i in cards.size():
-		var card: Dictionary = cards[i]
-		if card.has("observe") and card["observe"] != null and not def.get("observations", {}).has(card["observe"]):
-			out.append("%s: card %d observe '%s' is not defined" % [id, i, str(card["observe"])])
-		if card.get("label") is String:
-			out.append_array(_lint_label(id, i, card["label"], at_block))
-		out.append_array(_lint_card_route(id, i, card, cards, refs))
-		var option_count: int = (card.get("choices", []) as Array).size()
-		if option_count > MAX_OPTIONS:
-			out.append("%s: card %d has %d options (max %d)" % [id, i, option_count, MAX_OPTIONS])
-		for j in option_count:
-			out.append_array(_lint_option(id, i, j, card["choices"][j], cards, refs))
-	return out
-
-
-func _lint_label(id: String, i: int, label: String, at_block: Variant) -> Array:
-	var out: Array = []
-	var where := "%s: card %d label '%s'" % [id, i, label]
-	var token_re := RegEx.create_from_string("\\{([^}]*)\\}")
-	for m in token_re.search_all(label):
-		if not LABEL_TOKENS.has(m.get_string(1)):
-			out.append("%s has unknown token {%s}" % [where, m.get_string(1)])
-	var words := token_re.sub(label, "", true).to_lower()
-	for pattern in DAY_PATTERNS:
-		if RegEx.create_from_string(pattern).search(words) != null:
-			out.append("%s hard-codes a day; use {weekday}/{date}" % where)
-			break
-	for word in BLOCK_WORDS:
-		if RegEx.create_from_string("\\b%s\\b" % word).search(words) == null:
-			continue
-		if at_block == null:
-			out.append("%s says '%s' but the event has no at" % [where, word])
-		elif not (BLOCK_WORDS[word] as Array).has(at_block):
-			out.append("%s: '%s' contradicts at.block %s" % [where, word, at_block])
-	return out
-
-
-func _lint_option(id: String, i: int, j: int, option: Dictionary, cards: Array, refs: Dictionary) -> Array:
-	var out: Array = []
-	var where := "%s: card %d option %d" % [id, i, j]
-	if option.has("check") and option.has("result_text"):
-		out.append("%s has both result_text and a check" % where)
-	var gotos: Array = [option.get("goto")]
-	for key in ["success", "fail"]:
-		if option.get(key) is Dictionary:
-			gotos.append(option[key].get("goto"))
-	if option.get("bySuccesses") is Dictionary:
-		for outcome in option["bySuccesses"].values():
-			gotos.append(outcome.get("goto"))
-	for goto in gotos:
-		out.append_array(_lint_goto(where, goto, i, cards))
-	if option.get("requires") is Dictionary:
-		out.append_array(_lint_condition(where + " requires", option["requires"], refs))
-	if option.get("check") is Dictionary:
-		for mod in option["check"].get("mods", []):
-			out.append_array(_lint_condition(where + " mod", mod, refs))
-	return out
-
-
-# A card's own `goto` (an index or a conditional [{if, card}, ..., {card}]
-# list) and `end` (R§3.9a "Goto").
-func _lint_card_route(id: String, i: int, card: Dictionary, cards: Array, refs: Dictionary) -> Array:
-	var out: Array = []
-	var where := "%s: card %d" % [id, i]
-	if card.has("end") and not (card["end"] is bool and card["end"]):
-		out.append("%s end must be true, not %s" % [where, str(card["end"])])
-	if card.has("end") and card.has("goto"):
-		out.append("%s has both end and goto" % where)
-	var goto: Variant = card.get("goto")
-	if not goto is Array:
-		out.append_array(_lint_goto(where, goto, i, cards))
-		return out
-	for k in (goto as Array).size():
-		var entry: Variant = goto[k]
-		if not entry is Dictionary:
-			out.append("%s goto entry %d is not an object" % [where, k])
-			continue
-		out.append_array(_lint_goto("%s goto entry %d" % [where, k], entry.get("card"), i, cards, true))
-		if entry.has("if"):
-			if entry["if"] is Dictionary:
-				out.append_array(_lint_condition("%s goto entry %d if" % [where, k], entry["if"], refs))
-			else:
-				out.append("%s goto entry %d if is not a condition" % [where, k])
-		elif k < goto.size() - 1:
-			out.append("%s goto entry %d has no if but is not last" % [where, k])
-	return out
-
-
-# A goto value must be null (none), a later card index in the same event, or an earlier-or-same "choice" card (a hub).
-func _lint_goto(where: String, goto: Variant, i: int, cards: Array, required: bool = false) -> Array:
-	if goto == null and not required:
-		return []
-	var is_num: bool = typeof(goto) == TYPE_INT or typeof(goto) == TYPE_FLOAT
-	if not is_num or int(goto) < 0 or int(goto) >= cards.size():
-		return ["%s goto %s is not a later card" % [where, str(goto)]]
-	if int(goto) <= i and cards[int(goto)].get("type") != "choice":
-		return ["%s goto %s is not a later card" % [where, str(goto)]]
-	return []
-
-
-# Mirrors Events.condition_met()'s vocabulary (R§3.9a "Mods"/"Requires").
-func _lint_condition(where: String, c: Dictionary, refs: Dictionary) -> Array:
-	if c.has("item"):
-		return [] if refs["items"].has(c["item"]) else ["%s: unknown item %s" % [where, c["item"]]]
-	if c.has("flag"):
-		return [] if refs["flags"].has(c["flag"]) else ["%s: unknown flag %s" % [where, c["flag"]]]
-	if c.has("relation"):
-		return [] if refs["contacts"].has(c["relation"]) else ["%s: unknown contact %s" % [where, c["relation"]]]
-	if c.has("path"):
-		return [] if GameState.read_path(c["path"]) != null else ["%s: unknown path %s" % [where, c["path"]]]
-	if c.has("cash"):
-		return []
-	if c.has("recipeRung"):
-		var r: Dictionary = c["recipeRung"]
-		return [] if RecipeKnowledge.rungs().has(r.get("rung")) and not Lab.procedure_def(str(r.get("recipe"))).is_empty() else ["%s: unknown recipe rung %s" % [where, JSON.stringify(r)]]
-	if c.has("choice"):
-		return _lint_choice_ref(where, c["choice"])
-	if c.has("observed"):
-		return _lint_observed_ref(where, c["observed"], refs.get("event", {}))
-	return ["%s: unknown condition %s" % [where, JSON.stringify(c)]]
-
-
-# An event's `observations` (R§3.9d): known ores, tiers best-first (base
-# ascending), a miss text, mods that are known conditions.
-func _lint_observations(id: String, def: Dictionary, refs: Dictionary) -> Array:
-	var out: Array = []
-	var ores: Array = GameData.OBSERVATION["oreOrder"]
-	for obs_id in def.get("observations", {}):
-		var obs: Dictionary = def["observations"][obs_id]
-		var where := "%s: observation %s" % [id, obs_id]
-		for mod in obs.get("mods", []):
-			if not (mod.has("path") and mod.has("perPoint")):
-				out.append_array(_lint_condition(where + " mod", mod, refs))
-		var blocks: Dictionary = obs.get("blocks", {})
-		if blocks.is_empty():
-			out.append("%s has no blocks" % where)
-		for ore in blocks:
-			var block_where := "%s %s" % [where, ore]
-			var block: Dictionary = blocks[ore]
-			if not ores.has(ore):
-				out.append("%s: unknown ore" % block_where)
-			if not block.get("miss") is String or String(block["miss"]) == "":
-				out.append("%s: missing miss text" % block_where)
-			var tiers: Array = block.get("tiers", [])
-			if tiers.is_empty():
-				out.append("%s: no tiers" % block_where)
-			for k in tiers.size():
-				if not tiers[k].has("base") or not tiers[k].has("text"):
-					out.append("%s: tier %d needs base and text" % [block_where, k])
-				elif k > 0 and tiers[k - 1].has("base") and float(tiers[k]["base"]) <= float(tiers[k - 1]["base"]):
-					out.append("%s: tiers not best-first (base must ascend)" % block_where)
-	return out
-
-
-# {observed: {event?, id, ore, atLeast}}: a known ore, an observation defined in
-# the named (or current) event, atLeast within that block's tier count.
-func _lint_observed_ref(where: String, ref: Dictionary, current: Dictionary) -> Array:
-	var def: Dictionary = current
-	if ref.has("event"):
-		def = GameData.EVENTS.get(ref["event"], {})
-	var block: Dictionary = def.get("observations", {}).get(ref.get("id", ""), {}).get("blocks", {}).get(ref.get("ore", ""), {})
-	if block.is_empty():
-		return ["%s: bad observed ref %s" % [where, JSON.stringify(ref)]]
-	var at_least := int(ref.get("atLeast", 0))
-	if at_least < 1 or at_least > (block.get("tiers", []) as Array).size():
-		return ["%s: observed atLeast %s outside 1..%d" % [where, str(ref.get("atLeast")), (block.get("tiers", []) as Array).size()]]
-	return []
-
-
-func _lint_choice_ref(where: String, ref: Dictionary) -> Array:
-	var event: Dictionary = GameData.EVENTS.get(ref.get("event", ""), {})
-	if event.is_empty():
-		return ["%s: unknown event %s" % [where, ref.get("event")]]
-	if typeof(ref.get("card")) != TYPE_STRING:
-		return ["%s: card must be a card key string, got %s" % [where, str(ref.get("card"))]]
-	var target: Dictionary = {}
-	for card in event["cards"]:
-		if card.get("key") == ref["card"] and card.has("choices"):
-			target = card
-	if target.is_empty():
-		return ["%s: %s card %s is not a choice card" % [where, ref["event"], str(ref["card"])]]
-	var options: Array = target["choices"]
-	var option: Variant = ref.get("option")
-	if option is String:
-		for o in options:
-			if o.get("id") == option:
-				return []
-	elif int(option) >= 0 and int(option) < options.size():
-		return []
-	return ["%s: unknown option %s at %s card %s" % [where, str(option), ref["event"], str(ref["card"])]]
