@@ -114,15 +114,15 @@ func run() -> void:
 		assert_eq(GameState.state["grudgeEffects"]["soft"].size(), 0, "mark dropped once decayed")
 	)
 
-	run_case("revenge_bonus_lifts_player_stealth_odds_on_the_lost_site_then_lapses", func():
+	run_case("revenge_bonus_lifts_player_raid_factor_on_the_lost_site_then_lapses", func():
 		_fresh()
 		var vein := Fixtures.seed_faction_vein("fv", 40, "firm")
-		var plain := Raiding.stealth_success_chance(3, vein, 0.0)
+		var plain: float = Raiding.raid_factor_mods(vein).reduce(func(sum, m): return sum + m["delta"], 0.0)
 		GameState.state["grudgeEffects"]["revenge"]["site_fv"] = 10
-		assert_true(Raiding.stealth_success_chance(3, vein, 0.0) > plain)
+		assert_true(Raiding.raid_factor_mods(vein).reduce(func(sum, m): return sum + m["delta"], 0.0) > plain)
 		GameState.state["world"]["day"] = 11
 		Grudges.daily_tick()
-		assert_eq(Raiding.stealth_success_chance(3, vein, 0.0), plain)
+		assert_eq(Raiding.raid_factor_mods(vein).reduce(func(sum, m): return sum + m["delta"], 0.0), plain)
 	)
 
 	run_case("grudge_state_survives_rewind_snapshot_and_backfills", func():

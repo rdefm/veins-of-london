@@ -584,31 +584,17 @@ func run() -> void:
 		SaveManager.delete_slot(TEST_SLOT)
 	)
 
-	run_case("save_mutate_load_round_trips_stealth_skill_for_player_and_contact", func():
+	run_case("save_mutate_load_round_trips_sense_skill_as_ints", func():
 		GameState.reset()
-		GameState.state["player"]["stealthSkill"] = 3
-		GameState.state["player"]["stealthXP"] = 45
-		GameState.state["contacts"]["archie"]["stealthSkill"] = 2
-		GameState.state["contacts"]["archie"]["stealthXP"] = 30
-
-		var save_result := SaveManager.save_to_slot(TEST_SLOT)
-		assert_true(save_result["ok"], "save_to_slot should succeed")
-
-		GameState.state["player"]["stealthSkill"] = 1
-		GameState.state["player"]["stealthXP"] = 0
-		GameState.state["contacts"]["archie"]["stealthSkill"] = 1
-		GameState.state["contacts"]["archie"]["stealthXP"] = 0
-
-		var load_result := SaveManager.load_from_slot(TEST_SLOT)
-		assert_true(load_result["ok"], "load_from_slot should succeed")
-
-		assert_eq(GameState.state["player"]["stealthSkill"], 3, "player.stealthSkill should be restored")
-		assert_eq(GameState.state["player"]["stealthXP"], 45, "player.stealthXP should be restored")
-		assert_eq(typeof(GameState.state["player"]["stealthXP"]), TYPE_INT, "player.stealthXP should be restored as int, not float")
-		assert_eq(GameState.state["contacts"]["archie"]["stealthSkill"], 2, "contact.stealthSkill should be restored")
-		assert_eq(GameState.state["contacts"]["archie"]["stealthXP"], 30, "contact.stealthXP should be restored")
-		assert_eq(typeof(GameState.state["contacts"]["archie"]["stealthXP"]), TYPE_INT, "contact.stealthXP should be restored as int, not float")
-
+		GameState.state["player"]["senseSkill"] = 3
+		GameState.state["player"]["senseXP"] = 230
+		assert_true(SaveManager.save_to_slot(TEST_SLOT)["ok"], "save_to_slot should succeed")
+		GameState.state["player"]["senseSkill"] = 1
+		GameState.state["player"]["senseXP"] = 0
+		assert_true(SaveManager.load_from_slot(TEST_SLOT)["ok"], "load_from_slot should succeed")
+		assert_eq(GameState.state["player"]["senseSkill"], 3, "player.senseSkill restored")
+		assert_eq(GameState.state["player"]["senseXP"], 230, "player.senseXP restored")
+		assert_eq(typeof(GameState.state["player"]["senseXP"]), TYPE_INT, "player.senseXP restored as int")
 		SaveManager.delete_slot(TEST_SLOT)
 	)
 
@@ -1287,6 +1273,39 @@ func run() -> void:
 		assert_true(not GameState.state.has("labBenchNav") and not GameState.state.has("craftQty"), "bench nav and qty state dropped")
 		assert_eq(GameState.state["modal"], null, "a retired modal closes")
 		assert_eq(GameState.state["meta"]["saveVersion"], SaveManager.SAVE_VERSION)
+	)
+
+	run_case("loading_a_v12_save_merges_stealth_xp_into_sense_taking_the_max", func():
+		GameState.reset()
+		var save: Dictionary = GameState.deep_copy(GameState.state)
+		save["meta"]["saveVersion"] = 12
+		save["player"]["stealthSkill"] = 3
+		save["player"]["stealthXP"] = 230
+		save["player"]["senseSkill"] = 2
+		save["player"]["senseXP"] = 90
+		save["contacts"]["archie"]["stealthSkill"] = 2
+		save["contacts"]["archie"]["stealthXP"] = 30
+		var result := SaveManager.import_string(JSON.stringify(save))
+		assert_true(result["ok"], "a v12 save should load")
+		var player: Dictionary = GameState.state["player"]
+		assert_eq(player["senseXP"], 230, "stealth XP above sense XP wins")
+		assert_eq(player["senseSkill"], 3, "sense level re-derived from the merged XP")
+		assert_true(not player.has("stealthSkill") and not player.has("stealthXP"), "player stealth fields dropped")
+		assert_true(not GameState.state["contacts"]["archie"].has("stealthXP"), "contact stealth fields dropped")
+		assert_eq(GameState.state["meta"]["saveVersion"], SaveManager.SAVE_VERSION)
+	)
+
+	run_case("loading_a_v12_save_keeps_higher_sense_xp", func():
+		GameState.reset()
+		var save: Dictionary = GameState.deep_copy(GameState.state)
+		save["meta"]["saveVersion"] = 12
+		save["player"]["stealthSkill"] = 2
+		save["player"]["stealthXP"] = 90
+		save["player"]["senseSkill"] = 4
+		save["player"]["senseXP"] = 600
+		assert_true(SaveManager.import_string(JSON.stringify(save))["ok"], "a v12 save should load")
+		assert_eq(GameState.state["player"]["senseXP"], 600, "higher sense XP kept")
+		assert_eq(GameState.state["player"]["senseSkill"], 4, "sense level kept")
 	)
 
 	run_case("loading_a_v8_save_returns_hq_kit_overflow_to_inventory", func():

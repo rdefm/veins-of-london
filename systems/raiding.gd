@@ -1,38 +1,21 @@
 class_name Raiding
 extends RefCounted
 
-# Direction A: stealth-check + raid resolution ops, registered as effect ops
-# in systems/events.gd's _apply_one() ("stealth_check", "start_raid_combat",
-# "claim_raid_vein", "loot_raid_vein"). This file holds the pure/testable
-# logic; events.gd stays a thin op dispatcher into systems.
+# Raid resolution ops, registered as effect ops in systems/events.gd's
+# _apply_one() ("start_raid_combat", "claim_raid_vein", "loot_raid_vein").
+# This file holds the pure/testable logic; events.gd stays a thin op
+# dispatcher into systems.
 
 
-# ── stealth check ────────────────────────────────────────────────────────
-# Coin-flip baseline tilted by stealthSkill, consumable bonus, raidResist
-# (normalised against the 55.0 anchor, R§1.6) and vein value.
-const STEALTH_BASE_CHANCE := 0.55
-const STEALTH_SKILL_WEIGHT := 0.05
-const STEALTH_RAID_RESIST_DIVISOR := 55.0
-const STEALTH_RAID_RESIST_WEIGHT := 0.35
+# ── raid-factor constants ────────────────────────────────────────────────
+# raidResist is normalised against the 55.0 anchor (R§1.6).
+const RAID_RESIST_DIVISOR := 55.0
+const RAID_RESIST_WEIGHT := 0.35
 # basePrice * combined_magnitude tops out ~560-680 for a maxed level-1 vein; dividing by 562.5
 # keeps the tilt within roughly [-1.2, 0] before the weight scales it further (a leveled-up
 # vein's combined magnitude, R§3.4, can push past that ceiling).
-const STEALTH_VALUE_DIVISOR := 562.5
-const STEALTH_VALUE_WEIGHT := 0.15
-
-
-static func stealth_success_chance(stealth_skill: int, vein: Dictionary, consumable_bonus: float) -> float:
-	var skill_tilt: float = (stealth_skill - 1) * STEALTH_SKILL_WEIGHT
-
-	var raid_resist: int = Cultivating.vein_raid_resist(vein)
-	var resist_tilt: float = -(float(raid_resist) / STEALTH_RAID_RESIST_DIVISOR) * STEALTH_RAID_RESIST_WEIGHT
-
-	var value: float = GameData.ORE_TYPES[vein["oreType"]]["basePrice"] * Cultivating.combined_magnitude(vein)
-	var value_tilt: float = -(value / STEALTH_VALUE_DIVISOR) * STEALTH_VALUE_WEIGHT
-
-	var intel_bonus: float = NetworkHandler.claim_bonus(vein.get("siteId", ""))
-	var chance: float = STEALTH_BASE_CHANCE + skill_tilt + resist_tilt + value_tilt + consumable_bonus + intel_bonus + Grudges.raid_odds_bonus(vein.get("siteId", ""))
-	return clampf(chance, 0.0, 1.0)
+const RAID_VALUE_DIVISOR := 562.5
+const RAID_VALUE_WEIGHT := 0.15
 
 
 # Raid-factor mods for a vein raid's observation reads, as [{label, delta}]
@@ -42,9 +25,9 @@ static func raid_factor_mods(vein: Dictionary) -> Array:
 	var labels: Dictionary = GameData.OBSERVATION["raidLabels"]
 	var site_id: String = vein.get("siteId", "")
 	var out: Array = []
-	var resist_tilt: float = -(float(Cultivating.vein_raid_resist(vein)) / STEALTH_RAID_RESIST_DIVISOR) * STEALTH_RAID_RESIST_WEIGHT
+	var resist_tilt: float = -(float(Cultivating.vein_raid_resist(vein)) / RAID_RESIST_DIVISOR) * RAID_RESIST_WEIGHT
 	var value: float = GameData.ORE_TYPES[vein["oreType"]]["basePrice"] * Cultivating.combined_magnitude(vein)
-	var value_tilt: float = -(value / STEALTH_VALUE_DIVISOR) * STEALTH_VALUE_WEIGHT
+	var value_tilt: float = -(value / RAID_VALUE_DIVISOR) * RAID_VALUE_WEIGHT
 	_add_factor(out, labels["security"], resist_tilt)
 	_add_factor(out, labels["value"], value_tilt)
 	if vein.has("factionId"):
@@ -63,7 +46,7 @@ static func raid_factor_mods(vein: Dictionary) -> Array:
 static func stockpile_factor_mods(faction_id: String) -> Array:
 	var labels: Dictionary = GameData.OBSERVATION["raidLabels"]
 	var out: Array = []
-	var resist_tilt: float = -(float(stockpile_raid_resist(faction_id)) / STEALTH_RAID_RESIST_DIVISOR) * STEALTH_RAID_RESIST_WEIGHT
+	var resist_tilt: float = -(float(stockpile_raid_resist(faction_id)) / RAID_RESIST_DIVISOR) * RAID_RESIST_WEIGHT
 	var misled: bool = Intel.disinformation(Shares.PLAYER, faction_id) != ""
 	_add_factor(out, labels["security"], resist_tilt)
 	_add_factor(out, labels["disinformation"] if misled else labels["intel"], Intel.raid_odds_shift(Shares.PLAYER, faction_id))
@@ -74,29 +57,6 @@ static func stockpile_factor_mods(faction_id: String) -> Array:
 static func _add_factor(out: Array, label: String, delta: float) -> void:
 	if delta != 0.0:
 		out.append({ "label": label, "delta": delta })
-
-
-# Full XP reward on success, ~1/3 on a caught attempt -- getting caught
-# still teaches you something, just less.
-const STEALTH_XP_SUCCESS := 20
-const STEALTH_XP_CAUGHT := 7
-
-
-static func award_stealth_xp(amount: int) -> void:
-	var player: Dictionary = GameState.state["player"]
-	var on_level_up := func(): Notify.push("Stealth skill up — now level %d." % player["stealthSkill"], Notify.CATEGORY_SUCCESS)
-	Progression.award_xp(player, "stealthXP", "stealthSkill", GameData.STEALTH_XP_LEVELS, amount, on_level_up)
-
-
-# Rolls the check and awards stealth XP either way; returns success so
-# events.gd's "stealth_check" op can branch into on_success/on_caught.
-static func resolve_stealth_check(vein: Dictionary, consumable_bonus: float) -> bool:
-	var skill: int = GameState.state["player"]["stealthSkill"]
-	var success: bool = Rng.chance(stealth_success_chance(skill, vein, consumable_bonus + Perks.muscle_odds_bonus()))
-	award_stealth_xp(STEALTH_XP_SUCCESS if success else STEALTH_XP_CAUGHT)
-	if vein.has("factionId"):
-		Intel.gain(Shares.PLAYER, vein["factionId"], Intel.SOURCE_SCOUT)
-	return success
 
 
 # ── claim / loot resolution ─────────────────────────────────────────────
@@ -144,7 +104,7 @@ static func claim_vein(site_id: String) -> void:
 
 # One-time ore payoff -- ownership stays with the faction, the vein itself is
 # untouched. Relation hit only applies when `caught` is true (a clean
-# stealth-and-loot leaves relation untouched). No-op if the site has no
+# entry leaves relation untouched). No-op if the site has no
 # factionVein.
 static func loot_vein(site_id: String, caught: bool) -> void:
 	var site: Variant = Sites.find_site(site_id)
@@ -212,8 +172,8 @@ static func prepare_raid(vein: Dictionary, ally_ids: Array = []) -> Dictionary:
 
 # ── stockpile raids (R§3.12 "Stockpile raids") ──────────────────────────
 # The player raids a faction's stockpile once their intel on it reaches the
-# stockpile-location level. Same event flow as a vein raid: a stealth check
-# against the stockpile guards, a fight with them (carrying the faction's
+# stockpile-location level. Same event flow as a vein raid: an observation
+# of the stockpile guards, a fight with them (carrying the faction's
 # defend kit) when caught, then a loot card. With stash-level intel the
 # loot card also offers taking everything.
 
@@ -264,23 +224,6 @@ static func prepare_stockpile_raid(faction_id: String, ally_ids: Array = []) -> 
 # Stockpile guards × raidResistPerGuard, on the vein raidResist scale.
 static func stockpile_raid_resist(faction_id: String) -> int:
 	return FactionSim.stockpile_guards(faction_id) * int(_stockpile_cfg()["raidResistPerGuard"])
-
-
-# stealth_success_chance() without the vein terms: skill tilt, consumable
-# bonus and the stockpile guards' raid resist.
-static func stockpile_stealth_chance(stealth_skill: int, faction_id: String, consumable_bonus: float) -> float:
-	var skill_tilt: float = (stealth_skill - 1) * STEALTH_SKILL_WEIGHT
-	var resist_tilt: float = -(float(stockpile_raid_resist(faction_id)) / STEALTH_RAID_RESIST_DIVISOR) * STEALTH_RAID_RESIST_WEIGHT
-	return clampf(STEALTH_BASE_CHANCE + skill_tilt + resist_tilt + consumable_bonus, 0.0, 1.0)
-
-
-# resolve_stealth_check() for a stockpile.
-static func resolve_stockpile_stealth_check(faction_id: String, consumable_bonus: float) -> bool:
-	var skill: int = GameState.state["player"]["stealthSkill"]
-	var success: bool = Rng.chance(stockpile_stealth_chance(skill, faction_id, consumable_bonus + Perks.muscle_odds_bonus()))
-	award_stealth_xp(STEALTH_XP_SUCCESS if success else STEALTH_XP_CAUGHT)
-	Intel.gain(Shares.PLAYER, faction_id, Intel.SOURCE_SCOUT)
-	return success
 
 
 # The share of each holdings line a successful raid takes: stashLootShare

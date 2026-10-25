@@ -936,8 +936,6 @@ static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 				TimeSystem.advance_time_block()
 		"tutorial_cultivate":
 			_tutorial_cultivate()
-		"stealth_check":
-			_stealth_check(effect)
 		"start_raid_combat":
 			_start_raid_combat(effect)
 		"reduce_raid_guards":
@@ -948,8 +946,6 @@ static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 			Raiding.loot_vein(_event_site_id(effect), _event_caught(effect))
 		# Stockpile raid ops: the raided faction comes from start_event()'s
 		# context (Raiding.begin_stockpile_raid()), like a vein raid's site_id.
-		"stockpile_stealth_check":
-			_stockpile_stealth_check(effect)
 		"start_stockpile_raid_combat":
 			_start_stockpile_raid_combat(effect)
 		"loot_stockpile":
@@ -1259,28 +1255,13 @@ static func _event_ally_ids(effect: Dictionary) -> Array:
 	return event_state.get("context", {}).get("ally_ids", [])
 
 
-# "caught" drives loot_raid_vein's relation hit. Clean-stealth and
+# "caught" drives loot_raid_vein's relation hit. A clean entry and
 # caught-then-combat-win both resume at the same shared claim/loot card, so
-# flags.raidCaught (set earlier by the stealth_check branch) is what tells it which path got here.
+# flags.raidCaught is what tells it which path got here.
 static func _event_caught(effect: Dictionary) -> bool:
 	if effect.has("caught"):
 		return effect["caught"]
 	return GameState.state["flags"].get("raidCaught", false)
-
-
-# Dispatches into Raiding, targeting an existing runtime faction-owned vein by
-# site_id. Silent no-op if the site has no factionVein, so a stale site_id never crashes an event mid-flight.
-static func _stealth_check(effect: Dictionary) -> void:
-	var site: Variant = Sites.find_site(_event_site_id(effect))
-	if site == null or site["factionVein"] == null:
-		return
-
-	var consumable_bonus: float = effect.get("consumable_bonus", 0.0)
-	var success: bool = Raiding.resolve_stealth_check(site["factionVein"], consumable_bonus)
-	if success:
-		apply_effects(effect.get("on_success", []))
-	else:
-		apply_effects(effect.get("on_caught", []))
 
 
 # A stockpile raid's faction id, from the effect or the live event context.
@@ -1299,17 +1280,6 @@ static func _event_district() -> String:
 	var event_state: Variant = GameState.state.get("event")
 	var district: String = "" if event_state == null else str(event_state.get("context", {}).get("district", ""))
 	return district if district != "" else str(GameState.state["world"]["currentDistrict"])
-
-
-# _stealth_check() for a stockpile raid; silent no-op for an unknown faction.
-static func _stockpile_stealth_check(effect: Dictionary) -> void:
-	var faction_id := _event_faction_id(effect)
-	if not GameState.state["factions"].has(faction_id):
-		return
-	if Raiding.resolve_stockpile_stealth_check(faction_id, effect.get("consumable_bonus", 0.0)):
-		apply_effects(effect.get("on_success", []))
-	else:
-		apply_effects(effect.get("on_caught", []))
 
 
 # A caught stockpile raid's fight: one enemy per stockpile guard, at the

@@ -27,8 +27,8 @@ func run() -> void:
 		assert_eq(s["player"]["dial"], null, "player.dial")
 		assert_eq(s["player"]["craftingSkill"], 1, "player.craftingSkill")
 		assert_eq(s["player"]["cultivatingSkill"], 1, "player.cultivatingSkill")
-		assert_eq(s["player"]["stealthSkill"], 1, "player.stealthSkill")
-		assert_eq(s["player"]["stealthXP"], 0, "player.stealthXP")
+		assert_eq(s["player"]["senseSkill"], 1, "player.senseSkill")
+		assert_true(not s["player"].has("stealthSkill") and not s["player"].has("stealthXP"), "no stealth fields")
 		assert_true(not s["player"].has("bench") and not s.has("labBenchNav") and not s.has("craftQty"), "no lottery bench state")
 
 		assert_eq(s["world"]["day"], 1, "world.day")

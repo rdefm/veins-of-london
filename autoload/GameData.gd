@@ -67,9 +67,6 @@ var VEIN_SECURITY: Dictionary = {}
 # HOME_SECURITY's ids land in state.home["security"].
 var VEIN_ALARM: Dictionary = {}
 
-# Third skill, same progression shape as CULTIVATING_XP_LEVELS/
-# CRAFTING_XP_LEVELS. Own file since it's not tier-keyed content.
-var STEALTH_XP_LEVELS: Array = []
 
 var HOME_TIER_ORDER: Array = []
 var HOME_TIERS: Dictionary = {}
@@ -407,9 +404,6 @@ const MANIFEST: Array[Dictionary] = [
 	{"table": "vein_alarm", "file": "res://data/vein_alarm.json", "fields": [
 		{"field": "VEIN_ALARM", "key": "", "type": TYPE_DICTIONARY},
 	]},
-	{"table": "stealth", "file": "res://data/stealth.json", "fields": [
-		{"field": "STEALTH_XP_LEVELS", "key": "stealthXpLevels", "type": TYPE_ARRAY},
-	]},
 	{"table": "sense", "file": "res://data/sense.json", "fields": [
 		{"field": "SENSE_XP_LEVELS", "key": "senseXpLevels", "type": TYPE_ARRAY},
 	]},
@@ -687,7 +681,6 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_dial(t, errors)
 	_validate_vein_security(t.get("vein_security", {}), errors)
 	_validate_vein_alarm(t.get("vein_alarm", {}), errors)
-	_validate_stealth(t.get("stealth_xp_levels", []), errors)
 	_validate_sense(t.get("sense_xp_levels", []), errors)
 	_validate_home(t.get("home_tier_order", []), t.get("home_tiers", {}), t.get("home_security", {}), t.get("home_rooms", {}), errors)
 	_validate_home_bills(t.get("home_bills", {}), t.get("home_tiers", {}), errors)
@@ -1018,11 +1011,6 @@ func _validate_vein_alarm(alarm: Dictionary, errors: Array[String]) -> void:
 		errors.append("vein_alarm: missing upgrade 'alarm'")
 		return
 	_require_keys(alarm["alarm"], ["id", "label", "cost", "description"], "vein_alarm.alarm", errors)
-
-
-func _validate_stealth(xp_levels: Array, errors: Array[String]) -> void:
-	if xp_levels.size() != 6:
-		errors.append("stealthXpLevels: expected 6 entries (index=level, 0..5), got %d" % xp_levels.size())
 
 
 func _validate_sense(xp_levels: Array, errors: Array[String]) -> void:
@@ -2141,8 +2129,8 @@ const VALID_EFFECT_OPS: Array[String] = [
 	# stashing the new vein's id at a named state path. tutorial_cultivate
 	# forces one free successful cultivate.
 	"grant_vein_with_site", "tutorial_cultivate",
-	"stealth_check", "start_raid_combat", "reduce_raid_guards", "claim_raid_vein", "loot_raid_vein",
-	"stockpile_stealth_check", "start_stockpile_raid_combat", "loot_stockpile", "start_faction_ambush_combat",
+	"start_raid_combat", "reduce_raid_guards", "claim_raid_vein", "loot_raid_vein",
+	"start_stockpile_raid_combat", "loot_stockpile", "start_faction_ambush_combat",
 	# start_scripted_fight opens an event's scripted fight (Combat.start_scripted_fight()).
 	"start_scripted_fight", "start_demo_fight",
 	# unlock_contact flips contacts.<id>.unlocked; push_message appends
@@ -2415,12 +2403,6 @@ func _validate_effect_list(effects: Array, context: String, errors: Array[String
 			_require_keys(effect, ["p", "on_success", "on_fail"], context, errors)
 			_validate_effect_list(effect.get("on_success", []), "%s.chance.on_success" % context, errors)
 			_validate_effect_list(effect.get("on_fail", []), "%s.chance.on_fail" % context, errors)
-		# stealth_check branches into on_success/on_caught the same way
-		# "chance" branches above -- recursed for the same reason.
-		if effect["op"] == "stealth_check":
-			_require_keys(effect, ["on_success", "on_caught"], context, errors)
-			_validate_effect_list(effect.get("on_success", []), "%s.stealth_check.on_success" % context, errors)
-			_validate_effect_list(effect.get("on_caught", []), "%s.stealth_check.on_caught" % context, errors)
 		if effect["op"] == "grant_recipe":
 			_require_keys(effect, ["recipe"], context, errors)
 		if effect["op"] == "grant_recipe_steps":

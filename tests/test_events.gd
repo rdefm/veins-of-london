@@ -1764,30 +1764,14 @@ func run() -> void:
 		GameData.EVENTS = original_events
 	)
 
-	# ── vein-raiding ticket 02: stealth_check / start_raid_combat /
+	# ── vein-raiding ticket 02: start_raid_combat /
 	# claim_raid_vein / loot_raid_vein ops ───────────────────────────────
 
-	run_case("stealth_check_op_branches_into_on_success_with_a_saturated_bonus", func():
-		GameState.reset()
-		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", _faction_vein_of_level(1, "time"))]
-		Events.apply_effects([{
-			"op": "stealth_check", "site_id": "s1", "consumable_bonus": 5.0,
-			"on_success": [{ "op": "set_flag", "flag": "stealthOutcome", "value": "success" }],
-			"on_caught": [{ "op": "set_flag", "flag": "stealthOutcome", "value": "caught" }],
-		}])
-		assert_eq(GameState.state["flags"]["stealthOutcome"], "success", "a saturated bonus should always succeed")
-		assert_true(GameState.state["player"]["stealthXP"] > 0, "the check should award stealth XP")
-	)
-
-	run_case("stealth_check_op_branches_into_on_caught_with_a_floored_bonus", func():
-		GameState.reset()
-		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", _faction_vein_of_level(5, "fate", "guarded"))]
-		Events.apply_effects([{
-			"op": "stealth_check", "site_id": "s1", "consumable_bonus": -5.0,
-			"on_success": [{ "op": "set_flag", "flag": "stealthOutcome", "value": "success" }],
-			"on_caught": [{ "op": "set_flag", "flag": "stealthOutcome", "value": "caught" }],
-		}])
-		assert_eq(GameState.state["flags"]["stealthOutcome"], "caught", "a floored bonus should always be caught")
+	run_case("retired_stealth_ops_fail_effect_validation", func():
+		for op in ["stealth_check", "stockpile_stealth_check"]:
+			var errors: Array[String] = []
+			GameData._validate_effect_list([{ "op": op }], "test", errors)
+			assert_eq(errors.size(), 1, "%s should be an unknown effect op" % op)
 	)
 
 	run_case("start_raid_combat_op_launches_combat_with_event_raid_context", func():

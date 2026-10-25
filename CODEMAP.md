@@ -105,7 +105,7 @@ Data file per system: see `data/*.json` below.
 | preferences.gd | Saved presentation prefs in `meta` (reduced motion, vibration, Map dark mode) + carry_forward() so event Rewind never flips them |
 | progression.gd | Shared "award XP" ladder loop |
 | raid_alarms.gd | Summaries + dispatch for raid alarms |
-| raiding.gd | Vein stealth-check + raid resolution; raid-factor mods (`raid_factor_mods`, `stockpile_factor_mods`); player stockpile raids (observation event, fight settlement, loot, relation/war/relocation); faction-vs-faction stockpile raids + Ticker headline; queued faction raids on the player incl. alarm/scripted defend fights + kit burns; shared guard repel roll |
+| raiding.gd | Vein raid resolution; raid-factor mods (`raid_factor_mods`, `stockpile_factor_mods`); player stockpile raids (observation event, fight settlement, loot, relation/war/relocation); faction-vs-faction stockpile raids + Ticker headline; queued faction raids on the player incl. alarm/scripted defend fights + kit burns; shared guard repel roll |
 | relation_accrual.gd | Capped £ relation meter |
 | rooms.gd | Per-block staff step (one action per cultivator, then producers take turns crafting until targets met or ore short), which recipes each crafter's `specialities` allow and the Production list, writes/trims `productionLog`, Production targets/priority and when they are settable, per-cultivator vein lists (`cultivatorVeins`) and per-vein targets; cultivator speciality yield bonus |
 | shares.gd | Shares: 14-day daily buckets per producer (player, factions, independents) of ore harvested, ore spent on successful crafts, contract deliveries and faction London buys; Independents slice crediting (⑥.5e); pure ore/crafting share, overview, delivery and supplier-share reads (split + intake) (R§3.14) |
@@ -305,7 +305,6 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | recipes.json | widely read (crafting, lab, combat, dial, jobs, rooms) |
 | sites.json | sites.gd, collective.gd, objectives.gd |
 | sense.json | sense.gd |
-| stealth.json | raiding.gd |
 | vein_alarm.json | cultivating.gd |
 | vein_growth.json | widely read (cultivating, events, sites, vein_trade, faction_sim) |
 | vein_security.json | cultivating.gd, factions.gd |

@@ -77,7 +77,7 @@ static func value_tier(vein: Dictionary) -> int:
 	return mini(6, 1 + int(floor(float(vein["growth"]) / 20.0)))
 
 
-# R§3.4: the magnitude every value_tier() consumer (raid stealth odds,
+# R§3.4: the magnitude every value_tier() consumer (raid-factor value mods,
 # faction raid targeting/income, rivalry weighting, combat scaling, the
 # map's growth ring) reads instead of raw value_tier(), so a vein's earned
 # level is felt everywhere its condition-derived tier already was.
@@ -642,7 +642,7 @@ static func security_tier_cost(tier_id: String) -> int:
 const EXTRA_GUARD_RAID_RESIST := 20
 
 
-# Every raid-odds formula (Raiding.stealth_success_chance/raid_success_chance,
+# Every raid-odds formula (Raiding.raid_factor_mods/raid_success_chance,
 # Factions.rivalry_success_chance) reads defensive strength through here rather
 # than indexing GameData.VEIN_SECURITY directly. extraGuards defaults to 0 via .get() for veins that predate it.
 static func vein_raid_resist(vein: Dictionary) -> int:

@@ -2,7 +2,7 @@ extends "res://tests/test_base.gd"
 
 const Fixtures := preload("res://tests/support/fixtures.gd")
 
-# vein-raiding ticket 02: stealth-check + claim/loot resolution ops.
+# vein-raiding ticket 02: claim/loot resolution ops.
 # systems/raiding.gd's pure logic, tested directly (no event/UI wiring yet
 # -- that's ticket 03).
 
@@ -92,98 +92,6 @@ static func _queue_raid(attacker_id: String) -> void:
 
 
 func run() -> void:
-	# ── stealth_success_chance direction ────────────────────────────────
-
-	run_case("stealth_success_chance_increases_with_stealthSkill", func():
-		var vein := _faction_vein_of_growth(30, "time", "warded")
-		var low_skill := Raiding.stealth_success_chance(1, vein, 0.0)
-		var high_skill := Raiding.stealth_success_chance(5, vein, 0.0)
-		assert_true(high_skill > low_skill, "higher stealthSkill should raise the chance (got %f vs %f)" % [high_skill, low_skill])
-	)
-
-	run_case("stealth_success_chance_decreases_with_raidResist", func():
-		var unsecured := _faction_vein_of_growth(30, "time", "none")
-		var guarded := _faction_vein_of_growth(30, "time", "guarded")
-		var chance_unsecured := Raiding.stealth_success_chance(1, unsecured, 0.0)
-		var chance_guarded := Raiding.stealth_success_chance(1, guarded, 0.0)
-		assert_true(chance_unsecured > chance_guarded, "an unsecured vein should be easier to sneak past than a guarded one (got %f vs %f)" % [chance_unsecured, chance_guarded])
-	)
-
-	# 72-stackable-guards-vein-defense: stacking extra guards past "guarded"
-	# keeps reducing the odds -- no ceiling at the old fixed max.
-	run_case("stealth_success_chance_keeps_decreasing_as_extra_guards_stack_past_guarded", func():
-		var guarded := _faction_vein_of_growth(30, "time", "guarded")
-		var stacked := _faction_vein_of_growth(30, "time", "guarded")
-		stacked["extraGuards"] = 10
-		var chance_guarded := Raiding.stealth_success_chance(1, guarded, 0.0)
-		var chance_stacked := Raiding.stealth_success_chance(1, stacked, 0.0)
-		assert_true(chance_guarded > chance_stacked, "extra guards on top of guarded should keep lowering the odds (got %f vs %f)" % [chance_guarded, chance_stacked])
-		assert_almost_eq(chance_stacked, 0.0, 0.0001, "enough stacked guards clamps the chance at the floor, not negative")
-	)
-
-	run_case("stealth_success_chance_decreases_with_vein_value", func():
-		var cheap := _faction_vein_of_growth(10, "time", "none")
-		var rich := _faction_vein_of_growth(90, "fate", "none")
-		var chance_cheap := Raiding.stealth_success_chance(1, cheap, 0.0)
-		var chance_rich := Raiding.stealth_success_chance(1, rich, 0.0)
-		assert_true(chance_cheap > chance_rich, "a low-value vein should be easier to sneak than a high-value one (got %f vs %f)" % [chance_cheap, chance_rich])
-	)
-
-	# R§3.4: stealth odds read combined_magnitude (value_tier blended with
-	# earned level), so a leveled-up vein is a harder sneak even at the
-	# same growth/value_tier.
-	run_case("stealth_success_chance_decreases_with_vein_level_at_the_same_growth", func():
-		var level_1 := _faction_vein_of_growth(90, "fate", "none")
-		var leveled_up := _faction_vein_of_growth(90, "fate", "none")
-		leveled_up["level"] = 4
-		var chance_level_1 := Raiding.stealth_success_chance(1, level_1, 0.0)
-		var chance_leveled_up := Raiding.stealth_success_chance(1, leveled_up, 0.0)
-		assert_true(chance_level_1 > chance_leveled_up, "a higher-level vein should be harder to sneak past at the same growth (got %f vs %f)" % [chance_level_1, chance_leveled_up])
-	)
-
-	run_case("stealth_success_chance_increases_with_consumable_bonus", func():
-		var vein := _faction_vein_of_growth(30, "time", "warded")
-		var no_bonus := Raiding.stealth_success_chance(1, vein, 0.0)
-		var with_bonus := Raiding.stealth_success_chance(1, vein, 0.2)
-		assert_true(with_bonus > no_bonus, "a consumable bonus should raise the chance (got %f vs %f)" % [with_bonus, no_bonus])
-	)
-
-	run_case("stealth_success_chance_clamped_to_0_1", func():
-		var vein := _faction_vein_of_growth(90, "fate", "guarded")
-		var floored := Raiding.stealth_success_chance(1, vein, -5.0)
-		var ceilinged := Raiding.stealth_success_chance(1, vein, 5.0)
-		assert_eq(floored, 0.0, "an extreme negative bonus should clamp to 0")
-		assert_eq(ceilinged, 1.0, "an extreme positive bonus should clamp to 1")
-	)
-
-	# ── resolve_stealth_check: XP award (win or lose) ───────────────────
-
-	run_case("resolve_stealth_check_awards_full_xp_on_a_guaranteed_success", func():
-		GameState.reset()
-		var vein := _faction_vein_of_growth(10, "time", "none")
-		var xp_before: int = GameState.state["player"]["stealthXP"]
-		var success: bool = Raiding.resolve_stealth_check(vein, 5.0)  # bonus saturates chance to 1.0
-		assert_true(success, "a saturated chance should always succeed")
-		assert_eq(GameState.state["player"]["stealthXP"], xp_before + Raiding.STEALTH_XP_SUCCESS, "success awards the full stealth XP amount")
-	)
-
-	run_case("resolve_stealth_check_awards_reduced_xp_on_a_guaranteed_catch", func():
-		GameState.reset()
-		var vein := _faction_vein_of_growth(90, "fate", "guarded")
-		var xp_before: int = GameState.state["player"]["stealthXP"]
-		var success: bool = Raiding.resolve_stealth_check(vein, -5.0)  # bonus floors chance to 0.0
-		assert_true(not success, "a floored chance should always be caught")
-		assert_eq(GameState.state["player"]["stealthXP"], xp_before + Raiding.STEALTH_XP_CAUGHT, "getting caught still awards (reduced) stealth XP")
-	)
-
-	run_case("resolve_stealth_check_levels_up_stealthSkill_once_xp_crosses_the_threshold", func():
-		GameState.reset()
-		GameState.state["player"]["stealthXP"] = GameData.STEALTH_XP_LEVELS[2] - Raiding.STEALTH_XP_SUCCESS
-		var vein := _faction_vein_of_growth(10, "time", "none")
-		Raiding.resolve_stealth_check(vein, 5.0)
-		assert_eq(GameState.state["player"]["stealthSkill"], 2, "crossing the Lv2 threshold should level stealthSkill up")
-	)
-
 	# ── claim_vein ────────────────────────────────────────────────────────
 
 	run_case("claim_vein_transfers_ownership_carrying_oreType_growth_security", func():
@@ -276,7 +184,7 @@ func run() -> void:
 		GameState.state["factions"]["conclave"]["relation"] = 30
 
 		Raiding.loot_vein("s1", false)
-		assert_eq(GameState.state["factions"]["conclave"]["relation"], 30, "a clean stealth-and-loot should leave relation untouched")
+		assert_eq(GameState.state["factions"]["conclave"]["relation"], 30, "a clean entry should leave relation untouched")
 
 		Raiding.loot_vein("s1", true)
 		assert_eq(GameState.state["factions"]["conclave"]["relation"], 30 + Raiding.LOOT_RELATION_HIT, "getting caught while looting should apply the moderate relation hit")
@@ -1746,14 +1654,6 @@ func run() -> void:
 		_set_player_intel("firm", Intel.level_at(Intel.STASH))
 		Raiding.begin_stockpile_raid("firm")
 		assert_eq(GameState.state["event"]["eventId"], Raiding.STOCKPILE_RAID_STASH_EVENT_ID, "stash intel offers taking everything")
-	)
-
-	run_case("stockpile_stealth_chance_falls_with_stockpile_guards", func():
-		GameState.reset()
-		FactionSim.set_stockpile_guards("firm", 0)
-		var unguarded := Raiding.stockpile_stealth_chance(1, "firm", 0.0)
-		FactionSim.set_stockpile_guards("firm", 3)
-		assert_true(Raiding.stockpile_stealth_chance(1, "firm", 0.0) < unguarded, "guards make the stockpile harder to slip into")
 	)
 
 	run_case("a_successful_stockpile_raid_takes_the_loot_share_of_every_holdings_line", func():

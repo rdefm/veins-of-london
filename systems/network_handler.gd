@@ -10,7 +10,7 @@ extends RefCounted
 # VeinTrade.quote() for a comparable vein, times these multipliers.
 const TARGETS_PRICE_MULT := 1.0
 const SOURCING_PRICE_MULT := 1.0
-# Flat addition to the player's raid odds (Raiding.stealth_success_chance())
+# Flat addition to the player's raid odds (Raiding.raid_factor_mods())
 # and the Collective's rivalry odds against the named site.
 const CLAIM_BONUS_MAGNITUDE := 0.15
 const INTEL_DURATION_DAYS := 5

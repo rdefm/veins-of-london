@@ -2,7 +2,7 @@ class_name Progression
 extends RefCounted
 
 # Shared "award XP against a levels table" loop used by Crafting.
-# award_crafting_xp / Cultivating.award_xp / Raiding.award_stealth_xp /
+# award_crafting_xp / Cultivating.award_xp / Sense.award_xp /
 # Dial.cast_complication(). Callers keep their own field names, levels
 # table, and (via on_level_up) their own notify/no-notify behaviour.
 

@@ -60,13 +60,6 @@ func run() -> void:
 		assert_eq(Intel.meter(Shares.PLAYER, "guild"), 0)
 	)
 
-	run_case("scouting_a_faction_vein_raises_the_players_meter", func():
-		GameState.reset()
-		var vein := Fixtures.seed_faction_vein("fv_s", 60, "firm")
-		Raiding.resolve_stealth_check(vein, 0.0)
-		assert_eq(Intel.meter(Shares.PLAYER, "firm"), _gain(Intel.SOURCE_SCOUT))
-	)
-
 	run_case("raiding_a_faction_vein_raises_the_players_meter", func():
 		GameState.reset()
 		Fixtures.seed_faction_vein("fv_l", 60, "firm")

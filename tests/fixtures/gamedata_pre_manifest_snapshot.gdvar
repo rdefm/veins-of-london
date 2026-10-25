@@ -8750,7 +8750,6 @@ With attention drawn away, anyone carrying valuables may be of interest to the c
 "rich": 14,
 "saturated": 4
 },
-"STEALTH_XP_LEVELS": [0, 0, 80, 220, 500, 1000],
 "STOCKPILE_RAID": {
 "guardTemplate": "veinGuard",
 "headlineValue": 2000,

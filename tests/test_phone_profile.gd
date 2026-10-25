@@ -101,7 +101,7 @@ func run() -> void:
 		var texts := NodeQuery.symbol_row_texts(phone)
 		assert_true(texts.has("Crafting: Lv1 (0 XP)"), "crafting skill line")
 		assert_true(texts.has("Cultivating: Lv1 (0 XP)"), "cultivating skill line")
-		assert_true(texts.has("Stealth: Lv1 (0 XP)"), "stealth skill line")
+		assert_true(texts.has("Sense: Lv1 (0 XP)"), "sense skill line")
 		assert_true(texts.has("Combat: Lv1 (0 XP)"), "combat skill line")
 
 		phone.free()
@@ -123,7 +123,7 @@ func run() -> void:
 		for i in range(1, bars.size()):
 			var b: ProgressBar = bars[i]
 			assert_eq(b.value, 0.0, "a fresh Lv1/0XP skill or move sits at the bottom of its bar")
-			assert_eq(b.max_value, 80.0, "levels[2] - levels[1] for crafting/cultivating/stealth/combat")
+			assert_eq(b.max_value, 80.0, "levels[2] - levels[1] for crafting/cultivating/sense/combat")
 
 		phone.free()
 	)
@@ -149,17 +149,17 @@ func run() -> void:
 	run_case("profile_skill_bar_shows_full_at_max_level_instead_of_erroring", func():
 		GameState.reset()
 		var player: Dictionary = GameState.state["player"]
-		var max_level: int = GameData.STEALTH_XP_LEVELS.size() - 1
-		player["stealthSkill"] = max_level
-		player["stealthXP"] = GameData.STEALTH_XP_LEVELS[max_level]
+		var max_level: int = GameData.SENSE_XP_LEVELS.size() - 1
+		player["senseSkill"] = max_level
+		player["senseXP"] = GameData.SENSE_XP_LEVELS[max_level]
 		GameState.state["phoneNav"]["app"] = "profile"
 
 		var phone := PhoneScreen.new()
 		phone._ready()
 
 		var bars := phone.find_children("", "ProgressBar", true, false)
-		var stealth_bar := bars[3] as ProgressBar
-		assert_eq(stealth_bar.value, stealth_bar.max_value, "a max-level skill with no next threshold shows a full bar")
+		var sense_bar := bars[3] as ProgressBar
+		assert_eq(sense_bar.value, sense_bar.max_value, "a max-level skill with no next threshold shows a full bar")
 
 		phone.free()
 	)

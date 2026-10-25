@@ -95,11 +95,11 @@ func run() -> void:
 		var vein: Dictionary = Sites.find_site(site_id)["factionVein"]
 		var attempt := { "attackerId": "collective", "defenderId": "firm", "veinSiteId": site_id }
 		var guild_attempt := { "attackerId": "guild", "defenderId": "firm", "veinSiteId": site_id }
-		var stealth_before := Raiding.stealth_success_chance(1, vein, 0.0)
+		var tip_before: float = Raiding.raid_factor_mods(vein).reduce(func(sum, m): return sum + m["delta"], 0.0)
 		var rivalry_before := Factions.rivalry_success_chance(attempt)
 		var guild_before := Factions.rivalry_success_chance(guild_attempt)
 		NetworkHandler.reveal_vulnerable_vein(site_id, NetworkHandler.EFFECT_CLAIM_BONUS)
-		assert_almost_eq(Raiding.stealth_success_chance(1, vein, 0.0), minf(stealth_before + NetworkHandler.CLAIM_BONUS_MAGNITUDE, 1.0), 0.0001, "player raid odds gain the flat bonus")
+		assert_almost_eq(Raiding.raid_factor_mods(vein).reduce(func(sum, m): return sum + m["delta"], 0.0), tip_before + NetworkHandler.CLAIM_BONUS_MAGNITUDE, 0.0001, "player raid odds gain the flat bonus")
 		assert_almost_eq(Factions.rivalry_success_chance(attempt), minf(rivalry_before + NetworkHandler.CLAIM_BONUS_MAGNITUDE, 1.0), 0.0001, "Collective rivalry odds gain the flat bonus")
 		assert_almost_eq(Factions.rivalry_success_chance(guild_attempt), guild_before, 0.0001, "other attackers don't")
 	)

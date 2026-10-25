@@ -170,7 +170,6 @@ func new_game_state() -> Dictionary:
 			"movementInventory": [],
 			"craftingSkill": 1, "craftingXP": 0,
 			"cultivatingSkill": 1, "cultivatingXP": 0,
-			"stealthSkill": 1, "stealthXP": 0,
 			"senseSkill": 1, "senseXP": 0,
 			# Attack bonus + turn-order speed, level-indexed (GameData.
 			# COMBAT_ATTACK_BONUS_BY_LEVEL/COMBAT_SPEED_BY_LEVEL, R§3.7a).
@@ -361,7 +360,7 @@ func new_game_state() -> Dictionary:
 			"greenwichTipOff": false, "luckyOmen": false, "conclaveNoticed": false, "oddities": 0,
 			# M1-LONDON D6 — cultivating tutorial.
 			"cultivationTutorialSeen": false,
-			# Set by the raid event's stealth_check success/caught branches;
+			# Set by the raid event's caught branches;
 			# read by loot_raid_vein so the shared loot card knows which
 			# path got the player there.
 			"raidCaught": false,
@@ -541,7 +540,6 @@ func _new_contacts_state() -> Dictionary:
 			"raidAssistThreshold": defaults.get("raidAssistThreshold", 0),
 			"craftingSkill": 1, "craftingXP": 0,
 			"cultivatingSkill": 1, "cultivatingXP": 0,
-			"stealthSkill": 1, "stealthXP": 0,
 			# Same skill-threshold-ladder as craftingSkill/cultivatingSkill,
 			# gated by the Operations Room via assignedRoom.
 			"salesSkill": 1, "salesXP": 0,

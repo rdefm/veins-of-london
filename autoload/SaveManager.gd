@@ -4,7 +4,7 @@ extends Node
 # autosaves. autosave() is called from daily_tick, exit_combat, event
 # completion, and every successful cash purchase.
 
-const SAVE_VERSION := 12
+const SAVE_VERSION := 13
 # Oldest save version _migrate_versions() can still bring forward.
 const MIN_SUPPORTED_VERSION := 3
 const SLOT_COUNT := 3
@@ -391,8 +391,33 @@ func _migrate_versions(save: Dictionary) -> void:
 				_migrate_from_v10(save)
 			11:
 				_migrate_from_v11(save)
+			12:
+				_migrate_from_v12(save)
 	meta["saveVersion"] = SAVE_VERSION
 	save["meta"] = meta
+
+
+# v13: Stealth folds into Sense. The player's senseXP becomes the larger of
+# the two XP totals (the curves share their first six entries), senseSkill is
+# re-derived from it, and every stealth field is dropped, contacts' included.
+func _migrate_from_v12(save: Dictionary) -> void:
+	var player: Variant = save.get("player")
+	if player is Dictionary:
+		var xp: int = maxi(int(player.get("senseXP", 0)), int(player.get("stealthXP", 0)))
+		var level: int = int(player.get("senseSkill", 1))
+		var levels: Array = GameData.SENSE_XP_LEVELS
+		while level < levels.size() - 1 and xp >= levels[level + 1]:
+			level += 1
+		player["senseXP"] = xp
+		player["senseSkill"] = level
+		player.erase("stealthSkill")
+		player.erase("stealthXP")
+	var contacts: Variant = save.get("contacts")
+	if contacts is Dictionary:
+		for contact in contacts.values():
+			if contact is Dictionary:
+				contact.erase("stealthSkill")
+				contact.erase("stealthXP")
 
 
 # v12: drops the lottery bench's state (player.bench, labBenchNav, craftQty)
@@ -1064,7 +1089,7 @@ func _restore_int_types(state: Dictionary) -> void:
 
 	if state.has("player"):
 		var player: Dictionary = state["player"]
-		for key in ["cash", "hp", "hpMax", "attackMin", "attackMax", "craftingSkill", "craftingXP", "cultivatingSkill", "cultivatingXP", "stealthSkill", "stealthXP", "senseSkill", "senseXP", "combatSkill", "combatXP", "shieldPool", "healingSalveDaysLeft", "healingSalveDailyAmount"]:
+		for key in ["cash", "hp", "hpMax", "attackMin", "attackMax", "craftingSkill", "craftingXP", "cultivatingSkill", "cultivatingXP", "senseSkill", "senseXP", "combatSkill", "combatXP", "shieldPool", "healingSalveDaysLeft", "healingSalveDailyAmount"]:
 			_int_key(player, key)
 		_restore_move_level_ints(player)
 		_int_dict_values(player.get("orichalchum", {}))
@@ -1272,7 +1297,7 @@ func _restore_int_types(state: Dictionary) -> void:
 			for slot in contact.get("loadout", {}).get("slots", []):
 				if slot is Dictionary:
 					_int_key(slot, "tier")
-			for key in ["relation", "recruitThreshold", "raidAssistThreshold", "craftingSkill", "craftingXP", "cultivatingSkill", "cultivatingXP", "salesSkill", "salesXP", "stealthSkill", "stealthXP",
+			for key in ["relation", "recruitThreshold", "raidAssistThreshold", "craftingSkill", "craftingXP", "cultivatingSkill", "cultivatingXP", "salesSkill", "salesXP",
 					"combatHpMax", "combatHp", "combatAttackMin", "combatAttackMax", "combatSpeed", "koCooldownDays", "koCooldownUntilDay",
 					"tradeProgress"]:
 				_int_key(contact, key)

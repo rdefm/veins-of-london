@@ -259,12 +259,11 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["factionStances"]["player"]["firm"]["stance"] = FactionAI.PARTNER
 		var vein := _RAIDING._player_vein_of(30, "time", "none", "soho")
-		var plain := Raiding.stealth_success_chance(1, vein, 0.0)
 		GameState.state["event"] = { "eventId": "x", "context": { "muscle": true } }
 		assert_eq(Perks.muscle_odds_bonus(), 0.1)
+		assert_true(Raiding.raid_factor_mods(vein).any(func(m): return m["delta"] == 0.1), "muscle shows as a raid factor")
 		GameState.state["event"] = { "eventId": "x", "context": {} }
 		assert_eq(Perks.muscle_odds_bonus(), 0.0)
-		assert_true(plain > 0.0)
 		Raiding.prepare_raid(vein)
 		GameState.state["combatPrep"] = { "kind": CombatPrep.KIND_VEIN_RAID, "args": {}, "forced": false, "returnScreen": "map" }
 		assert_true(CombatPrep.toggle_muscle())

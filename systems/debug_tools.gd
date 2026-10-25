@@ -7,7 +7,7 @@ extends RefCounted
 # (gated in PhoneApps.apps()), so nothing here re-checks that flag.
 
 # Effect ops that read a raid's target site_id from start_event()'s context.
-const RAID_CONTEXT_OPS: PackedStringArray = ["stealth_check", "start_raid_combat", "reduce_raid_guards", "claim_raid_vein", "loot_raid_vein"]
+const RAID_CONTEXT_OPS: PackedStringArray = ["start_raid_combat", "reduce_raid_guards", "claim_raid_vein", "loot_raid_vein"]
 # Ops that address a contact by effect["contact"]; fire_event() unlocks it so the effect lands somewhere visible.
 const CONTACT_OPS: PackedStringArray = ["relation", "push_message", "queue_pending_message"]
 # Where a fabricated site goes when an event needs one and the world has none to offer.
@@ -85,7 +85,7 @@ static func prepare_event(event_id: String) -> Dictionary:
 
 # Every effect an event can apply: on_complete, each choice's effects
 # (plus a check option's success/fail outcome effects), and
-# the branches nested under chance/stealth_check.
+# the branches nested under chance.
 static func all_effects(event_def: Dictionary) -> Array:
 	var result: Array = []
 	_collect_effects(event_def.get("on_complete", []), result)
