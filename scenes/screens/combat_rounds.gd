@@ -22,7 +22,6 @@ extends Control
 
 # An unread enemy intent, and the guard state it hides (spec §Fog of war).
 const UNREAD_TEXT := "?"
-const _HEADING_ROW_HEIGHT := 40.0
 const _STRIP_TOP_INSET := 6.0
 const _STRIP_SIDE_INSET := 9.0
 const _TRANSCRIPT_SIDE_INSET := 8.0
@@ -71,7 +70,7 @@ var _rewind_replay: Dictionary = {}
 var _fight_body: Control
 var _round_label: Label
 var _refusal_label: Label
-# A demo fight's hp line for both fighters, under the heading row.
+# A demo fight's hp line for both fighters, in the transcript box.
 var _hp_label: Label
 # Combatant index -> hp as playback has shown it so far; empty between picks.
 var _shown_hp: Dictionary = {}
@@ -109,9 +108,8 @@ func _refresh() -> void:
 		_sync_fight(cp)
 
 
-# Heading row (round), the upper region (stage, the
-# outcome footer over it), the transcript and the
-# command dock. Main hides the top board in combat, so the body starts
+# The upper region (stage, the outcome footer over it), the transcript
+# (heading, play-by-play, narration) and the command dock. Main hides the top board in combat, so the body starts
 # under the safe area.
 func _build_fight_layout() -> void:
 	_fight_body = Control.new()
@@ -123,36 +121,13 @@ func _build_fight_layout() -> void:
 	_director.playing_changed.connect(func(_playing: bool): _refresh())
 	add_child(_director)
 
-	# The heading row, then the refusal / prompt / coach line wrapped on its
-	# own row under it (hidden when empty); the upper region starts below both.
-	var header := UI.vbox(0)
-	header.anchor_right = 1.0
-	header.offset_left = 16.0
-	header.offset_right = -16.0
-	var heading_row := UI.hbox(8)
-	heading_row.custom_minimum_size.y = _HEADING_ROW_HEIGHT
-	_round_label = UI.muted_label("")
-	_round_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-	heading_row.add_child(_round_label)
-	header.add_child(heading_row)
-	_hp_label = UI.muted_label("")
-	_hp_label.name = "DemoHp"
-	_hp_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_hp_label.visible = false
-	header.add_child(_hp_label)
-	_refusal_label = UI.muted_label("")
-	_refusal_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_refusal_label.visible = false
-	header.add_child(_refusal_label)
-	_fight_body.add_child(header)
-
+	# Nothing sits above the stage: the heading, hp readout and the refusal /
+	# prompt / coach line all live in the transcript box.
 	_upper_region = Control.new()
 	_upper_region.anchor_right = 1.0
 	_upper_region.anchor_bottom = 1.0
-	_upper_region.offset_top = _HEADING_ROW_HEIGHT
 	_upper_region.mouse_filter = Control.MOUSE_FILTER_PASS
 	_fight_body.add_child(_upper_region)
-	header.resized.connect(func(): _upper_region.offset_top = maxf(_HEADING_ROW_HEIGHT, header.size.y))
 
 	_stage = CombatStage.new()
 	_stage.size = Vector2(CombatStage.STAGE_WIDTH, CombatStage.STAGE_HEIGHT)
@@ -195,6 +170,9 @@ func _build_fight_layout() -> void:
 	_transcript.offset_left = _TRANSCRIPT_SIDE_INSET
 	_transcript.offset_right = -_TRANSCRIPT_SIDE_INSET
 	_fight_body.add_child(_transcript)
+	_round_label = _transcript.heading_label
+	_hp_label = _transcript.hp_label
+	_refusal_label = _transcript.note_label
 	_place_transcript(CombatCommandDock.COMMAND_DOCK_SURFACE_HEIGHT)
 
 	_dock = CombatCommandDock.new()

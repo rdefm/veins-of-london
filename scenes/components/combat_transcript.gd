@@ -7,20 +7,41 @@ extends PanelContainer
 # older lines scroll up. Presentation only -- CombatRoundsScreen feeds it
 # state.combat.transcript, a line at a time while beats play.
 
-const HEIGHT := 92.0
+const HEIGHT := 190.0
 const LINE_SEPARATION := 4
 
 var _texts: Array[String] = []
 var _scroll: ScrollContainer
 var _lines: VBoxContainer
+# Narration pinned under the scrolling lines (refusal / lock prompt / coach
+# lesson), the fight heading and a demo fight's hp readout above them; each
+# hidden while empty.
+var note_label: Label
+var heading_label: Label
+var hp_label: Label
 
 
 func _init() -> void:
 	mouse_filter = Control.MOUSE_FILTER_PASS
 	custom_minimum_size.y = HEIGHT
+	var column := UI.vbox(LINE_SEPARATION)
+	add_child(column)
+	heading_label = UI.muted_label("")
+	heading_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	column.add_child(heading_label)
+	hp_label = UI.muted_label("")
+	hp_label.name = "DemoHp"
+	hp_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hp_label.visible = false
+	column.add_child(hp_label)
 	_scroll = UI.scroll_container()
 	_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-	add_child(_scroll)
+	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	column.add_child(_scroll)
+	note_label = UI.muted_label("")
+	note_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	note_label.visible = false
+	column.add_child(note_label)
 	_lines = UI.vbox(LINE_SEPARATION)
 	_lines.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_scroll.add_child(_lines)
