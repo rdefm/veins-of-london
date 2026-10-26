@@ -259,7 +259,7 @@ func run() -> void:
 		var header := screen.find_child("StepHeader", true, false) as Label
 		assert_true(header.text.begins_with("Step 1 of %d" % steps.size()), "the strip opens on the next step")
 		assert_true(header.get_meta("active"), "the next step is marked active")
-		assert_eq((screen.find_child("StepStrip", true, false) as RecipeBookPage).art_size, HqLabBenchScreen._STEP_STRIP.size, "the strip is the notebook's two-entry crop")
+		assert_eq((screen.find_child("StepStrip", true, false) as RecipeBookPage).art_size, HqLabBenchScreen._STEP_STRIP.size, "the strip is the notebook's first-entry crop")
 		var page_texture := ((screen.find_child("StepStrip", true, false) as RecipeBookPage).get_child(0) as TextureRect).texture as AtlasTexture
 		assert_eq(page_texture.atlas.resource_path, RecipeBookPage.PAGE_TEXTURE, "drawn from the side-tabs art")
 		var dock := screen.find_child("DockedBook", true, false) as Control
