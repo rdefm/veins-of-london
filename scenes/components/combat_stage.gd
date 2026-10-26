@@ -638,6 +638,7 @@ var _cast_keyposes_by_template: Dictionary = {}
 var _throw_keyposes_by_template: Dictionary = {}
 var _effect_frames_by_key: Dictionary = {}
 var _stage_shake_layer: Control
+var _rewind_fx: ColorRect
 
 
 # The stage fills whatever region the screen gives it; slots re-stage to fit.
@@ -657,9 +658,52 @@ func set_top_clearance(value: float) -> void:
 
 
 func _fit_layers_to_size() -> void:
-	for layer in [_stage_shake_layer, _backdrop_fill, _backdrop_texture, _slot_layer, _vignette]:
+	for layer in [_stage_shake_layer, _backdrop_fill, _backdrop_texture, _slot_layer, _vignette, _rewind_fx]:
+		if layer == null:
+			continue
 		layer.position = Vector2.ZERO
 		layer.size = size
+	if _rewind_fx != null:
+		(_rewind_fx.material as ShaderMaterial).set_shader_parameter("stage_px", size)
+
+
+# Shows or clears the VHS-rewind look and its corner label over the whole
+# stage; tuning is data/combat_visuals.json pacing.rewindEffect.
+func set_rewind_effect(active: bool) -> void:
+	if _rewind_fx != null:
+		_rewind_fx.visible = active
+
+
+func is_rewind_effect_active() -> bool:
+	return _rewind_fx != null and _rewind_fx.visible
+
+
+func _build_rewind_fx() -> ColorRect:
+	var fx_data: Dictionary = GameData.COMBAT_VISUALS.get("pacing", {}).get("rewindEffect", {})
+	var fx := ColorRect.new()
+	fx.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fx.visible = false
+	var mat := ShaderMaterial.new()
+	mat.shader = load("res://shaders/vhs_rewind.gdshader")
+	for pair in [["scanlineStrength", "scanline_strength"], ["scanlinePeriodPx", "scanline_period_px"], ["wobblePx", "wobble_px"], ["tearPx", "tear_px"], ["tearSpeed", "tear_speed"], ["tearHeight", "tear_height"], ["bleedPx", "bleed_px"], ["noiseStrength", "noise_strength"]]:
+		if fx_data.has(pair[0]):
+			mat.set_shader_parameter(pair[1], float(fx_data[pair[0]]))
+	var tint: Array = fx_data.get("tint", [])
+	if tint.size() == 4:
+		mat.set_shader_parameter("tint", Color(tint[0], tint[1], tint[2], tint[3]))
+	fx.material = mat
+	var label := Label.new()
+	label.text = str(fx_data.get("label", ""))
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.add_theme_font_size_override("font_size", int(fx_data.get("labelFontSize", 18)))
+	var col: Array = fx_data.get("labelColour", [1.0, 1.0, 1.0, 1.0])
+	label.add_theme_color_override("font_color", Color(col[0], col[1], col[2], col[3]))
+	label.add_theme_color_override("font_outline_color", Color.BLACK)
+	label.add_theme_constant_override("outline_size", 4)
+	var margin := float(fx_data.get("labelMargin", 10))
+	label.position = Vector2(margin, margin)
+	fx.add_child(label)
+	return fx
 
 
 func sync(combat: Dictionary, player: Dictionary, frozen_roster: Dictionary) -> void:
@@ -835,6 +879,8 @@ func _build() -> void:
 
 	_vignette = _build_vignette()
 	_stage_shake_layer.add_child(_vignette)
+	_rewind_fx = _build_rewind_fx()
+	add_child(_rewind_fx)
 	_fit_layers_to_size()
 
 	_templates = GameData.combat_templates()

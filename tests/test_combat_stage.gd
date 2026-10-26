@@ -32,6 +32,18 @@ func run() -> void:
 		assert_almost_eq(flipped.position.x + (mirrored_x + box.size.x / 2.0) * fit, slot.x / 2.0, 0.01, "a flipped frame's figure is still centred")
 	)
 
+	run_case("rewind_effect_shows_only_when_set_and_clears_again", func():
+		var stage := CombatStage.new()
+		stage._build()
+		assert_true(not stage.is_rewind_effect_active(), "no VHS look before a Rewind")
+		stage.set_rewind_effect(true)
+		assert_true(stage.is_rewind_effect_active(), "VHS look shows during the reverse")
+		stage.set_rewind_effect(false)
+		assert_true(not stage.is_rewind_effect_active(), "VHS look clears afterwards")
+		assert_eq(CombatDirector.rewind_speed(), 5.0, "pacing.rewindSpeed")
+		stage.free()
+	)
+
 	run_case("shake_magnitude_scales_with_damage_as_a_fraction_of_hp_max_between_3_and_6px", func():
 		var stage := CombatStage.new()
 

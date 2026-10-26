@@ -507,7 +507,10 @@ func _on_rewind_pressed(pay: String = Combat.REWIND_PAY_ANY) -> void:
 	var beats := begin_rewind_playback(pay)
 	if not beats.is_empty() and is_inside_tree():
 		_hold_fallen(beats)
+		_stage.set_rewind_effect(true)
 		await _director.play(beats, _on_rewind_beat_played, CombatDirector.rewind_speed())
+		if is_instance_valid(_stage):
+			_stage.set_rewind_effect(false)
 	var replay := _rewind_replay
 	_rewind_replay = {}
 	if replay.is_empty():
