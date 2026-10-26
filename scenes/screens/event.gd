@@ -717,9 +717,9 @@ func _build_vn_frame() -> Control:
 	_vn_image_frame.add_child(_vn_texture)
 
 	_vn_blank_tag = UI.muted_label("")
-	_vn_blank_tag.set_anchors_preset(Control.PRESET_CENTER)
-	_vn_blank_tag.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	_vn_blank_tag.grow_vertical = Control.GROW_DIRECTION_BOTH
+	UI.anchor_full_rect(_vn_blank_tag)
+	_vn_blank_tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_vn_blank_tag.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_vn_blank_tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_vn_image_frame.add_child(_vn_blank_tag)
 

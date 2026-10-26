@@ -574,6 +574,19 @@ func run() -> void:
 		GameData.EVENTS = original_events
 	)
 
+	run_case("the_blank_tag_spans_the_image_frame_so_it_does_not_wrap_per_character", func():
+		GameState.reset()
+		var original_events := _install_full_card_event()
+		Events.start_event("test_screen_event")
+
+		var screen := _fresh_screen()
+		assert_eq(screen._vn_blank_tag.anchor_left, 0.0)
+		assert_eq(screen._vn_blank_tag.anchor_right, 1.0)
+		assert_eq(screen._vn_blank_tag.horizontal_alignment, HORIZONTAL_ALIGNMENT_CENTER)
+
+		GameData.EVENTS = original_events
+	)
+
 	run_case("a_card_with_art_shows_the_art_and_no_tag", func():
 		GameState.reset()
 		var original_events := _install_vn_event()
