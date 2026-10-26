@@ -1,0 +1,668 @@
+# cold_open — imported from data/events/cold_open_observation.json
+
+```json
+{
+  "id": "cold_open",
+  "at": {
+    "block": "evening",
+    "advance": true
+  },
+  "on_complete": [
+    {
+      "op": "set_flag",
+      "flag": "coldOpenSeen",
+      "value": true
+    },
+    {
+      "op": "set_flag",
+      "flag": "rentGoal",
+      "value": true
+    },
+    {
+      "op": "start_event",
+      "event": "pub"
+    }
+  ],
+  "start": "main",
+  "branches": {
+    "main": {
+      "title": "Start",
+      "cards": [
+        {
+          "key": "c1",
+          "type": "narration",
+          "label": "{today} — Whitechapel",
+          "speaker": null,
+          "text": "Rent's due Monday. £350. You have £40, and this morning's interview did not go well. Archie, an old mate, said he might have work. So: Tuesday night, behind a chicken shop on Mile End Road.",
+          "image": "res://assets/events/intro/intro_card1.png"
+        },
+        {
+          "key": "c2",
+          "type": "speaker",
+          "label": null,
+          "speaker": "Archie",
+          "text": "He's whistling, a Tesco bag hooked on one finger. \"Awright, Sherlock?\" "
+        },
+        {
+          "key": "c13",
+          "type": "narration",
+          "text": "You pull a face; you stopped liking that nickname when your age hit double digits."
+        },
+        {
+          "key": "c14",
+          "type": "speaker",
+          "text": "\"Two blokes, cash, in and out before the chicken shop shuts. Nothing to worry about, it's just like a sale off Craigslist.\" ",
+          "speaker": "Archie"
+        },
+        {
+          "key": "c15",
+          "type": "speaker",
+          "text": "\"Need me to do anything?\"",
+          "speaker": "You"
+        },
+        {
+          "key": "c16",
+          "type": "speaker",
+          "text": "\"You just stand there and use your eagle eye to spot anything troublesome.\"",
+          "speaker": "Archie"
+        },
+        {
+          "key": "c18",
+          "type": "narration",
+          "text": "During events, you can tap here to use items, or observe. Observing can give you insights into what's happening around you, which may give you advantages."
+        },
+        {
+          "key": "c19",
+          "type": "narration",
+          "text": "Try it now. Tap here, then tap 'observe'.",
+          "observe": "cold_into_observation1"
+        },
+        {
+          "key": "c20",
+          "type": "choice",
+          "text": "\"So then, Holmes, anything we should worry about?\"",
+          "speaker": "Archie",
+          "choices": [
+            {
+              "label": "\"One way in, one way out. I don't love it.\"",
+              "id": "raisePhysics",
+              "requires": {
+                "observed": {
+                  "id": "cold_into_observation1",
+                  "ore": "physics",
+                  "atLeast": 2
+                }
+              },
+              "effects": [],
+              "result_text": ""
+            },
+            {
+              "label": "\"Nobody about. Nobody to see anything, either.\"",
+              "id": "raiseLife",
+              "requires": {
+                "observed": {
+                  "id": "cold_into_observation1",
+                  "ore": "life",
+                  "atLeast": 2
+                }
+              },
+              "effects": [],
+              "result_text": ""
+            },
+            {
+              "label": "\"You're jumpy. What aren't you telling me?\"",
+              "id": "raiseEmotion",
+              "requires": {
+                "observed": {
+                  "id": "cold_into_observation1",
+                  "ore": "emotion",
+                  "atLeast": 2
+                }
+              },
+              "effects": [],
+              "result_text": ""
+            },
+            {
+              "label": "\"Funny time for a straight deal, this.\"",
+              "id": "raiseTime",
+              "requires": {
+                "observed": {
+                  "id": "cold_into_observation1",
+                  "ore": "time",
+                  "atLeast": 2
+                }
+              },
+              "effects": [],
+              "result_text": ""
+            },
+            {
+              "label": "\"Got a bad feeling about this, Arch.\"",
+              "id": "raiseFate",
+              "requires": {
+                "observed": {
+                  "id": "cold_into_observation1",
+                  "ore": "fate",
+                  "atLeast": 2
+                }
+              },
+              "effects": [],
+              "result_text": ""
+            },
+            {
+              "label": "\"Nah. Probably fine.\"",
+              "id": "probablyFine",
+              "effects": [],
+              "result_text": ""
+            }
+          ]
+        },
+        {
+          "key": "c17",
+          "type": "speaker",
+          "text": "\"I'm sure it's fine. Anyway, just stand there looking like intimidating. If I say leg it, you leg it. Don't wait for me.\"",
+          "speaker": "Archie"
+        },
+        {
+          "key": "c3",
+          "type": "speaker",
+          "label": null,
+          "speaker": "You",
+          "text": "\"I don't look like I'd be a pain to fight.\""
+        },
+        {
+          "key": "c4",
+          "type": "choice",
+          "label": null,
+          "speaker": "Archie",
+          "text": "\"Pretend you're Vinnie Jones in his prime, then.\" He looks you up and down. \"Bit more of a Mr Bean vibe, but you make do with what you've got.\" He holds out a fist. \"You in?\"",
+          "image": "res://assets/events/intro/intro_card5.png",
+          "choices": [
+            {
+              "id": "stand",
+              "label": "\"I'll stand there.\"",
+              "effects": [
+                {
+                  "op": "set_flag",
+                  "flag": "introBrave",
+                  "value": true
+                }
+              ],
+              "result_text": "You bump the fist. \"Lovely,\" says Archie, and goes back to whistling."
+            },
+            {
+              "id": "askBuyers",
+              "label": "\"Who are the buyers?\"",
+              "effects": [
+                {
+                  "op": "set_flag",
+                  "flag": "introAskedQuestions",
+                  "value": true
+                }
+              ],
+              "result_text": "Archie lowers the fist. \"Two lads from Romford. Bought off me twice. Pay cash, don't chat.\" He thinks about it. \"One of them's got a cousin. Never met the cousin.\""
+            },
+            {
+              "id": "wantHalf",
+              "label": "\"I want half.\"",
+              "effects": [
+                {
+                  "op": "relation",
+                  "contact": "archie",
+                  "value": -3
+                },
+                {
+                  "op": "set_flag",
+                  "flag": "introWantsHalf",
+                  "value": true
+                }
+              ],
+              "result_text": "\"You were getting half.\" Archie looks at you for a long second, fist still out. \"Sixty-forty, then. Your way. Don't make a habit of it.\""
+            }
+          ]
+        },
+        {
+          "key": "c5",
+          "type": "choice",
+          "label": null,
+          "speaker": "Archie",
+          "text": "He pulls something from his pocket and presses it into your hand: a small glass hourglass, warm. \"Keep this to hand. If it goes bad, break it.\" He doesn't say what it does. He's already watching the road.",
+          "choices": [
+            {
+              "id": "takeRewind",
+              "label": "Take it",
+              "effects": [
+                {
+                  "op": "add_item",
+                  "item": "rewind",
+                  "qty": 1,
+                  "tier": 5,
+                  "equip": true
+                }
+              ],
+              "result_text": "You put it in your pocket, where it keeps being warm."
+            }
+          ]
+        },
+        {
+          "key": "c6",
+          "type": "narration",
+          "label": null,
+          "speaker": null,
+          "text": "The buyers arrive in a grey Vauxhall. Three of them, one more than Archie mentioned. He stops whistling.",
+          "image": "res://assets/events/intro/intro_card6.png",
+          "observe": "cold_intro_observation_c6"
+        },
+        {
+          "key": "c7",
+          "type": "tension",
+          "label": "It goes wrong",
+          "speaker": null,
+          "text": "The third man gets out last, in no hurry. The other two straighten up. They call him Nick. He holds out a hand for the Tesco bag, looks in, and hands it back. \"Light.\" Nobody has said a number. One of the others opens a Stanley knife.",
+          "image": "res://assets/events/intro/intro_card7.png"
+        },
+        {
+          "key": "c8",
+          "type": "speaker",
+          "label": null,
+          "speaker": "Nick",
+          "text": "He looks you over and takes his time about it. \"New one. Lovely. Stay there, newbie. You can watch.\" He's smiling before the sentence is finished."
+        },
+        {
+          "key": "c9",
+          "type": "choice",
+          "label": null,
+          "speaker": null,
+          "text": "Nick cracks his knuckles, one at a time. Archie edges half a step in front of you.",
+          "image": "res://assets/events/intro/intro_card8.png",
+          "choices": [
+            {
+              "id": "brace",
+              "label": "Brace",
+              "effects": [
+                {
+                  "op": "start_scripted_fight",
+                  "script": {
+                    "seed": 5,
+                    "enemyFirst": true,
+                    "intro": [
+                      "Nick doesn't wait for anyone to be ready."
+                    ],
+                    "enemies": [
+                      {
+                        "name": "Nick",
+                        "hpMax": 120,
+                        "attackMin": 9,
+                        "attackMax": 11,
+                        "level": 1,
+                        "speed": 60,
+                        "template": "mugger",
+                        "moveLevels": {
+                          "strike": 1,
+                          "guard": 1,
+                          "feint": 1,
+                          "stun": 1,
+                          "legIt": 1
+                        },
+                        "plans": [
+                          [
+                            {
+                              "move": "strike",
+                              "target": 1
+                            },
+                            {
+                              "move": "strike",
+                              "target": 0
+                            }
+                          ],
+                          [
+                            {
+                              "move": "strike",
+                              "target": 0
+                            },
+                            {
+                              "move": "strike",
+                              "target": 0
+                            }
+                          ]
+                        ]
+                      }
+                    ],
+                    "allies": [
+                      {
+                        "name": "Archie",
+                        "hpMax": 60,
+                        "attackMin": 3,
+                        "attackMax": 3,
+                        "level": 1,
+                        "speed": 99,
+                        "sprite": "archie",
+                        "slots": [
+                          {
+                            "recipe": "timePearl",
+                            "tier": 2
+                          }
+                        ],
+                        "moveLevels": {
+                          "strike": 1,
+                          "guard": 1,
+                          "feint": 1,
+                          "stun": 1,
+                          "legIt": 1
+                        },
+                        "plans": [
+                          [
+                            "guard",
+                            "guard"
+                          ]
+                        ]
+                      }
+                    ],
+                    "forcedHits": [
+                      {
+                        "actor": 2,
+                        "target": 1,
+                        "crit": true,
+                        "ko": true
+                      }
+                    ],
+                    "coach": {
+                      "lessons": {
+                        "1": "Archie's down. Nick's coming for you.",
+                        "2": "Read what he's about to do.",
+                        "3": "You can't win this. Look at the bar."
+                      },
+                      "allowed": {
+                        "1": [
+                          "strike",
+                          "guard",
+                          "feint",
+                          "stun",
+                          "legIt"
+                        ],
+                        "2": [
+                          "strike",
+                          "guard",
+                          "feint",
+                          "stun",
+                          "legIt"
+                        ],
+                        "3": [
+                          "strike",
+                          "guard",
+                          "feint",
+                          "stun",
+                          "legIt"
+                        ]
+                      }
+                    },
+                    "lockBelowHp": 20,
+                    "prompt": "\"Break it. Now!\" — Archie",
+                    "post": {
+                      "allyPlans": {
+                        "1": [
+                          "guard",
+                          {
+                            "move": "timePearl",
+                            "slot": 0
+                          }
+                        ]
+                      },
+                      "playerPlan": [
+                        "guard",
+                        "legIt"
+                      ]
+                    },
+                    "resumeCard": 9
+                  }
+                }
+              ],
+              "result_text": ""
+            }
+          ]
+        },
+        {
+          "key": "c10",
+          "type": "narration",
+          "label": null,
+          "speaker": null,
+          "text": "Your eyes dart left and right, confused. Adrenaline and fear pump through your body. Your attackers are in a bubble, slowed like a video buffering. Nick is still mid-sneer.",
+          "image": "res://assets/events/intro/intro_card9.png"
+        },
+        {
+          "key": "c11",
+          "type": "speaker",
+          "label": null,
+          "speaker": "Archie",
+          "text": "Archie walks calmly but briskly around them. \"Coming, or what?\""
+        },
+        {
+          "key": "c12",
+          "type": "narration",
+          "label": "Four streets later",
+          "speaker": null,
+          "text": "A closed launderette. Archie leans on the shutter, eyes streaming, the Tesco bag still hooked on his finger. \"Pub,\" he says."
+        }
+      ]
+    }
+  },
+  "_keyOrder": {
+    "top": [
+      "id",
+      "at",
+      "on_complete",
+      "cards"
+    ],
+    "cards": {
+      "c1": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text",
+        "image"
+      ],
+      "c2": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c3": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c4": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text",
+        "image",
+        "choices"
+      ],
+      "c5": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text",
+        "choices"
+      ],
+      "c6": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text",
+        "image"
+      ],
+      "c7": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text",
+        "image"
+      ],
+      "c8": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c9": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text",
+        "image",
+        "choices"
+      ],
+      "c10": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text",
+        "image"
+      ],
+      "c11": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c12": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ]
+    }
+  },
+  "_liveSource": "cold_open_observation.json",
+  "_liveHash": "6104a527",
+  "observations": {
+    "cold_into_observation1": {
+      "blocks": {
+        "physics": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "One way into the alley. The chicken shop's back door is stacked with boxes. If this goes wrong, you're going out past the buyers."
+            },
+            {
+              "base": 0.55,
+              "text": "The rain has made the ground slippery; not good for getaways, or for tussles."
+            }
+          ],
+          "miss": "You accidentally look directly into the light over the chicken shop door. Smooth. Now there's a purple blob wherever you look."
+        },
+        "life": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "No customers, the chicken shop worker is asleep. No passers-by or cars driving past. Whatever happens back here, no one will see it."
+            },
+            {
+              "base": 0.55,
+              "text": "The night is still. Not a lot of movement around here, though to be fair it is late."
+            }
+          ],
+          "miss": "Across the street, a pigeon's working on a chip bigger than its head. You watch it longer than you should."
+        },
+        "emotion": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "Archie's always calm under pressure, but you can see there's something bothering him. He seems glad you're here."
+            },
+            {
+              "base": 0.55,
+              "text": "Archie's whistling; he does that when he's keeping something to himself."
+            }
+          ],
+          "miss": "Archie has a look on his face. Nervous? Excited? Constipated? You're not sure."
+        },
+        "time": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "Midweek, too late for commuter crowds and too early for anyone out on the town. This is a strange time for a kosher deal."
+            },
+            {
+              "base": 0.55,
+              "text": "You and Archie are bang on time, but the buyers still aren't here. Probably stuck in traffic."
+            }
+          ],
+          "miss": "You can almost hear the footie match on the chicken shop telly. Wonder if this'll be over in time to catch the second half."
+        },
+        "fate": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "You count the people this needs; Archie, you, 2 buyers. Your gut keeps counting one more."
+            },
+            {
+              "base": 0.55,
+              "text": "Today has felt like one of those days where everything goes wrong. For some reason that feeling hits you hard right now."
+            }
+          ],
+          "miss": "Something smells fishy. Probably the shop. Though they don't do fish."
+        }
+      }
+    },
+    "cold_intro_observation_c6": {
+      "blocks": {
+        "physics": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "Hands in their pockets. Light on their feet. Eyes flicking between your eyes and hands, and Archie's. They're expecting something to go wrong."
+            },
+            {
+              "base": 0.55,
+              "text": "The way they're looking between you and Archie seems a bit intense."
+            }
+          ],
+          "miss": "One of them has really nice shoes. Would it be awkward to ask where he got them?"
+        },
+        "emotion": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "Their eyes and expressions are keyed up and focused. They're expecting trouble, or looking for it."
+            },
+            {
+              "base": 0.55,
+              "text": "The energy changes as they arrive; tense. You feel some adrenaline already entering your system."
+            }
+          ],
+          "miss": "These guys seem nice. Maybe you can get a pint together after this?"
+        },
+        "fate": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "Your gut is screaming at you to run, but they're blocking the only exit."
+            },
+            {
+              "base": 0.55,
+              "text": "Mum always said life was like a box of chocolates. This seems more like a box of liquorice. You don't like liquorice."
+            }
+          ],
+          "miss": "This is probably fine. Right? Right??"
+        }
+      }
+    }
+  }
+}
+```

@@ -335,6 +335,22 @@
 			},
 			"observations": {}
 		},
+		"cold_open_observation": {
+			"choiceCards": {
+				"c4": [
+					"stand",
+					"askBuyers",
+					"wantHalf"
+				],
+				"c5": [
+					"takeRewind"
+				],
+				"c9": [
+					"brace"
+				]
+			},
+			"observations": {}
+		},
 		"conclave_watch": {
 			"choiceCards": {},
 			"observations": {}

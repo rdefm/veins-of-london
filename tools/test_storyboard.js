@@ -1016,11 +1016,12 @@ test("a then that can't be reached (last card has its own goto) may point anywhe
 });
 
 test("COND_KINDS covers condition_met's vocabulary; condKind / blankCond / condGet / condSet", () => {
-  assert.deepStrictEqual(Object.keys(COND_KINDS), ["flag", "relation", "cash", "item", "path", "choice"]);
+  assert.deepStrictEqual(Object.keys(COND_KINDS), ["flag", "relation", "cash", "item", "path", "choice", "observed"]);
   for (const k of Object.keys(COND_KINDS)) assert.strictEqual(condKind(blankCond(k)), k);
   assert.deepStrictEqual(blankCond("cash"), { cash: { atLeast: 0 } });
   assert.deepStrictEqual(blankCond("choice"), { choice: { event: "", card: "", option: "" } });
   assert.deepStrictEqual(blankCond("item"), { item: "" });
+  assert.deepStrictEqual(blankCond("observed"), { observed: { id: "", ore: "", atLeast: 0 } });
   assert.strictEqual(condKind({ item: "torch", flag: "f" }), "item", "engine checks item before flag");
   assert.strictEqual(condKind({ nonsense: 1 }), null);
   const c = blankCond("relation");

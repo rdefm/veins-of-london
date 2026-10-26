@@ -500,7 +500,11 @@ const CONDITION_KINDS = [
   { kind: "item", label: "Item held", modOnly: false },
   { kind: "itemEquipped", label: "Item equipped", modOnly: false },
   { kind: "itemOptional", label: "Item (optional toggle)", modOnly: true },
+  { kind: "observed", label: "Observation read", modOnly: false },
 ];
+
+// constants.json observation.oreOrder (R§3.9d).
+const OBSERVATION_ORES = ["physics", "life", "emotion", "time", "fate"];
 
 // Empty prose fields are written as null, matching the convention every
 // hand-authored event file already uses (e.g. a narration card's unused
@@ -543,6 +547,7 @@ function conditionKind(c) {
   if ("relation" in c) return "relation";
   if ("cash" in c) return "cash";
   if ("item" in c) return c.optional ? "itemOptional" : c.equipped ? "itemEquipped" : "item";
+  if ("observed" in c) return "observed";
   return "";
 }
 
@@ -556,6 +561,7 @@ function conditionTemplate(kind, isMod) {
     case "item": return { item: "" };
     case "itemEquipped": return { item: "", equipped: true };
     case "itemOptional": return { item: "", optional: true };
+    case "observed": return { observed: { id: "", ore: "physics", atLeast: 1 } };
     default: return {};
   }
 }
@@ -872,6 +878,13 @@ function conditionCells(c, isMod, changed) {
   }
   if (kind === "cash" && c.cash && typeof c.cash === "object") {
     cells.push(mechCell("Cash at least £", mechNumber(c.cash, "atLeast", changed, false)));
+  }
+  if (kind === "observed" && c.observed && typeof c.observed === "object") {
+    const ob = c.observed;
+    cells.push(mechCell("Observation id", mechText(ob, "id", changed, "")));
+    cells.push(mechCell("Ore", mechSelect(OBSERVATION_ORES.map((o) => [o, o]), ob.ore, (v) => { ob.ore = v; changed(); })));
+    // Level: 1 = lowest tier landed, tier count = best tier.
+    cells.push(mechCell("Tier level at least", mechNumber(ob, "atLeast", changed, false, "1 = lowest tier")));
   }
   if (kind === "item" || kind === "itemEquipped" || kind === "itemOptional") {
     cells.push(mechCell("Item id", mechText(c, "item", changed, "")));
@@ -1676,9 +1689,10 @@ function checkOddsBlock(opt, changed, restructure) {
     item: [["item", "Item", "text"], ["equipped", "Equipped", "bool"]],
     path: [["path", "State path", "text"], ["atLeast", "≥", "number"]],
     choice: [["choice.event", "Event", "text"], ["choice.card", "Card key", "text"], ["choice.option", "Option", "text"]],
+    observed: [["observed.id", "Observation", "text"], ["observed.ore", "Ore", "text"], ["observed.atLeast", "Level ≥", "number"]],
   };
-  // The kind condition_met reads c as (it tests item, flag, choice, path, relation, cash in that order), or null.
-  const condKind = (c) => ["item", "flag", "choice", "path", "relation", "cash"].find((k) => c && k in c) || null;
+  // The kind condition_met reads c as (it tests item, flag, choice, path, relation, cash, observed in that order), or null.
+  const condKind = (c) => ["item", "flag", "choice", "path", "relation", "cash", "observed"].find((k) => c && k in c) || null;
   const condGet = (c, path) => path.split(".").reduce((o, k) => (o == null ? undefined : o[k]), c);
   // Sets the field at path; a false bool drops its key.
   function condSet(c, path, v) {
@@ -1699,6 +1713,7 @@ function checkOddsBlock(opt, changed, restructure) {
     if (c.cash) return `£${c.cash.atLeast}+`;
     if (c.item) return c.item + (c.equipped ? " equipped" : c.optional ? (c.consume ? " (optional, spent)" : " (optional)") : " held");
     if (c.path) return c.path + (c.atLeast != null ? ` ≥ ${c.atLeast}` : c.perPoint != null ? (c.above ? ` above ${c.above}` : "") : "");
+    if (c.observed) return `observed ${c.observed.id} ${c.observed.ore} ≥ ${c.observed.atLeast}`;
     return "?";
   }
   // How play leaves a card, as nextPos reads it: each outcome goto with an edge label, and whether play can also
@@ -2017,7 +2032,7 @@ function checkOddsBlock(opt, changed, restructure) {
 
   // Observations (R§3.9d): the draft's `observations` table and a card's `observe` (absent = inherit the latest
   // earlier card's, null = clear). Inheritance follows the promoted flat card order, as the engine reads it.
-  const OBS_ORES = ["physics", "life", "emotion", "time", "fate"];
+  const OBS_ORES = OBSERVATION_ORES;
   const OBS_ID_RE = /^[a-z][a-z0-9_]*$/;
   const obsIds = (draft) => Object.keys(draft.observations || {});
   const obsOf = (draft, id) => {
