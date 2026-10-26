@@ -228,6 +228,21 @@ func run() -> void:
 		assert_eq(GameState.state["event"], null, "no event should start when blocked")
 	)
 
+	run_case("raid_event_leave_option_ends_the_event_without_fighting_or_claiming", func():
+		GameState.reset()
+		var vein := _faction_vein_of_growth(30, "physics", "warded", "firm")
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein(vein["siteId"], vein)]
+		Raiding.begin_raid(vein)
+		Events.advance()
+		_seed_read("physics", 1)
+
+		Events.choose(_option_index("Leave it"))
+		Events.advance()
+
+		assert_eq(GameState.state["event"], null, "leaving finishes the event")
+		assert_true(not GameState.state["combat"]["active"], "no fight started")
+	)
+
 	# ── 45-archie-raid-assist ────────────────────────────────────────────
 
 	run_case("begin_raid_carries_ally_ids_into_the_event_context", func():

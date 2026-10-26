@@ -46,7 +46,7 @@
   "cards": [
     { "key": "c1", "type": "tension", "label": "{today} — The approach", "speaker": null, "observe": "raid", "text": "Nobody has put a sign on this vein, but the ground still belongs to someone. You case the approach twice. No obvious watchers. That's not the same as no watchers." },
     {
-      "key": "c2", "type": "choice", "label": null, "speaker": null, "text": "One way in. You commit or you don't.",
+      "key": "c2", "type": "choice", "end": true, "label": null, "speaker": null, "text": "One way in. You commit or you don't.",
       "choices": [
         {
           "label": "Just go in",
@@ -81,6 +81,11 @@
           "effects": [],
           "result_text": null,
           "goto": 2
+        },
+        {
+          "label": "Leave it",
+          "effects": [],
+          "result_text": "You've seen enough. You walk away, and nobody ever knows you were here."
         }
       ]
     },
