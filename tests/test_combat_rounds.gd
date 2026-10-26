@@ -1751,6 +1751,27 @@ func run() -> void:
 		host.free()
 	)
 
+	run_case("the_strip_holds_its_card_widths_across_a_picks_start_and_end", func():
+		GameState.reset()
+		Combat.start_home_raid_combat({})
+		var host := CombatScreen.new()
+		host._ready()
+		var screen: CombatRoundsScreen = host._round_screen
+		screen._ready()
+		var strip: TurnOrderStrip = screen._strip
+		var decision_widths: Array = strip._card_rects.map(func(r): return r.size.x)
+		var cp := screen._cp()
+		var before := CombatRoundsScreen.strip_entries(cp, { "move": "strike", "target": 1 })
+		var result := Combat.choose_move("strike", 1)
+		screen.begin_strip_playback(before, int(cp["round"]), result["beats"])
+		assert_eq(strip._card_rects[0].size.x, decision_widths[0], "the playing card keeps the expansion the decision gave it")
+		screen._settle_strip()
+		var settled: Array = strip._card_rects.map(func(r): return r.size.x)
+		screen._end_playback()
+		assert_eq(strip._card_rects.map(func(r): return r.size.x), settled, "the closing refresh re-lays nothing")
+		host.free()
+	)
+
 	run_case("a_dial_cast_takes_one_action_keeps_guard_state_and_pays_charge_and_xp", func():
 		GameState.reset()
 		GameState.state["player"]["dial"] = Fixtures.dial_with_loaded("blast", 1, 3)

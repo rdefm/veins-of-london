@@ -961,6 +961,9 @@ func begin_strip_playback(before: Array, round_no: int, beats: Array) -> void:
 	for entry in _strip_playback["after"]:
 		entry["focused"] = false
 	_strip.reset_scroll()
+	# The card about to play keeps the expansion the decision gave it.
+	for i in range(shown.size()):
+		shown[i]["focused"] = i == 0 and not beats.is_empty()
 	_strip.advance_to(shown, 0.0)
 	var roster := stage_roster(cp, -1)
 	var seen: Dictionary = {}
@@ -1029,8 +1032,12 @@ func _settle_strip() -> void:
 		return
 	var list_key := "entries" if int(cp["round"]) == int(_strip_playback["round"]) else "after"
 	var entries: Array = _strip_playback[list_key]
+	var decision_id := ""
+	for entry in strip_entries(cp):
+		if entry["focused"]:
+			decision_id = entry["occurrenceId"]
 	for entry in entries:
-		entry["focused"] = false
+		entry["focused"] = entry["occurrenceId"] == decision_id
 	_roll_strip(list_key, resolved_count(cp, entries))
 
 
