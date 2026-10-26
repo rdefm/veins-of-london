@@ -341,6 +341,37 @@ func run() -> void:
 		_cleanup()
 	)
 
+	# ── why-available explainer ─────────────────────────────────────────
+
+	run_case("explainers_cover_unlock_boost_and_pick_and_ignore_other_options", func():
+		GameState.reset()
+		var pick := { "observation": "o", "ores": { "time": { "atLeast": 1, "result_text": "t" } } }
+		var unlock := { "label": "Door", "requires": { "observed": { "id": "o", "ore": "time", "atLeast": 1 } }, "result_text": "x" }
+		var boost := { "label": "Force", "check": { "base": 0.5, "mods": [{ "observed": { "id": "o", "ore": "time", "atLeast": 1 }, "add": 0.15, "label": "Sharp" }] }, "success": { "result_text": "s" }, "failure": { "result_text": "f" } }
+		var plain := { "label": "Plain", "result_text": "x" }
+		_install({ "o": { "name": "The doorway", "blocks": { "time": { "tiers": [_tier("one way in", ALWAYS)], "miss": "m" } } } },
+			[_card({ "observe": "o" }), _choice_card([unlock, boost, { "id": "mention", "label": "Say", "pick": pick }, plain])])
+		Events.advance()
+		var choices: Array = Events.current_card()["choices"]
+		assert_eq(Observation.explainers(choices[0]).size(), 0, "unread: nothing holds")
+		assert_eq(Observation.explain_line(choices[0]), "", "no line before the read")
+		Observation.read()
+		var u: Array = Observation.explainers(choices[0])
+		assert_eq([u[0]["kind"], u[0]["ore"], u[0]["level"], u[0]["tiers"], u[0]["tier_text"], u[0]["obs"]], ["unlock", "time", 1, 1, "one way in", "The doorway"], "unlock entry")
+		assert_eq(Observation.explain_line(choices[0]), "You noticed: one way in", "generated line")
+		var b: Array = Observation.explainers(choices[1])
+		assert_eq([b[0]["kind"], b[0]["add"]], ["boost", 0.15], "boost entry")
+		assert_true("Improved its odds by 15%." in Observation.explain_modal_lines(choices[1]), "boost effect line")
+		assert_eq(Observation.explainers(choices[2])[0]["kind"], "pick", "pick entry")
+		assert_eq(Observation.explain_line(choices[2]), "Your read gave you a way in (Time)", "pick line lists ores")
+		assert_eq(Observation.option_ores(choices[2]), ["time"], "pick ore gets a glyph")
+		assert_eq([Observation.explainers(choices[3]).size(), Observation.explain_line(choices[3]), Observation.explain_modal_lines(choices[3])], [0, "", []], "plain option unchanged")
+		var authored := unlock.duplicate()
+		authored["explain"] = "Custom."
+		assert_eq(Observation.explain_line(authored), "Custom.", "authored override")
+		_cleanup()
+	)
+
 	# ── raid factors (vein raids only) ──────────────────────────────────
 
 	run_case("raid_observation_carries_labelled_raid_factor_mods_and_disinformation_lowers_them", func():

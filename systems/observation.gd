@@ -139,7 +139,96 @@ static func option_ores(choice: Dictionary) -> Array:
 		var ore := String(cond["observed"].get("ore", ""))
 		if ore != "" and not out.has(ore):
 			out.append(ore)
+	for ore in pick_ores(choice):
+		if not out.has(ore):
+			out.append(ore)
 	return out
+
+
+# Why an option is available or boosted, one entry per observation-driven source:
+# {kind: unlock|boost|pick, ore, ore_name, obs, level, tiers, at_least, tier_text,
+# add}. `unlock` = a holding `observed` in requires, `boost` = a holding `observed`
+# check mod (add = its delta), `pick` = a qualifying ore of a pick option.
+static func explainers(choice: Dictionary) -> Array:
+	var out: Array = []
+	var requires: Variant = choice.get("requires")
+	if requires is Dictionary and requires.has("observed") and Events.condition_met(requires):
+		out.append(_explainer("unlock", requires["observed"], 0.0))
+	for mod in choice.get("check", {}).get("mods", []):
+		if mod.has("observed") and Events.condition_met(mod):
+			out.append(_explainer("boost", mod["observed"], float(mod.get("add", 0.0))))
+	for ore in pick_ores(choice):
+		var pick: Dictionary = choice["pick"]
+		out.append(_explainer("pick", { "id": pick["observation"], "ore": ore, "atLeast": pick_outcome(choice, ore).get("atLeast", 1) }, 0.0))
+	return out
+
+
+# The one-line "why": the authored `explain` override if the option has one, else
+# generated from the first explainer; "" when no observation drives the option.
+static func explain_line(choice: Dictionary) -> String:
+	var entries := explainers(choice)
+	if entries.is_empty():
+		return ""
+	if choice.has("explain"):
+		return String(choice["explain"])
+	var texts: Dictionary = GameData.OBSERVATION["explain"]
+	var first: Dictionary = entries[0]
+	if first["kind"] == "pick":
+		var names: Array = []
+		for entry in entries:
+			if entry["kind"] == "pick":
+				names.append(entry["ore_name"])
+		return texts["pickLine"] % ", ".join(names)
+	return texts["line"] % first["tier_text"]
+
+
+# The ? modal's explainer lines: per entry, observation / ore / tier reached /
+# what it saw / what it did.
+static func explain_modal_lines(choice: Dictionary) -> Array:
+	var texts: Dictionary = GameData.OBSERVATION["explain"]
+	var out: Array = []
+	for entry in explainers(choice):
+		out.append(texts["observation"] % entry["obs"])
+		out.append(texts["ore"] % entry["ore_name"])
+		if entry["tiers"] > 0:
+			out.append(texts["tier"] % [entry["level"], entry["tiers"]])
+		if entry["tier_text"] != "":
+			out.append(texts["saw"] % entry["tier_text"])
+		match entry["kind"]:
+			"unlock":
+				out.append(texts["unlock"] % entry["at_least"])
+			"boost":
+				out.append(texts["boost"] % roundi(entry["add"] * 100.0))
+			"pick":
+				out.append(texts["pick"] % entry["at_least"])
+	return out
+
+
+static func _explainer(kind: String, cond: Dictionary, add: float) -> Dictionary:
+	var ore := String(cond.get("ore", ""))
+	var id := String(cond.get("id", ""))
+	var event_id := String(cond.get("event", ""))
+	var live: Variant = GameState.state["event"]
+	if event_id == "" and live != null:
+		event_id = String(live["eventId"])
+	var def: Dictionary = GameData.EVENTS.get(event_id, {}).get("observations", {}).get(id, {})
+	var tiers: Array = def.get("blocks", {}).get(ore, {}).get("tiers", [])
+	var level: int
+	if cond.has("event"):
+		level = int(GameState.state.get("observationMemory", {}).get(event_id, {}).get(id, {}).get(ore, 0))
+	else:
+		level = int(_stored(id).get("results", {}).get(ore, {}).get("level", 0))
+	return {
+		"kind": kind,
+		"ore": ore,
+		"ore_name": ore.capitalize(),
+		"obs": String(def.get("name", GameData.OBSERVATION["explain"]["observationDefault"])),
+		"level": level,
+		"tiers": tiers.size(),
+		"at_least": int(cond.get("atLeast", 1)),
+		"tier_text": String(tiers[tiers.size() - level]["text"]) if level > 0 and level <= tiers.size() else "",
+		"add": add,
+	}
 
 
 # The outcome a pick option gives for an ore: the first entry (best atLeast first)

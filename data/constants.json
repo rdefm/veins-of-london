@@ -673,6 +673,18 @@
     "senseLabel": "Sense",
     "pickButton": "Go with this",
     "pickReason": "You didn't spot anything worth acting on.",
+    "explain": {
+      "line": "You noticed: %s",
+      "pickLine": "Your read gave you a way in (%s)",
+      "observationDefault": "What you saw here",
+      "observation": "Observation: %s",
+      "ore": "Ore: %s",
+      "tier": "Tier reached: %d of %d",
+      "saw": "You noticed: %s",
+      "unlock": "Unlocked this option (needs tier %d).",
+      "boost": "Improved its odds by %d%%.",
+      "pick": "Lets you pick this ore (needs tier %d)."
+    },
     "attunementLabel": "Attunement",
     "breathLabel": "Prophet's Breath",
     "breathBonus": 0.1,

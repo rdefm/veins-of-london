@@ -506,9 +506,20 @@ func _build_choice_button(label: String, choice_index: int) -> Control:
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_style_action_button(b)
 	_add_read_glyphs(b, choice)
-	if Events.check_odds(choice_index).is_empty():
+	var why := Observation.explain_line(choice)
+	var left: Control = b
+	if why != "":
+		var col := UI.vbox(2)
+		col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		col.add_child(b)
+		var line := UI.muted_label(why)
+		line.name = "ExplainLine"
+		line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		col.add_child(line)
+		left = col
+	if Events.check_odds(choice_index).is_empty() and why == "":
 		return b
-	return _option_row(b, choice_index)
+	return _option_row(left, choice_index)
 
 # A reselectable hub question already asked: greyed and ticked, still pressable.
 func _build_asked_option(label: String, choice_index: int) -> Control:
@@ -529,11 +540,11 @@ func _build_disabled_option(label: String, choice_index: int) -> Control:
 	return _option_row(b, choice_index)
 
 # The option button with the circled ? at its right end.
-func _option_row(b: Button, choice_index: int) -> Control:
+func _option_row(left: Control, choice_index: int) -> Control:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(b)
+	row.add_child(left)
 	row.add_child(_build_context_button(choice_index))
 	return row
 
@@ -616,7 +627,8 @@ func _restore_context_modal() -> void:
 	var gate: Dictionary = Events.option_gate(_context_choice)
 	var odds: Dictionary = Events.check_odds(_context_choice)
 	var locked: bool = gate["display"] == "disable"
-	if gate["display"] == "hide" or (odds.is_empty() and not locked):
+	var why_lines: Array = Observation.explain_modal_lines(choice)
+	if gate["display"] == "hide" or (odds.is_empty() and why_lines.is_empty() and not locked):
 		_context_choice = -1
 		return
 
@@ -646,7 +658,10 @@ func _restore_context_modal() -> void:
 	content.add_child(UI.heading(choice["label"], 16))
 	if locked:
 		content.add_child(UI.label(gate["reason"]))
-	elif not odds.is_empty():
+	else:
+		for line in why_lines:
+			content.add_child(UI.muted_label(line))
+	if not locked and not odds.is_empty():
 		for line in check_context_lines(odds):
 			content.add_child(UI.label(line))
 		for toggle in Events.item_toggles(_context_choice):
