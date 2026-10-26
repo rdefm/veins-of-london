@@ -176,9 +176,46 @@ static func _lint_option(id: String, i: int, j: int, option: Dictionary, cards: 
 		out.append_array(_lint_goto(where, goto, i, cards))
 	if option.get("requires") is Dictionary:
 		out.append_array(_lint_condition(where + " requires", option["requires"], refs))
+	if option.get("pick") is Dictionary:
+		out.append_array(_lint_pick(where, option, cards, i, refs))
 	if option.get("check") is Dictionary:
 		for mod in option["check"].get("mods", []):
 			out.append_array(_lint_condition(where + " mod", mod, refs))
+	return out
+
+
+# An observation pick (R§3.9d): a defined observation, each ore a block of it,
+# outcomes with atLeast in 1..tiers and a result_text, goto valid.
+static func _lint_pick(where: String, option: Dictionary, cards: Array, i: int, refs: Dictionary) -> Array:
+	var out: Array = []
+	var pick: Dictionary = option["pick"]
+	var obs: Dictionary = (refs.get("event", {}) as Dictionary).get("observations", {}).get(pick.get("observation", ""), {})
+	if obs.is_empty():
+		return ["%s pick observation '%s' is not defined" % [where, str(pick.get("observation"))]]
+	if option.has("check"):
+		out.append("%s has both pick and check" % where)
+	if not pick.get("ores") is Dictionary or (pick["ores"] as Dictionary).is_empty():
+		return out + ["%s pick has no ores" % where]
+	for ore in pick["ores"]:
+		var block: Dictionary = obs["blocks"].get(ore, {})
+		if block.is_empty():
+			out.append("%s pick ore '%s' is not in the observation" % [where, ore])
+			continue
+		var entries: Variant = pick["ores"][ore]
+		if entries is Dictionary:
+			entries = [entries]
+		var tiers: int = (block["tiers"] as Array).size()
+		var last := 99
+		for entry: Dictionary in entries:
+			var at_least := int(entry.get("atLeast", 0))
+			if at_least < 1 or at_least > tiers:
+				out.append("%s pick %s atLeast %s outside 1..%d" % [where, ore, str(entry.get("atLeast")), tiers])
+			if at_least >= last:
+				out.append("%s pick %s outcomes not best-first (atLeast must descend)" % [where, ore])
+			last = at_least
+			if not entry.has("result_text"):
+				out.append("%s pick %s outcome has no result_text" % [where, ore])
+			out.append_array(_lint_goto("%s pick %s" % [where, ore], entry.get("goto"), i, cards))
 	return out
 
 

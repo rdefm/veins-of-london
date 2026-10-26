@@ -671,6 +671,8 @@
     "oreOrder": ["physics", "life", "emotion", "time", "fate"],
     "sensePerLevel": 0.03,
     "senseLabel": "Sense",
+    "pickButton": "Go with this",
+    "pickReason": "You didn't spot anything worth acting on.",
     "attunementLabel": "Attunement",
     "breathLabel": "Prophet's Breath",
     "breathBonus": 0.1,

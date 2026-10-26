@@ -35,7 +35,8 @@ var _revealed_rolls := {}  # "obsId|ore|roll" keys already animated this screen
 var _fade_options: Array = []  # option indices a read just unlocked; held invisible until the sheet closes
 var _fade_nodes: Array = []  # the controls built for _fade_options on the current card
 var _context_modal: Control
-var _context_choice := -1  # option index whose ? modal is open, -1 when closed
+var _pick_choice := -1  # pick option the Observe sheet is open for, -1 when it's a plain read
+var _context_choice := -1 # option index whose ? modal is open, -1 when closed
 
 func _ready() -> void:
 	UI.anchor_full_rect(self)
@@ -295,19 +296,34 @@ func _on_observe_picked() -> void:
 		_refresh()
 	_open_observation_sheet(rows)
 
+# Pick mode: the Observe sheet over the pick option's observation; a qualifying
+# row commits the option with that ore, closing without a pick commits nothing.
+func _open_pick_sheet(choice_index: int) -> void:
+	var choice: Dictionary = Events.current_card()["choices"][choice_index]
+	_pick_choice = choice_index
+	_open_observation_sheet(Observation.rows(choice["pick"]["observation"]))
+
+func _on_ore_picked(ore: String) -> void:
+	var index := _pick_choice
+	_dismiss_observation_sheet()
+	Events.choose(index, ore)
+
 func _close_observation_sheet() -> void:
 	_dismiss_observation_sheet()
 	_reveal_unlocked_options()
 
 func _dismiss_observation_sheet() -> void:
 	_stop_reveal()
+	_pick_choice = -1
 	if is_instance_valid(_obs_sheet):
 		_obs_sheet.queue_free()
 	_obs_sheet = null
 
 # Bottom sheet: scene title, then one row per listed ore from Observation rows.
 func _open_observation_sheet(rows: Array) -> void:
+	var pick_index := _pick_choice
 	_dismiss_observation_sheet()
+	_pick_choice = pick_index
 	_obs_sheet = Control.new()
 	_obs_sheet.name = "ObservationSheet"
 	UI.anchor_full_rect(_obs_sheet)
@@ -340,14 +356,31 @@ func _open_observation_sheet(rows: Array) -> void:
 	content.add_child(UI.heading(observation_sheet_title(), 16))
 	_reveal_steps.clear()
 	var obs_id := Observation.in_effect()
+	var pick_ores: Array = []
+	if _pick_choice >= 0:
+		pick_ores = Observation.pick_ores(Events.current_card()["choices"][_pick_choice])
 	for row in rows:
-		content.add_child(_build_observation_row(row, _row_is_new(obs_id, row)))
+		var row_node := _build_observation_row(row, _row_is_new(obs_id, row))
+		if _pick_choice >= 0:
+			_style_pick_row(row_node, row["ore"], pick_ores.has(row["ore"]))
+		content.add_child(row_node)
 	var close := UI.button("Close", _close_observation_sheet)
 	_style_action_button(close)
 	content.add_child(close)
 	_obs_sheet.add_child(sheet)
 	add_child(_obs_sheet)
 	_play_reveal()
+
+# A qualifying row gains a pick button under its text; the others grey out.
+func _style_pick_row(row_node: Control, ore: String, qualifies: bool) -> void:
+	if not qualifies:
+		row_node.modulate = Color(1, 1, 1, 0.4)
+		return
+	var b := UI.button(GameData.OBSERVATION["pickButton"], func(): _on_ore_picked(ore))
+	b.name = "PickButton_%s" % ore
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_style_action_button(b)
+	row_node.add_child(b)
 
 # A row animates the first time its roll is shown; a re-roll animates only the
 # improved rows. Reopening a seen row is instant.
@@ -466,7 +499,10 @@ func _build_choice_button(label: String, choice_index: int) -> Control:
 		if effect.get("op", "") == "lose_time_block":
 			label = UI.format_block_cost_label(label)
 			break
-	var b := UI.button(label, func(): Events.choose(choice_index))
+	var on_press := func(): Events.choose(choice_index)
+	if choice.has("pick"):
+		on_press = func(): _open_pick_sheet(choice_index)
+	var b := UI.button(label, on_press)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_style_action_button(b)
 	_add_read_glyphs(b, choice)

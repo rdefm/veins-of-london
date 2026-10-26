@@ -23,6 +23,10 @@ func _card(extra: Dictionary = {}) -> Dictionary:
 	return card
 
 
+func _choice_card(choices: Array) -> Dictionary:
+	return { "type": "choice", "label": null, "speaker": null, "text": "t", "key": "k", "choices": choices }
+
+
 func _rows_by_ore(rows: Array) -> Dictionary:
 	var out := {}
 	for row in rows:
@@ -268,6 +272,72 @@ func run() -> void:
 		Events.advance()
 		assert_eq(GameState.state["observationMemory"]["obs_test"]["o"]["time"], 2, "a worse later run never lowers it")
 		assert_eq(JSON.parse_string(JSON.stringify(GameState.state["observationMemory"])) != null, true, "pure data")
+		_cleanup()
+	)
+
+	# ── observation pick ────────────────────────────────────────────────
+
+	run_case("pick_option_shows_only_when_an_ore_qualifies_else_greys_with_reason", func():
+		GameState.reset()
+		var pick := { "observation": "o", "ores": {
+			"time": [{ "atLeast": 2, "result_text": "deep" }, { "atLeast": 1, "result_text": "shallow" }],
+			"life": { "atLeast": 1, "result_text": "life" } } }
+		_install({ "o": { "blocks": {
+			"time": { "tiers": [_tier("a", NEVER, 0.1), _tier("b", ALWAYS)], "miss": "m" },
+			"life": { "tiers": [_tier("a", NEVER)], "miss": "m" } } } },
+			[_card({ "observe": "o" }), _choice_card([{ "id": "mention", "label": "Say", "pick": pick }, { "label": "Leave", "result_text": "x" }])])
+		Events.advance()
+		var gate := Events.option_gate(0)
+		assert_eq([gate["display"], gate["reason"]], ["disable", GameData.OBSERVATION["pickReason"]], "unobserved: greyed, default reason")
+		Events.choose(0, "time")
+		assert_true(Events.is_awaiting_choice(), "disabled pick can't be committed")
+		Observation.read()
+		assert_eq(Events.option_gate(0)["display"], "show", "qualifies once read")
+		assert_eq(Observation.pick_ores(Events.current_card()["choices"][0]), ["time"], "life missed; time at tier 1")
+		Events.choose(0, "life")
+		assert_true(Events.is_awaiting_choice(), "non-qualifying ore refused")
+		Events.choose(0)
+		assert_true(Events.is_awaiting_choice(), "no ore refused")
+		Events.choose(0, "time")
+		assert_eq(Events.current_card()["choices"][0]["id"], "mention")
+		var resolution: Dictionary = GameState.state["event"]["choiceResults"]["1"]
+		assert_eq(resolution["text"], "shallow", "level 1 takes the atLeast 1 entry")
+		_cleanup()
+	)
+
+	run_case("pick_records_ore_in_choice_memory_and_condition_matches", func():
+		GameState.reset()
+		var pick := { "observation": "o", "reason": "Nothing.", "ores": { "time": { "atLeast": 1, "result_text": "t", "effects": [{ "op": "add", "path": "player.cash", "value": 7 }] } } }
+		_install({ "o": { "blocks": { "time": { "tiers": [_tier("a", ALWAYS)], "miss": "m" } } } },
+			[_card({ "observe": "o" }), _choice_card([{ "id": "mention", "label": "Say", "pick": pick }])])
+		Events.advance()
+		assert_eq(Events.option_gate(0)["reason"], "Nothing.", "authored reason overrides")
+		Observation.read()
+		var cash: int = GameState.state["player"]["cash"]
+		Events.choose(0, "time")
+		assert_eq(GameState.state["player"]["cash"], cash + 7, "outcome effects run")
+		assert_eq(Events.choice_record("obs_test", "k"), { "id": "mention", "ore": "time" }, "ore remembered")
+		assert_true(Events.condition_met({ "choice": { "event": "obs_test", "card": "k", "option": "mention", "ore": "time" } }), "ore-specific match")
+		assert_true(not Events.condition_met({ "choice": { "event": "obs_test", "card": "k", "option": "mention", "ore": "life" } }), "other ore fails")
+		assert_true(Events.condition_met({ "choice": { "event": "obs_test", "card": "k", "option": "mention" } }), "ore-less form still matches")
+		_cleanup()
+	)
+
+	run_case("pick_becomes_available_after_rewind_reroll_improves_level", func():
+		GameState.reset()
+		GameState.state["player"]["inventory"]["rewind"] = { "1": 3 }
+		var pick := { "observation": "o", "ores": { "time": { "atLeast": 2, "result_text": "deep" } } }
+		_install({ "o": { "blocks": { "time": { "tiers": [_tier("a", NEVER, 0.1), _tier("b", ALWAYS)], "miss": "m" } } } },
+			[_card({ "observe": "o" }), _choice_card([{ "id": "mention", "label": "Say", "pick": pick }, { "label": "Leave", "result_text": "x" }])])
+		Events.advance()
+		Observation.read()
+		assert_eq(Events.option_gate(0)["display"], "disable", "level 1 below atLeast 2")
+		var result := Events.rewind()
+		assert_true(not result["rearmed"].is_empty(), "armed")
+		GameState.state["event"]["observations"]["o"]["results"]["time"]["level"] = 0
+		GameData.EVENTS["obs_test"]["observations"]["o"]["blocks"]["time"]["tiers"][0] = _tier("a", ALWAYS, 0.9)
+		Observation.read()
+		assert_eq(Events.option_gate(0)["display"], "show", "re-roll reached the top tier")
 		_cleanup()
 	)
 

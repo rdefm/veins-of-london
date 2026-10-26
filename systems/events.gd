@@ -355,11 +355,14 @@ static func _visited_indices() -> Array:
 # records its result_text so revealed_cards() shows it as a resolution card.
 # Doesn't advance cardIndex -- Continue still moves past the resolution -- unless
 # the result_text is blank, when it continues at once.
-static func choose(choice_index: int) -> void:
+static func choose(choice_index: int, pick_ore: String = "") -> void:
 	if not is_awaiting_choice():
 		return
 	if option_gate(choice_index)["display"] != "show":
 		return  # a hidden or disabled option can't be committed
+	var picking: Dictionary = current_card()["choices"][choice_index]
+	if picking.has("pick") and Observation.pick_outcome(picking, pick_ore).is_empty():
+		return  # a pick option needs a qualifying ore
 	if choice_index == hub_exit_index() and not hub_exit_available():
 		return  # the hub's advance rule isn't met yet
 
@@ -375,7 +378,7 @@ static func choose(choice_index: int) -> void:
 	# A check option resolves through its rolled outcome object instead of
 	# its own result_text; the option's own effects (if any) still apply first.
 	var outcome := ""
-	var source: Dictionary = choice
+	var source: Dictionary = Observation.pick_outcome(choice, pick_ore) if choice.has("pick") else choice
 	var attempts := 1
 	var successes := 0
 	var shown_roll := 0
@@ -424,8 +427,10 @@ static func choose(choice_index: int) -> void:
 	if not picked.has(choice_index):
 		picked.append(choice_index)
 	event_state["picked"][str(event_state["cardIndex"])] = picked
-	_remember_choice(event_state["eventId"], str(card.get("key", event_state["cardIndex"])), str(choice.get("id", choice_index)), outcome, successes if attempts > 1 else -1)
+	_remember_choice(event_state["eventId"], str(card.get("key", event_state["cardIndex"])), str(choice.get("id", choice_index)), outcome, successes if attempts > 1 else -1, pick_ore)
 	var effects: Array = choice.get("effects", [])
+	if choice.has("pick"):
+		effects = effects + source.get("effects", [])
 	if outcome != "":
 		for i in range(successes):
 			effects = effects + choice["check"].get("perSuccess", [])
@@ -447,11 +452,13 @@ static func is_silent_text(text: Variant) -> bool:
 # successes?} (outcome "success"/"fail" for a check option; successes for a
 # multi-attempt check). Lives in the state tree, so Rewind's snapshot restore
 # drops a rewound pick for free.
-static func _remember_choice(event_id: String, card_key: String, option_id: String, outcome: String = "", successes: int = -1) -> void:
+static func _remember_choice(event_id: String, card_key: String, option_id: String, outcome: String = "", successes: int = -1, ore: String = "") -> void:
 	var memory: Dictionary = GameState.state["flags"]["choices"]
 	if not memory.has(event_id):
 		memory[event_id] = {}
 	var record := { "id": option_id }
+	if ore != "":
+		record["ore"] = ore
 	if outcome != "":
 		record["outcome"] = outcome
 	if successes >= 0:
@@ -555,7 +562,10 @@ static func condition_met(condition: Dictionary, toggled: Array = []) -> bool:
 		return true if GameState.state["flags"].get(condition["flag"], false) else false
 	if condition.has("choice"):
 		var c: Dictionary = condition["choice"]
-		return choice_id(c["event"], str(c["card"])) == _option_key(c["option"])
+		var record := choice_record(c["event"], str(c["card"]))
+		if c.has("ore") and record.get("ore") != c["ore"]:
+			return false
+		return record.get("id") == _option_key(c["option"])
 	if condition.has("path"):
 		return float(GameState.read_path(condition["path"], 0)) >= float(condition["atLeast"])
 	if condition.has("relation"):
@@ -584,9 +594,18 @@ static func option_gate(choice_index: int) -> Dictionary:
 	var asked := _picked_here().has(choice_index)
 	var requires: Variant = choice.get("requires")
 	if not requires is Dictionary or condition_met(requires):
-		return { "display": "show", "reason": "", "asked": asked }
+		return _pick_gate(choice, asked) if choice.has("pick") else { "display": "show", "reason": "", "asked": asked }
 	var display: String = requires.get("display", "hide")
 	return { "display": display if display == "disable" else "hide", "reason": String(requires.get("reason", "")), "asked": asked }
+
+
+# A pick option shows only while some ore qualifies; otherwise it's greyed with
+# its reason (R§3.9d "Observation pick").
+static func _pick_gate(choice: Dictionary, asked: bool) -> Dictionary:
+	if Observation.pick_ores(choice).is_empty():
+		var reason: String = choice["pick"].get("reason", GameData.OBSERVATION["pickReason"])
+		return { "display": "disable", "reason": reason, "asked": asked }
+	return { "display": "show", "reason": "", "asked": asked }
 
 
 # ── conversation hubs (R§3.9a "Hub advance") ──

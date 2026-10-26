@@ -142,6 +142,31 @@ static func option_ores(choice: Dictionary) -> Array:
 	return out
 
 
+# The outcome a pick option gives for an ore: the first entry (best atLeast first)
+# whose atLeast the current-run level reaches, else {}.
+static func pick_outcome(choice: Dictionary, ore: String) -> Dictionary:
+	var pick: Dictionary = choice.get("pick", {})
+	var entries: Variant = pick.get("ores", {}).get(ore, [])
+	if entries is Dictionary:
+		entries = [entries]
+	var level := int(_stored(String(pick.get("observation", ""))).get("results", {}).get(ore, {}).get("level", 0))
+	for entry: Dictionary in entries:
+		if level >= int(entry.get("atLeast", 1)):
+			return entry
+	return {}
+
+
+# Ores a pick option can be committed with now, in oreOrder.
+static func pick_ores(choice: Dictionary) -> Array:
+	var out: Array = []
+	if not choice.has("pick"):
+		return out
+	for ore in GameData.OBSERVATION["oreOrder"]:
+		if not pick_outcome(choice, ore).is_empty():
+			out.append(ore)
+	return out
+
+
 static func _def(id: String) -> Dictionary:
 	if not Events.has_live_definition():
 		return {}
