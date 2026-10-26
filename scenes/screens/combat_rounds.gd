@@ -252,7 +252,7 @@ func _sync_fight(cp: Dictionary) -> void:
 	var dial: Variant = GameState.state["player"]["dial"]
 	# The tallest page's rows.
 	var dock_height := CombatCommandDock.surface_height_for_rows(maxi(moves.size(), items.size()))
-	_dock.offset_top = -dock_height
+	_dock.set_rows_height(dock_height)
 	_place_transcript(dock_height)
 	if not _transcript_held:
 		_transcript.set_lines(cp["transcript"])

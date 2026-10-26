@@ -47,6 +47,7 @@ var _panel_area: Control
 var _menu: Control
 var _pages: Dictionary = {}
 var _view: String = VIEW_FIGHT
+var _rows_height := COMMAND_DOCK_SURFACE_HEIGHT
 var _slide_tween: Tween
 var _dial_selected_index: int = 0
 # The Dial cast (DialWidget's on_cast).
@@ -126,20 +127,33 @@ func configure(moves: Array, items: Array, leg_it: Dictionary, dial: Variant = n
 	if _dial == null and _view == VIEW_DIAL:
 		_view = VIEW_FIGHT
 	_pages_root.visible = true
+	_apply_height()
 	_rebuild()
 	_place_pages()
 
 
 # Surface height that fits `count` rows (and their 1px rules) on one page, and
-# the four-entry menu: never less than the Dial-sized default.
+# the four-entry menu. The Dial page is taller and overlays what sits above
+# the dock while open (set_rows_height()).
 static func surface_height_for_rows(count: int) -> float:
 	var rows_height: float = maxi(count, MENU_ENTRY_COUNT) * UI.COMMAND_ROW_HEIGHT + maxi(0, maxi(count, MENU_ENTRY_COUNT) - 1)
-	return maxf(COMMAND_DOCK_SURFACE_HEIGHT, rows_height + COMMAND_DOCK_BOTTOM_MARGIN + COMMAND_DOCK_SURFACE_TOP_PADDING)
+	return rows_height + COMMAND_DOCK_BOTTOM_MARGIN + COMMAND_DOCK_SURFACE_TOP_PADDING
+
+
+# The row pages' surface height; the Dial page grows the dock to the Dial's.
+func set_rows_height(height: float) -> void:
+	_rows_height = height
+	_apply_height()
+
+
+func _apply_height() -> void:
+	offset_top = -(COMMAND_DOCK_SURFACE_HEIGHT if _view == VIEW_DIAL else _rows_height)
 
 
 # Hides every page (the fight's over) and returns to Fight for next time.
 func hide_deck() -> void:
 	_view = VIEW_FIGHT
+	_apply_height()
 	_pages_root.visible = false
 	_place_pages()
 
@@ -155,6 +169,7 @@ func show_view(view: String) -> void:
 		return
 	var outgoing := _view
 	_view = view
+	_apply_height()
 	_rebuild_menu()
 	if not is_inside_tree():
 		_place_pages()
