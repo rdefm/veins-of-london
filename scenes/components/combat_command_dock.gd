@@ -31,7 +31,8 @@ const PEEK_HOLD_SECONDS := 0.4
 const LEVEL_BADGE_FONT_SIZE := 14
 const MENU_FONT_SIZE := 18
 const MENU_ICON_SIZE := 28.0
-const MENU_WIDTH := 124.0
+# The menu column's share of the dock width; the page area takes the rest.
+const MENU_WIDTH_FRACTION := 0.33
 const MENU_GAP := 6.0
 const MENU_ENTRY_COUNT := 4
 # PROSE-REVIEW: the Dial menu entry's reason when the player carries none.
@@ -86,13 +87,15 @@ func _init() -> void:
 	_panel_area = Control.new()
 	_panel_area.name = "PanelArea"
 	UI.anchor_full_rect(_panel_area)
-	_panel_area.offset_right = -(MENU_WIDTH + MENU_GAP)
+	_panel_area.anchor_right = 1.0 - MENU_WIDTH_FRACTION
+	_panel_area.offset_right = -MENU_GAP
 	_panel_area.mouse_filter = Control.MOUSE_FILTER_PASS
 	_pages_root.add_child(_panel_area)
 	_menu = Control.new()
 	_menu.name = "Menu"
 	UI.anchor_full_rect(_menu)
-	_menu.offset_left = -MENU_WIDTH
+	_menu.anchor_left = 1.0 - MENU_WIDTH_FRACTION
+	_menu.offset_left = 0.0
 	_menu.mouse_filter = Control.MOUSE_FILTER_PASS
 	_pages_root.add_child(_menu)
 	for view in [VIEW_FIGHT, VIEW_ITEM, VIEW_DIAL]:

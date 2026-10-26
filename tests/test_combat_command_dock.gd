@@ -50,6 +50,17 @@ func run() -> void:
 		dock.free()
 	)
 
+	run_case("the_menu_is_a_right_hand_column_that_never_overlaps_the_panel_area", func():
+		GameState.reset()
+		var dock := CombatCommandDock.new()
+		dock.configure([{ "label": "Strike", "callback": Callable() }], [], _leg_it(), Fixtures.dial(["blast"]))
+		var menu: Control = dock.find_child("Menu", true, false)
+		var area: Control = dock.find_child("PanelArea", true, false)
+		assert_true(menu.anchor_left >= 0.6 and menu.offset_left >= 0.0, "menu starts in the right third")
+		assert_true(area.anchor_right <= menu.anchor_left, "panel area ends where the menu starts")
+		dock.free()
+	)
+
 	run_case("menu_entries_swap_the_panel_and_move_the_selected_marker", func():
 		GameState.reset()
 		var pressed: Array = []
