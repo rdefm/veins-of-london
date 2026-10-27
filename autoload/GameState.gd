@@ -250,6 +250,9 @@ func new_game_state() -> Dictionary:
 		# Best observation tier per ore from completed events
 		# ({ eventId: { obsId: { ore: level } } }, R§3.9d "Memory").
 		"observationMemory": {},
+		# A raid site's stored read ({ siteId: { security, observations } },
+		# R§3.9d "Site memory").
+		"siteObservations": {},
 		# Accepted favours and last-issued day per faction (Diplomacy.new_state()).
 		"favours": Diplomacy.new_state(),
 		# Last gift day and recent-gift count per key member contact id

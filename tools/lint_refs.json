@@ -2603,6 +2603,7 @@
 		"sellState",
 		"shares",
 		"shares.days",
+		"siteObservations",
 		"stashQty",
 		"turf",
 		"turf.battersea",

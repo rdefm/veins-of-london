@@ -216,6 +216,74 @@ func run() -> void:
 		assert_eq(GameState.state["event"]["context"]["site_id"], vein["siteId"], "the pressed vein's own site id is carried into the event's context")
 	)
 
+	# ── per-site observation memory ──────────────────────────────────────
+
+	var raid_site := func(site_id: String) -> Dictionary:
+		var vein := _faction_vein_of_growth(30, "physics", "warded", "firm")
+		vein["siteId"] = site_id
+		var site: Dictionary = Fixtures.site_with_vein(site_id, vein)
+		site["id"] = site_id
+		return site
+
+	run_case("observing_then_leaving_costs_only_the_entry_block_and_keeps_the_read_per_site", func():
+		GameState.reset()
+		var site: Dictionary = raid_site.call("s1")
+		var other: Dictionary = raid_site.call("s2")
+		GameState.state["world"]["sites"] = [site, other]
+
+		Raiding.begin_raid(site["factionVein"])
+		Observation.read()
+		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), 1, "Observe adds no block beyond the raid's entry block")
+		Events.advance()
+		var leave := (Events.current_card()["choices"] as Array).find_custom(func(c: Dictionary) -> bool: return c["label"] == "Leave it")
+		assert_true(leave >= 0, "Leave is offered after Observe")
+		Events.choose(leave)
+		Events.advance()
+
+		assert_eq(GameState.state["event"], null, "Leave ends the event")
+		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), 1, "the block stays spent")
+		assert_true(not Observation.site_memory("s1").is_empty(), "the read is kept for the site")
+		assert_true(Observation.site_memory("s2").is_empty(), "other sites are unaffected")
+	)
+
+	run_case("raiding_a_site_again_reuses_its_stored_read_without_rerolling", func():
+		GameState.reset()
+		var site: Dictionary = raid_site.call("s1")
+		GameState.state["world"]["sites"] = [site]
+		Raiding.begin_raid(site["factionVein"])
+		var first := Observation.read()
+		Events.advance()
+		Events.choose(3)
+		Events.advance()
+
+		Raiding.begin_raid(site["factionVein"])
+		assert_true(not Observation.is_unread(), "the stored read is already in place")
+		assert_eq(Observation.read(), first, "same rows, no re-roll")
+		assert_eq(GameState.state["event"]["observations"]["raid"]["rollCount"], 1, "no extra roll")
+	)
+
+	run_case("changing_a_sites_guards_or_kit_clears_only_its_stored_read", func():
+		GameState.reset()
+		var site: Dictionary = raid_site.call("s1")
+		var other: Dictionary = raid_site.call("s2")
+		GameState.state["world"]["sites"] = [site, other]
+		for s: Dictionary in [site, other]:
+			Raiding.begin_raid(s["factionVein"])
+			Observation.read()
+			Events.advance()
+			Events.choose(3)
+			Events.advance()
+
+		site["factionVein"]["extraGuards"] = int(site["factionVein"].get("extraGuards", 0)) + 1
+		assert_true(Observation.site_memory("s1").is_empty(), "a guard change clears the read")
+		assert_true(not Observation.site_memory("s2").is_empty(), "the other site keeps its read")
+
+		other["factionVein"]["guardKit"] = { "x": { "1": 1 } }
+		assert_true(Observation.site_memory("s2").is_empty(), "a kit change clears the read")
+		Raiding.begin_raid(site["factionVein"])
+		assert_true(Observation.is_unread(), "the next raid must observe afresh")
+	)
+
 	run_case("begin_raid_blocked_when_time_exhausted", func():
 		GameState.reset()
 		GameState.state["world"]["timeBlocksDone"] = [0, 1, 2]

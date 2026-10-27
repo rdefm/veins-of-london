@@ -93,12 +93,79 @@ static func rows(id: String) -> Array:
 	return out
 
 
+# The security of a faction vein as one string: guard count and guard kit. Add
+# any future site security option here and stored site reads track it (R§3.9d).
+static func security_signature(vein: Dictionary) -> String:
+	return "%d|%s" % [Cultivating.vein_guard_count(vein), JSON.stringify(vein.get("guardKit", {}), "", true)]
+
+
+# The faction vein a live raid event targets (context site_id), or null.
+static func _context_vein() -> Variant:
+	var event_state: Variant = GameState.state.get("event")
+	if event_state == null:
+		return null
+	var site_id := String(event_state.get("context", {}).get("site_id", ""))
+	var site: Variant = Sites.find_site(site_id) if site_id != "" else null
+	return site["factionVein"] if site != null else null
+
+
+# The single invalidation entry point for per-site reads: the site's stored read,
+# or {} when none. A read whose recorded security differs from the vein's current
+# security is dropped here, so any security change clears it on next use.
+static func site_memory(site_id: String) -> Dictionary:
+	var by_site: Dictionary = GameState.state.get("siteObservations", {})
+	if not by_site.has(site_id):
+		return {}
+	var site: Variant = Sites.find_site(site_id)
+	if site == null or site["factionVein"] == null or by_site[site_id]["security"] != security_signature(site["factionVein"]):
+		by_site.erase(site_id)
+		return {}
+	return by_site[site_id]
+
+
+# Seeds a starting raid event's observations from its site's stored read and
+# stamps the security the event began against. Called by Events.start_event.
+static func restore_site_memory() -> void:
+	var vein: Variant = _context_vein()
+	if vein == null:
+		return
+	var event_state: Dictionary = GameState.state["event"]
+	event_state["context"]["security"] = security_signature(vein)
+	var memory := site_memory(String(event_state["context"]["site_id"]))
+	if memory.is_empty() or not GameData.EVENTS[event_state["eventId"]].has("observations"):
+		return
+	var observations: Dictionary = memory["observations"].duplicate(true)
+	for id in observations.keys():
+		if not GameData.EVENTS[event_state["eventId"]]["observations"].has(id):
+			observations.erase(id)
+	event_state["observations"] = observations
+
+
+# Keeps the live raid event's reads against its site, tagged with the security the
+# event began against. Called as the event completes.
+static func _store_site_memory() -> void:
+	var vein: Variant = _context_vein()
+	var event_state: Dictionary = GameState.state["event"]
+	if vein == null or event_state.get("observations", {}).is_empty():
+		return
+	var observations: Dictionary = event_state["observations"].duplicate(true)
+	for id in observations:
+		observations[id].erase("armed")
+	var by_site: Dictionary = GameState.state.get("siteObservations", {})
+	by_site[event_state["context"]["site_id"]] = {
+		"security": String(event_state["context"].get("security", security_signature(vein))),
+		"observations": observations,
+	}
+	GameState.state["siteObservations"] = by_site
+
+
 # Folds the live event's reads into state.observationMemory, keeping the best
 # level per ore across runs. Called as the event completes.
 static func record_memory() -> void:
 	var event_state: Variant = GameState.state["event"]
 	if event_state == null or event_state.get("observations", {}).is_empty():
 		return
+	_store_site_memory()
 	var memory: Dictionary = GameState.state.get("observationMemory", {})
 	var by_obs: Dictionary = memory.get(event_state["eventId"], {})
 	for id in event_state["observations"]:

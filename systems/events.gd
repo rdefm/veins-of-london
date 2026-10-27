@@ -38,6 +38,7 @@ static func start_event(event_id: String, context: Dictionary = {}) -> void:
 	_apply_timing(GameData.EVENTS[event_id].get("at", {}))
 	TimingLog.begin(TimingLog.KIND_EVENT, event_id)
 	GameState.state["event"] = { "eventId": event_id, "cardIndex": 0, "snapshots": [], "choiceResults": {}, "jumps": {}, "rolled": {}, "toggles": {}, "context": context }
+	Observation.restore_site_memory()
 	Nav.go_to("event")
 
 
