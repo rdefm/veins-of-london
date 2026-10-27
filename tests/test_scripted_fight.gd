@@ -114,12 +114,12 @@ func run() -> void:
 		assert_true(kinds.has("frozen"), "and the freeze shows")
 		assert_eq(kinds[-1], "fled", "Leg it lands")
 		assert_true(not kinds.slice(kinds.rfind("timePearl")).has("ko"), "no KO after the rewind")
-		var xp: int = GameState.state["player"]["combatXP"]
+		var xp: int = GameState.state["player"]["bodyXP"]
 		var result := Combat.exit_combat()
 		assert_eq(result["nextScreen"], "event")
 		assert_eq(GameState.state["currentScreen"], "event")
 		assert_eq(GameState.state["event"]["cardIndex"], RESUME_CARD, "resumes at the script's card")
-		assert_eq(GameState.state["player"]["combatXP"], xp + Combat.ROUND_XP_FLED, "normal fled XP")
+		assert_eq(GameState.state["player"]["bodyXP"], xp + Combat.ROUND_XP_FLED, "normal fled XP")
 		assert_eq(Loadout.slot(0), null, "the Rewind stays spent")
 	)
 

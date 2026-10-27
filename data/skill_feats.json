@@ -1,0 +1,725 @@
+{
+ "_comment": "The Body/Mind/Soul skill tree (systems/skill_tree.gd, REFERENCE.md \u00a72 + \u00a73.7a). A bucket is a top-level player skill (`skillKey`/`xpKey` on player state, level shown is its own); `subSkills` read a `skillKey`/`xpKey` pair inside player[`container`] (default: the player itself). `xpLevels` is a literal cumulative-XP array or {from: GameData field, path}. Each feat: `level` or `levelFrom` {from, path}; `text` with {name} filled from `values` -- {from, path} reads a GameData table, an array is indexed at the feat's level (`delta`: minus the level below), a number is used as is; `scale` multiplies. Any skill may list any feats; the projection needs no code change. Mind/Soul are placeholders with no XP source yet. PROSE-REVIEW: every text string here is new copy.",
+ "buckets": [
+  {
+   "id": "body",
+   "label": "Body",
+   "skillKey": "bodySkill",
+   "xpKey": "bodyXP",
+   "xpLevels": {
+    "from": "COMBAT_XP_LEVELS"
+   },
+   "feats": [
+    {
+     "id": "attack2",
+     "level": 2,
+     "text": "+{v} attack damage",
+     "values": {
+      "v": {
+       "from": "COMBAT_ATTACK_BONUS_BY_LEVEL",
+       "delta": true
+      }
+     }
+    },
+    {
+     "id": "speed2",
+     "level": 2,
+     "text": "+{v} turn-order speed",
+     "values": {
+      "v": {
+       "from": "COMBAT_SPEED_BY_LEVEL",
+       "delta": true
+      }
+     }
+    },
+    {
+     "id": "crit2",
+     "level": 2,
+     "text": "+{v}% crit chance",
+     "values": {
+      "v": {
+       "from": "COMBAT_ROUNDS",
+       "path": [
+        "critChance"
+       ],
+       "delta": true,
+       "scale": 100
+      }
+     }
+    },
+    {
+     "id": "attack3",
+     "level": 3,
+     "text": "+{v} attack damage",
+     "values": {
+      "v": {
+       "from": "COMBAT_ATTACK_BONUS_BY_LEVEL",
+       "delta": true
+      }
+     }
+    },
+    {
+     "id": "speed3",
+     "level": 3,
+     "text": "+{v} turn-order speed",
+     "values": {
+      "v": {
+       "from": "COMBAT_SPEED_BY_LEVEL",
+       "delta": true
+      }
+     }
+    },
+    {
+     "id": "crit3",
+     "level": 3,
+     "text": "+{v}% crit chance",
+     "values": {
+      "v": {
+       "from": "COMBAT_ROUNDS",
+       "path": [
+        "critChance"
+       ],
+       "delta": true,
+       "scale": 100
+      }
+     }
+    },
+    {
+     "id": "hp3",
+     "level": 3,
+     "text": "+{v} max HP",
+     "values": {
+      "v": {
+       "from": "COMBAT_HP_BONUS_BY_LEVEL",
+       "delta": true
+      }
+     }
+    },
+    {
+     "id": "actions3",
+     "level": 3,
+     "text": "{v} actions per round",
+     "values": {
+      "v": {
+       "from": "COMBAT_ROUNDS",
+       "path": [
+        "actionsPerRound"
+       ]
+      }
+     }
+    },
+    {
+     "id": "attack4",
+     "level": 4,
+     "text": "+{v} attack damage",
+     "values": {
+      "v": {
+       "from": "COMBAT_ATTACK_BONUS_BY_LEVEL",
+       "delta": true
+      }
+     }
+    },
+    {
+     "id": "speed4",
+     "level": 4,
+     "text": "+{v} turn-order speed",
+     "values": {
+      "v": {
+       "from": "COMBAT_SPEED_BY_LEVEL",
+       "delta": true
+      }
+     }
+    },
+    {
+     "id": "crit4",
+     "level": 4,
+     "text": "+{v}% crit chance",
+     "values": {
+      "v": {
+       "from": "COMBAT_ROUNDS",
+       "path": [
+        "critChance"
+       ],
+       "delta": true,
+       "scale": 100
+      }
+     }
+    },
+    {
+     "id": "attack5",
+     "level": 5,
+     "text": "+{v} attack damage",
+     "values": {
+      "v": {
+       "from": "COMBAT_ATTACK_BONUS_BY_LEVEL",
+       "delta": true
+      }
+     }
+    },
+    {
+     "id": "speed5",
+     "level": 5,
+     "text": "+{v} turn-order speed",
+     "values": {
+      "v": {
+       "from": "COMBAT_SPEED_BY_LEVEL",
+       "delta": true
+      }
+     }
+    },
+    {
+     "id": "crit5",
+     "level": 5,
+     "text": "+{v}% crit chance",
+     "values": {
+      "v": {
+       "from": "COMBAT_ROUNDS",
+       "path": [
+        "critChance"
+       ],
+       "delta": true,
+       "scale": 100
+      }
+     }
+    },
+    {
+     "id": "hp5",
+     "level": 5,
+     "text": "+{v} max HP",
+     "values": {
+      "v": {
+       "from": "COMBAT_HP_BONUS_BY_LEVEL",
+       "delta": true
+      }
+     }
+    }
+   ],
+   "subSkills": [
+    {
+     "id": "strike",
+     "label": "Strike",
+     "container": [
+      "moveLevels",
+      "strike"
+     ],
+     "skillKey": "level",
+     "xpKey": "xp",
+     "xpLevels": {
+      "from": "COMBAT_ROUNDS",
+      "path": [
+       "moveXp",
+       "levels"
+      ]
+     },
+     "feats": [
+      {
+       "id": "crit",
+       "levelFrom": {
+        "from": "COMBAT_ROUNDS",
+        "path": [
+         "moveLevelEffects",
+         "strike",
+         "critLevel"
+        ]
+       },
+       "text": "+{v}% crit chance",
+       "values": {
+        "v": {
+         "from": "COMBAT_ROUNDS",
+         "path": [
+          "moveLevelEffects",
+          "strike",
+          "critBonus"
+         ],
+         "scale": 100
+        }
+       }
+      },
+      {
+       "id": "chip",
+       "levelFrom": {
+        "from": "COMBAT_ROUNDS",
+        "path": [
+         "moveLevelEffects",
+         "strike",
+         "chipLevel"
+        ]
+       },
+       "text": "Strikes cut through Guard"
+      }
+     ]
+    },
+    {
+     "id": "guard",
+     "label": "Guard",
+     "container": [
+      "moveLevels",
+      "guard"
+     ],
+     "skillKey": "level",
+     "xpKey": "xp",
+     "xpLevels": {
+      "from": "COMBAT_ROUNDS",
+      "path": [
+       "moveXp",
+       "levels"
+      ]
+     },
+     "feats": [
+      {
+       "id": "block",
+       "levelFrom": {
+        "from": "COMBAT_ROUNDS",
+        "path": [
+         "moveLevelEffects",
+         "guard",
+         "blockLevel"
+        ]
+       },
+       "text": "{v}% chance to block a hit outright",
+       "values": {
+        "v": {
+         "from": "COMBAT_ROUNDS",
+         "path": [
+          "moveLevelEffects",
+          "guard",
+          "blockChance"
+         ],
+         "scale": 100
+        }
+       }
+      },
+      {
+       "id": "firstHit",
+       "levelFrom": {
+        "from": "COMBAT_ROUNDS",
+        "path": [
+         "moveLevelEffects",
+         "guard",
+         "firstHitLevel"
+        ]
+       },
+       "text": "First hit each round does nothing"
+      }
+     ]
+    },
+    {
+     "id": "feint",
+     "label": "Feint",
+     "container": [
+      "moveLevels",
+      "feint"
+     ],
+     "skillKey": "level",
+     "xpKey": "xp",
+     "xpLevels": {
+      "from": "COMBAT_ROUNDS",
+      "path": [
+       "moveXp",
+       "levels"
+      ]
+     },
+     "feats": [
+      {
+       "id": "autoguard",
+       "level": 3,
+       "text": "Chance to auto-guard after a Feint"
+      },
+      {
+       "id": "retaliate",
+       "levelFrom": {
+        "from": "COMBAT_ROUNDS",
+        "path": [
+         "moveLevelEffects",
+         "feint",
+         "retaliateLevel"
+        ]
+       },
+       "text": "{v}% chance to Strike back free after a Feint",
+       "values": {
+        "v": {
+         "from": "COMBAT_ROUNDS",
+         "path": [
+          "moveLevelEffects",
+          "feint",
+          "retaliateChance"
+         ],
+         "scale": 100
+        }
+       }
+      }
+     ]
+    },
+    {
+     "id": "stun",
+     "label": "Stun",
+     "container": [
+      "moveLevels",
+      "stun"
+     ],
+     "skillKey": "level",
+     "xpKey": "xp",
+     "xpLevels": {
+      "from": "COMBAT_ROUNDS",
+      "path": [
+       "moveXp",
+       "levels"
+      ]
+     },
+     "feats": [
+      {
+       "id": "multi",
+       "levelFrom": {
+        "from": "COMBAT_ROUNDS",
+        "path": [
+         "moveLevelEffects",
+         "stun",
+         "multiActionLevel"
+        ]
+       },
+       "text": "Stuns last {v} actions",
+       "values": {
+        "v": {
+         "from": "COMBAT_ROUNDS",
+         "path": [
+          "moveLevelEffects",
+          "stun",
+          "multiActions"
+         ]
+        }
+       }
+      },
+      {
+       "id": "open",
+       "levelFrom": {
+        "from": "COMBAT_ROUNDS",
+        "path": [
+         "moveLevelEffects",
+         "stun",
+         "openLevel"
+        ]
+       },
+       "text": "Stunned target stays Open"
+      }
+     ]
+    },
+    {
+     "id": "legIt",
+     "label": "Leg it",
+     "container": [
+      "moveLevels",
+      "legIt"
+     ],
+     "skillKey": "level",
+     "xpKey": "xp",
+     "xpLevels": {
+      "from": "COMBAT_ROUNDS",
+      "path": [
+       "moveXp",
+       "levels"
+      ]
+     },
+     "feats": [
+      {
+       "id": "keep",
+       "levelFrom": {
+        "from": "COMBAT_ROUNDS",
+        "path": [
+         "moveLevelEffects",
+         "legIt",
+         "keepActionsLevel"
+        ]
+       },
+       "text": "A failed escape keeps your actions"
+      },
+      {
+       "id": "guarded",
+       "levelFrom": {
+        "from": "COMBAT_ROUNDS",
+        "path": [
+         "moveLevelEffects",
+         "legIt",
+         "guardedOnFailLevel"
+        ]
+       },
+       "text": "A failed escape leaves you Guarded"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "mind",
+   "label": "Mind",
+   "skillKey": "mindSkill",
+   "xpKey": "mindXP",
+   "xpLevels": [
+    0,
+    0,
+    80,
+    220,
+    500,
+    1000
+   ],
+   "feats": [],
+   "subSkills": [
+    {
+     "id": "sense",
+     "label": "Sense",
+     "skillKey": "senseSkill",
+     "xpKey": "senseXP",
+     "xpLevels": {
+      "from": "SENSE_XP_LEVELS"
+     },
+     "feats": [
+      {
+       "id": "sense2",
+       "level": 2,
+       "text": "+{v}% observation",
+       "values": {
+        "v": {
+         "from": "OBSERVATION",
+         "path": [
+          "sensePerLevel"
+         ],
+         "scale": 100
+        }
+       }
+      },
+      {
+       "id": "sense3",
+       "level": 3,
+       "text": "+{v}% observation",
+       "values": {
+        "v": {
+         "from": "OBSERVATION",
+         "path": [
+          "sensePerLevel"
+         ],
+         "scale": 100
+        }
+       }
+      },
+      {
+       "id": "sense4",
+       "level": 4,
+       "text": "+{v}% observation",
+       "values": {
+        "v": {
+         "from": "OBSERVATION",
+         "path": [
+          "sensePerLevel"
+         ],
+         "scale": 100
+        }
+       }
+      },
+      {
+       "id": "sense5",
+       "level": 5,
+       "text": "+{v}% observation",
+       "values": {
+        "v": {
+         "from": "OBSERVATION",
+         "path": [
+          "sensePerLevel"
+         ],
+         "scale": 100
+        }
+       }
+      },
+      {
+       "id": "sense6",
+       "level": 6,
+       "text": "+{v}% observation",
+       "values": {
+        "v": {
+         "from": "OBSERVATION",
+         "path": [
+          "sensePerLevel"
+         ],
+         "scale": 100
+        }
+       }
+      },
+      {
+       "id": "sense7",
+       "level": 7,
+       "text": "+{v}% observation",
+       "values": {
+        "v": {
+         "from": "OBSERVATION",
+         "path": [
+          "sensePerLevel"
+         ],
+         "scale": 100
+        }
+       }
+      },
+      {
+       "id": "sense8",
+       "level": 8,
+       "text": "+{v}% observation",
+       "values": {
+        "v": {
+         "from": "OBSERVATION",
+         "path": [
+          "sensePerLevel"
+         ],
+         "scale": 100
+        }
+       }
+      },
+      {
+       "id": "sense9",
+       "level": 9,
+       "text": "+{v}% observation",
+       "values": {
+        "v": {
+         "from": "OBSERVATION",
+         "path": [
+          "sensePerLevel"
+         ],
+         "scale": 100
+        }
+       }
+      },
+      {
+       "id": "sense10",
+       "level": 10,
+       "text": "+{v}% observation",
+       "values": {
+        "v": {
+         "from": "OBSERVATION",
+         "path": [
+          "sensePerLevel"
+         ],
+         "scale": 100
+        }
+       }
+      }
+     ]
+    },
+    {
+     "id": "crafting",
+     "label": "Crafting",
+     "skillKey": "craftingSkill",
+     "xpKey": "craftingXP",
+     "xpLevels": {
+      "from": "CRAFTING_XP_LEVELS"
+     },
+     "feats": [
+      {
+       "id": "chance2",
+       "level": 2,
+       "text": "+13% craft chance"
+      },
+      {
+       "id": "cost2",
+       "level": 2,
+       "text": "-{v} of each ingredient",
+       "values": {
+        "v": {
+         "from": "CRAFT_COST_PER_SKILL"
+        }
+       }
+      },
+      {
+       "id": "chance3",
+       "level": 3,
+       "text": "+13% craft chance"
+      },
+      {
+       "id": "cost3",
+       "level": 3,
+       "text": "-{v} of each ingredient",
+       "values": {
+        "v": {
+         "from": "CRAFT_COST_PER_SKILL"
+        }
+       }
+      },
+      {
+       "id": "chance4",
+       "level": 4,
+       "text": "+13% craft chance"
+      },
+      {
+       "id": "cost4",
+       "level": 4,
+       "text": "-{v} of each ingredient",
+       "values": {
+        "v": {
+         "from": "CRAFT_COST_PER_SKILL"
+        }
+       }
+      },
+      {
+       "id": "chance5",
+       "level": 5,
+       "text": "+13% craft chance"
+      },
+      {
+       "id": "cost5",
+       "level": 5,
+       "text": "-{v} of each ingredient",
+       "values": {
+        "v": {
+         "from": "CRAFT_COST_PER_SKILL"
+        }
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "soul",
+   "label": "Soul",
+   "skillKey": "soulSkill",
+   "xpKey": "soulXP",
+   "xpLevels": [
+    0,
+    0,
+    80,
+    220,
+    500,
+    1000
+   ],
+   "feats": [],
+   "subSkills": [
+    {
+     "id": "cultivating",
+     "label": "Cultivating",
+     "skillKey": "cultivatingSkill",
+     "xpKey": "cultivatingXP",
+     "xpLevels": {
+      "from": "CULTIVATING_XP_LEVELS"
+     },
+     "feats": [
+      {
+       "id": "chance2",
+       "level": 2,
+       "text": "+12% cultivate chance"
+      },
+      {
+       "id": "chance3",
+       "level": 3,
+       "text": "+12% cultivate chance"
+      },
+      {
+       "id": "chance4",
+       "level": 4,
+       "text": "+12% cultivate chance"
+      },
+      {
+       "id": "chance5",
+       "level": 5,
+       "text": "+12% cultivate chance"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

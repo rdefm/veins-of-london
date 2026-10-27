@@ -465,7 +465,9 @@ state = {
     craftingSkill: 1, craftingXP: 0,
     cultivatingSkill: 1, cultivatingXP: 0,
     senseSkill: 1, senseXP: 0,   # data/sense.json senseXpLevels (11 entries, levels 6-10 TBD); prospecting awards sites.json prospectSenseXp
-    combatSkill: 1, combatXP: 0,   # §3.7a: attack bonus + turn-order speed, both level-indexed
+    bodySkill: 1, bodyXP: 0,   # Body (the Combat skill, renamed). §3.7a: attack bonus + turn-order speed, both level-indexed
+    mindSkill: 1, mindXP: 0,   # Mind / Soul: placeholder top-level buckets, no XP source yet
+    soulSkill: 1, soulXP: 0,   # buckets, sub-skills and feats: data/skill_feats.json, projected by SkillTree.project()
     moveLevels: { strike:{level:1, xp:0}, guard:{…}, feint:{…}, stun:{…}, legIt:{…} },   # §3.7b Move levels; every contact carries the same key
     # day-rhythm-business-and-combat ticket 22, business-spec.md "Inventory":
     # the personal stash -- a second ore/crafted-item pool no business
@@ -809,7 +811,7 @@ The fight itself (combatants, rounds, moves, items, Dial casts, Rewind, KO, XP) 
 
 **Player KO** (after the automatic Failsafe, then guard-kit Rewind, checks fail): `combat.playerKoed = true`, player `hp` stays 0 for the fight, the player's actions drop, and the next `allyQueue` entry joins (first acts next round). Allies and enemies then resolve automatically (enemies never target the player; no pick is accepted). Allies clearing `enemies` + `enemyQueue` is the normal win (rewards, `onWin`, raid outcome). If no friendly active or queued fighter is left standing the fight is a `loss`. After an ally-won win or a loss the player's `hp = round(hpMax * 0.1)` (`Combat.PLAYER_KO_HP_FRACTION`). Recruited-ally KO cooldowns are unchanged.
 
-- **Combat Skill** (new player stat, `player.combatSkill`/`player.combatXP`, levels 1–5, mechanical name only — display/flavour name TBD): reuses the exact `[0, 0, 80, 220, 500, 1000]` XP curve crafting/cultivating skill already use (`GameData.COMBAT_XP_LEVELS`, same `Progression.award_xp()` mechanism). Two additive, level-indexed effects (curves in `data/enemies.json`, §1.10 — **both draft, need balance sign-off**):
+- **Body** (the Combat skill; top-level bucket of Body/Mind/Soul -- Body's sub-skills are the Move Book moves, Mind's are Sense + Crafting, Soul's is Cultivating; each bucket's level is its own, `data/skill_feats.json` lists the per-level feats, `SkillTree.project()` reads them) (player stat, `player.bodySkill`/`player.bodyXP`, levels 1–5, mechanical name only — display/flavour name TBD): reuses the exact `[0, 0, 80, 220, 500, 1000]` XP curve crafting/cultivating skill already use (`GameData.COMBAT_XP_LEVELS`, same `Progression.award_xp()` mechanism). Two additive, level-indexed effects (curves in `data/enemies.json`, §1.10 — **both draft, need balance sign-off**):
   - **Attack bonus**, `COMBAT_ATTACK_BONUS_BY_LEVEL = [0, 0, 2, 4, 7, 11]`, added to both `attackMin`/`attackMax` in `Combat.get_attack_range()`. Level 1 = today's baseline, unchanged.
   - **Speed**, `COMBAT_SPEED_BY_LEVEL = [0, 10, 12, 14, 17, 21]` — the player's speed (§3.7b timeline order). Allies and enemies are not trainable: each carries its own flat, authored `speed` (ally: contact combat-kit constants, §1.11; enemy: per template, §1.10).
   - **HP bonus**, `COMBAT_HP_BONUS_BY_LEVEL = [0, 0, 0, 55, 55, 140]` — cumulative bonus over the fresh player's hpMax. On each Combat Skill level-up (`Combat.award_xp()`), `hpMax` and current `hp` both rise by that level's delta (`curve[L] − curve[L−1]`), stacking with Home Gym's flat bonus.
@@ -823,7 +825,7 @@ The fight itself (combatants, rounds, moves, items, Dial casts, Rewind, KO, XP) 
 
 Spec: `.scratch/combat-port/spec.md` (signed off 2026-10-17). Every fight (all `Combat.CANONICAL_CONTEXTS`) runs on these rules, in `systems/combat_rounds.gd` (`CombatRounds`, the rules core on any combat dict) driven by `systems/combat.gd` on `state.combat`, data in `data/combat_rounds.json` (`GameData.COMBAT_ROUNDS`). §3.7 (loadouts, kit pools, ally joining, `combatPrep`, onWin and exit routing) and §3.7a (squad max 3, reinforcement queues, Player KO, Combat Skill curves/Train/Gym, roster generation, territorial `variant`) hold the surrounding rules.
 
-**Combatants.** Player, up to 2 active allies, up to 3 active enemies (§3.7a queues hold overflow). Each carries a Combat Skill **level** 1–5 (player: `player.combatSkill`; enemy: enemy-level table below; ally: ally-level table below), a **guard state** `open`/`guarded`, and `speed`. Everyone starts the fight Guarded.
+**Combatants.** Player, up to 2 active allies, up to 3 active enemies (§3.7a queues hold overflow). Each carries a Combat Skill **level** 1–5 (player: `player.bodySkill`; enemy: enemy-level table below; ally: ally-level table below), a **guard state** `open`/`guarded`, and `speed`. Everyone starts the fight Guarded.
 
 **Curves** (all indexed by level, index 0 unused):
 
@@ -955,7 +957,7 @@ Table 2 lives in `data/enemies.json` `enemyLevels` (`GameData.ENEMY_LEVELS`, val
 
 | Ally | Level | Source |
 |---|---|---|
-| Contact with its own `combatSkill` | that skill | contact state |
+| Contact with its own `bodySkill` | that skill | contact state |
 | Archie (combat-kit fallback) | 2 | `contacts.archie.combatLevel` (new constant, §1.11) |
 | James (combat-kit fallback) | 1 | `contacts.james.combatLevel` |
 | Hired Guard (`guardKit.guardAlly`) | 1 | `guardAlly.level` |

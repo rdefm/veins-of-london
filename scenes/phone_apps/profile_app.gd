@@ -63,7 +63,7 @@ func _build_skills_card() -> Control:
 	_add_skill_row(c["content"], "Crafting", player["craftingSkill"], player["craftingXP"], GameData.CRAFTING_XP_LEVELS)
 	_add_skill_row(c["content"], "Cultivating", player["cultivatingSkill"], player["cultivatingXP"], GameData.CULTIVATING_XP_LEVELS)
 	_add_skill_row(c["content"], "Sense", player["senseSkill"], player["senseXP"], GameData.SENSE_XP_LEVELS)
-	_add_skill_row(c["content"], "Combat", player["combatSkill"], player["combatXP"], GameData.COMBAT_XP_LEVELS)
+	_add_skill_row(c["content"], "Body", player["bodySkill"], player["bodyXP"], GameData.COMBAT_XP_LEVELS)
 	return c["panel"]
 
 

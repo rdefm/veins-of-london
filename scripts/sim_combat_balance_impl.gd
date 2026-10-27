@@ -150,8 +150,8 @@ func _loadout(spec: String) -> Array:
 func _fresh_player(level: int, units: Array) -> void:
 	GameState.reset()
 	var player: Dictionary = GameState.state["player"]
-	player["combatSkill"] = level
-	player["combatXP"] = GameData.COMBAT_XP_LEVELS[level]
+	player["bodySkill"] = level
+	player["bodyXP"] = GameData.COMBAT_XP_LEVELS[level]
 	player["hpMax"] += GameData.COMBAT_HP_BONUS_BY_LEVEL[level] - GameData.COMBAT_HP_BONUS_BY_LEVEL[1]
 	player["hp"] = player["hpMax"]
 	Loadout.debug_grant(units)

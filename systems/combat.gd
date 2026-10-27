@@ -307,7 +307,7 @@ static func _guard_group_name(entries: Array) -> String:
 static func get_attack_range() -> Dictionary:
 	var player: Dictionary = GameState.state["player"]
 	# R§3.7a: unarmed base plus Combat Skill's attack bonus (level 1 is 0).
-	var skill_bonus: int = GameData.COMBAT_ATTACK_BONUS_BY_LEVEL[player["combatSkill"]]
+	var skill_bonus: int = GameData.COMBAT_ATTACK_BONUS_BY_LEVEL[player["bodySkill"]]
 	return { "min": player["attackMin"] + skill_bonus, "max": player["attackMax"] + skill_bonus }
 
 
@@ -787,7 +787,7 @@ static func _start_round_combat(context: String, vein_id, enemies: Array, log_li
 	for mod_key in SITUATIONAL_MODS:
 		if mods.has(mod_key):
 			combat["transcript"].append(str(SITUATIONAL_MODS[mod_key]["line"]))
-	var skill: int = int(player["combatSkill"])
+	var skill: int = int(player["bodySkill"])
 	var level_override := int(config.get("playerLevel", 0))
 	var level: int = clampi(level_override if level_override > 0 else skill, 1, CombatRounds.level_max())
 	var attack := get_attack_range()
@@ -1406,12 +1406,12 @@ static func award_xp(amount: int) -> void:
 	var on_level_up := func():
 		# R§3.7a HP bonus: flat per-level delta on top of hpMax, so it
 		# stacks with Home Gym's own flat bonus.
-		var level: int = player["combatSkill"]
+		var level: int = player["bodySkill"]
 		var gain: int = GameData.COMBAT_HP_BONUS_BY_LEVEL[level] - GameData.COMBAT_HP_BONUS_BY_LEVEL[level - 1]
 		player["hpMax"] += gain
 		player["hp"] += gain
-		Notify.push("Combat Skill up — now level %d." % level, Notify.CATEGORY_SUCCESS)
-	Progression.award_xp(player, "combatXP", "combatSkill", GameData.COMBAT_XP_LEVELS, amount, on_level_up)
+		Notify.push("Body up — now level %d." % level, Notify.CATEGORY_SUCCESS)
+	Progression.award_xp(player, "bodyXP", "bodySkill", GameData.COMBAT_XP_LEVELS, amount, on_level_up)
 
 
 # R§3.7a read-only summary for the HQ gym modal. XP values are cumulative
@@ -1421,7 +1421,7 @@ static func award_xp(amount: int) -> void:
 # "nextStats" is the same after one more level (equal to "stats" at max).
 static func skill_summary() -> Dictionary:
 	var player: Dictionary = GameState.state["player"]
-	var level: int = player["combatSkill"]
+	var level: int = player["bodySkill"]
 	var levels: Array = GameData.COMBAT_XP_LEVELS
 	var max_level: int = levels.size() - 1
 	var is_max: bool = level >= max_level
@@ -1452,7 +1452,7 @@ static func skill_summary() -> Dictionary:
 		"level": level,
 		"maxLevel": max_level,
 		"isMax": is_max,
-		"xp": player["combatXP"],
+		"xp": player["bodyXP"],
 		"xpFloor": levels[level],
 		"xpNext": levels[next],
 		"stats": stats,

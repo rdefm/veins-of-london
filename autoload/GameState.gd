@@ -173,7 +173,10 @@ func new_game_state() -> Dictionary:
 			"senseSkill": 1, "senseXP": 0,
 			# Attack bonus + turn-order speed, level-indexed (GameData.
 			# COMBAT_ATTACK_BONUS_BY_LEVEL/COMBAT_SPEED_BY_LEVEL, R§3.7a).
-			"combatSkill": 1, "combatXP": 0,
+			"bodySkill": 1, "bodyXP": 0,
+			# Placeholder top-level buckets (data/skill_feats.json): no XP source yet.
+			"mindSkill": 1, "mindXP": 0,
+			"soulSkill": 1, "soulXP": 0,
 			# Per-move { level, xp } (MoveLevels, R§3.7b Move levels).
 			"moveLevels": MoveLevels.new_state(),
 		},

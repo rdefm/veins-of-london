@@ -527,7 +527,7 @@ func run() -> void:
 		GameState.reset()
 		var player: Dictionary = GameState.state["player"]
 		assert_true(not player.has("equipment") and not player.has("items"), "no weapon/equipment fields in new-game state")
-		assert_eq(player["combatSkill"], 1, "sanity: Combat Skill 1")
+		assert_eq(player["bodySkill"], 1, "sanity: Combat Skill 1")
 		var range := Combat.get_attack_range()
 		assert_eq(range["min"], 7, "unarmed Combat Skill 1 attackMin")
 		assert_eq(range["max"], 15, "unarmed Combat Skill 1 attackMax")
@@ -976,7 +976,7 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["player"]["attackMin"] = 5
 		GameState.state["player"]["attackMax"] = 12
-		assert_eq(GameState.state["player"]["combatSkill"], 1, "sanity: a fresh save starts at Combat Skill level 1")
+		assert_eq(GameState.state["player"]["bodySkill"], 1, "sanity: a fresh save starts at Combat Skill level 1")
 		var range := Combat.get_attack_range()
 		assert_eq(range["min"], 5, "level 1's attack bonus must be 0 -- today's baseline, unchanged")
 		assert_eq(range["max"], 12, "level 1's attack bonus must be 0 -- today's baseline, unchanged")
@@ -986,7 +986,7 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["player"]["attackMin"] = 5
 		GameState.state["player"]["attackMax"] = 12
-		GameState.state["player"]["combatSkill"] = 3
+		GameState.state["player"]["bodySkill"] = 3
 		var bonus: int = GameData.COMBAT_ATTACK_BONUS_BY_LEVEL[3]
 		var range := Combat.get_attack_range()
 		assert_eq(range["min"], 5 + bonus, "skill bonus on the unarmed base")
@@ -1001,7 +1001,7 @@ func run() -> void:
 		var curve: Array = GameData.COMBAT_HP_BONUS_BY_LEVEL
 		# level 1 -> 5 in one award: each level's delta applies once
 		Combat.award_xp(GameData.COMBAT_XP_LEVELS[5])
-		assert_eq(player["combatSkill"], 5, "sanity: a max-level award lands on level 5")
+		assert_eq(player["bodySkill"], 5, "sanity: a max-level award lands on level 5")
 		var gain: int = curve[5] - curve[1]
 		assert_eq(player["hpMax"], 50 + gain, "hpMax should rise by the summed per-level curve deltas")
 		assert_eq(player["hp"], 20 + gain, "current hp should rise by the same amount, not refill")
@@ -1009,8 +1009,8 @@ func run() -> void:
 
 	run_case("skill_summary_reports_level_xp_band_bonuses_and_next_level_gains", func():
 		GameState.reset()
-		GameState.state["player"]["combatSkill"] = 2
-		GameState.state["player"]["combatXP"] = 100
+		GameState.state["player"]["bodySkill"] = 2
+		GameState.state["player"]["bodyXP"] = 100
 		var s := Combat.skill_summary()
 		var xp: Array = GameData.COMBAT_XP_LEVELS
 		var hp: Array = GameData.COMBAT_HP_BONUS_BY_LEVEL
@@ -1037,8 +1037,8 @@ func run() -> void:
 	run_case("skill_summary_at_max_level_flags_max_and_reports_no_next_gains", func():
 		GameState.reset()
 		var max_level: int = GameData.COMBAT_XP_LEVELS.size() - 1
-		GameState.state["player"]["combatSkill"] = max_level
-		GameState.state["player"]["combatXP"] = GameData.COMBAT_XP_LEVELS[max_level] + 50
+		GameState.state["player"]["bodySkill"] = max_level
+		GameState.state["player"]["bodyXP"] = GameData.COMBAT_XP_LEVELS[max_level] + 50
 		var s := Combat.skill_summary()
 		assert_true(s["isMax"], "max level flagged")
 		assert_eq(s["maxLevel"], max_level, "maxLevel")
@@ -1054,7 +1054,7 @@ func run() -> void:
 		var blocks_before: int = GameState.state["world"]["timeBlocksDone"].size()
 		var result := Combat.train()
 		assert_true(result["ok"], "Train should succeed without a built Home Gym")
-		assert_eq(GameState.state["player"]["combatXP"], Combat.COMBAT_XP_PER_WORKOUT_SESSION, "Train awards its lower flat XP amount without a Home Gym")
+		assert_eq(GameState.state["player"]["bodyXP"], Combat.COMBAT_XP_PER_WORKOUT_SESSION, "Train awards its lower flat XP amount without a Home Gym")
 		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), blocks_before + 1, "Train consumes one of the daily time blocks, same currency as every other block-consuming HQ action")
 	)
 
@@ -1067,7 +1067,7 @@ func run() -> void:
 		var blocks_before: int = GameState.state["world"]["timeBlocksDone"].size()
 		var result := Combat.train()
 		assert_true(result["ok"], "Train should succeed once Home Gym is built and a block is available")
-		assert_eq(GameState.state["player"]["combatXP"], Combat.COMBAT_XP_PER_GYM_SESSION, "Train awards its own larger flat XP amount")
+		assert_eq(GameState.state["player"]["bodyXP"], Combat.COMBAT_XP_PER_GYM_SESSION, "Train awards its own larger flat XP amount")
 		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), blocks_before + 1, "Train consumes one of the daily time blocks, same currency as every other block-consuming HQ action")
 	)
 
@@ -1081,7 +1081,7 @@ func run() -> void:
 		var second := Combat.train()
 		assert_true(first["ok"], "first Train this day should succeed")
 		assert_true(second["ok"], "a second Train the same day should succeed too -- no separate cooldown")
-		assert_eq(GameState.state["player"]["combatXP"], Combat.COMBAT_XP_PER_GYM_SESSION * 2, "two sessions should award XP twice")
+		assert_eq(GameState.state["player"]["bodyXP"], Combat.COMBAT_XP_PER_GYM_SESSION * 2, "two sessions should award XP twice")
 	)
 
 	# TimeSystem.advance_time_block() rolls the day over (and resets
@@ -1100,7 +1100,7 @@ func run() -> void:
 
 		var result := Combat.train()
 		assert_true(not result["ok"], "Train should refuse once the day's time blocks are already exhausted")
-		assert_eq(GameState.state["player"]["combatXP"], 0, "no XP should be awarded on a blocked Train attempt")
+		assert_eq(GameState.state["player"]["bodyXP"], 0, "no XP should be awarded on a blocked Train attempt")
 	)
 
 	run_case("train_remains_available_again_once_the_day_rolls_over", func():
@@ -1118,7 +1118,7 @@ func run() -> void:
 
 		var result := Combat.train()
 		assert_true(result["ok"], "Train should be available again on the new day")
-		assert_eq(GameState.state["player"]["combatXP"], Combat.COMBAT_XP_PER_GYM_SESSION * 4, "the 4th session should still award XP like every other")
+		assert_eq(GameState.state["player"]["bodyXP"], Combat.COMBAT_XP_PER_GYM_SESSION * 4, "the 4th session should still award XP like every other")
 	)
 
 	# ── James's ally Dial (constants.json contacts.james.grantDial) ──────

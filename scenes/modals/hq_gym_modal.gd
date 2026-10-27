@@ -17,10 +17,10 @@ static func _skill_card(s: Dictionary) -> Control:
 	var c := MapCardStyle.card(12, 0.0)
 	var box: VBoxContainer = c["content"]
 	if s["isMax"]:
-		box.add_child(UI.label("Combat Skill: Lv%d (max)" % s["level"]))
+		box.add_child(UI.label("Body: Lv%d (max)" % s["level"]))
 		box.add_child(UI.muted_label("%d XP" % s["xp"]))
 	else:
-		box.add_child(UI.label("Combat Skill: Lv%d" % s["level"]))
+		box.add_child(UI.label("Body: Lv%d" % s["level"]))
 		box.add_child(UI.muted_label("%d / %d XP" % [s["xp"], s["xpNext"]]))
 		box.add_child(MapCardStyle.style_bar(UI.bar(s["xp"] - s["xpFloor"], s["xpNext"] - s["xpFloor"])))
 	box.add_child(UI.label(stats_text(s["stats"])))

@@ -242,11 +242,11 @@ static func can_join_combat(contact_id: String) -> bool:
 
 
 # R§3.7b table 3: a contact's Combat Skill level in a fight -- its own
-# combatSkill when it has one, else its combat kit's authored combatLevel.
+# bodySkill when it has one, else its combat kit's authored combatLevel.
 static func combat_level(contact_id: String) -> int:
 	var c: Dictionary = GameState.state["contacts"][contact_id]
-	if c.has("combatSkill"):
-		return int(c["combatSkill"])
+	if c.has("bodySkill"):
+		return int(c["bodySkill"])
 	return int(GameData.CONTACTS_DEFAULTS.get(contact_id, {}).get("combatLevel", 1))
 
 

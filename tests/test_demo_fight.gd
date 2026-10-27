@@ -76,14 +76,14 @@ func run() -> void:
 	run_case("the_player_cant_act_or_be_changed", func():
 		var combat := _start(_script())
 		var player: Dictionary = GameState.state["player"]
-		var before := [player["hp"], player["combatXP"], Loadout.slot(0)]
+		var before := [player["hp"], player["bodyXP"], Loadout.slot(0)]
 		assert_eq(CombatRounds.move_block_reason(combat, "strike", OWNER), CombatRounds.DEMO_REASON)
 		assert_true(not Combat.choose_move("guard")["ok"], "no move accepted")
 		assert_true(not Combat.round_rewind()["ok"], "no Rewind")
 		assert_true(combat["combatants"][0]["koed"] and combat["playerKoed"], "the player sits it out")
 		Combat.demo_step()
 		Combat.demo_step()
-		assert_eq([player["hp"], player["combatXP"], Loadout.slot(0)], before, "hp, XP and the Rewind untouched")
+		assert_eq([player["hp"], player["bodyXP"], Loadout.slot(0)], before, "hp, XP and the Rewind untouched")
 	)
 
 	run_case("rounds_end_the_fight_fled_and_exit_resumes_the_event", func():
@@ -95,12 +95,12 @@ func run() -> void:
 		assert_eq(second["outcome"], "fled", "ends after its last round")
 		assert_true(not combat["combatants"][ARCHIE]["koed"] and not combat["combatants"][OWNER]["koed"], "no one drops")
 		assert_eq(Combat.demo_step()["beats"], [], "nothing more to play")
-		var xp: int = GameState.state["player"]["combatXP"]
+		var xp: int = GameState.state["player"]["bodyXP"]
 		var result := Combat.exit_combat()
 		assert_eq(result["nextScreen"], "event")
 		assert_eq(GameState.state["currentScreen"], "event")
 		assert_eq(GameState.state["event"]["cardIndex"], RESUME_CARD, "resumes at the script's card")
-		assert_eq(GameState.state["player"]["combatXP"], xp, "no XP")
+		assert_eq(GameState.state["player"]["bodyXP"], xp, "no XP")
 	)
 
 	run_case("save_and_load_mid_demo_keep_its_position", func():

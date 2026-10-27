@@ -111,6 +111,7 @@ Data file per system: see `data/*.json` below.
 | shares.gd | Shares: 14-day daily buckets per producer (player, factions, independents) of ore harvested, ore spent on successful crafts, contract deliveries and faction London buys; Independents slice crediting (⑥.5e); pure ore/crafting share, overview, delivery and supplier-share reads (split + intake) (R§3.14) |
 | rewind.gd | Rewind payment (`rewind` item, else loaded Dial complication) + time-block Rewind: `state.blockStart` whole-state copy as each block opens; restore keeps XP, Lab knowledge, loadout, Dial. Never saved |
 | observation.gd | Observation reads (R§3.9d): `observe` inheritance, per-ore tier rolls (Sense + kit mods, `raid_mods`), rows, Sense XP, tier effects, Rewind re-roll, `observed` condition, memory, pick ores, option "why" explainers (`explainers`); per-site raid read (`site_memory`, `security_signature`); state in `state.event.observations`, `state.observationMemory`, `state.siteObservations` |
+| skill_tree.gd | SkillTree: pure projection of player state + `skill_feats.json` -> Body/Mind/Soul buckets -> level/xp/thresholds -> sub-skills -> feats (unlocked/locked); also validates the registry |
 | sense.gd | Sense skill XP award (level-up notify) via `Progression.award_xp` |
 | sites.gd | Sites & prospecting; each prospect awards Cultivating and Sense XP |
 | loadout.gd | Two personal consumable slots for the player (`player.loadout`) and combat recruits (`contacts[id].loadout`): equip/unequip (refused in combat; allies refuse Wormhole), consume, settlement refill (player, then recruits in roster order), equippable stock; multi-target units (`multi` flag, refilled as the same variant); `debug_grant()` for the debug setup |
@@ -304,6 +305,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | phone_home.json | GameData.gd + phone_device_shell.gd + messages.gd (`typing` delay bounds; wallpaper, per-block status clock times, widget date format + fixed weather/battery copy; shell renders time/date from world.day/timeBlock) |
 | recipes.json | widely read (crafting, lab, combat, dial, jobs, rooms) |
 | sites.json | sites.gd, collective.gd, objectives.gd |
+| skill_feats.json | skill_tree.gd (Body/Mind/Soul buckets, sub-skills, per-level feats registry; values read from other tables) |
 | sense.json | sense.gd |
 | vein_alarm.json | cultivating.gd |
 | vein_growth.json | widely read (cultivating, events, sites, vein_trade, faction_sim) |

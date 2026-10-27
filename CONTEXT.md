@@ -4,6 +4,9 @@ A mobile-first, menu-driven London urban-fantasy economy game (Godot 4.4 port). 
 
 ## Language
 
+**Body / Mind / Soul**:
+The three top-level player skill buckets. Body is the Combat skill (`bodySkill`/`bodyXP`; sub-skills are the Move Book moves); Mind (Sense, Crafting) and Soul (Cultivating) are placeholders with their own level/XP and no XP source yet. A bucket's level is its own, not derived from its sub-skills. Feats per level live in `data/skill_feats.json`.
+
 **Observation**:
 A scene's readable content, defined per event (`observations`) and named by a card's `observe`. One **read** rolls once per listed ore and shows a block of insight each. Spec in REFERENCE §3.9d.
 

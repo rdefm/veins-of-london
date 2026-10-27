@@ -23,8 +23,8 @@ static func build(container: VBoxContainer, _data: Dictionary) -> void:
 	var location_select := UI.option_button(location_options())
 	container.add_child(location_select)
 
-	container.add_child(UI.label("Your Combat Skill"))
-	var player_level_select := UI.option_button(["%s (%d)" % [OWN, int(GameState.state["player"]["combatSkill"])]] + _levels())
+	container.add_child(UI.label("Your Body Skill"))
+	var player_level_select := UI.option_button(["%s (%d)" % [OWN, int(GameState.state["player"]["bodySkill"])]] + _levels())
 	container.add_child(player_level_select)
 
 	container.add_child(UI.label("Your loadout"))

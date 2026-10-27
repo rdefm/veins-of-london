@@ -51,14 +51,14 @@ func run() -> void:
 
 	run_case("partners_scale_off_the_players_combat_skill", func():
 		_fresh()
-		GameState.state["player"]["combatSkill"] = 3
+		GameState.state["player"]["bodySkill"] = 3
 		var levels: Array = []
 		for id in ["easy", "even", "hard"]:
 			assert_true(Sparring.spar(id)["ok"])
 			levels.append(GameState.state["combat"]["combatants"][1]["level"])
 			Combat.exit_combat()
 		assert_eq(levels, [2, 3, 4])
-		GameState.state["player"]["combatSkill"] = 1
+		GameState.state["player"]["bodySkill"] = 1
 		assert_eq(Sparring.partner_level(Sparring.partner("easy"), 1), 1, "clamped at level 1")
 	)
 
@@ -90,11 +90,11 @@ func run() -> void:
 		Sparring.spar("even")
 		GameState.state["combat"]["outcome"] = "win"
 		Combat.exit_combat()
-		assert_eq(GameState.state["player"]["combatXP"], cfg["xpBase"] + cfg["xpWinBonus"], "win XP awarded")
+		assert_eq(GameState.state["player"]["bodyXP"], cfg["xpBase"] + cfg["xpWinBonus"], "win XP awarded")
 		Sparring.spar("even")
 		GameState.state["combat"]["outcome"] = "loss"
 		Combat.exit_combat()
-		assert_eq(GameState.state["player"]["combatXP"], 2 * cfg["xpBase"] + cfg["xpWinBonus"], "loss earns the base")
+		assert_eq(GameState.state["player"]["bodyXP"], 2 * cfg["xpBase"] + cfg["xpWinBonus"], "loss earns the base")
 		assert_true(not GameState.state["combat"]["active"])
 	)
 

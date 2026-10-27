@@ -188,7 +188,7 @@ func run() -> void:
 		button.pressed.emit()
 		assert_eq(GameState.state["world"]["day"], 2)
 		assert_eq(GameState.state["world"]["timeBlock"], 0)
-		assert_eq(GameState.state["player"]["combatXP"], Combat.COMBAT_XP_PER_WORKOUT_SESSION)
+		assert_eq(GameState.state["player"]["bodyXP"], Combat.COMBAT_XP_PER_WORKOUT_SESSION)
 		assert_eq(GameState.state["player"]["cash"], 500, "TUE rollover: no living costs")
 		layer.free()
 	)
@@ -1141,7 +1141,7 @@ func run() -> void:
 
 		var s := Combat.skill_summary()
 		var texts := NodeQuery.label_texts_with_symbols(layer)
-		assert_true(texts.has("Combat Skill: Lv1"), "shows the current combat level")
+		assert_true(texts.has("Body: Lv1"), "shows the current combat level")
 		assert_true(texts.has("0 / %d XP" % s["xpNext"]), "shows xp against the next threshold")
 		assert_true(texts.has(HqGymModal.stats_text(s["stats"])), "shows current combat stats")
 		assert_true(texts.has("Next level: " + HqGymModal.stats_text(s["nextStats"])), "shows next-level stats")
@@ -1160,15 +1160,15 @@ func run() -> void:
 	run_case("hq_gym_modal_at_max_combat_level_says_max_and_hides_the_next_line", func():
 		GameState.reset()
 		var max_level: int = GameData.COMBAT_XP_LEVELS.size() - 1
-		GameState.state["player"]["combatSkill"] = max_level
-		GameState.state["player"]["combatXP"] = GameData.COMBAT_XP_LEVELS[max_level]
+		GameState.state["player"]["bodySkill"] = max_level
+		GameState.state["player"]["bodyXP"] = GameData.COMBAT_XP_LEVELS[max_level]
 		Modal.open("hq_gym")
 
 		var layer := ModalLayer.new()
 		layer._ready()
 
 		var texts := NodeQuery.label_texts_with_symbols(layer)
-		assert_true(texts.has("Combat Skill: Lv%d (max)" % max_level), "says max level")
+		assert_true(texts.has("Body: Lv%d (max)" % max_level), "says max level")
 		assert_true(not texts.any(func(t: String): return t.begins_with("Next level: ")), "no next-level line at max")
 
 		layer.free()
@@ -1214,7 +1214,7 @@ func run() -> void:
 
 		_find_cost_button(layer, "Train").pressed.emit()
 
-		assert_eq(GameState.state["player"]["combatXP"], Combat.COMBAT_XP_PER_WORKOUT_SESSION, "pressing Train without a Home Gym should award the lower workout XP")
+		assert_eq(GameState.state["player"]["bodyXP"], Combat.COMBAT_XP_PER_WORKOUT_SESSION, "pressing Train without a Home Gym should award the lower workout XP")
 		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), 1, "pressing Train should spend one of the day's time blocks")
 
 		layer.free()
@@ -1233,7 +1233,7 @@ func run() -> void:
 
 		train_button.pressed.emit()
 
-		assert_eq(GameState.state["player"]["combatXP"], Combat.COMBAT_XP_PER_GYM_SESSION, "pressing Train should award the gym-session XP")
+		assert_eq(GameState.state["player"]["bodyXP"], Combat.COMBAT_XP_PER_GYM_SESSION, "pressing Train should award the gym-session XP")
 		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), 1, "pressing Train should spend one of the day's time blocks")
 
 		layer.free()

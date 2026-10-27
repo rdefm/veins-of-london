@@ -90,6 +90,7 @@ var FACTION_HARASSMENT: Dictionary = {}
 var FACTION_INCIDENTS: Dictionary = {}
 # Player's non-violent moves against a faction (complaint, police tip, Ticker leak), read by PlayerMoves.
 var PLAYER_MOVES: Dictionary = {}
+var SKILL_FEATS: Dictionary = {}
 
 # London market constants, Independents share and per-good civilian volumes, read by Market.
 var MARKET: Dictionary = {}
@@ -404,6 +405,9 @@ const MANIFEST: Array[Dictionary] = [
 	{"table": "vein_alarm", "file": "res://data/vein_alarm.json", "fields": [
 		{"field": "VEIN_ALARM", "key": "", "type": TYPE_DICTIONARY},
 	]},
+	{"table": "skill_feats", "file": "res://data/skill_feats.json", "fields": [
+		{"field": "SKILL_FEATS", "key": "", "type": TYPE_DICTIONARY},
+	]},
 	{"table": "sense", "file": "res://data/sense.json", "fields": [
 		{"field": "SENSE_XP_LEVELS", "key": "senseXpLevels", "type": TYPE_ARRAY},
 	]},
@@ -682,6 +686,7 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_vein_security(t.get("vein_security", {}), errors)
 	_validate_vein_alarm(t.get("vein_alarm", {}), errors)
 	_validate_sense(t.get("sense_xp_levels", []), errors)
+	SkillTree.validate_spec(t.get("skill_feats", {}), t, errors)
 	_validate_home(t.get("home_tier_order", []), t.get("home_tiers", {}), t.get("home_security", {}), t.get("home_rooms", {}), errors)
 	_validate_home_bills(t.get("home_bills", {}), t.get("home_tiers", {}), errors)
 	_validate_approaches(t.get("approaches", {}), errors)

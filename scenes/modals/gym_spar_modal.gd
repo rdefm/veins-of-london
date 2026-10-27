@@ -10,7 +10,7 @@ static func build(container: VBoxContainer, data: Dictionary) -> void:
 	container.add_child(UI.muted_label(Sparring.line("houseRules")))
 	container.add_child(UI.muted_label(_sessions_text()))
 	container.add_child(MoveBook.rows("", str(data.get("openMove", "")), _on_move_toggle))
-	var skill: int = GameState.state["player"]["combatSkill"]
+	var skill: int = GameState.state["player"]["bodySkill"]
 	for entry in Sparring.config()["partners"]:
 		container.add_child(_partner_card(entry, skill))
 	container.add_child(MapCardStyle.footer([MapCardStyle.text_button("Close", func(): Modal.close())]))

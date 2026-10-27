@@ -89,11 +89,11 @@ func run() -> void:
 
 	run_case("an_unlocked_fight_drops_people_and_pays_normal_xp", func():
 		var combat := _start(_guided())
-		var xp: int = GameState.state["player"]["combatXP"]
+		var xp: int = GameState.state["player"]["bodyXP"]
 		_win(combat)
 		assert_true(combat["combatants"][1]["koed"], "Arnie goes down")
 		Combat.exit_combat()
-		assert_eq(GameState.state["player"]["combatXP"], xp + Combat.ROUND_XP_WIN)
+		assert_eq(GameState.state["player"]["bodyXP"], xp + Combat.ROUND_XP_WIN)
 	)
 
 	run_case("practice_runs_under_spar_rules", func():
@@ -101,7 +101,7 @@ func run() -> void:
 		var player: Dictionary = GameState.state["player"]
 		var cash: int = player["cash"]
 		var sessions := Sparring.sessions_taken()
-		var xp: int = player["combatXP"]
+		var xp: int = player["bodyXP"]
 		var guard_xp: int = MoveLevels.record("")["guard"]["xp"]
 		assert_true(CombatRounds.is_spar(combat))
 		for i in range(3):
@@ -117,7 +117,7 @@ func run() -> void:
 		_exit_resumes("win")
 		assert_eq(player["hp"], 30, "hp back as it was")
 		assert_eq(Loadout.slot(0)["recipe"], "rewind", "items back as they were")
-		assert_eq(player["combatXP"], xp + Sparring.xp_for("win"), "spar XP with the win bonus")
+		assert_eq(player["bodyXP"], xp + Sparring.xp_for("win"), "spar XP with the win bonus")
 		assert_eq(player["cash"], cash, "no cash")
 		assert_eq(Sparring.sessions_taken(), sessions, "no spar session used")
 	)

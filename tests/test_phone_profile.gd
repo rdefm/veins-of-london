@@ -102,7 +102,7 @@ func run() -> void:
 		assert_true(texts.has("Crafting: Lv1 (0 XP)"), "crafting skill line")
 		assert_true(texts.has("Cultivating: Lv1 (0 XP)"), "cultivating skill line")
 		assert_true(texts.has("Sense: Lv1 (0 XP)"), "sense skill line")
-		assert_true(texts.has("Combat: Lv1 (0 XP)"), "combat skill line")
+		assert_true(texts.has("Body: Lv1 (0 XP)"), "body skill line")
 
 		phone.free()
 	)

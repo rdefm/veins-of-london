@@ -167,7 +167,7 @@ marked only by the arrow, not a second independent selection cue.
 changes below are now specified: squad state (`combat.enemies` array;
 targeting is screen view state, §3.7a Targeting), turn order (the §3.7b
 round timeline — action index, then speed, no separate initiative roll),
-and the new `combatSkill` player stat (attack bonus + turn speed,
+and the new `bodySkill` player stat (attack bonus + turn speed,
 trained via combat + a new HQ Train action). `docs/VISION.md`'s M5 line is
 amended accordingly (§12). The two items below are kept as a record of what
 was flagged; §3.7a is now canonical for both.
@@ -669,7 +669,7 @@ from the UI work this document specifies.
    shared UI sans for vector chrome, one bundled bitmap pixel font for
    in-scene labels only. Exact typefaces still TBD (cost not yet done).
 5. ~~**Turn-order/initiative mechanic**~~ — **resolved 2026-08-30**, see
-   `REFERENCE.md` §3.7a/§3.7b: a new `combatSkill` player stat drives speed
+   `REFERENCE.md` §3.7a/§3.7b: a new `bodySkill` player stat drives speed
    (and attack bonus), allies/enemies carry an authored flat speed, actions
    resolve in timeline order (action index, then speed, then a fixed
    tie-break).

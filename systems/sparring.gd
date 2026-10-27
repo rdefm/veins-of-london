@@ -99,7 +99,7 @@ static func spar(partner_id: String, rack: Dictionary = {}) -> Dictionary:
 	for index in cleaned:
 		player["loadout"]["slots"][index] = { "recipe": cleaned[index], "tier": 1, "rack": true }
 		rack_slots.append(index)
-	var level := partner_level(entry, int(player["combatSkill"]))
+	var level := partner_level(entry, int(player["bodySkill"]))
 	var foe := {
 		"name": str(entry["name"]), "hp": int(entry["hpMax"]), "hpMax": int(entry["hpMax"]),
 		"attackMin": int(entry["attackMin"]), "attackMax": int(entry["attackMax"]),

@@ -213,7 +213,7 @@ func run() -> void:
 	run_case("street_mugging_from_prep_opens_a_round_fight_on_the_real_player", func():
 		GameState.reset()
 		var player: Dictionary = GameState.state["player"]
-		player["combatSkill"] = 3
+		player["bodySkill"] = 3
 		player["hpMax"] = 120
 		player["hp"] = 90
 		CombatPrep.request(CombatPrep.KIND_STREET_MUGGING)
@@ -223,7 +223,7 @@ func run() -> void:
 		assert_eq(combat["context"], Combat.CONTEXT_EVENT_MUGGING)
 		assert_eq(GameState.state["currentScreen"], "combat")
 		var you: Dictionary = combat["combatants"][CombatRounds.PLAYER_INDEX]
-		assert_eq(you["level"], 3, "player level from combatSkill")
+		assert_eq(you["level"], 3, "player level from bodySkill")
 		assert_eq(you["hpMax"], 120, "real hpMax")
 		var attack := Combat.get_attack_range()
 		assert_eq([you["attackMin"], you["attackMax"]], [attack["min"], attack["max"]], "real attack range")
@@ -334,12 +334,12 @@ func run() -> void:
 				break
 			GameState.reset()
 			var combat := _start([["guard", "guard"]], seed_value)
-			var xp: int = GameState.state["player"]["combatXP"]
+			var xp: int = GameState.state["player"]["bodyXP"]
 			var result := Combat.choose_move("legIt")
 			if result["outcome"] == "fled" and not fled:
 				fled = true
 				assert_eq(Combat.exit_combat()["nextScreen"], "event", "a fled street mugging resumes the event")
-				assert_eq(GameState.state["player"]["combatXP"], xp, "Leg it earns no XP")
+				assert_eq(GameState.state["player"]["bodyXP"], xp, "Leg it earns no XP")
 				assert_true(not GameState.state["combat"]["active"], "torn down")
 			elif result["outcome"] == null and not failed:
 				failed = true
@@ -608,12 +608,12 @@ func run() -> void:
 	run_case("win_pays_30_xp_and_resumes_the_event", func():
 		GameState.reset()
 		var combat := _start([["guard", "guard"]], 1, 1)
-		var xp: int = GameState.state["player"]["combatXP"]
+		var xp: int = GameState.state["player"]["bodyXP"]
 		var result := Combat.choose_move("strike", 1)
 		assert_eq(result["outcome"], "win")
 		var hp: int = combat["combatants"][CombatRounds.PLAYER_INDEX]["hp"]
 		assert_eq(Combat.exit_combat()["nextScreen"], "event")
-		assert_eq(GameState.state["player"]["combatXP"], xp + Combat.ROUND_XP_WIN, "win +30")
+		assert_eq(GameState.state["player"]["bodyXP"], xp + Combat.ROUND_XP_WIN, "win +30")
 		assert_eq(GameState.state["player"]["hp"], hp, "hp carried out of the fight")
 		assert_eq(GameState.state["combat"], Combat.idle_state(), "torn down to the idle dict")
 	)
@@ -625,9 +625,9 @@ func run() -> void:
 		var combat := _start([["strike", "strike"]])
 		assert_eq(combat["outcome"], "loss", "the opening chip KOs a 1-hp player")
 		assert_eq(player["hp"], maxi(1, GameState.round_epsilon(player["hpMax"] * Combat.PLAYER_KO_HP_FRACTION)), "KO hp")
-		var xp: int = player["combatXP"]
+		var xp: int = player["bodyXP"]
 		Combat.exit_combat()
-		assert_eq(player["combatXP"], xp + Combat.ROUND_XP_LOSS, "loss +3")
+		assert_eq(player["bodyXP"], xp + Combat.ROUND_XP_LOSS, "loss +3")
 	)
 
 	run_case("save_mid_fight_resumes_at_the_same_pause", func():
@@ -789,7 +789,7 @@ func run() -> void:
 		assert_eq(me["speed"], int(GameData.COMBAT_SPEED_BY_LEVEL[3]))
 		assert_eq(me["attackMin"], int(player["attackMin"]) + int(GameData.COMBAT_ATTACK_BONUS_BY_LEVEL[3]))
 		assert_eq(me["hpMax"], int(player["hpMax"]), "real HP")
-		assert_eq(player["combatSkill"], 1, "real Combat Skill untouched")
+		assert_eq(player["bodySkill"], 1, "real Combat Skill untouched")
 	)
 
 	run_case("debug_launcher_seats_debug_allies_at_their_level_with_their_slots", func():
@@ -1098,9 +1098,9 @@ func run() -> void:
 		GameState.reset()
 		_recruit("archie")
 		assert_eq(Contacts.build_combat_ally("archie")["level"], 2, "archie's combat-kit level")
-		GameState.state["contacts"]["archie"]["combatSkill"] = 4
-		assert_eq(Contacts.build_combat_ally("archie")["level"], 4, "own combatSkill wins")
-		GameState.state["contacts"]["archie"].erase("combatSkill")
+		GameState.state["contacts"]["archie"]["bodySkill"] = 4
+		assert_eq(Contacts.build_combat_ally("archie")["level"], 4, "own bodySkill wins")
+		GameState.state["contacts"]["archie"].erase("bodySkill")
 		assert_eq(Combat.build_guard_ally()["level"], 1, "hired guard's authored level")
 		var muscle: Dictionary = GameData.FACTION_PERKS["factions"]["firm"]["partner"][0]
 		assert_eq(int(muscle["params"]["ally"]["level"]), 2, "firm muscle's authored level")
