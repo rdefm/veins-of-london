@@ -91,75 +91,18 @@ func run() -> void:
 		phone.free()
 	)
 
-	run_case("profile_shows_all_three_skills_with_xp_for_a_fresh_game", func():
+	run_case("profile_shows_the_skill_wheel_with_body_selected_and_collapsed", func():
 		GameState.reset()
 		GameState.state["phoneNav"]["app"] = "profile"
 
 		var phone := PhoneScreen.new()
 		phone._ready()
 
-		var texts := NodeQuery.symbol_row_texts(phone)
-		assert_true(texts.has("Crafting: Lv1 (0 XP)"), "crafting skill line")
-		assert_true(texts.has("Cultivating: Lv1 (0 XP)"), "cultivating skill line")
-		assert_true(texts.has("Sense: Lv1 (0 XP)"), "sense skill line")
-		assert_true(texts.has("Body: Lv1 (0 XP)"), "body skill line")
-
-		phone.free()
-	)
-
-	run_case("profile_shows_a_zero_progress_bar_per_skill_for_a_fresh_game", func():
-		GameState.reset()
-		GameState.state["phoneNav"]["app"] = "profile"
-
-		var phone := PhoneScreen.new()
-		phone._ready()
-
-		# HP bar + 4 skill bars -- a fresh player is level 1 with 0 XP, so each
-		# skill bar's range is [levels[1], levels[2]] = [0, 80] at 0 XP. Moves
-		# are Move Book rows, not bars.
-		var bars := phone.find_children("", "ProgressBar", true, false)
-		assert_eq(bars.size(), 5, "HP bar plus one bar per skill")
-
-		for i in range(1, bars.size()):
-			var b: ProgressBar = bars[i]
-			assert_eq(b.value, 0.0, "a fresh Lv1/0XP skill or move sits at the bottom of its bar")
-			assert_eq(b.max_value, 80.0, "levels[2] - levels[1] for crafting/cultivating/sense/combat")
-
-		phone.free()
-	)
-
-	run_case("profile_skill_bar_fills_toward_next_level_not_from_zero_xp", func():
-		GameState.reset()
-		var player: Dictionary = GameState.state["player"]
-		player["craftingSkill"] = 2
-		player["craftingXP"] = GameData.CRAFTING_XP_LEVELS[2] + 40
-		GameState.state["phoneNav"]["app"] = "profile"
-
-		var phone := PhoneScreen.new()
-		phone._ready()
-
-		var bars := phone.find_children("", "ProgressBar", true, false)
-		var crafting_bar := bars[1] as ProgressBar
-		assert_eq(crafting_bar.value, 40.0, "progress is measured from this level's threshold, not from 0 XP")
-		assert_eq(crafting_bar.max_value, float(GameData.CRAFTING_XP_LEVELS[3] - GameData.CRAFTING_XP_LEVELS[2]), "range spans this level's threshold to the next")
-
-		phone.free()
-	)
-
-	run_case("profile_skill_bar_shows_full_at_max_level_instead_of_erroring", func():
-		GameState.reset()
-		var player: Dictionary = GameState.state["player"]
-		var max_level: int = GameData.SENSE_XP_LEVELS.size() - 1
-		player["senseSkill"] = max_level
-		player["senseXP"] = GameData.SENSE_XP_LEVELS[max_level]
-		GameState.state["phoneNav"]["app"] = "profile"
-
-		var phone := PhoneScreen.new()
-		phone._ready()
-
-		var bars := phone.find_children("", "ProgressBar", true, false)
-		var sense_bar := bars[3] as ProgressBar
-		assert_eq(sense_bar.value, sense_bar.max_value, "a max-level skill with no next threshold shows a full bar")
+		var wheels := phone.find_children("", "SkillWheel", true, false)
+		assert_eq(wheels.size(), 1, "one skill wheel on Profile")
+		var wheel := wheels[0] as SkillWheel
+		assert_eq(wheel.selected_id, "body", "Body starts at the bottom")
+		assert_true(not wheel.expanded, "details start collapsed")
 
 		phone.free()
 	)

@@ -175,6 +175,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | hq_diorama.gd | Generic plate/region artwork renderer; outlines regions flagged `selected`; owns the region hit rule (`zone_at`/`regions_at`: traced polygon else rect), the debug hit-shape overlay, and caption placement (polygon-centred for traced regions) |
 | icons.gd | 16 drawn icon glyphs (incl. left/right arrows) |
 | move_book.gd | MoveBook: Profile's per-owner Move Book from `MoveLevels.book()` — owner tabs, collapsible move rows (badge, mini track, teaser), open detail (level track, Feint word row, Lv3/Lv5 unlock cards, XP line) |
+| skill_wheel.gd | SkillWheel: Profile's 3-segment Body/Mind/Soul wheel from `SkillTree.project()`; tap rotates the segment to the bottom (tween) and opens a details panel (sub-skills, XP, feats); re-tap collapses; durations/colours from `skill_feats.json` `wheel` |
 | move_track.gd | MoveTrack: draws a move's five-stop track (diamond milestones, reached/next states, rail fill), mini or full |
 | map_bubble.gd | Popup listing tappable map options; paper-card frame and round action-icon states come from map_card_style.gd |
 | map_card_style.gd | Shared vein-popover card family: card tokens (via map_palette.gd), card/inset/action-circle styleboxes, card()/style_panel(), section_label(), text/symbol_text/chip buttons, option rows, round_button()/stepper()/quantity_slider(), footer(), pill(), check-button + symbol tinting. The one button/card look for every menu; card_theme.gd makes it the theme default |
@@ -253,7 +254,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | todo_app.gd | ToDo app: collapsible questline sections from Todo, all_of checks as indented sub-rows; session-only expand/collapse overrides in a static var; deposit-goal and rent-goal lines on top |
 | factions_app.gd | The Register (app id `factions`): masthead and routes (Your standing, Market shares, London politics); Your standing = in-app view of `build_row` rows, each opening a dossier (actions, identity, footprint, Benefits, Intel, Activity). Shares: Ore/Crafting, ore choice, bars. Politics: stance-tinted pair grid, legend, pair strip. Palette `register_*`. |
 | ticker_app.gd | Ticker News: state stories by recency, newest-first wires, full state and wire articles, live impact, same-axis Influence sheet. Stock Market: filters, Ore/Items lists, demand modifiers, price detail and chart, annotations and demand drivers |
-| profile_app.gd | Stats, skills, the Move Book card (You + recruit tabs), equipment, and a two-slot Loadout card (with the recruit's Move Book rows) (equip/unequip) for the player and each recruited combat contact, plus the shared Dial loadout card; during prep Change loadout shows only participants' Loadout + Dial cards |
+| profile_app.gd | Stats, the Body/Mind/Soul skill wheel card, the Move Book card (You + recruit tabs), equipment, and a two-slot Loadout card (with the recruit's Move Book rows) (equip/unequip) for the player and each recruited combat contact, plus the shared Dial loadout card; during prep Change loadout shows only participants' Loadout + Dial cards |
 | dialer_app.gd | Phone recent-calls placeholder; no telephony state/actions |
 | settings_app.gd | Reduced-motion, alarm-vibration and quick-combat-pacing preference controls |
 | saveload_app.gd | Save slots, export/import (with copy-to-clipboard), New Game confirm |
@@ -305,7 +306,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | phone_home.json | GameData.gd + phone_device_shell.gd + messages.gd (`typing` delay bounds; wallpaper, per-block status clock times, widget date format + fixed weather/battery copy; shell renders time/date from world.day/timeBlock) |
 | recipes.json | widely read (crafting, lab, combat, dial, jobs, rooms) |
 | sites.json | sites.gd, collective.gd, objectives.gd |
-| skill_feats.json | skill_tree.gd (Body/Mind/Soul buckets, sub-skills, per-level feats registry; values read from other tables) |
+| skill_feats.json | skill_tree.gd, skill_wheel.gd (wheel durations/colours; Body/Mind/Soul buckets, sub-skills, per-level feats registry; values read from other tables) |
 | sense.json | sense.gd |
 | vein_alarm.json | cultivating.gd |
 | vein_growth.json | widely read (cultivating, events, sites, vein_trade, faction_sim) |

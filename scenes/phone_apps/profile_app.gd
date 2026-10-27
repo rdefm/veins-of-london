@@ -4,6 +4,8 @@ extends PhoneApp
 var _book_owner := ""
 var _open_owner := ""
 var _open_move := ""
+var _wheel_bucket := "body"
+var _wheel_open := false
 
 func card_chrome() -> bool:
 	return true
@@ -57,14 +59,16 @@ func _build_stats_card() -> Control:
 
 
 func _build_skills_card() -> Control:
-	var player: Dictionary = GameState.state["player"]
 	var c := UI.card()
 	c["content"].add_child(UI.heading("Skills", 14))
-	_add_skill_row(c["content"], "Crafting", player["craftingSkill"], player["craftingXP"], GameData.CRAFTING_XP_LEVELS)
-	_add_skill_row(c["content"], "Cultivating", player["cultivatingSkill"], player["cultivatingXP"], GameData.CULTIVATING_XP_LEVELS)
-	_add_skill_row(c["content"], "Sense", player["senseSkill"], player["senseXP"], GameData.SENSE_XP_LEVELS)
-	_add_skill_row(c["content"], "Body", player["bodySkill"], player["bodyXP"], GameData.COMBAT_XP_LEVELS)
+	c["content"].add_child(SkillWheel.build(SkillTree.project(), _wheel_bucket, _wheel_open, _on_wheel_change))
 	return c["panel"]
+
+
+# View state only: kept so a refresh rebuilds the wheel as the player left it.
+func _on_wheel_change(bucket: String, expanded: bool) -> void:
+	_wheel_bucket = bucket
+	_wheel_open = expanded
 
 
 # The Move Book: owner tabs (You + each recruit), then one row per move.
@@ -108,17 +112,6 @@ func _on_book_toggle(move_id: String, owner: String) -> void:
 		_open_owner = owner
 		_open_move = move_id
 	refresh()
-
-
-func _add_skill_row(content: Node, label: String, level: int, xp: int, levels: Array) -> void:
-	content.add_child(UI.label("%s: Lv%d (%d XP)" % [label, level, xp]))
-	var max_level: int = levels.size() - 1
-	if level >= max_level:
-		content.add_child(UI.bar(1, 1))
-	else:
-		var this_threshold: int = levels[level]
-		var next_threshold: int = levels[level + 1]
-		content.add_child(UI.bar(xp - this_threshold, next_threshold - this_threshold))
 
 
 func _build_equipment_card() -> Control:

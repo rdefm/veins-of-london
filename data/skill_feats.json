@@ -1,5 +1,16 @@
 {
- "_comment": "The Body/Mind/Soul skill tree (systems/skill_tree.gd, REFERENCE.md \u00a72 + \u00a73.7a). A bucket is a top-level player skill (`skillKey`/`xpKey` on player state, level shown is its own); `subSkills` read a `skillKey`/`xpKey` pair inside player[`container`] (default: the player itself). `xpLevels` is a literal cumulative-XP array or {from: GameData field, path}. Each feat: `level` or `levelFrom` {from, path}; `text` with {name} filled from `values` -- {from, path} reads a GameData table, an array is indexed at the feat's level (`delta`: minus the level below), a number is used as is; `scale` multiplies. Any skill may list any feats; the projection needs no code change. Mind/Soul are placeholders with no XP source yet. PROSE-REVIEW: every text string here is new copy.",
+ "wheel": {
+  "rotateSeconds": 0.35,
+  "openSeconds": 0.25,
+  "closeSeconds": 0.2,
+  "diameter": 240,
+  "colours": {
+   "body": "brick_mid",
+   "mind": "pastel_blue",
+   "soul": "pastel_sage"
+  }
+ },
+ "_comment":"The Body/Mind/Soul skill tree (systems/skill_tree.gd, REFERENCE.md \u00a72 + \u00a73.7a). A bucket is a top-level player skill (`skillKey`/`xpKey` on player state, level shown is its own); `subSkills` read a `skillKey`/`xpKey` pair inside player[`container`] (default: the player itself). `xpLevels` is a literal cumulative-XP array or {from: GameData field, path}. Each feat: `level` or `levelFrom` {from, path}; `text` with {name} filled from `values` -- {from, path} reads a GameData table, an array is indexed at the feat's level (`delta`: minus the level below), a number is used as is; `scale` multiplies. Any skill may list any feats; the projection needs no code change. Mind/Soul are placeholders with no XP source yet. PROSE-REVIEW: every text string here is new copy.",
  "buckets": [
   {
    "id": "body",
