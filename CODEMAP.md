@@ -316,7 +316,7 @@ loaded, keyed by filename; no id-list const to keep in sync. Each is the cards/o
 `systems/events.gd` runs — directly triggered story beats vs. weighted district-deck entries
 (`systems/district_deck.gd`, a `deck` sub-object).
 
-The Prologue chain is `cold_open` → `pub` → `buyer` → `james_meeting` → `gym` → `archie_sells_pearls` → `home_raid_intro` + debriefs → `archie_cultivation` → `prologue_ending`, linked by `start_event` / queued Archie texts; its ToDo objectives are `pro_*` in `data/objectives.json`. `gym`, `archie_sells_pearls` and `prologue_ending` are one-card placeholders.
+The Prologue chain (`cold_open_legacy` is the retired pre-observation intro, unreferenced) is `cold_open` → `pub` → `buyer` → `james_meeting` → `gym` → `archie_sells_pearls` → `home_raid_intro` + debriefs → `archie_cultivation` → `prologue_ending`, linked by `start_event` / queued Archie texts; its ToDo objectives are `pro_*` in `data/objectives.json`. `gym`, `archie_sells_pearls` and `prologue_ending` are one-card placeholders.
 
 `data/events/_to_be_coded/col_hakim_intel_*.json` holds five unregistered Hakim intel
 prose variants generated with the quest editor builder. Implementation briefs are in

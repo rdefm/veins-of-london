@@ -1686,10 +1686,10 @@ func run() -> void:
 		assert_eq(Events.current_image_path(), expected, "opening card discovers intro_card1.png")
 
 		# card indexes are zero-based; every wired card is an explicit key
-		var wired_at := { 3: "res://assets/events/intro/intro_card5.png", 5: "res://assets/events/intro/intro_card6.png", 6: "res://assets/events/intro/intro_card7.png", 8: "res://assets/events/intro/intro_card8.png", 9: "res://assets/events/intro/intro_card9.png" }
-		# The fight card (8) opens a scripted fight, so play stops there and
-		# the resume card (9) is entered by hand.
-		for i in range(8):
+		var wired_at := { 11: "res://assets/events/intro/intro_card5.png", 13: "res://assets/events/intro/intro_card6.png", 14: "res://assets/events/intro/intro_card7.png", 16: "res://assets/events/intro/intro_card8.png", 17: "res://assets/events/intro/intro_card9.png" }
+		# The fight card (16) opens a scripted fight, so play stops there and
+		# the resume card (17) is entered by hand.
+		for i in range(40):
 			if Events.is_awaiting_choice():
 				Events.choose(0)
 			Events.advance()
@@ -1698,8 +1698,10 @@ func run() -> void:
 				expected = wired_at[card_index]
 				assert_true(ResourceLoader.exists(expected), "wired image should exist on disk: %s" % expected)
 			assert_eq(Events.current_image_path(), expected, "card %d's image should be whatever the last wired card set" % card_index)
-		GameState.state["event"]["cardIndex"] = 9
-		expected = wired_at[9]
+			if card_index >= 16:
+				break
+		GameState.state["event"]["cardIndex"] = 17
+		expected = wired_at[17]
 		assert_true(ResourceLoader.exists(expected), "wired image should exist on disk: %s" % expected)
 		assert_eq(Events.current_image_path(), expected, "the resume card shows the freeze art")
 	)

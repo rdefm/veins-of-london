@@ -46,43 +46,59 @@
         {
           "key": "c13",
           "type": "narration",
+          "label": null,
+          "speaker": null,
           "text": "You pull a face; you stopped liking that nickname when your age hit double digits."
         },
         {
           "key": "c14",
           "type": "speaker",
-          "text": "\"Two blokes, cash, in and out before the chicken shop shuts. Nothing to worry about, it's just like a sale off Craigslist.\" ",
-          "speaker": "Archie"
+          "label": null,
+          "speaker": "Archie",
+          "text": "\"Two blokes, cash, in and out before the chicken shop shuts. Nothing to worry about, it's just like a sale off Craigslist.\" "
         },
         {
           "key": "c15",
           "type": "speaker",
-          "text": "\"Need me to do anything?\"",
-          "speaker": "You"
+          "label": null,
+          "speaker": "You",
+          "text": "\"Need me to do anything?\""
         },
         {
           "key": "c16",
           "type": "speaker",
-          "text": "\"You just stand there and use your eagle eye to spot anything troublesome.\"",
-          "speaker": "Archie"
+          "label": null,
+          "speaker": "Archie",
+          "text": "\"You just stand there and use your eagle eye to spot anything troublesome.\""
         },
         {
           "key": "c18",
           "type": "narration",
+          "label": null,
+          "speaker": null,
           "text": "During events, you can tap here to use items, or observe. Observing can give you insights into what's happening around you, which may give you advantages."
         },
         {
           "key": "c19",
           "type": "narration",
+          "label": null,
+          "speaker": null,
           "text": "Try it now. Tap here, then tap 'observe'.",
           "observe": "cold_into_observation1"
         },
         {
           "key": "c20",
           "type": "choice",
-          "text": "\"So then, Holmes, anything we should worry about?\"",
+          "label": null,
           "speaker": "Archie",
+          "text": "\"So then, Holmes, anything we should worry about?\"",
           "choices": [
+            {
+              "label": "\"Nah. Probably fine.\"",
+              "id": "probablyFine",
+              "effects": [],
+              "result_text": ""
+            },
             {
               "id": "mention",
               "label": "Mention what you noticed",
@@ -154,20 +170,15 @@
                   ]
                 }
               }
-            },
-            {
-              "label": "\"Nah. Probably fine.\"",
-              "id": "probablyFine",
-              "effects": [],
-              "result_text": ""
             }
           ]
         },
         {
           "key": "c17",
           "type": "speaker",
-          "text": "\"I'm sure it's fine. Anyway, just stand there looking like intimidating. If I say leg it, you leg it. Don't wait for me.\"",
-          "speaker": "Archie"
+          "label": null,
+          "speaker": "Archie",
+          "text": "\"I'm sure it's fine. Anyway, just stand there looking like intimidating. If I say leg it, you leg it. Don't wait for me.\""
         },
         {
           "key": "c3",
@@ -419,7 +430,7 @@
                         "legIt"
                       ]
                     },
-                    "resumeCard": 9
+                    "resumeCard": 17
                   }
                 }
               ],
@@ -555,8 +566,8 @@
       ]
     }
   },
-  "_liveSource": "cold_open_observation.json",
-  "_liveHash": "7db42fd9",
+  "_liveSource": "cold_open.json",
+  "_liveHash": "a7f82749",
   "observations": {
     "cold_into_observation1": {
       "blocks": {

@@ -321,25 +321,9 @@
 		},
 		"cold_open": {
 			"choiceCards": {
-				"c4": [
-					"stand",
-					"askBuyers",
-					"wantHalf"
-				],
-				"c5": [
-					"takeRewind"
-				],
-				"c9": [
-					"brace"
-				]
-			},
-			"observations": {}
-		},
-		"cold_open_observation": {
-			"choiceCards": {
 				"c20": [
-					"mention",
-					"probablyFine"
+					"probablyFine",
+					"mention"
 				],
 				"c4": [
 					"stand",
@@ -367,6 +351,22 @@
 					"physics": 2
 				}
 			}
+		},
+		"cold_open_legacy": {
+			"choiceCards": {
+				"c4": [
+					"stand",
+					"askBuyers",
+					"wantHalf"
+				],
+				"c5": [
+					"takeRewind"
+				],
+				"c9": [
+					"brace"
+				]
+			},
+			"observations": {}
 		},
 		"conclave_watch": {
 			"choiceCards": {},

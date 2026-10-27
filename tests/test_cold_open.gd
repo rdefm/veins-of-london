@@ -10,7 +10,7 @@ const EventPlay := preload("res://tests/support/event_play.gd")
 func _reach_fight() -> void:
 	GameState.reset()
 	Events.start_event("cold_open")
-	for step in range(30):
+	for step in range(60):
 		if GameState.state["combat"]["active"]:
 			return
 		if Events.is_awaiting_choice():
