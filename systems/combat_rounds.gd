@@ -1372,14 +1372,11 @@ static func _counter_pick(cp: Dictionary, index: int, move_id: String) -> void:
 		plan[index] = { "move": reply, "target": e if reply == MOVE_GUARD else PLAYER_INDEX, "part": 0, "unread": plan[index].get("unread", false) }
 
 
-# Whether `index` of round `round_no` puts a countering fight's enemies
-# just ahead of the player: the player has picked a countered move there
-# this round.
-static func _counter_ahead(cp: Dictionary, index: int, round_no: int) -> bool:
-	if not _counters(cp) or round_no != int(cp["round"]):
-		return false
-	var plan: Array = cp["playerPlan"]
-	return index < plan.size() and plan[index] != null and _countered(plan[index]["move"])
+# Whether a countering fight's enemies act just ahead of the player: at
+# every action, picked or not, this round and next, so the timeline never
+# reorders as picks land.
+static func _counter_ahead(cp: Dictionary, _index: int, _round_no: int) -> bool:
+	return _counters(cp)
 
 
 # ── Scripted fights (R§3.7b Scripted fights) ─────────────────────────────
@@ -1793,6 +1790,9 @@ static func _advance(cp: Dictionary, rng: RandomNumberGenerator, beats: Array) -
 		if not cursor["done"].has(actor) and combatant["actionsLost"] == 0 and action == null:
 			cursor["pause"] = entry["index"]
 			return
+		if _awaits_counter_pick(cp, actor, entry["index"]):
+			cursor["pause"] = entry["index"]
+			return
 		cursor["index"] = entry["index"]
 		cursor["actor"] = actor
 		if cursor["done"].has(actor):
@@ -1810,6 +1810,17 @@ static func _advance(cp: Dictionary, rng: RandomNumberGenerator, beats: Array) -
 		if fleeing and not (flee_failed and move_level(combatant, fury_move(cp, actor, action["move"])) >= int(level_effects("legIt")["keepActionsLevel"])):
 			cursor["done"].append(actor)
 	cursor["pause"] = -1
+
+
+# Whether a countering enemy's action at `index` waits on the player's pick
+# there: the enemy resolves ahead of the player but answers the pick
+# (_counter_pick()), so the fight pauses on the enemy's slot.
+static func _awaits_counter_pick(cp: Dictionary, actor: int, index: int) -> bool:
+	if actor == PLAYER_INDEX or not _counters(cp) or cp["combatants"][actor]["side"] != SIDE_ENEMY:
+		return false
+	var player: Dictionary = cp["combatants"][PLAYER_INDEX]
+	var plan: Array = cp["playerPlan"]
+	return not cp["cursor"]["done"].has(PLAYER_INDEX) and player["actionsLost"] == 0 and not player["koed"] and index < plan.size() and plan[index] == null
 
 
 # One of the combatant's action slots (acted or lost) passes a Stun L5 hold.

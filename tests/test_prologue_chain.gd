@@ -183,6 +183,25 @@ func run() -> void:
 		assert_true(not hits.is_empty() and hits.all(func(b): return b["crit"]), "every hit after the pearl crits")
 	)
 
+	run_case("home_raid_timeline_keeps_the_raider_first_before_and_after_picks", func():
+		GameState.reset()
+		Events.apply_effects([{ "op": "add_item", "item": "timePearl", "qty": 2, "equip": true }])
+		Events.start_event("home_raid_intro")
+		for i in range(GameData.EVENTS["home_raid_intro"]["cards"].size()):
+			Events.advance()
+		assert_true(CombatPrep.commit()["ok"], "the raid starts")
+		var combat: Dictionary = GameState.state["combat"]
+		combat["combatants"][CombatRounds.PLAYER_INDEX]["hp"] = 999
+		combat["combatants"][CombatRounds.PLAYER_INDEX]["hpMax"] = 999
+		var unpicked: Array = CombatRounds.timeline(combat)
+		assert_eq(unpicked[0]["actor"], 1, "the raider leads before any pick")
+		var next_actors: Array = CombatRounds.next_round_timeline(combat).map(func(e): return e["actor"])
+		assert_eq(next_actors.slice(0, 2), [1, 0], "next round's raider card also leads")
+		assert_true(Combat.choose_move("strike", 1)["ok"])
+		var picked: Array = CombatRounds.timeline(combat)
+		assert_eq(picked.map(func(e): return [e["index"], e["actor"]]), unpicked.map(func(e): return [e["index"], e["actor"]]), "a pick doesn't reorder the strip")
+	)
+
 	run_case("home_raid_raider_counters_every_pick", func():
 		GameState.reset()
 		Events.apply_effects([{ "op": "add_item", "item": "timePearl", "qty": 2, "equip": true }])
