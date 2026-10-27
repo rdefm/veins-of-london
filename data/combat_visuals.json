@@ -48,7 +48,7 @@
       "labelColour": [1.0, 1.0, 1.0, 0.95],
       "labelMargin": 10
     },
-    "menuPanel": { "enterSeconds": 0.22, "exitSeconds": 0.16 }
+    "menuPanel": { "enterSeconds": 0.44, "exitSeconds": 0.32 }
   },
   "backdrops": {
     "raid": { "image": "res://assets/combat/backdrops/street.png", "fallbackColor": "brick_shadow" },
