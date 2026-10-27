@@ -653,8 +653,17 @@ func set_stage_size(value: Vector2) -> void:
 # that sprites must stand clear of.
 func set_top_clearance(value: float) -> void:
 	_top_clearance = value
+	_place_rewind_label()
 	if _slot_layer != null:
 		_layout_all_slots()
+
+
+# The rewind label sits just below the strip's reserved band so no card, expanded or not, covers it.
+func _place_rewind_label() -> void:
+	if _rewind_fx == null or _rewind_fx.get_child_count() == 0:
+		return
+	var margin := float(GameData.COMBAT_VISUALS.get("pacing", {}).get("rewindEffect", {}).get("labelMargin", 10))
+	(_rewind_fx.get_child(0) as Label).position = Vector2(margin, _top_clearance + margin)
 
 
 func _fit_layers_to_size() -> void:
@@ -881,6 +890,7 @@ func _build() -> void:
 	_stage_shake_layer.add_child(_vignette)
 	_rewind_fx = _build_rewind_fx()
 	add_child(_rewind_fx)
+	_place_rewind_label()
 	_fit_layers_to_size()
 
 	_templates = GameData.combat_templates()

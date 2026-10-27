@@ -32,6 +32,15 @@ func run() -> void:
 		assert_almost_eq(flipped.position.x + (mirrored_x + box.size.x / 2.0) * fit, slot.x / 2.0, 0.01, "a flipped frame's figure is still centred")
 	)
 
+	run_case("rewind_label_sits_below_top_clearance", func():
+		var stage := CombatStage.new()
+		stage._build()
+		stage.set_top_clearance(200.0)
+		var label := stage._rewind_fx.get_child(0) as Label
+		assert_true(label.position.y >= 200.0, "label clears the strip band")
+		stage.free()
+	)
+
 	run_case("rewind_effect_shows_only_when_set_and_clears_again", func():
 		var stage := CombatStage.new()
 		stage._build()
