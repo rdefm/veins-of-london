@@ -10,7 +10,7 @@
    "soul": "pastel_sage"
   }
  },
- "_comment":"The Body/Mind/Soul skill tree (systems/skill_tree.gd, REFERENCE.md \u00a72 + \u00a73.7a). A bucket is a top-level player skill (`skillKey`/`xpKey` on player state, level shown is its own); `subSkills` read a `skillKey`/`xpKey` pair inside player[`container`] (default: the player itself). `xpLevels` is a literal cumulative-XP array or {from: GameData field, path}. Each feat: `level` or `levelFrom` {from, path}; `text` with {name} filled from `values` -- {from, path} reads a GameData table, an array is indexed at the feat's level (`delta`: minus the level below), a number is used as is; `scale` multiplies. Any skill may list any feats; the projection needs no code change. Sub-skill XP also pays its bucket at constants.json `bucketXpShare` (Progression.award_bucket_share). PROSE-REVIEW: every text string here is new copy.",
+ "_comment":"The Body/Mind/Soul skill tree (systems/skill_tree.gd, REFERENCE.md \u00a72 + \u00a73.7a). A bucket is a top-level player skill (`skillKey`/`xpKey` on player state, level shown is its own); `subSkills` read a `skillKey`/`xpKey` pair inside player[`container`] (default: the player itself); a sub-skill whose container is null (no Dial yet) is left out of the projection. `xpLevels` is a literal cumulative-XP array or {from: GameData field, path}. Each feat: `level` or `levelFrom` {from, path}; `text` with {name} filled from `values` -- {from, path} reads a GameData table, an array is indexed at the feat's level (`delta`: minus the level below), a number is used as is; `scale` multiplies. Any skill may list any feats; the projection needs no code change. Sub-skill XP also pays its bucket at constants.json `bucketXpShare` (Progression.award_bucket_share). PROSE-REVIEW: every text string here is new copy.",
  "buckets": [
   {
    "id": "body",
@@ -729,6 +729,19 @@
        "text": "+12% cultivate chance"
       }
      ]
+    },
+    {
+     "id": "dial",
+     "label": "Dial",
+     "container": [
+      "dial"
+     ],
+     "skillKey": "level",
+     "xpKey": "xp",
+     "xpLevels": {
+      "from": "DIAL_XP_LEVELS"
+     },
+     "feats": []
     }
    ]
   }

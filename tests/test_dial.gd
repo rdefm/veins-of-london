@@ -773,6 +773,26 @@ func run() -> void:
 		assert_eq(Crafting.inventory_qty("blast"), 0, "casting must never touch the regular tiered inventory")
 	)
 
+	run_case("player_cast_pays_soul_a_share_and_projects_dial_under_soul", func():
+		GameState.reset()
+		var soul_row := func() -> Dictionary:
+			for b in SkillTree.project():
+				if b["id"] == "soul":
+					return b
+			return {}
+		assert_eq(soul_row.call()["subSkills"].map(func(s): return s["id"]), ["cultivating"], "no Dial: Dial row hidden")
+		var dial := _dial_no_movement()
+		dial["maxCharge"] = 10
+		dial["currentCharge"] = 5
+		dial["loadedComplications"] = [{ "recipeKey": "blast", "tier": 4, "detent": 0 }]
+		GameState.state["player"]["dial"] = dial
+		var subs: Array = soul_row.call()["subSkills"]
+		assert_eq(subs.map(func(s): return s["id"]), ["cultivating", "dial"], "Dial row shown under Soul")
+		assert_eq(subs[1]["xpNext"], GameData.DIAL_XP_LEVELS[int(dial["level"]) + 1], "Dial row uses the Dial XP curve")
+		Dial.cast_complication(0)
+		assert_eq(GameState.state["player"]["soulXP"], 2, "10 Dial XP pays Soul 2")
+	)
+
 	run_case("cast_complication_effect_is_effect_power_at_the_loaded_tier_with_no_movement_seated", func():
 		GameState.reset()
 		var dial := _dial_no_movement()

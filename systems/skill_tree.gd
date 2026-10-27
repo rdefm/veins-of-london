@@ -18,6 +18,8 @@ static func project(state: Dictionary = GameState.state, spec: Dictionary = Game
 		var row := _skill_row(bucket, player, _source_root)
 		var subs: Array = []
 		for sub in bucket.get("subSkills", []):
+			if walk(player, sub.get("container", [])) == null:
+				continue
 			subs.append(_skill_row(sub, player, _source_root))
 		row["subSkills"] = subs
 		buckets.append(row)

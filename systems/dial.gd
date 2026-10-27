@@ -511,6 +511,8 @@ static func cast_complication(index: int, owner_id: String = "") -> Dictionary:
 		var who: String = "Your" if owner_id == "" else "%s's" % Contacts.display_name(owner_id)
 		Notify.push("%s Dial has levelled up — now level %d." % [who, dial["level"]], Notify.CATEGORY_SUCCESS)
 	Progression.award_xp(dial, "xp", "level", GameData.DIAL_XP_LEVELS, 10, on_level_up)
+	if owner_id == "":
+		Progression.award_bucket_share("soul", 10)
 
 	EventBus.state_changed.emit()
 	return { "ok": true, "recipeKey": recipe_key, "power": amplified["power"], "targets": amplified["targets"], "turnPower": amplified["turnPower"], "turnBonus": amplified["turnBonus"], "tier": int(entry["tier"]), "magnitudeMult": amplified["magnitudeMult"], "multi": bool(entry.get("multi", false)) }
