@@ -32,6 +32,7 @@ const {
   promoteForWrite, promoteSummary, shotBoardFor, boardCut, shotOnPath, workingCopyFor, liveHash, liveDrifted,
   liveEventOptions, openOrImport, lintEvent, lintDraft, inboundRefs, inboundWarnings,
   OBS_ORES, obsIds, effectiveObservation, setCardObserve, addObservation, renameObservation, observationUses, deleteObservation, addObservationBlock, deleteObservationBlock, setObservationMiss, addObservationTier, deleteObservationTier, setObservationTier,
+  pickEntries, setPickOn, setPickObservation, setPickReason, addPickOre, deletePickOre, addPickTier, deletePickTier, setPickAtLeast, allLinks,
 } = new Function(
   html.slice(ss, se) + html.slice(s, e) +
     "\nreturn { parseProposal, parseDraft, serialiseDraft, ensureKeys, legacyToDraft, nextPos, playOrder, flatCards, thenText," +
@@ -45,7 +46,8 @@ const {
     " cardImageName, freeImageName, freeResultImageName, setCardImage, eventImageDir, SHOT_FIELDS, serialiseBoard, setShotField, shotFieldText," +
     " LIVE_EVENTS_DIR, proposalFileName, importBoard, blankBoard, duplicateBoard, boardCardLabel, promoteDraft, serialiseEvent," +
     " promoteForWrite, promoteSummary, shotBoardFor, boardCut, shotOnPath, workingCopyFor, liveHash, liveDrifted," +
-    " liveEventOptions, openOrImport, lintEvent, lintDraft, inboundRefs, inboundWarnings, OBS_ORES, obsIds, effectiveObservation, setCardObserve, addObservation, renameObservation, observationUses, deleteObservation, addObservationBlock, deleteObservationBlock, setObservationMiss, addObservationTier, deleteObservationTier, setObservationTier };"
+    " liveEventOptions, openOrImport, lintEvent, lintDraft, inboundRefs, inboundWarnings, OBS_ORES, obsIds, effectiveObservation, setCardObserve, addObservation, renameObservation, observationUses, deleteObservation, addObservationBlock, deleteObservationBlock, setObservationMiss, addObservationTier, deleteObservationTier, setObservationTier," +
+    " pickEntries, setPickOn, setPickObservation, setPickReason, addPickOre, deletePickOre, addPickTier, deletePickTier, setPickAtLeast, allLinks };"
 )();
 
 let passed = 0;
@@ -1886,7 +1888,7 @@ test("observations: rename updates card refs and observed conditions; delete dro
   addObservation(draft, "alley");
   setCardObserve(draft, "c1", "alley");
   draft.branches.main.cards[1].choices[0].requires = { observed: { id: "alley", ore: "physics", atLeast: 1 } };
-  assert.deepStrictEqual(observationUses(draft, "alley"), { sets: ["c1"], reads: 1 });
+  assert.deepStrictEqual(observationUses(draft, "alley"), { sets: ["c1"], reads: 1, picks: 0 });
   renameObservation(draft, "alley", "yard");
   assert.strictEqual(draft.branches.main.cards[0].observe, "yard");
   assert.strictEqual(draft.branches.main.cards[1].choices[0].requires.observed.id, "yard");
@@ -1894,6 +1896,116 @@ test("observations: rename updates card refs and observed conditions; delete dro
   deleteObservation(draft, "yard");
   assert(!("observe" in draft.branches.main.cards[0]));
   assert(!("observations" in draft));
+});
+
+// A draft whose c2 option is an observation pick over "alley" (physics 2 tiers, life 1 tier).
+function pickDraft() {
+  const { draft } = parseDraft(draftText);
+  addObservation(draft, "alley");
+  addObservationBlock(draft, "alley", "life");
+  deleteObservationTier(draft, "alley", "life", 1);
+  setObservationMiss(draft, "alley", "physics", "Brick.");
+  setObservationMiss(draft, "alley", "life", "Nothing.");
+  setCardObserve(draft, "c1", "alley");
+  setCheckOn(draft, "c2", 0, false);
+  setPickOn(draft, "c2", 0, true);
+  return draft;
+}
+
+test("pick option: on/off, ores, tiers, slots, text and routing per outcome", () => {
+  const draft = pickDraft(), o = draft.branches.main.cards[1].choices[0];
+  assert.deepStrictEqual(o.pick, { observation: "alley", ores: { physics: [{ atLeast: 1, result_text: "", effects: [] }] } });
+  assert(!("result_text" in o) && !("goto" in o));
+  assert.throws(() => setCheckOn(draft, "c2", 0, true), /turn the pick off/);
+  addPickOre(draft, "c2", 0, "life");
+  assert.throws(() => addPickOre(draft, "c2", 0, "life"), /already/);
+  addPickTier(draft, "c2", 0, "physics");
+  assert.throws(() => addPickTier(draft, "c2", 0, "physics"), /only 2 tiers/);
+  assert.deepStrictEqual(Object.keys(o.pick.ores), ["physics", "life"]);
+  assert.deepStrictEqual(outcomeSlots(o).map((s) => [s.slot, s.label]), [["pick:physics:0", "physics ≥ 2"], ["pick:physics:1", "physics ≥ 1"], ["pick:life:0", "life ≥ 1"]]);
+  setOutcomeText(draft, "c2", 0, "pick:physics:0", "A loose slate.");
+  setOutcomeGoto(draft, "c2", 0, "pick:physics:0", { branch: "after" });
+  setOutcomeGoto(draft, "c2", 0, "pick:life:0", { branch: "watched" });
+  setEffects(draft, "c2", 0, "pick:life:0", [{ op: "set_flag", flag: "sawIt" }]);
+  setPickAtLeast(draft, "c2", 0, "life", 0, "1");
+  assert.throws(() => setPickAtLeast(draft, "c2", 0, "life", 0, "0"), /whole tier/);
+  setPickReason(draft, "c2", 0, "You saw nothing worth saying.");
+  assert.deepStrictEqual(Object.keys(o.pick), ["observation", "reason", "ores"]);
+  assert.deepStrictEqual(pickEntries(o).map((x) => [x.ore, x.k]), [["physics", 0], ["physics", 1], ["life", 0]]);
+  assert.deepStrictEqual(nextPos(draft, { branch: "main", idx: 1 }, o.pick.ores.physics[0]), { branch: "after", idx: 0 });
+  assert.deepStrictEqual(nextPos(draft, { branch: "main", idx: 1 }, o.pick.ores.life[0]), { branch: "watched", idx: 0 });
+  deletePickTier(draft, "c2", 0, "physics", 0);
+  assert.throws(() => deletePickTier(draft, "c2", 0, "physics", 0), /remove the ore/);
+  deletePickOre(draft, "c2", 0, "life");
+  assert.deepStrictEqual(Object.keys(o.pick.ores), ["physics"]);
+  setPickOn(draft, "c2", 0, false);
+  assert(!("pick" in o) && o.result_text === "");
+});
+
+test("pick option: outcome gotos are graph edges and links", () => {
+  const draft = pickDraft(), o = draft.branches.main.cards[1].choices[0];
+  addPickTier(draft, "c2", 0, "physics");
+  setOutcomeGoto(draft, "c2", 0, "pick:physics:1", { branch: "after" });
+  setOutcomeGoto(draft, "c2", 0, "pick:physics:0", { branch: "watched" });
+  assert(buildGraph(draft).edges.some((e) => e.from === "b:main" && e.to === "b:after" && e.label.includes("physics")));
+  assert(buildGraph(draft).edges.some((e) => e.to === "b:watched" && e.label.includes("physics")));
+  assert(allLinks(draft).some((l) => l.from.includes("pick physics") && l.target.branch === "after"));
+  assert.strictEqual(o.pick.ores.physics.length, 2);
+});
+
+test("pick option: rename updates the pick's observation, uses counts it, delete leaves it for lint", () => {
+  const draft = pickDraft();
+  assert.deepStrictEqual(observationUses(draft, "alley"), { sets: ["c1"], reads: 0, picks: 1 });
+  renameObservation(draft, "alley", "yard");
+  assert.strictEqual(draft.branches.main.cards[1].choices[0].pick.observation, "yard");
+  setPickObservation(draft, "c2", 0, "yard");
+  assert.throws(() => setPickObservation(draft, "c2", 0, "nope"), /no observation nope/);
+  deleteObservation(draft, "yard");
+  assert.strictEqual(draft.branches.main.cards[1].choices[0].pick.observation, "yard");
+  const bare = parseDraft(draftText).draft;
+  setCheckOn(bare, "c2", 0, false);
+  assert.throws(() => setPickOn(bare, "c2", 0, true), /add an observation first/);
+});
+
+test("pick option: lint flags bad refs the way the GDScript lint does; a good pick is clean", () => {
+  const draft = pickDraft(), o = draft.branches.main.cards[1].choices[0];
+  setOutcomeText(draft, "c2", 0, "pick:physics:0", "Slate.");
+  setOutcomeGoto(draft, "c2", 0, "pick:physics:0", { branch: "after" });
+  const pickViolations = () => { const r = lintDraft(draft, lintRefs); assert(Array.isArray(r), "draft promotes"); return r.filter((v) => v.includes(" pick ")); };
+  assert.deepStrictEqual(pickViolations(), []);
+  o.pick.ores.physics[0].atLeast = 3;
+  assert(pickViolations().some((v) => v.includes("pick physics atLeast 3.0 outside 1..2")), JSON.stringify(pickViolations()));
+  o.pick.ores.physics[0].atLeast = 1;
+  addPickOre(draft, "c2", 0, "fate");
+  addPickTier(draft, "c2", 0, "physics");
+  o.pick.ores.physics[0].atLeast = 1;
+  const found = pickViolations();
+  assert(found.some((v) => v.includes("pick ore 'fate' is not in the observation")), JSON.stringify(found));
+  assert(found.some((v) => v.includes("pick physics outcomes not best-first")), JSON.stringify(found));
+  o.pick.observation = "missing";
+  assert(lintDraft(draft, lintRefs).some((v) => v.includes("pick observation 'missing' is not defined")));
+});
+
+test("pick option: promote → import → promote reproduces the event byte-for-byte", () => {
+  const draft = pickDraft();
+  addPickOre(draft, "c2", 0, "life");
+  addPickTier(draft, "c2", 0, "physics");
+  setOutcomeText(draft, "c2", 0, "pick:physics:0", "A loose slate.");
+  setOutcomeText(draft, "c2", 0, "pick:physics:1", "Brickwork.");
+  setOutcomeText(draft, "c2", 0, "pick:life:0", "A warm doorstep.");
+  setOutcomeGoto(draft, "c2", 0, "pick:physics:0", { branch: "after" });
+  setOutcomeGoto(draft, "c2", 0, "pick:life:0", { branch: "watched" });
+  setOutcomeImage(draft, "c2", 0, "pick:life:0", "res://assets/events/x/a.png");
+  setPickReason(draft, "c2", 0, "Nothing stood out.");
+  const first = promoteDraft(draft).event;
+  assert.strictEqual(first.cards.find((c) => c.key === "c2").choices[0].pick.ores.physics[0].goto, first.cards.findIndex((c) => c.text === "A."));
+  const again = promoteDraft(legacyToDraft(JSON.parse(JSON.stringify(first)))).event;
+  assert.strictEqual(serialiseEvent(again), serialiseEvent(first));
+  // A single-object ore (the other shape the engine accepts) survives untouched too.
+  const single = JSON.parse(JSON.stringify(first));
+  const pk = single.cards.find((c) => c.key === "c2").choices[0].pick;
+  pk.ores.life = pk.ores.life[0];
+  assert.strictEqual(serialiseEvent(promoteDraft(legacyToDraft(JSON.parse(JSON.stringify(single)))).event), serialiseEvent(single));
 });
 
 console.log(`${passed} passed${process.exitCode ? ", some FAILED" : ""}`);

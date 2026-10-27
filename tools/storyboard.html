@@ -490,7 +490,7 @@ section { display: grid; gap: 12px; min-width: 0 }
 // read-only and pass through untouched.
 
 const AT_BLOCKS = ["morning", "afternoon", "evening", "night"];
-const OPTION_KEY_ORDER = ["label", "id", "reselectable", "exit", "requires", "effects", "result_text", "goto", "check", "success", "fail", "bySuccesses"];
+const OPTION_KEY_ORDER = ["label", "id", "reselectable", "exit", "requires", "pick", "effects", "result_text", "goto", "check", "success", "fail", "bySuccesses"];
 const CONDITION_KINDS = [
   { kind: "flag", label: "Flag set", modOnly: false },
   { kind: "choice", label: "Earlier choice", modOnly: false },
@@ -1143,8 +1143,17 @@ function checkOddsBlock(opt, changed, restructure) {
     }
     return draft;
   }
-  // Every outcome object of an option that may carry a goto: the plain option itself, success, fail, bySuccesses.
+  // An observation pick option's outcome entries (R§3.9d) as [{ore, k, res}] in stored order; an ore's single
+  // object counts as a one-entry list.
+  function pickEntries(o) {
+    const ores = (o && o.pick && o.pick.ores) || {};
+    return Object.entries(ores).flatMap(([ore, v]) => (Array.isArray(v) ? v : [v]).map((res, k) => ({ ore, k, res })))
+      .filter((x) => x.res && typeof x.res === "object");
+  }
+  // Every outcome object of an option that may carry a goto: the plain option itself, success, fail, bySuccesses;
+  // a pick option has its entries instead of itself.
   function optionOutcomes(o) {
+    if (o.pick) return pickEntries(o).map((x) => x.res);
     return [o, o.success, o.fail, ...Object.values(o.bySuccesses || {})].filter((x) => x && typeof x === "object");
   }
   // Flat event (goto = later card index, or an earlier choice card: a hub loop) → draft. Every goto target starts a new branch; a branch falls through
@@ -1329,6 +1338,7 @@ function checkOddsBlock(opt, changed, restructure) {
         if (o.success && o.success.goto) push(name + " success", o.success.goto);
         if (o.fail && o.fail.goto) push(name + " fail", o.fail.goto);
         for (const [k, r] of Object.entries(o.bySuccesses || {})) if (r && r.goto) push(`${name} ${k} successes`, r.goto);
+        for (const { ore, res } of pickEntries(o)) if (res.goto) push(`${name} pick ${ore}`, res.goto);
       });
     }
     for (const name in draft.branches) {
@@ -1359,7 +1369,7 @@ function checkOddsBlock(opt, changed, restructure) {
   function successors(draft, pos) {
     const list = branchCards(draft, pos.branch), card = list[pos.idx];
     // What an option can resolve to, as nextPos sees it: the option itself, or success / fail / bySuccesses.
-    const outs = (card.choices || []).flatMap((o) => (o.check ? [o.success || {}, o.fail || {}, ...Object.values(o.bySuccesses || {})] : [o]));
+    const outs = (card.choices || []).flatMap((o) => (o.pick ? pickEntries(o).map((x) => x.res) : o.check ? [o.success || {}, o.fail || {}, ...Object.values(o.bySuccesses || {})] : [o]));
     const targets = outs.filter((x) => x && x.goto).map((x) => x.goto), after = [];
     if (!outs.length || outs.some((x) => !x || !x.goto)) {
       if (card.goto) targets.push(card.goto);
@@ -1494,6 +1504,7 @@ function checkOddsBlock(opt, changed, restructure) {
   // A choice option's routable outcomes as stored, i.e. what nextPos can resolve it to: the option itself when it
   // has no check, else success, fail and each bySuccesses count. Each {slot, label, res} (res undefined if unset).
   function outcomeSlots(o) {
+    if (o.pick) return pickEntries(o).map((x) => ({ slot: `pick:${x.ore}:${x.k}`, label: `${x.ore} ≥ ${x.res.atLeast}`, res: x.res }));
     if (!o.check) return [{ slot: "result", label: "Result", res: o }];
     return [{ slot: "success", label: "Success", res: o.success }, { slot: "fail", label: "Fail", res: o.fail },
       ...Object.keys(o.bySuccesses || {}).map((k) => ({ slot: "by:" + k, label: `${k} success${k === "1" ? "" : "es"}`, res: o.bySuccesses[k] }))];
@@ -1617,6 +1628,7 @@ function checkOddsBlock(opt, changed, restructure) {
   function setCheckOn(draft, key, i, on) {
     const { o } = optionAt(draft, key, i);
     if (!!o.check === on) return;
+    if (on && o.pick) throw new Error("turn the pick off first: a check option can't also be a pick");
     // Outcome comments follow the outcome: result <-> success; fail / per-count ones move up to the option.
     const at = (a) => a.card === key && a.option === i && a.slot;
     if (on) for (const c of comments(draft)) { if (at(c.anchor || {}) === "result") c.anchor.slot = "success"; }
@@ -1680,6 +1692,94 @@ function checkOddsBlock(opt, changed, restructure) {
     delete o.bySuccesses[String(count)];
     if (!Object.keys(o.bySuccesses).length) delete o.bySuccesses;
   }
+  // Observation pick (R§3.9d `pick`): option i carries {observation, reason?, ores: {ore: outcome | [outcome, ...]}}
+  // instead of a result or a check. An outcome is {atLeast, result_text, effects?, goto?, image?}; a list is best
+  // atLeast first. Editing turns an ore's single object into a list; slots are `pick:<ore>:<k>` (outcomeSlots).
+  function pickOf(draft, key, i) {
+    const { o } = optionAt(draft, key, i);
+    if (!o.pick) throw new Error("option is not an observation pick");
+    return o;
+  }
+  const pickBlankOutcome = (atLeast) => ({ atLeast, result_text: "", effects: [] });
+  // Re-points (k → new index, or null to drop to the option) the comments anchored on an ore's pick slots.
+  function remapPickSlots(draft, key, i, ore, fn) {
+    for (const c of comments(draft)) {
+      const a = c.anchor;
+      if (!a || a.card !== key || a.option !== i || typeof a.slot !== "string" || !a.slot.startsWith(`pick:${ore}:`)) continue;
+      const k = fn(Number(a.slot.split(":")[2]));
+      if (k == null) delete a.slot; else a.slot = `pick:${ore}:${k}`;
+    }
+  }
+  function pickList(o, ore) {
+    if (!o.pick.ores[ore]) throw new Error(`pick has no ${ore} outcomes`);
+    if (!Array.isArray(o.pick.ores[ore])) o.pick.ores[ore] = [o.pick.ores[ore]];
+    return o.pick.ores[ore];
+  }
+  // Makes option i a pick on the card's observation in effect (else the first defined), with one ore to fill in, or
+  // a plain option again. A pick has no result_text or goto of its own; a check can't also be a pick.
+  function setPickOn(draft, key, i, on) {
+    const { o } = optionAt(draft, key, i);
+    if (!!o.pick === on) return;
+    if (!on) {
+      reanchor(draft, (a) => (a.card === key && a.option === i && typeof a.slot === "string" && a.slot.startsWith("pick:") ? { card: key, option: i } : a));
+      delete o.pick;
+      o.result_text = "";
+      return;
+    }
+    if (o.check) throw new Error("turn the check off first: a pick option can't also roll");
+    const eff = effectiveObservation(draft, key).id, ids = obsIds(draft), id = ids.includes(eff) ? eff : ids[0];
+    if (!id) throw new Error("add an observation first");
+    const ore = OBS_ORES.find((x) => (obsOf(draft, id).blocks || {})[x]);
+    reanchor(draft, (a) => (a.card === key && a.option === i && a.slot === "result" ? { card: key, option: i } : a));
+    delete o.result_text; delete o.goto;
+    o.pick = { observation: id, ores: ore ? { [ore]: [pickBlankOutcome(1)] } : {} };
+  }
+  function setPickObservation(draft, key, i, id) {
+    const o = pickOf(draft, key, i);
+    obsOf(draft, id);
+    o.pick.observation = id;
+  }
+  // The text of the disabled option's `?` modal when no ore qualifies; blank drops it (the engine's default shows).
+  function setPickReason(draft, key, i, text) {
+    const o = pickOf(draft, key, i), { observation, reason, ores, ...rest } = o.pick;
+    o.pick = { observation, ...(text.trim() ? { reason: text } : {}), ores, ...rest };
+  }
+  function addPickOre(draft, key, i, ore) {
+    const o = pickOf(draft, key, i);
+    if (!OBS_ORES.includes(ore)) throw new Error(`unknown ore ${ore}`);
+    if (o.pick.ores[ore]) throw new Error(`${ore} is already on this pick`);
+    const rank = (x) => (OBS_ORES.includes(x) ? OBS_ORES.indexOf(x) : OBS_ORES.length);
+    o.pick.ores = Object.fromEntries([...Object.entries(o.pick.ores), [ore, [pickBlankOutcome(1)]]].sort((a, b) => rank(a[0]) - rank(b[0])));
+  }
+  function deletePickOre(draft, key, i, ore) {
+    const o = pickOf(draft, key, i);
+    pickList(o, ore);
+    remapPickSlots(draft, key, i, ore, () => null);
+    delete o.pick.ores[ore];
+  }
+  // Adds an outcome for the next tier up on `ore` (the list stays best first); refused past the observation's tiers.
+  function addPickTier(draft, key, i, ore) {
+    const o = pickOf(draft, key, i), list = pickList(o, ore);
+    const next = (list.length ? Math.trunc(Number(list[0].atLeast)) || 0 : 0) + 1;
+    const block = ((draft.observations || {})[o.pick.observation] || {}).blocks;
+    const tiers = block && block[ore] ? block[ore].tiers.length : Infinity;
+    if (next > tiers) throw new Error(`${ore} has only ${tiers} tier${tiers === 1 ? "" : "s"}`);
+    list.unshift(pickBlankOutcome(next));
+    remapPickSlots(draft, key, i, ore, (k) => k + 1);
+  }
+  function deletePickTier(draft, key, i, ore, k) {
+    const o = pickOf(draft, key, i), list = pickList(o, ore);
+    if (!list[k]) throw new Error(`no ${ore} outcome ${k + 1}`);
+    if (list.length === 1) throw new Error(`last ${ore} outcome: remove the ore instead`);
+    remapPickSlots(draft, key, i, ore, (x) => (x === k ? null : x > k ? x - 1 : x));
+    list.splice(k, 1);
+  }
+  function setPickAtLeast(draft, key, i, ore, k, value) {
+    const o = pickOf(draft, key, i), list = pickList(o, ore), n = Number(value);
+    if (!list[k]) throw new Error(`no ${ore} outcome ${k + 1}`);
+    if (value === "" || !Number.isInteger(n) || n < 1) throw new Error("atLeast: a whole tier number, 1 or more");
+    list[k].atLeast = n;
+  }
   // Condition kinds a branch `then` entry can test: systems/events.gd condition_met's vocabulary. Each field is
   // [path into the condition, label, "text" | "number" | "bool"]; the first field's head names the kind.
   const COND_KINDS = {
@@ -1722,6 +1822,7 @@ function checkOddsBlock(opt, changed, restructure) {
     const outs = [];
     (card.choices || []).forEach((o, i) => {
       const name = o.label || o.id || `option ${i + 1}`;
+      if (o.pick) { for (const x of pickEntries(o)) outs.push({ label: `${name} · ${x.ore}`, res: x.res }); return; }
       if (!o.check) { outs.push({ label: name, res: o }); return; }
       outs.push({ label: name + " ✓", res: o.success }, { label: name + " ✗", res: o.fail });
       for (const [k, r] of Object.entries(o.bySuccesses || {})) outs.push({ label: `${name} ${k}✓`, res: r });
@@ -2087,14 +2188,18 @@ function checkOddsBlock(opt, changed, restructure) {
     for (const { card } of flatCards(draft)) {
       if (card.observe === from) card.observe = to;
       walkObjects(card, (o) => { if (o.observed && o.observed.id === from && (o.observed.event == null || o.observed.event === draft.id)) o.observed.id = to; });
+      for (const o of card.choices || []) if (o.pick && o.pick.observation === from) o.pick.observation = to;
     }
   }
-  // Cards that set this observation, and cards/conditions that read it with `observed`.
+  // Cards that set this observation, cards/conditions that read it with `observed`, and options that pick from it.
   function observationUses(draft, id) {
     const sets = flatCards(draft).filter((f) => f.card.observe === id).map((f) => f.card.key);
-    let reads = 0;
-    for (const { card } of flatCards(draft)) walkObjects(card, (o) => { if (o.observed && o.observed.id === id && o.observed.event == null) reads++; });
-    return { sets, reads };
+    let reads = 0, picks = 0;
+    for (const { card } of flatCards(draft)) {
+      walkObjects(card, (o) => { if (o.observed && o.observed.id === id && o.observed.event == null) reads++; });
+      for (const o of card.choices || []) if (o.pick && o.pick.observation === id) picks++;
+    }
+    return { sets, reads, picks };
   }
   function deleteObservation(draft, id) {
     obsOf(draft, id);
@@ -2582,7 +2687,32 @@ function checkOddsBlock(opt, changed, restructure) {
     if (lintIsObj(option.bySuccesses)) for (const o of Object.values(option.bySuccesses)) gotos.push(o.goto);
     for (const g of gotos) out.push(...lintGoto(where, g, i, cards));
     if (lintIsObj(option.requires)) out.push(...lintCondition(where + " requires", option.requires, ctx));
+    if (lintIsObj(option.pick)) out.push(...lintPick(where, option, cards, i, ctx));
     if (lintIsObj(option.check)) for (const mod of option.check.mods || []) out.push(...lintCondition(where + " mod", mod, ctx));
+    return out;
+  }
+  // An observation pick (R§3.9d): a defined observation, each ore a block of it, outcomes with atLeast in
+  // 1..tiers (best first) and a result_text, goto valid.
+  function lintPick(where, option, cards, i, ctx) {
+    const out = [], pick = option.pick, oid = pick.observation === undefined ? "" : pick.observation;
+    const obs = lintIsObj(ctx.def.observations) && lintIsObj(ctx.def.observations[oid]) ? ctx.def.observations[oid] : {};
+    if (!Object.keys(obs).length) return [`${where} pick observation '${gdStr(pick.observation)}' is not defined`];
+    if (lintHas(option, "check")) out.push(`${where} has both pick and check`);
+    if (!lintIsObj(pick.ores) || !Object.keys(pick.ores).length) return out.concat(`${where} pick has no ores`);
+    for (const [ore, v] of Object.entries(pick.ores)) {
+      const block = lintIsObj(obs.blocks) && lintIsObj(obs.blocks[ore]) ? obs.blocks[ore] : {};
+      if (!Object.keys(block).length) { out.push(`${where} pick ore '${ore}' is not in the observation`); continue; }
+      const tiers = (block.tiers || []).length;
+      let last = 99;
+      for (const entry of Array.isArray(v) ? v : [v]) {
+        const atLeast = Math.trunc(Number(entry.atLeast === undefined ? 0 : entry.atLeast));
+        if (atLeast < 1 || atLeast > tiers) out.push(`${where} pick ${ore} atLeast ${gdStr(entry.atLeast)} outside 1..${tiers}`);
+        if (atLeast >= last) out.push(`${where} pick ${ore} outcomes not best-first (atLeast must descend)`);
+        last = atLeast;
+        if (!lintHas(entry, "result_text")) out.push(`${where} pick ${ore} outcome has no result_text`);
+        out.push(...lintGoto(`${where} pick ${ore}`, entry.goto, i, cards));
+      }
+    }
     return out;
   }
   function lintCardRoute(id, i, card, cards, ctx) {
@@ -2864,6 +2994,7 @@ function checkOddsBlock(opt, changed, restructure) {
   function optionMech(o) {
     const bits = [];
     if (o.requires) bits.push(`needs ${condText(o.requires)}${o.requires.display === "disable" ? " (greyed)" : " (hidden)"}`);
+    if (o.pick) bits.push(`pick ${o.pick.observation}: ${Object.entries(o.pick.ores || {}).map(([ore, v]) => `${ore} ≥ ${[].concat(v).map((x) => x.atLeast).join("/")}`).join(", ")}`);
     if (o.check) {
       const k = o.check, n = k.attempts || 1;
       bits.push(`${n > 1 ? n + " tries × " : ""}${pct(k.base)}${(k.mods || []).length ? ", " + k.mods.map(modText).join(", ") : ""}`);
@@ -2873,9 +3004,13 @@ function checkOddsBlock(opt, changed, restructure) {
     if (o.goto != null) bits.push(`→ ${targetText(o.goto)}`);
     return bits.join(" · ");
   }
+  const NO_PICK = "none";
   const binom = (n, k, p) => { let c = 1; for (let i = 0; i < k; i++) c = c * (n - i) / (i + 1); return c * p ** k * (1 - p) ** (n - k); };
   // Every way an option can resolve: one plain result, success/fail, or one per success count (bySuccesses, else success/fail).
   function outcomesOf(o) {
+    // A pick: one outcome per ore entry (the ore the player taps), plus nothing qualifying (greyed, commits nothing).
+    if (o.pick) return [...outcomeSlots(o).map((s) => ({ key: s.slot, label: s.label, res: s.res })),
+      { key: NO_PICK, label: "Nothing qualifies", res: null }];
     if (!o.check) return [{ key: "result", label: "", res: { result_text: o.result_text, effects: [], goto: o.goto, image: o.image } }];
     const n = o.check.attempts || 1, p = o.check.base, by = o.bySuccesses || {};
     if (n > 1) return Array.from({ length: n + 1 }, (_, k) => ({ key: String(k), label: `${k} of ${n}`, prob: binom(n, k, p), res: by[k] || (k ? o.success : o.fail) }));
@@ -2894,6 +3029,7 @@ function checkOddsBlock(opt, changed, restructure) {
     const { oc } = picked(b);
     const c = b.cards[cardIdx];
     let to;
+    if (oc && oc.key === NO_PICK) return b.cards.length; // greyed: nothing commits, so play can't go on from it
     try { to = nextPos(b.draft, { branch: c.branch, idx: c.idx }, oc ? oc.res : null); }
     catch (e) { setNote(`Routing: ${e.message}`); return b.cards.length; }
     return to ? b.cards.findIndex((x) => x.branch === to.branch && x.idx === to.idx) : b.cards.length;
@@ -2964,15 +3100,19 @@ function checkOddsBlock(opt, changed, restructure) {
       out.hidden = false;
       if (outs.length > 1) {
         out.append(el("div", { class: "otabs" }, ...outs.map((x) => {
-          const t = el("button", { type: "button", "aria-pressed": String(x === oc), text: `${x.label} · ${pct(x.prob)}` });
+          const t = el("button", { type: "button", "aria-pressed": String(x === oc), text: x.prob == null ? x.label : `${x.label} · ${pct(x.prob)}` });
           t.addEventListener("click", () => { outcomeKey = x.key; renderFrame(); });
           return t;
         })));
       }
       const res = oc.res || {};
+      if (oc.key === NO_PICK) {
+        out.append(el("p", { text: `Greyed: ${o.pick.reason || "(default reason)"}` }), el("span", { class: "mech", text: "No ore reached its tier, so the option can't be tapped." }));
+      } else {
       const mech = [effectsText(res.effects), res.goto != null ? `→ ${targetText(res.goto)}` : ""].filter(Boolean).join(" · ");
       out.append(el("p", { text: noResultCard(res) ? "(no result text: no result card, play goes straight on)" : res.result_text }), mech ? el("span", { class: "mech", text: mech }) : null);
-      if (outs.length > 1) out.append(el("span", { class: "mech", text: "Odds at base, before mods." }));
+      }
+      if (outs.length > 1 && oc.prob != null) out.append(el("span", { class: "mech", text: "Odds at base, before mods." }));
     }
     $("pos").textContent = `${c.branch} · ${c.key} · ${cardIdx + 1}/${b.cards.length}`;
     $("next").disabled = nextIndex(b) >= b.cards.length;
@@ -3263,9 +3403,9 @@ function checkOddsBlock(opt, changed, restructure) {
     };
     const head = el("div", { class: "route" }, el("span", { class: "kw", text: "id" }),
       field("input", id, "Observation id", "obs:id", (v) => edit((dd) => renameObservation(dd, id, v.trim()))),
-      el("span", { class: "mono muted", text: `set on ${uses.sets.join(", ") || "no card"} · read by ${uses.reads} condition${uses.reads === 1 ? "" : "s"}` }),
+      el("span", { class: "mono muted", text: `set on ${uses.sets.join(", ") || "no card"} · read by ${uses.reads} condition${uses.reads === 1 ? "" : "s"} · ${uses.picks} pick${uses.picks === 1 ? "" : "s"}` }),
       iconBtn("✕", "Delete this observation (cards that set it go back to inheriting)", false, () => {
-        if (uses.reads && !confirm(`${uses.reads} condition(s) read ${id} with \`observed\`; they'll fail lint.\n\nDelete anyway?`)) return;
+        if ((uses.reads || uses.picks) && !confirm(`${uses.reads} condition(s) read ${id} with \`observed\` and ${uses.picks} pick option(s) use it; they'll fail lint.\n\nDelete anyway?`)) return;
         edit((dd) => deleteObservation(dd, id));
       }));
     const blocks = OBS_ORES.filter((o) => (obs.blocks || {})[o]).map((ore) => {
@@ -3327,6 +3467,7 @@ function checkOddsBlock(opt, changed, restructure) {
   function previewSlot(b) {
     const { o, oc } = picked(b);
     if (!o || !oc) return null;
+    if (o.pick) return oc.key === NO_PICK ? null : oc.key;
     if (["result", "success", "fail"].includes(oc.key)) return oc.key;
     return (o.bySuccesses || {})[oc.key] ? "by:" + oc.key : Number(oc.key) > 0 ? "success" : "fail";
   }
@@ -3492,7 +3633,7 @@ function checkOddsBlock(opt, changed, restructure) {
       exitBox.addEventListener("change", () => edit((d) => setOptionExitFlag(d, c.key, i, exitBox.checked)));
       rows.push(el("label", { class: "route", title: "The hub's exit: shown as the footer →, not a button; when it shows follows the card's Hub advance rule" },
         exitBox, el("span", { class: "kw", text: "Advance option (→)" })));
-      const onBox = el("input", { type: "checkbox", "data-focus": `opt:${i}:check` });
+      const onBox = el("input", { type: "checkbox", "data-focus": `opt:${i}:check`, disabled: !!o.pick, title: o.pick ? "A pick option can't also roll" : "" });
       onBox.checked = !!o.check;
       onBox.addEventListener("change", () => {
         if (!onBox.checked && !confirm("Turn the check off? Its odds, modifiers, per-success effects and the fail and"
@@ -3501,12 +3642,30 @@ function checkOddsBlock(opt, changed, restructure) {
       });
       rows.push(el("label", { class: "route" }, onBox, el("span", { class: "kw", text: "Check (roll)" }),
         o.check ? el("span", { class: "mono muted", text: optionMech(o) }) : null));
+      const pickBox = el("input", { type: "checkbox", "data-focus": `opt:${i}:pick`, disabled: !!o.check || (!o.pick && !obsIds(b.draft).length),
+        title: o.check ? "A check option can't also be a pick" : !o.pick && !obsIds(b.draft).length ? "Add an observation first (Observe row below the card)"
+          : "One option the player resolves by tapping an ore they observed" });
+      pickBox.checked = !!o.pick;
+      pickBox.addEventListener("change", () => {
+        if (!pickBox.checked && !confirm("Turn the pick off? Its per-ore outcomes are dropped; the option becomes a plain one with a blank result.")) { pickBox.checked = true; return; }
+        edit((d) => setPickOn(d, c.key, i, pickBox.checked));
+      });
+      rows.push(el("label", { class: "route" }, pickBox, el("span", { class: "kw", text: "Observation pick" }),
+        o.pick ? el("span", { class: "mono muted", text: optionMech(o) }) : null));
+      if (o.pick) rows.push(...pickBlock(b.draft, c, i, o, edit, field));
       rows.push(mechanicsBox(c, i, o));
       rows.push(effectsField(c, i, "option", o.effects, o.check ? "Effects before the roll" : "Effects"));
       if (o.check) rows.push(effectsField(c, i, "perSuccess", o.check.perSuccess, "Effects per success"));
       for (const s of outcomeSlots(o)) {
         const fid = `opt:${i}:${s.slot}`;
-        rows.push(el("div", { class: "route" }, el("span", { class: "kw", text: s.label }),
+        const pk = o.pick ? s.slot.split(":") : null; // ["pick", ore, k]
+        const atLeast = pk ? el("input", { type: "number", min: "1", step: "1", "aria-label": `${pk[1]} outcome ${Number(pk[2]) + 1} needs tier`, "data-focus": fid + ":at",
+          title: "The ore's current-run level must reach this tier. Best first: the first outcome that matches wins." }) : null;
+        if (atLeast) {
+          atLeast.value = s.res.atLeast ?? "";
+          atLeast.addEventListener("change", () => edit((d) => setPickAtLeast(d, c.key, i, pk[1], Number(pk[2]), atLeast.value)));
+        }
+        rows.push(el("div", { class: "route" }, el("span", { class: "kw", text: s.label }), atLeast,
           el("span", { class: "kw", text: "→" }),
           targetPicker(b.draft, s.res && s.res.goto, "no link (card's own route)", fid + ":t",
             (t) => edit((d) => setOutcomeGoto(d, c.key, i, s.slot, t)),
@@ -3518,6 +3677,10 @@ function checkOddsBlock(opt, changed, restructure) {
           commentBtn(b, { card: c.key, option: i, slot: s.slot }, `the ${s.label.toLowerCase()} outcome`),
           s.slot.startsWith("by:") ? iconBtn("✕", `Remove the ${s.label} outcome`, false,
             () => edit((d) => deleteBySuccess(d, c.key, i, Number(s.slot.slice(3))))) : null,
+          pk ? iconBtn("✕", `Remove this ${pk[1]} outcome`, false, () => edit((d) => {
+            if (pickEntries(o).filter((x) => x.ore === pk[1]).length > 1) deletePickTier(d, c.key, i, pk[1], Number(pk[2]));
+            else deletePickOre(d, c.key, i, pk[1]);
+          })) : null,
           field("textarea", s.res && s.res.result_text, `${s.label} text`, fid + ":text",
             (v) => edit((d) => setOutcomeText(d, c.key, i, s.slot, v))),
           resultImageRow(c, i, s),
@@ -3564,6 +3727,26 @@ function checkOddsBlock(opt, changed, restructure) {
       iconBtn("Pick…", unused ? "Add result text first: without it there's no result card to show an image" : "Pick an image for this result", !!unused, () => openImagePicker(t)),
       iconBtn("CARD'S", "No image of its own: the result keeps the choice card's image", !has, () => setResultImage(c.key, t, undefined)),
       iconBtn("CLEAR", "Show no image from this result on", has && r.image === null, () => setResultImage(c.key, t, null)));
+  }
+  // Option i's observation pick controls: the observation, the greyed-state reason, and per ore add / + Tier. The
+  // outcomes themselves (tier, text, effects, route, image) are the option's outcome rows.
+  function pickBlock(draft, c, i, o, edit, field) {
+    const p = o.pick, ids = obsIds(draft), blocks = ((draft.observations || {})[p.observation] || {}).blocks || {};
+    const sel = el("select", { "aria-label": "Observation to pick from", "data-focus": `opt:${i}:pick:obs` },
+      ...(ids.includes(p.observation) ? [] : [optionEl(p.observation, `⚠ ${p.observation} (missing)`)]), ...ids.map((x) => optionEl(x, x)));
+    sel.value = p.observation;
+    sel.addEventListener("change", () => edit((d) => setPickObservation(d, c.key, i, sel.value)));
+    const have = Object.keys(p.ores || {}), addable = OBS_ORES.filter((x) => blocks[x] && !have.includes(x));
+    return [
+      el("div", { class: "route" }, el("span", { class: "kw", text: "Pick from" }), sel,
+        el("span", { class: "mono muted", text: `${have.length} ore${have.length === 1 ? "" : "s"}` })),
+      el("label", { class: "route" }, el("span", { class: "kw", text: "Greyed reason" }),
+        field("input", p.reason, "Shown in the ? modal when no ore qualifies (blank = default)", `opt:${i}:pick:reason`, (v) => edit((d) => setPickReason(d, c.key, i, v)))),
+      el("div", { class: "route" }, el("span", { class: "kw", text: "Ores" }),
+        ...have.map((ore) => iconBtn(`+ ${ore} tier`, `Add an outcome for a higher ${ore} tier (${(blocks[ore] ? blocks[ore].tiers.length : "?")} in the observation)`, false,
+          () => edit((d) => addPickTier(d, c.key, i, ore)))),
+        ...addable.map((ore) => iconBtn(`+ ${ore}`, `Add ${ore} to this pick`, false, () => edit((d) => addPickOre(d, c.key, i, ore))))),
+    ];
   }
   // Option i's shared Choice mechanics widgets (requires; for a check, odds and mods), bound to a working copy of
   // the option. A field edit commits quietly, one undo step per focus; a structural change (kind switch, add or
