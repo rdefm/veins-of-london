@@ -89,8 +89,8 @@ func run() -> void:
 
 	run_case("an_unlocked_fight_drops_people_and_pays_normal_xp", func():
 		var combat := _start(_guided())
-		var xp: int = GameState.state["player"]["bodyXP"]
 		_win(combat)
+		var xp: int = GameState.state["player"]["bodyXP"]
 		assert_true(combat["combatants"][1]["koed"], "Arnie goes down")
 		Combat.exit_combat()
 		assert_eq(GameState.state["player"]["bodyXP"], xp + Combat.ROUND_XP_WIN)
@@ -114,6 +114,7 @@ func run() -> void:
 		Loadout.consume(0)
 		player["hp"] = 5
 		_win(combat)
+		xp = player["bodyXP"]
 		_exit_resumes("win")
 		assert_eq(player["hp"], 30, "hp back as it was")
 		assert_eq(Loadout.slot(0)["recipe"], "rewind", "items back as they were")

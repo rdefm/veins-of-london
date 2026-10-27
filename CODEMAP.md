@@ -103,7 +103,7 @@ Data file per system: see `data/*.json` below.
 | phone_nav.gd | Phone app/index/thread/faction-dossier drill-down nav; BizBrief short-pay and Guard Costs sub-view deep links; Profile Move Book deep link (`open_move_book`) |
 | player_model.gd | `set_model()`: validates a key against `GameData.TERRITORIAL_VARIANTS` and writes `player.model` |
 | preferences.gd | Saved presentation prefs in `meta` (reduced motion, vibration, Map dark mode) + carry_forward() so event Rewind never flips them |
-| progression.gd | Shared "award XP" ladder loop |
+| progression.gd | Shared "award XP" ladder loop; `award_bucket_share` pays a sub-skill award's `bucketXpShare` cut to Body/Mind/Soul |
 | raid_alarms.gd | Summaries + dispatch for raid alarms |
 | raiding.gd | Vein raid resolution; raid-factor mods (`raid_factor_mods`, `stockpile_factor_mods`); player stockpile raids (observation event, fight settlement, loot, relation/war/relocation); faction-vs-faction stockpile raids + Ticker headline; queued faction raids on the player incl. alarm/scripted defend fights + kit burns; shared guard repel roll |
 | relation_accrual.gd | Capped £ relation meter |

@@ -2013,7 +2013,10 @@ static func _gain_move_xp(cp: Dictionary, actor_idx: int, move_id: String, fizzl
 	var owner = actor.get("moveOwner")
 	if not (owner is String):
 		return
-	var level := MoveLevels.award(owner, move_id, MoveLevels.xp_for_use(fizzled))
+	var xp := MoveLevels.xp_for_use(fizzled)
+	if owner == "":
+		Progression.award_bucket_share("body", xp)
+	var level := MoveLevels.award(owner, move_id, xp)
 	if level == 0:
 		return
 	actor["moveLevels"][move_id] = level

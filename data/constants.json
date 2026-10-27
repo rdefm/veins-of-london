@@ -1,6 +1,7 @@
 {
   "timeBlocks": ["Morning", "Afternoon", "Evening"],
   "archieOreGoal": 10,
+  "bucketXpShare": 0.2,
   "contacts": {
     "archie": { "startRelation": 10, "unlocked": true,  "recruitThreshold": 80, "recruitable": false,
                 "roomFreeRoles": true, "roleFlags": { "sales": "bizArchieSalesRole" },

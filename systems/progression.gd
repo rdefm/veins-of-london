@@ -19,3 +19,23 @@ static func award_xp(container: Dictionary, xp_key: String, level_key: String, l
 		container[level_key] += 1
 		if on_level_up.is_valid():
 			on_level_up.call()
+
+
+# A player sub-skill award's cut for its parent bucket: floor(amount * bucketXpShare),
+# paid after any multiplier on the final award (R§3.7a Bucket XP share). Body goes
+# through Combat.award_xp for its HP bonus; Mind/Soul read their curve from skill_feats.
+static func award_bucket_share(bucket_id: String, amount: int) -> void:
+	var share: int = floori(float(amount) * GameData.BUCKET_XP_SHARE)
+	if share <= 0:
+		return
+	if bucket_id == "body":
+		Combat.award_xp(share)
+		return
+	var player: Dictionary = GameState.state["player"]
+	for bucket in GameData.SKILL_FEATS.get("buckets", []):
+		if bucket["id"] != bucket_id:
+			continue
+		var skill_key: String = bucket["skillKey"]
+		var on_level_up := func(): Notify.push("%s up — now level %d." % [bucket["label"], player[skill_key]], Notify.CATEGORY_SUCCESS)
+		award_xp(player, bucket["xpKey"], skill_key, SkillTree.xp_levels(bucket, SkillTree._source_root), share, on_level_up)
+		return

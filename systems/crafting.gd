@@ -176,3 +176,4 @@ static func award_crafting_xp(amount: int) -> void:
 	var player: Dictionary = GameState.state["player"]
 	amount = int(round(float(amount) * Perks.craft_xp_mult()))
 	Progression.award_xp(player, "craftingXP", "craftingSkill", GameData.CRAFTING_XP_LEVELS, amount)
+	Progression.award_bucket_share("mind", amount)

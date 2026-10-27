@@ -334,8 +334,8 @@ func run() -> void:
 				break
 			GameState.reset()
 			var combat := _start([["guard", "guard"]], seed_value)
-			var xp: int = GameState.state["player"]["bodyXP"]
 			var result := Combat.choose_move("legIt")
+			var xp: int = GameState.state["player"]["bodyXP"]
 			if result["outcome"] == "fled" and not fled:
 				fled = true
 				assert_eq(Combat.exit_combat()["nextScreen"], "event", "a fled street mugging resumes the event")
@@ -608,8 +608,8 @@ func run() -> void:
 	run_case("win_pays_30_xp_and_resumes_the_event", func():
 		GameState.reset()
 		var combat := _start([["guard", "guard"]], 1, 1)
-		var xp: int = GameState.state["player"]["bodyXP"]
 		var result := Combat.choose_move("strike", 1)
+		var xp: int = GameState.state["player"]["bodyXP"]
 		assert_eq(result["outcome"], "win")
 		var hp: int = combat["combatants"][CombatRounds.PLAYER_INDEX]["hp"]
 		assert_eq(Combat.exit_combat()["nextScreen"], "event")

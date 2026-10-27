@@ -215,6 +215,7 @@ static func award_xp(amount: int) -> void:
 	var player: Dictionary = GameState.state["player"]
 	var on_level_up := func(): Notify.push("Cultivating skill up — now level %d." % player["cultivatingSkill"], Notify.CATEGORY_SUCCESS)
 	Progression.award_xp(player, "cultivatingXP", "cultivatingSkill", GameData.CULTIVATING_XP_LEVELS, amount, on_level_up)
+	Progression.award_bucket_share("soul", amount)
 
 
 # R§3.4: every call rolls a positive whole-number gain uniform in

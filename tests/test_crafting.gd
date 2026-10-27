@@ -55,7 +55,8 @@ func run() -> void:
 		GameState.reset()
 		Crafting.award_crafting_xp(1000)  # force a level-up
 		assert_true(GameState.state["player"]["craftingSkill"] > 1, "sanity: xp should have levelled the skill")
-		assert_eq(GameState.state["notifications"], [], "crafting xp/level-up never notifies, unlike cultivating")
+		for n in GameState.state["notifications"]:
+			assert_true(not str(n["text"]).begins_with("Crafting"), "crafting level-up never notifies, unlike cultivating")
 	)
 
 	# ── item tier drives effect_power() ───
