@@ -337,6 +337,10 @@
 		},
 		"cold_open_observation": {
 			"choiceCards": {
+				"c20": [
+					"mention",
+					"probablyFine"
+				],
 				"c4": [
 					"stand",
 					"askBuyers",
@@ -349,7 +353,20 @@
 					"brace"
 				]
 			},
-			"observations": {}
+			"observations": {
+				"cold_into_observation1": {
+					"emotion": 2,
+					"fate": 2,
+					"life": 2,
+					"physics": 2,
+					"time": 2
+				},
+				"cold_intro_observation_c6": {
+					"emotion": 2,
+					"fate": 2,
+					"physics": 2
+				}
+			}
 		},
 		"conclave_watch": {
 			"choiceCards": {},

@@ -84,69 +84,76 @@
           "speaker": "Archie",
           "choices": [
             {
-              "label": "\"One way in, one way out. I don't love it.\"",
-              "id": "raisePhysics",
-              "requires": {
-                "observed": {
-                  "id": "cold_into_observation1",
-                  "ore": "physics",
-                  "atLeast": 2
-                }
-              },
+              "id": "mention",
+              "label": "Mention what you noticed",
               "effects": [],
-              "result_text": ""
-            },
-            {
-              "label": "\"Nobody about. Nobody to see anything, either.\"",
-              "id": "raiseLife",
-              "requires": {
-                "observed": {
-                  "id": "cold_into_observation1",
-                  "ore": "life",
-                  "atLeast": 2
+              "result_text": "",
+              "pick": {
+                "observation": "cold_into_observation1",
+                "reason": "You didn't spot anything worth mentioning.",
+                "ores": {
+                  "physics": [
+                    {
+                      "atLeast": 2,
+                      "result_text": "\"One way in, one way out. Past the boxes.\" Archie gives you a long look. \"Then keep your eyes open.\"",
+                      "effects": []
+                    },
+                    {
+                      "atLeast": 1,
+                      "result_text": "\"Ground's wet. Bad for running.\" \"Bad for everyone, Sherlock.\" Archie shrugs it off.",
+                      "effects": []
+                    }
+                  ],
+                  "life": [
+                    {
+                      "atLeast": 2,
+                      "result_text": "\"Nobody about. Nobody to see anything, either.\" Archie gives you a long look. \"Keep your eyes open, then.\"",
+                      "effects": []
+                    },
+                    {
+                      "atLeast": 1,
+                      "result_text": "\"Dead quiet round here.\" \"Handy, that.\" Archie doesn't look up.",
+                      "effects": []
+                    }
+                  ],
+                  "emotion": [
+                    {
+                      "atLeast": 2,
+                      "result_text": "\"You're whistling. What aren't you telling me?\" Archie gives you a long look. \"Just keep your eyes open.\"",
+                      "effects": []
+                    },
+                    {
+                      "atLeast": 1,
+                      "result_text": "\"You're whistling.\" \"Good mood, that's all.\" Archie keeps whistling.",
+                      "effects": []
+                    }
+                  ],
+                  "time": [
+                    {
+                      "atLeast": 2,
+                      "result_text": "\"Funny time for a straight deal, this.\" Archie gives you a long look. \"Keep your eyes open.\"",
+                      "effects": []
+                    },
+                    {
+                      "atLeast": 1,
+                      "result_text": "\"They're late.\" \"It's the A13. They're always late.\" Archie checks his phone.",
+                      "effects": []
+                    }
+                  ],
+                  "fate": [
+                    {
+                      "atLeast": 2,
+                      "result_text": "\"Got a bad feeling about this, Arch.\" Archie gives you a long look. \"Keep your eyes open.\"",
+                      "effects": []
+                    },
+                    {
+                      "atLeast": 1,
+                      "result_text": "\"Bad day, all in all.\" \"Cheer up, Sherlock. It can only get better.\" Archie grins.",
+                      "effects": []
+                    }
+                  ]
                 }
-              },
-              "effects": [],
-              "result_text": ""
-            },
-            {
-              "label": "\"You're jumpy. What aren't you telling me?\"",
-              "id": "raiseEmotion",
-              "requires": {
-                "observed": {
-                  "id": "cold_into_observation1",
-                  "ore": "emotion",
-                  "atLeast": 2
-                }
-              },
-              "effects": [],
-              "result_text": ""
-            },
-            {
-              "label": "\"Funny time for a straight deal, this.\"",
-              "id": "raiseTime",
-              "requires": {
-                "observed": {
-                  "id": "cold_into_observation1",
-                  "ore": "time",
-                  "atLeast": 2
-                }
-              },
-              "effects": [],
-              "result_text": ""
-            },
-            {
-              "label": "\"Got a bad feeling about this, Arch.\"",
-              "id": "raiseFate",
-              "requires": {
-                "observed": {
-                  "id": "cold_into_observation1",
-                  "ore": "fate",
-                  "atLeast": 2
-                }
-              },
-              "effects": [],
-              "result_text": ""
+              }
             },
             {
               "label": "\"Nah. Probably fine.\"",
@@ -549,7 +556,7 @@
     }
   },
   "_liveSource": "cold_open_observation.json",
-  "_liveHash": "6104a527",
+  "_liveHash": "7db42fd9",
   "observations": {
     "cold_into_observation1": {
       "blocks": {
