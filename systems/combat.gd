@@ -1087,7 +1087,8 @@ static func _demo_play(play: Callable) -> Dictionary:
 # Plays `move_id` at the round fight's paused player position (target -1:
 # the move's default), as CombatRounds.play_pick(). Returns
 # { ok, beats, outcome } or { ok: false, reason }; a pick whose KO a
-# Failsafe or ally rewind undid returns no beats and "saved": its line.
+# Failsafe or ally rewind undid returns the lethal pick's beats, "saved" (its
+# line) and "savedBy" ({ kind, who? }, see _try_round_save()).
 static func choose_move(move_id: String, target: int = -1) -> Dictionary:
 	var combat: Dictionary = GameState.state["combat"]
 	if not combat["active"]:
@@ -1101,9 +1102,10 @@ static func _play_round_pick(combat: Dictionary, action: Dictionary) -> Dictiona
 	if not result["ok"]:
 		return result
 	_settle_round_dials(combat)
-	var saved := _try_round_save(combat)
+	var saved_by := {}
+	var saved := _try_round_save(combat, saved_by)
 	if saved != "":
-		result = { "ok": true, "beats": [], "outcome": combat["outcome"], "saved": saved }
+		result = { "ok": true, "beats": result["beats"], "outcome": combat["outcome"], "saved": saved, "savedBy": saved_by }
 	else:
 		result["beats"].append_array(CombatRounds.continue_after_ko(combat))
 		result["outcome"] = combat["outcome"]
@@ -1130,14 +1132,16 @@ static func _keep_round_frame(combat: Dictionary) -> void:
 # played is undone by the player's loadout Failsafe, else by the first
 # ally left standing that holds a rewind (guard kit or recruit slot). Either
 # restores the last-pick snapshot and stays spent. Returns the transcript line,
-# or "" when nothing saved the player.
-static func _try_round_save(combat: Dictionary) -> String:
+# or "" when nothing saved the player; `by` is filled { kind: "failsafe" } or
+# { kind: "allyRewind", who: the ally's combatant index }.
+static func _try_round_save(combat: Dictionary, by: Dictionary) -> String:
 	if not combat["combatants"][CombatRounds.PLAYER_INDEX]["koed"] or combat["snapshots"].is_empty():
 		return ""
 	var failsafe := Loadout.find_slot("failsafe")
 	if failsafe >= 0:
 		_restore_round_snapshot(combat)
 		Loadout.consume(failsafe)
+		by["kind"] = "failsafe"
 		return _push_round_line(combat, LINE_FAILSAFE)
 	var allies: Array = combat["allies"]
 	for i in range(allies.size()):
@@ -1149,6 +1153,8 @@ static func _try_round_save(combat: Dictionary) -> String:
 		var pool := _ally_item_pool(combat, ally)
 		_spend_guard_item(pool, "rewind")
 		_sync_ally_slots(ally, pool)
+		by["kind"] = "allyRewind"
+		by["who"] = CombatRounds.side_indices(combat, CombatRounds.SIDE_ALLY)[i]
 		return _push_round_line(combat, LINE_ALLY_REWIND % fighter["name"])
 	return ""
 

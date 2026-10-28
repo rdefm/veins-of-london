@@ -102,6 +102,30 @@
       "dustRisePx": 8.0,
       "dustFadeSeconds": 0.3
     },
+    "saveFx": {
+      "_note": "Last-ditch saves (StageSlot.set_silhouette / pop_flag / glow, CombatStage.play_local_rewind). freezeSeconds: hit-stop after the killing hit; silhouetteSeconds: white-out hold; localRewindSeconds: VHS patch over the player (vignetteInner: UV radius where its fade starts, padPx: grown past the slot); flag*: the spent-unit flag pops flagRisePx then falls flagFallPx and fades; staggerSeconds: an ally's silhouette beat; glow*: a guard-kit rewind's cyan glow on the ally. Seconds halve under quick pacing; reduced motion drops the local VHS, keeps silhouette and flag.",
+      "freezeSeconds": 0.2,
+      "silhouetteSeconds": 0.25,
+      "localRewindSeconds": 0.4,
+      "vignetteInner": 0.2,
+      "padPx": 24.0,
+      "flagRiseSeconds": 0.15,
+      "flagFallSeconds": 0.35,
+      "flagRisePx": 14.0,
+      "flagFallPx": 20.0,
+      "flagFontSize": 20,
+      "staggerSeconds": 0.25,
+      "glowSeconds": 0.3,
+      "glowColour": [0.5, 1.0, 1.0]
+    },
+    "wormholeFx": {
+      "_note": "Wormhole escape (CombatStage.play_lens_tear, combat_rounds screen). tearSeconds: the cyan-orange lens tear at the vanish point (a single frame); tearWidthPx/tearGapPx: its two bands; holdSeconds: the empty slot held before the outcome card. Seconds halve under quick pacing; reduced motion drops the tear.",
+      "tearSeconds": 0.05,
+      "tearWidthPx": 56.0,
+      "tearHeightPx": 3.0,
+      "tearGapPx": 4.0,
+      "holdSeconds": 0.3
+    },
     "menuPanel": { "enterSeconds": 0.44, "exitSeconds": 0.32 }
   },
   "statusIcons": {

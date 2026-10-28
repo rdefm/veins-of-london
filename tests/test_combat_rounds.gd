@@ -2542,6 +2542,25 @@ func run() -> void:
 		assert_true(not heal.any(func(c): return c["call"] == "travel"), "no-travel effects skip the spark")
 	)
 
+	run_case("beat_cues_an_allys_failsafe_is_a_silhouette_beat_not_a_cast", func():
+		var cues: Array = CombatRoundsScreen.beat_cues({ "kind": "failsafe", "actor": 1, "target": -1, "hpAfter": 1 })
+		assert_eq(cues.map(func(c): return c["call"]), ["allyFailsafe"])
+		assert_eq(cues[0]["who"], 1)
+	)
+
+	run_case("a_saved_pick_keeps_its_beats_and_says_who_saved", func():
+		GameState.reset()
+		var combat := _start_lethal([{ "recipe": "failsafe", "tier": 1 }, null])
+		var result := Combat.choose_move("guard")
+		assert_eq(result["savedBy"], { "kind": "failsafe" })
+		assert_true(not _first(result["beats"], "ko").is_empty(), "the killing hit still plays")
+		GameState.reset()
+		var kit := { "items": { "rewind": { "1": 1 } }, "used": {} }
+		combat = _start_lethal([], [Combat.build_guard_ally()], { "guardKit": kit })
+		var saved := Combat.choose_move("guard")
+		assert_eq(saved["savedBy"], { "kind": "allyRewind", "who": 1 })
+	)
+
 	run_case("beat_cues_disarm_spins_a_weapon_off_the_target_and_boosted_leg_it_streaks", func():
 		var disarm: Array = CombatRoundsScreen.beat_cues({ "kind": "disarm", "actor": 0, "target": 2 })
 		assert_true(disarm.any(func(c): return c["call"] == "disarmSpin" and int(c["who"]) == 2), "weapon spins off the target")

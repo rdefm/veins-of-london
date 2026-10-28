@@ -642,6 +642,61 @@ class StageSlot extends Control:
 		tween.tween_property(_sprite_rect, "scale:x", 0.05, 0.25)
 		tween.parallel().tween_property(_sprite_rect, "modulate:a", 0.0, 0.25)
 		tween.tween_callback(func(): _sprite_rect.visible = false)
+		tween.tween_callback(play_lens_tear)
+	# One cyan and one orange band across the vanish point for a single frame;
+	# none under reduced motion.
+	func play_lens_tear() -> void:
+		var fx: Dictionary = GameData.COMBAT_VISUALS.get("pacing", {}).get("wormholeFx", {})
+		var secs := CombatStage.fx_seconds(float(fx.get("tearSeconds", 0.0)))
+		if secs <= 0.0 or CombatStage.reduced_motion() or not is_inside_tree():
+			return
+		var width := float(fx.get("tearWidthPx", 0.0))
+		var band_h := float(fx.get("tearHeightPx", 0.0))
+		var gap := float(fx.get("tearGapPx", 0.0))
+		var centre := size / 2.0
+		for band in [[Color(0.3, 0.95, 1.0), -gap], [Color(1.0, 0.6, 0.2), gap]]:
+			var rect := ColorRect.new()
+			rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			rect.color = band[0]
+			rect.z_index = 6
+			rect.size = Vector2(width, band_h)
+			rect.position = centre - rect.size / 2.0 + Vector2(band[1], band[1])
+			add_child(rect)
+			get_tree().create_timer(secs).timeout.connect(rect.queue_free)
+	# The sprite blown out to a flat white shape (or back); the scale-up
+	# modulate is HDR so any lit pixel clips to white.
+	func set_silhouette(on: bool) -> void:
+		var a := _sprite_rect.modulate.a
+		_sprite_rect.modulate = Color(6.0, 6.0, 6.0, a) if on else Color(1.0, 1.0, 1.0, a)
+	# A brief tint on the sprite and back (a guard-kit rewind's cyan glow).
+	func glow(colour: Color, seconds: float) -> void:
+		if not is_inside_tree() or seconds <= 0.0:
+			return
+		var tween := create_tween()
+		tween.tween_property(_sprite_rect, "modulate", colour, seconds * 0.4)
+		tween.tween_property(_sprite_rect, "modulate", Color.WHITE, seconds * 0.6)
+	# A ⚑ over the head that pops up then falls away and fades: the spent-unit mark.
+	func pop_flag() -> void:
+		var fx := CombatStage.save_fx()
+		if not is_inside_tree():
+			return
+		var flag := Label.new()
+		flag.text = "⚑"
+		flag.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		flag.z_index = 6
+		flag.add_theme_font_size_override("font_size", int(fx.get("flagFontSize", 20)))
+		flag.add_theme_color_override("font_outline_color", Color.BLACK)
+		flag.add_theme_constant_override("outline_size", 4)
+		add_child(flag)
+		var home := Vector2(size.x / 2.0 - 8.0, 0.0)
+		flag.position = home
+		var rise := CombatStage.fx_seconds(float(fx.get("flagRiseSeconds", 0.0)))
+		var fall := CombatStage.fx_seconds(float(fx.get("flagFallSeconds", 0.0)))
+		var tween := flag.create_tween()
+		tween.tween_property(flag, "position:y", home.y - float(fx.get("flagRisePx", 0.0)), rise).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tween.tween_property(flag, "position:y", home.y + float(fx.get("flagFallPx", 0.0)), fall).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		tween.parallel().tween_property(flag, "modulate:a", 0.0, fall)
+		tween.tween_callback(flag.queue_free)
 	var _shield_crack_alpha: float = 0.0
 	# GUARD_MARKER_* or "" (no marker, as in live combat).
 	var guard_marker: String = ""
@@ -1031,11 +1086,8 @@ func is_rewind_effect_active() -> bool:
 	return _rewind_fx != null and _rewind_fx.visible
 
 
-func _build_rewind_fx() -> ColorRect:
+static func _rewind_material() -> ShaderMaterial:
 	var fx_data: Dictionary = GameData.COMBAT_VISUALS.get("pacing", {}).get("rewindEffect", {})
-	var fx := ColorRect.new()
-	fx.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	fx.visible = false
 	var mat := ShaderMaterial.new()
 	mat.shader = load("res://shaders/vhs_rewind.gdshader")
 	for pair in [["scanlineStrength", "scanline_strength"], ["scanlinePeriodPx", "scanline_period_px"], ["wobblePx", "wobble_px"], ["tearPx", "tear_px"], ["tearSpeed", "tear_speed"], ["tearHeight", "tear_height"], ["bleedPx", "bleed_px"], ["noiseStrength", "noise_strength"]]:
@@ -1044,7 +1096,42 @@ func _build_rewind_fx() -> ColorRect:
 	var tint: Array = fx_data.get("tint", [])
 	if tint.size() == 4:
 		mat.set_shader_parameter("tint", Color(tint[0], tint[1], tint[2], tint[3]))
-	fx.material = mat
+	return mat
+
+
+# data/combat_visuals.json pacing.saveFx.
+static func save_fx() -> Dictionary:
+	return GameData.COMBAT_VISUALS.get("pacing", {}).get("saveFx", {})
+
+
+# The VHS rewind look as a vignetted patch over `slot` for saveFx.localRewindSeconds
+# (a player Failsafe's local rewind); returns that time, 0 under reduced motion.
+func play_local_rewind(slot: StageSlot) -> float:
+	var fx := save_fx()
+	var secs := fx_seconds(float(fx.get("localRewindSeconds", 0.0)))
+	if secs <= 0.0 or reduced_motion() or slot == null or _slot_layer == null or not _slot_layer.is_inside_tree():
+		return 0.0
+	var pad := float(fx.get("padPx", 0.0))
+	var patch := ColorRect.new()
+	patch.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	patch.z_index = 6
+	patch.position = slot.position - Vector2(pad, pad)
+	patch.size = slot.size + Vector2(pad, pad) * 2.0
+	var mat := _rewind_material()
+	mat.set_shader_parameter("stage_px", patch.size)
+	mat.set_shader_parameter("vignette_inner", float(fx.get("vignetteInner", 0.2)))
+	patch.material = mat
+	_slot_layer.add_child(patch)
+	get_tree().create_timer(secs).timeout.connect(patch.queue_free)
+	return secs
+
+
+func _build_rewind_fx() -> ColorRect:
+	var fx_data: Dictionary = GameData.COMBAT_VISUALS.get("pacing", {}).get("rewindEffect", {})
+	var fx := ColorRect.new()
+	fx.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fx.visible = false
+	fx.material = _rewind_material()
 	var label := Label.new()
 	label.text = str(fx_data.get("label", ""))
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE

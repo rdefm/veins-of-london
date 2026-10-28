@@ -31,7 +31,7 @@ const STRIP_SIZE := 10
 # A frozen position's strip card text.
 const PAUSE_TEXT := "⏸"
 const _OVERLAY_KINDS: Array[String] = ["guard", "lost", "frozen", "cower", "enraptured", "calm", "disarm", "enter"]
-const _CAST_KINDS: Array[String] = ["powder", "sight", "sightGiven", "lady", "failsafe"]
+const _CAST_KINDS: Array[String] = ["powder", "sight", "sightGiven", "lady"]
 # The screen's own closing beat after a pick's beats (_play_beats()).
 const _SETTLE_KIND := "settle"
 const _VOICEOVER_INSET := 16.0
@@ -1024,7 +1024,7 @@ func _resolve(choose: Callable, pick: Dictionary) -> void:
 		_refresh()
 		return
 	begin_strip_playback(before, round_no, result["beats"])
-	await _play_beats(result["beats"])
+	await _play_beats(result["beats"], result.get("savedBy", {}))
 
 
 # Holds the stage roster, overlay marks and transcript as `fight` (a fight
@@ -1100,9 +1100,12 @@ func begin_strip_playback(before: Array, round_no: int, beats: Array) -> void:
 
 # Off-tree there's no tween to wait on, so the beats land at once. A last
 # settle beat slides the final acted card off the strip.
-func _play_beats(beats: Array) -> void:
+func _play_beats(beats: Array, saved_by: Dictionary = {}) -> void:
 	if not beats.is_empty() and is_inside_tree():
 		await _director.play(beats + [{ "kind": _SETTLE_KIND }], _on_beat_played)
+		if beats.any(func(b): return b["kind"] == "wormhole"):
+			await _wait(float(GameData.COMBAT_VISUALS.get("pacing", {}).get("wormholeFx", {}).get("holdSeconds", 0.0)))
+		await _play_save(saved_by, beats)
 	_end_playback()
 
 
@@ -1217,6 +1220,12 @@ func _on_beat_played(beat: Dictionary) -> void:
 		_strip.drain_ghost_to(key, int(beat["hpAfter"]), _director.beat_duration)
 		_shown_hp[int(beat["target"])] = int(beat["hpAfter"])
 		_sync_hp_label(cp)
+	if beat["kind"] == "failsafe" and beat.has("hpAfter"):
+		var held_key := TurnOrderStrip.card_key_string(_stage_target(stage_roster(cp, -1), int(beat["actor"])))
+		_strip.set_shown_hp(held_key, int(beat["hpAfter"]))
+		_strip.drain_ghost_to(held_key, int(beat["hpAfter"]), _director.beat_duration)
+		_shown_hp[int(beat["actor"])] = int(beat["hpAfter"])
+		_sync_hp_label(cp)
 	_play_cues(cp, beat_cues(beat), false)
 
 
@@ -1262,6 +1271,8 @@ static func beat_cues(beat: Dictionary) -> Array:
 				cues.append({ "call": "legItStreak", "who": actor })
 		"wormhole":
 			cues.append({ "call": "vanish", "who": actor })
+		"failsafe":
+			cues.append({ "call": "allyFailsafe", "who": actor })
 		"fleeFailed":
 			cues.append({ "call": "recoil", "who": actor })
 		"autoguard":
@@ -1374,6 +1385,8 @@ func _play_cue(cp: Dictionary, cue: Dictionary, rewinding: bool) -> void:
 				slot.play_run_off()
 		"recoil":
 			slot.play_hit()
+		"allyFailsafe":
+			_play_ally_failsafe(slot, rewinding)
 		"effect":
 			_stage.play_effect({}, cue["effect"], key)
 			if not rewinding:
@@ -1400,6 +1413,72 @@ func _play_cue(cp: Dictionary, cue: Dictionary, rewinding: bool) -> void:
 				_stage.spawn_damage_number(slot, int(cue["dmg"]), scale)
 			slot.play_hit()
 			_stage.shake(int(cue["dmg"]), int(cp["combatants"][who]["hpMax"]), float(cue.get("shake", scale)))
+
+
+# An ally's own Failsafe: white silhouette, a stagger and the spent flag while
+# the HP bar lands on a hair; a rewound one just clears the silhouette.
+func _play_ally_failsafe(slot: CombatStage.StageSlot, rewinding: bool) -> void:
+	if rewinding:
+		slot.set_silhouette(false)
+		return
+	slot.set_silhouette(true)
+	slot.play_hit()
+	slot.pop_flag()
+	await _wait(float(CombatStage.save_fx().get("staggerSeconds", 0.0)))
+	if is_instance_valid(slot):
+		slot.set_silhouette(false)
+
+
+# Seconds of stage-effect time (halved under quick pacing), on a timer the
+# hit-stop doesn't slow.
+func _wait(seconds: float) -> void:
+	seconds = CombatStage.fx_seconds(seconds)
+	if seconds > 0.0 and is_inside_tree():
+		await get_tree().create_timer(seconds, true, false, true).timeout
+
+
+# The beat after a pick whose KO a Failsafe or an ally's rewind undid
+# (Combat's "savedBy"). Failsafe: freeze on the killing hit, the player's
+# silhouette, a short local rewind into the restored fight, the flag. Ally
+# rewind: the ally glows cyan, then the pick's beats play back in the full
+# stage Rewind.
+func _play_save(by: Dictionary, beats: Array) -> void:
+	if by.is_empty() or not is_inside_tree():
+		return
+	var cp: Dictionary = _cp()
+	var roster := stage_roster(cp, -1)
+	var fx := CombatStage.save_fx()
+	if by["kind"] == "failsafe":
+		var slot := _stage.resolve_target_slot(_stage_target(roster, CombatRounds.PLAYER_INDEX))
+		if slot == null:
+			return
+		var freeze := float(fx.get("freezeSeconds", 0.0))
+		_stage.hit_stop(freeze)
+		if not CombatStage.reduced_motion():
+			await _wait(freeze)
+		slot.set_silhouette(true)
+		await _wait(float(fx.get("silhouetteSeconds", 0.0)))
+		if not is_instance_valid(slot):
+			return
+		slot.set_silhouette(false)
+		slot.play_get_up()
+		slot.pop_flag()
+		var rewind := _stage.play_local_rewind(slot)
+		if rewind > 0.0:
+			await get_tree().create_timer(rewind).timeout
+		return
+	var ally := _stage.resolve_target_slot(_stage_target(roster, int(by["who"])))
+	if ally != null:
+		ally.glow(CombatStage.rgb(fx.get("glowColour", [])), CombatStage.fx_seconds(float(fx.get("glowSeconds", 0.0))))
+		await _wait(float(fx.get("glowSeconds", 0.0)))
+	var undone := rewind_beats(beats, CombatRounds.stage_marks(cp))
+	if undone.is_empty():
+		return
+	_hold_fallen(undone)
+	_stage.set_rewind_effect(true)
+	await _director.play(undone, _on_rewind_beat_played, CombatDirector.rewind_speed())
+	if is_instance_valid(_stage):
+		_stage.set_rewind_effect(false)
 
 
 # Each combatant's slot to its stage marks: guard marker, Shield loop, Time

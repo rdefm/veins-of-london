@@ -15,6 +15,8 @@ uniform float tear_height = 0.12;
 uniform float bleed_px = 3.0;
 uniform float noise_strength = 0.08;
 uniform vec4 tint : source_color = vec4(0.55, 0.65, 1.0, 0.12);
+// > 0: the patch fades out past this UV radius (a local rewind); 0 covers the rect.
+uniform float vignette_inner = 0.0;
 
 float hash(vec2 p) {
 	return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
@@ -41,5 +43,9 @@ void fragment() {
 	col *= 1.0 - scanline_strength * line;
 	col += (hash(vec2(UV.x * stage_px.x, y_px) + floor(t * 30.0)) - 0.5) * noise_strength;
 	col = mix(col, tint.rgb, tint.a);
-	COLOR = vec4(col, 1.0);
+	float alpha = 1.0;
+	if (vignette_inner > 0.0) {
+		alpha = 1.0 - smoothstep(vignette_inner, 0.5, length(UV - vec2(0.5)));
+	}
+	COLOR = vec4(col, alpha);
 }
