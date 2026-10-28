@@ -388,7 +388,7 @@ static func spawn_unclaimed_site(district_id: String, tier: String, ore_type: St
 static func seed_success_chance(skill: int, tier: String) -> float:
 	var tier_mod: float = GameData.SITE_SEED_TIER_MOD.get(tier, 0.0)
 	var lady_bonus: float = GameData.SITE_LADY_SEED_BONUS_PER_LEVEL * ActiveEffects.lady_level()
-	return clampf(Cultivating.get_cult_chance(skill) + tier_mod + lady_bonus, 0.05, 0.95)
+	return clampf(Cultivating.get_cult_chance(skill) + tier_mod + lady_bonus + Soul.seed_chance_bonus(), 0.05, 0.95)
 
 
 # Requires an unclaimed, non-barren site and SEED_ORE_COST ore of ITS oreType (R§3.4).

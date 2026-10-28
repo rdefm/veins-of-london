@@ -20,6 +20,27 @@ static func meditate() -> Dictionary:
 	return { "ok": true }
 
 
+static func _perk_at_level(key: String) -> float:
+	var table: Array = GameData.SOUL_PERKS[key]
+	var level: int = clampi(int(GameState.state["player"]["soulSkill"]), 0, table.size() - 1)
+	return float(table[level])
+
+
+# Seed success chance delta from Soul level (total at the level; L4 replaces L2).
+static func seed_chance_bonus() -> float:
+	return _perk_at_level("seedChanceBonus")
+
+
+# Flat addition to the player's cultivate gain roll.
+static func cultivate_gain_bonus() -> int:
+	return int(_perk_at_level("cultivateGainBonus"))
+
+
+# Player Dial XP multiplier from Soul level (1.0 below L2).
+static func dial_xp_mult() -> float:
+	return 1.0 + _perk_at_level("dialXpBonus")
+
+
 static func award_xp(amount: int) -> void:
 	var player: Dictionary = GameState.state["player"]
 	var levels: Array = []

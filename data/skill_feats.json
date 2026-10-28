@@ -716,7 +716,28 @@
     500,
     1000
    ],
-   "feats": [],
+   "feats": [
+    {
+     "id": "soul2",
+     "level": 2,
+     "text": "+{s}% Seed chance, +{g} cultivate gain, +{d}% Dial XP",
+     "values": {
+      "s": { "from": "SOUL_PERKS", "path": ["seedChanceBonus"], "scale": 100 },
+      "g": { "from": "SOUL_PERKS", "path": ["cultivateGainBonus"] },
+      "d": { "from": "SOUL_PERKS", "path": ["dialXpBonus"], "scale": 100 }
+     }
+    },
+    {
+     "id": "soul4",
+     "level": 4,
+     "text": "Seed chance bonus becomes +{s}%, cultivate gain +{g}, Dial XP +{d}%",
+     "values": {
+      "s": { "from": "SOUL_PERKS", "path": ["seedChanceBonus"], "scale": 100 },
+      "g": { "from": "SOUL_PERKS", "path": ["cultivateGainBonus"] },
+      "d": { "from": "SOUL_PERKS", "path": ["dialXpBonus"], "scale": 100 }
+     }
+    }
+   ],
    "subSkills": [
     {
      "id": "cultivating",
@@ -730,22 +751,22 @@
       {
        "id": "chance2",
        "level": 2,
-       "text": "+12% cultivate chance"
+       "text": "+12% Seed chance"
       },
       {
        "id": "chance3",
        "level": 3,
-       "text": "+12% cultivate chance"
+       "text": "+12% Seed chance"
       },
       {
        "id": "chance4",
        "level": 4,
-       "text": "+12% cultivate chance"
+       "text": "+12% Seed chance"
       },
       {
        "id": "chance5",
        "level": 5,
-       "text": "+12% cultivate chance"
+       "text": "+12% Seed chance"
       }
      ]
     },

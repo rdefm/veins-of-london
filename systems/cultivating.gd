@@ -234,8 +234,8 @@ static func cultivate_max_gain(skill: int) -> int:
 
 
 # max_roll (the player under Be a Lady) takes the top of the range instead of rolling.
-static func cultivate_gain(skill: int, growth: int, vein_ceiling: int, attunement_bonus: float = 0.0, max_roll: bool = false) -> int:
-	var rolled: int = cultivate_max_gain(skill) if max_roll else Rng.randi_range(cultivate_min_gain(skill), cultivate_max_gain(skill))
+static func cultivate_gain(skill: int, growth: int, vein_ceiling: int, attunement_bonus: float = 0.0, max_roll: bool = false, flat_bonus: int = 0) -> int:
+	var rolled: int = (cultivate_max_gain(skill) if max_roll else Rng.randi_range(cultivate_min_gain(skill), cultivate_max_gain(skill))) + flat_bonus
 	var boosted: int = GameState.round_epsilon(rolled * (1.0 + attunement_bonus))
 	return mini(boosted, maxi(0, vein_ceiling - growth))
 
@@ -269,7 +269,7 @@ static func cultivate(vein_id: String) -> Dictionary:
 	var vein_ceiling: int = ceiling(vein)
 	var growth_before: int = vein["growth"]
 	var attunement: float = Dial.attunement_bonus(vein["oreType"])
-	var gain: int = cultivate_gain(skill, vein["growth"], vein_ceiling, attunement, lady)
+	var gain: int = cultivate_gain(skill, vein["growth"], vein_ceiling, attunement, lady, Soul.cultivate_gain_bonus())
 	vein["growth"] = clampi(vein["growth"] + gain, 0, vein_ceiling)
 	if vein["growth"] < vein_ceiling:
 		vein["rampantDays"] = 0
@@ -332,9 +332,10 @@ static func player_prune_yield_text(vein: Dictionary, depth: int) -> String:
 
 # The player's own cultivate preview, "+min–max" or "+max (Lady)".
 static func player_cultivate_gain_text(skill: int) -> String:
+	var bonus: int = Soul.cultivate_gain_bonus()
 	if ActiveEffects.lady_active():
-		return "+%d %s" % [cultivate_max_gain(skill), ActiveEffects.LADY_TAG]
-	return "+%d–%d" % [cultivate_min_gain(skill), cultivate_max_gain(skill)]
+		return "+%d %s" % [cultivate_max_gain(skill) + bonus, ActiveEffects.LADY_TAG]
+	return "+%d–%d" % [cultivate_min_gain(skill) + bonus, cultivate_max_gain(skill) + bonus]
 
 
 # Shared "always offered, disabled with a reason" gate for a Prune button --

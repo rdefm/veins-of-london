@@ -9,6 +9,11 @@
     "observationBonus": [0, 0, 0.03, 0.03, 0.06, 0.06],
     "craftXpBonus": [0, 0, 0.10, 0.10, 0.20, 0.20]
   },
+  "soulPerks": {
+    "seedChanceBonus": [0, 0, 0.03, 0.03, 0.06, 0.06],
+    "cultivateGainBonus": [0, 0, 1, 1, 2, 2],
+    "dialXpBonus": [0, 0, 0.10, 0.10, 0.20, 0.20]
+  },
   "contacts": {
     "archie": { "startRelation": 10, "unlocked": true,  "recruitThreshold": 80, "recruitable": false,
                 "roomFreeRoles": true, "roleFlags": { "sales": "bizArchieSalesRole" },
