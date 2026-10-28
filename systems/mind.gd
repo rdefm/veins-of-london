@@ -20,6 +20,22 @@ static func study() -> Dictionary:
 	return { "ok": true }
 
 
+static func _perk_at_level(key: String) -> float:
+	var table: Array = GameData.MIND_PERKS[key]
+	var level: int = clampi(int(GameState.state["player"]["mindSkill"]), 0, table.size() - 1)
+	return float(table[level])
+
+
+# Observation Σmods delta from Mind level (total at the level; L4 replaces L2).
+static func observation_bonus() -> float:
+	return _perk_at_level("observationBonus")
+
+
+# Crafting XP multiplier from Mind level (1.0 below L2).
+static func craft_xp_mult() -> float:
+	return 1.0 + _perk_at_level("craftXpBonus")
+
+
 static func award_xp(amount: int) -> void:
 	var player: Dictionary = GameState.state["player"]
 	var levels: Array = []

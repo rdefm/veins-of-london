@@ -174,6 +174,6 @@ static func file_crafted(recipe_key: String, tier: int, qty: int, multi: bool, c
 # awardCraftingXP (unlike awardCultivatingXP) never calls pushNotification.
 static func award_crafting_xp(amount: int) -> void:
 	var player: Dictionary = GameState.state["player"]
-	amount = int(round(float(amount) * Perks.craft_xp_mult()))
+	amount = int(round(float(amount) * Perks.craft_xp_mult() * Mind.craft_xp_mult()))
 	Progression.award_xp(player, "craftingXP", "craftingSkill", GameData.CRAFTING_XP_LEVELS, amount)
 	Progression.award_bucket_share("mind", amount)

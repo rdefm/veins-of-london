@@ -344,6 +344,7 @@ static func _mods(def: Dictionary, ore: String) -> Array:
 	var out: Array = []
 	var sense: float = float(GameData.OBSERVATION["sensePerLevel"]) * (int(GameState.state["player"]["senseSkill"]) - 1)
 	_add_mod(out, GameData.OBSERVATION["senseLabel"], sense)
+	_add_mod(out, GameData.MIND_PERKS["observationLabel"], Mind.observation_bonus())
 	for mod in def.get("mods", []):
 		_add_mod(out, mod.get("label", ""), Events._mod_delta(mod))
 	_add_mod(out, GameData.OBSERVATION["attunementLabel"], Dial.attunement_bonus(ore))

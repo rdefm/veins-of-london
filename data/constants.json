@@ -4,6 +4,11 @@
   "bucketXpShare": 0.2,
   "study": { "xp": 10, "libraryXp": 30 },
   "meditate": { "xp": 10, "gardenXp": 30 },
+  "mindPerks": {
+    "observationLabel": "Mind",
+    "observationBonus": [0, 0, 0.03, 0.03, 0.06, 0.06],
+    "craftXpBonus": [0, 0, 0.10, 0.10, 0.20, 0.20]
+  },
   "contacts": {
     "archie": { "startRelation": 10, "unlocked": true,  "recruitThreshold": 80, "recruitable": false,
                 "roomFreeRoles": true, "roleFlags": { "sales": "bizArchieSalesRole" },

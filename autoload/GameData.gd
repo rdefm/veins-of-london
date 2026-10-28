@@ -138,6 +138,7 @@ var SENSE_XP_LEVELS: Array = []
 var BUCKET_XP_SHARE: float = 0.0
 var STUDY: Dictionary = {}
 var MEDITATE: Dictionary = {}
+var MIND_PERKS: Dictionary = {}
 var COMBAT_XP_LEVELS: Array = []
 var COMBAT_ATTACK_BONUS_BY_LEVEL: Array = []
 var COMBAT_SPEED_BY_LEVEL: Array = []
@@ -509,6 +510,7 @@ const MANIFEST: Array[Dictionary] = [
 		{"field": "BUCKET_XP_SHARE", "key": "bucketXpShare", "type": TYPE_FLOAT},
 		{"field": "STUDY", "key": "study", "type": TYPE_DICTIONARY},
 		{"field": "MEDITATE", "key": "meditate", "type": TYPE_DICTIONARY},
+		{"field": "MIND_PERKS", "key": "mindPerks", "type": TYPE_DICTIONARY},
 		{"field": "CONTACTS_DEFAULTS", "key": "contacts", "type": TYPE_DICTIONARY},
 		{"field": "JAMES_JOB_TRUST_BANDS", "key": "jamesJobTrustBands", "type": TYPE_ARRAY},
 		{"field": "ARCHIE_DEALS", "key": "archieDeals", "type": TYPE_DICTIONARY},

@@ -27,3 +27,40 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["mindXP"], 0, "no XP")
 		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), blocks_before, "no block spent")
 	)
+
+	run_case("mind_observation_mod_by_level_is_labelled_total", func():
+		GameState.reset()
+		var expect := { 1: 0.0, 2: 0.03, 3: 0.03, 4: 0.06, 5: 0.06 }
+		for level in expect:
+			GameState.state["player"]["mindSkill"] = level
+			var mods: Array = Observation._mods({}, "time").filter(func(m): return m["label"] == "Mind")
+			if expect[level] == 0.0:
+				assert_eq(mods.size(), 0, "L%d: no Mind mod" % level)
+			else:
+				assert_eq(mods.size(), 1, "L%d: one labelled Mind mod" % level)
+				assert_almost_eq(float(mods[0]["delta"]), expect[level], 0.0001, "L%d total" % level)
+	)
+
+	run_case("mind_craft_xp_mult_stacks_with_guild", func():
+		GameState.reset()
+		GameState.state["factions"]["guild"]["relation"] = 0
+		var expect := { 1: 20, 2: 22, 3: 22, 4: 24, 5: 24 }
+		for level in expect:
+			GameState.state["player"]["mindSkill"] = level
+			var before: int = GameState.state["player"]["craftingXP"]
+			Crafting.award_crafting_xp(20)
+			assert_eq(GameState.state["player"]["craftingXP"] - before, expect[level], "L%d crafting XP" % level)
+		GameState.state["player"]["mindSkill"] = 4
+		GameState.state["factions"]["guild"]["relation"] = 30
+		var guild_before: int = GameState.state["player"]["craftingXP"]
+		Crafting.award_crafting_xp(20)
+		assert_eq(GameState.state["player"]["craftingXP"] - guild_before, 30, "20 x 1.25 x 1.20")
+	)
+
+	run_case("mind_feat_texts_project_at_l2_and_l4", func():
+		GameState.reset()
+		var mind: Dictionary = SkillTree.project()[1]
+		assert_eq(mind["id"], "mind")
+		assert_eq(mind["feats"][0]["text"], "+3% observation, +10% Crafting XP")
+		assert_eq(mind["feats"][1]["text"], "Observation bonus becomes +6%, Crafting XP bonus +20%")
+	)

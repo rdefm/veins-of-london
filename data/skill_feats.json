@@ -472,7 +472,26 @@
     500,
     1000
    ],
-   "feats": [],
+   "feats": [
+    {
+     "id": "mind2",
+     "level": 2,
+     "text": "+{o}% observation, +{c}% Crafting XP",
+     "values": {
+      "o": { "from": "MIND_PERKS", "path": ["observationBonus"], "scale": 100 },
+      "c": { "from": "MIND_PERKS", "path": ["craftXpBonus"], "scale": 100 }
+     }
+    },
+    {
+     "id": "mind4",
+     "level": 4,
+     "text": "Observation bonus becomes +{o}%, Crafting XP bonus +{c}%",
+     "values": {
+      "o": { "from": "MIND_PERKS", "path": ["observationBonus"], "scale": 100 },
+      "c": { "from": "MIND_PERKS", "path": ["craftXpBonus"], "scale": 100 }
+     }
+    }
+   ],
    "subSkills": [
     {
      "id": "sense",
