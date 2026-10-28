@@ -28,6 +28,8 @@ const _TRANSCRIPT_SIDE_INSET := 8.0
 # How many upcoming actions the strip's carousel holds.
 const STRIP_SIZE := 10
 # Beat kinds that play nothing past the guard overlay their marks set.
+# A frozen position's strip card text.
+const PAUSE_TEXT := "⏸"
 const _OVERLAY_KINDS: Array[String] = ["guard", "lost", "frozen", "cower", "enraptured", "calm", "disarm", "enter"]
 const _CAST_KINDS: Array[String] = ["powder", "sight", "sightGiven", "lady", "failsafe"]
 # The screen's own closing beat after a pick's beats (_play_beats()).
@@ -390,6 +392,9 @@ static func strip_entries(cp: Dictionary, pick: Dictionary = {}) -> Array:
 	for position in CombatRounds.timeline(cp):
 		var entry := _strip_entry(cp, roster, position, false)
 		entry["actionText"] = _position_text(cp, position, pick)
+		entry["actionFrozen"] = _position_loss(cp, position) == "frozen"
+		if entry["actionFrozen"]:
+			entry["actionText"] = PAUSE_TEXT
 		entry["actionUnread"] = _position_unread(cp, position)
 		entry["guardBadge"] = _guard_badge(cp, position)
 		entry["statusBadge"] = _status_badge(cp, position["actor"])
@@ -398,6 +403,15 @@ static func strip_entries(cp: Dictionary, pick: Dictionary = {}) -> Array:
 	for position in CombatRounds.next_round_timeline(cp):
 		var entry := _strip_entry(cp, roster, position, true)
 		entry.merge(_next_round_card(cp, position))
+		var carried := 0
+		for e in entries:
+			if not e["nextRound"] and e["actor"] == position["actor"] and e.get("actionFrozen", false):
+				carried += 1
+		var combatant: Dictionary = cp["combatants"][position["actor"]]
+		if carried + int(position["index"]) < int(combatant["frozenActions"]):
+			entry["actionFrozen"] = true
+			entry["actionText"] = PAUSE_TEXT
+			entry["actionUnread"] = false
 		entry["statusBadge"] = _status_badge(cp, position["actor"])
 		entry["focused"] = false
 		entries.append(entry)
@@ -1159,8 +1173,14 @@ func _roll_strip(list_key: String, front: int, backward: bool = false) -> void:
 
 func _patch_strip_entry(entries: Array, playing: int, beat: Dictionary) -> void:
 	var entry: Dictionary = entries[playing]
+	for other in entries:
+		other.erase("actionFlicker")
 	if beat["kind"] in ["lost", "frozen"]:
-		entry["actionText"] = "Frozen" if beat["kind"] == "frozen" else "Lost"
+		var frozen: bool = beat["kind"] == "frozen"
+		entry["actionText"] = PAUSE_TEXT if frozen else "Lost"
+		entry["actionFrozen"] = frozen
+		if frozen:
+			entry["actionFlicker"] = true
 		entry["actionUnread"] = false
 	elif int(beat["actor"]) == entry["actor"]:
 		if beat.has("status"):
@@ -1342,6 +1362,7 @@ func _apply_marks(cp: Dictionary, marks: Array) -> void:
 		slot.set_guard_marker(marks[i]["guard"])
 		_stage.set_slot_shield(slot, marks[i]["shielded"])
 		_stage.set_slot_frozen(slot, marks[i]["frozen"])
+		slot.set_frozen_left(int(marks[i].get("frozenLeft", 0)))
 		slot.set_status_badges(marks[i].get("badges", []))
 
 

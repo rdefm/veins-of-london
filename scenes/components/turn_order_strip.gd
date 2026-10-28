@@ -25,6 +25,7 @@ const RUINED_TILT_DEGREES := -4.0
 const NEUTRAL_COLOUR := Color(0.42, 0.46, 0.55)
 const UNKNOWN_COLOUR := Color(0.32, 0.32, 0.32)
 const UNREAD_FONT_SIZE := 14
+const FROZEN_DIM_ALPHA := 0.45
 
 const SIGN_GROUND_ID := "combat_sign_ground"
 const SIGN_LETTERING_ID := "combat_sign_lettering"
@@ -51,6 +52,8 @@ class NameplateCard extends Control:
 	var shows_exact_hp: bool = false
 	var action_text: String = ""
 	var action_unread: bool = false
+	var action_frozen: bool = false  # dimmed ⏸ card
+	var action_flicker: bool = false  # the ⏸ flickers once as the card is passed
 	var guard_badge: String = ""
 	var status_badge: String = ""
 	var is_pulsing: bool = false
@@ -459,6 +462,8 @@ func _build_card(entry: Dictionary, is_focused: bool, card_size: Vector2) -> Nam
 	card.shows_exact_hp = is_focused
 	card.action_text = entry.get("actionText", "")
 	card.action_unread = entry.get("actionUnread", false)
+	card.action_frozen = entry.get("actionFrozen", false)
+	card.action_flicker = entry.get("actionFlicker", false)
 	card.guard_badge = entry.get("guardBadge", "")
 	card.status_badge = entry.get("statusBadge", "")
 
@@ -568,7 +573,14 @@ func _build_card_content(card: NameplateCard) -> void:
 		# An unread intent's "?" stands out: larger, in the status colour.
 		action.add_theme_font_size_override("font_size", UNREAD_FONT_SIZE if card.action_unread else 9)
 		action.add_theme_color_override("font_color", _palette_colour(SIGN_STATUS_ID if card.action_unread else SIGN_INTENT_ID))
+		if card.action_frozen:
+			action.modulate.a = FROZEN_DIM_ALPHA
 		box.add_child(action)
+		if card.action_flicker and card.is_inside_tree():
+			var flicker := action.create_tween()
+			flicker.tween_property(action, "modulate:a", 1.0, 0.08)
+			flicker.tween_property(action, "modulate:a", 0.1, 0.08)
+			flicker.tween_property(action, "modulate:a", FROZEN_DIM_ALPHA, 0.12)
 
 	var faction_label := Label.new()
 	faction_label.text = card.faction_name

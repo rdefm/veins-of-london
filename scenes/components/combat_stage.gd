@@ -72,6 +72,12 @@ const GUARD_MARKER_OPEN_COLOUR := Color(0.9, 0.9, 0.9, 0.75)
 # A sprite's status badges (CombatRounds.status_badges()).
 const STATUS_BADGE_FONT_SIZE := 9
 const STATUS_BADGE_COLOUR := Color(1.0, 0.85, 0.4, 0.95)
+# The frozen fighter's pause icon: two bars and the actions-left count.
+const PAUSE_ICON_BAR := Vector2(3, 9)
+const PAUSE_ICON_GAP := 3.0
+const PAUSE_ICON_TOP := 2.0
+const PAUSE_ICON_FONT_SIZE := 10
+const PAUSE_ICON_COLOUR := Color(0.55, 0.9, 1.0, 0.95)
 const DAMAGE_NUMBER_FONT_SIZE := 16
 const _PLACEHOLDER_PALETTE: Array[Color] = [
 	Color(0.55, 0.33, 0.33),
@@ -448,6 +454,15 @@ class StageSlot extends Control:
 		status_badges = value.duplicate()
 		_overlay.queue_redraw()
 
+	# Frozen actions still to pass: the pause icon's count (0 hides it).
+	var frozen_left: int = 0
+
+	func set_frozen_left(value: int) -> void:
+		if value == frozen_left:
+			return
+		frozen_left = value
+		_overlay.queue_redraw()
+
 	func flash_shield_crack() -> void:
 		_set_shield_crack_alpha(1.0)
 		if not is_inside_tree():
@@ -576,6 +591,29 @@ class StageSlot extends Control:
 		if guard_marker != "":
 			_draw_guard_marker()
 		_draw_status_badges()
+		if frozen_left > 0:
+			_draw_pause_icon()
+
+	# Two pixel bars and the frozen count, centred above the head (clear of
+	# the corner guard marker and badges).
+	func _draw_pause_icon() -> void:
+		var font: Font = ThemeDB.fallback_font
+		var text := str(frozen_left)
+		var fs: int = CombatStage.PAUSE_ICON_FONT_SIZE
+		var bar: Vector2 = CombatStage.PAUSE_ICON_BAR
+		var gap: float = CombatStage.PAUSE_ICON_GAP
+		var text_w: float = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		var total: float = bar.x * 2.0 + gap + 3.0 + text_w
+		var x: float = roundf((size.x - total) / 2.0)
+		var y: float = CombatStage.PAUSE_ICON_TOP
+		for i in range(2):
+			var r := Rect2(x + i * (bar.x + gap), y, bar.x, bar.y)
+			_overlay.draw_rect(r.grow(1.0), Color(0, 0, 0, 0.8), true)
+			_overlay.draw_rect(r, CombatStage.PAUSE_ICON_COLOUR, true)
+		var tx: float = x + bar.x * 2.0 + gap + 3.0
+		var ty: float = y + bar.y
+		_overlay.draw_string_outline(font, Vector2(tx, ty), text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 3, Color(0, 0, 0, 0.8))
+		_overlay.draw_string(font, Vector2(tx, ty), text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, CombatStage.PAUSE_ICON_COLOUR)
 
 	# One line per badge, stacked under the guard marker on its side.
 	func _draw_status_badges() -> void:

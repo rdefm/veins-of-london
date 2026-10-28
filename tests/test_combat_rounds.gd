@@ -858,6 +858,16 @@ func run() -> void:
 		assert_eq(_first(result["beats"], "frozen").get("actor", -1), 1, "its next action frozen")
 		assert_eq(mugger["frozenActions"], 2, "power 3 - 1 spent")
 		assert_true(CombatRounds.is_open(combat, mugger), "Open while frozen")
+		assert_eq(CombatRounds.stage_marks(combat)[1]["frozenLeft"], 2, "snapshot exposes frozen actions left")
+		assert_eq(CombatRounds.stage_marks(combat)[0]["frozenLeft"], 0, "player not frozen")
+		var frozen_cards: Array = CombatRoundsScreen.strip_entries(combat).filter(func(e): return e.get("actionFrozen", false))
+		assert_true(frozen_cards.all(func(e): return e["actor"] == 1 and e["actionText"] == CombatRoundsScreen.PAUSE_TEXT), "only the mugger's cards read ⏸")
+		assert_eq(frozen_cards.size(), 2, "exactly the two upcoming frozen actions")
+		mugger["frozenActions"] = 1
+		assert_eq(CombatRounds.stage_marks(combat)[1]["frozenLeft"], 1, "ticks down")
+		mugger["frozenActions"] = 0
+		assert_eq(CombatRounds.stage_marks(combat)[1]["frozenLeft"], 0, "gone at 0")
+		mugger["frozenActions"] = 2
 		assert_eq(CombatRounds.decision_position(combat), 1, "one action, the next pick is the player's second")
 		assert_eq(Loadout.slot(0), null, "real unit consumed")
 		assert_eq(combat["slotsUsed"], [0], "marked for settlement")

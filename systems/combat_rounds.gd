@@ -2101,11 +2101,13 @@ static func _tick_anger(cp: Dictionary, actor_idx: int, beats: Array) -> void:
 
 # Each combatant's stage overlay as the fight stands: { guard: guard_marker()
 # ("" once KO'd), shielded (a Shield pool holds), frozen (a Time Pearl
-# freeze holds), badges (status_badges()) }.
+# freeze holds), frozenLeft (frozen actions still to pass), badges
+# (status_badges()) }.
 static func stage_marks(cp: Dictionary) -> Array:
 	return cp["combatants"].map(func(c): return {
 		"guard": "" if c["koed"] else guard_marker(cp, c),
 		"shielded": int(c["shield"]) > 0, "frozen": int(c["frozenActions"]) > 0,
+		"frozenLeft": int(c["frozenActions"]),
 		"badges": status_badges(c),
 	})
 
