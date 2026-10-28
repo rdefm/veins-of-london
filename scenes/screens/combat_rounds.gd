@@ -30,7 +30,7 @@ const STRIP_SIZE := 10
 # Beat kinds that play nothing past the guard overlay their marks set.
 # A frozen position's strip card text.
 const PAUSE_TEXT := "⏸"
-const _OVERLAY_KINDS: Array[String] = ["guard", "lost", "frozen", "cower", "enraptured", "calm", "disarm", "enter"]
+const _OVERLAY_KINDS: Array[String] = ["guard", "lost", "frozen", "calm", "disarm", "enter"]
 const _CAST_KINDS: Array[String] = ["powder", "sight", "sightGiven", "lady"]
 # The screen's own closing beat after a pick's beats (_play_beats()).
 const _SETTLE_KIND := "settle"
@@ -41,6 +41,7 @@ const _LEG_IT := "legIt"
 const _ITEM_EFFECTS := {
 	"timePearl": "timePearl", "blackHole": "blackHole", "blast": "blast", "shield": "shield",
 	"shieldOther": "shield", "heal": "healingBurst", "healSelf": "healingBurst",
+	"panic": "panic", "rapture": "rapture",
 }
 # A damage cue's number and shake scale: lighter on a chip, heavier on a crit.
 const _CHIP_SCALE := 0.7
@@ -1267,7 +1268,7 @@ func _on_rewind_beat_played(beat: Dictionary) -> void:
 # "ladyGlint" (who's hit by a Lady Strike, "crit"); "effect" (who's data/combat_visuals.json effect
 # sheet "effect"); "damage" (who's hit, with "dmg" and a juice "scale");
 # "shieldAssemble" (who's Shield panels build to "level"); "shieldCrack";
-# "blackHole" (who's bead lifts to the middle of "affected"; holds back the cues after it); "healBurst" (motes + rim pulse on who), "healNumber" (green "+amount"), "healFizzle" (grey scatter); "ko"; or "overlay" (nothing past the beat's marks). [] for
+# "blackHole" (who's bead lifts to the middle of "affected"; holds back the cues after it); "healBurst" (motes + rim pulse on who), "healNumber" (green "+amount"), "healFizzle" (grey scatter); "cower" / "enraptured" (Panic's squash, Rapture's held lean on who); "raptureBloom" (soft bloom on who); "ko"; or "overlay" (nothing past the beat's marks). [] for
 # a beat kind with no mapping.
 static func beat_cues(beat: Dictionary) -> Array:
 	var kind: String = beat["kind"]
@@ -1324,7 +1325,17 @@ static func beat_cues(beat: Dictionary) -> Array:
 			cues.append({ "call": "throw", "who": actor })
 			cues.append({ "call": "effect", "who": actor, "effect": _ITEM_EFFECTS[kind] })
 			cues.append(_shield_assemble_cue(beat, actor))
-		"panic", "rapture", "anger", "fury":
+		"panic", "rapture":
+			cues.append({ "call": "throw", "who": actor })
+			if target >= 0:
+				cues.append({ "call": "travel", "who": actor, "to": target, "effect": _ITEM_EFFECTS[kind] })
+				cues.append({ "call": "effect", "who": target, "effect": _ITEM_EFFECTS[kind] })
+				cues.append({ "call": "recoil" if kind == "panic" else "raptureBloom", "who": target })
+		"cower":
+			cues.append({ "call": "cower", "who": actor })
+		"enraptured":
+			cues.append({ "call": "enraptured", "who": actor })
+		"anger", "fury":
 			cues.append({ "call": "throw", "who": actor })
 		_:
 			if not _CAST_KINDS.has(kind):
@@ -1428,6 +1439,8 @@ static func removal_lead(beat: Dictionary) -> float:
 			for key in ["liftSeconds", "hangSeconds", "warpSeconds", "popSeconds"]:
 				total += float(hole.get(key, 0.0))
 			return CombatStage.fx_seconds(total)
+		"panic", "rapture":
+			return CombatStage.fx_seconds(float(CombatStage.effect_data(_ITEM_EFFECTS[beat["kind"]]).get("travelSeconds", 0.0)))
 	return 0.0
 
 
@@ -1498,6 +1511,15 @@ func _play_cue(cp: Dictionary, cue: Dictionary, rewinding: bool) -> void:
 				slot.play_run_off()
 		"recoil":
 			slot.play_hit()
+		"cower":
+			if not rewinding:
+				slot.play_cower()
+		"enraptured":
+			if not rewinding:
+				slot.play_enraptured()
+		"raptureBloom":
+			if not rewinding:
+				slot.play_rapture_bloom()
 		"allyFailsafe":
 			_play_ally_failsafe(slot, rewinding)
 		"effect":
@@ -1624,6 +1646,10 @@ func _apply_marks(cp: Dictionary, marks: Array, animate: bool = false, held_shie
 		slot.set_stunned_visual(not cp["combatants"][i]["koed"] and marks[i].get("icons", []).any(func(icon): return icon["id"] == "stunned"))
 		slot.set_open_left(int(marks[i].get("openLeft", 0)))
 		slot.set_powder_linger(bool(marks[i].get("powdered", false)), animate and not cp["combatants"][i]["koed"])
+		var icon_ids: Array = marks[i].get("icons", []).map(func(icon): return icon["id"])
+		var alive: bool = not cp["combatants"][i]["koed"]
+		slot.set_panic_linger(alive and icon_ids.has("panic"))
+		slot.set_rapture_linger(alive and icon_ids.has("rapture"))
 		slot.set_status_icons(marks[i].get("icons", []), animate and not cp["combatants"][i]["koed"])
 
 

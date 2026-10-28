@@ -111,6 +111,11 @@ static func heal_fx() -> Dictionary:
 	return item_fx().get("healFx", {})
 
 
+# data/combat_visuals.json itemFx.panFx.<which> ("panic" or "rapture").
+static func pan_fx(which: String) -> Dictionary:
+	return item_fx().get("panFx", {}).get(which, {})
+
+
 # data/combat_visuals.json itemFx.ladyFx.
 static func lady_fx() -> Dictionary:
 	return item_fx().get("ladyFx", {})
@@ -248,6 +253,7 @@ class StageSlot extends Control:
 		layout_figure()
 
 	func layout_figure() -> void:
+		_jitter_offset = Vector2.ZERO
 		var frame_size: Vector2 = _sprite_rect.texture.get_size() if _sprite_rect.texture != null else Vector2.ZERO
 		if not _figure_box.has_area() or not frame_size.x > 0.0:
 			_figure_holder.position = Vector2.ZERO
@@ -492,6 +498,7 @@ class StageSlot extends Control:
 		set_stunned_visual(false)
 		clear_frozen_instant()
 		set_powder_linger(false)
+		clear_pan_state()
 		_start_one_shot(_ko_fall_steps(), _ko_fps, true)
 	# A KO played backwards: up from the fall, back to idle.
 	func play_get_up() -> void:
@@ -588,11 +595,174 @@ class StageSlot extends Control:
 		if on:
 			_set_idle_speed(fast)
 		elif not animate or CombatStage.reduced_motion() or ease_secs <= 0.0 or not is_inside_tree():
-			_set_idle_speed(1.0)
+			_set_idle_speed(_resting_idle_speed())
 		else:
 			_idle_speed_tween = create_tween()
 			_idle_speed_tween.tween_method(_set_idle_speed, fast, 1.0, ease_secs)
 			_spawn_dust_puff(int(fx.get("exitCount", 0)))
+
+	var _panic_on: bool = false
+	var _rapture_on: bool = false
+	var _jitter_timer: Timer
+	var _jitter_offset := Vector2.ZERO
+	var _sway_tween: Tween
+	var _pan_pose_tween: Tween
+
+	func _resting_idle_speed() -> float:
+		if _rapture_on:
+			return float(CombatStage.pan_fx("rapture").get("idleSpeed", 1.0))
+		return float(CombatStage.powder_fx().get("idleSpeed", 1.0)) if _powder_on else 1.0
+
+	# The figure's tint while a Pan status holds: Panic greyed, Rapture warm pink.
+	func _refresh_pan_tint() -> void:
+		var tint := Color.WHITE
+		if _panic_on:
+			tint = Color.WHITE.lerp(Color(0.55, 0.55, 0.55), float(CombatStage.pan_fx("panic").get("desaturate", 0.0)))
+		elif _rapture_on:
+			var fx := CombatStage.pan_fx("rapture")
+			tint = Color.WHITE.lerp(CombatStage.rgb(fx.get("tint", [])), float(fx.get("tintMix", 0.0)))
+		_figure_holder.modulate = tint
+
+	# While Panic holds: a jitterPx offset flicking at jitterHz and a greyed tint.
+	func set_panic_linger(on: bool) -> void:
+		if on == _panic_on:
+			return
+		_panic_on = on
+		_refresh_pan_tint()
+		if _jitter_timer != null:
+			_jitter_timer.stop()
+		_clear_jitter()
+		if not on or CombatStage.reduced_motion():
+			return
+		if _jitter_timer == null:
+			_jitter_timer = Timer.new()
+			_jitter_timer.timeout.connect(_jitter_step)
+			add_child(_jitter_timer)
+		_jitter_timer.wait_time = 1.0 / maxf(float(CombatStage.pan_fx("panic").get("jitterHz", 12.0)), 1.0)
+		if _jitter_timer.is_inside_tree():
+			_jitter_timer.start()
+		else:
+			_jitter_timer.autostart = true
+
+	func _jitter_step() -> void:
+		if _run_tween != null and _run_tween.is_valid():
+			return
+		var px: float = float(CombatStage.pan_fx("panic").get("jitterPx", 0.0))
+		_figure_holder.position -= _jitter_offset
+		_jitter_offset = Vector2(float(randi_range(-1, 1)), float(randi_range(-1, 1))) * px
+		_figure_holder.position += _jitter_offset
+
+	func _clear_jitter() -> void:
+		_figure_holder.position -= _jitter_offset
+		_jitter_offset = Vector2.ZERO
+
+	# While Pan's Rapture holds: idle at half speed, a slow sway about the feet and a warm tint.
+	func set_rapture_linger(on: bool) -> void:
+		if on == _rapture_on:
+			return
+		_rapture_on = on
+		_refresh_pan_tint()
+		_kill_pan_tween(_sway_tween)
+		_figure_holder.rotation_degrees = 0.0
+		_set_idle_speed(_resting_idle_speed())
+		if on:
+			_start_sway()
+
+	func _start_sway() -> void:
+		if CombatStage.reduced_motion() or not is_inside_tree():
+			return
+		var fx := CombatStage.pan_fx("rapture")
+		_figure_holder.pivot_offset = Vector2(_figure_holder.size.x / 2.0, _figure_holder.size.y)
+		var degrees: float = float(fx.get("swayDegrees", 0.0))
+		_sway_tween = create_tween().set_loops()
+		_sway_tween.tween_method(func(t: float) -> void: _figure_holder.rotation_degrees = degrees * sin(t * TAU), 0.0, 1.0, maxf(float(fx.get("swaySeconds", 1.5)), 0.1))
+
+	func _kill_pan_tween(tween: Tween) -> void:
+		if tween != null and tween.is_valid():
+			tween.kill()
+
+	# A KO or Rewind restore: lingers and pan poses end outright.
+	func clear_pan_state() -> void:
+		set_panic_linger(false)
+		set_rapture_linger(false)
+		_kill_pan_tween(_pan_pose_tween)
+		_figure_holder.scale = Vector2.ONE
+
+	# Panic's cower beat: squash squashPct down and shudder for cowerSeconds.
+	func play_cower() -> void:
+		if not is_inside_tree():
+			return
+		var fx := CombatStage.pan_fx("panic")
+		var secs := CombatStage.fx_seconds(float(fx.get("cowerSeconds", 0.0)))
+		if secs <= 0.0:
+			return
+		_kill_pan_tween(_pan_pose_tween)
+		_figure_holder.pivot_offset = Vector2(_figure_holder.size.x / 2.0, _figure_holder.size.y)
+		var squash: float = 1.0 - float(fx.get("squashPct", 0.0)) / 100.0
+		var shudder: float = 0.0 if CombatStage.reduced_motion() else float(fx.get("shudderPct", 0.0)) / 100.0
+		var hz: float = float(fx.get("shudderHz", 0.0))
+		_pan_pose_tween = create_tween()
+		_pan_pose_tween.tween_method(func(t: float) -> void: _figure_holder.scale = Vector2(1.0 + shudder * sin(t * secs * hz * TAU), squash), 0.0, 1.0, secs)
+		_pan_pose_tween.tween_callback(func(): _figure_holder.scale = Vector2.ONE)
+
+	# Rapture land: a soft pink bloom of the sprite, in and out (none under reduced motion).
+	func play_rapture_bloom() -> void:
+		var fx := CombatStage.pan_fx("rapture")
+		var secs := CombatStage.fx_seconds(float(fx.get("bloomSeconds", 0.0)))
+		if secs <= 0.0 or CombatStage.reduced_motion() or not is_inside_tree() or _sprite_rect.texture == null:
+			return
+		var bloom := _new_overlay_rect(5)
+		bloom.texture = _sprite_rect.texture
+		bloom.size = _figure_holder.size
+		bloom.position = _sprite_rect.position
+		bloom.flip_h = _sprite_rect.flip_h
+		var tint := CombatStage.rgb(fx.get("tint", []))
+		tint.a = 0.0
+		bloom.modulate = tint
+		_figure_holder.add_child(bloom)
+		var peak: float = float(fx.get("bloomAlpha", 0.0))
+		var tween := bloom.create_tween()
+		tween.tween_method(func(t: float) -> void: bloom.modulate.a = sin(t * PI) * peak, 0.0, 1.0, secs)
+		tween.tween_callback(bloom.queue_free)
+
+	# Rapture's enraptured beat: the sway holds at peak lean while pink motes rise.
+	func play_enraptured() -> void:
+		if not is_inside_tree() or CombatStage.reduced_motion():
+			return
+		var fx := CombatStage.pan_fx("rapture")
+		_spawn_motes(fx)
+		if not _rapture_on:
+			return
+		_kill_pan_tween(_sway_tween)
+		var secs := CombatStage.fx_seconds(float(fx.get("holdSeconds", 0.0)))
+		var degrees: float = float(fx.get("swayDegrees", 0.0))
+		_sway_tween = create_tween()
+		_sway_tween.tween_property(_figure_holder, "rotation_degrees", degrees, secs * 0.2)
+		_sway_tween.tween_interval(secs * 0.8)
+		_sway_tween.tween_property(_figure_holder, "rotation_degrees", 0.0, secs * 0.2)
+		_sway_tween.tween_callback(_start_sway)
+
+	# Specks rising from the feet: count, sizePx, risePx over riseSeconds, spreadPx apart, colours cycling.
+	func _spawn_motes(fx: Dictionary) -> void:
+		var count: int = int(fx.get("moteCount", 0))
+		var speck: float = float(fx.get("moteSizePx", 3.0))
+		var rise_secs := CombatStage.fx_seconds(float(fx.get("moteRiseSeconds", 0.0)))
+		if count <= 0 or rise_secs <= 0.0:
+			return
+		var colours: Array = fx.get("moteColours", [[1.0, 1.0, 1.0]])
+		for i in range(count):
+			var mote := ColorRect.new()
+			mote.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			mote.color = CombatStage.rgb(colours[i % colours.size()])
+			mote.size = Vector2.ONE * speck
+			mote.z_index = 6
+			mote.position = Vector2(size.x / 2.0 + (float(i) - float(count - 1) / 2.0) * float(fx.get("moteSpreadPx", 0.0)) - speck / 2.0, size.y - speck)
+			add_child(mote)
+			var stagger: float = rise_secs * 0.4 * float(i) / float(count)
+			var tween := mote.create_tween().set_parallel(true)
+			tween.tween_property(mote, "position:y", mote.position.y - float(fx.get("moteRisePx", 0.0)), rise_secs).set_delay(stagger)
+			tween.tween_property(mote, "modulate:a", 0.0, rise_secs).set_delay(stagger).set_ease(Tween.EASE_IN)
+			tween.finished.connect(mote.queue_free)
 
 	# Powder launch: a dust puff at head height and one afterimage peeling off.
 	func play_powder_launch() -> void:
@@ -756,6 +926,8 @@ class StageSlot extends Control:
 		_sprite_rect.modulate.a = 1.0
 		_sprite_rect.visible = not _idle_frames.is_empty()
 		_apply_flip()
+		_kill_pan_tween(_pan_pose_tween)
+		_figure_holder.scale = Vector2.ONE
 
 	static func _run_off_fx() -> Dictionary:
 		return GameData.COMBAT_VISUALS.get("pacing", {}).get("runOffFx", {})
@@ -1678,7 +1850,7 @@ func play_effect(beat: Dictionary, effect_key: String, fallback_target: Dictiona
 		return
 	if frames.is_empty():
 		var data := effect_data(effect_key)
-		slot.play_stand_in(rgb(data.get("colour", [])), fx_seconds(float(data.get("landSeconds", 0.0))))
+		slot.play_stand_in(rgb(data.get("landColour", data.get("colour", []))), fx_seconds(float(data.get("landSeconds", 0.0))))
 	else:
 		slot.play_effect_sheet(frames, entry.get("fps", 0.0))
 

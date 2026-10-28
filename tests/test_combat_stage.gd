@@ -100,6 +100,48 @@ func run() -> void:
 		slot.free()
 	)
 
+	run_case("panic_linger_greys_and_jitters_rapture_linger_slows_idle_and_tints_and_ko_clears_both", func():
+		var slot := CombatStage.StageSlot.new()
+		var frames: Array[Texture2D] = [PlaceholderTexture2D.new(), PlaceholderTexture2D.new()]
+		slot.set_idle_animation(frames, 10.0)
+		slot.set_panic_linger(true)
+		assert_true(slot._figure_holder.modulate.r < 1.0, "panic greys the figure")
+		assert_true(slot._jitter_timer != null and slot._jitter_timer.autostart, "jitter runs")
+		slot.set_panic_linger(false)
+		assert_eq(slot._figure_holder.modulate, Color.WHITE, "tint ends with the status")
+		slot.set_rapture_linger(true)
+		assert_almost_eq(slot._idle_timer.wait_time, 0.1 / float(CombatStage.pan_fx("rapture")["idleSpeed"]), 0.0001, "idle at half speed")
+		assert_true(slot._figure_holder.modulate.b < 1.0, "warm pink tint")
+		slot.clear_pan_state()
+		assert_almost_eq(slot._idle_timer.wait_time, 0.1, 0.0001, "clear restores idle")
+		assert_eq(slot._figure_holder.modulate, Color.WHITE, "clear drops the tint")
+		slot.set_panic_linger(true)
+		slot.play_ko()
+		assert_eq(slot._figure_holder.modulate, Color.WHITE, "KO clears instantly")
+		slot.free()
+	)
+
+	run_case("reduced_motion_keeps_the_pan_tints_but_drops_jitter", func():
+		var prior = GameState.state.get("meta", {}).get("reducedMotion", false)
+		GameState.state["meta"]["reducedMotion"] = true
+		var slot := CombatStage.StageSlot.new()
+		slot.set_panic_linger(true)
+		assert_true(slot._jitter_timer == null, "no jitter timer")
+		assert_true(slot._figure_holder.modulate.r < 1.0, "tint stays")
+		slot.free()
+		GameState.state["meta"]["reducedMotion"] = prior
+	)
+
+	run_case("pan_fx_is_data_for_both_statuses_and_both_effects_carry_stand_in_data", func():
+		for which in ["panic", "rapture"]:
+			assert_true(not CombatStage.pan_fx(which).is_empty(), "%s panFx" % which)
+			var data := CombatStage.effect_data(which)
+			for field in ["colour", "landColour", "travelSeconds", "landSeconds"]:
+				assert_true(data.has(field), "%s has %s" % [which, field])
+		assert_true(float(CombatStage.effect_data("panic")["travelSeconds"]) < float(CombatStage.effect_data("rapture")["travelSeconds"]), "panic fast, rapture slow")
+		assert_true(float(CombatStage.effect_data("panic")["landSeconds"]) < float(CombatStage.effect_data("rapture")["landSeconds"]), "panic small, rapture wide")
+	)
+
 	run_case("freeze_fx_durations_are_data_driven_and_halve_when_quick", func():
 		var fx: Dictionary = GameData.COMBAT_VISUALS["pacing"]["freezeFx"]
 		var prior: String = CombatPacing.pacing_mode()

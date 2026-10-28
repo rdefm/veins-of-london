@@ -2655,6 +2655,18 @@ func run() -> void:
 		assert_true(not CombatRounds.stage_marks(combat)[0]["powdered"], "KO clears it")
 	)
 
+	run_case("beat_cues_panic_and_rapture_throw_travel_land_and_their_turn_beats_play_poses", func():
+		var panic: Array = CombatRoundsScreen.beat_cues({ "kind": "panic", "actor": 0, "target": 1 })
+		assert_eq(panic.map(func(c): return c["call"]), ["throw", "travel", "effect", "recoil"], "panic: vial, flinch without a flash")
+		assert_eq(panic[2]["effect"], "panic", "panic effect")
+		var rapture: Array = CombatRoundsScreen.beat_cues({ "kind": "rapture", "actor": 0, "target": 2 })
+		assert_eq(rapture.map(func(c): return c["call"]), ["throw", "travel", "effect", "raptureBloom"], "rapture: vial, bloom")
+		assert_eq(int(rapture[3]["who"]), 2, "bloom on the target")
+		assert_eq(CombatRoundsScreen.beat_cues({ "kind": "cower", "actor": 1, "target": -1 }), [{ "call": "cower", "who": 1 }], "cower")
+		assert_eq(CombatRoundsScreen.beat_cues({ "kind": "enraptured", "actor": 1, "target": -1 }), [{ "call": "enraptured", "who": 1 }], "enraptured")
+		assert_true(CombatRoundsScreen.removal_lead({ "kind": "rapture" }) > CombatRoundsScreen.removal_lead({ "kind": "panic" }), "marks wait out the flight, rapture's longer")
+	)
+
 	run_case("beat_cues_run_off_for_fled_and_bolt_but_wormhole_folds", func():
 		for kind in ["fled", "bolt"]:
 			var cues: Array = CombatRoundsScreen.beat_cues({ "kind": kind, "actor": 1, "target": -1 })
