@@ -43,16 +43,11 @@ const _ENTRY_HEIGHT := 250.0
 # Docked notebook geometry: a strip of the side-tabs art cropped to its first
 # entry slot, the browsed step; rects are in the strip's own pixel space (art
 # y minus 90). The rest of the page is never shown.
-const _STEP_STRIP := Rect2(0, 90, 1024, 600)
+const _STEP_STRIP := Rect2(0, 90, 1024, 360)
 const _STEP_HEADER := Rect2(200, 38, 640, 44)
 const _STEP_BOX := Rect2(210, 115, 215, 210)
 const _STEP_TEXT := Rect2(450, 150, 380, 130)
 const _STEP_BAND := Rect2(450, 290, 380, 50)
-const _STEP_STATUS := Rect2(200, 350, 640, 70)
-const _STEP_EFFECTS_TOP := 425.0
-const _STEP_NAV_TOP := 505.0
-const _INK_BUTTON_HEIGHT := 80.0
-const _INK_BUTTON_FONT := 40.0
 
 enum Page { NONE, BOOK, RECIPE, RUN }
 
@@ -700,9 +695,20 @@ func _build_run() -> void:
 	var lesson = LessonSession.lesson()
 	var in_run: bool = _result.is_empty() and not (lesson != null and lesson["met"])
 	if in_run:
-		# The bare notebook rises over the press for size, never over the jars.
+		# The bare notebook is only its step section, sat on the nav bar; the
+		# freed gap above it holds the run's controls.
 		var wanted: float = (size.x - 2.0 * _OVERLAY_MARGIN) * _STEP_STRIP.size.y / _STEP_STRIP.size.x
-		dock_top = maxf(minf(dock_top, size.y - dock_bottom - wanted), _jar_bottom(frame, GameData.HQ_VISUALS["labBench"]["regions"]))
+		dock_top = size.y - dock_bottom - wanted
+		var controls := _build_notebook_controls(lesson)
+		controls.name = "NotebookControls"
+		UI.anchor_full_rect(controls)
+		controls.anchor_top = 1.0
+		controls.offset_left = _OVERLAY_MARGIN
+		controls.offset_right = -_OVERLAY_MARGIN
+		controls.offset_bottom = dock_top - size.y
+		controls.offset_top = controls.offset_bottom
+		controls.grow_vertical = Control.GROW_DIRECTION_BEGIN
+		add_child(controls)
 
 	var book := _build_docked_book()
 	book.name = "DockedBook"
@@ -729,7 +735,7 @@ func _build_run() -> void:
 func _build_docked_book() -> Control:
 	var lesson = LessonSession.lesson()
 	if _result.is_empty() and not (lesson != null and lesson["met"]):
-		return _build_notebook(lesson)
+		return _build_notebook()
 	var c := MapCardStyle.card(14, 0.16)
 	var scroller := UI.scroll_container()
 	scroller.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -749,13 +755,22 @@ func _build_docked_book() -> Control:
 	return c["panel"]
 
 
-# The mid-run notebook on its own: the side-tabs art with the browsed step,
-# the run's notice and its page buttons all written on the page.
-func _build_notebook(lesson: Variant) -> Control:
+# The mid-run notebook on its own: the side-tabs art cropped to the browsed
+# step's section.
+func _build_notebook() -> Control:
+	var steps := Lab.known_procedure(_recipe_key)
+	var shown := _shown_step(steps.size())
+	return _build_step_strip(steps, shown)
+
+
+# The run's controls above the notebook: notice line, Use-item buttons and
+# Prev / Next / Finish as card buttons.
+func _build_notebook_controls(lesson: Variant) -> Control:
 	var run = Lab.active_run()
 	var steps := Lab.known_procedure(_recipe_key)
 	var shown := _shown_step(steps.size())
-	var strip := _build_step_strip(steps, shown)
+	var c := MapCardStyle.card(14, 0.16, 6)
+	var content: VBoxContainer = c["content"]
 
 	var lines := PackedStringArray()
 	if lesson != null:
@@ -763,62 +778,30 @@ func _build_notebook(lesson: Variant) -> Control:
 	if _notice != "":
 		lines.append(_notice)
 	if not lines.is_empty():
-		var status := _page_label("\n".join(lines), RecipeBookPage.INK_MUTED)
+		var status := MapCardStyle.label("\n".join(lines), 13, MapCardStyle.action())
 		status.name = "NotebookStatus"
 		status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		status.clip_text = true
-		strip.place(status, _STEP_STATUS, 28.0, 9)
+		content.add_child(status)
 
-	_place_ink_row(strip, _STEP_EFFECTS_TOP, _effect_buttons())
+	var effects := _effect_buttons()
+	if not effects.is_empty():
+		var effect_row := UI.hbox(6)
+		for e in effects:
+			e.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			effect_row.add_child(e)
+		content.add_child(effect_row)
 
 	# A step arrow shows only when there's a step in its direction.
-	var nav: Array[Control] = []
+	var nav := UI.hbox(6)
 	if shown > 0:
-		nav.append(_ink_button("‹ Prev", func(): _browse_step(shown - 1)))
+		nav.add_child(MapCardStyle.text_button("‹ Prev", func(): _browse_step(shown - 1)))
 	if shown < steps.size() - 1:
-		nav.append(_ink_button("Next ›", func(): _browse_step(shown + 1)))
-	nav.append(_ink_button("Finish", _on_finish, lesson != null and run == null))
-	_place_ink_row(strip, _STEP_NAV_TOP, nav)
-	return strip
-
-
-# A button written on the notebook page: ink text in the page's hand over a
-# thin ink rule, no UI chrome.
-func _ink_button(text: String, on_press: Callable, disabled: bool = false) -> Button:
-	var button := Button.new()
-	button.text = text
-	button.disabled = disabled
-	button.focus_mode = Control.FOCUS_NONE
-	button.add_theme_font_override("font", RecipeBookPage.font())
-	button.add_theme_color_override("font_color", RecipeBookPage.INK)
-	button.add_theme_color_override("font_hover_color", RecipeBookPage.INK)
-	button.add_theme_color_override("font_pressed_color", RecipeBookPage.INK)
-	button.add_theme_color_override("font_disabled_color", Color(RecipeBookPage.INK_MUTED, 0.5))
-	var normal := StyleBoxFlat.new()
-	normal.bg_color = Color(0, 0, 0, 0)
-	normal.set_border_width_all(0)
-	normal.border_width_bottom = 4
-	normal.border_color = RecipeBookPage.INK
-	var pressed := normal.duplicate() as StyleBoxFlat
-	pressed.bg_color = Color(RecipeBookPage.INK, 0.12)
-	var off := normal.duplicate() as StyleBoxFlat
-	off.border_color = Color(RecipeBookPage.INK_MUTED, 0.4)
-	button.add_theme_stylebox_override("normal", normal)
-	button.add_theme_stylebox_override("hover", normal)
-	button.add_theme_stylebox_override("pressed", pressed)
-	button.add_theme_stylebox_override("disabled", off)
-	button.pressed.connect(on_press)
-	return button
-
-
-# Evenly spaces `buttons` across the page's text column at art-space `top`.
-func _place_ink_row(strip: RecipeBookPage, top: float, buttons: Array[Control]) -> void:
-	if buttons.is_empty():
-		return
-	var gap := 20.0
-	var width := (_STEP_STATUS.size.x - gap * (buttons.size() - 1)) / buttons.size()
-	for i in buttons.size():
-		strip.place(buttons[i], Rect2(_STEP_STATUS.position.x + i * (width + gap), top, width, _INK_BUTTON_HEIGHT), _INK_BUTTON_FONT, 10)
+		nav.add_child(MapCardStyle.text_button("Next ›", func(): _browse_step(shown + 1)))
+	nav.add_child(MapCardStyle.text_button("Finish", _on_finish, lesson != null and run == null))
+	for b in nav.get_children():
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	content.add_child(nav)
+	return c["panel"]
 
 
 # The known step the strip shows: the browsed one, else the run's next step
@@ -933,12 +916,12 @@ func _effect_buttons() -> Array[Control]:
 		var effect = ActiveEffects.find(item)
 		if effect != null:
 			# PROSE-REVIEW: bench active-effect status.
-			var left := _page_label("%s · %d left" % [item_name, ActiveEffects.blocks_left(effect)], RecipeBookPage.INK_MUTED)
+			var left := MapCardStyle.label("%s · %d left" % [item_name, ActiveEffects.blocks_left(effect)], 13, MapCardStyle.dim())
 			left.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			out.append(left)
 		else:
 			var qty := Crafting.inventory_qty(item)
-			out.append(_ink_button("Use %s (%d)" % [item_name, qty], func(): Lab.use_effect(item), qty <= 0))
+			out.append(MapCardStyle.text_button("Use %s (%d)" % [item_name, qty], func(): Lab.use_effect(item), qty <= 0))
 	return out
 
 

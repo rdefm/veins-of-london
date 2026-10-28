@@ -242,8 +242,9 @@ func run() -> void:
 		var press: Dictionary = plate["regions"]["apparatus_compression"]
 		var press_bottom: float = plate_top + (float(press["y"]) + float(press["height"])) * scale_factor
 		var book_top := _docked_book_rect(screen).position.y
-		assert_true(book_top <= press_bottom + 0.01, "the notebook rises over the Press, never below its bottom edge")
+		assert_true(book_top >= press_bottom - 0.01, "the step-section notebook sits below the Press, leaving a gap for the controls")
 		assert_true(book_top >= screen._jar_bottom(screen._diorama.get_parent(), plate["regions"]) - 0.01, "and never over the jars")
+		assert_true(screen.find_child("NotebookControls", true, false) != null, "the controls sit above the book")
 		UiSim.tap_zone(screen, "apparatus_compression")
 		var centre := _find_gauge(screen) as Node
 		while centre.get_parent() != screen:
@@ -254,13 +255,14 @@ func run() -> void:
 		screen.free()
 	)
 
-	run_case("on_a_short_screen_the_docked_book_keeps_its_minimum_height_over_the_press", func():
+	run_case("on_a_short_screen_the_docked_result_card_keeps_its_minimum_height_over_the_press", func():
 		GameState.reset()
 		GameState.state["player"]["orichalchum"]["time"] = 10
 		Lab.grant_recipe("timePearl")
 		Lab.add_ore("timePearl", "time")
 		var screen := _screen()
 		screen.size = Vector2(390.0, 640.0)
+		screen._result = {"outcome": "cracked", "xp": 1}
 		screen._refresh()
 		var book := _docked_book_rect(screen)
 		assert_true(book.size.y >= HqLabBenchScreen._DOCK_MIN_HEIGHT, "the dock keeps at least its minimum height")
