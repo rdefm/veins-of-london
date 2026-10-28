@@ -561,6 +561,8 @@ static func new_combatant(side: String, name: String, level: int, hp: int, hp_ma
 		"frozenActions": 0,
 		# Absorb pool; while above 0 it counts as Guarded (Shield).
 		"shield": 0,
+		# The pool a Shield last raised it to (the stage's density denominator).
+		"shieldMax": 0,
 		# Timed item effects, each running through the end of this round
 		# number: Enhancement Powder's +1 action, Be a Lady's max rolls (at
 		# ladyCrit crit chance, cutting targets' evade by ladyTier steps) and
@@ -2178,7 +2180,7 @@ static func _tick_anger(cp: Dictionary, actor_idx: int, beats: Array) -> void:
 
 # Each combatant's stage overlay as the fight stands: { guard: guard_marker()
 # ("" once KO'd), shielded (a Shield pool holds), frozen (a Time Pearl
-# freeze holds), frozenLeft (frozen actions still to pass), icons
+# freeze holds), shieldFraction (shield_fraction()), frozenLeft (frozen actions still to pass), icons
 # (status_icons()), powdered (an Enhancement Powder runs), openLeft (Stun hold-open actions still to pass) }.
 static func stage_marks(cp: Dictionary) -> Array:
 	var marks: Array = []
@@ -2186,13 +2188,22 @@ static func stage_marks(cp: Dictionary) -> Array:
 		var c: Dictionary = cp["combatants"][i]
 		marks.append({
 			"guard": "" if c["koed"] else guard_marker(cp, c),
-			"shielded": int(c["shield"]) > 0, "frozen": not c["koed"] and int(c["frozenActions"]) > 0,
+			"shielded": int(c["shield"]) > 0, "shieldFraction": shield_fraction(c),
+			"frozen": not c["koed"] and int(c["frozenActions"]) > 0,
 			"frozenLeft": 0 if c["koed"] else int(c["frozenActions"]),
 			"icons": status_icons(cp, i),
 			"powdered": not c["koed"] and is_powered(cp, c),
 			"openLeft": 0 if c["koed"] else int(c.get("openActions", 0)),
 		})
 	return marks
+
+
+# The Shield pool left over the pool it was raised to, 0..1 (0 with none up).
+static func shield_fraction(combatant: Dictionary) -> float:
+	var pool := int(combatant["shield"])
+	if pool <= 0:
+		return 0.0
+	return clampf(float(pool) / float(maxi(int(combatant.get("shieldMax", pool)), pool)), 0.0, 1.0)
 
 
 # "open" or "guarded", in is_open()'s order: a freeze or Stun hold reads Open, a Shield
@@ -2456,6 +2467,7 @@ static func _use_item(cp: Dictionary, actor_idx: int, action: Dictionary, m: Dic
 			var shielded := int(action["target"]) if action.has("kit") else actor_idx
 			for target in (_team(cp, actor_idx) if multi else [shielded]):
 				combatants[target]["shield"] = maxi(combatants[target]["shield"], power)
+				combatants[target]["shieldMax"] = combatants[target]["shield"]
 			if shielded == actor_idx:
 				_beat(cp, beats, "shield", actor_idx, -1, move_id, {})
 			else:

@@ -937,6 +937,30 @@ func run() -> void:
 		assert_true(not CombatRounds.is_open(combat, you), "but the pool keeps it Guarded")
 	)
 
+	run_case("shield_fraction_is_the_pool_left_over_the_pool_raised", func():
+		var c := { "shield": 0, "shieldMax": 0 }
+		assert_almost_eq(CombatRounds.shield_fraction(c), 0.0, 0.0001, "none up")
+		c = { "shield": 4, "shieldMax": 4 }
+		assert_almost_eq(CombatRounds.shield_fraction(c), 1.0, 0.0001, "fresh pool")
+		c["shield"] = 1
+		assert_almost_eq(CombatRounds.shield_fraction(c), 0.25, 0.0001, "worn")
+		GameState.reset()
+		var combat := _start_armed([{ "recipe": "shield", "tier": 2 }], [["guard", "guard"]])
+		assert_true(Combat.choose_item(0)["ok"])
+		assert_eq(combat["combatants"][CombatRounds.PLAYER_INDEX]["shieldMax"], 4, "raised pool is recorded")
+	)
+
+	run_case("shield_beats_cue_a_panel_assemble_at_the_marked_level", func():
+		var marks := [{ "shieldFraction": 0.5 }, { "shieldFraction": 1.0 }]
+		var own: Array = CombatRoundsScreen.beat_cues({ "kind": "shield", "actor": 0, "target": -1, "marks": marks })
+		assert_true(own.any(func(q): return q["call"] == "shieldAssemble" and q["who"] == 0 and is_equal_approx(q["level"], 0.5)), "self")
+		var other: Array = CombatRoundsScreen.beat_cues({ "kind": "shieldOther", "actor": 0, "target": 1, "marks": marks })
+		assert_true(other.any(func(q): return q["call"] == "shieldAssemble" and q["who"] == 1), "ally")
+		assert_eq(other.map(func(q): return q["call"]).find("travel") < other.map(func(q): return q["call"]).find("shieldAssemble"), true, "after the flight")
+		assert_eq(CombatRoundsScreen.shield_raised({ "kind": "shieldOther", "actor": 0, "target": 1 }), 1, "ally slot held for the cue")
+		assert_eq(CombatRoundsScreen.shield_raised({ "kind": "hit", "actor": 0, "target": 1 }), -1, "other beats hold nothing")
+	)
+
 	run_case("enhancement_powder_adds_an_action_this_round", func():
 		GameState.reset()
 		var combat := _start_armed([{ "recipe": "enhancementPowder", "tier": 5 }], [["guard", "guard"]])

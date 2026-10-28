@@ -827,6 +827,9 @@ class StageSlot extends Control:
 	var guard_marker: String = ""
 
 	func set_guard_marker(value: String) -> void:
+		if _shield_bursting:
+			_pending_guard_marker = value
+			return
 		if value == guard_marker:
 			return
 		guard_marker = value
@@ -1003,6 +1006,160 @@ class StageSlot extends Control:
 		_shield_loop_index = (_shield_loop_index + 1) % _shield_loop_frames.size()
 		_shield_loop_rect.texture = _shield_loop_frames[_shield_loop_index]
 
+	# Shield hex panels (the stand-in while the shield sheet is empty): `_shield_alpha` /
+	# `_shield_shift` per panel, bottom row first; `_shield_fraction` is the drawn level.
+	var _shield_fraction: float = 0.0
+	var _shield_alpha := PackedFloat32Array()
+	var _shield_shift := PackedVector2Array()
+	var _shield_phase: float = 0.0
+	var _shield_tween: Tween
+	var _shimmer_tween: Tween
+	var _shield_bursting: bool = false
+	var _pending_guard_marker: String = ""
+
+	static func shield_panels() -> Dictionary:
+		return CombatStage.effect_data("shield").get("panels", {})
+
+	static func shield_panel_count() -> int:
+		var cfg := shield_panels()
+		return int(cfg.get("cols", 0)) * int(cfg.get("rows", 0))
+
+	# Panels showing at pool fraction `fraction`: any pool left shows at least one.
+	static func shield_visible_count(fraction: float) -> int:
+		return clampi(ceili(fraction * float(shield_panel_count()) - 0.0001), 0, shield_panel_count())
+
+	# Sets the Shield to pool `fraction` (0 = down). `animate` assembles new
+	# panels bottom-up, sheds the lost ones downward, or bursts the rest on a
+	# break; otherwise (or under reduced motion) it sets the density outright.
+	# The shimmer runs whenever panels show.
+	func set_shield_level(fraction: float, animate: bool) -> void:
+		var n := shield_panel_count()
+		if n <= 0:
+			return
+		var before := shield_visible_count(_shield_fraction) if _shield_alpha.size() == n else 0
+		var after := shield_visible_count(fraction)
+		if _shield_loop_rect != null:
+			var cfg := shield_panels()
+			_shield_loop_rect.modulate.a = lerpf(float(cfg.get("sparseAlpha", 0.2)), float(cfg.get("fullAlpha", 0.65)), fraction) / maxf(float(cfg.get("fullAlpha", 0.65)), 0.01)
+		if not animate or CombatStage.reduced_motion() or not is_inside_tree() or before == after:
+			_snap_shield(after, fraction)
+		elif after > before:
+			_assemble_shield(before, after, fraction)
+		elif after > 0:
+			_shed_shield(before, after, fraction)
+		else:
+			_burst_shield(before)
+		_sync_shimmer()
+
+	func _snap_shield(count: int, fraction: float) -> void:
+		var n := shield_panel_count()
+		if _shield_tween != null:
+			_shield_tween.kill()
+		_end_shield_burst()
+		_shield_alpha.resize(n)
+		_shield_shift.resize(n)
+		for i in range(n):
+			_shield_alpha[i] = 1.0 if i < count else 0.0
+			_shield_shift[i] = Vector2.ZERO
+		_shield_fraction = fraction
+		_overlay.queue_redraw()
+
+	func _assemble_shield(before: int, after: int, fraction: float) -> void:
+		_snap_shield(before, fraction)
+		var secs := CombatStage.fx_seconds(float(shield_panels().get("assembleSeconds", 0.0)))
+		_shield_tween = create_tween().set_parallel(true)
+		for i in range(before, after):
+			var delay := secs * 0.6 * float(i - before) / float(after - before)
+			_shield_tween.tween_method(_set_panel_alpha.bind(i), 0.0, 1.0, secs * 0.4).set_delay(delay)
+
+	func _shed_shield(before: int, after: int, fraction: float) -> void:
+		_snap_shield(before, fraction)
+		var cfg := shield_panels()
+		var secs := CombatStage.fx_seconds(float(cfg.get("shedSeconds", 0.0)))
+		var fall := float(cfg.get("fallPx", 0.0))
+		_shield_tween = create_tween().set_parallel(true)
+		for i in range(after, before):
+			_shield_tween.tween_method(_set_panel_alpha.bind(i), 1.0, 0.0, secs)
+			_shield_tween.tween_method(_set_panel_shift.bind(i), Vector2.ZERO, Vector2(0.0, fall), secs)
+
+	func _burst_shield(before: int) -> void:
+		var fraction := _shield_fraction
+		_snap_shield(before, fraction)
+		var cfg := shield_panels()
+		var cols := int(cfg.get("cols", 1))
+		var rows := int(cfg.get("rows", 1))
+		var secs := CombatStage.fx_seconds(float(cfg.get("burstSeconds", 0.0)))
+		var reach := float(cfg.get("burstPx", 0.0))
+		_shield_bursting = true
+		_pending_guard_marker = guard_marker
+		_shield_tween = create_tween().set_parallel(true)
+		for i in range(before):
+			var out := Vector2((float(i % cols) + 0.5) / float(cols) - 0.5, 0.5 - (floorf(float(i) / float(cols)) + 0.5) / float(rows)).normalized() * reach
+			_shield_tween.tween_method(_set_panel_alpha.bind(i), 1.0, 0.0, secs)
+			_shield_tween.tween_method(_set_panel_shift.bind(i), Vector2.ZERO, out, secs)
+		_shield_tween.chain().tween_callback(_finish_shield_burst)
+
+	func _finish_shield_burst() -> void:
+		_snap_shield(0, 0.0)
+		_sync_shimmer()
+
+	# Ends a burst in progress, the guard marker settling on the real state.
+	func _end_shield_burst() -> void:
+		if not _shield_bursting:
+			return
+		_shield_bursting = false
+		if _pending_guard_marker != guard_marker:
+			guard_marker = _pending_guard_marker
+			_overlay.queue_redraw()
+
+	func _set_panel_alpha(value: float, index: int) -> void:
+		_shield_alpha[index] = value
+		_overlay.queue_redraw()
+
+	func _set_panel_shift(value: Vector2, index: int) -> void:
+		_shield_shift[index] = value
+		_overlay.queue_redraw()
+
+	func _set_shield_phase(value: float) -> void:
+		_shield_phase = value
+		_overlay.queue_redraw()
+
+	func _sync_shimmer() -> void:
+		var showing := _shield_fraction > 0.0 and is_inside_tree()
+		if showing and _shimmer_tween == null:
+			var secs := float(shield_panels().get("shimmerSeconds", 0.0))
+			if secs > 0.0:
+				_shimmer_tween = create_tween().set_loops()
+				_shimmer_tween.tween_method(_set_shield_phase, 0.0, 1.0, secs)
+		elif not showing and _shimmer_tween != null:
+			_shimmer_tween.kill()
+			_shimmer_tween = null
+
+	func _draw_shield_panels() -> void:
+		var cfg := shield_panels()
+		var cols := int(cfg.get("cols", 0))
+		var rows := int(cfg.get("rows", 0))
+		if cols <= 0 or rows <= 0 or _shield_alpha.size() != cols * rows or not _shield_loop_frames.is_empty():
+			return
+		var base := lerpf(float(cfg.get("sparseAlpha", 0.2)), float(cfg.get("fullAlpha", 0.65)), _shield_fraction)
+		var cell := Vector2(size.x / float(cols), size.y / float(rows))
+		var radius := minf(cell.x, cell.y) * 0.55
+		var colour := CombatStage.rgb(CombatStage.effect_data("shield").get("colour", []))
+		for i in range(cols * rows):
+			var a := _shield_alpha[i]
+			if a <= 0.001:
+				continue
+			var shimmer := lerpf(0.65, 1.0, 0.5 + 0.5 * sin(TAU * (_shield_phase + float(i) * 0.17)))
+			if _shield_fraction < 0.34 and sin(TAU * (_shield_phase * 3.0 + float(i) * 0.37)) < -0.3:
+				shimmer *= 0.25
+			var centre := Vector2((float(i % cols) + 0.5) * cell.x, size.y - (floorf(float(i) / float(cols)) + 0.5) * cell.y) + _shield_shift[i]
+			var points := PackedVector2Array()
+			for k in range(7):
+				points.append(centre + Vector2.from_angle(TAU * float(k) / 6.0) * radius)
+			var alpha := a * base * shimmer
+			_overlay.draw_colored_polygon(points.slice(0, 6), Color(colour, alpha * 0.45))
+			_overlay.draw_polyline(points, Color(colour, minf(alpha * 1.4, 1.0)), 1.0)
+
 	func _start_one_shot(steps: Array[PoseStep], fps: float, hold_last_frame: bool) -> void:
 		if steps.is_empty():
 			return
@@ -1061,6 +1218,7 @@ class StageSlot extends Control:
 		if _shield_crack_alpha > 0.0:
 			_overlay.draw_rect(rect, Color(0.4, 0.85, 1.0, _shield_crack_alpha * 0.55), true)
 			_overlay.draw_rect(rect.grow(-2.0), Color(0.85, 0.95, 1.0, _shield_crack_alpha), false, 2.0)
+		_draw_shield_panels()
 		if guard_marker != "" and not _guard_hidden:
 			_draw_guard_marker()
 		if frozen_left > 0:
@@ -1302,9 +1460,10 @@ func sync(combat: Dictionary, player: Dictionary, frozen_roster: Dictionary) -> 
 
 # A slot's Shield loop and Time Pearl freeze, for callers that track them
 # per combatant (sync() itself sets only the player's Shield loop).
-func set_slot_shield(slot: StageSlot, active: bool) -> void:
+func set_slot_shield(slot: StageSlot, fraction: float, animate: bool = false) -> void:
 	var shield_entry: Dictionary = _effect_frames_by_key.get("shield", {})
-	slot.set_shield_loop(shield_entry.get("frames", _empty_idle_frames), shield_entry.get("fps", 0.0), active)
+	slot.set_shield_loop(shield_entry.get("frames", _empty_idle_frames), shield_entry.get("fps", 0.0), fraction > 0.0)
+	slot.set_shield_level(fraction, animate)
 
 
 func set_slot_frozen(slot: StageSlot, frozen: bool, animate: bool = false) -> void:

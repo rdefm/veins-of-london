@@ -1223,7 +1223,7 @@ func _on_beat_played(beat: Dictionary) -> void:
 	_advance_strip(beat)
 	var cp: Dictionary = _cp()
 	if beat.has("marks"):
-		_apply_marks(cp, beat["marks"], true)
+		_apply_marks(cp, beat["marks"], true, shield_raised(beat))
 	if CombatDirector.beat_is_damaging(beat) and beat.has("hpAfter"):
 		var key := TurnOrderStrip.card_key_string(_stage_target(stage_roster(cp, -1), int(beat["target"])))
 		_strip.set_shown_hp(key, int(beat["hpAfter"]))
@@ -1262,7 +1262,7 @@ func _on_rewind_beat_played(beat: Dictionary) -> void:
 # "recoil" (a pose on who); "powderLaunch" / "ladySweep" (the self-buff launch on who);
 # "ladyGlint" (who's hit by a Lady Strike, "crit"); "effect" (who's data/combat_visuals.json effect
 # sheet "effect"); "damage" (who's hit, with "dmg" and a juice "scale");
-# "shieldCrack"; "ko"; or "overlay" (nothing past the beat's marks). [] for
+# "shieldAssemble" (who's Shield panels build to "level"); "shieldCrack"; "ko"; or "overlay" (nothing past the beat's marks). [] for
 # a beat kind with no mapping.
 static func beat_cues(beat: Dictionary) -> Array:
 	var kind: String = beat["kind"]
@@ -1305,9 +1305,12 @@ static func beat_cues(beat: Dictionary) -> Array:
 			cues.append({ "call": "effect", "who": target, "effect": _ITEM_EFFECTS[kind] })
 			if kind == "blast":
 				cues.append({ "call": "guardFlicker", "who": target })
+			elif kind == "shieldOther":
+				cues.append(_shield_assemble_cue(beat, target))
 		"shield":
 			cues.append({ "call": "throw", "who": actor })
 			cues.append({ "call": "effect", "who": actor, "effect": _ITEM_EFFECTS[kind] })
+			cues.append(_shield_assemble_cue(beat, actor))
 		"panic", "rapture", "anger", "fury":
 			cues.append({ "call": "throw", "who": actor })
 		_:
@@ -1330,6 +1333,25 @@ static func beat_cues(beat: Dictionary) -> Array:
 	if cues.is_empty():
 		cues.append({ "call": "overlay", "who": actor })
 	return cues
+
+
+# The cue that assembles `who`'s Shield panels to the pool the beat leaves.
+static func _shield_assemble_cue(beat: Dictionary, who: int) -> Dictionary:
+	var level := 1.0
+	if beat.has("marks") and who < beat["marks"].size():
+		level = float(beat["marks"][who].get("shieldFraction", 1.0))
+	return { "call": "shieldAssemble", "who": who, "level": level }
+
+
+# The combatant whose Shield a beat raises (its panels assemble on the cue,
+# not with the beat's marks), or -1.
+static func shield_raised(beat: Dictionary) -> int:
+	match beat["kind"]:
+		"shield":
+			return int(beat["actor"])
+		"shieldOther":
+			return int(beat["target"])
+	return -1
 
 
 # The actor's pose for a move-driven beat: Strike and Stun swing, a Feint
@@ -1428,6 +1450,9 @@ func _play_cue(cp: Dictionary, cue: Dictionary, rewinding: bool) -> void:
 		"legItStreak":
 			if not rewinding:
 				slot.play_leg_it_streak()
+		"shieldAssemble":
+			if not rewinding:
+				_stage.set_slot_shield(slot, float(cue["level"]), true)
 		"shieldCrack":
 			slot.flash_shield_crack()
 		"ko":
@@ -1511,15 +1536,19 @@ func _play_save(by: Dictionary, beats: Array) -> void:
 
 
 # Each combatant's slot to its stage marks: guard marker, Shield loop, Time
-# Pearl freeze and status icons.
-func _apply_marks(cp: Dictionary, marks: Array, animate: bool = false) -> void:
+# Pearl freeze and status icons. `animate` plays Shield assemble / shed / burst
+# (a KO'd slot clears outright); `held_shield` is the slot whose Shield a cue
+# raises, left as it stands.
+func _apply_marks(cp: Dictionary, marks: Array, animate: bool = false, held_shield: int = -1) -> void:
 	var roster := stage_roster(cp, -1)
 	for i in range(mini(marks.size(), cp["combatants"].size())):
 		var slot := _stage.resolve_target_slot(_stage_target(roster, i))
 		if slot == null:
 			continue
+		if i != held_shield:
+			var fraction: float = float(marks[i].get("shieldFraction", 1.0 if marks[i]["shielded"] else 0.0))
+			_stage.set_slot_shield(slot, fraction, animate and marks[i]["guard"] != "")
 		slot.set_guard_marker(marks[i]["guard"])
-		_stage.set_slot_shield(slot, marks[i]["shielded"])
 		_stage.set_slot_frozen(slot, marks[i]["frozen"], animate)
 		slot.set_frozen_left(int(marks[i].get("frozenLeft", 0)))
 		slot.set_open_left(int(marks[i].get("openLeft", 0)))

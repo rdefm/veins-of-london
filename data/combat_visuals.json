@@ -175,7 +175,8 @@
     "_note": "Per effect: image/frameCount/fps (the sheet), colour [r,g,b] (stand-in ring + travel spark; ore family, proposal §1), travelSeconds (spark flight before the land, 0 = none), landSeconds (stand-in ring life when image is empty), shakeScale (stage shake at land, x the hit's shake; 0 = none), hitStopSeconds (stage freeze at land, 0 = none). Seconds halve under quick pacing.",
     "timePearl": { "image": "", "frameCount": 4, "fps": 8.0, "colour": [0.65, 0.92, 1.0], "travelSeconds": 0.0, "landSeconds": 0.5, "shakeScale": 0.0, "hitStopSeconds": 0.0 },
     "blast": { "image": "", "frameCount": 6, "fps": 12.0, "colour": [1.0, 0.62, 0.2], "travelSeconds": 0.12, "landSeconds": 0.5, "shakeScale": 1.5, "hitStopSeconds": 0.05 },
-    "shield": { "image": "", "frameCount": 4, "fps": 6.0, "colour": [1.0, 0.62, 0.2], "travelSeconds": 0.0, "landSeconds": 0.67, "shakeScale": 0.0, "hitStopSeconds": 0.0 },
+    "shield": { "image": "", "frameCount": 4, "fps": 6.0, "colour": [1.0, 0.62, 0.2], "travelSeconds": 0.12, "landSeconds": 0.67, "shakeScale": 0.0, "hitStopSeconds": 0.0,
+      "panels": { "cols": 3, "rows": 4, "assembleSeconds": 0.4, "shedSeconds": 0.45, "burstSeconds": 0.4, "shimmerSeconds": 1.2, "sparseAlpha": 0.2, "fullAlpha": 0.65, "fallPx": 18.0, "burstPx": 26.0 } },
     "healingBurst": { "image": "", "frameCount": 5, "fps": 8.0, "colour": [0.8, 0.92, 0.55], "travelSeconds": 0.0, "landSeconds": 0.63, "shakeScale": 0.0, "hitStopSeconds": 0.0 },
     "blackHole": { "image": "", "frameCount": 8, "fps": 10.0, "colour": [1.0, 0.62, 0.2], "travelSeconds": 0.0, "landSeconds": 0.8, "shakeScale": 0.0, "hitStopSeconds": 0.0 }
   },

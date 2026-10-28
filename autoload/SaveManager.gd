@@ -1378,7 +1378,7 @@ func _restore_combat_int_types(combat: Dictionary) -> void:
 # A round fight holds no floats but _ROUND_FLOAT_KEYS,
 # so every other whole-number float in it reads back as int; RNG state
 # strings (_encode_rng_states()) back to ints.
-const _ROUND_FLOAT_KEYS: Array[String] = ["ladyCrit", "evadeChance", "fleeBoost"]
+const _ROUND_FLOAT_KEYS: Array[String] = ["ladyCrit", "evadeChance", "fleeBoost", "shieldFraction"]
 
 
 func _restore_round_combat_types(node: Variant) -> void:
