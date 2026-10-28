@@ -1092,6 +1092,7 @@ func _restore_int_types(state: Dictionary) -> void:
 		for key in ["cash", "hp", "hpMax", "attackMin", "attackMax", "craftingSkill", "craftingXP", "cultivatingSkill", "cultivatingXP", "senseSkill", "senseXP", "bodySkill", "bodyXP", "mindSkill", "mindXP", "soulSkill", "soulXP", "shieldPool", "healingSalveDaysLeft", "healingSalveDailyAmount"]:
 			_int_key(player, key)
 		_restore_move_level_ints(player)
+		_int_dict_values(player.get("freeAction", {}))
 		_int_dict_values(player.get("orichalchum", {}))
 		_int_dict_values(player.get("craftedCounts", {}))
 		_migrate_inventory(player.get("inventory", {}))

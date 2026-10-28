@@ -177,6 +177,8 @@ func new_game_state() -> Dictionary:
 			# Placeholder top-level buckets (data/skill_feats.json): no XP source yet.
 			"mindSkill": 1, "mindXP": 0,
 			"soulSkill": 1, "soulXP": 0,
+			# Mind/Soul free-action freebie used this (day, block); FreeAction resets it on a new block.
+			"freeAction": { "day": 0, "block": -1, "mindUsed": false, "soulUsed": false, "mindRolls": 0, "soulRolls": 0 },
 			# Per-move { level, xp } (MoveLevels, R§3.7b Move levels).
 			"moveLevels": MoveLevels.new_state(),
 		},

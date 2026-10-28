@@ -226,6 +226,8 @@ Descriptions: extract verbatim from HTML consts `HOME_SECURITY` / `HOME_ROOMS` �
 
 **Library is dual-purpose:** keeps its `crafting` bonus and raises the XP of **Study**, the repeatable HQ Mind workout (`Mind.study()`): 1 time block, refused with "No time blocks left today." when the day is spent, awards Mind 10 XP (`constants.json study.xp`), or 30 with the Library built (`study.libraryXp`). Study is never a Mind action for the free-action perks.
 
+**Free actions (Mind/Soul L3/L5, `FreeAction.spend(bucket, district)`, `constants.json freeAction`):** checked in order: time exhausted -> refused; Guild internship freebie (Soul perks not consulted); L5 -> first action per bucket per (day, block) is free (`player.freeAction.<bucket>Used`); L3+ -> 25% roll, a stable hash of `world.rollSeed`+day+block+bucket+rolls-so-far (not the global Rng stream, so Rewind replays it); else advance the block. L5 still rolls L3 for later actions in the block; Mind and Soul freebies are separate. Result carries `bucket, level, rule (internship|guaranteed|roll), line` (strings in `freeAction.lines`). Cultivate is Soul's consumer (`Cultivating.cultivate`, ambush only when a block was spent).
+
 **Garden is a meditation room:** does nothing beyond raising the XP of **Meditate**, the repeatable HQ Soul workout (`Soul.meditate()`): 1 time block, refused with "No time blocks left today." when the day is spent, awards Soul 10 XP (`constants.json meditate.xp`), or 30 with the Garden built (`meditate.gardenXp`). Townhouse or better (unavailable in a flat). No soil/horticulture vocabulary.
 
 **Home Gym is dual-purpose (§3.7a):** beyond its existing one-time `+10 hpMax` build bonus above, it also raises the XP reward of the repeatable **Train** action on the HQ screen, which is available regardless of whether Home Gym is built — see §3.7a for cost/reward.
@@ -472,6 +474,7 @@ state = {
     senseSkill: 1, senseXP: 0,   # data/sense.json senseXpLevels (11 entries, levels 6-10 TBD); prospecting awards sites.json prospectSenseXp
     bodySkill: 1, bodyXP: 0,   # Body (the Combat skill, renamed). §3.7a: attack bonus + turn-order speed, both level-indexed
     mindSkill: 1, mindXP: 0,   # Mind / Soul: placeholder top-level buckets, no XP source yet
+    freeAction: { day, block, mindUsed, soulUsed, mindRolls, soulRolls },   # §3.7a free-action freebie state for the current (day, block); resets on block change, old saves backfill
     soulSkill: 1, soulXP: 0,   # buckets, sub-skills and feats: data/skill_feats.json, projected by SkillTree.project()
     moveLevels: { strike:{level:1, xp:0}, guard:{…}, feint:{…}, stun:{…}, legIt:{…} },   # §3.7b Move levels; every contact carries the same key
     # day-rhythm-business-and-combat ticket 22, business-spec.md "Inventory":

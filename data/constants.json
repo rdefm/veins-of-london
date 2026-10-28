@@ -4,6 +4,16 @@
   "bucketXpShare": 0.2,
   "study": { "xp": 10, "libraryXp": 30 },
   "meditate": { "xp": 10, "gardenXp": 30 },
+  "freeAction": {
+    "chance": 0.25,
+    "rollLevel": 3,
+    "guaranteedLevel": 5,
+    "lines": {
+      "internship": "Free action: your Guild internship covered this time block.",
+      "guaranteed": "Free action: your {bucket} Level {level} perk saved this time block.",
+      "roll": "Free action: your {bucket} Level {level} perk ({pct}% chance) saved this time block."
+    }
+  },
   "mindPerks": {
     "observationLabel": "Mind",
     "observationBonus": [0, 0, 0.03, 0.03, 0.06, 0.06],

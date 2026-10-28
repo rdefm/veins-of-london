@@ -251,6 +251,8 @@ static func cultivate(vein_id: String) -> Dictionary:
 	var travel := Travel.ensure_district(vein["district"])
 	if not travel["ok"]:
 		return travel
+	if TimeSystem.is_time_exhausted():
+		return { "ok": false, "reason": "No time blocks left today." }
 
 	# Captured before the block advances: a day rollover can level the vein up,
 	# and the effect covers the block the action is taken in.
@@ -260,9 +262,10 @@ static func cultivate(vein_id: String) -> Dictionary:
 	# Tainted before the block ends, so a rollover settlement sees it.
 	Contracts.note_player_tended_vein(vein_id)
 	Perks.note_player_tended(vein_id)
-	var spent_block := not Perks.take_free_cultivate(vein["district"])
-	if spent_block:
-		TimeSystem.advance_time_block()
+	var spend := FreeAction.spend("soul", vein["district"])
+	var spent_block: bool = not spend["free"]
+	if spend["free"]:
+		Notify.push(spend["line"], Notify.CATEGORY_SUCCESS)
 
 	var player: Dictionary = GameState.state["player"]
 	var skill: int = player["cultivatingSkill"]
@@ -280,7 +283,7 @@ static func cultivate(vein_id: String) -> Dictionary:
 	EventBus.state_changed.emit()
 	if spent_block:
 		Ambush.maybe_trigger(vein["district"])
-	return { "ok": true, "success": true, "gain": gain, "veinId": vein_id, "growth": vein["growth"] }
+	return { "ok": true, "success": true, "gain": gain, "veinId": vein_id, "growth": vein["growth"], "freeAction": spend }
 
 
 # Pure preview of prune()'s own growth mutation, so a chooser can show the

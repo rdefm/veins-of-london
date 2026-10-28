@@ -138,6 +138,7 @@ var SENSE_XP_LEVELS: Array = []
 var BUCKET_XP_SHARE: float = 0.0
 var STUDY: Dictionary = {}
 var MEDITATE: Dictionary = {}
+var FREE_ACTION: Dictionary = {}
 var MIND_PERKS: Dictionary = {}
 var SOUL_PERKS: Dictionary = {}
 var COMBAT_XP_LEVELS: Array = []
@@ -511,6 +512,7 @@ const MANIFEST: Array[Dictionary] = [
 		{"field": "BUCKET_XP_SHARE", "key": "bucketXpShare", "type": TYPE_FLOAT},
 		{"field": "STUDY", "key": "study", "type": TYPE_DICTIONARY},
 		{"field": "MEDITATE", "key": "meditate", "type": TYPE_DICTIONARY},
+		{"field": "FREE_ACTION", "key": "freeAction", "type": TYPE_DICTIONARY},
 		{"field": "MIND_PERKS", "key": "mindPerks", "type": TYPE_DICTIONARY},
 		{"field": "SOUL_PERKS", "key": "soulPerks", "type": TYPE_DICTIONARY},
 		{"field": "CONTACTS_DEFAULTS", "key": "contacts", "type": TYPE_DICTIONARY},

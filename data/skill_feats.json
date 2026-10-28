@@ -490,6 +490,18 @@
       "o": { "from": "MIND_PERKS", "path": ["observationBonus"], "scale": 100 },
       "c": { "from": "MIND_PERKS", "path": ["craftXpBonus"], "scale": 100 }
      }
+    },
+    {
+     "id": "mind3",
+     "level": 3,
+     "text": "Mind actions have a {p}% chance to cost no time block",
+     "values": { "p": { "from": "FREE_ACTION", "path": ["chance"], "scale": 100 } }
+    },
+    {
+     "id": "mind5",
+     "level": 5,
+     "text": "The first Mind action each time block costs no time block",
+     "values": {}
     }
    ],
    "subSkills": [
@@ -736,6 +748,18 @@
       "g": { "from": "SOUL_PERKS", "path": ["cultivateGainBonus"] },
       "d": { "from": "SOUL_PERKS", "path": ["dialXpBonus"], "scale": 100 }
      }
+    },
+    {
+     "id": "soul3",
+     "level": 3,
+     "text": "Soul actions have a {p}% chance to cost no time block",
+     "values": { "p": { "from": "FREE_ACTION", "path": ["chance"], "scale": 100 } }
+    },
+    {
+     "id": "soul5",
+     "level": 5,
+     "text": "The first Soul action each time block costs no time block",
+     "values": {}
     }
    ],
    "subSkills": [
