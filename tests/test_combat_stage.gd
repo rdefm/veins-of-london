@@ -53,6 +53,29 @@ func run() -> void:
 		stage.free()
 	)
 
+	run_case("freeze_visual_changes_directly_off_tree_and_ko_clears_it_at_once", func():
+		var slot := CombatStage.StageSlot.new()
+		slot.set_frozen_visual(true, true)
+		assert_true(slot._sprite_rect.material != null, "freeze installs the pause shader")
+		assert_true(slot._freeze_tween == null, "no tape-stop tween off-tree (restored frames rebuild directly)")
+		slot.set_frozen_visual(false, true)
+		assert_true(slot._sprite_rect.material == null, "off-tree unfreeze clears with no play-snap")
+		slot.set_frozen_visual(true)
+		slot.play_ko()
+		assert_true(slot._sprite_rect.material == null, "KO clears the freeze look instantly")
+		slot.free()
+	)
+
+	run_case("freeze_fx_durations_are_data_driven_and_halve_when_quick", func():
+		var fx: Dictionary = GameData.COMBAT_VISUALS["pacing"]["freezeFx"]
+		var prior: String = CombatPacing.pacing_mode()
+		CombatPacing.set_pacing_mode("normal")
+		assert_almost_eq(CombatStage.StageSlot._freeze_seconds("tapeStopSeconds"), float(fx["tapeStopSeconds"]), 0.001, "normal reads freezeFx")
+		CombatPacing.set_pacing_mode("quick")
+		assert_almost_eq(CombatStage.StageSlot._freeze_seconds("playSnapSeconds"), float(fx["playSnapSeconds"]) * 0.5, 0.001, "quick halves")
+		CombatPacing.set_pacing_mode(prior)
+	)
+
 	run_case("shake_magnitude_scales_with_damage_as_a_fraction_of_hp_max_between_3_and_6px", func():
 		var stage := CombatStage.new()
 

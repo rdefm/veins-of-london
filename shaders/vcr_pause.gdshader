@@ -18,6 +18,12 @@ uniform float band_noise = 0.25;
 uniform float desaturate = 0.35;
 uniform float scanline_strength = 0.18;
 uniform float scanline_period_px = 3.0;
+// Tape-stop in: smear (UV fraction) drags the picture down, easing to 0.
+// Play-snap out: snap_progress 0..1 sweeps one band feet to head (-1 = off)
+// while jolt_px kicks the field sideways.
+uniform float smear = 0.0;
+uniform float snap_progress = -1.0;
+uniform float jolt_px = 0.0;
 
 float hash(vec2 p) {
 	return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
@@ -33,7 +39,13 @@ void fragment() {
 	float in_band = smoothstep(band_height, 0.0, abs(UV.y - band_y));
 	float shear = in_band * band_shear_px * (hash(vec2(floor(TIME * 30.0), floor(UV.y / tex_px.y / 2.0))) * 2.0 - 1.0);
 
-	vec2 uv = UV + vec2((shiver + shear) * tex_px.x, 0.0);
+	float snap_y = 1.0 - snap_progress;
+	float in_snap = snap_progress < 0.0 ? 0.0 : smoothstep(band_height * 1.5, 0.0, abs(UV.y - snap_y));
+	in_band = max(in_band, in_snap);
+	shear += in_snap * band_shear_px * 2.0 * (hash(vec2(floor(TIME * 60.0), floor(UV.y / tex_px.y / 2.0))) * 2.0 - 1.0);
+
+	vec2 uv = UV + vec2((shiver + shear + jolt_px) * tex_px.x, 0.0);
+	uv.y -= smear * (1.0 - UV.y);
 	bool flicker = mod(field, flicker_every) < 1.0;
 	vec4 c = flicker ? texture(prev_tex, uv) : texture(TEXTURE, uv);
 

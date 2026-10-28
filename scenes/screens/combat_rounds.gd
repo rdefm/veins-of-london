@@ -1210,7 +1210,7 @@ func _on_beat_played(beat: Dictionary) -> void:
 	_advance_strip(beat)
 	var cp: Dictionary = _cp()
 	if beat.has("marks"):
-		_apply_marks(cp, beat["marks"])
+		_apply_marks(cp, beat["marks"], true)
 	if CombatDirector.beat_is_damaging(beat) and beat.has("hpAfter"):
 		var key := TurnOrderStrip.card_key_string(_stage_target(stage_roster(cp, -1), int(beat["target"])))
 		_strip.set_shown_hp(key, int(beat["hpAfter"]))
@@ -1353,7 +1353,7 @@ func _play_cue(cp: Dictionary, cue: Dictionary, rewinding: bool) -> void:
 
 # Each combatant's slot to its stage marks: guard marker, Shield loop, Time
 # Pearl freeze and status badges.
-func _apply_marks(cp: Dictionary, marks: Array) -> void:
+func _apply_marks(cp: Dictionary, marks: Array, animate: bool = false) -> void:
 	var roster := stage_roster(cp, -1)
 	for i in range(mini(marks.size(), cp["combatants"].size())):
 		var slot := _stage.resolve_target_slot(_stage_target(roster, i))
@@ -1361,7 +1361,7 @@ func _apply_marks(cp: Dictionary, marks: Array) -> void:
 			continue
 		slot.set_guard_marker(marks[i]["guard"])
 		_stage.set_slot_shield(slot, marks[i]["shielded"])
-		_stage.set_slot_frozen(slot, marks[i]["frozen"])
+		_stage.set_slot_frozen(slot, marks[i]["frozen"], animate)
 		slot.set_frozen_left(int(marks[i].get("frozenLeft", 0)))
 		slot.set_status_badges(marks[i].get("badges", []))
 

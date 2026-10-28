@@ -257,21 +257,79 @@ class StageSlot extends Control:
 	var _is_frozen_visual: bool = false
 
 	# Frozen: idle animation holds its frame under the VCR-pause shader.
-	func set_frozen_visual(value: bool) -> void:
+	# `animate` plays the tape-stop in / play-snap out (beat playback only);
+	# otherwise the state changes directly.
+	func set_frozen_visual(value: bool, animate: bool = false) -> void:
 		if value == _is_frozen_visual:
 			return
 		_is_frozen_visual = value
+		_kill_freeze_tween()
+		animate = animate and is_inside_tree()
 		if value:
 			if _frozen_shader_material == null:
 				_frozen_shader_material = _build_freeze_material()
+			_reset_freeze_transition()
 			_sprite_rect.material = _frozen_shader_material
 			_sync_freeze_prev_frame()
 			_idle_timer.autostart = false
 			_idle_timer.stop()
+			if animate:
+				var fx := _freeze_fx()
+				var secs: float = _freeze_seconds("tapeStopSeconds")
+				if secs > 0.0:
+					_freeze_tween = create_tween()
+					_freeze_tween.tween_method(_set_freeze_smear, float(fx.get("tapeStopSmear", 0.0)), 0.0, secs).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 		else:
-			_sprite_rect.material = null
-			if _idle_frames.size() >= 2 and _idle_fps > 0.0 and _idle_timer.is_inside_tree():
-				_idle_timer.start()
+			var secs: float = _freeze_seconds("playSnapSeconds")
+			if animate and secs > 0.0 and _frozen_shader_material != null and _sprite_rect.material == _frozen_shader_material:
+				var jolt: float = float(_freeze_fx().get("playSnapJoltPx", 0.0))
+				_freeze_tween = create_tween()
+				_freeze_tween.tween_method(func(p: float): _set_freeze_snap(p, jolt), 0.0, 1.0, secs)
+				_freeze_tween.tween_callback(_end_frozen_visual)
+			else:
+				_end_frozen_visual()
+
+	# KO while frozen: the effect clears at once, no play-snap.
+	func clear_frozen_instant() -> void:
+		_is_frozen_visual = false
+		_kill_freeze_tween()
+		_end_frozen_visual()
+
+	func _end_frozen_visual() -> void:
+		_reset_freeze_transition()
+		_sprite_rect.material = null
+		if _idle_frames.size() >= 2 and _idle_fps > 0.0 and _idle_timer.is_inside_tree():
+			_idle_timer.start()
+
+	var _freeze_tween: Tween
+
+	func _kill_freeze_tween() -> void:
+		if _freeze_tween != null and _freeze_tween.is_valid():
+			_freeze_tween.kill()
+		_freeze_tween = null
+
+	func _reset_freeze_transition() -> void:
+		if _frozen_shader_material == null:
+			return
+		_frozen_shader_material.set_shader_parameter("smear", 0.0)
+		_frozen_shader_material.set_shader_parameter("snap_progress", -1.0)
+		_frozen_shader_material.set_shader_parameter("jolt_px", 0.0)
+
+	func _set_freeze_smear(value: float) -> void:
+		_frozen_shader_material.set_shader_parameter("smear", value)
+
+	# The jolt kicks in the sweep's first half and settles.
+	func _set_freeze_snap(progress: float, jolt: float) -> void:
+		_frozen_shader_material.set_shader_parameter("snap_progress", progress)
+		_frozen_shader_material.set_shader_parameter("jolt_px", jolt * sin(progress * PI) * (1.0 if progress < 0.5 else -0.5))
+
+	static func _freeze_fx() -> Dictionary:
+		return GameData.COMBAT_VISUALS.get("pacing", {}).get("freezeFx", {})
+
+	# A freezeFx duration, halved under quick pacing.
+	static func _freeze_seconds(key: String) -> float:
+		var secs: float = float(_freeze_fx().get(key, 0.0))
+		return secs * 0.5 if CombatPacing.pacing_mode() == "quick" else secs
 
 	static func _build_freeze_material() -> ShaderMaterial:
 		var fx_data: Dictionary = GameData.COMBAT_VISUALS.get("pacing", {}).get("freezeFx", {})
@@ -346,6 +404,7 @@ class StageSlot extends Control:
 		]
 		_start_one_shot(steps, _hit_fps, false)
 	func play_ko() -> void:
+		clear_frozen_instant()
 		_start_one_shot(_ko_fall_steps(), _ko_fps, true)
 	# A KO played backwards: up from the fall, back to idle.
 	func play_get_up() -> void:
@@ -813,8 +872,8 @@ func set_slot_shield(slot: StageSlot, active: bool) -> void:
 	slot.set_shield_loop(shield_entry.get("frames", _empty_idle_frames), shield_entry.get("fps", 0.0), active)
 
 
-func set_slot_frozen(slot: StageSlot, frozen: bool) -> void:
-	slot.set_frozen_visual(frozen)
+func set_slot_frozen(slot: StageSlot, frozen: bool, animate: bool = false) -> void:
+	slot.set_frozen_visual(frozen, animate)
 
 
 var _hold_serial := 0

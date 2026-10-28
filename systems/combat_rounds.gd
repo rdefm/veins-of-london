@@ -2106,8 +2106,8 @@ static func _tick_anger(cp: Dictionary, actor_idx: int, beats: Array) -> void:
 static func stage_marks(cp: Dictionary) -> Array:
 	return cp["combatants"].map(func(c): return {
 		"guard": "" if c["koed"] else guard_marker(cp, c),
-		"shielded": int(c["shield"]) > 0, "frozen": int(c["frozenActions"]) > 0,
-		"frozenLeft": int(c["frozenActions"]),
+		"shielded": int(c["shield"]) > 0, "frozen": not c["koed"] and int(c["frozenActions"]) > 0,
+		"frozenLeft": 0 if c["koed"] else int(c["frozenActions"]),
 		"badges": status_badges(c),
 	})
 
