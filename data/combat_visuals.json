@@ -177,7 +177,7 @@
     "blast": { "image": "", "frameCount": 6, "fps": 12.0, "colour": [1.0, 0.62, 0.2], "travelSeconds": 0.12, "landSeconds": 0.5, "shakeScale": 1.5, "hitStopSeconds": 0.05 },
     "shield": { "image": "", "frameCount": 4, "fps": 6.0, "colour": [1.0, 0.62, 0.2], "travelSeconds": 0.12, "landSeconds": 0.67, "shakeScale": 0.0, "hitStopSeconds": 0.0,
       "panels": { "cols": 3, "rows": 4, "assembleSeconds": 0.4, "shedSeconds": 0.45, "burstSeconds": 0.4, "shimmerSeconds": 1.2, "sparseAlpha": 0.2, "fullAlpha": 0.65, "fallPx": 18.0, "burstPx": 26.0 } },
-    "healingBurst": { "image": "", "frameCount": 5, "fps": 8.0, "colour": [0.8, 0.92, 0.55], "travelSeconds": 0.0, "landSeconds": 0.63, "shakeScale": 0.0, "hitStopSeconds": 0.0 },
+    "healingBurst": { "image": "", "frameCount": 5, "fps": 8.0, "colour": [0.8, 0.92, 0.55], "travelSeconds": 0.12, "landSeconds": 0.63, "shakeScale": 0.0, "hitStopSeconds": 0.0 },
     "blackHole": { "image": "", "frameCount": 8, "fps": 10.0, "colour": [1.0, 0.62, 0.2], "travelSeconds": 0.0, "landSeconds": 0.8, "shakeScale": 0.0, "hitStopSeconds": 0.0 }
   },
   "itemFx": {
@@ -209,6 +209,24 @@
       "trailAlpha": 0.25,
       "trailGapSeconds": 0.06,
       "trailFadeSeconds": 0.22
+    },
+    "healFx": {
+      "_note": "Healing Burst (StageSlot.play_heal_burst / play_heal_fizzle, CombatStage.spawn_damage_number). mote*: specks rising from the feet (count, sizePx square, risePx over riseSeconds, spreadPx apart, colours cycle gold/cyan). rim*: one sine pulse of a tinted sprite copy (rimAlpha peak over rimSeconds). numberColour: the green +N. fizzle*: the motes rise riseFraction of the way, then fall fallPx and scatter scatterPx sideways in greyColour over fizzleSeconds. Seconds halve under quick pacing; reduced motion drops the rim pulse and the fizzle scatter (motes and number stay).",
+      "moteCount": 8,
+      "moteSizePx": 3.0,
+      "moteRisePx": 40.0,
+      "moteRiseSeconds": 0.55,
+      "moteSpreadPx": 7.0,
+      "moteColours": [[0.95, 0.8, 0.35], [0.45, 0.9, 1.0]],
+      "rimColour": [0.95, 0.8, 0.35],
+      "rimAlpha": 0.6,
+      "rimSeconds": 0.3,
+      "numberColour": [0.4, 0.9, 0.45],
+      "fizzleRiseFraction": 0.5,
+      "fizzleFallPx": 22.0,
+      "fizzleScatterPx": 12.0,
+      "fizzleSeconds": 0.4,
+      "greyColour": [0.6, 0.6, 0.6]
     },
     "ladyFx": {
       "_note": "Be a Lady (StageSlot.play_lady_sweep / play_lady_glint, CombatStage.spawn_damage_number). sweep*: the brass band rising up the sprite at launch. glint*: the one-frame clover-green cross at a landed Strike's impact (sizePx; critScale bigger on a crit, which adds critHitStopSeconds of hit-stop). numberColour: the brass damage number. Seconds halve under quick pacing; reduced motion drops the sweep and glints, keeps the brass number.",

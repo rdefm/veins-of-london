@@ -101,6 +101,11 @@ static func powder_fx() -> Dictionary:
 	return item_fx().get("powderFx", {})
 
 
+# data/combat_visuals.json itemFx.healFx.
+static func heal_fx() -> Dictionary:
+	return item_fx().get("healFx", {})
+
+
 # data/combat_visuals.json itemFx.ladyFx.
 static func lady_fx() -> Dictionary:
 	return item_fx().get("ladyFx", {})
@@ -605,6 +610,78 @@ class StageSlot extends Control:
 		for i in range(count - 1):
 			tween.tween_interval(gap)
 			tween.tween_callback(spawn_afterimage.bind(alpha, fade))
+
+	# Healing Burst land: gold and cyan motes rise from the feet and a gold rim
+	# pulses once on the sprite (the pulse drops under reduced motion).
+	func play_heal_burst() -> void:
+		if not is_inside_tree():
+			return
+		_spawn_heal_motes(false)
+		var fx := CombatStage.heal_fx()
+		var secs := CombatStage.fx_seconds(float(fx.get("rimSeconds", 0.0)))
+		if secs <= 0.0 or CombatStage.reduced_motion() or _sprite_rect.texture == null:
+			return
+		var rim := _new_overlay_rect(5)
+		rim.texture = _sprite_rect.texture
+		rim.size = _figure_holder.size
+		rim.position = _sprite_rect.position
+		rim.flip_h = _sprite_rect.flip_h
+		var tint := CombatStage.rgb(fx.get("rimColour", []))
+		tint.a = 0.0
+		rim.modulate = tint
+		_figure_holder.add_child(rim)
+		var peak: float = float(fx.get("rimAlpha", 0.6))
+		var tween := rim.create_tween()
+		tween.tween_method(func(t: float) -> void: rim.modulate.a = sin(t * PI) * peak, 0.0, 1.0, secs)
+		tween.tween_callback(rim.queue_free)
+
+	# A heal at a KO'd ally: the motes rise, then fall and scatter grey.
+	func play_heal_fizzle() -> void:
+		if not is_inside_tree():
+			return
+		_spawn_heal_motes(true)
+
+	func _spawn_heal_motes(fizzle: bool) -> void:
+		var fx := CombatStage.heal_fx()
+		var count: int = int(fx.get("moteCount", 0))
+		var speck: float = float(fx.get("moteSizePx", 3.0))
+		var rise_secs := CombatStage.fx_seconds(float(fx.get("moteRiseSeconds", 0.0)))
+		if count <= 0 or rise_secs <= 0.0:
+			return
+		var colours: Array = fx.get("moteColours", [[1.0, 1.0, 1.0]])
+		var scatter := fizzle and not CombatStage.reduced_motion()
+		var rise_px: float = float(fx.get("moteRisePx", 0.0))
+		var rise_fraction: float = float(fx.get("fizzleRiseFraction", 0.5)) if fizzle else 1.0
+		for i in range(count):
+			var mote := ColorRect.new()
+			mote.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			mote.color = CombatStage.rgb(colours[i % colours.size()])
+			mote.size = Vector2.ONE * speck
+			mote.z_index = 6
+			var offset: float = (float(i) - float(count - 1) / 2.0) * float(fx.get("moteSpreadPx", 0.0))
+			mote.position = Vector2(size.x / 2.0 + offset - speck / 2.0, size.y - speck)
+			add_child(mote)
+			var tween := mote.create_tween()
+			var stagger: float = rise_secs * 0.4 * float(i) / float(count)
+			if not fizzle:
+				tween.set_parallel(true)
+				tween.tween_property(mote, "position:y", mote.position.y - rise_px, rise_secs).set_delay(stagger)
+				tween.tween_property(mote, "modulate:a", 0.0, rise_secs).set_delay(stagger).set_ease(Tween.EASE_IN)
+				tween.finished.connect(mote.queue_free)
+				continue
+			tween.tween_interval(stagger)
+			tween.tween_property(mote, "position:y", mote.position.y - rise_px * rise_fraction, rise_secs * rise_fraction)
+			if scatter:
+				var fall := CombatStage.fx_seconds(float(fx.get("fizzleSeconds", 0.0)))
+				var drift: float = float(fx.get("fizzleScatterPx", 0.0)) * (1.0 if i % 2 == 0 else -1.0) * (0.5 + float(i % 3) * 0.5)
+				tween.tween_callback(func(): mote.color = CombatStage.rgb(fx.get("greyColour", [])))
+				tween.set_parallel(true)
+				tween.tween_property(mote, "position:y", mote.position.y - rise_px * rise_fraction + float(fx.get("fizzleFallPx", 0.0)), fall)
+				tween.tween_property(mote, "position:x", mote.position.x + drift, fall)
+				tween.tween_property(mote, "modulate:a", 0.0, fall)
+			else:
+				tween.tween_property(mote, "modulate:a", 0.0, 0.1)
+			tween.finished.connect(mote.queue_free)
 
 	# Be a Lady launch: a brass band sweeps up the sprite.
 	func play_lady_sweep() -> void:
@@ -1524,14 +1601,19 @@ func _shake_magnitude(dmg: int, hp_max: int) -> float:
 
 
 # `size_scale` scales the number's font (a chip's smaller one, a crit's bigger).
-func spawn_damage_number(slot: StageSlot, dmg: int, size_scale: float = 1.0, brass: bool = false) -> void:
+func spawn_damage_number(slot: StageSlot, dmg: int, size_scale: float = 1.0, brass: bool = false, heal: bool = false) -> void:
 	var layer: Node = slot.get_parent()
 	if layer == null:
 		return
 	var label := Label.new()
-	label.text = "-%d" % dmg
+	label.text = ("+%d" if heal else "-%d") % dmg
 	label.add_theme_font_size_override("font_size", roundi(DAMAGE_NUMBER_FONT_SIZE * size_scale))
-	label.add_theme_color_override("font_color", rgb(lady_fx().get("numberColour", [])) if brass else Color(1.0, 0.35, 0.3))
+	var colour := Color(1.0, 0.35, 0.3)
+	if heal:
+		colour = rgb(heal_fx().get("numberColour", []))
+	elif brass:
+		colour = rgb(lady_fx().get("numberColour", []))
+	label.add_theme_color_override("font_color", colour)
 	label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
 	label.add_theme_constant_override("outline_size", 2)
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE

@@ -1262,7 +1262,8 @@ func _on_rewind_beat_played(beat: Dictionary) -> void:
 # "recoil" (a pose on who); "powderLaunch" / "ladySweep" (the self-buff launch on who);
 # "ladyGlint" (who's hit by a Lady Strike, "crit"); "effect" (who's data/combat_visuals.json effect
 # sheet "effect"); "damage" (who's hit, with "dmg" and a juice "scale");
-# "shieldAssemble" (who's Shield panels build to "level"); "shieldCrack"; "ko"; or "overlay" (nothing past the beat's marks). [] for
+# "shieldAssemble" (who's Shield panels build to "level"); "shieldCrack";
+# "healBurst" (motes + rim pulse on who), "healNumber" (green "+amount"), "healFizzle" (grey scatter); "ko"; or "overlay" (nothing past the beat's marks). [] for
 # a beat kind with no mapping.
 static func beat_cues(beat: Dictionary) -> Array:
 	var kind: String = beat["kind"]
@@ -1276,6 +1277,8 @@ static func beat_cues(beat: Dictionary) -> Array:
 	match kind:
 		"hit", "chip", "stun", "stunThrough", "block", "feint", "fizzle", "evade":
 			cues.append_array(_move_pose_cues(beat["move"], actor))
+			if kind == "fizzle" and beat["move"] == _ITEM_EFFECTS["heal"] and target >= 0:
+				cues.append({ "call": "healFizzle", "who": target })
 		"fled", "bolt":
 			cues.append({ "call": "runOff", "who": actor })
 			if beat.get("boosted", false):
@@ -1299,14 +1302,18 @@ static func beat_cues(beat: Dictionary) -> Array:
 			for affected in beat.get("affected", []):
 				cues.append({ "call": "effect", "who": int(affected), "effect": _ITEM_EFFECTS[kind] })
 		"blast", "heal", "healSelf", "shieldOther":
-			cues.append({ "call": "throw", "who": actor })
-			if float(CombatStage.effect_data(_ITEM_EFFECTS[kind]).get("travelSeconds", 0.0)) > 0.0:
+			cues.append({ "call": "cast" if kind == "healSelf" else "throw", "who": actor })
+			if kind != "healSelf" and float(CombatStage.effect_data(_ITEM_EFFECTS[kind]).get("travelSeconds", 0.0)) > 0.0:
 				cues.append({ "call": "travel", "who": actor, "to": target, "effect": _ITEM_EFFECTS[kind] })
 			cues.append({ "call": "effect", "who": target, "effect": _ITEM_EFFECTS[kind] })
 			if kind == "blast":
 				cues.append({ "call": "guardFlicker", "who": target })
 			elif kind == "shieldOther":
 				cues.append(_shield_assemble_cue(beat, target))
+			elif kind == "heal" or kind == "healSelf":
+				cues.append({ "call": "healBurst", "who": target })
+				if int(beat.get("amount", 0)) > 0:
+					cues.append({ "call": "healNumber", "who": target, "amount": int(beat["amount"]) })
 		"shield":
 			cues.append({ "call": "throw", "who": actor })
 			cues.append({ "call": "effect", "who": actor, "effect": _ITEM_EFFECTS[kind] })
@@ -1455,6 +1462,13 @@ func _play_cue(cp: Dictionary, cue: Dictionary, rewinding: bool) -> void:
 				_stage.set_slot_shield(slot, float(cue["level"]), true)
 		"shieldCrack":
 			slot.flash_shield_crack()
+		"healBurst":
+			slot.play_heal_burst()
+		"healFizzle":
+			slot.play_heal_fizzle()
+		"healNumber":
+			if not rewinding:
+				_stage.spawn_damage_number(slot, int(cue["amount"]), 1.0, false, true)
 		"ko":
 			if rewinding:
 				slot.play_get_up()

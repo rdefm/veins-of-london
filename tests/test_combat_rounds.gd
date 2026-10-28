@@ -2562,8 +2562,25 @@ func run() -> void:
 		var damage: Dictionary = cues[4]
 		assert_almost_eq(float(damage["shake"]), 1.5, 0.001, "crit-scale shake")
 		assert_almost_eq(float(damage["scale"]), 1.0, 0.001, "number stays normal size")
-		var heal: Array = CombatRoundsScreen.beat_cues({ "kind": "heal", "actor": 0, "target": 1 })
-		assert_true(not heal.any(func(c): return c["call"] == "travel"), "no-travel effects skip the spark")
+	)
+
+	run_case("beat_cues_heals_travel_to_an_ally_cast_on_self_and_show_a_green_amount", func():
+		var heal: Array = CombatRoundsScreen.beat_cues({ "kind": "heal", "actor": 0, "target": 1, "amount": 7 })
+		assert_eq(heal.map(func(c): return c["call"]), ["throw", "travel", "effect", "healBurst", "healNumber"], "ally heal order")
+		assert_eq(heal[4]["amount"], 7)
+		assert_eq(int(heal[4]["who"]), 1, "number on the healed fighter")
+		var own: Array = CombatRoundsScreen.beat_cues({ "kind": "healSelf", "actor": 0, "target": 0, "amount": 3 })
+		assert_eq(own.map(func(c): return c["call"]), ["cast", "effect", "healBurst", "healNumber"], "self heal casts, no flight")
+		var full: Array = CombatRoundsScreen.beat_cues({ "kind": "healSelf", "actor": 0, "target": 0, "amount": 0 })
+		assert_true(not full.any(func(c): return c["call"] == "healNumber"), "no +0")
+	)
+
+	run_case("beat_cues_a_heal_at_a_koed_ally_fizzles_into_a_grey_scatter", func():
+		var cues: Array = CombatRoundsScreen.beat_cues({ "kind": "fizzle", "move": "healingBurst", "actor": 0, "target": 1 })
+		assert_eq(cues.map(func(c): return c["call"]), ["throw", "healFizzle"])
+		assert_eq(int(cues[1]["who"]), 1)
+		var other: Array = CombatRoundsScreen.beat_cues({ "kind": "fizzle", "move": "stun", "actor": 0, "target": 1 })
+		assert_true(not other.any(func(c): return c["call"] == "healFizzle"), "only heals scatter")
 	)
 
 	run_case("beat_cues_an_allys_failsafe_is_a_silhouette_beat_not_a_cast", func():

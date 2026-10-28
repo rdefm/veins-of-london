@@ -67,8 +67,9 @@ The cash is granted on the split card only. `on_complete` no longer adds £40.
           "type": "narration",
           "label": "{today} — Shoreditch",
           "speaker": null,
-          "text": "Archie is outside a café full of people in a rush. Archie is looking at the place the way you'd look at a parking fine. One hand stays on his inside pocket.",
-          "key": "c1"
+          "text": "Archie is outside a café full of people in a rush. Archie is looking at the place the way you'd look at a parking fine.",
+          "key": "c1",
+          "observe": "buyer_proposal1"
         },
         {
           "type": "speaker",
@@ -95,7 +96,7 @@ The cash is granted on the split card only. `on_complete` no longer adds £40.
           "key": "c11",
           "label": null,
           "type": "speaker",
-          "text": "\"Some offence>\"",
+          "text": "\"Some offence.\"",
           "speaker": "You"
         },
         {
@@ -431,6 +432,77 @@ The cash is granted on the split card only. `on_complete` no longer adds £40.
           "key": "c10"
         }
       ]
+    }
+  },
+  "observations": {
+    "buyer_proposal1": {
+      "blocks": {
+        "physics": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "Everyone's walking quickly, heads down, paying you no mind. Nothing to worry about here."
+            },
+            {
+              "base": 0.55,
+              "text": "Hordes of people amble past like zombies to get their coffee fix before the workday starts."
+            }
+          ],
+          "miss": "You bump into someone. Why is everyone in such a rush? It's only Wednesday morni - oh."
+        },
+        "life": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": ""
+            },
+            {
+              "base": 0.55,
+              "text": ""
+            }
+          ],
+          "miss": ""
+        },
+        "emotion": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "Archie's impatient and restless"
+            },
+            {
+              "base": 0.55,
+              "text": ""
+            }
+          ],
+          "miss": ""
+        },
+        "time": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": ""
+            },
+            {
+              "base": 0.55,
+              "text": ""
+            }
+          ],
+          "miss": ""
+        },
+        "fate": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": ""
+            },
+            {
+              "base": 0.55,
+              "text": ""
+            }
+          ],
+          "miss": ""
+        }
+      }
     }
   }
 }
