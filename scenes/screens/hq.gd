@@ -62,6 +62,9 @@ func _build_room_view() -> void:
 	var debug_toggle := MapCardStyle.chip_button("Debug regions" if not _debug_overlay_enabled else "Debug regions ✓", _on_debug_toggle_pressed)
 	debug_toggle.position = Vector2(4.0, UI.top_bar_clearance() + 4.0)
 	add_child(debug_toggle)
+	var study_button := MapCardStyle.chip_button("Study", func(): Modal.open("hq_study"))
+	study_button.position = Vector2(4.0, UI.top_bar_clearance() + 44.0)
+	add_child(study_button)
 func _security_lock_installed_plate(plate: Dictionary, home: Dictionary) -> Dictionary:
 	if not home["security"].has("lock"):
 		return plate

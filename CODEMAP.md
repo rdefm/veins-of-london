@@ -112,6 +112,7 @@ Data file per system: see `data/*.json` below.
 | rewind.gd | Rewind payment (`rewind` item, else loaded Dial complication) + time-block Rewind: `state.blockStart` whole-state copy as each block opens; restore keeps XP, Lab knowledge, loadout, Dial. Never saved |
 | observation.gd | Observation reads (R§3.9d): `observe` inheritance, per-ore tier rolls (Sense + kit mods, `raid_mods`), rows, Sense XP, tier effects, Rewind re-roll, `observed` condition, memory, pick ores, option "why" explainers (`explainers`); per-site raid read (`site_memory`, `security_signature`); state in `state.event.observations`, `state.observationMemory`, `state.siteObservations` |
 | skill_tree.gd | SkillTree: pure projection of player state + `skill_feats.json` -> Body/Mind/Soul buckets -> level/xp/thresholds -> sub-skills (skipped when their container is null, e.g. no Dial) -> feats (unlocked/locked); also validates the registry |
+| mind.gd | Mind bucket: `study()` HQ action (1 block, `GameData.STUDY` XP, larger with Library built; refused when time spent) + `award_xp` |
 | sense.gd | Sense skill XP award (level-up notify) via `Progression.award_xp` |
 | sites.gd | Sites & prospecting; each prospect awards Cultivating and Sense XP |
 | loadout.gd | Two personal consumable slots for the player (`player.loadout`) and combat recruits (`contacts[id].loadout`): equip/unequip (refused in combat; allies refuse Wormhole), consume, settlement refill (player, then recruits in roster order), equippable stock; multi-target units (`multi` flag, refilled as the same variant); `debug_grant()` for the debug setup |
@@ -234,6 +235,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | combat_block_reason_modal.gd | Why a combat command row is disabled: the action name and its block reason, opened from the row's red "!" (combat_rounds.gd) |
 | network_reference_modal.gd | Network Map legend |
 | hq_ore_readout_modal.gd | Ore-store slip with raid-risk stamp + personal-stash move controls, map_card_style.gd-skinned (always light) |
+| hq_study_modal.gd | Study action card (XP per session, block cost) opened from the HQ Study chip |
 | hq_gym_modal.gd | Combat skill card (level, XP bar, current + next-level HP/ATK/SPD/actions/crit via `Combat.skill_summary()`) + Train action card |
 | gym_spar_modal.gd | Flip Reverse (calc gym) map-pin modal: free-session/fee line, the player's `MoveBook` rows (open move in modal `data.openMove`), three partner cards with level and Spar button (opens the spar prep sheet); refusal reason shown under a disabled button |
 | contract_cancel_modal.gd | Navy BizBrief contract cancel confirm (Keep / Confirm → `Contracts.cancel`) |
