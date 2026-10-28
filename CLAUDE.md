@@ -74,6 +74,11 @@ Identical discipline to the prototype:
 7. If you add, delete, rename, or repurpose a file under `systems/`, `screens/`, `scenes/`, `autoload/`, or `data/` — or change what a file is responsible for — update `CODEMAP.md` in the same commit. Stale map entries cost more tokens later than the update costs now. CODEMAP entries describe **current state only** — what a file does now, in ~1-2 sentences — never a running log of which ticket did what. Don't write "ticket 21: adds X" or "27-procurement-in-manage: the sheet's Y is gone, now Z" — just describe what the file does today. History already lives in git log and in `_COMPLETED` ticket files under `.scratch/`; CODEMAP is a cheap lookup table, not a changelog.
 8. Comment + CODEMAP token diet: each CODEMAP row stays under 400 characters (split an overgrown row into a shorter row plus a linked doc/ADR instead). Comments in code (`.gd` files) describe what the code does *now* — cite a spec/vision doc's `§` header for rationale when the *why* isn't obvious, but never narrate ticket numbers, what a thing "used to" be, or what was deleted/removed/renamed; that history lives in git log. `scripts/lint_tokens.sh` (run by `scripts/check_all.sh`) enforces both rules against `scripts/lint_tokens_allowlist.txt`, seeded with pre-existing violations — don't add a file to that allowlist for new work; fix the comment or row instead.
 
+## Test hygiene (hangs)
+
+- Never loop on a game-state condition in a test (e.g. `while not TimeSystem.is_time_exhausted(): advance_time_block()` — the day rolls over and clears `timeBlocksDone`, so it never ends). Set the state directly (`world["timeBlocksDone"] = GameData.TIME_BLOCKS.duplicate()`); if a loop is unavoidable, cap iterations. Read the system function before assuming a state is stable.
+- Run a new test file alone first under `timeout 60` before the full suite, so a hang shows up in a minute, not after a half-hour run.
+
 ## Token efficiency
 
 - Grep/Glob for the symbol or section before Read. Don't Read a whole file to find something in it.
