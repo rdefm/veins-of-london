@@ -31,10 +31,22 @@ func run() -> void:
 
 	run_case("soul_dial_xp_mult_and_cast", func():
 		GameState.reset()
-		var expect := { 1: 1.0, 2: 1.1, 3: 1.1, 4: 1.2, 5: 1.2 }
+		var expect := { 1: 1.0, 2: 1.1, 3: 1.1 * 1.15, 4: 1.2 * 1.15, 5: 1.2 * 1.35 }
 		for level in expect:
 			GameState.state["player"]["soulSkill"] = level
 			assert_almost_eq(Soul.dial_xp_mult(), expect[level], 0.0001, "L%d" % level)
+	)
+
+	run_case("soul_level_xp_bonus_on_movement_craft_not_mind", func():
+		GameState.reset()
+		var player: Dictionary = GameState.state["player"]
+		player["mindSkill"] = 5
+		player["soulSkill"] = 5
+		assert_almost_eq(Mind.craft_xp_mult(false), 1.2, 0.0001, "Mind L3/L5 left out")
+		assert_almost_eq(Mind.craft_xp_mult(), 1.2 * 1.25, 0.0001, "Mind L5 on lab craft")
+		var before: int = int(player["craftingXP"])
+		Crafting.award_crafting_xp(100, true)
+		assert_eq(int(player["craftingXP"]) - before, int(round(100.0 * 1.2 * 1.35)))
 	)
 
 	run_case("soul_feat_texts_projected", func():
@@ -45,6 +57,8 @@ func run() -> void:
 				soul = row
 		assert_eq(soul["feats"][0]["text"], "+3% Seed chance, +1 cultivate gain, +10% Dial XP")
 		assert_eq(soul["feats"][1]["text"], "Seed chance bonus becomes +6%, cultivate gain +2, Dial XP +20%")
+		assert_eq(soul["feats"][2]["text"], "Soul actions have a 25% chance to cost no time block; Dial and Movement craft XP +15%")
+		assert_eq(soul["feats"][3]["text"], "The first Soul action each time block costs no time block; Dial and Movement craft XP bonus becomes +35%")
 		var cultivating: Dictionary = {}
 		for sub in soul["subSkills"]:
 			if sub["id"] == "cultivating":

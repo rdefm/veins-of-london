@@ -17,11 +17,11 @@
 - `data/constants.json`
 - Spec: `.scratch/mind-soul/spec.md` (Action classification)
 
-**Status:** needs-info
+**Status:** done
 
-- [ ] Lab craft XP is raised at Mind L3/L5 per data
-- [ ] Movement craft XP is raised at Soul L3/L5 per data
-- [ ] Winding is handled per the decision
-- [ ] None of these spends a block
-- [ ] Feat texts are projected
-- [ ] PROSE-REVIEW: feat texts
+- [x] Lab craft XP is raised at Mind L3/L5 per data
+- [x] Movement craft XP is raised at Soul L3/L5 per data
+- [x] Winding is handled per the decision
+- [x] None of these spends a block
+- [x] Feat texts are projected
+- [x] PROSE-REVIEW: feat texts

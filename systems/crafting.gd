@@ -172,8 +172,9 @@ static func file_crafted(recipe_key: String, tier: int, qty: int, multi: bool, c
 
 # No skill-up notification here — matches the HTML prototype, where
 # awardCraftingXP (unlike awardCultivatingXP) never calls pushNotification.
-static func award_crafting_xp(amount: int) -> void:
+static func award_crafting_xp(amount: int, soul_action: bool = false) -> void:
 	var player: Dictionary = GameState.state["player"]
-	amount = int(round(float(amount) * Perks.craft_xp_mult() * Mind.craft_xp_mult()))
+	var bucket_mult: float = Mind.craft_xp_mult(false) * Soul.level_xp_mult() if soul_action else Mind.craft_xp_mult()
+	amount = int(round(float(amount) * Perks.craft_xp_mult() * bucket_mult))
 	Progression.award_xp(player, "craftingXP", "craftingSkill", GameData.CRAFTING_XP_LEVELS, amount)
 	Progression.award_bucket_share("mind", amount)

@@ -187,11 +187,11 @@ static func attempt_craft_movement(archetype: String, ore_type: String) -> Dicti
 		var tier: int = skill
 		var movement := _new_movement(archetype, ore_type, tier)
 		player["movementInventory"].append(movement)
-		Crafting.award_crafting_xp(m["xpReward"])
+		Crafting.award_crafting_xp(m["xpReward"], true)
 		EventBus.state_changed.emit()
 		return { "ok": true, "success": true, "archetype": archetype, "oreType": ore_type, "tier": tier }
 	else:
-		Crafting.award_crafting_xp(int(floor(float(m["xpReward"]) / 3.0)))
+		Crafting.award_crafting_xp(int(floor(float(m["xpReward"]) / 3.0)), true)
 		EventBus.state_changed.emit()
 		return { "ok": true, "success": false }
 

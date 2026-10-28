@@ -38,7 +38,12 @@ static func cultivate_gain_bonus() -> int:
 
 # Player Dial XP multiplier from Soul level (1.0 below L2).
 static func dial_xp_mult() -> float:
-	return 1.0 + _perk_at_level("dialXpBonus")
+	return (1.0 + _perk_at_level("dialXpBonus")) * level_xp_mult()
+
+
+# Soul L3/L5 XP multiplier for no-block Soul actions (Dial cast, Movement craft).
+static func level_xp_mult() -> float:
+	return 1.0 + _perk_at_level("xpLevelBonus")
 
 
 static func award_xp(amount: int) -> void:

@@ -44,7 +44,7 @@ func run() -> void:
 	run_case("mind_craft_xp_mult_stacks_with_guild", func():
 		GameState.reset()
 		GameState.state["factions"]["guild"]["relation"] = 0
-		var expect := { 1: 20, 2: 22, 3: 22, 4: 24, 5: 24 }
+		var expect := { 1: 20, 2: 22, 3: 24, 4: 26, 5: 30 }
 		for level in expect:
 			GameState.state["player"]["mindSkill"] = level
 			var before: int = GameState.state["player"]["craftingXP"]
@@ -54,7 +54,7 @@ func run() -> void:
 		GameState.state["factions"]["guild"]["relation"] = 30
 		var guild_before: int = GameState.state["player"]["craftingXP"]
 		Crafting.award_crafting_xp(20)
-		assert_eq(GameState.state["player"]["craftingXP"] - guild_before, 30, "20 x 1.25 x 1.20")
+		assert_eq(GameState.state["player"]["craftingXP"] - guild_before, 33, "20 x 1.25 x 1.20 x 1.10")
 	)
 
 	run_case("mind_feat_texts_project_at_l2_and_l4", func():
@@ -63,4 +63,6 @@ func run() -> void:
 		assert_eq(mind["id"], "mind")
 		assert_eq(mind["feats"][0]["text"], "+3% observation, +10% Crafting XP")
 		assert_eq(mind["feats"][1]["text"], "Observation bonus becomes +6%, Crafting XP bonus +20%")
+		assert_eq(mind["feats"][2]["text"], "Mind actions have a 25% chance to cost no time block; Crafting XP +10%")
+		assert_eq(mind["feats"][3]["text"], "The first Mind action each time block costs no time block; Crafting XP bonus becomes +25%")
 	)

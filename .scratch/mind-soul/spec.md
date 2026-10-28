@@ -95,7 +95,7 @@ A free action is always called out explicitly as coming from the player's perk a
   - Mind actions: player Lab craft, Prospect.
   - Soul actions: Cultivate, Prune (light/hard), Seed, block-spending Dial actions (winding), Movement craft.
   - Study, Meditate and Train are never Mind/Soul actions.
-  - Lab craft, Movement craft and Dial winding spend no time block today and keep spending none (decision 2026-10-27). For them, the L3/L5 free-action perk is replaced by an XP bonus on that action, scaling with the bucket level. Values are still to be set. "Seed" means vein Seed (`Sites.attempt_seed`), not Dial seeding.
+  - Lab craft, Movement craft and Dial winding spend no time block today and keep spending none (decision 2026-10-27). For them, the L3/L5 free-action perk is replaced by an XP bonus on that action, scaling with the bucket level. Mind L3/L5: Lab craft Crafting XP ×1.10 / ×1.25 (stacks multiplicatively with L2/L4). Soul L3/L5: Dial cast XP and Movement craft Crafting XP ×1.15 / ×1.35 (Movement craft gets the Soul bonus, not Mind's). Dial winding awards no XP and gets no bonus. Values in `mindPerks.craftXpLevelBonus` / `soulPerks.xpLevelBonus`. "Seed" means vein Seed (`Sites.attempt_seed`), not Dial seeding.
 - **Free-action spend.** One new block-spend function takes a bucket and is called by every Mind/Soul action in place of the plain block advance. It returns whether the action was free. Order of checks:
   1. Time exhausted → the caller refuses as today. Free actions still need time left.
   2. Guild internship freebie, if applicable → it's free and Soul perks aren't consulted.

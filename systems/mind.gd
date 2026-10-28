@@ -31,9 +31,13 @@ static func observation_bonus() -> float:
 	return _perk_at_level("observationBonus")
 
 
-# Crafting XP multiplier from Mind level (1.0 below L2).
-static func craft_xp_mult() -> float:
-	return 1.0 + _perk_at_level("craftXpBonus")
+# Crafting XP multiplier from Mind level (1.0 below L2). The L3/L5 level bonus
+# stacks multiplicatively; Soul-bucket actions (Movement craft) leave it out.
+static func craft_xp_mult(include_level_bonus: bool = true) -> float:
+	var mult := 1.0 + _perk_at_level("craftXpBonus")
+	if include_level_bonus:
+		mult *= 1.0 + _perk_at_level("craftXpLevelBonus")
+	return mult
 
 
 static func award_xp(amount: int) -> void:
