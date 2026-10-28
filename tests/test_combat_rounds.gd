@@ -1466,7 +1466,7 @@ func run() -> void:
 		assert_eq(int(swing["dmg"]), _strike_dmg(swing, 1.5), "first phase deals +50%")
 		assert_eq(mugger["angerActions"], 3, "ticked by its own action")
 		assert_eq(CombatRounds.status_badges(mugger), ["Anger +50%"], "badge")
-		assert_eq(CombatRounds.stage_marks(combat)[1]["badges"], ["Anger +50%"], "on the stage")
+		assert_eq(CombatRounds.stage_marks(combat)[1]["icons"], [{ "id": "angerHot", "count": 3 }], "on the stage")
 		result = Combat.choose_move("strike", 1)
 		var hit: Dictionary = _actor_beats(result["beats"], 0, ["hit", "chip"])[0]
 		assert_eq(int(hit["dmg"]), _strike_dmg(hit, 0.5), "and takes -50%")
@@ -1479,6 +1479,56 @@ func run() -> void:
 		assert_true(_kinds(result["beats"]).has("calm"), "comes down after four actions")
 		assert_eq([mugger["angerActions"], mugger["angerPct"]], [0, 0])
 		assert_eq(CombatRounds.anger_factor(mugger, true), 1.0)
+	)
+
+	run_case("status_icons_list_each_running_status_in_display_order", func():
+		GameState.reset()
+		var combat := _start_vs([_slow_mugger(200)], [[["guard", "guard"]]], [])
+		var mugger: Dictionary = combat["combatants"][1]
+		var player: Dictionary = combat["combatants"][0]
+		assert_eq(CombatRounds.status_icons(combat, 1), [], "clean")
+		mugger["actionsLost"] = 3
+		mugger["frozenActions"] = 1
+		assert_eq(CombatRounds.status_icons(combat, 1), [{ "id": "stunned", "count": 2 }], "frozen actions are not stun")
+		mugger["actionsLost"] = 0
+		mugger["frozenActions"] = 0
+		mugger["guardFailed"] = true
+		assert_eq(CombatRounds.status_icons(combat, 1), [{ "id": "feinted", "count": 0 }], "feinted")
+		mugger["guardFailed"] = false
+		mugger["feintPct"] = 20
+		assert_eq(CombatRounds.status_icons(combat, 1), [{ "id": "feintBonus", "count": 0 }], "feint bonus")
+		mugger["feintPct"] = 0
+		mugger["panicActions"] = 2
+		mugger["raptureActions"] = 1
+		assert_eq(CombatRounds.status_icons(combat, 1), [{ "id": "panic", "count": 2 }, { "id": "rapture", "count": 1 }])
+		mugger["panicActions"] = 0
+		mugger["raptureActions"] = 0
+		mugger["angerPct"] = 50
+		mugger["angerActions"] = 4
+		assert_eq(CombatRounds.status_icons(combat, 1), [{ "id": "angerHot", "count": 4 }], "hot phase")
+		mugger["angerActions"] = 2
+		assert_eq(CombatRounds.status_icons(combat, 1), [{ "id": "angerCold", "count": 2 }], "cold phase")
+		mugger["fury"] = true
+		assert_eq(CombatRounds.status_icons(combat, 1), [{ "id": "fury", "count": 2 }])
+		mugger["angerActions"] = 0
+		mugger["fury"] = false
+		mugger["disarmed"] = true
+		mugger["ability"] = { "id": "shank", "lockedTurns": 2 }
+		assert_eq(CombatRounds.status_icons(combat, 1), [{ "id": "disarmed", "count": 2 }], "disarmed with locked rounds")
+		mugger["disarmed"] = false
+		combat["round"] = 2
+		mugger["powderUntil"] = 3
+		mugger["ladyUntil"] = 2
+		assert_eq(CombatRounds.status_icons(combat, 1), [{ "id": "powdered", "count": 2 }, { "id": "lady", "count": 1 }], "buffs, rounds left")
+		assert_eq(CombatRounds.status_icons(combat, 0), [], "sight is the player's only")
+		player["sightUntil"] = CombatRounds.WHOLE_FIGHT
+		assert_eq(CombatRounds.status_icons(combat, 0), [{ "id": "sight", "count": 0 }], "whole fight has no count")
+		assert_eq(CombatRounds.status_icons(combat, 1).map(func(i): return i["id"]), ["powdered", "lady"], "enemy gets no sight")
+		player["fleeBoost"] = 1.0
+		assert_eq(CombatRounds.status_icons(combat, 0), [{ "id": "sight", "count": 0 }, { "id": "legIt", "count": 0 }])
+		mugger["koed"] = true
+		assert_eq(CombatRounds.status_icons(combat, 1), [], "KO clears")
+		assert_true(CombatRounds.status_peek_lines(combat, 0)[0].begins_with("Sight"), "peek text")
 	)
 
 	run_case("pandemonium_turns_strikes_on_its_own_side", func():

@@ -69,9 +69,6 @@ const GUARD_MARKER_SIZE := Vector2(12.0, 14.0)
 const GUARD_MARKER_INSET := 4.0
 const GUARD_MARKER_GUARDED_COLOUR := Color(0.4, 0.85, 1.0, 0.95)
 const GUARD_MARKER_OPEN_COLOUR := Color(0.9, 0.9, 0.9, 0.75)
-# A sprite's status badges (CombatRounds.status_badges()).
-const STATUS_BADGE_FONT_SIZE := 9
-const STATUS_BADGE_COLOUR := Color(1.0, 0.85, 0.4, 0.95)
 # The frozen fighter's pause icon: two bars and the actions-left count.
 const PAUSE_ICON_BAR := Vector2(3, 9)
 const PAUSE_ICON_GAP := 3.0
@@ -100,6 +97,7 @@ class StageSlot extends Control:
 	var _sprite_rect: TextureRect
 	var _idle_timer: Timer
 	var _overlay: Control
+	var _icon_row: StatusIconRow
 	var _hit_keyposes: Array[Texture2D] = []
 	var _hit_fps: float = 10.0
 	var _ko_keyposes: Array[Texture2D] = []
@@ -171,6 +169,12 @@ class StageSlot extends Control:
 		_overlay.anchor_bottom = 1.0
 		_overlay.draw.connect(_draw_overlay)
 		add_child(_overlay)
+
+		_icon_row = StatusIconRow.new()
+		_icon_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_icon_row.anchor_right = 1.0
+		_icon_row.anchor_bottom = 1.0
+		add_child(_icon_row)
 	func set_side(value: String) -> void:
 		side = value
 		_apply_flip()
@@ -504,13 +508,17 @@ class StageSlot extends Control:
 		guard_marker = value
 		_overlay.queue_redraw()
 
-	# Short status lines (Panic, Anger, Disarmed...) under the guard marker.
-	var status_badges: Array = []
+	# CombatRounds.status_icons() in the row above the head; `animate` false sets it outright.
+	func set_status_icons(value: Array, animate: bool) -> void:
+		_icon_row.set_icons(value, animate)
 
-	func set_status_badges(value: Array) -> void:
-		if value == status_badges:
+	# Stun hold-open actions still to pass: the Open guard marker's count pip (0 hides it).
+	var open_left: int = 0
+
+	func set_open_left(value: int) -> void:
+		if value == open_left:
 			return
-		status_badges = value.duplicate()
+		open_left = value
 		_overlay.queue_redraw()
 
 	# Frozen actions still to pass: the pause icon's count (0 hides it).
@@ -649,7 +657,6 @@ class StageSlot extends Control:
 			_overlay.draw_rect(rect.grow(-2.0), Color(0.85, 0.95, 1.0, _shield_crack_alpha), false, 2.0)
 		if guard_marker != "":
 			_draw_guard_marker()
-		_draw_status_badges()
 		if frozen_left > 0:
 			_draw_pause_icon()
 
@@ -674,18 +681,6 @@ class StageSlot extends Control:
 		_overlay.draw_string_outline(font, Vector2(tx, ty), text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 3, Color(0, 0, 0, 0.8))
 		_overlay.draw_string(font, Vector2(tx, ty), text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, CombatStage.PAUSE_ICON_COLOUR)
 
-	# One line per badge, stacked under the guard marker on its side.
-	func _draw_status_badges() -> void:
-		var font: Font = ThemeDB.fallback_font
-		var y: float = CombatStage.GUARD_MARKER_INSET * 2.0 + CombatStage.GUARD_MARKER_SIZE.y
-		for badge in status_badges:
-			var text: String = str(badge)
-			var width: float = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, CombatStage.STATUS_BADGE_FONT_SIZE).x
-			var x: float = CombatStage.GUARD_MARKER_INSET if side != "enemy" else size.x - width - CombatStage.GUARD_MARKER_INSET
-			y += CombatStage.STATUS_BADGE_FONT_SIZE
-			_overlay.draw_string_outline(font, Vector2(x, y), text, HORIZONTAL_ALIGNMENT_LEFT, -1, CombatStage.STATUS_BADGE_FONT_SIZE, 3, Color(0, 0, 0, 0.8))
-			_overlay.draw_string(font, Vector2(x, y), text, HORIZONTAL_ALIGNMENT_LEFT, -1, CombatStage.STATUS_BADGE_FONT_SIZE, CombatStage.STATUS_BADGE_COLOUR)
-
 	# A small shield at the slot's back top corner: filled while Guarded,
 	# hollow while Open.
 	func _draw_guard_marker() -> void:
@@ -704,6 +699,8 @@ class StageSlot extends Control:
 				_overlay.draw_polyline(outline, Color(0, 0, 0, 0.6), 1.0)
 			_:
 				_overlay.draw_polyline(outline, CombatStage.GUARD_MARKER_OPEN_COLOUR, 2.0)
+				if open_left > 0:
+					StatusIconRow.draw_digit(_overlay, mini(open_left, 9), o + Vector2(w * 0.5 - 1.5, h * 0.3), CombatStage.GUARD_MARKER_OPEN_COLOUR)
 
 	# §2.2: a subtle arrow marks the selected sprite.
 	func _draw_selection_arrow() -> void:

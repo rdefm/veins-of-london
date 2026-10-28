@@ -343,6 +343,79 @@ static func status_badges(combatant: Dictionary) -> Array:
 	return badges
 
 
+# Combatant `index`'s running statuses as [{ id, count }] for the stage icon
+# row, in display order (removal, control, damage mods, buffs). count is the
+# actions or rounds left, 0 where there is none. Failsafe and Shield have no
+# icon; Frozen and Open-hold ride their own stage marks.
+static func status_icons(cp: Dictionary, index: int) -> Array:
+	var c: Dictionary = cp["combatants"][index]
+	var icons: Array = []
+	if c["koed"]:
+		return icons
+	if c["disarmed"]:
+		var ability = c["ability"]
+		icons.append({ "id": "disarmed", "count": int(ability["lockedTurns"]) if ability is Dictionary else 0 })
+	var stunned: int = int(c["actionsLost"]) - int(c["frozenActions"])
+	if stunned > 0:
+		icons.append({ "id": "stunned", "count": stunned })
+	if c["guardFailed"]:
+		icons.append({ "id": "feinted", "count": 0 })
+	if int(c["panicActions"]) > 0:
+		icons.append({ "id": "panic", "count": int(c["panicActions"]) })
+	if int(c["raptureActions"]) > 0:
+		icons.append({ "id": "rapture", "count": int(c["raptureActions"]) })
+	if int(c["feintPct"]) > 0:
+		icons.append({ "id": "feintBonus", "count": 0 })
+	if int(c["angerActions"]) > 0:
+		var id := "fury" if c["fury"] else ("angerHot" if anger_factor(c, true) >= 1.0 else "angerCold")
+		icons.append({ "id": id, "count": int(c["angerActions"]) })
+	if is_powered(cp, c):
+		icons.append({ "id": "powdered", "count": _rounds_left(cp, int(c["powderUntil"])) })
+	if index == PLAYER_INDEX and has_sight(cp):
+		icons.append({ "id": "sight", "count": _rounds_left(cp, int(c["sightUntil"])) })
+	if has_lady(cp, c):
+		icons.append({ "id": "lady", "count": _rounds_left(cp, int(c["ladyUntil"])) })
+	if float(c["fleeBoost"]) > 0.0:
+		icons.append({ "id": "legIt", "count": 0 })
+	return icons
+
+
+# Rounds a through-round status still covers, this one included (0 for the whole fight).
+static func _rounds_left(cp: Dictionary, until_round: int) -> int:
+	return 0 if until_round >= WHOLE_FIGHT else until_round - int(cp["round"]) + 1
+
+
+# status_icons() as full-text lines with their remaining counts (statusPeek).
+static func status_peek_lines(cp: Dictionary, index: int) -> Array:
+	var text: Dictionary = _data()["statusPeek"]
+	var c: Dictionary = cp["combatants"][index]
+	var lines: Array = []
+	for icon in status_icons(cp, index):
+		var n: int = int(icon["count"])
+		var line: String
+		match icon["id"]:
+			"disarmed":
+				line = str(text["disarmed"] if n == 0 else text["disarmedLocked"])
+			"feintBonus":
+				line = str(text["feintBonus"]).replace("{pct}", str(c["feintPct"]))
+			"sight":
+				line = str(text["sightFight"] if n == 0 else text["sight"])
+			"lady":
+				line = str(text["ladyFight"] if n == 0 else text["lady"])
+			"angerHot", "angerCold", "fury":
+				var label: String = str(_data()["statusBadges"]["fury" if icon["id"] == "fury" else "anger"])
+				var cold: int = int(_data()["anger"]["phaseActions"])
+				if anger_factor(c, true) >= 1.0:
+					line = str(text["angerHot"]).replace("{hot}", str(n - cold)).replace("{cold}", str(cold))
+				else:
+					line = str(text["angerCold"])
+				line = line.replace("{name}", label).replace("{pct}", str(c["angerPct"]))
+			_:
+				line = str(text[icon["id"]])
+		lines.append(line.replace("{n}", str(n)))
+	return lines
+
+
 # The attacker's damage roll range: its attack range, or its max both ends
 # under Be a Lady, plus its Strike level's damageBonus.
 static func damage_range(cp: Dictionary, actor: int) -> Array:
@@ -1674,7 +1747,10 @@ static func fighter_peek(cp: Dictionary, actor: int) -> Dictionary:
 	for row in move_levels_seen(cp, actor):
 		var level_text: String = str(text["levelUnknown"]) if int(row["level"]) == 0 else str(text["levelKnown"]).replace("{level}", str(row["level"]))
 		rows.append(str(text["row"]).replace("{move}", row["name"]).replace("{level}", level_text))
-	return { "title": str(text["title"]).replace("{name}", display_name(combatant)).replace("{level}", str(combatant["level"])), "rows": rows }
+	return {
+		"title": str(text["title"]).replace("{name}", display_name(combatant)).replace("{level}", str(combatant["level"])),
+		"rows": rows, "statuses": status_peek_lines(cp, actor),
+	}
 
 
 # Next round's actions in timeline order, as timeline() entries: each
@@ -2101,15 +2177,20 @@ static func _tick_anger(cp: Dictionary, actor_idx: int, beats: Array) -> void:
 
 # Each combatant's stage overlay as the fight stands: { guard: guard_marker()
 # ("" once KO'd), shielded (a Shield pool holds), frozen (a Time Pearl
-# freeze holds), frozenLeft (frozen actions still to pass), badges
-# (status_badges()) }.
+# freeze holds), frozenLeft (frozen actions still to pass), icons
+# (status_icons()), openLeft (Stun hold-open actions still to pass) }.
 static func stage_marks(cp: Dictionary) -> Array:
-	return cp["combatants"].map(func(c): return {
-		"guard": "" if c["koed"] else guard_marker(cp, c),
-		"shielded": int(c["shield"]) > 0, "frozen": not c["koed"] and int(c["frozenActions"]) > 0,
-		"frozenLeft": 0 if c["koed"] else int(c["frozenActions"]),
-		"badges": status_badges(c),
-	})
+	var marks: Array = []
+	for i in range(cp["combatants"].size()):
+		var c: Dictionary = cp["combatants"][i]
+		marks.append({
+			"guard": "" if c["koed"] else guard_marker(cp, c),
+			"shielded": int(c["shield"]) > 0, "frozen": not c["koed"] and int(c["frozenActions"]) > 0,
+			"frozenLeft": 0 if c["koed"] else int(c["frozenActions"]),
+			"icons": status_icons(cp, i),
+			"openLeft": 0 if c["koed"] else int(c.get("openActions", 0)),
+		})
+	return marks
 
 
 # "open" or "guarded", in is_open()'s order: a freeze or Stun hold reads Open, a Shield

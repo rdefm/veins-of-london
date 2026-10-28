@@ -588,7 +588,7 @@ func _on_stage_subject_held(target: Dictionary) -> void:
 	var title := UI.label(peek["title"])
 	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(title)
-	for row in peek["rows"]:
+	for row in peek["rows"] + peek["statuses"]:
 		var line := UI.muted_label(str(row))
 		line.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		box.add_child(line)
@@ -1352,7 +1352,7 @@ func _play_cue(cp: Dictionary, cue: Dictionary, rewinding: bool) -> void:
 
 
 # Each combatant's slot to its stage marks: guard marker, Shield loop, Time
-# Pearl freeze and status badges.
+# Pearl freeze and status icons.
 func _apply_marks(cp: Dictionary, marks: Array, animate: bool = false) -> void:
 	var roster := stage_roster(cp, -1)
 	for i in range(mini(marks.size(), cp["combatants"].size())):
@@ -1363,7 +1363,8 @@ func _apply_marks(cp: Dictionary, marks: Array, animate: bool = false) -> void:
 		_stage.set_slot_shield(slot, marks[i]["shielded"])
 		_stage.set_slot_frozen(slot, marks[i]["frozen"], animate)
 		slot.set_frozen_left(int(marks[i].get("frozenLeft", 0)))
-		slot.set_status_badges(marks[i].get("badges", []))
+		slot.set_open_left(int(marks[i].get("openLeft", 0)))
+		slot.set_status_icons(marks[i].get("icons", []), animate and not cp["combatants"][i]["koed"])
 
 
 func _build_outcome_card(outcome: String) -> Control:

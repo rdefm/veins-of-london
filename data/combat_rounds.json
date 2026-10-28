@@ -184,6 +184,23 @@
     "rapture": { "name": "Rapture", "actorGuard": "open" }
   },
   "statusBadges": { "panic": "Panic", "rapture": "Rapture", "anger": "Anger", "fury": "Fury", "disarmed": "Disarmed" },
+  "statusPeek": {
+    "stunned": "Stunned — loses next {n} action(s)",
+    "feinted": "Feinted — next Guard fails",
+    "feintBonus": "Feint — takes +{pct}% while Open",
+    "powdered": "Powdered — +1 action, {n} round(s) left",
+    "sight": "Sight — reads next round, {n} round(s) left",
+    "sightFight": "Sight — reads next round, all fight",
+    "lady": "Be a Lady — max rolls, {n} round(s) left",
+    "ladyFight": "Be a Lady — max rolls, all fight",
+    "panic": "Panic — {n} action(s)",
+    "rapture": "Rapture — {n} action(s)",
+    "angerHot": "{name} — deals +{pct}% for {hot} more, then −{pct}% for {cold}",
+    "angerCold": "{name} — deals −{pct}% for {n} more",
+    "disarmed": "Disarmed — weapon gone",
+    "disarmedLocked": "Disarmed — ability locked {n} round(s)",
+    "legIt": "Leg-it — next flee attempt boosted"
+  },
   "archetypes": {
     "mugger": {
       "name": "the mugger", "template": "mugger", "hpBase": 30, "attackMin": 5, "attackMax": 10,
