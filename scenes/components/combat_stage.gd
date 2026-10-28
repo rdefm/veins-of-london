@@ -234,38 +234,55 @@ class StageSlot extends Control:
 		_sprite_rect.visible = not frames.is_empty()
 		_sprite_rect.texture = frames[0] if not frames.is_empty() else null
 		if frames.size() >= 2 and fps > 0.0:
-			_idle_timer.wait_time = 1.0 / (fps * _time_scale)
+			_idle_timer.wait_time = 1.0 / fps
 			# Off-tree, the timer starts once it enters the tree.
-			if _idle_timer.is_inside_tree():
+			if _is_frozen_visual:
+				_idle_timer.stop()
+			elif _idle_timer.is_inside_tree():
 				_idle_timer.start()
 			else:
 				_idle_timer.autostart = true
 		else:
 			_idle_timer.stop()
+		_sync_freeze_prev_frame()
 		queue_redraw()
-	var _time_scale: float = 1.0
 	var _idle_fps: float = 0.0
-
-	func set_time_scale(scale: float) -> void:
-		_time_scale = maxf(0.01, scale)
-		if _idle_frames.size() >= 2 and _idle_fps > 0.0:
-			_idle_timer.wait_time = 1.0 / (_idle_fps * _time_scale)
 	var _frozen_shader_material: ShaderMaterial
 	var _is_frozen_visual: bool = false
 
+	# Frozen: idle animation holds its frame under the VCR-pause shader.
 	func set_frozen_visual(value: bool) -> void:
 		if value == _is_frozen_visual:
 			return
 		_is_frozen_visual = value
 		if value:
 			if _frozen_shader_material == null:
-				var shader := Shader.new()
-				shader.code = "shader_type canvas_item;\nvoid fragment() {\n\tvec4 c = texture(TEXTURE, UV);\n\tfloat gray = dot(c.rgb, vec3(0.299, 0.587, 0.114));\n\tCOLOR = vec4(mix(c.rgb, vec3(gray), 0.85), c.a);\n}"
-				_frozen_shader_material = ShaderMaterial.new()
-				_frozen_shader_material.shader = shader
+				_frozen_shader_material = _build_freeze_material()
 			_sprite_rect.material = _frozen_shader_material
+			_sync_freeze_prev_frame()
+			_idle_timer.autostart = false
+			_idle_timer.stop()
 		else:
 			_sprite_rect.material = null
+			if _idle_frames.size() >= 2 and _idle_fps > 0.0 and _idle_timer.is_inside_tree():
+				_idle_timer.start()
+
+	static func _build_freeze_material() -> ShaderMaterial:
+		var fx_data: Dictionary = GameData.COMBAT_VISUALS.get("pacing", {}).get("freezeFx", {})
+		var mat := ShaderMaterial.new()
+		mat.shader = load("res://shaders/vcr_pause.gdshader")
+		for pair in [["shiverPx", "shiver_px"], ["shiverHz", "shiver_hz"], ["flickerEvery", "flicker_every"], ["bandPeriod", "band_period"], ["bandHeight", "band_height"], ["bandShearPx", "band_shear_px"], ["bandBrighten", "band_brighten"], ["bandNoise", "band_noise"], ["desaturate", "desaturate"], ["scanlineStrength", "scanline_strength"], ["scanlinePeriodPx", "scanline_period_px"]]:
+			if fx_data.has(pair[0]):
+				mat.set_shader_parameter(pair[1], float(fx_data[pair[0]]))
+		return mat
+
+	func _sync_freeze_prev_frame() -> void:
+		if _frozen_shader_material == null:
+			return
+		var prev: Texture2D = _sprite_rect.texture
+		if _idle_frames.size() >= 2:
+			prev = _idle_frames[(_idle_frame_index - 1 + _idle_frames.size()) % _idle_frames.size()]
+		_frozen_shader_material.set_shader_parameter("prev_tex", prev)
 	func _advance_idle_frame() -> void:
 		if _idle_frames.size() < 2 or not _one_shot_steps.is_empty():
 			return
@@ -759,7 +776,6 @@ func set_slot_shield(slot: StageSlot, active: bool) -> void:
 
 
 func set_slot_frozen(slot: StageSlot, frozen: bool) -> void:
-	slot.set_time_scale(0.1 if frozen else 1.0)
 	slot.set_frozen_visual(frozen)
 
 

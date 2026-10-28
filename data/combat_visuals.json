@@ -71,6 +71,20 @@
       "labelColour": [1.0, 1.0, 1.0, 0.95],
       "labelMargin": 10
     },
+    "freezeFx": {
+      "_note": "VCR-pause look on a Time-Pearl-frozen sprite (shaders/vcr_pause.gdshader, CombatStage.StageSlot.set_frozen_visual). shiverPx/shiverHz: horizontal field jitter; flickerEvery: every Nth field shows the previous frame; band*: tracking band (period seconds feet->head, height as UV fraction, shear in sprite px).",
+      "shiverPx": 1.0,
+      "shiverHz": 8.0,
+      "flickerEvery": 5.0,
+      "bandPeriod": 1.2,
+      "bandHeight": 0.08,
+      "bandShearPx": 2.5,
+      "bandBrighten": 0.35,
+      "bandNoise": 0.25,
+      "desaturate": 0.35,
+      "scanlineStrength": 0.18,
+      "scanlinePeriodPx": 3.0
+    },
     "menuPanel": { "enterSeconds": 0.44, "exitSeconds": 0.32 }
   },
   "backdrops": {
