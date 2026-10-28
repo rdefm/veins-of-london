@@ -131,7 +131,7 @@ Data file per system: see `data/*.json` below.
 ## scenes/screens/*.gd — UI screens
 
 `scenes/Main.gd` (scene root) boots autoloads/first screen, mounts the time-transition + alarm
-overlays; hides the top board on title/intro/combat and the nav dock per screen.
+overlays; hides the top board on title/intro/combat and the nav dock per screen. Prep → combat swap slides the Prep sheet and top board up together over the new combat screen (`combat_visuals.json` `intro.prepHandoffUp`).
 
 | File | Renders |
 |---|---|

@@ -32,6 +32,8 @@ var top_bar: Control
 var modal_layer: Control
 var bag_drawer: Control
 var current_screen_node: Control = null
+var _handoff_sheet: Control = null
+var _handoff_tween: Tween = null
 var _theme_dark: bool = false
 
 func _ready() -> void:
@@ -82,17 +84,61 @@ static func resolve_screen_id(screen_id: String) -> String:
 	return "title"
 
 func _show_screen(screen_id: String) -> void:
-	if current_screen_node != null:
-		current_screen_node.queue_free()
-		current_screen_node = null
-
+	_end_handoff()
 	var resolved_id: String = resolve_screen_id(screen_id)
+	var leaving: Control = current_screen_node
+	var handoff: bool = leaving is CombatPrepScreen and leaving.is_inside_tree() and resolved_id == "combat"
+	if leaving != null and not handoff:
+		leaving.queue_free()
+	current_screen_node = null
+
 	var screen_node: Control = SCREEN_SCRIPTS[resolved_id].new()
 	current_screen_node = screen_node
 	UI.anchor_full_rect(screen_node)
 	screen_container.add_child(screen_node)  # may re-enter _show_screen synchronously (e.g. hq.gd's _ready() redirecting straight into an event)
 	if current_screen_node != screen_node:
+		if handoff and is_instance_valid(leaving):
+			leaving.queue_free()
 		return
+	if handoff:
+		_start_handoff(leaving)
 
 	nav_bar.visible = not NAV_HIDDEN_SCREENS.has(resolved_id) and not CombatPrep.is_editing_loadout() and not LessonSession.is_open()
-	top_bar.visible = not TOP_BAR_HIDDEN_SCREENS.has(resolved_id)
+	top_bar.visible = not TOP_BAR_HIDDEN_SCREENS.has(resolved_id) or handoff
+
+
+# Prep sheet and top board leave upward together over the new combat screen
+# (docs/combat-animation-vision.md §4.1). The sheet is kept until the slide ends.
+func _start_handoff(sheet: Control) -> void:
+	if EventBus.state_changed.is_connected(sheet._render):
+		EventBus.state_changed.disconnect(sheet._render)
+	sheet.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	screen_container.move_child(sheet, -1)
+	var cfg := CombatStage.intro_config()
+	var duration := float(cfg.get("prepHandoffUp", 0.3))
+	if CombatPacing.pacing_mode() == "quick":
+		duration *= float(cfg.get("quickScale", 0.5))
+	_handoff_sheet = sheet
+	var rise := -maxf(size.y, sheet.size.y)
+	_handoff_tween = create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+	_handoff_tween.tween_property(sheet, "position:y", sheet.position.y + rise, duration)
+	_handoff_tween.tween_property(top_bar, "position:y", top_bar.position.y + rise, duration)
+	_handoff_tween.finished.connect(_end_handoff)
+
+
+func _end_handoff() -> void:
+	if _handoff_tween != null:
+		_handoff_tween.kill()
+		_handoff_tween = null
+		top_bar.position.y = 0.0
+		top_bar.visible = not TOP_BAR_HIDDEN_SCREENS.has(GameState.state["currentScreen"])
+	if is_instance_valid(_handoff_sheet):
+		_handoff_sheet.queue_free()
+	_handoff_sheet = null
+
+
+func _input(event: InputEvent) -> void:
+	if _handoff_tween == null or TouchInput.is_emulated_mouse(event):
+		return
+	if (event is InputEventScreenTouch and event.pressed) or (event is InputEventMouseButton and event.pressed):
+		_end_handoff()

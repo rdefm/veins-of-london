@@ -13,6 +13,8 @@ const MUTED := Color("#a6a7ab")
 const BUTTON_BG := Color("#3b3b40")
 
 var _picking_slot := -1
+# Set while Fight commits so the sheet keeps its content for Main's exit-upward hand-off.
+var _committing := false
 
 
 func _ready() -> void:
@@ -23,6 +25,8 @@ func _ready() -> void:
 
 
 func _render() -> void:
+	if _committing:
+		return
 	for child in get_children():
 		remove_child(child)
 		child.queue_free()
@@ -246,9 +250,12 @@ func _on_cancel() -> void:
 
 
 func _on_fight() -> void:
+	_committing = true
 	var result := CombatPrep.commit()
-	if not result.get("ok", false) and result.has("reason"):
-		Notify.push(str(result["reason"]))
+	if not result.get("ok", false):
+		_committing = false
+		if result.has("reason"):
+			Notify.push(str(result["reason"]))
 
 
 func _label(value: String, font_size: int, colour: Color, wrap: bool = true) -> Label:
