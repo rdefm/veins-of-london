@@ -1848,6 +1848,11 @@ func _validate_combat_visuals(combat_visuals: Dictionary, palette: Dictionary, e
 		if backdrops[Combat.CONTEXT_ARCHIE_DEAL_MUGGING] != backdrops[Combat.CONTEXT_MUGGING]:
 			errors.append("combat_visuals.backdrops.archie_deal_mugging: must exactly match backdrops.mugging (permanent alias, not its own plate)")
 
+	var intro: Dictionary = combat_visuals.get("intro", {})
+	for key in ["stageUp", "zoomFrom", "enter", "stagger", "offscreenMarginPx", "squashX", "squashY", "squashHold", "dustSizePx", "dustRisePx", "dustFade", "reserveFade", "hudReveal", "dockRisePx", "quickScale"]:
+		if not (intro.get(key) is float or intro.get(key) is int):
+			errors.append("combat_visuals.intro: missing numeric '%s'" % key)
+
 	var turn_pause: Dictionary = combat_visuals.get("pacing", {}).get("turnPause", {})
 	for mode in CombatPacing.MODES:
 		if not (turn_pause.get(mode) is float or turn_pause.get(mode) is int):

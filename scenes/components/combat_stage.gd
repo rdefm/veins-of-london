@@ -9,6 +9,7 @@ signal subject_tapped(target: Dictionary)
 # A press held PEEK_HOLD_SECONDS on a sprite, and its release.
 signal subject_held(target: Dictionary)
 signal subject_released
+signal intro_finished
 
 const PEEK_HOLD_SECONDS := 0.4
 
@@ -639,6 +640,12 @@ var _throw_keyposes_by_template: Dictionary = {}
 var _effect_frames_by_key: Dictionary = {}
 var _stage_shake_layer: Control
 var _rewind_fx: ColorRect
+var _intro_active := false
+var _intro_tween: Tween = null
+var _intro_extra_tweens: Array[Tween] = []
+var _intro_finals: Array = []  # { slot, x } per fighter, its resting x
+var _intro_fades: Array = []  # { node, alpha } the reserves fading in
+var _intro_dust: Array = []
 
 
 # The stage fills whatever region the screen gives it; slots re-stage to fit.
@@ -1214,6 +1221,143 @@ func _sync_reserves(side: String, ids: Array, fighters: Array, template_field: S
 	label.position = layout["label"].position
 	label.size = layout["label"].size
 	_sort_slots_by_depth()
+
+
+static func intro_config() -> Dictionary:
+	return GameData.COMBAT_VISUALS.get("intro", {})
+
+
+# Fighters in arrival order: front slot first, player and enemy sides alternating.
+func _intro_fighters() -> Array:
+	var out: Array = []
+	for i in range(maxi(_player_order.size(), _enemy_order.size())):
+		if i < _player_order.size() and _player_slots.has(_player_order[i]):
+			out.append({ "slot": _player_slots[_player_order[i]], "side": "player" })
+		if i < _enemy_order.size() and _enemy_slots.has(_enemy_order[i]):
+			out.append({ "slot": _enemy_slots[_enemy_order[i]], "side": "enemy" })
+	return out
+
+
+# Parks the backdrop faded and zoomed, every fighter off-screen and the
+# reserves invisible, ready for start_intro(). Call after sync().
+func prepare_intro() -> void:
+	if _slot_layer == null:
+		return
+	var cfg := intro_config()
+	_intro_active = true
+	_intro_finals = []
+	for plate in [_backdrop_fill, _backdrop_texture]:
+		plate.modulate.a = 0.0
+		plate.pivot_offset = size * 0.5
+		plate.scale = Vector2.ONE * float(cfg["zoomFrom"])
+	var margin := float(cfg["offscreenMarginPx"])
+	for fighter in _intro_fighters():
+		var slot: StageSlot = fighter["slot"]
+		var final_x := slot.position.x
+		slot.position.x = -slot.size.x - margin if fighter["side"] == "player" else size.x + margin
+		_intro_finals.append({ "slot": slot, "x": final_x })
+	_intro_fades = []
+	for side in ["player", "enemy"]:
+		for slot in _reserve_slots[side].values():
+			_intro_fades.append({ "node": slot, "alpha": slot.modulate.a })
+		var label: Label = _reserve_labels.get(side)
+		if label != null:
+			_intro_fades.append({ "node": label, "alpha": label.modulate.a })
+	for fade in _intro_fades:
+		fade["node"].modulate.a = 0.0
+
+
+# Plays the stage-up and fighter entrance from prepare_intro(), `time_scale`
+# multiplying every duration; emits intro_finished at the last fade.
+func start_intro(time_scale: float) -> void:
+	if not _intro_active:
+		intro_finished.emit()
+		return
+	var cfg := intro_config()
+	var up := float(cfg["stageUp"]) * time_scale
+	var enter := float(cfg["enter"]) * time_scale
+	var stagger := float(cfg["stagger"]) * time_scale
+	_intro_tween = create_tween().set_parallel(true)
+	for plate in [_backdrop_fill, _backdrop_texture]:
+		_intro_tween.tween_property(plate, "modulate:a", 1.0, up)
+		_intro_tween.tween_property(plate, "scale", Vector2.ONE, up)
+	var land_end := up
+	for n in range(_intro_finals.size()):
+		var slot: StageSlot = _intro_finals[n]["slot"]
+		var delay := up + n * stagger
+		_intro_tween.tween_property(slot, "position:x", _intro_finals[n]["x"], enter).set_delay(delay).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		_intro_tween.tween_callback(_land_fighter.bind(slot, time_scale)).set_delay(delay + enter)
+		land_end = maxf(land_end, delay + enter)
+	var fade := float(cfg["reserveFade"]) * time_scale
+	for entry in _intro_fades:
+		_intro_tween.tween_property(entry["node"], "modulate:a", entry["alpha"], fade).set_delay(land_end)
+	_intro_tween.finished.connect(finish_intro)
+
+
+# Jumps to the post-intro stage (also the intro's natural end); idempotent.
+func finish_intro() -> void:
+	if not _intro_active:
+		return
+	_intro_active = false
+	if _intro_tween != null and _intro_tween.is_valid():
+		_intro_tween.kill()
+	_intro_tween = null
+	for tween in _intro_extra_tweens:
+		if tween.is_valid():
+			tween.kill()
+	_intro_extra_tweens = []
+	for dust in _intro_dust:
+		if is_instance_valid(dust):
+			dust.queue_free()
+	_intro_dust = []
+	for plate in [_backdrop_fill, _backdrop_texture]:
+		plate.modulate.a = 1.0
+		plate.scale = Vector2.ONE
+	for entry in _intro_finals:
+		var slot: StageSlot = entry["slot"]
+		if is_instance_valid(slot):
+			slot.position.x = entry["x"]
+			slot.scale = Vector2.ONE
+	for entry in _intro_fades:
+		if is_instance_valid(entry["node"]):
+			entry["node"].modulate.a = entry["alpha"]
+	_intro_finals = []
+	_intro_fades = []
+	intro_finished.emit()
+
+
+func is_intro_active() -> bool:
+	return _intro_active
+
+
+# One-frame squash and a dust puff under a fighter as it lands.
+func _land_fighter(slot: StageSlot, time_scale: float) -> void:
+	if not is_instance_valid(slot) or not _intro_active:
+		return
+	var cfg := intro_config()
+	var hold := float(cfg["squashHold"]) * time_scale
+	slot.pivot_offset = Vector2(slot.size.x * 0.5, slot.size.y)
+	var squash := slot.create_tween()
+	_intro_extra_tweens.append(squash)
+	squash.tween_property(slot, "scale", Vector2(float(cfg["squashX"]), float(cfg["squashY"])), hold)
+	squash.tween_property(slot, "scale", Vector2.ONE, hold)
+	var puff_size := float(cfg["dustSizePx"])
+	var rise := float(cfg["dustRisePx"])
+	var fade := float(cfg["dustFade"]) * time_scale
+	var feet := Vector2(slot.position.x + slot.size.x * 0.5, slot.position.y + slot.size.y)
+	for dir in [-1.0, 1.0]:
+		var puff := ColorRect.new()
+		puff.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		puff.color = Color(0.82, 0.8, 0.74, 0.6)
+		puff.size = Vector2.ONE * puff_size
+		puff.position = feet + Vector2(dir * puff_size - puff_size * 0.5, -puff_size)
+		_slot_layer.add_child(puff)
+		_intro_dust.append(puff)
+		var tween := puff.create_tween().set_parallel(true)
+		_intro_extra_tweens.append(tween)
+		tween.tween_property(puff, "position:y", puff.position.y - rise, fade)
+		tween.tween_property(puff, "modulate:a", 0.0, fade)
+		tween.finished.connect(puff.queue_free)
 
 
 # Slides each slot whose fighter was just waiting from its reserve place to

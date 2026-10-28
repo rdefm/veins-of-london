@@ -86,6 +86,11 @@ var _voiceover_label: Label
 var _continue_button: Button
 var _transcript: CombatTranscript
 var _director: CombatDirector
+# True from the fight opening until the transcript and dock have revealed.
+var _intro_playing := false
+var _intro_skipped := false
+var _hud_tween: Tween = null
+var _dock_rest_y := 0.0
 
 
 func _ready() -> void:
@@ -93,7 +98,81 @@ func _ready() -> void:
 	_build_fight_layout()
 	EventBus.state_changed.connect(_refresh)
 	_refresh()
+	_start_fight()
+
+
+# The stage-and-HUD intro (off-tree there's nothing to wait on, so it's
+# skipped), then any enemy-first opening beats.
+func _start_fight() -> void:
+	if is_inside_tree() and _cp()["active"]:
+		await _play_intro()
 	_play_opening()
+
+
+func _hud_nodes() -> Array:
+	return [_transcript, _dock, _voiceover, _strip.get_parent()]
+
+
+func _reveal_hud() -> void:
+	for node in _hud_nodes():
+		node.modulate.a = 1.0
+	_dock.position.y = _dock_rest_y
+	_stage.modulate.a = 1.0
+
+
+# HUD hidden, backdrop zooming up, fighters sliding in, then the transcript
+# and dock reveal (docs/combat-animation-vision.md §4.1). A tap anywhere
+# skips to the end of the reveal.
+func _play_intro() -> void:
+	_intro_playing = true
+	_intro_skipped = false
+	for node in _hud_nodes():
+		node.modulate.a = 0.0
+	_stage.modulate.a = 0.0
+	await get_tree().process_frame
+	if not is_instance_valid(_stage):
+		return
+	var cfg := CombatStage.intro_config()
+	var time_scale := float(cfg["quickScale"]) if CombatPacing.pacing_mode() == "quick" else 1.0
+	if not _intro_skipped:
+		_dock_rest_y = _dock.position.y
+		_stage.prepare_intro()
+		_stage.modulate.a = 1.0
+		_stage.start_intro(time_scale)
+		if _stage.is_intro_active():
+			await _stage.intro_finished
+	if not _intro_skipped:
+		var reveal := float(cfg["hudReveal"]) * time_scale
+		_hud_tween = create_tween().set_parallel(true)
+		for node in _hud_nodes():
+			_hud_tween.tween_property(node, "modulate:a", 1.0, reveal)
+		var rise := float(cfg["dockRisePx"])
+		_hud_tween.tween_method(func(t: float) -> void: _dock.position.y = _dock_rest_y + rise * (1.0 - t), 0.0, 1.0, reveal)
+		await _hud_tween.finished
+	_hud_tween = null
+	_intro_playing = false
+	_reveal_hud()
+	_refresh()
+
+
+# Jumps whichever intro phase is running to its end; _play_intro resumes
+# and lands on the post-reveal state.
+func _skip_intro() -> void:
+	if not _intro_playing or _intro_skipped:
+		return
+	_intro_skipped = true
+	if _stage.is_intro_active():
+		_stage.finish_intro()
+	elif _hud_tween != null and _hud_tween.is_valid():
+		_hud_tween.custom_step(999999.0)
+
+
+func _input(event: InputEvent) -> void:
+	if not _intro_playing or TouchInput.is_emulated_mouse(event):
+		return
+	if (event is InputEventScreenTouch and event.pressed) or (event is InputEventMouseButton and event.pressed):
+		get_viewport().set_input_as_handled()
+		_skip_intro()
 
 
 func _cp() -> Dictionary:
@@ -213,7 +292,7 @@ func _fit_stage_to_region() -> void:
 # True from a pick until its beats finish playing: the dock is locked and
 # the outcome holds back until then.
 func _busy() -> bool:
-	return _director.is_playing() or not _frozen_roster.is_empty()
+	return _intro_playing or _director.is_playing() or not _frozen_roster.is_empty()
 
 
 func _sync_fight(cp: Dictionary) -> void:
@@ -234,7 +313,7 @@ func _sync_fight(cp: Dictionary) -> void:
 
 	# Mid-playback a re-sync would cut the slots' one-shot poses short, and
 	# the strip shows the round as far as the beats have played.
-	if not _director.is_playing():
+	if not _director.is_playing() and not _intro_playing:
 		var roster := stage_roster(cp, _target)
 		_stage.sync(roster["combat"], roster["player"], _frozen_roster)
 		_apply_marks(cp, _held_marks if not _held_marks.is_empty() else CombatRounds.stage_marks(cp))
