@@ -66,6 +66,21 @@ func run() -> void:
 		slot.free()
 	)
 
+	run_case("powder_linger_speeds_idle_and_clears_directly_on_ko", func():
+		var slot := CombatStage.StageSlot.new()
+		var frames: Array[Texture2D] = [PlaceholderTexture2D.new(), PlaceholderTexture2D.new()]
+		slot.set_idle_animation(frames, 10.0)
+		assert_almost_eq(slot._idle_timer.wait_time, 0.1, 0.0001, "base idle")
+		slot.set_powder_linger(true)
+		assert_almost_eq(slot._idle_timer.wait_time, 0.1 / float(CombatStage.powder_fx()["idleSpeed"]), 0.0001, "faster idle")
+		slot.set_powder_linger(false)
+		assert_almost_eq(slot._idle_timer.wait_time, 0.1, 0.0001, "off-tree exit sets it outright")
+		slot.set_powder_linger(true)
+		slot.play_ko()
+		assert_almost_eq(slot._idle_timer.wait_time, 0.1, 0.0001, "KO clears instantly")
+		slot.free()
+	)
+
 	run_case("freeze_fx_durations_are_data_driven_and_halve_when_quick", func():
 		var fx: Dictionary = GameData.COMBAT_VISUALS["pacing"]["freezeFx"]
 		var prior: String = CombatPacing.pacing_mode()

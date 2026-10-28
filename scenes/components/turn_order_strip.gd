@@ -26,6 +26,7 @@ const NEUTRAL_COLOUR := Color(0.42, 0.46, 0.55)
 const UNKNOWN_COLOUR := Color(0.32, 0.32, 0.32)
 const UNREAD_FONT_SIZE := 14
 const FROZEN_DIM_ALPHA := 0.45
+const EXTRA_TAB_COLOUR := Color(0.55, 0.9, 0.4)
 
 const SIGN_GROUND_ID := "combat_sign_ground"
 const SIGN_LETTERING_ID := "combat_sign_lettering"
@@ -54,6 +55,7 @@ class NameplateCard extends Control:
 	var action_unread: bool = false
 	var action_frozen: bool = false  # dimmed ⏸ card
 	var action_flicker: bool = false  # the ⏸ flickers once as the card is passed
+	var extra_action: bool = false  # the action an Enhancement Powder adds: green "+1" corner tab
 	var guard_badge: String = ""
 	var status_badge: String = ""
 	var is_pulsing: bool = false
@@ -464,6 +466,7 @@ func _build_card(entry: Dictionary, is_focused: bool, card_size: Vector2) -> Nam
 	card.action_unread = entry.get("actionUnread", false)
 	card.action_frozen = entry.get("actionFrozen", false)
 	card.action_flicker = entry.get("actionFlicker", false)
+	card.extra_action = entry.get("extraAction", false)
 	card.guard_badge = entry.get("guardBadge", "")
 	card.status_badge = entry.get("statusBadge", "")
 
@@ -594,6 +597,33 @@ func _build_card_content(card: NameplateCard) -> void:
 	card.faction_label = faction_label
 
 	card.add_child(box)
+	if card.extra_action:
+		card.add_child(_extra_action_tab())
+
+
+# The green "+1" tab in a card's top-right corner.
+func _extra_action_tab() -> Control:
+	var tab := PanelContainer.new()
+	tab.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var style := StyleBoxFlat.new()
+	style.bg_color = EXTRA_TAB_COLOUR
+	style.set_corner_radius_all(2)
+	style.content_margin_left = 3.0
+	style.content_margin_right = 3.0
+	style.content_margin_top = 0.0
+	style.content_margin_bottom = 0.0
+	tab.add_theme_stylebox_override("panel", style)
+	var label := Label.new()
+	label.text = "+1"
+	label.add_theme_font_size_override("font_size", 9)
+	label.add_theme_color_override("font_color", Color.BLACK)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tab.add_child(label)
+	tab.anchor_left = 1.0
+	tab.anchor_right = 1.0
+	tab.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	tab.position = Vector2(0.0, -2.0)
+	return tab
 
 
 # Tapping any card selects its combatant (full tap/sprite/arrow treatment

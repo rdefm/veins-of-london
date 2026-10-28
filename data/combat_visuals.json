@@ -190,7 +190,38 @@
     "ringWidthPx": 3.0,
     "guardFlickerSeconds": 0.12,
     "disarm": { "sizePx": 10.0, "seconds": 0.4, "degrees": 720.0, "risePx": 90.0, "colour": [0.85, 0.85, 0.85] },
-    "legItStreak": { "colour": [1.0, 0.62, 0.2], "count": 3, "lengthPx": 18.0, "seconds": 0.3 }
+    "legItStreak": { "colour": [1.0, 0.62, 0.2], "count": 3, "lengthPx": 18.0, "seconds": 0.3 },
+    "powderFx": {
+      "_note": "Enhancement Powder (StageSlot.play_powder_launch / set_powder_linger). puff*: green-gold specks at headFraction of the slot height (count at launch, exitCount at exit; sizePx square, rise px over seconds, spread px apart, colours cycle). idleSpeed: idle fps multiplier while it holds; exitSeconds: the ease back. trail*: ghosts left behind each lunge/throw (count, alpha, gapSeconds apart, fadeSeconds). Seconds halve under quick pacing; reduced motion drops puffs and trails and sets the idle speed outright.",
+      "idleSpeed": 1.6,
+      "exitSeconds": 0.3,
+      "headFraction": 0.25,
+      "puffCount": 5,
+      "exitCount": 2,
+      "puffSizePx": 3.0,
+      "puffRisePx": 12.0,
+      "puffSpreadPx": 6.0,
+      "puffSeconds": 0.35,
+      "puffColours": [[0.55, 0.9, 0.4], [0.95, 0.8, 0.35]],
+      "launchAfterimageAlpha": 0.45,
+      "trailCount": 2,
+      "trailAlpha": 0.25,
+      "trailGapSeconds": 0.06,
+      "trailFadeSeconds": 0.22
+    },
+    "ladyFx": {
+      "_note": "Be a Lady (StageSlot.play_lady_sweep / play_lady_glint, CombatStage.spawn_damage_number). sweep*: the brass band rising up the sprite at launch. glint*: the one-frame clover-green cross at a landed Strike's impact (sizePx; critScale bigger on a crit, which adds critHitStopSeconds of hit-stop). numberColour: the brass damage number. Seconds halve under quick pacing; reduced motion drops the sweep and glints, keeps the brass number.",
+      "sweepColour": [0.95, 0.8, 0.35],
+      "sweepSeconds": 0.25,
+      "sweepHeightPx": 3.0,
+      "glintColour": [0.45, 0.9, 0.4],
+      "glintSeconds": 0.05,
+      "glintSizePx": 10.0,
+      "glintThicknessPx": 2.0,
+      "critScale": 1.6,
+      "critHitStopSeconds": 0.04,
+      "numberColour": [0.95, 0.8, 0.35]
+    }
   },
   "territorialVariant": {
     "_note": "Shared pose spec for every discovered assets/combat/territorial<N>/ folder (GameData.TERRITORIAL_VARIANTS). Each file stem resolves to territorial<N>/territorial<N>_<stem>.png; a pose, or one attack variant, loads only when all its files exist. Attack 'variants' are alternative swings, one picked at random per attack: a 1-pose jab, or guard wind-up then cross. ko reuses the hurt pose under the ko fall+fade transform.",

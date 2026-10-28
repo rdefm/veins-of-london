@@ -398,6 +398,7 @@ static func strip_entries(cp: Dictionary, pick: Dictionary = {}) -> Array:
 		entry["actionUnread"] = _position_unread(cp, position)
 		entry["guardBadge"] = _guard_badge(cp, position)
 		entry["statusBadge"] = _status_badge(cp, position["actor"])
+		entry["extraAction"] = _is_extra_action(cp, position, false)
 		entry["focused"] = pick.is_empty() and position["actor"] == CombatRounds.PLAYER_INDEX and position["index"] == pause
 		entries.append(entry)
 	for position in CombatRounds.next_round_timeline(cp):
@@ -413,9 +414,18 @@ static func strip_entries(cp: Dictionary, pick: Dictionary = {}) -> Array:
 			entry["actionText"] = PAUSE_TEXT
 			entry["actionUnread"] = false
 		entry["statusBadge"] = _status_badge(cp, position["actor"])
+		entry["extraAction"] = _is_extra_action(cp, position, true)
 		entry["focused"] = false
 		entries.append(entry)
 	return entries
+
+
+# Whether a timeline position is the action an Enhancement Powder adds
+# (its actor's index past their level's count while a Powder runs that round).
+static func _is_extra_action(cp: Dictionary, position: Dictionary, next_round: bool) -> bool:
+	var combatant: Dictionary = cp["combatants"][position["actor"]]
+	var powered: bool = int(cp["round"]) + (1 if next_round else 0) <= int(combatant["powderUntil"])
+	return powered and int(position["index"]) >= CombatRounds.actions_per_round(combatant)
 
 
 # A next-round position's card text: an enemy's status turn, else its move
@@ -1249,7 +1259,8 @@ func _on_rewind_beat_played(beat: Dictionary) -> void:
 
 # The stage calls a beat plays, in order, each { call, who (combatant
 # index), ... }: "attack", "afterimage", "throw", "cast", "vanish" (fold out), "runOff" or
-# "recoil" (a pose on who); "effect" (who's data/combat_visuals.json effect
+# "recoil" (a pose on who); "powderLaunch" / "ladySweep" (the self-buff launch on who);
+# "ladyGlint" (who's hit by a Lady Strike, "crit"); "effect" (who's data/combat_visuals.json effect
 # sheet "effect"); "damage" (who's hit, with "dmg" and a juice "scale");
 # "shieldCrack"; "ko"; or "overlay" (nothing past the beat's marks). [] for
 # a beat kind with no mapping.
@@ -1303,10 +1314,17 @@ static func beat_cues(beat: Dictionary) -> Array:
 			if not _CAST_KINDS.has(kind):
 				return []
 			cues.append({ "call": "cast", "who": actor })
+			if kind == "powder":
+				cues.append({ "call": "powderLaunch", "who": actor })
+			elif kind == "lady":
+				cues.append({ "call": "ladySweep", "who": actor })
 	if CombatDirector.beat_is_damaging(beat):
 		var scale: float = _CRIT_SCALE if beat.get("crit", false) else (_CHIP_SCALE if kind == "chip" else 1.0)
 		var shake: float = maxf(scale, float(CombatStage.effect_data(_ITEM_EFFECTS.get(kind, "")).get("shakeScale", 0.0)))
-		cues.append({ "call": "damage", "who": target, "dmg": int(beat["dmg"]), "scale": scale, "shake": shake })
+		var lady: bool = bool(beat.get("lady", false)) and (kind == "hit" or kind == "chip")
+		cues.append({ "call": "damage", "who": target, "dmg": int(beat["dmg"]), "scale": scale, "shake": shake, "brass": lady })
+		if lady:
+			cues.append({ "call": "ladyGlint", "who": target, "crit": bool(beat.get("crit", false)) })
 		if int(beat.get("absorbed", 0)) > 0:
 			cues.append({ "call": "shieldCrack", "who": target })
 	if cues.is_empty():
@@ -1373,6 +1391,17 @@ func _play_cue(cp: Dictionary, cue: Dictionary, rewinding: bool) -> void:
 			slot.play_throw()
 		"cast":
 			slot.play_cast()
+		"powderLaunch":
+			if not rewinding:
+				slot.play_powder_launch()
+		"ladySweep":
+			if not rewinding:
+				slot.play_lady_sweep()
+		"ladyGlint":
+			if not rewinding:
+				slot.play_lady_glint(bool(cue["crit"]))
+				if cue["crit"]:
+					_stage.hit_stop(float(CombatStage.lady_fx().get("critHitStopSeconds", 0.0)))
 		"vanish":
 			if rewinding:
 				slot.restore_from_vanish()
@@ -1410,7 +1439,7 @@ func _play_cue(cp: Dictionary, cue: Dictionary, rewinding: bool) -> void:
 			var scale: float = cue["scale"]
 			slot.flash_hit()
 			if not rewinding:
-				_stage.spawn_damage_number(slot, int(cue["dmg"]), scale)
+				_stage.spawn_damage_number(slot, int(cue["dmg"]), scale, bool(cue.get("brass", false)))
 			slot.play_hit()
 			_stage.shake(int(cue["dmg"]), int(cp["combatants"][who]["hpMax"]), float(cue.get("shake", scale)))
 
@@ -1494,6 +1523,7 @@ func _apply_marks(cp: Dictionary, marks: Array, animate: bool = false) -> void:
 		_stage.set_slot_frozen(slot, marks[i]["frozen"], animate)
 		slot.set_frozen_left(int(marks[i].get("frozenLeft", 0)))
 		slot.set_open_left(int(marks[i].get("openLeft", 0)))
+		slot.set_powder_linger(bool(marks[i].get("powdered", false)), animate and not cp["combatants"][i]["koed"])
 		slot.set_status_icons(marks[i].get("icons", []), animate and not cp["combatants"][i]["koed"])
 
 

@@ -2179,7 +2179,7 @@ static func _tick_anger(cp: Dictionary, actor_idx: int, beats: Array) -> void:
 # Each combatant's stage overlay as the fight stands: { guard: guard_marker()
 # ("" once KO'd), shielded (a Shield pool holds), frozen (a Time Pearl
 # freeze holds), frozenLeft (frozen actions still to pass), icons
-# (status_icons()), openLeft (Stun hold-open actions still to pass) }.
+# (status_icons()), powdered (an Enhancement Powder runs), openLeft (Stun hold-open actions still to pass) }.
 static func stage_marks(cp: Dictionary) -> Array:
 	var marks: Array = []
 	for i in range(cp["combatants"].size()):
@@ -2189,6 +2189,7 @@ static func stage_marks(cp: Dictionary) -> Array:
 			"shielded": int(c["shield"]) > 0, "frozen": not c["koed"] and int(c["frozenActions"]) > 0,
 			"frozenLeft": 0 if c["koed"] else int(c["frozenActions"]),
 			"icons": status_icons(cp, i),
+			"powdered": not c["koed"] and is_powered(cp, c),
 			"openLeft": 0 if c["koed"] else int(c.get("openActions", 0)),
 		})
 	return marks
@@ -2313,7 +2314,7 @@ static func _strike(cp: Dictionary, actor_idx: int, target_idx: int, move_id: St
 		dmg *= 2
 	dmg = GameState.round_epsilon(dmg * anger_factor(actor, true))
 	_deal_damage(cp, actor_idx, target_idx, dmg, "chip" if guarded else "hit", move_id, beats, {
-		"roll": roll, "crit": crit, "guarded": guarded,
+		"roll": roll, "crit": crit, "guarded": guarded, "lady": lady,
 	})
 	_retaliate(cp, actor_idx, target_idx, rng, beats, free)
 

@@ -96,6 +96,16 @@ static func item_fx() -> Dictionary:
 	return GameData.COMBAT_VISUALS.get("itemFx", {})
 
 
+# data/combat_visuals.json itemFx.powderFx.
+static func powder_fx() -> Dictionary:
+	return item_fx().get("powderFx", {})
+
+
+# data/combat_visuals.json itemFx.ladyFx.
+static func lady_fx() -> Dictionary:
+	return item_fx().get("ladyFx", {})
+
+
 # data/combat_visuals.json effects.<key>.
 static func effect_data(effect_key: String) -> Dictionary:
 	return GameData.COMBAT_VISUALS.get("effects", {}).get(effect_key, {})
@@ -281,7 +291,7 @@ class StageSlot extends Control:
 		_sprite_rect.visible = not frames.is_empty()
 		_sprite_rect.texture = frames[0] if not frames.is_empty() else null
 		if frames.size() >= 2 and fps > 0.0:
-			_idle_timer.wait_time = 1.0 / fps
+			_idle_timer.wait_time = 1.0 / (fps * _idle_speed)
 			# Off-tree, the timer starts once it enters the tree.
 			if _is_frozen_visual:
 				_idle_timer.stop()
@@ -433,6 +443,7 @@ class StageSlot extends Control:
 			PoseStep.new(strike, Vector2(CombatStage.LUNGE_PX * fwd, 0.0)),
 			PoseStep.new(recover, Vector2.ZERO),
 		]
+		_spawn_powder_trail()
 		_start_one_shot(steps, fps, false)
 	func play_hit() -> void:
 		if _hit_keyposes.is_empty():
@@ -446,6 +457,7 @@ class StageSlot extends Control:
 		_start_one_shot(steps, _hit_fps, false)
 	func play_ko() -> void:
 		clear_frozen_instant()
+		set_powder_linger(false)
 		_start_one_shot(_ko_fall_steps(), _ko_fps, true)
 	# A KO played backwards: up from the fall, back to idle.
 	func play_get_up() -> void:
@@ -490,6 +502,7 @@ class StageSlot extends Control:
 			PoseStep.new(windup, Vector2.ZERO),
 			PoseStep.new(release, Vector2(CombatStage.LUNGE_PX * 0.5 * _forward_dir(), 0.0)),
 		]
+		_spawn_powder_trail()
 		_start_one_shot(steps, _throw_fps, false)
 	# Seconds left in the running one-shot (0 when none is playing).
 	func one_shot_remaining() -> float:
@@ -504,7 +517,7 @@ class StageSlot extends Control:
 		rect.z_index = z
 		return rect
 
-	func spawn_afterimage() -> void:
+	func spawn_afterimage(alpha: float = 0.45, fade: float = 0.22) -> void:
 		if _sprite_rect.texture == null or not is_inside_tree():
 			return
 		var ghost := _new_overlay_rect(-1)
@@ -512,11 +525,123 @@ class StageSlot extends Control:
 		ghost.size = _figure_holder.size
 		ghost.position = _sprite_rect.position
 		ghost.flip_h = _sprite_rect.flip_h
-		ghost.modulate = Color(1.0, 1.0, 1.0, 0.45)
+		ghost.modulate = Color(1.0, 1.0, 1.0, alpha)
 		_figure_holder.add_child(ghost)
 		var tween := create_tween()
-		tween.tween_property(ghost, "modulate:a", 0.0, 0.22)
+		tween.tween_property(ghost, "modulate:a", 0.0, fade)
 		tween.tween_callback(ghost.queue_free)
+
+	var _powder_on: bool = false
+	var _idle_speed: float = 1.0
+	var _idle_speed_tween: Tween
+
+	func _set_idle_speed(value: float) -> void:
+		_idle_speed = value
+		if _idle_fps > 0.0 and _idle_frames.size() >= 2:
+			_idle_timer.wait_time = 1.0 / (_idle_fps * _idle_speed)
+
+	# While Enhancement Powder holds: idle at powderFx.idleSpeed and a trail behind each
+	# lunge/throw. Off eases the idle back with a tiny puff when `animate`, else sets it outright.
+	func set_powder_linger(on: bool, animate: bool = false) -> void:
+		if on == _powder_on:
+			return
+		_powder_on = on
+		if _idle_speed_tween != null:
+			_idle_speed_tween.kill()
+		var fx := CombatStage.powder_fx()
+		var fast: float = float(fx.get("idleSpeed", 1.0))
+		var ease_secs := CombatStage.fx_seconds(float(fx.get("exitSeconds", 0.0)))
+		if on:
+			_set_idle_speed(fast)
+		elif not animate or CombatStage.reduced_motion() or ease_secs <= 0.0 or not is_inside_tree():
+			_set_idle_speed(1.0)
+		else:
+			_idle_speed_tween = create_tween()
+			_idle_speed_tween.tween_method(_set_idle_speed, fast, 1.0, ease_secs)
+			_spawn_dust_puff(int(fx.get("exitCount", 0)))
+
+	# Powder launch: a dust puff at head height and one afterimage peeling off.
+	func play_powder_launch() -> void:
+		if CombatStage.reduced_motion():
+			return
+		var fx := CombatStage.powder_fx()
+		_spawn_dust_puff(int(fx.get("puffCount", 0)))
+		spawn_afterimage(float(fx.get("launchAfterimageAlpha", 0.45)))
+
+	func _spawn_dust_puff(count: int) -> void:
+		if count <= 0 or CombatStage.reduced_motion() or not is_inside_tree():
+			return
+		var fx := CombatStage.powder_fx()
+		var speck: float = float(fx.get("puffSizePx", 3.0))
+		var secs := CombatStage.fx_seconds(float(fx.get("puffSeconds", 0.0)))
+		var colours: Array = fx.get("puffColours", [[1.0, 1.0, 1.0]])
+		for i in range(count):
+			var puff := ColorRect.new()
+			puff.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			puff.color = CombatStage.rgb(colours[i % colours.size()])
+			puff.size = Vector2.ONE * speck
+			puff.z_index = 6
+			puff.position = Vector2(size.x / 2.0 + (float(i) - float(count - 1) / 2.0) * float(fx.get("puffSpreadPx", 0.0)) - speck / 2.0, size.y * float(fx.get("headFraction", 0.25)))
+			add_child(puff)
+			var tween := puff.create_tween().set_parallel(true)
+			tween.tween_property(puff, "position:y", puff.position.y - float(fx.get("puffRisePx", 0.0)), secs)
+			tween.tween_property(puff, "modulate:a", 0.0, secs)
+			tween.finished.connect(puff.queue_free)
+
+	# The Powder trail behind a lunge or throw: trailCount ghosts, trailGapSeconds apart.
+	func _spawn_powder_trail() -> void:
+		if not _powder_on or CombatStage.reduced_motion() or not is_inside_tree():
+			return
+		var fx := CombatStage.powder_fx()
+		var alpha: float = float(fx.get("trailAlpha", 0.25))
+		var fade := CombatStage.fx_seconds(float(fx.get("trailFadeSeconds", 0.22)))
+		var gap := CombatStage.fx_seconds(float(fx.get("trailGapSeconds", 0.0)))
+		var count: int = int(fx.get("trailCount", 0))
+		if count > 0:
+			spawn_afterimage(alpha, fade)
+		if count < 2:
+			return
+		var tween := create_tween()
+		for i in range(count - 1):
+			tween.tween_interval(gap)
+			tween.tween_callback(spawn_afterimage.bind(alpha, fade))
+
+	# Be a Lady launch: a brass band sweeps up the sprite.
+	func play_lady_sweep() -> void:
+		var secs := CombatStage.fx_seconds(float(CombatStage.lady_fx().get("sweepSeconds", 0.0)))
+		if secs <= 0.0 or CombatStage.reduced_motion() or not is_inside_tree():
+			return
+		var fx := CombatStage.lady_fx()
+		var band := ColorRect.new()
+		band.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		band.color = CombatStage.rgb(fx.get("sweepColour", []))
+		band.z_index = 6
+		band.size = Vector2(size.x * 0.6, float(fx.get("sweepHeightPx", 3.0)))
+		band.position = Vector2(size.x * 0.2, size.y)
+		add_child(band)
+		var tween := band.create_tween().set_parallel(true)
+		tween.tween_property(band, "position:y", 0.0, secs)
+		tween.tween_property(band, "modulate:a", 0.0, secs).set_ease(Tween.EASE_IN)
+		tween.finished.connect(band.queue_free)
+
+	# A one-frame clover-green cross at a Lady Strike's impact; bigger on a crit.
+	func play_lady_glint(crit: bool) -> void:
+		var fx := CombatStage.lady_fx()
+		var secs := CombatStage.fx_seconds(float(fx.get("glintSeconds", 0.0)))
+		if secs <= 0.0 or CombatStage.reduced_motion() or not is_inside_tree():
+			return
+		var span: float = float(fx.get("glintSizePx", 10.0)) * (float(fx.get("critScale", 1.0)) if crit else 1.0)
+		var thick: float = float(fx.get("glintThicknessPx", 2.0))
+		var centre := size / 2.0
+		for bar in [Vector2(span, thick), Vector2(thick, span)]:
+			var rect := ColorRect.new()
+			rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			rect.color = CombatStage.rgb(fx.get("glintColour", []))
+			rect.z_index = 6
+			rect.size = bar
+			rect.position = centre - bar / 2.0
+			add_child(rect)
+			get_tree().create_timer(secs).timeout.connect(rect.queue_free)
 	# Undoes play_wormhole_vanish() or play_run_off(), and any held or running pose.
 	func restore_from_vanish() -> void:
 		_end_one_shot()
@@ -1240,14 +1365,14 @@ func _shake_magnitude(dmg: int, hp_max: int) -> float:
 
 
 # `size_scale` scales the number's font (a chip's smaller one, a crit's bigger).
-func spawn_damage_number(slot: StageSlot, dmg: int, size_scale: float = 1.0) -> void:
+func spawn_damage_number(slot: StageSlot, dmg: int, size_scale: float = 1.0, brass: bool = false) -> void:
 	var layer: Node = slot.get_parent()
 	if layer == null:
 		return
 	var label := Label.new()
 	label.text = "-%d" % dmg
 	label.add_theme_font_size_override("font_size", roundi(DAMAGE_NUMBER_FONT_SIZE * size_scale))
-	label.add_theme_color_override("font_color", Color(1.0, 0.35, 0.3))
+	label.add_theme_color_override("font_color", rgb(lady_fx().get("numberColour", [])) if brass else Color(1.0, 0.35, 0.3))
 	label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
 	label.add_theme_constant_override("outline_size", 2)
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE

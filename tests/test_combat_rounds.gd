@@ -2570,6 +2570,34 @@ func run() -> void:
 		assert_true(not plain.any(func(c): return c["call"] == "legItStreak"), "plain Leg it has no streak")
 	)
 
+	run_case("beat_cues_powder_and_lady_launch_and_lady_strikes_glint_with_brass_numbers", func():
+		var powder: Array = CombatRoundsScreen.beat_cues({ "kind": "powder", "actor": 0, "target": -1 })
+		assert_true(powder.any(func(c): return c["call"] == "cast") and powder.any(func(c): return c["call"] == "powderLaunch"), "powder casts with a puff")
+		var lady: Array = CombatRoundsScreen.beat_cues({ "kind": "lady", "actor": 0, "target": -1 })
+		assert_true(lady.any(func(c): return c["call"] == "ladySweep"), "lady sweeps")
+		var strike: Array = CombatRoundsScreen.beat_cues({ "kind": "hit", "move": "strike", "actor": 0, "target": 1, "dmg": 9, "lady": true, "crit": true })
+		assert_true(strike.any(func(c): return c["call"] == "damage" and c["brass"]), "brass number")
+		assert_true(strike.any(func(c): return c["call"] == "ladyGlint" and c["crit"] and int(c["who"]) == 1), "crit glint on the target")
+		var plain: Array = CombatRoundsScreen.beat_cues({ "kind": "hit", "move": "strike", "actor": 0, "target": 1, "dmg": 9, "lady": false })
+		assert_true(not plain.any(func(c): return c["call"] == "ladyGlint" or c.get("brass", false)), "no lady, no glint or brass")
+	)
+
+	run_case("strip_marks_the_powder_extra_action_and_stage_marks_flag_powdered", func():
+		GameState.reset()
+		var combat := _start_vs([_slow_mugger(200)], [[["strike", "strike"]]], [])
+		var plain := CombatRoundsScreen.strip_entries(combat).filter(func(e): return e["actor"] == 0)
+		assert_true(plain.all(func(e): return not e["extraAction"]), "no tab without Powder")
+		var base: int = CombatRounds.actions_per_round(combat["combatants"][0])
+		combat["combatants"][0]["powderUntil"] = int(combat["round"])
+		combat["playerPlan"].resize(base + 1)
+		var powered := CombatRoundsScreen.strip_entries(combat).filter(func(e): return e["actor"] == 0 and not e["nextRound"])
+		assert_eq(powered.filter(func(e): return e["extraAction"]).size(), 1, "one extra card")
+		assert_eq(powered.size(), base + 1, "the extra card follows the base actions")
+		assert_true(CombatRounds.stage_marks(combat)[0]["powdered"], "marks flag powdered")
+		combat["combatants"][0]["koed"] = true
+		assert_true(not CombatRounds.stage_marks(combat)[0]["powdered"], "KO clears it")
+	)
+
 	run_case("beat_cues_run_off_for_fled_and_bolt_but_wormhole_folds", func():
 		for kind in ["fled", "bolt"]:
 			var cues: Array = CombatRoundsScreen.beat_cues({ "kind": kind, "actor": 1, "target": -1 })
