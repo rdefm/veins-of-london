@@ -13,6 +13,10 @@ const EXPANDED_WIDTH_BONUS_PX := 28.0
 const HP_BAR_HEIGHT := 6.0
 const SWIPE_THRESHOLD_PX := 40.0
 
+signal deal_finished
+
+const PULSE_SCALE := 1.12
+const PULSE_SECONDS := 0.4
 const PULSE_HP_FRACTION := 0.20
 const CRACKED_HP_FRACTION := 0.60
 const RUINED_HP_FRACTION := 0.30
@@ -204,6 +208,82 @@ static func departed_ids(old_ids: Array, new_ids: Array) -> Array:
 	return departed
 
 
+# Hides every card ready for deal_in(), so nothing shows before its turn.
+func prepare_deal() -> void:
+	if _row == null:
+		return
+	for card in _row.get_children():
+		card.modulate.a = 0.0
+
+
+# Intro deal (docs/combat-animation-vision.md §2.4): cards fly in left to
+# right from `deck_offset` (strip-local, relative to the strip's top-centre),
+# one every `stagger` seconds, each taking `fly` seconds, a flick per card.
+# Emits deal_finished after the last lands; finish_deal() lands them at once.
+func deal_in(fly: float, stagger: float, deck_offset: Vector2, flick: AudioStream) -> void:
+	if _row == null or _row.get_child_count() == 0 or not is_inside_tree():
+		deal_finished.emit()
+		return
+	_deal_tween = create_tween().set_parallel(true)
+	var deck := Vector2(_available_width * 0.5 + deck_offset.x, deck_offset.y)
+	var cards: Array[Node] = _row.get_children()
+	for i in range(cards.size()):
+		var card: NameplateCard = cards[i]
+		var rest: Vector2 = _card_rects[i].position
+		var delay: float = stagger * i
+		_deal_tween.tween_callback(func() -> void:
+			if is_instance_valid(card):
+				card.modulate.a = 1.0
+				card.position = deck + Vector2(_scroll_offset, 0.0)
+				if flick != null:
+					_play_flick(flick)
+		).set_delay(delay)
+		_deal_tween.tween_property(card, "position", rest, fly).set_delay(delay).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_deal_tween.chain().tween_callback(func() -> void: _end_deal())
+
+
+func _play_flick(flick: AudioStream) -> void:
+	var player := AudioStreamPlayer.new()
+	player.stream = flick
+	player.finished.connect(player.queue_free)
+	add_child(player)
+	player.play()
+
+
+func finish_deal() -> void:
+	if _deal_tween != null and _deal_tween.is_valid():
+		_deal_tween.kill()
+		_end_deal()
+
+
+func is_dealing() -> bool:
+	return _deal_tween != null
+
+
+func _end_deal() -> void:
+	_deal_tween = null
+	if _row != null:
+		var cards: Array[Node] = _row.get_children()
+		for i in range(mini(cards.size(), _card_rects.size())):
+			cards[i].modulate.a = 1.0
+			cards[i].position = _card_rects[i].position
+	deal_finished.emit()
+
+
+# One scale pulse on the player's card (the first move handed over).
+func pulse_player_card() -> void:
+	if _row == null or not is_inside_tree():
+		return
+	var cards: Array[Node] = _row.get_children()
+	for card: NameplateCard in cards:
+		if card.entry_key.get("type", "") == "player":
+			card.pivot_offset = card.size * 0.5
+			var tween := card.create_tween()
+			tween.tween_property(card, "scale", Vector2(PULSE_SCALE, PULSE_SCALE), PULSE_SECONDS * 0.5).set_trans(Tween.TRANS_SINE)
+			tween.tween_property(card, "scale", Vector2.ONE, PULSE_SECONDS * 0.5).set_trans(Tween.TRANS_SINE)
+			return
+
+
 func finish_advance() -> void:
 	if _advance_tween != null and _advance_tween.is_valid():
 		_advance_tween.custom_step(999999.0)
@@ -260,6 +340,7 @@ var _cards_by_key: Dictionary = {}
 var _ghost_hp_by_key: Dictionary = {}
 var _shown_hp_by_key: Dictionary = {}
 var _advance_tween: Tween = null
+var _deal_tween: Tween = null
 # True while a round plays back (advance_to() until the next configure()):
 # no card expands, so every beat reads at the same size -- the selected card
 # grows only on the player's decision turn.

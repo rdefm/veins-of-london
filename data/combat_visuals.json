@@ -29,7 +29,7 @@
     "ruined": { "image": "res://assets/combat/combat-cards/street_sign_frame_20.png", "margin": 12 }
   },
   "intro": {
-    "_note": "Fight-opening intro (CombatStage.play_intro, CombatRoundsScreen._play_intro). Seconds unless noted. stageUp: backdrop fade + zoom from zoomFrom to 1.0. enter: each fighter's slide; stagger: delay between consecutive fighters (front slot first, sides alternating). offscreenMarginPx: how far past the stage edge a fighter starts. squash*: landing squash (scale x/y, hold). dust*: puff size/rise in px, fade seconds. reserveFade: reserves + overflow badge fade-in. hudReveal: transcript fade + dock rise (dockRisePx). quickScale multiplies every duration under Quick pacing.",
+    "_note": "Fight-opening intro (CombatStage.play_intro, CombatRoundsScreen._play_intro). Seconds unless noted. stageUp: backdrop fade + zoom from zoomFrom to 1.0. enter: each fighter's slide; stagger: delay between consecutive fighters (front slot first, sides alternating). offscreenMarginPx: how far past the stage edge a fighter starts. squash*: landing squash (scale x/y, hold). dust*: puff size/rise in px, fade seconds. reserveFade: reserves + overflow badge fade-in. hudReveal: transcript fade + dock rise (dockRisePx). deal*: turn-order strip deal-in (dealFly: per-card flight, dealStagger: gap between cards, dealDeckOffsetPx: deck point relative to the strip's top-centre, dealSfx: optional flick sound, skipped if the file is absent). quickScale multiplies every duration under Quick pacing.",
     "stageUp": 0.3,
     "zoomFrom": 1.05,
     "enter": 0.5,
@@ -44,7 +44,11 @@
     "reserveFade": 0.2,
     "hudReveal": 0.25,
     "dockRisePx": 60.0,
-    "quickScale": 0.5
+    "quickScale": 0.5,
+    "dealFly": 0.25,
+    "dealStagger": 0.08,
+    "dealDeckOffsetPx": [0.0, -40.0],
+    "dealSfx": "res://assets/audio/card_flick.ogg"
   },
   "pacing": {
     "_note": "turnPause: seconds held between two combatants' turns during beat playback and Rewind, per CombatPacing mode (scenes/components/combat_director.gd). rewindSpeed: how many times faster a Rewind's reverse playback runs than forward pacing.",

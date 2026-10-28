@@ -104,18 +104,23 @@ func _ready() -> void:
 # The stage-and-HUD intro (off-tree there's nothing to wait on, so it's
 # skipped), then any enemy-first opening beats.
 func _start_fight() -> void:
+	var played_intro := false
 	if is_inside_tree() and _cp()["active"]:
 		await _play_intro()
-	_play_opening()
+		played_intro = not _intro_skipped
+	await _play_opening()
+	if played_intro and is_inside_tree() and _cp()["active"]:
+		_strip.pulse_player_card()
 
 
 func _hud_nodes() -> Array:
-	return [_transcript, _dock, _voiceover, _strip.get_parent()]
+	return [_transcript, _dock, _voiceover]
 
 
 func _reveal_hud() -> void:
 	for node in _hud_nodes():
 		node.modulate.a = 1.0
+	_strip.get_parent().modulate.a = 1.0
 	_dock.position.y = _dock_rest_y
 	_stage.modulate.a = 1.0
 
@@ -129,6 +134,7 @@ func _play_intro() -> void:
 	for node in _hud_nodes():
 		node.modulate.a = 0.0
 	_stage.modulate.a = 0.0
+	_strip.get_parent().modulate.a = 0.0
 	await get_tree().process_frame
 	if not is_instance_valid(_stage):
 		return
@@ -141,6 +147,8 @@ func _play_intro() -> void:
 		_stage.start_intro(time_scale)
 		if _stage.is_intro_active():
 			await _stage.intro_finished
+	if not _intro_skipped:
+		await _deal_strip(cfg, time_scale)
 	if not _intro_skipped:
 		var reveal := float(cfg["hudReveal"]) * time_scale
 		_hud_tween = create_tween().set_parallel(true)
@@ -155,13 +163,30 @@ func _play_intro() -> void:
 	_refresh()
 
 
+# Deals the strip's cards in from the deck point, left to right, the first
+# actor's card already expanded; the strip appears the moment the deal starts.
+func _deal_strip(cfg: Dictionary, time_scale: float) -> void:
+	var deck: Array = cfg.get("dealDeckOffsetPx", [0.0, -40.0])
+	var flick: AudioStream = null
+	var flick_path: String = cfg.get("dealSfx", "")
+	if not flick_path.is_empty() and ResourceLoader.exists(flick_path):
+		flick = load(flick_path)
+	_strip.prepare_deal()
+	_strip.get_parent().modulate.a = 1.0
+	_strip.deal_in(float(cfg["dealFly"]) * time_scale, float(cfg["dealStagger"]) * time_scale, Vector2(float(deck[0]), float(deck[1])), flick)
+	if _strip.is_dealing():
+		await _strip.deal_finished
+
+
 # Jumps whichever intro phase is running to its end; _play_intro resumes
 # and lands on the post-reveal state.
 func _skip_intro() -> void:
 	if not _intro_playing or _intro_skipped:
 		return
 	_intro_skipped = true
-	if _stage.is_intro_active():
+	if _strip.is_dealing():
+		_strip.finish_deal()
+	elif _stage.is_intro_active():
 		_stage.finish_intro()
 	elif _hud_tween != null and _hud_tween.is_valid():
 		_hud_tween.custom_step(999999.0)
